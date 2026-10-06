@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+<defs>
+<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E0915A"/><stop offset=".5" stop-color="#C2703D"/><stop offset="1" stop-color="#7A3E22"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6E5A4E"/><stop offset="1" stop-color="#3A2E28"/></linearGradient>
+<radialGradient id="e" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE2D8"/><stop offset=".4" stop-color="#E0473C" stop-opacity=".85"/><stop offset="1" stop-color="#E0473C" stop-opacity="0"/></radialGradient>
+<radialGradient id="g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF1C9"/><stop offset=".4" stop-color="#F2C94C" stop-opacity=".7"/><stop offset="1" stop-color="#E0473C" stop-opacity="0"/></radialGradient>
+</defs>
+<g stroke-linejoin="round">
+<circle cx="72" cy="26" r="8" fill="url(#g)"/><circle cx="73" cy="52" r="10" fill="url(#g)"/>
+<path d="M44 14L62 10L66 22L50 30Z" fill="url(#p)" stroke="#1E1612" stroke-width="1.5"/>
+<path d="M40 50L64 46L70 66L48 70L42 62Z" fill="url(#h)" stroke="#1E1612" stroke-width="1.5"/>
+<path d="M58 20H70V32H58Z" fill="#3A2E28" stroke="#1E1612" stroke-width="1.5"/>
+<path d="M60 44H72V60H60Z" fill="#4F6178" stroke="#1E1612" stroke-width="1.5"/>
+<path d="M4 41L22 36L28 28L50 24L64 30L66 50L52 54L28 52L22 45Z" fill="url(#h)" stroke="#1E1612" stroke-width="1.8"/>
+<path d="M4 41L22 36L22 45Z" fill="#E6D3B8" stroke="#1E1612" stroke-width="1.5"/>
+<path d="M4 41L22 40" stroke="#8C7C6A" stroke-width="1"/>
+<path d="M30 32L44 30L46 46L32 46Z" fill="#4F6178" stroke="#1E1612" stroke-width="1.2"/>
+<path d="M28 28L32 46M50 24L52 54M38 52L36 46" stroke="#F2C94C" stroke-width="1" stroke-dasharray="1.5 1.5" opacity=".8"/>
+<path d="M54 30L62 32L62 44L54 46Z" fill="#B4573E" stroke="#1E1612" stroke-width="1.2"/>
+<g fill="#1E1612"><circle cx="56" cy="34" r=".9"/><circle cx="60" cy="35" r=".9"/><circle cx="56" cy="42" r=".9"/><circle cx="60" cy="41" r=".9"/><circle cx="34" cy="49" r=".9"/><circle cx="44" cy="50" r=".9"/></g>
+<path d="M29 30L48 27" stroke="#F4C79A" stroke-width="1.2" opacity=".7"/>
+<path d="M44 60L58 58M46 64L60 62" stroke="#7A3E22" stroke-width="1.2"/>
+<circle cx="26" cy="39" r="5" fill="url(#e)"/><circle cx="26" cy="39" r="1.8" fill="#FFE2D8"/>
+<circle cx="36" cy="38" r="2" fill="#E0473C"/>
+<path d="M50 14L46 6" stroke="#8C7C6A" stroke-width="1.2"/><circle cx="46" cy="6" r="1.2" fill="#E0473C"/>
+</g>
+</svg>

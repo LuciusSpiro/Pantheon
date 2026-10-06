@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sternenschicht – Art-Vorschau</title>
+<style>
+  :root { --bg: #0B0E1A; --panel: #161C2A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; --mint: #7FE0C2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: #121725; border-bottom: 2px solid var(--brass); padding: 8px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; color: var(--brass); letter-spacing: .5px; }
+  button, select { background: #2E3A4A; color: var(--ink); border: 1px solid #4F6178; border-radius: 4px; padding: 4px 10px; font: inherit; cursor: pointer; }
+  button.on { background: var(--brass); color: #2B1D1A; border-color: #E3B565; }
+  #status { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+  #status b { color: var(--mint); font-weight: 600; }
+  #status .bad { color: #E0473C; }
+  section { padding: 12px 16px 20px; border-bottom: 1px solid #222a3a; }
+  section h2 { font-size: 14px; color: var(--brass); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .scroll { overflow-x: auto; max-width: 100%; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #0B0E1A; }
+  .note { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sternenschicht · Art-Vorschau</h1>
+  <span>Skalierung:
+    <button data-scale="1">×1</button><button data-scale="2" class="on">×2</button><button data-scale="3">×3</button>
+  </span>
+  <span>Alarm: <select id="alert"><option value="normal">normal</option><option value="yellow">gelb</option><option value="red">rot</option></select></span>
+  <button id="pause">Pause</button>
+  <span id="status">lade …</span>
+</header>
+
+<section><h2>Schiff „Lerche“ (M1) – komplette Karte</h2><div class="scroll"><canvas id="cShip"></canvas></div>
+  <p class="note">Aus ../shared/maps.js. Quartiere: q0 Holz hell + Tapete creme (warm) · q1 Teppich rot + Holz (bernstein) · q2 Teppich blau + Tapete grün (mint) · q3 Gast: Fliesen + Paneel (warm, Ivo). Reaktor offline, Schalter A gehalten (Fortschritt), B blinkt. Planungstisch aktiv mit drei Sitzenden. Antrieb damaged · Schildgenerator broken · Feuer im Gang · Hüllenbruch.</p></section>
+<section><h2>M1 · Objekte, Deko, Sitzen</h2><div class="scroll"><canvas id="cM1Obj"></canvas></div></section>
+<section><h2>M1 · Quartier-Stile (5 Böden × 4 Wände, Lichtfarben)</h2><div class="scroll"><canvas id="cQuarters"></canvas></div></section>
+<section><h2>M1 · Wrack „Zaunkönig“ – Beispielkarte (Team ART)</h2><div class="scroll"><canvas id="cWreck"></canvas></div>
+  <p class="note">Legende §9.4: # Wand · . Boden · _ Gitter · ~ All · P Pads · h Bergungscontainer (zu/geöffnet) · g Logbuch-Terminal · a Plünderer · V dünne Wand (markiert) · x Trümmer. Overlay: wreck.</p></section>
+<section id="secWreckSrv" style="display:none"><h2>M1 · Wrack aus shared/maps.js (Team SERVER)</h2><div class="scroll"><canvas id="cWreckSrv"></canvas></div></section>
+<section><h2>M1 · Raum: Stationen, Gegner, Phasenstrahl, Verstecke, Nebel</h2><div class="scroll"><canvas id="cM1Space"></canvas></div></section>
+<section><h2>M1 · Icons, Pins, neue Gegenstände</h2><div class="scroll"><canvas id="cM1Icons"></canvas></div></section>
+<section id="secKesh"><h2>M2 · Mond Kesh – Karte aus shared/maps.js (Schildwall)</h2><div class="scroll"><canvas id="cKesh"></canvas></div>
+  <p class="note">Legende §2.2: R Fels · # Ruinenmauer · . Mondsand · , Ruinenboden · o niedrige Deckung (halb) · I Pfeiler (voll) · r Störrelais (Nord an, Süd aus) · k Archivschlüssel (Nord lädt, Süd halb) · G Tor (zu) · T Tafelsockel · P Pads. Wächter schläft in der Halle; Plünderer: normal, zielend, ungeschützt, ausgeschaltet; Spieler: Schildtreffer, verwundet, Befehlssäule.</p></section>
+<section><h2>M2 · Deckungshöhe, Objekte und Zustände</h2><div class="scroll"><canvas id="cM2Obj"></canvas></div>
+  <p class="note">Oben: Mauer › Pfeiler › niedrige Deckung (Spieler zum Größenvergleich). Mitte: Störrelais an/aus · Archivschlüssel 0 / ⅓ / ⅔ / voll / Tor offen · Tor zu / offen · Tafelsockel mit/ohne Tafel.</p></section>
+<section><h2>M2 · Wächter, Plünderer, Spieler (Schild, verwundet)</h2><div class="scroll"><canvas id="cM2Fig"></canvas></div></section>
+<section><h2>M2 · Effekte, Projektile</h2><div class="scroll"><canvas id="cM2Fx"></canvas></div></section>
+<section><h2>M2 · Raum: Mond Kesh, Kartenicon, Tafel</h2><div class="scroll"><canvas id="cM2Space"></canvas></div></section>
+<section><h2>Bojenplattform B-7</h2><div class="scroll"><canvas id="cPlat"></canvas></div></section>
+<section><h2>Kacheln</h2><div class="scroll"><canvas id="cTiles"></canvas></div></section>
+<section><h2>Objekte (alle Zustände)</h2><div class="scroll"><canvas id="cObj"></canvas></div></section>
+<section><h2>Figuren, Bots, Techniker, Drohne</h2><div class="scroll"><canvas id="cChar"></canvas></div></section>
+<section><h2>Gegenstände, Icons, Effekte</h2><div class="scroll"><canvas id="cFx"></canvas></div></section>
+<section><h2>Raum / Taktik</h2><div class="scroll"><canvas id="cSpace"></canvas></div></section>
+<section><h2>UI: Pixelfont, Panels, Lichtstimmung</h2><div class="scroll"><canvas id="cUi"></canvas></div></section>
+
+<script src="../shared/maps.js"></script>
+<script src="js/art.js"></script>
+<script>
+(function () {
+  'use strict';
+  var scale = 2, paused = false, t0 = performance.now(), tPaused = 0, pauseAt = 0;
+  var alertSel = document.getElementById('alert');
+  var M = window.Shared_Maps;
+  var ok = window.Art && Art.init();
+  var status = document.getElementById('status');
+  var errorsBefore = 0;
+
+  function cv(id, w, h) {
+    var c = document.getElementById(id);
+    c.width = w; c.height = h;
+    c.style.width = (w * scale) + 'px'; c.style.height = (h * scale) + 'px';
+    var g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    return g;
+  }
+  var canv = {};
+  function setup() {
+    canv.ship = cv('cShip', M.ship.w * 32, M.ship.h * 32 + 8);
+    canv.plat = cv('cPlat', M.platform.w * 32, M.platform.h * 32);
+    canv.tiles = cv('cTiles', 640, 120);
+    canv.obj = cv('cObj', 720, 330);
+    canv.chr = cv('cChar', 720, 330);
+    canv.fx = cv('cFx', 720, 170);
+    canv.space = cv('cSpace', 720, 400);
+    canv.ui = cv('cUi', 720, 330);
+    canv.m1obj = cv('cM1Obj', 900, 330);
+    canv.quarters = cv('cQuarters', 900, 250);
+    canv.wreck = cv('cWreck', WRECK_MAP.w * 32, WRECK_MAP.h * 32);
+    if (M.wreck) { document.getElementById('secWreckSrv').style.display = ''; canv.wreckSrv = cv('cWreckSrv', M.wreck.w * 32, M.wreck.h * 32); }
+    canv.m1space = cv('cM1Space', 960, 560);
+    canv.m1icons = cv('cM1Icons', 900, 130);
+    if (M.kesh) canv.kesh = cv('cKesh', M.kesh.w * 32, M.kesh.h * 32); else document.getElementById('secKesh').style.display = 'none';
+    canv.m2obj = cv('cM2Obj', 960, 330);
+    canv.m2fig = cv('cM2Fig', 960, 330);
+    canv.m2fx = cv('cM2Fx', 960, 300);
+    canv.m2space = cv('cM2Space', 960, 440);
+  }
+
+  // M1: Quartier-Stile für die Vorschau (wie Snapshot quarters) + Deko in den Slots
+  var QUARTERS = {
+    q0: { floor: 'holz_hell', wall: 'tapete_creme', light: 'warm' },
+    q1: { floor: 'teppich_rot', wall: 'holz', light: 'bernstein' },
+    q2: { floor: 'teppich_blau', wall: 'tapete_gruen', light: 'mint' },
+    q3: { floor: 'fliesen', wall: 'paneel', light: 'warm' },
+  };
+  var DECO = { q0a: 'buecherregal', q0b: 'deco_pflanze', q0c: 'sessel', q0d: 'trophaee_boje', q1a: 'aquarium', q1b: 'deco_lampe', q1c: 'sternkarte', q1d: 'deco_teppich',
+    q2a: 'kristalllampe', q2b: 'deco_poster', q2c: 'sessel', q2d: 'buecherregal', q3a: 'deco_pflanze', q3b: null, q3c: 'aquarium', q3d: null };
+  function roomAt(x, y) {
+    for (var i = 0; i < M.BEDS.length; i++) { var r = M.BEDS[i].room; if (r && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) return r.id; }
+    return null;
+  }
+  function roomRects() {
+    return M.BEDS.map(function (b) { var r = b.room; return { x0: r.x0 * 32, y0: r.y0 * 32, x1: (r.x1 + 1) * 32, y1: (r.y1 + 1) * 32, light: QUARTERS[r.id].light }; });
+  }
+  // M1: Beispiel-Wrackkarte (Team SERVER entwirft die echte Karte)
+  var WRECK_ROWS = [
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+    '~~##########~~~~~###########~~',
+    '~~#.P..P...#~~~~~#...x....h#~~',
+    '~~#...P....#~~~~~#.........#~~',
+    '~~#........#######....a....#~~',
+    '~~#..x...._______..........#~~',
+    '~~#........#######.........#~~',
+    '~~###..#####~~~~~#####V#####~~',
+    '~~~~#..#~~~~~~~~~~~~#...#~~~~~',
+    '~~~~#__#~~~~~~~~~~~~#.h.#~~~~~',
+    '~~###..####~~~~~~~~~#####~~~~~',
+    '~~#...a...#~~~~~~~~~~~~~~~~~~~',
+    '~~#.h...g.#~~~~~~~~~~~~~~~~~~~',
+    '~~#..x..h.#~~~~~~~~~~~~~~~~~~~',
+    '~~#########~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
+  ];
+  var WRECK_LEGEND_PREVIEW = Object.assign({}, M.LEGEND, {
+    'h': { kind: 'salvage', solid: true }, 'g': { kind: 'lore_terminal', solid: true }, 'a': { kind: 'floor_metal', spawn: 'scavenger' },
+    'V': { kind: 'wall_weak', solid: true }, 'x': { kind: 'debris', solid: true },
+  });
+  var WRECK_MAP = M.makeMap('wreck', WRECK_ROWS, M.WRECK_LEGEND || WRECK_LEGEND_PREVIEW);
+
+  var OBJ_CH = 'HCWTSLBREGKXOmpcxbZuknfyY';
+  var WRECK_OBJ = { h: 1, g: 1, V: 1, x: 1 };
+  var SYS_STATE = { R: 'ok', E: 'damaged', G: 'broken', K: 'damaged', X: 'ok', O: 'ok' };
+  function objOpts(map, ch, x, y, t) {
+    var info = map.info(x, y), o = { time: t, alert: alertSel.value };
+    if (ch === 'L' && map.id === 'ship') o.item = M.SHELVES[x];
+    if (ch === 'B') { for (var i = 0; i < M.BEDS.length; i++) if (M.BEDS[i].x === x && M.BEDS[i].y === y) o.color = M.BEDS[i].color; }
+    if (SYS_STATE[ch] && map.id === 'ship') o.state = SYS_STATE[ch];
+    if (ch === 'H') o.active = true;
+    if (ch === 'L' && map.id === 'platform') o.open = false;
+    if (ch === 'u' || ch === 'f') o.variant = (x + y) % 2;
+    if (ch === 'y') { o.id = y < 6 ? 'A' : 'B'; o.reactorState = 'offline'; o.held = o.id === 'A'; o.progress = o.held ? ((t * 0.4) % 1) : 0; }
+    if (ch === 'Y') o.active = true;
+    if (map.id === 'wreck') {
+      if (ch === 'h') o.done = x === 4 && y === 12;
+      if (ch === 'V') { o.marked = true; }
+      if (ch === 'g') o.read = false;
+    }
+    return { kind: info.kind, o: o };
+  }
+  function renderMap(g, map, t, extras) {
+    var al = alertSel.value;
+    for (var y = 0; y < map.h; y++) for (var x = 0; x < map.w; x++) {
+      var env = { map: map, tx: x, ty: y, time: t, alert: al, doorOpen: false };
+      if (map.id === 'ship') { var rid = roomAt(x, y); if (rid) env.roomStyle = QUARTERS[rid]; }
+      Art.drawTile(g, map.at(x, y), x * 32, y * 32, env);
+    }
+    if (map.id === 'ship') {   // Deko in den Quartier-Slots (blockiert nicht)
+      M.BEDS.forEach(function (b) {
+        b.slots.forEach(function (s) {
+          var d = DECO[s.id];
+          if (!d) return;
+          var kind = d.indexOf('deco_') === 0 ? d : 'deco_' + d;
+          (extras = extras || []).push({ y: s.y * 32 + (kind === 'deco_teppich' ? 0 : 20), draw: function () { Art.drawObject(g, kind, s.x * 32, s.y * 32, { time: t }); } });
+        });
+      });
+    }
+    var list = [];
+    for (var y2 = 0; y2 < map.h; y2++) for (var x2 = 0; x2 < map.w; x2++) {
+      var ch = map.at(x2, y2);
+      if (OBJ_CH.indexOf(ch) < 0 && !(map.id === 'wreck' && WRECK_OBJ[ch])) continue;
+      (function (ch, x2, y2) {
+        var oo = objOpts(map, ch, x2, y2, t);
+        list.push({ y: y2 * 32 + 31, draw: function () { Art.drawObject(g, oo.kind, x2 * 32, y2 * 32, oo.o); } });
+      })(ch, x2, y2);
+    }
+    (extras || []).forEach(function (e) { list.push(e); });
+    list.sort(function (a, b) { return a.y - b.y; });
+    list.forEach(function (e) { e.draw(); });
+  }
+  function shipExtras(g, t) {
+    var e = [];
+    function at(tx, ty, dy) { return [tx * 32 + 16, ty * 32 + (dy == null ? 26 : dy)]; }
+    function chr(tx, ty, o, dy) { var p = at(tx, ty, dy); e.push({ y: p[1], draw: function () { Art.drawCharacter(g, p[0], p[1], Object.assign({ time: t }, o)); } }); }
+    var px = 14 * 32 + ((t * 40) % (6 * 32));
+    e.push({ y: 6 * 32 + 22, draw: function () { Art.drawCharacter(g, px, 6 * 32 + 22, { color: 0, dir: 'right', moving: true, time: t }); } });
+    chr(38, 6, { color: 1, dir: 'right', action: 'console' });            // Steuer besetzt
+    chr(2, 2, { color: 2, dir: 'up', action: 'console' }, 30);           // hält Reaktorschalter A
+    chr(25, 3, { color: 0, dir: 'right', action: 'sit' }, 30);          // Planungstisch
+    chr(28, 4, { color: 1, dir: 'left', action: 'sit' }, 24);
+    chr(26, 5, { color: 2, dir: 'up', action: 'sit' }, 12);
+    chr(10, 10, { color: 0, dir: 'down', beam: (t * 0.4) % 1 }, 24);
+    chr(1, 8, { color: 2, dir: 'up', action: 'repair' }, 30);
+    var ip = at(21, 9, 24);
+    e.push({ y: ip[1], draw: function () { Art.drawNpc(g, ip[0] + Math.sin(t * 0.7) * 10, ip[1], { dir: Math.cos(t * 0.7) > 0 ? 'right' : 'left', moving: true, time: t }); } });
+    e.push({ y: 6 * 32 + 24, draw: function () { Art.drawBot(g, 4 * 32 + 16, 6 * 32 + 24, { variant: 0, dir: 'down', time: t }); } });
+    e.push({ y: 10 * 32 + 26, draw: function () { Art.drawBot(g, 25 * 32 + 16, 10 * 32 + 26, { variant: 1, dir: 'down', working: true, time: t }); } });
+    e.push({ y: 6 * 32 + 16, draw: function () { Art.drawFx(g, 'fire', 11 * 32 + 16, 6 * 32 + 16, t, {}); } });
+    e.push({ y: 2 * 32 + 16, draw: function () { Art.drawFx(g, 'breach', 10 * 32 + 16, 2 * 32 + 16, t, {}); } });
+    e.push({ y: 6 * 32 + 20, draw: function () { Art.drawItem(g, 'loeschgel', 22 * 32 + 16, 6 * 32 + 20, { ground: true, time: t }); } });
+    return e;
+  }
+  function platExtras(g, t) {
+    var e = [];
+    var D = [[17, 3], [26, 4], [12, 10], [17, 14]];
+    D.forEach(function (d, i) {
+      var x = d[0] * 32 + 16 + Math.sin(t + i) * 12, y = d[1] * 32 + 24;
+      e.push({ y: y, draw: function () { Art.drawDrone(g, x, y, { time: t + i, alive: i !== 3, revealed: i === 1, hit: i === 2 && (t % 1) < 0.15 }); } });
+    });
+    e.push({ y: 2 * 32 + 24, draw: function () { Art.drawNpc(g, 27 * 32 + 16, 2 * 32 + 24, { dir: 'down', time: t }); } });
+    e.push({ y: 11 * 32 + 20, draw: function () { Art.drawItem(g, 'datenkern', 27 * 32 + 16, 11 * 32 + 18, { ground: true, bob: true, time: t }); } });
+    e.push({ y: 4 * 32 + 24, draw: function () { Art.drawCharacter(g, 6 * 32 + 16, 4 * 32 + 24, { color: 1, dir: 'right', moving: true, time: t }); } });
+    e.push({ y: 5 * 32 + 24, draw: function () { Art.drawCharacter(g, 3 * 32 + 16, 5 * 32 + 22, { color: 2, dir: 'down', beam: 1 - ((t * 0.4) % 1), time: t }); } });
+    e.push({ y: 6 * 32 + 16, draw: function () { Art.drawProjectile(g, 'blaster', 8 * 32 + ((t * 120) % 200), 4 * 32 + 16, 0, t); } });
+    e.push({ y: 12 * 32, draw: function () { Art.drawFx(g, 'strike', 15 * 32, 12 * 32, (t % 3), { r: 60 }); } });
+    return e;
+  }
+
+  function drawShipSection(t) {
+    var g = canv.ship;
+    Art.drawStarfield(g, t * 20, 0, g.canvas.width, g.canvas.height, t);
+    renderMap(g, M.ship, t, shipExtras(g, t));
+    Art.drawOverlay(g, g.canvas.width, g.canvas.height, { alert: alertSel.value, time: t, rooms: roomRects() });
+  }
+  function drawPlatSection(t) {
+    var g = canv.plat;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    renderMap(g, M.platform, t, platExtras(g, t));
+    Art.drawOverlay(g, g.canvas.width, g.canvas.height, { alert: alertSel.value, time: t });
+  }
+  function drawTilesSection2(t) {
+    var g = canv.tiles, al = alertSel.value;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    // Ausschnitte der echten Karten in Originalgröße (32 px)
+    var cuts = [
+      { map: M.ship, x0: 7, y0: 4, w: 7, h: 3 },
+      { map: M.ship, x0: 26, y0: 0, w: 7, h: 3 },
+      { map: M.platform, x0: 17, y0: 8, w: 5, h: 3 },
+    ];
+    var ox = 0;
+    cuts.forEach(function (c) {
+      for (var y = 0; y < c.h; y++) for (var x = 0; x < c.w; x++) {
+        var tx = c.x0 + x, ty = c.y0 + y, ch = c.map.at(tx, ty);
+        Art.drawTile(g, ch, ox + x * 32, 8 + y * 32, { map: c.map, tx: tx, ty: ty, time: t, alert: al });
+      }
+      ox += c.w * 32 + 12;
+    });
+  }
+
+  function label(g, text, x, y) { Art.drawText(g, text, x, y, { color: '#8EA3B5' }); }
+  function drawObjSection(t) {
+    var g = canv.obj, al = alertSel.value;
+    g.fillStyle = '#1E2631'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var fl = M.makeMap('fl', ['..........................'], M.LEGEND);
+    function floorRow(y, n) { for (var i = 0; i < n; i++) Art.drawTile(g, '.', 8 + i * 36, y, { map: fl, tx: i, ty: 0, time: t }); }
+    var x = 8, y = 20;
+    floorRow(y, 19);
+    ['console_helm', 'console_captain', 'console_weapons', 'console_transfer', 'terminal_shop'].forEach(function (k, i) {
+      Art.drawObject(g, k, x + i * 72, y, { time: t, active: false }); Art.drawObject(g, k, x + i * 72 + 36, y, { time: t, active: true });
+    });
+    ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen'].forEach(function (it, i) { Art.drawObject(g, 'shelf', x + 360 + i * 36, y, { item: it }); });
+    Art.drawObject(g, 'shelf', x + 504, y, { item: 'medipack' });
+    [0, 1, 2].forEach(function (c, i) { Art.drawObject(g, 'bed', x + 540 + i * 36, y, { color: c }); });
+    label(g, 'Konsolen (aus/besetzt) · Regale · Kojen', 8, 60);
+    y = 110; floorRow(y, 19);
+    ['sys_reactor', 'sys_engines', 'sys_shields', 'sys_weapons', 'sys_transfer', 'sys_life'].forEach(function (k, i) {
+      ['ok', 'damaged', 'broken'].forEach(function (s, j) { Art.drawObject(g, k, x + (i * 3 + j) * 36, y, { time: t, state: s }); });
+    });
+    label(g, 'Systeme: Reaktor · Antrieb · Schildgen. · Waffenbank · Transfer · Lebenserh. (ok/damaged/broken)', 8, 150);
+    y = 196; floorRow(y, 19);
+    var row3 = [['table', {}], ['plant', {}], ['crate', {}], ['crate', { variant: 1 }], ['sonde', {}], ['sonde', { disabled: true }], ['door_locked', {}], ['door_locked', { open: true }],
+      ['deco_pflanze', {}], ['deco_poster', {}], ['deco_lampe', {}], ['deco_teppich', {}], ['buoy_core', {}], ['unbekannt', {}]];
+    row3.forEach(function (r, i) { var o = Object.assign({ time: t }, r[1]); Art.drawObject(g, r[0], x + i * 36, y, o); });
+    Art.drawObject(g, 'table', x + 14 * 36, y, { time: t, right: true }); Art.drawObject(g, 'table', x + 14 * 36 + 32, y, { time: t, left: true });
+    label(g, 'Tisch · Pflanze · Kisten · Sonde an/aus · Tür zu/offen · Deko ×4 · Bojenkern (ohne Lage) · unbekannt · Doppeltisch', 8, 234);
+    // Bojenkern 2×2 mit Lageinformation
+    var by = 290;
+    for (var q = 0; q < 4; q++) Art.drawTile(g, '.', 8 + (q % 2) * 32, by + (q >> 1) * 32 - 32, { map: fl, tx: q, ty: 0, time: t });
+    [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (p) { Art.drawObject(g, 'buoy_core', 8 + p[0] * 32, by - 32 + p[1] * 32, { time: t, qx: p[0], qy: p[1] }); });
+    label(g, 'Bojenkern 2×2', 80, 300);
+    // M0: Regal-Füllstufen + Maschinenraum-Ausstattung + Reaktor im roten Alarm
+    for (var q2 = 0; q2 < 13; q2++) Art.drawTile(g, '.', 170 + q2 * 36, by - 32, { map: fl, tx: q2, ty: 0, time: t });
+    [1, 0.5, 0.25, 0].forEach(function (f, i) { Art.drawObject(g, 'shelf', 170 + i * 36, by - 32, { item: 'ersatzteil', fill: f, time: t }); });
+    [['pipes', {}], ['pipes', { variant: 1 }], ['workbench', {}], ['control_desk', {}], ['barrel', {}], ['barrel', { variant: 1 }], ['sys_reactor', { state: 'ok', alert: 'red' }]].forEach(function (r, i) {
+      Art.drawObject(g, r[0], 170 + (4 + i) * 36, by - 32, Object.assign({ time: t }, r[1]));
+    });
+    label(g, 'Regal voll/halb/fast leer/leer · Rohrbündel ×2 · Werkbank · Kontrollpult · Ölfass · Kabeltrommel · Reaktor rot', 170, 312);
+  }
+
+  function drawCharSection(t) {
+    var g = canv.chr;
+    g.fillStyle = '#2B3442'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var dirs = ['down', 'left', 'right', 'up'];
+    for (var c = 0; c < 3; c++) {
+      dirs.forEach(function (d, i) {
+        Art.drawCharacter(g, 20 + (c * 4 + i) * 28, 50, { color: c, dir: d, moving: true, time: t });
+        Art.drawCharacter(g, 20 + (c * 4 + i) * 28, 100, { color: c, dir: d, moving: false, time: t });
+      });
+    }
+    label(g, 'Laufen (4 Richtungen × 3 Farben) / Idle', 360, 12);
+    var acts = [
+      { action: 'console', dir: 'up' }, { action: 'console', dir: 'right' }, { action: 'console', dir: 'down' },
+      { action: 'repair', dir: 'down' }, { action: 'repair', dir: 'right' }, { action: 'repair', dir: 'up' },
+      { carry: 'loeschgel', dir: 'down' }, { carry: 'flickblech', dir: 'right', moving: true }, { carry: 'datenkern', dir: 'up', moving: true },
+      { downed: true }, { beam: (t * 0.5) % 1, dir: 'down' }, { flash: (t % 0.8) < 0.15, dir: 'down' },
+    ];
+    acts.forEach(function (a, i) { Art.drawCharacter(g, 20 + i * 34 + (i > 8 ? 10 : 0), 168, Object.assign({ color: i % 3, time: t }, a)); });
+    label(g, 'Konsole ×3 · Reparieren ×3 · Tragen ×3 · downed · Beamen · Treffer', 8, 176);
+    dirs.forEach(function (d, i) { Art.drawNpc(g, 20 + i * 28, 236, { dir: d, moving: true, time: t }); });
+    Art.drawNpc(g, 136, 236, { dir: 'down', time: t });
+    label(g, 'Techniker', 8, 244);
+    for (var v = 0; v < 3; v++) dirs.forEach(function (d, i) { Art.drawBot(g, 190 + (v * 4 + i) * 26, 236, { variant: v, dir: d, moving: true, time: t }); });
+    Art.drawBot(g, 520, 236, { variant: 0, dir: 'down', working: true, time: t });
+    Art.drawBot(g, 548, 236, { variant: 1, dir: 'right', working: true, time: t });
+    Art.drawBot(g, 576, 236, { variant: 2, dir: 'down', carry: 'ersatzteil', time: t });
+    label(g, 'Schrauber (3 Varianten, arbeitend, tragend)', 190, 244);
+    Art.drawDrone(g, 40, 310, { time: t, alive: true });
+    Art.drawDrone(g, 80, 310, { time: t + 1, alive: true, revealed: true });
+    Art.drawDrone(g, 120, 310, { time: t + 2, alive: true, hit: (t % 0.8) < 0.15 });
+    Art.drawDrone(g, 160, 310, { time: t, alive: false });
+    label(g, 'Kustoden-Drohne: normal · sichtbar (Sensor) · Treffer · zerstört', 190, 300);
+  }
+
+  function drawFxSection(t) {
+    var g = canv.fx;
+    g.fillStyle = '#1E2631'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'datenkern', 'pflanze', 'poster', 'lampe', 'teppich', 'werkzeuggurt', 'seitenturm', 'schildpool', 'schrauber3', 'quatsch'].forEach(function (k, i) {
+      Art.drawItem(g, k, 16 + i * 22, 16, { time: t });
+    });
+    var icons = ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer', 'fire', 'breach', 'o2', 'hull', 'marks', 'circle', 'triangle', 'diamond', 'kreis', 'dreieck', 'raute', 'stern', 'welle', 'kreuz', 'lock', 'arrow', 'warn', 'oda', 'radio', 'heart', 'nope'];
+    icons.forEach(function (n, i) { Art.drawIcon(g, n, 12 + i * 18, 44, {}); });
+    Art.drawIcon(g, 'arrow', 12 + icons.length * 18, 44, { angle: t });
+    var fx = ['fire', 'breach', 'sparks', 'smoke', 'beam', 'repair', 'heal', 'explosion', 'muzzle', 'strike'];
+    fx.forEach(function (k, i) {
+      var x = 30 + i * 66, y = 130;
+      var tt = k === 'explosion' ? t % 1.2 : k === 'muzzle' ? t % 0.5 : k === 'strike' ? t % 3 : t;
+      g.save(); g.beginPath(); g.rect(x - 32, 64, 64, 104); g.clip();
+      Art.drawFx(g, k, x, y, tt, { r: 26, angle: 0 });
+      g.restore();
+      label(g, k, x - 28, 70);
+    });
+  }
+
+  function drawSpaceSection(t) {
+    var g = canv.space;
+    Art.drawStarfield(g, t * 30, t * 8, g.canvas.width, g.canvas.height, t);
+    Art.drawStation(g, 'port', 140, 110, { time: t });
+    Art.drawStation(g, 'buoy', 620, 330, { time: t });
+    var ang = t * 0.5;
+    Art.drawShip(g, 360, 120, ang, { thrust: 0.5 + 0.5 * Math.sin(t * 2), time: t, shields: [2, 1, 0, 1], hitSector: Math.floor(t) % 4, hitT: t % 1 });
+    Art.drawShip(g, 480, 60, 0, { thrust: 1, time: t });
+    Art.drawShip(g, 580, 60, -Math.PI / 4, { thrust: 0, time: t });
+    Art.drawEnemy(g, 'raider', 300, 250, -ang * 1.3, { time: t, hpFrac: 1, hitT: (t % 1.5) });
+    Art.drawEnemy(g, 'raider', 360, 250, 0, { time: t, hpFrac: 0.2 });
+    Art.drawEnemy(g, 'gunboat', 470, 250, ang * 0.6, { time: t, hpFrac: 0.5 });
+    Art.drawEnemy(g, 'gunboat', 600, 170, Math.PI, { time: t, hpFrac: 1 });
+    for (var i = 0; i < 7; i++) Art.drawAsteroid(g, 40 + i * 50, 320 + (i % 2) * 20, 8 + i * 4, i * 7 + 3);
+    Art.drawProjectile(g, 'enemy', 300 + (t * 80 % 120), 300, 0, t);
+    Art.drawProjectile(g, 'bolzen', 300 + (t * 100 % 120), 315, 0.2, t);
+    Art.drawProjectile(g, 'blaster', 300 + (t * 120 % 120), 330, 0, t);
+    Art.drawProjectile(g, 'drone', 300 + (t * 60 % 120), 345, 0, t);
+    Art.drawBeam(g, 400, 140, 470, 240, 'lanze', 0.25 - (t % 0.5) / 2 + 0.1);
+    Art.drawBeam(g, 380, 110, 300, 250, 'seitenturm', 0.2);
+    Art.drawEnemy(g, 'unknown', 690, 380, 0, {});
+  }
+
+  // ---------------------------------------------------------------- M1-Abschnitte
+  function drawM1ObjSection(t) {
+    var g = canv.m1obj;
+    g.fillStyle = '#1E2631'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var fl = M.makeMap('fl', ['...........................................'], M.LEGEND);
+    var wd = M.makeMap('fw', [',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'], M.LEGEND);
+    function floorRow(y, n, map, x0, step) { for (var i = 0; i < n; i++) Art.drawTile(g, map === wd ? ',' : '.', (x0 || 8) + i * (step || 36), y, { map: map || fl, tx: i, ty: 0, time: t }); }
+    // Reihe 1: Reaktorschalter (online/overload/offline × frei/gehalten)
+    var y = 24; floorRow(y, 7);
+    [['online', false], ['overload', false], ['offline', false], ['online', true], ['overload', true], ['offline', true]].forEach(function (s, i) {
+      Art.drawObject(g, 'reactor_switch', 8 + i * 36, y, { time: t, reactorState: s[0], held: s[1], id: i % 2 ? 'B' : 'A', progress: s[1] ? (t * 0.4) % 1 : 0 });
+    });
+    Art.drawObject(g, 'reactor_switch', 8 + 6 * 36, y, { time: t });
+    Art.drawText(g, 'Reaktorschalter: online · overload · offline\n(frei) | dieselben gehalten | ohne opts', 8, 64, { color: '#8EA3B5' });
+    // Planungstisch 2×2 inaktiv / aktiv mit Sitzenden
+    for (var k = 0; k < 2; k++) {
+      var bx = 370 + k * 170, by = 42;
+      for (var q = 0; q < 16; q++) Art.drawTile(g, ',', bx - 32 + (q % 4) * 32, by - 16 + (q >> 2) * 32 - 16, { map: wd, tx: q, ty: 0, time: t });
+      if (k) Art.drawCharacter(g, bx + 32, by + 6, { color: 2, dir: 'down', action: 'sit', time: t });
+      [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (p) { Art.drawObject(g, 'plan_table', bx + p[0] * 32, by + p[1] * 32, { time: t, active: !!k, qx: p[0], qy: p[1] }); });
+      if (k) {
+        Art.drawCharacter(g, bx - 14, by + 48, { color: 0, dir: 'right', action: 'sit', time: t });
+        Art.drawCharacter(g, bx + 78, by + 52, { color: 1, dir: 'left', action: 'sit', time: t });
+      }
+    }
+    Art.drawText(g, 'Planungstisch 2×2: inaktiv · aktiv mit 3 Sitzenden', 300, 140, { color: '#8EA3B5' });
+    Art.drawObject(g, 'plan_table', 720, 40, { time: t, active: true });
+    Art.drawText(g, 'ohne Lage', 712, 84, { color: '#8EA3B5' });
+    // Reihe 2: Deko (neu ×6 + alt ×4), Gästekoje
+    y = 160; floorRow(y, 14, wd);
+    ['deco_buecherregal', 'deco_aquarium', 'deco_sessel', 'deco_sternkarte', 'deco_trophaee_boje', 'deco_kristalllampe', 'deco_pflanze', 'deco_poster', 'deco_lampe', 'deco_teppich'].forEach(function (k2, i) {
+      Art.drawObject(g, k2, 8 + i * 36, y, { time: t });
+    });
+    [0, 1, 2, 3].forEach(function (c, i) { Art.drawObject(g, 'bed', 8 + (10 + i) * 36 - 36 + 36, y, { color: c }); });
+    Art.drawText(g, 'Deko neu: Bücherregal · Aquarium · Sessel · Sternkarte · Trophäe Boje · Kristalllampe | alt ×4 | Kojen 0–2 + Gast (3)', 8, 200, { color: '#8EA3B5' });
+    // Reihe 3: Sitzen in 4 Richtungen × 3 Farben
+    y = 290;
+    var dirs = ['down', 'left', 'right', 'up'];
+    for (var c = 0; c < 3; c++) dirs.forEach(function (d, i) { Art.drawCharacter(g, 20 + (c * 4 + i) * 28, y, { color: c, dir: d, action: 'sit', time: t }); });
+    Art.drawText(g, 'Aktion „sit“: 4 Richtungen × 3 Farben (mit Hocker)', 360, 270, { color: '#8EA3B5' });
+  }
+
+  function drawQuartersSection(t) {
+    var g = canv.quarters;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var floors = ['holz_hell', 'holz_dunkel', 'teppich_rot', 'teppich_blau', 'fliesen'];
+    var walls = ['holz', 'paneel', 'tapete_gruen', 'tapete_creme'];
+    var lights = ['warm', 'mint', 'bernstein', 'aus', 'warm'];
+    var rows = ['#####', ',,,,,', ',,,,,'];
+    var qm = M.makeMap('q', rows, M.LEGEND);
+    var rooms = [];
+    floors.forEach(function (f, i) {
+      var ox = 8 + i * 176, oy = 8, style = { floor: f, wall: walls[i % 4] };
+      for (var y = 0; y < 3; y++) for (var x = 0; x < 5; x++) Art.drawTile(g, rows[y][x], ox + x * 32, oy + y * 32, { map: qm, tx: x, ty: y, time: t, roomStyle: style });
+      rooms.push({ x0: ox, y0: oy + 32, x1: ox + 160, y1: oy + 96, light: lights[i] });
+    });
+    Art.drawOverlay(g, g.canvas.width, g.canvas.height, { rooms: rooms, time: t });
+    floors.forEach(function (f, i) { Art.drawText(g, f + ' / ' + walls[i % 4] + '\nLicht: ' + lights[i], 8 + i * 176, 108, { color: '#C8D6E2' }); });
+    // Ohne Stil (Rückfall) + jede Wand einzeln mit Holzboden
+    walls.forEach(function (w, i) {
+      var ox = 8 + i * 176, oy = 140;
+      for (var y = 0; y < 3; y++) for (var x = 0; x < 5; x++) Art.drawTile(g, rows[y][x], ox + x * 32, oy + y * 32, { map: qm, tx: x, ty: y, time: t, roomStyle: { floor: floors[(i + 2) % 5], wall: w } });
+      Art.drawText(g, 'Wand ' + w, ox, oy + 100, { color: '#8EA3B5' });
+    });
+    for (var y2 = 0; y2 < 3; y2++) for (var x2 = 0; x2 < 5; x2++) Art.drawTile(g, rows[y2][x2], 8 + 4 * 176 + x2 * 32, 140 + y2 * 32, { map: qm, tx: x2, ty: y2, time: t });
+    Art.drawText(g, 'ohne roomStyle (Standard)', 8 + 4 * 176, 240, { color: '#8EA3B5' });
+  }
+
+  function wreckExtras(g, map, t) {
+    var e = [];
+    var sp = map.find('a');
+    sp.forEach(function (s, i) {
+      var x = s.x * 32 + 16 + Math.sin(t * 0.8 + i) * 14, y = s.y * 32 + 24;
+      e.push({ y: y, draw: function () { Art.drawDrone(g, x, y, { kind: 'scavenger', time: t + i, alive: true, hit: i === 1 && (t % 1.2) < 0.15 }); } });
+    });
+    var pads = map.find('P');
+    if (pads[0]) e.push({ y: pads[0].y * 32 + 26, draw: function () { Art.drawCharacter(g, pads[0].x * 32 + 16, pads[0].y * 32 + 26, { color: 0, dir: 'right', beam: 1 - ((t * 0.4) % 1), time: t }); } });
+    if (pads[1]) e.push({ y: pads[1].y * 32 + 40, draw: function () { Art.drawCharacter(g, pads[1].x * 32 + 26, pads[1].y * 32 + 40, { color: 1, dir: 'down', moving: true, time: t }); } });
+    var hs = map.find('h');
+    if (hs[1]) e.push({ y: hs[1].y * 32 + 58, draw: function () { Art.drawCharacter(g, hs[1].x * 32 + 16, hs[1].y * 32 + 58, { color: 2, dir: 'up', action: 'repair', time: t }); } });
+    e.push({ y: 9999, draw: function () { Art.drawDrone(g, 27 * 32, 14 * 32 + 20, { kind: 'scavenger', alive: false, time: t }); } });
+    return e;
+  }
+  function drawWreckSection(t) {
+    var g = canv.wreck;
+    Art.drawStarfield(g, t * 6, 0, g.canvas.width, g.canvas.height, t);
+    renderMap(g, WRECK_MAP, t, wreckExtras(g, WRECK_MAP, t));
+    // offene dünne Wand und Container-Zustände zusätzlich auf freiem Raum (rechts unten)
+    var ox = 13 * 32, oy = 11 * 32;
+    Art.drawText(g, 'wall_weak: normal · markiert · offen   salvage: zu · offen   Trümmer ×2', ox, oy - 12, { color: '#F4EEDC', shadow: true });
+    for (var i = 0; i < 7; i++) Art.drawTile(g, '.', ox + i * 36, oy + 40, { map: WRECK_MAP, tx: 3 + i, ty: 3, time: t });
+    Art.drawObject(g, 'wall_weak', ox, oy + 40, { time: t });
+    Art.drawObject(g, 'wall_weak', ox + 36, oy + 40, { time: t, marked: true });
+    Art.drawObject(g, 'wall_weak', ox + 72, oy + 40, { time: t, open: true });
+    Art.drawObject(g, 'salvage', ox + 108, oy + 40, { time: t });
+    Art.drawObject(g, 'salvage', ox + 144, oy + 40, { time: t, done: true });
+    Art.drawObject(g, 'debris', ox + 180, oy + 40, { time: t, variant: 0 });
+    Art.drawObject(g, 'debris', ox + 216, oy + 40, { time: t, variant: 1 });
+    Art.drawObject(g, 'lore_terminal', ox + 252, oy + 40, { time: t, read: true });
+    Art.drawOverlay(g, g.canvas.width, g.canvas.height, { time: t, wreck: true });
+  }
+  function drawWreckSrvSection(t) {
+    if (!canv.wreckSrv) return;
+    var g = canv.wreckSrv;
+    Art.drawStarfield(g, t * 6, 0, g.canvas.width, g.canvas.height, t);
+    renderMap(g, M.wreck, t, wreckExtras(g, M.wreck, t));
+    Art.drawOverlay(g, g.canvas.width, g.canvas.height, { time: t, wreck: true });
+  }
+
+  function drawM1SpaceSection(t) {
+    var g = canv.m1space;
+    // linke Hälfte normaler Raum, rechts unten Nebel
+    Art.drawStarfield(g, t * 20, t * 6, g.canvas.width, g.canvas.height, t);
+    Art.drawStation(g, 'vaelen', 170, 90, { time: t });
+    Art.drawStation(g, 'wreck', 520, 90, { time: t });
+    Art.drawStation(g, 'relay', 830, 140, { time: t });
+    Art.drawShip(g, 90, 260, 0, { thrust: 0.6, time: t });
+    Art.drawShip(g, 190, 260, -Math.PI / 2, { thrust: 0.3, time: t });
+    Art.drawShip(g, 290, 260, t * 0.4, { thrust: 0, time: t });
+    // Phasenstrahlen von beiden Kanonen
+    var ttl = 0.25 - ((t % 0.8) / 0.8) * 0.25;
+    Art.drawBeam(g, 112, 250, 260, 200, 'phase', ttl);
+    Art.drawBeam(g, 112, 270, 260, 330, 'phase', 0.2);
+    // Gegner
+    Art.drawEnemy(g, 'sentinel', 420, 260, t * 0.5, { time: t, hpFrac: 1, hitT: t % 1.4 });
+    Art.drawEnemy(g, 'sentinel', 490, 260, 0, { time: t, hpFrac: 0.25 });
+    Art.drawEnemy(g, 'pylon', 570, 260, Math.PI, { time: t, shields: [4, 0, 0, 0], shieldsMax: [4, 0, 0, 0] });
+    Art.drawEnemy(g, 'pylon', 640, 260, -t * 0.3, { time: t, shields: [2, 0, 0, 0], shieldsMax: [4, 0, 0, 0], hitT: (t + 0.5) % 1.2 });
+    Art.drawEnemy(g, 'pylon', 710, 260, Math.PI / 2, { time: t, shields: [0, 0, 0, 0], shieldsMax: [4, 0, 0, 0], hpFrac: 0.4 });
+    Art.drawText(g, 'Lerche mit 2 Phasenkanonen · Phasenstrahl · Wächter (Treffer/beschädigt) · Pylon Schild 4/4 · 2/4 · 0/4', 20, 300, { color: '#F4EEDC', shadow: true });
+    // Verstecke
+    ['cache', 'beacon', 'lore'].forEach(function (k, i) { Art.drawItem(g, k, 790 + i * 50, 260, { time: t, scale: 2 }); });
+    Art.drawText(g, 'cache · beacon · lore', 780, 300, { color: '#F4EEDC', shadow: true });
+    // Nebel-Szene
+    g.save(); g.beginPath(); g.rect(0, 320, 960, 240); g.clip(); g.translate(0, 320);
+    Art.drawStarfield(g, t * 20, t * 6, 960, 240, t, { fog: true });
+    Art.drawShip(g, 200, 120, -0.3, { thrust: 0.8, time: t });
+    Art.drawEnemy(g, 'raider', 420, 90, Math.PI, { time: t });
+    Art.drawItem(g, 'beacon', 620, 140, { time: t, scale: 2 });
+    Art.drawStation(g, 'relay', 860, 130, { time: t });
+    Art.drawOverlay(g, 960, 240, { time: t, fog: true });
+    Art.drawText(g, 'Nebel: drawStarfield(…, { fog: true }) + drawOverlay({ fog: true })', 10, 222, { color: '#F4EEDC', shadow: true });
+    g.restore();
+  }
+
+  function drawM1IconsSection(t) {
+    var g = canv.m1icons;
+    g.fillStyle = '#1E2631'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var icons = ['marker', 'scan', 'widescan', 'overload', 'loc_port', 'loc_asteroids', 'loc_buoy', 'loc_trader', 'loc_wreck', 'loc_nebula', 'loc_relay', 'loc_unknown',
+      'pin_ziel', 'pin_gefahr', 'pin_landeplatz', 'pin_treffpunkt', 'pin_frage'];
+    icons.forEach(function (n, i) { Art.drawIcon(g, n, 16 + i * 26, 16, {}); Art.drawIcon(g, n, 16 + i * 26, 44, { scale: 2 }); });
+    Art.drawIcon(g, 'marker', 16 + icons.length * 26, 16, { color: '#7FE0C2' }); Art.drawIcon(g, 'marker', 16 + (icons.length + 1) * 26, 16, { color: '#FFC66B' });
+    ['#56B4E9', '#E69F00', '#CC79A7'].forEach(function (c, j) {
+      ['pin_ziel', 'pin_gefahr', 'pin_landeplatz', 'pin_treffpunkt', 'pin_frage'].forEach(function (p, i) { Art.drawIcon(g, p, 16 + (j * 5 + i) * 18, 84, { color: c }); });
+    });
+    Art.drawText(g, 'Pins in Spielerfarben · Marker Mint (Captain) / Bernstein (Taktik)', 290, 80, { color: '#8EA3B5' });
+    ['buecherregal', 'aquarium', 'sessel', 'sternkarte', 'trophaee_boje', 'kristalllampe', 'cache', 'beacon', 'lore', 'bolzenwerfer', 'deco_aquarium'].forEach(function (k, i) {
+      Art.drawItem(g, k, 16 + i * 22, 112, { time: t });
+    });
+    Art.drawText(g, 'Inventar-Icons neue Deko · Verstecke · Bolzenwerfer', 260, 108, { color: '#8EA3B5' });
+  }
+
+  // ---- M2 „Schildwall“: Kesh-Renderer wie render.js (Objekte über Bodenzeichen, Objekte per drawObject)
+  var KESH_OBJ = { o: 'cover_low', I: 'pillar', r: 'jammer', k: 'archive_key', G: 'vault_gate', T: 'tablet_pedestal' };
+  function keshFloorFor(map, x, y) {
+    var n = { '.': 0, ',': 0 };
+    [[0, 1], [-1, 0], [1, 0], [0, -1], [1, 1], [-1, 1]].forEach(function (d) { var c = map.at(x + d[0], y + d[1]); if (c === '.' || c === ',') n[c]++; });
+    return n['.'] > n[','] ? '.' : ',';
+  }
+  function keshMap(rows) { return M.makeMap('kesh', rows, M.KESH_LEGEND); }
+  // stateFn(ch, x, y) -> zusätzliche opts (off, t, open, taken …)
+  function renderKesh(g, map, t, stateFn, extras, ox, oy) {
+    ox = ox || 0; oy = oy || 0;
+    var list = [];
+    for (var y = 0; y < map.h; y++) for (var x = 0; x < map.w; x++) {
+      var ch = map.at(x, y);
+      var base = KESH_OBJ[ch] ? keshFloorFor(map, x, y) : (ch === 'L' || ch === 'a' || ch === 'b' || ch === 'c') ? ',' : ch;
+      Art.drawTile(g, base, ox + x * 32, oy + y * 32, { map: map, tx: x, ty: y, time: t, biome: 'kesh' });
+      if (KESH_OBJ[ch]) (function (ch, x, y) {
+        var o = { time: t, biome: 'kesh', variant: (x * 7 + y * 3) % 3 };
+        if (ch === 'o') { o.left = map.at(x - 1, y) === 'o'; o.right = map.at(x + 1, y) === 'o'; }
+        if (ch === 'G') { o.left = map.at(x - 1, y) !== 'G'; o.right = map.at(x + 1, y) !== 'G'; }
+        if (stateFn) Object.assign(o, stateFn(ch, x, y) || {});
+        list.push({ y: oy + y * 32 + 31, draw: function () { Art.drawObject(g, KESH_OBJ[ch], ox + x * 32, oy + y * 32, o); } });
+      })(ch, x, y);
+    }
+    (extras || []).forEach(function (e) { list.push(e); });
+    list.sort(function (a, b) { return a.y - b.y; });
+    list.forEach(function (e) { e.draw(); });
+  }
+  function E(y, fn) { return { y: y, draw: fn }; }
+  function keshState(t) {
+    return function (ch, x, y) {
+      if (ch === 'r') return { off: y > 6 };
+      if (ch === 'k') return { t: y < 6 ? (t * 0.3) % 1.2 : 0.5 };
+      if (ch === 'G') return { open: false };
+      if (ch === 'T') return { taken: false };
+      return null;
+    };
+  }
+  function drawKeshSection(t) {
+    if (!canv.kesh) return;
+    var g = canv.kesh, map = M.kesh, ex = [];
+    function T(x, y) { return [x * 32 + 16, y * 32 + 26]; }
+    var w = M.kesh.find('L')[0] || { x: 41, y: 8 }, wp = [w.x * 32 + 16, w.y * 32 + 30];
+    ex.push(E(wp[1], function () { Art.drawDrone(g, wp[0], wp[1], { time: t, alive: true, kind: 'warden', facing: Math.PI / 2, asleep: true }); }));
+    var sq = M.kesh.find('a');
+    sq.forEach(function (s, i) {
+      var p = T(s.x, s.y);
+      ex.push(E(p[1], function () { Art.drawDrone(g, p[0], p[1], { time: t + i, alive: i !== 3, kind: 'scavenger', aiming: i === 1, aimAngle: Math.PI * 0.75, shieldSeg: i === 2 ? 0 : 2, shieldMax: 2, hit: i === 0 && (t % 2) < 0.12 }); }));
+    });
+    var p0 = T(12, 11), p1 = T(9, 9), p2 = [19 * 32 + ((t * 30) % 96), 9 * 32 + 26];
+    ex.push(E(p0[1], function () { Art.drawCharacter(g, p0[0], p0[1], { color: 0, dir: 'up', time: t, shieldSeg: 2, shieldMax: 3, shieldHitT: (t % 1.2) }); }));
+    ex.push(E(p1[1], function () { Art.drawCharacter(g, p1[0], p1[1], { color: 1, dir: 'down', time: t, downed: true, shieldSeg: 0, shieldMax: 3 }); }));
+    ex.push(E(p2[1], function () { Art.drawCharacter(g, p2[0], p2[1], { color: 2, dir: 'right', moving: true, time: t, shieldSeg: 3, shieldMax: 3, shieldRing: true }); }));
+    // Projektile + Effekte
+    var sx = 23 * 32 - ((t * 200) % 300), sy = 11 * 32 + 12;
+    ex.push(E(sy + 40, function () { Art.drawProjectile(g, 'enemy', sx, sy, Math.PI, t); }));
+    ex.push(E(sy + 40, function () { Art.drawProjectile(g, 'pistol', 10 * 32 + ((t * 180) % 300), 9 * 32 + 10, 0, t); }));
+    ex.push(E(wp[1] + 50, function () { Art.drawProjectile(g, 'warden', wp[0] - ((t * 90) % 200), wp[1] + 30, Math.PI, t); }));
+    renderKesh(g, map, t, keshState(t), ex);
+    Art.drawFx(g, 'order_pillar', 30 * 32 + 16, 10 * 32 + 20, t, { color: '#7FE0C2', height: 120 });
+    Art.drawFx(g, 'cover_hit', 13 * 32 + 8, 12 * 32 + 4, t, { p: (t % 0.7) / 0.7 });
+    Art.drawFx(g, 'muzzle_aim', sq[1] ? sq[1].x * 32 + 16 : 0, sq[1] ? sq[1].y * 32 + 12 : 0, t, { p: (t % 1.4) / 1.4 });
+  }
+  function drawM2ObjSection(t) {
+    var g = canv.m2obj;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    // Höhenvergleich
+    var A = keshMap([
+      'RRR######RRRRRRRRRRRRRRRRRRRR',
+      '...,,,,,,,,,,,,,,,,,,,,......',
+      '...,,,,,,,,I,,,,ooo,,o,,,,o..',
+      '...,,,,,,,,,,,,,,,,,,,,,,....',
+    ]);
+    var ex = [];
+    [[4, 1, 0], [10, 2, 1], [15, 2, 2], [19, 3, 0], [24, 1, 1]].forEach(function (q) {
+      ex.push(E(q[1] * 32 + 26, function () { Art.drawCharacter(g, q[0] * 32 + 16, q[1] * 32 + 26, { color: q[2], dir: 'down', time: t }); }));
+    });
+    renderKesh(g, A, t, null, ex, 0, 16);
+    Art.drawText(g, 'Mauer · Fels', 100, 4, { color: '#F4EEDC', shadow: true });
+    Art.drawText(g, 'Pfeiler (voll)', 330, 4, { color: '#F4EEDC', shadow: true });
+    Art.drawText(g, 'niedrige Deckung (halb)', 500, 4, { color: '#F4EEDC', shadow: true });
+    // Objekte und Zustände
+    var B = keshMap([
+      'RRrRRrRRR##k#k#k#k#k###GG##GG##',
+      ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,',
+      ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,',
+      ',,T,,T,,,,,,,,,,,,,,,,,,,,,,,,,',
+    ]);
+    renderKesh(g, B, t, function (ch, x) {
+      if (ch === 'r') return { off: x > 3 };
+      if (ch === 'k') { var i = (x - 11) / 2; return i === 4 ? { t: 1, open: true } : { t: i === 3 ? 1 : i / 3 }; }
+      if (ch === 'G') return { open: x > 25 };
+      if (ch === 'T') return { taken: x > 3 };
+    }, null, 0, 186);
+  }
+  function drawM2FigSection(t) {
+    var g = canv.m2fig;
+    var F = keshMap([',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,', '..............................', '..............................', '..............................', '..............................', '..............................', '..............................', '..............................', '..............................']);
+    renderKesh(g, F, t, null, null);
+    // Wächter: 4 Richtungen wach, schlafend, ausgeschaltet, Treffer
+    [[0, 'rechts'], [Math.PI, 'links'], [Math.PI / 2, 'vorn'], [-Math.PI / 2, 'hinten']].forEach(function (d, i) {
+      Art.drawDrone(g, 50 + i * 90, 90, { time: t, alive: true, kind: 'warden', facing: d[0], asleep: false, hit: i === 0 && (t % 1.5) < 0.1 });
+      Art.drawText(g, d[1], 50 + i * 90, 96, { color: '#F4EEDC', shadow: true, align: 'center' });
+    });
+    Art.drawDrone(g, 410, 90, { time: t, alive: true, kind: 'warden', facing: Math.PI / 2, asleep: true });
+    Art.drawText(g, 'schläft', 410, 96, { color: '#F4EEDC', shadow: true, align: 'center' });
+    Art.drawDrone(g, 500, 90, { time: t, alive: true, kind: 'warden', facing: t * 0.8, asleep: false, revealed: true });
+    Art.drawText(g, 'dreht (fokus)', 500, 96, { color: '#F4EEDC', shadow: true, align: 'center' });
+    Art.drawDrone(g, 590, 90, { time: t, alive: false, kind: 'warden' });
+    Art.drawText(g, 'aus', 590, 96, { color: '#F4EEDC', shadow: true, align: 'center' });
+    // Plünderer
+    [['normal', {}], ['zielt', { aiming: true }], ['zielt ↗', { aiming: true, aimAngle: -0.6 }], ['Schild 0', { shieldSeg: 0, shieldMax: 2 }], ['Treffer', { hit: (t % 0.6) < 0.1 }], ['aus', { alive: false }]].forEach(function (v, i) {
+      Art.drawDrone(g, 670 + i * 48, 90, Object.assign({ time: t + i * 0.3, alive: true, kind: 'scavenger' }, v[1]));
+      Art.drawText(g, v[0], 670 + i * 48, 96, { color: '#F4EEDC', shadow: true, align: 'center' });
+    });
+    // Spieler: Schildtreffer-Sequenz, Ring, verwundet
+    [0, 0.06, 0.12, 0.2, 0.3].forEach(function (a, i) {
+      Art.drawCharacter(g, 40 + i * 44, 200, { color: i % 3, dir: 'down', time: t, shieldSeg: 2, shieldMax: 3, shieldHitT: a });
+      Art.drawText(g, a.toFixed(2) + ' s', 40 + i * 44, 206, { color: '#7FF3FF', shadow: true, align: 'center' });
+    });
+    Art.drawCharacter(g, 280, 200, { color: 0, dir: 'down', time: t, shieldSeg: 2, shieldMax: 3, shieldHitT: (t % 1) });
+    Art.drawText(g, 'Loop', 280, 206, { color: '#7FF3FF', shadow: true, align: 'center' });
+    [[3, 3], [1, 3], [0, 3]].forEach(function (s, i) {
+      Art.drawCharacter(g, 340 + i * 44, 200, { color: i, dir: 'right', time: t, shieldSeg: s[0], shieldMax: s[1], shieldRing: true });
+      Art.drawText(g, 'Ring ' + s[0] + '/' + s[1], 340 + i * 44, 206, { color: '#7FF3FF', shadow: true, align: 'center' });
+    });
+    Art.drawCharacter(g, 500, 200, { color: 1, time: t, downed: true, shieldSeg: 0, shieldMax: 3 });
+    Art.drawText(g, 'verwundet (v2)', 500, 206, { color: '#E0473C', shadow: true, align: 'center' });
+    Art.drawCharacter(g, 600, 200, { color: 2, time: t, downed: true });
+    Art.drawText(g, 'außer Gefecht (alt)', 600, 206, { color: '#8EA3B5', shadow: true, align: 'center' });
+    Art.drawFx(g, 'revive', 700, 200, t, { p: (t % 1.2) / 1.2 });
+    Art.drawCharacter(g, 700, 200, { color: 0, time: t, dir: 'down', shieldSeg: 1, shieldMax: 3 });
+    Art.drawText(g, 'Wiederbeleben', 700, 206, { color: '#7FE0C2', shadow: true, align: 'center' });
+    // Wächter-Größe neben Spieler
+    Art.drawDrone(g, 840, 300, { time: t, alive: true, kind: 'warden', facing: Math.PI, asleep: false });
+    Art.drawCharacter(g, 900, 300, { color: 0, dir: 'left', time: t });
+    Art.drawText(g, '2×2 Kacheln vs. Spieler', 850, 306, { color: '#F4EEDC', shadow: true, align: 'center' });
+  }
+  function drawM2FxSection(t) {
+    var g = canv.m2fx;
+    g.fillStyle = '#3A3546'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var kinds = ['shield_hit', 'shield_break', 'cover_hit', 'muzzle_aim', 'warden_deflect', 'revive'];
+    kinds.forEach(function (k, i) {
+      var x0 = 20 + i * 155;
+      Art.drawText(g, k, x0, 6, { color: '#F4EEDC', shadow: true });
+      [0.1, 0.35, 0.6, 0.85].forEach(function (p, j) { Art.drawFx(g, k, x0 + 14 + j * 34, 60, t, { p: p }); });
+      Art.drawFx(g, k, x0 + 60, 130, t, { p: (t % 0.9) / 0.9 });
+    });
+    ['#7FE0C2', '#FFC66B', '#E0473C', '#A9D6E5'].forEach(function (c, i) { Art.drawFx(g, 'order_pillar', 60 + i * 60, 290, t, { color: c, height: 120 }); });
+    Art.drawText(g, 'order_pillar (Captain-Befehle)', 30, 160, { color: '#F4EEDC', shadow: true });
+    ['pistol', 'enemy', 'warden', 'blaster'].forEach(function (k, i) {
+      for (var a = 0; a < 4; a++) Art.drawProjectile(g, k, 340 + i * 150 + a * 30, 200, a * Math.PI / 4, t);
+      Art.drawProjectile(g, k, 340 + i * 150 + ((t * 80) % 120), 250, 0, t);
+      Art.drawText(g, k, 340 + i * 150, 270, { color: '#F4EEDC', shadow: true });
+    });
+  }
+  function drawM2SpaceSection(t) {
+    var g = canv.m2space;
+    Art.drawStarfield(g, t * 10, 0, g.canvas.width, g.canvas.height, t);
+    Art.drawStation(g, 'moon', 260, 220, { time: t });
+    g.save(); g.translate(600, 120); g.scale(0.3, 0.3); Art.drawStation(g, 'moon', 0, 0, { time: t }); g.restore();
+    Art.drawText(g, 'Taktik-Zoom 0,3', 600, 190, { color: '#F4EEDC', shadow: true, align: 'center' });
+    Art.drawShip(g, 520, 300, 0.3, { thrust: 0.4, time: t });
+    Art.drawIcon(g, 'loc_moon', 720, 60, {}); Art.drawIcon(g, 'loc_moon', 760, 60, { scale: 2 }); Art.drawIcon(g, 'loc_unknown', 800, 60, {});
+    Art.drawText(g, 'loc_moon', 720, 80, { color: '#F4EEDC', shadow: true });
+    Art.drawItem(g, 'tafel', 730, 140, { time: t }); Art.drawItem(g, 'tafel', 780, 140, { time: t, scale: 2, ground: true, bob: true });
+    Art.drawText(g, 'Item tafel', 720, 170, { color: '#F4EEDC', shadow: true });
+  }
+
+  var ALL_GLYPHS ='ABCDEFGHIJKLMNOPQRSTUVWXYZ ÄÖÜ\nabcdefghijklmnopqrstuvwxyz äöüß\n0123456789 .,:;!?\'"„“”‚‘’ -–—−+×=/\\()[]%°·•… <>_#*&@€$|~^ →←↑↓▲▼♥';
+  function drawUiSection(t) {
+    var g = canv.ui;
+    g.fillStyle = '#1A2030'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    Art.drawText(g, ALL_GLYPHS, 8, 8, { color: '#F4EEDC' });
+    Art.drawText(g, 'Größe 2: „Schilde unten – Hülle 42 %“ · Löschgel ×2 · Grauzahn: „Die Boje gehört uns.“', 8, 44, { scale: 1, color: '#FFC66B', shadow: true });
+    Art.drawText(g, 'Notfallprotokoll!', 8, 58, { scale: 2, color: '#E0473C', shadow: true });
+    Art.drawText(g, 'Mitte', 360, 62, { align: 'center', color: '#7FE0C2' });
+    Art.drawText(g, 'rechtsbündig', 712, 62, { align: 'right', color: '#7FE0C2' });
+    Art.drawPanel(g, 8, 84, 200, 110, { style: 'screen', title: 'Funk' });
+    Art.drawText(g, 'Hafenmeisterin Tesk:\nBoje B-7 ist verstummt.\nKönnt ihr nachsehen?', 18, 104, { color: '#7FE0C2' });
+    Art.drawPanel(g, 216, 84, 200, 110, { style: 'brass', title: 'Energie & Schilde' });
+    ['engines', 'shields', 'weapons', 'life'].forEach(function (s, i) {
+      Art.drawIcon(g, s, 236, 112 + i * 18, {});
+      for (var k = 0; k < 4; k++) { g.fillStyle = k < (i + 1) ? '#FFC66B' : '#3A4759'; g.fillRect(250 + k * 12, 108 + i * 18, 10, 8); }
+    });
+    Art.drawPanel(g, 424, 84, 140, 110, { style: 'plain', title: 'Status' });
+    Art.drawText(g, 'Hülle 72\nO₂ 100\nMarken 150', 436, 104, {});
+    Art.drawPanel(g, 572, 84, 140, 50, { style: 'brass' });
+    Art.drawPanel(g, 572, 140, 140, 54, { style: 'screen' });
+    ['normal', 'yellow', 'red'].forEach(function (a, i) {
+      var x = 8 + i * 236, y = 204;
+      g.save(); g.beginPath(); g.rect(x, y, 228, 118); g.clip();
+      g.translate(x, y);
+      for (var yy = 0; yy < 4; yy++) for (var xx = 0; xx < 8; xx++) Art.drawTile(g, M.ship.at(20 + xx, 3 + yy), xx * 32 - 8, yy * 32 - 10, { map: M.ship, tx: 20 + xx, ty: 3 + yy, time: t, alert: a });
+      Art.drawObject(g, 'table', 2 * 32 - 8, 1 * 32 - 10, { time: t });
+      Art.drawCharacter(g, 120, 60, { color: i, dir: 'down', time: t });
+      Art.drawOverlay(g, 228, 118, { alert: a, time: t });
+      Art.drawText(g, 'Alarm: ' + a, 6, 104, { color: '#F4EEDC', shadow: true });
+      g.restore();
+    });
+  }
+
+  function frame() {
+    var now = performance.now();
+    var t = paused ? (pauseAt - t0 - tPaused) / 1000 : (now - t0 - tPaused) / 1000;
+    try {
+      drawShipSection(t); drawPlatSection(t); drawTilesSection2(t); drawObjSection(t);
+      drawCharSection(t); drawFxSection(t); drawSpaceSection(t); drawUiSection(t);
+      drawM1ObjSection(t); drawQuartersSection(t); drawWreckSection(t); drawWreckSrvSection(t); drawM1SpaceSection(t); drawM1IconsSection(t);
+      drawKeshSection(t); drawM2ObjSection(t); drawM2FigSection(t); drawM2FxSection(t); drawM2SpaceSection(t);
+    } catch (e) { console.error(e); window.__artPreview.frameErrors++; }
+    requestAnimationFrame(frame);
+  }
+
+  // Laufzeittest: jede API-Funktion mit jedem kind einmal
+  function runtimeTest() {
+    var c = document.createElement('canvas'); c.width = 200; c.height = 200;
+    var g = c.getContext('2d');
+    var thrown = 0, calls = 0, e0 = Art.errors;
+    function call(fn) { calls++; try { fn(); } catch (e) { thrown++; console.error(e); } }
+    var env = { map: M.ship, tx: 5, ty: 5, time: 1, alert: 'red', doorOpen: true };
+    ' #~.,=_DPHCWTSLBREGKXOmpcxbNQdZ?'.split('').forEach(function (ch) {
+      call(function () { Art.drawTile(g, ch, 10, 10, env); });
+      call(function () { Art.drawTile(g, ch, 10, 10, { map: M.platform, tx: 3, ty: 3, time: 2 }); });
+      call(function () { Art.drawTile(g, ch, 10, 10, {}); });
+    });
+    call(function () { Art.drawTile(g, '#', 0, 0); });
+    var kinds = ['console_helm', 'console_captain', 'console_weapons', 'console_transfer', 'terminal_shop', 'shelf', 'bed', 'sys_reactor', 'sys_engines', 'sys_shields', 'sys_weapons',
+      'sys_transfer', 'sys_life', 'table', 'plant', 'crate', 'buoy_core', 'sonde', 'door_locked', 'deco_pflanze', 'deco_poster', 'deco_lampe', 'deco_teppich', 'xyz'];
+    kinds.forEach(function (k) {
+      ['ok', 'damaged', 'broken', undefined].forEach(function (s) {
+        call(function () { Art.drawObject(g, k, 20, 40, { time: 3.3, state: s, active: true, alert: 'red', disabled: true, open: true, item: 'bolzen', color: 2 }); });
+      });
+      call(function () { Art.drawObject(g, k, 20, 40); });
+    });
+    ['down', 'up', 'left', 'right', undefined].forEach(function (d) {
+      [null, 'repair', 'console', 'carry'].forEach(function (a) {
+        [0, 1, 2, 7, undefined].forEach(function (col) {
+          call(function () { Art.drawCharacter(g, 50, 60, { color: col, dir: d, moving: true, time: 2.2, action: a, carry: a === 'carry' ? 'medipack' : null }); });
+        });
+      });
+      call(function () { Art.drawCharacter(g, 50, 60, { dir: d, downed: true, beam: 0.5, flash: 1 }); });
+      call(function () { Art.drawBot(g, 50, 60, { variant: 2, dir: d, moving: true, working: true, time: 1, carry: 'ersatzteil' }); });
+      call(function () { Art.drawNpc(g, 50, 60, { dir: d, moving: true, time: 1 }); });
+    });
+    call(function () { Art.drawCharacter(g, 50, 60); }); call(function () { Art.drawBot(g, 50, 60); }); call(function () { Art.drawNpc(g, 50, 60); });
+    call(function () { Art.drawDrone(g, 50, 60); });
+    [true, false].forEach(function (al) { call(function () { Art.drawDrone(g, 50, 60, { time: 1, alive: al, revealed: true, hit: true }); }); });
+    ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'datenkern', 'foo', null].forEach(function (k) { call(function () { Art.drawItem(g, k, 50, 50, { time: 1 }); }); call(function () { Art.drawItem(g, k, 50, 50); }); });
+    ['fire', 'breach', 'sparks', 'smoke', 'beam', 'strike', 'explosion', 'muzzle', 'repair', 'heal', 'bar'].forEach(function (k) {
+      [0, 0.3, 1.6, 5].forEach(function (tt) { call(function () { Art.drawFx(g, k, 50, 50, tt, {}); }); });
+      call(function () { Art.drawFx(g, k, 50, 50); });
+    });
+    [0, 1, 2, 3, undefined].forEach(function (hs) { call(function () { Art.drawShip(g, 100, 100, 1.1, { thrust: 1, shields: [1, 0, 1, 0], shieldMax: 4, hitSector: hs, hitT: 0.1, time: 2 }); }); });
+    call(function () { Art.drawShip(g, 100, 100); });
+    ['raider', 'gunboat', 'x'].forEach(function (k) { call(function () { Art.drawEnemy(g, k, 100, 100, -2, { hpFrac: 0.1, hitT: 0.05, time: 1 }); }); call(function () { Art.drawEnemy(g, k, 100, 100); }); });
+    call(function () { Art.drawAsteroid(g, 100, 100, 30, 5); }); call(function () { Art.drawAsteroid(g, 100, 100); });
+    ['port', 'buoy', 'x'].forEach(function (k) { call(function () { Art.drawStation(g, k, 100, 100, { time: 1 }); }); call(function () { Art.drawStation(g, k, 100, 100); }); });
+    ['enemy', 'bolzen', 'blaster', 'drone', 'x'].forEach(function (k) { call(function () { Art.drawProjectile(g, k, 50, 50, 1, 2); }); call(function () { Art.drawProjectile(g, k, 50, 50); }); });
+    ['lanze', 'seitenturm', 'x'].forEach(function (k) { call(function () { Art.drawBeam(g, 0, 0, 100, 50, k, 0.1); }); call(function () { Art.drawBeam(g, 0, 0, 100, 50, k); }); });
+    call(function () { Art.drawStarfield(g, -500, 300, 200, 200, 4); }); call(function () { Art.drawStarfield(g); });
+    call(function () { Art.drawText(g, ALL_GLYPHS + '☃', 0, 0, { scale: 2, align: 'center', shadow: true, color: '#fff' }); });
+    call(function () { Art.drawText(g, null, 0, 0); }); call(function () { Art.drawText(g, 12345, 0, 0); });
+    call(function () { if (!(Art.measureText('Hülle', 2) > 0)) throw new Error('measureText'); });
+    ['screen', 'brass', 'plain', 'x'].forEach(function (s) { call(function () { Art.drawPanel(g, 0, 0, 90, 40, { style: s, title: 'Test' }); }); });
+    call(function () { Art.drawPanel(g, 0, 0, 1, 1); });
+    ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer', 'fire', 'breach', 'o2', 'hull', 'marks', 'circle', 'triangle', 'diamond', 'kreis', 'dreieck', 'raute', 'stern', 'welle', 'kreuz', 'lock', 'arrow', 'x']
+      .forEach(function (n) { call(function () { Art.drawIcon(g, n, 10, 10, { color: '#ff0000' }); }); call(function () { Art.drawIcon(g, n, 10, 10); }); });
+    ['normal', 'yellow', 'red', undefined].forEach(function (a) { call(function () { Art.drawOverlay(g, 200, 200, { alert: a, time: 1, dim: 0.3 }); }); });
+    call(function () { Art.drawOverlay(g); });
+    // ---- M1: jede neue Funktion/kind mindestens einmal
+    'yYhgaVx'.split('').forEach(function (ch) {
+      call(function () { Art.drawTile(g, ch, 10, 10, env); });
+      call(function () { Art.drawTile(g, ch, 10, 10, { map: WRECK_MAP, tx: 5, ty: 5, time: 2 }); });
+    });
+    ['holz_hell', 'holz_dunkel', 'teppich_rot', 'teppich_blau', 'fliesen', 'quatsch', undefined].forEach(function (f, i) {
+      var w = ['holz', 'paneel', 'tapete_gruen', 'tapete_creme', 'quatsch', undefined, null][i];
+      [',', '.', '#', 'B', 'D'].forEach(function (ch) { call(function () { Art.drawTile(g, ch, 10, 10, { map: M.ship, tx: 15, ty: ch === '#' ? 0 : 2, time: 1, roomStyle: { floor: f, wall: w } }); }); });
+    });
+    call(function () { Art.drawTile(g, '.', 0, 0, { biome: 'wreck', tx: 1, ty: 1 }); });
+    for (var wy = 0; wy < WRECK_MAP.h; wy++) for (var wx = 0; wx < WRECK_MAP.w; wx++) call(function () { Art.drawTile(g, WRECK_MAP.at(wx, wy), 0, 0, { map: WRECK_MAP, tx: wx, ty: wy, time: 3 }); });
+    ['online', 'overload', 'offline', 'x', undefined].forEach(function (s) {
+      [true, false].forEach(function (h) { call(function () { Art.drawObject(g, 'reactor_switch', 20, 40, { time: 1.7, reactorState: s, held: h, id: h ? 'A' : 'B', progress: 0.7 }); }); });
+    });
+    [[0, 0], [1, 0], [0, 1], [1, 1], [null, null], [5, -2]].forEach(function (q) {
+      [true, false].forEach(function (a) { call(function () { Art.drawObject(g, 'plan_table', 20, 40, { time: 2.1, active: a, qx: q[0], qy: q[1] }); }); });
+    });
+    ['deco_buecherregal', 'deco_aquarium', 'deco_sessel', 'deco_sternkarte', 'deco_trophaee_boje', 'deco_kristalllampe', 'salvage', 'lore_terminal', 'wall_weak', 'debris', 'scavenger', 'deco_unbekannt'].forEach(function (k) {
+      call(function () { Art.drawObject(g, k, 20, 40, { time: 4.2, done: true, read: true, marked: true, open: false, variant: 1 }); });
+      call(function () { Art.drawObject(g, k, 20, 40, { time: 0.3, open: true }); });
+      call(function () { Art.drawObject(g, k, 20, 40); });
+    });
+    [0, 1, 2, 3, 9].forEach(function (c) { call(function () { Art.drawObject(g, 'bed', 20, 40, { color: c }); }); });
+    ['down', 'up', 'left', 'right', undefined].forEach(function (d) { [0, 1, 2].forEach(function (c) { call(function () { Art.drawCharacter(g, 50, 60, { color: c, dir: d, action: 'sit', time: 1.1 }); }); }); });
+    [true, false].forEach(function (al) { call(function () { Art.drawDrone(g, 50, 60, { kind: 'scavenger', time: 2, alive: al, revealed: true, hit: 0.5 }); }); });
+    call(function () { Art.drawDrone(g, 50, 60, { kind: 'scavenger' }); });
+    ['buecherregal', 'aquarium', 'sessel', 'sternkarte', 'trophaee_boje', 'kristalllampe', 'cache', 'beacon', 'lore', 'bolzenwerfer', 'deco_kristalllampe'].forEach(function (k) {
+      call(function () { Art.drawItem(g, k, 50, 50, { time: 1, scale: 2, bob: true, ground: true }); }); call(function () { Art.drawItem(g, k, 50, 50); });
+    });
+    ['sentinel', 'pylon'].forEach(function (k) {
+      call(function () { Art.drawEnemy(g, k, 100, 100, 1.3, { time: 1, hpFrac: 0.1, hitT: 0.05, shields: [0, 0, 0, 0], shieldsMax: [4, 0, 0, 0] }); });
+      call(function () { Art.drawEnemy(g, k, 100, 100, -7, { shields: [3, 3, 3, 3] }); });
+      call(function () { Art.drawEnemy(g, k, 100, 100); });
+    });
+    ['vaelen', 'wreck', 'relay'].forEach(function (k) { call(function () { Art.drawStation(g, k, 100, 100, { time: 2.5 }); }); call(function () { Art.drawStation(g, k, 100, 100); }); });
+    call(function () { Art.drawBeam(g, 0, 0, 100, 50, 'phase', 0.1); }); call(function () { Art.drawBeam(g, 0, 0, 100, 50, 'phase'); }); call(function () { Art.drawBeam(g, 5, 5, 5, 5, 'phase', 0.2); });
+    call(function () { Art.drawStarfield(g, 10, 10, 200, 200, 3, { fog: true }); });
+    [true, 0.5, 0, 2].forEach(function (f) { call(function () { Art.drawOverlay(g, 200, 200, { time: 1, fog: f, wreck: true, alert: 'red' }); }); });
+    ['warm', 'mint', 'bernstein', 'aus', 'quatsch', undefined].forEach(function (l) { call(function () { Art.drawOverlay(g, 200, 200, { time: 1, rooms: [{ x0: 10, y0: 10, x1: 90, y1: 80, light: l }, null, { x0: 5, y0: 5, x1: 5, y1: 5 }] }); }); });
+    ['marker', 'scan', 'widescan', 'overload', 'loc_port', 'loc_asteroids', 'loc_buoy', 'loc_trader', 'loc_wreck', 'loc_nebula', 'loc_relay', 'loc_unknown',
+      'pin_ziel', 'pin_gefahr', 'pin_landeplatz', 'pin_treffpunkt', 'pin_frage', 'loc_quatsch'].forEach(function (n) {
+      call(function () { Art.drawIcon(g, n, 10, 10, { color: '#E69F00' }); }); call(function () { Art.drawIcon(g, n, 10, 10, { scale: 2 }); });
+    });
+    // ---- M2 „Schildwall“
+    if (M.kesh) {
+      for (var ky = 0; ky < M.kesh.h; ky++) for (var kx = 0; kx < M.kesh.w; kx++) call(function () { Art.drawTile(g, M.kesh.at(kx, ky), 0, 0, { map: M.kesh, tx: kx, ty: ky, time: 2, biome: 'kesh' }); });
+    }
+    'R#.,oIrkGTLabcP?~ '.split('').forEach(function (ch) {
+      call(function () { Art.drawTile(g, ch, 10, 10, { biome: 'kesh', tx: 2, ty: 2 }); });
+      call(function () { Art.drawTile(g, ch, 10, 10, { map: M.kesh, tx: -5, ty: 99, time: 1 }); });
+    });
+    ['cover_low', 'pillar', 'jammer', 'archive_key', 'vault_gate', 'tablet_pedestal'].forEach(function (k) {
+      call(function () { Art.drawObject(g, k, 20, 40, { time: 1.3, off: true, t: 0.7, open: true, left: true, right: false, taken: true, variant: 7 }); });
+      call(function () { Art.drawObject(g, k, 20, 40, { time: 0, t: -3, left: false, right: true, variant: -1 }); });
+      call(function () { Art.drawObject(g, k, 20, 40, { t: 'x', open: false, left: true, right: true }); });
+      call(function () { Art.drawObject(g, k, 20, 40); });
+    });
+    [0, 1, 2, 3, 4, 5, 6, -1, NaN, undefined].forEach(function (f) {
+      [true, false].forEach(function (s) { call(function () { Art.drawDrone(g, 50, 60, { kind: 'warden', time: 1, alive: true, facing: f, asleep: s, wake: !s, hit: true, revealed: true }); }); });
+    });
+    call(function () { Art.drawDrone(g, 50, 60, { kind: 'warden', alive: false }); }); call(function () { Art.drawDrone(g, 50, 60, { kind: 'warden' }); });
+    [{ aiming: true }, { aiming: true, aimAngle: 2 }, { aiming: true, aimAngle: 'x' }, { shieldSeg: 0, shieldMax: 2 }, { shieldSeg: 2, role: 'flank' }, { alive: false, aiming: true }].forEach(function (o) {
+      call(function () { Art.drawDrone(g, 50, 60, Object.assign({ kind: 'scavenger', time: 2 }, o)); });
+    });
+    [0, 0.1, 0.34, 0.5, 99, -1, undefined].forEach(function (h) {
+      call(function () { Art.drawCharacter(g, 50, 60, { color: 1, time: 1, shieldSeg: 1, shieldMax: 3, shieldHitT: h, shieldRing: true }); });
+      call(function () { Art.drawCharacter(g, 50, 60, { color: 2, downed: true, shieldSeg: 0, shieldMax: 3, shieldHitT: h }); });
+    });
+    call(function () { Art.drawCharacter(g, 50, 60, { shieldRing: true, shieldSeg: 9, shieldMax: 99 }); });
+    ['shield_hit', 'shield_break', 'cover_hit', 'muzzle_aim', 'warden_deflect', 'revive', 'order_pillar'].forEach(function (k) {
+      [0, 0.5, 1, 2, -1, NaN].forEach(function (p) { call(function () { Art.drawFx(g, k, 50, 50, 1.7, { p: p, color: '#FF0000', height: 9999 }); }); });
+      call(function () { Art.drawFx(g, k, 50, 50, 3.3, {}); }); call(function () { Art.drawFx(g, k, 50, 50); });
+      call(function () { Art.drawFx(g, k, 50, 50, 1, { color: 'quatsch', height: -5 }); });
+    });
+    ['pistol', 'warden'].forEach(function (k) { call(function () { Art.drawProjectile(g, k, 50, 50, 1, 2); }); call(function () { Art.drawProjectile(g, k, 50, 50); }); });
+    call(function () { Art.drawStation(g, 'moon', 100, 100, { time: 2 }); }); call(function () { Art.drawStation(g, 'moon', 100, 100); });
+    call(function () { Art.drawIcon(g, 'loc_moon', 10, 10, {}); }); call(function () { Art.drawIcon(g, 'loc_moon', 10, 10, { scale: 2, color: '#fff' }); });
+    call(function () { Art.drawItem(g, 'tafel', 50, 50, { time: 1, scale: 2, bob: true, ground: true }); }); call(function () { Art.drawItem(g, 'tafel', 50, 50); });
+    return { calls: calls, thrown: thrown, caught: Art.errors - e0 };
+  }
+
+  // Performance: kompletter Innenraum-Frame 640×360 (Kacheln + Objekte + 3 Figuren + 2 Bots + Overlay)
+  function perfTest() {
+    var c = document.createElement('canvas'); c.width = 640; c.height = 360;
+    var g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    var map = M.ship, camX = 10 * 32, camY = 0;   // M1: Ausschnitt mit Lager, Quartieren (Stile) und Messe
+    function one(t) {
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, 640, 360);
+      g.translate(-camX, -camY);
+      var x0 = Math.floor(camX / 32), x1 = Math.ceil((camX + 640) / 32), list = [];
+      for (var y = 0; y < map.h; y++) for (var x = x0; x <= x1; x++) {
+        var rid = roomAt(x, y);
+        Art.drawTile(g, map.at(x, y), x * 32, y * 32, { map: map, tx: x, ty: y, time: t, alert: 'yellow', roomStyle: rid ? QUARTERS[rid] : undefined });
+      }
+      M.BEDS.forEach(function (b) { b.slots.forEach(function (s) { var d = DECO[s.id]; if (d) list.push({ y: s.y * 32 + 20, d: function () { Art.drawObject(g, d.indexOf('deco_') === 0 ? d : 'deco_' + d, s.x * 32, s.y * 32, { time: t }); } }); }); });
+      for (var y2 = 0; y2 < map.h; y2++) for (var x2 = x0; x2 <= x1; x2++) {
+        var ch = map.at(x2, y2);
+        if (OBJ_CH.indexOf(ch) >= 0) { (function (ch, x2, y2) { var oo = objOpts(map, ch, x2, y2, t); list.push({ y: y2 * 32 + 31, d: function () { Art.drawObject(g, oo.kind, x2 * 32, y2 * 32, oo.o); } }); })(ch, x2, y2); }
+      }
+      for (var p = 0; p < 3; p++) (function (p) { list.push({ y: 200 + p, d: function () { Art.drawCharacter(g, 400 + p * 40, 200 + p, { color: p, dir: 'right', moving: true, time: t }); } }); })(p);
+      list.push({ y: 205, d: function () { Art.drawBot(g, 500, 205, { variant: 0, moving: true, time: t }); } });
+      list.push({ y: 206, d: function () { Art.drawFx(g, 'fire', 520, 206, t, {}); } });
+      list.sort(function (a, b) { return a.y - b.y; });
+      list.forEach(function (e) { e.d(); });
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      var rr = roomRects().map(function (r) { return { x0: r.x0 - camX, y0: r.y0 - camY, x1: r.x1 - camX, y1: r.y1 - camY, light: r.light }; });
+      Art.drawOverlay(g, 640, 360, { alert: 'yellow', time: t, rooms: rr });   // Raumlicht in Bildschirm-px
+    }
+    for (var w = 0; w < 30; w++) one(w / 60);   // aufwärmen (Caches)
+    // Median aus 5 Durchgängen à 60 Frames (robust gegen Last anderer Prozesse)
+    var res = [];
+    for (var k = 0; k < 5; k++) {
+      var N = 60, s = performance.now();
+      for (var i = 0; i < N; i++) one(0.5 + (k * N + i) / 60);
+      g.getImageData(0, 0, 1, 1);
+      res.push((performance.now() - s) / N);
+    }
+    res.sort(function (a, b) { return a - b; });
+    return res[2];
+  }
+
+  // M2: Kesh-Frame 640×360 (Hof + Halle, Objekte, 4 Plünderer, Wächter, 3 Spieler)
+  function perfKesh() {
+    if (!M.kesh) return 0;
+    var c = document.createElement('canvas'); c.width = 640; c.height = 360;
+    var g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    function one(t) {
+      g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, 640, 360);
+      g.translate(-24 * 32, 0);
+      var ex = [E(8 * 32 + 30, function () { Art.drawDrone(g, 41 * 32 + 16, 8 * 32 + 30, { time: t, alive: true, kind: 'warden', facing: t, asleep: false }); })];
+      for (var i = 0; i < 4; i++) (function (i) { ex.push(E(9 * 32, function () { Art.drawDrone(g, (26 + i * 3) * 32, 9 * 32, { time: t, alive: true, kind: 'scavenger', aiming: i % 2 === 0 }); })); })(i);
+      for (var p = 0; p < 3; p++) (function (p) { ex.push(E(11 * 32, function () { Art.drawCharacter(g, (30 + p * 2) * 32, 11 * 32, { color: p, time: t, moving: true, dir: 'right', shieldHitT: p === 0 ? (t % 0.5) : 99, shieldSeg: 2, shieldMax: 3 }); })); })(p);
+      renderKesh(g, M.kesh, t, keshState(t), ex);
+    }
+    for (var w = 0; w < 20; w++) one(w / 60);
+    var res = [];
+    for (var k = 0; k < 3; k++) { var s = performance.now(); for (var j = 0; j < 30; j++) one(1 + (k * 30 + j) / 60); g.getImageData(0, 0, 1, 1); res.push((performance.now() - s) / 30); }
+    res.sort(function (a, b) { return a - b; });
+    return res[1];
+  }
+
+  window.__artPreview = { ok: ok, frameErrors: 0 };
+  if (!ok || !M) { status.innerHTML = '<span class="bad">Art.init() fehlgeschlagen oder maps.js fehlt</span>'; return; }
+  setup();
+  var rt = runtimeTest();
+  var perf = perfTest();
+  window.__artPreview.test = rt;
+  window.__artPreview.perfMs = perf;
+  var perfK = perfKesh();
+  window.__artPreview.perfKeshMs = perfK;
+  status.innerHTML = 'Laufzeittest: <b>' + rt.calls + '</b> Aufrufe, geworfen: <b class="' + (rt.thrown ? 'bad' : '') + '">' + rt.thrown + '</b>, intern abgefangen: <b class="' + (rt.caught ? 'bad' : '') + '">' + rt.caught +
+    '</b> · Innenraum-Frame: <b>' + perf.toFixed(2) + ' ms</b> · Kesh-Frame (ganze Karte): <b>' + perfK.toFixed(2) + ' ms</b> · Caches: ' + Art.cacheSize();
+  window.__artPreview.cacheSize = Art.cacheSize();
+  document.querySelectorAll('[data-scale]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      scale = +b.dataset.scale;
+      document.querySelectorAll('[data-scale]').forEach(function (o) { o.classList.toggle('on', o === b); });
+      document.querySelectorAll('canvas').forEach(function (c) { c.style.width = (c.width * scale) + 'px'; c.style.height = (c.height * scale) + 'px'; });
+    });
+  });
+  document.getElementById('pause').addEventListener('click', function () {
+    paused = !paused;
+    if (paused) pauseAt = performance.now(); else tPaused += performance.now() - pauseAt;
+    this.textContent = paused ? 'Weiter' : 'Pause';
+  });
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('scale')) { var b = document.querySelector('[data-scale="' + qs.get('scale') + '"]'); if (b) b.click(); }
+  if (qs.get('alert')) alertSel.value = qs.get('alert');
+  if (qs.get('t')) { paused = true; t0 = performance.now() - (+qs.get('t')) * 1000; pauseAt = performance.now(); }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

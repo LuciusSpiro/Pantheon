@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620">
+<defs>
+<linearGradient id="gTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DCE5EC"/><stop offset=".5" stop-color="#A3B6C5"/><stop offset="1" stop-color="#7489A0"/></linearGradient>
+<linearGradient id="gSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5C6F86"/><stop offset=".55" stop-color="#36445A"/><stop offset="1" stop-color="#1A212E"/></linearGradient>
+<linearGradient id="gSpine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7A8FA4"/><stop offset="1" stop-color="#46576D"/></linearGradient>
+<linearGradient id="gCollar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4F6178"/><stop offset=".4" stop-color="#2E3A4A"/><stop offset="1" stop-color="#121722"/></linearGradient>
+<linearGradient id="gFinN" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B5C6D3"/><stop offset=".6" stop-color="#7A8FA4"/><stop offset="1" stop-color="#46566C"/></linearGradient>
+<linearGradient id="gFinF" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#435270"/><stop offset="1" stop-color="#2A3350"/></linearGradient>
+<linearGradient id="gKeel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A475B"/><stop offset="1" stop-color="#151A26"/></linearGradient>
+<linearGradient id="gRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0D59A"/><stop offset=".3" stop-color="#C9974A"/><stop offset=".75" stop-color="#7A5530"/><stop offset="1" stop-color="#3A2A1C"/></linearGradient>
+<radialGradient id="gGlass" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFF4D6"/><stop offset=".3" stop-color="#FFC66B"/><stop offset=".7" stop-color="#C47F3A"/><stop offset="1" stop-color="#4A2E1C"/></radialGradient>
+<radialGradient id="gCore" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".25" stop-color="#FFF1C9"/><stop offset=".6" stop-color="#FFC66B" stop-opacity=".75"/><stop offset="1" stop-color="#FFC66B" stop-opacity="0"/></radialGradient>
+<radialGradient id="gField" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#7FE0C2" stop-opacity="0"/><stop offset=".75" stop-color="#7FE0C2" stop-opacity=".12"/><stop offset="1" stop-color="#7FE0C2" stop-opacity=".45"/></radialGradient>
+<radialGradient id="gMintGlow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#E8FFF8"/><stop offset=".3" stop-color="#7FE0C2" stop-opacity=".85"/><stop offset="1" stop-color="#7FE0C2" stop-opacity="0"/></radialGradient>
+<radialGradient id="gRedGlow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE2D8"/><stop offset=".3" stop-color="#E0473C" stop-opacity=".85"/><stop offset="1" stop-color="#E0473C" stop-opacity="0"/></radialGradient>
+<radialGradient id="gWin" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFC66B" stop-opacity=".75"/><stop offset="1" stop-color="#FFC66B" stop-opacity="0"/></radialGradient>
+<linearGradient id="gPlume" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#FFF1C9" stop-opacity=".95"/><stop offset=".12" stop-color="#FFC66B" stop-opacity=".7"/><stop offset=".5" stop-color="#C2703D" stop-opacity=".22"/><stop offset="1" stop-color="#2A2350" stop-opacity="0"/></linearGradient>
+<linearGradient id="gTrail" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#7FE0C2" stop-opacity=".6"/><stop offset="1" stop-color="#7FE0C2" stop-opacity="0"/></linearGradient>
+<filter id="fBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+<filter id="fBlurL" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
+<filter id="fBlurS" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2"/></filter>
+<clipPath id="cA"><path id="pA" d="M-356-30L-340-48L-214-52L-214 46L-340 42L-356 26Z"/></clipPath>
+<clipPath id="cB"><path id="pB" d="M-198-56C-170-70-120-74-60-74L60-74C96-74 118-68 126-58L126 46C110 58 80 62 40 62L-120 62C-160 62-186 56-198 46Z"/></clipPath>
+<clipPath id="cC"><path id="pC" d="M140-58C150-66 170-68 196-66C260-62 340-40 414-8C422-4 422 4 414 7C350 26 270 42 196 46C168 47 150 46 140 40Z"/></clipPath>
+</defs>
+<g transform="translate(616 314) rotate(-13) scale(1.12)">
+<!-- plume + trail -->
+<path d="M-400-34C-600-28-900-14-1150 0C-900 14-600 28-400 34Z" fill="url(#gPlume)" filter="url(#fBlur)"/>
+<path d="M-400-9C-560-7-780-3-1050 0C-780 3-560 7-400 9Z" fill="#FFF4D6" opacity=".65" filter="url(#fBlurS)"/>
+<path d="M-430-118C-620-104-820-84-1050-72M-430 118C-620 104-820 84-1050 72" stroke="url(#gTrail)" stroke-width="3" fill="none" filter="url(#fBlurS)"/>
+<!-- ring back half -->
+<ellipse cx="-400" cy="0" rx="60" ry="130" fill="#7FE0C2" opacity=".18" filter="url(#fBlurL)"/>
+<ellipse cx="-400" cy="0" rx="40" ry="110" fill="url(#gField)"/>
+<path d="M-400-124A48 124 0 0 1-400 124" fill="none" stroke="#2C2018" stroke-width="22"/>
+<path d="M-400-112A40 112 0 0 1-400 112" fill="none" stroke="#7FE0C2" stroke-width="4" opacity=".85"/>
+<!-- struts -->
+<path d="M-352-38L-394-118L-384-122L-338-46Z" fill="#6E8398"/>
+<path d="M-352 34L-394 118L-384 122L-338 40Z" fill="#2E3A4A"/>
+<!-- far (port) pylon + fin -->
+<path d="M-150-66L-30-70L-150-128L-196-140L-212-140L-176-104Z" fill="url(#gFinF)"/>
+<path d="M-30-70L-150-128L-196-140" fill="none" stroke="#8EA3B5" stroke-width="2" opacity=".55"/>
+<path d="M-110-72L-170-120M-70-72L-150-116" stroke="#1E2735" stroke-width="1.5" opacity=".7"/>
+<path d="M-250-144L-130-146C-120-146-116-142-122-138L-240-134C-252-134-256-142-250-144Z" fill="#3E4D62"/>
+<path d="M-250-144L-130-146" stroke="#7E93A8" stroke-width="2"/>
+<circle cx="-124" cy="-142" r="22" fill="url(#gRedGlow)"/>
+<circle cx="-124" cy="-142" r="4" fill="#FFD0C4"/>
+<!-- keel pod -->
+<path d="M-170 52L100 52C126 54 128 70 104 74L-150 78C-176 76-182 60-170 52Z" fill="url(#gKeel)"/>
+<path d="M-150 62L104 60" stroke="#55677D" stroke-width="1.5"/>
+<path d="M-80 56V76M0 56V75M60 56V74" stroke="#10151E" stroke-width="2"/>
+<!-- collars -->
+<path d="M-218-40H-194V40H-218Z" fill="url(#gCollar)"/>
+<path d="M-216-36V36M-208-38V38M-200-36V36" stroke="#5E7389" stroke-width="1.4"/>
+<path d="M122-50H144V40H122Z" fill="url(#gCollar)"/>
+<path d="M128-46V38M136-46V38" stroke="#5E7389" stroke-width="1.4"/>
+<!-- SEGMENT A: engine block -->
+<use href="#pA" fill="url(#gSide)"/>
+<g clip-path="url(#cA)">
+<path d="M-360-60H-210V-22L-340-20L-360-14Z" fill="url(#gTop)"/>
+<path d="M-356-14L-340-20L-214-22" fill="none" stroke="#E6EEF2" stroke-width="2" opacity=".8"/>
+<path d="M-350 4H-210V16H-350Z" fill="#B4573E"/><path d="M-350 2H-210" stroke="#C9974A" stroke-width="2"/>
+<g fill="#1E2735"><rect x="-330" y="-44" width="6" height="18"/><rect x="-316" y="-45" width="6" height="19"/><rect x="-302" y="-46" width="6" height="20"/><rect x="-288" y="-46" width="6" height="20"/><rect x="-274" y="-47" width="6" height="21"/><rect x="-260" y="-47" width="6" height="21"/></g>
+<rect x="-334" y="-10" width="100" height="9" rx="2" fill="#141A24"/>
+<path d="M-330-6H-238" stroke="#7FE0C2" stroke-width="2" stroke-dasharray="7 5"/>
+<path d="M-340 28H-216M-280 16V44" stroke="#1C2432" stroke-width="1.2"/>
+<path d="M-356 30L-214 34V50H-356Z" fill="#0B0E1A" opacity=".35"/>
+</g>
+<path d="M-356-30L-340-48L-214-52" fill="none" stroke="#F4EEDC" stroke-width="1.5" opacity=".7"/>
+<path d="M-214 46L-340 42L-356 26" fill="none" stroke="#7FE0C2" stroke-width="1.5" opacity=".4"/>
+<!-- SEGMENT B: habitat -->
+<use href="#pB" fill="url(#gSide)"/>
+<g clip-path="url(#cB)">
+<path d="M-200-80H130V-30H-200Z" fill="url(#gTop)"/>
+<path d="M-200-30H130" stroke="#E6EEF2" stroke-width="2" opacity=".8"/>
+<path d="M-200 6H130V20H-200Z" fill="#B4573E"/><path d="M-200 3H130" stroke="#C9974A" stroke-width="2"/><path d="M-200 21H130" stroke="#7A3424" stroke-width="1.5"/>
+<path d="M-120-30V-74M-40-30V-74M40-30V-74M-196 34H124M-120 21V58M40 21V58" stroke="#1C2432" stroke-width="1.2" opacity=".8"/>
+<path d="M-180-52H-130M-110-52H-50M-30-52H30M50-52H110" stroke="#5E7389" stroke-width="1.2"/>
+<!-- dorsal hatch + vents -->
+<rect x="-100" y="-62" width="44" height="22" rx="4" fill="#8EA3B5" stroke="#4F6178" stroke-width="1.5"/>
+<path d="M-94-51H-62" stroke="#4F6178" stroke-width="2"/>
+<g fill="#4F6178"><rect x="-20" y="-60" width="40" height="3"/><rect x="-20" y="-54" width="40" height="3"/><rect x="-20" y="-48" width="40" height="3"/></g>
+<!-- side cargo hatch -->
+<rect x="-30" y="26" width="64" height="26" rx="3" fill="#29323F" stroke="#10151E" stroke-width="1.5"/>
+<path d="M-26 48l6-6h7l-6 6zM-10 48l6-6h7l-6 6zM6 48l6-6h7l-6 6zM22 48l6-6h6v1l-5 5z" fill="#F2C94C"/>
+<rect x="-18" y="31" width="40" height="4" rx="2" fill="#4F6178"/>
+<!-- RCS -->
+<rect x="96" y="-22" width="16" height="10" rx="2" fill="#1A212D"/><rect x="96" y="-22" width="16" height="3" fill="#F2C94C"/>
+<path d="M-198 40L126 42V60H-198Z" fill="#0B0E1A" opacity=".35"/>
+</g>
+<path d="M-198-56C-170-70-120-74-60-74L60-74C96-74 118-68 126-58" fill="none" stroke="#F4EEDC" stroke-width="1.5" opacity=".75"/>
+<path d="M126 46C110 58 80 62 40 62L-120 62C-160 62-186 56-198 46" fill="none" stroke="#7FE0C2" stroke-width="1.5" opacity=".4"/>
+<!-- SEGMENT C: forebody -->
+<use href="#pC" fill="url(#gSide)"/>
+<g clip-path="url(#cC)">
+<path d="M130-80H430V0C350-12 270-24 196-26L140-26Z" fill="url(#gTop)"/>
+<path d="M140-26L196-26C270-24 350-12 430 0" fill="none" stroke="#E6EEF2" stroke-width="2" opacity=".8"/>
+<path d="M140 6L196 5C270 3 340 0 430-1V7C340 10 270 16 196 20L140 20Z" fill="#B4573E"/>
+<path d="M140 3L196 2C270 0 340-3 430-4" fill="none" stroke="#C9974A" stroke-width="2"/>
+<path d="M140 21L196 21C270 17 340 11 430 8" fill="none" stroke="#7A3424" stroke-width="1.5"/>
+<path d="M240-26C244 0 244 20 240 40M340-12C343 4 342 14 340 26" stroke="#141A24" stroke-width="2.5" fill="none"/>
+<path d="M196 34C260 30 320 22 380 12" stroke="#1C2432" stroke-width="1.2" fill="none"/>
+<!-- chin window band -->
+<path d="M330-8C360-5 384-2 404 1" stroke="#141A24" stroke-width="5" stroke-linecap="round"/><g fill="#7FE0C2"><circle cx="340" cy="-6.5" r="1.6"/><circle cx="356" cy="-4.8" r="1.6"/><circle cx="372" cy="-3" r="1.6"/><circle cx="388" cy="-1.3" r="1.6"/></g>
+<path d="M140 36L196 40C270 34 350 20 430 4V60H140Z" fill="#0B0E1A" opacity=".35"/>
+</g>
+<path d="M140-58C150-66 170-68 196-66C260-62 340-40 414-8" fill="none" stroke="#F4EEDC" stroke-width="1.5" opacity=".75"/>
+<path d="M414 7C350 26 270 42 196 46C168 47 150 46 140 40" fill="none" stroke="#7FE0C2" stroke-width="1.5" opacity=".45"/>
+<!-- lark emblem -->
+<circle cx="262" cy="-20" r="11" fill="#2E3A4A" stroke="#C9974A" stroke-width="2"/>
+<path d="M253-19C257-23 261-23 263-21C266-26 270-27 273-26C270-24 268-21 267-18C264-15 258-15 253-19Z" fill="#F2C94C"/>
+<!-- windows -->
+<g>
+<circle cx="-160" cy="-12" r="15" fill="url(#gWin)"/><circle cx="-128" cy="-12" r="15" fill="url(#gWin)"/><circle cx="-96" cy="-12" r="15" fill="url(#gWin)"/><circle cx="-64" cy="-12" r="15" fill="url(#gWin)"/><circle cx="8" cy="-12" r="15" fill="url(#gWin)"/><circle cx="40" cy="-12" r="15" fill="url(#gWin)"/><circle cx="72" cy="-12" r="15" fill="url(#gWin)"/><circle cx="176" cy="-12" r="13" fill="url(#gWin)"/><circle cx="206" cy="-12" r="13" fill="url(#gWin)"/>
+</g>
+<g fill="#FFD48A" stroke="#C9974A" stroke-width="1.6">
+<circle cx="-160" cy="-12" r="5.5"/><circle cx="-128" cy="-12" r="5.5"/><circle cx="-96" cy="-12" r="5.5"/><circle cx="-64" cy="-12" r="5.5"/><circle cx="8" cy="-12" r="5.5"/><circle cx="40" cy="-12" r="5.5"/><circle cx="72" cy="-12" r="5.5"/><circle cx="176" cy="-12" r="4.5"/><circle cx="206" cy="-12" r="4.5"/>
+</g>
+<path d="M-300-40L-214-42L-198-46L126-50L196-58C260-54 320-46 366-40L360-30C320-36 260-44 196-48L126-40L-198-36L-214-32L-300-30Z" fill="#141A24" opacity=".35" filter="url(#fBlurS)"/>
+<!-- dorsal spine with integrated canopy -->
+<path d="M-304-66C-220-88-120-100-40-102L190-106C262-108 334-86 372-42L366-40C330-80 262-100 190-98L-40-94C-120-92-220-80-300-58Z" fill="url(#gTop)"/>
+<path d="M-300-58C-220-80-120-92-40-94L190-98C262-100 330-80 366-40C320-46 260-54 196-58L126-50L-198-46L-214-42L-300-40Z" fill="url(#gSpine)"/>
+<path d="M-300-58C-220-80-120-92-40-94L190-98C262-100 330-80 366-40" fill="none" stroke="#F4EEDC" stroke-width="1.6" opacity=".85"/>
+<path d="M-304-66C-220-88-120-100-40-102L190-106C262-108 334-86 372-42" fill="none" stroke="#F4EEDC" stroke-width="1" opacity=".5"/>
+<path d="M-300-40L-214-42L-198-46L126-50L196-58C260-54 320-46 366-40" fill="none" stroke="#141A24" stroke-width="2" opacity=".7"/>
+<path d="M-120-90V-48M-40-92V-50M60-96V-52M140-98V-54" stroke="#2A3444" stroke-width="1.4"/>
+<g fill="#2A3444"><rect x="-250" y="-66" width="40" height="3"/><rect x="-250" y="-60" width="40" height="3"/><rect x="-250" y="-54" width="40" height="3"/></g>
+<g fill="#FFD48A"><rect x="-100" y="-76" width="12" height="6" rx="2"/><rect x="-80" y="-77" width="12" height="6" rx="2"/><rect x="-20" y="-78" width="12" height="6" rx="2"/><rect x="0" y="-78" width="12" height="6" rx="2"/><rect x="80" y="-80" width="12" height="6" rx="2"/><rect x="100" y="-80" width="12" height="6" rx="2"/></g>
+<rect x="20" y="-90" width="30" height="10" rx="2" fill="#2E3A4A"/><rect x="20" y="-90" width="30" height="3" fill="#F2C94C"/>
+<!-- canopy -->
+<path d="M200-98L262-100C302-98 340-76 362-42C320-48 262-56 200-60Z" fill="url(#gGlass)"/>
+<path d="M200-106L262-108C302-106 340-84 368-42L362-42C340-76 302-98 262-100L200-98Z" fill="#FFE3A6" opacity=".8"/>
+<path d="M236-99V-58M276-98C280-86 282-72 280-54M314-86C318-74 318-62 316-50" fill="none" stroke="#4A2E1C" stroke-width="2.4"/>
+<path d="M208-92L258-94C284-93 306-84 322-72" fill="none" stroke="#FFFFFF" stroke-width="3" opacity=".75" stroke-linecap="round"/>
+<path d="M200-60C262-56 320-48 362-42" fill="none" stroke="#C9974A" stroke-width="3"/>
+<ellipse cx="280" cy="-70" rx="90" ry="40" fill="url(#gWin)" opacity=".5"/>
+<!-- mast + dish on spine -->
+<path d="M70-100L64-150" stroke="#8EA3B5" stroke-width="2.5"/>
+<path d="M54-128L74-130M57-140L71-141" stroke="#8EA3B5" stroke-width="1.5"/>
+<circle cx="64" cy="-152" r="3" fill="#E0473C"/>
+<path d="M-150-92L-156-110" stroke="#6E8398" stroke-width="5"/>
+<ellipse cx="-162" cy="-118" rx="9" ry="20" transform="rotate(-35 -162 -118)" fill="#D5E0E8" stroke="#4F6178" stroke-width="1.5"/>
+<ellipse cx="-160" cy="-118" rx="5" ry="13" transform="rotate(-35 -160 -118)" fill="#A3B6C5"/>
+<path d="M-160-118L-140-126" stroke="#2E3A4A" stroke-width="2"/><circle cx="-139" cy="-126" r="2.5" fill="#7FE0C2"/>
+<!-- nose probe -->
+<path d="M418 0L460-4" stroke="#8EA3B5" stroke-width="2"/>
+<circle cx="461" cy="-4" r="3" fill="#F4EEDC"/>
+<circle cx="461" cy="-4" r="9" fill="url(#gWin)"/>
+<!-- canard -->
+<path d="M300 30L250 74L226 76L240 38Z" fill="url(#gFinN)"/>
+<path d="M300 30L250 74" stroke="#F4EEDC" stroke-width="1.6" opacity=".8"/>
+<circle cx="238" cy="74" r="2.5" fill="#F4EEDC"/>
+<!-- nozzle -->
+<path d="M-356-30L-382-24V24L-356 26Z" fill="#2E3A4A"/>
+<path d="M-356-30L-382-24V-8L-356-10Z" fill="#5C6F86"/>
+<ellipse cx="-382" cy="0" rx="9" ry="24" fill="#C9974A"/>
+<ellipse cx="-384" cy="0" rx="7" ry="20" fill="#FFF4D6"/>
+<ellipse cx="-400" cy="0" rx="56" ry="62" fill="url(#gCore)"/>
+<!-- near (starboard) pylon + fin -->
+<path d="M-10 46L-140 112L-200 132L-226 132L-180 96L-140 50Z" fill="url(#gFinN)"/>
+<path d="M-10 46L-140 112L-200 132" fill="none" stroke="#F4EEDC" stroke-width="2" opacity=".85"/>
+<path d="M-140 50L-180 96L-226 132" fill="none" stroke="#1E2735" stroke-width="2"/>
+<path d="M-50 56L-150 106M-100 54L-180 110" stroke="#3E4D62" stroke-width="1.4"/>
+<path d="M-70 62L-96 78L-124 78L-100 62Z" fill="#C2703D"/>
+<path d="M-276 128L-130 126C-114 126-110 136-122 142L-262 146C-282 146-288 132-276 128Z" fill="#4F6178"/>
+<path d="M-276 128L-130 126C-118 126-114 130-116 133L-280 136Z" fill="#B5C6D3"/>
+<path d="M-266 144L-124 140" stroke="#232C3A" stroke-width="3"/>
+<path d="M-236 128V145M-186 127V144" stroke="#1E2735" stroke-width="1.5"/>
+<circle cx="-118" cy="134" r="32" fill="url(#gMintGlow)"/>
+<circle cx="-118" cy="134" r="5" fill="#E8FFF8"/>
+<!-- ring front half -->
+<path d="M-400-124A48 124 0 0 0-400 124" fill="none" stroke="url(#gRing)" stroke-width="22"/>
+<path d="M-406-122A48 124 0 0 0-406 122" fill="none" stroke="#F4EEDC" stroke-width="2" opacity=".5"/>
+<path d="M-400-112A40 112 0 0 0-400 112" fill="none" stroke="#7FE0C2" stroke-width="3"/>
+<path d="M-400-112A40 112 0 0 0-400 112" fill="none" stroke="#7FE0C2" stroke-width="12" opacity=".45" filter="url(#fBlur)"/>
+<g fill="#2C2018"><rect x="-454" y="-14" width="12" height="28" rx="3"/><rect x="-446" y="-74" width="10" height="20" rx="3" transform="rotate(20 -441 -64)"/><rect x="-446" y="54" width="10" height="20" rx="3" transform="rotate(-20 -441 64)"/></g>
+<circle cx="-448" cy="0" r="3" fill="#FFC66B"/><circle cx="-438" cy="-64" r="2.5" fill="#E8FFF8"/><circle cx="-438" cy="64" r="2.5" fill="#E8FFF8"/>
+</g>
+</svg>

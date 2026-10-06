@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sternenschicht</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; background: #0B0E1A; overflow: hidden; }
+  body { font-family: monospace; color: #F4EEDC; }
+  #game {
+    position: absolute; left: 0; top: 0;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    background: #0B0E1A; outline: none;
+  }
+  #lobbyName, #lobbyCode {
+    position: absolute; display: none; box-sizing: border-box;
+    background: #0B0E1A; color: #7FE0C2; border: 2px solid #C9974A;
+    font-family: monospace; padding: 0 6px; outline: none;
+  }
+  #lobbyName:focus, #lobbyCode:focus { border-color: #FFC66B; }
+  #lobbyCode { text-transform: uppercase; letter-spacing: 0.2em; text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="game" width="640" height="360" tabindex="0"></canvas>
+<input id="lobbyName" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Name">
+<input id="lobbyCode" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Raumcode">
+<script src="/shared/config.js"></script>
+<script src="/shared/maps.js"></script>
+<script src="/shared/locations.js"></script>
+<script src="/shared/protocol.js"></script>
+<script src="/shared/physics.js"></script>
+<script src="/shared/los.js"></script>
+<script src="js/art.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/net.js"></script>
+<script src="js/render.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/consoles.js"></script>
+<script src="js/dev-mock.js"></script>
+<script src="js/client.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+shots/
+data/
+.env
+*.log

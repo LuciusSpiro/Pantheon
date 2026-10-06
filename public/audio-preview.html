@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sternenschicht – Audio-Vorschau</title>
+<style>
+  :root { --bg:#0B0E1A; --panel:#2E3A4A; --panel2:#4F6178; --mint:#7FE0C2; --amber:#FFC66B;
+          --brass:#C9974A; --red:#E0473C; --white:#F4EEDC; --light:#8EA3B5; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--white);
+         font:14px/1.4 system-ui, "Segoe UI", sans-serif; }
+  h1 { margin:0 0 4px; font-size:20px; color:var(--amber); }
+  h2 { margin:18px 0 8px; font-size:15px; color:var(--brass); text-transform:uppercase; letter-spacing:.06em; }
+  .hint { color:var(--light); margin:0 0 12px; }
+  .grid { display:flex; flex-wrap:wrap; gap:6px; }
+  button { background:var(--panel); color:var(--white); border:1px solid var(--panel2); border-radius:4px;
+           padding:6px 10px; font:inherit; cursor:pointer; }
+  button:hover { border-color:var(--mint); }
+  button.on { background:var(--mint); color:var(--bg); border-color:var(--mint); }
+  button.loud { border-color:var(--red); }
+  button.m1 { box-shadow: inset 3px 0 0 var(--amber); }
+  button.m2 { box-shadow: inset 3px 0 0 var(--mint); }
+  .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+  label { display:flex; gap:8px; align-items:center; }
+  input[type=range] { width:180px; accent-color:var(--mint); }
+  #status { margin-top:18px; padding:8px 10px; background:var(--panel); border-left:3px solid var(--mint);
+            font-family:Consolas, monospace; font-size:12px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Sternenschicht – Audio-Vorschau</h1>
+<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“).</p>
+
+<h2>Musik</h2>
+<div class="grid" id="moods"></div>
+<div class="row" style="margin-top:8px">
+  <label>Kampf-Intensität <input type="range" id="intensity" min="0" max="1" step="0.05" value="0"> <span id="intensityVal">0.00</span></label>
+</div>
+
+<h2>Loops</h2>
+<div class="grid" id="loops"></div>
+
+<h2>Sounds</h2>
+<div class="row" style="margin-bottom:8px">
+  <label>Panorama <input type="range" id="pan" min="-1" max="1" step="0.1" value="0"> <span id="panVal">0.0</span></label>
+  <label>Sound-Lautstärke <input type="range" id="sfxVol" min="0" max="1" step="0.05" value="1"></label>
+</div>
+<div class="grid" id="sounds"></div>
+
+<h2>M2 – Parameter-Varianten</h2>
+<p class="hint">shield_hit/shield_up mit <code>seg</code>, bark mit <code>syl</code>/<code>text</code>/<code>q</code>, enemy_aim mit <code>dist</code>. Panorama und Sound-Lautstärke oben gelten auch hier.</p>
+<div class="grid" id="variants"></div>
+
+<h2>Master</h2>
+<div class="row">
+  <label>Lautstärke <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
+  <label><input type="checkbox" id="mute"> Stumm</label>
+</div>
+
+<div id="status">Audio noch nicht gestartet.</div>
+
+<script src="js/audio.js"></script>
+<script>
+(function () {
+  'use strict';
+  var A = window.GameAudio;
+  var $ = function (id) { return document.getElementById(id); };
+  var LOUD = { shield_hit:1, hull_hit:1, explosion_small:1, explosion_big:1, alarm_yellow:1, alarm_red:1, emergency:1, overload_start:1, overload_warn:1, emp:1 };
+  var M1 = { phase:1, scan_tick:1, scan_done:1, widescan:1, marker_set:1, overload_start:1, overload_warn:1, reactor_down:1,
+             reactor_up:1, switch_hold:1, discovery:1, salvage:1, emp:1, pylon_down:1, trade:1, table_sit:1, lore:1, mystery:1 };
+  var M2 = { shield_break:1, shield_up:1, shield_full:1, wounded:1, revive_done:1, pistol:1, enemy_aim:1, enemy_shot:1,
+             warden_wake:1, warden_aim:1, warden_shot:1, warden_deflect:1, cover_hit:1, jammer_off:1, archkey:1,
+             vault_open:1, tablet:1, bark:1, order:1, squad_recall:1, ruin:1 };
+  LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
+  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : '')).trim(); }
+
+  function ensure() { if (A) A.init(); }
+  function make(parent, label, fn, cls) {
+    var b = document.createElement('button');
+    b.textContent = label; b.type = 'button';
+    if (cls) b.className = cls;
+    b.dataset.name = label;
+    b.addEventListener('click', function () { ensure(); fn(b); });
+    parent.appendChild(b);
+    return b;
+  }
+
+  if (!A) { $('status').textContent = 'audio.js nicht geladen.'; return; }
+
+  A.MOODS.forEach(function (m) {
+    make($('moods'), m, function (b) {
+      A.setMusic(m);
+      Array.prototype.forEach.call($('moods').children, function (x) { x.classList.toggle('on', x === b); });
+    }, cls(m));
+  });
+  A.LOOPS.forEach(function (l) {
+    make($('loops'), l, function (b) {
+      var on = !b.classList.contains('on');
+      b.classList.toggle('on', on);
+      A.setLoop(l, on, { volume: 1 });
+    });
+  });
+  A.SOUNDS.forEach(function (s) {
+    make($('sounds'), s, function () {
+      A.play(s, { volume: +$('sfxVol').value, pan: +$('pan').value });
+    }, cls(s));
+  });
+
+  // M2-Varianten mit Parametern
+  function base() { return { volume: +$('sfxVol').value, pan: +$('pan').value }; }
+  function withP(p) { var o = base(); for (var k in p) o[k] = p[k]; return o; }
+  var VARIANTS = [
+    ['shield_hit seg 2/3', 'shield_hit', { seg: 2, max: 3 }],
+    ['shield_hit seg 1/3', 'shield_hit', { seg: 1, max: 3 }],
+    ['shield_hit seg 0/3', 'shield_hit', { seg: 0, max: 3 }],
+    ['shield_up seg 1', 'shield_up', { seg: 1 }],
+    ['shield_up seg 2', 'shield_up', { seg: 2 }],
+    ['shield_up seg 3', 'shield_up', { seg: 3 }],
+    ['bark kurz (2)', 'bark', { syl: 2 }],
+    ['bark Satz', 'bark', { text: 'Da drüben, hinter der Säule! Umgehen!' }],
+    ['bark Frage', 'bark', { text: 'Wo ist der Captain?', q: true }],
+    ['enemy_aim fern', 'enemy_aim', { dist: 0.8 }]
+  ];
+  VARIANTS.forEach(function (v) {
+    make($('variants'), v[0], function () { A.play(v[1], withP(v[2])); }, 'm2');
+  });
+  // Kampfgetümmel: prüft, ob sich enemy_aim durchsetzt (Musik ruin@1 dazuschalten)
+  make($('variants'), 'Getümmel + enemy_aim', function () {
+    var seq = [[0, 'blaster'], [120, 'enemy_shot'], [200, 'cover_hit'], [330, 'blaster'], [420, 'bark'], [520, 'pistol'],
+      [600, 'enemy_aim'], [700, 'blaster'], [820, 'enemy_shot'], [950, 'shield_hit'], [1100, 'blaster'], [1250, 'warden_deflect'], [1450, 'enemy_shot']];
+    seq.forEach(function (s) {
+      setTimeout(function () {
+        A.play(s[1], s[1] === 'shield_hit' ? withP({ seg: 1 }) : s[1] === 'enemy_aim' ? withP({ pan: 0.6 }) : withP({ pan: Math.random() * 1.4 - 0.7 }));
+      }, s[0]);
+    });
+  }, 'm2 loud');
+
+  $('intensity').addEventListener('input', function () {
+    ensure(); A.setIntensity(+this.value); $('intensityVal').textContent = (+this.value).toFixed(2);
+  });
+  $('pan').addEventListener('input', function () { $('panVal').textContent = (+this.value).toFixed(1); });
+  $('volume').addEventListener('input', function () { ensure(); A.setVolume(+this.value); });
+  $('mute').addEventListener('change', function () { ensure(); A.mute(this.checked); });
+
+  setInterval(function () {
+    var s = A.getState();
+    $('status').textContent = 'Kontext: ' + s.ctxState + '   Stimmung: ' + s.mood + '   Intensität: ' + s.intensity.toFixed(2) +
+      '\nLoops: ' + (s.loops.join(', ') || '–') + '   Stimmen: ' + s.voices + '   Lautstärke: ' + s.volume.toFixed(2) +
+      (s.muted ? ' (stumm)' : '') + '   Fehler: ' + s.errors;
+  }, 250);
+})();
+</script>
+</body>
+</html>

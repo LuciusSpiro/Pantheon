@@ -1,0 +1,58 @@
+{
+  "missions": [
+    {
+      "id": "konkordat-kurier",
+      "requires": { "decision": "deliver" },
+      "title": "Der Kurier des Konkordats",
+      "from": "Archivarin Melk (Konkordat der Häfen)",
+      "briefing": "Euer Datenkern hat im Konkordat Türen geöffnet. Drei Häfen wollen eine versiegelte Kapsel quer durch den Saumraum geschickt sehen – diskret, schnell, ohne Fragen. Die Route führt an alten Kustoden-Feuern vorbei, die neuerdings wieder blinken. Das Konkordat zahlt pünktlich. Meistens.",
+      "reward": 260,
+      "hook": "Die Kapsel tickt. Niemand sagt euch, warum."
+    },
+    {
+      "id": "kustoden-spur",
+      "requires": { "decision": "decode" },
+      "title": "Koordinaten aus Stille",
+      "from": "ODA (entschlüsselte Datei)",
+      "briefing": "Der Datenkern ist geknackt: Koordinaten tief im Saumraum, markiert mit einem Kustoden-Siegel, das älter ist als jeder Hafen. Dort draußen soll eine Werft liegen, die nie jemand gefunden hat. Die Vaelen-Händler reden nur im Flüsterton davon. Und die Rostmeute hat dieselben Zahlen gekauft.",
+      "reward": 320,
+      "hook": "Jemand war vor euch da – und hat eine Boje zurückgelassen, die euren Namen funkt."
+    },
+    {
+      "id": "grauzahn-rache",
+      "requires": { "bribed": false },
+      "title": "Grauzahns Rechnung",
+      "from": "Hafenmeisterin Tesk",
+      "briefing": "Ihr habt Grauzahn eine blutige Nase verpasst, und die Rostmeute vergisst so etwas nicht. Ein Konvoi mit Wasserfiltern für die Randsiedlung Hollin braucht Geleitschutz. Grauzahn weiß von dem Konvoi. Ihr wisst, dass er es weiß. Ehrlich gesagt freut sich die halbe Station auf die Fortsetzung.",
+      "reward": 240,
+      "hook": "Grauzahn hat sich ein neues Kanonenboot gekauft – mit euren Bergungsmarken als Anzahlung."
+    },
+    {
+      "id": "rostmeute-schulden",
+      "requires": { "bribed": true },
+      "title": "Wegezoll mit Zinsen",
+      "from": "Grauzahn (Rostmeute)",
+      "briefing": "Grauzahn meldet sich, freundlich wie ein Steuerbescheid: Wer einmal zahlt, ist Kunde. Er bietet einen Handel an – ihr holt eine Kiste aus einem Vaelen-Wrack, dafür lässt die Rostmeute euch drei Fahrten in Ruhe. Das Konkordat würde das nicht gern hören. Tesk auch nicht.",
+      "reward": 180,
+      "hook": "In der Kiste ist etwas, das atmet."
+    },
+    {
+      "id": "ivo-dank",
+      "requires": { "technikerRescued": true },
+      "title": "Ivos Werkzeugkiste",
+      "from": "Techniker Ivo",
+      "briefing": "Ivo ist wieder auf den Beinen und hat eine Bitte: Auf seiner alten Wartungsroute stehen vier Bojen, die seit B-7 ebenfalls schweigen. Er kennt die Zugangscodes – und eine Abkürzung durch einen Vaelen-Nebel, die auf keiner Konkordat-Karte steht. Kekse bringt er wieder mit.",
+      "reward": 200,
+      "hook": "Die vierte Boje antwortet. Mit Ivos Stimme."
+    },
+    {
+      "id": "saumraum-allgemein",
+      "requires": {},
+      "title": "Das Echo von B-7",
+      "from": "Hafenmeisterin Tesk",
+      "briefing": "Seit eurer Rückkehr empfängt die Station ein leises Echo aus Richtung B-7 – ein Kustoden-Signal, das sich wiederholt, jedes Mal ein bisschen näher. Das Konkordat will Messdaten, die Vaelen wollen, dass niemand hinfliegt, und die Rostmeute ist schon unterwegs. Klingt nach einem Job für die Lerche.",
+      "reward": 220,
+      "hook": "Das Signal hat sich gerade umgedreht. Es sendet jetzt in eure Richtung."
+    }
+  ]
+}

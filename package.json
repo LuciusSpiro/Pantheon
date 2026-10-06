@@ -1,0 +1,20 @@
+{
+  "name": "sternenschicht",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sternenschicht – Online-Koop-Raumschiffspiel (Demo „Die stumme Boje“)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "debug": "node --env-file-if-exists=.env server/index.js --debug",
+    "check": "node tools/check-maps.js",
+    "sim": "node tools/sim-headless.js",
+    "test": "node tools/test-features.js && node tools/test-combat.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
