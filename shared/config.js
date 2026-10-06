@@ -23,16 +23,19 @@
     o2: { max: 100, drainLifeBroken: 1, regen: 2, suffocateDps: 2 },
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
-    hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.35, systemCooldown: 12, spill: 0.4 },
+    hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.45, systemCooldown: 10, spill: 0.4 },   // M3a: 0.35/12 -> 0.45/10 (spill ersetzt durch spaceM3-Gewichte)
 
     ship: {
       hull: 100,
-      maxSpeed: 160, accel: 70, turnRate: 1.6, drag: 0.35, // px/s, px/s², rad/s, Anteil pro s
-      dodgeImpulse: 180, dodgeCooldown: 6,
+      maxSpeed: 130, accel: 50, turnRate: 0.5, drag: 0.35, // px/s, px/s², rad/s, Anteil pro s (M3a: 160/70/1.6 -> 130/50/0.5)
+      turnAccel: 0.8,          // M3a: rad/s² – Winkelgeschwindigkeit nähert sich helm.turn × turnRate × turnCap
+      dodgeImpulse: 180, dodgeCooldown: 10,   // M3a: 6 -> 10
       jumpCharge: 8,           // s bis Faltsprung bereit
       beamMaxSpeed: 30,        // Transfer nur langsamer als das
       beamTime: 3, beamTimeDamaged: 6,
-      hullRegen: 0.4, hullRegenMax: 70,   // ohne Gegner und Lecks flicken die Schrauber die Außenhaut (pro s, bis max)
+      // QA M3a: hullRegen 0.4 -> 1.5 – im Testgelände (12 s Pause) kam die Hülle nach einem Notfallprotokoll kaum über 30,
+      // jede folgende Welle löste das nächste aus (Kaskade). Jetzt +18 Hülle je Pause; in Missionen schneller zurück auf 70.
+      hullRegen: 1.5, hullRegenMax: 70,   // ohne Gegner und Lecks flicken die Schrauber die Außenhaut (pro s, bis max)
     },
     power: { reactor: 8, reactorDamaged: 6, reactorBroken: 3, maxPerSystem: 4, heatAt4: 8, heatCool: 4, heatLimit: 100,
       default: { engines: 2, shields: 2, weapons: 2, life: 2 } },
@@ -48,7 +51,8 @@
     },
     enemies: {
       raider: { hp: 12, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
-      gunboat: { hp: 40, speed: 50, fireInterval: 3, damage: 2, range: 500, salvage: 60 },
+      // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Kanonenboot-Welle bis 60 Hülle)
+      gunboat: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
       relay: { hp: 2, speed: 30, fireInterval: 999, damage: 0, range: 0, salvage: 5 },   // Störrelais der Boje (schießt nicht)
       // M1: Kustoden-Wächter (EMP) und Pylonen (Frontschild, dreht langsam)
       sentinel: { hp: 18, speed: 35, fireInterval: 3.2, damage: 1, range: 330, salvage: 80, emp: true },
@@ -83,7 +87,7 @@
     // M0: Hafen-Übung überspringen – ODA-Begrüßung und Funkspruch von Tesk (s nach Stage-Beginn)
     drillSkip: { greetAt: 0.5, radioAt: 6 },
     shop: [
-      { id: 'seitenturm', name: 'Seitenturm', price: 300, kind: 'upgrade', where: ['hafen'] },
+      { id: 'seitenturm', name: 'Zusatzrohre', price: 300, kind: 'upgrade', where: ['hafen'] },
       { id: 'schildpool', name: 'Schildpool +2', price: 250, kind: 'upgrade', where: ['hafen'] },
       { id: 'schrauber3', name: 'Dritter Schrauber', price: 200, kind: 'upgrade', where: ['hafen'] },
       { id: 'bolzenwerfer', name: 'Bolzenwerfer (Heck)', price: 220, priceVaelen: 160, kind: 'upgrade' },   // M1: kein Start-Mount mehr
@@ -120,14 +124,18 @@
     combat: {
       beamTtl: 0.25, bolzenTurnRate: 1.6, bolzenShotDelay: 0.8, bolzenTtl: 3,
       enemyShotSpeed: 210, enemyShotTtl: 4,
-      raiderOrbit: 250, gunboatDist: 380, hitRadius: { raider: 16, gunboat: 32, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
+      // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
+      // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)
+      raiderOrbit: 320, gunboatDist: 380, hitRadius: { raider: 16, gunboat: 32, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
       retreatTime: 30, retreatDist: 750, spawnDist: 900,
       gunboatBroadside: 10, gunboatCrossing: 40,  // s: Breitseite halten, dann quer vor dem Bug auf die andere Seite wechseln (max. s)
     },
     // Skalierung nach Crewgröße (verbundene Spieler): Feuerintervall-Faktor und Gegner-HP-Faktor
     // QA: zu dritt gab es mit 1/1 fünf Notfallprotokolle pro Durchlauf – entschärft
     // M1: mit Gegner-Schildsektoren solo milder (QA-Ziel: höchstens 1–2 Notfallprotokolle pro Abend)
-    crewScaling: { 1: { enemyFireInterval: 2.2, enemyHp: 0.5 }, 2: { enemyFireInterval: 1.7, enemyHp: 0.7 }, 3: { enemyFireInterval: 1.5, enemyHp: 0.85 } },
+    // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
+    // Notfallprotokolle je Lauf; im Browser dauerten Kanonenboot-Wellen 80–150 s)
+    crewScaling: { 1: { enemyFireInterval: 2.2, enemyHp: 0.5 }, 2: { enemyFireInterval: 1.7, enemyHp: 0.7 }, 3: { enemyFireInterval: 1.7, enemyHp: 0.7 } },
     emergency: { hull: 30, marksCost: 50 },
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
@@ -146,7 +154,7 @@
     drill: { fire: { x: 25, y: 2 }, breach: { x: 29, y: 4 }, system: 'transfer', timeout: 150 },
     weaponPowerFactor: [null, 1.6, 1, 0.8, 0.65], // Ladezeit-Faktor je Energie-Stufe (null = lädt nicht)
     enginePowerFactor: [0, 0.5, 0.8, 1, 1.15],
-    stateFactor: { engines: { damaged: 0.5, broken: 0.2 }, weapons: { damaged: 1.5 } },
+    stateFactor: { engines: { damaged: 0.5, broken: 0 }, weapons: { damaged: 1.5 } },   // M3a: Triebwerk zerstört = kein Schub
     shieldsDamagedInterval: 8,
 
     // ================= M1 (Team SERVER) =================
@@ -237,10 +245,31 @@
       firstWaveAt: 6,          // s nach Start bis Welle 1
       nextWaveDelay: 12,       // s nach Räumung bis zur nächsten Welle
       spawnSpread: 0.7,        // rad zwischen den Gegnern einer Welle (Anflug von vorn)
-      waves: [['raider', 'raider'], ['raider', 'gunboat'], ['sentinel', 'raider', 'raider']],
+      waves: [['raider', 'raider'], ['raider', 'gunboat'], ['sentinel', 'raider', 'raider'],
+        ['gunboat', 'raider'], ['pylon', 'gunboat']],   // M3a §15: Wellen 4 und 5
+      pylonAt: { dx: 120, dy: -430 },   // M3a: Pylon fest relativ zu shipPos (im Backbord-Bogen der Startlage)
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
     },
 
+    // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
+    spaceM3: {
+      enemyHpFactor: 0.8, reactorBrokenOutput: 2, centreChance: 0.15, sectorWeight: 3, neighbourWeight: 1,
+      turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
+      mounts: {
+        bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 24, damagedFactor: 1.5 },
+        port: { facing: -90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 16, salvoGap: 0.15 },
+        stbd: { facing: 90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 16, salvoGap: 0.15 },
+      },
+      allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
+      aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,
+      // QA M3a: gunboat.damage 4 -> 3 (ein voller Treffer kostete 20 Hülle, jetzt 15)
+      tele: { gunboat: { dur: 3, damage: 3 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
+        delayPerHit: 1, delayMax: 2, captainSeesLast: 1.2, odaCooldown: 4 },
+      burst: { duration: 1.5, perfect: 0.5, absorb: 5, absorbDamaged: 2, cooldown: 8 },
+      repair: { flickTime: 1.5, partTime: 3, minigameMinTime: 2.5, queueMax: 3, odaCooldown: 3 },
+      // ---- Ergänzung SERVER-COMBAT ----
+      raiderFlip: 9,   // s: Jäger wechseln die Kreisrichtung (sonst parken sie im toten Winkel achtern); 0 = aus
+    },
     // Raumszenen (px im Taktik-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {
       port: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, station: { x: 520, y: 700 }, arrival: { x: 1650, y: 860, angle: 3.3 } },

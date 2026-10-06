@@ -10,8 +10,61 @@ const { makeRng, clamp, dist, turnToward } = require('../util.js');
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
 const JAMMERS = ['raider', 'gunboat'];   // Rostmeute: Störsender blockieren den Faltsprung
 const isDown = (st) => st === 'broken' || st === 'offline';
+const r1 = (v) => Math.round(v * 10) / 10;
+const r2 = (v) => Math.round(v * 100) / 100;
+const EPS = 1e-6;   // Gleitkomma-Rest bei Gegner-HP/-Schilden
 
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+// ---------- M3a: Grunddaten (CONTRACT-M3 §4, §5) ----------
+const M3_MOUNTS = ['bow', 'port', 'stbd'];
+const BATTERIES = ['port', 'stbd'];
+const MOUNT_SYSTEM = { bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' };
+const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd'];
+// Altnamen eingehender Befehle (§5.1). seitenturm (früher Steuerbord-Turm) -> stbd.
+const MOUNT_ALIAS = { phase_l: 'port', phase_r: 'stbd', both: 'all', seitenturm: 'stbd', lanze: 'bow' };
+const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Sektor 0..3
+const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thruster_port', 'thruster_stbd',
+  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
+const SECTOR_LABEL = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
+const ENEMY_LABEL = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
+
+function M3(game) { return game.C.spaceM3; }
+function sysState(game, sys) { const s = game.ship.systems[sys]; return s == null ? 'ok' : s; }
+function stateKey(st) { return st === 'offline' ? 'broken' : (st || 'ok'); }   // offline (EMP) wirkt wie zerstört
+function emitterFor(sector) {
+  if (typeof interior.emitterFor === 'function') { const e = interior.emitterFor(sector); if (e) return e; }
+  return EMITTERS[sector];
+}
+function normMount(mount) { const m = String(mount); return MOUNT_ALIAS[m] || m; }
+function mountCfg(game, mount) {
+  const m = normMount(mount);
+  if (M3_MOUNTS.includes(m)) return M3(game).mounts[m];
+  return game.C.weapons[m] || null;
+}
+
+// Zustand lazy ergänzen: game.js (SERVER-SHIP) legt evtl. noch den alten Zustand an.
+function ensureM3(game) {
+  const ship = game.ship; const S = M3(game);
+  if (ship._m3) return;
+  ship._m3 = true;
+  for (const sys of M3_SYSTEMS) if (ship.systems[sys] == null) ship.systems[sys] = 'ok';
+  if (!ship.fragile) ship.fragile = {};
+  const m = ship.mount || (ship.mount = {});
+  for (const k of M3_MOUNTS) if (!m[k]) m[k] = { charge: 1, alloc: S.allocDefault[k] || 0 };
+  m.bow.aim = m.bow.aim || null;
+  for (const k of BATTERIES) { const b = m[k]; if (b.hold == null) b.hold = false; b.salvo = b.salvo || 0; b.salvoT = 0; b.salvoTarget = null; }
+  if (!m.bolzen) m.bolzen = { loaded: game.C.weapons.bolzen.magazine, reloadT: null, shotT: 0 };
+  if (!ship.wAllocIntent) ship.wAllocIntent = Object.assign({}, S.allocDefault);
+  if (ship.turnVel == null) ship.turnVel = 0;
+  const sh = ship.shields;
+  if (sh.burst === undefined) sh.burst = null;
+  if (sh.burstCd == null) sh.burstCd = 0;
+  if (!sh.cap) sh.cap = [4, 4, 4, 4];
+  const st = game.stats;
+  for (const k of ['bursts', 'burstsPerfect']) if (st[k] == null) st[k] = 0;
+}
 
 // ---------- Szenen ----------
 // opts.docked: Start angedockt (nur Orte mit Liegeplatz). Sonst Ankunft am arrive-Punkt.
@@ -27,6 +80,10 @@ function enterScene(game, locId, opts) {
   ship.vx = 0; ship.vy = 0; ship.speed = 0;
   ship.docked = docked; ship.dockedAt = docked ? loc.id : null; ship.dockArmed = !docked;
   ship.helm.turn = 0; ship.helm.thrust = 0;
+  ensureM3(game);
+  ship.turnVel = 0;
+  ship.mount.bow.aim = null;
+  for (const k of BATTERIES) { ship.mount[k].salvo = 0; ship.mount[k].salvoTarget = null; }
   ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false;
   ship.target = null;
   ship.markers = { captain: null, tactical: null };
@@ -104,7 +161,9 @@ function updateSalvage(game) {
 // ---------- Energie / Reaktor (§6) ----------
 function baseReactorOutput(game) {
   const P = game.C.power; const s = game.ship.systems.reactor;
-  return isDown(s) ? P.reactorBroken : s === 'damaged' ? P.reactorDamaged : P.reactor;
+  // M3a §4.2: zerstört = Notstrom spaceM3.reactorBrokenOutput (2)
+  const broken = M3(game).reactorBrokenOutput != null ? M3(game).reactorBrokenOutput : P.reactorBroken;
+  return isDown(s) ? broken : s === 'damaged' ? P.reactorDamaged : P.reactor;
 }
 function reactorOutput(game) {
   const R = game.C.reactorM1; const rc = game.ship.reactorCtl;
@@ -131,19 +190,36 @@ function enforcePower(game) {
 }
 function shieldPool(game) {
   const C = game.C; const ship = game.ship;
+  const gen = ship.systems.shields;
+  if (isDown(gen)) return 0;   // M3a §4.2: Generator zerstört = keine Schilde
   let pool = ship.power.shields * C.shields.pointsPerPower + (game.upgrades.schildpool ? 2 : 0);
+  if (gen === 'damaged') pool += M3(game).generatorDamagedPool || 0;   // beschädigt: Pool −2
   if (game.time < game.away.kuppelUntil) pool -= C.support.kuppel.shieldCost;
   return Math.max(0, pool);
+}
+// M3a §4.2: Emitter je Sektor begrenzen, was der Sektor hält (cap 4 -> 2 -> 0).
+function shieldCaps(game) {
+  const C = game.C; const f = M3(game).emitterCap;
+  const out = [];
+  for (let i = 0; i < 4; i++) {
+    const st = stateKey(sysState(game, emitterFor(i)));
+    const k = f[st] != null ? f[st] : 1;
+    out.push(Math.floor(C.shields.maxPerSector * k));
+  }
+  return out;
 }
 function enforceShields(game) {
   const sh = game.ship.shields; const pool = shieldPool(game);
   sh.pool = pool;
+  const cap = shieldCaps(game);
+  sh.cap = cap;
   if (!sh.allocIntent) sh.allocIntent = sh.alloc.slice();
-  sh.alloc = sh.allocIntent.slice();
+  sh.alloc = sh.allocIntent.map((v, i) => Math.min(v, cap[i]));
   while (sh.alloc.reduce((a, b) => a + b, 0) > pool) {
     let top = 0; for (let i = 0; i < 4; i++) if (sh.alloc[i] > sh.alloc[top]) top = i;
     sh.alloc[top]--;
   }
+  for (let i = 0; i < 4; i++) if (sh.current[i] > cap[i]) sh.current[i] = cap[i];
 }
 
 function switchHolders(game) {
@@ -209,9 +285,23 @@ function captainOverload(game) {
   return null;
 }
 
+// M3a §4.1: 'weapons' ist Altname = schlechtester Zustand von Lanze und Batterien. Bei SERVER-SHIP ist das ein
+// Getter (interior.makeSystems); nur wenn es ein einfaches Feld ist (alter Zustand), schreiben wir es nach.
+function syncWeaponsAlias(game) {
+  const s = game.ship.systems;
+  const d = Object.getOwnPropertyDescriptor(s, 'weapons');
+  if (d && (d.get || d.set || !d.writable)) return;
+  let worst = 'ok';
+  for (const k of WEAPON_SYSTEMS) { const v = s[k] || 'ok'; if (STATE_RANK[v] > STATE_RANK[worst]) worst = v; }
+  s.weapons = worst;
+}
+// Hitze (§4.2): Auswahl macht interior.heatDamage(game, powerSys) (SERVER-SHIP).
+function heatDamage(game, k) { interior.heatDamage(game, k); }
+
 function updateSystems(game, dt) {
   const C = game.C; const ship = game.ship;
   interior.updateOffline(game, dt);
+  syncWeaponsAlias(game);
   updateReactor(game, dt);
   enforcePower(game);
   const rc = ship.reactorCtl;
@@ -223,7 +313,8 @@ function updateSystems(game, dt) {
     else ship.heat[k] = Math.max(0, ship.heat[k] - C.power.heatCool * dt);
     if (ship.heat[k] >= C.power.heatLimit) {
       ship.heat[k] = 0;
-      if (ship.systems[k] === 'ok') interior.damageSystem(game, k, 'damaged');
+      heatDamage(game, k);
+      syncWeaponsAlias(game);
       game.oda(`${cap(interior.sysNameNom(k))} ist überhitzt! Stufe 4 nur kurz fahren, sonst wird's warm.`, 'heat_' + k);
     }
   }
@@ -237,10 +328,19 @@ function updateSystems(game, dt) {
   // Schilde
   enforceShields(game);
   const sh = ship.shields;
+  // M3a §7.2: Schildstoß läuft ab; zerstörter Generator/Emitter beendet ihn sofort
+  sh.burstCd = Math.max(0, (sh.burstCd || 0) - dt);
+  if (sh.burst && (game.time > sh.burst.until || isDown(ship.systems.shields) || isDown(sysState(game, emitterFor(sh.burst.sector))))) sh.burst = null;
   if (isDown(ship.systems.shields) || game.transfer.isBeaming(game)) {
     sh.current = [0, 0, 0, 0]; sh.regenT = 0;
   } else {
-    for (let i = 0; i < 4; i++) if (sh.current[i] > sh.alloc[i]) sh.current[i] = sh.alloc[i];
+    // M3a: Bonuspunkt eines perfekten Stoßes bleibt, bis er verbraucht ist (höchstens bis cap)
+    if (!sh.bonus) sh.bonus = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      if (sh.current[i] <= sh.alloc[i]) sh.bonus[i] = 0;
+      const max = Math.min(sh.cap ? sh.cap[i] : 4, sh.alloc[i] + sh.bonus[i]);
+      if (sh.current[i] > max) sh.current[i] = max;
+    }
     const interval = ship.systems.shields === 'damaged' ? C.shieldsDamagedInterval : C.shields.regenInterval;
     sh.regenT += dt;
     if (sh.regenT >= interval) {
@@ -255,7 +355,26 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 function maxSpeed(game) {
   const C = game.C; const ship = game.ship;
   const st = ship.systems.engines === 'offline' ? 'broken' : ship.systems.engines;
-  return C.ship.maxSpeed * C.enginePowerFactor[ship.power.engines] * (C.stateFactor.engines[st] || 1);
+  const sf = C.stateFactor.engines[st];
+  return C.ship.maxSpeed * C.enginePowerFactor[ship.power.engines] * (sf != null ? sf : 1);
+}
+
+// M3a §4.2/§6: Düsen begrenzen das Drehen zur jeweiligen Seite (negatives helm.turn = Backbord).
+function turnCaps(game) {
+  const f = M3(game).turnCap;
+  const c = (sys) => { const st = stateKey(sysState(game, sys)); return f[st] != null ? f[st] : 1; };
+  return { port: c('thruster_port'), stbd: c('thruster_stbd') };
+}
+function updateTurn(game, dt) {
+  const C = game.C; const ship = game.ship;
+  const caps = turnCaps(game);
+  const turn = ship.helm.manned ? ship.helm.turn : 0;
+  const goal = turn * C.ship.turnRate * (turn < 0 ? caps.port : caps.stbd);
+  const acc = (C.ship.turnAccel || 0.8) * dt;
+  const v = ship.turnVel || 0;
+  ship.turnVel = Math.abs(goal - v) <= acc ? goal : v + Math.sign(goal - v) * acc;
+  ship.turnCap = caps;
+  ship.angle = Physics.normAngle(ship.angle + ship.turnVel * dt);
 }
 
 function updateFlight(game, dt) {
@@ -273,9 +392,9 @@ function updateFlight(game, dt) {
       ship.docked = false; ship.dockedAt = null; ship.dockArmed = false; ship.undockT = game.time;
       game.emit('sfx', { name: 'dodge' });
       game.missionEvent('undocked', {});
-    } else { ship.x = dp.x; ship.y = dp.y; return; }
+    } else { ship.x = dp.x; ship.y = dp.y; ship.turnVel = 0; return; }
   }
-  ship.angle = Physics.normAngle(ship.angle + ship.helm.turn * C.ship.turnRate * dt);
+  updateTurn(game, dt);
   const hx = Math.cos(ship.angle), hy = Math.sin(ship.angle);
   let f = ship.vx * hx + ship.vy * hy;
   let l = -ship.vx * hy + ship.vy * hx;
@@ -397,40 +516,68 @@ function selectDest(game, dest) {
 }
 
 // ---------- Treffer ----------
+// opts: { pierce (bool, Schild ganz umgehen – Nachzügler), emp, heavy (angekündigter Treffer) }
 function shipHit(game, sector, dmg, opts) {
   const C = game.C; const ship = game.ship; const sh = ship.shields;
+  opts = opts || {};
+  ensureM3(game);
   game.stats.hits++;
+  const heavy = !!opts.heavy;
+  // M3a §7.2: Schildstoß auf diesem Sektor
+  const b = sh.burst;
+  if (b && b.sector === sector && game.time <= b.until) {
+    const BC = M3(game).burst;
+    if (game.time - b.t0 <= BC.perfect) {
+      // Perfekt: ganz geschluckt (auch durchschlagend / EMP), Sektor +1 bis cap
+      const cp = (sh.cap || shieldCaps(game))[sector];
+      if (!b.perfectDone && sh.current[sector] < cp) {
+        sh.current[sector]++;
+        if (!sh.bonus) sh.bonus = [0, 0, 0, 0];
+        if (sh.current[sector] > sh.alloc[sector]) sh.bonus[sector] = sh.current[sector] - sh.alloc[sector];
+      }
+      if (!b.perfectDone) { b.perfectDone = true; game.stats.burstsPerfect++; }
+      game.emit('hit', { sector, shield: true, dmg: 0, burst: true, heavy });
+      game.emit('burst', { sector, perfect: true });
+      game.emit('sfx', { name: 'burst_perfect' });
+      game.missionEvent('burstPerfect', { sector });
+      return;
+    }
+    if (b.absorb > 0) {
+      const a = Math.min(b.absorb, dmg);
+      b.absorb = r1(b.absorb - a); dmg = r1(dmg - a);
+      game.emit('burst', { sector, perfect: false, absorbed: a });
+      if (dmg <= 0) {
+        game.emit('hit', { sector, shield: true, dmg: 0, burst: true, heavy });
+        game.emit('sfx', { name: 'shield_hit' });
+        return;
+      }
+    }
+  }
   if (!opts.pierce && sh.current[sector] > 0) {
     sh.current[sector] = Math.max(0, sh.current[sector] - dmg);
-    game.emit('hit', { sector, shield: true, dmg });
+    game.emit('hit', { sector, shield: true, dmg, heavy });
     game.emit('sfx', { name: 'shield_hit' });
     if (sh.current[sector] === 0) game.missionEvent('shieldDown', { sector });
     return;
   }
   if (opts.emp) {
     // EMP durch die Schilde: zufälliges System offline statt Hüllenschaden
-    const cand = interior.SYSTEM_ORDER.filter((s) => !isDown(ship.systems[s]));
-    game.emit('hit', { sector, shield: false, dmg: 0, emp: true });
+    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null);
+    const cand = order.filter((s) => !isDown(ship.systems[s]));
+    game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy });
     game.emit('sfx', { name: 'emp' });
     if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
     return;
   }
-  game.emit('hit', { sector, shield: false, dmg });
+  game.emit('hit', { sector, shield: false, dmg, heavy });
   game.emit('sfx', { name: 'hull_hit' });
   if (!game.god) ship.hull = Math.max(0, ship.hull - 5 * dmg);
   const region = sector;
-  const sysList = game.world.Maps.SECTOR_REGIONS[region].systems;
-  if (game.rng.chance(C.hitEffects.systemChance)) {
-    let list = sysList;
-    if (game.rng.chance(C.hitEffects.spill || 0)) {
-      const R = game.world.Maps.SECTOR_REGIONS;
-      list = R[(region + 1) % 4].systems.concat(R[(region + 3) % 4].systems);
-    }
-    const ready = list.filter((s) => (ship.sysHitAt[s] || -99) + (C.hitEffects.systemCooldown || 0) <= game.time && ship.systems[s] !== 'offline');
-    if (ready.length) { const s = game.rng.pick(ready); ship.sysHitAt[s] = game.time; interior.damageSystem(game, s); }
-  }
-  if (game.rng.chance(C.hitEffects.fireChance)) { const t = interior.randomRegionFloor(game, region, false); interior.addFire(game, t.x, t.y); }
-  if (game.rng.chance(C.hitEffects.breachChance)) { const t = interior.randomRegionFloor(game, region, true); interior.addBreach(game, t.x, t.y); }
+  // M3a §4.3: Systemtreffer (fragil, Chance, Gewichte, Sperre, ODA) macht interior.hitSystems (SERVER-SHIP).
+  interior.hitSystems(game, sector);
+  syncWeaponsAlias(game);
+  if (game.rng.chance(C.hitEffects.fireChance)) { const t = interior.randomRegionFloor(game, region, false); if (t) interior.addFire(game, t.x, t.y); }
+  if (game.rng.chance(C.hitEffects.breachChance)) { const t = interior.randomRegionFloor(game, region, true); if (t) interior.addBreach(game, t.x, t.y); }
   game.missionEvent('hullHit', { sector });
 }
 
@@ -446,7 +593,7 @@ function checkEmergency(game) {
   ship.hull = C.emergency.hull;
   ship.fireList = [];
   ship.breachList = [];   // M1: Notschaum dichtet auch alle Lecks ab (sonst Notfall-Schleife ohne Flickblech)
-  for (const e of game.space.enemies) e.retreatUntil = game.time + C.combat.retreatTime;
+  for (const e of game.space.enemies) { e.retreatUntil = game.time + C.combat.retreatTime; if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); } }
   game.space.projectiles = game.space.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp');
   game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
   game.stats.emergencies++;
@@ -455,114 +602,340 @@ function checkEmergency(game) {
   game.oda('Notfallprotokoll! Hülle stabilisiert, Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde.', null);
 }
 
-// ---------- Waffen (§4.2, §5) ----------
+// ---------- Waffen (M3a §5): Lanze (bow), Batterien (port/stbd), Bolzenwerfer ----------
+// PHASES: Altname-Export (M1). Seit M3a gibt es keine Phasenkanonen mehr; Befehle mit phase_l/phase_r werden umgesetzt.
 const PHASES = ['phase_l', 'phase_r'];
 function mountIds(game) {
-  const out = PHASES.slice();
+  const out = M3_MOUNTS.slice();
   if (game.upgrades.bolzenwerfer) out.push('bolzen');
-  if (game.upgrades.seitenturm) out.push('seitenturm');
   return out;
 }
-function chargeFactor(game) {
-  const C = game.C; const ship = game.ship;
-  const st = ship.systems.weapons;
-  if (isDown(st)) return null;
-  const pf = C.weaponPowerFactor[ship.power.weapons];
-  if (pf == null) return null;
-  return pf * (st === 'damaged' ? C.stateFactor.weapons.damaged : 1);
+function mountState(game, k) { return sysState(game, MOUNT_SYSTEM[k]); }
+function weaponsManned(game) { return game.players.some((p) => p.console === 'weapons' && p.connected); }
+
+// §5.2 Ladepunkte
+function chargePoints(game) {
+  const pw = game.ship.power.weapons;
+  return pw > 0 ? pw + 2 : 0;
 }
+// Effektive Verteilung: besetzt = Wunsch der Taktik, gekürzt bei der Halterung mit den meisten Punkten
+// (Gleichstand: zuerst die Batterien); unbesetzt = gleichmäßig reihum ab bow (§5.5).
+function computeAlloc(game) {
+  const S = M3(game); const ship = game.ship;
+  const cp = chargePoints(game);
+  const out = { bow: 0, port: 0, stbd: 0 };
+  if (!weaponsManned(game)) {
+    let left = cp, guard = 0;
+    while (left > 0 && guard++ < 50) {
+      let placed = false;
+      for (const k of M3_MOUNTS) { if (left > 0 && out[k] < S.allocMax) { out[k]++; left--; placed = true; } }
+      if (!placed) break;
+    }
+    return out;
+  }
+  const want = ship.wAllocIntent || S.allocDefault;
+  for (const k of M3_MOUNTS) out[k] = clamp(Math.round(want[k] || 0), 0, S.allocMax);
+  const cutOrder = ['port', 'stbd', 'bow'];
+  while (out.bow + out.port + out.stbd > cp) {
+    let top = null;
+    for (const k of cutOrder) if (top === null || out[k] > out[top]) top = k;
+    if (out[top] <= 0) break;
+    out[top]--;
+  }
+  return out;
+}
+function batteryTubes(game, k) {
+  const cfg = M3(game).mounts[k];
+  if (mountState(game, k) === 'damaged') return cfg.tubesDamaged;
+  return game.upgrades.seitenturm ? cfg.tubesUpgrade : cfg.tubes;   // Upgrade „Zusatzrohre“ (ID seitenturm)
+}
+// Ladezeit einer Halterung für 0 -> 1 (null = lädt nicht)
+function chargeTime(game, k) {
+  const cfg = M3(game).mounts[k]; const m = game.ship.mount[k];
+  const st = mountState(game, k);
+  if (isDown(st) || !(m.alloc > 0)) return null;
+  let t = cfg.secPerPoint / m.alloc;
+  if (st === 'damaged' && cfg.damagedFactor) t *= cfg.damagedFactor;
+  // §5.5 unbesetzte Taktik: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer).
+  // Abweichung vom Wortlaut: Mit halbem Schaden je Treffer käme eine Salve (4 × 0,75) nie durch Schild 3 (Wächter) – Softlock solo.
+  if (!weaponsManned(game)) t /= (M3(game).autoFactor || 1);
+  return t;
+}
+// Bolzenwerfer (Upgrade): Energie-Faktor wie bisher, fällt bei zerstörtem Triebwerk aus (§5.6)
+function bolzenFactor(game) {
+  const C = game.C; const ship = game.ship;
+  if (isDown(ship.systems.engines)) return null;
+  const pf = C.weaponPowerFactor[ship.power.weapons];
+  return pf == null ? null : pf;
+}
+// Altname (M1): wird noch von Bolzen-Nachladen benutzt
+function chargeFactor(game) { return bolzenFactor(game); }
+
 function inMountArc(game, mount, x, y) {
-  const C = game.C; const s = game.ship; const cfg = C.weapons[mount];
+  const s = game.ship; const cfg = mountCfg(game, mount);
+  if (!cfg) return false;
   return Physics.inArc(s.x, s.y, s.angle, cfg.facing, cfg.arc, cfg.range, x, y);
 }
 function mountOrigin(game, mount) {
-  const s = game.ship; const a = s.angle;
-  if (mount === 'phase_l' || mount === 'phase_r') {
-    const side = mount === 'phase_l' ? -Math.PI / 2 : Math.PI / 2;
-    return { x: s.x + Math.cos(a) * 20 + Math.cos(a + side) * 12, y: s.y + Math.sin(a) * 20 + Math.sin(a + side) * 12 };
+  const s = game.ship; const a = s.angle; const m = normMount(mount);
+  if (m === 'port' || m === 'stbd') {
+    const side = m === 'port' ? -Math.PI / 2 : Math.PI / 2;
+    return { x: s.x + Math.cos(a + side) * 16, y: s.y + Math.sin(a + side) * 16 };
   }
+  if (m === 'bow') return { x: s.x + Math.cos(a) * 34, y: s.y + Math.sin(a) * 34 };
   return { x: s.x, y: s.y };
 }
+function nearestInArc(game, mount) {
+  const ship = game.ship;
+  let best = null, bd = Infinity;
+  for (const e of game.space.enemies) {
+    if (!inMountArc(game, mount, e.x, e.y)) continue;
+    const d = dist(ship.x, ship.y, e.x, e.y);
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function selectedEnemy(game) { const id = game.ship.target; return id == null ? null : game.space.enemies.find((e) => e.id === id) || null; }
 
 function updateWeapons(game, dt) {
-  const C = game.C; const ship = game.ship; const m = ship.mount;
-  const f = chargeFactor(game);
-  if (f != null) {
-    for (const k of PHASES) m[k].charge = Math.min(1, m[k].charge + dt / (C.weapons[k].charge * f));
-    if (game.upgrades.seitenturm) m.seitenturm.charge = Math.min(1, m.seitenturm.charge + dt / (C.weapons.seitenturm.charge * f));
+  const ship = game.ship; const m = ship.mount; const S = M3(game);
+  const alloc = computeAlloc(game);
+  for (const k of M3_MOUNTS) m[k].alloc = alloc[k];
+  // Laden
+  for (const k of M3_MOUNTS) {
+    if (k === 'bow' && m.bow.aim) continue;
+    if (BATTERIES.includes(k) && m[k].salvo > 0) continue;
+    const t = chargeTime(game, k);
+    if (t != null) m[k].charge = Math.min(1, m[k].charge + dt / t);
+  }
+  const bf = bolzenFactor(game);
+  if (bf != null && m.bolzen) {
     m.bolzen.shotT = Math.max(0, m.bolzen.shotT - dt);
     if (m.bolzen.reloadT != null) {
-      m.bolzen.reloadT += dt / f;
-      if (m.bolzen.reloadT >= C.weapons.bolzen.reloadTime) {
-        m.bolzen.reloadT = null; m.bolzen.loaded = Math.min(C.weapons.bolzen.magazine, m.bolzen.loaded + 1);
+      m.bolzen.reloadT += dt / bf;
+      if (m.bolzen.reloadT >= game.C.weapons.bolzen.reloadTime) {
+        m.bolzen.reloadT = null; m.bolzen.loaded = Math.min(game.C.weapons.bolzen.magazine, m.bolzen.loaded + 1);
         game.emit('sfx', { name: 'ui_click' });
       }
     }
   }
   if (ship.target && !resolveTarget(game, ship.target)) ship.target = null;
-  // Unbesetzte Taktik: Phasenkanonen feuern automatisch mit 50 % auf das nächste Ziel im Bogen
-  const manned = game.players.some((p) => p.console === 'weapons' && p.connected);
-  if (!manned && !(ship.docked)) {
-    for (const k of PHASES) {
-      if (m[k].charge < 1) continue;
-      let best = null, bd = Infinity;
-      for (const e of game.space.enemies) {
-        if (!inMountArc(game, k, e.x, e.y)) continue;
-        const d = dist(ship.x, ship.y, e.x, e.y);
-        if (d < bd) { bd = d; best = e; }
-      }
-      if (best) fireBeam(game, k, best, C.weapons[k].damage * C.weapons[k].autoFactor);
+  updateAim(game, dt);
+  updateSalvos(game, dt);
+  // Feuer frei / unbesetzte Taktik
+  const manned = weaponsManned(game);
+  if (!ship.docked) {
+    for (const k of BATTERIES) {
+      const b = m[k];
+      if (b.charge < 1 || b.salvo > 0 || isDown(mountState(game, k))) continue;
+      if (manned && b.hold) continue;
+      let tgt = null;
+      if (manned) { const sel = selectedEnemy(game); tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : nearestInArc(game, k); }
+      else tgt = nearestInArc(game, k);
+      if (tgt) startSalvo(game, k, tgt, 1);
+    }
+    if (!manned && m.bow.charge >= 1 && !m.bow.aim && !isDown(mountState(game, 'bow'))) {
+      const tgt = nearestInArc(game, 'bow');
+      if (tgt) startAim(game, tgt, true);
     }
   }
-  for (const b of game.space.beams) b.ttl -= dt;
-  game.space.beams = game.space.beams.filter((b) => b.ttl > 0);
+  for (const bm of game.space.beams) bm.ttl -= dt;
+  game.space.beams = game.space.beams.filter((bm) => bm.ttl > 0);
 }
 
-function fireBeam(game, mount, enemy, dmg) {
-  const ship = game.ship;
-  ship.mount[mount].charge = 0;
-  const o = mountOrigin(game, mount);
-  const kind = PHASES.includes(mount) ? 'phase' : mount;
-  game.space.beams.push({ x1: o.x, y1: o.y, x2: enemy.x, y2: enemy.y, ttl: game.C.combat.beamTtl, kind, mount });
-  game.emit('sfx', { name: kind });
-  damageEnemy(game, enemy, dmg, o.x, o.y);
+// §5.3 Zielphase der Lanze
+function startAim(game, target, auto) {
+  const S = M3(game); const bow = game.ship.mount.bow;
+  bow.aim = { left: S.aimTime, angle0: game.ship.angle, target: target.id, auto: !!auto, dev: 0 };
+  game.emit('aim', { state: 'start', auto: !!auto });
+  game.emit('sfx', { name: 'lance_aim', dur: S.aimTime });
 }
-
-function weaponsFire(game, mount) {
-  const C = game.C; const ship = game.ship;
-  if (ship.docked) return 'Angedockt wird nicht geschossen.';
-  if (isDown(ship.systems.weapons)) return 'Waffenbank ausgefallen.';
-  const target = game.space.enemies.find((e) => e.id === ship.target);
-  if (!target) return ship.target ? 'Das Ziel ist kein Gegner – nur scannen (S).' : 'Kein Ziel gewählt (T).';
-  if (mount === 'both') {
-    let fired = 0, inArcAny = false;
-    for (const k of PHASES) {
-      if (!inMountArc(game, k, target.x, target.y)) continue;
-      inArcAny = true;
-      if (ship.mount[k].charge >= 1) { fireBeam(game, k, target, C.weapons[k].damage); fired++; }
-    }
-    if (fired) return null;
-    return inArcAny ? 'Lädt noch.' : 'Ziel außerhalb beider Feuerbögen.';
+function updateAim(game, dt) {
+  const S = M3(game); const ship = game.ship; const bow = ship.mount.bow; const a = bow.aim;
+  if (!a) return;
+  a.dev = Math.abs(Physics.normAngle(ship.angle - a.angle0)) * 180 / Math.PI;
+  if (a.dev > S.aimTolerance || isDown(mountState(game, 'bow')) || ship.docked) {
+    bow.aim = null; bow.charge = Math.min(bow.charge, S.aimAbortCharge);
+    game.emit('aim', { state: 'abort' });
+    game.emit('sfx', { name: 'aim_abort' });
+    game.missionEvent('aimAbort', {});
+    return;
   }
-  const cfg = C.weapons[mount];
-  if (!cfg || mount === 'lanze') return 'Unbekannte Waffe.';
-  if (mount === 'seitenturm' && !game.upgrades.seitenturm) return 'Kein Seitenturm eingebaut (Hafen-Shop).';
-  if (mount === 'bolzen' && !game.upgrades.bolzenwerfer) return 'Kein Bolzenwerfer eingebaut (Shop: Hafen oder Vaelen).';
-  if (!inMountArc(game, mount, target.x, target.y)) return 'Ziel außerhalb des Feuerbogens.';
-  if (mount === 'bolzen') {
-    const b = ship.mount.bolzen;
-    if (b.loaded <= 0) return 'Magazin leer – R: nachladen.';
-    if (b.shotT > 0) return 'Bolzenwerfer kühlt noch.';
-    b.loaded--; b.shotT = C.combat.bolzenShotDelay;
-    const a = Math.atan2(target.y - ship.y, target.x - ship.x);
-    game.space.projectiles.push({ id: game.nextId('pr'), kind: 'bolzen', x: ship.x - Math.cos(ship.angle) * 30, y: ship.y - Math.sin(ship.angle) * 30,
-      angle: a, speed: cfg.speed, ttl: C.combat.bolzenTtl, dmg: cfg.damage, target: target.id });
-    game.emit('sfx', { name: 'bolzen' });
+  a.left -= dt;
+  if (a.left > 0) return;
+  bow.aim = null; bow.charge = 0;
+  const cfg = S.mounts.bow; const o = mountOrigin(game, 'bow');
+  const e = game.space.enemies.find((q) => q.id === a.target);
+  game.stats.lanceShots = (game.stats.lanceShots || 0) + 1;
+  if (e && inMountArc(game, 'bow', e.x, e.y)) {
+    game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow' });
+    game.emit('aim', { state: 'fire' });
+    game.emit('sfx', { name: 'lance_fire' });
+    game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
+    damageEnemy(game, e, cfg.damage, o.x, o.y, { pierce: cfg.pierce });
+  } else {
+    const ang = ship.angle + cfg.facing * Math.PI / 180;
+    game.space.beams.push({ x1: o.x, y1: o.y, x2: o.x + Math.cos(ang) * cfg.range, y2: o.y + Math.sin(ang) * cfg.range, ttl: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', miss: true });
+    game.emit('aim', { state: 'miss' });
+    game.emit('sfx', { name: 'lance_fire' });
+  }
+}
+
+// §5.4 Batterie-Salven: N Treffer, gestaffelt im Abstand salvoGap
+function startSalvo(game, k, target, factor) {
+  const b = game.ship.mount[k];
+  b.charge = 0;
+  b.salvo = batteryTubes(game, k);
+  b.salvoMax = b.salvo;
+  b.salvoT = 0;
+  b.salvoTarget = target.id;
+  b.salvoFactor = factor;
+  game.emit('sfx', { name: 'battery_salvo', count: b.salvo });
+}
+function updateSalvos(game, dt) {
+  for (const k of BATTERIES) {
+    const b = game.ship.mount[k];
+    if (!(b.salvo > 0)) continue;
+    b.salvoT -= dt;
+    while (b.salvo > 0 && b.salvoT <= 0) {
+      const cfg = M3(game).mounts[k];
+      b.salvoT += cfg.salvoGap;
+      b.salvo--;
+      let e = game.space.enemies.find((q) => q.id === b.salvoTarget);
+      if (!e || !inMountArc(game, k, e.x, e.y)) { e = nearestInArc(game, k); if (e) b.salvoTarget = e.id; }
+      if (!e) continue;   // Schuss ins Leere
+      const o = mountOrigin(game, k);
+      game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl: game.C.combat.beamTtl * 0.6, kind: 'battery', mount: k });
+      damageEnemy(game, e, cfg.damage * (b.salvoFactor || 1), o.x, o.y);
+    }
+    if (b.salvo <= 0) { b.salvo = 0; b.salvoTarget = null; }
+  }
+}
+
+function fireOne(game, k, opts) {
+  const ship = game.ship; const m = ship.mount[k];
+  const names = { bow: 'Lanze', port: 'Batterie Backbord', stbd: 'Batterie Steuerbord' };
+  if (isDown(mountState(game, k))) return `${names[k]} ausgefallen – reparieren.`;
+  if (k === 'bow') {
+    if (m.aim) return 'Lanze zielt bereits – Kurs halten!';
+    if (m.charge < 1) return 'Lanze lädt noch.';
+    const sel = selectedEnemy(game);
+    if (!sel) return ship.target ? 'Das Ziel ist kein Gegner – nur scannen (S).' : 'Lanze braucht ein Ziel (T).';
+    startAim(game, sel, false);
     return null;
   }
-  if (ship.mount[mount].charge < 1) return 'Lädt noch.';
-  fireBeam(game, mount, target, cfg.damage);
+  if (m.salvo > 0) return `${names[k]}: Salve läuft.`;
+  if (m.charge < 1) return `${names[k]} lädt noch.`;
+  const sel = selectedEnemy(game);
+  const tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : (opts && opts.strictTarget ? null : nearestInArc(game, k));
+  if (!tgt) return `${names[k]}: kein Gegner im Feuerbogen.`;
+  startSalvo(game, k, tgt, 1);
   return null;
+}
+
+function fireBolzen(game) {
+  const C = game.C; const ship = game.ship; const cfg = C.weapons.bolzen;
+  if (!game.upgrades.bolzenwerfer) return 'Kein Bolzenwerfer eingebaut (Shop: Hafen oder Vaelen).';
+  if (isDown(ship.systems.engines)) return 'Bolzenwerfer aus – Triebwerk zerstört.';
+  const target = selectedEnemy(game);
+  if (!target) return ship.target ? 'Das Ziel ist kein Gegner – nur scannen (S).' : 'Kein Ziel gewählt (T).';
+  if (!inMountArc(game, 'bolzen', target.x, target.y)) return 'Ziel außerhalb des Feuerbogens.';
+  const b = ship.mount.bolzen;
+  if (b.loaded <= 0) return 'Magazin leer – R: nachladen.';
+  if (b.shotT > 0) return 'Bolzenwerfer kühlt noch.';
+  b.loaded--; b.shotT = C.combat.bolzenShotDelay;
+  const a = Math.atan2(target.y - ship.y, target.x - ship.x);
+  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'bolzen', x: ship.x - Math.cos(ship.angle) * 30, y: ship.y - Math.sin(ship.angle) * 30,
+    angle: a, speed: cfg.speed, ttl: C.combat.bolzenTtl, dmg: cfg.damage, target: target.id });
+  game.emit('sfx', { name: 'bolzen' });
+  return null;
+}
+
+// weapons.fire { mount: 'bow'|'port'|'stbd'|'all'|'bolzen' } (Altnamen phase_l/phase_r/both/seitenturm)
+function weaponsFire(game, mount) {
+  ensureM3(game);
+  const ship = game.ship;
+  if (ship.docked) return 'Angedockt wird nicht geschossen.';
+  const k = normMount(mount);
+  if (k === 'bolzen') return fireBolzen(game);
+  if (M3_MOUNTS.includes(k)) return fireOne(game, k);
+  if (k !== 'all') return 'Unbekannte Waffe.';
+  const errs = [];
+  let fired = 0;
+  for (const q of M3_MOUNTS) {
+    const m = ship.mount[q];
+    if (m.charge < 1 || (q === 'bow' && m.aim) || isDown(mountState(game, q))) continue;
+    const err = fireOne(game, q);
+    if (err) errs.push(err); else fired++;
+  }
+  if (fired) return null;
+  if (!game.space.enemies.length) return 'Keine Gegner.';
+  return errs[0] || 'Alle Waffen laden noch.';
+}
+
+// weapons.alloc { mount, delta: ±1 }
+function weaponsAlloc(game, mount, delta) {
+  ensureM3(game);
+  const S = M3(game); const ship = game.ship;
+  const k = normMount(mount);
+  if (!M3_MOUNTS.includes(k)) return 'Ladepunkte nur für Lanze, Batterie Bb oder Stb.';
+  const d = delta > 0 ? 1 : delta < 0 ? -1 : 0;
+  if (!d) return null;
+  const cur = computeAlloc(game);
+  if (!weaponsManned(game)) Object.assign(cur, ship.wAllocIntent);   // ohne Taktik: Wunsch weiterpflegen
+  const nv = cur[k] + d;
+  if (nv < 0 || nv > S.allocMax) return 'Grenze erreicht.';
+  if (d > 0 && cur.bow + cur.port + cur.stbd + 1 > chargePoints(game)) return 'Keine Ladepunkte frei – erst woanders abziehen oder mehr Energie auf Waffen.';
+  cur[k] = nv;
+  ship.wAllocIntent = { bow: cur.bow, port: cur.port, stbd: cur.stbd };
+  for (const q of M3_MOUNTS) ship.mount[q].alloc = computeAlloc(game)[q];
+  game.emit('sfx', { name: 'ui_click' });
+  return null;
+}
+
+// weapons.hold { mount: 'port'|'stbd', hold }
+function weaponsHold(game, mount, hold) {
+  ensureM3(game);
+  const k = normMount(mount);
+  if (!BATTERIES.includes(k)) return 'Halten/Feuer frei nur für die Batterien.';
+  game.ship.mount[k].hold = !!hold;
+  game.emit('sfx', { name: 'ui_click' });
+  return null;
+}
+
+// §5.6 Orbitalschlag: volle Ladung verbrauchen (bow, sonst port, sonst stbd)
+function consumeFullCharge(game) {
+  ensureM3(game);
+  const m = game.ship.mount;
+  for (const k of M3_MOUNTS) {
+    if (m[k].charge < 1 || isDown(mountState(game, k))) continue;
+    if (k === 'bow' && m.bow.aim) continue;
+    if (BATTERIES.includes(k) && m[k].salvo > 0) continue;
+    m[k].charge = 0;
+    return k;
+  }
+  return null;
+}
+
+// Snapshot-Block ship.mounts (§9.3)
+function mountsSnapshot(game) {
+  ensureM3(game);
+  const C = game.C; const S = M3(game); const m = game.ship.mount;
+  const out = [];
+  for (const k of M3_MOUNTS) {
+    const cfg = S.mounts[k];
+    const o = { id: k, facing: cfg.facing, arc: cfg.arc, range: cfg.range, charge: r2(m[k].charge), alloc: m[k].alloc || 0, state: mountState(game, k) };
+    if (k === 'bow') o.aim = m.bow.aim ? { left: r2(Math.max(0, m.bow.aim.left)), dev: r1(m.bow.aim.dev || 0) } : null;
+    else { o.hold = !!m[k].hold; o.salvo = m[k].salvo || 0; o.salvoMax = batteryTubes(game, k); }
+    out.push(o);
+  }
+  if (game.upgrades.bolzenwerfer) {
+    const w = C.weapons.bolzen; const b = m.bolzen;
+    const ch = b.reloadT != null ? b.reloadT / w.reloadTime : (b.loaded > 0 ? 1 - b.shotT / C.combat.bolzenShotDelay : 0);
+    out.push({ id: 'bolzen', facing: w.facing, arc: w.arc, range: w.range, charge: r2(clamp(ch, 0, 1)), ammo: game.inventory.bolzen, loaded: b.loaded,
+      state: isDown(game.ship.systems.engines) ? 'broken' : 'ok' });
+  }
+  return out;
 }
 
 function weaponsReload(game) {
@@ -571,11 +944,51 @@ function weaponsReload(game) {
   if (b.reloadT != null) return 'Lädt bereits nach.';
   if (b.loaded >= C.weapons.bolzen.magazine) return 'Magazin ist voll.';
   if (game.inventory.bolzen <= 0) return 'Keine Bolzen mehr im Vorrat.';
-  if (chargeFactor(game) == null) return 'Waffen ohne Energie oder ausgefallen.';
+  if (chargeFactor(game) == null) return 'Bolzenwerfer ohne Energie oder Triebwerk zerstört.';
   game.inventory.bolzen--;
   b.reloadT = 0;
   game.emit('sfx', { name: 'ui_click' });
   return null;
+}
+
+// ---------- Schildstoß (M3a §7.2) ----------
+function captainBurst(game, sector) {
+  ensureM3(game);
+  const BC = M3(game).burst; const ship = game.ship; const sh = ship.shields;
+  sector = Number(sector);
+  if (!(sector >= 0 && sector <= 3) || Math.floor(sector) !== sector) return 'Unbekannter Sektor.';
+  if (sh.burstCd > 0) return `Schildstoß lädt noch (${Math.ceil(sh.burstCd)} s).`;
+  if (isDown(ship.systems.shields)) return 'Schildgenerator zerstört – kein Schildstoß.';
+  const em = sysState(game, emitterFor(sector));
+  if (isDown(em)) return `Emitter ${SECTOR_LABEL[sector]} zerstört – dort ist kein Schildstoß möglich.`;
+  placeBurst(game, sector, em === 'damaged' ? BC.absorbDamaged : BC.absorb);
+  sh.burstCd = BC.cooldown;
+  game.stats.bursts++;
+  game.missionEvent('burst', { sector });
+  return null;
+}
+function placeBurst(game, sector, absorb) {
+  const BC = M3(game).burst; const sh = game.ship.shields;
+  sh.burst = { sector, t0: game.time, until: game.time + BC.duration, absorb, perfectDone: false };
+  game.emit('sfx', { name: 'burst' });
+}
+// Debug `burst <sector>`: ohne Prüfung (keine Abklingzeit, kein Zähler)
+function debugBurst(game, sector) {
+  ensureM3(game);
+  sector = Number(sector);
+  if (!(sector >= 0 && sector <= 3)) return 'burst <0..3>';
+  placeBurst(game, Math.floor(sector), M3(game).burst.absorb);
+  return null;
+}
+function shieldsSnapshot(game) {
+  ensureM3(game);
+  const sh = game.ship.shields; const BC = M3(game).burst;
+  const b = sh.burst;
+  return {
+    pool: sh.pool, alloc: sh.alloc, current: sh.current, cap: sh.cap || shieldCaps(game),
+    burst: b ? { sector: b.sector, left: r2(Math.max(0, b.until - game.time)), perfectLeft: r2(Math.max(0, b.t0 + BC.perfect - game.time)), absorb: b.absorb } : null,
+    burstCd: r1(sh.burstCd || 0),
+  };
 }
 
 // Ziel auflösen: Gegner, aufgedecktes verstecktes Objekt (dieser Ort) oder 'station'
@@ -688,7 +1101,8 @@ function spawnEnemy(game, kind, opts) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   const o = opts || {};
   const cfg = C.enemies[kind];
-  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).enemyHp)));
+  // M3a §6: zusätzlich spaceM3.enemyHpFactor (nicht beim Störrelais)
+  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).enemyHp * (M3(game).enemyHpFactor || 1))));
   const a = o.angle != null ? o.angle : game.rng.range(-Math.PI, Math.PI);
   let x = o.x != null ? o.x : ship.x + Math.cos(a) * C.combat.spawnDist;
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;
@@ -709,16 +1123,27 @@ function crewScale(game) {
 }
 
 // Schaden aus Richtung (srcX, srcY): erst Schildsektor des Gegners, dann Hülle.
-function damageEnemy(game, e, dmg, srcX, srcY) {
+// opts.pierce: der Schildsektor zählt bei diesem Treffer so viele Punkte weniger (Lanze, §5.1).
+function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hitT = game.time;
+  // M3a §7.1: Treffer verlängern eine laufende Ladung (je Treffer delayPerHit, insgesamt höchstens delayMax)
+  if (e.tele) {
+    const T = M3(game).tele;
+    const add = Math.min(T.delayPerHit, Math.max(0, T.delayMax - (e.tele.delayed || 0)));
+    if (add > 0) { e.tele.left += add; e.tele.dur += add; e.tele.delayed = (e.tele.delayed || 0) + add; }
+  }
   let rest = dmg;
   if (srcX != null && e.shields) {
     const sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
-    const absorb = Math.min(e.shields[sec], rest);
-    if (absorb > 0) { e.shields[sec] = Math.round((e.shields[sec] - absorb) * 10) / 10; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }
-    if (rest <= 0) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
+    const pierce = (opts && opts.pierce) || 0;
+    const absorb = Math.min(Math.max(0, e.shields[sec] - pierce), rest);
+    // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Taktik verloren sonst Schaden);
+    // gerundet wird nur im Snapshot. EPS fängt Gleitkomma-Reste ab.
+    if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }
+    if (rest <= EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
   }
-  e.hp = Math.round((e.hp - rest) * 10) / 10;
+  e.hp -= rest;
+  if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
   if (e.hp > 0) return;
   const C = game.C;
@@ -769,7 +1194,11 @@ function updateEnemies(game, dt) {
       tx = ship.x + Math.cos(a) * 240; ty = ship.y + Math.sin(a) * 240;
       face = toShip;
     } else if (e.kind === 'raider') {
-      const a = Math.atan2(dy, dx) + 0.55 * e.orbitDir;
+      // M3a: Kreisrichtung regelmäßig wechseln – sonst „parkt“ ein Jäger im toten Winkel achtern, weil er so schnell
+      // um das Schiff kreist, wie es dreht (spaceM3.raiderFlip s, 0 = aus)
+      const flip = M3(game).raiderFlip || 0;
+      if (flip > 0) { e.flipT = (e.flipT || 0) + dt; if (e.flipT >= flip) { e.flipT = 0; e.orbitDir = -e.orbitDir; } }
+      const a =Math.atan2(dy, dx) + 0.55 * e.orbitDir;
       tx = ship.x + Math.cos(a) * C.combat.raiderOrbit; ty = ship.y + Math.sin(a) * C.combat.raiderOrbit;
       if (d <= cfg.range + 120) face = toShip;   // in Reichweite: Bug (Kanone) zum Schiff
     } else {
@@ -800,6 +1229,9 @@ function updateEnemies(game, dt) {
       const want = retreating ? (md > 2 ? Math.atan2(my, mx) : e.angle) : (face != null ? face : (md > 2 ? Math.atan2(my, mx) : e.angle));
       e.angle = turnToward(e.angle, want, 3 * dt);
     }
+    // M3a §7.1: Kanonenboot, Pylon, Wächter kündigen an (tele) und treffen am Ende sofort
+    const T = M3(game).tele;
+    if (T && T[e.kind]) { updateTele(game, e, d, retreating, dt); continue; }
     // Schießen (nur wenn das Schiff in einem Feuerbogen liegt)
     e.fireT += dt;
     if (!retreating && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e) && !ship.docked) {
@@ -810,6 +1242,61 @@ function updateEnemies(game, dt) {
       game.emit('sfx', { name: 'blaster' });
     }
   }
+}
+
+// ---------- Angekündigte Angriffe (M3a §7.1) ----------
+function teleSector(game, e) { const s = game.ship; return Physics.sectorOf(s.x, s.y, s.angle, e.x, e.y); }
+function startTele(game, e) {
+  const T = M3(game).tele; const t = T[e.kind];
+  if (!t) return false;
+  e.tele = { kind: t.emp ? 'emp' : 'shot', left: t.dur, dur: t.dur, sector: teleSector(game, e), delayed: 0 };
+  // Achtung: emit() mischt data in { t, kind } – kein Feld 'kind' mitgeben (sonst überschreibt es den Ereignistyp)
+  game.emit('tele', { id: e.id, tkind: e.tele.kind, sector: e.tele.sector, dur: e.tele.dur, enemy: e.kind });
+  game.emit('sfx', { name: 'tele_charge', enemy: e.kind, dur: e.tele.dur, key: e.id });
+  game.missionEvent('tele', { enemy: e });
+  // Solo: ODA sagt jede Ladung an (Abklingzeit je Gegner)
+  const solo = game.players.filter((p) => p.connected).length === 1;
+  if (solo && (e.teleOdaAt == null || game.time - e.teleOdaAt >= T.odaCooldown)) {
+    e.teleOdaAt = game.time;
+    game.oda(`${ENEMY_LABEL[e.kind] || 'Gegner'} lädt – ${SECTOR_LABEL[e.tele.sector]}!`, null);
+  }
+  return true;
+}
+function updateTele(game, e, d, retreating, dt) {
+  const C = game.C; const ship = game.ship; const cfg = C.enemies[e.kind]; const t = M3(game).tele[e.kind];
+  if (e.tele) {
+    if (retreating || ship.docked) { e.tele = null; e.fireT = 0; game.emit('teleMiss', { id: e.id }); return; }
+    e.tele.sector = teleSector(game, e);
+    e.tele.left -= dt;
+    if (e.tele.left > 0) return;
+    const sector = e.tele.sector; const emp = e.tele.kind === 'emp';
+    e.tele = null; e.fireT = 0;
+    if (d <= cfg.range && enemyCanHit(game, e)) {
+      game.space.beams.push({ x1: e.x, y1: e.y, x2: ship.x, y2: ship.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
+      game.emit('sfx', { name: 'heavy_hit', enemy: e.kind });
+      game.stats.heavyHits = (game.stats.heavyHits || 0) + 1;
+      shipHit(game, sector, t.damage != null ? t.damage : cfg.damage, { heavy: true, emp });
+    } else {
+      game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
+      game.emit('teleMiss', { id: e.id });
+    }
+    return;
+  }
+  e.fireT += dt;
+  if (!retreating && !ship.docked && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e)) startTele(game, e);
+}
+function enemyTeleSnap(e) {
+  const t = e && e.tele;
+  return t ? { kind: t.kind, left: r2(Math.max(0, t.left)), dur: r2(t.dur), sector: t.sector } : null;
+}
+// Debug `tele [id]`: sofort laden (ohne Bogen-/Reichweitenprüfung)
+function debugTele(game, id) {
+  const T = M3(game).tele;
+  const list = game.space.enemies.filter((e) => T[e.kind]);
+  const e = id != null && id !== '' ? list.find((q) => q.id === String(id)) : list.find((q) => !q.tele) || list[0];
+  if (!e) return id ? 'Kein ladefähiger Gegner mit dieser ID (Kanonenboot, Pylon, Wächter).' : 'Kein ladefähiger Gegner da (spawn gunboat).';
+  startTele(game, e);
+  return null;
 }
 
 function updateProjectiles(game, dt) {
@@ -843,6 +1330,7 @@ function updateProjectiles(game, dt) {
 }
 
 function update(game, dt) {
+  ensureM3(game);
   game.ship.widescan.cd = Math.max(0, game.ship.widescan.cd - dt);
   updateSystems(game, dt);
   updateFlight(game, dt);
@@ -875,6 +1363,8 @@ function captainShield(game, sector, delta) {
   const d = delta > 0 ? 1 : -1;
   const nv = sh.alloc[sector] + d;
   if (nv < 0 || nv > C.shields.maxPerSector) return 'Grenze erreicht.';
+  const cp = shieldCaps(game)[sector];
+  if (d > 0 && nv > cp) return cp === 0 ? `Emitter ${SECTOR_LABEL[sector]} zerstört – der Sektor hält keine Schilde.` : `Emitter ${SECTOR_LABEL[sector]} beschädigt – höchstens ${cp}.`;
   if (d > 0 && sh.alloc.reduce((a, b) => a + b, 0) + 1 > shieldPool(game)) return 'Schildpool erschöpft – erst woanders abziehen oder mehr Energie auf Schilde.';
   sh.alloc[sector] = nv;
   sh.allocIntent = sh.alloc.slice();
@@ -886,4 +1376,7 @@ module.exports = {
   weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, captainOverload, reactorOnline,
   captainPower, captainShield, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,
+  // M3a §9.4 (SERVER-COMBAT) – Aufrufer: game.js (Befehle, Snapshot)
+  weaponsAlloc, weaponsHold, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,
+  consumeFullCharge, debugTele, debugBurst, normMount, ensureM3, M3_MOUNTS, MOUNT_SYSTEM, EMITTERS, chargeFactor,
 };

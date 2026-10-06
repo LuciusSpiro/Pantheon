@@ -34,13 +34,42 @@ function unpin(game, p, id) {
 }
 
 // ---------- Ivo an Bord ----------
-// Wegpunkte: Gästequartier, Messe, Planungstisch, Gang, Maschinenraum-Tür (er schraubt gern).
-const IVO_SPOTS = [{ x: 20, y: 9 }, { x: 21, y: 10 }, { x: 25, y: 9 }, { x: 28, y: 5 }, { x: 25, y: 4 }, { x: 18, y: 6 }, { x: 8, y: 6 }, { x: 20, y: 9 }];
+// Wegpunkte: Gästequartier, Messe, Planungstisch, Gang, Maschinenraum (er schraubt gern).
+// M3a: aus dem Schiffslayout abgeleitet (Maps.IVO_SPOTS, falls die Karte sie vorgibt; sonst aus SHIP_ROOMS/BEDS/Konsolen).
+function roomFloor(match, nth) {
+  const rooms = (W.Maps.SHIP_ROOMS || []).filter(match);
+  const out = [];
+  for (const r of rooms) {
+    const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+    const tiles = [];
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
+      if (!W.shipWalkable(x, y) || W.Maps.roomAt(x, y) !== r) continue;
+      tiles.push({ x, y, d: Math.abs(x - cx) + Math.abs(y - cy) });
+    }
+    tiles.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+    if (tiles.length) out.push(tiles[Math.min(nth || 0, tiles.length - 1)]);
+  }
+  return out[0] ? { x: out[0].x, y: out[0].y } : null;
+}
+function deriveIvoSpots() {
+  if (Array.isArray(W.Maps.IVO_SPOTS) && W.Maps.IVO_SPOTS.length) return W.Maps.IVO_SPOTS.map((s) => ({ x: s.x, y: s.y }));
+  const guestBed = (W.Maps.BEDS || []).find((b) => b.color === 3);
+  const guestId = guestBed && guestBed.room ? guestBed.room.id : null;
+  const guest = roomFloor((r) => r.id === guestId, 0);
+  const guest2 = roomFloor((r) => r.id === guestId, 1);
+  const plan = (W.CONSOLE_TILES.plan || [])[0];
+  const planAccess = plan ? W.accessTiles(W.ship, W.shipWalkable, plan.x, plan.y)[0] : null;
+  const list = [guest, guest2, roomFloor((r) => r.id === 'messe', 3), planAccess, roomFloor((r) => r.id === 'gang', 0),
+    roomFloor((r) => r.kind === 'engine', 0), guest].filter(Boolean);
+  if (!list.length) list.push(W.Maps.SHIP_SPAWNS[0]);
+  return list;
+}
+const IVO_SPOTS = deriveIvoSpots();
 
 function updateIvo(game, dt) {
   if (!game.mission.flags.technikerRescued) { game.ivo = null; return; }
   if (!game.ivo) {
-    const c = W.tileCenter(20, 9);
+    const c = W.tileCenter(IVO_SPOTS[0].x, IVO_SPOTS[0].y);
     game.ivo = { id: 'ivo', x: c.x, y: c.y, dir: 'down', moving: false, path: null, waitT: 3, spot: 0 };
     game.oda('Ivo ist ins Gästequartier gezogen. Er sagt, das Bett ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
   }

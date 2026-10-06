@@ -13,13 +13,32 @@ const CONFIG = require('../shared/config.js');
 const Locations = require('../shared/locations.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
+const W = require('../server/world.js');
 let simRng = makeRng(1);
+
+// M3a: Schiffskoordinaten nur aus dem Layout (shared/maps.js bzw. server/world.js), nie fest
+const shelfOf = (item) => Maps.SHELF_TILES.find((s) => s.item === item);
+const switchOf = (id) => Maps.REACTOR_SWITCHES.find((s) => s.id === id) || Maps.REACTOR_SWITCHES[0];
+const systemTile = (sys) => W.SYSTEM_TILES[sys];
+const consoleTileOf = (con) => (W.CONSOLE_TILES[con] || [])[0];
+
+// M3a: Stationen (W.STATIONS) und Waffen-Halterungen
+const stationTile = (sys) => { const st = (W.STATIONS || []).find((s) => s.system === sys); return st ? { x: st.x, y: st.y } : systemTile(sys); };
+const M3 = CONFIG.spaceM3 || {};
+const MOUNT_IDS = ['bow', 'port', 'stbd'];
+const SECTOR_OF_SIDE = { port: 3, stbd: 1 };
+const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
+// Reihenfolge, in der Spieler-Bots zerstörte/beschädigte Systeme angehen (Kampfwert zuerst)
+const REPAIR_PRIO = ['shields', 'reactor', 'thruster_port', 'thruster_stbd', 'emitter_port', 'emitter_stbd', 'emitter_bow', 'emitter_aft',
+  'battery_port', 'battery_stbd', 'weapon_bow', 'engines', 'life', 'transfer'];
 
 const args = process.argv.slice(2);
 const VERBOSE = args.includes('--verbose');
 const WRECK = args.includes('--wreck');
+const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
 const seedArg = args.indexOf('--seed') >= 0 ? Number(args[args.indexOf('--seed') + 1]) : null;
-const counts = args.filter((a, i) => /^[123]$/.test(a) && args[i - 1] !== '--seed').map(Number);
+const counts = args.filter((a, i) => /^[123]$/.test(a) && !/^--/.test(args[i - 1] || '')).map(Number);
+const PILOT = argVal('--pilot', null);   // Steuer-Strategie: nose | maneuver (| both im Testgelände)
 const SOFTLOCK_SEC = 420;
 const MAX_GAME_SEC = 3600;
 const DT = 1 / CONFIG.tickHz;
@@ -146,8 +165,7 @@ class Agent {
   consoleTile(kind, p) {
     if (kind === 'sonde') return Maps.platform.find('Z')[0];
     if (kind === 'quartier') { const b = Maps.BEDS.find((q) => q.color === p.color); return { x: b.x, y: b.y }; }
-    const ch = { helm: 'H', captain: 'C', weapons: 'W', transfer: 'T', shop: 'S', plan: 'Y' }[kind];
-    return Maps.ship.find(ch)[0];
+    return consoleTileOf(kind);
   }
   enter(S, kind) {
     const p = this.me(S);
@@ -158,27 +176,115 @@ class Agent {
     const t = this.consoleTile(kind, p);
     const r = this.interact(S, t.x, t.y, {});
     if (r === 'fail') this.waitT = 0.5;
+    // Snapshot kommt nur jeden 2. Tick: kurz warten, bis die Konsole im Snapshot steht (sonst „dreht“ sich der Bot weg)
+    if (r === 'done') this.waitT = 0.1;
     return false;
   }
   leave(S) { const p = this.me(S); if (p.console) this.send({ t: 'leave' }); }
 
-  repair(S, p, sys) {
+  // Reparatur an einer Station (M3a §8.1). how: 'swap' (Ersatzteil holen, E halten 3 s -> ok), 'flick' (E halten 1,5 s, eine Stufe,
+  // fragil) oder 'minigame' (R: repair.start, nach 3,5 s repair.done – simuliertes Minispiel). Ohne how: zerstört -> swap, sonst flick.
+  repair(S, p, sys, how) {
     const st = S.ship.systems[sys];
-    if (st === 'ok' || st === 'offline') return 'done';
+    const fragile = (S.ship.fragile || []).includes(sys);
+    if ((st === 'ok' && !(how === 'swap' && fragile)) || st === 'offline' || st == null) { this.memo.mg = null; return 'done'; }
     if (p.zone !== 'ship') return 'skip';
     if (p.console) { this.send({ t: 'leave' }); return 'running'; }
-    if (st === 'broken' && p.carry !== 'ersatzteil') {
-      if (S.inventory.ersatzteil <= 0) return 'skip';
-      if (p.carry) { this.send({ t: 'drop' }); return 'running'; }
-      const shelf = Number(Object.keys(Maps.SHELVES).find((x) => Maps.SHELVES[x] === 'ersatzteil'));
-      this.interact(S, shelf, 1, {});
-      return 'running';
+    if (!how) how = st === 'broken' && (S.inventory.ersatzteil > 0 || p.carry === 'ersatzteil') ? 'swap' : 'flick';
+    if (how === 'swap' && p.carry !== 'ersatzteil') {
+      if (S.inventory.ersatzteil <= 0) how = 'flick';
+      else {
+        if (p.carry) { this.send({ t: 'drop' }); return 'running'; }
+        const shelf = shelfOf('ersatzteil');
+        this.interact(S, shelf.x, shelf.y, {});
+        return 'running';
+      }
     }
-    const t = Maps.ship.find({ reactor: 'R', engines: 'E', shields: 'G', weapons: 'K', life: 'O', transfer: 'X' }[sys])[0];
-    const before = st;
-    const r = this.interact(S, t.x, t.y, { hold: true, until: (S2) => S2.ship.systems[sys] !== before });
+    if (how === 'flick' && p.carry === 'ersatzteil') how = 'swap';   // E mit Teil in der Hand ist immer Austausch
+    if (how === 'flick' && p.carry && p.carry !== 'ersatzteil') { this.send({ t: 'drop' }); return 'running'; }
+    const t = stationTile(sys);
+    if (how === 'minigame') return this.minigame(S, p, sys, t);
+    const before = st + (fragile ? '!' : '');
+    const r = this.interact(S, t.x, t.y, { hold: true, until: (S2) => S2.ship.systems[sys] + ((S2.ship.fragile || []).includes(sys) ? '!' : '') !== before });
     if (r === 'fail') this.waitT = 0.3;
     return 'running';
+  }
+  // Minispiel wie ein Mensch: hingehen, zur Station drehen, R (repair.start), 3,5 s spielen, repair.done
+  minigame(S, p, sys, t) {
+    const m = this.memo;
+    if (!m.mg || m.mg.sys !== sys) m.mg = { sys, phase: 'go', t: 0 };
+    const mg = m.mg;
+    if (mg.phase === 'go') {
+      const walk = this.walkable(S, 'ship');
+      const goals = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([a, b]) => ({ x: t.x + a, y: t.y + b })).filter((g) => walk(g.x, g.y));
+      const r = this.goto(S, goals);
+      if (r === 'fail') { m.mg = null; this.waitT = 0.5; return 'running'; }
+      if (r === true) mg.phase = 'face';
+      return 'running';
+    }
+    if (mg.phase === 'face') {
+      const st = this.tile(p);
+      const dx = Math.sign(t.x - st.x), dy = Math.sign(t.y - st.y);
+      if (dx || dy) this.input(dx * 0.3, dx ? 0 : dy * 0.3);
+      mg.phase = 'stop'; return 'running';
+    }
+    if (mg.phase === 'stop') { this.input(0, 0); mg.phase = 'start'; return 'running'; }
+    if (mg.phase === 'start') {
+      this.send({ t: 'cmd', c: 'repair.start', system: sys });
+      mg.phase = 'play'; mg.t = 0; return 'running';
+    }
+    if (mg.phase === 'play') {
+      mg.t += DT;
+      if (mg.t > 0.5 && !(p.action && p.action.kind === 'minigame')) { m.mg = null; this.waitT = 0.5; this.game.simStats.minigameRejected = (this.game.simStats.minigameRejected || 0) + 1; return 'running'; }
+      if (mg.t >= 3.5) {
+        this.send({ t: 'cmd', c: 'repair.done', system: sys, errors: Math.floor(simRng() * 3) });
+        mg.phase = 'done'; mg.t = 0;
+      }
+      return 'running';
+    }
+    if (mg.phase === 'done') { mg.t += DT; if (mg.t > 0.3) m.mg = null; return 'running'; }
+    return 'running';
+  }
+
+  // ---------- M3a: Spieler-Bot verlässt die Brücke zum Reparieren ----------
+  // Wählt ein System (zerstört vor beschädigt, nach REPAIR_PRIO), das kein Schrauber gerade bearbeitet, und repariert es:
+  // zerstört -> Austausch (Teil im Lager) sonst Flicken; beschädigt -> Minispiel, unter Druck (Ladung läuft) Flicken.
+  repairDuty(S, p, opts) {
+    const o = opts || {};
+    const sh = S.ship; const m = this.memo;
+    if (p.zone !== 'ship') return false;
+    const queue = sh.repairQueue || [];
+    const botBusy = (s) => queue.some((q) => q.system === s && q.bot);
+    const mates = (this.game.simAgents || []).filter((a) => a !== this && a.memo.job);
+    const taken = (s) => mates.some((a) => a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
+    if (m.job && S.time - (m.job.seen || S.time) > 2) { m.job = null; m.mg = null; }   // liegengebliebener Auftrag (Rolle war woanders)
+    if (m.job) {
+      m.job.seen = S.time;
+      const st = sh.systems[m.job.sys];
+      const fragile = (sh.fragile || []).includes(m.job.sys);
+      const done = st === 'offline' || (st === 'ok' && !(m.job.how === 'swap' && fragile)) || (m.job.how === 'flick' && st !== m.job.from) || (S.time - m.job.at > 60);
+      if (done) { m.job = null; m.mg = null; this.ix = null; if (this.actDown) this.act(false); return false; }
+      const r = this.repair(S, p, m.job.sys, m.job.how);
+      if (r === 'skip') { m.job = null; return false; }
+      return true;
+    }
+    if ((m.jobCd || 0) > S.time) return false;
+    const cand = REPAIR_PRIO.filter((s) => sh.systems[s] === 'broken' || sh.systems[s] === 'damaged')
+      .filter((s) => !botBusy(s) && !taken(s))
+      .filter((s) => o.damaged || sh.systems[s] === 'broken')
+      .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
+    const sys = cand[0];
+    if (!sys) return false;
+    const st = sh.systems[sys];
+    const pressure = S.space.enemies.some((e) => e.tele);
+    let how;
+    if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure ? 'swap' : 'flick';
+    else how = pressure || o.fast ? 'flick' : 'minigame';
+    m.job = { sys, how, from: st, at: S.time, seen: S.time };
+    m.jobCd = S.time + (o.cooldown || 4);
+    this.game.simStats.jobs = this.game.simStats.jobs || {};
+    this.game.simStats.jobs[how] = (this.game.simStats.jobs[how] || 0) + 1;
+    return this.repair(S, p, sys, how) === 'running';
   }
 
   // ---------- Flug ----------
@@ -207,7 +313,7 @@ class Agent {
       if (ok.length) { desired = ok[0]; break; }
     }
     const diff = norm(desired - sh.angle);
-    const turn = clamp(diff * 2.5, -1, 1);
+    const turn = this.turnCmd(S, diff);
     const targetSpeed = Math.min(maxSpd || 120, Math.max(0, (gd - arriveDist) * 0.6));
     const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
     let thrust = 0;
@@ -219,9 +325,22 @@ class Agent {
   brake(S) {
     const sh = S.ship;
     const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
-    if (Math.abs(fwd) < 4 && sh.speed < 8) { this.helm(0, 0); return true; }
-    this.helm(0, fwd > 0 ? -1 : 1);
+    const stopTurn = this.turnCmd(S, 0);
+    if (Math.abs(fwd) < 4 && sh.speed < 8) { this.helm(stopTurn, 0); return true; }
+    this.helm(stopTurn, fwd > 0 ? -1 : 1);
     return false;
+  }
+  // M3a §6: träges Drehen (turnVel nähert sich mit turnAccel dem Ziel). Wie ein Pilot mit Gefühl: rechtzeitig gegensteuern,
+  // damit der Bug nicht überschießt (Bremsweg v²/2a). diff = gewünschte Winkeländerung (rad).
+  turnCmd(S, diff) {
+    const sh = S.ship;
+    const rate = CONFIG.ship.turnRate, acc = CONFIG.ship.turnAccel || 0.8;
+    const tv = sh.turnVel || 0;
+    const vmax = Math.sqrt(2 * acc * Math.abs(diff)) * 0.8;
+    const want = Math.sign(diff) * Math.min(rate, vmax);
+    if (Math.abs(diff) < 0.01 && Math.abs(tv) < 0.03) return 0;
+    const cap = sh.turnCap ? (want < 0 ? sh.turnCap.port : sh.turnCap.stbd) || 0.15 : 1;
+    return clamp(want / (rate * Math.max(0.15, cap)), -1, 1);
   }
   station(S) { const l = Locations.get(S.ship.scene); return l.scene.station || null; }
 
@@ -279,21 +398,78 @@ class Agent {
   }
 
   // ---------- Waffen ----------
+  // ---------- M3a: Waffen (Taktik verteilt Ladepunkte und feuert alles, §5) ----------
+  mountsOf(S) { return Object.fromEntries((S.ship.mounts || []).map((m) => [m.id, m])); }
+  inArcM(S, m, e, shrink) { const sh = S.ship; return !!m && Physics.inArc(sh.x, sh.y, sh.angle, m.facing, Math.max(2, m.arc - (shrink || 0)), m.range, e.x, e.y); }
   fight(S, opts) {
     const sh = S.ship;
     const enemies = S.space.enemies;
     if (!enemies.length) return;
-    const mounts = Object.fromEntries(sh.mounts.map((m) => [m.id, m]));
-    const inArc = (m, e) => m && Physics.inArc(sh.x, sh.y, sh.angle, m.facing, m.arc, m.range, e.x, e.y);
-    const anyArc = (e) => inArc(mounts.phase_l, e) || inArc(mounts.phase_r, e);
-    let target = enemies.find((e) => anyArc(e)) || enemies.slice().sort((a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y))[0];
-    if (sh.target !== target.id) { this.cmd('weapons.target', { id: target.id }); return; }
+    const M = this.mountsOf(S);
+    const any = (e) => MOUNT_IDS.some((id) => this.inArcM(S, M[id], e));
+    const byDist = (a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y);
+    const cur = enemies.find((e) => e.id === sh.target);
+    // Ziel: Gegner, der gerade lädt (Treffer verzögern die Ladung), sonst einer im Bogen, sonst der nächste
+    const charging = enemies.filter((e) => e.tele && any(e)).sort(byDist)[0];
+    let target = charging || (cur && any(cur) ? cur : null) || enemies.filter(any).sort(byDist)[0] || cur || enemies.slice().sort(byDist)[0];
+    if (sh.target !== target.id && !(M.bow && M.bow.aim)) { this.cmd('weapons.target', { id: target.id }); return; }
+    if (sh.target !== target.id) target = cur || target;
     // Scan vorab (Taktik-Rolle): zeigt Schilde/Feuerbögen
     if (opts && opts.scan && !target.scanned && dist(target.x, target.y, sh.x, sh.y) < 780 && (this.memo.scanUntil || 0) < S.time + 10) {
       this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); }
     }
-    if ((mounts.phase_l.charge >= 1 && inArc(mounts.phase_l, target)) || (mounts.phase_r.charge >= 1 && inArc(mounts.phase_r, target))) this.cmd('weapons.fire', { mount: 'both' });
-    else if (mounts.bolzen && mounts.bolzen.loaded > 0 && mounts.bolzen.charge >= 1 && inArc(mounts.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
+    this.allocFor(S, target, M);
+    // Feuern: alles, was geladen ist und das Ziel im Bogen hat (Batterien „Feuer frei“ feuern selbst; die Lanze braucht den Befehl)
+    const ready = MOUNT_IDS.filter((id) => M[id] && M[id].charge >= 1 && !M[id].aim && M[id].state !== 'broken' && this.inArcM(S, M[id], target, id === 'bow' ? 4 : 6));
+    const held = ready.filter((id) => id === 'bow' || M[id].hold);
+    if (held.length >= 2) this.cmd('weapons.fire', { mount: 'all' });
+    else if (held.length === 1) this.cmd('weapons.fire', { mount: held[0] });
+    else if (M.bolzen && M.bolzen.loaded > 0 && M.bolzen.charge >= 1 && this.inArcM(S, M.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
+    // Batterien auf „Feuer frei“ halten
+    for (const id of ['port', 'stbd']) if (M[id] && M[id].hold) this.cmd('weapons.hold', { mount: id, hold: false });
+  }
+  // Ladepunkte nach Lage: Ziel vorn -> Lanze, Ziel seitlich -> Batterie dieser Seite (mit Hysterese, alle 2 s neu)
+  allocFor(S, target, M) {
+    const sh = S.ship; const m = this.memo;
+    const P = sh.chargePoints != null ? sh.chargePoints : 4;
+    if (!M.bow || !M.port || !M.stbd) return;
+    if (!m.allocWant || (m.allocAt || 0) < S.time) {
+      const rel = norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle) * 180 / Math.PI;
+      const want = { bow: 0, port: 0, stbd: 0 };
+      const side = rel < 0 ? 'port' : 'stbd', other = side === 'port' ? 'stbd' : 'port';
+      const order = Math.abs(rel) < 30 ? ['bow', side, other] : [side, 'bow', other];
+      let left = P;
+      for (const id of order) { if (M[id].state === 'broken') continue; const k = Math.min(M3.allocMax || 4, left); want[id] = k; left -= k; }
+      m.allocWant = want; m.allocAt = S.time + 2;
+    }
+    if ((m.allocCmdAt || 0) > S.time) return;
+    const w = m.allocWant;
+    const down = MOUNT_IDS.find((id) => M[id].alloc > w[id]);
+    const up = MOUNT_IDS.find((id) => M[id].alloc < w[id]);
+    const sum = MOUNT_IDS.reduce((a, id) => a + M[id].alloc, 0);
+    if (down && (sum >= P || !up)) { this.cmd('weapons.alloc', { mount: down, delta: -1 }); m.allocCmdAt = S.time + 0.3; }
+    else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
+  }
+
+  // ---------- M3a: Steuer (§14: nose = Bug aufs Ziel und halten, maneuver = Breitseite) ----------
+  pilot() { return this.opts.pilot || 'nose'; }
+  helmFight(S, e) {
+    const sh = S.ship; const M = this.mountsOf(S);
+    if (!e) { this.brake(S); return; }
+    // Zielphase der Lanze: Kurs halten (nicht drehen, nur gegensteuern)
+    if (M.bow && M.bow.aim) { this.helm(this.turnCmd(S, 0), 0); this.game.simStats.aimHolds = (this.game.simStats.aimHolds || 0) + 1; return; }
+    // Jäger kreisen schneller, als die Lerche drehen kann (0,48 vs 0,5 rad/s): nicht hinterherdrehen, Kurs halten und
+    // den Jäger durch die Bögen laufen lassen (beide Strategien gleich, damit der Vergleich die Kanonenboote/Pylonen misst)
+    // QA M3a: Kreisen die Jäger langsamer, als die Lerche dreht (speed/raiderOrbit < 90 % turnRate), hält „maneuver“ sie in
+    // der Breitseite. „nose“ behält gegen Jäger das Kurshalten – das ist seine bessere Variante (gemessen: Bug auf den Jäger
+    // drehen kostete in Welle 1 fast dreimal so lange), damit der Vergleich nose nicht künstlich schlechter macht.
+    const raiderTooFast = CONFIG.enemies.raider.speed / CONFIG.combat.raiderOrbit >= 0.9 * CONFIG.ship.turnRate;
+    const holdVsRaider = raiderTooFast || this.pilot() === 'nose';
+    if ((e.kind === 'raider' && holdVsRaider && dist(e.x, e.y, sh.x, sh.y) < 420) || e.kind === 'relay') { const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle); this.helm(this.turnCmd(S, 0), fwd > 30 ? -0.5 : 0); }
+    else if (this.pilot() === 'maneuver') this.helmManeuver(S, e);
+    else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
+    // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
+    if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
   }
   aimHelm(S, e, standoff) {
     const sh = S.ship;
@@ -304,24 +480,113 @@ class Agent {
     let thrust = 0;
     if (d > (standoff || 420) && Math.abs(diff) < 0.6) thrust = fwd < 60 ? 0.6 : 0;
     else thrust = fwd > 20 ? -1 : (fwd < -5 ? 0.4 : 0);
-    this.helm(clamp(diff * 2.5, -1, 1), thrust);
+    this.helm(this.turnCmd(S, diff), thrust);
+  }
+  // Breitseite: Ziel bei ±90°, Abstand ~400 per Kurskorrektur, Seite wechseln bei schwachem Sektor, bei einer Ladung wegdrehen
+  helmManeuver(S, e, opts) {
+    const sh = S.ship; const m = this.memo;
+    const d = dist(sh.x, sh.y, e.x, e.y);
+    const bearing = Math.atan2(e.y - sh.y, e.x - sh.x);
+    const sideScore = (side) => {
+      const sec = SECTOR_OF_SIDE[side];
+      const cur = sh.shields.current[sec] || 0; const cap = sh.shields.cap ? sh.shields.cap[sec] : 4;
+      const bat = sh.systems['battery_' + side];
+      return cur + cap * 0.5 + (bat === 'ok' ? 2 : bat === 'damaged' ? 1 : -2);
+    };
+    if (!m.side) m.side = norm(bearing - sh.angle) < 0 ? 'port' : 'stbd';
+    const other = m.side === 'port' ? 'stbd' : 'port';
+    if ((m.sideAt || 0) < S.time && sideScore(other) >= sideScore(m.side) + 2) { m.side = other; m.sideAt = S.time + 8; this.game.simStats.sideSwitches = (this.game.simStats.sideSwitches || 0) + 1; }
+    const s = m.side === 'stbd' ? 1 : -1;
+    // Ladung eines Gegners, der uns im Bogen hat: wegdrehen und Schub (aus Bogen/Reichweite)
+    const threat = S.space.enemies.find((q) => q.tele && q.tele.left > 0.4 && dist(q.x, q.y, sh.x, sh.y) < 620);
+    let delta = clamp((d - 400) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
+    let thrust;
+    const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
+    if (threat && !(opts && opts.slow)) {
+      const tb = Math.atan2(threat.y - sh.y, threat.x - sh.x);
+      const away = norm(tb + Math.PI);
+      const relAway = norm(away - sh.angle);
+      const heading = Math.abs(relAway) < 2.2 ? away : norm(tb - s * (Math.PI / 2 + 0.9));
+      if (!m.evading || m.evading !== threat.id) { m.evading = threat.id; this.game.simStats.evades = (this.game.simStats.evades || 0) + 1; }
+      this.helm(this.turnCmd(S, norm(heading - sh.angle)), 1);
+      return;
+    }
+    m.evading = null;
+    const heading = norm(bearing - s * (Math.PI / 2 - delta));
+    const target = opts && opts.slow ? (d > 480 ? 40 : 0) : (d > 600 ? 110 : 60);
+    thrust = fwd < target - 5 ? 0.8 : (fwd > target + 10 ? -0.5 : 0);
+    this.helm(this.turnCmd(S, norm(heading - sh.angle)), thrust);
   }
   nearestEnemy(S) { const sh = S.ship; let e = null, ed = Infinity; for (const o of S.space.enemies) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } } return e; }
 
-  // Kampf je Rolle (solo: Taktik feuert, kurz ans Steuer, wenn nichts im Bogen)
+  // ---------- M3a: Captain (Schildverteilung, Schildstoß bei Ladungen, Reparaturliste) ----------
+  captainFight(S, p) {
+    const sh = S.ship; const m = this.memo; const C = M3.tele || {};
+    if (!this.enter(S, 'captain')) return;
+    // Schildstoß: Ladung erst in den letzten captainSeesLast (1,2) s sichtbar; Reaktion wie ein Mensch, Zeitpunkt streut
+    m.burstPlan = m.burstPlan || {};
+    for (const id of Object.keys(m.burstPlan)) if (!S.space.enemies.some((e) => e.id === id && e.tele)) delete m.burstPlan[id];
+    const seen = S.space.enemies.filter((e) => e.tele && e.tele.left <= (C.captainSeesLast || 1.2));
+    for (const e of seen) if (!m.burstPlan[e.id]) m.burstPlan[e.id] = { at: 0.05 + simRng() * 0.7 };
+    const bs = sh.shields || {};
+    if (!bs.burst && !(bs.burstCd > 0)) {
+      const go = seen.filter((e) => e.tele.left <= m.burstPlan[e.id].at).sort((a, b) => a.tele.left - b.tele.left)[0];
+      if (go && (m.burstAt || 0) < S.time) { m.burstAt = S.time + 0.5; this.cmd('captain.burst', { sector: go.tele.sector }); this.game.simStats.burstTries = (this.game.simStats.burstTries || 0) + 1; delete m.burstPlan[go.id]; }
+    }
+    // Schilde dorthin, wo es knallt (Sektor einer Ladung, sonst des nächsten Gegners)
+    if ((m.shieldAt || 0) < S.time && S.space.enemies.length) {
+      m.shieldAt = S.time + 2;
+      const tele = S.space.enemies.find((e) => e.tele);
+      const e = this.nearestEnemy(S);
+      const sec = tele ? tele.tele.sector : Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y);
+      const al = sh.shields.alloc; const cap = sh.shields.cap || [4, 4, 4, 4];
+      const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => al[b] - al[a])[0];
+      if (al[sec] < cap[sec] && donor != null) { this.cmd('captain.shield', { sector: donor, delta: -1 }); this.cmd('captain.shield', { sector: sec, delta: 1 }); }
+    }
+    this.queueRepairs(S);
+  }
+  // Reparaturliste füllen (zu dritt; solo macht das die Automatik). Läuft in jedem Missionsschritt, sobald der Captain an der Konsole ist.
+  queueRepairs(S) {
+    const sh = S.ship; const m = this.memo;
+    if (this.opts.queue !== false && (m.queueAt || 0) < S.time) {
+      m.queueAt = S.time + 1.5;
+      if (sh.botAuto) { this.cmd('captain.botAuto', { on: false }); return; }
+      const q = sh.repairQueue || [];
+      const busyPlayer = (s) => (this.game.simAgents || []).some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
+      const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))
+        .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
+      for (const s of want) {
+        if (q.length >= (M3.repair ? M3.repair.queueMax : 3)) break;
+        if (q.some((x) => x.system === s)) continue;
+        const mode = sh.systems[s] === 'broken' && S.inventory.ersatzteil > 0 ? 'part' : 'flick';
+        this.cmd('captain.repair', { system: s, mode });
+        if (VERBOSE) log(`  [Captain ${S.time}] Reparaturliste: ${s} ${mode} -> ${JSON.stringify(this.game.ship.repairQueue)} ${this.notices.slice(-1)}`);
+        this.game.simStats.queued = (this.game.simStats.queued || 0) + 1;
+        break;
+      }
+    }
+  }
+
+  // Kampf je Rolle (solo: Taktik feuert, kurz ans Steuer, wenn nichts im Bogen; Reparaturgänge zwischendurch)
   combat(S, p) {
     const sh = S.ship;
     if (this.role === 'solo') {
       const e = this.nearestEnemy(S);
       if (!e) return;
-      const inAny = sh.mounts.some((m) => m.id.startsWith('phase') && Physics.inArc(sh.x, sh.y, sh.angle, m.facing, m.arc - 10, m.range, e.x, e.y));
+      const threat = S.space.enemies.some((q) => q.tele && q.tele.left < 2.5);
+      // Reparaturgang: zerstörtes System, solange keine Ladung kurz bevorsteht (Bots machen den Rest per Automatik)
+      if (this.memo.job || (!threat && (this.memo.offArc || 0) < 1)) { if (this.repairDuty(S, p, { cooldown: 15 })) return; }
+      const M = this.mountsOf(S);
+      const inAny = MOUNT_IDS.some((id) => M[id] && M[id].state !== 'broken' && this.inArcM(S, M[id], e, 4));
       if (!inAny) this.memo.offArc = (this.memo.offArc || 0) + DT; else this.memo.offArc = 0;
-      if (this.memo.turning || this.memo.offArc > 3) {
+      if (this.memo.turning || this.memo.offArc > (e.kind === 'raider' ? 8 : 3)) {
+        // Solo: kurz ans Steuer und das Ziel in einen Bogen drehen (nose: Bug, maneuver: Breitseite), dann zurück an die Taktik
         this.memo.turning = true;
         if (!this.enter(S, 'helm')) return;
-        const diff = norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle);
-        this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
-        if (Math.abs(diff) < 0.12 && dist(sh.x, sh.y, e.x, e.y) < 520) { this.helm(0, 0); this.memo.turning = false; this.memo.offArc = 0; }
+        const want = this.pilot() === 'nose' ? ['bow'] : ['port', 'stbd'];
+        if (this.pilot() === 'maneuver') this.helmManeuver(S, e, { slow: true }); else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
+        const M2 = this.mountsOf(S);
+        if (want.some((id) => M2[id] && this.inArcM(S, M2[id], e, id === 'bow' ? 6 : 24)) && Math.abs(sh.turnVel || 0) < 0.12) { this.helm(this.turnCmd(S, 0), 0); this.memo.turning = false; this.memo.offArc = 0; }
         if ((this.memo.turnT = (this.memo.turnT || 0) + DT) > 12) { this.memo.turning = false; this.memo.turnT = 0; this.memo.offArc = 0; }
         return;
       }
@@ -330,28 +595,17 @@ class Agent {
       return;
     }
     if (this.role === 'weapons') {
-      if (sh.systems.weapons !== 'ok' && sh.systems.weapons !== 'offline' && this.repair(S, p, 'weapons') !== 'skip') return;
+      // Zu dritt verlässt die Taktik die Brücke für Reparaturen (die Waffen feuern unbesetzt mit 50 % weiter)
+      if (this.repairDuty(S, p, { damaged: true, cooldown: 6 })) return;
       if (this.enter(S, 'weapons')) this.fight(S, { scan: true });
       return;
     }
     if (this.role === 'helm') {
       if (!this.enter(S, 'helm')) return;
-      const e = this.nearestEnemy(S);
-      this.aimHelm(S, e, e && (e.kind === 'pylon' || e.kind === 'relay') ? 380 : 450);
-      if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
+      this.helmFight(S, this.nearestEnemy(S));
       return;
     }
-    if (this.role === 'captain') {
-      if (!this.enter(S, 'captain')) return;
-      if ((this.memo.shieldAt || 0) < S.time && S.space.enemies.length) {
-        this.memo.shieldAt = S.time + 2;
-        const e = this.nearestEnemy(S);
-        const sec = Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y);
-        const al = sh.shields.alloc;
-        const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => al[b] - al[a])[0];
-        if (al[sec] < 4 && donor != null) { this.cmd('captain.shield', { sector: donor, delta: -1 }); this.cmd('captain.shield', { sector: sec, delta: 1 }); }
-      }
-    }
+    if (this.role === 'captain') this.captainFight(S, p);
   }
 
   shootDrones(S) {
@@ -380,6 +634,7 @@ class Agent {
     if (this.waitT > 0) { this.waitT -= DT; return; }
     if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
     if (this.reactorDuty(S, p)) return;
+    if (this.role === 'captain' && p.console === 'captain') this.queueRepairs(S);
     // Funkspruch annehmen / Entscheidung (Captain bzw. solo), wenn keine Gefahr
     if (S.phase === 'end') { this.endPhase(S, p); return; }
     const st = S.mission.stage;
@@ -395,7 +650,8 @@ class Agent {
     if (S.space.enemies.length && this.role !== 'solo') return false;
     if (!(this.role === 'solo' || this.role === 'helm') || p.zone !== 'ship') return false;
     if (p.console) { this.send({ t: 'leave' }); return true; }
-    const r = this.interact(S, 2, 1, { hold: true, max: 30, until: (S2) => S2.ship.reactor.state !== 'offline' });
+    const sw = switchOf('A');
+    const r = this.interact(S, sw.x, sw.y, { hold: true, max: 30, until: (S2) => S2.ship.reactor.state !== 'offline' });
     if (r === 'fail') this.waitT = 0.5;
     if (!this.memo.switchUsed) { this.memo.switchUsed = true; this.game.simStats.reactorRestarts++; }
     return true;
@@ -408,7 +664,7 @@ class Agent {
     if (p.carry !== 'loeschgel') {
       if (p.carry) { this.send({ t: 'drop' }); return 'running'; }
       if (S.inventory.loeschgel <= 0 && S.inventory.loeschgelCharges <= 0) return 'skip';
-      this.interact(S, 9, 1, {});
+      const shelf = shelfOf('loeschgel'); this.interact(S, shelf.x, shelf.y, {});
       return 'running';
     }
     const r = this.interact(S, f[0], f[1], { floor: true, hold: true, until: (S2) => !S2.ship.fires.some((q) => q[0] === f[0] && q[1] === f[1]) });
@@ -422,7 +678,7 @@ class Agent {
     if (p.carry !== 'flickblech') {
       if (p.carry) { this.send({ t: 'drop' }); return 'running'; }
       if (S.inventory.flickblech <= 0) return 'skip';
-      this.interact(S, 10, 1, {});
+      const shelf = shelfOf('flickblech'); this.interact(S, shelf.x, shelf.y, {});
       return 'running';
     }
     const r = this.interact(S, b.tx, b.ty, { floor: true, hold: true, until: (S2) => !S2.ship.breaches.some((q) => q.tx === b.tx && q.ty === b.ty) });
@@ -445,7 +701,7 @@ class Agent {
       if ((this.role === 'helm' || this.role === 'weapons') && p.carry && !this.actDown) this.send({ t: 'drop' });
     }
     if (p.carry && !['ersatzteil', 'loeschgel', 'flickblech'].includes(p.carry)) this.send({ t: 'drop' });
-    if (p.carry && !drillOpen && !this.actDown) { const shelf = Number(Object.keys(Maps.SHELVES).find((x) => Maps.SHELVES[x] === p.carry)); this.interact(S, shelf, 1, {}); return; }
+    if (p.carry && !drillOpen && !this.actDown) { const shelf = shelfOf(p.carry); if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; } }
     if (this.is('captain')) { if (this.enter(S, 'captain') && S.mission.radio && S.mission.radio.needsAccept) this.cmd('captain.accept'); }
     else if (this.role === 'helm') this.enter(S, 'helm');
     else this.enter(S, 'weapons');
@@ -489,7 +745,7 @@ class Agent {
     }
     if (this.role === 'helm') {
       if (!this.enter(S, 'helm')) return;
-      if (S.space.enemies.length && near) { this.aimHelm(S, this.nearestEnemy(S), 9999); return; }
+      if (S.space.enemies.length && near) { this.helmFight(S, this.nearestEnemy(S)); return; }
       if (!near) this.steer(S, b.x - 150, b.y, 30, 100); else this.brake(S);
       return;
     }
@@ -513,15 +769,17 @@ class Agent {
     if (p.zone === 'ship') {
       if (p.carry === 'datenkern') { if (this.actDown) this.act(false); this.input(0, 0); return; }
       if (S.away.active && this.role === 'weapons' && S.away.sonde.disabled) { this.enter(S, 'weapons'); return; }
-      if (p.console) { this.leave(S); return; }
+      const drift = (this.role === 'solo' || this.role === 'helm') && (dist(sh.x, sh.y, this.station(S).x, this.station(S).y) > 260 || sh.speed > 8);
+      if (p.console && !(drift && p.console === 'helm')) { this.leave(S); return; }
       if (sh.systems.transfer === 'broken' || sh.systems.transfer === 'offline') { this.input(0, 0); return; }
       // Schiff driftet (unbesetzte Steuer hält Kurs/Tempo): erst zurück zur Boje und anhalten
       const b = this.station(S);
+
       if ((this.role === 'solo' || this.role === 'helm') && (dist(sh.x, sh.y, b.x, b.y) > 260 || sh.speed > 8)) {
         if (this.enter(S, 'helm')) { if (dist(sh.x, sh.y, b.x, b.y) > 200) this.steer(S, b.x - 150, b.y, 30, 90); else this.brake(S); }
         return;
       }
-      if ((this.role === 'solo' || this.role === 'helm') && !S.away.active && !p.carry && S.inventory.medipack > 0 && S.away.npc.injured) { this.interact(S, 12, 1, {}); return; }
+      if ((this.role === 'solo' || this.role === 'helm') && !S.away.active && !p.carry && S.inventory.medipack > 0 && S.away.npc.injured) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
       if (!this.onMyPad(S, p)) return;
       if (this.role === 'weapons' && !S.away.active) { this.input(0, 0); return; }
       if (this.role === 'helm' && !S.away.active) {
@@ -566,7 +824,7 @@ class Agent {
     this.returnToPads(S, p, npc.following === this.pid ? npc : null);
   }
   onMyPad(S, p) {
-    const pads = Maps.ship.find('P'); const myPad = pads[this.idx % 3];
+    const pads = W.SHIP_PADS; const myPad = pads[this.idx % pads.length];
     const t = this.tile(p); const c = Physics.tileCenter(myPad.x, myPad.y);
     if (!(t.x === myPad.x && t.y === myPad.y) || dist(p.x, p.y, c.x, c.y) > 4) { this.goto(S, [myPad]); return false; }
     return true;
@@ -1039,9 +1297,141 @@ function printKesh(r) {
   log(`Server-Fehlerzähler: ${r.errors} · Snapshot max ${r.snapMax} B · Marken ${r.marks}, Tafel ${r.tafel}`);
 }
 
+// ---------- M3a: Testgelände Raumkampf (Lobby-Start arena_space), Strategievergleich nose / maneuver ----------
+class ArenaAgent extends Agent {
+  update(S) {
+    const p = this.me(S);
+    if (!p) return;
+    if (this.waitT > 0) { this.waitT -= DT; return; }
+    if (p.downed) { this.input(0, 0); this.act(false); this.ix = null; return; }
+    if (S.phase !== 'play') return;
+    if (this.reactorDuty(S, p)) return;
+    if (S.space.enemies.some((e) => e.kind !== 'relay')) { this.combat(S, p); return; }
+    // Pause zwischen den Wellen: reparieren, Steuer fliegt zurück zur Startposition, Captain bleibt an der Konsole
+    if (this.role === 'captain') { this.captainFight(S, p); return; }
+    if (this.role === 'weapons' || this.role === 'solo') { if (this.repairDuty(S, p, { damaged: true, cooldown: 1 })) return; }
+    if (this.role === 'weapons') { this.enter(S, 'weapons'); return; }
+    if (!this.enter(S, 'helm')) return;
+    const home = CONFIG.arena.shipPos; const sh = S.ship;
+    if (dist(sh.x, sh.y, home.x, home.y) > 300) this.steer(S, home.x, home.y, 120, 100); else this.brake(S);
+  }
+}
+
+const ArenaMod = require('../server/sim/arena.js');
+async function runArena(opts) {
+  const seed = opts.seed;
+  simRng = makeRng(seed * 7919 + 101);
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
+  const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
+  const agents = roles.map((r, i) => new ArenaAgent(game, i, r, opts));
+  game.simAgents = agents;
+  const ev = { tele: 0, teleMiss: 0, aimAbort: 0, aimFire: 0, aimMiss: 0, systemHit: 0 };
+  const watcher = { send: (o) => {
+    if (o.t !== 'event') return;
+    if (o.kind === 'tele') ev.tele++;
+    if (o.kind === 'teleMiss') ev.teleMiss++;
+    if (o.kind === 'systemHit') ev.systemHit++;
+    if (o.kind === 'aim') { if (o.state === 'abort') ev.aimAbort++; if (o.state === 'fire') ev.aimFire++; if (o.state === 'miss') ev.aimMiss++; }
+    if (VERBOSE && o.kind === 'oda') log(`  [ODA ${game.time.toFixed(1)}] ${o.text}`);
+  } };
+  game.addConnection(watcher); watcher.observer = true;
+  game.lobbyOpts.startMission = 'arena_space';
+  for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  let S = game.snapshot();
+  const waves = []; let cur = null;
+  let prevHull = game.ship.hull, hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
+  while (game.time < opts.maxSec) {
+    game.step(); ticks++;
+    if (game.wantsSnapshot()) S = game.snapshot();
+    for (const a of agents) a.update(S);
+    const h = game.ship.hull;
+    if (h < prevHull) hullLoss += prevHull - h;
+    prevHull = h;
+    const A = game.arena;
+    if (!A) break;
+    if (A.active && (!cur || cur.wave !== A.wave)) { cur = { wave: A.wave, start: game.time, hull0: hullLoss, em0: game.stats.emergencies }; lastProgress = game.time; }
+    if (!A.active && cur) {
+      cur.dur = Math.round((game.time - cur.start) * 10) / 10; cur.hull = Math.round((hullLoss - cur.hull0) * 10) / 10; cur.em = game.stats.emergencies - cur.em0; cur.ok = !cur.failed;
+      waves.push(cur); cur = null; lastProgress = game.time;
+    }
+    if (VERBOSE && ticks % 300 === 0) {
+      const sh = S.ship;
+      log(`  [t ${game.time.toFixed(0)} W${A.wave}${A.active ? '' : '-'}] Hülle ${sh.hull} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Schilde ${sh.shields.current.join('/')} ` +
+        `Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + (e.tele ? ' T' + e.tele.left : '') + ' @' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Spieler ${S.players.map((q) => q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32)).join(' ')}`);
+    }
+    // Zeitlimit je Welle: zählt als „Welle nicht geschafft“ (Gegner werden wie mit Debug-skip entfernt), kein Softlock
+    if (cur && !cur.failed && game.time - cur.start > opts.waveLimit) { cur.failed = true; ArenaMod.skipWave(game); }
+    if (waves.length >= opts.waves) break;
+    if (game.time - lastProgress > 300) { softlock = true; break; }
+    if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
+  }
+  const st = game.stats;
+  return {
+    seed, pilot: opts.pilot, players: opts.players, time: Math.round(game.time * 10) / 10, cleared: waves.filter((w) => w.ok).length, failed: waves.filter((w) => w.failed).length, softlock,
+    hullLoss: Math.round(hullLoss * 10) / 10, waves, errors: game.errors, emergencies: st.emergencies,
+    bridgeLeaves: st.bridgeLeaves || 0, bursts: st.bursts || 0, burstsPerfect: st.burstsPerfect || 0, flicks: st.flicks || 0, swaps: st.swaps || 0, minigames: st.minigames || 0,
+    ev, sim: game.simStats, hull: Math.round(game.ship.hull),
+  };
+}
+
+async function arenaMain() {
+  const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
+  const nSeeds = Number(argVal('--seeds', 10));
+  const players = Number(argVal('--players', 3));
+  const nWaves = Number(argVal('--waves', 5));
+  const maxSec = Number(argVal('--max', 1200));
+  const waveLimit = Number(argVal('--wave-limit', 180));
+  const base = seedArg != null ? seedArg : 1;
+  const summary = {};
+  let ok = true;
+  for (const pilot of pilots) {
+    log(`\n=== Testgelände Raumkampf – Steuer „${pilot}“, ${players} Spieler, ${nWaves} Wellen, ${nSeeds} Seeds (Bot-Spieler, Plausibilität, keine Spieldauer) ===`);
+    const rs = [];
+    for (let i = 0; i < nSeeds; i++) {
+      const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit });
+      rs.push(r);
+      if (r.errors > 0 || r.softlock) ok = false;
+      log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen geschafft (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hüllenverlust ${r.hullLoss} · Notfälle ${r.emergencies} · ` +
+        `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · bridgeLeaves ${r.bridgeLeaves} · Stöße ${r.bursts} (perfekt ${r.burstsPerfect}) · ` +
+        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Lanze ${r.ev.aimFire}/${r.ev.aimAbort}/${r.ev.aimMiss} (Treffer/Abbruch/Fehl) · Fehler ${r.errors}`);
+    }
+    const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;
+    const waveAvg = [];
+    for (let w = 1; w <= nWaves; w++) { const ds = rs.map((r) => r.waves.find((x) => x.wave === w)).filter(Boolean); waveAvg.push(ds.length ? { w, dur: ds.reduce((a, x) => a + x.dur, 0) / ds.length, hull: ds.reduce((a, x) => a + x.hull, 0) / ds.length, n: ds.length } : { w, dur: null, hull: null, n: 0 }); }
+    const s = {
+      hullLoss: avg((r) => r.hullLoss), time: avg((r) => r.time), cleared: avg((r) => r.cleared), emergencies: avg((r) => r.emergencies), bridgeLeaves: avg((r) => r.bridgeLeaves),
+      bursts: avg((r) => r.bursts), burstsPerfect: avg((r) => r.burstsPerfect), flicks: avg((r) => r.flicks), minigames: avg((r) => r.minigames), swaps: avg((r) => r.swaps),
+      tele: avg((r) => r.ev.tele), teleMiss: avg((r) => r.ev.teleMiss), errors: rs.reduce((a, r) => a + r.errors, 0), softlocks: rs.filter((r) => r.softlock).length, waveAvg,
+    };
+    s.hullPerMin = s.hullLoss / Math.max(1, s.time / 60);
+    s.wavesPer10 = s.cleared / Math.max(1, s.time / 600);
+    s.hullPerWave = s.hullLoss / Math.max(0.1, s.cleared);
+    summary[pilot] = s;
+    const f1 = (v) => (v == null ? '—' : (Math.round(v * 10) / 10).toString());
+    log(`Mittel „${pilot}“: Hüllenverlust ${f1(s.hullLoss)} (${f1(s.hullPerMin)}/min) · Dauer ${f1(s.time)} s · Wellen geschafft ${f1(s.cleared)} (${f1(s.wavesPer10)} je 10 min) · Notfallprotokolle ${f1(s.emergencies)} · bridgeLeaves ${f1(s.bridgeLeaves)} · ` +
+      `Schildstöße ${f1(s.bursts)} (perfekt ${f1(s.burstsPerfect)}) · Flicken ${f1(s.flicks)} · Minispiele ${f1(s.minigames)} · Austausche ${f1(s.swaps)} · Ladungen ${f1(s.tele)} (verfehlt ${f1(s.teleMiss)}) · Fehler ${s.errors} · Softlocks ${s.softlocks}`);
+    log('Dauer/Hüllenverlust je Welle (Mittel): ' + waveAvg.map((x) => `W${x.w} ${f1(x.dur)} s / ${f1(x.hull)}${x.n < nSeeds ? ` (n=${x.n})` : ''}`).join(' · '));
+  }
+  if (summary.nose && summary.maneuver) {
+    const a = summary.nose, b = summary.maneuver;
+    const fac = b.hullLoss > 0 ? a.hullLoss / b.hullLoss : Infinity;
+    const facMin = b.hullPerMin > 0 ? a.hullPerMin / b.hullPerMin : Infinity;
+    log(`\n=== Vergleich nose / maneuver (${nSeeds} Seeds) ===`);
+    log('| Wert | nose | maneuver |');
+    log('|---|---|---|');
+    const row = (k, t) => log(`| ${t} | ${Math.round(a[k] * 10) / 10} | ${Math.round(b[k] * 10) / 10} |`);
+    row('hullLoss', 'Hüllenverlust (Summe)'); row('hullPerMin', 'Hüllenverlust je min'); row('hullPerWave', 'Hüllenverlust je geschaffte Welle'); row('time', 'Dauer (s)'); row('cleared', 'Wellen geschafft'); row('wavesPer10', 'Wellen je 10 min'); row('emergencies', 'Notfallprotokolle');
+    row('bridgeLeaves', 'bridgeLeaves'); row('bursts', 'Schildstöße'); row('burstsPerfect', 'davon perfekt'); row('flicks', 'Flicken'); row('minigames', 'Minispiele'); row('swaps', 'Austausche');
+    log(`Faktor Hüllenverlust nose/maneuver: ${fac.toFixed(2)} (je Minute ${facMin.toFixed(2)}) – Abnahme §16 verlangt ≥ 1,3: ${fac >= 1.3 ? 'ERREICHT' : 'NICHT erreicht'}`);
+  }
+  log(ok ? '\nSIM ARENA OK' : '\nSIM ARENA FEHLGESCHLAGEN');
+  process.exit(ok ? 0 : 1);
+}
+
 function onShipPad(p) {
   const t = { x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) };
-  return Maps.ship.find('P').some((q) => q.x === t.x && q.y === t.y);
+  return W.SHIP_PADS.some((q) => q.x === t.x && q.y === t.y);
 }
 function losPx(isSolid, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay; const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8));
@@ -1087,7 +1477,7 @@ async function runScenario(n, opts) {
     for (const a of agents) a.update(S);
     if (VERBOSE && ticks % 450 === 0) {
       const sh = S.ship;
-      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Hülle ${sh.hull} Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
+      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Hülle ${sh.hull} Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + '<' + Math.round(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle) * 57.3) + '°').join('; ')} v${Math.round(sh.speed)} tv${sh.turnVel} Waffen ${(sh.mounts || []).map((m) => m.id + ':' + m.alloc + '/' + m.charge + (m.aim ? 'A' : '') + (m.salvo ? 'S' + m.salvo : '')).join(',')} Ziel ${sh.target} Q ${JSON.stringify(sh.repairQueue)} Bots ${S.bots.map((b) => b.task ? b.task.kind : '-').join('/')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
     }
     const key = (S.mission.stage || 'free') + (game.simStats.wreckDone ? '' : (game.ship.scene === 'wrack' ? '+wrack' : ''));
     if (key !== stage) { stage = key; stageStart = game.time; }
@@ -1132,6 +1522,7 @@ function printResult(r) {
 }
 
 (async () => {
+  if (args.includes('arena')) { await arenaMain(); return; }
   const onlyM3 = args.includes('m3');
   const runs = onlyM3 ? [] : (counts.length ? counts : [1, 3, 'skip']);
   let ok = true;
@@ -1147,6 +1538,7 @@ function printResult(r) {
     const base = skip ? { seed, grauzahn: 'bribe', decision: 'deliver', skipDrill: true, wreck: true, sela: 'search', parley: 'share' }
       : n === 1 ? { seed, grauzahn: 'fight', decision: 'deliver', sela: 'search', parley: 'bluff' } : { seed, grauzahn: 'bribe', decision: 'decode', sela: 'buy', parley: 'bluff' };
     if (WRECK) base.wreck = true;
+    base.pilot = PILOT && PILOT !== 'both' ? PILOT : 'maneuver';
     const r = await runScenario(n, base);
     printResult(r);
     if (!r.success || r.errors > 0 || r.snapshot.maxBytesFull >= 12 * 1024) ok = false;

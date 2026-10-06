@@ -717,7 +717,9 @@ function tune(game, path, value) {
     return { ok: true, text: 'barks = ' + (C.barksOn ? 'on' : 'off') };
   }
   const keys = String(path).split('.');
-  let o = C;
+  // QA M3a: Pfade, die nicht unter awayCombat liegen (spaceM3.*, combat.*, crewScaling.* …), gelten für die ganze
+  // Konfiguration – CONTRACT-M3 §10/§17 verlangt `tune spaceM3.<pfad> <wert>`. awayCombat-Pfade haben Vorrang (wie bisher).
+  let o = (C[keys[0]] === undefined && game.C[keys[0]] !== undefined && keys[0] !== 'awayCombat') ? game.C : C;
   for (let i = 0; i < keys.length - 1; i++) {
     o = o[keys[i]];
     if (!o || typeof o !== 'object' || Array.isArray(o) || keys[i] === 'barks') return { ok: false, text: 'Unbekannter Pfad: ' + path };
@@ -729,7 +731,7 @@ function tune(game, path, value) {
     o[last] = v === 'on' || v === '1' || v === 'true';
     return { ok: true, text: path + ' = ' + (o[last] ? 'on' : 'off') };
   }
-  if (typeof o[last] !== 'number') return { ok: false, text: 'Kein Zahlenwert unter awayCombat: ' + path };
+  if (typeof o[last] !== 'number') return { ok: false, text: 'Kein Zahlenwert: ' + path };
   const v = Number(value);
   if (!Number.isFinite(v)) return { ok: false, text: 'Wert muss eine Zahl sein.' };
   o[last] = v;

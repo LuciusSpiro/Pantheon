@@ -33,8 +33,13 @@
   <span id="status">lade …</span>
 </header>
 
-<section><h2>Schiff „Lerche“ (M1) – komplette Karte</h2><div class="scroll"><canvas id="cShip"></canvas></div>
-  <p class="note">Aus ../shared/maps.js. Quartiere: q0 Holz hell + Tapete creme (warm) · q1 Teppich rot + Holz (bernstein) · q2 Teppich blau + Tapete grün (mint) · q3 Gast: Fliesen + Paneel (warm, Ivo). Reaktor offline, Schalter A gehalten (Fortschritt), B blinkt. Planungstisch aktiv mit drei Sitzenden. Antrieb damaged · Schildgenerator broken · Feuer im Gang · Hüllenbruch.</p></section>
+<section><h2>M3a · Lerche (44 × 13) – komplette Karte mit allen Stationen</h2><div class="scroll"><canvas id="cShip"></canvas></div>
+  <p class="note">Aus ../shared/maps.js (SHIP_LEGEND). Heck links: Antriebsraum (Triebwerk E, Heck-Emitter A) · Maschinenraum mittschiffs (Reaktor R, Schildgenerator G, Schalter y, Energiestamm) · Batteriedecks Bb oben / Stb unten als Geschützdeck (Düse, Batterie, Emitter) · Brücke rechts (Lanzenkammer K, Bug-Emitter I). Plaketten BB/STB/BUG/HECK/MITTE am Sockel. Vorschau-Zustände: Düse Stb BESCH+FLICK · Batterie Stb BESCH · Emitter Stb AUS · Bug-Emitter FLICK · Schildgenerator BESCH · Triebwerk AUS · Heck-Emitter EMP · Reaktor offline (Schalter A gehalten).</p></section>
+<section><h2>M3a · Stationen in allen Zuständen (OK / BESCH / AUS / FLICK / BESCH+FLICK / EMP)</h2><div class="scroll"><canvas id="cM3Obj"></canvas></div>
+  <p class="note">Dreifach codiert: Farbe (Mint / Gelb #F2C94C / Rot / Orange #F08A3C / Eisblau) · Muster (Haken / Schraffur / X / Klebeband / Punkte) · Kürzel. Rechts: Stationsplaketten mit und ohne Zustandsquadrat, Zustandsmarken.</p></section>
+<section><h2>M3a · Maschinenräume und Geschützdeck (Ausschnitte ×1)</h2><div class="scroll"><canvas id="cM3Rooms"></canvas></div></section>
+<section><h2>M3a · Raumkampf: Lanze, Batterie-Salve, schwerer Treffer, Ladeglühen, Schildstoß, Schäden außen</h2><div class="scroll"><canvas id="cM3Space"></canvas></div>
+  <p class="note">Oben: Lerche heil / mit Schäden (Rauch nach achtern, Funken) / Stoß normal / Stoß perfekt mit Ring. Mitte: Ladung bei 10 % · 50 % · 90 % (Kanonenboot, Pylon, Wächter-EMP) mit Ziellinie. Unten: Strahlen im Zeitverlauf (lance · battery · enemy_heavy · bolzen).</p></section>
 <section><h2>M1 · Objekte, Deko, Sitzen</h2><div class="scroll"><canvas id="cM1Obj"></canvas></div></section>
 <section><h2>M1 · Quartier-Stile (5 Böden × 4 Wände, Lichtfarben)</h2><div class="scroll"><canvas id="cQuarters"></canvas></div></section>
 <section><h2>M1 · Wrack „Zaunkönig“ – Beispielkarte (Team ART)</h2><div class="scroll"><canvas id="cWreck"></canvas></div>
@@ -97,6 +102,9 @@
     canv.m2fig = cv('cM2Fig', 960, 330);
     canv.m2fx = cv('cM2Fx', 960, 300);
     canv.m2space = cv('cM2Space', 960, 440);
+    canv.m3obj = cv('cM3Obj', 1000, 610);
+    canv.m3rooms = cv('cM3Rooms', 1090, 368);
+    canv.m3space = cv('cM3Space', 1000, 560);
   }
 
   // M1: Quartier-Stile für die Vorschau (wie Snapshot quarters) + Deko in den Slots
@@ -140,19 +148,32 @@
   });
   var WRECK_MAP = M.makeMap('wreck', WRECK_ROWS, M.WRECK_LEGEND || WRECK_LEGEND_PREVIEW);
 
-  var OBJ_CH = 'HCWTSLBREGKXOmpcxbZuknfyY';
+  var OBJ_CH = 'HCWTSLBREGKXOmpcxbZuknfyY';   // nur noch für Außenkarten; Schiff über die Legende (M3a)
   var WRECK_OBJ = { h: 1, g: 1, V: 1, x: 1 };
-  var SYS_STATE = { R: 'ok', E: 'damaged', G: 'broken', K: 'damaged', X: 'ok', O: 'ok' };
+  var NON_OBJ_KINDS = { wall: 1, void: 1, space: 1 };
+  // Vorschau-Zustände je System (nicht je Zeichen); unbekannte Systeme 'ok'
+  var SYS_STATE = { reactor: 'ok', engines: 'broken', shields: 'damaged', weapons: 'damaged', transfer: 'ok', life: 'ok',
+    thruster_port: 'ok', thruster_stbd: 'damaged', battery_port: 'ok', battery_stbd: 'damaged', emitter_port: 'ok', emitter_stbd: 'broken',
+    emitter_bow: 'ok', emitter_aft: 'offline', weapon_bow: 'ok' };
+  var SYS_FRAGILE = { thruster_stbd: true, emitter_bow: true };
+  function isObj(map, ch, x, y) {
+    if (map.id === 'ship') { var i = map.info(x, y); return !!(i && i.solid && !NON_OBJ_KINDS[i.kind]); }
+    return OBJ_CH.indexOf(ch) >= 0 || (map.id === 'wreck' && !!WRECK_OBJ[ch]);
+  }
   function objOpts(map, ch, x, y, t) {
     var info = map.info(x, y), o = { time: t, alert: alertSel.value };
-    if (ch === 'L' && map.id === 'ship') o.item = M.SHELVES[x];
-    if (ch === 'B') { for (var i = 0; i < M.BEDS.length; i++) if (M.BEDS[i].x === x && M.BEDS[i].y === y) o.color = M.BEDS[i].color; }
-    if (SYS_STATE[ch] && map.id === 'ship') o.state = SYS_STATE[ch];
-    if (ch === 'H') o.active = true;
+    var ship = map.id === 'ship';
+    if (ship && info.interact === 'shelf') { var sh = M.shelfAt ? M.shelfAt(x, y) : null; o.item = sh ? sh.item : null; }
+    if (info.interact === 'bed') { for (var i = 0; i < M.BEDS.length; i++) if (M.BEDS[i].x === x && M.BEDS[i].y === y) o.color = M.BEDS[i].color; }
+    if (ship && info.system) { o.state = SYS_STATE[info.system] || 'ok'; o.system = info.system; o.side = info.side; o.fragile = !!SYS_FRAGILE[info.system]; o.badge = true; o.tag = 'auto'; }
+    if (info.console === 'helm') o.active = true;
     if (ch === 'L' && map.id === 'platform') o.open = false;
-    if (ch === 'u' || ch === 'f') o.variant = (x + y) % 2;
-    if (ch === 'y') { o.id = y < 6 ? 'A' : 'B'; o.reactorState = 'offline'; o.held = o.id === 'A'; o.progress = o.held ? ((t * 0.4) % 1) : 0; }
-    if (ch === 'Y') o.active = true;
+    if (info.kind === 'pipes' || info.kind === 'barrel') o.variant = (x + y) % 2;
+    if (ship && info.kind === 'reactor_switch') {
+      var sw = (M.REACTOR_SWITCHES || []).filter(function (s) { return s.x === x && s.y === y; })[0];
+      o.id = sw ? sw.id : null; o.reactorState = 'offline'; o.held = o.id === 'A'; o.progress = o.held ? ((t * 0.4) % 1) : 0;
+    }
+    if (info.kind === 'plan_table') o.active = true;
     if (map.id === 'wreck') {
       if (ch === 'h') o.done = x === 4 && y === 12;
       if (ch === 'V') { o.marked = true; }
@@ -180,7 +201,7 @@
     var list = [];
     for (var y2 = 0; y2 < map.h; y2++) for (var x2 = 0; x2 < map.w; x2++) {
       var ch = map.at(x2, y2);
-      if (OBJ_CH.indexOf(ch) < 0 && !(map.id === 'wreck' && WRECK_OBJ[ch])) continue;
+      if (!isObj(map, ch, x2, y2)) continue;
       (function (ch, x2, y2) {
         var oo = objOpts(map, ch, x2, y2, t);
         list.push({ y: y2 * 32 + 31, draw: function () { Art.drawObject(g, oo.kind, x2 * 32, y2 * 32, oo.o); } });
@@ -190,26 +211,64 @@
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (e) { e.draw(); });
   }
+  // M3a: Positionen der Schiffs-Statisten aus dem Layout (Legende, Räume, Spawns, Übung) statt fester Koordinaten
+  function shipTiles(pred) {
+    var m = M.ship, out = [];
+    for (var y = 0; y < m.h; y++) for (var x = 0; x < m.w; x++) if (pred(m.info(x, y), x, y)) out.push({ x: x, y: y });
+    return out;
+  }
+  function standSpots(tiles) {
+    var out = [], dirs = [[-1, 0, 'right'], [0, 1, 'up'], [1, 0, 'left'], [0, -1, 'down']];
+    tiles.forEach(function (t) {
+      dirs.forEach(function (d) {
+        var x = t.x + d[0], y = t.y + d[1];
+        if (!M.ship.solid(x, y) && !out.some(function (o) { return o.x === x && o.y === y; })) out.push({ x: x, y: y, dir: d[2] });
+      });
+    });
+    return out;
+  }
+  function roomCenter(r) {
+    if (!r) return M.SHIP_SPAWNS[0];
+    var cx = Math.floor((r.x0 + r.x1) / 2), cy = Math.floor((r.y0 + r.y1) / 2), best = null, bd = 1e9;
+    for (var y = r.y0; y <= r.y1; y++) for (var x = r.x0; x <= r.x1; x++) {
+      if (M.ship.solid(x, y)) continue;
+      var d = Math.abs(x - cx) + Math.abs(y - cy);
+      if (d < bd) { bd = d; best = { x: x, y: y }; }
+    }
+    return best || M.SHIP_SPAWNS[0];
+  }
   function shipExtras(g, t) {
     var e = [];
     function at(tx, ty, dy) { return [tx * 32 + 16, ty * 32 + (dy == null ? 26 : dy)]; }
     function chr(tx, ty, o, dy) { var p = at(tx, ty, dy); e.push({ y: p[1], draw: function () { Art.drawCharacter(g, p[0], p[1], Object.assign({ time: t }, o)); } }); }
-    var px = 14 * 32 + ((t * 40) % (6 * 32));
-    e.push({ y: 6 * 32 + 22, draw: function () { Art.drawCharacter(g, px, 6 * 32 + 22, { color: 0, dir: 'right', moving: true, time: t }); } });
-    chr(38, 6, { color: 1, dir: 'right', action: 'console' });            // Steuer besetzt
-    chr(2, 2, { color: 2, dir: 'up', action: 'console' }, 30);           // hält Reaktorschalter A
-    chr(25, 3, { color: 0, dir: 'right', action: 'sit' }, 30);          // Planungstisch
-    chr(28, 4, { color: 1, dir: 'left', action: 'sit' }, 24);
-    chr(26, 5, { color: 2, dir: 'up', action: 'sit' }, 12);
-    chr(10, 10, { color: 0, dir: 'down', beam: (t * 0.4) % 1 }, 24);
-    chr(1, 8, { color: 2, dir: 'up', action: 'repair' }, 30);
-    var ip = at(21, 9, 24);
+    function chrAt(s, o, dy) { if (s) chr(s.x, s.y, Object.assign({ dir: s.dir || 'down' }, o), dy); }
+    var sp0 = M.SHIP_SPAWNS[0];
+    var px = (sp0.x - 2) * 32 + ((t * 40) % (6 * 32));
+    e.push({ y: sp0.y * 32 + 22, draw: function () { Art.drawCharacter(g, px, sp0.y * 32 + 22, { color: 0, dir: 'right', moving: true, time: t }); } });
+    chrAt(standSpots(shipTiles(function (i) { return i.console === 'helm'; }))[0], { color: 1, action: 'console' });   // Steuer besetzt
+    var swA = (M.REACTOR_SWITCHES || []).filter(function (s) { return s.id === 'A'; })[0];
+    if (swA) chrAt(standSpots([swA])[0], { color: 2, action: 'console' }, 30);                                       // hält Reaktorschalter A
+    var seats = standSpots(shipTiles(function (i) { return i.console === 'plan'; }));                                 // Planungstisch
+    chrAt(seats[0], { color: 0, action: 'sit' }, 30);
+    chrAt(seats[seats.length - 1], { color: 1, action: 'sit' }, 24);
+    chrAt(seats[Math.floor(seats.length / 2)], { color: 2, action: 'sit' }, 12);
+    var pads = shipTiles(function (i) { return i.kind === 'pad'; });
+    if (pads.length) chr(pads[pads.length - 1].x, pads[pads.length - 1].y, { color: 0, dir: 'down', beam: (t * 0.4) % 1 }, 24);
+    var eng = shipTiles(function (i) { return i.system === 'engines'; })[0];
+    if (eng) chr(eng.x, eng.y, { color: 2, dir: 'up', action: 'repair' }, 30);
+    var guest = (M.BEDS || []).filter(function (b) { return b.color === 3; })[0];
+    var gq = guest ? roomCenter(M.roomAt ? M.roomAt(guest.x, guest.y) : guest.room) : M.SHIP_SPAWNS[0];
+    var ip = at(gq.x, gq.y, 24);
     e.push({ y: ip[1], draw: function () { Art.drawNpc(g, ip[0] + Math.sin(t * 0.7) * 10, ip[1], { dir: Math.cos(t * 0.7) > 0 ? 'right' : 'left', moving: true, time: t }); } });
-    e.push({ y: 6 * 32 + 24, draw: function () { Art.drawBot(g, 4 * 32 + 16, 6 * 32 + 24, { variant: 0, dir: 'down', time: t }); } });
-    e.push({ y: 10 * 32 + 26, draw: function () { Art.drawBot(g, 25 * 32 + 16, 10 * 32 + 26, { variant: 1, dir: 'down', working: true, time: t }); } });
-    e.push({ y: 6 * 32 + 16, draw: function () { Art.drawFx(g, 'fire', 11 * 32 + 16, 6 * 32 + 16, t, {}); } });
-    e.push({ y: 2 * 32 + 16, draw: function () { Art.drawFx(g, 'breach', 10 * 32 + 16, 2 * 32 + 16, t, {}); } });
-    e.push({ y: 6 * 32 + 20, draw: function () { Art.drawItem(g, 'loeschgel', 22 * 32 + 16, 6 * 32 + 20, { ground: true, time: t }); } });
+    var b0 = M.BOT_SPAWNS[0];
+    e.push({ y: b0.y * 32 + 24, draw: function () { Art.drawBot(g, b0.x * 32 + 16, b0.y * 32 + 24, { variant: 0, dir: 'down', time: t }); } });
+    var bw = standSpots(shipTiles(function (i) { return i.system === 'shields'; }))[0] || M.BOT_SPAWNS[1];
+    e.push({ y: bw.y * 32 + 26, draw: function () { Art.drawBot(g, bw.x * 32 + 16, bw.y * 32 + 26, { variant: 1, dir: 'down', working: true, time: t }); } });
+    var drill = M.SHIP_DRILL || { fire: sp0, breach: sp0 };
+    e.push({ y: drill.fire.y * 32 + 16, draw: function () { Art.drawFx(g, 'fire', drill.fire.x * 32 + 16, drill.fire.y * 32 + 16, t, {}); } });
+    e.push({ y: drill.breach.y * 32 + 16, draw: function () { Art.drawFx(g, 'breach', drill.breach.x * 32 + 16, drill.breach.y * 32 + 16, t, {}); } });
+    var sp2 = M.SHIP_SPAWNS[M.SHIP_SPAWNS.length - 1];
+    e.push({ y: sp2.y * 32 + 20, draw: function () { Art.drawItem(g, 'loeschgel', (sp2.x + 2) * 32 + 16, sp2.y * 32 + 20, { ground: true, time: t }); } });
     return e;
   }
   function platExtras(g, t) {
@@ -244,9 +303,16 @@
     var g = canv.tiles, al = alertSel.value;
     g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
     // Ausschnitte der echten Karten in Originalgröße (32 px)
+    // M3a: Schiffsausschnitte aus dem Layout – Tür des ersten Maschinenraums und Oberkante der Messe
+    var engRoom = (M.SHIP_ROOMS || []).filter(function (r) { return r.kind === 'engine'; })[0];
+    var door = null;
+    if (engRoom) for (var dy = engRoom.y0; dy <= engRoom.y1 && !door; dy++) for (var dx = engRoom.x0 - 1; dx <= engRoom.x1 + 1; dx++) {
+      if (M.ship.info(dx, dy).kind === 'door') { door = { x: dx, y: dy }; break; }
+    }
+    var messe = (M.SHIP_ROOMS || []).filter(function (r) { return r.id === 'messe'; })[0];
     var cuts = [
-      { map: M.ship, x0: 7, y0: 4, w: 7, h: 3 },
-      { map: M.ship, x0: 26, y0: 0, w: 7, h: 3 },
+      { map: M.ship, x0: door ? door.x : 0, y0: door ? Math.max(0, door.y - 2) : 0, w: 7, h: 3 },
+      { map: M.ship, x0: messe ? messe.x0 + 2 : 0, y0: messe ? Math.max(0, messe.y0 - 1) : 0, w: 7, h: 3 },
       { map: M.platform, x0: 17, y0: 8, w: 5, h: 3 },
     ];
     var ox = 0;
@@ -731,13 +797,97 @@
       var x = 8 + i * 236, y = 204;
       g.save(); g.beginPath(); g.rect(x, y, 228, 118); g.clip();
       g.translate(x, y);
-      for (var yy = 0; yy < 4; yy++) for (var xx = 0; xx < 8; xx++) Art.drawTile(g, M.ship.at(20 + xx, 3 + yy), xx * 32 - 8, yy * 32 - 10, { map: M.ship, tx: 20 + xx, ty: 3 + yy, time: t, alert: a });
+      // M3a: Ausschnitt relativ zur Messe (SHIP_ROOMS) statt fester Kacheln
+      var ms = (M.SHIP_ROOMS || []).filter(function (r) { return r.id === 'messe'; })[0];
+      var cx0 = ms ? Math.max(0, ms.x0 - 4) : 0, cy0 = ms ? ms.y0 + 2 : 0;
+      for (var yy = 0; yy < 4; yy++) for (var xx = 0; xx < 8; xx++) Art.drawTile(g, M.ship.at(cx0 + xx, cy0 + yy), xx * 32 - 8, yy * 32 - 10, { map: M.ship, tx: cx0 + xx, ty: cy0 + yy, time: t, alert: a });
       Art.drawObject(g, 'table', 2 * 32 - 8, 1 * 32 - 10, { time: t });
       Art.drawCharacter(g, 120, 60, { color: i, dir: 'down', time: t });
       Art.drawOverlay(g, 228, 118, { alert: a, time: t });
       Art.drawText(g, 'Alarm: ' + a, 6, 104, { color: '#F4EEDC', shadow: true });
       g.restore();
     });
+  }
+
+  // ---------------------------------------------------------------- M3a-Abschnitte
+  var M3_STATIONS = [
+    ['sys_thruster', 'port'], ['sys_thruster', 'stbd'], ['sys_battery', 'port'], ['sys_battery', 'stbd'],
+    ['sys_emitter', 'port'], ['sys_emitter', 'stbd'], ['sys_emitter', 'bow'], ['sys_emitter', 'aft'],
+    ['sys_weapon_bow', 'bow'], ['sys_reactor', 'mid'], ['sys_shields', 'mid'], ['sys_engines', 'aft'], ['sys_life', 'mid'], ['sys_transfer', 'stbd'],
+  ];
+  var M3_STATES = [['ok', false], ['damaged', false], ['broken', false], ['ok', true], ['damaged', true], ['offline', false]];
+  function drawM3ObjSection(t) {
+    var g = canv.m3obj;
+    g.fillStyle = '#1E2631'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var gm = M.makeMap('fg', ['=================================='], M.LEGEND);
+    // 2 Spalten-Blöcke à 7 Stationen, je Station eine Zeile mit 6 Zuständen
+    M3_STATIONS.forEach(function (s, i) {
+      var col = i < 7 ? 0 : 1, row = i % 7;
+      var x0 = 8 + col * 470, y0 = 30 + row * 76;
+      Art.drawText(g, s[0].replace('sys_', '') + ' · ' + Art.sideLabel(s[1]), x0, y0 - 2, { color: '#8EA3B5' });
+      M3_STATES.forEach(function (st, j) {
+        var x = x0 + 44 + j * 66, y = y0 + 34;
+        Art.drawTile(g, '=', x, y, { map: gm, tx: j, ty: 0, time: t });
+        Art.drawObject(g, s[0], x, y, { time: t, state: st[0], fragile: st[1], side: s[1], badge: true, tag: 'auto' });
+      });
+    });
+    // Plaketten und Zustandsmarken rechts unten
+    var bx = 30, by = 600;
+    ['port', 'stbd', 'bow', 'aft', 'mid'].forEach(function (sd, i) {
+      Art.drawStationBadge(g, sd, bx + i * 60, by - 14);
+      Art.drawStationBadge(g, sd, bx + i * 60 + 300, by - 14, ['ok', 'damaged', 'broken', 'ok', 'offline'][i], { fragile: i === 3 });
+    });
+    [['ok'], ['damaged'], ['broken'], ['ok', true], ['offline']].forEach(function (s, i) { Art.drawStateTag(g, s[0], 640 + i * 70, by - 14, { fragile: !!s[1] }); });
+  }
+  // Ausschnitte aus der echten Karte in Originalgröße
+  function drawM3RoomsSection(t) {
+    var g = canv.m3rooms, src = canv.ship.canvas;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var cuts = [[0, 0, 5, 11, 'Antriebsraum (Heck)', 4, 4], [18, 0, 7, 11, 'Maschinenraum (mittschiffs)', 172, 4], [24, 0, 10, 5, 'Batteriedeck Bb', 404, 4],
+      [24, 8, 10, 5, 'Batteriedeck Stb', 404, 196], [33, 0, 11, 11, 'Brücke (Lanze, Bug-Emitter)', 732, 4]];
+    cuts.forEach(function (c) {
+      var w = c[2] * 32, h = c[3] * 32;
+      g.drawImage(src, c[0] * 32, c[1] * 32, w, h, c[5], c[6] + 10, w, h);
+      Art.drawText(g, c[4], c[5] + 2, c[6], { color: '#C9974A' });
+    });
+  }
+  function drawM3SpaceSection(t) {
+    var g = canv.m3space;
+    Art.drawStarfield(g, t * 20, 0, g.canvas.width, g.canvas.height, t);
+    // Reihe 1: Schiff heil, Schäden, Stoß normal, Stoß perfekt
+    var ang = -0.35 + Math.sin(t * 0.3) * 0.2;
+    Art.drawShip(g, 90, 80, ang, { thrust: 0.6, time: t });
+    var dmg = { engines: 'broken', battery_port: 'damaged', emitter_stbd: 'broken', thruster_stbd: 'damaged', weapon_bow: 'damaged', reactor: 'ok' };
+    Art.drawShip(g, 250, 80, ang, { thrust: 0.4, time: t, systems: dmg, fragile: ['thruster_port'] });
+    var bt = t % 2.2;
+    Art.drawShip(g, 420, 80, ang, { time: t, shields: [2, 1, 2, 3], burst: bt < 1.5 ? { sector: 3, left: 1.5 - bt } : null });
+    Art.drawShip(g, 590, 80, ang, { time: t, shields: [2, 1, 2, 3] });
+    if (bt < 1.5) Art.drawBurst(g, 590, 80, { angle: ang, sector: 0, age: bt, perfect: true, perfectAge: bt - 0.2, time: t });
+    Art.drawText(g, 'heil', 70, 140, { color: '#8EA3B5' }); Art.drawText(g, 'Schäden', 225, 140, { color: '#8EA3B5' });
+    Art.drawText(g, 'Stoß Bb', 400, 140, { color: '#8EA3B5' }); Art.drawText(g, 'Stoß Bug perfekt', 550, 140, { color: '#8EA3B5' });
+    // Badge-Beispiele über dem Schiff (Raumansicht, nur Doku)
+    Art.drawStationBadge(g, 'port', 760, 40, 'damaged'); Art.drawStationBadge(g, 'stbd', 760, 56, 'broken'); Art.drawStationBadge(g, 'bow', 760, 72, 'ok', { fragile: true });
+    // Reihe 2: Ladeglühen
+    var kinds = [['gunboat', 3, 'shot'], ['pylon', 2, 'shot'], ['sentinel', 2.5, 'emp']];
+    [0.1, 0.5, 0.92].forEach(function (p, i) {
+      kinds.forEach(function (k, j) {
+        var x = 70 + (j * 3 + i) * 100, y = 240;
+        var dur = k[1], left = dur * (1 - p);
+        Art.drawEnemy(g, k[0], x, y, Math.PI / 2, { time: t, hpFrac: 1, hitT: 99, tele: { kind: k[2], left: left, dur: dur } });
+        if (i === 2) Art.drawTele(g, x, y + 80, { left: (dur - (t % dur)), dur: dur, kind: k[2], r: 18, time: t, toX: x + 30, toY: y + 140, lineLen: 70 });
+        Art.drawText(g, k[0] + ' ' + Math.round(p * 100) + '%', x - 34, y + 34, { color: '#8EA3B5' });
+      });
+    });
+    // Reihe 3: Strahlen im Zeitverlauf (ttl 0.25 → 0)
+    var kindsB = ['lance', 'battery', 'enemy_heavy', 'bolzen'];
+    kindsB.forEach(function (k, i) {
+      var y = 420 + i * 34;
+      Art.drawText(g, k, 8, y - 4, { color: '#8EA3B5' });
+      [0.25, 0.2, 0.15, 0.1, 0.05].forEach(function (ttl, j) { Art.drawBeam(g, 90 + j * 150, y, 220 + j * 150, y, k, ttl); });
+    });
+    var lt = 0.25 - (t % 0.8) / 0.8 * 0.25;
+    Art.drawBeam(g, 860, 300, 980, 360, 'lance', lt);
+    Art.drawBeam(g, 860, 380, 980, 360, 'battery', lt);
   }
 
   function frame() {
@@ -748,6 +898,7 @@
       drawCharSection(t); drawFxSection(t); drawSpaceSection(t); drawUiSection(t);
       drawM1ObjSection(t); drawQuartersSection(t); drawWreckSection(t); drawWreckSrvSection(t); drawM1SpaceSection(t); drawM1IconsSection(t);
       drawKeshSection(t); drawM2ObjSection(t); drawM2FigSection(t); drawM2FxSection(t); drawM2SpaceSection(t);
+      drawM3ObjSection(t); drawM3RoomsSection(t); drawM3SpaceSection(t);
     } catch (e) { console.error(e); window.__artPreview.frameErrors++; }
     requestAnimationFrame(frame);
   }
@@ -886,6 +1037,43 @@
     call(function () { Art.drawStation(g, 'moon', 100, 100, { time: 2 }); }); call(function () { Art.drawStation(g, 'moon', 100, 100); });
     call(function () { Art.drawIcon(g, 'loc_moon', 10, 10, {}); }); call(function () { Art.drawIcon(g, 'loc_moon', 10, 10, { scale: 2, color: '#fff' }); });
     call(function () { Art.drawItem(g, 'tafel', 50, 50, { time: 1, scale: 2, bob: true, ground: true }); }); call(function () { Art.drawItem(g, 'tafel', 50, 50); });
+    // ---- M3a „Breitseite“
+    var sides = ['port', 'stbd', 'bow', 'aft', 'mid', 0, 1, 2, 3, -1, 'BB', 'quatsch', null, undefined];
+    ['sys_thruster', 'sys_battery', 'sys_emitter', 'sys_weapon_bow', 'sys_reactor', 'sys_shields', 'sys_engines', 'sys_life', 'sys_transfer', 'sys_weapons'].forEach(function (k) {
+      ['ok', 'damaged', 'broken', 'offline', 'x', undefined].forEach(function (s) {
+        sides.forEach(function (sd) { call(function () { Art.drawObject(g, k, 20, 40, { time: 2.7, state: s, side: sd, fragile: s === 'damaged', alert: 'red', badge: true, tag: 'always' }); }); });
+      });
+      call(function () { Art.drawObject(g, k, 20, 40, { system: 'emitter_bow' }); }); call(function () { Art.drawObject(g, k, 20, 40); });
+    });
+    sides.forEach(function (sd) {
+      [undefined, 'ok', 'damaged', 'broken', 'offline', 'x'].forEach(function (s) { call(function () { Art.drawStationBadge(g, sd, 50, 50, s, { fragile: true }); }); call(function () { Art.drawStationBadge(g, sd, 50, 50, s); }); });
+      call(function () { Art.drawStateTag(g, sd, 50, 50, { align: 'left' }); });
+    });
+    call(function () { Art.drawStationBadge(g); }); call(function () { Art.drawStateTag(g); });
+    [[0, 1], [0.5, 1], [2, 2.5], [-1, 3], [null, null], ['x', 0]].forEach(function (q) {
+      ['shot', 'emp', undefined].forEach(function (k) {
+        call(function () { Art.drawTele(g, 50, 50, { left: q[0], dur: q[1], kind: k, time: 1.3, r: 999, toX: 150, toY: 20, lineLen: 40 }); });
+        ['gunboat', 'raider', 'pylon', 'sentinel', 'x'].forEach(function (e) { call(function () { Art.drawEnemy(g, e, 50, 50, 0.4, { time: 1, tele: { left: q[0], dur: q[1], kind: k } }); }); });
+      });
+    });
+    call(function () { Art.drawTele(g, 50, 50); });
+    [0, 1, 2, 3, 7, -1, null].forEach(function (s) {
+      [0, 0.3, 1.4, 2, -1, NaN].forEach(function (a) { call(function () { Art.drawBurst(g, 50, 50, { angle: 1, sector: s, age: a, perfect: true, perfectAge: a, time: 2 }); }); });
+      call(function () { Art.drawBurst(g, 50, 50, { sector: s, left: 1 }); });
+      call(function () { Art.drawShip(g, 100, 100, 0.3, { time: 1, burst: { sector: s, left: 0.9, perfect: true }, systems: { engines: 'broken', battery_port: 'damaged', weapon_bow: 'broken', foo: 'broken' }, fragile: ['emitter_bow'] }); });
+    });
+    call(function () { Art.drawBurst(g, 50, 50); });
+    call(function () { Art.drawShip(g, 100, 100, 0, { systems: 'quatsch', fragile: 'x', burst: {} }); });
+    ['lance', 'battery', 'enemy_heavy', 'bolzen'].forEach(function (k) {
+      [0.25, 0.12, 0.01, 0, -1, 9, undefined].forEach(function (ttl) { call(function () { Art.drawBeam(g, 0, 0, 100, 50, k, ttl, { time: 1 }); }); });
+      call(function () { Art.drawBeam(g, 5, 5, 5, 5, k, 0.2); });
+    });
+    ['x', 'Bug', 0].forEach(function (s) { call(function () { if (typeof Art.sideLabel(s) !== 'string' || typeof Art.stateLabel(s) !== 'string') throw new Error('label'); }); });
+    // ohne Raumdaten: Schiffskachel mit Karte ohne Maps-Räume (Art darf nicht werfen)
+    var noRooms = M.makeMap('ship', M.SHIP_ROWS, M.SHIP_LEGEND);
+    var keep = window.Shared_Maps; window.Shared_Maps = undefined;
+    for (var nx = 18; nx < 34; nx++) call(function () { Art.drawTile(g, '=', 0, 0, { map: noRooms, tx: nx, ty: 2, time: 1 }); });
+    window.Shared_Maps = keep;
     return { calls: calls, thrown: thrown, caught: Art.errors - e0 };
   }
 
@@ -893,7 +1081,9 @@
   function perfTest() {
     var c = document.createElement('canvas'); c.width = 640; c.height = 360;
     var g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-    var map = M.ship, camX = 10 * 32, camY = 0;   // M1: Ausschnitt mit Lager, Quartieren (Stile) und Messe
+    // M1: Ausschnitt mit Lager, Quartieren (Stile) und Messe – M3a: ab dem mittleren Regal (Schiffslayout)
+    var shelves = M.SHELF_TILES || [], midShelf = shelves[Math.floor(shelves.length / 2)];
+    var map = M.ship, camX = Math.max(0, (midShelf ? midShelf.x : 0)) * 32, camY = 0;
     function one(t) {
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, 640, 360);
@@ -906,7 +1096,7 @@
       M.BEDS.forEach(function (b) { b.slots.forEach(function (s) { var d = DECO[s.id]; if (d) list.push({ y: s.y * 32 + 20, d: function () { Art.drawObject(g, d.indexOf('deco_') === 0 ? d : 'deco_' + d, s.x * 32, s.y * 32, { time: t }); } }); }); });
       for (var y2 = 0; y2 < map.h; y2++) for (var x2 = x0; x2 <= x1; x2++) {
         var ch = map.at(x2, y2);
-        if (OBJ_CH.indexOf(ch) >= 0) { (function (ch, x2, y2) { var oo = objOpts(map, ch, x2, y2, t); list.push({ y: y2 * 32 + 31, d: function () { Art.drawObject(g, oo.kind, x2 * 32, y2 * 32, oo.o); } }); })(ch, x2, y2); }
+        if (isObj(map, ch, x2, y2)) { (function (ch, x2, y2) { var oo = objOpts(map, ch, x2, y2, t); list.push({ y: y2 * 32 + 31, d: function () { Art.drawObject(g, oo.kind, x2 * 32, y2 * 32, oo.o); } }); })(ch, x2, y2); }
       }
       for (var p = 0; p < 3; p++) (function (p) { list.push({ y: 200 + p, d: function () { Art.drawCharacter(g, 400 + p * 40, 200 + p, { color: p, dir: 'right', moving: true, time: t }); } }); })(p);
       list.push({ y: 205, d: function () { Art.drawBot(g, 500, 205, { variant: 0, moving: true, time: t }); } });

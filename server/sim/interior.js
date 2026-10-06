@@ -8,7 +8,13 @@ const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const TILE = Physics.TILE;
 let combatMod = null;   // M2: Kampf v2 (lazy, wegen Zirkelbezug combat -> interior)
 const combat = () => combatMod || (combatMod = require('./combat.js'));
-const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
+// M3a (CONTRACT-M3 §4.1): alle 14 Systeme mit Station; 'weapons' ist nur noch Altname (schlechtester der drei Waffen).
+const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer',
+  'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
+  'weapon_bow', 'battery_port', 'battery_stbd'];
+const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd'];
+const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Index = Sektor
+const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
 const isDown = (st) => st === 'broken' || st === 'offline';
 
 // ---------- Kollision ----------
@@ -204,20 +210,23 @@ function interactionsAt(game, p, tx, ty, own) {
     }
     const info = map.info(tx, ty);
     if (info.system) {
+      // M3a §8.1: E halten = flicken (ohne Teil) bzw. austauschen (mit Ersatzteil); zerstört ist ohne Teil flickbar.
       const st = game.ship.systems[info.system];
-      if (st === 'damaged') list.push({ kind: 'repair', system: info.system });
-      else if (st === 'broken') {
-        if (p.carry === 'ersatzteil') list.push({ kind: 'repair', system: info.system });
-        else list.push({ kind: 'repair', blocked: 'Zerstört: Ersatzteil aus dem Lager (Regal 1) nötig.' });
+      const fragile = isFragile(game, info.system);
+      if (st === 'damaged' || st === 'broken' || (st === 'ok' && fragile && p.carry === 'ersatzteil')) {
+        list.push({ kind: 'repair', system: info.system, how: p.carry === 'ersatzteil' ? 'swap' : 'flick' });
       } else if (st === 'offline') {
         const o = game.ship.offline[info.system];
         list.push({ kind: 'repair', blocked: `EMP: offline – startet in ${Math.ceil(o ? o.t : 1)} s von selbst neu.` });
       }
     }
     if (info.interact === 'switch') {
+      // M3a: Schalter nur über REACTOR_SWITCHES, kein Ersatzwert
       const sw = W.REACTOR_SWITCHES.find((s) => s.x === tx && s.y === ty);
-      if (game.ship.reactorCtl.state === 'offline') list.push({ kind: 'switch', sw: sw ? sw.id : 'A' });
-      else list.push({ kind: 'switch', blocked: 'Reaktorschalter: nur für den Neustart nach einer Abschaltung.' });
+      if (sw) {
+        if (game.ship.reactorCtl.state === 'offline') list.push({ kind: 'switch', sw: sw.id });
+        else list.push({ kind: 'switch', blocked: 'Reaktorschalter: nur für den Neustart nach einer Abschaltung.' });
+      }
     }
     if (info.console) {
       const occupant = consoleOccupant(game, p, info.console);
@@ -226,8 +235,9 @@ function interactionsAt(game, p, tx, ty, own) {
       else if (info.console === 'plan' && game.players.filter((o) => o.console === 'plan' && o.connected).length >= game.C.plan.maxSeated) list.push({ kind: 'console', blocked: 'Am Tisch ist kein Platz mehr.' });
       else list.push({ kind: 'console', console: info.console });
     }
-    if (ch === 'L') {
-      const item = W.Maps.SHELVES[tx];
+    if (info.interact === 'shelf') {
+      const shelf = W.Maps.shelfAt(tx, ty);   // M3a: Regal aus dem Schiffslayout
+      const item = shelf ? shelf.item : null;
       if (item) {
         if (p.carry === item) list.push({ kind: 'shelf', op: 'put', item });
         else if (p.carry) list.push({ kind: 'shelf', blocked: 'Hände voll (G: ablegen).' });
@@ -235,7 +245,7 @@ function interactionsAt(game, p, tx, ty, own) {
         else list.push({ kind: 'shelf', blocked: `Regal leer: kein ${itemName(item)} mehr. Nachschub gibt es im Hafen.` });
       }
     }
-    if (ch === 'B') {
+    if (info.interact === 'bed') {
       const bed = W.Maps.BEDS.find((b) => b.x === tx && b.y === ty);
       if (bed && bed.color === p.color) list.push({ kind: 'bed' });
       else if (bed && bed.color === 3) list.push({ kind: 'bed', blocked: game.mission.flags.technikerRescued ? 'Ivos Koje. Er hat sie schon mit Schraubenschlüsseln dekoriert.' : 'Gästequartier – noch frei.' });
@@ -248,7 +258,7 @@ function interactionsAt(game, p, tx, ty, own) {
         else list.push({ kind: 'pickup', item: it, where: 'ship' });
       }
     }
-    if (own && ch === 'P') list.push({ kind: 'selfbeam' });
+    if (own && info.kind === 'pad') list.push({ kind: 'selfbeam' });
   } else {
     const aw = game.away;
     if (aw.map === 'platform') {
@@ -301,6 +311,8 @@ function itemName(item) {
 
 function onAct(game, p, down) {
   p.actDown = !!down;
+  // M3a: das Minispiel läuft ohne E (Client sendet E dann nicht); ein verirrtes E bricht es nicht ab
+  if (p.hold && p.hold.kind === 'minigame') return;
   if (!down) { if (p.hold) { p.hold = null; } return; }
   if (p.downed || p.console || p.beamLock) return;
   const own = Physics.toTile(p.x, p.y);
@@ -324,7 +336,7 @@ function holdDuration(game, p, kind, extra) {
     case 'revive': return C.player.reviveTime;
     case 'extinguish': return C.fire.extinguishTime;
     case 'patch': return C.breach.patchTime;
-    case 'repair': return (game.ship.systems[extra.system] === 'broken' ? C.repair.brokenToDamaged : C.repair.damagedToOk) * gear;
+    case 'repair': return repairTime(game, extra && extra.how) * gear;   // M3a §8.1: flick/swap
     case 'beam': return game.ship.systems.transfer === 'damaged' ? C.ship.beamTimeDamaged : C.ship.beamTime;
     case 'reboot': return C.awayExtra.rebootTime;
     case 'salvage': return C.wreckAway.salvageTime;
@@ -338,7 +350,9 @@ function performInteraction(game, p, it) {
   switch (it.kind) {
     case 'revive': case 'extinguish': case 'patch': case 'repair': case 'reboot': case 'salvage': case 'hollow': case 'switch':
     case 'jammer': case 'archkey': case 'tablet': {
-      p.hold = { kind: it.kind, t: 0, dur: holdDuration(game, p, it.kind, it), tx: it.tx, ty: it.ty, system: it.system, target: it.target, sw: it.sw, sx: it.sx, sy: it.sy,
+      // M3a: Reparatur-Halten heißt im Zustand nach dem Weg 'flick' bzw. 'swap'
+      const hk = it.kind === 'repair' ? (it.how || 'flick') : it.kind;
+      p.hold = { kind: hk, t: 0, dur: holdDuration(game, p, it.kind, it), tx: it.tx, ty: it.ty, system: it.system, target: it.target, sw: it.sw, sx: it.sx, sy: it.sy,
         i: it.i, medkit: it.kind === 'revive' && !!p.medkit };
       if (it.kind === 'repair' && !game.flags.toldHold) { game.flags.toldHold = true; game.oda('E gedrückt halten und stillstehen – dann klappt\'s mit dem Schrauben.', null); }
       if (it.kind === 'switch') game.emit('sfx', { name: 'switch_hold', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
@@ -431,10 +445,15 @@ function leaveConsole(game, p) {
 // ---------- Halten ----------
 function updateHold(game, p, dt) {
   const h = p.hold;
+  if (h.kind === 'minigame') {   // M3a §8.1: kein E nötig, kein automatisches Ende; Bewegung/Konsole brechen ab
+    if (p.moving || p.console || p.downed || p.zone !== 'ship' || !holdValid(game, p, h)) { p.hold = null; return; }
+    h.t += dt;
+    return;
+  }
   if (!p.actDown || p.moving || p.console) { p.hold = null; return; }
   if (!holdValid(game, p, h)) { p.hold = null; return; }
   h.t += dt;
-  if ((h.kind === 'repair' || h.kind === 'reboot' || h.kind === 'salvage' || h.kind === 'hollow' || h.kind === 'jammer' || h.kind === 'archkey' || h.kind === 'tablet') && Math.floor((h.t - dt) / 0.5) !== Math.floor(h.t / 0.5)) game.emit('sfx', { name: 'repair_tick', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
+  if ((h.kind === 'flick' || h.kind === 'swap' || h.kind === 'reboot' || h.kind === 'salvage' || h.kind === 'hollow' || h.kind === 'jammer' || h.kind === 'archkey' || h.kind === 'tablet') && Math.floor((h.t - dt) / 0.5) !== Math.floor(h.t / 0.5)) game.emit('sfx', { name: 'repair_tick', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   if (h.t < h.dur) return;
   p.hold = null;
   completeHold(game, p, h);
@@ -445,12 +464,9 @@ function holdValid(game, p, h) {
     case 'revive': return h.target.downed && h.target.zone === p.zone;
     case 'extinguish': return p.carry === 'loeschgel' && game.ship.fireList.some((f) => f.tx === h.tx && f.ty === h.ty);
     case 'patch': return p.carry === 'flickblech' && game.ship.breachList.some((b) => b.tx === h.tx && b.ty === h.ty);
-    case 'repair': {
-      const st = game.ship.systems[h.system];
-      if (st === 'ok' || st === 'offline') return false;
-      if (st === 'broken') return p.carry === 'ersatzteil';
-      return true;
-    }
+    case 'flick': { const st = game.ship.systems[h.system]; return p.zone === 'ship' && (st === 'damaged' || st === 'broken'); }
+    case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system);
+    case 'minigame': return repairable(game, h.system);
     case 'beam': return game.transfer.canBeam(game, h.dir).ok;
     case 'reboot': return p.zone === 'away' && game.away.map === 'platform' && game.away.sonde.disabled && !game.away.coreRebooted;
     case 'switch': return p.zone === 'ship' && game.ship.reactorCtl.state === 'offline';
@@ -479,12 +495,11 @@ function completeHold(game, p, h) {
       removeBreach(game, h.tx, h.ty, 'player');
       p.carry = null;
       break;
-    case 'repair': {
-      const wasBroken = game.ship.systems[h.system] === 'broken';
-      if (wasBroken) p.carry = null;
-      repairSystem(game, h.system, 'player');
+    case 'flick': repairSystem(game, h.system, 'player', 'flick'); break;
+    case 'swap':
+      p.carry = null;
+      repairSystem(game, h.system, 'player', 'swap');
       break;
-    }
     case 'beam':
       game.transfer.selfBeam(game, p, h.dir);
       break;
@@ -500,31 +515,250 @@ function completeHold(game, p, h) {
 }
 
 // ---------- Systeme ----------
-function damageSystem(game, sys, toState) {
+// Schiffssysteme frisch anlegen (game.reset). 'weapons' ist ein nicht aufzählbarer Altname: Lesen = schlechtester
+// Zustand der drei Waffen, Schreiben = alle drei setzen (alte Tests/Missionsdaten). Im Snapshot setzt game.js ihn explizit.
+function makeSystems() {
+  const s = {};
+  for (const k of SYSTEM_ORDER) s[k] = 'ok';
+  Object.defineProperty(s, 'weapons', {
+    enumerable: false, configurable: true,
+    get() { return worstOf(WEAPON_SYSTEMS.map((k) => s[k])); },
+    // Schreiben des schon berechneten Werts (z. B. space.syncWeaponsAlias) ist ein No-op; sonst alle drei setzen.
+    set(v) { if (v === worstOf(WEAPON_SYSTEMS.map((k) => s[k]))) return; for (const k of WEAPON_SYSTEMS) s[k] = v; },
+  });
+  return s;
+}
+function worstOf(states) {
+  let w = 'ok';
+  for (const st of states) if ((STATE_RANK[st] || 0) > STATE_RANK[w]) w = st;
+  return w;
+}
+// Altname 'weapons' auf ein echtes System abbilden: zufällig eine Waffe, die noch nicht zerstört ist (sonst die erste).
+function resolveSystem(game, sys, pickWorst) {
+  if (sys !== 'weapons') return sys;
   const s = game.ship.systems;
+  if (pickWorst) return WEAPON_SYSTEMS.slice().sort((a, b) => (STATE_RANK[s[b]] || 0) - (STATE_RANK[s[a]] || 0))[0];
+  const cand = WEAPON_SYSTEMS.filter((k) => s[k] !== 'broken');
+  return cand.length ? game.rng.pick(cand) : WEAPON_SYSTEMS[0];
+}
+
+function systemSector(sys) {
+  const st = W.STATIONS.find((q) => q.system === sys);
+  return st && Number.isInteger(st.sector) ? st.sector : -1;
+}
+function emitterFor(sector) { return EMITTERS[sector] || null; }
+function isFragile(game, sys) { return !!(game.ship.fragile && game.ship.fragile[sys]); }
+// Reparierbar = beschädigt/zerstört oder heil, aber geflickt (fragil); nie offline.
+function repairable(game, sys) {
+  const st = game.ship.systems[sys];
+  return st === 'damaged' || st === 'broken' || (st === 'ok' && isFragile(game, sys));
+}
+function repairTime(game, how) {
+  const R = (game.C.spaceM3 && game.C.spaceM3.repair) || {};
+  return how === 'swap' ? (R.partTime || 3) : (R.flickTime || 1.5);
+}
+
+// Schaden um eine Stufe (oder auf toState). Fragile Systeme brechen beim nächsten Schaden direkt.
+// opts.quiet: keine ODA-Ansage (Skripte/Übung).
+function damageSystem(game, sys, toState, opts) {
+  const s = game.ship.systems;
+  sys = resolveSystem(game, sys, false);
   if (!s[sys]) return;
   if (s[sys] === 'offline') {   // EMP-Pause: Schaden merken wir für danach
     const o = game.ship.offline[sys];
-    if (o) o.prev = toState || (o.prev === 'ok' ? 'damaged' : 'broken');
+    if (o) o.prev = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
+    if (o && o.prev === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
     return;
   }
   const before = s[sys];
   if (toState) s[sys] = toState;
-  else s[sys] = before === 'ok' ? 'damaged' : 'broken';
+  else s[sys] = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
+  if (s[sys] === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
+  if (s[sys] === 'ok' && toState === 'ok' && game.ship.fragile) delete game.ship.fragile[sys];
   if (s[sys] === before) return;
-  game.emit('sfx', { name: 'hull_hit', zone: 'ship' });
+  game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
+  if (s[sys] !== 'ok') {
+    game.emit('systemHit', { system: sys, state: s[sys] });
+    if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
+  }
   game.missionEvent('systemDamaged', { system: sys, state: s[sys] });
 }
 
-function repairSystem(game, sys, by) {
-  const s = game.ship.systems;
-  if (s[sys] === 'ok' || s[sys] === 'offline') return;
-  s[sys] = s[sys] === 'broken' ? 'damaged' : 'ok';
-  game.ship.noPartT[sys] = 0;
-  game.stats.repairs++;
-  game.emit('repairDone', { system: sys });
-  game.emit('sfx', { name: 'repair_done', zone: 'ship' });
-  game.missionEvent('repaired', { system: sys, by });
+// Hitze bei Energie 4 (CONTRACT-M3 §4.2): weapons -> zufällige, nicht zerstörte Waffe; sonst das System selbst (nur wenn heil).
+function heatDamage(game, powerSys) {
+  if (powerSys === 'weapons') {
+    const cand = WEAPON_SYSTEMS.filter((k) => game.ship.systems[k] !== 'broken' && game.ship.systems[k] !== 'offline');
+    if (cand.length) damageSystem(game, game.rng.pick(cand));
+    return;
+  }
+  if (game.ship.systems[powerSys] === 'ok') damageSystem(game, powerSys, 'damaged');
+}
+
+// §4.3 Trefferauswahl nach einem Hüllentreffer im Sektor s. Rückgabe: [{system, state}] der getroffenen Systeme.
+function hitSystems(game, sector) {
+  const C = game.C; const M = C.spaceM3 || {}; const ship = game.ship;
+  if (!Number.isInteger(sector) || sector < 0 || sector > 3) return [];
+  if (!ship.sysHitAt) ship.sysHitAt = {};
+  const out = [];
+  // 1. Fragile Systeme in s brechen zuerst
+  const frag = SYSTEM_ORDER.filter((k) => isFragile(game, k) && systemSector(k) === sector);
+  if (frag.length) {
+    for (const k of frag) {
+      damageSystem(game, k, 'broken');
+      delete ship.fragile[k];
+      ship.sysHitAt[k] = game.time;
+      out.push({ system: k, state: ship.systems[k] });
+    }
+    return out;
+  }
+  // 2. Mit systemChance ein System beschädigen
+  if (!game.rng.chance(C.hitEffects.systemChance)) return out;
+  const lock = C.hitEffects.systemCooldown || 0;
+  const ready = (k) => (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline';
+  let pick = null;
+  if (game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
+    const mid = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && ready(k));
+    if (mid.length) pick = game.rng.pick(mid);
+  } else {
+    const sw = M.sectorWeight != null ? M.sectorWeight : 3; const nw = M.neighbourWeight != null ? M.neighbourWeight : 1;
+    const weighted = [];
+    for (const k of SYSTEM_ORDER) {
+      if (!ready(k)) continue;
+      const ks = systemSector(k);
+      if (ks === sector) weighted.push([k, sw]);
+      else if (ks === (sector + 1) % 4 || ks === (sector + 3) % 4) weighted.push([k, nw]);   // Gegenseite (s+2) und Mitte fallen raus
+    }
+    const total = weighted.reduce((a, w) => a + w[1], 0);
+    if (total > 0) {
+      let r = game.rng.range(0, total);
+      for (const [k, w] of weighted) { r -= w; if (r <= 0) { pick = k; break; } }
+      if (!pick) pick = weighted[weighted.length - 1][0];
+    }
+  }
+  if (!pick) return out;
+  ship.sysHitAt[pick] = game.time;
+  damageSystem(game, pick);
+  out.push({ system: pick, state: ship.systems[pick] });
+  return out;
+}
+
+// ODA-Ansage bei Systemschaden, gebündelt mit Abklingzeit spaceM3.repair.odaCooldown (§8.2)
+function queueSystemAnnounce(game, sys, state) {
+  const ship = game.ship;
+  if (game.mission && typeof game.mission.isDrill === 'function' && game.mission.isDrill()) return;
+  if (!ship.sysAnnounce) ship.sysAnnounce = { list: [], next: 0 };
+  const list = ship.sysAnnounce.list;
+  const i = list.findIndex((e) => e.system === sys);
+  if (i >= 0) list.splice(i, 1);
+  list.push({ system: sys, state });
+}
+const BROKEN_HINT = {
+  reactor: 'nur Notstrom!', engines: 'kein Schub, kein Sprung!', shields: 'keine Schilde!', life: 'Sauerstoff sinkt!',
+  transfer: 'kein Beamen!', thruster_port: 'kaum Drehung nach Backbord!', thruster_stbd: 'kaum Drehung nach Steuerbord!',
+  weapon_bow: 'Lanze feuert nicht!', battery_port: 'Batterie feuert nicht!', battery_stbd: 'Batterie feuert nicht!',
+};
+function announceText(e) {
+  const label = SYS_LABEL[e.system] || e.system;
+  if (e.state === 'damaged') return `${label} beschädigt.`;
+  const ei = EMITTERS.indexOf(e.system);
+  if (ei >= 0) return `${label} zerstört – ${SECTOR_LABEL[ei]} offen!`;
+  return `${label} zerstört – ${BROKEN_HINT[e.system] || 'ausgefallen!'}`;
+}
+function updateSystemAnnounce(game) {
+  const a = game.ship.sysAnnounce;
+  if (!a || !a.list.length || game.time < a.next) return;
+  const cd = (game.C.spaceM3 && game.C.spaceM3.repair && game.C.spaceM3.repair.odaCooldown) || 3;
+  // nur Systeme, die noch kaputt sind; zerstörte zuerst
+  const live = a.list.filter((e) => game.ship.systems[e.system] === e.state).sort((x, y) => (y.state === 'broken') - (x.state === 'broken'));
+  a.list = [];
+  if (!live.length) return;
+  const parts = live.slice(0, 3).map(announceText);
+  if (live.length > 3) parts.push(`Dazu ${live.length - 3} weitere Schäden.`);
+  game.oda(parts.join(' '), null);
+  a.next = game.time + cd;
+}
+
+// Reparatur um eine Stufe bzw. voll (§8.1). how: 'flick' (Stufe + fragil), 'swap' (voll, fragil weg),
+// 'minigame' (Stufe, fragil weg), 'bot' (Stufe, fragil weg; Altweg), 'oda' (Notreparatur: Stufe + fragil).
+// by: 'player'|'bot'|'oda'. Ein zerstörter Reaktor geht nach der Reparatur auf reactorCtl 'offline' (Neustart zu zweit).
+function repairSystem(game, sys, by, how) {
+  const ship = game.ship; const s = ship.systems;
+  sys = resolveSystem(game, sys, true);
+  if (!s[sys] || s[sys] === 'offline') return false;
+  how = how || (by === 'oda' ? 'oda' : 'bot');
+  if (!ship.fragile) ship.fragile = {};
+  const before = s[sys];
+  const wasFragile = !!ship.fragile[sys];
+  if (before === 'ok' && !(wasFragile && (how === 'swap' || how === 'minigame'))) return false;
+  if (how === 'swap') s[sys] = 'ok';
+  else if (before !== 'ok') s[sys] = before === 'broken' ? 'damaged' : 'ok';
+  if (how === 'flick' || how === 'oda') ship.fragile[sys] = true;
+  else delete ship.fragile[sys];
+  ship.noPartT[sys] = 0;
+  if (how !== 'oda') game.stats.repairs++;
+  if (how === 'flick') game.stats.flicks = (game.stats.flicks || 0) + 1;
+  else if (how === 'swap') game.stats.swaps = (game.stats.swaps || 0) + 1;
+  else if (how === 'minigame') game.stats.minigames = (game.stats.minigames || 0) + 1;
+  game.emit('repairDone', { system: sys, how: by === 'bot' ? 'bot' : how, by: by || null, state: s[sys], fragile: !!ship.fragile[sys] });
+  game.emit('sfx', { name: how === 'flick' ? 'flick' : how === 'swap' ? 'swap' : 'repair_done', zone: 'ship' });
+  if (sys === 'reactor' && before === 'broken') reactorNeedsRestart(game);
+  pruneRepairQueue(game);
+  game.missionEvent('repaired', { system: sys, by, how });
+  return true;
+}
+// §4.2: Zerstörter Reaktor repariert -> abgeschaltet, Neustart zu zweit an den Schaltern
+function reactorNeedsRestart(game) {
+  const rc = game.ship.reactorCtl;
+  if (!rc || rc.state === 'offline') return;
+  rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.needBot = null; rc.overloadLeft = 0; rc.warned = true;
+  game.emit('sfx', { name: 'reactor_down' });
+  game.oda('Reaktor wieder ganz, aber kalt. Neustart: Schalter A und B im Maschinenraum gleichzeitig halten (E).', null);
+  game.missionEvent('reactorOffline', { afterRepair: true });
+}
+// Reparaturliste: Eintrag fällt weg, sobald das System heil und nicht fragil ist (§8.2)
+function pruneRepairQueue(game) {
+  const q = game.ship.repairQueue;
+  if (!q || !q.length) return;
+  game.ship.repairQueue = q.filter((e) => !(game.ship.systems[e.system] === 'ok' && !isFragile(game, e.system)));
+}
+
+// ---------- Minispiel (§8.1, cmd repair.start/done/cancel; ohne Konsole, nur Zone ship) ----------
+function stationInReach(p, sys) {
+  const tiles = candidateTiles(p);
+  return W.STATIONS.some((st) => st.system === sys && tiles.some((t) => t.x === st.x && t.y === st.y));
+}
+function repairCmd(game, p, c, msg) {
+  const sys = msg && typeof msg.system === 'string' ? msg.system : null;
+  if (p.zone !== 'ship') return 'Reparieren geht nur an Bord.';
+  if (c === 'repair.cancel') {
+    if (p.hold && p.hold.kind === 'minigame') p.hold = null;
+    return null;
+  }
+  if (c === 'repair.start') {
+    if (p.downed || p.beamLock) return 'Gerade nicht.';
+    if (p.console) return 'Erst die Konsole verlassen.';
+    if (!sys || !SYSTEM_ORDER.includes(sys)) return 'Unbekanntes System.';
+    if (!stationInReach(p, sys)) return 'Zu weit weg von der Station.';
+    const st = game.ship.systems[sys];
+    if (st === 'offline') { const o = game.ship.offline[sys]; return `EMP: offline – startet in ${Math.ceil(o ? o.t : 1)} s von selbst neu.`; }
+    if (!repairable(game, sys)) return `${cap(sysNameNom(sys))} ist heil.`;
+    if (game.players.some((o) => o !== p && o.hold && o.hold.kind === 'minigame' && o.hold.system === sys)) return 'Da schraubt schon jemand.';
+    p.hold = { kind: 'minigame', system: sys, t: 0, dur: Infinity };
+    p.input.mx = 0; p.input.my = 0; p.moving = false;
+    return null;
+  }
+  if (c === 'repair.done') {
+    const h = p.hold;
+    if (!h || h.kind !== 'minigame' || (sys && h.system !== sys)) return 'Kein Minispiel aktiv.';
+    const minT = (game.C.spaceM3 && game.C.spaceM3.repair && game.C.spaceM3.repair.minigameMinTime) || 2.5;
+    p.hold = null;
+    if (h.t < minT) return 'Zu hastig – die Verbindung hält nicht. Nochmal (R).';   // Mindestzeit nicht erreicht: abgebrochen
+    const errs = Number(msg.errors);
+    if (Number.isFinite(errs) && errs > 0) game.stats.minigameErrors = (game.stats.minigameErrors || 0) + Math.min(99, Math.round(errs));
+    repairSystem(game, h.system, 'player', 'minigame');
+    return null;
+  }
+  return 'Unbekannter Befehl.';
 }
 
 // EMP: System für secs offline (zählt wie broken), danach zurück auf den vorherigen Zustand.
@@ -601,9 +835,10 @@ function updateHazards(game, dt) {
     }
     if (f.dmgT >= C.fire.damageInterval) {
       f.dmgT = 0;
+      // M3a: Nähe zu jeder Stationskachel des Systems (W.STATIONS), Reihenfolge weiter nach SYSTEM_ORDER
       for (const sys of SYSTEM_ORDER) {
-        const st = W.SYSTEM_TILES[sys];
-        if (Math.abs(st.x - f.tx) <= 1 && Math.abs(st.y - f.ty) <= 1) { damageSystem(game, sys); break; }
+        const near = W.STATIONS.some((st) => st.system === sys && Math.abs(st.x - f.tx) <= 1 && Math.abs(st.y - f.ty) <= 1);
+        if (near) { damageSystem(game, sys); break; }
       }
     }
   }
@@ -615,16 +850,19 @@ function updateHazards(game, dt) {
   const carried = (kind) => game.players.some((p) => p.carry === kind) || game.bots.some((b) => b.carry === kind) ||
     ship.groundItems.some((i) => i.kind === kind);
   const noParts = game.inventory.ersatzteil <= 0 && !carried('ersatzteil');
+  // M3a §8.2: für alle 14 Systeme; „niemand ist da“ = kein Spieler hält/spielt dort, kein Bot arbeitet daran
+  const busy = (sys) => game.players.some((p) => p.hold && p.hold.system === sys) ||
+    game.bots.some((b) => b.task && b.task.kind === 'repair' && b.task.system === sys && b.task.phase === 'work');
   for (const sys of SYSTEM_ORDER) {
-    if (ship.systems[sys] !== 'broken' || !noParts) { ship.noPartT[sys] = 0; continue; }
+    if (ship.systems[sys] !== 'broken' || !noParts || busy(sys)) { ship.noPartT[sys] = 0; continue; }
     ship.noPartT[sys] = (ship.noPartT[sys] || 0) + dt;
     if (ship.noPartT[sys] >= C.emergencyRepair.brokenDelay) {
       ship.noPartT[sys] = 0;
-      ship.systems[sys] = 'damaged';
-      game.emit('repairDone', { system: sys });
+      repairSystem(game, sys, 'oda', 'oda');
       game.oda(`Keine Ersatzteile mehr – ich habe ${sysName(sys)} mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt.`, null);
     }
   }
+  updateSystemAnnounce(game);
   const noPlates = game.inventory.flickblech <= 0 && !carried('flickblech');
   if (noPlates && ship.breachList.length) {
     ship.noPlateT += dt;
@@ -637,16 +875,27 @@ function updateHazards(game, dt) {
 }
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-function sysNameNom(sys) {
-  return { reactor: 'der Reaktor', engines: 'der Antrieb', shields: 'der Schildgenerator', weapons: 'die Waffenbank', life: 'die Lebenserhaltung', transfer: 'der Transfer' }[sys] || sys;
-}
-function sysName(sys) {
-  return { reactor: 'den Reaktor', engines: 'den Antrieb', shields: 'den Schildgenerator', weapons: 'die Waffenbank', life: 'die Lebenserhaltung', transfer: 'den Transfer' }[sys] || sys;
-}
+// Deutsche Namen aller 14 Systeme + Altname weapons. [Artikel Nominativ, Artikel Akkusativ, Bezeichnung]
+const SYS_NAMES = {
+  reactor: ['der', 'den', 'Reaktor'], engines: ['das', 'das', 'Triebwerk'], shields: ['der', 'den', 'Schildgenerator'],
+  life: ['die', 'die', 'Lebenserhaltung'], transfer: ['der', 'den', 'Transfer'],
+  thruster_port: ['die', 'die', 'Backbord-Düse'], thruster_stbd: ['die', 'die', 'Steuerbord-Düse'],
+  emitter_bow: ['der', 'den', 'Bug-Emitter'], emitter_stbd: ['der', 'den', 'Steuerbord-Emitter'],
+  emitter_aft: ['der', 'den', 'Heck-Emitter'], emitter_port: ['der', 'den', 'Backbord-Emitter'],
+  weapon_bow: ['die', 'die', 'Bug-Waffe'], battery_port: ['die', 'die', 'Backbord-Batterie'], battery_stbd: ['die', 'die', 'Steuerbord-Batterie'],
+  weapons: ['die', 'die', 'Waffenbank'],
+};
+const SYS_LABEL = Object.fromEntries(Object.entries(SYS_NAMES).map(([k, v]) => [k, v[2]]));
+const SECTOR_LABEL = ['Bugsektor', 'Steuerbordsektor', 'Hecksektor', 'Backbordsektor'];
+function sysNameNom(sys) { const n = SYS_NAMES[sys]; return n ? `${n[0]} ${n[2]}` : sys; }
+function sysName(sys) { const n = SYS_NAMES[sys]; return n ? `${n[1]} ${n[2]}` : sys; }
 
 module.exports = {
   platformSolid, awaySolid, awayInfo, solidFor, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, isDown,
+  // M3a (CONTRACT-M3 §9.5)
+  hitSystems, systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
+  stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,
 };

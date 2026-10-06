@@ -6,7 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return {
-    VERSION: 2,   // M1
+    VERSION: 3,   // M3a
     WS_PATH: '/ws',
     // Client -> Server
     C: {
@@ -20,18 +20,24 @@
     ERR: { BADCODE: 'badcode' },
     // 'quartier' öffnet sich an der eigenen Koje, 'sonde' an der Kustoden-Sonde (Außenmission).
     CONSOLES: ['helm', 'captain', 'weapons', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „TAKTIK“)
-    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'],
+    // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
+    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer',
+      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],
     POWER_SYSTEMS: ['engines', 'shields', 'weapons', 'life'],
     // M1: Systemzustände ('offline' = EMP, zählt wie broken, startet nach CONFIG.emp.offlineTime selbst neu)
     SYSTEM_STATES: ['ok', 'damaged', 'broken', 'offline'],
     REACTOR_STATES: ['online', 'overload', 'offline'],
-    MOUNTS: ['phase_l', 'phase_r', 'bolzen', 'seitenturm'],
+    MOUNTS: ['bow', 'port', 'stbd', 'bolzen', 'phase_l', 'phase_r', 'seitenturm'],   // M3a: bow/port/stbd; phase_* = Altnamen
+    REPAIR_MODES: ['flick', 'part'],
+    BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
+    SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
+    CMD_REPAIR: ['repair.start', 'repair.done', 'repair.cancel'],   // M3a: ohne Konsole, nur Zone ship
     ENEMY_KINDS: ['raider', 'gunboat', 'relay', 'sentinel', 'pylon'],
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound'],
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'burst'],   // M3a: tele [id], fragile {system}, burst {sector}
     SECTORS: ['bug', 'steuerbord', 'heck', 'backbord'],
     ITEMS: ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'datenkern', 'tafel'],   // M2: 'tafel' (kein Regal, direkt ins Inventar)
     // M2 „Schildwall“ (CONTRACT-M2 §6/§7)

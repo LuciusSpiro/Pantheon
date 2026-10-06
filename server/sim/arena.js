@@ -52,6 +52,24 @@ function placeOnBridge(game) {
   });
 }
 
+// M3a §15: Beim Start ist das Schiff unbeschädigt (alle Systeme ok, nicht fragil, Hülle/O₂ voll, Schilde voll).
+function repairShip(game) {
+  const ship = game.ship; const C = game.C;
+  for (const k of Object.keys(ship.systems)) {
+    const d = Object.getOwnPropertyDescriptor(ship.systems, k);
+    if (d && d.writable) ship.systems[k] = 'ok';   // 'weapons' ist bei SERVER-SHIP ein Getter
+  }
+  ship.offline = {};
+  ship.fragile = {};
+  if (Array.isArray(ship.repairQueue)) ship.repairQueue = [];
+  ship.fireList = []; ship.breachList = [];
+  ship.hull = ship.hullMax; ship.o2 = C.o2.max;
+  for (const k of Object.keys(ship.heat)) ship.heat[k] = 0;
+  if (ship.reactorCtl.state === 'offline') space.reactorOnline(game, 'Testgelände: Reaktor läuft.');
+  ship.shields.current = ship.shields.alloc.slice();
+  ship.sysHitAt = {};
+}
+
 function startSpace(game) {
   const A = cfg(game);
   const ex = game.explore;
@@ -63,6 +81,7 @@ function startSpace(game) {
   const ship = game.ship;
   ship.x = A.shipPos.x; ship.y = A.shipPos.y; ship.angle = A.shipPos.angle;
   ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  repairShip(game);
   worldFirst(game);
   placeOnBridge(game);
   game.arena = { kind: 'arena_space', wave: 0, round: 1, active: false, nextAt: game.time + A.firstWaveAt, cleared: 0 };
@@ -91,7 +110,11 @@ function spawnWave(game) {
   const kinds = waveDef(game, a.wave);
   kinds.forEach((k, i) => {
     const off = (i - (kinds.length - 1) / 2) * A.spawnSpread;
-    space.spawnEnemy(game, k, { tag: TAG, angle: ship.angle + off });
+    if (k === 'pylon' && A.pylonAt) {
+      // M3a §15: Pylon an fester Position (relativ zum Startpunkt des Testgeländes)
+      const x = A.shipPos.x + A.pylonAt.dx, y = A.shipPos.y + A.pylonAt.dy;
+      space.spawnEnemy(game, k, { tag: TAG, x, y, facing: Math.atan2(ship.y - y, ship.x - x) });
+    } else space.spawnEnemy(game, k, { tag: TAG, angle: ship.angle + off });
   });
   a.active = true; a.nextAt = null;
   game.oda(`Welle ${a.wave}: ${describe(kinds)} im Anflug!`, null);

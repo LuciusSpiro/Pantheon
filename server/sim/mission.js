@@ -21,9 +21,9 @@ const kesh = (m) => m.game.aways.kesh;
 const keshTeam = (m) => m.game.players.filter((p) => p.zone === 'away' && m.game.away.map === 'kesh');
 
 const CONSOLE_HELP = {
-  helm: 'Steuer: Frontsicht. A/D lenken, W/S Schub, Shift+A/D ausweichen, F Faltsprung. Taktik lotst dich.',
-  captain: 'Captain: Funk, Sternkarte, Lage, Energie & Schilde, Schäden, Außenteam. Hier wird entschieden.',
-  weapons: 'Taktik: T Ziel, 1/2 Phasenkanonen, Leertaste beide, S halten = Scan, W Weitscan, Rechtsklick Marker.',
+  helm: 'Steuer: A/D lenken (träge!), W/S Schub, Shift+A/D ausweichen, F Faltsprung. Zielt die Lanze: Kurs halten!',
+  captain: 'Captain: Funk, Sternkarte, Lage, Energie & Schilde (B + 1–4 = Schildstoß), Schäden, Außenteam.',
+  weapons: 'Taktik: T Ziel, 1 Lanze, 2/3 Batterien, Leertaste alles, Q/E + A/D Ladepunkte, H Halten, S Scan, W Weitscan.',
   transfer: 'Transfer: Leute auf die Pads, dann Runter/Hoch. Nachschub und Notrückholung gibt\'s hier auch.',
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
@@ -83,8 +83,10 @@ const HOOKS = {
       return;
     }
     g.odaSeen.add('firstFire'); g.odaSeen.add('firstBreach'); g.odaSeen.add('firstBroken');
-    interior.addFire(g, d.fire.x, d.fire.y);
-    interior.addBreach(g, d.breach.x, d.breach.y);
+    // M3a: Positionen aus dem Schiffslayout (Maps.SHIP_DRILL); CONFIG.drill.fire/breach nur noch Altnamen/Fallback
+    const pos = W.Maps.SHIP_DRILL || d;
+    interior.addFire(g, pos.fire.x, pos.fire.y);
+    interior.addBreach(g, pos.breach.x, pos.breach.y);
     g.ship.systems[d.system] = 'broken';
   },
   clearDrill(m) {
@@ -393,7 +395,7 @@ class Mission {
     for (let i = 0; i < n; i++) {
       const opts = { tag: s.tag || null };
       if (s.angles) opts.angle = s.angles[i % s.angles.length];
-      else if (s.behind) opts.angle = g.ship.angle + Math.PI + (n > 1 ? (i ? 0.8 : -0.8) : 0);
+      else if (s.behind) opts.angle = g.ship.angle + Math.PI + (n > 1 ? (i ? 0.35 : -0.35) : 0);   // M3a: klar achtern (Hecksektor)
       if (s.atStation) {
         const p = s.atStation[i % s.atStation.length];
         opts.x = st.x + p.dx; opts.y = st.y + p.dy;
@@ -531,8 +533,8 @@ class Mission {
     const g = this.game; const ship = g.ship;
     if (ship.o2 < 50) g.oda('Sauerstoff unter 50 %! Lebenserhaltung prüfen und Lecks flicken.', 'o2low');
     if (ship.hull < 40) g.oda('Hülle unter 40 %. Ich will nicht drängeln, aber… doch, ich dränge.', 'hulllow');
-    if (g.space.enemies.some((e) => e.kind === 'raider' && space.PHASES.some((k) => space.inMountArc(g, k, e.x, e.y)))) {
-      g.oda('Jäger im Feuerbogen! Taktik: Ziel mit T, Feuer mit 1, 2 oder Leertaste.', 'raiderInArc');
+    if (g.space.enemies.some((e) => e.kind === 'raider' && ['bow', 'port', 'stbd'].some((k) => space.inMountArc(g, k, e.x, e.y)))) {
+      g.oda('Jäger im Feuerbogen! Taktik: Ziel mit T, 1 Lanze, 2/3 Batterien, Leertaste alles.', 'raiderInArc');
     }
   }
 
@@ -602,8 +604,9 @@ class Mission {
       case 'fire': g.oda('Feuer an Bord! Löschgel aus dem Lager holen und E halten. Die Bots helfen auch.', 'firstFire'); break;
       case 'breach': g.oda('Hüllenbruch! Er zieht – Flickblech holen, E halten 3 s. Sonst: Bots.', 'firstBreach'); break;
       case 'systemDamaged':
-        if (data.state === 'broken') g.oda(`${cap(interior.sysNameNom(data.system))} ist zerstört! Ersatzteil aus dem Lager, dann E halten.`, 'firstBroken');
-        else g.oda('Ein System ist beschädigt – E halten am Systempunkt repariert es.', 'firstDamaged');
+        // M3a §8.1: drei Reparaturwege
+        if (data.state === 'broken') g.oda(`${cap(interior.sysNameNom(data.system))} ist zerstört! E halten: flicken (hält nicht) · R: reparieren · mit Ersatzteil: voll.`, 'firstBroken');
+        else g.oda('Ein System ist beschädigt – E halten: flicken (schnell, hält nicht) · R: reparieren · mit Ersatzteil: voll.', 'firstDamaged');
         break;
       case 'shieldDown': g.oda('Schildsektor leer! Captain: Punkte umverteilen oder mehr Energie auf Schilde.', 'shieldDown'); break;
       case 'repaired':

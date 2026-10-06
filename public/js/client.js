@@ -43,6 +43,8 @@
     endDismissed: false,
     beamFx: {}, enemyHit: {}, shipHit: null, flashT: -9,
     shieldHit: {},   // M2: pid -> performance.now() des letzten Schildtreffers
+    teleSeen: {}, burstFx: null,   // M3a
+    minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
     shootCd: 0, stepT: 0, repairTickT: 0,
     view: null,
   };
@@ -283,8 +285,55 @@
     self.x = x; self.y = y;
   }
 
+  // M3a: Ton anhalten (AUDIO: GameAudio.stop(name, {key}) – optional)
+  function stopSfx(name, key) {
+    if (!audio.has() || typeof GameAudio.stop !== 'function') return;
+    Net.guard('GameAudio.stop', () => GameAudio.stop(name, { key }));
+  }
+  // M3a „Breitseite“: Ladung, Zielphase, Schildstoß, Systemtreffer – kurze Hinweise (Ton kommt vom Server per sfx)
+  function onEventM3(ev) {
+    const PAL = R.PAL;
+    const m = me();
+    const con = m && m.console;
+    const name = (s) => H.SYS_NAMES[s] || s;
+    // tele: Der Server schickt { kind:'tele', id, sector, dur, tkind|enemy }. Liegt das Feld kind fälschlich auf 'shot'/'emp',
+    // erkennen wir das Ereignis an id + sector + dur.
+    const isTele = ev.kind === 'tele' || ((ev.kind === 'shot' || ev.kind === 'emp') && ev.id != null && ev.sector != null && ev.dur != null);
+    if (isTele) { Client.teleSeen[ev.id] = performance.now(); return true; }
+    switch (ev.kind) {
+      case 'teleMiss':
+        stopSfx('tele_charge', ev.id);
+        if (con === 'helm' || con === 'weapons') H.pushNotice('Ladung verfehlt – ausgewichen!', PAL.mint);
+        return true;
+      case 'aim':
+        if (ev.state === 'abort' && (con === 'helm' || con === 'weapons')) H.pushNotice('Zielphase abgebrochen – Kurs nicht gehalten', PAL.warn);
+        else if (ev.state === 'miss' && (con === 'helm' || con === 'weapons')) H.pushNotice('Lanze verfehlt – Ziel nicht im Bogen', PAL.warn);
+        else if (ev.state === 'start' && con === 'helm') H.pushNotice('LANZE ZIELT – Kurs halten!', PAL.amber);
+        return true;
+      case 'burst':
+        Client.burstFx = { sector: ev.sector, perfect: !!ev.perfect, t0: performance.now() };
+        if (ev.perfect) H.pushNotice('PERFEKTER SCHILDSTOSS – ' + (H.SECTOR_NAMES[ev.sector] || '') + ' hält', PAL.mint);
+        else if (con === 'captain' && ev.absorbed) H.pushNotice('Schildstoß fängt ' + ev.absorbed + ' ab', PAL.ice);
+        return true;
+      case 'systemHit':
+        if (ev.state === 'broken') H.pushNotice(name(ev.system) + ' zerstört!', PAL.red);
+        else if (ev.state === 'damaged') H.pushNotice(name(ev.system) + ' beschädigt', PAL.warn);
+        return true;
+      case 'repairDone': {
+        audio.play('repair_done');
+        if (ev.by && ev.by === Client.pid) {
+          const how = { flick: 'geflickt (fragil)', swap: 'Teil eingebaut – heil', minigame: 'repariert (dauerhaft)' }[ev.how];
+          if (how) H.pushNotice(name(ev.system) + ': ' + how, ev.how === 'flick' ? R.FRAGILE_COL : PAL.mint);
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
   function onEvent(ev) {
     const PAL = R.PAL;
+    if (Net.guard('Client.eventM3', () => onEventM3(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
       case 'radio': H.onRadio(ev.from, ev.text); audio.play('radio'); break;
@@ -294,7 +343,9 @@
       case 'sfx': {
         const vol = ev.zone && ev.zone !== Client.self.zone ? 0.35 : 1;
         // M2 (AUDIO): Parameter des Servers durchreichen; dist = Abstand Hörer–Quelle / 300 (nur mit Position)
-        const o = { volume: vol, pan: audio.panFor(ev.x, ev.zone), seg: ev.seg, max: ev.max, text: ev.text, syl: ev.syl, q: ev.q };
+        // M3a: zusätzlich count, kind, dur, n, key (z. B. tele_charge je Gegner)
+        const o = { volume: vol, pan: audio.panFor(ev.x, ev.zone), seg: ev.seg, max: ev.max, text: ev.text, syl: ev.syl, q: ev.q,
+          count: ev.count, kind: ev.enemy != null ? ev.enemy : ev.sfxKind, dur: ev.dur, n: ev.n, key: ev.key };
         if (ev.x != null && ev.y != null) o.dist = (ev.zone && ev.zone !== Client.self.zone) ? 1 : clamp(Math.hypot(ev.x - Client.self.x, ev.y - Client.self.y) / 300, 0, 1);
         audio.play(ev.name, o);
         break;
@@ -403,7 +454,13 @@
     if (cShip.jump && pShip.jump && !(pShip.jump.charge > 0) && cShip.jump.charge > 0) audio.play('jump_charge', { volume: 0.6 });
     // Waffen
     const pb = (prev.space && prev.space.beams) || [], cb = (cur.space && cur.space.beams) || [];
-    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind !== 'phase') audio.play(b.kind === 'seitenturm' ? 'seitenturm' : 'lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
+    // M3a: lance/battery/enemy_heavy klingen über Server-sfx (lance_fire, battery_salvo, heavy_hit) – hier nur Altnamen
+    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind === 'lanze' || b.kind === 'seitenturm' || !b.kind) audio.play(b.kind === 'seitenturm' ? 'seitenturm' : 'lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
+    // M3a: verschwindet ein ladender Gegner, Ladeton anhalten
+    {
+      const curIds = new Set(((cur.space && cur.space.enemies) || []).map(e => e.id));
+      for (const e of (prev.space && prev.space.enemies) || []) if (e.tele && !curIds.has(e.id)) stopSfx('tele_charge', e.id);
+    }
     const pIds = new Set(((prev.space && prev.space.projectiles) || []).map(p => p.id));
     for (const pr of (cur.space && cur.space.projectiles) || []) if (!pIds.has(pr.id) && pr.kind === 'bolzen') audio.play('bolzen');
     // Gegnertreffer (für Blinken)
@@ -623,34 +680,51 @@
       }
     }
     // M1: Reaktorschalter (Neustart zu zweit)
-    if (ch === 'y' && zone === 'ship') {
-      const sw = (Maps.REACTOR_SWITCHES || []).find(s => s.x === tx && s.y === ty) || { id: ty < 6 ? 'A' : 'B' };
+    // M3a: Schiffsobjekte über die Legende (R.objKindOf), Schalter nur über REACTOR_SWITCHES (kein Ersatzwert)
+    const shipKind = zone === 'ship' && R.objKindOf ? R.objKindOf(map, ch) : null;
+    if (shipKind === 'reactor_switch') {
+      const sws = Maps.REACTOR_SWITCHES || [];
+      const sw = sws.find(s => s.x === tx && s.y === ty);
+      if (!sw) return null;
       const reactor = (st.ship && st.ship.reactor) || {};
-      const other = sw.id === 'A' ? 'unten' : 'oben';
+      const osw = sws.find(s => s.id !== sw.id);
+      const oroom = osw && Maps.roomAt ? Maps.roomAt(osw.x, osw.y) : null;
+      const other = (osw ? (osw.y > sw.y ? 'unten' : 'oben') : 'gegenüber') + (oroom ? ' im ' + oroom.name : '');
       if (reactor.state !== 'offline') return { label: 'Reaktorschalter ' + sw.id + ' (nur nach Abschaltung)', ok: false };
-      const otherHeld = reactor.switches && reactor.switches[sw.id === 'A' ? 'B' : 'A'];
-      return { label: 'Halten: Schalter ' + sw.id + (otherHeld ? ' · Schalter ' + (sw.id === 'A' ? 'B' : 'A') + ' wird gehalten!' : ' · Zweiter Schalter: ' + other + ' im Maschinenraum'), ok: true };
+      const oid = osw ? osw.id : (sw.id === 'A' ? 'B' : 'A');
+      const otherHeld = reactor.switches && reactor.switches[oid];
+      return { label: 'Halten: Schalter ' + sw.id + (otherHeld ? ' · Schalter ' + oid + ' wird gehalten!' : ' · Zweiter Schalter: ' + other), ok: true };
     }
-    if (ch === 'Y' && zone === 'ship') {
+    if (shipKind === 'plan_table') {
       const seated = (st.players || []).filter(p => p.console === 'plan').length;
       return seated >= 3 ? { label: 'Planungstisch: voll', ok: false } : { label: 'Planungstisch: Platz nehmen' + (seated ? ' (' + seated + ' sitzen)' : ''), ok: true };
     }
-    const sys = R.SYS_BY_CHAR[ch];
+    const sys = R.sysOf ? R.sysOf(map, ch) : R.SYS_BY_CHAR[ch];
     if (sys && zone === 'ship') {
+      // M3a §8.1: drei Wege – E flicken (ohne Teil), E Teil einbauen (mit Teil, auch an heilem fragilem System), R Minispiel
       const state = R.sysState(st, sys);
-      if (state === 'broken') return carry === 'ersatzteil' ? { label: 'Halten: ' + H.SYS_NAMES[sys] + ' reparieren', ok: true } : { label: H.SYS_NAMES[sys] + ': Ersatzteil nötig', ok: false };
-      if (state === 'damaged') return { label: 'Halten: ' + H.SYS_NAMES[sys] + ' reparieren', ok: true };
-      return null;
+      const fragile = R.fragileOf(st, sys);
+      const name = H.SYS_NAMES[sys] || sys;
+      const RC = (CFG.spaceM3 && CFG.spaceM3.repair) || {};
+      const belt = !!(m.gear && m.gear.werkzeuggurt);
+      const secs = (v) => String(Math.round(v * (belt ? 0.7 : 1) * 10) / 10).replace('.', ',') + ' s';
+      if (state === 'offline') return { label: name + ': offline (EMP) – startet selbst neu', ok: false, sys };
+      if (state === 'ok' && !fragile) return null;
+      const alt = { key: 'R', label: 'reparieren (Minispiel, dauerhaft)', ok: true };
+      if (carry === 'ersatzteil') return { label: 'halten: Teil einbauen (' + secs(RC.partTime || 3) + ', dauerhaft) · ' + name, ok: true, sys, alt };
+      if (state === 'ok') return { label: name + ': geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };
+      return { label: 'halten: flicken (' + secs(RC.flickTime || 1.5) + ', fragil) · ' + name, ok: true, sys, alt };
     }
-    const con = R.CONSOLE_BY_CHAR[ch];
+    const con = R.consoleOf ? R.consoleOf(map, ch) : R.CONSOLE_BY_CHAR[ch];
     if (con && zone === 'ship') {
       if (con === 'shop' && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
       const taken = players.find(p => p.console === con && p.id !== m.id);
       if (taken) return { label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false };
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }
-    if (ch === 'L' && zone === 'ship') {
-      const item = Maps.SHELVES[tx];
+    if (shipKind === 'shelf') {
+      const item = R.shelfItemAt ? R.shelfItemAt(tx, ty) : null;   // M3a: Regal aus dem Schiffslayout
+      if (!item) return null;
       const inv = st.inventory || {};
       const n = R.shelfStock ? R.shelfStock(inv, item) : (inv[item] || 0);
       const what = (R.SHELF_LABEL && R.SHELF_LABEL[item]) || ITEM_LABEL[item];
@@ -659,7 +733,7 @@
       if (n <= 0) return { label: what + ': 0 – Regal leer (Nachschub im Hafen)', ok: false };
       return { label: 'Nehmen · ' + what + ': ' + n, ok: true };
     }
-    if (ch === 'B' && zone === 'ship') {
+    if (shipKind === 'bed') {
       const bed = R.bedAt(tx, ty);
       if (bed && bed.color === m.color) return { label: 'Quartier gestalten', ok: true };
       return null;
@@ -745,6 +819,90 @@
     send({ t: P.C.CMD || 'cmd', c: P.CMD_CROUCH || 'crouch', on });
     audio.play('ui_click', { volume: 0.4 });
   }
+  // ------------------------------------------------------------------ M3a §8.1: Reparatur-Minispiel (lokal, ein gemeinsames für alle Systeme)
+  // Ablauf: R an der Station -> cmd repair.start -> Server setzt players[].action.kind = 'minigame' -> Zeigerleiste, Leertaste
+  // im grünen Feld, 3 Treffer, Fehlgriff = 1 s Sperre -> repair.done { system, errors } frühestens nach minigameMinTime.
+  // Bricht der Server ab (action nicht mehr minigame), schließt das Overlay. Esc = repair.cancel.
+  function mgMinTime() { return (CFG.spaceM3 && CFG.spaceM3.repair && CFG.spaceM3.repair.minigameMinTime) || 2.5; }
+  function mgSfx(name, opts) { audio.play(name, opts || {}); }
+  function mgZone(mg) {
+    const w = mg.broken ? 0.12 : 0.2;
+    let a = 0.05 + Math.random() * (0.9 - w);
+    for (let i = 0; i < 6 && Math.abs(a + w / 2 - mg.pos) < 0.22; i++) a = 0.05 + Math.random() * (0.9 - w);
+    return { a, w };
+  }
+  function startMinigame(sys) {
+    const st = Client.state, m = me();
+    if (!st || !m || m.zone !== 'ship' || m.console || Client.minigame) return;
+    const state = R.sysState(st, sys);
+    if (state === 'offline') { H.pushNotice((H.SYS_NAMES[sys] || sys) + ' ist offline (EMP) – startet selbst neu', R.PAL.warn); return; }
+    if (state === 'ok' && !R.fragileOf(st, sys)) { H.pushNotice((H.SYS_NAMES[sys] || sys) + ' ist heil', R.PAL.mint); return; }
+    if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
+    const mg = { system: sys, broken: state === 'broken', phase: 'wait', t0: Client.time, confirmT: null, pos: 0, dir: 1, speed: 0.85, hits: 0, errors: 0, lockUntil: -1, sent: false };
+    mg.zone = mgZone(mg);
+    Client.minigame = mg;
+    send({ t: P.C.CMD || 'cmd', c: 'repair.start', system: sys });
+    audio.play('ui_click');
+  }
+  function closeMinigame(reason) {
+    Client.minigame = null;
+    if (reason) H.pushNotice(reason, R.PAL.warn);
+  }
+  function cancelMinigame() {
+    const mg = Client.minigame;
+    if (!mg) return;
+    send({ t: P.C.CMD || 'cmd', c: 'repair.cancel', system: mg.system });
+    closeMinigame(null);
+    audio.play('ui_back');
+  }
+  function minigameKey(code) {
+    const mg = Client.minigame;
+    if (code === 'Escape') { cancelMinigame(); return; }
+    if (code !== 'Space' || !mg || mg.phase !== 'play') return;
+    if (mg.lockUntil > Client.time) return;
+    const z = mg.zone;
+    if (mg.pos >= z.a && mg.pos <= z.a + z.w) {
+      mg.hits++;
+      mgSfx('minigame_hit', { n: mg.hits });
+      if (mg.hits >= 3) { mg.phase = 'done'; mgSfx('minigame_done'); }
+      else { mg.zone = mgZone(mg); mg.speed += 0.15; }
+    } else {
+      mg.errors++;
+      mg.lockUntil = Client.time + 1;
+      mgSfx('minigame_miss');
+    }
+  }
+  function updateMinigame(dt) {
+    const mg = Client.minigame;
+    if (!mg) return;
+    const m = me();
+    if (!m || m.console || m.zone !== 'ship' || m.downed) { closeMinigame(null); return; }
+    const act = m.action;
+    const active = !!(act && act.kind === 'minigame');
+    if (active && mg.confirmT == null) { mg.confirmT = Client.time; mg.phase = 'play'; }
+    if (mg.confirmT == null) {
+      if (Client.time - mg.t0 > 1.5) closeMinigame(null);   // Server hat abgelehnt (Grund kommt als notice)
+      return;
+    }
+    if (!active && !mg.sent) { closeMinigame('Reparatur abgebrochen'); return; }
+    if (mg.phase === 'play' || mg.phase === 'done') {
+      const prevDir = mg.dir;
+      mg.pos += mg.dir * mg.speed * dt * (mg.lockUntil > Client.time ? 0.6 : 1);
+      if (mg.pos >= 1) { mg.pos = 1; mg.dir = -1; } else if (mg.pos <= 0) { mg.pos = 0; mg.dir = 1; }
+      if (prevDir !== mg.dir && mg.phase === 'play') mgSfx('minigame_tick', { volume: 0.5 });
+    }
+    if (mg.phase === 'done' && !mg.sent) {
+      // Server nimmt repair.done erst nach minigameMinTime an – sonst endet es ohne Reparatur
+      const elapsed = Client.time - mg.confirmT;
+      const srvOk = act && act.progress != null ? +act.progress >= 1 : true;
+      if (elapsed >= mgMinTime() + 0.15 && srvOk) {
+        mg.sent = true;
+        send({ t: P.C.CMD || 'cmd', c: 'repair.done', system: mg.system, errors: mg.errors });
+        closeMinigame(null);
+      }
+    }
+  }
+
   function releaseAll() {
     Client.keys = {};
     if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
@@ -789,8 +947,16 @@
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
     if ((st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed && (code === 'Enter' || code === 'Escape')) { actions.dismissEnd(); return; }
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }
+    // M3a: Minispiel offen -> nur Leertaste/Esc, kein E an den Server, keine Bewegung
+    if (Client.minigame) { if (!e.repeat) Net.guard('Client.minigameKey', () => minigameKey(code)); return; }
     if (e.repeat) return;
     switch (code) {
+      case 'KeyR': {
+        // M3a: R an einer beschädigten/zerstörten (oder geflickten) Station startet das Minispiel
+        const ia = Client.view && Client.view.interaction;
+        if (m.zone === 'ship' && ia && ia.sys && ia.alt) startMinigame(ia.sys);
+        break;
+      }
       case 'KeyE': if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); } break;
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
       case 'Space': shoot(); break;
@@ -858,7 +1024,8 @@
     if (!st || !m) return;
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && Net.isOpen() && self.init;
+    Net.guard('Client.minigame', () => updateMinigame(dt));
+    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && Net.isOpen() && self.init && !Client.minigame;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
@@ -948,7 +1115,9 @@
       if (s > 2) delete Client.shieldHit[pid]; else v.shieldHit[pid] = s;
     }
     if (Client.shipHit) v.shipHit = { sector: Client.shipHit.sector, t: (nowMs - Client.shipHit.t0) / 1000 };
-    v.interaction = Net.guard('Client.interaction', () => computeInteraction(st, m, v.self), null);
+    v.interaction = Client.minigame ? null : Net.guard('Client.interaction', () => computeInteraction(st, m, v.self), null);
+    v.minigame = Client.minigame;
+    if (Client.burstFx) { const age = (nowMs - Client.burstFx.t0) / 1000; if (age > 2) Client.burstFx = null; else v.burstFx = { sector: Client.burstFx.sector, perfect: Client.burstFx.perfect, age }; }
     return v;
   }
 
@@ -979,6 +1148,7 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       Net.guard('Hud.draw', () => H.draw(ctx, v));
       if (v.me.console) Net.guard('Consoles.draw', () => K.draw(ctx, v));
+      else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
       const fl = (performance.now() - Client.flashT) / 400;
@@ -1038,6 +1208,10 @@
       case 'god': msg.on = !(args[0] === 'off' || args[0] === '0'); break;
       case 'spawn': msg.kind = args[0]; break;
       case 'damage': msg.system = args[0]; msg.state = args[1]; break;
+      // M3a §17
+      case 'fragile': msg.system = args[0]; break;
+      case 'tele': if (args[0]) msg.id = args[0]; break;
+      case 'burst': msg.sector = num(args[0] != null ? args[0] : 0); break;
       default: break;
     }
     return msg;

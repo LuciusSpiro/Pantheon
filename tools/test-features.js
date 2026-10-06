@@ -10,6 +10,35 @@ const generator = require('../server/mission/generator.js');
 const Schema = require('../shared/schema.js');
 const interior = require('../server/sim/interior.js');
 
+const W = require('../server/world.js');
+
+// M3a: Schiffspositionen nur aus dem Layout (shared/maps.js, server/world.js) – keine festen Koordinaten.
+// Stehplatz = begehbare Nachbarkachel + Blickrichtung auf das Objekt (unten, oben, links, rechts).
+const STAND = [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']];
+function standSpots(tiles) {
+  const list = Array.isArray(tiles) ? tiles : [tiles];
+  const out = [];
+  for (const t of list) for (const [dx, dy, dir] of STAND) {
+    const s = { x: t.x + dx, y: t.y + dy, dir };
+    if (!W.ship.solid(s.x, s.y) && !out.some((o) => o.x === s.x && o.y === s.y)) out.push(s);
+  }
+  return out;
+}
+const dirTo = (from, to) => (to.y < from.y ? 'up' : to.y > from.y ? 'down' : to.x > from.x ? 'right' : 'left');
+const conSpot = (con, k) => standSpots(W.CONSOLE_TILES[con])[k || 0];
+const sysSpot = (sys) => standSpots(W.SYSTEM_TILES[sys])[0];
+const bedSpot = (color) => standSpots(Maps.BEDS.find((b) => b.color === color))[0];
+const switchSpot = (id) => standSpots(Maps.REACTOR_SWITCHES.find((s) => s.id === id))[0];
+function shelfSpot(item) {
+  const s = Maps.SHELF_TILES.find((q) => q.item === item);
+  return s.access ? { x: s.access.x, y: s.access.y, dir: dirTo(s.access, s) } : standSpots(s)[0];
+}
+// zwei waagrecht benachbarte Bodenkacheln (a links, b rechts) ab einem Spieler-Spawn
+const FLOOR_PAIR = (() => {
+  for (const s of Maps.SHIP_SPAWNS) if (!W.ship.solid(s.x + 1, s.y)) return { a: { x: s.x, y: s.y }, b: { x: s.x + 1, y: s.y } };
+  return null;
+})();
+
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 
@@ -27,37 +56,46 @@ function setup(players, opts) {
   const send = (i, m) => g.handleMessage(conns[i], m);
   const run = (sec) => { for (let k = 0; k < Math.round(sec * 30); k++) g.step(); };
   const place = (i, tx, ty, dir, zone) => { const p = P(i); const c = Physics.tileCenter(tx, ty); p.x = c.x; p.y = c.y; p.dir = dir || 'down'; if (zone) p.zone = zone; p.console = null; };
+  const placeAt = (i, s, zone) => place(i, s.x, s.y, s.dir, zone);   // Stehplatz aus dem Layout
   const notices = (i) => conns[i].inbox.filter((m) => m.kind === 'notice').map((m) => m.text);
   const events = (kind) => conns[0].inbox.filter((m) => m.kind === kind);
   const tap = (i) => { send(i, { t: 'act', down: true }); send(i, { t: 'act', down: false }); };
   const cmd = (i, c, extra) => send(i, Object.assign({ t: 'cmd', c }, extra || {}));
   const enter = (i, kind) => {
-    const pos = { captain: [35, 6, 'right'], weapons: [35, 3, 'right'], helm: [38, 6, 'right'], transfer: [12, 9, 'up'], shop: [30, 2, 'up'], plan: [25, 3, 'right'] }[kind];
-    if (pos) { place(i, pos[0], pos[1], pos[2]); tap(i); }
+    const pos = W.CONSOLE_TILES[kind] ? conSpot(kind) : null;
+    if (pos) { placeAt(i, pos); tap(i); }
   };
-  return { g, conns, P, send, run, place, notices, events, tap, cmd, enter };
+  return { g, conns, P, send, run, place, placeAt, notices, events, tap, cmd, enter };
 }
 
 console.log('\n[Regale, Tragen, Reparatur]');
 {
-  const { g, P, send, run, place, notices, tap } = setup(1);
-  place(0, 8, 2, 'up'); tap(0);
+  // M3a: zu zweit (Bot-Automatik aus), damit kein Schrauber dazwischen repariert. Reparaturwege laut CONTRACT-M3 §8.1.
+  const { g, P, send, run, placeAt, notices, tap } = setup(2);
+  placeAt(0, shelfSpot('ersatzteil')); tap(0);
   const startParts = g.C.economy.startInventory.ersatzteil;
   ok(P(0).carry === 'ersatzteil' && g.inventory.ersatzteil === startParts - 1, 'Ersatzteil aus Regal genommen');
   tap(0);
   ok(P(0).carry === null && g.inventory.ersatzteil === startParts, 'zurückgelegt');
   g.ship.systems.engines = 'broken';
-  place(0, 2, 8, 'left'); tap(0);
-  ok(notices(0).some((t) => /Ersatzteil/.test(t)), 'broken ohne Teil -> Hinweis');
+  placeAt(0, sysSpot('engines'));
+  send(0, { t: 'act', down: true }); run(1.6); send(0, { t: 'act', down: false });
+  ok(g.ship.systems.engines === 'damaged' && g.ship.fragile && g.ship.fragile.engines, 'M3a: broken ohne Teil -> Flicken (1,5 s): damaged + fragil');
+  g.ship.systems.engines = 'broken';
   P(0).carry = 'ersatzteil';
-  send(0, { t: 'act', down: true }); run(5.2); send(0, { t: 'act', down: false });
-  ok(g.ship.systems.engines === 'damaged' && P(0).carry === null, 'broken -> damaged mit Teil (5 s)');
-  send(0, { t: 'act', down: true }); run(2); send(0, { t: 'input', seq: 1, mx: 1, my: 0 }); run(0.2); send(0, { t: 'input', seq: 2, mx: 0, my: 0 }); run(3);
+  send(0, { t: 'act', down: true }); run(3.2); send(0, { t: 'act', down: false });
+  ok(g.ship.systems.engines === 'ok' && P(0).carry === null && !(g.ship.fragile && g.ship.fragile.engines), 'M3a: broken mit Teil -> Austausch (3 s): direkt ok, nicht fragil');
+  g.ship.systems.engines = 'damaged';
+  send(0, { t: 'act', down: true }); run(1); send(0, { t: 'input', seq: 1, mx: 1, my: 0 }); run(0.2); send(0, { t: 'input', seq: 2, mx: 0, my: 0 }); run(2);
   ok(g.ship.systems.engines === 'damaged' && !P(0).hold, 'Bewegen bricht Halten ab');
   send(0, { t: 'act', down: false });
-  place(0, 2, 8, 'left');
-  send(0, { t: 'act', down: true }); run(4.2); send(0, { t: 'act', down: false });
-  ok(g.ship.systems.engines === 'ok', 'damaged -> ok (4 s)');
+  placeAt(0, sysSpot('engines'));
+  send(0, { t: 'act', down: true }); run(1.6); send(0, { t: 'act', down: false });
+  ok(g.ship.systems.engines === 'ok', 'damaged -> ok (Flicken 1,5 s)');
+  g.ship.systems.engines = 'offline';
+  tap(0);
+  ok(notices(0).length > 0 && g.ship.systems.engines === 'offline', 'offline (EMP): Hinweis, keine Reparatur');
+  g.ship.systems.engines = 'ok';
   P(0).carry = 'flickblech';
   send(0, { t: 'drop' });
   ok(P(0).carry === null && g.ship.groundItems.length === 1, 'G legt ab (Bodengegenstand)');
@@ -69,16 +107,17 @@ console.log('\n[Feuer, Leck, Revive]');
 {
   const { g, P, send, run, place } = setup(2);
   g.ship.fireList = []; g.ship.breachList = [];
-  g.ship.fireList.push({ tx: 22, ty: 6, spreadT: 0, dmgT: 0 });
-  place(0, 21, 6, 'right');
+  const FP = FLOOR_PAIR;
+  g.ship.fireList.push({ tx: FP.b.x, ty: FP.b.y, spreadT: 0, dmgT: 0 });
+  place(0, FP.a.x, FP.a.y, 'right');
   P(0).carry = 'loeschgel'; P(0).carryCharges = 5;
   send(0, { t: 'act', down: true }); run(1.6); send(0, { t: 'act', down: false });
   ok(g.ship.fireList.length === 0 && P(0).carryCharges === 4, 'Feuer gelöscht, Ladung verbraucht');
-  g.ship.breachList.push({ tx: 22, ty: 6, t: 0 });
+  g.ship.breachList.push({ tx: FP.b.x, ty: FP.b.y, t: 0 });
   P(0).carry = 'flickblech';
   send(0, { t: 'act', down: true }); run(3.1); send(0, { t: 'act', down: false });
   ok(g.ship.breachList.length === 0 && P(0).carry === null, 'Leck geflickt');
-  place(1, 22, 6);
+  place(1, FP.b.x, FP.b.y);
   interior.downPlayer(g, P(1), 'test');
   send(0, { t: 'act', down: true }); run(3.1); send(0, { t: 'act', down: false });
   ok(!P(1).downed && P(1).hp === 50, 'Wiederbelebt (HP 50)');
@@ -89,19 +128,19 @@ console.log('\n[Feuer, Leck, Revive]');
 
 console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
 {
-  const { g, P, send, run, place, notices, tap, cmd, enter } = setup(2);
+  const { g, P, send, run, placeAt, notices, tap, cmd, enter } = setup(2);
   enter(0, 'captain');
   ok(P(0).console === 'captain', 'Captain-Konsole betreten');
-  place(1, 36, 5, 'down'); tap(1);
+  placeAt(1, conSpot('captain', 1)); tap(1);
   ok(P(1).console === null && notices(1).some((t) => /besetzt/.test(t)), 'besetzte Konsole abgelehnt');
   cmd(1, 'captain.accept');
   ok(notices(1).some((t) => /passenden Konsole/.test(t)), 'Befehl ohne Konsole abgelehnt');
-  place(1, 19, 2, 'up'); tap(1);
+  placeAt(1, bedSpot(1)); tap(1);
   ok(P(1).console === 'quartier', 'eigene Koje -> quartier');
   send(1, { t: 'leave' });
-  place(1, 14, 2, 'up'); tap(1);
+  placeAt(1, bedSpot(0)); tap(1);
   ok(P(1).console === null && notices(1).some((t) => /Nicht deine Koje/.test(t)), 'fremde Koje abgelehnt');
-  place(1, 19, 10, 'down'); tap(1);
+  placeAt(1, bedSpot(3)); tap(1);
   ok(P(1).console === null && notices(1).some((t) => /Gästequartier/.test(t)), 'Gästequartier (Koje 4) nicht nutzbar');
   send(0, { t: 'leave' });
   enter(0, 'shop');
@@ -114,7 +153,7 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   cmd(0, 'shop.buy', { item: 'kristalllampe' });
   ok(notices(0).some((t) => /Vaelen/.test(t)), 'Kristalllampe nur bei Vaelen');
   send(0, { t: 'leave' });
-  place(0, 14, 2, 'up'); tap(0);
+  placeAt(0, bedSpot(0)); tap(0);
   cmd(0, 'deco.place', { slot: 'q0c', item: 'pflanze' });
   ok(g.deco.q0c === 'pflanze' && !g.inventory.deko.includes('pflanze'), 'Deko in Slot 3 von 4 gesetzt');
   cmd(0, 'deco.place', { slot: 'q1a', item: null });
@@ -132,14 +171,15 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   run(0.1);
   ok(g.ship.power.shields === 3 && g.ship.shields.pool === 6, 'Energie verschoben, Schildpool 6');
   g.ship.systems.reactor = 'broken'; run(0.1);
-  ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= 3 && g.ship.power.life >= 1, 'Reaktor broken -> von oben gekürzt, Lebenserhaltung zuletzt');
-  g.ship.systems.reactor = 'ok'; run(0.1);
-  ok(g.ship.power.shields === 3 && g.ship.power.weapons === 1, 'Reaktor repariert -> letzte Einstellung zurück');
+  ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= g.C.spaceM3.reactorBrokenOutput && g.ship.power.life >= 1, 'Reaktor broken -> Notstrom 2, von oben gekürzt, Lebenserhaltung zuletzt');
+  // M3a: Ein zerstörter Reaktor braucht nach der Reparatur einen Neustart (test-m3); hier direkt wieder online
+  g.ship.systems.reactor = 'ok'; require('../server/sim/space.js').reactorOnline(g, 'Test'); run(0.1);
+  ok(g.ship.power.shields === 3 && g.ship.power.weapons === 1, 'Reaktor repariert + online -> letzte Einstellung zurück');
 }
 
 console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
 {
-  const { g, P, send, run, place, notices, cmd, enter, events } = setup(2);
+  const { g, P, send, run, placeAt, notices, cmd, enter, events } = setup(2);
   send(0, { t: 'debug', cmd: 'skip' });
   enter(0, 'captain');
   cmd(0, 'captain.overload');
@@ -153,7 +193,7 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   ok(g.ship.reactor.state === 'offline' && g.ship.reactor.output === 2, 'danach offline, Notstrom 2');
   ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= 2 && g.ship.power.life >= 1, 'Energie von oben gekürzt, Lebenserhaltung zuletzt');
   send(0, { t: 'leave' });
-  place(0, 2, 2, 'up'); place(1, 3, 10, 'down');
+  placeAt(0, switchSpot('A')); placeAt(1, switchSpot('B'));
   send(0, { t: 'act', down: true }); run(1);
   ok(g.ship.reactor.switches.A && !g.ship.reactor.switches.B, 'Schalter A gehalten');
   send(1, { t: 'act', down: true }); run(1.5);
@@ -164,7 +204,7 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   send(0, { t: 'act', down: false }); send(1, { t: 'act', down: false });
   // Allein: Schrauber hilft
   g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
-  place(0, 2, 2, 'up'); send(0, { t: 'act', down: true });
+  placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true });
   run(12);
   ok(g.ship.reactor.state === 'online', 'allein: nach 3 s schickt der Server einen Schrauber an B -> online (' + g.ship.reactor.state + ')');
   send(0, { t: 'act', down: false });
@@ -174,32 +214,46 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   ok(g.ship.reactor.state === 'online', 'Softlock-Schutz: Notstart nach ' + g.C.reactorM1.autoRestartAfter + ' s ohne Crew');
 }
 
-console.log('\n[M1 §4/§5: Phasenkanonen, Gegner-Schilde, Ziel-Scan, Marker, EMP]');
+console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Ziel-Scan, Marker, EMP]');
 {
   const { g, P, send, run, place, notices, cmd, enter, events } = setup(2);
   send(0, { t: 'debug', cmd: 'mission', id: 'm1', step: 'scan' });
   g.space.enemies = []; g.space.projectiles = [];
   const sh = g.ship; sh.x = 1000; sh.y = 1500; sh.angle = 0; sh.vx = 0; sh.vy = 0;
   const space = require('../server/sim/space.js');
-  const e = space.spawnEnemy(g, 'gunboat', { x: 1400, y: 1500, facing: Math.PI / 2 });   // Breitseite (Backbord-Sektor 3) zeigt zum Schiff
+  const M3 = g.C.spaceM3;
+  // Kanonenboot oben (Backbord des Schiffs), Blick nach Osten: seine Steuerbord-Seite (Sektor 1, Schild 4) zeigt zum Schiff
+  const e = space.spawnEnemy(g, 'gunboat', { x: 1000, y: 1150, facing: 0 });
   e.hp = e.hpMax = 40;
+  const hold = (en, x, y, a) => () => { en.x = x; en.y = y; en.angle = a; en.fireT = -999; en.tele = null; g.space.projectiles = []; };
+  const runPinned = (sec, f) => { for (let k = 0; k < Math.round(sec * 30); k++) { f(); g.step(); } };
+  const pinE = hold(e, 1000, 1150, 0);
   const snap0 = g.snapshot();
-  ok(snap0.ship.mounts.map((m) => m.id).join() === 'phase_l,phase_r' && snap0.ship.mounts[0].facing === -20 && snap0.ship.mounts[1].arc === 60, 'Start: 2 Phasenkanonen (−20°/+20°, 60°), kein Bolzenwerfer');
+  const ids = snap0.ship.mounts.map((m) => m.id);
+  ok(ids.slice(0, 3).join() === 'bow,port,stbd' && !ids.includes('bolzen') && !ids.some((x) => /^phase_/.test(x)), 'Start: Lanze + 2 Batterien (bow/port/stbd), kein Bolzenwerfer – ' + ids.join());
+  ok(snap0.ship.mounts[1].facing === -90 && snap0.ship.mounts[1].arc === 70 && snap0.ship.mounts[0].arc === 16, 'Bögen: Bb −90°/70°, Lanze 16°');
   const se = snap0.space.enemies[0];
   ok(se.shields.join() === '2,4,1,4' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot, Waffen erst nach Scan');
   enter(0, 'weapons');
   cmd(0, 'weapons.target', { id: e.id });
-  cmd(0, 'weapons.fire', { mount: 'both' });
-  ok(e.hp === 40 && e.shields[1] === 0 && e.shields[3] === 4, 'beide Kanonen: 4 Schaden auf den Breitseiten-Schild zum Schiff (4 -> 0), Hülle unberührt');
-  ok(g.space.beams.filter((b) => b.kind === 'phase').length === 2, 'zwei Phasenstrahlen (Beam-Kind phase)');
-  run(2.1);
-  e.shields = [0, 0, 0, 0]; e.x = 1400; e.y = 1500;
+  cmd(0, 'weapons.hold', { mount: 'port', hold: true }); cmd(0, 'weapons.hold', { mount: 'stbd', hold: true });
+  sh.mount.port.charge = 1; sh.mount.bow.charge = 0;
+  cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
+  let batteryBeams = 0;
+  runPinned(1.2, () => { pinE(); batteryBeams += g.space.beams.filter((b) => b.kind === 'battery' && !b.seen).map((b) => (b.seen = true)).length; });
+  ok(e.shields[1] === 0 && e.shields[3] === 4 && e.hp === 40 - (4 * M3.mounts.port.damage - 4), `Altname both: Bb-Salve 4×1,5 auf den Schild zum Schiff (4 -> 0), Rest auf die Hülle (hp ${e.hp})`);
+  ok(batteryBeams === 4, 'vier Batterie-Strahlen (Beam-Kind battery): ' + batteryBeams);
+  e.shields = [0, 0, 0, 0]; e.hp = 40;
+  sh.mount.port.charge = 1;
+  cmd(0, 'weapons.fire', { mount: 'phase_l' });   // Altname phase_l -> port
+  runPinned(1.2, () => { pinE(); e.shields = [0, 0, 0, 0]; });
+  ok(e.hp === 40 - 4 * M3.mounts.port.damage, 'Altname phase_l -> Bb-Batterie, Schild weg -> Hüllenschaden (hp ' + e.hp + ')');
+  // Ziel außerhalb des Bogens: Ziel auf Steuerbord, Bb feuern
+  e.x = 1000; e.y = 1850;
+  sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });
-  ok(e.hp === 38, 'Schild weg -> Hüllenschaden');
-  // Ziel außerhalb des Bogens
-  e.x = 1000; e.y = 1900; run(2.1);
-  cmd(0, 'weapons.fire', { mount: 'phase_r' });
-  ok(notices(0).some((t) => /außerhalb/.test(t)), 'Ziel außerhalb des Feuerbogens');
+  ok(notices(0).some((t) => /außerhalb|bogen/i.test(t)), 'Ziel außerhalb des Feuerbogens');
+  e.x = 1000; e.y = 1150;
   cmd(0, 'weapons.fire', { mount: 'bolzen' });
   ok(notices(0).some((t) => /Bolzenwerfer/.test(t)), 'Bolzenwerfer nicht eingebaut (Shop-Upgrade)');
   // Ziel-Scan
@@ -217,13 +271,14 @@ console.log('\n[M1 §4/§5: Phasenkanonen, Gegner-Schilde, Ziel-Scan, Marker, EM
   ok(ms.tactical.x === 1200 && ms.captain.y === 1700, 'Marker Taktik (Bernstein) + Captain (Mint) gleichzeitig');
   cmd(0, 'weapons.marker', { clear: true });
   ok(g.snapshot().ship.markers.tactical === null && g.snapshot().ship.markers.captain, 'Taktik-Marker gelöscht, Captain-Marker bleibt');
-  // Unbesetzte Taktik: Auto-Feuer 50 %
+  // Unbesetzte Taktik: Auto-Feuer 50 % (M3a: Bb-Salve 4 × 1,5 × 0,5 = 3)
   send(0, { t: 'leave' });
   g.space.enemies = [];
-  const r = space.spawnEnemy(g, 'raider', { x: 1300, y: 1450, facing: Math.PI });
-  r.shields = [0, 0, 0, 0]; r.hp = 10; sh.mount.phase_l.charge = 1; sh.mount.phase_r.charge = 1;
-  run(0.1);
-  ok(r.hp === 8, 'unbesetzt: beide Kanonen feuern automatisch mit 50 % (2×1) – hp ' + r.hp);
+  const r = space.spawnEnemy(g, 'raider', { x: 1000, y: 1150, facing: Math.PI / 2 });
+  r.shields = [0, 0, 0, 0]; r.hp = 10; sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
+  runPinned(1.2, () => { r.x = 1000; r.y = 1150; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = []; });
+  // Toleranz: space.damageEnemy rundet HP je Treffer auf 0,1 (0,75 -> 0,7)
+  ok(Math.abs(r.hp - (10 - 4 * M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden 4×1,5) – hp ' + r.hp);
   // EMP des Wächters
   g.space.enemies = [];
   sh.shields.current = [0, 0, 0, 0]; sh.shields.alloc = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];
@@ -231,9 +286,9 @@ console.log('\n[M1 §4/§5: Phasenkanonen, Gegner-Schilde, Ziel-Scan, Marker, EM
   space.shipHit(g, 0, 1, { emp: true });
   const off = Object.entries(sh.systems).find(([, v]) => v === 'offline');
   ok(!!off && sh.hull === hull, 'EMP durch die Schilde: ein System offline statt Hüllenschaden (' + (off && off[0]) + ')');
-  ok(g.snapshot().ship.offline[off[0]] === 12, 'Snapshot ship.offline (Restsekunden)');
+  ok(!!off && g.snapshot().ship.offline[off[0]] === 12, 'Snapshot ship.offline (Restsekunden)');
   run(12.2);
-  ok(sh.systems[off[0]] !== 'offline', 'nach 12 s startet das System selbst wieder');
+  ok(!!off && sh.systems[off[0]] !== 'offline', 'nach 12 s startet das System selbst wieder');
   ok(g.C.enemyShields.pylon.join() === '4,0,0,0' && g.C.enemyShields.sentinel.join() === '3,3,3,3' && g.C.enemyShields.raider.join() === '2,1,0,1', 'Schildwerte laut Vertrag');
 }
 
@@ -297,12 +352,12 @@ console.log('\n[M1 §9: Reisen, Docken Vaelen, Weitscan, Verstecke, Leitbake]');
 
 console.log('\n[Transfer, Außenmission B-7, Orbit-Hilfe]');
 {
-  const { g, P, send, run, place, notices, events, tap, cmd } = setup(3);
+  const { g, P, send, run, place, placeAt, notices, events, tap, cmd } = setup(3);
   send(0, { t: 'debug', cmd: 'mission', id: 'm1', step: 'away' });
   ok(g.mission.state.stage === 'away' && g.ship.scene === 'b7', 'Debug: Mission 1 Schritt away (B-7)');
   g.ship.x = 1850; g.ship.y = 1500; g.ship.vx = 0; g.ship.vy = 0;
-  place(0, 11, 9, 'down');
-  place(1, 12, 9, 'up'); tap(1);
+  place(0, W.SHIP_PADS[1].x, W.SHIP_PADS[1].y, 'down');
+  placeAt(1, conSpot('transfer')); tap(1);
   ok(P(1).console === 'transfer', 'Transferkonsole');
   cmd(1, 'transfer.down');
   run(0.5);
@@ -313,15 +368,20 @@ console.log('\n[Transfer, Außenmission B-7, Orbit-Hilfe]');
   ok(g.away.marker && g.away.marker.x === 300, 'Markierung gesetzt');
   cmd(1, 'transfer.supply');
   ok(g.away.items.some((i) => i.kind === 'medipack') && g.inventory.medipack === 1, 'Medipack zur Markierung');
-  place(2, 35, 3, 'right', 'ship'); tap(2);
+  placeAt(2, conSpot('weapons'), 'ship'); tap(2);
   ok(P(2).console === 'weapons', 'Taktikkonsole');
   g.away.drones[0].x = 310; g.away.drones[0].y = 210; g.away.drones[0].hp = 6;
+  // M3a §5.6: Orbitalschlag verbraucht eine volle Ladung (bow, sonst port, sonst stbd)
+  for (const k of ['bow', 'port', 'stbd']) g.ship.mount[k].charge = 0.5;
   cmd(2, 'weapons.strike');
-  ok(g.ship.mount.phase_l.charge === 0 || g.ship.mount.phase_r.charge === 0, 'Orbitalschlag verbraucht eine Phasenkanonen-Ladung');
+  ok(notices(2).some((t) => /Keine Waffe voll geladen/.test(t)) && g.away.strikes.length === 0, 'Orbitalschlag ohne volle Ladung: „Keine Waffe voll geladen.“');
+  g.ship.mount.bow.charge = 0.5; g.ship.mount.port.charge = 1; g.ship.mount.stbd.charge = 1;
+  cmd(2, 'weapons.strike');
+  ok(g.ship.mount.port.charge === 0 && g.ship.mount.stbd.charge === 1 && g.ship.mount.bow.charge === 0.5, 'Orbitalschlag verbraucht eine volle Ladung (Lanze nicht voll -> Bb)');
   run(1.6);
   ok(!g.away.drones[0].alive && events('strike').length === 1, 'Orbitalschlag trifft Drohne nach 1,5 s');
   send(2, { t: 'leave' });
-  place(2, 35, 6, 'right'); tap(2);
+  placeAt(2, conSpot('captain')); tap(2);
   cmd(2, 'captain.support', { kind: 'sensor' });
   cmd(2, 'captain.support', { kind: 'kuppel' });
   run(0.1);
@@ -363,7 +423,7 @@ console.log('\n[M1 §9.4: Wrack-Außenmission]');
   g.ship.x = st.x - 150; g.ship.y = st.y; g.ship.vx = 0; g.ship.vy = 0;
   run(0.2);
   ok(g.away.map === 'wreck', 'Transfer zielt am Wrack auf die Wrack-Karte');
-  place(0, 9, 9);
+  place(0, W.SHIP_PADS[0].x, W.SHIP_PADS[0].y);
   send(0, { t: 'act', down: true }); run(3.2); send(0, { t: 'act', down: false });
   ok(P(0).zone === 'away' && g.snapshot().away.map === 'wreck', 'Selbst-Transfer aufs Wrack (away.map = wreck)');
   g.away.drones.forEach((d) => { d.alive = false; });
@@ -389,9 +449,9 @@ console.log('\n[M1 §9.4: Wrack-Außenmission]');
 
 console.log('\n[M1 §8: Planungstisch]');
 {
-  const { g, P, send, place, notices, tap, cmd, conns } = setup(3);
-  place(0, 25, 3, 'right'); tap(0);
-  place(1, 28, 4, 'left'); tap(1);
+  const { g, P, send, placeAt, notices, tap, cmd, conns } = setup(3);
+  placeAt(0, conSpot('plan', 0)); tap(0);
+  placeAt(1, conSpot('plan', standSpots(W.CONSOLE_TILES.plan).length - 1)); tap(1);
   ok(P(0).console === 'plan' && P(1).console === 'plan' && g.snapshot().plan.seated.length === 2, 'zwei Spieler gleichzeitig am Tisch (nicht exklusiv)');
   for (let k = 0; k < 6; k++) cmd(0, 'plan.pin', { map: 'star', x: 100 + k * 10, y: 200, label: 'ziel' });
   ok(g.plan.pins.filter((q) => q.owner === P(0).id).length === 5 && notices(0).some((t) => /Maximal 5/.test(t)), 'höchstens 5 Pins je Spieler');
@@ -414,7 +474,7 @@ console.log('\n[Selbst-Transfer, Transfer broken, Bots, Notfall]');
   const { g, P, send, run, place } = setup(1);
   send(0, { t: 'debug', cmd: 'mission', id: 'm1', step: 'away' });
   g.ship.x = 1850; g.ship.y = 1500; g.ship.vx = 0; g.ship.vy = 0;
-  place(0, 9, 9);
+  place(0, W.SHIP_PADS[0].x, W.SHIP_PADS[0].y);
   send(0, { t: 'act', down: true }); run(3.2); send(0, { t: 'act', down: false });
   ok(P(0).zone === 'away', 'Selbst-Transfer runter (E halten 3 s)');
   g.ship.systems.transfer = 'broken';
@@ -431,7 +491,7 @@ console.log('\n[Selbst-Transfer, Transfer broken, Bots, Notfall]');
   run(46);
   ok(g.ship.systems.engines !== 'broken', 'Notreparatur nach 45 s ohne Ersatzteile');
   const marks = g.inventory.marks;
-  g.ship.hull = 0; g.ship.fireList.push({ tx: 22, ty: 6, spreadT: 0, dmgT: 0 }); g.ship.breachList.push({ tx: 22, ty: 5, t: 0 });
+  g.ship.hull = 0; g.ship.fireList.push({ tx: FLOOR_PAIR.b.x, ty: FLOOR_PAIR.b.y, spreadT: 0, dmgT: 0 }); g.ship.breachList.push({ tx: FLOOR_PAIR.a.x, ty: FLOOR_PAIR.a.y, t: 0 });
   run(0.1);
   ok(g.ship.hull === 30 && g.ship.fireList.length === 0 && g.ship.breachList.length === 0 && g.inventory.marks === Math.max(0, marks - 50) && g.stats.emergencies === 1, 'Notfallprotokoll (inkl. Lecks verschäumt)');
 }
@@ -548,13 +608,18 @@ console.log('\n[M0: Hafen-Übung überspringen]');
 
 console.log('\n[M0: Lager leer / debug inv]');
 {
-  const { g, send, run, events } = setup(1);
+  // M3a §8.2: Bots reparieren Systeme nur aus der Reparaturliste; „part“ ohne Teil im Lager -> Meldung, Eintrag wird flick
+  const { g, send, run, events, cmd, enter } = setup(2);
   send(0, { t: 'debug', cmd: 'skip' });
   send(0, { t: 'debug', cmd: 'inv', item: 'ersatzteil', n: 0 });
   ok(g.inventory.ersatzteil === 0, 'debug inv setzt Bestand');
   g.ship.systems.engines = 'broken';
+  enter(1, 'captain');
+  cmd(1, 'captain.repair', { system: 'engines', mode: 'part' });
   run(3);
   ok(events('oda').filter((m) => /Kein Ersatzteil mehr im Lager/.test(m.text)).length === 1, 'Schrauber melden einmalig „Kein Ersatzteil mehr im Lager“');
+  const q = g.ship.repairQueue.find((x) => x.system === 'engines');
+  ok(!q || q.mode === 'flick', 'Eintrag wird zu flick');
 }
 
 console.log('\n[Teaser-Generator / Schema]');

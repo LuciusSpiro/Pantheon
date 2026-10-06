@@ -711,6 +711,7 @@
     var key = 'floor|' + type + '|' + v + '|' + (+plat) + '|' + (sN ? 1 : 0) + (sW ? 1 : 0) + (sNW ? 1 : 0);
     return cached(key, 32, 32, function (g) {
       if (type === 'grateLit') floorGrateLit(g, v);
+      else if (type === 'gunDeck') floorGunDeck(g, v);
       else if (type.indexOf('q_') === 0) floorQuarter(g, type.slice(2), v);
       else if (type === 'wood') floorWood(g, v);
       else if (type === 'grate') floorGrate(g, v, plat);
@@ -745,10 +746,14 @@
     var qs = env.roomStyle && env.roomStyle.floor;   // M1: Quartier-Bodenstil
     if (qs && QUARTER_FLOORS[qs] && (type === 'wood' || type === 'metal')) type = 'q_' + qs;
     if (plat && type === 'metal' && hash2(tx, ty, 9) < 0.07) type = 'grate';
-    var eng = type === 'grate' && inEngineRoom(env, tx, ty);
+    var room = type === 'grate' ? shipRoomAt(env, tx, ty) : null;   // M3a: Raum aus dem Schiffslayout
+    var engRoom = room && room.kind === 'engine' ? room : null;
+    var eng = !!engRoom, gun = !eng && isGunDeck(room);
     if (eng) type = 'grateLit';   // M0: Bodenlicht in Bernstein unter dem Gitter
+    else if (gun) type = 'gunDeck';   // M3a: Batteriedecks als Geschützdeck
     ctx.drawImage(floorSprite(type, v, plat, sN, sW, sNW), px, py);
-    if (eng) engineFloorDetail(ctx, px, py, tx, ty, env.time || 0);
+    if (eng) { if (!engineFloorDetailM3(ctx, px, py, tx, ty, env.time || 0, engRoom)) engineFloorDetail(ctx, px, py, tx, ty, env.time || 0, engRoom); }
+    else if (gun) gunDeckDetail(ctx, px, py, tx, ty, env.time || 0, room);
   }
 
   // --- Wände (3/4-Ansicht: Kappe + Front) -------------------------------------------------------
@@ -992,7 +997,7 @@
       ctx.drawImage(w.spr, px, py);
       if (w.face && plat === 2) { wreckStrip(ctx, px, py, tx, ty, time); return; }
       if (w.face) {
-        if (ty === 0 && inEngineRoom(env, tx, ty)) engineWallDetail(ctx, px, py, tx, time, env.alert);   // M0
+        if (isEngineBackWall(env, tx, ty)) engineWallDetail(ctx, px, py, tx, time, env.alert);   // M0
         ctx.fillStyle = stripColor(env.alert, time);
         ctx.fillRect(px, py + CAP_H + 1, 32, 1);
         if (env.alert === 'red' || env.alert === 'yellow') ctx.fillRect(px + 4, py + CAP_H + 2, 24, 1);
@@ -1349,11 +1354,20 @@
   }
 
   // --- Maschinenraum-Kulisse in den Kacheln (nicht blockierend) --------------------------------
-  // Raum x1–6, y1–11 (Wandkacheln y0 tragen Rohre/Manometer). Kabeltrassen laufen von der Tür zu R und E.
-  function inEngineRoom(env, tx, ty) {
+  // M3a: Maschinenräume kommen aus dem Schiffslayout (Shared_Maps.roomAt, Räume mit kind 'engine'); die Wandkacheln
+  // direkt über einem Maschinenraum tragen Rohre/Manometer. Ohne Raumdaten (Maps fehlt) gibt es keine Kulisse – Art läuft weiter.
+  function shipRoomAt(env, tx, ty) {
     var m = env && env.map;
-    return !!m && m.id === 'ship' && tx >= 1 && tx <= 6 && ty >= 0 && ty <= 11;
+    if (!m || m.id !== 'ship') return null;
+    var M = root.Shared_Maps;
+    if (!M || typeof M.roomAt !== 'function') return null;
+    try { return M.roomAt(tx, ty) || null; } catch (e) { return null; }
   }
+  function engineRoomAt(env, tx, ty) { var r = shipRoomAt(env, tx, ty); return r && r.kind === 'engine' ? r : null; }
+  function isEngineBackWall(env, tx, ty) { return !engineRoomAt(env, tx, ty) && !!engineRoomAt(env, tx, ty + 1); }
+  function inEngineRoom(env, tx, ty) { return !!engineRoomAt(env, tx, ty) || isEngineBackWall(env, tx, ty); }
+  // Kabeltrassen und Decals: Schlüssel relativ zur linken oberen Innenkachel des Raums (+1), d. h. "1,1" = (x0,y0).
+  // Für den alten Maschinenraum (x0 1, y0 1) entspricht das den bisherigen Kachelkoordinaten.
   var ENGINE_CABLES = { '1,6': 'hs', '2,6': 'h', '3,6': 'hn', '4,6': 'h', '5,6': 'h', '6,6': 'h', '3,5': 'v', '1,7': 'v' };
   var ENGINE_DECALS = {
     '2,1': 'toolbox', '5,2': 'oil', '2,2': 'bolts', '4,3': 'vent', '6,3': 'drip', '2,5': 'hazard', '4,5': 'hazard', '5,7': 'coil',
@@ -1445,17 +1459,17 @@
       ctx.fillStyle = '#2E6E5C'; ctx.fillRect(px + 6, y0 + 2, 6, 4); ctx.fillStyle = PAL.mint; ctx.fillRect(px + 7, y0 + 3, 2, 2);
     }
   }
-  function engineFloorDetail(ctx, px, py, tx, ty, t) {
-    var key = tx + ',' + ty;
+  function engineFloorDetail(ctx, px, py, tx, ty, t, room) {
+    var key = room ? (tx - room.x0 + 1) + ',' + (ty - room.y0 + 1) : null;
     // Flackern des Bodenlichts (leise, je Kachel phasenversetzt)
     var v = (hash2(tx, ty, 7) * 4) | 0;
     if (v === 1) {
       var fl = 0.10 + 0.08 * (0.5 + 0.5 * Math.sin(t * 1.7 + tx * 1.3 + ty * 0.7));
       glow(ctx, px + (v === 1 ? 10 : 20), py + (v === 1 ? 12 : 22), PAL.bernstein, 12, fl);
     }
-    var cab = ENGINE_CABLES[key];
+    var cab = key && ENGINE_CABLES[key];
     if (cab) ctx.drawImage(cableSprite(cab), px, py);
-    var dec = ENGINE_DECALS[key];
+    var dec = key && ENGINE_DECALS[key];
     if (dec) ctx.drawImage(decalSprite(dec), px, py);
   }
 
@@ -1629,7 +1643,8 @@
     var t = o.time || 0;
     var f = frameOf(t, state === 'ok' ? 8 : 6, 8);
     var red = kind === 'sys_reactor' && o.alert === 'red';
-    var spr = cached('obj|' + kind + '|' + state + '|' + f + (red ? '|r' : ''), 32, 48, function (g, c) { buildSystem(g, c, kind, state, f, red); });
+    var key = 'obj|' + kind + '|' + state + '|' + f + (red ? '|r' : '');
+    var spr = cached(key, 32, 48, function (g, c) { buildSystem(g, c, kind, state, f, red); });
     ctx.drawImage(spr, px, py - OH);
     if (kind === 'sys_reactor' && state !== 'broken') {   // M0: pulsierender Kern-Schein
       var pr = 0.5 + 0.5 * Math.sin(t * 2.6);
@@ -1637,15 +1652,8 @@
     }
     var gc = { sys_reactor: PAL.mint, sys_engines: '#FF9A3C', sys_shields: PAL.eisblau, sys_weapons: PAL.bernstein, sys_transfer: PAL.mint, sys_life: '#8FD06A' }[kind];
     if (state !== 'broken') glow(ctx, px + 16, py + 10, gc, 18, state === 'ok' ? 0.22 : 0.12 * (1 + Math.sin(t * 17)));
-    if (state === 'damaged') {
-      var cyc = (t * 0.9 + px * 0.013) % 1.6;
-      if (cyc < 0.45) drawFx(ctx, 'sparks', px + 9 + ((t * 3 | 0) % 3) * 6, py + 4 - ((t * 5 | 0) % 2) * 6, cyc, {});
-      drawFx(ctx, 'smoke', px + 20, py - 8, t, { small: true });
-    } else if (state === 'broken') {
-      drawFx(ctx, 'smoke', px + 16, py - 14, t, {});
-      drawFx(ctx, 'fire', px + 16, py + 6, t, { small: true });
-      if (((t * 2) | 0) % 2 === 0) drawIcon(ctx, 'warn', px + 16, py - OH - 8, {});
-    }
+    // M3a: Funken/Rauch/Feuer und Zustandsmarke zeichnet stationDecor (drawSystemLegacy)
+    return { spr: spr, key: key };
   }
 
   // --- Möbel, Kisten, Pflanzen ------------------------------------------------------------------
@@ -1860,8 +1868,11 @@
         spr = cached('obj|bed|' + col, 32, 48, function (g, c) { buildBed(g, c, col); });
         ctx.drawImage(spr, px, py - OH); return;
       }
-      case 'sys_reactor': case 'sys_engines': case 'sys_shields': case 'sys_weapons': case 'sys_transfer': case 'sys_life':
-        drawSystem(ctx, kind, px, py, o); return;
+      // M3a: neue/überarbeitete Stationen (CONTRACT-M3 §12); alte Stationen mit derselben Zustandsdekoration
+      case 'sys_reactor': case 'sys_engines': case 'sys_shields': case 'sys_thruster': case 'sys_battery': case 'sys_emitter': case 'sys_weapon_bow':
+        drawSystemM3(ctx, kind, px, py, o); return;
+      case 'sys_weapons': case 'sys_transfer': case 'sys_life':
+        drawSystemLegacy(ctx, kind, px, py, o); return;
       case 'table': {
         memo = tileMemo.get(memoKey(px, py));
         var l = o.left != null ? !!o.left : !!(memo && memo.ch === 'm' && memo.l);
@@ -2758,19 +2769,25 @@
     S.ellL(-34.4, -0.3, 2.3, 13.8, PAL.messing, 32);
     S.ellL(-34.0, 0, 1.2, 12, PAL.mint, 32);
     S.ellL(-33.9, 0, 0.45, 10.8, '#2C5E52', 24);
-    // M1: zwei Phasenkanonen vorn links (Backbord, -y) und vorn rechts (Steuerbord, +y), je 20° nach außen
+    // M3a: Batterien an beiden Flanken (je 4 Rohre nach außen), Lanze am Bug
     [-1, 1].forEach(function (sg) {
-      var my = 280 + sg * 112, mx = 690;
-      var ex = mx + 190, ey = my + sg * 52;
-      S.line(mx, my, ex, ey, 30, '#3B4A5E');                       // Rohr (Schatten)
-      S.line(mx, my - sg * 4, ex, ey - sg * 4, 16, '#8EA3B5');     // Rohr hell
-      S.line(ex - 30, ey - sg * 8, ex, ey, 34, PAL.messing);       // Emitter-Hülse
-      S.ell(ex + 6, ey + sg * 2, 14, 12, PAL.mint, 8);             // Emitter
-      S.ell(mx, my, 62, 48, '#7A5A28', 16);                         // Drehkranz
-      S.ell(mx, my, 52, 40, PAL.messing, 16);
-      S.ell(mx - 8, my - 8, 26, 20, '#EAC786', 10);
-      S.ell(mx + 4, my + 4, 18, 14, '#3A2A12', 8);
+      var ey = 280 + sg * 104, oy = 280 + sg * 150, ty = 280 + sg * 200;
+      S.poly([630, ey, 760, ey, 742, oy, 648, oy], sg < 0 ? '#5E7088' : '#3B4A5E');   // Sponson
+      S.poly([630, ey, 760, ey, 756, ey + sg * 12, 634, ey + sg * 12], '#2E3946');
+      for (var k = 0; k < 4; k++) {
+        var tx = 656 + k * 26;
+        S.line(tx, oy, tx, ty, 18, '#2E3946');
+        S.line(tx - 3, oy, tx - 3, ty, 8, '#8EA3B5');
+        S.line(tx, ty - sg * 8, tx, ty + sg * 4, 26, PAL.messing);
+      }
+      S.line(640, oy, 752, oy, 22, PAL.messing);                   // Messingleiste
     });
+    // Lanze: langer Lauf vor dem Bug, Fokusringe, Mint-Linse
+    S.line(1080, 280, 1262, 280, 40, '#3B4A5E');
+    S.line(1080, 272, 1262, 272, 16, '#8EA3B5');
+    [1120, 1168, 1214].forEach(function (rx) { S.line(rx, 250, rx, 310, 22, PAL.messing); });
+    S.ell(1268, 280, 14, 26, '#2C5E52', 10);
+    S.ell(1272, 280, 9, 18, PAL.mint, 10);
     outline(c, PAL.outline);
   }
   function shipSprite(b) {
@@ -2817,6 +2834,15 @@
     ctx.fillStyle = blink ? '#8FD0B8' : '#E8FFF8'; ctx.fillRect(Math.round(mint[0]), Math.round(mint[1]), 1, 1);
     var cup = W(shipMap(985, 280)[0], shipMap(985, 280)[1]);
     glow(ctx, cup[0], cup[1], PAL.bernstein, 6, 0.18);
+    // M3a: Linse der Lanze glimmt (nicht bei zerstörter Bug-Waffe), Schäden außen sichtbar, Schildstoß
+    var lst = o.systems && o.systems.weapon_bow;
+    if (lst !== 'broken') { var lz = W(shipMap(1272, 280)[0], shipMap(1272, 280)[1]); glow(ctx, lz[0], lz[1], PAL.mint, 5, lst === 'damaged' ? 0.2 + 0.2 * Math.sin(t * 17) : 0.35 + 0.15 * Math.sin(t * 3)); }
+    drawShipDamage(ctx, W, bang, o, t);
+    if (o.burst && o.burst.sector != null) {
+      var bd = o.burst.duration > 0 ? o.burst.duration : 1.5;
+      drawBurst(ctx, x, y, { angle: ang, sector: o.burst.sector, r: o.burstR || 46, duration: bd, age: o.burst.age != null ? o.burst.age : bd - (o.burst.left || 0),
+        perfect: !!o.burst.perfect, perfectAge: o.burst.perfectAge, time: t });
+    }
     // Treffer-Blitz im Sektor
     if (o.hitSector != null && o.hitT != null && o.hitT >= 0 && o.hitT < 0.45) {
       var q = 1 - o.hitT / 0.45;
@@ -2910,7 +2936,10 @@
   }
   function drawEnemy(ctx, kind, x, y, angle, opts) {
     var o = opts || {};
-    if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); return; }   // M1
+    if (o.tele && typeof o.tele === 'object') {   // M3a: Ladeglühen (Alternative: Art.drawTele selbst aufrufen)
+      drawTele(ctx, x, y, { left: o.tele.left, dur: o.tele.dur, kind: o.tele.kind, r: TELE_R[kind] || 20, time: o.time });
+    }
+    if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }   // M1
     if (kind !== 'raider' && kind !== 'gunboat') { missing(ctx, Math.round(x - 14), Math.round(y - 14), 28, 28); return; }
     var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2;
     var co = Math.cos(bang), si = Math.sin(bang);
@@ -2934,6 +2963,7 @@
     var hp = o.hpFrac == null ? 1 : o.hpFrac;
     if (hp < 0.6) { var sp = W(kind === 'raider' ? -2 : -10, kind === 'raider' ? 2 : -4); drawFx(ctx, 'smoke', sp[0], sp[1], t + x * 0.01, { small: true }); }
     if (hp < 0.3) { var fp = W(kind === 'raider' ? 3 : 8, kind === 'raider' ? -2 : 5); drawFx(ctx, 'fire', fp[0], fp[1], t, { small: true }); }
+    teleGlowOver(ctx, kind, x, y, o);
   }
 
   // --- Asteroiden -------------------------------------------------------------------------------
@@ -3088,7 +3118,8 @@
     ctx.drawImage(spr, -7, -4);
     ctx.restore();
   }
-  function drawBeam(ctx, x1, y1, x2, y2, kind, ttl) {
+  function drawBeam(ctx, x1, y1, x2, y2, kind, ttl, opts) {
+    if (kind === 'lance' || kind === 'battery' || kind === 'enemy_heavy' || kind === 'bolzen') { drawBeamM3(ctx, x1, y1, x2, y2, kind, ttl, opts); return; }   // M3a
     var a = ttl == null ? 1 : Math.max(0, Math.min(1, ttl / 0.25));
     if (a <= 0) return;
     var dx = x2 - x1, dy = y2 - y1, L = Math.sqrt(dx * dx + dy * dy);
@@ -5081,6 +5112,811 @@
     return true;
   }
 
+  // =============================================================================================
+  // M3a „Breitseite & Schaden“ (Team ART, CONTRACT-M3 §12)
+  // Stationen (Düse, Batterie, Emitter, Lanzenkammer, Reaktor/Schildgenerator mittschiffs, Triebwerk am Heck),
+  // Zustände dreifach codiert (Farbe + Muster + Kürzel), Stationsplakette, Geschützdeck, Strahlen, Ladeglühen, Schildstoß.
+  // =============================================================================================
+  var M3C = { burst: '#E8F8FF', enemy: '#FF5A4A', besch: '#F2C94C', flick: '#F08A3C', aus: '#E0473C', ok: '#7FE0C2', emp: '#A9D6E5', erfolg: '#8FD06A' };
+  var SIDE_LABEL = { port: 'BB', stbd: 'STB', bow: 'BUG', aft: 'HECK', mid: 'MITTE' };
+  // Farbe je Seite (Emitter-Spulen, Plakettenstreifen): Bb Bernstein, Stb Mint, Bug Stoß-Weiß, Heck Eisblau, Mitte Messing
+  var SIDE_COL = { port: PAL.bernstein, stbd: PAL.mint, bow: '#E8F8FF', aft: PAL.eisblau, mid: PAL.messing };
+  var SYS_SIDE = {
+    reactor: 'mid', shields: 'mid', life: 'mid', transfer: 'stbd', engines: 'aft', emitter_aft: 'aft', weapon_bow: 'bow', emitter_bow: 'bow',
+    thruster_port: 'port', battery_port: 'port', emitter_port: 'port', thruster_stbd: 'stbd', battery_stbd: 'stbd', emitter_stbd: 'stbd',
+  };
+  var KIND_SIDE = { sys_reactor: 'mid', sys_shields: 'mid', sys_life: 'mid', sys_engines: 'aft', sys_weapon_bow: 'bow', sys_transfer: 'stbd', sys_weapons: 'mid' };
+  var SIDE_ALIAS = {
+    0: 'bow', 1: 'stbd', 2: 'aft', 3: 'port', '-1': 'mid', bb: 'port', backbord: 'port', stb: 'stbd', steuerbord: 'stbd', starboard: 'stbd',
+    bug: 'bow', heck: 'aft', mitte: 'mid', mittschiffs: 'mid', centre: 'mid', center: 'mid',
+  };
+  function normSide(s) {
+    if (s == null) return null;
+    var k = String(s).toLowerCase();
+    if (SIDE_LABEL[k]) return k;
+    return SIDE_ALIAS[k] || null;
+  }
+  function sideOf(kind, o) { return normSide(o.side) || (o.system && SYS_SIDE[o.system]) || KIND_SIDE[kind] || 'mid'; }
+  function normState(s) { return s === 'damaged' || s === 'broken' || s === 'offline' ? s : 'ok'; }
+  // Kürzel: zerstört > EMP > geflickt > beschädigt > ok
+  function stateCode(state, fragile) {
+    state = normState(state);
+    if (state === 'broken') return 'aus';
+    if (state === 'offline') return 'emp';
+    if (fragile) return 'flick';
+    if (state === 'damaged') return 'besch';
+    return 'ok';
+  }
+  var STATE_TXT = { ok: 'OK', besch: 'BESCH', aus: 'AUS', flick: 'FLICK', emp: 'EMP' };
+  var STATE_COL = { ok: M3C.ok, besch: M3C.besch, aus: M3C.aus, flick: M3C.flick, emp: M3C.emp };
+
+  // --- Mini-Schrift 3×5 für Plaketten und Zustandsmarken ---------------------------------------
+  var TINY = {
+    A: '.#./#.#/###/#.#/#.#', B: '##./#.#/##./#.#/##.', C: '.##/#../#../#../.##', D: '##./#.#/#.#/#.#/##.', E: '###/#../##./#../###',
+    F: '###/#../##./#../#..', G: '.##/#../#.#/#.#/.##', H: '#.#/#.#/###/#.#/#.#', I: '###/.#./.#./.#./###', J: '..#/..#/..#/#.#/.#.',
+    K: '#.#/#.#/##./#.#/#.#', L: '#../#../#../#../###', M: '#...#/##.##/#.#.#/#...#/#...#', N: '#..#/##.#/#.##/#..#/#..#',
+    O: '###/#.#/#.#/#.#/###', P: '##./#.#/##./#../#..', R: '##./#.#/##./#.#/#.#', S: '.##/#../.#./..#/##.', T: '###/.#./.#./.#./.#.',
+    U: '#.#/#.#/#.#/#.#/###', V: '#.#/#.#/#.#/#.#/.#.', W: '#...#/#...#/#.#.#/#.#.#/.#.#.', X: '#.#/#.#/.#./#.#/#.#', Y: '#.#/#.#/.#./.#./.#.',
+    Z: '###/..#/.#./#../###', '0': '###/#.#/#.#/#.#/###', '1': '.#./##./.#./.#./###', '2': '##./..#/.#./#../###', '3': '##./..#/.#./..#/##.',
+    '4': '#.#/#.#/###/..#/..#', '5': '###/#../##./..#/##.', '6': '.##/#../###/#.#/###', '7': '###/..#/.#./.#./.#.', '8': '###/#.#/###/#.#/###',
+    '9': '###/#.#/###/..#/##.', '-': '.../.../###/.../...', '+': '.../.#./###/.#./...', '/': '..#/..#/.#./#../#..', '.': '.../.../.../.../.#.',
+  };
+  var tinyData = {};
+  function tinyGlyph(ch) {
+    if (tinyData[ch]) return tinyData[ch];
+    var src = TINY[ch] || TINY[String(ch).toUpperCase()];
+    var rows = src ? src.split('/') : (ch === ' ' ? [] : ['###', '#.#', '#.#', '#.#', '###']);
+    var w = ch === ' ' ? 2 : 0;
+    for (var i = 0; i < rows.length; i++) w = Math.max(w, rows[i].length);
+    return (tinyData[ch] = { w: w, rows: rows });
+  }
+  function tinyW(s) { s = String(s); var w = 0; for (var i = 0; i < s.length; i++) w += tinyGlyph(s[i]).w + (i < s.length - 1 ? 1 : 0); return w; }
+  function tinyText(g, s, x, y, col) {
+    s = String(s); g.fillStyle = col;
+    for (var i = 0; i < s.length; i++) {
+      var gl = tinyGlyph(s[i]);
+      for (var r = 0; r < gl.rows.length; r++) for (var q = 0; q < gl.rows[r].length; q++) if (gl.rows[r][q] === '#') g.fillRect(x + q, y + r, 1, 1);
+      x += gl.w + 1;
+    }
+  }
+
+  // --- Zustandsmuster (7×7 o. ä.): Farbe + Muster ---------------------------------------------
+  function statePattern(g, x, y, s, code) {
+    var i, j;
+    if (code === 'besch') {   // gelb schraffiert
+      for (j = 0; j < s; j++) for (i = 0; i < s; i++) P(g, x + i, y + j, ((i + j) % 4) < 2 ? M3C.besch : '#3A3218');
+    } else if (code === 'aus') {   // rotes X
+      R(g, x, y, s, s, '#4A1614');
+      for (i = 0; i < s; i++) { P(g, x + i, y + i, M3C.aus); P(g, x + s - 1 - i, y + i, M3C.aus); if (i < s - 1) { P(g, x + i + 1, y + i, '#FF8A7C'); P(g, x + s - 2 - i, y + i, '#FF8A7C'); } }
+    } else if (code === 'flick') {   // Klebeband: diagonaler Streifen
+      R(g, x, y, s, s, '#3A2414');
+      for (j = 0; j < s; j++) for (i = 0; i < s; i++) { var d = i + j - (s - 1); if (d >= -1 && d <= 1) P(g, x + i, y + j, d === -1 ? '#FFC08A' : M3C.flick); }
+    } else if (code === 'emp') {   // eisblau gepunktet
+      R(g, x, y, s, s, '#1A2A36');
+      for (j = 0; j < s; j++) for (i = 0; i < s; i++) if ((i + j) % 2 === 0) P(g, x + i, y + j, M3C.emp);
+    } else {   // ok: mint mit Haken
+      R(g, x, y, s, s, '#1E4A40');
+      var ck = [[1, 3], [2, 4], [3, 3], [4, 2], [5, 1]];
+      for (i = 0; i < ck.length; i++) if (ck[i][0] < s && ck[i][1] < s) { P(g, x + ck[i][0], y + ck[i][1], M3C.ok); P(g, x + ck[i][0], y + ck[i][1] + 1, M3C.ok); }
+    }
+  }
+  // Zustandsmarke (Chip, 9 px hoch): Rahmen in Zustandsfarbe, Muster-Quadrat, Kürzel
+  function chipSprite(code) {
+    var txt = STATE_TXT[code] || 'OK', col = STATE_COL[code] || M3C.ok;
+    var w = 2 + 7 + 2 + tinyW(txt) + 2;
+    return cached('m3chip|' + code, w, 9, function (g) {
+      R(g, 0, 0, w, 9, col); R(g, 1, 1, w - 2, 7, '#121826');
+      statePattern(g, 1, 1, 7, code);
+      R(g, 8, 1, 1, 7, shade(col, -0.5));
+      tinyText(g, txt, 10, 2, code === 'aus' ? '#FF7A6E' : col);
+    });
+  }
+  // Stationsplakette (Messing, Kürzel BB/STB/BUG/HECK/MITTE, Farbstreifen der Seite)
+  function badgeSprite(side) {
+    var txt = SIDE_LABEL[side] || '?', w = tinyW(txt) + 9;
+    return cached('m3badge|' + side, w, 9, function (g) {
+      R(g, 1, 0, w - 2, 9, '#2B1D1A'); R(g, 0, 1, w, 7, '#2B1D1A');
+      R(g, 1, 1, w - 2, 7, PAL.messing); R(g, 1, 1, w - 2, 1, '#F1D9A0'); R(g, 1, 7, w - 2, 1, '#7A5A28');
+      R(g, 2, 2, 2, 5, SIDE_COL[side] || PAL.messing); R(g, 2, 2, 2, 1, shade(SIDE_COL[side] || PAL.messing, 0.4));
+      tinyText(g, txt, 6, 2, '#2B1D1A');
+      P(g, w - 2, 4, '#6E4E22');
+    });
+  }
+  // drawStationBadge(g, side, x, y, state, opts): x = Mitte, y = Oberkante. state (optional) hängt ein Zustandsquadrat an.
+  // opts.fragile markiert geflickt. Rückgabe: Gesamtbreite in px.
+  function drawStationBadge(ctx, side, x, y, state, opts) {
+    var o = opts || {};
+    var sd = normSide(side) || 'mid';
+    var b = badgeSprite(sd);
+    var hasState = state != null || o.fragile;
+    var code = hasState ? stateCode(state, o.fragile) : null;
+    var total = b.width + (hasState ? 10 : 0);
+    var x0 = Math.round(x - total / 2), y0 = Math.round(y);
+    ctx.drawImage(b, x0, y0);
+    if (hasState) {
+      var sq = cached('m3sq|' + code, 9, 9, function (g) { R(g, 0, 0, 9, 9, STATE_COL[code]); R(g, 1, 1, 7, 7, '#121826'); statePattern(g, 1, 1, 7, code); });
+      ctx.drawImage(sq, x0 + b.width + 1, y0);
+    }
+    return total;
+  }
+  // drawStateTag(g, state, x, y, opts): Zustandsmarke mit Kürzel. opts.fragile, opts.align ('center' Standard | 'left').
+  function drawStateTag(ctx, state, x, y, opts) {
+    var o = opts || {};
+    var spr = chipSprite(stateCode(state, o.fragile));
+    var dx = o.align === 'left' ? x : x - spr.width / 2;
+    ctx.drawImage(spr, Math.round(dx), Math.round(y));
+    return spr.width;
+  }
+
+  // --- Overlay je Zustand, auf das Stationssprite maskiert --------------------------------------
+  function tapeStrip(g, x0, y0, x1, y1, w) {
+    poly(g, thick(x0, y0 + 1, x1, y1 + 1, w), '#8A4A1A');
+    poly(g, thick(x0, y0, x1, y1, w), M3C.flick);
+    line(g, x0, y0 - w / 2 + 0.5, x1, y1 - w / 2 + 0.5, '#FFC08A');
+    var n = Math.max(2, Math.round(Math.abs(x1 - x0) / 4));
+    for (var i = 1; i < n; i++) { var t = i / n; P(g, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, '#C8682A'); }
+    // ausgefranste Enden
+    P(g, x0 - 1, y0 - 1, M3C.flick); P(g, x1 + 1, y1 + 1, M3C.flick);
+  }
+  function stateOverlay(base, baseKey, state, fragile, bx) {
+    if (state === 'ok' && !fragile) return null;
+    var key = baseKey + '|ov|' + state + '|' + (fragile ? 1 : 0);
+    return cached(key, base.width, base.height, function (g, c) {
+      var w = c.width, h = c.height, k, d;
+      bx = bx || 0;
+      if (state === 'damaged') {   // gelbe Schraffur, maskiert
+        for (k = -h; k < w; k += 7) for (d = 0; d < 2; d++) line(g, k + d, h, k + d + h, 0, 'rgba(242,201,76,0.42)');
+      } else if (state === 'broken') {
+        R(g, 0, 0, w, h, 'rgba(11,14,26,0.5)');
+        for (k = -h; k < w; k += 9) line(g, k, h, k + h, 0, 'rgba(224,71,60,0.18)');
+      } else if (state === 'offline') {
+        R(g, 0, 0, w, h, 'rgba(169,214,229,0.28)');
+        for (k = 0; k < h; k += 3) R(g, 0, k, w, 1, 'rgba(11,14,26,0.35)');
+      }
+      if (state !== 'ok') { g.globalCompositeOperation = 'destination-in'; g.drawImage(base, 0, 0); g.globalCompositeOperation = 'source-over'; }
+      if (fragile && state !== 'broken') {   // Klebeband über dem Gehäuse
+        tapeStrip(g, bx + 5, 30, bx + 27, 20, 4);
+        tapeStrip(g, bx + 8, 38, bx + 24, 38, 3);
+      }
+      if (state === 'broken') {   // rotes X
+        poly(g, thick(bx + 5, 9, bx + 27, 41, 5), '#2B0E0C'); poly(g, thick(bx + 27, 9, bx + 5, 41, 5), '#2B0E0C');
+        poly(g, thick(bx + 5, 9, bx + 27, 41, 3), M3C.aus); poly(g, thick(bx + 27, 9, bx + 5, 41, 3), M3C.aus);
+        line(g, bx + 6, 9, bx + 27, 40, '#FF8A7C');
+      }
+    });
+  }
+
+  // --- Stationen (32×48; Triebwerk 44×48) -------------------------------------------------------
+  var STEEL = '#55667D', STEEL_L = '#8EA3B5', STEEL_D = '#3A4759';
+  function statusLamp(g, x, y, state, f) {
+    var lc = state === 'ok' ? PAL.mint : state === 'damaged' ? (f % 2 ? M3C.besch : '#6A5A20') : (f % 2 ? M3C.aus : '#5A1E1E');
+    R(g, x, y, 3, 2, lc); P(g, x, y, shade(lc, 0.5));
+  }
+  function scorch(g, seed, x0, y0, w, h) { var r = rng(seed); for (var i = 0; i < 16; i++) P(g, x0 + r() * w, y0 + r() * h, 'rgba(20,14,12,0.6)'); }
+
+  function buildReactorM3(g, c, state, f, red) {
+    var brk = state === 'broken', dmg = state === 'damaged', i;
+    var flick = dmg ? [1, 1, 0.4, 1, 0.7, 1, 0.2, 0.9][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    sysBase(g, 2, 28, 41);
+    // Leitungen nach links/rechts (gehen in die Bodenkabel über)
+    R(g, 0, 31, 5, 5, '#7E3A28'); R(g, 0, 31, 5, 1, '#D77A5C'); R(g, 27, 31, 5, 5, '#7E3A28'); R(g, 27, 31, 5, 1, '#D77A5C');
+    // Stützen
+    R(g, 4, 13, 3, 29, STEEL_D); R(g, 4, 13, 1, 29, STEEL_L); R(g, 25, 13, 3, 29, '#2E3946'); R(g, 25, 13, 1, 29, STEEL);
+    // Kernsäule aus Glas
+    var coreHi = red ? '#FF8A6C' : PAL.mint, coreLo = red ? '#5E2C2A' : '#2C5E52', hot = red ? '#FFE8E0' : '#E8FFF8';
+    R(g, 8, 10, 16, 31, brk ? '#1A1214' : (red ? '#3A1614' : '#0F2E29'));
+    R(g, 12, 10, 8, 31, brk ? '#3A1A1A' : mix(coreLo, coreHi, (0.5 + 0.5 * pulse) * flick));
+    R(g, 14, 10, 4, 31, brk ? '#5A2420' : mix(coreHi, hot, pulse * flick));
+    if (!brk) for (i = 0; i < 4; i++) P(g, 10 + ((f * 3 + i * 5) % 12), 39 - ((f * 4 + i * 9) % 28), hot);
+    R(g, 9, 11, 1, 29, 'rgba(255,255,255,0.35)');
+    // Messingringe
+    [10, 20, 30, 38].forEach(function (yy) { R(g, 6, yy, 20, 3, PAL.messing); R(g, 6, yy, 20, 1, '#F1D9A0'); R(g, 6, yy + 2, 20, 1, '#7A5A28'); P(g, 8, yy + 1, '#6E4E22'); P(g, 23, yy + 1, '#6E4E22'); });
+    // Kuppel + Abluft
+    ell(g, 16, 9, 11, 5, STEEL_D); ell(g, 16, 8, 10, 4, STEEL); ell(g, 13, 7, 4, 2, STEEL_L);
+    R(g, 12, 1, 8, 5, STEEL_D); R(g, 12, 1, 2, 5, STEEL_L); R(g, 11, 0, 10, 2, PAL.messing);
+    // Manometer
+    ell(g, 28, 22, 3, 3, PAL.messing); ell(g, 28, 22, 2, 2, '#F4EEDC');
+    var na = (brk ? 0.6 : -2.2 + (f % 4) * 0.12);
+    line(g, 28, 22, 28 + Math.cos(na) * 2, 22 + Math.sin(na) * 2, PAL.alarmrot);
+    if (dmg) { line(g, 9, 14, 12, 19, '#C8F5E6'); line(g, 12, 19, 10, 25, '#C8F5E6'); }
+    if (brk) { line(g, 9, 13, 15, 22, '#2B1D1A'); line(g, 15, 22, 11, 34, '#2B1D1A'); line(g, 19, 14, 22, 27, '#2B1D1A'); R(g, 13, 23, 6, 4, M3C.aus); scorch(g, 71, 4, 8, 24, 32); }
+    statusLamp(g, 3, 40, state, f);
+    finish(c, PAL.outline, [16, 45, 14, 3]);
+  }
+  function buildShieldsM3(g, c, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', i, k;
+    var flick = dmg ? [1, 0.5, 1, 0.3, 1, 0.8, 0.2, 1][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    sysBase(g, 3, 26, 41);
+    // Seitliche Kondensatoren
+    [3, 25].forEach(function (x, s) {
+      R(g, x, 20, 4, 21, s ? '#2E3946' : STEEL_D); R(g, x, 20, 4, 1, STEEL_L); R(g, x - 1, 19, 6, 2, PAL.messing);
+      R(g, x + 1, 24, 2, 3, brk ? '#2E3A4A' : mix('#2E4A5A', PAL.eisblau, flick * (0.5 + 0.5 * pulse)));
+    });
+    // Sockeltrommel
+    R(g, 7, 32, 18, 10, STEEL); R(g, 7, 32, 2, 10, STEEL_L); R(g, 23, 32, 2, 10, STEEL_D); R(g, 6, 31, 20, 2, PAL.messing); R(g, 6, 31, 20, 1, '#F1D9A0');
+    // Spindel
+    R(g, 15, 7, 3, 25, STEEL_D); R(g, 15, 7, 1, 25, STEEL_L);
+    // drei Spulenringe mit umlaufenden Lichtpunkten
+    for (k = 0; k < 3; k++) {
+      var yy = 13 + k * 6, rx = 11 - k, lit = !brk && (!dmg || (f + k) % 3 !== 0);
+      ell(g, 16, yy + 1, rx, 3, '#2E3946'); ell(g, 16, yy, rx, 2.6, lit ? '#4E7A8A' : '#2E3A4A'); ell(g, 16, yy, rx - 3, 1.2, '#1E2631');
+      if (lit) for (i = 0; i < 6; i++) {
+        var an = (k % 2 ? -1 : 1) * f / 8 * Math.PI * 2 + i / 6 * Math.PI * 2;
+        P(g, 16 + Math.cos(an) * (rx - 0.5), yy + Math.sin(an) * 2.2, Math.sin(an) > 0 ? '#E8F8FF' : PAL.eisblau);
+      }
+    }
+    // Kugel oben
+    ell(g, 16, 5, 5, 5, brk ? '#1E2631' : '#2E4A5A');
+    ell(g, 16, 5, 4, 4, brk ? '#2E3A4A' : mix('#4E7A8A', '#E8F8FF', (0.4 + 0.6 * pulse) * flick));
+    if (!brk) P(g, 14, 3, '#FFFFFF');
+    if (dmg) { line(g, 6, 14, 9, 18, '#C8F5E6'); }
+    if (brk) { line(g, 13, 2, 17, 7, '#11161E'); line(g, 17, 7, 15, 9, '#11161E'); scorch(g, 83, 5, 10, 22, 30); }
+    statusLamp(g, 26, 40, state, f);
+    finish(c, PAL.outline, [16, 45, 13, 3]);
+  }
+  // Triebwerk am Heck: 44×48, Gehäuse rechts (x 12–43 = Kachel), Düsenglocke links ragt in die Heckwand
+  function buildEnginesM3(g, c, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', i, ox = 12;
+    var flick = dmg ? [1, 1, 0.4, 1, 0.7, 1, 0.2, 0.9][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    var hot = brk ? 0.05 : (0.55 + 0.45 * pulse) * flick;
+    // Düsenglocke
+    poly(g, [0, 14, ox + 2, 21, ox + 2, 39, 0, 46], STEEL_D);
+    poly(g, [0, 14, ox + 2, 21, ox + 2, 24, 0, 18], STEEL_L);
+    poly(g, [0, 42, ox + 2, 36, ox + 2, 39, 0, 46], '#2E3946');
+    ell(g, 2, 30, 3, 15, '#7A5A28'); ell(g, 2, 30, 2.2, 14, PAL.messing); ell(g, 2.6, 30, 1.6, 12, '#1E1A18');
+    ell(g, 2.8, 30, 1, 9, mix('#3A2410', '#FF9A3C', hot));
+    R(g, 6, 20, 2, 20, PAL.messing); R(g, 6, 20, 1, 20, '#F1D9A0');
+    sysBase(g, ox + 1, 30, 41);
+    // Gehäuse
+    R(g, ox + 2, 12, 28, 30, STEEL); R(g, ox + 2, 12, 28, 2, STEEL_L); R(g, ox + 2, 12, 2, 30, STEEL_L); R(g, ox + 28, 12, 2, 30, STEEL_D);
+    // Turbine
+    var cx = ox + 16, cy = 27;
+    ell(g, cx, cy, 11, 11, '#7A5A28'); ell(g, cx, cy, 10, 10, PAL.messing); ell(g, cx - 0.5, cy - 0.5, 9, 9, '#EAC786');
+    ell(g, cx, cy, 8.5, 8.5, '#1E1A18');
+    ell(g, cx, cy, 7, 7, mix('#3A2410', '#FF9A3C', hot)); ell(g, cx, cy, 4, 4, mix('#3A2410', PAL.funke, hot));
+    var rot = brk ? 0 : (dmg ? Math.floor(f / 2) : f) * Math.PI / 8;
+    for (i = 0; i < 6; i++) { var a = rot + i * Math.PI / 3; line(g, cx + Math.cos(a) * 2, cy + Math.sin(a) * 2, cx + Math.cos(a + 0.5) * 7.5, cy + Math.sin(a + 0.5) * 7.5, '#2E3946'); }
+    ell(g, cx, cy, 2, 2, STEEL_L);
+    // Treibstoffleitungen oben (Überstand)
+    R(g, ox + 5, 3, 5, 10, STEEL_D); R(g, ox + 5, 3, 2, 10, STEEL_L); R(g, ox + 4, 2, 7, 2, PAL.messing);
+    R(g, ox + 21, 5, 5, 8, STEEL_D); R(g, ox + 21, 5, 2, 8, STEEL_L); R(g, ox + 20, 4, 7, 2, PAL.messing);
+    R(g, ox + 12, 7, 8, 3, PAL.terrakotta); R(g, ox + 12, 7, 8, 1, '#D77A5C');
+    for (i = 0; i < 6; i++) { R(g, ox + 3 + i * 4, 15, 2, 2, i % 2 ? '#232A35' : M3C.besch); }
+    if (dmg) { line(g, ox + 5, 30, ox + 9, 36, '#2B1D1A'); }
+    if (brk) { line(g, cx - 6, cy - 4, cx + 3, cy + 5, '#11161E'); scorch(g, 97, ox + 3, 12, 26, 30); }
+    statusLamp(g, ox + 26, 40, state, f);
+    finish(c, PAL.outline, [ox + 14, 45, 16, 3]);
+  }
+  // Manövrierdüse: Ausrichtung nach side (Bb: Glocke nach oben in die Außenwand, Stb: Glocke zur Kamera/nach unten,
+  // Bug/Heck: seitlich)
+  function buildThruster(g, c, side, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', i;
+    var flick = dmg ? [1, 0.3, 1, 1, 0.5, 1, 0.2, 0.8][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    var hot = brk ? 0 : (0.45 + 0.55 * pulse) * flick, hotCol = mix('#3A2410', PAL.bernstein, hot), coreCol = mix('#3A2410', PAL.funke, hot);
+    sysBase(g, 4, 24, 41);
+    // Treibstoffleitungen
+    R(g, 1, 30, 6, 3, PAL.terrakotta); R(g, 1, 30, 6, 1, '#D77A5C'); R(g, 25, 33, 6, 3, '#2E6E5C'); R(g, 25, 33, 6, 1, '#3E9C80');
+    function tank(y0, y1) {
+      R(g, 8, y0, 16, y1 - y0, STEEL); R(g, 8, y0, 3, y1 - y0, STEEL_L); R(g, 21, y0, 3, y1 - y0, STEEL_D);
+      [y0 + 3, y1 - 5].forEach(function (yy) { R(g, 7, yy, 18, 2, PAL.messing); R(g, 7, yy, 18, 1, '#F1D9A0'); });
+      ell(g, 16, y0 + Math.round((y1 - y0) / 2), 2.5, 2.5, PAL.messing); ell(g, 16, y0 + Math.round((y1 - y0) / 2), 1.6, 1.6, '#F4EEDC');
+      P(g, 16, y0 + Math.round((y1 - y0) / 2) - 1, PAL.alarmrot);
+    }
+    if (side === 'stbd') {
+      tank(6, 25);
+      ell(g, 16, 6, 8, 3, STEEL_D); ell(g, 16, 5.5, 7, 2.2, STEEL_L);
+      R(g, 6, 24, 20, 3, PAL.messing); R(g, 6, 24, 20, 1, '#F1D9A0');            // Kardanring
+      ell(g, 16, 34, 10, 8, '#7A5A28'); ell(g, 16, 33.5, 9, 7, PAL.messing); ell(g, 15.5, 33, 8, 6, '#EAC786');
+      ell(g, 16, 34, 7, 5.4, '#1E1A18'); ell(g, 16, 34, 5, 3.6, hotCol); ell(g, 16, 34, 2, 1.5, coreCol);
+    } else if (side === 'bow' || side === 'aft') {
+      var dr = side === 'aft' ? -1 : 1, nx = dr > 0 ? 20 : 2;
+      tank(14, 40);
+      poly(g, dr > 0 ? [22, 20, 31, 15, 31, 37, 22, 32] : [10, 20, 1, 15, 1, 37, 10, 32], STEEL_D);
+      ell(g, dr > 0 ? 30 : 2, 26, 2.5, 11, PAL.messing); ell(g, dr > 0 ? 30 : 2, 26, 1.5, 9, '#1E1A18'); ell(g, dr > 0 ? 30 : 2, 26, 0.8, 6, hotCol);
+      R(g, nx, 12, 10, 2, PAL.messing);
+    } else {
+      // Bb (Standard): Glocke nach oben, Öffnung nach oben
+      poly(g, [6, 4, 26, 4, 20, 19, 12, 19], STEEL_D); poly(g, [6, 4, 10, 4, 13, 19, 12, 19], STEEL_L); poly(g, [22, 4, 26, 4, 20, 19, 19, 19], '#2E3946');
+      ell(g, 16, 4, 10, 3, '#7A5A28'); ell(g, 16, 4, 9, 2.4, PAL.messing); ell(g, 16, 4.4, 7.5, 1.8, '#1E1A18'); ell(g, 16, 4.6, 5, 1.2, hotCol);
+      R(g, 10, 18, 12, 3, PAL.messing); R(g, 10, 18, 12, 1, '#F1D9A0');
+      tank(21, 41);
+    }
+    if (dmg) { line(g, 9, 30, 12, 36, '#2B1D1A'); P(g, 23, 28, '#2B1D1A'); }
+    if (brk) scorch(g, 113 + side.length, 6, 4, 20, 36);
+    statusLamp(g, 25, 40, state, f);
+    finish(c, PAL.outline, [16, 45, 12, 3]);
+  }
+  // Batterie mit 4 Rohren (Bb: Rohre nach oben zur Außenwand, Stb: Rohre zur Kamera). Beschädigt: 2 Rohre dunkel.
+  function buildBattery(g, c, side, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', i;
+    var nDark = brk ? 4 : dmg ? 2 : 0;
+    sysBase(g, 2, 28, 41);
+    if (side !== 'stbd') {
+      R(g, 3, 25, 26, 16, '#4A5568'); R(g, 3, 25, 26, 2, STEEL_L); R(g, 3, 25, 2, 16, STEEL_L); R(g, 27, 25, 2, 16, STEEL_D);
+      for (i = 0; i < 4; i++) {
+        var x = 5 + i * 6, dark = i >= 4 - nDark;
+        R(g, x, 4, 4, 22, dark ? '#262B33' : '#5E6E80'); R(g, x, 4, 1, 22, dark ? '#343A44' : '#9FB2C4'); R(g, x + 3, 4, 1, 22, dark ? '#16191F' : STEEL_D);
+        R(g, x - 1, 11, 6, 1, dark ? '#20242C' : STEEL_D); R(g, x - 1, 17, 6, 1, dark ? '#20242C' : STEEL_D);
+        R(g, x - 1, 2, 6, 3, dark ? '#4A3E26' : PAL.messing); R(g, x - 1, 2, 6, 1, dark ? '#5A4A2A' : '#F1D9A0'); R(g, x + 1, 2, 2, 1, '#11161E');
+        var lit = !dark && ((f + i * 2) % 8) < 5;
+        R(g, x, 29, 4, 3, '#1E2631'); R(g, x + 1, 30, 2, 1, lit ? PAL.bernstein : (dark ? '#2A1A14' : '#5A4018'));
+        if (lit) P(g, x + 1, 29, PAL.funke);
+        if (dark) { P(g, x, 5, '#0E0C0C'); P(g, x + 2, 6, '#0E0C0C'); P(g, x + 1, 8, 'rgba(20,14,12,0.7)'); R(g, x + 1, 30, 2, 1, dmg && !brk ? '#3A1614' : '#2A1A14'); }
+      }
+      // Munitionszuführung
+      R(g, 4, 34, 24, 4, '#7A5A28'); R(g, 4, 34, 24, 1, PAL.messing);
+      for (i = 0; i < 8; i++) { R(g, 5 + i * 3, 35, 2, 2, (i >= 8 - nDark * 2) ? '#5A4A2A' : '#E3B565'); P(g, 5 + i * 3, 35, '#F1D9A0'); }
+    } else {
+      R(g, 3, 9, 26, 19, '#4A5568'); R(g, 3, 9, 26, 5, '#6C7F96'); R(g, 3, 9, 26, 1, '#9FB2C4'); R(g, 3, 9, 2, 19, STEEL_L); R(g, 27, 9, 2, 19, STEEL_D);
+      R(g, 4, 19, 24, 4, '#7A5A28'); R(g, 4, 19, 24, 1, PAL.messing);
+      for (var k = 0; k < 8; k++) { R(g, 5 + k * 3, 20, 2, 2, (k >= 8 - nDark * 2) ? '#5A4A2A' : '#E3B565'); P(g, 5 + k * 3, 20, '#F1D9A0'); }
+      for (i = 0; i < 4; i++) {
+        var x2 = 5 + i * 6, dark2 = i >= 4 - nDark;
+        R(g, x2, 27, 4, 8, dark2 ? '#262B33' : '#5E6E80'); R(g, x2, 27, 1, 8, dark2 ? '#343A44' : '#9FB2C4'); R(g, x2 + 3, 27, 1, 8, dark2 ? '#16191F' : STEEL_D);
+        ell(g, x2 + 2, 37, 3, 3, dark2 ? '#4A3E26' : PAL.messing); ell(g, x2 + 1.6, 36.6, 2.2, 2.2, dark2 ? '#5A4A2A' : '#EAC786');
+        ell(g, x2 + 2, 37, 1.6, 1.6, '#11161E');
+        var lit2 = !dark2 && ((f + i * 2) % 8) < 5;
+        R(g, x2 + 1, 11, 2, 2, lit2 ? PAL.bernstein : (dark2 ? '#2A1A14' : '#5A4018'));
+        if (lit2) P(g, x2 + 1, 11, PAL.funke);
+        if (dark2) { P(g, x2 + 1, 39, '#0E0C0C'); P(g, x2 + 3, 35, 'rgba(20,14,12,0.7)'); }
+      }
+    }
+    if (brk) scorch(g, 131 + side.length, 3, 4, 26, 34);
+    statusLamp(g, 26, 41, state, f);
+    finish(c, PAL.outline, [16, 45, 14, 3]);
+  }
+  // Emitter-Spule: Wicklung und Kopf in der Farbe der Seite, Schüssel zeigt nach außen
+  function buildEmitter(g, c, side, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', k;
+    var sc = SIDE_COL[side] || PAL.mint;
+    var flick = dmg ? [1, 0.4, 1, 0.8, 0.2, 1, 0.6, 1][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    var on = brk ? 0 : flick;
+    sysBase(g, 5, 22, 41);
+    R(g, 7, 38, 18, 4, STEEL_D); R(g, 7, 38, 18, 1, STEEL_L);
+    // Säule mit Wicklung (Lauflicht nach oben)
+    R(g, 11, 16, 10, 23, STEEL_D); R(g, 11, 16, 2, 23, STEEL_L);
+    for (k = 0; k < 6; k++) {
+      var yy = 35 - k * 4, lit = !brk && ((k - f + 16) % 6) < 2;
+      var cc = lit ? mix(shade(sc, -0.35), sc, on) : '#9A5A2A';
+      R(g, 9, yy, 14, 2, cc); R(g, 9, yy, 14, 1, lit ? shade(sc, 0.45) : '#C8873A'); P(g, 9, yy + 1, '#5A3418'); P(g, 22, yy + 1, '#5A3418');
+    }
+    var head = brk ? '#2E3A4A' : mix(shade(sc, -0.6), sc, (0.45 + 0.55 * pulse) * on);
+    var hi = brk ? '#3A4759' : mix(sc, '#FFFFFF', 0.5 * on);
+    if (side === 'stbd') {   // Schüssel zur Kamera
+      R(g, 13, 14, 6, 4, STEEL);
+      ell(g, 16, 10, 10, 9, '#7A5A28'); ell(g, 15.6, 9.6, 9, 8, PAL.messing); ell(g, 16, 10, 7, 6, '#1E2631');
+      ell(g, 16, 10, 3.5, 3, head); P(g, 15, 9, hi);
+      for (k = 0; k < 4; k++) { var an = k * Math.PI / 2 + 0.785; line(g, 16 + Math.cos(an) * 4, 10 + Math.sin(an) * 3.5, 16 + Math.cos(an) * 6.5, 10 + Math.sin(an) * 5.5, STEEL_L); }
+    } else if (side === 'bow' || side === 'aft') {   // Schüssel im Profil, nach rechts (Bug) / links (Heck)
+      var dr = side === 'aft' ? -1 : 1, hx = 16 + dr * 5;
+      R(g, 12, 9, 8, 8, STEEL); R(g, 12, 9, 8, 1, STEEL_L);
+      ell(g, hx, 11, 3.2, 10, '#7A5A28'); ell(g, hx - dr * 0.4, 11, 2.4, 9, PAL.messing); ell(g, hx + dr * 0.8, 11, 1.4, 7, '#1E2631');
+      R(g, dr > 0 ? hx + 1 : hx - 7, 10, 7, 2, STEEL_L);
+      ell(g, dr > 0 ? hx + 8 : hx - 8, 11, 2, 2, head); P(g, dr > 0 ? hx + 8 : hx - 8, 10, hi);
+    } else {   // Bb/Mitte: Schüssel nach oben
+      R(g, 14, 8, 4, 9, STEEL); R(g, 14, 8, 1, 9, STEEL_L);
+      ell(g, 16, 8, 11, 4, '#7A5A28'); ell(g, 16, 7.5, 10, 3.2, PAL.messing); ell(g, 16, 7.6, 8, 2.4, '#1E2631');
+      ell(g, 16, 7.6, 4, 1.3, head);
+      R(g, 15, 0, 2, 7, STEEL_L); ell(g, 16, 1, 1.6, 1.6, head); P(g, 15, 0, hi);
+    }
+    // Seitenlampe am Sockel
+    R(g, 8, 39, 3, 2, brk ? '#2E3A4A' : sc); P(g, 8, 39, brk ? '#3A4759' : shade(sc, 0.5));
+    if (dmg) { line(g, 12, 22, 15, 27, '#2B1D1A'); }
+    if (brk) scorch(g, 151 + side.length, 6, 6, 20, 32);
+    statusLamp(g, 24, 39, state, f);
+    finish(c, PAL.outline, [16, 45, 12, 3]);
+  }
+  // Lanzenkammer (Bug-Waffe): liegender Zylinder Richtung Bug (+x), Ladekondensatoren oben
+  function buildWeaponBow(g, c, state, f) {
+    var brk = state === 'broken', dmg = state === 'damaged', i;
+    var flick = dmg ? [1, 1, 0.3, 1, 0.6, 1, 0.2, 1][f] : 1, pulse = 0.5 + 0.5 * Math.sin(f / 8 * Math.PI * 2);
+    sysBase(g, 1, 30, 41);
+    R(g, 4, 30, 6, 11, STEEL_D); R(g, 4, 30, 1, 11, STEEL_L); R(g, 22, 30, 6, 11, STEEL_D); R(g, 22, 30, 1, 11, STEEL_L);
+    // Ladekondensatoren (Überstand)
+    for (i = 0; i < 4; i++) {
+      R(g, 4 + i * 6, 3, 5, 12, '#1E2631'); R(g, 3 + i * 6, 2, 7, 2, PAL.messing); R(g, 3 + i * 6, 2, 7, 1, '#F1D9A0');
+      var lv = brk ? 0 : Math.min(1, ((f + i * 2) % 8) / 6) * flick, hh = Math.round(9 * lv);
+      if (hh > 0) { R(g, 5 + i * 6, 14 - hh, 3, hh, PAL.mint); R(g, 5 + i * 6, 14 - hh, 1, hh, '#E8FFF8'); }
+    }
+    // Kammer
+    R(g, 1, 14, 29, 17, '#4A5568'); R(g, 1, 14, 29, 4, '#6C7F96'); R(g, 1, 14, 29, 1, '#9FB2C4'); R(g, 1, 29, 29, 2, '#2E3946');
+    R(g, 3, 20, 24, 5, brk ? '#1A1214' : '#0F2E29');
+    R(g, 3, 21, 24, 3, brk ? '#2A1A1A' : mix('#2C5E52', PAL.mint, (0.4 + 0.6 * pulse) * flick));
+    if (!brk) { var p0 = 3 + ((f * 3) % 22); R(g, p0, 21, 3, 3, '#E8FFF8'); }
+    [7, 14, 21].forEach(function (x) { R(g, x, 13, 3, 19, PAL.messing); R(g, x, 13, 1, 19, '#F1D9A0'); R(g, x + 2, 13, 1, 19, '#7A5A28'); });
+    // Mündung mit Linse (Richtung Bug)
+    R(g, 27, 15, 5, 15, STEEL_D); R(g, 27, 15, 5, 1, STEEL_L);
+    ell(g, 30, 22, 2, 5, brk ? '#2E3A4A' : mix('#2C5E52', '#E8F8FF', pulse * flick)); P(g, 30, 19, brk ? '#3A4759' : '#FFFFFF');
+    for (i = 3; i < 27; i += 4) { R(g, i, 33, 2, 2, M3C.besch); R(g, i + 2, 33, 2, 2, '#232A35'); }
+    if (dmg) { line(g, 4, 21, 9, 24, '#C8F5E6'); }
+    if (brk) { line(g, 5, 20, 12, 25, '#11161E'); line(g, 16, 20, 20, 25, '#11161E'); scorch(g, 171, 2, 6, 28, 30); }
+    statusLamp(g, 12, 37, state, f);
+    finish(c, PAL.outline, [16, 45, 15, 3]);
+  }
+  var M3_SYS = { sys_reactor: 1, sys_shields: 1, sys_engines: 1, sys_thruster: 1, sys_battery: 1, sys_emitter: 1, sys_weapon_bow: 1 };
+  var M3_GLOW = { sys_reactor: PAL.mint, sys_shields: PAL.eisblau, sys_engines: '#FF9A3C', sys_thruster: PAL.bernstein, sys_battery: PAL.bernstein, sys_weapon_bow: PAL.mint };
+  // Zustandsdekor über einem Stationssprite: maskiertes Muster, Effekte, Kürzel, optional Plakette
+  function stationDecor(ctx, spr, key, px, py, o, kind, side, state, fragile, bx) {
+    var t = o.time || 0;
+    var ov = stateOverlay(spr, key, state, fragile, bx);
+    var x0 = px - (bx || 0);
+    if (ov) ctx.drawImage(ov, x0, py - OH);
+    if (state === 'damaged') {
+      var cyc = (t * 0.9 + px * 0.013) % 1.6;
+      if (cyc < 0.45) drawFx(ctx, 'sparks', px + 9 + ((t * 3 | 0) % 3) * 6, py + 4 - ((t * 5 | 0) % 2) * 6, cyc, { small: true });
+      drawFx(ctx, 'smoke', px + 20, py - 8, t, { small: true });
+    } else if (state === 'broken') {
+      drawFx(ctx, 'smoke', px + 16, py - 14, t, {});
+      drawFx(ctx, 'fire', px + 16, py + 6, t, { small: true });
+    } else if (state === 'offline') {
+      for (var i = 0; i < 4; i++) {
+        var a = hash2(i, (t * 8) | 0, 31) * Math.PI * 2, rr = 6 + hash2(i, (t * 8) | 0, 32) * 10;
+        ctx.fillStyle = i % 2 ? '#E8F8FF' : M3C.emp;
+        ctx.fillRect(Math.round(px + 16 + Math.cos(a) * rr), Math.round(py - 2 + Math.sin(a) * rr), 1, 1);
+      }
+    }
+    var code = stateCode(state, fragile);
+    // Kürzel-Marke über der Station nur auf Wunsch (opts.tag = true|'auto': nicht bei ok, 'always': immer) –
+    // der Client beschriftet die Stationen selbst (Seitenmarke + Zustand), sonst doppelt.
+    if (o.tag && (code !== 'ok' || o.tag === 'always')) {
+      var bob = code === 'aus' && ((t * 2) | 0) % 2 === 0 ? -1 : 0;
+      drawStateTag(ctx, state, px + 16, py - OH - 10 + bob, { fragile: fragile });
+    }
+    if (o.badge) drawStationBadge(ctx, side, px + 16, py + 23, null);
+  }
+  function drawSystemM3(ctx, kind, px, py, o) {
+    var state = normState(o.state), fragile = !!o.fragile && state !== 'broken', side = sideOf(kind, o);
+    var t = o.time || 0, sprState = state === 'offline' ? 'ok' : state;
+    var f = state === 'broken' || state === 'offline' ? 0 : frameOf(t + (px & 63) * 0.011, state === 'ok' ? 8 : 6, 8);
+    var red = kind === 'sys_reactor' && o.alert === 'red';
+    var wide = kind === 'sys_engines', bx = wide ? 12 : 0;
+    var key = 'm3|' + kind + '|' + side + '|' + sprState + '|' + f + (red ? '|r' : '');
+    var spr = cached(key, wide ? 44 : 32, 48, function (g, c) {
+      if (kind === 'sys_reactor') buildReactorM3(g, c, sprState, f, red);
+      else if (kind === 'sys_shields') buildShieldsM3(g, c, sprState, f);
+      else if (kind === 'sys_engines') buildEnginesM3(g, c, sprState, f);
+      else if (kind === 'sys_thruster') buildThruster(g, c, side, sprState, f);
+      else if (kind === 'sys_battery') buildBattery(g, c, side, sprState, f);
+      else if (kind === 'sys_emitter') buildEmitter(g, c, side, sprState, f);
+      else buildWeaponBow(g, c, sprState, f);
+    });
+    // Glühen hinter/unter der Station
+    var gc = kind === 'sys_emitter' ? SIDE_COL[side] : M3_GLOW[kind];
+    if (state === 'ok' || state === 'damaged') {
+      var ga = state === 'ok' ? 0.2 : 0.1 * (1 + Math.sin(t * 17));
+      glow(ctx, px + 16, py + 10, gc, 18, ga);
+    }
+    ctx.drawImage(spr, px - bx, py - OH);
+    if (state !== 'broken' && state !== 'offline') {
+      var pr = 0.5 + 0.5 * Math.sin(t * 2.6);
+      if (kind === 'sys_reactor') glow(ctx, px + 16, py - OH + 25, red ? '#FF6A4C' : PAL.mint, 18 + Math.round(pr * 8), (state === 'ok' ? 0.22 : 0.1) + 0.18 * pr);
+      else if (kind === 'sys_shields') glow(ctx, px + 16, py - OH + 6, '#E8F8FF', 9, 0.25 + 0.2 * pr);
+      else if (kind === 'sys_emitter') glow(ctx, px + 16, py - OH + 9, gc, 9, 0.3 + 0.25 * pr);
+      else if (kind === 'sys_engines') { glow(ctx, px + 16, py - OH + 27, '#FF9A3C', 12, 0.25 + 0.15 * pr); glow(ctx, px - 9, py - OH + 30, PAL.bernstein, 12, 0.3 + 0.2 * pr); }
+      else if (kind === 'sys_weapon_bow') glow(ctx, px + 30, py - OH + 22, PAL.mint, 8, 0.3 + 0.25 * pr);
+      else if (kind === 'sys_thruster') glow(ctx, px + 16, py - OH + (side === 'stbd' ? 34 : 6), PAL.bernstein, 8, 0.2 + 0.2 * pr);
+    }
+    stationDecor(ctx, spr, key, px, py, o, kind, side, state, fragile, bx);
+  }
+  // Alte Stationen (Lebenserhaltung, Transfer, Altname Waffen) bekommen dieselbe Zustandsdekoration
+  function drawSystemLegacy(ctx, kind, px, py, o) {
+    var res = drawSystem(ctx, kind, px, py, o);
+    var state = normState(o.state);
+    if (res && res.spr) stationDecor(ctx, res.spr, res.key, px, py, o, kind, sideOf(kind, o), state, !!o.fragile && state !== 'broken', 0, true);
+  }
+
+  // --- Geschützdeck (Batteriedecks): Gitterboden mit rotem Gefechtslicht + Bodendeko --------------
+  function isGunDeck(room) { return !!room && typeof room.id === 'string' && room.id.indexOf('batterie') === 0; }
+  function floorGunDeck(g, v) {
+    R(g, 0, 0, 32, 32, '#13161D');
+    R(g, 0, 0, 32, 32, 'rgba(224,71,60,0.07)');
+    if (v === 0) { R(g, 0, 18, 32, 5, '#3A2A22'); R(g, 0, 18, 32, 1, '#6E3A28'); }
+    if (v === 2) { R(g, 9, 0, 4, 32, '#232B36'); R(g, 9, 0, 1, 32, '#3A4759'); }
+    // Rautengitter
+    var bar = '#4A5568', hi = '#64738A', lo = '#262E3A';
+    for (var y = 0; y < 32; y += 4) for (var x = 0; x < 32; x += 4) { var o = ((y >> 2) & 1) * 2; R(g, x + o, y, 2, 1, bar); P(g, x + o, y, hi); P(g, x + o + 1, y + 1, lo); }
+    // Rahmen + Eckbolzen in Messing
+    R(g, 0, 0, 32, 1, hi); R(g, 0, 0, 1, 32, hi); R(g, 31, 0, 1, 32, lo); R(g, 0, 31, 32, 1, lo);
+    P(g, 2, 2, PAL.messing); P(g, 29, 2, PAL.messing); P(g, 2, 29, '#7A5A28'); P(g, 29, 29, '#7A5A28');
+  }
+  // Layout relativ zur oberen linken Raumkachel. Für das Stb-Deck wird die Zeile gespiegelt (Station unten).
+  var GUNDECK_DECALS = { '0,1': 'rail_e', '1,1': 'rail', '2,1': 'rail', '3,1': 'rail', '4,1': 'rail', '5,1': 'rail', '6,1': 'rail', '7,1': 'rail_w',
+    '0,2': 'ammo', '1,2': 'ammo_open', '3,2': 'shells', '6,2': 'ammo_open', '7,2': 'ammo' };
+  function gunDeckDetail(ctx, px, py, tx, ty, t, room) {
+    var stb = room.id.indexOf('stb') >= 0;
+    var dy = stb ? room.y1 - ty : ty - room.y0, dx = tx - room.x0;
+    var dec = GUNDECK_DECALS[dx + ',' + dy];
+    if (dec) ctx.drawImage(gunDecalSprite(dec, stb), px, py);
+    // rotes Gefechtslicht, leise pulsierend
+    if (dy === 1 && dx % 3 === 1) glow(ctx, px + 16, py + 16, PAL.alarmrot, 14, 0.08 + 0.05 * Math.sin(t * 2 + dx));
+  }
+  function gunDecalSprite(kind, flip) {
+    return cached('gundecal|' + kind + '|' + (+flip), 32, 32, function (g) {
+      var i;
+      if (kind.indexOf('rail') === 0) {   // Munitionsschiene (Messing) mit Schwellen
+        var x0 = kind === 'rail_e' ? 10 : 0, x1 = kind === 'rail_w' ? 22 : 32;
+        for (i = x0 + 2; i < x1; i += 6) R(g, i, 12, 2, 9, '#2E3946');
+        R(g, x0, 13, x1 - x0, 2, PAL.messing); R(g, x0, 13, x1 - x0, 1, '#F1D9A0');
+        R(g, x0, 18, x1 - x0, 2, PAL.messing); R(g, x0, 18, x1 - x0, 1, '#F1D9A0');
+        if (kind !== 'rail') { var ex = kind === 'rail_e' ? x0 : x1 - 3; R(g, ex, 11, 3, 11, '#7A5A28'); R(g, ex, 11, 3, 1, PAL.messing); }
+        // ein Geschoss auf der Schiene
+        if (kind === 'rail') { R(g, 12, 14, 7, 4, '#C9974A'); R(g, 12, 14, 7, 1, '#F1D9A0'); R(g, 19, 14, 2, 4, PAL.alarmrot); }
+      } else if (kind === 'ammo' || kind === 'ammo_open') {   // flache Munitionskiste (Bodendeko)
+        var y0 = flip ? 6 : 8;
+        R(g, 5, y0 + 2, 22, 16, 'rgba(11,14,26,0.45)');
+        R(g, 4, y0, 22, 15, '#4E5A34'); R(g, 4, y0, 22, 1, '#6E7C48'); R(g, 4, y0 + 14, 22, 1, '#2E361E'); R(g, 4, y0, 1, 15, '#6E7C48'); R(g, 25, y0, 1, 15, '#2E361E');
+        if (kind === 'ammo_open') {
+          R(g, 6, y0 + 2, 18, 11, '#2A2E1E');
+          for (i = 0; i < 6; i++) { var sx = 7 + i * 3; R(g, sx, y0 + 3, 2, 9, '#B8862E'); R(g, sx, y0 + 3, 2, 2, PAL.alarmrot); P(g, sx, y0 + 5, '#F1D9A0'); }
+        } else {
+          R(g, 4, y0 + 6, 22, 2, '#3A4428'); R(g, 7, y0 + 3, 7, 2, M3C.besch); R(g, 16, y0 + 3, 2, 2, M3C.besch);
+          R(g, 5, y0 + 1, 2, 2, PAL.messing); R(g, 23, y0 + 1, 2, 2, PAL.messing); R(g, 5, y0 + 12, 2, 2, PAL.messing); R(g, 23, y0 + 12, 2, 2, PAL.messing);
+        }
+      } else if (kind === 'shells') {   // lose Hülsen
+        var r = rng(77);
+        for (i = 0; i < 5; i++) { var hx = 6 + r() * 18, hy = 8 + r() * 14; R(g, hx, hy, 5, 2, '#B8862E'); P(g, hx, hy, '#F1D9A0'); P(g, hx + 4, hy + 1, '#6E4E22'); }
+      }
+    });
+  }
+
+  // --- Maschinenräume: Kabeltrassen je Raum (Maske N/E/S/W) und Bodendeko -------------------------
+  var ENGINE_LAYOUT = {
+    antrieb: {
+      cables: { '0,2': 'NS', '0,3': 'NS', '0,4': 'NS', '1,5': 'EW', '2,5': 'EW' },
+      decals: { '1,0': 'toolbox', '2,1': 'bolts', '1,2': 'oil', '2,3': 'vent', '2,4': 'hazard', '2,6': 'hazard', '0,7': 'drip', '1,8': 'coil', '2,8': 'parts', '0,9': 'bucket', '1,10': 'bolts' },
+    },
+    maschinenraum: {
+      cables: {
+        '0,1': 'NS', '0,2': 'NS', '0,3': 'NS', '0,4': 'NS', '0,5': 'NEW', '1,5': 'EW', '2,5': 'NESW', '3,5': 'EW', '4,5': 'ESW',
+        '2,3': 'NS', '2,4': 'NS', '2,6': 'NS', '2,7': 'NS', '4,6': 'NS', '4,7': 'NS', '4,8': 'NS', '4,9': 'NS',
+      },
+      trunk: { '2,3': 1, '2,4': 2, '2,5': 3, '2,6': 4, '2,7': 5 },
+      decals: {
+        '1,0': 'toolbox', '2,0': 'vent', '1,2': 'hazardW', '3,2': 'hazardE', '1,3': 'oil', '3,3': 'bolts', '1,7': 'coil', '3,7': 'parts',
+        '1,8': 'hazardW', '3,8': 'hazardE', '1,9': 'bucket', '3,9': 'vent', '2,10': 'drip',
+      },
+    },
+  };
+  function cableMaskSprite(mask) {
+    return cached('ecablem|' + mask, 32, 32, function (g) {
+      var cols = [PAL.terrakotta, '#2E6E5C', PAL.messing];
+      var N = mask.indexOf('N') >= 0, E = mask.indexOf('E') >= 0, S = mask.indexOf('S') >= 0, W = mask.indexOf('W') >= 0, j;
+      if (E || W) {
+        var x0 = W ? 0 : 12, x1 = E ? 32 : 19;
+        R(g, x0, 21, x1 - x0, 7, 'rgba(11,14,26,0.55)'); R(g, x0, 21, x1 - x0, 1, '#5E6E80');
+        for (j = 0; j < 3; j++) R(g, x0, 22 + j * 2, x1 - x0, 1, cols[j]);
+        for (var x = x0 + 3; x < x1; x += 10) R(g, x, 21, 2, 7, STEEL_D);
+      }
+      if (N || S) {
+        var y0 = N ? 0 : 21, y1 = S ? 32 : 28;
+        R(g, 12, y0, 7, y1 - y0, 'rgba(11,14,26,0.55)'); R(g, 12, y0, 1, y1 - y0, '#5E6E80');
+        for (j = 0; j < 3; j++) R(g, 13 + j * 2, y0, 1, y1 - y0, cols[j]);
+        for (var yy = y0 + 4; yy < y1; yy += 10) R(g, 12, yy, 7, 2, STEEL_D);
+      }
+      if ((N || S) && (E || W)) { R(g, 11, 20, 9, 9, '#2E3946'); R(g, 11, 20, 9, 1, STEEL_L); R(g, 13, 22, 5, 5, '#1E2631'); P(g, 15, 24, PAL.mint); }
+    });
+  }
+  var LEGACY_CABLE = { h: 'EW', v: 'NS', hn: 'NEW', hs: 'ESW' };
+  function engineFloorDetailM3(ctx, px, py, tx, ty, t, room) {
+    var lay = ENGINE_LAYOUT[room.id];
+    if (!lay) return false;
+    var key = (tx - room.x0) + ',' + (ty - room.y0);
+    var v = (hash2(tx, ty, 7) * 4) | 0;
+    if (v === 1) glow(ctx, px + 10, py + 12, PAL.bernstein, 12, 0.10 + 0.08 * (0.5 + 0.5 * Math.sin(t * 1.7 + tx * 1.3 + ty * 0.7)));
+    var cab = lay.cables[key];
+    if (cab) ctx.drawImage(cableMaskSprite(cab), px, py);
+    var dec = lay.decals[key];
+    if (dec) ctx.drawImage(dec === 'hazardW' ? hazardWSprite() : decalSprite(dec), px, py);
+    // Energiestamm Reaktor -> Schildgenerator: Lichtpuls läuft durch die Leitung
+    var tr = lay.trunk && lay.trunk[key];
+    if (tr) {
+      var ph = (t * 1.6 - tr * 0.22) % 1; if (ph < 0) ph += 1;
+      glow(ctx, px + 16, py + 6 + ph * 22, PAL.mint, 8, 0.35 * (1 - Math.abs(ph - 0.5) * 2) + 0.06);
+    }
+    return true;
+  }
+  function hazardWSprite() {
+    return cached('edecal|hazardW', 32, 32, function (g) { for (var e = 0; e < 32; e += 4) { R(g, 29, e, 3, 2, PAL.warngelb); R(g, 29, e + 2, 3, 2, '#232A35'); } });
+  }
+
+  // --- Außenansicht: Schäden an den Systemen ----------------------------------------------------
+  // lokale Lage (px, Bug +x, Backbord -y) im Schiffssprite
+  var SYS_EXT = {
+    reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-31, 0], emitter_aft: [-25, -5],
+    thruster_port: [-16, -17], thruster_stbd: [-16, 17], battery_port: [7, -11], battery_stbd: [7, 11],
+    emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [36, 0], emitter_bow: [24, 4],
+  };
+  function fragileSet(fr) {
+    var out = {};
+    if (Array.isArray(fr)) for (var i = 0; i < fr.length; i++) out[fr[i]] = true;
+    else if (fr && typeof fr === 'object') for (var k in fr) if (fr[k]) out[k] = true;
+    return out;
+  }
+  function drawShipDamage(ctx, W, bang, o, t) {
+    var sys = o.systems;
+    if (!sys || typeof sys !== 'object') return;
+    var fr = fragileSet(o.fragile);
+    var bx = -Math.cos(bang), by = -Math.sin(bang);   // Rauch treibt nach achtern
+    var ga = ctx.globalAlpha, k = 0;
+    for (var id in SYS_EXT) {
+      var st = sys[id];
+      k++;
+      if (st !== 'damaged' && st !== 'broken') { if (fr[id]) { var pf = W(SYS_EXT[id][0], SYS_EXT[id][1]); if (((t * 1.5 + k) | 0) % 3 === 0) { ctx.fillStyle = M3C.flick; ctx.fillRect(Math.round(pf[0]), Math.round(pf[1]), 1, 1); } } continue; }
+      var p = W(SYS_EXT[id][0], SYS_EXT[id][1]), brk = st === 'broken';
+      var n = brk ? 7 : 4, len = brk ? 26 : 14;
+      for (var i = 0; i < n; i++) {
+        var q = (t * (brk ? 0.9 : 0.7) + i / n + k * 0.13) % 1;
+        var sx = p[0] + bx * q * len + Math.sin(q * 6 + i + k) * 1.5 * -by, sy = p[1] + by * q * len + Math.sin(q * 6 + i + k) * 1.5 * bx;
+        ctx.globalAlpha = ga * (1 - q) * (brk ? 0.85 : 0.65);
+        var ps = puffSprite((brk ? 2 : 1.5) + q * (brk ? 3.5 : 2.5), q < 0.25 && brk ? '#8A8290' : '#7A7480');
+        ctx.drawImage(ps, Math.round(sx - ps.width / 2), Math.round(sy - ps.height / 2));
+      }
+      ctx.globalAlpha = ga;
+      if (brk) {
+        glow(ctx, p[0], p[1], '#F08A3C', 9, 0.6 + 0.3 * Math.sin(t * 13 + k));
+        ctx.fillStyle = ((t * 6 + k) | 0) % 2 ? PAL.bernstein : '#F08A3C'; ctx.fillRect(Math.round(p[0]) - 1, Math.round(p[1]), 2, 1);
+        if (((t * 2 + k * 0.3) | 0) % 2 === 0) { ctx.fillStyle = M3C.aus; ctx.fillRect(Math.round(p[0]), Math.round(p[1]) - 1, 1, 1); }
+      } else glow(ctx, p[0], p[1], M3C.besch, 5, 0.3 + 0.3 * Math.sin(t * 9 + k));
+      var cyc = (t * (brk ? 1.3 : 0.9) + k * 0.37) % 1.1;
+      if (cyc < 0.4) drawFx(ctx, 'sparks', p[0], p[1], cyc, { small: true, seed: k });
+    }
+  }
+
+  // --- Schildstoß (Captain): weißer Sektorbogen, perfekt mit Ring --------------------------------
+  // drawBurst(ctx, cx, cy, opts): opts.angle (Schiffswinkel in Bildschirmkoordinaten), opts.sector 0..3, opts.r (46),
+  // opts.age (s seit Start) ODER opts.left (Restdauer), opts.duration (1.5), opts.perfect (bool), opts.perfectAge (s seit perfektem Treffer),
+  // opts.perfectWindow (0.5), opts.time
+  function arcDots(ctx, cx, cy, r, a0, a1, step) {
+    var n = Math.max(2, Math.ceil(Math.abs(a1 - a0) * r / (step || 1)));
+    for (var i = 0; i <= n; i++) { var a = a0 + (a1 - a0) * i / n; ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1); }
+  }
+  function drawBurst(ctx, cx, cy, opts) {
+    var o = opts || {};
+    var dur = o.duration > 0 ? o.duration : 1.5;
+    var age = o.age != null ? +o.age : (o.left != null ? dur - (+o.left) : 0);
+    if (!(age >= 0) || age > dur) return;
+    var r = o.r > 0 ? o.r : 46, sec = ((o.sector | 0) % 4 + 4) % 4, t = o.time || 0;
+    var mid = (o.angle || 0) + sec * Math.PI / 2, half = Math.PI / 4 - 0.06;
+    var pw = o.perfectWindow > 0 ? o.perfectWindow : 0.5;
+    var q = age / dur, a = age < 0.08 ? age / 0.08 : 1 - Math.max(0, (age - pw) / (dur - pw)) * 0.8;
+    var ga = ctx.globalAlpha, op = ctx.globalCompositeOperation;
+    var thick = age < pw ? 4 : 2, flare = age < pw ? 0.75 + 0.25 * Math.sin(t * 30) : 1;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = M3C.burst;
+    for (var k = 0; k < thick; k++) { ctx.globalAlpha = ga * a * flare * (k === 0 ? 1 : 0.7 - k * 0.12); arcDots(ctx, cx, cy, r + 2 + k, mid - half, mid + half, 1); }
+    // äußere Kante bläulich, Funken auf dem Bogen
+    ctx.fillStyle = PAL.eisblau; ctx.globalAlpha = ga * a * 0.5; arcDots(ctx, cx, cy, r + 2 + thick, mid - half * 0.9, mid + half * 0.9, 2);
+    ctx.fillStyle = '#FFFFFF';
+    for (var s = 0; s < 6; s++) { var sa = mid - half + (hash2(s, (t * 12) | 0, 41)) * half * 2; ctx.globalAlpha = ga * a; ctx.fillRect(Math.round(cx + Math.cos(sa) * (r + 3)), Math.round(cy + Math.sin(sa) * (r + 3)), 1, 1); }
+    ctx.globalAlpha = ga; ctx.globalCompositeOperation = op;
+    glow(ctx, cx + Math.cos(mid) * (r + 3), cy + Math.sin(mid) * (r + 3), M3C.burst, 14, a * 0.5 * (1 - q * 0.5));
+    if (o.perfect) {
+      var pa = o.perfectAge != null ? +o.perfectAge : age;
+      if (pa >= 0 && pa < 0.7) {
+        var pq = pa / 0.7, rr = r + 4 + pq * 26;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = M3C.burst; ctx.globalAlpha = ga * (1 - pq);
+        arcDots(ctx, cx, cy, rr, 0, Math.PI * 2, 1.5); arcDots(ctx, cx, cy, rr - 1, 0, Math.PI * 2, 3);
+        ctx.fillStyle = PAL.mint; ctx.globalAlpha = ga * (1 - pq) * 0.7; arcDots(ctx, cx, cy, rr * 0.82, mid - half, mid + half, 1);
+        // Sternfunkeln am Sektor
+        ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = ga * (1 - pq);
+        var px = Math.round(cx + Math.cos(mid) * (r + 4)), py = Math.round(cy + Math.sin(mid) * (r + 4)), L = Math.round(3 + (1 - pq) * 5);
+        ctx.fillRect(px - L, py, L * 2 + 1, 1); ctx.fillRect(px, py - L, 1, L * 2 + 1);
+        ctx.globalAlpha = ga; ctx.globalCompositeOperation = op;
+        glow(ctx, px, py, '#FFFFFF', 12, 1 - pq);
+      }
+    }
+  }
+
+  // --- Ladeglühen an Gegnern (tele): pulsierend, rot gestrichelt, Fortschrittsbogen ---------------
+  // drawTele(ctx, x, y, opts): opts.left, opts.dur (Restzeit/Gesamtdauer der Ladung), opts.kind ('shot'|'emp'),
+  // opts.r (Radius, Standard 20), opts.time, optional opts.toX/opts.toY (gestrichelte Linie zum Ziel), opts.lineLen (max. Länge)
+  var TELE_R = { raider: 14, gunboat: 26, sentinel: 24, pylon: 20 };
+  // rotes Glühen ÜBER dem Gegnersprite (der Gegner selbst „lädt sich auf“)
+  function teleGlowOver(ctx, kind, x, y, o) {
+    var te = o && o.tele;
+    if (!te || typeof te !== 'object') return;
+    var dur = te.dur > 0 ? +te.dur : 2, left = te.left == null ? dur : Math.max(0, Math.min(dur, +te.left || 0)), p = 1 - left / dur, t = o.time || 0;
+    var pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * (2 + p * 8));
+    glow(ctx, x, y, M3C.enemy, Math.round((TELE_R[kind] || 20) * 0.7), (0.1 + 0.35 * p) * (0.5 + 0.5 * pulse));
+  }
+  function drawTele(ctx, x, y, opts) {
+    var o = opts || {};
+    var dur = o.dur > 0 ? +o.dur : 2, left = o.left == null ? dur : Math.max(0, Math.min(dur, +o.left || 0));
+    var p = 1 - left / dur, t = o.time || 0;
+    var r = Math.max(6, Math.min(80, Math.round(o.r || 20)));
+    var emp = o.kind === 'emp';
+    var freq = 2 + p * 8, pulse = 0.5 + 0.5 * Math.sin(t * Math.PI * 2 * freq);
+    var ga = ctx.globalAlpha, op = ctx.globalCompositeOperation;
+    glow(ctx, x, y, M3C.enemy, Math.round(r * 0.9), 0.12 + 0.5 * p * (0.55 + 0.45 * pulse));
+    if (emp) glow(ctx, x, y, PAL.eisblau, Math.round(r * 0.6), 0.15 + 0.35 * p * pulse);
+    // gestrichelter Ring, zieht sich zusammen und dreht sich schneller
+    var rr = r + Math.round(8 * (1 - p)), rot = t * (1.2 + p * 4), segs = 14;
+    ctx.fillStyle = M3C.enemy;
+    ctx.globalAlpha = ga * (0.55 + 0.45 * pulse);
+    for (var i = 0; i < segs; i += 2) arcDots(ctx, x, y, rr, rot + i / segs * Math.PI * 2, rot + (i + 1) / segs * Math.PI * 2, 1);
+    ctx.globalAlpha = ga * 0.5 * pulse; ctx.fillStyle = '#FFB0A6';
+    for (var j = 1; j < segs; j += 4) arcDots(ctx, x, y, rr + 1, -rot + j / segs * Math.PI * 2, -rot + (j + 0.6) / segs * Math.PI * 2, 1);
+    // Fortschritt (Countdown), voll = Schuss
+    ctx.globalAlpha = ga; ctx.fillStyle = mix('#8A2A24', M3C.enemy, p);
+    if (p > 0) { arcDots(ctx, x, y, r + 3, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2, 1); arcDots(ctx, x, y, r + 4, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2, 1); }
+    // letzte halbe Sekunde: weißer Blitzring
+    if (left < 0.5 && ((t * 16) | 0) % 2 === 0) { ctx.fillStyle = '#FFE8E4'; arcDots(ctx, x, y, r + 1, 0, Math.PI * 2, 2); }
+    if (emp) { ctx.fillStyle = PAL.eisblau; for (var e = 0; e < 5; e++) { var ea = hash2(e, (t * 10) | 0, 17) * Math.PI * 2, er = r * (0.3 + 0.5 * hash2(e, (t * 10) | 0, 18)); ctx.fillRect(Math.round(x + Math.cos(ea) * er), Math.round(y + Math.sin(ea) * er), 1, 1); } }
+    // gestrichelte Linie zum Ziel
+    if (o.toX != null && o.toY != null) {
+      var dx = o.toX - x, dy = o.toY - y, L = Math.sqrt(dx * dx + dy * dy);
+      if (L > 1) {
+        var ux = dx / L, uy = dy / L, maxL = Math.min(L, o.lineLen > 0 ? o.lineLen : L), off = (t * 40) % 8;
+        ctx.fillStyle = M3C.enemy; ctx.globalAlpha = ga * (0.35 + 0.55 * p);
+        for (var d = r + 4 + off; d < maxL; d += 8) for (var s = 0; s < 4 && d + s < maxL; s++) ctx.fillRect(Math.round(x + ux * (d + s)), Math.round(y + uy * (d + s)), 1, 1);
+      }
+    }
+    ctx.globalAlpha = ga; ctx.globalCompositeOperation = op;
+  }
+
+  // --- Strahlen M3a: lance (weiß-mint, dick, Nachglühen), battery (Messing-Bolzen), enemy_heavy (rot) ---
+  // ttl wie bisher (Server beamTtl 0.25 s); opts.ttlMax überschreibt die Gesamtdauer.
+  function drawBeamM3(ctx, x1, y1, x2, y2, kind, ttl, o) {
+    o = o || {};
+    var tmax = o.ttlMax > 0 ? o.ttlMax : 0.25;
+    var life = ttl == null ? 1 : Math.max(0, Math.min(1, ttl / tmax)), age = 1 - life;
+    if (ttl != null && life <= 0) return;
+    var dx = x2 - x1, dy = y2 - y1, L = Math.sqrt(dx * dx + dy * dy);
+    if (L < 1) return;
+    var ang = Math.atan2(dy, dx), op = ctx.globalCompositeOperation, ga = ctx.globalAlpha, i;
+    ctx.save();
+    ctx.translate(x1, y1); ctx.rotate(ang);
+    ctx.globalCompositeOperation = 'lighter';
+    if (kind === 'lance') {
+      if (age < 0.45) {   // voller Strahl
+        var a = age < 0.05 ? 1 : 1 - (age - 0.05) / 0.4 * 0.35, w = 9 + (age < 0.1 ? 3 : 0);
+        ctx.globalAlpha = ga * a * 0.3; ctx.fillStyle = PAL.mint; ctx.fillRect(0, -Math.round(w / 2), L, w);
+        ctx.globalAlpha = ga * a * 0.85; ctx.fillRect(0, -2, L, 5);
+        ctx.globalAlpha = ga * a; ctx.fillStyle = '#E8FFF8'; ctx.fillRect(0, -1, L, 3);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, L, 1);
+        for (i = 6; i < L; i += 11) { ctx.globalAlpha = ga * a * 0.8; ctx.fillRect(i, -4, 1, 9); }
+      } else {   // Nachglühen: dünne Mint-Linie, Restfunken
+        var ag = (1 - (age - 0.45) / 0.55);
+        ctx.globalAlpha = ga * ag * 0.7; ctx.fillStyle = PAL.mint; ctx.fillRect(0, -1, L, 2);
+        ctx.globalAlpha = ga * ag * 0.25; ctx.fillRect(0, -3, L, 6);
+        ctx.fillStyle = '#E8FFF8';
+        for (i = 0; i < 10; i++) { var px = hash2(i, 3, 61) * L, py = (hash2(i, 4, 61) - 0.5) * 8 * (1 + age); ctx.globalAlpha = ga * ag; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); }
+      }
+    } else if (kind === 'battery' || kind === 'bolzen') {
+      var bolts = kind === 'bolzen' ? 1 : 2;
+      ctx.globalAlpha = ga * 0.12 * life; ctx.fillStyle = PAL.messing; ctx.fillRect(0, 0, L, 1);
+      for (var b = 0; b < bolts; b++) {
+        var head = Math.min(1, age * 2.4 - b * 0.22);
+        if (head <= 0 || head >= 1) continue;
+        var hx = head * L, bl = Math.min(14, L * 0.12);
+        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = PAL.messing; ctx.fillRect(Math.round(hx - bl * 1.6), -1, Math.round(bl * 1.6), 3);
+        ctx.globalAlpha = ga; ctx.fillStyle = '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1, Math.round(bl), 2);
+        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1, 3, 2); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
+      }
+    } else {   // enemy_heavy
+      var ah = age < 0.06 ? 1 : 1 - (age - 0.06) / 0.94, jit = ((age * 40) | 0) % 2;
+      ctx.globalAlpha = ga * ah * 0.3; ctx.fillStyle = M3C.enemy; ctx.fillRect(0, -5, L, 10);
+      ctx.globalAlpha = ga * ah * 0.9; ctx.fillRect(0, -2 + jit, L, 4);
+      ctx.globalAlpha = ga * ah; ctx.fillStyle = '#FFD0C8'; ctx.fillRect(0, 0, L, 1);
+      ctx.fillStyle = M3C.enemy;
+      for (i = 4; i < L; i += 9) { ctx.globalAlpha = ga * ah * 0.8; var yy = ((hash2(i, (age * 30) | 0, 7) - 0.5) * 8) | 0; ctx.fillRect(i, yy, 2, 1); }
+    }
+    ctx.restore();
+    ctx.globalCompositeOperation = op; ctx.globalAlpha = ga;
+    if (kind === 'lance') {
+      glow(ctx, x2, y2, PAL.mint, 16, age < 0.45 ? 1 : 0.4 * life);
+      glow(ctx, x2, y2, '#FFFFFF', 7, age < 0.45 ? 0.8 : 0);
+      glow(ctx, x1, y1, PAL.mint, 10, age < 0.45 ? 0.9 : 0.3 * life);
+    } else if (kind === 'battery' || kind === 'bolzen') {
+      if (age < 0.15) glow(ctx, x1, y1, PAL.bernstein, 7, 1 - age / 0.15);
+      if (age > 0.38) { glow(ctx, x2, y2, PAL.bernstein, 9, life); if (age < 0.6) drawFx(ctx, 'sparks', x2, y2, (age - 0.38) * 1.5, { small: true, seed: (x2 | 0) }); }
+    } else {
+      glow(ctx, x2, y2, M3C.enemy, 14, life);
+      glow(ctx, x1, y1, M3C.enemy, 9, life * 0.8);
+    }
+  }
+
   // ---------------------------------------------------------------------------------------------
   // API (alle Aufrufe abgesichert: nie werfen, Fehler zählen)
   // ---------------------------------------------------------------------------------------------
@@ -5132,12 +5968,22 @@
   Art.drawPanel = safe('drawPanel', drawPanel);
   Art.drawIcon = safe('drawIcon', drawIcon);
   Art.drawOverlay = safe('drawOverlay', drawOverlay);
+  // M3a
+  Art.drawStationBadge = safe('drawStationBadge', drawStationBadge, 0);
+  Art.drawStateTag = safe('drawStateTag', drawStateTag, 0);
+  Art.drawTele = safe('drawTele', drawTele);
+  Art.drawBurst = safe('drawBurst', drawBurst);
+  Art.sideLabel = function (side) { return SIDE_LABEL[normSide(side) || 'mid']; };
+  Art.sideColor = function (side) { return SIDE_COL[normSide(side) || 'mid']; };
+  Art.stateLabel = function (state, fragile) { return STATE_TXT[stateCode(state, fragile)]; };
+  Art.stateColor = function (state, fragile) { return STATE_COL[stateCode(state, fragile)]; };
   Art.cacheSize = function () { return cache.size; };
   Art.LINE_H = LINE_H;
 
   if (!hasDom) {   // ohne DOM (z. B. Node): alle Zeichenfunktionen No-op
     ['drawTile', 'drawObject', 'drawCharacter', 'drawBot', 'drawNpc', 'drawDrone', 'drawItem', 'drawFx', 'drawShip', 'drawEnemy',
-      'drawAsteroid', 'drawStation', 'drawProjectile', 'drawBeam', 'drawStarfield', 'drawText', 'drawPanel', 'drawIcon', 'drawOverlay']
+      'drawAsteroid', 'drawStation', 'drawProjectile', 'drawBeam', 'drawStarfield', 'drawText', 'drawPanel', 'drawIcon', 'drawOverlay',
+      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst']
       .forEach(function (k) { Art[k] = function () { return 0; }; });
   }
   root.Art = Art;

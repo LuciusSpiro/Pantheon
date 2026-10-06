@@ -21,6 +21,7 @@
   button.loud { border-color:var(--red); }
   button.m1 { box-shadow: inset 3px 0 0 var(--amber); }
   button.m2 { box-shadow: inset 3px 0 0 var(--mint); }
+  button.m3 { box-shadow: inset 3px 0 0 var(--brass); }
   .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
   label { display:flex; gap:8px; align-items:center; }
   input[type=range] { width:180px; accent-color:var(--mint); }
@@ -30,7 +31,7 @@
 </head>
 <body>
 <h1>Sternenschicht – Audio-Vorschau</h1>
-<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“).</p>
+<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“), messing: neu in M3a („Breitseite &amp; Schaden“).</p>
 
 <h2>Musik</h2>
 <div class="grid" id="moods"></div>
@@ -52,6 +53,11 @@
 <p class="hint">shield_hit/shield_up mit <code>seg</code>, bark mit <code>syl</code>/<code>text</code>/<code>q</code>, enemy_aim mit <code>dist</code>. Panorama und Sound-Lautstärke oben gelten auch hier.</p>
 <div class="grid" id="variants"></div>
 
+<h2>M3a – Parameter und Abläufe</h2>
+<p class="hint">battery_salvo mit <code>count</code>, tele_charge mit <code>kind</code>, minigame_hit mit <code>n</code>,
+lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spielen ganze Szenen (Bug-Schuss, Minispiel).</p>
+<div class="grid" id="variantsM3"></div>
+
 <h2>Master</h2>
 <div class="row">
   <label>Lautstärke <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
@@ -72,8 +78,12 @@
   var M2 = { shield_break:1, shield_up:1, shield_full:1, wounded:1, revive_done:1, pistol:1, enemy_aim:1, enemy_shot:1,
              warden_wake:1, warden_aim:1, warden_shot:1, warden_deflect:1, cover_hit:1, jammer_off:1, archkey:1,
              vault_open:1, tablet:1, bark:1, order:1, squad_recall:1, ruin:1 };
+  var M3 = { lance_charge:1, lance_aim:1, lance_fire:1, aim_abort:1, battery_salvo:1, tele_charge:1, heavy_hit:1,
+             burst:1, burst_perfect:1, flick:1, swap:1, minigame_tick:1, minigame_hit:1, minigame_miss:1,
+             minigame_done:1, system_break:1 };
   LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
-  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : '')).trim(); }
+  LOUD.tele_charge = 1; LOUD.heavy_hit = 1; LOUD.system_break = 1;
+  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : '')).trim(); }
 
   function ensure() { if (A) A.init(); }
   function make(parent, label, fn, cls) {
@@ -135,6 +145,54 @@
       }, s[0]);
     });
   }, 'm2 loud');
+
+  // M3a-Varianten und Abläufe
+  function at(ms, fn) { setTimeout(fn, ms); }
+  var VARIANTS_M3 = [
+    ['battery_salvo count 2', 'battery_salvo', { count: 2 }],
+    ['battery_salvo count 4', 'battery_salvo', { count: 4 }],
+    ['battery_salvo count 5', 'battery_salvo', { count: 5 }],
+    ['tele_charge gunboat', 'tele_charge', { kind: 'gunboat' }],
+    ['tele_charge pylon', 'tele_charge', { kind: 'pylon' }],
+    ['tele_charge sentinel', 'tele_charge', { kind: 'sentinel' }],
+    ['minigame_hit n 1', 'minigame_hit', { n: 1 }],
+    ['minigame_hit n 2', 'minigame_hit', { n: 2 }],
+    ['minigame_hit n 3', 'minigame_hit', { n: 3 }]
+  ];
+  VARIANTS_M3.forEach(function (v) {
+    make($('variantsM3'), v[0], function () { A.play(v[1], withP(v[2])); }, 'm3');
+  });
+  make($('variantsM3'), 'Ablauf: Bug-Schuss trifft', function () {
+    A.play('lance_charge', base());
+    at(950, function () { A.play('lance_aim', base()); });
+    at(2450, function () { A.play('lance_fire', base()); });
+  }, 'm3');
+  make($('variantsM3'), 'Ablauf: Zielphase abgebrochen', function () {
+    A.play('lance_aim', base());
+    at(700, function () { A.play('aim_abort', base()); });   // stoppt lance_aim automatisch
+  }, 'm3');
+  make($('variantsM3'), 'Ablauf: Ladung verfehlt (stop)', function () {
+    A.play('tele_charge', withP({ kind: 'gunboat', key: 'e3' }));
+    at(1500, function () { A.stop('tele_charge', { key: 'e3' }); });
+  }, 'm3');
+  make($('variantsM3'), 'Ablauf: Ladung trifft schwer', function () {
+    A.play('tele_charge', withP({ kind: 'pylon' }));
+    at(2000, function () { A.play('heavy_hit', base()); });
+    at(2300, function () { A.play('system_break', base()); });
+  }, 'm3 loud');
+  make($('variantsM3'), 'Ablauf: Schildstoß perfekt', function () {
+    A.play('tele_charge', withP({ kind: 'gunboat', dur: 1.5 }));
+    at(1350, function () { A.play('burst_perfect', base()); });
+  }, 'm3');
+  make($('variantsM3'), 'Ablauf: Minispiel', function () {
+    var ms = 0, hits = 0, seq = ['tick', 'tick', 'tick', 'hit', 'tick', 'tick', 'miss', 'tick', 'tick', 'tick', 'hit', 'tick', 'tick', 'hit'];
+    seq.forEach(function (s) {
+      ms += 220;
+      if (s === 'hit') { hits++; var n = hits; at(ms, function () { A.play('minigame_hit', withP({ n: n })); }); }
+      else at(ms, function () { A.play('minigame_' + s, base()); });
+    });
+    at(ms + 250, function () { A.play('minigame_done', base()); });
+  }, 'm3');
 
   $('intensity').addEventListener('input', function () {
     ensure(); A.setIntensity(+this.value); $('intensityVal').textContent = (+this.value).toFixed(2);

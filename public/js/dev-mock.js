@@ -55,6 +55,42 @@
   const LOC_ORDER = LOCS.map(l => l.id);
 
   function tc(tx, ty) { return { x: tx * TILE + 16, y: ty * TILE + 16 }; }
+  // M3a: Schiffspositionen aus dem Layout (Legende, SHIP_ROOMS, BEDS, Pads) statt fester Koordinaten
+  function shipTiles(pred) {
+    const m = Maps.ship, out = [];
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (pred(m.info(x, y), x, y)) out.push({ x, y });
+    return out;
+  }
+  // Stehplätze an Objektkacheln: begehbare Nachbarn + Blickrichtung
+  function standSpots(tiles) {
+    const spots = [];
+    for (const t of tiles) for (const [dx, dy, dir] of [[-1, 0, 'right'], [0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left']]) {
+      const x = t.x + dx, y = t.y + dy;
+      if (!Maps.ship.solid(x, y) && !spots.some(s => s.x === x && s.y === y)) spots.push({ x, y, dir });
+    }
+    return spots;
+  }
+  function standNear(t) { return standSpots([t])[0] || null; }
+  // Stehplatz an einer Konsole (k = welcher Platz)
+  function consoleSpot(con, k) {
+    const spots = standSpots(shipTiles(i => i.console === con));
+    return spots[Math.min(k || 0, spots.length - 1)] || { x: Maps.SHIP_SPAWNS[0].x, y: Maps.SHIP_SPAWNS[0].y, dir: 'down' };
+  }
+  // Mittelpunkt (begehbar) eines Raums
+  function roomCenter(r) {
+    if (!r) return Maps.SHIP_SPAWNS[0];
+    const cx = Math.floor((r.x0 + r.x1) / 2), cy = Math.floor((r.y0 + r.y1) / 2);
+    let best = null, bd = 1e9;
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
+      if (Maps.ship.solid(x, y)) continue;
+      const d = Math.abs(x - cx) + Math.abs(y - cy);
+      if (d < bd) { bd = d; best = { x, y }; }
+    }
+    return best || Maps.SHIP_SPAWNS[0];
+  }
+  function shipRoom(id) { return (Maps.SHIP_ROOMS || []).find(r => r.id === id) || null; }
+  function guestQuarter() { const b = (Maps.BEDS || []).find(q => q.color === 3); return b && b.room ? (shipRoom(b.room.id) || b.room) : null; }
+  function shipPad(i) { const pads = shipTiles(info => info.kind === 'pad'); return pads[Math.min(i || 0, pads.length - 1)] || Maps.SHIP_SPAWNS[0]; }
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function wreckMap() { return Maps.wreck || (window.Render && Render.wreckMap ? Render.wreckMap() : Maps.platform); }
@@ -88,13 +124,16 @@
         power: Object.assign({}, CFG.power.default),
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
         heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
-        shields: { pool: 4, alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice() },
-        systems: { reactor: 'ok', engines: 'ok', shields: 'ok', weapons: 'ok', life: 'ok', transfer: 'ok' },
+        shields: { pool: 4, alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
+        systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer']).map(s => [s, 'ok'])),
+        // M3a (CONTRACT-M3 §9.3)
+        turnVel: 0, turnCap: { port: 1, stbd: 1 }, fragile: [], repairQueue: [], botAuto: false, chargePoints: 4,
         fires: [], breaches: [], groundItems: [],
         dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: 'Kein Ziel gewählt' },
         mounts: [
-          { id: 'phase_l', facing: -20, arc: 60, range: 560, charge: 1 },
-          { id: 'phase_r', facing: 20, arc: 60, range: 560, charge: 1 },
+          { id: 'bow', facing: 0, arc: 16, range: 650, charge: 1, alloc: 2, state: 'ok', aim: null },
+          { id: 'port', facing: -90, arc: 70, range: 520, charge: 0.42, alloc: 1, state: 'ok', hold: false, salvo: 0, salvoMax: 4 },
+          { id: 'stbd', facing: 90, arc: 70, range: 520, charge: 0.1, alloc: 1, state: 'ok', hold: true, salvo: 0, salvoMax: 4 },
         ],
         target: null, priority: null, scan: { progress: 0, done: false },
         markers: { captain: null, tactical: null },
@@ -190,7 +229,7 @@
   function setAway(on) {
     const p = me(), a = W.away;
     p.console = null;
-    if (!on) { p.zone = 'ship'; Object.assign(p, tc(10, 9)); p.sh = null; p.downed = false; a.active = false; ev('beam', { pids: [p.id], dir: 'up' }); return; }
+    if (!on) { const pad = shipPad(0), back = roomCenter(Maps.roomAt ? Maps.roomAt(pad.x, pad.y) : null); p.zone = 'ship'; Object.assign(p, tc(back.x, back.y)); p.sh = null; p.downed = false; a.active = false; ev('beam', { pids: [p.id], dir: 'up' }); return; }
     if (W.world.location === 'kesh') { setupKesh(params.get('scene') || 'hof', !params.get('console')); ev('beam', { pids: [p.id], dir: 'down' }); return; }
     const wreck = W.world.location === 'wrack';
     a.active = true; a.map = wreck ? 'wreck' : 'platform'; a.combat = null; a.orders = [];
@@ -513,27 +552,37 @@
     for (const [dx, dy] of cand) {
       const tx = t.x + dx, ty = t.y + dy, ch = map.at(tx, ty);
       if (p.zone === 'ship') {
-        if (ch === 'y') {
-          if (W.ship.reactor.state !== 'offline') { notice('Schalter nur nach Abschaltung'); return; }
-          const sw = Maps.REACTOR_SWITCHES.find(s => s.x === tx && s.y === ty);
-          p.action = { kind: 'switch', progress: 0, dur: 999, sw: sw ? sw.id : 'A' }; return;
-        }
+        // M3a: alles über die Legende der Schiffskarte und das Schiffslayout (keine festen Zeichen/Koordinaten)
         const info = map.info(tx, ty);
+        if (info.interact === 'switch') {
+          const sw = (Maps.REACTOR_SWITCHES || []).find(s => s.x === tx && s.y === ty);
+          if (!sw) continue;
+          if (W.ship.reactor.state !== 'offline') { notice('Schalter nur nach Abschaltung'); return; }
+          p.action = { kind: 'switch', progress: 0, dur: 999, sw: sw.id }; return;
+        }
         if (info.interact === 'console') {
           if (info.console === 'shop' && !W.ship.dockedAt) { notice('Terminal nur angedockt'); return; }
           if (info.console !== 'plan' && W.players.some(q => q !== p && q.console === info.console)) { notice('Konsole besetzt'); return; }
           p.console = info.console; p.action = null; return;
         }
-        const sys = { R: 'reactor', E: 'engines', G: 'shields', K: 'weapons', X: 'transfer', O: 'life' }[ch];
-        if (sys && W.ship.systems[sys] !== 'ok') { p.action = { kind: 'repair', progress: 0, dur: 4, sys }; return; }
-        if (ch === 'L') {
-          const item = Maps.SHELVES[tx];
+        const sys = info.system;
+        if (sys) {
+          // M3a: mit Ersatzteil austauschen (auch heil+fragil), sonst flicken (nur beschädigt/zerstört)
+          const stt = W.ship.systems[sys], fr = W.ship.fragile.indexOf(sys) >= 0;
+          if (stt === 'offline') { notice('Offline (EMP) – startet selbst neu'); return; }
+          if (p.carry === 'ersatzteil' && (stt !== 'ok' || fr)) { p.action = { kind: 'swap', progress: 0, dur: 3, sys }; return; }
+          if (stt !== 'ok') { p.action = { kind: 'flick', progress: 0, dur: 1.5, sys }; return; }
+        }
+        if (info.interact === 'shelf') {
+          const shelf = Maps.shelfAt ? Maps.shelfAt(tx, ty) : null;
+          if (!shelf) continue;
+          const item = shelf.item;
           if (p.carry === item) { p.carry = null; W.inventory[item]++; return; }
           if (!p.carry && W.inventory[item] > 0) { p.carry = item; W.inventory[item]--; return; }
           notice(p.carry ? 'Du trägst schon etwas' : 'Regal leer'); return;
         }
-        if (ch === 'B') { const bed = Maps.BEDS.find(b => b.x === tx && b.y === ty); if (bed && bed.color === p.color) { p.console = 'quartier'; return; } }
-        if (dx === 0 && dy === 0 && ch === 'P') { p.action = { kind: 'beam', progress: 0, dur: 3 }; return; }
+        if (info.interact === 'bed') { const bed = Maps.BEDS.find(b => b.x === tx && b.y === ty); if (bed && bed.color === p.color) { p.console = 'quartier'; return; } }
+        if (dx === 0 && dy === 0 && info.kind === 'pad') { p.action = { kind: 'beam', progress: 0, dur: 3 }; return; }
       } else {
         const a = W.away;
         if (ch === 'h') { const s = a.salvage.find(q => q.x === tx && q.y === ty); if (s && !s.done) { p.action = { kind: 'salvage', progress: 0, dur: 2, s }; return; } }
@@ -548,6 +597,8 @@
     p.action = null;
     if (keshFinish(p, a)) return;
     if (a.kind === 'repair') { W.ship.systems[a.sys] = 'ok'; W.stats.repairs++; ev('repairDone', { system: a.sys }); }
+    else if (a.kind === 'flick') repairSys(a.sys, 'flick', p.id);
+    else if (a.kind === 'swap') { p.carry = null; repairSys(a.sys, 'swap', p.id); }
     else if (a.kind === 'beam') setAway(p.zone === 'ship');
     else if (a.kind === 'salvage') { a.s.done = true; W.inventory.marks += 30; notice('Container geborgen: +30 Marken'); }
     else if (a.kind === 'hollow') { W.away.hollow.open = true; addLog('Hohlraum im Wrack: Kristalllampe gefunden.', 'wrack'); W.inventory.deko.push('kristalllampe'); }
@@ -577,8 +628,202 @@
     mt.charge = 0;
     return true;
   }
+  // ---------------------------------------------------------------- M3a „Breitseite & Schaden“ (grobe Nachbildung von §4–§8)
+  function m3n(path, d) { let o = CFG.spaceM3; for (const k of path.split('.')) { if (o == null) break; o = o[k]; } return typeof o === 'number' ? o : d; }
+  const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
+  const MOUNT_SYS = { bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' };
+  const SYS_SECTOR = {};
+  for (const st of (window.Render && Render.shipStations ? Render.shipStations() : [])) SYS_SECTOR[st.system] = st.sector;
+  function isFr(sys) { return W.ship.fragile.indexOf(sys) >= 0; }
+  function setFr(sys, on) { const f = W.ship.fragile; const i = f.indexOf(sys); if (on && i < 0) f.push(sys); if (!on && i >= 0) f.splice(i, 1); }
+  function repairSys(sys, how, by) {
+    const s = W.ship.systems;
+    if (how === 'flick') { s[sys] = s[sys] === 'broken' ? 'damaged' : 'ok'; setFr(sys, true); W.stats.flicks = (W.stats.flicks || 0) + 1; ev('sfx', { name: 'flick' }); }
+    else if (how === 'swap') { s[sys] = 'ok'; setFr(sys, false); W.stats.swaps = (W.stats.swaps || 0) + 1; ev('sfx', { name: 'swap' }); }
+    else { s[sys] = s[sys] === 'broken' ? 'damaged' : 'ok'; setFr(sys, false); W.stats.minigames = (W.stats.minigames || 0) + 1; }
+    ev('repairDone', { system: sys, how, by, state: s[sys], fragile: isFr(sys) });
+  }
+  function damageSys(sys, state) {
+    W.ship.systems[sys] = state; setFr(sys, false);
+    ev('systemHit', { system: sys, state });
+  }
+  function hitSystems(sector) {
+    const fr = W.ship.fragile.filter(x => SYS_SECTOR[x] === sector);
+    if (fr.length) { for (const x of fr) damageSys(x, 'broken'); return; }
+    if (Math.random() > 0.45) return;
+    const cand = Object.keys(SYS_SECTOR).filter(x => SYS_SECTOR[x] === sector && W.ship.systems[x] !== 'broken');
+    if (!cand.length) return;
+    const x = cand[Math.floor(Math.random() * cand.length)];
+    damageSys(x, W.ship.systems[x] === 'ok' ? 'damaged' : 'broken');
+  }
+  function m3Hit(sector, dmg, heavy) {
+    const s = W.ship, sh = s.shields;
+    const bu = sh.burst;
+    if (bu && bu.sector === sector && bu.left > 0) {
+      if (bu.perfectLeft > 0) { sh.current[sector] = Math.min(sh.cap[sector], sh.current[sector] + 1); ev('burst', { sector, perfect: true }); ev('sfx', { name: 'burst_perfect' }); return; }
+      const a = Math.min(bu.absorb, dmg); bu.absorb -= a; dmg -= a; if (a) ev('burst', { sector, perfect: false, absorbed: a });
+      if (dmg <= 0) return;
+    }
+    const take = Math.min(sh.current[sector], dmg); sh.current[sector] -= take; dmg -= take;
+    if (dmg > 0) { s.hull = Math.max(30, s.hull - dmg * 3); hitSystems(sector); }
+    ev('hit', { sector, shield: take > 0 && dmg <= 0, dmg, heavy: !!heavy });
+  }
+  function m3Mount(id) { return W.ship.mounts.find(x => x.id === id); }
+  function m3Fire(id) {
+    const s = W.ship, mt = m3Mount(id);
+    if (!mt) return 'Nicht eingebaut';
+    if (mt.state === 'broken') return 'Waffe zerstört';
+    if (mt.charge < 1) return 'Nicht geladen';
+    const tg = W.space.enemies.find(e => e.id === s.target);
+    if (!tg) return 'Kein Ziel';
+    if (id === 'bow') { if (mt.aim) return 'Zielt schon'; mt.aim = { left: m3n('aimTime', 1.5), dev: 0, _a0: s.angle }; ev('aim', { state: 'start' }); ev('sfx', { name: 'lance_aim' }); return null; }
+    if (!Phys.inArc(s.x, s.y, s.angle, mt.facing, mt.arc, mt.range, tg.x, tg.y)) return 'Ziel außerhalb des Feuerbogens';
+    mt.salvo = mt.salvoMax; mt._gap = 0; mt._tg = tg.id; mt.charge = 0;
+    ev('sfx', { name: 'battery_salvo', count: mt.salvoMax });
+    return null;
+  }
+  function m3Tick(dt) {
+    const s = W.ship, sh = s.shields, sys = s.systems, sp = W.space;
+    // Drehen über turnVel (§6)
+    const capOf = (x) => ({ ok: 1, damaged: 0.5, broken: 0.15, offline: 0.15 })[sys[x]] || 1;
+    s.turnCap = { port: capOf('thruster_port'), stbd: capOf('thruster_stbd') };
+    const h = s.helm, rate = CFG.ship.turnRate, acc = CFG.ship.turnAccel || 0.8;
+    const want = h.manned ? h.turn * rate * (h.turn < 0 ? s.turnCap.port : s.turnCap.stbd) : 0;
+    s.turnVel += Math.max(-acc * dt, Math.min(acc * dt, want - s.turnVel));
+    if (!s.dockedAt) s.angle = Phys.normAngle(s.angle + s.turnVel * dt);
+    // Schild-Kappung über Emitter, Stoß
+    sh.cap = EMITTERS.map(e => sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 2 : 4);
+    for (let i = 0; i < 4; i++) sh.current[i] = Math.min(sh.current[i], sh.cap[i]);
+    if (params.get('burst') === '1' && !sh.burst) { sh.burst = { sector: 3, left: 1.5, perfectLeft: 0.5, absorb: 5 }; sh.burstCd = 7.4; }   // Screenshot-Modus
+    if (sh.burst) { sh.burst.left -= dt; sh.burst.perfectLeft = Math.max(0, sh.burst.perfectLeft - dt); if (sh.burst.left <= 0) sh.burst = null; }
+    sh.burstCd = Math.max(0, sh.burstCd - dt);
+    // Waffen: Ladepunkte, Laden, Zielphase, Salven
+    s.chargePoints = s.power.weapons > 0 ? s.power.weapons + 2 : 0;
+    for (const mt of s.mounts) {
+      const msys = MOUNT_SYS[mt.id];
+      if (!msys) continue;
+      mt.state = sys[msys];
+      if (mt.salvoMax != null) mt.salvoMax = W.upgrades.seitenturm ? 5 : mt.state === 'damaged' ? 2 : 4;
+      const per = (CFG.spaceM3 && CFG.spaceM3.mounts[mt.id].secPerPoint) || 16;
+      if (mt.state !== 'broken' && mt.alloc > 0 && !mt.aim && !(mt.salvo > 0)) mt.charge = Math.min(1, mt.charge + dt * mt.alloc / per * (mt.state === 'damaged' ? 1 / 1.5 : 1) * (params.get('fastcharge') === '1' ? 6 : 1));
+      if (mt.aim) {
+        if (params.get('aim') === '1') { mt.aim.left = 0.8 + 0.6 * Math.abs(Math.sin(W.time * 0.5)); mt.aim.dev = 3.6 * Math.sin(W.time * 1.3); continue; }
+        mt.aim.left -= dt;
+        mt.aim.dev = Math.round(Math.abs(Phys.normAngle(s.angle - mt.aim._a0)) * 180 / Math.PI * 10) / 10;
+        if (mt.aim.dev > m3n('aimTolerance', 5)) { mt.aim = null; mt.charge = m3n('aimAbortCharge', 0.7); ev('aim', { state: 'abort' }); ev('sfx', { name: 'aim_abort' }); continue; }
+        if (mt.aim.left <= 0) {
+          mt.aim = null; mt.charge = 0;
+          const tg = sp.enemies.find(e => e.id === s.target);
+          if (tg && Phys.inArc(s.x, s.y, s.angle, 0, 16, 650, tg.x, tg.y)) { sp.beams.push({ x1: s.x, y1: s.y, x2: tg.x, y2: tg.y, ttl: 0.5, kind: 'lance' }); damageEnemy(tg, 8, s.x, s.y); ev('aim', { state: 'fire' }); ev('sfx', { name: 'lance_fire' }); }
+          else { sp.beams.push({ x1: s.x, y1: s.y, x2: s.x + Math.cos(s.angle) * 650, y2: s.y + Math.sin(s.angle) * 650, ttl: 0.5, kind: 'lance' }); ev('aim', { state: 'miss' }); }
+        }
+      }
+      if (mt.salvo > 0) {
+        mt._gap -= dt;
+        if (mt._gap <= 0) {
+          mt._gap = 0.15; mt.salvo--;
+          const tg = sp.enemies.find(e => e.id === mt._tg);
+          if (tg) { sp.beams.push({ x1: s.x, y1: s.y, x2: tg.x + (Math.random() - 0.5) * 16, y2: tg.y + (Math.random() - 0.5) * 16, ttl: 0.2, kind: 'battery' }); damageEnemy(tg, 1.5, s.x, s.y); }
+        }
+      }
+      // Feuer frei: geladene Batterie feuert selbst
+      if (!mt.hold && mt.id !== 'bow' && mt.charge >= 1 && s.target) m3Fire(mt.id);
+    }
+    // Waffen-Altname = schlechtester Zustand
+    const rank = { ok: 0, damaged: 1, broken: 2, offline: 2 };
+    sys.weapons = ['weapon_bow', 'battery_port', 'battery_stbd'].reduce((a, x) => rank[sys[x]] > rank[a] ? sys[x] : a, 'ok');
+    // Ladungen der Gegner (§7.1)
+    for (const e of sp.enemies) {
+      const tc = CFG.spaceM3 && CFG.spaceM3.tele[e.kind];
+      if (!tc) continue;
+      if (params.get('tele') === '1' && !e.tele) e._teleT = Math.min(e._teleT == null ? 0.5 : e._teleT, 3);
+      e._teleT = (e._teleT == null ? 2 + Math.random() * 3 : e._teleT) - dt;
+      const sec = Phys.sectorOf(s.x, s.y, s.angle, e.x, e.y);
+      if (!e.tele && e._teleT <= 0) { e.tele = { kind: tc.emp ? 'emp' : 'shot', left: tc.dur, dur: tc.dur, sector: sec }; ev('tele', { id: e.id, tkind: e.tele.kind, sector: sec, dur: tc.dur, enemy: e.kind }); ev('sfx', { name: 'tele_charge', enemy: e.kind, dur: tc.dur, key: e.id }); }
+      if (e.tele) {
+        e.tele.sector = sec;
+        e.tele.left -= dt;
+        if (params.get('tele') === '1' && e.tele.left < 0.5) e.tele.left = e.tele.dur;   // Screenshot-Modus: Ladung läuft endlos
+        if (e.tele.left <= 0) {
+          sp.beams.push({ x1: e.x, y1: e.y, x2: s.x, y2: s.y, ttl: 0.4, kind: 'enemy_heavy' });
+          ev('sfx', { name: 'heavy_hit' });
+          m3Hit(sec, tc.damage || 2, true);
+          e.tele = null; e._teleT = 5 + Math.random() * 3;
+        }
+      }
+    }
+    // Bots arbeiten die Reparaturliste ab (stark vereinfacht: 6 s je Eintrag)
+    if (s.botAuto) for (const x of Object.keys(sys)) if (x !== 'weapons' && sys[x] !== 'ok' && s.repairQueue.length < 3 && !s.repairQueue.some(q => q.system === x)) s.repairQueue.push({ system: x, mode: sys[x] === 'broken' && W.inventory.ersatzteil > 0 ? 'part' : 'flick', bot: null });
+    s.repairQueue.forEach((q, i) => { const b = W.bots[i]; if (b && !q.bot) q.bot = b.id; });
+    W._botRepT = (W._botRepT || 0) + dt;
+    if (W._botRepT > 6 && s.repairQueue.length && params.get('dmg') !== '1') { W._botRepT = 0; const q = s.repairQueue.shift(); repairSys(q.system, q.mode === 'part' ? 'swap' : 'flick', 'bot'); }
+    s.repairQueue = s.repairQueue.filter(q => sys[q.system] !== 'ok' || isFr(q.system));
+  }
+  function m3Cmd(p, m) {
+    const s = W.ship;
+    const alias = { phase_l: 'port', phase_r: 'stbd', both: 'all' };
+    switch (m.c) {
+      case 'weapons.fire': {
+        const id = alias[m.mount] || m.mount;
+        if (id === 'all') { let any = false; for (const k of ['bow', 'port', 'stbd']) if (!m3Fire(k)) any = true; if (!any) notice('Keine Waffe bereit'); return true; }
+        if (id === 'bolzen') return false;
+        const err = m3Fire(id); if (err) notice(err); return true;
+      }
+      case 'weapons.alloc': {
+        const mt = m3Mount(m.mount); if (!mt) return true;
+        const used = s.mounts.reduce((a, x) => a + (x.alloc || 0), 0);
+        const v = mt.alloc + m.delta;
+        if (v < 0 || v > 4 || (m.delta > 0 && used >= s.chargePoints)) { notice('Ladepunkte: Grenze erreicht'); return true; }
+        mt.alloc = v; return true;
+      }
+      case 'weapons.hold': { const mt = m3Mount(m.mount); if (mt) mt.hold = !!m.hold; return true; }
+      case 'captain.burst': {
+        const sh = s.shields, sec = m.sector;
+        if (sh.burstCd > 0) { notice('Schildstoß lädt nach'); return true; }
+        if (s.systems.shields === 'broken' || s.systems[EMITTERS[sec]] === 'broken') { notice('Schildstoß nicht möglich'); return true; }
+        sh.burst = { sector: sec, left: 1.5, perfectLeft: 0.5, absorb: s.systems[EMITTERS[sec]] === 'damaged' ? 2 : 5 };
+        sh.burstCd = m3n('burst.cooldown', 8);
+        W.stats.bursts = (W.stats.bursts || 0) + 1;
+        ev('sfx', { name: 'burst' });
+        return true;
+      }
+      case 'captain.repair': {
+        const q = s.repairQueue.find(x => x.system === m.system);
+        if (!m.mode) { s.repairQueue = s.repairQueue.filter(x => x !== q); return true; }
+        if (q) q.mode = m.mode; else if (s.repairQueue.length < 3) s.repairQueue.push({ system: m.system, mode: m.mode, bot: null }); else notice('Liste voll');
+        return true;
+      }
+      case 'captain.botAuto': s.botAuto = !!m.on; return true;
+      case 'repair.start': {
+        const st = s.systems[m.system];
+        if (!st || (st === 'ok' && !isFr(m.system)) || st === 'offline') { notice('Nichts zu reparieren'); return true; }
+        p.action = { kind: 'minigame', system: m.system, progress: 0, t: 0 }; p.moving = false; W._in = { mx: 0, my: 0 };
+        return true;
+      }
+      case 'repair.done':
+        if (p.action && p.action.kind === 'minigame' && p.action.system === m.system && p.action.t >= m3n('repair.minigameMinTime', 2.5)) repairSys(m.system, 'minigame', p.id);
+        else if (p.action && p.action.kind === 'minigame') notice('Minispiel zu früh beendet');
+        p.action = null; return true;
+      case 'repair.cancel': if (p.action && p.action.kind === 'minigame') p.action = null; return true;
+    }
+    return false;
+  }
+  function m3Params() {
+    const s = W.ship, sy = s.systems;
+    if (params.get('dmg') === '1') {
+      Object.assign(sy, { emitter_stbd: 'broken', thruster_stbd: 'damaged', battery_stbd: 'damaged', emitter_port: 'damaged', shields: 'damaged', thruster_port: 'broken', engines: 'damaged' });
+      s.fragile = ['battery_port', 'thruster_stbd'];
+      s.repairQueue = [{ system: 'emitter_stbd', mode: 'part', bot: 'b0' }, { system: 'thruster_port', mode: 'flick', bot: null }];
+    }
+    if (params.get('gunboat') === '1') spawnEnemy('gunboat', s.x + 330, s.y - 220);
+    if (params.get('burst') === '1') { s.shields.burst = { sector: 3, left: 1.1, perfectLeft: 0.3, absorb: 5 }; s.shields.burstCd = 7.4; }
+    if (params.get('aim') === '1') { const b = m3Mount('bow'); if (b) b.aim = { left: 0.9, dev: 2.1, _a0: s.angle }; if (W.space.enemies[0]) s.target = W.space.enemies[0].id; }
+    if (params.get('mg') === '1') { const p = me(); p.action = { kind: 'minigame', system: 'battery_stbd', progress: 0, t: 0 }; }
+  }
+
   function cmd(p, m) {
     const s = W.ship, a = W.away, inv = W.inventory;
+    if (m3Cmd(p, m)) return;
     switch (m.c) {
       case 'helm.input': s.helm.turn = +m.turn || 0; s.helm.thrust = +m.thrust || 0; if (s.dockedAt && s.helm.thrust > 0) { s.docked = false; s.dockedAt = null; W.shopContext = null; } break;
       case 'helm.dodge': if (s.dodgeCd > 0) return notice('Ausweichen lädt noch'); s.dodgeCd = 6; s.vx += Math.cos(s.angle + m.dir * Math.PI / 2) * 180; s.vy += Math.sin(s.angle + m.dir * Math.PI / 2) * 180; ev('sfx', { name: 'dodge' }); break;
@@ -732,6 +977,7 @@
     }
     for (const q of W.players) {
       if (!q.action) continue;
+      if (q.action.kind === 'minigame') { q.action.t = (q.action.t || 0) + dt; q.action.progress = Math.min(1, q.action.t / m3n('repair.minigameMinTime', 2.5)); continue; }
       const held = q !== p || W._act || q.action.kind === 'beam';
       if (!held) { q.action = null; continue; }
       q.action.progress = Math.min(1, q.action.progress + dt / (q.action.dur || 3));
@@ -742,26 +988,32 @@
     const p2 = W.players[1], p3 = W.players[2];
     const wantCon = params.get('console');
     if (p2 && p2.zone === 'ship') {
-      if (wantCon === 'plan' || params.get('pins') === '1') { p2.console = 'plan'; Object.assign(p2, tc(25, 4)); p2.dir = 'right'; p2.moving = false; }
-      else if (!p2.console) { const tx = 8 * 32 + 16 + (Math.sin(W._crewT * 0.4) * 0.5 + 0.5) * 15 * 32; const dx = tx - p2.x; p2.moving = Math.abs(dx) > 1; p2.dir = dx > 0 ? 'right' : 'left'; p2.x += Math.max(-96 * dt, Math.min(96 * dt, dx)); p2.y = 6 * 32 + 16; }
+      if (wantCon === 'plan' || params.get('pins') === '1') { const sp = consoleSpot('plan', 1); p2.console = 'plan'; Object.assign(p2, tc(sp.x, sp.y)); p2.dir = sp.dir; p2.moving = false; }
+      else if (!p2.console) {
+        // läuft im Gang auf und ab (Gang aus SHIP_ROOMS)
+        const g = shipRoom('gang') || { x0: 0, x1: Maps.ship.w - 1, y0: Maps.SHIP_SPAWNS[0].y, y1: Maps.SHIP_SPAWNS[0].y };
+        const gy = Math.round((g.y0 + g.y1) / 2), gx0 = g.x0 + 1, span = Math.max(1, g.x1 - gx0);
+        const tx = gx0 * 32 + 16 + (Math.sin(W._crewT * 0.4) * 0.5 + 0.5) * span * 32; const dx = tx - p2.x; p2.moving = Math.abs(dx) > 1; p2.dir = dx > 0 ? 'right' : 'left'; p2.x += Math.max(-96 * dt, Math.min(96 * dt, dx)); p2.y = gy * 32 + 16;
+      }
     }
     if (p3 && p3.zone === 'ship') {
       const c3 = wantCon === 'weapons' ? 'helm' : wantCon === 'helm' ? 'weapons' : 'helm';
-      p3.console = c3; Object.assign(p3, c3 === 'weapons' ? tc(36, 4) : tc(38, 6)); p3.dir = c3 === 'weapons' ? 'up' : 'right';
+      const sp = consoleSpot(c3, 0);
+      p3.console = c3; Object.assign(p3, tc(sp.x, sp.y)); p3.dir = sp.dir;
     }
     W.plan.seated = W.players.filter(q => q.console === 'plan').map(q => q.id);
     // Ivo im Gästequartier
     if (params.get('ivo') === '1' || W.mission.flags.technikerRescued) {
-      if (!s.npcs.length) s.npcs.push({ id: 'ivo', ...tc(20, 9), dir: 'down', moving: false });
+      const home = roomCenter(guestQuarter());   // M3a: Gästequartier aus BEDS/SHIP_ROOMS
+      if (!s.npcs.length) s.npcs.push({ id: 'ivo', ...tc(home.x, home.y), dir: 'down', moving: false });
       const n = s.npcs[0];
-      const gx = 20 * 32 + 16 + Math.sin(W._crewT * 0.3) * 40, gy = 9 * 32 + 16 + Math.cos(W._crewT * 0.21) * 24;
+      const gx = home.x * 32 + 16 + Math.sin(W._crewT * 0.3) * 40, gy = home.y * 32 + 16 + Math.cos(W._crewT * 0.21) * 24;
       n.moving = Math.hypot(gx - n.x, gy - n.y) > 2; n.dir = gx > n.x ? 'right' : 'left'; n.x = gx; n.y = gy;
     }
     // Schiff
     const h = s.helm;
     h.manned = W.players.some(q => q.console === 'helm');
     if (!s.dockedAt) {
-      s.angle = Phys.normAngle(s.angle + h.turn * CFG.ship.turnRate * dt);
       const maxSp = CFG.ship.maxSpeed * [0, 0.5, 0.8, 1, 1.15][s.power.engines] || 40;
       s.vx += Math.cos(s.angle) * h.thrust * CFG.ship.accel * dt; s.vy += Math.sin(s.angle) * h.thrust * CFG.ship.accel * dt;
       if (h.thrust < 0) { s.vx *= 1 - 1.5 * dt; s.vy *= 1 - 1.5 * dt; }
@@ -779,7 +1031,8 @@
     else { j.blockedReason = null; j.charge = Math.min(1, j.charge + dt / CFG.ship.jumpCharge); }
     j.ready = j.charge >= 1 && !j.blockedReason;
     // Waffen laden (Phasen 2 s)
-    for (const mt of s.mounts) mt.charge = Math.min(1, mt.charge + dt / 2);
+    for (const mt of s.mounts) if (!MOUNT_SYS[mt.id]) mt.charge = Math.min(1, mt.charge + dt / 2);
+    m3Tick(dt);   // M3a: Drehen, Waffen, Ladungen, Schildstoß, Reparaturliste
     // Reaktor
     const r = s.reactor;
     if (r.state === 'overload') { r.overloadLeft = Math.max(0, r.overloadLeft - dt); if (r.overloadLeft <= 0) setReactor('offline'); }
@@ -897,13 +1150,17 @@
     if (params.get('m1end') === '1') { W.mission.m1Done = true; W.mission.list[1].state = 'done'; W.mission.active = null; W.mission.discoveries.found = 6; W.stats.elapsed = 2310; }
     if (params.get('zone') === 'away' || (loc === 'kesh' && params.get('console'))) setAway(true);
     if (params.get('start') === 'm3') W.lobbyOpts.startMission = 'm3';
+    m3Params();
     const pos = (params.get('pos') || '').split(',').map(Number);
     if (pos.length === 2 && isFinite(pos[0]) && p.zone === 'ship') Object.assign(p, tc(pos[0], pos[1]));
     const c = params.get('console');
     if (c) {
       p.console = c;
-      const at = { helm: [38, 6], captain: [35, 6], weapons: [36, 4], plan: [26, 5], quartier: [15, 2], shop: [30, 2], transfer: [12, 9] }[c];
-      if (at && p.zone === 'ship') Object.assign(p, tc(at[0], at[1]));
+      // M3a: Stehplatz aus der Legende (Konsole) bzw. vor der eigenen Koje (Quartier)
+      let at = null;
+      if (c === 'quartier') { const b = (Maps.BEDS || []).find(q => q.color === p.color) || (Maps.BEDS || [])[0]; if (b) at = standNear(b); }
+      else if (shipTiles(i => i.console === c).length) at = consoleSpot(c, 0);
+      if (at && p.zone === 'ship') Object.assign(p, tc(at.x, at.y));
       if (c === 'captain' && window.Consoles) Consoles.tab = Math.max(0, Math.min(5, +params.get('tab') || 0));
     }
   }

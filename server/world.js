@@ -14,15 +14,25 @@ function findAll(map, pred) {
   return out;
 }
 
-const SYSTEM_TILES = {};   // system -> {x,y}
+const SYSTEM_TILES = {};   // system -> {x,y} (erste Kachel des Systems, Altname)
 const CONSOLE_TILES = {};  // console -> [{x,y}]
+// M3a: alle Stationskacheln aus der Legende (mehrere Kacheln je System möglich). sector/side aus der Legende;
+// fehlt das (alte Legende), Sektor aus dem Raum (Maps.roomAt), side null.
+const STATIONS = [];       // [{ system, x, y, sector, side }]
 for (const t of findAll(ship, (ch) => !!ship.legend[ch])) {
   const info = ship.info(t.x, t.y);
-  if (info.system) SYSTEM_TILES[info.system] = t;
+  if (info.system) {
+    if (!SYSTEM_TILES[info.system]) SYSTEM_TILES[info.system] = t;
+    const room = Maps.roomAt ? Maps.roomAt(t.x, t.y) : null;
+    STATIONS.push({ system: info.system, x: t.x, y: t.y,
+      sector: info.sector != null ? info.sector : (room && room.sector != null ? room.sector : -1),
+      side: info.side || null });
+  }
   if (info.console) (CONSOLE_TILES[info.console] = CONSOLE_TILES[info.console] || []).push(t);
 }
-const SHELF_TILES = Object.keys(Maps.SHELVES).map((x) => ({ x: +x, y: 1, item: Maps.SHELVES[x] }));
-const SHIP_PADS = ship.find('P');
+// Regale aus dem Schiffslayout ({x,y,item,access}), Reihenfolge = Regal 1..5
+const SHELF_TILES = Maps.SHELF_TILES.map((s) => ({ x: s.x, y: s.y, item: s.item, access: s.access ? { x: s.access.x, y: s.access.y } : null }));
+const SHIP_PADS = findAll(ship, (ch) => (ship.legend[ch] || {}).kind === 'pad');   // M3a: über die Legende statt Zeichen
 const PLATFORM_PADS = Maps.PLATFORM_PADS.slice();
 const SONDE_TILE = platform.find('Z')[0];
 const NPC_SPAWN = platform.find('N')[0];
@@ -79,7 +89,7 @@ function isOuterWallAdjacent(x, y) {
 }
 const REGION_FLOORS = Maps.SECTOR_REGIONS.map((r) => SHIP_FLOORS.filter((t) => r.test(t.x, t.y)));
 const REGION_WALL_FLOORS = Maps.SECTOR_REGIONS.map((r, i) => {
-  const list = REGION_FLOORS[i].filter((t) => isOuterWallAdjacent(t.x, t.y) && ship.at(t.x, t.y) !== 'P');
+  const list = REGION_FLOORS[i].filter((t) => isOuterWallAdjacent(t.x, t.y) && ship.info(t.x, t.y).kind !== 'pad');
   return list.length ? list : REGION_FLOORS[i];
 });
 
@@ -90,8 +100,10 @@ function accessTiles(map, walkable, tx, ty) {
   return out;
 }
 
-// Quartier einer Kachel (BEDS[].room) – für Stile/Licht.
+// Quartier einer Kachel – für Stile/Licht. Rückgabe wie bisher: Quartier-ID ('q0'..'q3') oder null.
+// M3a: stützt sich auf Maps.roomAt (Räume mit kind 'quarter'); Fallback auf BEDS[].room.
 function roomAt(tx, ty) {
+  if (Maps.roomAt) { const r = Maps.roomAt(tx, ty); return r && r.kind === 'quarter' ? r.id : null; }
   for (const b of Maps.BEDS) { const r = b.room; if (tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1) return r.id; }
   return null;
 }
@@ -99,7 +111,7 @@ function roomAt(tx, ty) {
 const tileCenter = Physics.tileCenter;
 
 module.exports = {
-  Maps, Locations, ship, platform, wreck, kesh, SYSTEM_TILES, CONSOLE_TILES, SHELF_TILES, SHIP_PADS, PLATFORM_PADS, SONDE_TILE,
+  Maps, Locations, ship, platform, wreck, kesh, SYSTEM_TILES, STATIONS, CONSOLE_TILES, SHELF_TILES, SHIP_PADS, PLATFORM_PADS, SONDE_TILE,
   NPC_SPAWN, DATENKERN_SPAWN, DRONE_SPAWNS, PLATFORM_DOORS, REACTOR_SWITCHES, AWAY_MAPS, SHIP_FLOORS, REGION_FLOORS, REGION_WALL_FLOORS,
   shipWalkable, accessTiles, tileCenter, findAll, roomAt,
 };

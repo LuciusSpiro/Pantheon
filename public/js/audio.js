@@ -2,7 +2,7 @@
  * Globales Objekt GameAudio nach CONTRACT §11. Reine WebAudio-Synthese, keine Samples,
  * keine externen Dateien, klassisches Skript (kein ES-Modul).
  *
- * Vor init() ist jede Funktion ein No-op (wirft nie). setMusic/setIntensity/setLoop/
+ * Vor init() ist jede Funktion ein No-op (wirft nie), auch GameAudio.stop (M3a). setMusic/setIntensity/setLoop/
  * setVolume/mute merken sich vor init() nur den Wunschzustand; init() setzt ihn dann um.
  * Abgefangene Fehler werden in GameAudio.errors gezählt und (gedrosselt) per console.warn geloggt.
  *
@@ -27,7 +27,11 @@
     // M2 „Schildwall“ (shield_hit steht oben, nimmt jetzt optional seg/max)
     'shield_break', 'shield_up', 'shield_full', 'wounded', 'revive_done', 'pistol', 'enemy_aim', 'enemy_shot',
     'warden_wake', 'warden_aim', 'warden_shot', 'warden_deflect', 'cover_hit', 'jammer_off', 'archkey',
-    'vault_open', 'tablet', 'bark', 'order', 'squad_recall'];
+    'vault_open', 'tablet', 'bark', 'order', 'squad_recall',
+    // M3a „Breitseite & Schaden“
+    'lance_charge', 'lance_aim', 'lance_fire', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
+    'burst', 'burst_perfect', 'flick', 'swap', 'minigame_tick', 'minigame_hit', 'minigame_miss', 'minigame_done',
+    'system_break'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -52,7 +56,11 @@
     // M2
     shield_break: 150, shield_up: 60, shield_full: 400, wounded: 300, revive_done: 400, pistol: 60,
     enemy_aim: 90, enemy_shot: 60, warden_wake: 2000, warden_aim: 400, warden_shot: 200, warden_deflect: 90,
-    cover_hit: 70, jammer_off: 400, archkey: 300, vault_open: 2000, tablet: 800, bark: 250, order: 150, squad_recall: 1500
+    cover_hit: 70, jammer_off: 400, archkey: 300, vault_open: 2000, tablet: 800, bark: 250, order: 150, squad_recall: 1500,
+    // M3a (tele_charge kurz, damit zwei Gegner fast gleichzeitig laden können)
+    lance_charge: 300, lance_aim: 300, lance_fire: 150, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
+    heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
+    minigame_miss: 80, minigame_done: 300, system_break: 150
   };
   var DEFAULT_GAP = 50;
 
@@ -63,7 +71,10 @@
     overload_start: 1.1, overload_warn: 1.05, emp: 1.1, scan_tick: 0.8, table_sit: 0.9,
     // M2
     enemy_aim: 1.3, warden_aim: 1.2, shield_break: 1.15, wounded: 1.15, squad_recall: 1.1, warden_shot: 1.1,
-    cover_hit: 0.9, pistol: 0.9
+    cover_hit: 0.9, pistol: 0.9,
+    // M3a: Ansage und schwere Treffer vorne, Minispiel leise
+    tele_charge: 1.1, heavy_hit: 1.3, system_break: 1.1, lance_fire: 1.1, burst_perfect: 1.1,
+    minigame_tick: 0.7, minigame_hit: 0.8, minigame_miss: 0.8, minigame_done: 0.85
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
   var DUCK = {
@@ -76,13 +87,18 @@
     // M2
     shield_break: [0.45, 0.5], wounded: [0.45, 1.0], enemy_aim: [0.65, 0.7], warden_aim: [0.55, 1.3],
     warden_wake: [0.4, 2.0], warden_shot: [0.5, 0.5], vault_open: [0.5, 2.4], squad_recall: [0.45, 1.6],
-    tablet: [0.65, 1.0]
+    tablet: [0.65, 1.0],
+    // M3a
+    tele_charge: [0.7, 1.5], heavy_hit: [0.3, 0.7], lance_fire: [0.6, 0.35], system_break: [0.55, 0.4],
+    burst_perfect: [0.7, 0.6]
   };
   // Sounds, die die Stimmen-Obergrenze ignorieren dürfen
   var PRIORITY = { alarm_yellow: 1, alarm_red: 1, emergency: 1, hull_hit: 1, shield_hit: 1, explosion_big: 1,
     overload_start: 1, overload_warn: 1, reactor_down: 1, emp: 1,
     // M2: Warntöne und Schildzustand müssen immer durchkommen
-    enemy_aim: 1, warden_aim: 1, shield_break: 1, wounded: 1, squad_recall: 1, warden_wake: 1 };
+    enemy_aim: 1, warden_aim: 1, shield_break: 1, wounded: 1, squad_recall: 1, warden_wake: 1,
+    // M3a: Ansage, schwere Treffer, Systembruch
+    tele_charge: 1, heavy_hit: 1, system_break: 1 };
 
   var GA = {
     errors: 0,
@@ -895,6 +911,194 @@
       noise({ t: t + 0.6, dur: 1.3, a: 0.3, hold: 0.5, vol: 0.45, out: o, filter: 'bandpass', ff: 400, ff2: 6000, fglide: 1.1, q: 5 });
       tone({ f: 220, f2: 1320, t: t + 0.6, dur: 1.2, a: 0.3, hold: 0.5, vol: 0.06, out: o });
       return 1.95;
+    },
+
+    // ------------------------------------------------------------ M3a „Breitseite & Schaden“
+    lance_charge: function (t, o) {
+      // tiefes Laden der Bug-Lanze: Sägezahn-Grollen mit öffnendem Resonanzfilter, Sub steigt, Einrast-Klick
+      var d = 0.9;
+      tone({ type: 'sawtooth', f: 41, f2: 98, t: t, dur: d, a: 0.12, hold: d - 0.25, vol: 0.16, out: o,
+        filter: 'lowpass', ff: 140, ff2: 1300, fglide: d - 0.1, q: 7 });
+      tone({ type: 'sawtooth', f: 41.3, f2: 98.6, t: t, dur: d, a: 0.12, hold: d - 0.25, vol: 0.07, out: o, filter: 'lowpass', ff: 250, ff2: 900 });
+      tone({ f: 55, f2: 82.4, t: t, dur: d, a: 0.15, hold: d - 0.3, vol: 0.2, out: o });
+      noise({ t: t, dur: d, a: 0.4, hold: 0.3, vol: 0.1, out: o, filter: 'bandpass', ff: 200, ff2: 1600, q: 2 });
+      click(t + d - 0.04, o, 0.35, 1800);
+      return d + 0.05;
+    },
+    lance_aim: function (t, o, prm) {
+      // Halte-Ton der Zielphase (Standard 1,5 s, prm.dur 0,3–4 s): ruhiger, gleichbleibender Ton mit gleichmäßigen
+      // Pips – bewusst NICHT steigend (sonst Verwechslung mit enemy_aim/tele_charge). Vorzeitig beenden: GameAudio.stop('lance_aim').
+      var d = prm && prm.dur != null ? clamp(prm.dur, 0.3, 4) : 1.5;
+      tone({ type: 'square', f: 196, t: t, dur: d, a: 0.05, hold: d - 0.1, vol: 0.05, out: o, filter: 'lowpass', ff: 800, q: 2 });
+      tone({ f: 392, detune: 4, t: t, dur: d, a: 0.05, hold: d - 0.1, vol: 0.06, out: o });
+      tone({ f: 98, t: t, dur: d, a: 0.08, hold: d - 0.12, vol: 0.06, out: o });
+      for (var at = 0.05, k = 0; at < d - 0.05 && k < 20; at += 0.25, k++) {
+        tone({ type: 'triangle', f: 1175, t: t + at, dur: 0.05, a: 0.002, vol: 0.07, out: o });
+      }
+      return d + 0.02;
+    },
+    lance_fire: function (t, o) {
+      // harter Schuss: Sub-Schlag, Knall-Rauschen, fallender greller Strahl, metallischer Nachklang
+      tone({ f: 130, f2: 30, t: t, dur: 0.6, a: 0.003, vol: 0.65, out: o });
+      noise({ t: t, dur: 0.35, a: 0.002, vol: 0.6, out: o, filter: 'lowpass', ff: 5000, ff2: 250 });
+      tone({ type: 'sawtooth', f: 1400, f2: 160, t: t, dur: 0.45, a: 0.003, vol: 0.13, out: o, filter: 'bandpass', ff: 2600, ff2: 500, q: 2 });
+      noise({ t: t + 0.02, dur: 0.6, a: 0.01, hold: 0.15, vol: 0.25, out: o, filter: 'bandpass', ff: 5500, ff2: 2000, q: 3 });
+      fm({ f: 330, ratio: 2.41, index: 3, index2: 0.1, t: t, dur: 0.5, vol: 0.08, out: o });
+      return 0.7;
+    },
+    aim_abort: function (t, o) {
+      // Absacken: Ton und Filter fallen weg, kleiner Klick am Anfang
+      click(t, o, 0.3, 1600);
+      tone({ type: 'sawtooth', f: 330, f2: 70, t: t, dur: 0.45, a: 0.005, vol: 0.13, out: o, filter: 'lowpass', ff: 1600, ff2: 180 });
+      tone({ f: 392, f2: 98, t: t, dur: 0.4, a: 0.005, vol: 0.12, out: o });
+      return 0.48;
+    },
+    battery_salvo: function (t, o, prm) {
+      // Salve: prm.count kurze Schläge (Standard 4, 1–8), leicht gestaffelte Tonhöhe
+      var n = prm && prm.count != null ? clamp(Math.round(prm.count), 1, 8) : 4, gap = 0.11;
+      for (var i = 0; i < n; i++) {
+        var tt = t + i * gap, v = 0.94 + Math.random() * 0.12, last = i === n - 1;
+        tone({ type: 'square', f: 320 * v, f2: 120, t: tt, dur: 0.07, vol: 0.12, out: o, filter: 'lowpass', ff: 1800 });
+        noise({ t: tt, dur: 0.05, vol: 0.4, out: o, filter: 'bandpass', ff: 1400 * v, q: 1.4 });
+        tone({ f: 150, f2: 55, t: tt, dur: last ? 0.16 : 0.09, vol: 0.4, out: o });
+      }
+      return n * gap + 0.12;
+    },
+    tele_charge: function (t, o, prm) {
+      // angekündigter Angriff lädt: steigender Ton, je Gegnerart anders (prm.kind gunboat|pylon|sentinel),
+      // Dauer prm.dur (Standard 3 / 2 / 2,5 s). Pips beschleunigen gegen Ende. Vorzeitig: GameAudio.stop('tele_charge', { key }).
+      var kind = prm && prm.kind, base = { gunboat: 3, pylon: 2, sentinel: 2.5 };
+      if (!base[kind]) kind = 'gunboat';
+      var d = prm && prm.dur != null ? clamp(prm.dur, 0.5, 5) : base[kind];
+      var at = 0, gap, k = 0;
+      if (kind === 'gunboat') {
+        // schwer und tief: Grollen mit öffnendem Filter, tiefe Pulse
+        tone({ type: 'sawtooth', f: 65, f2: 260, t: t, dur: d, a: 0.2, hold: d - 0.3, vol: 0.13, out: o,
+          filter: 'lowpass', ff: 200, ff2: 2400, q: 8 });
+        tone({ f: 130, f2: 520, t: t, dur: d, a: 0.3, hold: d - 0.4, vol: 0.08, out: o });
+        gap = 0.4;
+        while (at < d - 0.05 && k < 24) {
+          tone({ type: 'triangle', f: 330 + (at / d) * 330, t: t + at, dur: 0.08, a: 0.003, vol: 0.13, out: o });
+          tone({ f: 90, f2: 55, t: t + at, dur: 0.09, vol: 0.2, out: o });
+          at += gap; gap = Math.max(0.09, gap * 0.82); k++;
+        }
+      } else if (kind === 'pylon') {
+        // kristallin, mittelhoch: FM-Singen steigt, helle schnelle Pips
+        fm({ f: 440, ratio: 1.5, index: 1.2, index2: 0.4, t: t, dur: d, a: 0.15, hold: d - 0.25, vol: 0.1, out: o });
+        tone({ f: 440, f2: 1320, t: t, dur: d, a: 0.15, hold: d - 0.25, vol: 0.08, out: o });
+        tone({ f: 880, f2: 2640, t: t, dur: d, a: 0.2, hold: d - 0.3, vol: 0.03, out: o });
+        gap = 0.25;
+        while (at < d - 0.04 && k < 24) {
+          tone({ type: 'square', f: 1400 + (at / d) * 1400, t: t + at, dur: 0.03, a: 0.002, vol: 0.06, out: o, filter: 'lowpass', ff: 5000 });
+          at += gap; gap = Math.max(0.06, gap * 0.8); k++;
+        }
+      } else {
+        // Wächter-EMP: knisternde Entladungen werden dichter, Rechteck steigt
+        tone({ type: 'square', f: 110, f2: 520, t: t, dur: d, a: 0.2, hold: d - 0.3, vol: 0.07, out: o, filter: 'lowpass', ff: 400, ff2: 2600, q: 4 });
+        fm({ f: 220, ratio: 0.51, index: 4, index2: 1.5, t: t, dur: d, a: 0.3, hold: d - 0.4, vol: 0.06, out: o });
+        gap = 0.3;
+        while (at < d - 0.04 && k < 30) {
+          noise({ t: t + at, dur: 0.02 + Math.random() * 0.02, vol: 0.2 + (at / d) * 0.2, out: o, filter: 'bandpass', ff: 2000 + Math.random() * 4000, q: 3 });
+          tone({ type: 'triangle', f: 600 + (at / d) * 600, t: t + at, dur: 0.05, a: 0.002, vol: 0.09, out: o });
+          at += gap; gap = Math.max(0.06, gap * 0.85); k++;
+        }
+      }
+      return d + 0.02;
+    },
+    heavy_hit: function (t, o) {
+      // schwerer (angekündigter) Treffer: deutlich wuchtiger als hull_hit, mit Nachrumpeln und Metallächzen
+      noise({ t: t, dur: 0.9, a: 0.002, vol: 0.9, out: o, filter: 'lowpass', ff: 1400, ff2: 90, q: 1 });
+      tone({ f: 120, f2: 26, t: t, dur: 0.85, a: 0.003, vol: 0.7, out: o });
+      fm({ f: 410, ratio: 3.47, index: 4, index2: 0.1, t: t + 0.01, dur: 0.6, vol: 0.14, out: o });
+      fm({ f: 613, ratio: 2.03, index: 3, index2: 0.1, t: t + 0.02, dur: 0.5, vol: 0.09, out: o });
+      noise({ t: t + 0.25, dur: 0.7, a: 0.05, vol: 0.3, out: o, filter: 'lowpass', ff: 400, ff2: 80, rate: 0.5 });
+      tone({ type: 'sawtooth', f: 95, f2: 70, t: t + 0.35, dur: 0.5, a: 0.08, vol: 0.05, out: o, filter: 'bandpass', ff: 700, q: 6 });
+      return 1.0;
+    },
+    burst: function (t, o) {
+      // Schildstoß: Wusch (Bandrauschen fegt hoch und zurück) + kurzes Schild-Flirren
+      noise({ t: t, dur: 0.5, a: 0.07, vol: 0.5, out: o, filter: 'bandpass', ff: 350, ff2: 3200, fglide: 0.22, q: 1.6 });
+      noise({ t: t, dur: 0.3, a: 0.04, vol: 0.2, out: o, filter: 'lowpass', ff: 500, ff2: 150 });
+      tone({ f: 220, f2: 880, t: t, dur: 0.35, a: 0.05, vol: 0.1, out: o });
+      fm({ f: 1250, ratio: 2.41, index: 1.5, index2: 0.05, t: t + 0.12, dur: 0.4, vol: 0.06, out: o });
+      return 0.55;
+    },
+    burst_perfect: function (t, o) {
+      // perfekter Schildstoß: derselbe Wusch, dazu ein heller Glockenton (mit Oktave und Glanz)
+      SFX.burst(t, o);
+      fm({ f: 2093, ratio: 2, index: 1.1, index2: 0.02, t: t + 0.08, dur: 1.4, a: 0.002, vol: 0.14, out: o });
+      fm({ f: 3136, ratio: 2.76, index: 0.6, index2: 0.02, t: t + 0.09, dur: 0.9, a: 0.002, vol: 0.05, out: o });
+      tone({ f: 1046.5, t: t + 0.08, dur: 1.0, a: 0.004, vol: 0.06, out: o });
+      return 1.5;
+    },
+    flick: function (t, o) {
+      // Flicken: Klebeband abziehen (Stick-Slip-Knistern), Abriss, Andrücken
+      var d = 0.32;
+      for (var i = 0; i < 16; i++) {
+        noise({ t: t + (i / 16) * d + Math.random() * 0.01, dur: 0.012 + Math.random() * 0.012, vol: 0.18 + Math.random() * 0.15, out: o,
+          filter: 'bandpass', ff: 1800 + Math.random() * 1600, q: 2 });
+      }
+      noise({ t: t, dur: d, a: 0.03, hold: d - 0.08, vol: 0.12, out: o, filter: 'bandpass', ff: 2600, q: 1.2 });
+      noise({ t: t + d, dur: 0.07, vol: 0.3, out: o, filter: 'highpass', ff: 3000 });   // Abriss
+      noise({ t: t + d + 0.12, dur: 0.06, vol: 0.28, out: o, filter: 'lowpass', ff: 700 });   // Andrücken
+      tone({ f: 170, f2: 100, t: t + d + 0.12, dur: 0.06, vol: 0.18, out: o });
+      return d + 0.22;
+    },
+    swap: function (t, o) {
+      // Austauschen: Ratsche (zwei Züge), dann sitzt das Teil mit metallischem Klonk
+      var at = 0;
+      for (var r = 0; r < 2; r++) {
+        for (var i = 0; i < 5; i++) {
+          noise({ t: t + at, dur: 0.014, vol: 0.4, out: o, filter: 'bandpass', ff: 3400, q: 6 });
+          tone({ type: 'square', f: 1900, t: t + at, dur: 0.008, vol: 0.04, out: o });
+          at += 0.045;
+        }
+        at += 0.1;
+      }
+      noise({ t: t + at, dur: 0.05, vol: 0.4, out: o, filter: 'bandpass', ff: 1200, q: 1.5 });
+      tone({ f: 160, f2: 80, t: t + at, dur: 0.12, vol: 0.3, out: o });
+      fm({ f: 520, ratio: 3.71, index: 2.5, index2: 0.1, t: t + at, dur: 0.3, vol: 0.1, out: o });
+      return at + 0.32;
+    },
+    minigame_tick: function (t, o) {
+      // Zeiger-Tick: sehr leise und kurz (wird lokal oft gespielt)
+      tone({ f: 1760, t: t, dur: 0.025, a: 0.002, vol: 0.08, out: o });
+      return 0.03;
+    },
+    minigame_hit: function (t, o, prm) {
+      // Treffer im grünen Feld: kurzer heller Ding; prm.n (1–3) = wievielter Treffer -> eine Stufe höher
+      var n = prm && prm.n != null ? clamp(Math.round(prm.n), 1, 3) : 1, f = mtof([0, 79, 83, 86][n]);
+      fm({ f: f, ratio: 2, index: 0.6, index2: 0.02, t: t, dur: 0.2, a: 0.002, vol: 0.11, out: o });
+      tone({ f: f * 2, t: t, dur: 0.05, vol: 0.03, out: o });
+      return 0.22;
+    },
+    minigame_miss: function (t, o) {
+      // Fehlgriff: kurzes gedämpftes Schnarren (zwei verstimmte Rechtecke)
+      tone({ type: 'square', f: 140, t: t, dur: 0.14, hold: 0.06, vol: 0.07, out: o, filter: 'lowpass', ff: 700 });
+      tone({ type: 'square', f: 148, t: t, dur: 0.14, hold: 0.06, vol: 0.05, out: o, filter: 'lowpass', ff: 700 });
+      return 0.16;
+    },
+    minigame_done: function (t, o) {
+      // fertig: kurzes Aufwärts-Arpeggio + Klick, knapper als repair_done
+      click(t, o, 0.18, 3000);
+      var n = [79, 83, 86, 91];
+      for (var i = 0; i < n.length; i++) {
+        fm({ f: mtof(n[i]), ratio: 2, index: 0.7, index2: 0.02, t: t + 0.03 + i * 0.06, dur: i === 3 ? 0.4 : 0.15, vol: 0.09, out: o });
+      }
+      return 0.6;
+    },
+    system_break: function (t, o) {
+      // System zerstört: dumpfer Bruch (Krach + Sub), danach Funkenregen und kurzes Kurzschluss-Brummen
+      noise({ t: t, dur: 0.06, vol: 0.5, out: o, filter: 'bandpass', ff: 900, q: 1.2 });
+      noise({ t: t, dur: 0.55, a: 0.003, vol: 0.65, out: o, filter: 'lowpass', ff: 700, ff2: 80 });
+      tone({ f: 100, f2: 30, t: t, dur: 0.55, a: 0.003, vol: 0.55, out: o });
+      tone({ type: 'square', f: 120, t: t + 0.05, dur: 0.35, a: 0.003, vol: 0.05, out: o, filter: 'lowpass', ff: 900 });
+      for (var i = 0; i < 12; i++) {
+        var tt = t + 0.06 + Math.pow(Math.random(), 1.4) * 0.7;
+        noise({ t: tt, dur: 0.01 + Math.random() * 0.015, vol: 0.15 + Math.random() * 0.2, out: o, filter: 'bandpass', ff: 3000 + Math.random() * 5000, q: 4 });
+        if (i % 3 === 0) tone({ f: 3000 + Math.random() * 4000, t: tt, dur: 0.03, a: 0.001, vol: 0.03, out: o });
+      }
+      return 0.9;
     }
   };
 
@@ -959,7 +1163,36 @@
     var dur = SFX[name](t, g, prm || null) || 1;
     if (DUCK[name]) duck(DUCK[name][0], DUCK[name][1]);
     later(function () { disc(nodes); }, (dur + 0.6) * 1000);
+    if (isLive() && STOPPABLE[name]) {
+      // M3a: laufende Instanz merken, damit GameAudio.stop sie vorzeitig ausblenden kann
+      var list = active[name] || (active[name] = []), now = ac.currentTime;
+      for (var i = list.length - 1; i >= 0; i--) if (list[i].until < now) list.splice(i, 1);
+      if (list.length > 8) list.shift();
+      list.push({ g: g, until: t + dur, key: prm && prm.key != null ? String(prm.key) : null });
+    }
     return dur;
+  }
+
+  // M3a: vorzeitig beendbare Klänge (Halte-/Ladetöne). Andere Namen lassen sich nicht stoppen (No-op).
+  var STOPPABLE = { lance_aim: 1, lance_charge: 1, tele_charge: 1 };
+  var active = {};
+  function stopActive(name, key, fade) {
+    var list = active[name];
+    if (!list || !list.length) return 0;
+    var t = ac.currentTime, n = 0;
+    for (var i = list.length - 1; i >= 0; i--) {
+      var e = list[i];
+      if (key != null && e.key !== String(key)) continue;
+      if (e.until > t) {
+        var p = e.g.gain;
+        p.cancelScheduledValues(t);
+        p.setValueAtTime(pos(p.value), t);
+        p.linearRampToValueAtTime(0.0001, t + fade);
+        n++;
+      }
+      list.splice(i, 1);
+    }
+    return n;
   }
 
   // ---------------------------------------------------------------- Musik
@@ -1414,9 +1647,22 @@
   //              shield_up: seg = Segmente nach dem Laden (höherer Ding je Segment).
   //   syl      – bark: Silbenzahl 2..10; ersatzweise text (Silben = Länge/6) oder len (Zeichenzahl); q: true = Frage.
   //   dist     – 0..1 Entfernung zum Hörer (dumpfer, leiser), für alle Sounds, gedacht v. a. für enemy_aim.
+  // M3a-Zusätze, alle optional:
+  //   count    – battery_salvo: Zahl der Schläge 1..8 (Standard 4).
+  //   kind     – tele_charge: 'gunboat' (Standard) | 'pylon' | 'sentinel'.
+  //   dur      – tele_charge: Ladedauer s (Standard 3 / 2 / 2,5 je kind); lance_aim: Zielphase s (Standard 1,5).
+  //   n        – minigame_hit: wievielter Treffer 1..3 (Tonhöhe steigt).
+  //   key      – lance_aim/lance_charge/tele_charge: Kennung für GameAudio.stop(name, { key }).
+  // lance_fire und aim_abort beenden einen laufenden lance_aim/lance_charge automatisch.
   GA.play = safe('play', function (name, opts) {
     if (!live || !SFX.hasOwnProperty(name)) return;
     opts = opts || {};
+    // M3a: Schuss oder Abbruch beendet den Halte-Ton der Zielphase (und ein noch laufendes Laden), auch wenn
+    // der neue Klang selbst gleich am Rate-Limit scheitert
+    if (name === 'lance_fire' || name === 'aim_abort') {
+      ac = live.ctx; bus = live.bus;
+      stopActive('lance_aim', null, 0.03); stopActive('lance_charge', null, 0.03);
+    }
     var nowMs = Date.now(), gap = MIN_GAP[name] || DEFAULT_GAP;
     if (lastPlay[name] && nowMs - lastPlay[name] < gap) return;
     if (voices > MAX_VOICES && !PRIORITY[name]) return;
@@ -1427,6 +1673,17 @@
     var pan = opts.pan == null ? 0 : clamp(opts.pan, -1, 1);
     if (vol <= 0) return;
     playAt(name, ac.currentTime + 0.005, vol, pan, opts);
+  });
+
+  // M3a: GameAudio.stop(name, opts?) blendet laufende Instanzen von lance_aim, lance_charge oder tele_charge
+  // in opts.fade s (Standard 0,08) aus. opts.key: nur die Instanz, die mit play(name, { key }) gestartet wurde
+  // (z. B. Gegner-ID bei tele_charge → bei teleMiss stoppen). Andere Namen und Aufrufe vor init(): No-op.
+  // Rückgabe: Zahl der gestoppten Instanzen.
+  GA.stop = safe('stop', function (name, opts) {
+    if (!live || !STOPPABLE[name]) return 0;
+    ac = live.ctx; bus = live.bus;
+    var fade = opts && opts.fade != null ? clamp(opts.fade, 0.01, 1) : 0.08;
+    return stopActive(name, opts && opts.key != null ? opts.key : null, fade);
   });
 
   GA.setLoop = safe('setLoop', function (name, on, opts) {

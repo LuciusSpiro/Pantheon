@@ -1,4 +1,4 @@
-# Sternenschicht – M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“)
+# Sternenschicht – M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) · M3a „Breitseite & Schaden“
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
@@ -26,11 +26,12 @@ Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen �
 
 1. `npm start`, Link öffnen. In der Lobby schaltet **M** reihum: „Kampagne“ → „Direkt zur Planetenmission“ →
    **„Testgelände: Raumkampf“** → **„Testgelände: Außenteam“** (Anzeige „START (n/4)“). Dann **Enter** = bereit.
-2. **Raumkampf:** Start sofort an Boje B-7 (keine Brocken), abgelegt, alle auf der Brücke (solo neben dem Steuer,
-   zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen: 2 Jäger → Jäger + Kanonenboot →
-   Kustoden-Wächter + 2 Jäger, danach wieder von vorn; die nächste Welle kommt 12 s nach der Räumung (ODA sagt an).
-   Schaden, Bots, Notfallprotokoll, Schildsektoren, Phasenkanonen, Scan/Weitscan und Reaktor überladen wie im Spiel.
-   Solo: am Steuer fliegen, mit Esc + E zur Taktik wechseln (zwei Schritte nach links oben). Kein Ende-Bildschirm.
+2. **Raumkampf:** Start sofort an Boje B-7 (keine Brocken), abgelegt, Schiff unbeschädigt, alle auf der Brücke (solo
+   neben dem Steuer, zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen: 2 Jäger → Jäger +
+   Kanonenboot → Kustoden-Wächter + 2 Jäger → Kanonenboot + Jäger → Pylon (fest im Backbord-Bogen) + Kanonenboot,
+   danach wieder von vorn; die nächste Welle kommt 12 s nach der Räumung (ODA sagt an). Schaden, Bots, Notfallprotokoll,
+   Schildsektoren, Breitseite und Lanze (M3a, siehe unten), Scan/Weitscan und Reaktor überladen wie im Spiel.
+   Solo: am Steuer fliegen, mit Esc + E zur Taktik wechseln (Taktik liegt oben links auf der Brücke). Kein Ende-Bildschirm.
 3. **Außenteam:** Start sofort auf Mond Kesh, Mission „Die Tafel von Kesh“ ab dem Hof (Trupp 1), **alle** Spieler auf
    den Pads mit vollem Schild und Medipack (wenn im Lager). Das Schiff steht in Transferreichweite – wer Captain
    spielen will, beamt hoch (Pad, E halten). Danach läuft die Mission normal weiter bis zum Ende-Bildschirm.
@@ -89,20 +90,22 @@ Hinweise:
 | Rolle | Konsole | Aufgabe |
 |---|---|---|
 | **Pilot** | Steuer (ganz vorn, `H`) | sieht **nur die Frontsicht** (Bug oben, ca. 700 px nach vorn, im Nebel die Hälfte). Fliegt nach Sicht und nach den **Markern**: Mint = Captain, Bernstein = Taktik (Raute im Raum, am Rand Pfeil mit Entfernung). |
-| **Taktik** | Taktik (`W`, früher „Waffen“) | weite Taktikkarte, 2 Phasenkanonen, **Ziel-Scan** (Schilde und Feuerbögen der Gegner), **Weitscan** (versteckte Dinge), Marker für den Pilot. Lotst den Pilot an. |
-| **Captain** | Captain (`C`) | Funk und Entscheidungen, Sternkarte/Sprungziele, Lage-Karte mit Captain-Marker, Energie & Schilde (auch **Reaktor überladen**), Schäden, Außenteam-Hilfe. |
+| **Taktik** | Taktik (`W`, früher „Waffen“) | weite Taktikkarte, **alle Waffen** (Lanze am Bug, Batterien an beiden Flanken, Ladepunkte verteilen), **Ziel-Scan** (Schilde und Feuerbögen der Gegner), **Weitscan** (versteckte Dinge), Marker für den Pilot. Sieht Ladungen der Gegner zuerst und sagt sie an. |
+| **Captain** | Captain (`C`) | Funk und Entscheidungen, Sternkarte/Sprungziele, Lage-Karte mit Captain-Marker, Energie & Schilde (auch **Reaktor überladen**, **Schildstoß**), **Schadensplan** (Reparaturliste der Schrauber), Außenteam-Hilfe. |
 
 Allein geht alles auch: zwischen den Konsolen hin- und herlaufen. Unbesetzte Taktik feuert mit halber Kraft automatisch,
-unbesetzte Steuer hält Kurs und Tempo. Die drei **Schrauber** reparieren, löschen und flicken selbst.
+unbesetzte Steuer bremst die Drehung und hält das Tempo. Die **Schrauber** löschen Feuer und dichten Lecks selbst ab;
+Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, wenn nur einer spielt.
 
 ## Steuerung
 
 | Wo | Tasten |
 |---|---|
-| Laufen | WASD / Pfeile · **E** interagieren (Reparieren, Löschen, Flicken, Beamen, Container, Schalter: **E halten**) · **G** ablegen · **Tab** Crew-Status · **Esc** Konsole verlassen |
-| Steuer (Frontsicht) | A/D lenken · W/S Schub · Shift+A/D Ausweichrolle · F Faltsprung (wenn der Captain ein Ziel gewählt hat) |
-| Taktik | T nächstes Ziel (oder anklicken) · **1/2** Phase L/R · **Leertaste** beide Phasen · 3 Bolzen · 4 Seitenturm (nach Kauf) · **S halten** Ziel-Scan · **W** Weitscan · **M** Marker aufs Ziel · **Rechtsklick** Marker setzen · **X** Marker löschen · **Z**/+/− Zoom · **O** Orbitalschlag (Außenmission) |
-| Captain | **1–6** Reiter: 1 Funk (Enter annehmen, Q/W/E Antwort) · 2 Sternkarte (←/→ Ort, Enter Sprungziel) · 3 Lage (Linksklick Captain-Marker, X löschen, **Leertaste halten = Scan**) · 4 Energie & Schilde (↑/↓ Zeile, ←/→ verteilen, **U → J Reaktor überladen**, N abbrechen) · 5 Schäden (↑/↓, Enter Priorität) · 6 Außenteam (Codetabelle, S Sensor, K Schildkuppel) |
+| Laufen | WASD / Pfeile · **E** interagieren (Löschen, Lecks, Beamen, Container, Schalter: **E halten**) · an einer Station: **E halten** = flicken (mit Ersatzteil in der Hand: Teil einbauen), **R** = Minispiel · **G** ablegen · **Tab** Crew-Status · **Esc** Konsole verlassen |
+| Steuer (Frontsicht) | A/D lenken (das Schiff ist träge: Drehung baut sich auf und läuft nach) · W/S Schub · Shift+A/D Ausweichrolle (10 s Abklingzeit) · F Faltsprung (wenn der Captain ein Ziel gewählt hat) · **keine Feuertaste** – in der Zielphase der Lanze Kurs halten (Countdown und ±5°-Marke mittig) |
+| Taktik | T nächstes Ziel (oder anklicken) · **Q/E** Waffe wählen · **A/D** Ladepunkte −/+ · **1/2/3** Lanze / Batterie Bb / Batterie Stb · **Leertaste** alles · **H** gewählte Batterie Halten / Feuer frei · 4 Bolzen (nach Kauf) · **S halten** Ziel-Scan · **W** Weitscan · **M** Marker aufs Ziel · **Rechtsklick** Marker setzen · **X** Marker löschen · **Z**/+/− Zoom · **O** Orbitalschlag (Außenmission) |
+| Captain | **1–6** Reiter: 1 Funk (Enter annehmen, Q/W/E Antwort) · 2 Sternkarte (←/→ Ort, Enter Sprungziel) · 3 Lage (Linksklick Captain-Marker, X löschen, **Leertaste halten = Scan**) · 4 Energie & Schilde (↑/↓ Zeile, ←/→ verteilen, **U → J Reaktor überladen**, N abbrechen) · 5 Schadensplan (W/S wählen, F/Enter Flicken, T Teil, Entf entfernen, P an die Spitze, A Bots automatisch) · 6 Außenteam (Codetabelle, S Sensor, K Schildkuppel) · auf jedem Reiter **Schildstoß: B, dann 1–4** (Bug/Stb/Heck/Bb) oder **Shift+Pfeil** |
+| Minispiel (R an einer Station) | **Leertaste**, wenn der Zeiger im grünen Feld steht – 3 Treffer, Fehlgriff = 1 s Sperre, scheitern unmöglich · Esc bricht ab |
 | Planungstisch (Messe, `Y`) | E am Tisch setzen (bis zu 3 gleichzeitig) · **1–5** Pin-Art (Ziel, Gefahr, Landeplatz, Treffpunkt, Frage) · **Klick** Pin setzen (auf einem Ort: **Shift+Klick**) · Rechtsklick eigenen Pin entfernen · ←/→ Ort · **Enter** Detailkarte · **D** Decksplan (B-7/Wrack) · **Backspace** zurück zur Sternkarte · Esc aufstehen |
 | Quartier (E an der eigenen Koje) | ↑/↓ Reihe (Boden, Wand, Licht, Plätze) · ←/→ wählen · **Q/E** Deko blättern · Enter Deko setzen |
 | Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) |
@@ -223,6 +226,122 @@ Achtung: Der Debug-Server erlaubt auch Abkürzungen (F6 überspringt einen Schri
 Faustregel: Zu schwer → zuerst `enemy.scavenger.aim` hoch oder `fireInterval` hoch. Zu leicht → `shield.regenDelay 5`
 oder `fireInterval 1.1`. Werte gelten bis zum Serverneustart.
 
+## Raumkampf M3a – Breitseite & Schaden
+
+Die Lerche ist jetzt träge, feuert über die Seiten, Gegner kündigen schwere Treffer an, und Treffer zerlegen das Schiff
+Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am besten im **Testgelände Raumkampf** (Lobby, M).
+
+### Die neue Lerche (Bug rechts, Backbord oben)
+
+```
+ Heck                     mittschiffs                Bug
+ Antriebsraum | Lager / Quartiere | Maschinenraum | Batteriedeck Bb | Brücke
+ (Triebwerk,  | Messe (Terminal,  | (Reaktor oben,| (Bb-Düse, Bb-   | (Taktik oben,
+  Heck-       |  Planungstisch,   |  Schildgen.   |  Batterie, Bb-  |  Captain Mitte,
+  Emitter)    |  Lebenserhaltung) |  unten,       |  Emitter)       |  Steuer vorn;
+              | Transfer / Quart. |  Schalter A/B)| Batteriedeck Stb|  Lanze + Bug-
+              |                   |               | (Stb-Düse, -Bat.|  Emitter am Bug)
+```
+
+- **Brücke** ganz vorn: Taktik (oben), Captain (Mitte), Steuer (vorn). Direkt daneben am Bug: **Lanze** und **Bug-Emitter**
+  (1,3 s Laufweg).
+- **Batteriedecks** oben (Backbord) und unten (Steuerbord): je **Düse, Batterie, Emitter** (5–6 s von der Brücke).
+- **Maschinenraum** mittschiffs: **Reaktor** (oben), **Schildgenerator** (unten), Reaktorschalter A oben links und B unten rechts (7 s).
+- **Antriebsraum** am Heck: **Triebwerk** und **Heck-Emitter** (13–15 s – der weiteste Weg).
+- **Lager** oben links: Regale mit Ersatzteil, Löschgel, Flickblech, Bolzen, Medipack. Messe mit Lebenserhaltung, unten
+  Transferkammer.
+- Neben jeder Station hängt eine Plakette (BUG/STB/HECK/BB/MITTE) mit Zustand OK / BESCH / AUS / FLICK.
+
+### Wer macht was
+
+| Rolle | Aufgabe im Kampf |
+|---|---|
+| **Pilot** (Steuer) | steuert und weicht aus. Keine Feuertaste. Hält Gegner in der **Breitseite** (Ziel bei ±90°), dreht bei einer Ansage weg (aus dem Bogen des Gegners) und hält in der **Zielphase der Lanze** 1,5 s Kurs (±5°). Das Schiff ist träge (90° in gut 3 s, Drehung läuft nach) – früh gegenlenken. |
+| **Taktik** | verteilt die **Ladepunkte** (4 bei Waffenenergie 2) auf Lanze und Batterien und **feuert alles**: Lanze (schmaler Bug-Kegel, 8 Schaden, durchschlagend 2), Batterien (breite Fächer an den Flanken, Salve 4 × 1,5). Batterien feuern auf „Feuer frei“ selbst, auf „Halten“ nur auf Taste. Sieht **Ladungen** der Gegner ab Beginn (roter Fächer mit Countdown) und sagt sie an. |
+| **Captain** | Schilde in den bedrohten Sektor, **Schildstoß** im richtigen Moment, **Schadensplan**: Schrauber auf Systeme ansetzen (Flicken / Teil), „Bots automatisch“. Sieht Ladungen erst in den letzten 1,2 s – hört also auf die Taktik. |
+| **Wer läuft** | repariert: meist die Taktik oder der Captain (unbesetzte Taktik feuert mit halber Kraft weiter). |
+
+### Ansagen und Schildstoß
+- Kanonenboot (3 s), Pylon (2 s) und Kustoden-Wächter (2,5 s, EMP) **laden** sichtbar, bevor sie schwer treffen. Ist das
+  Schiff am Ende noch in Bogen und Reichweite, trifft es (Kanonenboot 3 Schaden = 15 Hülle ohne Schild), sonst verfehlt es.
+  Treffer der Taktik auf einen ladenden Gegner verzögern die Ladung (je 1 s, höchstens 2 s). Jäger schießen weiter normal.
+- Solo sagt ODA jede Ladung an („Kanonenboot lädt – Backbord!“).
+- **Schildstoß** (Captain, B + 1–4 oder Shift+Pfeil): 1,5 s lang auf einem Sektor, schluckt 5 Schaden (2 bei beschädigtem
+  Emitter). Trifft der Schuss in den ersten 0,5 s, ist er **perfekt**: ganz geschluckt (auch EMP und Lanzen-artiges
+  Durchschlagen) und +1 Schildpunkt. Abklingzeit 8 s. Nicht möglich bei zerstörtem Schildgenerator oder Emitter des Sektors.
+
+### Schaden und Reparatur
+- Hüllentreffer im Sektor beschädigen mit 45 % ein System: meist im getroffenen Sektor, manchmal nebenan, selten
+  mittschiffs (nie die Gegenseite). Eine Stufe je Treffer: OK → BESCH → AUS. Wirkung u. a.: Düse beschädigt = Drehen zu
+  dieser Seite halb so schnell; Emitter beschädigt = Sektor hält nur 2, zerstört = Sektor offen; Batterie beschädigt =
+  2 statt 4 Rohre; Lanze beschädigt = Ladezeit × 1,5; Triebwerk zerstört = kein Schub/Sprung; Reaktor zerstört = Notstrom,
+  nach der Reparatur Neustart zu zweit an den Schaltern.
+- **Drei Wege an jeder Station:**
+  - **E halten = Flicken** (1,5 s): eine Stufe hoch, aber **fragil** (FLICK, Klebeband) – der nächste Treffer im Sektor zerstört es sofort.
+  - **R = Minispiel** (3–5 s): eine Stufe hoch, dauerhaft.
+  - **Ersatzteil holen (Lager) + E halten = Austausch** (3 s): sofort OK.
+- **Schrauber (Bots)** löschen Feuer und dichten Lecks selbst. Systeme reparieren sie **nur aus der Reparaturliste** des
+  Captains (höchstens 3 Einträge, „Flicken“ oder „Teil“). „Bots automatisch“ füllt die Liste selbst – Standard nur, wenn
+  genau einer spielt. Notreparatur durch ODA nach 45 s bleibt (nichts bleibt dauerhaft kaputt).
+- `stats.bridgeLeaves` zählt, wie oft jemand die Brücke verlässt, während Gegner da sind.
+
+### Testgelände-Wellen
+1. 2 Jäger · 2. Jäger + Kanonenboot · 3. Kustoden-Wächter + 2 Jäger · 4. Kanonenboot + Jäger · 5. Pylon (fest) + Kanonenboot,
+danach von vorn. 12 s Pause zwischen den Wellen. Start: Schiff unbeschädigt.
+
+### Wichtige `tune`-Pfade (M3a, nur mit `npm run debug`)
+
+| Befehl (Standardwert) | Wirkung |
+|---|---|
+| `tune spaceM3.tele.gunboat.damage 2` (3) | schwerer Treffer des Kanonenboots schwächer → leichter |
+| `tune spaceM3.tele.gunboat.dur 4` (3) | längere Ankündigung → mehr Zeit zum Wegdrehen/Stoß → leichter |
+| `tune spaceM3.burst.perfect 0.7` (0,5) | großzügigeres Fenster für den perfekten Stoß |
+| `tune spaceM3.aimTolerance 8` (5) | Lanze verzeiht mehr Drehung in der Zielphase |
+| `tune spaceM3.aimTime 1` (1,5) | kürzere Zielphase |
+| `tune combat.raiderOrbit 380` (320) | Jäger kreisen weiter außen/langsamer → leichter in der Breitseite zu halten |
+| `tune spaceM3.raiderFlip 0` (9) | Jäger wechseln nicht mehr die Kreisrichtung |
+| `tune crewScaling.3.enemyFireInterval 2` (1,7) | zu dritt schießen Gegner seltener → leichter |
+| `tune hitEffects.systemChance 0.3` (0,45) | weniger Systemschäden → weniger Laufen |
+| `tune spaceM3.repair.flickTime 1` (1,5) | schneller flicken |
+| `tune spaceM3.enemyHpFactor 0.6` (0,8) | Gegner fallen schneller |
+
+### Messwerte M3a (QA 2026-10-06)
+
+**Browser, zu dritt, Testgelände** (gemessen): drei Browserfenster (Steuer 1280×720, Taktik 1920×1080, Captain
+1280×720), nur Tastatur, ohne Debug und ohne God-Mode. Gespielt hat ein QA-Skript mit Reaktionszeiten von 0,2–0,7 s. Der
+Skript-Pilot kennt die Gegnerlagen sofort (als hätte die Taktik ohne Verzögerung angesagt) – **Skripte sind schneller und
+sicherer als Menschen.** Zeiten = Spielzeit aus dem Server.
+
+| Lauf (Stand der Werte) | Welle 1 | Welle 2 | Welle 3 | Welle 4 | Notfallprotokolle | Brücke verlassen | Schildstöße (perfekt) | Flicken / Minispiel / Austausch |
+|---|---|---|---|---|---|---|---|---|
+| Endwerte, Lauf A | 0:43 | 0:55 | 0:53 | 1:06 | 0 | 0 | 7 (1) | 0 / 0 / 0 |
+| Endwerte, Lauf B | 0:20 | 2:51 | 1:01 | 1:30 | 0 | 3 | 14 (5) | 1 / 1 / 1 |
+| Zwischenstände (6 Läufe) | 0:22–0:42 | 1:23–2:27 | 0:57–3:00 | 0:49–3:07 | 0–5 je Lauf | 1–6 | 11–24 (2–13) | bis 3 / 3 / 3 |
+
+- Endwerte: im Mittel etwa **1:10 je Welle**, keine Notfallprotokolle. Teuer sind die Kanonenboot-Wellen (2 und 4): ein
+  schwerer Treffer auf einen leeren Schildsektor kostet 15 Hülle. Davor (Zwischenstände) lösten 2–5 Notfallprotokolle je Lauf
+  eine Kaskade aus, weil die Hülle in 12 s Pause kaum über 30 kam – deshalb flicken die Schrauber die Außenhaut jetzt schneller.
+- Wer die Brücke verlässt, ist **5–31 s** weg: flicken 6–15 s, Minispiel 5–22 s, Austausch (Teil aus dem Lager holen) 20–31 s,
+  je nach Weg.
+- **Solo im Browser** (Endwerte, Skript pendelt zwischen Steuer und Taktik, Schrauber automatisch): Welle 1 0:58, Welle 2 3:42
+  (das Kanonenboot zeigt die Breitseite mit 4er-Schilden; das Skript nutzt die Lanze kaum), Welle 3 2:07; 0 Notfallprotokolle.
+- **Mission 1 an B-7 zu dritt** (Weg dorthin per Debug übersprungen, Kampf ohne Debug): Kanonenboot kündigt jede Ladung an,
+  Kampf bis zum Boje-Scan 1:37, 9 Ladungen, 6 Schildstöße (5 perfekt), 0 Notfallprotokolle.
+
+**Bot-Simulation** (`npm run sim:arena`, 10 Seeds je Strategie, zu dritt, 5 Wellen; Bots spielen fehlerfrei):
+
+| Wert | „Nase drauf“ (nose) | Breitseite (maneuver) |
+|---|---|---|
+| Hüllenverlust gesamt | 160 | 20 |
+| Hüllenverlust je Minute | 14,4 | 3,6 |
+| Hüllenverlust je geschaffte Welle | 59 | 3,9 |
+| Wellen je 10 min | 2,4 | 5,0 |
+| Notfallprotokolle | 1,8 | 0 |
+
+Breitseite lohnt sich klar (Faktor 8 gesamt, 4 je Minute). Solo ist der Bot-Vergleich nicht aussagekräftig (der Solo-Bot
+mit „nose“ bleibt am Kanonenboot hängen). Die Bots sind deutlich besser als Menschen – beim Spieleabend zuerst auf die
+Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
+
 ## Claude-Bridge zuschalten (optional)
 
 Ohne Bridge kommt der Folge-Funkspruch am Ende aus dem Archiv (6 Varianten passend zu euren Entscheidungen).
@@ -249,6 +368,10 @@ Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag.
 - Der Pilot sieht wirklich nur nach vorn. Ohne Ansagen der Taktik sucht er Gegner oft vergeblich: Im Test hatte der
   Skript-Pilot nur mit Markern rund 10 % der Kampfzeit einen Gegner im Bild, mit zusätzlichen Ansagen („hinten rechts!“)
   gut die Hälfte. Also: Taktik, redet mit eurem Pilot!
+- **Lanze (M3a):** Die Zielphase bricht ab, wenn das Schiff beim Feuern noch nachdreht (Trägheit). Die Taktik sieht dann
+  „DREHT NOCH“ statt „BEREIT“ – erst schießen, wenn der Pilot stillhält. Gegen kreisende Jäger trifft die Lanze selten.
+- Ein zerstörter Reaktor, der repariert wird, braucht danach den Neustart zu zweit – auch mitten im Kampf (ein Schrauber
+  hilft nach 3 s am zweiten Schalter).
 - Pylonen drehen sich langsam zum Schiff. Wer an der Flanke stehen bleibt, hat bald wieder ihre Schildfront vor sich.
 - Spielerkollision gibt es nicht; Figuren laufen durcheinander hindurch.
 - Zwei Tabs im selben Browser sind **derselbe** Spieler (gemeinsame Kennung im Browserspeicher); der neuere Tab
@@ -328,6 +451,11 @@ Planetenmission zu dritt). Debug: `kesh`, `squad 1|2|rear`, `wake`, `shield <n>`
 Im Debug-Overlay zeigt eine Konsole nur eine kompakte Zeile oben (FPS, Ping, Fehler, Schritt).
 Debug-Befehl für das Lager (nur Debug-Server): `__game.debugCmd('inv', { item: 'bolzen', n: 0 })`.
 Tests starten den Server mit festem Code (`ws-smoke.js`) bzw. ohne Code (`Game` direkt).
+M3a: `npm test` = `test-features` + `test-combat` + `test-m3`; Vertrag `CONTRACT-M3.md` (QA-Nachträge §19).
+`npm run sim:arena` = `node tools/sim-headless.js arena --pilot both --seeds 10` (Strategievergleich nose/maneuver im
+Testgelände; weitere Optionen `--players 1`, `--waves n`, `--wave-limit s`, `--max s`). Debug zusätzlich: `damage <system> <zustand>`
+für alle 14 Systeme, `fragile <system>`, `tele [id]`, `burst <sektor>`, `tune spaceM3.<pfad> <wert>` (seit QA M3a
+gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewScaling.3.enemyFireInterval`).
 
 ### Server ab M1 (Team SERVER)
 

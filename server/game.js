@@ -21,6 +21,32 @@ const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
 const SERVER_VERSION = '0.2.0';
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan' };
 
+// ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
+// Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
+// Server auch vor dem COMBAT-Stand läuft.
+const MOUNT_ALIAS = { phase_l: 'port', phase_r: 'stbd', both: 'all' };
+const hasFn = (name) => typeof space[name] === 'function';
+function allocDefault(C, id, fb) {
+  const d = C.spaceM3 && C.spaceM3.allocDefault;
+  return d && Number.isFinite(d[id]) ? d[id] : fb;
+}
+function capFor(table, st, fb) {
+  if (!table) return fb;
+  const k = st === 'offline' ? 'broken' : st;
+  return Number.isFinite(table[k]) ? table[k] : fb;
+}
+function fallbackTurnCaps(game) {
+  const T = game.C.spaceM3 && game.C.spaceM3.turnCap; const s = game.ship.systems;
+  return { port: capFor(T, s.thruster_port, 1), stbd: capFor(T, s.thruster_stbd, 1) };
+}
+function fallbackShieldCaps(game) {
+  const E = game.C.spaceM3 && game.C.spaceM3.emitterCap; const s = game.ship.systems;
+  const base = 4;
+  if (interior.isDown(s.shields)) return [0, 0, 0, 0];
+  return interior.EMITTERS.map((k) => Math.round(base * capFor(E, s[k], 1)));
+}
+function fallbackChargePoints(game) { const w = game.ship.power.weapons; return w > 0 ? w + 2 : 0; }
+
 class Game {
   constructor(opts) {
     const o = opts || {};
@@ -62,7 +88,9 @@ class Game {
     this.plan = { pins: [], seq: 0 };
     this.ivo = null;
     this.support = { sensor: 0, strike: 0, supply: 0, recall: 0, kuppel: 0 };
-    this.stats = { elapsed: 0, kills: 0, repairs: 0, firesOut: 0, hits: 0, emergencies: 0, playTimeStart: 0, stages: {}, missions: {}, locations: {} };
+    this.stats = { elapsed: 0, kills: 0, repairs: 0, firesOut: 0, hits: 0, emergencies: 0, playTimeStart: 0, stages: {}, missions: {}, locations: {},
+      // M3a (CONTRACT-M3 §7.2/§8): Abnahme-Zähler
+      flicks: 0, swaps: 0, minigames: 0, minigameErrors: 0, bridgeLeaves: 0, bursts: 0, burstsPerfect: 0 };
     this.ship = {
       scene: Locations.START, docked: true, dockedAt: Locations.START, dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
       hull: C.ship.hull, hullMax: C.ship.hull, o2: C.o2.max, alert: 'normal',
@@ -71,11 +99,18 @@ class Game {
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
       heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
-      systems: { reactor: 'ok', engines: 'ok', shields: 'ok', weapons: 'ok', life: 'ok', transfer: 'ok' },
+      // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
+      systems: interior.makeSystems(),
+      fragile: {}, repairQueue: [], botAuto: false, botAutoChosen: false, sysAnnounce: { list: [], next: 0 },
+      turnVel: 0,
       offline: {},
       fireList: [], breachList: [], groundItems: [],
       dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: null },
-      mount: { phase_l: { charge: 1 }, phase_r: { charge: 1 }, bolzen: { loaded: C.weapons.bolzen.magazine, reloadT: null, shotT: 0 }, seitenturm: { charge: 0 } },
+      // M3a: bow/port/stbd (Ladepunkte alloc, hold für Batterien); phase_* bleiben für den alten space.js-Stand, bis COMBAT umstellt
+      mount: { phase_l: { charge: 1 }, phase_r: { charge: 1 }, bolzen: { loaded: C.weapons.bolzen.magazine, reloadT: null, shotT: 0 }, seitenturm: { charge: 0 },
+        bow: { charge: 1, alloc: allocDefault(C, 'bow', 2), aim: null },
+        port: { charge: 1, alloc: allocDefault(C, 'port', 1), hold: false, salvo: 0 },
+        stbd: { charge: 1, alloc: allocDefault(C, 'stbd', 1), hold: false, salvo: 0 } },
       target: null, priority: null, scan: { progress: 0, done: false }, scanning: false, scanAt: 0,
       tscan: { targetId: null, progress: 0, on: false, at: 0 }, widescan: { cd: 0, pulseAt: -99 },
       markers: { captain: null, tactical: null },
@@ -348,6 +383,8 @@ class Game {
     const c = typeof msg.c === 'string' ? msg.c : (typeof msg.cmd === 'string' ? msg.cmd : '');   // M2: auch { cmd: '…' }
     // M2 §15: Ducken (Taste C) – ohne Konsole, nur Außenzone auf v2-Karten
     if (c === 'crouch') { const e = combat.setCrouch(this, p, !!msg.on); if (e) this.notice(p, e); return; }
+    // M3a §8.1: Minispiel-Reparatur – ohne Konsole, nur Zone ship
+    if (Protocol.CMD_REPAIR.includes(c)) { const e = interior.repairCmd(this, p, c, msg); if (e) this.notice(p, e); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -369,8 +406,26 @@ class Game {
       case 'captain.shield': err = space.captainShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
       case 'captain.priority': {
         const t = msg.target;
-        if (t === null || t === undefined || t === 'fire' || t === 'breach' || Protocol.SYSTEMS.includes(t)) ship.priority = t == null ? null : t;
-        else err = 'Unbekannte Priorität.';
+        if (t === null || t === undefined || t === 'fire' || t === 'breach') ship.priority = t == null ? null : t;
+        else if (Protocol.SYSTEMS.includes(t)) {   // M3a §8.2: System-ID -> flick-Eintrag an die Spitze der Reparaturliste
+          err = bots.queueFront(this, t);
+          if (!err) ship.priority = t;
+        } else err = 'Unbekannte Priorität.';
+        break;
+      }
+      case 'captain.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
+      case 'captain.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
+      case 'captain.burst':
+        err = hasFn('captainBurst') ? space.captainBurst(this, Number(msg.sector)) : 'Schildstoß noch nicht verfügbar.';   // TODO M3 COMBAT
+        break;
+      case 'weapons.alloc': {
+        const mount = MOUNT_ALIAS[msg.mount] || String(msg.mount);
+        err = hasFn('weaponsAlloc') ? space.weaponsAlloc(this, mount, Number(msg.delta) >= 0 ? 1 : -1) : 'Ladepunkte noch nicht verfügbar.';   // TODO M3 COMBAT
+        break;
+      }
+      case 'weapons.hold': {
+        const mount = MOUNT_ALIAS[msg.mount] || String(msg.mount);
+        err = hasFn('weaponsHold') ? space.weaponsHold(this, mount, !!msg.hold) : 'Halten noch nicht verfügbar.';   // TODO M3 COMBAT
         break;
       }
       case 'captain.scan': err = this.mission.scan(p, !!msg.on); break;
@@ -380,7 +435,13 @@ class Game {
       case 'captain.overload': err = space.captainOverload(this); break;
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
       case 'weapons.target': err = space.weaponsTarget(this, msg.id == null ? null : String(msg.id)); break;
-      case 'weapons.fire': err = space.weaponsFire(this, String(msg.mount)); if (!err) this.missionEvent('weaponsFired', {}); break;
+      case 'weapons.fire': {
+        // M3a §5.1: Altnamen phase_l/phase_r/both -> port/stbd/all (nur sobald COMBAT die neue Logik liefert)
+        const raw = String(msg.mount);
+        const mount = hasFn('weaponsAlloc') ? (MOUNT_ALIAS[raw] || raw) : raw;
+        err = space.weaponsFire(this, mount); if (!err) this.missionEvent('weaponsFired', {});
+        break;
+      }
       case 'weapons.reload': err = space.weaponsReload(this); break;
       case 'weapons.strike': err = away.weaponsStrike(this); break;
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
@@ -449,9 +510,30 @@ class Game {
         const sys = String(msg.system);
         if (!this.ship.systems[sys]) { err = 'Unbekanntes System.'; break; }
         const st = ['ok', 'damaged', 'broken', 'offline'].includes(msg.state) ? msg.state : null;
-        if (st === 'ok') { this.ship.systems[sys] = 'ok'; delete this.ship.offline[sys]; }
-        else if (st === 'offline') interior.setOffline(this, sys, this.C.emp.offlineTime);
+        if (st === 'ok') {
+          const list = sys === 'weapons' ? interior.WEAPON_SYSTEMS : [sys];
+          for (const k of list) { this.ship.systems[k] = 'ok'; delete this.ship.offline[k]; delete this.ship.fragile[k]; }
+          interior.pruneRepairQueue(this);
+        } else if (st === 'offline') interior.setOffline(this, sys, this.C.emp.offlineTime);
         else interior.damageSystem(this, sys, st);
+        break;
+      }
+      // M3a §17: fragile <system>, tele [id] (sofort laden), burst <sector> (ohne Prüfung) – tele/burst liegen bei COMBAT
+      case 'fragile': {
+        const sys = String(msg.system != null ? msg.system : (typeof msg.args === 'string' ? msg.args.trim() : ''));
+        if (!interior.SYSTEM_ORDER.includes(sys)) { err = 'Unbekanntes System.'; break; }
+        this.ship.fragile[sys] = true;
+        break;
+      }
+      case 'tele': {
+        const id = msg.id != null ? String(msg.id) : (typeof msg.args === 'string' && msg.args.trim() ? msg.args.trim() : null);
+        err = hasFn('debugTele') ? space.debugTele(this, id) : 'tele: noch nicht verfügbar (SERVER-COMBAT).';   // TODO M3 COMBAT
+        break;
+      }
+      case 'burst': {
+        const sector = Number(msg.sector != null ? msg.sector : (typeof msg.args === 'string' ? msg.args.trim() : NaN));
+        if (!(sector >= 0 && sector <= 3)) { err = 'burst <0..3>'; break; }
+        err = hasFn('debugBurst') ? space.debugBurst(this, sector) : 'burst: noch nicht verfügbar (SERVER-COMBAT).';   // TODO M3 COMBAT
         break;
       }
       case 'fire': {
@@ -549,6 +631,7 @@ class Game {
         }
       } else this.emptyFor = 0;
       this.safe('players', () => interior.updatePlayers(this, dt));
+      this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('bots', () => bots.update(this, dt));
@@ -564,6 +647,17 @@ class Game {
     }
   }
 
+  // M3a §8.3: Raum 'bruecke' verlassen, während ein Gegner (kein relay) da ist -> stats.bridgeLeaves + 1 (je Verlassen)
+  trackBridgeLeaves() {
+    const hostile = this.space.enemies.some((e) => e.kind !== 'relay');
+    for (const p of this.players) {
+      let room = null;
+      if (p.zone === 'ship') { const t = { x: Math.floor(p.x / 32), y: Math.floor(p.y / 32) }; const r = W.Maps.roomAt(t.x, t.y); room = r ? r.id : null; }
+      if (p.lastRoom === 'bruecke' && room !== 'bruecke' && room !== null && hostile) this.stats.bridgeLeaves++;
+      if (room !== null || p.zone !== 'ship') p.lastRoom = room;
+    }
+  }
+
   updateAlert() {
     const s = this.ship;
     let level = 'normal';
@@ -575,6 +669,26 @@ class Game {
       this.emit('alarm', { level });
       if (level !== 'normal') this.emit('sfx', { name: level === 'red' ? 'alarm_red' : 'alarm_yellow' });
     }
+  }
+
+  // players[].action: Halten (flick/swap/…) mit Fortschritt; Minispiel ohne Ende -> progress gegen die Mindestzeit
+  holdSnap(h) {
+    const C = this.C;
+    if (h.kind === 'switch') return { kind: 'switch', progress: r2(Math.min(1, this.ship.reactorCtl.restartProgress / C.reactorM1.restartTime)) };
+    if (h.kind === 'minigame') {
+      const minT = (C.spaceM3 && C.spaceM3.repair && C.spaceM3.repair.minigameMinTime) || 2.5;
+      return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)) };
+    }
+    const o = { kind: h.kind, progress: r2(Math.min(1, h.t / h.dur)) };
+    if (h.system) o.system = h.system;
+    return o;
+  }
+
+  // ship.shields: über space.shieldsSnapshot (COMBAT), sonst Altfelder + cap aus Emitter-Zuständen
+  shieldsSnap() {
+    const sh = this.ship.shields;
+    if (hasFn('shieldsSnapshot')) return space.shieldsSnapshot(this);
+    return { pool: sh.pool, alloc: sh.alloc, current: sh.current, cap: hasFn('shieldCaps') ? space.shieldCaps(this) : fallbackShieldCaps(this), burst: null, burstCd: 0 };
   }
 
   wantsSnapshot() { return this.tick % this.C.net.snapEvery === 0; }
@@ -594,9 +708,10 @@ class Game {
     if (includeLog) this.sentLogVersion = this.explore.logVersion;
     const mount = ship.mount;
     const v2 = combat.isV2Away(aw);
-    const mounts = space.mountIds(this).map((id) => {
-      const w = C.weapons[id];
+    const mounts = hasFn('mountsSnapshot') ? space.mountsSnapshot(this) : space.mountIds(this).map((id) => {
+      const w = C.weapons[id] || (C.spaceM3 && C.spaceM3.mounts && C.spaceM3.mounts[id]) || { facing: 0, arc: 0, range: 0 };
       const o = { id, facing: w.facing, arc: w.arc, range: w.range };
+      if (!mount[id]) return o;
       if (id === 'bolzen') {
         const b = mount.bolzen;
         const ch = b.reloadT != null ? b.reloadT / w.reloadTime : (b.loaded > 0 ? 1 - b.shotT / C.combat.bolzenShotDelay : 0);
@@ -609,8 +724,14 @@ class Game {
     const rc = ship.reactorCtl;
     const spaceOut = {
       w: sp.w, h: sp.h,
-      enemies: sp.enemies.map((e) => ({ id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
-        shields: e.shields.map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? (C.enemyWeapons[e.kind] || []) : null })),
+      enemies: sp.enemies.map((e) => {
+        const o = { id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
+          shields: e.shields.map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? (C.enemyWeapons[e.kind] || []) : null };
+        // M3a §7.1: angekündigter Angriff (nur solange er lädt)
+        const tele = hasFn('enemyTeleSnap') ? space.enemyTeleSnap(e) : (e.tele ? { kind: e.tele.kind, left: r2(e.tele.left), dur: e.tele.dur, sector: e.tele.sector } : null);
+        if (tele) o.tele = tele;
+        return o;
+      }),
       projectiles: sp.projectiles.map((q) => ({ id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
       beams: sp.beams.map((b) => ({ x1: r1(b.x1), y1: r1(b.y1), x2: r1(b.x2), y2: r1(b.y2), ttl: r2(b.ttl), kind: b.kind })),
       markers: sp.markers,
@@ -637,7 +758,7 @@ class Game {
         id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, carry: p.carry,
         hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor),
-        action: p.hold ? { kind: p.hold.kind, progress: p.hold.kind === 'switch' ? r2(Math.min(1, rc.restartProgress / C.reactorM1.restartTime)) : r2(Math.min(1, p.hold.t / p.hold.dur)) }
+        action: p.hold ? this.holdSnap(p.hold)
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
         ...combat.playerSnap(this, p),
@@ -647,8 +768,10 @@ class Game {
         let task = null;
         if (tk) {
           const kind = tk.phase === 'fetch' ? 'fetch' : tk.kind;
-          const tx = tk.phase === 'fetch' ? W.SHELF_TILES.find((s) => s.item === tk.part).x : tk.tx;
-          const ty = tk.phase === 'fetch' ? 1 : tk.ty;
+          // M3a: Regalkachel aus dem Schiffslayout (kein festes y mehr)
+          const shelf = tk.phase === 'fetch' ? W.SHELF_TILES.find((s) => s.item === tk.part) : null;
+          const tx = shelf ? shelf.x : tk.tx;
+          const ty = shelf ? shelf.y : tk.ty;
           task = { kind, x: tx * 32 + 16, y: ty * 32 + 16 };
         }
         return { id: b.id, variant: b.variant, x: r1(b.x), y: r1(b.y), dir: b.dir, moving: b.moving, carry: b.carry, task, progress: r2(b.progress) };
@@ -659,8 +782,15 @@ class Game {
         helm: { turn: ship.helm.turn, thrust: ship.helm.thrust, manned: ship.helm.manned },
         power: ship.power, reactor: ship.reactor,
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons), life: Math.round(ship.heat.life) },
-        shields: { pool: ship.shields.pool, alloc: ship.shields.alloc, current: ship.shields.current },
-        systems: ship.systems,
+        shields: this.shieldsSnap(),
+        // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
+        systems: Object.assign({}, ship.systems, { weapons: ship.systems.weapons }),
+        fragile: Object.keys(ship.fragile).filter((k) => ship.fragile[k]),
+        repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
+        botAuto: !!ship.botAuto,
+        turnVel: r3(ship.turnVel || 0),
+        turnCap: hasFn('turnCaps') ? space.turnCaps(this) : fallbackTurnCaps(this),
+        chargePoints: hasFn('chargePoints') ? space.chargePoints(this) : fallbackChargePoints(this),
         offline: Object.fromEntries(Object.entries(ship.offline).map(([k, v]) => [k, Math.ceil(v.t)])),
         fires: ship.fireList.map((f) => [f.tx, f.ty]),
         breaches: ship.breachList.map((b) => ({ tx: b.tx, ty: b.ty })),
@@ -701,7 +831,10 @@ class Game {
       shopContext: shop.shopContext(this),
       mission: missionOut,
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,
-        emergencies: this.stats.emergencies, playTimeStart: r2(this.stats.playTimeStart), stages: this.stats.stages, missions: this.stats.missions, locations: this.locationStats() },
+        emergencies: this.stats.emergencies,
+        flicks: this.stats.flicks || 0, swaps: this.stats.swaps || 0, minigames: this.stats.minigames || 0, bridgeLeaves: this.stats.bridgeLeaves || 0,
+        bursts: this.stats.bursts || 0, burstsPerfect: this.stats.burstsPerfect || 0,
+        playTimeStart: r2(this.stats.playTimeStart), stages: this.stats.stages, missions: this.stats.missions, locations: this.locationStats() },
       errors: this.errors,
     };
   }

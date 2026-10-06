@@ -110,14 +110,15 @@ module.exports = {
       enter: [
         { if: { flag: { bribed: true } }, spawn: { kind: 'raider', angles: [0.3] } },
         { if: { flag: { bribed: true } }, after: { sec: 3, radio: { from: GRAUZAHN, text: 'Bezahlt hast du für die Durchfahrt, Kleine. Nicht fürs Ankommen.' } } },
-        { if: { not: { flag: { bribed: true } } }, spawn: { kind: 'raider', angles: [-0.4, 0.6] } },
+        // M3a §15: ein Jäger ohne Staffelung (vorher zwei)
+        { if: { not: { flag: { bribed: true } } }, spawn: { kind: 'raider', angles: [0.2] } },
         { if: { not: { flag: { bribed: true } } }, after: { sec: 3, radio: { from: GRAUZAHN, text: 'Da seid ihr ja. Mal sehen, wie lange eure Schilde halten.' } } },
       ],
       timers: [
         { at: 0.5, oda: 'Rostmeute auf dem Schirm! Taktik besetzen, Captain verteilt Schilde auf die bedrohte Seite.' },
-        { at: 8, oda: 'Zwei Phasenkanonen, vorn links und rechts. Taktik sagt dem Piloten, wohin er drehen soll!' },
+        { at: 8, oda: 'Die Lerche feuert über die Seiten: Batterien backbord und steuerbord, vorn nur die Lanze. Pilot: Breitseite zum Gegner!' },
         { at: 15, oda: 'Taktik: Gegner anvisieren und S halten – der Scan zeigt Schilde und Feuerbögen.' },
-        { at: 22, oda: 'Unbesetzte Taktik? Dann feuern die Kanonen allein – mit halber Kraft. Besser als nichts.' },
+        { at: 22, oda: 'Unbesetzte Taktik? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.' },
         { at: 35, oda: 'Schäden? Die Schrauber reparieren selbst. Captain setzt im Reiter „Schäden“ Prioritäten.' },
       ],
       rules: [
@@ -125,11 +126,12 @@ module.exports = {
         { if: { all: [{ not: { flag: { bribed: true } } }, { any: [{ enemiesLeft: { max: 0 } }, { elapsed: 50 }] }] },
           do: [{ set: { gunboat: true } }, { spawn: { kind: 'gunboat', tag: 'gunboat' } },
             { radio: { from: GRAUZAHN, text: 'Genug gespielt. Das Kanonenboot übernimmt.' } },
+            { after: { sec: 4, oda: 'Das Kanonenboot lädt seine Breitseite sichtbar auf. Captain: Schildstoß auf die Seite – Pilot: wegdrehen!' } },
             { do: 'breakShields', text: 'Kanonenboot! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!' }] },
         { if: { enemyHpBelow: { tag: 'gunboat', frac: 0.5 } },
           do: [{ do: 'guaranteeBreach', region: 3, text: 'Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.' }] },
         { if: { all: [{ flag: { bribed: true } }, { any: [{ elapsed: 25 }, { enemyHpBelow: { kind: 'raider', frac: 0.5 } }, { enemiesLeft: { max: 0 } }] }] },
-          do: [{ set: { shieldBreak: true } }, { do: 'breakShields', text: 'Ein Treffer schlägt durch – der Schildgenerator ist hinüber! Ersatzteil aus dem Lager.' }] },
+          do: [{ set: { shieldBreak: true } }, { do: 'breakShields', text: 'Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.' }] },
       ],
       objectives: [
         { id: 'repel', text: 'Rostmeute abwehren', done: false },

@@ -613,8 +613,14 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,raider', 'Welle 2: Jäger + Kanonenboot (12 s nach Räumung)');
     g.space.enemies = []; run(A.nextWaveDelay + 0.5);
     ok(arenaEnemies(g).map((e) => e.kind).sort().join() === 'raider,raider,sentinel', 'Welle 3: Wächter + 2 Jäger');
+    // M3a §15: Welle 4 Kanonenboot + Jäger, Welle 5 Pylon + Kanonenboot, danach zyklisch von vorn
     g.space.enemies = []; run(A.nextWaveDelay + 0.5);
-    ok(g.arena.wave === 4 && arenaEnemies(g).length === 2 && g.arena.round === 2, 'Welle 4: zyklisch von vorn (Runde 2)');
+    ok(g.arena.wave === 4 && arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,raider', 'Welle 4: Kanonenboot + Jäger (M3a)');
+    g.space.enemies = []; run(A.nextWaveDelay + 0.5);
+    ok(g.arena.wave === 5 && arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,pylon', 'Welle 5: Pylon + Kanonenboot (M3a)');
+    for (let w = 6; w <= A.waves.length; w++) { g.space.enemies = []; run(A.nextWaveDelay + 0.5); }
+    g.space.enemies = []; run(A.nextWaveDelay + 0.5);
+    ok(g.arena.wave === A.waves.length + 1 && arenaEnemies(g).length === A.waves[0].length && g.arena.round === 2, `Welle ${A.waves.length + 1}: zyklisch von vorn (Runde 2)`);
     g.ship.hull = 0; run(0.1);
     ok(g.ship.hull > 0 && g.stats.emergencies === 1 && g.phase === 'play', 'Notfallprotokoll wie im Spiel, kein Ende');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'spawn', kind: 'raider' });

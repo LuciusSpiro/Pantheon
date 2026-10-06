@@ -9,29 +9,44 @@
   const PAL = R.PAL;
   const TILE = 32, VW = 640, VH = 360;
 
-  const SYS_NAMES = { reactor: 'Reaktor', engines: 'Antrieb', shields: 'Schilde', weapons: 'Waffen', life: 'Lebenserhaltung', transfer: 'Transfer' };
-  const SYS_SHORT = { reactor: 'Reaktor', engines: 'Antrieb', shields: 'Schild', weapons: 'Waffen', life: 'Leben', transfer: 'Transfer' };
+  // M3a: alle 14 Systeme (+ Altname weapons = schlechteste der drei Waffen)
+  const SYS_NAMES = {
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgenerator', weapons: 'Waffen', life: 'Lebenserhaltung', transfer: 'Transfer',
+    // gleiche Namen wie der Server (interior.SYS_LABEL)
+    thruster_port: 'Backbord-Düse', thruster_stbd: 'Steuerbord-Düse',
+    emitter_bow: 'Bug-Emitter', emitter_stbd: 'Steuerbord-Emitter', emitter_aft: 'Heck-Emitter', emitter_port: 'Backbord-Emitter',
+    weapon_bow: 'Bug-Waffe', battery_port: 'Backbord-Batterie', battery_stbd: 'Steuerbord-Batterie',
+  };
+  const SYS_SHORT = {
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', life: 'Leben', transfer: 'Transfer',
+    thruster_port: 'Bb-Düse', thruster_stbd: 'Stb-Düse', emitter_bow: 'Bug-Emitter', emitter_stbd: 'Stb-Emitter', emitter_aft: 'Heck-Emitter',
+    emitter_port: 'Bb-Emitter', weapon_bow: 'Bug-Waffe', battery_port: 'Bb-Batterie', battery_stbd: 'Stb-Batterie',
+  };
+  // Zwei Zeichen fürs HUD-Raster: Art + Seite (b Backbord, s Steuerbord, h Heck, v vorn/Bug)
+  const SYS_CODE = {
+    reactor: 'Re', shields: 'Sg', life: 'Le', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
+    thruster_port: 'Db', thruster_stbd: 'Ds', emitter_bow: 'Ev', emitter_stbd: 'Es', emitter_aft: 'Eh', emitter_port: 'Eb', battery_port: 'Bb', battery_stbd: 'Bs',
+  };
+  // Reihenfolge nach Ort: Bug – Backbord – Steuerbord – Heck – Mitte
+  const SYSTEM_ORDER = ['weapon_bow', 'emitter_bow', 'thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer',
+    'engines', 'emitter_aft', 'reactor', 'shields', 'life'];
+  // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
+  const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'life', 'weapon_bow', 'emitter_bow'],
+    ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
-  const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'ausgefallen' };
+  const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Taktik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
   const STATE_COL = { ok: PAL.moss, damaged: PAL.warn, broken: PAL.red, offline: '#9A7AE0' };
   STATE_NAMES.offline = 'offline (EMP)';
 
-  // Räume der Lerche (M1-Layout, CONTRACT-M1 §3)
+  // Räume der Lerche: M3a aus dem Schiffslayout (Maps.roomAt / SHIP_ROOMS), Fallback 'Gang'
   function roomOf(tx, ty) {
-    if (tx <= 6) return 'Maschinenraum';
-    if (tx >= 32) return 'Brücke';
-    if (tx >= 24) return 'Messe';
-    if (ty === 6) return 'Gang';
-    if (tx >= 8 && tx <= 12) return ty <= 5 ? 'Lager' : 'Transferkammer';
-    if (tx >= 14 && tx <= 22) {
-      const b = (Maps.BEDS || []).find(q => q.room && tx >= q.room.x0 && tx <= q.room.x1 && ty >= q.room.y0 && ty <= q.room.y1);
-      if (b) return b.color === 3 ? 'Gästequartier' : 'Quartier ' + (b.color + 1);
-      return ty <= 5 ? 'Quartiere oben' : 'Quartiere unten';
-    }
-    return 'Gang';
+    try {
+      const r = Maps && Maps.roomAt ? Maps.roomAt(tx, ty) : null;
+      return (r && r.name) || 'Gang';
+    } catch (e) { return 'Gang'; }
   }
 
   function fmtTime(sec) {
@@ -40,7 +55,7 @@
   }
 
   const Hud = {
-    SYS_NAMES, SYS_SHORT, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -191,61 +206,79 @@
       }
     },
 
+    // M3a: 14 Systeme als 7×2-Raster (Kürzel Art+Seite, Zustand über Farbe/Muster), Reparaturliste = Bernstein-Strich
     drawSystems(ctx, view, x, y) {
       const st = view.state;
-      const sys = (st.ship && st.ship.systems) || {};
-      const prio = st.ship && st.ship.priority;
+      const ship = st.ship || {};
+      const sys = ship.systems || {};
+      const queued = {};
+      for (const q of ship.repairQueue || []) if (q && q.system) queued[q.system] = q;
+      if (ship.priority) queued[ship.priority] = queued[ship.priority] || { mode: 'flick' };
       const t = view.time;
-      for (let i = 0; i < SYSTEMS.length; i++) {
-        const s = SYSTEMS[i];
-        const off = st.ship && st.ship.offline && st.ship.offline[s];
+      HUD_ROWS.forEach((row, ri) => row.forEach((s, i) => {
+        const off = ship.offline && ship.offline[s];
         const state = off ? 'offline' : (sys[s] || 'ok');
-        const bx = x + i * 18;
+        const fr = R.fragileOf(st, s);
+        const bx = x + i * 16, by = y + ri * 15;
         const blink = state === 'broken' && Math.floor(t * 3) % 2 === 0;
-        ctx.fillStyle = state === 'broken' ? (blink ? '#5A1E1A' : '#2A1514') : state === 'damaged' ? '#4A3E16' : 'rgba(21,27,43,0.85)';
-        ctx.fillRect(bx, y, 16, 16);
-        ctx.strokeStyle = STATE_COL[state]; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, 15, 15);
-        R.icon(ctx, s, bx + 8, y + 8, { color: state === 'ok' ? PAL.mint : STATE_COL[state] });
-        if (prio === s) { ctx.fillStyle = PAL.amber; ctx.fillRect(bx + 2, y + 17, 12, 2); }
-      }
+        ctx.fillStyle = state === 'broken' ? (blink ? '#5A1E1A' : '#2A1514') : state === 'damaged' ? '#4A3E16' : state === 'offline' ? '#2A2240' : fr ? '#3A2414' : 'rgba(21,27,43,0.85)';
+        ctx.fillRect(bx, by, 15, 13);
+        if (state === 'damaged') R.hatch(ctx, bx, by, 15, 13, 'rgba(242,201,76,0.35)', 4);
+        if (state === 'broken') R.crossX(ctx, bx, by, 15, 13, 'rgba(224,71,60,0.7)', 1);
+        if (fr && state !== 'broken') R.tape(ctx, bx, by, 15, 13);
+        const col = R.stateColor(state, fr);
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, 14, 12);
+        R.text(ctx, SYS_CODE[s] || '?', bx + 8, by + 3, { color: state === 'ok' && !fr ? PAL.mint : col, align: 'center' });
+        if (queued[s]) { ctx.fillStyle = PAL.amber; ctx.fillRect(bx + 2, by + 12, 11, 1); }
+      }));
     },
 
     drawShieldMini(ctx, view, x, y) {
       const st = view.state;
       const cur = (st.ship && st.ship.shields && st.ship.shields.current) || [0, 0, 0, 0];
-      // Schiffssymbol (Bug rechts) mit 4 Sektor-Balken
+      const capA = (st.ship && st.ship.shields && st.ship.shields.cap) || null;
+      // Schiffssymbol (Bug rechts) mit 4 Sektor-Balken; M3a: über cap = dunkelrot (½), cap 0 = rot
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(x + 14, y + 6); ctx.lineTo(x + 4, y + 2); ctx.lineTo(x + 4, y + 10); ctx.closePath(); ctx.fill();
-      const pips = (n, px, py, vertical) => {
+      let capNow = 4;
+      const pips = (n, px, py, vertical, sec) => {
+        capNow = capA ? +capA[sec] : 4;
         for (let k = 0; k < 4; k++) {
-          ctx.fillStyle = k < n ? PAL.mint : '#2E3A4A';
+          ctx.fillStyle = k < n ? PAL.mint : k >= capNow ? (capNow <= 0 ? PAL.red : '#6A4A1A') : '#2E3A4A';
           if (vertical) ctx.fillRect(px, py + k * 3, 2, 2); else ctx.fillRect(px + k * 3, py, 2, 2);
         }
       };
-      pips(cur[0] || 0, x + 17, y + 1, true);   // Bug rechts
-      pips(cur[2] || 0, x, y + 1, true);        // Heck links
-      pips(cur[3] || 0, x + 3, y - 3, false);   // Backbord oben
-      pips(cur[1] || 0, x + 3, y + 13, false);  // Steuerbord unten
+      pips(cur[0] || 0, x + 17, y + 1, true, 0);   // Bug rechts
+      pips(cur[2] || 0, x, y + 1, true, 2);        // Heck links
+      pips(cur[3] || 0, x + 3, y - 3, false, 3);   // Backbord oben
+      pips(cur[1] || 0, x + 3, y + 13, false, 1);  // Steuerbord unten
     },
 
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
-      const x0 = VW - 6 * 18 - 4;
-      R.backdrop(ctx, x0 - 4, 2, 6 * 18 + 6, 64, 0.62);
+      const x0 = VW - 7 * 16 - 4;
+      R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 76, 0.62);
       this.drawSystems(ctx, view, x0, 4);
       const hullFrac = ship.hullMax ? ship.hull / ship.hullMax : (ship.hull || 0) / 100;
-      R.icon(ctx, 'hull', x0 + 6, 31);
-      R.bar(ctx, x0 + 14, 28, 48, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
-      R.text(ctx, String(Math.round(ship.hull || 0)), x0 + 65, 26, { color: PAL.star });
+      const yo = 12;
+      R.icon(ctx, 'hull', x0 + 6, 31 + yo);
+      R.bar(ctx, x0 + 14, 28 + yo, 48, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
+      R.text(ctx, String(Math.round(ship.hull || 0)), x0 + 65, 26 + yo, { color: PAL.star });
       const o2 = ship.o2 == null ? 100 : ship.o2;
-      R.icon(ctx, 'o2', x0 + 6, 45);
-      R.bar(ctx, x0 + 14, 42, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
-      R.text(ctx, String(Math.round(o2)), x0 + 65, 40, { color: PAL.star });
-      this.drawShieldMini(ctx, view, x0 + 88, 34);
+      R.icon(ctx, 'o2', x0 + 6, 45 + yo);
+      R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
+      R.text(ctx, String(Math.round(o2)), x0 + 65, 40 + yo, { color: PAL.star });
+      this.drawShieldMini(ctx, view, x0 + 90, 34 + yo);
       const inv = st.inventory || {};
-      R.icon(ctx, 'marks', x0 + 6, 58);
-      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55, { color: PAL.brass });
+      R.icon(ctx, 'marks', x0 + 6, 58 + yo);
+      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55 + yo, { color: PAL.brass });
+      // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
+      const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
+      const rn = roomOf(tx, ty);
+      const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
+      R.backdrop(ctx, VW - 2 - rw, 80, rw, 11, 0.62);
+      R.text(ctx, rn, VW - 6, 82, { color: PAL.star, align: 'right' });
       // Mini-Schiffsplan unten rechts
       const map = Maps.ship;
       R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'ship', cell: 3 });
@@ -257,7 +290,7 @@
       const st = view.state;
       const r = (st.ship && st.ship.reactor) || {};
       const onShip = view.self.zone === 'ship';
-      const x = VW - 232, y = onShip ? 70 : 50, w = 228;
+      const x = VW - 232, y = onShip ? 96 : 50, w = 228;
       if (r.state === 'overload') {
         const left = +r.overloadLeft || 0;
         const warn = left <= 30;
@@ -480,18 +513,64 @@
       if (ia) {
         const s = R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE);
         const label = ia.label;
-        const w = R.measure(label, 1) + 20;
-        const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, s.y - 22));
-        R.backdrop(ctx, x, y, w, 13, 0.8);
-        ctx.fillStyle = ia.ok ? PAL.amber : '#4A5260';
-        ctx.fillRect(x + 2, y + 2, 9, 9);
-        R.text(ctx, 'E', x + 4, y + 3, { color: PAL.space, shadow: false });
+        // M3a: zweite Zeile (z. B. „R: reparieren (Minispiel)“) – Stationsmarke sitzt darüber, daher Hinweis darunter/daneben
+        const alt = ia.alt || null;
+        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + 20;
+        const h = alt ? 25 : 13;
+        const yy = ia.sys ? s.y + 34 : s.y - 22;   // an Stationen unter die Kachel, damit die Seitenmarke frei bleibt
+        const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
+        R.backdrop(ctx, x, y, w, h, 0.8);
+        const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#4A5260'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: PAL.space, shadow: false }); };
+        key(ia.key || 'E', x + 2, y + 2, ia.ok);
         R.text(ctx, label, x + 15, y + 3, { color: ia.ok ? PAL.star : '#8C93A0', shadow: false });
+        if (alt) {
+          key(alt.key, x + 2, y + 14, alt.ok !== false);
+          R.text(ctx, alt.label, x + 15, y + 15, { color: alt.ok !== false ? PAL.star : '#8C93A0', shadow: false });
+        }
       }
-      if (me && me.action) {
+      if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame')) {
         const s = R.worldToScreen(view.self.x, view.self.y);
         R.ring(ctx, s.x, s.y - 46, 7, me.action.progress || 0, PAL.mint);
       }
+    },
+
+    // M3a §8.1: Reparatur-Minispiel (mittig, für 640×360). mg = Zustand aus client.js (Minigame)
+    drawMinigame(ctx, view, mg) {
+      if (!mg) return;
+      const t = view.time;
+      const w = 300, h = 104, x = Math.round(VW / 2 - w / 2), y = Math.round(VH / 2 - h / 2) - 20;
+      ctx.fillStyle = 'rgba(11,14,26,0.45)'; ctx.fillRect(0, 0, VW, VH);
+      R.panel(ctx, x, y, w, h, { style: 'screen', title: 'REPARATUR' });
+      const st = view.state;
+      const state = R.sysState(st, mg.system);
+      R.text(ctx, SYS_NAMES[mg.system] || mg.system, x + 12, y + 10, { color: PAL.star });
+      R.stateBadge(ctx, x + w - 46, y + 9, 34, 10, state, R.fragileOf(st, mg.system));
+      R.text(ctx, 'Leertaste im grünen Feld · 3 Treffer', x + 12, y + 22, { color: PAL.panelLight });
+      // Leiste
+      const bx = x + 20, bw = w - 40, by = y + 40, bh = 16;
+      ctx.fillStyle = '#151B2B'; ctx.fillRect(bx, by, bw, bh);
+      const locked = mg.lockUntil > t;
+      const zx = bx + Math.round(mg.zone.a * bw), zw = Math.max(4, Math.round(mg.zone.w * bw));
+      ctx.fillStyle = locked ? '#2E3A30' : '#3D7A4A'; ctx.fillRect(zx, by, zw, bh);
+      ctx.fillStyle = locked ? '#4A5A4C' : PAL.moss; ctx.fillRect(zx, by, zw, 2); ctx.fillRect(zx, by + bh - 2, zw, 2);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
+      const px = bx + Math.round(mg.pos * bw);
+      ctx.fillStyle = locked ? '#6B7380' : PAL.star; ctx.fillRect(px - 1, by - 4, 3, bh + 8);
+      ctx.fillStyle = locked ? '#6B7380' : PAL.amber; ctx.fillRect(px - 3, by - 6, 7, 3);
+      if (locked) {
+        R.hatch(ctx, bx, by, bw, bh, 'rgba(224,71,60,0.35)', 5);
+        R.text(ctx, 'Fehlgriff – Sperre ' + R.fmt1(mg.lockUntil - t) + ' s', x + w / 2, by + bh + 6, { color: PAL.warn, align: 'center' });
+      }
+      // Treffer-Pips + Fehler
+      for (let k = 0; k < 3; k++) {
+        const cx = x + 20 + k * 14;
+        ctx.fillStyle = k < mg.hits ? PAL.mint : '#26313F'; ctx.fillRect(cx, y + h - 24, 10, 10);
+        ctx.strokeStyle = PAL.mint; ctx.strokeRect(cx + 0.5, y + h - 23.5, 9, 9);
+      }
+      R.text(ctx, mg.phase === 'wait' ? 'Verbinde mit der Station …' : mg.phase === 'done' ? 'Fertig – wird übernommen …' : 'Treffer ' + mg.hits + '/3' + (mg.errors ? ' · Fehlgriffe ' + mg.errors : ''),
+        x + 70, y + h - 23, { color: mg.phase === 'done' ? PAL.mint : PAL.star });
+      if (!locked && mg.phase !== 'wait' && mg.phase !== 'done' && Math.floor(t * 2) % 2 === 0 && mg.hits === 0) R.text(ctx, 'LEERTASTE', x + w / 2, by + bh + 6, { color: PAL.amber, align: 'center' });
+      R.text(ctx, 'Esc abbrechen', x + w - 12, y + h - 23, { color: PAL.panelLight, align: 'right' });
     },
 
     drawCarry(ctx, view) {
@@ -602,16 +681,19 @@
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });
       const up = st.upgrades || {};
-      const ups = [up.seitenturm && 'Seitenturm', up.schildpool && 'Schildpool +2', up.schrauber3 && 'Dritter Schrauber'].filter(Boolean);
+      const ups = [up.seitenturm && (CFG.spaceM3 ? 'Zusatzrohre' : 'Seitenturm'), up.schildpool && 'Schildpool +2', up.schrauber3 && 'Dritter Schrauber'].filter(Boolean);
       R.text(ctx, 'Upgrades: ' + (ups.join(', ') || 'keine'), x + 140, ly, { color: PAL.star });
       ly += 14;
       const sys = (st.ship && st.ship.systems) || {};
       R.text(ctx, 'SYSTEME', x + 10, ly, { color: PAL.brass }); ly += 11;
-      SYSTEMS.forEach((s, i) => {
+      SYSTEM_ORDER.forEach((s, i) => {
         const state = sys[s] || 'ok';
-        R.text(ctx, SYS_NAMES[s] + ': ' + STATE_NAMES[state], x + 10 + (i % 2) * 190, ly + Math.floor(i / 2) * 11, { color: STATE_COL[state] });
+        const fr = R.fragileOf(st, s);
+        const cx = x + 10 + (i % 3) * 128, cy = ly + Math.floor(i / 3) * 10;
+        R.text(ctx, SYS_SHORT[s], cx, cy, { color: PAL.star });
+        R.text(ctx, R.stateCode(state, fr), cx + 120, cy, { color: R.stateColor(state, fr), align: 'right' });
       });
-      ly += 38;
+      ly += 52;
       R.text(ctx, (st.world ? 'Ort: ' + R.locName(st, R.worldOf(st).location) : 'Abschnitt: ' + ((st.mission && st.mission.stage) || '-')) + '   Spielzeit: ' + fmtTime(st.stats && st.stats.elapsed != null ? st.stats.elapsed : st.time), x + 10, ly, { color: PAL.panelLight });
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · C ducken · Esc Konsole', x + 10, y + h - 14, { color: PAL.panelLight });
     },

@@ -29,13 +29,28 @@
   const WALLS = [['holz', 'Holz'], ['paneel', 'Paneel'], ['tapete_gruen', 'Tapete grün'], ['tapete_creme', 'Tapete creme']];
   const LIGHTS = [['warm', 'Warm'], ['mint', 'Mint'], ['bernstein', 'Bernstein'], ['aus', 'Aus']];
   const STYLE_ROWS = [['floor', 'BODEN', FLOORS], ['wall', 'WAND', WALLS], ['light', 'LICHT', LIGHTS]];
-  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Energie & Schilde', 'Schäden', 'Außenteam'];
+  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Energie & Schilde', 'Schadensplan', 'Außenteam'];
   const TAB_AWAY = 5;
   const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'TAKTIK', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
-  const MOUNT_ORDER = ['phase_l', 'phase_r', 'lanze', 'bolzen', 'seitenturm'];
-  const MOUNT_NAMES = { phase_l: 'Phase L', phase_r: 'Phase R', lanze: 'Lanze', bolzen: 'Bolzen', seitenturm: 'Seitenturm' };
-  const MOUNT_KEYS = { phase_l: '1', phase_r: '2', lanze: '1', bolzen: '3', seitenturm: '4' };
+  // M3a: Lanze (Bug) + Batterien Bb/Stb; phase_* nur noch als Altnamen
+  const M3_MOUNTS = ['bow', 'port', 'stbd'];
+  const MOUNT_ORDER = ['bow', 'port', 'stbd', 'phase_l', 'phase_r', 'lanze', 'bolzen', 'seitenturm'];
+  const MOUNT_NAMES = { bow: 'Lanze', port: 'Batterie Bb', stbd: 'Batterie Stb', phase_l: 'Phase L', phase_r: 'Phase R', lanze: 'Lanze', bolzen: 'Bolzen', seitenturm: 'Seitenturm' };
+  const MOUNT_KEYS = { bow: '1', port: '2', stbd: '3', phase_l: '1', phase_r: '2', lanze: '1', bolzen: '4', seitenturm: '4' };
+  const MOUNT_SYS = { bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' };
+  const POWER_NAMES = { engines: 'Antrieb', shields: 'Schilde', weapons: 'Waffen', life: 'Lebenserhaltung' };
+  const SECTOR_KEYS = ['Bug', 'Stb', 'Heck', 'Bb'];
+  // QA M3a: Räume zusammenfassen statt doppelt nennen („Brücke 2, Quartier 2“), Reihenfolge = erstes Auftreten
+  function roomList(tiles, max) {
+    const cnt = new Map();
+    for (const t of tiles) { const r = H.roomOf(t[0], t[1]); cnt.set(r, (cnt.get(r) || 0) + 1); }
+    const parts = [...cnt].map(([r, k]) => (k > 1 ? r + ' ' + k + '×' : r));
+    return parts.length > max ? parts.slice(0, max).join(', ') + ' …' : parts.join(', ');
+  }
+  const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
+  function m3(path, d) { return R.cfgM3 ? R.cfgM3(path, d) : d; }
+  function f1(v) { return R.fmt1 ? R.fmt1(v) : (Math.round((+v || 0) * 10) / 10).toFixed(1).replace('.', ','); }
   const SCAN_RANGE = (CFG.tscan && CFG.tscan.range) || 800;
   const WIDESCAN_CD = (CFG.widescan && CFG.widescan.cooldown) || 20;
   const OVERLOAD_TIME = (CFG.reactorM1 && CFG.reactorM1.overloadTime) || 180;
@@ -50,7 +65,8 @@
   const Consoles = {
     current: null,
     tab: 0,
-    sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0 },
+    sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0, mount: 0 },
+    burstArm: 0,       // M3a: B gedrückt -> nächste Ziffer 1–4 = Schildstoß (performance.now())
     keys: {},
     mouseHold: null,
     helmSent: { turn: 0, thrust: 0, t: 0 },
@@ -61,7 +77,7 @@
     tscanOn: false,
     tscanRefreshT: 0,
     scanRefreshT: 0,
-    overloadAsk: 0,
+    overloadAsk: -1e9,
     plan: { mapId: 'star', selected: null, label: 'ziel' },
     starSel: null,
     maps: {},          // zuletzt gezeichnete Karten (Umrechnung Klick -> Welt): weapons, lage, star, plan
@@ -80,7 +96,7 @@
       this.keys = {};
       this.mouseHold = null;
       this.helmSent = { turn: 0, thrust: 0, t: 0 };
-      this.overloadAsk = 0;
+      this.overloadAsk = -1e9;
       if (name === 'plan') this.plan.mapId = 'star';
     },
     onClose(view) {
@@ -155,6 +171,7 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: 10, y: 26, w: 620, h: 292 };
       const fv = R.drawFrontView(ctx, view, rect);
+      try { this.helmTurnGauge(ctx, view, fv); this.helmAim(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
       const lx = 14, lw = fv.win.x - lx - 8;
       const rx = fv.win.x + fv.win.w + 8, rw = rect.x + rect.w - rx - 2;
       const w = R.worldOf(st);
@@ -180,6 +197,16 @@
       if (!jump.ready) jumpReason = jump.blockedReason || (!jump.dest ? 'Kein Ziel gewählt (Captain-Konsole)' : 'Sprungantrieb lädt (' + Math.round(n(jump.charge) * 100) + ' %)');
       R.button(ctx, lx, y, lw, 15, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready, reason: jumpReason, active: !!jump.ready, onClick: () => this.cmd(view, 'helm.jump') }); y += 17;
       if (jumpReason) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 2)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
+      // M3a: Lanze (Taktik feuert) – der Pilot sieht, wann gleich eine Zielphase kommen kann
+      const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
+      if (bow && y < 236) {
+        y += 2;
+        R.text(ctx, 'LANZE', lx, y, { color: PAL.brass });
+        const bs = bow.state || (ship.systems || {}).weapon_bow || 'ok';
+        const txt = bs === 'broken' ? 'AUS' : bow.aim ? 'ZIELT – Kurs halten!' : n(bow.charge) >= 1 ? 'geladen' : 'lädt ' + Math.round(n(bow.charge) * 100) + ' %';
+        R.text(ctx, txt, lx + 36, y, { color: bs === 'broken' ? PAL.red : bow.aim ? R.BURST_COL : n(bow.charge) >= 1 ? PAL.mint : PAL.panelLight });
+        y += 10;
+      }
       y = Math.max(y + 2, 262);
       const engDown = sysDown(ship, 'engines');
       const cd = n(ship.dodgeCd);
@@ -241,14 +268,93 @@
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x + 7, y + 9); ctx.lineTo(x, y + 6); ctx.lineTo(x - 7, y + 9); ctx.closePath(); ctx.fill();
       const pos = [[0, -1], [1, 0], [0, 1], [-1, 0]];   // Bug oben, Steuerbord rechts
+      const cap = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
       for (let i = 0; i < 4; i++) {
         const [dx, dy] = pos[i];
         for (let k = 0; k < 4; k++) {
-          ctx.fillStyle = hit === i ? (cur[i] ? PAL.star : PAL.red) : k < (cur[i] || 0) ? PAL.mint : '#2E3A4A';
+          // M3a: über cap = gedimmt (½), cap 0 = rot
+          const over = k >= n(cap[i], 4);
+          ctx.fillStyle = hit === i ? (cur[i] ? PAL.star : PAL.red) : k < (cur[i] || 0) ? PAL.mint : over ? (n(cap[i], 4) <= 0 ? '#7A2420' : '#5A4A1A') : '#2E3A4A';
           if (dy) ctx.fillRect(x - 11 + k * 6, y + dy * (20 + 0) - 1, 4, 3);
           else ctx.fillRect(x + dx * 22 - 1, y - 11 + k * 6, 3, 4);
         }
       }
+      const bu = sh.burst;
+      if (bu && n(bu.left) > 0 && bu.sector >= 0 && bu.sector < 4) {
+        const [dx, dy] = pos[bu.sector];
+        ctx.strokeStyle = R.BURST_COL; ctx.lineWidth = 1;
+        if (dy) ctx.strokeRect(x - 13.5, y + dy * 20 - 3.5, 27, 7); else ctx.strokeRect(x + dx * 22 - 3.5, y - 13.5, 7, 27);
+      }
+    },
+    // M3a: Drehpfeil nach turnVel; Seite halbiert (beschädigte Düse, schraffiert „½“) oder gesperrt (zerstört, Schloss)
+    helmTurnGauge(ctx, view, fv) {
+      const ship = view.state.ship || {};
+      if (ship.turnVel == null && !ship.turnCap) return;
+      const max = (CFG.ship && CFG.ship.turnRate) || 0.5;
+      const cx = fv.cx, half = 74, y = fv.win.y + fv.win.h - 22;
+      const cap = ship.turnCap || { port: 1, stbd: 1 };
+      ctx.fillStyle = 'rgba(11,14,26,0.78)'; ctx.fillRect(cx - half - 8, y - 12, half * 2 + 16, 28);
+      R.text(ctx, 'DREHUNG', cx - half - 4, y - 10, { color: PAL.brass });
+      const tv = n(ship.turnVel);
+      R.text(ctx, Math.round(Math.abs(tv) * 180 / Math.PI) + '°/s ' + (tv > 0.01 ? 'Stb' : tv < -0.01 ? 'Bb' : ''), cx + half + 4, y - 10, { color: PAL.star, align: 'right' });
+      ctx.fillStyle = '#1E2733'; ctx.fillRect(cx - half, y, half * 2, 8);
+      // Seitenkappung
+      for (const [side, dir] of [['port', -1], ['stbd', 1]]) {
+        const c = n(cap[side], 1);
+        if (c >= 0.99) continue;
+        const x0 = dir < 0 ? cx - half : cx + Math.round(half * c), w = Math.round(half * (1 - c));
+        const locked = c <= 0.2;
+        R.hatch(ctx, dir < 0 ? cx - half : cx + Math.round(half * c), y, w, 8, locked ? 'rgba(224,71,60,0.7)' : 'rgba(242,201,76,0.6)', 3);
+        const lx = dir < 0 ? cx - half / 2 : cx + half / 2;
+        if (locked) {
+          // Schloss
+          ctx.fillStyle = PAL.red; ctx.fillRect(lx - 4, y + 10, 8, 6);
+          ctx.strokeStyle = PAL.red; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(lx, y + 10, 3, Math.PI, 0); ctx.stroke();
+          R.text(ctx, (side === 'port' ? 'Bb' : 'Stb') + '-Düse AUS', lx + (dir < 0 ? -8 : 8), y + 9, { color: PAL.red, align: dir < 0 ? 'right' : 'left' });
+        } else R.text(ctx, '1/2', lx, y + 9, { color: PAL.warn, align: 'center' });
+        void x0;
+      }
+      ctx.fillStyle = PAL.brass; ctx.fillRect(cx, y - 2, 1, 12);
+      // Sollwert (Ruder) als Rahmen, Istwert (turnVel) als Pfeil
+      const ax = this.helmAxes();
+      if (ax.turn) { const c = n(cap[ax.turn < 0 ? 'port' : 'stbd'], 1); const tx = cx + ax.turn * half * c; ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(Math.round(tx) - 2.5, y - 2.5, 5, 13); }
+      const len = clamp(tv / max, -1, 1) * half;
+      if (Math.abs(len) >= 1) {
+        ctx.fillStyle = PAL.mint;
+        ctx.fillRect(len > 0 ? cx : cx + len, y + 2, Math.abs(len), 4);
+        const hx = cx + len, d = len > 0 ? 1 : -1;
+        ctx.beginPath(); ctx.moveTo(hx + d * 6, y + 4); ctx.lineTo(hx, y - 1); ctx.lineTo(hx, y + 9); ctx.closePath(); ctx.fill();
+      }
+    },
+    // M3a: Zielphase der Lanze – Countdown und ±5°-Marke mit aim.dev, groß und mittig
+    helmAim(ctx, view, fv) {
+      const ship = view.state.ship || {};
+      const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
+      const aim = bow && bow.aim;
+      if (!aim) return;
+      const tol = m3('aimTolerance', 5);
+      const dev = n(aim.dev);
+      const bad = Math.abs(dev) > tol * 0.7;
+      const t = view.time;
+      const w = 190, h = 56, x = Math.round(fv.cx - w / 2), y = fv.win.y + 26;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = bad ? PAL.red : R.BURST_COL; ctx.lineWidth = 1;
+      if (bad) ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.setLineDash([]);
+      R.text(ctx, 'LANZE ZIELT ' + f1(aim.left) + ' s', fv.cx, y + 4, { color: R.BURST_COL, scale: 2, align: 'center' });
+      R.text(ctx, bad && Math.floor(t * 6) % 2 ? 'ZU WEIT – GEGENLENKEN!' : 'KURS HALTEN', fv.cx, y + 22, { color: bad ? PAL.red : PAL.amber, align: 'center' });
+      // Skala ±(1,6 × Toleranz), grünes Feld ±Toleranz, Nadel = Abweichung
+      const sw = 150, sx = fv.cx - sw / 2, sy = y + 36, range = tol * 1.6;
+      ctx.fillStyle = '#1E2733'; ctx.fillRect(sx, sy, sw, 10);
+      const gw = sw * tol / range;
+      ctx.fillStyle = 'rgba(94,140,74,0.6)'; ctx.fillRect(Math.round(fv.cx - gw / 2), sy, Math.round(gw), 10);
+      R.hatch(ctx, sx, sy, Math.round(sw / 2 - gw / 2), 10, 'rgba(224,71,60,0.5)', 3);
+      R.hatch(ctx, Math.round(fv.cx + gw / 2), sy, Math.round(sw / 2 - gw / 2), 10, 'rgba(224,71,60,0.5)', 3);
+      R.text(ctx, '-' + tol + '°', fv.cx - gw / 2, sy + 11, { color: PAL.panelLight, align: 'center' });
+      R.text(ctx, '+' + tol + '°', fv.cx + gw / 2, sy + 11, { color: PAL.panelLight, align: 'center' });
+      const nd = (d) => { const px = Math.round(fv.cx + clamp(d / range, -1, 1) * sw / 2); ctx.fillStyle = bad ? PAL.red : PAL.star; ctx.fillRect(px - 1, sy - 3, 3, 16); };
+      nd(dev);
+      if (dev > 0 && aim.signed === false) nd(-dev);
     },
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
     cycleZoom(which, dir) {
@@ -264,13 +370,15 @@
       if (this.tab === TAB_AWAY && !awayOn) this.tab = 0;
       let x = 12;
       TABS.forEach((name, i) => {
-        const w = R.measure(name, 1) + 28;
+        const w = R.measure(name, 1) + 22;
         const dis = i === TAB_AWAY && !awayOn;
         R.button(ctx, x, 26, w, 15, name, { hotkey: String(i + 1), active: this.tab === i, disabled: dis, reason: 'Nur während der Außenmission', onClick: () => { this.tab = i; } });
         x += w + 3;
       });
       const radio = st.mission && st.mission.radio;
-      if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'Funk wartet!', 580, 30, { color: PAL.amber, align: 'center' });
+      if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'Funk wartet! (Reiter 1)', VW - 14, 41, { color: PAL.amber, align: 'right' });
+      // M3a: Schildstoß ist auf jedem Reiter erreichbar (B dann 1–4 oder Shift+Pfeil) – kompakte Leiste oben rechts
+      if (this.tab !== 3) { try { this.burstStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.burstStrip', e); } }
       const area = { x: 12, y: 48, w: 616, h: 274 };
       switch (this.tab) {
         case 0: return this.capRadio(ctx, view, area);
@@ -281,6 +389,64 @@
         case 5: return this.capAway(ctx, view, area);
       }
       return '';
+    },
+
+    // ---- M3a: Schildstoß (Captain) und Ladungen (erst in den letzten captainSeesLast s sichtbar)
+    burstReason(ship, sector) {
+      const sh = ship.shields || {}, sys = ship.systems || {};
+      if (n(sh.burstCd) > 0) return 'Stoß lädt nach (' + Math.ceil(sh.burstCd) + ' s)';
+      if (sys.shields === 'broken' || sys.shields === 'offline') return 'Schildgenerator zerstört – kein Stoß';
+      const em = EMITTER_OF[sector];
+      if (sys[em] === 'broken' || sys[em] === 'offline') return (H.SYS_NAMES[em] || em) + ' zerstört – kein Stoß';
+      return null;
+    },
+    burst(view, sector) {
+      const r = this.burstReason(view.state.ship || {}, sector);
+      if (r) { this.denied(r); return; }
+      view.send({ t: 'cmd', c: 'captain.burst', sector });
+      view.actions.sfx('ui_click');
+    },
+    teleLate(view) {
+      const late = m3('tele.captainSeesLast', 1.2);
+      const out = [null, null, null, null];
+      for (const e of view.enemies || []) {
+        const te = e.tele;
+        if (!te || te.sector == null || n(te.left) > late) continue;
+        if (!out[te.sector] || n(te.left) < out[te.sector].left) out[te.sector] = { left: n(te.left), kind: te.kind, enemy: e.kind };
+      }
+      return out;
+    },
+    // kompakte Stoß-Leiste (alle Reiter außer „Energie & Schilde“)
+    burstStrip(ctx, view, x, y) {
+      const ship = view.state.ship || {}, sh = ship.shields || {};
+      if (!sh.cap && sh.burstCd == null && !CFG.spaceM3) return;
+      const cur = sh.current || [0, 0, 0, 0], cap = sh.cap || [4, 4, 4, 4];
+      const tele = this.teleLate(view);
+      const armed = performance.now() - this.burstArm < 1500;
+      const order = [3, 0, 1, 2];   // Bb, Bug, Stb, Heck (Lesereihenfolge)
+      const bw = 25;
+      R.text(ctx, armed ? '1–4?' : 'STOSS', x, y + 3, { color: armed ? PAL.amber : PAL.brass });
+      x += 31;
+      for (let j = 0; j < 4; j++) {
+        const i = order[j];
+        const bx = x + j * (bw + 2);
+        const reason = this.burstReason(ship, i);
+        const bu = sh.burst && sh.burst.sector === i && n(sh.burst.left) > 0;
+        ctx.fillStyle = bu ? 'rgba(232,248,255,0.25)' : reason ? '#232A36' : '#26313F'; ctx.fillRect(bx, y, bw, 15);
+        if (n(cap[i], 4) <= 0) R.crossX(ctx, bx, y, bw, 15, 'rgba(224,71,60,0.6)', 1);
+        else if (n(cap[i], 4) < 4) R.hatch(ctx, bx, y, bw, 15, 'rgba(242,201,76,0.25)', 4);
+        const tl0 = tele[i];
+        if (!tl0) R.text(ctx, String(i + 1) + SECTOR_KEYS[i].charAt(0), bx + 3, y + 1, { color: reason ? '#6B7380' : PAL.star });
+        for (let k = 0; k < 4; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], 4) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 3 + k * 5, y + 11, 4, 2); }
+        const tl = tele[i];
+        if (tl) {
+          ctx.strokeStyle = PAL.red; ctx.setLineDash([3, 2]); ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); ctx.setLineDash([]);
+          R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
+        } else { ctx.strokeStyle = bu ? R.BURST_COL : PAL.panel; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); }
+        R.ui.buttons.push({ x: bx, y, w: bw, h: 15, label: 'Stoß ' + SECTOR_KEYS[i], disabled: !!reason, reason, onClick: () => this.burst(view, i) });
+      }
+      const cd = n(sh.burstCd);
+      if (cd > 0) R.text(ctx, Math.ceil(cd) + 's', x + 4 * (bw + 2) + 2, y + 3, { color: PAL.panelLight });
     },
 
     // ---- Funk + Missionen + Logbuch
@@ -479,7 +645,7 @@
         const state = (ship.systems || {})[sys] || 'ok';
         if (sel) { ctx.fillStyle = 'rgba(127,224,194,0.10)'; ctx.fillRect(a.x - 2, y - 2, 300, 28); }
         R.icon(ctx, sys, a.x + 6, y + 6, { color: H.STATE_COL[state] || PAL.red });
-        R.text(ctx, H.SYS_NAMES[sys], a.x + 16, y + 2, { color: sel ? PAL.amber : PAL.star });
+        R.text(ctx, POWER_NAMES[sys] || H.SYS_NAMES[sys], a.x + 16, y + 2, { color: sel ? PAL.amber : PAL.star });
         if (state !== 'ok') R.text(ctx, H.STATE_NAMES[state] || state, a.x + 16, y + 12, { color: H.STATE_COL[state] || PAL.red });
         const minusR = v <= 0 ? 'Minimum erreicht' : null;
         const plusR = v >= 4 ? 'Maximum (4)' : used >= output ? 'Reaktor ausgelastet – erst anderswo abziehen' : null;
@@ -512,8 +678,8 @@
         } else {
           R.text(ctx, 'Wirklich überladen? Danach fällt der', a.x + 6, y, { color: PAL.amber }); y += 10;
           R.text(ctx, 'Reaktor aus (Notstrom 2)!', a.x + 6, y, { color: PAL.amber }); y += 12;
-          R.button(ctx, a.x + 6, y, 140, 16, 'Ja, überladen', { hotkey: 'J', active: true, onClick: () => { this.overloadAsk = 0; this.cmd(view, 'captain.overload'); } });
-          R.button(ctx, a.x + 152, y, 100, 16, 'Abbrechen', { hotkey: 'N', onClick: () => { this.overloadAsk = 0; } });
+          R.button(ctx, a.x + 6, y, 140, 16, 'Ja, überladen', { hotkey: 'J', active: true, onClick: () => { this.overloadAsk = -1e9; this.cmd(view, 'captain.overload'); } });
+          R.button(ctx, a.x + 152, y, 100, 16, 'Abbrechen', { hotkey: 'N', onClick: () => { this.overloadAsk = -1e9; } });
         }
       } else if (rs === 'overload') {
         const left = n(reactor.overloadLeft);
@@ -537,40 +703,183 @@
       const cx = a.x + 455, cy = a.y + 130;
       R.text(ctx, 'SCHILDE', a.x + 330, a.y + 4, { color: PAL.brass });
       R.text(ctx, 'Pool ' + allocSum + ' / ' + pool, a.x + 390, a.y + 4, { color: allocSum >= pool ? PAL.amber : PAL.mint });
-      if (sysDown(ship, 'shields')) R.text(ctx, 'Schildgenerator ausgefallen!', a.x + 470, a.y + 16, { color: PAL.red, align: 'center' });
+      if (sysDown(ship, 'shields')) R.text(ctx, 'Schildgenerator zerstört!', a.x + 470, a.y + 31, { color: PAL.red, align: 'center' });
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(cx + 26, cy); ctx.lineTo(cx - 18, cy - 12); ctx.lineTo(cx - 24, cy); ctx.lineTo(cx - 18, cy + 12); ctx.closePath(); ctx.fill();
       const pos = [[cx + 95, cy], [cx, cy + 70], [cx - 95, cy], [cx, cy - 70]];
+      const capA = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
+      const tele = this.teleLate(view);
+      const t = view.time;
+      // M3a: Abklingzeit des Schildstoßes
+      const bcd = n(sh.burstCd), bmax = m3('burst.cooldown', 8);
+      R.text(ctx, bcd > 0 ? 'Stoß lädt ' + Math.ceil(bcd) + ' s' : 'Stoß bereit (B+1–4 / Shift+Pfeil)', a.x + 330, a.y + 16, { color: bcd > 0 ? PAL.panelLight : PAL.mint });
+      R.bar(ctx, a.x + 330, a.y + 26, 120, 3, 1 - clamp(bcd / bmax, 0, 1), bcd > 0 ? PAL.amber : PAL.mint);
       for (let i = 0; i < 4; i++) {
         const [px, py] = pos[i];
         const sel = this.sel.power === 4 + i;
         const bw = 110, bh = 40;
         const bx = px - bw / 2, by = py - bh / 2;
-        ctx.fillStyle = sel ? 'rgba(127,224,194,0.12)' : 'rgba(21,27,43,0.9)'; ctx.fillRect(bx, by, bw, bh);
-        ctx.strokeStyle = sel ? PAL.amber : PAL.panel; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
-        R.text(ctx, H.SECTOR_NAMES[i], px, by + 3, { color: sel ? PAL.amber : PAL.star, align: 'center' });
+        const cap = n(capA[i], 4);
+        const em = EMITTER_OF[i], emSt = (ship.systems || {})[em] || 'ok';
+        const bu = sh.burst && sh.burst.sector === i && n(sh.burst.left) > 0 ? sh.burst : null;
+        ctx.fillStyle = bu ? 'rgba(232,248,255,0.16)' : sel ? 'rgba(127,224,194,0.12)' : 'rgba(21,27,43,0.9)'; ctx.fillRect(bx, by, bw, bh);
+        if (cap <= 0) R.crossX(ctx, bx, by, bw, bh, 'rgba(224,71,60,0.55)', 2);
+        const tl = tele[i];
+        if (tl) { ctx.strokeStyle = Math.floor(t * 8) % 2 ? PAL.red : '#FF8A7A'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(bx - 1, by - 1, bw + 2, bh + 2); ctx.setLineDash([]); ctx.lineWidth = 1; }
+        ctx.strokeStyle = bu ? R.BURST_COL : sel ? PAL.amber : PAL.panel; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        R.text(ctx, H.SECTOR_NAMES[i], bx + 5, by + 3, { color: sel ? PAL.amber : PAL.star });
+        if (tl) R.text(ctx, f1(tl.left) + ' s!', bx + bw - 4, by + 3, { color: PAL.red, align: 'right' });
+        else if (emSt !== 'ok') R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, emSt, R.fragileOf(view.state, em), { code: cap <= 0 ? 'AUS' : cap < 4 ? '1/2' : undefined });
+        else if (R.fragileOf(view.state, em)) R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, 'ok', true);
         for (let k = 0; k < 4; k++) {
           const filled = k < n(cur[i]), wanted = k < n(alloc[i]);
-          ctx.fillStyle = filled ? PAL.mint : wanted ? '#2F5A50' : '#26313F';
-          ctx.fillRect(px - 22 + k * 12, by + 15, 10, 8);
+          const over = k >= cap;
+          const pxx = px - 22 + k * 12, pyy = by + 15;
+          ctx.fillStyle = filled ? PAL.mint : over ? '#3A2A1A' : wanted ? '#2F5A50' : '#26313F';
+          ctx.fillRect(pxx, pyy, 10, 8);
+          if (over && cap > 0) R.hatch(ctx, pxx, pyy, 10, 8, 'rgba(242,201,76,0.7)', 3);
         }
+        if (cap > 0 && cap < 4) R.text(ctx, '1/2', px + 28, by + 15, { color: PAL.warn });
+        if (cap <= 0) R.text(ctx, 'AUS', px, by + 15, { color: PAL.red, align: 'center', scale: 1 });
         const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
         const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
         R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: -1 }); } });
         R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: 1 }); } });
+        const br = this.burstReason(ship, i);
+        R.button(ctx, bx + 23, by + 25, bw - 46, 13, bu ? (n(bu.perfectLeft) > 0 ? 'PERFEKT!' : 'STOSS ' + f1(bu.left)) : 'Stoß', { hotkey: bu ? null : 'B' + (i + 1), active: !!bu, disabled: !!br && !bu, reason: br, onClick: () => this.burst(view, i) });
       }
-      return '↑/↓ wählen · ←/→ verteilen · U überladen · 1–6 / Tab Reiter';
+      return '↑/↓ wählen · ←/→ verteilen · B+1–4 / Shift+Pfeil Schildstoß · U überladen · Tab Reiter';
     },
 
     damageRows(st) {
       const ship = st.ship || {};
-      const rows = SYSTEMS.map(s => ({ target: s, label: H.SYS_NAMES[s], state: (ship.systems || {})[s] || 'ok' }));
+      const list = (H.SYSTEM_ORDER && ship.systems && Object.keys(ship.systems).length > 6) || CFG.spaceM3 ? H.SYSTEM_ORDER : SYSTEMS;
+      const rows = list.map(s => ({ target: s, sys: true, label: H.SYS_NAMES[s], state: (ship.systems || {})[s] || 'ok' }));
       rows.push({ target: 'fire', label: 'Feuer löschen (' + ((ship.fires || []).length) + ')', state: (ship.fires || []).length ? 'broken' : 'ok' });
       rows.push({ target: 'breach', label: 'Lecks flicken (' + ((ship.breaches || []).length) + ')', state: (ship.breaches || []).length ? 'damaged' : 'ok' });
       rows.push({ target: null, label: 'Keine Priorität', state: 'ok' });
       return rows;
     },
+    // M3a: Laufzeit von der Brücke (vor der Captain-Konsole) zu jeder Station, einmal per BFS
+    walkTime(sys) {
+      if (!this._walk) {
+        const W = {};
+        try {
+          const m = Maps.ship;
+          const con = m.find('C')[0] || { x: 37, y: 6 };
+          let start = null;
+          for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (!start && !m.solid(con.x + dx, con.y + dy)) start = { x: con.x + dx, y: con.y + dy };
+          const dist = {};
+          if (start) {
+            const q = [start]; dist[start.x + ',' + start.y] = 0;
+            while (q.length) {
+              const c = q.shift();
+              for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const nx = c.x + dx, ny = c.y + dy, k = nx + ',' + ny;
+                if (k in dist || m.solid(nx, ny)) continue;
+                dist[k] = dist[c.x + ',' + c.y] + 1; q.push({ x: nx, y: ny });
+              }
+            }
+          }
+          const tps = ((CFG.player && CFG.player.speed) || 96) / TILE;
+          for (const s of R.shipStations()) {
+            let best = Infinity;
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const d = dist[(s.x + dx) + ',' + (s.y + dy)]; if (d != null && d < best) best = d; }
+            if (isFinite(best) && (W[s.system] == null || best / tps < W[s.system])) W[s.system] = best / tps;
+          }
+        } catch (e) { Net.reportError('Consoles.walkTime', e); }
+        this._walk = W;
+      }
+      return this._walk[sys];
+    },
+    queueOf(ship, sys) { return (ship.repairQueue || []).find(q => q && q.system === sys) || null; },
+    setRepair(view, sys, mode) {
+      const ship = view.state.ship || {};
+      const q = this.queueOf(ship, sys);
+      const max = m3('repair.queueMax', 3);
+      if (mode && !q && (ship.repairQueue || []).length >= max) { this.denied('Reparaturliste voll (' + max + ') – erst einen Eintrag entfernen'); return; }
+      if (!mode && !q) return;
+      this.cmd(view, 'captain.repair', { system: sys, mode: mode || null });
+    },
     capDamage(ctx, view, a) {
+      const st0 = view.state, ship0 = st0.ship || {};
+      if (CFG.spaceM3 || ship0.repairQueue || (ship0.systems && ship0.systems.weapon_bow)) return this.capDamagePlan(ctx, view, a);
+      return this.capDamageOld(ctx, view, a);
+    },
+    // M3a: Schadensplan (Listenversion) – alle 14 Systeme mit Ort, Zustand (dreifach), Laufzeit; Reparaturliste für die Bots
+    capDamagePlan(ctx, view, a) {
+      const st = view.state, ship = st.ship || {};
+      const rows = this.damageRows(st);
+      this.sel.damage = clamp(this.sel.damage, 0, rows.length - 1);
+      const queue = ship.repairQueue || [];
+      const max = m3('repair.queueMax', 3);
+      let y = a.y + 1;
+      R.text(ctx, 'SCHADENSPLAN', a.x, y, { color: PAL.brass });
+      R.text(ctx, 'Bot-Liste ' + queue.length + '/' + max, a.x + 84, y, { color: queue.length >= max ? PAL.amber : PAL.panelLight });
+      const auto = !!ship.botAuto;
+      R.button(ctx, a.x + 170, y - 3, 148, 13, 'Bots automatisch: ' + (auto ? 'AN' : 'AUS'), { hotkey: 'A', active: auto, onClick: () => this.cmd(view, 'captain.botAuto', { on: !auto }) });
+      y += 12;
+      R.text(ctx, 'ORT', a.x, y, { color: PAL.panelLight }); R.text(ctx, 'SYSTEM', a.x + 34, y, { color: PAL.panelLight });
+      R.text(ctx, 'ZUSTAND', a.x + 128, y, { color: PAL.panelLight }); R.text(ctx, 'WEG', a.x + 196, y, { color: PAL.panelLight, align: 'right' });
+      R.text(ctx, 'BOTS', a.x + 202, y, { color: PAL.panelLight });
+      y += 10;
+      const bots = st.bots || [];
+      const botName = (id) => { const i = bots.findIndex(b => b.id === id); return i >= 0 ? 'S' + (i + 1) : String(id || ''); };
+      rows.forEach((r, i) => {
+        const sel = this.sel.damage === i;
+        const rh = 13;
+        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(a.x - 2, y - 1, 322, rh); ctx.strokeStyle = PAL.amber; ctx.strokeRect(a.x - 1.5, y - 0.5, 321, rh - 1); }
+        if (r.sys) {
+          const stn = R.stationOfSystem(r.target);
+          const side = stn ? stn.side : 'mid';
+          const fr = R.fragileOf(st, r.target);
+          // Ort (Messingplakette) vor Zahl
+          const lab = R.SIDE_SHORT[side] || '';
+          ctx.fillStyle = PAL.brass; ctx.fillRect(a.x, y, 31, 10);
+          R.text(ctx, lab, a.x + 15, y + 1, { color: PAL.space, align: 'center', shadow: false });
+          R.text(ctx, H.SYS_SHORT[r.target] || r.label, a.x + 34, y + 1, { color: r.state === 'ok' && !fr ? PAL.panelLight : PAL.star });
+          R.stateBadge(ctx, a.x + 128, y, 36, 10, r.state, fr);
+          const wt = this.walkTime(r.target);
+          R.text(ctx, wt != null ? f1(wt) + ' s' : '–', a.x + 196, y + 1, { color: PAL.panelLight, align: 'right' });
+          const q = this.queueOf(ship, r.target);
+          const needs = r.state !== 'ok' || fr;
+          const dis = !needs && !q;
+          R.button(ctx, a.x + 202, y - 1, 42, 12, 'Flicken', { active: !!(q && q.mode === 'flick'), disabled: dis, reason: 'System ist heil', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, 'flick'); } });
+          R.button(ctx, a.x + 246, y - 1, 28, 12, 'Teil', { active: !!(q && q.mode === 'part'), disabled: dis, reason: 'System ist heil', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, 'part'); } });
+          R.button(ctx, a.x + 276, y - 1, 14, 12, '—', { disabled: !q, reason: 'Nicht in der Liste', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, null); } });
+          if (q) R.text(ctx, q.bot ? botName(q.bot) : '…', a.x + 293, y + 1, { color: q.bot ? PAL.amber : PAL.panelLight });
+          if (ship.priority === r.target) R.text(ctx, '1.', a.x + 310, y + 1, { color: PAL.amber });
+        } else {
+          const active = (ship.priority || null) === r.target;
+          R.button(ctx, a.x, y - 1, 196, 12, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'captain.priority', { target: r.target }); } });
+          if (active) R.text(ctx, 'PRIO', a.x + 202, y + 1, { color: PAL.amber });
+        }
+        y += rh;
+      });
+      // rechts: Decksplan, Feuer/Lecks, Schrauber, Lager
+      const px = a.x + 332, pw = a.w - 332;
+      const cell = Math.max(3, Math.min(8, Math.floor(pw / Maps.ship.w)));
+      R.drawMiniPlan(ctx, view, px, a.y + 4, { zone: 'ship', cell });
+      let ly = a.y + 4 + Maps.ship.h * cell + 8;
+      const fires = ship.fires || [], br = ship.breaches || [];
+      R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 3) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
+      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 3) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 14;
+      R.text(ctx, 'SCHRAUBER', px, ly, { color: PAL.brass });
+      R.text(ctx, auto ? 'füllen die Liste selbst' : 'Systeme nur aus der Liste', px + 62, ly, { color: PAL.panelLight }); ly += 11;
+      bots.forEach((b, i) => {
+        const KIND = { repair: 'repariert', flick: 'flickt', swap: 'baut Teil ein', extinguish: 'löscht', patch: 'dichtet ab', fetch: 'holt Teil', switch: 'hält Reaktorschalter' };
+        const task = b.task ? (KIND[b.task.kind] || b.task.kind) + (b.task.system ? ' ' + (H.SYS_SHORT[b.task.system] || b.task.system) : ' – ' + H.roomOf(Math.floor(b.task.x / TILE) || 0, Math.floor(b.task.y / TILE) || 0)) : 'wartet';
+        R.text(ctx, 'S' + (i + 1) + ': ' + task, px, ly, { color: b.task ? PAL.star : PAL.panelLight }); ly += 10;
+      });
+      const inv = st.inventory || {};
+      ly += 4;
+      const stock = (it) => (R.shelfStock ? R.shelfStock(inv, it) : n(inv[it]));
+      R.text(ctx, 'Ersatzteile ' + stock('ersatzteil') + ' · Flickbleche ' + stock('flickblech') + ' · Löschgel ' + stock('loeschgel'), px, ly, { color: stock('ersatzteil') ? PAL.panelLight : PAL.warn }); ly += 11;
+      R.text(ctx, 'Flicken = schnell, fragil · Teil = heil', px, ly, { color: PAL.panelLight }); ly += 10;
+      R.text(ctx, 'Minispiel (vor Ort, R) = dauerhaft', px, ly, { color: PAL.panelLight });
+      return 'W/S wählen · F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · Tab Reiter';
+    },
+    capDamageOld(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
       const rows = this.damageRows(st);
       this.sel.damage = clamp(this.sel.damage, 0, rows.length - 1);
@@ -590,8 +899,8 @@
       R.drawMiniPlan(ctx, view, px, a.y + 10, { zone: 'ship', cell });
       let ly = a.y + 10 + Maps.ship.h * cell + 10;
       const fires = ship.fires || [], br = ship.breaches || [];
-      R.text(ctx, 'Feuer: ' + (fires.length ? fires.slice(0, 5).map(f => H.roomOf(f[0], f[1])).join(', ') : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
-      R.text(ctx, 'Lecks: ' + (br.length ? br.slice(0, 5).map(b => H.roomOf(b.tx, b.ty)).join(', ') : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 14;
+      R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 4) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
+      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 4) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 14;
       R.text(ctx, 'SCHRAUBER', px, ly, { color: PAL.brass }); ly += 11;
       (st.bots || []).forEach((b, i) => {
         const task = b.task ? ({ repair: 'repariert', extinguish: 'löscht', patch: 'flickt', fetch: 'holt Teil', switch: 'hält Reaktorschalter' }[b.task.kind] || b.task.kind) + ' – ' + H.roomOf(Math.floor(b.task.x / TILE) || 0, Math.floor(b.task.y / TILE) || 0) : 'wartet';
@@ -775,16 +1084,23 @@
     mountList(view) {
       const ms = ((view.state.ship || {}).mounts || []).slice();
       ms.sort((p, q) => MOUNT_ORDER.indexOf(p.id) - MOUNT_ORDER.indexOf(q.id));
-      if (!ms.some(m => m.id === 'phase_l' || m.id === 'lanze')) ms.unshift({ id: 'phase_l', missing: true }, { id: 'phase_r', missing: true });
+      if (!ms.some(m => m.id === 'phase_l' || m.id === 'lanze' || m.id === 'bow')) ms.unshift({ id: 'phase_l', missing: true }, { id: 'phase_r', missing: true });
       return ms;
     },
+    isM3(view) { return ((view.state.ship || {}).mounts || []).some(m => m.id === 'bow' || m.id === 'port' || m.id === 'stbd'); },
     mountInfo(view, id) {
       const st = view.state, ship = st.ship || {};
       const m = (ship.mounts || []).find(mm => mm.id === id);
       const target = this.targetOf(view);
       let reason = null;
+      const mst = m && MOUNT_SYS[id] ? (m.state || (ship.systems || {})[MOUNT_SYS[id]] || 'ok') : null;
       if (!m) reason = (id === 'seitenturm' || id === 'bolzen') ? 'Nicht eingebaut (Shop)' : 'Nicht verfügbar';
-      else if (sysDown(ship, 'weapons')) reason = 'Waffenbank ausgefallen';
+      else if (mst === 'broken' || mst === 'offline') reason = (H.SYS_NAMES[MOUNT_SYS[id]] || id) + ' zerstört – reparieren';
+      else if (id === 'bow' && m.aim) reason = 'Zielt (' + f1(m.aim.left) + ' s)';
+      else if (MOUNT_SYS[id] && n(m.alloc, 1) <= 0 && n(m.charge) < 1) reason = 'Keine Ladepunkte (A/D)';
+      else if (MOUNT_SYS[id] && n(m.salvo) > 0) reason = 'Salve läuft';
+      else if (!MOUNT_SYS[id] && id !== 'bolzen' && sysDown(ship, 'weapons')) reason = 'Waffenbank ausgefallen';
+      else if (id === 'bolzen' && sysDown(ship, 'engines') && CFG.spaceM3) reason = 'Triebwerk zerstört – Bolzenwerfer aus';
       else if (id === 'bolzen' && (m.loaded === false || n(m.ammo, 1) <= 0)) reason = 'Magazin leer – R nachladen';
       else if (n(m.charge) < 1) reason = 'Lädt (' + Math.round(n(m.charge) * 100) + ' %)';
       else if (!target) reason = 'Kein Ziel – T drücken oder anklicken';
@@ -835,11 +1151,14 @@
       R.button(ctx, rx + 104, y, rw - 104, 14, 'Zoom', { hotkey: 'Z', onClick: () => this.cycleZoom('weapons') });
       y += 19;
       // ---- Waffen
+      if (this.isM3(view)) y = this.weaponsM3(ctx, view, rx, rw, y);
+      else {
       R.text(ctx, 'WAFFEN', rx, y, { color: PAL.brass });
       const bothReady = ['phase_l', 'phase_r'].some(id => !this.mountInfo(view, id).reason);
       R.button(ctx, rx + 50, y - 2, rw - 50, 12, 'beide Phasen', { hotkey: 'Leer', disabled: !bothReady, reason: 'Keine Phasenkanone bereit (Ladung/Ziel/Bogen)', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'both' }) });
       y += 13;
-      for (const mt of this.mountList(view)) {
+      }
+      for (const mt of this.isM3(view) ? this.mountList(view).filter(m => m.id === 'bolzen') : this.mountList(view)) {
         const info = this.mountInfo(view, mt.id);
         const m = info.m || {};
         R.button(ctx, rx, y, 96, 13, MOUNT_NAMES[mt.id] || mt.id, { hotkey: MOUNT_KEYS[mt.id] || '', disabled: !!info.reason, reason: info.reason, onClick: () => this.cmd(view, 'weapons.fire', { mount: mt.id }) });
@@ -884,14 +1203,62 @@
       // ---- Orbitalschlag
       let sr = null;
       const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      const phaseCharged = (ship.mounts || []).some(m => (m.id === 'phase_l' || m.id === 'phase_r' || m.id === 'lanze') && n(m.charge) >= 1);
+      const phaseCharged = (ship.mounts || []).some(m => (m.id === 'phase_l' || m.id === 'phase_r' || m.id === 'lanze' || MOUNT_SYS[m.id]) && n(m.charge) >= 1);
       if (!away.active) sr = 'Nur während der Außenmission';
       else if (!away.marker) sr = 'Keine Markierung (Außenteam: Q)';
       else if (n(sup.strike) > 0) sr = 'Abklingzeit ' + Math.ceil(sup.strike) + ' s';
       else if (sp > 30) sr = 'Schiff zu schnell (max. 30)';
-      else if (!phaseCharged) sr = 'Phasenkanone lädt';
+      else if (!phaseCharged) sr = this.isM3(view) ? 'Keine Waffe voll geladen' : 'Phasenkanone lädt';
       R.button(ctx, rx, y, rw, 14, 'Orbitalschlag auf Markierung', { hotkey: 'O', disabled: !!sr, reason: sr, onClick: () => this.cmd(view, 'weapons.strike') });
+      if (this.isM3(view)) return 'Q/E Waffe · A/D Punkte · 1/2/3 feuern · Leer alle · H halten · T Ziel · S Scan · W Weitscan · M/X Marker';
       return 'T/Klick Ziel · 1/2 Phase · Leer beide · S halten Scan · W Weitscan · Rechtsklick/M Marker · X löschen · Z Zoom';
+    },
+    // M3a: Waffenblock der Taktik – Lanze + Batterien mit Ladepunkten (Q/E wählen, A/D −/+), Halten/Feuer frei (H)
+    weaponsM3(ctx, view, rx, rw, y) {
+      const ship = view.state.ship || {};
+      const cp = n(ship.chargePoints);
+      const ms = M3_MOUNTS.map(id => (ship.mounts || []).find(m => m.id === id) || { id, missing: true });
+      const used = ms.reduce((s, m) => s + n(m.alloc), 0);
+      const amax = m3('allocMax', 4);
+      this.sel.mount = clamp(this.sel.mount, 0, 2);
+      R.text(ctx, 'WAFFEN', rx, y, { color: PAL.brass });
+      R.text(ctx, 'Ladepunkte ' + used + '/' + cp, rx + 44, y, { color: cp === 0 ? PAL.red : used < cp ? PAL.amber : PAL.mint });
+      const anyReady = M3_MOUNTS.some(id => !this.mountInfo(view, id).reason);
+      R.button(ctx, rx + 132, y - 2, rw - 132, 12, 'alle', { hotkey: 'Leer', disabled: !anyReady, reason: 'Keine Waffe bereit (Ladung/Ziel/Bogen)', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
+      y += 12;
+      ms.forEach((m, i) => {
+        const sel = this.sel.mount === i;
+        const info = this.mountInfo(view, m.id);
+        const st = m.missing ? 'ok' : (m.state || (ship.systems || {})[MOUNT_SYS[m.id]] || 'ok');
+        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(rx - 2, y - 1, rw + 3, 26); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx - 1.5, y - 0.5, rw + 2, 25); }
+        R.button(ctx, rx, y, 76, 12, MOUNT_NAMES[m.id], { hotkey: MOUNT_KEYS[m.id], disabled: !!info.reason, reason: info.reason, active: !!m.aim, onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.fire', { mount: m.id }); } });
+        const ch = n(m.charge);
+        R.bar(ctx, rx + 80, y + 4, 36, 5, ch, ch >= 1 ? PAL.mint : PAL.amber);
+        let status = st === 'broken' || st === 'offline' ? 'AUS' : m.aim ? 'ZIELT ' + f1(m.aim.left) : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : 'BEREIT') : Math.round(ch * 100) + ' %';
+        // QA M3a: Das Schiff dreht noch nach (Trägheit) – eine Zielphase jetzt würde sehr wahrscheinlich abbrechen
+        const turning = m.id === 'bow' && !m.aim && ch >= 1 && Math.abs(n(ship.turnVel)) > 0.12;
+        if (turning) status = 'DREHT NOCH';
+        R.text(ctx, status, rx + 120, y + 2, { color: st === 'broken' ? PAL.red : m.aim ? R.BURST_COL : turning ? PAL.amber : !info.reason ? PAL.mint : PAL.panelLight });
+        if (st !== 'ok' || R.fragileOf(view.state, MOUNT_SYS[m.id])) R.stateBadge(ctx, rx + rw - 34, y + 1, 34, 10, st, R.fragileOf(view.state, MOUNT_SYS[m.id]));
+        // Zeile 2: Ladepunkte − ●●○○ +, Halten/Feuer frei
+        const y2 = y + 13;
+        const al = n(m.alloc);
+        R.button(ctx, rx, y2, 13, 11, '−', { disabled: m.missing || al <= 0, reason: 'Keine Punkte auf dieser Waffe', onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.alloc', { mount: m.id, delta: -1 }); } });
+        for (let k = 0; k < amax; k++) { ctx.fillStyle = k < al ? PAL.amber : '#26313F'; ctx.fillRect(rx + 16 + k * 8, y2 + 3, 6, 6); }
+        const plusR = m.missing ? 'Nicht verfügbar' : al >= amax ? 'Maximum (' + amax + ')' : used >= cp ? (cp ? 'Alle Ladepunkte verteilt – erst anderswo abziehen' : 'Keine Waffenenergie (Captain)') : null;
+        R.button(ctx, rx + 16 + amax * 8 + 1, y2, 13, 11, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.alloc', { mount: m.id, delta: 1 }); } });
+        if (m.id === 'bow') {
+          const per = m3('mounts.bow.secPerPoint', 24) * (st === 'damaged' ? m3('mounts.bow.damagedFactor', 1.5) : 1);
+          R.text(ctx, al > 0 ? 'Ladung ' + Math.round(per / al) + ' s + Zielen ' + f1(m3('aimTime', 1.5)) : 'lädt nicht', rx + 66, y2 + 2, { color: PAL.panelLight });
+        } else {
+          const hold = !!m.hold;
+          R.button(ctx, rx + 66, y2, 74, 11, hold ? 'Halten' : 'Feuer frei', { hotkey: sel ? 'H' : '', active: !hold, disabled: !!m.missing, reason: 'Nicht verfügbar', onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.hold', { mount: m.id, hold: !hold }); } });
+          const tubes = n(m.salvoMax, st === 'damaged' ? 2 : 4);
+          R.text(ctx, tubes + ' Rohre', rx + rw, y2 + 2, { color: PAL.panelLight, align: 'right' });
+        }
+        y += 28;
+      });
+      return y + 2;
     },
     cycleTarget(view) {
       const list = this.targetList(view);
@@ -1310,6 +1677,10 @@
           return true;
         case 'captain': {
           const awayOn = this.awayActive(st);
+          // M3a: Schildstoß auf jedem Reiter – B, dann 1–4 (Bug/Stb/Heck/Bb), oder Shift+Pfeil
+          if (code === 'KeyB') { this.burstArm = performance.now(); view.actions.sfx('ui_click'); return true; }
+          if (d >= 1 && d <= 4 && performance.now() - this.burstArm < 1500) { this.burstArm = 0; return press(() => this.burst(view, d - 1)); }
+          if (e.shiftKey && /^Arrow/.test(code)) { const sec = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[code]; if (!e.repeat) press(() => this.burst(view, sec)); return true; }
           if (code === 'Tab') { const max = awayOn ? 6 : 5; this.tab = (this.tab + (e.shiftKey ? max - 1 : 1)) % max; return true; }
           if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
           const tab = this.tab;
@@ -1329,7 +1700,7 @@
           } else if (tab === 3) {
             if (code === 'KeyU') return press(() => this.tryButton('Reaktor überladen …'));
             if (code === 'KeyJ' || (code === 'Enter' && performance.now() - this.overloadAsk < 6000)) return press(() => this.tryButton('Ja, überladen'));
-            if (code === 'KeyN') { this.overloadAsk = 0; return true; }
+            if (code === 'KeyN') { this.overloadAsk = -1e9; return true; }
             if (code === 'ArrowUp' || code === 'KeyW') { this.sel.power = (this.sel.power + 7) % 8; return true; }
             if (code === 'ArrowDown' || code === 'KeyS') { this.sel.power = (this.sel.power + 1) % 8; return true; }
             if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD' || code === 'Minus' || code === 'NumpadSubtract' || code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') {
@@ -1343,6 +1714,15 @@
             const rows = this.damageRows(st);
             if (code === 'ArrowUp' || code === 'KeyW') { this.sel.damage = (this.sel.damage + rows.length - 1) % rows.length; return true; }
             if (code === 'ArrowDown' || code === 'KeyS') { this.sel.damage = (this.sel.damage + 1) % rows.length; return true; }
+            const row = rows[this.sel.damage];
+            if (row && row.sys) {
+              // M3a: Reparaturliste der Bots
+              if (code === 'Enter' || code === 'KeyF') return press(() => this.setRepair(view, row.target, 'flick'));
+              if (code === 'KeyT') return press(() => this.setRepair(view, row.target, 'part'));
+              if (code === 'Delete' || code === 'Backspace' || code === 'Digit0') return press(() => this.setRepair(view, row.target, null));
+              if (code === 'KeyP') return press(() => this.cmd(view, 'captain.priority', { target: row.target }));
+            }
+            if (code === 'KeyA') return press(() => this.tryButton(/^Bots automatisch/));
             if (code === 'Enter') return press(() => this.cmd(view, 'captain.priority', { target: rows[this.sel.damage].target }));
             if (code === 'Backspace' || code === 'Digit0') return press(() => this.cmd(view, 'captain.priority', { target: null }));
           } else if (tab === 5) {
@@ -1357,6 +1737,26 @@
         }
         case 'weapons':
           if (code === 'KeyT') return press(() => this.cycleTarget(view));
+          if (this.isM3(view)) {
+            // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1/2/3 Lanze/Bb/Stb, 4 Bolzen, Leer alle, H halten/frei
+            if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }
+            if (code === 'KeyE') { this.sel.mount = (this.sel.mount + 1) % 3; view.actions.sfx('ui_click'); return true; }
+            if (code === 'KeyA' || code === 'KeyD') {
+              const id = M3_MOUNTS[this.sel.mount];
+              const b = this.findButtons(code === 'KeyA' ? '−' : '+').filter(x => x.y > 60)[this.sel.mount];
+              if (b && b.disabled) { this.denied(b.reason); return true; }
+              return press(() => this.cmd(view, 'weapons.alloc', { mount: id, delta: code === 'KeyA' ? -1 : 1 }));
+            }
+            if (code === 'KeyH') {
+              const id = M3_MOUNTS[this.sel.mount];
+              if (id === 'bow') { this.denied('Halten/Feuer frei gibt es nur für die Batterien (Q/E wählen)'); return true; }
+              const m = ((st.ship || {}).mounts || []).find(x => x.id === id);
+              return press(() => this.cmd(view, 'weapons.hold', { mount: id, hold: !(m && m.hold) }));
+            }
+            if (d >= 1 && d <= 3) { this.sel.mount = d - 1; return press(() => this.tryButton(MOUNT_NAMES[M3_MOUNTS[d - 1]])); }
+            if (d === 4) return press(() => this.tryButton('Bolzen'));
+            if (code === 'Space') return press(() => this.tryButton('alle'));
+          }
           if (d === 1) return press(() => this.tryButton(this.findButton('Phase L') ? 'Phase L' : 'Lanze'));
           if (d === 2) return press(() => this.tryButton('Phase R'));
           if (d === 3) return press(() => this.tryButton('Bolzen'));

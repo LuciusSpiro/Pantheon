@@ -35,7 +35,8 @@ function client(port, hello, noHello) {
 }
 
 (async () => {
-  const srv = await startServer({ port: 0, quiet: true, noStore: true, debug: true, roomCode: CODE });
+  // Testserver-Port des Teams TOOLS (CONTRACT-M3 §1.3); Port 3300 gehört dem Spielbetrieb. PORT=0 -> freier Port.
+  const srv = await startServer({ port: process.env.PORT != null ? Number(process.env.PORT) : 3323, quiet: true, noStore: true, debug: true, roomCode: CODE });
   const port = srv.port;
   console.log(`Server auf Port ${port}`);
   ok(await get(port, '/shared/config.js') === 200, 'GET /shared/config.js -> 200');
@@ -111,6 +112,22 @@ function client(port, hello, noHello) {
   ok(sl.world.location === 'relais' && sl.space.enemies.some((e) => e.kind === 'pylon' && e.scanned && e.weapons), 'M1: Ort relais, Pylonen gescannt mit Feuerbögen');
   ok(sawWorld && sawLog, 'M1: world.locations und mission.log kommen regelmäßig (alle ≤ 1 s)');
   ok(['reactor', 'markers', 'tscan', 'widescan', 'dockedAt'].every((k) => k in sl.ship) && 'plan' in sl && 'quarters' in sl, 'M1: Snapshot-Felder ship.reactor/markers/tscan/widescan, plan, quarters');
+  // M3a §9.3: neue Snapshot-Felder kommen über das Netz an
+  const sh3 = sl.ship;
+  ok(['turnVel', 'turnCap', 'fragile', 'repairQueue', 'botAuto', 'chargePoints'].every((k) => k in sh3) && 'cap' in sh3.shields && 'burstCd' in sh3.shields,
+    'M3a: ship.turnVel/turnCap/fragile/repairQueue/botAuto/chargePoints, shields.cap/burstCd');
+  ok(sh3.mounts.map((m) => m.id).slice(0, 3).join() === 'bow,port,stbd' && 'battery_port' in sh3.systems && 'weapons' in sh3.systems, 'M3a: mounts bow/port/stbd, 15 Systemeinträge inkl. Altname weapons');
+  // M3a: Ladung im Netz (Debug tele) und Schildstoß
+  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'gunboat' }));
+  await sleep(200);
+  const gbId = a.snaps[a.snaps.length - 1].space.enemies.filter((e) => e.kind === 'gunboat').map((e) => e.id).pop();
+  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'tele', id: gbId }));
+  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'burst', sector: 1 }));
+  await sleep(300);
+  const sTele = a.snaps[a.snaps.length - 1];
+  const teleE = sTele.space.enemies.find((e) => e.id === gbId);
+  ok(teleE && teleE.tele && teleE.tele.kind && a.msgs.some((m) => m.t === 'event' && m.kind === 'tele'), 'M3a: enemies[].tele und Ereignis tele über das Netz');
+  ok(sTele.ship.shields.burst && sTele.ship.shields.burst.sector === 1, 'M3a: shields.burst über das Netz');
   ok(Math.max(maxR, maxC, maxM) < 12 * 1024, 'Snapshot < 12 KB');
 
   // Reconnect: A trennt, verbindet mit gleicher clientId neu

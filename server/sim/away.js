@@ -282,21 +282,22 @@ function captainSupport(game, kind) {
   return 'Unbekannte Unterstützung.';
 }
 
-// Orbitalschlag nutzt die Ladung einer Phasenkanone (M1)
+// Orbitalschlag nutzt eine volle Waffenladung (M1: Phasenkanone, M3a: bow/port/stbd)
 function weaponsStrike(game) {
   const C = game.C; const ship = game.ship;
   if (!anyAway(game)) return 'Kein Außenteam unten.';
   if (!game.away.marker) return 'Keine Markierung gesetzt (Außenteam: Q).';
   if (game.support.strike > 0) return `Orbitalschlag lädt noch (${Math.ceil(game.support.strike)} s).`;
-  const m = ship.mount;
-  const k = m.phase_l.charge >= 1 ? 'phase_l' : m.phase_r.charge >= 1 ? 'phase_r' : null;
-  if (!k) return 'Keine Phasenkanone geladen.';
+  // M3a §5.6: verbraucht eine volle Ladung (Lanze, sonst Batterie Bb, sonst Stb) – über space.consumeFullCharge
   if (ship.speed > C.ship.beamMaxSpeed) return 'Zu schnell für einen Orbitalschlag (max. 30).';
-  m[k].charge = 0;
+  const space = require('./space.js');   // spät laden (kein Zyklus beim Modulstart)
+  const k = space.consumeFullCharge(game);
+  if (!k) return 'Keine Waffe voll geladen.';
   game.support.strike = C.support.strike.cooldown;
   const mk = game.away.marker;
   game.away.pendingStrikes.push({ x: mk.x, y: mk.y, at: game.time + C.support.strike.delay });
-  game.emit('sfx', { name: 'phase' });
+  if (k === 'bow') game.emit('sfx', { name: 'lance_fire' });
+  else game.emit('sfx', { name: 'battery_salvo', count: game.C.spaceM3.mounts[k].tubes });
   return null;
 }
 

@@ -50,9 +50,12 @@ function checkRows(name, rows, legend) {
 }
 
 // ---------- Schiff ----------
-checkRows('ship', Maps.SHIP_ROWS, Maps.LEGEND);
+// M3a: alles aus dem Schiffslayout (SHIP_ROWS, Legende der Schiffskarte, SHIP_ROOMS, SHELF_TILES, SHIP_DRILL) – keine festen Koordinaten.
 const ship = Maps.ship;
+const shipLegend = ship.legend || Maps.LEGEND;
+checkRows('ship', Maps.SHIP_ROWS, shipLegend);
 const shipWalk = (x, y) => !ship.solid(x, y);
+const shipChars = new Set(Maps.SHIP_ROWS.join(''));
 const shipSet = reachableSet(ship, shipWalk, Maps.SHIP_SPAWNS);
 for (const s of Maps.SHIP_SPAWNS) check(shipWalk(s.x, s.y), `Spawn (${s.x},${s.y}) begehbar`);
 for (const s of Maps.BOT_SPAWNS) check(shipSet.has(s.y * ship.w + s.x), `Bot-Spawn (${s.x},${s.y}) erreichbar`);
@@ -65,37 +68,63 @@ for (const t of interactive) {
   if (t.info.kind === 'pad') check(shipSet.has(t.y * ship.w + t.x), `Transferpad (${t.x},${t.y}) erreichbar`);
   else check(hasAccess(ship, shipSet, t), `'${t.ch}' ${t.info.kind} (${t.x},${t.y}) von einer Nachbarkachel erreichbar`);
 }
-for (const x of Object.keys(Maps.SHELVES)) {
-  check(ship.at(+x, 1) === 'L', `Regal ${Maps.SHELVES[x]} bei (${x},1) ist 'L'`);
-  check(shipSet.has(2 * ship.w + (+x)), `Regal ${Maps.SHELVES[x]}: Zugangskachel (${x},2) erreichbar (Bots holen Teile)`);
+// Regale (SHELF_TILES inkl. Zugang): jede Regalkachel der Karte hat einen Eintrag und umgekehrt
+const shelfTilesOnMap = interactive.filter((t) => t.info.interact === 'shelf');
+check(Maps.SHELF_TILES.length === shelfTilesOnMap.length, `SHELF_TILES (${Maps.SHELF_TILES.length}) = Regalkacheln der Karte (${shelfTilesOnMap.length})`);
+check(new Set(Maps.SHELF_TILES.map((s) => s.item)).size === Maps.SHELF_TILES.length, 'jeder Gegenstand liegt in genau einem Regal');
+for (const s of Maps.SHELF_TILES) {
+  check(ship.info(s.x, s.y).interact === 'shelf', `Regal ${s.item} bei (${s.x},${s.y}) ist ein Regal`);
+  check(Maps.shelfAt(s.x, s.y) === s, `shelfAt(${s.x},${s.y}) liefert ${s.item}`);
+  const a = s.access;
+  check(!!a && Math.abs(a.x - s.x) + Math.abs(a.y - s.y) === 1, `Regal ${s.item}: Zugang (${a && a.x},${a && a.y}) grenzt an das Regal`);
+  check(!!a && shipSet.has(a.y * ship.w + a.x), `Regal ${s.item}: Zugangskachel (${a && a.x},${a && a.y}) erreichbar (Bots holen Teile)`);
 }
 for (const b of Maps.BEDS) {
-  check(ship.at(b.x, b.y) === 'B', `Koje Farbe ${b.color} bei (${b.x},${b.y}) ist 'B'`);
-  for (const s of b.slots) check(!ship.solid(s.x, s.y) || ship.at(s.x, s.y) === 'B', `Deko-Slot ${s.id} (${s.x},${s.y}) liegt auf Boden`);
+  check(ship.info(b.x, b.y).interact === 'bed', `Koje Farbe ${b.color} bei (${b.x},${b.y}) ist eine Koje`);
+  for (const s of b.slots) check(!ship.solid(s.x, s.y) || ship.info(s.x, s.y).interact === 'bed', `Deko-Slot ${s.id} (${s.x},${s.y}) liegt auf Boden`);
 }
-const systems = ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
-for (const s of systems) check(interactive.some((t) => t.info.system === s), `Systempunkt ${s} vorhanden`);
+// Systemliste aus der Legende der Schiffskarte (alle info.system), Stationen = alle Kacheln je System
+const systems = [...new Set([...shipChars].map((ch) => shipLegend[ch] && shipLegend[ch].system).filter(Boolean))];
+check(systems.length >= 1, `Systeme laut Legende: ${systems.join(', ')}`);
+for (const ch of Object.keys(shipLegend)) {
+  const info = shipLegend[ch];
+  if (info.system && shipLegend !== Maps.LEGEND) check(shipChars.has(ch), `Station '${ch}' (${info.system}) liegt auf der Karte`);
+}
+const stationsOf = (s) => interactive.filter((q) => q.info.system === s);
+for (const s of systems) check(stationsOf(s).length >= 1, `Systempunkt ${s} vorhanden (${stationsOf(s).length} Kachel(n))`);
 for (const c of ['helm', 'captain', 'weapons', 'transfer', 'shop', 'plan']) check(interactive.some((t) => t.info.console === c), `Konsole ${c} vorhanden`);
-check(ship.find('P').length === 3, 'drei Transferpads an Bord');
+check(interactive.filter((t) => t.info.kind === 'pad').length === 3, 'drei Transferpads an Bord');
 Maps.SECTOR_REGIONS.forEach((r, i) => {
   let floors = 0;
   for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) if (!ship.solid(x, y) && r.test(x, y)) floors++;
   check(floors > 0, `Sektorbereich ${i} (${r.name}) hat Bodenkacheln (${floors})`);
   for (const s of r.systems) {
-    const t = interactive.find((q) => q.info.system === s);
-    check(t && r.test(t.x, t.y) || (t && r.test(t.x + 1, t.y)) || (t && r.test(t.x - 1, t.y)) || (t && r.test(t.x, t.y - 1)) || (t && r.test(t.x, t.y + 1)), `System ${s} liegt im Bereich ${r.name}`);
+    const near = (t) => r.test(t.x, t.y) || r.test(t.x + 1, t.y) || r.test(t.x - 1, t.y) || r.test(t.x, t.y - 1) || r.test(t.x, t.y + 1);
+    check(stationsOf(s).some(near), `System ${s} liegt im Bereich ${r.name}`);
   }
 });
 
-// BFS-Pfad (wie die Bots) vom Bot-Spawn zu jedem Systempunkt
-for (const s of systems) {
-  const t = interactive.find((q) => q.info.system === s);
+// BFS-Pfad (wie die Bots) vom Bot-Spawn zu jeder Stationskachel
+for (const s of systems) for (const t of stationsOf(s)) {
   const path = bfs(shipWalk, Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - t.x) + Math.abs(y - t.y) === 1, ship.w, ship.h);
-  check(!!path, `Bot-BFS zum System ${s}: ${path ? path.length + ' Schritte' : 'kein Weg'}`);
+  check(!!path, `Bot-BFS zum System ${s} (${t.x},${t.y}): ${path ? path.length + ' Schritte' : 'kein Weg'}`);
+}
+
+// Räume (SHIP_ROOMS / roomAt): jede begehbare Schiffskachel liegt in einem Raum; Quartiere passen zu BEDS
+{
+  let uncovered = [];
+  for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) if (!ship.solid(x, y) && !Maps.roomAt(x, y)) uncovered.push(`(${x},${y})`);
+  check(uncovered.length === 0, 'roomAt deckt jede begehbare Schiffskachel ab' + (uncovered.length ? ' – fehlt: ' + uncovered.slice(0, 8).join(' ') : ''));
+  check(new Set(Maps.SHIP_ROOMS.map((r) => r.id)).size === Maps.SHIP_ROOMS.length, 'Raum-IDs eindeutig');
+  for (const r of Maps.SHIP_ROOMS) check(typeof r.name === 'string' && r.name.length > 0 && [-1, 0, 1, 2, 3].includes(r.sector), `Raum ${r.id}: Name und Sektor gesetzt`);
+  for (const b of Maps.BEDS) {
+    const r = Maps.roomAt(b.x, b.y);
+    check(!!r && r.kind === 'quarter' && r.id === b.room.id, `Koje ${b.room.id} liegt im Quartier-Raum ${b.room.id}`);
+  }
 }
 
 // ---------- M1: Schiff ----------
-check(ship.w === 42 && ship.h === 13, 'Schiff 42×13');
+check(Maps.SHIP_ROWS.every((r) => r.length === ship.w) && ship.h === Maps.SHIP_ROWS.length, `Schiff ${ship.w}×${ship.h} (aus SHIP_ROWS)`);
 check(Maps.BEDS.length === 4 && Maps.BEDS.map((b) => b.color).sort().join() === '0,1,2,3', '4 Quartiere (Farben 0–3, 3 = Gästequartier)');
 for (const b of Maps.BEDS) {
   check(b.slots.length === 4, `Quartier ${b.room.id}: 4 Deko-Slots`);
@@ -103,28 +132,136 @@ for (const b of Maps.BEDS) {
   check(b.x >= b.room.x0 && b.x <= b.room.x1 && b.y >= b.room.y0 && b.y <= b.room.y1, `Koje ${b.room.id} liegt im Raum`);
 }
 for (const sw of Maps.REACTOR_SWITCHES) {
-  check(ship.at(sw.x, sw.y) === 'y', `Reaktorschalter ${sw.id} (${sw.x},${sw.y}) ist 'y'`);
+  check(ship.info(sw.x, sw.y).interact === 'switch', `Reaktorschalter ${sw.id} (${sw.x},${sw.y}) ist ein Schalter`);
   check(hasAccess(ship, shipSet, sw), `Reaktorschalter ${sw.id} erreichbar (Spieler und Schrauber)`);
   const path = bfs(shipWalk, Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - sw.x) + Math.abs(y - sw.y) === 1, ship.w, ship.h);
   check(!!path, `Bot-BFS zu Schalter ${sw.id}: ${path ? path.length + ' Schritte' : 'kein Weg'}`);
 }
-check(ship.find('Y').length === 4, 'Planungstisch Y ist 2×2');
-check(ship.find('Y').filter((t) => hasAccess(ship, shipSet, t)).length >= 3, 'Planungstisch von mehreren Seiten erreichbar (3 Plätze)');
+const planTiles = interactive.filter((t) => t.info.console === 'plan');
+check(planTiles.length === 4, 'Planungstisch ist 2×2');
+check(planTiles.filter((t) => hasAccess(ship, shipSet, t)).length >= 3, 'Planungstisch von mehreren Seiten erreichbar (3 Plätze)');
 for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spieler-Spawn (${sp.x},${sp.y}) im Hauptbereich`);
 
-// ---------- M0: Maschinenraum (x1–6, y1–11) ----------
+// ---------- M0: Maschinenräume (SHIP_ROOMS mit kind 'engine') ----------
 {
-  const deco = ['u', 'k', 'n', 'f'];
-  let decoCount = 0;
-  for (let y = 1; y <= 11; y++) for (let x = 1; x <= 6; x++) if (deco.includes(ship.at(x, y))) decoCount++;
-  check(decoCount >= 1 && decoCount <= 8, `Maschinenraum: ${decoCount} neue solide Kulissen-Kacheln (max. 8)`);
-  let gangFree = true;
-  for (let x = 1; x <= 6; x++) if (ship.solid(x, 6)) gangFree = false;
-  check(gangFree, 'Maschinenraum: Gang y6 (x1–6) frei');
-  check(ship.at(7, 6) === 'D', 'Maschinenraum: Tür (7,6) frei');
-  for (const ch of ['R', 'E']) { const t = ship.find(ch)[0]; check(!!t && hasAccess(ship, shipSet, t), `Maschinenraum: '${ch}' (${t.x},${t.y}) von mind. einer Seite erreichbar`); }
-  for (const ch of deco) check(!!Maps.LEGEND[ch] && Maps.LEGEND[ch].solid, `Legende: '${ch}' (${Maps.LEGEND[ch] && Maps.LEGEND[ch].kind}) solid`);
+  const DECO_KINDS = ['pipes', 'workbench', 'control_desk', 'barrel'];
+  const engineRooms = Maps.SHIP_ROOMS.filter((r) => r.kind === 'engine');
+  check(engineRooms.length >= 1, `Maschinenräume laut SHIP_ROOMS: ${engineRooms.map((r) => r.id).join(', ')}`);
+  for (const r of engineRooms) {
+    const tiles = [];
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (Maps.roomAt(x, y) === r) tiles.push({ x, y });
+    const decoCount = tiles.filter((t) => DECO_KINDS.includes(ship.info(t.x, t.y).kind)).length;
+    check(decoCount <= 8, `${r.name}: ${decoCount} solide Kulissen-Kacheln (max. 8)`);
+    const floors = tiles.filter((t) => !ship.solid(t.x, t.y));
+    check(floors.length > 0 && floors.every((t) => shipSet.has(t.y * ship.w + t.x)), `${r.name}: alle ${floors.length} Bodenkacheln erreichbar (Gang frei)`);
+    // Tür: eine Tür-Kachel im Raum oder direkt am Rand
+    let door = null;
+    for (let y = r.y0 - 1; y <= r.y1 + 1 && !door; y++) for (let x = r.x0 - 1; x <= r.x1 + 1; x++) if (ship.info(x, y).kind === 'door') { door = { x, y }; break; }
+    check(!!door && shipSet.has(door.y * ship.w + door.x), `${r.name}: Tür ${door ? `(${door.x},${door.y})` : '—'} frei`);
+    for (const t of interactive.filter((q) => q.info.system && Maps.roomAt(q.x, q.y) === r)) {
+      check(hasAccess(ship, shipSet, t), `${r.name}: '${t.ch}' ${t.info.system} (${t.x},${t.y}) von mind. einer Seite erreichbar`);
+    }
+  }
+  for (const ch of shipChars) {
+    const info = shipLegend[ch];
+    if (info && DECO_KINDS.includes(info.kind)) check(!!info.solid, `Legende: '${ch}' (${info.kind}) solid`);
+  }
 }
+
+// ---------- M3a: neue Lerche (CONTRACT-M3 §2, §14) ----------
+{
+  console.log('\n[M3a Lerche]');
+  const Protocol = require('../shared/protocol.js');
+  check(ship.w === 44 && ship.h === 13, `Lerche 44×13 (ist ${ship.w}×${ship.h})`);
+  check(shipLegend !== Maps.LEGEND && shipLegend === Maps.SHIP_LEGEND, 'Schiffskarte nutzt die eigene Legende SHIP_LEGEND');
+  // 14 Stationen = Protocol.SYSTEMS ohne den Altnamen 'weapons'
+  const want = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
+  check(want.length === 14, `Protocol.SYSTEMS: 14 Systeme ohne Altname weapons (${want.length})`);
+  check(!systems.includes('weapons'), 'Altname weapons hat keine Station mehr');
+  check(want.every((s) => systems.includes(s)) && systems.every((s) => want.includes(s)), 'Stationen auf der Karte = 14 Systeme laut Protokoll' +
+    (want.filter((s) => !systems.includes(s)).length ? ' – fehlt: ' + want.filter((s) => !systems.includes(s)).join(',') : ''));
+  const SIDE_OF_SECTOR = { 0: 'bow', 1: 'stbd', 2: 'aft', 3: 'port', '-1': 'mid' };
+  const EXPECT = { weapon_bow: 0, emitter_bow: 0, thruster_port: 3, battery_port: 3, emitter_port: 3, thruster_stbd: 1, battery_stbd: 1,
+    emitter_stbd: 1, reactor: -1, shields: -1, engines: 2, emitter_aft: 2, life: -1, transfer: 1 };
+  for (const s of want) {
+    const st = stationsOf(s);
+    for (const t of st) {
+      const i = t.info;
+      check(i.system === s && [-1, 0, 1, 2, 3].includes(i.sector) && Protocol.SIDES.includes(i.side), `Station ${s} (${t.x},${t.y}): system, sector ${i.sector}, side ${i.side}`);
+      check(i.sector === EXPECT[s], `Station ${s}: Sektor laut Vertrag (${EXPECT[s]})`);
+      // Seite passt zum Sektor (Ausnahme Transfer: Sektor 1, Seite stbd)
+      check(i.side === SIDE_OF_SECTOR[i.sector], `Station ${s}: Seite ${i.side} passt zu Sektor ${i.sector}`);
+      check(hasAccess(ship, shipSet, t), `Station ${s} von einer begehbaren Nachbarkachel erreichbar`);
+      check(i.solid && i.interact === 'system', `Station ${s}: solid + interact system`);
+    }
+  }
+  // Emitter je Sektor (§4.2): 0 bow, 1 stbd, 2 aft, 3 port – und jeweils im eigenen Sektor
+  ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'].forEach((e, i) => {
+    check(stationsOf(e).length >= 1 && stationsOf(e).every((t) => t.info.sector === i), `Emitter für Sektor ${i}: ${e}`);
+  });
+  // Jeder Sektor 0–3: Bodenkacheln und mindestens eine Station (Treffer -> Systemschaden möglich)
+  for (let i = 0; i < 4; i++) {
+    const r = Maps.SECTOR_REGIONS[i];
+    let floors = 0;
+    for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) if (!ship.solid(x, y) && r.test(x, y)) floors++;
+    const st = want.filter((s) => stationsOf(s).some((t) => t.info.sector === i));
+    check(floors > 0 && st.length >= 1, `Sektor ${i} (${r.name}): ${floors} Bodenkacheln, Stationen ${st.join(',')}`);
+    check(st.every((s) => r.systems.includes(s)), `SECTOR_REGIONS[${i}].systems enthält alle Stationen des Sektors`);
+    check(!r.systems.some((s) => EXPECT[s] === -1), `SECTOR_REGIONS[${i}]: kein Mittschiffs-System`);
+  }
+  // Mittschiffs-Systeme liegen in Räumen mit Sektor -1 (Maschinenraum / Messe)
+  for (const s of ['reactor', 'shields', 'life']) {
+    check(stationsOf(s).every((t) => { const r = Maps.roomAt(t.x, t.y); return r && r.sector === -1; }), `${s} liegt in einem Raum mittschiffs`);
+  }
+  check(Maps.roomAt(21, 3) && Maps.roomAt(21, 3).id === 'maschinenraum' && Maps.roomAt(1, 6).id === 'antrieb', 'Maschinenraum mittschiffs, Antriebsraum am Heck');
+  // Schalter A↔B: beide erreichbar, Weg ≤ 14 Kacheln (Vertrag: 12)
+  const [swA, swB] = ['A', 'B'].map((id) => Maps.REACTOR_SWITCHES.find((s) => s.id === id));
+  check(!!swA && !!swB, 'Reaktorschalter A und B vorhanden');
+  if (swA && swB) {
+    const accA = W_access(swA), accB = W_access(swB);
+    check(accA.length > 0 && accB.length > 0, `Schalter A (${swA.x},${swA.y}) und B (${swB.x},${swB.y}) haben begehbare Nachbarkacheln`);
+    let best = null;
+    for (const a of accA) {
+      const path = bfs(shipWalk, a, (x, y) => accB.some((b) => b.x === x && b.y === y), ship.w, ship.h);
+      if (path && (best === null || path.length < best)) best = path.length;
+    }
+    check(best !== null && best <= 14, `Weg Schalter A↔B: ${best} Kacheln (≤ 14)`);
+  }
+  // Brücke: alle drei Brückenkonsolen im Raum bruecke
+  for (const c of ['helm', 'captain', 'weapons']) {
+    const t = interactive.find((q) => q.info.console === c);
+    check(!!t && Maps.roomAt(t.x, t.y) && Maps.roomAt(t.x, t.y).id === 'bruecke', `Konsole ${c} liegt auf der Brücke`);
+  }
+  // Laufweg Brücke -> jede Station (Plausibilität, Vertrag §2.2: Antrieb am weitesten)
+  const helmT = interactive.find((q) => q.info.console === 'helm');
+  const fromBridge = {};
+  for (const s of want) {
+    let best = null;
+    for (const t of stationsOf(s)) {
+      const path = bfs(shipWalk, W_access(helmT)[0], (x, y) => shipWalk(x, y) && Math.abs(x - t.x) + Math.abs(y - t.y) === 1, ship.w, ship.h);
+      if (path && (best === null || path.length < best)) best = path.length;
+    }
+    fromBridge[s] = best;
+  }
+  check(Object.values(fromBridge).every((v) => v !== null), 'Laufweg Steuer -> Station (Kacheln): ' + Object.entries(fromBridge).map(([k, v]) => k + ' ' + v).join(', '));
+  check(fromBridge.weapon_bow < fromBridge.battery_port && fromBridge.battery_port < fromBridge.reactor && fromBridge.reactor < fromBridge.engines,
+    'Reihenfolge der Laufwege: Bug < Batterie < Maschinenraum < Antrieb');
+  // Regale: Reihenfolge laut §2.3, Zugang y2
+  check(Maps.SHELF_TILES.map((s) => s.item).join() === 'ersatzteil,loeschgel,flickblech,bolzen,medipack', 'Regal-Reihenfolge Ersatzteil, Löschgel, Flickblech, Bolzen, Medipack');
+  check(Maps.SHELF_TILES.every((s) => s.access && Maps.roomAt(s.access.x, s.access.y) && Maps.roomAt(s.access.x, s.access.y).id === 'lager'), 'Regal-Zugänge im Lager');
+  // Spawns
+  for (const s of Maps.SHIP_SPAWNS.concat(Maps.BOT_SPAWNS)) check(shipWalk(s.x, s.y), `Spawn (${s.x},${s.y}) auf Boden`);
+  for (const s of Maps.IVO_SPOTS || []) check(shipWalk(s.x, s.y) && shipSet.has(s.y * ship.w + s.x), `Ivo-Wegpunkt (${s.x},${s.y}) begehbar und erreichbar`);
+  // Übung: Feuer in der Messe, Leck im Lager
+  const dr = Maps.SHIP_DRILL;
+  check(Maps.roomAt(dr.fire.x, dr.fire.y).id === 'messe' && Maps.roomAt(dr.breach.x, dr.breach.y).id === 'lager', 'SHIP_DRILL: Feuer in der Messe, Leck im Lager');
+  // Deko-Slots: im eigenen Quartier (roomAt) und begehbar
+  for (const b of Maps.BEDS) for (const sl of b.slots) {
+    const r = Maps.roomAt(sl.x, sl.y);
+    check(!!r && r.id === b.room.id && shipWalk(sl.x, sl.y), `Deko-Slot ${sl.id} (${sl.x},${sl.y}) auf Boden im Raum ${b.room.id}`);
+  }
+}
+function W_access(t) { return [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy })).filter((q) => !ship.solid(q.x, q.y)); }
 
 // ---------- Plattform ----------
 checkRows('platform', Maps.PLATFORM_ROWS, Maps.PLATFORM_LEGEND);
@@ -146,8 +283,12 @@ check(!!pathCore, `Pfad Pad → Datenkern bei offener Tür: ${pathCore ? pathCor
 const cores = pf.find('b');
 check(cores.length === 4 && cores.some((c) => hasAccess(pf, closedSet, c)), 'Bojenkern b (2×2) ohne Tür erreichbar (Neustart nach Sonde)');
 for (const g of (CONFIG.awayExtra && CONFIG.awayExtra.guardSpawns) || []) check(closedSet.has(g.y * pf.w + g.x), `Wächter-Spawn (${g.x},${g.y}) begehbar und ohne Tür erreichbar`);
-const drillT = CONFIG.drill && CONFIG.drill.fire;
-if (drillT) check(!ship.solid(drillT.x, drillT.y), `Übungsfeuer (${drillT.x},${drillT.y}) auf Bodenkachel`);
+// M3a: Hafen-Übung aus dem Schiffslayout (Maps.SHIP_DRILL; CONFIG.drill.fire/breach nur noch Altnamen)
+const drill = Maps.SHIP_DRILL || (CONFIG.drill && { fire: CONFIG.drill.fire, breach: CONFIG.drill.breach });
+for (const k of ['fire', 'breach']) {
+  const t = drill && drill[k];
+  check(!!t && !ship.solid(t.x, t.y) && shipSet.has(t.y * ship.w + t.x), `Übung ${k === 'fire' ? 'Feuer' : 'Leck'} ${t ? `(${t.x},${t.y})` : ''} auf erreichbarer Bodenkachel`);
+}
 const pathZ = bfs(closedWalk, Maps.PLATFORM_PADS[0], (x, y) => closedWalk(x, y) && Math.abs(x - Z.x) + Math.abs(y - Z.y) === 1, pf.w, pf.h);
 check(!!pathZ, `Pfad Pad → Sonde: ${pathZ ? pathZ.length + ' Schritte' : '—'}`);
 
