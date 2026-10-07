@@ -1,0 +1,23 @@
+{
+  "id": "lerche/furn/bench",
+  "name": "Aussichtsbank (Lerche, Privatdeck)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "bank", "sitz"],
+  "footprint": [1, 1],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Wangen", "at": [1, 0, 4], "size": [2, 7, 8], "color": "secondary", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Löwenpranken", "at": [1, 0, 11], "size": [2, 2, 2], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Wangen Volute", "at": [1, 4, 12], "size": [2, 2, 1], "color": "stone_dark", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Sitzplatte", "at": [0, 7, 3], "size": [16, 2, 10], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Sitzkante", "at": [0, 7, 12], "size": [16, 1, 1], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Polster", "at": [1, 9, 4], "size": [6, 1, 8], "color": "cloth", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Polster Naht", "at": [1, 9, 7], "size": [6, 1, 1], "color": "trim", "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Rückenlehne", "at": [0, 9, 1], "size": [16, 8, 2], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Lehnenrelief", "at": [2, 11, 2], "size": [12, 4, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy" }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Relief Lorbeer", "at": [4, 12, 2], "size": [8, 2, 1], "color": { "stripes": ["#4E6E3A", "primary"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Lehnenkappe", "at": [0, 17, 1], "size": [16, 1, 3], "color": "trim", "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

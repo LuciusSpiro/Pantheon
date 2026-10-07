@@ -1,0 +1,26 @@
+{
+  "id": "nord",
+  "name": "Nordmänner (Sci-Fi): Eisen, Frostblau, Knochenweiß, Blutrot",
+  "extends": "base",
+  "roles": {
+    "primary": "#585C62",
+    "secondary": "#3C4046",
+    "trim": "#E4DCC8",
+    "metal": "#4A4E54",
+    "metal_dark": "#26292D",
+    "metal_light": "#8E959C",
+    "cloth": "#9E2A22",
+    "cloth2": "#E9E2D0",
+    "leather": "#7A5234",
+    "glow": {
+      "color": "#8FD8FF",
+      "emit": 1.9
+    },
+    "glow2": {
+      "color": "#FF9A3C",
+      "emit": 2.0
+    },
+    "glass": "#1A2430",
+    "dark": "#121417"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "ship_interior",
+  "name": "Schiff innen – dunkel, kühles Licht, Neon-Akzente",
+  "background": "#0B0E1A",
+  "hemi": { "sky": "#6F86A6", "ground": "#1B2433", "intensity": 0.55 },
+  "sun": { "color": "#CFE2FF", "intensity": 0.9, "dir": [-0.3, 1, 0.2], "softness": 4 },
+  "exposure": 1.1,
+  "bloom": { "strength": 0.9, "radius": 0.5, "threshold": 0.7 }
+}

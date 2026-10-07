@@ -76,5 +76,15 @@
     return { ok: errors.length === 0, value: out, errors };
   }
 
-  return { MISSION_SCHEMA, validate, clamp };
+  // M4 Stufe 1 (CONTRACT-M4 §2.4): Form der neuen, optionalen Snapshot-Felder (für Tests/Tools; der Server prüft sie nicht).
+  const LIFT_SNAPSHOT_SCHEMA = {
+    type: 'object', additionalProperties: false, required: ['to', 't', 'T'],
+    properties: { to: { type: 'integer', minimum: 0, maximum: 1 }, t: { type: 'number', minimum: 0 }, T: { type: 'number', minimum: 0 } },
+  };
+  const LADDER_SNAPSHOT_SCHEMA = {
+    type: 'object', additionalProperties: false, required: ['t', 'T'],
+    properties: { t: { type: 'number', minimum: 0 }, T: { type: 'number', minimum: 0 } },
+  };
+
+  return { MISSION_SCHEMA, LIFT_SNAPSHOT_SCHEMA, LADDER_SNAPSHOT_SCHEMA, validate, clamp };
 });

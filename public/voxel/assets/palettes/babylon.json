@@ -1,0 +1,27 @@
+{
+  "id": "babylon",
+  "name": "Babylon (Sci-Fi): glasiertes Kobalt, Ocker, Gold, Sternenlicht",
+  "extends": "base",
+  "roles": {
+    "primary": "#1F4FA8",
+    "secondary": "#C8913A",
+    "trim": "#C9963A",
+    "metal": "#4A4038",
+    "metal_dark": "#26221E",
+    "metal_light": "#B8A27A",
+    "stone": "#727985",
+    "cloth": "#163A80",
+    "glow": {
+      "color": "#9FE4FF",
+      "emit": 1.8
+    },
+    "glow2": {
+      "color": "#FFE7A0",
+      "emit": 1.6
+    },
+    "glass": "#14203A",
+    "dark": "#120F0B",
+    "stone_dark": "#4F5560",
+    "stone_light": "#959BA6"
+  }
+}

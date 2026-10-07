@@ -1,0 +1,3819 @@
+{
+  "format": 1,
+  "teams": [
+    {
+      "team": "art-a",
+      "file": "art-a.json",
+      "count": 8
+    },
+    {
+      "team": "art-b",
+      "file": "art-b.json",
+      "count": 6
+    },
+    {
+      "team": "art-c",
+      "file": "art-c.json",
+      "count": 7
+    },
+    {
+      "team": "art-d",
+      "file": "art-d.json",
+      "count": 20
+    },
+    {
+      "team": "art-e",
+      "file": "art-e.json",
+      "count": 10
+    },
+    {
+      "team": "art-f",
+      "file": "art-f.json",
+      "count": 3
+    },
+    {
+      "team": "art-g",
+      "file": "art-g.json",
+      "count": 5
+    },
+    {
+      "team": "art-h",
+      "file": "art-h.json",
+      "count": 9
+    }
+  ],
+  "assets": {
+    "away/kesh/archive_key": {
+      "id": "away/kesh/archive_key",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.88,
+      "facing": "+z",
+      "params": {
+        "pos": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "rest": {
+          "pos": 0
+        },
+        "turned": {
+          "pos": 1
+        },
+        "both": {
+          "pos": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "terminal": [
+          0,
+          0.75,
+          -0.1
+        ],
+        "light": [
+          0,
+          0.8,
+          -0.1
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ],
+        "cover": [
+          0,
+          0.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "kesh",
+        "terminal",
+        "light"
+      ],
+      "source": "away/kesh/archive_key",
+      "team": "art-h"
+    },
+    "away/kesh/cover_low": {
+      "id": "away/kesh/cover_low",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "damaged": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "intact": {
+          "damaged": 0
+        },
+        "damaged": {
+          "damaged": 1
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          0.75,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "kesh",
+        "cover",
+        "cover_half"
+      ],
+      "source": "away/kesh/cover_low",
+      "team": "art-h"
+    },
+    "away/kesh/floor_ruin": {
+      "id": "away/kesh/floor_ruin",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "drift": {
+          "seed": 1
+        },
+        "crack": {
+          "seed": 2
+        },
+        "glyph": {
+          "seed": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "away",
+        "kesh",
+        "floor"
+      ],
+      "source": "away/kesh/floor_ruin",
+      "team": "art-h"
+    },
+    "away/kesh/jammer": {
+      "id": "away/kesh/jammer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "on": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "on": {
+          "on": 1
+        },
+        "off": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "terminal": [
+          0,
+          0.85,
+          0.35
+        ],
+        "light": [
+          0,
+          1.9,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1,
+          0.35
+        ],
+        "label": [
+          0,
+          2.15,
+          0
+        ],
+        "cover": [
+          0,
+          2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "kesh",
+        "terminal",
+        "light"
+      ],
+      "source": "away/kesh/jammer",
+      "team": "art-h"
+    },
+    "away/kesh/pillar": {
+      "id": "away/kesh/pillar",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "lit": {
+          "seed": 0
+        },
+        "dead": {
+          "seed": 1
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          2.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "kesh",
+        "pillar",
+        "cover_full"
+      ],
+      "source": "away/kesh/pillar",
+      "team": "art-h"
+    },
+    "away/kesh/rubble": {
+      "id": "away/kesh/rubble",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.15,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          7
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 1
+        },
+        "c": {
+          "seed": 2
+        },
+        "d": {
+          "seed": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "kesh",
+        "scatter"
+      ],
+      "source": "away/kesh/rubble",
+      "team": "art-h"
+    },
+    "away/kesh/tablet_pedestal": {
+      "id": "away/kesh/tablet_pedestal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "present": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "present": {
+          "present": 1
+        },
+        "taken": {
+          "present": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "terminal": [
+          0,
+          0.8,
+          0
+        ],
+        "objective": [
+          0,
+          0.8,
+          0
+        ],
+        "light": [
+          0,
+          0.85,
+          0
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ],
+        "cover": [
+          0,
+          0.75,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "kesh",
+        "objective",
+        "light"
+      ],
+      "source": "away/kesh/tablet_pedestal",
+      "team": "art-h"
+    },
+    "away/kesh/vault_gate": {
+      "id": "away/kesh/vault_gate",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "mond_kesh",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          2
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "closed": {
+          "open": 0
+        },
+        "opening": {
+          "open": 1
+        },
+        "open": {
+          "open": 2
+        },
+        "cut_closed": {
+          "open": 0,
+          "cut": 1
+        },
+        "cut_open": {
+          "open": 2,
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "entrance": [
+          0,
+          0,
+          0
+        ],
+        "light": [
+          0,
+          1,
+          0.3
+        ],
+        "cover": [
+          0,
+          2.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "away",
+        "kesh",
+        "gate",
+        "door",
+        "cover_full"
+      ],
+      "source": "away/kesh/vault_gate",
+      "team": "art-h"
+    },
+    "away/kesh/wall_ruin": {
+      "id": "away/kesh/wall_ruin",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "mond_kesh",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "decay": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "full": {
+          "conn": 10
+        },
+        "cut": {
+          "conn": 10,
+          "cut": 1
+        },
+        "corner": {
+          "conn": 6
+        },
+        "decay": {
+          "conn": 10,
+          "decay": 1,
+          "seed": 1
+        },
+        "decay_cut": {
+          "conn": 10,
+          "decay": 1,
+          "cut": 1,
+          "seed": 2
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "kesh",
+        "wall",
+        "cover_full"
+      ],
+      "source": "away/kesh/wall_ruin",
+      "team": "art-h"
+    },
+    "lerche/actor/drone": {
+      "id": "lerche/actor/drone",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rostmeute",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {
+        "wreck": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "active": {
+          "wreck": 0
+        },
+        "wreck": {
+          "wreck": 1
+        }
+      },
+      "sockets": {
+        "muzzle": [
+          0,
+          0.88,
+          0.31
+        ],
+        "eye": [
+          0,
+          1.06,
+          0.22
+        ],
+        "fx_spark": [
+          0,
+          1.1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.3,
+          0
+        ],
+        "label": [
+          0,
+          1.65,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "actor",
+        "enemy",
+        "rostmeute",
+        "away"
+      ],
+      "notes": "wreck 0 schwebt: Anker 0,875 m unter der Rumpfunterseite (Modell steht auf dem Boden-Anker, Rumpf 0,88–1,44 m). Wippen/Kippen macht ACTORS. wreck 1 liegt am Boden (Sockets muzzle/eye dann bedeutungslos, fx_smoke 0,3 m).",
+      "source": "lerche/actor/drone",
+      "team": "art-g"
+    },
+    "lerche/actor/warden": {
+      "id": "lerche/actor/warden",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "kustoden",
+      "footprint": [
+        1,
+        2
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "front": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "active": {
+          "state": 0,
+          "front": 1
+        },
+        "hit": {
+          "state": 1,
+          "front": 1
+        },
+        "destroyed": {
+          "state": 2,
+          "front": 0
+        },
+        "front_off": {
+          "state": 0,
+          "front": 0
+        }
+      },
+      "sockets": {
+        "shield_front": [
+          0,
+          0.84,
+          0.75
+        ],
+        "fx_spark": [
+          0.45,
+          1.1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.4,
+          -0.3
+        ],
+        "muzzle": [
+          0,
+          1.56,
+          0.85
+        ],
+        "label": [
+          0,
+          2.35,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 8000,
+      "tags": [
+        "lerche",
+        "actor",
+        "enemy",
+        "kustoden",
+        "away"
+      ],
+      "notes": "Lamassu: 1,00 × 2,19 × 1,69 m (x × y × z), Vorderseite +z = facing. state 2 liegt 5 Voxel tiefer (Sockets dann ca. 0,31 m tiefer). Schildbogen = Effekt von ACTORS am Socket shield_front, nur bei front 1 und state != 2.",
+      "source": "lerche/actor/warden",
+      "team": "art-g"
+    },
+    "lerche/console/captain": {
+      "id": "lerche/console/captain",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "occupied": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "occupied": 0
+        },
+        "occupied": {
+          "occupied": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "seat": [
+          -0.13,
+          0.69,
+          0
+        ],
+        "fx_smoke": [
+          0.3,
+          0.9,
+          0
+        ],
+        "fx_spark": [
+          0.3,
+          0.8,
+          0.1
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2738,
+      "tags": [
+        "lerche",
+        "console",
+        "bridge",
+        "seat"
+      ],
+      "source": "lerche/console/captain",
+      "team": "art-c"
+    },
+    "lerche/console/helm": {
+      "id": "lerche/console/helm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {
+        "occupied": [
+          0,
+          1
+        ],
+        "alert": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "occupied": 0,
+          "alert": 0
+        },
+        "occupied": {
+          "occupied": 1,
+          "alert": 0
+        },
+        "alert": {
+          "occupied": 0,
+          "alert": 1
+        },
+        "occupied_alert": {
+          "occupied": 1,
+          "alert": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.2,
+          -0.1
+        ],
+        "fx_spark": [
+          0,
+          0.95,
+          0.3
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3282,
+      "tags": [
+        "lerche",
+        "console",
+        "bridge"
+      ],
+      "source": "lerche/console/helm",
+      "team": "art-c"
+    },
+    "lerche/console/plan_table": {
+      "id": "lerche/console/plan_table",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "active": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "off": {
+          "active": 0
+        },
+        "active": {
+          "active": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1.1
+        ],
+        "seat_0": [
+          0,
+          0,
+          1.1
+        ],
+        "seat_1": [
+          -1.1,
+          0,
+          0
+        ],
+        "seat_2": [
+          1.1,
+          0,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.9,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.8
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ],
+        "holo": [
+          0,
+          1.15,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3712,
+      "tags": [
+        "lerche",
+        "console",
+        "bridge",
+        "table"
+      ],
+      "source": "lerche/console/plan_table",
+      "team": "art-c"
+    },
+    "lerche/console/tactical": {
+      "id": "lerche/console/tactical",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {
+        "occupied": [
+          0,
+          1
+        ],
+        "alert": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "occupied": 0,
+          "alert": 0
+        },
+        "occupied": {
+          "occupied": 1,
+          "alert": 0
+        },
+        "alert": {
+          "occupied": 0,
+          "alert": 1
+        },
+        "occupied_alert": {
+          "occupied": 1,
+          "alert": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          0.9,
+          -0.1
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.35
+        ],
+        "label": [
+          0,
+          1.55,
+          0
+        ],
+        "holo": [
+          0,
+          1.15,
+          -0.13
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2490,
+      "tags": [
+        "lerche",
+        "console",
+        "bridge"
+      ],
+      "source": "lerche/console/tactical",
+      "team": "art-c"
+    },
+    "lerche/crew_0": {
+      "id": "lerche/crew_0",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "neutral": {},
+        "player0": {
+          "colors": {
+            "cloth2": "#56B4E9"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
+      "budgetTris": 6000,
+      "measuredTris": 3286,
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ],
+      "source": "lerche/crew_0",
+      "team": "art-f"
+    },
+    "lerche/crew_1": {
+      "id": "lerche/crew_1",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "neutral": {},
+        "player1": {
+          "colors": {
+            "cloth2": "#E69F00"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
+      "budgetTris": 6000,
+      "measuredTris": 3224,
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ],
+      "source": "lerche/crew_1",
+      "team": "art-f"
+    },
+    "lerche/crew_2": {
+      "id": "lerche/crew_2",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "neutral": {},
+        "player2": {
+          "colors": {
+            "cloth2": "#CC79A7"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
+      "budgetTris": 6000,
+      "measuredTris": 3404,
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ],
+      "source": "lerche/crew_2",
+      "team": "art-f"
+    },
+    "lerche/deco/aquarium": {
+      "id": "lerche/deco/aquarium",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 252,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/aquarium",
+      "team": "art-d"
+    },
+    "lerche/deco/buecherregal": {
+      "id": "lerche/deco/buecherregal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 2448,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/buecherregal",
+      "team": "art-d"
+    },
+    "lerche/deco/kristalllampe": {
+      "id": "lerche/deco/kristalllampe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.65,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 724,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/kristalllampe",
+      "team": "art-d"
+    },
+    "lerche/deco/lamassu_figur": {
+      "id": "lerche/deco/lamassu_figur",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1040,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/lamassu_figur",
+      "team": "art-d"
+    },
+    "lerche/deco/lampe": {
+      "id": "lerche/deco/lampe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "on": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "on": {
+          "on": 1
+        },
+        "off": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          1.45,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1302,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/lampe",
+      "team": "art-d"
+    },
+    "lerche/deco/pflanze": {
+      "id": "lerche/deco/pflanze",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1826,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/pflanze",
+      "team": "art-d"
+    },
+    "lerche/deco/poster": {
+      "id": "lerche/deco/poster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 742,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/poster",
+      "team": "art-d"
+    },
+    "lerche/deco/quarter_floor": {
+      "id": "lerche/deco/quarter_floor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "style": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "holz_hell": {
+          "style": 0
+        },
+        "holz_dunkel": {
+          "style": 1
+        },
+        "teppich_rot": {
+          "style": 2
+        },
+        "teppich_blau": {
+          "style": 3
+        },
+        "fliesen": {
+          "style": 4
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "measuredTris": 96,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "quartier",
+        "boden"
+      ],
+      "note": "Wie lerche/kit/floor: 4x1x4 Voxel, Anker [2,1,2] = Oberkante bei y 0 (Platte reicht bis y -0,25). Ersetzt im Quartier lerche/kit/floor.",
+      "source": "lerche/deco/quarter_floor",
+      "team": "art-d"
+    },
+    "lerche/deco/sessel": {
+      "id": "lerche/deco/sessel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "seat": [
+          0,
+          0.62,
+          0.05
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1834,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/sessel",
+      "team": "art-d"
+    },
+    "lerche/deco/sternkarte": {
+      "id": "lerche/deco/sternkarte",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1012,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/sternkarte",
+      "team": "art-d"
+    },
+    "lerche/deco/teppich": {
+      "id": "lerche/deco/teppich",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 444,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "note": "Flach (6 cm): Figuren dürfen darauf stehen.",
+      "source": "lerche/deco/teppich",
+      "team": "art-d"
+    },
+    "lerche/deco/trophaee_boje": {
+      "id": "lerche/deco/trophaee_boje",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "light": [
+          0,
+          1.38,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 928,
+      "tags": [
+        "lerche",
+        "deco",
+        "privatdeck",
+        "deko",
+        "deko_slot"
+      ],
+      "source": "lerche/deco/trophaee_boje",
+      "team": "art-d"
+    },
+    "lerche/furn/barrel": {
+      "id": "lerche/furn/barrel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "barrel": {
+          "seed": 0
+        },
+        "drum": {
+          "seed": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "engine"
+      ],
+      "source": "lerche/furn/barrel",
+      "team": "art-e"
+    },
+    "lerche/furn/bath": {
+      "id": "lerche/furn/bath",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.63,
+      "facing": "+z",
+      "params": {
+        "spout": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "default": {
+          "spout": 1
+        },
+        "plain": {
+          "spout": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 464,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "bad",
+        "kulisse"
+      ],
+      "note": "Zwei o-Kacheln nebeneinander: zweite Kachel mit spout 0 setzen, dann nur ein Löwenkopf.",
+      "source": "lerche/furn/bath",
+      "team": "art-d"
+    },
+    "lerche/furn/bed": {
+      "id": "lerche/furn/bed",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "color": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "player0": {
+          "color": 0
+        },
+        "player1": {
+          "color": 1
+        },
+        "player2": {
+          "color": 2
+        },
+        "guest": {
+          "color": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "sleep": [
+          0.1,
+          0.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "measuredTris": 1824,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "quartier"
+      ],
+      "source": "lerche/furn/bed",
+      "team": "art-d"
+    },
+    "lerche/furn/bench": {
+      "id": "lerche/furn/bench",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "seat_0": [
+          -0.28,
+          0.62,
+          0.05
+        ],
+        "seat_1": [
+          0.28,
+          0.62,
+          0.05
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 806,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "aussicht"
+      ],
+      "source": "lerche/furn/bench",
+      "team": "art-d"
+    },
+    "lerche/furn/control_desk": {
+      "id": "lerche/furn/control_desk",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "light": [
+          0,
+          1,
+          0.1
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "engine"
+      ],
+      "source": "lerche/furn/control_desk",
+      "team": "art-e"
+    },
+    "lerche/furn/crate": {
+      "id": "lerche/furn/crate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 1
+        },
+        "c": {
+          "seed": 2
+        },
+        "d": {
+          "seed": 3
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          0.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "storage"
+      ],
+      "source": "lerche/furn/crate",
+      "team": "art-e"
+    },
+    "lerche/furn/floor_decal": {
+      "id": "lerche/furn/floor_decal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.25,
+      "facing": "+z",
+      "params": {
+        "kind": [
+          0,
+          8
+        ]
+      },
+      "states": {
+        "oil": {
+          "kind": 0
+        },
+        "bolts": {
+          "kind": 1
+        },
+        "vent": {
+          "kind": 2
+        },
+        "hazard": {
+          "kind": 3
+        },
+        "toolbox": {
+          "kind": 4
+        },
+        "cable": {
+          "kind": 5
+        },
+        "parts": {
+          "kind": 6
+        },
+        "bucket": {
+          "kind": 7
+        },
+        "rail": {
+          "kind": 8
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "decal",
+        "walkable"
+      ],
+      "source": "lerche/furn/floor_decal",
+      "team": "art-e"
+    },
+    "lerche/furn/med_bed": {
+      "id": "lerche/furn/med_bed",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "light": [
+          0,
+          1.15,
+          -0.4
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1104,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "krankenstation",
+        "kulisse"
+      ],
+      "source": "lerche/furn/med_bed",
+      "team": "art-d"
+    },
+    "lerche/furn/mess_table": {
+      "id": "lerche/furn/mess_table",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "seat_0": [
+          -0.45,
+          0.5,
+          -0.66
+        ],
+        "seat_1": [
+          0.45,
+          0.5,
+          -0.66
+        ],
+        "seat_2": [
+          -0.45,
+          0.5,
+          0.66
+        ],
+        "seat_3": [
+          0.45,
+          0.5,
+          0.66
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "measuredTris": 2944,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "messe"
+      ],
+      "source": "lerche/furn/mess_table",
+      "team": "art-d"
+    },
+    "lerche/furn/pipes": {
+      "id": "lerche/furn/pipes",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "leak": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "ok": {
+          "leak": 0
+        },
+        "leak": {
+          "leak": 1
+        }
+      },
+      "sockets": {
+        "fx_smoke": [
+          0.15,
+          1,
+          0.3
+        ],
+        "fx_spark": [
+          0,
+          0.9,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "engine"
+      ],
+      "source": "lerche/furn/pipes",
+      "team": "art-e"
+    },
+    "lerche/furn/shelf": {
+      "id": "lerche/furn/shelf",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {
+        "item": [
+          0,
+          4
+        ],
+        "fill": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "empty": {
+          "fill": 0
+        },
+        "low": {
+          "fill": 1
+        },
+        "half": {
+          "fill": 2
+        },
+        "full": {
+          "fill": 3
+        },
+        "ersatzteil": {
+          "item": 0
+        },
+        "loeschgel": {
+          "item": 1
+        },
+        "flickblech": {
+          "item": 2
+        },
+        "bolzen": {
+          "item": 3
+        },
+        "medipack": {
+          "item": 4
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "storage"
+      ],
+      "source": "lerche/furn/shelf",
+      "team": "art-e"
+    },
+    "lerche/furn/shrine": {
+      "id": "lerche/furn/shrine",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.82,
+          0.13
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1814,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "lararium"
+      ],
+      "source": "lerche/furn/shrine",
+      "team": "art-d"
+    },
+    "lerche/furn/sideboard": {
+      "id": "lerche/furn/sideboard",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "light": [
+          0.25,
+          0.95,
+          -0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 2108,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "messe",
+        "kombuese"
+      ],
+      "source": "lerche/furn/sideboard",
+      "team": "art-d"
+    },
+    "lerche/furn/trophy_niche": {
+      "id": "lerche/furn/trophy_niche",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "filled": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "empty": {
+          "filled": 0
+        },
+        "filled": {
+          "filled": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1918,
+      "tags": [
+        "lerche",
+        "furn",
+        "privatdeck",
+        "lararium",
+        "trophaee"
+      ],
+      "source": "lerche/furn/trophy_niche",
+      "team": "art-d"
+    },
+    "lerche/furn/workbench": {
+      "id": "lerche/furn/workbench",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "engine"
+      ],
+      "source": "lerche/furn/workbench",
+      "team": "art-e"
+    },
+    "lerche/item/blaster": {
+      "id": "lerche/item/blaster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.44,
+      "facing": "-y",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.34,
+          0.19
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "item",
+        "weapon",
+        "crew"
+      ],
+      "notes": "Crew-Pistole, Anbau handR. Anker = Griff, Mündung nach -y, Oberseite nach +z. Für verwundete Crew (pistol) dieselbe Waffe.",
+      "source": "lerche/item/blaster",
+      "team": "art-g"
+    },
+    "lerche/item/scav_rifle": {
+      "id": "lerche/item/scav_rifle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rostmeute",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.19,
+      "facing": "-y",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.81,
+          0.19
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "item",
+        "weapon",
+        "rostmeute"
+      ],
+      "notes": "Anbau handR. Anker = Pistolengriff, Mündung nach -y, Oberseite nach +z (AUTHORING). Standardanbau der Figur lerche/scavenger.",
+      "source": "lerche/item/scav_rifle",
+      "team": "art-g"
+    },
+    "lerche/kit/breach": {
+      "id": "lerche/kit/breach",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.25,
+      "facing": "+z",
+      "params": {
+        "patched": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          9999
+        ]
+      },
+      "states": {
+        "open": {
+          "patched": 0
+        },
+        "patched": {
+          "patched": 1
+        }
+      },
+      "sockets": {
+        "leak": [
+          0,
+          0.12,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1210,
+      "tags": [
+        "lerche",
+        "kit",
+        "breach"
+      ],
+      "notes": "Flaches Segment (0,12 m Platte + Splitter bis 0,25 m), liegt AUF der Bodenkachel (Anker unten mittig bei y = 0). Für eine Wand um -90° um x drehen und an die Wandfläche setzen. Offen = dunkles Loch mit blank gerissenem Rand und hochgebogenen Splittern; geflickt = Flickblech mit Nieten und orangem Band (Zustandsfarbe geflickt). seed verschiebt das Loch (9 Lagen). Socket leak = Sogpunkt für die Ausgasung.",
+      "source": "lerche/kit/breach",
+      "team": "art-a"
+    },
+    "lerche/kit/door": {
+      "id": "lerche/kit/door",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ],
+        "style": [
+          0,
+          1
+        ],
+        "locked": [
+          0,
+          1
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "closed": {
+          "open": 0
+        },
+        "open": {
+          "open": 1
+        },
+        "locked": {
+          "locked": 1
+        },
+        "cut_closed": {
+          "cut": 1
+        },
+        "cut_open": {
+          "cut": 1,
+          "open": 1
+        },
+        "cut_locked": {
+          "cut": 1,
+          "locked": 1
+        },
+        "private": {
+          "style": 1
+        },
+        "private_open": {
+          "style": 1,
+          "open": 1
+        },
+        "private_cut": {
+          "style": 1,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "measuredTris": 304,
+      "tags": [
+        "lerche",
+        "kit",
+        "door"
+      ],
+      "notes": "Durchgang entlang z, Wand quer (entlang x); Türen in senkrechten Wänden mit rot 90. Laibungen x = 0 und x = 3 über die volle Kacheltiefe, lichte Weite 0,5 m. Zusatzparameter cut (wie die Wand daneben): 0 = Rundbogen mit Marmor-Archivolte und goldenem Schlussstein (3 m), 1 = Pfosten mit Kappe in Wandhöhe 1,25 m. Offen = Blätter in der Laibung (nur Kante sichtbar). locked = roter Riegel + rote Statuslichter (Zustandsfarbe warning), sonst Statuslicht kühl (System) bzw. warm (Privat).",
+      "source": "lerche/kit/door",
+      "team": "art-a"
+    },
+    "lerche/kit/floor": {
+      "id": "lerche/kit/floor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.25,
+      "facing": "+z",
+      "params": {
+        "kind": [
+          0,
+          5
+        ],
+        "wear": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          9999
+        ]
+      },
+      "states": {
+        "bronze": {
+          "kind": 0
+        },
+        "grate": {
+          "kind": 1
+        },
+        "planks": {
+          "kind": 2
+        },
+        "mosaic": {
+          "kind": 3
+        },
+        "mosaic_band": {
+          "kind": 3,
+          "seed": 1
+        },
+        "bridge_marble": {
+          "kind": 4,
+          "seed": 0
+        },
+        "clinic": {
+          "kind": 5
+        },
+        "sooty": {
+          "wear": 1
+        },
+        "burnt": {
+          "wear": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "measuredTris": 96,
+      "tags": [
+        "lerche",
+        "kit",
+        "floor"
+      ],
+      "notes": "Anker = Mitte OBEN: Lauffläche bei y = 0, Platte reicht bis y = -0,25. Mosaik (kind 3): seed % 3 = 0 Rauten, 1 Mäanderband (läuft entlang x), 2 Kreuzblüte. Brücken-Marmor (kind 4): seed % 8 = 0..3 ist ein Viertel einer Kompassrose über 2×2 Kacheln (0 NW, 1 NO, 2 SW, 3 SO), sonst schlichter Marmor mit Fuge. Dielen und Brandfleck variieren mit seed % 4.",
+      "source": "lerche/kit/floor",
+      "team": "art-a"
+    },
+    "lerche/kit/light": {
+      "id": "lerche/kit/light",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.375,
+        0.5
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "mode": [
+          0,
+          2
+        ],
+        "style": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "normal": {
+          "mode": 0
+        },
+        "alarm": {
+          "mode": 1
+        },
+        "emergency": {
+          "mode": 2
+        },
+        "warm": {
+          "style": 1
+        },
+        "warm_alarm": {
+          "style": 1,
+          "mode": 1
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.47,
+          0.31
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 638,
+      "tags": [
+        "lerche",
+        "kit",
+        "light"
+      ],
+      "notes": "Wandleuchte. Anker = Rückseite der Wandplatte, unten mittig: an die Wandfläche setzen, +z zeigt in den Raum. Montagehöhe: y = 0,35 an geschnittenen Wänden (Oberkante 1,16 m), y = 1,6 an vollen Wänden. Ragt 0,5 m in die Nachbarkachel (erlaubte Ausnahme). Punktlicht am Socket light: normal kühl #9FD8FF (style 0) bzw. warm #FFC46B (style 1), Alarm #E0473C, Notstrom gedimmtes Amber.",
+      "source": "lerche/kit/light",
+      "team": "art-a"
+    },
+    "lerche/kit/light_shaft": {
+      "id": "lerche/kit/light_shaft",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.06,
+      "facing": "+z",
+      "params": {
+        "glow": [
+          0,
+          2
+        ],
+        "conn": [
+          0,
+          15
+        ]
+      },
+      "states": {
+        "dark": {
+          "glow": 0
+        },
+        "normal": {
+          "glow": 1
+        },
+        "bright": {
+          "glow": 2
+        },
+        "pair_east": {
+          "conn": 2
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1606,
+      "tags": [
+        "lerche",
+        "kit",
+        "light_shaft"
+      ],
+      "notes": "Steht auf y = 0 (Bronzerahmen 0,12 m, Glasfeld leicht vertieft) – keine Bodenkachel darunter nötig, aber auch unschädlich. Geländer an jeder Seite ohne Nachbar-Schacht: conn N1 O2 S4 W8 wie bei der Wand (für (13,22)/(14,22): conn 2 bzw. 8). glow: 0 Reaktor offline, 1 online, 2 überladen. Punktlicht am Socket light empfohlen (glow 1: #9FD8FF schwach, 2: stärker).",
+      "source": "lerche/kit/light_shaft",
+      "team": "art-a"
+    },
+    "lerche/kit/plaque": {
+      "id": "lerche/kit/plaque",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.75,
+        0.375
+      ],
+      "height": 0.5,
+      "facing": "+z",
+      "params": {
+        "side": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "bow": {
+          "side": 0
+        },
+        "starboard": {
+          "side": 1
+        },
+        "stern": {
+          "side": 2
+        },
+        "port": {
+          "side": 3
+        },
+        "center": {
+          "side": 4
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 508,
+      "tags": [
+        "lerche",
+        "kit",
+        "plaque"
+      ],
+      "notes": "Tabula ansata (Bronze-Rückplatte, goldener Rahmen, dunkles Feld) mit Seitenzeichen in Gold: Bug = Spitze, Stb = Balken rechts + Punkt, Heck = zwei Balken + Düse, Bb = Balken links + Punkt, Mitte = Ring mit rotem Kern. Anker = Rückseite unten mittig (Platte reicht 1 Voxel darunter, Anker liegt dort): an Stationsfront oder Wand setzen, +z nach vorn. 0,75 × 0,5 m.",
+      "source": "lerche/kit/plaque",
+      "team": "art-a"
+    },
+    "lerche/kit/wall": {
+      "id": "lerche/kit/wall",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "style": [
+          0,
+          4
+        ],
+        "variant": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          9999
+        ]
+      },
+      "states": {
+        "full": {
+          "cut": 0
+        },
+        "cut": {
+          "cut": 1
+        },
+        "straight_x": {
+          "conn": 10,
+          "cut": 1
+        },
+        "straight_z": {
+          "conn": 5,
+          "cut": 1
+        },
+        "corner": {
+          "conn": 6,
+          "cut": 1
+        },
+        "t": {
+          "conn": 14,
+          "cut": 1
+        },
+        "end": {
+          "conn": 2,
+          "cut": 1
+        },
+        "single": {
+          "conn": 0,
+          "cut": 1
+        },
+        "private": {
+          "style": 1,
+          "seed": 3
+        },
+        "private_cut": {
+          "style": 1,
+          "cut": 1
+        },
+        "bridge": {
+          "style": 2
+        },
+        "quarter_wood": {
+          "style": 3,
+          "variant": 0
+        },
+        "quarter_panel": {
+          "style": 3,
+          "variant": 1
+        },
+        "quarter_paper_green": {
+          "style": 4,
+          "variant": 0
+        },
+        "quarter_paper_cream": {
+          "style": 4,
+          "variant": 1
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.35,
+          0.5
+        ],
+        "light_full": [
+          0,
+          1.6,
+          0.5
+        ],
+        "plaque": [
+          0,
+          0.9,
+          0.5
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "measuredTris": 372,
+      "tags": [
+        "lerche",
+        "kit",
+        "wall",
+        "autotile"
+      ],
+      "notes": "Füllt die ganze Kachel (4×4 Voxel). conn = Nachbarwand-Bits N1 O2 S4 W8 (Türen und Fenster zählen als Wand). Nur freie Seiten bekommen Relief (Sockel, vertieftes Feld, Ecklisenen). cut 0 = 3 m, cut 1 = 1,25 m; Kappe oben metal_dark mit Messing-Kante an jeder freien Seite (Grundriss von oben). seed steuert Pilaster (seed % 3 == 0) und Fresko-Motiv (floor(seed/3) % 4); Empfehlung seed = tx + ty * 37, dann steht entlang jeder Wand ein Pilaster alle 3 m. Sockets light/plaque gelten für die +z-Seite, für andere Seiten mitdrehen; light für cut 1, light_full für cut 0.",
+      "source": "lerche/kit/wall",
+      "team": "art-a"
+    },
+    "lerche/kit/window": {
+      "id": "lerche/kit/window",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "conn": [
+          0,
+          15
+        ]
+      },
+      "states": {
+        "full": {
+          "cut": 0
+        },
+        "cut": {
+          "cut": 1
+        },
+        "single": {
+          "conn": 0,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "measuredTris": 230,
+      "tags": [
+        "lerche",
+        "kit",
+        "window"
+      ],
+      "notes": "Wandkachel wie lerche/kit/wall (Anker Mitte unten), Fenster läuft entlang x. Glas (Rolle glass, ohne Jitter) über die Kachelbreite, Bronzesprosse an der Westkante jeder Kachel; conn optional (Bit O2 gesetzt = Nachbar im Osten, dann keine zweite Sprosse). Von oben: Messingkante – Glas – Messingkante. Für eine Wand entlang z rot 90.",
+      "source": "lerche/kit/window",
+      "team": "art-a"
+    },
+    "lerche/lift/ladder": {
+      "id": "lerche/lift/ladder",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.45
+        ],
+        "climb": [
+          0,
+          0,
+          0.1
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "lift",
+        "ladder"
+      ],
+      "source": "lerche/lift/ladder",
+      "team": "art-e"
+    },
+    "lerche/lift/platform": {
+      "id": "lerche/lift/platform",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.94,
+      "facing": "+z",
+      "params": {
+        "moving": [
+          0,
+          1
+        ],
+        "power": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "moving": 0
+        },
+        "moving": {
+          "moving": 1,
+          "power": 0
+        },
+        "moving_emergency": {
+          "moving": 1,
+          "power": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0.5,
+          0.7,
+          -0.4
+        ],
+        "light": [
+          0,
+          0.15,
+          0
+        ],
+        "stand_0": [
+          -0.4,
+          0.125,
+          0.3
+        ],
+        "stand_1": [
+          0.4,
+          0.125,
+          0.3
+        ],
+        "stand_2": [
+          0,
+          0.125,
+          -0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "lift"
+      ],
+      "source": "lerche/lift/platform",
+      "team": "art-e"
+    },
+    "lerche/lift/shaft": {
+      "id": "lerche/lift/shaft",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          0,
+          1
+        ],
+        "power": [
+          0,
+          1
+        ],
+        "open": [
+          0,
+          11
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "system": {
+          "deck": 0,
+          "power": 0
+        },
+        "private": {
+          "deck": 1,
+          "power": 0
+        },
+        "system_emergency": {
+          "deck": 0,
+          "power": 1
+        },
+        "private_emergency": {
+          "deck": 1,
+          "power": 1
+        },
+        "cut": {
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "light": [
+          0,
+          2.85,
+          0.9
+        ],
+        "label": [
+          0,
+          3.1,
+          0.9
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "lerche",
+        "lift",
+        "architecture"
+      ],
+      "source": "lerche/lift/shaft",
+      "team": "art-e"
+    },
+    "lerche/scavenger": {
+      "id": "lerche/scavenger",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "rostmeute",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "role": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "gunner": {
+          "role": 0
+        },
+        "flanker": {
+          "role": 1
+        },
+        "radio": {
+          "role": 2
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "rostmeute",
+        "figure",
+        "enemy",
+        "away"
+      ],
+      "notes": "Rig human, 12 Teile inkl. Gewehr in handR. role ist ein Figur-Parameter: er geht an kopf, rumpf, schulter_gross, unterschenkel. Achtung: voxel-three.js figureObject reicht opts.params nicht durch – der Loader muss role selbst in fig.params einsetzen (siehe Bericht ART-G). Höhe: Schütze 2,19 m (Knochenkamm), Flanker 1,94 m, Funker 2,19 m (Antenne).",
+      "source": "lerche/scavenger",
+      "team": "art-g"
+    },
+    "lerche/station/battery": {
+      "id": "lerche/station/battery",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.19,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "side": [
+          0,
+          1
+        ],
+        "tubes": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          0.9,
+          -0.2
+        ],
+        "fx_spark": [
+          0,
+          0.3,
+          0.3
+        ],
+        "label": [
+          0,
+          1.4,
+          0
+        ],
+        "light": [
+          0,
+          1.15,
+          -0.25
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3276,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "weapon"
+      ],
+      "source": "lerche/station/battery",
+      "team": "art-c"
+    },
+    "lerche/station/emitter": {
+      "id": "lerche/station/emitter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "side": [
+          0,
+          3
+        ],
+        "strength": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.85,
+          0.3
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ],
+        "light": [
+          0,
+          0.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3766,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "shield"
+      ],
+      "source": "lerche/station/emitter",
+      "team": "art-c"
+    },
+    "lerche/station/engine": {
+      "id": "lerche/station/engine",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "throttle": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        },
+        "idle": {
+          "state": 0,
+          "throttle": 0
+        },
+        "full": {
+          "state": 0,
+          "throttle": 4
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.65
+        ],
+        "fx_smoke": [
+          0,
+          1.65,
+          -0.25
+        ],
+        "fx_spark": [
+          0.19,
+          0.35,
+          0.4
+        ],
+        "light": [
+          0,
+          0.56,
+          0.4
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3146,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "engine"
+      ],
+      "source": "lerche/station/engine",
+      "team": "art-b"
+    },
+    "lerche/station/lance": {
+      "id": "lerche/station/lance",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "charge": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        },
+        "charging": {
+          "state": 0,
+          "charge": 2
+        },
+        "charged": {
+          "state": 0,
+          "charge": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.65
+        ],
+        "fx_smoke": [
+          -0.1,
+          0.95,
+          0
+        ],
+        "fx_spark": [
+          -0.06,
+          0.4,
+          0.42
+        ],
+        "light": [
+          -0.1,
+          0.63,
+          0
+        ],
+        "label": [
+          0,
+          1.3,
+          0
+        ],
+        "muzzle": [
+          0.5,
+          0.63,
+          -0.03
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2614,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "lance"
+      ],
+      "source": "lerche/station/lance",
+      "team": "art-b"
+    },
+    "lerche/station/life_support": {
+      "id": "lerche/station/life_support",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.75,
+          0
+        ],
+        "fx_spark": [
+          0.06,
+          0.4,
+          0.38
+        ],
+        "light": [
+          0,
+          1.1,
+          0
+        ],
+        "label": [
+          0,
+          2.1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3246,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "life_support"
+      ],
+      "source": "lerche/station/life_support",
+      "team": "art-b"
+    },
+    "lerche/station/reactor": {
+      "id": "lerche/station/reactor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "power": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        },
+        "overloaded": {
+          "state": 0,
+          "power": 1
+        },
+        "offline": {
+          "state": 0,
+          "power": 2
+        },
+        "emergency_start": {
+          "state": 0,
+          "power": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.8,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.4,
+          0.38
+        ],
+        "light": [
+          0,
+          0.8,
+          0
+        ],
+        "label": [
+          0,
+          2.05,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 5482,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "reactor"
+      ],
+      "source": "lerche/station/reactor",
+      "team": "art-b"
+    },
+    "lerche/station/shield_gen": {
+      "id": "lerche/station/shield_gen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.5,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.4,
+          0.2
+        ],
+        "light": [
+          0,
+          0.85,
+          0
+        ],
+        "label": [
+          0,
+          1.95,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3498,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "shield"
+      ],
+      "source": "lerche/station/shield_gen",
+      "team": "art-b"
+    },
+    "lerche/station/thruster": {
+      "id": "lerche/station/thruster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        },
+        "starboard": {
+          "state": 0,
+          "side": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.2,
+          -0.25
+        ],
+        "fx_spark": [
+          0.12,
+          0.3,
+          0.3
+        ],
+        "light": [
+          0.16,
+          0.6,
+          0.28
+        ],
+        "label": [
+          0,
+          1.8,
+          0
+        ]
+      },
+      "socketsMirrorX": {
+        "param": "side",
+        "value": 1,
+        "note": "bei side 1 die x-Werte aller Sockets negieren"
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2812,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "thruster"
+      ],
+      "source": "lerche/station/thruster",
+      "team": "art-b"
+    },
+    "lerche/station/transfer": {
+      "id": "lerche/station/transfer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          5
+        ]
+      },
+      "states": {
+        "ok": {
+          "state": 0
+        },
+        "damaged": {
+          "state": 1
+        },
+        "destroyed": {
+          "state": 2
+        },
+        "patched": {
+          "state": 3
+        },
+        "escalating": {
+          "state": 4
+        },
+        "emp": {
+          "state": 5
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.3,
+          0.35
+        ],
+        "label": [
+          0,
+          1.5,
+          0
+        ],
+        "light": [
+          0,
+          0.72,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2980,
+      "tags": [
+        "lerche",
+        "station",
+        "system",
+        "transfer"
+      ],
+      "source": "lerche/station/transfer",
+      "team": "art-c"
+    }
+  }
+}

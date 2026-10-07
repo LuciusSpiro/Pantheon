@@ -1,0 +1,37 @@
+{
+  "id": "lerche/kit/breach",
+  "name": "Lerche – Hüllenbruch (offen / geflickt)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "leck", "schaden"],
+  "footprint": [1, 1],
+  "params": {
+    "patched": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geflickt" }
+  },
+  "variants": { "geflickt": { "patched": 1 }, "anders": { "seed": 5 } },
+  "let": { "ox": "seed % 3 - 1", "oz": "floor(seed / 3) % 3 - 1" },
+  "ops": [
+    { "op": "box", "name": "Aufgerissene Platte", "at": [0, 0, 0], "size": [16, 2, 16], "color": { "noise": ["metal", { "shade": "metal", "f": 0.8 }, "metal_dark"], "weights": [3, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Plattenrand Nord/Süd", "mirror": "z", "mirrorAt": 8, "at": [0, 1, 0], "size": [16, 1, 1], "mode": "paint", "color": "metal_light" },
+    { "op": "box", "name": "Plattenrand Ost/West", "mirror": "x", "mirrorAt": 8, "at": [0, 1, 0], "size": [1, 1, 16], "mode": "paint", "color": "metal_light" },
+    { "op": "ellipsoid", "name": "Rußhof", "at": ["8 + ox", 1, "8 + oz"], "r": [7, 3, 6.5], "mode": "paint", "color": { "noise": ["metal_dark", "black", { "shade": "metal", "f": 0.6 }], "weights": [3, 2, 1] } },
+    { "op": "ellipsoid", "name": "Rissrand (blank gerissen)", "at": ["8 + ox", 1, "8 + oz"], "r": [5, 3, 4.2], "mode": "paint", "color": { "noise": ["metal_light", { "shade": "metal_light", "f": 1.25 }], "weights": [2, 1] } },
+    { "op": "ellipsoid", "name": "Loch – dunkles All", "at": ["8 + ox", 1, "8 + oz"], "r": [4, 3, 3.2], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "ellipsoid", "name": "Zacke 1", "at": ["5 + ox", 1, "10 + oz"], "r": [1.6, 3, 1.2], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "ellipsoid", "name": "Zacke 2", "at": ["11 + ox", 1, "6 + oz"], "r": [1.4, 3, 1.6], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "box", "name": "Stern 1", "at": ["7 + ox", 1, "7 + oz"], "size": [1, 1, 1], "mode": "paint", "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Stern 2", "at": ["10 + ox", 1, "9 + oz"], "size": [1, 1, 1], "mode": "paint", "color": { "role": "glow", "emit": 0.7 }, "jitter": false },
+    { "op": "line", "name": "Splitter hochgebogen 1", "if": "!patched", "from": ["4 + ox", 2, "7 + oz"], "to": ["5 + ox", 4, "8 + oz"], "r": 0.6, "color": "metal_light" },
+    { "op": "line", "name": "Splitter hochgebogen 2", "if": "!patched", "from": ["12 + ox", 2, "9 + oz"], "to": ["11 + ox", 4, "10 + oz"], "r": 0.6, "color": "metal_light" },
+    { "op": "line", "name": "Splitter hochgebogen 3", "if": "!patched", "from": ["8 + ox", 2, "4 + oz"], "to": ["9 + ox", 3, "5 + oz"], "r": 0.6, "color": { "shade": "metal_light", "f": 1.2 } },
+
+    { "op": "group", "name": "Flickblech", "if": "patched", "ops": [
+      { "op": "box", "name": "Blech", "at": [3, 2, 3], "size": [10, 1, 10], "color": { "frame": { "shade": "metal_light", "f": 0.85 }, "fill": "metal_light", "axes": "xz" } },
+      { "op": "box", "name": "Nieten oben", "repeat": { "count": 3, "step": [3, 0, 0], "var": "n" }, "at": [4, 3, 3], "size": [1, 1, 1], "color": "metal_dark" },
+      { "op": "box", "name": "Nieten unten", "repeat": { "count": 3, "step": [3, 0, 0], "var": "n" }, "at": [5, 3, 12], "size": [1, 1, 1], "color": "metal_dark" },
+      { "op": "box", "name": "Nieten seitlich", "mirror": "x", "mirrorAt": 8, "at": [3, 3, 7], "size": [1, 1, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Flickband (Zustand geflickt)", "at": [3, 3, 7], "size": [10, 1, 2], "color": "#F08A3C", "jitter": false }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

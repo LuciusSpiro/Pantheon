@@ -1,0 +1,318 @@
+{
+  "team": "art-e",
+  "assets": [
+    {
+      "id": "lerche/lift/shaft",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [2, 2],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "deck": [0, 1],
+        "power": [0, 1],
+        "open": [0, 11],
+        "cut": [0, 1]
+      },
+      "states": {
+        "system": {
+          "deck": 0,
+          "power": 0
+        },
+        "private": {
+          "deck": 1,
+          "power": 0
+        },
+        "system_emergency": {
+          "deck": 0,
+          "power": 1
+        },
+        "private_emergency": {
+          "deck": 1,
+          "power": 1
+        },
+        "cut": {
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.5],
+        "light": [0, 2.85, 0.9],
+        "label": [0, 3.1, 0.9]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": ["lerche", "lift", "architecture"]
+    },
+    {
+      "id": "lerche/lift/platform",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [2, 2],
+      "height": 0.94,
+      "facing": "+z",
+      "params": {
+        "moving": [0, 1],
+        "power": [0, 1]
+      },
+      "states": {
+        "idle": {
+          "moving": 0
+        },
+        "moving": {
+          "moving": 1,
+          "power": 0
+        },
+        "moving_emergency": {
+          "moving": 1,
+          "power": 1
+        }
+      },
+      "sockets": {
+        "use": [0.5, 0.7, -0.4],
+        "light": [0, 0.15, 0],
+        "stand_0": [-0.4, 0.125, 0.3],
+        "stand_1": [0.4, 0.125, 0.3],
+        "stand_2": [0, 0.125, -0.3]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "lift"]
+    },
+    {
+      "id": "lerche/furn/shelf",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {
+        "item": [0, 4],
+        "fill": [0, 3]
+      },
+      "states": {
+        "empty": {
+          "fill": 0
+        },
+        "low": {
+          "fill": 1
+        },
+        "half": {
+          "fill": 2
+        },
+        "full": {
+          "fill": 3
+        },
+        "ersatzteil": {
+          "item": 0
+        },
+        "loeschgel": {
+          "item": 1
+        },
+        "flickblech": {
+          "item": 2
+        },
+        "bolzen": {
+          "item": 3
+        },
+        "medipack": {
+          "item": 4
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.6],
+        "label": [0, 1.45, 0]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": ["lerche", "furn", "storage"]
+    },
+    {
+      "id": "lerche/lift/ladder",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [0, 0, 0.45],
+        "climb": [0, 0, 0.1],
+        "label": [0, 2.2, 0]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "lift", "ladder"]
+    },
+    {
+      "id": "lerche/furn/pipes",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "leak": [0, 1]
+      },
+      "states": {
+        "ok": {
+          "leak": 0
+        },
+        "leak": {
+          "leak": 1
+        }
+      },
+      "sockets": {
+        "fx_smoke": [0.15, 1, 0.3],
+        "fx_spark": [0, 0.9, 0.3]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "engine"]
+    },
+    {
+      "id": "lerche/furn/barrel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "barrel": {
+          "seed": 0
+        },
+        "drum": {
+          "seed": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "engine"]
+    },
+    {
+      "id": "lerche/furn/crate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 1
+        },
+        "c": {
+          "seed": 2
+        },
+        "d": {
+          "seed": 3
+        }
+      },
+      "sockets": {
+        "cover": [0, 0.7, 0]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "storage"]
+    },
+    {
+      "id": "lerche/furn/workbench",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [0, 0, 0.55]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "engine"]
+    },
+    {
+      "id": "lerche/furn/control_desk",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "use": [0, 0, 0.55],
+        "light": [0, 1, 0.1]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "engine"]
+    },
+    {
+      "id": "lerche/furn/floor_decal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 0.25,
+      "facing": "+z",
+      "params": {
+        "kind": [0, 8]
+      },
+      "states": {
+        "oil": {
+          "kind": 0
+        },
+        "bolts": {
+          "kind": 1
+        },
+        "vent": {
+          "kind": 2
+        },
+        "hazard": {
+          "kind": 3
+        },
+        "toolbox": {
+          "kind": 4
+        },
+        "cable": {
+          "kind": 5
+        },
+        "parts": {
+          "kind": 6
+        },
+        "bucket": {
+          "kind": 7
+        },
+        "rail": {
+          "kind": 8
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": ["lerche", "furn", "decal", "walkable"]
+    }
+  ]
+}

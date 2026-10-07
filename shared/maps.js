@@ -7,26 +7,45 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Schiffsinneres der KRS Lerche (M3a „Breitseite“), 44 x 13 Kacheln à 32 px. CONTRACT-M3 §2.
-  // Antriebsraum am Heck x1–3 (Triebwerk E, Heck-Emitter A) – Lager/Quartiere/Transfer/Messe – Maschinenraum MITTSCHIFFS
-  // x19–23 (Reaktor R, Schildgenerator G, Neustartschalter y A oben / B unten) – Batteriedecks Bb (oben) und Stb (unten)
-  // x25–32 mit Düse, Batterie, Emitter – Brücke x34–42 mit Bug-Waffe K und Bug-Emitter I.
-  //           0         1         2         3         4
-  //           01234567890123456789012345678901234567890123
+  // Schiffsinneres der KRS Lerche (M4 „Zwei Decks“, CONTRACT-M4 §2.1): Atlas mit zwei Decks übereinander, 37 x 29 Kacheln à 32 px.
+  // Deck I (Systemdeck) Zeilen 0–12, Deck II (Privatdeck) Zeilen 16–28, Zeilen 13–15 leer (void). Deck II = Deck-I-Zeile + 16.
+  // Deck I: Antriebsraum am Heck x1–3 (Triebwerk E, Heck-Emitter A) – Lager (Regale) / Vorraum (Notleiter !) / Transferkammer –
+  // Maschinenraum MITTSCHIFFS x11–15 (Reaktor R, Lebenserhaltung O, Schildgenerator G, Schalter y A oben / B unten) –
+  // Batteriedecks Bb (oben) und Stb (unten) x17–24 – Brücke x25–36 mit Lift ^, Bug-Waffe K und Bug-Emitter I.
+  // Deck II: vier Quartiere, Messe mit Hafenterminal S, Trophäennische, Liftvorraum, Atrium mit Lichtschacht, Krankenstation,
+  // Bad, Aussicht mit Panoramafenster. Kein System auf Deck II.
+  //           0         1         2         3
+  //           0123456789012345678901234567890123456
   const SHIP_ROWS = [
-    '##################################          ', //  0
-    '#===#LLLLL#B,,#B,,#y===u#=F==M==U#######    ', //  1
-    '#A==#.....#,,,#,,,#=====#========#......##  ', //  2
-    '#===#.....#,,,#,,,#==R==#========#.W......# ', //  3
-    '#===##D#####D###D##=====###D##D###........##', //  4
-    '#===#S,YY,........#=====#........#........K#', //  5
-    '#E==D,,YY,........D=====D........D...C..H..#', //  6
-    '#===#O,,,,........#=====#........#........I#', //  7
-    '#===####D###D###D##=====###D##D###........##', //  8
-    '#===#.....#,,,#,,,#==G==#========#........# ', //  9
-    '#===#.P.P.#,,,#,,,#=====#========#......##  ', // 10
-    '#==f#X.P.T#B,,#B,,#u===y#=Z==J==V#######    ', // 11
-    '##################################          ', // 12
+    '##########################           ', //  0
+    '#===#LLLLL#y===u#=F==M==U#######     ', //  1
+    '#A==#.....#=====#========#^^....##   ', //  2
+    '#===#.....#==R==#========#^^.W....#  ', //  3
+    '#===###D###=====##D##D###.........## ', //  4
+    '#===#!....#=====#........#.YY......K#', //  5
+    '#E==D.....D=====D........D.YY.C..H..#', //  6
+    '#===#.....#=====#........#.........I#', //  7
+    '#===###D###=====##D##D###.........## ', //  8
+    '#===#.....#O=G==#========#..q.....#  ', //  9
+    '#===#.P.P.#=====#========#......##   ', // 10
+    '#==f#X.P.T#u===y#=Z==J==V#######     ', // 11
+    '##########################           ', // 12
+    '                                     ', // 13
+    '                                     ', // 14
+    '                                     ', // 15
+    '    ##########################       ', // 16
+    '    #B,,#B,,#S,,,,,,j#t,t#:::#       ', // 17
+    '    #,,,#,,,#,,,mm,,,#,,,#^^:#       ', // 18
+    '    #,,,#,,,#,,,mm,,,#,a,#^^:#       ', // 19
+    '    ##D###D####DD#####D###::##       ', // 20
+    '    #!:::::::::::::::::::::::#       ', // 21
+    '    #::::::::ww::::::::::::::#       ', // 22
+    '    #::::::::::::::::::::::::#       ', // 23
+    '    ##D###D####DD#####D###D###       ', // 24
+    '    #,,,#,,,#........#:::#:::#       ', // 25
+    '    #,,,#,,,#........#:o:#:s:#       ', // 26
+    '    #B,,#B,,#.v.v.v..#:o:#:::#       ', // 27
+    '    ######################%%%#       ', // 28
   ];
 
   // Bojenplattform B-7 (Außenmission), 32 x 18 Kacheln.
@@ -205,47 +224,120 @@
     'Z': station('sys_thruster', 'thruster_stbd', 1, 'stbd'),
     'J': station('sys_battery', 'battery_stbd', 1, 'stbd'),
     'V': station('sys_emitter', 'emitter_stbd', 1, 'stbd'),
+    // Brückenumbau (Kai): freies Terminal unten links, noch ohne Funktion
+    'q': { kind: 'terminal_spare', solid: true, interact: 'spare' },
+    // ---- M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.2) ----
+    '^': { kind: 'lift', interact: 'lift' },              // Liftplattform (2×2): E tippen -> anderes Deck
+    '!': { kind: 'ladder', interact: 'ladder' },          // Notleiter: E halten -> anderes Deck
+    ':': { kind: 'floor_mosaic' },                        // Mosaikboden (Privatdeck)
+    'w': { kind: 'light_shaft', solid: true },            // Lichtschacht mit Glasboden und Geländer
+    '%': { kind: 'window', solid: true },                 // Panoramafenster (Außenwand)
+    't': { kind: 'trophy_niche', solid: true },           // Trophäennische (Funde)
+    'a': { kind: 'shrine', solid: true },                 // Hausschrein (Lararium)
+    'v': { kind: 'med_bed', solid: true },                // Krankenliege (Kulisse)
+    'o': { kind: 'bath', solid: true },                   // Becken (Kulisse)
+    's': { kind: 'bench', solid: true },                  // Aussichtsbank (Kulisse)
+    'j': { kind: 'sideboard', solid: true },              // Anrichte/Kombüse in der Messe
   });
 
   // Regale im Lager: x-Kachel -> Gegenstand (Zeile 1). Altname; maßgeblich ist SHELF_TILES.
   const SHELVES = { 5: 'ersatzteil', 6: 'loeschgel', 7: 'flickblech', 8: 'bolzen', 9: 'medipack' };
 
-  // 4 Einzelquartiere (3×3). color 0–2 = Spielerfarbe, color 3 = Gästequartier (Ivo). Deko-Slots sind Bodenkacheln.
-  const BEDS = [
-    { color: 0, x: 11, y: 1, room: { id: 'q0', x0: 11, y0: 1, x1: 13, y1: 3 },
-      slots: [{ id: 'q0a', x: 12, y: 1 }, { id: 'q0b', x: 13, y: 1 }, { id: 'q0c', x: 13, y: 3 }, { id: 'q0d', x: 11, y: 3 }] },
-    { color: 1, x: 15, y: 1, room: { id: 'q1', x0: 15, y0: 1, x1: 17, y1: 3 },
-      slots: [{ id: 'q1a', x: 16, y: 1 }, { id: 'q1b', x: 17, y: 1 }, { id: 'q1c', x: 17, y: 3 }, { id: 'q1d', x: 15, y: 3 }] },
-    { color: 2, x: 11, y: 11, room: { id: 'q2', x0: 11, y0: 9, x1: 13, y1: 11 },
-      slots: [{ id: 'q2a', x: 12, y: 11 }, { id: 'q2b', x: 13, y: 11 }, { id: 'q2c', x: 13, y: 9 }, { id: 'q2d', x: 11, y: 9 }] },
-    { color: 3, x: 15, y: 11, room: { id: 'q3', x0: 15, y0: 9, x1: 17, y1: 11 },
-      slots: [{ id: 'q3a', x: 16, y: 11 }, { id: 'q3b', x: 17, y: 11 }, { id: 'q3c', x: 17, y: 9 }, { id: 'q3d', x: 15, y: 9 }] },
+  // ---- M4 „Zwei Decks“ (CONTRACT-M4 §2.3): Decks im Atlas ----
+  const DECK_STRIDE = 16;
+  const SHIP_DECKS = [
+    { id: 'system', name: 'Systemdeck', level: 0, y0: 0, y1: 12 },
+    { id: 'private', name: 'Privatdeck', level: 1, y0: 16, y1: 28 },
   ];
-  // Reaktor-Neustartschalter im Maschinenraum mittschiffs: A oben links (19,1), B unten rechts (23,11).
-  const REACTOR_SWITCHES = [{ id: 'A', x: 19, y: 1 }, { id: 'B', x: 23, y: 11 }];
+  // Deck einer Atlas-Kachelzeile: 0 oder 1, -1 in der Lücke (oder außerhalb).
+  function deckOf(ty) {
+    for (const d of SHIP_DECKS) if (ty >= d.y0 && ty <= d.y1) return d.level;
+    return -1;
+  }
+  // Deck einer Spiel-Pixel-y-Koordinate (Schiff)
+  function deckOfPx(py) { return deckOf(Math.floor(py / 32)); }
+  // Zeile relativ zum eigenen Deck (Deck II: ty − 16); in der Lücke ty − 0
+  function deckLocalY(ty) { const d = deckOf(ty); return d > 0 ? ty - d * DECK_STRIDE : ty; }
+  // Lift: 2×2-Plattform auf Deck I; das Gegenstück liegt auf Deck II bei y + 16 (other = dy ±16 je nach Startdeck).
+  const SHIP_LIFTS = [{ id: 'lift', tiles: [[26, 2], [27, 2], [26, 3], [27, 3]], other: DECK_STRIDE }];
+  // Notleitern: Deck I (5,5) <-> Deck II (5,21)
+  const SHIP_LADDERS = [{ x: 5, y: 5 }, { x: 5, y: 21 }];
+  // Kachel auf dem anderen Deck (gleiche lokale Kachel). null in der Lücke.
+  function otherDeckTile(tx, ty) {
+    const d = deckOf(ty);
+    if (d < 0) return null;
+    return { x: tx, y: d === 0 ? ty + DECK_STRIDE : ty - DECK_STRIDE };
+  }
+  // Ist (tx,ty) eine Liftkachel (auf irgendeinem Deck)? -> Lift-Eintrag oder null
+  function liftAt(tx, ty) {
+    const d = deckOf(ty);
+    if (d < 0) return null;
+    const ly = d === 0 ? ty : ty - DECK_STRIDE;
+    return SHIP_LIFTS.find((l) => l.tiles.some((t) => t[0] === tx && t[1] === ly)) || null;
+  }
+  // Gegenstück einer Notleiter (oder null)
+  function ladderPartner(tx, ty) {
+    const i = SHIP_LADDERS.findIndex((l) => l.x === tx && l.y === ty);
+    if (i < 0) return null;
+    const me = SHIP_LADDERS[i];
+    return SHIP_LADDERS.find((l) => l !== me && l.x === me.x && Math.abs(l.y - me.y) === DECK_STRIDE) || null;
+  }
+  // Übergänge zwischen den Decks als BFS-Kanten: links(x, y) -> [{x, y, via: 'lift'|'ladder'}].
+  // opts.ladder = false: ohne Notleiter (Bots benutzen nie die Leiter).
+  function deckLinks(tx, ty, opts) {
+    const out = [];
+    if (liftAt(tx, ty)) { const o = otherDeckTile(tx, ty); if (o) out.push({ x: o.x, y: o.y, via: 'lift' }); }
+    if (!(opts && opts.ladder === false)) { const l = ladderPartner(tx, ty); if (l) out.push({ x: l.x, y: l.y, via: 'ladder' }); }
+    return out;
+  }
 
-  const SHIP_SPAWNS = [{ x: 26, y: 6 }, { x: 28, y: 6 }, { x: 30, y: 6 }];
-  const BOT_SPAWNS = [{ x: 21, y: 6 }, { x: 13, y: 6 }, { x: 28, y: 6 }];
+  // 4 Einzelquartiere (3×3) auf dem Privatdeck. color 0–2 = Spielerfarbe, color 3 = Gästequartier (Ivo). Deko-Slots sind Bodenkacheln.
+  const BEDS = [
+    { color: 0, x: 5, y: 17, room: { id: 'q0', x0: 5, y0: 17, x1: 7, y1: 19 },
+      slots: [{ id: 'q0a', x: 6, y: 17 }, { id: 'q0b', x: 7, y: 17 }, { id: 'q0c', x: 7, y: 19 }, { id: 'q0d', x: 5, y: 19 }] },
+    { color: 1, x: 9, y: 17, room: { id: 'q1', x0: 9, y0: 17, x1: 11, y1: 19 },
+      slots: [{ id: 'q1a', x: 10, y: 17 }, { id: 'q1b', x: 11, y: 17 }, { id: 'q1c', x: 11, y: 19 }, { id: 'q1d', x: 9, y: 19 }] },
+    { color: 2, x: 5, y: 27, room: { id: 'q2', x0: 5, y0: 25, x1: 7, y1: 27 },
+      slots: [{ id: 'q2a', x: 6, y: 27 }, { id: 'q2b', x: 7, y: 27 }, { id: 'q2c', x: 7, y: 25 }, { id: 'q2d', x: 5, y: 25 }] },
+    { color: 3, x: 9, y: 27, room: { id: 'q3', x0: 9, y0: 25, x1: 11, y1: 27 },
+      slots: [{ id: 'q3a', x: 10, y: 27 }, { id: 'q3b', x: 11, y: 27 }, { id: 'q3c', x: 11, y: 25 }, { id: 'q3d', x: 9, y: 25 }] },
+  ];
+  // Reaktor-Neustartschalter im Maschinenraum mittschiffs: A oben links (11,1), B unten rechts (15,11).
+  const REACTOR_SWITCHES = [{ id: 'A', x: 11, y: 1 }, { id: 'B', x: 15, y: 11 }];
+
+  const SHIP_SPAWNS = [{ x: 18, y: 6 }, { x: 20, y: 6 }, { x: 22, y: 6 }];
+  const BOT_SPAWNS = [{ x: 13, y: 6 }, { x: 7, y: 6 }, { x: 20, y: 7 }];
   const PLATFORM_PADS = [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 4, y: 4 }];
-  // Ivo (Gast an Bord) schlendert zwischen diesen Bodenkacheln.
-  const IVO_SPOTS = [{ x: 16, y: 10 }, { x: 13, y: 10 }, { x: 6, y: 7 }, { x: 9, y: 6 }, { x: 21, y: 5 }, { x: 14, y: 6 }, { x: 29, y: 7 }, { x: 16, y: 10 }];
+  // Ivo (Gast an Bord) schlendert zwischen diesen Bodenkacheln – alle auf Deck II, er benutzt weder Lift noch Leiter.
+  const IVO_SPOTS = [{ x: 10, y: 26 }, { x: 15, y: 18 }, { x: 9, y: 22 }, { x: 20, y: 22 }, { x: 14, y: 25 }, { x: 26, y: 26 }, { x: 24, y: 23 }, { x: 10, y: 26 }];
 
   // Räume in Prüfreihenfolge (erster Treffer gilt). kind 'engine' = Maschinen-/Antriebsraum, 'quarter' = Quartier.
-  // sector: Schildsektor 0–3 des Raums, -1 = mittschiffs (kein Sektor).
+  // sector: Schildsektor 0–3 des Raums, -1 = mittschiffs (kein Sektor). deck: 0 Systemdeck, 1 Privatdeck.
+  // Abweichung von CONTRACT-M4 §2.3: der Vorraum reicht 4,4–10,8, damit auch die vier Türen um ihn herum einen Raum haben
+  // (früher deckte der Gang sie ab). Lager/Transfer/Antrieb/Maschinenraum stehen davor, ändern sich also nicht.
   const SHIP_ROOMS = [
-    { id: 'antrieb', name: 'Antriebsraum', kind: 'engine', sector: 2, x0: 1, y0: 1, x1: 3, y1: 11 },
-    { id: 'maschinenraum', name: 'Maschinenraum', kind: 'engine', sector: -1, x0: 19, y0: 1, x1: 23, y1: 11 },
-    { id: 'bruecke', name: 'Brücke', kind: 'room', sector: 0, x0: 34, y0: 1, x1: 43, y1: 11 },
-    { id: 'lager', name: 'Lager', kind: 'room', sector: 3, x0: 5, y0: 1, x1: 9, y1: 3 },
-    { id: 'transfer', name: 'Transferkammer', kind: 'room', sector: 1, x0: 5, y0: 9, x1: 9, y1: 11 },
-    { id: 'q0', name: 'Quartier 1', kind: 'quarter', sector: 3, x0: 11, y0: 1, x1: 13, y1: 3 },
-    { id: 'q1', name: 'Quartier 2', kind: 'quarter', sector: 3, x0: 15, y0: 1, x1: 17, y1: 3 },
-    { id: 'q2', name: 'Quartier 3', kind: 'quarter', sector: 1, x0: 11, y0: 9, x1: 13, y1: 11 },
-    { id: 'q3', name: 'Gästequartier', kind: 'quarter', sector: 1, x0: 15, y0: 9, x1: 17, y1: 11 },
-    { id: 'batterie_bb', name: 'Batteriedeck Backbord', kind: 'room', sector: 3, x0: 25, y0: 1, x1: 32, y1: 3 },
-    { id: 'batterie_stb', name: 'Batteriedeck Steuerbord', kind: 'room', sector: 1, x0: 25, y0: 9, x1: 32, y1: 11 },
-    { id: 'messe', name: 'Messe', kind: 'room', sector: -1, x0: 5, y0: 5, x1: 9, y1: 7 },
-    { id: 'gang', name: 'Gang', kind: 'room', sector: -1, x0: 4, y0: 4, x1: 33, y1: 8 },
+    // Deck I
+    { id: 'antrieb', name: 'Antriebsraum', kind: 'engine', sector: 2, deck: 0, x0: 1, y0: 1, x1: 3, y1: 11 },
+    { id: 'maschinenraum', name: 'Maschinenraum', kind: 'engine', sector: -1, deck: 0, x0: 11, y0: 1, x1: 15, y1: 11 },
+    { id: 'bruecke', name: 'Brücke', kind: 'room', sector: 0, deck: 0, x0: 25, y0: 1, x1: 36, y1: 11 },
+    { id: 'lager', name: 'Lager', kind: 'room', sector: 3, deck: 0, x0: 5, y0: 1, x1: 9, y1: 3 },
+    { id: 'transfer', name: 'Transferkammer', kind: 'room', sector: 1, deck: 0, x0: 5, y0: 9, x1: 9, y1: 11 },
+    { id: 'vorraum', name: 'Vorraum', kind: 'room', sector: -1, deck: 0, x0: 4, y0: 4, x1: 10, y1: 8 },
+    { id: 'batterie_bb', name: 'Batteriedeck Backbord', kind: 'room', sector: 3, deck: 0, x0: 17, y0: 1, x1: 24, y1: 3 },
+    { id: 'batterie_stb', name: 'Batteriedeck Steuerbord', kind: 'room', sector: 1, deck: 0, x0: 17, y0: 9, x1: 24, y1: 11 },
+    { id: 'gang', name: 'Gang', kind: 'room', sector: -1, deck: 0, x0: 16, y0: 4, x1: 24, y1: 8 },
+    // Deck II (alle Sektor -1: kein Feuer, kein Leck)
+    { id: 'q0', name: 'Quartier 1', kind: 'quarter', sector: -1, deck: 1, x0: 5, y0: 17, x1: 7, y1: 19 },
+    { id: 'q1', name: 'Quartier 2', kind: 'quarter', sector: -1, deck: 1, x0: 9, y0: 17, x1: 11, y1: 19 },
+    { id: 'q2', name: 'Quartier 3', kind: 'quarter', sector: -1, deck: 1, x0: 5, y0: 25, x1: 7, y1: 27 },
+    { id: 'q3', name: 'Gästequartier', kind: 'quarter', sector: -1, deck: 1, x0: 9, y0: 25, x1: 11, y1: 27 },
+    { id: 'messe', name: 'Messe', kind: 'room', sector: -1, deck: 1, x0: 13, y0: 17, x1: 20, y1: 19 },
+    { id: 'lararium', name: 'Trophäennische', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 17, x1: 24, y1: 19 },
+    { id: 'liftvorraum', name: 'Liftvorraum', kind: 'room', sector: -1, deck: 1, x0: 26, y0: 17, x1: 28, y1: 20 },
+    { id: 'krankenstation', name: 'Krankenstation', kind: 'room', sector: -1, deck: 1, x0: 13, y0: 25, x1: 20, y1: 27 },
+    { id: 'bad', name: 'Bad', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 25, x1: 24, y1: 27 },
+    { id: 'aussicht', name: 'Aussicht', kind: 'room', sector: -1, deck: 1, x0: 26, y0: 25, x1: 28, y1: 27 },
+    { id: 'atrium', name: 'Atrium', kind: 'room', sector: -1, deck: 1, x0: 5, y0: 20, x1: 28, y1: 24 },
   ];
   // Raum einer Kachel (oder null außerhalb aller Räume).
   function roomAt(tx, ty) {
@@ -267,7 +359,15 @@
   const SHELF_TILES = Object.keys(SHELVES).map((x) => ({ x: +x, y: 1, item: SHELVES[x], access: { x: +x, y: 2 } }));
   function shelfAt(tx, ty) { return SHELF_TILES.find((s) => s.x === tx && s.y === ty) || null; }
   // Hafen-Übung: Kabelbrand und Leck (früher CONFIG.drill.fire/breach; die CONFIG-Schlüssel bleiben als Altnamen)
-  const SHIP_DRILL = { fire: { x: 6, y: 6 }, breach: { x: 5, y: 3 } };
+  // M4: Feuer im Vorraum (Systemdeck), Leck im Lager
+  const SHIP_DRILL = { fire: { x: 7, y: 6 }, breach: { x: 5, y: 3 } };
+  // M4 §2.4: Kann auf dieser Schiffskachel ein Feuer oder Leck entstehen? Nur auf Deck I, nie auf Lift/Leiter, nie auf soliden Kacheln.
+  function hazardAllowed(tx, ty) {
+    if (deckOf(ty) !== 0) return false;
+    const info = SHIP_LEGEND[(SHIP_ROWS[ty] || '')[tx]];
+    if (!info || info.solid) return false;
+    return info.kind !== 'lift' && info.kind !== 'ladder';
+  }
 
   // M0: Regal-Füllstand. Löschgel zählt ganze Dosen, eine angebrochene Ladung zählt als eine Dose.
   function shelfStock(inv, item) {
@@ -300,6 +400,8 @@
     SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, shelfAt,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
     SHIP_LEGEND, IVO_SPOTS, SECTOR_NAMES,
+    // M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.3)
+    DECK_STRIDE, SHIP_DECKS, SHIP_LIFTS, SHIP_LADDERS, deckOf, deckOfPx, deckLocalY, otherDeckTile, liftAt, ladderPartner, deckLinks, hazardAllowed,
     ship: makeMap('ship', SHIP_ROWS, SHIP_LEGEND),
     platform: makeMap('platform', PLATFORM_ROWS, PLATFORM_LEGEND),
     // M1 (Team SERVER): Wrack

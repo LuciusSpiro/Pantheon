@@ -1,0 +1,14 @@
+{
+  "id": "fig/crew/anzug_unterarm",
+  "name": "Crew-Raumanzug Unterarm (links) mit Manschette und Handschuh",
+  "tier": "detail",
+  "palette": "crew",
+  "tags": ["figur", "crew", "arm"],
+  "ops": [
+    { "name": "Unterarm + Faust", "op": "use", "model": "fig/basis/unterarm" },
+    { "name": "Manschette", "op": "box", "at": [4, 13, -1], "size": [3, 2, 3], "color": "secondary", "mode": "paint" },
+    { "name": "Armgerät", "op": "box", "at": [7, 14, -1], "size": [1, 2, 3], "color": "metal_dark" },
+    { "name": "Armgerät Anzeige", "op": "box", "at": [7, 15, 0], "size": [1, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -26,31 +26,44 @@ function makeRng(seed) {
 
 // Breitensuche auf Kacheln (4-Nachbarschaft). walkable(x,y) -> bool, isGoal(x,y) -> bool.
 // Start darf unbegehbar sein. Rückgabe: Pfad [{x,y}] ohne Start, mit Ziel; [] wenn Start = Ziel; null wenn unerreichbar.
-function bfs(walkable, start, isGoal, w, h, maxNodes) {
+// M4: links(x,y) -> [{x,y,via}] (optional) sind zusätzliche Kanten (Lift/Leiter zwischen den Decks). Ein Pfadschritt über
+// eine solche Kante trägt via ('lift'|'ladder'); wer dem Pfad folgt, muss dort fahren/klettern statt zu laufen.
+function bfs(walkable, start, isGoal, w, h, maxNodes, links) {
   if (isGoal(start.x, start.y)) return [];
   const limit = maxNodes || w * h + 1;
   const prev = new Map();
+  const via = new Map();
   const key = (x, y) => y * w + x;
   const q = [start];
   prev.set(key(start.x, start.y), null);
   let head = 0;
+  const visit = (c, nx, ny, how) => {
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) return null;
+    const k = key(nx, ny);
+    if (prev.has(k)) return null;
+    const goal = isGoal(nx, ny);
+    if (!goal && !walkable(nx, ny)) return null;
+    prev.set(k, c);
+    if (how) via.set(k, how);
+    if (goal) {
+      const step = (x, y) => { const o = { x, y }; const v = via.get(key(x, y)); if (v) o.via = v; return o; };
+      const path = [step(nx, ny)];
+      let p = c;
+      while (p && !(p.x === start.x && p.y === start.y)) { path.unshift(step(p.x, p.y)); p = prev.get(key(p.x, p.y)); }
+      return path;
+    }
+    q.push({ x: nx, y: ny });
+    return null;
+  };
   while (head < q.length && head < limit) {
     const c = q[head++];
     for (const d of NEIGHBOR_ORDER) {
-      const nx = c.x + DIRS[d].x, ny = c.y + DIRS[d].y;
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-      const k = key(nx, ny);
-      if (prev.has(k)) continue;
-      const goal = isGoal(nx, ny);
-      if (!goal && !walkable(nx, ny)) continue;
-      prev.set(k, c);
-      if (goal) {
-        const path = [{ x: nx, y: ny }];
-        let p = c;
-        while (p && !(p.x === start.x && p.y === start.y)) { path.unshift({ x: p.x, y: p.y }); p = prev.get(key(p.x, p.y)); }
-        return path;
-      }
-      q.push({ x: nx, y: ny });
+      const r = visit(c, c.x + DIRS[d].x, c.y + DIRS[d].y, null);
+      if (r) return r;
+    }
+    if (links) for (const l of links(c.x, c.y) || []) {
+      const r = visit(c, l.x, l.y, l.via || 'link');
+      if (r) return r;
     }
   }
   return null;

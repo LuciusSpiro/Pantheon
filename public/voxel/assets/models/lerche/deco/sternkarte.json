@@ -1,0 +1,30 @@
+{
+  "id": "lerche/deco/sternkarte",
+  "name": "Gerahmte Sternkarte auf Ständer (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "karte", "sterne"],
+  "footprint": [0.9, 0.5],
+  "params": {},
+  "ops": [
+    { "op": "cyl", "name": "Fußplatte", "at": [8, 0, 8], "r": 3.5, "h": 1, "color": "trim" },
+    { "op": "box", "name": "Fuß Pranken", "at": [4, 0, 7], "size": [8, 1, 2], "color": "metal", "jitter": false },
+    { "op": "box", "name": "Ständer", "at": [7, 1, 7], "size": [2, 8, 2], "color": "metal" },
+    { "op": "cyl", "name": "Ständer Knoten", "at": [8, 5, 8], "r": 1.6, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Kartenscheibe", "at": [8, 16, 8], "r": 6.6, "h": 1, "axis": "z", "color": "#1B2440", "jitter": false },
+    { "op": "cyl", "name": "Bronzering", "at": [8, 16, 7], "r": 7.6, "h": 2, "axis": "z", "hollow": 1.2, "color": "trim" },
+    { "op": "box", "name": "Ringhalter", "at": [7, 8, 7], "size": [2, 2, 2], "color": "trim" },
+    { "op": "line", "name": "Sternbild Linie 1", "from": [5, 18, 8], "to": [8, 20, 8], "r": 0.5, "color": "#4A5E8C", "mode": "paint", "jitter": false },
+    { "op": "line", "name": "Sternbild Linie 2", "from": [8, 20, 8], "to": [11, 17, 8], "r": 0.5, "color": "#4A5E8C", "mode": "paint", "jitter": false },
+    { "op": "line", "name": "Sternbild Linie 3", "from": [11, 17, 8], "to": [10, 13, 8], "r": 0.5, "color": "#4A5E8C", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Sterne", "at": [5, 18, 8], "size": [1, 1, 1], "color": "white", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Stern 2", "at": [8, 20, 8], "size": [1, 1, 1], "color": "white", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Stern 3", "at": [11, 17, 8], "size": [1, 1, 1], "color": "white", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Stern 4", "at": [10, 13, 8], "size": [1, 1, 1], "color": "white", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Stern 5", "at": [4, 13, 8], "size": [1, 1, 1], "color": "stone", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Stern 6", "at": [6, 11, 8], "size": [1, 1, 1], "color": "stone", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Heimatstern", "at": [7, 15, 8], "size": [2, 2, 1], "color": { "role": "glow2", "emit": 1.2 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bekrönung", "at": [7, 24, 7], "size": [2, 1, 2], "color": "trim" }
+  ],
+  "anchor": [8, 0, 8]
+}

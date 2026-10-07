@@ -1,0 +1,12 @@
+{
+  "id": "fig/basis/huefte",
+  "name": "Basis-Hüfte (Unteranzug + Gürtel)",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["figur", "basis", "huefte"],
+  "ops": [
+    { "name": "Becken", "op": "box", "at": [-4, 13, -2], "size": [8, 3, 4], "color": "cloth" },
+    { "name": "Gürtel", "op": "box", "at": [-4, 15, -2], "size": [8, 1, 4], "color": "leather" }
+  ],
+  "anchor": [0, 0, 0]
+}

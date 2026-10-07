@@ -1,0 +1,25 @@
+{
+  "id": "lerche/deco/poster",
+  "name": "Wandtafel / Bild auf Staffelei (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "bild"],
+  "footprint": [0.85, 0.75],
+  "params": {},
+  "ops": [
+    { "op": "line", "name": "Staffelei Bein links", "from": [4, 0, 11], "to": [6, 24, 8], "r": 0.6, "color": "wood_dark" },
+    { "op": "line", "name": "Staffelei Bein rechts", "from": [12, 0, 11], "to": [10, 24, 8], "r": 0.6, "color": "wood_dark" },
+    { "op": "line", "name": "Staffelei Stütze", "from": [8, 0, 3], "to": [8, 20, 8], "r": 0.6, "color": "wood_dark" },
+    { "op": "box", "name": "Ablage", "at": [3, 8, 9], "size": [10, 1, 3], "color": "wood" },
+    { "op": "box", "name": "Tafel", "at": [2, 9, 9], "size": [12, 13, 1], "color": { "frame": "trim", "fill": "#6F98BD", "axes": "xy", "width": 1 }, "jitter": false },
+    { "op": "box", "name": "Bild Himmel unten", "at": [3, 15, 9], "size": [10, 2, 1], "color": "#E3B98A", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Sonne", "at": [9, 17, 9], "size": [2, 2, 1], "color": "#FFE2A8", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Hügel", "at": [3, 10, 9], "size": [10, 5, 1], "color": "#5E7F45", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Hügel 2", "at": [6, 13, 9], "size": [5, 3, 1], "color": "#6E9150", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Zypresse", "at": [4, 12, 9], "size": [1, 6, 1], "color": "#2F4A2A", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Tempel", "at": [8, 13, 9], "size": [3, 2, 1], "color": "secondary", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bild Tempeldach", "at": [8, 15, 9], "size": [3, 1, 1], "color": "primary", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bekrönung", "at": [6, 22, 9], "size": [4, 1, 1], "color": "trim" }
+  ],
+  "anchor": [8, 0, 8]
+}

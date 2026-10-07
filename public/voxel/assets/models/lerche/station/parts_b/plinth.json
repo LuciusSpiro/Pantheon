@@ -1,0 +1,28 @@
+{
+  "id": "lerche/station/parts_b/plinth",
+  "name": "Stationssockel mit Mäanderkante, Ruß und Glimmen (ART-B)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "teil", "sockel"],
+  "footprint": [1, 1],
+  "params": {
+    "w": { "default": 14, "min": 6, "max": 16, "step": 1, "label": "Breite (Voxel)" },
+    "d": { "default": 14, "min": 6, "max": 16, "step": 1, "label": "Tiefe (Voxel)" },
+    "round": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "rund" },
+    "soot": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "verrußt" },
+    "ember": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Boden glimmt (Eskalation)" }
+  },
+  "let": { "x0": "-floor(w/2)", "z0": "-floor(d/2)", "rr": "min(w, d)/2" },
+  "ops": [
+    { "op": "box", "name": "Sockel eckig", "if": "!round", "at": ["x0", 0, "z0"], "size": ["w", 2, "d"], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Deckplatte eckig", "if": "!round", "at": ["x0+1", 2, "z0+1"], "size": ["w-2", 1, "d-2"], "color": { "frame": "trim", "fill": "metal", "axes": "xz", "width": 1 }, "jitter": false },
+    { "op": "cyl", "name": "Sockel rund", "if": "round", "at": [0, 0, 0], "r": "rr", "h": 2, "color": "metal_dark", "jitter": false },
+    { "op": "cyl", "name": "Deckplatte rund", "if": "round", "at": [0, 2, 0], "r": "rr-1", "h": 1, "color": "metal", "jitter": false },
+    { "op": "cyl", "name": "Goldkante rund", "if": "round", "at": [0, 2, 0], "r": "rr-1", "h": 1, "hollow": 1, "color": "trim", "jitter": false },
+    { "op": "box", "name": "Mäander vorn", "if": "!round", "at": ["x0+1", 1, "z0+d-1"], "size": ["w-2", 1, 1], "color": { "checker": ["trim", "metal_dark"], "period": 1 }, "jitter": false },
+    { "op": "box", "name": "Ruß Sockel", "if": "soot", "at": ["x0", 0, "z0"], "size": ["w", 3, "d"], "mode": "paint", "color": { "noise": ["black", "metal_dark", "dark"], "weights": [2, 2, 1], "cell": 2 }, "jitter": false },
+    { "op": "box", "name": "Glimmen Boden eckig", "if": "ember && !round", "at": ["x0", 0, "z0"], "size": ["w", 3, "d"], "mode": "paint", "color": { "noise": [{ "role": "#F0602C", "emit": 1.6 }, "black", "metal_dark", { "role": "#FFD27A", "emit": 2 }], "weights": [3, 3, 3, 1], "cell": 2 }, "jitter": false },
+    { "op": "box", "name": "Glimmen Boden rund", "if": "ember && round", "at": ["-rr", 0, "-rr"], "size": ["2*rr", 3, "2*rr"], "mode": "paint", "color": { "noise": [{ "role": "#F0602C", "emit": 1.6 }, "black", "metal_dark", { "role": "#FFD27A", "emit": 2 }], "weights": [3, 3, 3, 1], "cell": 2 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

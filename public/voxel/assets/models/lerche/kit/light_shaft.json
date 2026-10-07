@@ -1,0 +1,40 @@
+{
+  "id": "lerche/kit/light_shaft",
+  "name": "Lerche – Lichtschacht mit Glasboden und Bronzegeländer",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "lichtschacht", "privatdeck"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "glow": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "0 dunkel (Reaktor aus) · 1 normal · 2 hell" },
+    "conn": { "default": 0, "min": 0, "max": 15, "step": 1, "label": "Nachbar-Schachtkacheln (N1 O2 S4 W8) – dort kein Geländer" }
+  },
+  "variants": { "dunkel": { "glow": 0 }, "hell": { "glow": 2 }, "paar_west": { "conn": 2 } },
+  "let": {
+    "cn": "floor(conn) % 2", "ce": "floor(conn / 2) % 2", "cs": "floor(conn / 4) % 2", "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    { "op": "box", "name": "Bronzerahmen", "at": [0, 0, 0], "size": [16, 2, 16], "color": { "frame": "metal_light", "fill": "metal", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Glasfeld (Vertiefung)", "at": [2, 1, 2], "size": [12, 1, 12], "mode": "carve" },
+    { "op": "box", "name": "Glas dunkel", "at": [2, 0, 2], "size": [12, 1, 12], "color": "glass", "jitter": false },
+    { "op": "cyl", "name": "Schein normal", "if": "glow == 1", "at": [8, 0, 8], "r": 4.5, "h": 1, "mode": "paint", "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "cyl", "name": "Schein hell", "if": "glow == 2", "at": [8, 0, 8], "r": 6, "h": 1, "mode": "paint", "color": { "role": "glow", "emit": 1.5 }, "jitter": false },
+    { "op": "cyl", "name": "Kern hell", "if": "glow == 2", "at": [8, 0, 8], "r": 2.5, "h": 1, "mode": "paint", "color": { "role": "white", "emit": 1.8 }, "jitter": false },
+    { "op": "box", "name": "Glassprosse x", "at": [2, 0, 7], "size": [12, 1, 2], "mode": "paint", "color": "metal" },
+    { "op": "box", "name": "Glassprosse z", "at": [7, 0, 2], "size": [2, 1, 12], "mode": "paint", "color": "metal" },
+    { "op": "box", "name": "Rosette gold", "at": [7, 0, 7], "size": [2, 1, 2], "mode": "paint", "color": "trim" },
+
+    { "op": "group", "name": "Geländer je Seite", "repeat": { "count": 4, "step": [0, 0, 0], "var": "f" }, "rot": "f * 90", "pivot": [8, 8],
+      "let": { "open": "f == 0 ? 1 - cs : f == 1 ? 1 - ce : f == 2 ? 1 - cn : 1 - cw" },
+      "ops": [
+        { "op": "box", "name": "Handlauf", "if": "open", "at": [0, 15, 14], "size": [16, 1, 1], "color": "trim" },
+        { "op": "box", "name": "Mittelholm", "if": "open", "at": [0, 8, 14], "size": [16, 1, 1], "color": "metal_light" },
+        { "op": "box", "name": "Eckpfosten", "if": "open", "at": [0, 2, 14], "size": [1, 13, 1], "color": "metal_light" },
+        { "op": "box", "name": "Eckpfosten 2", "if": "open", "at": [15, 2, 14], "size": [1, 13, 1], "color": "metal_light" },
+        { "op": "box", "name": "Baluster", "if": "open", "repeat": { "count": 3, "step": [4, 0, 0], "var": "b" }, "at": [4, 2, 14], "size": [1, 6, 1], "color": "metal" },
+        { "op": "box", "name": "Pfostenknauf", "if": "open", "at": [0, 16, 14], "size": [1, 1, 1], "color": "trim" }
+      ] }
+  ],
+  "anchor": [8, 0, 8]
+}

@@ -15,6 +15,15 @@ const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
 let simRng = makeRng(1);
+// M3b §2/§6: Temporegler in Stufen. Die Bots stellen Stufen ein (helm.throttle) und geben nur noch das Ruder.
+let Flight = null;
+try { Flight = require('../shared/flight.js'); } catch (e) { Flight = null; }
+const LCLS = (CONFIG.shipClasses && CONFIG.shipClasses.lerche) || { maxSpeed: CONFIG.ship.maxSpeed, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1], turnRate: CONFIG.ship.turnRate, turnAccel: CONFIG.ship.turnAccel };
+const STOP = Flight ? Flight.stopStage(LCLS) : 1;
+const HALF = Flight && Flight.agileStage ? Flight.agileStage(LCLS) : 3;
+const QUARTER = STOP + 1, THREEQ = Math.min(LCLS.stages.length - 1, HALF + 1), FULL = LCLS.stages.length - 1;
+const stageSpeedOf = (i) => (Flight ? Flight.stageSpeed(LCLS, i) : LCLS.stages[i] * LCLS.maxSpeed);
+const turnFactorOf = (v) => (Flight ? Flight.turnFactor(LCLS, v) : 1);
 
 // M3a: Schiffskoordinaten nur aus dem Layout (shared/maps.js bzw. server/world.js), nie fest
 const shelfOf = (item) => Maps.SHELF_TILES.find((s) => s.item === item);
@@ -64,7 +73,16 @@ class Agent {
     if (o.t === 'welcome') this.pid = o.pid;
     if (o.t === 'event' && o.kind === 'notice' && o.pid === this.pid) { this.notices.push(o.text); if (VERBOSE) log(`  [notice ${this.pid}] ${o.text}`); }
   }
-  send(msg) { this.game.handleMessage(this.conn, msg); }
+  send(msg) {
+    // M3b §0.8/§6: Die unbesetzte Steuer hält die Stufe (keine Sonderbremse mehr). Wer die Steuer verlässt, stellt
+    // vorher auf STOPP – sonst fährt das Schiff davon (z. B. solo vor dem Beamen, Reparaturgang, Reaktor).
+    if (msg.t === 'leave') {
+      const me = this.game.players.find((p) => p.id === this.pid);
+      const h = this.game.ship.helm || {};
+      if (me && me.console === 'helm' && typeof h.stage === 'number' && h.stage !== STOP && !this.keepStage) this.game.handleMessage(this.conn, { t: 'cmd', c: 'helm.throttle', set: STOP });
+    }
+    this.game.handleMessage(this.conn, msg);
+  }
   hello() { this.send({ t: 'hello', clientId: 'sim-' + this.idx, name: ['Ada', 'Bo', 'Cem'][this.idx], color: this.idx }); this.send({ t: 'ready', ready: true }); }
   input(mx, my) {
     if (mx === this.lastInput.mx && my === this.lastInput.my && mx === 0 && my === 0) return;
@@ -87,6 +105,32 @@ class Agent {
       this.cmd('helm.input', { turn, thrust });
     }
   }
+  // M3b: Ruder + Stufe. Ohne Stufen im Snapshot (alter Server) wird die Stufe als Schub nachgeregelt.
+  staged(S) { return !!(S.ship.helm && typeof S.ship.helm.stage === 'number'); }
+  helmS(S, turn, stage) {
+    stage = clamp(Math.round(stage), 0, LCLS.stages.length - 1);
+    const sh = S.ship;
+    if (!this.staged(S)) {
+      const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
+      const want = stageSpeedOf(stage);
+      this.helm(turn, fwd < want - 3 ? 1 : (fwd > want + 3 ? -1 : 0));
+      return;
+    }
+    const m = this.memo;
+    if (sh.helm.stage !== stage && !(m.thrWant === stage && (m.thrAt || 0) > S.time)) {
+      this.cmd('helm.throttle', { set: stage });
+      m.thrWant = stage; m.thrAt = S.time + 0.3;
+      this.game.simStats.throttles = (this.game.simStats.throttles || 0) + 1;
+    }
+    this.helm(turn, 0);
+  }
+  // Stufe für ein Wunschtempo: die schnellste Vorwärtsstufe, die nicht schneller ist (unter halbem ¼-Tempo: STOPP)
+  stageFor(speed) {
+    if (speed < stageSpeedOf(QUARTER) * 0.5) return STOP;
+    let best = QUARTER;
+    for (let i = QUARTER; i <= FULL; i++) if (stageSpeedOf(i) <= speed + 2) best = i;
+    return best;
+  }
 
   me(S) { return S.players.find((p) => p.id === this.pid); }
   tile(p) { return { x: Math.floor(p.x / TILE), y: Math.floor(p.y / TILE) }; }
@@ -105,9 +149,23 @@ class Agent {
     const map = this.mapFor(S, p.zone);
     const walk = this.walkable(S, p.zone);
     const st = this.tile(p);
+    // M4: im Lift warten (Eingaben sind gesperrt); an Bord mit Lift-Kanten planen (Agenten nehmen den Lift, nicht die Leiter)
+    if (p.lift) { this.input(0, 0); this.stuckT = 0; return false; }
     const set = new Set(goals.map((g) => g.y * map.w + g.x));
-    const path = bfs(walk, st, (x, y) => set.has(y * map.w + x) && walk(x, y), map.w, map.h);
+    const path = bfs(walk, st, (x, y) => set.has(y * map.w + x) && walk(x, y), map.w, map.h, null, p.zone === 'ship' ? W.liftLinks : null);
     if (!path) { this.input(0, 0); return 'fail'; }
+    if (path.length && path[0].via === 'lift') {
+      // auf der Liftkachel: zur Mitte, stehen bleiben, E tippen
+      const c = Physics.tileCenter(st.x, st.y);
+      if (dist(p.x, p.y, c.x, c.y) > 4) { const dx = c.x - p.x, dy = c.y - p.y, l = Math.hypot(dx, dy) || 1; this.input(Math.round(dx / l * 50) / 100, Math.round(dy / l * 50) / 100); return false; }
+      this.input(0, 0);
+      if ((this.memo.liftTapAt || -9) < S.time - 0.5) {
+        this.memo.liftTapAt = S.time;
+        this.send({ t: 'act', down: true }); this.send({ t: 'act', down: false }); this.actDown = false;
+        this.game.simStats.liftRides = (this.game.simStats.liftRides || 0) + 1;
+      }
+      return false;
+    }
     let target;
     if (path.length === 0) {
       const c = Physics.tileCenter(st.x, st.y);
@@ -314,27 +372,42 @@ class Agent {
     }
     const diff = norm(desired - sh.angle);
     const turn = this.turnCmd(S, diff);
-    const targetSpeed = Math.min(maxSpd || 120, Math.max(0, (gd - arriveDist) * 0.6));
-    const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
-    let thrust = 0;
-    if (Math.abs(diff) > 1.2) thrust = fwd > 25 ? -0.6 : 0.15;
-    else thrust = fwd < targetSpeed - 5 ? 1 : (fwd > targetSpeed + 5 ? -1 : 0);
-    this.helm(turn, thrust);
+    const rest = Math.max(0, gd - arriveDist);
+    // Wunschtempo: linear zum Ziel, aber nie schneller, als die Lerche bis zum Ziel bremsen kann (decel ≈ 30 px/s²)
+    const targetSpeed = Math.min(maxSpd || 120, rest * 0.6, Math.sqrt(2 * 18 * rest));
+    // M3b: Wenden bei ½ (am wendigsten), nahe am Ziel bei ¼; geradeaus die Stufe zum Wunschtempo
+    let stage;
+    if (Math.abs(diff) > 1.2) stage = gd > 300 ? HALF : QUARTER;
+    else if (Math.abs(diff) > 0.6 && targetSpeed >= stageSpeedOf(QUARTER)) stage = Math.min(HALF, this.stageFor(targetSpeed));
+    else stage = this.stageFor(targetSpeed);
+    this.helmS(S, turn, stage);
     return gd <= arriveDist;
   }
+  // Anhalten: Allstopp (X) bei Fahrt, sonst STOPP. true = steht.
   brake(S) {
     const sh = S.ship;
     const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
-    const stopTurn = this.turnCmd(S, 0);
-    if (Math.abs(fwd) < 4 && sh.speed < 8) { this.helm(stopTurn, 0); return true; }
-    this.helm(stopTurn, fwd > 0 ? -1 : 1);
-    return false;
+    const still = Math.abs(fwd) < 4 && sh.speed < 8;
+    if (!this.staged(S)) {
+      const stopTurn = this.turnCmd(S, 0);
+      if (still) { this.helm(stopTurn, 0); return true; }
+      this.helm(stopTurn, fwd > 0 ? -1 : 1);
+      return false;
+    }
+    if (sh.docked) { this.helmS(S, 0, STOP); return true; }
+    if (!still && sh.speed > 15 && !sh.helm.autoStop && (this.memo.stopAt || 0) < S.time) { this.memo.stopAt = S.time + 1.5; this.cmd('helm.stop'); this.game.simStats.allStops = (this.game.simStats.allStops || 0) + 1; }
+    // Ruder ≠ 0 beendet den Allstopp – beim Bremsen also nur gegensteuern, wenn er nicht läuft
+    this.helmS(S, sh.helm.autoStop ? 0 : this.turnCmd(S, 0), STOP);
+    return still;
   }
   // M3a §6: träges Drehen (turnVel nähert sich mit turnAccel dem Ziel). Wie ein Pilot mit Gefühl: rechtzeitig gegensteuern,
   // damit der Bug nicht überschießt (Bremsweg v²/2a). diff = gewünschte Winkeländerung (rad).
   turnCmd(S, diff) {
     const sh = S.ship;
-    const rate = CONFIG.ship.turnRate, acc = CONFIG.ship.turnAccel || 0.8;
+    // M3b: Drehrate hängt vom Tempo ab (turnCurve; bei ½ am wendigsten, im Stand 0,25)
+    const fwdV = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
+    const rate = this.staged(S) ? Math.max(0.05, LCLS.turnRate * turnFactorOf(fwdV)) : CONFIG.ship.turnRate;
+    const acc = (this.staged(S) ? LCLS.turnAccel : CONFIG.ship.turnAccel) || 0.8;
     const tv = sh.turnVel || 0;
     const vmax = Math.sqrt(2 * acc * Math.abs(diff)) * 0.8;
     const want = Math.sign(diff) * Math.min(rate, vmax);
@@ -382,7 +455,7 @@ class Agent {
   // Freifliegen für den Sprung: ablegen, Abstand zur Station gewinnen, sonst stehen
   flyClear(S) {
     const sh = S.ship; const l = Locations.get(sh.scene).scene;
-    if (sh.docked) { this.helm(0, 1); return; }
+    if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
     const ref = l.dock ? (l.station || l.dock) : null;
     if (ref && dist(sh.x, sh.y, ref.x, ref.y) < 380) { this.steer(S, ref.x + (sh.x - ref.x) * 4 + 1, ref.y + (sh.y - ref.y) * 4, 0, 90); return; }
     this.brake(S);
@@ -404,29 +477,92 @@ class Agent {
   fight(S, opts) {
     const sh = S.ship;
     const enemies = S.space.enemies;
-    if (!enemies.length) return;
     const M = this.mountsOf(S);
+    // §20.3: Lanze lädt noch, aber keine Gegner mehr -> loslassen (ins Leere)
+    if (!enemies.length) { if (M.bow && M.bow.charging) this.cmd('weapons.charge', { mount: 'bow', on: false }); return; }
     const any = (e) => MOUNT_IDS.some((id) => this.inArcM(S, M[id], e));
     const byDist = (a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y);
     const cur = enemies.find((e) => e.id === sh.target);
     // Ziel: Gegner, der gerade lädt (Treffer verzögern die Ladung), sonst einer im Bogen, sonst der nächste
     const charging = enemies.filter((e) => e.tele && any(e)).sort(byDist)[0];
-    let target = charging || (cur && any(cur) ? cur : null) || enemies.filter(any).sort(byDist)[0] || cur || enemies.slice().sort(byDist)[0];
-    if (sh.target !== target.id && !(M.bow && M.bow.aim)) { this.cmd('weapons.target', { id: target.id }); return; }
-    if (sh.target !== target.id) target = cur || target;
+    // M3b §6: Jäger im Anflug (state approach) vor dem Bug -> Lanze auf die Anfluglinie (sie fliegen gerade auf uns zu)
+    const incoming = enemies.filter((e) => e.kind === 'raider' && /^app/.test(e.state || '') && this.onApproachLine(S, e)).sort(byDist)[0];
+    const lanceReady = M.bow && M.bow.state !== 'broken' && (M.bow.charge >= 1 || M.bow.charging);
+    const target = charging || (incoming && lanceReady ? incoming : null) || (cur && any(cur) ? cur : null) || enemies.filter(any).sort(byDist)[0] || cur || enemies.slice().sort(byDist)[0];
+    if (sh.target !== target.id) { this.cmd('weapons.target', { id: target.id }); return; }
     // Scan vorab (Taktik-Rolle): zeigt Schilde/Feuerbögen
     if (opts && opts.scan && !target.scanned && dist(target.x, target.y, sh.x, sh.y) < 780 && (this.memo.scanUntil || 0) < S.time + 10) {
       this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); }
     }
     this.allocFor(S, target, M);
-    // Feuern: alles, was geladen ist und das Ziel im Bogen hat (Batterien „Feuer frei“ feuern selbst; die Lanze braucht den Befehl)
-    const ready = MOUNT_IDS.filter((id) => M[id] && M[id].charge >= 1 && !M[id].aim && M[id].state !== 'broken' && this.inArcM(S, M[id], target, id === 'bow' ? 4 : 6));
-    const held = ready.filter((id) => id === 'bow' || M[id].hold);
-    if (held.length >= 2) this.cmd('weapons.fire', { mount: 'all' });
-    else if (held.length === 1) this.cmd('weapons.fire', { mount: held[0] });
-    else if (M.bolzen && M.bolzen.loaded > 0 && M.bolzen.charge >= 1 && this.inArcM(S, M.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
-    // Batterien auf „Feuer frei“ halten
-    for (const id of ['port', 'stbd']) if (M[id] && M[id].hold) this.cmd('weapons.hold', { mount: id, hold: false });
+    this.lanceFight(S, target, M);
+    // §20.4: Batterien feuern nur auf Befehl – geladene Batterie mit einem Gegner im Bogen (Reaktion wie ein Mensch, ~0,3 s)
+    const bat = ['port', 'stbd'].filter((id) => M[id] && M[id].charge >= 1 && !(M[id].salvo > 0) && M[id].state !== 'broken' && enemies.some((e) => this.inArcM(S, M[id], e, 6)));
+    if (bat.length && (this.memo.batAt || 0) < S.time) {
+      this.memo.batAt = S.time + 0.3;
+      this.cmd('weapons.fire', { mount: bat.length === 2 ? 'all' : bat[0] });
+    } else if (M.bolzen && M.bolzen.loaded > 0 && M.bolzen.charge >= 1 && this.inArcM(S, M.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
+  }
+  // §20.3: Gegner, den die Lanze jetzt treffen würde (erster auf der Strahllinie), aus dem Snapshot
+  lanceLineHit(S) {
+    const sh = S.ship; const L = M3.lance || { width: 10 }; const R = M3.mounts.bow.range;
+    const dx = Math.cos(sh.angle), dy = Math.sin(sh.angle);
+    const ox = sh.x + dx * 34, oy = sh.y + dy * 34;
+    let hit = null, ht = Infinity;
+    for (const e of S.space.enemies) {
+      const rx = e.x - ox, ry = e.y - oy;
+      const t = rx * dx + ry * dy; const rad = (CONFIG.combat.hitRadius[e.kind] || 18) + L.width;
+      if (t < -rad || t > R + rad || Math.abs(-rx * dy + ry * dx) >= rad) continue;
+      if (t < ht) { ht = t; hit = e; }
+    }
+    return hit;
+  }
+  // Taktik-Bot: Lanze aufladen, wenn der Bug grob aufs Ziel zeigt; feuern, wenn ein Gegner auf der Linie liegt
+  // (bei voller Ladung, oder früher, wenn er gerade aus der Linie läuft)
+  // Jäger fliegt (grob) auf uns zu und kreuzt in den nächsten ~3 s die Bug-Linie bzw. liegt schon vor dem Bug
+  onApproachLine(S, e) {
+    const sh = S.ship; const R = M3.mounts.bow.range;
+    const d = dist(e.x, e.y, sh.x, sh.y);
+    if (d > R + 400) return false;
+    const rel = Math.abs(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle));
+    const v = Math.hypot(e.vx || 0, e.vy || 0) || 1;
+    const closing = ((sh.x - e.x) * (e.vx || 0) + (sh.y - e.y) * (e.vy || 0)) / (d * v);   // 1 = direkt auf uns zu
+    return rel < 0.6 && closing > 0.6;
+  }
+  lanceFight(S, target, M) {
+    const sh = S.ship; const m = this.memo; const bow = M.bow;
+    if (!bow || bow.state === 'broken') return;
+    const rel = Math.abs(norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle));
+    const d = dist(target.x, target.y, sh.x, sh.y);
+    const incoming = target.kind === 'raider' && /^app/.test(target.state || '') && this.onApproachLine(S, target);
+    if (!bow.charging) {
+      m.lanceRel = null;
+      // Jäger im Anflug: früh laden (3 s Ladezeit), er läuft selbst in die Linie
+      if (incoming && bow.charge >= 1 && (m.lanceAt || 0) < S.time) {
+        m.lanceAt = S.time + 0.4; m.lanceT0 = S.time; m.lanceVsRaider = true;
+        this.cmd('weapons.charge', { mount: 'bow', on: true });
+        this.game.simStats.lanceCharges = (this.game.simStats.lanceCharges || 0) + 1;
+        this.game.simStats.lanceRaiderCharges = (this.game.simStats.lanceRaiderCharges || 0) + 1;
+        return;
+      }
+      if (bow.charge >= 1 && rel < 0.45 && d < bow.range + 150 && (m.lanceAt || 0) < S.time) {
+        m.lanceVsRaider = false;
+        m.lanceAt = S.time + 0.4; m.lanceT0 = S.time;
+        this.cmd('weapons.charge', { mount: 'bow', on: true });
+        this.game.simStats.lanceCharges = (this.game.simStats.lanceCharges || 0) + 1;
+      }
+      return;
+    }
+    const hit = this.lanceLineHit(S);
+    const leaving = m.lanceRel != null && rel > m.lanceRel + 0.002;
+    m.lanceRel = rel;
+    const long = S.time - (m.lanceT0 || S.time) > 8;
+    // Jäger quert die Linie nur kurz (200 px/s): ab halber Ladung sofort feuern
+    const raiderOnLine = hit && hit.kind === 'raider' && bow.power >= 0.4;
+    if (hit && (bow.power >= 0.85 || (leaving && bow.power >= 0.4) || long || raiderOnLine)) {
+      this.cmd('weapons.charge', { mount: 'bow', on: false });
+      m.lanceAt = S.time + 0.4;
+    }
   }
   // Ladepunkte nach Lage: Ziel vorn -> Lanze, Ziel seitlich -> Batterie dieser Seite (mit Hysterese, alle 2 s neu)
   allocFor(S, target, M) {
@@ -451,38 +587,62 @@ class Agent {
     else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
   }
 
-  // ---------- M3a: Steuer (§14: nose = Bug aufs Ziel und halten, maneuver = Breitseite) ----------
+  // ---------- Steuer im Kampf (M3a §14, M3b §6): nose = Bug aufs Ziel bei ½–¾, maneuver = Breitseite, Stufe nach Lage ----------
   pilot() { return this.opts.pilot || 'nose'; }
+  // Bezugsgegner der Steuer: gefährliche Schiffe (Kanonenboot, Pylon, Wächter) vor Jägern, jeweils der nächste
+  helmFocus(S) {
+    const sh = S.ship; const heavy = S.space.enemies.filter((o) => o.kind !== 'raider' && o.kind !== 'relay');
+    const pool = heavy.length ? heavy : S.space.enemies;
+    let e = null, ed = Infinity; for (const o of pool) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } }
+    return e;
+  }
   helmFight(S, e) {
     const sh = S.ship; const M = this.mountsOf(S);
     if (!e) { this.brake(S); return; }
-    // Zielphase der Lanze: Kurs halten (nicht drehen, nur gegensteuern)
-    if (M.bow && M.bow.aim) { this.helm(this.turnCmd(S, 0), 0); this.game.simStats.aimHolds = (this.game.simStats.aimHolds || 0) + 1; return; }
-    // Jäger kreisen schneller, als die Lerche drehen kann (0,48 vs 0,5 rad/s): nicht hinterherdrehen, Kurs halten und
-    // den Jäger durch die Bögen laufen lassen (beide Strategien gleich, damit der Vergleich die Kanonenboote/Pylonen misst)
-    // QA M3a: Kreisen die Jäger langsamer, als die Lerche dreht (speed/raiderOrbit < 90 % turnRate), hält „maneuver“ sie in
-    // der Breitseite. „nose“ behält gegen Jäger das Kurshalten – das ist seine bessere Variante (gemessen: Bug auf den Jäger
-    // drehen kostete in Welle 1 fast dreimal so lange), damit der Vergleich nose nicht künstlich schlechter macht.
-    const raiderTooFast = CONFIG.enemies.raider.speed / CONFIG.combat.raiderOrbit >= 0.9 * CONFIG.ship.turnRate;
-    const holdVsRaider = raiderTooFast || this.pilot() === 'nose';
-    if ((e.kind === 'raider' && holdVsRaider && dist(e.x, e.y, sh.x, sh.y) < 420) || e.kind === 'relay') { const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle); this.helm(this.turnCmd(S, 0), fwd > 30 ? -0.5 : 0); }
+    // §20.2: „maneuver“ weicht Ladungen kurz vor dem Einschlag aus (Fenster dodgeWindow 0,8 s; Reaktion streut wie bei Menschen)
+    if (this.pilot() === 'maneuver') this.dodgeTele(S);
+    if (M.bow && M.bow.charging) this.game.simStats.lanceHelmSeen = (this.game.simStats.lanceHelmSeen || 0) + 1;
+    // M3b: Jäger fliegen Überflüge (approach -> overshoot -> turn). Hinterherdrehen lohnt nicht (1,1 rad/s gegen 0,6):
+    // Kurs halten bei ½ (wendig für den nächsten Anflug), die Taktik nimmt sie auf der Anfluglinie mit der Lanze.
+    // QA M3b: „circle“ = bekannte Lücke prüfen – Dauerkreis bei ½ mit leichtem Ruder (0,3), egal was kommt
+    if (this.pilot() === 'circle') { this.dodgeTele(S); this.helmS(S, 0.3, HALF); return; }
+    if (e.kind === 'raider' || e.kind === 'relay') this.helmS(S, this.turnCmd(S, 0), HALF);
     else if (this.pilot() === 'maneuver') this.helmManeuver(S, e);
     else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
     // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
     if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
   }
-  aimHelm(S, e, standoff) {
+  dodgeTele(S) {
+    const sh = S.ship; const m = this.memo; const W = M3.dodgeWindow || 0.8;
+    m.dodgePlan = m.dodgePlan || {};
+    for (const id of Object.keys(m.dodgePlan)) if (!S.space.enemies.some((e) => e.id === id && e.tele)) delete m.dodgePlan[id];
+    if (sh.dodgeCd > 0 || sh.docked) return;
+    for (const e of S.space.enemies) {
+      if (!e.tele || e.tele.left > W) continue;
+      if (!m.dodgePlan[e.id]) m.dodgePlan[e.id] = { at: 0.1 + simRng() * (W - 0.25) };
+      if (e.tele.left <= m.dodgePlan[e.id].at) {
+        const rel = norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle);
+        this.cmd('helm.dodge', { dir: rel < 0 ? 1 : -1 });   // vom Gegner weg
+        this.game.simStats.teleDodges = (this.game.simStats.teleDodges || 0) + 1;
+        delete m.dodgePlan[e.id];
+        return;
+      }
+    }
+  }
+  // „nose“: Bug aufs Ziel. Wenden bei ½, ausgerichtet und weit weg ¾, nah ½ (die Lerche kann nicht stehen und drehen zugleich).
+  // opts.slow (solo, kurz an der Steuer): ¼ bzw. STOPP, sobald das Ziel im Bogen ist.
+  aimHelm(S, e, standoff, opts) {
     const sh = S.ship;
     if (!e) { this.brake(S); return; }
     const d = dist(sh.x, sh.y, e.x, e.y);
     const diff = norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle);
-    const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
-    let thrust = 0;
-    if (d > (standoff || 420) && Math.abs(diff) < 0.6) thrust = fwd < 60 ? 0.6 : 0;
-    else thrust = fwd > 20 ? -1 : (fwd < -5 ? 0.4 : 0);
-    this.helm(this.turnCmd(S, diff), thrust);
+    let stage;
+    if (opts && opts.slow) stage = Math.abs(diff) > 0.3 ? HALF : (d > (standoff || 420) ? QUARTER : STOP);
+    else stage = Math.abs(diff) > 0.35 ? HALF : (d > (standoff || 420) ? THREEQ : HALF);
+    this.helmS(S, this.turnCmd(S, diff), stage);
   }
-  // Breitseite: Ziel bei ±90°, Abstand ~400 per Kurskorrektur, Seite wechseln bei schwachem Sektor, bei einer Ladung wegdrehen
+  // „maneuver“: Breitseite (Ziel bei ±90°), Abstand ~400 per Kurskorrektur, Seite wechseln bei schwachem Sektor,
+  // bei einer Ladung auf VOLL wegdrehen. Stufe nach Lage: Wenden ½, in Position ¾ bzw. ½ (Tempo des Ziels mitgehen).
   helmManeuver(S, e, opts) {
     const sh = S.ship; const m = this.memo;
     const d = dist(sh.x, sh.y, e.x, e.y);
@@ -497,51 +657,62 @@ class Agent {
     const other = m.side === 'port' ? 'stbd' : 'port';
     if ((m.sideAt || 0) < S.time && sideScore(other) >= sideScore(m.side) + 2) { m.side = other; m.sideAt = S.time + 8; this.game.simStats.sideSwitches = (this.game.simStats.sideSwitches || 0) + 1; }
     const s = m.side === 'stbd' ? 1 : -1;
-    // Ladung eines Gegners, der uns im Bogen hat: wegdrehen und Schub (aus Bogen/Reichweite)
+    // Ladung eines Gegners, der uns im Bogen hat: wegdrehen auf VOLL (aus Bogen/Reichweite)
     const threat = S.space.enemies.find((q) => q.tele && q.tele.left > 0.4 && dist(q.x, q.y, sh.x, sh.y) < 620);
-    let delta = clamp((d - 400) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
-    let thrust;
-    const fwd = sh.vx * Math.cos(sh.angle) + sh.vy * Math.sin(sh.angle);
+    const delta = clamp((d - 400) / 250, -0.4, 0.4);   // > 0: näher ran (Ziel etwas mehr nach vorn), < 0: Abstand gewinnen
     if (threat && !(opts && opts.slow)) {
       const tb = Math.atan2(threat.y - sh.y, threat.x - sh.x);
       const away = norm(tb + Math.PI);
       const relAway = norm(away - sh.angle);
       const heading = Math.abs(relAway) < 2.2 ? away : norm(tb - s * (Math.PI / 2 + 0.9));
       if (!m.evading || m.evading !== threat.id) { m.evading = threat.id; this.game.simStats.evades = (this.game.simStats.evades || 0) + 1; }
-      this.helm(this.turnCmd(S, norm(heading - sh.angle)), 1);
+      const hd = norm(heading - sh.angle);
+      this.helmS(S, this.turnCmd(S, hd), Math.abs(hd) > 0.8 ? HALF : FULL);
       return;
     }
     m.evading = null;
     const heading = norm(bearing - s * (Math.PI / 2 - delta));
-    const target = opts && opts.slow ? (d > 480 ? 40 : 0) : (d > 600 ? 110 : 60);
-    thrust = fwd < target - 5 ? 0.8 : (fwd > target + 10 ? -0.5 : 0);
-    this.helm(this.turnCmd(S, norm(heading - sh.angle)), thrust);
+    const hd = norm(heading - sh.angle);
+    let stage;
+    if (opts && opts.slow) stage = Math.abs(hd) > 0.3 ? HALF : (d > 480 ? QUARTER : STOP);
+    else if (Math.abs(hd) > 0.5) stage = HALF;   // Wenden
+    else {
+      // Tempo des Ziels längs unseres Kurses mitgehen (Breitseite halten), weit weg ¾
+      const ev = (e.vx || 0) * Math.cos(sh.angle) + (e.vy || 0) * Math.sin(sh.angle);
+      stage = d > 600 ? THREEQ : clamp(this.stageFor(Math.max(stageSpeedOf(HALF), ev + 10)), HALF, THREEQ);
+    }
+    this.helmS(S, this.turnCmd(S, hd), stage);
   }
   nearestEnemy(S) { const sh = S.ship; let e = null, ed = Infinity; for (const o of S.space.enemies) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } } return e; }
 
-  // ---------- M3a: Captain (Schildverteilung, Schildstoß bei Ladungen, Reparaturliste) ----------
+  // ---------- Captain (M3b §6: kein Schildstoß mehr; Schildverteilung zur Bedrohung, Reparaturliste) ----------
+  // Bedrohung = Sektor einer laufenden Ladung, sonst der Sektor des gefährlichsten nahen Gegners (Kanonenboot/Pylon/Wächter
+  // vor Jägern). Ab Stärke 3 lässt ein Sektor nichts mehr durch (spaceM3b.shieldLeak) – dorthin wandern die Punkte,
+  // zuerst aus dem Sektor gegenüber. Ein Punkt je Sekunde (wie ein Mensch am Regler).
+  threatSector(S) {
+    const sh = S.ship;
+    const tele = S.space.enemies.filter((e) => e.tele).sort((a, b) => a.tele.left - b.tele.left)[0];
+    if (tele) return tele.tele.sector;
+    const danger = (e) => (e.kind === 'gunboat' || e.kind === 'pylon' || e.kind === 'sentinel' ? 0 : 250) + dist(e.x, e.y, sh.x, sh.y);
+    const e = S.space.enemies.filter((o) => o.kind !== 'relay').sort((a, b) => danger(a) - danger(b))[0] || this.nearestEnemy(S);
+    return e ? Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y) : null;
+  }
   captainFight(S, p) {
-    const sh = S.ship; const m = this.memo; const C = M3.tele || {};
+    const sh = S.ship; const m = this.memo;
     if (!this.enter(S, 'captain')) return;
-    // Schildstoß: Ladung erst in den letzten captainSeesLast (1,2) s sichtbar; Reaktion wie ein Mensch, Zeitpunkt streut
-    m.burstPlan = m.burstPlan || {};
-    for (const id of Object.keys(m.burstPlan)) if (!S.space.enemies.some((e) => e.id === id && e.tele)) delete m.burstPlan[id];
-    const seen = S.space.enemies.filter((e) => e.tele && e.tele.left <= (C.captainSeesLast || 1.2));
-    for (const e of seen) if (!m.burstPlan[e.id]) m.burstPlan[e.id] = { at: 0.05 + simRng() * 0.7 };
-    const bs = sh.shields || {};
-    if (!bs.burst && !(bs.burstCd > 0)) {
-      const go = seen.filter((e) => e.tele.left <= m.burstPlan[e.id].at).sort((a, b) => a.tele.left - b.tele.left)[0];
-      if (go && (m.burstAt || 0) < S.time) { m.burstAt = S.time + 0.5; this.cmd('captain.burst', { sector: go.tele.sector }); this.game.simStats.burstTries = (this.game.simStats.burstTries || 0) + 1; delete m.burstPlan[go.id]; }
-    }
-    // Schilde dorthin, wo es knallt (Sektor einer Ladung, sonst des nächsten Gegners)
     if ((m.shieldAt || 0) < S.time && S.space.enemies.length) {
-      m.shieldAt = S.time + 2;
-      const tele = S.space.enemies.find((e) => e.tele);
-      const e = this.nearestEnemy(S);
-      const sec = tele ? tele.tele.sector : Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y);
+      m.shieldAt = S.time + 1;
+      const sec = this.threatSector(S);
       const al = sh.shields.alloc; const cap = sh.shields.cap || [4, 4, 4, 4];
-      const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => al[b] - al[a])[0];
-      if (al[sec] < cap[sec] && donor != null) { this.cmd('captain.shield', { sector: donor, delta: -1 }); this.cmd('captain.shield', { sector: sec, delta: 1 }); }
+      if (sec != null && al[sec] < cap[sec]) {
+        const opp = (sec + 2) % 4;
+        const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => (b === opp ? 1 : 0) - (a === opp ? 1 : 0) || al[b] - al[a])[0];
+        const pool = sh.shields.pool != null ? sh.shields.pool : 6;
+        const used = al.reduce((a, b) => a + b, 0);
+        if (used < pool) this.cmd('captain.shield', { sector: sec, delta: 1 });
+        else if (donor != null) { this.cmd('captain.shield', { sector: donor, delta: -1 }); this.cmd('captain.shield', { sector: sec, delta: 1 }); }
+        this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1;
+      }
     }
     this.queueRepairs(S);
   }
@@ -584,9 +755,9 @@ class Agent {
         this.memo.turning = true;
         if (!this.enter(S, 'helm')) return;
         const want = this.pilot() === 'nose' ? ['bow'] : ['port', 'stbd'];
-        if (this.pilot() === 'maneuver') this.helmManeuver(S, e, { slow: true }); else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
+        if (this.pilot() === 'maneuver') this.helmManeuver(S, e, { slow: true }); else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450, { slow: true });
         const M2 = this.mountsOf(S);
-        if (want.some((id) => M2[id] && this.inArcM(S, M2[id], e, id === 'bow' ? 6 : 24)) && Math.abs(sh.turnVel || 0) < 0.12) { this.helm(this.turnCmd(S, 0), 0); this.memo.turning = false; this.memo.offArc = 0; }
+        if (want.some((id) => M2[id] && this.inArcM(S, M2[id], e, id === 'bow' ? 6 : 24)) && Math.abs(sh.turnVel || 0) < 0.12) { this.helmS(S, this.turnCmd(S, 0), STOP); this.memo.turning = false; this.memo.offArc = 0; }
         if ((this.memo.turnT = (this.memo.turnT || 0) + DT) > 12) { this.memo.turning = false; this.memo.turnT = 0; this.memo.offArc = 0; }
         return;
       }
@@ -602,7 +773,7 @@ class Agent {
     }
     if (this.role === 'helm') {
       if (!this.enter(S, 'helm')) return;
-      this.helmFight(S, this.nearestEnemy(S));
+      this.helmFight(S, this.helmFocus(S));
       return;
     }
     if (this.role === 'captain') this.captainFight(S, p);
@@ -911,13 +1082,13 @@ class Agent {
       return 'wait';
     };
     if (this.role === 'solo') {
-      if (!atWp || sh.speed > 12) { if (this.enter(S, 'helm')) { if (sh.docked) { this.helm(0, 1); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+      if (!atWp || sh.speed > 12) { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
       if (!this.enter(S, 'weapons')) return;
       const r = tac();
       if (r === 'wait' && !probe && m.pScanned === m.pwp) m.pwp++;
       return;
     }
-    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (sh.docked) { this.helm(0, 1); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
     if (this.role === 'weapons') {
       if (!this.enter(S, 'weapons')) return;
       tac();
@@ -1318,6 +1489,9 @@ class ArenaAgent extends Agent {
 }
 
 const ArenaMod = require('../server/sim/arena.js');
+// M3b §6: Messung im Testgelände. Zusätzlich zu M3a: Schild-/Schadenszähler (leakHits, escalations, repairSetbacks,
+// overflowHull), Breitseiten-Anteil der Kanonenboote (Lerche im Feuerbogen einer Breitseite) und die Lanzen-Trefferquote
+// gegen Jäger (Schüsse, die einem Jäger galten bzw. einen trafen).
 async function runArena(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 101);
@@ -1326,13 +1500,30 @@ async function runArena(opts) {
   const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
   const agents = roles.map((r, i) => new ArenaAgent(game, i, r, opts));
   game.simAgents = agents;
-  const ev = { tele: 0, teleMiss: 0, aimAbort: 0, aimFire: 0, aimMiss: 0, systemHit: 0 };
+  const ev = { tele: 0, teleMiss: 0, dodged: 0, lanceFire: 0, lanceHit: 0, lanceFizzle: 0, systemHit: 0, lanceRaiderShots: 0, lanceRaiderHits: 0, escalated: 0, repairSetback: 0,
+    shots: 0, hits: 0, hitsShield: 0, hitsHull: 0, hitsHeavy: 0 };   // QA M3b: Gegnerschüsse (Blaster) und Treffer am Schiff
+  const kindById = {};
+  const gunner = () => agents.find((a) => a.role === 'weapons' || a.role === 'solo');
   const watcher = { send: (o) => {
     if (o.t !== 'event') return;
     if (o.kind === 'tele') ev.tele++;
-    if (o.kind === 'teleMiss') ev.teleMiss++;
+    if (o.kind === 'teleMiss') { ev.teleMiss++; if (o.dodged) ev.dodged++; }
     if (o.kind === 'systemHit') ev.systemHit++;
-    if (o.kind === 'aim') { if (o.state === 'abort') ev.aimAbort++; if (o.state === 'fire') ev.aimFire++; if (o.state === 'miss') ev.aimMiss++; }
+    if (o.kind === 'sfx' && o.name === 'blaster') ev.shots++;
+    if (o.kind === 'hit' && !o.evaded) { ev.hits++; if (o.heavy) ev.hitsHeavy++; if (o.shield) ev.hitsShield++; else ev.hitsHull++; }
+    if (o.kind === 'escalated') ev.escalated++;
+    if (o.kind === 'repairSetback') ev.repairSetback++;
+    // §20.3: Ereignis lance { state: charge|fire|fizzle, power, hit }
+    if (o.kind === 'lance') {
+      if (o.state === 'fire') {
+        ev.lanceFire++; if (o.hit) ev.lanceHit++;
+        const hitRaider = o.hit != null && kindById[o.hit] === 'raider';
+        const tgt = game.ship.target != null ? kindById[game.ship.target] : null;
+        const g8 = gunner();
+        if (hitRaider || tgt === 'raider' || (g8 && g8.memo.lanceVsRaider)) { ev.lanceRaiderShots++; if (hitRaider) ev.lanceRaiderHits++; }
+      }
+      if (o.state === 'fizzle') ev.lanceFizzle++;
+    }
     if (VERBOSE && o.kind === 'oda') log(`  [ODA ${game.time.toFixed(1)}] ${o.text}`);
   } };
   game.addConnection(watcher); watcher.observer = true;
@@ -1341,6 +1532,8 @@ async function runArena(opts) {
   let S = game.snapshot();
   const waves = []; let cur = null;
   let prevHull = game.ship.hull, hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
+  const gbArcs = CONFIG.enemyWeapons.gunboat || [];
+  const bs = { gbTicks: 0, gbBroadside: 0 };
   while (game.time < opts.maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) S = game.snapshot();
@@ -1348,6 +1541,13 @@ async function runArena(opts) {
     const h = game.ship.hull;
     if (h < prevHull) hullLoss += prevHull - h;
     prevHull = h;
+    const sh = game.ship;
+    for (const e of game.space.enemies) {
+      kindById[e.id] = e.kind;
+      if (e.kind !== 'gunboat') continue;
+      bs.gbTicks++;
+      if (gbArcs.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, sh.x, sh.y))) bs.gbBroadside++;
+    }
     const A = game.arena;
     if (!A) break;
     if (A.active && (!cur || cur.wave !== A.wave)) { cur = { wave: A.wave, start: game.time, hull0: hullLoss, em0: game.stats.emergencies }; lastProgress = game.time; }
@@ -1356,9 +1556,9 @@ async function runArena(opts) {
       waves.push(cur); cur = null; lastProgress = game.time;
     }
     if (VERBOSE && ticks % 300 === 0) {
-      const sh = S.ship;
-      log(`  [t ${game.time.toFixed(0)} W${A.wave}${A.active ? '' : '-'}] Hülle ${sh.hull} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Schilde ${sh.shields.current.join('/')} ` +
-        `Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + (e.tele ? ' T' + e.tele.left : '') + ' @' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Spieler ${S.players.map((q) => q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32)).join(' ')}`);
+      const s2 = S.ship;
+      log(`  [t ${game.time.toFixed(0)} W${A.wave}${A.active ? '' : '-'}] Hülle ${s2.hull} Stufe ${s2.helm && s2.helm.stage} v${Math.round(s2.speed)} Sys ${Object.entries(s2.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Schilde ${s2.shields.current.join('/')} ` +
+        `Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + (e.state ? ' ' + e.state : '') + (e.tele ? ' T' + e.tele.left : '') + ' @' + Math.round(dist(e.x, e.y, s2.x, s2.y))).join('; ')} Spieler ${S.players.map((q) => q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32)).join(' ')}`);
     }
     // Zeitlimit je Welle: zählt als „Welle nicht geschafft“ (Gegner werden wie mit Debug-skip entfernt), kein Softlock
     if (cur && !cur.failed && game.time - cur.start > opts.waveLimit) { cur.failed = true; ArenaMod.skipWave(game); }
@@ -1370,7 +1570,10 @@ async function runArena(opts) {
   return {
     seed, pilot: opts.pilot, players: opts.players, time: Math.round(game.time * 10) / 10, cleared: waves.filter((w) => w.ok).length, failed: waves.filter((w) => w.failed).length, softlock,
     hullLoss: Math.round(hullLoss * 10) / 10, waves, errors: game.errors, emergencies: st.emergencies,
-    bridgeLeaves: st.bridgeLeaves || 0, bursts: st.bursts || 0, burstsPerfect: st.burstsPerfect || 0, flicks: st.flicks || 0, swaps: st.swaps || 0, minigames: st.minigames || 0,
+    bridgeLeaves: st.bridgeLeaves || 0, flicks: st.flicks || 0, swaps: st.swaps || 0, minigames: st.minigames || 0,
+    leakHits: st.leakHits || 0, escalations: st.escalations || 0, repairSetbacks: st.repairSetbacks || 0, overflowHull: st.overflowHull || 0,
+    statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
+    broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: Math.round(game.ship.hull),
   };
 }
@@ -1379,12 +1582,14 @@ async function arenaMain() {
   const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
   const nSeeds = Number(argVal('--seeds', 10));
   const players = Number(argVal('--players', 3));
-  const nWaves = Number(argVal('--waves', 5));
-  const maxSec = Number(argVal('--max', 1200));
+  const nWaves = Number(argVal('--waves', CONFIG.arena.waves.length));
+  const maxSec = Number(argVal('--max', 1500));
   const waveLimit = Number(argVal('--wave-limit', 180));
   const base = seedArg != null ? seedArg : 1;
   const summary = {};
   let ok = true;
+  const f1 = (v) => (v == null || !isFinite(v) ? '—' : (Math.round(v * 10) / 10).toString());
+  const pct = (v) => (v == null || !isFinite(v) ? '—' : Math.round(v * 100) + ' %');
   for (const pilot of pilots) {
     log(`\n=== Testgelände Raumkampf – Steuer „${pilot}“, ${players} Spieler, ${nWaves} Wellen, ${nSeeds} Seeds (Bot-Spieler, Plausibilität, keine Spieldauer) ===`);
     const rs = [];
@@ -1392,38 +1597,52 @@ async function arenaMain() {
       const r = await runArena({ seed: base + i, pilot, players, waves: nWaves, maxSec, waveLimit });
       rs.push(r);
       if (r.errors > 0 || r.softlock) ok = false;
-      log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen geschafft (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hüllenverlust ${r.hullLoss} · Notfälle ${r.emergencies} · ` +
-        `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · bridgeLeaves ${r.bridgeLeaves} · Stöße ${r.bursts} (perfekt ${r.burstsPerfect}) · ` +
-        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Lanze ${r.ev.aimFire}/${r.ev.aimAbort}/${r.ev.aimMiss} (Treffer/Abbruch/Fehl) · Fehler ${r.errors}`);
+      log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
+        `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
+        `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
+        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors}`);
+      if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
     const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;
     const waveAvg = [];
-    for (let w = 1; w <= nWaves; w++) { const ds = rs.map((r) => r.waves.find((x) => x.wave === w)).filter(Boolean); waveAvg.push(ds.length ? { w, dur: ds.reduce((a, x) => a + x.dur, 0) / ds.length, hull: ds.reduce((a, x) => a + x.hull, 0) / ds.length, n: ds.length } : { w, dur: null, hull: null, n: 0 }); }
+    for (let w = 1; w <= nWaves; w++) { const ds = rs.map((r) => r.waves.find((x) => x.wave === w)).filter(Boolean); waveAvg.push(ds.length ? { w, dur: ds.reduce((a, x) => a + x.dur, 0) / ds.length, hull: ds.reduce((a, x) => a + x.hull, 0) / ds.length, n: ds.length, failed: ds.filter((x) => x.failed).length } : { w, dur: null, hull: null, n: 0, failed: 0 }); }
+    const sum = (f) => rs.reduce((a, r) => a + f(r), 0);
+    const gbT = sum((r) => r.gbSec);
     const s = {
       hullLoss: avg((r) => r.hullLoss), time: avg((r) => r.time), cleared: avg((r) => r.cleared), emergencies: avg((r) => r.emergencies), bridgeLeaves: avg((r) => r.bridgeLeaves),
-      bursts: avg((r) => r.bursts), burstsPerfect: avg((r) => r.burstsPerfect), flicks: avg((r) => r.flicks), minigames: avg((r) => r.minigames), swaps: avg((r) => r.swaps),
-      tele: avg((r) => r.ev.tele), teleMiss: avg((r) => r.ev.teleMiss), errors: rs.reduce((a, r) => a + r.errors, 0), softlocks: rs.filter((r) => r.softlock).length, waveAvg,
+      leakHits: avg((r) => r.leakHits), escalations: avg((r) => r.escalations), repairSetbacks: avg((r) => r.repairSetbacks), overflowHull: avg((r) => r.overflowHull),
+      flicks: avg((r) => r.flicks), minigames: avg((r) => r.minigames), swaps: avg((r) => r.swaps),
+      tele: avg((r) => r.ev.tele), teleMiss: avg((r) => r.ev.teleMiss), errors: sum((r) => r.errors), softlocks: rs.filter((r) => r.softlock).length, waveAvg,
+      // Zeitgewichtet über alle Seeds
+      broadside: gbT > 0 ? sum((r) => (r.broadside || 0) * r.gbSec) / gbT : null,
+      lanceRaider: sum((r) => r.ev.lanceRaiderShots) ? sum((r) => r.ev.lanceRaiderHits) / sum((r) => r.ev.lanceRaiderShots) : null,
+      lanceRaiderShots: avg((r) => r.ev.lanceRaiderShots), lanceAll: sum((r) => r.ev.lanceFire) ? sum((r) => r.ev.lanceHit) / sum((r) => r.ev.lanceFire) : null,
+      failedWaves: sum((r) => r.failed),
     };
     s.hullPerMin = s.hullLoss / Math.max(1, s.time / 60);
     s.wavesPer10 = s.cleared / Math.max(1, s.time / 600);
     s.hullPerWave = s.hullLoss / Math.max(0.1, s.cleared);
     summary[pilot] = s;
-    const f1 = (v) => (v == null ? '—' : (Math.round(v * 10) / 10).toString());
-    log(`Mittel „${pilot}“: Hüllenverlust ${f1(s.hullLoss)} (${f1(s.hullPerMin)}/min) · Dauer ${f1(s.time)} s · Wellen geschafft ${f1(s.cleared)} (${f1(s.wavesPer10)} je 10 min) · Notfallprotokolle ${f1(s.emergencies)} · bridgeLeaves ${f1(s.bridgeLeaves)} · ` +
-      `Schildstöße ${f1(s.bursts)} (perfekt ${f1(s.burstsPerfect)}) · Flicken ${f1(s.flicks)} · Minispiele ${f1(s.minigames)} · Austausche ${f1(s.swaps)} · Ladungen ${f1(s.tele)} (verfehlt ${f1(s.teleMiss)}) · Fehler ${s.errors} · Softlocks ${s.softlocks}`);
-    log('Dauer/Hüllenverlust je Welle (Mittel): ' + waveAvg.map((x) => `W${x.w} ${f1(x.dur)} s / ${f1(x.hull)}${x.n < nSeeds ? ` (n=${x.n})` : ''}`).join(' · '));
+    log(`Mittel „${pilot}“: Hüllenverlust ${f1(s.hullLoss)} (${f1(s.hullPerMin)}/min, Überlauf ${f1(s.overflowHull)}) · Dauer ${f1(s.time)} s · Wellen geschafft ${f1(s.cleared)} (${f1(s.wavesPer10)} je 10 min) · Notfälle ${f1(s.emergencies)} · ` +
+      `leakHits ${f1(s.leakHits)} · Eskalationen ${f1(s.escalations)} · Rückschläge ${f1(s.repairSetbacks)} · bridgeLeaves ${f1(s.bridgeLeaves)} · Breitseite KB ${pct(s.broadside)} · ` +
+      `Lanze gegen Jäger ${pct(s.lanceRaider)} (${f1(s.lanceRaiderShots)} Schüsse/Lauf, alle ${pct(s.lanceAll)}) · Fehler ${s.errors} · Softlocks ${s.softlocks}`);
+    log('Dauer/Hüllenverlust je Welle (Mittel): ' + waveAvg.map((x) => `W${x.w} ${f1(x.dur)} s / ${f1(x.hull)}${x.n < nSeeds ? ` (n=${x.n})` : ''}${x.failed ? ` [${x.failed}× Zeitlimit]` : ''}`).join(' · '));
   }
   if (summary.nose && summary.maneuver) {
     const a = summary.nose, b = summary.maneuver;
     const fac = b.hullLoss > 0 ? a.hullLoss / b.hullLoss : Infinity;
     const facMin = b.hullPerMin > 0 ? a.hullPerMin / b.hullPerMin : Infinity;
-    log(`\n=== Vergleich nose / maneuver (${nSeeds} Seeds) ===`);
+    log(`\n=== Vergleich nose / maneuver (${nSeeds} Seeds, ${players} Spieler) ===`);
     log('| Wert | nose | maneuver |');
     log('|---|---|---|');
-    const row = (k, t) => log(`| ${t} | ${Math.round(a[k] * 10) / 10} | ${Math.round(b[k] * 10) / 10} |`);
-    row('hullLoss', 'Hüllenverlust (Summe)'); row('hullPerMin', 'Hüllenverlust je min'); row('hullPerWave', 'Hüllenverlust je geschaffte Welle'); row('time', 'Dauer (s)'); row('cleared', 'Wellen geschafft'); row('wavesPer10', 'Wellen je 10 min'); row('emergencies', 'Notfallprotokolle');
-    row('bridgeLeaves', 'bridgeLeaves'); row('bursts', 'Schildstöße'); row('burstsPerfect', 'davon perfekt'); row('flicks', 'Flicken'); row('minigames', 'Minispiele'); row('swaps', 'Austausche');
-    log(`Faktor Hüllenverlust nose/maneuver: ${fac.toFixed(2)} (je Minute ${facMin.toFixed(2)}) – Abnahme §16 verlangt ≥ 1,3: ${fac >= 1.3 ? 'ERREICHT' : 'NICHT erreicht'}`);
+    const row = (k, t, fmt) => log(`| ${t} | ${(fmt || f1)(a[k])} | ${(fmt || f1)(b[k])} |`);
+    row('hullLoss', 'Hüllenverlust (Summe)'); row('hullPerMin', 'Hüllenverlust je min'); row('hullPerWave', 'Hüllenverlust je geschaffte Welle'); row('overflowHull', 'davon Überlauf durch Schild');
+    row('time', 'Dauer (s)'); row('cleared', 'Wellen geschafft'); row('failedWaves', 'Wellen über Zeitlimit (Summe)'); row('wavesPer10', 'Wellen je 10 min'); row('emergencies', 'Notfallprotokolle');
+    row('leakHits', 'leakHits (Systemschaden trotz Schild)'); row('escalations', 'Eskalationen'); row('repairSetbacks', 'Reparatur-Rückschläge'); row('bridgeLeaves', 'bridgeLeaves');
+    row('broadside', 'Breitseiten-Anteil Kanonenboot', pct); row('lanceRaider', 'Lanzen-Trefferquote gegen Jäger', pct); row('lanceRaiderShots', 'Lanzenschüsse gegen Jäger je Lauf');
+    row('flicks', 'Flicken'); row('minigames', 'Minispiele'); row('swaps', 'Austausche');
+    log(`Faktor Hüllenverlust nose/maneuver: ${fac.toFixed(2)} (je Minute ${facMin.toFixed(2)}) – „Nase drauf verliert messbar“ (M3a §16: ≥ 1,3): ${fac >= 1.3 ? 'ERREICHT' : 'NICHT erreicht'}`);
+    log(`Breitseiten-Anteil Kanonenboot nose ${pct(a.broadside)} > maneuver ${pct(b.broadside)} (§8): ${a.broadside != null && b.broadside != null && a.broadside > b.broadside ? 'ERREICHT' : 'NICHT erreicht'}`);
   }
   log(ok ? '\nSIM ARENA OK' : '\nSIM ARENA FEHLGESCHLAGEN');
   process.exit(ok ? 0 : 1);
@@ -1477,7 +1696,7 @@ async function runScenario(n, opts) {
     for (const a of agents) a.update(S);
     if (VERBOSE && ticks % 450 === 0) {
       const sh = S.ship;
-      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Hülle ${sh.hull} Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + '<' + Math.round(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle) * 57.3) + '°').join('; ')} v${Math.round(sh.speed)} tv${sh.turnVel} Waffen ${(sh.mounts || []).map((m) => m.id + ':' + m.alloc + '/' + m.charge + (m.aim ? 'A' : '') + (m.salvo ? 'S' + m.salvo : '')).join(',')} Ziel ${sh.target} Q ${JSON.stringify(sh.repairQueue)} Bots ${S.bots.map((b) => b.task ? b.task.kind : '-').join('/')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
+      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Hülle ${sh.hull} Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + '<' + Math.round(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle) * 57.3) + '°').join('; ')} v${Math.round(sh.speed)} tv${sh.turnVel} Waffen ${(sh.mounts || []).map((m) => m.id + ':' + m.alloc + '/' + m.charge + (m.charging ? 'L' + m.power : '') + (m.salvo ? 'S' + m.salvo : '')).join(',')} Ziel ${sh.target} Q ${JSON.stringify(sh.repairQueue)} Bots ${S.bots.map((b) => b.task ? b.task.kind : '-').join('/')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
     }
     const key = (S.mission.stage || 'free') + (game.simStats.wreckDone ? '' : (game.ship.scene === 'wrack' ? '+wrack' : ''));
     if (key !== stage) { stage = key; stageStart = game.time; }
@@ -1512,7 +1731,7 @@ function printResult(r) {
   log('Dauer je Schritt (s): ' + Object.entries(r.durations).map(([k, v]) => `${k} ${v}`).join(' · '));
   log('Zeit je Ort (s): ' + Object.entries(r.locations).map(([k, v]) => `${k} ${v}`).join(' · '));
   log(`Server-Fehlerzähler: ${r.errors}`);
-  log(`Statistik: Abschüsse ${r.stats.kills}, Reparaturen ${r.stats.repairs}, Feuer gelöscht ${r.stats.firesOut}, Treffer ${r.stats.hits}, Notfälle ${r.stats.emergencies} · Entdeckungen ${r.discoveries.found}/${r.discoveries.total} · Reaktor-Neustarts ${r.sim.reactorRestarts}${r.wreck ? ' · Wrack ' + (r.sim.wreckDone ? 'erledigt (' + Math.round(r.sim.wreckTime || 0) + ' s unten/oben)' : 'NICHT erledigt') : ''}`);
+  log(`Statistik: Abschüsse ${r.stats.kills}, Reparaturen ${r.stats.repairs}, Feuer gelöscht ${r.stats.firesOut}, Treffer ${r.stats.hits}, Notfälle ${r.stats.emergencies} · Entdeckungen ${r.discoveries.found}/${r.discoveries.total} · Reaktor-Neustarts ${r.sim.reactorRestarts} · Liftfahrten ${r.sim.liftRides || 0}${r.wreck ? ' · Wrack ' + (r.sim.wreckDone ? 'erledigt (' + Math.round(r.sim.wreckTime || 0) + ' s unten/oben)' : 'NICHT erledigt') : ''}`);
   log(`Flags: ${JSON.stringify(r.flags)} · Teaser: ${r.teaser ? `${r.teaser.title} [${r.teaser.source}]` : '—'}`);
   log(`Snapshot: max ${r.snapshot.maxBytes} B normal / ${r.snapshot.maxBytesFull} B mit Asteroiden/Ortsliste, Ø ${r.snapshot.avgBytes} B`);
   log(`Ende: Hülle ${r.hull}, Marken ${r.marks}, Ersatzteile ${r.inventory.ersatzteil}, Flickbleche ${r.inventory.flickblech}, ODA-Texte ${r.odaCount}`);

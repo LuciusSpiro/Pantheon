@@ -1,0 +1,15 @@
+{
+  "id": "rom_schiff",
+  "name": "Rom (Schiffe): dunkle Bronze, Rot, Gold, kaltblaues Triebwerkslicht",
+  "extends": "rom",
+  "roles": {
+    "metal_dark": "#2E2620",
+    "metal": "#4A3C30",
+    "metal_light": "#8C7A64",
+    "leather": "#5A4030",
+    "glow": {
+      "color": "#9FD8FF",
+      "emit": 1.8
+    }
+  }
+}

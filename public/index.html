@@ -13,6 +13,8 @@
     image-rendering: pixelated; image-rendering: crisp-edges;
     background: #0B0E1A; outline: none;
   }
+  /* M4: 3D-Welt unter dem HUD-Canvas, gleiche CSS-Box (client.js layout) */
+  #world3d { position: absolute; left: 0; top: 0; display: none; background: #0B0E1A; }
   #lobbyName, #lobbyCode {
     position: absolute; display: none; box-sizing: border-box;
     background: #0B0E1A; color: #7FE0C2; border: 2px solid #C9974A;
@@ -23,6 +25,7 @@
 </style>
 </head>
 <body>
+<canvas id="world3d" width="640" height="360" aria-hidden="true"></canvas>
 <canvas id="game" width="640" height="360" tabindex="0"></canvas>
 <input id="lobbyName" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Name">
 <input id="lobbyCode" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Raumcode">
@@ -31,6 +34,7 @@
 <script src="/shared/locations.js"></script>
 <script src="/shared/protocol.js"></script>
 <script src="/shared/physics.js"></script>
+<script src="/shared/flight.js"></script>
 <script src="/shared/los.js"></script>
 <script src="js/art.js"></script>
 <script src="js/audio.js"></script>
@@ -40,5 +44,7 @@
 <script src="js/consoles.js"></script>
 <script src="js/dev-mock.js"></script>
 <script src="js/client.js"></script>
+<script type="importmap">{"imports": {"three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/"}}</script>
+<script type="module" src="js/voxel/boot.js"></script>
 </body>
 </html>

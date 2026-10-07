@@ -1,0 +1,15 @@
+{
+  "id": "fig/crew/anzug_unterschenkel",
+  "name": "Crew-Raumanzug Unterschenkel (links) mit Akzent-Knieschoner und Stiefel",
+  "tier": "detail",
+  "palette": "crew",
+  "tags": ["figur", "crew", "bein"],
+  "ops": [
+    { "name": "Bein + Stiefel", "op": "use", "model": "fig/basis/unterschenkel", "params": { "bootH": 4 } },
+    { "name": "Stiefel weiß", "op": "box", "at": [1, 1, -1], "size": [3, 3, 3], "color": "secondary", "mode": "paint" },
+    { "name": "Stiefelrand", "op": "box", "at": [1, 4, -1], "size": [3, 1, 3], "color": "metal", "mode": "paint" },
+    { "name": "Knieschoner", "op": "box", "at": [1, 5, 2], "size": [3, 3, 1], "color": "primary" },
+    { "name": "Knieschoner Kern", "op": "box", "at": [2, 6, 3], "size": [1, 1, 1], "color": { "shade": "primary", "f": 0.8 } }
+  ],
+  "anchor": [0, 0, 0]
+}

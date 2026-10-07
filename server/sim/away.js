@@ -88,10 +88,24 @@ function canBeam(game, dir) {
     const why = game.mission.beamDownBlocked(spot.map);
     if (why) return { ok: false, reason: why };
   }
-  if (dist(ship.x, ship.y, spot.x, spot.y) > spot.range) return { ok: false, reason: `Zu weit vom Ziel (max. ${spot.range}).` };
-  if (ship.speed > C.ship.beamMaxSpeed) return { ok: false, reason: 'Zu schnell zum Beamen (max. 30).' };
+  const far = dist(ship.x, ship.y, spot.x, spot.y);
+  if (far > spot.range) {
+    // QA M3b: fährt das Schiff (unbesetzte Steuer behält die Stufe), ist das die eigentliche Ursache – Hinweis mitgeben
+    if (ship.speed > C.ship.beamMaxSpeed) return { ok: false, tooFast: true, reason: `Zu weit vom Ziel (${Math.round(far)}, max. ${spot.range}) – das Schiff fährt weiter. Steuer: zurück und STOPP (X).` };
+    return { ok: false, reason: `Zu weit vom Ziel (max. ${spot.range}).` };
+  }
+  // QA M3b: Die unbesetzte Steuer fährt mit ihrer Stufe weiter (§0.8) – Hinweis, wie man anhält
+  if (ship.speed > C.ship.beamMaxSpeed) return { ok: false, tooFast: true, reason: `Schiff zu schnell für den Transfer (${Math.round(ship.speed)}, max. ${C.ship.beamMaxSpeed}) – Steuer auf STOPP (X = Allstopp).` };
   if (game.ship.beaming) return { ok: false, reason: 'Transfer läuft bereits.' };
   return { ok: true };
+}
+// QA M3b: Beamversuch scheitert am Tempo -> ODA sagt einmal je 20 s, was zu tun ist (Steuer verlassen = Schiff fährt weiter)
+function tooFastHint(game) {
+  if (game.ship.tooFastOdaAt != null && game.time - game.ship.tooFastOdaAt < 20) return;
+  game.ship.tooFastOdaAt = game.time;
+  const helmManned = game.players.some((q) => q.connected && q.console === 'helm');
+  game.oda(helmManned ? 'Schiff zu schnell für den Transfer – Steuer auf Stopp, bitte!'
+    : 'Schiff zu schnell für den Transfer – niemand an der Steuer, wir fahren weiter. Steuer auf Stopp (X), dann beamen.', null);
 }
 
 function isBeaming(game) {
@@ -110,7 +124,7 @@ function padPlayers(game, zone) {
 
 function consoleBeam(game, p, dir) {
   const chk = canBeam(game, dir);
-  if (!chk.ok) return chk.reason;
+  if (!chk.ok) { if (chk.tooFast) tooFastHint(game); return chk.reason; }
   const zone = dir === 'down' ? 'ship' : 'away';
   const list = padPlayers(game, zone);
   if (!list.length) return dir === 'down' ? 'Niemand auf den Transferpads.' : 'Niemand vom Außenteam steht auf den Pads unten.';
@@ -235,7 +249,7 @@ function openSalvage(game, p, x, y) {
   const txt = game.explore.reward(s.reward);
   game.emit('sfx', { name: 'salvage', zone: 'away', x: x * TILE + 16, y: y * TILE + 16 });
   if (s.hidden) {
-    game.explore.addLog('Wrack: Hohlraum ausgeräumt – ' + txt + '.', 'wrack');
+    game.explore.addLog('Wrack: Hohlraum ausgeräumt – ' + txt + '.', 'wrack', 'zaunkoenig');
     game.oda('Der Hohlraum hatte es in sich: ' + txt + '. Neugier lohnt sich!', null);
   } else game.oda('Container geborgen: ' + txt + '. Direkt ins Lager, kein Schleppen.', null);
   game.missionEvent('wreckSalvage', { hidden: s.hidden });
@@ -246,7 +260,7 @@ function readLore(game, p) {
   aw.loreRead = true;
   const txt = game.explore.reward(game.C.wreckAway.loreReward);
   game.emit('sfx', { name: 'lore', zone: 'away' });
-  game.explore.addLog('Logbuch der „Zaunkönig“: „Plünderer im Anflug. Das Beste haben wir hinter die dünne Wand im Laderaum gepackt.“', 'wrack');
+  game.explore.addLog('Logbuch der „Zaunkönig“: „Plünderer im Anflug. Das Beste haben wir hinter die dünne Wand im Laderaum gepackt.“', 'wrack', 'zaunkoenig');
   game.emit('radio', { from: 'Logbuch „Zaunkönig“', text: 'Plünderer im Anflug. Das Beste haben wir hinter die dünne Wand im Laderaum gepackt. Möge es jemand Netteres finden.' });
   game.oda('Logbuch gelesen (' + txt + '). Dünne Wand? Ein Weitscan aus dem Orbit zeigt Hohlräume.', null);
   game.missionEvent('wreckLore', {});
@@ -513,5 +527,5 @@ function updateNpc(game, dt) {
 
 module.exports = {
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
-  setMarker, shoot, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot,
+  setMarker, shoot, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
 };

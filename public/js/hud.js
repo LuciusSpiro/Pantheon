@@ -175,14 +175,20 @@
       const on = alert === 'normal' || Math.floor(t * (alert === 'red' ? 2 : 1)) % 2 === 0;
       const label = alert === 'red' ? 'ALARM ROT' : alert === 'yellow' ? 'ALARM GELB' : 'NORMALBETRIEB';
       const mi = st.mission || {};
-      const objs = (mi.active && Array.isArray(mi.active.objectives) && mi.active.objectives.length ? mi.active.objectives : mi.objectives) || [];
+      // §21.2: fokussierte Mission aus dem Missionsbuch (Planungstisch) bestimmt Titel und Ziele; ohne Fokus die laufende
+      const book = mi.book, fe = book && book.focus != null && Array.isArray(book.entries) ? book.entries.find(e => e.id === book.focus) : null;
+      // Server liefert focusTitle/focusObjectives (immer, klein) – sonst aus dem zwischengespeicherten Buch
+      const srvFocus = Array.isArray(mi.focusObjectives) ? mi.focusObjectives : null;
+      const focusObjs = srvFocus || (fe && Array.isArray(fe.objectives) && fe.objectives.length ? fe.objectives : null);
+      const objs = focusObjs || (mi.active && Array.isArray(mi.active.objectives) && mi.active.objectives.length ? mi.active.objectives : mi.objectives) || [];
+      const title = srvFocus ? (mi.focusTitle || (mi.active && mi.active.title)) : fe && fe.title ? fe.title : (mi.active && mi.active.title);
       const lines = [];
       // M1: Ort und aktiver Auftrag als Kopfzeilen
       if (st.world) {
         const dock = st.ship && st.ship.dockedAt;
         lines.push({ text: R.locName(st, R.worldOf(st).location) + (dock ? ' · angedockt' : ''), head: true, color: PAL.mint });
       }
-      if (mi.active && mi.active.title) for (const l of R.wrap(mi.active.title, 180, 1).slice(0, 1)) lines.push({ text: l, head: true, color: PAL.amber });
+      if (title) for (const l of R.wrap(title, 180, 1).slice(0, 1)) lines.push({ text: l, head: true, color: PAL.amber });
       for (const o of objs) {
         const wrapped = R.wrap(o.text, 172, 1);
         wrapped.forEach((l, i) => lines.push({ text: l, first: i === 0, done: o.done, optional: o.optional }));

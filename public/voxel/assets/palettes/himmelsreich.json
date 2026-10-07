@@ -1,0 +1,28 @@
+{
+  "id": "himmelsreich",
+  "name": "Himmelsreich (Sci-Fi): Rotlack, Schwarzlack, Gold, Jade",
+  "extends": "base",
+  "roles": {
+    "primary": "#A8231F",
+    "secondary": "#1C1A1E",
+    "trim": "#D8A842",
+    "metal": "#4A3A2A",
+    "metal_dark": "#241C14",
+    "metal_light": "#B09A70",
+    "cloth": "#5FB08A",
+    "cloth2": "#E8DCC0",
+    "glow": {
+      "color": "#7FF0C0",
+      "emit": 1.8
+    },
+    "glow2": {
+      "color": "#FF7A3A",
+      "emit": 1.8
+    },
+    "glass": "#14201C",
+    "dark": "#100D0C",
+    "water": "#2F5FA0",
+    "wood": "#6E2A1C",
+    "wood_dark": "#4A1C12"
+  }
+}

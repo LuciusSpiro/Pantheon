@@ -1,0 +1,22 @@
+{
+  "id": "lerche_rom",
+  "name": "Lerche (Rom): Bronze trägt, Marmor schmückt, Rot markiert – Wohnfarben für das Privatdeck",
+  "extends": "rom_schiff",
+  "roles": {
+    "primary": "#9E1F27",
+    "trim": "#D4A23A",
+    "secondary": "#E9E3D3",
+    "stone": "#DCD1BA",
+    "paving": "#C2B6A0",
+    "cloth": "#8E1B22",
+    "cloth2": "#5B2A5E",
+    "wood": "#6E4228",
+    "wood_dark": "#4A2C1B",
+    "glow2": {
+      "color": "#FFC46B",
+      "emit": 1.6
+    },
+    "warning": "#E0473C",
+    "dark": "#15181D"
+  }
+}

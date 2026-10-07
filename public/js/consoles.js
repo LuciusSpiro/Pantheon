@@ -57,6 +57,28 @@
   const MAX_PINS = (CFG.plan && CFG.plan.maxPins) || 5;
   const STATE_TXT = { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' };
 
+  // M3b: Lerche-Klasse für Temporegler und Drehfaktor (Server-Snapshot ship.helm ist maßgeblich, das hier ist Fallback)
+  const LERCHE = (CFG.shipClasses && CFG.shipClasses.lerche) || { maxSpeed: 130, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+    stageNames: ['R', 'STOPP', '¼', '½', '¾', 'VOLL'], turnRate: 0.6, turnCurve: [[0, 1], [1, 1]] };
+  const FLIGHT = window.Shared_Flight || null;
+  function turnFactorOf(speed) {
+    if (FLIGHT && FLIGHT.turnFactor) return FLIGHT.turnFactor(LERCHE, speed);
+    const c = LERCHE.turnCurve; if (!c || !c.length) return 1;
+    const f = LERCHE.maxSpeed > 0 ? speed / LERCHE.maxSpeed : 0;
+    if (f <= c[0][0]) return c[0][1];
+    for (let i = 1; i < c.length; i++) if (f <= c[i][0]) { const a = c[i - 1], b = c[i], s = b[0] - a[0]; return s > 0 ? a[1] + (b[1] - a[1]) * (f - a[0]) / s : b[1]; }
+    return c[c.length - 1][1];
+  }
+  // M3b §4: Schild-Durchlass je Stärke (config.spaceM3b.shieldLeak) als Kurztext
+  function leakText(s) {
+    const L = (CFG.spaceM3b && CFG.spaceM3b.shieldLeak) || {};
+    const row = L[Math.max(0, Math.min(4, Math.round(s)))] || {};
+    const pct = Math.round((row.chance != null ? row.chance : [0.45, 0.2, 0.05, 0, 0][Math.max(0, Math.min(4, s))]) * 100);
+    if (s <= 0) return { short: 'offen', long: 'offen – ' + pct + ' % Systemschaden', col: '#FF5A4A' };
+    if (pct <= 0) return { short: 'dicht', long: 'dicht – kein Systemschaden', col: '#7FE0C2' };
+    if (row.heavyOnly) return { short: pct + ' %', long: pct + ' % (nur schwere Treffer)', col: '#F2C94C' };
+    return { short: 'Kratzer ' + pct + ' %', long: 'Kratzer – ' + pct + ' % Systemschaden', col: '#F08A3C' };
+  }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function n(v, d) { return typeof v === 'number' && isFinite(v) ? v : (d || 0); }
   function sysDown(ship, sys) { const s = (ship.systems || {})[sys]; return s === 'broken' || s === 'offline'; }
@@ -66,10 +88,11 @@
     current: null,
     tab: 0,
     sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0, mount: 0 },
-    burstArm: 0,       // M3a: B gedrückt -> nächste Ziffer 1–4 = Schildstoß (performance.now())
+    lanceOn: null,     // §20.3: Lanze wird gerade aufgeladen ('key' | 'mouse')
     keys: {},
     mouseHold: null,
-    helmSent: { turn: 0, thrust: 0, t: 0 },
+    helmSent: { turn: 0, t: 0 },
+    helmPending: null, // M3b: lokal vorgemerkte Stufe bis der Snapshot sie bestätigt { stage, from, t }
     zoom: { weapons: 0.35, lage: 0.35 },
     enemyRects: [],
     lageRects: [],
@@ -78,7 +101,7 @@
     tscanRefreshT: 0,
     scanRefreshT: 0,
     overloadAsk: -1e9,
-    plan: { mapId: 'star', selected: null, label: 'ziel' },
+    plan: { mapId: 'star', selected: null, label: 'ziel', tab: 'map', bookSel: 0 },
     starSel: null,
     maps: {},          // zuletzt gezeichnete Karten (Umrechnung Klick -> Welt): weapons, lage, star, plan
     starRects: [],
@@ -95,17 +118,20 @@
       this.current = name;
       this.keys = {};
       this.mouseHold = null;
-      this.helmSent = { turn: 0, thrust: 0, t: 0 };
+      this.helmSent = { turn: 0, t: 0 };
+      this.helmPending = null;
       this.overloadAsk = -1e9;
+      this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
     },
     onClose(view) {
-      if (this.current === 'helm' && view && (this.helmSent.turn || this.helmSent.thrust)) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
+      if (this.current === 'helm' && view && this.helmSent.turn) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
       if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
       if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
       this.current = null;
       this.keys = {};
       this.mouseHold = null;
+      this.lanceOn = null;   // Server lässt das Aufladen beim Verlassen verpuffen (§20.3)
     },
     denied(text) { R.uiDenied = { text, t: performance.now() }; if (this.view) this.view.actions.sfx('error'); },
 
@@ -127,7 +153,7 @@
       const d = Math.hypot(n(ship.x) - target.x, n(ship.y) - target.y);
       if (d > range) return 'Zu weit vom Ziel (' + Math.round(d) + '/' + range + ')';
       const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      if (sp > ((CFG.ship && CFG.ship.beamMaxSpeed) || 30)) return 'Zu schnell (' + Math.round(sp) + '/' + ((CFG.ship && CFG.ship.beamMaxSpeed) || 30) + ')';
+      if (sp > ((CFG.ship && CFG.ship.beamMaxSpeed) || 30)) return 'Zu schnell (' + Math.round(sp) + '/' + ((CFG.ship && CFG.ship.beamMaxSpeed) || 30) + ') – Steuer auf STOPP';
       return null;
     },
 
@@ -163,56 +189,153 @@
       const k = this.keys, h = this.mouseHold;
       const left = (k.KeyA || k.ArrowLeft) && !k.ShiftLeft && !k.ShiftRight || h === 'left';
       const right = (k.KeyD || k.ArrowRight) && !k.ShiftLeft && !k.ShiftRight || h === 'right';
-      const up = k.KeyW || k.ArrowUp || h === 'up';
-      const down = k.KeyS || k.ArrowDown || h === 'down';
-      return { turn: (right ? 1 : 0) - (left ? 1 : 0), thrust: (up ? 1 : 0) - (down ? 1 : 0) };
+      // M3b: W/S schalten den Temporegler (eine Stufe je Tastendruck) – kein Dauerschub mehr
+      return { turn: (right ? 1 : 0) - (left ? 1 : 0) };
+    },
+    // M3b §2/§5: Temporegler-Zustand aus ship.helm (stage/stages/stageNames/stop/agile/fwd/turnFactor), Fallback Config
+    helmInfo(ship) {
+      const h = ship.helm || {};
+      const stages = Array.isArray(h.stages) && h.stages.length ? h.stages.map(Number) : (LERCHE.stages || [0]).map(s => Math.round(s * LERCHE.maxSpeed));
+      let names = Array.isArray(h.stageNames) && h.stageNames.length === stages.length ? h.stageNames : LERCHE.stageNames;
+      if (!names || names.length !== stages.length) names = stages.map((s, i) => String(i));
+      // Pixel-Schrift kennt ¼/½/¾ nicht -> als Bruch schreiben
+      names = names.map(s => String(s).replace('¼', '1/4').replace('½', '1/2').replace('¾', '3/4'));
+      let stop = Number.isInteger(h.stop) ? h.stop : stages.indexOf(0);
+      if (stop < 0) stop = 0;
+      let agile = Number.isInteger(h.agile) ? h.agile : -1;
+      if (agile < 0) { let bf = -1; stages.forEach((s, i) => { if (s < 0) return; const f = turnFactorOf(s); if (f > bf + 1e-9) { bf = f; agile = i; } }); }
+      const ang = n(ship.angle);
+      const fwd = h.fwd != null && isFinite(+h.fwd) ? +h.fwd : n(ship.vx) * Math.cos(ang) + n(ship.vy) * Math.sin(ang);
+      const tf = h.turnFactor != null && isFinite(+h.turnFactor) ? +h.turnFactor : turnFactorOf(fwd);
+      const has = Number.isInteger(h.stage);
+      const server = has ? clamp(h.stage, 0, stages.length - 1) : stop;
+      let stage = server;
+      const p = this.helmPending;
+      if (p) { if (p.from === server && performance.now() - p.t < 800) stage = clamp(p.stage, 0, stages.length - 1); else this.helmPending = null; }
+      return { stages, names, stop, agile, fwd, tf, stage, server, live: has, speedFactor: h.speedFactor != null ? +h.speedFactor : null, autoStop: !!h.autoStop };
+    },
+    throttle(view, delta) {
+      const hi = this.helmInfo(view.state.ship || {});
+      const want = hi.stage + (delta > 0 ? 1 : -1);
+      if (want < 0 || want >= hi.stages.length) { this.denied(delta > 0 ? 'Schon auf VOLL' : 'Schon auf Rückwärts (R)'); return; }
+      view.send({ t: 'cmd', c: 'helm.throttle', delta: delta > 0 ? 1 : -1 });
+      this.helmPending = { stage: want, from: hi.server, t: performance.now() };
+      view.actions.sfx('ui_click');
+    },
+    setThrottle(view, idx) {
+      const hi = this.helmInfo(view.state.ship || {});
+      if (idx === hi.stage) return;
+      view.send({ t: 'cmd', c: 'helm.throttle', set: idx });
+      this.helmPending = { stage: idx, from: hi.server, t: performance.now() };
+      view.actions.sfx('ui_click');
+    },
+    // Senkrechte Stufenleiste (VOLL oben, R unten), Ist-Tempo als Zeiger, „wendig“ an der wendigsten Stufe. Gibt die Höhe zurück.
+    helmLadder(ctx, view, x, y, hi) {
+      const N = hi.stages.length, rh = 13, lw = 32, sw = 12;
+      const top = y, H = N * rh;
+      ctx.fillStyle = '#121822'; ctx.fillRect(x, top, lw + sw + 3, H + 2);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, top + 0.5, lw + sw + 2, H + 1);
+      const rowY = (i) => top + 1 + (N - 1 - i) * rh;
+      for (let i = 0; i < N; i++) {
+        const ry = rowY(i);
+        const on = i === hi.stage, rev = hi.stages[i] < 0, stop = i === hi.stop;
+        ctx.fillStyle = on ? (stop ? PAL.amber : rev ? '#F08A3C' : PAL.mint) : rev ? '#2A1E22' : stop ? '#2A2618' : '#1E2733';
+        ctx.fillRect(x + 1, ry, lw, rh - 1);
+        if (i === hi.agile) { ctx.fillStyle = on ? 'rgba(11,14,26,0.35)' : 'rgba(169,214,229,0.3)'; ctx.fillRect(x + 1, ry, 3, rh - 1); }
+        R.text(ctx, hi.names[i], x + 1 + lw / 2, ry + 3, { color: on ? PAL.space : rev ? '#C08070' : '#8EA3B5', align: 'center', shadow: false });
+        if (i === hi.agile) R.text(ctx, 'wendig', x + lw + sw + 6, ry + 3, { color: i === hi.stage ? PAL.mint : PAL.ice });
+        R.ui.buttons.push({ x: x, y: ry, w: lw + sw + 2, h: rh, label: 'Stufe ' + hi.names[i], reason: null, onClick: () => this.setThrottle(view, i) });
+      }
+      // Skala: Mitte jeder Zeile = Nenntempo der Stufe; Zeiger = Ist-Tempo (vorwärts, vorzeichenbehaftet)
+      const sx = x + lw + 2;
+      ctx.fillStyle = '#0B0E1A'; ctx.fillRect(sx, top + 1, sw, H);
+      for (let i = 0; i < N; i++) { ctx.fillStyle = i === hi.stage ? PAL.mint : '#3A4658'; ctx.fillRect(sx, rowY(i) + 6, 4, 1); }
+      const sp = hi.fwd;
+      let py = rowY(hi.stop) + 6;
+      const order = hi.stages.map((s, i) => ({ s, i })).sort((a, b) => a.s - b.s);
+      if (sp <= order[0].s) py = rowY(order[0].i) + 6;
+      else if (sp >= order[order.length - 1].s) py = rowY(order[order.length - 1].i) + 6;
+      else for (let k = 1; k < order.length; k++) {
+        const a = order[k - 1], b = order[k];
+        if (sp <= b.s) { const f = b.s > a.s ? (sp - a.s) / (b.s - a.s) : 0; py = (rowY(a.i) + 6) + ((rowY(b.i) + 6) - (rowY(a.i) + 6)) * f; break; }
+      }
+      py = Math.round(py);
+      const atTarget = Math.abs(sp - hi.stages[hi.stage] * (hi.speedFactor != null ? hi.speedFactor : 1)) < 2;
+      ctx.fillStyle = atTarget ? PAL.mint : PAL.star;
+      ctx.beginPath(); ctx.moveTo(sx + 2, py); ctx.lineTo(sx + sw, py - 4); ctx.lineTo(sx + sw, py + 4); ctx.closePath(); ctx.fill();
+      return H + 2;
     },
     drawHelm(ctx, view) {
       const st = view.state, ship = st.ship || {};
       const rect = { x: 10, y: 26, w: 620, h: 292 };
       const fv = R.drawFrontView(ctx, view, rect);
-      try { this.helmTurnGauge(ctx, view, fv); this.helmAim(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
+      try { this.helmTurnGauge(ctx, view, fv); this.helmAlerts(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
       const lx = 14, lw = fv.win.x - lx - 8;
       const rx = fv.win.x + fv.win.w + 8, rw = rect.x + rect.w - rx - 2;
       const w = R.worldOf(st);
-      // ---- links: Ort, Tempo, Kurs, Sprung
+      // ---- links: Ort, Temporegler, Tempo/Kurs/Drehen, Sprung
       let y = 30;
       R.text(ctx, 'ORT', lx, y, { color: PAL.brass }); y += 10;
-      for (const l of R.wrap(R.locName(st, w.location), lw, 1).slice(0, 2)) { R.text(ctx, l, lx, y, { color: PAL.star }); y += 10; }
+      for (const l of R.wrap(R.locName(st, w.location), lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: PAL.star }); y += 10; }
       const docked = ship.dockedAt || (ship.docked ? 'hafen' : null);
-      if (docked) { R.text(ctx, 'ANGEDOCKT', lx, y, { color: PAL.amber }); y += 10; R.text(ctx, 'W legt ab', lx, y, { color: PAL.panelLight }); y += 10; }
-      y += 4;
+      if (docked) { R.text(ctx, 'ANGEDOCKT · W legt ab', lx, y, { color: PAL.amber }); y += 10; }
+      y += 3;
+      const hi = this.helmInfo(ship);
       const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
       const deg = Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360);
-      R.text(ctx, 'TEMPO', lx, y, { color: PAL.brass }); R.text(ctx, 'KURS', lx + 74, y, { color: PAL.brass }); y += 10;
-      R.text(ctx, String(Math.round(sp)), lx, y, { color: PAL.mint, scale: 2 }); R.text(ctx, deg + '°', lx + 74, y, { color: PAL.mint, scale: 2 }); y += 18;
-      R.text(ctx, 'px/s', lx, y, { color: PAL.panelLight }); y += 12;
+      R.text(ctx, 'FAHRT', lx, y, { color: PAL.brass });
+      R.text(ctx, 'W/S', lx + R.measure('FAHRT', 1) + 5, y, { color: PAL.panelLight }); y += 10;
+      const lh = this.helmLadder(ctx, view, lx, y, hi);
+      // rechts neben der Leiste: Tempo, Kurs, Drehfaktor
+      const ix = lx + 96;
+      let iy = y;
+      R.text(ctx, 'TEMPO', ix, iy, { color: PAL.brass }); iy += 9;
+      R.text(ctx, String(Math.round(hi.fwd < -0.5 ? hi.fwd : sp)), ix, iy, { color: hi.fwd < -0.5 ? '#F08A3C' : PAL.mint, scale: 2 }); iy += 17;
+      R.text(ctx, 'KURS', ix, iy, { color: PAL.brass }); iy += 9;
+      R.text(ctx, deg + '°', ix, iy, { color: PAL.mint, scale: 2 }); iy += 17;
+      R.text(ctx, 'DREHEN', ix, iy, { color: PAL.brass }); iy += 9;
+      const tfp = Math.round(hi.tf * 100);
+      R.text(ctx, tfp + ' %', ix, iy, { color: tfp >= 95 ? PAL.mint : tfp >= 60 ? PAL.star : PAL.warn });
+      y += lh + 3;
       const ax = this.helmAxes();
-      R.text(ctx, 'Schub ' + (ax.thrust > 0 ? 'vor' : ax.thrust < 0 ? 'zurück' : '–') + ' · Ruder ' + (ax.turn > 0 ? 'Stb' : ax.turn < 0 ? 'Bb' : '–'), lx, y, { color: PAL.panelLight }); y += 14;
+      const autoStop = hi.autoStop;
+      const engDown = sysDown(ship, 'engines');
+      let status, scol = PAL.panelLight;
+      if (autoStop) { status = sp < 1 ? 'ALLSTOPP – steht' : 'ALLSTOPP – bremst'; scol = sp < 1 ? PAL.mint : PAL.amber; }
+      else if (engDown) { status = 'Antrieb aus – kein Schub!'; scol = PAL.red; }
+      else status = 'Stufe ' + hi.names[hi.stage] + ' · Ruder ' + (ax.turn > 0 ? 'Stb' : ax.turn < 0 ? 'Bb' : '–');
+      R.text(ctx, status, lx, y, { color: scol });
+      y += 12;
       const jump = ship.jump || {};
-      R.text(ctx, 'SPRUNG', lx, y, { color: PAL.brass }); y += 10;
-      R.bar(ctx, lx, y, lw, 6, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 9;
-      for (const l of R.wrap('Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins (Captain)'), lw, 1).slice(0, 2)) { R.text(ctx, l, lx, y, { color: jump.dest ? PAL.star : PAL.panelLight }); y += 10; }
+      R.text(ctx, 'SPRUNG', lx, y, { color: PAL.brass });
+      R.bar(ctx, lx + 40, y + 2, lw - 40, 5, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 10;
+      for (const l of R.wrap('Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins (Captain)'), lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: jump.dest ? PAL.star : PAL.panelLight }); y += 10; }
       let jumpReason = null;
       if (!jump.ready) jumpReason = jump.blockedReason || (!jump.dest ? 'Kein Ziel gewählt (Captain-Konsole)' : 'Sprungantrieb lädt (' + Math.round(n(jump.charge) * 100) + ' %)');
-      R.button(ctx, lx, y, lw, 15, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready, reason: jumpReason, active: !!jump.ready, onClick: () => this.cmd(view, 'helm.jump') }); y += 17;
-      if (jumpReason) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 2)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
-      // M3a: Lanze (Taktik feuert) – der Pilot sieht, wann gleich eine Zielphase kommen kann
+      R.button(ctx, lx, y, lw, 14, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready, reason: jumpReason, active: !!jump.ready, onClick: () => this.cmd(view, 'helm.jump') }); y += 16;
+      if (jumpReason && jump.dest) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
+      // M3a/§20.3: Lanze (Taktik lädt auf und feuert) – der Pilot sieht, wann er den Bug aufs Ziel halten muss
       const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
-      if (bow && y < 236) {
-        y += 2;
+      if (bow && y < 254) {
         R.text(ctx, 'LANZE', lx, y, { color: PAL.brass });
         const bs = bow.state || (ship.systems || {}).weapon_bow || 'ok';
-        const txt = bs === 'broken' ? 'AUS' : bow.aim ? 'ZIELT – Kurs halten!' : n(bow.charge) >= 1 ? 'geladen' : 'lädt ' + Math.round(n(bow.charge) * 100) + ' %';
-        R.text(ctx, txt, lx + 36, y, { color: bs === 'broken' ? PAL.red : bow.aim ? R.BURST_COL : n(bow.charge) >= 1 ? PAL.mint : PAL.panelLight });
+        const txt = bs === 'broken' ? 'AUS' : bow.charging ? 'LÄDT AUF' : n(bow.charge) >= 1 ? 'bereit' : 'lädt ' + Math.round(n(bow.charge) * 100) + ' %';
+        R.text(ctx, txt, lx + 36, y, { color: bs === 'broken' ? PAL.red : bow.charging ? R.BURST_COL : n(bow.charge) >= 1 ? PAL.mint : PAL.panelLight });
         y += 10;
       }
-      y = Math.max(y + 2, 262);
-      const engDown = sysDown(ship, 'engines');
+      y = Math.max(y + 2, 266);
+      {
+        const stopR = docked ? 'Angedockt' : null;
+        R.button(ctx, lx, y, lw, 14, autoStop ? (sp < 1 ? 'Allstopp: steht' : 'Allstopp: bremst …') : 'Allstopp', { hotkey: 'X', active: autoStop, disabled: !!stopR, reason: stopR, onClick: () => this.cmd(view, 'helm.stop', {}) });
+        y += 16;
+      }
       const cd = n(ship.dodgeCd);
       const dodgeReason = engDown ? 'Antrieb ausgefallen' : cd > 0 ? 'Abklingzeit ' + Math.ceil(cd) + ' s' : docked ? 'Angedockt' : null;
-      R.button(ctx, lx, y, lw, 14, 'Ausweichen Bb', { hotkey: 'Sh+A', disabled: !!dodgeReason, reason: dodgeReason, onClick: () => this.dodge(view, -1) });
-      R.button(ctx, lx, y + 16, lw, 14, 'Ausweichen Stb', { hotkey: 'Sh+D', disabled: !!dodgeReason, reason: dodgeReason, onClick: () => this.dodge(view, 1) });
+      const dw = Math.floor((lw - 2) / 2);
+      R.button(ctx, lx, y, dw, 14, 'Ausw. Bb', { hotkey: 'Sh+A', disabled: !!dodgeReason, reason: dodgeReason, onClick: () => this.dodge(view, -1) });
+      R.button(ctx, lx + dw + 2, y, dw, 14, 'Ausw. Stb', { hotkey: 'Sh+D', disabled: !!dodgeReason, reason: dodgeReason, onClick: () => this.dodge(view, 1) });
+      y += 16;
+      if (cd > 0 && !engDown) R.bar(ctx, lx, y, lw, 2, 1 - clamp(cd / ((LERCHE.dodge && LERCHE.dodge.cooldown) || (CFG.ship && CFG.ship.dodgeCooldown) || 7), 0, 1), PAL.amber);
 
       // ---- rechts: Schilde, Hülle, Reaktor, Marker
       y = 30;
@@ -252,13 +375,15 @@
         R.text(ctx, 'langsam (≤ ' + maxSp + ') hinein', rx, y, { color: sp <= maxSp ? PAL.mint : PAL.warn }); y += 12;
       }
       if (R.inFog(st)) { R.text(ctx, 'Nebel: Sicht halbiert –', rx, y, { color: PAL.ice }); y += 10; R.text(ctx, 'Taktik lotst!', rx, y, { color: PAL.ice }); y += 12; }
-      // Maussteuerung (Halten)
-      const by = 282;
-      R.text(ctx, 'Maus halten:', rx, by - 10, { color: PAL.panelLight });
-      const hb = (x, yy, label, id) => R.button(ctx, x, yy, 28, 14, label, { active: this.mouseHold === id, onClick: () => { this.mouseHold = id; } });
-      const bx = rx + Math.floor((rw - 92) / 2);
-      hb(bx + 32, by, 'W', 'up'); hb(bx, by + 16, 'A', 'left'); hb(bx + 32, by + 16, 'S', 'down'); hb(bx + 64, by + 16, 'D', 'right');
-      return 'A/D lenken · W/S Schub · Shift+A/D ausweichen · F Faltsprung';
+      // Maussteuerung: Stufe +/− je Klick (oder Stufe in der Leiste anklicken), Ruder halten
+      const by = 270;
+      R.text(ctx, 'Maus: Stufe / Ruder halten', rx, by - 10, { color: PAL.panelLight });
+      const bw2 = Math.floor((rw - 2) / 2);
+      R.button(ctx, rx, by, bw2, 14, 'Stufe +', { hotkey: 'W', disabled: hi.stage >= hi.stages.length - 1, reason: 'Schon auf VOLL', onClick: () => this.throttle(view, 1) });
+      R.button(ctx, rx + bw2 + 2, by, bw2, 14, 'Stufe −', { hotkey: 'S', disabled: hi.stage <= 0, reason: 'Schon auf Rückwärts (R)', onClick: () => this.throttle(view, -1) });
+      const hb = (x, yy, label, id) => R.button(ctx, x, yy, bw2, 14, label, { active: this.mouseHold === id, onClick: () => { this.mouseHold = id; } });
+      hb(rx, by + 16, '< Bb (A)', 'left'); hb(rx + bw2 + 2, by + 16, 'Stb (D) >', 'right');
+      return 'W/S Fahrtstufe · A/D Ruder · Shift+A/D ausweichen · X Allstopp · F Faltsprung';
     },
     // Schildanzeige mit Bug nach oben (passend zur Frontsicht)
     drawShieldUp(ctx, x, y, ship, view) {
@@ -279,25 +404,27 @@
           else ctx.fillRect(x + dx * 22 - 1, y - 11 + k * 6, 3, 4);
         }
       }
-      const bu = sh.burst;
-      if (bu && n(bu.left) > 0 && bu.sector >= 0 && bu.sector < 4) {
-        const [dx, dy] = pos[bu.sector];
-        ctx.strokeStyle = R.BURST_COL; ctx.lineWidth = 1;
-        if (dy) ctx.strokeRect(x - 13.5, y + dy * 20 - 3.5, 27, 7); else ctx.strokeRect(x + dx * 22 - 3.5, y - 13.5, 7, 27);
-      }
     },
     // M3a: Drehpfeil nach turnVel; Seite halbiert (beschädigte Düse, schraffiert „½“) oder gesperrt (zerstört, Schloss)
     helmTurnGauge(ctx, view, fv) {
       const ship = view.state.ship || {};
       if (ship.turnVel == null && !ship.turnCap) return;
-      const max = (CFG.ship && CFG.ship.turnRate) || 0.5;
+      // M3b: Skala = volle Drehrate der Lerche; hell = bei diesem Tempo erreichbar (Drehfaktor aus turnCurve)
+      const max = LERCHE.turnRate || (CFG.ship && CFG.ship.turnRate) || 0.5;
       const cx = fv.cx, half = 74, y = fv.win.y + fv.win.h - 22;
       const cap = ship.turnCap || { port: 1, stbd: 1 };
+      const tf = clamp(this.helmInfo(ship).tf, 0, 1);
       ctx.fillStyle = 'rgba(11,14,26,0.78)'; ctx.fillRect(cx - half - 8, y - 12, half * 2 + 16, 28);
-      R.text(ctx, 'DREHUNG', cx - half - 4, y - 10, { color: PAL.brass });
+      R.text(ctx, 'DREHEN', cx - half - 4, y - 10, { color: PAL.brass });
+      const tfp = Math.round(tf * 100);
+      R.text(ctx, tfp + ' %', cx - half - 4 + R.measure('DREHEN', 1) + 4, y - 10, { color: tfp >= 95 ? PAL.mint : tfp >= 60 ? PAL.star : PAL.warn });
       const tv = n(ship.turnVel);
       R.text(ctx, Math.round(Math.abs(tv) * 180 / Math.PI) + '°/s ' + (tv > 0.01 ? 'Stb' : tv < -0.01 ? 'Bb' : ''), cx + half + 4, y - 10, { color: PAL.star, align: 'right' });
-      ctx.fillStyle = '#1E2733'; ctx.fillRect(cx - half, y, half * 2, 8);
+      ctx.fillStyle = '#141A24'; ctx.fillRect(cx - half, y, half * 2, 8);
+      ctx.fillStyle = '#2A3A4C';
+      const rp = Math.round(half * tf * n(cap.port, 1)), rs = Math.round(half * tf * n(cap.stbd, 1));
+      ctx.fillRect(cx - rp, y, rp, 8); ctx.fillRect(cx, y, rs, 8);
+      ctx.fillStyle = PAL.ice; ctx.fillRect(cx - rp, y - 1, 1, 10); ctx.fillRect(cx + rs - 1, y - 1, 1, 10);
       // Seitenkappung
       for (const [side, dir] of [['port', -1], ['stbd', 1]]) {
         const c = n(cap[side], 1);
@@ -317,7 +444,7 @@
       ctx.fillStyle = PAL.brass; ctx.fillRect(cx, y - 2, 1, 12);
       // Sollwert (Ruder) als Rahmen, Istwert (turnVel) als Pfeil
       const ax = this.helmAxes();
-      if (ax.turn) { const c = n(cap[ax.turn < 0 ? 'port' : 'stbd'], 1); const tx = cx + ax.turn * half * c; ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(Math.round(tx) - 2.5, y - 2.5, 5, 13); }
+      if (ax.turn) { const c = n(cap[ax.turn < 0 ? 'port' : 'stbd'], 1); const tx = cx + ax.turn * half * c * tf;ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(Math.round(tx) - 2.5, y - 2.5, 5, 13); }
       const len = clamp(tv / max, -1, 1) * half;
       if (Math.abs(len) >= 1) {
         ctx.fillStyle = PAL.mint;
@@ -326,35 +453,62 @@
         ctx.beginPath(); ctx.moveTo(hx + d * 6, y + 4); ctx.lineTo(hx, y - 1); ctx.lineTo(hx, y + 9); ctx.closePath(); ctx.fill();
       }
     },
-    // M3a: Zielphase der Lanze – Countdown und ±5°-Marke mit aim.dev, groß und mittig
-    helmAim(ctx, view, fv) {
-      const ship = view.state.ship || {};
-      const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
-      const aim = bow && bow.aim;
-      if (!aim) return;
-      const tol = m3('aimTolerance', 5);
-      const dev = n(aim.dev);
-      const bad = Math.abs(dev) > tol * 0.7;
+    // §20.2: Ausweich-Anzeige – laufende Ladung mit Seite und Countdown, grün im Ausweich-Fenster (left ≤ dodgeWindow);
+    // §20.3: Hinweis, dass die Taktik die Lanze auflädt (Visierlinie zeichnet Render in der Frontsicht)
+    helmAlerts(ctx, view, fv) {
+      const st = view.state, ship = st.ship || {};
       const t = view.time;
-      const w = 190, h = 56, x = Math.round(fv.cx - w / 2), y = fv.win.y + 26;
-      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = bad ? PAL.red : R.BURST_COL; ctx.lineWidth = 1;
-      if (bad) ctx.setLineDash([4, 3]);
-      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.setLineDash([]);
-      R.text(ctx, 'LANZE ZIELT ' + f1(aim.left) + ' s', fv.cx, y + 4, { color: R.BURST_COL, scale: 2, align: 'center' });
-      R.text(ctx, bad && Math.floor(t * 6) % 2 ? 'ZU WEIT – GEGENLENKEN!' : 'KURS HALTEN', fv.cx, y + 22, { color: bad ? PAL.red : PAL.amber, align: 'center' });
-      // Skala ±(1,6 × Toleranz), grünes Feld ±Toleranz, Nadel = Abweichung
-      const sw = 150, sx = fv.cx - sw / 2, sy = y + 36, range = tol * 1.6;
-      ctx.fillStyle = '#1E2733'; ctx.fillRect(sx, sy, sw, 10);
-      const gw = sw * tol / range;
-      ctx.fillStyle = 'rgba(94,140,74,0.6)'; ctx.fillRect(Math.round(fv.cx - gw / 2), sy, Math.round(gw), 10);
-      R.hatch(ctx, sx, sy, Math.round(sw / 2 - gw / 2), 10, 'rgba(224,71,60,0.5)', 3);
-      R.hatch(ctx, Math.round(fv.cx + gw / 2), sy, Math.round(sw / 2 - gw / 2), 10, 'rgba(224,71,60,0.5)', 3);
-      R.text(ctx, '-' + tol + '°', fv.cx - gw / 2, sy + 11, { color: PAL.panelLight, align: 'center' });
-      R.text(ctx, '+' + tol + '°', fv.cx + gw / 2, sy + 11, { color: PAL.panelLight, align: 'center' });
-      const nd = (d) => { const px = Math.round(fv.cx + clamp(d / range, -1, 1) * sw / 2); ctx.fillStyle = bad ? PAL.red : PAL.star; ctx.fillRect(px - 1, sy - 3, 3, 16); };
-      nd(dev);
-      if (dev > 0 && aim.signed === false) nd(-dev);
+      let y = fv.win.y + 22;
+      const evadeAge = view.dodgeFx ? view.dodgeFx.age : 99;
+      // laufende Ladungen (kürzeste zuerst)
+      const teles = (((st.space && st.space.enemies) || [])).filter(e => e && e.tele).sort((a, b) => n(a.tele.left) - n(b.tele.left));
+      if (evadeAge < 1.3) {
+        const w = 200, h = 26, x = Math.round(fv.cx - w / 2);
+        ctx.fillStyle = 'rgba(11,30,22,0.88)'; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = PAL.moss; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+        R.text(ctx, 'AUSGEWICHEN!', fv.cx, y + 5, { color: '#8FD06A', scale: 2, align: 'center' });
+        y += h + 4;
+      } else if (teles.length) {
+        const e = teles[0], te = e.tele;
+        const left = Math.max(0, n(te.left)), win = m3('dodgeWindow', 0.8);
+        const inWin = left <= win;
+        const sec = te.sector != null ? (['BUG', 'STB', 'HECK', 'BB'][te.sector] || '') : '';
+        const cd = n(ship.dodgeCd);
+        const engDown = sysDown(ship, 'engines');
+        const w = 236, h = 44, x = Math.round(fv.cx - w / 2);
+        const col = inWin ? '#8FD06A' : '#FF5A4A';
+        ctx.fillStyle = inWin ? 'rgba(14,40,24,0.9)' : 'rgba(40,12,14,0.86)'; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = col; ctx.lineWidth = inWin ? 2 : 1;
+        if (!inWin) ctx.setLineDash([4, 3]);
+        ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); ctx.setLineDash([]);
+        const blink = inWin && Math.floor(t * 8) % 2;
+        R.text(ctx, inWin ? (blink ? 'JETZT AUSWEICHEN!' : 'JETZT AUSWEICHEN!') : 'AUSWEICHEN! ' + f1(left), fv.cx, y + 4, { color: blink ? '#FFFFFF' : col, scale: 2, align: 'center' });
+        const who = R.ENEMY_NAMES[e.kind] || e.kind;
+        const sub = (te.kind === 'emp' ? 'EMP' : 'Schwerer Treffer') + ' auf ' + (sec || '?') + ' · ' + who + (teles.length > 1 ? ' (+' + (teles.length - 1) + ')' : '');
+        R.text(ctx, sub, fv.cx, y + 21, { color: PAL.star, align: 'center' });
+        // Zeitleiste: rotes Band, grünes Fenster am Ende, Marke = jetzt
+        const bw = w - 20, bx = x + 10, by = y + 33, dur = Math.max(left, n(te.dur, 3));
+        ctx.fillStyle = '#2A1416'; ctx.fillRect(bx, by, bw, 6);
+        const gw = Math.round(bw * Math.min(1, win / dur));
+        ctx.fillStyle = 'rgba(143,208,106,0.75)'; ctx.fillRect(bx + bw - gw, by, gw, 6);
+        const px = Math.round(bx + bw * (1 - left / dur));
+        ctx.fillStyle = PAL.star; ctx.fillRect(px - 1, by - 2, 3, 10);
+        y += h + 2;
+        const hint = engDown ? 'Antrieb aus – kein Ausweichen!' : cd > 0 ? 'Ausweichen lädt noch ' + Math.ceil(cd) + ' s' : 'Shift+A / Shift+D';
+        R.text(ctx, hint, fv.cx, y, { color: engDown || cd > left ? PAL.red : cd > 0 ? PAL.warn : PAL.amber, align: 'center' });
+        y += 12;
+      }
+      // Lanze lädt (Taktik hält Taste 1)
+      const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
+      if (bow && bow.charging) {
+        const w = 220, h = 26, x = Math.round(fv.cx - w / 2);
+        ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = R.BURST_COL; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+        R.text(ctx, 'LANZE LÄDT – Bug aufs Ziel!', fv.cx, y + 3, { color: R.BURST_COL, align: 'center' });
+        const p = clamp(n(bow.power), 0, 1);
+        R.bar(ctx, x + 8, y + 15, w - 60, 6, p, p >= 1 ? PAL.mint : PAL.amber);
+        R.text(ctx, f1(R.lanceDamage ? R.lanceDamage(bow) : 0) + ' Sch', x + w - 6, y + 14, { color: p >= 1 ? PAL.mint : PAL.amber, align: 'right' });
+      }
     },
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
     cycleZoom(which, dir) {
@@ -377,8 +531,8 @@
       });
       const radio = st.mission && st.mission.radio;
       if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'Funk wartet! (Reiter 1)', VW - 14, 41, { color: PAL.amber, align: 'right' });
-      // M3a: Schildstoß ist auf jedem Reiter erreichbar (B dann 1–4 oder Shift+Pfeil) – kompakte Leiste oben rechts
-      if (this.tab !== 3) { try { this.burstStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.burstStrip', e); } }
+      // M3b: Schildstoß entfällt – oben rechts nur noch eine Schild-Übersicht mit Ladungs-Warnung (keine Knöpfe)
+      if (this.tab !== 3) { try { this.shieldStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.shieldStrip', e); } }
       const area = { x: 12, y: 48, w: 616, h: 274 };
       switch (this.tab) {
         case 0: return this.capRadio(ctx, view, area);
@@ -391,21 +545,7 @@
       return '';
     },
 
-    // ---- M3a: Schildstoß (Captain) und Ladungen (erst in den letzten captainSeesLast s sichtbar)
-    burstReason(ship, sector) {
-      const sh = ship.shields || {}, sys = ship.systems || {};
-      if (n(sh.burstCd) > 0) return 'Stoß lädt nach (' + Math.ceil(sh.burstCd) + ' s)';
-      if (sys.shields === 'broken' || sys.shields === 'offline') return 'Schildgenerator zerstört – kein Stoß';
-      const em = EMITTER_OF[sector];
-      if (sys[em] === 'broken' || sys[em] === 'offline') return (H.SYS_NAMES[em] || em) + ' zerstört – kein Stoß';
-      return null;
-    },
-    burst(view, sector) {
-      const r = this.burstReason(view.state.ship || {}, sector);
-      if (r) { this.denied(r); return; }
-      view.send({ t: 'cmd', c: 'captain.burst', sector });
-      view.actions.sfx('ui_click');
-    },
+    // ---- Ladungen (erst in den letzten captainSeesLast s sichtbar). M3b: Schildstoß entfällt (Kai, §0.4).
     teleLate(view) {
       const late = m3('tele.captainSeesLast', 1.2);
       const out = [null, null, null, null];
@@ -416,37 +556,35 @@
       }
       return out;
     },
-    // kompakte Stoß-Leiste (alle Reiter außer „Energie & Schilde“)
-    burstStrip(ctx, view, x, y) {
+    // kompakte Schild-Übersicht (alle Reiter außer „Energie & Schilde“): Füllstand + Durchlass-Farbe, Ladung rot. Keine Knöpfe.
+    shieldStrip(ctx, view, x, y) {
       const ship = view.state.ship || {}, sh = ship.shields || {};
-      if (!sh.cap && sh.burstCd == null && !CFG.spaceM3) return;
+      if (!sh.current) return;
       const cur = sh.current || [0, 0, 0, 0], cap = sh.cap || [4, 4, 4, 4];
       const tele = this.teleLate(view);
-      const armed = performance.now() - this.burstArm < 1500;
       const order = [3, 0, 1, 2];   // Bb, Bug, Stb, Heck (Lesereihenfolge)
-      const bw = 25;
-      R.text(ctx, armed ? '1–4?' : 'STOSS', x, y + 3, { color: armed ? PAL.amber : PAL.brass });
-      x += 31;
+      const bw = 22;
+      const SHORT = ['Bug', 'Stb', 'Hck', 'Bb'];
+      R.text(ctx, 'SCHILD', x, y + 3, { color: PAL.brass });
+      x += R.measure('SCHILD', 1) + 4;
       for (let j = 0; j < 4; j++) {
         const i = order[j];
-        const bx = x + j * (bw + 2);
-        const reason = this.burstReason(ship, i);
-        const bu = sh.burst && sh.burst.sector === i && n(sh.burst.left) > 0;
-        ctx.fillStyle = bu ? 'rgba(232,248,255,0.25)' : reason ? '#232A36' : '#26313F'; ctx.fillRect(bx, y, bw, 15);
+        const bx = x + j * (bw + 1);
+        const lk = leakText(n(cur[i]));
+        ctx.fillStyle = '#26313F'; ctx.fillRect(bx, y, bw, 15);
         if (n(cap[i], 4) <= 0) R.crossX(ctx, bx, y, bw, 15, 'rgba(224,71,60,0.6)', 1);
         else if (n(cap[i], 4) < 4) R.hatch(ctx, bx, y, bw, 15, 'rgba(242,201,76,0.25)', 4);
-        const tl0 = tele[i];
-        if (!tl0) R.text(ctx, String(i + 1) + SECTOR_KEYS[i].charAt(0), bx + 3, y + 1, { color: reason ? '#6B7380' : PAL.star });
-        for (let k = 0; k < 4; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], 4) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 3 + k * 5, y + 11, 4, 2); }
         const tl = tele[i];
+        if (!tl) R.text(ctx, SHORT[i], bx + 2, y + 1, { color: PAL.star });
+        for (let k = 0; k < 4; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], 4) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 2 + k * 4, y + 11, 3, 2); }
+        ctx.fillStyle = lk.col; ctx.fillRect(bx + bw - 4, y + 10, 2, 3);   // Durchlass-Ampel
         if (tl) {
           ctx.strokeStyle = PAL.red; ctx.setLineDash([3, 2]); ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); ctx.setLineDash([]);
           R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
-        } else { ctx.strokeStyle = bu ? R.BURST_COL : PAL.panel; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); }
-        R.ui.buttons.push({ x: bx, y, w: bw, h: 15, label: 'Stoß ' + SECTOR_KEYS[i], disabled: !!reason, reason, onClick: () => this.burst(view, i) });
+        } else { ctx.strokeStyle = PAL.panel; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); }
+        const mo = R.ui.mouse || {};
+        if (mo.x >= bx && mo.y >= y && mo.x < bx + bw && mo.y < y + 15) R.ui.tooltip = { text: H.SECTOR_NAMES[i] + ' ' + n(cur[i]) + ': ' + lk.long + ' (verteilen: Reiter 4)', x: mo.x, y: mo.y };
       }
-      const cd = n(sh.burstCd);
-      if (cd > 0) R.text(ctx, Math.ceil(cd) + 's', x + 4 * (bw + 2) + 2, y + 3, { color: PAL.panelLight });
     },
 
     // ---- Funk + Missionen + Logbuch
@@ -667,6 +805,8 @@
       y += 4;
       R.text(ctx, 'REAKTOR: ' + (STATE_TXT[rs] || rs), a.x + 6, y, { color: rcol });
       R.text(ctx, 'Leistung ' + output, a.x + 294, y, { color: PAL.panelLight, align: 'right' }); y += 12;
+      // M3b §4: Reaktor-Autostart im Gefecht (reactor.autoIn = Restsekunden)
+      if (n(reactor.autoIn) > 0) { R.text(ctx, 'Reaktor startet in ' + Math.ceil(reactor.autoIn) + ' s von selbst', a.x + 6, y, { color: PAL.mint }); y += 11; }
       const reactorDown = sysDown(ship, 'reactor');
       if (rs === 'online') {
         const ask = performance.now() - this.overloadAsk < 6000;
@@ -703,6 +843,7 @@
       const cx = a.x + 455, cy = a.y + 130;
       R.text(ctx, 'SCHILDE', a.x + 330, a.y + 4, { color: PAL.brass });
       R.text(ctx, 'Pool ' + allocSum + ' / ' + pool, a.x + 390, a.y + 4, { color: allocSum >= pool ? PAL.amber : PAL.mint });
+      R.text(ctx, '(' + ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie, max 4 je Sektor)', a.x + 450, a.y + 4, { color: PAL.panelLight });
       if (sysDown(ship, 'shields')) R.text(ctx, 'Schildgenerator zerstört!', a.x + 470, a.y + 31, { color: PAL.red, align: 'center' });
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(cx + 26, cy); ctx.lineTo(cx - 18, cy - 12); ctx.lineTo(cx - 24, cy); ctx.lineTo(cx - 18, cy + 12); ctx.closePath(); ctx.fill();
@@ -710,10 +851,21 @@
       const capA = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
       const tele = this.teleLate(view);
       const t = view.time;
-      // M3a: Abklingzeit des Schildstoßes
-      const bcd = n(sh.burstCd), bmax = m3('burst.cooldown', 8);
-      R.text(ctx, bcd > 0 ? 'Stoß lädt ' + Math.ceil(bcd) + ' s' : 'Stoß bereit (B+1–4 / Shift+Pfeil)', a.x + 330, a.y + 16, { color: bcd > 0 ? PAL.panelLight : PAL.mint });
-      R.bar(ctx, a.x + 330, a.y + 26, 120, 3, 1 - clamp(bcd / bmax, 0, 1), bcd > 0 ? PAL.amber : PAL.mint);
+      // M3b §4: Durchlass je Stärke – kleine Legende oben (Werte aus config.spaceM3b.shieldLeak)
+      {
+        let lx2 = a.x + 330;
+        R.text(ctx, 'Systemschaden je Treffer:', lx2, a.y + 15, { color: PAL.panelLight });
+        const leg = [[0, '0 offen'], [1, '1 Kratzer'], [2, '2'], [3, '3–4 dicht']];
+        let ly2 = a.y + 25;
+        for (const [s, lab] of leg) {
+          const lk = leakText(s);
+          const txt = s === 1 || s === 2 ? lab + ' ' + lk.short.replace('Kratzer ', '') : lab;
+          ctx.fillStyle = lk.col; ctx.fillRect(lx2, ly2 + 2, 4, 4);
+          R.text(ctx, txt, lx2 + 6, ly2, { color: lk.col });
+          lx2 += R.measure(txt, 1) + 14;
+        }
+        void ly2;
+      }
       for (let i = 0; i < 4; i++) {
         const [px, py] = pos[i];
         const sel = this.sel.power === 4 + i;
@@ -721,12 +873,11 @@
         const bx = px - bw / 2, by = py - bh / 2;
         const cap = n(capA[i], 4);
         const em = EMITTER_OF[i], emSt = (ship.systems || {})[em] || 'ok';
-        const bu = sh.burst && sh.burst.sector === i && n(sh.burst.left) > 0 ? sh.burst : null;
-        ctx.fillStyle = bu ? 'rgba(232,248,255,0.16)' : sel ? 'rgba(127,224,194,0.12)' : 'rgba(21,27,43,0.9)'; ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = sel ? 'rgba(127,224,194,0.12)' : 'rgba(21,27,43,0.9)'; ctx.fillRect(bx, by, bw, bh);
         if (cap <= 0) R.crossX(ctx, bx, by, bw, bh, 'rgba(224,71,60,0.55)', 2);
         const tl = tele[i];
         if (tl) { ctx.strokeStyle = Math.floor(t * 8) % 2 ? PAL.red : '#FF8A7A'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(bx - 1, by - 1, bw + 2, bh + 2); ctx.setLineDash([]); ctx.lineWidth = 1; }
-        ctx.strokeStyle = bu ? R.BURST_COL : sel ? PAL.amber : PAL.panel; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+        ctx.strokeStyle = sel ? PAL.amber : PAL.panel; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
         R.text(ctx, H.SECTOR_NAMES[i], bx + 5, by + 3, { color: sel ? PAL.amber : PAL.star });
         if (tl) R.text(ctx, f1(tl.left) + ' s!', bx + bw - 4, by + 3, { color: PAL.red, align: 'right' });
         else if (emSt !== 'ok') R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, emSt, R.fragileOf(view.state, em), { code: cap <= 0 ? 'AUS' : cap < 4 ? '1/2' : undefined });
@@ -734,21 +885,22 @@
         for (let k = 0; k < 4; k++) {
           const filled = k < n(cur[i]), wanted = k < n(alloc[i]);
           const over = k >= cap;
-          const pxx = px - 22 + k * 12, pyy = by + 15;
+          const pxx = px - 22 + k * 12, pyy = by + 13;
           ctx.fillStyle = filled ? PAL.mint : over ? '#3A2A1A' : wanted ? '#2F5A50' : '#26313F';
           ctx.fillRect(pxx, pyy, 10, 8);
           if (over && cap > 0) R.hatch(ctx, pxx, pyy, 10, 8, 'rgba(242,201,76,0.7)', 3);
         }
-        if (cap > 0 && cap < 4) R.text(ctx, '1/2', px + 28, by + 15, { color: PAL.warn });
-        if (cap <= 0) R.text(ctx, 'AUS', px, by + 15, { color: PAL.red, align: 'center', scale: 1 });
+        if (cap > 0 && cap < 4) R.text(ctx, '1/2', px + 28, by + 13, { color: PAL.warn });
+        if (cap <= 0) R.text(ctx, 'AUS', px, by + 13, { color: PAL.red, align: 'center', scale: 1 });
         const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
         const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
         R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: -1 }); } });
         R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: 1 }); } });
-        const br = this.burstReason(ship, i);
-        R.button(ctx, bx + 23, by + 25, bw - 46, 13, bu ? (n(bu.perfectLeft) > 0 ? 'PERFEKT!' : 'STOSS ' + f1(bu.left)) : 'Stoß', { hotkey: bu ? null : 'B' + (i + 1), active: !!bu, disabled: !!br && !bu, reason: br, onClick: () => this.burst(view, i) });
+        // Durchlass bei aktueller Stärke
+        const lk = leakText(n(cur[i]));
+        R.text(ctx, n(cur[i]) + ': ' + lk.short, px, by + bh + 2, { color: lk.col, align: 'center' });
       }
-      return '↑/↓ wählen · ←/→ verteilen · B+1–4 / Shift+Pfeil Schildstoß · U überladen · Tab Reiter';
+      return '↑/↓ wählen · ←/→ verteilen · U überladen · Tab Reiter';
     },
 
     damageRows(st) {
@@ -840,7 +992,18 @@
           R.text(ctx, H.SYS_SHORT[r.target] || r.label, a.x + 34, y + 1, { color: r.state === 'ok' && !fr ? PAL.panelLight : PAL.star });
           R.stateBadge(ctx, a.x + 128, y, 36, 10, r.state, fr);
           const wt = this.walkTime(r.target);
-          R.text(ctx, wt != null ? f1(wt) + ' s' : '–', a.x + 196, y + 1, { color: PAL.panelLight, align: 'right' });
+          // M3b §4: Eskalations-Countdown ersetzt die Laufzeit („Feuer in 12 s“), Zeile glimmt rot
+          const esc = (ship.escalate || {})[r.target];
+          if (esc != null) {
+            const blink = n(esc) <= 5 && Math.floor(view.time * 4) % 2;
+            ctx.strokeStyle = blink ? PAL.red : 'rgba(224,71,60,0.6)'; ctx.strokeRect(a.x - 1.5, y - 0.5, 199, rh - 1);
+            const ecol = n(esc) <= 5 ? PAL.red : '#F08A3C';
+            R.text(ctx, Math.ceil(n(esc)) + 's', a.x + 196, y + 1, { color: ecol, align: 'right' });
+            // kleine Flamme vor dem Countdown
+            const fx0 = a.x + 196 - R.measure(Math.ceil(n(esc)) + 's', 1) - 7;
+            ctx.fillStyle = ecol; ctx.fillRect(fx0 + 1, y + 4, 4, 5); ctx.fillRect(fx0 + 2, y + 2, 2, 2);
+            ctx.fillStyle = PAL.amber; ctx.fillRect(fx0 + 2, y + 6, 2, 3);
+          } else R.text(ctx, wt != null ? f1(wt) + ' s' : '–', a.x + 196, y + 1, { color: PAL.panelLight, align: 'right' });
           const q = this.queueOf(ship, r.target);
           const needs = r.state !== 'ok' || fr;
           const dis = !needs && !q;
@@ -863,7 +1026,14 @@
       let ly = a.y + 4 + Maps.ship.h * cell + 8;
       const fires = ship.fires || [], br = ship.breaches || [];
       R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 3) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
-      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 3) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 14;
+      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 3) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 11;
+      // M3b §4: Eskalation – unbearbeitete Schäden im Gefecht fangen Feuer
+      const escl = Object.keys(ship.escalate || {}).map(k => [k, n(ship.escalate[k])]).sort((p, q) => p[1] - q[1]);
+      if (escl.length) {
+        const txt = escl.slice(0, 2).map(([k, s]) => (H.SYS_SHORT[k] || k) + ' brennt in ' + Math.ceil(s) + ' s').join(' · ') + (escl.length > 2 ? ' …' : '');
+        R.text(ctx, txt, px, ly, { color: escl[0][1] <= 5 && Math.floor(view.time * 4) % 2 ? PAL.red : '#F08A3C' }); ly += 11;
+      } else { R.text(ctx, 'Unbearbeitet im Gefecht: Feuer nach ' + (((CFG.spaceM3b || {}).escalation || {}).after || 20) + ' s', px, ly, { color: PAL.panelLight }); ly += 11; }
+      ly += 3;
       R.text(ctx, 'SCHRAUBER', px, ly, { color: PAL.brass });
       R.text(ctx, auto ? 'füllen die Liste selbst' : 'Systeme nur aus der Liste', px + 62, ly, { color: PAL.panelLight }); ly += 11;
       bots.forEach((b, i) => {
@@ -1096,9 +1266,11 @@
       const mst = m && MOUNT_SYS[id] ? (m.state || (ship.systems || {})[MOUNT_SYS[id]] || 'ok') : null;
       if (!m) reason = (id === 'seitenturm' || id === 'bolzen') ? 'Nicht eingebaut (Shop)' : 'Nicht verfügbar';
       else if (mst === 'broken' || mst === 'offline') reason = (H.SYS_NAMES[MOUNT_SYS[id]] || id) + ' zerstört – reparieren';
-      else if (id === 'bow' && m.aim) reason = 'Zielt (' + f1(m.aim.left) + ' s)';
+      else if (id === 'bow' && m.charging) reason = null;   // §20.3: lädt auf – Loslassen feuert
       else if (MOUNT_SYS[id] && n(m.alloc, 1) <= 0 && n(m.charge) < 1) reason = 'Keine Ladepunkte (A/D)';
       else if (MOUNT_SYS[id] && n(m.salvo) > 0) reason = 'Salve läuft';
+      else if (MOUNT_SYS[id] && (st.ship || {}).docked) reason = 'Angedockt';
+      else if (MOUNT_SYS[id]) { if (n(m.charge) < 1) reason = 'Lädt (' + Math.round(n(m.charge) * 100) + ' %)'; return { m, reason }; }   // §20.3/20.4: kein Ziel nötig
       else if (!MOUNT_SYS[id] && id !== 'bolzen' && sysDown(ship, 'weapons')) reason = 'Waffenbank ausgefallen';
       else if (id === 'bolzen' && sysDown(ship, 'engines') && CFG.spaceM3) reason = 'Triebwerk zerstört – Bolzenwerfer aus';
       else if (id === 'bolzen' && (m.loaded === false || n(m.ammo, 1) <= 0)) reason = 'Magazin leer – R nachladen';
@@ -1210,10 +1382,10 @@
       else if (sp > 30) sr = 'Schiff zu schnell (max. 30)';
       else if (!phaseCharged) sr = this.isM3(view) ? 'Keine Waffe voll geladen' : 'Phasenkanone lädt';
       R.button(ctx, rx, y, rw, 14, 'Orbitalschlag auf Markierung', { hotkey: 'O', disabled: !!sr, reason: sr, onClick: () => this.cmd(view, 'weapons.strike') });
-      if (this.isM3(view)) return 'Q/E Waffe · A/D Punkte · 1/2/3 feuern · Leer alle · H halten · T Ziel · S Scan · W Weitscan · M/X Marker';
+      if (this.isM3(view)) return '1 halten: Lanze, los: Feuer · 2/3/Leer Batterien · Q/E A/D Punkte · T Ziel · S Scan · W Weitscan';
       return 'T/Klick Ziel · 1/2 Phase · Leer beide · S halten Scan · W Weitscan · Rechtsklick/M Marker · X löschen · Z Zoom';
     },
-    // M3a: Waffenblock der Taktik – Lanze + Batterien mit Ladepunkten (Q/E wählen, A/D −/+), Halten/Feuer frei (H)
+    // M3a: Waffenblock der Taktik – Lanze + Batterien mit Ladepunkten (Q/E wählen, A/D −/+); §20: Lanze 1 halten, Batterien nur auf Befehl
     weaponsM3(ctx, view, rx, rw, y) {
       const ship = view.state.ship || {};
       const cp = n(ship.chargePoints);
@@ -1223,36 +1395,54 @@
       this.sel.mount = clamp(this.sel.mount, 0, 2);
       R.text(ctx, 'WAFFEN', rx, y, { color: PAL.brass });
       R.text(ctx, 'Ladepunkte ' + used + '/' + cp, rx + 44, y, { color: cp === 0 ? PAL.red : used < cp ? PAL.amber : PAL.mint });
-      const anyReady = M3_MOUNTS.some(id => !this.mountInfo(view, id).reason);
-      R.button(ctx, rx + 132, y - 2, rw - 132, 12, 'alle', { hotkey: 'Leer', disabled: !anyReady, reason: 'Keine Waffe bereit (Ladung/Ziel/Bogen)', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
+      const batReady = ['port', 'stbd'].some(id => !this.mountInfo(view, id).reason);
+      R.button(ctx, rx + 122, y - 2, rw - 122, 12, 'Batterien', { hotkey: 'Leer', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
       y += 12;
       ms.forEach((m, i) => {
         const sel = this.sel.mount === i;
         const info = this.mountInfo(view, m.id);
         const st = m.missing ? 'ok' : (m.state || (ship.systems || {})[MOUNT_SYS[m.id]] || 'ok');
+        const isBow = m.id === 'bow';
         if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(rx - 2, y - 1, rw + 3, 26); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx - 1.5, y - 0.5, rw + 2, 25); }
-        R.button(ctx, rx, y, 76, 12, MOUNT_NAMES[m.id], { hotkey: MOUNT_KEYS[m.id], disabled: !!info.reason, reason: info.reason, active: !!m.aim, onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.fire', { mount: m.id }); } });
+        // §20.3: Lanze = Knopf HALTEN (lädt auf), Loslassen feuert; Batterien = Klick feuert
+        const onPress = isBow
+          ? () => { this.sel.mount = i; this.lanceCharge(view, true, 'mouse'); }
+          : () => { this.sel.mount = i; this.cmd(view, 'weapons.fire', { mount: m.id }); };
+        R.button(ctx, rx, y, 76, 12, MOUNT_NAMES[m.id], { hotkey: MOUNT_KEYS[m.id], disabled: !!info.reason, reason: info.reason, active: !!(isBow && m.charging), onClick: onPress });
         const ch = n(m.charge);
         R.bar(ctx, rx + 80, y + 4, 36, 5, ch, ch >= 1 ? PAL.mint : PAL.amber);
-        let status = st === 'broken' || st === 'offline' ? 'AUS' : m.aim ? 'ZIELT ' + f1(m.aim.left) : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : 'BEREIT') : Math.round(ch * 100) + ' %';
-        // QA M3a: Das Schiff dreht noch nach (Trägheit) – eine Zielphase jetzt würde sehr wahrscheinlich abbrechen
-        const turning = m.id === 'bow' && !m.aim && ch >= 1 && Math.abs(n(ship.turnVel)) > 0.12;
-        if (turning) status = 'DREHT NOCH';
-        R.text(ctx, status, rx + 120, y + 2, { color: st === 'broken' ? PAL.red : m.aim ? R.BURST_COL : turning ? PAL.amber : !info.reason ? PAL.mint : PAL.panelLight });
+        let status = st === 'broken' || st === 'offline' ? 'AUS' : isBow && m.charging ? 'LÄDT AUF' : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : (isBow ? '1 HALTEN' : 'BEREIT')) : Math.round(ch * 100) + ' %';
+        R.text(ctx, status, rx + 120, y + 2, { color: st === 'broken' ? PAL.red : isBow && m.charging ? R.BURST_COL : !info.reason ? PAL.mint : PAL.panelLight });
         if (st !== 'ok' || R.fragileOf(view.state, MOUNT_SYS[m.id])) R.stateBadge(ctx, rx + rw - 34, y + 1, 34, 10, st, R.fragileOf(view.state, MOUNT_SYS[m.id]));
-        // Zeile 2: Ladepunkte − ●●○○ +, Halten/Feuer frei
+        // Zeile 2: Ladepunkte − ●●○○ +, Lanze: Aufladebalken / Batterie: wohin sie schießt
         const y2 = y + 13;
         const al = n(m.alloc);
         R.button(ctx, rx, y2, 13, 11, '−', { disabled: m.missing || al <= 0, reason: 'Keine Punkte auf dieser Waffe', onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.alloc', { mount: m.id, delta: -1 }); } });
         for (let k = 0; k < amax; k++) { ctx.fillStyle = k < al ? PAL.amber : '#26313F'; ctx.fillRect(rx + 16 + k * 8, y2 + 3, 6, 6); }
         const plusR = m.missing ? 'Nicht verfügbar' : al >= amax ? 'Maximum (' + amax + ')' : used >= cp ? (cp ? 'Alle Ladepunkte verteilt – erst anderswo abziehen' : 'Keine Waffenenergie (Captain)') : null;
         R.button(ctx, rx + 16 + amax * 8 + 1, y2, 13, 11, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.alloc', { mount: m.id, delta: 1 }); } });
-        if (m.id === 'bow') {
-          const per = m3('mounts.bow.secPerPoint', 24) * (st === 'damaged' ? m3('mounts.bow.damagedFactor', 1.5) : 1);
-          R.text(ctx, al > 0 ? 'Ladung ' + Math.round(per / al) + ' s + Zielen ' + f1(m3('aimTime', 1.5)) : 'lädt nicht', rx + 66, y2 + 2, { color: PAL.panelLight });
+        if (isBow) {
+          // Aufladebalken mit Schadenszahl (3 → 12; beschädigt weniger)
+          const bx = rx + 66, bw = rw - 66 - 30;
+          if (m.charging) {
+            const p = clamp(n(m.power), 0, 1);
+            ctx.fillStyle = '#1E2733'; ctx.fillRect(bx, y2 + 2, bw, 7);
+            ctx.fillStyle = p >= 1 ? PAL.mint : R.BURST_COL; ctx.fillRect(bx, y2 + 2, Math.round(bw * p), 7);
+            ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y2 + 1.5, bw - 1, 8);
+            R.text(ctx, f1(R.lanceDamage(m)), rx + rw, y2 + 1, { color: p >= 1 ? PAL.mint : R.BURST_COL, align: 'right' });
+          } else {
+            const per = m3('mounts.bow.secPerPoint', 24) * (st === 'damaged' ? m3('mounts.bow.damagedFactor', 1.5) : 1);
+            R.text(ctx, (al > 0 ? Math.round(per / al) + ' s' : 'lädt nicht') + ' · Schaden ' + m3('lance.minDamage', 3) + '–' + Math.round(R.lanceDamageMax(m)), bx, y2 + 2, { color: PAL.panelLight });
+          }
         } else {
-          const hold = !!m.hold;
-          R.button(ctx, rx + 66, y2, 74, 11, hold ? 'Halten' : 'Feuer frei', { hotkey: sel ? 'H' : '', active: !hold, disabled: !!m.missing, reason: 'Nicht verfügbar', onClick: () => { this.sel.mount = i; this.cmd(view, 'weapons.hold', { mount: m.id, hold: !hold }); } });
+          // §20.4: kein Halten/Feuer frei – Batterien feuern nur auf Befehl, auch ohne Ziel
+          const target = this.targetOf(view);
+          let aimTxt = 'ins Leere', aimCol = PAL.panelLight;
+          const g = R.mountGeom(m);
+          const inArc = (e) => e && !e.hidden && Phys.inArc(n(ship.x), n(ship.y), n(ship.angle), g.facing, g.arc, g.range, e.x, e.y);
+          if (inArc(target)) { aimTxt = '→ Ziel'; aimCol = PAL.amber; }
+          else if ((view.enemies || []).some(inArc)) { aimTxt = '→ nächster'; aimCol = PAL.mint; }
+          R.text(ctx, aimTxt, rx + 66, y2 + 2, { color: aimCol });
           const tubes = n(m.salvoMax, st === 'damaged' ? 2 : 4);
           R.text(ctx, tubes + ' Rohre', rx + rw, y2 + 2, { color: PAL.panelLight, align: 'right' });
         }
@@ -1273,6 +1463,20 @@
       if (!tg) { this.denied('Kein Ziel'); return; }
       this.cmd(view, 'weapons.marker', { onTarget: true, x: Math.round(tg.x), y: Math.round(tg.y) });
       view.actions.sfx('marker_set');
+    },
+    // §20.3: Lanze aufladen (on) / feuern (off). src: 'key' (Taste 1) oder 'mouse' (Knopf gehalten)
+    lanceCharge(view, on, src) {
+      if (on) {
+        if (this.lanceOn) return;
+        const info = this.mountInfo(view, 'bow');
+        if (info.reason) { this.denied(info.reason); return; }
+        this.lanceOn = src || 'key';
+        this.cmd(view, 'weapons.charge', { mount: 'bow', on: true });
+      } else {
+        if (!this.lanceOn) return;
+        this.lanceOn = null;
+        view.send({ t: 'cmd', c: 'weapons.charge', mount: 'bow', on: false });
+      }
     },
     setTscan(view, on) {
       if (this.tscanOn === on) return;
@@ -1515,6 +1719,12 @@
       const P = this.plan;
       const rect = { x: 10, y: 40, w: 430, h: 278 };
       // Kopfzeile: Brotkrumen
+      // §21.2: Reiter Karten | Missionsbuch
+      R.button(ctx, 330, 25, 110, 13, 'Missionsbuch', { hotkey: 'M', active: P.tab === 'book', onClick: () => { P.tab = P.tab === 'book' ? 'map' : 'book'; } });
+      if (P.tab === 'book') {
+        R.button(ctx, 10, 25, 90, 13, 'Karten', { hotkey: 'M', onClick: () => { P.tab = 'map'; } });
+        return this.drawPlanBook(ctx, view);
+      }
       const loc = P.mapId !== 'star' ? ((P.mapId !== 'kesh' && R.locById(st, P.mapId)) || (P.mapId === 'platform' ? R.locById(st, 'b7') : P.mapId === 'wreck' ? R.locById(st, 'wrack') : P.mapId === 'kesh' ? R.locById(st, 'kesh') : null)) : null;
       R.button(ctx, 10, 25, 90, 13, 'Sternkarte', { hotkey: 'Bs', active: P.mapId === 'star', onClick: () => { P.mapId = 'star'; } });
       if (P.mapId !== 'star') R.text(ctx, '› ' + (P.mapId === 'platform' ? 'Plattform B-7 (Decksplan)' : P.mapId === 'wreck' ? 'Wrack (Decksplan)' : P.mapId === 'kesh' ? 'Mond Kesh (Archivplan)' : R.locName(st, P.mapId)), 106, 28, { color: PAL.amber });
@@ -1580,8 +1790,98 @@
       }
       return (P.mapId === 'star' ? 'Klick Ort wählen · Enter Detail · D Decksplan · ' : 'Backspace Sternkarte · ') + '1–5 Pin-Art · Klick Pin';
     },
+    // ---- §21.2 Missionsbuch: Liste (aktiv/angeboten/erledigt) links, Details rechts
+    bookEntries(st) {
+      const book = (st.mission && st.mission.book) || null;
+      const all = (book && Array.isArray(book.entries)) ? book.entries : [];
+      const order = ['aktiv', 'angeboten', 'erledigt'];
+      const out = [];
+      for (const s of order) for (const e of all) if (e.state === s) out.push(e);
+      for (const e of all) if (order.indexOf(e.state) < 0) out.push(e);
+      return { book, list: out };
+    },
+    drawPlanBook(ctx, view) {
+      const st = view.state, P = this.plan;
+      const { book, list } = this.bookEntries(st);
+      const lx = 10, ly = 42, lw = 214, lh = 276;
+      R.panel(ctx, lx, ly, lw, lh, { style: 'screen' });
+      if (!book) {
+        R.text(ctx, 'Noch keine Einträge vom Server.', lx + 6, ly + 8, { color: PAL.panelLight });
+        return 'M Karten';
+      }
+      P.bookSel = clamp(P.bookSel || 0, 0, Math.max(0, list.length - 1));
+      const focus = book.focus;
+      const GROUP = { aktiv: 'AKTIV', angeboten: 'ANGEBOTEN', erledigt: 'ERLEDIGT' };
+      const KIND = { mission: 'Mission', nebenauftrag: 'Nebenauftrag', hinweis: 'Hinweis' };
+      let y = ly + 5, lastGroup = null;
+      list.forEach((e, i) => {
+        if (y > ly + lh - 12) return;
+        if (e.state !== lastGroup) {
+          lastGroup = e.state;
+          R.text(ctx, (GROUP[e.state] || String(e.state).toUpperCase()) + ' (' + list.filter(q => q.state === e.state).length + ')', lx + 5, y, { color: PAL.brass }); y += 11;
+        }
+        const sel = i === P.bookSel;
+        const isFocus = focus != null ? e.id === focus : false;
+        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.14)'; ctx.fillRect(lx + 2, y - 2, lw - 4, 12); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(lx + 2.5, y - 1.5, lw - 5, 11); }
+        if (isFocus) R.shape(ctx, 'diamond', lx + 9, y + 4, 7, PAL.amber);
+        const col = e.state === 'erledigt' ? '#6E8A6A' : e.state === 'angeboten' ? PAL.ice : PAL.star;
+        let title = String(e.title || e.id);
+        while (R.measure(title, 1) > lw - 64 && title.length > 4) title = title.slice(0, -1);
+        R.text(ctx, title + (title.length < String(e.title || e.id).length ? '…' : ''), lx + 16, y, { color: isFocus ? PAL.amber : col });
+        R.text(ctx, ({ mission: 'Mission', nebenauftrag: 'Neben', hinweis: 'Hinweis' })[e.kind] || '', lx + lw - 6, y, { color: PAL.panelLight, align: 'right' });
+        // Klickfläche
+        R.ui.buttons.push({ x: lx + 2, y: y - 2, w: lw - 4, h: 11, label: '', disabled: false, onClick: () => { P.bookSel = i; } });
+        y += 12;
+      });
+      if (!list.length) R.text(ctx, 'Keine Aufträge.', lx + 6, y, { color: PAL.panelLight });
+      // Details
+      const e = list[P.bookSel];
+      const dx = 232, dw = VW - 12 - dx;
+      R.panel(ctx, dx, ly, dw, lh, { style: 'screen' });
+      if (!e) return 'M Karten';
+      let yy = ly + 5;
+      const wrapW = dw - 12;
+      for (const l of R.wrap(String(e.title || e.id), wrapW, 2).slice(0, 2)) { R.text(ctx, l, dx + 6, yy, { color: PAL.amber, scale: 2 }); yy += 17; }
+      const stCol = e.state === 'aktiv' ? PAL.mint : e.state === 'angeboten' ? PAL.ice : '#6E8A6A';
+      R.text(ctx, (KIND[e.kind] || e.kind || '') + ' · ' + (e.state || ''), dx + 6, yy, { color: stCol });
+      if (focus != null && e.id === focus) R.text(ctx, 'VERFOLGT', dx + dw - 6, yy, { color: PAL.amber, align: 'right' });
+      yy += 11;
+      if (e.from) { R.text(ctx, 'Auftraggeber: ' + e.from, dx + 6, yy, { color: PAL.star }); yy += 11; }
+      if (e.reward) { R.text(ctx, 'Belohnung: ' + e.reward, dx + 6, yy, { color: PAL.brass }); yy += 11; }
+      // Knöpfe
+      const focR = e.state === 'erledigt' ? 'Schon erledigt' : (focus != null && focus === e.id) ? 'Wird schon verfolgt' : null;
+      R.button(ctx, dx + 6, yy + 1, 150, 13, 'Als aktiv markieren', { hotkey: 'Enter', disabled: !!focR, reason: focR, onClick: () => this.cmd(view, 'plan.focus', { id: e.id }) });
+      const accR = e.state !== 'angeboten' ? 'Nur angebotene Aufträge' : null;
+      R.button(ctx, dx + 162, yy + 1, dw - 168, 13, 'Annehmen', { hotkey: 'A', disabled: !!accR, reason: accR, onClick: () => this.cmd(view, 'plan.accept', { id: e.id }) });
+      yy += 19;
+      const maxY = ly + lh - 6;
+      const line = (str, col, indent) => { for (const l of R.wrap(str, wrapW - (indent || 0), 1)) { if (yy > maxY - 10) return false; R.text(ctx, l, dx + 6 + (indent || 0), yy, { color: col }); yy += 10; } return true; };
+      if (e.briefing) { R.text(ctx, 'BRIEFING', dx + 6, yy, { color: PAL.brass }); yy += 10; for (const l of R.wrap(String(e.briefing), wrapW, 1).slice(0, 5)) { R.text(ctx, l, dx + 6, yy, { color: PAL.star }); yy += 10; } yy += 3; }
+      const objs = Array.isArray(e.objectives) ? e.objectives : [];
+      if (objs.length && yy < maxY - 20) {
+        R.text(ctx, 'ZIELE', dx + 6, yy, { color: PAL.brass }); yy += 10;
+        for (const o of objs) {
+          if (yy > maxY - 10) break;
+          ctx.strokeStyle = o.done ? PAL.moss : PAL.panelLight; ctx.lineWidth = 1; ctx.strokeRect(dx + 6.5, yy + 0.5, 6, 6);
+          if (o.done) { ctx.fillStyle = PAL.moss; ctx.fillRect(dx + 8, yy + 2, 3, 3); }
+          if (!line(String(o.text || ''), o.done ? '#6E8A6A' : PAL.star, 10)) break;
+        }
+        yy += 3;
+      }
+      const log = Array.isArray(e.log) ? e.log : [];
+      if (log.length && yy < maxY - 20) {
+        R.text(ctx, 'LOGBUCH', dx + 6, yy, { color: PAL.brass }); yy += 10;
+        for (const g of log.slice().reverse()) {
+          const when = g.t != null ? H.fmtTime(g.t) : '';
+          const where = g.loc ? R.locName(st, g.loc) : '';
+          if (!line((when ? when + ' · ' : '') + (where ? where + ': ' : '') + String(g.text || ''), PAL.panelLight, 0)) break;
+        }
+      }
+      return 'W/S wählen · Enter als aktiv markieren · A annehmen · M Karten';
+    },
     planClick(view, x, y, button) {
       const st = view.state, P = this.plan, mp = this.maps.plan;
+      if (P.tab === 'book') return false;
       const rect = { x: 10, y: 40, w: 430, h: 278 };
       if (!mp || x < rect.x || y < rect.y || x >= rect.x + rect.w || y >= rect.y + rect.h) return false;
       const pins = ((st.plan && st.plan.pins) || []).filter(p => p.map === P.mapId);
@@ -1673,14 +1973,15 @@
         case 'helm':
           if ((code === 'KeyA' || code === 'ArrowLeft') && e.shiftKey) return press(() => this.tryButton('Ausweichen Bb'));
           if ((code === 'KeyD' || code === 'ArrowRight') && e.shiftKey) return press(() => this.tryButton('Ausweichen Stb'));
+          // M3b: W/S (↑/↓) = Temporegler eine Stufe; Tastenwiederholung schaltet nicht weiter
+          if ((code === 'KeyW' || code === 'ArrowUp') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, 1)); return true; }
+          if ((code === 'KeyS' || code === 'ArrowDown') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, -1)); return true; }
           if (code === 'KeyF') return press(() => this.tryButton('Faltsprung'));
+          if (code === 'KeyX') return press(() => this.tryButton(/^Allstopp/));   // §21.1
           return true;
         case 'captain': {
           const awayOn = this.awayActive(st);
-          // M3a: Schildstoß auf jedem Reiter – B, dann 1–4 (Bug/Stb/Heck/Bb), oder Shift+Pfeil
-          if (code === 'KeyB') { this.burstArm = performance.now(); view.actions.sfx('ui_click'); return true; }
-          if (d >= 1 && d <= 4 && performance.now() - this.burstArm < 1500) { this.burstArm = 0; return press(() => this.burst(view, d - 1)); }
-          if (e.shiftKey && /^Arrow/.test(code)) { const sec = { ArrowUp: 0, ArrowRight: 1, ArrowDown: 2, ArrowLeft: 3 }[code]; if (!e.repeat) press(() => this.burst(view, sec)); return true; }
+          // M3b: Schildstoß (B+1–4, Shift+Pfeil) entfällt
           if (code === 'Tab') { const max = awayOn ? 6 : 5; this.tab = (this.tab + (e.shiftKey ? max - 1 : 1)) % max; return true; }
           if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
           const tab = this.tab;
@@ -1738,7 +2039,7 @@
         case 'weapons':
           if (code === 'KeyT') return press(() => this.cycleTarget(view));
           if (this.isM3(view)) {
-            // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1/2/3 Lanze/Bb/Stb, 4 Bolzen, Leer alle, H halten/frei
+            // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1 Lanze halten, 2/3 Bb/Stb, 4 Bolzen, Leer Batterien
             if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }
             if (code === 'KeyE') { this.sel.mount = (this.sel.mount + 1) % 3; view.actions.sfx('ui_click'); return true; }
             if (code === 'KeyA' || code === 'KeyD') {
@@ -1747,15 +2048,11 @@
               if (b && b.disabled) { this.denied(b.reason); return true; }
               return press(() => this.cmd(view, 'weapons.alloc', { mount: id, delta: code === 'KeyA' ? -1 : 1 }));
             }
-            if (code === 'KeyH') {
-              const id = M3_MOUNTS[this.sel.mount];
-              if (id === 'bow') { this.denied('Halten/Feuer frei gibt es nur für die Batterien (Q/E wählen)'); return true; }
-              const m = ((st.ship || {}).mounts || []).find(x => x.id === id);
-              return press(() => this.cmd(view, 'weapons.hold', { mount: id, hold: !(m && m.hold) }));
-            }
-            if (d >= 1 && d <= 3) { this.sel.mount = d - 1; return press(() => this.tryButton(MOUNT_NAMES[M3_MOUNTS[d - 1]])); }
+            // §20.3: 1 HALTEN lädt die Lanze auf, Loslassen feuert (keyUp); §20.4: 2/3/Leer feuern Batterien, kein H mehr
+            if (d === 1) { this.sel.mount = 0; return press(() => this.lanceCharge(view, true, 'key')); }
+            if (d >= 2 && d <= 3) { this.sel.mount = d - 1; return press(() => this.tryButton(MOUNT_NAMES[M3_MOUNTS[d - 1]])); }
             if (d === 4) return press(() => this.tryButton('Bolzen'));
-            if (code === 'Space') return press(() => this.tryButton('alle'));
+            if (code === 'Space') return press(() => this.tryButton('Batterien'));
           }
           if (d === 1) return press(() => this.tryButton(this.findButton('Phase L') ? 'Phase L' : 'Lanze'));
           if (d === 2) return press(() => this.tryButton('Phase R'));
@@ -1808,6 +2105,17 @@
         }
         case 'plan': {
           const P = this.plan;
+          // §21.2: M wechselt Karten/Missionsbuch; im Buch W/S wählen, Enter verfolgen, A annehmen
+          if (code === 'KeyM') { P.tab = P.tab === 'book' ? 'map' : 'book'; view.actions.sfx('ui_click'); return true; }
+          if (P.tab === 'book') {
+            const { list } = this.bookEntries(st);
+            if (code === 'KeyW' || code === 'ArrowUp') { P.bookSel = Math.max(0, (P.bookSel || 0) - 1); return true; }
+            if (code === 'KeyS' || code === 'ArrowDown') { P.bookSel = Math.min(Math.max(0, list.length - 1), (P.bookSel || 0) + 1); return true; }
+            if (code === 'Enter') return press(() => this.tryButton('Als aktiv markieren'));
+            if (code === 'KeyA') return press(() => this.tryButton('Annehmen'));
+            if (code === 'Backspace') { P.tab = 'map'; return true; }
+            return true;
+          }
           if (d >= 1 && d <= 5) { P.label = R.PIN_LABELS[d - 1]; return true; }
           if (code === 'Backspace') { P.mapId = 'star'; return true; }
           if (P.mapId === 'star') {
@@ -1831,6 +2139,7 @@
     },
     keyUp(e, view) {
       delete this.keys[e.code];
+      if ((e.code === 'Digit1' || e.code === 'Numpad1') && this.lanceOn === 'key') this.lanceCharge(view, false);
       if (e.code === 'Space' && this.scanOn) this.setScan(view, false);
       if (e.code === 'KeyS' && this.tscanOn) this.setTscan(view, false);
       return !!(view.me && view.me.console);
@@ -1838,6 +2147,7 @@
     releaseAll(view) {
       this.keys = {};
       this.mouseHold = null;
+      if (this.lanceOn) this.lanceCharge(view, false);   // Fenster verliert den Fokus = loslassen (feuert)
       if (this.scanOn) this.setScan(view, false);
       if (this.tscanOn) this.setTscan(view, false);
     },
@@ -1887,6 +2197,7 @@
       return false;
     },
     mouseUp(view) {
+      if (this.lanceOn === 'mouse') this.lanceCharge(view, false);
       if (this.mouseHold === 'scan') this.setScan(view, false);
       if (this.mouseHold === 'tscan') this.setTscan(view, false);
       this.mouseHold = null;
@@ -1908,10 +2219,11 @@
       const ax = this.helmAxes();
       const hs = this.helmSent;
       hs.t += dt;
-      const changed = ax.turn !== hs.turn || ax.thrust !== hs.thrust;
-      if (changed || ((ax.turn || ax.thrust) && hs.t >= 0.1)) {
-        view.send({ t: 'cmd', c: 'helm.input', turn: ax.turn, thrust: ax.thrust });
-        hs.turn = ax.turn; hs.thrust = ax.thrust; hs.t = 0;
+      // M3b: helm.input trägt nur noch das Ruder (thrust immer 0 – Tempo läuft über helm.throttle)
+      const changed = ax.turn !== hs.turn;
+      if (changed || (ax.turn && hs.t >= 0.1)) {
+        view.send({ t: 'cmd', c: 'helm.input', turn: ax.turn, thrust: 0 });
+        hs.turn = ax.turn; hs.t = 0;
       }
     },
   };

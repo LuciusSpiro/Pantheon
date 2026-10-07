@@ -1,0 +1,36 @@
+{
+  "id": "lerche/kit/plaque",
+  "name": "Lerche – Stationsplakette (Tabula ansata mit Seitenzeichen)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "plakette", "ornament"],
+  "footprint": [0.75, 0.375],
+  "params": {
+    "side": { "default": 0, "min": 0, "max": 4, "step": 1, "label": "0 Bug · 1 Stb · 2 Heck · 3 Bb · 4 Mitte" }
+  },
+  "variants": { "stb": { "side": 1 }, "heck": { "side": 2 }, "bb": { "side": 3 }, "mitte": { "side": 4 } },
+  "ops": [
+    { "op": "box", "name": "Tafel", "at": [-4, 0, 0], "size": [8, 6, 2], "color": { "frame": "trim", "fill": { "shade": "primary", "f": 0.55 }, "axes": "xy" } },
+    { "op": "box", "name": "Henkel (ansa) Spitze", "mirror": "x", "mirrorAt": 0, "at": [-6, 2, 0], "size": [1, 2, 2], "color": "trim" },
+    { "op": "box", "name": "Henkel (ansa) Hals", "mirror": "x", "mirrorAt": 0, "at": [-5, 1, 0], "size": [1, 4, 2], "color": { "shade": "trim", "f": 0.85 } },
+    { "op": "box", "name": "Rückplatte Bronze", "at": [-5, -1, 0], "size": [10, 8, 1], "color": "metal" },
+
+    { "op": "box", "name": "Bug: Spitze 1", "if": "side == 0", "at": [-3, 1, 2], "size": [6, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Bug: Spitze 2", "if": "side == 0", "at": [-2, 2, 2], "size": [4, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Bug: Spitze 3", "if": "side == 0", "at": [-1, 3, 2], "size": [2, 2, 1], "color": "trim" },
+
+    { "op": "box", "name": "Stb: Balken rechts", "if": "side == 1", "at": [1, 1, 2], "size": [2, 4, 1], "color": "trim" },
+    { "op": "box", "name": "Stb: Punkt", "if": "side == 1", "at": [-2, 2, 2], "size": [2, 2, 1], "color": "trim" },
+
+    { "op": "box", "name": "Heck: Balken", "if": "side == 2", "repeat": { "count": 2, "step": [0, 2, 0], "var": "b" }, "at": [-3, 1, 2], "size": [6, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Heck: Düse", "if": "side == 2", "at": [-1, 4, 2], "size": [2, 1, 1], "color": "trim" },
+
+    { "op": "box", "name": "Bb: Balken links", "if": "side == 3", "at": [-3, 1, 2], "size": [2, 4, 1], "color": "trim" },
+    { "op": "box", "name": "Bb: Punkt", "if": "side == 3", "at": [0, 2, 2], "size": [2, 2, 1], "color": "trim" },
+
+    { "op": "box", "name": "Mitte: Ring", "if": "side == 4", "at": [-2, 1, 2], "size": [4, 4, 1], "color": "trim" },
+    { "op": "box", "name": "Mitte: Ring innen", "if": "side == 4", "at": [-1, 2, 2], "size": [2, 2, 1], "mode": "carve" },
+    { "op": "box", "name": "Mitte: Kern rot", "if": "side == 4", "at": [-1, 2, 1], "size": [2, 2, 1], "mode": "paint", "color": "primary" }
+  ],
+  "anchor": [0, -1, 0]
+}

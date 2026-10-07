@@ -1,0 +1,40 @@
+{
+  "id": "lerche/actor/drone",
+  "name": "Plünderer-Drohne der Rostmeute (vier Rotoren, rotes Auge, Unterflurkanone)",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["lerche", "actor", "gegner", "rostmeute", "drohne"],
+  "notes": "Vorderseite +z. wreck 0: schwebt – der Anker liegt 0,875 m unter der Rumpfunterseite, ACTORS stellt das Modell also einfach auf den Boden (Wippen selbst ergänzen). wreck 1: liegt am Boden, verbogen, ein Rotorarm abgerissen, Auge aus. Rumpf 0,4 m, mit Rotoren 0,94 m breit.",
+  "footprint": [0.94, 0.94],
+  "params": {
+    "wreck": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Wrack (0 aktiv, 1 abgestürzt)" }
+  },
+  "ops": [
+    { "name": "Drohne", "op": "group", "ops": [
+      { "name": "Rumpf", "op": "ellipsoid", "at": [0, 3, 0], "r": [3.5, 2.6, 3.5], "color": { "noise": ["primary", { "shade": "primary", "f": 0.8 }, "metal"], "weights": [3, 2, 1], "cell": 2 } },
+      { "name": "Flickblech", "op": "box", "at": [-3, 4, -3], "size": [3, 2, 3], "color": "secondary", "mode": "paint" },
+      { "name": "Rumpfring", "op": "box", "at": [-4, 2, -4], "size": [8, 1, 8], "color": "metal_dark", "mode": "paint" },
+      { "name": "Warnstreifen", "op": "box", "at": [-4, 3, -4], "size": [8, 1, 3], "color": { "stripes": ["warning", "dark"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false },
+      { "name": "Knochenkappe", "op": "box", "at": [-1, 5, -1], "size": [2, 1, 2], "color": "trim" },
+      { "name": "Auge Fassung", "op": "box", "at": [-2, 2, 3], "size": [4, 3, 1], "color": "metal_dark" },
+      { "name": "Auge", "op": "box", "if": "!wreck", "at": [-1, 3, 3], "size": [2, 1, 1], "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
+      { "name": "Auge aus", "op": "box", "if": "wreck", "at": [-1, 3, 3], "size": [2, 1, 1], "color": "glass", "jitter": false },
+      { "name": "Kanone", "op": "box", "at": [-1, "wreck ? 1 : 0", 0], "size": [2, 1, 5], "color": "metal_dark" },
+      { "name": "Mündung", "op": "box", "at": [-1, 0, 5], "size": [2, 1, 1], "color": "black" },
+      { "name": "Antenne", "op": "line", "from": [1.5, 5.5, -1.5], "to": [2.5, 8.5, -3.5], "r": 0.5, "color": "metal_light" },
+      { "name": "Arme", "op": "line", "from": [0.5, 3.5, 0.5], "to": [5.5, 3.5, 5.5], "r": 0.5, "color": "metal", "mirror": "x", "mirrorAt": 0.5 },
+      { "name": "Arme hinten rechts", "op": "line", "from": [0.5, 3.5, 0.5], "to": [-4.5, 3.5, -4.5], "r": 0.5, "color": "metal" },
+      { "name": "Arm hinten links", "if": "!wreck", "op": "line", "from": [0.5, 3.5, 0.5], "to": [5.5, 3.5, -4.5], "r": 0.5, "color": "metal" },
+      { "name": "Rotor vorn", "op": "cyl", "at": [5.5, 4, 5.5], "r": 2, "h": 1, "color": { "stripes": ["metal_dark", "metal_light"], "axis": "x", "period": 1 }, "mirror": "x", "mirrorAt": 0.5 },
+      { "name": "Rotor hinten rechts", "op": "cyl", "at": [-4.5, 4, -4.5], "r": 2, "h": 1, "color": { "stripes": ["metal_dark", "metal_light"], "axis": "x", "period": 1 } },
+      { "name": "Rotor hinten links", "if": "!wreck", "op": "cyl", "at": [5.5, 4, -4.5], "r": 2, "h": 1, "color": { "stripes": ["metal_dark", "metal_light"], "axis": "x", "period": 1 } },
+      { "name": "Rotornaben", "op": "box", "at": [5, 5, 5], "size": [1, 1, 1], "color": "primary", "mirror": "x", "mirrorAt": 0.5 },
+      { "name": "Abriss", "if": "wreck", "op": "box", "at": [1, 3, -3], "size": [2, 2, 2], "color": { "noise": ["dark", "metal_dark"] }, "mode": "paint" },
+      { "name": "Brandspuren", "if": "wreck", "op": "box", "at": [-4, 0, -4], "size": [9, 7, 9], "color": { "noise": ["dark", "primary", "primary"], "cell": 1 }, "mode": "paint" }
+    ] },
+    { "name": "Arm verbogen", "if": "wreck", "op": "line", "from": [0.5, 3.5, 0.5], "to": [4.5, 0.5, -2.5], "r": 0.5, "color": "metal" },
+    { "name": "Rotor verbogen", "if": "wreck", "op": "box", "at": [4, 0, -4], "size": [3, 1, 2], "color": { "stripes": ["metal_dark", "metal_light"], "axis": "x", "period": 1 } }
+  ],
+  "variants": { "wrack": { "wreck": 1 } },
+  "anchor": [0.5, "wreck ? 0 : -14", 0.5]
+}

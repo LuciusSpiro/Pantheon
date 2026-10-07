@@ -17,13 +17,54 @@ let combatMod = null;
 const combat = () => combatMod || (combatMod = require('./combat.js'));
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
+const { ITEM_NAMES, DEKO_NAMES } = require('./explore.js');
+// §21.2 Missionsbuch
+const BOOK_LOG_MAX = 6;   // Log-Einträge je Buch-Eintrag (die jüngsten)
+const BOOK_TEXT_MAX = 120;   // Zeichen je Log-Text im Buch (volle Texte im Logbuch)
+const TESK = 'Hafenmeisterin Tesk';
+const SELA = 'Sela (Vaelen-Händlerin)';
+// Größenbudget des Buchs im Snapshot (Bytes JSON). Grundlast im Kesh-Kampf zu dritt ≈ 8 KB, Snapshot muss < 12 KB bleiben.
+const BOOK_BUDGET = 3000;
+const jsonBytes = (o) => Buffer.byteLength(JSON.stringify(o));
+// Kürzt das Buch stufenweise, bis es ins Budget passt. Laufende/angebotene Einträge behalten ihre Ziele immer.
+function fitBook(entries, budget) {
+  const steps = [
+    () => { for (const e of entries) if (e.state === 'erledigt') e.log = []; },
+    () => { for (const e of entries) if (e.kind === 'hinweis' && e.id !== 'teaser') e.briefing = ''; },
+    () => { for (const e of entries) if (e.briefing.length > 140) e.briefing = e.briefing.slice(0, 139) + '…'; },
+    () => { for (const e of entries) if (e.log.length > 3) e.log = e.log.slice(-3); },
+    () => { for (const e of entries) if (e.state === 'erledigt' && e.objectives.length > 1) e.objectives = [objOut(e.objectives.length + ' Ziele erledigt', true)]; },
+    () => { for (const e of entries) if (e.state === 'erledigt') e.briefing = ''; },
+    () => { for (const e of entries) e.log = []; },
+    () => { for (const e of entries) if (e.state !== 'erledigt' && e.objectives.length > 8) e.objectives = e.objectives.slice(-8); },
+    () => { for (const e of entries) if (e.state === 'erledigt') e.objectives = []; },
+  ];
+  for (const s of steps) { if (jsonBytes(entries) <= budget) break; s(); }
+  // Notfalls Hinweise (Entdeckungen) von hinten weglassen – sie stehen auch auf der Taktik-Karte
+  while (jsonBytes(entries) > budget) {
+    let i = -1;
+    for (let k = entries.length - 1; k >= 0; k--) if (entries[k].id.startsWith('h:')) { i = k; break; }
+    if (i < 0) break;
+    entries.splice(i, 1);
+  }
+  return entries;
+}
+const objOut = (text, done, optional) => (optional ? { text, done: !!done, optional: true } : { text, done: !!done });
+function rewardText(r) {
+  if (!r) return '';
+  const parts = [];
+  if (r.marks) parts.push(r.marks + ' Marken');
+  for (const [k, n] of Object.entries(r.items || {})) parts.push(n + '× ' + (ITEM_NAMES[k] || k));
+  for (const d of r.deko || []) parts.push('Deko: ' + (DEKO_NAMES[d] || d));
+  return parts.join(', ');
+}
 const kesh = (m) => m.game.aways.kesh;
 const keshTeam = (m) => m.game.players.filter((p) => p.zone === 'away' && m.game.away.map === 'kesh');
 
 const CONSOLE_HELP = {
-  helm: 'Steuer: A/D lenken (träge!), W/S Schub, Shift+A/D ausweichen, F Faltsprung. Zielt die Lanze: Kurs halten!',
-  captain: 'Captain: Funk, Sternkarte, Lage, Energie & Schilde (B + 1–4 = Schildstoß), Schäden, Außenteam.',
-  weapons: 'Taktik: T Ziel, 1 Lanze, 2/3 Batterien, Leertaste alles, Q/E + A/D Ladepunkte, H Halten, S Scan, W Weitscan.',
+  helm: 'Steuer: W/S Tempostufe (½ = wendig), A/D Ruder, X Allstopp, Shift+A/D ausweichen, F Faltsprung. Lanze: Bug drauf!',
+  captain: 'Captain: Funk, Karte, Lage, Energie & Schilde (ab 3 dicht, 1–2 lassen Kratzer durch), Schäden, Außenteam.',
+  weapons: 'Taktik: 1 halten = Lanze laden, loslassen = Feuer. 2/3/Leertaste Batterien. T Ziel, Q/E+A/D Punkte, S/W Scan.',
   transfer: 'Transfer: Leute auf die Pads, dann Runter/Hoch. Nachschub und Notrückholung gibt\'s hier auch.',
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
@@ -239,6 +280,9 @@ class Mission {
     this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set();
     this.choicesMade = new Set(); this.kills = {}; this.ev = null;
     this.scanPoint = null;
+    // §21.2 Missionsbuch: abgehakte Ziele je Mission (bleiben über Schrittwechsel erhalten), Fokus, Version
+    this.doneLog = {};           // missionId -> [{ id, text, optional }]
+    this.book = { version: 1, focus: null, key: null };
   }
 
   get stageTime() { return this.stepTime; }   // Altname (Tests/Tools)
@@ -277,6 +321,7 @@ class Mission {
   completeMission() {
     const id = this.activeId; const def = this.def;
     if (!id) return;
+    this.collectStepEnd();
     this.missions[id].state = 'done';
     this.game.stats.missions[id].end = this.playTime();
     this.game.emit('missionDone', { id, title: def.title });
@@ -292,6 +337,7 @@ class Mission {
     const g = this.game;
     const step = this.def.steps.find((s) => s.id === id);
     if (!step) { g.countError('mission-step', new Error('Unbekannter Schritt ' + id)); return; }
+    this.collectStepEnd();
     this.step = step; this.state.stage = id;
     this.stepTime = 0; this.v = {}; this.events = new Set(); this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set();
     this.kills = {}; this.state.choice = null; this.scanPoint = null;
@@ -464,7 +510,10 @@ class Mission {
   accept() {
     const r = this.state.radio;
     if (!r || !r.needsAccept) return 'Kein Funkspruch zum Annehmen.';
-    r.needsAccept = false;
+    return this.doAccept();
+  }
+  doAccept() {
+    if (this.state.radio) this.state.radio.needsAccept = false;
     this.events.add('accepted');
     this.game.emit('sfx', { name: 'ui_click' });
     if (this.step && this.step.onAccept) this.run(this.step.onAccept);
@@ -482,9 +531,31 @@ class Mission {
       if (o.show !== undefined && !this.cond(o.show)) continue;
       let done = this.done.has(this.activeId + ':' + o.id);
       if (!done && o.done !== undefined && this.cond(o.done)) { done = true; if (o.sticky !== false) this.done.add(this.activeId + ':' + o.id); }
-      list.push({ id: o.id, text: this.tpl(o.text), done, optional: !!o.optional });
+      const text = this.tpl(o.text);
+      if (done) this.collectDone(o.id, text, !!o.optional);
+      list.push({ id: o.id, text, done, optional: !!o.optional });
     }
     this.state.objectives = list;
+  }
+
+  // ---------- §21.2 Missionsbuch: erledigte Ziele sammeln ----------
+  collectDone(id, text, optional) {
+    const mid = this.activeId;
+    if (!mid) return;
+    const list = this.doneLog[mid] || (this.doneLog[mid] = []);
+    if (!list.some((x) => x.id === id)) list.push({ id, text, optional });
+  }
+  // Vor einem Schrittwechsel bzw. Missionsende: Ziele des alten Schritts ein letztes Mal prüfen (die Bedingung, die den
+  // Wechsel auslöst, wurde im laufenden Tick noch nicht abgehakt). Ziele ohne Haken-Bedingung (done: false, z. B.
+  // „Rostmeute abwehren“) gelten mit dem Schrittwechsel als erledigt.
+  collectStepEnd() {
+    if (!this.step || !this.def || !this.def.steps.includes(this.step)) return;
+    try { this.refreshObjectives(); } catch (e) { this.game.countError('mission-book', e); return; }
+    for (const o of this.state.objectives) {
+      if (o.done) continue;
+      const d = (this.step.objectives || []).find((x) => x.id === o.id);
+      if (d && d.done === false) this.collectDone(o.id, o.text, o.optional);
+    }
   }
 
   // ---------- Update ----------
@@ -597,7 +668,7 @@ class Mission {
     switch (name) {
       case 'consoleEnter': if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break;
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
-      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Das Terminal in der Messe zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
+      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Das Hafenterminal in der Messe (Privatdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;
       case 'asteroid': g.oda('Autsch. Der Brocken hatte Vorfahrt.', 'asteroid'); break;
       case 'salvage': g.oda('Bergungsgut an Bord: ' + data.what + '. ' + (data.n >= g.C.salvage.count ? 'Das war alles!' : 'Weiter, da treibt noch mehr.'), null); break;
@@ -686,6 +757,124 @@ class Mission {
   // ---------- Snapshot ----------
   snapshotList() {
     return MISSION_ORDER.filter((id) => this.missions[id]).map((id) => ({ id, title: this.missions[id].title, state: this.missions[id].state }));
+  }
+
+  // ---------- §21.2 Missionsbuch ----------
+  // Angebot offen: erster Schritt mit onAccept, noch nicht angenommen, Funk mit needsAccept bzw. v.offer (m2/m3).
+  offerPending() {
+    const s = this.step;
+    if (!s || !this.def || s !== this.def.steps[0] || !s.onAccept || this.events.has('accepted')) return false;
+    return !!((this.state.radio && this.state.radio.needsAccept) || this.v.offer);
+  }
+  // Vor dem Angebot kennt die Crew die Mission noch nicht – außer der Schritt zeigt schon Pflichtziele (Hafen-Übung).
+  preOffer() {
+    const s = this.step;
+    if (!s || !this.def || s !== this.def.steps[0] || !s.onAccept || this.events.has('accepted')) return false;
+    return !this.state.objectives.some((o) => !o.optional);
+  }
+  entryLog(id) {
+    const out = [];
+    const log = this.game.explore.log;
+    for (let i = log.length - 1; i >= 0 && out.length < BOOK_LOG_MAX; i--) {
+      const e = log[i];
+      if (e.mission === id) out.push({ t: e.t || 0, loc: e.loc || null, text: e.text.length > BOOK_TEXT_MAX ? e.text.slice(0, BOOK_TEXT_MAX - 1) + '…' : e.text });
+    }
+    return out.reverse();
+  }
+  // Alle Einträge, die die Crew als Auftrag kennt (Reihenfolge: Missionen, Nebenaufträge, Ausblick, Hinweise)
+  bookEntries() {
+    const g = this.game; const ex = g.explore; const out = [];
+    const val = (x) => (typeof x === 'function' ? x(this) : x);
+    for (const id of MISSION_ORDER) {
+      const ms = this.missions[id];
+      if (!ms) continue;
+      const def = DEFS[id]; const b = def.book || {};
+      const running = id === this.activeId;
+      let state = 'aktiv';
+      if (ms.state === 'done') state = 'erledigt';
+      else if (running && this.offerPending()) state = 'angeboten';
+      else if (running && this.preOffer()) continue;
+      const done = (this.doneLog[id] || []).map((o) => objOut(o.text, true, o.optional));
+      const open = running && this.step ? this.state.objectives.filter((o) => !o.done && !(this.doneLog[id] || []).some((x) => x.id === o.id)).map((o) => objOut(o.text, false, o.optional)) : [];
+      out.push({ id, title: def.title, from: val(b.from) || null, kind: 'mission', state, briefing: val(b.briefing) || '', reward: val(b.reward) || '',
+        objectives: done.concat(open), log: this.entryLog(id), loc: running && this.step && this.step.loc ? this.step.loc : null });
+    }
+    // Nebenauftrag: Selas Notruf (Mission 1, optional)
+    const f = this.flags;
+    if (f.selaCalled) {
+      const cfg = g.C.mission.vaelen;
+      out.push({ id: 'sela', title: 'Selas Notruf', from: SELA, kind: 'nebenauftrag', state: f.vaelenHelped ? 'erledigt' : 'aktiv',
+        briefing: 'Der Reaktor der Vaelen-Karawane hustet. Sie liegt gleich beim Hafen – andocken, unsere Schrauber helfen.',
+        reward: rewardText({ marks: cfg.marks, deko: [cfg.deko] }),
+        objectives: [objOut('Bei der Vaelen-Karawane andocken', !!f.vaelenHelped)], log: this.entryLog('sela'), loc: 'vaelen' });
+    }
+    // Nebenauftrag: Wrack „Zaunkönig“ (Gerücht von Tesk bzw. selbst entdeckt)
+    if (ex.isKnown('wrack')) {
+      const aw = g.aways.wreck;
+      const boxes = aw.salvage.filter((s) => !s.hidden); const hollow = aw.salvage.find((s) => s.hidden);
+      const nBox = boxes.filter((s) => s.done).length;
+      const allBoxes = nBox >= boxes.length; const hollowDone = !hollow || hollow.done;
+      out.push({ id: 'zaunkoenig', title: 'Wrack „Zaunkönig“', from: TESK, kind: 'nebenauftrag', state: allBoxes && hollowDone ? 'erledigt' : 'aktiv',
+        briefing: 'Hinter dem Splittergürtel treibt das Wrack der „Zaunkönig“. Plünderer waren da – aber nicht gründlich. Optional, aber lohnend.',
+        reward: 'Bergegut aus Containern und Hohlraum',
+        objectives: [objOut('Zum Wrack fliegen', ex.visited.has('wrack')), objOut(`Container bergen (${nBox}/${boxes.length})`, allBoxes),
+          objOut('Logbuch der „Zaunkönig“ lesen', !!aw.loreRead, true), objOut('Hohlraum finden (Weitscan) und ausräumen', hollowDone)],
+        log: this.entryLog('zaunkoenig'), loc: 'wrack' });
+    }
+    // Ausblick („Fortsetzung folgt“)
+    const t = this.state.teaser;
+    if (t && t.status === 'ready') {
+      out.push({ id: 'teaser', title: t.title || 'Ausblick', from: t.from || null, kind: 'hinweis', state: 'angeboten', briefing: t.briefing || '',
+        reward: t.reward != null ? t.reward + ' Marken' : '', objectives: [objOut('Ausblick – Fortsetzung folgt', false)], log: [], loc: null });
+    }
+    // Entdeckungen mit Auftragscharakter: per Weitscan aufgedeckt und noch einzusammeln bzw. zu scannen. Eingesammelte
+    // stehen nur im Logbuch (kein Auftrag mehr, spart Snapshot). Leitbake = Mission 2, Hohlraum = Zaunkönig.
+    for (const l of Locations.LOCATIONS) {
+      for (const h of l.hidden) {
+        if (h.kind === 'beacon' || h.kind === 'hollow' || !ex.isRevealed(h.id) || ex.isFound(h.id)) continue;
+        const how = h.kind === 'cache' ? 'Einsammeln (drüberfliegen)' : 'Scannen (Taktik: T, S halten)';
+        out.push({ id: 'h:' + h.id, title: h.name, from: 'Weitscan', kind: 'hinweis', state: 'aktiv',
+          briefing: `Entdeckt bei ${l.name}.`, reward: rewardText(h.reward), objectives: [objOut(how, false)], log: [], loc: l.id });
+      }
+    }
+    return out;
+  }
+  // mission.book = { version, focus, entries } – version steigt nur, wenn sich Inhalt oder Fokus ändern
+  bookSnapshot() {
+    const entries = fitBook(this.bookEntries(), this.game.C.net.bookBudget || BOOK_BUDGET);
+    const b = this.book;
+    if (b.focus) { const e = entries.find((x) => x.id === b.focus); if (!e || e.state === 'erledigt') b.focus = null; }
+    const key = JSON.stringify([b.focus, entries]);
+    if (key !== b.key) { b.key = key; b.version++; }
+    this.lastEntries = entries;
+    return { version: b.version, focus: b.focus, entries };
+  }
+  // HUD: Ziele der fokussierten Mission (ohne Fokus bzw. bei Fokus auf die laufende Mission: deren aktuelle Ziele)
+  focusSnapshot() {
+    const b = this.book;
+    const entries = this.lastEntries || this.bookEntries();
+    const e = b.focus ? entries.find((x) => x.id === b.focus) : null;
+    if (e && e.id !== this.activeId) return { focusId: e.id, focusTitle: e.title, focusObjectives: e.objectives, focusLoc: e.loc };
+    const inBook = this.activeId && entries.some((x) => x.id === this.activeId);
+    return { focusId: inBook ? this.activeId : null, focusTitle: this.def ? this.def.title : null, focusObjectives: this.state.objectives,
+      focusLoc: this.step && this.step.loc ? this.step.loc : null };
+  }
+  setFocus(id) {
+    const b = this.book;
+    if (id == null) { b.focus = null; this.game.emit('sfx', { name: 'ui_click' }); return null; }
+    const e = this.bookEntries().find((x) => x.id === id);
+    if (!e) return 'Unbekannter Eintrag im Missionsbuch.';
+    if (e.state === 'erledigt') return 'Schon erledigt – da gibt es nichts mehr zu verfolgen.';
+    b.focus = id;
+    this.game.emit('sfx', { name: 'ui_click' });
+    return null;
+  }
+  acceptEntry(id) {
+    const e = this.bookEntries().find((x) => x.id === id);
+    if (!e) return 'Unbekannter Eintrag im Missionsbuch.';
+    if (id === 'teaser') return 'Nur ein Ausblick – Fortsetzung folgt.';
+    if (e.state !== 'angeboten' || id !== this.activeId || !this.offerPending()) return 'Hier gibt es nichts anzunehmen.';
+    return this.doAccept();
   }
 
   // ---------- Debug ----------

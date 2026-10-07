@@ -1,0 +1,10 @@
+{
+  "id": "planet_dusk",
+  "name": "Planet in der Dämmerung – tiefe Sonne, Energielicht kommt zur Geltung",
+  "background": "#3B3550",
+  "fog": { "color": "#5A4A5E", "near": 2.0, "far": 5.5 },
+  "hemi": { "sky": "#6A6A9A", "ground": "#3A2A22", "intensity": 0.7 },
+  "sun": { "color": "#FFAE6B", "intensity": 2.4, "dir": [-0.9, 0.45, 0.25], "softness": 3 },
+  "exposure": 1.05,
+  "bloom": { "strength": 0.6, "radius": 0.5, "threshold": 0.8 }
+}

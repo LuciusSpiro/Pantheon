@@ -1,0 +1,27 @@
+{
+  "id": "lerche/station/parts_c/hatch",
+  "name": "Wartungsklappe, zu/offen (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "teil", "zustand"],
+  "footprint": [0.5, 0.4],
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Klappe offen" },
+    "w": { "default": 4, "min": 3, "max": 8, "step": 1, "label": "Breite (Voxel)" },
+    "h": { "default": 6, "min": 3, "max": 12, "step": 1, "label": "Höhe (Voxel)" }
+  },
+  "variants": { "offen": { "open": 1 } },
+  "ops": [
+    { "op": "box", "name": "Paneel zu", "if": "!open", "at": ["-floor(w/2)", 0, -1], "size": ["w", "h", 1], "color": { "frame": "trim", "fill": "metal_light", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Griff", "if": "!open", "at": [0, "floor(h/2)", 0], "size": [1, 1, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Schacht offen", "if": "open", "at": ["-floor(w/2)", 0, -2], "size": ["w", "h", 2], "color": "dark", "jitter": false },
+    { "op": "line", "name": "Kabel rot", "if": "open", "from": ["-floor(w/2)", 0.5, -0.5], "to": ["w - floor(w/2) - 1", "h - 1.5", -0.5], "r": 0.5, "color": "primary" },
+    { "op": "line", "name": "Kabel Gold", "if": "open", "from": ["-floor(w/2)", "h - 1.5", -0.5], "to": ["w - floor(w/2) - 1", 1.5, -0.5], "r": 0.5, "color": "trim" },
+    { "op": "box", "name": "Glimmer im Schacht", "if": "open", "at": [-1, "floor(h/2)", -1], "size": [1, 1, 1], "color": "glow2", "jitter": false },
+    { "op": "group", "name": "Klappe aufgeschwenkt", "if": "open", "ops": [
+      { "op": "box", "name": "Klappe", "at": ["w - floor(w/2)", 0, 0], "size": [1, "h", "w"], "color": { "frame": "primary", "fill": "secondary", "axes": "yz", "width": 1 } },
+      { "op": "box", "name": "Scharnier", "at": ["w - floor(w/2) - 1", 1, 0], "size": [1, "h - 2", 1], "color": "metal_dark" }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

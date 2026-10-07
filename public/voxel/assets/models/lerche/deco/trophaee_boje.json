@@ -1,0 +1,22 @@
+{
+  "id": "lerche/deco/trophaee_boje",
+  "name": "Bojen-Trophäe auf Marmorsockel (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "trophaee", "boje"],
+  "footprint": [0.65, 0.65],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [4, 0, 4], "size": [8, 6, 8], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Sockel Fuß", "at": [3, 0, 3], "size": [10, 1, 10], "color": "stone_dark", "jitter": false },
+    { "op": "box", "name": "Sockel Deckplatte", "at": [3, 6, 3], "size": [10, 1, 10], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Plakette", "at": [6, 2, 12], "size": [4, 2, 1], "color": "trim", "jitter": false },
+    { "op": "cyl", "name": "Bojenkörper", "at": [8, 7, 8], "r": 3, "h": 6, "color": { "stripes": ["metal_light", "primary"], "axis": "y", "period": 2 } },
+    { "op": "cyl", "name": "Bojenkopf", "at": [8, 13, 8], "r": 3, "r2": 1, "h": 3, "color": "metal" },
+    { "op": "box", "name": "Finnen", "at": [4, 7, 7], "size": [8, 4, 2], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Finnen quer", "at": [7, 7, 4], "size": [2, 4, 8], "color": "metal_dark", "jitter": false },
+    { "op": "line", "name": "Antenne", "from": [8, 16, 8], "to": [8, 21, 8], "r": 0.5, "color": "metal_dark" },
+    { "op": "ellipsoid", "name": "Bojenlicht", "at": [8, 22, 8], "r": 1.2, "color": { "role": "glow", "emit": 1.4 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

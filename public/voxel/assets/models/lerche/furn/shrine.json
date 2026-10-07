@@ -1,0 +1,33 @@
+{
+  "id": "lerche/furn/shrine",
+  "name": "Hausschrein / Lararium (Lerche, Privatdeck)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "schrein", "lararium"],
+  "footprint": [1, 1],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Sockelprofil", "at": [1, 0, 2], "size": [14, 1, 12], "color": "stone_dark", "jitter": false },
+    { "op": "box", "name": "Podium", "at": [2, 1, 3], "size": [12, 8, 10], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Podium Feld", "at": [4, 3, 13], "size": [8, 4, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy" }, "jitter": false },
+    { "op": "box", "name": "Podium Gesims", "at": [1, 9, 2], "size": [14, 1, 12], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Rückwand", "at": [3, 10, 3], "size": [10, 12, 1], "color": "primary", "jitter": false },
+    { "op": "line", "name": "Fresko Girlande", "from": [4, 18, 4], "to": [8, 15, 4], "r": 0.5, "color": "#4E6E3A", "jitter": false },
+    { "op": "line", "name": "Fresko Girlande 2", "from": [8, 15, 4], "to": [12, 18, 4], "r": 0.5, "color": "#4E6E3A", "jitter": false },
+    { "op": "box", "name": "Säulen", "at": [3, 10, 11], "size": [2, 11, 2], "color": "secondary", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Säulenbasen", "at": [3, 10, 11], "size": [2, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Kapitelle", "at": [3, 21, 11], "size": [2, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Seitenwände", "at": [3, 10, 4], "size": [1, 12, 5], "color": "stone", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Gebälk", "at": [2, 22, 3], "size": [12, 2, 11], "color": "stone", "jitter": false },
+    { "op": "box", "name": "Gebälk Fries", "at": [2, 22, 13], "size": [12, 1, 1], "color": { "stripes": ["trim", "primary"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false },
+    { "op": "wedge", "name": "Giebel", "at": [2, 24, 3], "size": [12, 4, 11], "gable": "x", "color": "stone_light", "jitter": false },
+    { "op": "box", "name": "Akroter", "at": [7, 28, 12], "size": [2, 1, 2], "color": "trim" },
+    { "op": "box", "name": "Lar Sockel", "at": [7, 10, 5], "size": [2, 1, 2], "color": "stone_dark" },
+    { "op": "box", "name": "Lar Gewand", "at": [7, 11, 5], "size": [2, 5, 2], "color": "trim" },
+    { "op": "box", "name": "Lar Kopf", "at": [7, 16, 5], "size": [2, 2, 2], "color": { "shade": "trim", "f": 1.1 } },
+    { "op": "box", "name": "Lar Arm mit Schale", "at": [9, 14, 6], "size": [1, 1, 2], "color": "trim" },
+    { "op": "box", "name": "Altärchen", "at": [7, 10, 9], "size": [2, 2, 2], "color": "stone_light" },
+    { "op": "ellipsoid", "name": "Opferflamme", "at": [8, 13, 10], "r": [0.9, 1.4, 0.9], "color": { "role": "glow2", "emit": 1.8 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

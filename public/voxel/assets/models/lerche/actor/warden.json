@@ -1,0 +1,1379 @@
+{
+ "id": "lerche/actor/warden",
+ "name": "Wächter „Lamassu“ der Kustoden (geflügelter Stier-Konstrukt mit Frontschild-Emitter)",
+ "tier": "detail",
+ "palette": "kustoden",
+ "tags": [
+  "lerche",
+  "actor",
+  "gegner",
+  "kustoden",
+  "aussenteam"
+ ],
+ "notes": "Vorderseite +z. state 0 aktiv (violette Neonlinien) / 1 Treffer (Linien weißglühend, Panzerriss) / 2 zerstört (liegt, Linien aus, linker Flügel gebrochen, Krone zerbrochen, Loch in der Flanke). front 0/1 = Frontschild-Emitter an der Brust an/aus (der Schildbogen ist ein Effekt von ACTORS, Socket shield_front). Kein eigener Kollisionskörper.",
+ "footprint": [
+  1,
+  1.625
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "Zustand (0 aktiv, 1 Treffer, 2 zerstört)"
+  },
+  "front": {
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Frontschild-Emitter (0 aus, 1 an)"
+  }
+ },
+ "ops": [
+  {
+   "name": "Vorderbeine",
+   "op": "box",
+   "at": [
+    3,
+    0,
+    5
+   ],
+   "size": [
+    4,
+    "state == 2 ? 7 : 12",
+    4
+   ],
+   "color": {
+    "noise": [
+     "primary",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "name": "Hinterbeine",
+   "op": "box",
+   "at": [
+    3,
+    0,
+    -12
+   ],
+   "size": [
+    4,
+    "state == 2 ? 7 : 12",
+    4
+   ],
+   "color": {
+    "noise": [
+     "primary",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "name": "Hufe vorn",
+   "op": "box",
+   "at": [
+    3,
+    0,
+    5
+   ],
+   "size": [
+    4,
+    2,
+    5
+   ],
+   "color": "trim",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "name": "Hufe hinten",
+   "op": "box",
+   "at": [
+    3,
+    0,
+    -12
+   ],
+   "size": [
+    4,
+    2,
+    5
+   ],
+   "color": "trim",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "name": "Kniegelenke",
+   "op": "box",
+   "at": [
+    3,
+    "state == 2 ? 4 : 7",
+    5
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "paint",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "name": "Neon Beine (aktiv)",
+   "op": "group",
+   "if": "state == 0",
+   "ops": [
+    {
+     "name": "Beinlinien vorn",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      8
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": {
+      "role": "glow",
+      "emit": 1.3
+     },
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    },
+    {
+     "name": "Beinlinien hinten",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      -12
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": {
+      "role": "glow",
+      "emit": 1.3
+     },
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    }
+   ]
+  },
+  {
+   "name": "Neon Beine (Treffer)",
+   "op": "group",
+   "if": "state == 1",
+   "ops": [
+    {
+     "name": "Beinlinien vorn",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      8
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": {
+      "role": "glow2",
+      "emit": 2
+     },
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    },
+    {
+     "name": "Beinlinien hinten",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      -12
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": {
+      "role": "glow2",
+      "emit": 2
+     },
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    }
+   ]
+  },
+  {
+   "name": "Neon Beine (aus)",
+   "op": "group",
+   "if": "state == 2",
+   "ops": [
+    {
+     "name": "Beinlinien vorn",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      8
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": "dark",
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    },
+    {
+     "name": "Beinlinien hinten",
+     "op": "box",
+     "at": [
+      4,
+      3,
+      -12
+     ],
+     "size": [
+      2,
+      "state == 2 ? 3 : 8",
+      1
+     ],
+     "color": "dark",
+     "mode": "paint",
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    }
+   ]
+  },
+  {
+   "name": "Oberbau",
+   "op": "group",
+   "at": [
+    0,
+    "state == 2 ? -5 : 0",
+    0
+   ],
+   "ops": [
+    {
+     "name": "Leib",
+     "op": "ellipsoid",
+     "at": [
+      0,
+      16,
+      -1.5
+     ],
+     "r": [
+      7,
+      5.5,
+      11
+     ],
+     "color": {
+      "noise": [
+       "primary",
+       "stone",
+       {
+        "shade": "primary",
+        "f": 0.85
+       }
+      ],
+      "weights": [
+       4,
+       1,
+       2
+      ],
+      "cell": 2
+     }
+    },
+    {
+     "name": "Panzerrippen",
+     "op": "box",
+     "at": [
+      -8,
+      11,
+      -11
+     ],
+     "size": [
+      16,
+      9,
+      19
+     ],
+     "color": {
+      "stripes": [
+       "primary",
+       {
+        "shade": "primary",
+        "f": 0.78
+       }
+      ],
+      "axis": "z",
+      "period": 2
+     },
+     "mode": "paint"
+    },
+    {
+     "name": "Sattelplatte",
+     "op": "box",
+     "at": [
+      -5,
+      20,
+      -9
+     ],
+     "size": [
+      10,
+      2,
+      13
+     ],
+     "color": {
+      "frame": "trim",
+      "fill": "secondary",
+      "axes": "xz",
+      "width": 1
+     },
+     "mode": "paint"
+    },
+    {
+     "name": "Brustplatte",
+     "op": "box",
+     "at": [
+      -4,
+      11,
+      7
+     ],
+     "size": [
+      8,
+      8,
+      4
+     ],
+     "color": {
+      "frame": "trim",
+      "fill": "secondary",
+      "axes": "xy",
+      "width": 1
+     }
+    },
+    {
+     "name": "Emitter Fassung",
+     "op": "cyl",
+     "axis": "z",
+     "at": [
+      0,
+      13.5,
+      11
+     ],
+     "r": 3,
+     "h": 1,
+     "color": "metal_dark"
+    },
+    {
+     "name": "Emitter an",
+     "op": "cyl",
+     "if": "front && state != 2",
+     "axis": "z",
+     "at": [
+      0,
+      13.5,
+      11
+     ],
+     "r": 2,
+     "h": 2,
+     "color": {
+      "role": "glow",
+      "emit": 1.8
+     },
+     "jitter": false
+    },
+    {
+     "name": "Emitter aus",
+     "op": "cyl",
+     "if": "!front || state == 2",
+     "axis": "z",
+     "at": [
+      0,
+      13.5,
+      11
+     ],
+     "r": 2,
+     "h": 1,
+     "color": "glass",
+     "jitter": false
+    },
+    {
+     "name": "Emitter Hörner",
+     "op": "box",
+     "if": "front && state != 2",
+     "at": [
+      3,
+      11,
+      11
+     ],
+     "size": [
+      1,
+      5,
+      1
+     ],
+     "color": {
+      "role": "glow",
+      "emit": 1.2
+     },
+     "jitter": false,
+     "mirror": "x",
+     "mirrorAt": 0
+    },
+    {
+     "name": "Hals",
+     "op": "box",
+     "at": [
+      -3,
+      19,
+      5
+     ],
+     "size": [
+      6,
+      4,
+      5
+     ],
+     "color": "secondary"
+    },
+    {
+     "name": "Kopf",
+     "op": "box",
+     "at": [
+      -3,
+      22,
+      8
+     ],
+     "size": [
+      6,
+      7,
+      5
+     ],
+     "color": {
+      "noise": [
+       "stone_light",
+       "stone"
+      ],
+      "weights": [
+       2,
+       1
+      ],
+      "cell": 1
+     }
+    },
+    {
+     "name": "Gesichtsmaske",
+     "op": "box",
+     "at": [
+      -3,
+      22,
+      12
+     ],
+     "size": [
+      6,
+      6,
+      1
+     ],
+     "color": "trim",
+     "mode": "paint"
+    },
+    {
+     "name": "Augenschlitz",
+     "op": "box",
+     "at": [
+      -2,
+      25,
+      12
+     ],
+     "size": [
+      4,
+      1,
+      1
+     ],
+     "color": "dark",
+     "mode": "paint"
+    },
+    {
+     "name": "Nase",
+     "op": "box",
+     "at": [
+      -1,
+      23,
+      13
+     ],
+     "size": [
+      2,
+      2,
+      1
+     ],
+     "color": {
+      "shade": "trim",
+      "f": 0.85
+     }
+    },
+    {
+     "name": "Bart",
+     "op": "box",
+     "at": [
+      -3,
+      18,
+      12
+     ],
+     "size": [
+      6,
+      4,
+      2
+     ],
+     "color": {
+      "stripes": [
+       "trim",
+       {
+        "shade": "trim",
+        "f": 0.65
+       }
+      ],
+      "axis": "y",
+      "period": 1
+     }
+    },
+    {
+     "name": "Bartlocken",
+     "op": "box",
+     "at": [
+      -3,
+      18,
+      14
+     ],
+     "size": [
+      6,
+      1,
+      1
+     ],
+     "color": {
+      "stripes": [
+       "trim",
+       "dark"
+      ],
+      "axis": "x",
+      "period": 1
+     }
+    },
+    {
+     "name": "Ohren",
+     "op": "box",
+     "at": [
+      3,
+      25,
+      9
+     ],
+     "size": [
+      1,
+      2,
+      2
+     ],
+     "color": "trim",
+     "mirror": "x",
+     "mirrorAt": 0
+    },
+    {
+     "name": "Hörnerkrone",
+     "op": "cyl",
+     "if": "state != 2",
+     "at": [
+      0,
+      29,
+      10
+     ],
+     "r": 3.5,
+     "h": 4,
+     "color": {
+      "stripes": [
+       "secondary",
+       "trim"
+      ],
+      "axis": "y",
+      "period": 1
+     }
+    },
+    {
+     "name": "Krone zerbrochen",
+     "op": "cyl",
+     "if": "state == 2",
+     "at": [
+      0,
+      29,
+      10
+     ],
+     "r": 3.5,
+     "h": 2,
+     "arc": [
+      0,
+      200
+     ],
+     "color": {
+      "stripes": [
+       "secondary",
+       "trim"
+      ],
+      "axis": "y",
+      "period": 1
+     }
+    },
+    {
+     "name": "Kronenaufsatz",
+     "op": "box",
+     "if": "state != 2",
+     "at": [
+      -2,
+      33,
+      8
+     ],
+     "size": [
+      4,
+      1,
+      4
+     ],
+     "color": "trim"
+    },
+    {
+     "name": "Flügel links",
+     "op": "box",
+     "repeat": {
+      "count": "state == 2 ? 7 : 19",
+      "step": [
+       0,
+       0,
+       -1
+      ]
+     },
+     "at": [
+      6,
+      12,
+      6
+     ],
+     "size": [
+      2,
+      "8 + floor(i*0.85)",
+      1
+     ],
+     "color": {
+      "stripes": [
+       "secondary",
+       "secondary",
+       {
+        "shade": "trim",
+        "f": 0.85
+       }
+      ],
+      "axis": "y",
+      "period": 1
+     }
+    },
+    {
+     "name": "Flügel rechts",
+     "op": "box",
+     "repeat": {
+      "count": 19,
+      "step": [
+       0,
+       0,
+       -1
+      ]
+     },
+     "at": [
+      -8,
+      12,
+      6
+     ],
+     "size": [
+      2,
+      "8 + floor(i*0.85)",
+      1
+     ],
+     "color": {
+      "stripes": [
+       "secondary",
+       "secondary",
+       {
+        "shade": "trim",
+        "f": 0.85
+       }
+      ],
+      "axis": "y",
+      "period": 1
+     }
+    },
+    {
+     "name": "Flügelstumpf Bruch",
+     "op": "box",
+     "if": "state == 2",
+     "at": [
+      6,
+      12,
+      -1
+     ],
+     "size": [
+      2,
+      10,
+      1
+     ],
+     "color": {
+      "noise": [
+       "dark",
+       "metal_dark"
+      ]
+     }
+    },
+    {
+     "name": "Neon Oberbau (aktiv)",
+     "op": "group",
+     "if": "state == 0",
+     "ops": [
+      {
+       "name": "Flankenlinie",
+       "op": "box",
+       "at": [
+        -8,
+        15,
+        -11
+       ],
+       "size": [
+        16,
+        1,
+        20
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Rückgrat",
+       "op": "box",
+       "at": [
+        -1,
+        19,
+        -11
+       ],
+       "size": [
+        2,
+        4,
+        17
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Augen",
+       "op": "box",
+       "at": [
+        1,
+        25,
+        12
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false,
+       "mirror": "x",
+       "mirrorAt": 0
+      },
+      {
+       "name": "Kronenband",
+       "op": "box",
+       "at": [
+        -4,
+        30,
+        6
+       ],
+       "size": [
+        8,
+        1,
+        8
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante links",
+       "op": "box",
+       "repeat": {
+        "count": "state == 2 ? 7 : 19",
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        7,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante rechts",
+       "op": "box",
+       "repeat": {
+        "count": 19,
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        -8,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante",
+       "op": "box",
+       "at": [
+        7,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante rechts",
+       "op": "box",
+       "at": [
+        -8,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": {
+        "role": "glow",
+        "emit": 1.3
+       },
+       "mode": "paint",
+       "jitter": false
+      }
+     ]
+    },
+    {
+     "name": "Neon Oberbau (Treffer)",
+     "op": "group",
+     "if": "state == 1",
+     "ops": [
+      {
+       "name": "Flankenlinie",
+       "op": "box",
+       "at": [
+        -8,
+        15,
+        -11
+       ],
+       "size": [
+        16,
+        1,
+        20
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Rückgrat",
+       "op": "box",
+       "at": [
+        -1,
+        19,
+        -11
+       ],
+       "size": [
+        2,
+        4,
+        17
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Augen",
+       "op": "box",
+       "at": [
+        1,
+        25,
+        12
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false,
+       "mirror": "x",
+       "mirrorAt": 0
+      },
+      {
+       "name": "Kronenband",
+       "op": "box",
+       "at": [
+        -4,
+        30,
+        6
+       ],
+       "size": [
+        8,
+        1,
+        8
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante links",
+       "op": "box",
+       "repeat": {
+        "count": "state == 2 ? 7 : 19",
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        7,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante rechts",
+       "op": "box",
+       "repeat": {
+        "count": 19,
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        -8,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante",
+       "op": "box",
+       "at": [
+        7,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante rechts",
+       "op": "box",
+       "at": [
+        -8,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": {
+        "role": "glow2",
+        "emit": 2
+       },
+       "mode": "paint",
+       "jitter": false
+      }
+     ]
+    },
+    {
+     "name": "Neon Oberbau (aus)",
+     "op": "group",
+     "if": "state == 2",
+     "ops": [
+      {
+       "name": "Flankenlinie",
+       "op": "box",
+       "at": [
+        -8,
+        15,
+        -11
+       ],
+       "size": [
+        16,
+        1,
+        20
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Rückgrat",
+       "op": "box",
+       "at": [
+        -1,
+        19,
+        -11
+       ],
+       "size": [
+        2,
+        4,
+        17
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Augen",
+       "op": "box",
+       "at": [
+        1,
+        25,
+        12
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false,
+       "mirror": "x",
+       "mirrorAt": 0
+      },
+      {
+       "name": "Kronenband",
+       "op": "box",
+       "at": [
+        -4,
+        30,
+        6
+       ],
+       "size": [
+        8,
+        1,
+        8
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante links",
+       "op": "box",
+       "repeat": {
+        "count": "state == 2 ? 7 : 19",
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        7,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": "dark",
+       "jitter": false
+      },
+      {
+       "name": "Flügelkante rechts",
+       "op": "box",
+       "repeat": {
+        "count": 19,
+        "step": [
+         0,
+         0,
+         -1
+        ]
+       },
+       "at": [
+        -8,
+        "19 + floor(i*0.85)",
+        6
+       ],
+       "size": [
+        1,
+        1,
+        1
+       ],
+       "color": "dark",
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante",
+       "op": "box",
+       "at": [
+        7,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false
+      },
+      {
+       "name": "Flügel Unterkante rechts",
+       "op": "box",
+       "at": [
+        -8,
+        13,
+        -11
+       ],
+       "size": [
+        1,
+        1,
+        18
+       ],
+       "color": "dark",
+       "mode": "paint",
+       "jitter": false
+      }
+     ]
+    },
+    {
+     "name": "Panzerriss (Treffer)",
+     "op": "box",
+     "if": "state == 1",
+     "at": [
+      5,
+      12,
+      -5
+     ],
+     "size": [
+      3,
+      5,
+      4
+     ],
+     "color": {
+      "noise": [
+       "dark",
+       {
+        "role": "glow2",
+        "emit": 2.4
+       }
+      ],
+      "weights": [
+       2,
+       1
+      ],
+      "cell": 1
+     },
+     "mode": "paint"
+    },
+    {
+     "name": "Loch in der Flanke",
+     "op": "box",
+     "if": "state == 2",
+     "at": [
+      4,
+      12,
+      -7
+     ],
+     "size": [
+      4,
+      4,
+      4
+     ],
+     "mode": "carve"
+    },
+    {
+     "name": "Brandspuren",
+     "op": "box",
+     "if": "state == 2",
+     "at": [
+      -8,
+      10,
+      -12
+     ],
+     "size": [
+      16,
+      14,
+      24
+     ],
+     "color": {
+      "noise": [
+       "dark",
+       "primary",
+       "primary"
+      ],
+      "cell": 2
+     },
+     "mode": "paint"
+    }
+   ]
+  }
+ ],
+ "variants": {
+  "treffer": {
+   "state": 1
+  },
+  "zerstoert": {
+   "state": 2
+  },
+  "schild_aus": {
+   "front": 0
+  }
+ },
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

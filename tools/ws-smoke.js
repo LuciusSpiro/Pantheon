@@ -35,8 +35,8 @@ function client(port, hello, noHello) {
 }
 
 (async () => {
-  // Testserver-Port des Teams TOOLS (CONTRACT-M3 §1.3); Port 3300 gehört dem Spielbetrieb. PORT=0 -> freier Port.
-  const srv = await startServer({ port: process.env.PORT != null ? Number(process.env.PORT) : 3323, quiet: true, noStore: true, debug: true, roomCode: CODE });
+  // Testserver-Port des Teams TOOLS (CONTRACT-M3B §1: 3356–3358); Port 3300 gehört dem Spielbetrieb. PORT=0 -> freier Port.
+  const srv = await startServer({ port: process.env.PORT != null ? Number(process.env.PORT) : 3356, quiet: true, noStore: true, debug: true, roomCode: CODE });
   const port = srv.port;
   console.log(`Server auf Port ${port}`);
   ok(await get(port, '/shared/config.js') === 200, 'GET /shared/config.js -> 200');
@@ -117,17 +117,26 @@ function client(port, hello, noHello) {
   ok(['turnVel', 'turnCap', 'fragile', 'repairQueue', 'botAuto', 'chargePoints'].every((k) => k in sh3) && 'cap' in sh3.shields && 'burstCd' in sh3.shields,
     'M3a: ship.turnVel/turnCap/fragile/repairQueue/botAuto/chargePoints, shields.cap/burstCd');
   ok(sh3.mounts.map((m) => m.id).slice(0, 3).join() === 'bow,port,stbd' && 'battery_port' in sh3.systems && 'weapons' in sh3.systems, 'M3a: mounts bow/port/stbd, 15 Systemeinträge inkl. Altname weapons');
+  const bow3 = sh3.mounts.find((m) => m.id === 'bow'), port3 = sh3.mounts.find((m) => m.id === 'port');
+  ok(bow3 && 'power' in bow3 && 'charging' in bow3 && !('aim' in bow3) && port3 && !('hold' in port3), '§20: mounts[bow].power/charging über das Netz, kein aim/hold');
   // M3a: Ladung im Netz (Debug tele) und Schildstoß
   a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'gunboat' }));
   await sleep(200);
   const gbId = a.snaps[a.snaps.length - 1].space.enemies.filter((e) => e.kind === 'gunboat').map((e) => e.id).pop();
   a.ws.send(JSON.stringify({ t: 'debug', cmd: 'tele', id: gbId }));
-  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'burst', sector: 1 }));
   await sleep(300);
   const sTele = a.snaps[a.snaps.length - 1];
   const teleE = sTele.space.enemies.find((e) => e.id === gbId);
   ok(teleE && teleE.tele && teleE.tele.kind && a.msgs.some((m) => m.t === 'event' && m.kind === 'tele'), 'M3a: enemies[].tele und Ereignis tele über das Netz');
-  ok(sTele.ship.shields.burst && sTele.ship.shields.burst.sector === 1, 'M3a: shields.burst über das Netz');
+  // M3b: Schildstoß entfällt (Altnamen null/0), Pool 6, Temporegler, Gegner-Felder vx/vy/state, Eskalation
+  const s3b = sTele.ship;
+  ok(s3b.shields.burst == null && s3b.shields.burstCd === 0 && s3b.shields.pool === 6, 'M3b: shields.burst null, burstCd 0, Pool 6 über das Netz');
+  ok(s3b.helm && typeof s3b.helm.stage === 'number' && Array.isArray(s3b.helm.stages) && 'autoStop' in s3b.helm && s3b.escalate && typeof s3b.escalate === 'object', 'M3b: ship.helm.stage/stages/autoStop und ship.escalate über das Netz');
+  // state nur mit Pilot (flightV2); in den Missionen bleibt bis Schritt B das M3a-Verhalten (flightV2.missions false)
+  ok(teleE && typeof teleE.vx === 'number' && typeof teleE.vy === 'number', 'M3b: enemies[].vx/vy über das Netz (Mission, ohne Pilot-state)');
+  a.ws.send(JSON.stringify({ t: 'cmd', c: 'captain.burst', sector: 1 }));
+  await sleep(200);
+  ok(a.snaps[a.snaps.length - 1].ship.shields.burst == null, 'M3b: captain.burst bewirkt nichts');
   ok(Math.max(maxR, maxC, maxM) < 12 * 1024, 'Snapshot < 12 KB');
 
   // Reconnect: A trennt, verbindet mit gleicher clientId neu

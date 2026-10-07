@@ -170,15 +170,36 @@
 
   // M3a: Fortschrittsbalken über dem Kopf (Flicken / Teil einbauen / Minispiel)
   const ACTION_LABEL = { flick: 'FLICKEN', swap: 'TEIL EINBAUEN', minigame: 'MINISPIEL' };
-  function actionBar(ctx, x, y, action, mine) {
+  // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
+  // Balken zittert, Beschriftung „RÜCKSCHLAG −50 %“.
+  function actionBar(ctx, x, y, action, mine, setbackAge) {
     const p = Math.max(0, Math.min(1, +action.progress || 0));
     const w = 36, col = action.kind === 'swap' ? PAL.mint : action.kind === 'flick' ? '#F08A3C' : PAL.amber;
+    const sb = setbackAge != null && setbackAge < 1.5;
+    if (sb && setbackAge < 0.4) x += Math.round(Math.sin(setbackAge * 60) * 2);
     x = Math.round(x); y = Math.round(y);
-    const lab = (ACTION_LABEL[action.kind] || '') + (action.kind === 'minigame' ? '' : ' ' + Math.round(p * 100) + ' %');
-    const lw = mine ? Math.max(w, measure(lab, 1)) : w;
-    backdrop(ctx, x - lw / 2 - 2, y - 2, lw + 4, mine ? 17 : 7, 0.72);
+    const loss = cfgM3b('repairHitLoss', 0.5);
+    const lab = sb ? 'RÜCKSCHLAG −' + Math.round(loss * 100) + ' %' : (ACTION_LABEL[action.kind] || '') + (action.kind === 'minigame' ? '' : ' ' + Math.round(p * 100) + ' %');
+    const lw = mine || sb ? Math.max(w, measure(lab, 1)) : w;
+    backdrop(ctx, x - lw / 2 - 2, y - 2, lw + 4, mine || sb ? 17 : 7, 0.72);
     bar(ctx, x - w / 2, y, w, 3, p, col);
-    if (mine) text(ctx, lab, x, y + 6, { color: col, align: 'center', shadow: false });
+    if (sb) {
+      const old = Math.min(1, loss < 1 ? p / (1 - loss) : 1);
+      const a = Math.max(0, 1 - setbackAge / 1.5);
+      ctx.fillStyle = 'rgba(255,90,74,' + (0.35 + 0.6 * a) + ')';
+      ctx.fillRect(x - w / 2 + Math.round(w * p), y, Math.max(1, Math.round(w * (old - p))), 3);
+    }
+    if (mine || sb) text(ctx, lab, x, y + 6, { color: sb ? '#FF5A4A' : col, align: 'center', shadow: false });
+  }
+  function cfgM3b(path, d) { let o = CFG.spaceM3b; for (const k of path.split('.')) { if (o == null) break; o = o[k]; } return typeof o === 'number' ? o : d; }
+  // M3b: Alter des jüngsten Rückschlags für Spieler (pid) bzw. Schrauber (bot) an system, sonst null
+  function setbackAgeFor(view, who, id, system) {
+    let best = null;
+    for (const s of view.setbacks || []) {
+      const match = who === 'bot' ? (s.bot ? s.bot === id : !s.pid && s.system === system) : (s.pid ? s.pid === id : !s.bot && s.system === system);
+      if (match && (best == null || s.age < best)) best = s.age;
+    }
+    return best;
   }
 
   // ------------------------------------------------------------------ UI-Buttons (Maus + Tooltip)
@@ -384,8 +405,8 @@
   function artIcon(ctx, name, x, y, opts) {
     return artK('drawIcon', name, [ctx, name, x, y, opts || {}], (g) => window.Art.drawIcon(g, name, 48, 48, opts || {}));
   }
-  function artBeam(ctx, x1, y1, x2, y2, kind, ttl) {
-    return artK('drawBeam', kind, [ctx, x1, y1, x2, y2, kind, ttl], (g) => window.Art.drawBeam(g, 10, 48, 86, 48, kind, 0.2));
+  function artBeam(ctx, x1, y1, x2, y2, kind, ttl, opts) {
+    return artK('drawBeam', kind, [ctx, x1, y1, x2, y2, kind, ttl, opts || {}],(g) => window.Art.drawBeam(g, 10, 48, 86, 48, kind, 0.2));
   }
   let roomStyleSupport = null, roomLightSupport = null;
   function artHasRoomStyle() {
@@ -625,6 +646,17 @@
         if (!qx) ctx.fillRect(px + 3, py + 2, 2, TILE - 2);
         if (qx && !qy) { ctx.fillStyle = PAL.amber; ctx.fillRect(px + 8, py + 14, 3, 3); }
         if (!qx && qy) { ctx.fillStyle = PAL.mint; ctx.fillRect(px + 18, py + 8, 2, 2); ctx.fillRect(px + 22, py + 12, 2, 2); }
+        return true;
+      }
+      case 'terminal_spare': {
+        // Brückenumbau: freies Terminal, ausgeschaltet (dunkler Bildschirm, rotes Standby-Lämpchen)
+        ctx.fillStyle = 'rgba(11,14,26,0.5)'; ctx.fillRect(px + 3, py + 24, 26, 6);
+        ctx.fillStyle = '#3A4250'; ctx.fillRect(px + 5, py + 8, 22, 18);
+        ctx.fillStyle = '#26313F'; ctx.fillRect(px + 6, py - 6, 20, 16);
+        ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(px + 6.5, py - 5.5, 19, 15);
+        ctx.fillStyle = '#0B0E14'; ctx.fillRect(px + 9, py - 3, 14, 10);
+        ctx.fillStyle = 'rgba(142,163,181,0.18)'; ctx.fillRect(px + 10, py - 2, 4, 1);
+        ctx.fillStyle = Math.floor(t * 0.8) % 2 ? '#7A2420' : '#3A1410'; ctx.fillRect(px + 22, py + 12, 2, 2);
         return true;
       }
       case 'salvage':
@@ -1412,6 +1444,8 @@
   }
 
   function drawWorld(ctx, view) {
+    overlay3d.on = !!(view.voxel && window.VoxelRender);
+    if (overlay3d.on) return drawWorldOverlay(ctx, view);   // M4: 3D zeichnet Kacheln, Figuren und Effekte
     const st = view.state;
     const zone = view.self.zone;
     const map = mapFor(zone, st);
@@ -1508,6 +1542,7 @@
 
     drawables.sort((a, b) => a.key - b.key);
     const plates = [];   // M3a: Seitenmarken der Stationen (nach den Objekten zeichnen)
+    const barRects = [];   // QA M3b: Fortschrittsbalken der Spieler (Eskalations-Label weicht aus)
     const sondeDisabled = !!(away.sonde && away.sonde.disabled);
     const inv = st.inventory || {};
     for (const d of drawables) {
@@ -1560,7 +1595,7 @@
               opts.fragile = fragileOf(st, dsys);
               opts.side = li.side || 'mid';
               opts.system = dsys;
-              plates.push({ tx: d.tx, ty: d.ty, side: opts.side, state: opts.state, fragile: opts.fragile });
+              plates.push({ tx: d.tx, ty: d.ty, side: opts.side, state: opts.state, fragile: opts.fragile, system: dsys });
               if (!artObject(ctx, kind, px, py, opts)) fbObject(ctx, kind, px, py, opts);
               continue;
             }
@@ -1580,7 +1615,8 @@
           if (kind === 'table') { opts.left = map.at(d.tx - 1, d.ty) === d.ch; opts.right = map.at(d.tx + 1, d.ty) === d.ch; }
           if (kind === 'door_locked') { const wv = (c) => c === '#'; opts.orient = wv(map.at(d.tx, d.ty - 1)) && wv(map.at(d.tx, d.ty + 1)) ? 'v' : 'h'; }
           if (kind === 'door_locked' && doorOpen) { /* offen: nur Boden + offene Tür */ }
-          if (!art('drawObject', 'drawObject:' + kind, [ctx, kind, px, py, opts])) fbObject(ctx, kind, px, py, opts);
+          if (kind === 'terminal_spare') { if (!artObject(ctx, kind, px, py, opts)) fbObject(ctx, kind, px, py, opts); }   // neu: nur mit Art-Probe
+          else if (!art('drawObject', 'drawObject:' + kind, [ctx, kind, px, py, opts])) fbObject(ctx, kind, px, py, opts);
         } else if (d.type === 'deco') {
           const px = d.tx * TILE - camX, py = d.ty * TILE - camY;
           if (!artObject(ctx, d.kind, px, py, { time: t })) fbObject(ctx, d.kind, px, py, { time: t });
@@ -1595,7 +1631,11 @@
             ctx.fillStyle = PAL.mint; ctx.fillRect(b.x - camX - 3, b.y - camY - 11, 6, 3);
             if (b.carry) itemFallback(ctx, b.carry, b.x - camX, b.y - camY - 24);
           }
-          if (b.task && b.progress > 0) ring(ctx, b.x - camX, b.y - camY - 28, 5, b.progress, PAL.brass);
+          if (b.task && b.progress > 0) {
+            const sba = setbackAgeFor(view, 'bot', b.id, b.task.system);
+            ring(ctx, b.x - camX, b.y - camY - 28, 5, b.progress, sba != null ? '#FF5A4A' : PAL.brass);
+            if (sba != null) text(ctx, '−' + Math.round(cfgM3b('repairHitLoss', 0.5) * 100) + ' %', b.x - camX, b.y - camY - 44, { color: '#FF5A4A', align: 'center' });
+          }
         } else if (d.type === 'npc') {
           const n = d.e;
           if (!art('drawNpc', null, [ctx, n.x - camX, n.y - camY, { dir: n.dir || 'down', moving: !!n.moving, time: t }])) {
@@ -1672,7 +1712,10 @@
           } else if (p.downed) {
             text(ctx, 'AUSSER GEFECHT', sx, sy - 22, { color: PAL.red, align: 'center' });
           }
-          if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) actionBar(ctx, sx, sy - 50, p.action, p.id === view.pid);
+          if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) {
+            actionBar(ctx, sx, sy - 50, p.action, p.id === view.pid, setbackAgeFor(view, 'player', p.id, p.action.system));
+            barRects.push({ x: sx - 30, y: sy - 52, w: 60, h: 19 });   // QA M3b: „brennt in …“ weicht dem Balken aus
+          }
           else if (p.action && p.id !== view.pid) ring(ctx, sx, sy - 44, 6, p.action.progress || 0, PAL.mint);
           if (zone === 'away' && away.kuppelUntil && st.time < away.kuppelUntil) {
             ctx.strokeStyle = 'rgba(127,224,194,' + (0.45 + 0.2 * Math.sin(t * 6)) + ')';
@@ -1685,6 +1728,24 @@
     // M3a: Seitenmarke + Zustand über jeder Station (Ort vor Zahl)
     for (const pl of plates) {
       try { stationPlate(ctx, pl.tx * TILE + 16 - camX, pl.ty * TILE - 20 - camY, pl.side, pl.state, pl.fragile); } catch (e) { report('Render.stationPlate', e); }
+      // M3b §4: Eskalations-Countdown über der Station („brennt in 12 s“)
+      const esc = ((st.ship && st.ship.escalate) || {})[pl.system];
+      if (esc != null) {
+        try {
+          const s = Math.ceil(+esc || 0), hot = s <= 5;
+          const lab = 'brennt in ' + s + ' s';
+          const ex = pl.tx * TILE + 16 - camX; let ey = pl.ty * TILE - 32 - camY;
+          const lw = measure(lab, 1) + 6;
+          // QA M3b: überlappt ein Fortschrittsbalken (Spieler an der Nachbarstation), das Label darüber setzen
+          for (let k = 0; k < 3; k++) {
+            const hit = barRects.find((b) => ex - lw / 2 < b.x + b.w && ex + lw / 2 > b.x && ey - 1 < b.y + b.h && ey + 10 > b.y);
+            if (!hit) break;
+            ey = hit.y - 13;
+          }
+          backdrop(ctx, Math.round(ex - lw / 2), ey - 1, lw, 11, 0.8);
+          text(ctx, lab, ex, ey, { color: hot && Math.floor(t * 4) % 2 ? '#FFFFFF' : hot ? '#FF5A4A' : '#F08A3C', align: 'center', shadow: false });
+        } catch (e) { report('Render.escalate', e); }
+      }
     }
 
     // M2: Nebel, Geister, Ziellinien, Medi-Kreuze, Captain-Befehle, Deckungs-Pips
@@ -1809,6 +1870,240 @@
         ctx.fillStyle = 'rgba(224,71,60,' + (0.06 + 0.06 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2))) + ')'; ctx.fillRect(0, 0, VW, VH);
       } else if (ov.alert === 'yellow') {
         ctx.fillStyle = 'rgba(242,201,76,' + (0.04 + 0.04 * (0.5 + 0.5 * Math.sin(t * Math.PI))) + ')'; ctx.fillRect(0, 0, VW, VH);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ M4: Overlay über der 3D-Welt
+  // Im Voxel-Modus zeichnet 3D Kacheln, Objekte, Figuren und Effekte. Hier nur punktförmige Hinweise, positioniert über
+  // VoxelRender.worldToScreen(px, py, Höhe in m): Zustandsmarken, Balken, Namen, Deckungs-Pips, „zuletzt gesehen“,
+  // Ziellinien, Captain-Befehle/Marker, Plan-Pins. 2D-Pixelversätze nach oben werden in Meter umgerechnet (OV_M je px).
+  const overlay3d = { on: false };
+  const OV_M = 1 / 22;
+  function vr() { return window.VoxelRender; }
+  function drawWorldOverlay(ctx, view) {
+    const st = view.state;
+    const zone = view.self.zone;
+    const map = mapFor(zone, st);
+    const isKesh = map.id === 'kesh';
+    const v2 = zone === 'away' && isV2(st);
+    const t = view.time;
+    const away = st.away || {};
+    const VR = vr();
+    updateCamera(view);   // 2D-Kamera weiter nachführen (HUD-Randpfeile, Audio-Panorama)
+    const P = (x, y, hpx) => VR.worldToScreen(x, y, (hpx || 0) * OV_M);
+    const deck = zone === 'ship' && VR.shownDeck ? VR.shownDeck() : 0;
+    const deckOfPy = (py) => (Maps.deckOfPx ? Maps.deckOfPx(py) : Maps.deckOf ? Maps.deckOf(Math.floor(py / TILE)) : 0);
+    const here = (py) => zone !== 'ship' || deckOfPy(py) === deck;
+    const inView = (s) => s.x > -60 && s.y > -60 && s.x < VW + 60 && s.y < VH + 60 && !s.behind;
+    const fogSet = v2 ? teamVision(view, map, st) : null;
+    const barRects = [];
+    const guard = (label, fn) => { try { fn(); } catch (e) { report('Render.overlay:' + label, e); } };
+
+    // Bots (Fortschrittsring), NPCs (Namen)
+    if (zone === 'ship') guard('bots', () => {
+      for (const b of view.bots || []) {
+        if (!here(b.y) || !(b.task && b.progress > 0)) continue;
+        const s = P(b.x, b.y, 28); if (!inView(s)) continue;
+        const sba = setbackAgeFor(view, 'bot', b.id, b.task.system);
+        ring(ctx, s.x, s.y, 5, b.progress, sba != null ? '#FF5A4A' : PAL.brass);
+        if (sba != null) text(ctx, '−' + Math.round(cfgM3b('repairHitLoss', 0.5) * 100) + ' %', s.x, s.y - 16, { color: '#FF5A4A', align: 'center' });
+      }
+      for (const n of view.shipNpcs || (st.ship && st.ship.npcs) || []) {
+        if (!here(n.y)) continue;
+        const s = P(n.x, n.y, 48); if (inView(s)) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), s.x, s.y, { color: PAL.ice, align: 'center' });
+      }
+    });
+    if (zone === 'away') guard('npc', () => {
+      const n = view.npc;
+      if (n && n.present !== false && !n.rescued && !isKesh) {
+        const s = P(n.x, n.y, 48);
+        text(ctx, n.injured ? 'Techniker (verletzt)' : n.following ? 'Techniker (folgt)' : 'Techniker', s.x, s.y, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
+      }
+      for (const e of view.drones || []) {
+        if (e.alive === false) continue;
+        if (v2 && !enemyShown(e, fogSet)) continue;
+        const dk = e.kind || (map.id === 'wreck' ? 'scavenger' : undefined);
+        if (dk === 'warden') { const s = P(e.x, e.y, 62); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
+        else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); text(ctx, cr ? 'PLÜNDERER (geduckt)' : 'PLÜNDERER', s.x, s.y, { color: PAL.rust, align: 'center' }); }
+      }
+    });
+
+    // Spieler: Namen, Verwundet, Fortschrittsbalken
+    guard('players', () => {
+      for (const p of view.players || []) {
+        if (p.zone !== zone || p.connected === false || !here(p.y)) continue;
+        const crouch = !!(v2 && Array.isArray(p.sh) && p.cr && !p.downed);
+        const feet = P(p.x, p.y, 0);
+        if (!inView(feet)) continue;
+        if (v2 && p.downed && Array.isArray(p.sh)) {
+          const frac = p.bleed != null ? clamp01(p.bleed / cfgNum('wounded.bleedout', 45)) : 1;
+          ctx.strokeStyle = 'rgba(224,71,60,' + (0.55 + 0.35 * Math.sin(t * 6)) + ')'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.ellipse(feet.x, feet.y, 6 + 16 * frac, 3 + 7 * frac, 0, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
+        }
+        if (p.id !== view.pid) {
+          const col = PAL.players[p.color || 0];
+          const nm = String(p.name || '').slice(0, 12);
+          const w = measure(nm, 1) + 14;
+          const s = P(p.x, p.y, crouch ? 40 : 52);
+          backdrop(ctx, Math.round(s.x - w / 2), Math.round(s.y), w, 10, 0.55);
+          shape(ctx, SHAPES[p.color || 0], s.x - w / 2 + 6, s.y + 5, 6, col);
+          text(ctx, nm, s.x - w / 2 + 11, s.y + 1, { color: col, shadow: false });
+        }
+        if (p.downed) { const s = P(p.x, p.y, 24); text(ctx, Array.isArray(p.sh) ? 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : '') : 'AUSSER GEFECHT', s.x, s.y, { color: PAL.red, align: 'center' }); }
+        if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) {
+          const s = P(p.x, p.y, 50);
+          actionBar(ctx, s.x, s.y, p.action, p.id === view.pid, setbackAgeFor(view, 'player', p.id, p.action.system));
+          barRects.push({ x: s.x - 30, y: s.y - 2, w: 60, h: 19 });
+        } else if (p.action && p.id !== view.pid) { const s = P(p.x, p.y, 44); ring(ctx, s.x, s.y, 6, p.action.progress || 0, PAL.mint); }
+        if (p.lift && p.id !== view.pid) { const s = P(p.x, p.y, 30); text(ctx, 'LIFT', s.x, s.y, { color: PAL.ice, align: 'center' }); }
+      }
+    });
+
+    // Stationen: Seitenmarke + Zustand, Eskalations-Countdown
+    if (zone === 'ship' && st.ship) guard('plates', () => {
+      for (const s0 of shipStations()) {
+        if (!here(s0.y * TILE + 16)) continue;
+        const s = P(s0.x * TILE + 16, s0.y * TILE + 16, 50);
+        if (!inView(s)) continue;
+        const state = sysState(st, s0.system), fragile = fragileOf(st, s0.system);
+        stationPlate(ctx, s.x, Math.round(s.y), s0.side, state, fragile);
+        const esc = (st.ship.escalate || {})[s0.system];
+        if (esc != null) {
+          const sec = Math.ceil(+esc || 0), hot = sec <= 5;
+          const lab = 'brennt in ' + sec + ' s';
+          let ey = Math.round(s.y) - 12;
+          const lw = measure(lab, 1) + 6;
+          for (let k = 0; k < 3; k++) {
+            const hit = barRects.find((b) => s.x - lw / 2 < b.x + b.w && s.x + lw / 2 > b.x && ey - 1 < b.y + b.h && ey + 10 > b.y);
+            if (!hit) break;
+            ey = hit.y - 13;
+          }
+          backdrop(ctx, Math.round(s.x - lw / 2), ey - 1, lw, 11, 0.8);
+          text(ctx, lab, s.x, ey, { color: hot && Math.floor(t * 4) % 2 ? '#FFFFFF' : hot ? '#FF5A4A' : '#F08A3C', align: 'center', shadow: false });
+        }
+      }
+    });
+
+    // M2: „zuletzt gesehen“, Ziellinien, Medi-Kreuze, Captain-Befehle, Deckungs-Pips
+    if (v2) guard('v2', () => {
+      const ghostTtl = cfgNum('ghostTime', 3);
+      for (const e of view.drones || []) {
+        if (e.alive === false || e.vis || !e.ghost) continue;
+        const s = P(e.ghost.x, e.ghost.y, 0);
+        drawGhost(ctx, s.x, s.y, e.kind, Math.max(0, (st.time || 0) - (+e.ghost.t || 0)), ghostTtl);
+      }
+      for (const e of view.drones || []) {
+        if (e.alive === false || !e.vis || !e.aim) continue;
+        const p = clamp01(e.aim.p);
+        const tp = (view.players || []).find(q => q.id === e.aim.target && q.zone === 'away');
+        if (!tp) continue;
+        const a = P(e.x, e.y, e.kind === 'warden' ? 24 : 14), b = P(tp.x, tp.y, 14);
+        ctx.save();
+        ctx.strokeStyle = 'rgba(224,71,60,' + (0.3 + 0.65 * p) + ')'; ctx.lineWidth = 1 + p * 2.5;
+        if (p < 0.35) ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.restore();
+        if (p > 0.6) { ctx.strokeStyle = 'rgba(224,71,60,' + p + ')'; ctx.beginPath(); ctx.arc(b.x, b.y, 10 - p * 4, 0, Math.PI * 2); ctx.stroke(); }
+      }
+      for (const p of view.players || []) {
+        if (p.zone !== 'away' || !p.downed || p.connected === false) continue;
+        const s = P(p.x, p.y, 36); drawMediCross(ctx, Math.round(s.x), Math.round(s.y), t);
+      }
+      for (const o of activeOrders(st)) {
+        const op = orderPos(o, view.drones);
+        const col = ORDER_COL[o.kind];
+        const left = o.until != null && st.time != null ? Math.max(0, Math.ceil(o.until - st.time)) : null;
+        const s = P(op.x, op.y, 132);
+        text(ctx, ORDER_NAMES[o.kind].toUpperCase() + (left != null ? ' ' + left + ' s' : ''), s.x, Math.max(12, s.y), { color: col, align: 'center' });
+        if (o.kind === 'fokus') {
+          const fe = (view.drones || []).find(d => d.id === o.target);
+          const big = fe && fe.kind === 'warden';
+          const lo = P(op.x, op.y, 0), hi = P(op.x, op.y, big ? 66 : 37);
+          const bw = (big ? 72 : 25) * (VR.pxPerMeter ? VR.pxPerMeter() / 32 : 1), bh = Math.max(8, lo.y - hi.y);
+          ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([4, 2]);
+          ctx.strokeRect(Math.round(lo.x - bw / 2) + 0.5, Math.round(hi.y) + 0.5, Math.round(bw), Math.round(bh)); ctx.setLineDash([]);
+        }
+      }
+      const mine = (view.players || []).find(p => p.id === view.pid);
+      if (mine && mine.zone === 'away' && !mine.downed && isKesh) drawCoverPips3d(ctx, map, st, mine.x, mine.y, t, !!mine.cr, P);
+    });
+
+    // Plattform/Außen: Sensor-Rahmen, Marker, Orbitalschläge, Plan-Pins
+    if (zone === 'away') guard('away', () => {
+      const ppm = VR.pxPerMeter ? VR.pxPerMeter() : 32;
+      const sensorOn = away.sensorUntil && st.time < away.sensorUntil;
+      if (sensorOn) for (const d of view.drones || []) {
+        if (d.alive === false) continue;
+        const lo = P(d.x, d.y, 0), hi = P(d.x, d.y, 24);
+        ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
+        ctx.strokeRect(Math.round(lo.x) - 9.5, Math.round(hi.y) + 0.5, 19, Math.max(8, Math.round(lo.y - hi.y)));
+      }
+      if (away.marker) {
+        const s = P(away.marker.x, away.marker.y, 0);
+        ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
+        const r = 10 + Math.sin(t * 5) * 2;
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, r, r * 0.84, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = PAL.amber; ctx.fillRect(s.x - 1, s.y - r - 4, 2, 6); ctx.fillRect(s.x - 1, s.y + r - 2, 2, 6); ctx.fillRect(s.x - r - 4, s.y - 1, 6, 2); ctx.fillRect(s.x + r - 2, s.y - 1, 6, 2);
+      }
+      for (const sk of away.strikes || []) {
+        const age = st.time - (sk.t || st.time);
+        const p = Math.max(0, Math.min(1, age / 1.5));
+        const s = P(sk.x, sk.y, 0), rr = 80 / TILE * ppm * (1 - p * 0.3);
+        ctx.strokeStyle = 'rgba(255,198,107,0.9)'; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, rr, rr * 0.84, 0, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
+      const mid = awayMapId(st);
+      for (const pin of (st.plan && st.plan.pins) || []) {
+        if (pin.map !== mid) continue;
+        const s = P(pin.x, pin.y, 0);
+        drawPin(ctx, pin, s.x, s.y, st, { world: true });
+      }
+    });
+
+    if (view.debug) guard('debug', () => {
+      if (view.interaction) {
+        const ia = view.interaction, c = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([dx, dy]) => P((ia.tx + dx) * TILE, (ia.ty + dy) * TILE, 0));
+        ctx.strokeStyle = PAL.amber; ctx.beginPath(); c.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); ctx.stroke();
+      }
+      if (zone === 'away' && v2) for (const e of view.drones || []) {
+        if (e.alive === false) continue;
+        const s = P(e.x, e.y, 56);
+        const sh = Array.isArray(e.sh) ? e.sh[0] + '/' + e.sh[1] : '-';
+        const line = (e.kind === 'warden' ? 'W ' : '') + (e.role || (e.asleep ? 'schläft' : '-')) + ' · ' + sh + (e.aim ? ' · Ziel ' + Math.round(clamp01(e.aim.p) * 100) + '%' : '') + (e.vis ? '' : ' · unsichtbar');
+        const w = measure(line, 1) + 6;
+        backdrop(ctx, s.x - w / 2, s.y, w, 10, 0.7);
+        text(ctx, line, s.x, s.y + 1, { color: '#FF66CC', align: 'center', shadow: false });
+      }
+    });
+  }
+  // Deckungs-Pips (3D): Kachelrahmen als projiziertes Viereck, Pip über halber (0,95 m) bzw. voller Deckung (2,3 m)
+  function drawCoverPips3d(ctx, map, st, px, py, t, crouched, P) {
+    const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+    const solid = solidFn(map, st);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const cx = tx + dx, cy = ty + dy;
+      const ch = map.at(cx, cy);
+      if (!OBJ_KESH[ch] || !solid(cx, cy)) continue;
+      const info = map.info(cx, cy);
+      const cover0 = info.cover || 0;
+      if (!cover0) continue;
+      const ducked = !!(crouched && info.low);
+      const cover = ducked ? 2 : cover0;
+      const c = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([ax, ay]) => P((cx + ax) * TILE, (cy + ay) * TILE, 0));
+      ctx.strokeStyle = 'rgba(127,243,255,' + (0.35 + 0.15 * Math.sin(t * 4)) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath(); c.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); ctx.stroke();
+      const pip = P(cx * TILE + 16, cy * TILE + 16, (cover0 >= 2 ? 2.3 : 0.95) / OV_M);
+      const sx = Math.round(pip.x), sy = Math.round(pip.y) - 3;
+      ctx.fillStyle = 'rgba(11,14,26,0.75)'; ctx.beginPath(); ctx.arc(sx, sy + 3, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = SHIELD_COL; ctx.beginPath(); ctx.arc(sx, sy + 3, 3.5, 0, Math.PI * 2);
+      if (cover >= 2) { ctx.fillStyle = SHIELD_COL; ctx.fill(); } else ctx.stroke();
+      if (ducked) {
+        ctx.strokeStyle = 'rgba(244,238,220,' + (0.55 + 0.35 * Math.sin(t * 5)) + ')';
+        ctx.beginPath(); ctx.arc(sx, sy + 3, 7, 0, Math.PI * 2); ctx.stroke();
+      } else if (info.low && !crouched) {
+        text(ctx, 'C', sx + 8, sy - 1, { color: SHIELD_COL, shadow: true });
       }
     }
   }
@@ -2024,6 +2319,235 @@
   })();
   const MIN_SHIP_SCALE = 0.55;   // darunter wird die Lerche unlesbar
 
+  // ---- §20.1 Nachrunde: Strahlen clientseitig nachglühen lassen + Mündungsblitz-Kette an der Flanke
+  // Ursache „Seitenwaffen unsichtbar“: Ein Batterie-Strahl lebt auf dem Server nur beamTtl × 0,6 = 0,15 s und steht damit in
+  // 1–2 Snapshots (15 Hz) mit eingefrorenem ttl. Art zeichnet die Bolzen über ttl/0,25 – bei ttl ≤ 0,12 ist der Bolzen schon
+  // „angekommen“ (head ≥ 1) und es bleibt nur eine 1-px-Linie mit Alpha 0,05. Zudem lag der Strahlanfang unter dem Schiffssprite,
+  // und Schüsse ins Leere hatten gar keinen Strahl. Jetzt: jeder Strahl wird beim Eintreffen gemerkt und lokal über eine feste
+  // Dauer abgespielt (ttlMax an Art), Salven erzeugen Mündungsblitze an der Flanke, fehlende Strahlen (ins Leere) werden ergänzt.
+  let lastIngested = null;
+  const BEAM_LIFE = { battery: 0.45, bolzen: 0.45, lance: 0.7, enemy_heavy: 0.6, phase: 0.4 };
+  const beamFx = [];     // { kind, mount, x1, y1, x2, y2, t0, dur, death, synth }
+  const muzzleFx = [];   // { mount, tube, tubes, t0 }
+  const salvoSeen = {};  // mountId -> letzter salvo-Wert
+  let beamTubeRR = 0;
+  function sideOfBeam(ship, b) {
+    const rel = Phys.normAngle(Math.atan2(b.y2 - b.y1, b.x2 - b.x1) - (+ship.angle || 0));
+    return rel < 0 ? 'port' : 'stbd';
+  }
+  function ingestSnap(st) {
+    if (!st || !st.space) return;
+    const now = performance.now() / 1000;
+    const time = +st.time;
+    const ship = st.ship || {};
+    for (let i = beamFx.length - 1; i >= 0; i--) if (now - beamFx[i].t0 > Math.max(beamFx[i].dur, 1.2)) beamFx.splice(i, 1);
+    for (let i = muzzleFx.length - 1; i >= 0; i--) if (now - muzzleFx[i].t0 > 0.6) muzzleFx.splice(i, 1);
+    const newBat = { port: 0, stbd: 0 };
+    for (const b of st.space.beams || []) {
+      if (!b || !isFinite(b.x1) || !isFinite(b.x2)) continue;
+      const kind = b.kind || 'lanze';
+      const death = isFinite(time) ? time + (+b.ttl || 0) : null;
+      const dup = beamFx.some(f => !f.synth && f.kind === kind && Math.abs(f.x1 - b.x1) < 0.5 && Math.abs(f.y1 - b.y1) < 0.5 &&
+        Math.abs(f.x2 - b.x2) < 0.5 && Math.abs(f.y2 - b.y2) < 0.5 && (death == null || f.death == null || Math.abs(f.death - death) < 0.09));
+      if (dup) continue;
+      const mount = kind === 'battery' ? (b.mount === 'port' || b.mount === 'stbd' ? b.mount : sideOfBeam(ship, b)) : (b.mount || null);
+      const own = (kind === 'battery' || kind === 'lance') && isFinite(ship.x);
+      beamFx.push({ kind, mount, x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2, t0: now, dur: BEAM_LIFE[kind] || 0.4, death, synth: false,
+        rel: own ? { x: b.x1 - ship.x, y: b.y1 - ship.y } : null });
+      if (kind === 'battery') newBat[mount]++;
+    }
+    // Salven: Schüsse aus dem Rückgang von mounts[].salvo (zählt auch Schüsse ohne Strahl)
+    for (const m of ship.mounts || []) {
+      if (m.id !== 'port' && m.id !== 'stbd') continue;
+      const cur = Math.max(0, +m.salvo || 0), max = Math.max(1, +m.salvoMax || 4);
+      const prev = salvoSeen[m.id];
+      salvoSeen[m.id] = cur;
+      let shots = 0, first = 0;
+      if (prev != null) {
+        if (cur < prev) { shots = prev - cur; first = max - prev; }
+        else if (cur > prev) { shots = max - cur; first = 0; }   // neue Salve, evtl. schon erste Schüsse
+      }
+      const flashes = Math.max(shots, newBat[m.id]);
+      for (let k = 0; k < flashes; k++) muzzleFx.push({ mount: m.id, tube: (shots ? first + k : beamTubeRR++) % max, tubes: max, t0: now + k * 0.05 });
+      // Schüsse ohne Strahl (ins Leere, älterer Server): Bolzen senkrecht zur Flanke ergänzen
+      const missing = shots - newBat[m.id];
+      if (missing > 0 && isFinite(ship.x)) {
+        const g = mountGeom(m);
+        for (let k = 0; k < missing; k++) {
+          const a = (+ship.angle || 0) + (m.id === 'port' ? -Math.PI / 2 : Math.PI / 2) + (hash(Math.floor(now * 1000) + k) - 0.5) * 0.12;
+          const ox = ship.x + Math.cos(a) * 16, oy = ship.y + Math.sin(a) * 16;
+          beamFx.push({ kind: 'battery', mount: m.id, x1: ox, y1: oy, x2: ox + Math.cos(a) * g.range, y2: oy + Math.sin(a) * g.range, t0: now + k * 0.05, dur: BEAM_LIFE.battery, death: null, synth: true, miss: true,
+            rel: { x: ox - ship.x, y: oy - ship.y } });
+        }
+      }
+    }
+    for (const m of ship.mounts || []) if ((m.id === 'port' || m.id === 'stbd') && newBat[m.id] && !(+m.salvo > 0) && salvoSeen[m.id] == null) salvoSeen[m.id] = 0;
+    if (beamFx.length > 60) beamFx.splice(0, beamFx.length - 60);
+    if (muzzleFx.length > 40) muzzleFx.splice(0, muzzleFx.length - 40);
+  }
+  function resetBeamFx() { beamFx.length = 0; muzzleFx.length = 0; for (const k in salvoSeen) delete salvoSeen[k]; }
+  // Lanzenschaden aus power (§20.3): min + (max − min) × power; beschädigt max × 0,75
+  function lanceDamage(m, power) {
+    if (power == null && m && typeof m.dmg === 'number' && isFinite(m.dmg)) return Math.round(m.dmg * 10) / 10;   // Server liefert dmg
+    const L = (CFG.spaceM3 && CFG.spaceM3.lance) || {};
+    const mn = +L.minDamage || 3;
+    let mx = +L.maxDamage || 12;
+    if (m && m.state === 'damaged') mx *= (+L.damagedMaxFactor || 0.75);
+    const p = clamp01(power != null ? power : (m && m.power));
+    return Math.round((mn + (Math.max(mn, mx) - mn) * p) * 10) / 10;
+  }
+  function lanceDamageMax(m) { return lanceDamage(m, 1); }
+  // Strahlen aus dem lokalen Speicher zeichnen (Weltkoordinaten -> Bildschirm per toS)
+  function drawBeamsFx(ctx, toS, t, ship) {
+    const now = performance.now() / 1000;
+    for (const b of beamFx) {
+      const age = now - b.t0;
+      if (age < 0 || age > b.dur) continue;
+      const ttl = b.dur - age;
+      // Anfang klebt am (interpolierten) Schiff, sonst sitzt er bei Fahrt neben der Flanke
+      const a = b.rel && ship && isFinite(ship.x) ? toS(ship.x + b.rel.x, ship.y + b.rel.y) : toS(b.x1, b.y1), c = toS(b.x2, b.y2);
+      const life = ttl / b.dur;
+      if (b.kind === 'battery' || b.kind === 'bolzen') {
+        // Leuchtspur unter den Bolzen (auch ohne Art gut sichtbar)
+        ctx.save();
+        ctx.strokeStyle = 'rgba(227,181,101,' + (0.45 * life).toFixed(3) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+        ctx.restore();
+      }
+      const m3k = b.kind === 'lance' || b.kind === 'battery' || b.kind === 'enemy_heavy' || b.kind === 'bolzen';
+      if (artBeam(ctx, a.x, a.y, c.x, c.y, b.kind, m3k ? ttl : ttl * 0.25 / b.dur, { ttlMax: b.dur })) continue;
+      fbBeam(ctx, b, a, c, age, life, t);
+    }
+  }
+  function fbBeam(ctx, b, a, c, age, life, t) {
+    if (b.kind === 'phase') {
+      const nx = -(c.y - a.y), ny = c.x - a.x, l = Math.hypot(nx, ny) || 1;
+      for (const o of [-2, 2]) { ctx.strokeStyle = o < 0 ? PAL.amber : PAL.star; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x + nx / l * o, a.y + ny / l * o); ctx.lineTo(c.x + nx / l * o, c.y + ny / l * o); ctx.stroke(); }
+    } else if (b.kind === 'lance' || b.kind === 'enemy_heavy') {
+      const lance = b.kind === 'lance';
+      ctx.save(); ctx.globalAlpha = Math.max(0.15, life);
+      ctx.strokeStyle = lance ? 'rgba(127,224,194,0.4)' : 'rgba(224,71,60,0.45)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+      ctx.strokeStyle = lance ? BURST_COL : '#FF8A7A'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+      ctx.restore();
+    } else if (b.kind === 'battery' || b.kind === 'bolzen') {
+      // zwei Messingbolzen fliegen die Linie entlang, am Ende ein Einschlag
+      const dx = c.x - a.x, dy = c.y - a.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+      const p = age / b.dur;
+      ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = '#E3B565';
+      for (let k = 0; k < 2; k++) {
+        const h = Math.min(1, p * 1.6 - k * 0.15);
+        if (h <= 0 || h >= 1) continue;
+        const hx = a.x + dx * h, hy = a.y + dy * h, bl = Math.min(12, L * 0.15);
+        ctx.beginPath(); ctx.moveTo(hx - ux * bl, hy - uy * bl); ctx.lineTo(hx, hy); ctx.stroke();
+        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx) - 1, Math.round(hy) - 1, 2, 2);
+      }
+      if (p > 0.6 && !b.miss) { ctx.fillStyle = 'rgba(255,198,107,' + (1 - p).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, 3 + (p - 0.6) * 12, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = b.kind === 'lanze' ? PAL.mint : PAL.amber; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+    }
+  }
+  // Rohrpositionen an der Flanke (Schiffskoordinaten, Bug = +x, Backbord = −y)
+  function tubeLocal(mount, tube, tubes) {
+    const n = Math.max(1, tubes);
+    const lx = n === 1 ? 4 : -12 + tube * (30 / (n - 1));
+    return { lx, ly: mount === 'port' ? -14 : 14 };
+  }
+  function drawMuzzles(ctx, sship, ship, rot, shipScale, cx, cy, t) {
+    const now = performance.now() / 1000;
+    const A = (+ship.angle || 0) + rot, cs = Math.cos(A), sn = Math.sin(A);
+    const toScr = (lx, ly) => ({ x: cx + (lx * cs - ly * sn) * shipScale, y: cy + (lx * sn + ly * cs) * shipScale });
+    // laufende Salve: Kette der Rohre (abgefeuert = glimmt, ausstehend = pulsiert)
+    for (const m of sship.mounts || []) {
+      if ((m.id !== 'port' && m.id !== 'stbd') || !(+m.salvo > 0)) continue;
+      const max = Math.max(1, +m.salvoMax || 4), left = +m.salvo || 0;
+      for (let k = 0; k < max; k++) {
+        const p = tubeLocal(m.id, k, max), s = toScr(p.lx, p.ly);
+        const fired = k < max - left;
+        ctx.fillStyle = fired ? 'rgba(240,138,60,0.85)' : 'rgba(255,241,201,' + (0.5 + 0.5 * Math.sin(t * 30 + k)).toFixed(3) + ')';
+        ctx.fillRect(Math.round(s.x) - 1, Math.round(s.y) - 1, 2, 2);
+      }
+    }
+    for (const f of muzzleFx) {
+      const age = now - f.t0;
+      if (age < 0 || age > 0.35) continue;
+      const p = tubeLocal(f.mount, f.tube, f.tubes), s = toScr(p.lx, p.ly);
+      const na = A + (f.mount === 'port' ? -Math.PI / 2 : Math.PI / 2), nx = Math.cos(na), ny = Math.sin(na);
+      const k = 1 - age / 0.35;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      // Glut
+      ctx.fillStyle = 'rgba(255,170,70,' + (0.55 * k).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, 3 + 5 * (1 - k), 0, Math.PI * 2); ctx.fill();
+      if (age < 0.12) {
+        // Mündungsblitz: Stichflamme nach außen + weißer Kern
+        const len = 12 * (1 - age / 0.12) + 4;
+        ctx.strokeStyle = 'rgba(255,214,140,0.95)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + nx * len, s.y + ny * len); ctx.stroke();
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x + nx * len * 0.6, s.y + ny * len * 0.6); ctx.stroke();
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(s.x) - 1, Math.round(s.y) - 1, 3, 3);
+      }
+      ctx.restore();
+      // Rauchwölkchen treibt nach außen
+      if (age > 0.08) { ctx.fillStyle = 'rgba(142,163,181,' + (0.35 * k).toFixed(3) + ')'; const d = 6 + age * 30; ctx.fillRect(Math.round(s.x + nx * d) - 1, Math.round(s.y + ny * d) - 1, 3, 3); }
+    }
+  }
+  // §20.3: Visierlinie der Lanze in Bugrichtung, solange aufgeladen wird (Steuer, Taktik, Lage)
+  function drawLanceSight(ctx, view, ship, sship, toS, zoom, t, lab, front) {
+    const bow = (sship.mounts || []).find(m => m.id === 'bow');
+    if (!bow || !bow.charging) return;
+    const g = mountGeom(bow);
+    const ang = +ship.angle || 0, ux = Math.cos(ang), uy = Math.sin(ang);
+    const ox = ship.x + ux * 34, oy = ship.y + uy * 34;
+    const range = g.range || 650;
+    const L = (CFG.spaceM3 && CFG.spaceM3.lance) || {};
+    const width = +L.width || 10;
+    const power = clamp01(bow.power);
+    // erster Gegner in der Linie (wie der Server: Abstand zur Linie < hitRadius + width)
+    const HR = (CFG.combat && CFG.combat.hitRadius) || {};
+    let hitE = null, hitT = Infinity;
+    for (const e of view.enemies || []) {
+      const dx = e.x - ox, dy = e.y - oy, along = dx * ux + dy * uy;
+      const rad = (HR[e.kind] || 18) + width;   // wie server lanceTrace
+      if (along < -rad || along > range + rad) continue;
+      const perp = Math.abs(dx * uy - dy * ux);
+      if (perp < rad && along < hitT) { hitT = Math.max(0, along); hitE = e; }
+    }
+    const endD = hitE ? hitT : range;
+    const a = toS(ox, oy), c = toS(ox + ux * endD, oy + uy * endD), cEnd = toS(ox + ux * range, oy + uy * range);
+    const pulse = 0.5 + 0.5 * Math.sin(t * (8 + power * 10));
+    ctx.save();
+    // Korridor (Breite der Lanze)
+    const nx = -uy, ny = ux, w = width;
+    ctx.strokeStyle = 'rgba(127,224,194,' + (0.18 + 0.2 * power).toFixed(3) + ')'; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+    for (const sgn of [-1, 1]) { const p0 = toS(ox + nx * w * sgn, oy + ny * w * sgn), p1 = toS(ox + ux * range + nx * w * sgn, oy + uy * range + ny * w * sgn); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke(); }
+    // Mittellinie: hell bis zum Treffpunkt, danach blass
+    ctx.setLineDash([6, 4]); ctx.lineDashOffset = -t * 40;
+    ctx.strokeStyle = 'rgba(232,248,255,' + (0.55 + 0.4 * pulse * power).toFixed(3) + ')'; ctx.lineWidth = power >= 1 ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+    if (hitE) { ctx.strokeStyle = 'rgba(142,163,181,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(cEnd.x, cEnd.y); ctx.stroke(); }
+    ctx.setLineDash([]);
+    // Endmarke (Reichweite)
+    ctx.strokeStyle = PAL.mint; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cEnd.x + nx * 5, cEnd.y + ny * 5); ctx.lineTo(cEnd.x - nx * 5, cEnd.y - ny * 5); ctx.stroke();
+    if (hitE) {
+      const s = toS(hitE.x, hitE.y), r = (ENEMY_SIZE[hitE.kind] || 16) + 6 + Math.round(2 * pulse);
+      ctx.strokeStyle = BURST_COL; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s.x - r - 4, s.y); ctx.lineTo(s.x - r + 3, s.y); ctx.moveTo(s.x + r - 3, s.y); ctx.lineTo(s.x + r + 4, s.y); ctx.stroke();
+    }
+    ctx.restore();
+    const dmg = lanceDamage(bow, power);
+    const str = (hitE ? 'IM VISIER · ' : 'LANZE · ') + String(dmg).replace('.', ',') + ' SCHADEN';
+    if (hitE) { const s = toS(hitE.x, hitE.y); lab(str, s.x, s.y - (ENEMY_SIZE[hitE.kind] || 16) - 20, { color: BURST_COL, align: 'center' }, 7); }
+    else if (front) lab(str, cEnd.x, cEnd.y - 12, { color: PAL.mint, align: 'center' }, 6);   // Karten zeigen die Zahl schon am Bogen
+    void front; void zoom;
+  }
+
   // ---- M3a: eigene Bögen (Lanze schmal, Batterien als Fächer, gefüllt nach Ladung; blass solange ungeladen)
   function wedge(ctx, cx, cy, r, a0, a1) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, Math.max(1, r), a0, a1); ctx.closePath(); }
   function drawMountArc(ctx, m, ship, sship, target, rot, zoom, cx, cy, t, lab) {
@@ -2036,7 +2560,8 @@
     const ready = charge >= 1 && !dead;
     const enemyTarget = target && !target.hidden && !target.station;
     const inArc = !!(enemyTarget && Phys.inArc(ship.x, ship.y, ship.angle || 0, g.facing, g.arc, g.range, target.x, target.y));
-    const aim = m.id === 'bow' ? m.aim : null;
+    // §20.3: keine Zielphase mehr – „aim“ ist das Aufladen (charging), die Lanze braucht kein Ziel
+    const aim = m.id === 'bow' && m.charging ? m : null;
     ctx.save();
     wedge(ctx, cx, cy, range, a0, a1);
     ctx.fillStyle = 'rgba(142,163,181,0.035)'; ctx.fill();
@@ -2061,8 +2586,7 @@
     ctx.restore();
     const mid = (a0 + a1) / 2;
     const rr = m.id === 'bow' ? range * 0.8 : range * 0.55;
-    let status = dead ? 'AUS' : aim ? 'ZIELT ' + fmt1(aim.left) : (+m.salvo > 0) ? 'SALVE' : ready ? 'BEREIT' : Math.round(charge * 100) + ' %';
-    if ((m.id === 'port' || m.id === 'stbd') && m.hold && !dead) status += ' · HALT';
+    let status = dead ? 'AUS' : aim ? 'LÄDT ' + String(lanceDamage(m)).replace('.', ',') + ' SCH' : (+m.salvo > 0) ? 'SALVE' : ready ? 'BEREIT' : Math.round(charge * 100) + ' %';
     if (sysSt === 'damaged') status += ' · BESCH';
     const name = { bow: 'LANZE', port: 'BB', stbd: 'STB' }[m.id];
     lab(name + ' ' + status, cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr - 3,
@@ -2102,6 +2626,29 @@
 
   // cfg = { mode: 'front'|'tactical'|'lage', zoom, rot, cx, cy, bound (Sichtrechteck), sight (Welt-px, Nebel),
   //         arcs, intel, enemyRects (füllt Klickflächen), navArrows, teleVis: 'all'|'late'|'none' }
+  // M3b §5: Anfluglinie eines Jägers. Gerade Bahn relativ zum Schiff: nächster Punkt nach t* = −(d·v)/|v|² (0…4 s),
+  // Linie bis t* + 0,8 s, Kreuz am nächsten Punkt mit Abstand. Rot gestrichelt, läuft mit (Marschbewegung).
+  function drawApproachLine(ctx, e, ship, toS, t, lab) {
+    const vx = e.vx - (+ship.vx || 0), vy = e.vy - (+ship.vy || 0);
+    const v2 = vx * vx + vy * vy;
+    if (v2 < 100) return;
+    const dx = e.x - (ship.x || 0), dy = e.y - (ship.y || 0);
+    const tc = Math.max(0, Math.min(4, -(dx * vx + dy * vy) / v2));
+    const tEnd = Math.min(5, tc + 0.8);
+    const a = toS(e.x, e.y);
+    const b = toS(e.x + e.vx * tEnd, e.y + e.vy * tEnd);
+    const cxw = e.x + e.vx * tc, cyw = e.y + e.vy * tc;
+    const c = toS(cxw, cyw);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,90,74,0.85)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.lineDashOffset = -Math.floor(t * 12) % 7;
+    ctx.beginPath(); ctx.moveTo(a.x + 0.5, a.y + 0.5); ctx.lineTo(b.x + 0.5, b.y + 0.5); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#FF5A4A';
+    ctx.beginPath(); ctx.moveTo(c.x - 3, c.y - 3); ctx.lineTo(c.x + 3, c.y + 3); ctx.moveTo(c.x + 3, c.y - 3); ctx.lineTo(c.x - 3, c.y + 3); ctx.stroke();
+    ctx.restore();
+    const miss = Math.round(Math.hypot(dx + vx * tc, dy + vy * tc));
+    lab('ANFLUG ' + miss, c.x, c.y + 5, { color: '#FF5A4A', align: 'center' }, 2, true);
+  }
   function drawSpace(ctx, view, rect, cfg) {
     const st = view.state;
     const ship = view.ship || st.ship || {};
@@ -2302,32 +2849,8 @@
       }
     }
 
-    // Strahlen, Projektile
-    for (const b of space.beams || []) {
-      const a = toS(b.x1, b.y1), c = toS(b.x2, b.y2);
-      if (!artBeam(ctx, a.x, a.y, c.x, c.y, b.kind || 'lanze', b.ttl)) {
-        if (b.kind === 'phase') {
-          const nx = -(c.y - a.y), ny = c.x - a.x, l = Math.hypot(nx, ny) || 1;
-          for (const o of [-2, 2]) { ctx.strokeStyle = o < 0 ? PAL.amber : PAL.star; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x + nx / l * o, a.y + ny / l * o); ctx.lineTo(c.x + nx / l * o, c.y + ny / l * o); ctx.stroke(); }
-        } else if (b.kind === 'lance' || b.kind === 'enemy_heavy') {
-          // M3a: Lanze weiß-mint dick, schwerer Feindtreffer rot
-          const lance = b.kind === 'lance';
-          ctx.save();
-          ctx.strokeStyle = lance ? 'rgba(127,224,194,0.4)' : 'rgba(224,71,60,0.45)'; ctx.lineWidth = 6;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-          ctx.strokeStyle = lance ? BURST_COL : '#FF8A7A'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-          ctx.restore();
-        } else if (b.kind === 'battery') {
-          // M3a: kurze Messingbolzen
-          ctx.save(); ctx.strokeStyle = PAL.brass; ctx.lineWidth = 2; ctx.setLineDash([6, 9]); ctx.lineDashOffset = -t * 120;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke(); ctx.restore();
-        } else {
-          ctx.strokeStyle = b.kind === 'lanze' ? PAL.mint : PAL.amber; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-        }
-      }
-    }
+    // Strahlen: §20.1 aus dem lokalen Speicher, gezeichnet erst nach Gegnern und Schiff (z-Order); hier nur Projektile
+    if (st !== lastIngested) { lastIngested = st; try { ingestSnap(st); } catch (e) { report('Render.ingestSnap', e); } }
     for (const pr of view.spaceProjectiles || []) {
       if (!visible(pr.x, pr.y)) continue;
       const s = toS(pr.x, pr.y);
@@ -2354,6 +2877,11 @@
       const size = ENEMY_SIZE[e.kind] || 16;
       const tShown = teleShown(e);
       if (tShown) teleList.push({ e, s, on: inB(s, 0) });
+      // M3b §5: Jäger im Anflug – gestrichelte Anfluglinie bis knapp hinter den nächsten Punkt zum Schiff (Taktik/Captain),
+      // auch wenn der Jäger noch außerhalb der Karte ist (die Linie ragt ins Bild)
+      if (!front && (e.state === 'approach' || e.state === 'app') && isFinite(e.vx) && isFinite(e.vy)) {
+        try { drawApproachLine(ctx, e, ship, toS, t, lab); } catch (err) { report('Render.approach', err); }
+      }
       if (!inB(s, 0)) { offscreen.push({ e, s }); continue; }
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
@@ -2404,11 +2932,14 @@
     // Schiff
     const sh = sship.shields || {};
     const hitInfo = view.shipHit || {};
-    const thrust = Math.max(0, (sship.helm && sship.helm.thrust) || 0);
+    // M3b: Triebwerksflamme nach Fahrtstufe (helm.stage/stages); Altfeld thrust nur als Fallback
+    const hh = sship.helm || {};
+    const stg = Number.isInteger(hh.stage) && Array.isArray(hh.stages) ? hh.stages : null;
+    const thrust = stg ? Math.max(0, (+stg[hh.stage] || 0) / Math.max(1, ...stg.map(Number))) : Math.max(0, hh.thrust || 0);
     const shipOpts = { thrust, shields: sh.current || [0, 0, 0, 0], shieldMax: 4, hitSector: hitInfo.sector, hitT: hitInfo.t != null ? hitInfo.t : 99, time: t,
       // M3a: Außenansicht (Rauch/Funken an Systemen), Schild-Kappung, Schildstoß, bedrohte Sektoren
       systems: sship.systems || null, fragile: sship.fragile || null, shieldCap: sh.cap || null,
-      burst: sh.burst ? Object.assign({}, sh.burst, view.burstFx && view.burstFx.sector === sh.burst.sector ? { perfect: view.burstFx.perfect, perfectAge: view.burstFx.age } : {}) : null,
+      burst: null,   // M3b: Schildstoß entfällt
       teleSectors: teleList.map(o => o.e.tele.sector).filter(v => v != null) };
     ctx.save(); ctx.translate(cx, cy); ctx.scale(shipScale, shipScale);
     const shipDrawn = art('drawShip', null, [ctx, 0, 0, (ship.angle || 0) + rot, shipOpts]);
@@ -2449,17 +2980,16 @@
         for (let k = cap; k < 4; k++) { ctx.beginPath(); ctx.arc(cx, cy, sr + k * 3, a0, a1); ctx.stroke(); }
         ctx.setLineDash([]);
       }
-      const bu = sh.burst;
-      if (!shipDrawn && bu && bu.sector === i && (+bu.left || 0) > 0) {   // Art zeichnet den Stoß selbst (drawShip opts.burst)
-        ctx.strokeStyle = BURST_COL; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(cx, cy, sr + 13, a0 - 0.05, a1 + 0.05); ctx.stroke();
-        if ((+bu.perfectLeft || 0) > 0) { ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, sr + 18, 0, Math.PI * 2); ctx.stroke(); }
-      }
       if (teleList.some(o => o.e.tele.sector === i)) {
         ctx.strokeStyle = 'rgba(255,90,74,' + (0.5 + 0.5 * Math.sin(t * 10)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(cx, cy, sr + 9, a0, a1); ctx.stroke(); ctx.setLineDash([]);
       }
     }
+
+    // §20.1/§20.3: Strahlen, Mündungsblitze, Visierlinie der Lanze – über Schiff und Gegnern
+    try { drawLanceSight(ctx, view, ship, sship, toS, zoom, t, lab, front); } catch (e) { report('Render.lanceSight', e); }
+    try { drawBeamsFx(ctx, toS, t, ship); } catch (e) { report('Render.beams', e); }
+    try { drawMuzzles(ctx, sship, ship, rot, shipScale, cx, cy, t); } catch (e) { report('Render.muzzles', e); }
 
     // Weitscan-Puls
     const ws = sship.widescan || {};
@@ -2643,7 +3173,9 @@
     ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
     ctx.fillStyle = '#070B14'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
     let toS, toW;
-    const tmap = mapById(mapId);
+    // 'kesh' = Orts-ID und Archivplan: vor dem Scan (Ort ohne map) die Detailkarte der Szene zeigen
+    const keshLoc = mapId === 'kesh' ? locById(st, 'kesh') : null;
+    const tmap = keshLoc && keshLoc.map !== 'kesh' ? null : mapById(mapId);
     if (tmap && mapId !== 'ship') {
       const c = Math.max(2, Math.floor(Math.min((rect.w - 8) / tmap.w, (rect.h - 8) / tmap.h)));
       const ox = rect.x + Math.floor((rect.w - tmap.w * c) / 2), oy = rect.y + Math.floor((rect.h - tmap.h * c) / 2);
@@ -2675,7 +3207,9 @@
       const loc = locById(st, mapId) || {};
       const here = mapId === w.location;
       const space = here ? (st.space || {}) : {};
-      const sw = (here && space.w) || loc.w || 3000, sh = (here && space.h) || loc.h || 2000;
+      // Szenengröße wie der Server (shared/locations.js), damit Pins auf fremden Detailkarten am richtigen Fleck landen
+      const SLx = window.Shared_Locations, scn = SLx && SLx.get ? ((SLx.get(mapId) || {}).scene || {}) : {};
+      const sw = (here && space.w) || scn.w || loc.w || 3000, sh = (here && space.h) || scn.h || loc.h || 2000;
       const s0 = Math.min((rect.w - 8) / sw, (rect.h - 8) / sh);
       const ox = rect.x + (rect.w - sw * s0) / 2, oy = rect.y + (rect.h - sh * s0) / 2;
       toS = (x, y) => ({ x: Math.round(ox + x * s0), y: Math.round(oy + y * s0) });
@@ -2850,9 +3384,12 @@
     // M3a
     SIDE_SHORT, STATE_SHORT, FRAGILE_COL, OFFLINE_COL, BURST_COL, MOUNT_SYS, SECTOR_SHORT,
     fragileOf, stateCode, stateColor, stateBadge, stationPlate, hatch, crossX, tape, shipStations, stationOfSystem, actionBar, cfgM3, fmt1, wedge,
+    lanceDamage, lanceDamageMax, ingestSnap, resetBeamFx,
     lastState: null,
     uiDenied: null,
-    worldToScreen(x, y) { return { x: x - camera.x, y: y - camera.y }; },
-    screenToWorld(x, y) { return { x: x + camera.x, y: y + camera.y }; },
+    // M4: im Voxel-Modus (Overlay) projiziert die 3D-Kamera; sonst wie bisher die 2D-Kamera
+    worldToScreen(x, y, h) { if (overlay3d.on) return vr().worldToScreen(x, y, h || 0); return { x: x - camera.x, y: y - camera.y }; },
+    screenToWorld(x, y) { if (overlay3d.on) return vr().screenToWorld(x, y); return { x: x + camera.x, y: y + camera.y }; },
+    overlay3d, enemyShown,
   };
 })();

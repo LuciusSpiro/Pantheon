@@ -1,0 +1,29 @@
+{
+  "id": "lerche/furn/bath",
+  "name": "Becken mit Wasser (Lerche, Bad, Kulisse)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "bad", "wasser"],
+  "footprint": [1, 1],
+  "params": {
+    "spout": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Löwenkopf-Speier an der Rückseite" }
+  },
+  "variants": { "ohne_speier": { "spout": 0 } },
+  "ops": [
+    { "op": "box", "name": "Becken Rand", "at": [0, 0, 0], "size": [16, 5, 16], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Becken Innen", "at": [2, 1, 2], "size": [12, 4, 12], "mode": "carve" },
+    { "op": "box", "name": "Sockelband", "at": [0, 0, 0], "size": [16, 1, 16], "color": "stone_dark", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Mosaikgrund", "at": [2, 1, 2], "size": [12, 1, 12], "color": { "checker": ["#2E6A8E", "secondary"], "period": 2 }, "jitter": false },
+    { "op": "box", "name": "Wasser", "at": [2, 2, 2], "size": [12, 2, 12], "color": "water", "jitter": false },
+    { "op": "box", "name": "Wellen", "at": [4, 3, 5], "size": [3, 1, 1], "color": "#5FA3C4", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Wellen 2", "at": [9, 3, 10], "size": [3, 1, 1], "color": "#5FA3C4", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Wellen 3", "at": [6, 3, 8], "size": [2, 1, 1], "color": "#7FB6D0", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Randmosaik", "at": [1, 4, 1], "size": [14, 1, 14], "color": "#2E6A8E", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Randmosaik Gold", "at": [0, 4, 0], "size": [1, 1, 1], "color": "trim", "mode": "paint", "jitter": false, "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Löwenkopf", "if": "spout", "at": [6, 5, 0], "size": [4, 4, 2], "color": "trim" },
+    { "op": "box", "name": "Mähne", "if": "spout", "at": [5, 5, 0], "size": [6, 5, 1], "color": { "shade": "trim", "f": 0.8 } },
+    { "op": "box", "name": "Maul", "if": "spout", "at": [7, 5, 2], "size": [2, 1, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Wasserstrahl", "if": "spout", "at": [7, 4, 2], "size": [2, 1, 1], "color": "#7FB6D0", "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

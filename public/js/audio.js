@@ -31,7 +31,9 @@
     // M3a „Breitseite & Schaden“
     'lance_charge', 'lance_aim', 'lance_fire', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
     'burst', 'burst_perfect', 'flick', 'swap', 'minigame_tick', 'minigame_hit', 'minigame_miss', 'minigame_done',
-    'system_break'];
+    'system_break',
+    // Nachrunde §20.2
+    'dodge_evade'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -60,7 +62,8 @@
     // M3a (tele_charge kurz, damit zwei Gegner fast gleichzeitig laden können)
     lance_charge: 300, lance_aim: 300, lance_fire: 150, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
     heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
-    minigame_miss: 80, minigame_done: 300, system_break: 150
+    minigame_miss: 80, minigame_done: 300, system_break: 150,
+    dodge_evade: 250
   };
   var DEFAULT_GAP = 50;
 
@@ -73,7 +76,7 @@
     enemy_aim: 1.3, warden_aim: 1.2, shield_break: 1.15, wounded: 1.15, squad_recall: 1.1, warden_shot: 1.1,
     cover_hit: 0.9, pistol: 0.9,
     // M3a: Ansage und schwere Treffer vorne, Minispiel leise
-    tele_charge: 1.1, heavy_hit: 1.3, system_break: 1.1, lance_fire: 1.1, burst_perfect: 1.1,
+    tele_charge: 1.1, heavy_hit: 1.3, system_break: 1.1, lance_fire: 1.1, burst_perfect: 1.1, dodge_evade: 1.1,
     minigame_tick: 0.7, minigame_hit: 0.8, minigame_miss: 0.8, minigame_done: 0.85
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
@@ -1030,6 +1033,14 @@
       fm({ f: 3136, ratio: 2.76, index: 0.6, index2: 0.02, t: t + 0.09, dur: 0.9, a: 0.002, vol: 0.05, out: o });
       tone({ f: 1046.5, t: t + 0.08, dur: 1.0, a: 0.004, vol: 0.06, out: o });
       return 1.5;
+    },
+    dodge_evade: function (t, o) {
+      // §20.2 Ausgewichen: kurzer Wusch (Rauschen fegt von tief nach hoch und vorbei) + heller Ping (mit Quinte)
+      noise({ t: t, dur: 0.32, a: 0.03, vol: 0.45, out: o, filter: 'bandpass', ff: 500, ff2: 4200, fglide: 0.2, q: 2.2 });
+      noise({ t: t + 0.05, dur: 0.22, a: 0.02, vol: 0.18, out: o, filter: 'highpass', ff: 2500 });
+      fm({ f: 1760, ratio: 2, index: 0.8, index2: 0.02, t: t + 0.14, dur: 0.6, a: 0.002, vol: 0.12, out: o });
+      tone({ f: 2637, t: t + 0.2, dur: 0.4, a: 0.003, vol: 0.05, out: o });
+      return 0.8;
     },
     flick: function (t, o) {
       // Flicken: Klebeband abziehen (Stick-Slip-Knistern), Abriss, Andrücken

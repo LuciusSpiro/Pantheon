@@ -29,7 +29,7 @@
       hull: 100,
       maxSpeed: 130, accel: 50, turnRate: 0.5, drag: 0.35, // px/s, px/s², rad/s, Anteil pro s (M3a: 160/70/1.6 -> 130/50/0.5)
       turnAccel: 0.8,          // M3a: rad/s² – Winkelgeschwindigkeit nähert sich helm.turn × turnRate × turnCap
-      dodgeImpulse: 180, dodgeCooldown: 10,   // M3a: 6 -> 10
+      dodgeImpulse: 350, dodgeCooldown: 7,   // M3a: 6 -> 10; §20.2: 180/10 -> 350/7 (Ausweichen als echte Antwort auf Ladungen)
       jumpCharge: 8,           // s bis Faltsprung bereit
       beamMaxSpeed: 30,        // Transfer nur langsamer als das
       beamTime: 3, beamTimeDamaged: 6,
@@ -39,7 +39,7 @@
     },
     power: { reactor: 8, reactorDamaged: 6, reactorBroken: 3, maxPerSystem: 4, heatAt4: 8, heatCool: 4, heatLimit: 100,
       default: { engines: 2, shields: 2, weapons: 2, life: 2 } },
-    shields: { pointsPerPower: 2, maxPerSector: 4, regenInterval: 4, default: [2, 1, 0, 1] },
+    shields: { pointsPerPower: 3,   /* M3b: 2 -> 3 (Pool 6 bei Energie 2, Kai) */ maxPerSector: 4, regenInterval: 4, default: [2, 2, 0, 2] },   // QA M3b: default [2,1,0,1] -> [2,2,0,2] (Pool 6 war zu Spielbeginn nur zu 4 verteilt, 2 Punkte lagen brach)
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
@@ -110,7 +110,7 @@
     ],
 
     // ---- Ergänzungen Team SERVER (nur hinzugefügt, nichts umbenannt) ----
-    net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90 }, // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
+    net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90, bookBudget: 3000 },   // §21.2 bookBudget: max. Bytes mission.book // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
     flight: {
       lateralDrag: 2.2,        // Dämpfung der Querbewegung pro s (Vorwärtstempo bleibt erhalten = "ODA hält Kurs")
       reverseFactor: 0.3,      // Rückwärts max. 30 % von maxSpeed
@@ -151,7 +151,13 @@
       hitRadiusDrone: 12, hitRadiusPlayer: 12, rescueRange: 64, alarmTime: 10,
       rebootTime: 5, rebootReward: 40, npcKitRange: 48, guardSpawns: [{ x: 12, y: 10 }, { x: 17, y: 3 }] }, // Bojenkern-Neustart weckt Wächter-Drohnen
     // Hafen-Übung (Stage dock): Kabelbrand + zerstörtes System; Funkspruch spätestens nach timeout s
-    drill: { fire: { x: 25, y: 2 }, breach: { x: 29, y: 4 }, system: 'transfer', timeout: 150 },
+    // fire/breach sind Altnamen; maßgeblich ist Shared_Maps.SHIP_DRILL (M4: Feuer im Vorraum, Leck im Lager)
+    drill: { fire: { x: 7, y: 6 }, breach: { x: 5, y: 3 }, system: 'transfer', timeout: 150 },
+    // M4 Stufe 1 (CONTRACT-M4 §2.4): Lift (E tippen) und Notleiter (E halten) zwischen Systemdeck und Privatdeck.
+    // rideTimeLowPower gilt bei Notstrom (Reaktor abgeschaltet/zerstört/EMP). arrivalClearRadius: Suchradius (Kacheln)
+    // für eine freie Ankunftskachel, wenn die Zielkachel belegt ist.
+    // firstContactDelay: Ist bei Gefechtsalarm jemand auf Deck II, feuern Gegner frühestens so viele s nach dem Alarm.
+    lift: { rideTime: 1.5, rideTimeLowPower: 3.0, ladderTime: 2.0, arrivalClearRadius: 1, firstContactDelay: 8 },
     weaponPowerFactor: [null, 1.6, 1, 0.8, 0.65], // Ladezeit-Faktor je Energie-Stufe (null = lädt nicht)
     enginePowerFactor: [0, 0.5, 0.8, 1, 1.15],
     stateFactor: { engines: { damaged: 0.5, broken: 0 }, weapons: { damaged: 1.5 } },   // M3a: Triebwerk zerstört = kein Schub
@@ -245,8 +251,9 @@
       firstWaveAt: 6,          // s nach Start bis Welle 1
       nextWaveDelay: 12,       // s nach Räumung bis zur nächsten Welle
       spawnSpread: 0.7,        // rad zwischen den Gegnern einer Welle (Anflug von vorn)
-      waves: [['raider', 'raider'], ['raider', 'gunboat'], ['sentinel', 'raider', 'raider'],
-        ['gunboat', 'raider'], ['pylon', 'gunboat']],   // M3a §15: Wellen 4 und 5
+      // M3b §7: neue Welle 1 „Kanonenboot + 2 Jäger“, die alten Wellen danach
+      waves: [['gunboat', 'raider', 'raider'], ['raider', 'raider'], ['raider', 'gunboat'], ['sentinel', 'raider', 'raider'],
+        ['gunboat', 'raider'], ['pylon', 'gunboat']],   // M3a §15: Wellen 4 und 5 (jetzt 5 und 6)
       pylonAt: { dx: 120, dy: -430 },   // M3a: Pylon fest relativ zu shipPos (im Backbord-Bogen der Startlage)
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
     },
@@ -269,6 +276,51 @@
       repair: { flickTime: 1.5, partTime: 3, minigameMinTime: 2.5, queueMax: 3, odaCooldown: 3 },
       // ---- Ergänzung SERVER-COMBAT ----
       raiderFlip: 9,   // s: Jäger wechseln die Kreisrichtung (sonst parken sie im toten Winkel achtern); 0 = aus
+      // ---- §20 Nachrunde (Kais Test) ----
+      dodgeWindow: 0.8,   // s: endet eine Ladung so kurz nach einem Ausweichen, verfehlt der schwere Treffer
+      // Lanze als Ladewaffe (ersetzt Zielphase; mounts.bow.damage und aim* sind nur noch Altnamen)
+      lance: { chargeTime: 3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
+      batteryBeamTtl: 0.4,   // s: Lebensdauer eines Batterie-Strahls (vorher beamTtl × 0,6 = 0,15 s – im Client unsichtbar, §20.1)
+      // ---- §21.1 Allstopp (cmd helm.stop): Bremsleistung in px/s², Standard = ship.accel (50). Kein Wert -> ship.accel.
+      fullStop: { brake: 50 },
+    },
+    // ================= M3b Schritt A (Studioleitung, CONTRACT-M3B) – alles per `tune <pfad>` =================
+    // Schiffsklassen für das gemeinsame Flugmodell (shared/flight.js). stages = Anteile von maxSpeed (Index = Stufe).
+    // turnCurve: Stützpunkte [Tempo/maxSpeed, Drehfaktor]; bei ½ am wendigsten (Kai).
+    shipClasses: {
+      lerche: { maxSpeed: 130, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1], stageNames: ['R', 'STOPP', '¼', '½', '¾', 'VOLL'],
+        turnRate: 0.6, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.8, lateralDrag: 2.2,
+        dodge: { impulse: 350, cooldown: 7, turnPenalty: 0.5, turnPenaltyTime: 1 }, radius: 36 },
+      gunboat: { maxSpeed: 110, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+        turnRate: 0.6, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.8, lateralDrag: 2.2, radius: 32 },
+      raider: { maxSpeed: 200, minSpeed: 120, accel: 60, decel: 40, brakeFactor: 1, stages: [0.6, 0.8, 1],
+        turnRate: 1.1, turnCurve: [[0, 1], [1, 1]], turnAccel: 2.5, lateralDrag: 0.8, radius: 16 },
+      sentinel: { maxSpeed: 40, minSpeed: 0, accel: 15, decel: 20, brakeFactor: 1, stages: [0, 0.5, 1],
+        turnRate: 0.36, turnCurve: [[0, 0.5], [0.5, 1], [1, 0.8]], turnAccel: 0.8, lateralDrag: 2.2, radius: 26 },
+      pylon: { maxSpeed: 0, minSpeed: 0, accel: 0, decel: 0, brakeFactor: 1, stages: [0], turnRate: 0.15, turnCurve: [[0, 1], [1, 1]], turnAccel: 1, lateralDrag: 5, radius: 20 },
+    },
+    spaceM3b: {
+      flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
+      pilot: { kP: 2.5, kD: 1.2, gunboatRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
+        raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 },
+      // Schild-Durchlass je Stärke vor dem Treffer (Kai: 1 -> 20 %, 2 -> 5 %)
+      shieldLeak: {
+        0: { chance: 0.45, maxState: 'broken', centre: true, breakFragile: true },
+        1: { chance: 0.2, maxState: 'damaged', centre: false, breakFragile: true },
+        2: { chance: 0.05, maxState: 'damaged', centre: false, breakFragile: false, heavyOnly: true },
+        3: { chance: 0, heavyReduce: 1 },
+        4: { chance: 0, heavyReduce: 1 },
+      },
+      shieldOverflow: true,
+      escalation: { after: 20 },          // s beschädigt/zerstört im Kampf ohne Arbeit -> Feuer neben der Station
+      repairHitLoss: 0.5,                  // Anteil Fortschritt, den ein Hüllentreffer im Sektor kostet
+      reactorAutoRestart: 3,               // s: zerstörter Reaktor repariert + Gegner da -> startet selbst
+      // QA M3b (Gegnerdruck, nur im neuen Flugmodell): Feuerintervall (× crewScaling) und Vorhalt (0..1) der Blaster-Schüsse
+      // Jäger: lead 0 -> 1 (Vorhalt). Vorher zielten sie auf die alte Position und trafen ein fahrendes Schiff kaum
+      // (Arena-Bots: 6–16 Gegnerschüsse je 6-Wellen-Lauf, ~1 von 10 traf). fireInterval bleibt 2,5 (= enemies.raider):
+      // kürzere Intervalle (0,6/1,5 getestet) machten „Nase drauf“ und „Breitseite“ gleich teuer, und im Browser kippten
+      // Kanonenboot-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
+      pilotFire: { raider: { fireInterval: 2.5, lead: 1 } },
     },
     // Raumszenen (px im Taktik-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {

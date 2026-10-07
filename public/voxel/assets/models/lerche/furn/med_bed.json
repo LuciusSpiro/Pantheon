@@ -1,0 +1,29 @@
+{
+  "id": "lerche/furn/med_bed",
+  "name": "Krankenliege (Lerche, Krankenstation, Kulisse)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "krankenstation", "liege"],
+  "footprint": [1, 1],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Fußplatte", "at": [4, 0, 3], "size": [8, 1, 10], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Säule", "at": [5, 1, 5], "size": [6, 5, 6], "color": "metal", "jitter": false },
+    { "op": "box", "name": "Säule Bronzeband", "at": [5, 3, 5], "size": [6, 1, 6], "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Liegerahmen", "at": [3, 6, 1], "size": [10, 2, 14], "color": "metal_light", "jitter": false },
+    { "op": "box", "name": "Polster", "at": [3, 8, 2], "size": [10, 2, 13], "color": "secondary", "jitter": false },
+    { "op": "wedge", "name": "Kopfteil", "at": [3, 10, 1], "size": [10, 4, 5], "slope": "+z", "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Kissen", "at": [5, 12, 2], "size": [6, 2, 2], "color": "white", "jitter": false },
+    { "op": "box", "name": "Laken", "at": [3, 10, 8], "size": [10, 1, 7], "color": "stone_light", "jitter": false },
+    { "op": "box", "name": "Laken Goldstreifen", "at": [3, 10, 9], "size": [10, 1, 1], "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Gitter", "at": [2, 8, 5], "size": [1, 3, 7], "color": "metal_light", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Monitorsäule", "at": [13, 0, 1], "size": [2, 20, 2], "color": "metal", "jitter": false },
+    { "op": "box", "name": "Monitor", "at": [11, 17, 2], "size": [5, 4, 1], "color": { "frame": "trim", "fill": "dark", "axes": "xy" }, "jitter": false },
+    { "op": "box", "name": "Monitor Kurve", "at": [12, 18, 3], "size": [3, 1, 1], "color": { "role": "glow", "emit": 1.3 }, "jitter": false },
+    { "op": "box", "name": "Monitor Kurve Spitze", "at": [13, 19, 3], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.3 }, "jitter": false },
+    { "op": "box", "name": "Lampenarm", "at": [8, 20, 1], "size": [5, 1, 1], "color": "metal" },
+    { "op": "cyl", "name": "Lampe", "at": [8, 18, 2], "r": 1.6, "h": 2, "color": "trim" },
+    { "op": "box", "name": "Lampe Licht", "at": [7, 18, 1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 1.4 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

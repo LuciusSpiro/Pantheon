@@ -1,0 +1,26 @@
+{
+  "id": "aegypten",
+  "name": "Ägypten (Sci-Fi): Kalkstein-Gold, Lapisblau, Türkis, Sonnengold",
+  "extends": "base",
+  "roles": {
+    "primary": "#E3D3A8",
+    "secondary": "#2A4A8C",
+    "trim": "#D4A83A",
+    "metal": "#6A5638",
+    "metal_dark": "#3A2E20",
+    "metal_light": "#C9B68A",
+    "stone": "#D8C08A",
+    "cloth": "#3FB8AF",
+    "glow": {
+      "color": "#6FF0E0",
+      "emit": 1.7
+    },
+    "glow2": {
+      "color": "#FFD27A",
+      "emit": 1.8
+    },
+    "glass": "#1B2A44",
+    "dark": "#1A1610",
+    "water": "#3A7FD0"
+  }
+}

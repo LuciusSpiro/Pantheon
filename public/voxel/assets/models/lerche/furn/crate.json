@@ -1,0 +1,19 @@
+{
+  "id": "lerche/furn/crate",
+  "name": "Ladungskiste (Lerche, per seed; nutzt rom/kiste)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "kiste", "deckung"],
+  "footprint": [1, 1],
+  "let": { "v": "seed % 4" },
+  "variants": { "stapel": { "seed": 1 }, "lang": { "seed": 2 }, "klein_doppelt": { "seed": 3 } },
+  "ops": [
+    { "op": "use", "name": "Kiste", "if": "v == 0", "model": "rom/kiste", "params": { "w": 12, "h": 10, "d": 11, "lid": 1 }, "at": [8, 0, 8] },
+    { "op": "use", "name": "Unterkiste", "if": "v == 1", "model": "rom/kiste", "params": { "w": 12, "h": 8, "d": 11, "lid": 0, "light": 0 }, "at": [8, 0, 8] },
+    { "op": "use", "name": "Oberkiste", "if": "v == 1", "model": "rom/kiste", "params": { "w": 8, "h": 6, "d": 7, "lid": 2, "light": 0 }, "at": [8, 9, 7] },
+    { "op": "use", "name": "Lange Kiste", "if": "v == 2", "model": "rom/kiste", "params": { "w": 12, "h": 7, "d": 9, "lid": 2 }, "at": [8, 0, 8] },
+    { "op": "use", "name": "Kleinkiste", "if": "v == 3", "model": "rom/kiste", "params": { "w": 7, "h": 7, "d": 7, "light": 0, "lid": 2 }, "at": [5.5, 0, 10.5] },
+    { "op": "use", "name": "Kleinkiste 2", "if": "v == 3", "model": "rom/kiste", "params": { "w": 6, "h": 6, "d": 6, "light": 1, "lid": 1 }, "at": [10.5, 0, 4.5] }
+  ],
+  "anchor": [8, 0, 8]
+}

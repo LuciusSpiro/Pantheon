@@ -1,0 +1,10 @@
+{
+  "id": "precursor_neon",
+  "name": "Vorläufer-Anlage – fast dunkel, violettes Leuchten",
+  "background": "#07060E",
+  "fog": { "color": "#120C22", "near": 1.5, "far": 4.5 },
+  "hemi": { "sky": "#5A4A8A", "ground": "#120E1A", "intensity": 0.4 },
+  "sun": { "color": "#B9A6FF", "intensity": 0.6, "dir": [0.2, 1, -0.3], "softness": 4 },
+  "exposure": 1.15,
+  "bloom": { "strength": 1.1, "radius": 0.6, "threshold": 0.6 }
+}

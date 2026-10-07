@@ -1,0 +1,19 @@
+{
+  "id": "lerche/deco/teppich",
+  "name": "Teppich mit Mäanderbord (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "teppich"],
+  "footprint": [1, 1],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Teppich", "at": [1, 0, 1], "size": [14, 1, 14], "color": { "frame": "trim", "fill": "cloth", "axes": "xz", "width": 1 }, "jitter": false },
+    { "op": "box", "name": "Bordüre", "at": [2, 0, 2], "size": [12, 1, 12], "color": { "frame": { "stripes": ["cloth2", "secondary"], "axis": "x", "period": 1 }, "fill": "cloth", "axes": "xz", "width": 1 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bordüre quer", "at": [2, 0, 3], "size": [1, 1, 10], "color": { "stripes": ["cloth2", "secondary"], "axis": "z", "period": 1 }, "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Innenfeld", "at": [4, 0, 4], "size": [8, 1, 8], "color": { "frame": "#6E1218", "fill": "cloth", "axes": "xz", "width": 1 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Medaillon", "at": [6, 0, 6], "size": [4, 1, 4], "color": { "checker": ["trim", "cloth2"], "period": 1 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Medaillon Kreuz", "at": [7, 0, 5], "size": [2, 1, 6], "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Fransen", "at": [2, 0, 0], "size": [12, 1, 1], "color": { "stripes": ["stone_light", "stone"], "axis": "x", "period": 1 }, "jitter": false, "mirror": "z", "mirrorAt": 8 }
+  ],
+  "anchor": [8, 0, 8]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "lerche/lift/ladder",
+  "name": "Notleiter (Scala) mit Bodenluke (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "lift", "leiter", "notleiter"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "ops": [
+    { "op": "box", "name": "Lukenrahmen", "at": [1, 0, 1], "size": [14, 1, 14], "color": { "frame": "trim", "fill": "metal", "axes": "xz" } },
+    { "op": "box", "name": "Warnkante", "at": [2, 0, 2], "size": [12, 1, 12], "color": { "frame": { "checker": ["trim", "black"], "period": 2 }, "fill": "metal", "axes": "xz" }, "mode": "paint" },
+    { "op": "box", "name": "Schachtöffnung", "at": [3, 0, 3], "size": [10, 1, 10], "color": "black", "mode": "paint" },
+    { "op": "box", "name": "Schachtschatten", "at": [4, 0, 4], "size": [8, 1, 8], "color": "dark", "mode": "paint" },
+    { "op": "box", "name": "Scharnier", "at": [13, 1, 4], "size": [1, 1, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Lukendeckel (aufgeklappt)", "at": [14, 1, 3], "size": [1, 10, 10], "color": { "frame": "trim", "fill": "metal", "axes": "yz" } },
+    { "op": "box", "name": "Lukendeckel Rotfeld", "at": [14, 3, 5], "size": [1, 6, 6], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Lukendeckel Griff", "at": [13, 8, 7], "size": [1, 1, 2], "color": "metal_light" },
+
+    { "op": "box", "name": "Holm", "at": [4, 0, 3], "size": [1, 33, 1], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.75 }], "axis": "y", "period": 4 }, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Holm Wandhalter", "repeat": { "count": 3, "step": [0, 12, 0] }, "at": [4, 6, 1], "size": [1, 1, 2], "color": "metal_dark", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Sprosse", "repeat": { "count": 8, "step": [0, 4, 0] }, "at": [5, 3, 3], "size": [6, 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Holm Bogen oben", "at": [4, 33, 1], "size": [1, 1, 3], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Holm Kappe", "at": [4, 32, 3], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Wandplatte", "at": [3, 18, 0], "size": [10, 16, 1], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xy" } },
+    { "op": "box", "name": "Pfeil hoch", "at": [7, 28, 1], "size": [2, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Pfeil hoch Spitze", "at": [6, 27, 1], "size": [4, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Pfeil hoch Schaft", "at": [7, 22, 1], "size": [2, 5, 1], "color": { "shade": "trim", "f": 0.85 } },
+    { "op": "box", "name": "Notlicht", "at": [7, 31, 1], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

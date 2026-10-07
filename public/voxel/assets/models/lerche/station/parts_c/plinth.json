@@ -1,0 +1,30 @@
+{
+  "id": "lerche/station/parts_c/plinth",
+  "name": "Stationssockel mit Goldband und Glimmfuß (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "teil", "sockel"],
+  "footprint": [1, 1],
+  "params": {
+    "w": { "default": 14, "min": 4, "max": 30, "step": 2, "label": "Breite (Voxel)" },
+    "d": { "default": 14, "min": 4, "max": 30, "step": 2, "label": "Tiefe (Voxel)" },
+    "h": { "default": 3, "min": 2, "max": 6, "step": 1, "label": "Höhe (Voxel)" },
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand (4 = Fuß glimmt, 2 = verrußt)" }
+  },
+  "variants": {
+    "eskalation": { "state": 4 },
+    "zerstoert": { "state": 2 }
+  },
+  "ops": [
+    { "op": "box", "name": "Sockelkörper", "at": ["-w/2", 0, "-d/2"], "size": ["w", "h", "d"], "color": "metal_dark" },
+    { "op": "box", "name": "Deckplatte", "at": ["-w/2", "h-1", "-d/2"], "size": ["w", 1, "d"], "color": "metal" },
+    { "op": "box", "name": "Goldkante vorn", "at": ["-w/2", "h-1", "d/2-1"], "size": ["w", 1, 1], "color": "trim" },
+    { "op": "box", "name": "Goldkante Seiten", "at": ["-w/2", "h-1", "-d/2"], "size": [1, 1, "d"], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Fußfuge", "at": ["-w/2", 0, "-d/2"], "size": ["w", 1, "d"], "color": { "shade": "metal_dark", "f": 0.7 } },
+    { "op": "box", "name": "Glimmfuß vorn/hinten", "if": "state == 4", "at": ["-w/2", 0, "-d/2"], "size": ["w", 1, 1], "color": "#F0602C", "emit": 1.5, "jitter": false, "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Glimmfuß Seiten", "if": "state == 4", "at": ["-w/2", 0, "-d/2"], "size": [1, 1, "d"], "color": "#F0602C", "emit": 1.5, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Glutnester", "if": "state == 4", "repeat": { "count": 3, "step": [5, 0, 0], "var": "k" }, "at": ["-w/2 + 2", 1, "d/2-1"], "size": [2, 1, 1], "color": "#FFD27A", "emit": 1.8, "jitter": false },
+    { "op": "box", "name": "Ruß", "if": "state == 2", "at": ["-w/2", 0, "-d/2"], "size": ["w", "h", "d"], "mode": "paint", "color": { "noise": ["dark", "metal_dark"], "weights": [1, 2], "cell": 2 } }
+  ],
+  "anchor": [0, 0, 0]
+}

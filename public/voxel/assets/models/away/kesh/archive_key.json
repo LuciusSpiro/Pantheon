@@ -1,0 +1,34 @@
+{
+  "id": "away/kesh/archive_key",
+  "name": "Kesh – Archivschlüssel der Kustoden (Drehscheibe im Sockel, halbe Deckung)",
+  "tier": "detail",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "terminal", "archivschluessel", "deckung_halb"],
+  "footprint": [1, 1],
+  "params": {
+    "pos": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 ruht · 1 gedreht · 2 beide gedreht" }
+  },
+  "variants": { "gedreht": { "pos": 1 }, "beide": { "pos": 2 } },
+  "let": { "p0": "pos == 0", "p1": "pos == 1", "p2": "pos == 2" },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "noise": ["stone_dark", { "shade": "stone_dark", "f": 0.9 }], "cell": 2 } },
+    { "op": "box", "name": "Körper", "at": [-7, 2, -7], "size": [14, 8, 11], "color": { "noise": ["stone", { "shade": "stone", "f": 1.06 }, { "shade": "stone", "f": 0.92 }], "weights": [3, 1, 1], "cell": 2 } },
+    { "op": "wedge", "name": "Schräge vorn", "at": [-7, 2, 4], "size": [14, 8, 3], "slope": "+z", "color": "stone" },
+    { "op": "box", "name": "Helle Oberkante", "at": [-7, 10, -7], "size": [14, 1, 11], "color": { "frame": "cover_top", "fill": "stone_dark", "axes": "xz", "width": 2 }, "jitter": false },
+    { "op": "box", "name": "Glyphenfeld vorn", "at": [-3, 4, 5], "size": [6, 3, 2], "mode": "paint", "color": "stone_dark" },
+    { "op": "box", "name": "Glyphe vorn ruht", "if": "p0", "at": [-1, 4, 5], "size": [2, 3, 2], "mode": "paint", "color": "neon_dim", "jitter": false },
+    { "op": "box", "name": "Glyphe vorn gedreht", "if": "p1", "at": [-3, 5, 5], "size": [6, 1, 2], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Glyphe vorn beide", "if": "p2", "at": [-3, 4, 5], "size": [6, 3, 2], "mode": "paint", "color": "neon_hot", "jitter": false },
+    { "op": "box", "name": "Seitenbahn beide", "if": "p2", "at": [-8, 1, -8], "size": [16, 1, 16], "mode": "paint", "color": { "frame": "neon", "fill": "stone_dark", "axes": "xz" }, "jitter": false },
+
+    { "op": "cyl", "name": "Drehscheibe", "at": [0, 11, -1.5], "r": 4.5, "h": 1, "color": "stone_light" },
+    { "op": "cyl", "name": "Scheibenring ruht", "if": "p0", "at": [0, 11, -1.5], "r": 4.5, "h": 1, "hollow": 1, "color": "neon_dim", "jitter": false },
+    { "op": "cyl", "name": "Scheibenring gedreht", "if": "p1", "at": [0, 11, -1.5], "r": 4.5, "h": 1, "hollow": 1, "color": "neon", "jitter": false },
+    { "op": "cyl", "name": "Scheibenring beide", "if": "p2", "at": [0, 11, -1.5], "r": 4.5, "h": 1, "hollow": 1, "color": "neon_hot", "jitter": false },
+    { "op": "box", "name": "Schlüsselbalken längs (ruht)", "if": "p0", "at": [-1, 12, -6], "size": [2, 2, 9], "color": { "frame": "crown", "fill": "trim", "axes": "z" } },
+    { "op": "box", "name": "Schlüsselbalken quer (gedreht)", "if": "!p0", "at": [-5, 12, -3], "size": [9, 2, 2], "color": { "frame": "crown", "fill": "trim", "axes": "x" } },
+    { "op": "box", "name": "Nabe", "at": [-1, 12, -3], "size": [2, 2, 2], "color": "crown" },
+    { "op": "box", "name": "Nabenlicht", "if": "!p0", "at": [-1, 13, -3], "size": [2, 1, 2], "color": "neon_hot", "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

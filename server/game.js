@@ -7,6 +7,7 @@ const W = require('./world.js');
 const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
 const bots = require('./sim/bots.js');
+const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const arena = require('./sim/arena.js');
@@ -90,11 +91,13 @@ class Game {
     this.support = { sensor: 0, strike: 0, supply: 0, recall: 0, kuppel: 0 };
     this.stats = { elapsed: 0, kills: 0, repairs: 0, firesOut: 0, hits: 0, emergencies: 0, playTimeStart: 0, stages: {}, missions: {}, locations: {},
       // M3a (CONTRACT-M3 §7.2/§8): Abnahme-Zähler
-      flicks: 0, swaps: 0, minigames: 0, minigameErrors: 0, bridgeLeaves: 0, bursts: 0, burstsPerfect: 0 };
+      flicks: 0, swaps: 0, minigames: 0, minigameErrors: 0, bridgeLeaves: 0, bursts: 0, burstsPerfect: 0,
+      // M3b §4 (bursts/burstsPerfect bleiben eine Version als Altnamen, zählen nicht mehr)
+      leakHits: 0, escalations: 0, repairSetbacks: 0, overflowHull: 0, reactorAutoStarts: 0 };
     this.ship = {
       scene: Locations.START, docked: true, dockedAt: Locations.START, dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
       hull: C.ship.hull, hullMax: C.ship.hull, o2: C.o2.max, alert: 'normal',
-      helm: { turn: 0, thrust: 0, manned: false },
+      helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
       heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
@@ -108,13 +111,14 @@ class Game {
       dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: null },
       // M3a: bow/port/stbd (Ladepunkte alloc, hold für Batterien); phase_* bleiben für den alten space.js-Stand, bis COMBAT umstellt
       mount: { phase_l: { charge: 1 }, phase_r: { charge: 1 }, bolzen: { loaded: C.weapons.bolzen.magazine, reloadT: null, shotT: 0 }, seitenturm: { charge: 0 },
-        bow: { charge: 1, alloc: allocDefault(C, 'bow', 2), aim: null },
-        port: { charge: 1, alloc: allocDefault(C, 'port', 1), hold: false, salvo: 0 },
-        stbd: { charge: 1, alloc: allocDefault(C, 'stbd', 1), hold: false, salvo: 0 } },
+        bow: { charge: 1, alloc: allocDefault(C, 'bow', 2), power: 0, charging: false },   // §20.3 Ladewaffe
+        port: { charge: 1, alloc: allocDefault(C, 'port', 1), salvo: 0 },
+        stbd: { charge: 1, alloc: allocDefault(C, 'stbd', 1), salvo: 0 } },
       target: null, priority: null, scan: { progress: 0, done: false }, scanning: false, scanAt: 0,
       tscan: { targetId: null, progress: 0, on: false, at: 0 }, widescan: { cd: 0, pulseAt: -99 },
       markers: { captain: null, tactical: null },
       noPartT: {}, noPlateT: 0, asteroidImmune: {}, beaming: null, sysHitAt: {},
+      escalateT: {}, escAnnounce: { list: [], next: 0 },   // M3b §4 Eskalation
     };
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
@@ -127,7 +131,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
   }
@@ -140,7 +144,7 @@ class Game {
     Object.assign(p, { zone: 'ship', x: c.x, y: c.y, dir: 'down', moving: false, console: null, carry: null, carryCharges: 0,
       hp: this.C.player.hp, downed: false, downedFor: 0, hold: null, beamLock: false, actDown: false,
       gear: { werkzeuggurt: false }, input: { mx: 0, my: 0 }, shootReadyAt: 0,
-      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false });
+      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null });
   }
 
   nextId(prefix) { return prefix + (++this.idCounter); }
@@ -272,7 +276,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, { t: 'welcome', pid: p.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-      this.sentExploreVersion = -1; this.sentLogVersion = -1;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -283,7 +287,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, { t: 'welcome', pid: free.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-      this.sentExploreVersion = -1; this.sentLogVersion = -1;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -298,7 +302,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, { t: 'welcome', pid: p.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-    this.sentExploreVersion = -1; this.sentLogVersion = -1;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -393,9 +397,12 @@ class Game {
     let err = null;
     const ship = this.ship;
     switch (c) {
-      case 'helm.input':
-        ship.helm.turn = clamp(Number(msg.turn) || 0, -1, 1);
-        ship.helm.thrust = clamp(Number(msg.thrust) || 0, -1, 1);
+      case 'helm.input':   // §21.1: Eingabe ≠ 0 beendet den Allstopp (space.helmInput)
+        space.helmInput(this, clamp(Number(msg.turn) || 0, -1, 1), clamp(Number(msg.thrust) || 0, -1, 1));
+        break;
+      case 'helm.stop': err = space.helmStop(this); break;   // §21.1 Allstopp
+      case 'helm.throttle':   // M3b §2: { delta: ±1 } oder { set: index } (SERVER-FLIGHT)
+        err = hasFn('helmThrottle') ? space.helmThrottle(this, msg) : 'Temporegler noch nicht verfügbar.';
         break;
       case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
       case 'helm.jump': err = space.doJump(this); break;
@@ -415,9 +422,7 @@ class Game {
       }
       case 'captain.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
       case 'captain.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
-      case 'captain.burst':
-        err = hasFn('captainBurst') ? space.captainBurst(this, Number(msg.sector)) : 'Schildstoß noch nicht verfügbar.';   // TODO M3 COMBAT
-        break;
+      case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
         const mount = MOUNT_ALIAS[msg.mount] || String(msg.mount);
         err = hasFn('weaponsAlloc') ? space.weaponsAlloc(this, mount, Number(msg.delta) >= 0 ? 1 : -1) : 'Ladepunkte noch nicht verfügbar.';   // TODO M3 COMBAT
@@ -434,6 +439,13 @@ class Game {
       case 'captain.marker': err = space.setMarker(this, 'captain', Number(msg.x), Number(msg.y), !!msg.clear); break;
       case 'captain.overload': err = space.captainOverload(this); break;
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
+      case 'weapons.charge': {   // §20.3: Lanze aufladen (on: true) / feuern (on: false)
+        const mount = msg.mount == null ? 'bow' : (MOUNT_ALIAS[msg.mount] || String(msg.mount));
+        const wasCharging = !!(ship.mount.bow && ship.mount.bow.charging);
+        err = space.weaponsCharge(this, mount, !!msg.on);
+        if (!err && !msg.on && wasCharging) this.missionEvent('weaponsFired', {});
+        break;
+      }
       case 'weapons.target': err = space.weaponsTarget(this, msg.id == null ? null : String(msg.id)); break;
       case 'weapons.fire': {
         // M3a §5.1: Altnamen phase_l/phase_r/both -> port/stbd/all (nur sobald COMBAT die neue Logik liefert)
@@ -459,6 +471,9 @@ class Game {
       case 'quartier.style': err = shop.setStyle(this, p, String(msg.part), String(msg.value)); break;
       case 'plan.pin': err = onboard.pin(this, p, msg); break;
       case 'plan.unpin': err = onboard.unpin(this, p, String(msg.id)); break;
+      // §21.2 Missionsbuch (direkt an mission.js; onboard.js gehört gerade dem CLIENT-Team)
+      case 'plan.focus': err = this.mission.setFocus(msg.id == null || msg.id === '' ? null : String(msg.id)); break;
+      case 'plan.accept': err = this.mission.acceptEntry(String(msg.id)); break;
       case 'sonde.input': err = away.sondeInput(this, p, String(msg.color)); break;
       default: err = 'Unbekannter Befehl.';
     }
@@ -530,12 +545,7 @@ class Game {
         err = hasFn('debugTele') ? space.debugTele(this, id) : 'tele: noch nicht verfügbar (SERVER-COMBAT).';   // TODO M3 COMBAT
         break;
       }
-      case 'burst': {
-        const sector = Number(msg.sector != null ? msg.sector : (typeof msg.args === 'string' ? msg.args.trim() : NaN));
-        if (!(sector >= 0 && sector <= 3)) { err = 'burst <0..3>'; break; }
-        err = hasFn('debugBurst') ? space.debugBurst(this, sector) : 'burst: noch nicht verfügbar (SERVER-COMBAT).';   // TODO M3 COMBAT
-        break;
-      }
+      // M3b §4: debug burst entfällt (Schildstoß gibt es nicht mehr)
       case 'fire': {
         let x = Number(msg.x), y = Number(msg.y);
         if (!Number.isFinite(x) || !Number.isFinite(y)) { const t = interior.randomRegionFloor(this, this.rng.int(4), false); x = t.x; y = t.y; }
@@ -634,6 +644,7 @@ class Game {
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
       this.safe('hazards', () => interior.updateHazards(this, dt));
+      this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
       this.safe('explore', () => this.explore.update(dt));
@@ -669,6 +680,18 @@ class Game {
       this.emit('alarm', { level });
       if (level !== 'normal') this.emit('sfx', { name: level === 'red' ? 'alarm_red' : 'alarm_yellow' });
     }
+    // M4 §2.4: Gefechtsbeginn (erster Gegner außer Relais) – wer auf Deck II ist, bekommt eine ODA-Zeile, und der erste
+    // Feindkontakt kommt frühestens CONFIG.lift.firstContactDelay s nach dem Alarm.
+    const hostile = this.space.enemies.some((e) => e.kind !== 'relay');
+    if (hostile && !s.hostilePrev) {
+      const below = this.players.filter((p) => p.connected && p.zone === 'ship' && (W.deckOf(Math.floor(p.y / 32)) === 1 || (p.lift && p.lift.to === 1)));
+      if (below.length) {
+        this.oda('Alle auf Station – Lift im Liftvorraum.', null);
+        const delay = Number(this.C.lift && this.C.lift.firstContactDelay) || 0;
+        if (delay > 0) s.holdFireUntil = this.time + delay;
+      }
+    }
+    s.hostilePrev = hostile;
   }
 
   // players[].action: Halten (flick/swap/…) mit Fortschritt; Minispiel ohne Ende -> progress gegen die Mindestzeit
@@ -687,8 +710,23 @@ class Game {
   // ship.shields: über space.shieldsSnapshot (COMBAT), sonst Altfelder + cap aus Emitter-Zuständen
   shieldsSnap() {
     const sh = this.ship.shields;
-    if (hasFn('shieldsSnapshot')) return space.shieldsSnapshot(this);
-    return { pool: sh.pool, alloc: sh.alloc, current: sh.current, cap: hasFn('shieldCaps') ? space.shieldCaps(this) : fallbackShieldCaps(this), burst: null, burstCd: 0 };
+    // M3b §4: Schildstoß entfallen – burst/burstCd bleiben eine Version lang als null/0 (Altnamen)
+    const base = hasFn('shieldsSnapshot') ? space.shieldsSnapshot(this)
+      : { pool: sh.pool, alloc: sh.alloc, current: sh.current, cap: hasFn('shieldCaps') ? space.shieldCaps(this) : fallbackShieldCaps(this) };
+    return Object.assign({}, base, { burst: null, burstCd: 0 });
+  }
+
+  // ship.helm: Altfelder + M3b §2 stage/stages/autoStop aus space.helmSnapshot (SERVER-FLIGHT)
+  helmSnap() {
+    const h = this.ship.helm;
+    const o = { turn: h.turn, thrust: h.thrust, manned: h.manned, autoStop: !!h.autoStop };
+    if (hasFn('helmSnapshot')) { const x = space.helmSnapshot(this); if (x) Object.assign(o, x); }
+    return o;
+  }
+  // ship.reactor + M3b §4 autoIn (s bis zum Gefechtsstart, nur solange er läuft)
+  reactorSnap() {
+    const left = damage.reactorAutoLeft(this);
+    return left == null ? this.ship.reactor : Object.assign({}, this.ship.reactor, { autoIn: left });
   }
 
   wantsSnapshot() { return this.tick % this.C.net.snapEvery === 0; }
@@ -706,6 +744,10 @@ class Game {
     if (includeWorld) this.sentExploreVersion = this.explore.version;
     const includeLog = (this.sentLogVersion !== this.explore.logVersion && !includeAsteroids && !includeWorld) || slot === 10;
     if (includeLog) this.sentLogVersion = this.explore.logVersion;
+    // §21.2 Missionsbuch: eigener Slot (7), sonst nur bei Änderung und nie zusammen mit Asteroiden/Ortsliste/Logbuch
+    const book = this.mission.bookSnapshot();
+    const includeBook = (this.sentBookVersion !== book.version || slot === 7) && !includeAsteroids && !includeWorld && !includeLog;
+    if (includeBook) this.sentBookVersion = book.version;
     const mount = ship.mount;
     const v2 = combat.isV2Away(aw);
     const mounts = hasFn('mountsSnapshot') ? space.mountsSnapshot(this) : space.mountIds(this).map((id) => {
@@ -730,10 +772,20 @@ class Game {
         // M3a §7.1: angekündigter Angriff (nur solange er lädt)
         const tele = hasFn('enemyTeleSnap') ? space.enemyTeleSnap(e) : (e.tele ? { kind: e.tele.kind, left: r2(e.tele.left), dur: e.tele.dur, sector: e.tele.sector } : null);
         if (tele) o.tele = tele;
+        // M3b §3: vx, vy, state (SERVER-FLIGHT)
+        if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
         return o;
       }),
       projectiles: sp.projectiles.map((q) => ({ id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
-      beams: sp.beams.map((b) => ({ x1: r1(b.x1), y1: r1(b.y1), x2: r1(b.x2), y2: r1(b.y2), ttl: r2(b.ttl), kind: b.kind })),
+      // §20.1: ttlMax (Gesamtdauer), mount, miss, power mitschicken – der Client kennt so Alter und Flanke des Strahls
+      beams: sp.beams.map((b) => {
+        const o = { x1: r1(b.x1), y1: r1(b.y1), x2: r1(b.x2), y2: r1(b.y2), ttl: r2(b.ttl), kind: b.kind };
+        if (b.ttlMax) o.ttlMax = r2(b.ttlMax);
+        if (b.mount) o.mount = b.mount;
+        if (b.miss) o.miss = true;
+        if (b.power != null) o.power = b.power;
+        return o;
+      }),
       markers: sp.markers,
       salvage: (sp.salvage || []).map((s) => ({ id: s.id, x: s.x, y: s.y, kind: s.kind })),
       hidden: this.explore.hiddenSnapshot(),
@@ -749,8 +801,12 @@ class Game {
       active: this.mission.activeId ? { id: this.mission.activeId, title: this.mission.def.title, objectives: m.objectives } : null,
       list: this.mission.snapshotList(),
       discoveries: this.explore.discoveries(),
+      // §21.2: HUD-Ziele der fokussierten Mission (ohne Fokus: laufende Mission) – immer dabei, klein
+      bookVersion: book.version,
+      ...this.mission.focusSnapshot(),
     };
-    if (includeLog) missionOut.log = this.explore.log.slice(-30);
+    if (includeLog) missionOut.log = this.explore.log.slice(-30).map((e) => ({ id: e.id, text: e.text, loc: e.loc, t: e.t }));   // §21.2: + t (Spielzeit s)
+    if (includeBook) missionOut.book = book;
     return {
       t: 'snap', tick: this.tick, time: r2(this.time), phase: this.phase,
       lobby: { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
@@ -762,6 +818,7 @@ class Game {
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
         ...combat.playerSnap(this, p),
+        ...interior.deckSnap(this, p),   // M4 §2.4: deck (Schiff), lift { to, t, T }, ladder { t, T } – nur wenn aktiv
       })),
       bots: this.bots.map((b) => {
         const tk = b.task && b.task.kind !== 'home' ? b.task : null;
@@ -774,13 +831,15 @@ class Game {
           const ty = shelf ? shelf.y : tk.ty;
           task = { kind, x: tx * 32 + 16, y: ty * 32 + 16 };
         }
-        return { id: b.id, variant: b.variant, x: r1(b.x), y: r1(b.y), dir: b.dir, moving: b.moving, carry: b.carry, task, progress: r2(b.progress) };
+        const bo = { id: b.id, variant: b.variant, x: r1(b.x), y: r1(b.y), dir: b.dir, moving: b.moving, carry: b.carry, task, progress: r2(b.progress) };
+        if (b.lift) bo.lift = { to: b.lift.to, t: r2(b.lift.t), T: b.lift.T };   // M4: Bot fährt Lift
+        return bo;
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
         hull: Math.round(ship.hull * 10) / 10, hullMax: ship.hullMax, o2: r1(ship.o2), alert: ship.alert,
-        helm: { turn: ship.helm.turn, thrust: ship.helm.thrust, manned: ship.helm.manned },
-        power: ship.power, reactor: ship.reactor,
+        helm: this.helmSnap(),
+        power: ship.power, reactor: this.reactorSnap(),
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons), life: Math.round(ship.heat.life) },
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
@@ -791,6 +850,7 @@ class Game {
         turnVel: r3(ship.turnVel || 0),
         turnCap: hasFn('turnCaps') ? space.turnCaps(this) : fallbackTurnCaps(this),
         chargePoints: hasFn('chargePoints') ? space.chargePoints(this) : fallbackChargePoints(this),
+        escalate: damage.escalateSnapshot(this),   // M3b §4: { [sys]: Restsekunden } laufender Eskalations-Zähler
         offline: Object.fromEntries(Object.entries(ship.offline).map(([k, v]) => [k, Math.ceil(v.t)])),
         fires: ship.fireList.map((f) => [f.tx, f.ty]),
         breaches: ship.breachList.map((b) => ({ tx: b.tx, ty: b.ty })),
@@ -833,7 +893,9 @@ class Game {
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,
         emergencies: this.stats.emergencies,
         flicks: this.stats.flicks || 0, swaps: this.stats.swaps || 0, minigames: this.stats.minigames || 0, bridgeLeaves: this.stats.bridgeLeaves || 0,
-        bursts: this.stats.bursts || 0, burstsPerfect: this.stats.burstsPerfect || 0,
+        bursts: this.stats.bursts || 0, burstsPerfect: this.stats.burstsPerfect || 0,   // Altnamen (Schildstoß entfallen)
+        leakHits: this.stats.leakHits || 0, escalations: this.stats.escalations || 0, repairSetbacks: this.stats.repairSetbacks || 0,
+        overflowHull: this.stats.overflowHull || 0, reactorAutoStarts: this.stats.reactorAutoStarts || 0,
         playTimeStart: r2(this.stats.playTimeStart), stages: this.stats.stages, missions: this.stats.missions, locations: this.locationStats() },
       errors: this.errors,
     };

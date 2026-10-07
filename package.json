@@ -9,9 +9,13 @@
     "debug": "node --env-file-if-exists=.env server/index.js --debug",
     "check": "node tools/check-maps.js",
     "sim": "node tools/sim-headless.js",
-    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js",
+    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js && node tools/test-flight.js",
+    "test:flight": "node tools/test-flight.js",
     "test:m3": "node tools/test-m3.js",
-    "sim:arena": "node tools/sim-headless.js arena --pilot both --seeds 10"
+    "sim:arena": "node tools/sim-headless.js arena --pilot both --seeds 10",
+    "assets": "node tools/sync-assets.mjs",
+    "assets:watch": "node tools/sync-assets.mjs --watch",
+    "check:assets": "node tools/check-assets.mjs"
   },
   "engines": {
     "node": ">=24"

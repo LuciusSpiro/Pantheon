@@ -603,22 +603,25 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(p.console === 'helm', 'E setzt den Spieler ans Steuer');
     ok(arenaEnemies(g).length === 0, 'vor Welle 1: keine Gegner');
     run(A.firstWaveAt + 0.5);
-    ok(arenaEnemies(g).length === 2 && arenaEnemies(g).every((e) => e.kind === 'raider'), 'Welle 1: 2 Jäger');
-    ok(/Welle 1: Gegner ausschalten \(2 übrig\)/.test(g.mission.state.objectives[0].text), 'Ziel zeigt „Welle 1 … (2 übrig)“');
+    // M3b §7: Welle 1 = Kanonenboot + 2 Jäger, danach die alten Wellen (M3a §15); Prüfung gegen CONFIG.arena.waves
+    const key = (list) => list.slice().sort().join();
+    const NAMES = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Wächter', pylon: 'Pylon' };
+    const label = (w) => A.waves[w - 1].map((k) => NAMES[k] || k).join(' + ');
+    ok(key(A.waves[0]) === 'gunboat,raider,raider', 'M3b: Konfig Welle 1 = Kanonenboot + 2 Jäger');
+    ok(key(arenaEnemies(g).map((e) => e.kind)) === key(A.waves[0]), 'Welle 1: ' + label(1));
+    const n1 = A.waves[0].length;
+    ok(new RegExp('Welle 1: Gegner ausschalten \\(' + n1 + ' übrig\\)').test(g.mission.state.objectives[0].text), `Ziel zeigt „Welle 1 … (${n1} übrig)“`);
     g.space.enemies = []; run(0.5);
     ok(/Welle 2 kommt in/.test(g.mission.state.objectives[0].text) && cs[0].inbox.some((m) => m.kind === 'oda' && /Welle 1 geräumt/.test(m.text)), 'Räumung: ODA-Ansage, Countdown im Ziel');
     run(A.nextWaveDelay - 2);
     ok(arenaEnemies(g).length === 0, 'nächste Welle noch nicht vor Ablauf');
     run(2);
-    ok(arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,raider', 'Welle 2: Jäger + Kanonenboot (12 s nach Räumung)');
-    g.space.enemies = []; run(A.nextWaveDelay + 0.5);
-    ok(arenaEnemies(g).map((e) => e.kind).sort().join() === 'raider,raider,sentinel', 'Welle 3: Wächter + 2 Jäger');
-    // M3a §15: Welle 4 Kanonenboot + Jäger, Welle 5 Pylon + Kanonenboot, danach zyklisch von vorn
-    g.space.enemies = []; run(A.nextWaveDelay + 0.5);
-    ok(g.arena.wave === 4 && arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,raider', 'Welle 4: Kanonenboot + Jäger (M3a)');
-    g.space.enemies = []; run(A.nextWaveDelay + 0.5);
-    ok(g.arena.wave === 5 && arenaEnemies(g).map((e) => e.kind).sort().join() === 'gunboat,pylon', 'Welle 5: Pylon + Kanonenboot (M3a)');
-    for (let w = 6; w <= A.waves.length; w++) { g.space.enemies = []; run(A.nextWaveDelay + 0.5); }
+    ok(key(arenaEnemies(g).map((e) => e.kind)) === key(A.waves[1]), `Welle 2: ${label(2)} (12 s nach Räumung)`);
+    for (let w = 3; w <= A.waves.length; w++) {
+      g.space.enemies = []; run(A.nextWaveDelay + 0.5);
+      ok(g.arena.wave === w && key(arenaEnemies(g).map((e) => e.kind)) === key(A.waves[w - 1]), `Welle ${w}: ${label(w)}`);
+    }
+    ok(A.waves.slice(1).some((w) => key(w) === 'gunboat,raider') && A.waves.slice(1).some((w) => key(w) === 'gunboat,pylon'), 'M3a-Wellen Kanonenboot + Jäger und Pylon + Kanonenboot bleiben');
     g.space.enemies = []; run(A.nextWaveDelay + 0.5);
     ok(g.arena.wave === A.waves.length + 1 && arenaEnemies(g).length === A.waves[0].length && g.arena.round === 2, `Welle ${A.waves.length + 1}: zyklisch von vorn (Runde 2)`);
     g.ship.hull = 0; run(0.1);
@@ -638,7 +641,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'skip' }); run(0.2);
     ok(arenaEnemies(g).length === 0 && g.space.enemies.some((e) => e.kind === 'pylon') && !g.arena.active, 'Debug skip räumt die Welle (Fremd-Gegner bleiben, blockieren nicht)');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'skip' }); run(0.2);
-    ok(g.arena.wave === 2 && arenaEnemies(g).length === 2, 'Debug skip ruft die nächste Welle sofort');
+    ok(g.arena.wave === 2 && arenaEnemies(g).length === A.waves[1].length, 'Debug skip ruft die nächste Welle sofort');
     g.handleMessage(cs[2], { t: 'act', down: true }); run(0.2); g.handleMessage(cs[2], { t: 'act', down: false });
     g.handleMessage(cs[2], { t: 'cmd', c: 'captain.overload' }); run(0.2);
     ok(g.ship.reactorCtl.state === 'overload', 'Reaktor überladen nutzbar');

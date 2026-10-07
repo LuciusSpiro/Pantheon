@@ -821,3 +821,149 @@ Captain auf 1920×1080 umgeschaltet). Spielzeit aus dem Server.
   betritt – kosmetisch.
 - Der Kanonenboot-Kampf solo dauert lange (Breitseite mit 4er-Schilden); solo eher Lanze von vorn/hinten nutzen – Hinweis
   von ODA wäre hilfreich.
+
+## 20. Nachrunde nach Kais Test (2026-10-06)
+
+Kai hat selbst getestet. Dieser Abschnitt geht §5 und §6 vor, wo sie sich widersprechen.
+
+**20.1 Seitenwaffen sind nicht zu sehen (Fehler).**
+Salven der Batterien müssen in **jeder** Raumansicht sichtbar sein: Frontsicht der Steuer, Taktik-Karte,
+Captain-Lage und Außenansicht. Dazu gehört eine Mündungsblitz-Kette an der Flanke und Bolzen zum Ziel bzw. ins Leere.
+Ursache suchen und beheben, Screenshot je Ansicht.
+
+**20.2 Ausweichen wird eine echte Antwort.**
+- `ship.dodgeImpulse` 180 → 350
+- `ship.dodgeCooldown` 10 → 7
+- Neu `spaceM3.dodgeWindow` 0,8 s: Endet eine Ladung (`tele`) innerhalb von 0,8 s nach einem Ausweichen, **verfehlt** der
+  schwere Treffer. Es folgen das Ereignis `teleMiss { id, dodged: true }` und der sfx `dodge_evade`. Unbekannte sfx bleiben still,
+  AUDIO darf ihn nachreichen.
+- Die Steuer zeigt bei laufender Ladung „AUSWEICHEN!“ mit Seite und Countdown. Das Fenster ist ab
+  `left ≤ dodgeWindow` grün.
+- Zähler `stats.dodges` und `stats.dodgeEvades`.
+
+**20.3 Die Lanze wird eine Ladewaffe ohne Zielphase und ohne Zielerfassung.**
+Zielphase, `aimTolerance`, `aimAbortCharge` und `aim` im Snapshot entfallen.
+
+Ablauf:
+- `mounts.bow.charge` (0..1, aus den Ladepunkten wie bisher) ist die Bereitschaft. Erst bei 1 lässt sich aufladen.
+- `cmd weapons.charge { mount: 'bow', on: true }` beginnt das **Aufladen**. `power` steigt in `spaceM3.lance.chargeTime`
+  (3 s) von 0 auf 1 und bleibt dann voll.
+- `on: false` **feuert sofort**. Der Strahl geht in Bugrichtung, Länge `range` 650. Getroffen wird der erste Gegner, dessen
+  Abstand zur Strahllinie kleiner ist als `hitRadius[kind] + spaceM3.lance.width` (10).
+- Schaden: `minDamage + (maxDamage − minDamage) × power`, also 3 bis 12. Durchschlagend 2 bleibt.
+- Ohne Treffer geht der Strahl ins Leere. Danach ist `charge` 0.
+- Beschädigte Lanze: `chargeTime` × 1,5, maximaler Schaden × 0,75. Zerstört: kein Aufladen möglich.
+- Verlässt die Taktik die Konsole oder fällt das System aus, verpufft das Aufladen ohne Schuss.
+- Unbesetzte Taktik: Die Lanze feuert automatisch mit `power` 0,5, wenn ein Gegner in der Linie liegt.
+
+Snapshot: `mounts[bow] = { …, charge, alloc, state, power: 0..1, charging: bool }`. Ereignisse:
+`lance { state: 'charge'|'fire', power, hit }`. sfx: `lance_charge` (Beginn, mit `key: 'lance'`, stoppbar) und
+`lance_fire` (`power`).
+
+Client:
+- Taktik: Taste 1 **halten** lädt auf, loslassen feuert. Die Leertaste feuert alle Batterien. Ladebalken mit Schadenszahl
+  an der Lanze.
+- Steuer und Taktik zeigen in der Bugrichtung eine Visierlinie, solange aufgeladen wird. Die Steuer sieht, dass die Taktik
+  lädt („LANZE LÄDT – Bug aufs Ziel!“).
+- Die Ladung bricht nicht ab, wenn das Schiff dreht.
+
+**20.4 Kein Automatikfeuer bei besetzter Taktik.**
+- `hold` und „Feuer frei“ entfallen. Batterien feuern nur auf `weapons.fire { mount: 'port'|'stbd'|'all' }`, und `all`
+  feuert beide Batterien.
+- Ein Ziel ist nicht nötig. Die Batterie nimmt das gewählte Ziel, wenn es in ihrem Bogen liegt, sonst den nächsten Gegner
+  im Bogen. Ohne Gegner im Bogen schießt sie ins Leere, senkrecht zur Flanke.
+- `weapons.hold` antwortet mit dem Hinweis „Batterien feuern nur auf Befehl.“.
+- **Unbesetzte Taktik** (§5.5) feuert weiter automatisch mit halber Ladegeschwindigkeit, sonst ist solo kein Raumkampf
+  zu gewinnen.
+- Altnamen bleiben: `phase_l` → port, `phase_r` → stbd, `both` → all. `weapons.fire { mount: 'bow' }` feuert die Lanze
+  mit der aktuellen `power`, aus dem Stand also 0.
+
+**20.5 Config, ergänzt:**
+```js
+spaceM3.dodgeWindow: 0.8,
+spaceM3.lance: { chargeTime: 3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
+```
+`spaceM3.mounts.bow.damage` und `aim*` bleiben als Altnamen stehen, werden aber nicht mehr benutzt.
+
+**20.6 Tools.**
+- `test-m3` wird angepasst: Lanze laden und feuern, Schaden je `power`, Treffer ohne Ziel und ins Leere, Abbruch beim
+  Verlassen der Konsole, kein Batteriefeuer ohne Befehl bei besetzter Taktik, unbesetzt automatisch, Ausweich-Fenster.
+- Sim-Bots: Die Taktik lädt die Lanze, wenn der Bug grob aufs Ziel zeigt, und feuert beim Treffpunkt. Der Pilot weicht bei
+  Ladungen aus (Strategie `maneuver`).
+- `npm run sim`, `npm test`, `check` und `smoke` bleiben grün. Danach wird die Arena-Messung `nose`/`maneuver` wiederholt.
+
+**20.7 Brückenumbau (Kai, Skizze 2026-10-06).** Neue Positionen auf der Brücke:
+- Taktik `W` (35,3) oben links
+- Planungstisch `Y` 2 × 2 (35–36, 5–6) links in der Mitte, **aus der Messe hierher verlegt**
+- Captain `C` (38,6) in der Mitte
+- Steuer `H` (41,6) vorn
+- **neues freies Terminal** `q` (35,9) unten links, Legende
+  `{ kind: 'terminal_spare', solid: true, interact: 'spare' }`. Es hat noch keine Funktion und zeigt nur einen Hinweis.
+
+In der Messe steht statt des Planungstischs ein Esstisch `m` (7–8, 6). `npm run check`: 495/495.
+Zusätzlich gemeldeter Fehler: Auf den Detailkarten des Planungstischs ließen sich keine Marker setzen. Die Behebung liegt
+beim CLIENT-Team, das dafür ausnahmsweise auch `server/sim/onboard.js` ändern darf.
+
+## 21. Zwei Wünsche von Kai (2026-10-06)
+
+**21.1 Allstopp für die Steuer.**
+- `cmd helm.stop {}` schaltet `ship.helm.autoStop = true`.
+- Solange das gilt, bremst der Server das Schiff von selbst auf 0, vorwärts wie seitlich. Bremsleistung ist
+  `spaceM3.fullStop.brake` (Standard = `ship.accel`). Das Drehen fällt mit `turnAccel` auf 0.
+- Ist die Geschwindigkeit unter 1 px/s, setzt der Server sie auf 0. `autoStop` bleibt danach an, bis jemand eingreift.
+- Jede Schub- oder Ruder-Eingabe des Piloten ungleich 0 beendet `autoStop`. Ausweichen ist erlaubt und beendet ihn
+  ebenfalls.
+- Snapshot `ship.helm.autoStop`, sfx `ui_click`.
+- Client:
+  - Taste **X** an der Steuer und ein Knopf „Allstopp“.
+  - Anzeige „ALLSTOPP – bremst“ bzw. „steht“.
+  - Tastenhilfe ergänzen.
+
+**21.2 Missionsbuch am Planungstisch.** Kai hat bemerkt, dass man leicht mehrere Missionen gleichzeitig bekommt. Er
+braucht eine Übersicht.
+
+Server:
+- `game.mission.bookSnapshot()` liefert `mission.book = { version, focus, entries: [...] }`.
+- Ein Eintrag sieht so aus: `{ id, title, from, kind: 'mission'|'nebenauftrag'|'hinweis', state: 'angeboten'|'aktiv'|'erledigt', briefing, reward, objectives: [{ text, done }], log: [{ t, loc, text }] }`.
+- Erfasst wird alles, was die Crew als Auftrag kennt:
+  - die Missionen m1–m3
+  - offene Angebote (Funk mit `needsAccept`)
+  - den Ausblick bzw. Teaser
+  - Entdeckungen mit Auftragscharakter
+- `log` enthält die Logbuch-Einträge, die zu dieser Mission gehören. Dafür wird die Mission beim Eintragen mitgeschrieben
+  (`explore.addLog(text, loc, missionId)`).
+- **Die erledigten Ziele einer Mission bleiben erhalten**, auch nach einem Schrittwechsel. Sie werden beim Abhaken gesammelt.
+- Das Buch wird wie das Logbuch nur bei Änderung mitgeschickt (`version`). Der Snapshot bleibt unter 12 KB.
+
+**Als aktiv markieren:**
+- `cmd plan.focus { id }` am Planungstisch setzt `mission.book.focus`.
+- Die fokussierte Mission bestimmt die Ziel-Liste im HUD, die Marker und Hinweise, also was die Crew „gerade verfolgt“.
+- Läuft die Engine eine andere Mission, bleibt diese im Hintergrund weiter gültig, wird aber nicht angezeigt.
+- Ist ein Eintrag nur `angeboten` und gehört er zum offenen Funkangebot, nimmt `plan.accept { id }` ihn an, wie
+  `captain.accept`.
+- Ohne Fokus gilt die laufende Mission.
+- Das SERVER-Team prüft, wie mehrere Missionen heute parallel entstehen, und meldet, ob die Engine echte Parallelität
+  braucht. Das ist für diesen Schritt nicht verlangt.
+
+Client am Planungstisch:
+- Neuer Reiter **„Missionsbuch“**. Links die Liste, gruppiert nach aktiv, angeboten und erledigt, mit Markierung der
+  fokussierten Mission.
+- Rechts die Details: Auftraggeber, Briefing, Belohnung, Ziele mit Haken und das Log mit Ort und Zeit.
+- Tasten:
+  - W/S wählen
+  - Enter = als aktiv markieren
+  - A = annehmen, wenn angeboten
+- Mehrere Spieler am Tisch sehen dasselbe, auswählen darf jeder.
+- Das HUD zeigt die Ziele der fokussierten Mission mit ihrem Titel.
+
+**21.3 Stand (2026-10-06).** §20 und §21 sind umgesetzt und getestet:
+- `check` 495, features 178, combat 169, test-m3 332, `sim` OK, `smoke` OK.
+- Allstopp aus 130 px/s: 2,6 s und 165 px.
+- Das Missionsbuch hat ein Budget von 3000 B (`net.bookBudget`). Ist es voll, werden erledigte Einträge gekürzt. HUD-Felder:
+  `mission.focusId`, `focusTitle`, `focusObjectives` und `focusLoc`.
+- **Nebenaufträge im Buch:** `sela` und `zaunkoenig`, dazu Hinweise `h:<id>` und der Ausblick.
+- **Befund des SERVER-Teams:** Für den heutigen Inhalt braucht es keine echte Parallelität. Die wird erst mit generierten
+  Nebenmissionen nötig, mit Missions-Instanzen und einer Funk-Warteschlange.
+- **Fehler „Pins auf Detailkarten“:** `onboard.pin()` hatte Orts-IDs abgelehnt. Das ist behoben.
+- **Ursache der unsichtbaren Salven:** Der Strahl lebte nur 0,15 s, Art rechnet fest gegen 0,25 s. Behoben im Server
+  (`batteryBeamTtl` 0,4 s, `ttlMax`) und im Client (lokales Nachglühen, Mündungsblitze).

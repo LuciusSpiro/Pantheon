@@ -1,0 +1,19 @@
+{
+  "id": "rostmeute",
+  "name": "Rostmeute (Piraten): Rost, Flickbleche in Stahlblau, Knochenweiß, Warngelb",
+  "extends": "base",
+  "roles": {
+    "primary": "#C2703D",
+    "secondary": "#4F6178",
+    "trim": "#E6D3B8",
+    "metal": "#5A4A40",
+    "metal_dark": "#3A2E28",
+    "metal_light": "#8C7C6A",
+    "leather": "#7A3E22",
+    "warning": "#F2C94C",
+    "glow": { "color": "#E0473C", "emit": 1.8 },
+    "glow2": { "color": "#FFB347", "emit": 1.6 },
+    "glass": "#2F3E52",
+    "dark": "#1E1612"
+  }
+}

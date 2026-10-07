@@ -1,0 +1,79 @@
+{
+  "id": "lerche/lift/shaft",
+  "name": "Liftschacht mit Bronzegitter und Säulenportal (Lerche)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "lift", "architektur", "schacht"],
+  "footprint": [2, 2],
+  "params": {
+    "deck": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Deck (0 Systemdeck Bronze, 1 Privatdeck Marmor)" },
+    "power": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Notstrom (0 normal, 1 Amberlicht)" },
+    "open": { "default": 0, "min": 0, "max": 11, "step": 1, "label": "offene Seiten (Bitmaske N1 O2 W8, ohne Gitter)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Deckschnitt (1 = auf 1,25 m gekappt)" }
+  },
+  "let": {
+    "openN": "floor(open/1) % 2",
+    "openE": "floor(open/2) % 2",
+    "openW": "floor(open/8) % 2"
+  },
+  "variants": {
+    "privatdeck": { "deck": 1 },
+    "notstrom": { "power": 1 },
+    "privat_notstrom": { "deck": 1, "power": 1 },
+    "offen_n_o": { "open": 3 },
+    "offen_n_o_privat": { "open": 3, "deck": 1 },
+    "geschnitten": { "cut": 1 },
+    "offen_alle_geschnitten": { "open": 11, "cut": 1, "deck": 1 }
+  },
+  "ops": [
+    { "op": "group", "name": "Gitter hinten (Nord)", "if": "!openN", "ops": [
+      { "op": "box", "name": "Gitterstab Bronze", "if": "deck == 0", "at": [2, 1, 0], "size": [1, 10, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 4 },
+      { "op": "box", "name": "Gitterstab Gold", "if": "deck == 1", "at": [2, 1, 0], "size": [1, 10, 1], "color": "trim", "mirror": "x", "mirrorAt": 4 },
+      { "op": "box", "name": "Sockelband", "at": [1, 0, 0], "size": [6, 1, 1], "color": "metal_dark" },
+      { "op": "box", "name": "Lorbeerband", "at": [1, 7, 0], "size": [6, 1, 1], "color": { "checker": ["trim", "plant_dark"], "period": 1 }, "jitter": false },
+      { "op": "cyl", "name": "Seilrolle", "axis": "z", "at": [4, 9, 0], "r": 1.5, "h": 1, "color": "trim" },
+      { "op": "box", "name": "Seilrolle Nabe", "at": [3, 8, 0], "size": [2, 2, 1], "color": "metal_dark" }
+    ] },
+    { "op": "group", "name": "Gitter Seite Ost (+x)", "if": "!openE", "ops": [
+      { "op": "box", "name": "Gitterstab Bronze", "if": "deck == 0", "at": [7, 1, 2], "size": [1, 10, 1], "color": "metal_light", "mirror": "z", "mirrorAt": 4 },
+      { "op": "box", "name": "Gitterstab Gold", "if": "deck == 1", "at": [7, 1, 2], "size": [1, 10, 1], "color": "trim", "mirror": "z", "mirrorAt": 4 },
+      { "op": "box", "name": "Sockelband", "at": [7, 0, 1], "size": [1, 1, 6], "color": "metal_dark" },
+      { "op": "box", "name": "Lorbeerband", "at": [7, 7, 1], "size": [1, 1, 6], "color": { "checker": ["trim", "plant_dark"], "period": 1 }, "jitter": false }
+    ] },
+    { "op": "group", "name": "Gitter Seite West (-x)", "if": "!openW", "ops": [
+      { "op": "box", "name": "Gitterstab Bronze", "if": "deck == 0", "at": [0, 1, 2], "size": [1, 10, 1], "color": "metal_light", "mirror": "z", "mirrorAt": 4 },
+      { "op": "box", "name": "Gitterstab Gold", "if": "deck == 1", "at": [0, 1, 2], "size": [1, 10, 1], "color": "trim", "mirror": "z", "mirrorAt": 4 },
+      { "op": "box", "name": "Sockelband", "at": [0, 0, 1], "size": [1, 1, 6], "color": "metal_dark" },
+      { "op": "box", "name": "Lorbeerband", "at": [0, 7, 1], "size": [1, 1, 6], "color": { "checker": ["trim", "plant_dark"], "period": 1 }, "jitter": false }
+    ] },
+
+    { "op": "box", "name": "Eckpfosten hinten Bronze", "if": "deck == 0", "at": [0, 0, 0], "size": [1, 11, 1], "color": "metal", "mirror": "x", "mirrorAt": 4 },
+    { "op": "box", "name": "Eckpfosten hinten Marmor", "if": "deck == 1", "at": [0, 0, 0], "size": [1, 11, 1], "color": "secondary", "mirror": "x", "mirrorAt": 4 },
+    { "op": "box", "name": "Eckpfosten Fuß", "at": [0, 0, 0], "size": [1, 1, 1], "color": "metal_dark", "mirror": "x", "mirrorAt": 4 },
+
+    { "op": "box", "name": "Kranz hinten", "at": [0, 11, 0], "size": [8, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Kranz Seite", "at": [0, 11, 1], "size": [1, 1, 6], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.75 }], "axis": "z", "period": 1 }, "mirror": "x", "mirrorAt": 4 },
+
+    { "op": "group", "name": "Säulenportal (+z)", "ops": [
+      { "op": "box", "name": "Portalwand Bronze", "if": "deck == 0", "at": [0, 0, 7], "size": [8, 12, 1], "color": "metal" },
+      { "op": "box", "name": "Portalwand Marmor", "if": "deck == 1", "at": [0, 0, 7], "size": [8, 12, 1], "color": "secondary" },
+      { "op": "box", "name": "Bogenfeld Rot", "at": [1, 9, 7], "size": [6, 2, 1], "color": "primary", "mode": "paint" },
+      { "op": "box", "name": "Durchgang", "at": [1, 0, 6], "size": [6, 8, 3], "mode": "carve" },
+      { "op": "cyl", "name": "Rundbogen", "axis": "z", "at": [4, 8, 6], "r": 3, "h": 3, "mode": "carve" },
+      { "op": "box", "name": "Säulenschaft Riefen", "at": [0, 1, 7], "size": [1, 6, 1], "color": { "stripes": ["secondary", "stone_dark"], "axis": "y", "period": 1 }, "mirror": "x", "mirrorAt": 4, "if": "deck == 1", "mode": "paint" },
+      { "op": "box", "name": "Säulenschaft Bronze Riefen", "at": [0, 1, 7], "size": [1, 6, 1], "color": { "stripes": ["metal", "metal_light"], "axis": "y", "period": 2 }, "mirror": "x", "mirrorAt": 4, "if": "deck == 0", "mode": "paint" },
+      { "op": "box", "name": "Säulenbasis", "at": [0, 0, 7], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 4, "mode": "paint" },
+      { "op": "box", "name": "Kapitell", "at": [0, 7, 7], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 4, "mode": "paint" },
+      { "op": "box", "name": "Gebälk", "at": [0, 11, 7], "size": [8, 1, 1], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.8 }], "axis": "x", "period": 1 }, "mode": "paint" },
+      { "op": "box", "name": "Schlussstein", "at": [3, 10, 7], "size": [2, 1, 1], "color": "trim" },
+      { "op": "box", "name": "Bogenleuchte", "if": "power == 0", "at": [3, 11, 7], "size": [2, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+      { "op": "box", "name": "Bogenleuchte Notstrom", "if": "power == 1", "at": [3, 11, 7], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Kämpferlicht", "if": "power == 0", "at": [1, 7, 7], "size": [1, 1, 1], "color": { "role": "glow", "emit": 0.6 }, "jitter": false, "mirror": "x", "mirrorAt": 4 },
+      { "op": "box", "name": "Kämpferlicht Notstrom", "if": "power == 1", "at": [1, 7, 7], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.7 }, "jitter": false, "mirror": "x", "mirrorAt": 4 }
+    ] },
+
+    { "op": "box", "name": "Deckschnitt", "if": "cut", "at": [0, 5, 0], "size": [8, 8, 8], "mode": "carve" },
+    { "op": "box", "name": "Schnittkappe", "if": "cut", "at": [0, 4, 0], "size": [8, 1, 8], "color": "metal_dark", "mode": "paint" }
+  ],
+  "anchor": [4, 0, 4]
+}

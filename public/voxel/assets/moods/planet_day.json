@@ -1,0 +1,10 @@
+{
+  "id": "planet_day",
+  "name": "Planet bei Tag – warmes Sonnenlicht, leichter Dunst (Völker-Welten)",
+  "background": "#A9C6DE",
+  "fog": { "color": "#B9CFE0", "near": 2.2, "far": 6 },
+  "hemi": { "sky": "#C3D8EC", "ground": "#7A6648", "intensity": 1.1 },
+  "sun": { "color": "#FFE6C0", "intensity": 3.2, "dir": [-0.55, 1, 0.42], "softness": 2.5 },
+  "exposure": 1.0,
+  "bloom": { "strength": 0.25, "radius": 0.4, "threshold": 0.92 }
+}

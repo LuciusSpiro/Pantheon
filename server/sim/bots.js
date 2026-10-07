@@ -136,7 +136,8 @@ function goalTilesFor(task) {
 function pathTo(bot, goals) {
   const st = Physics.toTile(bot.x, bot.y);
   const set = new Set(goals.map((g) => g.y * W.ship.w + g.x));
-  return bfs(W.shipWalkable, st, (x, y) => set.has(y * W.ship.w + x) && W.shipWalkable(x, y), W.ship.w, W.ship.h);
+  // M4: mit Lift-Kanten (nie Leiter) – ein Pfadschritt mit via 'lift' heißt: auf der Plattform Lift fahren
+  return bfs(W.shipWalkable, st, (x, y) => set.has(y * W.ship.w + x) && W.shipWalkable(x, y), W.ship.w, W.ship.h, null, W.liftLinks);
 }
 
 // M3a: Zugangskachel aus dem Schiffslayout (shelf.access); Fallback: begehbare Nachbarn des Regals
@@ -217,11 +218,18 @@ function workDuration(game, bot, task) {
 }
 
 function moveAlong(game, bot, dt) {
+  if (bot.lift) { bot.moving = false; return false; }   // M4: fährt gerade (update() zählt die Fahrt)
   if (!bot.path || !bot.path.length) { bot.moving = false; return true; }
   const speed = game.C.player.speed * game.C.bot.speedFactor;
   let budget = speed * dt;
   while (budget > 0 && bot.path.length) {
     const n = bot.path[0];
+    if (n.via === 'lift') {   // Liftkante: von der aktuellen Liftkachel aus fahren
+      const cur = Physics.toTile(bot.x, bot.y);
+      interior.startLift(game, bot, cur.x, cur.y, true);
+      bot.liftDest = { x: n.x, y: n.y };
+      return false;
+    }
     const c = W.tileCenter(n.x, n.y);
     const dx = c.x - bot.x, dy = c.y - bot.y;
     const d = Math.hypot(dx, dy);
@@ -257,6 +265,15 @@ function update(game, dt) {
     if (pick) { pick.b.task = task; task.phase = 'goto'; pick.b.path = pick.path; pick.b.progress = 0; pick.b.reevalT = 1; }
   }
   for (const bot of game.bots) {
+    // M4: Liftfahrt (gleiche Zeit wie für Spieler). Währenddessen keine Neuwahl; danach geht es auf dem Restpfad weiter.
+    if (bot.lift) {
+      bot.moving = false;
+      bot.lift.t += dt;
+      if (bot.lift.t < bot.lift.T) continue;
+      interior.finishLift(game, bot, true);
+      if (bot.path && bot.path.length && bot.path[0].via === 'lift') bot.path.shift();
+      continue;
+    }
     // QA M1: Reaktor-Neustart hat auch während der Übung Vorrang (sonst solo kein Neustart nach Überladen im Hafen)
     if (drill && !(bot.task && bot.task.kind === 'switch')) { bot.moving = false; continue; }
     bot.reevalT -= dt;

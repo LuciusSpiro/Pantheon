@@ -1,0 +1,23 @@
+{
+  "id": "lerche/crew_2",
+  "name": "Lerche-Crew 3 an Bord (roter Pferdeschwanz, Bordkleidung)",
+  "rig": "human",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "crew"],
+  "notes": "Bordkleidung ohne Helm. cloth2 = Spielerfarbe (Spiel setzt colors.cloth2; neutral Kaiserpurpur). Schulterplatte links. Anbauten zur Laufzeit an handR/handL/back (lerche/item/*).",
+  "colors": { "skin": "#E6B796", "skin_shadow": "#C18F70", "hair": "#A2482A" },
+  "params": { "look": 2 },
+  "parts": {
+    "head": { "model": "fig/lerche/head" },
+    "torso": { "model": "fig/lerche/tunic_torso" },
+    "hips": { "model": "fig/lerche/tunic_hips" },
+    "upperArmL": { "model": "fig/lerche/sleeve_upper", "params": { "plate": 1 } },
+    "upperArmR": { "model": "fig/lerche/sleeve_upper", "mirror": true, "params": { "plate": 0 } },
+    "lowerArmL": { "model": "fig/lerche/sleeve_lower" },
+    "lowerArmR": { "model": "fig/lerche/sleeve_lower", "mirror": true },
+    "thighL": { "model": "fig/lerche/leg_upper" },
+    "thighR": { "model": "fig/lerche/leg_upper", "mirror": true },
+    "shinL": { "model": "fig/lerche/leg_lower" },
+    "shinR": { "model": "fig/lerche/leg_lower", "mirror": true }
+  }
+}

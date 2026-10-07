@@ -1,0 +1,40 @@
+{
+  "id": "lerche/furn/workbench",
+  "name": "Werkbank mit Schraubstock (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "maschinenraum", "werkbank"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "ops": [
+    { "op": "box", "name": "Bein", "at": [1, 0, 3], "size": [2, 13, 2], "color": "metal", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Fußstrebe", "at": [1, 2, 3], "size": [14, 1, 1], "color": "metal_dark", "mirror": "z", "mirrorAt": 8 },
+    { "op": "box", "name": "Unterboden", "at": [2, 3, 4], "size": [12, 1, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Werkstückkiste unten", "at": [3, 4, 5], "size": [6, 3, 6], "color": { "frame": "trim", "fill": "primary", "axes": "xy" } },
+    { "op": "box", "name": "Platte", "at": [0, 13, 2], "size": [16, 2, 12], "color": { "frame": "metal_light", "fill": "wood", "axes": "xz" } },
+    { "op": "box", "name": "Plattenmaserung", "at": [1, 14, 3], "size": [14, 1, 10], "color": { "stripes": ["wood", "wood_dark"], "axis": "z", "period": 3 }, "mode": "paint" },
+    { "op": "box", "name": "Vorderkante Gold", "at": [0, 13, 13], "size": [16, 1, 1], "color": "trim", "mode": "paint" },
+
+    { "op": "box", "name": "Werkzeugwand", "at": [1, 15, 2], "size": [14, 7, 1], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xy" } },
+    { "op": "box", "name": "Schraubenschlüssel", "at": [3, 16, 3], "size": [1, 5, 1], "color": "metal_light" },
+    { "op": "box", "name": "Schraubenschlüssel Maul", "at": [2, 20, 3], "size": [3, 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Hammer Stiel", "at": [6, 16, 3], "size": [1, 4, 1], "color": "wood_dark" },
+    { "op": "box", "name": "Hammer Kopf", "at": [5, 20, 3], "size": [3, 1, 1], "color": "metal" },
+    { "op": "box", "name": "Zange", "at": [9, 17, 3], "size": [1, 4, 1], "color": "primary" },
+    { "op": "box", "name": "Zange 2", "at": [10, 17, 3], "size": [1, 4, 1], "color": "primary" },
+    { "op": "box", "name": "Lampe", "at": [12, 20, 3], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.8 }, "jitter": false },
+
+    { "op": "group", "name": "Schraubstock (vorn rechts)", "ops": [
+      { "op": "box", "name": "Fuß", "at": [10, 15, 9], "size": [4, 1, 4], "color": "metal_dark" },
+      { "op": "box", "name": "Feste Backe", "at": [10, 16, 9], "size": [4, 3, 2], "color": "metal" },
+      { "op": "box", "name": "Bewegliche Backe", "at": [10, 16, 12], "size": [4, 3, 1], "color": "metal" },
+      { "op": "box", "name": "Backenbelag", "at": [10, 18, 11], "size": [4, 1, 1], "color": "trim" },
+      { "op": "box", "name": "Spindel", "at": [11.5, 17, 13], "size": [1, 1, 2], "color": "metal_light" },
+      { "op": "box", "name": "Knebel", "at": [9, 17, 14], "size": [6, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Werkstück", "at": [11, 19, 11], "size": [2, 2, 1], "color": "trim" }
+    ] },
+    { "op": "cyl", "name": "Zahnrad auf der Platte", "at": [5, 15, 9], "r": 2, "h": 1, "color": "trim" },
+    { "op": "box", "name": "Bolzen lose", "at": [7, 15, 11], "size": [2, 1, 1], "color": "metal_light" }
+  ],
+  "anchor": [8, 0, 8]
+}

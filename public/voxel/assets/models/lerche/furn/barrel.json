@@ -1,0 +1,43 @@
+{
+  "id": "lerche/furn/barrel",
+  "name": "Ölfass / Kabeltrommel (Lerche, per seed)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "maschinenraum", "fass"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "let": { "v": "seed % 4" },
+  "variants": { "trommel": { "seed": 1 }, "fass_bronze": { "seed": 2 }, "zwei_fass": { "seed": 3 } },
+  "ops": [
+    { "op": "group", "name": "Ölfass (rot)", "if": "v == 0", "ops": [
+      { "op": "cyl", "name": "Fass", "at": [8, 0, 8], "r": 5, "h": 14, "color": "primary" },
+      { "op": "cyl", "name": "Reifen", "repeat": { "count": 3, "step": [0, 5, 0] }, "at": [8, 1, 8], "r": 5.2, "h": 1, "color": "trim" },
+      { "op": "cyl", "name": "Deckel", "at": [8, 14, 8], "r": 4.5, "h": 1, "color": "metal_light" },
+      { "op": "box", "name": "Spund", "at": [9, 15, 9], "size": [2, 1, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Ölspur", "at": [6, 13, 12], "size": [2, 2, 1], "color": "black", "mode": "paint" }
+    ] },
+    { "op": "group", "name": "Kabeltrommel (liegend)", "if": "v == 1", "ops": [
+      { "op": "cyl", "name": "Seitenscheibe", "axis": "x", "at": [2, 6.5, 8], "r": 6.5, "h": 2, "color": "wood", "mirror": "x", "mirrorAt": 8 },
+      { "op": "cyl", "name": "Kabelwicklung", "axis": "x", "at": [4, 6.5, 8], "r": 5, "h": 8, "color": { "stripes": ["rubber", "black"], "axis": "x", "period": 1 } },
+      { "op": "cyl", "name": "Nabe", "axis": "x", "at": [1, 6.5, 8], "r": 1.5, "h": 14, "color": "trim" },
+      { "op": "line", "name": "Kabelende", "from": [8, 11.5, 12.5], "to": [11, 0.5, 15], "r": 0.6, "color": "rubber" },
+      { "op": "box", "name": "Stecker", "at": [11, 0, 14], "size": [2, 1, 2], "color": "primary" }
+    ] },
+    { "op": "group", "name": "Bronzefass mit Hahn", "if": "v == 2", "ops": [
+      { "op": "cyl", "name": "Fass", "at": [8, 0, 8], "r": 5, "h": 13, "color": "metal" },
+      { "op": "cyl", "name": "Reifen", "repeat": { "count": 2, "step": [0, 9, 0] }, "at": [8, 2, 8], "r": 5.2, "h": 1, "color": "trim" },
+      { "op": "cyl", "name": "Deckel", "at": [8, 13, 8], "r": 4.5, "h": 1, "color": { "frame": "primary", "fill": "metal_light", "axes": "xz" } },
+      { "op": "box", "name": "Hahn", "at": [7, 3, 13], "size": [2, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Tropfschale", "at": [6, 0, 13], "size": [4, 1, 2], "color": "metal_dark" }
+    ] },
+    { "op": "group", "name": "Zwei kleine Fässer", "if": "v == 3", "ops": [
+      { "op": "cyl", "name": "Fass hinten", "at": [5, 0, 5], "r": 3.5, "h": 11, "color": "primary" },
+      { "op": "cyl", "name": "Fass hinten Reifen", "at": [5, 2, 5], "r": 3.7, "h": 1, "color": "trim" },
+      { "op": "cyl", "name": "Fass hinten Deckel", "at": [5, 11, 5], "r": 3, "h": 1, "color": "metal_light" },
+      { "op": "cyl", "name": "Fass vorn", "at": [11, 0, 11], "r": 3.5, "h": 9, "color": "metal" },
+      { "op": "cyl", "name": "Fass vorn Reifen", "at": [11, 6, 11], "r": 3.7, "h": 1, "color": "trim" },
+      { "op": "cyl", "name": "Fass vorn Deckel", "at": [11, 9, 11], "r": 3, "h": 1, "color": "metal_light" }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

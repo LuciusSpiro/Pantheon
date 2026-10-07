@@ -1,0 +1,59 @@
+{
+  "id": "lerche/console/helm",
+  "name": "Steuer mit Joch und Adlerhaube (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "konsole", "bruecke", "steuer"],
+  "footprint": [1, 1],
+  "params": {
+    "occupied": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "besetzt (Leuchtrand)" },
+    "alert": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Alarm" }
+  },
+  "variants": {
+    "besetzt": { "occupied": 1 },
+    "alarm": { "alert": 1 },
+    "besetzt_alarm": { "occupied": 1, "alert": 1 }
+  },
+  "ops": [
+    { "op": "use", "name": "Besetzt-Rand", "model": "lerche/station/parts_c/rim", "at": [0, 0, 0], "params": { "w": 16, "d": 16, "on": "occupied" } },
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, -1], "params": { "w": 12, "d": 10, "h": 2 } },
+
+    { "op": "box", "name": "Säule", "at": [-4, 2, -5], "size": [8, 9, 7], "color": "metal" },
+    { "op": "box", "name": "Säule Rotfeld", "at": [-3, 3, 2], "size": [6, 7, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Säule Pilaster", "at": [-5, 2, -5], "size": [1, 9, 7], "color": "secondary", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Pilaster Kapitell", "at": [-5, 10, -5], "size": [1, 1, 7], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+
+    { "op": "box", "name": "Pultkasten", "at": [-6, 11, -6], "size": [12, 2, 10], "color": "metal_dark" },
+    { "op": "wedge", "name": "Pult schräg", "at": [-6, 13, -6], "size": [12, 5, 10], "slope": "+z", "color": "metal" },
+    { "op": "box", "name": "Pultkante Gold", "at": [-6, 13, 3], "size": [12, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Anzeige", "at": [-4, 14, -3], "size": [8, 4, 5], "mode": "paint", "color": "dark", "jitter": false },
+    { "op": "box", "name": "Kurslinie", "at": [-1, 14, -3], "size": [2, 4, 5], "mode": "paint", "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Tasten", "repeat": { "count": 3, "step": [2, 0, 0], "var": "k" }, "at": [-5, 14, 1], "size": [1, 1, 1], "mode": "paint", "color": { "role": "glow2", "emit": 0.8 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+
+    { "op": "box", "name": "Jochschaft", "at": [-1, 13, 4], "size": [2, 2, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Jochbügel", "at": [-5, 15, 5], "size": [10, 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Jochgriffe", "at": [-5, 15, 5], "size": [1, 4, 1], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Griffkappen", "at": [-5, 19, 5], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Jochnabe", "at": [-1, 15, 6], "size": [2, 2, 1], "color": "trim" },
+
+    { "op": "box", "name": "Haubenträger", "at": [-1, 18, -7], "size": [2, 7, 2], "color": "metal_dark" },
+    { "op": "group", "name": "Adlerhaube (Schwingen, gespiegelt)", "mirror": "x", "mirrorAt": 0, "ops": [
+      { "op": "box", "name": "Schwinge innen", "at": [0, 22, -7], "size": [3, 2, 6], "color": "trim" },
+      { "op": "box", "name": "Schwinge mitte", "at": [3, 23, -7], "size": [2, 2, 6], "color": { "shade": "trim", "f": 1.08 } },
+      { "op": "box", "name": "Schwinge außen", "at": [5, 22, -7], "size": [2, 2, 5], "color": "trim" },
+      { "op": "box", "name": "Schwingenspitze", "at": [7, 19, -7], "size": [1, 4, 4], "color": { "shade": "trim", "f": 0.85 } },
+      { "op": "box", "name": "Federreihe", "repeat": { "count": 4, "step": [2, 0, 0], "var": "k" }, "at": [0, 21, -6], "size": [1, 1, 5], "color": { "shade": "trim", "f": 0.75 } },
+      { "op": "box", "name": "Federrand vorn", "at": [1, 22, -1], "size": [6, 1, 1], "color": { "shade": "trim", "f": 0.8 } }
+    ] },
+    { "op": "box", "name": "Adlerbrust", "at": [-1, 22, -6], "size": [2, 3, 2], "color": { "shade": "trim", "f": 1.1 } },
+    { "op": "box", "name": "Adlerkopf", "at": [-1, 25, -6], "size": [2, 2, 3], "color": { "shade": "trim", "f": 1.15 } },
+    { "op": "box", "name": "Schnabel", "at": [-1, 25, -3], "size": [2, 1, 1], "color": { "shade": "trim", "f": 0.7 } },
+    { "op": "box", "name": "Auge", "at": [-1, 26, -4], "size": [2, 1, 1], "mode": "paint", "color": "dark", "jitter": false },
+
+    { "op": "box", "name": "Alarmleuchten aus", "if": "!alert", "at": [-7, 20, -6], "size": [1, 1, 2], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Alarmleuchten an", "if": "alert", "at": [-8, 17, -6], "size": [2, 3, 3], "color": "warning", "emit": 1.6, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Kurslinie Alarm", "if": "alert", "at": [-1, 14, -3], "size": [2, 4, 5], "mode": "paint", "color": "warning", "emit": 1.3, "jitter": false },
+    { "op": "box", "name": "Pult Alarmband", "if": "alert", "at": [-6, 13, 3], "size": [12, 1, 1], "color": "warning", "emit": 1.6, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

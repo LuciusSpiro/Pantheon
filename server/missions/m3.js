@@ -13,6 +13,10 @@ const radioOffer = { radio: { from: TESK, text: 'Lerche, hier Tesk. Plünderer g
 module.exports = {
   id: 'm3',
   title: 'Die Tafel von Kesh',
+  // §21.2 Missionsbuch
+  book: { from: TESK,
+    briefing: 'Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel, die nicht verkauft werden darf. Bergen und alle heil zurückbringen.',
+    reward: `${require('../../shared/config.js').awayCombat.rewards.complete} Marken, Bonus für den Wächter` },
   steps: [
     {
       id: 'briefing',

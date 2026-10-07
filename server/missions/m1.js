@@ -15,6 +15,9 @@ const repelled = { radio: { from: GRAUZAHN, text: 'Das… war nicht geplant. Wir
 module.exports = {
   id: 'm1',
   title: 'Die stumme Boje',
+  // §21.2 Missionsbuch: Auftraggeber, Briefing, Belohnung (Text)
+  book: { from: TESK, briefing: 'Boje B-7 ist verstummt. Sie liegt hinter dem Splittergürtel. Nachsehen, was los ist – und sie wieder zum Senden bringen.',
+    reward: 'Zahlung wie üblich, Boni für Bergung und Rettung' },
   radioTesk,
   steps: [
     {
@@ -22,10 +25,10 @@ module.exports = {
       enter: [{ do: 'drillSetup' }],
       timers: [
         { at: 0.5, oda: 'Guten Morgen, Crew der Lerche! Ich bin ODA, eure Bordintelligenz. Laufen: WASD oder Pfeiltasten.' },
-        { at: 5, if: notDrill, oda: 'Andock-Rempler: Kabelbrand und Leck in der Messe, der Transfer ist hinüber. Die Schrauber machen Hafen-Check.' },
+        { at: 5, if: notDrill, oda: 'Andock-Rempler: Kabelbrand im Vorraum, Leck im Lager, der Transfer ist hinüber. Die Schrauber machen Hafen-Check.' },
         { at: 11, if: drillOpen, oda: 'Lager oben links: E am Regal nimmt etwas – 1 Ersatzteil, 2 Löschgel, 3 Flickblech. G legt es ab.' },
         { at: 19, if: drillOpen, oda: 'Feuer: mit Löschgel davor E halten. Leck: mit Flickblech E halten. Kaputtes: Ersatzteil tragen, E halten.' },
-        { at: 50, if: drillOpen, oda: 'Der Transfer steht in der Transferkammer unten links, Feuer und Leck sind in der Messe.' },
+        { at: 50, if: drillOpen, oda: 'Der Transfer steht in der Transferkammer unten links, das Feuer im Vorraum, das Leck im Lager.' },
         { at: 95, if: drillOpen, oda: 'Kleiner Tipp: Zu zweit oder zu dritt teilt man sich die Übung auf. Allein dauert es halt etwas länger.' },
       ],
       rules: [
@@ -38,8 +41,8 @@ module.exports = {
             { after: { sec: 3, do: [radioTesk] } }] },
       ],
       objectives: [
-        { id: 'drillFire', text: 'Übung: Löschgel holen (Lager), Kabelbrand in der Messe löschen', show: notDrill, done: { check: 'noFires' } },
-        { id: 'drillBreach', text: 'Übung: Flickblech holen, Leck in der Messe flicken (E halten)', show: notDrill, done: { check: 'noBreaches' } },
+        { id: 'drillFire', text: 'Übung: Löschgel holen (Lager), Kabelbrand im Vorraum löschen', show: notDrill, done: { check: 'noFires' } },
+        { id: 'drillBreach', text: 'Übung: Flickblech holen, Leck im Lager flicken (E halten)', show: notDrill, done: { check: 'noBreaches' } },
         { id: 'drillRepair', text: 'Übung: Ersatzteil holen, Transfer reparieren (E halten)', show: notDrill, done: { check: { name: 'systemOk', system: 'transfer' } } },
         { id: 'captainConsole', text: 'Brücke: Captain-Konsole betreten (E)', show: { v: 'radio' }, done: { check: { name: 'consoleManned', console: 'captain' } } },
         { id: 'accept', text: 'Funkspruch annehmen', show: { v: 'radio' }, done: { event: 'accepted' } },
@@ -126,7 +129,7 @@ module.exports = {
         { if: { all: [{ not: { flag: { bribed: true } } }, { any: [{ enemiesLeft: { max: 0 } }, { elapsed: 50 }] }] },
           do: [{ set: { gunboat: true } }, { spawn: { kind: 'gunboat', tag: 'gunboat' } },
             { radio: { from: GRAUZAHN, text: 'Genug gespielt. Das Kanonenboot übernimmt.' } },
-            { after: { sec: 4, oda: 'Das Kanonenboot lädt seine Breitseite sichtbar auf. Captain: Schildstoß auf die Seite – Pilot: wegdrehen!' } },
+            { after: { sec: 4, oda: 'Das Kanonenboot lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!' } },
             { do: 'breakShields', text: 'Kanonenboot! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!' }] },
         { if: { enemyHpBelow: { tag: 'gunboat', frac: 0.5 } },
           do: [{ do: 'guaranteeBreach', region: 3, text: 'Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.' }] },

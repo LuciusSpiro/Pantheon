@@ -1,0 +1,46 @@
+{
+  "id": "lerche/console/plan_table",
+  "name": "Planungstisch 2×2 mit Holo-Sternkarte (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "konsole", "bruecke", "planungstisch"],
+  "footprint": [2, 2],
+  "params": {
+    "active": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Holo-Sternkarte an" }
+  },
+  "variants": { "aus": { "active": 0 } },
+  "ops": [
+    { "op": "cyl", "name": "Fußplatte", "at": [0, 0, 0], "r": 7, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Fußplatte Goldring", "at": [0, 0, 0], "r": 7, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Fuß", "at": [0, 1, 0], "r": 5, "r2": 3.5, "h": 2, "color": "metal" },
+    { "op": "cyl", "name": "Säule (Marmor)", "at": [0, 3, 0], "r": 3, "h": 8, "color": "secondary" },
+    { "op": "cyl", "name": "Säulenring unten", "at": [0, 3, 0], "r": 3.5, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Kapitell", "at": [0, 9, 0], "r": 3, "r2": 6, "h": 2, "color": "trim" },
+    { "op": "box", "name": "Kanneluren", "repeat": { "count": 4, "step": [0, 0, 0], "var": "k" }, "at": ["k == 0 ? -1 : (k == 1 ? -1 : (k == 2 ? 2 : -3))", 4, "k == 0 ? 2 : (k == 1 ? -3 : -1)"], "size": [1, 5, 1], "color": "stone_dark", "mode": "paint" },
+
+    { "op": "cyl", "name": "Tischplatte", "at": [0, 11, 0], "r": 14.5, "h": 2, "color": "metal" },
+    { "op": "cyl", "name": "Tischrand Gold", "at": [0, 12, 0], "r": 14.5, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Mäanderband", "at": [0, 11, 0], "r": 14.5, "hollow": 1, "h": 1, "color": { "checker": ["trim", "metal_dark"], "period": 1 } },
+    { "op": "cyl", "name": "Marmorring", "at": [0, 12, 0], "r": 13.5, "hollow": 2, "h": 1, "color": "secondary" },
+    { "op": "cyl", "name": "Kartenfläche", "at": [0, 12, 0], "r": 11.5, "h": 1, "color": "dark", "jitter": false },
+    { "op": "cyl", "name": "Bahnkreis", "if": "active", "at": [0, 12, 0], "r": 8, "hollow": 1, "h": 1, "color": { "shade": "glow", "f": 0.5 }, "jitter": false },
+    { "op": "box", "name": "Sterne", "repeat": { "count": 7, "step": [3, 0, 0], "var": "k" }, "at": [-10, 12, "k % 2 == 0 ? -4 + k : 5 - k"], "size": [1, 1, 1], "color": "metal_light", "jitter": false },
+    { "op": "box", "name": "Sterne (an)", "if": "active", "repeat": { "count": 7, "step": [3, 0, 0], "var": "k" }, "at": [-10, 12, "k % 2 == 0 ? -4 + k : 5 - k"], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Pins", "repeat": { "count": 3, "step": [6, 0, -3], "var": "k" }, "at": [-6, 13, 4], "size": [1, 2, 1], "color": "primary" },
+    { "op": "box", "name": "Pinköpfe", "repeat": { "count": 3, "step": [6, 0, -3], "var": "k" }, "at": [-6, 15, 4], "size": [1, 1, 1], "color": "trim" },
+
+    { "op": "cyl", "name": "Holo-Projektor", "at": [0, 13, 0], "r": 2.5, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Projektorlinse", "at": [0, 14, 0], "r": 1.5, "h": 1, "color": "glass", "jitter": false },
+    { "op": "cyl", "name": "Projektorlinse an", "if": "active", "at": [0, 14, 0], "r": 1.5, "h": 1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "group", "name": "Holo-Sternkarte", "if": "active", "ops": [
+      { "op": "cyl", "name": "Holo-Ebene", "at": [0, 18, 0], "r": 9, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 0.7 }, "jitter": false },
+      { "op": "cyl", "name": "Holo-Ebene innen", "at": [0, 18, 0], "r": 5, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 0.6 }, "jitter": false },
+      { "op": "ellipsoid", "name": "Zentralstern", "at": [0, 19, 0], "r": 1.6, "color": { "role": "glow2", "emit": 1.2 }, "jitter": false },
+      { "op": "ellipsoid", "name": "Welt 1", "at": [5, 18.5, 2], "r": 1.1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+      { "op": "ellipsoid", "name": "Welt 2", "at": [-7, 18.5, -5], "r": 1.1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+      { "op": "ellipsoid", "name": "Welt 3", "at": [-3, 18.5, 8], "r": 1.1, "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "line", "name": "Route", "from": [5, 19, 2], "to": [-3, 19, 8], "r": 0.5, "color": { "role": "glow2", "emit": 0.7 }, "jitter": false }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

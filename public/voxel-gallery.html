@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voxel-Galerie – Sternenschicht</title>
+<link rel="icon" href="data:,">
+<!-- CONTRACT-M4 §4: zeigt jedes Manifest-Asset in allen Zuständen bzw. Parameterstufen mit der Spielkamera
+     (perspektivisch, FOV 30°, Neigung 57°, keine Drehung). Maßstab: Figur 1,94 m + Kachelraster 1 m.
+     URL-Parameter: ?team=art-b  ?id=lerche/station (Teilstring, mehrere mit Komma)  ?mood=ship_interior
+                    ?zoom=1|2|3  ?mode=all|states|params  ?refh=900 (Bezugshöhe des Spielfensters in px)
+     Tasten: + / − Zoom, 1/2/3 Zoomstufe direkt, M nächste Stimmung. -->
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/" } }
+</script>
+<style>
+  :root { --bg: #0d1018; --panel: #161b27; --line: #2a3242; --text: #d8dde8; --dim: #8791a5; --ok: #7FE0C2; --warn: #F2C94C; --bad: #E0473C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+           padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; }
+  header label { color: var(--dim); }
+  header select, header input, header button { background: #0f131c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+  header button { cursor: pointer; }
+  #status { margin-left: auto; color: var(--dim); }
+  #status.err { color: var(--bad); }
+  main { padding: 10px 14px 60px; }
+  .asset { border-bottom: 1px solid var(--line); padding: 10px 0 14px; }
+  .asset h2 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
+  .asset h2 .team { color: var(--dim); font-weight: 400; margin-left: 8px; }
+  .asset .meta { color: var(--dim); font-size: 12px; margin-bottom: 8px; }
+  .asset .meta .err { color: var(--bad); }
+  .cells { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .cell { display: flex; flex-direction: column; gap: 3px; }
+  .view { border: 1px solid var(--line); border-radius: 3px; position: relative; }
+  .cap { font-size: 12px; max-width: 320px; }
+  .cap b { font-weight: 600; }
+  .cap .tri { color: var(--dim); }
+  .cap .over { color: var(--warn); }
+  .cap .bad, .cell .bad { color: var(--bad); }
+  .empty { color: var(--dim); padding: 30px 0; }
+  canvas#gl { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2; pointer-events: none; }
+  kbd { background: #0f131c; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Voxel-Galerie</h1>
+  <label>Team <select id="fTeam"><option value="">alle</option></select></label>
+  <label>ID <input id="fId" size="18" placeholder="Teilstring, a,b"></label>
+  <label>Zeigen <select id="fMode"><option value="all">Zustände + Parameter</option><option value="states">nur Zustände</option><option value="params">nur Parameter</option></select></label>
+  <label>Stimmung <select id="fMood"></select></label>
+  <label>Zoom <button id="zOut" title="−">−</button> <span id="zName"></span> <button id="zIn" title="+">+</button></label>
+  <span style="color:var(--dim)"><kbd>+</kbd><kbd>−</kbd> Zoom · <kbd>M</kbd> Stimmung</span>
+  <span id="status">lädt …</span>
+</header>
+<main id="list"></main>
+<canvas id="gl"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { Library } from 'voxelwerk/core/library.js';
+import { modelObject, figureObject, applyPose } from 'voxelwerk/render/voxel-three.js';
+
+const T0 = performance.now();   // nach dem Laden von three + Kern (statische Importe)
+window.__galleryModulesMs = Math.round(T0);
+const D2R = Math.PI / 180;
+const BASE = '/voxel/';
+const ELEV = 57, FOV = 30;
+// Zoomstufen: wie viele Kacheln (m) das Spielfenster senkrecht zeigt. 1/2 entsprechen den Spiel-Zoomstufen
+// (2D-Spiel: 640×360 bei 32 px/Kachel = 11,25 Kacheln hoch), 3 = Nahansicht zum Prüfen.
+const ZOOMS = [{ name: 'Spiel fern', tiles: 11.25 }, { name: 'Spiel nah', tiles: 7 }, { name: 'Detail', tiles: 3.5 }];
+const PLAYER_COLORS = ['#56B4E9', '#E69F00', '#CC79A7'];
+const MAX_CELLS = 24;
+
+const q = new URLSearchParams(location.search);
+const G = (window.__gallery = { ready: false, loadMs: 0, buildMs: 0, assets: 0, cells: 0, errors: 0, errorList: [] });
+const state = {
+  team: q.get('team') || '', id: q.get('id') || '', mode: q.get('mode') || 'all',
+  mood: q.get('mood') || 'ship_interior', zoom: Math.max(0, Math.min(2, (+q.get('zoom') || 1) - 1)),
+  refH: +q.get('refh') || 900,
+};
+const $ = (s) => document.querySelector(s);
+const status = (t, bad) => { const el = $('#status'); el.textContent = t; el.classList.toggle('err', !!bad); };
+const countError = (where, e) => { G.errors++; G.errorList.push(`${where}: ${e && e.message || e}`); console.error('[gallery]', where, e); };
+
+// ---------------------------------------------------------------------------------------------
+// Bibliothek per fetch (so baut auch der Spiel-Loader seine Library)
+// ---------------------------------------------------------------------------------------------
+const io = {
+  json: async (p) => { const r = await fetch(BASE + p); if (!r.ok) throw new Error(`HTTP ${r.status} ${BASE + p}`); return r.json(); },
+  binary: async (p) => { const r = await fetch(BASE + p); if (!r.ok) throw new Error(`HTTP ${r.status} ${BASE + p}`); return r.arrayBuffer(); },
+};
+const lib = new Library(io);
+
+// ---------------------------------------------------------------------------------------------
+// Renderer: eine Leinwand über der Seite, jede Zelle per Scissor gezeichnet (nur bei Bedarf)
+// ---------------------------------------------------------------------------------------------
+const canvas = $('#gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+} catch (e) { status('Kein WebGL: ' + e.message, true); throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.autoClear = false;
+
+let mood = null, moods = [];
+const cells = [];   // { el, scene, camera, w, h, target }
+
+function lightScene(scene, m, radius) {
+  const col = (s) => new THREE.Color(s);
+  scene.add(new THREE.HemisphereLight(col(m.hemi?.sky ?? '#a0b4c8'), col(m.hemi?.ground ?? '#40382c'), m.hemi?.intensity ?? 1.0));
+  if (m.ambient) scene.add(new THREE.AmbientLight(col(m.ambient.color), m.ambient.intensity));
+  if (m.sun) {
+    const d = new THREE.Vector3(...(m.sun.dir ?? [-0.5, 1, 0.3])).normalize();
+    const sun = new THREE.DirectionalLight(col(m.sun.color ?? '#fff2dc'), m.sun.intensity ?? 2.5);
+    sun.position.copy(d).multiplyScalar(radius * 3); sun.target.position.set(0, 0, 0);
+    sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+    const c = sun.shadow.camera; c.left = c.bottom = -radius; c.right = c.top = radius; c.near = 0.1; c.far = radius * 6;
+    sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02; sun.shadow.radius = m.sun.softness ?? 3;
+    scene.add(sun, sun.target);
+  }
+}
+
+/** Kachelraster 1 m: Linien auf Kachelgrenzen. Ungerade Grundfläche → Objekt mittig auf einer Kachel. */
+function tileGrid(halfX, halfZ, oddX, oddZ) {
+  const pts = [], ox = oddX ? 0.5 : 0, oz = oddZ ? 0.5 : 0;
+  for (let x = -Math.ceil(halfX) - ox; x <= halfX + 1e-6; x += 1) pts.push(x, 0.003, -halfZ, x, 0.003, halfZ);
+  for (let z = -Math.ceil(halfZ) - oz; z <= halfZ + 1e-6; z += 1) pts.push(-halfX, 0.003, z, halfX, 0.003, z);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x7d8aa3, transparent: true, opacity: 0.45 }));
+}
+
+/** Maßstab-Figur 1,94 m: crew/nova, wenn synchronisiert, sonst schlichte Puppe. */
+function scaleFigure() {
+  try {
+    if (lib.get('figures', 'crew/nova')) {
+      const f = figureObject(lib, 'crew/nova', { phase: 0 }); applyPose(f, 'stand', 0); return f.root;
+    }
+  } catch (e) { countError('Maßstab-Figur', e); }
+  const g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: 0x8a94a6, roughness: 0.9 });
+  const box = (w, h, d, y) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.y = y + h / 2; m.castShadow = true; g.add(m); };
+  box(0.36, 0.88, 0.22, 0); box(0.48, 0.68, 0.28, 0.88); box(0.3, 0.32, 0.3, 1.62);
+  return g;
+}
+
+function measure(obj) {
+  let tris = 0;
+  obj.traverse((m) => { if (m.isMesh && m.geometry) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+  return tris;
+}
+
+/** Zelle bauen: Szene mit Boden, Raster, Objekt und Maßstab-Figur, Kamera wie im Spiel. */
+function makeCell(container, label, buildFn, entry) {
+  const cell = document.createElement('div'); cell.className = 'cell';
+  const view = document.createElement('div'); view.className = 'view';
+  const cap = document.createElement('div'); cap.className = 'cap';
+  cell.append(view, cap); container.append(cell);
+  const t0 = performance.now();
+  let obj, bounds, tris = 0, err = null;
+  try {
+    obj = buildFn();
+    bounds = new THREE.Box3().setFromObject(obj);
+    tris = measure(obj);
+  } catch (e) {
+    err = e; countError(`${entry.id} [${label}]`, e);
+    obj = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+    obj.position.y = 0.45; bounds = new THREE.Box3().setFromObject(obj);
+  }
+  const ms = performance.now() - t0;
+  const fp = entry.footprint || [1, 1];
+  const halfX = Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x), fp[0] / 2);
+  const halfZ = Math.max(Math.abs(bounds.min.z), Math.abs(bounds.max.z), fp[1] / 2);
+  const height = Math.max(bounds.max.y, 0.2);
+  const scene = new THREE.Scene();
+  const gx = halfX + 1.6, gz = halfZ + 1.0;
+  const floorCol = new THREE.Color(mood.background ?? '#202630').lerp(new THREE.Color('#9aa6ba'), 0.16);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(gx * 2 + 2, gz * 2 + 2), new THREE.MeshStandardMaterial({ color: floorCol, roughness: 1 }));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+  scene.add(tileGrid(gx, gz, Math.round(fp[0]) % 2 === 1, Math.round(fp[1]) % 2 === 1));
+  scene.add(obj);
+  const fig = scaleFigure(); fig.position.set(halfX + 0.75, 0, 0); scene.add(fig);
+  lightScene(scene, mood, Math.max(4, gx, gz, height));
+
+  // Kamera wie im Spiel: Abstand so, dass das Bezugsfenster (refH px hoch) zm.tiles Meter zeigt.
+  // Die Zelle ist der Ausschnitt dieses Bezugsfensters, der Objekt, Figur und Rand umfasst (gleicher Maßstab für alle).
+  const zm = ZOOMS[state.zoom];
+  const se = Math.sin(ELEV * D2R), ce = Math.cos(ELEV * D2R);
+  const refW = Math.round(state.refH * 16 / 9);
+  const dist = zm.tiles / (2 * Math.tan((FOV / 2) * D2R));
+  const camera = new THREE.PerspectiveCamera(FOV, refW / state.refH, 0.1, 400);
+  const cx = 0.375;
+  camera.position.set(cx, se * dist, ce * dist); camera.lookAt(cx, 0, 0); camera.updateMatrixWorld();
+  const box = bounds.clone().union(new THREE.Box3(new THREE.Vector3(halfX + 0.5, 0, -0.3), new THREE.Vector3(halfX + 1.0, 1.94, 0.3)));
+  box.expandByVector(new THREE.Vector3(0.45, 0.15, 0.45)); box.min.y = Math.min(box.min.y, 0);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; const P = new THREE.Vector3();
+  for (let i = 0; i < 8; i++) {
+    P.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(camera);
+    const px = (P.x + 1) / 2 * refW, py = (1 - P.y) / 2 * state.refH;
+    x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+  }
+  const w = Math.round(Math.min(Math.max(x1 - x0, 110), 1400)), h = Math.round(Math.min(Math.max(y1 - y0, 90), 1200));
+  const ox = (x0 + x1) / 2 - w / 2, oy = (y0 + y1) / 2 - h / 2;
+  view.style.width = w + 'px'; view.style.height = h + 'px';
+  camera.setViewOffset(refW, state.refH, ox, oy, w, h);
+  camera.updateProjectionMatrix();
+
+  const budget = entry.budgetTris || 0;
+  const pct = budget ? Math.round((tris / budget) * 100) : null;
+  const sizeTxt = `${(bounds.max.x - bounds.min.x).toFixed(2)}×${(bounds.max.z - bounds.min.z).toFixed(2)}×${bounds.max.y.toFixed(2)} m`;
+  cap.innerHTML = `<b>${esc(label)}</b> <span class="tri ${pct > 150 ? 'bad' : pct > 100 ? 'over' : ''}">${tris.toLocaleString('de-DE')} △${pct != null ? ' (' + pct + ' %)' : ''}</span>`
+    + `<br><span class="tri">${sizeTxt} · ${ms.toFixed(0)} ms</span>`
+    + (err ? `<br><span class="bad">${esc(err.message).slice(0, 200)}</span>` : '');
+  cells.push({ el: view, scene, camera, w, h });
+  G.cells++;
+}
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------------------------------------------------------------------------------------------
+// Varianten je Asset: Standard, alle Zustände, jede Parameterstufe (andere Parameter auf Standard)
+// ---------------------------------------------------------------------------------------------
+function steps(range) {
+  const [a, b] = range; if (!(b >= a)) return [a];
+  const n = b - a;
+  if (Number.isInteger(a) && Number.isInteger(b) && n <= 6) return Array.from({ length: n + 1 }, (_, i) => a + i);
+  return [a, Math.round(((a + b) / 2) * 100) / 100, b];
+}
+function variantsOf(e) {
+  const out = [], seen = new Set();
+  const add = (label, params, extra) => {
+    const k = JSON.stringify(Object.keys(params).sort().map((x) => [x, params[x]])) + JSON.stringify(extra || null);
+    if (seen.has(k)) return; seen.add(k); out.push({ label, params, ...extra });
+  };
+  if (e.kind === 'figure') {
+    const fig = lib.get('figures', e.source), rig = fig && lib.get('rigs', fig.rig);
+    const poses = rig?.poses ? Object.keys(lib.get('poses', rig.poses)?.poses || {}) : ['stand'];
+    const role = /crew\/(nova|juno|tami)$/.test(e.id) ? 'primary' : 'cloth2';
+    if (state.mode !== 'params') poses.forEach((p) => add(p, {}, { pose: p }));
+    if (state.mode !== 'states' && /crew/.test(e.id)) PLAYER_COLORS.forEach((c, i) => add(`Spieler ${i} (${role})`, {}, { pose: 'stand', colors: { [role]: c } }));
+    return out;
+  }
+  add('Standard', {});
+  if (state.mode !== 'params') for (const [name, p] of Object.entries(e.states || {})) add(name, p || {});
+  if (state.mode !== 'states') for (const [k, r] of Object.entries(e.params || {})) {
+    if (!Array.isArray(r)) continue;
+    for (const v of steps(r)) add(`${k}=${v}`, { [k]: v });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+async function build() {
+  const t0 = performance.now();
+  cells.length = 0; G.cells = 0;
+  const list = $('#list'); list.textContent = '';
+  const ids = state.id.split(',').map((s) => s.trim()).filter(Boolean);
+  const entries = Object.values(manifest.assets).filter((e) => (!state.team || e.team === state.team) && (!ids.length || ids.some((s) => e.id.includes(s))));
+  G.assets = entries.length;
+  if (!entries.length) list.innerHTML = `<div class="empty">Keine Assets${Object.keys(manifest.assets).length ? ' für diesen Filter' : ' – noch kein Manifest unter assets/manifest/ (dann <code>npm run assets</code>)'}.</div>`;
+  let n = 0;
+  for (const e of entries) {
+    const sec = document.createElement('section'); sec.className = 'asset';
+    const src = e.source !== e.id ? ` ← ${esc(e.source)}` : '';
+    sec.innerHTML = `<h2>${esc(e.id)}${src}<span class="team">${esc(e.team)} · ${esc(e.kind)}</span></h2>`
+      + `<div class="meta">Grundfläche ${esc(JSON.stringify(e.footprint || '–'))} · Höhe ${e.height ?? '–'} m · Budget ${e.budgetTris ?? '–'} △ · Sockets ${esc(Object.keys(e.sockets || {}).join(', ') || '–')}</div>`;
+    const wrap = document.createElement('div'); wrap.className = 'cells'; sec.append(wrap); list.append(sec);
+    const kind = e.kind === 'figure' ? 'figures' : 'models';
+    try { await lib.load(kind, e.source); }
+    catch (err) { countError(e.id, err); sec.querySelector('.meta').insertAdjacentHTML('beforeend', ` · <span class="err">${esc(err.message)}</span>`); continue; }
+    const vars = variantsOf(e).slice(0, MAX_CELLS);
+    for (const v of vars) {
+      makeCell(wrap, v.label, () => {
+        if (e.kind === 'figure') {
+          const f = figureObject(lib, e.source, { colors: v.colors, phase: 0 }); applyPose(f, v.pose || 'stand', 0); return f.root;
+        }
+        return modelObject(lib, e.source, { params: v.params });
+      }, e);
+    }
+    if (++n % 4 === 0) { requestRender(); await new Promise((r) => setTimeout(r, 0)); }   // Seite bleibt bedienbar
+  }
+  G.buildMs = Math.round(performance.now() - t0);
+  requestRender();
+}
+
+// ---------------------------------------------------------------------------------------------
+let pending = false;
+function requestRender() { if (!pending) { pending = true; requestAnimationFrame(render); } }
+function render() {
+  pending = false;
+  const W = innerWidth, H = innerHeight;
+  if (canvas.width !== Math.floor(W * renderer.getPixelRatio()) || canvas.height !== Math.floor(H * renderer.getPixelRatio())) renderer.setSize(W, H, false);
+  renderer.toneMappingExposure = mood?.exposure ?? 1.0;
+  renderer.setScissorTest(false); renderer.setClearColor(0x000000, 0); renderer.clear();
+  renderer.setScissorTest(true);
+  const bg = new THREE.Color(mood?.background ?? '#202630');
+  const top = $('header').getBoundingClientRect().bottom;
+  for (const c of cells) {
+    const r = c.el.getBoundingClientRect();
+    if (r.bottom < top || r.top > H || r.right < 0 || r.left > W) continue;
+    // Bereich unter dem Kopf abschneiden (Kopf liegt über der Leinwand, aber sicher ist sicher)
+    const y0 = Math.max(r.top, top), hh = r.bottom - y0; if (hh <= 0) continue;
+    renderer.setViewport(r.left, H - r.bottom, r.width, r.height);
+    renderer.setScissor(r.left, H - r.bottom, r.width, hh);
+    renderer.setClearColor(bg, 1); renderer.clear();
+    try { renderer.render(c.scene, c.camera); } catch (e) { countError('render', e); }
+  }
+}
+addEventListener('scroll', requestRender, { passive: true });
+addEventListener('resize', requestRender);
+
+// ---------------------------------------------------------------------------------------------
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (state.team) p.set('team', state.team); if (state.id) p.set('id', state.id);
+  if (state.mode !== 'all') p.set('mode', state.mode); if (state.mood !== 'ship_interior') p.set('mood', state.mood);
+  if (state.zoom !== 0) p.set('zoom', state.zoom + 1); if (state.refH !== 900) p.set('refh', state.refH);
+  history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : ''));
+}
+async function rebuild() {
+  syncUrl();
+  try { mood = await lib.load('moods', state.mood); } catch (e) { countError('Stimmung ' + state.mood, e); mood = { background: '#202630', hemi: {}, sun: {} }; }
+  await lib.load('figures', 'crew/nova').catch(() => null);   // Maßstab-Figur (sync kopiert sie immer mit)
+  $('#zName').textContent = ZOOMS[state.zoom].name;
+  status('baut …'); G.ready = false;
+  await build();
+  finish();
+}
+function finish() {
+  if (!G.loadMs) G.loadMs = Math.round(performance.now() - T0);   // erste Ladung: Seite bis alles gebaut
+  G.ready = true;
+  status(`${G.assets} Assets · ${G.cells} Ansichten · geladen in ${G.loadMs} ms (Bauen ${G.buildMs} ms) · Voxelwerk ${version.voxelwerkCommit ? version.voxelwerkCommit.slice(0, 8) : '?'}${version.dirty ? ' (dirty)' : ''}`
+    + (G.errors ? ` · ${G.errors} Fehler` : ''), G.errors > 0);
+}
+function setZoom(z) { z = Math.max(0, Math.min(ZOOMS.length - 1, z)); if (z !== state.zoom) { state.zoom = z; rebuild(); } }
+
+let manifest = { assets: {} }, version = {};
+try {
+  const [m, v, idx] = await Promise.all([io.json('manifest.json'), io.json('VERSION.json').catch(() => ({})), io.json('index.json').catch(() => ({ moods: ['ship_interior'] }))]);
+  manifest = m; version = v; moods = idx.moods || ['ship_interior'];
+  G.manifestMs = Math.round(performance.now() - T0);
+} catch (e) { countError('manifest.json', e); status('manifest.json fehlt – erst npm run assets', true); }
+
+const teams = [...new Set(Object.values(manifest.assets).map((e) => e.team))].sort();
+for (const t of teams) $('#fTeam').insertAdjacentHTML('beforeend', `<option>${esc(t)}</option>`);
+for (const m of moods) $('#fMood').insertAdjacentHTML('beforeend', `<option>${esc(m)}</option>`);
+if (!moods.includes(state.mood)) $('#fMood').insertAdjacentHTML('beforeend', `<option>${esc(state.mood)}</option>`);
+$('#fTeam').value = state.team; $('#fId').value = state.id; $('#fMode').value = state.mode; $('#fMood').value = state.mood;
+$('#fTeam').onchange = (e) => { state.team = e.target.value; rebuild(); };
+$('#fMode').onchange = (e) => { state.mode = e.target.value; rebuild(); };
+$('#fMood').onchange = (e) => { state.mood = e.target.value; rebuild(); };
+$('#fId').onchange = (e) => { state.id = e.target.value.trim(); rebuild(); };
+$('#zIn').onclick = () => setZoom(state.zoom + 1);
+$('#zOut').onclick = () => setZoom(state.zoom - 1);
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=') setZoom(state.zoom + 1);
+  else if (e.key === '-' || e.key === '_') setZoom(state.zoom - 1);
+  else if (e.key >= '1' && e.key <= String(ZOOMS.length)) setZoom(+e.key - 1);
+  else if (e.key === 'm' || e.key === 'M') { const i = moods.indexOf(state.mood); state.mood = moods[(i + 1) % moods.length]; $('#fMood').value = state.mood; rebuild(); }
+});
+
+await rebuild();
+</script>
+</body>
+</html>

@@ -13,6 +13,11 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const interior = require('../server/sim/interior.js');
+const Flight = require('../shared/flight.js');
+let damage = null;
+try { damage = require('../server/sim/damage.js'); } catch (e) { damage = null; }
+const LERCHE = CONFIG.shipClasses.lerche;
+const M3B = CONFIG.spaceM3b;
 
 const M3 = CONFIG.spaceM3;
 const FILTER = process.argv.slice(2).map((s) => s.toLowerCase());
@@ -30,7 +35,7 @@ function fn(mod, modName, name) {
 }
 const S = {
   weaponsFire: fn(space, 'space', 'weaponsFire'), weaponsAlloc: fn(space, 'space', 'weaponsAlloc'), weaponsHold: fn(space, 'space', 'weaponsHold'),
-  captainBurst: fn(space, 'space', 'captainBurst'), chargePoints: fn(space, 'space', 'chargePoints'), shieldCaps: fn(space, 'space', 'shieldCaps'),
+  chargePoints: fn(space, 'space', 'chargePoints'), shieldCaps: fn(space, 'space', 'shieldCaps'),
   turnCaps: fn(space, 'space', 'turnCaps'), consumeFullCharge: fn(space, 'space', 'consumeFullCharge'), shipHit: fn(space, 'space', 'shipHit'),
   maxSpeed: fn(space, 'space', 'maxSpeed'), damageEnemy: fn(space, 'space', 'damageEnemy'), spawnEnemy: fn(space, 'space', 'spawnEnemy'),
   enemyTeleSnap: fn(space, 'space', 'enemyTeleSnap'),
@@ -128,7 +133,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   g.step();
   const s = g.snapshot();
   const sh = s.ship;
-  ok(Protocol.VERSION === 3, 'Protocol.VERSION 3');
+  ok(Protocol.VERSION >= 3, `Protocol.VERSION ≥ 3 (ist ${Protocol.VERSION}; M4: 4)`);
   ok(SYS14.every((k) => k in sh.systems) && 'weapons' in sh.systems, 'ship.systems: alle 14 Systeme + Altname weapons');
   ok(typeof sh.turnVel === 'number' && sh.turnCap && sh.turnCap.port === 1 && sh.turnCap.stbd === 1, 'ship.turnVel, ship.turnCap { port 1, stbd 1 }');
   ok(Array.isArray(sh.fragile) && sh.fragile.length === 0, 'ship.fragile [] (Liste)');
@@ -137,15 +142,20 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   const shd = sh.shields || {};
   ok(['pool', 'alloc', 'current', 'cap', 'burst', 'burstCd'].every((k) => k in shd), 'ship.shields: pool, alloc, current, cap, burst, burstCd');
   ok(JSON.stringify(shd.cap) === '[4,4,4,4]' && shd.burst == null && shd.burstCd === 0, 'Schild-cap [4,4,4,4], kein Stoß, keine Abklingzeit');
+  // M3b §4: Schildpool 6 bei Energie 2 (pointsPerPower 3), neue Zähler und Eskalations-Feld
+  ok(CONFIG.shields.pointsPerPower === 3 && g.ship.power.shields === 2 && shd.pool === 6 && CONFIG.shields.maxPerSector === 4, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 3, maxPerSector 4)`);
+  ok(['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks, overflowHull = 0');
+  ok(sh.escalate && typeof sh.escalate === 'object' && Object.keys(sh.escalate).length === 0, 'M3b: Snapshot ship.escalate {} ohne Kampf');
   ok(sh.chargePoints === g.ship.power.weapons + 2 && sh.chargePoints === 4, 'chargePoints = Energie Waffen + 2 = 4');
   const bow = snapMount(s, 'bow'), port = snapMount(s, 'port'), stbd = snapMount(s, 'stbd');
   ok(!!bow && !!port && !!stbd && !(sh.mounts || []).some((m) => /^phase_/.test(m.id)), 'mounts: bow/port/stbd, keine phase_*');
   ok(bow && bow.facing === 0 && bow.arc === 16 && bow.range === 650 && port.facing === -90 && port.arc === 70 && stbd.facing === 90 && stbd.range === 520, 'Bögen laut §5.1');
   ok(bow && bow.alloc === 2 && port.alloc === 1 && stbd.alloc === 1, 'Start-Ladepunkte { bow 2, port 1, stbd 1 }');
-  ok(bow && ['charge', 'alloc', 'state'].every((k) => k in bow) && bow.state === 'ok' && bow.aim == null, 'bow: charge, alloc, state (aim nur in der Zielphase)');
-  ok(port && ['hold', 'salvo', 'salvoMax', 'state', 'charge'].every((k) => k in port) && port.hold === false && port.salvoMax === 4 && port.salvo === 0, 'Batterien: hold false, salvo 0, salvoMax 4');
-  ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves = 0');
-  ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 10 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10');
+  ok(bow && ['charge', 'alloc', 'state', 'power', 'charging'].every((k) => k in bow) && bow.state === 'ok' && !('aim' in bow) && bow.power === 0 && bow.charging === false, 'bow: charge, alloc, state, power 0, charging false, kein aim (§20.3)');
+  ok(port && ['salvo', 'salvoMax', 'state', 'charge'].every((k) => k in port) && !('hold' in port) && port.salvoMax === 4 && port.salvo === 0, 'Batterien: salvo 0, salvoMax 4, kein hold (§20.4)');
+  ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves', 'dodges', 'dodgeEvades'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves, dodges, dodgeEvades = 0');
+  ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 7 && CONFIG.ship.dodgeImpulse === 350 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10/§20.2 (Ausweichen 350/7)');
+  ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
   ok(CONFIG.shop.find((x) => x.id === 'seitenturm').name === 'Zusatzrohre' && CONFIG.shop.find((x) => x.id === 'seitenturm').price === 300, 'Shop: Zusatzrohre 300');
   ok(Buffer.byteLength(JSON.stringify(s)) < 12 * 1024, 'Snapshot < 12 KB');
   const g3 = arena(3).g;
@@ -209,10 +219,12 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
     g.ship.turnVel = 0;
     run(4, () => { cmd(0, 'helm.input', { turn, thrust: 0 }); });
     const tv = g.ship.turnVel;
-    ok(near(Math.abs(tv), CONFIG.ship.turnRate * M3.turnCap.broken, 0.02) && Math.sign(tv) === turn, `${sys} zerstört: turnVel ${tv.toFixed(3)} ≈ ${(CONFIG.ship.turnRate * M3.turnCap.broken).toFixed(3)}`);
+    // M3b: Drehrate = turnRate der Klasse × Drehfaktor (im Stand 0,25) × Düsen-Kappung
+    const rate0 = LERCHE.turnRate * Flight.turnFactor(LERCHE, 0);
+    ok(near(Math.abs(tv), rate0 * M3.turnCap.broken, 0.01) && Math.sign(tv) === turn, `${sys} zerstört: turnVel ${tv.toFixed(3)} ≈ ${(rate0 * M3.turnCap.broken).toFixed(3)} (im Stand)`);
     g.ship.turnVel = 0;
     run(4, () => { cmd(0, 'helm.input', { turn: -turn, thrust: 0 }); });
-    ok(near(Math.abs(g.ship.turnVel), CONFIG.ship.turnRate, 0.02), `${sys} zerstört: Gegenseite dreht voll (${g.ship.turnVel.toFixed(3)})`);
+    ok(near(Math.abs(g.ship.turnVel), rate0, 0.01), `${sys} zerstört: Gegenseite dreht voll (${g.ship.turnVel.toFixed(3)} ≈ ${rate0.toFixed(3)})`);
     cmd(0, 'helm.input', { turn: 0, thrust: 0 }); g.ship.turnVel = 0; g.ship.angle = 0;
     set(sys, 'ok');
   }
@@ -223,7 +235,6 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   ok(poolD === pool0 + M3.generatorDamagedPool, `Schildgenerator beschädigt: Pool ${pool0} -> ${poolD} (−2)`);
   set('shields', 'broken');
   ok(g.ship.shields.current.every((v) => v === 0), 'Schildgenerator zerstört: keine Schilde');
-  ok(!!S.captainBurst(g, 0), 'Schildgenerator zerstört: kein Schildstoß');
   set('shields', 'ok');
   // Regeneration halb so schnell: Sektor 0 leer, Zeit bis +1 messen
   const regenTime = (st) => {
@@ -244,10 +255,8 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
     set(em, 'broken'); const capB = S.shieldCaps(g)[sec];
     run(0.1, () => { pin(g); noFire(g); });
     const curB = g.ship.shields.current[sec];
-    const burstErr = S.captainBurst(g, sec);
     ok(capD === 2 && capB === 0 && g.snapshot().ship.shields.cap[sec] === 0, `${em}: cap 4 -> ${capD} (beschädigt) -> ${capB} (zerstört)`);
     ok(allocD <= 2 && curB === 0, `${em}: Sektor hält höchstens ${capD} (alloc ${allocD}), zerstört offen (current ${curB})`);
-    ok(!!burstErr, `${em} zerstört: Schildstoß dort unmöglich`);
     set(em, 'ok');
     g.ship.shields.allocIntent = CONFIG.shields.default.slice();
   }
@@ -265,8 +274,9 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   setCharge(g, 'bow', 1);
   const e = pinnedEnemy(g, 'raider', g.ship.x + 400, g.ship.y, Math.PI, { hp: 999 });
   enter(0, 'weapons'); cmd(0, 'weapons.target', { id: e.id });
-  const nb = notices(0).length; cmd(0, 'weapons.fire', { mount: 'bow' });
-  ok(notices(0).length > nb && !(g.ship.mount.bow.aim), 'weapon_bow zerstört: feuert nicht');
+  const nb = notices(0).length; cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  const nb2 = notices(0).length; const hpB = e.hp; cmd(0, 'weapons.fire', { mount: 'bow' });
+  ok(nb2 > nb && notices(0).length > nb2 && !g.ship.mount.bow.charging && e.hp === hpB, 'weapon_bow zerstört: lädt nicht auf, feuert nicht');
   set('weapon_bow', 'ok');
   g.space.enemies = [];
   // Batterien: beschädigt 2 Rohre, zerstört lädt/feuert nicht
@@ -275,7 +285,6 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
     ok(snapMount(g.snapshot(), mount).salvoMax === M3.mounts[mount].tubesDamaged && g.snapshot().ship.systems.weapons === 'damaged', `${sys} beschädigt: salvoMax ${M3.mounts[mount].tubesDamaged}, systems.weapons damaged`);
     const t = pinnedEnemy(g, 'raider', g.ship.x, g.ship.y + dy, 0, { hp: 999 });
     cmd(0, 'weapons.target', { id: t.id });
-    cmd(0, 'weapons.hold', { mount, hold: true });
     setCharge(g, mount, 1);
     const hp0 = t.hp;
     cmd(0, 'weapons.fire', { mount });
@@ -288,7 +297,6 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
     cmd(0, 'weapons.fire', { mount });
     run(1, () => pin(g));
     ok(rBat === 0 && t.hp === hp1 && notices(0).length > nn, `${sys} zerstört: lädt nicht, feuert nicht`);
-    cmd(0, 'weapons.hold', { mount, hold: false });
     set(sys, 'ok');
     g.space.enemies = [];
   }
@@ -446,66 +454,254 @@ section('Zerstörter Reaktor braucht Neustart (§4.2, §9.5)', () => {
 });
 
 // ======================================================================
-section('Schildstoß (§7.2)', () => {
-  const { g, run, enter, cmd, events, notices } = arena(1);
-  const tick = () => { pin(g); noFire(g); };
+// M3b Schritt A (CONTRACT-M3B §4): Der Schildstoß ist weg, dafür Durchlass-Tabelle, Überlauf, Eskalation, Rückschlag, Autostart
+const R = (fnName) => (damage && typeof damage[fnName] === 'function' ? damage[fnName] : fn({}, 'damage', fnName));
+function clearHazards(g) { g.ship.fireList = []; g.ship.breachList = []; }
+function setShield(g, sec, v) { g.ship.shields.current[sec] = v; }
+
+section('M3b: Schildstoß entfernt (§4)', () => {
+  const { g, run, enter, cmd, dbg, notices } = arena(1);
   ok(enter(0, 'captain'), 'Captain-Konsole');
-  run(0.5, tick);
-  // perfekt
-  const c0 = g.ship.shields.current[0]; const hull0 = g.ship.hull;
+  const n0 = notices(0).length;
   cmd(0, 'captain.burst', { sector: 0 });
-  const b = g.ship.shields.burst;
-  ok(b && b.sector === 0 && near(b.until - b.t0, M3.burst.duration, 0.01) && b.absorb === M3.burst.absorb, 'captain.burst: burst { sector 0, until t0+1,5, absorb 5 }');
-  const sb = g.snapshot().ship.shields;
-  ok(sb.burst && sb.burst.sector === 0 && near(sb.burst.left, 1.5, 0.05) && near(sb.burst.perfectLeft, 0.5, 0.05) && sb.burst.absorb === 5 && near(sb.burstCd, 8, 0.1), 'Snapshot burst { sector, left, perfectLeft, absorb }, burstCd 8');
-  run(0.3, tick);
-  const cBefore = g.ship.shields.current[0];
-  S.shipHit(g, 0, 8, { heavy: true, pierce: true });
-  ok(g.ship.hull === hull0 && g.ship.shields.current[0] === Math.min(S.shieldCaps(g)[0], cBefore + 1), `perfekt (0,3 s): Treffer (8, durchschlagend) ganz geschluckt, Sektor +1 (${cBefore} -> ${g.ship.shields.current[0]})`);
-  ok(events('burst').some((e) => e.sector === 0 && e.perfect === true) && g.stats.bursts === 1 && g.stats.burstsPerfect === 1, 'Ereignis burst perfect, stats.bursts 1, burstsPerfect 1');
-  ok(c0 >= 0, 'Startschild gemessen');
-  // Abklingzeit
-  const nn = notices(0).length;
-  cmd(0, 'captain.burst', { sector: 1 });
-  ok(notices(0).length > nn && g.ship.shields.burst.sector === 0, 'Abklingzeit 8 s: zweiter Stoß abgelehnt');
-  run(8.1, tick);
-  // perfekt auch gegen EMP
-  cmd(0, 'captain.burst', { sector: 3 });
-  run(0.2, tick);
-  S.shipHit(g, 3, 1, { emp: true, heavy: true });
-  ok(!Object.values(g.ship.systems).includes('offline') && g.stats.burstsPerfect === 2, 'perfekt schluckt auch EMP');
-  run(8.1, tick);
-  // nicht perfekt: absorb zuerst
-  g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.allocIntent = [0, 0, 0, 0]; run(0.1, tick);
-  cmd(0, 'captain.burst', { sector: 1 });
-  run(0.7, tick);
-  const h1 = g.ship.hull;
-  S.shipHit(g, 1, 4, {});
-  ok(g.ship.hull === h1 && g.ship.shields.burst && g.ship.shields.burst.absorb === 1, 'nicht perfekt (0,7 s): 4 Schaden aus absorb (5 -> 1), Hülle unberührt');
-  S.shipHit(g, 1, 3, {});
-  ok(g.ship.hull < h1 && g.stats.burstsPerfect === 2 && events('burst').filter((e) => e.perfect === false).length >= 0, `Rest 2 geht auf Hülle (${h1} -> ${g.ship.hull})`);
-  run(1, tick);
-  const h2 = g.ship.hull;
-  S.shipHit(g, 1, 1, {});
-  ok(g.ship.hull < h2 && !g.ship.shields.burst, 'nach until: Stoß vorbei, Treffer normal');
-  g.ship.shields.allocIntent = CONFIG.shields.default.slice();
-  run(8, tick);
-  // beschädigter Emitter: absorb 2
-  g.ship.systems.emitter_stbd = 'damaged';
-  cmd(0, 'captain.burst', { sector: 1 });
-  ok(g.ship.shields.burst && g.ship.shields.burst.absorb === M3.burst.absorbDamaged, 'beschädigter Emitter: absorb 2');
-  // Sperren
-  for (const [sys, sec, why] of [['emitter_aft', 2, 'Emitter zerstört'], ['shields', 0, 'Generator zerstört']]) {
-    const t = arena(1); t.enter(0, 'captain'); t.g.ship.systems[sys] = 'broken'; t.run(0.1, () => noFire(t.g));
-    const n0 = t.notices(0).length;
-    t.cmd(0, 'captain.burst', { sector: sec });
-    ok(!t.g.ship.shields.burst && t.notices(0).length > n0, `${why}: Schildstoß gesperrt`);
+  ok(notices(0).slice(n0).some((t) => /Schildstoß gibt es nicht mehr/.test(t)), 'captain.burst: „Den Schildstoß gibt es nicht mehr.“');
+  ok(g.ship.shields.burst == null && g.stats.bursts === 0, 'kein Stoß gesetzt, stats.bursts 0');
+  dbg(0, { cmd: 'burst', sector: 2 });
+  run(0.1, () => { pin(g); noFire(g); });
+  const s = g.snapshot().ship.shields;
+  ok(s.burst == null && s.burstCd === 0, 'debug burst wirkungslos; Snapshot burst null, burstCd 0 (Altnamen)');
+  ok(!!(CONFIG.spaceM3.burst && CONFIG.spaceM3.burst.absorb != null), 'config.spaceM3.burst bleibt als Altname stehen');
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+});
+
+section('M3b: Schildpool 6 (§4)', () => {
+  const { g, run, enter, cmd } = arena(1);
+  enter(0, 'captain');
+  run(0.1, () => { pin(g); noFire(g); });
+  const pool = g.snapshot().ship.shields.pool;
+  ok(pool === 6, `Pool bei Energie 2: ${pool} (Soll 6)`);
+  // alles auf Sektor 0: höchstens maxPerSector 4, Rest verteilt sich
+  // (QA M3b: Startverteilung nutzt jetzt den ganzen Pool [2,2,0,2] – erst leeren, sonst ist nichts frei)
+  g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.alloc = [0, 0, 0, 0];
+  for (let i = 0; i < 6; i++) cmd(0, 'captain.shield', { sector: 0, delta: 1 });
+  run(0.1, () => { pin(g); noFire(g); });
+  const al = g.ship.shields.alloc;
+  ok(al[0] === 4 && al.reduce((a, b) => a + b, 0) <= 6, `Sektor 0 höchstens 4 (alloc ${al.join('/')}, Summe ≤ 6)`);
+  setPower(g, { shields: 3, weapons: 1 });
+  run(0.1, () => { pin(g); noFire(g); });
+  ok(g.snapshot().ship.shields.pool === 9, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 9)`);
+});
+
+section('M3b: Schild-Durchlass statistisch (§4)', () => {
+  const { g } = arena(3);
+  const resolveHit = R('resolveHit');
+  const N = 2000;
+  const rows = [
+    { s: 0, heavy: false, want: 0.45 }, { s: 1, heavy: false, want: 0.2 }, { s: 2, heavy: true, want: 0.05 }, { s: 2, heavy: false, want: 0 },
+    { s: 3, heavy: true, want: 0 }, { s: 4, heavy: false, want: 0 },
+  ];
+  const leak0 = g.stats.leakHits;
+  let leakCount = 0;
+  for (const row of rows) {
+    let hits = 0, broken = 0, centre = 0, opp = 0;
+    for (let i = 0; i < N; i++) {
+      resetSystems(g); clearHazards(g); g.ship.hull = g.ship.hullMax;
+      g.time += 20;
+      const sec = i % 4;
+      setShield(g, sec, row.s);
+      const r = resolveHit(g, sec, 1, { heavy: row.heavy });
+      const hit = SYS14.filter((x) => g.ship.systems[x] !== 'ok' && g.ship.systems[x] !== 'offline');
+      if (hit.length) {
+        hits++;
+        if (row.s > 0) leakCount++;
+        if (hit.some((x) => g.ship.systems[x] === 'broken')) broken++;
+        if (hit.some((x) => I.systemSector(x) === -1)) centre++;
+        if (hit.some((x) => I.systemSector(x) === (sec + 2) % 4)) opp++;
+      }
+      if (i === 0) ok(r && typeof r.absorbed === 'number' && Array.isArray(r.systems) && typeof r.hull === 'number', `resolveHit -> { absorbed ${r && r.absorbed}, hull ${r && r.hull}, systems [${r && r.systems.length}] }`);
+    }
+    const q = hits / N;
+    ok(near(q, row.want, 0.03), `S ${row.s}${row.heavy ? ' (schwer)' : ''}: Systemschaden in ${(q * 100).toFixed(1)} % von ${N} Treffern (Soll ${(row.want * 100).toFixed(0)} % ± 3)`);
+    if (row.s >= 1 && hits) ok(broken === 0 && centre === 0, `S ${row.s}: höchstens beschädigt, nie Mittschiffs (zerstört ${broken}, Mitte ${centre})`);
+    if (row.s === 0 && hits) ok(centre > 0 && opp === 0, `S 0: Mittschiffs möglich (${centre}×), Gegenseite nie (${opp})`);
   }
-  // Debug burst ohne Prüfung
-  const t2 = arena(1); t2.g.ship.systems.emitter_aft = 'broken';
-  t2.dbg(0, { cmd: 'burst', sector: 2 });
-  ok(t2.g.ship.shields.burst && t2.g.ship.shields.burst.sector === 2, 'debug burst <sector> ohne Prüfung');
-  ok(g.errors === 0, 'keine Server-Fehler');
+  ok(g.stats.leakHits - leak0 === leakCount, `stats.leakHits zählt Systemschaden trotz Schild (${g.stats.leakHits - leak0} = ${leakCount})`);
+  // S 1 bricht Geflicktes (breakFragile), S 2 nicht
+  const frag = (s, heavy) => {
+    let n = 0;
+    for (let i = 0; i < 400; i++) {
+      resetSystems(g); clearHazards(g); g.time += 20;
+      g.ship.systems.battery_stbd = 'damaged'; g.ship.fragile.battery_stbd = true;
+      setShield(g, 1, s);
+      resolveHit(g, 1, 1, { heavy });
+      if (g.ship.systems.battery_stbd === 'broken') n++;
+    }
+    return n / 400;
+  };
+  const f1 = frag(1, false), f2 = frag(2, true), f0 = frag(0, false);
+  ok(near(f1, 0.2, 0.06) && f2 === 0 && f0 === 1, `Geflicktes im Sektor bricht: S 0 immer (${(f0 * 100).toFixed(0)} %), S 1 mit 20 % (${(f1 * 100).toFixed(0)} %), S 2 nie (${(f2 * 100).toFixed(0)} %)`);
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+});
+
+section('M3b: Überlauf auf die Hülle, schwere Treffer (§4)', () => {
+  const { g } = arena(3);
+  const sh = g.ship;
+  const hit = (sec, s, dmg, opts) => {
+    resetSystems(g); clearHazards(g); g.time += 20; sh.hull = 100;
+    setShield(g, sec, s);
+    const of0 = g.stats.overflowHull;
+    S.shipHit(g, sec, dmg, opts || {});
+    return { hull: 100 - sh.hull, shield: sh.shields.current[sec], of: g.stats.overflowHull - of0 };
+  };
+  const a = hit(1, 2, 3);
+  ok(near(a.hull, 5, 0.01) && a.shield === 0 && near(a.of, 5, 0.01), `S 2, Treffer 3: Schild schluckt 2 (-> ${a.shield}), Rest 1 -> Hülle −${a.hull} (5 × Rest), overflowHull +${a.of}`);
+  const b = hit(1, 4, 3);
+  ok(b.hull === 0 && b.shield === 1 && b.of === 0, `S 4, Treffer 3: nichts durch (Schild -> ${b.shield}, Hülle −${b.hull})`);
+  const c = hit(2, 0, 2);
+  ok(near(c.hull, 10, 0.01) && c.of === 0, `S 0, Treffer 2: Hülle −${c.hull}, kein Überlauf (kein Schild)`);
+  const d = hit(3, 1, 1);
+  ok(d.hull === 0 && d.shield === 0, `S 1, Treffer 1: ganz gefangen (bisher schluckte 1 Punkt jeden Treffer – jetzt nur 1 Schaden)`);
+  const d2 = hit(3, 1, 4);
+  ok(near(d2.hull, 15, 0.01) && near(d2.of, 15, 0.01), `S 1, Treffer 4: Rest 3 -> Hülle −${d2.hull} (neu: bisher hielt 1 Punkt den ganzen Treffer)`);
+  // Durchschlag (Zahl): Schild für diesen Treffer um pierce schwächer
+  const e = hit(0, 3, 3, { pierce: 2 });
+  ok(near(e.hull, 10, 0.01), `S 3, Treffer 3, pierce 2: wirksam S 1 -> Rest 2, Hülle −${e.hull}`);
+  // Schwere Treffer: S ≥ 3 -> Schaden − heavyReduce (1) vor dem Absorbieren
+  const h3 = hit(0, 3, 3, { heavy: true });
+  ok(h3.hull === 0 && h3.shield === 1, `S 3, schwer 3: −1 -> 2 absorbiert (Schild -> ${h3.shield}), Hülle −${h3.hull}`);
+  const h4 = hit(0, 4, 5, { heavy: true });
+  ok(h4.hull === 0 && h4.shield === 0, `S 4, schwer 5: −1 -> 4 absorbiert (Schild -> ${h4.shield}), Hülle −${h4.hull}`);
+  const h2 = hit(0, 2, 3, { heavy: true });
+  ok(near(h2.hull, 5, 0.01) && h2.shield === 0, `S 2, schwer 3: keine Minderung (unter 3) -> Rest 1, Hülle −${h2.hull}`);
+  ok(M3B.shieldLeak[3].heavyReduce === 1 && M3B.shieldLeak[4].heavyReduce === 1 && M3B.shieldOverflow === true, 'Konfig: heavyReduce 1 bei S 3/4, shieldOverflow an');
+  // Feuer und Lecks nur bei Rest > 0
+  let fires = 0, breaches = 0;
+  for (let i = 0; i < 300; i++) { resetSystems(g); clearHazards(g); g.time += 20; setShield(g, i % 4, 4); S.shipHit(g, i % 4, 2, {}); fires += sh.fireList.length; breaches += sh.breachList.length; }
+  let fires0 = 0;
+  for (let i = 0; i < 300; i++) { resetSystems(g); clearHazards(g); g.time += 20; sh.hull = 100; setShield(g, i % 4, 0); S.shipHit(g, i % 4, 1, {}); fires0 += sh.fireList.length + sh.breachList.length; }
+  ok(fires === 0 && breaches === 0 && fires0 > 30, `Feuer/Lecks nur bei Rest > 0 (gefangen: ${fires}/${breaches}, durch: ${fires0} in 300 Treffern)`);
+  // EMP: nur wenn der Schild durchschlagen ist
+  resetSystems(g); setShield(g, 0, 4); S.shipHit(g, 0, 1, { emp: true });
+  const off1 = Object.values(sh.systems).includes('offline');
+  resetSystems(g); setShield(g, 0, 0); S.shipHit(g, 0, 1, { emp: true });
+  const off2 = Object.values(sh.systems).includes('offline');
+  ok(!off1 && off2, `EMP: gefangen kein System offline (${off1}), durchschlagen eines offline (${off2})`);
+  resetSystems(g);
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+});
+
+section('M3b: Eskalation nach 20 s (§4)', () => {
+  const after = M3B.escalation.after;
+  ok(after === 20, 'spaceM3b.escalation.after 20 s');
+  const { g, run, events, P, place, send } = arena(3);
+  const tick = () => { pin(g); noFire(g); g.ship.hull = g.ship.hullMax; g.ship.shields.current = [4, 4, 4, 4]; };
+  const stationOf = (sys) => stationTiles(sys)[0];
+  const nearStation = (sys) => { const st = stationOf(sys); return g.ship.fireList.filter((f) => Math.abs(f.tx - st.x) <= 1 && Math.abs(f.ty - st.y) <= 1); };
+  // ohne Kampf: kein Zähler
+  g.ship.systems.battery_port = 'damaged';
+  run(after + 2, tick);
+  ok(g.stats.escalations === 0 && !('battery_port' in g.snapshot().ship.escalate), 'ohne Gegner: kein Zähler, keine Eskalation');
+  // nur Störrelais: kein Kampf
+  S.spawnEnemy(g, 'relay', {});
+  run(3, tick);
+  ok(!('battery_port' in g.snapshot().ship.escalate), 'nur Störrelais: kein Zähler');
+  g.space.enemies = [];
+  // Gegner da (Jäger fest, Bug vom Schiff weg)
+  pinnedEnemy(g, 'raider', g.ship.x + 700, g.ship.y, 0, { hp: 999 });
+  run(1, tick);
+  const e1 = g.snapshot().ship.escalate;
+  ok(typeof e1.battery_port === 'number' && e1.battery_port >= after - 2 && e1.battery_port <= after, `Kampf: Snapshot ship.escalate.battery_port = ${e1.battery_port} s Rest`);
+  run(after - 2, tick);
+  ok(g.stats.escalations === 0 && nearStation('battery_port').length === 0, `nach ${after - 1} s: noch kein Feuer (Rest ${g.snapshot().ship.escalate.battery_port} s)`);
+  run(1.5, tick);
+  ok(g.stats.escalations === 1 && events('escalated').some((e) => e.system === 'battery_port'), `nach ${after + 0.5} s: Ereignis escalated { system battery_port }, stats.escalations ${g.stats.escalations}`);
+  ok(nearStation('battery_port').length >= 1 || events('escalated').some((e) => e.system === 'battery_port' && Math.abs(e.tx - stationOf('battery_port').x) <= 1), 'Feuer auf einer Bodenkachel neben der Station');
+  const e2 = g.snapshot().ship.escalate.battery_port;
+  ok(e2 == null || e2 >= after - 2, `Zähler beginnt neu (Rest ${e2} s)`);
+  ok(events('oda').some((e) => /brennt/.test(e.text)), 'ODA-Ansage „… es brennt neben der Station …“');
+  // Wer daran arbeitet, stoppt den Zähler (Spieler hält E an der Station = Flicken)
+  resetSystems(g); clearHazards(g); g.ship.escalateT = {};
+  g.ship.systems.emitter_aft = 'damaged';
+  run(5, tick);
+  const sp = sysSpot('emitter_aft');
+  place(0, sp); send(0, { t: 'act', down: true });
+  run(0.3, tick);
+  const working = P(0).hold && P(0).hold.system === 'emitter_aft'; const hk = P(0).hold ? P(0).hold.kind : '-';
+  const left = g.snapshot().ship.escalate.emitter_aft;
+  send(0, { t: 'act', down: false });
+  ok(working && left == null, `Spieler arbeitet daran: kein Zähler (hold ${hk}, escalate ${left})`);
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+});
+
+section('M3b: Rückschlag 50 % bei Hüllentreffer im Sektor (§4)', () => {
+  const loss = M3B.repairHitLoss;
+  ok(loss === 0.5, 'spaceM3b.repairHitLoss 0,5');
+  const { g, run, P, place, send, events } = arena(3);
+  const tick = () => { pin(g); noFire(g); };
+  // Spieler flickt die Batterie Steuerbord (Sektor 1)
+  g.ship.systems.battery_stbd = 'damaged';
+  place(0, sysSpot('battery_stbd'));
+  send(0, { t: 'act', down: true });
+  run(0.9, tick);
+  const h = P(0).hold;
+  const t0 = h ? h.t : null;
+  ok(h && h.kind === 'flick' && h.system === 'battery_stbd' && t0 > 0.5, `Flicken läuft (${h && h.kind} ${h && h.system}, t ${t0 && t0.toFixed(2)} s)`);
+  // Treffer in anderem Sektor: kein Rückschlag
+  setShield(g, 3, 0); g.time += 0; S.shipHit(g, 3, 1, {});
+  ok(P(0).hold && near(P(0).hold.t, t0, 0.001), 'Hüllentreffer in Sektor 3: Fortschritt unverändert');
+  // Treffer im Sektor, ganz gefangen: kein Rückschlag
+  setShield(g, 1, 4); S.shipHit(g, 1, 1, {});
+  ok(P(0).hold && near(P(0).hold.t, t0, 0.001), 'Treffer im Sektor, vom Schild gefangen: Fortschritt unverändert');
+  // Hüllentreffer im Sektor: −50 %
+  setShield(g, 1, 0); const sb0 = g.stats.repairSetbacks;
+  S.shipHit(g, 1, 1, {});
+  ok(P(0).hold && near(P(0).hold.t, t0 * (1 - loss), 0.001), `Hüllentreffer Sektor 1: Fortschritt ${t0.toFixed(2)} -> ${P(0).hold && P(0).hold.t.toFixed(2)} s (−50 %)`);
+  ok(g.stats.repairSetbacks === sb0 + 1 && events('repairSetback').some((e) => e.system === 'battery_stbd'), `Ereignis repairSetback { system }, stats.repairSetbacks ${g.stats.repairSetbacks}`);
+  send(0, { t: 'act', down: false }); run(0.1, tick);
+  // Minispiel-Mindestzeit
+  resetSystems(g); g.ship.systems.emitter_port = 'damaged';
+  place(0, sysSpot('emitter_port'));
+  send(0, { t: 'cmd', c: 'repair.start', system: 'emitter_port' });
+  run(1.6, tick);
+  const mg = P(0).hold;
+  const m0 = mg ? mg.t : null;
+  setShield(g, 3, 0); S.shipHit(g, 3, 1, {});
+  ok(mg && mg.kind === 'minigame' && near(P(0).hold.t, m0 * (1 - loss), 0.001), `Minispiel: Mindestzeit-Fortschritt ${m0 && m0.toFixed(2)} -> ${P(0).hold && P(0).hold.t.toFixed(2)} s`);
+  send(0, { t: 'cmd', c: 'repair.done', system: 'emitter_port', errors: 0 }); run(0.1, tick);
+  // Bot-Arbeit (Reparaturliste, Captain) – Rückschlag am Bot-Fortschritt
+  resetSystems(g); g.ship.systems.engines = 'damaged';
+  const cap = 2; place(cap, conSpot('captain')); send(cap, { t: 'act', down: true }); send(cap, { t: 'act', down: false });
+  send(cap, { t: 'cmd', c: 'captain.repair', system: 'engines', mode: 'flick' });
+  let bot = null;
+  for (let k = 0; k < 30 * 40 && !bot; k++) { tick(); g.step(); bot = g.bots.find((b) => b.task && b.task.kind === 'repair' && b.task.system === 'engines' && b.task.phase === 'work' && b.progress > 0.2); }
+  if (bot) {
+    const p0 = bot.progress;
+    setShield(g, 2, 0); S.shipHit(g, 2, 1, {});
+    ok(near(bot.progress, p0 * (1 - loss), 0.001), `Bot flickt Triebwerk (Sektor 2): Fortschritt ${p0.toFixed(2)} -> ${bot.progress.toFixed(2)}`);
+  } else ok(false, 'Bot hat die Triebwerk-Reparatur nicht in 40 s begonnen');
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+});
+
+section('M3b: Reaktor-Autostart im Gefecht (§4)', () => {
+  const auto = M3B.reactorAutoRestart;
+  ok(auto === 3, 'spaceM3b.reactorAutoRestart 3 s');
+  const { g, run } = arena(1);
+  const tick = () => { pin(g); noFire(g); };
+  pinnedEnemy(g, 'raider', g.ship.x + 700, g.ship.y, 0, { hp: 999 });
+  g.ship.systems.reactor = 'broken'; run(0.1, tick);
+  I.repairSystem(g, 'reactor', 'p1', 'flick');
+  ok(g.ship.reactorCtl.state === 'offline', 'zerstört -> geflickt im Gefecht: zunächst offline');
+  run(auto - 0.3, tick);
+  ok(g.ship.reactorCtl.state === 'offline', `nach ${auto - 0.3} s noch offline`);
+  run(0.5, tick);
+  ok(g.ship.reactorCtl.state === 'online', `nach ${auto + 0.2} s startet er von selbst (${g.ship.reactorCtl.state})`);
+  // ohne Gegner: Neustart zu zweit bleibt
+  g.space.enemies = [];
+  g.ship.systems.reactor = 'broken'; run(0.1, tick);
+  I.repairSystem(g, 'reactor', 'p1', 'flick');
+  run(auto + 2, tick);
+  ok(g.ship.reactorCtl.state === 'offline', 'ohne Gegner: bleibt offline (Neustart zu zweit)');
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
 });
 
 // ======================================================================
@@ -602,68 +798,163 @@ section('Captain sieht Ladung erst spät (§7.1, Konfig)', () => {
 });
 
 // ======================================================================
-section('Zielphase der Lanze (§5.3)', () => {
-  const { g, run, enter, cmd, events, notices, clearInbox } = arena(1);
+section('Lanze als Ladewaffe (§20.3)', () => {
+  const { g, run, enter, cmd, events, notices, clearInbox, leave, dbg } = arena(1);
   const sh = g.ship;
+  const L = M3.lance;
   ok(enter(0, 'weapons'), 'Taktik-Konsole');
   const e = pinnedEnemy(g, 'raider', sh.x + 400, sh.y, Math.PI, { hp: 999 });
   const tick = () => { pin(g); setCharge(g, 'port', 0); setCharge(g, 'stbd', 0); };
-  cmd(0, 'weapons.fire', { mount: 'bow' });
-  ok(notices(0).length > 0 && !(mountOf(g, 'bow') || {}).aim, 'ohne Ziel: Fehlermeldung');
-  cmd(0, 'weapons.target', { id: e.id });
+  const bowSnap = () => g.snapshot().ship.mounts.find((m) => m.id === 'bow');
+  // Bereitschaft < 1: kein Aufladen
   setCharge(g, 'bow', 0.5);
-  const nb = notices(0).length;
+  let nb = notices(0).length;
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  ok(notices(0).length > nb && !mountOf(g, 'bow').charging, 'Bereitschaft < 1: kein Aufladen, Hinweis');
+  // Aufladen ohne gewähltes Ziel
+  setCharge(g, 'bow', 1);
+  clearInbox();
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  ok(mountOf(g, 'bow').charging && events('lance').some((x) => x.state === 'charge' && x.power === 0) &&
+    events('sfx').some((x) => x.name === 'lance_charge' && x.key === 'lance'), 'weapons.charge on: Aufladen beginnt ohne Ziel, Ereignis lance charge, sfx lance_charge {key lance}');
+  run(1.5, tick);
+  const b1 = bowSnap();
+  ok(b1.charging === true && near(b1.power, 1.5 / L.chargeTime, 0.04) && e.hp === 999, `nach 1,5 s: power ${b1.power} (≈ 0,5), noch kein Schaden`);
+  // Drehen bricht nicht ab
+  sh.angle = 0.3; run(0.2, tick); sh.angle = 0; run(0.1, tick);
+  ok(mountOf(g, 'bow').charging, 'Drehen bricht das Aufladen nicht ab');
+  run(2, tick);
+  ok(bowSnap().power === 1 && bowSnap().charging, 'nach 3 s: power 1, bleibt voll');
+  // Loslassen = Feuer: voller Schaden 12 auf den Gegner in der Linie
+  clearInbox();
+  let lanceBeam = null;
+  cmd(0, 'weapons.charge', { mount: 'bow', on: false });
+  lanceBeam = g.space.beams.find((b) => b.kind === 'lance');
+  ok(near(999 - e.hp, L.maxDamage, 0.01) && !mountOf(g, 'bow').charging && mountOf(g, 'bow').charge < 0.05, `loslassen: Treffer ${999 - e.hp} (Soll ${L.maxDamage}), Bereitschaft 0`);
+  const ev = events('lance').find((x) => x.state === 'fire');
+  ok(ev && ev.power === 1 && ev.hit === e.id && events('sfx').some((x) => x.name === 'lance_fire' && x.power === 1), 'Ereignis lance { fire, power 1, hit id }, sfx lance_fire { power }');
+  ok(lanceBeam && !lanceBeam.miss && near(Math.hypot(lanceBeam.x2 - lanceBeam.x1, lanceBeam.y2 - lanceBeam.y1), 400 - 34, 25), 'Strahl lance bis zum Gegner');
+  ok(!events('lance').some((x) => x.kind !== 'lance'), 'Ereignis lance: Typ nicht überschrieben');
+  // Schaden je power: halb -> 3 + 9 × 0,5 = 7,5
+  e.hp = 999; setCharge(g, 'bow', 1);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  run(L.chargeTime / 2 - 1 / 30, tick);   // ein Tick im Befehl schon mitgezählt? nein -> power genau ½
+  const pw = mountOf(g, 'bow').power;
+  cmd(0, 'weapons.charge', { mount: 'bow', on: false });
+  ok(near(999 - e.hp, L.minDamage + (L.maxDamage - L.minDamage) * pw, 0.01) && near(pw, 0.5, 0.05), `power ${pw.toFixed(2)}: Schaden ${(999 - e.hp).toFixed(2)} = min + (max − min) × power`);
+  // aus dem Stand: weapons.fire bow = power 0 -> Mindestschaden
+  e.hp = 999; setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'bow' });
-  ok(notices(0).length > nb, 'Ladung < 1: Fehlermeldung');
-  // Treffer
+  ok(near(999 - e.hp, L.minDamage, 0.01), `weapons.fire bow aus dem Stand: Mindestschaden ${999 - e.hp}`);
+  // Treffer = erster Gegner nahe der Linie (seitlich versetzt innerhalb hitRadius + width), ohne Ziel
+  e.hp = 999;
+  const e2 = pinnedEnemy(g, 'raider', sh.x + 250, sh.y + (CONFIG.combat.hitRadius.raider + L.width - 3), Math.PI, { hp: 999 });
+  setCharge(g, 'bow', 1);
+  cmd(0, 'weapons.target', { id: e.id });   // gewähltes Ziel spielt keine Rolle
+  cmd(0, 'weapons.fire', { mount: 'bow' });
+  ok(e2.hp < 999 && e.hp === 999, 'erster Gegner auf der Linie wird getroffen (seitlich 23 px versetzt, vor dem gewählten Ziel)');
+  // knapp außerhalb (hitRadius + width + 3): kein Treffer an e2, aber e dahinter
+  e2.pin.y = sh.y + (CONFIG.combat.hitRadius.raider + L.width + 3); e2.hp = 999; run(0.05, tick);
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'bow' });
-  const a = g.snapshot().ship.mounts.find((m) => m.id === 'bow').aim;
-  ok(a && near(a.left, M3.aimTime, 0.05) && near(a.dev, 0, 0.5) && events('aim').some((x) => x.state === 'start'), 'Zielphase beginnt: aim { left 1,5, dev 0 }, Ereignis aim start');
-  const hp0 = e.hp;
-  run(1.2, tick);
-  ok(e.hp === hp0, 'während der Zielphase noch kein Schaden');
-  let lance = false;
-  run(0.5, () => { tick(); if (g.space.beams.some((b) => b.kind === 'lance')) lance = true; });
-  ok(near(hp0 - e.hp, M3.mounts.bow.damage, 0.01) && lance && events('aim').some((x) => x.state === 'fire') && mountOf(g, 'bow').charge < 0.05, `nach 1,5 s Treffer 8 (${hp0 - e.hp}), Strahl lance, aim fire, Ladung 0`);
-  // Durchschlagend 2: Schild 4 zählt nur 2
-  e.keepShields = true;
-  e.shields = [4, 4, 4, 4];
+  ok(e2.hp === 999 && e.hp < 999, 'knapp neben der Linie: verfehlt, der Gegner dahinter wird getroffen');
+  g.space.enemies = g.space.enemies.filter((q) => q !== e2);
+  // Durchschlagend 2: Schild 4 zählt 2 -> bei voller power 12 − 2 = 10
+  e.hp = 999; e.keepShields = true; e.shields = [4, 4, 4, 4];
   setCharge(g, 'bow', 1);
-  const hp1 = e.hp;
-  cmd(0, 'weapons.fire', { mount: 'bow' });
-  run(1.7, tick);
-  ok(near(hp1 - e.hp, M3.mounts.bow.damage - (4 - M3.mounts.bow.pierce), 0.01), `durchschlagend 2: Schild 4 zählt 2 -> Hülle −6 (${(hp1 - e.hp).toFixed(1)})`);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  run(L.chargeTime + 0.2, tick);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: false });
+  ok(near(999 - e.hp, L.maxDamage - (4 - M3.mounts.bow.pierce), 0.01), `durchschlagend 2: Schild 4 zählt 2 -> Hülle −${999 - e.hp}`);
   e.keepShields = false;
-  // Abbruch: Kurs weicht > 5° ab
+  // Fehlschuss ins Leere: Strahl bis range, kind lance, miss
+  e.pin.y = sh.y + 300; run(0.05, tick);
   clearInbox();
-  setCharge(g, 'bow', 1);
+  setCharge(g, 'bow', 1); e.hp = 999;
   cmd(0, 'weapons.fire', { mount: 'bow' });
+  const mb = g.space.beams.filter((b) => b.kind === 'lance').pop();
+  const snapBeam = (g.snapshot().space.beams || []).find((b) => b.kind === 'lance' && b.miss);
+  ok(e.hp === 999 && mb && mb.miss && near(Math.hypot(mb.x2 - mb.x1, mb.y2 - mb.y1), M3.mounts.bow.range, 1) && mountOf(g, 'bow').charge === 0, 'ins Leere: Strahl bis 650, Bereitschaft 0');
+  ok(snapBeam && snapBeam.ttlMax > 0 && events('lance').some((x) => x.state === 'fire' && x.hit === null), 'Snapshot-Strahl lance { miss, ttlMax }, Ereignis hit null');
+  e.pin.y = sh.y;
+  // Konsole verlassen: Aufladen verpufft ohne Schuss
+  run(0.05, tick);
+  setCharge(g, 'bow', 1); e.hp = 999;
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  run(1, tick);
+  clearInbox();
+  leave(0);
+  run(0.1, () => { tick(); setCharge(g, 'bow', 0); });
+  ok(!mountOf(g, 'bow').charging && mountOf(g, 'bow').power === 0 && e.hp === 999 && events('lance').some((x) => x.state === 'fizzle') && !g.space.beams.some((b) => b.kind === 'lance'), 'Konsole verlassen: Aufladen verpufft ohne Schuss (lance fizzle)');
+  // System fällt aus: verpufft
+  enter(0, 'weapons');
+  setCharge(g, 'bow', 1);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
   run(0.5, tick);
-  sh.angle += 6 * Math.PI / 180; sh.turnVel = 0;
-  const hp2 = e.hp;
-  run(0.2, tick);
-  ok(!mountOf(g, 'bow').aim && near(mountOf(g, 'bow').charge, M3.aimAbortCharge, 0.02) && events('aim').some((x) => x.state === 'abort') && e.hp === hp2, `Abweichung 6°: Abbruch, Ladung 0,7 (${mountOf(g, 'bow').charge.toFixed(2)}), aim abort`);
-  sh.angle = 0;
-  // 4° Abweichung: kein Abbruch
+  g.ship.systems.weapon_bow = 'broken';
+  run(0.1, tick);
+  ok(!mountOf(g, 'bow').charging && e.hp === 999, 'System zerstört: Aufladen verpufft');
+  g.ship.systems.weapon_bow = 'damaged';
+  // beschädigt: chargeTime × 1,5, maxDamage × 0,75
   setCharge(g, 'bow', 1);
-  cmd(0, 'weapons.fire', { mount: 'bow' });
-  run(0.3, tick);
-  sh.angle = 4 * Math.PI / 180;
-  run(0.2, tick);
-  const dev = g.snapshot().ship.mounts.find((m) => m.id === 'bow').aim;
-  ok(dev && near(dev.dev, 4, 0.3), `4° Abweichung: Zielphase läuft weiter, aim.dev ${dev && dev.dev}`);
-  run(1.5, tick); sh.angle = 0;
-  // Fehlschuss: Ziel verlässt den Bogen
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true });
+  run(L.chargeTime, tick);
+  const pD = mountOf(g, 'bow').power;
+  run(L.chargeTime * 0.6, tick);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: false });
+  ok(near(pD, 1 / L.damagedTimeFactor, 0.04) && near(999 - e.hp, L.maxDamage * L.damagedMaxFactor, 0.01), `beschädigt: nach 3 s power ${pD.toFixed(2)} (≈ 0,67), voll ${999 - e.hp} (Soll 9)`);
+  g.ship.systems.weapon_bow = 'ok';
+  // Unbesetzt: Lanze feuert automatisch mit autoPower, wenn ein Gegner in der Linie liegt
+  leave(0);
+  e.hp = 999; setCharge(g, 'bow', 1);
+  e.pin.y = sh.y + 300; run(0.5, tick);
+  ok(e.hp === 999 && mountOf(g, 'bow').charge >= 1, 'unbesetzt, kein Gegner in der Linie: kein Schuss');
+  e.pin.y = sh.y; run(0.2, tick);
+  ok(near(999 - e.hp, L.minDamage + (L.maxDamage - L.minDamage) * L.autoPower, 0.01), `unbesetzt: automatisch mit power 0,5 -> ${999 - e.hp}`);
+  // Snapshot-Auszug (für den Bericht)
+  enter(0, 'weapons'); setCharge(g, 'bow', 1);
+  cmd(0, 'weapons.charge', { mount: 'bow', on: true }); run(1, tick);
+  console.log('  info Snapshot bow beim Aufladen: ' + JSON.stringify(bowSnap()));
+  ok(g.errors === 0, 'keine Server-Fehler');
+});
+
+section('Ausweich-Fenster (§20.2)', () => {
+  const { g, run, enter, cmd, events, dbg, clearInbox } = arena(1);
+  const sh = g.ship;
+  const tick = () => { pin(g); noFire(g); };
+  sh.shields.current = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];
+  const gb = pinnedEnemy(g, 'gunboat', sh.x, sh.y - 380, 0, { hp: 999 });
+  ok(enter(0, 'helm'), 'Steuer');
+  // Versatz messen: Ausweichen aus dem Stand, Querversatz nach 0,8 s und nach 3 s
+  const y0 = sh.y, x0 = sh.x;
+  cmd(0, 'helm.dodge', { dir: 1 });
+  run(0.8, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); tick(); });
+  const d08 = Math.hypot(sh.x - x0, sh.y - y0);
+  run(2.2, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); tick(); });
+  const d3 = Math.hypot(sh.x - x0, sh.y - y0);
+  console.log(`  info Ausweichen (Impuls ${CONFIG.ship.dodgeImpulse}): Versatz ${d08.toFixed(0)} px nach 0,8 s, ${d3.toFixed(0)} px gesamt`);
+  ok(d08 > 100 && d3 > 140, `Schub spürbar: ${d08.toFixed(0)} px nach 0,8 s, ${d3.toFixed(0)} px gesamt`);
+  ok(near(sh.dodgeCd, CONFIG.ship.dodgeCooldown - 3, 0.1) && g.stats.dodges === 1, `Abklingzeit 7 s (Rest ${sh.dodgeCd.toFixed(1)}), stats.dodges 1`);
+  // zurück in den Bogen
+  sh.x = x0; sh.y = y0; sh.vx = 0; sh.vy = 0; sh.dodgeCd = 0; run(0.1, tick);
+  // Ausweichen im Fenster (0,5 s vor Ende): verfehlt
   clearInbox();
-  setCharge(g, 'bow', 1);
-  cmd(0, 'weapons.fire', { mount: 'bow' });
-  e.pin.y = sh.y + 300;
-  const hp3 = e.hp;
-  let missBeam = null;
-  run(1.7, () => { tick(); const b = g.space.beams.find((q) => q.kind === 'lance'); if (b) missBeam = b; });
-  ok(e.hp === hp3 && mountOf(g, 'bow').charge < 0.05 && events('aim').some((x) => x.state === 'miss'), 'Ziel außerhalb des Bogens am Ende: Fehlschuss, Ladung 0, aim miss');
-  ok(missBeam && near(Math.hypot(missBeam.x2 - missBeam.x1, missBeam.y2 - missBeam.y1), M3.mounts.bow.range, 40), 'Fehlschuss-Strahl bis zur maximalen Reichweite');
+  dbg(0, { cmd: 'tele', id: gb.id });
+  const dur = gb.tele.dur;
+  run(dur - 0.5, tick);
+  cmd(0, 'helm.dodge', { dir: 1 });
+  const hull0 = sh.hull;
+  run(0.7, () => { tick(); sh.x = x0; sh.y = y0; sh.vx = 0; sh.vy = 0; });   // im Bogen festhalten: nur das Fenster zählt
+  ok(!gb.tele && sh.hull === hull0 && events('teleMiss').some((x) => x.id === gb.id && x.dodged === true) && events('sfx').some((x) => x.name === 'dodge_evade') && g.stats.dodgeEvades === 1,
+    'Ausweichen 0,5 s vor Ende: verfehlt (teleMiss dodged, sfx dodge_evade, stats.dodgeEvades 1)');
+  // zu früh (1,5 s vor Ende): trifft
+  clearInbox(); sh.dodgeCd = 0;
+  dbg(0, { cmd: 'tele', id: gb.id });
+  run(dur - 1.5, tick);
+  cmd(0, 'helm.dodge', { dir: 1 });
+  const hull1 = sh.hull;
+  run(1.7, () => { tick(); sh.x = x0; sh.y = y0; sh.vx = 0; sh.vy = 0; });
+  ok(!gb.tele && sh.hull < hull1 && !events('teleMiss').some((x) => x.dodged), `Ausweichen 1,5 s vor Ende: Treffer (Hülle ${hull1} -> ${sh.hull})`);
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
@@ -733,38 +1024,67 @@ section('Ladepunkte (§5.2, §5.5)', () => {
   g.space.enemies = [];
   const f = pinnedEnemy(g, 'raider', sh.x + 400, sh.y, Math.PI, { hp: 999 });
   setCharge(g, 'bow', 1);
-  const hp1 = f.hp; let aimSeen = false;
-  run(0.5, () => { pin(g); setCharge(g, 'port', 0); setCharge(g, 'stbd', 0); if (mountOf(g, 'bow').aim) aimSeen = true; });
-  const midHp = f.hp;
-  run(1.5, () => { pin(g); setCharge(g, 'port', 0); setCharge(g, 'stbd', 0); });
-  ok(aimSeen && midHp === hp1 && near(hp1 - f.hp, M3.mounts.bow.damage, 0.01), `unbesetzt: Lanze mit Zielphase, voller Schaden (${hp1 - f.hp})`);
+  const hp1 = f.hp;
+  run(0.5, () => { pin(g); setCharge(g, 'port', 0); setCharge(g, 'stbd', 0); });
+  const autoDmg = M3.lance.minDamage + (M3.lance.maxDamage - M3.lance.minDamage) * M3.lance.autoPower;
+  ok(near(hp1 - f.hp, autoDmg, 0.01), `unbesetzt: Lanze feuert automatisch mit power 0,5 (${hp1 - f.hp}, Soll ${autoDmg}) – §20.3`);
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
-section('Batterien: Feuer frei / Halten, Salve (§5.4)', () => {
-  const { g, run, enter, cmd, events } = arena(1);
+section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)', () => {
+  const { g, run, enter, cmd, events, notices, clearInbox } = arena(1);
   const sh = g.ship;
   enter(0, 'weapons');
   const t = pinnedEnemy(g, 'raider', sh.x, sh.y + 350, 0, { hp: 999 });
   const other = pinnedEnemy(g, 'raider', sh.x + 300, sh.y - 300, 0, { hp: 999 });
-  cmd(0, 'weapons.target', { id: other.id });   // Ziel nicht im Stb-Bogen -> nächster Gegner im Bogen
+  // weapons.hold: nur Hinweis
+  let nn = notices(0).length;
   cmd(0, 'weapons.hold', { mount: 'stbd', hold: true });
-  ok(g.snapshot().ship.mounts.find((m) => m.id === 'stbd').hold === true, 'weapons.hold stbd true');
+  ok(notices(0).slice(nn).some((x) => /nur auf Befehl/.test(x)) && !('hold' in g.snapshot().ship.mounts.find((m) => m.id === 'stbd')), 'weapons.hold -> „Batterien feuern nur auf Befehl.“, kein hold im Snapshot');
+  // besetzt: geladene Batterie mit Gegner im Bogen feuert NICHT von selbst
   setCharge(g, 'stbd', 1);
   const hp0 = t.hp;
-  run(1, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'port', 0); });
-  ok(t.hp === hp0 && mountOf(g, 'stbd').charge >= 1, 'Halten: geladene Batterie feuert nicht von selbst');
-  cmd(0, 'weapons.hold', { mount: 'stbd', hold: false });
-  let midSalvo = null; let beams = 0;
-  run(1, () => {
+  run(2, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'port', 0); });
+  ok(t.hp === hp0 && mountOf(g, 'stbd').charge >= 1 && !g.space.beams.length, 'besetzt: kein Automatikfeuer (Batterie geladen, Gegner im Bogen)');
+  // Befehl: gewähltes Ziel nicht im Bogen -> nächster Gegner im Bogen
+  cmd(0, 'weapons.target', { id: other.id });
+  clearInbox();
+  cmd(0, 'weapons.fire', { mount: 'stbd' });
+  let midSalvo = null; const seen = new Set(); let beams = 0;
+  // Sichtbarkeit: jeder Salvenstrahl muss in ≥ 2 Snapshots stehen (Snapshot alle net.snapEvery Ticks)
+  const inSnaps = new Map();
+  for (let k = 0; k < 45; k++) {
     pin(g); setCharge(g, 'bow', 0); setCharge(g, 'port', 0);
-    const m = g.snapshot().ship.mounts.find((q) => q.id === 'stbd');
-    if (m.salvo > 0 && midSalvo === null) midSalvo = m.salvo;
-    beams += g.space.beams.filter((b) => b.kind === 'battery' && !b.counted).map((b) => { b.counted = true; return b; }).length;
-  });
-  ok(near(hp0 - t.hp, 4 * 1.5, 0.01) && other.hp === 999, `Feuer frei: Salve auf den nächsten Gegner im Bogen (4 × 1,5 = ${hp0 - t.hp})`);
+    g.step();
+    for (const b of g.space.beams) if (b.kind === 'battery' && !seen.has(b)) { seen.add(b); beams++; }
+    if (g.wantsSnapshot()) {
+      const s = g.snapshot();
+      const m = s.ship.mounts.find((q) => q.id === 'stbd');
+      if (m.salvo > 0 && midSalvo === null) midSalvo = m.salvo;
+      for (const b of g.space.beams) if (b.kind === 'battery') inSnaps.set(b, (inSnaps.get(b) || 0) + 1);
+      const sb = s.space.beams.find((b) => b.kind === 'battery');
+      if (sb && !(sb.ttlMax > 0 && sb.mount === 'stbd')) inSnaps.set('badfields', 1);
+    }
+  }
+  ok(near(hp0 - t.hp, 4 * 1.5, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 × 1,5 = ${hp0 - t.hp})`);
   ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Strahlen battery)`);
+  const counts = [...inSnaps.entries()].filter(([k]) => k !== 'badfields').map(([, v]) => v);
+  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jeder Salvenstrahl in ≥ 2 Snapshots (${counts.join('/')}), mit ttlMax und mount`);
   ok(events('sfx').some((e) => e.name === 'battery_salvo'), 'sfx battery_salvo');
+  // ohne Gegner im Bogen: ins Leere, senkrecht zur Flanke, Strahlen trotzdem da
+  g.space.enemies = [];
+  setCharge(g, 'port', 1);
+  nn = notices(0).length;
+  cmd(0, 'weapons.fire', { mount: 'port' });
+  const voids = [];
+  run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.beams) if (b.kind === 'battery' && !voids.includes(b)) voids.push(b); });
+  const perp = voids.every((b) => { const a = Math.atan2(b.y2 - b.y1, b.x2 - b.x1); return Math.abs(Physics.normAngle(a - (sh.angle - Math.PI / 2))) < 0.15 && b.miss; });
+  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Strahlen, senkrecht zur Backbord-Flanke)`);
+  // all = beide Batterien (nicht die Lanze)
+  setCharge(g, 'port', 1); setCharge(g, 'stbd', 1); setCharge(g, 'bow', 1);
+  cmd(0, 'weapons.fire', { mount: 'all' });
+  ok(mountOf(g, 'port').salvo > 0 && mountOf(g, 'stbd').salvo > 0 && mountOf(g, 'bow').charge === 1, 'all: beide Batterien, Lanze bleibt');
+  run(1, () => { setCharge(g, 'bow', 1); });
   // Zusatzrohre: 5
   g.upgrades.seitenturm = true; run(0.1, () => pin(g));
   ok(g.snapshot().ship.mounts.find((m) => m.id === 'port').salvoMax === M3.mounts.port.tubesUpgrade, 'Zusatzrohre: salvoMax 5');
@@ -778,7 +1098,6 @@ section('Altnamen-Befehle (§5.1)', () => {
   enter(0, 'weapons');
   const tp = pinnedEnemy(g, 'raider', sh.x, sh.y - 350, 0, { hp: 999 });
   cmd(0, 'weapons.target', { id: tp.id });
-  for (const m of ['port', 'stbd']) cmd(0, 'weapons.hold', { mount: m, hold: true });
   const salvoOf = (id) => g.snapshot().ship.mounts.find((m) => m.id === id);
   setCharge(g, 'port', 1); setCharge(g, 'stbd', 1); setCharge(g, 'bow', 0);
   const n0 = notices(0).length;
@@ -817,28 +1136,26 @@ section('Orbitalschlag: volle Ladung verbrauchen (§5.6)', () => {
 });
 
 // ======================================================================
-section('Flugmodell (§6)', () => {
+section('Flugmodell (§6, M3b §2)', () => {
+  // M3b: Einzelwerte des Flugmodells prüft tools/test-flight.js; hier die Kopplung an Spiel und Konfig
   const { g, run, enter, cmd } = arena(1);
   const sh = g.ship;
   enter(0, 'helm');
+  cmd(0, 'helm.throttle', { set: 3 });
+  run(6, () => noFire(g));
   sh.turnVel = 0;
   run(0.5, () => { cmd(0, 'helm.input', { turn: 1, thrust: 0 }); noFire(g); });
-  ok(near(sh.turnVel, CONFIG.ship.turnAccel * 0.5, 0.05), `turnVel steigt mit turnAccel (${sh.turnVel.toFixed(3)} nach 0,5 s)`);
-  sh.angle = 0; sh.turnVel = 0;
-  let t90 = null;
-  for (let k = 0; k < 30 * 8 && t90 === null; k++) { cmd(0, 'helm.input', { turn: 1, thrust: 0 }); g.step(); if (sh.angle >= Math.PI / 2) t90 = k / 30; }
-  ok(t90 !== null && t90 > 2.8 && t90 < 4, `90° in etwa 3 s (${t90 && t90.toFixed(2)} s)`);
+  ok(near(sh.turnVel, LERCHE.turnAccel * 0.5, 0.05), `turnVel steigt mit turnAccel (${sh.turnVel.toFixed(3)} nach 0,5 s)`);
   g.handleMessage(g.players[0].conn, { t: 'leave' });
-  run(0.3, () => noFire(g));
-  const v1 = Math.abs(sh.turnVel);
-  run(1.5, () => noFire(g));
-  ok(v1 > 0 && sh.turnVel === 0, `unbesetzte Steuer: turnVel fällt auf 0 (${v1.toFixed(2)} -> ${sh.turnVel})`);
+  run(2, () => noFire(g));
+  ok(sh.turnVel === 0 && sh.helm.stage === 3 && sh.speed > 20, `unbesetzte Steuer: Ruder 0 (turnVel ${sh.turnVel}), Stufe bleibt ${sh.helm.stage}, Tempo ${sh.speed.toFixed(0)}`);
   enter(0, 'helm');
   sh.angle = 0; sh.turnVel = 0;
-  run(8, () => { cmd(0, 'helm.input', { turn: 0, thrust: 1 }); noFire(g); });
-  ok(sh.speed <= CONFIG.ship.maxSpeed + 0.5 && near(sh.speed, S.maxSpeed(g), 1.5), `Höchsttempo = maxSpeed (${sh.speed.toFixed(1)} / ${S.maxSpeed(g).toFixed(1)}, Basis 130)`);
+  cmd(0, 'helm.throttle', { set: 5 });
+  run(9, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); });
+  ok(near(sh.speed, S.maxSpeed(g), 1.5) && S.maxSpeed(g) <= LERCHE.maxSpeed, `Höchsttempo VOLL = maxSpeed (${sh.speed.toFixed(1)} / ${S.maxSpeed(g).toFixed(1)}, Klasse ${LERCHE.maxSpeed})`);
   cmd(0, 'helm.dodge', { dir: 1 });
-  ok(near(sh.dodgeCd, 10, 0.05), 'Ausweichrolle: Abklingzeit 10 s');
+  ok(near(sh.dodgeCd, LERCHE.dodge.cooldown, 0.05) && LERCHE.dodge.cooldown === 7, 'Ausweichrolle: Abklingzeit 7 s (§20.2)');
   // Gegner-HP × 0,8
   const e = S.spawnEnemy(g, 'gunboat', {});
   const r = S.spawnEnemy(g, 'relay', {});
@@ -994,23 +1311,29 @@ section('Trefferauswahl statistisch (§4.3)', () => {
 });
 
 // ======================================================================
-section('Hüllentreffer -> Systemschaden über interior.hitSystems (§9.4)', () => {
+section('Treffer -> Systemschaden über interior.hitSystems (§9.4, M3b §4)', () => {
+  // M3b: hitSystems läuft bei JEDEM Treffer, die Chance kommt aus spaceM3b.shieldLeak[S]
   const { g } = arena(3);
-  let calls = 0; const orig = interior.hitSystems;
-  interior.hitSystems = (game, sec) => { calls++; return orig(game, sec); };
+  const calls = []; const orig = interior.hitSystems;
+  interior.hitSystems = (game, sec, o) => { calls.push(o ? o.chance : null); return orig(game, sec, o); };
   try {
     g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.allocIntent = [0, 0, 0, 0];
     S.shipHit(g, 2, 1, {});
     g.ship.shields.current = [4, 4, 4, 4];
     S.shipHit(g, 2, 1, {});
+    g.ship.shields.current = [1, 1, 1, 1];
+    S.shipHit(g, 2, 1, {});
   } finally { interior.hitSystems = orig; }
-  ok(calls === 1, `shipHit ruft hitSystems nur bei Hüllentreffer (${calls}×)`);
+  ok(calls.length === 3 && calls[0] === M3B.shieldLeak[0].chance && calls[1] === 0 && calls[2] === M3B.shieldLeak[1].chance, `shipHit ruft hitSystems je Treffer mit Chance aus der Tabelle (${calls.join(' / ')})`);
 });
 
 // ======================================================================
 section('bridgeLeaves (§8.3)', () => {
   const { g, P, send, run, place } = arena(1);
-  const door = { x: 34, y: 6, dir: 'left' };
+  // M4: Brückentür aus dem Layout (Tür im Raum bruecke mit begehbarem Nachbarn links außerhalb der Brücke)
+  const br = Maps.SHIP_ROOMS.find((r) => r.id === 'bruecke');
+  const dt0 = Maps.ship.find('D').find((t) => t.x === br.x0 && t.y >= br.y0 && t.y <= br.y1 && !Maps.ship.solid(t.x - 1, t.y));
+  const door = { x: dt0.x, y: dt0.y, dir: 'left' };
   const walkOut = () => { place(0, door); send(0, { t: 'input', seq: 1, mx: -1, my: 0 }); run(0.8, () => { pin(g); noFire(g); }); send(0, { t: 'input', seq: 2, mx: 0, my: 0 }); run(0.1); };
   const room = () => Maps.roomAt(Math.floor(P(0).x / 32), Math.floor(P(0).y / 32));
   walkOut();
@@ -1028,9 +1351,11 @@ section('bridgeLeaves (§8.3)', () => {
 });
 
 // ======================================================================
-section('Testgelände Wellen 4 und 5 (§15)', () => {
+section('Testgelände Wellen (§15, M3b §7)', () => {
   const A = CONFIG.arena;
-  ok(A.waves.length >= 5 && A.waves[3].slice().sort().join() === 'gunboat,raider' && A.waves[4].slice().sort().join() === 'gunboat,pylon', 'Welle 4 Kanonenboot+Jäger, Welle 5 Pylon+Kanonenboot');
+  const key = (w) => w.slice().sort().join();
+  ok(key(A.waves[0]) === 'gunboat,raider,raider', 'M3b: Welle 1 = Kanonenboot + 2 Jäger');
+  ok(A.waves.slice(1).some((w) => key(w) === 'gunboat,raider') && A.waves.slice(1).some((w) => key(w) === 'gunboat,pylon'), 'alte Wellen danach (u. a. Kanonenboot+Jäger, Pylon+Kanonenboot)');
   const { g } = arena(1);
   ok(SYS14.every((s) => g.ship.systems[s] === 'ok') && g.ship.hull === g.ship.hullMax, 'Start im Testgelände: Schiff unbeschädigt');
 });
@@ -1062,6 +1387,183 @@ section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   ok(g.space.enemies.includes(e2) && Math.abs(e2.hp - 0.1) < 1e-6, `3 × 0,3 Schaden lassen 0,1 HP übrig (${e2.hp.toFixed(3)})`);
   S.damageEnemy(g, e2, 0.1);
   ok(!g.space.enemies.includes(e2), 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört');
+});
+
+// ======================================================================
+section('Allstopp (§21.1, M3b §2)', () => {
+  const { g, run, enter, cmd, notices, events, clearInbox } = arena(1);
+  const sh = g.ship;
+  ok(g.snapshot().ship.helm.autoStop === false, 'Snapshot ship.helm.autoStop = false zu Beginn');
+  enter(0, 'helm');
+  sh.angle = 0; sh.turnVel = 0;
+  cmd(0, 'helm.throttle', { set: 5 });
+  run(8, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); });
+  run(0.5, () => { cmd(0, 'helm.input', { turn: 1, thrust: 0 }); noFire(g); });   // Schiff dreht beim Allstopp
+  const v0 = sh.speed, x0 = sh.x, y0 = sh.y;
+  clearInbox();
+  cmd(0, 'helm.stop');
+  ok(sh.helm.autoStop === true && sh.helm.stage === Flight.stopStage(LERCHE) && events('sfx').some((e) => e.name === 'ui_click'), `helm.stop: Stufe STOPP, autoStop an, sfx ui_click (Start ${v0.toFixed(1)} px/s)`);
+  // Ruder bleibt frei (M3b), Allstopp läuft weiter
+  cmd(0, 'helm.input', { turn: -1, thrust: 0 });
+  ok(sh.helm.autoStop === true, 'Ruder-Eingabe beendet den Allstopp nicht (M3b: Ruder bleibt frei)');
+  let tStop = null;
+  for (let k = 0; k < 30 * 6 && tStop === null; k++) { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); g.step(); if (sh.speed === 0) tStop = (k + 1) / 30; }
+  const dStop = Math.hypot(sh.x - x0, sh.y - y0);
+  const expT = v0 / (LERCHE.decel * LERCHE.brakeFactor);
+  ok(tStop !== null && near(tStop, expT, 0.2), `bremst auf 0 in ${tStop && tStop.toFixed(2)} s (erwartet ${expT.toFixed(2)} s = Tempo / (decel × brakeFactor)), Bremsweg ${dStop.toFixed(0)} px`);
+  run(1, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); });
+  ok(sh.helm.autoStop === false && sh.speed === 0 && sh.helm.stage === Flight.stopStage(LERCHE), 'steht: Allstopp endet von selbst, Stufe STOPP, Schiff bleibt stehen');
+  cmd(0, 'helm.stop'); cmd(0, 'helm.throttle', { delta: 1 });
+  ok(sh.helm.autoStop === false, 'Temporegler beendet einen laufenden Allstopp');
+  cmd(0, 'helm.throttle', { set: 1 });
+  // Seitlich: Ausweichen, dann Allstopp – Quertempo wird mitgebremst
+  sh.vx = 0; sh.vy = 0; sh.angle = 0; sh.turnVel = 0; sh.dodgeCd = 0;
+  cmd(0, 'helm.dodge', { dir: 1 });
+  const lat0 = Math.abs(sh.vy);
+  cmd(0, 'helm.stop');
+  run(0.5, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); });
+  const latFree = lat0 * Math.pow(Math.max(0, 1 - LERCHE.lateralDrag / 30), 15);
+  ok(lat0 > 100 && Math.abs(sh.vy) < latFree, `seitlich: Quertempo ${lat0.toFixed(0)} -> ${Math.abs(sh.vy).toFixed(1)} px/s (ohne Allstopp ${latFree.toFixed(1)})`);
+  run(5, () => { cmd(0, 'helm.input', { turn: 0, thrust: 0 }); noFire(g); });
+  ok(sh.speed === 0, 'seitlich: steht nach Ausweichen + Allstopp');
+  sh.dodgeCd = 0;
+  cmd(0, 'helm.stop'); cmd(0, 'helm.dodge', { dir: -1 });
+  ok(sh.helm.autoStop === false && Math.hypot(sh.vx, sh.vy) > 100, 'Ausweichen ist erlaubt und beendet den Allstopp');
+  // Unbesetzte Steuer: Allstopp bremst weiter
+  cmd(0, 'helm.throttle', { set: 4 }); run(5, () => noFire(g));
+  cmd(0, 'helm.stop');
+  g.handleMessage(g.players[0].conn, { t: 'leave' });
+  run(6, () => noFire(g));
+  ok(sh.speed === 0, 'unbesetzte Steuer: Allstopp bremst weiter bis 0');
+  // Sprung/Szenenwechsel beendet den Allstopp; angedockt: Hinweis
+  enter(0, 'helm'); cmd(0, 'helm.throttle', { set: 4 }); run(2, () => noFire(g)); cmd(0, 'helm.stop');
+  space.enterScene(g, 'hafen', { docked: true });
+  ok(sh.helm.autoStop === false, 'Szenenwechsel: autoStop aus');
+  enter(0, 'helm');
+  cmd(0, 'helm.stop');
+  ok(sh.helm.autoStop === false && notices(0).some((t) => /Angedockt/.test(t)), 'angedockt: kein Allstopp, Hinweis');
+});
+
+// ======================================================================
+function campaign(players) {
+  const g = new Game({ noStore: true, seed: 33, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const conns = [];
+  for (let i = 0; i < players; i++) {
+    const c = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'B' + i, name: 'B' + i, color: i }); conns.push(c);
+  }
+  for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+  const send = (i, m) => g.handleMessage(conns[i], m);
+  const cmd = (i, c, extra) => send(i, Object.assign({ t: 'cmd', c }, extra || {}));
+  const run = (sec) => { for (let k = 0; k < Math.round(sec * 30); k++) g.step(); };
+  const notices = (i) => conns[i].inbox.filter((m) => m.kind === 'notice').map((m) => m.text);
+  const book = () => g.mission.bookSnapshot();
+  const entry = (id) => book().entries.find((e) => e.id === id);
+  const skip = (k) => { for (let i = 0; i < k; i++) { send(0, { t: 'debug', cmd: 'skip' }); run(1.5); } };
+  const atPlan = (i) => { g.players[i].console = 'plan'; };
+  return { g, conns, send, cmd, run, notices, book, entry, skip, atPlan };
+}
+
+section('Missionsbuch: Einträge und Form (§21.2)', () => {
+  const { g, run, entry, book, skip } = campaign(1);
+  run(1);
+  const b = book();
+  ok(Number.isInteger(b.version) && 'focus' in b && Array.isArray(b.entries), 'book { version, focus, entries }');
+  const m1 = entry('m1');
+  const KEYS = ['id', 'title', 'from', 'kind', 'state', 'briefing', 'reward', 'objectives', 'log'];
+  ok(m1 && KEYS.every((k) => k in m1) && m1.kind === 'mission' && m1.state === 'aktiv' && /Tesk/.test(m1.from) && m1.briefing && m1.reward, 'm1: alle Felder, mission/aktiv, Auftraggeber Tesk, Briefing, Belohnung');
+  ok(m1.objectives.every((o) => typeof o.text === 'string' && typeof o.done === 'boolean'), 'objectives [{ text, done }]');
+  skip(3);   // dock -> undock -> route -> combat
+  const done = entry('m1').objectives.filter((o) => o.done).map((o) => o.text);
+  ok(done.some((t) => /ablegen/.test(t)) && done.some((t) => /Faltsprung/.test(t)), `erledigte Ziele bleiben nach Schrittwechsel (${done.length} abgehakt, Schritt ${g.mission.state.stage})`);
+  skip(7);   // ... bis Mission 2
+  ok(entry('m1').state === 'erledigt' && entry('m1').objectives.some((o) => /Rostmeute abwehren/.test(o.text) && o.done), 'm1 erledigt, Ziel ohne Haken-Bedingung („Rostmeute abwehren“) gilt mit dem Schritt als erledigt');
+  ok(g.mission.activeId === 'm2' && !entry('m2'), 'm2 vor dem Angebot: noch nicht im Buch');
+  ok(entry('sela') && entry('sela').kind === 'nebenauftrag' && entry('sela').state === 'aktiv', 'Selas Notruf: Nebenauftrag aktiv');
+});
+
+section('Missionsbuch: Annehmen, Fokus, HUD (§21.2)', () => {
+  const { g, conns, cmd, run, notices, entry, atPlan } = campaign(2);
+  g.mission.forceStep('m2', 'briefing');
+  run(0.5);
+  g.mission.v.offer = true; g.mission.radio('Hafenmeisterin Tesk', 'Echo aus der Grauen Weite. Seht ihr nach?', true);
+  ok(entry('m2') && entry('m2').state === 'angeboten', 'offenes Funkangebot: m2 angeboten');
+  cmd(0, 'plan.accept', { id: 'm2' });
+  ok(notices(0).some((t) => /passenden Konsole/.test(t)) && entry('m2').state === 'angeboten', 'plan.accept nur am Planungstisch');
+  atPlan(0); atPlan(1);
+  cmd(0, 'plan.accept', { id: 'm1' });
+  ok(notices(0).some((t) => /nichts anzunehmen/.test(t)), 'plan.accept auf erledigte Mission: Hinweis');
+  cmd(1, 'plan.accept', { id: 'm2' });
+  ok(g.mission.state.stage === 'vaelen' && entry('m2').state === 'aktiv' && g.mission.state.radio.needsAccept === false, 'plan.accept nimmt an wie captain.accept (Schritt vaelen)');
+  // Fokus
+  g.mission.flags.selaCalled = true;
+  cmd(0, 'plan.focus', { id: 'sela' });
+  let s = g.snapshot();
+  ok(g.mission.book.focus === 'sela' && s.mission.focusId === 'sela' && s.mission.focusTitle === 'Selas Notruf' && s.mission.focusObjectives.length === 1 && /Vaelen/.test(s.mission.focusObjectives[0].text), 'plan.focus sela: HUD zeigt focusTitle + focusObjectives des Nebenauftrags');
+  ok(g.mission.activeId === 'm2' && s.mission.objectives.length > 0, 'laufende Mission bleibt im Hintergrund gültig (mission.objectives weiter da)');
+  cmd(1, 'plan.focus', { id: null });
+  s = g.snapshot();
+  ok(g.mission.book.focus === null && s.mission.focusId === 'm2' && s.mission.focusTitle === 'Echo im Nebel' && JSON.stringify(s.mission.focusObjectives) === JSON.stringify(s.mission.objectives), 'ohne Fokus: laufende Mission im HUD');
+  cmd(0, 'plan.focus', { id: 'gibtsnicht' }); cmd(0, 'plan.focus', { id: 'm1' });
+  ok(notices(0).some((t) => /Unbekannter Eintrag/.test(t)) && notices(0).some((t) => /erledigt/.test(t)) && g.mission.book.focus === null, 'Fokus: unbekannt bzw. erledigt abgelehnt');
+  cmd(0, 'plan.focus', { id: 'sela' });
+  g.ship.docked = true; g.ship.dockedAt = 'vaelen'; g.ship.scene = 'vaelen';
+  run(0.2);
+  g.snapshot();
+  ok(entry('sela').state === 'erledigt' && g.mission.book.focus === null, 'Fokus auf erledigten Eintrag fällt zurück auf die laufende Mission');
+  ok(entry('sela').log.length >= 1 || g.explore.log.some((l) => l.mission === 'sela'), 'Selas Log-Eintrag ist dem Nebenauftrag zugeordnet');
+  // Teaser
+  g.startTeaser();
+  const t = entry('teaser');
+  ok(t && t.kind === 'hinweis' && t.state === 'angeboten' && t.title, 'Ausblick (Teaser) im Buch: hinweis/angeboten');
+  cmd(0, 'plan.accept', { id: 'teaser' });
+  ok(notices(0).some((x) => /Ausblick/.test(x)), 'Teaser annehmen: „Nur ein Ausblick“');
+  void conns;
+});
+
+section('Missionsbuch: Log-Zuordnung, Hinweise, Versionierung, Größe (§21.2)', () => {
+  const { g, run, entry, book } = campaign(3);
+  g.mission.forceStep('m2', 'vaelen');
+  run(0.5);
+  g.explore.addLog('Testeintrag während Mission 2', 'vaelen');
+  const last = g.explore.log[g.explore.log.length - 1];
+  ok(last.mission === 'm2' && Number.isInteger(last.t) && entry('m2').log.some((l) => l.text === 'Testeintrag während Mission 2' && l.loc === 'vaelen' && 't' in l), 'addLog ohne missionId -> laufende Mission, log [{ t, loc, text }]');
+  g.explore.addLog('Explizit Zaunkönig', 'wrack', 'zaunkoenig');
+  g.explore.reveal('wrack', false);
+  ok(entry('zaunkoenig') && entry('zaunkoenig').kind === 'nebenauftrag' && entry('zaunkoenig').log.some((l) => l.text === 'Explizit Zaunkönig'), 'addLog(text, loc, missionId) + Wrack-Nebenauftrag');
+  ok(!entry('m2').log.some((l) => /Explizit/.test(l.text)), 'fremder Log-Eintrag nicht bei m2');
+  const h = g.explore.findHidden('hafen_cache');
+  g.explore.revealHidden(h, true);
+  ok(entry('h:hafen_cache') && entry('h:hafen_cache').kind === 'hinweis' && entry('h:hafen_cache').state === 'aktiv', 'aufgedeckte Entdeckung: Hinweis aktiv');
+  ok(g.explore.log.some((l) => l.mission === 'h:hafen_cache'), 'Entdeckungs-Log dem Hinweis zugeordnet');
+  g.explore.hidden.hafen_cache.found = true;
+  ok(!entry('h:hafen_cache'), 'eingesammelt: Hinweis verschwindet (steht im Logbuch)');
+  // Versionierung: unverändert -> gleiche Version, Buch nur im eigenen Slot; Änderung -> neue Version im nächsten Snapshot
+  for (let i = 0; i < 20; i++) g.snapshot();
+  const v1 = book().version;
+  let withBook = 0;
+  for (let i = 0; i < 15; i++) { const s = g.snapshot(); if (s.mission.book) withBook++; }
+  ok(book().version === v1 && withBook === 1, `ohne Änderung: Version bleibt ${v1}, Buch 1× je 15 Snapshots (Slot 7) – ${withBook}×`);
+  g.mission.setFocus('zaunkoenig');
+  let got = null;
+  for (let i = 0; i < 4 && !got; i++) { const s = g.snapshot(); if (s.mission.book) got = s.mission.book; }
+  ok(got && got.version === v1 + 1 && got.focus === 'zaunkoenig', `Änderung (Fokus): Version ${v1} -> ${got && got.version}, im nächsten freien Snapshot`);
+  const s = g.snapshot();
+  ok(s.mission.bookVersion === got.version, 'mission.bookVersion in jedem Snapshot');
+  // Größe: volles Buch (m1+m2 erledigt, m3 aktiv, Nebenaufträge, Teaser, offene Hinweise) bleibt im Budget
+  g.mission.forceStep('m3', 'warden');
+  g.mission.flags.selaCalled = true; g.startTeaser();
+  for (const id of ['splitter_cache1', 'b7_fragment', 'nebel_lore', 'relais_lore', 'vaelen_cache']) g.explore.revealHidden(g.explore.findHidden(id), true);
+  for (let i = 0; i < 40; i++) g.explore.addLog('Füllertext für das Logbuch, damit die Größenmessung etwas zu tun hat – Eintrag ' + i, 'kesh');
+  run(1);
+  let maxSnap = 0, maxBook = 0, maxWithBook = 0;
+  for (let i = 0; i < 30; i++) {
+    const sn = g.snapshot(); const nb = Buffer.byteLength(JSON.stringify(sn)); maxSnap = Math.max(maxSnap, nb);
+    if (sn.mission.book) { maxWithBook = Math.max(maxWithBook, nb); maxBook = Math.max(maxBook, Buffer.byteLength(JSON.stringify(sn.mission.book))); }
+  }
+  ok(maxBook > 0 && maxBook <= CONFIG.net.bookBudget + 200 && maxWithBook < 12 * 1024 && maxSnap < 12 * 1024,
+    `Buch ${maxBook} B (Budget ${CONFIG.net.bookBudget}), Snapshot mit Buch ${maxWithBook} B, Snapshot max ${maxSnap} B < 12 KB`);
+  ok(g.errors === 0, 'keine abgefangenen Fehler');
 });
 
 console.log(`\n${n - fails}/${n} M3-Tests bestanden.` + (missing.size ? ` Fehlende Vertragsfunktionen: ${[...missing].join(', ')}` : ''));

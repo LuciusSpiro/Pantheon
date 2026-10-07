@@ -39,6 +39,7 @@ function mapFor(game, zone) { return zone === 'away' ? awayInfo(game).map : W.sh
 function updatePlayers(game, dt) {
   const C = game.C;
   for (const p of game.players) {
+    if (p.lift) { updateLiftRide(game, p, dt); continue; }   // M4: Liftfahrt – keine Eingaben, kein Schaden
     if (!p.connected && !p.downed) { p.moving = false; continue; }
     if (p.downed) { if (p.wound) combat().updateWounded(game, p, dt); else updateDowned(game, p, dt); continue; }
     if (p.crouch) combat().checkCrouch(game, p);   // M2 §15: Konsole/Beamen/Zonenwechsel beenden das Ducken
@@ -65,9 +66,92 @@ function updatePlayers(game, dt) {
   }
 }
 
+// ---------- M4 §2.4: Lift und Notleiter zwischen den Decks ----------
+const shipDeckOf = (py) => (W.Maps.deckOfPx ? W.Maps.deckOfPx(py) : 0);
+// Notstrom = Reaktor abgeschaltet (Neustart nötig), zerstört oder per EMP offline -> langsamer Lift
+function lowPower(game) {
+  const st = game.ship.systems.reactor;
+  return game.ship.reactorCtl.state === 'offline' || st === 'broken' || st === 'offline';
+}
+function liftTime(game) {
+  const L = game.C.lift || {};
+  return lowPower(game) ? (L.rideTimeLowPower || 3) : (L.rideTime || 1.5);
+}
+// Lift starten (Spieler oder Bot) von der Liftkachel (tx,ty). Rückgabe: true, wenn gestartet.
+function startLift(game, actor, tx, ty, isBot) {
+  const to = W.Maps.otherDeckTile ? W.Maps.otherDeckTile(tx, ty) : null;
+  if (!to) return false;
+  const deck = W.deckOf(to.y);
+  actor.lift = { to: deck, t: 0, T: liftTime(game) };
+  actor.liftDest = { x: to.x, y: to.y };
+  actor.moving = false;
+  if (!isBot) { actor.hold = null; actor.input.mx = 0; actor.input.my = 0; }
+  game.emit('lift', isBot ? { bot: actor.id, deck, phase: 'start', T: actor.lift.T } : { pid: actor.id, deck, phase: 'start', T: actor.lift.T });
+  game.emit('sfx', { name: 'lift', zone: 'ship', x: Math.round(actor.x), y: Math.round(actor.y) });
+  return true;
+}
+// Belegte Kachel? Andere Spieler (an Bord, nicht im Lift) und Bots zählen.
+function tileOccupied(game, self, tx, ty) {
+  const on = (o) => { const t = Physics.toTile(o.x, o.y); return t.x === tx && t.y === ty; };
+  return game.players.some((o) => o !== self && o.zone === 'ship' && !o.lift && on(o)) || game.bots.some((b) => b !== self && !b.lift && on(b));
+}
+// Ankunftskachel: die gleiche lokale Kachel des anderen Decks; ist sie belegt, die nächste freie begehbare Kachel
+// im Umkreis arrivalClearRadius (gleiches Deck, erst die 4 Nachbarn, dann die Diagonalen). Sonst doch die Zielkachel.
+function arrivalTile(game, self, dest) {
+  if (!tileOccupied(game, self, dest.x, dest.y)) return dest;
+  const R = Math.max(1, Math.round((game.C.lift && game.C.lift.arrivalClearRadius) || 1));
+  const deck = W.deckOf(dest.y);
+  const cand = [];
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    if (!dx && !dy) continue;
+    const x = dest.x + dx, y = dest.y + dy;
+    if (W.deckOf(y) !== deck || !W.shipWalkable(x, y)) continue;
+    cand.push({ x, y, d: Math.abs(dx) + Math.abs(dy) + (W.Maps.liftAt && W.Maps.liftAt(x, y) ? 0 : 0.5) });
+  }
+  cand.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+  for (const c of cand) if (!tileOccupied(game, self, c.x, c.y)) return { x: c.x, y: c.y };
+  return dest;
+}
+function finishLift(game, actor, isBot) {
+  const dest = actor.liftDest || Physics.toTile(actor.x, actor.y);
+  const at = isBot ? dest : arrivalTile(game, actor, dest);
+  const c = W.tileCenter(at.x, at.y);
+  actor.x = c.x; actor.y = c.y;
+  const deck = actor.lift ? actor.lift.to : W.deckOf(at.y);
+  actor.lift = null; actor.liftDest = null;
+  game.emit('lift', isBot ? { bot: actor.id, deck, phase: 'arrive' } : { pid: actor.id, deck, phase: 'arrive' });
+  if (!isBot) game.missionEvent('deckChanged', { p: actor, deck, via: 'lift' });
+}
+function updateLiftRide(game, p, dt) {
+  p.moving = false;
+  if (p.zone !== 'ship') { p.lift = null; p.liftDest = null; return; }
+  p.lift.t += dt;
+  if (p.lift.t >= p.lift.T) finishLift(game, p, false);
+}
+// Notleiter: E halten (ladderTime), dann Teleport auf die Gegenleiter
+function finishLadder(game, p, h) {
+  const partner = W.Maps.ladderPartner ? W.Maps.ladderPartner(h.tx, h.ty) : null;
+  if (!partner) return;
+  const at = arrivalTile(game, p, partner);
+  const c = W.tileCenter(at.x, at.y);
+  p.x = c.x; p.y = c.y;
+  const deck = W.deckOf(at.y);
+  game.emit('lift', { pid: p.id, deck, phase: 'arrive', via: 'ladder' });
+  game.missionEvent('deckChanged', { p, deck, via: 'ladder' });
+}
+// Snapshot-Zusatz je Spieler: deck (0/1, nur an Bord), lift { to, t, T }, ladder { t, T } (nur wenn aktiv)
+function deckSnap(game, p) {
+  const o = {};
+  if (p.zone === 'ship') { const d = shipDeckOf(p.y); if (d >= 0) o.deck = d; }
+  if (p.lift) o.lift = { to: p.lift.to, t: Math.round(p.lift.t * 100) / 100, T: p.lift.T };
+  if (p.hold && p.hold.kind === 'ladder') o.ladder = { t: Math.round(p.hold.t * 100) / 100, T: p.hold.dur };
+  return o;
+}
+
 function applyBreachPull(game, p, dt) {
   const C = game.C;
   for (const b of game.ship.breachList) {
+    if (W.deckOf(b.ty) !== shipDeckOf(p.y)) continue;   // M4: Lecks ziehen nur auf dem eigenen Deck
     const c = W.tileCenter(b.tx, b.ty);
     const d = dist(p.x, p.y, c.x, c.y);
     if (d < 4 || d > C.breach.pullRadius * TILE) continue;
@@ -81,6 +165,7 @@ function applyBreachPull(game, p, dt) {
 function damagePlayer(game, p, dmg, source) {
   if (p.downed || dmg <= 0) return;
   if (game.god) return;
+  if (p.lift) return;   // M4: im Lift kein Schaden
   if (p.zone === 'away' && combat().isV2(game)) { combat().hitPlayer(game, p, 1, source); return; }   // M2: jeder Treffer = 1 Segment
   if (p.zone === 'away' && game.away.kuppelHp > 0 && game.time < game.away.kuppelUntil) {
     const a = Math.min(game.away.kuppelHp, dmg);
@@ -132,14 +217,14 @@ function placeOnShipPad(game, p, idx) {
   const i = idx != null ? idx : game.players.filter((o) => o !== p && o.zone === 'ship').length;
   const c = W.tileCenter(pads[i % pads.length].x, pads[i % pads.length].y);
   if (p.zone === 'away' && combat().isV2(game)) combat().onLeave(game, p);   // M2: Medipack zurück, Wunde heilt
-  p.zone = 'ship'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null;
+  p.zone = 'ship'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null; p.lift = null; p.liftDest = null;
 }
 function placeOnAwayPad(game, p, idx) {
   const pads = awayInfo(game).pads;
   const i = idx != null ? idx : game.players.filter((o) => o !== p && o.zone === 'away').length;
   const c = W.tileCenter(pads[i % pads.length].x, pads[i % pads.length].y);
   const arriving = p.zone !== 'away';
-  p.zone = 'away'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null;
+  p.zone = 'away'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null; p.lift = null; p.liftDest = null;
   if (arriving && combat().isV2(game)) combat().onArrive(game, p);   // M2: voller Schild + Medipack
 }
 const placeOnPlatformPad = placeOnAwayPad;
@@ -164,7 +249,7 @@ function onDrop(game, p) {
 }
 
 // ---------- Interaktion (§4.2) ----------
-const PRIORITY = { revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, selfbeam: 9 };
+const PRIORITY = { revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
 
 function candidateTiles(p) {
   const t = Physics.toTile(p.x, p.y);
@@ -245,6 +330,8 @@ function interactionsAt(game, p, tx, ty, own) {
         else list.push({ kind: 'shelf', blocked: `Regal leer: kein ${itemName(item)} mehr. Nachschub gibt es im Hafen.` });
       }
     }
+    // Brückenumbau (Kai): freies Terminal 'q' – noch ohne Funktion
+    if (info.interact === 'spare') list.push({ kind: 'spare', blocked: 'Freies Terminal – noch ohne Funktion.' });
     if (info.interact === 'bed') {
       const bed = W.Maps.BEDS.find((b) => b.x === tx && b.y === ty);
       if (bed && bed.color === p.color) list.push({ kind: 'bed' });
@@ -259,6 +346,9 @@ function interactionsAt(game, p, tx, ty, own) {
       }
     }
     if (own && info.kind === 'pad') list.push({ kind: 'selfbeam' });
+    // M4 §2.4: Lift (auf der Plattform stehen, E tippen) und Notleiter (auf/vor der Leiter, E halten)
+    if (own && info.interact === 'lift') list.push({ kind: 'lift', tx, ty });
+    if (info.interact === 'ladder') list.push({ kind: 'ladder', tx, ty });
   } else {
     const aw = game.away;
     if (aw.map === 'platform') {
@@ -314,7 +404,7 @@ function onAct(game, p, down) {
   // M3a: das Minispiel läuft ohne E (Client sendet E dann nicht); ein verirrtes E bricht es nicht ab
   if (p.hold && p.hold.kind === 'minigame') return;
   if (!down) { if (p.hold) { p.hold = null; } return; }
-  if (p.downed || p.console || p.beamLock) return;
+  if (p.downed || p.console || p.beamLock || p.lift) return;
   const own = Physics.toTile(p.x, p.y);
   let blocked = null;
   for (const t of candidateTiles(p)) {
@@ -342,6 +432,7 @@ function holdDuration(game, p, kind, extra) {
     case 'salvage': return C.wreckAway.salvageTime;
     case 'hollow': return C.wreckAway.hollowTime;
     case 'switch': return Infinity;
+    case 'ladder': return (C.lift && C.lift.ladderTime) || 2;   // M4: Werkzeuggurt hilft beim Klettern nicht
     default: return 1;
   }
 }
@@ -360,10 +451,14 @@ function performInteraction(game, p, it) {
     }
     case 'selfbeam': {
       const check = game.transfer.canBeam(game, p.zone === 'ship' ? 'down' : 'up');
-      if (!check.ok) return game.notice(p, check.reason);
+      if (!check.ok) { if (check.tooFast && game.transfer.tooFastHint) game.transfer.tooFastHint(game); return game.notice(p, check.reason); }
       p.hold = { kind: 'beam', t: 0, dur: holdDuration(game, p, 'beam'), dir: p.zone === 'ship' ? 'down' : 'up' };
       return;
     }
+    case 'lift': startLift(game, p, it.tx, it.ty, false); return;
+    case 'ladder':
+      p.hold = { kind: 'ladder', t: 0, dur: holdDuration(game, p, 'ladder'), tx: it.tx, ty: it.ty };
+      return;
     case 'console': return enterConsole(game, p, it.console);
     case 'bed': return enterConsole(game, p, 'quartier');
     case 'lore': return game.transfer.readLore(game, p);
@@ -473,6 +568,7 @@ function holdValid(game, p, h) {
     case 'salvage': { const s = game.away.salvage && game.away.salvage.find((q) => q.x === h.sx && q.y === h.sy); return p.zone === 'away' && !!s && !s.done; }
     case 'hollow': return p.zone === 'away' && game.away.map === 'wreck' && game.away.hollow.marked && !game.away.hollow.open;
     case 'jammer': case 'archkey': case 'tablet': return combat().holdValid(game, p, h);
+    case 'ladder': return p.zone === 'ship' && !p.lift;
     default: return false;
   }
 }
@@ -510,6 +606,7 @@ function completeHold(game, p, h) {
       break;
     case 'salvage': game.transfer.openSalvage(game, p, h.sx, h.sy); break;
     case 'hollow': game.transfer.openHollow(game, p); break;
+    case 'ladder': finishLadder(game, p, h); break;
     default: break;
   }
 }
@@ -594,15 +691,19 @@ function heatDamage(game, powerSys) {
   if (game.ship.systems[powerSys] === 'ok') damageSystem(game, powerSys, 'damaged');
 }
 
-// §4.3 Trefferauswahl nach einem Hüllentreffer im Sektor s. Rückgabe: [{system, state}] der getroffenen Systeme.
-function hitSystems(game, sector) {
+// §4.3 Trefferauswahl nach einem Treffer im Sektor s. Rückgabe: [{system, state}] der getroffenen Systeme.
+// M3b §4 (CONTRACT-M3B): opts = { chance, maxState: 'broken'|'damaged', centre, breakFragile, fragileAlways }.
+//   ohne opts: M3a-Verhalten (systemChance, bis zerstört, Mitte möglich, Geflicktes im Sektor bricht sicher).
+//   fragileAlways: Geflicktes im Sektor bricht ohne Würfelwurf (Schild 0 mit Hüllentreffer); sonst nur, wenn der
+//   Durchlass-Wurf gelingt (Schild 1). maxState 'damaged': nur heile, nicht geflickte Systeme kommen in die Auswahl.
+function hitSystems(game, sector, opts) {
   const C = game.C; const M = C.spaceM3 || {}; const ship = game.ship;
   if (!Number.isInteger(sector) || sector < 0 || sector > 3) return [];
   if (!ship.sysHitAt) ship.sysHitAt = {};
+  const o = Object.assign({ chance: C.hitEffects.systemChance, maxState: 'broken', centre: true, breakFragile: true, fragileAlways: true }, opts || {});
   const out = [];
-  // 1. Fragile Systeme in s brechen zuerst
-  const frag = SYSTEM_ORDER.filter((k) => isFragile(game, k) && systemSector(k) === sector);
-  if (frag.length) {
+  const frag = o.breakFragile ? SYSTEM_ORDER.filter((k) => isFragile(game, k) && systemSector(k) === sector && ship.systems[k] !== 'offline') : [];
+  const breakFrag = () => {
     for (const k of frag) {
       damageSystem(game, k, 'broken');
       delete ship.fragile[k];
@@ -610,13 +711,18 @@ function hitSystems(game, sector) {
       out.push({ system: k, state: ship.systems[k] });
     }
     return out;
-  }
-  // 2. Mit systemChance ein System beschädigen
-  if (!game.rng.chance(C.hitEffects.systemChance)) return out;
+  };
+  // 1. Fragile Systeme in s brechen zuerst (ohne Schild sicher, mit Schild 1 nur bei gelungenem Durchlass-Wurf)
+  if (frag.length && o.fragileAlways) return breakFrag();
+  // 2. Mit chance ein System beschädigen
+  if (!(o.chance > 0) || !game.rng.chance(o.chance)) return out;
+  if (frag.length) return breakFrag();
+  const capped = o.maxState === 'damaged';
   const lock = C.hitEffects.systemCooldown || 0;
-  const ready = (k) => (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline';
+  const ready = (k) => (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
+    (!capped || (ship.systems[k] === 'ok' && !isFragile(game, k)));
   let pick = null;
-  if (game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
+  if (o.centre && game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
     const mid = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && ready(k));
     if (mid.length) pick = game.rng.pick(mid);
   } else {
@@ -637,7 +743,7 @@ function hitSystems(game, sector) {
   }
   if (!pick) return out;
   ship.sysHitAt[pick] = game.time;
-  damageSystem(game, pick);
+  damageSystem(game, pick, capped ? 'damaged' : undefined);
   out.push({ system: pick, state: ship.systems[pick] });
   return out;
 }
@@ -712,7 +818,12 @@ function reactorNeedsRestart(game) {
   if (!rc || rc.state === 'offline') return;
   rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.needBot = null; rc.overloadLeft = 0; rc.warned = true;
   game.emit('sfx', { name: 'reactor_down' });
-  game.oda('Reaktor wieder ganz, aber kalt. Neustart: Schalter A und B im Maschinenraum gleichzeitig halten (E).', null);
+  // M3b §4: im Gefecht startet er nach spaceM3b.reactorAutoRestart s von selbst (damage.update); sonst Neustart zu zweit
+  const auto = game.C.spaceM3b && Number(game.C.spaceM3b.reactorAutoRestart);
+  const fight = game.space && game.space.enemies && game.space.enemies.some((e) => e.kind !== 'relay');
+  rc.autoRestartAt = fight && auto > 0 ? game.time + auto : null;
+  if (rc.autoRestartAt != null) game.oda(`Reaktor wieder ganz, aber kalt. Gefechtsstart in ${Math.round(auto)} s – festhalten!`, null);
+  else game.oda('Reaktor wieder ganz, aber kalt. Neustart: Schalter A und B im Maschinenraum gleichzeitig halten (E).', null);
   game.missionEvent('reactorOffline', { afterRepair: true });
 }
 // Reparaturliste: Eintrag fällt weg, sobald das System heil und nicht fragil ist (§8.2)
@@ -786,6 +897,7 @@ function addFire(game, tx, ty) {
   const C = game.C;
   if (game.ship.fireList.length >= C.fire.max) return false;
   if (W.ship.solid(tx, ty)) return false;
+  if (!W.hazardAllowed(tx, ty)) return false;   // M4: nie auf Deck II, nie auf Lift/Leiter
   if (game.ship.fireList.some((f) => f.tx === tx && f.ty === ty)) return false;
   game.ship.fireList.push({ tx, ty, spreadT: 0, dmgT: 0 });
   game.missionEvent('fire', { tx, ty });
@@ -799,6 +911,7 @@ function removeFire(game, tx, ty, by) {
   game.missionEvent('fireOut', { by });
 }
 function addBreach(game, tx, ty) {
+  if (!W.hazardAllowed(tx, ty)) return false;   // M4: nie auf Deck II, nie auf Lift/Leiter
   if (game.ship.breachList.some((b) => b.tx === tx && b.ty === ty)) return false;
   game.ship.breachList.push({ tx, ty, t: 0 });
   game.emit('sfx', { name: 'hull_hit', zone: 'ship' });
@@ -829,7 +942,7 @@ function updateHazards(game, dt) {
       f.spreadT = 0;
       if (game.rng.chance(C.fire.spreadChance)) {
         const opts = NEIGHBOR_ORDER.map((n) => ({ x: f.tx + DIRS[n].x, y: f.ty + DIRS[n].y }))
-          .filter((t) => !W.ship.solid(t.x, t.y) && !ship.fireList.some((o) => o.tx === t.x && o.ty === t.y));
+          .filter((t) => W.hazardAllowed(t.x, t.y) && !ship.fireList.some((o) => o.tx === t.x && o.ty === t.y));
         if (opts.length) { const t = game.rng.pick(opts); addFire(game, t.x, t.y); }
       }
     }
@@ -895,6 +1008,8 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, isDown,
+  // M4 Stufe 1 (CONTRACT-M4 §2.4)
+  startLift, finishLift, liftTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)
   hitSystems, systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
   stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,

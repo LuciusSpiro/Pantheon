@@ -22,6 +22,7 @@
   const ctx = canvas.getContext('2d');
   const nameInput = document.getElementById('lobbyName');
   const codeInput = document.getElementById('lobbyCode');   // M0: Raumcode-Eingabe nach badcode
+  const world3d = document.getElementById('world3d');      // M4: Voxel-Welt (voxel/boot.js)
 
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* egal */ } }
@@ -43,7 +44,8 @@
     endDismissed: false,
     beamFx: {}, enemyHit: {}, shipHit: null, flashT: -9,
     shieldHit: {},   // M2: pid -> performance.now() des letzten Schildtreffers
-    teleSeen: {}, burstFx: null,   // M3a
+    teleSeen: {},   // M3a
+    setbacks: [],   // M3b §4: repairSetback-Ereignisse { system, pid, bot, t0 } für den Rückschritt im Fortschrittsbalken
     minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
     shootCd: 0, stepT: 0, repairTickT: 0,
     view: null,
@@ -117,6 +119,7 @@
     const cw = Math.floor(VW * scale), ch = Math.floor(VH * scale);
     canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     canvas.style.left = Math.floor((W - cw) / 2) + 'px'; canvas.style.top = Math.floor((Hh - ch) / 2) + 'px';
+    if (world3d) { world3d.style.width = canvas.style.width; world3d.style.height = canvas.style.height; world3d.style.left = canvas.style.left; world3d.style.top = canvas.style.top; }   // M4: 3D-Welt in derselben CSS-Box
     Client.scale = scale;
     const r = H.LOBBY_NAME_RECT;
     nameInput.style.left = Math.floor((W - cw) / 2 + r.x * scale) + 'px';
@@ -251,6 +254,8 @@
     }
     // Logbuch kommt ebenfalls nur mit den Ortsdaten
     if (s.mission && !s.mission.log && prev && prev.mission && prev.mission.log) s.mission.log = prev.mission.log;
+    // §21.2: Missionsbuch kommt nur bei Änderung (version) – sonst das letzte behalten
+    if (s.mission && !s.mission.book && prev && prev.mission && prev.mission.book) s.mission.book = prev.mission.book;
     Client.state = s; G.state = s; R.lastState = s;
     const now = performance.now();
     Client.snaps.push({ t: now, s });
@@ -265,7 +270,7 @@
     const m = me();
     const self = Client.self;
     if (!m) return;
-    if (!self.init || m.zone !== self.zone || m.console || m.downed || s.phase === 'lobby' || !isFinite(m.x)) {
+    if (!self.init || m.zone !== self.zone || m.console || m.downed || m.lift || s.phase === 'lobby' || !isFinite(m.x)) {   // M4: während der Liftfahrt keine Vorhersage
       const jump = !self.init || m.zone !== self.zone;
       self.x = +m.x || 0; self.y = +m.y || 0; self.zone = m.zone || 'ship';
       if (!Client.lastSent.mx && !Client.lastSent.my) self.dir = m.dir || self.dir;
@@ -303,18 +308,35 @@
     switch (ev.kind) {
       case 'teleMiss':
         stopSfx('tele_charge', ev.id);
-        if (con === 'helm' || con === 'weapons') H.pushNotice('Ladung verfehlt – ausgewichen!', PAL.mint);
+        // §20.2: dodged = Ausweichen im Fenster (sfx dodge_evade schickt der Server)
+        if (ev.dodged) { Client.dodgeFx = { t0: performance.now() }; if (m && m.zone === 'ship') H.pushNotice('Ausgewichen! Der schwere Treffer geht vorbei.', PAL.mint); }
+        else if (con === 'helm' || con === 'weapons') H.pushNotice('Ladung verfehlt – außer Bogen', PAL.mint);
+        return true;
+      case 'lance':
+        // §20.3: Aufladen/Feuer der Lanze (Ton per sfx vom Server)
+        if (ev.state === 'fizzle') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' || con === 'helm') H.pushNotice('Lanze verpufft' + (ev.why === 'system' ? ' – System ausgefallen' : ''), PAL.warn); }
+        else if (ev.state === 'fire') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' && !ev.hit) H.pushNotice('Lanze ins Leere – Bug aufs Ziel!', PAL.warn); }
+        else if (ev.state === 'charge' && con === 'helm') H.pushNotice('LANZE LÄDT – Bug aufs Ziel!', R.BURST_COL);
         return true;
       case 'aim':
         if (ev.state === 'abort' && (con === 'helm' || con === 'weapons')) H.pushNotice('Zielphase abgebrochen – Kurs nicht gehalten', PAL.warn);
         else if (ev.state === 'miss' && (con === 'helm' || con === 'weapons')) H.pushNotice('Lanze verfehlt – Ziel nicht im Bogen', PAL.warn);
         else if (ev.state === 'start' && con === 'helm') H.pushNotice('LANZE ZIELT – Kurs halten!', PAL.amber);
         return true;
-      case 'burst':
-        Client.burstFx = { sector: ev.sector, perfect: !!ev.perfect, t0: performance.now() };
-        if (ev.perfect) H.pushNotice('PERFEKTER SCHILDSTOSS – ' + (H.SECTOR_NAMES[ev.sector] || '') + ' hält', PAL.mint);
-        else if (con === 'captain' && ev.absorbed) H.pushNotice('Schildstoß fängt ' + ev.absorbed + ' ab', PAL.ice);
+      case 'burst': return true;   // M3b: Schildstoß entfällt (Altereignis ignorieren)
+      // M3b §4: Eskalation – unbearbeiteter Schaden fängt Feuer neben der Station
+      case 'escalated':
+        if (m && m.zone === 'ship') H.pushNotice('FEUER an ' + name(ev.system) + ' – Schaden zu lange liegen gelassen!', PAL.red);
         return true;
+      // M3b §4: Hüllentreffer im Sektor wirft eine laufende Reparatur zurück (pid = betroffener Spieler, bot = Schrauber)
+      case 'repairSetback': {
+        const pct = Math.round(((CFG.spaceM3b && CFG.spaceM3b.repairHitLoss) || 0.5) * 100);
+        Client.setbacks.push({ system: ev.system, pid: ev.pid || null, bot: ev.bot || null, t0: performance.now() });
+        if (Client.setbacks.length > 12) Client.setbacks.shift();
+        if (ev.pid && ev.pid === Client.pid) { H.pushNotice('RÜCKSCHLAG! Treffer im Sektor – ' + pct + ' % der Reparatur verloren', PAL.red); Client.shakeT = performance.now(); }
+        else if (con === 'captain' && K.tab === 4) H.pushNotice('Rückschlag an ' + name(ev.system) + ' (' + pct + ' %)', PAL.warn);
+        return true;
+      }
       case 'systemHit':
         if (ev.state === 'broken') H.pushNotice(name(ev.system) + ' zerstört!', PAL.red);
         else if (ev.state === 'damaged') H.pushNotice(name(ev.system) + ' beschädigt', PAL.warn);
@@ -596,12 +618,41 @@
     const b = Client.snaps;
     if (!b.length) return null;
     const last = b[b.length - 1];
-    if (b.length === 1 || rt >= last.t) return { a: last.s, b: last.s, f: 0 };
+    if (b.length === 1 || rt >= last.t) return { a: last.s, b: last.s, f: 0, ext: b.length > 1 ? rt - last.t : 0 };   // M3b: ext = ms über den letzten Snapshot hinaus
     if (rt <= b[0].t) return { a: b[0].s, b: b[0].s, f: 0 };
     for (let i = b.length - 1; i > 0; i--) {
-      if (b[i - 1].t <= rt) return { a: b[i - 1].s, b: b[i].s, f: clamp((rt - b[i - 1].t) / Math.max(1, b[i].t - b[i - 1].t), 0, 1) };
+      if (b[i - 1].t <= rt) return { a: b[i - 1].s, b: b[i].s, f: clamp((rt - b[i - 1].t) / Math.max(1, b[i].t - b[i - 1].t), 0, 1), dt: (b[i].s.time != null && b[i - 1].s.time != null ? (b[i].s.time - b[i - 1].s.time) * 1000 : b[i].t - b[i - 1].t) };
     }
     return { a: last.s, b: last.s, f: 0 };
+  }
+  // M3b §5: Gegner mit vx/vy weich interpolieren – kubische Hermite-Kurve zwischen zwei Snapshots (Position + Geschwindigkeit),
+  // läuft der Puffer leer, höchstens 120 ms geradeaus weiter (statt Stehenbleiben). Ohne vx/vy: wie bisher linear.
+  function lerpEnemies(la, lb, f, dtMs, extMs) {
+    lb = lb || [];
+    const hasV = (e) => e && isFinite(e.vx) && isFinite(e.vy);
+    if (extMs > 0 && (!la || la === lb)) {
+      const k = Math.min(extMs, 120) / 1000;
+      return lb.map(e => (hasV(e) ? Object.assign({}, e, { x: e.x + e.vx * k, y: e.y + e.vy * k }) : e));
+    }
+    if (!la || la === lb || f <= 0) return lb;
+    const m = {};
+    for (const e of la) if (e && e.id != null) m[e.id] = e;
+    const T = Math.max(0.001, (dtMs || 67) / 1000);
+    return lb.map(e => {
+      const o = m[e.id];
+      if (!o) return e;
+      if (Math.hypot(e.x - o.x, e.y - o.y) > 200) return e;
+      const r = Object.assign({}, e);
+      if (hasV(o) && hasV(e)) {
+        const t = f, t2 = t * t, t3 = t2 * t;
+        const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+        r.x = h00 * o.x + h10 * T * o.vx + h01 * e.x + h11 * T * e.vx;
+        r.y = h00 * o.y + h10 * T * o.vy + h01 * e.y + h11 * T * e.vy;
+        r.vx = lerp(o.vx, e.vx, f); r.vy = lerp(o.vy, e.vy, f);
+      } else { r.x = lerp(o.x, e.x, f); r.y = lerp(o.y, e.y, f); }
+      if (e.angle != null && o.angle != null) r.angle = lerpAngle(o.angle, e.angle, f);
+      return r;
+    });
   }
   function lerpList(la, lb, f) {
     lb = lb || [];
@@ -655,6 +706,8 @@
       if ((st.ship.fires || []).some(f => f[0] === tx && f[1] === ty)) return carry === 'loeschgel' ? { label: 'Halten: Feuer löschen', ok: true } : { label: 'Löschgel nötig (Lager)', ok: false };
       if ((st.ship.breaches || []).some(b => b.tx === tx && b.ty === ty)) return carry === 'flickblech' ? { label: 'Halten: Leck flicken', ok: true } : { label: 'Flickblech nötig (Lager)', ok: false };
     }
+    // Brückenumbau: freies Terminal (Legende interact 'spare') – noch ohne Funktion
+    if (!ownTile && zone === 'ship' && map.legend && map.legend[ch] && map.legend[ch].interact === 'spare') return { label: 'Freies Terminal – noch ohne Funktion.', ok: false };
     if (ownTile) {
       const items = zone === 'away' ? ((st.away && st.away.items) || []) : ((st.ship && st.ship.groundItems) || []);
       const it = items.find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);
@@ -1025,7 +1078,7 @@
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
     Net.guard('Client.minigame', () => updateMinigame(dt));
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && Net.isOpen() && self.init && !Client.minigame;
+    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
@@ -1086,7 +1139,7 @@
     v.bots = lerpList(A.bots, B.bots, f);
     v.shipNpcs = lerpList((A.ship || {}).npcs, (B.ship || {}).npcs, f);
     const as = A.space || {}, bs = B.space || {};
-    v.enemies = lerpList(as.enemies, bs.enemies, f);
+    v.enemies = lerpEnemies(as.enemies, bs.enemies, f, pair.dt, pair.ext);
     v.spaceProjectiles = lerpList(as.projectiles, bs.projectiles, f);
     const aa = A.away || {}, ba = B.away || {};
     v.drones = lerpList(aa.drones, ba.drones, f);
@@ -1117,7 +1170,10 @@
     if (Client.shipHit) v.shipHit = { sector: Client.shipHit.sector, t: (nowMs - Client.shipHit.t0) / 1000 };
     v.interaction = Client.minigame ? null : Net.guard('Client.interaction', () => computeInteraction(st, m, v.self), null);
     v.minigame = Client.minigame;
-    if (Client.burstFx) { const age = (nowMs - Client.burstFx.t0) / 1000; if (age > 2) Client.burstFx = null; else v.burstFx = { sector: Client.burstFx.sector, perfect: Client.burstFx.perfect, age }; }
+    if (Client.dodgeFx) { const age = (nowMs - Client.dodgeFx.t0) / 1000; if (age > 2) Client.dodgeFx = null; else v.dodgeFx = { age }; }
+    // M3b: Rückschläge der letzten 1,5 s (Render zeichnet den Rückschritt am Balken)
+    Client.setbacks = Client.setbacks.filter(s => nowMs - s.t0 < 1500);
+    v.setbacks = Client.setbacks.map(s => ({ system: s.system, pid: s.pid, bot: s.bot, age: (nowMs - s.t0) / 1000 }));
     return v;
   }
 
@@ -1129,7 +1185,10 @@
     R.ui.mouse = Client.mouse;
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH);
+    // M4: Voxel-Modus – 3D zeichnet die Welt, der HUD-Canvas wird transparent geleert, drawWorld nur als Overlay
+    const use3d = drawVoxel(v);
+    if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
+    else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
@@ -1158,6 +1217,21 @@
     Net.guard('Hud.drawConnection', () => H.drawConnection(ctx, v));
     if (DEBUG) drawDebug(v);
     if (window.DevMock && DevMock.active) R.text(ctx, 'MOCK · Bild↑/↓ Ort · Pos1 Zone · Ende Reaktor · ' + (DevMock.stageName ? DevMock.stageName() : ''), VW / 2, v.me && v.me.console ? 1 : 1, { color: '#FF66CC', align: 'center' });
+  }
+
+  // M4: 3D-Frame, wenn VoxelRender bereit ist, der Voxel-Modus gewählt ist und 3D die Zone bedient
+  // (nicht in Lobby und Konsolen-Vollbild). Liefert true, wenn 3D gezeichnet hat.
+  function drawVoxel(v) {
+    const VR = window.VoxelRender;
+    if (!VR) return false;
+    if (VR.notice) { const n = VR.notice; VR.notice = null; Net.guard('Hud.pushNotice', () => H.pushNotice(n, R.PAL.warn)); }
+    let ok = false;
+    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && !v.me.console) {
+      const zone = VR.zoneOf(v);
+      if (zone && VR.handles(zone)) ok = !!Net.guard('Voxel.frame', () => VR.frame(v, Client.frameDt || STEP), false);
+    }
+    if (!ok && VR.hide) VR.hide();
+    return ok;
   }
 
   function drawDebug(v) {
@@ -1211,7 +1285,6 @@
       // M3a §17
       case 'fragile': msg.system = args[0]; break;
       case 'tele': if (args[0]) msg.id = args[0]; break;
-      case 'burst': msg.sector = num(args[0] != null ? args[0] : 0); break;
       default: break;
     }
     return msg;
@@ -1222,6 +1295,7 @@
   function frame(now) {
     const dt = Math.min(0.25, (now - lastT) / 1000);
     lastT = now;
+    Client.frameDt = dt;
     acc += dt;
     let n = 0;
     while (acc >= STEP && n < 15) { Net.guard('Client.step', () => step(STEP)); acc -= STEP; n++; }

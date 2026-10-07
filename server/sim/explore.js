@@ -9,6 +9,12 @@ const DEKO_NAMES = { pflanze: 'Topfpflanze', poster: 'Sternkarten-Poster', lampe
   aquarium: 'Aquarium', sessel: 'Ohrensessel', sternkarte: 'Gerahmte Sternkarte', trophaee_boje: 'Bojen-Trophäe', kristalllampe: 'Kristalllampe',
   lamassu_figur: 'Lamassu-Figur' };
 
+// §21.2: Missionsbuch-Eintrag eines versteckten Objekts. Leitbaken gehören zur laufenden Mission (Echo im Nebel),
+// der Hohlraum zum Nebenauftrag „Zaunkönig“.
+const bookIdOf = (h) => (h.kind === 'beacon' ? undefined : h.kind === 'hollow' ? 'zaunkoenig' : 'h:' + h.id);
+// Orte, deren Log-Einträge (neu auf der Karte, Erstbesuch) zu einem Nebenauftrag gehören
+const LOC_BOOK = { wrack: 'zaunkoenig' };
+
 class Explore {
   constructor(game) {
     this.game = game;
@@ -36,7 +42,7 @@ class Explore {
     if (!Locations.get(id) || this.known.has(id)) return false;
     this.known.add(id); this.version++;
     const loc = Locations.get(id);
-    this.addLog('Neuer Ort auf der Sternkarte: ' + loc.name + '.', id);
+    this.addLog('Neuer Ort auf der Sternkarte: ' + loc.name + '.', id, LOC_BOOK[id]);
     if (text !== false) this.game.oda(text || `Neuer Ort auf der Sternkarte: ${loc.name}.`, null);
     this.game.missionEvent('locationKnown', { loc: id });
     return true;
@@ -52,7 +58,8 @@ class Explore {
       this.visited.add(id); this.version++;
       const marks = g.C.discovery.firstVisitMarks;
       g.inventory.marks += marks;
-      this.addLog(`Erstbesuch: ${loc.name}. ${loc.desc} (+${marks} Marken)`, id);
+      // §21.2: Erstbesuche gehören zu keinem Auftrag (außer dem Wrack -> Zaunkönig)
+      this.addLog(`Erstbesuch: ${loc.name}. ${loc.desc} (+${marks} Marken)`, id, LOC_BOOK[id] || null);
       g.oda(loc.first + (wasKnown ? '' : ' Neuer Ort im Logbuch!'), null);
       g.emit('sfx', { name: 'discovery' });
       g.missionEvent('firstVisit', { loc: id });
@@ -76,7 +83,7 @@ class Explore {
     const g = this.game;
     this.hidden[h.id] = { revealed: true, found: false };
     this.version++;
-    this.addLog('Entdeckt: ' + h.name + '.', this.locationOf(h.id));
+    this.addLog('Entdeckt: ' + h.name + '.', this.locationOf(h.id), bookIdOf(h));
     g.emit('sfx', { name: 'discovery' });
     if (h.kind === 'hollow') {
       g.aways.wreck.hollow.marked = true;
@@ -99,7 +106,7 @@ class Explore {
     if (this.isFound(h.id)) return;
     this.hidden[h.id].found = true; this.version++;
     const txt = this.reward(h.reward);
-    this.addLog(h.text + (txt ? ` (${txt})` : ''), this.locationOf(h.id));
+    this.addLog(h.text + (txt ? ` (${txt})` : ''), this.locationOf(h.id), bookIdOf(h));
     g.emit('sfx', { name: 'lore' });
     g.oda(h.text.length <= 118 ? h.text : h.text.slice(0, 115) + '…', null);
     if (h.kind === 'beacon') {
@@ -110,7 +117,7 @@ class Explore {
   }
   onStationScanned(locId) {
     const g = this.game;
-    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch in der Messe.', null); }
+    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch auf der Brücke.', null); }
     else if (locId === 'wrack') { this.mapsKnown.wreck = true; this.version++; g.oda('Wrack kartiert – Deckplan am Planungstisch. Ein Weitscan zeigt vielleicht Hohlräume.', null); }
     else if (locId === 'kesh') { this.mapsKnown.kesh = true; this.version++; g.oda('Kesh kartiert – der Plan des Archivs liegt am Planungstisch. Zwei Wege führen nach Osten.', null); }
     else if (locId === 'relais') g.oda('Relaisscan: Der Kern liegt mittig. Captain-Scan aus nächster Nähe nötig.', null);
@@ -126,8 +133,13 @@ class Explore {
     for (const d of r.deko || []) { g.inventory.deko.push(d); parts.push('Deko: ' + (DEKO_NAMES[d] || d)); }
     return parts.join(', ');
   }
-  addLog(text, loc) {
-    this.log.push({ id: 'l' + (++this.logSeq), text, loc: loc || this.location });
+  // §21.2: missionId ordnet den Eintrag einem Eintrag im Missionsbuch zu (m1–m3, 'sela', 'zaunkoenig', 'h:<id>').
+  // Ohne Angabe gilt die zum Zeitpunkt laufende Mission. t = Spielzeit in s seit Partiestart.
+  addLog(text, loc, missionId) {
+    const m = this.game.mission;
+    const mission = missionId !== undefined ? missionId : (m && m.activeId && m.missions[m.activeId] ? m.activeId : null);
+    const t = m ? Math.round(m.playTime()) : 0;
+    this.log.push({ id: 'l' + (++this.logSeq), text, loc: loc || this.location, t, mission });
     this.logVersion++;
   }
   discoveries() {
@@ -146,7 +158,7 @@ class Explore {
       if (dist(ship.x, ship.y, h.x, h.y) > g.C.discovery.cachePickupDist) continue;
       this.hidden[h.id].found = true; this.version++;
       const txt = this.reward(h.reward);
-      this.addLog(h.text + ` (${txt})`, this.location);
+      this.addLog(h.text + ` (${txt})`, this.location, bookIdOf(h));
       g.emit('sfx', { name: 'salvage' });
       g.oda(`Eingesammelt: ${h.name} – ${txt}.`, null);
       g.missionEvent('hiddenFound', { id: h.id, kind: h.kind });
@@ -159,7 +171,7 @@ class Explore {
       const txt = this.reward({ marks: cfg.marks, deko: [cfg.deko] });
       g.emit('sfx', { name: 'repair_done' });
       g.emit('radio', { from: 'Sela (Vaelen-Händlerin)', text: 'Ihr seid gekommen! Eure Schrauber haben meinen Reaktor gerettet. Hier: ' + txt + '. Und Tee, so viel ihr wollt.' });
-      this.addLog('Sela geholfen: ' + txt + '.', 'vaelen');
+      this.addLog('Sela geholfen: ' + txt + '.', 'vaelen', 'sela');
       g.missionEvent('selaHelped', {});
     }
   }
@@ -187,4 +199,4 @@ class Explore {
   }
 }
 
-module.exports = { Explore, DEKO_NAMES, ITEM_NAMES };
+module.exports = { Explore, DEKO_NAMES, ITEM_NAMES, bookIdOf };

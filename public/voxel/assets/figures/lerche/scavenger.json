@@ -1,0 +1,26 @@
+{
+  "id": "lerche/scavenger",
+  "name": "Plünderer der Rostmeute (Schütze / Flanker / Funker)",
+  "rig": "human",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "gegner", "aussenteam"],
+  "notes": "Parameter role: 0 Schütze (Schädelhelm, großes Schulterstück, Flickpanzer), 1 Flanker (leichter, Kapuze + Halbmaske, Lederweste), 2 Funker (Headset, Funkgerät mit Antenne am Rücken). Von oben: rostbraun/knochenweiß, asymmetrisches Schulterstück links, rote Augen; die Crew ist weiß mit Farbakzent. Waffe in handR: lerche/item/scav_rifle (per attach überschreibbar).",
+  "params": { "role": 0 },
+  "colors": { "cloth": "#6B5646", "cloth2": "#6B5A45" },
+  "parts": {
+    "head": { "model": "fig/rostmeute/kopf" },
+    "torso": { "model": "fig/rostmeute/rumpf" },
+    "hips": { "model": "fig/rostmeute/huefte" },
+    "upperArmL": { "model": "fig/rostmeute/schulter_gross" },
+    "upperArmR": { "model": "fig/rostmeute/schulter_flick", "mirror": true },
+    "lowerArmL": { "model": "fig/rostmeute/unterarm" },
+    "lowerArmR": { "model": "fig/rostmeute/unterarm", "mirror": true },
+    "thighL": { "model": "fig/rostmeute/bein_oben", "params": { "side": 0 } },
+    "thighR": { "model": "fig/rostmeute/bein_oben", "params": { "side": 1 }, "mirror": true },
+    "shinL": { "model": "fig/rostmeute/unterschenkel" },
+    "shinR": { "model": "fig/rostmeute/unterschenkel", "mirror": true }
+  },
+  "attach": {
+    "handR": { "model": "lerche/item/scav_rifle" }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "lerche/deco/sessel",
+  "name": "Cathedra / Ohrensessel (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "sitz", "sessel"],
+  "footprint": [0.75, 0.75],
+  "params": {},
+  "ops": [
+    { "op": "line", "name": "Vorderbeine geschwungen", "from": [4, 0, 14], "to": [4, 6, 11], "r": 0.7, "color": "wood_dark", "mirror": "x", "mirrorAt": 8 },
+    { "op": "line", "name": "Hinterbeine geschwungen", "from": [4, 0, 2], "to": [4, 6, 5], "r": 0.7, "color": "wood_dark", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Zarge", "at": [3, 6, 4], "size": [10, 2, 9], "color": "wood" },
+    { "op": "box", "name": "Zarge Goldband", "at": [3, 6, 12], "size": [10, 1, 1], "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Sitzpolster", "at": [4, 8, 5], "size": [8, 2, 8], "color": "cloth2", "jitter": false },
+    { "op": "box", "name": "Rückenlehne", "at": [3, 8, 3], "size": [10, 13, 2], "color": "wood" },
+    { "op": "box", "name": "Rückenpolster", "at": [4, 10, 5], "size": [8, 10, 1], "color": "cloth2", "jitter": false },
+    { "op": "box", "name": "Rückenpolster Knöpfe", "at": [6, 13, 6], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 8, "repeat": { "count": 2, "step": [0, 4, 0], "var": "i" }, "jitter": false },
+    { "op": "box", "name": "Ohren", "at": [2, 12, 3], "size": [1, 9, 5], "color": "cloth2", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Armlehnen", "at": [2, 10, 5], "size": [2, 2, 8], "color": "wood", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Armlehnen Volute", "at": [2, 9, 12], "size": [2, 3, 1], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Lehne Kappe", "at": [3, 21, 3], "size": [10, 1, 2], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Lehne Bogen", "at": [5, 22, 3], "size": [6, 1, 2], "color": "trim", "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

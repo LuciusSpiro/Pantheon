@@ -1,0 +1,26 @@
+{
+  "id": "fig/crew/helm_offen",
+  "name": "Crew-Kopf mit offenem Raumhelm (Gesicht sichtbar)",
+  "tier": "detail",
+  "palette": "crew",
+  "tags": ["figur", "crew", "kopf", "helm"],
+  "params": {
+    "hair": { "default": 1, "min": 0, "max": 3, "step": 1, "label": "Frisur (Basis-Kopf)" }
+  },
+  "ops": [
+    { "name": "Kopf", "op": "use", "model": "fig/basis/kopf", "params": { "hair": "hair" } },
+    { "name": "Halsring", "op": "box", "at": [-2, 25, -2], "size": [4, 1, 4], "color": "metal" },
+    { "name": "Helmschale", "op": "box", "at": [-3, 26, -4], "size": [6, 6, 6], "color": "secondary", "mode": "under" },
+    { "name": "Helmdach", "op": "box", "at": [-2, 32, -3], "size": [4, 1, 4], "color": "secondary" },
+    { "name": "Gesichtsrahmen oben", "op": "box", "at": [-3, 31, 2], "size": [6, 1, 1], "color": "metal_light" },
+    { "name": "Gesichtsrahmen Seiten", "op": "box", "at": [2, 26, 2], "size": [1, 5, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Akzentstreifen", "op": "box", "at": [-1, 32, -3], "size": [2, 1, 4], "color": "primary" },
+    { "name": "Akzent Seite", "op": "box", "at": [2, 29, -3], "size": [1, 1, 5], "color": "primary", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Funkmodul", "op": "box", "at": [3, 27, -2], "size": [1, 3, 2], "color": "metal_dark" },
+    { "name": "Antenne", "op": "box", "at": [3, 30, -2], "size": [1, 3, 1], "color": "metal_light" },
+    { "name": "Status-LED", "op": "box", "at": [3, 28, 0], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "name": "Stirnlampe", "op": "box", "at": [-3, 30, 2], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.2 }, "jitter": false }
+  ],
+  "variants": { "zopf": { "hair": 2 } },
+  "anchor": [0, 0, 0]
+}

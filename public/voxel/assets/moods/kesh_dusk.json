@@ -1,0 +1,11 @@
+{
+  "id": "kesh_dusk",
+  "name": "Mond Kesh in der Dämmerung – tiefe, warme Sonne von Südwesten, violetter Himmel, Kustoden-Neon leuchtet",
+  "background": "#2E2740",
+  "fog": { "color": "#4A3B52", "near": 2.4, "far": 6.5 },
+  "hemi": { "sky": "#8A80B4", "ground": "#5A4434", "intensity": 1.15 },
+  "ambient": { "color": "#3A3450", "intensity": 0.35 },
+  "sun": { "color": "#FFC79E", "intensity": 2.4, "dir": [-0.7, 0.85, 0.5], "softness": 3 },
+  "exposure": 1.12,
+  "bloom": { "strength": 0.7, "radius": 0.5, "threshold": 0.78 }
+}

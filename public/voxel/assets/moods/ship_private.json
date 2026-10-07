@@ -1,0 +1,9 @@
+{
+  "id": "ship_private",
+  "name": "Schiff innen, Privatdeck – warm, wohnlich, mehr Umgebungslicht, wenig Bloom",
+  "background": "#14100E",
+  "hemi": { "sky": "#C9A882", "ground": "#3A2A20", "intensity": 0.85 },
+  "sun": { "color": "#FFE2B8", "intensity": 0.95, "dir": [-0.3, 1, 0.35], "softness": 4 },
+  "exposure": 1.2,
+  "bloom": { "strength": 0.45, "radius": 0.4, "threshold": 0.85 }
+}

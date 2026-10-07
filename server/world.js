@@ -87,7 +87,9 @@ function isOuterWallAdjacent(x, y) {
   }
   return false;
 }
-const REGION_FLOORS = Maps.SECTOR_REGIONS.map((r) => SHIP_FLOORS.filter((t) => r.test(t.x, t.y)));
+// M4: Feuer/Lecks nur auf Deck I und nie auf Lift oder Leiter (Maps.hazardAllowed)
+const hazardAllowed = (x, y) => (Maps.hazardAllowed ? Maps.hazardAllowed(x, y) : !ship.solid(x, y));
+const REGION_FLOORS = Maps.SECTOR_REGIONS.map((r) => SHIP_FLOORS.filter((t) => r.test(t.x, t.y) && hazardAllowed(t.x, t.y)));
 const REGION_WALL_FLOORS = Maps.SECTOR_REGIONS.map((r, i) => {
   const list = REGION_FLOORS[i].filter((t) => isOuterWallAdjacent(t.x, t.y) && ship.info(t.x, t.y).kind !== 'pad');
   return list.length ? list : REGION_FLOORS[i];
@@ -110,8 +112,14 @@ function roomAt(tx, ty) {
 
 const tileCenter = Physics.tileCenter;
 
+// M4 §2.4: Deck-Übergänge als BFS-Kanten für bfs(…, links). Bots: nur Lift; Spieler-Agenten (Tools) dürfen auch die Leiter.
+const deckOf = (ty) => (Maps.deckOf ? Maps.deckOf(ty) : 0);
+const liftLinks = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y, { ladder: false }) : []);
+const deckLinksAll = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y) : []);
+
 module.exports = {
   Maps, Locations, ship, platform, wreck, kesh, SYSTEM_TILES, STATIONS, CONSOLE_TILES, SHELF_TILES, SHIP_PADS, PLATFORM_PADS, SONDE_TILE,
   NPC_SPAWN, DATENKERN_SPAWN, DRONE_SPAWNS, PLATFORM_DOORS, REACTOR_SWITCHES, AWAY_MAPS, SHIP_FLOORS, REGION_FLOORS, REGION_WALL_FLOORS,
   shipWalkable, accessTiles, tileCenter, findAll, roomAt,
+  hazardAllowed, deckOf, liftLinks, deckLinksAll,
 };

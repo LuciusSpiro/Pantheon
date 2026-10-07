@@ -1,0 +1,51 @@
+{
+  "id": "rom/kiste",
+  "name": "Versorgungskiste (Rom)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "kiste", "deckung", "lager"],
+  "footprint": [0.75, 0.65],
+  "params": {
+    "w": { "default": 12, "min": 6, "max": 32, "step": 1, "label": "Breite (Voxel)" },
+    "h": { "default": 9, "min": 5, "max": 16, "step": 1, "label": "Höhe (Voxel)" },
+    "d": { "default": 10, "min": 6, "max": 20, "step": 1, "label": "Tiefe (Voxel)" },
+    "light": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Statuslicht" },
+    "ammo": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Munitionsmarkierung" },
+    "lid": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "Deckel (0 Gunmetal, 1 Keramik, 2 Rot)" }
+  },
+  "let": {
+    "mid": "floor(w/2)",
+    "ph": "max(1, h-4)",
+    "py": "1 + floor((h-4)/2) - 1",
+    "third": "floor(w/3)"
+  },
+  "variants": {
+    "lang": { "w": 22, "h": 8, "d": 9 },
+    "flach": { "w": 14, "h": 6, "d": 12, "light": 0, "lid": 2 },
+    "munition": { "w": 9, "h": 7, "d": 7, "ammo": 1, "light": 0, "lid": 0 },
+    "gross": { "w": 16, "h": 14, "d": 14 }
+  },
+  "ops": [
+    { "op": "box", "name": "Kufe", "at": [1, -1, 1], "size": ["w-2", 1, 2], "color": "rubber", "mirror": "z", "mirrorAt": "d/2" },
+    { "op": "box", "name": "Korpus", "at": [0, 0, 0], "size": ["w", "h-2", "d"], "color": "metal_dark" },
+    { "op": "box", "name": "Deckel", "at": [0, "h-2", 0], "size": ["w", 2, "d"], "color": "metal" },
+    { "op": "box", "name": "Deckelfläche Keramik", "if": "lid == 1", "at": [1, "h-1", 1], "size": ["w-2", 1, "d-2"], "color": { "frame": "metal_light", "fill": "secondary", "axes": "xz" } },
+    { "op": "box", "name": "Deckelfläche Rot", "if": "lid == 2", "at": [1, "h-1", 1], "size": ["w-2", 1, "d-2"], "color": { "frame": "trim", "fill": "primary", "axes": "xz" } },
+    { "op": "box", "name": "Deckelfläche Gunmetal", "if": "lid == 0", "at": [2, "h-1", 2], "size": ["w-4", 1, "d-4"], "color": "metal_light" },
+    { "op": "box", "name": "Eckschutz", "at": [0, 0, 0], "size": [1, "h-2", 1], "color": "metal", "mirror": "xz", "mirrorAt": { "x": "w/2", "z": "d/2" } },
+    { "op": "box", "name": "Frontpaneel", "at": [1, 1, "d"], "size": ["w-2", "ph", 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy" } },
+    { "op": "box", "name": "Rückpaneel", "at": [1, 1, -1], "size": ["w-2", "ph", 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy" } },
+    { "op": "box", "name": "Seitenrippen", "at": [-1, 1, 1], "size": [1, "ph", "d-2"], "color": { "stripes": ["metal", "metal_dark"], "axis": "z", "period": 2 }, "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Griffhalter", "at": [-2, "h-5", 2], "size": [1, 1, 1], "color": "metal", "mirror": "xz", "mirrorAt": { "x": "w/2", "z": "d/2" } },
+    { "op": "box", "name": "Griff", "at": [-2, "h-4", 2], "size": [1, 1, "d-4"], "color": "metal_light", "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Spannband", "if": "w >= 16", "at": ["third-1", 0, -1], "size": [2, "h", "d+2"], "color": "metal", "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Spannband Schnalle", "if": "w >= 16", "at": ["third-1", "h-4", "d+1"], "size": [2, 2, 1], "color": "metal_light", "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Verschluss", "if": "w < 16", "at": [2, "h-4", "d"], "size": [1, 3, 1], "color": "metal_light", "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Plakette", "if": "h >= 7", "at": ["mid-1", "py", "d+1"], "size": [2, 2, 1], "color": "trim" },
+    { "op": "box", "name": "Plakette Schwingen", "if": "h >= 7 && w >= 9", "at": ["mid-3", "py+1", "d+1"], "size": [6, 1, 1], "color": { "shade": "trim", "f": 0.85 } },
+    { "op": "box", "name": "Munitionsband", "if": "ammo", "at": [-1, 1, -1], "size": ["w+2", 2, "d+2"], "color": { "checker": ["trim", "black"] }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Munitionskennung Deckel", "if": "ammo", "at": ["mid-1", "h-1", 2], "size": [2, 1, "d-4"], "color": "warning", "mode": "paint" },
+    { "op": "box", "name": "Statuslicht", "if": "light", "at": ["mid", "h-2", "d"], "size": [1, 1, 1], "color": "glow", "jitter": false }
+  ],
+  "anchor": ["w/2", -1, "d/2"]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "kustoden",
+  "name": "Kustoden (Archivwächter): Basalt, dunkles Metall, alte Bronze, violette Neonlinien",
+  "extends": "base",
+  "roles": {
+    "primary": "#2C2E36",
+    "secondary": "#3F434E",
+    "trim": "#8E7448",
+    "metal": "#4A4F5A",
+    "metal_dark": "#1E2026",
+    "metal_light": "#7C828E",
+    "stone": "#3A3B42",
+    "stone_dark": "#25262C",
+    "stone_light": "#5C5E67",
+    "glow": { "color": "#B57BFF", "emit": 2.0 },
+    "glow2": { "color": "#EEDCFF", "emit": 2.6 },
+    "glass": "#1B1530",
+    "dark": "#111217"
+  }
+}

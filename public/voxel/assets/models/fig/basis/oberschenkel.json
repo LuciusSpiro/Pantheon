@@ -1,0 +1,12 @@
+{
+  "id": "fig/basis/oberschenkel",
+  "name": "Basis-Oberschenkel links",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["figur", "basis", "bein"],
+  "ops": [
+    { "name": "Oberschenkel", "op": "box", "at": [1, 7, -1], "size": [3, 7, 3], "color": "cloth" },
+    { "name": "Ansatz", "op": "box", "at": [0, 12, -1], "size": [1, 2, 3], "color": "cloth" }
+  ],
+  "anchor": [0, 0, 0]
+}

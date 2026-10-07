@@ -1,0 +1,61 @@
+{
+  "id": "lerche/station/engine",
+  "name": "Triebwerk-Station – Brennkammer mit Tonnengewölbe und Schaugläsern (Lerche, ART-B)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "system", "triebwerk"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand (0 ok, 1 besch., 2 zerst., 3 geflickt, 4 Eskalation, 5 EMP)" },
+    "throttle": { "default": 2, "min": 0, "max": 4, "step": 1, "label": "Schub (0–4, Glühen steigt)" }
+  },
+  "let": { "lit": "state != 2 && state != 5", "t": "(state != 2 && state != 5) ? throttle : -1" },
+  "variants": {
+    "beschaedigt": { "state": 1 }, "zerstoert": { "state": 2 }, "geflickt": { "state": 3 }, "eskalation": { "state": 4 }, "emp": { "state": 5 },
+    "leerlauf": { "throttle": 0 }, "voll": { "throttle": 4 }
+  },
+  "ops": [
+    { "op": "use", "name": "Sockel eckig", "model": "lerche/station/parts_b/plinth", "params": { "w": 16, "d": 14, "round": 0, "soot": "state == 2", "ember": "state == 4" }, "at": [0, 0, 0] },
+
+    { "op": "box", "name": "Brennkammer Körper", "at": [-7, 3, -5], "size": [14, 10, 9], "color": { "frame": "trim", "fill": "metal", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Frontplatte Marmor", "at": [-6, 4, 4], "size": [12, 8, 1], "color": "secondary" },
+    { "op": "box", "name": "Mäanderfries", "at": [-7, 12, 4], "size": [14, 1, 1], "color": { "checker": ["trim", "primary"], "period": 1 }, "jitter": false },
+    { "op": "cyl", "name": "Tonnengewölbe", "axis": "x", "at": [-7, 13, -0.5], "r": 4.6, "h": 14, "color": "metal_light" },
+    { "op": "cyl", "name": "Gewölberippen", "axis": "x", "at": [-7, 13, -0.5], "r": 5, "h": 1, "color": "trim", "repeat": { "count": 3, "step": [6.5, 0, 0] } },
+    { "op": "box", "name": "Gewölbe Rotband", "at": [-7, 17, -1], "size": [14, 1, 1], "mode": "paint", "color": "primary" },
+
+    { "op": "group", "name": "Schaugläser", "repeat": { "count": 3, "step": [4.5, 0, 0], "var": "k" }, "at": [-4.5, 0, 0], "ops": [
+      { "op": "cyl", "name": "Schauglas Fassung", "axis": "z", "at": [0, 9, 4], "r": 2.1, "h": 2, "color": "trim" },
+      { "op": "cyl", "name": "Schauglas aus", "if": "t < 0", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": "glass", "jitter": false },
+      { "op": "cyl", "name": "Schauglas Leerlauf", "if": "t == 0", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": { "role": "glow", "emit": 0.5 }, "jitter": false },
+      { "op": "cyl", "name": "Schauglas Schub 1", "if": "t == 1", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": { "role": "glow", "emit": 1.1 }, "jitter": false },
+      { "op": "cyl", "name": "Schauglas Schub 2", "if": "t == 2", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": { "role": "glow", "emit": 1.7 }, "jitter": false },
+      { "op": "cyl", "name": "Schauglas Schub 3", "if": "t == 3", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": { "role": "#D8F0FF", "emit": 2.4 }, "jitter": false },
+      { "op": "cyl", "name": "Schauglas Schub 4", "if": "t == 4", "axis": "z", "at": [0, 9, 5], "r": 1.4, "h": 1, "color": { "role": "#FFFFFF", "emit": 3.2 }, "jitter": false }
+    ] },
+    { "op": "use", "name": "Wartungspaneel", "model": "lerche/station/parts_b/panel", "params": { "open": "state == 1 || state == 4", "w": 4, "h": 3, "kd": 2 }, "at": [3, 4, 5] },
+
+    { "op": "group", "name": "Abgasrohre hinten", "repeat": { "count": 3, "step": [5, 0, 0], "var": "k" }, "at": [-5, 0, 0], "ops": [
+      { "op": "cyl", "name": "Rohr", "at": [0, 13, -4], "r": 1.5, "h": 13, "color": "metal" },
+      { "op": "cyl", "name": "Rohrring", "at": [0, 18, -4], "r": 1.9, "h": 1, "color": "trim", "repeat": { "count": 2, "step": [0, 5, 0] } },
+      { "op": "cyl", "name": "Rohrmündung", "at": [0, 25, -4], "r": 1.9, "h": 1, "color": "metal_dark" },
+      { "op": "cyl", "name": "Mündung glüht", "if": "t >= 3", "at": [0, 25, -4], "r": 1, "h": 1, "color": { "role": "glow", "emit": 2.4 }, "jitter": false }
+    ] },
+    { "op": "box", "name": "Temposchimmer Segment", "repeat": { "count": 4, "step": [3, 0, 0], "var": "i" }, "if": "t > i", "at": [-6, 18, 1], "size": [2, 1, 1], "color": { "role": "glow", "emit": 2 }, "jitter": false },
+
+    { "op": "box", "name": "Zerstört: Gewölbe aufgerissen", "if": "state == 2", "at": [-7, 13, -6], "size": [6, 6, 11], "mode": "carve" },
+    { "op": "box", "name": "Zerstört: Rohr abgerissen", "if": "state == 2", "at": [3, 16, -7], "size": [5, 11, 6], "mode": "carve" },
+    { "op": "box", "name": "Zerstört: Schauglas zerschlagen", "if": "state == 2", "at": [-1, 8, 4], "size": [2, 2, 2], "mode": "carve" },
+    { "op": "box", "name": "Zerstört: Ruß", "if": "state == 2", "at": [-8, 3, -8], "size": [16, 24, 16], "mode": "paint", "color": { "noise": ["black", "metal_dark", "metal", "stone_dark"], "weights": [2, 2, 2, 1], "cell": 2 }, "jitter": false },
+    { "op": "box", "name": "Beschädigt: Schauglas gesprungen", "if": "state == 1 || state == 4", "at": [-6, 9, 5], "size": [3, 1, 1], "color": "black", "jitter": false },
+
+    { "op": "use", "name": "Flickband", "if": "state == 3", "model": "lerche/station/parts_b/patch", "params": { "w": 12, "h": 8 }, "at": [0, 5, 5] },
+
+    { "op": "line", "name": "EMP-Bogen Rohre", "if": "state == 5", "from": [-5, 24, -4], "to": [-2, 21, -3], "r": 0.5, "color": { "role": "#A9D6E5", "emit": 2.4 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "EMP-Bogen Rohre 2", "if": "state == 5", "from": [-2, 21, -3], "to": [0, 24, -4], "r": 0.5, "color": { "role": "#A9D6E5", "emit": 2.4 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "EMP-Bogen Gläser", "if": "state == 5", "from": [-4, 12, 5], "to": [-1, 10, 6], "r": 0.5, "color": { "role": "#A9D6E5", "emit": 2.4 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+
+    { "op": "use", "name": "Statuskrone", "model": "lerche/station/parts_b/crown", "params": { "state": "state", "r": 3 }, "at": [0, 18, 2] }
+  ],
+  "anchor": [0, 0, 0]
+}

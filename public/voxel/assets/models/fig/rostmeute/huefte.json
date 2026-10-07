@@ -1,0 +1,18 @@
+{
+  "id": "fig/rostmeute/huefte",
+  "name": "Plünderer-Hüfte: Gürtel mit Knochenschnalle, Taschen, Holster, Lendenlatz aus Flickstoff",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "huefte", "gegner"],
+  "ops": [
+    { "name": "Unterkleidung", "op": "use", "model": "fig/basis/huefte" },
+    { "name": "Gürtel", "op": "box", "at": [-4, 15, -3], "size": [8, 1, 5], "color": "metal_dark" },
+    { "name": "Knochenschnalle", "op": "box", "at": [-1, 14, 2], "size": [2, 2, 1], "color": "trim" },
+    { "name": "Latz vorn", "op": "box", "at": [-2, 10, 2], "size": [4, 4, 1], "color": { "noise": ["primary", "secondary", { "shade": "primary", "f": 0.8 }], "weights": [3, 1, 2], "cell": 2 } },
+    { "name": "Latz hinten", "op": "box", "at": [-2, 10, -3], "size": [4, 5, 1], "color": { "shade": "leather", "f": 0.85 } },
+    { "name": "Tasche", "op": "box", "at": [2, 13, 2], "size": [2, 2, 1], "color": "leather" },
+    { "name": "Holster", "op": "box", "at": [-5, 11, -1], "size": [1, 4, 3], "color": "leather" },
+    { "name": "Holsterniete", "op": "box", "at": [-5, 13, 0], "size": [1, 1, 1], "color": "metal_light", "mode": "paint" }
+  ],
+  "anchor": [0, 0, 0]
+}

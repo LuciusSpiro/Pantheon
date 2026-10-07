@@ -1,0 +1,56 @@
+{
+  "id": "lerche/furn/bed",
+  "name": "Koje / Lectus (Lerche, Privatdeck)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "bett", "quartier"],
+  "footprint": [1, 1],
+  "params": {
+    "color": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Decke (0 blau, 1 orange, 2 rosa, 3 Gast schlicht)" }
+  },
+  "variants": {
+    "farbe1": { "color": 1 },
+    "farbe2": { "color": 2 },
+    "gast": { "color": 3 }
+  },
+  "ops": [
+    { "op": "box", "name": "Beine gedrechselt", "at": [1, 0, 1], "size": [2, 4, 2], "color": "wood_dark", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Beinringe Bronze", "at": [1, 2, 1], "size": [2, 1, 2], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Rahmen", "at": [1, 4, 1], "size": [14, 2, 14], "color": "wood" },
+    { "op": "box", "name": "Rahmen Bronzeband vorn", "at": [2, 4, 14], "size": [12, 1, 1], "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Matratze Leinen", "at": [1, 6, 1], "size": [14, 2, 14], "color": "stone_light", "jitter": false },
+    { "op": "box", "name": "Lehne Wandseite", "at": [1, 6, 0], "size": [14, 6, 1], "color": { "frame": "wood_dark", "fill": "primary", "axes": "xy" } },
+    { "op": "box", "name": "Lehne Kappe", "at": [1, 12, 0], "size": [14, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Fulcrum Kopfstütze", "at": [0, 4, 1], "size": [2, 8, 14], "color": "wood" },
+    { "op": "cyl", "name": "Fulcrum Rolle", "at": [1, 12, 1], "r": 1.5, "h": 14, "axis": "z", "color": "wood_dark" },
+    { "op": "box", "name": "Fulcrum Medaillon", "at": [0, 8, 15], "size": [2, 3, 1], "color": "trim" },
+    { "op": "box", "name": "Fußbrett", "at": [15, 4, 1], "size": [1, 5, 14], "color": "wood" },
+    { "op": "box", "name": "Fußbrett Kante", "at": [15, 9, 1], "size": [1, 1, 14], "color": "trim" },
+    { "op": "box", "name": "Kissen", "at": [2, 8, 3], "size": [3, 3, 10], "color": "white", "jitter": false },
+
+    { "op": "group", "name": "Decke blau", "if": "color == 0", "ops": [
+      { "op": "box", "name": "Decke", "at": [5, 7, 1], "size": [10, 2, 14], "color": "#56B4E9", "jitter": false },
+      { "op": "box", "name": "Decke Überhang", "at": [5, 4, 15], "size": [10, 5, 1], "color": "#56B4E9", "jitter": false },
+      { "op": "box", "name": "Decke Saum", "at": [5, 9, 1], "size": [2, 1, 14], "color": "#3E8DBE", "jitter": false },
+      { "op": "box", "name": "Decke Streifen", "at": [11, 8, 1], "size": [1, 1, 15], "color": "trim", "mode": "paint", "jitter": false }
+    ] },
+    { "op": "group", "name": "Decke orange", "if": "color == 1", "ops": [
+      { "op": "box", "name": "Decke", "at": [5, 7, 1], "size": [10, 2, 14], "color": "#E69F00", "jitter": false },
+      { "op": "box", "name": "Decke Überhang", "at": [5, 4, 15], "size": [10, 5, 1], "color": "#E69F00", "jitter": false },
+      { "op": "box", "name": "Decke Saum", "at": [5, 9, 1], "size": [2, 1, 14], "color": "#B87F00", "jitter": false },
+      { "op": "box", "name": "Decke Streifen", "at": [11, 8, 1], "size": [1, 1, 15], "color": "primary", "mode": "paint", "jitter": false }
+    ] },
+    { "op": "group", "name": "Decke rosa", "if": "color == 2", "ops": [
+      { "op": "box", "name": "Decke", "at": [5, 7, 1], "size": [10, 2, 14], "color": "#CC79A7", "jitter": false },
+      { "op": "box", "name": "Decke Überhang", "at": [5, 4, 15], "size": [10, 5, 1], "color": "#CC79A7", "jitter": false },
+      { "op": "box", "name": "Decke Saum", "at": [5, 9, 1], "size": [2, 1, 14], "color": "#A35A85", "jitter": false },
+      { "op": "box", "name": "Decke Streifen", "at": [11, 8, 1], "size": [1, 1, 15], "color": "trim", "mode": "paint", "jitter": false }
+    ] },
+    { "op": "group", "name": "Decke Gast", "if": "color == 3", "ops": [
+      { "op": "box", "name": "Decke", "at": [5, 7, 1], "size": [10, 2, 14], "color": "stone", "jitter": false },
+      { "op": "box", "name": "Decke Überhang", "at": [5, 4, 15], "size": [10, 5, 1], "color": "stone", "jitter": false },
+      { "op": "box", "name": "Decke Saum", "at": [5, 9, 1], "size": [2, 1, 14], "color": "stone_dark", "jitter": false }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

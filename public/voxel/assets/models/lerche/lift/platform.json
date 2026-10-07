@@ -1,0 +1,54 @@
+{
+  "id": "lerche/lift/platform",
+  "name": "Liftplattform mit Mosaik-Rosette und Halbgeländer (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "lift", "plattform"],
+  "footprint": [2, 2],
+  "params": {
+    "moving": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "fährt (Lichtband am Rand)" },
+    "power": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Notstrom (Lichtband Amber)" }
+  },
+  "variants": {
+    "faehrt": { "moving": 1 },
+    "faehrt_notstrom": { "moving": 1, "power": 1 }
+  },
+  "ops": [
+    { "op": "box", "name": "Plattenkörper", "at": [4, 0, 4], "size": [24, 2, 24], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Mosaikgrund", "at": [5, 1, 5], "size": [22, 1, 22], "color": "paving", "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Rand Gold", "at": [4, 1, 4], "size": [24, 1, 24], "color": { "frame": "trim", "fill": "paving", "axes": "xz", "width": 1 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Zahnfries", "at": [6, 1, 6], "size": [20, 1, 20], "color": { "frame": { "checker": ["primary", "secondary"], "period": 1 }, "fill": "paving", "axes": "xz", "width": 1 }, "jitter": false, "mode": "paint" },
+    { "op": "cyl", "name": "Rosette Grund", "at": [16, 1, 16], "r": 8.5, "h": 1, "color": "secondary", "jitter": false, "mode": "paint" },
+    { "op": "cyl", "name": "Rosette Ring", "at": [16, 1, 16], "r": 8.5, "hollow": 1, "h": 1, "color": "trim", "jitter": false, "mode": "paint" },
+    { "op": "line", "name": "Blütenblatt rot", "repeat": { "count": 8, "var": "i" }, "from": [16, 1.5, 16], "to": ["16 + 6.5*cos(i*0.7854)", 1.5, "16 + 6.5*sin(i*0.7854)"], "r": 1.3, "color": "primary", "jitter": false, "mode": "paint" },
+    { "op": "line", "name": "Blütenblatt Zwischenstrahl", "repeat": { "count": 8, "var": "i" }, "from": [16, 1.5, 16], "to": ["16 + 6.5*cos(i*0.7854 + 0.3927)", 1.5, "16 + 6.5*sin(i*0.7854 + 0.3927)"], "r": 0.5, "color": "cloth2", "jitter": false, "mode": "paint" },
+    { "op": "cyl", "name": "Rosette Mitte", "at": [16, 1, 16], "r": 2.5, "h": 1, "color": "trim", "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Rosette Kern", "at": [15, 1, 15], "size": [2, 1, 2], "color": "primary", "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Eckzwickel", "at": [7, 1, 7], "size": [2, 1, 2], "color": "primary", "jitter": false, "mode": "paint", "mirror": "xz", "mirrorAt": { "x": 16, "z": 16 } },
+    { "op": "box", "name": "Lichtband Rand x", "if": "moving && !power", "at": [4, 1, 4], "size": [24, 1, 1], "color": { "role": "glow", "emit": 1.1 }, "jitter": false, "mode": "paint", "mirror": "z", "mirrorAt": 16 },
+    { "op": "box", "name": "Lichtband Rand z", "if": "moving && !power", "at": [4, 1, 4], "size": [1, 1, 24], "color": { "role": "glow", "emit": 1.1 }, "jitter": false, "mode": "paint", "mirror": "x", "mirrorAt": 16 },
+    { "op": "box", "name": "Lichtband Rand x Notstrom", "if": "moving && power", "at": [4, 1, 4], "size": [24, 1, 1], "color": { "role": "glow2", "emit": 1.1 }, "jitter": false, "mode": "paint", "mirror": "z", "mirrorAt": 16 },
+    { "op": "box", "name": "Lichtband Rand z Notstrom", "if": "moving && power", "at": [4, 1, 4], "size": [1, 1, 24], "color": { "role": "glow2", "emit": 1.1 }, "jitter": false, "mode": "paint", "mirror": "x", "mirrorAt": 16 },
+
+
+    { "op": "group", "name": "Halbgeländer", "ops": [
+      { "op": "box", "name": "Pfosten hinten", "at": [5, 2, 5], "size": [1, 13, 1], "color": "metal", "mirror": "x", "mirrorAt": 16 },
+      { "op": "box", "name": "Pfosten Mitte hinten", "at": [15, 2, 5], "size": [2, 13, 1], "color": "metal" },
+      { "op": "box", "name": "Pfosten Seite", "at": [5, 2, 16], "size": [1, 13, 1], "color": "metal", "mirror": "x", "mirrorAt": 16 },
+      { "op": "box", "name": "Handlauf hinten", "at": [5, 14, 5], "size": [22, 1, 1], "color": "trim" },
+      { "op": "box", "name": "Handlauf Seite", "at": [5, 14, 5], "size": [1, 1, 12], "color": "trim", "mirror": "x", "mirrorAt": 16 },
+      { "op": "box", "name": "Mittelholm hinten", "at": [5, 8, 5], "size": [22, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Mittelholm Seite", "at": [5, 8, 5], "size": [1, 1, 12], "color": "metal_light", "mirror": "x", "mirrorAt": 16 },
+      { "op": "box", "name": "Handlauf Endkappe", "at": [5, 14, 16], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 16 },
+      { "op": "box", "name": "Lichtleiste Handlauf", "if": "moving && !power", "at": [7, 14, 5], "size": [18, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+      { "op": "box", "name": "Lichtleiste Handlauf Notstrom", "if": "moving && power", "at": [7, 14, 5], "size": [18, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false }
+    ] },
+    { "op": "group", "name": "Bedienkasten (Handlauf rechts hinten)", "ops": [
+      { "op": "box", "name": "Kasten", "at": [22, 9, 6], "size": [4, 5, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Kasten Front", "at": [22, 9, 8], "size": [4, 5, 1], "color": { "frame": "trim", "fill": "metal", "axes": "xy" } },
+      { "op": "box", "name": "Taste hoch", "at": [23, 12, 9], "size": [2, 1, 1], "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+      { "op": "box", "name": "Taste runter", "at": [23, 10, 9], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 0.8 }, "jitter": false }
+    ] }
+  ],
+  "anchor": [16, 0, 16]
+}

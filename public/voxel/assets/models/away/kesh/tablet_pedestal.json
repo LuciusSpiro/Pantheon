@@ -1,0 +1,28 @@
+{
+  "id": "away/kesh/tablet_pedestal",
+  "name": "Kesh – Sockel mit der Tafel von Kesh (halbe Deckung)",
+  "tier": "detail",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "ziel", "tafel", "deckung_halb"],
+  "footprint": [1, 1],
+  "params": {
+    "present": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Tafel liegt auf dem Sockel" }
+  },
+  "variants": { "geborgen": { "present": 0 } },
+  "ops": [
+    { "op": "box", "name": "Stufe unten", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "noise": ["stone_dark", { "shade": "stone_dark", "f": 0.9 }], "cell": 2 } },
+    { "op": "box", "name": "Stufe Lichtfuge", "at": [-8, 1, -8], "size": [16, 1, 16], "mode": "paint", "color": { "frame": "neon_dim", "fill": "stone_dark", "axes": "xz" }, "jitter": false },
+    { "op": "box", "name": "Stufe oben", "at": [-6, 2, -6], "size": [12, 2, 12], "color": "stone" },
+    { "op": "box", "name": "Säule", "at": [-3, 4, -3], "size": [6, 6, 6], "color": { "noise": ["stone", { "shade": "stone", "f": 1.07 }], "cell": 2 } },
+    { "op": "box", "name": "Säule Lichtkanal", "at": [-1, 5, -3], "size": [2, 4, 6], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Säule Lichtkanal quer", "at": [-3, 5, -1], "size": [6, 4, 2], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Auflage", "at": [-6, 10, -6], "size": [12, 2, 12], "color": { "frame": "cover_top", "fill": "stone_dark", "axes": "xz", "width": 2 }, "jitter": false },
+    { "op": "box", "name": "Mulde", "at": [-3, 11, -4], "size": [6, 1, 8], "mode": "carve" },
+    { "op": "box", "name": "Mulde Boden", "at": [-3, 10, -4], "size": [6, 1, 8], "mode": "paint", "color": "neon_dim", "jitter": false },
+    { "op": "box", "name": "Tafel", "if": "present", "at": [-3, 11, -4], "size": [6, 2, 8], "color": { "frame": "trim", "fill": "dark", "axes": "xz" } },
+    { "op": "box", "name": "Tafel Glyphen", "if": "present", "at": [-2, 12, -3], "size": [4, 1, 6], "mode": "paint",
+      "color": { "checker": [{ "role": "neon_hot", "emit": 2.2 }, "dark"], "period": 1 }, "jitter": false },
+    { "op": "box", "name": "Leere Mulde Glimmen", "if": "!present", "at": [-3, 10, -4], "size": [6, 1, 8], "mode": "paint", "color": { "frame": "neon", "fill": "dark", "axes": "xz" }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

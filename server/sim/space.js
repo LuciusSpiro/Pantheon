@@ -4,7 +4,9 @@
 const Physics = require('../../shared/physics.js');
 const Protocol = require('../../shared/protocol.js');
 const Locations = require('../../shared/locations.js');
+const Flight = require('../../shared/flight.js');
 const interior = require('./interior.js');
+const Pilot = require('./pilot.js');
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -31,6 +33,18 @@ const ENEMY_LABEL = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Wäch
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
 
 function M3(game) { return game.C.spaceM3; }
+function M3B(game) { return game.C.spaceM3b || {}; }
+// QA M3b: Schusswinkel mit Vorhalt auf die Lerche (Abfangpunkt bei Geschossgeschwindigkeit v), Anteil f (0..1) des Vorhalts
+function leadAngle(x, y, ship, v, f) {
+  const rx = ship.x - x, ry = ship.y - y; const k = Math.max(0, Math.min(1, Number(f) || 0));
+  const vx = (ship.vx || 0) * k, vy = (ship.vy || 0) * k;
+  const a = vx * vx + vy * vy - v * v, b = 2 * (rx * vx + ry * vy), c = rx * rx + ry * ry;
+  let t = 0;
+  if (Math.abs(a) < 1e-6) t = b < 0 ? -c / b : 0;
+  else { const disc = b * b - 4 * a * c; if (disc >= 0) { const s = Math.sqrt(disc); const t1 = (-b - s) / (2 * a), t2 = (-b + s) / (2 * a); t = Math.max(t1, t2) > 0 ? (t1 > 0 && t2 > 0 ? Math.min(t1, t2) : Math.max(t1, t2)) : 0; } }
+  t = Math.max(0, Math.min(3, t));
+  return Math.atan2(ry + vy * t, rx + vx * t);
+}
 function sysState(game, sys) { const s = game.ship.systems[sys]; return s == null ? 'ok' : s; }
 function stateKey(st) { return st === 'offline' ? 'broken' : (st || 'ok'); }   // offline (EMP) wirkt wie zerstört
 function emitterFor(sector) {
@@ -53,8 +67,10 @@ function ensureM3(game) {
   if (!ship.fragile) ship.fragile = {};
   const m = ship.mount || (ship.mount = {});
   for (const k of M3_MOUNTS) if (!m[k]) m[k] = { charge: 1, alloc: S.allocDefault[k] || 0 };
-  m.bow.aim = m.bow.aim || null;
-  for (const k of BATTERIES) { const b = m[k]; if (b.hold == null) b.hold = false; b.salvo = b.salvo || 0; b.salvoT = 0; b.salvoTarget = null; }
+  // §20.3: Lanze ohne Zielphase – power (0..1) und charging (Aufladen läuft)
+  delete m.bow.aim;
+  m.bow.power = 0; m.bow.charging = false;
+  for (const k of BATTERIES) { const b = m[k]; delete b.hold; b.salvo = b.salvo || 0; b.salvoT = 0; b.salvoTarget = null; }
   if (!m.bolzen) m.bolzen = { loaded: game.C.weapons.bolzen.magazine, reloadT: null, shotT: 0 };
   if (!ship.wAllocIntent) ship.wAllocIntent = Object.assign({}, S.allocDefault);
   if (ship.turnVel == null) ship.turnVel = 0;
@@ -63,7 +79,8 @@ function ensureM3(game) {
   if (sh.burstCd == null) sh.burstCd = 0;
   if (!sh.cap) sh.cap = [4, 4, 4, 4];
   const st = game.stats;
-  for (const k of ['bursts', 'burstsPerfect']) if (st[k] == null) st[k] = 0;
+  for (const k of ['bursts', 'burstsPerfect', 'dodges', 'dodgeEvades']) if (st[k] == null) st[k] = 0;
+  if (ship.lastDodgeT == null) ship.lastDodgeT = -99;
 }
 
 // ---------- Szenen ----------
@@ -79,10 +96,13 @@ function enterScene(game, locId, opts) {
   ship.x = st.x; ship.y = st.y; ship.angle = st.angle || 0;
   ship.vx = 0; ship.vy = 0; ship.speed = 0;
   ship.docked = docked; ship.dockedAt = docked ? loc.id : null; ship.dockArmed = !docked;
-  ship.helm.turn = 0; ship.helm.thrust = 0;
+  ship.helm.turn = 0; ship.helm.thrust = 0; ship.helm.autoStop = false;   // §21.1: Sprung/Szenenwechsel beendet den Allstopp
+  ship.helm.stage = stopIndex(game);   // M3b: Ankunft/Andocken steht auf Stopp
+  ship.dodgeT = 0;
   ensureM3(game);
   ship.turnVel = 0;
-  ship.mount.bow.aim = null;
+  ship.mount.bow.power = 0; ship.mount.bow.charging = false;
+  ship.lastDodgeT = -99;
   for (const k of BATTERIES) { ship.mount[k].salvo = 0; ship.mount[k].salvoTarget = null; }
   ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false;
   ship.target = null;
@@ -328,17 +348,13 @@ function updateSystems(game, dt) {
   // Schilde
   enforceShields(game);
   const sh = ship.shields;
-  // M3a §7.2: Schildstoß läuft ab; zerstörter Generator/Emitter beendet ihn sofort
-  sh.burstCd = Math.max(0, (sh.burstCd || 0) - dt);
-  if (sh.burst && (game.time > sh.burst.until || isDown(ship.systems.shields) || isDown(sysState(game, emitterFor(sh.burst.sector))))) sh.burst = null;
+  // M3b §4: Schildstoß entfällt (burst/burstCd bleiben eine Version lang null/0)
+  sh.burst = null; sh.burstCd = 0;
   if (isDown(ship.systems.shields) || game.transfer.isBeaming(game)) {
     sh.current = [0, 0, 0, 0]; sh.regenT = 0;
   } else {
-    // M3a: Bonuspunkt eines perfekten Stoßes bleibt, bis er verbraucht ist (höchstens bis cap)
-    if (!sh.bonus) sh.bonus = [0, 0, 0, 0];
     for (let i = 0; i < 4; i++) {
-      if (sh.current[i] <= sh.alloc[i]) sh.bonus[i] = 0;
-      const max = Math.min(sh.cap ? sh.cap[i] : 4, sh.alloc[i] + sh.bonus[i]);
+      const max = Math.min(sh.cap ? sh.cap[i] : 4, sh.alloc[i]);
       if (sh.current[i] > max) sh.current[i] = max;
     }
     const interval = ship.systems.shields === 'damaged' ? C.shieldsDamagedInterval : C.shields.regenInterval;
@@ -351,12 +367,34 @@ function updateSystems(game, dt) {
 }
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-// ---------- Flug ----------
-function maxSpeed(game) {
+// ---------- Flug (M3b §2: gemeinsames Flugmodell shared/flight.js) ----------
+function lercheClass(game) {
+  const SC = game.C.shipClasses;
+  return (SC && SC.lerche) || FALLBACK_LERCHE(game);
+}
+// Falls der Config-Block fehlt (alte Config): Klasse aus den bisherigen ship-Werten
+function FALLBACK_LERCHE(game) {
+  const S = game.C.ship;
+  return { maxSpeed: S.maxSpeed, minSpeed: 0, accel: S.accel, decel: S.accel, brakeFactor: 1, stages: [-0.3, 0, 0.25, 0.5, 0.75, 1],
+    stageNames: ['R', 'STOPP', '¼', '½', '¾', 'VOLL'], turnRate: S.turnRate, turnCurve: [[0, 1], [1, 1]], turnAccel: S.turnAccel || 0.8,
+    lateralDrag: game.C.flight.lateralDrag, dodge: { impulse: S.dodgeImpulse, cooldown: S.dodgeCooldown, turnPenalty: 1, turnPenaltyTime: 0 }, radius: game.C.flight.radius };
+}
+// Faktor aus Triebwerkszustand und Energie (vorher in maxSpeed): 0 = kein Schub
+function engineSpeedFactor(game) {
   const C = game.C; const ship = game.ship;
   const st = ship.systems.engines === 'offline' ? 'broken' : ship.systems.engines;
   const sf = C.stateFactor.engines[st];
-  return C.ship.maxSpeed * C.enginePowerFactor[ship.power.engines] * (sf != null ? sf : 1);
+  const pf = C.enginePowerFactor[ship.power.engines];
+  return (pf != null ? pf : 1) * (sf != null ? sf : 1);
+}
+function maxSpeed(game) {
+  return lercheClass(game).maxSpeed * engineSpeedFactor(game);
+}
+function stopIndex(game) { return Flight.stopStage(lercheClass(game)); }
+function ensureHelmStage(game) {
+  const h = game.ship.helm;
+  const n = (lercheClass(game).stages || [0]).length;
+  if (!Number.isInteger(h.stage) || h.stage < 0 || h.stage >= n) h.stage = stopIndex(game);
 }
 
 // M3a §4.2/§6: Düsen begrenzen das Drehen zur jeweiligen Seite (negatives helm.turn = Backbord).
@@ -365,54 +403,37 @@ function turnCaps(game) {
   const c = (sys) => { const st = stateKey(sysState(game, sys)); return f[st] != null ? f[st] : 1; };
   return { port: c('thruster_port'), stbd: c('thruster_stbd') };
 }
-function updateTurn(game, dt) {
-  const C = game.C; const ship = game.ship;
-  const caps = turnCaps(game);
-  const turn = ship.helm.manned ? ship.helm.turn : 0;
-  const goal = turn * C.ship.turnRate * (turn < 0 ? caps.port : caps.stbd);
-  const acc = (C.ship.turnAccel || 0.8) * dt;
-  const v = ship.turnVel || 0;
-  ship.turnVel = Math.abs(goal - v) <= acc ? goal : v + Math.sign(goal - v) * acc;
-  ship.turnCap = caps;
-  ship.angle = Physics.normAngle(ship.angle + ship.turnVel * dt);
-}
 
 function updateFlight(game, dt) {
   const C = game.C; const ship = game.ship;
   const loc = Locations.get(ship.scene); const sc = loc.scene;
+  const cls = lercheClass(game);
+  ensureHelmStage(game);
+  const h = ship.helm;
   ship.dodgeCd = Math.max(0, ship.dodgeCd - dt);
-  ship.helm.manned = game.players.some((p) => p.console === 'helm' && p.connected);
-  if (!ship.helm.manned) { ship.helm.turn = 0; ship.helm.thrust = 0; }
+  h.manned = game.players.some((p) => p.console === 'helm' && p.connected);
+  // M3b §0.8: unbesetzte Steuer – Stufe bleibt, Ruder 0, keine Sonderbremse (das Stationshalten aus M1 entfällt)
+  if (!h.manned) { h.turn = 0; h.thrust = 0; }
+  const caps = turnCaps(game);
+  ship.turnCap = caps;
   if (ship.docked) {
     const dp = sc.dock || sc.start;
-    ship.vx = 0; ship.vy = 0; ship.speed = 0;
-    // QA M1: Wer beim Andocken noch W hält, legt nicht sofort wieder ab – erst Schub loslassen, dann erneut W.
-    if (ship.dockHold && ship.helm.thrust <= 0.1) ship.dockHold = false;
-    if (ship.helm.thrust > 0.1 && !ship.dockHold) {
-      ship.docked = false; ship.dockedAt = null; ship.dockArmed = false; ship.undockT = game.time;
+    ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.turnVel = 0;
+    // Ablegen: Temporegler über Stopp (W). Rückwärts oder Stopp: bleibt angedockt.
+    if (h.stage > stopIndex(game)) {
+      ship.docked = false; ship.dockedAt = null; ship.dockArmed = false; ship.undockT = game.time; ship.dockHold = false;
       game.emit('sfx', { name: 'dodge' });
       game.missionEvent('undocked', {});
-    } else { ship.x = dp.x; ship.y = dp.y; ship.turnVel = 0; return; }
+    } else { h.stage = stopIndex(game); h.autoStop = false; ship.x = dp.x; ship.y = dp.y; return; }
   }
-  updateTurn(game, dt);
-  const hx = Math.cos(ship.angle), hy = Math.sin(ship.angle);
-  let f = ship.vx * hx + ship.vy * hy;
-  let l = -ship.vx * hy + ship.vy * hx;
-  const vmax = maxSpeed(game);
-  f += C.ship.accel * ship.helm.thrust * dt;
-  if (f > vmax) f = Math.max(vmax, f - C.ship.accel * dt);
-  const vmin = -vmax * C.flight.reverseFactor;
-  if (f < vmin) f = Math.min(vmin, f + C.ship.accel * dt);
-  l *= Math.max(0, 1 - C.flight.lateralDrag * dt);
-  // M1: Stationshalten – unbesetzte Steuer bei Schleichfahrt (≤ Beam-Tempo) bremst auf 0, damit das Schiff
-  // während einer Außenmission nicht aus der Transfer-Reichweite driftet (Softlock-Schutz, v. a. solo).
-  if (!ship.helm.manned && Math.hypot(f, l) <= C.ship.beamMaxSpeed) {
-    const k = Math.max(0, 1 - 1.5 * dt);
-    f *= k; l *= k;
-    if (Math.abs(f) < 0.5) f = 0;
-  }
-  ship.vx = f * hx - l * hy; ship.vy = f * hy + l * hx;
-  ship.x += ship.vx * dt; ship.y += ship.vy * dt;
+  const rudder = h.manned ? (Number(h.turn) || 0) : 0;
+  const mods = { speedFactor: engineSpeedFactor(game), turnCapPort: caps.port, turnCapStbd: caps.stbd };
+  const body = ship;   // ship hat x, y, angle, vx, vy, turnVel – stage/dodgeT liegen am Schiff
+  body.stage = h.stage;
+  Flight.stepBody(body, { stage: h.stage, rudder, brake: !!h.autoStop }, cls, mods, dt);
+  delete body.stage;   // Stufe lebt in ship.helm.stage (Snapshot), nicht doppelt am Schiff
+  // §2 Allstopp: Bremsen, bis das Schiff steht (unter 1 px/s), dann endet er von selbst
+  if (h.autoStop && Math.hypot(ship.vx, ship.vy) < 1) { ship.vx = 0; ship.vy = 0; h.autoStop = false; }
   const m = 40, sp = game.space;
   if (ship.x < m) { ship.x = m; ship.vx = Math.max(0, ship.vx); }
   if (ship.x > sp.w - m) { ship.x = sp.w - m; ship.vx = Math.min(0, ship.vx); }
@@ -428,6 +449,7 @@ function updateFlight(game, dt) {
       ship.docked = true; ship.dockedAt = loc.id; ship.x = sc.dock.x; ship.y = sc.dock.y; ship.vx = 0; ship.vy = 0; ship.speed = 0;
       ship.angle = loc.id === 'hafen' ? 0 : ship.angle;
       ship.helm.thrust = 0; ship.helm.turn = 0; ship.dockHold = true;
+      ship.helm.stage = stopIndex(game); ship.helm.autoStop = false; ship.turnVel = 0;
       game.emit('sfx', { name: 'door' });
       game.missionEvent('docked', { loc: loc.id });
     }
@@ -454,11 +476,92 @@ function dodge(game, dir) {
   if (ship.docked) return 'Erst ablegen.';
   if (ship.dodgeCd > 0) return 'Ausweichrolle lädt noch.';
   if (isDown(ship.systems.engines)) return 'Antrieb ausgefallen.';
+  const D = lercheClass(game).dodge || {};
+  const imp = D.impulse != null ? D.impulse : C.ship.dodgeImpulse;
   const a = ship.angle + (dir >= 0 ? Math.PI / 2 : -Math.PI / 2);
-  ship.vx += Math.cos(a) * C.ship.dodgeImpulse; ship.vy += Math.sin(a) * C.ship.dodgeImpulse;
-  ship.dodgeCd = C.ship.dodgeCooldown;
+  ship.vx += Math.cos(a) * imp; ship.vy += Math.sin(a) * imp;
+  ship.dodgeCd = D.cooldown != null ? D.cooldown : C.ship.dodgeCooldown;
+  ship.dodgeT = D.turnPenaltyTime || 0;   // M3b §2: danach 1 s lang Drehen × dodge.turnPenalty (stepBody)
+  ship.lastDodgeT = game.time;   // §20.2: Ausweich-Fenster für endende Ladungen
+  ship.helm.autoStop = false;    // §21.1: Ausweichen ist erlaubt und beendet den Allstopp
+  game.stats.dodges = (game.stats.dodges || 0) + 1;
   game.emit('sfx', { name: 'dodge' });
   return null;
+}
+
+// ---------- Allstopp und Temporegler (§21.1, M3b §2) ----------
+// Altname (M3a): Bremsleistung des Allstopps. Seit M3b bremst stepBody mit decel × brakeFactor der Klasse.
+function fullStopBrake(game) {
+  const cls = lercheClass(game);
+  return (cls.decel || 0) * (cls.brakeFactor || 1);
+}
+// cmd helm.stop (X): Stufe auf Stopp + brake, bis das Schiff steht (vorwärts und seitlich). Das Ruder bleibt frei.
+function helmStop(game) {
+  const ship = game.ship;
+  if (ship.docked) return 'Angedockt – das Schiff steht schon.';
+  ensureHelmStage(game);
+  ship.helm.stage = stopIndex(game);
+  ship.helm.autoStop = true;
+  ship.helm.thrust = 0;
+  game.emit('sfx', { name: 'ui_click' });
+  return null;
+}
+// Stufe setzen (intern): beendet einen laufenden Allstopp
+function setStage(game, idx) {
+  const h = game.ship.helm; const n = (lercheClass(game).stages || [0]).length;
+  const v = clamp(Math.round(idx), 0, n - 1);
+  if (v === h.stage) return false;
+  h.stage = v; h.autoStop = false;
+  return true;
+}
+// cmd helm.throttle { delta: ±1 } oder { set: index } – eine Stufe pro Tastendruck (M3b §2)
+function helmThrottle(game, msg) {
+  ensureHelmStage(game);
+  const h = game.ship.helm; const n = (lercheClass(game).stages || [0]).length;
+  msg = msg || {};
+  let want;
+  if (msg.set != null && msg.set !== '') {
+    want = Number(msg.set);
+    if (!Number.isFinite(want)) return 'Unbekannte Stufe.';
+    want = Math.round(want);
+    if (want < 0 || want >= n) return 'Unbekannte Stufe.';
+  } else {
+    const d = Number(msg.delta);
+    if (!Number.isFinite(d) || d === 0) return null;
+    want = h.stage + (d > 0 ? 1 : -1);
+    if (want < 0 || want >= n) { if (h.autoStop) h.autoStop = false; return null; }   // Anschlag: still
+  }
+  if (setStage(game, want)) game.emit('sfx', { name: 'ui_click' });
+  else if (h.autoStop) h.autoStop = false;   // dieselbe Stufe nochmal gewählt: Allstopp endet trotzdem
+  return null;
+}
+// cmd helm.input: der Client schickt kontinuierlich. turn = Ruder. thrust ist Altname: ein Wechsel über +0,5 bzw.
+// unter −0,5 wirkt EINMAL als Stufe +1 bzw. −1 (Dauerdruck schaltet nicht weiter).
+function helmInput(game, turn, thrust) {
+  ensureHelmStage(game);
+  const h = game.ship.helm;
+  const prev = Number(h.thrust) || 0;
+  h.turn = turn; h.thrust = thrust;
+  if (thrust > 0.5 && !(prev > 0.5)) setStage(game, h.stage + 1);
+  else if (thrust < -0.5 && !(prev < -0.5)) setStage(game, h.stage - 1);
+}
+// Snapshot-Ergänzung ship.helm (M3b §2): Stufe, Stufen-Tempi (Nennwert px/s), Faktor aus Triebwerk/Energie,
+// aktueller Drehfaktor. game.js mischt das in ship.helm.
+function helmSnapshot(game) {
+  ensureHelmStage(game);
+  const cls = lercheClass(game); const ship = game.ship;
+  const fwd = Flight.forwardSpeed(ship);
+  return {
+    stage: ship.helm.stage,
+    stages: (cls.stages || [0]).map((s) => Math.round(s * cls.maxSpeed)),
+    stageNames: cls.stageNames || null,
+    stop: stopIndex(game),
+    agile: Flight.agileStage(cls),
+    speedFactor: r2(engineSpeedFactor(game)),
+    fwd: r1(fwd),
+    turnFactor: r2(Flight.turnFactor(cls, fwd)),
+    autoStop: !!ship.helm.autoStop,
+  };
 }
 
 // ---------- Reisen / Faltsprung (§9.2) ----------
@@ -517,42 +620,58 @@ function selectDest(game, dest) {
 
 // ---------- Treffer ----------
 // opts: { pierce (bool, Schild ganz umgehen – Nachzügler), emp, heavy (angekündigter Treffer) }
+// M3b §4: dünne Hülle um damage.resolveHit (SERVER-DAMAGE). resolveHit rechnet Schild, Überlauf, Hülle, EMP,
+// Systemschaden, Feuer/Lecks und Zähler; shipHit behält Signatur, Ereignisse ('hit', sfx) und Missionsereignisse.
+// Fehlt damage.js (parallele Lieferung), gilt die bisherige Logik (hitLegacy).
+let damageMod;   // undefined = noch nicht gesucht, null = nicht vorhanden
+function damageApi(game) {
+  if (damageMod === undefined) {
+    try { damageMod = require('./damage.js'); }
+    catch (err) {
+      damageMod = null;
+      if (err && err.code !== 'MODULE_NOT_FOUND' && game.countError) game.countError('damage-require', err);
+    }
+  }
+  return damageMod && typeof damageMod.resolveHit === 'function' ? damageMod : null;
+}
 function shipHit(game, sector, dmg, opts) {
-  const C = game.C; const ship = game.ship; const sh = ship.shields;
+  const ship = game.ship; const sh = ship.shields;
   opts = opts || {};
   ensureM3(game);
   game.stats.hits++;
+  const D = damageApi(game);
+  if (!D) return hitLegacy(game, sector, dmg, opts);
   const heavy = !!opts.heavy;
-  // M3a §7.2: Schildstoß auf diesem Sektor
-  const b = sh.burst;
-  if (b && b.sector === sector && game.time <= b.until) {
-    const BC = M3(game).burst;
-    if (game.time - b.t0 <= BC.perfect) {
-      // Perfekt: ganz geschluckt (auch durchschlagend / EMP), Sektor +1 bis cap
-      const cp = (sh.cap || shieldCaps(game))[sector];
-      if (!b.perfectDone && sh.current[sector] < cp) {
-        sh.current[sector]++;
-        if (!sh.bonus) sh.bonus = [0, 0, 0, 0];
-        if (sh.current[sector] > sh.alloc[sector]) sh.bonus[sector] = sh.current[sector] - sh.alloc[sector];
-      }
-      if (!b.perfectDone) { b.perfectDone = true; game.stats.burstsPerfect++; }
-      game.emit('hit', { sector, shield: true, dmg: 0, burst: true, heavy });
-      game.emit('burst', { sector, perfect: true });
-      game.emit('sfx', { name: 'burst_perfect' });
-      game.missionEvent('burstPerfect', { sector });
-      return;
-    }
-    if (b.absorb > 0) {
-      const a = Math.min(b.absorb, dmg);
-      b.absorb = r1(b.absorb - a); dmg = r1(dmg - a);
-      game.emit('burst', { sector, perfect: false, absorbed: a });
-      if (dmg <= 0) {
-        game.emit('hit', { sector, shield: true, dmg: 0, burst: true, heavy });
-        game.emit('sfx', { name: 'shield_hit' });
-        return;
-      }
-    }
+  const before = sh.current[sector] || 0;
+  let r;
+  try { r = D.resolveHit(game, sector, dmg, opts); }
+  catch (err) { if (game.countError) game.countError('resolveHit', err); return hitLegacy(game, sector, dmg, opts); }
+  r = r || {};
+  syncWeaponsAlias(game);
+  if (r.evaded) {   // z. B. Ausweichfenster – kein Treffer
+    game.emit('hit', { sector, shield: true, dmg: 0, heavy, evaded: true });
+    return;
   }
+  const hull = Number(r.hull) || 0;
+  const absorbed = Number(r.absorbed) || 0;
+  const empThrough = !!opts.emp && (r.empThrough != null ? !!r.empThrough : hull > 0);
+  if (empThrough) {
+    game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy, absorbed });
+    game.emit('sfx', { name: 'emp' });
+  } else if (hull > 0) {
+    game.emit('hit', { sector, shield: false, dmg: r1(hull / 5), heavy, absorbed, hull: r1(hull) });
+    game.emit('sfx', { name: 'hull_hit' });
+  } else {
+    game.emit('hit', { sector, shield: true, dmg, heavy, absorbed });
+    game.emit('sfx', { name: 'shield_hit' });
+  }
+  if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
+  if (hull > 0) game.missionEvent('hullHit', { sector });
+}
+// Bisherige Treffer-Logik (M3a ohne Schildstoß) – nur Fallback, solange damage.js fehlt
+function hitLegacy(game, sector, dmg, opts) {
+  const C = game.C; const ship = game.ship; const sh = ship.shields;
+  const heavy = !!opts.heavy;
   if (!opts.pierce && sh.current[sector] > 0) {
     sh.current[sector] = Math.max(0, sh.current[sector] - dmg);
     game.emit('hit', { sector, shield: true, dmg, heavy });
@@ -698,12 +817,12 @@ function nearestInArc(game, mount) {
 function selectedEnemy(game) { const id = game.ship.target; return id == null ? null : game.space.enemies.find((e) => e.id === id) || null; }
 
 function updateWeapons(game, dt) {
-  const ship = game.ship; const m = ship.mount; const S = M3(game);
+  const ship = game.ship; const m = ship.mount;
   const alloc = computeAlloc(game);
   for (const k of M3_MOUNTS) m[k].alloc = alloc[k];
-  // Laden
+  // Laden (Bereitschaft). Die Lanze lädt nicht nach, solange sie aufgeladen wird (sie ist ja schon bereit).
   for (const k of M3_MOUNTS) {
-    if (k === 'bow' && m.bow.aim) continue;
+    if (k === 'bow' && m.bow.charging) continue;
     if (BATTERIES.includes(k) && m[k].salvo > 0) continue;
     const t = chargeTime(game, k);
     if (t != null) m[k].charge = Math.min(1, m[k].charge + dt / t);
@@ -720,77 +839,143 @@ function updateWeapons(game, dt) {
     }
   }
   if (ship.target && !resolveTarget(game, ship.target)) ship.target = null;
-  updateAim(game, dt);
-  updateSalvos(game, dt);
-  // Feuer frei / unbesetzte Taktik
   const manned = weaponsManned(game);
-  if (!ship.docked) {
+  updateLanceCharge(game, dt, manned);
+  updateSalvos(game, dt);
+  // §20.4: Automatikfeuer nur bei unbesetzter Taktik (halbe Ladegeschwindigkeit über chargeTime/autoFactor).
+  // Besetzt feuert nichts von selbst – die Taktik drückt weapons.fire bzw. lädt die Lanze mit weapons.charge.
+  if (!ship.docked && !manned) {
     for (const k of BATTERIES) {
       const b = m[k];
       if (b.charge < 1 || b.salvo > 0 || isDown(mountState(game, k))) continue;
-      if (manned && b.hold) continue;
-      let tgt = null;
-      if (manned) { const sel = selectedEnemy(game); tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : nearestInArc(game, k); }
-      else tgt = nearestInArc(game, k);
+      const tgt = nearestInArc(game, k);
       if (tgt) startSalvo(game, k, tgt, 1);
     }
-    if (!manned && m.bow.charge >= 1 && !m.bow.aim && !isDown(mountState(game, 'bow'))) {
-      const tgt = nearestInArc(game, 'bow');
-      if (tgt) startAim(game, tgt, true);
+    if (m.bow.charge >= 1 && !m.bow.charging && !isDown(mountState(game, 'bow')) && lanceTrace(game).hit) {
+      fireLance(game, M3(game).lance.autoPower, true);
     }
   }
   for (const bm of game.space.beams) bm.ttl -= dt;
   game.space.beams = game.space.beams.filter((bm) => bm.ttl > 0);
 }
 
-// §5.3 Zielphase der Lanze
-function startAim(game, target, auto) {
-  const S = M3(game); const bow = game.ship.mount.bow;
-  bow.aim = { left: S.aimTime, angle0: game.ship.angle, target: target.id, auto: !!auto, dev: 0 };
-  game.emit('aim', { state: 'start', auto: !!auto });
-  game.emit('sfx', { name: 'lance_aim', dur: S.aimTime });
+// ---------- §20.3 Lanze als Ladewaffe ----------
+function lanceCfg(game) {
+  return M3(game).lance || { chargeTime: 3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 };
 }
-function updateAim(game, dt) {
-  const S = M3(game); const ship = game.ship; const bow = ship.mount.bow; const a = bow.aim;
-  if (!a) return;
-  a.dev = Math.abs(Physics.normAngle(ship.angle - a.angle0)) * 180 / Math.PI;
-  if (a.dev > S.aimTolerance || isDown(mountState(game, 'bow')) || ship.docked) {
-    bow.aim = null; bow.charge = Math.min(bow.charge, S.aimAbortCharge);
-    game.emit('aim', { state: 'abort' });
-    game.emit('sfx', { name: 'aim_abort' });
-    game.missionEvent('aimAbort', {});
-    return;
+// Aufladezeit power 0 -> 1 (beschädigt × damagedTimeFactor)
+function lanceChargeTime(game) {
+  const L = lanceCfg(game);
+  return L.chargeTime * (mountState(game, 'bow') === 'damaged' ? (L.damagedTimeFactor || 1) : 1);
+}
+// Schaden für power (beschädigt: Maximalschaden × damagedMaxFactor)
+function lanceDamage(game, power) {
+  const L = lanceCfg(game);
+  const max = L.maxDamage * (mountState(game, 'bow') === 'damaged' ? (L.damagedMaxFactor || 1) : 1);
+  const p = clamp(power || 0, 0, 1);
+  return L.minDamage + Math.max(0, max - L.minDamage) * p;
+}
+// Strahl in Bugrichtung: erster Gegner, dessen Abstand zur Strahllinie < hitRadius[kind] + width ist (innerhalb range).
+function lanceTrace(game) {
+  const ship = game.ship; const C = game.C;
+  const cfg = M3(game).mounts.bow; const L = lanceCfg(game);
+  const o = mountOrigin(game, 'bow');
+  const ang = ship.angle + (cfg.facing || 0) * Math.PI / 180;
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  let hit = null, ht = Infinity;
+  for (const e of game.space.enemies) {
+    const rx = e.x - o.x, ry = e.y - o.y;
+    const t = rx * dx + ry * dy;              // Abstand entlang des Strahls
+    const rad = (C.combat.hitRadius[e.kind] || 18) + (L.width || 0);
+    if (t < -rad || t > cfg.range + rad) continue;
+    const perp = Math.abs(-rx * dy + ry * dx); // Abstand zur Strahllinie
+    if (perp >= rad) continue;
+    if (t < ht) { ht = t; hit = e; }
   }
-  a.left -= dt;
-  if (a.left > 0) return;
-  bow.aim = null; bow.charge = 0;
-  const cfg = S.mounts.bow; const o = mountOrigin(game, 'bow');
-  const e = game.space.enemies.find((q) => q.id === a.target);
+  return { o, dx, dy, range: cfg.range, hit, t: hit ? Math.max(0, ht) : cfg.range };
+}
+function lanceFizzle(game, why) {
+  const bow = game.ship.mount.bow;
+  if (!bow.charging) return;
+  bow.charging = false; bow.power = 0;
+  game.emit('lance', { state: 'fizzle', power: 0, hit: null, why: why || null });
+  game.missionEvent('lanceFizzle', { why: why || null });
+}
+function updateLanceCharge(game, dt, manned) {
+  const ship = game.ship; const bow = ship.mount.bow;
+  if (!bow.charging) { bow.power = 0; return; }
+  // Konsole verlassen, System aus oder angedockt: Aufladen verpufft ohne Schuss
+  if (!manned) return lanceFizzle(game, 'console');
+  if (isDown(mountState(game, 'bow'))) return lanceFizzle(game, 'system');
+  if (ship.docked) return lanceFizzle(game, 'docked');
+  bow.power = Math.min(1, (bow.power || 0) + dt / lanceChargeTime(game));
+}
+// weapons.charge { mount: 'bow', on }
+function weaponsCharge(game, mount, on) {
+  ensureM3(game);
+  const ship = game.ship; const bow = ship.mount.bow;
+  const k = normMount(mount == null ? 'bow' : mount);
+  if (k !== 'bow') return 'Aufladen gibt es nur für die Lanze.';
+  if (!on) {
+    if (!bow.charging) return null;   // Loslassen ohne Aufladen: nichts
+    fireLance(game, bow.power, false);
+    return null;
+  }
+  if (bow.charging) return null;
+  if (ship.docked) return 'Angedockt wird nicht geschossen.';
+  if (isDown(mountState(game, 'bow'))) return 'Lanze ausgefallen – reparieren.';
+  if (bow.charge < 1) return 'Lanze lädt noch.';
+  bow.charging = true; bow.power = 0;
+  const dur = lanceChargeTime(game);
+  game.emit('lance', { state: 'charge', power: 0, hit: null, dur: r2(dur) });
+  game.emit('sfx', { name: 'lance_charge', key: 'lance', dur: r2(dur) });
+  game.missionEvent('lanceCharge', {});
+  return null;
+}
+// Schuss in Bugrichtung mit power (0..1). Treffer = erster Gegner nahe der Strahllinie; sonst ins Leere.
+function fireLance(game, power, auto) {
+  const ship = game.ship; const bow = ship.mount.bow; const cfg = M3(game).mounts.bow;
+  const p = clamp(power || 0, 0, 1);
+  const tr = lanceTrace(game);
+  bow.charging = false; bow.power = 0; bow.charge = 0;
+  const x2 = tr.o.x + tr.dx * tr.t, y2 = tr.o.y + tr.dy * tr.t;
+  const beam = { x1: tr.o.x, y1: tr.o.y, x2, y2, ttl: game.C.combat.beamTtl * 2, ttlMax: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', power: r2(p) };
+  if (!tr.hit) beam.miss = true;
+  game.space.beams.push(beam);
   game.stats.lanceShots = (game.stats.lanceShots || 0) + 1;
-  if (e && inMountArc(game, 'bow', e.x, e.y)) {
-    game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow' });
-    game.emit('aim', { state: 'fire' });
-    game.emit('sfx', { name: 'lance_fire' });
+  // Achtung: emit() mischt data in { t, kind } – kein Feld 'kind' mitgeben
+  game.emit('lance', { state: 'fire', power: r2(p), hit: tr.hit ? tr.hit.id : null, auto: !!auto });
+  game.emit('sfx', { name: 'lance_fire', power: r2(p) });
+  if (tr.hit) {
     game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
-    damageEnemy(game, e, cfg.damage, o.x, o.y, { pierce: cfg.pierce });
-  } else {
-    const ang = ship.angle + cfg.facing * Math.PI / 180;
-    game.space.beams.push({ x1: o.x, y1: o.y, x2: o.x + Math.cos(ang) * cfg.range, y2: o.y + Math.sin(ang) * cfg.range, ttl: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', miss: true });
-    game.emit('aim', { state: 'miss' });
-    game.emit('sfx', { name: 'lance_fire' });
+    damageEnemy(game, tr.hit, lanceDamage(game, p), tr.o.x, tr.o.y, { pierce: cfg.pierce });
   }
+  game.missionEvent('lanceFire', { power: p, hit: tr.hit ? tr.hit.id : null, auto: !!auto });
 }
 
-// §5.4 Batterie-Salven: N Treffer, gestaffelt im Abstand salvoGap
+// §5.4/§20.4 Batterie-Salven: N Treffer, gestaffelt im Abstand salvoGap. target darf null sein (Schuss ins Leere).
 function startSalvo(game, k, target, factor) {
   const b = game.ship.mount[k];
   b.charge = 0;
   b.salvo = batteryTubes(game, k);
   b.salvoMax = b.salvo;
   b.salvoT = 0;
-  b.salvoTarget = target.id;
+  b.salvoTarget = target ? target.id : null;
   b.salvoFactor = factor;
   game.emit('sfx', { name: 'battery_salvo', count: b.salvo });
+}
+// Endpunkt eines Schusses ins Leere: senkrecht zur Flanke, leicht gefächert je Rohr, damit die Kette lesbar ist
+function voidShotEnd(game, k, o, idx) {
+  const ship = game.ship; const cfg = M3(game).mounts[k];
+  const spread = ((idx % 4) - 1.5) * 0.06;   // ±5° gefächert
+  const a = ship.angle + cfg.facing * Math.PI / 180 + spread;
+  const len = cfg.range * 0.8;
+  return { x: o.x + Math.cos(a) * len, y: o.y + Math.sin(a) * len };
+}
+function batteryBeamTtl(game) {
+  // §20.1: vorher combat.beamTtl × 0,6 = 0,15 s – siehe spaceM3.batteryBeamTtl
+  const v = M3(game).batteryBeamTtl;
+  return v > 0 ? v : game.C.combat.beamTtl * 0.6;
 }
 function updateSalvos(game, dt) {
   for (const k of BATTERIES) {
@@ -800,35 +985,40 @@ function updateSalvos(game, dt) {
     while (b.salvo > 0 && b.salvoT <= 0) {
       const cfg = M3(game).mounts[k];
       b.salvoT += cfg.salvoGap;
+      const idx = (b.salvoMax || b.salvo) - b.salvo;
       b.salvo--;
-      let e = game.space.enemies.find((q) => q.id === b.salvoTarget);
-      if (!e || !inMountArc(game, k, e.x, e.y)) { e = nearestInArc(game, k); if (e) b.salvoTarget = e.id; }
-      if (!e) continue;   // Schuss ins Leere
+      let e = b.salvoTarget != null ? game.space.enemies.find((q) => q.id === b.salvoTarget) : null;
+      if (!e || !inMountArc(game, k, e.x, e.y)) { e = nearestInArc(game, k); b.salvoTarget = e ? e.id : null; }
       const o = mountOrigin(game, k);
-      game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl: game.C.combat.beamTtl * 0.6, kind: 'battery', mount: k });
+      const ttl = batteryBeamTtl(game);
+      if (!e) {   // §20.4: Schuss ins Leere – Strahl trotzdem zeichnen
+        const p = voidShotEnd(game, k, o, idx);
+        game.space.beams.push({ x1: o.x, y1: o.y, x2: p.x, y2: p.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, miss: true });
+        continue;
+      }
+      game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl, ttlMax: ttl, kind: 'battery', mount: k });
       damageEnemy(game, e, cfg.damage * (b.salvoFactor || 1), o.x, o.y);
     }
     if (b.salvo <= 0) { b.salvo = 0; b.salvoTarget = null; }
   }
 }
 
-function fireOne(game, k, opts) {
+function fireOne(game, k) {
   const ship = game.ship; const m = ship.mount[k];
   const names = { bow: 'Lanze', port: 'Batterie Backbord', stbd: 'Batterie Steuerbord' };
   if (isDown(mountState(game, k))) return `${names[k]} ausgefallen – reparieren.`;
   if (k === 'bow') {
-    if (m.aim) return 'Lanze zielt bereits – Kurs halten!';
+    // §20.4: weapons.fire bow feuert mit der aktuellen power (aus dem Stand 0 = Mindestschaden)
+    if (m.charging) { fireLance(game, m.power, false); return null; }
     if (m.charge < 1) return 'Lanze lädt noch.';
-    const sel = selectedEnemy(game);
-    if (!sel) return ship.target ? 'Das Ziel ist kein Gegner – nur scannen (S).' : 'Lanze braucht ein Ziel (T).';
-    startAim(game, sel, false);
+    fireLance(game, 0, false);
     return null;
   }
   if (m.salvo > 0) return `${names[k]}: Salve läuft.`;
   if (m.charge < 1) return `${names[k]} lädt noch.`;
+  // Ziel nicht nötig: gewähltes Ziel im Bogen, sonst nächster Gegner im Bogen, sonst ins Leere
   const sel = selectedEnemy(game);
-  const tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : (opts && opts.strictTarget ? null : nearestInArc(game, k));
-  if (!tgt) return `${names[k]}: kein Gegner im Feuerbogen.`;
+  const tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : nearestInArc(game, k);
   startSalvo(game, k, tgt, 1);
   return null;
 }
@@ -852,6 +1042,7 @@ function fireBolzen(game) {
 }
 
 // weapons.fire { mount: 'bow'|'port'|'stbd'|'all'|'bolzen' } (Altnamen phase_l/phase_r/both/seitenturm)
+// §20.4: 'all' feuert beide Batterien (nicht die Lanze).
 function weaponsFire(game, mount) {
   ensureM3(game);
   const ship = game.ship;
@@ -862,15 +1053,12 @@ function weaponsFire(game, mount) {
   if (k !== 'all') return 'Unbekannte Waffe.';
   const errs = [];
   let fired = 0;
-  for (const q of M3_MOUNTS) {
-    const m = ship.mount[q];
-    if (m.charge < 1 || (q === 'bow' && m.aim) || isDown(mountState(game, q))) continue;
+  for (const q of BATTERIES) {
     const err = fireOne(game, q);
     if (err) errs.push(err); else fired++;
   }
   if (fired) return null;
-  if (!game.space.enemies.length) return 'Keine Gegner.';
-  return errs[0] || 'Alle Waffen laden noch.';
+  return errs[0] || 'Batterien laden noch.';
 }
 
 // weapons.alloc { mount, delta: ±1 }
@@ -894,13 +1082,9 @@ function weaponsAlloc(game, mount, delta) {
 }
 
 // weapons.hold { mount: 'port'|'stbd', hold }
-function weaponsHold(game, mount, hold) {
-  ensureM3(game);
-  const k = normMount(mount);
-  if (!BATTERIES.includes(k)) return 'Halten/Feuer frei nur für die Batterien.';
-  game.ship.mount[k].hold = !!hold;
-  game.emit('sfx', { name: 'ui_click' });
-  return null;
+// §20.4: „Halten“/„Feuer frei“ entfallen – nur noch Hinweis
+function weaponsHold(game, mount, hold) {   // eslint-disable-line no-unused-vars
+  return 'Batterien feuern nur auf Befehl.';
 }
 
 // §5.6 Orbitalschlag: volle Ladung verbrauchen (bow, sonst port, sonst stbd)
@@ -909,8 +1093,8 @@ function consumeFullCharge(game) {
   const m = game.ship.mount;
   for (const k of M3_MOUNTS) {
     if (m[k].charge < 1 || isDown(mountState(game, k))) continue;
-    if (k === 'bow' && m.bow.aim) continue;
     if (BATTERIES.includes(k) && m[k].salvo > 0) continue;
+    if (k === 'bow' && m.bow.charging) lanceFizzle(game, 'strike');   // Orbitalschlag nimmt die Ladung
     m[k].charge = 0;
     return k;
   }
@@ -925,8 +1109,9 @@ function mountsSnapshot(game) {
   for (const k of M3_MOUNTS) {
     const cfg = S.mounts[k];
     const o = { id: k, facing: cfg.facing, arc: cfg.arc, range: cfg.range, charge: r2(m[k].charge), alloc: m[k].alloc || 0, state: mountState(game, k) };
-    if (k === 'bow') o.aim = m.bow.aim ? { left: r2(Math.max(0, m.bow.aim.left)), dev: r1(m.bow.aim.dev || 0) } : null;
-    else { o.hold = !!m[k].hold; o.salvo = m[k].salvo || 0; o.salvoMax = batteryTubes(game, k); }
+    if (k === 'bow') {   // §20.3: power 0..1, charging; dmg = Schaden bei aktueller power (Anzeige)
+      o.power = r2(m.bow.power || 0); o.charging = !!m.bow.charging; o.dmg = r1(lanceDamage(game, m.bow.power || 0));
+    } else { o.salvo = m[k].salvo || 0; o.salvoMax = batteryTubes(game, k); }
     out.push(o);
   }
   if (game.upgrades.bolzenwerfer) {
@@ -951,43 +1136,16 @@ function weaponsReload(game) {
   return null;
 }
 
-// ---------- Schildstoß (M3a §7.2) ----------
-function captainBurst(game, sector) {
-  ensureM3(game);
-  const BC = M3(game).burst; const ship = game.ship; const sh = ship.shields;
-  sector = Number(sector);
-  if (!(sector >= 0 && sector <= 3) || Math.floor(sector) !== sector) return 'Unbekannter Sektor.';
-  if (sh.burstCd > 0) return `Schildstoß lädt noch (${Math.ceil(sh.burstCd)} s).`;
-  if (isDown(ship.systems.shields)) return 'Schildgenerator zerstört – kein Schildstoß.';
-  const em = sysState(game, emitterFor(sector));
-  if (isDown(em)) return `Emitter ${SECTOR_LABEL[sector]} zerstört – dort ist kein Schildstoß möglich.`;
-  placeBurst(game, sector, em === 'damaged' ? BC.absorbDamaged : BC.absorb);
-  sh.burstCd = BC.cooldown;
-  game.stats.bursts++;
-  game.missionEvent('burst', { sector });
-  return null;
-}
-function placeBurst(game, sector, absorb) {
-  const BC = M3(game).burst; const sh = game.ship.shields;
-  sh.burst = { sector, t0: game.time, until: game.time + BC.duration, absorb, perfectDone: false };
-  game.emit('sfx', { name: 'burst' });
-}
-// Debug `burst <sector>`: ohne Prüfung (keine Abklingzeit, kein Zähler)
-function debugBurst(game, sector) {
-  ensureM3(game);
-  sector = Number(sector);
-  if (!(sector >= 0 && sector <= 3)) return 'burst <0..3>';
-  placeBurst(game, Math.floor(sector), M3(game).burst.absorb);
-  return null;
-}
+// ---------- Schildstoß: entfällt seit M3b (Kai) ----------
+const BURST_GONE = 'Den Schildstoß gibt es nicht mehr.';
+function captainBurst(game, sector) { return BURST_GONE; }   // eslint-disable-line no-unused-vars
+function debugBurst(game, sector) { return BURST_GONE; }     // eslint-disable-line no-unused-vars
 function shieldsSnapshot(game) {
   ensureM3(game);
-  const sh = game.ship.shields; const BC = M3(game).burst;
-  const b = sh.burst;
+  const sh = game.ship.shields;
   return {
     pool: sh.pool, alloc: sh.alloc, current: sh.current, cap: sh.cap || shieldCaps(game),
-    burst: b ? { sector: b.sector, left: r2(Math.max(0, b.until - game.time)), perfectLeft: r2(Math.max(0, b.t0 + BC.perfect - game.time)), absorb: b.absorb } : null,
-    burstCd: r1(sh.burstCd || 0),
+    burst: null, burstCd: 0,   // M3b: eine Version lang als Altname
   };
 }
 
@@ -1111,7 +1269,9 @@ function spawnEnemy(game, kind, opts) {
   const e = { id: game.nextId('e'), kind, x, y, angle: o.facing != null ? o.facing : Math.atan2(ship.y - y, ship.x - x), hp, hpMax: hp,
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
-    phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y } };
+    phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
+  // M3b §3/§7: im neuen Flugmodell mit Anfangstempo (Kanonenboot ½, Jäger Voll), nicht aus dem Stand
+  if (Pilot.flies(game, e)) Pilot.initSpawn(game, e);
   sp.enemies.push(e);
   game.missionEvent('enemySpawn', { enemy: e });
   return e;
@@ -1174,9 +1334,42 @@ function updateEnemies(game, dt) {
     // Schild-Regeneration je Sektor
     e.regenT += dt;
     if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < 4; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
+    const retreating = e.retreatUntil > game.time;
+    if (Pilot.flies(game, e)) {
+      // M3b §3: Pilot + gemeinsames Flugmodell
+      try { Pilot.fly(game, e, dt); }
+      catch (err) { if (game.countError) game.countError('pilot', err); moveLegacy(game, e, dt, retreating); }
+    } else moveLegacy(game, e, dt, retreating);
+    const d = Math.hypot(e.x - ship.x, e.y - ship.y) || 1;
+    const toShip = Math.atan2(ship.y - e.y, ship.x - e.x);
+    // M3a §7.1: Kanonenboot, Pylon, Wächter kündigen an (tele) und treffen am Ende sofort
+    const T = M3(game).tele;
+    if (T && T[e.kind]) { updateTele(game, e, d, retreating, dt); continue; }
+    // Schießen (nur wenn das Schiff in einem Feuerbogen liegt)
+    e.fireT += dt;
+    // QA M3b: im neuen Flugmodell eigenes Feuerintervall und Vorhalt (spaceM3b.pilotFire) – sonst trafen Jäger im kurzen
+    // Anflug kaum: ein Schuss je Überflug, gezielt auf die alte Position (Schiff fährt 1–1,5 s Flugzeit weiter)
+    const PF = Pilot.flies(game, e) ? ((M3B(game).pilotFire || {})[e.kind] || null) : null;
+    const interval = PF && PF.fireInterval != null ? PF.fireInterval : cfg.fireInterval;
+    if (!retreating && e.fireT >= interval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e) && !ship.docked && !holdingFire(game)) {
+      e.fireT = 0;
+      const kind = cfg.emp ? 'emp' : 'enemy';
+      const ang = PF && PF.lead ? leadAngle(e.x, e.y, ship, C.combat.enemyShotSpeed, PF.lead) : toShip;
+      sp.projectiles.push({ id: game.nextId('pr'), kind, x: e.x, y: e.y, angle: ang, speed: C.combat.enemyShotSpeed,
+        ttl: C.combat.enemyShotTtl, dmg: PF && PF.damage != null ? PF.damage : cfg.damage, owner: e.id });
+      game.emit('sfx', { name: 'blaster' });
+    }
+  }
+}
+
+// M3a-Bewegung (kinematisch): Missionen bis Schritt B, Relais und Wächter immer. Setzt vx/vy für die Interpolation.
+function moveLegacy(game, e, dt, retreating) {
+  const C = game.C; const ship = game.ship; const sp = game.space;
+  const cfg = C.enemies[e.kind];
+  const x0 = e.x, y0 = e.y;
+  {
     const dx = e.x - ship.x, dy = e.y - ship.y;
     const d = Math.hypot(dx, dy) || 1;
-    const retreating = e.retreatUntil > game.time;
     const toShip = Math.atan2(ship.y - e.y, ship.x - e.x);
     let tx = e.x, ty = e.y, face = null;
     if (retreating) {
@@ -1229,19 +1422,17 @@ function updateEnemies(game, dt) {
       const want = retreating ? (md > 2 ? Math.atan2(my, mx) : e.angle) : (face != null ? face : (md > 2 ? Math.atan2(my, mx) : e.angle));
       e.angle = turnToward(e.angle, want, 3 * dt);
     }
-    // M3a §7.1: Kanonenboot, Pylon, Wächter kündigen an (tele) und treffen am Ende sofort
-    const T = M3(game).tele;
-    if (T && T[e.kind]) { updateTele(game, e, d, retreating, dt); continue; }
-    // Schießen (nur wenn das Schiff in einem Feuerbogen liegt)
-    e.fireT += dt;
-    if (!retreating && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e) && !ship.docked) {
-      e.fireT = 0;
-      const kind = cfg.emp ? 'emp' : 'enemy';
-      sp.projectiles.push({ id: game.nextId('pr'), kind, x: e.x, y: e.y, angle: toShip, speed: C.combat.enemyShotSpeed,
-        ttl: C.combat.enemyShotTtl, dmg: cfg.damage, owner: e.id });
-      game.emit('sfx', { name: 'blaster' });
-    }
   }
+  if (dt > 0) { e.vx = (e.x - x0) / dt; e.vy = (e.y - y0) / dt; }
+}
+
+// Snapshot-Ergänzung je Gegner (M3b §3): vx, vy (Interpolation) und state (nur im neuen Flugmodell).
+// game.js: Object.assign(o, space.enemySnapExtra(e))
+function enemySnapExtra(e) {
+  const o = { vx: r1(e.vx || 0), vy: r1(e.vy || 0) };
+  const st = Pilot.snapState(e);
+  if (st) o.state = st;
+  return o;
 }
 
 // ---------- Angekündigte Angriffe (M3a §7.1) ----------
@@ -1271,6 +1462,16 @@ function updateTele(game, e, d, retreating, dt) {
     if (e.tele.left > 0) return;
     const sector = e.tele.sector; const emp = e.tele.kind === 'emp';
     e.tele = null; e.fireT = 0;
+    // §20.2: Ausweichen kurz vor dem Ende der Ladung -> der schwere Treffer verfehlt
+    const DW = M3(game).dodgeWindow;
+    if (DW > 0 && game.time - (ship.lastDodgeT != null ? ship.lastDodgeT : -99) <= DW + EPS) {
+      game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
+      game.stats.dodgeEvades = (game.stats.dodgeEvades || 0) + 1;
+      game.emit('teleMiss', { id: e.id, dodged: true });
+      game.emit('sfx', { name: 'dodge_evade', enemy: e.kind });
+      game.missionEvent('dodgeEvade', { enemy: e });
+      return;
+    }
     if (d <= cfg.range && enemyCanHit(game, e)) {
       game.space.beams.push({ x1: e.x, y1: e.y, x2: ship.x, y2: ship.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
       game.emit('sfx', { name: 'heavy_hit', enemy: e.kind });
@@ -1283,8 +1484,11 @@ function updateTele(game, e, d, retreating, dt) {
     return;
   }
   e.fireT += dt;
-  if (!retreating && !ship.docked && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e)) startTele(game, e);
+  if (!retreating && !ship.docked && !holdingFire(game) && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e)) startTele(game, e);
 }
+// M4 §2.4: erster Feindkontakt frühestens CONFIG.lift.firstContactDelay s nach dem Gefechtsalarm, wenn jemand auf Deck II war
+// (game.updateAlert setzt ship.holdFireUntil).
+function holdingFire(game) { return game.ship.holdFireUntil != null && game.time < game.ship.holdFireUntil; }
 function enemyTeleSnap(e) {
   const t = e && e.tele;
   return t ? { kind: t.kind, left: r2(Math.max(0, t.left)), dur: r2(t.dur), sector: t.sector } : null;
@@ -1377,6 +1581,11 @@ module.exports = {
   captainPower, captainShield, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,
   // M3a §9.4 (SERVER-COMBAT) – Aufrufer: game.js (Befehle, Snapshot)
-  weaponsAlloc, weaponsHold, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,
+  weaponsAlloc, weaponsHold, weaponsCharge, lanceTrace, lanceDamage, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,
   consumeFullCharge, debugTele, debugBurst, normMount, ensureM3, M3_MOUNTS, MOUNT_SYSTEM, EMITTERS, chargeFactor,
+  // §21.1 Allstopp
+  helmStop, helmInput, fullStopBrake,
+  // M3b §2/§3 (SERVER-FLIGHT): Temporegler, Snapshot-Ergänzungen
+  helmThrottle, helmSnapshot, enemySnapExtra, engineSpeedFactor, lercheClass,
+  leadAngle,   // QA M3b: Vorhalt der Jäger-Schüsse (spaceM3b.pilotFire)
 };

@@ -1,0 +1,20 @@
+{
+  "id": "fig/lerche/leg_upper",
+  "name": "Lerche Bordkleidung: Oberschenkel links (Overall-Hose bzw. Ivos Pluderhose)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "bein"],
+  "params": {
+    "style": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "0 Crew-Overall, 1 Ivo" }
+  },
+  "ops": [
+    { "name": "Oberschenkel Crew", "if": "style == 0", "op": "box", "at": [1, 7, -1], "size": [3, 7, 3], "color": { "shade": "secondary", "f": 0.78 } },
+    { "name": "Ansatz Crew", "if": "style == 0", "op": "box", "at": [0, 12, -1], "size": [1, 2, 3], "color": { "shade": "secondary", "f": 0.78 } },
+    { "name": "Seitenpaspel Spielerfarbe", "if": "style == 0", "op": "box", "at": [3, 7, 0], "size": [1, 4, 1], "color": "cloth2", "mode": "paint" },
+    { "name": "Knieschutz", "if": "style == 0", "op": "box", "at": [1, 7, 1], "size": [3, 1, 1], "color": { "shade": "secondary", "f": 0.62 }, "mode": "paint" },
+    { "name": "Oberschenkel Ivo", "if": "style == 1", "op": "box", "at": [1, 7, -1], "size": [3, 7, 3], "color": "wood_dark" },
+    { "name": "Ansatz Ivo", "if": "style == 1", "op": "box", "at": [0, 12, -1], "size": [1, 2, 3], "color": "wood_dark" }
+  ],
+  "variants": { "ivo": { "style": 1 } },
+  "anchor": [0, 0, 0]
+}

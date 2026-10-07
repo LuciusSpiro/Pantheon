@@ -1,0 +1,88 @@
+{
+  "id": "lerche/kit/floor",
+  "name": "Lerche – Bodenkachel (Kassette, Gitter, Dielen, Mosaik, Brücken-Marmor, Klinik)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "boden", "kachelbar"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "kind": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "0 Bronze-Kassette · 1 Gitterrost · 2 Holzdielen · 3 Mosaik · 4 Brücken-Marmor · 5 Klinik" },
+    "wear": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 sauber · 1 verrußt · 2 Brandfleck" }
+  },
+  "variants": {
+    "gitter": { "kind": 1 },
+    "dielen": { "kind": 2 },
+    "mosaik_rauten": { "kind": 3, "seed": 0 },
+    "mosaik_band": { "kind": 3, "seed": 1 },
+    "mosaik_kreuz": { "kind": 3, "seed": 2 },
+    "marmor_rose": { "kind": 4, "seed": 3 },
+    "marmor_schlicht": { "kind": 4, "seed": 4 },
+    "klinik": { "kind": 5 },
+    "verrusst": { "wear": 1 },
+    "brandfleck": { "kind": 1, "wear": 2 }
+  },
+  "let": {
+    "m3": "seed % 3",
+    "q": "seed % 8",
+    "qx": "q % 2",
+    "qz": "floor(q / 2) % 2",
+    "sx": "seed % 2",
+    "sz": "floor(seed / 2) % 2"
+  },
+  "ops": [
+    { "op": "box", "name": "Kassette Platte", "if": "kind == 0", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "shade": "metal_light", "f": 0.78 } },
+    { "op": "box", "name": "Kassette Fuge x", "if": "kind == 0", "at": [0, 0, 0], "size": [4, 1, 1], "color": "metal" },
+    { "op": "box", "name": "Kassette Fuge z", "if": "kind == 0", "at": [0, 0, 0], "size": [1, 1, 4], "color": "metal" },
+    { "op": "box", "name": "Kassette Niete", "if": "kind == 0", "at": [2, 0, 2], "size": [1, 1, 1], "color": { "shade": "metal_light", "f": 0.95 } },
+
+    { "op": "box", "name": "Gitter Rahmen", "if": "kind == 1", "at": [0, 0, 0], "size": [4, 1, 4], "color": "metal_dark" },
+    { "op": "box", "name": "Gitter Öffnung", "if": "kind == 1", "repeat": { "count": 2, "step": [2, 0, 0], "var": "a" }, "at": [1, 0, 1], "size": [1, 1, 3], "color": "dark" },
+    { "op": "box", "name": "Leitung darunter (Kupfer)", "if": "kind == 1", "at": [1, 0, 2], "size": [3, 1, 1], "mode": "paint", "color": { "shade": "trim", "f": 0.5 } },
+    { "op": "box", "name": "Leitung Mitte Steg", "if": "kind == 1", "at": [2, 0, 2], "size": [1, 1, 1], "mode": "paint", "color": "metal_dark" },
+
+    { "op": "box", "name": "Dielen", "if": "kind == 2", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "stripes": ["wood", { "shade": "wood", "f": 0.86 }], "axis": "z", "period": 1 } },
+    { "op": "box", "name": "Dielenstoß", "if": "kind == 2", "at": ["sx * 2 + 1", 0, "sz"], "size": [1, 1, 1], "mode": "paint", "color": "wood_dark" },
+    { "op": "box", "name": "Dielenstoß 2", "if": "kind == 2", "at": ["(1 - sx) * 2", 0, "sz + 2"], "size": [1, 1, 1], "mode": "paint", "color": "wood_dark" },
+
+    { "op": "box", "name": "Mosaik Grund (Travertin)", "if": "kind == 3", "at": [0, 0, 0], "size": [4, 1, 4], "color": "paving" },
+    { "op": "group", "name": "Mosaik Rauten", "if": "kind == 3 && m3 == 0", "ops": [
+      { "op": "box", "name": "Rautenlinie a", "repeat": { "count": 4, "step": [1, 0, 1], "var": "a" }, "at": [0, 0, 0], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } },
+      { "op": "box", "name": "Rautenlinie b", "at": [1, 0, 3], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } },
+      { "op": "box", "name": "Rautenlinie b2", "at": [3, 0, 1], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } },
+      { "op": "box", "name": "Rautenkern", "at": [0, 0, 2], "size": [1, 1, 1], "mode": "paint", "color": "primary" },
+      { "op": "box", "name": "Rautenkern 2", "at": [2, 0, 0], "size": [1, 1, 1], "mode": "paint", "color": "cloth2" }
+    ] },
+    { "op": "group", "name": "Mosaik Mäanderband (läuft entlang x)", "if": "kind == 3 && m3 == 1", "ops": [
+      { "op": "box", "name": "Bandkante", "at": [0, 0, 0], "size": [4, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } },
+      { "op": "box", "name": "Bandkante 2", "at": [0, 0, 3], "size": [4, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } },
+      { "op": "box", "name": "Mäander oben", "at": [0, 0, 1], "size": [3, 1, 1], "mode": "paint", "color": "primary" },
+      { "op": "box", "name": "Mäander Haken", "at": [2, 0, 2], "size": [2, 1, 1], "mode": "paint", "color": "primary" },
+      { "op": "box", "name": "Mäander Purpur", "at": [0, 0, 2], "size": [1, 1, 1], "mode": "paint", "color": "cloth2" }
+    ] },
+    { "op": "group", "name": "Mosaik Kreuzblüte", "if": "kind == 3 && m3 == 2", "ops": [
+      { "op": "box", "name": "Blüte", "at": [1, 0, 1], "size": [2, 1, 2], "mode": "paint", "color": { "checker": ["primary", "cloth2"], "period": 1 } },
+      { "op": "box", "name": "Ecksteinchen", "at": [0, 0, 0], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "paving", "f": 0.88 } }
+    ] },
+
+    { "op": "box", "name": "Marmor", "if": "kind == 4", "at": [0, 0, 0], "size": [4, 1, 4], "color": "secondary" },
+    { "op": "box", "name": "Marmor Fuge", "if": "kind == 4 && q >= 4", "at": [0, 0, 0], "size": [4, 1, 1], "mode": "paint", "color": "stone" },
+    { "op": "box", "name": "Marmor Fuge z", "if": "kind == 4 && q >= 4", "at": [0, 0, 0], "size": [1, 1, 4], "mode": "paint", "color": "stone" },
+    { "op": "group", "name": "Kompassrose (2×2 Kacheln, seed 0–3 = Viertel NW/NO/SW/SO)", "if": "kind == 4 && q < 4", "at": ["-qx * 4", 0, "-qz * 4"], "ops": [
+      { "op": "cyl", "name": "Goldring", "at": [4, 0, 4], "r": 4, "hollow": 1, "h": 1, "mode": "paint", "color": "trim" },
+      { "op": "box", "name": "Arm Nord-Süd", "at": [3, 0, 0], "size": [2, 1, 8], "mode": "paint", "color": "primary" },
+      { "op": "box", "name": "Arm Ost-West", "at": [0, 0, 3], "size": [8, 1, 2], "mode": "paint", "color": "cloth2" },
+      { "op": "box", "name": "Nordspitze gold", "at": [3, 0, 0], "size": [2, 1, 1], "mode": "paint", "color": "trim" },
+      { "op": "box", "name": "Mitte", "at": [3, 0, 3], "size": [2, 1, 2], "mode": "paint", "color": "trim" }
+    ] },
+
+    { "op": "box", "name": "Klinik Fliesen", "if": "kind == 5", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "checker": ["white", "stone_light"], "period": 2 } },
+    { "op": "box", "name": "Klinik Fuge", "if": "kind == 5", "at": [0, 0, 0], "size": [4, 1, 1], "mode": "paint", "color": "secondary" },
+
+    { "op": "ellipsoid", "name": "Ruß", "if": "wear == 1", "at": ["1.5 + sx", 0.5, "1.5 + sz"], "r": [1.9, 1, 1.4], "mode": "paint", "color": { "noise": ["metal_dark", "dark", { "shade": "metal", "f": 0.6 }], "weights": [2, 2, 1] } },
+    { "op": "ellipsoid", "name": "Brandfleck Rand", "if": "wear == 2", "at": [2, 0.5, 2], "r": [2.3, 1, 2.1], "mode": "paint", "color": { "noise": ["metal_dark", { "shade": "wood_dark", "f": 0.55 }], "weights": [2, 1] } },
+    { "op": "box", "name": "Brandfleck Kern", "if": "wear == 2", "at": [1, 0, 1], "size": [2, 1, 2], "mode": "paint", "color": "black" },
+    { "op": "box", "name": "Brandfleck Glutrest", "if": "wear == 2", "at": ["1 + sx", 0, 2], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "primary", "f": 0.45 } }
+  ],
+  "anchor": [2, 1, 2]
+}

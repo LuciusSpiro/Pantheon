@@ -1,0 +1,41 @@
+{
+  "id": "lerche/deco/quarter_floor",
+  "name": "Quartierboden (Lerche, 5 Stile)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "quartier", "boden", "kachelbar"],
+  "footprint": [1, 1],
+  "params": {
+    "style": { "default": 0, "min": 0, "max": 4, "step": 1, "label": "0 holz_hell · 1 holz_dunkel · 2 teppich_rot · 3 teppich_blau · 4 fliesen" }
+  },
+  "variants": {
+    "holz_dunkel": { "style": 1 },
+    "teppich_rot": { "style": 2 },
+    "teppich_blau": { "style": 3 },
+    "fliesen": { "style": 4 }
+  },
+  "ops": [
+    { "op": "box", "name": "Dielen hell", "if": "style == 0", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "stripes": ["#C08D5C", "#AE7C4E"], "axis": "z", "period": 1 } },
+    { "op": "box", "name": "Dielen hell Stoß", "if": "style == 0", "at": [1, 0, 0], "size": [1, 1, 1], "color": "#9B6C43", "mode": "paint" },
+    { "op": "box", "name": "Dielen hell Stoß 2", "if": "style == 0", "at": [3, 0, 2], "size": [1, 1, 1], "color": "#9B6C43", "mode": "paint" },
+
+    { "op": "box", "name": "Dielen dunkel", "if": "style == 1", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "stripes": ["wood_dark", { "shade": "wood_dark", "f": 1.18 }], "axis": "z", "period": 1 } },
+    { "op": "box", "name": "Dielen dunkel Stoß", "if": "style == 1", "at": [2, 0, 1], "size": [1, 1, 1], "color": { "shade": "wood_dark", "f": 0.8 }, "mode": "paint" },
+    { "op": "box", "name": "Dielen dunkel Stoß 2", "if": "style == 1", "at": [0, 0, 3], "size": [1, 1, 1], "color": { "shade": "wood_dark", "f": 0.8 }, "mode": "paint" },
+
+    { "op": "box", "name": "Teppich rot", "if": "style == 2", "at": [0, 0, 0], "size": [4, 1, 4], "color": "cloth" },
+    { "op": "box", "name": "Teppich rot Webkante", "if": "style == 2", "at": [0, 0, 0], "size": [4, 1, 1], "color": { "shade": "cloth", "f": 0.78 }, "mode": "paint" },
+    { "op": "box", "name": "Teppich rot Webkante quer", "if": "style == 2", "at": [0, 0, 0], "size": [1, 1, 4], "color": { "shade": "cloth", "f": 0.78 }, "mode": "paint" },
+    { "op": "box", "name": "Teppich rot Goldpunkt", "if": "style == 2", "at": [2, 0, 2], "size": [1, 1, 1], "color": "trim", "mode": "paint", "jitter": false },
+
+    { "op": "box", "name": "Teppich blau", "if": "style == 3", "at": [0, 0, 0], "size": [4, 1, 4], "color": "#33507F" },
+    { "op": "box", "name": "Teppich blau Webkante", "if": "style == 3", "at": [0, 0, 0], "size": [4, 1, 1], "color": "#263C61", "mode": "paint" },
+    { "op": "box", "name": "Teppich blau Webkante quer", "if": "style == 3", "at": [0, 0, 0], "size": [1, 1, 4], "color": "#263C61", "mode": "paint" },
+    { "op": "box", "name": "Teppich blau Punkt", "if": "style == 3", "at": [2, 0, 2], "size": [1, 1, 1], "color": "secondary", "mode": "paint", "jitter": false },
+
+    { "op": "box", "name": "Fliesen", "if": "style == 4", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "checker": ["secondary", "paving"], "period": 1 } },
+    { "op": "box", "name": "Fliesen Eckstein", "if": "style == 4", "at": [0, 0, 0], "size": [1, 1, 1], "color": "primary", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Fliesen Mittelstein", "if": "style == 4", "at": [2, 0, 2], "size": [1, 1, 1], "color": "trim", "mode": "paint", "jitter": false }
+  ],
+  "anchor": [2, 1, 2]
+}

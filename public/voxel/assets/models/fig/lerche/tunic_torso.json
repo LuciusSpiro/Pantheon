@@ -1,0 +1,23 @@
+{
+  "id": "fig/lerche/tunic_torso",
+  "name": "Lerche-Crew Bordkleidung: Rumpf (Tunika über Overall, V-Kragen, Clavi)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "crew", "rumpf"],
+  "notes": "Tunika = cloth2 (Spielerfarbe, neutral Kaiserpurpur). Clavi (senkrechte Streifen) und Kragen Gold. Figur-Koordinaten, Anker 0.",
+  "ops": [
+    { "name": "Taille", "op": "box", "at": [-3, 16, -2], "size": [6, 3, 4], "color": "cloth2" },
+    { "name": "Brustkorb", "op": "box", "at": [-4, 19, -2], "size": [8, 5, 5], "color": "cloth2" },
+    { "name": "Schulterpartie", "op": "box", "at": [-4, 24, -2], "size": [8, 1, 4], "color": { "shade": "cloth2", "f": 0.88 } },
+    { "name": "Brust Schattenfalte", "op": "box", "at": [-4, 19, -2], "size": [8, 1, 5], "color": { "shade": "cloth2", "f": 0.82 }, "mode": "paint" },
+    { "name": "Clavi vorn", "op": "box", "at": [2, 16, 1], "size": [1, 9, 2], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Rückenjoch", "op": "box", "at": [-4, 22, -2], "size": [8, 2, 1], "color": { "shade": "cloth2", "f": 0.84 }, "mode": "paint" },
+    { "name": "Kragenring", "op": "box", "at": [-2, 24, -2], "size": [4, 1, 4], "color": "trim" },
+    { "name": "V-Ausschnitt Haut", "op": "box", "at": [-1, 23, 2], "size": [2, 1, 1], "color": "skin_shadow" },
+    { "name": "V-Ausschnitt Saum", "op": "box", "at": [-2, 23, 2], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "V-Spitze", "op": "box", "at": [-1, 22, 2], "size": [2, 1, 1], "color": "trim" },
+    { "name": "Fibel (Abzeichen)", "op": "box", "at": [1, 20, 3], "size": [1, 1, 1], "color": "trim", "jitter": false },
+    { "name": "Rückennaht", "op": "box", "at": [-1, 17, -2], "size": [2, 5, 1], "color": { "shade": "cloth2", "f": 0.9 }, "mode": "paint" }
+  ],
+  "anchor": [0, 0, 0]
+}

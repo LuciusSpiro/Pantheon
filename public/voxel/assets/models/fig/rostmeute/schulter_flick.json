@@ -1,0 +1,15 @@
+{
+  "id": "fig/rostmeute/schulter_flick",
+  "name": "Plünderer-Oberarm (links modelliert, rechts gespiegelt) mit kleinem stahlblauem Flickblech",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "arm", "gegner"],
+  "ops": [
+    { "name": "Ärmel", "op": "use", "model": "fig/basis/oberarm" },
+    { "name": "Flickblech", "op": "box", "at": [4, 21, -2], "size": [4, 3, 4], "color": "secondary" },
+    { "name": "Blechkante", "op": "box", "at": [4, 21, -2], "size": [4, 1, 4], "color": { "shade": "secondary", "f": 0.75 }, "mode": "paint" },
+    { "name": "Nieten", "op": "box", "at": [7, 23, -2], "size": [1, 1, 1], "color": "dark", "mode": "paint", "repeat": { "count": 2, "step": [0, 0, 3] } },
+    { "name": "Wickel", "op": "box", "at": [4, 17, -1], "size": [3, 3, 3], "color": { "stripes": ["leather", { "shade": "leather", "f": 0.7 }], "axis": "y", "period": 1 }, "mode": "paint" }
+  ],
+  "anchor": [0, 0, 0]
+}

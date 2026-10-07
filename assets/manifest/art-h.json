@@ -1,0 +1,78 @@
+{
+  "team": "art-h",
+  "notes": "Architektur-Teile (Boden, Wand, Deckung, Pfeiler, Tor, Tür): Pivot = Kachelmitte auf Bodenhöhe 0; die unterste Voxelschicht liegt 0,25 m UNTER 0 (Bodenplatte bzw. eingelassener Sockel). Böden: Oberkante = 0. Wand-Autotile conn = N1 O2 S4 W8 (N = -z). Kesh-Terrain unter Ruinenboden: Höhe 0, Boden mit +0,01 m anheben (sonst z-Fighting).",
+  "assets": [
+    {
+      "id": "away/kesh/wall_ruin", "kind": "model", "tier": "architecture", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 3.0, "facing": "+z",
+      "params": { "conn": [0, 15], "cut": [0, 1], "decay": [0, 1] },
+      "states": { "full": { "conn": 10 }, "cut": { "conn": 10, "cut": 1 }, "corner": { "conn": 6 }, "decay": { "conn": 10, "decay": 1, "seed": 1 }, "decay_cut": { "conn": 10, "decay": 1, "cut": 1, "seed": 2 } },
+      "sockets": { "cover": [0, 3.0, 0] },
+      "tint": [], "budgetTris": 600, "tags": ["away", "kesh", "wall", "cover_full"]
+    },
+    {
+      "id": "away/kesh/floor_ruin", "kind": "model", "tier": "architecture", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 0.0, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "states": { "a": { "seed": 0 }, "drift": { "seed": 1 }, "crack": { "seed": 2 }, "glyph": { "seed": 3 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 150, "tags": ["away", "kesh", "floor"]
+    },
+    {
+      "id": "away/kesh/cover_low", "kind": "model", "tier": "architecture", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 0.75, "facing": "+z",
+      "params": { "damaged": [0, 1] },
+      "states": { "intact": { "damaged": 0 }, "damaged": { "damaged": 1 } },
+      "sockets": { "cover": [0, 0.75, 0] },
+      "tint": [], "budgetTris": 600, "tags": ["away", "kesh", "cover", "cover_half"]
+    },
+    {
+      "id": "away/kesh/pillar", "kind": "model", "tier": "architecture", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 2.5, "facing": "+z",
+      "params": {},
+      "states": { "lit": { "seed": 0 }, "dead": { "seed": 1 } },
+      "sockets": { "cover": [0, 2.5, 0] },
+      "tint": [], "budgetTris": 600, "tags": ["away", "kesh", "pillar", "cover_full"]
+    },
+    {
+      "id": "away/kesh/jammer", "kind": "model", "tier": "detail", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 2.0, "facing": "+z",
+      "params": { "on": [0, 1] },
+      "states": { "on": { "on": 1 }, "off": { "on": 0 } },
+      "sockets": { "use": [0, 0, 0.6], "terminal": [0, 0.85, 0.35], "light": [0, 1.9, -0.25], "fx_spark": [0, 1.0, 0.35], "label": [0, 2.15, 0], "cover": [0, 2.0, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["away", "kesh", "terminal", "light"]
+    },
+    {
+      "id": "away/kesh/archive_key", "kind": "model", "tier": "detail", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 0.88, "facing": "+z",
+      "params": { "pos": [0, 2] },
+      "states": { "rest": { "pos": 0 }, "turned": { "pos": 1 }, "both": { "pos": 2 } },
+      "sockets": { "use": [0, 0, 0.6], "terminal": [0, 0.75, -0.1], "light": [0, 0.8, -0.1], "label": [0, 1.2, 0], "cover": [0, 0.7, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["away", "kesh", "terminal", "light"]
+    },
+    {
+      "id": "away/kesh/vault_gate", "kind": "model", "tier": "architecture", "palette": "mond_kesh",
+      "footprint": [2, 1], "height": 3.0, "facing": "+z",
+      "params": { "open": [0, 2], "cut": [0, 1] },
+      "states": { "closed": { "open": 0 }, "opening": { "open": 1 }, "open": { "open": 2 }, "cut_closed": { "open": 0, "cut": 1 }, "cut_open": { "open": 2, "cut": 1 } },
+      "sockets": { "entrance": [0, 0, 0], "light": [0, 1.0, 0.3], "cover": [0, 2.5, 0] },
+      "tint": [], "budgetTris": 3000, "tags": ["away", "kesh", "gate", "door", "cover_full"]
+    },
+    {
+      "id": "away/kesh/tablet_pedestal", "kind": "model", "tier": "detail", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 0.81, "facing": "+z",
+      "params": { "present": [0, 1] },
+      "states": { "present": { "present": 1 }, "taken": { "present": 0 } },
+      "sockets": { "use": [0, 0, 0.6], "terminal": [0, 0.8, 0], "objective": [0, 0.8, 0], "light": [0, 0.85, 0], "label": [0, 1.2, 0], "cover": [0, 0.75, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["away", "kesh", "objective", "light"]
+    },
+    {
+      "id": "away/kesh/rubble", "kind": "model", "tier": "detail", "palette": "mond_kesh",
+      "footprint": [1, 1], "height": 0.15, "facing": "+z",
+      "params": { "seed": [0, 7] },
+      "states": { "a": { "seed": 0 }, "b": { "seed": 1 }, "c": { "seed": 2 }, "d": { "seed": 3 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["away", "kesh", "scatter"]
+    }
+  ]
+}

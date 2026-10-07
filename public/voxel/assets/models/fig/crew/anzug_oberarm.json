@@ -1,0 +1,15 @@
+{
+  "id": "fig/crew/anzug_oberarm",
+  "name": "Crew-Raumanzug Oberarm (links) mit Akzent-Schulterkappe",
+  "tier": "detail",
+  "palette": "crew",
+  "tags": ["figur", "crew", "arm"],
+  "ops": [
+    { "name": "Unteranzug", "op": "use", "model": "fig/basis/oberarm" },
+    { "name": "Schulterkappe", "op": "box", "at": [4, 21, -2], "size": [3, 3, 5], "color": "primary" },
+    { "name": "Schulterkappe außen", "op": "box", "at": [7, 21, -1], "size": [1, 2, 3], "color": { "shade": "primary", "f": 0.85 } },
+    { "name": "Kappenrand", "op": "box", "at": [4, 21, -2], "size": [3, 1, 5], "color": "secondary", "mode": "paint" },
+    { "name": "Ärmelband", "op": "box", "at": [4, 18, -1], "size": [3, 1, 3], "color": "secondary" }
+  ],
+  "anchor": [0, 0, 0]
+}

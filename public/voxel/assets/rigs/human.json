@@ -1,0 +1,34 @@
+{
+  "id": "human",
+  "name": "Mensch, gestreckt (~31 Voxel = 1,94 m). Blick nach +z, links = +x.",
+  "tier": "detail",
+  "poses": "human",
+  "notes": "Alle Gelenkpositionen absolut in Figur-Koordinaten (Füße bei y=0). Teile werden in denselben Koordinaten modelliert.",
+  "joints": {
+    "root":      { "at": [0, 0, 0] },
+    "hips":      { "parent": "root",      "at": [0, 14, 0] },
+    "thighL":    { "parent": "hips",      "at": [2, 14, 0] },
+    "shinL":     { "parent": "thighL",    "at": [2, 7, 0] },
+    "thighR":    { "parent": "hips",      "at": [-2, 14, 0] },
+    "shinR":     { "parent": "thighR",    "at": [-2, 7, 0] },
+    "torso":     { "parent": "hips",      "at": [0, 16, 0] },
+    "head":      { "parent": "torso",     "at": [0, 25, 0] },
+    "upperArmL": { "parent": "torso",     "at": [5.5, 23, 0] },
+    "lowerArmL": { "parent": "upperArmL", "at": [5.5, 17, 0] },
+    "handL":     { "parent": "lowerArmL", "at": [5.5, 12, 0.5] },
+    "upperArmR": { "parent": "torso",     "at": [-5.5, 23, 0] },
+    "lowerArmR": { "parent": "upperArmR", "at": [-5.5, 17, 0] },
+    "handR":     { "parent": "lowerArmR", "at": [-5.5, 12, 0.5] },
+    "back":      { "parent": "torso",     "at": [0, 20, -3] }
+  },
+  "layout": {
+    "feet": "y 0–1, Schuhspitze bis z +3",
+    "shin": "y 0–7 (Knie bei 7), Breite 3 (x 1..3 links / -4..-2 rechts)",
+    "thigh": "y 7–14",
+    "hips": "y 13–16, Breite 8 (x -4..3)",
+    "torso": "y 16–25, Schultern Breite 8–10, Tiefe 5 (z -2..2)",
+    "head": "y 25–31, 6×6×6 (x -3..2, z -3..2), Gesicht bei z = 2",
+    "upperArm": "y 17–23, 3 breit (x 4..6 links)",
+    "lowerArm": "y 12–17 inkl. Hand"
+  }
+}

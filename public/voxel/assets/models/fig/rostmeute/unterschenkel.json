@@ -1,0 +1,19 @@
+{
+  "id": "fig/rostmeute/unterschenkel",
+  "name": "Plünderer-Unterschenkel (links) mit Stiefel, Rost-Schienbeinschutz (Schütze/Funker) bzw. Wickeln (Flanker)",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "bein", "gegner"],
+  "params": {
+    "role": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Rolle (0 Schütze, 1 Flanker, 2 Funker)" }
+  },
+  "ops": [
+    { "name": "Bein + Stiefel", "op": "use", "model": "fig/basis/unterschenkel", "params": { "bootH": 4 } },
+    { "name": "Schienbeinschutz", "if": "role != 1", "op": "box", "at": [1, 3, 2], "size": [3, 4, 1], "color": { "noise": ["primary", { "shade": "primary", "f": 0.8 }], "weights": [2, 1] } },
+    { "name": "Knieschoner Knochen", "if": "role != 1", "op": "box", "at": [1, 6, 2], "size": [3, 1, 1], "color": "trim" },
+    { "name": "Wickel", "if": "role == 1", "op": "box", "at": [1, 2, -1], "size": [3, 5, 3], "color": { "stripes": ["leather", "cloth"], "axis": "y", "period": 1 }, "mode": "paint" },
+    { "name": "Stahlkappe", "op": "box", "at": [1, 0, 3], "size": [3, 1, 1], "color": "metal_light", "mode": "paint" }
+  ],
+  "variants": { "flanker": { "role": 1 } },
+  "anchor": [0, 0, 0]
+}

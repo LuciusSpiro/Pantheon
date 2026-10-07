@@ -15,6 +15,10 @@ const C = require('../../shared/config.js').missionM1;
 module.exports = {
   id: 'm2',
   title: 'Echo im Nebel',
+  // §21.2 Missionsbuch (from als Funktion: Ivo meldet sich, wenn er gerettet wurde)
+  book: { from: (m) => (m.flags.technikerRescued ? IVO : TESK),
+    briefing: 'B-7 hat vor dem Ausfall ein Echo aus der Grauen Weite aufgefangen – Kustoden-Muster. Hinfliegen und die Quelle finden.',
+    reward: '150 Marken' },
   steps: [
     {
       id: 'briefing', loc: 'hafen',

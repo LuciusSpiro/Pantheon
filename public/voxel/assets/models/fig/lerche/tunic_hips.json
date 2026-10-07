@@ -1,0 +1,24 @@
+{
+  "id": "fig/lerche/tunic_hips",
+  "name": "Lerche-Crew Bordkleidung: Hüfte mit Cingulum und Tunika-Saum",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "crew", "huefte"],
+  "notes": "Tunika-Saum leicht ausgestellt (10 breit) über den Oberschenkeln, Cingulum mit Goldnieten und Schurzriemen (Balteus) vorn.",
+  "ops": [
+    { "name": "Becken", "op": "box", "at": [-4, 13, -2], "size": [8, 3, 4], "color": "cloth2" },
+    { "name": "Saum vorn", "op": "box", "at": [-4, 11, 2], "size": [8, 3, 1], "color": "cloth2" },
+    { "name": "Saum hinten", "op": "box", "at": [-4, 11, -3], "size": [8, 3, 1], "color": "cloth2" },
+    { "name": "Saum Seiten", "op": "box", "at": [4, 11, -2], "size": [1, 3, 4], "color": { "shade": "cloth2", "f": 0.9 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Saumborte", "op": "box", "at": [-5, 11, -3], "size": [10, 1, 6], "color": { "shade": "cloth2", "f": 0.62 }, "mode": "paint" },
+    { "name": "Cingulum", "op": "box", "at": [-4, 15, -3], "size": [8, 1, 6], "color": { "stripes": ["leather", "trim"], "axis": "x", "period": 2 } },
+    { "name": "Cingulum Seiten", "op": "box", "at": [4, 15, -2], "size": [1, 1, 4], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schnalle", "op": "box", "at": [-1, 15, 3], "size": [2, 1, 1], "color": "trim", "jitter": false },
+    { "name": "Balteus-Riemen", "op": "box", "at": [-2, 10, 3], "size": [1, 5, 1], "color": { "stripes": ["leather", "trim"], "axis": "y", "period": 2 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Riemenenden", "op": "box", "at": [-2, 9, 3], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Werkzeugtasche hinten", "op": "box", "at": [-3, 12, -4], "size": [3, 3, 1], "color": "leather" },
+    { "name": "Taschendeckel", "op": "box", "at": [-3, 14, -4], "size": [3, 1, 1], "color": { "shade": "leather", "f": 0.75 } },
+    { "name": "Taschenknopf", "op": "box", "at": [-2, 13, -5], "size": [1, 1, 1], "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

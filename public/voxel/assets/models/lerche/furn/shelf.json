@@ -1,0 +1,80 @@
+{
+  "id": "lerche/furn/shelf",
+  "name": "Lagerregal (Stufenregal) mit Ware (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "regal"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "item": { "default": 0, "min": 0, "max": 4, "step": 1, "label": "Ware (0 Ersatzteil, 1 Löschgel, 2 Flickblech, 3 Bolzen, 4 Medipack)" },
+    "fill": { "default": 3, "min": 0, "max": 3, "step": 1, "label": "Füllstand (0 leer … 3 voll)" }
+  },
+  "variants": {
+    "ersatzteil_halb": { "item": 0, "fill": 2 },
+    "loeschgel": { "item": 1 },
+    "flickblech": { "item": 2 },
+    "bolzen": { "item": 3 },
+    "medipack": { "item": 4 },
+    "medipack_eins": { "item": 4, "fill": 1 },
+    "leer": { "item": 1, "fill": 0 }
+  },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [0, 0, 1], "size": [16, 1, 12], "color": "metal_dark" },
+    { "op": "group", "name": "Stufe", "repeat": { "count": 3, "step": [0, 4, -4], "var": "T" }, "at": [0, 0, 9], "ops": [
+      { "op": "box", "name": "Stufenblock", "at": [1, 1, 0], "size": [14, "3 + 4*T", 4], "color": "metal" },
+      { "op": "box", "name": "Stufenfront", "at": [1, 1, 3], "size": [14, "3 + 4*T", 1], "color": { "frame": "metal_light", "fill": "metal_dark", "axes": "xy" }, "mode": "paint" },
+      { "op": "box", "name": "Stufenboden", "at": [1, "3 + 4*T", 0], "size": [14, 1, 4], "color": "metal_light", "mode": "paint" },
+      { "op": "box", "name": "Goldkante", "at": [1, "3 + 4*T", 3], "size": [14, 1, 1], "color": "trim", "mode": "paint" }
+    ] },
+    { "op": "box", "name": "Seitenwange", "at": [0, 1, 1], "size": [1, 12, 12], "color": { "frame": "metal_light", "fill": "metal", "axes": "yz" }, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Wange Abschrägung", "at": [0, 5, 9], "size": [1, 12, 4], "mode": "carve", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Wange Abschrägung oben", "at": [0, 9, 5], "size": [1, 6, 4], "mode": "carve", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Rückwand", "at": [0, 12, 0], "size": [16, 9, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Rückwand Gesims", "at": [0, 21, 0], "size": [16, 1, 2], "color": "trim" },
+
+    { "op": "group", "name": "Warenschild (Rückwand, Farbe = Ware)", "ops": [
+      { "op": "box", "name": "Schild Ersatzteil", "if": "item == 0", "at": [3, 16, 0], "size": [10, 5, 1], "color": { "frame": "metal_dark", "fill": "trim", "axes": "xy" } },
+      { "op": "box", "name": "Schild Löschgel", "if": "item == 1", "at": [3, 16, 0], "size": [10, 5, 1], "color": { "frame": "metal_dark", "fill": "primary", "axes": "xy" } },
+      { "op": "box", "name": "Schild Flickblech", "if": "item == 2", "at": [3, 16, 0], "size": [10, 5, 1], "color": { "frame": "metal_dark", "fill": "metal_light", "axes": "xy" } },
+      { "op": "box", "name": "Schild Bolzen", "if": "item == 3", "at": [3, 16, 0], "size": [10, 5, 1], "color": { "frame": "metal_dark", "fill": { "checker": ["metal_dark", "metal_light"] }, "axes": "xy" } },
+      { "op": "box", "name": "Schild Medipack", "if": "item == 4", "at": [3, 16, 0], "size": [10, 5, 1], "color": { "frame": "metal_dark", "fill": "secondary", "axes": "xy" } },
+      { "op": "box", "name": "Schild Medipack Band", "if": "item == 4", "at": [4, 18, 0], "size": [8, 1, 1], "color": "primary", "mode": "paint" }
+    ] },
+
+    { "op": "box", "name": "Füllanzeige an", "repeat": { "count": 3, "step": [0, 2, 0], "var": "k" }, "if": "fill > k", "at": [15, 15, 0], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "box", "name": "Füllanzeige aus", "repeat": { "count": 3, "step": [0, 2, 0], "var": "k" }, "if": "fill <= k", "at": [15, 15, 0], "size": [1, 1, 1], "color": "glass" },
+
+    { "op": "group", "name": "Ware je Stufe (T 0 vorn unten … 2 hinten oben)", "repeat": { "count": 3, "step": [0, 4, -4], "var": "T" }, "at": [0, 4, 9], "ops": [
+      { "op": "group", "name": "Platz", "repeat": { "count": 3, "step": [4, 0, 0], "var": "j" }, "at": [2, 0, 0], "ops": [
+        { "op": "group", "name": "Ersatzteil (Zahnrad auf Welle)", "if": "item == 0 && fill >= 3 - T", "ops": [
+          { "op": "cyl", "name": "Zahnrad", "at": [2, 0, 2], "r": 2, "h": 1, "color": "trim" },
+          { "op": "box", "name": "Zähne", "at": [0, 0, 1.5], "size": [4, 1, 1], "color": { "shade": "trim", "f": 0.7 } },
+          { "op": "box", "name": "Zähne quer", "at": [1.5, 0, 0], "size": [1, 1, 4], "color": { "shade": "trim", "f": 0.7 } },
+          { "op": "box", "name": "Welle", "at": [1.5, 1, 1.5], "size": [1, 3, 1], "color": "metal_light" }
+        ] },
+        { "op": "group", "name": "Löschgel (Kanister)", "if": "item == 1 && fill >= 3 - T", "ops": [
+          { "op": "cyl", "name": "Kanister", "at": [2, 0, 2], "r": 1.6, "h": 4, "color": "primary" },
+          { "op": "box", "name": "Kanister Band", "at": [0, 2, 0], "size": [4, 1, 4], "color": "trim", "mode": "paint" },
+          { "op": "box", "name": "Düse", "at": [1.5, 4, 1.5], "size": [1, 1, 1], "color": "metal_light" }
+        ] },
+        { "op": "group", "name": "Flickblech (Plattenstapel)", "if": "item == 2 && fill >= 3 - T", "ops": [
+          { "op": "box", "name": "Platten", "at": [0, 0, 0], "size": [4, 2, 4], "color": { "stripes": ["metal_light", { "shade": "metal_light", "f": 0.7 }], "axis": "y", "period": 1 } },
+          { "op": "box", "name": "Platte gelehnt", "at": [0, 2, 0], "size": [4, 3, 1], "color": { "frame": "secondary", "fill": "metal_light", "axes": "xy" } }
+        ] },
+        { "op": "group", "name": "Bolzen (Bolzenkasten)", "if": "item == 3 && fill >= 3 - T", "ops": [
+          { "op": "box", "name": "Kasten", "at": [0, 0, 0], "size": [4, 2, 4], "color": "wood_dark" },
+          { "op": "box", "name": "Bolzenköpfe", "at": [0, 2, 0], "size": [4, 1, 4], "color": { "checker": ["metal_light", "metal_dark"], "period": 1 } },
+          { "op": "box", "name": "Bolzen lose", "at": [0, 3, 1], "size": [3, 1, 1], "color": "metal_light" }
+        ] },
+        { "op": "group", "name": "Medipack (Koffer)", "if": "item == 4 && fill >= 3 - T", "ops": [
+          { "op": "box", "name": "Koffer", "at": [0, 0, 0], "size": [4, 3, 4], "color": "secondary" },
+          { "op": "box", "name": "Band rot", "at": [1.5, 0, 0], "size": [1, 4, 4], "color": "primary", "mode": "paint" },
+          { "op": "box", "name": "Band rot Deckel", "at": [0, 3, 1.5], "size": [4, 1, 1], "color": "primary" },
+          { "op": "box", "name": "Schließe", "at": [1.5, 1, 3], "size": [1, 1, 1], "color": "trim", "mode": "paint" }
+        ] }
+      ] }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

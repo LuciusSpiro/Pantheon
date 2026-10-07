@@ -1,0 +1,19 @@
+{
+  "id": "planet_mediterran",
+  "name": "Planet, mediterran: Olivgrün, Ocker, warmer Fels",
+  "extends": "rom",
+  "roles": {
+    "grass": "#7E9A45",
+    "grass_dark": "#667F37",
+    "grass_light": "#9DB35A",
+    "soil": "#A27A4E",
+    "soil_dark": "#7C5A39",
+    "sand": "#D9C192",
+    "rock": "#A39684",
+    "rock_dark": "#7D7262",
+    "plant": "#5F7F35",
+    "plant_dark": "#435E25",
+    "plant_light": "#89A64A",
+    "water": "#3C88A8"
+  }
+}

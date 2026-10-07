@@ -1,0 +1,16 @@
+{
+  "id": "fig/crew/anzug_huefte",
+  "name": "Crew-Raumanzug Hüfte mit Ausrüstungsgurt",
+  "tier": "detail",
+  "palette": "crew",
+  "tags": ["figur", "crew", "huefte"],
+  "ops": [
+    { "name": "Unteranzug", "op": "use", "model": "fig/basis/huefte" },
+    { "name": "Gurt", "op": "box", "at": [-4, 15, -3], "size": [8, 1, 6], "color": "metal_dark" },
+    { "name": "Schnalle", "op": "box", "at": [-1, 15, 3], "size": [2, 1, 1], "color": "primary" },
+    { "name": "Taschen vorn", "op": "box", "at": [1, 13, 2], "size": [2, 2, 1], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Tasche hinten", "op": "box", "at": [-2, 13, -3], "size": [4, 2, 1], "color": "leather" },
+    { "name": "Taschendeckel", "op": "box", "at": [1, 14, 2], "size": [2, 1, 1], "color": "metal", "mode": "paint", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "lerche/station/parts_c/emp_arcs",
+  "name": "EMP-Bögen (eisblaue Entladungen, Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "teil", "zustand", "emp"],
+  "footprint": [1, 1],
+  "params": {
+    "w": { "default": 12, "min": 4, "max": 30, "step": 1, "label": "Spannweite x (Voxel)" },
+    "d": { "default": 10, "min": 4, "max": 30, "step": 1, "label": "Spannweite z (Voxel)" },
+    "h": { "default": 6, "min": 2, "max": 16, "step": 1, "label": "Bogenhöhe (Voxel)" }
+  },
+  "let": { "hw": "w/2", "hd": "d/2" },
+  "ops": [
+    { "op": "line", "name": "Bogen 1a", "from": ["-hw", 0.5, "-hd*0.4"], "to": ["-hw*0.4", "h*0.7", "-hd*0.1"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 1b", "from": ["-hw*0.4", "h*0.7", "-hd*0.1"], "to": ["-hw*0.1", "h*0.4", "hd*0.3"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 1c", "from": ["-hw*0.1", "h*0.4", "hd*0.3"], "to": ["hw*0.3", "h", "hd*0.2"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 1d", "from": ["hw*0.3", "h", "hd*0.2"], "to": ["hw - 1", 0.5, "hd*0.6"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 2a", "from": ["hw*0.2", 0.5, "-hd + 1"], "to": ["hw*0.5", "h*0.8", "-hd*0.4"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 2b", "from": ["hw*0.5", "h*0.8", "-hd*0.4"], "to": ["hw*0.1", "h*0.5", "-hd*0.1"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "line", "name": "Bogen 2c", "from": ["hw*0.1", "h*0.5", "-hd*0.1"], "to": ["-hw*0.6", 0.5, "hd*0.7"], "r": 0.5, "color": "#A9D6E5", "emit": 1.3, "jitter": false },
+    { "op": "box", "name": "Funkenpunkte", "repeat": { "count": 3, "step": [3, 0, 2], "var": "k" }, "at": ["-hw*0.6", "h*0.5", "-hd*0.5"], "size": [1, 1, 1], "color": "#FFFFFF", "emit": 1.5, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

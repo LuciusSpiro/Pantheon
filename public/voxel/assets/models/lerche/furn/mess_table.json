@@ -1,0 +1,37 @@
+{
+  "id": "lerche/furn/mess_table",
+  "name": "Messetisch mit Bänken (Lerche, Privatdeck)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "messe", "tisch"],
+  "footprint": [2, 2],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Tischfuß Marmor", "at": [6, 1, 13], "size": [3, 9, 6], "color": "secondary", "jitter": false, "mirror": "x", "mirrorAt": 16 },
+    { "op": "box", "name": "Tischfuß Kannelur", "at": [7, 2, 18], "size": [1, 7, 1], "color": "stone_dark", "mode": "paint", "mirror": "x", "mirrorAt": 16 },
+    { "op": "box", "name": "Tischfuß Pranke", "at": [5, 0, 12], "size": [5, 1, 8], "color": "trim", "mirror": "x", "mirrorAt": 16 },
+    { "op": "box", "name": "Tischfuß Kapitell", "at": [5, 9, 12], "size": [5, 1, 8], "color": "trim", "mirror": "x", "mirrorAt": 16 },
+    { "op": "box", "name": "Querstrebe", "at": [9, 3, 15], "size": [14, 2, 2], "color": "wood_dark" },
+    { "op": "box", "name": "Tischplatte", "at": [3, 10, 10], "size": [26, 2, 12], "color": { "frame": "trim", "fill": "wood", "axes": "xz", "width": 1 }, "jitter": false },
+    { "op": "box", "name": "Platte Unterkante", "at": [4, 9, 11], "size": [24, 1, 10], "color": "wood_dark", "mode": "under" },
+    { "op": "box", "name": "Intarsie Mäander", "at": [6, 11, 13], "size": [20, 1, 6], "color": { "frame": "secondary", "fill": "primary", "axes": "xz", "width": 1 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Intarsie Mitte", "at": [8, 11, 15], "size": [16, 1, 2], "color": { "stripes": ["trim", "primary"], "axis": "x", "period": 2 }, "mode": "paint", "jitter": false },
+
+    { "op": "cyl", "name": "Obstschale Fuß", "at": [16, 12, 16], "r": 1.5, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Obstschale", "at": [16, 13, 16], "r": 2.5, "r2": 4, "h": 2, "color": "trim" },
+    { "op": "ellipsoid", "name": "Obst", "at": [16, 15, 16], "r": [3, 1.6, 3], "color": { "noise": ["flower", "primary", "plant", "flower2"], "weights": [3, 2, 2, 1], "cell": 1 } },
+    { "op": "cyl", "name": "Becher", "at": [9, 12, 13], "r": 1, "h": 2, "color": "trim" },
+    { "op": "cyl", "name": "Becher 2", "at": [23, 12, 19], "r": 1, "h": 2, "color": "trim" },
+    { "op": "cyl", "name": "Becher 3", "at": [20, 12, 12], "r": 1, "h": 2, "color": "metal_light" },
+    { "op": "box", "name": "Teller", "at": [10, 12, 18], "size": [3, 1, 3], "color": "secondary", "jitter": false },
+    { "op": "box", "name": "Brot", "at": [11, 13, 18], "size": [2, 1, 2], "color": "#C68A4B" },
+    { "op": "box", "name": "Teller 2", "at": [22, 12, 12], "size": [3, 1, 3], "color": "secondary", "jitter": false },
+
+    { "op": "box", "name": "Bankbeine", "at": [5, 0, 4], "size": [2, 5, 3], "color": "wood_dark", "mirror": "xz", "mirrorAt": { "x": 16, "z": 16 } },
+    { "op": "box", "name": "Bank Sitz", "at": [4, 5, 3], "size": [24, 2, 5], "color": "wood", "jitter": false, "mirror": "z", "mirrorAt": 16 },
+    { "op": "box", "name": "Bank Polster", "at": [5, 7, 3], "size": [22, 1, 5], "color": "cloth", "jitter": false, "mirror": "z", "mirrorAt": 16 },
+    { "op": "box", "name": "Polster Goldnaht", "at": [5, 7, 5], "size": [22, 1, 1], "color": "trim", "mode": "paint", "jitter": false, "mirror": "z", "mirrorAt": 16 },
+    { "op": "box", "name": "Bank Stirnkappe", "at": [3, 5, 3], "size": [1, 3, 5], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 16, "z": 16 } }
+  ],
+  "anchor": [16, 0, 16]
+}

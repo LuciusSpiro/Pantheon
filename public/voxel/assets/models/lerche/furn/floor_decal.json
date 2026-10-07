@@ -1,0 +1,76 @@
+{
+  "id": "lerche/furn/floor_decal",
+  "name": "Bodenkleinteile (Lerche, flach, begehbar)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "decal", "boden", "begehbar"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "kind": { "default": 0, "min": 0, "max": 8, "step": 1, "label": "Art (0 Öl, 1 Bolzen, 2 Lüfter, 3 Warnstreifen, 4 Werkzeugkiste, 5 Kabel, 6 Teile, 7 Eimer, 8 Schiene)" }
+  },
+  "let": {
+    "ox": "(seed % 3) - 1",
+    "oz": "(floor(seed / 3) % 3) - 1"
+  },
+  "variants": {
+    "bolzen": { "kind": 1 }, "luefter": { "kind": 2 }, "warnstreifen": { "kind": 3 }, "werkzeugkiste": { "kind": 4 },
+    "kabel": { "kind": 5 }, "teile": { "kind": 6 }, "eimer": { "kind": 7 }, "schiene": { "kind": 8 }
+  },
+  "ops": [
+    { "op": "group", "name": "Ölfleck", "if": "kind == 0", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "cyl", "name": "Lache", "at": [8, 0, 8], "r": 4.5, "h": 1, "color": "black" },
+      { "op": "cyl", "name": "Lache Ausläufer", "at": [11, 0, 11], "r": 2.2, "h": 1, "color": "black" },
+      { "op": "cyl", "name": "Glanz", "at": [7, 0, 7], "r": 1.5, "h": 1, "color": { "shade": "metal_dark", "f": 1.3 }, "mode": "paint" },
+      { "op": "box", "name": "Tropfen", "at": [3, 0, 12], "size": [1, 1, 1], "color": "black" }
+    ] },
+    { "op": "group", "name": "Lose Bolzen", "if": "kind == 1", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "box", "name": "Bolzen 1", "at": [4, 0, 5], "size": [3, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Bolzen 1 Kopf", "at": [3, 0, 4], "size": [1, 1, 3], "color": "trim" },
+      { "op": "box", "name": "Bolzen 2", "at": [9, 0, 9], "size": [1, 1, 3], "color": "metal_light" },
+      { "op": "box", "name": "Bolzen 2 Kopf", "at": [8, 0, 12], "size": [3, 1, 1], "color": "trim" },
+      { "op": "box", "name": "Bolzen 3", "at": [11, 0, 4], "size": [3, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Mutter", "at": [6, 0, 10], "size": [2, 1, 2], "color": "metal" },
+      { "op": "box", "name": "Mutter 2", "at": [12, 0, 8], "size": [1, 1, 1], "color": "metal" }
+    ] },
+    { "op": "group", "name": "Lüftergitter", "if": "kind == 2", "ops": [
+      { "op": "box", "name": "Rahmen", "at": [3, 0, 3], "size": [10, 1, 10], "color": { "frame": "trim", "fill": "black", "axes": "xz" } },
+      { "op": "box", "name": "Lamellen", "repeat": { "count": 4, "step": [0, 0, 2] }, "at": [4, 0, 5], "size": [8, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Schraube", "at": [3, 0, 3], "size": [1, 1, 1], "color": "metal", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } }
+    ] },
+    { "op": "group", "name": "Warnstreifen", "if": "kind == 3", "ops": [
+      { "op": "box", "name": "Streifen", "at": [0, 0, 6], "size": [16, 1, 4], "color": { "stripes": ["trim", "black"], "axis": "x", "period": 2 } }
+    ] },
+    { "op": "group", "name": "Werkzeugkiste", "if": "kind == 4", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "box", "name": "Korpus", "at": [4, 0, 6], "size": [8, 3, 5], "color": { "frame": "trim", "fill": "primary", "axes": "xy" } },
+      { "op": "box", "name": "Deckel", "at": [4, 3, 6], "size": [8, 1, 5], "color": "metal" },
+      { "op": "box", "name": "Griff", "at": [6, 3, 8], "size": [4, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Schlüssel daneben", "at": [3, 0, 12], "size": [5, 1, 1], "color": "metal_light" }
+    ] },
+    { "op": "group", "name": "Kabelspule", "if": "kind == 5", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "cyl", "name": "Spule", "at": [7, 0, 7], "r": 4, "hollow": 1.6, "h": 2, "color": { "stripes": ["rubber", "black"], "axis": "x", "period": 1 } },
+      { "op": "cyl", "name": "Mitte", "at": [7, 0, 7], "r": 1.5, "h": 1, "color": "trim" },
+      { "op": "line", "name": "Kabelende", "from": [10.5, 0.5, 9.5], "to": [13.5, 0.5, 12.5], "r": 0.5, "color": "rubber" },
+      { "op": "box", "name": "Stecker", "at": [13, 0, 12], "size": [2, 1, 2], "color": "primary" }
+    ] },
+    { "op": "group", "name": "Ersatzteile", "if": "kind == 6", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "cyl", "name": "Zahnrad", "at": [5, 0, 6], "r": 2.5, "h": 1, "color": "trim" },
+      { "op": "box", "name": "Zahnrad Loch", "at": [4, 0, 5], "size": [2, 1, 2], "color": "metal_dark", "mode": "paint" },
+      { "op": "box", "name": "Blech", "at": [8, 0, 8], "size": [5, 1, 4], "color": { "frame": "secondary", "fill": "metal_light", "axes": "xz" } },
+      { "op": "box", "name": "Rohrstück", "at": [4, 0, 11], "size": [4, 2, 2], "color": "metal" },
+      { "op": "box", "name": "Ventil", "at": [11, 0, 4], "size": [2, 2, 2], "color": "primary" }
+    ] },
+    { "op": "group", "name": "Eimer", "if": "kind == 7", "at": ["ox", 0, "oz"], "ops": [
+      { "op": "cyl", "name": "Eimer", "at": [8, 0, 8], "r": 2.6, "h": 4, "color": "metal" },
+      { "op": "cyl", "name": "Inhalt", "at": [8, 3, 8], "r": 1.8, "h": 1, "color": "black" },
+      { "op": "cyl", "name": "Rand", "at": [8, 3, 8], "r": 2.6, "hollow": 1, "h": 1, "color": "trim" },
+      { "op": "box", "name": "Lappen", "at": [11, 0, 10], "size": [3, 1, 2], "color": "cloth" }
+    ] },
+    { "op": "group", "name": "Munitionsschiene", "if": "kind == 8", "ops": [
+      { "op": "box", "name": "Schiene", "at": [1, 0, 6], "size": [14, 1, 4], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz" } },
+      { "op": "box", "name": "Ladung", "repeat": { "count": 5, "step": [2.5, 0, 0], "var": "i" }, "at": [2, 1, 7], "size": [2, 2, 2], "color": "metal_light", "if": "i < 3 + seed % 3" },
+      { "op": "box", "name": "Ladung Spitze", "repeat": { "count": 5, "step": [2.5, 0, 0], "var": "i" }, "at": [2, 1, 9], "size": [2, 2, 1], "color": "trim", "if": "i < 3 + seed % 3" }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

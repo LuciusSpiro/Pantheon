@@ -1,0 +1,27 @@
+{
+  "id": "lerche/kit/window",
+  "name": "Lerche – Panoramafenster (Wandkachel, Bronzerahmen)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "fenster", "kachelbar"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m)" },
+    "conn": { "default": 10, "min": 0, "max": 15, "step": 1, "label": "Nachbarwände (nur O2 genutzt: ohne Nachbar im Osten zweite Sprosse)" }
+  },
+  "variants": { "geschnitten": { "cut": 1 }, "einzeln": { "conn": 0 } },
+  "let": { "H": "cut ? 5 : 12", "ce": "floor(conn / 2) % 2" },
+  "ops": [
+    { "op": "box", "name": "Brüstung", "at": [0, 0, 0], "size": [4, 1, 4], "color": "metal" },
+    { "op": "box", "name": "Brüstung Kante", "mirror": "z", "mirrorAt": 2, "at": [0, 0, 3], "size": [4, 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Glas", "at": [0, 1, 1], "size": [4, "H - 1", 2], "color": { "gradient": ["glass", { "shade": "glass", "f": 1.9 }], "axis": "y" } },
+    { "op": "box", "name": "Lichtreflex", "at": [2, 2, 1], "size": [1, "cut ? 2 : 6", 2], "mode": "paint", "color": { "shade": "glass", "f": 2.6 } },
+    { "op": "box", "name": "Sprosse West", "at": [0, 1, 0], "size": [1, "H - 1", 4], "color": "metal_light" },
+    { "op": "box", "name": "Sprosse Ost", "if": "!ce", "at": [3, 1, 0], "size": [1, "H - 1", 4], "color": "metal_light" },
+    { "op": "box", "name": "Kämpfer (Querholm)", "if": "!cut", "at": [0, 7, 0], "size": [4, 1, 4], "mode": "paint", "color": "metal_light" },
+    { "op": "box", "name": "Rahmen oben innen/außen", "mirror": "z", "mirrorAt": 2, "at": [0, "H - 1", 0], "size": [4, 1, 1], "color": { "shade": "trim", "f": 0.72 } },
+    { "op": "box", "name": "Sprossenkopf gold", "at": [0, "H - 1", 1], "size": [1, 1, 2], "mode": "paint", "color": { "shade": "trim", "f": 0.72 } }
+  ],
+  "anchor": [2, 0, 2]
+}

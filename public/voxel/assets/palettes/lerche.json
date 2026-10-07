@@ -1,0 +1,18 @@
+{
+  "id": "lerche",
+  "name": "KRS Lerche: Stahlblau, Terrakotta-Streifen, Messing, Bernstein-Kuppel, Mint-Antrieb",
+  "extends": "base",
+  "roles": {
+    "primary": "#8EA3B5",
+    "secondary": "#B5C6D3",
+    "trim": "#C9974A",
+    "metal": "#6C7F96",
+    "metal_dark": "#3B4A5E",
+    "metal_light": "#C4D1DC",
+    "cloth": "#B4573E",
+    "glow": { "color": "#7FE0C2", "emit": 1.8 },
+    "glow2": { "color": "#FFC66B", "emit": 1.4 },
+    "glass": "#E8A84A",
+    "dark": "#1B2230"
+  }
+}

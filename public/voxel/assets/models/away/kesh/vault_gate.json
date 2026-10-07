@@ -1,0 +1,50 @@
+{
+  "id": "away/kesh/vault_gate",
+  "name": "Kesh – Gewölbetor der Kustoden (2 Kacheln, Torflügel versinken im Boden)",
+  "tier": "architecture",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "tor", "eingang", "deckung_voll"],
+  "footprint": [2, 1],
+  "jitter": 0.04,
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 zu · 1 öffnet · 2 offen" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (ohne Sturz, 1,25 m)" }
+  },
+  "variants": { "oeffnet": { "open": 1 }, "offen": { "open": 2 }, "geschnitten": { "cut": 1 }, "geschnitten_offen": { "cut": 1, "open": 2 } },
+  "let": {
+    "H": "cut ? 6 : 13",
+    "LH": "cut ? 5 : 9",
+    "leaf": "open == 0 ? LH : open == 1 ? floor(LH / 2) : 0",
+    "o0": "open == 0",
+    "o1": "open == 1",
+    "o2": "open == 2"
+  },
+  "ops": [
+    { "op": "box", "name": "Schwelle", "at": [0, 0, 0], "size": [8, 1, 4], "color": { "noise": ["stone_dark", { "shade": "stone_dark", "f": 0.9 }], "cell": 2 } },
+    { "op": "box", "name": "Schwellenschlitz", "at": [1, 0, 1], "size": [6, 1, 2], "mode": "paint", "color": "dark" },
+    { "op": "box", "name": "Schlitzlicht offen", "if": "o2", "at": [1, 0, 1], "size": [6, 1, 2], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Schlitzlicht öffnet", "if": "o1", "at": [1, 0, 1], "size": [6, 1, 2], "mode": "paint", "color": { "stripes": ["neon_hot", "dark"], "axis": "x", "period": 1 }, "jitter": false },
+
+    { "op": "box", "name": "Laibung links", "at": [0, 0, 0], "size": [1, "H", 4], "color": { "noise": ["stone", { "shade": "stone", "f": 0.9 }], "cell": 2 } },
+    { "op": "box", "name": "Laibung rechts", "at": [7, 0, 0], "size": [1, "H", 4], "color": { "noise": ["stone", { "shade": "stone", "f": 0.9 }], "cell": 2 } },
+    { "op": "box", "name": "Laibung Lichtkante ruht", "mirror": "x", "mirrorAt": 4, "at": [0, 2, 0], "size": [1, "H - 4", 4], "mode": "paint", "color": { "frame": "stone", "fill": "neon_dim", "axes": "z" }, "if": "!o2" },
+    { "op": "box", "name": "Laibung Lichtkante", "mirror": "x", "mirrorAt": 4, "at": [0, 2, 0], "size": [1, "H - 4", 4], "mode": "paint", "color": { "frame": "stone", "fill": "neon", "axes": "z" }, "jitter": false, "if": "o2" },
+
+    { "op": "group", "name": "Sturz", "if": "!cut", "ops": [
+      { "op": "box", "name": "Sturzblock", "at": [0, 10, 0], "size": [8, 3, 4], "color": { "noise": ["stone", { "shade": "stone", "f": 1.06 }, { "shade": "stone", "f": 0.9 }], "weights": [3, 1, 1], "cell": 2 } },
+      { "op": "box", "name": "Sturz Glyphenband", "at": [1, 11, 0], "size": [6, 1, 4], "mode": "paint", "color": { "stripes": ["neon", "stone_dark"], "axis": "x", "period": 1 }, "jitter": false },
+      { "op": "box", "name": "Schlussstein", "at": [3, 10, 0], "size": [2, 3, 4], "mode": "paint", "color": "stone_light" }
+    ] },
+    { "op": "box", "name": "Krone dunkel", "at": [0, "H - 1", 0], "size": [8, 1, 4], "mode": "paint", "color": "crown" },
+
+    { "op": "box", "name": "Torflügel", "if": "leaf > 0", "at": [1, 1, 1], "size": [6, "leaf", 2],
+      "color": { "frame": "stone_light", "fill": { "noise": ["stone", { "shade": "stone", "f": 1.05 }], "cell": 2 }, "axes": "xy" } },
+    { "op": "box", "name": "Mittelfuge", "if": "leaf > 0", "at": [3, 1, 1], "size": [2, "leaf", 2], "mode": "paint", "color": "stone_dark" },
+    { "op": "box", "name": "Siegel zu", "if": "o0", "at": [3, "cut ? 2 : 4", 1], "size": [2, "cut ? 2 : 3", 2], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Siegel Arme zu", "if": "o0 && !cut", "at": [2, 5, 1], "size": [4, 1, 2], "mode": "paint", "color": "neon", "jitter": false },
+    { "op": "box", "name": "Siegel öffnet", "if": "o1", "at": [2, "leaf", 1], "size": [4, 1, 2], "mode": "paint", "color": "neon_hot", "jitter": false },
+    { "op": "box", "name": "Torflügel Krone", "if": "leaf > 0", "at": [1, "leaf", 1], "size": [6, 1, 2], "mode": "paint", "color": "crown" },
+    { "op": "box", "name": "Siegel öffnet (über Krone)", "if": "o1", "at": [3, "leaf", 1], "size": [2, 1, 2], "mode": "paint", "color": "neon_hot", "jitter": false }
+  ],
+  "anchor": [4, 1, 2]
+}

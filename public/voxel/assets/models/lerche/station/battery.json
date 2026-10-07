@@ -1,0 +1,67 @@
+{
+  "id": "lerche/station/battery",
+  "name": "Batterie-Station mit 4 Verschlüssen, Ballista-Magazin (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "system", "waffe", "batterie"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand 0 ok · 1 besch. · 2 zerstört · 3 geflickt · 4 Eskalation · 5 EMP" },
+    "side": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Seite 0 Bb / 1 Stb" },
+    "tubes": { "default": 4, "min": 0, "max": 4, "step": 1, "label": "geladene Rohre" }
+  },
+  "let": { "lit": "state != 2", "dmg": "state == 1 || state == 4", "cx": "side == 1 ? 1 : -1" },
+  "variants": {
+    "beschaedigt": { "state": 1, "tubes": 2 },
+    "zerstoert": { "state": 2, "tubes": 0 },
+    "geflickt": { "state": 3, "tubes": 2 },
+    "eskalation": { "state": 4 },
+    "emp": { "state": 5, "tubes": 0 },
+    "stb": { "side": 1 },
+    "leer": { "tubes": 0 }
+  },
+  "ops": [
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, 0], "params": { "w": 14, "d": 14, "h": 3, "state": "state" } },
+
+    { "op": "box", "name": "Unterbau", "at": [-6, 3, -6], "size": [12, 4, 9], "color": "metal" },
+    { "op": "box", "name": "Unterbau Rotfeld", "at": [-6, 3, 2], "size": [12, 4, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "use", "name": "Wartungsklappe", "model": "lerche/station/parts_c/hatch", "at": [0, 3, 3], "params": { "open": "dmg", "w": 4, "h": 4 } },
+
+    { "op": "box", "name": "Rahmenwange", "at": [-7, 3, -7], "size": [1, 10, 11], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Wangenkante Gold", "at": [-7, 12, -7], "size": [1, 1, 11], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Seitenmarke Bb", "if": "side == 0", "at": [-7, 9, 4], "size": [1, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Seitenmarke Stb", "if": "side == 1", "repeat": { "count": 2, "step": [0, -2, 0], "var": "k" }, "at": [6, 9, 4], "size": [1, 1, 1], "color": "trim" },
+
+    { "op": "group", "name": "Vier Rohre", "repeat": { "count": 4, "step": [3, 0, 0], "var": "i" }, "ops": [
+      { "op": "cyl", "name": "Rohr", "if": "!(state == 2 && i >= 2)", "axis": "z", "at": [-4.5, 9.5, -7], "r": 1.5, "h": 9, "color": "metal_light" },
+      { "op": "box", "name": "Rohrband", "if": "!(state == 2 && i >= 2)", "at": [-6, 8, -5], "size": [3, 3, 1], "color": "trim", "mode": "paint" },
+      { "op": "box", "name": "Rohr geladen (Ladelinie)", "if": "i < tubes && lit", "at": [-5, 11, -6], "size": [1, 1, 7], "color": { "role": "glow", "emit": 1.2 }, "jitter": false, "mode": "paint" },
+      { "op": "box", "name": "Verschluss", "if": "!(state == 2 && i >= 2)", "at": [-6, 7, 2], "size": [3, 5, 3], "color": "metal" },
+      { "op": "box", "name": "Verschlusskappe", "if": "!(state == 2 && i >= 2)", "at": [-6, 8, 5], "size": [3, 3, 1], "color": "trim" },
+      { "op": "box", "name": "Verschluss geladen", "if": "i < tubes && lit && !(state == 2 && i >= 2)", "at": [-5, 9, 5], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.6 }, "jitter": false },
+      { "op": "box", "name": "Verschluss leer", "if": "i >= tubes || !lit", "at": [-5, 9, 5], "size": [1, 1, 1], "color": "dark", "jitter": false },
+      { "op": "box", "name": "Verschlusshebel", "if": "!(state == 2 && i >= 2)", "at": [-5, 12, 3], "size": [1, 1, 2], "color": "metal_dark" }
+    ] },
+    { "op": "box", "name": "Bruchstümpfe", "if": "state == 2", "at": [0, 7, -7], "size": [6, 2, 12], "color": { "noise": ["dark", "metal_dark"], "weights": [1, 1], "cell": 1 } },
+
+    { "op": "group", "name": "Kurbel (außenbords)", "ops": [
+      { "op": "cyl", "name": "Kurbelrad", "axis": "x", "at": ["cx == 1 ? 7 : -8", 7, -2], "r": 2.5, "h": 1, "hollow": 1, "color": "trim" },
+      { "op": "box", "name": "Kurbelnabe", "at": ["cx == 1 ? 7 : -8", 6, -3], "size": [1, 2, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Kurbelgriff", "at": ["cx == 1 ? 7 : -8", 9, -3], "size": [1, 1, 1], "color": "leather" }
+    ] },
+
+    { "op": "box", "name": "Magazinhaube", "if": "state == 0 || state == 3 || state == 5", "at": [-6, 12, -7], "size": [12, 2, 5], "color": { "frame": "trim", "fill": "primary", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Haubengrat", "if": "state == 0 || state == 3 || state == 5", "at": [-1, 14, -7], "size": [2, 1, 5], "color": "metal_dark" },
+    { "op": "box", "name": "Magazin offen: Schacht", "if": "dmg", "at": [-6, 12, -7], "size": [12, 1, 5], "color": "dark", "jitter": false },
+    { "op": "line", "name": "Magazin offen: Kabel rot", "if": "dmg", "from": [-5, 12.5, -6], "to": [4, 12.5, -3.5], "r": 0.5, "color": "primary" },
+    { "op": "line", "name": "Magazin offen: Kabel Gold", "if": "dmg", "from": [-5, 12.5, -3.5], "to": [4, 12.5, -6], "r": 0.5, "color": "trim" },
+    { "op": "box", "name": "Magazin offen: Deckel hochgeklappt", "if": "dmg", "at": [-6, 13, -8], "size": [12, 6, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Magazinhaube Rest", "if": "state == 2", "at": [-6, 12, -7], "size": [5, 1, 5], "color": "primary" },
+    { "op": "box", "name": "Ruß", "if": "state == 2", "at": [-8, 9, -8], "size": [16, 10, 16], "mode": "paint", "color": { "noise": ["dark", "metal_dark", "metal"], "weights": [2, 2, 2], "cell": 2 } },
+    { "op": "use", "name": "Statuskrone", "model": "lerche/station/parts_c/crown", "at": [0, "dmg || state == 2 ? 13 : 14", -4], "params": { "state": "state", "post": 2, "r": 3.5 } },
+    { "op": "line", "name": "Flickband quer", "if": "state == 3", "from": [-7, 12.5, -1], "to": [6, 12.5, 4], "r": 0.9, "color": "stone_light" },
+    { "op": "box", "name": "Flickband Nieten", "if": "state == 3", "repeat": { "count": 3, "step": [5, 0, 2], "var": "k" }, "at": [-6, 13, -1], "size": [1, 1, 1], "color": "metal_dark" },
+    { "op": "use", "name": "EMP-Bögen", "if": "state == 5", "model": "lerche/station/parts_c/emp_arcs", "at": [0, 11, 0], "params": { "w": 14, "d": 12, "h": 7 } }
+  ],
+  "anchor": [0, 0, 0]
+}

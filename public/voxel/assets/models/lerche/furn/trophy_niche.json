@@ -1,0 +1,42 @@
+{
+  "id": "lerche/furn/trophy_niche",
+  "name": "Trophäennische mit Regal (Lerche, Privatdeck)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "privatdeck", "trophaee", "nische"],
+  "footprint": [1, 1],
+  "params": {
+    "filled": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Funde ausgestellt (0 leer, 1 gefüllt)" }
+  },
+  "variants": { "leer": { "filled": 0 } },
+  "ops": [
+    { "op": "box", "name": "Rückwand", "at": [2, 0, 0], "size": [12, 34, 2], "color": "cloth2", "jitter": false },
+    { "op": "box", "name": "Pilaster", "at": [0, 0, 0], "size": [2, 30, 8], "color": "secondary", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Pilaster Kannelur", "at": [0, 3, 7], "size": [2, 25, 1], "color": { "stripes": ["secondary", "stone"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Kapitelle", "at": [0, 28, 0], "size": [2, 2, 9], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Bogenstein", "at": [0, 30, 0], "size": [16, 5, 8], "color": "stone", "jitter": false },
+    { "op": "cyl", "name": "Bogen", "at": [8, 28, 2], "r": 6, "h": 6, "axis": "z", "mode": "carve" },
+    { "op": "cyl", "name": "Bogenkante", "at": [8, 28, 7], "r": 7, "h": 1, "axis": "z", "hollow": 1, "color": "trim", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Schlussstein", "at": [7, 32, 7], "size": [2, 3, 2], "color": "trim" },
+    { "op": "box", "name": "Sockel", "at": [2, 0, 2], "size": [12, 3, 7], "color": "stone_dark", "jitter": false },
+    { "op": "box", "name": "Sockel Plakette", "at": [5, 1, 9], "size": [6, 1, 1], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Regalbrett 1", "at": [2, 11, 2], "size": [12, 1, 6], "color": "wood", "jitter": false },
+    { "op": "box", "name": "Regalbrett 2", "at": [2, 19, 2], "size": [12, 1, 6], "color": "wood", "jitter": false },
+    { "op": "box", "name": "Bretter Goldkante", "at": [2, 11, 7], "size": [12, 1, 1], "color": "trim", "mode": "paint", "jitter": false, "repeat": { "count": 2, "step": [0, 8, 0], "var": "i" } },
+
+    { "op": "group", "name": "Funde", "if": "filled", "ops": [
+      { "op": "cyl", "name": "Datenkern", "at": [5, 3, 5], "r": 1.5, "h": 4, "color": "metal_dark" },
+      { "op": "box", "name": "Datenkern Licht", "at": [4, 5, 5], "size": [2, 1, 2], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+      { "op": "ellipsoid", "name": "Amphore klein", "at": [11, 5, 5], "r": [1.6, 2.4, 1.6], "color": "#B0613A" },
+      { "op": "box", "name": "Amphore Hals", "at": [10, 7, 4], "size": [2, 2, 2], "color": "#9A5230" },
+      { "op": "line", "name": "Kristallsplitter", "from": [5, 12, 5], "to": [6, 17, 5], "r": 0.9, "color": "#BCA6F2", "emit": 1.1, "jitter": false },
+      { "op": "box", "name": "Schriftrolle", "at": [9, 12, 4], "size": [4, 1, 2], "color": "secondary" },
+      { "op": "box", "name": "Rollenkappen", "at": [9, 12, 4], "size": [1, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 11 },
+      { "op": "cyl", "name": "Lorbeerkranz", "at": [8, 20, 3], "r": 3, "h": 1, "axis": "z", "hollow": 1, "color": "#4E6E3A" },
+      { "op": "box", "name": "Münze", "at": [4, 20, 5], "size": [2, 2, 1], "color": "trim" },
+      { "op": "box", "name": "Splitter Kustoden", "at": [11, 20, 4], "size": [2, 3, 2], "color": "stone_dark" },
+      { "op": "box", "name": "Splitter Glyphe", "at": [11, 21, 6], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1 }, "jitter": false }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

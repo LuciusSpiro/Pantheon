@@ -169,7 +169,7 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   ok(notices(0).some((t) => /Reaktor ausgelastet/.test(t)), 'Energie: Reaktorgrenze');
   cmd(0, 'captain.power', { sys: 'weapons', delta: -1 }); cmd(0, 'captain.power', { sys: 'shields', delta: 1 });
   run(0.1);
-  ok(g.ship.power.shields === 3 && g.ship.shields.pool === 6, 'Energie verschoben, Schildpool 6');
+  ok(g.ship.power.shields === 3 && g.ship.shields.pool === 3 * g.C.shields.pointsPerPower, 'Energie verschoben, Schildpool ' + g.ship.shields.pool + ' (M3b: 3 je Energie)');
   g.ship.systems.reactor = 'broken'; run(0.1);
   ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= g.C.spaceM3.reactorBrokenOutput && g.ship.power.life >= 1, 'Reaktor broken -> Notstrom 2, von oben gekürzt, Lebenserhaltung zuletzt');
   // M3a: Ein zerstörter Reaktor braucht nach der Reparatur einen Neustart (test-m3); hier direkt wieder online
@@ -236,8 +236,8 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   ok(se.shields.join() === '2,4,1,4' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot, Waffen erst nach Scan');
   enter(0, 'weapons');
   cmd(0, 'weapons.target', { id: e.id });
-  cmd(0, 'weapons.hold', { mount: 'port', hold: true }); cmd(0, 'weapons.hold', { mount: 'stbd', hold: true });
-  sh.mount.port.charge = 1; sh.mount.bow.charge = 0;
+  // §20.4: kein hold mehr – Batterien feuern nur auf Befehl; stbd leer, damit 'both' nur Bb feuert
+  sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
   cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
   let batteryBeams = 0;
   runPinned(1.2, () => { pinE(); batteryBeams += g.space.beams.filter((b) => b.kind === 'battery' && !b.seen).map((b) => (b.seen = true)).length; });
@@ -252,7 +252,11 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   e.x = 1000; e.y = 1850;
   sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });
-  ok(notices(0).some((t) => /außerhalb|bogen/i.test(t)), 'Ziel außerhalb des Feuerbogens');
+  // §20.4: kein Ziel im Bogen -> Salve ins Leere (senkrecht zur Flanke), kein Schaden am Ziel auf Steuerbord
+  const hpOut = e.hp;
+  let voidBeams = 0;
+  runPinned(1.2, () => { e.x = 1000; e.y = 1850; e.fireT = -999; e.tele = null; voidBeams += g.space.beams.filter((b) => b.kind === 'battery' && b.miss && !b.seen).map((b) => (b.seen = true)).length; });
+  ok(e.hp === hpOut && voidBeams === 4, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Strahlen), kein Schaden')
   e.x = 1000; e.y = 1150;
   cmd(0, 'weapons.fire', { mount: 'bolzen' });
   ok(notices(0).some((t) => /Bolzenwerfer/.test(t)), 'Bolzenwerfer nicht eingebaut (Shop-Upgrade)');
@@ -385,7 +389,7 @@ console.log('\n[Transfer, Außenmission B-7, Orbit-Hilfe]');
   cmd(2, 'captain.support', { kind: 'sensor' });
   cmd(2, 'captain.support', { kind: 'kuppel' });
   run(0.1);
-  ok(g.away.drones.every((d) => !d.alive || d.revealed) && g.away.kuppelUntil > g.time && g.ship.shields.pool === 2, 'Sensor + Kuppel (Pool −2)');
+  ok(g.away.drones.every((d) => !d.alive || d.revealed) && g.away.kuppelUntil > g.time && g.ship.shields.pool === g.ship.power.shields * g.C.shields.pointsPerPower - 2,'Sensor + Kuppel (Pool −2)');
   place(0, 14, 15, 'right', 'away');
   g.away.drones.forEach((d) => { d.alive = false; });
   tap(0);
@@ -484,7 +488,7 @@ console.log('\n[Selbst-Transfer, Transfer broken, Bots, Notfall]');
   ok(P(0).zone === 'away', 'Transfer broken -> kein Hochbeamen');
   run(40);
   ok(g.ship.systems.transfer !== 'broken', 'Bots reparieren den Transfer: ' + g.ship.systems.transfer);
-  ok(Math.hypot(g.ship.x - 1850, g.ship.y - 1500) < 5, 'Stationshalten: unbesetztes Schiff driftet nicht weg');
+  ok(Math.hypot(g.ship.x - 1850, g.ship.y - 1500) < 5, 'unbesetzte Steuer auf STOPP: Schiff bleibt stehen (M3b: keine Sonderbremse, Stufe bleibt)');
   send(0, { t: 'act', down: true }); run(6.2); send(0, { t: 'act', down: false });
   ok(P(0).zone === 'ship', 'danach Selbst-Transfer hoch');
   g.inventory.ersatzteil = 0; g.ship.systems.engines = 'broken';
@@ -620,6 +624,187 @@ console.log('\n[M0: Lager leer / debug inv]');
   ok(events('oda').filter((m) => /Kein Ersatzteil mehr im Lager/.test(m.text)).length === 1, 'Schrauber melden einmalig „Kein Ersatzteil mehr im Lager“');
   const q = g.ship.repairQueue.find((x) => x.system === 'engines');
   ok(!q || q.mode === 'flick', 'Eintrag wird zu flick');
+}
+
+// ======================================================================
+// M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.4, §8): Lift, Notleiter, Bots über den Lift, Ivo auf Deck II, kein Feuer auf Deck II
+console.log('\n[M4 Zwei Decks: Lift und Leiter]');
+{
+  const S = Maps.DECK_STRIDE;
+  const deckOfP = (p) => Maps.deckOfPx(p.y);
+  const tileOf = (o) => Physics.toTile(o.x, o.y);
+  const { g, P, send, run, place, events } = setup(3);
+  g.mission.isDrill = () => false;   // Übung aus (sonst stehen die Schrauber)
+  g.ship.fireList = []; g.ship.breachList = [];
+  const L = g.C.lift;
+  ok(L && L.rideTime === 1.5 && L.rideTimeLowPower === 3 && L.ladderTime === 2 && L.arrivalClearRadius === 1, 'CONFIG.lift laut Vertrag');
+  // drei Spieler gleichzeitig im Lift, zwei davon auf derselben Kachel
+  const lt = Maps.SHIP_LIFTS[0].tiles;
+  place(0, lt[0][0], lt[0][1]); place(1, lt[0][0], lt[0][1]); place(2, lt[3][0], lt[3][1]);
+  for (let i = 0; i < 3; i++) { send(i, { t: 'act', down: true }); send(i, { t: 'act', down: false }); }
+  ok([0, 1, 2].every((i) => P(i).lift && P(i).lift.to === 1 && P(i).lift.T === 1.5), 'drei Spieler gleichzeitig im Lift (to 1, T 1,5 s)');
+  const snap0 = g.snapshot();
+  ok(snap0.players.every((q) => q.lift && q.lift.to === 1 && q.lift.T === 1.5 && q.deck === 0), 'Snapshot players[].lift { to, t, T } und deck 0');
+  ok(events('lift').filter((e) => e.phase === 'start').length === 3, 'Ereignis lift (phase start) je Spieler');
+  // Eingaben gesperrt, kein Schaden während der Fahrt
+  const x0 = P(0).x, y0 = P(0).y, hp0 = P(0).hp;
+  send(0, { t: 'input', seq: 1, mx: 1, my: 0 });
+  interior.damagePlayer(g, P(0), 30, 'test');
+  let ticks = 0;
+  while (P(2).lift && ticks < 200) { g.step(); ticks++; }
+  send(0, { t: 'input', seq: 2, mx: 0, my: 0 });
+  const rideS = ticks / g.C.tickHz;
+  ok(Math.abs(rideS - 1.5) <= 0.1, `Liftfahrt gemessen ${rideS.toFixed(2)} s (1,5 s ± 0,1)`);
+  ok(P(0).hp === hp0, 'im Lift kein Schaden');
+  ok([0, 1, 2].every((i) => !P(i).lift && deckOfP(P(i)) === 1), 'alle drei auf Deck II angekommen');
+  const t0 = tileOf(P(0)), t1 = tileOf(P(1)), t2 = tileOf(P(2));
+  ok(t2.x === lt[3][0] && t2.y === lt[3][1] + S, 'Ankunft auf derselben lokalen Kachel (y + 16)');
+  ok(!(t0.x === t1.x && t0.y === t1.y) && Math.abs(t0.x - t1.x) + Math.abs(t0.y - t1.y) <= 2, `belegte Zielkachel -> freie Nachbarkachel (${t0.x},${t0.y}) / (${t1.x},${t1.y})`);
+  ok(Math.abs(x0 - P(0).x) < 64 && P(0).y > y0 + S * 32 - 64, 'keine Bewegung während der Fahrt (nur Teleport)');
+  ok(events('lift').filter((e) => e.phase === 'arrive').length === 3, 'Ereignis lift (phase arrive) je Spieler');
+  const snap1 = g.snapshot();
+  ok(snap1.players.every((q) => q.deck === 1 && !('lift' in q)), 'Snapshot: deck 1, lift nur während der Fahrt');
+  // Raumname auf Deck II
+  ok(Maps.roomAt(t2.x, t2.y).name === 'Liftvorraum', 'roomAt auf Deck II: Liftvorraum');
+  // zurück nach oben, Notstrom: 3 s
+  g.ship.reactorCtl.state = 'offline';
+  place(0, lt[1][0], lt[1][1] + S);
+  send(0, { t: 'act', down: true }); send(0, { t: 'act', down: false });
+  ok(P(0).lift && P(0).lift.to === 0 && P(0).lift.T === 3, 'Notstrom (Reaktor abgeschaltet): Liftfahrt 3 s');
+  ticks = 0; while (P(0).lift && ticks < 300) { g.step(); ticks++; }
+  ok(Math.abs(ticks / 30 - 3) <= 0.1 && deckOfP(P(0)) === 0, `Notstrom-Fahrt gemessen ${(ticks / 30).toFixed(2)} s, oben angekommen`);
+  g.ship.reactorCtl.state = 'online';
+  // E vor dem Lift (nicht darauf) startet keine Fahrt
+  place(1, 28, 18, 'left');
+  send(1, { t: 'act', down: true }); send(1, { t: 'act', down: false });
+  ok(!P(1).lift, 'neben dem Lift: keine Fahrt (nur auf der Plattform)');
+  // Notleiter: E halten 2 s
+  const lad = Maps.SHIP_LADDERS;
+  place(1, lad[1].x, lad[1].y, 'down');
+  send(1, { t: 'act', down: true }); run(1.0); send(1, { t: 'act', down: false }); run(0.1);
+  ok(deckOfP(P(1)) === 1 && !P(1).hold, 'Leiter: zu früh losgelassen -> bleibt unten');
+  send(1, { t: 'act', down: true });
+  run(1.0);
+  const sl = g.snapshot().players[1];
+  ok(sl.ladder && sl.ladder.T === 2 && sl.ladder.t > 0.8 && sl.action && sl.action.kind === 'ladder', 'Snapshot players[].ladder { t, T } + action ladder');
+  let lt2 = 0; while (deckOfP(P(1)) === 1 && lt2 < 120) { g.step(); lt2++; }
+  send(1, { t: 'act', down: false });
+  const ladS = 1.0 + lt2 / 30;
+  ok(deckOfP(P(1)) === 0 && Math.abs(ladS - 2) <= 0.1, `Leiter gemessen ${ladS.toFixed(2)} s, oben an der Leiter (${tileOf(P(1)).x},${tileOf(P(1)).y})`);
+  ok(tileOf(P(1)).x === lad[0].x && tileOf(P(1)).y === lad[0].y, 'Leiter: Ankunft auf der Gegenleiter');
+}
+
+console.log('\n[M4 Zwei Decks: kein Feuer/Leck auf Deck II]');
+{
+  const { g, send, conns } = setup(1);
+  g.ship.fireList = []; g.ship.breachList = [];
+  let bad = 0;
+  for (let y = 16; y <= 28; y++) for (let x = 0; x < W.ship.w; x++) if (interior.addFire(g, x, y) || interior.addBreach(g, x, y)) bad++;
+  const lt = Maps.SHIP_LIFTS[0].tiles;
+  for (const [x, y] of lt) if (interior.addFire(g, x, y) || interior.addBreach(g, x, y)) bad++;
+  for (const l of Maps.SHIP_LADDERS) if (interior.addFire(g, l.x, l.y) || interior.addBreach(g, l.x, l.y)) bad++;
+  ok(bad === 0 && g.ship.fireList.length === 0 && g.ship.breachList.length === 0, 'addFire/addBreach lehnen Deck II, Lift und Leiter ab');
+  let wrong = 0;
+  for (let k = 0; k < 400; k++) for (let r = 0; r < 4; r++) for (const wall of [false, true]) {
+    const t = interior.randomRegionFloor(g, r, wall);
+    if (!t || Maps.deckOf(t.y) !== 0 || !Maps.hazardAllowed(t.x, t.y)) wrong++;
+  }
+  ok(wrong === 0, 'Treffer-Feuer/-Lecks (randomRegionFloor, 3200 Würfe) nur auf Deck I');
+  // Feuer neben dem Lift breitet sich nie auf die Plattform aus (300 s Ausbreitung, Übung aus)
+  g.mission.isDrill = () => false;
+  g.god = true;
+  const lift0 = lt[2];
+  interior.addFire(g, lift0[0] + 2, lift0[1]);
+  const savedMax = g.C.fire.max; g.C.fire.max = 40;
+  const botsMod = require('../server/sim/bots.js');
+  const botUpdate = botsMod.update;
+  botsMod.update = () => {};   // Schrauber aus, sonst löschen sie sofort
+  try { for (let k = 0; k < 300 * 30; k++) g.step(); } finally { botsMod.update = botUpdate; g.C.fire.max = savedMax; }
+  ok(g.ship.fireList.length > 1 && g.ship.fireList.every((f) => Maps.deckOf(f.ty) === 0 && Maps.hazardAllowed(f.tx, f.ty)),
+    `Ausbreitung: ${g.ship.fireList.length} Feuer, keines auf Lift/Leiter/Deck II`);
+  // Debug-Feuer auf Deck II wird abgelehnt
+  g.ship.fireList = [];
+  send(0, { t: 'debug', cmd: 'fire', x: 15, y: 22 });
+  ok(g.ship.fireList.length === 0, 'Debug-Feuer auf Deck II: keins');
+  void conns;
+}
+
+console.log('\n[M4 Zwei Decks: Bots und Ivo]');
+{
+  const { g, run } = setup(1);   // solo: Bot-Automatik an
+  g.mission.isDrill = () => false;
+  g.ship.fireList = []; g.ship.breachList = [];
+  for (const s of Object.keys(g.ship.systems)) g.ship.systems[s] = 'ok';
+  g.inventory.ersatzteil = 3;
+  g.ship.systems.battery_port = 'broken';
+  let carried = false, onDeck2 = false;
+  for (let k = 0; k < 90 * 30 && g.ship.systems.battery_port !== 'ok'; k++) {
+    g.step();
+    for (const b of g.bots) { if (b.carry === 'ersatzteil') carried = true; if (Maps.deckOfPx(b.y) !== 0 || b.lift) onDeck2 = true; }
+  }
+  ok(g.ship.systems.battery_port === 'ok' && carried && g.inventory.ersatzteil === 2, `Bot holt Ersatzteil aus dem Regal und repariert auf Deck I (Lager ${g.inventory.ersatzteil})`);
+  ok(!onDeck2, 'Bots bleiben dabei auf Deck I');
+  // Bot steht auf Deck II -> fährt Lift (gleiche Zeit) und repariert oben
+  const b = g.bots[0];
+  for (const o of g.bots) { o.task = null; o.path = null; o.carry = null; }
+  const c = Physics.tileCenter(15, 22); b.x = c.x; b.y = c.y;
+  g.ship.systems.thruster_port = 'damaged';
+  let rode = null, liftT = 0, sawSnap = false;
+  for (let k = 0; k < 120 * 30 && g.ship.systems.thruster_port !== 'ok'; k++) {
+    g.step();
+    if (b.lift) { rode = rode || b.lift.T; liftT++; if (!sawSnap) { const sb = g.snapshot().bots.find((q) => q.id === b.id); sawSnap = !!(sb && sb.lift && sb.lift.to === 0); } }
+  }
+  ok(rode === g.C.lift.rideTime && Math.abs(liftT / 30 - rode) <= 0.1, `Bot fährt Lift (T ${rode} s, gemessen ${(liftT / 30).toFixed(2)} s)`);
+  ok(sawSnap, 'Snapshot bots[].lift während der Fahrt');
+  ok(g.ship.systems.thruster_port === 'ok' && Maps.deckOfPx(b.y) === 0, 'Bot von Deck II repariert die Düse auf Deck I');
+  // Ivo bleibt auf Deck II
+  g.mission.flags.technikerRescued = true;
+  let ivoUp = 0, ivoMoved = 0, last = null;
+  for (let k = 0; k < 120 * 30; k++) {
+    g.step();
+    if (g.ivo) { if (Maps.deckOfPx(g.ivo.y) !== 1) ivoUp++; const tt = Physics.toTile(g.ivo.x, g.ivo.y); const key = tt.x + ',' + tt.y; if (key !== last) { ivoMoved++; last = key; } }
+  }
+  ok(g.ivo && ivoUp === 0 && ivoMoved > 10, `Ivo bleibt auf Deck II (${ivoMoved} Kachelwechsel in 120 s)`);
+  run(0);
+}
+
+console.log('\n[M4 Zwei Decks: Gefechtsalarm]');
+{
+  const S = require('../server/sim/space.js');
+  for (const below of [true, false]) {
+    const g = new Game({ noStore: true, seed: 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const c = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'A', name: 'A', color: 0 });
+    g.handleMessage(c, { t: 'lobbyOpt', startMission: 'arena_space' });
+    g.handleMessage(c, { t: 'ready', ready: true });
+    if (g.arena) g.arena.nextAt = null;
+    g.space.enemies = []; g.space.projectiles = [];
+    g.step();
+    const p = g.players[0];
+    if (below) { const t = Physics.tileCenter(15, 22); p.x = t.x; p.y = t.y; p.console = null; }
+    c.inbox.length = 0;
+    const en = S.spawnEnemy(g, 'raider', { x: g.ship.x + 250, y: g.ship.y, facing: Math.PI });
+    en.hp = en.hpMax = 9999;
+    const noFire = () => { for (const k of ['bow', 'port', 'stbd']) if (g.ship.mount[k]) g.ship.mount[k].charge = 0; };
+    let firstShot = null;
+    const pinAt = { x: en.x, y: en.y, angle: en.angle };
+    for (let k = 0; k < 14 * 30; k++) {
+      noFire();
+      Object.assign(en, pinAt); en.retreatUntil = 0;   // Jäger festhalten: Bug zum Schiff, in Reichweite
+      g.step();
+      const shot = g.space.projectiles.some((q) => q.kind === 'enemy' || q.kind === 'emp') || g.space.enemies.some((e) => e.tele);
+      if (shot && firstShot == null) firstShot = k / 30;
+      if (Maps.deckOfPx(p.y) === 1 && below) { /* bleibt unten */ }
+    }
+    const odaHit = c.inbox.some((m) => m.kind === 'oda' && /Lift im Liftvorraum/.test(m.text));
+    if (below) {
+      ok(odaHit, 'Spieler auf Deck II: ODA „Alle auf Station – Lift im Liftvorraum.“');
+      ok(firstShot == null || firstShot >= 8 - 0.05, `erster Feindkontakt ≥ 8 s nach dem Alarm (erster Schuss ${firstShot == null ? '–' : firstShot.toFixed(1) + ' s'})`);
+    } else {
+      ok(!odaHit, 'alle auf Deck I: keine Lift-Ansage');
+      ok(firstShot != null && firstShot < 8, `ohne Spieler auf Deck II schießt der Jäger früher (${firstShot == null ? '–' : firstShot.toFixed(1) + ' s'})`);
+    }
+  }
 }
 
 console.log('\n[Teaser-Generator / Schema]');

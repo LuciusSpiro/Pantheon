@@ -1,0 +1,10 @@
+{
+  "id": "wreck_dark",
+  "name": "Wrack innen – fast dunkel, kaltes Notlicht, Leuchtquellen tragen das Bild",
+  "background": "#030407",
+  "fog": { "color": "#06080E", "near": 1.4, "far": 4.0 },
+  "hemi": { "sky": "#4A5A7A", "ground": "#0E0C0C", "intensity": 0.42 },
+  "sun": { "color": "#9FB6E8", "intensity": 0.55, "dir": [0.25, 1, 0.35], "softness": 4 },
+  "exposure": 1.2,
+  "bloom": { "strength": 1.15, "radius": 0.55, "threshold": 0.6 }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "platform_space",
+  "name": "Plattform B-7 im All – schwarzer Hintergrund, schwaches Sternenlicht, harte Sonne von der Seite",
+  "background": "#010104",
+  "hemi": { "sky": "#4A5680", "ground": "#0A0C14", "intensity": 0.55 },
+  "sun": { "color": "#FFF4E2", "intensity": 3.0, "dir": [0.55, 0.8, 0.3], "softness": 1 },
+  "exposure": 1.15,
+  "bloom": { "strength": 0.6, "radius": 0.4, "threshold": 0.82 },
+  "stars": { "count": 1600, "color": "#DCE6FF", "size": 1.4, "note": "Hinweis für AWAY: Sternenfeld unter und um die Plattform (Viewer ignoriert das Feld)" }
+}

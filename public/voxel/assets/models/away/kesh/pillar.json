@@ -1,0 +1,24 @@
+{
+  "id": "away/kesh/pillar",
+  "name": "Kesh – Kustoden-Pfeiler (volle Deckung, 2,5 m, dunkle Krone)",
+  "tier": "architecture",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "deckung", "deckung_voll", "pfeiler"],
+  "footprint": [1, 1],
+  "jitter": 0.04,
+  "params": {},
+  "variants": { "variante": { "seed": 1 } },
+  "let": { "lit": "seed % 2 == 0" },
+  "ops": [
+    { "op": "box", "name": "Plinthe", "at": [0, 0, 0], "size": [4, 2, 4], "color": { "noise": ["stone_dark", { "shade": "stone_dark", "f": 0.88 }], "cell": 2 } },
+    { "op": "cyl", "name": "Schaft (achteckig)", "at": [2, 2, 2], "r": 1.9, "h": 7,
+      "color": { "noise": ["stone", { "shade": "stone", "f": 1.08 }, { "shade": "stone", "f": 0.9 }], "weights": [3, 1, 1], "cell": 2 } },
+    { "op": "box", "name": "Lichtkanal vorn/hinten", "at": [1, 3, 0], "size": [1, 5, 4], "mode": "paint", "color": { "role": "neon", "emit": 0.7 }, "jitter": false, "if": "lit" },
+    { "op": "box", "name": "Lichtkanal links/rechts", "at": [0, 3, 2], "size": [4, 5, 1], "mode": "paint", "color": { "role": "neon", "emit": 0.7 }, "jitter": false, "if": "lit" },
+    { "op": "box", "name": "Kannelur vorn/hinten", "at": [1, 3, 0], "size": [1, 5, 4], "mode": "paint", "color": "glyph_dead", "if": "!lit" },
+    { "op": "box", "name": "Kannelur links/rechts", "at": [0, 3, 2], "size": [4, 5, 1], "mode": "paint", "color": "glyph_dead", "if": "!lit" },
+    { "op": "box", "name": "Krone (Abakus, dunkel)", "at": [0, 9, 0], "size": [4, 2, 4], "color": "crown" },
+    { "op": "box", "name": "Kronenfuge", "at": [0, 9, 0], "size": [4, 1, 4], "mode": "paint", "color": { "frame": "metal_dark", "fill": "crown", "axes": "xz" } }
+  ],
+  "anchor": [2, 1, 2]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "lerche/deco/pflanze",
+  "name": "Lorbeer im Kübel (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "pflanze"],
+  "footprint": [0.75, 0.75],
+  "params": {},
+  "ops": [
+    { "op": "cyl", "name": "Kübel", "at": [8, 0, 8], "r": 3.6, "r2": 4.4, "h": 6, "color": "#B0613A" },
+    { "op": "cyl", "name": "Kübel Fuß", "at": [8, 0, 8], "r": 3.2, "h": 1, "color": "#8A4A2A" },
+    { "op": "box", "name": "Kübel Mäanderband", "at": [2, 3, 2], "size": [12, 1, 12], "color": { "stripes": ["trim", "#8A4A2A"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false },
+    { "op": "cyl", "name": "Kübel Rand", "at": [8, 6, 8], "r": 4.6, "h": 1, "hollow": 1, "color": "trim" },
+    { "op": "cyl", "name": "Erde", "at": [8, 6, 8], "r": 3.8, "h": 1, "color": "soil_dark" },
+    { "op": "box", "name": "Stamm", "at": [7, 7, 7], "size": [2, 6, 2], "color": "wood_dark" },
+    { "op": "line", "name": "Ast", "from": [8, 11, 8], "to": [5, 14, 9], "r": 0.6, "color": "wood_dark" },
+    { "op": "ellipsoid", "name": "Krone", "at": [8, 17, 8], "r": [5, 5.5, 5], "color": { "noise": ["plant_dark", "#4E6E3A", "plant"], "weights": [3, 3, 1], "cell": 2 } },
+    { "op": "ellipsoid", "name": "Krone seitlich", "at": [5, 14, 9], "r": [3, 3, 3], "color": { "noise": ["plant_dark", "#4E6E3A"], "cell": 2 } },
+    { "op": "ellipsoid", "name": "Krone oben", "at": [10, 21, 7], "r": [3, 2.5, 3], "color": { "noise": ["#4E6E3A", "plant"], "cell": 2 } },
+    { "op": "box", "name": "Beeren", "at": [6, 18, 12], "size": [1, 1, 1], "color": "#2B2238", "repeat": { "count": 3, "step": [2, 1, 0], "var": "i" } }
+  ],
+  "anchor": [8, 0, 8]
+}

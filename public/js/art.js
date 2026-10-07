@@ -1057,6 +1057,7 @@
     console_weapons: { body: '#4F6178', scr: '#FF8A5C' },
     console_transfer: { body: '#4F6178', scr: PAL.mint },
     terminal_shop: { body: '#8A4A35', scr: PAL.bernstein },
+    terminal_spare: { body: '#4A5260', scr: '#3A4250' },   // Brückenumbau: freies Terminal, ausgeschaltet
   };
   function buildConsole(g, c, kind, f, active) {
     var st = CONSOLE_STYLE[kind], body = st.body, scr = st.scr;
@@ -1111,6 +1112,10 @@
       ell(g, 16, 15, 1.5, 1.5, PAL.sternweiss);
       P(g, 11, 11, sc); P(g, 21, 11, sc); P(g, 16, 20, sc);
       R(g, 6, 27, 20, 1, '#2E3946'); R(g, 8 + (f % 8) * 2, 26, 2, 3, PAL.mint);
+    } else if (kind === 'terminal_spare') {
+      // aus: dunkles Glas, nur ein schwacher Reflex, Staubkorn; Pult mit Abdeckklappe
+      R(g, sx, sy, sw, sh, '#05080C'); R(g, sx + 2, sy + 2, 3, 1, 'rgba(142,163,181,0.25)'); P(g, sx + 9, sy + 10, 'rgba(142,163,181,0.15)');
+      R(g, 8, 26, 16, 2, '#2E3946'); R(g, 8, 26, 16, 1, '#5A6372');
     } else {
       // Hafenterminal: Marken-Symbol + Laufschrift
       ell(g, 13, 13, 3, 3, sc); ell(g, 13, 13, 2, 2, scD); P(g, 13, 13, sc);
@@ -1120,6 +1125,7 @@
       for (var k = 0; k < 5; k++) P(g, 7 + k * 4, 3, (k + f) % 5 === 0 ? PAL.funke : PAL.bernstein);
       R(g, 9, 26, 3, 3, PAL.messing); R(g, 20, 26, 6, 2, '#1B2230');
     }
+    if (kind === 'terminal_spare') { led(g, 17, 29, PAL.alarmrot, f % 8 < 2); finish(c, PAL.outline, [16, 45, 13, 3]); return; }   // nur Standby-Lämpchen
     scanlines(g, sx, sy, sw, sh);
     P(g, sx + 1, sy + 1, 'rgba(255,255,255,0.35)'); P(g, sx + 2, sy + 1, 'rgba(255,255,255,0.2)');
     // Blinklichter
@@ -1837,6 +1843,11 @@
     switch (kind) {
       case 'console_helm': case 'console_captain': case 'console_weapons': case 'console_transfer': case 'terminal_shop':
         drawConsole(ctx, kind, px, py, o); return;
+      case 'terminal_spare': {   // ausgeschaltet: kein Leuchten
+        var tf = frameOf(o.time, 1, 8);
+        spr = cached('obj|terminal_spare|' + tf, 32, 48, function (g, c) { buildConsole(g, c, 'terminal_spare', tf, 0); });
+        ctx.drawImage(spr, px, py - OH); return;
+      }
       case 'shelf':
         drawShelf(ctx, px, py, o); return;
       case 'pipes': {

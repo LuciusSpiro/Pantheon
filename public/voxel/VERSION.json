@@ -1,0 +1,19 @@
+{
+  "voxelwerkCommit": "ebed4f285a09e9f7b151ffb7d836fa04d684ce09",
+  "dirty": true,
+  "dirtySource": "mtime",
+  "date": "2026-10-07T14:57:26.927Z",
+  "three": "186",
+  "manifests": 8,
+  "assets": 68,
+  "counts": {
+    "models": 104,
+    "palettes": 15,
+    "rigs": 1,
+    "figures": 5,
+    "poses": 1,
+    "moods": 9,
+    "scenes": 0,
+    "vox": 0
+  }
+}

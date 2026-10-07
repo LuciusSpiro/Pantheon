@@ -1,0 +1,24 @@
+{
+  "id": "lerche/item/blaster",
+  "name": "Blaster-Pistole der Crew (Bronze, Marmor, rote Markierung)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau", "lerche", "crew"],
+  "notes": "Anbau handR. Anker = Griff. Mündung nach -y, Oberseite (Kühlrippen) nach +z, Griff nach -z. Länge 0,44 m. Bronze trägt (Gehäuse), Marmor schmückt (Lauf, Griffschalen), Rot markiert (Sicherungsband).",
+  "footprint": [0.15, 0.3],
+  "ops": [
+    { "name": "Mündungsring", "op": "box", "at": [0, 0, 0], "size": [2, 1, 4], "color": "trim" },
+    { "name": "Emitter", "op": "box", "at": [0, 0, 2], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.4 }, "jitter": false },
+    { "name": "Lauf", "op": "box", "at": [0, 1, 1], "size": [2, 2, 3], "color": "secondary" },
+    { "name": "Laufband", "op": "box", "at": [0, 2, 1], "size": [2, 1, 3], "color": { "stripes": ["trim", "secondary"], "axis": "z", "period": 1 }, "mode": "paint" },
+    { "name": "Kühlrippen", "op": "box", "at": [0, 1, 4], "size": [2, 3, 1], "color": { "stripes": ["trim", "metal_dark"], "axis": "y", "period": 1 } },
+    { "name": "Gehäuse", "op": "box", "at": [0, 3, 0], "size": [2, 3, 4], "color": "trim" },
+    { "name": "Rote Markierung", "op": "box", "at": [0, 3, 3], "size": [2, 1, 1], "color": "primary", "mode": "paint" },
+    { "name": "Energiezelle", "op": "box", "at": [0, 5, 4], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+    { "name": "Hahn", "op": "box", "at": [0, 6, 1], "size": [2, 1, 2], "color": "metal_dark" },
+    { "name": "Abzugsbügel", "op": "box", "at": [0, 3, -1], "size": [2, 1, 1], "color": "metal_dark" },
+    { "name": "Griff", "op": "box", "at": [0, 4, -3], "size": [2, 3, 3], "color": { "frame": "trim", "fill": "secondary", "axes": "yz", "width": 1 } },
+    { "name": "Knauf", "op": "box", "at": [0, 4, -4], "size": [2, 2, 1], "color": "trim" }
+  ],
+  "anchor": [1, 5.5, -1.5]
+}

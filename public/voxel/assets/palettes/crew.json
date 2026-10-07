@@ -1,0 +1,18 @@
+{
+  "id": "crew",
+  "name": "Crew (Außenteam): neutraler Raumfahreranzug Grau/Weiß, Akzent = primary",
+  "extends": "base",
+  "roles": {
+    "primary": "#56B4E9",
+    "secondary": "#DDE1E4",
+    "trim": "#B9C0C8",
+    "cloth": "#8C949E",
+    "cloth2": "#4A5058",
+    "leather": "#3B3F46",
+    "metal": "#5E656F",
+    "metal_dark": "#3A3F46",
+    "metal_light": "#A7B0BA",
+    "glow": { "color": "#C8F2FF", "emit": 1.3 },
+    "glass": "#1C2733"
+  }
+}

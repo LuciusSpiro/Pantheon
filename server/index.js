@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
@@ -35,12 +36,57 @@ function resolveStatic(urlPath) {
   return null;
 }
 
+// M4 (PIPELINE): /vendor/ (three.js) und /voxel/ (Voxelwerk-Kern + Assets) liegen unter public/ und werden
+// über '/' ausgeliefert. .js/.json dort gehen gzip-komprimiert raus; das Ergebnis wird im Speicher gecacht
+// (Schlüssel Datei + mtime + Größe, begrenzt auf GZIP_CACHE_MAX Bytes, älteste fliegen zuerst).
+const GZIP_PREFIXES = ['/vendor/', '/voxel/'];
+const GZIP_EXT = new Set(['.js', '.json']);
+const GZIP_CACHE_MAX = 48 * 1024 * 1024;
+const gzipCache = new Map();
+let gzipCacheBytes = 0;
+
+function gzipEligible(req, file) {
+  if (!GZIP_EXT.has(path.extname(file).toLowerCase())) return false;
+  if (!/\bgzip\b/.test(String(req.headers['accept-encoding'] || ''))) return false;
+  const p = (req.url || '').split('?')[0];
+  return GZIP_PREFIXES.some((x) => p.startsWith(x));
+}
+
+function gzipped(file, st, cb) {
+  const hit = gzipCache.get(file);
+  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) {
+    gzipCache.delete(file); gzipCache.set(file, hit); // LRU: nach hinten
+    return cb(null, hit.buf);
+  }
+  fs.readFile(file, (err, raw) => {
+    if (err) return cb(err);
+    zlib.gzip(raw, { level: 6 }, (err2, buf) => {
+      if (err2) return cb(err2);
+      if (hit) { gzipCacheBytes -= hit.buf.length; gzipCache.delete(file); }
+      gzipCache.set(file, { mtimeMs: st.mtimeMs, size: st.size, buf });
+      gzipCacheBytes += buf.length;
+      for (const [k, v] of gzipCache) { if (gzipCacheBytes <= GZIP_CACHE_MAX) break; gzipCache.delete(k); gzipCacheBytes -= v.buf.length; }
+      cb(null, buf);
+    });
+  });
+}
+
 function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   const file = resolveStatic(req.url);
   if (!file) { res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Verboten'); }
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Nicht gefunden'); }
+    if (gzipEligible(req, file)) {
+      // no-cache = jedes Mal nachfragen; ETag erspart dann die Übertragung unveränderter Dateien
+      const etag = `W/"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}-gz"`;
+      if (req.headers['if-none-match'] === etag) { res.writeHead(304, { 'ETag': etag, 'Cache-Control': 'no-cache', 'Vary': 'Accept-Encoding' }); return res.end(); }
+      return gzipped(file, st, (gzErr, buf) => {
+        if (gzErr) { res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Fehler'); }
+        res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()], 'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding', 'Content-Length': buf.length, 'Cache-Control': 'no-cache', 'ETag': etag });
+        res.end(req.method === 'HEAD' ? undefined : buf);
+      });
+    }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': 'no-cache' });
     if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);

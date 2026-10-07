@@ -1,0 +1,47 @@
+{
+  "id": "lerche/console/tactical",
+  "name": "Taktik: Kartenpult mit Holo (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "konsole", "bruecke", "taktik"],
+  "footprint": [1, 1],
+  "params": {
+    "occupied": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "besetzt (Leuchtrand)" },
+    "alert": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Ladungsalarm" }
+  },
+  "variants": {
+    "besetzt": { "occupied": 1 },
+    "alarm": { "alert": 1 },
+    "besetzt_alarm": { "occupied": 1, "alert": 1 }
+  },
+  "ops": [
+    { "op": "use", "name": "Besetzt-Rand", "model": "lerche/station/parts_c/rim", "at": [0, 0, 0], "params": { "w": 16, "d": 16, "on": "occupied" } },
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, -1], "params": { "w": 14, "d": 10, "h": 2 } },
+
+    { "op": "box", "name": "Tischwange (Marmor)", "at": [-6, 2, -5], "size": [2, 9, 8], "color": "secondary", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Wangenvolute", "at": [-6, 9, 3], "size": [2, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Wangenfuß", "at": [-6, 2, 3], "size": [2, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Mittelsteg", "at": [-4, 4, -2], "size": [8, 3, 2], "color": "metal" },
+    { "op": "box", "name": "Mittelsteg Rotfeld", "at": [-3, 5, 0], "size": [6, 1, 1], "color": "primary" },
+
+    { "op": "box", "name": "Tischplatte", "at": [-7, 11, -6], "size": [14, 2, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Tischrahmen Gold", "at": [-7, 12, -6], "size": [14, 1, 12], "color": { "frame": "trim", "fill": "metal", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Kartenfläche", "at": [-6, 12, -5], "size": [12, 1, 10], "color": "dark", "jitter": false },
+    { "op": "box", "name": "Kartenraster", "repeat": { "count": 3, "step": [3, 0, 0], "var": "k" }, "at": [-3, 12, -5], "size": [1, 1, 10], "color": { "shade": "glow", "f": 0.45 }, "jitter": false },
+    { "op": "box", "name": "Kartenraster quer", "repeat": { "count": 2, "step": [0, 0, 3], "var": "k" }, "at": [-6, 12, -2], "size": [12, 1, 1], "color": { "shade": "glow", "f": 0.45 }, "jitter": false },
+    { "op": "box", "name": "Eigenes Schiff", "at": [-1, 13, 1], "size": [2, 1, 2], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "box", "name": "Kontakte", "repeat": { "count": 3, "step": [3, 0, -2], "var": "k" }, "at": [-4, 13, -2], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Feindmarke", "at": [4, 13, -4], "size": [1, 1, 1], "color": "primary" },
+    { "op": "box", "name": "Griffleiste vorn", "at": [-5, 11, 6], "size": [10, 1, 1], "color": "metal_light" },
+
+    { "op": "cyl", "name": "Holo-Projektor", "at": [0, 13, -2], "r": 1.5, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Holo-Ring", "if": "!alert", "at": [0, 18, -2], "r": 4.5, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "cyl", "name": "Holo-Ring klein", "if": "!alert", "at": [0, 20, -2], "r": 2.5, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Holo-Kern", "if": "!alert", "at": [-1, 16, -3], "size": [2, 6, 2], "color": { "role": "glow", "emit": 0.6 }, "jitter": false },
+    { "op": "cyl", "name": "Holo-Ring Alarm", "if": "alert", "at": [0, 18, -2], "r": 4.5, "hollow": 1, "h": 1, "color": "warning", "emit": 1.4, "jitter": false },
+    { "op": "cyl", "name": "Holo-Ring klein Alarm", "if": "alert", "at": [0, 20, -2], "r": 2.5, "hollow": 1, "h": 1, "color": "warning", "emit": 1.4, "jitter": false },
+    { "op": "box", "name": "Holo-Kern Alarm", "if": "alert", "at": [-1, 16, -3], "size": [2, 6, 2], "color": "warning", "emit": 1.0, "jitter": false },
+    { "op": "box", "name": "Eckleuchten", "if": "alert", "at": [-7, 13, -6], "size": [1, 2, 1], "color": "warning", "emit": 1.6, "jitter": false, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } }
+  ],
+  "anchor": [0, 0, 0]
+}

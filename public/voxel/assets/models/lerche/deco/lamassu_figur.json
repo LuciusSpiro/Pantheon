@@ -1,0 +1,27 @@
+{
+  "id": "lerche/deco/lamassu_figur",
+  "name": "Lamassu-Statuette: geflügelter Stier mit Menschenkopf (Deko, eigene Gestaltung)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "statue", "lamassu", "trophaee"],
+  "footprint": [0.8, 0.55],
+  "params": {},
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [2, 0, 4], "size": [13, 3, 8], "color": "stone_dark", "jitter": false },
+    { "op": "box", "name": "Sockel Band", "at": [2, 3, 4], "size": [13, 1, 8], "color": "trim", "jitter": false },
+    { "op": "box", "name": "Beine", "at": [4, 4, 6], "size": [2, 4, 1], "color": "stone_light", "mirror": "z", "mirrorAt": 8 },
+    { "op": "box", "name": "Beine vorn", "at": [10, 4, 6], "size": [2, 4, 1], "color": "stone_light", "mirror": "z", "mirrorAt": 8 },
+    { "op": "box", "name": "Hufe", "at": [4, 4, 6], "size": [2, 1, 1], "color": "trim", "mirror": "z", "mirrorAt": 8, "repeat": { "count": 2, "step": [6, 0, 0], "var": "i" } },
+    { "op": "box", "name": "Stierleib", "at": [4, 8, 6], "size": [8, 4, 4], "color": "stone_light" },
+    { "op": "box", "name": "Brust", "at": [11, 7, 6], "size": [2, 5, 4], "color": "stone_light" },
+    { "op": "line", "name": "Schwanz", "from": [4, 11, 8], "to": [3, 6, 8], "r": 0.6, "color": "stone_dark" },
+    { "op": "box", "name": "Kopf", "at": [12, 12, 6], "size": [3, 3, 4], "color": "stone_light" },
+    { "op": "box", "name": "Gesicht Augen", "at": [14, 13, 7], "size": [1, 1, 2], "color": "dark", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Bart", "at": [13, 9, 6], "size": [2, 3, 4], "color": { "stripes": ["#5A4632", "#3E3024"], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "Hörnerkrone", "at": [12, 15, 6], "size": [3, 2, 4], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.75 }], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "Krone Spitze", "at": [12, 17, 7], "size": [3, 1, 2], "color": "trim" },
+    { "op": "wedge", "name": "Flügel", "at": [3, 11, 5], "size": [8, 5, 1], "slope": "+x", "color": { "stripes": ["trim", { "shade": "trim", "f": 0.78 }], "axis": "y", "period": 1 }, "mirror": "z", "mirrorAt": 8 },
+    { "op": "box", "name": "Flügelansatz", "at": [8, 11, 5], "size": [4, 1, 6], "color": "trim" }
+  ],
+  "anchor": [8, 0, 8]
+}

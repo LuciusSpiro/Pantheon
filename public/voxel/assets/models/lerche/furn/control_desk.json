@@ -1,0 +1,31 @@
+{
+  "id": "lerche/furn/control_desk",
+  "name": "Kontrollpult Maschinenraum (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "maschinenraum", "pult"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [1, 0, 3], "size": [14, 1, 11], "color": "metal_dark" },
+    { "op": "box", "name": "Korpus", "at": [2, 1, 3], "size": [12, 12, 9], "color": { "frame": "trim", "fill": "metal", "axes": "xy" } },
+    { "op": "box", "name": "Korpus Rotfeld", "at": [4, 3, 11], "size": [8, 7, 1], "color": { "frame": "metal_dark", "fill": "primary", "axes": "xy" }, "mode": "paint" },
+    { "op": "box", "name": "Kniespalt", "at": [5, 1, 11], "size": [6, 2, 1], "mode": "carve" },
+    { "op": "wedge", "name": "Pultschräge", "at": [1, 13, 3], "size": [14, 5, 11], "slope": "+z", "color": "metal_dark" },
+    { "op": "box", "name": "Pultkante Gold", "at": [1, 13, 13], "size": [14, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Aufsatz", "at": [2, 18, 3], "size": [12, 2, 3], "color": "metal" },
+    { "op": "box", "name": "Aufsatz Kranz", "at": [1, 20, 3], "size": [14, 1, 3], "color": "trim" },
+
+    { "op": "box", "name": "Anzeige", "at": [3, 16, 6], "size": [10, 2, 1], "color": "glass" },
+    { "op": "box", "name": "Anzeige Kurve", "at": [4, 17, 7], "size": [3, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Anzeige Kurve 2", "at": [7, 16, 7], "size": [2, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Anzeige Kurve 3", "at": [9, 17, 7], "size": [3, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Tastenreihe", "repeat": { "count": 4, "step": [3, 0, 0], "var": "i" }, "at": [3, 14, 10], "size": [2, 1, 1], "color": "secondary" },
+    { "op": "box", "name": "Taste rot", "at": [3, 14, 10], "size": [2, 1, 1], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Lämpchen warm", "repeat": { "count": 3, "step": [4, 0, 0] }, "at": [4, 15, 8], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Hebel", "at": [13, 14, 9], "size": [1, 3, 1], "color": "metal_light" },
+    { "op": "box", "name": "Hebelknauf", "at": [13, 17, 9], "size": [1, 1, 1], "color": "primary" },
+    { "op": "cyl", "name": "Drehregler", "at": [12, 15, 11], "r": 1, "h": 1, "color": "trim" }
+  ],
+  "anchor": [8, 0, 8]
+}

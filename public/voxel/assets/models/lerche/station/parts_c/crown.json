@@ -1,0 +1,35 @@
+{
+  "id": "lerche/station/parts_c/crown",
+  "name": "Statuskrone (Lichtring auf Stationen, Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "teil", "status"],
+  "footprint": [0.6, 0.6],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand 0 ok · 1 besch. · 2 zerstört · 3 geflickt · 4 Eskalation · 5 EMP" },
+    "r": { "default": 4, "min": 3, "max": 6, "step": 0.5, "label": "Radius (Voxel)" },
+    "post": { "default": 2, "min": 0, "max": 6, "step": 1, "label": "Sockelhöhe (Voxel)" }
+  },
+  "let": { "y0": "post" },
+  "variants": {
+    "beschaedigt": { "state": 1 },
+    "zerstoert": { "state": 2 },
+    "geflickt": { "state": 3 },
+    "eskalation": { "state": 4 },
+    "emp": { "state": 5 }
+  },
+  "ops": [
+    { "op": "cyl", "name": "Sockel", "if": "post > 0", "at": [0, 0, 0], "r": 1.5, "h": "post", "color": "metal_dark" },
+    { "op": "cyl", "name": "Fassung", "at": [0, "y0", 0], "r": "r + 0.6", "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Fassung Goldrand", "at": [0, "y0", 0], "r": "r + 0.6", "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Ring ok", "if": "state == 0", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "cyl", "name": "Ring beschädigt/Eskalation", "if": "state == 1 || state == 4", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#F2C94C", "emit": 0.8, "jitter": false },
+    { "op": "cyl", "name": "Ring zerstört", "if": "state == 2", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#E0473C", "emit": 1.2, "jitter": false },
+    { "op": "cyl", "name": "Ring geflickt", "if": "state == 3", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#F08A3C", "emit": 0.9, "jitter": false },
+    { "op": "cyl", "name": "Ring EMP", "if": "state == 5", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#A9D6E5", "emit": 0.8, "jitter": false },
+    { "op": "box", "name": "EMP: Ring gestört (Lücken)", "if": "state == 5", "repeat": { "count": 4, "step": [0, 0, 0], "var": "k" }, "at": ["k == 0 ? -1 : (k == 1 ? -1 : (k == 2 ? floor(r) - 1 : -floor(r)))", "y0 + 1", "k == 0 ? floor(r) - 1 : (k == 1 ? -floor(r) : -1)"], "size": [2, 2, 2], "color": "#E8F6FB", "emit": 1.4, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Ring zerstört: Lücke", "if": "state == 2", "at": [1, "y0 + 1", 1], "size": [6, 2, 6], "mode": "carve" },
+    { "op": "cyl", "name": "Kern", "at": [0, "y0 + 1", 0], "r": 1.5, "h": 1, "color": "metal" }
+  ],
+  "anchor": [0, 0, 0]
+}

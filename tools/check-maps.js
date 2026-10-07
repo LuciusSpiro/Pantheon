@@ -14,14 +14,16 @@ function check(cond, text) {
   else { failures++; console.log('  FEHLER ' + text); }
 }
 
-function reachableSet(map, walkable, starts) {
+// links(x,y) -> [{x,y}]: zusätzliche Kanten (M4: Lift/Leiter zwischen den Decks)
+function reachableSet(map, walkable, starts, links) {
   const seen = new Set();
   const q = [];
   for (const s of starts) { const k = s.y * map.w + s.x; if (!seen.has(k)) { seen.add(k); q.push(s); } }
   while (q.length) {
     const c = q.shift();
-    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
-      const nx = c.x + dx, ny = c.y + dy;
+    const next = [[0, -1], [1, 0], [0, 1], [-1, 0]].map(([dx, dy]) => ({ x: c.x + dx, y: c.y + dy })).concat(links ? links(c.x, c.y) : []);
+    for (const n of next) {
+      const nx = n.x, ny = n.y;
       if (nx < 0 || ny < 0 || nx >= map.w || ny >= map.h) continue;
       const k = ny * map.w + nx;
       if (seen.has(k) || !walkable(nx, ny)) continue;
@@ -56,7 +58,13 @@ const shipLegend = ship.legend || Maps.LEGEND;
 checkRows('ship', Maps.SHIP_ROWS, shipLegend);
 const shipWalk = (x, y) => !ship.solid(x, y);
 const shipChars = new Set(Maps.SHIP_ROWS.join(''));
-const shipSet = reachableSet(ship, shipWalk, Maps.SHIP_SPAWNS);
+// M4: Erreichbarkeit über beide Decks – Spieler mit Lift und Leiter, Bots nur mit Lift
+const deckLinks = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y) : []);
+const botLinks = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y, { ladder: false }) : []);
+const shipSet = reachableSet(ship, shipWalk, Maps.SHIP_SPAWNS, deckLinks);
+const botSet = reachableSet(ship, shipWalk, Maps.BOT_SPAWNS.slice(0, 1), botLinks);
+// BFS wie die Bots (mit Lift-Kanten)
+const botBfs = (start, goal) => bfs(shipWalk, start, goal, ship.w, ship.h, null, botLinks);
 for (const s of Maps.SHIP_SPAWNS) check(shipWalk(s.x, s.y), `Spawn (${s.x},${s.y}) begehbar`);
 for (const s of Maps.BOT_SPAWNS) check(shipSet.has(s.y * ship.w + s.x), `Bot-Spawn (${s.x},${s.y}) erreichbar`);
 const interactive = [];
@@ -106,7 +114,7 @@ Maps.SECTOR_REGIONS.forEach((r, i) => {
 
 // BFS-Pfad (wie die Bots) vom Bot-Spawn zu jeder Stationskachel
 for (const s of systems) for (const t of stationsOf(s)) {
-  const path = bfs(shipWalk, Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - t.x) + Math.abs(y - t.y) === 1, ship.w, ship.h);
+  const path = botBfs(Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - t.x) + Math.abs(y - t.y) === 1);
   check(!!path, `Bot-BFS zum System ${s} (${t.x},${t.y}): ${path ? path.length + ' Schritte' : 'kein Weg'}`);
 }
 
@@ -134,7 +142,7 @@ for (const b of Maps.BEDS) {
 for (const sw of Maps.REACTOR_SWITCHES) {
   check(ship.info(sw.x, sw.y).interact === 'switch', `Reaktorschalter ${sw.id} (${sw.x},${sw.y}) ist ein Schalter`);
   check(hasAccess(ship, shipSet, sw), `Reaktorschalter ${sw.id} erreichbar (Spieler und Schrauber)`);
-  const path = bfs(shipWalk, Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - sw.x) + Math.abs(y - sw.y) === 1, ship.w, ship.h);
+  const path = botBfs(Maps.BOT_SPAWNS[0], (x, y) => shipWalk(x, y) && Math.abs(x - sw.x) + Math.abs(y - sw.y) === 1);
   check(!!path, `Bot-BFS zu Schalter ${sw.id}: ${path ? path.length + ' Schritte' : 'kein Weg'}`);
 }
 const planTiles = interactive.filter((t) => t.info.console === 'plan');
@@ -172,7 +180,7 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
 {
   console.log('\n[M3a Lerche]');
   const Protocol = require('../shared/protocol.js');
-  check(ship.w === 44 && ship.h === 13, `Lerche 44×13 (ist ${ship.w}×${ship.h})`);
+  check(ship.w === 37 && ship.h === 29, `Lerche (M4-Atlas) 37×29 (ist ${ship.w}×${ship.h})`);
   check(shipLegend !== Maps.LEGEND && shipLegend === Maps.SHIP_LEGEND, 'Schiffskarte nutzt die eigene Legende SHIP_LEGEND');
   // 14 Stationen = Protocol.SYSTEMS ohne den Altnamen 'weapons'
   const want = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
@@ -209,11 +217,11 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
     check(st.every((s) => r.systems.includes(s)), `SECTOR_REGIONS[${i}].systems enthält alle Stationen des Sektors`);
     check(!r.systems.some((s) => EXPECT[s] === -1), `SECTOR_REGIONS[${i}]: kein Mittschiffs-System`);
   }
-  // Mittschiffs-Systeme liegen in Räumen mit Sektor -1 (Maschinenraum / Messe)
+  // Mittschiffs-Systeme liegen in Räumen mit Sektor -1 (M4: alle drei im Maschinenraum)
   for (const s of ['reactor', 'shields', 'life']) {
-    check(stationsOf(s).every((t) => { const r = Maps.roomAt(t.x, t.y); return r && r.sector === -1; }), `${s} liegt in einem Raum mittschiffs`);
+    check(stationsOf(s).every((t) => { const r = Maps.roomAt(t.x, t.y); return r && r.sector === -1 && r.id === 'maschinenraum'; }), `${s} liegt im Maschinenraum (mittschiffs)`);
   }
-  check(Maps.roomAt(21, 3) && Maps.roomAt(21, 3).id === 'maschinenraum' && Maps.roomAt(1, 6).id === 'antrieb', 'Maschinenraum mittschiffs, Antriebsraum am Heck');
+  check(Maps.roomAt(13, 3) && Maps.roomAt(13, 3).id === 'maschinenraum' && Maps.roomAt(1, 6).id === 'antrieb', 'Maschinenraum mittschiffs, Antriebsraum am Heck');
   // Schalter A↔B: beide erreichbar, Weg ≤ 14 Kacheln (Vertrag: 12)
   const [swA, swB] = ['A', 'B'].map((id) => Maps.REACTOR_SWITCHES.find((s) => s.id === id));
   check(!!swA && !!swB, 'Reaktorschalter A und B vorhanden');
@@ -252,15 +260,122 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
   // Spawns
   for (const s of Maps.SHIP_SPAWNS.concat(Maps.BOT_SPAWNS)) check(shipWalk(s.x, s.y), `Spawn (${s.x},${s.y}) auf Boden`);
   for (const s of Maps.IVO_SPOTS || []) check(shipWalk(s.x, s.y) && shipSet.has(s.y * ship.w + s.x), `Ivo-Wegpunkt (${s.x},${s.y}) begehbar und erreichbar`);
-  // Übung: Feuer in der Messe, Leck im Lager
+  // Übung (M4): Feuer im Vorraum, Leck im Lager – beide auf dem Systemdeck
   const dr = Maps.SHIP_DRILL;
-  check(Maps.roomAt(dr.fire.x, dr.fire.y).id === 'messe' && Maps.roomAt(dr.breach.x, dr.breach.y).id === 'lager', 'SHIP_DRILL: Feuer in der Messe, Leck im Lager');
+  check(Maps.roomAt(dr.fire.x, dr.fire.y).id === 'vorraum' && Maps.roomAt(dr.breach.x, dr.breach.y).id === 'lager', 'SHIP_DRILL: Feuer im Vorraum, Leck im Lager');
+  check(Maps.hazardAllowed(dr.fire.x, dr.fire.y) && Maps.hazardAllowed(dr.breach.x, dr.breach.y), 'SHIP_DRILL: Feuer und Leck dürfen dort entstehen');
   // Deko-Slots: im eigenen Quartier (roomAt) und begehbar
   for (const b of Maps.BEDS) for (const sl of b.slots) {
     const r = Maps.roomAt(sl.x, sl.y);
     check(!!r && r.id === b.room.id && shipWalk(sl.x, sl.y), `Deko-Slot ${sl.id} (${sl.x},${sl.y}) auf Boden im Raum ${b.room.id}`);
   }
 }
+// ---------- M4 Stufe 1: zwei Decks (CONTRACT-M4 §2.5) ----------
+{
+  console.log('\n[M4 Zwei Decks]');
+  const S = Maps.DECK_STRIDE;
+  check(S === 16 && Maps.SHIP_DECKS.length === 2, `DECK_STRIDE 16, zwei Decks (${Maps.SHIP_DECKS.map((d) => d.name).join(', ')})`);
+  check(Maps.SHIP_ROWS.every((r) => r.length === 37), 'alle Atlas-Zeilen 37 lang');
+  const gap = [];
+  for (let y = 0; y < ship.h; y++) if (Maps.deckOf(y) < 0) gap.push(y);
+  check(gap.join() === '13,14,15' && gap.every((y) => /^ +$/.test(Maps.SHIP_ROWS[y])), `Spaltzeilen ${gap.join(',')} leer (void)`);
+  check(Maps.deckOf(0) === 0 && Maps.deckOf(12) === 0 && Maps.deckOf(16) === 1 && Maps.deckOf(28) === 1 && Maps.deckOf(14) === -1, 'deckOf: 0–12 Deck I, 16–28 Deck II, Lücke −1');
+  check(Maps.deckLocalY(21) === 5 && Maps.deckLocalY(5) === 5 && Maps.deckOfPx(21 * 32 + 5) === 1, 'deckLocalY / deckOfPx');
+  // Gegenstücke: jede ^/!-Kachel hat auf dem anderen Deck dieselbe Kachel
+  for (const ch of ['^', '!']) {
+    const tiles = ship.find(ch);
+    const bad = tiles.filter((t) => { const o = Maps.otherDeckTile(t.x, t.y); return !o || ship.at(o.x, o.y) !== ch; });
+    check(tiles.length > 0 && bad.length === 0, `'${ch}': ${tiles.length} Kacheln, jede mit Gegenstück auf dem anderen Deck` + (bad.length ? ' – fehlt für ' + bad.map((t) => `(${t.x},${t.y})`).join(' ') : ''));
+    check(tiles.some((t) => Maps.deckOf(t.y) === 0) && tiles.some((t) => Maps.deckOf(t.y) === 1), `'${ch}' auf beiden Decks`);
+  }
+  for (const l of Maps.SHIP_LIFTS) {
+    check(l.tiles.length === 4 && l.tiles.every(([x, y]) => ship.at(x, y) === '^' && ship.at(x, y + S) === '^'), `Lift ${l.id}: 2×2 auf Deck I und Deck II`);
+    check(l.tiles.every(([x, y]) => Maps.liftAt(x, y) === l && Maps.liftAt(x, y + S) === l), `liftAt erkennt Lift ${l.id} auf beiden Decks`);
+  }
+  check(Maps.SHIP_LADDERS.length === 2 && Maps.SHIP_LADDERS.every((l) => ship.at(l.x, l.y) === '!'), 'SHIP_LADDERS = die beiden Notleitern');
+  check(ship.find('!').length === Maps.SHIP_LADDERS.length, 'keine Notleiter ohne Eintrag in SHIP_LADDERS');
+  check(Maps.ladderPartner(5, 5) && Maps.ladderPartner(5, 5).y === 21 && Maps.ladderPartner(5, 21).y === 5, 'Leiter (5,5) ↔ (5,21)');
+  for (const ch of ['^', '!', ':']) check(!!shipLegend[ch] && !shipLegend[ch].solid, `Legende '${ch}' (${shipLegend[ch] && shipLegend[ch].kind}) begehbar`);
+  for (const ch of ['w', '%', 't', 'a', 'v', 'o', 's', 'j']) check(!!shipLegend[ch] && shipLegend[ch].solid, `Legende '${ch}' (${shipLegend[ch] && shipLegend[ch].kind}) solid`);
+  // Ohne Deck-Kanten ist Deck II von den Spawns aus nicht erreichbar, mit Kanten schon (Lift ist Pflicht)
+  const flatSet = reachableSet(ship, shipWalk, Maps.SHIP_SPAWNS);
+  const bedTile = Maps.BEDS[0];
+  check(!hasAccess(ship, flatSet, bedTile) && hasAccess(ship, shipSet, bedTile), 'Deck II nur über Lift/Leiter erreichbar');
+  check(hasAccess(ship, botSet, bedTile), 'Deck II auch nur mit dem Lift erreichbar (Bots)');
+  // BFS mit Lift- und Leiter-Kanten von JEDEM Spawn zu jedem Ziel
+  const goals = [];
+  for (const t of interactive) {
+    if (t.info.kind === 'pad' || t.info.interact === 'lift' || t.info.interact === 'ladder') goals.push({ name: `${t.info.kind} (${t.x},${t.y})`, on: t });
+    else goals.push({ name: `${t.info.kind} (${t.x},${t.y})`, near: t });
+  }
+  for (const s of Maps.SHELF_TILES) goals.push({ name: `Regalzugang ${s.item}`, on: s.access });
+  for (const b of Maps.BEDS) for (const sl of b.slots) goals.push({ name: `Deko-Slot ${sl.id}`, on: sl });
+  for (const s of Maps.IVO_SPOTS) goals.push({ name: `Ivo-Spot (${s.x},${s.y})`, on: s });
+  let missing = [];
+  for (const sp of Maps.SHIP_SPAWNS.concat(Maps.BOT_SPAWNS)) {
+    const set = reachableSet(ship, shipWalk, [sp], deckLinks);
+    for (const g of goals) {
+      const ok = g.on ? set.has(g.on.y * ship.w + g.on.x) : hasAccess(ship, set, g.near);
+      if (!ok) missing.push(`(${sp.x},${sp.y})→${g.name}`);
+    }
+  }
+  check(missing.length === 0, `BFS über beide Decks: alle ${goals.length} Ziele von allen ${Maps.SHIP_SPAWNS.length + Maps.BOT_SPAWNS.length} Spawns erreichbar` + (missing.length ? ' – fehlt: ' + missing.slice(0, 6).join(' ') : ''));
+  // Kein System auf Deck II
+  const sysDeck2 = interactive.filter((t) => t.info.system && Maps.deckOf(t.y) !== 0);
+  check(sysDeck2.length === 0, 'kein System auf Deck II' + (sysDeck2.length ? ': ' + sysDeck2.map((t) => t.info.system).join(',') : ''));
+  check(interactive.filter((t) => t.info.console === 'helm' || t.info.console === 'captain' || t.info.console === 'weapons').every((t) => Maps.deckOf(t.y) === 0), 'Brückenkonsolen auf Deck I');
+  // Räume: jeder Raum hat ein deck, liegt ganz in diesem Deck, überspannt die Lücke nicht
+  for (const r of Maps.SHIP_ROOMS) {
+    const d = Maps.SHIP_DECKS.find((q) => q.level === r.deck);
+    check(!!d && r.y0 >= d.y0 && r.y1 <= d.y1, `Raum ${r.id}: deck ${r.deck} (${d ? d.name : '—'}), Zeilen ${r.y0}–${r.y1} im Deck`);
+    if (r.deck === 1) check(r.sector === -1, `Raum ${r.id} (Deck II): Sektor −1`);
+  }
+  // Auf Deck II und auf Lift/Leiter keine Feuer-/Leck-Kandidaten
+  let hazBad = [];
+  for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) {
+    if (ship.solid(x, y) || !Maps.hazardAllowed(x, y)) continue;
+    if (Maps.deckOf(y) !== 0 || ['lift', 'ladder'].includes(ship.info(x, y).kind)) hazBad.push(`(${x},${y})`);
+  }
+  check(hazBad.length === 0, 'hazardAllowed: nie auf Deck II, nie auf Lift/Leiter' + (hazBad.length ? ' – ' + hazBad.slice(0, 6).join(' ') : ''));
+  {
+    const W = require('../server/world.js');
+    const bad = W.REGION_FLOORS.concat(W.REGION_WALL_FLOORS).flat().filter((t) => !Maps.hazardAllowed(t.x, t.y));
+    check(bad.length === 0, `Feuer-/Leck-Kandidaten je Sektor (${W.REGION_FLOORS.map((l) => l.length).join('/')}) alle auf Deck I, nicht auf Lift/Leiter`);
+  }
+  // Ivo bleibt auf Deck II: alle Ivo-Spots auf Deck II und untereinander OHNE Lift/Leiter erreichbar
+  const ivoSet = reachableSet(ship, shipWalk, [Maps.IVO_SPOTS[0]]);
+  check(Maps.IVO_SPOTS.every((s) => Maps.deckOf(s.y) === 1 && ivoSet.has(s.y * ship.w + s.x)), 'Ivo-Spots auf Deck II, ohne Lift erreichbar');
+  // Raumnamen auf Deck II
+  check(Maps.roomAt(15, 22).name === 'Atrium' && Maps.roomAt(15, 18).name === 'Messe' && Maps.roomAt(27, 19).id === 'liftvorraum', 'roomAt: Atrium, Messe, Liftvorraum auf Deck II');
+  check(Maps.roomAt(13, 9).id === 'maschinenraum' && ship.at(11, 9) === 'O', 'Lebenserhaltung O im Maschinenraum');
+  check(Maps.roomAt(13, 17).id === 'messe' && ship.at(13, 17) === 'S', 'Hafenterminal S in der Messe (Deck II)');
+
+  // Laufzeiten vom Captain-Platz (BFS, 3 Kacheln/s; Lift = CONFIG.lift.rideTime) – Messwerte der Studioleitung §2.5
+  const speed = CONFIG.player.speed / 32;
+  const cap = interactive.find((t) => t.info.console === 'captain');
+  const seat = W_access(cap).sort((a, b) => a.x - b.x || a.y - b.y)[0];
+  const timeTo = (goalFn) => {
+    const path = bfs(shipWalk, seat, goalFn, ship.w, ship.h, null, deckLinks);
+    if (!path) return null;
+    let walk = 0, lift = 0;
+    for (const s of path) { if (s.via === 'lift') lift++; else if (s.via === 'ladder') lift += 0; else walk++; }
+    return { s: walk / speed + lift * CONFIG.lift.rideTime, walk, lift };
+  };
+  const nearSys = (sys) => (x, y) => shipWalk(x, y) && stationsOf(sys).some((t) => Math.abs(x - t.x) + Math.abs(y - t.y) === 1);
+  const shelf1 = Maps.SHELF_TILES[0];
+  const bed0 = Maps.BEDS[0];
+  const TARGETS = [['Lanze', nearSys('weapon_bow'), 2.0], ['Batterie Bb', nearSys('battery_port'), 4.7], ['Düse Stb', nearSys('thruster_stbd'), 5.7],
+    ['Reaktor', nearSys('reactor'), 6.7], ['Triebwerk', nearSys('engines'), 9.7], ['Regal 1', (x, y) => x === shelf1.access.x && y === shelf1.access.y, 10.0],
+    ['Heck-Emitter', nearSys('emitter_aft'), 11.0], ['Quartier 1', (x, y) => shipWalk(x, y) && Math.abs(x - bed0.x) + Math.abs(y - bed0.y) === 1, 10.7 + CONFIG.lift.rideTime]];
+  const parts = [];
+  for (const [name, fn, want] of TARGETS) {
+    const r = timeTo(fn);
+    parts.push(`${name} ${r ? r.s.toFixed(1) + ' s' + (r.lift ? ' (inkl. Lift)' : '') : '—'}`);
+    check(!!r && Math.abs(r.s - want) <= 0.5, `Laufzeit Captain-Platz (${seat.x},${seat.y}) → ${name}: ${r ? r.s.toFixed(1) : '—'} s (Vertrag ${want.toFixed(1)} s ±0,5)`);
+  }
+  console.log('  info Laufzeiten (BFS, 3 Kacheln/s): ' + parts.join(' · '));
+}
+
 function W_access(t) { return [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy })).filter((q) => !ship.solid(q.x, q.y)); }
 
 // ---------- Plattform ----------

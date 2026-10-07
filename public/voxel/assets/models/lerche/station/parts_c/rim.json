@@ -1,0 +1,20 @@
+{
+  "id": "lerche/station/parts_c/rim",
+  "name": "Besetzt-Rand (Leuchtfuge am Konsolenfuß, Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "teil", "konsole"],
+  "footprint": [1, 1],
+  "params": {
+    "w": { "default": 14, "min": 4, "max": 32, "step": 1, "label": "Breite (Voxel)" },
+    "d": { "default": 14, "min": 4, "max": 32, "step": 1, "label": "Tiefe (Voxel)" },
+    "on": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "leuchtet (besetzt)" }
+  },
+  "ops": [
+    { "op": "box", "name": "Fuge vorn/hinten an", "if": "on", "at": ["-floor(w/2)", 0, "-floor(d/2)"], "size": ["w", 1, 1], "color": { "role": "glow", "emit": 1.1 }, "jitter": false, "mirror": "z", "mirrorAt": "(d - 2*floor(d/2))/2" },
+    { "op": "box", "name": "Fuge Seiten an", "if": "on", "at": ["-floor(w/2)", 0, "-floor(d/2)"], "size": [1, 1, "d"], "color": { "role": "glow", "emit": 1.1 }, "jitter": false, "mirror": "x", "mirrorAt": "(w - 2*floor(w/2))/2" },
+    { "op": "box", "name": "Fuge vorn/hinten aus", "if": "!on", "at": ["-floor(w/2)", 0, "-floor(d/2)"], "size": ["w", 1, 1], "color": "metal_dark", "mirror": "z", "mirrorAt": "(d - 2*floor(d/2))/2" },
+    { "op": "box", "name": "Fuge Seiten aus", "if": "!on", "at": ["-floor(w/2)", 0, "-floor(d/2)"], "size": [1, 1, "d"], "color": "metal_dark", "mirror": "x", "mirrorAt": "(w - 2*floor(w/2))/2" }
+  ],
+  "anchor": [0, 0, 0]
+}

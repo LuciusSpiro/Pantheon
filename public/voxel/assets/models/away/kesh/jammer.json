@@ -1,0 +1,45 @@
+{
+  "id": "away/kesh/jammer",
+  "name": "Kesh – Störrelais der Plünderer (Dreibein, Schüssel, Peitschenantenne)",
+  "tier": "detail",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "terminal", "stoerrelais", "deckung_voll"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "on": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sendet (an)" }
+  },
+  "variants": { "aus": { "on": 0 } },
+  "ops": [
+    { "op": "line", "name": "Bein links", "from": [-1, 12, -1], "to": [-7, 0, -6], "r": 0.8, "color": "scav_dark" },
+    { "op": "line", "name": "Bein rechts", "from": [1, 12, -1], "to": [6, 0, -6], "r": 0.8, "color": "scav_dark" },
+    { "op": "line", "name": "Bein vorn", "from": [0, 12, 1], "to": [0, 0, 7], "r": 0.8, "color": "scav_dark" },
+    { "op": "box", "name": "Fuß links", "at": [-8, 0, -7], "size": [3, 1, 3], "color": "scav_light" },
+    { "op": "box", "name": "Fuß rechts", "at": [5, 0, -7], "size": [3, 1, 3], "color": "scav_light" },
+    { "op": "box", "name": "Fuß vorn", "at": [-1, 0, 5], "size": [3, 1, 3], "color": "scav_light" },
+
+    { "op": "box", "name": "Gehäuse", "at": [-5, 9, -5], "size": [10, 9, 9], "color": { "stripes": ["scav_rust", { "shade": "scav_rust", "f": 0.88 }], "axis": "y", "period": 3 } },
+    { "op": "box", "name": "Flickblech", "at": [-5, 13, -6], "size": [5, 4, 1], "color": "scav_steel" },
+    { "op": "box", "name": "Kühlrippen", "at": [-6, 10, -4], "size": [12, 6, 7], "mode": "under", "color": { "stripes": ["scav_light", "scav_dark"], "axis": "y", "period": 2 } },
+    { "op": "box", "name": "Frontplatte", "at": [-4, 10, 4], "size": [8, 7, 1], "color": { "frame": "scav_dark", "fill": "scav_steel", "axes": "xy" } },
+    { "op": "box", "name": "Anzeige an", "if": "on", "at": [-2, 13, 5], "size": [4, 2, 1], "color": "jam", "jitter": false },
+    { "op": "box", "name": "Anzeige aus", "if": "!on", "at": [-2, 13, 5], "size": [4, 2, 1], "color": "jam_off" },
+    { "op": "box", "name": "Schalter", "at": [-3, 11, 5], "size": [2, 1, 1], "color": "scav_light" },
+    { "op": "box", "name": "Schalterhebel", "at": ["on ? 1 : -1", 11, 5], "size": [2, 1, 2], "color": "black" },
+    { "op": "box", "name": "Gehäusedeckel", "at": [-5, 18, -5], "size": [10, 1, 9], "color": "scav_dark" },
+
+    { "op": "box", "name": "Mast", "at": [-1, 19, -1], "size": [2, 9, 2], "color": "scav_dark" },
+    { "op": "box", "name": "Mastring an", "if": "on", "at": [-2, 21, -2], "size": [4, 1, 4], "color": "jam", "jitter": false },
+    { "op": "box", "name": "Mastring aus", "if": "!on", "at": [-2, 21, -2], "size": [4, 1, 4], "color": "jam_off" },
+    { "op": "cyl", "name": "Schüssel", "at": [0, 25, 2], "axis": "z", "r": 4.5, "h": 1, "color": "scav_steel" },
+    { "op": "cyl", "name": "Schüsselrand", "at": [0, 25, 3], "axis": "z", "r": 4.5, "h": 1, "hollow": 1, "color": "scav_light" },
+    { "op": "box", "name": "Empfänger", "at": [-1, 24, 3], "size": [2, 2, 3], "color": "scav_dark" },
+    { "op": "box", "name": "Empfängerspitze an", "if": "on", "at": [-1, 24, 6], "size": [2, 2, 1], "color": "jam", "jitter": false },
+    { "op": "line", "name": "Peitschenantenne", "from": [3, 18, -3], "to": [4, 30, -4], "r": 0.5, "color": "scav_light" },
+    { "op": "box", "name": "Antennenspitze an", "if": "on", "at": [3, 30, -5], "size": [2, 2, 2], "color": "jam", "jitter": false },
+    { "op": "box", "name": "Antennenspitze aus", "if": "!on", "at": [3, 30, -5], "size": [2, 2, 2], "color": "jam_off" },
+    { "op": "line", "name": "Kabel", "from": [5, 12, 1], "to": [7, 0, 3], "r": 0.5, "color": "black" },
+    { "op": "box", "name": "Akku", "at": [3, 0, 2], "size": [5, 3, 4], "color": { "frame": "scav_dark", "fill": "scav_steel", "axes": "xz" } }
+  ],
+  "anchor": [0, 0, 0]
+}

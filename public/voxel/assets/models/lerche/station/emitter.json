@@ -1,0 +1,60 @@
+{
+  "id": "lerche/station/emitter",
+  "name": "Schild-Emitter: Spule vor Scutum (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "system", "schild", "emitter"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand 0 ok · 1 besch. · 2 zerstört · 3 geflickt · 4 Eskalation · 5 EMP" },
+    "side": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Sektor 0 Bug / 1 Stb / 2 Heck / 3 Bb" },
+    "strength": { "default": 4, "min": 0, "max": 4, "step": 1, "label": "Schildstärke (leuchtende Windungen)" }
+  },
+  "let": { "lit": "state != 2 && state != 5", "dmg": "state == 1 || state == 4" },
+  "variants": {
+    "beschaedigt": { "state": 1, "strength": 2 },
+    "zerstoert": { "state": 2, "strength": 0 },
+    "geflickt": { "state": 3, "strength": 1 },
+    "eskalation": { "state": 4, "strength": 1 },
+    "emp": { "state": 5 },
+    "heck": { "side": 2, "strength": 2 }
+  },
+  "ops": [
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, 0], "params": { "w": 14, "d": 14, "h": 3, "state": "state" } },
+    { "op": "box", "name": "Sektormarken", "repeat": { "count": "side + 1", "step": [2, 0, 0], "var": "k" }, "at": [-3, 1, 7], "size": [1, 1, 1], "color": "trim" },
+
+    { "op": "group", "name": "Scutum (gewölbter Schild hinten)", "if": "state != 2", "ops": [
+      { "op": "cyl", "name": "Schildbahn", "at": [0, 3, 3], "r": 11, "hollow": 2, "h": 16, "arc": [142, 218], "color": "primary" },
+      { "op": "cyl", "name": "Schildrand oben", "at": [0, 18, 3], "r": 11, "hollow": 2, "h": 1, "arc": [142, 218], "color": "trim" },
+      { "op": "cyl", "name": "Schildrand unten", "at": [0, 3, 3], "r": 11, "hollow": 2, "h": 1, "arc": [142, 218], "color": "trim" },
+      { "op": "box", "name": "Schildkante seitlich", "at": [-8, 3, -8], "size": [2, 16, 4], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Schildgrat", "at": [-1, 4, -8], "size": [2, 14, 1], "color": { "shade": "primary", "f": 0.75 } },
+      { "op": "box", "name": "Schwingen-Zier", "repeat": { "count": 3, "step": [-1, 1, 0], "var": "k" }, "at": [-4, 13, -8], "size": [2, 1, 2], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 0 }
+    ] },
+    { "op": "group", "name": "Scutum Rest (zerstört)", "if": "state == 2", "ops": [
+      { "op": "cyl", "name": "Schildbahn Rest", "at": [0, 3, 3], "r": 11, "hollow": 2, "h": 8, "arc": [142, 190], "color": "primary" },
+      { "op": "box", "name": "Splitter", "at": [3, 3, -6], "size": [3, 1, 2], "color": "primary" }
+    ] },
+
+    { "op": "cyl", "name": "Spulenfuß", "at": [0, 3, 0], "r": 4.5, "h": 2, "color": "metal_dark" },
+    { "op": "cyl", "name": "Spulenfuß Goldring", "at": [0, 4, 0], "r": 4.5, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Spulenkern", "at": [0, 5, 0], "r": 2, "h": "state == 2 ? 6 : 10", "color": "metal" },
+    { "op": "cyl", "name": "Kernlicht", "if": "lit && strength > 0", "at": [0, 5, 0], "r": 2, "h": 10, "color": { "role": "glow", "emit": 0.5 }, "mode": "paint", "jitter": false },
+    { "op": "group", "name": "Windungen", "repeat": { "count": 4, "step": [0, 2, 0], "var": "i" }, "ops": [
+      { "op": "cyl", "name": "Windung", "if": "!(state == 2 && i >= 2) && !(i < strength && lit)", "at": [0, 6, 0], "r": 3.6, "hollow": 1.4, "h": 1, "color": { "shade": "trim", "f": 0.8 } },
+      { "op": "cyl", "name": "Windung leuchtet", "if": "i < strength && lit", "at": [0, 6, 0], "r": 3.6, "hollow": 1.4, "h": 1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false }
+    ] },
+    { "op": "cyl", "name": "Spulenkappe", "if": "state == 0 || state == 3 || state == 5", "at": [0, 14, 0], "r": 3.5, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Spulenkappe Mitte", "if": "state == 0 || state == 3 || state == 5", "at": [0, 15, 0], "r": 2.5, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Kappe offen: Schacht", "if": "dmg", "at": [0, 14, 0], "r": 3.5, "h": 1, "color": "dark", "jitter": false },
+    { "op": "line", "name": "Kappe offen: Kabel", "if": "dmg", "from": [-2, 14.5, -1], "to": [2, 14.5, 1], "r": 0.5, "color": "primary" },
+    { "op": "box", "name": "Kappe offen: Deckel hochgeklappt", "if": "dmg", "at": [-3, 13, 5], "size": [7, 7, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Bruchkante", "if": "state == 2", "at": [-2, 11, -1], "size": [3, 1, 2], "color": "dark" },
+
+    { "op": "box", "name": "Ruß", "if": "state == 2", "at": [-8, 3, -8], "size": [16, 16, 16], "mode": "paint", "color": { "noise": ["dark", "metal_dark", "metal"], "weights": [2, 2, 2], "cell": 2 } },
+    { "op": "use", "name": "Statuskrone", "model": "lerche/station/parts_c/crown", "at": [0, "state == 2 ? 11 : (dmg ? 15 : 16)", 0], "params": { "state": "state", "post": 1, "r": 3.5 } },
+    { "op": "line", "name": "Flickband quer", "if": "state == 3", "from": [-5, 7, 4], "to": [5, 12, -4], "r": 0.9, "color": "stone_light" },
+    { "op": "use", "name": "EMP-Bögen", "if": "state == 5", "model": "lerche/station/parts_c/emp_arcs", "at": [0, 5, 0], "params": { "w": 12, "d": 10, "h": 10 } }
+  ],
+  "anchor": [0, 0, 0]
+}

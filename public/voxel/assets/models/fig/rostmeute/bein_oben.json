@@ -1,0 +1,20 @@
+{
+  "id": "fig/rostmeute/bein_oben",
+  "name": "Plünderer-Oberschenkel (links modelliert): Mischkleidung, side 0 Rostplatte / 1 Beintasche + Flicken",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "bein", "gegner"],
+  "params": {
+    "side": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Ausführung (0 Rostplatte, 1 Beintasche)" }
+  },
+  "ops": [
+    { "name": "Hosenbein", "op": "use", "model": "fig/basis/oberschenkel" },
+    { "name": "Schenkelplatte", "if": "side == 0", "op": "box", "at": [1, 9, 2], "size": [3, 4, 1], "color": { "noise": ["primary", { "shade": "primary", "f": 0.8 }], "weights": [2, 1] } },
+    { "name": "Riemen", "if": "side == 0", "op": "box", "at": [1, 11, -1], "size": [3, 1, 3], "color": "dark", "mode": "paint" },
+    { "name": "Flicken", "if": "side == 1", "op": "box", "at": [1, 8, 1], "size": [3, 3, 1], "color": "secondary", "mode": "paint" },
+    { "name": "Beintasche", "if": "side == 1", "op": "box", "at": [4, 8, -1], "size": [1, 3, 3], "color": "leather" },
+    { "name": "Taschendeckel", "if": "side == 1", "op": "box", "at": [4, 10, -1], "size": [1, 1, 3], "color": "metal" }
+  ],
+  "variants": { "tasche": { "side": 1 } },
+  "anchor": [0, 0, 0]
+}

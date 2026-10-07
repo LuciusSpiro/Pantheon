@@ -1,0 +1,33 @@
+{
+  "id": "lerche/station/parts_b/crown",
+  "name": "Statuskrone (Lichtring oben auf jeder Station, ART-B)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "teil", "status"],
+  "footprint": [0.6, 0.6],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand (0 ok, 1 besch., 2 zerst., 3 geflickt, 4 Eskalation, 5 EMP)" },
+    "r": { "default": 3.5, "min": 2, "max": 7, "step": 0.5, "label": "Radius (Voxel)" }
+  },
+  "ops": [
+    { "op": "cyl", "name": "Kronenfassung Bronze", "at": [0, 0, 0], "r": "r+1", "h": 1, "hollow": 1.2, "color": "metal_dark" },
+    { "op": "cyl", "name": "Lichtring ok (Mint)", "if": "state == 0", "at": [0, 1, 0], "r": "r", "h": 1, "hollow": 1.1, "color": { "role": "#7FE0C2", "emit": 1.6 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring beschädigt/Eskalation (Gelb)", "if": "state == 1 || state == 4", "at": [0, 1, 0], "r": "r", "h": 1, "hollow": 1.1, "color": { "role": "#F2C94C", "emit": 1.7 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring zerstört (Rot)", "if": "state == 2", "at": [0, 1, 0], "r": "r", "h": 1, "hollow": 1.1, "color": { "role": "#E0473C", "emit": 1.7 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring geflickt (Orange)", "if": "state == 3", "at": [0, 1, 0], "r": "r", "h": 1, "hollow": 1.1, "color": { "role": "#F08A3C", "emit": 1.7 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring EMP (Eisblau)", "if": "state == 5", "at": [0, 1, 0], "r": "r", "h": 1, "hollow": 1.1, "color": { "role": "#A9D6E5", "emit": 1.7 }, "jitter": false },
+    { "op": "box", "name": "Zacke vorn/hinten ok", "if": "state == 0", "at": [-1, 2, "-floor(r)"], "size": [2, 1, "2*floor(r)"], "color": { "role": "#7FE0C2", "emit": 1.6 }, "jitter": false },
+    { "op": "box", "name": "Zacke vorn/hinten gelb", "if": "state == 1 || state == 4", "at": [-1, 2, "-floor(r)"], "size": [2, 1, "2*floor(r)"], "color": { "role": "#F2C94C", "emit": 1.7 }, "jitter": false },
+    { "op": "box", "name": "Zacke vorn/hinten rot", "if": "state == 2", "at": [-1, 2, "-floor(r)"], "size": [2, 1, "2*floor(r)"], "color": { "role": "#E0473C", "emit": 1.7 }, "jitter": false },
+    { "op": "box", "name": "Zacke vorn/hinten orange", "if": "state == 3", "at": [-1, 2, "-floor(r)"], "size": [2, 1, "2*floor(r)"], "color": { "role": "#F08A3C", "emit": 1.7 }, "jitter": false },
+    { "op": "box", "name": "Zacke vorn/hinten eisblau", "if": "state == 5", "at": [-1, 2, "-floor(r)"], "size": [2, 1, "2*floor(r)"], "color": { "role": "#A9D6E5", "emit": 1.7 }, "jitter": false },
+    { "op": "box", "name": "Zacken nur am Rand lassen", "at": [-1, 2, "-floor(r)+1"], "size": [2, 1, "2*floor(r)-2"], "mode": "carve" },
+    { "op": "box", "name": "Zacke links/rechts ok", "if": "state == 0", "at": ["-floor(r)", 2, -1], "size": [1, 1, 2], "color": { "role": "#7FE0C2", "emit": 1.6 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Zacke links/rechts gelb", "if": "state == 1 || state == 4", "at": ["-floor(r)", 2, -1], "size": [1, 1, 2], "color": { "role": "#F2C94C", "emit": 1.7 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Zacke links/rechts rot", "if": "state == 2", "at": ["-floor(r)", 2, -1], "size": [1, 1, 2], "color": { "role": "#E0473C", "emit": 1.7 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Zacke links/rechts orange", "if": "state == 3", "at": ["-floor(r)", 2, -1], "size": [1, 1, 2], "color": { "role": "#F08A3C", "emit": 1.7 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Zacke links/rechts eisblau", "if": "state == 5", "at": ["-floor(r)", 2, -1], "size": [1, 1, 2], "color": { "role": "#A9D6E5", "emit": 1.7 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "EMP: Ring unterbrochen", "if": "state == 5", "at": ["-floor(r)-1", 1, -1], "size": ["2*floor(r)+2", 1, 2], "mode": "carve" }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,271 @@
+{
+  "id": "human",
+  "rig": "human",
+  "notes": "Winkel in Grad [x, y, z]. x negativ = Arm/Bein nach vorn. z positiv hebt den linken Arm seitlich. lift in Voxeln (Hüfte).",
+  "cycleNotes": "Optional je Pose: cycle = { hz, stride?, bob?, joints: { <gelenk>: { c: [x,y,z], a: [x,y,z], p: Grad, k?: Faktor } } }. Phase φ in Zyklen (walk: Laufweg/stride; sonst Zeit·hz). Winkel = c + a·sin(2π·φ·k + p), Reihenfolge YXZ wie applyPose; Gelenke ohne Eintrag behalten joints. bob (Voxel): Hüfte += bob·(0,5 − |sin 2πφ|). applyPose (voxel-three.js) wertet cycle nicht aus – das macht ACTORS. mask 'upper' = nur Oberkörper, Beine dürfen vom Laufzyklus kommen.",
+  "poses": {
+    "stand": {
+      "joints": { "upperArmL": [2, 0, 4], "upperArmR": [2, 0, -4], "lowerArmL": [-8, 0, 0], "lowerArmR": [-8, 0, 0] },
+      "breathe": 0.5
+    },
+    "attention": {
+      "joints": { "upperArmL": [0, 0, 2], "upperArmR": [0, 0, -2] },
+      "breathe": 0.25, "look": false
+    },
+    "guard": {
+      "joints": {
+        "upperArmR": [-18, 0, -6], "lowerArmR": [-62, 0, 0], "handR": [80, 0, 0],
+        "upperArmL": [4, 0, 6], "lowerArmL": [-10, 0, 0]
+      },
+      "breathe": 0.35
+    },
+    "aim": {
+      "joints": {
+        "torso": [0, 18, 0], "head": [0, -16, 0],
+        "upperArmR": [-86, 14, 0], "lowerArmR": [-6, 0, 0],
+        "upperArmL": [-70, -38, 0], "lowerArmL": [-40, 0, 0],
+        "thighL": [-14, 0, 0], "shinL": [10, 0, 0], "thighR": [10, 0, 0]
+      },
+      "breathe": 0.25, "look": false
+    },
+    "walk": {
+      "joints": {
+        "thighL": [-24, 0, 0], "shinL": [14, 0, 0], "thighR": [20, 0, 0], "shinR": [26, 0, 0],
+        "upperArmL": [18, 0, 5], "upperArmR": [-18, 0, -5], "lowerArmL": [-14, 0, 0], "lowerArmR": [-24, 0, 0],
+        "torso": [4, 0, 0]
+      },
+      "lift": -0.5, "breathe": 0.2,
+      "cycle": {
+        "hz": 1.6, "stride": 1.5, "bob": 0.6,
+        "joints": {
+          "thighL": { "c": [-2, 0, 0], "a": [-26, 0, 0], "p": 0 },
+          "thighR": { "c": [-2, 0, 0], "a": [26, 0, 0], "p": 0 },
+          "shinL": { "c": [20, 0, 0], "a": [18, 0, 0], "p": 90 },
+          "shinR": { "c": [20, 0, 0], "a": [18, 0, 0], "p": 270 },
+          "upperArmL": { "c": [0, 0, 5], "a": [20, 0, 0], "p": 0 },
+          "upperArmR": { "c": [0, 0, -5], "a": [-20, 0, 0], "p": 0 },
+          "lowerArmL": { "c": [-18, 0, 0], "a": [-8, 0, 0], "p": 0 },
+          "lowerArmR": { "c": [-18, 0, 0], "a": [8, 0, 0], "p": 0 },
+          "torso": { "c": [4, 0, 0], "a": [0, 5, 0], "p": 0 }
+        }
+      }
+    },
+    "talk": {
+      "joints": {
+        "upperArmR": [-38, 0, -16], "lowerArmR": [-58, 0, 0], "handR": [0, 0, 0],
+        "upperArmL": [2, 0, 5], "lowerArmL": [-12, 0, 0], "head": [-4, 10, 0]
+      },
+      "breathe": 0.5, "look": false
+    },
+    "point": {
+      "joints": { "upperArmR": [-84, 22, 0], "lowerArmR": [-4, 0, 0], "upperArmL": [2, 0, 5], "head": [0, 14, 0] },
+      "breathe": 0.4, "look": false
+    },
+    "kneel": {
+      "joints": {
+        "thighR": [-88, 0, 0], "shinR": [88, 0, 0], "thighL": [6, 0, 0], "shinL": [84, 0, 0],
+        "torso": [12, 0, 0], "upperArmR": [-50, 0, 0], "lowerArmR": [-40, 0, 0], "upperArmL": [-44, 0, 0], "lowerArmL": [-48, 0, 0], "head": [18, 0, 0]
+      },
+      "lift": -6, "breathe": 0.3, "look": false
+    },
+    "inspect": {
+      "joints": {
+        "torso": [10, 0, 0], "head": [14, 0, 0],
+        "upperArmR": [-48, 0, -6], "lowerArmR": [-56, 0, 0], "upperArmL": [-30, 0, 8], "lowerArmL": [-70, 0, 0]
+      },
+      "breathe": 0.4, "look": false
+    },
+    "arms_crossed": {
+      "joints": {
+        "upperArmL": [-22, 0, 10], "lowerArmL": [-80, -70, 0], "upperArmR": [-22, 0, -10], "lowerArmR": [-80, 70, 0]
+      },
+      "breathe": 0.5
+    },
+
+    "sit": {
+      "notes": "Sitzhöhe 0,44 m (Hüftgelenk 7 Voxel), Hände auf den Oberschenkeln. Figur-Wurzel = Mitte zwischen den Füßen; Sitzfläche liegt ca. 0,1 m hinter der Wurzel.",
+      "joints": {
+        "thighL": [-88, 0, 3], "shinL": [86, 0, 0], "thighR": [-88, 0, -3], "shinR": [86, 0, 0],
+        "torso": [-4, 0, 0],
+        "upperArmL": [-26, 0, 4], "lowerArmL": [-52, 0, 0], "upperArmR": [-26, 0, -4], "lowerArmR": [-52, 0, 0]
+      },
+      "lift": -7, "breathe": 0.4
+    },
+    "operate": {
+      "notes": "Steht am Pult, beide Hände auf dem Bedienfeld (ca. 1,1 m hoch, 0,5 m vor der Wurzel). Zyklus: abwechselnd tippen.",
+      "joints": {
+        "torso": [8, 0, 0], "head": [12, 0, 0],
+        "upperArmL": [-42, -12, 6], "lowerArmL": [-50, 0, 0], "upperArmR": [-42, 12, -6], "lowerArmR": [-50, 0, 0]
+      },
+      "breathe": 0.3, "look": false,
+      "cycle": {
+        "hz": 2.5,
+        "joints": {
+          "lowerArmL": { "c": [-50, 0, 0], "a": [-9, 0, 0], "p": 0 },
+          "lowerArmR": { "c": [-50, 0, 0], "a": [-9, 0, 0], "p": 180 },
+          "head": { "c": [12, 0, 0], "a": [0, 8, 0], "p": 0, "k": 0.25 }
+        }
+      }
+    },
+    "repair": {
+      "notes": "Kniet vor der Station und arbeitet mit dem Werkzeug in der rechten Hand (wrench/patch_plate/spare_part an handR). Zyklus: Schlagen/Drehen.",
+      "joints": {
+        "thighR": [-88, 0, 0], "shinR": [88, 0, 0], "thighL": [6, 0, 0], "shinL": [84, 0, 0],
+        "torso": [18, 0, 0], "head": [10, 0, 0],
+        "upperArmR": [-78, 10, -4], "lowerArmR": [-30, 0, 0],
+        "upperArmL": [-62, -14, 8], "lowerArmL": [-40, 0, 0]
+      },
+      "lift": -6, "breathe": 0.3, "look": false,
+      "cycle": {
+        "hz": 2.5,
+        "joints": {
+          "lowerArmR": { "c": [-30, 0, 0], "a": [-18, 0, 0], "p": 0 },
+          "upperArmR": { "c": [-78, 10, -4], "a": [0, 0, 6], "p": 90 },
+          "torso": { "c": [18, 0, 0], "a": [3, 0, 0], "p": 0 }
+        }
+      }
+    },
+    "extinguish": {
+      "notes": "Breitbeinig, Löschgel-Sprüher (extinguisher an handR) zielt nach vorn, linke Hand stützt. Zyklus: Strahl schwenkt links/rechts.",
+      "joints": {
+        "thighL": [-16, 0, 4], "shinL": [12, 0, 0], "thighR": [12, 0, -4], "shinR": [6, 0, 0],
+        "torso": [10, 0, 0], "head": [8, 0, 0],
+        "upperArmR": [-80, 8, 0], "lowerArmR": [-8, 0, 0],
+        "upperArmL": [-62, -30, 0], "lowerArmL": [-46, 0, 0]
+      },
+      "lift": -0.5, "breathe": 0.3, "look": false,
+      "cycle": {
+        "hz": 0.8,
+        "joints": {
+          "torso": { "c": [10, 0, 0], "a": [0, 14, 0], "p": 0 },
+          "upperArmR": { "c": [-80, 8, 0], "a": [5, 0, 0], "p": 0, "k": 3 }
+        }
+      }
+    },
+    "carry": {
+      "notes": "Trägt einen Gegenstand mit beiden Händen vor der Brust (Gegenstand an handR, Versatz siehe Bericht). mask upper: Beine dürfen vom Laufzyklus kommen.",
+      "mask": "upper",
+      "joints": {
+        "torso": [-4, 0, 0],
+        "upperArmR": [-30, 20, 0], "lowerArmR": [-60, 0, 0],
+        "upperArmL": [-30, -20, 0], "lowerArmL": [-60, 0, 0]
+      },
+      "breathe": 0.4
+    },
+    "hold": {
+      "notes": "E halten: rechte Hand drückt/hält einen Hebel oder Schalter auf Brusthöhe, Körper leicht gestemmt. Zyklus: Anstrengungs-Zittern.",
+      "joints": {
+        "thighL": [-10, 0, 0], "thighR": [8, 0, 0],
+        "torso": [6, 0, 0],
+        "upperArmR": [-72, 6, -2], "lowerArmR": [-16, 0, 0],
+        "upperArmL": [-8, 0, 10], "lowerArmL": [-20, 0, 0]
+      },
+      "breathe": 0.6, "look": false,
+      "cycle": {
+        "hz": 6,
+        "joints": {
+          "upperArmR": { "c": [-72, 6, -2], "a": [1.5, 0, 0], "p": 0 },
+          "torso": { "c": [6, 0, 0], "a": [1, 0, 0], "p": 0, "k": 0.5 }
+        }
+      }
+    },
+    "minigame": {
+      "notes": "Steht dicht am Gerät, Kopf gesenkt, beide Hände fummeln im offenen Paneel. Zyklus: Hände abwechselnd.",
+      "joints": {
+        "thighL": [-6, 0, 0], "thighR": [6, 0, 0],
+        "torso": [14, 0, 0], "head": [18, 0, 0],
+        "upperArmL": [-56, -18, 4], "lowerArmL": [-56, 0, 0], "upperArmR": [-56, 18, -4], "lowerArmR": [-56, 0, 0]
+      },
+      "breathe": 0.3, "look": false,
+      "cycle": {
+        "hz": 2.2,
+        "joints": {
+          "lowerArmL": { "c": [-56, 0, 0], "a": [-12, 0, 0], "p": 0 },
+          "lowerArmR": { "c": [-56, 0, 0], "a": [-12, 0, 0], "p": 180 },
+          "upperArmR": { "c": [-56, 18, -4], "a": [0, 8, 0], "p": 90, "k": 0.5 }
+        }
+      }
+    },
+    "climb": {
+      "notes": "Notleiter: Figur schaut zur Leiter (+z), Hände oben an den Sprossen. Zyklus: Arme und Beine im Wechsel. ACTORS hebt die Wurzel während der 2 s Leiterzeit an.",
+      "joints": {
+        "upperArmL": [-150, 0, 4], "lowerArmL": [-20, 0, 0], "upperArmR": [-120, 0, -4], "lowerArmR": [-30, 0, 0],
+        "thighL": [-60, 0, 0], "shinL": [70, 0, 0], "thighR": [-10, 0, 0], "shinR": [20, 0, 0],
+        "torso": [4, 0, 0], "head": [-20, 0, 0]
+      },
+      "lift": -0.5, "breathe": 0.4, "look": false,
+      "cycle": {
+        "hz": 1.2,
+        "joints": {
+          "upperArmL": { "c": [-135, 0, 4], "a": [15, 0, 0], "p": 0 },
+          "upperArmR": { "c": [-135, 0, -4], "a": [-15, 0, 0], "p": 0 },
+          "thighL": { "c": [-35, 0, 0], "a": [-25, 0, 0], "p": 0 },
+          "thighR": { "c": [-35, 0, 0], "a": [25, 0, 0], "p": 0 },
+          "shinL": { "c": [45, 0, 0], "a": [25, 0, 0], "p": 0 },
+          "shinR": { "c": [45, 0, 0], "a": [-25, 0, 0], "p": 0 }
+        }
+      }
+    },
+    "lift_ride": {
+      "notes": "Liftfahrt: ruhiger Stand, Gewicht auf einem Bein, Blick nach oben. Zyklus: Kopf schaut langsam umher.",
+      "joints": {
+        "thighL": [-4, 0, 3], "shinL": [6, 0, 0],
+        "torso": [0, 0, -2], "head": [-12, 8, 0],
+        "upperArmL": [4, 0, 6], "lowerArmL": [-10, 0, 0], "upperArmR": [4, 0, -6], "lowerArmR": [-10, 0, 0]
+      },
+      "breathe": 0.3, "look": false,
+      "cycle": {
+        "hz": 0.3,
+        "joints": { "head": { "c": [-12, 8, 0], "a": [0, 12, 0], "p": 0 } }
+      }
+    },
+
+    "crouch": {
+      "notes": "Außenteam hinter halber Deckung (≤ 0,9 m): tief geduckt, Kopfoberkante ca. 1,25 m, Waffe (handR) im Anschlag tief.",
+      "joints": {
+        "thighL": [-95, 0, 8], "shinL": [115, 0, 0], "thighR": [-20, 0, -8], "shinR": [110, 0, 0],
+        "torso": [35, 0, 0], "head": [-25, 0, 0],
+        "upperArmR": [-40, 10, 0], "lowerArmR": [-50, 0, 0],
+        "upperArmL": [-50, -25, 0], "lowerArmL": [-60, 0, 0]
+      },
+      "lift": -7.5, "breathe": 0.5, "look": false
+    },
+    "wounded": {
+      "notes": "Verwundet: liegt auf dem Rücken, Körper zeigt nach −z (Kopf hinten), ein Knie angezogen, eine Hand auf der Brust. Schweres Atmen über breathe.",
+      "joints": {
+        "hips": [-90, 0, 0],
+        "thighL": [-40, 0, 6], "shinL": [70, 0, 0], "thighR": [-6, 0, -4],
+        "upperArmL": [-10, 0, 60], "lowerArmL": [-20, 0, 0],
+        "upperArmR": [-50, 0, -10], "lowerArmR": [-70, 40, 0],
+        "head": [10, 25, 0]
+      },
+      "lift": -11.5, "breathe": 1.0, "look": false
+    },
+    "revive": {
+      "notes": "Kniet neben dem Verwundeten, beide Hände vorn unten (medipack an handR möglich). Zyklus: Druck/Behandlung.",
+      "joints": {
+        "thighR": [-88, 0, 0], "shinR": [88, 0, 0], "thighL": [6, 0, 0], "shinL": [84, 0, 0],
+        "torso": [30, 0, 0], "head": [20, 0, 0],
+        "upperArmR": [-70, 8, 0], "lowerArmR": [-30, 0, 0],
+        "upperArmL": [-60, -12, 0], "lowerArmL": [-40, 0, 0]
+      },
+      "lift": -6, "breathe": 0.4, "look": false,
+      "cycle": {
+        "hz": 1.6,
+        "joints": {
+          "torso": { "c": [30, 0, 0], "a": [4, 0, 0], "p": 0 },
+          "upperArmR": { "c": [-70, 8, 0], "a": [-6, 0, 0], "p": 0 }
+        }
+      }
+    },
+    "hit": {
+      "notes": "Getroffen: zuckt zurück (Oberkörper nach hinten, Arme auseinander). Einzelpose für ca. 0,25 s, weich ein- und ausblenden.",
+      "joints": {
+        "torso": [-16, -10, 0], "head": [-22, 12, 0],
+        "upperArmL": [-40, 0, 30], "lowerArmL": [-50, 0, 0], "upperArmR": [-30, 0, -36], "lowerArmR": [-40, 0, 0],
+        "thighL": [-12, 0, 0], "shinL": [8, 0, 0], "thighR": [14, 0, 0]
+      },
+      "lift": -0.5, "breathe": 0.2, "look": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "lerche/deco/kristalllampe",
+  "name": "Vaelen-Kristalllampe (Deko)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "deco", "privatdeck", "licht", "kristall", "vaelen"],
+  "footprint": [0.6, 0.6],
+  "params": {},
+  "ops": [
+    { "op": "cyl", "name": "Schale", "at": [8, 0, 8], "r": 4, "r2": 4.6, "h": 2, "color": "trim" },
+    { "op": "cyl", "name": "Schale Fuß", "at": [8, 0, 8], "r": 3, "h": 1, "color": "metal" },
+    { "op": "cyl", "name": "Kristallbett", "at": [8, 2, 8], "r": 3.6, "h": 1, "color": "metal_dark" },
+    { "op": "line", "name": "Hauptkristall", "from": [8, 2, 8], "to": [8, 16, 8], "r": 1.6, "color": "#BCA6F2", "emit": 0.8, "jitter": false },
+    { "op": "line", "name": "Kristall links", "from": [7, 3, 9], "to": [4, 11, 10], "r": 1.1, "color": "#A78BE8", "emit": 0.7, "jitter": false },
+    { "op": "line", "name": "Kristall rechts", "from": [9, 3, 7], "to": [12, 12, 6], "r": 1.1, "color": "#A78BE8", "emit": 0.7, "jitter": false },
+    { "op": "line", "name": "Kristall vorn", "from": [9, 3, 9], "to": [10, 9, 12], "r": 0.9, "color": "#D7C9FA", "emit": 0.6, "jitter": false },
+    { "op": "line", "name": "Kristall hinten", "from": [7, 3, 7], "to": [6, 9, 4], "r": 0.9, "color": "#D7C9FA", "emit": 0.6, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

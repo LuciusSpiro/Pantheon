@@ -1,0 +1,53 @@
+{
+  "team": "art-f",
+  "assets": [
+    {
+      "id": "lerche/crew_0",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": { "neutral": {}, "player0": { "colors": { "cloth2": "#56B4E9" } } },
+      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
+      "tint": ["cloth2"],
+      "budgetTris": 6000,
+      "measuredTris": 3286,
+      "tags": ["lerche", "figure", "crew", "rig:human"]
+    },
+    {
+      "id": "lerche/crew_1",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 2.0,
+      "facing": "+z",
+      "params": {},
+      "states": { "neutral": {}, "player1": { "colors": { "cloth2": "#E69F00" } } },
+      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
+      "tint": ["cloth2"],
+      "budgetTris": 6000,
+      "measuredTris": 3224,
+      "tags": ["lerche", "figure", "crew", "rig:human"]
+    },
+    {
+      "id": "lerche/crew_2",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 2.0,
+      "facing": "+z",
+      "params": {},
+      "states": { "neutral": {}, "player2": { "colors": { "cloth2": "#CC79A7" } } },
+      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
+      "tint": ["cloth2"],
+      "budgetTris": 6000,
+      "measuredTris": 3404,
+      "tags": ["lerche", "figure", "crew", "rig:human"]
+    }
+  ]
+}

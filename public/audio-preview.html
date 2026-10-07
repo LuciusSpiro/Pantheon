@@ -80,7 +80,7 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
              vault_open:1, tablet:1, bark:1, order:1, squad_recall:1, ruin:1 };
   var M3 = { lance_charge:1, lance_aim:1, lance_fire:1, aim_abort:1, battery_salvo:1, tele_charge:1, heavy_hit:1,
              burst:1, burst_perfect:1, flick:1, swap:1, minigame_tick:1, minigame_hit:1, minigame_miss:1,
-             minigame_done:1, system_break:1 };
+             minigame_done:1, system_break:1, dodge_evade:1 };
   LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
   LOUD.tele_charge = 1; LOUD.heavy_hit = 1; LOUD.system_break = 1;
   function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : '')).trim(); }
@@ -180,6 +180,11 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
     at(2000, function () { A.play('heavy_hit', base()); });
     at(2300, function () { A.play('system_break', base()); });
   }, 'm3 loud');
+  make($('variantsM3'), 'Ablauf: Ladung – ausgewichen (§20.2)', function () {
+    A.play('tele_charge', withP({ kind: 'gunboat', key: 'e7' }));
+    at(2300, function () { A.play('dodge', base()); });
+    at(3000, function () { A.stop('tele_charge', { key: 'e7' }); A.play('dodge_evade', base()); });
+  }, 'm3');
   make($('variantsM3'), 'Ablauf: Schildstoß perfekt', function () {
     A.play('tele_charge', withP({ kind: 'gunboat', dur: 1.5 }));
     at(1350, function () { A.play('burst_perfect', base()); });

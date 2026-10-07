@@ -1,0 +1,29 @@
+{
+  "id": "away/kesh/rubble",
+  "name": "Kesh – Geröll, Scherben und Glyphenplatten (flache Streuung)",
+  "tier": "detail",
+  "palette": "mond_kesh",
+  "tags": ["away", "kesh", "streu", "geroell"],
+  "footprint": [0.8, 0.8],
+  "params": {},
+  "variants": { "b": { "seed": 1 }, "c": { "seed": 2 }, "d": { "seed": 3 } },
+  "let": {
+    "ax": "round(sin(seed * 1.7 + 0.3) * 3)",
+    "az": "round(cos(seed * 2.1 + 0.7) * 3)",
+    "r1": "2.6 + sin(seed * 3.1) * 0.6",
+    "plate": "seed % 2 == 0",
+    "glyph": "seed % 3 == 0"
+  },
+  "ops": [
+    { "op": "ellipsoid", "name": "Brocken", "at": ["ax", 0, "az"], "r": ["r1 + 1", 2.5, "r1"], "half": "+y",
+      "color": { "noise": ["stone", "stone_dark", { "shade": "stone", "f": 1.1 }], "weights": [3, 2, 1] } },
+    { "op": "ellipsoid", "name": "Brocken klein", "at": ["-ax - 2", 0, "-az + 1"], "r": [2, 1.6, 1.8], "half": "+y", "color": { "noise": ["stone", "stone_light"], "weights": [3, 1] } },
+    { "op": "box", "name": "Glyphenplatte", "if": "plate", "at": ["-ax - 1", 0, "az - 5"], "size": [5, 1, 4], "color": { "frame": "stone_dark", "fill": "stone", "axes": "xz" } },
+    { "op": "box", "name": "Glyphenrest", "if": "plate && glyph", "at": ["-ax", 0, "az - 4"], "size": [2, 1, 1], "mode": "paint", "color": "neon_dim", "jitter": false },
+    { "op": "box", "name": "Scherbe", "if": "!plate", "at": ["ax + 3", 0, "-az - 3"], "size": [3, 1, 2], "color": "stone_light" },
+    { "op": "box", "name": "Kiesel", "repeat": { "count": 3, "step": [0, 0, 0], "var": "k" }, "let": { "pa": "k * 2.1 + seed * 0.8 + 0.5" },
+      "at": ["round(cos(pa) * 5)", 0, "round(sin(pa) * 5)"], "size": [1, 1, 1], "color": { "noise": ["stone_dark", "rock", "stone"] } },
+    { "op": "box", "name": "Sand angeweht", "at": ["ax - 1", 0, "az + 2"], "size": [3, 1, 2], "mode": "under", "color": "sand" }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,152 @@
+{
+  "team": "art-b",
+  "assets": [
+    {
+      "id": "lerche/station/reactor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.81,
+      "facing": "+z",
+      "params": { "state": [0, 5], "power": [0, 3] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 },
+        "overloaded": { "state": 0, "power": 1 },
+        "offline": { "state": 0, "power": 2 },
+        "emergency_start": { "state": 0, "power": 3 }
+      },
+      "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.8, 0], "fx_spark": [0, 0.4, 0.38], "light": [0, 0.8, 0], "label": [0, 2.05, 0] },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 5482,
+      "tags": ["lerche", "station", "system", "reactor"]
+    },
+    {
+      "id": "lerche/station/shield_gen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.69,
+      "facing": "+z",
+      "params": { "state": [0, 5] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 }
+      },
+      "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.5, 0], "fx_spark": [0, 0.4, 0.2], "light": [0, 0.85, 0], "label": [0, 1.95, 0] },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3498,
+      "tags": ["lerche", "station", "system", "shield"]
+    },
+    {
+      "id": "lerche/station/engine",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.63,
+      "facing": "+z",
+      "params": { "state": [0, 5], "throttle": [0, 4] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 },
+        "idle": { "state": 0, "throttle": 0 },
+        "full": { "state": 0, "throttle": 4 }
+      },
+      "sockets": { "use": [0, 0, 0.65], "fx_smoke": [0, 1.65, -0.25], "fx_spark": [0.19, 0.35, 0.4], "light": [0, 0.56, 0.4], "label": [0, 1.85, 0] },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3146,
+      "tags": ["lerche", "station", "system", "engine"]
+    },
+    {
+      "id": "lerche/station/life_support",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.88,
+      "facing": "+z",
+      "params": { "state": [0, 5] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 }
+      },
+      "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.75, 0], "fx_spark": [0.06, 0.4, 0.38], "light": [0, 1.1, 0], "label": [0, 2.1, 0] },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3246,
+      "tags": ["lerche", "station", "system", "life_support"]
+    },
+    {
+      "id": "lerche/station/thruster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.56,
+      "facing": "+z",
+      "params": { "state": [0, 5], "side": [0, 1] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 },
+        "starboard": { "state": 0, "side": 1 }
+      },
+      "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.2, -0.25], "fx_spark": [0.12, 0.3, 0.3], "light": [0.16, 0.6, 0.28], "label": [0, 1.8, 0] },
+      "socketsMirrorX": { "param": "side", "value": 1, "note": "bei side 1 die x-Werte aller Sockets negieren" },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2812,
+      "tags": ["lerche", "station", "system", "thruster"]
+    },
+    {
+      "id": "lerche/station/lance",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1,
+      "facing": "+z",
+      "params": { "state": [0, 5], "charge": [0, 3] },
+      "states": {
+        "ok": { "state": 0 },
+        "damaged": { "state": 1 },
+        "destroyed": { "state": 2 },
+        "patched": { "state": 3 },
+        "escalating": { "state": 4 },
+        "emp": { "state": 5 },
+        "charging": { "state": 0, "charge": 2 },
+        "charged": { "state": 0, "charge": 3 }
+      },
+      "sockets": { "use": [0, 0, 0.65], "fx_smoke": [-0.1, 0.95, 0], "fx_spark": [-0.06, 0.4, 0.42], "light": [-0.1, 0.63, 0], "label": [0, 1.3, 0], "muzzle": [0.5, 0.63, -0.03] },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2614,
+      "tags": ["lerche", "station", "system", "lance"]
+    }
+  ]
+}

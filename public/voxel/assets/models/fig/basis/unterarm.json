@@ -1,0 +1,18 @@
+{
+  "id": "fig/basis/unterarm",
+  "name": "Basis-Unterarm links mit Faust",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["figur", "basis", "arm"],
+  "params": {
+    "glove": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Handschuh (0 = Haut)" }
+  },
+  "ops": [
+    { "name": "Unterarm", "op": "box", "at": [4, 13, -1], "size": [3, 4, 3], "color": "cloth" },
+    { "name": "Faust Handschuh", "if": "glove", "op": "box", "at": [4, 10, -1], "size": [3, 3, 3], "color": "metal_dark" },
+    { "name": "Faust Haut", "if": "!glove", "op": "box", "at": [4, 10, -1], "size": [3, 3, 3], "color": "skin" },
+    { "name": "Knöchel", "op": "box", "at": [4, 11, 2], "size": [3, 1, 1], "color": { "shade": "metal_dark", "f": 1.25 }, "if": "glove" },
+    { "name": "Daumen", "op": "box", "at": [4, 11, 2], "size": [1, 1, 1], "color": { "shade": "skin", "f": 0.9 }, "if": "!glove" }
+  ],
+  "anchor": [0, 0, 0]
+}

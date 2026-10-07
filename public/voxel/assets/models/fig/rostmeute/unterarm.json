@@ -1,0 +1,14 @@
+{
+  "id": "fig/rostmeute/unterarm",
+  "name": "Plünderer-Unterarm (links) mit Lederwickel und Rostschiene",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["figur", "rostmeute", "arm", "gegner"],
+  "ops": [
+    { "name": "Unterarm + Faust", "op": "use", "model": "fig/basis/unterarm" },
+    { "name": "Wickel", "op": "box", "at": [4, 13, -1], "size": [3, 4, 3], "color": { "stripes": ["leather", { "shade": "leather", "f": 0.72 }], "axis": "y", "period": 1 }, "mode": "paint" },
+    { "name": "Rostschiene", "op": "box", "at": [7, 13, -1], "size": [1, 3, 3], "color": "primary" },
+    { "name": "Schienenniete", "op": "box", "at": [7, 14, 0], "size": [1, 1, 1], "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "rom",
+  "name": "Rom (Sci-Fi): Rot · Gold · Marmorweiß, kaltweißes Energielicht",
+  "extends": "base",
+  "roles": {
+    "primary": "#9E1F27",
+    "secondary": "#E9E3D3",
+    "trim": "#D4A23A",
+    "metal": "#565D67",
+    "metal_dark": "#2C3037",
+    "metal_light": "#A3ABB4",
+    "stone": "#DCD1BA",
+    "stone_dark": "#AFA084",
+    "stone_light": "#EFE8D8",
+    "paving": "#C2B6A0",
+    "paving_dark": "#9C9079",
+    "cloth": "#8E1B22",
+    "cloth2": "#5B2A5E",
+    "leather": "#6B4A2A",
+    "glow": { "color": "#A8F0FF", "emit": 1.7 },
+    "glow2": { "color": "#FFC46B", "emit": 1.5 },
+    "glass": "#18202C"
+  }
+}

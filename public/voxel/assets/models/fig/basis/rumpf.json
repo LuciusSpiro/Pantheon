@@ -1,0 +1,14 @@
+{
+  "id": "fig/basis/rumpf",
+  "name": "Basis-Rumpf (Unteranzug)",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["figur", "basis", "rumpf"],
+  "ops": [
+    { "name": "Taille", "op": "box", "at": [-3, 16, -2], "size": [6, 3, 4], "color": "cloth" },
+    { "name": "Brustkorb", "op": "box", "at": [-4, 19, -2], "size": [8, 5, 5], "color": "cloth" },
+    { "name": "Schulterpartie", "op": "box", "at": [-4, 24, -2], "size": [8, 1, 4], "color": { "shade": "cloth", "f": 0.9 } },
+    { "name": "Kragen", "op": "box", "at": [-2, 24, -2], "size": [4, 1, 4], "color": { "shade": "cloth", "f": 0.7 } }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "lerche/station/transfer",
+  "name": "Transfer-System: Ringapparat wie eine Armillarsphäre (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "system", "transfer"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Zustand 0 ok · 1 besch. · 2 zerstört · 3 geflickt · 4 Eskalation · 5 EMP" }
+  },
+  "let": { "lit": "state != 2 && state != 5", "dmg": "state == 1 || state == 4" },
+  "variants": {
+    "beschaedigt": { "state": 1 },
+    "zerstoert": { "state": 2 },
+    "geflickt": { "state": 3 },
+    "eskalation": { "state": 4 },
+    "emp": { "state": 5 }
+  },
+  "ops": [
+    { "op": "use", "name": "Sockel", "model": "lerche/station/parts_c/plinth", "at": [0, 0, 0], "params": { "w": 14, "d": 14, "h": 3, "state": "state" } },
+    { "op": "cyl", "name": "Trommel", "at": [0, 3, 0], "r": 5, "h": 3, "color": "metal" },
+    { "op": "cyl", "name": "Trommel Goldring", "at": [0, 5, 0], "r": 5, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Trommel Rotband", "at": [0, 3, 0], "r": 5, "hollow": 1, "h": 1, "color": "primary" },
+    { "op": "use", "name": "Wartungsklappe", "model": "lerche/station/parts_c/hatch", "at": [0, 3, 5], "params": { "open": "dmg", "w": 3, "h": 3 } },
+
+    { "op": "box", "name": "Lagerpfosten (Marmor)", "at": [-7, 3, -1], "size": [2, 11, 2], "color": "secondary", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Pfostenkapitell", "at": [-7, 14, -1], "size": [2, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Achse", "at": [-5, 11, -1], "size": [10, 1, 1], "color": "metal_dark" },
+
+    { "op": "cyl", "name": "Horizontring", "if": "state != 2", "at": [0, 11, 0], "r": 6.5, "hollow": 1.2, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Horizontring Rest", "if": "state == 2", "at": [0, 11, 0], "r": 6.5, "hollow": 1.2, "h": 1, "arc": [200, 340], "color": "trim" },
+    { "op": "cyl", "name": "Meridianring", "if": "state != 2", "axis": "x", "at": [-0.5, 11.5, 0], "r": 6, "hollow": 1.2, "h": 1, "color": { "shade": "trim", "f": 0.85 } },
+    { "op": "cyl", "name": "Querring", "if": "state == 0 || state == 3 || state == 5", "axis": "z", "at": [0, 11.5, -0.5], "r": 5, "hollow": 1.2, "h": 1, "color": "metal_light" },
+    { "op": "cyl", "name": "Querring verrutscht", "if": "dmg", "axis": "z", "at": [0, 9.5, 2.5], "r": 5, "hollow": 1.2, "h": 1, "arc": [180, 360], "color": "metal_light" },
+    { "op": "box", "name": "Ringmarken", "repeat": { "count": 4, "step": [0, 0, 0], "var": "k" }, "if": "state != 2", "at": ["k == 0 ? 6 : (k == 1 ? -7 : -1)", 11, "k == 2 ? 6 : (k == 3 ? -7 : -1)"], "size": [1, 1, 1], "color": "primary", "mode": "paint" },
+
+    { "op": "ellipsoid", "name": "Kern", "at": [0, 11.5, 0], "r": 2.6, "color": "metal_dark" },
+    { "op": "ellipsoid", "name": "Kern leuchtet", "if": "lit", "at": [0, 11.5, 0], "r": 2.2, "color": { "role": "glow", "emit": 1.1 }, "jitter": false },
+    { "op": "box", "name": "Kern Fassung", "at": [-1, 6, -1], "size": [2, 3, 2], "color": "metal_dark" },
+
+    { "op": "box", "name": "Ruß", "if": "state == 2", "at": [-8, 3, -8], "size": [16, 16, 16], "mode": "paint", "color": { "noise": ["dark", "metal_dark", "metal"], "weights": [2, 2, 2], "cell": 2 } },
+    { "op": "use", "name": "Statuskrone", "model": "lerche/station/parts_c/crown", "at": [0, "state == 2 ? 14 : 17", 0], "params": { "state": "state", "post": 1, "r": 3.5 } },
+    { "op": "line", "name": "Flickband quer", "if": "state == 3", "from": [-6, 8, 5], "to": [6, 14, -3], "r": 0.9, "color": "stone_light" },
+    { "op": "use", "name": "EMP-Bögen", "if": "state == 5", "model": "lerche/station/parts_c/emp_arcs", "at": [0, 6, 0], "params": { "w": 14, "d": 12, "h": 10 } }
+  ],
+  "anchor": [0, 0, 0]
+}

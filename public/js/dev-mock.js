@@ -5,6 +5,9 @@
 //   tab=0..5 (Captain-Reiter)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
 //   markers=1 (Captain-/Taktik-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
 //   pos=x,y (eigene Kachel)   phase=lobby
+//   M3a/§20: gunboat=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
+//   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
+//        setback=1 (alle 3 s Rückschlag an der eigenen Reparatur / am Schrauber)  repair=1 (eigene Figur flickt die Stb-Batterie)
 // Tasten (nur Mock): Bild↓/Bild↑ nächster/voriger Ort · Pos1 Zone Schiff/Außen · Ende Reaktorzustand durchschalten
 (function () {
   'use strict';
@@ -17,7 +20,12 @@
   const Maps = window.Shared_Maps;
   const Phys = window.Shared_Physics;
   const TILE = 32;
-  const HB = (CFG.player && CFG.player.hitbox) || { w: 18, h: 12 };
+  // M3b: Lerche-Klasse (Temporegler) und gemeinsames Flugmodell
+  const FLIGHT = window.Shared_Flight || null;
+  const LERCHE = (CFG.shipClasses && CFG.shipClasses.lerche) || { maxSpeed: 130, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+    stageNames: ['R', 'STOPP', '¼', '½', '¾', 'VOLL'], turnRate: 0.6, turnCurve: [[0, 1], [1, 1]], turnAccel: 0.8, lateralDrag: 2.2 };
+  const RAIDER = (CFG.shipClasses && CFG.shipClasses.raider) || { maxSpeed: 200, minSpeed: 120, accel: 60, decel: 40, brakeFactor: 1, stages: [0.6, 0.8, 1], turnRate: 1.1, turnCurve: [[0, 1], [1, 1]], turnAccel: 2.5, lateralDrag: 0.8 };
+  const HB =(CFG.player && CFG.player.hitbox) || { w: 18, h: 12 };
 
   // ---------------------------------------------------------------- Orte (Inhalt laut CONTRACT-M1 §9.1)
   const LOCS = [
@@ -120,20 +128,21 @@
       ship: {
         scene: 'hafen', docked: true, dockedAt: 'hafen', x: 700, y: 700, angle: 0, vx: 0, vy: 0, speed: 0,
         hull: 100, hullMax: 100, o2: 100, alert: 'normal',
-        helm: { turn: 0, thrust: 0, manned: false },
+        helm: { turn: 0, thrust: 0, manned: false, stage: 1, autoStop: false },   // M3b: stage = Index in shipClasses.lerche.stages
         power: Object.assign({}, CFG.power.default),
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
         heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
-        shields: { pool: 4, alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
+        shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
+        escalate: {},   // M3b §4: { [sys]: Restsekunden }
         systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer']).map(s => [s, 'ok'])),
         // M3a (CONTRACT-M3 §9.3)
         turnVel: 0, turnCap: { port: 1, stbd: 1 }, fragile: [], repairQueue: [], botAuto: false, chargePoints: 4,
         fires: [], breaches: [], groundItems: [],
         dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: 'Kein Ziel gewählt' },
         mounts: [
-          { id: 'bow', facing: 0, arc: 16, range: 650, charge: 1, alloc: 2, state: 'ok', aim: null },
-          { id: 'port', facing: -90, arc: 70, range: 520, charge: 0.42, alloc: 1, state: 'ok', hold: false, salvo: 0, salvoMax: 4 },
-          { id: 'stbd', facing: 90, arc: 70, range: 520, charge: 0.1, alloc: 1, state: 'ok', hold: true, salvo: 0, salvoMax: 4 },
+          { id: 'bow', facing: 0, arc: 16, range: 650, charge: 1, alloc: 2, state: 'ok', power: 0, charging: false },
+          { id: 'port', facing: -90, arc: 70, range: 520, charge: 0.42, alloc: 1, state: 'ok', salvo: 0, salvoMax: 4 },
+          { id: 'stbd', facing: 90, arc: 70, range: 520, charge: 0.1, alloc: 1, state: 'ok', salvo: 0, salvoMax: 4 },
         ],
         target: null, priority: null, scan: { progress: 0, done: false },
         markers: { captain: null, tactical: null },
@@ -171,6 +180,29 @@
           { id: 'l3', text: 'Sela von der Vaelen-Karawane gerettet. Handel möglich.', loc: 'vaelen' },
         ],
         discoveries: { found: 3, total: 9 },
+        // §21.2 Missionsbuch (Mock-Beispiel; Server schickt es nur bei Änderung)
+        book: { version: 1, focus: null, entries: [
+          { id: 'm2', title: 'Echo im Nebel', from: 'Händlerin Sela', kind: 'mission', state: 'aktiv',
+            briefing: 'Im Nebel der Grauen Weite sendet eine Leitbake ein Kustoden-Echo. Sela will wissen, wer da ruft – und zahlt gut für die Koordinaten.',
+            reward: '150 Marken · Nebelkarte', objectives: [
+              { text: 'Graue Weite anfliegen (Captain: Sternkarte)', done: true },
+              { text: 'Taktik: per Weitscan (W) die Leitbake finden', done: false },
+              { text: 'Leitbake scannen (S halten)', done: false }],
+            log: [{ t: 812, loc: 'vaelen', text: 'Sela von der Vaelen-Karawane gerettet. Handel möglich.' }, { t: 1104, loc: 'nebel', text: 'Graue Weite erreicht. Sicht halbiert.' }] },
+          { id: 'side_grauzahn', title: 'Grauzahns Kopfgeld', from: 'Hafenmeisterin Oda', kind: 'nebenauftrag', state: 'aktiv',
+            briefing: 'Grauzahn plündert im Splittergürtel. Sein Versteck soll zwischen den großen Brocken liegen.',
+            reward: '80 Marken', objectives: [{ text: 'Versteck im Splittergürtel finden', done: true }, { text: 'Zum Hafen zurückkehren', done: false }],
+            log: [{ t: 640, loc: 'splitter', text: 'Grauzahns Versteck im Splittergürtel: 40 Marken.' }] },
+          { id: 'm3', title: 'Die Tafel von Kesh', from: 'Ivo (Techniker)', kind: 'mission', state: 'angeboten',
+            briefing: 'Ivo hat auf Mond Kesh ein Kustoden-Archiv geortet. Plünderer sind schon unterwegs.', reward: '300 Marken · Upgrade',
+            objectives: [{ text: 'Funkangebot annehmen', done: false }, { text: 'Nach Kesh springen', done: false }], log: [] },
+          { id: 'hint_relais', title: 'Signal hinter dem Nebel', from: 'ODA', kind: 'hinweis', state: 'angeboten',
+            briefing: 'Hinter der Grauen Weite pulst etwas Altes.', reward: '–', objectives: [], log: [] },
+          { id: 'm1', title: 'Die stumme Boje', from: 'Hafenbehörde', kind: 'mission', state: 'erledigt',
+            briefing: 'Boje B-7 schweigt seit drei Tagen. Nachsehen, reparieren, Datenkern bergen.', reward: '120 Marken',
+            objectives: [{ text: 'B-7 anfliegen', done: true }, { text: 'Sonde reaktivieren', done: true }, { text: 'Datenkern bergen', done: true }],
+            log: [{ t: 300, loc: 'b7', text: 'Datenkern von B-7 geborgen. Kustoden-Siegel.' }] },
+        ] },
       },
       stats: { elapsed: 0, kills: 4, repairs: 6, firesOut: 3, hits: 9, emergencies: 0, playTimeStart: 0 },
       errors: 0,
@@ -560,6 +592,7 @@
           if (W.ship.reactor.state !== 'offline') { notice('Schalter nur nach Abschaltung'); return; }
           p.action = { kind: 'switch', progress: 0, dur: 999, sw: sw.id }; return;
         }
+        if (info.interact === 'spare') { notice('Freies Terminal – noch ohne Funktion.'); return; }
         if (info.interact === 'console') {
           if (info.console === 'shop' && !W.ship.dockedAt) { notice('Terminal nur angedockt'); return; }
           if (info.console !== 'plan' && W.players.some(q => q !== p && q.console === info.console)) { notice('Konsole besetzt'); return; }
@@ -647,56 +680,110 @@
     W.ship.systems[sys] = state; setFr(sys, false);
     ev('systemHit', { system: sys, state });
   }
-  function hitSystems(sector) {
+  function hitSystems(sector, maxState) {
     const fr = W.ship.fragile.filter(x => SYS_SECTOR[x] === sector);
     if (fr.length) { for (const x of fr) damageSys(x, 'broken'); return; }
-    if (Math.random() > 0.45) return;
-    const cand = Object.keys(SYS_SECTOR).filter(x => SYS_SECTOR[x] === sector && W.ship.systems[x] !== 'broken');
+    const cand = Object.keys(SYS_SECTOR).filter(x => SYS_SECTOR[x] === sector && W.ship.systems[x] !== 'broken' && !(maxState === 'damaged' && W.ship.systems[x] === 'damaged'));
     if (!cand.length) return;
     const x = cand[Math.floor(Math.random() * cand.length)];
     damageSys(x, W.ship.systems[x] === 'ok' ? 'damaged' : 'broken');
   }
+  // M3b §4 (grob): Überlauf auf die Hülle, Durchlass-Tabelle je Schildstärke VOR dem Treffer, Rückschlag laufender Reparaturen
   function m3Hit(sector, dmg, heavy) {
     const s = W.ship, sh = s.shields;
-    const bu = sh.burst;
-    if (bu && bu.sector === sector && bu.left > 0) {
-      if (bu.perfectLeft > 0) { sh.current[sector] = Math.min(sh.cap[sector], sh.current[sector] + 1); ev('burst', { sector, perfect: true }); ev('sfx', { name: 'burst_perfect' }); return; }
-      const a = Math.min(bu.absorb, dmg); bu.absorb -= a; dmg -= a; if (a) ev('burst', { sector, perfect: false, absorbed: a });
-      if (dmg <= 0) return;
+    const S = sh.current[sector];
+    if (S >= 3 && heavy) dmg = Math.max(0, dmg - 1);
+    const take = Math.min(S, dmg); sh.current[sector] -= take; const rest = dmg - take;
+    if (rest > 0) { s.hull = Math.max(30, s.hull - rest * 5); setbackSector(sector); }
+    const L = ((CFG.spaceM3b && CFG.spaceM3b.shieldLeak) || {})[Math.min(4, S)] || {};
+    if ((L.chance || 0) > 0 && (!L.heavyOnly || heavy) && Math.random() < L.chance) hitSystems(sector, L.maxState || 'damaged');
+    ev('hit', { sector, shield: take > 0 && rest <= 0, dmg, absorbed: take, hull: rest * 5, heavy: !!heavy });
+  }
+  function setbackSector(sector) {
+    const loss = (CFG.spaceM3b && CFG.spaceM3b.repairHitLoss) || 0.5;
+    for (const q of W.players) {
+      const a = q.action;
+      if (!a || !(a.kind === 'flick' || a.kind === 'swap' || a.kind === 'minigame')) continue;
+      const sys = a.sys || a.system;
+      if (SYS_SECTOR[sys] !== sector) continue;
+      a.progress *= 1 - loss; if (a.t != null) a.t *= 1 - loss;
+      ev('repairSetback', { system: sys, pid: q.id });
     }
-    const take = Math.min(sh.current[sector], dmg); sh.current[sector] -= take; dmg -= take;
-    if (dmg > 0) { s.hull = Math.max(30, s.hull - dmg * 3); hitSystems(sector); }
-    ev('hit', { sector, shield: take > 0 && dmg <= 0, dmg, heavy: !!heavy });
   }
   function m3Mount(id) { return W.ship.mounts.find(x => x.id === id); }
   function m3Fire(id) {
     const s = W.ship, mt = m3Mount(id);
     if (!mt) return 'Nicht eingebaut';
     if (mt.state === 'broken') return 'Waffe zerstört';
+    if (id === 'bow') { if (!mt.charging) return 'Lanze: Taste 1 halten zum Aufladen'; m3FireLance(mt.power); return null; }
     if (mt.charge < 1) return 'Nicht geladen';
-    const tg = W.space.enemies.find(e => e.id === s.target);
-    if (!tg) return 'Kein Ziel';
-    if (id === 'bow') { if (mt.aim) return 'Zielt schon'; mt.aim = { left: m3n('aimTime', 1.5), dev: 0, _a0: s.angle }; ev('aim', { state: 'start' }); ev('sfx', { name: 'lance_aim' }); return null; }
-    if (!Phys.inArc(s.x, s.y, s.angle, mt.facing, mt.arc, mt.range, tg.x, tg.y)) return 'Ziel außerhalb des Feuerbogens';
-    mt.salvo = mt.salvoMax; mt._gap = 0; mt._tg = tg.id; mt.charge = 0;
+    if (mt.salvo > 0) return 'Salve läuft';
+    // §20.4: kein Ziel nötig – gewähltes Ziel im Bogen, sonst nächster im Bogen, sonst ins Leere
+    mt.salvo = mt.salvoMax; mt._gap = 0; mt._tg = s.target; mt.charge = 0;
     ev('sfx', { name: 'battery_salvo', count: mt.salvoMax });
     return null;
+  }
+  // §20.3: Lanze in Bugrichtung, erster Gegner nahe der Linie, Schaden 3..12 je power
+  function m3FireLance(power) {
+    const s = W.ship, mt = m3Mount('bow');
+    const L = (CFG.spaceM3 && CFG.spaceM3.lance) || { minDamage: 3, maxDamage: 12, width: 10 };
+    const HR = (CFG.combat && CFG.combat.hitRadius) || {};
+    const p = Math.max(0, Math.min(1, power || 0));
+    const ox = s.x + Math.cos(s.angle) * 34, oy = s.y + Math.sin(s.angle) * 34, ux = Math.cos(s.angle), uy = Math.sin(s.angle);
+    let hit = null, ht = Infinity;
+    for (const e of W.space.enemies) {
+      const rx = e.x - ox, ry = e.y - oy, t = rx * ux + ry * uy, rad = (HR[e.kind] || 18) + (L.width || 10);
+      if (t < -rad || t > 650 + rad || Math.abs(-rx * uy + ry * ux) >= rad) continue;
+      if (t < ht) { ht = t; hit = e; }
+    }
+    const max = L.maxDamage * (mt.state === 'damaged' ? (L.damagedMaxFactor || 0.75) : 1);
+    const dmg = L.minDamage + Math.max(0, max - L.minDamage) * p;
+    const d = hit ? Math.max(0, ht) : 650;
+    W.space.beams.push({ x1: ox, y1: oy, x2: ox + ux * d, y2: oy + uy * d, ttl: 0.5, kind: 'lance', mount: 'bow', miss: !hit });
+    if (hit) damageEnemy(hit, dmg, s.x, s.y);
+    mt.charging = false; mt.power = 0; mt.charge = 0;
+    ev('lance', { state: 'fire', power: Math.round(p * 100) / 100, hit: hit ? hit.id : null });
+    ev('sfx', { name: 'lance_fire', power: p });
   }
   function m3Tick(dt) {
     const s = W.ship, sh = s.shields, sys = s.systems, sp = W.space;
     // Drehen über turnVel (§6)
     const capOf = (x) => ({ ok: 1, damaged: 0.5, broken: 0.15, offline: 0.15 })[sys[x]] || 1;
     s.turnCap = { port: capOf('thruster_port'), stbd: capOf('thruster_stbd') };
-    const h = s.helm, rate = CFG.ship.turnRate, acc = CFG.ship.turnAccel || 0.8;
-    const want = h.manned ? h.turn * rate * (h.turn < 0 ? s.turnCap.port : s.turnCap.stbd) : 0;
-    s.turnVel += Math.max(-acc * dt, Math.min(acc * dt, want - s.turnVel));
-    if (!s.dockedAt) s.angle = Phys.normAngle(s.angle + s.turnVel * dt);
-    // Schild-Kappung über Emitter, Stoß
+    // (M3b: Drehen + Fahrt laufen im Schiffs-Tick über Flight.stepBody)
+    // Schild-Kappung über Emitter (M3b: kein Schildstoß mehr)
     sh.cap = EMITTERS.map(e => sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 2 : 4);
     for (let i = 0; i < 4; i++) sh.current[i] = Math.min(sh.current[i], sh.cap[i]);
-    if (params.get('burst') === '1' && !sh.burst) { sh.burst = { sector: 3, left: 1.5, perfectLeft: 0.5, absorb: 5 }; sh.burstCd = 7.4; }   // Screenshot-Modus
-    if (sh.burst) { sh.burst.left -= dt; sh.burst.perfectLeft = Math.max(0, sh.burst.perfectLeft - dt); if (sh.burst.left <= 0) sh.burst = null; }
-    sh.burstCd = Math.max(0, sh.burstCd - dt);
+    sh.burst = null; sh.burstCd = 0;
+    // M3b §4: Eskalation – beschädigt/zerstört im Kampf, niemand arbeitet daran -> nach 20 s Feuer neben der Station
+    const after = (CFG.spaceM3b && CFG.spaceM3b.escalation && CFG.spaceM3b.escalation.after) || 20;
+    const combat = sp.enemies.some(e => e.kind !== 'relay') || params.get('esc') === '1';
+    const busy = (x) => W.players.some(q => q.action && (q.action.sys === x || q.action.system === x)) || s.repairQueue.some(q => q.system === x && q.bot);
+    W._escT = W._escT || {};
+    for (const x of Object.keys(SYS_SECTOR)) {
+      if (combat && sys[x] && sys[x] !== 'ok' && sys[x] !== 'offline' && !busy(x)) {
+        W._escT[x] = (W._escT[x] == null ? (params.get('esc') === '1' ? Math.random() * 14 : 0) : W._escT[x]) + dt;
+        if (W._escT[x] >= after) {
+          W._escT[x] = 0;
+          const stn = (window.Render && Render.stationOfSystem) ? Render.stationOfSystem(x) : null;
+          if (stn) { const f = [stn.x, stn.y + 1]; if (!s.fires.some(q => q[0] === f[0] && q[1] === f[1])) s.fires.push(f); }
+          ev('escalated', { system: x, tx: stn ? stn.x : 0, ty: stn ? stn.y + 1 : 0 });
+        }
+      } else delete W._escT[x];
+    }
+    s.escalate = {};
+    for (const x in W._escT) s.escalate[x] = Math.round((after - W._escT[x]) * 10) / 10;
+    // M3b: Screenshot-Modus Rückschlag – alle 3 s an der eigenen Reparatur bzw. am ersten arbeitenden Schrauber
+    if (params.get('setback') === '1') {
+      W._sbT = (W._sbT || 0) + dt;
+      if (W._sbT > 3) {
+        W._sbT = 0;
+        const p = me();
+        if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) { if (p.action.progress < 0.25) p.action.progress = 0.8; p.action.progress *= 0.5; if (p.action.t != null) p.action.t *= 0.5; ev('repairSetback', { system: p.action.sys || p.action.system, pid: p.id }); }
+        const b = W.bots.find(q => q.task);
+        if (b) { b.progress *= 0.5; ev('repairSetback', { system: b.task.system, bot: b.id }); }
+      }
+    }
     // Waffen: Ladepunkte, Laden, Zielphase, Salven
     s.chargePoints = s.power.weapons > 0 ? s.power.weapons + 2 : 0;
     for (const mt of s.mounts) {
@@ -705,29 +792,33 @@
       mt.state = sys[msys];
       if (mt.salvoMax != null) mt.salvoMax = W.upgrades.seitenturm ? 5 : mt.state === 'damaged' ? 2 : 4;
       const per = (CFG.spaceM3 && CFG.spaceM3.mounts[mt.id].secPerPoint) || 16;
-      if (mt.state !== 'broken' && mt.alloc > 0 && !mt.aim && !(mt.salvo > 0)) mt.charge = Math.min(1, mt.charge + dt * mt.alloc / per * (mt.state === 'damaged' ? 1 / 1.5 : 1) * (params.get('fastcharge') === '1' ? 6 : 1));
-      if (mt.aim) {
-        if (params.get('aim') === '1') { mt.aim.left = 0.8 + 0.6 * Math.abs(Math.sin(W.time * 0.5)); mt.aim.dev = 3.6 * Math.sin(W.time * 1.3); continue; }
-        mt.aim.left -= dt;
-        mt.aim.dev = Math.round(Math.abs(Phys.normAngle(s.angle - mt.aim._a0)) * 180 / Math.PI * 10) / 10;
-        if (mt.aim.dev > m3n('aimTolerance', 5)) { mt.aim = null; mt.charge = m3n('aimAbortCharge', 0.7); ev('aim', { state: 'abort' }); ev('sfx', { name: 'aim_abort' }); continue; }
-        if (mt.aim.left <= 0) {
-          mt.aim = null; mt.charge = 0;
-          const tg = sp.enemies.find(e => e.id === s.target);
-          if (tg && Phys.inArc(s.x, s.y, s.angle, 0, 16, 650, tg.x, tg.y)) { sp.beams.push({ x1: s.x, y1: s.y, x2: tg.x, y2: tg.y, ttl: 0.5, kind: 'lance' }); damageEnemy(tg, 8, s.x, s.y); ev('aim', { state: 'fire' }); ev('sfx', { name: 'lance_fire' }); }
-          else { sp.beams.push({ x1: s.x, y1: s.y, x2: s.x + Math.cos(s.angle) * 650, y2: s.y + Math.sin(s.angle) * 650, ttl: 0.5, kind: 'lance' }); ev('aim', { state: 'miss' }); }
+      if (mt.state !== 'broken' && mt.alloc > 0 && !mt.charging && !(mt.salvo > 0)) mt.charge = Math.min(1, mt.charge + dt * mt.alloc / per * (mt.state === 'damaged' ? 1 / 1.5 : 1) * (params.get('fastcharge') === '1' ? 6 : 1));
+      if (mt.id === 'bow') {
+        // §20.3: Aufladen power 0 -> 1 in chargeTime (beschädigt × 1,5); Konsole verlassen / System aus = verpufft
+        if (params.get('charging') === '1') { mt.charge = 1; mt.charging = true; mt.power = 0.5 + 0.5 * Math.sin(W.time * 0.8); mt.power = Math.max(0, Math.min(1, mt.power * 1.2)); continue; }
+        if (mt.charging) {
+          const manned = W.players.some(q => q.console === 'weapons');
+          if (!manned || mt.state === 'broken') { mt.charging = false; mt.power = 0; ev('lance', { state: 'fizzle', power: 0, hit: null, why: manned ? 'system' : 'console' }); continue; }
+          const ct = m3n('lance.chargeTime', 3) * (mt.state === 'damaged' ? m3n('lance.damagedTimeFactor', 1.5) : 1);
+          mt.power = Math.min(1, mt.power + dt / ct);
         }
+        continue;
       }
+      if (params.get('salvo') === '1' && !(mt.salvo > 0)) { mt._auto = (mt._auto || 0) + dt; if (mt._auto > (mt.id === 'port' ? 1.2 : 1.9)) { mt._auto = 0; mt.charge = 1; m3Fire(mt.id); } }
       if (mt.salvo > 0) {
         mt._gap -= dt;
         if (mt._gap <= 0) {
           mt._gap = 0.15; mt.salvo--;
-          const tg = sp.enemies.find(e => e.id === mt._tg);
-          if (tg) { sp.beams.push({ x1: s.x, y1: s.y, x2: tg.x + (Math.random() - 0.5) * 16, y2: tg.y + (Math.random() - 0.5) * 16, ttl: 0.2, kind: 'battery' }); damageEnemy(tg, 1.5, s.x, s.y); }
+          // wie Server §20.4: gewähltes Ziel im Bogen, sonst nächster im Bogen, sonst ins Leere (senkrecht zur Flanke)
+          const inArc = (e) => e && Phys.inArc(s.x, s.y, s.angle, mt.facing, mt.arc, mt.range, e.x, e.y);
+          let tg = sp.enemies.find(e => e.id === mt._tg);
+          if (!inArc(tg)) tg = sp.enemies.filter(inArc).sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0] || null;
+          const side = s.angle + (mt.id === 'port' ? -Math.PI / 2 : Math.PI / 2);
+          const ox = s.x + Math.cos(side) * 16, oy = s.y + Math.sin(side) * 16;
+          if (tg) { sp.beams.push({ x1: ox, y1: oy, x2: tg.x + (Math.random() - 0.5) * 16, y2: tg.y + (Math.random() - 0.5) * 16, ttl: 0.15, kind: 'battery', mount: mt.id }); damageEnemy(tg, 1.5, s.x, s.y); }
+          else sp.beams.push({ x1: ox, y1: oy, x2: ox + Math.cos(side) * mt.range, y2: oy + Math.sin(side) * mt.range, ttl: 0.15, kind: 'battery', mount: mt.id, miss: true });
         }
       }
-      // Feuer frei: geladene Batterie feuert selbst
-      if (!mt.hold && mt.id !== 'bow' && mt.charge >= 1 && s.target) m3Fire(mt.id);
     }
     // Waffen-Altname = schlechtester Zustand
     const rank = { ok: 0, damaged: 1, broken: 2, offline: 2 };
@@ -744,7 +835,12 @@
         e.tele.sector = sec;
         e.tele.left -= dt;
         if (params.get('tele') === '1' && e.tele.left < 0.5) e.tele.left = e.tele.dur;   // Screenshot-Modus: Ladung läuft endlos
-        if (e.tele.left <= 0) {
+        if (e.tele.left <= 0 && W.time - (s._lastDodge != null ? s._lastDodge : -99) <= m3n('dodgeWindow', 0.8)) {
+          // §20.2: im Ausweich-Fenster -> verfehlt
+          ev('teleMiss', { id: e.id, dodged: true }); ev('sfx', { name: 'dodge_evade', enemy: e.kind });
+          W.stats.dodgeEvades = (W.stats.dodgeEvades || 0) + 1;
+          e.tele = null; e._teleT = 5 + Math.random() * 3;
+        } else if (e.tele.left <= 0) {
           sp.beams.push({ x1: e.x, y1: e.y, x2: s.x, y2: s.y, ttl: 0.4, kind: 'enemy_heavy' });
           ev('sfx', { name: 'heavy_hit' });
           m3Hit(sec, tc.damage || 2, true);
@@ -765,7 +861,7 @@
     switch (m.c) {
       case 'weapons.fire': {
         const id = alias[m.mount] || m.mount;
-        if (id === 'all') { let any = false; for (const k of ['bow', 'port', 'stbd']) if (!m3Fire(k)) any = true; if (!any) notice('Keine Waffe bereit'); return true; }
+        if (id === 'all') { let any = false; for (const k of ['port', 'stbd']) if (!m3Fire(k)) any = true; if (!any) notice('Keine Batterie geladen'); return true; }
         if (id === 'bolzen') return false;
         const err = m3Fire(id); if (err) notice(err); return true;
       }
@@ -776,15 +872,24 @@
         if (v < 0 || v > 4 || (m.delta > 0 && used >= s.chargePoints)) { notice('Ladepunkte: Grenze erreicht'); return true; }
         mt.alloc = v; return true;
       }
-      case 'weapons.hold': { const mt = m3Mount(m.mount); if (mt) mt.hold = !!m.hold; return true; }
-      case 'captain.burst': {
-        const sh = s.shields, sec = m.sector;
-        if (sh.burstCd > 0) { notice('Schildstoß lädt nach'); return true; }
-        if (s.systems.shields === 'broken' || s.systems[EMITTERS[sec]] === 'broken') { notice('Schildstoß nicht möglich'); return true; }
-        sh.burst = { sector: sec, left: 1.5, perfectLeft: 0.5, absorb: s.systems[EMITTERS[sec]] === 'damaged' ? 2 : 5 };
-        sh.burstCd = m3n('burst.cooldown', 8);
-        W.stats.bursts = (W.stats.bursts || 0) + 1;
-        ev('sfx', { name: 'burst' });
+      case 'weapons.hold': notice('Batterien feuern nur auf Befehl.'); return true;
+      case 'weapons.charge': {
+        const mt = m3Mount('bow'); if (!mt) return true;
+        if (!m.on) { if (mt.charging) m3FireLance(mt.power); return true; }
+        if (mt.charging) return true;
+        if (mt.state === 'broken') { notice('Lanze ausgefallen – reparieren.'); return true; }
+        if (mt.charge < 1) { notice('Lanze lädt noch.'); return true; }
+        mt.charging = true; mt.power = 0;
+        ev('lance', { state: 'charge', power: 0, hit: null, dur: 3 }); ev('sfx', { name: 'lance_charge', key: 'lance', dur: 3 });
+        return true;
+      }
+      case 'captain.burst': notice('Den Schildstoß gibt es nicht mehr.'); return true;   // M3b §4
+      case 'helm.throttle': {   // M3b §2
+        const n = LERCHE.stages.length, h = s.helm;
+        let want = m.set != null ? Math.round(+m.set) : h.stage + (+m.delta > 0 ? 1 : -1);
+        if (!(want >= 0 && want < n)) return true;
+        if (want !== h.stage) { h.stage = want; h.autoStop = false; ev('sfx', { name: 'ui_click' }); }
+        if (s.dockedAt && LERCHE.stages[h.stage] > 0) { s.docked = false; s.dockedAt = null; W.shopContext = null; }
         return true;
       }
       case 'captain.repair': {
@@ -816,8 +921,17 @@
       s.repairQueue = [{ system: 'emitter_stbd', mode: 'part', bot: 'b0' }, { system: 'thruster_port', mode: 'flick', bot: null }];
     }
     if (params.get('gunboat') === '1') spawnEnemy('gunboat', s.x + 330, s.y - 220);
-    if (params.get('burst') === '1') { s.shields.burst = { sector: 3, left: 1.1, perfectLeft: 0.3, absorb: 5 }; s.shields.burstCd = 7.4; }
-    if (params.get('aim') === '1') { const b = m3Mount('bow'); if (b) b.aim = { left: 0.9, dev: 2.1, _a0: s.angle }; if (W.space.enemies[0]) s.target = W.space.enemies[0].id; }
+    if (params.get('stage') != null && isFinite(+params.get('stage'))) s.helm.stage = Math.max(0, Math.min(LERCHE.stages.length - 1, Math.round(+params.get('stage'))));
+    if (params.get('raiders') === '1') { spawnEnemy('raider', s.x + 1000, s.y - 450); spawnEnemy('raider', s.x - 700, s.y + 900); }
+    if (params.get('esc') === '1') { Object.assign(sy, { battery_port: 'damaged', thruster_stbd: 'broken', emitter_stbd: 'damaged', emitter_bow: 'damaged' }); }
+    if (params.get('repair') === '1') {
+      const p = me(); sy.battery_stbd = sy.battery_stbd === 'ok' ? 'damaged' : sy.battery_stbd;
+      p.action = { kind: 'flick', progress: 0.6, dur: 9999, sys: 'battery_stbd' }; W._holdAction = true;
+      const stn = window.Render && Render.stationOfSystem ? Render.stationOfSystem('battery_stbd') : null;
+      const at = stn ? standNear(stn) : null;
+      if (at) Object.assign(p, tc(at.x, at.y));
+    }
+    if (params.get('charging') === '1' && W.space.enemies[0]) s.target = W.space.enemies[0].id;
     if (params.get('mg') === '1') { const p = me(); p.action = { kind: 'minigame', system: 'battery_stbd', progress: 0, t: 0 }; }
   }
 
@@ -825,8 +939,18 @@
     const s = W.ship, a = W.away, inv = W.inventory;
     if (m3Cmd(p, m)) return;
     switch (m.c) {
-      case 'helm.input': s.helm.turn = +m.turn || 0; s.helm.thrust = +m.thrust || 0; if (s.dockedAt && s.helm.thrust > 0) { s.docked = false; s.dockedAt = null; W.shopContext = null; } break;
-      case 'helm.dodge': if (s.dodgeCd > 0) return notice('Ausweichen lädt noch'); s.dodgeCd = 6; s.vx += Math.cos(s.angle + m.dir * Math.PI / 2) * 180; s.vy += Math.sin(s.angle + m.dir * Math.PI / 2) * 180; ev('sfx', { name: 'dodge' }); break;
+      case 'helm.input': {   // M3b: nur Ruder; thrust = Altname (Flanke > 0,5 / < −0,5 = eine Stufe)
+        const prev = s.helm.thrust || 0, th = +m.thrust || 0;
+        s.helm.turn = +m.turn || 0; s.helm.thrust = th;
+        if (th > 0.5 && !(prev > 0.5)) s.helm.stage = Math.min(LERCHE.stages.length - 1, s.helm.stage + 1);
+        else if (th < -0.5 && !(prev < -0.5)) s.helm.stage = Math.max(0, s.helm.stage - 1);
+        if (s.dockedAt && LERCHE.stages[s.helm.stage] > 0) { s.docked = false; s.dockedAt = null; W.shopContext = null; }
+        break;
+      }
+      case 'helm.dodge': { if (s.dodgeCd > 0) return notice('Ausweichen lädt noch'); s.dodgeCd = (CFG.ship && CFG.ship.dodgeCooldown) || 7; const imp = (CFG.ship && CFG.ship.dodgeImpulse) || 350; s.vx += Math.cos(s.angle + m.dir * Math.PI / 2) * imp; s.vy += Math.sin(s.angle + m.dir * Math.PI / 2) * imp; s._lastDodge = W.time; s._dodgeT = 1; s.helm.autoStop = false; W.stats.dodges = (W.stats.dodges || 0) + 1; } ev('sfx', { name: 'dodge' }); break;
+      case 'helm.stop': s.helm.autoStop = true; ev('sfx', { name: 'ui_click' }); break;   // §21.1 (Bremsen im Tick)
+      case 'plan.focus': { const b = W.mission.book; if (b && b.entries.some(e => e.id === m.id)) { b.focus = m.id; b.version++; } break; }
+      case 'plan.accept': { const b = W.mission.book; const e = b && b.entries.find(x => x.id === m.id); if (!e || e.state !== 'angeboten') return notice('Nichts anzunehmen'); e.state = 'aktiv'; b.version++; break; }
       case 'helm.jump': if (!s.jump.ready) return notice(s.jump.blockedReason || 'Sprung nicht bereit'); setLoc(s.jump.dest); break;
       case 'captain.accept': if (W.mission.radio) W.mission.radio = null; break;
       case 'captain.choice': W.mission.choice = null; break;
@@ -845,7 +969,7 @@
         const v = s.power[m.sys] + m.delta;
         if (v < 0 || v > 4) return notice('Grenze erreicht');
         if (m.delta > 0 && used >= s.reactor.output) return notice('Reaktor ausgelastet');
-        s.power[m.sys] = v; s.shields.pool = s.power.shields * 2 + (W.upgrades.schildpool ? 2 : 0);
+        s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 3) +(W.upgrades.schildpool ? 2 : 0);
         break;
       }
       case 'captain.shield': {
@@ -978,7 +1102,7 @@
     for (const q of W.players) {
       if (!q.action) continue;
       if (q.action.kind === 'minigame') { q.action.t = (q.action.t || 0) + dt; q.action.progress = Math.min(1, q.action.t / m3n('repair.minigameMinTime', 2.5)); continue; }
-      const held = q !== p || W._act || q.action.kind === 'beam';
+      const held = q !== p || W._act || W._holdAction || q.action.kind === 'beam';
       if (!held) { q.action = null; continue; }
       q.action.progress = Math.min(1, q.action.progress + dt / (q.action.dur || 3));
       if (q.action.progress >= 1) finishAction(q);
@@ -1013,15 +1137,30 @@
     // Schiff
     const h = s.helm;
     h.manned = W.players.some(q => q.console === 'helm');
+    // M3b: Temporegler + Ruder über Flight.stepBody (Fallback: grobe Annäherung)
+    const capOf2 = (x) => ({ ok: 1, damaged: 0.5, broken: 0.15, offline: 0.15 })[s.systems[x]] || 1;
+    const sf = ([0, 0.5, 0.8, 1, 1.15][s.power.engines] || 0) * (s.systems.engines === 'broken' ? 0 : s.systems.engines === 'damaged' ? 0.5 : 1);
     if (!s.dockedAt) {
-      const maxSp = CFG.ship.maxSpeed * [0, 0.5, 0.8, 1, 1.15][s.power.engines] || 40;
-      s.vx += Math.cos(s.angle) * h.thrust * CFG.ship.accel * dt; s.vy += Math.sin(s.angle) * h.thrust * CFG.ship.accel * dt;
-      if (h.thrust < 0) { s.vx *= 1 - 1.5 * dt; s.vy *= 1 - 1.5 * dt; }
-      let v = Math.hypot(s.vx, s.vy); if (v > maxSp) { s.vx *= maxSp / v; s.vy *= maxSp / v; v = maxSp; }
-      s.x = Math.max(0, Math.min(sp.w, s.x + s.vx * dt)); s.y = Math.max(0, Math.min(sp.h, s.y + s.vy * dt)); s.speed = Math.round(v * 10) / 10;
+      if (h.turn) h.autoStop = false;
+      const stopIdx = Math.max(0, LERCHE.stages.indexOf(0));
+      if (h.autoStop) h.stage = stopIdx;
+      const body = { x: s.x, y: s.y, angle: s.angle, vx: s.vx, vy: s.vy, turnVel: s.turnVel, stage: h.stage, dodgeT: s._dodgeT || 0 };
+      const input = { stage: h.stage, rudder: h.manned ? h.turn : 0, brake: !!h.autoStop };
+      if (FLIGHT) FLIGHT.stepBody(body, input, LERCHE, { speedFactor: sf, turnCapPort: capOf2('thruster_port'), turnCapStbd: capOf2('thruster_stbd') }, dt);
+      else { body.angle += (input.rudder * LERCHE.turnRate * 0.6) * dt; const tv = LERCHE.stages[h.stage] * LERCHE.maxSpeed * sf; body.vx = Math.cos(body.angle) * tv; body.vy = Math.sin(body.angle) * tv; body.x += body.vx * dt; body.y += body.vy * dt; }
+      s.x = Math.max(0, Math.min(sp.w, body.x)); s.y = Math.max(0, Math.min(sp.h, body.y)); s.angle = body.angle; s.vx = body.vx; s.vy = body.vy; s.turnVel = body.turnVel || 0; s._dodgeT = body.dodgeT;
+      const v = Math.hypot(s.vx, s.vy); s.speed = Math.round(v * 10) / 10;
       const dock = sp.markers.find(m => m.kind === 'dock');
-      if (dock && Math.hypot(dock.x - s.x, dock.y - s.y) < (dock.r || 70) && v <= 25 && h.thrust <= 0) { s.dockedAt = W.world.location; s.docked = true; s.vx = s.vy = s.speed = 0; W.shopContext = s.dockedAt; }
-    } else { s.vx = s.vy = s.speed = 0; }
+      if (dock && Math.hypot(dock.x - s.x, dock.y - s.y) < (dock.r || 70) && v <= 25 && LERCHE.stages[h.stage] <= 0.3) { s.dockedAt = W.world.location; s.docked = true; s.vx = s.vy = s.speed = 0; h.stage = stopIdx; W.shopContext = s.dockedAt; }
+    } else { s.vx = s.vy = s.speed = 0; s.turnVel = 0; }
+    // Snapshot-Felder wie der Server (space.helmSnapshot)
+    {
+      const fwd = s.vx * Math.cos(s.angle) + s.vy * Math.sin(s.angle);
+      h.stages = LERCHE.stages.map(x => Math.round(x * LERCHE.maxSpeed));
+      h.stageNames = LERCHE.stageNames; h.stop = Math.max(0, LERCHE.stages.indexOf(0)); h.agile = FLIGHT ? FLIGHT.agileStage(LERCHE) : 3;
+      h.speedFactor = Math.round(sf * 100) / 100; h.fwd = Math.round(fwd * 10) / 10;
+      h.turnFactor = Math.round((FLIGHT ? FLIGHT.turnFactor(LERCHE, fwd) : 1) * 100) / 100;
+    }
     s.dodgeCd = Math.max(0, s.dodgeCd - dt);
     // Sprung
     const j = s.jump;
@@ -1056,12 +1195,41 @@
     for (const e of sp.enemies) {
       e._regen += dt;
       if (e._regen >= 5) { e._regen = 0; for (let i = 0; i < 4; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i]++; }
-      if (e.kind === 'pylon') continue;
-      if (e.kind === 'sentinel') { const dx = s.x - e.x, dy = s.y - e.y, d = Math.hypot(dx, dy); if (d > 200) { e.x += dx / d * 20 * dt; e.y += dy / d * 20 * dt; } e.angle = Math.atan2(dy, dx); continue; }
+      if (e.kind === 'pylon') { e.vx = 0; e.vy = 0; continue; }
+      // M3b §3 (grob): Jäger fliegen Anflug -> Überflug -> Wende mit dem gemeinsamen Flugmodell
+      if (e.kind === 'raider' && FLIGHT) {
+        const P = (CFG.spaceM3b && CFG.spaceM3b.pilot) || {};
+        e.state = e.state || 'approach'; e._st = (e._st || 0) + dt;
+        if (e.vx == null) { e.vx = Math.cos(e.angle) * 150; e.vy = Math.sin(e.angle) * 150; e.turnVel = 0; e.stage = 2; }
+        const dx = s.x - e.x, dy = s.y - e.y, d = Math.hypot(dx, dy);
+        let rudder = 0, stage = 2;
+        const steer = (ang) => { const err = Phys.normAngle(ang - e.angle); return Math.max(-1, Math.min(1, 2.5 * err - 1.2 * (e.turnVel || 0) / RAIDER.turnRate)); };
+        if (e.state === 'approach') {
+          const side = e.id.charCodeAt(e.id.length - 1) % 2 ? 1 : -1;
+          const aim = Math.atan2(dy + s.vy * 1.5, dx + s.vx * 1.5) + side * Math.atan2(P.approachOffset || 60, Math.max(60, d));
+          rudder = steer(aim);
+          if (d < 120 || e._st > 9) { e.state = 'overshoot'; e._st = 0; }
+        } else if (e.state === 'overshoot') {
+          rudder = 0;
+          if (d > (P.overshootDist || 380) || e._st > (P.overshootTime || 3)) { e.state = 'turn'; e._st = 0; }
+        } else {
+          stage = 1; rudder = steer(Math.atan2(dy, dx));
+          if (Math.abs(Phys.normAngle(Math.atan2(dy, dx) - e.angle)) < 0.3 || e._st > 6) { e.state = 'approach'; e._st = 0; }
+        }
+        FLIGHT.stepBody(e, { stage, rudder }, RAIDER, {}, dt);
+        e.x = Math.max(0, Math.min(sp.w, e.x)); e.y = Math.max(0, Math.min(sp.h, e.y));
+        e._fire -= dt;
+        if (e.state === 'approach' && e._fire <= 0 && Phys.inArc(e.x, e.y, e.angle, 0, 40, 400, s.x, s.y)) { e._fire = 2.5; sp.projectiles.push({ id: nid('pe'), kind: 'enemy', x: e.x, y: e.y, angle: Math.atan2(s.y - e.y, s.x - e.x) }); }
+        continue;
+      }
+      const ox = e.x, oy = e.y;
+      e.state = e.kind === 'gunboat' ? 'station' : undefined;
+      if (e.kind === 'sentinel') { const dx = s.x - e.x, dy = s.y - e.y, d = Math.hypot(dx, dy); if (d > 200) { e.x += dx / d * 20 * dt; e.y += dy / d * 20 * dt; } e.angle = Math.atan2(dy, dx); e.vx = (e.x - ox) / dt; e.vy = (e.y - oy) / dt; continue; }
       e._a += dt * 0.3;
       const tx = s.x + Math.cos(e._a) * 260, ty = s.y + Math.sin(e._a) * 260;
       e.x += (tx - e.x) * Math.min(1, dt * 1.2); e.y += (ty - e.y) * Math.min(1, dt * 1.2);
       e.angle = e._a + Math.PI / 2;
+      e.vx = (e.x - ox) / dt; e.vy = (e.y - oy) / dt;   // M3b: Snapshot vx/vy
       e._fire -= dt;
       if (e._fire <= 0 && Phys.inArc(e.x, e.y, e.angle, 0, 360, 400, s.x, s.y)) { e._fire = 3; sp.projectiles.push({ id: nid('pe'), kind: 'enemy', x: e.x, y: e.y, angle: Math.atan2(s.y - e.y, s.x - e.x) }); }
     }
@@ -1112,7 +1280,7 @@
     const snap = {
       t: 'snap', tick: W.tick, time: Math.round(W.time * 100) / 100, phase: W.phase,
       lobby: { skipDrill: W.lobbyOpts.skipDrill, startMission: W.lobbyOpts.startMission },
-      players: W.players.map(p => { const r = strip(p); if (r.action) r.action = { kind: r.action.kind, progress: r.action.kind === 'switch' ? W.ship.reactor.restartProgress : r.action.progress }; return r; }),
+      players: W.players.map(p => { const r = strip(p); if (r.action) r.action = { kind: r.action.kind, system: r.action.sys || r.action.system, progress: r.action.kind === 'switch' ? W.ship.reactor.restartProgress : r.action.progress }; return r; }),
       bots: W.bots.map(b => { const r = strip(b); delete r.home; return r; }),
       world: { location: W.world.location },
       ship: W.ship,
