@@ -1,0 +1,21 @@
+{
+  "id": "away/wreck/floor",
+  "name": "Wrack Zaunkönig – Deckplatte (rostig, verrußt, Oberkante = Bodenhöhe 0)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "boden", "kachelbar"],
+  "footprint": [1, 1],
+  "jitter": 0.05,
+  "params": {},
+  "variants": { "loch": { "seed": 5 }, "russ": { "seed": 1 } },
+  "let": { "hole": "seed % 10 == 5", "soot": "seed % 3 == 1", "hx": "1 + seed % 2" },
+  "ops": [
+    { "op": "box", "name": "Platte", "at": [0, 0, 0], "size": [4, 1, 4],
+      "color": { "noise": ["metal", "metal", { "shade": "metal", "f": 0.85 }, "rust"], "weights": [4, 2, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Fuge x", "at": [0, 0, 0], "size": [4, 1, 1], "mode": "paint", "color": "metal_dark" },
+    { "op": "box", "name": "Fuge z", "at": [0, 0, 0], "size": [1, 1, 4], "mode": "paint", "color": "metal_dark" },
+    { "op": "box", "name": "Rußfleck", "if": "soot", "at": [1, 0, 1], "size": [3, 1, 2], "mode": "paint", "color": { "noise": ["soot", "metal_dark"], "weights": [2, 1] } },
+    { "op": "box", "name": "Loch", "if": "hole", "at": ["hx", 0, 2], "size": [1, 1, 1], "mode": "carve" }
+  ],
+  "anchor": [2, 1, 2]
+}

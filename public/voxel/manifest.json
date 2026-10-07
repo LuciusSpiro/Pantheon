@@ -9,12 +9,12 @@
     {
       "team": "art-b",
       "file": "art-b.json",
-      "count": 6
+      "count": 7
     },
     {
       "team": "art-c",
       "file": "art-c.json",
-      "count": 7
+      "count": 11
     },
     {
       "team": "art-d",
@@ -29,7 +29,7 @@
     {
       "team": "art-f",
       "file": "art-f.json",
-      "count": 3
+      "count": 17
     },
     {
       "team": "art-g",
@@ -39,7 +39,7 @@
     {
       "team": "art-h",
       "file": "art-h.json",
-      "count": 9
+      "count": 22
     }
   ],
   "assets": {
@@ -545,6 +545,931 @@
       "source": "away/kesh/wall_ruin",
       "team": "art-h"
     },
+    "away/platform/buoy_core": {
+      "id": "away/platform/buoy_core",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "wrack",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "active": {
+          "state": 0
+        },
+        "open": {
+          "state": 1
+        },
+        "silent": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "objective": [
+          0,
+          1,
+          0
+        ],
+        "use": [
+          0,
+          0,
+          1.1
+        ],
+        "light": [
+          0,
+          1.4,
+          0
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "away",
+        "platform",
+        "objective",
+        "light"
+      ],
+      "source": "away/platform/buoy_core",
+      "team": "art-h"
+    },
+    "away/platform/door_locked": {
+      "id": "away/platform/door_locked",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "locked": {
+          "open": 0
+        },
+        "open": {
+          "open": 1
+        },
+        "cut_locked": {
+          "open": 0,
+          "cut": 1
+        },
+        "cut_open": {
+          "open": 1,
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "entrance": [
+          0,
+          0,
+          0
+        ],
+        "light": [
+          0,
+          2.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "away",
+        "platform",
+        "door",
+        "wall"
+      ],
+      "usage": "Durchgang entlang z, Flügel quer über x. Steht die Tür in einer N-S-Wand (L auf B-7: Durchgang O-W), rot 90.",
+      "source": "away/platform/door_locked",
+      "team": "art-h"
+    },
+    "away/platform/edge": {
+      "id": "away/platform/edge",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "edge": [
+          1,
+          15
+        ],
+        "rail": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "south": {
+          "edge": 4
+        },
+        "corner": {
+          "edge": 6
+        },
+        "rail": {
+          "edge": 4,
+          "rail": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "platform",
+        "edge"
+      ],
+      "usage": "Zusatzmodell auf jeder Rand-Kachel (Wand oder Boden), die an '~' grenzt; edge = Bitmaske der Seiten zum All (N1 O2 S4 W8). Hängt 1 m unter die Bodenebene (Rumpfschürze, Positionslichter). rail = 1 nur auf Bodenkacheln.",
+      "source": "away/platform/edge",
+      "team": "art-h"
+    },
+    "away/platform/floor": {
+      "id": "away/platform/floor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "mark": {
+          "seed": 1
+        },
+        "hatch": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "away",
+        "platform",
+        "floor"
+      ],
+      "source": "away/platform/floor",
+      "team": "art-h"
+    },
+    "away/platform/sonde": {
+      "id": "away/platform/sonde",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "color": [
+          0,
+          5
+        ],
+        "on": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "mint": {
+          "color": 0
+        },
+        "bernstein": {
+          "color": 1
+        },
+        "rot": {
+          "color": 2
+        },
+        "blau": {
+          "color": 3
+        },
+        "pink": {
+          "color": 4
+        },
+        "weiss": {
+          "color": 5
+        },
+        "off": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "terminal": [
+          0,
+          0.7,
+          0.4
+        ],
+        "light": [
+          0,
+          0.7,
+          0.35
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "platform",
+        "terminal",
+        "light"
+      ],
+      "usage": "color 0–5 = Protocol.CODE_COLORS (mint, bernstein, rot, blau, pink, weiss) mit exakt CODE_COLOR_HEX; Auge + Bodenring.",
+      "source": "away/platform/sonde",
+      "team": "art-h"
+    },
+    "away/platform/wall": {
+      "id": "away/platform/wall",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "full": {
+          "conn": 10
+        },
+        "cut": {
+          "conn": 10,
+          "cut": 1
+        },
+        "corner": {
+          "conn": 6
+        },
+        "lamp": {
+          "conn": 10,
+          "seed": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "platform",
+        "wall"
+      ],
+      "source": "away/platform/wall",
+      "team": "art-h"
+    },
+    "away/wreck/debris": {
+      "id": "away/wreck/debris",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          7
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 1
+        },
+        "c": {
+          "seed": 2
+        },
+        "d": {
+          "seed": 3
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          0.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "wreck",
+        "debris"
+      ],
+      "source": "away/wreck/debris",
+      "team": "art-h"
+    },
+    "away/wreck/floor": {
+      "id": "away/wreck/floor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "soot": {
+          "seed": 1
+        },
+        "hole": {
+          "seed": 5
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "away",
+        "wreck",
+        "floor"
+      ],
+      "source": "away/wreck/floor",
+      "team": "art-h"
+    },
+    "away/wreck/grate": {
+      "id": "away/wreck/grate",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "lamp": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "away",
+        "wreck",
+        "floor",
+        "grate"
+      ],
+      "usage": "Öffnung läuft entlang lokal x, Streben quer dazu; Ost-West-Gang rot 0, Nord-Süd-Gang rot 90. Leitungen hängen bis 0,75 m unter 0.",
+      "source": "away/wreck/grate",
+      "team": "art-h"
+    },
+    "away/wreck/lore_terminal": {
+      "id": "away/wreck/lore_terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {
+        "read": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "unread": {
+          "read": 0
+        },
+        "read": {
+          "read": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "terminal": [
+          0,
+          1.1,
+          0.1
+        ],
+        "light": [
+          0,
+          1.1,
+          0.15
+        ],
+        "fx_spark": [
+          0.4,
+          1.1,
+          0
+        ],
+        "label": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "wreck",
+        "terminal",
+        "light"
+      ],
+      "source": "away/wreck/lore_terminal",
+      "team": "art-h"
+    },
+    "away/wreck/salvage": {
+      "id": "away/wreck/salvage",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "closed": {
+          "open": 0
+        },
+        "open": {
+          "open": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "loot": [
+          0,
+          0.5,
+          0
+        ],
+        "light": [
+          0,
+          0.65,
+          0.45
+        ],
+        "label": [
+          0,
+          1.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "away",
+        "wreck",
+        "loot",
+        "light"
+      ],
+      "source": "away/wreck/salvage",
+      "team": "art-h"
+    },
+    "away/wreck/wall": {
+      "id": "away/wreck/wall",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "bent": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "full": {
+          "conn": 10
+        },
+        "cut": {
+          "conn": 10,
+          "cut": 1
+        },
+        "bent": {
+          "conn": 10,
+          "bent": 1,
+          "seed": 1
+        },
+        "bent_cut": {
+          "conn": 10,
+          "bent": 1,
+          "cut": 1
+        },
+        "lamp": {
+          "conn": 10,
+          "seed": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "wreck",
+        "wall"
+      ],
+      "source": "away/wreck/wall",
+      "team": "art-h"
+    },
+    "away/wreck/wall_weak": {
+      "id": "away/wreck/wall_weak",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "wrack",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "normal": {
+          "state": 0
+        },
+        "marked": {
+          "state": 1
+        },
+        "open": {
+          "state": 2
+        },
+        "full_marked": {
+          "state": 1,
+          "cut": 0
+        }
+      },
+      "sockets": {
+        "terminal": [
+          0,
+          0.6,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "away",
+        "wreck",
+        "wall",
+        "interact"
+      ],
+      "usage": "Flickwand liegt in der Wandreihe (Ost-West), Platten quer über x, rot 0. cut Standard 1 (Default im Rezept).",
+      "source": "away/wreck/wall_weak",
+      "team": "art-h"
+    },
+    "crew/juno": {
+      "id": "crew/juno",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3370,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ],
+      "source": "crew/juno",
+      "team": "art-f"
+    },
+    "crew/nova": {
+      "id": "crew/nova",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3370,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ],
+      "source": "crew/nova",
+      "team": "art-f"
+    },
+    "crew/tami": {
+      "id": "crew/tami",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3366,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ],
+      "source": "crew/tami",
+      "team": "art-f"
+    },
+    "lerche/actor/bot": {
+      "id": "lerche/actor/bot",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.75,
+        0.95
+      ],
+      "height": 0.88,
+      "facing": "+z",
+      "params": {
+        "mode": [
+          0,
+          5
+        ]
+      },
+      "states": {
+        "ready": {
+          "mode": 0
+        },
+        "driving": {
+          "mode": 1
+        },
+        "repairing": {
+          "mode": 2
+        },
+        "extinguishing": {
+          "mode": 3
+        },
+        "carrying": {
+          "mode": 4
+        },
+        "backlash": {
+          "mode": 5
+        }
+      },
+      "sockets": {
+        "tool": [
+          -0.28,
+          0.41,
+          0.47
+        ],
+        "nozzle": [
+          0.28,
+          0.41,
+          0.47
+        ],
+        "fx_spark": [
+          0.16,
+          0.38,
+          0.03
+        ],
+        "fx_smoke": [
+          0,
+          0.85,
+          0
+        ],
+        "back": [
+          0,
+          0.75,
+          -0.34
+        ],
+        "light": [
+          0,
+          0.62,
+          0.22
+        ],
+        "label": [
+          0,
+          1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": {
+        "0": 1208,
+        "1": 1202,
+        "2": 1238,
+        "3": 1276,
+        "4": 1384,
+        "5": 1170
+      },
+      "tags": [
+        "lerche",
+        "actor",
+        "bot"
+      ],
+      "source": "lerche/actor/bot",
+      "team": "art-f"
+    },
     "lerche/actor/drone": {
       "id": "lerche/actor/drone",
       "kind": "model",
@@ -904,6 +1829,124 @@
       "source": "lerche/console/plan_table",
       "team": "art-c"
     },
+    "lerche/console/shop": {
+      "id": "lerche/console/shop",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {
+        "docked": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "docked": 0
+        },
+        "docked": {
+          "docked": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "fx_smoke": [
+          0,
+          0.8,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.6,
+          0.3
+        ],
+        "label": [
+          0,
+          1.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2012,
+      "tags": [
+        "lerche",
+        "console",
+        "private_deck",
+        "shop"
+      ],
+      "source": "lerche/console/shop",
+      "team": "art-c"
+    },
+    "lerche/console/spare": {
+      "id": "lerche/console/spare",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.06,
+      "facing": "+z",
+      "params": {
+        "on": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "on": {
+          "on": 1
+        },
+        "off": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "fx_smoke": [
+          0,
+          0.9,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.15
+        ],
+        "label": [
+          0,
+          1.25,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 906,
+      "tags": [
+        "lerche",
+        "console",
+        "bridge",
+        "terminal"
+      ],
+      "source": "lerche/console/spare",
+      "team": "art-c"
+    },
     "lerche/console/tactical": {
       "id": "lerche/console/tactical",
       "kind": "model",
@@ -981,6 +2024,78 @@
       "source": "lerche/console/tactical",
       "team": "art-c"
     },
+    "lerche/console/transfer": {
+      "id": "lerche/console/transfer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "occupied": [
+          0,
+          1
+        ],
+        "alert": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "idle": {
+          "occupied": 0,
+          "alert": 0
+        },
+        "occupied": {
+          "occupied": 1,
+          "alert": 0
+        },
+        "alert": {
+          "occupied": 0,
+          "alert": 1
+        },
+        "occupied_alert": {
+          "occupied": 1,
+          "alert": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          0.8,
+          -0.2
+        ],
+        "fx_spark": [
+          0,
+          0.7,
+          0
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 2144,
+      "tags": [
+        "lerche",
+        "console",
+        "transfer"
+      ],
+      "source": "lerche/console/transfer",
+      "team": "art-c"
+    },
     "lerche/crew_0": {
       "id": "lerche/crew_0",
       "kind": "figure",
@@ -990,7 +2105,7 @@
         1,
         1
       ],
-      "height": 2.06,
+      "height": 2.12,
       "facing": "+z",
       "params": {},
       "states": {
@@ -2238,6 +3353,299 @@
       "source": "lerche/item/blaster",
       "team": "art-g"
     },
+    "lerche/item/bolts": {
+      "id": "lerche/item/bolts",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 228,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/bolts",
+      "team": "art-f"
+    },
+    "lerche/item/datacore": {
+      "id": "lerche/item/datacore",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 252,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/datacore",
+      "team": "art-f"
+    },
+    "lerche/item/extinguisher": {
+      "id": "lerche/item/extinguisher",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.75,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.75,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 358,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/extinguisher",
+      "team": "art-f"
+    },
+    "lerche/item/medipack": {
+      "id": "lerche/item/medipack",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.5,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 308,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/medipack",
+      "team": "art-f"
+    },
+    "lerche/item/patch_plate": {
+      "id": "lerche/item/patch_plate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.56,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 278,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/patch_plate",
+      "team": "art-f"
+    },
+    "lerche/item/salvage": {
+      "id": "lerche/item/salvage",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 336,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/salvage",
+      "team": "art-f"
+    },
     "lerche/item/scav_rifle": {
       "id": "lerche/item/scav_rifle",
       "kind": "model",
@@ -2276,6 +3684,199 @@
       "notes": "Anbau handR. Anker = Pistolengriff, Mündung nach -y, Oberseite nach +z (AUTHORING). Standardanbau der Figur lerche/scavenger.",
       "source": "lerche/item/scav_rifle",
       "team": "art-g"
+    },
+    "lerche/item/spare_part": {
+      "id": "lerche/item/spare_part",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 420,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/spare_part",
+      "team": "art-f"
+    },
+    "lerche/item/tablet": {
+      "id": "lerche/item/tablet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 338,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/tablet",
+      "team": "art-f"
+    },
+    "lerche/item/wrench": {
+      "id": "lerche/item/wrench",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "tip": [
+          0,
+          -0.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 114,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ],
+      "source": "lerche/item/wrench",
+      "team": "art-f"
+    },
+    "lerche/ivo": {
+      "id": "lerche/ivo",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.12,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3916,
+      "tags": [
+        "lerche",
+        "figure",
+        "npc",
+        "rig:human"
+      ],
+      "source": "lerche/ivo",
+      "team": "art-f"
     },
     "lerche/kit/breach": {
       "id": "lerche/kit/breach",
@@ -2585,6 +4186,61 @@
       "notes": "Steht auf y = 0 (Bronzerahmen 0,12 m, Glasfeld leicht vertieft) – keine Bodenkachel darunter nötig, aber auch unschädlich. Geländer an jeder Seite ohne Nachbar-Schacht: conn N1 O2 S4 W8 wie bei der Wand (für (13,22)/(14,22): conn 2 bzw. 8). glow: 0 Reaktor offline, 1 online, 2 überladen. Punktlicht am Socket light empfohlen (glow 1: #9FD8FF schwach, 2: stärker).",
       "source": "lerche/kit/light_shaft",
       "team": "art-a"
+    },
+    "lerche/kit/pad": {
+      "id": "lerche/kit/pad",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.19,
+      "facing": "+z",
+      "params": {
+        "phase": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "idle": {
+          "phase": 0
+        },
+        "charging": {
+          "phase": 1
+        },
+        "beaming": {
+          "phase": 2
+        },
+        "cooling": {
+          "phase": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0.13,
+          0
+        ],
+        "light": [
+          0,
+          0.15,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 914,
+      "tags": [
+        "lerche",
+        "kit",
+        "transfer",
+        "pad"
+      ],
+      "source": "lerche/kit/pad",
+      "team": "art-c"
     },
     "lerche/kit/plaque": {
       "id": "lerche/kit/plaque",
@@ -3572,6 +5228,78 @@
         "reactor"
       ],
       "source": "lerche/station/reactor",
+      "team": "art-b"
+    },
+    "lerche/station/reactor_switch": {
+      "id": "lerche/station/reactor_switch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {
+        "pos": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "idle": {
+          "pos": 0
+        },
+        "held": {
+          "pos": 1
+        },
+        "thrown": {
+          "pos": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "hand": [
+          0,
+          0.82,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.6,
+          -0.2
+        ],
+        "fx_spark": [
+          0,
+          0.8,
+          0.12
+        ],
+        "light": [
+          0,
+          1.15,
+          0
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1202,
+      "tags": [
+        "lerche",
+        "station",
+        "switch",
+        "reactor"
+      ],
+      "source": "lerche/station/reactor_switch",
       "team": "art-b"
     },
     "lerche/station/shield_gen": {

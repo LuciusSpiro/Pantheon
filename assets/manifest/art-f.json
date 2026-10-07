@@ -6,48 +6,858 @@
       "kind": "figure",
       "tier": "detail",
       "palette": "lerche_rom",
-      "footprint": [1, 1],
-      "height": 2.06,
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.12,
       "facing": "+z",
       "params": {},
-      "states": { "neutral": {}, "player0": { "colors": { "cloth2": "#56B4E9" } } },
-      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
-      "tint": ["cloth2"],
+      "states": {
+        "neutral": {},
+        "player0": {
+          "colors": {
+            "cloth2": "#56B4E9"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
       "budgetTris": 6000,
       "measuredTris": 3286,
-      "tags": ["lerche", "figure", "crew", "rig:human"]
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ]
     },
     {
       "id": "lerche/crew_1",
       "kind": "figure",
       "tier": "detail",
       "palette": "lerche_rom",
-      "footprint": [1, 1],
-      "height": 2.0,
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
       "facing": "+z",
       "params": {},
-      "states": { "neutral": {}, "player1": { "colors": { "cloth2": "#E69F00" } } },
-      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
-      "tint": ["cloth2"],
+      "states": {
+        "neutral": {},
+        "player1": {
+          "colors": {
+            "cloth2": "#E69F00"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
       "budgetTris": 6000,
       "measuredTris": 3224,
-      "tags": ["lerche", "figure", "crew", "rig:human"]
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ]
     },
     {
       "id": "lerche/crew_2",
       "kind": "figure",
       "tier": "detail",
       "palette": "lerche_rom",
-      "footprint": [1, 1],
-      "height": 2.0,
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
       "facing": "+z",
       "params": {},
-      "states": { "neutral": {}, "player2": { "colors": { "cloth2": "#CC79A7" } } },
-      "sockets": { "handR": [-0.344, 0.75, 0.031], "handL": [0.344, 0.75, 0.031], "back": [0, 1.25, -0.188] },
-      "tint": ["cloth2"],
+      "states": {
+        "neutral": {},
+        "player2": {
+          "colors": {
+            "cloth2": "#CC79A7"
+          }
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
       "budgetTris": 6000,
       "measuredTris": 3404,
-      "tags": ["lerche", "figure", "crew", "rig:human"]
+      "tags": [
+        "lerche",
+        "figure",
+        "crew",
+        "rig:human"
+      ]
+    },
+    {
+      "id": "lerche/actor/bot",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.75,
+        0.95
+      ],
+      "height": 0.88,
+      "facing": "+z",
+      "params": {
+        "mode": [
+          0,
+          5
+        ]
+      },
+      "states": {
+        "ready": {
+          "mode": 0
+        },
+        "driving": {
+          "mode": 1
+        },
+        "repairing": {
+          "mode": 2
+        },
+        "extinguishing": {
+          "mode": 3
+        },
+        "carrying": {
+          "mode": 4
+        },
+        "backlash": {
+          "mode": 5
+        }
+      },
+      "sockets": {
+        "tool": [
+          -0.28,
+          0.41,
+          0.47
+        ],
+        "nozzle": [
+          0.28,
+          0.41,
+          0.47
+        ],
+        "fx_spark": [
+          0.16,
+          0.38,
+          0.03
+        ],
+        "fx_smoke": [
+          0,
+          0.85,
+          0
+        ],
+        "back": [
+          0,
+          0.75,
+          -0.34
+        ],
+        "light": [
+          0,
+          0.62,
+          0.22
+        ],
+        "label": [
+          0,
+          1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": {
+        "0": 1208,
+        "1": 1202,
+        "2": 1238,
+        "3": 1276,
+        "4": 1384,
+        "5": 1170
+      },
+      "tags": [
+        "lerche",
+        "actor",
+        "bot"
+      ]
+    },
+    {
+      "id": "lerche/item/spare_part",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 420,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/extinguisher",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.75,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.75,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 358,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/patch_plate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.56,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 278,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/bolts",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 228,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/medipack",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.5,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 308,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/datacore",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 252,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/wrench",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.69,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "tip": [
+          0,
+          -0.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 114,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/tablet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 338,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/item/salvage",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        0.6,
+        0.4
+      ],
+      "height": 0.63,
+      "facing": "-y (Armachse), Oberseite +z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 336,
+      "attach": {
+        "joint": "handR",
+        "carry": {
+          "offset": [
+            2.8,
+            3,
+            0
+          ],
+          "rot": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "tags": [
+        "lerche",
+        "item",
+        "handR"
+      ]
+    },
+    {
+      "id": "lerche/ivo",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.12,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "measuredTris": 3916,
+      "tags": [
+        "lerche",
+        "figure",
+        "npc",
+        "rig:human"
+      ]
+    },
+    {
+      "id": "crew/nova",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3370,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ]
+    },
+    {
+      "id": "crew/juno",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3370,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ]
+    },
+    {
+      "id": "crew/tami",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "crew",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.06,
+      "facing": "+z",
+      "params": {},
+      "states": {
+        "default": {}
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ]
+      },
+      "tint": [
+        "primary"
+      ],
+      "note": "Außenteam-Anzug (vorhanden, unverändert). Spielerfarbe liegt hier auf Rolle primary, nicht cloth2.",
+      "budgetTris": 6000,
+      "measuredTris": 3366,
+      "tags": [
+        "crew",
+        "figure",
+        "away",
+        "rig:human"
+      ]
     }
-  ]
+  ],
+  "poses": {
+    "file": "voxelwerk/assets/poses/human.json",
+    "new": [
+      "sit",
+      "operate",
+      "repair",
+      "extinguish",
+      "carry",
+      "hold",
+      "minigame",
+      "climb",
+      "lift_ride",
+      "crouch",
+      "wounded",
+      "revive",
+      "hit",
+      "aim_rifle"
+    ],
+    "cycle": "pose.cycle (siehe cycleNotes in human.json); walk hat cycle mit stride 1.5 m"
+  }
 }

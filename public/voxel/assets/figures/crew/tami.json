@@ -1,0 +1,22 @@
+{
+  "id": "crew/tami",
+  "name": "Tami (Außenteam, Medic)",
+  "rig": "human",
+  "palette": "crew",
+  "tags": ["figur", "crew"],
+  "notes": "Alle drei Crew-Figuren nutzen dieselben Teile (fig/crew/*, aufgebaut auf fig/basis/*) und unterscheiden sich nur über colors (primary = Rollen-Akzent, hair). Posen: stand, talk, inspect, point, walk, kneel, arms_crossed.",
+  "colors": { "primary": "#CC79A7", "hair": "#151515" },
+  "parts": {
+    "head": { "model": "fig/crew/helm_offen" },
+    "torso": { "model": "fig/crew/anzug_rumpf" },
+    "hips": { "model": "fig/crew/anzug_huefte" },
+    "upperArmL": { "model": "fig/crew/anzug_oberarm" },
+    "upperArmR": { "model": "fig/crew/anzug_oberarm", "mirror": true },
+    "lowerArmL": { "model": "fig/crew/anzug_unterarm" },
+    "lowerArmR": { "model": "fig/crew/anzug_unterarm", "mirror": true },
+    "thighL": { "model": "fig/crew/anzug_oberschenkel" },
+    "thighR": { "model": "fig/crew/anzug_oberschenkel", "mirror": true },
+    "shinL": { "model": "fig/crew/anzug_unterschenkel" },
+    "shinR": { "model": "fig/crew/anzug_unterschenkel", "mirror": true }
+  }
+}

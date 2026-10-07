@@ -1,0 +1,21 @@
+{
+  "id": "fig/lerche/robe_hips",
+  "name": "Ivo: Hüfte mit langem Gewand (bis Knie), Schärpe und Umhängetasche",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "ivo", "huefte"],
+  "ops": [
+    { "name": "Becken", "op": "box", "at": [-4, 13, -2], "size": [8, 3, 5], "color": "sand" },
+    { "name": "Rock vorn", "op": "box", "at": [-4, 8, 3], "size": [8, 7, 1], "color": "sand" },
+    { "name": "Rock hinten", "op": "box", "at": [-4, 8, -3], "size": [8, 7, 1], "color": "sand" },
+    { "name": "Rock Seiten", "op": "box", "at": [4, 8, -2], "size": [1, 7, 5], "color": { "shade": "sand", "f": 0.92 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Saum", "op": "box", "at": [-5, 8, -3], "size": [10, 1, 7], "color": "wood_dark", "mode": "paint" },
+    { "name": "Saum 2", "op": "box", "at": [-5, 10, -3], "size": [10, 1, 7], "color": "cloth", "mode": "paint" },
+    { "name": "Schärpe", "op": "box", "at": [-4, 15, -3], "size": [8, 1, 7], "color": "cloth" },
+    { "name": "Knoten", "op": "box", "at": [-3, 12, 4], "size": [1, 3, 1], "color": "cloth" },
+    { "name": "Tasche", "op": "box", "at": [-4, 11, -5], "size": [4, 3, 2], "color": "leather" },
+    { "name": "Taschendeckel", "op": "box", "at": [-4, 13, -5], "size": [4, 1, 2], "color": { "shade": "leather", "f": 0.75 } },
+    { "name": "Taschenschnalle", "op": "box", "at": [-3, 12, -6], "size": [1, 1, 1], "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

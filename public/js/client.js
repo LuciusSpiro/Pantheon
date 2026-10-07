@@ -354,6 +354,7 @@
   }
 
   function onEvent(ev) {
+    if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventM3', () => onEventM3(ev), false)) return;
     switch (ev.kind) {
@@ -706,6 +707,10 @@
       if ((st.ship.fires || []).some(f => f[0] === tx && f[1] === ty)) return carry === 'loeschgel' ? { label: 'Halten: Feuer löschen', ok: true } : { label: 'Löschgel nötig (Lager)', ok: false };
       if ((st.ship.breaches || []).some(b => b.tx === tx && b.ty === ty)) return carry === 'flickblech' ? { label: 'Halten: Leck flicken', ok: true } : { label: 'Flickblech nötig (Lager)', ok: false };
     }
+    // M4 (DECKS): Lift nur von der eigenen Kachel, Notleiter auch von der Nachbarkachel
+    const shipInteract = zone === 'ship' && map.legend && map.legend[ch] ? map.legend[ch].interact : null;
+    if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift zum ' + (Maps.deckOf && Maps.deckOf(ty) ? 'Systemdeck' : 'Privatdeck'), ok: true };
+    if (shipInteract === 'ladder' && !(m && m.ladder)) return { label: 'Halten: Notleiter (2 s)', ok: true };
     // Brückenumbau: freies Terminal (Legende interact 'spare') – noch ohne Funktion
     if (!ownTile && zone === 'ship' && map.legend && map.legend[ch] && map.legend[ch].interact === 'spare') return { label: 'Freies Terminal – noch ohne Funktion.', ok: false };
     if (ownTile) {

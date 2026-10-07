@@ -1,0 +1,69 @@
+{
+  "id": "lerche/actor/bot",
+  "name": "Schrauber-Bot (Wartungsautomat, Messing/Terrakotta, Helmkamm)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "actor", "bot"],
+  "notes": "Kein Rig. Vorderseite +z (Auge + Kamm zeigen die Fahrtrichtung). mode 0 bereit / 1 fährt (Frontlampe) / 2 repariert (Arm rechts mit Schweißspitze) / 3 löscht (Düsenarm links) / 4 trägt (Ersatzteil-Zahnrad auf dem Rückengestell) / 5 Rückschlag (Kuppel verrutscht, Kamm geknickt, Seitenklappe offen, Auge aus, Arm schlaff). Terrakotta ist feste Farbe #B4573E (keine Rolle in lerche_rom). Mint kommt bewusst nicht vor.",
+  "footprint": [0.75, 0.95],
+  "params": {
+    "mode": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "0 bereit, 1 fährt, 2 repariert, 3 löscht, 4 trägt, 5 Rückschlag" }
+  },
+  "let": { "broken": "mode == 5" },
+  "variants": { "faehrt": { "mode": 1 }, "repariert": { "mode": 2 }, "loescht": { "mode": 3 }, "traegt": { "mode": 4 }, "rueckschlag": { "mode": 5 } },
+  "ops": [
+    { "name": "Räder", "op": "cyl", "at": [3, 2.5, 0], "r": 2.5, "h": 2, "axis": "x", "color": "rubber", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Radnaben", "op": "cyl", "at": [5, 2.5, 0], "r": 1, "h": 1, "axis": "x", "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Fahrgestell", "op": "box", "at": [-3, 1, -3], "size": [6, 3, 6], "color": "metal_dark" },
+    { "name": "Fahrgestell Kante", "op": "box", "at": [-3, 3, -3], "size": [6, 1, 6], "color": "metal", "mode": "paint" },
+    { "name": "Kotflügel", "op": "box", "at": [3, 5, -2], "size": [2, 1, 4], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Rumpf", "op": "cyl", "at": [0, 4, 0], "r": 3.5, "h": 4, "color": { "stripes": ["trim", "#B4573E", "#B4573E"], "axis": "y", "period": 1 } },
+    { "name": "Frontschild", "op": "box", "at": [-1, 5, 4], "size": [2, 2, 1], "color": "metal_dark" },
+    { "name": "Frontschild Rahmen", "op": "box", "at": [-2, 7, 3], "size": [4, 1, 1], "color": "trim" },
+    { "name": "Frontlampe aus", "if": "mode != 1", "op": "box", "at": [-1, 5, 4], "size": [2, 1, 1], "color": "metal_light" },
+    { "name": "Frontlampe an", "if": "mode == 1", "op": "box", "at": [-1, 5, 4], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 2.2 }, "jitter": false },
+    { "name": "Halsring", "op": "cyl", "at": [0, 8, 0], "r": 2.5, "h": 1, "color": "metal" },
+    { "name": "Tank", "op": "cyl", "at": [0, 3, -5], "r": 1.5, "h": 6, "color": "secondary" },
+    { "name": "Tank Band", "op": "box", "at": [-2, 6, -7], "size": [4, 1, 4], "color": "primary", "mode": "paint" },
+    { "name": "Tank Kappe", "op": "box", "at": [-1, 9, -6], "size": [2, 1, 2], "color": "trim" },
+
+    { "name": "Kopf", "op": "group", "at": ["broken ? 1 : 0", "broken ? -1 : 0", 0], "ops": [
+      { "name": "Kuppel", "op": "ellipsoid", "at": [0, 9, 0], "r": [3, 3, 3], "half": "+y", "color": "trim" },
+      { "name": "Visierband", "op": "box", "at": [-3, 9, -3], "size": [6, 1, 6], "color": "metal_dark", "mode": "paint" },
+      { "name": "Auge", "if": "!broken", "op": "box", "at": [-1, 9, 3], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.8 }, "jitter": false },
+      { "name": "Auge aus", "if": "broken", "op": "box", "at": [-1, 9, 3], "size": [2, 1, 1], "color": "dark" },
+      { "name": "Kamm", "if": "!broken", "op": "box", "at": [-1, 12, -3], "size": [2, 2, 6], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.72 }], "axis": "z", "period": 1 } },
+      { "name": "Kamm vorn (geknickt)", "if": "broken", "op": "box", "at": [-1, 12, 0], "size": [2, 2, 3], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.72 }], "axis": "z", "period": 1 } },
+      { "name": "Kamm hinten (geknickt)", "if": "broken", "op": "box", "at": [0, 10, -4], "size": [2, 2, 3], "color": { "shade": "primary", "f": 0.8 } },
+      { "name": "Kammhalter", "op": "box", "at": [-1, 12, 3], "size": [2, 1, 1], "color": "metal" }
+    ] },
+
+    { "name": "Werkzeugschulter", "op": "box", "at": [-5, 6, -1], "size": [1, 2, 2], "color": "metal" },
+    { "name": "Arm eingeklappt", "if": "mode != 2 && !broken", "op": "box", "at": [-5, 5, 1], "size": [1, 1, 3], "color": "metal_light" },
+    { "name": "Klaue eingeklappt", "if": "mode != 2 && !broken", "op": "box", "at": [-5, 5, 4], "size": [1, 2, 1], "color": "trim" },
+    { "name": "Arm ausgefahren", "if": "mode == 2", "op": "line", "from": [-4.5, 7, 0.5], "to": [-4.5, 6.5, 6.5], "r": 0.6, "color": "metal_light" },
+    { "name": "Ellbogen", "if": "mode == 2", "op": "box", "at": [-5, 6, 3], "size": [1, 2, 1], "color": "trim" },
+    { "name": "Schweißspitze", "if": "mode == 2", "op": "box", "at": [-5, 6, 7], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 2.6 }, "jitter": false },
+    { "name": "Arm schlaff", "if": "broken", "op": "line", "from": [-4.5, 7, 0.5], "to": [-5.5, 3.5, 3.5], "r": 0.6, "color": "metal_light" },
+    { "name": "Klaue schlaff", "if": "broken", "op": "box", "at": [-6, 2, 3], "size": [1, 2, 1], "color": "trim" },
+
+    { "name": "Schlauch eingerollt", "if": "mode != 3", "op": "box", "at": [4, 5, -2], "size": [1, 2, 2], "color": "metal_dark" },
+    { "name": "Düsenarm", "if": "mode == 3", "op": "line", "from": [4.5, 7, -1.5], "to": [4.5, 6.5, 6], "r": 0.6, "color": "metal_dark" },
+    { "name": "Düse", "if": "mode == 3", "op": "box", "at": [4, 6, 6], "size": [1, 2, 1], "color": "trim" },
+    { "name": "Düsenmund", "if": "mode == 3", "op": "box", "at": [4, 6, 7], "size": [1, 1, 1], "color": "secondary", "jitter": false },
+
+    { "name": "Rückengestell", "if": "mode == 4", "op": "box", "at": [-3, 9, -7], "size": [6, 1, 5], "color": "metal_dark" },
+    { "name": "Ersatzteil Zahnrad", "if": "mode == 4", "op": "cyl", "at": [0, 10, -3.5], "r": 3, "h": 2, "color": "trim" },
+    { "name": "Zahnrad Zähne längs", "if": "mode == 4", "op": "box", "at": [-1, 10, -7], "size": [2, 2, 1], "color": "trim" },
+    { "name": "Zahnrad Zähne quer", "if": "mode == 4", "op": "box", "at": [3, 10, -5], "size": [1, 2, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Zahnrad Nabe", "if": "mode == 4", "op": "box", "at": [-1, 12, -5], "size": [2, 1, 2], "color": "primary" },
+    { "name": "Zahnrad Spannriemen", "if": "mode == 4", "op": "box", "at": [-4, 11, -4], "size": [8, 1, 1], "color": "leather" },
+
+    { "name": "Seitenklappe Loch", "if": "broken", "op": "box", "at": [2, 5, -1], "size": [2, 2, 2], "mode": "carve" },
+    { "name": "Innenleben", "if": "broken", "op": "box", "at": [1, 5, -1], "size": [1, 2, 2], "color": "metal_dark" },
+    { "name": "Kabel glimmt", "if": "broken", "op": "box", "at": [2, 5, 0], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+    { "name": "Klappe hängt", "if": "broken", "op": "box", "at": [4, 2, -1], "size": [1, 3, 2], "color": "#B4573E" },
+    { "name": "Delle", "if": "broken", "op": "box", "at": [-4, 6, 1], "size": [1, 1, 2], "mode": "carve" }
+  ],
+  "anchor": [0, 0, 0]
+}

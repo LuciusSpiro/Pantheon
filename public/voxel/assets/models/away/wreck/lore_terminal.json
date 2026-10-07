@@ -1,0 +1,29 @@
+{
+  "id": "away/wreck/lore_terminal",
+  "name": "Wrack Zaunkönig – Logbuch-Terminal (ungelesen: Bernstein-Text blinkt; gelesen: kalt und matt)",
+  "tier": "detail",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "terminal", "logbuch"],
+  "footprint": [1, 1],
+  "jitter": 0.02,
+  "params": {
+    "read": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Gelesen" }
+  },
+  "variants": { "gelesen": { "read": 1 } },
+  "ops": [
+    { "op": "box", "name": "Fuß", "at": [-6, 0, -6], "size": [12, 2, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Säule", "at": [-3, 2, -4], "size": [6, 11, 5], "color": { "noise": ["metal", "rust", { "shade": "metal", "f": 0.85 }], "weights": [3, 1, 2], "cell": 2 } },
+    { "op": "box", "name": "Kabelkanal", "at": [-1, 2, 1], "size": [2, 11, 1], "color": "black" },
+    { "op": "box", "name": "Kopf", "at": [-7, 13, -5], "size": [14, 8, 5], "color": "metal" },
+    { "op": "wedge", "name": "Pult", "at": [-7, 11, 0], "size": [14, 4, 5], "slope": "+z", "color": "metal_dark" },
+    { "op": "box", "name": "Bildschirmrahmen", "at": [-6, 14, 0], "size": [12, 7, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Bildschirm ungelesen", "if": "!read", "at": [-5, 15, 1], "size": [10, 5, 1], "color": { "stripes": ["screen_text", "glass"], "axis": "y", "period": 1 }, "jitter": false },
+    { "op": "box", "name": "Cursor", "if": "!read", "at": [3, 15, 1], "size": [2, 1, 1], "color": "screen_text", "jitter": false },
+    { "op": "box", "name": "Bildschirm gelesen", "if": "read", "at": [-5, 15, 1], "size": [10, 5, 1], "color": { "stripes": ["glow_dim", "glass", "glass"], "axis": "y", "period": 1 }, "jitter": false },
+    { "op": "box", "name": "Riss im Glas", "at": [-4, 17, 1], "size": [3, 1, 1], "mode": "paint", "color": "black" },
+    { "op": "box", "name": "Tasten", "at": [-5, 13, 3], "size": [10, 1, 2], "mode": "paint", "color": { "checker": ["metal_light", "metal_dark"], "period": 1 } },
+    { "op": "box", "name": "Ruß oben", "at": [-7, 20, -5], "size": [14, 1, 5], "mode": "paint", "color": { "noise": ["soot", "metal"], "weights": [2, 1] } },
+    { "op": "line", "name": "Lose Leitung", "from": [6, 18, -3], "to": [7, 0, 2], "r": 0.5, "color": "rubber" }
+  ],
+  "anchor": [0, 0, 0]
+}

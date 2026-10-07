@@ -1,0 +1,38 @@
+{
+  "id": "away/platform/edge",
+  "name": "Plattform B-7 – Rand zum All (Rumpfschürze unter der Kachel, Positionslichter, optional Geländer)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "platform", "rand", "kachelbar", "autotile"],
+  "footprint": [1, 1],
+  "jitter": 0.03,
+  "params": {
+    "edge": { "default": 4, "min": 0, "max": 15, "step": 1, "label": "Seiten zum All (N1 O2 S4 W8)" },
+    "rail": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geländer (nur auf Bodenkacheln)" }
+  },
+  "variants": { "ecke": { "edge": 6 }, "gelaender": { "edge": 4, "rail": 1 }, "rundum": { "edge": 15 } },
+  "let": {
+    "en": "floor(edge) % 2",
+    "ee": "floor(edge / 2) % 2",
+    "es": "floor(edge / 4) % 2",
+    "ew": "floor(edge / 8) % 2",
+    "nav": "seed % 2 == 0"
+  },
+  "ops": [
+    { "op": "box", "name": "Unterbau", "if": "edge > 0", "at": [0, -1, 0], "size": [4, 1, 4], "color": "plat_hull" },
+    { "op": "group", "name": "Schürze je Seite", "repeat": { "count": 4, "step": [0, 0, 0], "var": "f" }, "rot": "f * 90", "pivot": [2, 2],
+      "let": { "fe": "f == 0 ? es : f == 1 ? ee : f == 2 ? en : ew" },
+      "ops": [
+        { "op": "box", "name": "Schürze 1", "if": "fe", "at": [0, -2, 0], "size": [4, 1, 4], "color": "plat_hull" },
+        { "op": "box", "name": "Schürze 2", "if": "fe", "at": [0, -3, 0], "size": [4, 1, 3], "color": "plat_seam" },
+        { "op": "box", "name": "Schürze 3", "if": "fe", "at": [0, -4, 0], "size": [4, 1, 2], "color": "plat_dark" },
+        { "op": "box", "name": "Spant", "if": "fe", "at": [0, -5, 0], "size": [1, 4, 1], "color": "plat_metal" },
+        { "op": "box", "name": "Randleiste", "if": "fe", "at": [0, -1, 3], "size": [4, 1, 1], "mode": "paint", "color": { "stripes": ["plat_hazard", "plat_dark"], "axis": "x", "period": 1 } },
+        { "op": "box", "name": "Positionslicht", "if": "fe && nav", "at": [1, -2, 3], "size": [1, 1, 1], "mode": "paint", "color": "plat_glow", "jitter": false },
+        { "op": "box", "name": "Geländerpfosten", "if": "fe && rail", "at": [0, 1, 3], "size": [1, 4, 1], "color": "plat_metal" },
+        { "op": "box", "name": "Geländerpfosten 2", "if": "fe && rail", "at": [3, 1, 3], "size": [1, 4, 1], "color": "plat_metal" },
+        { "op": "box", "name": "Handlauf", "if": "fe && rail", "at": [0, 4, 3], "size": [4, 1, 1], "color": "plat_hazard" }
+      ] }
+  ],
+  "anchor": [2, 1, 2]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "lerche/item/tablet",
+  "name": "Tafel von Kesh (Steintafel mit leuchtenden Glyphen)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "item", "anbau", "mission", "kesh"],
+  "notes": "Uralte Vorläufer-Tafel, Ecke abgebrochen. Glyphen auf +z (beim Tragen oben).",
+  "ops": [
+    { "name": "Griffkante", "op": "box", "at": [0, -2, -1], "size": [1, 1, 2], "color": "rock" },
+    { "name": "Tafel", "op": "box", "at": [-3, -11, -1], "size": [7, 9, 2], "color": { "noise": ["rock", "rock_dark"], "weights": [3, 1], "cell": 1 } },
+    { "name": "Rand", "op": "box", "at": [-3, -11, 0], "size": [7, 9, 1], "color": { "frame": { "shade": "rock", "f": 1.15 }, "fill": "rock_dark", "axes": "xy", "width": 1 }, "mode": "paint" },
+    { "name": "Bruchkante", "op": "box", "at": [3, -11, -1], "size": [1, 2, 2], "mode": "carve" },
+    { "name": "Bruchkante 2", "op": "box", "at": [2, -11, -1], "size": [1, 1, 2], "mode": "carve" },
+    { "name": "Glyphe 1", "op": "box", "at": [-2, -4, 0], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "name": "Glyphe 2", "op": "box", "at": [1, -4, 0], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "name": "Glyphe 3", "op": "box", "at": [-2, -6, 0], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "name": "Glyphe 4", "op": "box", "at": [0, -6, 0], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "name": "Glyphe 5", "op": "box", "at": [-1, -8, 0], "size": [3, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "name": "Glyphe 6", "op": "box", "at": [-2, -9, 0], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false }
+  ],
+  "anchor": [0.5, 0, 0.5]
+}

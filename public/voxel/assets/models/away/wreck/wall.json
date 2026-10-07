@@ -1,0 +1,51 @@
+{
+  "id": "away/wreck/wall",
+  "name": "Wrack Zaunkönig – Schottwand (Autotile, rostig, verrußt, optional verbogen)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "wand", "kachelbar", "autotile"],
+  "footprint": [1, 1],
+  "jitter": 0.04,
+  "params": {
+    "conn": { "default": 10, "min": 0, "max": 15, "step": 1, "label": "Nachbarwände (N1 O2 S4 W8)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m statt 3 m)" },
+    "bent": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Verbogen (eingedrückt, Kante abgerissen)" }
+  },
+  "variants": { "geschnitten": { "cut": 1 }, "ecke": { "conn": 6 }, "frei": { "conn": 0 }, "verbogen": { "bent": 1, "seed": 1 }, "verbogen_cut": { "bent": 1, "cut": 1 }, "notlicht": { "seed": 3 } },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "H": "cut ? 6 : 13",
+    "fh": "cut ? 2 : 7",
+    "lamp": "seed % 3 == 0",
+    "tx": "(seed % 2) * 2"
+  },
+  "ops": [
+    { "op": "box", "name": "Körper", "at": [0, 0, 0], "size": [4, "H", 4], "color": { "noise": ["metal", { "shade": "metal", "f": 0.85 }, "rust"], "weights": [4, 2, 1], "cell": 2 } },
+    { "op": "group", "name": "Schauseite (je Richtung, nur wenn frei)", "repeat": { "count": 4, "step": [0, 0, 0], "var": "f" }, "rot": "f * 90", "pivot": [2, 2],
+      "let": {
+        "fe": "f == 0 ? 1 - cs : f == 1 ? 1 - ce : f == 2 ? 1 - cn : 1 - cw",
+        "le": "f == 0 ? 1 - cw : f == 1 ? 1 - cs : f == 2 ? 1 - ce : 1 - cn",
+        "re": "f == 0 ? 1 - ce : f == 1 ? 1 - cn : f == 2 ? 1 - cw : 1 - cs",
+        "u0": "le",
+        "uw": "4 - le - re"
+      },
+      "ops": [
+        { "op": "box", "name": "Paneel vertieft", "if": "fe", "at": ["u0", 2, 3], "size": ["uw", "fh", 1], "mode": "carve" },
+        { "op": "box", "name": "Paneel (alte Farbe, unten verrußt)", "if": "fe", "at": ["u0", 2, 2], "size": ["uw", "fh", 1], "mode": "paint",
+          "color": { "gradient": ["soot", "primary"], "axis": "y" } },
+        { "op": "box", "name": "Spant", "if": "fe && uw >= 3", "at": [2, 2, 3], "size": [1, "fh", 1], "color": "metal_dark" },
+        { "op": "box", "name": "Warnband", "if": "fe", "at": [0, 1, 3], "size": [4, 1, 1], "mode": "paint", "color": { "stripes": ["hazard", "hazard_dark"], "axis": "x", "period": 1 } },
+        { "op": "box", "name": "Notlicht", "if": "fe && lamp", "at": [1, "cut ? 4 : 10", 3], "size": [2, 1, 1], "mode": "paint", "color": "glow", "jitter": false },
+        { "op": "box", "name": "Delle", "if": "fe && bent", "at": [1, 3, 3], "size": [2, 2, 1], "mode": "carve" },
+        { "op": "box", "name": "Delle Ruß", "if": "fe && bent", "at": [1, 3, 2], "size": [2, 2, 1], "mode": "paint", "color": "soot" }
+      ] },
+    { "op": "box", "name": "Kappe dunkel", "at": [0, "H - 1", 0], "size": [4, 1, 4], "mode": "paint", "color": "metal_dark" },
+    { "op": "box", "name": "Abriss", "if": "bent", "at": ["tx", "H - (cut ? 1 : 3)", 0], "size": [2, "cut ? 1 : 3", 4], "mode": "carve" },
+    { "op": "box", "name": "Abriss Kante", "if": "bent", "at": ["tx", "H - (cut ? 2 : 4)", 0], "size": [2, 1, 4], "mode": "paint", "color": "rust_dark" },
+    { "op": "box", "name": "Aufgebogenes Blech", "if": "bent && !cut", "at": ["2 - tx", "H - 2", 1], "size": [2, 2, 1], "color": "rust" }
+  ],
+  "anchor": [2, 1, 2]
+}

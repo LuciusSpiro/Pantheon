@@ -14,7 +14,7 @@ const FOV = 30, FOV_KESH = 36;
 const VIEW_W = [15, 23];               // sichtbare Breite (m) in den Zoomstufen 0 (nah, Standard) und 1 (weit)
 const LIFT_RIDE = 0.6;                 // s Kamerafahrt
 const LIFT_RISE = 3.2;                 // m senkrecht
-const MAX_POINT_LIGHTS = 4;
+const MAX_POINT_LIGHTS = 2;               // §7: 4 dynamische Lichter gesamt – 2 im Pool (ship/away), 2 hält fx.js selbst
 const ZONES = ['ship', 'platform', 'wreck', 'kesh'];
 const MOOD_OF = { ship: 'ship_interior', platform: 'platform_space', wreck: 'wreck_dark', kesh: 'kesh_dusk' };
 const MOOD_FALLBACK = {
@@ -265,7 +265,8 @@ function setMoodObj(id, mood) {
   S.renderer.toneMappingExposure = mood.exposure != null ? mood.exposure : 1;
   if (S.bloom) {
     const b = mood.bloom || {};
-    S.bloom.strength = b.strength != null ? b.strength : 0.5; S.bloom.radius = b.radius != null ? b.radius : 0.5; S.bloom.threshold = b.threshold != null ? b.threshold : 0.85;
+    // gedämpft: Stationskronen (emit 1,6–1,7) überstrahlen sonst die Szene (ART-B)
+    S.bloom.strength = Math.min(0.32, b.strength != null ? b.strength : 0.4); S.bloom.radius = Math.min(0.4, b.radius != null ? b.radius : 0.4); S.bloom.threshold = Math.max(0.9, b.threshold != null ? b.threshold : 0.9);
   }
   S.baseHemi = S.hemi.intensity; S.baseSun = S.sun.intensity;
 }

@@ -147,6 +147,26 @@
       "budgetTris": 6000,
       "measuredTris": 2614,
       "tags": ["lerche", "station", "system", "lance"]
+    },
+    {
+      "id": "lerche/station/reactor_switch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.69,
+      "facing": "+z",
+      "params": { "pos": [0, 2] },
+      "states": {
+        "idle": { "pos": 0 },
+        "held": { "pos": 1 },
+        "thrown": { "pos": 2 }
+      },
+      "sockets": { "use": [0, 0, 0.6], "hand": [0, 0.82, 0.3], "fx_smoke": [0, 1.6, -0.2], "fx_spark": [0, 0.8, 0.12], "light": [0, 1.15, 0], "label": [0, 1.9, 0] },
+      "tint": [],
+      "budgetTris": 2500,
+      "measuredTris": 1202,
+      "tags": ["lerche", "station", "switch", "reactor"]
     }
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "id": "lerche/item/medipack",
+  "name": "Medipack (Marmorkoffer mit Äskulapstab)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "item", "anbau", "heilung"],
+  "notes": "Bewusst kein rotes Kreuz (Schutzzeichen): Emblem ist ein goldener Äskulapstab auf der +z-Seite.",
+  "ops": [
+    { "name": "Griff", "op": "box", "at": [0, -2, 0], "size": [1, 2, 1], "color": "metal_dark" },
+    { "name": "Tragebügel", "op": "box", "at": [-1, -3, 0], "size": [3, 1, 1], "color": "metal_dark" },
+    { "name": "Koffer", "op": "box", "at": [-3, -8, -1], "size": [7, 5, 3], "color": "secondary" },
+    { "name": "Deckelband", "op": "box", "at": [-3, -4, -1], "size": [7, 1, 3], "color": "primary", "mode": "paint" },
+    { "name": "Ecken", "op": "box", "at": [3, -8, -1], "size": [1, 1, 3], "color": "trim", "mirror": "x", "mirrorAt": 0.5 },
+    { "name": "Stab", "op": "box", "at": [0, -8, 2], "size": [1, 4, 1], "color": "trim" },
+    { "name": "Schlange", "op": "box", "at": [-1, -7, 2], "size": [1, 1, 1], "color": "primary" },
+    { "name": "Schlange 2", "op": "box", "at": [1, -6, 2], "size": [1, 1, 1], "color": "primary" }
+  ],
+  "anchor": [0.5, 0, 0.5]
+}

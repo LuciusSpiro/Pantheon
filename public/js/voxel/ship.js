@@ -8,7 +8,7 @@ import { registerLayer } from './renderer.js';
 
 const TILE = 32;
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
-const WALLISH = { '#': 1, '%': 1, 'D': 1 };          // Autotile-Nachbarn (Tür = Wandöffnung)
+const WALLISH = { '#': 1, '%': 1, 'D': 1, 'w': 1 };  // Autotile-Nachbarn (ART-A: Tür, Fenster, Lichtschacht zählen als Wand)
 const OUTSIDE = { '#': 1, ' ': 1, '%': 1, '~': 1 };   // kein Innenraum
 const FLOOR_CH = { '.': 0, '=': 1, '_': 1, ',': 2, ':': 3 };
 const QUARTER_FLOORS = ['holz_hell', 'holz_dunkel', 'teppich_rot', 'teppich_blau', 'fliesen'];
@@ -204,12 +204,17 @@ const layer = {
     S.t += dt;
     const st = view.state || {};
     for (const d of S.decks) d.group.visible = d.dk.index === ctx.deck;
+    if (S.moodDeck !== ctx.deck) { S.moodDeck = ctx.deck; ctx.setMood(ctx.deck >= 1 ? 'ship_private' : 'ship_interior'); }   // ART-A: Deck II eigene Stimmung
     // Brandflecken: Kacheln, die je gebrannt haben
     let wearChanged = false;
     for (const f of (st.ship && st.ship.fires) || []) { const k = f[0] + ',' + f[1]; if (!S.fireTiles.has(k)) { S.fireTiles.add(k); wearChanged = true; } }
     // statische Netze neu backen, wenn Quartier-Optionen oder Brandflecken sich ändern (selten)
-    const qSig = JSON.stringify(st.quarters || {}) + '|' + S.fireTiles.size;
-    for (const d of S.decks) if (d.bakeSig !== qSig) { rebake(ctx, S, d, st); d.bakeSig = qSig; }
+    // Wände nur bei geänderten Quartier-Optionen, Böden auch bei neuen Brandflecken (Wände sind teuer: seed je Kachel)
+    const qSig = JSON.stringify(st.quarters || {}), fSig = qSig + '|' + S.fireTiles.size;
+    for (const d of S.decks) {
+      if (d.bakeSig !== qSig) { rebake(ctx, S, d, st, true); d.bakeSig = qSig; d.floorSig = fSig; }
+      else if (d.floorSig !== fSig) { rebake(ctx, S, d, st, false); d.floorSig = fSig; }
+    }
     void wearChanged;
     updateDynamic(view, ctx, S, st);
     updateLights(view, ctx, S, st);
@@ -245,17 +250,18 @@ function wallStyle(A, st, tx, ty, deckIndex) {
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(1, 1, 1), UP = new THREE.Vector3(0, 1, 0);
 function mat(x, z, rot, y) { Q.setFromAxisAngle(UP, rot || 0); V.set(x, y || 0, z); return new THREE.Matrix4().compose(V, Q, SC); }
 
-function rebake(ctx, S, d, st) {
+function rebake(ctx, S, d, st, withSolids) {
   const A = S.A, L = ctx.loader, dk = d.dk;
   const floors = [], solids = [];
   const frontOfStation = S.frontTiles || new Set();
   for (const { tx, ty, ch } of dk.tiles) {
     const lz = ty - dk.y0 + 0.5, lx = tx + 0.5;
+    if ((ch === '#' || ch === '%') && !withSolids) continue;
     if (ch === '#') {
       const conn = (WALLISH[A.map.at(tx, ty - 1)] ? 1 : 0) | (WALLISH[A.map.at(tx + 1, ty)] ? 2 : 0) | (WALLISH[A.map.at(tx, ty + 1)] ? 4 : 0) | (WALLISH[A.map.at(tx - 1, ty)] ? 8 : 0);
       const cut = A.interior(tx, ty - 1) ? 1 : 0;
       const ws = wallStyle(A, st, tx, ty, dk.index);
-      const params = { conn, cut, style: ws.style, variant: ws.variant, seed: Math.floor(hash(tx, ty, 1) * 12) };
+      const params = { conn, cut, style: ws.style, variant: ws.variant, seed: tx + ty * 37 };   // ART-A: Pilaster alle 3 m, Fresken wechseln
       const g = L.geometries(ID.wall, params);
       solids.push({ geo: g ? g.geo : phGeo(1, cut ? 1.25 : 3, 1, PH_COL.wall), matrix: mat(lx, lz, 0) });
       continue;
@@ -267,7 +273,8 @@ function rebake(ctx, S, d, st) {
       solids.push({ geo: g ? g.geo : phGeo(1, 3, 0.3, '#7FA8C8'), matrix: mat(lx, lz, rot) });
       continue;
     }
-    // Boden unter jeder Innenkachel
+    // Boden unter jeder Innenkachel – nicht unter Lift und Lichtschacht (ART-A/ART-E)
+    if (ch === '^' || ch === 'w') continue;
     const q = A.quarterRoom.get(tx + ',' + ty);
     if (q) {
       const fl = ((st.quarters || {})[q] || {}).floor || 'holz_hell';
@@ -280,17 +287,24 @@ function rebake(ctx, S, d, st) {
       let kind = FLOOR_CH[fc];
       if (kind === 0) { const r = A.roomOf(tx, ty); if (r && r.id === 'bruecke') kind = 4; else if (r && r.id === 'krankenstation') kind = 5; }
       const wear = S.fireTiles.has(tx + ',' + ty) ? 2 : 0;
-      const g = L.geometries(ID.floor, { kind, wear, seed: Math.floor(hash(tx, ty, 3) * 8) });
-      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, 0) });
+      // QA: Mosaik nur als Mäanderrand an Wänden (seed ≥ 8, Band zur Wand gedreht), im Feld ruhiger Travertin
+      let seed = Math.floor(hash(tx, ty, 3) * 8), frot = 0;
+      if (kind === 3 && !wear) {
+        const wallAt = (dx, dy) => A.map.at(tx + dx, ty + dy) === '#' || A.map.at(tx + dx, ty + dy) === '%';
+        const wr = wallAt(0, -1) ? 0 : wallAt(0, 1) ? Math.PI : wallAt(-1, 0) ? Math.PI / 2 : wallAt(1, 0) ? -Math.PI / 2 : null;
+        if (wr != null) { seed = 8; frot = wr; }
+      }
+      const g = L.geometries(ID.floor, { kind, wear, seed });
+      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, frot) });
     }
     // Bodenkleinkram (nur Systemdeck, stabil per Hash, nicht vor Stationen, nicht auf Türen/Lift/Leiter/Pads)
-    if (dk.index === 0 && (ch === '.' || ch === '=' || ch === '_') && !frontOfStation.has(tx + ',' + ty) && hash(tx, ty, 7) < 0.1) {
+    if (withSolids && dk.index === 0 && (ch === '.' || ch === '=' || ch === '_') && !frontOfStation.has(tx + ',' + ty) && hash(tx, ty, 7) < 0.1) {
       const g = L.geometries(ID.decal, { kind: Math.floor(hash(tx, ty, 8) * 9), seed: Math.floor(hash(tx, ty, 9) * 16) });
       if (g) solids.push({ geo: g.geo, matrix: mat(lx + (hash(tx, ty, 10) - 0.5) * 0.3, lz + (hash(tx, ty, 11) - 0.5) * 0.3, Math.floor(hash(tx, ty, 12) * 4) * Math.PI / 2) });
     }
   }
   // Plaketten an Stationen (statisch, Seite aus der Legende)
-  for (const o of S.stations || []) {
+  for (const o of (withSolids && S.stations) || []) {
     if (o.deck !== dk.index) continue;
     const g = L.geometries(ID.plaque, { side: o.sideNum });
     if (!g) continue;
@@ -300,13 +314,15 @@ function rebake(ctx, S, d, st) {
     if (behind) solids.push({ geo: g.geo, matrix: mat(o.cx - fx * 0.5, o.cz - fz * 0.5, o.rot, 0.9) });
     else solids.push({ geo: g.geo, matrix: mat(o.cx + fx * 0.45, o.cz + fz * 0.45, o.rot) });
   }
-  if (d.bake) for (const m of d.bake) { d.group.remove(m); m.geometry.dispose(); }
-  d.bake = [];
-  const fg = L.bake(floors);
-  if (fg) { const m = new THREE.Mesh(fg, ctx.material); m.receiveShadow = true; m.castShadow = false; m.name = 'floors'; m.frustumCulled = false; d.group.add(m); d.bake.push(m); }
-  const sg = L.bake(solids);
-  if (sg) { const m = new THREE.Mesh(sg, ctx.material); m.receiveShadow = true; m.castShadow = true; m.name = 'walls'; m.frustumCulled = false; d.group.add(m); d.bake.push(m); }
-  d.tris = ((fg && fg.index.count) || 0) / 3 + ((sg && sg.index.count) || 0) / 3;
+  const swap = (key, geo, cast) => {
+    if (d[key]) { d.group.remove(d[key]); d[key].geometry.dispose(); d[key] = null; }
+    if (!geo) return;
+    const m = new THREE.Mesh(geo, ctx.material); m.receiveShadow = true; m.castShadow = cast; m.name = key; m.frustumCulled = false;
+    d.group.add(m); d[key] = m;
+  };
+  swap('floorMesh', L.bake(floors), false);
+  if (withSolids) swap('wallMesh', L.bake(solids), true);
+  d.bake = [d.floorMesh, d.wallMesh].filter(Boolean);
 }
 
 // ------------------------------------------------------------------------------------------------ Dynamisch: Objekte mit Zustand
@@ -334,8 +350,13 @@ function buildDynamic(ctx, S) {
       continue;
     }
     if (ch === '^') {
-      add(o, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck, power: reactorPower(st) === 0 || reactorPower(st) === 1 ? 1 : 0, open: 1, cut: 1 }));
-      add(o, ID.platform, PH_COL.lift, (st) => ({ moving: (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift) ? 1 : 0, power: reactorPower(st) === 2 ? 0 : 1 }));
+      // ART-E: open = begehbare Seiten des Blocks (N1 O2 W8), power 1 = Notstrom
+      let open = 0;
+      for (let i = 0; i < o.w; i++) if (A.walkable(o.tx + i, o.ty - 1)) open |= 1;
+      for (let j = 0; j < o.h; j++) { if (A.walkable(o.tx + o.w, o.ty + j)) open |= 2; if (A.walkable(o.tx - 1, o.ty + j)) open |= 8; }
+      const emerg = (st) => { const p = reactorPower(st); return p === 2 || p === 3 ? 1 : 0; };
+      add(o, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck, power: emerg(st), open, cut: 1 }));
+      add(o, ID.platform, PH_COL.lift, (st) => ({ moving: (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift) ? 1 : 0, power: emerg(st) }));
       continue;
     }
     if (ch === '!') { add(o, ID.ladder, PH_COL.lift, () => ({})); continue; }
@@ -394,6 +415,7 @@ function buildDynamic(ctx, S) {
         fn = () => ({ color });
       } else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
       else if (kind === 'light_shaft') { const w = (x, y) => A.map.at(x, y) === ch; const conn = (w(o.tx, o.ty - 1) ? 1 : 0) | (w(o.tx + 1, o.ty) ? 2 : 0) | (w(o.tx, o.ty + 1) ? 4 : 0) | (w(o.tx - 1, o.ty) ? 8 : 0); fn = (st) => { const p = reactorPower(st); return { glow: p === 2 ? 0 : p === 3 ? 1 : 2, conn }; }; }
+      else if (kind === 'bath') { const first = A.map.at(o.tx - 1, o.ty) !== ch && A.map.at(o.tx, o.ty - 1) !== ch ? 1 : 0; fn = () => ({ spout: first }); }   // ART-D: nur ein Löwenkopf
       else if (kind === 'trophy_niche') fn = (st) => ({ filled: (st.inventory && (+st.inventory.tafel || 0) > 0) || ((st.mission && st.mission.discoveries) || []).length > 0 ? 1 : 0 });
       add(o, id, kind === 'light_shaft' ? '#A9D6E5' : PH_COL.furn, fn);
       continue;
@@ -431,7 +453,7 @@ function placeObj(ctx, S, e, params) {
   if (!d) return;
   if (e.obj) { d.group.remove(e.obj); e.obj = null; }
   let id = e.id;
-  if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = {}; }
+  if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = { on: 1 }; }   // lampe: on (andere ignorieren den Parameter)
   const obj = ctx.loader.object(id, params, { color: e.color });
   obj.position.set(e.o.cx, 0, e.o.cz);
   obj.rotation.y = e.o.rot || 0;
@@ -477,16 +499,20 @@ function updateDynamic(view, ctx, S, st) {
 function buildLamps(ctx, S) {
   const A = S.A;
   for (const d of S.decks) {
-    const dk = d.dk, list = [];
+    const dk = d.dk, cand = [];
     for (const { tx, ty, ch } of dk.tiles) {
       if (ch !== '#') continue;
       const lz = ty - dk.y0;
-      // Innenraum südlich (+z): Leuchte an der sichtbaren Wandseite, alle ~4 m
+      // Innenraum südlich (+z): Leuchte an der sichtbaren Wandseite
       const y = A.interior(tx, ty - 1) ? 0.35 : 1.6;
-      if (A.walkable(tx, ty + 1) && (tx + ty) % 4 === 0) list.push({ x: tx + 0.5, z: lz + 1, rot: 0, tx, ty, y });
-      else if (A.walkable(tx + 1, ty) && (ty * 3 + tx) % 4 === 1) list.push({ x: tx + 1, z: lz + 0.5, rot: Math.PI / 2, tx, ty, y });
-      else if (A.walkable(tx - 1, ty) && (ty * 3 + tx) % 4 === 3) list.push({ x: tx, z: lz + 0.5, rot: -Math.PI / 2, tx, ty, y });
+      if (A.walkable(tx, ty + 1)) cand.push({ x: tx + 0.5, z: lz + 1, rot: 0, tx, ty, y, pri: 0 });
+      else if (A.walkable(tx + 1, ty)) cand.push({ x: tx + 1, z: lz + 0.5, rot: Math.PI / 2, tx, ty, y, pri: 1 });
+      else if (A.walkable(tx - 1, ty)) cand.push({ x: tx, z: lz + 0.5, rot: -Math.PI / 2, tx, ty, y, pri: 1 });
     }
+    // QA: Mindestabstand 4,5 m zwischen Leuchten (auch quer über schmale Räume) – vorher hingen im Liftvorraum 5–6 Lampen dicht
+    cand.sort((a, b) => a.pri - b.pri || a.ty - b.ty || a.tx - b.tx);
+    const list = [];
+    for (const c of cand) if (!list.some((l) => Math.hypot(l.x - c.x, l.z - c.z) < 4.5)) list.push(c);
     d.lamps = list;
     S.lamps.push(...list.map((l) => Object.assign({ deck: dk.index }, l)));
   }
@@ -521,6 +547,8 @@ function updateLights(view, ctx, S, st) {
   const inten = mode === 1 ? 3.2 * pulse : mode === 2 ? 1.4 : 2.4;
   const near = S.lamps.filter((l) => l.deck === ctx.deck).map((l) => ({ l, d: Math.hypot(l.x - cam.x, l.z - (cam.z - 9)) })).sort((a, b) => a.d - b.d).slice(0, 2);
   for (const { l } of near) ctx.addLight({ x: l.x + Math.sin(l.rot) * 0.6, y: l.y + 0.8, z: l.z + Math.cos(l.rot) * 0.6, color: col, intensity: inten, distance: 7, priority: 0 });
+  // ART-B: Reaktor überladen/Notstart – pulsierendes Licht am Socket light (0,8 m)
+  if (rp === 1 || rp === 3) for (const o of S.stations || []) if (o.system === 'reactor' && o.deck === ctx.deck) ctx.addLight({ x: o.cx, y: 0.8, z: o.cz + 0.3, color: rp === 1 ? '#FF5A3A' : '#FFB040', intensity: 2 + 2 * pulse, distance: 5, priority: 1 });
   // Quartierlicht der eigenen Figur
   const me = view.me, self = view.self;
   if (me && self) {

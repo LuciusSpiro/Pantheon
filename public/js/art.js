@@ -1004,6 +1004,7 @@
       }
       return;
     }
+    if (ch === '^' || ch === '!' || ch === ':') { drawDeckTileM4(ctx, ch, px, py, env, plat); return; }   // M4: Lift, Leiter, Mosaik
     var ft = FLOOR_CH[ch];
     if (ft === 'door') {
       var orient = (isWallCh(envAt(env, tx - 1, ty)) && isWallCh(envAt(env, tx + 1, ty))) ? 'h' : 'v';
@@ -1943,8 +1944,86 @@
       case 'deco_teppich':
         spr = cached('obj|deco_teppich', 32, 48, buildRug); ctx.drawImage(spr, px, py - OH); return;
       default:
-        if (!drawObjectM1(ctx, kind, px, py, o) && !drawObjectKesh(ctx, kind, px, py, o)) missing(ctx, px, py, 32, 32);
+        if (!drawObjectM4(ctx, kind, px, py, o) && !drawObjectM1(ctx, kind, px, py, o) && !drawObjectKesh(ctx, kind, px, py, o)) missing(ctx, px, py, 32, 32);
     }
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // M4 Stufe 1 „Zwei Decks“ (Team DECKS): schlichte 2D-Zeichnung der neuen Kachelarten für ?render=2d.
+  // Bodenkacheln (drawTile): '^' Liftplattform, '!' Notleiter, ':' Mosaikboden. Objekte (drawObject): light_shaft, window,
+  // trophy_niche, shrine, med_bed, bath, bench, sideboard. Alles in der Kachel (32×32), gecacht.
+  function drawDeckTileM4(ctx, ch, px, py, env, plat) {
+    var time = env.time || 0;
+    if (ch === ':') {   // Mosaik: karierter heller Boden mit feinem Rand
+      var v = ((env.tx | 0) + (env.ty | 0)) % 2;
+      ctx.drawImage(cached('m4|mosaic|' + v, 32, 32, function (g) {
+        R(g, 0, 0, 32, 32, '#C9B79A');
+        for (var y = 0; y < 4; y++) for (var x = 0; x < 4; x++) if ((x + y + v) % 2) R(g, x * 8, y * 8, 8, 8, '#B19C7C');
+        R(g, 0, 0, 32, 1, '#DCCDB2'); R(g, 0, 0, 1, 32, '#DCCDB2');
+        R(g, 12, 12, 8, 8, '#9E4A36'); R(g, 14, 14, 4, 4, '#D9A441');   // kleines Mittelornament
+      }), px, py);
+      return;
+    }
+    drawFloorAt(ctx, 'metal', px, py, env, plat);
+    if (ch === '!') {   // Notleiter: Schachtöffnung mit Sprossen
+      ctx.drawImage(cached('m4|ladder', 32, 32, function (g) {
+        R(g, 6, 2, 20, 28, '#1A1E26');
+        R(g, 6, 2, 3, 28, '#8A6A3A'); R(g, 23, 2, 3, 28, '#8A6A3A');
+        for (var y = 5; y < 30; y += 5) { R(g, 9, y, 14, 2, '#C9A25A'); R(g, 9, y + 2, 14, 1, '#4A3820'); }
+        R(g, 5, 1, 22, 1, '#F2C94C');
+      }), px, py);
+      return;
+    }
+    // Lift: Gitterplattform mit Pfeilen hoch/runter; Pfeile blinken leicht
+    var blink = ((time * 2) | 0) % 2;
+    ctx.drawImage(cached('m4|lift|' + blink, 32, 32, function (g) {
+      R(g, 1, 1, 30, 30, '#2C333F');
+      for (var i = 3; i < 30; i += 4) { R(g, i, 2, 1, 28, '#465063'); R(g, 2, i, 28, 1, '#465063'); }
+      R(g, 1, 1, 30, 1, '#C9A25A'); R(g, 1, 30, 30, 1, '#6A5230'); R(g, 1, 1, 1, 30, '#C9A25A'); R(g, 30, 1, 1, 30, '#6A5230');
+      var col = blink ? '#7FE0C2' : '#5FB89E';
+      for (var k = 0; k < 4; k++) { R(g, 15 - k, 5 + k, 2 + k * 2, 1, col); R(g, 15 - k, 26 - k, 2 + k * 2, 1, col); }   // ▲ ▼
+      R(g, 15, 9, 2, 4, col); R(g, 15, 19, 2, 4, col);
+    }), px, py);
+  }
+  function drawObjectM4(ctx, kind, px, py, o) {
+    var spr = null;
+    switch (kind) {
+      case 'light_shaft': spr = cached('m4|shaft', 32, 32, function (g) {
+        R(g, 0, 0, 32, 32, '#6E5A3E'); R(g, 3, 3, 26, 26, '#9FD3E0'); R(g, 3, 3, 26, 2, '#E8F8FF');
+        R(g, 6, 8, 10, 1, '#D8F0F8'); R(g, 14, 18, 12, 1, '#D8F0F8');
+        R(g, 0, 0, 32, 2, '#C9A25A'); R(g, 0, 30, 32, 2, '#8A6A3A');   // Geländer
+      }); break;
+      case 'window': spr = cached('m4|window', 32, 32, function (g) {
+        R(g, 0, 0, 32, 32, '#3A3F4C'); R(g, 3, 4, 26, 24, '#0E1630');
+        R(g, 7, 9, 1, 1, '#F4EEDC'); R(g, 20, 14, 1, 1, '#F4EEDC'); R(g, 13, 22, 1, 1, '#BFD8FF');
+        R(g, 3, 4, 26, 1, '#5A6A8A'); R(g, 15, 4, 2, 24, '#8A6A3A');
+      }); break;
+      case 'trophy_niche': spr = cached('m4|trophy', 32, 32, function (g) {
+        R(g, 3, 2, 26, 28, '#E6DCC6'); R(g, 7, 6, 18, 18, '#4A3828'); R(g, 7, 6, 18, 2, '#B19C7C');
+        ell(g, 16, 16, 4, 5, '#D9A441'); R(g, 12, 22, 8, 2, '#8A6A3A'); R(g, 3, 28, 26, 2, '#B19C7C');
+      }); break;
+      case 'shrine': spr = cached('m4|shrine', 32, 32, function (g) {
+        R(g, 6, 8, 20, 22, '#E6DCC6'); R(g, 4, 4, 24, 5, '#9E4A36'); R(g, 10, 13, 12, 12, '#4A3828');
+        ell(g, 16, 19, 2, 3, '#F2A33C'); R(g, 15, 22, 2, 3, '#C9A25A'); R(g, 6, 28, 20, 2, '#B19C7C');
+      }); break;
+      case 'med_bed': spr = cached('m4|medbed', 32, 32, function (g) {
+        R(g, 4, 3, 24, 26, '#8A9AA8'); R(g, 6, 5, 20, 22, '#F4EEDC'); R(g, 8, 6, 16, 6, '#DCE6EE');
+        R(g, 14, 16, 4, 8, '#9E4A36'); R(g, 12, 18, 8, 4, '#9E4A36');   // rotes Kreuz
+      }); break;
+      case 'bath': spr = cached('m4|bath', 32, 32, function (g) {
+        R(g, 2, 2, 28, 28, '#E6DCC6'); R(g, 5, 5, 22, 22, '#4E8FA6'); R(g, 5, 5, 22, 2, '#9FD3E0'); R(g, 8, 14, 8, 1, '#BFE6F0');
+      }); break;
+      case 'bench': spr = cached('m4|bench', 32, 32, function (g) {
+        R(g, 3, 12, 26, 9, '#8A5A36'); R(g, 3, 12, 26, 2, '#B07A4C'); R(g, 5, 21, 3, 6, '#5A3824'); R(g, 24, 21, 3, 6, '#5A3824');
+      }); break;
+      case 'sideboard': spr = cached('m4|sideboard', 32, 32, function (g) {
+        R(g, 2, 6, 28, 22, '#6A4228'); R(g, 2, 6, 28, 3, '#E6DCC6'); R(g, 4, 12, 11, 14, '#7E5232'); R(g, 17, 12, 11, 14, '#7E5232');
+        R(g, 13, 18, 2, 2, '#D9A441'); R(g, 17, 18, 2, 2, '#D9A441'); ell(g, 9, 4, 3, 2, '#9E4A36');   // Amphore
+      }); break;
+      default: return false;
+    }
+    ctx.drawImage(spr, px, py);
+    return true;
   }
 
   // ---------------------------------------------------------------------------------------------

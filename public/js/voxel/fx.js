@@ -1,13 +1,13 @@
-// Layer Ã¢â‚¬Å¾fxÃ¢â‚¬Å“ (CONTRACT-M4 Ã‚Â§3.5) Ã¢â‚¬â€œ Team ACTORS
-// Alle Effekte als gepoolte WÃƒÂ¼rfelpartikel: drei InstancedMesh (leuchtend, beleuchtet, additiv), zusammen Ã¢â€°Â¤ 2000 Partikel,
-// dazu hÃƒÂ¶chstens FX_LIGHTS dynamische Punktlichter. AuslÃƒÂ¶ser: Snapshot (Feuer, Lecks, StationszustÃƒÂ¤nde, Aktionen, Schilde,
-// Projektile, Befehle, Kuppel, Orbitalschlag, Sensor Ã¢â‚¬Â¦) und Server-Ereignisse (wie im 2D-Renderer).
-// Ãƒâ€“ffentlich: export function spawnFx(type, opts) Ã‚Â· window.VoxelFx = { spawnFx, onEvent, stats, shots }
+// Layer „fx“ (CONTRACT-M4 §3.5) – Team ACTORS
+// Alle Effekte als gepoolte Würfelpartikel: drei InstancedMesh (leuchtend, beleuchtet, additiv), zusammen ≤ 2000 Partikel,
+// dazu höchstens FX_LIGHTS dynamische Punktlichter. Auslöser: Snapshot (Feuer, Lecks, Stationszustände, Aktionen, Schilde,
+// Projektile, Befehle, Kuppel, Orbitalschlag, Sensor …) und Server-Ereignisse (wie im 2D-Renderer).
+// Öffentlich: export function spawnFx(type, opts) · window.VoxelFx = { spawnFx, onEvent, stats, shots }
 import { registerLayer } from './renderer.js';
 
 const TILE = 32;
-const CAP = { emit: 1000, lit: 600, glow: 400 };   // Summe 2000 (Ã‚Â§3.5)
-const FX_LIGHTS = 2;                               // von insgesamt Ã¢â€°Â¤ 4 dynamischen Lichtern (Ã‚Â§7) Ã¢â‚¬â€œ Rest fÃƒÂ¼r ship.js/away.js
+const CAP = { emit: 1000, lit: 600, glow: 400 };   // Summe 2000 (§3.5)
+const FX_LIGHTS = 2;                               // von insgesamt ≤ 4 dynamischen Lichtern (§7) – Rest für ship.js/away.js
 const COL = {
   fireCore: '#FFD27A', fire: '#F0602C', fireDeep: '#C8342C', ember: '#FFC66B', spark: '#FFF1B8', amber: '#F08A3C',
   smoke: '#7C7684', smokeLight: '#B4AEB8', ice: '#A9D6E5', shield: '#7FF3FF', mint: '#7FE0C2', gel: '#DFF7F0', foam: '#F4FBF8',
@@ -16,7 +16,7 @@ const COL = {
 };
 const ORDER_COL = { sammeln: '#7FE0C2', halten: '#F2C94C', flanke: '#A9D6E5', rueckzug: '#F08A3C', fokus: '#E0473C', gefahr: '#FF7A3D' };
 const PLAYER_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'];
-// Stationszeichen Ã¢â€ â€™ Asset (fÃƒÂ¼r Sockets, Ã‚Â§3.3)
+// Stationszeichen → Asset (für Sockets, §3.3)
 const STATION_ASSET = { R: 'reactor', G: 'shield_gen', O: 'life_support', E: 'engine', F: 'thruster', Z: 'thruster', K: 'lance',
   M: 'battery', J: 'battery', A: 'emitter', I: 'emitter', U: 'emitter', V: 'emitter', X: 'transfer' };
 const DEF_SOCKETS = { fx_smoke: [0, 1.5, 0], fx_spark: [0.25, 1.0, 0.35] };
@@ -83,7 +83,7 @@ function stepPools(dt) {
     P.live = w;
   }
 }
-// Sofort-Partikel nur fÃƒÂ¼r diesen Frame (Ringe, SÃƒÂ¤ulen, Projektile): direkt in die Instanzen
+// Sofort-Partikel nur für diesen Frame (Ringe, Säulen, Projektile): direkt in die Instanzen
 const IMM = { emit: [], lit: [], glow: [] };
 function put(mesh, x, y, z, size, hex, sx, sy, sz, yaw) {
   const L = IMM[mesh]; if (!L) return;
@@ -140,7 +140,7 @@ function writeInstances() {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Lichter (gepoolt, feste Anzahl Ã¢â€ â€™ kein Shader-Neubau)
+// Lichter (gepoolt, feste Anzahl → kein Shader-Neubau)
 function lightReq(x, y, z, hex, intensity, prio) { F.lightReq.push({ x, y, z, hex, intensity, prio }); }
 function assignLights() {
   const f = F.focus;
@@ -169,7 +169,7 @@ function visibleDeckTile(ty) { return visibleDeckPx(ty * TILE + 16); }
 // ------------------------------------------------------------------------------------------------------------------------------
 // Effekt-Bausteine
 const FX = {
-  // Feuer (GrÃƒÂ¶ÃƒÅ¸e 0Ã¢â‚¬â€œ2): FlammenwÃƒÂ¼rfel, Glut, Rauch, Licht
+  // Feuer (Größe 0–2): Flammenwürfel, Glut, Rauch, Licht
   fire(p, size, dt, t) {
     const k = [0.6, 1, 1.5][size] || 1;
     const rate = [28, 46, 70][size] * dt;
@@ -179,11 +179,11 @@ const FX = {
         life: rnd(0.35, 0.75) * (0.8 + k * 0.2), s0: rnd(0.14, 0.22) * k, s1: 0.02, c0: core ? COL.fireCore : COL.fire, c1: core ? COL.fire : COL.fireDeep, drag: 0.6 });
     }
     if (Math.random() < dt * 6 * k) spawn({ mesh: 'emit', p: [p[0] + rnd(-0.3, 0.3), p[1] + 0.4, p[2] + rnd(-0.3, 0.3)], v: [rnd(-0.4, 0.4), rnd(1.4, 2.4), rnd(-0.4, 0.4)], life: rnd(0.8, 1.4), s0: 0.035, s1: 0.01, c0: COL.ember, c1: COL.amber, drag: 0.3 });
-    if (Math.random() < dt * [5, 8, 13][size]) spawn({ mesh: 'lit', p: [p[0] + rnd(-0.2, 0.2), p[1] + 0.7 * k, p[2] + rnd(-0.2, 0.2)], v: [rnd(-0.1, 0.1) + 0.08, rnd(0.5, 0.8), rnd(-0.1, 0.1)], life: rnd(1.6, 2.4), s0: 0.14 * k, s1: 0.42 * k, c0: COL.smoke, c1: COL.smokeLight, drag: 0.4 });
+    if (Math.random() < dt * [5, 8, 13][size]) spawn({ mesh: 'lit', p: [p[0] + rnd(-0.2, 0.2), p[1] + 0.7 * k, p[2] + rnd(-0.2, 0.2)], v: [rnd(-0.1, 0.1) + 0.08, rnd(0.5, 0.8), rnd(-0.1, 0.1)], life: rnd(1.6, 2.4), s0: 0.07 * k, s1: 0.2 * k, c0: COL.smoke, c1: COL.smokeLight, drag: 0.4 });
     lightReq(p[0], p[1] + 0.8, p[2], COL.amber, (2.2 + size * 1.4) * (0.8 + 0.25 * Math.sin(t * 17 + p[0] * 3) + 0.1 * Math.sin(t * 29)), 2);
   },
   smoke(p, dt, amount) {
-    if (Math.random() < dt * 8 * (amount || 1)) spawn({ mesh: 'lit', p: [p[0] + rnd(-0.1, 0.1), p[1], p[2] + rnd(-0.1, 0.1)], v: [rnd(-0.1, 0.1) + 0.06, rnd(0.4, 0.7), rnd(-0.1, 0.1)], life: rnd(1.4, 2.2), s0: 0.1, s1: 0.36, c0: '#5E5864', c1: COL.smokeLight, drag: 0.4 });
+    if (Math.random() < dt * 8 * (amount || 1)) spawn({ mesh: 'lit', p: [p[0] + rnd(-0.1, 0.1), p[1], p[2] + rnd(-0.1, 0.1)], v: [rnd(-0.1, 0.1) + 0.06, rnd(0.4, 0.7), rnd(-0.1, 0.1)], life: rnd(1.4, 2.2), s0: 0.06, s1: 0.2, c0: '#5E5864', c1: COL.smokeLight, drag: 0.4 });
   },
   sparks(p, n, opts) {
     const o = opts || {};
@@ -210,7 +210,7 @@ const FX = {
     for (let n = Math.floor(dt * 70 + Math.random()); n > 0; n--) {
       const life = rnd(0.28, 0.38);
       const tx = to[0] + rnd(-0.25, 0.25), tz = to[2] + rnd(-0.25, 0.25), ty = to[1];
-      // ballistisch: Start mit AufwÃƒÂ¤rtsanteil, Schwerkraft 4
+      // ballistisch: Start mit Aufwärtsanteil, Schwerkraft 4
       const vx = (tx - from[0]) / life, vz = (tz - from[2]) / life, vy = (ty - from[1]) / life + 0.5 * 4 * life;
       spawn({ mesh: Math.random() < 0.5 ? 'lit' : 'glow', p: from.slice(), v: [vx, vy, vz], life, s0: 0.05, s1: 0.09, c0: COL.gel, c1: COL.mint, grav: 4, stretch: 1.8 });
     }
@@ -256,7 +256,7 @@ const FX = {
     put('glow', p[0], 0.04, p[2], 1, COL.mint, 0.9 * k, 0.05, 0.9 * k);
     lightReq(p[0], 1.2, p[2], COL.mint, 2.5 * k, 2);
   },
-  // Personenschild: 3 Segmente als WÃƒÂ¼rfelring (voll = hell, leer = Stummel), Regeneration wÃƒÂ¤chst im nÃƒÂ¤chsten Segment
+  // Personenschild: 3 Segmente als Würfelring (voll = hell, leer = Stummel), Regeneration wächst im nächsten Segment
   shieldRing(p, seg, max, regen, t, radius, dim) {
     max = Math.max(1, max || 3); const per = 8, gap = 0.35;
     const span = (Math.PI * 2) / max;
@@ -333,7 +333,7 @@ const FX = {
     lightReq(p[0], 1, p[2], hex || COL.ice, 5, 4);
   },
   empArcs(p, t) {
-    // Eisblaue BÃƒÂ¶gen an der Station (EMP)
+    // Eisblaue Bögen an der Station (EMP)
     for (let b = 0; b < 3; b++) {
       if (Math.floor(t * 9 + b * 3.3) % 2) continue;
       let x = p[0] + rnd(-0.35, 0.35), y = p[1] + rnd(-0.2, 0.3), z = p[2] + rnd(-0.35, 0.35);
@@ -341,7 +341,7 @@ const FX = {
     }
   },
   escalate(p, left, dt, t) {
-    // Boden glimmt rund um die Station, schneller und heller, je nÃƒÂ¤her das Feuer kommt
+    // Boden glimmt rund um die Station, schneller und heller, je näher das Feuer kommt
     const hot = clamp01(1 - (left || 0) / 20);
     for (let n = Math.floor(dt * (8 + hot * 30) + Math.random()); n > 0; n--) {
       const a = Math.random() * Math.PI * 2, r = rnd(0.3, 0.75);
@@ -437,7 +437,7 @@ const FX = {
     }
   },
   bolt(p, angle, kind, dt) {
-    // Projektil: gestreckter WÃƒÂ¼rfel in Flugrichtung + kurze Spur
+    // Projektil: gestreckter Würfel in Flugrichtung + kurze Spur
     const hex = kind === 'enemy' ? COL.enemyBolt : kind === 'warden' ? COL.violet : kind === 'pistol' ? COL.shield : COL.mint;
     const yaw = Math.atan2(Math.cos(angle), Math.sin(angle));
     if (kind === 'warden') {
@@ -457,7 +457,7 @@ const FX = {
 };
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Stationen (Sockets aus dem Manifest, gedreht wie CORE sie stellt: +z zur ersten begehbaren Nachbarkachel, Suche +z, Ã¢Ë†â€™z, Ã¢Ë†â€™x, +x)
+// Stationen (Sockets aus dem Manifest, gedreht wie CORE sie stellt: +z zur ersten begehbaren Nachbarkachel, Suche +z, −z, −x, +x)
 function buildStations() {
   const m = F.ctx.map; F.stations = [];
   if (!m || !m.info || F.ctx.zone !== 'ship') return;
@@ -478,10 +478,17 @@ function socketOf(stn, name) {
   const base = Wt(stn.x, stn.y, 0);
   return [base[0] + s[0] * c + s[2] * sn, base[1] + s[1], base[2] - s[0] * sn + s[2] * c];
 }
+function botSocket(b, name, yaw, def) {
+  let s = null;
+  try { const mf = F.ctx.loader && F.ctx.loader.manifest ? F.ctx.loader.manifest('lerche/actor/bot') : null; s = mf && mf.sockets && mf.sockets[name]; } catch (e) { s = null; }
+  s = s || def;
+  const c = Math.cos(yaw), sn = Math.sin(yaw), base = W(b.x, b.y, 0);
+  return [base[0] + s[0] * c + s[2] * sn, base[1] + s[1], base[2] - s[0] * sn + s[2] * c];
+}
 function stationOfSystem(sys) { return (F.stations || []).find((s) => s.sys === sys) || null; }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Snapshot Ã¢â€ â€™ Effekte
+// Snapshot → Effekte
 function nearestFire(st, p) {
   let best = null, bd = 1e9;
   for (const f of (st.ship && st.ship.fires) || []) {
@@ -513,7 +520,7 @@ function shipFx(view, st, dt, t) {
   F.prev.fires = nowFires;
   // Lecks
   for (const b of ship.breaches || []) if (visibleDeckTile(b.ty)) FX.breach(Wt(b.tx, b.ty, 0), dt, t);
-  // Stationen: beschÃƒÂ¤digt = Funken, zerstÃƒÂ¶rt = Rauch, EMP = BÃƒÂ¶gen, Eskalation = Boden glimmt
+  // Stationen: beschädigt = Funken, zerstört = Rauch, EMP = Bögen, Eskalation = Boden glimmt
   if (!F.stations) buildStations();
   const sys = ship.systems || {}, esc = ship.escalate || {};
   for (const s of F.stations) {
@@ -524,14 +531,16 @@ function shipFx(view, st, dt, t) {
     else if (state === 'offline') FX.empArcs(socketOf(s, 'fx_spark'), t);
     if (esc[s.sys] != null) FX.escalate(Wt(s.x, s.y, 0), +esc[s.sys], dt, t);
   }
-  // Bots: lÃƒÂ¶schen/reparieren
+  // Bots: löschen/reparieren
   for (const b of view.bots || []) {
     if (!b.task || !(b.progress > 0) || !visibleDeckPx(b.y)) continue;
     const to = W(b.task.x, b.task.y, 0.1);
-    if (b.task.kind === 'extinguish') FX.gelStream(W(b.x, b.y, 0.55), [to[0], 0.25, to[2]], dt);
-    else { const mid = W((b.x + b.task.x) / 2, (b.y + b.task.y) / 2, 0.55); FX.repairSparks(mid, dt, t, (b.id && b.id.length) || 1); }
+    // ART-F: Sockets nozzle (Löschstrahl) und tool (Schweißfunken), Bot schaut (+z) zur Aufgabe
+    const yaw = Math.atan2(b.task.x - b.x, b.task.y - b.y);
+    if (b.task.kind === 'extinguish') FX.gelStream(botSocket(b, 'nozzle', yaw, [0, 0.55, 0.3]), [to[0], 0.25, to[2]], dt);
+    else FX.repairSparks(botSocket(b, 'tool', yaw, [0, 0.55, 0.45]), dt, t, (b.id && b.id.length) || 1);
   }
-  // RÃƒÂ¼ckschlÃƒÂ¤ge
+  // Rückschläge
   for (const s of view.setbacks || []) {
     const key = s.system + '|' + (s.pid || '') + '|' + (s.bot || '');
     const last = F.prev.setbacks[key];
@@ -591,11 +600,11 @@ function playerFx(view, st, dt, t) {
         if (o) FX.reviveFlow(pos, W(o.x, o.y, 0), dt);
       }
     }
-    // Personenschild (AuÃƒÅ¸enteam v2)
+    // Personenschild (Außenteam v2)
     if (v2 && zone !== 'ship' && Array.isArray(p.sh) && !p.downed) {
       FX.shieldRing([pos[0], p.cr ? 0.7 : 0.95, pos[2]], p.sh[0], p.sh[1], p.shR || 0, t, p.cr ? 0.5 : 0.58, false);
     }
-    // Schildkuppel (Captain-UnterstÃƒÂ¼tzung)
+    // Schildkuppel (Captain-Unterstützung)
     const aw = st.away || {};
     if (zone !== 'ship' && aw.kuppelUntil && st.time < aw.kuppelUntil) FX.kuppel(pos, t);
   }
@@ -605,7 +614,7 @@ function awayFx(view, st, dt, t) {
   const aw = st.away || {};
   const v2 = aw.combat === 'v2';
   const R = window.Render;
-  // Gegner: Schilde, WÃƒÂ¤chter-Bogen, Tod Ã¢â€ â€™ Explosion, Sensor-Markierung
+  // Gegner: Schilde, Wächter-Bogen, Tod → Explosion, Sensor-Markierung
   const sensorOn = !!(aw.sensorUntil && st.time < aw.sensorUntil);
   if (sensorOn && !F.prev.sensor) for (const p of view.players || []) if (p.zone === 'away') FX.sensorPulse(W(p.x, p.y, 0));
   F.prev.sensor = sensorOn;
@@ -627,7 +636,7 @@ function awayFx(view, st, dt, t) {
       FX.wardenFront(pos, facing, arc, !!e.asleep, t, sock);
       if (v2 && Array.isArray(e.sh)) FX.shieldRing([pos[0], 1.9, pos[2]], e.sh[0], e.sh[1], 0, t, 1.1, true);
     }
-    // Zielen: glÃƒÂ¼hende MÃƒÂ¼ndung (rot)
+    // Zielen: glühende Mündung (rot)
     if (e.aim) {
       const pr = clamp01(e.aim.p);
       const tp = (view.players || []).find((q) => q.id === e.aim.target);
@@ -638,7 +647,7 @@ function awayFx(view, st, dt, t) {
     }
   }
   F.prev.drones = alive;
-  // Projektile: Bolzen + MÃƒÂ¼ndungsfeuer bei neuen, Einschlag bei verschwundenen
+  // Projektile: Bolzen + Mündungsfeuer bei neuen, Einschlag bei verschwundenen
   const now = new Map();
   for (const q of view.awayProjectiles || []) {
     const p = W(q.x, q.y, v2 ? 1.0 : 0.9);
@@ -651,7 +660,7 @@ function awayFx(view, st, dt, t) {
   }
   for (const [id, o] of F.prev.proj) if (!now.has(id)) FX.impact(o.p, o.kind === 'enemy' ? COL.enemyBolt : o.kind === 'warden' ? COL.violet : COL.shield);
   F.prev.proj = now;
-  // BefehlssÃƒÂ¤ulen des Captains
+  // Befehlssäulen des Captains
   for (const o of aw.orders || []) {
     if (!o || !ORDER_COL[o.kind] || (o.until != null && st.time != null && st.time > o.until)) continue;
     let ox = +o.x || 0, oy = +o.y || 0;
@@ -668,7 +677,7 @@ function awayFx(view, st, dt, t) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Ereignisse (Server) Ã¢â‚¬â€œ gleiche AuslÃƒÂ¶ser wie client.js onEvent Ã¢â€ â€™ R.addFx im 2D-Renderer
+// Ereignisse (Server) – gleiche Auslöser wie client.js onEvent → R.addFx im 2D-Renderer
 function onEvent(ev) {
   if (!ev || typeof ev !== 'object') return;
   if (F.evSeen.has(ev)) return;
@@ -703,7 +712,7 @@ function handleEvent(ev, st) {
     case 'wardenDown': if (!inShip && pos) { FX.empWave(at(0), COL.violet); FX.explosion(at(1.0), 1.6); } break;
     case 'coverHit': if (!inShip && pos) FX.coverHit(at(0.75)); break;
     case 'revived': if (pos && !inShip) FX.revive(at(0)); break;
-    case 'strike': if (pos && !inShip) { /* Telegraf lÃƒÂ¤uft ÃƒÂ¼ber away.strikes */ } break;
+    case 'strike': if (pos && !inShip) { /* Telegraf läuft über away.strikes */ } break;
     case 'emp': {
       if (!inShip) break;
       const stn = ev.system ? stationOfSystem(ev.system) : null;
@@ -729,7 +738,7 @@ function handleEvent(ev, st) {
       break;
     }
     case 'sfx': {
-      // MÃƒÂ¼ndungsfeuer am SchÃƒÂ¼tzen (Spieler) Ã¢â‚¬â€œ auÃƒÅ¸erdem merkt sich actors.js den Schuss fÃƒÂ¼r die Zielpose
+      // Mündungsfeuer am Schützen (Spieler) – außerdem merkt sich actors.js den Schuss für die Zielpose
       if ((ev.name === 'pistol' || ev.name === 'blaster') && ev.x != null) {
         let best = null, bd = 40;
         for (const p of st.players || []) { if (p.zone !== 'away') continue; const d = Math.hypot(p.x - ev.x, p.y - ev.y); if (d < bd) { bd = d; best = p; } }
@@ -755,7 +764,7 @@ function installEventHook() {
 
 // ------------------------------------------------------------------------------------------------------------------------------
 /**
- * Effekt von auÃƒÅ¸en auslÃƒÂ¶sen (ship.js, away.js, Debug). opts: { x, y } Spiel-Pixel oder { pos: [x,y,z] } Welt, { h } HÃƒÂ¶he,
+ * Effekt von außen auslösen (ship.js, away.js, Debug). opts: { x, y } Spiel-Pixel oder { pos: [x,y,z] } Welt, { h } Höhe,
  * { color, size, n, to: {x,y}|[x,y,z] }. Typen: fire, smoke, sparks, breach, gel, foam, foam_burst, repair, setback, beam_out, beam_in,
  * shield_hit, shield_break, muzzle, impact, cover_hit, warden_deflect, emp_wave, heal, revive, explosion, sensor, strike_boom.
  */
@@ -845,7 +854,7 @@ const layer = {
     const me = view.self;
     F.focus = me ? (() => { const v = F.ctx.toWorld(me.x, me.y); return { x: v.x, z: v.z }; })() : null;
     try {
-      // Warteschlange: Ereignisse und frÃƒÂ¼he spawnFx-Aufrufe
+      // Warteschlange: Ereignisse und frühe spawnFx-Aufrufe
       const q = F.queue; F.queue = [];
       for (const it of q) {
         if (performance.now() - it.t > 1500) continue;

@@ -1,0 +1,23 @@
+{
+  "id": "lerche/ivo",
+  "name": "Ivo (Gast, Händler) an Bord der Lerche",
+  "rig": "human",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "npc"],
+  "notes": "Händler mit rotem Pileus, grauem Vollbart, langem sandfarbenem Gewand bis zum Knie, Schal und Umhängetasche. Kein cloth2 (nicht einfärben). Posen wie Crew; verwundet = wounded.",
+  "colors": { "skin": "#B07A55", "skin_shadow": "#8E5E40", "hair": "#C9C3B8" },
+  "params": { "look": 3, "style": 1 },
+  "parts": {
+    "head": { "model": "fig/lerche/head" },
+    "torso": { "model": "fig/lerche/robe_torso" },
+    "hips": { "model": "fig/lerche/robe_hips" },
+    "upperArmL": { "model": "fig/lerche/robe_upperarm" },
+    "upperArmR": { "model": "fig/lerche/robe_upperarm", "mirror": true },
+    "lowerArmL": { "model": "fig/lerche/robe_lowerarm" },
+    "lowerArmR": { "model": "fig/lerche/robe_lowerarm", "mirror": true },
+    "thighL": { "model": "fig/lerche/leg_upper" },
+    "thighR": { "model": "fig/lerche/leg_upper", "mirror": true },
+    "shinL": { "model": "fig/lerche/leg_lower" },
+    "shinR": { "model": "fig/lerche/leg_lower", "mirror": true }
+  }
+}

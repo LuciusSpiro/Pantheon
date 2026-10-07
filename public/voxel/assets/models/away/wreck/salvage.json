@@ -1,0 +1,32 @@
+{
+  "id": "away/wreck/salvage",
+  "name": "Wrack Zaunkönig – Bergungscontainer (zu / offen mit Beute)",
+  "tier": "detail",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "beute", "container"],
+  "footprint": [1, 1],
+  "jitter": 0.02,
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Offen" }
+  },
+  "variants": { "offen": { "open": 1 } },
+  "ops": [
+    { "op": "box", "name": "Kufen", "at": [-7, 0, -6], "size": [14, 1, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Korpus", "at": [-7, 1, -6], "size": [14, 10, 12], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.82 }], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Eckholme", "at": [-7, 1, -6], "size": [14, 10, 12], "mode": "paint", "color": { "frame": "metal_dark", "fill": { "stripes": ["primary", { "shade": "primary", "f": 0.82 }], "axis": "x", "period": 2 }, "axes": "xz" } },
+    { "op": "box", "name": "Warnband", "at": [-7, 3, -6], "size": [14, 1, 12], "mode": "paint", "color": { "stripes": ["hazard", "hazard_dark"], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Rußspur", "at": [-7, 1, 5], "size": [6, 4, 1], "mode": "paint", "color": { "noise": ["soot", "rust"], "weights": [2, 1] } },
+    { "op": "box", "name": "Etikett", "at": [1, 6, 5], "size": [4, 3, 1], "mode": "paint", "color": "secondary" },
+
+    { "op": "box", "name": "Deckel zu", "if": "!open", "at": [-7, 11, -6], "size": [14, 1, 12], "color": { "frame": "metal_light", "fill": "metal", "axes": "xz" } },
+    { "op": "box", "name": "Riegel", "if": "!open", "at": [-1, 9, 6], "size": [2, 3, 1], "color": "metal_light" },
+    { "op": "box", "name": "Riegellicht zu", "if": "!open", "at": [-1, 10, 7], "size": [2, 1, 1], "color": "glow2", "jitter": false },
+
+    { "op": "box", "name": "Innenraum", "if": "open", "at": [-6, 4, -5], "size": [12, 7, 10], "mode": "carve" },
+    { "op": "box", "name": "Deckel offen (hochgeklappt)", "if": "open", "at": [-7, 11, -8], "size": [14, 9, 2], "color": { "frame": "metal_light", "fill": "metal", "axes": "xy" } },
+    { "op": "box", "name": "Beute Kiste", "if": "open", "at": [-5, 4, -4], "size": [5, 4, 4], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xy" } },
+    { "op": "box", "name": "Beute Kern", "if": "open", "at": [1, 4, -3], "size": [3, 5, 3], "color": "glow2", "jitter": false },
+    { "op": "box", "name": "Beute Zellen", "if": "open", "at": [-4, 4, 1], "size": [8, 2, 3], "color": { "stripes": ["glow", "metal_dark"], "axis": "x", "period": 2 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

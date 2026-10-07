@@ -1,0 +1,15 @@
+{
+  "id": "fig/lerche/robe_lowerarm",
+  "name": "Ivo: Unterarm links (Ärmelstulpe, Hand mit Goldringen)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "ivo", "arm"],
+  "ops": [
+    { "name": "Stulpe", "op": "box", "at": [3, 13, -2], "size": [5, 4, 5], "color": "sand" },
+    { "name": "Stulpenborte", "op": "box", "at": [3, 13, -2], "size": [5, 1, 5], "color": "wood_dark", "mode": "paint" },
+    { "name": "Hand", "op": "box", "at": [4, 10, -1], "size": [3, 3, 3], "color": "skin" },
+    { "name": "Ringe", "op": "box", "at": [4, 11, 1], "size": [3, 1, 1], "color": "trim", "mode": "paint" },
+    { "name": "Daumen", "op": "box", "at": [4, 11, 2], "size": [1, 1, 1], "color": { "shade": "skin", "f": 0.92 } }
+  ],
+  "anchor": [0, 0, 0]
+}

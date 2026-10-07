@@ -1,0 +1,22 @@
+{
+  "id": "lerche/item/spare_part",
+  "name": "Ersatzteil (Messing-Zahnradmodul mit Griffbügel)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "item", "anbau"],
+  "notes": "Anker = Griffpunkt (Faustoberkante, AUTHORING §Anbauten). Griff y -2..-1 liegt in der Faust, Teil hängt nach -y. Zahnradfläche zeigt nach +z (beim Tragen nach oben).",
+  "ops": [
+    { "name": "Griffbügel", "op": "box", "at": [-1, -2, 0], "size": [3, 1, 2], "color": "metal_dark" },
+    { "name": "Griffsteg", "op": "box", "at": [0, -2, 0], "size": [1, 2, 2], "color": "leather" },
+    { "name": "Zahnrad", "op": "cyl", "at": [0.5, -6.5, 0], "r": 3.2, "h": 2, "axis": "z", "color": "trim" },
+    { "name": "Zahn oben", "op": "box", "at": [0, -3, 0], "size": [1, 1, 2], "color": "trim" },
+    { "name": "Zahn unten", "op": "box", "at": [0, -11, 0], "size": [1, 1, 2], "color": "trim" },
+    { "name": "Zähne Seite", "op": "box", "at": [4, -7, 0], "size": [1, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0.5 },
+    { "name": "Zähne schräg", "op": "box", "at": [3, -4, 0], "size": [1, 1, 2], "color": { "shade": "trim", "f": 0.85 }, "mirror": "xy", "mirrorAt": { "x": 0.5, "y": -6 } },
+    { "name": "Speichenfeld", "op": "cyl", "at": [0.5, -6.5, 1], "r": 2, "h": 1, "axis": "z", "color": "metal", "mode": "paint" },
+    { "name": "Nabe", "op": "box", "at": [0, -7, -1], "size": [1, 1, 4], "color": "primary" },
+    { "name": "Nabenring", "op": "box", "at": [-1, -8, 2], "size": [3, 3, 1], "color": "metal_dark" },
+    { "name": "Nabe vorn", "op": "box", "at": [0, -7, 2], "size": [1, 1, 2], "color": "primary" }
+  ],
+  "anchor": [0.5, 0, 1]
+}

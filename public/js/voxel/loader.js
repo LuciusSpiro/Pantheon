@@ -33,9 +33,10 @@ export const VOXEL_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, ro
 VOXEL_MAT.onBeforeCompile = (sh) => {
   sh.vertexShader = 'attribute float aEmit;\nvarying float vEmit;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvEmit = aEmit;');
   sh.fragmentShader = 'varying float vEmit;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
-    '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { totalEmissiveRadiance += diffuseColor.rgb; diffuseColor.rgb *= 0.0; }');
+    // QA: Emission farbtreu deckeln (Maximalkanal ≤ 1,0, dann ×0,85) – sonst brennen Kronen/Lampen mit emit 1,6–2 zu Weiß aus
+    '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * (min(1.0, 1.0 / eM) * 0.85); diffuseColor.rgb *= 0.0; }');
 };
-VOXEL_MAT.customProgramCacheKey = () => 'voxel-emit-v1';
+VOXEL_MAT.customProgramCacheKey = () => 'voxel-emit-v2';
 
 /** lit + emit (je BufferGeometry oder null) → eine Geometrie mit Attribut aEmit. */
 export function combine(lit, emit) {

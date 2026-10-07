@@ -579,6 +579,14 @@
     if (p.zone === 'away' && W.away.map === 'kesh') { if (!p.downed) keshAct(p); return; }
     const map = p.zone === 'away' ? awayMapNow() : Maps.ship;
     const t = Phys.toTile(p.x, p.y);
+    // M4: Lift (auf ^ stehen) bzw. Notleiter (auf/vor !) – im Mock sofort aufs andere Deck (ohne Fahrzeit)
+    if (p.zone === 'ship' && Maps.otherDeckTile) {
+      const own = map.info(t.x, t.y);
+      const lad = [[0, 0], [DIRV[p.dir][0], DIRV[p.dir][1]]].map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy })).find(q => map.info(q.x, q.y).interact === 'ladder');
+      const from = own.interact === 'lift' ? t : lad;
+      const to = from ? (own.interact === 'lift' ? Maps.otherDeckTile(from.x, from.y) : Maps.ladderPartner(from.x, from.y)) : null;
+      if (to) { Object.assign(p, tc(to.x, to.y)); notice(own.interact === 'lift' ? 'Lift: ' + (Maps.deckOf(to.y) ? 'Privatdeck' : 'Systemdeck') : 'Notleiter'); return; }
+    }
     const d = DIRV[p.dir];
     const cand = [[d[0], d[1]], [0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]];
     for (const [dx, dy] of cand) {

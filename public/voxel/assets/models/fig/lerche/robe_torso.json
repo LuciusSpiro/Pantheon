@@ -1,0 +1,20 @@
+{
+  "id": "fig/lerche/robe_torso",
+  "name": "Ivo: Rumpf (Händlergewand mit Bauch, rotem Schal und Taschenriemen)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["figur", "lerche", "ivo", "rumpf"],
+  "ops": [
+    { "name": "Taille", "op": "box", "at": [-4, 16, -2], "size": [8, 3, 5], "color": "sand" },
+    { "name": "Bauch", "op": "box", "at": [-3, 16, 3], "size": [6, 3, 1], "color": { "shade": "sand", "f": 0.95 } },
+    { "name": "Brust", "op": "box", "at": [-4, 19, -2], "size": [8, 5, 5], "color": "sand" },
+    { "name": "Streifen", "op": "box", "at": [-4, 17, -2], "size": [8, 1, 6], "color": "wood_dark", "mode": "paint" },
+    { "name": "Schulter", "op": "box", "at": [-4, 24, -2], "size": [8, 1, 4], "color": { "shade": "sand", "f": 0.9 } },
+    { "name": "Schal", "op": "box", "at": [-4, 23, -3], "size": [8, 2, 7], "color": "cloth" },
+    { "name": "Schal Ende vorn", "op": "box", "at": [1, 18, 3], "size": [2, 5, 1], "color": { "stripes": ["cloth", "trim"], "axis": "y", "period": 3 } },
+    { "name": "Schal Fransen", "op": "box", "at": [1, 17, 3], "size": [2, 1, 1], "color": "trim" },
+    { "name": "Riemen", "op": "box", "at": [-3, 21, 3], "size": [1, 2, 1], "color": "leather", "repeat": { "count": 3, "step": [-0.0, -1, 0] } },
+    { "name": "Amulett", "op": "box", "at": [-1, 21, 3], "size": [1, 1, 1], "color": "trim", "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

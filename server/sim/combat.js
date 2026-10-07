@@ -762,6 +762,12 @@ function droneSnap(game, e, base) {
   base.asleep = !!e.asleep;
   base.cr = !!e.crouch && e.alive !== false;   // §15
   if (C) base.squad = e.squad || null;
+  // M4 (Wunsch ACTORS): festes Ausrüstungs-Kit je Plünderer 0 Schütze / 1 Flanker / 2 Funker – einmal vergeben
+  // (Reihenfolge im Trupp), bleibt stabil, unabhängig von der wechselnden Rolle (role).
+  if (e.kind === 'scavenger') {
+    if (e.kit == null) e.kit = game.away.drones.filter((d) => d !== e && d.kind === 'scavenger' && (d.squad || null) === (e.squad || null) && d.kit != null).length % 3;
+    base.kit = e.kit;
+  }
   return base;
 }
 function awaySnap(game, aw) {

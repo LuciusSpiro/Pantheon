@@ -1,0 +1,43 @@
+{
+  "id": "away/platform/sonde",
+  "name": "Plattform B-7 – Kustoden-Sonde mit Farbcode-Licht (Auge + Bodenring)",
+  "tier": "detail",
+  "palette": "wrack",
+  "tags": ["away", "platform", "terminal", "sonde", "kustoden"],
+  "footprint": [1, 1],
+  "params": {
+    "color": { "default": 0, "min": 0, "max": 5, "step": 1, "label": "Farbcode 0 mint · 1 bernstein · 2 rot · 3 blau · 4 pink · 5 weiß" },
+    "on": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Aktiv" }
+  },
+  "variants": { "bernstein": { "color": 1 }, "rot": { "color": 2 }, "blau": { "color": 3 }, "pink": { "color": 4 }, "weiss": { "color": 5 }, "aus": { "on": 0 } },
+  "let": { "c0": "on && color == 0", "c1": "on && color == 1", "c2": "on && color == 2", "c3": "on && color == 3", "c4": "on && color == 4", "c5": "on && color == 5" },
+  "ops": [
+    { "op": "cyl", "name": "Sockel", "at": [0, 0, 0], "r": 7.5, "h": 2, "color": "plat_dark" },
+    { "op": "cyl", "name": "Sockelplatte", "at": [0, 2, 0], "r": 6.5, "h": 1, "color": "plat_hull" },
+    { "op": "cyl", "name": "Codering aus", "if": "!on", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "plat_seam" },
+    { "op": "cyl", "name": "Codering mint", "if": "c0", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_mint", "jitter": false },
+    { "op": "cyl", "name": "Codering bernstein", "if": "c1", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_amber", "jitter": false },
+    { "op": "cyl", "name": "Codering rot", "if": "c2", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_red", "jitter": false },
+    { "op": "cyl", "name": "Codering blau", "if": "c3", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_blue", "jitter": false },
+    { "op": "cyl", "name": "Codering pink", "if": "c4", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_pink", "jitter": false },
+    { "op": "cyl", "name": "Codering weiß", "if": "c5", "at": [0, 2, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "code_white", "jitter": false },
+
+    { "op": "cyl", "name": "Kristall unten an", "if": "on", "at": [0, 3, 0], "r": 2.5, "r2": 4.5, "h": 7, "color": { "noise": [{ "role": "kust_neon", "emit": 1.2 }, { "role": "kust_hot", "emit": 1.6 }], "weights": [4, 1] } },
+    { "op": "cyl", "name": "Kristall oben an", "if": "on", "at": [0, 10, 0], "r": 4.5, "r2": 0.8, "h": 14, "color": { "noise": [{ "role": "kust_neon", "emit": 1.2 }, { "role": "kust_hot", "emit": 1.6 }], "weights": [4, 1] } },
+    { "op": "cyl", "name": "Kristall unten aus", "if": "!on", "at": [0, 3, 0], "r": 2.5, "r2": 4.5, "h": 7, "color": { "noise": ["kust_dead", "kust_dead_dark"], "weights": [3, 1] } },
+    { "op": "cyl", "name": "Kristall oben aus", "if": "!on", "at": [0, 10, 0], "r": 4.5, "r2": 0.8, "h": 14, "color": { "noise": ["kust_dead", "kust_dead_dark"], "weights": [3, 1] } },
+
+    { "op": "cyl", "name": "Mechanikband", "at": [0, 10, 0], "r": 5.5, "h": 3, "color": { "stripes": ["plat_metal", "plat_light", "plat_metal"], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "Auge Fassung", "at": [-2, 10, 4], "size": [4, 3, 2], "color": "plat_dark" },
+    { "op": "box", "name": "Auge aus", "if": "!on", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "plat_seam" },
+    { "op": "box", "name": "Auge mint", "if": "c0", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_mint", "jitter": false },
+    { "op": "box", "name": "Auge bernstein", "if": "c1", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_amber", "jitter": false },
+    { "op": "box", "name": "Auge rot", "if": "c2", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_red", "jitter": false },
+    { "op": "box", "name": "Auge blau", "if": "c3", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_blue", "jitter": false },
+    { "op": "box", "name": "Auge pink", "if": "c4", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_pink", "jitter": false },
+    { "op": "box", "name": "Auge weiß", "if": "c5", "at": [-1, 11, 5], "size": [2, 1, 1], "color": "code_white", "jitter": false },
+    { "op": "box", "name": "Splitter", "if": "on", "at": [-7, 14, -1], "size": [1, 2, 1], "color": "kust_neon", "jitter": false },
+    { "op": "box", "name": "Splitter 2", "if": "on", "at": [6, 17, 0], "size": [1, 2, 1], "color": "kust_neon", "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

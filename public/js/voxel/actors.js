@@ -1,23 +1,23 @@
-// Layer Ã¢â‚¬Å¾actorsÃ¢â‚¬Å“ (CONTRACT-M4 Ã‚Â§3.2, Ã‚Â§3.4) Ã¢â‚¬â€œ Team ACTORS
-// Spieler, Bots, Ivo/Techniker, PlÃƒÂ¼nderer, Drohnen, WÃƒÂ¤chter und GegenstÃƒÂ¤nde (in der Hand und am Boden) in allen Zonen.
-// Pose und Gegenstand kommen aus dem Snapshot Ã¢â‚¬â€œ dieselbe Ableitung wie die 2D-Figur (render.js charOpts/drawWorld).
-// Robust: fehlende Figuren/Posen/Modelle Ã¢â€ â€™ eigener WÃƒÂ¼rfel-Ersatz bzw. Ersatzpose; jeder Fehler wird gezÃƒÂ¤hlt (ctx.countError).
+// Layer „actors“ (CONTRACT-M4 §3.2, §3.4) – Team ACTORS
+// Spieler, Bots, Ivo/Techniker, Plünderer, Drohnen, Wächter und Gegenstände (in der Hand und am Boden) in allen Zonen.
+// Pose und Gegenstand kommen aus dem Snapshot – dieselbe Ableitung wie die 2D-Figur (render.js charOpts/drawWorld).
+// Robust: fehlende Figuren/Posen/Modelle → eigener Würfel-Ersatz bzw. Ersatzpose; jeder Fehler wird gezählt (ctx.countError).
 import { registerLayer } from './renderer.js';
 
 const TILE = 32;
 const D2R = Math.PI / 180;
 const PLAYER_COLORS = ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'];
 const AWAY_FIGURES = ['crew/nova', 'crew/juno', 'crew/tami', 'crew/nova'];
-// Spielgegenstand Ã¢â€ â€™ Modell lerche/item/<id> (Ã‚Â§3.4)
+// Spielgegenstand → Modell lerche/item/<id> (§3.4)
 const ITEM_IDS = { ersatzteil: 'spare_part', loeschgel: 'extinguisher', flickblech: 'patch_plate', bolzen: 'bolts', medipack: 'medipack',
   datenkern: 'datacore', tafel: 'tablet', salvage: 'salvage', bergegut: 'salvage', wrench: 'wrench' };
-// Halte-Aktion (players[].action.kind) Ã¢â€ â€™ Pose
+// Halte-Aktion (players[].action.kind) → Pose
 const ACTION_POSES = { flick: 'repair', swap: 'repair', patch: 'repair', minigame: 'minigame', extinguish: 'extinguish', revive: 'revive',
   switch: 'hold', reboot: 'hold', salvage: 'hold', hollow: 'hold', jammer: 'hold', archkey: 'hold', tablet: 'hold', beam: 'attention' };
 const UPPER = ['torso', 'head', 'upperArmL', 'upperArmR', 'lowerArmL', 'lowerArmR', 'handL', 'handR'];
 const SWAP = { thighL: 'thighR', thighR: 'thighL', shinL: 'shinR', shinR: 'shinL', upperArmL: 'upperArmR', upperArmR: 'upperArmL',
   lowerArmL: 'lowerArmR', lowerArmR: 'lowerArmL', handL: 'handR', handR: 'handL' };
-const INSTANCE_THRESHOLD = 6;   // ab mehr sichtbaren Figuren werden gleiche Teile per InstancedMesh gezeichnet (Ã‚Â§7)
+const INSTANCE_THRESHOLD = 6;   // ab mehr sichtbaren Figuren werden gleiche Teile per InstancedMesh gezeichnet (§7)
 const STRIDE = 1.25;            // m pro Laufzyklus (ein Doppelschritt)
 
 // Ersatzposen, solange ART-F sie nicht liefert (Winkel in Grad wie poses/human.json). Vorhandene Posen der Figur gehen vor.
@@ -48,7 +48,7 @@ const FALLBACK_POSES = {
   lift_ride: { joints: { upperArmL: [0, 0, 3], upperArmR: [0, 0, -3], head: [-8, 0, 0] }, breathe: 0.25 },
   crouch: { joints: { thighR: [-70, 0, 0], shinR: [100, 0, 0], thighL: [-24, 0, 0], shinL: [96, 0, 0], torso: [16, 0, 0], head: [-8, 0, 0],
     upperArmR: [-70, 6, 0], lowerArmR: [-20, 0, 0], upperArmL: [-56, -30, 0], lowerArmL: [-42, 0, 0] }, lift: -5, breathe: 0.3 },
-  // liegt auf der Seite quer zur Kamera (von oben eindeutig Ã¢â‚¬Å¾liegtÃ¢â‚¬Å“; lÃƒÂ¤ngs zur Blickrichtung sÃƒÂ¤he es aus wie stehend)
+  // liegt auf der Seite quer zur Kamera (von oben eindeutig „liegt“; längs zur Blickrichtung sähe es aus wie stehend)
   wounded: { joints: { root: [0, 0, 84], head: [0, 0, -10], upperArmL: [-30, 0, 20], upperArmR: [-40, 0, -10], lowerArmL: [-30, 0, 0], lowerArmR: [-20, 0, 0],
     thighL: [-28, 0, 0], shinL: [40, 0, 0], thighR: [-8, 0, 0], shinR: [16, 0, 0] }, breathe: 0.6, rootLift: 0.2, look: false },
   revive: { joints: { thighR: [-84, 0, 0], shinR: [86, 0, 0], thighL: [6, 0, 0], shinL: [82, 0, 0], torso: [26, 0, 0], head: [22, 0, 0],
@@ -58,14 +58,14 @@ const FALLBACK_POSES = {
   arms_crossed: { joints: { upperArmL: [-22, 0, 10], lowerArmL: [-80, -70, 0], upperArmR: [-22, 0, -10], lowerArmR: [-80, 70, 0] }, breathe: 0.5 },
 };
 
-// Rig Ã¢â‚¬Å¾humanÃ¢â‚¬Å“ (voxelwerk assets/rigs/human.json) Ã¢â‚¬â€œ fÃƒÂ¼r den WÃƒÂ¼rfel-Ersatz, falls keine Figur geladen werden kann.
+// Rig „human“ (voxelwerk assets/rigs/human.json) – für den Würfel-Ersatz, falls keine Figur geladen werden kann.
 const RIG = {
   root: [null, [0, 0, 0]], hips: ['root', [0, 14, 0]], thighL: ['hips', [2, 14, 0]], shinL: ['thighL', [2, 7, 0]], thighR: ['hips', [-2, 14, 0]],
   shinR: ['thighR', [-2, 7, 0]], torso: ['hips', [0, 16, 0]], head: ['torso', [0, 25, 0]], upperArmL: ['torso', [5.5, 23, 0]],
   lowerArmL: ['upperArmL', [5.5, 17, 0]], handL: ['lowerArmL', [5.5, 12, 0.5]], upperArmR: ['torso', [-5.5, 23, 0]],
   lowerArmR: ['upperArmR', [-5.5, 17, 0]], handR: ['lowerArmR', [-5.5, 12, 0.5]], back: ['torso', [0, 20, -3]],
 };
-// Teile des Ersatzes: Gelenk Ã¢â€ â€™ [Mitte (absolut, Voxel), GrÃƒÂ¶ÃƒÅ¸e (Voxel), Farbrolle]
+// Teile des Ersatzes: Gelenk → [Mitte (absolut, Voxel), Größe (Voxel), Farbrolle]
 const FB_PARTS = {
   hips: [[0, 14.5, 0], [8, 3, 4], 'dark'], torso: [[0, 20.5, 0], [9, 9, 5], 'cloth'], head: [[0, 28, 0], [6, 6, 6], 'skin'],
   upperArmL: [[5.5, 20, 0], [3, 6, 3], 'cloth'], upperArmR: [[-5.5, 20, 0], [3, 6, 3], 'cloth'],
@@ -78,7 +78,7 @@ const VX = 1 / 16;
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : +v || 0);
 const angDiff = (a, b) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; };
 const DIR_YAW = { down: 0, right: Math.PI / 2, up: Math.PI, left: -Math.PI / 2 };
-// Spielrichtung (x rechts, y unten) Ã¢â€ â€™ Drehung um Y (Modell schaut nach +z)
+// Spielrichtung (x rechts, y unten) → Drehung um Y (Modell schaut nach +z)
 const yawOf = (dx, dy) => Math.atan2(dx, dy);
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
 
@@ -98,7 +98,7 @@ function maps() { return window.Shared_Maps || null; }
 function cfg() { return window.Shared_Config || window.CONFIG || {}; }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Figuren-Ersatz (WÃƒÂ¼rfel auf dem echten Rig) Ã¢â‚¬â€œ Posen funktionieren identisch
+// Figuren-Ersatz (Würfel auf dem echten Rig) – Posen funktionieren identisch
 function fbMaterial(hex) {
   let m = L.fbMats.get(hex);
   if (!m) { m = new L.THREE.MeshStandardMaterial({ color: hex, roughness: 0.9 }); L.fbMats.set(hex, m); }
@@ -151,7 +151,7 @@ function fallbackModel(kind) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Lader-Zugriff (CORE): figure(id, opts) Ã¢â€ â€™ { root, joints, pose }, object(id, params, opts) Ã¢â€ â€™ Object3D, manifest(id)
+// Lader-Zugriff (CORE): figure(id, opts) → { root, joints, pose }, object(id, params, opts) → Object3D, manifest(id)
 function isPlaceholder(o) {
   if (!o) return false;
   if (o.placeholder) return true;
@@ -160,8 +160,8 @@ function isPlaceholder(o) {
   return false;
 }
 
-// CORE-Lader: figure() liefert sofort { root, joints:{}, ready:false, loaded:Promise } mit PlatzhaltersÃƒÂ¤ule.
-// Solange die Figur nicht bereit ist, steht unser posierbarer WÃƒÂ¼rfel-Ersatz da; danach wird getauscht.
+// CORE-Lader: figure() liefert sofort { root, joints:{}, ready:false, loaded:Promise } mit Platzhaltersäule.
+// Solange die Figur nicht bereit ist, steht unser posierbarer Würfel-Ersatz da; danach wird getauscht.
 function loadFigure(figId, opts, fbKind, color, onLate) {
   const ld = L.ctx && L.ctx.loader;
   let f = null;
@@ -185,7 +185,7 @@ function normFigure(f, figId) {
   return f;
 }
 
-// Starre Hautbindung: alle Teile einer Figur â†’ ein SkinnedMesh (Gelenke = Knochen). Aus ~11 Draw Calls je Figur wird einer.
+// Starre Hautbindung: alle Teile einer Figur → ein SkinnedMesh (Gelenke = Knochen). Aus ~11 Draw Calls je Figur wird einer.
 // Nur, wenn alle Teile dasselbe Material und dieselben Attribute haben (CORE: VOXEL_MAT mit aEmit); sonst bleibt alles, wie es ist.
 function skinFigure(f) {
   const T = L.THREE;
@@ -267,8 +267,8 @@ function posesFromLoader(ld, figId) {
   } catch (e) { err('poses', e); }
   return null;
 }
-// CORE-Lader: object() liefert sofort eine Group (userData.ready false = Platzhalter, wird nach dem Laden gefÃƒÂ¼llt).
-// Wir zeigen bis dahin bzw. bei fehlendem Asset unseren kleinen Ersatz (GegenstÃƒÂ¤nde sonst als 0,8-m-Kiste in der Hand).
+// CORE-Lader: object() liefert sofort eine Group (userData.ready false = Platzhalter, wird nach dem Laden gefüllt).
+// Wir zeigen bis dahin bzw. bei fehlendem Asset unseren kleinen Ersatz (Gegenstände sonst als 0,8-m-Kiste in der Hand).
 function loadModel(id, params, fbKind) {
   const ld = L.ctx && L.ctx.loader;
   let o = null;
@@ -360,7 +360,7 @@ function actor(key) {
 // Posen
 function poseOf(fig, name) {
   const p = fig && fig.poses;
-  return (p && p[name]) || FALLBACK_POSES[name] || (p && p.stand) || FALLBACK_POSES.stand;
+  return (p && p[name]) || FALLBACK_POSES[name] || (name === 'aim_rifle' && ((p && p.aim) || FALLBACK_POSES.aim)) || (p && p.stand) || FALLBACK_POSES.stand;
 }
 const TMP = {};
 function mirrorVal(j, src) {
@@ -369,7 +369,7 @@ function mirrorVal(j, src) {
   return [o[0], -o[1], -o[2]];
 }
 /**
- * Zielwinkel berechnen und weich ÃƒÂ¼berblenden.
+ * Zielwinkel berechnen und weich überblenden.
  * st = { base, upper, walk (0..1 Gewicht), phase, t, special }
  */
 function pose(a, st, dt) {
@@ -379,7 +379,24 @@ function pose(a, st, dt) {
   const tgt = TMP; for (const k in tgt) delete tgt[k];
   let lift = base.lift || 0, breathe = base.breathe != null ? base.breathe : 0.5, rootLift = base.rootLift || 0;
   for (const [j, r] of Object.entries(base.joints || {})) tgt[j] = [r[0], r[1], r[2]];
-  if (st.walk > 0) {
+  const t = st.t;
+  // ART-F-Zyklus der Grundpose (φ = Zeit·hz)
+  const baseCyc = base.cycle && base.cycle.joints ? base.cycle : null;
+  if (baseCyc && st.base !== 'walk') applyCycle(tgt, baseCyc, t * (baseCyc.hz || 1), null);
+  if (st.walk > 0 && poseOf(f, 'walk').cycle && poseOf(f, 'walk').cycle.joints) {
+    // ART-F-Laufzyklus: φ = Laufweg / stride, Hüfte += bob·(0,5 − |sin 2πφ|)
+    const wp = poseOf(f, 'walk'), cyc = wp.cycle;
+    const phi = (a.dist || 0) / (cyc.stride || 1.5);
+    const wt = {}; for (const [j, r] of Object.entries(wp.joints || {})) wt[j] = [r[0], r[1], r[2]];
+    applyCycle(wt, cyc, phi, null);
+    for (const j of Object.keys(wt)) {
+      const v = wt[j], o = tgt[j] || [0, 0, 0];
+      tgt[j] = [o[0] + (v[0] - o[0]) * st.walk, o[1] + (v[1] - o[1]) * st.walk, o[2] + (v[2] - o[2]) * st.walk];
+    }
+    const wl = (wp.lift || 0) + (cyc.bob || 0) * (0.5 - Math.abs(Math.sin(2 * Math.PI * phi)));
+    lift = lift * (1 - st.walk) + wl * st.walk;
+    breathe *= 1 - st.walk * 0.6;
+  } else if (st.walk > 0) {
     const wp = poseOf(f, 'walk'); const wj = wp.joints || {};
     const w = (1 + Math.sin(st.phase)) / 2;
     const names = new Set([...Object.keys(wj), ...Object.keys(SWAP)]);
@@ -393,11 +410,28 @@ function pose(a, st, dt) {
     breathe *= 1 - st.walk * 0.6;
   }
   if (st.upper) {
-    const up = poseOf(f, st.upper).joints || {};
+    const upP = poseOf(f, st.upper), up = upP.joints || {};
     for (const j of UPPER) tgt[j] = up[j] ? [up[j][0], up[j][1], up[j][2]] : (st.walk > 0 && (j === 'torso') ? tgt[j] : [0, 0, 0]);
+    if (upP.cycle && upP.cycle.joints) applyCycle(tgt, upP.cycle, t * (upP.cycle.hz || 1), UPPER);
   }
-  // Bewegung innerhalb der Pose
-  const t = st.t;
+  // Bewegung innerhalb der Pose: nur, wenn ART-F für die Pose keinen Zyklus liefert
+  if (!baseCyc) poseExtras(tgt, st, a, t);
+  // Atmen + Blick
+  const br = Math.sin(t * 2 + a.phase) * breathe;
+  if (tgt.torso) tgt.torso[0] += br * 0.7; else tgt.torso = [br * 0.7, 0, 0];
+  if (base.look !== false && !st.upper && st.walk < 0.5) { const h = tgt.head || (tgt.head = [0, 0, 0]); h[1] += Math.sin(t * 0.45 + a.phase * 2) * 7; }
+  blendApply(a, tgt, lift, rootLift, br, st, dt);
+}
+// cycle = { hz, stride?, bob?, joints: { j: { c, a, p (Grad), k? } } } → Winkel = c + a·sin(2π·φ·k + p)
+function applyCycle(tgt, cyc, phi, only) {
+  for (const [j, c] of Object.entries(cyc.joints)) {
+    if (only && !only.includes(j)) continue;
+    const s = Math.sin(2 * Math.PI * phi * (c.k || 1) + (c.p || 0) * D2R);
+    const C = c.c || [0, 0, 0], A = c.a || [0, 0, 0];
+    tgt[j] = [C[0] + A[0] * s, C[1] + A[1] * s, C[2] + A[2] * s];
+  }
+}
+function poseExtras(tgt, st, a, t) {
   if (st.special === 'repair' && tgt.lowerArmR) tgt.lowerArmR[0] += Math.sin(t * 13 + a.phase) * 16;
   if (st.special === 'minigame' && tgt.lowerArmL) { tgt.lowerArmL[0] += Math.sin(t * 9) * 8; tgt.lowerArmR[0] += Math.cos(t * 9) * 8; }
   if (st.special === 'extinguish' && tgt.torso) tgt.torso[1] += Math.sin(t * 2.6 + a.phase) * 12;
@@ -408,11 +442,10 @@ function pose(a, st, dt) {
   }
   if (st.special === 'operate' && tgt.lowerArmR) tgt.lowerArmR[0] += Math.sin(t * 5 + a.phase) * 6;
   if (st.special === 'hold' && tgt.lowerArmR) tgt.lowerArmR[0] += Math.sin(t * 8) * 5;
-  // Atmen + Blick
-  const br = Math.sin(t * 2 + a.phase) * breathe;
-  if (tgt.torso) tgt.torso[0] += br * 0.7; else tgt.torso = [br * 0.7, 0, 0];
-  if (base.look !== false && !st.upper && st.walk < 0.5) { const h = tgt.head || (tgt.head = [0, 0, 0]); h[1] += Math.sin(t * 0.45 + a.phase * 2) * 7; }
-  // ÃƒÅ“berblenden
+}
+// Überblenden und auf die Gelenke schreiben
+function blendApply(a, tgt, lift, rootLift, br, st, dt) {
+  const joints = a.fig.joints;
   const k = 1 - Math.exp(-dt * (st.walk > 0 ? 22 : 12));
   const cur = a.cur;
   for (const j of Object.keys(joints)) {
@@ -435,7 +468,7 @@ function locomote(a, wx, wz, dt, wantYaw, moving) {
   if (a.lastPos) {
     const dx = wx - a.lastPos.x, dz = wz - a.lastPos.z;
     d = Math.hypot(dx, dz);
-    if (d > 2) d = 0;   // Teleport (Lift, Beamen, Leiter) Ã¢â‚¬â€œ kein Laufschritt
+    if (d > 2) d = 0;   // Teleport (Lift, Beamen, Leiter) – kein Laufschritt
     else if (d > 0.004 && moving !== false) {
       const y = Math.atan2(dx, dz);
       wantYaw = Math.round(y / (Math.PI / 4)) * (Math.PI / 4);
@@ -445,6 +478,7 @@ function locomote(a, wx, wz, dt, wantYaw, moving) {
   const sp = dt > 0 ? d / dt : 0;
   a.speed += (sp - a.speed) * (1 - Math.exp(-dt * 10));
   a.phase += d * (Math.PI * 2) / STRIDE;
+  a.dist = (a.dist || 0) + d;
   if (wantYaw != null) {
     if (a.yaw == null) a.yaw = wantYaw;
     a.yaw += angDiff(a.yaw, wantYaw) * (1 - Math.exp(-dt * 12));
@@ -454,7 +488,7 @@ function locomote(a, wx, wz, dt, wantYaw, moving) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Ausrichtung zu einem Ziel (Konsole, Station, Feuer Ã¢â‚¬Â¦)
+// Ausrichtung zu einem Ziel (Konsole, Station, Feuer …)
 function tileOf(px, py) { return { x: Math.floor(px / TILE), y: Math.floor(py / TILE) }; }
 function faceToward(p, test) {
   const m = L.ctx.map; if (!m) return null;
@@ -527,7 +561,7 @@ function updatePlayer(p, view, st, dt, t) {
   const pos = place(a, p.x, p.y, 0);
   const beam = beamAmount(p, view);
   const moving = !!p.moving;
-  if (p.downed) { base = 'wounded'; wantYaw = 0; }
+  if (p.downed) { base = 'wounded'; wantYaw = lieYaw(a); }
   else if (p.lift) {
     base = 'lift_ride';
     const q = clamp01((p.lift.t || 0) / Math.max(0.1, p.lift.T || 1.5));
@@ -559,7 +593,7 @@ function updatePlayer(p, view, st, dt, t) {
   if (busy) locomote(a, pos.x, pos.z, dt, wantYaw, false);
   a.container.position.y += yOff;
 
-  // OberkÃƒÂ¶rper: Tragen, Zielen (Schuss in den letzten 0,6 s), Kampfhaltung mit Waffe
+  // Oberkörper: Tragen, Zielen (Schuss in den letzten 0,6 s), Kampfhaltung mit Waffe
   const away = !inShip;
   const shot = L.shotAt[p.id] != null && performance.now() / 1000 - L.shotAt[p.id] < 0.6;
   if (!p.downed && !busy) {
@@ -570,7 +604,7 @@ function updatePlayer(p, view, st, dt, t) {
   if (base === 'crouch' && shot) upper = 'aim';
   pose(a, { base, upper, walk: walkW, phase: a.phase, t, special }, dt);
 
-  // Gegenstand: getragen > Waffe (AuÃƒÅ¸enteam) > LÃƒÂ¶scher beim LÃƒÂ¶schen
+  // Gegenstand: getragen > Waffe (Außenteam) > Löscher beim Löschen
   const hand = a.fig && a.fig.joints && a.fig.joints.handR;
   let item = p.carry || null;
   if (!item && away && !p.downed) item = 'blaster';
@@ -578,14 +612,18 @@ function updatePlayer(p, view, st, dt, t) {
   if ((p.action && (p.action.kind === 'flick' || p.action.kind === 'swap')) && !p.carry) item = 'wrench';
   if (p.action && p.action.kind === 'swap') item = 'ersatzteil';
   a.setItem(item, hand);
+  // ART-F: beim Tragen sitzt der Gegenstand zwischen den Händen (Versatz in Voxeln)
+  if (a.item) { if (upper === 'carry') a.item.position.set(2.8 * VX, 3 * VX, 0); else a.item.position.set(0, 0, 0); }
 
-  // Beamen: Figur zerfÃƒÂ¤llt/entsteht (Partikel macht fx.js) Ã¢â‚¬â€œ hier flackern + schrumpfen
+  // Beamen: Figur zerfällt/entsteht (Partikel macht fx.js) – hier flackern + schrumpfen
   if (beam != null) {
     const v = clamp01(beam);
     a.body.scale.set(1 - v * 0.35, 1 + v * 0.08, 1 - v * 0.35);
     a.container.visible = a.container.visible && !(v > 0.55 && ((L.frame + (p.color || 0)) % 3 !== 0)) && v < 0.95;
   } else a.body.scale.set(1, 1, 1);
 }
+// Liegen quer zur Kamera: ART-F-Pose liegt längs z (Kopf nach −z) → Figur um 90° drehen; unsere Ersatzpose liegt schon quer
+function lieYaw(a) { return a.fig && a.fig.poses && a.fig.poses.wounded ? Math.PI / 2 : 0; }
 function beamAmount(p, view) {
   let b = null;
   if (p.action && p.action.kind === 'beam') b = clamp01(p.action.progress || 0) * 0.85;
@@ -614,7 +652,7 @@ function updateBot(b, view, dt, t) {
   let wantYaw = DIR_YAW[b.dir] != null ? DIR_YAW[b.dir] : null;
   if (b.task && b.progress > 0 && b.task.x != null) wantYaw = yawOf(b.task.x - b.x, b.task.y - b.y);
   locomote(a, pos.x, pos.z, dt, wantYaw, !!b.moving);
-  // Wippen beim Fahren, RÃƒÂ¼tteln beim Arbeiten, ZurÃƒÂ¼ckzucken beim RÃƒÂ¼ckschlag
+  // Wippen beim Fahren, Rütteln beim Arbeiten, Zurückzucken beim Rückschlag
   const ph = hashStr(String(b.id)) * 6;
   let bob = 0, tilt = 0, roll = 0;
   if (mode === 1 || mode === 4) { bob = Math.abs(Math.sin(t * 9 + ph)) * 0.04; tilt = 0.08; }
@@ -644,7 +682,7 @@ function updateNpc(key, n, dt, t, mode) {
   if (mode === 'injured') base = 'wounded';
   const idle = Math.floor((t + hashStr(key) * 20) / 9) % 3;
   if (base === 'stand' && !n.moving) base = idle === 1 ? 'arms_crossed' : idle === 2 ? 'inspect' : 'stand';
-  const wantYaw = base === 'wounded' ? 0 : !n.moving && DIR_YAW[n.dir] != null ? DIR_YAW[n.dir] : null;
+  const wantYaw = base === 'wounded' ? lieYaw(a) : !n.moving && DIR_YAW[n.dir] != null ? DIR_YAW[n.dir] : null;
   const w = base === 'wounded' ? 0 : locomote(a, pos.x, pos.z, dt, wantYaw, !!n.moving);
   if (base === 'wounded') locomote(a, pos.x, pos.z, dt, wantYaw, false);
   pose(a, { base: w > 0.2 ? 'stand' : base, walk: w, phase: a.phase, t }, dt);
@@ -652,7 +690,7 @@ function updateNpc(key, n, dt, t, mode) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// AuÃƒÅ¸enmission: PlÃƒÂ¼nderer, Drohnen, WÃƒÂ¤chter
+// Außenmission: Plünderer, Drohnen, Wächter
 let fogCache = { f: -1, set: null };
 function enemyShown(e, view, st) {
   const a = st.away || {};
@@ -670,7 +708,7 @@ function enemyShown(e, view, st) {
 }
 const squadSeen = new Map();
 function scavRole(e) {
-  // Der Snapshot kennt keine feste Rolle (nur die KI-Rolle pin/flank/Ã¢â‚¬Â¦): Funker = erstes Mitglied je Trupp, sonst abwechselnd SchÃƒÂ¼tze/Flanker
+  // Der Snapshot kennt keine feste Rolle (nur die KI-Rolle pin/flank/…): Funker = erstes Mitglied je Trupp, sonst abwechselnd Schütze/Flanker
   const sq = e.squad || String(e.id).split('-')[0];
   let list = squadSeen.get(sq);
   if (!list) { list = []; squadSeen.set(sq, list); }
@@ -697,12 +735,12 @@ function updateEnemy(e, view, st, dt, t) {
     }
     if (wantYaw == null && DIR_YAW[e.dir] != null) wantYaw = DIR_YAW[e.dir];
     if (typeof e.dir === 'number') wantYaw = yawOf(Math.cos(e.dir), Math.sin(e.dir));
-    if (!alive) { base = 'wounded'; wantYaw = 0; }
+    if (!alive) { base = 'wounded'; wantYaw = lieYaw(a); }
     else if (hitAge < 0.25) base = 'hit';
-    else if (e.cr) { base = 'crouch'; if (e.aim) upper = 'aim'; }
-    else if (e.aim) base = 'aim';
+    else if (e.cr) { base = 'crouch'; if (e.aim) upper = 'aim_rifle'; }
+    else if (e.aim) base = 'aim_rifle';
     const w = alive && base !== 'crouch' ? locomote(a, pos.x, pos.z, dt, wantYaw, null) : (locomote(a, pos.x, pos.z, dt, wantYaw, false), 0);
-    if (w > 0.2 && base === 'aim') { upper = 'aim'; base = 'stand'; }
+    if (w > 0.2 && base === 'aim_rifle') { upper = 'aim_rifle'; base = 'stand'; }
     else if (w > 0.2 && base === 'guard') { upper = 'guard'; base = 'stand'; }
     pose(a, { base, upper, walk: base === 'wounded' || base === 'crouch' ? 0 : w, phase: a.phase, t }, dt);
     a.setItem(null, null);   // ART-G: Gewehr steckt schon in der Figur (handR)
@@ -730,7 +768,7 @@ function updateEnemy(e, view, st, dt, t) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// GegenstÃƒÂ¤nde am Boden (Schiff: ship.groundItems, auÃƒÅ¸en: away.items)
+// Gegenstände am Boden (Schiff: ship.groundItems, außen: away.items)
 function updateGroundItem(it, t) {
   if (!onVisibleDeck(it.y)) return;
   const a = actor('i:' + it.id);
@@ -738,12 +776,12 @@ function updateGroundItem(it, t) {
   place(a, it.x, it.y, 0);
   const ph = hashStr(String(it.id));
   a.container.rotation.y = ph * Math.PI * 2;
-  a.body.rotation.z = Math.PI / 2;          // liegt flach (Modelle zeigen mit der Spitze nach Ã¢Ë†â€™y)
+  a.body.rotation.z = Math.PI / 2;          // liegt flach (Modelle zeigen mit der Spitze nach −y)
   a.body.position.y = 0.08 + Math.max(0, Math.sin(t * 2.4 + ph * 6)) * 0.02;
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-// Instancing: gleiche Teile (Geometrie + Material) mehrerer Figuren Ã¢â€ â€™ ein InstancedMesh je Teil
+// Instancing: gleiche Teile (Geometrie + Material) mehrerer Figuren → ein InstancedMesh je Teil
 class Batcher {
   constructor() {
     this.root = new L.THREE.Group(); this.root.name = 'actors-batch';
@@ -818,7 +856,7 @@ const layer = {
     const st = view.state || {};
     const zone = zoneOfCtx();
     if (zone !== L.lastZone) { for (const a of L.actors.values()) a.dispose(); L.actors.clear(); squadSeen.clear(); L.lastZone = zone; }
-    // SchÃƒÂ¼sse (fx.js meldet MÃƒÂ¼ndungsfeuer je Spieler)
+    // Schüsse (fx.js meldet Mündungsfeuer je Spieler)
     try { const fx = window.VoxelFx; if (fx && fx.shots) for (const k in fx.shots) L.shotAt[k] = fx.shots[k]; } catch (e) { /* egal */ }
     const want = zone === 'ship' ? 'ship' : 'away';
     for (const p of view.players || []) {
@@ -836,7 +874,7 @@ const layer = {
       for (const e of view.drones || []) { try { updateEnemy(e, view, st, dt, t); } catch (e2) { err('enemy', e2); } }
       for (const it of aw.items || []) { try { updateGroundItem(it, t); } catch (e) { err('item', e); } }
     }
-    // AufrÃƒÂ¤umen: nicht gesehene Akteure ausblenden, nach 3 s entfernen
+    // Aufräumen: nicht gesehene Akteure ausblenden, nach 3 s entfernen
     let figs = 0;
     const visible = [];
     for (const [k, a] of L.actors) {
@@ -872,6 +910,6 @@ const layer = {
 
 registerLayer(layer);
 
-// Debug/QA: window.VoxelActors.stats() Ã¢â‚¬â€œ Figuren, Draw Calls (Layer), instanzierte Teile, Ersatzfiguren, Fehler
+// Debug/QA: window.VoxelActors.stats() – Figuren, Draw Calls (Layer), instanzierte Teile, Ersatzfiguren, Fehler
 window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FALLBACK_POSES };
 export { layer as actorsLayer, FALLBACK_POSES };

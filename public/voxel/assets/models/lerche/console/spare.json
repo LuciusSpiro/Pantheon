@@ -1,0 +1,24 @@
+{
+  "id": "lerche/console/spare",
+  "name": "Freies Terminal, Stele mit Schrägtafel (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "konsole", "bruecke", "terminal"],
+  "footprint": [1, 1],
+  "params": {
+    "on": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Anzeige an" }
+  },
+  "variants": { "aus": { "on": 0 } },
+  "ops": [
+    { "op": "box", "name": "Fußplatte", "at": [-4, 0, -4], "size": [8, 1, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Fußplatte Goldkante", "at": [-4, 0, 3], "size": [8, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Stele", "at": [-2, 1, -3], "size": [4, 12, 4], "color": "secondary" },
+    { "op": "box", "name": "Stelenband", "at": [-2, 4, 1], "size": [4, 1, 1], "color": "primary" },
+    { "op": "box", "name": "Stelenkapitell", "at": [-3, 12, -4], "size": [6, 1, 6], "color": "trim" },
+    { "op": "wedge", "name": "Schrägtafel", "at": [-4, 13, -4], "size": [8, 4, 7], "slope": "+z", "color": "metal" },
+    { "op": "box", "name": "Tafel dunkel", "at": [-3, 13, -3], "size": [6, 4, 5], "mode": "paint", "color": "dark", "jitter": false },
+    { "op": "box", "name": "Tafel Lichtlinien", "if": "on", "repeat": { "count": 2, "step": [0, 0, 2], "var": "k" }, "at": [-3, 13, -2], "size": [6, 4, 1], "mode": "paint", "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Tafelkante", "at": [-4, 13, 2], "size": [8, 1, 1], "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

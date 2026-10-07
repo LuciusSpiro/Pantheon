@@ -1,0 +1,46 @@
+{
+  "id": "away/platform/wall",
+  "name": "Plattform B-7 – Wandkachel (Autotile, Industrie-Blaugrau, dunkle Kappe)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "platform", "wand", "kachelbar", "autotile"],
+  "footprint": [1, 1],
+  "jitter": 0.03,
+  "params": {
+    "conn": { "default": 10, "min": 0, "max": 15, "step": 1, "label": "Nachbarwände (N1 O2 S4 W8)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m statt 3 m)" }
+  },
+  "variants": { "geschnitten": { "cut": 1 }, "ecke": { "conn": 6 }, "frei": { "conn": 0 }, "lampe": { "seed": 3 } },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "H": "cut ? 6 : 13",
+    "fh": "cut ? 2 : 7",
+    "lamp": "seed % 3 == 0",
+    "rib": "seed % 2 == 1"
+  },
+  "ops": [
+    { "op": "box", "name": "Körper", "at": [0, 0, 0], "size": [4, "H", 4], "color": "plat_hull" },
+    { "op": "group", "name": "Schauseite (je Richtung, nur wenn frei)", "repeat": { "count": 4, "step": [0, 0, 0], "var": "f" }, "rot": "f * 90", "pivot": [2, 2],
+      "let": {
+        "fe": "f == 0 ? 1 - cs : f == 1 ? 1 - ce : f == 2 ? 1 - cn : 1 - cw",
+        "le": "f == 0 ? 1 - cw : f == 1 ? 1 - cs : f == 2 ? 1 - ce : 1 - cn",
+        "re": "f == 0 ? 1 - ce : f == 1 ? 1 - cn : f == 2 ? 1 - cw : 1 - cs",
+        "u0": "le",
+        "uw": "4 - le - re"
+      },
+      "ops": [
+        { "op": "box", "name": "Paneel vertieft", "if": "fe", "at": ["u0", 2, 3], "size": ["uw", "fh", 1], "mode": "carve" },
+        { "op": "box", "name": "Paneel", "if": "fe", "at": ["u0", 2, 2], "size": ["uw", "fh", 1], "mode": "paint", "color": "plat_panel" },
+        { "op": "box", "name": "Rippe", "if": "fe && rib && uw >= 3", "at": [2, 2, 3], "size": [1, "fh", 1], "color": "plat_metal" },
+        { "op": "box", "name": "Warnstreifen Sockel", "if": "fe", "at": [0, 1, 3], "size": [4, 1, 1], "mode": "paint", "color": { "stripes": ["plat_hazard", "plat_dark"], "axis": "x", "period": 1 } },
+        { "op": "box", "name": "Lampe", "if": "fe && lamp && !cut", "at": [1, 10, 3], "size": [2, 1, 1], "mode": "paint", "color": "plat_glow", "jitter": false },
+        { "op": "box", "name": "Lampe geschnitten", "if": "fe && lamp && cut", "at": [1, 4, 3], "size": [2, 1, 1], "mode": "paint", "color": "plat_glow", "jitter": false },
+        { "op": "box", "name": "Kappenkante", "if": "fe", "at": [0, "H - 2", 3], "size": [4, 1, 1], "mode": "paint", "color": "plat_light" }
+      ] },
+    { "op": "box", "name": "Kappe dunkel", "at": [0, "H - 1", 0], "size": [4, 1, 4], "mode": "paint", "color": "plat_dark" }
+  ],
+  "anchor": [2, 1, 2]
+}

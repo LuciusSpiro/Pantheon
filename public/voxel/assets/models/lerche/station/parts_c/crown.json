@@ -22,7 +22,7 @@
     { "op": "cyl", "name": "Sockel", "if": "post > 0", "at": [0, 0, 0], "r": 1.5, "h": "post", "color": "metal_dark" },
     { "op": "cyl", "name": "Fassung", "at": [0, "y0", 0], "r": "r + 0.6", "h": 1, "color": "metal_dark" },
     { "op": "cyl", "name": "Fassung Goldrand", "at": [0, "y0", 0], "r": "r + 0.6", "hollow": 1, "h": 1, "color": "trim" },
-    { "op": "cyl", "name": "Ring ok", "if": "state == 0", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "cyl", "name": "Ring ok", "if": "state == 0", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#7FE0C2", "emit": 0.9, "jitter": false },
     { "op": "cyl", "name": "Ring beschädigt/Eskalation", "if": "state == 1 || state == 4", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#F2C94C", "emit": 0.8, "jitter": false },
     { "op": "cyl", "name": "Ring zerstört", "if": "state == 2", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#E0473C", "emit": 1.2, "jitter": false },
     { "op": "cyl", "name": "Ring geflickt", "if": "state == 3", "at": [0, "y0 + 1", 0], "r": "r", "hollow": 1.5, "h": 2, "color": "#F08A3C", "emit": 0.9, "jitter": false },

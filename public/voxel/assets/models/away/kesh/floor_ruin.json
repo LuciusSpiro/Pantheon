@@ -13,7 +13,7 @@
     "riss": { "seed": 2 }
   },
   "let": {
-    "drift": "seed % 8 == 1",
+    "drift": "seed % 12 == 1",
     "glyph": "seed % 13 == 3",
     "crack": "seed % 6 == 2",
     "sx": "seed % 4",
@@ -23,8 +23,8 @@
     { "op": "box", "name": "Platten", "at": [0, 0, 0], "size": [4, 1, 4],
       "color": { "noise": ["paving", "paving", "paving_dark", { "shade": "paving", "f": 1.08 }], "weights": [4, 2, 2, 1], "cell": 2 } },
     { "op": "box", "name": "Fuge", "at": [0, 0, 0], "size": [4, 1, 1], "mode": "paint", "color": { "shade": "paving_dark", "f": 0.9 } },
-    { "op": "box", "name": "Sandwehe", "if": "drift", "at": ["sx", 0, "sz"], "size": [2, 1, 1], "mode": "paint", "color": "sand" },
-    { "op": "box", "name": "Sandwehe 2", "if": "drift", "at": ["(sx + 1) % 4", 0, "(sz + 1) % 4"], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "sand", "f": 0.92 } },
+    { "op": "box", "name": "Sandwehe", "if": "drift", "at": ["sx", 0, "sz"], "size": [2, 1, 1], "mode": "paint", "color": "sand_dust" },
+    { "op": "box", "name": "Sandwehe 2", "if": "drift", "at": ["(sx + 1) % 4", 0, "(sz + 1) % 4"], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "sand_dust", "f": 0.94 } },
     { "op": "box", "name": "Glyphenplatte", "if": "glyph", "at": [1, 0, 1], "size": [2, 1, 2], "mode": "paint", "color": "stone_dark" },
     { "op": "box", "name": "Glyphenpunkt", "if": "glyph", "at": [1, 0, 1], "size": [1, 1, 1], "mode": "paint", "color": "neon_dim", "jitter": false },
     { "op": "box", "name": "Riss", "if": "crack", "at": [0, 0, "sz"], "size": [3, 1, 1], "mode": "paint", "color": { "shade": "paving_dark", "f": 0.7 } }

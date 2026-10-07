@@ -1,0 +1,68 @@
+{
+  "id": "away/platform/buoy_core",
+  "name": "Plattform B-7 – Bojenkern (2×2): Kustoden-Kristall in Klauenfassung mit Schalenblenden",
+  "tier": "detail",
+  "palette": "wrack",
+  "tags": ["away", "platform", "ziel", "bojenkern", "kustoden"],
+  "footprint": [2, 2],
+  "jitter": 0,
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 aktiv (neu gestartet) · 1 offen (Neustart offen) · 2 stumm (Sonde sperrt)" }
+  },
+  "variants": { "offen": { "state": 1 }, "stumm": { "state": 2 } },
+  "let": { "s0": "state == 0", "s1": "state == 1", "s2": "state == 2" },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-15, 0, -15], "size": [30, 2, 30], "color": "plat_dark" },
+    { "op": "box", "name": "Sockel Fase", "at": [-16, 0, -11], "size": [32, 1, 22], "color": "plat_dark" },
+    { "op": "box", "name": "Sockel Fase quer", "at": [-11, 0, -16], "size": [22, 1, 32], "color": "plat_dark" },
+    { "op": "box", "name": "Sockelplatte", "at": [-13, 2, -13], "size": [26, 1, 26], "color": { "frame": "plat_metal", "fill": "plat_hull", "axes": "xz", "width": 2 } },
+    { "op": "box", "name": "Warnmarken", "repeat": { "count": 4, "step": [0, 0, 0], "var": "i" }, "at": ["i % 2 == 0 ? -1 : (i == 1 ? 11 : -13)", 2, "i % 2 == 1 ? -1 : (i == 0 ? 11 : -13)"], "size": [2, 1, 2], "color": "plat_hazard" },
+    { "op": "cyl", "name": "Fassungsring", "at": [0, 3, 0], "r": 7, "h": 2, "color": "plat_metal" },
+    { "op": "cyl", "name": "Fassungsglühen", "at": [0, 4, 0], "r": 5, "h": 1, "color": "kust_dim", "jitter": false },
+
+    { "op": "group", "name": "Klauen", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 }, "ops": [
+      { "op": "box", "name": "Klaue", "at": [7, 3, 7], "size": [3, 14, 3], "color": { "frame": "plat_light", "fill": "plat_metal", "axes": "y" } },
+      { "op": "box", "name": "Klauenspitze", "at": [6, 17, 6], "size": [3, 2, 3], "color": "plat_light" },
+      { "op": "line", "name": "Strebe", "from": [13, 3, 13], "to": [8, 10, 8], "r": 0.7, "color": "plat_seam" }
+    ] },
+
+    { "op": "group", "name": "Kristall aktiv", "if": "s0", "ops": [
+      { "op": "cyl", "name": "Kristall unten", "at": [0, 5, 0], "r": 3, "r2": 6, "h": 9, "color": { "stripes": [{ "role": "kust_neon", "emit": 1.4 }, { "role": "kust_neon", "emit": 1.1 }], "axis": "y", "period": 4 } },
+      { "op": "cyl", "name": "Kristall oben", "at": [0, 14, 0], "r": 6, "r2": 1, "h": 18, "color": { "stripes": [{ "role": "kust_neon", "emit": 1.4 }, { "role": "kust_neon", "emit": 1.1 }], "axis": "y", "period": 4 } },
+      { "op": "box", "name": "Kristallkante", "at": [-1, 6, -6], "size": [2, 16, 12], "mode": "paint", "color": "kust_hot", "jitter": false }
+    ] },
+    { "op": "group", "name": "Kristall offen (glimmt, wartet auf Neustart)", "if": "s1", "ops": [
+      { "op": "cyl", "name": "Kristall unten", "at": [0, 5, 0], "r": 3, "r2": 6, "h": 9, "color": "kust_dim" },
+      { "op": "cyl", "name": "Kristall oben", "at": [0, 14, 0], "r": 6, "r2": 1, "h": 18, "color": "kust_dim" },
+      { "op": "box", "name": "Kristallkante", "at": [-1, 6, -6], "size": [2, 16, 12], "mode": "paint", "color": "kust_neon", "jitter": false }
+    ] },
+    { "op": "group", "name": "Kristall stumm (Sonde sperrt)", "if": "s2", "ops": [
+      { "op": "cyl", "name": "Kristall unten", "at": [0, 5, 0], "r": 3, "r2": 6, "h": 9, "color": "kust_dead" },
+      { "op": "cyl", "name": "Kristall oben", "at": [0, 14, 0], "r": 6, "r2": 1, "h": 18, "color": "kust_dead" },
+      { "op": "box", "name": "Kristallkante", "at": [-1, 6, -6], "size": [2, 16, 12], "mode": "paint", "color": "kust_dead_dark" }
+    ] },
+
+    { "op": "group", "name": "Schalen geschlossen (aktiv/stumm)", "if": "!s1", "ops": [
+      { "op": "box", "name": "Schale vorn", "at": [-6, 5, 6], "size": [12, 11, 2], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xy" } },
+      { "op": "box", "name": "Schale hinten", "at": [-6, 5, -8], "size": [12, 11, 2], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xy" } },
+      { "op": "box", "name": "Schale links", "at": [-8, 5, -6], "size": [2, 11, 12], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "zy" } },
+      { "op": "box", "name": "Schale rechts", "at": [6, 5, -6], "size": [2, 11, 12], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "zy" } },
+      { "op": "box", "name": "Sichtschlitze aktiv", "if": "s0", "at": [-1, 7, -9], "size": [2, 7, 18], "mode": "paint", "color": "kust_neon", "jitter": false },
+      { "op": "box", "name": "Sichtschlitze quer aktiv", "if": "s0", "at": [-9, 7, -1], "size": [18, 7, 2], "mode": "paint", "color": "kust_neon", "jitter": false },
+      { "op": "box", "name": "Sichtschlitze stumm", "if": "s2", "at": [-1, 7, -9], "size": [2, 7, 18], "mode": "paint", "color": "plat_dark" },
+      { "op": "box", "name": "Sichtschlitze quer stumm", "if": "s2", "at": [-9, 7, -1], "size": [18, 7, 2], "mode": "paint", "color": "plat_dark" },
+      { "op": "cyl", "name": "Ring", "at": [0, 22, 0], "r": 9, "h": 1, "hollow": 1, "color": "plat_light" },
+      { "op": "cyl", "name": "Ringlicht aktiv", "if": "s0", "at": [0, 23, 0], "r": 9, "h": 1, "hollow": 1, "color": "kust_neon", "jitter": false },
+      { "op": "cyl", "name": "Ring stumm", "if": "s2", "at": [0, 23, 0], "r": 9, "h": 1, "hollow": 1, "color": "plat_dark" }
+    ] },
+
+    { "op": "group", "name": "Schalen offen (umgeklappt am Boden)", "if": "s1", "ops": [
+      { "op": "box", "name": "Schale vorn offen", "at": [-6, 3, 8], "size": [12, 2, 6], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xz" } },
+      { "op": "box", "name": "Schale hinten offen", "at": [-6, 3, -14], "size": [12, 2, 6], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xz" } },
+      { "op": "box", "name": "Schale links offen", "at": [-14, 3, -6], "size": [6, 2, 12], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xz" } },
+      { "op": "box", "name": "Schale rechts offen", "at": [8, 3, -6], "size": [6, 2, 12], "color": { "frame": "plat_light", "fill": "plat_panel", "axes": "xz" } },
+      { "op": "box", "name": "Warnlicht offen", "if": "s1", "at": [-1, 5, 10], "size": [2, 1, 2], "color": "code_amber", "jitter": false }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

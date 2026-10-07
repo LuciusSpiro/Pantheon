@@ -1,0 +1,31 @@
+{
+  "id": "away/wreck/wall_weak",
+  "name": "Wrack Zaunkönig – dünne Flickwand vor dem Hohlraum (normal / markiert / offen)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "wand", "duenne_wand"],
+  "footprint": [1, 1],
+  "jitter": 0.04,
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 normal · 1 markiert (Weitscan) · 2 offen" },
+    "cut": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m statt 3 m)" }
+  },
+  "variants": { "markiert": { "state": 1 }, "offen": { "state": 2 }, "voll": { "cut": 0 }, "voll_markiert": { "cut": 0, "state": 1 } },
+  "let": { "H": "cut ? 6 : 13", "s2": "state == 2" },
+  "ops": [
+    { "op": "box", "name": "Schwelle", "at": [0, 0, 0], "size": [4, 1, 4], "color": "metal_dark" },
+    { "op": "box", "name": "Flickplatten", "if": "!s2", "at": [0, 1, 1], "size": [4, "H - 1", 2],
+      "color": { "noise": ["secondary", "primary", "metal_light", "rust"], "weights": [2, 2, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Schweißnaht", "if": "!s2", "at": [0, 4, 1], "size": [4, 1, 2], "mode": "paint", "color": "rust_dark" },
+    { "op": "box", "name": "Kappe", "if": "!s2", "at": [0, "H - 1", 1], "size": [4, 1, 2], "mode": "paint", "color": "metal_dark" },
+    { "op": "box", "name": "Markierung Rahmen", "if": "state == 1", "at": [0, 1, 1], "size": [4, "H - 2", 2], "mode": "paint",
+      "color": { "frame": "glow", "fill": { "noise": ["secondary", "primary", "metal_light"], "cell": 2 }, "axes": "xy" }, "jitter": false },
+    { "op": "line", "name": "Markierung Kreuz", "if": "state == 1", "from": [0, 1, 1], "to": [3, "H - 2", 1], "r": 0.5, "mode": "paint", "color": "glow", "jitter": false },
+    { "op": "line", "name": "Markierung Kreuz hinten", "if": "state == 1", "from": [0, 1, 2], "to": [3, "H - 2", 2], "r": 0.5, "mode": "paint", "color": "glow", "jitter": false },
+    { "op": "box", "name": "Reststück links", "if": "s2", "at": [0, 1, 1], "size": [1, "cut ? 3 : 6", 2], "color": "rust" },
+    { "op": "box", "name": "Reststück rechts", "if": "s2", "at": [3, 1, 1], "size": [1, 2, 2], "color": "metal_light" },
+    { "op": "box", "name": "Splitter am Boden", "if": "s2", "at": [1, 0, 0], "size": [2, 1, 4], "mode": "paint", "color": { "noise": ["rust", "secondary", "soot"] } },
+    { "op": "box", "name": "Hohlraumlicht", "if": "s2", "at": [1, 0, 3], "size": [2, 1, 1], "mode": "paint", "color": "glow2", "jitter": false }
+  ],
+  "anchor": [2, 1, 2]
+}

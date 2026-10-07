@@ -1,0 +1,36 @@
+{
+  "id": "lerche/kit/pad",
+  "name": "Transfer-Pad, Bodenpad mit Rosette (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "transfer", "pad"],
+  "footprint": [1, 1],
+  "params": {
+    "phase": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Phase 0 ruhig / 1 lädt / 2 beamt / 3 kühlt" }
+  },
+  "variants": { "laedt": { "phase": 1 }, "beamt": { "phase": 2 }, "kuehlt": { "phase": 3 } },
+  "ops": [
+    { "op": "cyl", "name": "Grundplatte", "at": [0, 0, 0], "r": 7.9, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Goldring außen", "at": [0, 1, 0], "r": 7.4, "hollow": 1, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Bronzering", "at": [0, 1, 0], "r": 6.4, "hollow": 1, "h": 1, "color": "metal" },
+    { "op": "cyl", "name": "Marmorscheibe", "at": [0, 1, 0], "r": 5.4, "h": 1, "color": "secondary" },
+    { "op": "box", "name": "Rosette Kreuz", "at": [-5, 1, 0], "size": [10, 1, 1], "color": "metal_light", "mode": "paint", "mirror": "z", "mirrorAt": 0.5 },
+    { "op": "box", "name": "Rosette Kreuz quer", "at": [0, 1, -5], "size": [1, 1, 10], "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0.5 },
+
+    { "op": "cyl", "name": "Lichtring ruhig", "if": "phase == 0", "at": [0, 1, 0], "r": 4, "hollow": 1, "h": 1, "color": { "shade": "glow", "f": 0.55 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring lädt", "if": "phase == 1", "at": [0, 1, 0], "r": 4, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtscheibe beamt", "if": "phase == 2", "at": [0, 1, 0], "r": 4, "h": 1, "color": { "role": "glow", "emit": 1.4 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring beamt außen", "if": "phase == 2", "at": [0, 1, 0], "r": 6.4, "hollow": 1, "h": 1, "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "cyl", "name": "Lichtring kühlt", "if": "phase == 3", "at": [0, 1, 0], "r": 4, "hollow": 1, "h": 1, "color": { "role": "glow2", "emit": 0.6 }, "jitter": false },
+    { "op": "cyl", "name": "Mittelstein", "if": "phase != 2", "at": [0, 1, 0], "r": 1.5, "h": 1, "color": "trim" },
+
+    { "op": "group", "name": "Emitterknoten (4 Diagonalen)", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 }, "ops": [
+      { "op": "box", "name": "Knoten", "at": [4, 1, 4], "size": [2, 2, 2], "color": "metal" },
+      { "op": "box", "name": "Knotenkappe ruhig", "if": "phase == 0", "at": [4, 2, 4], "size": [2, 1, 2], "color": "metal_dark" },
+      { "op": "box", "name": "Knotenkappe lädt", "if": "phase == 1", "at": [4, 2, 4], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Knotenkappe beamt", "if": "phase == 2", "at": [4, 2, 4], "size": [2, 1, 2], "color": { "role": "glow", "emit": 1.4 }, "jitter": false },
+      { "op": "box", "name": "Knotenkappe kühlt", "if": "phase == 3", "at": [4, 2, 4], "size": [2, 1, 2], "color": { "shade": "glow2", "f": 0.6 }, "jitter": false }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

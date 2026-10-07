@@ -479,13 +479,13 @@ const ZONE_CFG = {
   kesh: {
     mood: 'kesh_dusk', moodFallback: 'planet_dusk',
     floorId: 'away/kesh/floor_ruin', wallId: 'away/kesh/wall_ruin',
-    wallish: (ch) => ch === '#' || ch === 'G' || ch === 'k',
+    wallish: (ch) => ch === '#' || ch === 'G' || ch === 'k' || ch === 'R',   // ART-H: Nachbarn Wand/Tor/Fels
     stars: null,
   },
 };
 // Alle Asset-IDs je Zone (§3.6) – werden beim Bau vorgeladen
 const ZONE_ASSETS = {
-  platform: ['away/platform/floor', 'away/platform/wall', 'away/platform/door_locked', 'away/platform/buoy_core', 'away/platform/sonde', 'lerche/furn/crate', 'lerche/kit/pad'],
+  platform: ['away/platform/floor', 'away/platform/wall', 'away/platform/edge', 'away/platform/door_locked', 'away/platform/buoy_core', 'away/platform/sonde', 'lerche/furn/crate', 'lerche/kit/pad'],
   wreck: ['away/wreck/floor', 'away/wreck/grate', 'away/wreck/wall', 'away/wreck/wall_weak', 'away/wreck/salvage', 'away/wreck/lore_terminal', 'away/wreck/debris', 'lerche/kit/pad'],
   kesh: ['away/kesh/floor_ruin', 'away/kesh/wall_ruin', 'away/kesh/cover_low', 'away/kesh/pillar', 'away/kesh/jammer', 'away/kesh/archive_key',
     'away/kesh/vault_gate', 'away/kesh/tablet_pedestal', 'away/kesh/rubble', 'lerche/kit/pad'],
@@ -543,7 +543,7 @@ function makeLayer(zone) {
     const g = assetGeo(ctx, id, params);
     if (g) {
       let mm = m;
-      if (opts.floor) { const dy = floorOffset(id, g); if (dy) mm = m.clone().multiply(new T.Matrix4().makeTranslation(0, dy, 0)); }
+      if (opts.floor) { const dy = floorOffset(id, g) + (opts.lift || 0); if (dy) mm = m.clone().multiply(new T.Matrix4().makeTranslation(0, dy, 0)); }
       if (g.lit) set.lit.addGeometry(T, g.lit, mm);
       if (g.emit) set.emit.addGeometry(T, g.emit, mm);
       return true;
@@ -669,8 +669,10 @@ function makeLayer(zone) {
       if (ch === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (ch === 'x') placeStatic(ctx, set, pen, 'lerche/furn/crate', { seed: seed % 4 }, tileMatrix(ctx, tx, ty, facingRot(map, tx, ty, walk)));
       else if (ch === 'L') {
+        // ART-H: Durchgang entlang lokal z; Tür in einer N-S-Wand (Durchgang O-W) → rot 90
         const vertical = Z.wallish(map.at(tx, ty - 1)) && Z.wallish(map.at(tx, ty + 1));
-        addDyn(ctx, { id: 'away/platform/door_locked', m: tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), params: (st) => ({ open: st.doorOpen ? 1 : 0 }) });
+        const cut = walk(tx, ty - 1) ? 1 : 0;
+        addDyn(ctx, { id: 'away/platform/door_locked', m: tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), params: (st) => ({ open: st.doorOpen ? 1 : 0, cut }) });
       } else if (ch === 'b' && map.at(tx - 1, ty) !== 'b' && map.at(tx, ty - 1) !== 'b') {
         const m = tileMatrix(ctx, tx, ty, 0, 0.5 * S.mapRect.sx, 0.5 * S.mapRect.sz);
         addDyn(ctx, { id: 'away/platform/buoy_core', m, params: (st) => ({ state: st.buoyState }), anim: animBuoy });
@@ -678,19 +680,26 @@ function makeLayer(zone) {
         addDyn(ctx, { id: 'away/platform/sonde', m: tileMatrix(ctx, tx, ty, facingRot(map, tx, ty, walk)), params: (st) => ({ color: st.sondeColor, on: st.sondeOn ? 1 : 0 }) });
       }
     }
-    // Rumpf unter der Plattform: Kante zum All, abgestuft nach unten, Positionslichter
+    // Rumpf unter der Plattform: Kante zum All, abgestuft nach unten, Positionslichter.
+    // Mit ART-H-Asset: away/platform/edge (Rumpfschürze + Positionslichter) auf jeder Randkachel, edge = Seiten zum All (N1 O2 S4 W8).
     const hp = pen;
     const solidT = (x, y) => inside(x, y);
+    const edgeAsset = hasAsset(ctx, 'away/platform/edge');
     for (let ty = 0; ty < map.h; ty++) for (let tx = 0; tx < map.w; tx++) {
       if (!solidT(tx, ty)) continue;
-      hp.set = chunkAtTile(tx, ty);
-      hp.at(tileMatrix(ctx, tx, ty));
       const skip = [];
       if (solidT(tx + 1, ty)) skip.push('x+'); if (solidT(tx - 1, ty)) skip.push('x-');
       if (solidT(tx, ty + 1)) skip.push('z+'); if (solidT(tx, ty - 1)) skip.push('z-');
-      hp.box(-0.5, -1.1, -0.5, 0.5, -0.04, 0.5, C(COL.platHull), C(COL.platHull), { skip: skip.concat(['y+']), low: 0.6 });
+      if (edgeAsset) {
+        const edge = (solidT(tx, ty - 1) ? 0 : 1) | (solidT(tx + 1, ty) ? 0 : 2) | (solidT(tx, ty + 1) ? 0 : 4) | (solidT(tx - 1, ty) ? 0 : 8);
+        // Schürze kommt vom Asset; nur die eingerückte zweite Stufe (unten) bleibt eigene Geometrie
+        if (edge) placeStatic(ctx, set, pen, 'away/platform/edge', { edge, rail: 0 }, tileMatrix(ctx, tx, ty));
+      }
+      hp.set = chunkAtTile(tx, ty);
+      hp.at(tileMatrix(ctx, tx, ty));
+      if (!edgeAsset) hp.box(-0.5, -1.1, -0.5, 0.5, -0.04, 0.5, C(COL.platHull), C(COL.platHull), { skip: skip.concat(['y+']), low: 0.6 });
       // Positionslicht an der Außenkante alle ~3 Kacheln
-      if (skip.length < 4 && hash2(tx, ty, 21) < 0.34) {
+      if (!edgeAsset && skip.length < 4 && hash2(tx, ty, 21) < 0.34) {
         if (!solidT(tx, ty + 1)) hp.box(-0.12, -0.5, 0.5, 0.12, -0.42, 0.53, C(COL.platGlow, 1.8), null, { emit: true });
         else if (!solidT(tx + 1, ty)) hp.box(0.5, -0.5, -0.12, 0.53, -0.42, 0.12, C(COL.platGlow, 1.8), null, { emit: true });
         else if (!solidT(tx - 1, ty)) hp.box(-0.53, -0.5, -0.12, -0.5, -0.42, 0.12, C(COL.platGlow, 1.8), null, { emit: true });
@@ -723,7 +732,7 @@ function makeLayer(zone) {
       const grate = ch === '_' || (ch !== '.' && majorityGrate(map, tx, ty));
       if (grate) {
         const vertical = walk(tx, ty - 1) && walk(tx, ty + 1) && !walk(tx - 1, ty) && !walk(tx + 1, ty);
-        placeStatic(ctx, set, pen, 'away/wreck/grate', {}, tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), { floor: true });
+        placeStatic(ctx, set, pen, 'away/wreck/grate', { seed: seed % 8 }, tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), { floor: true });
       } else placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 8 }, tileMatrix(ctx, tx, ty), { floor: true });
       if (ch === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (ch === 'x') placeStatic(ctx, set, pen, 'away/wreck/debris', { seed: seed % 8 }, tileMatrix(ctx, tx, ty, hash2(tx, ty, 3) * 6.28));
@@ -814,11 +823,12 @@ function makeLayer(zone) {
       const x = gx - B, y = gz - B, i = gz * W + gx;
       if (isRock(x, y)) {
         const d = distTo(x, y);
-        let h = d <= 1 ? 2 + (hash2(x, y, 31) < 0.3 ? 1 : 0) : d === 2 ? 3 + (hash2(x, y, 32) < 0.35 ? 1 : 0) : 3 + (hash2(x, y, 33) < 0.6 ? 1 : 0);
+        // ART-H: an der Spielfeldkante 2 m, Abstand 2 → 3 m, weiter 4 m, +1 per Hash
+        let h = d <= 1 ? 2 + (hash2(x, y, 31) < 0.25 ? 1 : 0) : d === 2 ? 3 + (hash2(x, y, 32) < 0.3 ? 1 : 0) : 4 + (hash2(x, y, 33) < 0.4 ? 1 : 0);
         // Felsen südlich vom Spielfeld verdecken die Kamera-Sicht: knapp dahinter niedrig halten (min. 2 m)
         const wn = walkNorth(x, y, 2);
         if (wn === 1) h = 2; else if (wn === 2) h = Math.min(h, 3);
-        if (x < 0 || y < 0 || x >= map.w || y >= map.h) h = Math.max(h, 3) + (hash2(x, y, 34) < 0.4 ? 1 : 0);
+        if ((x < 0 || y < 0 || x >= map.w || y >= map.h) && wn === 0) h = Math.max(h, 4);
         hgt[i] = h; kind[i] = 2;
       } else {
         const c = ch(x, y);
@@ -837,10 +847,11 @@ function makeLayer(zone) {
       const seed = Math.floor(hash2(tx, ty, 17) * 64);
       if (c === '#') {
         const wp = wallParams(map, tx, ty, Z.wallish, openForCut);
-        placeStatic(ctx, set, pen, Z.wallId, { conn: wp.conn, cut: wp.cut, decay: hash2(tx, ty, 7) < 0.35 ? 1 : 0, seed: seed % 8 }, tileMatrix(ctx, tx, ty));
+        placeStatic(ctx, set, pen, Z.wallId, { conn: wp.conn, cut: wp.cut, decay: hash2(tx, ty, 7) < 0.2 ? 1 : 0, seed: seed % 8 }, tileMatrix(ctx, tx, ty));
         continue;
       }
-      if (ruinFloorAt(tx, ty)) placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 16 }, tileMatrix(ctx, tx, ty), { floor: true });
+      // Ruinenboden 0,01 m über dem Gelände (ART-H: sonst z-Fighting)
+      if (ruinFloorAt(tx, ty)) placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 16 }, tileMatrix(ctx, tx, ty), { floor: true, lift: 0.01 });
       if (c === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (c === 'o') {
         const l = ch(tx - 1, ty) === 'o', r = ch(tx + 1, ty) === 'o', u = ch(tx, ty - 1) === 'o', d = ch(tx, ty + 1) === 'o';
@@ -858,7 +869,8 @@ function makeLayer(zone) {
       } else if (c === 'G' && ch(tx - 1, ty) !== 'G') {
         const two = ch(tx + 1, ty) === 'G';
         const m = tileMatrix(ctx, tx, ty, facingRot(map, tx, ty, walk), two ? 0.5 * S.mapRect.sx : 0, 0);
-        addDyn(ctx, { id: 'away/kesh/vault_gate', m, params: (st) => ({ open: st.gateOpen ? 2 : st.keysTurning ? 1 : 0 }), anim: animGate });
+        // ART-H: einmal in die Mitte beider G-Kacheln, cut 1
+        addDyn(ctx, { id: 'away/kesh/vault_gate', m, params: (st) => ({ open: st.gateOpen ? 2 : st.keysTurning ? 1 : 0, cut: 1 }), anim: animGate });
       } else if (c === 'T') {
         addDyn(ctx, { id: 'away/kesh/tablet_pedestal', m: tileMatrix(ctx, tx, ty, facingRot(map, tx, ty, walk)), params: (st) => ({ present: st.tablet && st.tablet.taken ? 0 : 1 }) });
       }
@@ -876,7 +888,8 @@ function makeLayer(zone) {
     const pal = S.palette || {};
     const sandC = C(pal.sand || COL.sand), rockC = C(pal.rock || COL.rock);
     const sand = [sandC, mulC(sandC, 0.95), mulC(sandC, 1.04)];
-    const rockTop = pal.rockTop ? C(pal.rockTop) : mulC(rockC, 1.2), rockA = rockC, rockB = mulC(rockC, 0.88), rockD = C(pal.rockDark || COL.rockDark);
+    // ART-H (kesh-test): Oberseite rock / rock_light gestreut, obere zwei Schichten rock, Füllung rock_dark
+    const rockTop = pal.rockTop ? C(pal.rockTop) : mulC(rockC, 1.2), rockA = rockC, rockB = mulC(rockC, 0.92), rockD = C(pal.rockDark || COL.rockDark);
     const bottom = -2;
     const H = (gx, gz) => (gx < 0 || gz < 0 || gx >= W || gz >= D ? -99 : kind[gz * W + gx] === 0 ? -1 : hgt[gz * W + gx]);
     const X = (gx) => R.x0 + (gx - B) * R.sx, Zc = (gz) => R.z0 + (gz - B) * R.sz;
@@ -884,9 +897,9 @@ function makeLayer(zone) {
       const j = 1 + (hash2(gx * 7 + y, gz * 13 - y, 51) - 0.5) * 0.1;
       if (k === 1) return mulC(sand[Math.floor(hash2(gx, gz, 52) * 3)], j);
       const h = hgt[gz * W + gx];
-      if (y === h - 1) return mulC(rockTop, j);
-      if (y < 0) return mulC(rockD, j);
-      return mulC((y + gx + gz) % 2 ? rockA : rockB, j);
+      if (y === h - 1) return mulC(hash2(gx, gz, 53) < 0.3 ? rockTop : rockA, j);
+      if (y >= h - 3 && y >= 0) return mulC((y + gx + gz) % 2 ? rockA : rockB, j);
+      return mulC(rockD, j);
     };
     for (let gz = 0; gz < D; gz++) for (let gx = 0; gx < W; gx++) {
       const k = kind[gz * W + gx];

@@ -1,0 +1,39 @@
+{
+  "id": "lerche/console/transfer",
+  "name": "Transferkonsole: Sichelpult mit Ringbogen (Lerche)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "konsole", "transfer"],
+  "footprint": [1, 1],
+  "params": {
+    "occupied": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "besetzt (Leuchtrand)" },
+    "alert": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Alarm / Transfer aktiv" }
+  },
+  "variants": {
+    "besetzt": { "occupied": 1 },
+    "alarm": { "alert": 1 },
+    "besetzt_alarm": { "occupied": 1, "alert": 1 }
+  },
+  "ops": [
+    { "op": "use", "name": "Besetzt-Rand", "model": "lerche/station/parts_c/rim", "at": [0, 0, 0], "params": { "w": 16, "d": 16, "on": "occupied" } },
+    { "op": "box", "name": "Bodenplatte", "at": [-7, 0, -7], "size": [14, 1, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Bodenplatte Goldkante", "at": [-7, 0, 4], "size": [14, 1, 1], "color": "trim" },
+
+    { "op": "cyl", "name": "Sichelpult", "at": [0, 1, 6], "r": 12, "hollow": 5, "h": 10, "arc": [143, 217], "color": "metal" },
+    { "op": "cyl", "name": "Sichelpult Rotband", "at": [0, 3, 6], "r": 12, "hollow": 1, "h": 4, "arc": [143, 217], "color": { "frame": "trim", "fill": "primary", "axes": "y", "width": 1 } },
+    { "op": "cyl", "name": "Pultfläche", "at": [0, 11, 6], "r": 12, "hollow": 5, "h": 1, "arc": [143, 217], "color": "metal_dark" },
+    { "op": "cyl", "name": "Pultkante Gold", "at": [0, 11, 6], "r": 7.9, "hollow": 1, "h": 1, "arc": [130, 230], "color": "trim" },
+    { "op": "cyl", "name": "Anzeige", "at": [0, 11, 6], "r": 11, "hollow": 2, "h": 1, "arc": [148, 212], "color": "dark", "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Pad-Anzeigen", "repeat": { "count": 3, "step": [4, 0, 0], "var": "k" }, "at": [-5, 11, -3], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.8 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Schieberegler", "at": [-1, 12, -5], "size": [2, 1, 1], "color": "metal_light" },
+
+    { "op": "box", "name": "Bogenpfeiler", "at": [-6, 11, -7], "size": [2, 6, 2], "color": "secondary", "mirror": "x", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Ringbogen", "if": "!alert", "axis": "z", "at": [0, 17, -7], "r": 6, "hollow": 1.5, "h": 1, "arc": [0, 180], "color": "trim" },
+    { "op": "cyl", "name": "Ringbogen Lichtfuge", "if": "!alert", "axis": "z", "at": [0, 17, -6], "r": 4.4, "hollow": 1, "h": 1, "arc": [0, 180], "color": { "role": "glow", "emit": 0.9 }, "jitter": false },
+    { "op": "cyl", "name": "Ringbogen Alarm", "if": "alert", "axis": "z", "at": [0, 17, -7], "r": 6, "hollow": 1.5, "h": 1, "arc": [0, 180], "color": "trim" },
+    { "op": "cyl", "name": "Ringbogen Lichtfuge Alarm", "if": "alert", "axis": "z", "at": [0, 17, -6], "r": 4.4, "hollow": 1, "h": 1, "arc": [0, 180], "color": "warning", "emit": 1.4, "jitter": false },
+    { "op": "box", "name": "Schlussstein", "at": [-1, 22, -7], "size": [2, 2, 2], "color": { "shade": "trim", "f": 1.12 } },
+    { "op": "box", "name": "Alarmband Pult", "if": "alert", "at": [-1, 11, -6], "size": [2, 1, 4], "color": "warning", "emit": 1.4, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

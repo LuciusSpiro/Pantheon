@@ -8,6 +8,8 @@
     "soil_dark": "#6E5038",
     "rock": "#7A6560",
     "rock_dark": "#4E4044",
+    "rock_light": "#9A8580",
+    "sand_dust": "#A89580",
     "stone": "#6F7A8A",
     "stone_dark": "#48505E",
     "stone_light": "#9DA6B2",

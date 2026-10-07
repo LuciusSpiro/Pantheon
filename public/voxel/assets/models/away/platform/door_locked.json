@@ -1,0 +1,37 @@
+{
+  "id": "away/platform/door_locked",
+  "name": "Plattform B-7 – verriegelte Schott-Tür (Durchgang entlang z, Flügel über die volle Kachelbreite)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "platform", "tuer", "eingang"],
+  "footprint": [1, 1],
+  "jitter": 0.03,
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Offen" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (ohne Sturz, 1,25 m)" }
+  },
+  "variants": { "offen": { "open": 1 }, "geschnitten": { "cut": 1 }, "geschnitten_offen": { "cut": 1, "open": 1 } },
+  "let": { "H": "cut ? 6 : 13", "LH": "cut ? 5 : 9" },
+  "ops": [
+    { "op": "box", "name": "Laufschiene", "at": [0, 0, 0], "size": [4, 1, 4], "color": "plat_panel" },
+    { "op": "box", "name": "Schienenschlitz", "at": [0, 0, 1], "size": [4, 1, 2], "mode": "paint", "color": "plat_dark" },
+    { "op": "box", "name": "Schienenlicht offen", "if": "open", "at": [1, 0, 1], "size": [2, 1, 2], "mode": "paint", "color": "lock_open", "jitter": false },
+
+    { "op": "group", "name": "Sturz", "if": "!cut", "ops": [
+      { "op": "box", "name": "Sturzkasten", "at": [0, 10, 0], "size": [4, 3, 4], "color": "plat_hull" },
+      { "op": "box", "name": "Sturz Warnband", "at": [0, 10, 0], "size": [4, 1, 4], "mode": "paint", "color": { "stripes": ["plat_hazard", "plat_dark"], "axis": "x", "period": 1 } },
+      { "op": "box", "name": "Kappe", "at": [0, 12, 0], "size": [4, 1, 4], "mode": "paint", "color": "plat_dark" },
+      { "op": "box", "name": "Signal zu", "if": "!open", "at": [1, 11, 0], "size": [2, 1, 4], "mode": "paint", "color": "lock_red", "jitter": false },
+      { "op": "box", "name": "Signal offen", "if": "open", "at": [1, 11, 0], "size": [2, 1, 4], "mode": "paint", "color": "lock_open", "jitter": false }
+    ] },
+
+    { "op": "box", "name": "Flügel", "if": "!open", "at": [0, 1, 1], "size": [4, "LH", 2], "color": { "frame": "plat_metal", "fill": "plat_panel", "axes": "y" } },
+    { "op": "box", "name": "Flügel Mittelfuge", "if": "!open", "at": [2, 1, 1], "size": [1, "LH", 2], "mode": "paint", "color": "plat_dark" },
+    { "op": "box", "name": "Flügel Warnband", "if": "!open", "at": [0, 1, 1], "size": [4, 1, 2], "mode": "paint", "color": { "stripes": ["plat_hazard", "plat_dark"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Riegel", "if": "!open", "at": [1, "cut ? 3 : 5", 1], "size": [3, 1, 2], "mode": "paint", "color": "lock_red", "jitter": false },
+    { "op": "box", "name": "Flügel Kappe", "if": "!open && cut", "at": [0, 5, 1], "size": [4, 1, 2], "mode": "paint", "color": "plat_dark" },
+    { "op": "box", "name": "Pfosten-Signal geschnitten offen", "if": "open && cut", "at": [0, 1, 1], "size": [1, 1, 2], "color": "lock_open", "jitter": false },
+    { "op": "box", "name": "Pfosten-Signal geschnitten offen 2", "if": "open && cut", "at": [3, 1, 1], "size": [1, 1, 2], "color": "lock_open", "jitter": false }
+  ],
+  "anchor": [2, 1, 2]
+}

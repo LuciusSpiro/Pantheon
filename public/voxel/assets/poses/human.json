@@ -258,6 +258,16 @@
         }
       }
     },
+    "aim_rifle": {
+      "notes": "Gewehr zweihändig (Wunsch ART-G, scav_rifle an handR, Mündung -y): rechte Hand am Griff, linke Hand vorn am Handschutz, Oberkörper seitlich eingedreht.",
+      "joints": {
+        "torso": [0, 22, 0], "head": [0, -20, 0],
+        "upperArmR": [-78, 28, 0], "lowerArmR": [-12, 0, 0],
+        "upperArmL": [-84, -24, 0], "lowerArmL": [-8, 0, 0],
+        "thighL": [-14, 0, 0], "shinL": [10, 0, 0], "thighR": [10, 0, 0]
+      },
+      "breathe": 0.25, "look": false
+    },
     "hit": {
       "notes": "Getroffen: zuckt zurück (Oberkörper nach hinten, Arme auseinander). Einzelpose für ca. 0,25 s, weich ein- und ausblenden.",
       "joints": {

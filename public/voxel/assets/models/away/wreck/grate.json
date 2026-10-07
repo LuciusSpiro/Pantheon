@@ -1,0 +1,23 @@
+{
+  "id": "away/wreck/grate",
+  "name": "Wrack Zaunkönig – Gitterrost über Leitungsschacht (Gang entlang x, Streben quer)",
+  "tier": "architecture",
+  "palette": "wrack",
+  "tags": ["away", "wreck", "boden", "gitter", "kachelbar"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {},
+  "variants": { "licht": { "seed": 2 } },
+  "let": { "lamp": "seed % 4 == 2" },
+  "ops": [
+    { "op": "box", "name": "Rahmen", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "noise": ["metal_light", "metal", "rust"], "weights": [3, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Rostöffnung (entlang x)", "at": [0, 0, 1], "size": [4, 1, 2], "mode": "carve" },
+    { "op": "box", "name": "Strebe quer", "at": [0, 0, 1], "size": [1, 1, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Strebe quer 2", "at": [2, 0, 1], "size": [1, 1, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Leitung", "at": [0, -1, 1], "size": [4, 1, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Leitung 2", "at": [0, -1, 2], "size": [4, 1, 1], "color": "rust_dark" },
+    { "op": "box", "name": "Schachtboden", "at": [0, -2, 1], "size": [4, 1, 2], "color": "soot" },
+    { "op": "box", "name": "Leitungslicht", "if": "lamp", "at": [1, -1, 1], "size": [1, 1, 1], "color": "glow_dim", "jitter": false }
+  ],
+  "anchor": [2, 1, 2]
+}

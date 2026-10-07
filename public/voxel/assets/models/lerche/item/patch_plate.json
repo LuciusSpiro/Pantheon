@@ -1,0 +1,16 @@
+{
+  "id": "lerche/item/patch_plate",
+  "name": "Flickblech (Bronzeplatte mit Nieten)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "item", "anbau"],
+  "notes": "Anker = Grifflasche. Platte in der x-y-Ebene, Vorderseite +z (beim Tragen oben).",
+  "ops": [
+    { "name": "Grifflasche", "op": "box", "at": [0, -2, 0], "size": [1, 2, 1], "color": "metal_dark" },
+    { "name": "Platte", "op": "box", "at": [-3, -9, 0], "size": [7, 7, 1], "color": { "frame": "metal", "fill": "metal_light", "axes": "xy", "width": 1 } },
+    { "name": "Nieten", "op": "box", "at": [3, -9, 0], "size": [1, 1, 1], "color": "trim", "jitter": false, "mirror": "xy", "mirrorAt": { "x": 0.5, "y": -6 } },
+    { "name": "Nietenreihe", "op": "box", "at": [0, -9, 0], "size": [1, 1, 1], "color": "trim", "jitter": false, "mirror": "y", "mirrorAt": -6 },
+    { "name": "Prägung", "op": "box", "at": [-1, -7, 1], "size": [3, 3, 1], "color": { "checker": ["metal_light", "metal"], "period": 1 } }
+  ],
+  "anchor": [0.5, 0, 0.5]
+}
