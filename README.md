@@ -401,6 +401,53 @@ Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
 | `tune spaceM3b.repairHitLoss 0.25` (0,5) | milderer Rückschlag |
 | `tune spaceM3b.flightV2.missions true` (false) | neues Gegner-Flugmodell auch in den Missionen |
 
+## Voxel-Ansicht (M4 „Lerche in Voxel“, Stufen 1, 2, 4)
+
+### Einschalten
+- **Standard ist die Voxel-Ansicht** (Kai, 2026-10-07). Im Spiel schaltet **F8** zwischen 3D und 2D um, die Wahl merkt sich der Browser.
+- `?render=2d` erzwingt die gewohnte 2D-Ansicht, `?render=voxel` die 3D-Ansicht.
+- Nähert man sich einem System, steht sein Name daneben (ohne Bedienoption, solange es heil ist). So lernt man, was was ist.
+- **Zoom:** Mausrad oder `+`/`-`. Es gibt zwei Stufen, nah (Standard) und weit.
+- Fehlt WebGL, geht der Grafikkontext verloren oder scheitern drei 3D-Bilder in Folge, schaltet das Spiel von selbst auf 2D und zeigt einmal einen Hinweis.
+- Läuft der Rechner 10 s lang unter 25 fps, schaltet die Ansicht auf **Sparmodus** (ohne Schatten und Glühen, geringere Auflösung). Erzwingen lässt er sich mit `&quality=low`, die volle Qualität mit `&quality=high`.
+
+### Was 3D ist und was 2D bleibt
+- **In 3D:** alle Bereiche, in denen ihr als Figur herumlauft. Das sind das Schiffsinnere auf beiden Decks und die Außenmissionen (Plattform B-7, Wrack „Zaunkönig“, Kesh). Figuren, Bots, Ivo, Gegner, Feuer, Lecks, Funken, Löschstrahl und Beamen sind ebenfalls 3D.
+- **Bleibt 2D:** HUD, alle Konsolen und Minispiele, Lobby, Sternkarte, Planungstisch-Ansichten, Raumkampf und die Frontsicht des Piloten.
+- **Stationen zeigen ihren Zustand am Modell.** Der Lichtring (Statuskrone) ist bei „ok“ in der Farbe der Seite, bei „beschädigt“ gelb, bei „zerstört“ rot, bei „geflickt“ orange und bei EMP eisblau. Dazu kommen ein offenes Paneel, fehlende Teile, ein Band quer und Bögen; bei „brennt gleich“ glimmt der Boden.
+- Namen, Zustandsmarken, Fortschrittsbalken und Interaktionshinweise liegen weiter als 2D-Schrift über der 3D-Szene. Interaktionshinweise stehen in 3D **über** dem Objekt, damit sie die eigene Figur nicht verdecken.
+
+### Zwei Decks, Lift und Leiter
+- **Deck I – Systemdeck:** Antrieb (links), Lager und Vorraum mit Notleiter, Transferraum mit Pads, Maschinenraum mit Reaktor, Batterien Backbord/Steuerbord, Gang, Brücke (rechts) mit Planungstisch und Lift. Feuer, Lecks und Schäden gibt es nur hier.
+- **Deck II – Privatdeck:** vier Quartiere, Messe mit Shop-Terminal, Lararium, Liftvorraum, großes Atrium, Krankenstation (Kulisse), Bad und Aussichtsraum. Im Gefecht ist man hier sicher.
+- **Lift** (Brücke ↔ Liftvorraum): Auf die Plattform stellen und **E** tippen. Die Fahrt dauert 1,5 s (bei Notstrom 3 s), bis zu drei Personen fahren mit. In 3D fährt die Kamera senkrecht mit, eine Lichtband-Blende verdeckt den Deckwechsel.
+- **Notleiter** (Vorraum ↔ Atrium, links): **E halten**, 2 s.
+- Es ist immer nur das eigene Deck zu sehen. Mitspieler auf dem anderen Deck erscheinen als Randmarke ↑/↓.
+
+### Außenmissionen in Voxel
+Mit `?render=voxel` erscheinen auch die Plattform B-7, das Wrack „Zaunkönig“ und der Mond Kesh in 3D. Die Plattform schwebt mit Rumpfschürze und Positionslichtern über dem Sternenhimmel. Das Wrack ist dunkel, rostig und nur von flackerndem Notlicht erhellt. Kesh zeigt warmen Sand, mauvefarbene Felsen und schieferblaue Kustoden-Ruinen mit violettem Neon. Deckung ist auf einen Blick lesbar: Halbe Deckung ist niedrig mit heller Oberkante, volle Deckung (Pfeiler) hoch mit dunkler Krone. Bereiche, die das Team gerade nicht sieht, sind abgedunkelt (Nebel des Krieges). Innenwände sind wie im Schiff auf Hüfthöhe geschnitten, damit niemand hinter einer Mauer verschwindet. Tür, Sonde, Bojenkern, Container, dünne Wand, Störrelais, Archivschlüssel, Tor und Tafel zeigen ihren Zustand direkt am Modell.
+
+Messwerte von QA-AWAY (Bot-Läufe zu dritt): Plattform 72 s, Wrack 64 s unten, m3 6:26.
+
+### Gemessene Bildrate (QA „Schiff“, 2026-10-07, Entwicklungslaptop)
+Gemessen mit einem Fenster, Chromium headed mit echter GPU (`ANGLE (Intel UHD Graphics, Direct3D11)`, nicht SwiftShader), 1280×720. Szene auf Deck I: 3 Spieler (2 davon als Hintergrund-Clients), 3 Bots, 2 Feuer, 1 Leck.
+
+| Szene | Normal (high) | Sparmodus (low) |
+|---|---|---|
+| Deck I im Gefecht, Bildrate an den Monitor gekoppelt | 60 fps | 60 fps |
+| Deck I im Gefecht, ohne Bildratenbremse (Reserve) | Median 115 fps, Mittel 97 fps, ≤ 99 Draw Calls, ≤ 245k Dreiecke | Median 286 fps, Mittel 222 fps, ≤ 32 Draw Calls |
+| Deck II (Atrium/Quartiere), gekoppelt | 60 fps, ≤ 51 Draw Calls | – |
+| Kesh mit 2 Trupps, gekoppelt | 59,9 fps (Median), CPU 3,2 ms je Bild | 59,9 fps (Median), CPU 1,0 ms je Bild |
+
+Ziel laut Vertrag: ≥ 30 fps normal, ≥ 45 fps im Sparmodus. Beides ist erreicht.
+
+### Für Entwickler
+- **`npm run assets`** kopiert die Modelle aus Voxelwerk (`../voxelwerk`) nach `public/voxel/`. Nach jeder Änderung an einem Voxelwerk-Rezept ausführen und die Seite neu laden. `npm run assets:watch` macht das laufend.
+- **`npm run check:assets`** prüft Manifeste (`assets/manifest/art-*.json`) gegen die Modelle: Stufe, Dreiecksbudget, Maße und fehlende IDs. Ziel ist 0 Fehler. Warnungen sind erlaubt (Stand QA: 0 Fehler, 18 Warnungen).
+- **Galerie:** `http://localhost:<PORT>/voxel-gallery.html` zeigt alle Assets mit ihren Zuständen.
+- **Code:** `public/js/voxel/` mit `boot.js` (Einstieg, F8, `window.VoxelRender`), `renderer.js` (Szene, Kamera, Licht, Liftfahrt, FPS-Wächter), `loader.js` (Asset-Cache), `ship.js` (Schiff), `actors.js` (Figuren), `fx.js` (Effekte) und `away.js` (Außenmissionen).
+- **Fehlerzähler:** `VoxelRender.errors`, `VoxelRender.info()` (Draw Calls, Dreiecke, Platzhalter, Layer-Fehler), `VoxelActors.stats()`, `VoxelFx.stats()`. Mit `?debug=1` erscheinen fehlende Assets als magentafarbene Box.
+
 ## Claude-Bridge zuschalten (optional)
 
 Ohne Bridge kommt der Folge-Funkspruch am Ende aus dem Archiv (6 Varianten passend zu euren Entscheidungen).

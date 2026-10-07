@@ -554,18 +554,13 @@
     const code = opts.code || stateCode(state, fragile);
     text(ctx, code, x + w / 2, y + Math.floor(h / 2) - 4, { color: state === 'ok' && !fragile ? PAL.moss : col === PAL.moss ? PAL.moss : col, align: 'center' });
   }
-  // Seitenmarke (Messingplakette mit Kürzel) + Zustand, zentriert über (cx, y)
+  // Zustandsmarke über der Station, zentriert über (cx, y). Nachrunde M4 (Kai): kein Seitenkürzel (BUG/STB/HECK/BB/MITTE) mehr –
+  // nur noch der Zustand. side bleibt in der Signatur, wird aber nicht mehr gezeichnet.
   function stationPlate(ctx, cx, y, side, state, fragile) {
-    const lab = SIDE_SHORT[side] || '';
-    const pw = measure(lab, 1) + 6, bw = 34, w = pw + 1 + bw;
-    const x = Math.round(cx - w / 2);
-    if (lab) {
-      ctx.fillStyle = 'rgba(11,14,26,0.6)'; ctx.fillRect(x - 1, y - 1, w + 2, 12);
-      ctx.fillStyle = PAL.brass; ctx.fillRect(x, y, pw, 10);
-      ctx.fillStyle = '#E2B868'; ctx.fillRect(x, y, pw, 1);
-      text(ctx, lab, x + pw / 2, y + 1, { color: PAL.space, align: 'center', shadow: false });
-    }
-    stateBadge(ctx, x + pw + 1, y, bw, 10, state, fragile);
+    void side;
+    const bw = 34, x = Math.round(cx - bw / 2);
+    ctx.fillStyle = 'rgba(11,14,26,0.6)'; ctx.fillRect(x - 1, y - 1, bw + 2, 12);
+    stateBadge(ctx, x, y, bw, 10, state, fragile);
   }
   // Alle Stationen der Schiffskarte aus der Legende: [{ system, x, y, sector, side, kind, ch }]
   let stationCache = null;
@@ -1932,7 +1927,25 @@
     // Spieler: Namen, Verwundet, Fortschrittsbalken
     guard('players', () => {
       for (const p of view.players || []) {
-        if (p.zone !== zone || p.connected === false || !here(p.y)) continue;
+        if (p.zone !== zone || p.connected === false) continue;
+        if (!here(p.y)) {
+          // QA M4: Mitspieler auf dem anderen Deck – Randmarke ▲ (Deck darüber) / ▼ (darunter) mit Namen, x wie auf dem eigenen Deck
+          if (zone === 'ship' && p.id !== view.pid) {
+            const dOther = deckOfPy(p.y), decks = Maps.SHIP_DECKS || [];
+            const dkO = decks.find((q) => q.level === dOther), dkC = decks.find((q) => q.level === deck);
+            if (dkO && dkC) {
+              // x zwischen den HUD-Spalten (links Ziele, rechts Systeme/Minikarte) halten
+              const sx = Math.max(150, Math.min(VW - 150, P(p.x, p.y - (dkO.y0 - dkC.y0) * TILE, 0).x));
+              const up = dOther < deck, col = PAL.players[p.color || 0];
+              const yy = up ? 14 : VH - 56;
+              ctx.fillStyle = col; ctx.beginPath();
+              if (up) { ctx.moveTo(sx, yy - 6); ctx.lineTo(sx - 5, yy); ctx.lineTo(sx + 5, yy); } else { ctx.moveTo(sx, yy + 6); ctx.lineTo(sx - 5, yy); ctx.lineTo(sx + 5, yy); }
+              ctx.closePath(); ctx.fill();
+              text(ctx, String(p.name || '').slice(0, 8), sx, up ? yy + 3 : yy - 11, { color: col, align: 'center' });
+            }
+          }
+          continue;
+        }
         const crouch = !!(v2 && Array.isArray(p.sh) && p.cr && !p.downed);
         const feet = P(p.x, p.y, 0);
         if (!inView(feet)) continue;
@@ -1952,7 +1965,7 @@
         }
         if (p.downed) { const s = P(p.x, p.y, 24); text(ctx, Array.isArray(p.sh) ? 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : '') : 'AUSSER GEFECHT', s.x, s.y, { color: PAL.red, align: 'center' }); }
         if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) {
-          const s = P(p.x, p.y, 50);
+          const s = P(p.x, p.y, 50); s.y -= 26;   // QA M4: Balken ganz über den Kopf, sonst verdeckt „FLICKEN …“ das Gesicht
           actionBar(ctx, s.x, s.y, p.action, p.id === view.pid, setbackAgeFor(view, 'player', p.id, p.action.system));
           barRects.push({ x: s.x - 30, y: s.y - 2, w: 60, h: 19 });
         } else if (p.action && p.id !== view.pid) { const s = P(p.x, p.y, 44); ring(ctx, s.x, s.y, 6, p.action.progress || 0, PAL.mint); }

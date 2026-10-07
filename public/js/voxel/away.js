@@ -36,6 +36,8 @@ function C(hex, f = 1) {
 }
 const mulC = (c, f) => [c[0] * f, c[1] * f, c[2] * f];
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : +v || 0);
+// Boden-Variante: meist schlicht (seed 0), nur jede vierte Kachel mit Markierung/Klappe/Ruß – sonst wirkt der Boden wie ein Schachbrett
+function calmSeed(tx, ty, salt) { return hash2(tx, ty, salt) < 0.75 ? 0 : 1 + Math.floor(hash2(tx, ty, salt + 1) * 7); }
 
 function cfgNum(path, d) {
   let o = (G.Shared_Config || {}).awayCombat || {};
@@ -649,10 +651,13 @@ function makeLayer(zone) {
   }
 
   // Gemeinsame Kachel-Logik für Plattform/Wrack: Wände mit conn/cut, Böden unter allem Begehbaren und unter Objekten
-  function wallParams(map, tx, ty, wallish, walkable) {
+  // inside(x, y): Kachel liegt im Gebäude/auf der Plattform (nicht All, nicht Fels, nicht außerhalb der Karte)
+  function wallParams(map, tx, ty, wallish, inside) {
     const w = (x, y) => wallish(map.at(x, y));
     const conn = (w(tx, ty - 1) ? 1 : 0) | (w(tx + 1, ty) ? 2 : 0) | (w(tx, ty + 1) ? 4 : 0) | (w(tx - 1, ty) ? 8 : 0);
-    const cut = walkable(tx, ty - 1) ? 1 : 0;   // §3.2: nördlich begehbar → geschnitten (1,25 m), sonst voll (3 m)
+    // §3.2 wie CORE im Schiff (ship.js: A.interior): nur die obere Außenhülle bleibt voll (3 m), alle Innenwände
+    // werden geschnitten (1,25 m) – auch N-S-Wände, deren Nordnachbar selbst Wand ist (sonst verdecken sie die Sicht).
+    const cut = inside(tx, ty - 1) ? 1 : 0;
     return { conn, cut };
   }
 
@@ -664,14 +669,14 @@ function makeLayer(zone) {
       const ch = map.at(tx, ty);
       if (!inside(tx, ty)) continue;
       const seed = Math.floor(hash2(tx, ty, 11) * 64);
-      if (ch === '#') { placeStatic(ctx, set, pen, Z.wallId, Object.assign(wallParams(map, tx, ty, Z.wallish, walk), {}), tileMatrix(ctx, tx, ty)); continue; }
-      placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 8 }, tileMatrix(ctx, tx, ty), { floor: true });
+      if (ch === '#') { placeStatic(ctx, set, pen, Z.wallId, wallParams(map, tx, ty, Z.wallish, inside), tileMatrix(ctx, tx, ty)); continue; }
+      placeStatic(ctx, set, pen, Z.floorId, { seed: calmSeed(tx, ty, 11) }, tileMatrix(ctx, tx, ty), { floor: true });
       if (ch === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (ch === 'x') placeStatic(ctx, set, pen, 'lerche/furn/crate', { seed: seed % 4 }, tileMatrix(ctx, tx, ty, facingRot(map, tx, ty, walk)));
       else if (ch === 'L') {
         // ART-H: Durchgang entlang lokal z; Tür in einer N-S-Wand (Durchgang O-W) → rot 90
         const vertical = Z.wallish(map.at(tx, ty - 1)) && Z.wallish(map.at(tx, ty + 1));
-        const cut = walk(tx, ty - 1) ? 1 : 0;
+        const cut = inside(tx, ty - 1) ? 1 : 0;
         addDyn(ctx, { id: 'away/platform/door_locked', m: tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), params: (st) => ({ open: st.doorOpen ? 1 : 0, cut }) });
       } else if (ch === 'b' && map.at(tx - 1, ty) !== 'b' && map.at(tx, ty - 1) !== 'b') {
         const m = tileMatrix(ctx, tx, ty, 0, 0.5 * S.mapRect.sx, 0.5 * S.mapRect.sz);
@@ -724,7 +729,7 @@ function makeLayer(zone) {
       if (!inside(tx, ty)) continue;
       const seed = Math.floor(hash2(tx, ty, 13) * 64);
       if (ch === '#') {
-        const wp = wallParams(map, tx, ty, Z.wallish, walk);
+        const wp = wallParams(map, tx, ty, Z.wallish, inside);
         placeStatic(ctx, set, pen, Z.wallId, { conn: wp.conn, cut: wp.cut, bent: hash2(tx, ty, 5) < 0.28 ? 1 : 0, seed: seed % 8 }, tileMatrix(ctx, tx, ty));
         continue;
       }
@@ -733,11 +738,11 @@ function makeLayer(zone) {
       if (grate) {
         const vertical = walk(tx, ty - 1) && walk(tx, ty + 1) && !walk(tx - 1, ty) && !walk(tx + 1, ty);
         placeStatic(ctx, set, pen, 'away/wreck/grate', { seed: seed % 8 }, tileMatrix(ctx, tx, ty, vertical ? Math.PI / 2 : 0), { floor: true });
-      } else placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 8 }, tileMatrix(ctx, tx, ty), { floor: true });
+      } else placeStatic(ctx, set, pen, Z.floorId, { seed: calmSeed(tx, ty, 13) }, tileMatrix(ctx, tx, ty), { floor: true });
       if (ch === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (ch === 'x') placeStatic(ctx, set, pen, 'away/wreck/debris', { seed: seed % 8 }, tileMatrix(ctx, tx, ty, hash2(tx, ty, 3) * 6.28));
       else if (ch === 'V') {
-        const wp = wallParams(map, tx, ty, Z.wallish, walk);
+        const wp = wallParams(map, tx, ty, Z.wallish, inside);
         addDyn(ctx, { id: 'away/wreck/wall_weak', m: tileMatrix(ctx, tx, ty), tx, ty,
           params: (st) => { const here = st.hollowT && st.hollowT.x === tx && st.hollowT.y === ty; return { state: here && st.hollow.open ? 2 : here && st.hollow.marked ? 1 : 0, cut: wp.cut, conn: wp.conn }; } });
       } else if (ch === 'h') {
@@ -762,7 +767,8 @@ function makeLayer(zone) {
     for (let ty = 0; ty < map.h; ty++) for (let tx = 0; tx < map.w; tx++) {
       if (map.at(tx, ty) !== '#' || !walk(tx, ty + 1)) continue;
       if ((tx + ty * 3) % 4 !== 0) continue;
-      const cut = walk(tx, ty - 1);
+      const cn = map.at(tx, ty - 1);
+      const cut = ty > 0 && cn != null && cn !== '~' && cn !== ' ';   // wie wallParams: Innenwand → geschnitten
       const y = cut ? 0.95 : 2.1;
       const g = groups[k % 3]; k++;
       const pen = new Pen(T, g).at(tileMatrix(ctx, tx, ty));
@@ -818,7 +824,7 @@ function makeLayer(zone) {
       return 4;
     };
     const walkNorth = (x, y, n) => { for (let i = 1; i <= n; i++) if (y - i >= 0 && y - i < map.h && x >= 0 && x < map.w && !isRock(x, y - i)) return i; return 0; };
-    const openForCut = (x, y) => { const c = ch(x, y); return c != null && c !== 'R' && c !== '#' && c !== ' ' && c !== 'G' && c !== 'k' && x >= 0 && y >= 0 && x < map.w && y < map.h; };
+    const openForCut = (x, y) => { const c = ch(x, y); return c != null && c !== 'R' && c !== ' ' && x >= 0 && y >= 0 && x < map.w && y < map.h; };
     for (let gz = 0; gz < D; gz++) for (let gx = 0; gx < W; gx++) {
       const x = gx - B, y = gz - B, i = gz * W + gx;
       if (isRock(x, y)) {
@@ -827,7 +833,8 @@ function makeLayer(zone) {
         let h = d <= 1 ? 2 + (hash2(x, y, 31) < 0.25 ? 1 : 0) : d === 2 ? 3 + (hash2(x, y, 32) < 0.3 ? 1 : 0) : 4 + (hash2(x, y, 33) < 0.4 ? 1 : 0);
         // Felsen südlich vom Spielfeld verdecken die Kamera-Sicht: knapp dahinter niedrig halten (min. 2 m)
         const wn = walkNorth(x, y, 2);
-        if (wn === 1) h = 2; else if (wn === 2) h = Math.min(h, 3);
+        // QA: 2 m direkt südlich verdeckten im Gang (Störrelais 32,13) Figuren und Füße → 1 m, eine Reihe weiter max. 2 m
+        if (wn === 1) h = 1; else if (wn === 2) h = Math.min(h, 2);
         if ((x < 0 || y < 0 || x >= map.w || y >= map.h) && wn === 0) h = Math.max(h, 4);
         hgt[i] = h; kind[i] = 2;
       } else {
@@ -851,7 +858,7 @@ function makeLayer(zone) {
         continue;
       }
       // Ruinenboden 0,01 m über dem Gelände (ART-H: sonst z-Fighting)
-      if (ruinFloorAt(tx, ty)) placeStatic(ctx, set, pen, Z.floorId, { seed: seed % 16 }, tileMatrix(ctx, tx, ty), { floor: true, lift: 0.01 });
+      if (ruinFloorAt(tx, ty)) placeStatic(ctx, set, pen, Z.floorId, { seed: calmSeed(tx, ty, 17) }, tileMatrix(ctx, tx, ty), { floor: true, lift: 0.01 });
       if (c === 'P') placeStatic(ctx, set, pen, 'lerche/kit/pad', { phase: 0 }, tileMatrix(ctx, tx, ty));
       else if (c === 'o') {
         const l = ch(tx - 1, ty) === 'o', r = ch(tx + 1, ty) === 'o', u = ch(tx, ty - 1) === 'o', d = ch(tx, ty + 1) === 'o';

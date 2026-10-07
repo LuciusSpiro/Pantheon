@@ -36,6 +36,7 @@ const FURN_ID = {
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
   bath: 'lerche/furn/bath', bench: 'lerche/furn/bench', light_shaft: 'lerche/kit/light_shaft', plant: 'lerche/deco/pflanze',
 };
+const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
 const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte: einmal in die Blockmitte
 const ID = {
   floor: 'lerche/kit/floor', wall: 'lerche/kit/wall', window: 'lerche/kit/window', door: 'lerche/kit/door', breach: 'lerche/kit/breach',
@@ -204,7 +205,7 @@ const layer = {
     S.t += dt;
     const st = view.state || {};
     for (const d of S.decks) d.group.visible = d.dk.index === ctx.deck;
-    if (S.moodDeck !== ctx.deck) { S.moodDeck = ctx.deck; ctx.setMood(ctx.deck >= 1 ? 'ship_private' : 'ship_interior'); }   // ART-A: Deck II eigene Stimmung
+    if (S.moodDeck !== ctx.deck) { S.moodDeck = ctx.deck; ctx.setMood('ship_private'); }   // Nachrunde M4 (Kai): beide Decks hell und warm
     // Brandflecken: Kacheln, die je gebrannt haben
     let wearChanged = false;
     for (const f of (st.ship && st.ship.fires) || []) { const k = f[0] + ',' + f[1]; if (!S.fireTiles.has(k)) { S.fireTiles.add(k); wearChanged = true; } }
@@ -261,7 +262,7 @@ function rebake(ctx, S, d, st, withSolids) {
       const conn = (WALLISH[A.map.at(tx, ty - 1)] ? 1 : 0) | (WALLISH[A.map.at(tx + 1, ty)] ? 2 : 0) | (WALLISH[A.map.at(tx, ty + 1)] ? 4 : 0) | (WALLISH[A.map.at(tx - 1, ty)] ? 8 : 0);
       const cut = A.interior(tx, ty - 1) ? 1 : 0;
       const ws = wallStyle(A, st, tx, ty, dk.index);
-      const params = { conn, cut, style: ws.style, variant: ws.variant, seed: tx + ty * 37 };   // ART-A: Pilaster alle 3 m, Fresken wechseln
+      const params = { conn, cut, style: ws.style, variant: ws.variant, seed: (tx + ty * 37) % 12 };   // ART-A: Pilaster alle 3 m (seed%3), Fresken wechseln (floor(seed/3)%4) → seed%12 reicht, Builds werden gecacht statt je Kachel
       const g = L.geometries(ID.wall, params);
       solids.push({ geo: g ? g.geo : phGeo(1, cut ? 1.25 : 3, 1, PH_COL.wall), matrix: mat(lx, lz, 0) });
       continue;
@@ -303,8 +304,8 @@ function rebake(ctx, S, d, st, withSolids) {
       if (g) solids.push({ geo: g.geo, matrix: mat(lx + (hash(tx, ty, 10) - 0.5) * 0.3, lz + (hash(tx, ty, 11) - 0.5) * 0.3, Math.floor(hash(tx, ty, 12) * 4) * Math.PI / 2) });
     }
   }
-  // Plaketten an Stationen (statisch, Seite aus der Legende)
-  for (const o of (withSolids && S.stations) || []) {
+  // Plaketten an Stationen: Nachrunde M4 (Kai) – Seitenkürzel weg, nur die Zustandsanzeige bleibt. Schalter bleibt für Vergleiche.
+  for (const o of (withSolids && SHOW_PLAQUES && S.stations) || []) {
     if (o.deck !== dk.index) continue;
     const g = L.geometries(ID.plaque, { side: o.sideNum });
     if (!g) continue;
@@ -521,7 +522,7 @@ function setLampMode(ctx, S, mode) {
   for (const d of S.decks) {
     if (d.lampMesh) { d.group.remove(d.lampMesh); d.lampMesh.dispose && d.lampMesh.dispose(); d.lampMesh = null; }
     if (!d.lamps.length) continue;
-    const style = d.dk.index >= 1 ? 1 : 0;
+    const style = 1;   // Nachrunde M4 (Kai): warme Leuchten auf beiden Decks
     const g = ctx.loader.geometries(ID.light, { mode, style });
     const geo = g ? g.geo : phGeo(0.25, 0.4, 0.08, mode === 1 ? '#E0473C' : '#FFC66B', 0);
     const im = new THREE.InstancedMesh(geo, ctx.material, d.lamps.length);
