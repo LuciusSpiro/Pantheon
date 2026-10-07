@@ -1,0 +1,4 @@
+# Rohe Stream-Logs und Temp-Dateien der claude-Aufrufe
+stream.jsonl
+stream.err
+mini-system.md

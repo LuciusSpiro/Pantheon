@@ -1,0 +1,76 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche, hier Grauzahn. Eure Karawane ist sicher – sobald ihr mir zurückgebt, was ihr mir im Nebel gestohlen habt. Fünfzig Marken, oder die Händlerin treibt.",
+        "frage": "Zahlt ihr, oder lehnt ihr ab?",
+        "antwort_a": "Abgemacht. Fünfzig Marken für Sela.",
+        "antwort_b": "Wir zahlen nicht. Sela kommt frei.",
+        "folgen_a": [
+          {
+            "do": "pay_marks",
+            "marks": 50
+          },
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Klug. Die Jäger ziehen ab. Bis zum nächsten Mal, Lerche."
+            }
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Mutig. Dann seht zu, wie gut ihr kämpft."
+            }
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Schweigen ist auch eine Antwort. Feuer frei!"
+            }
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "not": {
+          "flag": "s3_gezahlt"
+        }
+      }
+    }
+  ]
+}

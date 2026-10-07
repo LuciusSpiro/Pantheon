@@ -1,0 +1,15 @@
+{
+  "format": "molekuel/1",
+  "id": "ladung_liefern",
+  "name": "Ladung liefern",
+  "familie": "transport_und_transfer",
+  "kern": "Fracht ans Ziel bringen und übergeben",
+  "ansaetze": [],
+  "szenentypen": [
+    "A1",
+    "A12",
+    "D1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

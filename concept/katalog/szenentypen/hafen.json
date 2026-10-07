@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "hafen",
+  "kennung": "D1",
+  "name": "Hafen",
+  "bereich": "station",
+  "kern": "Andocken, Speichern, Auftragsbrett, Handel, Reparatur, Ladung und Passagiere aufnehmen oder abgeben, Gerüchte, NSC treffen, „Was bisher geschah“ zu Beginn einer Session",
+  "kippt_zu": [
+    "gesellschaft"
+  ],
+  "braucht": [
+    "andocken"
+  ],
+  "molekuele_plaetze": {
+    "min": 0,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

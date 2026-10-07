@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "handeln",
+  "name": "Handeln",
+  "familie": "reden",
+  "kern": "Kaufen, verkaufen, tauschen; Gerüchte als Ware",
+  "ansaetze": [
+    "reden"
+  ],
+  "szenentypen": [
+    "C6",
+    "D1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

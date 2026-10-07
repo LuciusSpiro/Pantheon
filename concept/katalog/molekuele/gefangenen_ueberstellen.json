@@ -1,0 +1,18 @@
+{
+  "format": "molekuel/1",
+  "id": "gefangenen_ueberstellen",
+  "name": "Gefangenen überstellen",
+  "familie": "transport_und_transfer",
+  "kern": "Gefangenen sicher abliefern. Fluchtversuch oder Befreiungsversuch möglich",
+  "ansaetze": [
+    "gewalt",
+    "reden"
+  ],
+  "szenentypen": [
+    "A1",
+    "B3",
+    "A12"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

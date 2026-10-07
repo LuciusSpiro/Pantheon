@@ -1,0 +1,236 @@
+{
+  "format": "regiebuch/1",
+  "id": "grauzahn_zahlt_heim_s2_splitter_annaeher",
+  "kopf": {
+    "titel": "Zahltag im Splittergürtel",
+    "art": "mission",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 12
+  },
+  "buch": {
+    "von": [
+      {
+        "npc": "sela"
+      }
+    ],
+    "briefing": "@test.text",
+    "belohnung": "@test.text"
+  },
+  "buehne": {
+    "orte": [
+      "hafen",
+      "splitter"
+    ]
+  },
+  "besetzung": {
+    "npc": [
+      "sela"
+    ]
+  },
+  "steps": [
+    {
+      "id": "start",
+      "objectives": [],
+      "next": [
+        {
+          "if": true,
+          "goto": "s2_splitter_annaeherung"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "s2_splitter_annaeherung",
+      "loc": "splitter",
+      "timers": [
+        {
+          "at": 1,
+          "oda": "@s2_splitter_annaeherung.start"
+        },
+        {
+          "at": 50,
+          "do": [
+            {
+              "wendung": "s2_splitter_annaeherung_grauzahn_funkt",
+              "ankuendigung": {
+                "oda": "@s2_splitter_annaeherung.t1",
+                "art": "gleichzeitig"
+              },
+              "wirkung": [
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s2_splitter_annaeherung.t2"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 35
+              },
+              {
+                "not": {
+                  "event": "widescan"
+                }
+              },
+              {
+                "not": {
+                  "revealed": "splitter_cache1"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@s2_splitter_annaeherung.tipp"
+            }
+          ],
+          "garantie": "hinweis"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 45
+              },
+              {
+                "not": {
+                  "revealed": "splitter_cache1"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "direction_hint",
+              "find": "splitter_cache1",
+              "text": "@s2_splitter_annaeherung.richtung"
+            }
+          ],
+          "garantie": "hinweis"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 85
+              },
+              {
+                "not": {
+                  "revealed": "splitter_cache1"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "reveal_find",
+              "id": "splitter_cache1"
+            },
+            {
+              "oda": "@s2_splitter_annaeherung.aufgedeckt"
+            }
+          ],
+          "garantie": "autoloesung"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "revealed": "splitter_cache1"
+              },
+              {
+                "elapsed": 180
+              },
+              {
+                "not": {
+                  "found": "splitter_cache1"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "complete_find",
+              "id": "splitter_cache1"
+            }
+          ],
+          "garantie": "autoloesung"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "finden",
+          "text": "@s2_splitter_annaeherung.ziel_finden",
+          "done": {
+            "revealed": "splitter_cache1"
+          }
+        },
+        {
+          "id": "scannen",
+          "text": "@s2_splitter_annaeherung.ziel_scannen",
+          "show": {
+            "revealed": "splitter_cache1"
+          },
+          "done": {
+            "found": "splitter_cache1"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "found": "splitter_cache1"
+          },
+          "goto": "s3_funkduell"
+        }
+      ],
+      "skip": [
+        {
+          "do": "complete_find",
+          "id": "splitter_cache1"
+        }
+      ]
+    },
+    {
+      "id": "s3_funkduell",
+      "objectives": [],
+      "next": [
+        {
+          "if": true,
+          "complete": "platzhalter"
+        }
+      ],
+      "skip": []
+    }
+  ],
+  "on": {},
+  "ausgaenge": {
+    "platzhalter": {
+      "beschreibung": "Rest der Mission (noch nicht ausgearbeitet)",
+      "folgen": [
+        {
+          "chronik": "@test.text"
+        }
+      ]
+    }
+  },
+  "texte": {
+    "test.text": "Platzhalter",
+    "s2_splitter_annaeherung.start": "Irgendwo hier ist mehrere widersprüchliche Signale. Taktik: Weitscan (W) – Marker für den Piloten!",
+    "s2_splitter_annaeherung.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+    "s2_splitter_annaeherung.richtung": "mehrere widersprüchliche Signale kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+    "s2_splitter_annaeherung.aufgedeckt": "Ich habe mehrere widersprüchliche Signale angepeilt und markiert. Anvisieren (T) und scannen (S)!",
+    "s2_splitter_annaeherung.ziel_finden": "Taktik: Weitscan (W) – mehrere widersprüchliche Signale suchen",
+    "s2_splitter_annaeherung.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)",
+    "s2_splitter_annaeherung.t1": "Weitscan zeigt Anomalien – vier Rostmeute-Jäger, versteckt hinter Trümmern. Das ist eine Falle.",
+    "s2_splitter_annaeherung.t2": "Lerche, ich sehe dich auch. Bevor meine Jäger schießen – lass uns reden. Komm auf Kanal sieben."
+  }
+}

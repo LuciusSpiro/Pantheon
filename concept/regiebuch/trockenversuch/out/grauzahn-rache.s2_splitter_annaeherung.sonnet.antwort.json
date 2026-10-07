@@ -1,0 +1,30 @@
+{
+  "molekuele": [
+    {
+      "id": "signal_orten",
+      "umsetzung": "weitscan_peilung",
+      "params": {
+        "loc": "splitter",
+        "fund": "splitter_cache1",
+        "fund_name": "das Störsignal",
+        "hinweis_nach": 40,
+        "aufdecken_nach": 90,
+        "scannen_nach": 150
+      }
+    }
+  ],
+  "verzweigung": [],
+  "wendung": {
+    "kennung": "grauzahn_meldet_sich",
+    "nach_s": 55,
+    "ankuendigung": "Eingehender Funk – Kennung unbekannt, aber das Muster kenne ich: Rostmeute.",
+    "wirkung": [
+      {
+        "radio": {
+          "from": "grauzahn",
+          "text": "@s2_splitter_annaeherung.t2"
+        }
+      }
+    ]
+  }
+}

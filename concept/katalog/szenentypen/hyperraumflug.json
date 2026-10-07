@@ -1,0 +1,21 @@
+{
+  "format": "szenentyp/1",
+  "id": "hyperraumflug",
+  "kennung": "A1",
+  "name": "Hyperraumflug",
+  "bereich": "weltraum",
+  "kern": "Weiter Sprung: Einstieg, Zwischensequenz an Bord (ausrüsten, bereit melden), Ausstieg. Meist ohne Zwischenfall",
+  "kippt_zu": [
+    "gast_an_bord",
+    "gefahrennavigation",
+    "krise_an_bord"
+  ],
+  "braucht": [
+    "hyperraum"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

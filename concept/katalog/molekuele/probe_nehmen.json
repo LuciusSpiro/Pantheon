@@ -1,0 +1,15 @@
+{
+  "format": "molekuel/1",
+  "id": "probe_nehmen",
+  "name": "Probe nehmen",
+  "familie": "bergen_und_sichern",
+  "kern": "Probe unter Gefahr sammeln und auswerten",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "C1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "ablieferung",
+  "kennung": "A12",
+  "name": "Ablieferung",
+  "bereich": "weltraum",
+  "kern": "Am Ziel ankommen und Ladung oder Passagiere übergeben: zum Ziel beamen oder andocken. Kontrolle, Quittung, Bezahlung",
+  "kippt_zu": [
+    "begegnung"
+  ],
+  "braucht": [
+    "andocken"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

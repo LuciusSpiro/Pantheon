@@ -1,0 +1,214 @@
+{
+  "format": "grobplan/1",
+  "id": "grauzahn_heimzahlung",
+  "titel": "Kein Bluff diesmal",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 12,
+  "aufhaenger": "Sela empfängt ein verschlüsseltes Vaelen-Signal: Grauzahn hat eine ihrer Handelsrouten blockiert und lässt ausrichten, die Lerche soll vorbeikommen – allein. Die Crew ahnt, dass es eine Falle ist.",
+  "erinnerung": "Grauzahn erinnert sich: Im Nebel hat die Lerche ihn mit einem Konkordat-Bluff ausmanövriert. Das merkt er sich – und er will die Crew diesmal ohne Ausweg stellen.",
+  "szenen": [
+    {
+      "id": "auftrag",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Sela kontaktiert die Crew und erteilt den Auftrag; Tesk warnt vor Grauzahns Präsenz im Splittergürtel.",
+      "stationen": {
+        "pilot": "–",
+        "taktik": "–",
+        "captain": "Funk annehmen (Sela, dann Tesk), Sprungziel auf der Sternkarte wählen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Auftrag angenommen",
+          "nach": "flug_splitter"
+        }
+      ]
+    },
+    {
+      "id": "flug_splitter",
+      "art": "flug",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Die Lerche springt in den Splittergürtel und fährt auf Selas Signal zu.",
+      "stationen": {
+        "pilot": "Faltsprung nach splitter, Kurs halten",
+        "taktik": "Weitscan (Funde aufdecken, Lage sondieren)",
+        "captain": "Funk lauschen, Energie verteilen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "reveal_location",
+        "direction_hint"
+      ],
+      "gegner": [],
+      "wendung": "Kurz vor dem Ziel meldet sich Grauzahn per Funk: Er hat Selas Schiff als Köder benutzt – und zwei Jäger lauern bereits im Asteroid-Schatten.",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Wendung ausgelöst",
+          "nach": "hinterhalt"
+        }
+      ]
+    },
+    {
+      "id": "hinterhalt",
+      "art": "raumkampf",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Die Lerche kämpft sich durch Grauzahns Hinterhalt und hält das Schiff kampffähig.",
+      "stationen": {
+        "pilot": "Ausweichen, Breitseite drehen, Asteroidendeckung nutzen",
+        "taktik": "Jäger mit Lanze und Batterien abschießen, Ziel-Scan auf Kanonenboot",
+        "captain": "Schilde verteilen, Schadensplan koordinieren, Feuer/Lecks einteilen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "ship_incident",
+        "damage_system",
+        "ship_fire",
+        "no_fires",
+        "system_ok"
+      ],
+      "gegner": [
+        "raider",
+        "raider",
+        "gunboat"
+      ],
+      "wendung": null,
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "Alle Gegner ausgeschaltet",
+          "nach": "funkduell"
+        },
+        {
+          "wenn": "Schwere Schäden, Jäger noch aktiv",
+          "nach": "funkduell"
+        }
+      ]
+    },
+    {
+      "id": "funkduell",
+      "art": "funkduell",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Grauzahn meldet sich persönlich – er bietet der Crew einen Handel an oder eskaliert den Konflikt.",
+      "stationen": {
+        "pilot": "–",
+        "taktik": "–",
+        "captain": "Funk annehmen, Entscheidung treffen (Entgegenkommen oder Konfrontation)",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "force_choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Entgegenkommen gewählt",
+          "nach": "ausgang:einigung"
+        },
+        {
+          "wenn": "Konfrontation gewählt",
+          "nach": "rueckflug_konfrontation"
+        }
+      ]
+    },
+    {
+      "id": "rueckflug_konfrontation",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Die Lerche flieht vor Grauzahns Nachhut und kehrt mit Selas befreitem Schiff in den Hafen zurück.",
+      "stationen": {
+        "pilot": "Faltsprung nach hafen, Ausweichen",
+        "taktik": "Nachhut-Jäger abwehren",
+        "captain": "Schilde halten, andocken",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "damage_system",
+        "system_ok",
+        "salvage_done"
+      ],
+      "gegner": [
+        "raider"
+      ],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Heil angekommen",
+          "nach": "ausgang:eskalation"
+        },
+        {
+          "wenn": "Schiff beschädigt angekommen",
+          "nach": "ausgang:pyrrhus"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "funkduell",
+      "frage": "Grauzahn bietet an: Die Lerche zahlt einmalig 80 Marken als 'Ehrenschuld' für den Bluff – dann ist die Sache vergessen. Oder die Crew weist ihn ab.",
+      "optionen": [
+        {
+          "id": "entgegenkommen",
+          "text": "Zahlen und den Frieden kaufen",
+          "folge": "Grauzahns Haltung steigt auf -1; die Crew verliert 80 Marken, kehrt ohne weiteren Kampf zurück."
+        },
+        {
+          "id": "konfrontation",
+          "text": "Ablehnen und die Lerche durchdrücken",
+          "folge": "Grauzahns Haltung bleibt bei -2; Nachhut verfolgt die Lerche; Sela erhält eine Belohnung für die Befreiung."
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "einigung": {
+      "wann": "Crew zahlt 80 Marken im Funkduell",
+      "folgen": [
+        "npc_haltung grauzahn +1",
+        "npc_gedaechtnis grauzahn: Die Lerche hat die Ehrenschuld für den Nebelbluff bezahlt. Ich lasse sie vorerst in Ruhe.",
+        "npc_gedaechtnis sela: Die Lerche hat mein Schiff aus Grauzahns Falle befreit und den Konflikt ohne weiteres Blutvergießen beendet.",
+        "npc_haltung sela +1",
+        "chronik: Kein Bluff diesmal – die Lerche kauft sich mit 80 Marken Grauzahns Waffenstillstand."
+      ]
+    },
+    "eskalation": {
+      "wann": "Crew lehnt ab und kehrt heil zurück",
+      "folgen": [
+        "npc_gedaechtnis grauzahn: Die Lerche hat mein Angebot abgelehnt und sich durchgekämpft. Die Rechnung bleibt offen.",
+        "npc_gedaechtnis sela: Die Lerche hat mein Schiff befreit und Grauzahn die Stirn geboten. Ich schulde ihr.",
+        "npc_haltung sela +1",
+        "chronik: Kein Bluff diesmal – die Lerche kämpft sich durch Grauzahns Hinterhalt und lehnt seinen Handel ab. Der Konflikt schwelt weiter."
+      ]
+    },
+    "pyrrhus": {
+      "wann": "Crew lehnt ab, kehrt mit Schaden zurück",
+      "folgen": [
+        "npc_gedaechtnis grauzahn: Die Lerche hat mein Angebot abgelehnt und Federn gelassen. Vielleicht lernt sie noch.",
+        "npc_gedaechtnis sela: Die Lerche hat mich befreit, aber teuer bezahlt. Ich werde ihr helfen, wenn ich kann.",
+        "npc_haltung sela +1",
+        "chronik: Kein Bluff diesmal – die Lerche kämpft sich durch, trägt Schaden davon und lässt Grauzahns Rechnung offen."
+      ]
+    }
+  }
+}

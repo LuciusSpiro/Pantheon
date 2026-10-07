@@ -1,0 +1,18 @@
+{
+  "format": "molekuel/1",
+  "id": "datenkern_bergen",
+  "name": "Datenkern bergen",
+  "familie": "bergen_und_sichern",
+  "kern": "Daten aus einem Wrack oder einer Anlage holen",
+  "ansaetze": [
+    "technik",
+    "heimlich"
+  ],
+  "szenentypen": [
+    "C1",
+    "C4",
+    "C9"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

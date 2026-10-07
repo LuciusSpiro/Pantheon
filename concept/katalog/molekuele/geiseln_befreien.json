@@ -1,0 +1,18 @@
+{
+  "format": "molekuel/1",
+  "id": "geiseln_befreien",
+  "name": "Geiseln befreien",
+  "familie": "helfen",
+  "kern": "Gefangene lebend herausholen",
+  "ansaetze": [
+    "gewalt",
+    "heimlich",
+    "reden"
+  ],
+  "szenentypen": [
+    "C2",
+    "C4"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

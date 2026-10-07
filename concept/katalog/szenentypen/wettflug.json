@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "wettflug",
+  "kennung": "A14",
+  "name": "Wettflug",
+  "bereich": "weltraum",
+  "kern": "Rennen gegen ein anderes Schiff oder gegen die Zeit durch einen Kurs (Asteroiden, Tore, Gravitationsfelder)",
+  "kippt_zu": [
+    "raumgefecht"
+  ],
+  "braucht": [
+    "wettflug_kurs"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

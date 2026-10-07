@@ -1,0 +1,237 @@
+{
+  "format": "grobplan/1",
+  "id": "kesh_echo",
+  "titel": "Was die Tafel verschweigt",
+  "auftraggeber": "melk",
+  "zielspieldauer_min": 15,
+  "aufhaenger": "Archivarin Melk hat in der Tafel von Kesh eine Koordinate entdeckt, die zu keinem bekannten Ort passt – nur das Wrack liegt auf dem Schnittpunkt. Die Crew soll das Wrack durchsuchen, bevor jemand anderes die Tafel liest.",
+  "erinnerung": "Melk erinnert sich: Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche – deshalb vertraut sie der Crew mit dem, was die Tafel verrät.",
+  "szenen": [
+    {
+      "id": "hafen_briefing",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Melk erteilt den Auftrag und gibt eine Koordinate aus der Tafel weiter.",
+      "stationen": {
+        "pilot": "Kurs zum Wrack vorberechnen, Schiff startklar melden",
+        "taktik": "Melks Hinweise auf mögliche Bewachung einschätzen",
+        "captain": "Entscheidung: Selas Karawane als Zwischenstopp anfragen oder direkt zum Wrack",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Sela anfragen",
+          "nach": "vaelen_stopp"
+        },
+        {
+          "wenn": "direkt zum Wrack",
+          "nach": "splitter_flug"
+        }
+      ]
+    },
+    {
+      "id": "vaelen_stopp",
+      "art": "scan",
+      "ort": "vaelen",
+      "karte": null,
+      "ziel": "Sela hat die Region gescannt und kann eine Warnung oder einen Fundfragment weitergeben.",
+      "stationen": {
+        "pilot": "Andockmanöver an die Karawane",
+        "taktik": "Selas Scandaten auswerten, Bedrohungslage einschätzen",
+        "captain": "Handel mit Sela: Information gegen Marks oder Gegendienst",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "radio",
+        "reveal",
+        "pay_marks"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "immer",
+          "nach": "splitter_flug"
+        }
+      ]
+    },
+    {
+      "id": "splitter_flug",
+      "art": "raumkampf",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Rostmeute-Posten blockiert den Weg zum Wrack – Grauzahn hat die Koordinate auch.",
+      "stationen": {
+        "pilot": "Ausweichkurs durch den Asteroidengürtel halten",
+        "taktik": "Raider und Relay ausschalten",
+        "captain": "Funkduell: Grauzahn warnt die Crew, die Tafel sei sein Eigentum",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "spawn",
+        "radio",
+        "damage_system",
+        "direction_hint"
+      ],
+      "gegner": [
+        "raider",
+        "relay"
+      ],
+      "wendung": "Grauzahn kündigt Verstärkung an, falls die Crew weiterfliegt – Entscheidung unter Druck.",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Gegner besiegt oder durchgebrochen",
+          "nach": "wrack_aussen"
+        }
+      ]
+    },
+    {
+      "id": "wrack_aussen",
+      "art": "aussenmission",
+      "ort": "wrack",
+      "karte": "wreck",
+      "ziel": "Das Außenteam durchsucht das Wrack nach dem Kustoden-Objekt; der Captain koordiniert oben und sieht Zusammenhänge, die unten fehlen.",
+      "stationen": {
+        "pilot": "Schiff in Position halten, Systemschäden aus dem Kampf beheben",
+        "taktik": "Plünderer auf der Karte bekämpfen, Außenteam sichern",
+        "captain": "Schiffskonsole: Grundriss-Fragmente aus dem Datenkern deuten, dem Außenteam fehlende Wege ansagen",
+        "aussenteam": "Räume durchsuchen, Objekte aktivieren, Kustoden-Fund sichern"
+      },
+      "bausteine": [
+        "activate_away_group",
+        "reveal_find",
+        "complete_find",
+        "set_object_state",
+        "near_object",
+        "item_in_area",
+        "spawn_squad",
+        "end_away",
+        "console_manned"
+      ],
+      "gegner": [
+        "plunderer"
+      ],
+      "wendung": "Ein zweiter Trupp Plünderer erscheint, wenn der Fund fast gesichert ist – angekündigt durch Funkreiß.",
+      "dauer_min": 5,
+      "weiter": [
+        {
+          "wenn": "Fund gesichert, Team zurück",
+          "nach": "rueckflug_hafen"
+        },
+        {
+          "wenn": "Team zu lange draußen, zweiter Trupp nicht aufzuhalten",
+          "nach": "rueckflug_hafen"
+        }
+      ]
+    },
+    {
+      "id": "rueckflug_hafen",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Sicher zurück zu Melk, Fund übergeben, Grauzahns Reaktion abwarten.",
+      "stationen": {
+        "pilot": "Rückflug durch den Splittergürtel ohne weiteren Kampf navigieren",
+        "taktik": "Systemschäden prüfen und melden",
+        "captain": "Melk per Funk vorwarnen, Entscheidung über den Fund",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "reward",
+        "system_ok",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Fund an Melk",
+          "nach": "ausgang:melk_bekommt_fund"
+        },
+        {
+          "wenn": "Fund behalten oder an Sela",
+          "nach": "ausgang:crew_behaelt_fund"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "splitter_flug",
+      "frage": "Grauzahn fordert, die Crew solle umkehren – sonst erklärt er sie zur Feind.",
+      "optionen": [
+        {
+          "id": "weiterfliegen",
+          "text": "Weiterfliegen, Drohung ignorieren",
+          "folge": "Grauzahn schickt Verstärkung zur Wrack-Szene; npc_haltung grauzahn -1"
+        },
+        {
+          "id": "verhandeln",
+          "text": "Kurz verhandeln: Grauzahn bekommt Marken",
+          "folge": "Verstärkung bleibt aus; pay_marks 40; npc_haltung grauzahn +1"
+        }
+      ]
+    },
+    {
+      "szene": "rueckflug_hafen",
+      "frage": "Was passiert mit dem Kustoden-Objekt aus dem Wrack?",
+      "optionen": [
+        {
+          "id": "an_melk",
+          "text": "An Melk und das Konkordat-Archiv übergeben",
+          "folge": "npc_haltung melk +1; Konkordat kennt jetzt ein weiteres Kustoden-Fragment"
+        },
+        {
+          "id": "behalten",
+          "text": "Objekt an Bord behalten oder Sela anbieten",
+          "folge": "npc_haltung melk -1; npc_haltung sela +1; Konkordat weiß nicht, was gefunden wurde"
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "melk_bekommt_fund": {
+      "wann": "Fund an Melk übergeben",
+      "folgen": [
+        "npc_haltung melk +1",
+        "npc_gedaechtnis melk: Das Kustoden-Objekt aus dem Wrack liegt jetzt im Konkordat-Archiv. Die Crew der Lerche hat es gebracht.",
+        "chronik: Was die Tafel verschweigt – Das Wrack barg ein Kustoden-Fragment. Melk nimmt es ins Archiv. Das Relais-Rätsel vertieft sich.",
+        "welt_fakt: kustoden_wrack_fund=konkordat_archiv"
+      ]
+    },
+    "crew_behaelt_fund": {
+      "wann": "Fund nicht an Melk",
+      "folgen": [
+        "npc_haltung melk -1",
+        "npc_haltung sela +1",
+        "npc_gedaechtnis melk: Die Crew hat mir nicht gesagt, was sie im Wrack gefunden hat. Ich vertraue ihr weniger.",
+        "chronik: Was die Tafel verschweigt – Das Wrack barg ein Kustoden-Fragment. Die Crew behält es für sich. Melk ahnt, dass etwas fehlt.",
+        "welt_fakt: kustoden_wrack_fund=lerche"
+      ]
+    },
+    "grauzahn_eskaliert": {
+      "wann": "Crew hat Grauzahn ignoriert und Verstärkung war zu stark für die Rückkehr",
+      "folgen": [
+        "npc_haltung grauzahn -1",
+        "npc_gedaechtnis grauzahn: Die Lerche hat meine Warnung missachtet und das Wrack geplündert. Das bleibt nicht ohne Folgen.",
+        "chronik: Was die Tafel verschweigt – Grauzahn zieht die Lerche als Feindin. Die Rostmeute hat jetzt ein Ziel.",
+        "welt_fakt: rostmeute_feindschaft=lerche_bestaetigt"
+      ]
+    }
+  }
+}

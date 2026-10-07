@@ -1,0 +1,186 @@
+{
+  "format": "grobplan/2",
+  "id": "echo_kesh_2",
+  "titel": "Was die Tafel verschweigt",
+  "auftraggeber": "melk",
+  "zielspieldauer_min": 15,
+  "aufhaenger": "Archivarin Melk hat in der Tafel von Kesh eine Koordinate entdeckt, die auf eine zweite Kustoden-Anlage auf dem Mond selbst verweist. Sie will Beweise – keine Interpretation, keine Theorie, nur Daten von vor Ort.",
+  "erinnerung": "Melks Erinnerung: Die Tafel von Kesh liegt jetzt im Konkordat-Archiv, gebracht hat sie die Crew der Lerche.",
+  "szenen": [
+    {
+      "id": "s1_hafen",
+      "szenentyp": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "molekuele": [],
+      "sachverhalt": "Melk empfängt die Crew im Archiv-Antechamber: Die Tafel enthält eine Koordinate auf Kesh – eine zweite Anlage, versiegelt. Sie braucht Scan-Daten von dort, sonst bleibt die Tafel unlesbar. Bezahlung: 120 Marken plus Archivzugang.",
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Auftrag angenommen",
+          "nach": "s2_splitter"
+        }
+      ]
+    },
+    {
+      "id": "s2_splitter",
+      "szenentyp": "gefahrennavigation",
+      "ort": "splitter",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "vermessen",
+          "umsetzung": "stoerrelais_scan"
+        }
+      ],
+      "sachverhalt": "Auf dem Weg nach Kesh liegen drei Störrelais im Splittergürtel – Kustoden-Technik, die alle Scans des Monds unterdrückt. Erst wenn sie stumm sind, kann die Lerche Kesh vorscannen.",
+      "wendung": "Sobald das zweite Relais fällt, meldet sich eine unbekannte Funkstimme kurz und bricht sofort ab – sie hat die Lerche gesehen.",
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "Alle Relais ausgeschaltet",
+          "nach": "s3_kesh_aussen"
+        },
+        {
+          "wenn": "Crew bricht ab, Relais aktiv",
+          "nach": "ausgang:abbruch"
+        }
+      ]
+    },
+    {
+      "id": "s3_kesh_aussen",
+      "szenentyp": "erkundung",
+      "ort": "kesh",
+      "karte": "kesh",
+      "molekuele": [
+        {
+          "id": "artefakt_freilegen",
+          "umsetzung": "fund_aus_gewoelbe"
+        }
+      ],
+      "sachverhalt": "Die Anlage liegt halb unter Sand: ein versiegeltes Kustoden-Gewölbe. Das Außenteam öffnet das Tor und sichert den Inhalt – eine zweite Tafel, kleiner, mit einem eingravierten Antwort-Muster, das dem Relais-Signal ähnelt.",
+      "wendung": null,
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Tafel gesichert",
+          "nach": "s4_kesh_raetsel"
+        }
+      ]
+    },
+    {
+      "id": "s4_kesh_raetsel",
+      "szenentyp": "raetselort",
+      "ort": "kesh",
+      "karte": "kesh",
+      "molekuele": [
+        {
+          "id": "raetsel_loesen",
+          "umsetzung": "zwei_schluessel"
+        }
+      ],
+      "sachverhalt": "Im Inneren des Gewölbes liegen zwei Aktivierungspunkte weit auseinander: Beide müssen gleichzeitig gehalten werden, damit eine verborgene Kammer öffnet und die Scan-Daten für Melk vollständig werden. Der Captain sieht die Raumstruktur von oben und lotst.",
+      "wendung": "Ankündigung: Während das Rätsel läuft, nähern sich auf dem Captain-Schirm zwei Jäger-Signaturen – jemand kommt nach.",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Kammer geöffnet, Daten gesichert",
+          "nach": "s5_abwehr"
+        },
+        {
+          "wenn": "Kammer bleibt verschlossen",
+          "nach": "ausgang:unvollstaendig"
+        }
+      ]
+    },
+    {
+      "id": "s5_abwehr",
+      "szenentyp": "raumgefecht",
+      "ort": "kesh",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "vernichten",
+          "umsetzung": "angriffswelle"
+        }
+      ],
+      "sachverhalt": "Zwei Rostmeute-Jäger greifen beim Abflug an – Grauzahn hat die Lerche im Splittergürtel erkannt und eine Nachhut geschickt. Das Außenteam beamt hoch während die Lerche kämpft.",
+      "wendung": null,
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "Jäger besiegt oder vertrieben",
+          "nach": "ausgang:erfolg"
+        },
+        {
+          "wenn": "Schaden kritisch, Abflug erzwungen",
+          "nach": "ausgang:unvollstaendig"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "s2_splitter",
+      "frage": "Die unbekannte Stimme meldet sich erneut und warnt: Geht nicht weiter, die Anlage ist abgeriegelt – wer sich nähert, wird gemeldet. Gibt die Crew nach oder setzt sie den Kurs fort?",
+      "optionen": [
+        {
+          "id": "weiterfliegen",
+          "text": "Kurs halten, Warnung ignorieren",
+          "folge": "In s5 kommt ein zweites Kanonenboot als Verstärkung – die Stimme hat tatsächlich jemanden gerufen."
+        },
+        {
+          "id": "antworten",
+          "text": "Antworten und verhandeln",
+          "folge": "Die Stimme schweigt danach; s5 bleibt bei zwei Jägern, aber Grauzahn erfährt, dass die Lerche redet statt kämpft (npc_haltung grauzahn +0, aber welt_fakt für spätere Missionen)."
+        }
+      ]
+    },
+    {
+      "szene": "s4_kesh_raetsel",
+      "frage": "Die verborgene Kammer enthält neben den Scan-Daten eine zweite Botschaft – unleserlich für die Crew, aber offensichtlich kein Konkordat-Dokument. Mitnehmen oder nur die Scan-Daten sichern und alles andere unangetastet lassen?",
+      "optionen": [
+        {
+          "id": "alles_mitnehmen",
+          "text": "Beides sichern",
+          "folge": "Melk erhält mehr Material; npc_haltung melk +1, aber welt_fakt: Kustoden-Aktivität steigt in der nächsten Mission."
+        },
+        {
+          "id": "nur_scans",
+          "text": "Nur die Scan-Daten",
+          "folge": "Anlage bleibt ungestört; kein Kustoden-Echo, aber Melk ist merklich enttäuscht (npc_haltung melk ±0)."
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "erfolg": {
+      "wann": "Jäger in s5 abgewehrt, Scan-Daten bei Melk abgeliefert",
+      "folgen": [
+        "npc_haltung melk +1",
+        "npc_gedaechtnis melk: Die Crew hat die Koordinate auf Kesh verifiziert und mir die Scan-Daten gebracht.",
+        "chronik: Was die Tafel verschweigt: Die zweite Kustoden-Anlage auf Kesh ist geöffnet, die Scan-Daten liegen bei Melk. Grauzahns Nachhut ist besiegt.",
+        "welt_fakt kustoden_zweite_anlage: Auf Kesh liegt eine zweite versiegelte Kustoden-Anlage; ihr Antwort-Muster ähnelt dem Relais-Signal."
+      ]
+    },
+    "unvollstaendig": {
+      "wann": "Kammer bleibt verschlossen oder Abflug erzwungen vor Datenübergabe",
+      "folgen": [
+        "npc_haltung melk -1",
+        "npc_gedaechtnis melk: Die Crew ist zurückgekehrt, aber die Scan-Daten sind unvollständig. Die Tafel bleibt halb unlesbar.",
+        "chronik: Was die Tafel verschweigt: Die Anlage auf Kesh wurde erreicht, aber nicht vollständig ausgewertet.",
+        "welt_fakt kustoden_zweite_anlage: Auf Kesh liegt eine zweite Kustoden-Anlage – unbestätigt, da die Daten fehlen."
+      ]
+    },
+    "abbruch": {
+      "wann": "Crew schaltet Relais nicht aus und kehrt zum Hafen zurück",
+      "folgen": [
+        "npc_haltung melk -1",
+        "npc_gedaechtnis melk: Die Crew ist umgekehrt. Die Koordinate auf Kesh bleibt ungeprüft.",
+        "chronik: Was die Tafel verschweigt: Die Lerche ist nicht nach Kesh geflogen. Melks Frage bleibt offen.",
+        "welt_fakt kustoden_relais_sperrung: Kustoden-Störrelais im Splittergürtel sind noch aktiv – Kesh-Scans bleiben blockiert."
+      ]
+    }
+  }
+}

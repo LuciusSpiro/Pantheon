@@ -1,0 +1,76 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche, hier Grauzahn. Deine Freundin Sela ist festgefahren – und ihr schuldet mir noch immer für den Bluff im Nebel. Hundert Marken, und ich lass sie laufen.",
+        "frage": "Zahlt die Crew oder lehnt sie ab?",
+        "antwort_a": "Einverstanden. Hundert Marken für Sela.",
+        "antwort_b": "Das ist Erpressung. Wir zahlen nicht.",
+        "folgen_a": [
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "do": "pay_marks",
+            "marks": 100
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Klug. Sela ist frei. Bis bald, Lerche."
+            }
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Dann sehen wir uns im Feuer. Jäger, angriff!"
+            }
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Schweigen ist auch eine Antwort. Angriff!"
+            }
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "not": {
+          "flag": "s3_gezahlt"
+        }
+      }
+    }
+  ]
+}

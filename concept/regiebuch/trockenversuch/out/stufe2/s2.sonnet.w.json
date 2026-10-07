@@ -1,0 +1,30 @@
+{
+  "molekuele": [
+    {
+      "id": "signal_orten",
+      "umsetzung": "weitscan_peilung",
+      "params": {
+        "loc": "splitter",
+        "fund": "splitter_cache1",
+        "fund_name": "das Störsignal",
+        "hinweis_nach": 35,
+        "aufdecken_nach": 80,
+        "scannen_nach": 130
+      }
+    }
+  ],
+  "verzweigung": [],
+  "wendung": {
+    "kennung": "grauzahn_meldet_sich",
+    "nach_s": 55,
+    "ankuendigung": "Unbekannte Frequenz – jemand spricht uns direkt an.",
+    "wirkung": [
+      {
+        "radio": {
+          "from": "grauzahn",
+          "text": "@s2_splitter_annaeherung.t2"
+        }
+      }
+    ]
+  }
+}

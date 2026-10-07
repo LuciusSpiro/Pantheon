@@ -1,0 +1,232 @@
+{
+  "format": "grobplan/1",
+  "id": "kesh_echo",
+  "titel": "Was die Tafel verschweigt",
+  "auftraggeber": "melk",
+  "zielspieldauer_min": 15,
+  "aufhaenger": "Melk hat auf der Tafel von Kesh eine Koordinatenfolge entdeckt, die zu einem verborgenen Kustoden-Depot auf dem Mond führt. Die Lerche hat die Tafel gebracht – sie soll jetzt auch hineingehen.",
+  "erinnerung": "melk: Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche.",
+  "szenen": [
+    {
+      "id": "hafen_auftrag",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Melk erteilt den Auftrag und teilt eine Codetabelle aus der Tafel mit.",
+      "stationen": {
+        "pilot": "–",
+        "taktik": "–",
+        "captain": "Funk annehmen, Entscheidung treffen: Codetabelle mitnehmen oder Tesk informieren.",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": "null",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Auftrag angenommen",
+          "nach": "flug_kesh"
+        }
+      ]
+    },
+    {
+      "id": "flug_kesh",
+      "art": "flug",
+      "ort": "kesh",
+      "karte": null,
+      "ziel": "Anflug auf Kesh; Rostmeute-Jäger schneiden den Weg ab.",
+      "stationen": {
+        "pilot": "Faltsprung zu kesh, ausweichen.",
+        "taktik": "Lanze und Batterien feuern, Ziel-Scan.",
+        "captain": "Energie und Schilde verteilen, Sprungziel wählen.",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "spawn",
+        "damage_system",
+        "ship_incident"
+      ],
+      "gegner": [
+        "raider",
+        "gunboat"
+      ],
+      "wendung": "Während des Kampfes meldet sich ein unbekanntes Kustoden-Signal von der Oberfläche – kurz, dann Stille.",
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "Gegner besiegt",
+          "nach": "kesh_aussen"
+        },
+        {
+          "wenn": "Schiff schwer beschädigt",
+          "nach": "kesh_aussen"
+        }
+      ]
+    },
+    {
+      "id": "kesh_aussen",
+      "art": "aussenmission",
+      "ort": "kesh",
+      "karte": "kesh",
+      "ziel": "Außenteam öffnet das Kustoden-Depot mit Schlüssel und Codetabelle, Captain koordiniert von oben.",
+      "stationen": {
+        "pilot": "nah am Orbit halten für Beamerlinie.",
+        "taktik": "Weitscan, Orbitalschlag zur Unterstützung.",
+        "captain": "Sensor, Befehle, Codetabelle – sieht Tresorstatus oben, gibt Wissen an Außenteam weiter.",
+        "aussenteam": "Beamen, Objekte bedienen, Schlüssel und Vault zu zweit gleichzeitig aktivieren, Gegner mit Blaster und Deckung."
+      },
+      "bausteine": [
+        "activate_away_group",
+        "reveal_find",
+        "complete_find",
+        "set_object_state",
+        "force_choice",
+        "end_away",
+        "oda"
+      ],
+      "gegner": [
+        "squad1",
+        "squad2"
+      ],
+      "wendung": "null",
+      "dauer_min": 6,
+      "weiter": [
+        {
+          "wenn": "Depot geöffnet, Fund geborgen",
+          "nach": "rueck_erfolg"
+        },
+        {
+          "wenn": "Außenteam muss abgebrochen werden",
+          "nach": "rueck_teilweise"
+        }
+      ]
+    },
+    {
+      "id": "rueck_erfolg",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Rückflug zum Hafen; Melk empfängt den Fund und reagiert auf das Kustoden-Signal.",
+      "stationen": {
+        "pilot": "Faltsprung zu hafen, andocken.",
+        "taktik": "–",
+        "captain": "Funk an Melk, Entscheidung: Fund sofort übergeben oder erst selbst auswerten.",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "reward",
+        "reveal"
+      ],
+      "gegner": [],
+      "wendung": "null",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Fund übergeben",
+          "nach": "ausgang:depot_konkordat"
+        },
+        {
+          "wenn": "Fund zurückgehalten",
+          "nach": "ausgang:depot_crew"
+        }
+      ]
+    },
+    {
+      "id": "rueck_teilweise",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Abbruch-Rückflug; Melk erfährt, dass das Depot leer ausging.",
+      "stationen": {
+        "pilot": "Faltsprung zu hafen, andocken.",
+        "taktik": "–",
+        "captain": "Funk an Melk, Schadensbericht.",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "reveal"
+      ],
+      "gegner": [],
+      "wendung": "null",
+      "dauer_min": 1,
+      "weiter": [
+        {
+          "wenn": "immer",
+          "nach": "ausgang:depot_leer"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "hafen_auftrag",
+      "frage": "Melk will, dass der Fund direkt ins Konkordat-Archiv geht – sagt die Crew zu?",
+      "optionen": [
+        {
+          "id": "zusagen",
+          "text": "Zusagen",
+          "folge": "Melks Haltung steigt; Crew bekommt weniger Marken, dafür Zugang zum Archiv."
+        },
+        {
+          "id": "offen_lassen",
+          "text": "Nichts versprechen",
+          "folge": "Crew hat freie Hand beim Rückflug, Melks Haltung bleibt neutral."
+        }
+      ]
+    },
+    {
+      "szene": "rueck_erfolg",
+      "frage": "Den Depot-Fund sofort an Melk übergeben oder erst an Bord auswerten?",
+      "optionen": [
+        {
+          "id": "uebergeben",
+          "text": "Sofort übergeben",
+          "folge": "Melks Haltung +1; Kustoden-Spur geht ins Archiv."
+        },
+        {
+          "id": "behalten",
+          "text": "Zuerst selbst auswerten",
+          "folge": "Crew behält Initiative; Melks Haltung -1; neuer Weltfakt."
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "depot_konkordat": {
+      "wann": "Fund übergeben, Rückflug erfolgreich",
+      "folgen": [
+        "npc_haltung melk +1",
+        "npc_gedaechtnis melk: Die Crew hat den Depot-Fund ohne Umweg ans Archiv gegeben.",
+        "npc_gedaechtnis tesk: Das Kustoden-Depot auf Kesh ist jetzt dokumentiert – dank der Lerche.",
+        "chronik: Was die Tafel verschweigt – Das Depot auf Kesh geöffnet, Fund ans Konkordat übergeben.",
+        "welt_fakt: kustoden_depot_kesh=konkordat_archiv"
+      ]
+    },
+    "depot_crew": {
+      "wann": "Fund zurückgehalten, Rückflug erfolgreich",
+      "folgen": [
+        "npc_haltung melk -1",
+        "npc_gedaechtnis melk: Die Crew hat den Depot-Fund nicht sofort herausgegeben. Ich weiß nicht, was sie damit vorhaben.",
+        "chronik: Was die Tafel verschweigt – Das Depot auf Kesh geöffnet, Fund liegt bei der Crew der Lerche.",
+        "welt_fakt: kustoden_depot_kesh=lerche_besitz"
+      ]
+    },
+    "depot_leer": {
+      "wann": "Außenmission abgebrochen, kein Fund",
+      "folgen": [
+        "npc_haltung melk 0",
+        "npc_gedaechtnis melk: Die Crew musste ohne Fund abbrechen. Das Depot bleibt unbekannt.",
+        "chronik: Was die Tafel verschweigt – Außenmission auf Kesh abgebrochen, Depot ungeklärt.",
+        "welt_fakt: kustoden_depot_kesh=ungeklaert"
+      ]
+    }
+  }
+}

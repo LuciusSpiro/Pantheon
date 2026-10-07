@@ -1,0 +1,233 @@
+{
+  "format": "molekuel/1",
+  "id": "signal_orten",
+  "name": "Signal orten",
+  "familie": "erkunden_und_forschen",
+  "kern": "Notruf oder fremdes Signal triangulieren",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A2",
+    "C1"
+  ],
+  "umsetzungen": [
+    {
+      "id": "weitscan_peilung",
+      "name": "Signal per Weitscan finden",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Taktik pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
+      "braucht": [
+        "weitscan",
+        "gelaende"
+      ],
+      "dauer_min": [
+        2,
+        5
+      ],
+      "ereignisse": [
+        "widescan",
+        "hiddenFound"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene"
+        },
+        "fund": {
+          "typ": "find",
+          "pflicht": true,
+          "beschreibung": "Fund-ID an diesem Ort"
+        },
+        "fund_name": {
+          "typ": "text",
+          "default": "das Signal"
+        },
+        "hinweis_nach": {
+          "typ": "zahl",
+          "default": 70,
+          "min": 30,
+          "max": 180
+        },
+        "aufdecken_nach": {
+          "typ": "zahl",
+          "default": 160,
+          "min": 60,
+          "max": 300
+        },
+        "scannen_nach": {
+          "typ": "zahl",
+          "default": 360,
+          "min": 120,
+          "max": 600
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "timers": [
+              {
+                "at": 1,
+                "oda": "@{{id}}.start"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 35
+                    },
+                    {
+                      "not": {
+                        "event": "widescan"
+                      }
+                    },
+                    {
+                      "not": {
+                        "revealed": "{{fund}}"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "oda": "@{{id}}.tipp"
+                  }
+                ],
+                "garantie": "hinweis"
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{hinweis_nach}}"
+                    },
+                    {
+                      "not": {
+                        "revealed": "{{fund}}"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "do": "direction_hint",
+                    "find": "{{fund}}",
+                    "text": "@{{id}}.richtung"
+                  }
+                ],
+                "garantie": "hinweis"
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufdecken_nach}}"
+                    },
+                    {
+                      "not": {
+                        "revealed": "{{fund}}"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "do": "reveal_find",
+                    "id": "{{fund}}"
+                  },
+                  {
+                    "oda": "@{{id}}.aufgedeckt"
+                  }
+                ],
+                "garantie": "autoloesung"
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "revealed": "{{fund}}"
+                    },
+                    {
+                      "elapsed": "{{scannen_nach}}"
+                    },
+                    {
+                      "not": {
+                        "found": "{{fund}}"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "do": "complete_find",
+                    "id": "{{fund}}"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "finden",
+                "text": "@{{id}}.ziel_finden",
+                "done": {
+                  "revealed": "{{fund}}"
+                }
+              },
+              {
+                "id": "scannen",
+                "text": "@{{id}}.ziel_scannen",
+                "show": {
+                  "revealed": "{{fund}}"
+                },
+                "done": {
+                  "found": "{{fund}}"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "found": "{{fund}}"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "complete_find",
+                "id": "{{fund}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.start": "Irgendwo hier ist {{fund_name}}. Taktik: Weitscan (W) – Marker für den Piloten!",
+          "{{id}}.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+          "{{id}}.richtung": "{{fund_name}} kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+          "{{id}}.aufgedeckt": "Ich habe {{fund_name}} angepeilt und markiert. Anvisieren (T) und scannen (S)!",
+          "{{id}}.ziel_finden": "Taktik: Weitscan (W) – {{fund_name}} suchen",
+          "{{id}}.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "nebel",
+          "fund": "nebel_lore",
+          "fund_name": "die alte Bake"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

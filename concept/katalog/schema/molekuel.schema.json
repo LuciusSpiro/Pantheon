@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/molekuel/1",
+  "title": "Molekül (Ziel-Baustein) mit Umsetzungen",
+  "description": "Ein Molekül ist ein Spielziel aus dem Baukasten (z. B. 'Signal orten'). Umsetzungen sind konkrete, getestete Regiebuch-Vorlagen dafür. Ein Molekül ist verfügbar, sobald eine Umsetzung verfügbar ist (alle Mechaniken in 'braucht' verfügbar, Vorlage besteht den Prüfer).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "id",
+    "name",
+    "familie",
+    "kern",
+    "ansaetze",
+    "szenentypen",
+    "umsetzungen"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "molekuel/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "erweitert": {
+      "type": "boolean",
+      "description": "Mod: fügt einem bestehenden Molekül gleicher ID Umsetzungen hinzu, statt es neu zu definieren"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "familie": {
+      "type": "string"
+    },
+    "kern": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Was es ist, in einem Satz – für Spielleiter und Menschen"
+    },
+    "ansaetze": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "gewalt",
+          "heimlich",
+          "reden",
+          "technik"
+        ]
+      }
+    },
+    "szenentypen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[ABCD][0-9]+$"
+      }
+    },
+    "quelle": {
+      "type": "string"
+    },
+    "umsetzungen": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/umsetzung"
+      }
+    }
+  },
+  "$defs": {
+    "umsetzung": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "beschreibung",
+        "schauplatz",
+        "braucht",
+        "params",
+        "dauer_min",
+        "vorlage",
+        "test"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "beschreibung": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Für den Spielleiter: wann passt es, wie fühlt es sich an, was müssen die Spieler tun"
+        },
+        "schauplatz": {
+          "enum": [
+            "weltraum",
+            "aussen",
+            "bord",
+            "station"
+          ]
+        },
+        "braucht": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Mechaniken aus mechaniken.json"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "typ"
+            ],
+            "properties": {
+              "typ": {
+                "enum": [
+                  "loc",
+                  "map",
+                  "find",
+                  "npc",
+                  "squad",
+                  "text",
+                  "zahl",
+                  "bool",
+                  "aktionen",
+                  "kind"
+                ]
+              },
+              "pflicht": {
+                "type": "boolean"
+              },
+              "default": {},
+              "werte": {
+                "type": "array"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "beschreibung": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "dauer_min": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ereignisse": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ereignisse/Flags, an die Wendungen und Folgen anknüpfen können"
+        },
+        "vorlage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "steps",
+            "texte"
+          ],
+          "description": "Regiebuch-Fragment. Platzhalter: {{id}} (Instanz-Präfix), {{weiter}} (Folgeschritt), {{param}}. Ein String, der nur aus einem Platzhalter besteht, wird durch den Wert ersetzt (auch Zahlen, Listen).",
+          "properties": {
+            "buehne": {
+              "type": "object"
+            },
+            "besetzung": {
+              "type": "object"
+            },
+            "steps": {
+              "type": "array",
+              "minItems": 1
+            },
+            "on": {
+              "type": "object"
+            },
+            "texte": {
+              "type": "object"
+            }
+          }
+        },
+        "test": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "params"
+          ],
+          "description": "Testwerte: Der Lader setzt die Vorlage damit ein und prüft das Ergebnis mit tools/check-missions.js",
+          "properties": {
+            "params": {
+              "type": "object"
+            }
+          }
+        },
+        "nach": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*/[a-z][a-z0-9_]*$"
+          },
+          "description": "Setzt voraus, dass diese Umsetzungen (molekül/umsetzung) vorher in der Mission vorkamen"
+        }
+      }
+    }
+  }
+}

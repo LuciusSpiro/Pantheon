@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "unbemerkt_hineinkommen",
+  "name": "Unbemerkt hineinkommen",
+  "familie": "heimlich_und_sabotage",
+  "kern": "Einen Punkt erreichen, ohne Alarm auszulösen",
+  "ansaetze": [
+    "heimlich",
+    "technik"
+  ],
+  "szenentypen": [
+    "C4"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "passagiere_befoerdern",
+  "name": "Passagiere befördern",
+  "familie": "transport_und_transfer",
+  "kern": "Personen sicher ans Ziel bringen, an Bord versorgen",
+  "ansaetze": [
+    "reden"
+  ],
+  "szenentypen": [
+    "A1",
+    "B3",
+    "A12"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

@@ -1,0 +1,146 @@
+{
+  "format": "molekuel/1",
+  "id": "artefakt_freilegen",
+  "name": "Artefakt freilegen",
+  "familie": "bergen_und_sichern",
+  "kern": "Fund ausgraben, stabilisieren, sicher transportieren",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "C1",
+    "C5",
+    "C9"
+  ],
+  "umsetzungen": [
+    {
+      "id": "fund_aus_gewoelbe",
+      "name": "Fund aus dem Gewölbe bergen",
+      "schauplatz": "aussen",
+      "beschreibung": "Hinter dem geöffneten Tor liegt der Fund. E halten, dann ist er im Inventar. Kurz und ruhig – meist folgt danach eine Wendung (Wächter, Verstärkung). Heute nur auf Kesh.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "dauer_min": [
+        1,
+        2
+      ],
+      "ereignisse": [
+        "tabletTaken"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "fund_name": {
+          "typ": "text",
+          "default": "die Tafel"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ],
+          "objekte": {
+            "{{map}}": [
+              "tablet"
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "oda": "@{{id}}.offen"
+              }
+            ],
+            "timers": [
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "object_state",
+                      "map": "{{map}}",
+                      "object": "tablet",
+                      "state": "taken"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "bergen",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "{{map}}",
+                    "object": "tablet",
+                    "state": "taken"
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "{{map}}",
+                    "object": "tablet",
+                    "state": "taken"
+                  }
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_take_item",
+                "map": "{{map}}",
+                "item": "tafel"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.offen": "Der Weg ist frei! {{fund_name}} liegt im Gewölbe – E halten, dann ist es im Inventar.",
+          "{{id}}.hinweis": "{{fund_name}} liegt ganz hinten im Gewölbe. Hingehen und E halten.",
+          "{{id}}.ziel": "{{fund_name}} bergen (E halten)"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh"
+        }
+      },
+      "nach": [
+        "raetsel_loesen/zwei_schluessel"
+      ]
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

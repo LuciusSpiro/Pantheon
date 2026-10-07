@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "evakuieren",
+  "name": "Evakuieren",
+  "familie": "transport_und_transfer",
+  "kern": "Viele Personen unter Zeitdruck holen. Kapazität ist begrenzt: Wen zuerst?",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A11",
+    "C3",
+    "C9"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

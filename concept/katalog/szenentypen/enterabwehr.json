@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "enterabwehr",
+  "kennung": "B2",
+  "name": "Enterabwehr",
+  "bereich": "bord",
+  "kern": "Gegner kommen an Bord, gekämpft wird auf dem eigenen Deck, Schotts steuern",
+  "kippt_zu": [
+    "krise_an_bord"
+  ],
+  "braucht": [
+    "enterer_an_bord"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

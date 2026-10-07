@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "versorgen",
+  "name": "Versorgen",
+  "familie": "helfen",
+  "kern": "Medizin, Vorräte, Energie an Bedürftige bringen",
+  "ansaetze": [
+    "technik",
+    "reden"
+  ],
+  "szenentypen": [
+    "A12",
+    "C6"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

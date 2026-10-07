@@ -1,0 +1,239 @@
+{
+  "format": "molekuel/1",
+  "id": "vermessen",
+  "name": "Vermessen",
+  "familie": "erkunden_und_forschen",
+  "kern": "Phänomen oder Ort scannen; Gefahr wächst mit der Nähe",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A2",
+    "A7",
+    "C1"
+  ],
+  "umsetzungen": [
+    {
+      "id": "stoerrelais_scan",
+      "name": "Objekt unter Störung scannen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Taktik schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
+      "braucht": [
+        "raumkampf",
+        "captain_scan"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "ereignisse": [
+        "scanned",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort mit Hauptobjekt (Boje, Relais, Wrack, Karawane, Mond)",
+          "werte": [
+            "b7",
+            "relais",
+            "wrack",
+            "vaelen",
+            "kesh"
+          ]
+        },
+        "objekt_name": {
+          "typ": "text",
+          "default": "das Objekt",
+          "beschreibung": "Name im Text, z. B. „die Boje“"
+        },
+        "relais": {
+          "typ": "zahl",
+          "default": 3,
+          "min": 1,
+          "max": 4
+        },
+        "reichweite": {
+          "typ": "zahl",
+          "default": 420,
+          "min": 300,
+          "max": 500
+        },
+        "scan_s": {
+          "typ": "zahl",
+          "default": 5,
+          "min": 3,
+          "max": 8
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "spawn": {
+                  "kind": "relay",
+                  "tag": "{{id}}_relay",
+                  "n": "{{relais}}",
+                  "atStation": [
+                    {
+                      "dx": 157,
+                      "dy": 66
+                    },
+                    {
+                      "dx": -136,
+                      "dy": 103
+                    },
+                    {
+                      "dx": -21,
+                      "dy": -169
+                    },
+                    {
+                      "dx": 120,
+                      "dy": -120
+                    }
+                  ]
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.anflug"
+              },
+              {
+                "at": 6,
+                "oda": "@{{id}}.stoerung"
+              },
+              {
+                "at": 90,
+                "if": {
+                  "not": {
+                    "scanDone": "{{id}}_scan"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 1
+                    },
+                    {
+                      "enemiesLeft": {
+                        "tag": "{{id}}_relay",
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "oda": "@{{id}}.frei"
+                  }
+                ]
+              }
+            ],
+            "scan": {
+              "id": "{{id}}_scan",
+              "label": "@{{id}}.label",
+              "range": "{{reichweite}}",
+              "time": "{{scan_s}}",
+              "requires": {
+                "enemiesLeft": {
+                  "tag": "{{id}}_relay",
+                  "max": 0
+                }
+              },
+              "blocked": "@{{id}}.blockiert"
+            },
+            "objectives": [
+              {
+                "id": "anflug",
+                "text": "@{{id}}.ziel_anflug",
+                "done": {
+                  "near": {
+                    "station": "{{reichweite}}"
+                  }
+                }
+              },
+              {
+                "id": "relais",
+                "text": "@{{id}}.ziel_relais",
+                "done": {
+                  "all": [
+                    {
+                      "elapsed": 0.5
+                    },
+                    {
+                      "enemiesLeft": {
+                        "tag": "{{id}}_relay",
+                        "max": 0
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "scan",
+                "text": "@{{id}}.ziel_scan",
+                "done": {
+                  "scanDone": "{{id}}_scan"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "scanDone": "{{id}}_scan"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies",
+                "kind": "relay"
+              },
+              {
+                "do": "debug_mark_scanned",
+                "id": "{{id}}_scan"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.anflug": "Ruhe am Himmel. Jetzt zu {{objekt_name}} – die Markierung mitten in der Szene.",
+          "{{id}}.stoerung": "Störrelais kreisen um {{objekt_name}} und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
+          "{{id}}.frei": "Relais erledigt, der Weg ist frei! Captain: in Reichweite die Leertaste halten – Scan.",
+          "{{id}}.hinweis": "Captain: nah ran an {{objekt_name}} und Leertaste halten. Störrelais vorher abschießen (Taktik).",
+          "{{id}}.label": "Scan: {{objekt_name}}",
+          "{{id}}.blockiert": "Störrelais stören den Scan – erst abschießen (Taktik).",
+          "{{id}}.ziel_anflug": "Zu {{objekt_name}} fliegen",
+          "{{id}}.ziel_relais": "Taktik: Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})",
+          "{{id}}.ziel_scan": "Captain: {{objekt_name}} scannen (Leertaste halten)"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "b7",
+          "objekt_name": "die Boje"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

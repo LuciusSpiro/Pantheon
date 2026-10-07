@@ -1,0 +1,244 @@
+{
+  "format": "regiebuch/1",
+  "id": "grauzahn_zahlt_heim_s3_funkduell",
+  "kopf": {
+    "titel": "Zahltag im Splittergürtel",
+    "art": "mission",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 12
+  },
+  "buch": {
+    "von": [
+      {
+        "npc": "sela"
+      }
+    ],
+    "briefing": "@test.text",
+    "belohnung": "@test.text"
+  },
+  "buehne": {
+    "orte": [
+      "hafen",
+      "splitter"
+    ]
+  },
+  "besetzung": {
+    "npc": [
+      "sela",
+      "grauzahn"
+    ]
+  },
+  "steps": [
+    {
+      "id": "start",
+      "objectives": [],
+      "next": [
+        {
+          "if": true,
+          "goto": "s3_funkduell"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "s3_funkduell",
+      "loc": "splitter",
+      "enter": [
+        {
+          "radio": {
+            "from": "grauzahn",
+            "text": "@s3_funkduell.eroeffnung"
+          }
+        },
+        {
+          "choice": "s3_funkduell_wahl"
+        },
+        {
+          "oda": "@s3_funkduell.captain"
+        }
+      ],
+      "timers": [
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "choiceMade": "s3_funkduell_wahl"
+            }
+          },
+          "oda": "@s3_funkduell.ungeduldig",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 60
+              },
+              {
+                "not": {
+                  "choiceMade": "s3_funkduell_wahl"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "do": "force_choice",
+              "option": "schweigen"
+            }
+          ],
+          "garantie": "autoloesung"
+        }
+      ],
+      "choices": {
+        "s3_funkduell_wahl": {
+          "prompt": "@s3_funkduell.frage",
+          "options": [
+            {
+              "id": "a",
+              "label": "@s3_funkduell.a"
+            },
+            {
+              "id": "b",
+              "label": "@s3_funkduell.b"
+            },
+            {
+              "id": "schweigen",
+              "label": "@s3_funkduell.schweigen"
+            }
+          ],
+          "on": {
+            "a": [
+              {
+                "setFlag": {
+                  "s3_gezahlt": true
+                }
+              },
+              {
+                "do": "pay_marks",
+                "marks": 80
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@s3_funkduell.t1"
+                }
+              }
+            ],
+            "b": [
+              {
+                "setFlag": {
+                  "s3_gezahlt": false
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@s3_funkduell.t2"
+                }
+              }
+            ],
+            "schweigen": [
+              {
+                "setFlag": {
+                  "s3_gezahlt": false
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@s3_funkduell.t3"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "objectives": [
+        {
+          "id": "antwort",
+          "text": "@s3_funkduell.ziel",
+          "done": {
+            "choiceMade": "s3_funkduell_wahl"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "choiceMade": "s3_funkduell_wahl"
+              },
+              {
+                "flag": "s3_gezahlt"
+              }
+            ]
+          },
+          "goto": "s4_gefecht_leicht"
+        },
+        {
+          "if": {
+            "choiceMade": "s3_funkduell_wahl"
+          },
+          "goto": "s4_gefecht_schwer"
+        }
+      ],
+      "skip": [
+        {
+          "do": "force_choice",
+          "option": "schweigen"
+        }
+      ]
+    },
+    {
+      "id": "s4_gefecht_leicht",
+      "objectives": [],
+      "next": [
+        {
+          "if": true,
+          "complete": "platzhalter"
+        }
+      ],
+      "skip": []
+    },
+    {
+      "id": "s4_gefecht_schwer",
+      "objectives": [],
+      "next": [
+        {
+          "if": true,
+          "complete": "platzhalter"
+        }
+      ],
+      "skip": []
+    }
+  ],
+  "on": {},
+  "ausgaenge": {
+    "platzhalter": {
+      "beschreibung": "Rest der Mission (noch nicht ausgearbeitet)",
+      "folgen": [
+        {
+          "chronik": "@test.text"
+        }
+      ]
+    }
+  },
+  "texte": {
+    "test.text": "Platzhalter",
+    "s3_funkduell.eroeffnung": "Lerche, hier Grauzahn. Deine Karawane sitzt fest – ich lasse sie laufen für die Marken, die du mir im Nebel gestohlen hast. Sonst wird es teuer für Sela.",
+    "s3_funkduell.frage": "Zahlt ihr oder kämpft ihr?",
+    "s3_funkduell.a": "Wir zahlen. Wie viele Marken?",
+    "s3_funkduell.b": "Die waren verdient. Komm vorbei, wenn du Mut hast.",
+    "s3_funkduell.schweigen": "Funkstille",
+    "s3_funkduell.captain": "Funkspruch! Captain: Antwort im Reiter „Funk“ – sprecht euch ab.",
+    "s3_funkduell.ungeduldig": "Die Gegenseite wird ungeduldig. Schweigen ist auch eine Antwort – aber keine freundliche.",
+    "s3_funkduell.ziel": "Captain: antworten (Funk)",
+    "s3_funkduell.t1": "Verständig. Das Schiff hat Geschmack. Jäger, zieht euch zurück.",
+    "s3_funkduell.t2": "Falsch gespielt. Dann sehen wir, was die Lerche wirklich wert ist.",
+    "s3_funkduell.t3": "Keine Antwort? Dann nehme ich mir, was mir zusteht."
+  }
+}

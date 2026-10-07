@@ -1,0 +1,167 @@
+{
+  "format": "molekuel/1",
+  "id": "ladung_bergen",
+  "name": "Ladung bergen",
+  "familie": "bergen_und_sichern",
+  "kern": "Container finden, sichern, an Bord holen",
+  "ansaetze": [
+    "technik",
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A11",
+    "C9"
+  ],
+  "umsetzungen": [
+    {
+      "id": "bergungskisten",
+      "name": "Bergungsgut im Feld einsammeln",
+      "schauplatz": "weltraum",
+      "beschreibung": "Treibende Kisten im Feld, auf der Taktikkarte grün. Der Pilot sieht nur nach vorn, die Taktik lotst mit Markern, drüberfliegen sammelt ein. Im Asteroidenfeld kostet jeder Rempler Schild. Garantie: Nach einer Weile lässt man den Rest treiben.",
+      "braucht": [
+        "bergungskisten"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "ereignisse": [
+        "salvage"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene"
+        },
+        "anzahl": {
+          "typ": "zahl",
+          "default": 3,
+          "min": 1,
+          "max": 5
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 150,
+          "min": 60,
+          "max": 300
+        },
+        "auftraggeber_hinweis": {
+          "typ": "text",
+          "default": "Bergungsgut im Feld (grün). Drüberfliegen sammelt ein – Taktik lotst!"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "spawnSalvage": "{{anzahl}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 3,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "check": "salvage_done"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "check": "salvage_done"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_aufgegeben": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "bergen",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "any": [
+                    {
+                      "check": "salvage_done"
+                    },
+                    {
+                      "v": "{{id}}_aufgegeben"
+                    }
+                  ]
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "any": [
+                    {
+                      "check": "salvage_done"
+                    },
+                    {
+                      "v": "{{id}}_aufgegeben"
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_aufgegeben": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.start": "{{auftraggeber_hinweis}}",
+          "{{id}}.hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
+          "{{id}}.aufgegeben": "Den Rest lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
+          "{{id}}.ziel": "Bergungsgut einsammeln ({salvaged}/{{anzahl}})"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

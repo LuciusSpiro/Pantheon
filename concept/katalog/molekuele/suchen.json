@@ -1,0 +1,15 @@
+{
+  "format": "molekuel/1",
+  "id": "suchen",
+  "name": "Suchen",
+  "familie": "erkunden_und_forschen",
+  "kern": "Etwas oder jemanden im Gelände finden (wärmer/kälter)",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "C1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

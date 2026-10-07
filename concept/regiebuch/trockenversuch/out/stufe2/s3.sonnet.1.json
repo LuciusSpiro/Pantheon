@@ -1,0 +1,80 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche. Ich weiß, ihr seid da. Kein Theater diesmal – der Nebel-Trick war gut, aber ihr habt mir Geld gekostet. Ich hab nachgezählt: zweihundert Marken. Zahlt, und ich lass die Händlerin fahren.",
+        "frage": "Was antwortet der Captain?",
+        "antwort_a": "Wir zahlen. Was sind deine Bedingungen?",
+        "antwort_b": "Kein Geld für dich. Versuch dein Glück.",
+        "folgen_a": [
+          {
+            "do": "pay_marks",
+            "marks": 200
+          },
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Clever. Ich merke mir Leute, die zahlen."
+            }
+          },
+          {
+            "log": "200 Marken an Grauzahn gezahlt. Sela frei."
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_abgelehnt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Dann habt ihr es so gewollt. Jäger, los."
+            }
+          },
+          {
+            "log": "Grauzahns Angebot abgelehnt. Gefecht unvermeidlich."
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_abgelehnt": true
+            }
+          },
+          {
+            "oda": "Keine Antwort gesendet. Grauzahn-Jäger nehmen Angriffsformation auf."
+          },
+          {
+            "log": "Schweigen. Grauzahn wertet es als Ablehnung."
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "flag": "s3_abgelehnt"
+      }
+    }
+  ]
+}

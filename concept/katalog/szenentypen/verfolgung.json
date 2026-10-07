@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "verfolgung",
+  "kennung": "A6",
+  "name": "Verfolgung",
+  "bereich": "weltraum",
+  "kern": "Fliehen oder jagen, Sprungaufladung unter Druck, Ausweichen",
+  "kippt_zu": [
+    "raumgefecht"
+  ],
+  "braucht": [
+    "verfolgung"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

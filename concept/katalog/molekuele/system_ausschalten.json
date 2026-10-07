@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "system_ausschalten",
+  "name": "System ausschalten",
+  "familie": "kampf",
+  "kern": "Gezielt Antrieb, Waffen oder Schilde treffen, um zu kapern statt zu zerstören",
+  "ansaetze": [
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A4",
+    "A5"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

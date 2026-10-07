@@ -1,0 +1,74 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche. Kein Bluff diesmal – ich hab euren Scan gesehen. Ihr wisst, was hier steht. Im Nebel habt ihr mich 150 Marken gekostet. Ich will sie zurück. Sela bleibt heil, meine Jäger gehen heim. Einfaches Geschäft.",
+        "frage": "Was antwortet der Captain?",
+        "antwort_a": "Abgemacht. Wir zahlen die 150.",
+        "antwort_b": "Kein Kredit für Hinterhalte. Versuch dein Glück.",
+        "folgen_a": [
+          {
+            "do": "pay_marks",
+            "marks": 150
+          },
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Vernünftig. Meine Jäger laufen trotzdem noch eine Runde – zur Unterhaltung."
+            }
+          },
+          {
+            "log": "Crew hat Grauzahns Forderung akzeptiert: 150 Marken überwiesen."
+          }
+        ],
+        "folgen_b": [
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Dann lernt ihr es eben so."
+            }
+          },
+          {
+            "log": "Crew hat Grauzahns Angebot abgelehnt. Alle Jäger auf Angriffskurs."
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "oda": "Keine Antwort gesendet. Grauzahn wertet Schweigen als Ablehnung."
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Stille kostet mehr als Worte. Los."
+            }
+          },
+          {
+            "log": "Crew schwieg. Grauzahn hat voll eskaliert."
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer"
+    }
+  ],
+  "wendung": null
+}

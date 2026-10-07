@@ -1,0 +1,155 @@
+{
+  "format": "molekuel/1",
+  "id": "rekonstruieren",
+  "name": "Rekonstruieren",
+  "familie": "erkunden_und_forschen",
+  "kern": "„Was ist hier passiert?“ aus Logs und Spuren",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "C1"
+  ],
+  "umsetzungen": [
+    {
+      "id": "wrack_logbuch",
+      "name": "Logbuch im Wrack lesen",
+      "schauplatz": "aussen",
+      "beschreibung": "Im dunklen Wrack liegt ein Logbuch-Terminal, das erzählt, was passiert ist. Optional ein Hohlraum hinter einer dünnen Wand, den nur ein Weitscan aus dem Orbit verrät. Ruhige Erkundung, Stimmung statt Kampf. Heute nur im Wrack „Zaunkönig“.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte",
+        "weitscan"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "ereignisse": [
+        "wreckLore",
+        "wreckSalvage"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "wrack"
+          ]
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "werte": [
+            "wreck"
+          ]
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ],
+          "objekte": {
+            "{{map}}": [
+              "lore",
+              "hollow"
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "timers": [
+              {
+                "at": 1,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 60,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "object_state",
+                      "map": "{{map}}",
+                      "object": "lore",
+                      "state": "read"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "lesen",
+                "text": "@{{id}}.ziel_lesen",
+                "done": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "{{map}}",
+                    "object": "lore",
+                    "state": "read"
+                  }
+                }
+              },
+              {
+                "id": "hohlraum",
+                "text": "@{{id}}.ziel_hohlraum",
+                "optional": true,
+                "done": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "{{map}}",
+                    "object": "hollow",
+                    "state": "open"
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "{{map}}",
+                    "object": "lore",
+                    "state": "read"
+                  }
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_skip_away",
+                "map": "{{map}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.start": "Das Wrack. Transferpads auf dem Vorderdeck sind intakt. Ein Weitscan zeigt vielleicht mehr.",
+          "{{id}}.hinweis": "Das Logbuch-Terminal steht auf der Brücke des Wracks. Hingehen, E halten.",
+          "{{id}}.ziel_lesen": "Logbuch des Wracks lesen",
+          "{{id}}.ziel_hohlraum": "Hohlraum finden (Weitscan) und ausräumen"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "wrack",
+          "map": "wreck"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

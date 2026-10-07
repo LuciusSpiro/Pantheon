@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "raumgefecht",
+  "kennung": "A4",
+  "name": "Raumgefecht",
+  "bereich": "weltraum",
+  "kern": "Offener Kampf gegen Schiffe (Raumkampf)",
+  "kippt_zu": [
+    "andocken_und_entern",
+    "verfolgung"
+  ],
+  "braucht": [
+    "raumkampf"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

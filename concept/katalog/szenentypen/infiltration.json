@@ -1,0 +1,21 @@
+{
+  "format": "szenentyp/1",
+  "id": "infiltration",
+  "kennung": "C4",
+  "name": "Infiltration",
+  "bereich": "aussen",
+  "kern": "Unentdeckt bleiben, Sichtkegel, Alarmstufen",
+  "kippt_zu": [
+    "gefecht",
+    "rueckzug"
+  ],
+  "braucht": [
+    "transfer",
+    "stealth_aussen"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

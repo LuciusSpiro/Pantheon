@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "pannenhilfe",
+  "name": "Pannenhilfe",
+  "familie": "helfen",
+  "kern": "Fremdes Schiff reparieren (fremde Technik eines anderen Volks)",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A3",
+    "A9"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

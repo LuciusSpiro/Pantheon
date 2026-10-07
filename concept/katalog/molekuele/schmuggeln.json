@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "schmuggeln",
+  "name": "Schmuggeln",
+  "familie": "transport_und_transfer",
+  "kern": "Ware an einer Kontrolle vorbeibringen",
+  "ansaetze": [
+    "heimlich",
+    "reden"
+  ],
+  "szenentypen": [
+    "A3",
+    "D1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

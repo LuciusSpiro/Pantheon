@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "bergung_im_all",
+  "kennung": "A11",
+  "name": "Bergung im All",
+  "bereich": "weltraum",
+  "kern": "Treibende Ladung, Kapseln, Wrackteile oder Schiffbrüchige finden, scannen und an Bord holen (Transfer, Traktorstrahl, Abschleppen)",
+  "kippt_zu": [
+    "gefahrennavigation",
+    "raumgefecht"
+  ],
+  "braucht": [
+    "bergungskisten"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

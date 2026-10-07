@@ -1,0 +1,18 @@
+{
+  "format": "szenentyp/1",
+  "id": "rueckzug",
+  "kennung": "C7",
+  "name": "Rückzug",
+  "bereich": "aussen",
+  "kern": "Ziel erfüllt, jetzt zum Abholpunkt durchschlagen (Missionen für das Außenteam)",
+  "kippt_zu": [],
+  "braucht": [
+    "transfer",
+    "aussen_kampf"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

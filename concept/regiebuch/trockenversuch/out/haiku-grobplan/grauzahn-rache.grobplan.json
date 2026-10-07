@@ -1,0 +1,172 @@
+{
+  "format": "grobplan/2",
+  "id": "grauzahn_revival",
+  "titel": "Heimzahlung",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 12,
+  "aufhaenger": "Sela ruft die Lerche in Sorge an: Ein Vaelen-Konvoi wird im Nebel von der Rostmeute abgefangen. Grauzahn persönlich führt den Angriff an – und verbreitet ein Gerücht: Die Lerche soll zahlen oder zuschauen.",
+  "erinnerung": "Grauzahn erinnert sich, wie die Crew ihn im Nebel mit einer Konkordat-Patrouille geblufft hat. Jetzt will er beweisen, dass er stärker ist – oder dass die Lerche schwächer geworden.",
+  "szenen": [
+    {
+      "id": "s01_hafen_auftrag",
+      "szenentyp": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell"
+        }
+      ],
+      "sachverhalt": "Sela funkt den Captain an: Im Nebel wird gerade ein Vaelen-Konvoi überfallen. Grauzahn blockiert die Flucht und fordert Tribut – oder ein Zeichen von der Lerche, dass sie auf seiner Seite steht.",
+      "wendung": "Sela nennt Namen: Die Lerche hat die Vaelen-Karawane früher geholfen. Nächstes Mal gibt es kein Geld ohne Preis.",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "captain_entscheidung",
+          "nach": "s02_sprung_zum_nebel"
+        }
+      ]
+    },
+    {
+      "id": "s02_sprung_zum_nebel",
+      "szenentyp": "annaeherung_und_erkundung",
+      "ort": "nebel",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "signal_orten",
+          "umsetzung": "weitscan_peilung"
+        }
+      ],
+      "sachverhalt": "Die Lerche springt in die Graue Weite. Der Nebel ist undurchsichtig. Irgendwo funken Vaelen-Schiffe und Grauzahns Jäger. Die Taktik muss die Kämpfer lokalisieren, bevor die erste Ladung fällt.",
+      "wendung": "Der Scan deckt auf: Grauzahns Jäger umzingeln ein langsames Handelsschiff. Ein zweites Vaelen-Schiff liegt bereits treibend.",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "signal_gefunden",
+          "nach": "s03_raumgefecht"
+        }
+      ]
+    },
+    {
+      "id": "s03_raumgefecht",
+      "szenentyp": "raumgefecht",
+      "ort": "nebel",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "vernichten",
+          "umsetzung": "angriffswelle"
+        }
+      ],
+      "sachverhalt": "Grauzahns erste Welle (zwei Jäger) attackiert die Lerche auf Sicht. Das Handelsschiff feuert Notsignale ab. Wenn die Jäger nicht schnell erledigt sind, kündigt Grauzahn vom Kanonenboot aus Verstärkung an.",
+      "wendung": "Nach der ersten Welle funkt Grauzahn selbst: ‚Ihr seid nicht stärker geworden, Lerche. Aber dafür hat sich gelohnt, dass ich herkomme.'",
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "jaeger_erledigt",
+          "nach": "s04_funkduell_mit_grauzahn"
+        }
+      ]
+    },
+    {
+      "id": "s04_funkduell_mit_grauzahn",
+      "szenentyp": "begegnung",
+      "ort": "nebel",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell"
+        }
+      ],
+      "sachverhalt": "Grauzahns Kanonenboot hält sich Abstand. Er funkt: Die Lerche kann jetzt das Handelsschiff evakuieren und abziehen – oder sie kann für Sela kämpfen. Eine Entscheidung mit Folgen für sein Urteil über die Crew.",
+      "wendung": "Grauzahn nennt die Alternative: ‚Zahlt mir jetzt, was ihr mir im Nebel schuldet, und ich vergesse die Blufferei. Sonst sehe ich, was ihr wirklich wert seid.'",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "captain_zahlt",
+          "nach": "ausgang_grauzahn_respekt"
+        },
+        {
+          "wenn": "captain_kaempft",
+          "nach": "s05_entscheidung_kampf"
+        }
+      ]
+    },
+    {
+      "id": "s05_entscheidung_kampf",
+      "szenentyp": "raumgefecht",
+      "ort": "nebel",
+      "karte": null,
+      "molekuele": [
+        {
+          "id": "vernichten",
+          "umsetzung": "angriffswelle"
+        }
+      ],
+      "sachverhalt": "Das Kanonenboot greift direkt an. Die Lerche muss durchhalten oder Grauzahns Jäger abfangen, während das Handelsschiff evakuiert wird. Taktik steuert die Rettung der Vaelen-Crew.",
+      "wendung": "Nach drei Runden Beschuss funkt Grauzahn: ‚Genug. Ich sehe, dass die Blufferei aus Gründen kam. Das merke ich mir anders.'",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "sela_gerettet",
+          "nach": "ausgang_grauzahn_erkenntnis"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "s01_hafen_auftrag",
+      "frage": "Captain, Sela bittet euch um Hilfe – aber Grauzahn hat euch herausfordernd gemacht. Antworten Sie oder spulen Sie los?",
+      "optionen": [
+        {
+          "id": "opt_hafen_antwort_mutig",
+          "text": "‚Wir kommen – sagt Grauzahn, dass wir nicht fliehen.'",
+          "folge": "Die Lerche springt in voller Überzeugung los; Grauzahn nimmt es persönlich."
+        },
+        {
+          "id": "opt_hafen_antwort_vorsicht",
+          "text": "‚Wir kommen – aber leise. Lasst Grauzahn nicht sehen, dass wir da sind.'",
+          "folge": "Die Lerche hofft auf einen Überraschungsvorteil; Grauzahn erwartet genau das."
+        }
+      ]
+    },
+    {
+      "szene": "s04_funkduell_mit_grauzahn",
+      "frage": "Captain, Grauzahn stellt das Ultimatum: Zahlen oder kämpfen für Sela?",
+      "optionen": [
+        {
+          "id": "opt_funk_zahlen",
+          "text": "‚Okay, Grauzahn. Was willst du?'",
+          "folge": "grauzahn_haltung +1: Ein Gegner, der seinen Wert kennt, verdient Respekt. Aber die Vaelen sind verloren."
+        },
+        {
+          "id": "opt_funk_kaempfen",
+          "text": "‚Nein. Wir bringen Selas Leute raus – dich zuerst.'",
+          "folge": "Grauzahns Kanonenboot greift an. Die Lerche kämpft um Ehre statt Bluff."
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "ausgang_grauzahn_respekt": {
+      "wann": "Captain zahlt Grauzahn im Funkduell; die Rostmeute zieht sich zurück.",
+      "folgen": [
+        "npc_haltung grauzahn 1",
+        "npc_gedaechtnis grauzahn Die Lerche kennt ihren Wert und zahlt, wenn es sein muss. Das ist ehrenhaft.",
+        "chronik Heimzahlung: Grauzahn fordert Tribut für den Bluff im Nebel – und bekommt ihn. Die Vaelen verlieren ihre Ladung, aber nicht ihre Schiffe."
+      ]
+    },
+    "ausgang_grauzahn_erkenntnis": {
+      "wann": "Captain kämpft für Sela; die Lerche hält stand und rettet die Vaelen-Crew.",
+      "folgen": [
+        "npc_haltung grauzahn 0",
+        "npc_gedaechtnis grauzahn Die Lerche hat mich ernst genommen – nicht geblufft, gekämpft. Für eine Handelsfamilie. Das ist stärker als Tribut.",
+        "npc_gedaechtnis sela Die Lerche ist zurückgekommen und hat gegen Grauzahn gekämpft. Ich schulde ihnen mehr als früher."
+      ]
+    }
+  }
+}

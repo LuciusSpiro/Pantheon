@@ -1,0 +1,57 @@
+{
+  "format": "molekuel/1",
+  "id": "vernichten",
+  "erweitert": true,
+  "name": "Vernichten",
+  "familie": "kampf",
+  "kern": "Beispiel-Mod: ergänzt das Molekül 'Vernichten' um eine Umsetzung, ohne die Kerndatei anzufassen.",
+  "ansaetze": ["gewalt"],
+  "szenentypen": ["A5"],
+  "umsetzungen": [
+    {
+      "id": "pylonen_pruefung",
+      "name": "Pylonen mit Frontschild um ein Objekt",
+      "beschreibung": "Pylonen der Kustoden stehen um das Hauptobjekt, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem Abschuss erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen.",
+      "schauplatz": "weltraum",
+      "braucht": ["raumkampf"],
+      "dauer_min": [3, 5],
+      "ereignisse": ["enemyKilled", "enemyScanned"],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true },
+        "pylonen": { "typ": "zahl", "default": 3, "min": 2, "max": 4 },
+        "waechter_nach": { "typ": "zahl", "default": 30, "min": 15, "max": 90 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}", "loc": "{{loc}}", "restartOnReturn": true,
+            "enter": [{ "spawn": { "kind": "pylon", "tag": "{{id}}_pylon", "face": "out", "n": "{{pylonen}}",
+              "atStation": [{ "dx": -300, "dy": -240 }, { "dx": 340, "dy": -40 }, { "dx": -230, "dy": 290 }, { "dx": 200, "dy": 260 }] } }],
+            "timers": [
+              { "at": 1, "oda": "@{{id}}.lage" },
+              { "at": 30, "if": { "not": { "event": "enemyScanned" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              { "if": { "all": [{ "atLocation": "{{loc}}" }, { "not": { "v": "{{id}}_waechter" } }, { "any": [{ "elapsed": "{{waechter_nach}}" }, { "killed": { "kind": "pylon", "min": 1 } }] }] },
+                "do": [{ "wendung": "{{id}}_waechter", "ankuendigung": { "oda": "@{{id}}.waechter", "art": "gleichzeitig", "grund": "Der Wächter lädt seine EMP-Schüsse sichtbar." },
+                  "wirkung": [{ "set": { "{{id}}_waechter": true } }, { "spawn": { "kind": "sentinel", "tag": "{{id}}_waechter", "atStation": [{ "dx": 160, "dy": 120 }] } }] }] }
+            ],
+            "objectives": [
+              { "id": "pylonen", "text": "@{{id}}.ziel", "done": { "all": [{ "elapsed": 0.5 }, { "enemiesLeft": { "tag": "{{id}}_pylon", "max": 0 } }] } }
+            ],
+            "next": [{ "if": { "all": [{ "v": "{{id}}_waechter" }, { "enemiesLeft": { "max": 0 } }] }, "goto": "{{weiter}}" }],
+            "skip": [{ "do": "debug_clear_enemies" }, { "set": { "{{id}}_waechter": true } }]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "Pylonen mit Frontschild. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+          "{{id}}.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
+          "{{id}}.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
+          "{{id}}.ziel": "Pylonen ausschalten ({killed:{{id}}_pylon}/{{pylonen}}) – von der Seite!"
+        }
+      },
+      "test": { "params": { "loc": "relais" } }
+    }
+  ]
+}

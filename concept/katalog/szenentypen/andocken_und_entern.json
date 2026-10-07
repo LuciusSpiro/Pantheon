@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "andocken_und_entern",
+  "kennung": "A9",
+  "name": "Andocken & Entern",
+  "bereich": "weltraum",
+  "kern": "Übergang Schiff ↔ Schiff/Station: Kurs angleichen, Hülle aufschneiden. Leitet eine Bodenszene ein.",
+  "kippt_zu": [
+    "gefecht"
+  ],
+  "braucht": [
+    "entern"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

@@ -1,0 +1,30 @@
+{
+  "molekuele": [
+    {
+      "id": "signal_orten",
+      "umsetzung": "weitscan_peilung",
+      "params": {
+        "loc": "splitter",
+        "fund": "splitter_cache1",
+        "fund_name": "mehrere widersprüchliche Signale",
+        "hinweis_nach": 45,
+        "aufdecken_nach": 85,
+        "scannen_nach": 180
+      }
+    }
+  ],
+  "verzweigung": [],
+  "wendung": {
+    "kennung": "grauzahn_funkt",
+    "nach_s": 50,
+    "ankuendigung": "Weitscan zeigt Anomalien – vier Rostmeute-Jäger, versteckt hinter Trümmern. Das ist eine Falle.",
+    "wirkung": [
+      {
+        "radio": {
+          "from": "grauzahn",
+          "text": "@s2_splitter_annaeherung.t2"
+        }
+      }
+    ]
+  }
+}

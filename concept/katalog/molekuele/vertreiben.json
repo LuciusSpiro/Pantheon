@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "vertreiben",
+  "name": "Vertreiben",
+  "familie": "kampf",
+  "kern": "Gegner besiegen oder zur Flucht/Aufgabe zwingen",
+  "ansaetze": [
+    "gewalt",
+    "reden"
+  ],
+  "szenentypen": [
+    "A4",
+    "C2"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

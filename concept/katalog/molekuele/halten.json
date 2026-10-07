@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "halten",
+  "name": "Halten",
+  "familie": "kampf",
+  "kern": "Bis Zeit X oder Ereignis Y durchhalten",
+  "ansaetze": [
+    "gewalt",
+    "technik"
+  ],
+  "szenentypen": [
+    "A5",
+    "C3"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

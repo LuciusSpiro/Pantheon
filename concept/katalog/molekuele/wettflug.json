@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "wettflug",
+  "name": "Wettflug",
+  "familie": "fliegen",
+  "kern": "Schneller sein als ein Rivale oder die Uhr, durch einen Kurs mit Hindernissen",
+  "ansaetze": [
+    "technik",
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A14",
+    "A7"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

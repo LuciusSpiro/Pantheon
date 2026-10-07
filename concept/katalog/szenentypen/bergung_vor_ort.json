@@ -1,0 +1,21 @@
+{
+  "format": "szenentyp/1",
+  "id": "bergung_vor_ort",
+  "kennung": "C9",
+  "name": "Bergung vor Ort",
+  "bereich": "aussen",
+  "kern": "Ladung, Artefakte oder Personen am Boden finden, sichern (freilegen, stabilisieren, Wachen ausschalten) und hochbeamen",
+  "kippt_zu": [
+    "gefecht",
+    "halten"
+  ],
+  "braucht": [
+    "transfer",
+    "aussen_objekte"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

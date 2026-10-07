@@ -1,0 +1,226 @@
+{
+  "format": "grobplan/1",
+  "id": "sela_sonde_wrack",
+  "titel": "Was der Nebel verschluckt hat",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 12,
+  "aufhaenger": "Sela hat vor Wochen eine Messsonde im Nebel verloren, die vertrauliche Vaelen-Handelsdaten trägt. Sie beauftragt die Lerche, die Sonde zu orten und zu bergen – bevor jemand anderes die Daten liest.",
+  "erinnerung": "Sela erinnert sich, dass die Lerche ihre verlorene Messsonde schon einmal gefunden hat und fair damit umgegangen ist.",
+  "szenen": [
+    {
+      "id": "hafen_auftrag",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Auftrag von Sela annehmen und Sprungziel festlegen.",
+      "stationen": {
+        "pilot": "–",
+        "taktik": "–",
+        "captain": "Funk annehmen, Entscheidung treffen, Sprungziel auf der Sternkarte setzen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Auftrag angenommen",
+          "nach": "flug_nebel"
+        }
+      ]
+    },
+    {
+      "id": "flug_nebel",
+      "art": "flug",
+      "ort": "nebel",
+      "karte": null,
+      "ziel": "Durch den Splittergürtel in die Graue Weite fliegen.",
+      "stationen": {
+        "pilot": "Faltsprung hafen → splitter → nebel, Tempostufen halten",
+        "taktik": "Weitscan unterwegs aktivieren",
+        "captain": "Sprungziele bestätigen, Energie verteilen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "reveal_find",
+        "direction_hint"
+      ],
+      "gegner": [
+        "raider"
+      ],
+      "wendung": "Kurz vor dem Nebel taucht ein einzelner Raider auf – Ankündigung durch Taktik-Scan.",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Raider abgewehrt oder abgehängt",
+          "nach": "nebel_scan"
+        }
+      ]
+    },
+    {
+      "id": "nebel_scan",
+      "art": "scan",
+      "ort": "nebel",
+      "karte": null,
+      "ziel": "Selas Sonde im Nebel orten und dabei prüfen, was sonst noch treibt.",
+      "stationen": {
+        "pilot": "Nah an verdächtige Signaturen heranfliegen, Bergungskisten einsammeln",
+        "taktik": "Weitscan und Ziel-Scan auf Fundobjekte, Marker setzen",
+        "captain": "Hauptobjekt scannen, Funk zu Sela halten",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "reveal_find",
+        "reveal_location",
+        "radio",
+        "spawnSalvage"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Sonde geortet",
+          "nach": "wrack_entscheid"
+        }
+      ]
+    },
+    {
+      "id": "wrack_entscheid",
+      "art": "bergung",
+      "ort": "wrack",
+      "karte": null,
+      "ziel": "Sonde einholen; dabei entscheiden, ob die gestrandeten Plünderer-Überlebenden im Wrack mit geborgen werden.",
+      "stationen": {
+        "pilot": "Bergungskiste mit Sonde einsammeln, nah am Wrack positionieren",
+        "taktik": "Ziel-Scan auf das Wrack, Weitscan auf weitere Funde",
+        "captain": "Entscheidung treffen, Funk zur Besatzung des Wracks",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "reveal_find",
+        "complete_find",
+        "force_choice",
+        "spawnSalvage"
+      ],
+      "gegner": [],
+      "wendung": "Der Scan zeigt: Im Wrack sitzen Überlebende – mit Rostmeute-Markierungen.",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Überlebende geborgen",
+          "nach": "rueck_hafen_mit"
+        },
+        {
+          "wenn": "Überlebende zurückgelassen",
+          "nach": "rueck_hafen_ohne"
+        }
+      ]
+    },
+    {
+      "id": "rueck_hafen_mit",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Mit Sonde und Rostmeute-Überlebenden zurück in den Hafen fliegen.",
+      "stationen": {
+        "pilot": "Faltsprung wrack → splitter → hafen, andocken",
+        "taktik": "–",
+        "captain": "Sprungziele bestätigen, Funk an Tesk vorab",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "reward",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Angedockt mit Überlebenden",
+          "nach": "ausgang:sonde_fair"
+        }
+      ]
+    },
+    {
+      "id": "rueck_hafen_ohne",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Mit der Sonde allein zurück in den Hafen fliegen.",
+      "stationen": {
+        "pilot": "Faltsprung wrack → splitter → hafen, andocken",
+        "taktik": "–",
+        "captain": "Sprungziele bestätigen, Funk an Sela",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "reward",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 1,
+      "weiter": [
+        {
+          "wenn": "Angedockt ohne Überlebende",
+          "nach": "ausgang:sonde_schnell"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "wrack_entscheid",
+      "frage": "Die Überlebenden im Wrack tragen Rostmeute-Zeichen – bergen oder zurücklassen?",
+      "optionen": [
+        {
+          "id": "bergen",
+          "text": "Bergen und im Hafen abliefern",
+          "folge": "Zeitverlust, Tesk muss die Lage klären; Grauzahn erfährt, dass die Lerche seine Leute gerettet hat"
+        },
+        {
+          "id": "zurueck",
+          "text": "Zurücklassen, nur die Sonde nehmen",
+          "folge": "Schnelle Rückkehr, aber Sela ist reserviert; die Überlebenden kommen irgendwann zu Grauzahn"
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "sonde_fair": {
+      "wann": "Crew landet mit Sonde und Überlebenden im Hafen",
+      "folgen": [
+        "npc_haltung sela +1",
+        "npc_gedaechtnis sela: Die Lerche hat meine Sonde geborgen und Gestrandete mitgenommen, obwohl es Rostmeute waren.",
+        "npc_haltung tesk -0",
+        "npc_gedaechtnis tesk: Die Lerche hat Rostmeute-Überlebende in den Hafen gebracht – das macht Arbeit, zeigt aber Urteilsvermögen.",
+        "npc_haltung grauzahn +1",
+        "npc_gedaechtnis grauzahn: Meine Leute sagen, die Lerche hat sie aus dem Wrack geholt. Das vergesse ich nicht.",
+        "chronik: Selas Sonde geborgen. Rostmeute-Überlebende aus dem Wrack im Nebel in den Hafen gebracht."
+      ]
+    },
+    "sonde_schnell": {
+      "wann": "Crew landet mit Sonde, ohne Überlebende, im Hafen",
+      "folgen": [
+        "npc_haltung sela +0",
+        "npc_gedaechtnis sela: Die Lerche hat meine Sonde geliefert, aber die Gestrandeten im Wrack einfach sitzen lassen.",
+        "npc_haltung grauzahn -1",
+        "npc_gedaechtnis grauzahn: Meine Leute haben im Wrack gewartet – die Lerche ist vorbeigezogen und hat sie nicht rausgeholt.",
+        "chronik: Selas Sonde aus dem Nebel geborgen. Überlebende im Wrack zurückgelassen."
+      ]
+    }
+  }
+}

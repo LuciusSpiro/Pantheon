@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "schuetzen",
+  "name": "Schützen",
+  "familie": "kampf",
+  "kern": "Einen Schützling (Schiff, Person, Anlage) heil durchbringen",
+  "ansaetze": [
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A8",
+    "C3"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

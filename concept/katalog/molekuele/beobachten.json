@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "beobachten",
+  "name": "Beobachten",
+  "familie": "heimlich_und_sabotage",
+  "kern": "Unbemerkt Informationen sammeln, ohne einzugreifen",
+  "ansaetze": [
+    "heimlich"
+  ],
+  "szenentypen": [
+    "C4",
+    "A2"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "ziel_markieren",
+  "name": "Ziel markieren",
+  "familie": "heimlich_und_sabotage",
+  "kern": "Ziel für einen Orbitalschlag oder einen Verbündeten markieren",
+  "ansaetze": [
+    "heimlich"
+  ],
+  "szenentypen": [
+    "C4",
+    "C1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

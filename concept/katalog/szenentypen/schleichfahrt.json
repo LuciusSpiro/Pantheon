@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "schleichfahrt",
+  "kennung": "A13",
+  "name": "Schleichfahrt",
+  "bereich": "weltraum",
+  "kern": "Unbemerkt durch bewachten Raum: langsam fliegen, Abstand halten, mit dem Weitscan Positionen der Patrouillen erpingen, durchschlüpfen",
+  "kippt_zu": [
+    "raumgefecht",
+    "verfolgung"
+  ],
+  "braucht": [
+    "schleichfahrt"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

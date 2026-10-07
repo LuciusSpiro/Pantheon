@@ -1,0 +1,76 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche, hier Grauzahn. Deine Karawane ist mir zuviel wert zum Verschenken. Hundertzwanzig Marken – die, die du mir im Nebel gestohlen hast. Dann fliegt die Handelerin weiter.",
+        "frage": "Zahlt ihr, oder fangen wir an?",
+        "antwort_a": "Wir zahlen. Hier sind hundertzehn Marken.",
+        "antwort_b": "Grauzahn, du weißt, dass wir das nicht akzeptieren.",
+        "folgen_a": [
+          {
+            "do": "pay_marks",
+            "marks": 110
+          },
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Gut. Das ist ein Anfang. Vielleicht verstehen wir uns doch."
+            }
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Dann sehen wir uns gleich. Ich freue mich drauf."
+            }
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Stille ist auch eine Antwort. Los geht's."
+            }
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "not": {
+          "flag": "s3_gezahlt"
+        }
+      }
+    }
+  ]
+}

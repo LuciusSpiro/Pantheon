@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "taeuschen",
+  "name": "Täuschen",
+  "familie": "reden",
+  "kern": "Bluffen, Verkleidung, falsche Identität",
+  "ansaetze": [
+    "reden",
+    "heimlich"
+  ],
+  "szenentypen": [
+    "A3",
+    "C6"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

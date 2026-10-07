@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "sabotieren",
+  "name": "Sabotieren",
+  "familie": "heimlich_und_sabotage",
+  "kern": "Anlage lahmlegen oder sprengen und raus",
+  "ansaetze": [
+    "technik",
+    "gewalt"
+  ],
+  "szenentypen": [
+    "C4",
+    "C2"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

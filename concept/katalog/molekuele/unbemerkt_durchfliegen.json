@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "unbemerkt_durchfliegen",
+  "name": "Unbemerkt durchfliegen",
+  "familie": "heimlich_und_sabotage",
+  "kern": "Bewachten Raum mit dem Schiff durchqueren: langsam, auf Abstand, Patrouillen per Weitscan erpingen",
+  "ansaetze": [
+    "heimlich",
+    "technik"
+  ],
+  "szenentypen": [
+    "A13"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

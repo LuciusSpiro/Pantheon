@@ -1,0 +1,240 @@
+{
+  "format": "grobplan/1",
+  "id": "sela_sondennetz",
+  "titel": "Signale aus dem Schweigen",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 12,
+  "aufhaenger": "Sela hat im Nebel drei automatische Messsonden verloren – eine davon sendet noch ein schwaches Signal. Sie braucht die Daten und möglicherweise die Hardware zurück, kann aber selbst nicht fliegen.",
+  "erinnerung": "Sela erinnert sich: Die Crew der Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt – und meine verlorene Messsonde gefunden. Diesmal bittet sie proaktiv.",
+  "szenen": [
+    {
+      "id": "hafen_auftrag",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Auftrag von Sela annehmen, Marken aushandeln, Route planen",
+      "stationen": {
+        "pilot": "Route durch Splittergürtel oder direkt durch Nebel wählen",
+        "taktik": "Selas Sondenfrequenzen einlesen, Scan-Reichweite prüfen",
+        "captain": "Preis verhandeln, Hinweis auf Dritte einholen (Sela erwähnt, dass ein Vaelen-Schüler die Sonden zuerst ausgelegt hat)",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Route Splittergürtel",
+          "nach": "splitter_scan"
+        },
+        {
+          "wenn": "Route direkt Nebel",
+          "nach": "nebel_scan"
+        }
+      ]
+    },
+    {
+      "id": "splitter_scan",
+      "art": "scan",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Erstes Sondensignal orten, dabei Raider ausweichen oder abwimmeln",
+      "stationen": {
+        "pilot": "Kurs durch Trümmerfelder halten, Raider auf Abstand",
+        "taktik": "Weitscan auf Sonden-Frequenz, Störsignal filtern",
+        "captain": "Raider per Funk einschüchtern oder Wegezoll-Forderung ablehnen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "radio",
+        "ship_incident",
+        "direction_hint"
+      ],
+      "gegner": [
+        "raider"
+      ],
+      "wendung": "Der Raider fordert Wegezoll und droht – Ankündigung durch Funkdurchsage kurz vorher.",
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Scan erfolgreich",
+          "nach": "nebel_scan"
+        },
+        {
+          "wenn": "Scan gescheitert",
+          "nach": "nebel_scan"
+        }
+      ]
+    },
+    {
+      "id": "nebel_scan",
+      "art": "scan",
+      "ort": "nebel",
+      "karte": null,
+      "ziel": "Drei Sondenpositionen scannen, letzte noch aktive Sonde orten",
+      "stationen": {
+        "pilot": "Nebel-Navigation, Drift korrigieren",
+        "taktik": "Sequenz-Scan: zwei Sonden tot, dritte aktiv und driftend – Position triangulieren",
+        "captain": "Entscheidung vorbereiten: fremdes Vaelen-Schiff nähert sich ebenfalls der Sonde",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "reveal_find",
+        "direction_hint",
+        "reveal_location",
+        "choice"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 3,
+      "weiter": [
+        {
+          "wenn": "Sonde geortet",
+          "nach": "entscheidung_sonde"
+        }
+      ]
+    },
+    {
+      "id": "entscheidung_sonde",
+      "art": "bergung",
+      "ort": "nebel",
+      "karte": null,
+      "ziel": "Aktive Sonde bergen – aber ein junger Vaelen-Händler beansprucht sie ebenfalls",
+      "stationen": {
+        "pilot": "Positionierung: wer kommt zuerst an die Sonde",
+        "taktik": "Sonde scannen – enthält Selas Daten, aber auch Messreihen des anderen Händlers",
+        "captain": "Verhandlung: Sonde teilen, ganz abgeben oder ganz behalten",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "choice",
+        "radio",
+        "salvage_done",
+        "reveal_find",
+        "complete_find"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Sonde geteilt oder abgetreten",
+          "nach": "rueckflug_fair"
+        },
+        {
+          "wenn": "Sonde komplett behalten",
+          "nach": "rueckflug_unfair"
+        }
+      ]
+    },
+    {
+      "id": "rueckflug_fair",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Rückflug und Abrechnung mit Sela; junger Händler dankt per Funk",
+      "stationen": {
+        "pilot": "Rückflug ohne Zwischenfall",
+        "taktik": "Sondendaten auswerten und Bericht vorbereiten",
+        "captain": "Sela Bericht erstatten, Belohnung einfordern",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "reward",
+        "radio",
+        "pay_marks"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "immer",
+          "nach": "ausgang:fair_ende"
+        }
+      ]
+    },
+    {
+      "id": "rueckflug_unfair",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Rückflug; Sela ist zufrieden, aber der junge Händler beschwert sich im Vaelen-Netz",
+      "stationen": {
+        "pilot": "Rückflug ohne Zwischenfall",
+        "taktik": "Sondendaten vollständig auswerten",
+        "captain": "Sela Bericht erstatten; Gerücht über die Lerche brodelt bereits",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "reward",
+        "radio",
+        "pay_marks"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "immer",
+          "nach": "ausgang:unfair_ende"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "entscheidung_sonde",
+      "frage": "Der junge Vaelen-Händler Voss beansprucht die Sonde: Seine Messreihen stecken ebenfalls drin. Was tut die Crew?",
+      "optionen": [
+        {
+          "id": "teilen",
+          "text": "Daten kopieren, Sonde an Voss abgeben, Selas Anteil mitnehmen",
+          "folge": "Sela erhält ihre Daten, Voss dankt der Lerche; Vaelen-Ruf steigt leicht"
+        },
+        {
+          "id": "behalten",
+          "text": "Sonde vollständig bergen – Auftrag ist Auftrag",
+          "folge": "Sela erhält volle Sonde, aber Voss meldet den Vorfall im Vaelen-Netz; Selas Haltung bleibt, Vaelen-Stimmung kippt leicht"
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "fair_ende": {
+      "wann": "Crew hat Sondendaten geteilt und Rückflug abgeschlossen",
+      "folgen": [
+        "npc_haltung sela +1",
+        "npc_gedaechtnis sela: Die Lerche hat meine Sonde gefunden und fair mit Voss geteilt – das spricht sich herum.",
+        "chronik: Signale aus dem Schweigen – Selas Messsonde geborgen, Daten fair geteilt; Vaelen-Netz spricht gut von der Lerche.",
+        "welt_fakt vaelen_ruf: Die Lerche gilt im Vaelen-Netz als verlässlich und fair."
+      ]
+    },
+    "unfair_ende": {
+      "wann": "Crew hat Sonde komplett behalten und Rückflug abgeschlossen",
+      "folgen": [
+        "npc_haltung sela 0",
+        "npc_gedaechtnis sela: Die Lerche hat meine Sonde gefunden – gute Arbeit. Aber Voss ist sauer, das ist unbequem.",
+        "chronik: Signale aus dem Schweigen – Selas Messsonde geborgen; Voss erhebt Beschwerde im Vaelen-Netz.",
+        "welt_fakt vaelen_ruf: Unter jüngeren Vaelen-Händlern gilt die Lerche als skrupellos im Wettbewerb."
+      ]
+    },
+    "sonde_verloren": {
+      "wann": "Scan scheitert vollständig und Sonde driftet außer Reichweite",
+      "folgen": [
+        "npc_haltung sela -1",
+        "npc_gedaechtnis sela: Die Lerche hat meine Sonde nicht gefunden. Ich bin enttäuscht – beim Reaktor waren sie besser.",
+        "chronik: Signale aus dem Schweigen – Selas dritte Sonde geht endgültig verloren; Auftrag nur teilweise erfüllt.",
+        "welt_fakt nebel_sonde: Irgendwo in der Grauen Weite treibt eine aktive Vaelen-Messsonde – ungeborgen."
+      ]
+    }
+  }
+}

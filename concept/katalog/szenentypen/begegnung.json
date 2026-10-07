@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "begegnung",
+  "kennung": "A3",
+  "name": "Begegnung",
+  "bereich": "weltraum",
+  "kern": "Schiff trifft Schiff: Kontrolle, Funkduell, Verhandlung, Handel, Bluff",
+  "kippt_zu": [
+    "raumgefecht",
+    "verfolgung"
+  ],
+  "braucht": [
+    "funk_entscheidung"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

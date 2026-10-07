@@ -1,0 +1,233 @@
+{
+  "format": "grobplan/1",
+  "id": "zahltag_im_splitter",
+  "titel": "Zahltag im Splitter",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 12,
+  "aufhaenger": "Sela meldet per Funk: Grauzahn-Jäger blockieren ihre Karawane im Splittergürtel und verlangen Wegezoll – sie nennt die Lerche als Schwachpunkt. Die Crew soll sie raushauen, bevor Grauzahn seinen Plan durchzieht.",
+  "erinnerung": "Grauzahn erinnert sich: Im Nebel hat ihn die Lerche mit einem Konkordat-Bluff kaltgestellt. Er hat das gespeichert und will es diesmal nicht auf Kraft ankommen lassen – er hat eine Falle vorbereitet.",
+  "szenen": [
+    {
+      "id": "hafen_auftrag",
+      "art": "hafen",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Selas Notruf annehmen, Lage einschätzen, Marken für Ausrüstung ausgeben",
+      "stationen": {
+        "pilot": "Kurs auf Splittergürtel berechnen",
+        "taktik": "Funkbericht von Sela auswerten, Gegneraufstellung schätzen",
+        "captain": "Entscheiden ob Konkordat informiert wird",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Auftrag angenommen",
+          "nach": "flug_splitter"
+        }
+      ]
+    },
+    {
+      "id": "flug_splitter",
+      "art": "flug",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Splittergürtel durchqueren und Selas Position erreichen, erstem Hindernis ausweichen",
+      "stationen": {
+        "pilot": "Asteroidenfeld navigieren, Ausweichkurs",
+        "taktik": "Versteckten Pylon aufspüren",
+        "captain": "Crew koordinieren bei Systemstress",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "scan",
+        "ship_incident",
+        "damage_system",
+        "reveal_location"
+      ],
+      "gegner": [
+        "pylon"
+      ],
+      "wendung": "Pylon war getarnt – Ankündigung: Energiepuls auf Kurzstrecke erkennbar, bevor er feuert",
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Pylon ausgeschaltet oder umflogen",
+          "nach": "hinterhalt"
+        }
+      ]
+    },
+    {
+      "id": "hinterhalt",
+      "art": "raumkampf",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Grauzahns Hinterhalt abwehren und Selas Karawane freikämpfen",
+      "stationen": {
+        "pilot": "Jäger auf Abstand halten, Deckung im Asteroidenfeld suchen",
+        "taktik": "Kanonenboote priorisieren, Störrelais unterdrücken",
+        "captain": "Schadenskontrolle, Sela durch Funk beruhigen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "ship_breach",
+        "ship_fire",
+        "damage_system",
+        "spawn",
+        "no_breaches",
+        "no_fires"
+      ],
+      "gegner": [
+        "raider",
+        "raider",
+        "gunboat",
+        "relay"
+      ],
+      "wendung": "Grauzahn meldet sich selbst auf Funk, sobald ein Jäger fällt – Ankündigung: sein Rufzeichen blinkt auf dem Kommunikationspanel",
+      "dauer_min": 4,
+      "weiter": [
+        {
+          "wenn": "Grauzahn meldet sich",
+          "nach": "funkduell"
+        },
+        {
+          "wenn": "alle Gegner vernichtet ohne Funkkontakt",
+          "nach": "ausgang:sieg_ohne_dialog"
+        }
+      ]
+    },
+    {
+      "id": "funkduell",
+      "art": "funkduell",
+      "ort": "splitter",
+      "karte": null,
+      "ziel": "Grauzahn per Funk begegnen und den Konflikt durch Worte oder Provokation beenden",
+      "stationen": {
+        "pilot": "Lerche stabil halten während Captain spricht",
+        "taktik": "Restgegner im Auge behalten, Eskalation melden",
+        "captain": "Funkduell führen, Entscheidung treffen",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "radio",
+        "choice",
+        "oda",
+        "setFlag"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Respekt gezeigt / Angebot gemacht",
+          "nach": "rueckflug_hafen"
+        },
+        {
+          "wenn": "provoziert / abgewiesen",
+          "nach": "rueckflug_hafen"
+        }
+      ]
+    },
+    {
+      "id": "rueckflug_hafen",
+      "art": "rueckflug",
+      "ort": "hafen",
+      "karte": null,
+      "ziel": "Mit Sela zurück in den Hafen, Belohnung und Konsequenzen abwickeln",
+      "stationen": {
+        "pilot": "Rückflug ohne weitere Zwischenfälle",
+        "taktik": "Schäden protokollieren, Systeme stabilisieren",
+        "captain": "Sela und Tesk Bericht erstatten",
+        "aussenteam": null
+      },
+      "bausteine": [
+        "reward",
+        "system_ok",
+        "reveal"
+      ],
+      "gegner": [],
+      "wendung": null,
+      "dauer_min": 2,
+      "weiter": [
+        {
+          "wenn": "Funkduell mit Respekt beendet",
+          "nach": "ausgang:waffenstillstand"
+        },
+        {
+          "wenn": "Funkduell mit Provokation beendet",
+          "nach": "ausgang:feindschaft"
+        }
+      ]
+    }
+  ],
+  "entscheidungen": [
+    {
+      "szene": "hafen_auftrag",
+      "frage": "Informiert die Crew das Konkordat vor dem Ausflug?",
+      "optionen": [
+        {
+          "id": "konkordat_ja",
+          "text": "Tesk benachrichtigen",
+          "folge": "Konkordat-Patrouille taucht im Kampf kurz auf – Grauzahn erkennt das Muster und eskaliert das Funkduell aggressiver; Tesk-Haltung +1"
+        },
+        {
+          "id": "konkordat_nein",
+          "text": "Alleine handeln",
+          "folge": "Kein Rückenwind, aber Grauzahn ist im Funkduell überraschbarer; bei Waffenstillstand keine Konkordat-Schulden"
+        }
+      ]
+    },
+    {
+      "szene": "funkduell",
+      "frage": "Wie begegnet die Crew Grauzahn auf Funk?",
+      "optionen": [
+        {
+          "id": "respekt",
+          "text": "Den Bluff eingestehen und Respekt zollen",
+          "folge": "Grauzahn zieht sich zurück, Haltung steigt auf -1; er erinnert sich an Ehrlichkeit"
+        },
+        {
+          "id": "provokation",
+          "text": "Ihn erneut provozieren oder abweisen",
+          "folge": "Grauzahn schwört Rache, Haltung bleibt -2; nächste Mission mit Rostmeute wird härter"
+        }
+      ]
+    }
+  ],
+  "ausgaenge": {
+    "waffenstillstand": {
+      "wann": "Rückflug nach Funkduell mit Respekt-Option",
+      "folgen": [
+        "npc_haltung grauzahn +1",
+        "npc_gedaechtnis grauzahn: Die Lerche hat den Bluff im Nebel zugegeben. Ich nehme das zur Kenntnis.",
+        "npc_gedaechtnis sela: Die Lerche hat mich zum zweiten Mal rausgehauen. Diese Schuld vergesse ich nicht.",
+        "chronik: Zahltag im Splitter – Grauzahn gestellt, Sela befreit. Ein Wort zur rechten Zeit kauft mehr als Raketen."
+      ]
+    },
+    "feindschaft": {
+      "wann": "Rückflug nach Funkduell mit Provokation",
+      "folgen": [
+        "npc_haltung grauzahn -1",
+        "npc_gedaechtnis grauzahn: Die Lerche blufft und provoziert. Beim nächsten Mal bringe ich mehr Jäger.",
+        "npc_gedaechtnis sela: Die Lerche hat geholfen, aber Grauzahn ist jetzt wütender als zuvor.",
+        "chronik: Zahltag im Splitter – Sela befreit, Grauzahn gedemütigt. Der Frieden im Splitter wird rauer."
+      ]
+    },
+    "sieg_ohne_dialog": {
+      "wann": "Alle Gegner vernichtet bevor Grauzahn sich meldet",
+      "folgen": [
+        "npc_haltung grauzahn -1",
+        "npc_gedaechtnis grauzahn: Meine Jäger – alle weg. Die Lerche redet nicht, sie schießt. Das kostet sie noch.",
+        "npc_gedaechtnis sela: Die Lerche hat ohne Zögern gekämpft. Ich bin am Leben.",
+        "chronik: Zahltag im Splitter – Grauzahns Hinterhalt zerschlagen, kein Wort gewechselt. Stille vor dem nächsten Sturm."
+      ]
+    }
+  }
+}

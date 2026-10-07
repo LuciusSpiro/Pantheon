@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "schlichten",
+  "name": "Schlichten",
+  "familie": "reden",
+  "kern": "Streit unter NSC oder Passagieren beilegen, mit Folgen für beide Seiten",
+  "ansaetze": [
+    "reden"
+  ],
+  "szenentypen": [
+    "B3",
+    "C6"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

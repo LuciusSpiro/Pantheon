@@ -1,0 +1,19 @@
+{
+  "format": "szenentyp/1",
+  "id": "gast_an_bord",
+  "kennung": "B3",
+  "name": "Gast an Bord",
+  "bereich": "bord",
+  "kern": "Passagiere, Gefangene, Flüchtlinge: Streit schlichten, Geheimnis, Spion enttarnen. Oft im Hyperraumflug",
+  "kippt_zu": [
+    "krise_an_bord"
+  ],
+  "braucht": [
+    "passagiere"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "kapern",
+  "name": "Kapern",
+  "familie": "kampf",
+  "kern": "Schiff oder Station übernehmen (nach Ausschalten und Entern)",
+  "ansaetze": [
+    "gewalt",
+    "heimlich"
+  ],
+  "szenentypen": [
+    "A9",
+    "C2"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

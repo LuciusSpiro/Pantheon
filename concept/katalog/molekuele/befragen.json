@@ -1,0 +1,17 @@
+{
+  "format": "molekuel/1",
+  "id": "befragen",
+  "name": "Befragen",
+  "familie": "reden",
+  "kern": "Wer lügt? Spion enttarnen, Hinweise sammeln",
+  "ansaetze": [
+    "reden",
+    "technik"
+  ],
+  "szenentypen": [
+    "B3",
+    "C6"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

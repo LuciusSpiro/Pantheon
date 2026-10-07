@@ -1,0 +1,19 @@
+{
+  "format": "molekuel/1",
+  "id": "durchbrechen",
+  "name": "Durchbrechen",
+  "familie": "kampf",
+  "kern": "Durch eine Sperre kommen, ohne alles zu bekämpfen",
+  "ansaetze": [
+    "gewalt",
+    "heimlich",
+    "reden"
+  ],
+  "szenentypen": [
+    "A6",
+    "A7",
+    "C7"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "ausschlachten",
+  "name": "Ausschlachten",
+  "familie": "bergen_und_sichern",
+  "kern": "Ersatzteile oder Rohstoffe aus einem Wrack holen",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A11",
+    "C1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

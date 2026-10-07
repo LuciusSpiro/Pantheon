@@ -1,0 +1,233 @@
+{
+  "format": "molekuel/1",
+  "id": "verhandeln",
+  "name": "Verhandeln",
+  "familie": "reden",
+  "kern": "Preis, Durchflug, Lösegeld, Abkommen. Infos vom Schiff geben Trümpfe",
+  "ansaetze": [
+    "reden"
+  ],
+  "szenentypen": [
+    "A3",
+    "C6",
+    "D1"
+  ],
+  "umsetzungen": [
+    {
+      "id": "funkduell",
+      "name": "Funkduell mit zwei Antworten und Schweigen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein NSC funkt und will eine Antwort. Der Captain wählt zwischen zwei Antworten oder schweigt. Wer zu lange schweigt, hat geschwiegen. Die Folgen jeder Antwort legt der Spielleiter fest (Flags, Belohnung, Gegner, Haltung). Die Crew bespricht sich – das ist der Kern.",
+      "braucht": [
+        "funk_entscheidung"
+      ],
+      "dauer_min": [
+        1,
+        2
+      ],
+      "ereignisse": [
+        "choice"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene"
+        },
+        "npc": {
+          "typ": "npc",
+          "pflicht": true
+        },
+        "eroeffnung": {
+          "typ": "text",
+          "pflicht": true,
+          "beschreibung": "Funkspruch des NSC"
+        },
+        "frage": {
+          "typ": "text",
+          "pflicht": true
+        },
+        "antwort_a": {
+          "typ": "text",
+          "pflicht": true
+        },
+        "antwort_b": {
+          "typ": "text",
+          "pflicht": true
+        },
+        "folgen_a": {
+          "typ": "aktionen",
+          "pflicht": true
+        },
+        "folgen_b": {
+          "typ": "aktionen",
+          "pflicht": true
+        },
+        "folgen_schweigen": {
+          "typ": "aktionen",
+          "default": []
+        },
+        "geduld_s": {
+          "typ": "zahl",
+          "default": 75,
+          "min": 30,
+          "max": 180
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{npc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "radio": {
+                  "from": "{{npc}}",
+                  "text": "@{{id}}.eroeffnung"
+                }
+              },
+              {
+                "choice": "{{id}}_wahl"
+              },
+              {
+                "oda": "@{{id}}.captain"
+              }
+            ],
+            "timers": [
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "choiceMade": "{{id}}_wahl"
+                  }
+                },
+                "oda": "@{{id}}.ungeduldig",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{geduld_s}}"
+                    },
+                    {
+                      "not": {
+                        "choiceMade": "{{id}}_wahl"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "do": "force_choice",
+                    "option": "schweigen"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "choices": {
+              "{{id}}_wahl": {
+                "prompt": "@{{id}}.frage",
+                "options": [
+                  {
+                    "id": "a",
+                    "label": "@{{id}}.a"
+                  },
+                  {
+                    "id": "b",
+                    "label": "@{{id}}.b"
+                  },
+                  {
+                    "id": "schweigen",
+                    "label": "@{{id}}.schweigen"
+                  }
+                ],
+                "on": {
+                  "a": "{{folgen_a}}",
+                  "b": "{{folgen_b}}",
+                  "schweigen": "{{folgen_schweigen}}"
+                }
+              }
+            },
+            "objectives": [
+              {
+                "id": "antwort",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "choiceMade": "{{id}}_wahl"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "choiceMade": "{{id}}_wahl"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "force_choice",
+                "option": "schweigen"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.eroeffnung": "{{eroeffnung}}",
+          "{{id}}.frage": "{{frage}}",
+          "{{id}}.a": "{{antwort_a}}",
+          "{{id}}.b": "{{antwort_b}}",
+          "{{id}}.schweigen": "Funkstille",
+          "{{id}}.captain": "Funkspruch! Captain: Antwort im Reiter „Funk“ – sprecht euch ab.",
+          "{{id}}.ungeduldig": "Die Gegenseite wird ungeduldig. Schweigen ist auch eine Antwort – aber keine freundliche.",
+          "{{id}}.ziel": "Captain: antworten (Funk)"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "nebel",
+          "npc": "grauzahn",
+          "eroeffnung": "Was sucht ihr hier?",
+          "frage": "Antwort?",
+          "antwort_a": "Bluffen",
+          "antwort_b": "Teilen",
+          "folgen_a": [
+            {
+              "setFlag": {
+                "test_a": true
+              }
+            }
+          ],
+          "folgen_b": [
+            {
+              "setFlag": {
+                "test_b": true
+              }
+            },
+            {
+              "reward": {
+                "marks": 30
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

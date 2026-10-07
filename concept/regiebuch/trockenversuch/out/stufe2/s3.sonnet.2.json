@@ -1,0 +1,83 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche. Ich weiß, ihr seid da. Im Nebel habt ihr mir eine Patrouille verkauft, die es nicht gab. Clever. Kostet euch heute 200 Marken – oder ich schicke eure Händlerin als Wrack nach Hause.",
+        "frage": "Zahlt ihr, oder wollen wir es anders klären?",
+        "antwort_a": "Wir zahlen. 200 Marken, kein Krieg.",
+        "antwort_b": "Kein Kredit für Drohungen. Versuch dein Glück.",
+        "folgen_a": [
+          {
+            "do": "pay_marks",
+            "marks": 200
+          },
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Klug. Jäger, zurück – wir sind fertig hier."
+            }
+          },
+          {
+            "log": "Grauzahn kassiert 200 Marken. Die Jäger ziehen sich zurück – vorerst."
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_abgelehnt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Dann lernt ihr es auf die harte Tour."
+            }
+          },
+          {
+            "log": "Grauzahn bricht die Verhandlung ab. Alle Jäger springen an."
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_abgelehnt": true
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Schweigen. Interessant. Los, Jungs."
+            }
+          },
+          {
+            "log": "Keine Antwort. Grauzahn wertet es als Ablehnung."
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "flag": "s3_abgelehnt"
+      }
+    }
+  ]
+}

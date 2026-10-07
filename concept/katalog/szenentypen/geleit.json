@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "geleit",
+  "kennung": "A8",
+  "name": "Geleit",
+  "bereich": "weltraum",
+  "kern": "Einen Schützling schützen: Frachter, Fähre, beschädigtes Schiff",
+  "kippt_zu": [
+    "raumgefecht",
+    "verfolgung"
+  ],
+  "braucht": [
+    "schuetzling"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 2
+  },
+  "quelle": "vault: Bausteine/Szenentypen.md"
+}

@@ -1,0 +1,834 @@
+<weltstand>
+{
+  "version": 1,
+  "id": "lerche-2026-10-07-a",
+  "name": "Lerche · 07.10.",
+  "erstellt": "2026-10-07T19:02:00Z",
+  "gespeichert": "2026-10-07T19:51:10Z",
+  "spielzeit_s": 2520,
+  "tutorial": "gespielt",
+  "ort": { "angedockt": "hafen" },
+  "schiff": {
+    "name": "Lerche",
+    "marken": 485,
+    "lager": { "ersatzteil": 1, "flickblech": 2, "loeschgel": 2, "medipack": 1, "bolzen": 0 },
+    "ausbauten": [],
+    "deko": ["trophaee_boje", "lamassu_figur"],
+    "systeme": {},
+    "huelle": 100
+  },
+  "welt": {
+    "orte": {
+      "bekannt": ["hafen", "splitter", "b7", "vaelen", "wrack", "nebel", "relais", "kesh"],
+      "besucht": ["hafen", "splitter", "b7", "vaelen", "nebel", "relais", "kesh"],
+      "aufgedeckt": ["vaelen_sonde", "nebel_beacon"],
+      "gefunden": ["splitter_cache1", "vaelen_sonde", "nebel_beacon"]
+    },
+    "verbindungen_offen": ["nebel-relais", "kesh"],
+    "flags": { "bribed": false, "decision": "deliver", "technikerRescued": true, "selaCalled": true, "vaelenHelped": true, "nebelMap": true, "rostmeuteGone": true, "wardenKilled": true },
+    "fakten": { "tafel_von_kesh": "konkordat_archiv", "kustoden_relais": "hat geantwortet: FRAGE ERKANNT, ANTWORT WIRD VORBEREITET" }
+  },
+  "missionen": {
+    "m1": { "status": "erledigt", "ausgang": "erfolg" },
+    "m2": { "status": "erledigt", "ausgang": "erfolg" },
+    "m3": { "status": "erledigt", "ausgang": "erfolg" }
+  },
+  "npc": {
+    "tesk": { "name": "Tesk", "titel": "Hafenmeisterin", "fraktion": "konkordat", "rolle": "auftraggeberin", "status": "lebt", "haltung": 2, "ort": "hafen",
+      "gedaechtnis": [
+        { "text": "Die Lerche hat B-7 wieder zum Senden gebracht.", "mission": "m1" },
+        { "text": "Die Crew hat den Datenkern ans Konkordat geliefert, nicht selbst geknackt.", "mission": "m1" },
+        { "text": "Die Lerche hat die Tafel von Kesh aus dem Archiv geholt und mir übergeben.", "mission": "m3" }
+      ] },
+    "melk": { "name": "Melk", "titel": "Archivarin", "fraktion": "konkordat", "rolle": "archivarin", "status": "lebt", "haltung": 1, "ort": "hafen",
+      "gedaechtnis": [
+        { "text": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche.", "mission": "m1" },
+        { "text": "Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche.", "mission": "m3" }
+      ] },
+    "ivo": { "name": "Ivo", "titel": "Techniker", "fraktion": "konkordat", "rolle": "crew_gast", "status": "lebt", "haltung": 2, "ort": "lerche",
+      "gedaechtnis": [{ "text": "Die Lerche hat mich verletzt von der Plattform B-7 geholt.", "mission": "m1" }] },
+    "sela": { "name": "Sela", "titel": "Vaelen-Händlerin", "fraktion": "vaelen", "rolle": "haendlerin", "status": "lebt", "haltung": 2, "ort": "vaelen",
+      "gedaechtnis": [
+        { "text": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.", "mission": "sela" },
+        { "text": "Die Crew hat meine verlorene Messsonde gefunden.", "mission": "m2" }
+      ] },
+    "grauzahn": { "name": "Grauzahn", "titel": "Anführer der Rostmeute", "fraktion": "rostmeute", "rolle": "gegenspieler", "status": "lebt", "haltung": -2,
+      "gedaechtnis": [
+        { "text": "Die Lerche hat sich geweigert, Wegezoll zu zahlen, und an B-7 meine Jäger zerlegt.", "mission": "m1" },
+        { "text": "Meine Nachhut hat die Lerche nicht aufhalten können.", "mission": "m1" },
+        { "text": "Im Nebel hat die Lerche mich mit einer Konkordat-Patrouille geblufft – und es hat geklappt. Das merke ich mir.", "mission": "m2" }
+      ] }
+  },
+  "chronik": [
+    { "text": "Die stumme Boje: B-7 sendet wieder, Techniker Ivo gerettet, Rostmeute abgewehrt. Den Datenkern bekommt das Konkordat.", "mission": "m1", "ausgang": "erfolg" },
+    { "text": "Echo im Nebel: Mit Selas Hilfe findet die Crew eine Kustoden-Leitbake. Grauzahn wird geblufft. Das Kustoden-Relais besteht seine Prüfung und antwortet: Frage erkannt.", "mission": "m2", "ausgang": "erfolg" },
+    { "text": "Die Tafel von Kesh: Die Crew holt eine Kustoden-Vertragstafel von Plünderern zurück und besiegt den Wächter. Tesk bringt die Tafel ins Konkordat-Archiv.", "mission": "m3", "ausgang": "erfolg" }
+  ]
+}
+
+</weltstand>
+
+<katalog>
+# Katalog
+
+## Orte (Weltraumszenen; ein Sprung führt nur über bekannte Verbindungen)
+- `hafen` – Hafen Lichtkordon (port). Heimathafen der Lerche: Liegeplatz, Hafenterminal und Tesks Funkturm. Riecht nach Öl und Kaffee. Verbindungen: splitter, vaelen, kesh. Andocken möglich (Hafen, Speichern).
+  - Fund `hafen_cache` (cache): Schmugglerkiste im Hafenschrott
+- `splitter` – Splittergürtel (asteroids). Ein Gürtel aus Felsbrocken und Wrackteilen. Ehrliche Bergung – und unehrliche Rostmeute. Verbindungen: hafen, b7, wrack, kesh.
+  - Fund `splitter_cache1` (cache): Versiegelter Frachtcontainer
+  - Fund `splitter_cache2` (cache): Bergungsboje mit Notvorrat
+- `b7` – Boje B-7 (buoy). Navigationsboje mit Wartungsplattform. Seit Kurzem verstummt – und von Kustoden-Technik umgeben. Verbindungen: splitter, nebel. Außenkarte per Transfer: `platform`.
+  - Fund `b7_cache` (cache): Treibende Wartungskiste
+  - Fund `b7_fragment` (lore): Kustoden-Splitter
+- `vaelen` – Vaelen-Karawane (trader). Fahrende Händler mit Kristalllampen, Tee und guten Preisen für Bolzenwerfer. Andocken erlaubt. Verbindungen: hafen, nebel. Andocken möglich (Hafen, Speichern).
+  - Fund `vaelen_cache` (cache): Verlorenes Teepaket
+  - Fund `vaelen_sonde` (lore): Selas Messsonde
+- `wrack` – Wrack „Zaunkönig“ (wreck). Ein zerbrochener Frachter. Plünderer waren schon da – aber nicht überall. Verbindungen: splitter, nebel. Außenkarte per Transfer: `wreck`.
+  - Fund `wrack_hollow` (hollow): Hohlraum im Laderaum
+  - Fund `wrack_kapsel` (cache): Rettungskapsel der Zaunkönig
+- `nebel` – Graue Weite (nebula). Ein Nebel, der Sensoren schluckt. Wer hier etwas finden will, braucht Weitscan und Geduld. Verbindungen: b7, vaelen, wrack, relais.
+  - Fund `nebel_beacon` (beacon): Kustoden-Leitbake
+  - Fund `nebel_lore` (lore): Stumme Lore-Bake
+- `relais` – Kustoden-Relais (relay). Ein Relais der Kustoden, bewacht von Pylonen. Hier endet das Echo – oder es beginnt. Verbindungen: nebel.
+  - Fund `relais_lore` (lore): Kustoden-Inschrift
+- `kesh` – Mond Kesh (moon). Ein staubiger Mond mit einer Kustoden-Ruine. Plünderer graben dort seit Wochen. Verbindungen: hafen, splitter. Außenkarte per Transfer: `kesh`.
+
+## Außenkarten (nur diese drei gibt es; jede gehört zu einem Ort, siehe oben)
+- `platform`
+  - Objekte: `sonde` (Zustände: on/off), `core` (Zustände: off/rebooted), `ivo` (Zustände: injured/ok/rescued), `datenkern` (Zustände: present/taken)
+  - Bereiche: –
+  - Trupps (besetzung.gruppen, quelle "karte"): `guards` (Kachelart drone)
+- `wreck`
+  - Objekte: `hollow` (Zustände: closed/open), `lore` (Zustände: unread/read)
+  - Bereiche: –
+  - Trupps (besetzung.gruppen, quelle "karte"): `plunderer` (Kachelart scavenger)
+- `kesh`
+  - Objekte: `jammer` (Zustände: on/off), `vault` (Zustände: closed/open), `key` (Zustände: idle/held), `tablet` (Zustände: present/taken), `warden` (Zustände: asleep/awake/dead)
+  - Bereiche: `landezone`, `hof`, `halle`, `gewoelbe`
+  - Trupps (besetzung.gruppen, quelle "karte"): `squad1` (Kachelart squad1), `squad2` (Kachelart squad2), `rearguard` (Kachelart rearguard), `relief` (Kachelart squad2)
+  - Einheiten (besetzung.einheiten): `warden`
+
+Anker in `besetzung` sind die Spawn-Zeichen der Karte: kesh a=squad1, b=squad2/relief, c=rearguard, L=warden; wreck a=plunderer; platform d=guards.
+
+## Gegner im Weltraum (Atom `spawn`)
+`{ "spawn": { "kind": K, "tag": "frei", "n": 1–3 | "angles": [rad…] | "atStation": [{ "dx", "dy" }…] | "behind": true | "crew": { "1": n, "2": n, "3": n }, "face": "out"|"in" } }`
+- `raider` Jäger: schnell, Anflüge über das Schiff
+- `gunboat` Kanonenboot: träge, lädt schwere Breitseiten sichtbar (Pilot dreht weg, Taktik antwortet)
+- `relay` Störrelais: kreist um ein Objekt, blockiert einen Scan, schießt nicht
+- `pylon` Pylon (Kustoden): fest, Frontschild – nur von der Seite verwundbar
+- `sentinel` Kustoden-Wächter: langsam, EMP legt Systeme lahm
+
+## Bausteine: Aktionen (`{ "do": name, …parameter }`)
+- `ship_incident` – Bordschäden setzen (Feuer, Lecks, System) – z. B. Hafen-Übung. Parameter: fires:number, breaches:number, system:system, state:string(damaged|broken)
+- `ship_fire` – Feuer an Bord in einer Region. Parameter: region:region, text:text
+- `ship_breach` – Hüllenbruch in einer Region. Parameter: region:region, text:text
+- `damage_system` – Schiffssystem beschädigen oder zerstören. Parameter: system*:system, state*:string(damaged|broken), hitSector:sector, text:text
+- `pay_marks` – Marken abziehen (Bestechung, Kauf). Parameter: marks*:number
+- `end_away` – Außenmission auf einer Karte beenden. Parameter: map*:map
+- `remove_item` – Gegenstand aus Schiff/Inventar entfernen. Parameter: item*:item
+- `activate_away_group` – Ruhende Gruppe auf einer Außenkarte aktivieren. Parameter: map*:map, group*:squad, text:text
+- `reveal_find` – Versteckten Fund aufdecken. Parameter: id*:find
+- `complete_find` – Fund als gescannt/eingesammelt werten (Garantie bei Stillstand). Parameter: id*:find
+- `direction_hint` – ODA-Richtungshinweis zu einem Fund ({dir} im Text). Parameter: find*:find, text*:text
+- `force_choice` – Offene Entscheidung erzwingen (Garantie: Schweigen ist auch eine Antwort). Parameter: option*:option
+- `reveal_location` – Ort auf der Sternkarte aufdecken, optional gesperrte Verbindung öffnen. Parameter: loc*:loc, openLink:string, text:text
+- `spawn_squad` – Trupp auf einer Außenkarte erscheinen lassen. Parameter: map*:map, squad*:squad, alert:boolean
+- `wake_unit` – Ruhende Einheit wecken (Wächter). Parameter: map*:map, unit*:unit
+- `set_object_state` – Zustand eines Kartenobjekts setzen (Tor öffnen …). Parameter: map*:map, object*:object, state*:string
+
+## Bausteine: Prüfungen (`{ "check": { "name": name, …parameter } }`)
+- `no_fires` – Parameter: –
+- `no_breaches` – Parameter: –
+- `system_ok` – Parameter: system*:system
+- `console_manned` – Parameter: console*:console
+- `salvage_done` – Parameter: –
+- `ship_in_zone` – Parameter: loc*:loc, zone*:string
+- `marks_below` – Parameter: n*:number
+- `team_down` – Parameter: map:map
+- `away_active` – Parameter: map*:map
+- `away_since` – Parameter: map*:map, sec*:number
+- `object_state` – Parameter: map*:map, object*:object, state*:string, all:boolean
+- `near_object` – Parameter: map*:map, object*:object, dist*:number
+- `area_occupied` – Parameter: map*:map, area*:area, min:number
+- `item_in_area` – Parameter: map*:map, item*:item, area*:area, carrierRule:string(any|carrier|carrierOrAnyIfCarrierUp)
+- `item_count` – Parameter: item*:item, min*:number
+- `crew_max` – Parameter: max*:number
+- `squad_cleared` – Parameter: map*:map, squad*:squad
+
+(* = Pflicht)
+
+## Atome (direkt in Aktionen)
+`oda`, `radio {from: npc, text, accept?}`, `set {var: wert}` (Schrittvariablen, Bedingung `v`), `setFlag {flag: wert}` (missionsweit, Bedingung `flag`), `reveal` (Ort-ID oder Liste), `reward {marks?, items?: {ersatzteil|flickblech|loeschgel|medipack|bolzen: n}, deko?: [..]}`, `log` (+ `loc`), `spawn`, `spawnSalvage: n` (Bergungskisten in der Szene, Prüfung `salvage_done`), `choice: id` (öffnet eine Entscheidung des Schritts), `after {sec, do: [..]}`, `goto: schritt`, `complete: ausgang`, `end {title, text}` nur in ausgaenge.danach.
+Schritt-Felder: `loc` (Ort, an dem der Schritt spielt), `scan {id, label, range (300–500), time (s), requires?, blocked?}` (Captain-Scan des Hauptobjekts, Bedingung `scanDone: id`), `jumpBlock [{dest?, if, reason}]`, `allowBeam: [karte]`, `restartOnReturn`.
+
+## Bedingungen (Atome)
+`all`, `any`, `not`, `atLocation: ort`, `docked: true|false|ort`, `elapsed: s` (seit Schrittbeginn), `flag`, `v`, `enemiesCleared`, `enemiesLeft {kind?, tag?, max}`, `killed {kind|tag, min}`, `enemyHpBelow {tag|kind, frac}`, `scanDone: id`, `choiceMade: id`, `event: name`, `known: ort`, `visited: ort`, `revealed: fund`, `found: fund`, `dest: ort` (Sprungziel gewählt), `near {station: px}`, `check {…}`.
+
+## Ereignisse (für `event` und `on`)
+accepted, jumped, docked, undocked, scanned, enemyKilled, enemyScanned, shieldsChanged, widescan, hiddenFound, salvage, beamedDown, beamedUp, playerWounded, fire, breach, systemDamaged, repaired, bought, decoPlaced, jammerOff, vaultOpened, tabletTaken, wardenKilled, sondeDisabled, datenkernTaken, coreRebooted, npcRescued, droneKilled.
+
+## Platzhalter in Texten
+`{killed:tag}`, `{left:tag}`, `{found}`, `{total}`, `{salvaged}`, `{squadLeft:trupp}`, `{objectsInState:objekt:zustand}`.
+
+## NSC (Kennungen)
+- `tesk` – Hafenmeisterin Tesk
+- `sela` – Sela (Vaelen-Händlerin)
+- `ivo` – Techniker Ivo
+- `grauzahn` – Grauzahn (Rostmeute)
+- `melk` – Archivarin Melk
+- `kustoden_relais` – Kustoden-Relais
+
+## Folgen in `ausgaenge.*.folgen` (je Eintrag genau ein Schlüssel)
+`npc_gedaechtnis {npc, text}`, `npc_haltung {npc, delta: -2…2}`, `npc_status {npc, status}`, `chronik: text`, `welt_fakt {key, wert}`, `remove_item {item}`, `ruf {fraktion, delta}`.
+</katalog>
+
+<schema>
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/regiebuch/1",
+  "title": "Regiebuch (Pantheon, Format 1)",
+  "description": "Eine Mission als reine Daten. Erweitert das Format von server/missions/*.js (steps, timers, rules, objectives, next, choices, on, skip). Strukturprüfung hier; Referenzen, Bausteinparameter, Erreichbarkeit und Garantien prüft tools/check-missions.js.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "kopf", "buch", "buehne", "steps", "ausgaenge", "texte"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "regiebuch/1" },
+    "id": { "$ref": "#/$defs/kennung" },
+
+    "kopf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titel", "art", "auftraggeber", "zielspieldauer_min"],
+      "properties": {
+        "titel": { "type": "string", "maxLength": 60 },
+        "art": { "enum": ["mission", "nebenauftrag"] },
+        "auftraggeber": { "$ref": "#/$defs/kennung", "description": "NSC-Kennung aus dem Weltstand" },
+        "zielspieldauer_min": { "type": "number", "minimum": 1, "maximum": 120 },
+        "crew": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "min": { "type": "integer", "minimum": 1, "maximum": 4 }, "max": { "type": "integer", "minimum": 1, "maximum": 4 }, "empfohlen": { "type": "integer", "minimum": 1, "maximum": 4 } }
+        },
+        "feldzug": { "type": ["string", "null"] },
+        "tutorial": { "type": "boolean" }
+      }
+    },
+
+    "angebot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ersetzt MISSION_ORDER und onComplete:startMission. Die Engine bietet an, sobald 'nach' gilt.",
+      "properties": {
+        "nach": { "$ref": "#/$defs/bedingung" },
+        "start": { "type": "boolean", "description": "true = Startmission eines neuen Spiels" },
+        "direktstart": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "lobby": { "type": "string" }, "setFlag": { "type": "object" } }
+        }
+      }
+    },
+
+    "buch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["von", "briefing", "belohnung"],
+      "properties": {
+        "von": {
+          "type": "array", "minItems": 1,
+          "description": "Erster Eintrag, dessen 'if' gilt (ohne 'if' = Standard). Ersetzt book.from als Funktion.",
+          "items": { "type": "object", "additionalProperties": false, "required": ["npc"],
+            "properties": { "if": { "$ref": "#/$defs/bedingung" }, "npc": { "$ref": "#/$defs/kennung" } } }
+        },
+        "briefing": { "$ref": "#/$defs/text" },
+        "belohnung": { "$ref": "#/$defs/text" }
+      }
+    },
+
+    "buehne": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orte"],
+      "properties": {
+        "orte": { "type": "array", "items": { "$ref": "#/$defs/kennung" }, "minItems": 1 },
+        "aussenkarten": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "objekte": { "type": "object", "description": "Karte -> verwendete Objektkennungen (müssen in den Kartendaten deklariert sein)",
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } },
+        "bereiche": { "type": "object", "description": "Karte -> verwendete Bereichskennungen",
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } }
+      }
+    },
+
+    "besetzung": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "npc": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "gruppen": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
+        "einheiten": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } }
+      }
+    },
+
+    "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/schritt" } },
+
+    "on": {
+      "type": "object",
+      "description": "Missionsweite Ereignis-Handler (Ereignisname -> Aktionen)",
+      "additionalProperties": { "$ref": "#/$defs/aktionen" }
+    },
+
+    "ausgaenge": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["beschreibung", "folgen"],
+        "properties": {
+          "beschreibung": { "type": "string", "maxLength": 200 },
+          "folgen": { "type": "array", "items": { "$ref": "#/$defs/folge" } },
+          "danach": { "$ref": "#/$defs/aktionen" }
+        }
+      }
+    },
+
+    "debug": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "prep": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+        "done": { "$ref": "#/$defs/aktionen" }
+      }
+    },
+
+    "texte": {
+      "type": "object",
+      "description": "Alle Texte der Mission. Verweis im Ablauf mit '@kennung'.",
+      "propertyNames": { "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
+      "additionalProperties": { "type": "string", "maxLength": 400 }
+    }
+  },
+
+  "$defs": {
+    "kennung": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 40 },
+
+    "text": {
+      "type": "string",
+      "description": "'@kennung' verweist in 'texte'. Literaltexte sind erlaubt, der Prüfer warnt aber (Spielleiter soll Texte tauschen können).",
+      "maxLength": 400
+    },
+
+    "zahl": {
+      "description": "Zahl oder Verweis auf shared/config.js (nur handgeschriebene Regiebücher)",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "object", "additionalProperties": false, "required": ["cfg"],
+          "properties": { "cfg": { "type": "string", "pattern": "^[A-Za-z0-9_.]+$" }, "plus": { "type": "number" } } }
+      ]
+    },
+
+    "bedingung": {
+      "description": "Wie heute: Objekt mit Atomen (alle müssen gelten), Liste (alle), true/false. 'check' verweist auf einen registrierten Prüf-Baustein.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "enum": [
+            "all", "any", "not", "atLocation", "docked", "elapsed", "flag", "v", "enemiesCleared", "enemiesLeft",
+            "killed", "enemyHpBelow", "scanDone", "itemAboard", "choiceMade", "event", "known", "visited", "revealed",
+            "found", "dest", "near", "evKind", "check", "missionDone", "lobby"
+          ] },
+          "properties": {
+            "all": { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+            "any": { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+            "not": { "$ref": "#/$defs/bedingung" },
+            "elapsed": { "$ref": "#/$defs/zahl" },
+            "check": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    "aktion": {
+      "type": "object",
+      "description": "Wie heute (oda, radio, set, setFlag, reveal, reward, log, spawn, choice, after, goto, complete, end …). 'do' ist immer der Name eines registrierten Bausteins, seine Parameter stehen daneben. Neu: 'wirkung' (Gruppe), 'wendung' + 'ankuendigung', 'garantie'.",
+      "properties": {
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "type": "string" },
+        "oda": { "$ref": "#/$defs/text" },
+        "radio": {
+          "type": "object", "required": ["from", "text"],
+          "properties": { "from": { "$ref": "#/$defs/kennung" }, "text": { "$ref": "#/$defs/text" }, "accept": { "type": "boolean" } }
+        },
+        "log": { "$ref": "#/$defs/text" },
+        "goto": { "$ref": "#/$defs/kennung" },
+        "complete": { "description": "true (Standardausgang) oder Kennung eines Ausgangs", "oneOf": [{ "const": true }, { "$ref": "#/$defs/kennung" }] },
+        "wirkung": { "$ref": "#/$defs/aktionen" },
+        "wendung": { "$ref": "#/$defs/kennung" },
+        "ankuendigung": {
+          "type": "object", "additionalProperties": false, "required": ["art"],
+          "properties": {
+            "oda": { "$ref": "#/$defs/text" },
+            "radio": { "type": "object" },
+            "art": { "enum": ["vorher", "gleichzeitig", "sichtbar"] },
+            "vorlauf_s": { "type": "number", "minimum": 0 },
+            "grund": { "type": "string" }
+          }
+        },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] },
+        "neu": { "type": "string", "description": "Kommentar: gegenüber dem JS-Original ergänzt" }
+      },
+      "dependentRequired": { "wendung": ["ankuendigung", "wirkung"] }
+    },
+
+    "aktionen": { "type": "array", "items": { "$ref": "#/$defs/aktion" } },
+
+    "zeitpunkt": {
+      "type": "object",
+      "required": ["at"],
+      "properties": {
+        "at": { "$ref": "#/$defs/zahl" },
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "$ref": "#/$defs/aktionen" },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] }
+      }
+    },
+
+    "regel": {
+      "type": "object",
+      "required": ["if", "do"],
+      "properties": {
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "$ref": "#/$defs/aktionen" },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] }
+      }
+    },
+
+    "ziel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "done"],
+      "properties": {
+        "id": { "$ref": "#/$defs/kennung" },
+        "text": { "$ref": "#/$defs/text" },
+        "show": { "$ref": "#/$defs/bedingung" },
+        "done": { "$ref": "#/$defs/bedingung" },
+        "optional": { "type": "boolean" },
+        "sticky": { "type": "boolean" }
+      }
+    },
+
+    "schritt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "objectives"],
+      "properties": {
+        "id": { "$ref": "#/$defs/kennung" },
+        "loc": { "$ref": "#/$defs/kennung" },
+        "drill": { "type": "boolean" },
+        "restartOnReturn": { "type": "boolean" },
+        "allowBeam": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "enter": { "$ref": "#/$defs/aktionen" },
+        "timers": { "type": "array", "items": { "$ref": "#/$defs/zeitpunkt" } },
+        "rules": { "type": "array", "items": { "$ref": "#/$defs/regel" } },
+        "objectives": { "type": "array", "items": { "$ref": "#/$defs/ziel" } },
+        "choices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["prompt", "options", "on"],
+            "properties": {
+              "prompt": { "$ref": "#/$defs/text" },
+              "options": { "type": "array", "minItems": 2, "maxItems": 4, "items": {
+                "type": "object", "required": ["id", "label"],
+                "properties": { "id": { "$ref": "#/$defs/kennung" }, "label": { "$ref": "#/$defs/text" }, "disabledIf": { "$ref": "#/$defs/bedingung" } } } },
+              "on": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+              "after": { "$ref": "#/$defs/aktionen" }
+            }
+          }
+        },
+        "scan": {
+          "type": "object", "required": ["id", "label", "range", "time"],
+          "properties": { "id": { "type": "string" }, "label": { "$ref": "#/$defs/text" }, "range": { "$ref": "#/$defs/zahl" }, "time": { "$ref": "#/$defs/zahl" },
+            "requires": { "$ref": "#/$defs/bedingung" }, "blocked": { "$ref": "#/$defs/text" } }
+        },
+        "jumpBlock": { "type": "array", "items": { "type": "object", "required": ["if", "reason"],
+          "properties": { "dest": { "type": "string" }, "if": { "$ref": "#/$defs/bedingung" }, "reason": { "$ref": "#/$defs/text" } } } },
+        "destBlock": { "type": "array", "items": { "type": "object", "required": ["if", "reason"],
+          "properties": { "dest": { "type": "string" }, "if": { "$ref": "#/$defs/bedingung" }, "reason": { "$ref": "#/$defs/text" } } } },
+        "onAccept": { "$ref": "#/$defs/aktionen" },
+        "on": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+        "next": { "type": "array", "items": {
+          "type": "object", "required": ["if"],
+          "properties": { "if": { "$ref": "#/$defs/bedingung" }, "do": { "$ref": "#/$defs/aktionen" }, "goto": { "$ref": "#/$defs/kennung" },
+            "complete": { "oneOf": [{ "const": true }, { "$ref": "#/$defs/kennung" }] }, "garantie": { "type": "string" } } } },
+        "skip": { "$ref": "#/$defs/aktionen" }
+      }
+    },
+
+    "gruppe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["map", "quelle"],
+      "properties": {
+        "map": { "$ref": "#/$defs/kennung" },
+        "quelle": { "enum": ["karte", "katalog"], "description": "karte = Spawnpunkte aus den Kartendaten (heute), katalog = Gegnergruppe aus dem Katalog (S2)" },
+        "anker": { "type": "string", "description": "Spawn-Zeichen der Karte (heute) bzw. Anker-Rolle (ab G1)" },
+        "art": { "type": "string" },
+        "anzahl": { "type": "integer", "minimum": 1, "maximum": 12 }
+      }
+    },
+
+    "folge": {
+      "description": "Wirkung eines Ausgangs auf den Weltstand. Genau ein Schlüssel je Eintrag.",
+      "type": "object",
+      "minProperties": 1, "maxProperties": 1,
+      "properties": {
+        "remove_item": { "type": "object", "required": ["item"] },
+        "welt_fakt": { "type": "object", "required": ["key", "wert"] },
+        "npc_haltung": { "type": "object", "required": ["npc", "delta"], "properties": { "delta": { "type": "integer", "minimum": -2, "maximum": 2 } } },
+        "npc_gedaechtnis": { "type": "object", "required": ["npc", "text"] },
+        "npc_status": { "type": "object", "required": ["npc", "status"] },
+        "chronik": { "$ref": "#/$defs/text" },
+        "ruf": { "type": "object", "required": ["fraktion", "delta"] },
+        "uhr": { "type": "object", "required": ["uhr", "segmente"], "description": "ab S3 (Feldzüge)" }
+      },
+      "additionalProperties": false
+    }
+  }
+}
+
+</schema>
+
+<beispiel titel="m3 – Die Tafel von Kesh (handgeschrieben, gültig)">
+{
+  "$schema": "./regiebuch.schema.json",
+  "format": "regiebuch/1",
+  "id": "m3",
+
+  "kopf": {
+    "titel": "Die Tafel von Kesh",
+    "art": "mission",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 9,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": null,
+    "tutorial": true
+  },
+
+  "angebot": {
+    "nach": { "missionDone": "m2" },
+    "direktstart": { "lobby": "m3", "setFlag": { "m3Direct": true } }
+  },
+
+  "buch": {
+    "von": [{ "npc": "tesk" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": {
+    "orte": ["hafen", "kesh"],
+    "aussenkarten": ["kesh"],
+    "objekte": {
+      "kesh": ["jammer", "vault", "key", "tablet", "warden"]
+    },
+    "bereiche": {
+      "kesh": ["landezone", "hof", "halle", "gewoelbe"]
+    }
+  },
+
+  "besetzung": {
+    "npc": ["tesk", "melk"],
+    "gruppen": {
+      "squad1":    { "map": "kesh", "quelle": "karte", "anker": "a", "art": "scavenger" },
+      "squad2":    { "map": "kesh", "quelle": "karte", "anker": "b", "art": "scavenger" },
+      "rearguard": { "map": "kesh", "quelle": "karte", "anker": "c", "art": "scavenger" },
+      "relief":    { "map": "kesh", "quelle": "karte", "anker": "b", "art": "scavenger" }
+    },
+    "einheiten": {
+      "warden": { "map": "kesh", "quelle": "karte", "anker": "L", "art": "warden" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "briefing",
+      "timers": [
+        { "at": { "cfg": "missionM3.offerDirectAt" }, "if": { "flag": "m3Direct" },
+          "do": [{ "set": { "offer": true } }, { "oda": "@briefing.direkt" },
+                 { "radio": { "from": "tesk", "text": "@funk.angebot", "accept": true } }] },
+        { "at": { "cfg": "missionM3.offerAfter" }, "if": { "not": { "flag": "m3Direct" } },
+          "do": [{ "set": { "offer": true } },
+                 { "radio": { "from": "tesk", "text": "@funk.angebot", "accept": true } }] },
+        { "at": { "cfg": "missionM3.offerAfter", "plus": 30 }, "if": { "not": { "event": "accepted" } },
+          "oda": "@briefing.erinnerung", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "accept", "text": "@ziel.annehmen", "show": { "v": "offer" }, "done": { "event": "accepted" } }
+      ],
+      "onAccept": [
+        { "do": "reveal_location", "loc": "kesh", "openLink": "kesh", "text": "@briefing.kesh_aufgedeckt" },
+        { "radio": { "from": "tesk", "text": "@funk.danke" } },
+        { "goto": "flight" }
+      ],
+      "skip": [
+        { "do": "debug_force_radio", "from": "tesk", "text": "@skip.angebot" },
+        { "do": "debug_accept" }
+      ]
+    },
+
+    {
+      "id": "flight",
+      "timers": [
+        { "at": 3, "oda": "@flight.kurs" },
+        { "at": 12, "oda": "@flight.schild" },
+        { "at": 24, "oda": "@flight.deckung" },
+        { "at": 120, "if": { "not": { "atLocation": "kesh" } }, "oda": "@flight.hinweis", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "atLocation": "kesh" }, { "not": { "check": { "name": "team_down", "map": "kesh" } } }] },
+          "do": [{ "oda": "@flight.angekommen" }] },
+        { "if": { "all": [{ "atLocation": "kesh" }, { "elapsed": 90 }, { "not": { "check": { "name": "team_down", "map": "kesh" } } }] },
+          "do": [{ "oda": "@flight.transfer_tipp" }], "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "toKesh", "text": "@ziel.zu_kesh", "done": { "atLocation": "kesh" } },
+        { "id": "beam", "text": "@ziel.runterbeamen", "show": { "atLocation": "kesh" },
+          "done": { "check": { "name": "team_down", "map": "kesh" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "team_down", "map": "kesh" } }, "goto": "courtyard" }],
+      "skip": [{ "do": "debug_jump", "loc": "kesh" }]
+    },
+
+    {
+      "id": "courtyard", "loc": "kesh",
+      "enter": [{ "do": "spawn_squad", "map": "kesh", "squad": "squad1" }],
+      "timers": [
+        { "at": 2, "oda": "@courtyard.lage" },
+        { "at": 8, "radio": { "from": "tesk", "text": "@funk.stoerrelais" } },
+        { "at": 40, "oda": "@courtyard.captain", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "squad1", "text": "@ziel.squad1",
+          "done": { "any": [{ "check": { "name": "squad_cleared", "map": "kesh", "squad": "squad1" } },
+                            { "check": { "name": "area_occupied", "map": "kesh", "area": "halle" } }] } },
+        { "id": "jammers", "text": "@ziel.stoerrelais", "optional": true,
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "jammer", "state": "off", "all": true } } }
+      ],
+      "next": [{ "if": { "any": [{ "check": { "name": "squad_cleared", "map": "kesh", "squad": "squad1" } },
+                                 { "check": { "name": "area_occupied", "map": "kesh", "area": "halle" } }] },
+                 "goto": "archive" }],
+      "skip": [{ "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" }]
+    },
+
+    {
+      "id": "archive", "loc": "kesh",
+      "enter": [{ "oda": "@archive.ruhe" }],
+      "timers": [
+        { "at": 5, "radio": { "from": "tesk", "text": "@funk.paare" } },
+        { "at": 60, "if": { "not": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } },
+          "oda": "@archive.hinweis", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "keys", "text": "@ziel.schluessel",
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } },
+        { "id": "jammers", "text": "@ziel.stoerrelais_kurz", "optional": true,
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "jammer", "state": "off", "all": true } } }
+      ],
+      "next": [{ "if": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } }, "goto": "tablet" }],
+      "skip": [{ "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" }]
+    },
+
+    {
+      "id": "tablet", "loc": "kesh",
+      "enter": [{ "oda": "@tablet.offen" }],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } } },
+          "oda": "@tablet.hinweis", "garantie": "hinweis", "neu": "Prüferregel: jeder Schritt mit Pflichtziel braucht einen Hinweis bei Stillstand" }
+      ],
+      "objectives": [
+        { "id": "tablet", "text": "@ziel.tafel",
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } }, "goto": "warden" }],
+      "skip": [{ "do": "debug_take_item", "map": "kesh", "item": "tafel" }]
+    },
+
+    {
+      "id": "warden", "loc": "kesh",
+      "enter": [
+        { "wendung": "waechter_erwacht",
+          "ankuendigung": { "oda": "@warden.erwacht", "art": "gleichzeitig", "grund": "Der Wächter lädt sichtbar, bevor er schwer trifft (Kampf v2)." },
+          "wirkung": [{ "do": "wake_unit", "map": "kesh", "unit": "warden" },
+                      { "do": "spawn_squad", "map": "kesh", "squad": "squad2", "alert": true }] },
+        { "after": { "sec": 4, "do": [{ "radio": { "from": "tesk", "text": "@funk.zange" } }] } }
+      ],
+      "objectives": [
+        { "id": "out", "text": "@ziel.raus",
+          "done": { "check": { "name": "item_in_area", "map": "kesh", "item": "tafel", "area": "hof", "carrierRule": "carrierOrAnyIfCarrierUp" } } },
+        { "id": "warden", "text": "@ziel.waechter", "optional": true, "done": { "flag": "wardenKilled" } }
+      ],
+      "next": [{ "if": { "any": [{ "check": { "name": "item_in_area", "map": "kesh", "item": "tafel", "area": "hof", "carrierRule": "carrierOrAnyIfCarrierUp" } },
+                                 { "elapsed": { "cfg": "missionM3.wardenStepMax" } }] },
+                 "goto": "extract", "garantie": "zeitlimit" }],
+      "skip": [{ "do": "debug_kill_squad", "map": "kesh", "squad": "squad2" }]
+    },
+
+    {
+      "id": "extract", "loc": "kesh",
+      "enter": [
+        { "wendung": "nachhut",
+          "ankuendigung": { "oda": "@extract.nachhut", "art": "gleichzeitig" },
+          "wirkung": [{ "do": "spawn_squad", "map": "kesh", "squad": "rearguard" }] }
+      ],
+      "timers": [{ "at": 45, "oda": "@extract.hinweis", "garantie": "hinweis" }],
+      "objectives": [
+        { "id": "extract", "text": "@ziel.hochbeamen",
+          "done": { "all": [{ "check": { "name": "item_count", "item": "tafel", "min": 1 } },
+                            { "check": { "name": "away_active", "map": "kesh" } },
+                            { "not": { "check": { "name": "team_down" } } }] } }
+      ],
+      "next": [{
+        "if": { "all": [{ "check": { "name": "item_count", "item": "tafel", "min": 1 } },
+                        { "check": { "name": "away_active", "map": "kesh" } },
+                        { "not": { "check": { "name": "team_down" } } }] },
+        "do": [{ "reward": { "marks": { "cfg": "awayCombat.rewards.complete" } } },
+               { "radio": { "from": "tesk", "text": "@funk.abschluss" } },
+               { "log": "@log.abschluss", "loc": "kesh" }],
+        "complete": "erfolg"
+      }],
+      "skip": [{ "do": "debug_recall_all", "map": "kesh", "ensureItem": "tafel" }]
+    }
+  ],
+
+  "on": {
+    "jammerOff": [
+      { "reward": { "marks": { "cfg": "awayCombat.rewards.jammer" } } },
+      { "wendung": "verstaerkung",
+        "if": { "all": [{ "not": { "flag": "reliefSpawned" } },
+                        { "not": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } }] },
+        "ankuendigung": { "oda": "@wendung.verstaerkung", "art": "gleichzeitig", "grund": "Trupp kommt aus den Korridoren, nicht im Rücken der Spieler." },
+        "wirkung": [{ "setFlag": { "reliefSpawned": true } },
+                    { "do": "spawn_squad", "map": "kesh", "squad": "relief", "alert": true }] }
+    ],
+    "wardenKilled": [
+      { "if": { "not": { "flag": "wardenKilled" } },
+        "wirkung": [{ "setFlag": { "wardenKilled": true } },
+               { "reward": { "marks": { "cfg": "awayCombat.rewards.warden" }, "deko": ["lamassu_figur"] }, "rewardNotice": true },
+               { "oda": "@wendung.waechter_besiegt" },
+               { "log": "@log.waechter", "loc": "kesh" }] }
+    ]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Tafel geborgen, an Tesk abgegeben, alle wieder an Bord.",
+      "folgen": [
+        { "remove_item": { "item": "tafel" } },
+        { "welt_fakt": { "key": "tafel_von_kesh", "wert": "konkordat_archiv" } },
+        { "npc_haltung": { "npc": "tesk", "delta": 1 } },
+        { "npc_gedaechtnis": { "npc": "tesk", "text": "@gedaechtnis.tesk_tafel" } },
+        { "npc_gedaechtnis": { "npc": "melk", "text": "@gedaechtnis.melk_tafel" } },
+        { "chronik": "@chronik.erfolg" }
+      ],
+      "danach": [{ "end": true, "title": "@ende.titel", "text": "@ende.text" }]
+    }
+  },
+
+  "debug": {
+    "prep": {
+      "flight":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }],
+      "courtyard": [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }],
+      "archive":   [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" }],
+      "tablet":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" }],
+      "warden":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" },
+                    { "do": "debug_take_item", "map": "kesh", "item": "tafel" }],
+      "extract":   [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" },
+                    { "do": "debug_take_item", "map": "kesh", "item": "tafel" },
+                    { "do": "wake_unit", "map": "kesh", "unit": "warden" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad2" }]
+    },
+    "done": [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }]
+  },
+
+  "texte": {
+    "buch.briefing": "Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel, die nicht verkauft werden darf. Bergen und alle heil zurückbringen.",
+    "buch.belohnung": "120 Marken, Bonus für den Wächter",
+
+    "funk.angebot": "Lerche, hier Tesk. Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel – die darf nicht verkauft werden. Holt sie?",
+    "funk.danke": "Danke. Die Plünderer sind gut bewaffnet, aber schlecht organisiert. Nehmt Medipacks mit – und bringt alle heil zurück.",
+    "funk.stoerrelais": "Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen.",
+    "funk.paare": "Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht.",
+    "funk.zange": "Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf.",
+    "funk.abschluss": "Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs.",
+
+    "briefing.direkt": "Direkt zur Planetenmission! Wir liegen im Hafen. Captain: Funk annehmen, dann Kurs Mond Kesh.",
+    "briefing.erinnerung": "Tesk wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",
+    "briefing.kesh_aufgedeckt": "Mond Kesh ist auf der Sternkarte – direkt vom Hafen oder vom Splittergürtel aus.",
+
+    "flight.kurs": "Kurs Mond Kesh: Captain wählt das Ziel auf der Sternkarte, Steuer springt mit F.",
+    "flight.schild": "Unten zählt der Schild in Segmenten. Ohne Schild macht ein Treffer euch verwundet – nicht tot.",
+    "flight.deckung": "Deckung wirkt nur in Richtung des Schützen. Mauerreste schlucken viel – von der Seite nichts.",
+    "flight.hinweis": "Kesh liegt gleich beim Hafen. Captain: Sternkarte, Ziel Kesh. Steuer: F.",
+    "flight.angekommen": "Kesh! Steuer: auf ≤ 360 an den Mond und langsam. Außenteam auf die Pads, der Captain bleibt oben.",
+    "flight.transfer_tipp": "Tipp: Transferkammer unten links an Bord. Auf die Pads stellen, E halten – oder Transfer-Konsole.",
+
+    "courtyard.lage": "Plünderer im Hof der Ruine, hinterm Südtor. Deckung suchen, Schilde laden lassen, zusammen vorrücken.",
+    "courtyard.captain": "Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben.",
+
+    "archive.ruhe": "Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor.",
+    "archive.hinweis": "Ein Schlüssel oben an der Hallenwand, einer unten rechts am Gewölbe. Anzählen, dann beide E!",
+
+    "tablet.offen": "Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar.",
+    "tablet.hinweis": "Die Tafel liegt ganz hinten im Gewölbe. Hingehen und E halten.",
+
+    "warden.erwacht": "Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!",
+    "extract.nachhut": "Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen.",
+    "extract.hinweis": "Die Pads liegen unten links in der Landezone. Draufstellen und E halten – ich hole euch.",
+
+    "wendung.verstaerkung": "Das Relais hat Alarm geschlagen – Verstärkung aus dem Camp kommt durch die Gänge!",
+    "wendung.waechter_besiegt": "Der Wächter liegt! Er hinterlässt eine kleine Lamassu-Figur.",
+
+    "ziel.annehmen": "Captain: Funkspruch von Tesk annehmen",
+    "ziel.zu_kesh": "Zum Mond Kesh fliegen",
+    "ziel.runterbeamen": "Außenteam runterbeamen (Captain bleibt an Bord)",
+    "ziel.squad1": "Plünderer im Hof ausschalten ({squadLeft:squad1} übrig) – oder weiter in die Halle",
+    "ziel.stoerrelais": "Störrelais in den Gängen abschalten ({objectsInState:jammer:off}/2)",
+    "ziel.stoerrelais_kurz": "Störrelais abschalten ({objectsInState:jammer:off}/2)",
+    "ziel.schluessel": "Beide Archivschlüssel gleichzeitig halten (E)",
+    "ziel.tafel": "Die Vertragstafel bergen (E halten)",
+    "ziel.raus": "Mit der Tafel zurück in den Hof",
+    "ziel.waechter": "Den Wächter ausschalten (Belohnung)",
+    "ziel.hochbeamen": "Alle zurück an Bord (Pads, hochbeamen)",
+
+    "log.abschluss": "Mission „Die Tafel von Kesh“: Vertragstafel geborgen und an Tesk übergeben.",
+    "log.waechter": "Kesh: Kustoden-Wächter ausgeschaltet.",
+
+    "gedaechtnis.tesk_tafel": "Die Lerche hat die Tafel von Kesh aus dem Archiv geholt und mir übergeben.",
+    "gedaechtnis.melk_tafel": "Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche.",
+    "chronik.erfolg": "Die Tafel von Kesh: Die Crew holt eine Kustoden-Vertragstafel von Plünderern zurück. Tesk bringt sie ins Konkordat-Archiv.",
+
+    "ende.titel": "Die Tafel ist sicher",
+    "ende.text": "Die Vertragstafel der Kustoden liegt im Archiv des Konkordats. Was darauf steht? Fortsetzung folgt.",
+
+    "skip.angebot": "Plünderer auf Kesh. Holt die Tafel."
+  }
+}
+
+</beispiel>
+
+<auftrag>
+Missionsgrenze nach dem Tutorial. Die Crew liegt im Hafen. Archivarin Melk (Konkordat) hat die Tafel von Kesh studiert und will etwas von der Crew. Führe die Kustoden-Spur weiter, ohne das Rätsel aufzulösen. Schwerpunkt: Außenmission mit Wissen-aufteilen (der Captain sieht oben, was unten fehlt), dazu ein Weltraumteil. Auftraggeberin: melk. Zielspieldauer: 15 Minuten, Crew: 3.
+</auftrag>
+
+Baue jetzt das Regiebuch. Antworte nur mit dem JSON-Objekt.

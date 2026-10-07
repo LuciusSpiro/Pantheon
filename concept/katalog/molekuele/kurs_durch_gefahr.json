@@ -1,0 +1,15 @@
+{
+  "format": "molekuel/1",
+  "id": "kurs_durch_gefahr",
+  "name": "Kurs durch Gefahr",
+  "familie": "fliegen",
+  "kern": "Einen Weg durch Nebel, Asteroiden, Minen oder Gravitationsfelder finden",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A7"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

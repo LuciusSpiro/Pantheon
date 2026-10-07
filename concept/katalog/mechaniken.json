@@ -1,0 +1,36 @@
+{
+  "$comment": "Registry der Engine-Mechaniken. Szenentypen und Umsetzungen nennen unter 'braucht', welche sie voraussetzen. Fehlt eine oder ist sie 'geplant', gelten sie als geplant und der Spielleiter sieht sie nur als Wunsch. Diese Datei pflegt das Studio (Mechanik = Code); Mods können sie nicht erweitern.",
+  "version": 1,
+  "mechaniken": {
+    "sternkarte_sprung": { "status": "verfuegbar", "beschreibung": "Sternkarte, Sprungziel wählen, Faltsprung zwischen verbundenen Orten" },
+    "raumkampf":         { "status": "verfuegbar", "beschreibung": "Breitseiten, Lanze, angekündigte schwere Angriffe, Jäger-Anflüge, Schildsektoren (M3a/M3b)" },
+    "weitscan":          { "status": "verfuegbar", "beschreibung": "Taktik deckt versteckte Funde in der Szene auf" },
+    "captain_scan":      { "status": "verfuegbar", "beschreibung": "Captain scannt das Hauptobjekt der Szene (Reichweite, Haltedauer, blockierbar)" },
+    "bergungskisten":    { "status": "verfuegbar", "beschreibung": "Bergungsgut im Feld, drüberfliegen sammelt ein" },
+    "gelaende":          { "status": "verfuegbar", "beschreibung": "Asteroidenfelder und Nebel (Sicht und Sensoren eingeschränkt)" },
+    "andocken":          { "status": "verfuegbar", "beschreibung": "Andocken an Hafen und Karawane, Terminal, Speichern (ab S1)" },
+    "funk_entscheidung": { "status": "verfuegbar", "beschreibung": "Funk mit Annehmen, Entscheidungen mit 2–4 Optionen" },
+    "bordschaeden":      { "status": "verfuegbar", "beschreibung": "Feuer, Lecks, beschädigte und zerstörte Systeme mit Station, Bots" },
+    "transfer":          { "status": "verfuegbar", "beschreibung": "Außenteam beamen (Pads, Konsole), Nachschub, Notrückholung" },
+    "aussen_objekte":    { "status": "verfuegbar", "beschreibung": "Objekte auf Außenkarten bedienen (E halten), Gegenstände bergen, zu zweit gleichzeitig" },
+    "aussen_kampf":      { "status": "verfuegbar", "beschreibung": "Kampf v2: Schild in Segmenten, Deckung, Trupps mit Rollen, Captain-Befehle. Heute nur auf Kesh" },
+    "wissen_aufteilen":  { "status": "verfuegbar", "beschreibung": "Captain sieht die Codetabelle, Außenteam gibt ein (Sonde auf B-7)" },
+
+    "hyperraum":         { "status": "geplant", "beschreibung": "Langstreckensprung als eigene Szene" },
+    "verfolgung":        { "status": "geplant", "beschreibung": "Flucht und Jagd mit Sprungaufladung unter Druck" },
+    "schuetzling":       { "status": "geplant", "beschreibung": "NSC-Schiff, das geschützt werden muss" },
+    "entern":            { "status": "geplant", "beschreibung": "Andocken an fremde Schiffe, Hülle aufschneiden" },
+    "verbuendete":       { "status": "geplant", "beschreibung": "Verbündete NSC-Schiffe mit Oberbefehl der Flotte" },
+    "schleichfahrt":     { "status": "geplant", "beschreibung": "Signatur, Sensorkreise der Patrouillen, Schilde runter" },
+    "wettflug_kurs":     { "status": "geplant", "beschreibung": "Kurs mit Toren und Zeitmessung" },
+    "enterer_an_bord":   { "status": "geplant", "beschreibung": "Gegner im eigenen Schiff" },
+    "passagiere":        { "status": "geplant", "beschreibung": "Personen an Bord als Zustand" },
+    "halten_aussen":     { "status": "geplant", "beschreibung": "Punkt halten mit Fortschrittsanzeige" },
+    "stealth_aussen":    { "status": "geplant", "beschreibung": "Sichtkegel, Alarmstufen" },
+    "gesellschaft_orte": { "status": "geplant", "beschreibung": "Siedlung, Markt, Gespräche mit NSC vor Ort" },
+    "gefangenschaft":    { "status": "geplant", "beschreibung": "Crew gefangen, ohne Ausrüstung" },
+    "sprengladung":      { "status": "geplant", "beschreibung": "Ladung setzen, Countdown, Explosion" },
+    "hacken":            { "status": "geplant", "beschreibung": "Terminal-Minispiel" },
+    "ladung_transfer":   { "status": "geplant", "beschreibung": "Ladung und Personen per Transfer an Bord holen oder abgeben" }
+  }
+}

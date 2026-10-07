@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "daten_stehlen",
+  "name": "Daten stehlen",
+  "familie": "heimlich_und_sabotage",
+  "kern": "An ein Terminal kommen, Download abwarten",
+  "ansaetze": [
+    "technik",
+    "heimlich"
+  ],
+  "szenentypen": [
+    "C4"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

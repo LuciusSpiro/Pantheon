@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "krise_eindaemmen",
+  "name": "Krise eindämmen",
+  "familie": "helfen",
+  "kern": "Brand, Leck, Reaktor, Seuche auf fremder Station oder an Bord",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "B1",
+    "C1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

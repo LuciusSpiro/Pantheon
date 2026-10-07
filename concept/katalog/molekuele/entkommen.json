@@ -1,0 +1,190 @@
+{
+  "format": "molekuel/1",
+  "id": "entkommen",
+  "name": "Entkommen",
+  "familie": "kampf",
+  "kern": "Weg, bis der Sprung geladen ist oder der Abholpunkt erreicht",
+  "ansaetze": [
+    "gewalt",
+    "heimlich"
+  ],
+  "szenentypen": [
+    "A6",
+    "C7"
+  ],
+  "umsetzungen": [
+    {
+      "id": "zu_den_pads",
+      "name": "Mit der Beute zu den Pads",
+      "schauplatz": "aussen",
+      "beschreibung": "Eine Nachhut stellt sich in den Weg, das Team schlägt sich mit der Beute zu den Pads durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt. Heute nur auf Kesh.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "ereignisse": [
+        "beamedUp"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "nachhut": {
+          "typ": "squad",
+          "default": "rearguard",
+          "werte": [
+            "rearguard",
+            "squad2"
+          ]
+        },
+        "gegenstand": {
+          "typ": "text",
+          "default": "tafel",
+          "werte": [
+            "tafel"
+          ]
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "besetzung": {
+          "gruppen": {
+            "{{nachhut}}": {
+              "map": "{{map}}",
+              "quelle": "karte"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "wendung": "{{id}}_nachhut",
+                "ankuendigung": {
+                  "oda": "@{{id}}.nachhut",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "do": "spawn_squad",
+                    "map": "{{map}}",
+                    "squad": "{{nachhut}}"
+                  }
+                ]
+              }
+            ],
+            "timers": [
+              {
+                "at": 45,
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "item_count",
+                        "item": "{{gegenstand}}",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "item_count",
+                        "item": "{{gegenstand}}",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}",
+                "ensureItem": "{{gegenstand}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.nachhut": "Nachhut im Weg! Durchschlagen, dann zu den Pads und hochbeamen.",
+          "{{id}}.hinweis": "Die Pads liegen unten links in der Landezone. Draufstellen und E halten – ich hole euch.",
+          "{{id}}.ziel": "Alle zurück an Bord (Pads, hochbeamen)"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

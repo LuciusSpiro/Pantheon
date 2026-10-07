@@ -1,0 +1,77 @@
+{
+  "molekuele": [
+    {
+      "id": "verhandeln",
+      "umsetzung": "funkduell",
+      "params": {
+        "loc": "splitter",
+        "npc": "grauzahn",
+        "eroeffnung": "Lerche, hier Grauzahn. Deine Karawane sitzt fest – ich lasse sie laufen für die Marken, die du mir im Nebel gestohlen hast. Sonst wird es teuer für Sela.",
+        "frage": "Zahlt ihr oder kämpft ihr?",
+        "antwort_a": "Wir zahlen. Wie viele Marken?",
+        "antwort_b": "Die waren verdient. Komm vorbei, wenn du Mut hast.",
+        "folgen_a": [
+          {
+            "setFlag": {
+              "s3_gezahlt": true
+            }
+          },
+          {
+            "do": "pay_marks",
+            "marks": 80
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Verständig. Das Schiff hat Geschmack. Jäger, zieht euch zurück."
+            }
+          }
+        ],
+        "folgen_b": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Falsch gespielt. Dann sehen wir, was die Lerche wirklich wert ist."
+            }
+          }
+        ],
+        "folgen_schweigen": [
+          {
+            "setFlag": {
+              "s3_gezahlt": false
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "Keine Antwort? Dann nehme ich mir, was mir zusteht."
+            }
+          }
+        ],
+        "geduld_s": 60
+      }
+    }
+  ],
+  "verzweigung": [
+    {
+      "nach": "s4_gefecht_leicht",
+      "if": {
+        "flag": "s3_gezahlt"
+      }
+    },
+    {
+      "nach": "s4_gefecht_schwer",
+      "if": {
+        "not": {
+          "flag": "s3_gezahlt"
+        }
+      }
+    }
+  ],
+  "wendung": null
+}

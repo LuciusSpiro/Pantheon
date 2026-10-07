@@ -1,0 +1,241 @@
+{
+  "format": "molekuel/1",
+  "id": "vernichten",
+  "name": "Vernichten",
+  "familie": "kampf",
+  "kern": "Gegner zerstören bzw. ausschalten",
+  "ansaetze": [
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A4",
+    "A10",
+    "C2"
+  ],
+  "umsetzungen": [
+    {
+      "id": "angriffswelle",
+      "name": "Angriffswelle mit Verstärkung",
+      "schauplatz": "weltraum",
+      "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte.",
+      "braucht": [
+        "raumkampf",
+        "bordschaeden"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "ereignisse": [
+        "enemyKilled",
+        "systemDamaged"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene"
+        },
+        "npc": {
+          "typ": "npc",
+          "pflicht": true,
+          "beschreibung": "Wer funkt (Gegner)"
+        },
+        "jaeger": {
+          "typ": "zahl",
+          "default": 1,
+          "min": 1,
+          "max": 3
+        },
+        "verstaerkung": {
+          "typ": "kind",
+          "default": "gunboat",
+          "werte": [
+            "gunboat",
+            "raider"
+          ]
+        },
+        "verstaerkung_nach": {
+          "typ": "zahl",
+          "default": 50,
+          "min": 20,
+          "max": 120
+        },
+        "funk_start": {
+          "typ": "text",
+          "default": "Da seid ihr ja. Mal sehen, wie lange eure Schilde halten."
+        },
+        "funk_verstaerkung": {
+          "typ": "text",
+          "default": "Genug gespielt. Jetzt wird es ernst."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{npc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "spawn": {
+                  "kind": "raider",
+                  "tag": "{{id}}_w1",
+                  "n": "{{jaeger}}",
+                  "angles": [
+                    0.2,
+                    -0.6,
+                    1.1
+                  ]
+                }
+              },
+              {
+                "after": {
+                  "sec": 3,
+                  "do": [
+                    {
+                      "radio": {
+                        "from": "{{npc}}",
+                        "text": "@{{id}}.funk_start"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 60,
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "not": {
+                        "v": "{{id}}_w2"
+                      }
+                    },
+                    {
+                      "any": [
+                        {
+                          "enemiesLeft": {
+                            "max": 0
+                          }
+                        },
+                        {
+                          "elapsed": "{{verstaerkung_nach}}"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "wendung": "{{id}}_verstaerkung",
+                    "ankuendigung": {
+                      "oda": "@{{id}}.ankuendigung",
+                      "art": "vorher",
+                      "vorlauf_s": 4
+                    },
+                    "wirkung": [
+                      {
+                        "set": {
+                          "{{id}}_w2": true
+                        }
+                      },
+                      {
+                        "radio": {
+                          "from": "{{npc}}",
+                          "text": "@{{id}}.funk_verstaerkung"
+                        }
+                      },
+                      {
+                        "after": {
+                          "sec": 4,
+                          "do": [
+                            {
+                              "spawn": {
+                                "kind": "{{verstaerkung}}",
+                                "tag": "{{id}}_w2"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "abwehr",
+                "text": "@{{id}}.ziel",
+                "done": false
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_w2"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_w2": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk_start": "{{funk_start}}",
+          "{{id}}.funk_verstaerkung": "{{funk_verstaerkung}}",
+          "{{id}}.lage": "Feindkontakt! Taktik besetzen, Captain verteilt Schilde auf die bedrohte Seite.",
+          "{{id}}.tipp": "Pilot: Breitseite zum Gegner. Taktik: Ziel mit T, Batterien 2/3. Schäden: E halten oder Bots.",
+          "{{id}}.ankuendigung": "Ortung: Verstärkung im Anflug! Schilde hoch, Pilot – Breitseite bereithalten.",
+          "{{id}}.ziel": "Angriff abwehren"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "b7",
+          "npc": "grauzahn"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

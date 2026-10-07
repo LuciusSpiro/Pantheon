@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/szenentyp/1",
+  "title": "Szenentyp",
+  "description": "Rahmen einer Szene. Szene = Szenentyp + Ort/Orts-Kit + 1–2 Moleküle + Besetzung + Wendungen. Verfügbar, wenn alle Mechaniken in 'braucht' verfügbar sind und (bei min > 0) mindestens ein verfügbares Molekül zu ihm passt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "kennung", "name", "bereich", "kern", "kippt_zu", "braucht", "molekuele_plaetze"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "szenentyp/1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "kennung": { "type": "string", "pattern": "^[A-Z][0-9]+$", "description": "Kurzkennung wie im Vault (A4, C9 …); Mods wählen eine eigene Buchstabenreihe (z. B. M1)" },
+    "name": { "type": "string", "maxLength": 40 },
+    "bereich": { "enum": ["weltraum", "bord", "aussen", "station"] },
+    "kern": { "type": "string", "maxLength": 300 },
+    "kippt_zu": { "type": "array", "items": { "type": "string" }, "description": "IDs anderer Szenentypen, in die eine Szene kippen kann" },
+    "braucht": { "type": "array", "items": { "type": "string" } },
+    "molekuele_plaetze": {
+      "type": "object", "additionalProperties": false, "required": ["min", "max"],
+      "properties": { "min": { "type": "integer", "minimum": 0, "maximum": 3 }, "max": { "type": "integer", "minimum": 0, "maximum": 3 } }
+    },
+    "quelle": { "type": "string" }
+  }
+}

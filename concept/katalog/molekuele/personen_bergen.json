@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "personen_bergen",
+  "name": "Personen bergen",
+  "familie": "bergen_und_sichern",
+  "kern": "Schiffbrüchige, Verletzte, Verschüttete retten und stabilisieren",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A11",
+    "C9"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

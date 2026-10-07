@@ -1,0 +1,16 @@
+{
+  "format": "molekuel/1",
+  "id": "gefahrgut",
+  "name": "Gefahrgut",
+  "familie": "transport_und_transfer",
+  "kern": "Heikle Ladung transportieren (heiß, instabil, lebendig). Kühlen, sichern oder ins All abwerfen",
+  "ansaetze": [
+    "technik"
+  ],
+  "szenentypen": [
+    "A1",
+    "B1"
+  ],
+  "umsetzungen": [],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}

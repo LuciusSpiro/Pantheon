@@ -1,0 +1,186 @@
+{
+  "format": "molekuel/1",
+  "id": "stellung_nehmen",
+  "name": "Stellung nehmen",
+  "familie": "kampf",
+  "kern": "Ort erobern und sichern",
+  "ansaetze": [
+    "gewalt"
+  ],
+  "szenentypen": [
+    "A5",
+    "C2"
+  ],
+  "umsetzungen": [
+    {
+      "id": "trupp_raeumen",
+      "name": "Trupp ausschalten oder durchbrechen",
+      "schauplatz": "aussen",
+      "beschreibung": "Ein Trupp hält einen Bereich. Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn der Trupp fällt oder jemand durchbricht. Heute nur auf Kesh.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "ereignisse": [
+        "droneKilled",
+        "playerWounded"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "werte": [
+            "kesh"
+          ]
+        },
+        "trupp": {
+          "typ": "squad",
+          "pflicht": true,
+          "werte": [
+            "squad1",
+            "squad2",
+            "rearguard"
+          ]
+        },
+        "durchbruch": {
+          "typ": "text",
+          "default": "halle",
+          "werte": [
+            "halle",
+            "hof",
+            "gewoelbe"
+          ]
+        },
+        "lage": {
+          "typ": "text",
+          "default": "Gegner im Hof der Ruine. Deckung suchen, Schilde laden lassen, zusammen vorrücken."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ],
+          "bereiche": {
+            "{{map}}": [
+              "{{durchbruch}}"
+            ]
+          }
+        },
+        "besetzung": {
+          "gruppen": {
+            "{{trupp}}": {
+              "map": "{{map}}",
+              "quelle": "karte"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "do": "spawn_squad",
+                "map": "{{map}}",
+                "squad": "{{trupp}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 40,
+                "oda": "@{{id}}.captain",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "raeumen",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "squad_cleared",
+                        "map": "{{map}}",
+                        "squad": "{{trupp}}"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "area_occupied",
+                        "map": "{{map}}",
+                        "area": "{{durchbruch}}"
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "squad_cleared",
+                        "map": "{{map}}",
+                        "squad": "{{trupp}}"
+                      }
+                    },
+                    {
+                      "check": {
+                        "name": "area_occupied",
+                        "map": "{{map}}",
+                        "area": "{{durchbruch}}"
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_kill_squad",
+                "map": "{{map}}",
+                "squad": "{{trupp}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.captain": "Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben.",
+          "{{id}}.ziel": "Gegner ausschalten ({squadLeft:{{trupp}}} übrig) – oder durchbrechen"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh",
+          "trupp": "squad1"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+}
