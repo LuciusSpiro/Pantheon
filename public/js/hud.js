@@ -264,10 +264,10 @@
       const st = view.state;
       const ship = st.ship || {};
       const x0 = VW - 7 * 16 - 4;
-      R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 76, 0.62);
-      this.drawSystems(ctx, view, x0, 4);
+      // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
+      R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
       const hullFrac = ship.hullMax ? ship.hull / ship.hullMax : (ship.hull || 0) / 100;
-      const yo = 12;
+      const yo = -18;
       R.icon(ctx, 'hull', x0 + 6, 31 + yo);
       R.bar(ctx, x0 + 14, 28 + yo, 48, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
       R.text(ctx, String(Math.round(ship.hull || 0)), x0 + 65, 26 + yo, { color: PAL.star });
@@ -283,8 +283,8 @@
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
       const rn = roomOf(tx, ty);
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
-      R.backdrop(ctx, VW - 2 - rw, 80, rw, 11, 0.62);
-      R.text(ctx, rn, VW - 6, 82, { color: PAL.star, align: 'right' });
+      R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
+      R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
       // Mini-Schiffsplan unten rechts
       const map = Maps.ship;
       R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'ship', cell: 3 });
@@ -296,7 +296,7 @@
       const st = view.state;
       const r = (st.ship && st.ship.reactor) || {};
       const onShip = view.self.zone === 'ship';
-      const x = VW - 232, y = onShip ? 96 : 50, w = 228;
+      const x = VW - 232, y = onShip ? 66 : 50, w = 228;
       if (r.state === 'overload') {
         const left = +r.overloadLeft || 0;
         const warn = left <= 30;
@@ -500,7 +500,9 @@
       let n = 0;
       const used = [];
       for (const tg of targets) {
-        const sx = tg.x - cam.x, sy = tg.y - cam.y;
+        // M4/QA: Projektion über R.worldToScreen – in 3D die Voxel-Kamera, in 2D wie bisher (x − camera.x)
+        const sp = R.worldToScreen ? R.worldToScreen(tg.x, tg.y) : { x: tg.x - cam.x, y: tg.y - cam.y };
+        const sx = sp.x, sy = sp.y;
         if (sx > 8 && sy > 8 && sx < VW - 8 && sy < VH - 8) continue;
         const ang = Math.atan2(sy - cy, sx - cx);
         const k = Math.min((VW / 2 - 18) / Math.abs(Math.cos(ang) || 1e-6), (VH / 2 - 18) / Math.abs(Math.sin(ang) || 1e-6));
@@ -517,26 +519,33 @@
       const ia = view.interaction;
       const me = view.me;
       if (ia) {
-        const s = R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE);
+        const v3 = !!(R.overlay3d && R.overlay3d.on);
+        // M4/QA: in 3D über dem Objekt (≈ Socket label, 2,1 m), sonst verdeckt der Hinweis die Figur davor
+        const s = v3 ? R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE + 16, 2.1) : R.worldToScreen(ia.tx * TILE + 16, ia.ty * TILE);
         const label = ia.label;
         // M3a: zweite Zeile (z. B. „R: reparieren (Minispiel)“) – Stationsmarke sitzt darüber, daher Hinweis darunter/daneben
         const alt = ia.alt || null;
-        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + 20;
+        const info = !!ia.info;   // reiner Namenshinweis (heiles System): ohne Tastensymbol
+        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + (info ? 8 : 20);
         const h = alt ? 25 : 13;
-        const yy = ia.sys ? s.y + 34 : s.y - 22;   // an Stationen unter die Kachel, damit die Seitenmarke frei bleibt
+        const yy = v3 ? s.y - h - (ia.sys ? 16 : 4) : ia.sys ? s.y + 34 : s.y - 22;   // 2D: an Stationen unter die Kachel; 3D: darüber, Platz für die Zustandsmarke
         const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
         R.backdrop(ctx, x, y, w, h, 0.8);
         const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#4A5260'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: PAL.space, shadow: false }); };
-        key(ia.key || 'E', x + 2, y + 2, ia.ok);
-        R.text(ctx, label, x + 15, y + 3, { color: ia.ok ? PAL.star : '#8C93A0', shadow: false });
+        if (info) R.text(ctx, label, x + 4, y + 3, { color: PAL.star, shadow: false });
+        else {
+          key(ia.key || 'E', x + 2, y + 2, ia.ok);
+          R.text(ctx, label, x + 15, y + 3, { color: ia.ok ? PAL.star : '#8C93A0', shadow: false });
+        }
         if (alt) {
           key(alt.key, x + 2, y + 14, alt.ok !== false);
           R.text(ctx, alt.label, x + 15, y + 15, { color: alt.ok !== false ? PAL.star : '#8C93A0', shadow: false });
         }
       }
       if (me && me.action && !(me.action.kind === 'flick' || me.action.kind === 'swap' || me.action.kind === 'minigame')) {
-        const s = R.worldToScreen(view.self.x, view.self.y);
-        R.ring(ctx, s.x, s.y - 46, 7, me.action.progress || 0, PAL.mint);
+        const v3 = !!(R.overlay3d && R.overlay3d.on);
+        const s = v3 ? R.worldToScreen(view.self.x, view.self.y, 2.0) : R.worldToScreen(view.self.x, view.self.y);
+        R.ring(ctx, s.x, v3 ? s.y - 8 : s.y - 46, 7, me.action.progress || 0, PAL.mint);
       }
     },
 

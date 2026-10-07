@@ -767,7 +767,8 @@
       const belt = !!(m.gear && m.gear.werkzeuggurt);
       const secs = (v) => String(Math.round(v * (belt ? 0.7 : 1) * 10) / 10).replace('.', ',') + ' s';
       if (state === 'offline') return { label: name + ': offline (EMP) – startet selbst neu', ok: false, sys };
-      if (state === 'ok' && !fragile) return null;
+      // Kai 2026-10-07: Namen auch am heilen System zeigen (zum Lernen), aber ohne Bedienoption
+      if (state === 'ok' && !fragile) return { label: name, ok: false, info: true, sys };
       const alt = { key: 'R', label: 'reparieren (Minispiel, dauerhaft)', ok: true };
       if (carry === 'ersatzteil') return { label: 'halten: Teil einbauen (' + secs(RC.partTime || 3) + ', dauerhaft) · ' + name, ok: true, sys, alt };
       if (state === 'ok') return { label: name + ': geflickt – bricht beim nächsten Treffer', ok: false, sys, alt };

@@ -16,8 +16,9 @@ const LIFT_RIDE = 0.6;                 // s Kamerafahrt
 const LIFT_RISE = 3.2;                 // m senkrecht
 const MAX_POINT_LIGHTS = 2;               // §7: 4 dynamische Lichter gesamt – 2 im Pool (ship/away), 2 hält fx.js selbst
 const ZONES = ['ship', 'platform', 'wreck', 'kesh'];
-const MOOD_OF = { ship: 'ship_interior', platform: 'platform_space', wreck: 'wreck_dark', kesh: 'kesh_dusk' };
+const MOOD_OF = { ship: 'ship_private', platform: 'platform_space', wreck: 'wreck_dark', kesh: 'kesh_dusk' };   // Nachrunde M4: Schiff überall warm/hell
 const MOOD_FALLBACK = {
+  ship_private: { background: '#14100E', hemi: { sky: '#C9A882', ground: '#3A2A20', intensity: 0.85 }, sun: { color: '#FFE2B8', intensity: 0.95, dir: [-0.3, 1, 0.35] }, exposure: 1.2, bloom: { strength: 0.45, radius: 0.4, threshold: 0.85 } },
   ship_interior: { background: '#0B0E1A', hemi: { sky: '#6F86A6', ground: '#1B2433', intensity: 0.55 }, sun: { color: '#CFE2FF', intensity: 0.9, dir: [-0.3, 1, 0.2] }, exposure: 1.1, bloom: { strength: 0.9, radius: 0.5, threshold: 0.7 } },
   platform_space: { background: '#05070E', hemi: { sky: '#8FA6C8', ground: '#141A26', intensity: 0.6 }, sun: { color: '#FFF2DC', intensity: 1.6, dir: [-0.5, 1, 0.4] }, exposure: 1.0 },
   wreck_dark: { background: '#04050A', hemi: { sky: '#3A4A60', ground: '#0C0F16', intensity: 0.35 }, sun: { color: '#9FB4D6', intensity: 0.5, dir: [-0.2, 1, 0.3] }, exposure: 1.0 },

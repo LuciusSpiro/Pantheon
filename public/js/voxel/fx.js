@@ -579,7 +579,13 @@ function playerFx(view, st, dt, t) {
       if (a.kind === 'extinguish' && zone === 'ship') {
         const f = nearestFire(st, p);
         const yawDir = f ? Math.atan2(f[0] * TILE + 16 - p.x, f[1] * TILE + 16 - p.y) : (DIR_YAW[p.dir] || 0);
-        const from = frontOf(p.x, p.y, yawDir, 0.35, 1.0);
+        // QA: Strahl aus dem Socket muzzle des Löschers (actors.js), sonst geschätzter Handpunkt
+        let from = null;
+        try {
+          const mw = window.VoxelActors && window.VoxelActors.muzzle ? window.VoxelActors.muzzle(p.id) : null;
+          if (mw && F.ctx.root) { const v = F.ctx.root.worldToLocal(new F.ctx.THREE.Vector3(mw[0], mw[1], mw[2])); from = [v.x, v.y, v.z]; }
+        } catch (e) { from = null; }
+        if (!from) from = frontOf(p.x, p.y, yawDir, 0.35, 1.0);
         const to = f ? Wt(f[0], f[1], 0.25) : frontOf(p.x, p.y, yawDir, 1.2, 0.2);
         FX.gelStream(from, to, dt);
       } else if (a.kind === 'flick' || a.kind === 'swap' || a.kind === 'minigame' || a.kind === 'patch') {

@@ -875,6 +875,7 @@ class Game {
         sonde: { disabled: aw.sonde.disabled, symbols: aw.sonde.symbols, entered: aw.sonde.entered, lockout: r1(aw.sonde.lockout) },
         codeTable: aw.codeTable, odaCodeHelp: aw.odaCodeHelp, kuppelUntil: r2(aw.kuppelUntil), sensorUntil: r2(aw.sensorUntil), doorOpen: aw.doorOpen, coreRebooted: aw.coreRebooted,
         salvage: aw.salvage.map((s) => ({ x: s.x, y: s.y, done: s.done })),
+        ...(aw.loreRead ? { loreRead: true } : {}),   // M4 (QA-AWAY): Logbuch-Terminal im Wrack als gelesen zeigen (nur wenn gelesen – Snapshot-Budget)
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
       },

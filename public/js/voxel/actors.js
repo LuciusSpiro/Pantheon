@@ -86,7 +86,7 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 const L = {
   THREE: null, ctx: null, group: null, actors: new Map(), batcher: null, frame: 0, time: 0,
   stats: { figures: 0, models: 0, drawCalls: 0, instanced: 0, placeholders: 0, errors: 0, visible: 0 },
-  fbGeo: null, fbMats: new Map(), lastZone: null, shotAt: {},
+  fbGeo: null, fbMats: new Map(), lastZone: null, shotAt: {}, muzzles: new Map(),
 };
 
 function err(where, e) {
@@ -614,6 +614,15 @@ function updatePlayer(p, view, st, dt, t) {
   a.setItem(item, hand);
   // ART-F: beim Tragen sitzt der Gegenstand zwischen den Händen (Versatz in Voxeln)
   if (a.item) { if (upper === 'carry') a.item.position.set(2.8 * VX, 3 * VX, 0); else a.item.position.set(0, 0, 0); }
+  // QA: Mündung des Löschers (Manifest-Socket muzzle, relativ zum Griff) als Weltpunkt für fx.js
+  if (item === 'loeschgel' && a.item) {
+    try {
+      const ms = manifestSocket('lerche/item/extinguisher', 'muzzle') || [0, -0.75, 0];
+      a.item.updateWorldMatrix(true, false);
+      const v = a.item.localToWorld(new L.THREE.Vector3(ms[0], ms[1], ms[2]));
+      L.muzzles.set(p.id, [v.x, v.y, v.z]);
+    } catch (e) { L.muzzles.delete(p.id); err('muzzle', e); }
+  } else L.muzzles.delete(p.id);
 
   // Beamen: Figur zerfällt/entsteht (Partikel macht fx.js) – hier flackern + schrumpfen
   if (beam != null) {
@@ -725,7 +734,9 @@ function updateEnemy(e, view, st, dt, t) {
   const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
   const alive = e.alive !== false;
   if (kind === 'scavenger') {
-    if (a.role == null) a.role = scavRole(e);
+    // DECKS liefert away.drones[i].kit (0 Schütze / 1 Flanker / 2 Funker, nur Kesh); Notbehelf nur ohne kit
+    if (e.kit != null && +e.kit >= 0 && +e.kit <= 2) a.role = +e.kit;
+    else if (a.role == null) a.role = scavRole(e);
     a.setFigure('lerche/scavenger', { params: { role: a.role } }, 'scav');
     const pos = place(a, e.x, e.y, 0);
     let wantYaw = null, base = 'guard', upper = null;
@@ -911,5 +922,7 @@ const layer = {
 registerLayer(layer);
 
 // Debug/QA: window.VoxelActors.stats() – Figuren, Draw Calls (Layer), instanzierte Teile, Ersatzfiguren, Fehler
-window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FALLBACK_POSES };
+window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FALLBACK_POSES,
+  // QA: Weltpunkt der Löscher-Mündung je Spieler (null, wenn kein Löscher in der Hand)
+  muzzle: (pid) => L.muzzles.get(pid) || null };
 export { layer as actorsLayer, FALLBACK_POSES };

@@ -33,7 +33,9 @@
     'burst', 'burst_perfect', 'flick', 'swap', 'minigame_tick', 'minigame_hit', 'minigame_miss', 'minigame_done',
     'system_break',
     // Nachrunde §20.2
-    'dodge_evade'];
+    'dodge_evade',
+    // M4 „Zwei Decks“
+    'lift'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -63,7 +65,9 @@
     lance_charge: 300, lance_aim: 300, lance_fire: 150, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
     heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
     minigame_miss: 80, minigame_done: 300, system_break: 150,
-    dodge_evade: 250
+    dodge_evade: 250,
+    // M4
+    lift: 600
   };
   var DEFAULT_GAP = 50;
 
@@ -354,6 +358,18 @@
           dur: i === 3 ? 0.9 : 0.4, vol: 0.13, out: o });
       }
       return 1.3;
+    },
+    // M4: Lift – Bronzemechanik (Klinke, Zahnradrattern, tiefes Anlaufen) und zum Schluss eine kleine Glocke
+    lift: function (t, o) {
+      click(t, o, 0.6, 1800);
+      tone({ type: 'triangle', f: 70, f2: 95, t: t + 0.04, dur: 1.2, a: 0.15, hold: 0.6, vol: 0.2, out: o, filter: 'lowpass', ff: 420 });
+      for (var i = 0; i < 9; i++) {
+        noise({ t: t + 0.1 + i * 0.13, dur: 0.025, vol: 0.16, out: o, filter: 'bandpass', ff: 1500 + (i % 2) * 400, q: 3 });
+      }
+      click(t + 1.3, o, 0.5, 1400);
+      fm({ f: mtof(84), ratio: 2.76, index: 0.9, index2: 0.04, t: t + 1.38, dur: 0.9, a: 0.002, vol: 0.11, out: o });
+      tone({ f: mtof(96), t: t + 1.38, dur: 0.35, vol: 0.04, out: o });
+      return 2.3;
     },
     extinguish: function (t, o) {
       noise({ t: t, dur: 0.55, a: 0.02, hold: 0.2, vol: 0.32, out: o, filter: 'bandpass', ff: 3200, ff2: 1200, q: 0.7 });

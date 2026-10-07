@@ -47,7 +47,7 @@
     {
       "id": "lerche/kit/door",
       "kind": "model",
-      "tier": "architecture",
+      "tier": "detail",
       "palette": "lerche_rom",
       "footprint": [1, 1],
       "height": 3.0,
@@ -60,10 +60,10 @@
       },
       "sockets": {},
       "tint": [],
-      "budgetTris": 600,
-      "measuredTris": 304,
+      "budgetTris": 1500,
+      "measuredTris": 1090,
       "tags": ["lerche", "kit", "door"],
-      "notes": "Durchgang entlang z, Wand quer (entlang x); Türen in senkrechten Wänden mit rot 90. Laibungen x = 0 und x = 3 über die volle Kacheltiefe, lichte Weite 0,5 m. Zusatzparameter cut (wie die Wand daneben): 0 = Rundbogen mit Marmor-Archivolte und goldenem Schlussstein (3 m), 1 = Pfosten mit Kappe in Wandhöhe 1,25 m. Offen = Blätter in der Laibung (nur Kante sichtbar). locked = roter Riegel + rote Statuslichter (Zustandsfarbe warning), sonst Statuslicht kühl (System) bzw. warm (Privat)."
+      "notes": "Durchgang entlang z, Wand quer (entlang x); Türen in senkrechten Wänden mit rot 90. QA M4: auf Detail-Stufe (16/m) umgebaut, Laibungen 12,5 cm (x 0–2 und 14–16) über die volle Kacheltiefe, lichte Weite 0,75 m (vorher 0,5 m – Figuren passten optisch nicht durch). Zusatzparameter cut (wie die Wand daneben): 0 = Rundbogen mit Marmor-Archivolte und goldenem Schlussstein (3 m), 1 = Pfosten mit Kappe in Wandhöhe 1,25 m. Offen = Blätter in der Laibung (nur Kante sichtbar). locked = roter Riegel + rote Statuslichter (Zustandsfarbe warning), sonst Statuslicht kühl (System) bzw. warm (Privat)."
     },
     {
       "id": "lerche/kit/light",

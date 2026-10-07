@@ -138,7 +138,8 @@ window.addEventListener('wheel', (e) => {
 }, { passive: true });
 
 // ------------------------------------------------------------------------------------------------ Start
-const wanted = params.get('render') || lsGet(LS_KEY, '2d');
+// Kai 2026-10-07: Voxel ist Standard; 2D bleibt per ?render=2d bzw. F8 erreichbar
+const wanted = params.get('render') || lsGet(LS_KEY, 'voxel');
 if (wanted === 'voxel') {
   if (!hasWebGL()) fail('Kein WebGL – Spiel läuft in 2D weiter.', new Error('WebGL nicht verfügbar'));
   else { VR.mode = 'voxel'; start(); }
