@@ -1,4 +1,4 @@
-// Sternenschicht – Art-Modul (Team ART). Vertrag: CONTRACT.md §10 (API) und §12 (Grafikvorgaben).
+// Pantheon – Art-Modul (Team ART). Vertrag: CONTRACT.md §10 (API) und §12 (Grafikvorgaben).
 // Klassisches Skript, kein ES-Modul. Alles prozedural, gecacht in Offscreen-Canvases, keine externen Dateien.
 // Zeichnen pro Frame nur aus Caches (drawImage); Sprites entstehen lazy beim ersten Gebrauch.
 // Unbekannte kinds -> Magenta-Platzhalter, nie werfen. Abgefangene Fehler werden gezählt (Art.errors).
@@ -6008,6 +6008,79 @@
   }
 
   // ---------------------------------------------------------------------------------------------
+  // S1: Siegel „Weltstand gesichert“ (CONTRACT-S1 §7)
+  // drawSeal(ctx, x, y, size, variant): x/y = Mittelpunkt, size = Durchmesser in px (8..96), variant 'ok'|'warn'.
+  // Wachssiegel mit leicht unregelmäßigem Rand, Messingkante, eingeprägtem Ring; 'ok' trägt einen kleinen Lorbeerkranz
+  // (unter 20 px eine Raute), 'warn' ist warnrot mit Ausrufezeichen. Je (size, variant) gecacht, Cache begrenzt (24).
+  // ---------------------------------------------------------------------------------------------
+  var SEAL_COL = { ok: '#9E1F27', warn: PAL.alarmrot };
+  var sealCache = new SmallCache(24);
+  function buildSeal(g, s, variant) {
+    var base = SEAL_COL[variant], brass = PAL.messing, cx = s / 2, cy = s / 2;
+    var Rr = s / 2 - 1;                                   // 1 px Rand für die Outline
+    var rimW = Math.max(1, Math.round(s / 14));
+    var lightDark = shade(base, -0.38), lightHi = shade(base, 0.22), ring = shade(base, -0.28);
+    var brassHi = shade(brass, 0.35), brassLo = shade(brass, -0.35);
+    for (var y = 0; y < s; y++) for (var x = 0; x < s; x++) {
+      var dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.sqrt(dx * dx + dy * dy), a = Math.atan2(dy, dx);
+      // Wachsrand: sanfte Ausbuchtungen (fest, aus dem Winkel)
+      var edge = Rr * (0.93 + 0.07 * (0.5 + 0.5 * Math.sin(a * 7 + 0.6)) * (0.6 + 0.4 * Math.sin(a * 3 - 1.1)));
+      if (d > edge) continue;
+      var lit = -(dx + dy) / (Rr * 1.42);                 // Licht von oben links: -1..1
+      var col;
+      if (d > edge - rimW) col = lit > 0.35 ? brassHi : lit < -0.35 ? brassLo : brass;
+      else {
+        // weiche Kante per Schachbrett-Dither zwischen den Stufen
+        var dz = ((x + y) & 1) ? 0.08 : -0.08;
+        col = lit + dz > 0.6 ? lightHi : lit + dz < -0.55 ? lightDark : base;
+        var rr = Rr * 0.7;                                // eingeprägter Innenring
+        if (s >= 14 && Math.abs(d - rr) < 0.55) col = ring;
+        else if (s >= 14 && Math.abs(d - (rr + 1)) < 0.5 && lit > 0) col = shade(base, 0.1);
+      }
+      P(g, x, y, col);
+    }
+    if (variant === 'warn') {                             // Ausrufezeichen, hell mit Schatten
+      var bw = Math.max(1, Math.round(s / 9)), top = Math.round(cy - Rr * 0.45), bot = Math.round(cy + Rr * 0.12);
+      var dot = Math.max(1, bw), x0 = Math.round(cx - bw / 2);
+      R(g, x0 + 1, top + 1, bw, bot - top, lightDark); R(g, x0 + 1, Math.round(cy + Rr * 0.28) + 1, dot, dot, lightDark);
+      R(g, x0, top, bw, bot - top, PAL.sternweiss); R(g, x0, Math.round(cy + Rr * 0.28), dot, dot, PAL.sternweiss);
+    } else if (s < 20) {                                  // klein: Messing-Raute
+      var h = Math.max(2, Math.round(Rr * 0.38));
+      poly(g, [cx, cy - h, cx + h, cy, cx, cy + h, cx - h, cy], brass);
+      P(g, Math.round(cx - 1), Math.round(cy - h / 2), brassHi);
+    } else {                                              // Lorbeerkranz: zwei Zweige, unten gekreuzt, oben offen
+      var rl = Rr * 0.48, n = s >= 40 ? 7 : 5, lw = Math.max(1.2, s / 26), ll = Math.max(2.2, s / 11);
+      for (var side = -1; side <= 1; side += 2) {
+        for (var i = 0; i < n; i++) {
+          var ang = Math.PI / 2 + side * (0.35 + i * (2.1 / (n - 1)) / 1.0) * 1;   // von unten (pi/2) zur Seite nach oben
+          var px = cx + Math.cos(ang) * rl, py = cy + Math.sin(ang) * rl;
+          var tx = -Math.sin(ang) * side, ty = Math.cos(ang) * side;               // Tangente, zeigt nach oben
+          var ox = Math.cos(ang), oy = Math.sin(ang);                               // nach außen
+          var sz = ll * (1 - i * 0.06);
+          var tipX = px + (tx * 0.8 + ox * 0.6) * sz, tipY = py + (ty * 0.8 + oy * 0.6) * sz;
+          var tipX2 = px + (tx * 0.8 - ox * 0.6) * sz, tipY2 = py + (ty * 0.8 - oy * 0.6) * sz;
+          poly(g, thick(px, py, tipX, tipY, lw), i % 2 ? brass : brassHi);
+          poly(g, thick(px, py, tipX2, tipY2, lw), brassLo);
+        }
+      }
+      var by = Math.round(cy + rl);                       // Schleife unten
+      R(g, Math.round(cx - lw), by - 1, Math.max(2, Math.round(lw * 2)), Math.max(2, Math.round(lw * 1.5)), brassHi);
+      if (s >= 28) { var cd = Math.max(1, Math.round(s / 20)); R(g, Math.round(cx - cd / 2), Math.round(cy - cd / 2), cd, cd, brass); }
+    }
+  }
+  function drawSeal(ctx, x, y, size, variant) {
+    var s = Math.round(+size || 16); if (!(s >= 8)) s = 8; if (s > 96) s = 96;
+    var v = variant === 'warn' ? 'warn' : 'ok';
+    var key = s + '|' + v, c = sealCache.get(key);
+    if (!c) {
+      c = sealCache.make(s, s);
+      try { buildSeal(c.g, s, v); outline(c, PAL.outlineWarm); } catch (e) { warn('build seal ' + key, e); missing(c.g, 0, 0, s, s); }
+      sealCache.set(key, c);
+    }
+    ctx.drawImage(c, Math.round(x - s / 2), Math.round(y - s / 2));
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // API (alle Aufrufe abgesichert: nie werfen, Fehler zählen)
   // ---------------------------------------------------------------------------------------------
   function safe(name, fn, fallback) {
@@ -6067,13 +6140,15 @@
   Art.sideColor = function (side) { return SIDE_COL[normSide(side) || 'mid']; };
   Art.stateLabel = function (state, fragile) { return STATE_TXT[stateCode(state, fragile)]; };
   Art.stateColor = function (state, fragile) { return STATE_COL[stateCode(state, fragile)]; };
+  // S1
+  Art.drawSeal = safe('drawSeal', drawSeal);
   Art.cacheSize = function () { return cache.size; };
   Art.LINE_H = LINE_H;
 
   if (!hasDom) {   // ohne DOM (z. B. Node): alle Zeichenfunktionen No-op
     ['drawTile', 'drawObject', 'drawCharacter', 'drawBot', 'drawNpc', 'drawDrone', 'drawItem', 'drawFx', 'drawShip', 'drawEnemy',
       'drawAsteroid', 'drawStation', 'drawProjectile', 'drawBeam', 'drawStarfield', 'drawText', 'drawPanel', 'drawIcon', 'drawOverlay',
-      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst']
+      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst', 'drawSeal']
       .forEach(function (k) { Art[k] = function () { return 0; }; });
   }
   root.Art = Art;

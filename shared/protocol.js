@@ -6,7 +6,22 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return {
-    VERSION: 4,   // M4 Stufe 1 „Zwei Decks“ (vorher 3 = M3a)
+    VERSION: 5,   // S1 „Regiebuch & Weltstand“ (vorher 4 = M4 Stufe 1 „Zwei Decks“)
+    // ---- S1 (CONTRACT-S1 §6): Weltstand, Spielmenü ----
+    // lobbyOpt { world: id | null } – Fortsetzen wählen (null = neu); gesetzt -> startMission wird beim Start ignoriert.
+    // world { op: 'delete', id } – nur Lobby; gesperrt -> { t: 'error', code: 'worldbusy' }.
+    // menu { op: 'end' } – Partie für alle beenden (angedockt + Kampagne: vorher speichern) -> Ereignis sessionEnded, Lobby.
+    // menu { op: 'pause', on } – nur wirksam, wenn genau 1 Spieler verbunden ist.
+    // Snapshot: paused (immer); nur in Phase 'lobby': lobby.worlds [WORLD_LIST_FIELDS], lobby.world (id|null), lobby.worldsFull.
+    // Kann: mission.chronik (letzte 10 { text, mission?, ausgang?, spielzeit_s }) im Log-Slot (zusammen mit mission.log).
+    // Ereignisse: worldSaved { id, name, loc }, worldSaveFailed { reason }, worldLoaded { id, name },
+    //   worldLoadFailed { id, reason }, sessionEnded { by, saved }, missionDone { id, title, ausgang }.
+    // Start einer neuen Kampagne bei 5 Ständen: abgelehnt (notice „Erst einen Weltstand löschen“, lobby.worldsFull).
+    MENU_OPS: ['end', 'pause'],
+    WORLD_OPS: ['delete'],
+    WORLD_STATES: ['ok', 'kaputt', 'neuer', 'belegt'],
+    WORLD_LIST_FIELDS: ['id', 'name', 'savedAt', 'playTime', 'loc', 'mission', 'step', 'chronikLast', 'spieler', 'state', 'grund'],
+    WORLD_EVENTS: ['worldSaved', 'worldSaveFailed', 'worldLoaded', 'worldLoadFailed', 'sessionEnded'],
     // ---- M4 Stufe 1 (CONTRACT-M4 §2.4): Lift und Notleiter. Alle Felder optional (nur wenn aktiv bzw. an Bord). ----
     // Snapshot players[i].deck: 0 Systemdeck / 1 Privatdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client)
     //          players[i].lift: { to: 0|1, t, T } während der Liftfahrt (Eingaben gesperrt, kein Schaden, x/y bleiben stehen,
@@ -22,12 +37,14 @@
     C: {
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
       DROP: 'drop', LEAVE: 'leave', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
-      LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; M2: { startMission: START_MISSIONS }
+      LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; M2: { startMission: START_MISSIONS }; S1: { world }
+      WORLD: 'world',          // S1: { op: 'delete', id }
+      MENU: 'menu',            // S1: { op: 'end' } | { op: 'pause', on }
     },
     // Server -> Client
     S: { WELCOME: 'welcome', SNAP: 'snap', EVENT: 'event', PONG: 'pong', FULL: 'full', ERROR: 'error' },
     // Fehlercodes in { t: 'error', code, text }
-    ERR: { BADCODE: 'badcode' },
+    ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
     // 'quartier' öffnet sich an der eigenen Koje, 'sonde' an der Kustoden-Sonde (Außenmission).
     CONSOLES: ['helm', 'captain', 'weapons', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „TAKTIK“)
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
@@ -81,8 +98,10 @@
     ITEMS: ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'datenkern', 'tafel'],   // M2: 'tafel' (kein Regal, direkt ins Inventar)
     // M2 „Schildwall“ (CONTRACT-M2 §6/§7)
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
-    START_MISSIONS: ['m1', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', m3: 'Direkt zur Planetenmission', arena_space: 'Testgelände: Raumkampf', arena_away: 'Testgelände: Außenteam' },
+    // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
+    START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Testgelände: Raumkampf', arena_away: 'Testgelände: Außenteam' },
+    CAMPAIGN_STARTS: ['m1', 'free'],
     ORDER_KINDS: ['sammeln', 'halten', 'flanke', 'rueckzug', 'fokus', 'gefahr'],   // cmd captain.order { kind, x, y, target?, clear? }
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr
     AWAY_ENEMY_KINDS: ['drone', 'scavenger', 'warden'],

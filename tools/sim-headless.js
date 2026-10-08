@@ -783,13 +783,20 @@ class Agent {
     const p = this.me(S);
     if (p.zone !== 'away' || p.downed) return false;
     const walkSolid = (x, y) => !this.walkable(S, 'away')(x, y);
+    // S1-QA: Eine Drohne, die nach 6 s Dauerfeuer noch lebt, steht hinter einem Hindernis, das die Kachel-Sichtlinie
+    // nicht kennt (z. B. Logbuch-Terminal im Wrack). Dann 12 s ignorieren statt ewig daneben zu schießen (Softlock Seed 17).
+    const m = this.memo;
+    const giveUp = m.droneGiveUp || (m.droneGiveUp = {});
     let best = null, bd = 190;
     for (const d of S.away.drones) {
-      if (!d.alive) continue;
+      if (!d.alive || (giveUp[d.id] || 0) > S.time) continue;
       const dd = dist(p.x, p.y, d.x, d.y);
       if (dd < bd && losPx(walkSolid, p.x, p.y - 10, d.x, d.y - 8)) { bd = dd; best = d; }
     }
-    if (!best) return false;
+    if (!best) { m.droneShoot = null; return false; }
+    if (!m.droneShoot || m.droneShoot.id !== best.id) m.droneShoot = { id: best.id, t: 0 };
+    m.droneShoot.t += DT;
+    if (m.droneShoot.t > 6) { giveUp[best.id] = S.time + 12; m.droneShoot = null; return false; }
     if (p.console) { this.send({ t: 'leave' }); return true; }
     if (this.actDown) this.act(false);
     this.input(0, 0);
@@ -950,6 +957,14 @@ class Agent {
         if (this.enter(S, 'helm')) { if (dist(sh.x, sh.y, b.x, b.y) > 200) this.steer(S, b.x - 150, b.y, 30, 90); else this.brake(S); }
         return;
       }
+      // S1-QA: Getragenes (z. B. Ersatzteil von einer Reparatur) vor dem Beamen zurück ins Regal – sonst kann der Bot
+      // unten den Datenkern nicht aufheben („Hände voll“, Softlock m1 solo Seeds 8/16/18/20)
+      if (p.carry && p.carry !== 'medipack' && p.carry !== 'datenkern') {
+        if (this.actDown && !(this.ix && this.ix.phase === 'up')) { this.act(false); return; }
+        const shelf = shelfOf(p.carry);
+        if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; }
+        this.send({ t: 'drop' }); return;
+      }
       if ((this.role === 'solo' || this.role === 'helm') && !S.away.active && !p.carry && S.inventory.medipack > 0 && S.away.npc.injured) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
       if (!this.onMyPad(S, p)) return;
       if (this.role === 'weapons' && !S.away.active) { this.input(0, 0); return; }
@@ -989,6 +1004,7 @@ class Agent {
     if (p.console) { this.leave(S); return; }
     if (doesCore && core && p.carry !== 'datenkern') {
       if (!S.away.doorOpen) { this.input(0, 0); return; }
+      if (p.carry && !this.actDown) { this.send({ t: 'drop' }); return; }   // S1-QA: Hände frei für den Datenkern
       this.interact(S, Math.floor(core.x / TILE), Math.floor(core.y / TILE), { floor: true });
       return;
     }

@@ -1,0 +1,43 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "Nebenauftrag „Selas Notruf“ (CONTRACT-S1 §0 Nr. 12, §3.5): nur der Bucheintrag als Daten, kein Ablauf (buch + Ziele des ersten Schritts). Ersetzt den Sela-Teil von Mission.bookEntries(). angebot.nach = ab wann der Eintrag im Buch steht. Ausgelöst wird der Notruf in m1 (Schritt 'return', Flag selaCalled); die Hilfe selbst bleibt in server/sim/explore.js (Andocken bei Vaelen -> Flag vaelenHelped, Ereignis selaHelped). Erledigt = alle Pflichtziele erledigt.",
+  "format": "regiebuch/1",
+  "id": "sela",
+
+  "kopf": {
+    "titel": "Selas Notruf",
+    "art": "nebenauftrag",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 3,
+    "feldzug": null
+  },
+
+  "erwartet": { "selaCalled": false, "vaelenHelped": false },
+
+  "angebot": { "nach": { "flag": "selaCalled" } },
+
+  "buch": {
+    "von": [{ "npc": "sela" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["vaelen"] },
+
+  "besetzung": { "npc": ["sela"] },
+
+  "steps": [
+    {
+      "id": "eintrag", "loc": "vaelen",
+      "objectives": [
+        { "id": "dock", "text": "@ziel.andocken", "done": { "flag": "vaelenHelped" } }
+      ]
+    }
+  ],
+
+  "texte": {
+    "buch.briefing": "Der Reaktor der Vaelen-Karawane hustet. Sie liegt gleich beim Hafen – andocken, unsere Schrauber helfen.",
+    "buch.belohnung": "40 Marken, Deko: Messinglampe",
+    "ziel.andocken": "Bei der Vaelen-Karawane andocken"
+  }
+}

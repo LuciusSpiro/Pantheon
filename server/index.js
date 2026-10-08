@@ -1,5 +1,5 @@
 'use strict';
-// Sternenschicht-Server: statische Auslieferung (http + fs), WebSocket /ws (ws, noServer), 30-Hz-Loop, 15-Hz-Snapshots.
+// Pantheon-Server (früher Sternenschicht): statische Auslieferung (http + fs), WebSocket /ws (ws, noServer), 30-Hz-Loop, 15-Hz-Snapshots.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('./game.js');
+const Weltstand = require('./weltstand.js');
 
 const ROOT = path.join(__dirname, '..');
 const STATIC_DIRS = [
@@ -113,7 +114,9 @@ function startServer(opts) {
   const port = o.port != null ? o.port : (Number(process.env.PORT) || CONFIG.port);
   const debug = o.debug != null ? o.debug : (process.argv.includes('--debug') || process.env.DEBUG === '1');
   const roomCode = resolveRoomCode(o.roomCode !== undefined ? o.roomCode : process.env.ROOM_CODE);
-  const game = new Game({ debug, noStore: o.noStore, roomCode, log: o.quiet ? () => {} : undefined });
+  // S1 §5.2: Weltstände in WORLD_DIR (Standard data/worlds); noStore schaltet sie ab (Tests), worlds: true erzwingt
+  const worldDir = o.worldDir || Weltstand.dir(process.env);
+  const game = new Game({ debug, noStore: o.noStore, worlds: o.worlds, worldDir, port, roomCode, log: o.quiet ? () => {} : undefined });
   const server = http.createServer(serveStatic);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
@@ -154,26 +157,32 @@ function startServer(opts) {
 
   return new Promise((resolve) => {
     server.listen(port, () => {
+      const realPort = server.address().port;
+      game.port = realPort;
       if (!o.quiet) {
-        console.log(`Sternenschicht-Server läuft: http://localhost:${port}  (WebSocket ${Protocol.WS_PATH}${debug ? ', DEBUG aktiv' : ''})`);
-        console.log(`Teaser-Quelle: ${(process.env.MISSION_SOURCE || 'fallback')}`);
-        const realPort = server.address().port;
+        console.log(`[Pantheon] Server läuft: http://localhost:${realPort}  (WebSocket ${Protocol.WS_PATH}${debug ? ', DEBUG aktiv' : ''})`);
+        console.log(`[Pantheon] Teaser-Quelle: ${(process.env.MISSION_SOURCE || 'fallback')}`);
+        console.log(game.worldsEnabled ? `[Pantheon] Weltstände: ${worldDir} (${game.worldList.length}/${game.worldMax()})` : '[Pantheon] Weltstände: aus');
         if (roomCode) {
           const bar = '='.repeat(64);
           console.log(`\n${bar}\n  Raumcode: ${roomCode}   Link: http://localhost:${realPort}/?code=${roomCode}`);
           console.log(`  Übers Internet (Cloudflare-Tunnel): an die trycloudflare-Adresse einfach ?code=${roomCode} anhängen.`);
           console.log(`  Fester Code: ROOM_CODE=ABCD in .env · ohne Code: ROOM_CODE=off\n${bar}\n`);
         } else {
-          console.log('Raumcode: aus (ROOM_CODE=off) – jeder mit der Adresse kann beitreten.');
+          console.log('[Pantheon] Raumcode: aus (ROOM_CODE=off) – jeder mit der Adresse kann beitreten.');
         }
       }
-      resolve({ server, wss, game, roomCode, port: server.address().port, close: () => new Promise((r) => { clearInterval(loop); for (const c of wss.clients) c.terminate(); wss.close(); server.close(() => r()); }) });
+      resolve({ server, wss, game, roomCode, port: server.address().port, close: () => new Promise((r) => { clearInterval(loop); game.releaseWorldLock(); for (const c of wss.clients) c.terminate(); wss.close(); server.close(() => r()); }) });
     });
   });
 }
 
 if (require.main === module) {
-  startServer().catch((e) => { console.error(e); process.exit(1); });
+  startServer().then((s) => {
+    // S1 §5.2: Sperrdatei des offenen Weltstands beim Beenden lösen (verwaiste Sperren erkennt auch der nächste Start)
+    process.on('exit', () => s.game.releaseWorldLock());
+    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); process.exit(0); });
+  }).catch((e) => { console.error(e); process.exit(1); });
 }
 
 module.exports = { startServer, resolveStatic, resolveRoomCode, makeRoomCode };

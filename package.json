@@ -1,21 +1,28 @@
 {
-  "name": "sternenschicht",
-  "version": "0.1.0",
+  "name": "pantheon",
+  "version": "0.2.0",
   "private": true,
-  "description": "Sternenschicht – Online-Koop-Raumschiffspiel (Demo „Die stumme Boje“)",
+  "description": "Pantheon – Online-Koop-Raumschiffspiel für 1–3 Spieler (früher Sternenschicht)",
   "main": "server/index.js",
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "debug": "node --env-file-if-exists=.env server/index.js --debug",
     "check": "node tools/check-maps.js",
     "sim": "node tools/sim-headless.js",
-    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js && node tools/test-flight.js",
+    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js && node tools/test-flight.js && node tools/test-regiebuch.js && node tools/test-weltstand.js && node tools/test-spielleiter.js --strict",
     "test:flight": "node tools/test-flight.js",
     "test:m3": "node tools/test-m3.js",
     "sim:arena": "node tools/sim-headless.js arena --pilot both --seeds 10",
     "assets": "node tools/sync-assets.mjs",
     "assets:watch": "node tools/sync-assets.mjs --watch",
-    "check:assets": "node tools/check-assets.mjs"
+    "check:assets": "node tools/check-assets.mjs",
+    "check-missions": "node tools/check-missions.js",
+    "katalog": "node tools/katalog.js",
+    "test:spielleiter": "node tools/test-spielleiter.js",
+    "test:weltstand": "node tools/test-weltstand.js",
+    "test:regiebuch": "node tools/test-regiebuch.js",
+    "test:llm": "node tools/test-llm-live.js",
+    "golden": "node tools/golden-trace.js"
   },
   "engines": {
     "node": ">=24"

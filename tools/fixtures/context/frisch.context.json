@@ -1,0 +1,816 @@
+{
+  "anlass": {
+    "art": "kampagnenstart",
+    "crew": 1,
+    "tutorial": true
+  },
+  "chronik": [],
+  "crew": {
+    "anzahl": 1,
+    "spieler": [
+      "Kai"
+    ]
+  },
+  "fakten": {},
+  "flags": {},
+  "missionen": {
+    "m1": {
+      "schritt": "dock",
+      "status": "aktiv"
+    }
+  },
+  "npc": [
+    {
+      "fraktion": "rostmeute",
+      "gedaechtnis": [],
+      "haltung": 0,
+      "id": "grauzahn",
+      "name": "Grauzahn",
+      "rolle": "gegenspieler",
+      "status": "lebt",
+      "titel": "Anführer der Rostmeute"
+    },
+    {
+      "fraktion": "konkordat",
+      "gedaechtnis": [],
+      "haltung": 0,
+      "id": "ivo",
+      "name": "Ivo",
+      "ort": "b7",
+      "rolle": "crew_gast",
+      "status": "lebt",
+      "titel": "Techniker"
+    },
+    {
+      "fraktion": "konkordat",
+      "gedaechtnis": [],
+      "haltung": 0,
+      "id": "melk",
+      "name": "Melk",
+      "ort": "hafen",
+      "rolle": "archivarin",
+      "status": "lebt",
+      "titel": "Archivarin"
+    },
+    {
+      "fraktion": "vaelen",
+      "gedaechtnis": [],
+      "haltung": 0,
+      "id": "sela",
+      "name": "Sela",
+      "ort": "vaelen",
+      "rolle": "haendlerin",
+      "status": "lebt",
+      "titel": "Vaelen-Händlerin"
+    },
+    {
+      "fraktion": "konkordat",
+      "gedaechtnis": [],
+      "haltung": 0,
+      "id": "tesk",
+      "name": "Tesk",
+      "ort": "hafen",
+      "rolle": "auftraggeberin",
+      "status": "lebt",
+      "titel": "Hafenmeisterin"
+    }
+  ],
+  "ort": {
+    "angedockt": "hafen",
+    "name": "Hafen Lichtkordon"
+  },
+  "orte": [
+    {
+      "andocken": false,
+      "art": "buoy",
+      "aussenkarte": "platform",
+      "funde": [
+        {
+          "id": "b7_cache",
+          "status": "verborgen"
+        },
+        {
+          "id": "b7_fragment",
+          "status": "verborgen"
+        }
+      ],
+      "id": "b7",
+      "name": "Boje B-7",
+      "status": "unbekannt",
+      "verbindungen": [
+        "nebel",
+        "splitter"
+      ]
+    },
+    {
+      "andocken": true,
+      "art": "port",
+      "funde": [
+        {
+          "id": "hafen_cache",
+          "status": "verborgen"
+        }
+      ],
+      "gesperrt": [
+        "kesh"
+      ],
+      "id": "hafen",
+      "name": "Hafen Lichtkordon",
+      "status": "besucht",
+      "verbindungen": [
+        "splitter",
+        "vaelen"
+      ]
+    },
+    {
+      "andocken": false,
+      "art": "moon",
+      "aussenkarte": "kesh",
+      "funde": [],
+      "gesperrt": [
+        "hafen",
+        "splitter"
+      ],
+      "id": "kesh",
+      "name": "Mond Kesh",
+      "status": "unbekannt",
+      "verbindungen": []
+    },
+    {
+      "andocken": false,
+      "art": "nebula",
+      "funde": [
+        {
+          "id": "nebel_beacon",
+          "status": "verborgen"
+        },
+        {
+          "id": "nebel_lore",
+          "status": "verborgen"
+        }
+      ],
+      "gesperrt": [
+        "relais"
+      ],
+      "id": "nebel",
+      "name": "Graue Weite",
+      "status": "unbekannt",
+      "verbindungen": [
+        "b7",
+        "vaelen",
+        "wrack"
+      ]
+    },
+    {
+      "andocken": false,
+      "art": "relay",
+      "funde": [
+        {
+          "id": "relais_lore",
+          "status": "verborgen"
+        }
+      ],
+      "gesperrt": [
+        "nebel"
+      ],
+      "id": "relais",
+      "name": "Kustoden-Relais",
+      "status": "unbekannt",
+      "verbindungen": []
+    },
+    {
+      "andocken": false,
+      "art": "asteroids",
+      "funde": [
+        {
+          "id": "splitter_cache1",
+          "status": "verborgen"
+        },
+        {
+          "id": "splitter_cache2",
+          "status": "verborgen"
+        }
+      ],
+      "gesperrt": [
+        "kesh"
+      ],
+      "id": "splitter",
+      "name": "Splittergürtel",
+      "status": "bekannt",
+      "verbindungen": [
+        "b7",
+        "hafen",
+        "wrack"
+      ]
+    },
+    {
+      "andocken": true,
+      "art": "trader",
+      "funde": [
+        {
+          "id": "vaelen_cache",
+          "status": "verborgen"
+        },
+        {
+          "id": "vaelen_sonde",
+          "status": "verborgen"
+        }
+      ],
+      "id": "vaelen",
+      "name": "Vaelen-Karawane",
+      "status": "unbekannt",
+      "verbindungen": [
+        "hafen",
+        "nebel"
+      ]
+    },
+    {
+      "andocken": false,
+      "art": "wreck",
+      "aussenkarte": "wreck",
+      "funde": [
+        {
+          "id": "wrack_hollow",
+          "status": "verborgen"
+        },
+        {
+          "id": "wrack_kapsel",
+          "status": "verborgen"
+        }
+      ],
+      "id": "wrack",
+      "name": "Wrack „Zaunkönig“",
+      "status": "unbekannt",
+      "verbindungen": [
+        "nebel",
+        "splitter"
+      ]
+    }
+  ],
+  "schiff": {
+    "ausbauten": [],
+    "huelle": 100,
+    "lager": {
+      "ersatzteil": 1,
+      "flickblech": 2,
+      "loeschgel": 1
+    },
+    "marken": 150,
+    "name": "Lerche",
+    "schaeden": {}
+  },
+  "tutorial": "laeuft",
+  "verfuegbar": {
+    "molekuele": [
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "artefakt_freilegen",
+        "kern": "Fund ausgraben, stabilisieren, sicher transportieren",
+        "name": "Artefakt freilegen",
+        "szenentypen": [
+          "C1",
+          "C5",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Hinter dem geöffneten Tor liegt der Fund. E halten, dann ist er im Inventar. Kurz und ruhig – meist folgt danach eine Wendung (Wächter, Verstärkung). Heute nur auf Kesh.",
+            "dauer_min": [
+              1,
+              2
+            ],
+            "id": "fund_aus_gewoelbe",
+            "karten": [
+              "kesh"
+            ],
+            "nach": [
+              "raetsel_loesen/zwei_schluessel"
+            ],
+            "name": "Fund aus dem Gewölbe bergen",
+            "nur_an": [
+              "kesh"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
+          "heimlich"
+        ],
+        "id": "entkommen",
+        "kern": "Weg, bis der Sprung geladen ist oder der Abholpunkt erreicht",
+        "name": "Entkommen",
+        "szenentypen": [
+          "A6",
+          "C7"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Eine Nachhut stellt sich in den Weg, das Team schlägt sich mit der Beute zu den Pads durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt. Heute nur auf Kesh.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "zu_den_pads",
+            "karten": [
+              "kesh"
+            ],
+            "name": "Mit der Beute zu den Pads",
+            "nur_an": [
+              "kesh"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik",
+          "gewalt"
+        ],
+        "id": "ladung_bergen",
+        "kern": "Container finden, sichern, an Bord holen",
+        "name": "Ladung bergen",
+        "szenentypen": [
+          "A11",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Treibende Kisten im Feld, auf der Taktikkarte grün. Der Pilot sieht nur nach vorn, die Taktik lotst mit Markern, drüberfliegen sammelt ein. Im Asteroidenfeld kostet jeder Rempler Schild. Garantie: Nach einer Weile lässt man den Rest treiben.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "bergungskisten",
+            "name": "Bergungsgut im Feld einsammeln",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "raetsel_loesen",
+        "kern": "Mechanismus, Glyphen, Licht",
+        "name": "Rätsel lösen",
+        "szenentypen": [
+          "C5"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Eine Sonde steuert Wachdrohnen. Unten sieht das Außenteam Symbole, oben hat der Captain die Codetabelle: Nur zusammen schaltet man die Sonde ab. Wissen aufteilen in Reinform. Heute nur auf B-7 (Plattform).",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "sonden_code",
+            "karten": [
+              "platform"
+            ],
+            "name": "Sonden-Code: Captain sieht die Tabelle",
+            "nur_an": [
+              "b7"
+            ],
+            "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Zwei Schlüssel weit auseinander müssen gleichzeitig gehalten werden, dann öffnet sich das Tor. Ruhiger Moment nach einem Gefecht: Absprache und Anzählen. Heute nur auf Kesh.",
+            "dauer_min": [
+              1,
+              3
+            ],
+            "id": "zwei_schluessel",
+            "karten": [
+              "kesh"
+            ],
+            "name": "Tor nur zu zweit zu öffnen",
+            "nur_an": [
+              "kesh"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "rekonstruieren",
+        "kern": "„Was ist hier passiert?“ aus Logs und Spuren",
+        "name": "Rekonstruieren",
+        "szenentypen": [
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Im dunklen Wrack liegt ein Logbuch-Terminal, das erzählt, was passiert ist. Optional ein Hohlraum hinter einer dünnen Wand, den nur ein Weitscan aus dem Orbit verrät. Ruhige Erkundung, Stimmung statt Kampf. Heute nur im Wrack „Zaunkönig“.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "wrack_logbuch",
+            "karten": [
+              "wreck"
+            ],
+            "name": "Logbuch im Wrack lesen",
+            "nur_an": [
+              "wrack"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "signal_orten",
+        "kern": "Notruf oder fremdes Signal triangulieren",
+        "name": "Signal orten",
+        "szenentypen": [
+          "A2",
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Taktik pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
+            "dauer_min": [
+              2,
+              5
+            ],
+            "id": "weitscan_peilung",
+            "name": "Signal per Weitscan finden",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt"
+        ],
+        "id": "stellung_nehmen",
+        "kern": "Ort erobern und sichern",
+        "name": "Stellung nehmen",
+        "szenentypen": [
+          "A5",
+          "C2"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein Trupp hält einen Bereich. Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn der Trupp fällt oder jemand durchbricht. Heute nur auf Kesh.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "trupp_raeumen",
+            "karten": [
+              "kesh"
+            ],
+            "name": "Trupp ausschalten oder durchbrechen",
+            "nur_an": [
+              "kesh"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "reden"
+        ],
+        "id": "verhandeln",
+        "kern": "Preis, Durchflug, Lösegeld, Abkommen. Infos vom Schiff geben Trümpfe",
+        "name": "Verhandeln",
+        "szenentypen": [
+          "A3",
+          "C6",
+          "D1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein NSC funkt und will eine Antwort. Der Captain wählt zwischen zwei Antworten oder schweigt. Wer zu lange schweigt, hat geschwiegen. Die Folgen jeder Antwort legt der Spielleiter fest (Flags, Belohnung, Gegner, Haltung). Die Crew bespricht sich – das ist der Kern.",
+            "dauer_min": [
+              1,
+              2
+            ],
+            "id": "funkduell",
+            "name": "Funkduell mit zwei Antworten und Schweigen",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "vermessen",
+        "kern": "Phänomen oder Ort scannen; Gefahr wächst mit der Nähe",
+        "name": "Vermessen",
+        "szenentypen": [
+          "A2",
+          "A7",
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Taktik schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "stoerrelais_scan",
+            "name": "Objekt unter Störung scannen",
+            "nur_an": [
+              "b7",
+              "relais",
+              "wrack",
+              "vaelen",
+              "kesh"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt"
+        ],
+        "id": "vernichten",
+        "kern": "Gegner zerstören bzw. ausschalten",
+        "name": "Vernichten",
+        "szenentypen": [
+          "A10",
+          "A4",
+          "C2"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "angriffswelle",
+            "name": "Angriffswelle mit Verstärkung",
+            "schauplatz": "weltraum"
+          }
+        ]
+      }
+    ],
+    "noch_nicht_spielbar": {
+      "molekuele": [
+        "ausschlachten",
+        "befragen",
+        "beobachten",
+        "daten_stehlen",
+        "datenkern_bergen",
+        "durchbrechen",
+        "evakuieren",
+        "gefahrgut",
+        "gefangenen_ueberstellen",
+        "geiseln_befreien",
+        "halten",
+        "handeln",
+        "kapern",
+        "krise_eindaemmen",
+        "kurs_durch_gefahr",
+        "ladung_liefern",
+        "pannenhilfe",
+        "passagiere_befoerdern",
+        "personen_bergen",
+        "probe_nehmen",
+        "sabotieren",
+        "schlichten",
+        "schmuggeln",
+        "schuetzen",
+        "suchen",
+        "system_ausschalten",
+        "taeuschen",
+        "unbemerkt_durchfliegen",
+        "unbemerkt_hineinkommen",
+        "versorgen",
+        "vertreiben",
+        "wettflug",
+        "ziel_markieren"
+      ],
+      "szenentypen": [
+        "ablieferung",
+        "andocken_und_entern",
+        "ausbruch",
+        "belagerung",
+        "enterabwehr",
+        "gast_an_bord",
+        "geleit",
+        "gesellschaft",
+        "halten",
+        "hyperraumflug",
+        "infiltration",
+        "krise_an_bord",
+        "schlacht",
+        "schleichfahrt",
+        "verfolgung",
+        "wettflug"
+      ]
+    },
+    "szenentypen": [
+      {
+        "bereich": "weltraum",
+        "id": "annaeherung_und_erkundung",
+        "kennung": "A2",
+        "kern": "Unbekannten Ort anfliegen, scannen, Funde machen, Lage klären",
+        "kippt_zu": [
+          "begegnung",
+          "raumgefecht"
+        ],
+        "molekuele": [
+          "signal_orten",
+          "vermessen"
+        ],
+        "name": "Annäherung & Erkundung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "begegnung",
+        "kennung": "A3",
+        "kern": "Schiff trifft Schiff: Kontrolle, Funkduell, Verhandlung, Handel, Bluff",
+        "kippt_zu": [
+          "raumgefecht",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "verhandeln"
+        ],
+        "name": "Begegnung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "bergung_im_all",
+        "kennung": "A11",
+        "kern": "Treibende Ladung, Kapseln, Wrackteile oder Schiffbrüchige finden, scannen und an Bord holen (Transfer, Traktorstrahl, Abschleppen)",
+        "kippt_zu": [
+          "gefahrennavigation",
+          "raumgefecht"
+        ],
+        "molekuele": [
+          "ladung_bergen"
+        ],
+        "name": "Bergung im All",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "bergung_vor_ort",
+        "kennung": "C9",
+        "kern": "Ladung, Artefakte oder Personen am Boden finden, sichern (freilegen, stabilisieren, Wachen ausschalten) und hochbeamen",
+        "kippt_zu": [
+          "gefecht",
+          "halten"
+        ],
+        "molekuele": [
+          "artefakt_freilegen"
+        ],
+        "name": "Bergung vor Ort",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "erkundung",
+        "kennung": "C1",
+        "kern": "Gelände oder Gebäude erkunden, suchen, Proben nehmen, Spuren lesen",
+        "kippt_zu": [
+          "gefecht",
+          "raetselort"
+        ],
+        "molekuele": [
+          "artefakt_freilegen",
+          "rekonstruieren"
+        ],
+        "name": "Erkundung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "gefahrennavigation",
+        "kennung": "A7",
+        "kern": "Gelände ist der Gegner: Nebel, Asteroiden, Minenfeld, Gravitationsfeld, Sonneneruption, Anomalie",
+        "kippt_zu": [
+          "raumgefecht"
+        ],
+        "molekuele": [
+          "vermessen"
+        ],
+        "name": "Gefahrennavigation",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "gefecht",
+        "kennung": "C2",
+        "kern": "Vorrücken von Deckung zu Deckung, Stellung nehmen (Außenmission-Kampf)",
+        "kippt_zu": [
+          "halten",
+          "rueckzug"
+        ],
+        "molekuele": [
+          "stellung_nehmen"
+        ],
+        "name": "Gefecht",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "station",
+        "id": "hafen",
+        "kennung": "D1",
+        "kern": "Andocken, Speichern, Auftragsbrett, Handel, Reparatur, Ladung und Passagiere aufnehmen oder abgeben, Gerüchte, NSC treffen, „Was bisher geschah“ zu Beginn einer Session",
+        "kippt_zu": [
+          "gesellschaft"
+        ],
+        "molekuele": [],
+        "name": "Hafen",
+        "plaetze": [
+          0,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "raetselort",
+        "kennung": "C5",
+        "kern": "Mechanismen, Glyphen, Licht, Runen. Kein Zeitdruck, außer eine Wendung bringt ihn",
+        "kippt_zu": [
+          "gefecht"
+        ],
+        "molekuele": [
+          "artefakt_freilegen",
+          "raetsel_loesen"
+        ],
+        "name": "Rätselort",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "raumgefecht",
+        "kennung": "A4",
+        "kern": "Offener Kampf gegen Schiffe (Raumkampf)",
+        "kippt_zu": [
+          "andocken_und_entern",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "vernichten"
+        ],
+        "name": "Raumgefecht",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "rueckzug",
+        "kennung": "C7",
+        "kern": "Ziel erfüllt, jetzt zum Abholpunkt durchschlagen (Missionen für das Außenteam)",
+        "molekuele": [
+          "entkommen"
+        ],
+        "name": "Rückzug",
+        "plaetze": [
+          1,
+          2
+        ]
+      }
+    ]
+  }
+}

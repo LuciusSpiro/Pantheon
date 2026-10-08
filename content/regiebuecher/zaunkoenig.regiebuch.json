@@ -1,0 +1,54 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "Nebenauftrag „Wrack Zaunkönig“ (CONTRACT-S1 §0 Nr. 12, §3.5): nur der Bucheintrag als Daten, kein Ablauf (buch + Ziele des ersten Schritts). Ersetzt den Zaunkönig-Teil von Mission.bookEntries(). Im Buch, sobald das Wrack bekannt ist (Gerücht von Tesk in m2 oder selbst entdeckt). Erledigt = alle Pflichtziele (Container und Hohlraum; das Logbuch ist optional). Braucht das Kartenobjekt wreck.container (Bergungscontainer 'h', Zustände full/taken, viele).",
+  "format": "regiebuch/1",
+  "id": "zaunkoenig",
+
+  "kopf": {
+    "titel": "Wrack „Zaunkönig“",
+    "art": "nebenauftrag",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 6,
+    "feldzug": null
+  },
+
+  "angebot": { "nach": { "known": "wrack" } },
+
+  "buch": {
+    "von": [{ "npc": "tesk" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": {
+    "orte": ["wrack"],
+    "aussenkarten": ["wreck"],
+    "objekte": { "wreck": ["container", "hollow", "lore"] }
+  },
+
+  "besetzung": { "npc": ["tesk"] },
+
+  "steps": [
+    {
+      "id": "eintrag", "loc": "wrack",
+      "objectives": [
+        { "id": "visit", "text": "@ziel.hinfliegen", "done": { "visited": "wrack" } },
+        { "id": "boxes", "text": "@ziel.container",
+          "done": { "check": { "name": "object_state", "map": "wreck", "object": "container", "state": "taken", "all": true } } },
+        { "id": "lore", "text": "@ziel.logbuch", "optional": true,
+          "done": { "check": { "name": "object_state", "map": "wreck", "object": "lore", "state": "read" } } },
+        { "id": "hollow", "text": "@ziel.hohlraum",
+          "done": { "check": { "name": "object_state", "map": "wreck", "object": "hollow", "state": "open" } } }
+      ]
+    }
+  ],
+
+  "texte": {
+    "buch.briefing": "Hinter dem Splittergürtel treibt das Wrack der „Zaunkönig“. Plünderer waren da – aber nicht gründlich. Optional, aber lohnend.",
+    "buch.belohnung": "Bergegut aus Containern und Hohlraum",
+    "ziel.hinfliegen": "Zum Wrack fliegen",
+    "ziel.container": "Container bergen ({objectsInState:container:taken}/4)",
+    "ziel.logbuch": "Logbuch der „Zaunkönig“ lesen",
+    "ziel.hohlraum": "Hohlraum finden (Weitscan) und ausräumen"
+  }
+}

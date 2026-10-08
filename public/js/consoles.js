@@ -1720,10 +1720,14 @@
       const rect = { x: 10, y: 40, w: 430, h: 278 };
       // Kopfzeile: Brotkrumen
       // §21.2: Reiter Karten | Missionsbuch
+      const hasChronik = this.chronikEntries(st) != null;
+      if (P.tab === 'chronik' && !hasChronik) P.tab = 'book';
       R.button(ctx, 330, 25, 110, 13, 'Missionsbuch', { hotkey: 'M', active: P.tab === 'book', onClick: () => { P.tab = P.tab === 'book' ? 'map' : 'book'; } });
-      if (P.tab === 'book') {
+      if (P.tab === 'book' || P.tab === 'chronik') {
         R.button(ctx, 10, 25, 90, 13, 'Karten', { hotkey: 'M', onClick: () => { P.tab = 'map'; } });
-        return this.drawPlanBook(ctx, view);
+        // S1 (Kann): Reiter „Chronik“ (nur lesen), wenn der Server mission.chronik schickt
+        if (hasChronik) R.button(ctx, 446, 25, 90, 13, 'Chronik', { hotkey: 'C', active: P.tab === 'chronik', onClick: () => { P.tab = P.tab === 'chronik' ? 'book' : 'chronik'; } });
+        return P.tab === 'chronik' ? this.drawPlanChronik(ctx, view) : this.drawPlanBook(ctx, view);
       }
       const loc = P.mapId !== 'star' ? ((P.mapId !== 'kesh' && R.locById(st, P.mapId)) || (P.mapId === 'platform' ? R.locById(st, 'b7') : P.mapId === 'wreck' ? R.locById(st, 'wrack') : P.mapId === 'kesh' ? R.locById(st, 'kesh') : null)) : null;
       R.button(ctx, 10, 25, 90, 13, 'Sternkarte', { hotkey: 'Bs', active: P.mapId === 'star', onClick: () => { P.mapId = 'star'; } });
@@ -1789,6 +1793,33 @@
         y += 13;
       }
       return (P.mapId === 'star' ? 'Klick Ort wählen · Enter Detail · D Decksplan · ' : 'Backspace Sternkarte · ') + '1–5 Pin-Art · Klick Pin';
+    },
+    // ---- S1 (Kann): Chronik der Kampagne – Einträge als Text oder { text, spielzeit_s?, t?, mission?, ort? }
+    chronikEntries(st) {
+      const c = st && st.mission && st.mission.chronik;
+      return Array.isArray(c) ? c : null;
+    },
+    drawPlanChronik(ctx, view) {
+      const st = view.state;
+      const list = (this.chronikEntries(st) || []).slice().reverse();   // neueste zuerst
+      const x = 10, y = 42, w = VW - 20, h = 276;
+      R.panel(ctx, x, y, w, h, { style: 'screen' });
+      R.text(ctx, 'CHRONIK DER LERCHE', x + 8, y + 6, { color: PAL.brass });
+      R.text(ctx, 'die letzten ' + list.length + ' Einträge', x + w - 8, y + 6, { color: PAL.panelLight, align: 'right' });
+      let yy = y + 20;
+      if (!list.length) R.text(ctx, 'Noch nichts Erzählenswertes passiert.', x + 8, yy, { color: PAL.panelLight });
+      for (const e of list) {
+        const text = typeof e === 'string' ? e : String((e && e.text) || '');
+        const sec = e && typeof e === 'object' ? (e.spielzeit_s != null ? e.spielzeit_s : e.t) : null;
+        const where = e && typeof e === 'object' && (e.ort || e.loc) ? R.locName(st, e.ort || e.loc) : '';
+        const head = (sec != null && isFinite(+sec) ? H.fmtTime(+sec) : '') + (where ? (sec != null ? ' · ' : '') + where : '');
+        const lines = R.wrap(text, w - 168, 1);
+        if (yy + lines.length * 10 > y + h - 8) break;
+        if (head) R.text(ctx, H.fit ? H.fit(head, 144, 1) : head, x + 8, yy, { color: PAL.panelLight });
+        for (const l of lines) { R.text(ctx, l, x + 158, yy, { color: PAL.star }); yy += 10; }
+        yy += 4;
+      }
+      return 'C Missionsbuch · M Karten';
     },
     // ---- §21.2 Missionsbuch: Liste (aktiv/angeboten/erledigt) links, Details rechts
     bookEntries(st) {
@@ -1881,7 +1912,7 @@
     },
     planClick(view, x, y, button) {
       const st = view.state, P = this.plan, mp = this.maps.plan;
-      if (P.tab === 'book') return false;
+      if (P.tab === 'book' || P.tab === 'chronik') return false;
       const rect = { x: 10, y: 40, w: 430, h: 278 };
       if (!mp || x < rect.x || y < rect.y || x >= rect.x + rect.w || y >= rect.y + rect.h) return false;
       const pins = ((st.plan && st.plan.pins) || []).filter(p => p.map === P.mapId);
@@ -2106,7 +2137,10 @@
         case 'plan': {
           const P = this.plan;
           // §21.2: M wechselt Karten/Missionsbuch; im Buch W/S wählen, Enter verfolgen, A annehmen
-          if (code === 'KeyM') { P.tab = P.tab === 'book' ? 'map' : 'book'; view.actions.sfx('ui_click'); return true; }
+          if (code === 'KeyM') { P.tab = P.tab === 'map' ? 'book' : 'map'; view.actions.sfx('ui_click'); return true; }
+          // S1 (Kann): C wechselt zwischen Missionsbuch und Chronik
+          if (code === 'KeyC' && P.tab !== 'map' && this.chronikEntries(st)) { P.tab = P.tab === 'chronik' ? 'book' : 'chronik'; view.actions.sfx('ui_click'); return true; }
+          if (P.tab === 'chronik') { if (code === 'Backspace') P.tab = 'book'; return true; }
           if (P.tab === 'book') {
             const { list } = this.bookEntries(st);
             if (code === 'KeyW' || code === 'ArrowUp') { P.bookSel = Math.max(0, (P.bookSel || 0) - 1); return true; }

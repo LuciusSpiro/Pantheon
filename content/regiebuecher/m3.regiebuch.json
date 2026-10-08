@@ -1,0 +1,336 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "m3 „Die Tafel von Kesh“ aus der Vorarbeit (concept/regiebuch), an CONTRACT-S1 §2 angepasst. Gewollte Abweichungen: Tafel-Abgabe an Tesk (Texte, remove_item), neuer Hinweis in 'tablet', Weltstand-Aktionen; Timer-'if' in 'briefing' wird ausgewertet (im JS-Original bei 'do' ignoriert).",
+  "format": "regiebuch/1",
+  "id": "m3",
+
+  "kopf": {
+    "titel": "Die Tafel von Kesh",
+    "art": "mission",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 9,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": null,
+    "tutorial": true
+  },
+
+  "erwartet": { "m3Direct": false },
+
+  "angebot": {
+    "nach": { "missionDone": "m2" },
+    "direktstart": { "lobby": "m3", "setFlag": { "m3Direct": true }, "prep": [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }] }
+  },
+
+  "buch": {
+    "von": [{ "npc": "tesk" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": {
+    "orte": ["hafen", "kesh"],
+    "aussenkarten": ["kesh"],
+    "objekte": {
+      "kesh": ["jammer", "vault", "key", "tablet", "warden"]
+    },
+    "bereiche": {
+      "kesh": ["landezone", "hof", "halle", "gewoelbe"]
+    }
+  },
+
+  "besetzung": {
+    "npc": ["tesk", "melk", "sela"],
+    "gruppen": {
+      "squad1":    { "map": "kesh", "quelle": "karte", "anker": "a", "art": "scavenger" },
+      "squad2":    { "map": "kesh", "quelle": "karte", "anker": "b", "art": "scavenger" },
+      "rearguard": { "map": "kesh", "quelle": "karte", "anker": "c", "art": "scavenger" },
+      "relief":    { "map": "kesh", "quelle": "karte", "anker": "b", "art": "scavenger" }
+    },
+    "einheiten": {
+      "warden": { "map": "kesh", "quelle": "karte", "anker": "L", "art": "warden" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "briefing",
+      "timers": [
+        { "at": { "cfg": "missionM3.offerDirectAt" }, "if": { "flag": "m3Direct" },
+          "do": [{ "set": { "offer": true } }, { "oda": "@briefing.direkt" },
+                 { "radio": { "from": "tesk", "text": "@funk.angebot", "accept": true } }] },
+        { "at": { "cfg": "missionM3.offerAfter" }, "if": { "not": { "flag": "m3Direct" } },
+          "do": [{ "set": { "offer": true } },
+                 { "radio": { "from": "tesk", "text": "@funk.angebot", "accept": true } }] },
+        { "at": { "cfg": "missionM3.offerAfter", "plus": 30 }, "if": { "not": { "event": "accepted" } },
+          "oda": "@briefing.erinnerung", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "accept", "text": "@ziel.annehmen", "show": { "v": "offer" }, "done": { "event": "accepted" } }
+      ],
+      "onAccept": [
+        { "do": "reveal_location", "loc": "kesh", "openLink": "kesh", "text": "@briefing.kesh_aufgedeckt" },
+        { "radio": { "from": "tesk", "text": "@funk.danke" } },
+        { "goto": "flight" }
+      ],
+      "skip": [
+        { "do": "debug_force_radio", "from": "tesk", "text": "@skip.angebot" },
+        { "do": "debug_accept" }
+      ]
+    },
+
+    {
+      "id": "flight",
+      "timers": [
+        { "at": 3, "oda": "@flight.kurs" },
+        { "at": 12, "oda": "@flight.schild" },
+        { "at": 24, "oda": "@flight.deckung" },
+        { "at": 120, "if": { "not": { "atLocation": "kesh" } }, "oda": "@flight.hinweis", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "atLocation": "kesh" }, { "not": { "check": { "name": "team_down", "map": "kesh" } } }] },
+          "do": [{ "oda": "@flight.angekommen" }] },
+        { "if": { "all": [{ "atLocation": "kesh" }, { "elapsed": 90 }, { "not": { "check": { "name": "team_down", "map": "kesh" } } }] },
+          "do": [{ "oda": "@flight.transfer_tipp" }], "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "toKesh", "text": "@ziel.zu_kesh", "done": { "atLocation": "kesh" } },
+        { "id": "beam", "text": "@ziel.runterbeamen", "show": { "atLocation": "kesh" },
+          "done": { "check": { "name": "team_down", "map": "kesh" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "team_down", "map": "kesh" } }, "goto": "courtyard" }],
+      "skip": [{ "do": "debug_jump", "loc": "kesh" }]
+    },
+
+    {
+      "id": "courtyard", "loc": "kesh",
+      "enter": [{ "do": "spawn_squad", "map": "kesh", "squad": "squad1" }],
+      "timers": [
+        { "at": 2, "oda": "@courtyard.lage" },
+        { "at": 8, "radio": { "from": "tesk", "text": "@funk.stoerrelais" } },
+        { "at": 40, "oda": "@courtyard.captain", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "squad1", "text": "@ziel.squad1",
+          "done": { "any": [{ "check": { "name": "squad_cleared", "map": "kesh", "squad": "squad1" } },
+                            { "check": { "name": "area_occupied", "map": "kesh", "area": "halle" } }] } },
+        { "id": "jammers", "text": "@ziel.stoerrelais", "optional": true,
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "jammer", "state": "off", "all": true } } }
+      ],
+      "next": [{ "if": { "any": [{ "check": { "name": "squad_cleared", "map": "kesh", "squad": "squad1" } },
+                                 { "check": { "name": "area_occupied", "map": "kesh", "area": "halle" } }] },
+                 "goto": "archive" }],
+      "skip": [{ "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" }]
+    },
+
+    {
+      "id": "archive", "loc": "kesh",
+      "enter": [{ "oda": "@archive.ruhe" }],
+      "timers": [
+        { "at": 5, "radio": { "from": "tesk", "text": "@funk.paare" } },
+        { "at": 60, "if": { "not": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } },
+          "oda": "@archive.hinweis", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "keys", "text": "@ziel.schluessel",
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } },
+        { "id": "jammers", "text": "@ziel.stoerrelais_kurz", "optional": true,
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "jammer", "state": "off", "all": true } } }
+      ],
+      "next": [{ "if": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } }, "goto": "tablet" }],
+      "skip": [{ "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" }]
+    },
+
+    {
+      "id": "tablet", "loc": "kesh",
+      "enter": [{ "oda": "@tablet.offen" }],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } } },
+          "oda": "@tablet.hinweis", "garantie": "hinweis", "_kommentar": "Neu gegenüber dem JS-Original – Prüferregel: jeder Schritt mit Pflichtziel braucht einen Hinweis bei Stillstand" }
+      ],
+      "objectives": [
+        { "id": "tablet", "text": "@ziel.tafel",
+          "done": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "object_state", "map": "kesh", "object": "tablet", "state": "taken" } }, "goto": "warden" }],
+      "skip": [{ "do": "debug_take_item", "map": "kesh", "item": "tafel" }]
+    },
+
+    {
+      "id": "warden", "loc": "kesh",
+      "enter": [
+        { "wendung": "waechter_erwacht",
+          "ankuendigung": { "oda": "@warden.erwacht", "art": "gleichzeitig", "grund": "Der Wächter lädt sichtbar, bevor er schwer trifft (Kampf v2)." },
+          "wirkung": [{ "do": "wake_unit", "map": "kesh", "unit": "warden" },
+                      { "do": "spawn_squad", "map": "kesh", "squad": "squad2", "alert": true }] },
+        { "after": { "sec": 4, "do": [{ "radio": { "from": "tesk", "text": "@funk.zange" } }] } }
+      ],
+      "objectives": [
+        { "id": "out", "text": "@ziel.raus",
+          "done": { "check": { "name": "item_in_area", "map": "kesh", "item": "tafel", "area": "hof", "carrierRule": "carrierOrAnyIfCarrierUp" } } },
+        { "id": "warden", "text": "@ziel.waechter", "optional": true, "done": { "flag": "wardenKilled" } }
+      ],
+      "next": [{ "if": { "any": [{ "check": { "name": "item_in_area", "map": "kesh", "item": "tafel", "area": "hof", "carrierRule": "carrierOrAnyIfCarrierUp" } },
+                                 { "elapsed": { "cfg": "missionM3.wardenStepMax" } }] },
+                 "goto": "extract", "garantie": "zeitlimit" }],
+      "skip": [{ "do": "debug_kill_squad", "map": "kesh", "squad": "squad2" }]
+    },
+
+    {
+      "id": "extract", "loc": "kesh",
+      "enter": [
+        { "wendung": "nachhut",
+          "ankuendigung": { "oda": "@extract.nachhut", "art": "gleichzeitig" },
+          "wirkung": [{ "do": "spawn_squad", "map": "kesh", "squad": "rearguard" }] }
+      ],
+      "timers": [{ "at": 45, "oda": "@extract.hinweis", "garantie": "hinweis" }],
+      "objectives": [
+        { "id": "extract", "text": "@ziel.hochbeamen",
+          "done": { "all": [{ "check": { "name": "item_count", "item": "tafel", "min": 1 } },
+                            { "check": { "name": "away_active", "map": "kesh" } },
+                            { "not": { "check": { "name": "team_down" } } }] } }
+      ],
+      "next": [{
+        "if": { "all": [{ "check": { "name": "item_count", "item": "tafel", "min": 1 } },
+                        { "check": { "name": "away_active", "map": "kesh" } },
+                        { "not": { "check": { "name": "team_down" } } }] },
+        "do": [{ "reward": { "marks": { "cfg": "awayCombat.rewards.complete" } } },
+               { "radio": { "from": "tesk", "text": "@funk.abschluss" } },
+               { "log": "@log.abschluss", "loc": "kesh" }],
+        "complete": "erfolg"
+      }],
+      "skip": [{ "do": "debug_recall_all", "map": "kesh", "ensureItem": "tafel" }]
+    }
+  ],
+
+  "on": {
+    "jammerOff": [
+      { "reward": { "marks": { "cfg": "awayCombat.rewards.jammer" } } },
+      { "wendung": "verstaerkung",
+        "if": { "all": [{ "not": { "flag": "reliefSpawned" } },
+                        { "not": { "check": { "name": "object_state", "map": "kesh", "object": "vault", "state": "open" } } }] },
+        "ankuendigung": { "oda": "@wendung.verstaerkung", "art": "gleichzeitig", "grund": "Trupp kommt aus den Korridoren, nicht im Rücken der Spieler." },
+        "wirkung": [{ "setFlag": { "reliefSpawned": true } },
+                    { "do": "spawn_squad", "map": "kesh", "squad": "relief", "alert": true }] }
+    ],
+    "wardenKilled": [
+      { "if": { "not": { "flag": "wardenKilled" } },
+        "wirkung": [{ "setFlag": { "wardenKilled": true } },
+               { "reward": { "marks": { "cfg": "awayCombat.rewards.warden" }, "deko": ["lamassu_figur"] } },
+               { "oda": "@wendung.waechter_besiegt" },
+               { "log": "@log.waechter", "loc": "kesh" }] }
+    ],
+    "selaHelped": [
+      { "do": "npc_gedaechtnis", "npc": "sela", "ereignis": "notruf_geholfen", "text": "@gedaechtnis.sela_geholfen" },
+      { "do": "npc_haltung", "npc": "sela", "delta": 1 }
+    ]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Tafel geborgen, an Tesk abgegeben, alle wieder an Bord.",
+      "folgen": [
+        { "do": "remove_item", "item": "tafel" },
+        { "do": "welt_fakt", "key": "tafel_von_kesh", "value": "konkordat_archiv" },
+        { "do": "welt_fakt", "key": "kustoden_kontakt", "value": "konkordat" },
+        { "if": { "flag": "wardenKilled" }, "do": "welt_fakt", "key": "waechter_kesh", "value": "zerstoert" },
+        { "do": "npc_haltung", "npc": "tesk", "delta": 1 },
+        { "do": "npc_gedaechtnis", "npc": "tesk", "ereignis": "tafel_uebergeben", "text": "@gedaechtnis.tesk_tafel" },
+        { "do": "npc_gedaechtnis", "npc": "melk", "ereignis": "tafel_im_archiv", "text": "@gedaechtnis.melk_tafel" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ],
+      "danach": [{ "end": true, "title": "@ende.titel", "text": "@ende.text" }]
+    },
+    "uebersprungen": {
+      "_kommentar": "Die Tafel steht in der Kampagne ohne Tutorial nur als Gerücht im Weltstand (content/npc.json, kampagne.ohne_tutorial.fakten).",
+      "beschreibung": "Kampagne ohne Tutorial: m3 gilt als erledigt, keine eigenen Folgen.",
+      "folgen": []
+    }
+  },
+
+  "debug": {
+    "prep": {
+      "flight":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }],
+      "courtyard": [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }],
+      "archive":   [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" }],
+      "tablet":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" }],
+      "warden":    [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" },
+                    { "do": "debug_take_item", "map": "kesh", "item": "tafel" }],
+      "extract":   [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad1" },
+                    { "do": "set_object_state", "map": "kesh", "object": "vault", "state": "open" },
+                    { "do": "debug_take_item", "map": "kesh", "item": "tafel" },
+                    { "do": "wake_unit", "map": "kesh", "unit": "warden" },
+                    { "do": "debug_kill_squad", "map": "kesh", "squad": "squad2" }]
+    },
+    "done": [{ "do": "reveal_location", "loc": "kesh", "openLink": "kesh" }]
+  },
+
+  "texte": {
+    "buch.briefing": "Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel, die nicht verkauft werden darf. Bergen und alle heil zurückbringen.",
+    "buch.belohnung": "120 Marken, Bonus für den Wächter",
+
+    "funk.angebot": "Lerche, hier Tesk. Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel – die darf nicht verkauft werden. Holt sie?",
+    "funk.danke": "Danke. Die Plünderer sind gut bewaffnet, aber schlecht organisiert. Nehmt Medipacks mit – und bringt alle heil zurück.",
+    "funk.stoerrelais": "Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen.",
+    "funk.paare": "Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht.",
+    "funk.zange": "Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf.",
+    "funk.abschluss": "Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs.",
+
+    "briefing.direkt": "Direkt zur Planetenmission! Wir liegen im Hafen. Captain: Funk annehmen, dann Kurs Mond Kesh.",
+    "briefing.erinnerung": "Tesk wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",
+    "briefing.kesh_aufgedeckt": "Mond Kesh ist auf der Sternkarte – direkt vom Hafen oder vom Splittergürtel aus.",
+
+    "flight.kurs": "Kurs Mond Kesh: Captain wählt das Ziel auf der Sternkarte, Steuer springt mit F.",
+    "flight.schild": "Unten zählt der Schild in Segmenten. Ohne Schild macht ein Treffer euch verwundet – nicht tot.",
+    "flight.deckung": "Deckung wirkt nur in Richtung des Schützen. Mauerreste schlucken viel – von der Seite nichts.",
+    "flight.hinweis": "Kesh liegt gleich beim Hafen. Captain: Sternkarte, Ziel Kesh. Steuer: F.",
+    "flight.angekommen": "Kesh! Steuer: auf ≤ 360 an den Mond und langsam. Außenteam auf die Pads, der Captain bleibt oben.",
+    "flight.transfer_tipp": "Tipp: Transferkammer unten links an Bord. Auf die Pads stellen, E halten – oder Transfer-Konsole.",
+
+    "courtyard.lage": "Plünderer im Hof der Ruine, hinterm Südtor. Deckung suchen, Schilde laden lassen, zusammen vorrücken.",
+    "courtyard.captain": "Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben.",
+
+    "archive.ruhe": "Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor.",
+    "archive.hinweis": "Ein Schlüssel oben an der Hallenwand, einer unten rechts am Gewölbe. Anzählen, dann beide E!",
+
+    "tablet.offen": "Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar.",
+    "tablet.hinweis": "Die Tafel liegt ganz hinten im Gewölbe. Hingehen und E halten.",
+
+    "warden.erwacht": "Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!",
+    "extract.nachhut": "Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen.",
+    "extract.hinweis": "Die Pads liegen unten links in der Landezone. Draufstellen und E halten – ich hole euch.",
+
+    "wendung.verstaerkung": "Das Relais hat Alarm geschlagen – Verstärkung aus dem Camp kommt durch die Gänge!",
+    "wendung.waechter_besiegt": "Der Wächter liegt! Er hinterlässt eine kleine Lamassu-Figur. {reward}.",
+
+    "ziel.annehmen": "Captain: Funkspruch von Tesk annehmen",
+    "ziel.zu_kesh": "Zum Mond Kesh fliegen",
+    "ziel.runterbeamen": "Außenteam runterbeamen (Captain bleibt an Bord)",
+    "ziel.squad1": "Plünderer im Hof ausschalten ({squadLeft:squad1} übrig) – oder weiter in die Halle",
+    "ziel.stoerrelais": "Störrelais in den Gängen abschalten ({objectsInState:jammer:off}/2)",
+    "ziel.stoerrelais_kurz": "Störrelais abschalten ({objectsInState:jammer:off}/2)",
+    "ziel.schluessel": "Beide Archivschlüssel gleichzeitig halten (E)",
+    "ziel.tafel": "Die Vertragstafel bergen (E halten)",
+    "ziel.raus": "Mit der Tafel zurück in den Hof",
+    "ziel.waechter": "Den Wächter ausschalten (Belohnung)",
+    "ziel.hochbeamen": "Alle zurück an Bord (Pads, hochbeamen)",
+
+    "log.abschluss": "Mission „Die Tafel von Kesh“: Vertragstafel geborgen und an Tesk übergeben.",
+    "log.waechter": "Kesh: Kustoden-Wächter ausgeschaltet ({reward}).",
+
+    "gedaechtnis.tesk_tafel": "Die Lerche hat die Tafel von Kesh aus dem Archiv geholt und mir übergeben.",
+    "gedaechtnis.sela_geholfen": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.",
+    "gedaechtnis.melk_tafel":"Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche.",
+    "chronik.erfolg": "Die Tafel von Kesh: Die Crew holt eine Kustoden-Vertragstafel von Plünderern zurück. Tesk bringt sie ins Konkordat-Archiv.",
+
+    "ende.titel": "Die Tafel ist sicher",
+    "ende.text": "Die Vertragstafel der Kustoden liegt im Archiv des Konkordats. Was darauf steht? Fortsetzung folgt.",
+
+    "skip.angebot": "Plünderer auf Kesh. Holt die Tafel."
+  }
+}

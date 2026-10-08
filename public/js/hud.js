@@ -69,10 +69,10 @@
       q.push({ text: String(text) });
       while (q.length > 6) q.shift();
     },
-    pushNotice(text, color) {
+    pushNotice(text, color, dur) {
       if (!text) return;
       this.notices = this.notices.filter(n => n.text !== text);
-      this.notices.push({ text: String(text), color: color || PAL.warn, t: performance.now() / 1000 });
+      this.notices.push({ text: String(text), color: color || PAL.warn, t: performance.now() / 1000, d: dur > 0 ? +dur : 3 });   // S1: dur optional (s)
       if (this.notices.length > 3) this.notices.shift();
     },
     onRadio(from, text) { this.radioFlash = { from: from || 'Funk', text: text || '', t: performance.now() / 1000 }; },
@@ -142,7 +142,7 @@
         }
       }
       const now = performance.now() / 1000;
-      this.notices = this.notices.filter(n => now - n.t < 3);
+      this.notices = this.notices.filter(n => now - n.t < (n.d || 3));
     },
 
     // ---------------------------------------------------------------- Haupt-Zeichnen
@@ -654,14 +654,15 @@
       if (this.oda.queue.length) R.text(ctx, '+' + this.oda.queue.length, x + w - 4, y + h - 10, { color: PAL.panelLight, align: 'right' });
     },
 
-    drawNotices(ctx, view, y0) {
+    drawNotices(ctx, view, y0, max) {
       const now = performance.now() / 1000;
       let y = y0 == null ? 96 : y0;
-      const all = this.notices.slice();
+      let all = this.notices.slice();
       if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000 });
+      if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
       for (const n of all) {
         const w = R.measure(n.text, 1) + 12;
-        const a = Math.max(0, Math.min(1, 3 - (now - n.t)));
+        const a = Math.max(0, Math.min(1, (n.d || 3) - (now - n.t)));
         ctx.globalAlpha = a;
         R.backdrop(ctx, VW / 2 - w / 2, y, w, 13, 0.85);
         ctx.strokeStyle = n.color; ctx.strokeRect(VW / 2 - w / 2 + 0.5, y + 0.5, w - 1, 12);
@@ -710,7 +711,7 @@
       });
       ly += 52;
       R.text(ctx, (st.world ? 'Ort: ' + R.locName(st, R.worldOf(st).location) : 'Abschnitt: ' + ((st.mission && st.mission.stage) || '-')) + '   Spielzeit: ' + fmtTime(st.stats && st.stats.elapsed != null ? st.stats.elapsed : st.time), x + 10, ly, { color: PAL.panelLight });
-      R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · C ducken · Esc Konsole', x + 10, y + h - 14, { color: PAL.panelLight });
+      R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
 
     // ---------------------------------------------------------------- Lobby (Canvas; Name per DOM-Input)
@@ -720,8 +721,8 @@
       const t = view.time;
       if (!R.art('drawStarfield', null, [ctx, t * 20, 0, VW, VH, t])) { ctx.fillStyle = PAL.space; ctx.fillRect(0, 0, VW, VH); }
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
-      R.text(ctx, 'STERNENSCHICHT', VW / 2, 30, { color: PAL.amber, scale: 2, align: 'center' });
-      R.text(ctx, 'Brücke neu · offene Welt · Koop für 1–3 Spieler', VW / 2, 54, { color: PAL.mint, align: 'center' });
+      R.text(ctx, 'PANTHEON', VW / 2, 30, { color: PAL.amber, scale: 2, align: 'center' });
+      R.text(ctx, 'Eine Crew, ein Schiff · Koop für 1–3 Spieler', VW / 2, 54, { color: PAL.mint, align: 'center' });
       const players = st.players || [];
       const me = players.find(p => p.id === view.pid);
       if (Net.badCode && !me) { this.drawCodeEntry(ctx, view); this.drawNotices(ctx, view, 4); return; }
@@ -743,16 +744,18 @@
         });
         R.shape(ctx, R.SHAPES[c], bx + 44, by + 9, 8, isTaken ? '#4A5260' : PAL.players[c], PAL.space);
       }
-      R.text(ctx, 'An Bord', lx, 168, { color: PAL.panelLight });
-      let y = 179;
-      for (const p of players) {
+      R.text(ctx, 'An Bord', lx, 164, { color: PAL.panelLight });
+      let y = 175;
+      for (const p of players.slice(0, 3)) {
         const col = PAL.players[p.color || 0];
         R.shape(ctx, R.SHAPES[p.color || 0], lx + 6, y + 4, 8, col);
         R.text(ctx, String(p.name || '?').slice(0, 12) + (p.id === view.pid ? ' (du)' : ''), lx + 16, y, { color: col });
-        R.text(ctx, p.connected === false ? 'getrennt' : p.ready ? 'BEREIT' : 'wartet', lx + 170, y, { color: p.ready ? PAL.mint : PAL.panelLight, align: 'right' });
+        R.text(ctx, p.connected === false ? 'getrennt' : p.ready ? 'BEREIT' : 'wartet', lx + 196, y, { color: p.ready ? PAL.mint : PAL.panelLight, align: 'right' });
         y += 11;
       }
       if (!players.length) R.text(ctx, Net.status === 'open' ? 'warte auf Server …' : 'verbinde …', lx + 16, y, { color: PAL.panelLight });
+      // S1: Block WELTSTAND (über dem Bereit-Knopf, y ≤ 250)
+      this.drawLobbyWorld(ctx, view, lx, 211, 200);
 
       // rechte Spalte: Raumcode + Einladung, Hafen-Übung (M0)
       const rx = 350, rw = 160;
@@ -776,25 +779,28 @@
       // M2: Start – Kampagne oder direkt zur Planetenmission (m3); die Hafen-Übung entfällt beim Direktstart
       // Testgelände (arena_space/arena_away): wie Direktstart ohne Übung, Anzeige in Bernstein
       const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const direct = startId !== 'm1';
+      const resume = !!(st.lobby && st.lobby.world && this.lobbyWorld(st));   // S1: Weltstand gewählt -> Startauswahl entfällt
+      const direct = startId !== 'm1' || resume;
       const isArena = startId === 'arena_space' || startId === 'arena_away';
       const P = window.Shared_Protocol || {};
-      const startLabel = (P.START_LABELS && P.START_LABELS[startId]) || (startId === 'm3' ? 'Direkt zur Planetenmission' : 'Kampagne');
-      const startHint = { m1: 'Von vorn: Boje, Nebel, Kesh', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
+      const starts = this.startList();
+      const startLabel = (P.START_LABELS && P.START_LABELS[startId]) || { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission' }[startId] || startId;
+      const startHint = { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
       const skip = !!(st.lobby && st.lobby.skipDrill);
       R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });
       R.button(ctx, rx, 174, rw, 16, direct ? '[–] Übung entfällt' : skip ? '[x] Übung überspringen' : '[ ] Übung überspringen', {
-        hotkey: 'U', active: skip && !direct, disabled: !me || direct, reason: !me ? 'Noch nicht verbunden' : isArena ? 'Entfällt im Testgelände' : 'Entfällt beim Direktstart der Planetenmission',
+        hotkey: 'U', active: skip && !direct, disabled: !me || direct,
+        reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : startId === 'free' ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
         onClick: () => view.actions.toggleSkipDrill(),
       });
-      R.text(ctx, isArena ? 'Testgelände: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
-      const idx = Math.max(0, (P.START_MISSIONS || ['m1', 'm3']).indexOf(startId)) + 1;
-      R.text(ctx, 'START (' + idx + '/' + ((P.START_MISSIONS || ['m1', 'm3']).length) + ', Taste M)', rx, 207, { color: isArena ? PAL.amber : PAL.brass });
+      R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : startId === 'free' ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
+      const idx = Math.max(0, starts.indexOf(startId)) + 1;
+      R.text(ctx, 'START (' + idx + '/' + starts.length + ', Taste M)', rx, 207, { color: resume ? '#6B7380' : isArena ? PAL.amber : PAL.brass });
       R.button(ctx, rx, 217, rw, 16, startId === 'm1' ? 'Start: Kampagne' : startLabel, {
-        hotkey: 'M', active: direct, disabled: !me || !view.actions.toggleStartMission, reason: 'Noch nicht verbunden',
+        hotkey: 'M', active: direct && !resume, disabled: !me || !view.actions.toggleStartMission || resume, reason: resume ? 'Entfällt beim Fortsetzen' : 'Noch nicht verbunden',
         onClick: () => view.actions.toggleStartMission(),
       });
-      R.text(ctx, startHint, rx, 236, { color: direct ? PAL.amber : PAL.panelLight });
+      R.text(ctx, resume ? 'Entfällt beim Fortsetzen' : startHint, rx, 236, { color: resume ? '#6B7380' : direct ? PAL.amber : PAL.panelLight });
 
       const ready = !!(me && me.ready);
       R.button(ctx, VW / 2 - 84, 252, 168, 20, ready ? 'Bereit! (Enter: zurück)' : 'Bereit melden', {
@@ -803,8 +809,346 @@
       });
       R.text(ctx, 'Das Spiel startet, sobald alle Verbundenen bereit sind.', VW / 2, 282, { color: PAL.panelLight, align: 'center' });
       R.text(ctx, view.audioOn ? 'Ton aktiv' : 'Klick oder Taste aktiviert den Ton', VW / 2, 322, { color: view.audioOn ? PAL.moss : PAL.amber, align: 'center' });
-      R.text(ctx, 'WASD laufen · E interagieren · Esc Konsole verlassen · Tab Crew', VW / 2, 336, { color: PAL.panelLight, align: 'center' });
-      this.drawNotices(ctx, view, 4);
+      R.text(ctx, this.LOBBY_HINT, VW / 2, 336, { color: PAL.panelLight, align: 'center' });
+      R.button(ctx, VW - 92, VH - 22, 86, 16, 'Optionen', { hotkey: 'O', onClick: () => view.actions.openOptions && view.actions.openOptions() });
+      // QA-Abnahme S1: bei offenem Overlay zeichnet drawUi den neuesten Hinweis – sonst lägen zwei Hinweise übereinander
+      if (!(view.ui && view.ui.stack && view.ui.stack.length)) this.drawNotices(ctx, view, 4);
+    },
+
+    // ================================================================ S1: Weltstand, Hauptmenü, Spielmenü
+    LOBBY_HINT: 'F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
+    MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' },
+    WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
+    // Startauswahl (Taste M): aus dem Protokoll; ab VERSION 5 ist 'free' Pflicht – fehlt es, ergänzt der Client es hinter m1
+    startList() {
+      const P = window.Shared_Protocol || {};
+      const list = (P.START_MISSIONS && P.START_MISSIONS.length) ? P.START_MISSIONS.slice() : ['m1', 'm3'];
+      if ((+P.VERSION || 0) >= 5 && list.indexOf('free') < 0) list.splice(Math.max(0, list.indexOf('m1')) + 1, 0, 'free');
+      return list;
+    },
+    lobbyWorlds(st) { const l = st && st.lobby; return l && Array.isArray(l.worlds) ? l.worlds.filter(w => w && w.id != null) : []; },
+    lobbyWorld(st) { const id = st && st.lobby && st.lobby.world; return id == null ? null : this.lobbyWorlds(st).find(w => w.id === id) || null; },
+    worldsMax() { return (CFG.weltstand && CFG.weltstand.max) || 5; },
+    locLabel(id) {
+      if (!id) return '—';
+      const SL = window.Shared_Locations;
+      const l = SL && Array.isArray(SL.LOCATIONS) ? SL.LOCATIONS.find(q => q.id === id) : null;
+      return l ? l.name : String(id);
+    },
+    missionLabel(mission, step) {
+      if (!mission) return 'freier Flug';
+      const t = this.MISSION_TITLES[mission] || String(mission);
+      return t + (step ? ' · Schritt ' + step : '');
+    },
+    relDate(v) {
+      let t = typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : Date.parse(v);
+      if (!isFinite(t)) return '';
+      const s = (Date.now() - t) / 1000;
+      const pad = (n) => String(n).padStart(2, '0');
+      if (s < 90) return 'gerade eben';
+      if (s < 3600) return 'vor ' + Math.round(s / 60) + ' Min.';
+      const d = new Date(t), now = new Date();
+      const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+      const days = Math.round((day(now) - day(d)) / 86400000);
+      if (days <= 0) { const h = Math.round(s / 3600); return 'vor ' + h + (h === 1 ? ' Stunde' : ' Stunden'); }
+      if (days === 1) return 'gestern ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      if (days < 7) return 'vor ' + days + ' Tagen';
+      return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+    },
+    playLabel(sec) {
+      sec = Math.max(0, +sec || 0);
+      if (sec < 3600) return Math.max(sec > 0 ? 1 : 0, Math.round(sec / 60)) + ' Min.';
+      return Math.floor(sec / 3600) + ':' + String(Math.floor(sec / 60) % 60).padStart(2, '0') + ' h';
+    },
+    fit(str, w, scale) {
+      str = String(str == null ? '' : str);
+      if (R.measure(str, scale || 1) <= w) return str;
+      while (str.length > 1 && R.measure(str + '…', scale || 1) > w) str = str.slice(0, -1);
+      return str + '…';
+    },
+    // ⚠-Zeichen (die Pixelschrift kennt kein ⚠): gelbes Dreieck mit Ausrufezeichen
+    warnIcon(ctx, x, y) {
+      ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 6, y + 5); ctx.lineTo(x - 6, y + 5); ctx.closePath();
+      ctx.fillStyle = PAL.warn; ctx.fill();
+      ctx.fillStyle = PAL.space; ctx.fillRect(x - 0.5, y - 2, 1.5, 4); ctx.fillRect(x - 0.5, y + 3, 1.5, 1);
+    },
+    // Lobby-Block „WELTSTAND“: Neu: Kampagne / Fortsetzen … (F)
+    drawLobbyWorld(ctx, view, x, y, w) {
+      const st = view.state || {};
+      const me = (st.players || []).find(p => p.id === view.pid);
+      const worlds = this.lobbyWorlds(st);
+      const chosen = this.lobbyWorld(st);
+      const startId = (st.lobby && st.lobby.startMission) || 'm1';
+      const campaign = startId === 'm1' || startId === 'free';
+      const full = !!(st.lobby && st.lobby.worldsFull);
+      R.text(ctx, 'WELTSTAND', x, y, { color: PAL.brass });
+      R.text(ctx, worlds.length + '/' + this.worldsMax(), x + w, y, { color: full ? PAL.warn : PAL.panelLight, align: 'right' });
+      let label;
+      if (chosen) label = 'Fortsetzen: ' + chosen.name;
+      else if (!campaign) label = 'Kein Weltstand (Testlauf)';
+      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : 'Neu: Kampagne';
+      R.button(ctx, x, y + 10, w, 16, this.fit(label, w - 24, 1), {
+        hotkey: 'F', active: !!chosen, disabled: !me, reason: 'Noch nicht verbunden',
+        onClick: () => view.actions.openWorlds && view.actions.openWorlds('list'),
+      });
+      let info, col = PAL.panelLight;
+      if (chosen) { info = this.playLabel(chosen.playTime) + ' · ' + this.locLabel(chosen.loc) + ' · ' + this.missionLabel(chosen.mission); col = PAL.mint; }
+      else if (campaign && full) { info = 'Alle ' + this.worldsMax() + ' Plätze belegt – erst einen löschen (F)'; col = PAL.warn; }
+      else if (!campaign) info = 'Test-Start legt keinen Weltstand an.';
+      else if (worlds.length) info = worlds.length + (worlds.length === 1 ? ' Weltstand' : ' Weltstände') + ' – F: fortsetzen';
+      else info = 'Noch kein Weltstand gespeichert.';
+      R.text(ctx, this.fit(info, w, 1), x, y + 29, { color: col });
+    },
+
+    // ---------------------------------------------------------------- Overlays (Menü, Optionen, Steuerung, Weltstände)
+    MENU_ITEMS: [['resume', 'Weiterspielen'], ['options', 'Optionen'], ['controls', 'Steuerung'], ['end', 'Partie beenden']],
+    OPTION_ITEMS: ['volume', 'mute', 'render', 'fullscreen', 'back'],
+    // Einträge je Seite (für die Tastatur-Navigation in client.js)
+    pageItems(page, view) {
+      if (page === 'menu') return this.MENU_ITEMS.map(i => i[0]);
+      if (page === 'options') return this.OPTION_ITEMS.slice();
+      if (page === 'confirmEnd') return ['cancel', 'end'];
+      if (page === 'controls') return ['back'];
+      if (page === 'worlds') return this.worldRows(view && view.state, view && view.ui).map(r => r.id);
+      return [];
+    },
+    worldRows(st, ui) {
+      const worlds = this.lobbyWorlds(st);
+      const rows = worlds.map(w => ({ id: w.id, w }));
+      return ui && ui.worldsMode === 'full' ? rows : [{ id: null, neu: true }].concat(rows);
+    },
+    drawUi(ctx, view, ui) {
+      const page = ui && ui.stack.length ? ui.stack[ui.stack.length - 1] : null;
+      if (!page) return;
+      // alles darunter ist nicht mehr klickbar, Tooltips von unten verschwinden
+      R.ui.buttons.length = 0; R.ui.tooltip = null;
+      ctx.fillStyle = 'rgba(11,14,26,0.62)'; ctx.fillRect(0, 0, VW, VH);
+      const sel = ui.sel[page] || 0;
+      if (page === 'menu') this.drawMenuMain(ctx, view, sel);
+      else if (page === 'confirmEnd') this.drawConfirmEnd(ctx, view, sel);
+      else if (page === 'options') this.drawOptions(ctx, view, sel);
+      else if (page === 'controls') this.drawControls(ctx, view);
+      else if (page === 'worlds') this.drawWorlds(ctx, view, ui);
+      this.drawNotices(ctx, view, 2, 1);   // Hinweise bleiben über dem Overlay lesbar
+      R.drawTooltip(ctx);
+    },
+    drawMenuMain(ctx, view, sel) {
+      const st = view.state || {};
+      const w = 200, x = VW / 2 - w / 2, y = 92;
+      const h = 30 + 12 + this.MENU_ITEMS.length * 22 + 14;
+      R.panel(ctx, x, y, w, h, { style: 'brass', title: 'MENÜ' });
+      const solo = (st.players || []).filter(p => p.connected !== false).length <= 1;
+      R.text(ctx, st.paused ? 'PAUSE – das Spiel ruht' : solo ? 'Pause wird angefragt …' : 'Das Spiel läuft weiter', VW / 2, y + 12, { color: st.paused ? PAL.ice : PAL.panelLight, align: 'center' });
+      let yy = y + 28;
+      this.MENU_ITEMS.forEach(([id, label], i) => {
+        R.button(ctx, x + 16, yy, w - 32, 18, label, { active: sel === i, color: id === 'end' && sel !== i ? PAL.rust : null, onClick: () => view.actions.uiActivate('menu', id) });
+        yy += 22;
+      });
+      R.text(ctx, 'W/S wählen · Enter · Esc zurück', VW / 2, y + h - 13, { color: PAL.panelLight, align: 'center' });
+    },
+    drawConfirmEnd(ctx, view, sel) {
+      const info = view.endInfo || {};
+      const w = 320, x = VW / 2 - w / 2, y = 112, h = 104;
+      R.panel(ctx, x, y, w, h, { style: 'brass', title: 'PARTIE BEENDEN' });
+      R.text(ctx, 'Für alle beenden?', VW / 2, y + 12, { color: PAL.amber, scale: 2, align: 'center' });
+      let line, col;
+      if (!info.campaign) { line = 'Testlauf – hier wird nichts gespeichert.'; col = PAL.panelLight; }
+      else if (info.docked) { line = 'Angedockt: Der Weltstand wird gesichert.'; col = PAL.mint; }
+      else { line = 'Fortschritt seit dem letzten Andocken geht verloren.'; col = PAL.warn; }
+      R.text(ctx, line, VW / 2, y + 36, { color: col, align: 'center' });
+      R.text(ctx, 'Die ganze Crew kehrt ins Hauptmenü zurück.', VW / 2, y + 48, { color: PAL.panelLight, align: 'center' });
+      R.button(ctx, x + 16, y + h - 32, 136, 18, 'Abbrechen', { hotkey: 'Esc', active: sel === 0, onClick: () => view.actions.uiActivate('confirmEnd', 'cancel') });
+      R.button(ctx, x + w - 152, y + h - 32, 136, 18, 'Partie beenden', { active: sel === 1, color: sel === 1 ? null : PAL.rust, onClick: () => view.actions.uiActivate('confirmEnd', 'end') });
+      R.text(ctx, 'A/D wählen · Enter bestätigen', VW / 2, y + h - 11, { color: PAL.panelLight, align: 'center' });
+    },
+    drawOptions(ctx, view, sel) {
+      const o = view.optionsInfo || {};
+      const w = 320, x = VW / 2 - w / 2, y = 78, h = 176;
+      R.panel(ctx, x, y, w, h, { style: 'brass', title: 'OPTIONEN' });
+      const rows = this.OPTION_ITEMS;
+      const lx = x + 14, cx = x + 112, cw = w - 126;
+      rows.forEach((id, i) => {
+        const ry = y + 16 + i * 24;
+        const on = sel === i;
+        if (on) { ctx.fillStyle = 'rgba(255,198,107,0.12)'; ctx.fillRect(x + 6, ry - 3, w - 12, 22); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(x + 6.5, ry - 2.5, w - 13, 21); }
+        const act = (dir) => () => { view.actions.uiSelect('options', i); view.actions.uiOption(id, dir); };
+        if (id === 'volume') {
+          R.text(ctx, 'Lautstärke', lx, ry + 4, { color: PAL.star });
+          R.button(ctx, cx, ry, 18, 16, '−', { onClick: act(-1) });
+          const v = Math.round((o.volume == null ? 0.8 : o.volume) * 100);
+          R.bar(ctx, cx + 24, ry + 5, cw - 82, 6, v / 100, o.muted ? '#6B7380' : PAL.mint);
+          R.button(ctx, cx + cw - 52, ry, 18, 16, '+', { onClick: act(1) });
+          R.text(ctx, v + ' %', cx + cw, ry + 4, { color: o.muted ? PAL.grey : PAL.star, align: 'right' });
+        } else if (id === 'mute') {
+          R.text(ctx, 'Ton', lx, ry + 4, { color: PAL.star });
+          R.button(ctx, cx, ry, cw, 16, o.muted ? 'Stumm' : 'An', { active: !o.muted, onClick: act(0) });
+        } else if (id === 'render') {
+          R.text(ctx, 'Darstellung', lx, ry + 4, { color: PAL.star });
+          const lab = o.render === 'voxel' ? 'Voxel (3D)' : '2D (Pixel)';
+          R.button(ctx, cx, ry, cw, 16, lab + '  · F8', { active: o.render === 'voxel', disabled: !o.renderAvailable, reason: 'Umschalter noch nicht geladen', onClick: act(0) });
+        } else if (id === 'fullscreen') {
+          R.text(ctx, 'Vollbild', lx, ry + 4, { color: PAL.star });
+          R.button(ctx, cx, ry, cw, 16, o.fullscreen ? 'An' : 'Aus', { active: !!o.fullscreen, onClick: act(0) });
+        } else if (id === 'back') {
+          R.button(ctx, x + w / 2 - 60, ry, 120, 16, 'Zurück', { hotkey: 'Esc', onClick: () => view.actions.uiActivate('options', 'back') });
+        }
+      });
+      R.text(ctx, '←/→ ändern · Enter umschalten · Esc zurück', VW / 2, y + h - 24, { color: PAL.panelLight, align: 'center' });
+      R.text(ctx, o.saved === false ? 'Speichern im Browser nicht möglich – gilt bis zum Neuladen.' : 'Wird in diesem Browser gespeichert (Vollbild nicht).', VW / 2, y + h - 13, { color: o.saved === false ? PAL.warn : PAL.panelLight, align: 'center' });
+    },
+    CONTROLS: [
+      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · R Minispiel an einer Station · Tab Crew · Esc Menü'],
+      ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
+      ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
+      ['Taktik', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
+      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan) · Energie & Schilde · Schadensplan · Außenteam'],
+      ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch'],
+      ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
+      ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],
+      ['Ansicht', 'F8 Voxel/2D · +/− oder Mausrad Zoom (Voxel) · Esc: erst Konsole/Minispiel verlassen, dann Menü'],
+      ['Hauptmenü', 'Enter bereit · 1–3 Farbe · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
+    ],
+    drawControls(ctx, view) {
+      const x = 24, y = 18, w = VW - 48, h = VH - 36;
+      R.panel(ctx, x, y, w, h, { style: 'brass', title: 'STEUERUNG' });
+      const tx = x + 104, tw = w - 116;
+      let yy = y + 16;
+      for (const [k, v] of this.CONTROLS) {
+        const lines = R.wrap(v, tw, 1);
+        if (yy + lines.length * 10 > y + h - 30) break;
+        R.text(ctx, k, x + 10, yy, { color: PAL.brass });
+        for (const l of lines) { R.text(ctx, l, tx, yy, { color: PAL.star }); yy += 10; }
+        yy += 5;
+      }
+      R.button(ctx, VW / 2 - 60, y + h - 24, 120, 16, 'Zurück', { hotkey: 'Esc', active: true, onClick: () => view.actions.uiActivate('controls', 'back') });
+    },
+    drawWorlds(ctx, view, ui) {
+      const st = view.state || {};
+      const lob = st.lobby || {};
+      const full = ui.worldsMode === 'full';
+      const rows = this.worldRows(st, ui);
+      const sel = Math.max(0, Math.min(rows.length - 1, ui.sel.worlds || 0));
+      const x = 34, y = 20, w = VW - 68, h = VH - 34;
+      R.panel(ctx, x, y, w, h, { style: 'brass', title: full ? 'WELTSTAND LÖSCHEN' : 'WELTSTÄNDE' });
+      const count = this.lobbyWorlds(st).length;
+      R.text(ctx, full ? 'Höchstens ' + this.worldsMax() + ' Weltstände. Einen löschen, dann startet die neue Kampagne.' : 'Fortsetzen oder neu beginnen – gilt für die ganze Crew.', x + 10, y + 12, { color: full ? PAL.warn : PAL.panelLight });
+      R.text(ctx, count + '/' + this.worldsMax(), x + w - 10, y + 12, { color: count >= this.worldsMax() ? PAL.warn : PAL.panelLight, align: 'right' });
+      const holdMax = (CFG.menu && CFG.menu.deleteHold) || 1;
+      const hold = ui.hold;
+      let yy = y + 25;
+      const rx = x + 8, rw = w - 16;
+      rows.forEach((r, i) => {
+        const on = i === sel;
+        const rh = r.neu ? 16 : 44;
+        const chosen = r.neu ? lob.world == null : lob.world === r.id;
+        if (on) { ctx.fillStyle = 'rgba(255,198,107,0.12)'; ctx.fillRect(rx, yy, rw, rh); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx + 0.5, yy + 0.5, rw - 1, rh - 1); }
+        else { ctx.fillStyle = 'rgba(46,58,74,0.35)'; ctx.fillRect(rx, yy, rw, rh); }
+        R.ui.buttons.push({ x: rx, y: yy, w: rw, h: rh, label: '', disabled: false, onClick: () => view.actions.uiPick('worlds', i) });
+        if (chosen) R.shape(ctx, 'diamond', rx + 8, yy + 8, 7, PAL.mint);
+        if (r.neu) {
+          const startId = lob.startMission || 'm1';
+          const lab = startId === 'free' ? '+ Neue Kampagne (ohne Tutorial)' : startId === 'm1' ? '+ Neue Kampagne' : '+ Ohne Weltstand starten (' + ((window.Shared_Protocol && Shared_Protocol.START_LABELS && Shared_Protocol.START_LABELS[startId]) || startId) + ')';
+          R.text(ctx, lab, rx + 18, yy + 4, { color: on ? PAL.amber : PAL.star });
+          if (chosen) R.text(ctx, 'GEWÄHLT', rx + rw - 8, yy + 4, { color: PAL.mint, align: 'right' });
+          yy += rh + 4;
+          return;
+        }
+        const wd = r.w;
+        const ok = !wd.state || wd.state === 'ok';
+        const date = this.relDate(wd.savedAt);
+        const dw = R.measure(date, 1);
+        R.text(ctx, this.fit(wd.name || wd.id, rw - dw - 90, 1), rx + 18, yy + 3, { color: ok ? (on ? PAL.amber : PAL.star) : PAL.grey });
+        R.text(ctx, date, rx + rw - 8, yy + 3, { color: PAL.panelLight, align: 'right' });
+        if (chosen) R.text(ctx, 'GEWÄHLT', rx + rw - 16 - dw, yy + 3, { color: PAL.mint, align: 'right' });
+        if (ok) {
+          R.text(ctx, this.fit(this.locLabel(wd.loc) + ' · ' + this.missionLabel(wd.mission, wd.step), rw - 26, 1), rx + 18, yy + 13, { color: PAL.mint });
+          const crew = Array.isArray(wd.spieler) && wd.spieler.length ? 'Crew: ' + wd.spieler.join(', ') : 'Crew: –';
+          const pt = 'Spielzeit ' + this.playLabel(wd.playTime);
+          R.text(ctx, this.fit(crew, rw - R.measure(pt, 1) - 40, 1), rx + 18, yy + 23, { color: PAL.star });
+          R.text(ctx, pt, rx + rw - 8, yy + 23, { color: PAL.panelLight, align: 'right' });
+          if (wd.chronikLast) R.text(ctx, this.fit('„' + (typeof wd.chronikLast === 'string' ? wd.chronikLast : (wd.chronikLast.text || '')) + '“', rw - 26, 1), rx + 18, yy + 33, { color: PAL.ice });
+        } else {
+          this.warnIcon(ctx, rx + 8, yy + 18);
+          R.text(ctx, 'Nicht ladbar: ' + (this.WORLD_STATE_TEXT[wd.state] || wd.state), rx + 18, yy + 13, { color: PAL.warn });
+          if (wd.grund) R.wrap(String(wd.grund), rw - 26, 1).slice(0, 2).forEach((l, k) => R.text(ctx, l, rx + 18, yy + 23 + k * 10, { color: PAL.star }));
+        }
+        if (hold && hold.id === wd.id) {
+          const f = Math.min(1, hold.t / holdMax);
+          R.backdrop(ctx, rx + rw - 132, yy + rh - 10, 126, 9, 0.85);
+          R.bar(ctx, rx + rw - 86, yy + rh - 7, 78, 4, f, PAL.red);
+          R.text(ctx, hold.sent ? 'gelöscht …' : 'LÖSCHEN', rx + rw - 90, yy + rh - 10, { color: PAL.red, align: 'right', shadow: false });
+        }
+        yy += rh + 4;
+      });
+      if (!rows.length) R.text(ctx, 'Keine Weltstände.', x + 14, yy + 4, { color: PAL.panelLight });
+      // Knöpfe unten
+      const cur = rows[sel];
+      const by = y + h - 24;
+      const cont = !cur ? null : cur.neu ? 'Neu beginnen' : 'Fortsetzen';
+      const contR = !cur ? 'Nichts gewählt' : cur.neu ? null : (cur.w.state && cur.w.state !== 'ok') ? 'Dieser Weltstand ist nicht ladbar' : null;
+      R.button(ctx, x + 10, by, 150, 16, cont || 'Fortsetzen', { hotkey: 'Enter', disabled: !!contR, reason: contR, onClick: () => view.actions.uiActivate('worlds', cur ? cur.id : null) });
+      const delR = !cur || cur.neu ? 'Erst einen Weltstand wählen' : cur.w.state === 'belegt' ? 'Gerade in einer anderen Runde geöffnet' : null;
+      R.button(ctx, x + 170, by, 190, 16, 'Löschen (gedrückt halten)', { hotkey: 'Entf', disabled: !!delR, reason: delR, color: delR ? null : PAL.rust, onClick: () => view.actions.holdDelete(cur.id) });
+      R.button(ctx, x + w - 110, by, 100, 16, 'Zurück', { hotkey: 'Esc', onClick: () => view.actions.uiActivate('worlds', 'back') });
+      R.text(ctx, 'W/S wählen · Enter ' + (full ? 'fortsetzen statt neu' : 'wählen') + ' · Entf ' + String(holdMax).replace('.', ',') + ' s halten: löschen', VW / 2, by - 12, { color: PAL.panelLight, align: 'center' });
+    },
+
+    // ---------------------------------------------------------------- Siegel „Weltstand gesichert“, Pause
+    saveSeal: null,
+    showSaveSeal(ok, text) { this.saveSeal = { t: performance.now() / 1000, ok: !!ok, text: String(text || '') }; },
+    // Art.drawSeal(ctx, x, y, size, variant) – Mittelpunkt x/y; ohne Art eine kleine Raute in Siegelrot mit Messingkante
+    drawSeal(ctx, x, y, size, variant) {
+      if (R.art('drawSeal', 'drawSeal', [ctx, x, y, size, variant])) return;
+      const s = size / 2;
+      const diamond = (r) => { ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); };
+      diamond(s); ctx.fillStyle = variant === 'warn' ? '#6A5320' : PAL.seal; ctx.fill();
+      ctx.strokeStyle = variant === 'warn' ? PAL.warn : PAL.brass; ctx.lineWidth = 1; ctx.stroke();
+      diamond(Math.max(1.5, s * 0.4)); ctx.fillStyle = variant === 'warn' ? PAL.warn : PAL.brass; ctx.fill();
+    },
+    drawSaveSeal(ctx, view) {
+      const s = this.saveSeal;
+      if (!s) return;
+      const dur = (CFG.menu && CFG.menu.savedNoticeTime) || 2.5;
+      const life = s.ok ? dur : dur + 1.5;
+      const age = performance.now() / 1000 - s.t;
+      if (age > life) { this.saveSeal = null; return; }
+      const a = age < 0.15 ? age / 0.15 : age > life - 0.5 ? Math.max(0, (life - age) / 0.5) : 1;
+      const st = view.state || {};
+      const me = view.me;
+      const inGame = st.phase && st.phase !== 'lobby' && me;
+      const carry = !!(inGame && me.carry && !me.console);
+      const h = 22;
+      let y = VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
+      // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
+      let text;
+      if (inGame) text = this.fit(s.text, 300, 1);
+      else {
+        y = VH - h - 26;
+        const short = s.text.split(' · ')[0].split(' – ')[0];
+        const parts = s.text.split(' · ');
+        const cands = [s.text, parts.length > 1 ? 'Gesichert · ' + parts.slice(1).join(' · ') : null, short];
+        const tone = view.audioOn ? 'Ton aktiv' : 'Klick oder Taste aktiviert den Ton';
+        const room = Math.max(96, Math.floor((VW - R.measure(tone, 1)) / 2) - 4 - 34 - 6);
+        text = cands.find(c => c && R.measure(c, 1) <= room) || this.fit(short, room, 1);
+      }
+      const w = R.measure(text, 1) + 34, x = 4;
+      const col = s.ok ? PAL.mint : PAL.warn;
+      ctx.globalAlpha = a;
+      R.backdrop(ctx, x, y, w, h, 0.85);
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      const stamp = s.ok ? 1 + 0.35 * Math.max(0, 1 - age / 0.3) : 1;   // kurzer „Stempel“-Effekt
+      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + 12, y + h / 2, Math.round(16 * stamp), s.ok ? 'ok' : 'warn'));
+      R.text(ctx, text, x + 24, y + h / 2 - 4, { color: col });
+      ctx.globalAlpha = 1;
+    },
+    drawPause(ctx, view, menuOpen) {
+      const st = view.state;
+      if (!st || !st.paused || menuOpen || st.phase === 'lobby') return;
+      const label = 'PAUSE';
+      const w = R.measure(label, 1) + 16;
+      R.backdrop(ctx, VW / 2 - w / 2, VH / 2 - 40, w, 13, 0.8);
+      R.text(ctx, label, VW / 2, VH / 2 - 37, { color: PAL.ice, align: 'center' });
     },
 
     // M0: Raumcode-Eingabe nach badcode (Eingabefeld ist ein DOM-Input wie das Namensfeld)

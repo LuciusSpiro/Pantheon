@@ -26,7 +26,7 @@
     w.n++;
     if (now - w.t > 3000) {
       w.t = now;
-      console.warn('[Sternenschicht] Fehler in ' + label + ' (bisher ' + w.n + '×):', err);
+      console.warn('[Pantheon] Fehler in ' + label + ' (bisher ' + w.n + '×):', err);
     }
   }
   function guard(label, fn, fallback) {

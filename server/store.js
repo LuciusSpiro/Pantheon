@@ -19,7 +19,8 @@ function writeAtomic(obj) {
   fs.renameSync(tmp, FILE);
 }
 
-// entry: { startedAt, endedAt?, players, stats, flags, teaser }
+// entry: { startedAt, endedAt?, players, stats, flags, teaser, worldId (S1: Weltstand der Kampagne oder null) }
+// Weltstände selbst liegen nicht hier, sondern in server/weltstand.js (WORLD_DIR).
 function logRun(entry, opts) {
   if (opts && opts.disabled) return;
   try {
@@ -31,7 +32,7 @@ function logRun(entry, opts) {
     data.updatedAt = new Date().toISOString();
     writeAtomic(data);
   } catch (e) {
-    console.warn('[store] campaign.json nicht geschrieben:', e.message);
+    console.warn('[Pantheon] campaign.json nicht geschrieben:', e.message);
   }
 }
 

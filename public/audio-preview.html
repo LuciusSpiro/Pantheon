@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sternenschicht – Audio-Vorschau</title>
+<title>Pantheon – Audio-Vorschau</title>
 <style>
   :root { --bg:#0B0E1A; --panel:#2E3A4A; --panel2:#4F6178; --mint:#7FE0C2; --amber:#FFC66B;
           --brass:#C9974A; --red:#E0473C; --white:#F4EEDC; --light:#8EA3B5; }
@@ -22,6 +22,7 @@
   button.m1 { box-shadow: inset 3px 0 0 var(--amber); }
   button.m2 { box-shadow: inset 3px 0 0 var(--mint); }
   button.m3 { box-shadow: inset 3px 0 0 var(--brass); }
+  button.s1 { box-shadow: inset 3px 0 0 #9E1F27; }
   .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
   label { display:flex; gap:8px; align-items:center; }
   input[type=range] { width:180px; accent-color:var(--mint); }
@@ -30,8 +31,8 @@
 </style>
 </head>
 <body>
-<h1>Sternenschicht – Audio-Vorschau</h1>
-<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“), messing: neu in M3a („Breitseite &amp; Schaden“).</p>
+<h1>Pantheon – Audio-Vorschau</h1>
+<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“), messing: neu in M3a („Breitseite &amp; Schaden“), rot: neu in S1 („Regiebuch &amp; Weltstand“).</p>
 
 <h2>Musik</h2>
 <div class="grid" id="moods"></div>
@@ -58,6 +59,11 @@
 lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spielen ganze Szenen (Bug-Schuss, Minispiel).</p>
 <div class="grid" id="variantsM3"></div>
 
+<h2>S1 – Weltstand</h2>
+<p class="hint">save_seal (Weltstand gesichert, leise), world_load (Fortsetzen), save_delete (Stand gelöscht). Master unten nutzt
+<code>setVolume</code>/<code>setMuted</code>, Anzeige über <code>getVolume</code>/<code>isMuted</code>.</p>
+<div class="grid" id="variantsS1"></div>
+
 <h2>Master</h2>
 <div class="row">
   <label>Lautstärke <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
@@ -83,7 +89,8 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
              minigame_done:1, system_break:1, dodge_evade:1 };
   LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
   LOUD.tele_charge = 1; LOUD.heavy_hit = 1; LOUD.system_break = 1;
-  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : '')).trim(); }
+  var S1 = { save_seal:1, world_load:1, save_delete:1 };
+  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : S1[n] ? 's1' : '')).trim(); }
 
   function ensure() { if (A) A.init(); }
   function make(parent, label, fn, cls) {
@@ -199,18 +206,29 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
     at(ms + 250, function () { A.play('minigame_done', base()); });
   }, 'm3');
 
+  // S1: Vergleich – das Siegel darf nicht nach Belohnung klingen
+  make($('variantsS1'), 'Vergleich: save_seal · buy · discovery', function () {
+    A.play('save_seal', base());
+    at(900, function () { A.play('buy', base()); });
+    at(1800, function () { A.play('discovery', base()); });
+  }, 's1');
+  make($('variantsS1'), 'Ablauf: Fortsetzen (world_load, dann angedockt gesichert)', function () {
+    A.play('world_load', base());
+    at(2200, function () { A.play('save_seal', base()); });
+  }, 's1');
+
   $('intensity').addEventListener('input', function () {
     ensure(); A.setIntensity(+this.value); $('intensityVal').textContent = (+this.value).toFixed(2);
   });
   $('pan').addEventListener('input', function () { $('panVal').textContent = (+this.value).toFixed(1); });
   $('volume').addEventListener('input', function () { ensure(); A.setVolume(+this.value); });
-  $('mute').addEventListener('change', function () { ensure(); A.mute(this.checked); });
+  $('mute').addEventListener('change', function () { ensure(); A.setMuted(this.checked); });
 
   setInterval(function () {
     var s = A.getState();
     $('status').textContent = 'Kontext: ' + s.ctxState + '   Stimmung: ' + s.mood + '   Intensität: ' + s.intensity.toFixed(2) +
-      '\nLoops: ' + (s.loops.join(', ') || '–') + '   Stimmen: ' + s.voices + '   Lautstärke: ' + s.volume.toFixed(2) +
-      (s.muted ? ' (stumm)' : '') + '   Fehler: ' + s.errors;
+      '\nLoops: ' + (s.loops.join(', ') || '–') + '   Stimmen: ' + s.voices + '   Lautstärke: ' + A.getVolume().toFixed(2) +
+      (A.isMuted() ? ' (stumm)' : '') + '   Fehler: ' + s.errors;
   }, 250);
 })();
 </script>

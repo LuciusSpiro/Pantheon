@@ -1,0 +1,36 @@
+{
+  "_kommentar": "Startwerte jeder neuen Kampagne (CONTRACT-S1 §5.1). npc: NSC-Datensätze, Laufzeit (Gedächtnis, Haltung, Status, Ort) im Weltstand. kampagne.ohne_tutorial: was der Start „Kampagne ohne Tutorial“ zusätzlich setzt. Funk-Anzeigenamen wie heute: 'titel name' bzw. bei Sela/Grauzahn 'name (titel)' – siehe content/regiebuch/bausteine.json, Abschnitt npc.",
+  "npc": {
+    "tesk": {
+      "name": "Tesk", "titel": "Hafenmeisterin", "fraktion": "konkordat", "rolle": "auftraggeberin",
+      "status": "lebt", "haltung": 0, "ort": "hafen"
+    },
+    "melk": {
+      "name": "Melk", "titel": "Archivarin", "fraktion": "konkordat", "rolle": "archivarin",
+      "status": "lebt", "haltung": 0
+    },
+    "ivo": {
+      "name": "Ivo", "titel": "Techniker", "fraktion": "konkordat", "rolle": "techniker",
+      "status": "lebt", "haltung": 0, "ort": "b7"
+    },
+    "sela": {
+      "name": "Sela", "titel": "Vaelen-Händlerin", "fraktion": "vaelen", "rolle": "haendlerin",
+      "status": "lebt", "haltung": 0, "ort": "vaelen"
+    },
+    "grauzahn": {
+      "name": "Grauzahn", "titel": "Anführer der Rostmeute", "fraktion": "rostmeute", "rolle": "gegenspieler",
+      "status": "lebt", "haltung": 0
+    }
+  },
+  "kampagne": {
+    "ohne_tutorial": {
+      "funk": {
+        "from": "tesk",
+        "text": "Lerche, hier Tesk. Willkommen im Lichtkordon. Man munkelt, die Tafel von Kesh liege jetzt im Konkordat-Archiv. Neue Aufträge folgen – haltet die Ohren offen."
+      },
+      "fakten": {
+        "tafel_von_kesh": { "value": "konkordat_archiv", "quelle": "geruecht" }
+      }
+    }
+  }
+}

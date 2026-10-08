@@ -8,6 +8,10 @@
 //   M3a/§20: gunboat=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
 //   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
 //        setback=1 (alle 3 s Rückschlag an der eigenen Reparatur / am Schrauber)  repair=1 (eigene Figur flickt die Stb-Batterie)
+//   S1: worlds=0..5 (Weltstände in der Lobby, inkl. kaputt/neuer/belegt)  world=<id>|first (gewählt)  start=m1|free|m3|…
+//       mocknames=lang (lange Namen)  saved=1 (worldSaved alle 5 s)  chronik=1 (Reiter Chronik)
+//       Menü/Pause: menu { op:'pause' } wirkt nur solo (mockcrew=0); menu { op:'end' } -> sessionEnded + Lobby
+//       Konsole: DevMock.saveWorld() · DevMock.saveFail() · DevMock.event(kind, extra) · DevMock.setPaused(on)
 // Tasten (nur Mock): Bild↓/Bild↑ nächster/voriger Ort · Pos1 Zone Schiff/Außen · Ende Reaktorzustand durchschalten
 (function () {
   'use strict';
@@ -111,11 +115,27 @@
   }
   function me() { return W.players[0]; }
 
+  // S1: Weltstände für ?worlds=N (neueste zuerst; der zweite ist kaputt, ab 5 ist der vierte belegt)
+  function mockWorlds(n) {
+    const now = Date.now();
+    const base = [
+      { name: 'Lerche · 07.10.', savedAt: now - 4 * 60e3, playTime: 2710, loc: 'vaelen', mission: 'm2', step: 'nebula', spieler: ['Bartholomäus', 'Kunigunde', 'Maximilian'], chronikLast: 'Sela von der Vaelen-Karawane gerettet. Handel möglich.' },
+      { name: 'Lerche · 06.10.', savedAt: now - 26 * 3600e3, playTime: 0, loc: 'hafen', state: 'kaputt', grund: 'Die Datei endet mitten im Text (abgeschnitten). Eine Sicherung gab es nicht.' },
+      { name: 'Lerche · 05.10.', savedAt: now - 2 * 86400e3, playTime: 5420, loc: 'hafen', mission: null, spieler: ['Kai'], chronikLast: 'Die Tafel von Kesh ist in Sicherheit.' },
+      { name: 'Ohne Tutorial · 03.10.', savedAt: now - 4 * 86400e3, playTime: 640, loc: 'hafen', mission: null, spieler: ['Mira', 'Juno'], state: n >= 5 ? 'belegt' : 'ok', grund: n >= 5 ? 'Gerade auf Port 3301 geöffnet (Prozess 4711).' : undefined },
+      { name: 'Lerche · 20.09.', savedAt: now - 17 * 86400e3, playTime: 1210, loc: 'splitter', mission: 'm1', step: 'nachhut', spieler: ['Du', 'Mira', 'Juno'], state: 'neuer', grund: 'Gespeichert mit Weltstand-Version 2, dieser Server kennt Version 1.' },
+    ];
+    const out = [];
+    for (let i = 0; i < Math.min(5, Math.max(0, n)); i++) out.push(Object.assign({ id: 'w-' + (1000 + i * 37).toString(36), state: 'ok', step: null, chronikLast: null }, base[i]));
+    return out;
+  }
+
   function newWorld() {
     const sp = Maps.SHIP_SPAWNS.map(s => tc(s.x, s.y));
     const crew = params.get('mockcrew') !== '0';
-    const players = [mkPlayer('p1', 'Du', 0, sp[0])];
-    if (crew) { players.push(mkPlayer('p2', 'Mira', 1, sp[1])); players.push(mkPlayer('p3', 'Juno', 2, sp[2])); players[1].ready = players[2].ready = true; }
+    const long = params.get('mocknames') === 'lang';   // S1: lange Namen für Layout-Prüfung
+    const players = [mkPlayer('p1', long ? 'Bartholomäus' : 'Du', 0, sp[0])];
+    if (crew) { players.push(mkPlayer('p2', long ? 'Kunigundchen' : 'Mira', 1, sp[1])); players.push(mkPlayer('p3', long ? 'Maximilianus' : 'Juno', 2, sp[2])); players[1].ready = players[2].ready = true; }
     const deco = {};
     for (const b of Maps.BEDS) for (const s of b.slots) deco[s.id] = null;
     deco.q0a = 'trophaee_boje'; deco.q1a = 'poster'; deco.q1b = 'aquarium'; deco.q2c = 'sessel';
@@ -123,7 +143,8 @@
       tick: 0, time: 0, phase: params.get('phase') === 'lobby' ? 'lobby' : 'play',
       players,
       bots: Maps.BOT_SPAWNS.slice(0, 2).map((b, i) => ({ id: 'b' + i, variant: i, ...tc(b.x, b.y), dir: 'down', moving: false, carry: null, task: null, progress: 0, home: tc(b.x, b.y) })),
-      lobbyOpts: { skipDrill: false, startMission: 'm1' },
+      lobbyOpts: { skipDrill: false, startMission: 'm1', world: null, worlds: mockWorlds(+params.get('worlds') || 0) },
+      paused: false,
       world: { location: 'hafen', locations: LOCS.map(l => Object.assign({}, l, { known: ['hafen', 'splitter', 'b7', 'vaelen', 'wrack', 'nebel', 'kesh'].indexOf(l.id) >= 0, visited: ['hafen', 'splitter', 'b7'].indexOf(l.id) >= 0, unknown: false, map: l.id === 'b7' ? 'platform' : l.id === 'wrack' ? 'wreck' : l.id === 'kesh' ? 'kesh' : null, discoveries: { found: 0, total: (SCENES[l.id].hidden || []).length + 1 } })) },
       ship: {
         scene: 'hafen', docked: true, dockedAt: 'hafen', x: 700, y: 700, angle: 0, vx: 0, vy: 0, speed: 0,
@@ -1052,11 +1073,43 @@
     const p = me();
     switch (msg.t) {
       case 'hello':
-        p.name = String(msg.name || 'Du').slice(0, 12);
+        if (params.get('mocknames') !== 'lang') p.name = String(msg.name || 'Du').slice(0, 12);
         if (msg.color != null && !W.players.some(q => q !== p && q.color === msg.color)) p.color = msg.color;
         emit({ t: 'welcome', pid: 'p1', serverVersion: 'mock-m1', debug: true });
         break;
-      case 'ready': p.ready = !!msg.ready; if (W.players.every(q => q.ready)) W.phase = 'play'; break;
+      case 'ready': {
+        const lo = W.lobbyOpts;
+        // S1: neue Kampagne bei 5 Weltständen wird abgelehnt
+        if (msg.ready && lo.world == null && lo.worlds.length >= 5 && (lo.startMission === 'm1' || lo.startMission === 'free')) { notice('Erst einen Weltstand löschen'); p.ready = false; break; }
+        p.ready = !!msg.ready;
+        if (W.players.every(q => q.ready)) {
+          W.phase = 'play';
+          const wd = lo.world != null && lo.worlds.find(x => x.id === lo.world);
+          if (wd) ev('worldLoaded', { id: wd.id, name: wd.name });
+          else if (lo.startMission === 'm1' || lo.startMission === 'free') ev('worldSaved', { id: 'w-neu', name: 'Lerche · ' + new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + '.', loc: 'hafen' });
+        }
+        break;
+      }
+      // S1: Weltstand löschen, Spielmenü
+      case 'world':
+        if (msg.op === 'delete') {
+          const lo = W.lobbyOpts, wd = lo.worlds.find(x => x.id === msg.id);
+          if (!wd) break;
+          if (wd.state === 'belegt') { emit({ t: 'error', code: 'worldbusy', text: 'Weltstand ist gerade in einer anderen Runde geöffnet.' }); break; }
+          lo.worlds = lo.worlds.filter(x => x !== wd);
+          if (lo.world === wd.id) lo.world = null;
+        }
+        break;
+      case 'menu':
+        if (msg.op === 'pause') W.paused = !!msg.on && W.players.filter(q => q.connected !== false).length === 1;
+        else if (msg.op === 'end') {
+          const saved = !!W.ship.dockedAt;
+          if (saved) ev('worldSaved', { id: 'w-mock', name: 'Lerche', loc: W.ship.dockedAt });
+          ev('sessionEnded', { by: p.id, saved });
+          W.phase = 'lobby'; W.paused = false; for (const q of W.players) q.ready = q !== p && q.id !== 'p1' ? true : false;
+          for (const q of W.players) q.console = null;
+        }
+        break;
       case 'input': W._in = { mx: +msg.mx || 0, my: +msg.my || 0 }; p.lastSeq = msg.seq; break;
       case 'act': if (msg.down) { W._act = true; if (!p.console) act(p); } else { W._act = false; if (p.action && p.action.kind !== 'beam') p.action = null; } break;
       case 'drop': if (p.carry) { (p.zone === 'away' ? W.away.items : W.ship.groundItems).push({ id: nid('g'), kind: p.carry, x: p.x, y: p.y }); p.carry = null; } break;
@@ -1067,7 +1120,8 @@
         break;
       case 'lobbyOpt':
         if (typeof msg.skipDrill === 'boolean') W.lobbyOpts.skipDrill = msg.skipDrill;
-        if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
+        if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
+        if ('world' in msg) W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world);
         break;
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;
       case 'cmd': cmd(p, msg); break;
@@ -1091,7 +1145,9 @@
 
   // ---------------------------------------------------------------- Simulation
   function tick(dt) {
-    W.tick++; W.time += dt;
+    W.tick++;
+    if (W.paused && W.phase !== 'lobby') return;   // S1: Solo-Pause hält die Simulation an
+    W.time += dt;
     if (W.phase === 'lobby') return;
     W.stats.elapsed = W.time;
     const s = W.ship, p = me(), sp = W.space;
@@ -1288,6 +1344,7 @@
     const snap = {
       t: 'snap', tick: W.tick, time: Math.round(W.time * 100) / 100, phase: W.phase,
       lobby: { skipDrill: W.lobbyOpts.skipDrill, startMission: W.lobbyOpts.startMission },
+      paused: !!W.paused,
       players: W.players.map(p => { const r = strip(p); if (r.action) r.action = { kind: r.action.kind, system: r.action.sys || r.action.system, progress: r.action.kind === 'switch' ? W.ship.reactor.restartProgress : r.action.progress }; return r; }),
       bots: W.bots.map(b => { const r = strip(b); delete r.home; return r; }),
       world: { location: W.world.location },
@@ -1297,6 +1354,8 @@
       support: W.support, inventory: W.inventory, upgrades: W.upgrades, quarters: W.quarters, deco: W.deco, plan: W.plan,
       mission: W.mission, stats: W.stats, shopContext: W.shopContext, errors: 0,
     };
+    // S1: Weltstand-Felder nur in Phase lobby
+    if (W.phase === 'lobby') Object.assign(snap.lobby, { worlds: W.lobbyOpts.worlds, world: W.lobbyOpts.world, worldsFull: W.lobbyOpts.worlds.length >= 5 });
     // statische Ortsdaten nur alle 15 Snapshots (Client muss sie behalten, §10)
     if (W._locSent % 15 === 0) snap.world.locations = W.world.locations;
     W._locSent++;
@@ -1325,7 +1384,16 @@
     }
     if (params.get('m1end') === '1') { W.mission.m1Done = true; W.mission.list[1].state = 'done'; W.mission.active = null; W.mission.discoveries.found = 6; W.stats.elapsed = 2310; }
     if (params.get('zone') === 'away' || (loc === 'kesh' && params.get('console'))) setAway(true);
-    if (params.get('start') === 'm3') W.lobbyOpts.startMission = 'm3';
+    if (params.get('start')) W.lobbyOpts.startMission = params.get('start');
+    if (params.get('world') && W.lobbyOpts.worlds.some(x => x.id === params.get('world'))) W.lobbyOpts.world = params.get('world');
+    if (params.get('world') === 'first' && W.lobbyOpts.worlds[0]) W.lobbyOpts.world = W.lobbyOpts.worlds[0].id;
+    // S1 (Kann): Chronik im Missionsbuch
+    if (params.get('chronik') === '1') W.mission.chronik = [
+      { text: 'Die Lerche verlässt den Hafen Lichtkordon. Tesk winkt vom Funkturm.', spielzeit_s: 60, ort: 'hafen' },
+      { text: 'Boje B-7 wieder auf Sendung. Ivo gerettet und an Bord.', spielzeit_s: 940, ort: 'b7' },
+      { text: 'Grauzahn verspricht Rache. Die Nachhut kam nicht weit.', spielzeit_s: 1210, ort: 'splitter' },
+      'Sela von der Vaelen-Karawane gerettet. Handel möglich.',
+    ];
     m3Params();
     const pos = (params.get('pos') || '').split(',').map(Number);
     if (pos.length === 2 && isFinite(pos[0]) && p.zone === 'ship') Object.assign(p, tc(pos[0], pos[1]));
@@ -1362,6 +1430,12 @@
   DevMock.world = () => W;
   DevMock.setConsole = (c) => { if (W) me().console = c; };
   DevMock.oda = oda;
+  // S1: Ereignisse auslösen (Screenshots/Tests): DevMock.saveWorld(), DevMock.saveFail(), DevMock.event(kind, extra)
+  DevMock.saveWorld = () => { if (W) ev('worldSaved', { id: 'w-mock', name: 'Lerche', loc: W.ship.dockedAt || W.world.location || 'hafen' }); };
+  DevMock.saveFail = () => ev('worldSaveFailed', { reason: 'Datenträger voll' });
+  DevMock.event = (kind, extra) => ev(kind, extra);
+  DevMock.setPaused = (on) => { if (W) W.paused = !!on; };
+  if (params.get('saved') === '1') { setTimeout(() => DevMock.saveWorld(), 1200); setInterval(() => DevMock.saveWorld(), 5000); }
 
   let last = performance.now(), acc = 0, snapAcc = 0;
   setInterval(() => {

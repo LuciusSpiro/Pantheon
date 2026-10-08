@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "id": "w-fr15",
+  "name": "Lerche · 07.10.",
+  "erstellt": "2026-10-07T19:00:00Z",
+  "gespeichert": "2026-10-07T19:00:01Z",
+  "spielzeit_s": 0,
+  "tutorial": "laeuft",
+  "meta": { "spieler": ["Kai"], "server": "s1-test" },
+  "ort": { "angedockt": "hafen" },
+  "schiff": {
+    "name": "Lerche",
+    "marken": 150,
+    "lager": { "ersatzteil": 1, "flickblech": 2, "loeschgel": 1, "medipack": 0, "bolzen": 0 },
+    "ausbauten": [],
+    "deko": [],
+    "quartiere": {},
+    "systeme": {},
+    "huelle": 100
+  },
+  "welt": {
+    "orte": { "bekannt": ["hafen", "splitter"], "besucht": ["hafen"], "aufgedeckt": [], "gefunden": [] },
+    "verbindungen_offen": [],
+    "flags": {},
+    "fakten": {},
+    "odaSeen": [],
+    "scans": [],
+    "log": []
+  },
+  "missionen": {
+    "missionen": { "m1": { "status": "aktiv", "schritt": "dock", "v": {}, "ereignisse": [], "entscheidungen": [], "erledigte_ziele": [], "start_s": 0 } },
+    "aktiv": "m1",
+    "flags": {},
+    "buchFokus": "m1"
+  },
+  "npc": {
+    "tesk": { "name": "Tesk", "titel": "Hafenmeisterin", "fraktion": "konkordat", "rolle": "auftraggeberin", "status": "lebt", "haltung": 0, "ort": "hafen", "gedaechtnis": [] },
+    "melk": { "name": "Melk", "titel": "Archivarin", "fraktion": "konkordat", "rolle": "archivarin", "status": "lebt", "haltung": 0, "ort": "hafen", "gedaechtnis": [] },
+    "ivo": { "name": "Ivo", "titel": "Techniker", "fraktion": "konkordat", "rolle": "crew_gast", "status": "lebt", "haltung": 0, "ort": "b7", "gedaechtnis": [] },
+    "sela": { "name": "Sela", "titel": "Vaelen-Händlerin", "fraktion": "vaelen", "rolle": "haendlerin", "status": "lebt", "haltung": 0, "ort": "vaelen", "gedaechtnis": [] },
+    "grauzahn": { "name": "Grauzahn", "titel": "Anführer der Rostmeute", "fraktion": "rostmeute", "rolle": "gegenspieler", "status": "lebt", "haltung": 0, "gedaechtnis": [] }
+  },
+  "chronik": []
+}

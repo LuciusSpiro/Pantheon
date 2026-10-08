@@ -243,6 +243,13 @@
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)
     missionM3: { offerAfter: 20, offerDirectAt: 2, wardenStepMax: 90, hallX: 37, courtyardX: 27 },
+    // ---- S1 „Regiebuch & Weltstand“ (CONTRACT-S1) ----
+    // skipTutorialMarks: Marken beim Start „Kampagne ohne Tutorial“ – Zahl legt Kai fest; bis dahin = economy.startMarks (150)
+    campaign: { skipTutorialMarks: 150, teskRumorAt: 8 },
+    // Weltstand: höchstens 5 Stände, angedockt höchstens alle 10 s speichern (nur bei Änderung), NSC-Gedächtnis je 12 Einträge
+    weltstand: { max: 5, dockedSaveEvery: 10, npcMemoryMax: 12, logKeep: 60, attitudeMin: -3, attitudeMax: 3 },
+    // Spielmenü: Pause nur solo; Löschen eines Weltstands durch Halten (s)
+    menu: { pauseSoloOnly: true, deleteHold: 1.0, savedNoticeTime: 2.5 },
 
     // Testgelände (Lobby-Start 'arena_space' / 'arena_away'): Einstieg direkt in den Kampf, solo wie zu dritt.
     // Raumkampf: Szene ohne Brocken, Wellen zyklisch (nach der letzten wieder von vorn, Runde zählt hoch).

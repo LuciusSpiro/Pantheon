@@ -176,6 +176,41 @@ class Explore {
     }
   }
 
+  // ---------- Weltstand (CONTRACT-S1 §5.1): nur Lesen/Schreiben, keine Ereignisse ----------
+  // -> { orte: { bekannt, besucht, aufgedeckt, gefunden }, verbindungen_offen, karten, log (letzte logKeep) }
+  toSave(logKeep) {
+    const ids = Object.keys(this.hidden);
+    return {
+      orte: {
+        bekannt: [...this.known], besucht: [...this.visited],
+        aufgedeckt: ids.filter((id) => this.hidden[id].revealed), gefunden: ids.filter((id) => this.hidden[id].found),
+      },
+      verbindungen_offen: [...this.linksOpen],
+      karten: Object.keys(this.mapsKnown).filter((k) => this.mapsKnown[k]),
+      log: this.log.slice(-(logKeep || 60)).map((e) => {
+        const o = { id: e.id, text: e.text, loc: e.loc || null, t: e.t || 0 };
+        if (e.mission !== undefined) o.mission = e.mission;
+        return o;
+      }),
+    };
+  }
+  // Gegenstück zu toSave (nach reset()); unbekannte Orte/Funde werden übergangen.
+  restore(w) {
+    const o = (w && w.orte) || {};
+    const valid = (id) => !!Locations.get(id);
+    this.known = new Set((o.bekannt || Locations.KNOWN_AT_START).filter(valid));
+    this.visited = new Set((o.besucht || []).filter(valid));
+    for (const id of this.visited) this.known.add(id);
+    this.linksOpen = new Set((w && w.verbindungen_offen) || []);
+    this.hidden = {};
+    for (const id of o.aufgedeckt || []) if (this.findHidden(id)) this.hidden[id] = { revealed: true, found: false };
+    for (const id of o.gefunden || []) if (this.findHidden(id)) this.hidden[id] = { revealed: true, found: true };
+    for (const k of Object.keys(this.mapsKnown)) this.mapsKnown[k] = !!(w && Array.isArray(w.karten) && w.karten.includes(k));
+    this.log = Array.isArray(w && w.log) ? w.log.map((e) => Object.assign({}, e)) : [];
+    this.logSeq = this.log.reduce((mx, e) => Math.max(mx, Number(String(e.id || '').replace(/\D/g, '')) || 0), 0);
+    this.version++; this.logVersion++;
+  }
+
   // ---------- Snapshot ----------
   locationsSnapshot() {
     const out = [];

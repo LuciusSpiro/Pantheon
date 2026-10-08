@@ -1,20 +1,22 @@
 'use strict';
-// Missions-Engine (CONTRACT-M1 §9.3): führt Missionen aus Datenobjekten aus (server/missions/*.js).
-// Bausteine: Bedingungen (atLocation, enemiesCleared/-Left, scanDone, itemAboard, flag, choiceMade, event, elapsed …)
-// und Aktionen (radio, oda, spawn, choice, reveal, reward, setFlag, set, after, goto, complete, startMission, do …).
-// Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip.
-const Physics = require('../../shared/physics.js');
+// Missions-Engine (CONTRACT-M1 §9.3, S1 CONTRACT-S1 §3.5): führt Missionen aus Regiebüchern aus (content/regiebuecher/*.json,
+// geladen und geprüft über server/mission/loader.js + checker.js). Jeder { do: … } / { check: … } läuft über die
+// Baustein-Registry (server/mission/registry.js). Die alten JS-Module m1–m3 sind seit S1-QA gelöscht (kein Fallback mehr);
+// nur das Testgelände arena_space bleibt ein JS-Modul (server/missions/arena.js) mit internen Bausteinen.
+// Bedingungen (atLocation, enemiesCleared/-Left, scanDone, itemAboard, flag, choiceMade, event, elapsed, missionDone, lobby …)
+// und Aktionen (radio, oda, spawn, choice, reveal, reward, setFlag, set, after, goto, complete, wirkung/wendung, do …).
+// Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip,
+// drill, wiederaufnahme.
+const path = require('path');
 const Locations = require('../../shared/locations.js');
-const W = require('../world.js');
 const interior = require('./interior.js');
 const space = require('./space.js');
 const { dist } = require('../util.js');
+const Registry = require('../mission/registry.js');
+const Loader = require('../mission/loader.js');
+const Checker = require('../mission/checker.js');
+const Objects = require('../mission/objects.js');
 
-// arena_space: Pseudo-Mission des Testgeländes (nicht in MISSION_ORDER, keine Missionsliste, kein Ende)
-const DEFS = { m1: require('../missions/m1.js'), m2: require('../missions/m2.js'), m3: require('../missions/m3.js'), arena_space: require('../missions/arena.js') };
-const MISSION_ORDER = ['m1', 'm2', 'm3'];
-let combatMod = null;
-const combat = () => combatMod || (combatMod = require('./combat.js'));
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
 const { ITEM_NAMES, DEKO_NAMES } = require('./explore.js');
@@ -26,7 +28,60 @@ const SELA = 'Sela (Vaelen-Händlerin)';
 // Größenbudget des Buchs im Snapshot (Bytes JSON). Grundlast im Kesh-Kampf zu dritt ≈ 8 KB, Snapshot muss < 12 KB bleiben.
 const BOOK_BUDGET = 3000;
 const jsonBytes = (o) => Buffer.byteLength(JSON.stringify(o));
-// Kürzt das Buch stufenweise, bis es ins Budget passt. Laufende/angebotene Einträge behalten ihre Ziele immer.
+const isObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+
+// ---------- Missionskatalog: Regiebücher + interne JS-Module ----------
+// Interne Szenarien, die (noch) JS-Module sind: nur das Testgelände Raumkampf (art 'intern', nie in der Kampagne)
+const INTERN_JS = { arena_space: '../missions/arena.js' };
+function tryRequire(p) {
+  try { return require(p); } catch (e) { if (e && e.code !== 'MODULE_NOT_FOUND') console.error('[Pantheon] ' + p + ':', e.message); return null; }
+}
+function wrapInternJs(id, mod) {
+  return Object.assign({}, mod, {
+    id, isBook: false, art: 'intern', tutorial: false, angebot: {}, buehne: {}, ausgaenge: {}, erwartet: {},
+    debugPrep: mod.debugPrep || {}, debugDone: mod.debugDone || null, steps: mod.steps || [],
+  });
+}
+let CATALOG = null;
+function catalog() {
+  if (CATALOG) return CATALOG;
+  const t0 = Date.now();
+  const { books, invalid, warnings } = Loader.loadAll();
+  const jsModules = {};
+  for (const [id, p] of Object.entries(INTERN_JS)) {
+    if (books[id]) continue;
+    const mod = tryRequire(p);
+    if (mod) jsModules[id] = wrapInternJs(id, mod);
+  }
+  for (const inv of invalid) {
+    console.error(`[Pantheon] Regiebuch '${inv.id}' ungültig – wird nicht angeboten (${path.basename(inv.file)}):`);
+    for (const e of inv.errors.slice(0, 8)) console.error(`  ${e.code} ${e.p}: ${e.msg}`);
+    if (inv.errors.length > 8) console.error(`  … ${inv.errors.length - 8} weitere`);
+  }
+  const info = {};
+  for (const [id, b] of Object.entries(books)) info[id] = { id, title: (b.kopf && b.kopf.titel) || id, art: (b.kopf && b.kopf.art) || 'mission', tutorial: !!(b.kopf && b.kopf.tutorial), angebot: b.angebot || {}, isBook: true };
+  for (const [id, d] of Object.entries(jsModules)) info[id] = { id, title: d.title, art: d.art, tutorial: d.tutorial, angebot: d.angebot, isBook: false };
+  // Angebotsreihenfolge: Start-Missionen, dann Ketten über angebot.nach.missionDone, Rest nach Kennung
+  const missions = Object.values(info).filter((x) => x.art === 'mission');
+  const order = [];
+  const add = (x) => { if (!order.includes(x.id)) order.push(x.id); };
+  missions.filter((x) => x.angebot.start).sort((a, b) => a.id.localeCompare(b.id)).forEach(add);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const x of missions.sort((a, b) => a.id.localeCompare(b.id))) {
+      const n = x.angebot.nach;
+      if (!order.includes(x.id) && isObj(n) && typeof n.missionDone === 'string' && order.includes(n.missionDone)) { add(x); grew = true; }
+    }
+  }
+  missions.sort((a, b) => a.id.localeCompare(b.id)).forEach(add);
+  const sides = Object.values(info).filter((x) => x.art === 'nebenauftrag').map((x) => x.id).sort();
+  CATALOG = { books, invalid, warnings, jsModules, info, order, sides, ms: Date.now() - t0 };
+  return CATALOG;
+}
+// Für Tests: Katalog neu laden (z. B. nach dem Schreiben eines Buchs)
+function reloadCatalog() { CATALOG = null; return catalog(); }
+
 function fitBook(entries, budget) {
   const steps = [
     () => { for (const e of entries) if (e.state === 'erledigt') e.log = []; },
@@ -58,8 +113,6 @@ function rewardText(r) {
   for (const d of r.deko || []) parts.push('Deko: ' + (DEKO_NAMES[d] || d));
   return parts.join(', ');
 }
-const kesh = (m) => m.game.aways.kesh;
-const keshTeam = (m) => m.game.players.filter((p) => p.zone === 'away' && m.game.away.map === 'kesh');
 
 const CONSOLE_HELP = {
   helm: 'Steuer: W/S Tempostufe (½ = wendig), A/D Ruder, X Allstopp, Shift+A/D ausweichen, F Faltsprung. Lanze: Bug drauf!',
@@ -71,202 +124,8 @@ const CONSOLE_HELP = {
   sonde: 'Kustoden-Sonde: Farben 1–6 in der Reihenfolge der Symbole. Die Tabelle hat der Captain oben.',
   plan: 'Planungstisch: Sternkarte und gescannte Karten. Pins setzen und gemeinsam planen. Esc steht auf.',
 };
-
-// ---------- Registrierte Prüfungen (für { check: name, ... }) ----------
-const CHECKS = {
-  drillDone: (m) => m.drillDone(),
-  noFires: (m) => !m.game.ship.fireList.length,
-  noBreaches: (m) => !m.game.ship.breachList.length,
-  systemOk: (m, a) => m.game.ship.systems[a.system] === 'ok',
-  consoleManned: (m, a) => m.game.players.some((p) => p.console === a.console && p.connected),
-  salvageDone: (m) => (m.game.salvaged || 0) >= m.game.C.salvage.count || (m.v.salvageSpawned && !m.game.space.salvage.length && m.game.ship.scene === 'splitter'),
-  shipX: (m, a) => (a.gt == null || m.game.ship.x > a.gt) && (a.lt == null || m.game.ship.x < a.lt),
-  marksBelow: (m, a) => m.game.inventory.marks < a.n,
-  anyAway: (m) => m.game.players.some((p) => p.zone === 'away'),
-  awayActive: (m) => m.game.aways.platform.active,
-  awaySince: (m, a) => m.game.aways.platform.active && m.game.time - m.game.aways.platform.firstBeamAt >= a.sec && m.game.ship.scene === 'b7',
-  sondeDisabled: (m) => m.game.aways.platform.sonde.disabled,
-  coreRebooted: (m) => m.game.aways.platform.coreRebooted,
-  npcRescued: (m) => m.game.aways.platform.npc.rescued,
-  npcInjured: (m) => m.game.aways.platform.npc.injured,
-  nearInjuredNpc: (m) => { const n = m.game.aways.platform.npc; return n.injured && n.present && m.game.away.map === 'platform' && m.game.players.some((p) => p.zone === 'away' && dist(p.x, p.y, n.x, n.y) < 80); },
-  awayComplete: (m) => m.game.aways.platform.active && m.datenkernAboard() && !CHECKS.anyAway(m) && m.game.aways.platform.coreRebooted,
-  players: (m, a) => m.game.players.filter((p) => p.connected).length <= (a.max != null ? a.max : 99),
-  widescanUsed: (m) => m.events.has('widescan'),
-  // ---- M2: Mission 3 „Die Tafel von Kesh“ ----
-  keshTeamDown: (m) => keshTeam(m).length > 0,
-  squadCleared: (m, a) => !!kesh(m).spawned[a.squad] && !kesh(m).drones.some((d) => d.alive && d.squad === a.squad),
-  playerInHall: (m) => keshTeam(m).some((p) => Math.floor(p.x / 32) >= m.game.C.missionM3.hallX),
-  jammersAllOff: (m) => kesh(m).jammers.every((j) => j.off),
-  vaultOpen: (m) => kesh(m).vault.open,
-  tabletTaken: (m) => kesh(m).tablet.taken,
-  // QA M2: zählt nur, wer die Tafel geborgen hat (sonst überspringt ein im Hof wartender Kamerad den Wächter-Schritt).
-  // Ist der Träger nicht mehr unten (Rückholung, getrennt), reicht jeder Kamerad im Hof.
-  tabletInCourtyard: (m) => {
-    if ((m.game.inventory.tafel || 0) < 1) return false;
-    const team = keshTeam(m); const by = kesh(m).tablet.by;
-    const carrierDown = by && team.some((p) => p.id === by);
-    return team.some((p) => !p.downed && Math.floor(p.x / 32) <= m.game.C.missionM3.courtyardX && (!carrierDown || p.id === by));
-  },
-  keshExtracted: (m) => (m.game.inventory.tafel || 0) >= 1 && kesh(m).active && !m.game.players.some((p) => p.zone === 'away'),
-};
-
-// ---------- Registrierte Aktionen (für { do: name, ... }) ----------
-const HOOKS = {
-  drillSetup(m) {
-    const g = m.game; const d = g.C.drill;
-    if (g.lobbyOpts && g.lobbyOpts.skipDrill) {
-      const sk = g.C.drillSkip || { radioAt: 6 };
-      m.v.skip = true; m.v.radio = true;
-      m.later(3, [{ oda: 'Übung übersprungen – alte Hasen also. Lager oben links, Brücke ganz vorn rechts.' }]);
-      m.later(sk.radioAt, [m.def.radioTesk]);
-      m.later(sk.radioAt + 22, [{ if: { not: { event: 'accepted' } }, oda: 'Der Funkspruch wartet: Captain-Konsole auf der Brücke, Reiter „Funk“, Enter.' }]);
-      return;
-    }
-    g.odaSeen.add('firstFire'); g.odaSeen.add('firstBreach'); g.odaSeen.add('firstBroken');
-    // M3a: Positionen aus dem Schiffslayout (Maps.SHIP_DRILL); CONFIG.drill.fire/breach nur noch Altnamen/Fallback
-    const pos = W.Maps.SHIP_DRILL || d;
-    interior.addFire(g, pos.fire.x, pos.fire.y);
-    interior.addBreach(g, pos.breach.x, pos.breach.y);
-    g.ship.systems[d.system] = 'broken';
-  },
-  clearDrill(m) {
-    const g = m.game;
-    if (!m.isDrillStep()) return;
-    g.ship.fireList = []; g.ship.breachList = []; g.ship.systems[g.C.drill.system] = 'ok';
-  },
-  guaranteeFire(m) {
-    const g = m.game; const region = g.rng.int(4);
-    const t = interior.randomRegionFloor(g, region, false);
-    interior.addFire(g, t.x, t.y);
-    g.emit('hit', { sector: region, shield: false, dmg: 1 });
-    g.oda('Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!', null);
-  },
-  guaranteeBreach(m, a) {
-    const g = m.game; const t = interior.randomRegionFloor(g, a.region != null ? a.region : 3, true);
-    interior.addBreach(g, t.x, t.y);
-    g.emit('hit', { sector: a.region != null ? a.region : 3, shield: false, dmg: 2 });
-    if (a.text) g.oda(a.text, null);
-  },
-  breakShields(m, a) {
-    interior.damageSystem(m.game, 'shields', 'broken');
-    m.game.emit('hit', { sector: 1, shield: false, dmg: 2 });
-    if (a.text) m.game.oda(a.text, null);
-  },
-  damage(m, a) { interior.damageSystem(m.game, a.system, a.state); },
-  pay(m, a) { m.game.inventory.marks = Math.max(0, m.game.inventory.marks - a.marks); },
-  endAway(m) { m.game.aways.platform.active = false; },
-  removeDatenkern(m) {
-    const g = m.game;
-    for (const p of g.players) if (p.carry === 'datenkern') p.carry = null;
-    g.ship.groundItems = g.ship.groundItems.filter((i) => i.kind !== 'datenkern');
-  },
-  putDatenkern(m) {
-    const g = m.game;
-    if (m.datenkernAboard()) return;
-    g.aways.platform.items = g.aways.platform.items.filter((i) => i.kind !== 'datenkern');
-    const c = W.tileCenter(W.SHIP_PADS[2].x, W.SHIP_PADS[2].y);
-    g.ship.groundItems.push({ id: 'core', kind: 'datenkern', x: c.x, y: c.y });
-  },
-  spawnGuards(m) {
-    const n = m.game.transfer.spawnGuards(m.game);
-    if (n) m.game.oda('Uh-oh. Der Neustart hat die Wächter-Routine geweckt: ' + n + ' Drohnen starten neu. Zurück zu den Pads!', null);
-  },
-  selaCall(m) {
-    const g = m.game;
-    if (m.flags.selaCalled) return;
-    m.flags.selaCalled = true;
-    g.explore.reveal('vaelen', false);
-    m.radio('Sela (Vaelen-Händlerin)', 'Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?');
-    g.oda('Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela.', null);
-  },
-  killAll(m) { m.game.space.enemies = []; },
-  killKind(m, a) { m.game.space.enemies = m.game.space.enemies.filter((e) => e.kind !== a.kind); },
-  markScan(m, a) { m.game.scans.add(a.id); },
-  revealHidden(m, a) {
-    const ex = m.game.explore; const h = ex.findHidden(a.id);
-    if (h && !ex.isRevealed(h.id)) ex.revealHidden(h, true);
-  },
-  scanHidden(m, a) {
-    const ex = m.game.explore; const h = ex.findHidden(a.id);
-    if (!h) return;
-    if (!ex.isRevealed(h.id)) ex.revealHidden(h, true);
-    m.game.scans.add(h.id);
-    ex.onHiddenScanned(h);
-  },
-  beaconHint(m) {
-    const g = m.game; const h = g.explore.findHidden('nebel_beacon');
-    const a = Math.atan2(h.y - g.ship.y, h.x - g.ship.x);
-    const dirs = ['östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich', 'nördlich', 'nordöstlich'];
-    const i = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8;
-    g.oda(`Das Echo kommt von ${dirs[i]} von uns. Hinfliegen und nochmal Weitscan (W)!`, null);
-  },
-  skipAway(m) {
-    const g = m.game; const aw = g.aways.platform;
-    aw.active = true; aw.firstBeamAt = aw.firstBeamAt || g.time; aw.coreRebooted = true; aw.sonde.disabled = true; aw.doorOpen = true;
-    for (const p of g.players) if (p.zone === 'away') interior.placeOnShipPad(g, p);
-    HOOKS.putDatenkern(m);
-  },
-  debugJump(m, a) { m.game.debugGoto(a.loc); },
-  debugDock(m) { m.game.debugGoto('hafen', true); },
-  choose(m, a) { if (m.state.choice) m.choice(a.option); },
-  acceptNow(m) { if (m.state.radio && m.state.radio.needsAccept) m.accept(); },
-  forceRadio(m, a) { m.radio(a.from, a.text, true); },
-  // ---- M2: Mission 3 ----
-  revealKesh(m, a) {
-    const ex = m.game.explore;
-    ex.openLink('kesh');
-    ex.reveal('kesh', a && a.text !== undefined ? a.text : false);
-  },
-  spawnSquad(m, a) { combat().spawnSquad(m.game, a.squad, { alert: !!a.alert }); },
-  killSquad(m, a) {
-    const aw = kesh(m);
-    if (!aw.spawned[a.squad]) combat().spawnSquad(m.game, a.squad, {});
-    for (const d of aw.drones) if (d.alive && d.squad === a.squad) { d.alive = false; d.aim = null; }
-  },
-  // QA M2: Das erste abgeschaltete Störrelais schlägt Alarm – Verstärkung kommt durch die Korridore (nur solange das Tor zu ist)
-  reliefSquad(m) {
-    const aw = kesh(m);
-    if (!aw || aw.spawned.relief || aw.vault.open) return;
-    const n = combat().spawnSquad(m.game, 'relief', { alert: true });
-    if (n) m.game.oda('Das Relais hat Alarm geschlagen – Verstärkung aus dem Camp kommt durch die Gänge!', null);
-  },
-  wakeWarden(m) { combat().wakeWarden(m.game); },
-  openVault(m) { combat().openVault(m.game); },
-  takeTablet(m) { combat().takeTablet(m.game, null); },
-  m3Reward(m, a) {
-    const r = m.game.C.awayCombat.rewards;
-    if (a.key === 'warden') {
-      if (m.flags.wardenKilled) return;
-      m.flags.wardenKilled = true;
-      const deko = (m.game.C.deko || []).includes('lamassu_figur') ? ['lamassu_figur'] : [];
-      const txt = m.game.explore.reward({ marks: r.warden, deko });
-      m.game.oda(`Der Wächter liegt! Er hinterlässt eine kleine Lamassu-Figur. ${txt}.`, null);
-      m.game.explore.addLog('Kesh: Kustoden-Wächter ausgeschaltet (' + txt + ').', 'kesh');
-      return;
-    }
-    if (a.key === 'jammer') m.game.explore.reward({ marks: r.jammer });
-    if (a.key === 'complete') m.game.explore.reward({ marks: r.complete });
-  },
-  m3Prep(m, a) {
-    const g = m.game; const order = ['courtyard', 'archive', 'tablet', 'warden', 'extract'];
-    const n = order.indexOf(a.upTo);
-    if (n >= 1) HOOKS.killSquad(m, { squad: 'squad1' });
-    if (n >= 2) combat().openVault(g);
-    if (n >= 3 && !kesh(m).tablet.taken) combat().takeTablet(g, null);
-    if (n >= 4) { combat().wakeWarden(g); HOOKS.killSquad(m, { squad: 'squad2' }); }
-  },
-  // Testgelände Raumkampf: Debug `skip` räumt die laufende Welle bzw. ruft die nächste sofort
-  arenaSkip(m) { arena().skipWave(m.game); },
-  // Debug/Skip: alle Außenteam-Spieler hoch (Tafel bleibt im Inventar)
-  keshRecallAll(m) {
-    const g = m.game;
-    const list = g.players.filter((p) => p.zone === 'away');
-    list.forEach((p, i) => { interior.placeOnShipPad(g, p, i); p.beamLock = false; });
-    if (!(g.inventory.tafel >= 1)) g.inventory.tafel = 1;
-    kesh(m).active = true;
-  },
-};
+// Fallback, solange content/npc.json keinen Funk für „Kampagne ohne Tutorial“ hat
+const FREE_RADIO_FALLBACK = { from: 'tesk', text: 'Lerche, hier Tesk. Willkommen im Lichtkordon. Man munkelt, die Tafel von Kesh liege jetzt im Konkordat-Archiv. Neue Aufträge folgen.' };
 
 class Mission {
   constructor(game) {
@@ -274,7 +133,7 @@ class Mission {
     this.state = { stage: null, objectives: [], radio: null, choice: null, teaser: null,
       flags: { bribed: null, decision: null, technikerRescued: false } };
     this.flags = this.state.flags;
-    this.missions = {};          // id -> { id, title, state: 'active'|'done' }
+    this.missions = {};          // id -> { id, title, state: 'active'|'done', ausgang? }
     this.activeId = null; this.def = null; this.step = null;
     this.stepTime = 0; this.v = {}; this.events = new Set(); this.done = new Set();
     this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set();
@@ -283,33 +142,109 @@ class Mission {
     // §21.2 Missionsbuch: abgehakte Ziele je Mission (bleiben über Schrittwechsel erhalten), Fokus, Version
     this.doneLog = {};           // missionId -> [{ id, text, optional }]
     this.book = { version: 1, focus: null, key: null };
+    // S1
+    this.mode = null;            // 'campaign' | 'direct' | 'arena' | null (noch nicht gestartet)
+    this.pending = [];           // missionsunabhängige Zeitpunkte (game.time), z. B. Tesk-Funk ohne Tutorial
+    this.defCache = {};          // id -> Laufzeit-Def (Bücher: beim Missionsstart neu vorbereitet, damit tune wirkt)
+    this.textDef = null;         // Def für @-Texte außerhalb der aktiven Mission (Folgen, danach, Nebenaufträge)
+    this.writeCtx = null;        // { mission, ausgang } für Weltstand-Bausteine
+    this.dormant = false;        // Schritt nach dem Laden noch nicht am Ort (siehe wakeIfThere)
+    const cat = catalog();
+    // Entscheidung 14: ungültiges Regiebuch mit --debug -> Abbruch, sonst laut loggen und nicht anbieten
+    const fatal = cat.invalid;
+    if (game && game.debug && fatal.length) {
+      throw new Error('Ungültige Regiebücher: ' + fatal.map((i) => `${i.id} (${i.errors.map((e) => e.code + ' ' + e.p).slice(0, 3).join('; ')})`).join(', '));
+    }
   }
 
   get stageTime() { return this.stepTime; }   // Altname (Tests/Tools)
+  get order() { return catalog().order; }
+
+  // ---------- Katalog ----------
+  info(id) { return catalog().info[id] || null; }
+  // Frische Laufzeit-Def (Bücher: cfg mit game.C aufgelöst)
+  loadDef(id) {
+    const cat = catalog();
+    let def = null;
+    if (cat.books[id]) {
+      def = Loader.prepare(cat.books[id], this.game.C);
+      for (const e of def.cfgErrors) this.game.countError('mission-cfg', new Error(`${id}: ${e}`));
+    } else if (cat.jsModules[id]) def = cat.jsModules[id];
+    if (def) this.defCache[id] = def;
+    return def;
+  }
+  defFor(id) { return this.defCache[id] || this.loadDef(id); }
+  offers() { return this.order.slice(); }
 
   // ---------- Lebenszyklus ----------
-  start() { this.startMission('m1'); }
+  start() { this.startCampaign({ tutorial: true }); }
+
+  // S1 §3.5: Kampagne mit Tutorial (erste Mission mit angebot.start) oder ohne (Tutorial gilt als erledigt)
+  startCampaign(opts) {
+    const g = this.game; const C = g.C;
+    const tutorial = !(opts && opts.tutorial === false);
+    this.mode = 'campaign';
+    if (tutorial) {
+      const first = this.order.find((id) => this.info(id).angebot.start) || this.order[0];
+      if (first) this.startMission(first);
+      return;
+    }
+    for (const id of this.order) {
+      const inf = this.info(id);
+      if (!inf.tutorial || this.missions[id]) continue;
+      const def = this.defFor(id);
+      this.missions[id] = { id, title: inf.title, state: 'done', ausgang: 'uebersprungen' };
+      g.stats.missions[id] = { start: this.playTime(), end: this.playTime() };
+      // nur Fakten aus dem Ausgang 'uebersprungen' (kein Gedächtnis, keine Chronik)
+      const ag = def && def.ausgaenge && def.ausgaenge.uebersprungen;
+      if (ag) this.withContext(def, { mission: id, ausgang: 'uebersprungen' }, () => this.run((ag.folgen || []).filter((a) => a && a.do === 'welt_fakt')));
+    }
+    const camp = C.campaign || {};
+    g.inventory.marks = camp.skipTutorialMarks != null ? camp.skipTutorialMarks : C.economy.startMarks;
+    const kamp = (Loader.npcData().kampagne || {}).ohne_tutorial || {};
+    for (const [k, v] of Object.entries(kamp.fakten || {})) {
+      const value = isObj(v) && 'value' in v ? v.value : v;
+      const quelle = isObj(v) && v.quelle ? v.quelle : 'ohne_tutorial';
+      this.callWeltstand('fact', k, value, quelle);
+    }
+    const funk = kamp.funk && kamp.funk.text ? kamp.funk : FREE_RADIO_FALLBACK;
+    this.pending.push({ at: g.time + (camp.teskRumorAt != null ? camp.teskRumorAt : 8), actions: [{ radio: { from: funk.from || 'tesk', text: funk.text } }] });
+    this.refreshObjectives();
+    this.checkOffers();
+  }
 
   // M2: Lobby-Direktstart (CONTRACT-M2 §3.3): frühere Missionen gelten als erledigt, Schiff im Hafen (nicht angedockt),
-  // Kesh bekannt, Auftrag kommt sofort als Funk zum Annehmen.
+  // angebot.direktstart.setFlag/prep, Auftrag kommt als Funk zum Annehmen. Ohne Weltstand (S1 Entscheidung 18).
   startDirect(id) {
     const g = this.game;
-    if (!DEFS[id]) return this.start();
-    for (const mid of MISSION_ORDER) {
+    const inf = this.info(id);
+    if (!inf) return this.start();
+    this.mode = 'direct';
+    for (const mid of this.order) {
       if (mid === id) break;
-      this.missions[mid] = { id: mid, title: DEFS[mid].title, state: 'done' };
+      const d = this.defFor(mid);
+      this.missions[mid] = { id: mid, title: this.info(mid).title, state: 'done' };
       g.stats.missions[mid] = { start: this.playTime(), end: this.playTime() };
-      if (DEFS[mid].debugDone) this.run(DEFS[mid].debugDone);
+      if (d && d.debugDone) this.withContext(d, null, () => this.run(d.debugDone));
     }
-    this.flags.m3Direct = true;
+    const ds = inf.angebot.direktstart || {};
+    Object.assign(this.flags, ds.setFlag || {});
     space.enterScene(g, 'hafen', { docked: false });
-    if (id === 'm3') HOOKS.revealKesh(this, { text: false });
+    const def = this.defFor(id);
+    if (ds.prep) this.withContext(def, null, () => this.run(ds.prep));
     this.startMission(id);
   }
 
   startMission(id) {
-    const def = DEFS[id];
-    if (!def) return;
+    const def = this.loadDef(id);
+    if (!def) { this.game.countError('mission-start', new Error('Unbekannte Mission ' + id)); return; }
+    if (def.isBook) {
+      // §3.3: Prüfer beim Missionsstart noch einmal (das Buch ist geladen und gültig – Sicherung gegen Laufzeitänderungen)
+      const r = Checker.check(catalog().books[id]);
+      if (!r.ok) { this.game.countError('mission-book', new Error(`${id}: ${r.errors.map((e) => e.code + ' ' + e.p).slice(0, 3).join('; ')}`)); return; }
+    }
+    if (def.art === 'intern') this.mode = this.mode || 'arena';
+    this.applyExpected(def);
     this.missions[id] = { id, title: def.title, state: 'active' };
     this.activeId = id; this.def = def;
     const st = this.game.stats;
@@ -317,36 +252,171 @@ class Mission {
     this.game.emit('missionStart', { id, title: def.title });
     this.setStep(def.steps[0].id);
   }
+  // erwartet: fehlende Flags (undefiniert/null) bekommen den Standard
+  applyExpected(def) {
+    for (const [k, v] of Object.entries((def && def.erwartet) || {})) if (this.flags[k] == null) this.flags[k] = v;
+  }
 
-  completeMission() {
+  completeMission(ausgangIn) {
     const id = this.activeId; const def = this.def;
     if (!id) return;
+    const ausgang = ausgangIn == null || ausgangIn === true ? 'erfolg' : String(ausgangIn);
     this.collectStepEnd();
     this.missions[id].state = 'done';
+    this.missions[id].ausgang = ausgang;
     this.game.stats.missions[id].end = this.playTime();
-    this.game.emit('missionDone', { id, title: def.title });
-    this.game.log(`Mission ${id} abgeschlossen nach ${Math.round(this.game.stats.missions[id].end - this.game.stats.missions[id].start)} s.`);
+    this.game.emit('missionDone', { id, title: def.title, ausgang });
+    this.game.log(`Mission ${id} abgeschlossen (${ausgang}) nach ${Math.round(this.game.stats.missions[id].end - this.game.stats.missions[id].start)} s.`);
+    const ag = def.ausgaenge && def.ausgaenge[ausgang];
+    if (def.isBook && !ag) this.game.countError('mission-ausgang', new Error(`${id}: Ausgang '${ausgang}' fehlt`));
+    // Folgen schreiben in den Weltstand (Mission und Ausgang im Kontext)
+    if (ag) this.withContext(def, { mission: id, ausgang }, () => this.run(ag.folgen || []));
     this.activeId = null; this.def = null; this.step = null; this.state.stage = null; this.state.choice = null;
     this.refreshObjectives();
-    if (def.onComplete) this.run(def.onComplete);
+    if (def.onComplete) this.run(def.onComplete);   // nur Altmodule
+    if (ag && ag.danach) this.withContext(def, { mission: id, ausgang }, () => this.run(ag.danach));
+    if (this.mode !== 'direct' && this.mode !== 'arena') this.checkOffers();
+  }
+
+  // Angebote: nächste Mission starten, deren angebot.nach gilt (sofort aktiv wie bisher)
+  checkOffers() {
+    if (this.activeId) return;
+    for (const id of this.order) {
+      if (this.missions[id]) continue;
+      const a = this.info(id).angebot || {};
+      if (a.start || !a.nach) continue;
+      if (a.nicht_wenn && this.cond(a.nicht_wenn)) continue;
+      if (this.cond(a.nach)) { this.startMission(id); return; }
+    }
   }
 
   playTime() { return Math.round((this.game.time - this.game.stats.playTimeStart) * 10) / 10; }
 
-  setStep(id) {
+  // opts.dormant (nur restore): Schritt mit loc fern vom Schiff – enter/timers/rules/next laufen erst am Ort (update)
+  setStep(id, opts) {
     const g = this.game;
     const step = this.def.steps.find((s) => s.id === id);
     if (!step) { g.countError('mission-step', new Error('Unbekannter Schritt ' + id)); return; }
     this.collectStepEnd();
+    this.dormant = !!(opts && opts.dormant);
     this.step = step; this.state.stage = id;
     this.stepTime = 0; this.v = {}; this.events = new Set(); this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set();
     this.kills = {}; this.state.choice = null; this.scanPoint = null;
     g.ship.scan.progress = 0; g.ship.scan.done = false; g.ship.scanning = false;
     g.stats.stages[id] = this.playTime();
     g.emit('stage', { stage: id, mission: this.activeId });
-    if (step.enter) this.run(step.enter);
+    if (step.enter && !this.dormant) this.run(step.enter);
     this.refreshObjectives();
   }
+  // QA-Abnahme S1: Auch ein ruhender Schritt darf weitergehen, wenn sein `next` schon gilt – sonst hängt z. B. m1 `return`
+  // (nach dem Laden bei Vaelen, Schritt-Ort b7) beim Heimflug fest, und m2 `sonde` (geladen im Hafen) beim Flug in den Nebel.
+  // Enter/Timer/Regeln laufen weiterhin erst am Ort. Ein Ziel-Schritt mit fremdem Ort ruht seinerseits.
+  dormantNext() {
+    const step = this.step;
+    for (const n of step.next || []) {
+      if (!this.cond(n.if)) continue;
+      if (n.do) this.run(n.do);
+      if (this.step === step) {
+        if (n.complete) this.completeMission(n.complete);
+        else if (n.goto) {
+          const t = this.def.steps.find((s) => s.id === n.goto);
+          this.setStep(n.goto, { dormant: !!(t && t.loc && this.game.ship.scene !== t.loc) });
+        }
+      }
+      break;
+    }
+  }
+  // Ruhender Schritt (nach dem Laden): erst am Ort des Schritts loslaufen – dann enter, Zeit ab 0
+  wakeIfThere() {
+    if (!this.dormant || !this.step) return false;
+    if (this.step.loc && this.game.ship.scene !== this.step.loc) return false;
+    this.dormant = false; this.stepTime = 0;
+    if (this.step.enter) this.run(this.step.enter);
+    return true;
+  }
+
+  // ---------- S1: Weltstand (toSave/restore) ----------
+  toSave() {
+    const missionen = {};
+    for (const [id, ms] of Object.entries(this.missions)) {
+      const inf = this.info(id);
+      if (inf && inf.art === 'intern') continue;
+      const st = this.game.stats.missions[id] || {};
+      const active = id === this.activeId;
+      const e = { status: ms.state === 'done' ? 'erledigt' : (active && this.offerPending() ? 'angeboten' : 'aktiv') };
+      if (ms.ausgang) e.ausgang = ms.ausgang;
+      if (st.start != null) e.start_s = st.start;
+      if (st.end != null) e.ende_s = st.end;
+      e.erledigte_ziele = (this.doneLog[id] || []).map((o) => (o.optional ? { id: o.id, text: o.text, optional: true } : { id: o.id, text: o.text }));
+      if (active && ms.state !== 'done') {
+        e.schritt = this.state.stage;
+        e.v = JSON.parse(JSON.stringify(this.v));
+        e.ereignisse = [...this.events];
+        e.entscheidungen = [...this.choicesMade];
+      }
+      missionen[id] = e;
+    }
+    const inf = this.activeId ? this.info(this.activeId) : null;
+    return { missionen, aktiv: inf && inf.art !== 'intern' ? this.activeId : null,
+      flags: JSON.parse(JSON.stringify(this.flags)), buchFokus: this.book.focus || null };
+  }
+  // Laden: Zustand übernehmen; aktive Mission startet den gespeicherten Schritt neu (bzw. wiederaufnahme.ab), danach
+  // v (nur gleicher Schritt) / Ereignisse / Entscheidungen / erledigte Ziele überlagern, dann wiederaufnahme.prep.
+  restore(obj) {
+    const g = this.game;
+    if (!isObj(obj)) return false;
+    this.mode = 'campaign';
+    if (isObj(obj.flags)) Object.assign(this.flags, obj.flags);
+    if (obj.buchFokus !== undefined) this.book.focus = obj.buchFokus || null;
+    const ms = isObj(obj.missionen) ? obj.missionen : {};
+    for (const [id, m] of Object.entries(ms)) {
+      if (!isObj(m)) continue;
+      const inf = this.info(id);
+      g.stats.missions[id] = { start: m.start_s != null ? m.start_s : this.playTime(), end: m.ende_s != null ? m.ende_s : null };
+      this.doneLog[id] = (m.erledigte_ziele || []).filter(isObj).map((x) => ({ id: x.id, text: x.text, optional: !!x.optional }));
+      if (m.status === 'erledigt') this.missions[id] = { id, title: inf ? inf.title : id, state: 'done', ausgang: m.ausgang || null };
+    }
+    const aid = obj.aktiv;
+    const m = aid && ms[aid];
+    if (m && m.status !== 'erledigt') {
+      const def = this.loadDef(aid);
+      if (!def) { g.countError('mission-restore', new Error('Unbekannte Mission ' + aid)); return false; }
+      this.applyExpected(def);
+      this.missions[aid] = { id: aid, title: def.title, state: 'active' };
+      this.activeId = aid; this.def = def;
+      const sid = m.schritt && def.steps.some((s) => s.id === m.schritt) ? m.schritt : def.steps[0].id;
+      if (m.schritt && sid !== m.schritt) g.countError('mission-restore', new Error(`${aid}: Schritt ${m.schritt} unbekannt`));
+      const st = def.steps.find((s) => s.id === sid);
+      const resume = st && st.wiederaufnahme && def.steps.some((s) => s.id === st.wiederaufnahme.ab) ? st.wiederaufnahme : null;
+      const target = resume ? resume.ab : sid;
+      for (const z of this.doneLog[aid] || []) this.done.add(aid + ':' + z.id);
+      const tStep = def.steps.find((s) => s.id === target);
+      this.setStep(target, { dormant: !!(tStep && tStep.loc && g.ship.scene !== tStep.loc) });
+      if (target === sid && isObj(m.v)) Object.assign(this.v, m.v);
+      for (const e of m.ereignisse || []) this.events.add(e);
+      for (const c of m.entscheidungen || []) this.choicesMade.add(c);
+      if (resume && resume.prep) this.run(resume.prep);
+      this.refreshObjectives();
+    } else this.refreshObjectives();
+    return true;
+  }
+
+  // ---------- Kontext für Texte und Weltstand ----------
+  withContext(def, write, fn) {
+    const pd = this.textDef; const pw = this.writeCtx;
+    this.textDef = def || pd; this.writeCtx = write || pw;
+    try { return fn(); } finally { this.textDef = pd; this.writeCtx = pw; }
+  }
+  writeContext() {
+    const w = this.writeCtx || {};
+    return { mission: w.mission || this.activeId || null, ausgang: w.ausgang || null, schritt: w.ausgang ? null : this.state.stage };
+  }
+  callWeltstand(method, ...args) {
+    const w = this.game.weltstand;
+    if (!w || typeof w !== 'object' || typeof w[method] !== 'function') return;
+    try { w[method](...args); } catch (e) { this.game.countError('mission-weltstand', e); }
+  }
+  npcName(id) { return Loader.npcName(id, this.textDef || this.def); }
 
   // ---------- Bedingungen ----------
   cond(c) {
@@ -372,7 +442,7 @@ class Mission {
       case 'killed': return (this.kills[v.tag || v.kind] || 0) >= (v.min || 1);
       case 'enemyHpBelow': return g.space.enemies.some((e) => (!v.tag || e.tag === v.tag) && (!v.kind || e.kind === v.kind) && e.hp <= e.hpMax * v.frac);
       case 'scanDone': return g.scans.has(v);
-      case 'itemAboard': return v === 'datenkern' ? this.datenkernAboard() : false;
+      case 'itemAboard': return v === 'datenkern' ? this.datenkernAboard() : (g.inventory[v] || 0) > 0;
       case 'choiceMade': return this.choicesMade.has(v);
       case 'event': return this.events.has(v);
       case 'known': return ex.isKnown(v);
@@ -382,16 +452,23 @@ class Mission {
       case 'dest': return ship.jump.dest === v;
       case 'near': { const s = space.stationPoint(g); return dist(ship.x, ship.y, s.x, s.y) <= v.station; }
       case 'evKind': return !!(this.ev && this.ev.enemy && this.ev.enemy.kind === v);
-      case 'check': {
-        const name = typeof v === 'string' ? v : v.name;
-        const fn = CHECKS[name];
-        if (!fn) { g.countError('mission-check', new Error('Unbekannte Prüfung ' + name)); return false; }
-        return !!fn(this, typeof v === 'string' ? {} : v);
+      case 'missionDone': return !!(this.missions[v] && this.missions[v].state === 'done');
+      case 'lobby': {
+        const o = g.lobbyOpts || {};
+        return typeof v === 'string' ? !!o[v] : isObj(v) && Object.entries(v).every(([lk, lv]) => o[lk] === lv);
       }
-      default:
-        if (CHECKS[k]) return !!CHECKS[k](this, typeof v === 'object' ? v : { value: v });
+      case 'check': {
+        const name = typeof v === 'string' ? v : v && v.name;
+        const r = Registry.resolve(name, typeof v === 'string' ? {} : v, 'pruefung');
+        if (!r) { g.countError('mission-check', new Error('Unbekannte Prüfung ' + name)); return false; }
+        return !!r.entry.test(this, r.args);
+      }
+      default: {
+        const r = Registry.resolve(k, typeof v === 'object' && v ? v : { value: v }, 'pruefung');
+        if (r) return !!r.entry.test(this, r.args);
         g.countError('mission-cond', new Error('Unbekannte Bedingung ' + k));
         return false;
+      }
     }
   }
 
@@ -407,13 +484,13 @@ class Mission {
   act(a) {
     const g = this.game;
     if (a.oda) g.oda(this.tpl(a.oda), a.once || null);
-    if (a.radio) this.radio(a.radio.from, this.tpl(a.radio.text), !!a.radio.accept);
+    if (a.radio) this.radio(this.npcName(a.radio.from), this.tpl(a.radio.text), !!a.radio.accept);
     if (a.sfx) g.emit('sfx', { name: a.sfx });
     if (a.set) Object.assign(this.v, a.set);
     if (a.setFlag) Object.assign(this.flags, a.setFlag);
-    if (a.reveal) for (const l of [].concat(a.reveal)) g.explore.reveal(l, a.text);
+    if (a.reveal) for (const l of [].concat(a.reveal)) g.explore.reveal(l, typeof a.text === 'string' ? this.tpl(a.text) : a.text);
     if (a.openLink) g.explore.openLink(a.openLink);
-    if (a.reward) { const t = g.explore.reward(a.reward); if (a.rewardNotice && t) this.noticeAll('Belohnung: ' + t); }
+    if (a.reward) { const t = g.explore.reward(a.reward); this.lastReward = t || ''; if (a.rewardNotice && t) this.noticeAll('Belohnung: ' + t); }
     if (a.log) g.explore.addLog(this.tpl(a.log), a.loc || g.ship.scene);
     if (a.spawn) this.spawn(a.spawn);
     if (a.spawnSalvage) { space.spawnSalvage(g, a.spawnSalvage); this.v.salvageSpawned = true; g.salvaged = 0; }
@@ -421,14 +498,33 @@ class Mission {
     if (a.after) this.later(a.after.sec, a.after.do || [a.after]);
     if (a.startTeaser) g.startTeaser();
     if (a.do) {
-      const fn = HOOKS[a.do];
-      if (!fn) g.countError('mission-hook', new Error('Unbekannte Aktion ' + a.do));
-      else fn(this, a);
+      const r = Registry.resolve(a.do, a, 'aktion');
+      if (!r) g.countError('mission-hook', new Error('Unbekannte Aktion ' + a.do));
+      else r.entry.run(this, r.args);
     }
-    if (a.complete) { this.completeMission(); }
+    if (a.wirkung) this.runEffect(a);
+    if (a.complete) { this.completeMission(a.complete); }
     if (a.startMission) this.startMission(a.startMission);
-    if (a.end) g.endGame(a.title || a.text ? { title: a.title, text: a.text } : undefined);
+    if (a.end) g.endGame(a.title || a.text ? { title: this.tpl(a.title), text: this.tpl(a.text) } : undefined);
     if (a.goto) this.setStep(a.goto);
+  }
+  // Wirkung (Gruppe) bzw. Wendung mit Ankündigung: 'vorher' mit vorlauf_s kündigt an und wirkt später;
+  // sonst wirkt sie und die Ankündigung folgt im selben Tick (wie die JS-Module: erst Spawn, dann ODA).
+  runEffect(a) {
+    const an = a.wendung ? a.ankuendigung : null;
+    const announce = () => {
+      if (!an) return;
+      if (an.oda) this.game.oda(this.tpl(an.oda), null);
+      if (an.radio && an.radio.text) this.radio(this.npcName(an.radio.from), this.tpl(an.radio.text), false);
+    };
+    if (an && an.art === 'vorher') {
+      announce();
+      if (an.vorlauf_s > 0) this.later(an.vorlauf_s, a.wirkung);
+      else this.run(a.wirkung);
+      return;
+    }
+    this.run(a.wirkung);
+    announce();
   }
   noticeAll(text) { for (const p of this.game.players) this.game.notice(p, text); }
 
@@ -436,7 +532,7 @@ class Mission {
     const g = this.game;
     if (this.step && this.step.loc && g.ship.scene !== this.step.loc) return;   // nur am Ort des Schritts
     const crew = Math.max(1, Math.min(3, g.players.filter((p) => p.connected).length));
-    let n = s.crew ? (s.crew[crew] || 1) : (s.n || (s.angles ? s.angles.length : (s.atStation ? s.atStation.length : 1)));
+    const n = s.crew ? (s.crew[crew] || 1) : (s.n || (s.angles ? s.angles.length : (s.atStation ? s.atStation.length : 1)));
     const st = space.stationPoint(g);
     for (let i = 0; i < n; i++) {
       const opts = { tag: s.tag || null };
@@ -461,19 +557,34 @@ class Mission {
     this.game.emit('sfx', { name: 'radio' });
   }
 
-  // Textbausteine: {salvaged}, {killed:relay}, {left:pylon}, {found}, {total}
-  tpl(text) {
+  // Textbausteine: '@kennung' (texte des Buchs), {salvaged}, {killed:relay}, {left:pylon}, {found}, {total}, {arena},
+  // {squadLeft:gruppe}, {objectsInState:objekt:zustand}, {objectsCount:objekt}; Altnamen {awayLeft:x}, {jammersOff};
+  // {reward} = Text der zuletzt ausgeführten reward-Aktion (z. B. „60 Marken, Deko: Lamassu-Figur“), sonst leer
+  tpl(text, defIn) {
     if (typeof text !== 'string') return text;
     const g = this.game;
-    return text.replace(/\{(\w+)(?::(\w+))?\}/g, (all, k, arg) => {
+    const def = defIn || this.textDef || this.def;
+    if (text[0] === '@') text = Loader.text(def, text, (e) => g.countError('mission-text', e));
+    const mapOfObject = (o) => {
+      const ks = ((def && def.buehne && def.buehne.aussenkarten) || []).concat(Objects.MAP_IDS);
+      return ks.find((m) => Objects.declared(m)[o]) || null;
+    };
+    return text.replace(/\{(\w+)(?::(\w+))?(?::(\w+))?\}/g, (all, k, arg, arg2) => {
       if (k === 'salvaged') return String(Math.min(g.C.salvage.count, g.salvaged || 0));
       if (k === 'killed') return String(this.kills[arg] || 0);
       if (k === 'left') return String(g.space.enemies.filter((e) => e.kind === arg || e.tag === arg).length);
       if (k === 'found') return String(g.explore.discoveries().found);
       if (k === 'total') return String(g.explore.discoveries().total);
-      if (k === 'awayLeft') return String(g.aways.kesh.drones.filter((d) => d.alive && d.squad === arg).length);
-      if (k === 'jammersOff') return String(g.aways.kesh.jammers.filter((j) => j.off).length);
+      if (k === 'squadLeft' || k === 'awayLeft') {
+        const grp = def && def.besetzung && def.besetzung.gruppen && def.besetzung.gruppen[arg];
+        const aw = g.aways[(grp && grp.map) || 'kesh'];
+        return String(aw ? aw.drones.filter((d) => d.alive && d.squad === arg).length : 0);
+      }
+      if (k === 'objectsInState') { const m = mapOfObject(arg); return String(m ? Objects.countInState(g, m, arg, arg2) : 0); }
+      if (k === 'objectsCount') { const m = mapOfObject(arg); return String(m ? Objects.countAll(g, m, arg) : 0); }
+      if (k === 'jammersOff') return String(Objects.countInState(g, 'kesh', 'jammer', 'off'));
       if (k === 'arena') return arena().objectiveText(g);
+      if (k === 'reward') return this.lastReward || '';
       return all;
     });
   }
@@ -482,7 +593,7 @@ class Mission {
   openChoice(id) {
     const c = this.step && this.step.choices && this.step.choices[id];
     if (!c) return;
-    this.state.choice = { id, prompt: c.prompt, options: c.options.map((o) => ({ id: o.id, label: this.tpl(o.label), disabled: !!(o.disabledIf && this.cond(o.disabledIf)) })) };
+    this.state.choice = { id, prompt: this.tpl(c.prompt), options: c.options.map((o) => ({ id: o.id, label: this.tpl(o.label), disabled: !!(o.disabledIf && this.cond(o.disabledIf)) })) };
   }
   refreshChoice() {
     const ch = this.state.choice;
@@ -561,8 +672,20 @@ class Mission {
   // ---------- Update ----------
   update(dt) {
     this.stepTime += dt;
+    // missionsunabhängige Zeitpunkte (Kampagne ohne Tutorial: Tesk-Funk)
+    if (this.pending.length) {
+      for (const t of this.pending.slice()) {
+        if (this.game.time < t.at) continue;
+        this.pending.splice(this.pending.indexOf(t), 1);
+        this.run(t.actions);
+      }
+    }
     this.globalComments();
-    if (!this.step) { this.refreshObjectives(); return; }
+    if (!this.step) {
+      if (this.mode === 'campaign') this.checkOffers();
+      if (!this.step) { this.refreshObjectives(); return; }
+    }
+    if (this.dormant && !this.wakeIfThere()) { this.stepTime = 0; this.dormantNext(); this.refreshObjectives(); return; }
     const stepAtStart = this.step;
     // eingeplante Aktionen
     for (const t of this.timers.slice()) {
@@ -574,6 +697,7 @@ class Mission {
     for (let i = 0; i < tl.length && this.step === stepAtStart; i++) {
       if (this.firedTimers.has(i) || this.stepTime < tl[i].at) continue;
       this.firedTimers.add(i);
+      if (tl[i].do && tl[i].if !== undefined && !this.cond(tl[i].if)) continue;
       this.run(tl[i].do || [tl[i]]);
     }
     // Regeln (einmalig, sobald die Bedingung gilt)
@@ -591,7 +715,7 @@ class Mission {
         if (!this.cond(n.if)) continue;
         if (n.do) this.run(n.do);
         if (this.step === stepAtStart) {
-          if (n.complete) this.completeMission();
+          if (n.complete) this.completeMission(n.complete);
           else if (n.goto) this.setStep(n.goto);
         }
         break;
@@ -614,7 +738,7 @@ class Mission {
     const s = this.step && this.step.scan;
     if (!s || (this.step.loc && this.game.ship.scene !== this.step.loc)) return null;
     const st = space.stationPoint(this.game);
-    return { id: s.id, label: s.label, x: st.x, y: st.y, range: s.range, time: s.time, requires: s.requires, blocked: s.blocked };
+    return { id: s.id, label: this.tpl(s.label), x: st.x, y: st.y, range: s.range, time: s.time, requires: s.requires, blocked: s.blocked ? this.tpl(s.blocked) : s.blocked };
   }
   scan(p, on) {
     const g = this.game; const t = this.scanTarget();
@@ -661,8 +785,18 @@ class Mission {
     // Daten-Handler: Schritt, dann Mission
     this.ev = data;
     try {
-      if (this.step && this.step.on && this.step.on[name]) this.run(this.step.on[name]);
+      if (this.step && !this.dormant && this.step.on && this.step.on[name]) this.run(this.step.on[name]);
       if (this.def && this.def.on && this.def.on[name]) this.run(this.def.on[name]);
+      else if (!this.def) {
+        // keine Mission aktiv (zwischen Missionen, frei fliegend): Handler der zuletzt erledigten Mission
+        const last = this.lastDoneDef();
+        if (last && last.on && last.on[name]) this.withContext(last, { mission: last.id }, () => this.run(last.on[name]));
+      }
+      // Nebenaufträge aus Daten dürfen eigene Handler haben (immer, solange sichtbar)
+      for (const sid of catalog().sides) {
+        const sd = this.defFor(sid);
+        if (sd && sd.on && sd.on[name]) this.withContext(sd, { mission: sid }, () => this.run(sd.on[name]));
+      }
     } finally { this.ev = null; }
     // allgemeine ODA-Kommentare
     switch (name) {
@@ -706,34 +840,52 @@ class Mission {
     }
   }
 
+  lastDoneDef() {
+    let best = null; let bestEnd = -Infinity;
+    for (const id of this.order) {
+      const ms = this.missions[id];
+      if (!ms || ms.state !== 'done') continue;
+      const end = (this.game.stats.missions[id] && this.game.stats.missions[id].end) || 0;
+      if (end >= bestEnd) { bestEnd = end; best = id; }
+    }
+    return best ? this.defFor(best) : null;
+  }
+
   // ---------- Regeln für Sprung / Beamen ----------
   jumpBlocked(dest) {
-    if (!this.step || !this.step.jumpBlock) return null;
+    if (!this.step || !this.step.jumpBlock || this.dormant) return null;
     for (const b of this.step.jumpBlock) {
       if (b.dest && b.dest !== dest) continue;
-      if (this.cond(b.if)) return b.reason;
+      if (this.cond(b.if)) return this.tpl(b.reason);
     }
     return null;
   }
   destBlocked(dest) {
-    if (!this.step || !this.step.destBlock) return null;
+    if (!this.step || !this.step.destBlock || this.dormant) return null;
     for (const b of this.step.destBlock) {
       if (b.dest && b.dest !== dest) continue;
-      if (this.cond(b.if)) return b.reason;
+      if (this.cond(b.if)) return this.tpl(b.reason);
     }
     return null;
   }
+  // Kartenregel (objects.js BEAM_RULES) bzw. allowBeam des Schritts – keine Missionssonderlogik
   beamDownBlocked(map) {
-    if (map !== 'platform') return null;   // Wrack: jederzeit (Erkunden)
+    const rule = Objects.BEAM_RULES[map];
+    if (!rule || !rule.nurMitAllowBeam) return null;   // Wrack, Kesh: jederzeit
     if (this.step && (this.step.allowBeam || []).includes(map)) return null;
-    const m1 = this.missions.m1;
-    if (m1 && m1.state === 'done') return 'Auf der Plattform gibt es nichts mehr zu tun.';
-    if (this.activeId === 'm1' && this.def.steps.findIndex((s) => s.id === this.state.stage) > this.def.steps.findIndex((s) => s.id === 'away')) return 'Auf der Plattform gibt es nichts mehr zu tun.';
-    return 'Erst die Boje scannen.';
+    const usesMap = (d) => !!(d && ((d.buehne && (d.buehne.aussenkarten || []).includes(map)) || (d.steps || []).some((s) => (s.allowBeam || []).includes(map))));
+    const doneWithMap = Object.values(this.missions).some((ms) => ms.state === 'done' && usesMap(this.defFor(ms.id)));
+    if (doneWithMap) return rule.erledigt;
+    if (this.def && this.step) {
+      const steps = this.def.steps;
+      const k = steps.findIndex((s) => (s.allowBeam || []).includes(map));
+      if (k >= 0 && steps.indexOf(this.step) > k) return rule.erledigt;
+    }
+    return rule.vorher;
   }
 
   // ---------- Hilfen ----------
-  isDrillStep() { return this.activeId === 'm1' && this.state.stage === 'dock'; }
+  isDrillStep() { return !!(this.step && this.step.drill); }
   isDrill() { return this.isDrillStep() && !this.v.skip; }
   drillDone() {
     if (!this.isDrillStep()) return true;
@@ -756,7 +908,7 @@ class Mission {
 
   // ---------- Snapshot ----------
   snapshotList() {
-    return MISSION_ORDER.filter((id) => this.missions[id]).map((id) => ({ id, title: this.missions[id].title, state: this.missions[id].state }));
+    return this.order.filter((id) => this.missions[id]).map((id) => ({ id, title: this.missions[id].title, state: this.missions[id].state }));
   }
 
   // ---------- §21.2 Missionsbuch ----------
@@ -781,14 +933,47 @@ class Mission {
     }
     return out.reverse();
   }
+  // Auftraggeber, Briefing, Belohnung eines Eintrags (Buch: buch.von mit Bedingung; Altmodul: book.from als Funktion)
+  bookInfo(def) {
+    if (def.isBook) {
+      const b = def.buch || {};
+      const von = (b.von || []).find((x) => x.if === undefined || this.cond(x.if));
+      return { from: von ? Loader.npcName(von.npc, def) : null, briefing: this.tpl(b.briefing, def) || '', reward: this.tpl(b.belohnung, def) || '' };
+    }
+    const b = def.book || {};
+    const val = (x) => (typeof x === 'function' ? x(this) : x);
+    return { from: val(b.from) || null, briefing: val(b.briefing) || '', reward: val(b.reward) || '' };
+  }
+  // Nebenauftrag aus Daten (kopf.art 'nebenauftrag'): sichtbar ab buch.sichtbar bzw. angebot.nach, Ziele aus buch.ziele
+  // bzw. dem ersten Schritt, erledigt nach buch.erledigt bzw. wenn alle Pflichtziele erledigt sind
+  sideEntry(def) {
+    const b = def.buch || {};
+    const vis = b.sichtbar !== undefined ? b.sichtbar : (def.angebot && def.angebot.nach);
+    const first = (def.steps || [])[0] || {};
+    return this.withContext(def, { mission: def.id }, () => {
+      if (vis != null && !this.cond(vis)) return null;
+      const ziele = b.ziele || first.objectives || [];
+      const objectives = []; let all = true;
+      for (const o of ziele) {
+        if (o.show !== undefined && !this.cond(o.show)) continue;
+        const done = o.done !== undefined && o.done !== false && this.cond(o.done);
+        if (!o.optional && !done) all = false;
+        objectives.push(objOut(this.tpl(o.text, def), done, !!o.optional));
+      }
+      const erledigt = b.erledigt !== undefined ? this.cond(b.erledigt) : all;
+      const bi = this.bookInfo(def);
+      return { id: def.id, title: def.title, from: bi.from, kind: 'nebenauftrag', state: erledigt ? 'erledigt' : 'aktiv', briefing: bi.briefing,
+        reward: bi.reward, objectives, log: this.entryLog(def.id), loc: b.ort || first.loc || null };
+    });
+  }
   // Alle Einträge, die die Crew als Auftrag kennt (Reihenfolge: Missionen, Nebenaufträge, Ausblick, Hinweise)
   bookEntries() {
     const g = this.game; const ex = g.explore; const out = [];
-    const val = (x) => (typeof x === 'function' ? x(this) : x);
-    for (const id of MISSION_ORDER) {
+    for (const id of this.order) {
       const ms = this.missions[id];
       if (!ms) continue;
-      const def = DEFS[id]; const b = def.book || {};
+      const def = id === this.activeId && this.def ? this.def : this.defFor(id);
+      if (!def) continue;
       const running = id === this.activeId;
       let state = 'aktiv';
       if (ms.state === 'done') state = 'erledigt';
@@ -796,20 +981,26 @@ class Mission {
       else if (running && this.preOffer()) continue;
       const done = (this.doneLog[id] || []).map((o) => objOut(o.text, true, o.optional));
       const open = running && this.step ? this.state.objectives.filter((o) => !o.done && !(this.doneLog[id] || []).some((x) => x.id === o.id)).map((o) => objOut(o.text, false, o.optional)) : [];
-      out.push({ id, title: def.title, from: val(b.from) || null, kind: 'mission', state, briefing: val(b.briefing) || '', reward: val(b.reward) || '',
+      const bi = this.bookInfo(def);
+      out.push({ id, title: def.title, from: bi.from, kind: 'mission', state, briefing: bi.briefing, reward: bi.reward,
         objectives: done.concat(open), log: this.entryLog(id), loc: running && this.step && this.step.loc ? this.step.loc : null });
     }
-    // Nebenauftrag: Selas Notruf (Mission 1, optional)
+    // Nebenaufträge aus Daten; Übergang: Sela/Zaunkönig fest, solange es kein Buch mit dieser Kennung gibt
+    const sides = catalog().sides;
+    for (const id of sides) {
+      const def = this.defFor(id);
+      if (!def) continue;
+      try { const e = this.sideEntry(def); if (e) out.push(e); } catch (err) { g.countError('mission-book', err); }
+    }
     const f = this.flags;
-    if (f.selaCalled) {
+    if (!sides.includes('sela') && f.selaCalled) {
       const cfg = g.C.mission.vaelen;
       out.push({ id: 'sela', title: 'Selas Notruf', from: SELA, kind: 'nebenauftrag', state: f.vaelenHelped ? 'erledigt' : 'aktiv',
         briefing: 'Der Reaktor der Vaelen-Karawane hustet. Sie liegt gleich beim Hafen – andocken, unsere Schrauber helfen.',
         reward: rewardText({ marks: cfg.marks, deko: [cfg.deko] }),
         objectives: [objOut('Bei der Vaelen-Karawane andocken', !!f.vaelenHelped)], log: this.entryLog('sela'), loc: 'vaelen' });
     }
-    // Nebenauftrag: Wrack „Zaunkönig“ (Gerücht von Tesk bzw. selbst entdeckt)
-    if (ex.isKnown('wrack')) {
+    if (!sides.includes('zaunkoenig') && ex.isKnown('wrack')) {
       const aw = g.aways.wreck;
       const boxes = aw.salvage.filter((s) => !s.hidden); const hollow = aw.salvage.find((s) => s.hidden);
       const nBox = boxes.filter((s) => s.done).length;
@@ -880,32 +1071,37 @@ class Mission {
   // ---------- Debug ----------
   forceStep(missionId, stepId) {
     const g = this.game;
-    const def = DEFS[missionId];
-    if (!def) return 'Unbekannte Mission.';
-    const step = stepId ? def.steps.find((s) => s.id === stepId) : def.steps[0];
+    const def0 = this.activeId === missionId && this.def ? this.def : this.info(missionId) ? this.loadDef(missionId) : null;
+    if (!def0) return 'Unbekannte Mission.';
+    const step = stepId ? def0.steps.find((s) => s.id === stepId) : def0.steps[0];
     if (!step) return 'Unbekannter Schritt.';
-    HOOKS.clearDrill(this);
-    for (const id of MISSION_ORDER) {
+    const clear = Registry.get('debug_clear_incidents');
+    if (clear) clear.run(this, {});
+    for (const id of this.order) {
       if (id === missionId) break;
       if (!this.missions[id] || this.missions[id].state !== 'done') {
-        this.missions[id] = { id, title: DEFS[id].title, state: 'done' };
+        const d = this.defFor(id);
+        this.missions[id] = { id, title: this.info(id).title, state: 'done' };
         g.stats.missions[id] = g.stats.missions[id] || { start: this.playTime(), end: this.playTime() };
-        if (DEFS[id].debugDone) this.run(DEFS[id].debugDone);
+        if (d && d.debugDone) this.withContext(d, null, () => this.run(d.debugDone));
       }
     }
     if (this.activeId !== missionId) {
-      this.missions[missionId] = { id: missionId, title: def.title, state: 'active' };
-      this.activeId = missionId; this.def = def;
+      this.applyExpected(def0);
+      this.missions[missionId] = { id: missionId, title: def0.title, state: 'active' };
+      this.activeId = missionId; this.def = def0;
       g.stats.missions[missionId] = g.stats.missions[missionId] || { start: this.playTime(), end: null };
     }
+    const def = this.def;
     const prep = def.debugPrep && def.debugPrep[step.id];
     if (prep) this.run(prep);
-    if (step.loc && g.ship.scene !== step.loc) g.debugGoto(step.loc, step.loc === 'hafen' && ['dock', 'briefing'].includes(step.id));
+    const portStart = step.loc && def.steps[0] === step && (Locations.get(step.loc) || {}).kind === 'port';
+    if (step.loc && g.ship.scene !== step.loc) g.debugGoto(step.loc, !!portStart);
     this.setStep(step.id);
     return null;
   }
   forceStage(stage) {
-    for (const id of MISSION_ORDER) if (DEFS[id].steps.some((s) => s.id === stage)) return this.forceStep(id, stage);
+    for (const id of this.order) { const d = this.defFor(id); if (d && d.steps.some((s) => s.id === stage)) return this.forceStep(id, stage); }
     if (stage === 'end') { if (!this.state.teaser) this.game.startTeaser(); this.game.endGame(); return null; }
     return 'Unbekannte Stage.';
   }
@@ -918,4 +1114,14 @@ class Mission {
 }
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-module.exports = { Mission, DEFS, CHECKS, HOOKS, MISSION_ORDER, CONSOLE_HELP };
+// Altname: Missionsreihenfolge (berechnet aus angebot). DEFS: Laufzeit-Defs mit Standard-CONFIG (nur lesen).
+const MISSION_ORDER = catalog().order.slice();
+const DEFS = {};
+for (const id of Object.keys(catalog().info)) {
+  Object.defineProperty(DEFS, id, { enumerable: true, get() {
+    const cat = catalog();
+    return cat.books[id] ? Loader.prepare(cat.books[id], require('../../shared/config.js')) : cat.jsModules[id];
+  } });
+}
+
+module.exports = { Mission, DEFS, MISSION_ORDER, CONSOLE_HELP, Registry, catalog, reloadCatalog };

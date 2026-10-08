@@ -491,6 +491,18 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
   check(info.coverSpots.every((s) => cs.has(s.y * km.w + s.x) || os.has(s.y * km.w + s.x)), `alle ${lowCover} Deckungsplätze begehbar und erreichbar`);
   check(info.combat === 'v2' && W.AWAY_MAPS.platform.combat === undefined && W.AWAY_MAPS.wreck.combat === undefined, 'Kampf v2 nur auf kesh');
   for (const ch of ['o', 'k', 'T']) check(Maps.KESH_LEGEND[ch].low && Maps.KESH_LEGEND[ch].cover === 1, `'${ch}' halbe Deckung (low, cover 1)`);
+  // S1 (CONTRACT-S1 §4): Bereiche nicht leer, begehbar und von den Pads erreichbar (Gewölbe erst bei offenem Tor)
+  const C = require('../shared/config.js');
+  for (const [id] of Object.entries(Maps.MAP_AREAS.kesh)) {
+    let n = 0, reach = 0;
+    for (let y = 0; y < km.h; y++) for (let x = 0; x < km.w; x++) {
+      if (!Maps.inArea('kesh', id, x, y) || km.solid(x, y)) continue;
+      n++; if (os.has(y * km.w + x)) reach++;
+    }
+    check(n > 0 && reach > 0, `Bereich kesh.${id}: ${n} begehbare Kacheln, ${reach} erreichbar`);
+  }
+  check(Maps.MAP_AREAS.kesh.hof.cols[1] === C.missionM3.courtyardX && Maps.MAP_AREAS.kesh.halle.cols[0] === C.missionM3.hallX, 'kesh: hof/halle wie missionM3.courtyardX/hallX');
+  check(['platform', 'wreck', 'kesh'].every((m) => Maps.MAP_OBJECTS[m] && Object.values(Maps.MAP_OBJECTS[m]).every((o) => o.zustaende.length >= 2)), 'MAP_OBJECTS: je Objekt mindestens zwei Zustände');
 }
 
 console.log(`\n${checks - failures}/${checks} Prüfungen bestanden.`);

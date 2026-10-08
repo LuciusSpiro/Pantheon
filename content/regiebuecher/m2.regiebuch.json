@@ -1,0 +1,498 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "m2 „Echo im Nebel“ von Hand aus server/missions/m2.js übertragen (CONTRACT-S1 §0 Nr. 11). Gleiche Schritt-IDs, Timer, Bedingungen und Texte. Gewollte Abweichungen: Tesk-Tipp und Kurs-ODA im Schritt 'vaelen' nur, wenn noch nicht bei Vaelen angedockt (Neustart nach Laden), Wiederaufnahme für 'ambush' und 'relay', Weltstand-Aktionen, Garantie-Markierung in 'toRelais'.",
+  "format": "regiebuch/1",
+  "id": "m2",
+
+  "kopf": {
+    "titel": "Echo im Nebel",
+    "art": "mission",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 20,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": null,
+    "tutorial": true
+  },
+
+  "erwartet": { "decision": "deliver", "technikerRescued": false, "selaCalled": false, "vaelenHelped": false },
+
+  "angebot": { "nach": { "missionDone": "m1" } },
+
+  "buch": {
+    "von": [{ "if": { "flag": "technikerRescued" }, "npc": "ivo" }, { "npc": "tesk" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": {
+    "orte": ["hafen", "vaelen", "wrack", "nebel", "relais", "b7"]
+  },
+
+  "besetzung": {
+    "npc": ["tesk", "ivo", "sela", "grauzahn"],
+    "stimmen": { "kustoden_relais": { "name": "Kustoden-Relais" } }
+  },
+
+  "steps": [
+    {
+      "id": "briefing", "loc": "hafen",
+      "timers": [
+        { "at": { "cfg": "missionM1.wreckRumorAfter" }, "do": [
+          { "radio": { "from": "tesk", "text": "@funk.wrack_geruecht" } },
+          { "do": "reveal_location", "loc": "wrack", "text": "@briefing.wrack_notiert" }
+        ] },
+        { "at": { "cfg": "missionM1.wreckRumorAfter", "plus": 14 },
+          "_kommentar": "Original: C.wreckRumorAfter + C.m2OfferAfter (8 + 14). 'plus' kann nur eine Zahl sein – tune missionM1.m2OfferAfter wirkt hier nicht mehr.",
+          "do": [
+            { "set": { "offer": true } },
+            { "if": { "flag": "technikerRescued" }, "radio": { "from": "ivo", "text": "@funk.angebot_ivo", "accept": true } },
+            { "if": { "not": { "flag": "technikerRescued" } }, "radio": { "from": "tesk", "text": "@funk.angebot_tesk", "accept": true } }
+          ] },
+        { "at": { "cfg": "missionM1.wreckRumorAfter", "plus": 44 }, "if": { "not": { "event": "accepted" } }, "oda": "@briefing.erinnerung", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "shop", "text": "@ziel.einkaufen", "optional": true, "done": { "event": "bought" } },
+        { "id": "deco", "text": "@ziel.quartier", "optional": true, "done": { "event": "decoPlaced" } },
+        { "id": "accept", "text": "@ziel.annehmen", "show": { "v": "offer" }, "done": { "event": "accepted" } }
+      ],
+      "onAccept": [
+        { "do": "reveal_location", "loc": "nebel", "text": "@briefing.nebel_aufgedeckt" },
+        { "do": "reveal_location", "loc": "vaelen", "text": "@briefing.nebel_aufgedeckt" },
+        { "if": { "flag": "technikerRescued" }, "do": "npc_gedaechtnis", "npc": "ivo", "ereignis": "bojenlog_gefolgt", "text": "@gedaechtnis.ivo_bojenlog" },
+        { "goto": "vaelen" }
+      ],
+      "skip": [
+        { "do": "debug_force_radio", "from": "tesk", "text": "@skip.angebot" },
+        { "do": "debug_accept" }
+      ]
+    },
+
+    {
+      "id": "vaelen",
+      "timers": [
+        { "at": 2, "if": { "not": { "docked": "vaelen" } }, "radio": { "from": "tesk", "text": "@funk.sela_tipp" } },
+        { "at": 8, "if": { "not": { "docked": "vaelen" } }, "oda": "@vaelen.kurs" },
+        { "at": 120, "if": { "not": { "atLocation": "vaelen" } }, "oda": "@vaelen.hinweis", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "docked": "vaelen" }, "do": [
+          { "radio": { "from": "sela", "text": "@funk.sela_angebot" } },
+          { "choice": "sela" },
+          { "oda": "@vaelen.antwort" }
+        ] }
+      ],
+      "choices": {
+        "sela": {
+          "prompt": "@wahl.sela.frage",
+          "options": [
+            { "id": "buy", "label": "@wahl.sela.kaufen", "disabledIf": { "check": { "name": "marks_below", "n": 60 } } },
+            { "id": "search", "label": "@wahl.sela.suchen" }
+          ],
+          "on": {
+            "buy": [
+              { "do": "pay_marks", "marks": 60 },
+              { "setFlag": { "nebelMap": true } },
+              { "radio": { "from": "sela", "text": "@funk.sela_karte" } },
+              { "log": "@log.karte", "loc": "vaelen" },
+              { "do": "npc_gedaechtnis", "npc": "sela", "ereignis": "karte_gekauft", "text": "@gedaechtnis.sela_karte" },
+              { "goto": "nebelFlight" }
+            ],
+            "search": [
+              { "setFlag": { "selaProbe": true } },
+              { "radio": { "from": "sela", "text": "@funk.sela_suchen" } },
+              { "oda": "@vaelen.weitscan" },
+              { "goto": "sonde" }
+            ]
+          }
+        }
+      },
+      "objectives": [
+        { "id": "toVaelen", "text": "@ziel.zu_vaelen", "done": { "docked": "vaelen" } },
+        { "id": "answerSela", "text": "@ziel.sela_antworten", "show": { "docked": "vaelen" }, "done": { "choiceMade": "sela" } }
+      ],
+      "next": [{ "if": { "atLocation": "nebel" }, "do": [{ "oda": "@vaelen.ohne_rat" }], "goto": "ambush" }],
+      "skip": [
+        { "do": "debug_jump", "loc": "vaelen" },
+        { "setFlag": { "nebelMap": true } },
+        { "goto": "nebelFlight" }
+      ]
+    },
+
+    {
+      "id": "sonde", "loc": "vaelen",
+      "rules": [
+        { "if": { "all": [{ "elapsed": 50 }, { "not": { "revealed": "vaelen_sonde" } }] },
+          "do": [{ "oda": "@sonde.tipp" }], "garantie": "hinweis" },
+        { "if": { "all": [{ "elapsed": 150 }, { "not": { "revealed": "vaelen_sonde" } }] },
+          "do": [{ "do": "reveal_find", "id": "vaelen_sonde" }, { "oda": "@sonde.markiert" }], "garantie": "autoloesung" },
+        { "if": { "all": [{ "revealed": "vaelen_sonde" }, { "elapsed": 300 }, { "not": { "found": "vaelen_sonde" } }] },
+          "do": [{ "do": "complete_find", "id": "vaelen_sonde" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "findProbe", "text": "@ziel.sonde_suchen", "done": { "revealed": "vaelen_sonde" } },
+        { "id": "scanProbe", "text": "@ziel.sonde_scannen", "show": { "revealed": "vaelen_sonde" }, "done": { "found": "vaelen_sonde" } }
+      ],
+      "next": [
+        { "if": { "found": "vaelen_sonde" }, "do": [
+          { "setFlag": { "nebelMap": true } },
+          { "reward": { "marks": 40 } },
+          { "radio": { "from": "sela", "text": "@funk.sela_sonde" } },
+          { "log": "@log.sonde", "loc": "vaelen" },
+          { "do": "npc_gedaechtnis", "npc": "sela", "ereignis": "sonde_gefunden", "text": "@gedaechtnis.sela_sonde" },
+          { "do": "npc_haltung", "npc": "sela", "delta": 1 }
+        ], "goto": "nebelFlight" },
+        { "if": { "atLocation": "nebel" }, "do": [{ "oda": "@sonde.treiben_lassen" }], "goto": "ambush" }
+      ],
+      "skip": [{ "do": "complete_find", "id": "vaelen_sonde" }]
+    },
+
+    {
+      "id": "nebelFlight",
+      "timers": [
+        { "at": 4, "oda": "@nebelflight.kurs" },
+        { "at": 90, "if": { "not": { "atLocation": "nebel" } }, "oda": "@nebelflight.hinweis", "garantie": "hinweis" }
+      ],
+      "objectives": [{ "id": "toNebel", "text": "@ziel.zum_nebel", "done": { "atLocation": "nebel" } }],
+      "next": [{ "if": { "atLocation": "nebel" }, "goto": "ambush" }],
+      "skip": [{ "do": "debug_jump", "loc": "nebel" }]
+    },
+
+    {
+      "id": "ambush", "loc": "nebel",
+      "_kommentar": "Nach dem Laden (angedockt, also nicht im Nebel) ab 'nebelFlight': sonst käme der Hinterhalt-Funk fern vom Nebel und der Schritt wäre ohne Gegner sofort erledigt.",
+      "wiederaufnahme": { "ab": "nebelFlight" },
+      "timers": [
+        { "at": 0.5, "oda": "@ambush.augen" },
+        { "at": { "cfg": "missionM1.ambushAfter" }, "do": [
+          { "wendung": "hinterhalt",
+            "ankuendigung": { "art": "sichtbar", "grund": "Zwei Jäger erscheinen aus dem Nebel; Grauzahn funkt und ODA warnt im selben Moment." },
+            "wirkung": [{ "spawn": { "kind": "raider", "tag": "hinterhalt", "angles": [-1.2, 1.4] } }] },
+          { "set": { "ambush": true } },
+          { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_nebel" } },
+          { "oda": "@ambush.hinterhalt" }
+        ] }
+      ],
+      "objectives": [{ "id": "ambush", "text": "@ziel.hinterhalt", "done": false }],
+      "next": [{ "if": { "all": [{ "v": "ambush" }, { "enemiesLeft": { "max": 0 } }] }, "goto": "parley" }],
+      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "ambush": true } }]
+    },
+
+    {
+      "id": "parley", "loc": "nebel",
+      "enter": [
+        { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_frage" } },
+        { "choice": "parley" },
+        { "oda": "@parley.antwort" }
+      ],
+      "timers": [{ "at": 45, "if": { "not": { "choiceMade": "parley" } }, "oda": "@parley.ungeduldig", "garantie": "hinweis" }],
+      "rules": [
+        { "if": { "all": [{ "elapsed": 75 }, { "not": { "choiceMade": "parley" } }] },
+          "do": [{ "do": "force_choice", "option": "silent" }], "garantie": "autoloesung" }
+      ],
+      "choices": {
+        "parley": {
+          "prompt": "@wahl.parley.frage",
+          "options": [
+            { "id": "bluff", "label": "@wahl.parley.bluffen" },
+            { "id": "share", "label": "@wahl.parley.teilen" },
+            { "id": "silent", "label": "@wahl.parley.schweigen" }
+          ],
+          "on": {
+            "bluff": [
+              { "if": { "flag": { "decision": "deliver" } }, "setFlag": { "rostmeuteGone": true } },
+              { "if": { "flag": { "decision": "deliver" } }, "radio": { "from": "grauzahn", "text": "@funk.grauzahn_bluff_klappt" } },
+              { "if": { "flag": { "decision": "deliver" } }, "log": "@log.bluff", "loc": "nebel" },
+              { "if": { "flag": { "decision": "deliver" } }, "do": "npc_gedaechtnis", "npc": "grauzahn", "ereignis": "geblufft", "text": "@gedaechtnis.grauzahn_geblufft" },
+              { "if": { "flag": { "decision": "deliver" } }, "do": "npc_haltung", "npc": "grauzahn", "delta": -1 },
+              { "if": { "not": { "flag": { "decision": "deliver" } } }, "radio": { "from": "grauzahn", "text": "@funk.grauzahn_bluff_durchschaut" } },
+              { "if": { "not": { "flag": { "decision": "deliver" } } },
+                "wendung": "bluff_jaeger",
+                "ankuendigung": { "art": "sichtbar", "grund": "Grauzahn kündigt die Runde im Funk an; der Jäger erscheint sichtbar, ODA warnt." },
+                "wirkung": [{ "spawn": { "kind": "raider", "tag": "bluff", "n": 1 } }] },
+              { "if": { "not": { "flag": { "decision": "deliver" } } }, "oda": "@parley.bluff_durchschaut" },
+              { "if": { "not": { "flag": { "decision": "deliver" } } }, "do": "npc_gedaechtnis", "npc": "grauzahn", "ereignis": "bluff_durchschaut", "text": "@gedaechtnis.grauzahn_bluff_durchschaut" }
+            ],
+            "share": [
+              { "setFlag": { "rostmeuteGone": true, "sharedEcho": true } },
+              { "reward": { "marks": 30 } },
+              { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_geister" } },
+              { "do": "reveal_find", "id": "nebel_lore" },
+              { "log": "@log.geteilt", "loc": "nebel" },
+              { "do": "npc_gedaechtnis", "npc": "grauzahn", "ereignis": "echo_geteilt", "text": "@gedaechtnis.grauzahn_echo_geteilt" },
+              { "do": "npc_haltung", "npc": "grauzahn", "delta": 1 }
+            ],
+            "silent": [
+              { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_schweigen" } },
+              { "do": "npc_gedaechtnis", "npc": "grauzahn", "ereignis": "geschwiegen", "text": "@gedaechtnis.grauzahn_geschwiegen" }
+            ]
+          }
+        }
+      },
+      "objectives": [
+        { "id": "parley", "text": "@ziel.grauzahn_antworten", "done": { "choiceMade": "parley" } },
+        { "id": "bluffFight", "text": "@ziel.jaeger_abwehren", "show": { "all": [{ "choiceMade": "parley" }, { "not": { "enemiesLeft": { "max": 0 } } }] },
+          "done": { "enemiesLeft": { "max": 0 } } }
+      ],
+      "next": [{
+        "if": { "all": [{ "choiceMade": "parley" }, { "enemiesLeft": { "max": 0 } }] },
+        "do": [
+          { "if": { "flag": "nebelMap" }, "oda": "@parley.echo_karte" },
+          { "if": { "not": { "flag": "nebelMap" } }, "oda": "@parley.echo_ohne_karte" }
+        ],
+        "goto": "beacon" }],
+      "skip": [{ "do": "force_choice", "option": "silent" }, { "do": "debug_clear_enemies" }]
+    },
+
+    {
+      "id": "beacon", "loc": "nebel",
+      "rules": [
+        { "if": { "all": [{ "revealed": "nebel_beacon" }, { "not": { "flag": "rostmeuteGone" } }] },
+          "do": [{ "after": { "sec": 6, "do": [
+            { "wendung": "echo_jaeger",
+              "ankuendigung": { "art": "sichtbar", "grund": "Der Jäger erscheint sichtbar; Grauzahn funkt und ODA erklärt im selben Moment." },
+              "wirkung": [{ "spawn": { "kind": "raider", "tag": "echo", "n": 1 } }] },
+            { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_bake" } },
+            { "oda": "@beacon.mitgehoert" }
+          ] } }] },
+        { "if": { "all": [{ "elapsed": 35 }, { "not": { "event": "widescan" } }, { "not": { "revealed": "nebel_beacon" } }] },
+          "do": [{ "oda": "@beacon.weitscan_tipp" }], "garantie": "hinweis" },
+        { "if": { "all": [{ "elapsed": { "cfg": "missionM1.beaconHintAt" } }, { "not": { "revealed": "nebel_beacon" } }] },
+          "do": [{ "do": "direction_hint", "find": "nebel_beacon", "text": "@beacon.richtung" }], "garantie": "hinweis" },
+        { "if": { "all": [{ "elapsed": { "cfg": "missionM1.beaconAutoAt" } }, { "not": { "revealed": "nebel_beacon" } }] },
+          "do": [{ "do": "reveal_find", "id": "nebel_beacon" }, { "oda": "@beacon.angepeilt" }], "garantie": "autoloesung" },
+        { "if": { "all": [{ "revealed": "nebel_beacon" }, { "elapsed": { "cfg": "missionM1.beaconAutoAt", "plus": 60 } }, { "not": { "found": "nebel_beacon" } }] },
+          "do": [{ "oda": "@beacon.scan_tipp" }], "garantie": "hinweis" },
+        { "if": { "all": [{ "revealed": "nebel_beacon" }, { "elapsed": { "cfg": "missionM1.beaconAutoAt", "plus": 200 } }, { "not": { "found": "nebel_beacon" } }] },
+          "do": [{ "do": "complete_find", "id": "nebel_beacon" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "findBeacon", "text": "@ziel.bake_suchen", "done": { "revealed": "nebel_beacon" } },
+        { "id": "scanBeacon", "text": "@ziel.bake_scannen", "show": { "revealed": "nebel_beacon" }, "done": { "found": "nebel_beacon" } }
+      ],
+      "next": [{ "if": { "found": "nebel_beacon" }, "goto": "toRelais" }],
+      "skip": [{ "do": "complete_find", "id": "nebel_beacon" }]
+    },
+
+    {
+      "id": "toRelais",
+      "timers": [{ "at": 1, "oda": "@torelais.kurs", "garantie": "hinweis" }],
+      "objectives": [{ "id": "toRelais", "text": "@ziel.zum_relais", "done": { "atLocation": "relais" } }],
+      "next": [{ "if": { "atLocation": "relais" }, "goto": "relay" }],
+      "skip": [{ "do": "debug_jump", "loc": "relais" }]
+    },
+
+    {
+      "id": "relay", "loc": "relais", "restartOnReturn": true,
+      "_kommentar": "Nach dem Laden (angedockt, also nicht am Relais) ab 'toRelais': sonst fehlten die Pylonen, wenn man zurückkommt.",
+      "wiederaufnahme": { "ab": "toRelais" },
+      "enter": [{ "spawn": { "kind": "pylon", "tag": "pylon", "face": "out", "atStation": [{ "dx": -300, "dy": -240 }, { "dx": 340, "dy": -40 }, { "dx": -230, "dy": 290 }] } }],
+      "timers": [
+        { "at": 1, "oda": "@relay.pylonen" },
+        { "at": 30, "if": { "not": { "event": "enemyScanned" } }, "oda": "@relay.scan_tipp", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "atLocation": "relais" }, { "any": [{ "elapsed": 30 }, { "killed": { "kind": "pylon", "min": 1 } }] }] },
+          "do": [
+            { "set": { "sentinel": true } },
+            { "wendung": "waechter",
+              "ankuendigung": { "art": "sichtbar", "grund": "Der Wächter erscheint sichtbar am Relais; ODA warnt im selben Moment vor den EMP-Schüssen." },
+              "wirkung": [{ "spawn": { "kind": "sentinel", "tag": "waechter", "atStation": [{ "dx": 160, "dy": 120 }] } }] },
+            { "oda": "@relay.waechter" }
+          ] },
+        { "if": { "all": [{ "atLocation": "relais" }, { "v": "sentinel" }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "wave2" } }] },
+          "do": [
+            { "set": { "wave2": true } },
+            { "radio": { "from": "kustoden_relais", "text": "@funk.relais_pruefung" } },
+            { "wendung": "pruefung",
+              "ankuendigung": { "art": "sichtbar", "grund": "Das Relais kündigt die Prüfung im Funk an; die Pylonen erscheinen sichtbar am Kern." },
+              "wirkung": [{ "spawn": { "kind": "pylon", "tag": "pylon2", "face": "in", "atStation": [{ "dx": 0, "dy": -330 }, { "dx": 0, "dy": 330 }] } }] },
+            { "oda": "@relay.pruefung" }
+          ] },
+        { "if": { "all": [{ "atLocation": "relais" }, { "v": "wave2" }, { "enemiesLeft": { "max": 0 } }] },
+          "do": [{ "oda": "@relay.bestanden" }] }
+      ],
+      "scan": { "id": "relaycore", "label": "@relay.kern", "range": { "cfg": "missionM1.relayCoreRange" }, "time": { "cfg": "missionM1.relayCoreScanTime" },
+        "requires": { "all": [{ "v": "wave2" }, { "enemiesLeft": { "max": 0 } }] }, "blocked": "@relay.blockiert" },
+      "objectives": [
+        { "id": "pylons", "text": "@ziel.pylonen", "done": { "all": [{ "elapsed": 0.5 }, { "enemiesLeft": { "kind": "pylon", "max": 0 } }] } },
+        { "id": "sentinel", "text": "@ziel.waechter", "show": { "v": "sentinel" }, "done": { "all": [{ "v": "sentinel" }, { "enemiesLeft": { "kind": "sentinel", "max": 0 } }] } },
+        { "id": "pylons2", "text": "@ziel.pylonen_kern", "show": { "v": "wave2" }, "done": { "all": [{ "v": "wave2" }, { "enemiesLeft": { "tag": "pylon2", "max": 0 } }] } },
+        { "id": "core", "text": "@ziel.kern_scannen", "done": { "scanDone": "relaycore" } }
+      ],
+      "next": [{ "if": { "scanDone": "relaycore" }, "goto": "finale" }],
+      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "sentinel": true, "wave2": true } }, { "do": "debug_mark_scanned", "id": "relaycore" }]
+    },
+
+    {
+      "id": "finale", "loc": "relais",
+      "enter": [
+        { "radio": { "from": "kustoden_relais", "text": "@funk.relais_antwort" } },
+        { "reward": { "marks": 150 } },
+        { "log": "@log.abschluss", "loc": "relais" },
+        { "if": { "flag": "sharedEcho" }, "after": { "sec": 2, "do": [{ "radio": { "from": "grauzahn", "text": "@funk.grauzahn_leuchtet" } }] } },
+        { "startTeaser": true },
+        { "after": { "sec": 4, "do": [{ "oda": "@finale.geweckt" }, { "complete": "erfolg" }] } }
+      ],
+      "objectives": [{ "id": "listen", "text": "@ziel.zuhoeren", "done": false }]
+    }
+  ],
+
+  "on": {
+    "selaHelped": [
+      { "do": "npc_gedaechtnis", "npc": "sela", "ereignis": "notruf_geholfen", "text": "@gedaechtnis.sela_geholfen" },
+      { "do": "npc_haltung", "npc": "sela", "delta": 1 }
+    ]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Leitbake gefunden, Prüfung bestanden, das Kustoden-Relais hat geantwortet.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "kustoden_relais", "value": "geweckt" },
+        { "if": { "flag": "rostmeuteGone" }, "do": "welt_fakt", "key": "rostmeute_nebel", "value": "abgezogen" },
+        { "do": "npc_gedaechtnis", "npc": "tesk", "ereignis": "relais_geantwortet", "text": "@gedaechtnis.tesk_relais" },
+        { "if": { "all": [{ "flag": "selaCalled" }, { "not": { "flag": "vaelenHelped" } }] },
+          "do": "npc_gedaechtnis", "npc": "sela", "ereignis": "notruf_ignoriert", "text": "@gedaechtnis.sela_ignoriert" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "uebersprungen": {
+      "beschreibung": "Kampagne ohne Tutorial: m2 gilt als erledigt, nur die Fakten (kein Gedächtnis).",
+      "folgen": [
+        { "do": "welt_fakt", "key": "kustoden_relais", "value": "geweckt" }
+      ]
+    }
+  },
+
+  "debug": {
+    "prep": {
+      "vaelen":      [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "reveal_location", "loc": "vaelen" }],
+      "sonde":       [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "reveal_location", "loc": "vaelen" }],
+      "parley":      [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }],
+      "nebelFlight": [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }],
+      "ambush":      [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }],
+      "beacon":      [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }],
+      "toRelais":    [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "complete_find", "id": "nebel_beacon" }],
+      "relay":       [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "complete_find", "id": "nebel_beacon" }],
+      "finale":      [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "complete_find", "id": "nebel_beacon" }]
+    },
+    "done": [{ "do": "reveal_location", "loc": "wrack" }, { "do": "reveal_location", "loc": "nebel" }, { "do": "reveal_location", "loc": "vaelen" }]
+  },
+
+  "texte": {
+    "buch.briefing": "B-7 hat vor dem Ausfall ein Echo aus der Grauen Weite aufgefangen – Kustoden-Muster. Hinfliegen und die Quelle finden.",
+    "buch.belohnung": "150 Marken",
+
+    "funk.wrack_geruecht": "Übrigens: Hinter dem Splittergürtel treibt das Wrack der „Zaunkönig“. Plünderer waren da – aber nicht gründlich.",
+    "funk.angebot_ivo": "Captain? Mein Bojenlog sagt: B-7 hat vor dem Ausfall ein Echo aus der Grauen Weite empfangen. Kustoden-Muster. Sehen wir nach?",
+    "funk.angebot_tesk": "Lerche, noch was: B-7 hat vor dem Ausfall ein Echo aus der Grauen Weite aufgefangen. Kustoden-Muster. Seht ihr nach?",
+    "funk.sela_tipp": "Noch ein Tipp: Sela von der Vaelen-Karawane fliegt seit Jahren am Nebelrand. Fragt sie, bevor ihr reinfliegt.",
+    "funk.sela_angebot": "Die Graue Weite? Meine Messsonde ging dort beim Reaktorausfall verloren – sie treibt hier am Rand. Oder ihr kauft meine Nebelkarte.",
+    "funk.sela_karte": "Bitte sehr. Die Bake singt im Nordosten der Weite – und die Rostmeute lauert im Süden.",
+    "funk.sela_suchen": "Ihr seid Schätze! Sie sendet nicht mehr – ein Weitscan sollte sie trotzdem finden. Irgendwo hier draußen.",
+    "funk.sela_sonde": "Meine Sonde! Ihre Daten zeigen: Die Bake singt im Nordosten der Weite. Nehmt die Karte – und 40 Marken.",
+    "funk.grauzahn_nebel": "Nebel ist praktisch, Lerche. Man sieht euch nicht kommen – und uns auch nicht.",
+    "funk.grauzahn_frage": "Nicht schlecht, Lerche. Aber was sucht so ein Kahn wie eurer in der Grauen Weite? Raus mit der Sprache.",
+    "funk.grauzahn_bluff_klappt": "Das Konkordat? Ihr habt denen wirklich den Datenkern gebracht … Na gut. Wir waren nie hier.",
+    "funk.grauzahn_bluff_durchschaut": "Konkordat? Ihr habt deren Kern geknackt, das weiß jeder. Jungs – noch eine Runde!",
+    "funk.grauzahn_geister": "Kustoden? Geister jagen ist nichts für uns. Hier, für die Geschichte: 30 Marken. Und tief im Süden liegt eine alte Bake.",
+    "funk.grauzahn_schweigen": "Schweigen, hm? Dann finden wir es eben selbst heraus.",
+    "funk.grauzahn_bake": "Eine Kustoden-Bake? Die holen wir uns, Lerche. Danke fürs Finden!",
+    "funk.grauzahn_leuchtet": "Lerche? Der ganze Nebel leuchtet! … Vielleicht sind Geister doch was für uns.",
+    "funk.relais_pruefung": "…FREMDE STIMME. PRÜFUNG BEGINNT.",
+    "funk.relais_antwort": "…FRAGE ERKANNT. ANTWORT WIRD VORBEREITET. BITTE WARTEN, KLEINES SCHIFF…",
+
+    "briefing.wrack_notiert": "Gerücht notiert: Wrack „Zaunkönig“ ist neu auf der Sternkarte. Optional – aber lohnend.",
+    "briefing.erinnerung": "Ein neuer Auftrag wartet: Captain-Konsole, Reiter „Funk“, Enter. Einkaufen dürft ihr vorher.",
+    "briefing.nebel_aufgedeckt": "Graue Weite auf der Sternkarte! Erreichbar über B-7, die Vaelen-Karawane oder das Wrack.",
+
+    "vaelen.kurs": "Kurs Vaelen-Karawane (Sternkarte), dort am Ring andocken. Von da ist es nur ein Sprung in die Graue Weite.",
+    "vaelen.hinweis": "Die Vaelen-Karawane liegt direkt am Hafen. Captain: Sternkarte, Ziel Vaelen, dann andocken.",
+    "vaelen.antwort": "Captain: Sela wartet auf Antwort – Reiter „Funk“.",
+    "vaelen.weitscan": "Ablegen, Taktik: Weitscan (W) an verschiedenen Stellen der Szene. Die Sonde dann anvisieren und scannen.",
+    "vaelen.ohne_rat": "Ohne Selas Rat in die Graue Weite – mutig. Augen auf!",
+
+    "sonde.tipp": "Tipp: Die Karawane schirmt Signale ab. Weiter weg von ihr weitscannen – zum Beispiel Richtung Südwesten.",
+    "sonde.markiert": "Sela hat ein schwaches Piepen aufgefangen: Sonde markiert. Anvisieren (T) und scannen (S).",
+    "sonde.treiben_lassen": "Die Sonde lassen wir treiben – vielleicht später. Jetzt: Graue Weite!",
+
+    "nebelflight.kurs": "Kurs Graue Weite – von hier ein Sprung. Der Planungstisch zeigt alle Routen, Pins helfen beim Absprechen.",
+    "nebelflight.hinweis": "Zur Grauen Weite geht es von B-7, der Vaelen-Karawane oder dem Wrack aus. Sternkarte!",
+
+    "ambush.augen": "Im Nebel ist die Taktik die Augen des Piloten. Marker setzen, ansagen, lotsen!",
+    "ambush.hinterhalt": "Hinterhalt! Zwei Jäger aus dem Nebel. Taktik: scannen, Ziel ansagen. Captain: Schilde!",
+
+    "parley.antwort": "Grauzahn funkt. Captain: Antwort im Reiter „Funk“ – bluffen, teilen oder schweigen?",
+    "parley.ungeduldig": "Grauzahn wird ungeduldig. Schweigen ist auch eine Antwort – aber keine freundliche.",
+    "parley.bluff_durchschaut": "Bluff durchschaut! Ein Jäger kommt zurück. Taktik!",
+    "parley.echo_karte": "Jetzt das Echo. Selas Karte sagt: Nordosten. Taktik: dort Weitscan (W) – Marker für den Pilot!",
+    "parley.echo_ohne_karte": "Jetzt das Echo: Taktik, Weitscan (W) – die Leitbake muss hier irgendwo sein.",
+
+    "beacon.mitgehoert": "Ein Jäger hat unser Echo mitgehört. Erst abwehren – sein Störsender stört aber nicht den Scan.",
+    "beacon.weitscan_tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+    "beacon.richtung": "Das Echo kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+    "beacon.angepeilt": "Ich habe das Echo angepeilt: Leitbake auf der Taktikkarte markiert. Anvisieren und scannen!",
+    "beacon.scan_tipp": "Leitbake: Taktik wählt sie mit T, fliegt auf ≤ 800 heran und hält S. Zwei Sekunden reichen.",
+
+    "torelais.kurs": "Kurs Kustoden-Relais – Captain, Sternkarte. Pylonen mit Frontschild erwarten uns. Vorher reparieren?",
+
+    "relay.pylonen": "Drei Pylonen, Frontschild 4. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+    "relay.scan_tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
+    "relay.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
+    "relay.pruefung": "Das Relais prüft uns: zwei neue Pylonen – ihre Front zeigt zum Kern! Taktik: scannen, Pilot von außen ran.",
+    "relay.bestanden": "Prüfung bestanden. Captain: nah an den Kern (≤ 460) und die Leertaste halten – 6 Sekunden.",
+    "relay.kern": "Relaiskern",
+    "relay.blockiert": "Die Wächter des Relais stören den Scan – erst Pylonen und Wächter ausschalten.",
+
+    "finale.geweckt": "Das Relais antwortet uns. Ich glaube, wir haben gerade etwas sehr Großes geweckt.",
+
+    "wahl.sela.frage": "Sela bietet Hilfe für die Graue Weite an. Was tun wir?",
+    "wahl.sela.kaufen": "Nebelkarte kaufen (60 Marken)",
+    "wahl.sela.suchen": "Messsonde suchen (Weitscan)",
+    "wahl.parley.frage": "Grauzahn will wissen, was ihr hier sucht. Antwort?",
+    "wahl.parley.bluffen": "Bluffen: „Konkordat-Patrouille!“",
+    "wahl.parley.teilen": "Teilen: vom Kustoden-Echo erzählen",
+    "wahl.parley.schweigen": "Funkstille",
+
+    "ziel.einkaufen": "Hafenterminal: einkaufen (optional)",
+    "ziel.quartier": "Quartier einrichten – Trophäe aufstellen (optional)",
+    "ziel.annehmen": "Captain: neuen Funkspruch annehmen",
+    "ziel.zu_vaelen": "Zur Vaelen-Karawane fliegen und andocken",
+    "ziel.sela_antworten": "Captain: Selas Angebot beantworten (Funk)",
+    "ziel.sonde_suchen": "Taktik: Weitscan (W) – Selas Messsonde suchen",
+    "ziel.sonde_scannen": "Taktik: Sonde anvisieren (T) und scannen (S halten)",
+    "ziel.zum_nebel": "Zur Grauen Weite fliegen (über B-7, Vaelen oder das Wrack)",
+    "ziel.hinterhalt": "Rostmeute-Hinterhalt abwehren",
+    "ziel.grauzahn_antworten": "Captain: Grauzahn antworten (Funk)",
+    "ziel.jaeger_abwehren": "Jäger abwehren",
+    "ziel.bake_suchen": "Taktik: Weitscan (W) – Leitbake suchen",
+    "ziel.bake_scannen": "Taktik: Leitbake anvisieren (T) und scannen (S halten)",
+    "ziel.zum_relais": "Captain: Kurs Kustoden-Relais (Sternkarte), Faltsprung",
+    "ziel.pylonen": "Pylonen ausschalten ({killed:pylon}/3) – von der Seite!",
+    "ziel.waechter": "Kustoden-Wächter abwehren",
+    "ziel.pylonen_kern": "Prüfung: Pylonen am Kern ausschalten ({left:pylon2} übrig) – von außen!",
+    "ziel.kern_scannen": "Captain: Relaiskern scannen (nah ran, Leertaste halten)",
+    "ziel.zuhoeren": "Dem Relais zuhören …",
+
+    "log.karte": "Selas Nebelkarte gekauft: Leitbake im Nordosten der Grauen Weite.",
+    "log.sonde": "Selas Messsonde gefunden: Leitbake im Nordosten der Grauen Weite.",
+    "log.bluff": "Grauzahn geblufft – das Konkordat hat einen Ruf. Die Rostmeute zieht ab.",
+    "log.geteilt": "Mit Grauzahn das Kustoden-Echo geteilt. Er zahlt – und verrät eine alte Bake.",
+    "log.abschluss": "Mission „Echo im Nebel“: Das Kustoden-Relais hat geantwortet. Fortsetzung folgt.",
+
+    "gedaechtnis.ivo_bojenlog": "Die Lerche ist meinem Bojenlog gefolgt – dem Echo aus der Grauen Weite.",
+    "gedaechtnis.sela_karte": "Die Lerche hat mir meine Nebelkarte abgekauft.",
+    "gedaechtnis.sela_sonde": "Die Lerche hat meine verlorene Messsonde am Nebelrand gefunden.",
+    "gedaechtnis.sela_geholfen": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.",
+    "gedaechtnis.sela_ignoriert": "Die Lerche hat meinen Notruf gehört – und ist nicht gekommen.",
+    "gedaechtnis.grauzahn_geblufft": "Die Lerche hat mich mit dem Konkordat geblufft. Wir sind abgezogen.",
+    "gedaechtnis.grauzahn_bluff_durchschaut": "Die Lerche wollte mich mit dem Konkordat bluffen. Durchschaut.",
+    "gedaechtnis.grauzahn_echo_geteilt": "Die Lerche hat mir vom Kustoden-Echo erzählt. Ehrlich, für Leute wie die.",
+    "gedaechtnis.grauzahn_geschwiegen": "Die Lerche hat in der Grauen Weite kein Wort gesagt.",
+    "gedaechtnis.tesk_relais": "Die Lerche hat das Kustoden-Relais in der Grauen Weite zum Antworten gebracht.",
+
+    "chronik.erfolg": "Echo im Nebel: Die Crew folgt dem Echo von B-7 in die Graue Weite, besteht die Prüfung der Kustoden – und das Relais antwortet.",
+
+    "skip.angebot": "Echo aus der Grauen Weite."
+  }
+}

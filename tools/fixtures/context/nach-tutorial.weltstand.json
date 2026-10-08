@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "id": "lerche-2026-10-07-a",
+  "name": "Lerche · 07.10.",
+  "erstellt": "2026-10-07T19:02:00Z",
+  "gespeichert": "2026-10-07T19:51:10Z",
+  "spielzeit_s": 2520,
+  "tutorial": "erledigt",
+  "meta": { "spieler": ["Kai", "Mira", "Tom"], "server": "s1-test" },
+  "ort": { "angedockt": "hafen" },
+  "schiff": {
+    "name": "Lerche",
+    "marken": 485,
+    "lager": { "ersatzteil": 1, "flickblech": 2, "loeschgel": 2, "medipack": 1, "bolzen": 0 },
+    "ausbauten": [],
+    "deko": ["trophaee_boje", "lamassu_figur"],
+    "systeme": {},
+    "huelle": 100
+  },
+  "welt": {
+    "orte": {
+      "bekannt": ["hafen", "splitter", "b7", "vaelen", "wrack", "nebel", "relais", "kesh"],
+      "besucht": ["hafen", "splitter", "b7", "vaelen", "nebel", "relais", "kesh"],
+      "aufgedeckt": ["vaelen_sonde", "nebel_beacon"],
+      "gefunden": ["splitter_cache1", "vaelen_sonde", "nebel_beacon"]
+    },
+    "verbindungen_offen": ["nebel-relais", "kesh"],
+    "flags": { "bribed": false, "decision": "deliver", "technikerRescued": true, "selaCalled": true, "vaelenHelped": true, "nebelMap": true, "rostmeuteGone": true, "wardenKilled": true },
+    "fakten": { "tafel_von_kesh": "konkordat_archiv", "kustoden_relais": "hat geantwortet: FRAGE ERKANNT, ANTWORT WIRD VORBEREITET" }
+  },
+  "missionen": {
+    "m1": { "status": "erledigt", "ausgang": "erfolg" },
+    "m2": { "status": "erledigt", "ausgang": "erfolg" },
+    "m3": { "status": "erledigt", "ausgang": "erfolg" }
+  },
+  "npc": {
+    "tesk": { "name": "Tesk", "titel": "Hafenmeisterin", "fraktion": "konkordat", "rolle": "auftraggeberin", "status": "lebt", "haltung": 2, "ort": "hafen",
+      "gedaechtnis": [
+        { "text": "Die Lerche hat B-7 wieder zum Senden gebracht.", "mission": "m1" },
+        { "text": "Die Crew hat den Datenkern ans Konkordat geliefert, nicht selbst geknackt.", "mission": "m1" },
+        { "text": "Die Lerche hat die Tafel von Kesh aus dem Archiv geholt und mir übergeben.", "mission": "m3" }
+      ] },
+    "melk": { "name": "Melk", "titel": "Archivarin", "fraktion": "konkordat", "rolle": "archivarin", "status": "lebt", "haltung": 1, "ort": "hafen",
+      "gedaechtnis": [
+        { "text": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche.", "mission": "m1" },
+        { "text": "Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche.", "mission": "m3" }
+      ] },
+    "ivo": { "name": "Ivo", "titel": "Techniker", "fraktion": "konkordat", "rolle": "crew_gast", "status": "lebt", "haltung": 2, "ort": "lerche",
+      "gedaechtnis": [{ "text": "Die Lerche hat mich verletzt von der Plattform B-7 geholt.", "mission": "m1" }] },
+    "sela": { "name": "Sela", "titel": "Vaelen-Händlerin", "fraktion": "vaelen", "rolle": "haendlerin", "status": "lebt", "haltung": 2, "ort": "vaelen",
+      "gedaechtnis": [
+        { "text": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.", "mission": "sela" },
+        { "text": "Die Crew hat meine verlorene Messsonde gefunden.", "mission": "m2" }
+      ] },
+    "grauzahn": { "name": "Grauzahn", "titel": "Anführer der Rostmeute", "fraktion": "rostmeute", "rolle": "gegenspieler", "status": "lebt", "haltung": -2,
+      "gedaechtnis": [
+        { "ereignis": "wegezoll_verweigert", "text": "Die Lerche hat sich geweigert, Wegezoll zu zahlen, und an B-7 meine Jäger zerlegt.", "mission": "m1", "gewicht": 3 },
+        { "ereignis": "nachhut_gescheitert", "text": "Meine Nachhut hat die Lerche nicht aufhalten können.", "mission": "m1", "gewicht": 1 },
+        { "ereignis": "funk_ignoriert", "text": "Die Lerche hat meinen Funkspruch im Splittergürtel einfach weggeklickt.", "mission": "m2", "gewicht": 1 },
+        { "ereignis": "jaeger_verloren", "text": "Zwei Jäger an der Leitbake verloren.", "mission": "m2", "gewicht": 2 },
+        { "ereignis": "geblufft", "text": "Im Nebel hat die Lerche mich mit einer Konkordat-Patrouille geblufft – und es hat geklappt. Das merke ich mir.", "mission": "m2", "haltung": -1, "gewicht": 3 },
+        { "ereignis": "kesh_gemieden", "text": "Auf Kesh waren es nicht meine Leute. Trotzdem reden alle von der Lerche.", "mission": "m3", "gewicht": 1 },
+        { "ereignis": "ruf_verloren", "text": "Im Hafen lacht man über die Rostmeute.", "mission": "m3", "gewicht": 2 }
+      ] }
+  },
+  "chronik": [
+    { "text": "Erster Start: Die Crew übernimmt die Lerche im Hafen Lichtkordon.", "mission": "m1" },
+    { "text": "Übung im Hafen bestanden.", "mission": "m1" },
+    { "text": "Grauzahn verlangt Wegezoll, die Crew lehnt ab.", "mission": "m1" },
+    { "text": "Die stumme Boje: B-7 sendet wieder, Techniker Ivo gerettet, Rostmeute abgewehrt. Den Datenkern bekommt das Konkordat.", "mission": "m1", "ausgang": "erfolg" },
+    { "text": "Selas Notruf: Die Crew hilft der Vaelen-Karawane mit dem Reaktor.", "mission": "sela", "ausgang": "erfolg" },
+    { "text": "Selas Messsonde gefunden.", "mission": "m2" },
+    { "text": "Grauzahn im Nebel geblufft.", "mission": "m2" },
+    { "text": "Echo im Nebel: Mit Selas Hilfe findet die Crew eine Kustoden-Leitbake. Grauzahn wird geblufft. Das Kustoden-Relais besteht seine Prüfung und antwortet: Frage erkannt.", "mission": "m2", "ausgang": "erfolg" },
+    { "text": "Auf Kesh: Plünderer im Hof vertrieben, das Gewölbe zu zweit geöffnet.", "mission": "m3" },
+    { "text": "Die Tafel von Kesh: Die Crew holt eine Kustoden-Vertragstafel von Plünderern zurück und besiegt den Wächter. Tesk bringt die Tafel ins Konkordat-Archiv.", "mission": "m3", "ausgang": "erfolg" }
+  ]
+}

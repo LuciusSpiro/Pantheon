@@ -19,6 +19,7 @@
     skin: ['#F1C7A0', '#C68A5E', '#7A4A2E'],
     players: PROTO.PLAYER_COLORS || ['#56B4E9', '#E69F00', '#CC79A7'],
     dark: '#151B2B', grey: '#6B7380',
+    seal: '#9E1F27',   // S1: Siegel (Lerche-Rot) für „Weltstand gesichert“
   };
   const SHAPES = PROTO.PLAYER_SHAPES || ['circle', 'triangle', 'diamond'];
 

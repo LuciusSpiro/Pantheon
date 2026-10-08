@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/weltstand/1",
+  "title": "Weltstand (Pantheon, Version 1)",
+  "description": "Speicherstand einer Kampagne: Welt + Schiff + NSC + Chronik (CONTRACT-S1 §5). Liegt auf dem Server (WORLD_DIR, Standard data/worlds/<id>.json), atomar geschrieben, vorherige Fassung als <id>.bak.json. Gespeichert wird angedockt und beim Abschluss einer Mission. Höchstens 5 Weltstände.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "name", "erstellt", "gespeichert", "ort", "schiff", "welt", "missionen", "npc", "chronik"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1, "description": "Formatversion für spätere Migrationen (server/weltstand.js MIGRATIONS)" },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]{4,40}$" },
+    "name": { "type": "string", "maxLength": 40, "description": "Anzeigename in der Lobby, z. B. 'Lerche · 07.10.'" },
+    "erstellt": { "type": "string", "format": "date-time" },
+    "gespeichert": { "type": "string", "format": "date-time" },
+    "spielzeit_s": { "type": "number", "minimum": 0 },
+    "tutorial": { "enum": ["laeuft", "erledigt", "uebersprungen", "gespielt"], "description": "'gespielt' = Altname für 'erledigt'" },
+
+    "meta": {
+      "type": "object", "additionalProperties": false,
+      "description": "Nur zur Anzeige in der Lobby",
+      "properties": {
+        "spieler": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 24 } },
+        "server": { "type": "string", "description": "SERVER_VERSION beim Speichern" }
+      }
+    },
+
+    "ort": {
+      "type": "object", "additionalProperties": false, "required": ["angedockt"],
+      "description": "Laden setzt das Schiff angedockt hierhin (letzter Andockort bzw. hafen).",
+      "properties": { "angedockt": { "type": "string" } }
+    },
+
+    "schiff": {
+      "type": "object", "additionalProperties": false, "required": ["name", "marken", "lager"],
+      "properties": {
+        "name": { "type": "string" },
+        "marken": { "type": "integer", "minimum": 0 },
+        "lager": { "type": "object", "description": "Gegenstand -> Anzahl (ersatzteil, flickblech, loeschgel, loeschgelCharges, medipack, bolzen, tafel …)", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "ausbauten": { "type": "array", "items": { "type": "string" }, "description": "gekaufte Upgrades (seitenturm, schildpool, schrauber3, bolzenwerfer)" },
+        "deko": { "type": "array", "items": { "type": "string" }, "description": "Deko im Besitz" },
+        "dekoPlaetze": { "type": "object", "description": "Deko-Platz -> Deko-Kennung oder null", "additionalProperties": { "type": ["string", "null"] } },
+        "quartiere": { "type": "object", "description": "Quartier -> Einrichtung (floor, wall, light)" },
+        "systeme": { "type": "object", "description": "System -> ok|damaged|broken (offline wird ok, geflickt wird damaged)", "additionalProperties": { "enum": ["ok", "damaged", "broken"] } },
+        "huelle": { "type": "number", "minimum": 0 },
+        "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
+        "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } }
+      }
+    },
+
+    "welt": {
+      "type": "object", "additionalProperties": false, "required": ["orte"],
+      "properties": {
+        "orte": {
+          "type": "object", "additionalProperties": false, "required": ["bekannt", "besucht"],
+          "properties": {
+            "bekannt": { "type": "array", "items": { "type": "string" } },
+            "besucht": { "type": "array", "items": { "type": "string" } },
+            "aufgedeckt": { "type": "array", "items": { "type": "string" }, "description": "per Weitscan aufgedeckte Funde" },
+            "gefunden": { "type": "array", "items": { "type": "string" }, "description": "eingesammelte/gescannte Funde" }
+          }
+        },
+        "verbindungen_offen": { "type": "array", "items": { "type": "string" }, "description": "Schlüssel aus LOCKED_LINKS, die offen sind" },
+        "karten": { "type": "array", "items": { "type": "string" }, "description": "kartierte Außenkarten (platform, wreck, kesh)" },
+        "flags": { "type": "object", "description": "Weltweite Flags (bribed, decision, technikerRescued …)", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+        "fakten": { "type": "object", "description": "Kanon aus Folgen, z. B. tafel_von_kesh: konkordat_archiv. Der Server schreibt den Wert direkt (Quelle in faktenQuelle); die Form { value, quelle } (wie content/npc.json) wird ebenfalls gelesen.",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null", "object"], "properties": { "value": { "type": ["string", "number", "boolean", "null"] }, "quelle": { "type": ["string", "null"] } } } },
+        "faktenQuelle": { "type": "object", "description": "Fakt -> Quelle (Mission/Ausgang)", "additionalProperties": { "type": "string" } },
+        "odaSeen": { "type": "array", "items": { "type": "string" }, "description": "schon gesagte ODA-Einmal-Texte" },
+        "scans": { "type": "array", "items": { "type": "string" }, "description": "abgeschlossene Captain-Scans" },
+        "wrack": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "salvage": { "type": "array", "items": { "type": "boolean" } },
+            "loreRead": { "type": "boolean" },
+            "hollow": { "type": "object", "additionalProperties": false, "properties": { "marked": { "type": "boolean" }, "open": { "type": "boolean" } } }
+          }
+        },
+        "log": {
+          "type": "array", "maxItems": 200, "description": "Logbuch (letzte CONFIG.weltstand.logKeep Einträge)",
+          "items": { "type": "object", "required": ["text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" }, "loc": { "type": ["string", "null"] }, "t": { "type": "number" }, "mission": { "type": ["string", "null"] } } }
+        }
+      }
+    },
+
+    "missionen": {
+      "type": "object",
+      "description": "= mission.toSave(): { missionen: { id: Status }, aktiv, flags, buchFokus }. Laden startet eine aktive Mission beim gespeicherten Schritt (bzw. wiederaufnahme.ab) neu. Altform (Missions-ID -> Status direkt, wie weltstand.beispiel.json) wird weiter gelesen.",
+      "properties": {
+        "missionen": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["status"],
+            "properties": {
+              "status": { "enum": ["angeboten", "aktiv", "erledigt", "gescheitert"] },
+              "schritt": { "type": ["string", "null"] },
+              "v": { "type": "object" },
+              "ereignisse": { "type": "array", "items": { "type": "string" } },
+              "entscheidungen": { "type": "array", "items": { "type": "string" } },
+              "erledigte_ziele": { "type": "array", "items": { "type": "object" } },
+              "ausgang": { "type": ["string", "null"] },
+              "start_s": { "type": ["number", "null"] }, "ende_s": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "aktiv": { "type": ["string", "null"] },
+        "flags": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+        "buchFokus": { "type": ["string", "null"] }
+      },
+      "additionalProperties": {
+        "type": "object", "required": ["status"],
+        "properties": {
+          "status": { "enum": ["angeboten", "aktiv", "erledigt", "gescheitert"] },
+          "schritt": { "type": ["string", "null"] },
+          "v": { "type": "object", "description": "Schrittvariablen (m.v)" },
+          "ereignisse": { "type": "array", "items": { "type": "string" }, "description": "für den Neustart nötige Ereignisse (accepted …)" },
+          "entscheidungen": { "type": "array", "items": { "type": "string" } },
+          "erledigte_ziele": { "type": "array", "items": { "type": "object" } },
+          "ausgang": { "type": ["string", "null"] },
+          "start_s": { "type": ["number", "null"] }, "ende_s": { "type": ["number", "null"] }
+        }
+      }
+    },
+
+    "npc": {
+      "type": "object",
+      "description": "NSC als Datensätze (Nemesis-Prinzip). Kennung -> Datensatz. Startwerte aus content/npc.json.",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["name", "fraktion", "status", "haltung", "gedaechtnis"],
+        "properties": {
+          "name": { "type": "string" },
+          "titel": { "type": "string", "description": "Anzeige im Funk, z. B. 'Hafenmeisterin'" },
+          "fraktion": { "type": "string" },
+          "rolle": { "type": "string" },
+          "status": { "enum": ["lebt", "verwundet", "verletzt", "gefangen", "tot", "verschwunden", "vermisst", "unbekannt", "befoerdert", "uebergelaufen"] },
+          "haltung": { "type": "integer", "minimum": -10, "maximum": 10, "description": "CONFIG.weltstand.attitudeMin … attitudeMax (Standard -3 Feind … 0 neutral … 3 Verbündeter)" },
+          "ort": { "type": "string" },
+          "gedaechtnis": {
+            "type": "array", "maxItems": 50,
+            "description": "Gemeinsame Ereignisse, älteste zuerst. Höchstens CONFIG.weltstand.npcMemoryMax (12): bei mehr fällt der älteste Eintrag mit dem kleinsten Gewicht heraus.",
+            "items": { "type": "object", "additionalProperties": false, "required": ["text"],
+              "properties": {
+                "ereignis": { "type": "string" },
+                "text": { "type": "string", "maxLength": 200 },
+                "mission": { "type": "string" },
+                "schritt": { "type": "string" },
+                "haltung": { "type": "integer" },
+                "gewicht": { "type": "number" },
+                "spielzeit_s": { "type": "number" }
+              } }
+          }
+        }
+      }
+    },
+
+    "chronik": {
+      "type": "array",
+      "description": "Gespielte Missionen und Entscheidungen. Grundlage für 'Was bisher geschah'.",
+      "items": { "type": "object", "additionalProperties": false, "required": ["text"],
+        "properties": { "text": { "type": "string", "maxLength": 300 }, "mission": { "type": "string" }, "ausgang": { "type": "string" }, "spielzeit_s": { "type": "number" } } }
+    }
+  }
+}

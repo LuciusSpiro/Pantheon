@@ -86,6 +86,7 @@
     if (!window.GameAudio) return;
     Net.guard('GameAudio.init', () => GameAudio.init());
     Client.audioOn = true;
+    applyAudioOptions();
     audio.mood = null;
   }
 
@@ -138,6 +139,237 @@
   }
   window.addEventListener('resize', layout);
 
+  // ------------------------------------------------------------------ S1: Optionen (localStorage 'pantheon.options', je Spieler)
+  const OPT_KEY = 'pantheon.options';
+  function loadOptions() {
+    const o = { volume: 0.8, muted: false, render: null, saved: true };
+    let raw = null;
+    try { raw = localStorage.getItem(OPT_KEY); } catch (e) { Net.reportError('Options.load', e); o.saved = false; }
+    if (raw) {
+      try {
+        const d = JSON.parse(raw);
+        if (d && typeof d === 'object') {
+          if (d.volume != null && isFinite(+d.volume)) o.volume = clamp(+d.volume, 0, 1);
+          if (typeof d.muted === 'boolean') o.muted = d.muted;
+          if (d.render === 'voxel' || d.render === '2d') o.render = d.render;
+        }
+      } catch (e) { Net.reportError('Options.parse', e); }
+    }
+    return o;
+  }
+  function saveOptions() {
+    const o = Client.options;
+    try { localStorage.setItem(OPT_KEY, JSON.stringify({ volume: o.volume, muted: o.muted, render: o.render })); o.saved = true; }
+    catch (e) { Net.reportError('Options.save', e); o.saved = false; }
+  }
+  function applyAudioOptions() {
+    const GA = window.GameAudio;
+    if (!GA) return;
+    const o = Client.options;
+    if (typeof GA.setVolume === 'function') Net.guard('GameAudio.setVolume', () => GA.setVolume(o.volume));
+    // ART-AUDIO: setMuted(bool) bevorzugen (das alte mute() ohne Argument schaltet stumm)
+    if (typeof GA.setMuted === 'function') Net.guard('GameAudio.setMuted', () => GA.setMuted(o.muted));
+    else if (typeof GA.mute === 'function') Net.guard('GameAudio.mute', () => GA.mute(!!o.muted));
+  }
+  // Voxel/2D: vorhandenen Umschalter (voxel/boot.js: VoxelRender.setMode) benutzen; F8 bleibt gleichwertig
+  function syncRenderOption() {
+    const VR = window.VoxelRender;
+    if (!VR || typeof VR.setMode !== 'function') return;
+    const o = Client.options;
+    if (!Client.renderApplied) {
+      Client.renderApplied = true;
+      if (!params.get('render') && o.render && VR.mode !== o.render) Net.guard('Voxel.setMode', () => VR.setMode(o.render));
+      return;
+    }
+    // S1-QA: nur echte Umschaltungen (F8, Optionen) merken – nicht den Startmodus aus der URL (?render=2d), sonst
+    // überschreibt ein Testlink die gespeicherte Wahl des Spielers
+    const settled = !VR.failed && (VR.mode === 'voxel' || VR.mode === '2d');
+    if (!settled) return;
+    if (Client.renderSeen == null) { Client.renderSeen = VR.mode; return; }
+    if (VR.mode !== Client.renderSeen) {
+      Client.renderSeen = VR.mode;
+      if (VR.mode !== o.render) { o.render = VR.mode; saveOptions(); }
+    }
+  }
+  function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function toggleFullscreen() {
+    try {
+      if (isFullscreen()) { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex) ex.call(document); return; }
+      const el = document.documentElement;
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!fn) { H.pushNotice('Vollbild wird hier nicht unterstützt', R.PAL.warn); return; }
+      const p = fn.call(el);
+      if (p && typeof p.catch === 'function') p.catch((e) => { Net.reportError('Fullscreen', e); H.pushNotice('Vollbild nicht möglich', R.PAL.warn); });
+    } catch (e) { Net.reportError('Fullscreen', e); }
+  }
+  Client.options = loadOptions();
+
+  // ------------------------------------------------------------------ S1: Menüseiten (Hauptmenü-Overlays + Spielmenü)
+  // ui.stack: oberste Seite ist offen ('menu' | 'options' | 'controls' | 'confirmEnd' | 'worlds'); Esc geht eine Seite zurück.
+  Client.ui = { stack: [], sel: {}, worldsMode: 'list', hold: null, pauseSent: false };
+  function uiTop() { const s = Client.ui.stack; return s.length ? s[s.length - 1] : null; }
+  function soloNow() { const st = Client.state; return !!st && (st.players || []).filter(p => p.connected !== false).length === 1; }
+  function inGame() { const st = Client.state; return !!(st && st.phase !== 'lobby' && me()); }
+  function sendPause(on) { send({ t: (P.C && P.C.MENU) || 'menu', op: 'pause', on: !!on }); }
+  function uiPush(page, sel) {
+    const ui = Client.ui;
+    if (!ui.stack.length) {
+      releaseAll();
+      try { if (document.activeElement === nameInput || (codeInput && document.activeElement === codeInput)) document.activeElement.blur(); canvas.focus(); } catch (e) { /* egal */ }
+      // Kai: das Spielmenü hält das Spiel nur solo an
+      if (page === 'menu' && inGame() && soloNow()) { sendPause(true); ui.pauseSent = true; }
+    }
+    ui.stack.push(page);
+    ui.sel[page] = sel == null ? 0 : sel;
+  }
+  function uiClosed() {
+    const ui = Client.ui;
+    ui.hold = null;
+    if (ui.pauseSent) { ui.pauseSent = false; if (inGame()) sendPause(false); }
+  }
+  function uiBack() {
+    const ui = Client.ui;
+    ui.stack.pop();
+    if (!ui.stack.length) uiClosed();
+    audio.play('ui_back');
+  }
+  function uiCloseAll(silent) {
+    const ui = Client.ui;
+    if (!ui.stack.length) return;
+    ui.stack = [];
+    uiClosed();
+    if (!silent) audio.play('ui_back');
+  }
+  function openWorlds(mode) {
+    const st = Client.state;
+    if (!st || !me()) return;
+    Client.ui.worldsMode = mode === 'full' ? 'full' : 'list';
+    const rows = H.worldRows(st, Client.ui);
+    let sel = 0;
+    if (mode === 'full') sel = Math.max(0, rows.length - 1);   // ältester vorausgewählt (Liste: neueste zuerst)
+    else { const i = rows.findIndex(r => r.id != null && r.id === (st.lobby && st.lobby.world)); sel = i >= 0 ? i : 0; }
+    if (uiTop() === 'worlds') { Client.ui.sel.worlds = sel; return; }
+    uiPush('worlds', sel);
+    audio.play('ui_click');
+  }
+  function worldsItems() { return H.worldRows(Client.state, Client.ui); }
+  function chooseWorldRow(row) {
+    const st = Client.state || {};
+    if (!row) return;
+    if (row.neu) {
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: null });
+      uiCloseAll(true); audio.play('ui_click');
+      return;
+    }
+    const w = row.w || {};
+    if (w.state && w.state !== 'ok') {
+      H.pushNotice('Nicht ladbar: ' + (H.WORLD_STATE_TEXT[w.state] || w.state) + (w.grund ? ' – ' + w.grund : ''), R.PAL.warn, 4);
+      audio.play('error');
+      return;
+    }
+    send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: row.id });
+    if (st.lobby && st.lobby.worldsFull && Client.ui.worldsMode === 'full') H.pushNotice('Fortsetzen statt neu: ' + (w.name || row.id), R.PAL.mint);
+    uiCloseAll(true); audio.play('ui_click');
+  }
+  function startDelete(id, viaMouse) {
+    const row = worldsItems().find(r => r.id === id && !r.neu);
+    if (!row) return;
+    if (row.w && row.w.state === 'belegt') { H.pushNotice('Dieser Weltstand ist gerade in einer anderen Runde geöffnet.', R.PAL.warn); audio.play('error'); return; }
+    Client.ui.hold = { id, t: 0, sent: false, mouse: !!viaMouse };
+  }
+  function updateHold(dt) {
+    const h = Client.ui.hold;
+    if (!h || uiTop() !== 'worlds') { if (h && uiTop() !== 'worlds') Client.ui.hold = null; return; }
+    h.t += dt;
+    const need = (CFG.menu && CFG.menu.deleteHold) || 1;
+    if (!h.sent && h.t >= need) {
+      h.sent = true;
+      send({ t: (P.C && P.C.WORLD) || 'world', op: 'delete', id: h.id });
+      audio.play('save_delete');
+      Client.ui.deletedAt = performance.now();
+    }
+    if (h.sent && h.t > need + 0.6) Client.ui.hold = null;
+  }
+  function endInfo() {
+    const st = Client.state || {};
+    const lob = Client.lastLobby || {};
+    const start = lob.startMission || 'm1';
+    // QA-Abnahme S1: Server-Feld `campaign` (im Spiel immer da) hat Vorrang – Spät-Beitretende kennen die Lobby-Wahl nicht
+    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free');
+    const ship = st.ship || {};
+    return { campaign, docked: !!(ship.dockedAt || ship.docked) };
+  }
+  function uiActivate(page, id) {
+    switch (page) {
+      case 'menu':
+        if (id === 'resume') uiCloseAll();
+        else if (id === 'options') { uiPush('options'); audio.play('ui_click'); }
+        else if (id === 'controls') { uiPush('controls'); audio.play('ui_click'); }
+        else if (id === 'end') { uiPush('confirmEnd', 0); audio.play('ui_click'); }
+        break;
+      case 'confirmEnd':
+        if (id === 'end') {
+          send({ t: (P.C && P.C.MENU) || 'menu', op: 'end' });
+          Client.ui.pauseSent = false;   // der Server setzt ohnehin zurück
+          uiCloseAll(true);
+          audio.play('ui_click');
+        } else uiBack();
+        break;
+      case 'options':
+        if (id === 'back') uiBack(); else uiOption(id, 0);
+        break;
+      case 'controls': uiBack(); break;
+      case 'worlds': {
+        if (id === 'back') { uiBack(); break; }
+        const row = worldsItems().find(r => r.id === id) || (id == null ? worldsItems().find(r => r.neu) : null);
+        chooseWorldRow(row);
+        break;
+      }
+    }
+  }
+  function uiOption(id, dir) {
+    const o = Client.options;
+    if (id === 'volume') {
+      if (!dir) return;
+      o.volume = clamp(Math.round((o.volume + dir * 0.1) * 10) / 10, 0, 1);
+      if (o.volume > 0 && o.muted && dir > 0) o.muted = false;
+      applyAudioOptions(); saveOptions(); audio.play('ui_click');
+    } else if (id === 'mute') {
+      o.muted = !o.muted; applyAudioOptions(); saveOptions();
+      if (!o.muted) audio.play('ui_click');
+    } else if (id === 'render') {
+      const VR = window.VoxelRender;
+      if (!VR || typeof VR.setMode !== 'function') { H.pushNotice('Darstellung: Umschalter noch nicht geladen', R.PAL.warn); return; }
+      const want = dir < 0 ? '2d' : dir > 0 ? 'voxel' : (VR.mode === 'voxel' ? '2d' : 'voxel');
+      const got = Net.guard('Voxel.setMode', () => VR.setMode(want), VR.mode);
+      o.render = got === 'voxel' || got === '2d' ? got : want; saveOptions();
+      if (want === 'voxel' && got !== 'voxel') H.pushNotice('Voxel nicht verfügbar – bleibt 2D', R.PAL.warn);
+      audio.play('ui_click');
+    } else if (id === 'fullscreen') { toggleFullscreen(); audio.play('ui_click'); }
+  }
+  function uiKey(e) {
+    const page = uiTop();
+    const code = e.code;
+    const ui = Client.ui;
+    if (code === 'Escape') { if (!e.repeat) uiBack(); return; }
+    const items = page === 'worlds' ? worldsItems() : H.pageItems(page, Client.view || {});
+    const n = items.length;
+    let sel = clamp(ui.sel[page] || 0, 0, Math.max(0, n - 1));
+    const up = code === 'KeyW' || code === 'ArrowUp', down = code === 'KeyS' || code === 'ArrowDown';
+    const left = code === 'KeyA' || code === 'ArrowLeft', right = code === 'KeyD' || code === 'ArrowRight';
+    if (page === 'confirmEnd' && (left || right || up || down)) { ui.sel[page] = sel === 0 ? 1 : 0; audio.play('ui_click', { volume: 0.5 }); return; }
+    if ((up || down) && n) { ui.sel[page] = (sel + (up ? -1 : 1) + n) % n; ui.hold = null; audio.play('ui_click', { volume: 0.5 }); return; }
+    if (page === 'options' && (left || right)) { uiOption(items[sel], left ? -1 : 1); return; }
+    if (code === 'KeyO' && page !== 'options' && page !== 'worlds') { uiPush('options'); audio.play('ui_click'); return; }
+    if (e.repeat) return;
+    if (code === 'Enter' || code === 'Space' || code === 'NumpadEnter') {
+      if (page === 'worlds') { chooseWorldRow(items[sel]); return; }
+      uiActivate(page, items[sel]);
+      return;
+    }
+    if (page === 'worlds' && code === 'Delete') { const r = items[sel]; if (r && !r.neu) startDelete(r.id, false); return; }
+  }
+
   // ------------------------------------------------------------------ Lobby-Aktionen
   let helloTimer = null;
   const actions = {
@@ -148,9 +380,31 @@
     toggleReady() {
       const m = me();
       if (!m) return;
+      // S1: Neue Kampagne bei vollen Weltständen -> Löschdialog (ältester vorausgewählt)
+      const lob = (Client.state && Client.state.lobby) || {};
+      const start = lob.startMission || 'm1';
+      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free')) {
+        H.pushNotice('Erst einen Weltstand löschen (höchstens ' + H.worldsMax() + ')', R.PAL.warn, 4);
+        openWorlds('full');
+        audio.play('error');
+        return;
+      }
       send({ t: P.C.READY || 'ready', ready: !m.ready });
       audio.play('ui_click');
     },
+    // S1: Overlays und Menü (Maus über Hud-Knöpfe)
+    openWorlds(mode) { openWorlds(mode); },
+    openOptions() { if (uiTop() !== 'options') { uiPush('options'); audio.play('ui_click'); } },
+    uiActivate(page, id) { uiActivate(page, id); },
+    uiSelect(page, i) { Client.ui.sel[page] = i; },
+    uiOption(id, dir) { uiOption(id, dir); },
+    uiPick(page, i) {
+      // Klick auf eine Zeile: wählt sie; zweiter Klick auf dieselbe Zeile = Enter
+      const ui = Client.ui;
+      if ((ui.sel[page] || 0) === i && performance.now() - (ui.pickT || 0) < 600) { const r = worldsItems()[i]; if (r) chooseWorldRow(r); return; }
+      ui.sel[page] = i; ui.pickT = performance.now(); ui.hold = null;
+    },
+    holdDelete(id) { startDelete(id, true); },
     dismissEnd() { Client.endDismissed = true; audio.play('ui_back'); },
     // M0: Hafen-Übung überspringen (jeder darf umschalten, Server hält den Zustand)
     toggleSkipDrill() {
@@ -164,7 +418,8 @@
     toggleStartMission() {
       const st = Client.state;
       const cur = (st && st.lobby && st.lobby.startMission) || 'm1';
-      const list = (P.START_MISSIONS && P.START_MISSIONS.length) ? P.START_MISSIONS : ['m1', 'm3'];
+      if (st && st.lobby && st.lobby.world != null && H.lobbyWorld(st)) { H.pushNotice('Startauswahl entfällt beim Fortsetzen (F: „Neue Kampagne“ wählen)', R.PAL.warn); audio.play('error'); return; }
+      const list = H.startList();   // S1: inkl. 'free' (Kampagne ohne Tutorial)
       const next = list[(list.indexOf(cur) + 1) % list.length];
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next });
       audio.play('ui_click');
@@ -238,6 +493,12 @@
           audio.play('error');
           break;
         }
+        if (msg.code === 'worldbusy') {   // S1: Weltstand in einer anderen Runde geöffnet
+          Client.ui.hold = null;
+          H.pushNotice(msg.text || 'Dieser Weltstand ist gerade in einer anderen Runde geöffnet.', R.PAL.warn, 4);
+          audio.play('error');
+          break;
+        }
         H.pushNotice(msg.text || 'Serverfehler', R.PAL.red); break;
       default: break;
     }
@@ -256,7 +517,10 @@
     if (s.mission && !s.mission.log && prev && prev.mission && prev.mission.log) s.mission.log = prev.mission.log;
     // §21.2: Missionsbuch kommt nur bei Änderung (version) – sonst das letzte behalten
     if (s.mission && !s.mission.book && prev && prev.mission && prev.mission.book) s.mission.book = prev.mission.book;
+    // S1 (Kann): Chronik kommt im Log-Slot – ebenfalls behalten
+    if (s.mission && !s.mission.chronik && prev && prev.mission && prev.mission.chronik && prev.phase !== 'lobby') s.mission.chronik = prev.mission.chronik;
     Client.state = s; G.state = s; R.lastState = s;
+    Net.guard('Client.phaseS1', () => onPhaseS1(prev, s));
     const now = performance.now();
     Client.snaps.push({ t: now, s });
     while (Client.snaps.length > 3 && now - Client.snaps[1].t > 1000) Client.snaps.shift();
@@ -264,6 +528,26 @@
     if (prev && prev.phase !== 'end' && s.phase === 'end') Client.endDismissed = false;
     reconcile(s);
     Net.guard('Client.diff', () => diffState(prev, s));
+  }
+
+  // S1: Lobby-Auswahl merken (für den Hinweis beim Beenden), Overlays bei Phasenwechsel schließen
+  function onPhaseS1(prev, s) {
+    if (s.phase === 'lobby' && s.lobby) Client.lastLobby = { startMission: s.lobby.startMission, world: s.lobby.world == null ? null : s.lobby.world };
+    const wasLobby = !prev || prev.phase === 'lobby';
+    const isLobby = s.phase === 'lobby';
+    if (prev && wasLobby !== isLobby) { Client.ui.pauseSent = false; uiCloseAll(true); }
+    const ui = Client.ui;
+    if (isLobby && uiTop() === 'worlds') {
+      const n = worldsItems().length;
+      ui.sel.worlds = clamp(ui.sel.worlds || 0, 0, Math.max(0, n - 1));
+      // Löschdialog: Platz frei -> schließen
+      if (ui.worldsMode === 'full' && s.lobby && !s.lobby.worldsFull && prev && prev.lobby && prev.lobby.worldsFull) {
+        uiCloseAll(true);
+        H.pushNotice('Platz frei – „Bereit melden“ startet die neue Kampagne', R.PAL.mint, 4);
+      }
+    }
+    // Solo-Pause: kommt ein zweiter Spieler dazu, gilt die Pause nicht mehr (der Server entscheidet; Client fragt nicht erneut)
+    if (ui.pauseSent && !isLobby && !soloNow()) ui.pauseSent = false;
   }
 
   function reconcile(s) {
@@ -392,6 +676,33 @@
         if (ev.level === 'red') audio.play('alarm_red'); else if (ev.level === 'yellow') audio.play('alarm_yellow');
         break;
       case 'stage': break;
+      // S1: Weltstand und Spielmenü
+      case 'worldSaved':
+        H.showSaveSeal(true, 'Weltstand gesichert · ' + (ev.loc ? R.locName(Client.state, ev.loc) : (ev.name || '')));
+        audio.play('save_seal');
+        break;
+      case 'worldSaveFailed':
+        H.showSaveSeal(false, 'Weltstand nicht gesichert' + (ev.reason ? ' – ' + String(ev.reason).slice(0, 60) : ''));
+        audio.play('error');
+        break;
+      case 'worldLoaded':
+        H.pushNotice('Weltstand geladen: ' + (ev.name || ev.id || ''), PAL.mint, 4);
+        audio.play('world_load');
+        Client.skipLogNotice = performance.now();   // QA-Abnahme S1: das geladene Logbuch ist nicht „neu“ (sonst Hinweis auf den letzten alten Eintrag)
+        break;
+      case 'worldLoadFailed':
+        H.pushNotice('Weltstand nicht geladen' + (ev.reason ? ': ' + String(ev.reason).slice(0, 80) : '') + ' – neues Spiel möglich', PAL.red, 6);
+        audio.play('error');
+        break;
+      case 'sessionEnded': {
+        const mine = ev.by != null && ev.by === Client.pid;
+        const p = ((Client.state && Client.state.players) || []).find(q => q.id === ev.by);
+        const who = ev.byName || (p ? p.name : (typeof ev.by === 'string' && ev.by ? ev.by : 'Jemand'));
+        H.pushNotice((mine ? 'Du hast' : who + ' hat') + ' die Partie beendet' + (ev.saved ? ' – Weltstand gesichert' : ''), mine ? PAL.mint : PAL.amber, 6);
+        Client.ui.pauseSent = false; uiCloseAll(true);
+        Client.minigame = null; Client.endDismissed = true;
+        break;
+      }
       case 'emergency': H.pushNotice('NOTFALLPROTOKOLL – Hülle notdürftig stabilisiert', PAL.red); audio.play('emergency'); break;
       case 'strike': R.addFx('strike', 'away', ev.x, ev.y, 0.9); audio.play('strike', { pan: audio.panFor(ev.x, 'away') }); break;
       case 'codeResult': audio.play(ev.ok ? 'code_ok' : 'code_fail'); break;
@@ -521,7 +832,8 @@
   function diffM1(prev, cur, pm, cm) {
     const PAL = R.PAL;
     const pw = prev.world || {}, cw = cur.world || {};
-    if (cw.location && pw.location && cw.location !== pw.location) {
+    // QA-Abnahme S1: kein Ankunfts-Banner beim Fortsetzen (Lobby -> Spiel); die Ortsliste der Lobby kennt den Ort noch nicht
+    if (cw.location && pw.location && cw.location !== pw.location && prev.phase !== 'lobby') {
       const l = R.locById(cur, cw.location) || {};
       H.showArrival(R.locName(cur, cw.location), R.LOC_KIND_NAMES[l.kind] || '');
       if (l.fog || l.kind === 'nebula' || l.kind === 'relay') audio.play('discovery', { volume: 0.4 });
@@ -560,7 +872,8 @@
     // Entdeckungen / Logbuch
     const pmi = prev.mission || {}, cmi = cur.mission || {};
     const pl = (pmi.log || []).length, cl = (cmi.log || []).length;
-    if (cl > pl && pmi.log) { const e = cmi.log[cl - 1]; audio.play('discovery'); H.pushNotice('Logbuch: ' + String(e.text || '').slice(0, 70), PAL.ice); }
+    if (cl > pl && pmi.log && Client.skipLogNotice && performance.now() - Client.skipLogNotice < 3000) Client.skipLogNotice = 0;
+    else if (cl > pl && pmi.log) { const e = cmi.log[cl - 1]; audio.play('discovery'); H.pushNotice('Logbuch: ' + String(e.text || '').slice(0, 70), PAL.ice); }
     // Phasenkanonen
     const pb = (prev.space && prev.space.beams) || [], cb = (cur.space && cur.space.beams) || [];
     if (cb.length > pb.length && cb.slice(pb.length).some(b => b.kind === 'phase')) audio.play('phase', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
@@ -990,9 +1303,13 @@
       if (line) { Client.lastDebugLine = line; const msg = G.dbg(line); if (msg) H.pushNotice('Debug: ' + line, '#FF66CC'); }
       return;
     }
+    // S1: offene Menüseite (Spielmenü, Optionen, Steuerung, Weltstände) bekommt alle Tasten
+    if (uiTop()) { Client.keys = {}; Net.guard('Client.uiKey', () => uiKey(e)); return; }
     const st = Client.state, m = me();
     if (!st || st.phase === 'lobby' || !m) {
       if (Net.badCode && !m) { if (code === 'Enter') actions.submitCode(); return; }
+      if (code === 'KeyO' && !e.repeat) { actions.openOptions(); return; }   // S1: Optionen auch in der Lobby
+      if (code === 'KeyF' && m && !e.repeat) { openWorlds('list'); return; }   // S1: Weltstand-Liste
       if (code === 'Enter') actions.toggleReady();
       if (code === 'KeyU' && m) actions.toggleSkipDrill();
       if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
@@ -1028,12 +1345,18 @@
         }
         break;
       case 'Tab': H.showCrew = true; break;
-      case 'Escape': H.showCrew = false; break;
+      // S1 Esc-Kette: Ende-Screen -> Minispiel -> Konsole (oben) -> Crew-Overlay -> Spielmenü
+      case 'Escape':
+        if (H.showCrew) { H.showCrew = false; break; }
+        uiPush('menu', 0); audio.play('ui_click');
+        break;
     }
   });
   window.addEventListener('keyup', (e) => {
     const code = e.code;
     delete Client.keys[code];
+    if (code === 'Delete' && Client.ui.hold && !Client.ui.hold.mouse && !Client.ui.hold.sent) Client.ui.hold = null;   // S1: Halten abgebrochen
+    if (uiTop()) return;
     if (code === 'KeyE' && Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     if (code === 'Tab') H.showCrew = false;
     const m = me();
@@ -1065,9 +1388,14 @@
     const r = R.clickUi(p.x, p.y);
     if (r === 'ok') { audio.play('ui_click'); return; }
     if (r === 'denied') { audio.play('error'); return; }
+    if (uiTop()) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter
     const m = me();
     if (m && m.console) { Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return; }
     if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') shoot();
+  });
+  window.addEventListener('mouseup', () => {
+    const h = Client.ui.hold;
+    if (h && h.mouse && !h.sent) Client.ui.hold = null;   // S1: Löschknopf losgelassen
   });
   window.addEventListener('mouseup', () => { if (Client.view) Net.guard('Consoles.mouseUp', () => K.mouseUp(Client.view)); });
 
@@ -1076,6 +1404,7 @@
     Client.time += dt;
     Net.guard('Hud.update', () => H.update(dt));
     if (Client.shootCd > 0) Client.shootCd -= dt;
+    updateHold(dt);   // S1: Entf halten löscht einen Weltstand
     const st = Client.state, m = me(), self = Client.self;
     self.offX *= 0.85; self.offY *= 0.85;
     if (Math.abs(self.offX) < 0.05) self.offX = 0;
@@ -1084,7 +1413,7 @@
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
     Net.guard('Client.minigame', () => updateMinigame(dt));
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame;
+    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
@@ -1129,7 +1458,14 @@
       mouse: Client.mouse, lobby: Client.lobby, actions, send, audioOn: Client.audioOn,
       players: [], bots: [], enemies: [], spaceProjectiles: [], drones: [], awayProjectiles: [], npc: null, ship: null,
       beamFx: {}, enemyHit: {}, shipHit: null, interaction: null,
+      ui: Client.ui,   // S1
     };
+    if (uiTop()) {
+      const VR = window.VoxelRender;
+      v.optionsInfo = { volume: Client.options.volume, muted: Client.options.muted, saved: Client.options.saved, fullscreen: isFullscreen(),
+        render: VR ? (VR.mode === 'voxel' ? 'voxel' : '2d') : (Client.options.render || '2d'), renderAvailable: !!(VR && typeof VR.setMode === 'function') };
+      v.endInfo = endInfo();
+    }
     if (!st || st.phase === 'lobby') return v;
     const pair = snapPair(nowMs - INTERP_DELAY) || { a: st, b: st, f: 0 };
     const A = pair.a, B = pair.b, f = pair.f;
@@ -1198,7 +1534,7 @@
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
-    nameInput.style.display = lobby && (Net.status === 'open') && !codeMode ? 'block' : 'none';
+    nameInput.style.display = lobby && (Net.status === 'open') && !codeMode && !uiTop() ? 'block' : 'none';
     if (codeInput) {
       codeInput.style.display = codeMode ? 'block' : 'none';
       if (codeMode && Client.focusCode) { Client.focusCode = false; setTimeout(() => { try { codeInput.focus(); codeInput.select(); } catch (e) { /* egal */ } }, 0); }
@@ -1220,6 +1556,10 @@
       if (fl >= 0 && fl < 1) { ctx.fillStyle = 'rgba(244,238,220,' + (1 - fl) * 0.85 + ')'; ctx.fillRect(0, 0, VW, VH); }
       if (!v.me.console) R.drawTooltip(ctx);
     }
+    // S1: Pause-Hinweis, Siegel „Weltstand gesichert“, Menüseiten obenauf
+    Net.guard('Hud.drawPause', () => H.drawPause(ctx, v, !!uiTop()));
+    Net.guard('Hud.drawSaveSeal', () => H.drawSaveSeal(ctx, v));
+    if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
     Net.guard('Hud.drawConnection', () => H.drawConnection(ctx, v));
     if (DEBUG) drawDebug(v);
     if (window.DevMock && DevMock.active) R.text(ctx, 'MOCK · Bild↑/↓ Ort · Pos1 Zone · Ende Reaktor · ' + (DevMock.stageName ? DevMock.stageName() : ''), VW / 2, v.me && v.me.console ? 1 : 1, { color: '#FF66CC', align: 'center' });
@@ -1307,6 +1647,7 @@
     while (acc >= STEP && n < 15) { Net.guard('Client.step', () => step(STEP)); acc -= STEP; n++; }
     if (n >= 15) acc = 0;
     Net.guard('Client.render', render);
+    Net.guard('Client.renderOption', syncRenderOption);   // S1: Option Voxel/2D <-> F8
     Net.guard('Client.ambience', updateAmbience);
     fpsN++; fpsT += dt;
     if (fpsT >= 1) { Client.fps = Math.round(fpsN / fpsT); G.fps = Client.fps; fpsN = 0; fpsT = 0; }
@@ -1317,6 +1658,7 @@
   function boot() {
     layout();
     if (window.Art && typeof Art.init === 'function') Net.guard('Art.init', () => Art.init());
+    applyAudioOptions();   // S1: Lautstärke/Stumm aus pantheon.options (GameAudio merkt sich das vor init())
     H.onTypeTick = () => audio.play('oda_blip', { volume: 0.25 });
     Object.defineProperty(G, 'view', { get: () => Client.view, configurable: true });
     G.client = Client;

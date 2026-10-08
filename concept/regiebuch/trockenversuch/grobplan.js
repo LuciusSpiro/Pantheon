@@ -10,7 +10,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const DIR = __dirname;
-const CONCEPT = path.join(DIR, '..');
+const CONCEPT = path.join(DIR, '..', '..', '..', 'content', 'regiebuch');   // S1: Vorarbeit liegt in content/
 const ROOT = path.join(CONCEPT, '..', '..');
 const OUT = path.join(DIR, 'out');
 const Locations = require(path.join(ROOT, 'shared', 'locations.js'));

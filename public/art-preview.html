@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sternenschicht – Art-Vorschau</title>
+<title>Pantheon – Art-Vorschau</title>
 <style>
   :root { --bg: #0B0E1A; --panel: #161C2A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; --mint: #7FE0C2; }
   * { box-sizing: border-box; }
@@ -24,7 +24,7 @@
 </head>
 <body>
 <header>
-  <h1>Sternenschicht · Art-Vorschau</h1>
+  <h1>Pantheon · Art-Vorschau</h1>
   <span>Skalierung:
     <button data-scale="1">×1</button><button data-scale="2" class="on">×2</button><button data-scale="3">×3</button>
   </span>
@@ -33,6 +33,8 @@
   <span id="status">lade …</span>
 </header>
 
+<section id="secSeal"><h2>S1 · Siegel „Weltstand gesichert“ (Art.drawSeal)</h2><div class="scroll"><canvas id="cSeal"></canvas></div>
+  <p class="note">Art.drawSeal(ctx, x, y, size, variant) – x/y Mittelpunkt, Größen 12 · 16 · 20 · 24 · 32 · 48 · 64 px; oben 'ok' (Lerche-Rot #9E1F27, Messingkante, Lorbeer; klein Raute), unten 'warn' (#E0473C, Ausrufezeichen). Links auf Tiefraum #0B0E1A, rechts auf Fläche #2E3A4A, darunter die HUD-Zeile.</p></section>
 <section><h2>M3a · Lerche (44 × 13) – komplette Karte mit allen Stationen</h2><div class="scroll"><canvas id="cShip"></canvas></div>
   <p class="note">Aus ../shared/maps.js (SHIP_LEGEND). Heck links: Antriebsraum (Triebwerk E, Heck-Emitter A) · Maschinenraum mittschiffs (Reaktor R, Schildgenerator G, Schalter y, Energiestamm) · Batteriedecks Bb oben / Stb unten als Geschützdeck (Düse, Batterie, Emitter) · Brücke rechts (Lanzenkammer K, Bug-Emitter I). Plaketten BB/STB/BUG/HECK/MITTE am Sockel. Vorschau-Zustände: Düse Stb BESCH+FLICK · Batterie Stb BESCH · Emitter Stb AUS · Bug-Emitter FLICK · Schildgenerator BESCH · Triebwerk AUS · Heck-Emitter EMP · Reaktor offline (Schalter A gehalten).</p></section>
 <section><h2>M3a · Stationen in allen Zuständen (OK / BESCH / AUS / FLICK / BESCH+FLICK / EMP)</h2><div class="scroll"><canvas id="cM3Obj"></canvas></div>
@@ -1140,9 +1142,33 @@
     return res[1];
   }
 
+  // S1: Siegel in allen Größen und beiden Varianten, auf beiden Hintergründen (statisch, einmal gezeichnet)
+  function drawSealSection() {
+    var sizes = [12, 16, 20, 24, 32, 48, 64], W = 1000, H = 230;
+    var g = cv('cSeal', W, H);
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, W / 2, H);
+    g.fillStyle = '#2E3A4A'; g.fillRect(W / 2, 0, W / 2, H);
+    [0, W / 2].forEach(function (x0) {
+      var x = x0 + 16;
+      sizes.forEach(function (s) {
+        var cx = x + s / 2;
+        Art.drawSeal(g, cx, 44, s, 'ok');
+        Art.drawSeal(g, cx, 124, s, 'warn');
+        Art.drawText(g, String(s), cx, 168, { color: '#8EA3B5', align: 'center' });
+        x += s + 10;
+      });
+      // HUD-Beispiel (§7): Siegel + Text
+      Art.drawSeal(g, x0 + 24, 196, 16, 'ok');
+      Art.drawText(g, 'WELTSTAND GESICHERT · HAFEN LICHTKORDON', x0 + 38, 191, { color: '#7FE0C2' });
+      Art.drawSeal(g, x0 + 24, 216, 16, 'warn');
+      Art.drawText(g, 'WELTSTAND NICHT GESICHERT', x0 + 38, 211, { color: '#F2C94C' });
+    });
+  }
+
   window.__artPreview = { ok: ok, frameErrors: 0 };
   if (!ok || !M) { status.innerHTML = '<span class="bad">Art.init() fehlgeschlagen oder maps.js fehlt</span>'; return; }
   setup();
+  drawSealSection();
   var rt = runtimeTest();
   var perf = perfTest();
   window.__artPreview.test = rt;

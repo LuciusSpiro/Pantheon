@@ -1,7 +1,60 @@
-# Sternenschicht – M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) · M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“
+# Pantheon – Ausbaustufe S1 „Regiebuch & Weltstand“
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
+
+Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt weiter `sternenschicht/`. Bisherige
+Ausbaustufen: M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) ·
+M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ · M4 „Voxel & Lerche Rom“ · **S1 „Regiebuch &
+Weltstand“** (Vertrag `CONTRACT-S1.md`).
+
+## Neu in S1 – Hauptmenü, Weltstände, Spielmenü
+
+Spielerisch ändert sich nichts. Neu ist: Die Kampagne lässt sich **beenden und später fortsetzen**, es gibt ein
+**Spielmenü** (Esc) mit Optionen, und das Tutorial (m1–m3) läuft aus **Regiebüchern** (reines JSON, siehe Entwickler-Abschnitt).
+
+### Lobby = Hauptmenü
+- **M** schaltet den Start reihum (jeder darf, alle sehen es): **Kampagne** (mit Tutorial, Hafen-Übung) → **Kampagne ohne
+  Tutorial** (frei ab Hafen Lichtkordon, m1–m3 gelten als erledigt, Tesk funkt nach ein paar Sekunden das Gerücht über die
+  Tafel; Startmarken = `CONFIG.campaign.skipTutorialMarks`, zurzeit 150) → **Direkt zur Planetenmission** → **Testgelände:
+  Raumkampf** → **Testgelände: Außenteam**. Dann alle **Enter** = bereit.
+- Block **WELTSTAND** links: „Neu: Kampagne“ oder „Fortsetzen: Lerche · 08.10.“ mit Spielzeit, Ort und Mission darunter.
+  **F** öffnet die Liste: je Stand Name, wann gespeichert, Ort, Mission/Schritt, Crew, Spielzeit. **W/S** wählen, **Enter**
+  übernehmen („+ Neue Kampagne“ steht oben), **Entf 1 s halten** löscht (kurz tippen löscht nicht). Ist ein Stand gewählt,
+  ist die Startauswahl (M) ausgegraut („Entfällt beim Fortsetzen“) – für einen anderen Start erst in der Liste „Neue Kampagne“ wählen.
+- Nach **Partie beenden** ist der gerade gespielte Stand schon vorausgewählt; Enter (alle) setzt ihn fort.
+- **O** öffnet die Optionen auch in der Lobby.
+
+### Weltstände (Speichern und Laden)
+- Nur die **Kampagne** (mit oder ohne Tutorial) hat einen Weltstand. Testgelände und Direktstart der Planetenmission legen
+  **nie** einen an.
+- **Gespeichert wird automatisch:** direkt nach dem Start einer neuen Kampagne, beim **Andocken** (Hafen, Vaelen), solange
+  angedockt höchstens alle 10 s bei Änderungen, beim **Abschluss einer Mission** und bei „Partie beenden“, wenn angedockt.
+  Unten links erscheint dann kurz das Siegel „Weltstand gesichert · <Ort>“. Im Kampf und unterwegs wird nicht gespeichert:
+  Wer ohne Dock beendet, verliert den Fortschritt seit dem letzten Andocken (das Menü warnt vorher).
+- **Was mitkommt:** Marken, Lager, Ausbauten, Deko und Quartiere, Pins am Planungstisch, Hülle und Systemschäden, bekannte und
+  besuchte Orte, Funde, Flags und Entscheidungen, Missionen, NSC-Gedächtnis (z. B. was Grauzahn von euch hält), Chronik,
+  Spielzeit. **Nicht:** Positionen, Gegner, Feuer/Lecks, Reaktor, Schildverteilung. Beim Laden liegt das Schiff angedockt am
+  gespeicherten Ort, und der gespeicherte Missionsschritt beginnt neu (die m1-Nachhut kommt nach dem Laden nicht noch einmal).
+- **Höchstens 5 Stände.** Wer bei 5 Ständen „Neu“ startet, bekommt den Löschdialog (ältester vorausgewählt).
+- Name: „Lerche · TT.MM.“; ein zweiter Stand vom selben Tag heißt „Lerche · TT.MM. (2)“ usw.
+- Ablage: `data/worlds/` (nicht eingecheckt), anderer Ordner mit `WORLD_DIR=...` (z. B. in der `.env`). Je Stand
+  `<id>.json` und die Sicherung `<id>.bak.json`. Eine beschädigte Datei wird beiseitegelegt (`<id>.kaputt-<zeit>.json`); gibt es
+  eine gültige `.bak`, wird sie benutzt, sonst steht der Stand mit ⚠ und Grund in der Liste (löschen geht).
+- **Zwei Runden gleichzeitig** = zwei Serverprozesse (anderer `PORT`). Ein geöffneter Stand ist per Sperrdatei (`<id>.lock`)
+  belegt: Der zweite Server zeigt ihn mit ⚠ „In einer anderen Runde geöffnet“ und lässt ihn weder laden noch löschen.
+
+### Spielmenü (Esc) und Optionen
+- **Esc** wirkt der Reihe nach: Ende-Bildschirm schließen → Minispiel abbrechen → Konsole verlassen → Crew-Übersicht (Tab)
+  schließen → **Menü** auf/zu. Menü: Weiterspielen · Optionen · Steuerung · **Partie beenden**.
+- **Partie beenden** darf jeder; es fragt nach („Für alle beenden?“) und bringt **alle** zurück in die Lobby. Die anderen sehen
+  „<Name> hat die Partie beendet“. Angedockt heißt es „Der Weltstand wird gesichert“, sonst „Fortschritt seit dem letzten
+  Andocken geht verloren“.
+- **Pause** nur solo: Ist genau ein Spieler verbunden, hält das offene Menü das Spiel an. Zu zweit oder zu dritt läuft es weiter.
+- **Optionen** (je Spieler im Browser gespeichert): Lautstärke, Stumm, Darstellung Voxel/2D (wie F8), Vollbild.
+
+`npm run check-missions` prüft die Regiebücher, `npm test` enthält jetzt auch die Regiebuch-, Weltstand- und
+Spielleiter-Tests (Details unten unter „Für Entwickler – S1“).
 
 ## Spieleabend – Kurzanleitung (Planetenmission zu dritt)
 
@@ -9,8 +62,8 @@ Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert
    Die Konsole zeigt **Raumcode** und Link.
 2. Übers Internet: zweites Fenster `cloudflared tunnel --url http://localhost:3300`, die `trycloudflare.com`-Adresse
    mit `?code=XXXX` teilen (Details unter „Übers Internet spielen“).
-3. Lobby: Name eintippen, **M** schaltet „Start: Kampagne / **Direkt zur Planetenmission**“ um (jeder darf),
-   dann alle **Enter** = bereit.
+3. Lobby: Name eintippen, **M** schaltet den Start um, bis „**Direkt zur Planetenmission**“ dasteht (jeder darf;
+   ist links ein Weltstand gewählt, erst mit **F** „Neue Kampagne“ wählen), dann alle **Enter** = bereit.
 4. Im Hafen: **Captain** an die Captain-Konsole (`C`), Reiter 1 Funk → Enter (Auftrag annehmen), Reiter 2 Sternkarte →
    „Mond Kesh“ → Enter. **Pilot** an die Steuer (`H`), Abstand zum Hafen, **F** springt. Am Mond auf ≤ 360 heran und
    **X (Allstopp)** – unter 30 beamt es sich. **Vor dem Verlassen der Steuer immer STOPP:** Die unbesetzte Steuer behält
@@ -25,8 +78,9 @@ Erwartete Dauer zu dritt: siehe „Messwerte M2“ unten.
 
 Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen – geht solo und zu dritt, auch ohne `--debug`.
 
-1. `npm start`, Link öffnen. In der Lobby schaltet **M** reihum: „Kampagne“ → „Direkt zur Planetenmission“ →
-   **„Testgelände: Raumkampf“** → **„Testgelände: Außenteam“** (Anzeige „START (n/4)“). Dann **Enter** = bereit.
+1. `npm start`, Link öffnen. In der Lobby schaltet **M** reihum: „Kampagne“ → „Kampagne ohne Tutorial“ → „Direkt zur
+   Planetenmission“ → **„Testgelände: Raumkampf“** → **„Testgelände: Außenteam“** (Anzeige „START (n/5)“). Dann **Enter** =
+   bereit. Testgelände legen keinen Weltstand an.
 2. **Raumkampf:** Start sofort an Boje B-7 (keine Brocken), abgelegt, Schiff unbeschädigt, alle auf der Brücke (solo
    neben dem Steuer, zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen (M3b): **Kanonenboot +
    2 Jäger** → 2 Jäger → Jäger + Kanonenboot → Kustoden-Wächter + 2 Jäger → Kanonenboot + Jäger → Pylon (fest im
@@ -468,7 +522,8 @@ Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag.
 
 ## Bekannte Grenzen
 
-- Umfang M1: zwei Missionen und sieben Orte, keine Speicherstände (jede Partie startet frisch).
+- Umfang: drei Tutorial-Missionen und sieben Orte. Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
+  nicht unterwegs und nicht im Kampf.
 - **Kämpfe solo sind hart:** Wer allein zwischen Steuer und Taktik pendelt, verliert im Kampf an B-7 schnell Hülle
   (im Test bis 15 %). Untergehen kann man nicht – das Notfallprotokoll hält das Schiff bei 30 % (kostet 50 Marken).
 - Der Pilot sieht wirklich nur nach vorn. Ohne Ansagen der Taktik sucht er Gegner oft vergeblich: Im Test hatte der
@@ -547,6 +602,44 @@ Finden und gemeinsame Drehen der Schlüssel 1,5–2,5 min. Erwartung zu dritt: *
 Ziels 10–14 min. Wird es zu kurz oder zu leicht, helfen `tune`-Werte (oben); Verwundungen werden bei Menschen
 häufiger sein als beim disziplinierten Skript.
 
+## Messwerte S1 (QA-Abnahme 2026-10-08)
+
+**Bots (Golden Trace, keine Menschenzeiten):** `sim-headless`-Bots, 20 Seeds je Mission und Crewgröße, Spielzeit in Sekunden.
+Vor dem Umbau (JS-Missionen) und nach dem Umbau (Regiebücher) **gleich** – Median-Abweichung 0 %, gleiche Schrittfolgen.
+
+| Mission | solo (Median) | zu dritt (Median) |
+|---|---|---|
+| m1 „Die stumme Boje“ | 381,6 s (6:22) | 275,7 s (4:36) |
+| m2 „Echo im Nebel“ | 581,4 s (9:41) | 527,5 s (8:48) |
+| m3 „Die Tafel von Kesh“ (Direktstart) | 212,7 s (3:33) | 193,9 s (3:14) |
+
+Die Bots spielen fehlerfrei und ohne Lesepausen; sie sagen nichts darüber, wie lange Menschen brauchen.
+
+**Browser, zu dritt, m1 komplett** (gemessen): Kampagnenstart mit Hafen-Übung bis „angedockt im Hafen, m1 erledigt“ in
+drei echten Browserfenstern (1280×720, 1920×1080, 1366×768), **ohne Debug-Server und ohne God-Mode**, nur Tastatur/Maus.
+Gespielt hat ein QA-Skript mit Lesepausen (~40 ms je Zeichen), 0,3–0,8 s je Entscheidung und den Kampf-Reaktionszeiten aus
+der M3b-QA. Das Skript kennt alle Positionen (als würde perfekt angesagt), verfliegt sich nicht und lässt Optionales weg
+(Shop, Quartier, Planungstisch, Selas Notruf).
+
+| Etappe (Spielzeit) | Dauer |
+|---|---|
+| Hafen-Übung + Funk annehmen | 0:48 |
+| Ablegen, Sprung Splittergürtel | 0:24 |
+| Splittergürtel (Bergungsgut, Grauzahn bestochen) | 2:20 |
+| Kampf an B-7 (Jäger) | 0:13 |
+| Störrelais + Boje scannen | 0:59 |
+| Außenmission (Sonde, Kern, Ivo gerettet) | 1:28 |
+| Entscheidung (Datenkern liefern) | 0:12 |
+| Nachhut + Heimweg | 1:36 |
+| Andocken im Hafen | 0:23 |
+| **m1 gesamt** | **8:23** (503 s; Wanduhr 8:31) |
+
+0 Notfallprotokolle, Hülle am Ende 100. Die 2:20 im Splittergürtel sind zum Teil Skript-Schwäche (der Skript-Pilot traf die
+Kisten schlecht). Danach m2 bis „angedockt bei Vaelen“: 1:11 Wanduhr.
+
+**Nicht gemessen:** Menschen; m1 solo im Browser; m2 und m3 komplett im Browser in S1. Eine Schätzung für Menschen steht
+hier bewusst nicht – frühere Runden zeigten, dass Menschen deutlich länger brauchen als Skripte (Spieleabend abwarten).
+
 ## Für Entwickler
 
 `npm run check` (Karten), `npm run sim` (Headless-Durchlauf solo, zu dritt und solo mit übersprungener Übung), `npm run debug` (Debug-Befehle, `?debug=1`
@@ -568,12 +661,53 @@ gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewSca
 - `npm run check` prüft Schiff, B-7-Plattform, Wrack „Zaunkönig“ und den Ortsgraphen (`shared/locations.js`).
 - `npm run sim` spielt Mission 1 **und** Mission 2 headless mit echten Befehlen: solo, zu dritt und solo ohne Übung
   mit Wrack-Abstecher. Optionen: `1`/`3`, `--seed N`, `--wreck`, `--verbose`. Ausgabe: Dauer je Mission, Schritt und Ort.
-- Missionen sind Daten: `server/missions/m1.js`, `m2.js`; die Engine (`server/sim/mission.js`) kennt Bedingungen wie
-  `atLocation`, `enemiesLeft`, `scanDone`, `itemAboard`, `flag`, `choiceMade`, `event`, `elapsed` und Aktionen wie
-  `radio`, `oda`, `spawn`, `choice`, `reveal`, `reward`, `setFlag`, `after`, `goto`, `complete`.
+- Missionen sind Daten: seit S1 Regiebücher in `content/regiebuecher/*.regiebuch.json` (siehe „Für Entwickler – S1“); die
+  Engine (`server/sim/mission.js`) kennt Bedingungen wie `atLocation`, `enemiesLeft`, `scanDone`, `itemAboard`, `flag`,
+  `choiceMade`, `event`, `elapsed` und Aktionen wie `radio`, `oda`, `spawn`, `choice`, `reward`, `setFlag`, `after`, `goto`,
+  `complete`; alles Weitere (`do:`/`check:`) läuft über die Registry.
 - Spielzeit pro Mission/Schritt/Ort steht im Snapshot unter `stats.missions`, `stats.stages`, `stats.locations`
   (Spielsekunden) und wird in `data/campaign.json` mitgeloggt.
 - Debug-Befehle (nur `npm run debug`), z. B. im Browser-Konsole mit `__game.send({ t: 'debug', cmd: … })`:
   `goto {loc, docked?}`, `reveal {loc|'all'}`, `mission {id: 'm1'|'m2', step}`, `reactor {state: 'online'|'overload'|'offline'}`,
   `scanall`, dazu weiter `stage {stage}` (Schritt-ID), `skip` (aktuellen Schritt erfüllen), `damage {system, state}` (auch `offline`),
   `spawn {kind}` (auch `sentinel`, `pylon`), `fire`, `breach`, `marks {n}`, `inv {item, n}`, `hull {n}`, `god {on}`.
+
+## Für Entwickler – S1 „Regiebuch & Weltstand“
+
+### Regiebücher, Registry, Prüfer
+- **Regiebücher** (`content/regiebuecher/*.regiebuch.json`, Format `regiebuch/1`, Schema `content/regiebuch/regiebuch.schema.json`):
+  m1–m3 (Tutorial, von Hand geschrieben, gleiche Schritt-IDs wie früher), dazu die Nebenaufträge `sela` und `zaunkoenig`
+  (nur Bucheinträge). Ablauf englisch (`steps`, `timers`, `rules`, `next` …), Rahmen deutsch (`kopf`, `angebot`, `buch`,
+  `besetzung`, `ausgaenge`, `texte` …). Texte stehen unter `texte` und werden mit `"@kennung"` verwendet. Die alten Module
+  `server/missions/m1–m3.js` sind gelöscht; `server/missions/arena.js` (Testgelände) bleibt JS mit `intern`.
+- **Registry** (`server/mission/registry.js`): jedes `do:`/`check:` in einem Buch ist ein registrierter Baustein (snake_case,
+  z. B. `spawn_squad`, `object_state`, `npc_gedaechtnis`). `Registry.describe()` liefert die Liste als JSON; `npm run katalog`
+  zeigt Bausteine und Katalog.
+- **Loader** (`server/mission/loader.js`) lädt beim Serverstart alle Bücher; der **Prüfer** (`server/mission/checker.js`) prüft
+  sie. Ein ungültiges Buch wird mit `--debug` zum Abbruch, sonst laut geloggt und nicht angeboten.
+- **`npm run check-missions`** prüft alle Bücher von der Kommandozeile (Codes wie `REF-ORT`, `REF-TEXT`, `ABLAUF-UNERREICHBAR`,
+  `FAIRNESS`, `FLAG-FORM`, `FLAG-UNGESETZT`, `NEUSTART`, `MECHANIK-GEPLANT`, jeweils mit Begründung); `--selftest` prüft die
+  kaputten Beispielbücher in `tools/fixtures/regiebuecher-kaputt/`.
+- Objekte und Bereiche der Außenkarten (`Maps.MAP_OBJECTS`, `Maps.MAP_AREAS` in `shared/maps.js`) liest
+  `server/mission/objects.js`.
+
+### Weltstand
+- `server/weltstand.js` (Liste, Laden, atomares Speichern mit `.bak`, Sperre, Migrationen), Schema
+  `content/schema/weltstand.schema.json`, NSC-Startwerte `content/npc.json`. Laufzeit: `game.weltstand`.
+- Laden startet den gespeicherten Schritt neu. Liegt dessen Ort woanders, „ruht“ der Schritt bis zum Ort; sein `next` gilt aber
+  schon vorher (z. B. m1 `return` nach dem Laden bei Vaelen: Heimflug führt direkt zu `port`).
+
+### npm-Skripte (neu in S1)
+
+| Skript | Was |
+|---|---|
+| `npm run check-missions` | Prüfer über alle Regiebücher (`--selftest` für die kaputten Beispiele) |
+| `npm run katalog` | Bausteine (Registry) und Szenen-Katalog anzeigen |
+| `npm run test:regiebuch` | Engine: Registry, Loader, Prüfer, Objekte/Bereiche, Speichern/Laden der Missionen |
+| `npm run test:weltstand` | Weltstand: Liste, Speichern, Laden, `.bak`, Sperre, 5 Stände, Lobby, Spielmenü (ohne Browser) |
+| `npm run test:spielleiter` | Spielleiter-Tests **ohne LLM** (< 10 s, kein Netz): Prüfer, Kontext-Goldens, Replay, Mock |
+| `npm run golden` | Golden Trace: `--all` zeichnet m1–m3 × Crew 1/3 × Seeds auf, `--compare <A> <B> --allow <json>` vergleicht |
+| `npm run test:llm` | **nur von Hand** und nur mit `LLM_LIVE=1`: 1 Grobplan + 1 Szene live, `--record` legt Aufzeichnungen an |
+
+`npm test` = test-features, test-combat, test-m3, test-flight, test-regiebuch, test-weltstand, test-spielleiter (`--strict`).
+Golden-Vergleich wie in der Abnahme: `node tools/golden-trace.js --compare tools/fixtures/golden/base tools/fixtures/golden/s1 --allow tools/fixtures/golden/allow-s1.json`.

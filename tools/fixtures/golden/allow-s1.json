@@ -1,0 +1,12 @@
+{
+  "_kommentar": "Gewollte Abweichungen S1 gegenüber der Basis 260a330 (CONTRACT-S1 §9, §12). Texte sind Regex auf '<von>: <text>' (Funk) bzw. ODA-Text. Nicht erlaubte Text-/Flag-/Inventar-Abweichungen sind rot.",
+  "stages": [],
+  "texts": [
+    "^Hafenmeisterin Tesk: Ihr habt die Tafel\\?",
+    "^Die Tafel liegt ganz hinten im Gewölbe\\.",
+    "^Direkt zur Planetenmission!"
+  ],
+  "flags": ["rearguardRepelled", "vaelenHelped", "m3Direct", "reliefSpawned"],
+  "inventory": ["tafel"],
+  "duration": []
+}

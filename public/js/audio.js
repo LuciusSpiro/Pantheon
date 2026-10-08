@@ -1,4 +1,4 @@
-/* Sternenschicht – Audio (Team AUDIO)
+/* Pantheon – Audio (Team AUDIO)
  * Globales Objekt GameAudio nach CONTRACT §11. Reine WebAudio-Synthese, keine Samples,
  * keine externen Dateien, klassisches Skript (kein ES-Modul).
  *
@@ -35,7 +35,9 @@
     // Nachrunde §20.2
     'dodge_evade',
     // M4 „Zwei Decks“
-    'lift'];
+    'lift',
+    // S1 „Regiebuch & Weltstand“
+    'save_seal', 'world_load', 'save_delete'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -67,7 +69,9 @@
     minigame_miss: 80, minigame_done: 300, system_break: 150,
     dodge_evade: 250,
     // M4
-    lift: 600
+    lift: 600,
+    // S1 (Speichern ist entprellt, trotzdem nie als Teppich)
+    save_seal: 1500, world_load: 2000, save_delete: 300
   };
   var DEFAULT_GAP = 50;
 
@@ -81,7 +85,9 @@
     cover_hit: 0.9, pistol: 0.9,
     // M3a: Ansage und schwere Treffer vorne, Minispiel leise
     tele_charge: 1.1, heavy_hit: 1.3, system_break: 1.1, lance_fire: 1.1, burst_perfect: 1.1, dodge_evade: 1.1,
-    minigame_tick: 0.7, minigame_hit: 0.8, minigame_miss: 0.8, minigame_done: 0.85
+    minigame_tick: 0.7, minigame_hit: 0.8, minigame_miss: 0.8, minigame_done: 0.85,
+    // S1: Speichersiegel leise im Hintergrund
+    save_seal: 0.7, save_delete: 0.8
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
   var DUCK = {
@@ -97,7 +103,9 @@
     tablet: [0.65, 1.0],
     // M3a
     tele_charge: [0.7, 1.5], heavy_hit: [0.3, 0.7], lance_fire: [0.6, 0.35], system_break: [0.55, 0.4],
-    burst_perfect: [0.7, 0.6]
+    burst_perfect: [0.7, 0.6],
+    // S1
+    world_load: [0.6, 1.4]
   };
   // Sounds, die die Stimmen-Obergrenze ignorieren dürfen
   var PRIORITY = { alarm_yellow: 1, alarm_red: 1, emergency: 1, hull_hit: 1, shield_hit: 1, explosion_big: 1,
@@ -370,6 +378,40 @@
       fm({ f: mtof(84), ratio: 2.76, index: 0.9, index2: 0.04, t: t + 1.38, dur: 0.9, a: 0.002, vol: 0.11, out: o });
       tone({ f: mtof(96), t: t + 1.38, dur: 0.35, vol: 0.04, out: o });
       return 2.3;
+    },
+    // S1: Weltstand gesichert – dumpfer Siegelstempel, dann ein warmer Messing-Zweiklang (Quinte B4/F#5, eine Oktave
+    // unter code_ok). Leise, keine Glocke, kein Aufwärtslauf: soll nach „erledigt“ klingen, nicht nach Belohnung.
+    save_seal: function (t, o) {
+      noise({ t: t, dur: 0.09, a: 0.002, vol: 0.34, out: o, filter: 'lowpass', ff: 400, ff2: 180, q: 0.9 });
+      tone({ f: 110, f2: 70, t: t, dur: 0.11, a: 0.002, vol: 0.32, out: o });
+      noise({ t: t + 0.008, dur: 0.02, vol: 0.06, out: o, filter: 'bandpass', ff: 1200, q: 2 });
+      var f1 = 493.9, f2 = 739.99;
+      tone({ type: 'sawtooth', f: f1, t: t + 0.1, dur: 0.38, a: 0.03, hold: 0.06, vol: 0.05, out: o, filter: 'lowpass', ff: 1400, ff2: 700, q: 0.6 });
+      tone({ type: 'sawtooth', f: f2, t: t + 0.1, dur: 0.38, a: 0.03, hold: 0.06, vol: 0.035, out: o, filter: 'lowpass', ff: 1600, ff2: 800, q: 0.6, detune: 4 });
+      tone({ type: 'triangle', f: f1 / 2, t: t + 0.1, dur: 0.36, a: 0.03, vol: 0.05, out: o });
+      return 0.5;
+    },
+    // S1: Weltstand geladen – „die Welt erinnert sich“: tiefer Ton schwillt langsam an, darüber drei gedämpfte,
+    // aufsteigende Töne aus dem discovery-Motiv (G, D, G), ohne dessen hellen Glanz.
+    world_load: function (t, o) {
+      tone({ type: 'triangle', f: mtof(43), t: t, dur: 1.2, a: 0.45, hold: 0.3, vol: 0.11, out: o, filter: 'lowpass', ff: 300 });
+      tone({ f: mtof(55), t: t + 0.05, dur: 1.15, a: 0.5, hold: 0.2, vol: 0.06, out: o });
+      noise({ t: t, dur: 1.0, a: 0.4, vol: 0.03, out: o, filter: 'bandpass', ff: 600, ff2: 1500, q: 1.5 });
+      var notes = [67, 74, 79], at = [0.3, 0.5, 0.7], len = [0.3, 0.3, 0.5];
+      for (var i = 0; i < notes.length; i++) {
+        tone({ type: 'triangle', f: mtof(notes[i]), t: t + at[i], dur: len[i], a: 0.02, vol: 0.09, out: o, filter: 'lowpass', ff: 1100 });
+        fm({ f: mtof(notes[i]), ratio: 1, index: 0.5, index2: 0.03, t: t + at[i], dur: len[i] + 0.1, a: 0.015, vol: 0.04, out: o });
+      }
+      return 1.25;
+    },
+    // S1: Weltstand gelöscht – kurzes tiefes Rauschen, wie ein Blatt, das zerknüllt/weggezogen wird
+    save_delete: function (t, o) {
+      noise({ t: t, dur: 0.26, a: 0.02, vol: 0.3, out: o, filter: 'bandpass', ff: 900, ff2: 380, q: 0.8 });
+      noise({ t: t + 0.03, dur: 0.12, a: 0.01, vol: 0.08, out: o, filter: 'highpass', ff: 2500 });
+      for (var k = 0; k < 4; k++) {
+        noise({ t: t + 0.02 + k * 0.05, dur: 0.012, vol: 0.1, out: o, filter: 'bandpass', ff: 1500 + k * 250, q: 3 });
+      }
+      return 0.3;
     },
     extinguish: function (t, o) {
       noise({ t: t, dur: 0.55, a: 0.02, hold: 0.2, vol: 0.32, out: o, filter: 'bandpass', ff: 3200, ff2: 1200, q: 0.7 });
@@ -1743,6 +1785,15 @@
     state.muted = b === undefined ? true : !!b;
     applyMaster();
   });
+
+  // S1 (Optionsmenü): eindeutige Namen. setMuted(bool) = mute(bool), aber ohne den Standard „true“ bei fehlendem
+  // Argument. getVolume()/isMuted() liefern auch vor init() den gemerkten Wunschzustand.
+  GA.setMuted = safe('setMuted', function (b) {
+    state.muted = !!b;
+    applyMaster();
+  });
+  GA.getVolume = function () { return state.volume; };
+  GA.isMuted = function () { return state.muted; };
 
   // Diagnose (nicht Teil des Vertrags)
   GA.getState = function () {

@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/regiebuch/1",
+  "title": "Regiebuch (Pantheon, Format 1)",
+  "description": "Eine Mission als reine Daten (CONTRACT-S1 §2). Ablauf englisch wie im Code (steps, enter, timers, rules, objectives, next, choices, on, onAccept, skip, scan, jumpBlock, destBlock, allowBeam, restartOnReturn, loc), Rahmen deutsch (kopf, angebot, buch, buehne, besetzung, ausgaenge, texte, debug). Strukturprüfung hier; Referenzen, Bausteinparameter, Flags, Erreichbarkeit, Garantien und Neustartfestigkeit prüft server/mission/checker.js (Kommandozeile: tools/check-missions.js). '_kommentar' ist das einzige freie Feld im Rahmen.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "kopf", "buch", "buehne", "texte"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "_kommentar": { "$ref": "#/$defs/kommentar" },
+    "format": { "const": "regiebuch/1" },
+    "id": { "$ref": "#/$defs/kennung" },
+
+    "kopf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titel", "art", "auftraggeber", "zielspieldauer_min"],
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "titel": { "type": "string", "maxLength": 60 },
+        "art": { "enum": ["mission", "nebenauftrag", "intern"], "description": "mission = Kampagnenmission; nebenauftrag = nur Bucheintrag (buch + Ziele des ersten Schritts, kein Ablauf); intern = Testgelände/Debug (interne Bausteine erlaubt)" },
+        "auftraggeber": { "$ref": "#/$defs/kennung", "description": "NSC-Kennung (content/npc.json) oder Stimme aus besetzung.stimmen" },
+        "zielspieldauer_min": { "type": "number", "minimum": 1, "maximum": 120 },
+        "crew": {
+          "type": "object", "additionalProperties": false,
+          "properties": { "min": { "type": "integer", "minimum": 1, "maximum": 4 }, "max": { "type": "integer", "minimum": 1, "maximum": 4 }, "empfohlen": { "type": "integer", "minimum": 1, "maximum": 4 } }
+        },
+        "feldzug": { "type": ["string", "null"] },
+        "tutorial": { "type": "boolean", "description": "true = Teil des Tutorials (gilt bei 'Kampagne ohne Tutorial' als erledigt mit Ausgang 'uebersprungen')" }
+      }
+    },
+
+    "erwartet": {
+      "type": "object",
+      "description": "Flags aus früheren Missionen, die dieses Buch liest -> Standardwert, falls die Flag beim Start fehlt (null/undefiniert).",
+      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9_]*$" },
+      "additionalProperties": { "type": ["boolean", "string", "number", "null"] }
+    },
+
+    "angebot": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ersetzt MISSION_ORDER und onComplete:startMission. Die Engine startet eine Mission sofort, wenn 'nach' gilt (Kampagne). Bei art 'nebenauftrag': Bedingung, ab der der Eintrag im Missionsbuch steht.",
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "nach": { "oneOf": [{ "$ref": "#/$defs/bedingung" }, { "type": "null" }] },
+        "start": { "type": "boolean", "description": "true = erste Mission der Kampagne mit Tutorial" },
+        "direktstart": {
+          "type": "object", "additionalProperties": false, "required": ["lobby"],
+          "description": "Lobby-Direktstart (ohne Weltstand). prep = Aktionen vor dem ersten Schritt (z. B. Ort aufdecken).",
+          "properties": { "lobby": { "type": "string" }, "setFlag": { "type": "object" }, "prep": { "$ref": "#/$defs/aktionen" } }
+        },
+        "anbieter": { "$ref": "#/$defs/kennung" },
+        "nicht_wenn": { "$ref": "#/$defs/bedingung" }
+      }
+    },
+
+    "buch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["von", "briefing", "belohnung"],
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "von": {
+          "type": "array", "minItems": 1,
+          "description": "Erster Eintrag, dessen 'if' gilt (ohne 'if' = Standard). Ersetzt book.from als Funktion.",
+          "items": { "type": "object", "additionalProperties": false, "required": ["npc"],
+            "properties": { "if": { "$ref": "#/$defs/bedingung" }, "npc": { "$ref": "#/$defs/kennung" } } }
+        },
+        "briefing": { "$ref": "#/$defs/text" },
+        "belohnung": { "$ref": "#/$defs/text" },
+        "sichtbar": { "$ref": "#/$defs/bedingung", "description": "nur art 'nebenauftrag': ab wann der Eintrag im Missionsbuch steht" },
+        "erledigt": { "$ref": "#/$defs/bedingung", "description": "nur art 'nebenauftrag': Eintrag gilt als erledigt (Standard: alle Pflichtziele erledigt)" },
+        "ort": { "$ref": "#/$defs/kennung", "description": "nur art 'nebenauftrag': Ort des Eintrags (Karte/HUD)" },
+        "ziele": { "type": "array", "items": { "$ref": "#/$defs/ziel" }, "description": "nur art 'nebenauftrag': Ziele, live ausgewertet (Platzhalter erlaubt)" }
+      }
+    },
+
+    "buehne": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orte"],
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "orte": { "type": "array", "items": { "$ref": "#/$defs/kennung" }, "minItems": 1 },
+        "aussenkarten": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "objekte": { "type": "object", "description": "Karte -> verwendete Objektkennungen (shared/maps.js MAP_OBJECTS)",
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } },
+        "bereiche": { "type": "object", "description": "Karte -> verwendete Bereichskennungen (shared/maps.js MAP_AREAS)",
+          "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } }
+      }
+    },
+
+    "besetzung": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "npc": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "stimmen": {
+          "type": "object", "description": "Sprecher ohne NSC-Datensatz (Kustoden-Relais, Logbuch …): Kennung -> { name }",
+          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
+          "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["name"],
+            "properties": { "name": { "type": "string", "maxLength": 40 } } }
+        },
+        "gruppen": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
+        "einheiten": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
+        "schiffe": { "description": "reserviert für S2 (schuetzling) – der Prüfer lehnt mit MECHANIK-GEPLANT ab" }
+      }
+    },
+
+    "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/schritt" }, "description": "Pflicht bei art mission/intern; ein Nebenauftrag hat keinen Ablauf (buch.ziele)" },
+
+    "on": {
+      "type": "object",
+      "description": "Missionsweite Ereignis-Handler (Ereignisname -> Aktionen)",
+      "additionalProperties": { "$ref": "#/$defs/aktionen" }
+    },
+
+    "ausgaenge": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "Pflicht bei art mission/intern. 'complete: \"<ausgang>\"' schließt die Mission mit diesem Ausgang ab, 'complete: true' = 'erfolg'. 'uebersprungen' = Ausgang bei 'Kampagne ohne Tutorial' (nur welt_fakt wirkt).",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["beschreibung", "folgen"],
+        "properties": {
+          "_kommentar": { "$ref": "#/$defs/kommentar" },
+          "beschreibung": { "type": "string", "maxLength": 200 },
+          "folgen": { "type": "array", "items": { "$ref": "#/$defs/aktion" }, "description": "Aktionen (auch mit if), typisch welt_fakt, npc_gedaechtnis, npc_haltung, npc_status, chronik, remove_item als { do: … }. Die Kurzform { welt_fakt: {…} } aus der Vorarbeit wird noch verstanden." },
+          "danach": { "$ref": "#/$defs/aktionen" }
+        }
+      }
+    },
+
+    "debug": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "prep": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+        "done": { "$ref": "#/$defs/aktionen" }
+      }
+    },
+
+    "texte": {
+      "type": "object",
+      "description": "Alle Texte der Mission. Verweis im Ablauf mit '@kennung'. ODA-Texte (oda, ankuendigung.oda, text bei ODA-Bausteinen) höchstens 120 Zeichen (prüft der Prüfer, Code ODA-LAENGE).",
+      "propertyNames": { "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)*$" },
+      "additionalProperties": { "type": "string", "maxLength": 400 }
+    }
+  },
+
+  "$defs": {
+    "kennung": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 40 },
+    "kommentar": { "type": "string", "maxLength": 2000, "description": "freier Kommentar (einziges freies Feld)" },
+
+    "text": {
+      "type": "string",
+      "description": "'@kennung' verweist in 'texte'. Literaltexte sind erlaubt, der Prüfer warnt aber (Spielleiter soll Texte tauschen können).",
+      "maxLength": 400
+    },
+    "odaText": {
+      "type": "string",
+      "description": "Wie text, als Literal höchstens 120 Zeichen (ODA-Zeile)",
+      "maxLength": 120
+    },
+
+    "zahl": {
+      "description": "Zahl oder Verweis auf shared/config.js (aufgelöst beim Missionsstart, damit tune wirkt)",
+      "oneOf": [
+        { "type": "number" },
+        { "type": "object", "additionalProperties": false, "required": ["cfg"],
+          "properties": { "cfg": { "type": "string", "pattern": "^[A-Za-z0-9_.]+$" }, "plus": { "type": "number" } } }
+      ]
+    },
+
+    "bedingung": {
+      "description": "Wie heute: Objekt mit Atomen (alle müssen gelten), Liste (alle), true/false. 'check' verweist auf einen registrierten Prüf-Baustein.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "enum": [
+            "all", "any", "not", "atLocation", "docked", "elapsed", "flag", "v", "enemiesCleared", "enemiesLeft",
+            "killed", "enemyHpBelow", "scanDone", "itemAboard", "choiceMade", "event", "known", "visited", "revealed",
+            "found", "dest", "near", "evKind", "check", "missionDone", "lobby"
+          ] },
+          "properties": {
+            "all": { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+            "any": { "type": "array", "items": { "$ref": "#/$defs/bedingung" } },
+            "not": { "$ref": "#/$defs/bedingung" },
+            "elapsed": { "$ref": "#/$defs/zahl" },
+            "missionDone": { "type": "string" },
+            "lobby": { "oneOf": [{ "type": "string" }, { "type": "object" }] },
+            "check": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    "aktion": {
+      "type": "object",
+      "description": "Wie heute (oda, radio, set, setFlag, reveal, openLink, reward, log, spawn, spawnSalvage, choice, after, goto, complete, end …). 'do' ist immer der Name eines registrierten Bausteins, seine Parameter stehen daneben. 'wirkung' (Gruppe, auch ohne Wendung), 'wendung' + 'ankuendigung', 'garantie'.",
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "type": "string" },
+        "oda": { "$ref": "#/$defs/odaText" },
+        "radio": {
+          "type": "object", "required": ["from", "text"],
+          "properties": { "from": { "$ref": "#/$defs/kennung" }, "text": { "$ref": "#/$defs/text" }, "accept": { "type": "boolean" } }
+        },
+        "log": { "$ref": "#/$defs/text" },
+        "goto": { "$ref": "#/$defs/kennung" },
+        "complete": { "description": "true (Ausgang 'erfolg') oder Kennung eines Ausgangs", "oneOf": [{ "const": true }, { "$ref": "#/$defs/kennung" }] },
+        "wirkung": { "$ref": "#/$defs/aktionen" },
+        "wendung": { "$ref": "#/$defs/kennung" },
+        "ankuendigung": {
+          "type": "object", "additionalProperties": false, "required": ["art"],
+          "properties": {
+            "oda": { "$ref": "#/$defs/odaText" },
+            "radio": { "type": "object" },
+            "art": { "enum": ["vorher", "gleichzeitig", "sichtbar"] },
+            "vorlauf_s": { "type": "number", "minimum": 0 },
+            "grund": { "type": "string" }
+          }
+        },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] },
+        "neu": { "type": "string", "description": "Kommentar: gegenüber dem JS-Original ergänzt" }
+      },
+      "dependentRequired": { "wendung": ["ankuendigung", "wirkung"] }
+    },
+
+    "aktionen": { "type": "array", "items": { "$ref": "#/$defs/aktion" } },
+
+    "zeitpunkt": {
+      "type": "object",
+      "required": ["at"],
+      "properties": {
+        "at": { "$ref": "#/$defs/zahl" },
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "$ref": "#/$defs/aktionen" },
+        "oda": { "$ref": "#/$defs/odaText" },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] }
+      }
+    },
+
+    "regel": {
+      "type": "object",
+      "required": ["if", "do"],
+      "properties": {
+        "if": { "$ref": "#/$defs/bedingung" },
+        "do": { "$ref": "#/$defs/aktionen" },
+        "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] }
+      }
+    },
+
+    "ziel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "done"],
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "id": { "$ref": "#/$defs/kennung" },
+        "text": { "$ref": "#/$defs/text" },
+        "show": { "$ref": "#/$defs/bedingung" },
+        "done": { "$ref": "#/$defs/bedingung" },
+        "optional": { "type": "boolean" },
+        "sticky": { "type": "boolean" }
+      }
+    },
+
+    "schritt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "objectives"],
+      "properties": {
+        "_kommentar": { "$ref": "#/$defs/kommentar" },
+        "id": { "$ref": "#/$defs/kennung" },
+        "loc": { "$ref": "#/$defs/kennung" },
+        "drill": { "type": "boolean", "description": "Hafen-Übungsschritt (isDrillStep); gilt als neustartfest" },
+        "wiederaufnahme": {
+          "type": "object", "additionalProperties": false, "required": ["ab"],
+          "description": "Schritt ist nicht neustartfest: Laden setzt bei 'ab' fort; prep läuft nach setStep und dem Überlagern von v/Ereignissen",
+          "properties": { "ab": { "$ref": "#/$defs/kennung" }, "prep": { "$ref": "#/$defs/aktionen" } }
+        },
+        "restartOnReturn": { "type": "boolean" },
+        "allowBeam": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "enter": { "$ref": "#/$defs/aktionen" },
+        "timers": { "type": "array", "items": { "$ref": "#/$defs/zeitpunkt" } },
+        "rules": { "type": "array", "items": { "$ref": "#/$defs/regel" } },
+        "objectives": { "type": "array", "items": { "$ref": "#/$defs/ziel" } },
+        "choices": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["prompt", "options", "on"],
+            "properties": {
+              "prompt": { "$ref": "#/$defs/text" },
+              "options": { "type": "array", "minItems": 2, "maxItems": 4, "items": {
+                "type": "object", "required": ["id", "label"],
+                "properties": { "id": { "$ref": "#/$defs/kennung" }, "label": { "$ref": "#/$defs/text" }, "disabledIf": { "$ref": "#/$defs/bedingung" } } } },
+              "on": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+              "after": { "$ref": "#/$defs/aktionen" }
+            }
+          }
+        },
+        "scan": {
+          "type": "object", "required": ["id", "label", "range", "time"],
+          "properties": { "id": { "type": "string" }, "label": { "$ref": "#/$defs/text" }, "range": { "$ref": "#/$defs/zahl" }, "time": { "$ref": "#/$defs/zahl" },
+            "requires": { "$ref": "#/$defs/bedingung" }, "blocked": { "$ref": "#/$defs/text" } }
+        },
+        "jumpBlock": { "type": "array", "items": { "type": "object", "required": ["if", "reason"],
+          "properties": { "dest": { "type": "string" }, "if": { "$ref": "#/$defs/bedingung" }, "reason": { "$ref": "#/$defs/text" } } } },
+        "destBlock": { "type": "array", "items": { "type": "object", "required": ["if", "reason"],
+          "properties": { "dest": { "type": "string" }, "if": { "$ref": "#/$defs/bedingung" }, "reason": { "$ref": "#/$defs/text" } } } },
+        "onAccept": { "$ref": "#/$defs/aktionen" },
+        "on": { "type": "object", "additionalProperties": { "$ref": "#/$defs/aktionen" } },
+        "next": { "type": "array", "items": {
+          "type": "object", "required": ["if"],
+          "properties": { "if": { "$ref": "#/$defs/bedingung" }, "do": { "$ref": "#/$defs/aktionen" }, "goto": { "$ref": "#/$defs/kennung" },
+            "complete": { "oneOf": [{ "const": true }, { "$ref": "#/$defs/kennung" }] }, "garantie": { "type": "string" } } } },
+        "skip": { "$ref": "#/$defs/aktionen" }
+      }
+    },
+
+    "gruppe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["map", "quelle"],
+      "properties": {
+        "map": { "$ref": "#/$defs/kennung" },
+        "quelle": { "enum": ["karte", "katalog"], "description": "karte = Spawnpunkte aus den Kartendaten (heute), katalog = Gegnergruppe aus dem Katalog (S2)" },
+        "anker": { "type": "string", "description": "Spawn-Zeichen der Karte (heute) bzw. Anker-Rolle (ab G1)" },
+        "art": { "type": "string" },
+        "anzahl": { "type": "integer", "minimum": 1, "maximum": 12 }
+      }
+    }
+  }
+}

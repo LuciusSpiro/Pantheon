@@ -17,7 +17,11 @@ const { Explore } = require('./sim/explore.js');
 const { Mission } = require('./sim/mission.js');
 const generator = require('./mission/generator.js');
 const store = require('./store.js');
+const Weltstand = require('./weltstand.js');   // S1 §5: Speicherstand der Kampagne
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
+
+const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
+const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 
 const SERVER_VERSION = '0.2.0';
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan' };
@@ -54,8 +58,18 @@ class Game {
     this.C = CONFIG;
     this.debug = !!o.debug;
     this.env = o.env || process.env;
-    this.logFn = o.log || ((...a) => console.log('[game]', ...a));
+    this.logFn = o.log || ((...a) => console.log('[Pantheon]', ...a));
     this.storeDisabled = !!o.noStore;
+    // S1 §5: Weltstände auf der Platte (Standard: an, außer noStore – Tests/Smoke schreiben nichts). worlds: true erzwingt.
+    this.worldsEnabled = o.worlds != null ? !!o.worlds : !o.noStore;
+    this.worldDir = o.worldDir || Weltstand.dir(this.env);
+    this.worldList = [];
+    this.worldLock = null;        // { dir, id } solange dieser Prozess einen Weltstand offen hat
+    this.worldSaveSync = !!o.worldSaveSync;   // Tests: synchron schreiben (sonst Schreiben per setImmediate)
+    this.worldListT = 0;
+    this.serverVersion = SERVER_VERSION;
+    this.port = o.port || null;
+    this.paused = false;
     this.fixedSeed = o.seed;
     this.world = W;
     this.transfer = away;
@@ -66,14 +80,183 @@ class Game {
     this.idCounter = 0;
     this.runCounter = 0;
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1' };
+    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null };
     this.reset();
+  }
+
+  // ---------- Weltstand (CONTRACT-S1 §5) ----------
+  worldMax() { const m = this.C.weltstand && this.C.weltstand.max; return Number.isFinite(m) && m > 0 ? m : Weltstand.MAX; }
+  refreshWorldList() {
+    if (!this.worldsEnabled) { this.worldList = []; return; }
+    try { this.worldList = Weltstand.list(this.worldDir, this); } catch (e) { this.countError('weltstand-list', e); this.worldList = []; }
+    if (this.lobbyOpts.world && !this.worldList.some((w) => w.id === this.lobbyOpts.world && w.state === 'ok')) this.lobbyOpts.world = null;
+  }
+  releaseWorldLock() {
+    const l = this.worldLock;
+    if (!l) return;
+    this.worldLock = null;
+    try { Weltstand.unlock(l.dir, l.id); } catch (e) { this.countError('weltstand-unlock', e); }
+  }
+  // Speichern mit Ereignis worldSaved/worldSaveFailed. Nur Kampagne (persistent) und nur mit Ablage.
+  saveWorld(reason, opts) {
+    const ws = this.weltstand;
+    if (!ws || !ws.persistent || !this.worldsEnabled) return { ok: false, skipped: true };
+    const o = Object.assign({}, opts);
+    // §5.3: Erfassen im Tick, Schreiben danach (setImmediate). Synchron nur, wo das Ergebnis sofort gebraucht wird
+    // (Partie beenden) oder wenn der Server so gebaut ist (Tests: worldSaveSync).
+    const sync = o.sync || this.worldSaveSync;
+    const report = (r) => {
+      if (r.unchanged || r.pending) return;
+      if (r.ok) {
+        this.lastSaveMs = r.ms;
+        this.emit('worldSaved', { id: ws.id, name: ws.name, loc: r.loc });
+        if (r.ms > 50) this.log(`Weltstand ${ws.id} gesichert (${reason}), Schreiben dauerte ${r.ms} ms.`);
+      } else {
+        this.emit('worldSaveFailed', { reason: r.error });
+        this.log(`Weltstand ${ws.id} NICHT gesichert (${reason}): ${r.error}`);
+      }
+    };
+    if (!sync) { o.async = true; o.onDone = report; }
+    const r = Weltstand.save(this, o);
+    if (!r.pending) report(r);
+    if (r.captureMs != null) this.lastCaptureMs = r.captureMs;
+    return r;
+  }
+  // §5.3: am Ende des Ticks. docked -> sofort; angedockt entprellt nur bei Änderung; missionDone -> auch ohne Dock.
+  updateWeltstand(dt) {
+    const ws = this.weltstand; const ship = this.ship;
+    if (!ws) return;
+    if (ship.docked && ship.dockedAt) ws.lastDockedAt = ship.dockedAt;
+    const pr = this.pendingRadio;
+    if (pr && this.time >= pr.at) {
+      this.pendingRadio = null;
+      if (typeof this.mission.radio === 'function') this.mission.radio(pr.from, pr.text); else this.emit('radio', { from: pr.from, text: pr.text });
+    }
+    const due = this.saveDue; this.saveDue = null;
+    if (!ws.persistent || !this.worldsEnabled) return;
+    if (due && due.missionDone) { this.dockSaveT = 0; this.saveWorld('missionDone'); return; }
+    if (!ship.docked) { this.dockSaveT = 0; return; }
+    if (due && due.docked) { this.dockSaveT = 0; this.saveWorld('docked'); return; }
+    this.dockSaveT = (this.dockSaveT || 0) + dt;
+    const every = Number(this.C.weltstand && this.C.weltstand.dockedSaveEvery) || 10;
+    if (this.dockSaveT >= every) { this.dockSaveT = 0; this.saveWorld('docked-periodic', { ifChanged: true }); }
+  }
+  markSaveDue(kind) { this.saveDue = Object.assign(this.saveDue || {}, { [kind]: true }); }
+  connectedCount() { return this.players.filter((p) => p.connected).length; }
+
+  // Start abgelehnt (z. B. 5 Weltstände): alle wieder „nicht bereit“ + Hinweis
+  refuseStart(text) {
+    for (const p of this.players) { p.ready = false; this.notice(p, text); }
+    this.log('Start abgelehnt: ' + text);
+  }
+
+  // Kampagne starten (ENGINE: mission.startCampaign). Fehlt sie: mit Tutorial das alte start(), ohne Tutorial ein Ersatz.
+  startCampaignMission(tutorial) {
+    const m = this.mission;
+    if (typeof m.startCampaign === 'function') {
+      try { m.startCampaign({ tutorial }); return; } catch (e) { this.countError('weltstand-startCampaign', e); }
+    }
+    if (tutorial) { m.start(); return; }
+    this.countError('weltstand-startCampaign', new Error('mission.startCampaign fehlt – Ersatzstart ohne Tutorial'));
+    this.log('WARNUNG: mission.startCampaign fehlt – Ersatzstart „Kampagne ohne Tutorial“ (Tutorial-Missionen als erledigt markiert).');
+    for (const id of ['m1', 'm2', 'm3']) {
+      m.missions[id] = { id, title: TUTORIAL_TITLES[id], state: 'done' };
+      this.stats.missions[id] = { start: 0, end: 0 };
+    }
+    const c = this.C.campaign || {};
+    this.inventory.marks = Number.isFinite(c.skipTutorialMarks) ? c.skipTutorialMarks : this.C.economy.startMarks;
+    const file = Weltstand.readNpcFile(this, false);
+    const ot = file && file.kampagne && file.kampagne.ohne_tutorial;
+    if (ot && ot.fakten) for (const [k, v] of Object.entries(ot.fakten)) {
+      const obj = v && typeof v === 'object';
+      this.weltstand.fact(k, obj ? v.value : v, obj && v.quelle ? v.quelle : 'ohne_tutorial');
+    }
+    if (ot && ot.funk) this.pendingRadio = { at: this.time + (Number(c.teskRumorAt) || 0), from: ot.funk.from, text: ot.funk.text };
+  }
+
+  // Fortsetzen: laden -> reset -> sperren -> apply. Fehler: worldLoadFailed, zurück in die Lobby, kein Absturz.
+  continueWorld(id) {
+    const dir = this.worldDir;
+    const fail = (reason) => {
+      this.emit('worldLoadFailed', { id, reason });
+      this.log(`Weltstand ${id} nicht geladen: ${reason}`);
+      this.lobbyOpts.world = null;
+      for (const p of this.players) p.ready = false;
+      this.refreshWorldList();
+    };
+    const r = Weltstand.load(dir, id, this);
+    if (!r.ok) return fail(r.error);
+    // reset() spielt den Erstbesuch im Hafen ab (ODA, Logbuch, +20 Marken) – beim Fortsetzen ist das kein Erstbesuch
+    this.muteEvents = true;
+    try { this.reset(); } finally { this.muteEvents = false; }
+    const lk = Weltstand.lock(dir, id, { port: this.port });
+    if (!lk.ok) return fail(lk.error);
+    this.worldLock = { dir, id };
+    this.phase = 'play';
+    this.stats.playTimeStart = this.time;
+    this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
+    this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
+    try {
+      Weltstand.apply(this, r.data);
+    } catch (e) {
+      this.countError('weltstand-apply', e);
+      this.reset();
+      return fail('Der Weltstand ließ sich nicht übernehmen (' + e.message + ').');
+    }
+    this.emit('worldLoaded', { id, name: this.weltstand.name });
+    if (r.fromBak) this.log(`Weltstand ${id} aus der Sicherung (.bak) geladen.`);
+    this.log(`Weltstand ${id} („${this.weltstand.name}“) fortgesetzt mit ${this.players.length} Spieler(n), angedockt: ${this.ship.dockedAt}.`);
+    this.logRun(false);
+  }
+
+  // §6 menu { op: 'end' }: Partie für alle beenden -> Lobby (Spieler bleiben verbunden, ready = false)
+  endSession(p) {
+    let saved = false;
+    const ws = this.weltstand;
+    if (ws && ws.persistent && this.ship.docked) saved = !!this.saveWorld('end', { sync: true }).ok;
+    this.emit('sessionEnded', { by: p ? p.id : null, byName: p ? p.name : null, saved });   // CLIENT: by = ID, byName = Anzeige
+    this.log(`${p ? p.name : 'Jemand'} hat die Partie beendet${saved ? ' (Weltstand gesichert)' : ''}.`);
+    if (this.phase !== 'end') { this.stats.elapsed = this.time - this.stats.playTimeStart; this.logRun(true); }
+    const prevWorld = ws && ws.persistent && this.worldsEnabled ? ws.id : null;
+    this.muteEvents = true;   // kein „Erstbesuch Hafen“ aus reset() in die Lobby
+    try { this.reset(); } finally { this.muteEvents = false; }
+    // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
+    this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
+    for (const q of this.players) q.ready = false;
+  }
+
+  onWorldMsg(conn, p, msg) {
+    if (msg.op !== 'delete') return;
+    if (this.phase !== 'lobby') return this.notice(p, 'Weltstände lassen sich nur in der Lobby löschen.');
+    if (!this.worldsEnabled) return this.notice(p, 'Weltstände sind auf diesem Server aus.');
+    const id = String(msg.id);
+    const r = Weltstand.remove(this.worldDir, id);
+    if (!r.ok) {
+      if (r.code === 'worldbusy') this.sendTo(conn, { t: 'error', code: Protocol.ERR.WORLDBUSY || 'worldbusy', text: r.error });
+      else this.notice(p, r.error);
+      return;
+    }
+    if (this.lobbyOpts.world === id) this.lobbyOpts.world = null;
+    this.log(`${p.name}: Weltstand ${id} gelöscht.`);
+    this.refreshWorldList();
+  }
+
+  onMenuMsg(p, msg) {
+    if (msg.op === 'end') { if (this.phase !== 'lobby') this.endSession(p); return; }
+    if (msg.op === 'pause') {
+      if (this.phase === 'lobby') return;
+      if (!msg.on) { this.paused = false; return; }
+      if (this.connectedCount() === 1) this.paused = true;
+    }
   }
 
   // ---------- Zustand ----------
   reset() {
     const C = this.C;
+    this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
     this.phase = 'lobby';
+    this.paused = false;
+    this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
     this.tick = 0; this.time = 0; this.snapCount = 0; this.emptyFor = 0;
     this.seed = this.fixedSeed != null ? this.fixedSeed : (Date.now() & 0x7fffffff);
     this.rng = makeRng(this.seed);
@@ -126,6 +309,8 @@ class Game {
     this.explore = new Explore(this);
     this.aways = { platform: away.makeAway(this), wreck: away.makeWreck(this), kesh: away.makeKesh(this) };
     this.away = this.aways.platform;
+    // S1 §5.4: Laufzeit-Weltstand existiert in jeder Partie; Kampagne ersetzt ihn beim Start (persistent)
+    this.weltstand = Weltstand.create(this, { tutorial: false, persistent: false, dir: this.worldDir });
     this.mission = new Mission(this);
     space.enterScene(this, Locations.START, { docked: true });
     this.bots = [];
@@ -134,6 +319,7 @@ class Game {
     this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
+    this.refreshWorldList();
   }
 
   setAwayMap(id) { if (this.aways[id] && this.away !== this.aways[id]) this.away = this.aways[id]; }
@@ -159,7 +345,11 @@ class Game {
     }
   }
   sendTo(conn, obj) { try { conn.send(obj); } catch (e) { this.countError('send', e); } }
-  emit(kind, data) { this.broadcast(Object.assign({ t: 'event', kind }, data)); }
+  emit(kind, data) {
+    if (this.muteEvents) return;   // QA-Abnahme S1: reset() vor dem Laden meldet sonst „Erstbesuch Hafen (+20 Marken)“
+    if (kind === 'missionDone') this.markSaveDue('missionDone');   // S1 §5.3: speichern am Tick-Ende (auch ohne Dock)
+    this.broadcast(Object.assign({ t: 'event', kind }, data));
+  }
   notice(p, text) {
     const msg = { t: 'event', kind: 'notice', pid: p.id, text };
     if (p.conn) this.sendTo(p.conn, msg);
@@ -170,6 +360,7 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
+    if (name === 'docked') this.markSaveDue('docked');   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     try { this.mission.onEvent(name, data || {}); } catch (e) { this.countError('mission-event', e); }
   }
   log(...a) { this.logFn(...a); }
@@ -178,7 +369,7 @@ class Game {
     this.errors++;
     const now = Date.now();
     const last = this.errorLog[where] || 0;
-    if (now - last > 2000) { this.errorLog[where] = now; console.warn(`[game] Fehler in ${where} (gesamt ${this.errors}):`, err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err); }
+    if (now - last > 2000) { this.errorLog[where] = now; console.warn(`[Pantheon] Fehler in ${where} (gesamt ${this.errors}):`, err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err); }
   }
   safe(where, fn) { try { fn(); } catch (e) { this.countError(where, e); } }
 
@@ -190,6 +381,7 @@ class Game {
     const p = conn.player;
     if (!p || p.conn !== conn) return;
     p.conn = null; p.connected = false;
+    this.paused = false;   // S1 §6: Trennen beendet die Solo-Pause
     p.input.mx = 0; p.input.my = 0; p.actDown = false; p.hold = null;
     if (p.console) interior.leaveConsole(this, p);
     if (this.phase === 'lobby') {
@@ -214,7 +406,11 @@ class Game {
     try {
       const C = Protocol.C;
       if (msg.t === C.PING) return this.sendTo(conn, { t: 'pong', ts: msg.ts });
-      if (msg.t === C.HELLO) return this.onHello(conn, msg);
+      if (msg.t === C.HELLO) {
+        this.onHello(conn, msg);
+        if (this.connectedCount() !== 1) this.paused = false;   // S1 §6: zweiter Spieler beendet die Solo-Pause
+        return;
+      }
       const p = conn.player;
       if (!p || p.conn !== conn) return;
       switch (msg.t) {
@@ -229,7 +425,20 @@ class Game {
             this.lobbyOpts.startMission = msg.startMission;
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
           }
+          // S1 §6: Weltstand zum Fortsetzen wählen (null = neu)
+          if (this.phase === 'lobby' && 'world' in msg) {
+            const id = msg.world == null || msg.world === '' ? null : String(msg.world);
+            if (id === null) { if (this.lobbyOpts.world) this.log(`${p.name}: neuer Weltstand.`); this.lobbyOpts.world = null; }
+            else {
+              const w = this.worldList.find((o) => o.id === id);
+              if (!w) this.notice(p, 'Diesen Weltstand gibt es nicht (mehr).');
+              else if (w.state !== 'ok') this.notice(p, w.grund || 'Dieser Weltstand lässt sich nicht fortsetzen.');
+              else if (this.lobbyOpts.world !== id) { this.lobbyOpts.world = id; this.log(`${p.name}: Fortsetzen „${w.name}“ (${id}).`); }
+            }
+          }
           break;
+        case C.WORLD: this.onWorldMsg(conn, p, msg); break;   // S1 §6
+        case C.MENU: this.onMenuMsg(p, msg); break;           // S1 §6
         case C.INPUT: {
           if (this.phase === 'lobby') break;
           const mx = Number(msg.mx), my = Number(msg.my);
@@ -321,23 +530,41 @@ class Game {
   }
 
   startGame() {
+    const sm = this.lobbyOpts.startMission;
+    // S1 §6: gewählter Weltstand -> fortsetzen (startMission entfällt)
+    if (this.lobbyOpts.world && this.worldsEnabled) return this.continueWorld(this.lobbyOpts.world);
+    // Weltstand nur für die Kampagne (m1 = mit Tutorial, free = ohne); m3 und Testgelände nie (Kai)
+    const campaign = CAMPAIGN_STARTS.includes(sm);
+    if (campaign && this.worldsEnabled) {
+      this.refreshWorldList();
+      if (this.worldList.length >= this.worldMax()) return this.refuseStart('Erst einen Weltstand löschen.');
+    }
     this.reset();
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
-    const sm = this.lobbyOpts.startMission;
+    if (campaign) {
+      this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1', persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });
+      this.weltstand.lastDockedAt = Locations.START;
+      if (this.worldsEnabled) {
+        const lk = Weltstand.lock(this.worldDir, this.weltstand.id, { port: this.port });
+        if (lk.ok) this.worldLock = { dir: this.worldDir, id: this.weltstand.id }; else this.countError('weltstand-lock', new Error(lk.error));
+      }
+    }
     if (!arena.isArena(sm)) this.explore.arrive(Locations.START);   // Testgelände: keine Hafen-Erstbesuchsansage
     if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm);   // Testgelände Raumkampf / Außenteam
-    else this.mission.start();
-    this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.`);
+    else this.startCampaignMission(sm !== 'free');
+    this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
+    if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
   }
 
   endGame(opts) {
     if (this.phase === 'end') return;
     const o = opts || {};
+    if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.saveWorld('endGame');   // §5.3
     this.phase = 'end';
     this.stats.elapsed = this.time - this.stats.playTimeStart;
     this.emit('ending', { title: o.title || 'Fortsetzung folgt', text: o.text || null, missions: this.stats.missions });
@@ -353,6 +580,7 @@ class Game {
       stats: Object.assign({}, this.stats, { locations: this.locationStats() }), flags: { bribed: f.bribed, decision: f.decision, technikerRescued: f.technikerRescued },
       discoveries: this.explore.discoveries(),
       teaser: t && t.status === 'ready' ? { source: t.source, title: t.title } : null, errors: this.errors,
+      worldId: this.weltstand && this.weltstand.persistent ? this.weltstand.id : null,   // S1 §5.2
     }, { disabled: this.storeDisabled });
   }
   locationStats() { const o = {}; for (const [k, v] of Object.entries(this.explore.locTime)) o[k] = Math.round(v); return o; }
@@ -628,13 +856,24 @@ class Game {
   step() {
     const dt = 1 / this.C.tickHz;
     this.tick++;
+    // S1 §6: Solo-Pause – Simulation steht, Snapshots laufen weiter (paused: true)
+    if (this.paused) {
+      if (this.phase === 'lobby' || this.connectedCount() !== 1) this.paused = false;
+      else return;
+    }
     this.time += dt;
     const connected = this.players.some((p) => p.connected);
+    if (this.phase === 'lobby' && this.worldsEnabled) {
+      // andere Prozesse (Sperren) und Löschungen sichtbar machen
+      this.worldListT += dt;
+      if (this.worldListT >= 3) { this.worldListT = 0; this.refreshWorldList(); }
+    }
     if (this.phase !== 'lobby') {
       if (!connected) {
         this.emptyFor += dt;
         if (this.emptyFor >= this.C.net.emptyResetAfter) {
           this.log('Alle weg – Partie zurückgesetzt.');
+          if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.safe('weltstand', () => this.saveWorld('empty'));
           this.players = [];
           this.reset();
           return;
@@ -655,6 +894,7 @@ class Game {
       if (this.phase === 'play') this.stats.elapsed = this.time - this.stats.playTimeStart;
       // Ohne Außenteam folgt der Transfer der Außenkarte des aktuellen Orts
       if (!this.players.some((p) => p.zone === 'away')) { const spot = away.beamSpot(this); if (spot) this.setAwayMap(spot.map); }
+      this.safe('weltstand', () => this.updateWeltstand(dt));   // S1 §5.3: am Ende des Ticks
     }
   }
 
@@ -806,10 +1046,17 @@ class Game {
       ...this.mission.focusSnapshot(),
     };
     if (includeLog) missionOut.log = this.explore.log.slice(-30).map((e) => ({ id: e.id, text: e.text, loc: e.loc, t: e.t }));   // §21.2: + t (Spielzeit s)
+    // S1 §6 (Kann): Chronik (letzte 10) im Log-Slot
+    if (includeLog && this.weltstand && this.weltstand.data && this.weltstand.data.chronik.length) missionOut.chronik = this.weltstand.data.chronik.slice(-10);
     if (includeBook) missionOut.book = book;
     return {
       t: 'snap', tick: this.tick, time: r2(this.time), phase: this.phase,
-      lobby: { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
+      lobby: this.phase === 'lobby'
+        ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
+          worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax() }
+        : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
+      paused: !!this.paused,
+      campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, carry: p.carry,

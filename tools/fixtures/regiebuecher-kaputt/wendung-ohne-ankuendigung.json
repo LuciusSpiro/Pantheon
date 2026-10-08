@@ -1,0 +1,2774 @@
+{
+  "$schema": "../../../content/regiebuch/regiebuch.schema.json",
+  "_kommentar": "Kaputtes Regiebuch für die Abnahme (CONTRACT-S1 §8.3/§10.3), Basis m1. Erwarteter Code: FAIRNESS. Schritt return: Wendung nachhut ohne ankuendigung (die Nachhut käme ohne Vorwarnung).",
+  "format": "regiebuch/1",
+  "id": "kaputt_wendung_ohne_ankuendigung",
+  "kopf": {
+    "titel": "Die stumme Boje",
+    "art": "mission",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "crew": {
+      "min": 1,
+      "max": 3,
+      "empfohlen": 3
+    },
+    "feldzug": null,
+    "tutorial": true
+  },
+  "angebot": {
+    "start": true
+  },
+  "buch": {
+    "von": [
+      {
+        "npc": "tesk"
+      }
+    ],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+  "buehne": {
+    "orte": [
+      "hafen",
+      "splitter",
+      "b7",
+      "vaelen"
+    ],
+    "aussenkarten": [
+      "platform"
+    ],
+    "objekte": {
+      "platform": [
+        "sonde",
+        "core",
+        "ivo",
+        "datenkern"
+      ]
+    }
+  },
+  "besetzung": {
+    "npc": [
+      "tesk",
+      "grauzahn",
+      "ivo",
+      "sela",
+      "melk"
+    ],
+    "gruppen": {
+      "guards": {
+        "map": "platform",
+        "quelle": "karte",
+        "art": "drone"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "dock",
+      "loc": "hafen",
+      "drill": true,
+      "_kommentar": "Hafen-Übung. Laden startet die Übung bewusst neu (Feuer/Lecks werden nicht gespeichert, das zerstörte Transfer-System schon).",
+      "wiederaufnahme": {
+        "ab": "dock"
+      },
+      "enter": [
+        {
+          "if": {
+            "lobby": "skipDrill"
+          },
+          "wirkung": [
+            {
+              "set": {
+                "skip": true,
+                "radio": true
+              }
+            },
+            {
+              "after": {
+                "sec": 3,
+                "do": [
+                  {
+                    "oda": "@dock.uebung_uebersprungen"
+                  }
+                ]
+              }
+            },
+            {
+              "after": {
+                "sec": {
+                  "cfg": "drillSkip.radioAt"
+                },
+                "do": [
+                  {
+                    "radio": {
+                      "from": "tesk",
+                      "text": "@funk.angebot",
+                      "accept": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "after": {
+                "sec": {
+                  "cfg": "drillSkip.radioAt",
+                  "plus": 22
+                },
+                "do": [
+                  {
+                    "if": {
+                      "not": {
+                        "event": "accepted"
+                      }
+                    },
+                    "oda": "@dock.funk_wartet"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "not": {
+              "lobby": "skipDrill"
+            }
+          },
+          "do": "ship_incident",
+          "fires": 1,
+          "breaches": 1,
+          "system": "transfer",
+          "state": "broken"
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@dock.begruessung"
+        },
+        {
+          "at": 5,
+          "if": {
+            "not": {
+              "v": "skip"
+            }
+          },
+          "oda": "@dock.rempler"
+        },
+        {
+          "at": 11,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "check": "no_fires"
+                    },
+                    {
+                      "check": "no_breaches"
+                    },
+                    {
+                      "check": {
+                        "name": "system_ok",
+                        "system": "transfer"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@dock.lager"
+        },
+        {
+          "at": 19,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "check": "no_fires"
+                    },
+                    {
+                      "check": "no_breaches"
+                    },
+                    {
+                      "check": {
+                        "name": "system_ok",
+                        "system": "transfer"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@dock.feuer_leck"
+        },
+        {
+          "at": 50,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "check": "no_fires"
+                    },
+                    {
+                      "check": "no_breaches"
+                    },
+                    {
+                      "check": {
+                        "name": "system_ok",
+                        "system": "transfer"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@dock.orte",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 95,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "not": {
+                  "all": [
+                    {
+                      "check": "no_fires"
+                    },
+                    {
+                      "check": "no_breaches"
+                    },
+                    {
+                      "check": {
+                        "name": "system_ok",
+                        "system": "transfer"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "oda": "@dock.zu_zweit"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "all": [
+                  {
+                    "check": "no_fires"
+                  },
+                  {
+                    "check": "no_breaches"
+                  },
+                  {
+                    "check": {
+                      "name": "system_ok",
+                      "system": "transfer"
+                    }
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "v": "radio"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "set": {
+                "radio": true
+              }
+            },
+            {
+              "oda": "@dock.sauber"
+            },
+            {
+              "after": {
+                "sec": 3,
+                "do": [
+                  {
+                    "radio": {
+                      "from": "tesk",
+                      "text": "@funk.angebot",
+                      "accept": true
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "after": {
+                "sec": 25,
+                "do": [
+                  {
+                    "if": {
+                      "not": {
+                        "event": "accepted"
+                      }
+                    },
+                    "oda": "@dock.funk_wartet"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "v": "skip"
+                }
+              },
+              {
+                "elapsed": 150
+              },
+              {
+                "not": {
+                  "v": "radio"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "set": {
+                "radio": true
+              }
+            },
+            {
+              "oda": "@dock.spaeter"
+            },
+            {
+              "after": {
+                "sec": 3,
+                "do": [
+                  {
+                    "radio": {
+                      "from": "tesk",
+                      "text": "@funk.angebot",
+                      "accept": true
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "garantie": "zeitlimit"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "drillFire",
+          "text": "@ziel.uebung_feuer",
+          "show": {
+            "not": {
+              "v": "skip"
+            }
+          },
+          "done": {
+            "check": "no_fires"
+          }
+        },
+        {
+          "id": "drillBreach",
+          "text": "@ziel.uebung_leck",
+          "show": {
+            "not": {
+              "v": "skip"
+            }
+          },
+          "done": {
+            "check": "no_breaches"
+          }
+        },
+        {
+          "id": "drillRepair",
+          "text": "@ziel.uebung_reparatur",
+          "show": {
+            "not": {
+              "v": "skip"
+            }
+          },
+          "done": {
+            "check": {
+              "name": "system_ok",
+              "system": "transfer"
+            }
+          }
+        },
+        {
+          "id": "captainConsole",
+          "text": "@ziel.captain_konsole",
+          "show": {
+            "v": "radio"
+          },
+          "done": {
+            "check": {
+              "name": "console_manned",
+              "console": "captain"
+            }
+          }
+        },
+        {
+          "id": "accept",
+          "text": "@ziel.funk_annehmen",
+          "show": {
+            "v": "radio"
+          },
+          "done": {
+            "event": "accepted"
+          }
+        }
+      ],
+      "onAccept": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "goto": "undock"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_clear_incidents"
+        },
+        {
+          "do": "debug_force_radio",
+          "from": "tesk",
+          "text": "@skip.angebot"
+        },
+        {
+          "do": "debug_accept"
+        }
+      ]
+    },
+    {
+      "id": "undock",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@undock.steuer"
+        },
+        {
+          "at": 5,
+          "oda": "@undock.sternkarte"
+        },
+        {
+          "at": 30,
+          "if": {
+            "check": {
+              "name": "crew_max",
+              "max": 1
+            }
+          },
+          "oda": "@undock.solo"
+        },
+        {
+          "at": 60,
+          "oda": "@undock.checkliste",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "undock",
+          "text": "@ziel.ablegen",
+          "done": {
+            "docked": false
+          }
+        },
+        {
+          "id": "destSplitter",
+          "text": "@ziel.ziel_splitter",
+          "done": {
+            "any": [
+              {
+                "dest": "splitter"
+              },
+              {
+                "atLocation": "splitter"
+              }
+            ]
+          }
+        },
+        {
+          "id": "jump1",
+          "text": "@ziel.faltsprung",
+          "done": {
+            "atLocation": "splitter"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "splitter"
+          },
+          "goto": "route"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_jump",
+          "loc": "splitter"
+        }
+      ]
+    },
+    {
+      "id": "route",
+      "loc": "splitter",
+      "_kommentar": "Nach dem Laden (angedockt im Hafen) ab 'undock': sonst erschiene das Bergungsgut in der Hafenszene.",
+      "wiederaufnahme": {
+        "ab": "undock"
+      },
+      "enter": [
+        {
+          "spawnSalvage": 3
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@route.faltsprung"
+        },
+        {
+          "at": 5,
+          "oda": "@route.kisten"
+        },
+        {
+          "at": 45,
+          "if": {
+            "not": {
+              "check": "salvage_done"
+            }
+          },
+          "oda": "@route.kisten_hinweis",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "any": [
+                  {
+                    "check": {
+                      "name": "ship_in_zone",
+                      "loc": "splitter",
+                      "zone": "durchquert"
+                    }
+                  },
+                  {
+                    "check": "salvage_done"
+                  },
+                  {
+                    "v": "waived"
+                  }
+                ]
+              },
+              {
+                "not": {
+                  "choiceMade": "grauzahn"
+                }
+              }
+            ]
+          },
+          "_kommentar": "Gewollte Abweichung: 'not choiceMade' – nach Wiederaufnahme ab 'undock' fragt Grauzahn nicht ein zweites Mal (im normalen Ablauf ohne Wirkung).",
+          "do": [
+            {
+              "set": {
+                "grauzahn": true
+              }
+            },
+            {
+              "radio": {
+                "from": "grauzahn",
+                "text": "@funk.grauzahn_zoll"
+              }
+            },
+            {
+              "choice": "grauzahn"
+            },
+            {
+              "oda": "@route.grauzahn_wartet"
+            }
+          ]
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 150
+              },
+              {
+                "not": {
+                  "check": "salvage_done"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "set": {
+                "waived": true
+              }
+            },
+            {
+              "oda": "@route.treiben_lassen"
+            }
+          ],
+          "garantie": "autoloesung"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "v": "grauzahn"
+              },
+              {
+                "elapsed": 40
+              },
+              {
+                "not": {
+                  "choiceMade": "grauzahn"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@route.bestechen_tipp"
+            }
+          ],
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "salvage",
+          "text": "@ziel.bergung",
+          "done": {
+            "any": [
+              {
+                "check": "salvage_done"
+              },
+              {
+                "v": "waived"
+              }
+            ]
+          }
+        },
+        {
+          "id": "answer",
+          "text": "@ziel.grauzahn_antworten",
+          "show": {
+            "v": "grauzahn"
+          },
+          "done": {
+            "choiceMade": "grauzahn"
+          }
+        },
+        {
+          "id": "destB7",
+          "text": "@ziel.ziel_b7",
+          "done": {
+            "any": [
+              {
+                "dest": "b7"
+              },
+              {
+                "atLocation": "b7"
+              }
+            ]
+          }
+        },
+        {
+          "id": "jump2",
+          "text": "@ziel.faltsprung",
+          "done": {
+            "atLocation": "b7"
+          }
+        }
+      ],
+      "choices": {
+        "grauzahn": {
+          "prompt": "@wahl.grauzahn.frage",
+          "options": [
+            {
+              "id": "bribe",
+              "label": "@wahl.grauzahn.bestechen",
+              "disabledIf": {
+                "check": {
+                  "name": "marks_below",
+                  "n": 100
+                }
+              }
+            },
+            {
+              "id": "fight",
+              "label": "@wahl.grauzahn.kaempfen"
+            }
+          ],
+          "on": {
+            "bribe": [
+              {
+                "do": "pay_marks",
+                "marks": 100
+              },
+              {
+                "setFlag": {
+                  "bribed": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@funk.grauzahn_bezahlt"
+                }
+              },
+              {
+                "oda": "@route.bezahlt"
+              },
+              {
+                "do": "npc_gedaechtnis",
+                "npc": "grauzahn",
+                "ereignis": "wegezoll_gezahlt",
+                "text": "@gedaechtnis.grauzahn_wegezoll_gezahlt"
+              }
+            ],
+            "fight": [
+              {
+                "setFlag": {
+                  "bribed": false
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@funk.grauzahn_mutig"
+                }
+              },
+              {
+                "oda": "@route.kampf"
+              },
+              {
+                "do": "npc_gedaechtnis",
+                "npc": "grauzahn",
+                "ereignis": "wegezoll_verweigert",
+                "text": "@gedaechtnis.grauzahn_wegezoll_verweigert"
+              },
+              {
+                "do": "npc_haltung",
+                "npc": "grauzahn",
+                "delta": -1
+              }
+            ]
+          }
+        }
+      },
+      "jumpBlock": [
+        {
+          "dest": "b7",
+          "if": {
+            "not": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "waived"
+                }
+              ]
+            }
+          },
+          "reason": "@sprung.bergungsgut"
+        },
+        {
+          "dest": "b7",
+          "if": {
+            "not": {
+              "choiceMade": "grauzahn"
+            }
+          },
+          "reason": "@sprung.grauzahn"
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "b7"
+          },
+          "goto": "combat"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_jump",
+          "loc": "b7"
+        }
+      ]
+    },
+    {
+      "id": "combat",
+      "loc": "b7",
+      "enter": [
+        {
+          "if": {
+            "flag": {
+              "bribed": true
+            }
+          },
+          "spawn": {
+            "kind": "raider",
+            "angles": [
+              0.3
+            ]
+          }
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": true
+            }
+          },
+          "after": {
+            "sec": 3,
+            "do": [
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@funk.grauzahn_nicht_ankommen"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "flag": {
+                "bribed": true
+              }
+            }
+          },
+          "spawn": {
+            "kind": "raider",
+            "angles": [
+              0.2
+            ]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "flag": {
+                "bribed": true
+              }
+            }
+          },
+          "after": {
+            "sec": 3,
+            "do": [
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@funk.grauzahn_da_seid_ihr"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@combat.rostmeute"
+        },
+        {
+          "at": 8,
+          "oda": "@combat.breitseite"
+        },
+        {
+          "at": 15,
+          "oda": "@combat.scan"
+        },
+        {
+          "at": 22,
+          "oda": "@combat.unbesetzt"
+        },
+        {
+          "at": 35,
+          "oda": "@combat.schaeden"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 40
+              },
+              {
+                "not": {
+                  "event": "fire"
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "wendung": "streifschuss",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Treffer mitten im Gefecht; der Baustein meldet das Feuer selbst per ODA."
+              },
+              "wirkung": [
+                {
+                  "do": "ship_fire",
+                  "region": "random",
+                  "text": "@combat.streifschuss"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "flag": {
+                    "bribed": true
+                  }
+                }
+              },
+              {
+                "any": [
+                  {
+                    "enemiesLeft": {
+                      "max": 0
+                    }
+                  },
+                  {
+                    "elapsed": 50
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "set": {
+                "gunboat": true
+              }
+            },
+            {
+              "wendung": "kanonenboot",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Das Kanonenboot erscheint auf dem Schirm; Grauzahn kündigt es im selben Moment per Funk an."
+              },
+              "wirkung": [
+                {
+                  "spawn": {
+                    "kind": "gunboat",
+                    "tag": "gunboat"
+                  }
+                }
+              ]
+            },
+            {
+              "radio": {
+                "from": "grauzahn",
+                "text": "@funk.grauzahn_kanonenboot"
+              }
+            },
+            {
+              "after": {
+                "sec": 4,
+                "do": [
+                  {
+                    "oda": "@combat.kanonenboot_laedt"
+                  }
+                ]
+              }
+            },
+            {
+              "wendung": "erste_salve",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Gehört zum Kanonenboot-Auftritt; der Baustein meldet den Schaden per ODA."
+              },
+              "wirkung": [
+                {
+                  "do": "damage_system",
+                  "system": "shields",
+                  "state": "broken",
+                  "hitSector": 1,
+                  "text": "@combat.erste_salve"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "if": {
+            "enemyHpBelow": {
+              "tag": "gunboat",
+              "frac": 0.5
+            }
+          },
+          "do": [
+            {
+              "wendung": "breitseite_backbord",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Das Kanonenboot lädt seine Breitseite sichtbar (Ladeanzeige)."
+              },
+              "wirkung": [
+                {
+                  "do": "ship_breach",
+                  "region": 3,
+                  "text": "@combat.huellenbruch"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "flag": {
+                  "bribed": true
+                }
+              },
+              {
+                "any": [
+                  {
+                    "elapsed": 25
+                  },
+                  {
+                    "enemyHpBelow": {
+                      "kind": "raider",
+                      "frac": 0.5
+                    }
+                  },
+                  {
+                    "enemiesLeft": {
+                      "max": 0
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "do": [
+            {
+              "set": {
+                "shieldBreak": true
+              }
+            },
+            {
+              "wendung": "durchschlag",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Treffer mitten im Gefecht; der Baustein meldet den Schaden per ODA."
+              },
+              "wirkung": [
+                {
+                  "do": "damage_system",
+                  "system": "shields",
+                  "state": "broken",
+                  "hitSector": 1,
+                  "text": "@combat.durchschlag"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "repel",
+          "text": "@ziel.rostmeute_abwehren",
+          "done": false
+        },
+        {
+          "id": "hintScan",
+          "text": "@ziel.tipp_scan",
+          "optional": true,
+          "done": {
+            "event": "enemyScanned"
+          }
+        },
+        {
+          "id": "hintShields",
+          "text": "@ziel.tipp_schilde",
+          "optional": true,
+          "done": {
+            "event": "shieldsChanged"
+          }
+        },
+        {
+          "id": "hintRepair",
+          "text": "@ziel.tipp_reparatur",
+          "optional": true,
+          "done": {
+            "event": "repaired"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "v": "gunboat"
+              },
+              {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "radio": {
+                "from": "grauzahn",
+                "text": "@funk.grauzahn_nicht_geplant"
+              }
+            },
+            {
+              "do": "npc_gedaechtnis",
+              "npc": "grauzahn",
+              "ereignis": "b7_zurueckgeschlagen",
+              "text": "@gedaechtnis.grauzahn_b7"
+            }
+          ],
+          "goto": "scan"
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "flag": {
+                  "bribed": true
+                }
+              },
+              {
+                "v": "shieldBreak"
+              },
+              {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "radio": {
+                "from": "grauzahn",
+                "text": "@funk.grauzahn_nicht_geplant"
+              }
+            },
+            {
+              "do": "npc_gedaechtnis",
+              "npc": "grauzahn",
+              "ereignis": "b7_zurueckgeschlagen",
+              "text": "@gedaechtnis.grauzahn_b7"
+            }
+          ],
+          "goto": "scan"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_clear_enemies"
+        },
+        {
+          "set": {
+            "gunboat": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "scan",
+      "loc": "b7",
+      "restartOnReturn": true,
+      "enter": [
+        {
+          "spawn": {
+            "kind": "relay",
+            "tag": "relay",
+            "atStation": [
+              {
+                "dx": 157,
+                "dy": 66
+              },
+              {
+                "dx": -136,
+                "dy": 103
+              },
+              {
+                "dx": -21,
+                "dy": -169
+              }
+            ]
+          }
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@scan.ruhe"
+        },
+        {
+          "at": 6,
+          "oda": "@scan.relais",
+          "garantie": "hinweis"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "elapsed": 1
+              },
+              {
+                "enemiesLeft": {
+                  "kind": "relay",
+                  "max": 0
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@scan.relais_erledigt"
+            }
+          ]
+        }
+      ],
+      "on": {
+        "enemyKilled": [
+          {
+            "if": {
+              "all": [
+                {
+                  "evKind": "relay"
+                },
+                {
+                  "not": {
+                    "enemiesLeft": {
+                      "kind": "relay",
+                      "max": 0
+                    }
+                  }
+                }
+              ]
+            },
+            "oda": "@scan.relais_zerlegt"
+          }
+        ]
+      },
+      "scan": {
+        "id": "buoy",
+        "label": "@scan.ziel",
+        "range": 420,
+        "time": 5,
+        "requires": {
+          "enemiesLeft": {
+            "kind": "relay",
+            "max": 0
+          }
+        },
+        "blocked": "@scan.blockiert"
+      },
+      "objectives": [
+        {
+          "id": "approach",
+          "text": "@ziel.zur_boje",
+          "done": {
+            "near": {
+              "station": 420
+            }
+          }
+        },
+        {
+          "id": "relays",
+          "text": "@ziel.relais",
+          "done": {
+            "all": [
+              {
+                "elapsed": 0.5
+              },
+              {
+                "enemiesLeft": {
+                  "kind": "relay",
+                  "max": 0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "scanDone",
+          "text": "@ziel.boje_scannen",
+          "done": {
+            "scanDone": "buoy"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "scanDone": "buoy"
+          },
+          "do": [
+            {
+              "oda": "@scan.komplett"
+            }
+          ],
+          "goto": "away"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_clear_enemies",
+          "kind": "relay"
+        },
+        {
+          "do": "debug_mark_scanned",
+          "id": "buoy"
+        }
+      ]
+    },
+    {
+      "id": "away",
+      "loc": "b7",
+      "allowBeam": [
+        "platform"
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@away.pads"
+        },
+        {
+          "at": 6,
+          "oda": "@away.beamen",
+          "garantie": "hinweis"
+        },
+        {
+          "at": 13,
+          "if": {
+            "not": {
+              "check": {
+                "name": "away_active",
+                "map": "platform"
+              }
+            }
+          },
+          "oda": "@away.medipack"
+        },
+        {
+          "at": 40,
+          "if": {
+            "all": [
+              {
+                "not": {
+                  "check": {
+                    "name": "away_active",
+                    "map": "platform"
+                  }
+                }
+              },
+              {
+                "check": {
+                  "name": "crew_max",
+                  "max": 1
+                }
+              }
+            ]
+          },
+          "oda": "@away.solo"
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "object_state",
+                  "map": "platform",
+                  "object": "ivo",
+                  "state": "injured"
+                }
+              },
+              {
+                "check": {
+                  "name": "near_object",
+                  "map": "platform",
+                  "object": "ivo",
+                  "dist": 80
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@away.ivo_verletzt"
+            }
+          ]
+        },
+        {
+          "if": {
+            "check": {
+              "name": "away_since",
+              "map": "platform",
+              "sec": 90
+            }
+          },
+          "do": [
+            {
+              "wendung": "nachzuegler",
+              "ankuendigung": {
+                "art": "sichtbar",
+                "grund": "Der Jäger erscheint auf dem Schirm; ODA warnt im selben Moment."
+              },
+              "wirkung": [
+                {
+                  "spawn": {
+                    "kind": "raider",
+                    "tag": "nachzuegler"
+                  }
+                }
+              ]
+            },
+            {
+              "oda": "@away.nachzuegler"
+            }
+          ]
+        },
+        {
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "away_active",
+                  "map": "platform"
+                }
+              },
+              {
+                "not": {
+                  "check": "team_down"
+                }
+              },
+              {
+                "itemAboard": "datenkern"
+              },
+              {
+                "not": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "platform",
+                    "object": "core",
+                    "state": "rebooted"
+                  }
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "oda": "@away.boje_schweigt"
+            }
+          ]
+        }
+      ],
+      "on": {
+        "beamedUp": [
+          {
+            "if": {
+              "not": {
+                "itemAboard": "datenkern"
+              }
+            },
+            "oda": "@away.ohne_kern",
+            "once": "upNoCore"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "itemAboard": "datenkern"
+                },
+                {
+                  "not": {
+                    "check": {
+                      "name": "object_state",
+                      "map": "platform",
+                      "object": "core",
+                      "state": "rebooted"
+                    }
+                  }
+                }
+              ]
+            },
+            "oda": "@away.ohne_neustart",
+            "once": "upNoReboot"
+          }
+        ]
+      },
+      "objectives": [
+        {
+          "id": "beamDown",
+          "text": "@ziel.runterbeamen",
+          "done": {
+            "check": {
+              "name": "away_active",
+              "map": "platform"
+            }
+          }
+        },
+        {
+          "id": "sonde",
+          "text": "@ziel.sonde",
+          "show": {
+            "check": {
+              "name": "away_active",
+              "map": "platform"
+            }
+          },
+          "done": {
+            "check": {
+              "name": "object_state",
+              "map": "platform",
+              "object": "sonde",
+              "state": "off"
+            }
+          }
+        },
+        {
+          "id": "reboot",
+          "text": "@ziel.neustart",
+          "show": {
+            "check": {
+              "name": "away_active",
+              "map": "platform"
+            }
+          },
+          "done": {
+            "check": {
+              "name": "object_state",
+              "map": "platform",
+              "object": "core",
+              "state": "rebooted"
+            }
+          }
+        },
+        {
+          "id": "core",
+          "text": "@ziel.datenkern",
+          "show": {
+            "check": {
+              "name": "away_active",
+              "map": "platform"
+            }
+          },
+          "done": {
+            "itemAboard": "datenkern"
+          },
+          "sticky": false
+        },
+        {
+          "id": "npc",
+          "text": "@ziel.ivo_verarzten",
+          "optional": true,
+          "show": {
+            "all": [
+              {
+                "check": {
+                  "name": "away_active",
+                  "map": "platform"
+                }
+              },
+              {
+                "check": {
+                  "name": "object_state",
+                  "map": "platform",
+                  "object": "ivo",
+                  "state": "injured"
+                }
+              }
+            ]
+          },
+          "done": {
+            "check": {
+              "name": "object_state",
+              "map": "platform",
+              "object": "ivo",
+              "state": "rescued"
+            }
+          }
+        },
+        {
+          "id": "npc",
+          "text": "@ziel.ivo_retten",
+          "optional": true,
+          "show": {
+            "all": [
+              {
+                "check": {
+                  "name": "away_active",
+                  "map": "platform"
+                }
+              },
+              {
+                "not": {
+                  "check": {
+                    "name": "object_state",
+                    "map": "platform",
+                    "object": "ivo",
+                    "state": "injured"
+                  }
+                }
+              }
+            ]
+          },
+          "done": {
+            "check": {
+              "name": "object_state",
+              "map": "platform",
+              "object": "ivo",
+              "state": "rescued"
+            }
+          }
+        },
+        {
+          "id": "allBack",
+          "text": "@ziel.alle_zurueck",
+          "show": {
+            "check": {
+              "name": "away_active",
+              "map": "platform"
+            }
+          },
+          "done": {
+            "all": [
+              {
+                "check": {
+                  "name": "away_active",
+                  "map": "platform"
+                }
+              },
+              {
+                "itemAboard": "datenkern"
+              },
+              {
+                "not": {
+                  "check": "team_down"
+                }
+              },
+              {
+                "check": {
+                  "name": "object_state",
+                  "map": "platform",
+                  "object": "core",
+                  "state": "rebooted"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "check": {
+                  "name": "away_active",
+                  "map": "platform"
+                }
+              },
+              {
+                "itemAboard": "datenkern"
+              },
+              {
+                "not": {
+                  "check": "team_down"
+                }
+              },
+              {
+                "check": {
+                  "name": "object_state",
+                  "map": "platform",
+                  "object": "core",
+                  "state": "rebooted"
+                }
+              }
+            ]
+          },
+          "goto": "decision"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_skip_away",
+          "map": "platform"
+        }
+      ]
+    },
+    {
+      "id": "decision",
+      "loc": "b7",
+      "enter": [
+        {
+          "do": "end_away",
+          "map": "platform"
+        },
+        {
+          "choice": "datenkern"
+        }
+      ],
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@decision.frage",
+          "garantie": "hinweis"
+        }
+      ],
+      "choices": {
+        "datenkern": {
+          "prompt": "@wahl.datenkern.frage",
+          "options": [
+            {
+              "id": "deliver",
+              "label": "@wahl.datenkern.liefern"
+            },
+            {
+              "id": "decode",
+              "label": "@wahl.datenkern.entschluesseln"
+            }
+          ],
+          "on": {
+            "deliver": [
+              {
+                "setFlag": {
+                  "decision": "deliver"
+                }
+              },
+              {
+                "reward": {
+                  "marks": 200
+                }
+              },
+              {
+                "oda": "@decision.geliefert"
+              }
+            ],
+            "decode": [
+              {
+                "setFlag": {
+                  "decision": "decode"
+                }
+              },
+              {
+                "reward": {
+                  "marks": 80
+                }
+              },
+              {
+                "oda": "@decision.entschluesselt"
+              }
+            ]
+          },
+          "after": [
+            {
+              "do": "remove_item",
+              "item": "datenkern"
+            },
+            {
+              "log": "@log.datenkern",
+              "loc": "b7"
+            },
+            {
+              "goto": "return"
+            }
+          ]
+        }
+      },
+      "objectives": [
+        {
+          "id": "decide",
+          "text": "@ziel.entscheiden",
+          "done": {
+            "choiceMade": "datenkern"
+          }
+        }
+      ],
+      "skip": [
+        {
+          "do": "force_choice",
+          "option": "deliver"
+        }
+      ]
+    },
+    {
+      "id": "return",
+      "loc": "b7",
+      "_kommentar": "Gewollte Abweichung (Kai-Entscheidung 5): Die Nachhut hängt an der persistenten Flag rearguardRepelled. Wer nach dem Abwehren (z. B. bei Vaelen) speichert und lädt, bekommt sie nicht noch einmal.",
+      "timers": [
+        {
+          "at": 0.5,
+          "do": [
+            {
+              "if": {
+                "not": {
+                  "flag": "rearguardRepelled"
+                }
+              },
+              "oda": "@return.ortung"
+            }
+          ]
+        },
+        {
+          "at": 6,
+          "do": [
+            {
+              "if": {
+                "not": {
+                  "flag": "rearguardRepelled"
+                }
+              },
+              "wirkung": [
+                {
+                  "wendung": "nachhut",
+                  "wirkung": [
+                    {
+                      "spawn": {
+                        "kind": "raider",
+                        "tag": "nachhut",
+                        "crew": {
+                          "1": 1,
+                          "2": 2,
+                          "3": 2
+                        },
+                        "behind": true
+                      }
+                    }
+                  ]
+                },
+                {
+                  "set": {
+                    "wave": true
+                  }
+                },
+                {
+                  "if": {
+                    "flag": {
+                      "bribed": true
+                    }
+                  },
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@funk.grauzahn_rueckfahrt"
+                  }
+                },
+                {
+                  "if": {
+                    "not": {
+                      "flag": {
+                        "bribed": true
+                      }
+                    }
+                  },
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@funk.grauzahn_blamiert"
+                  }
+                },
+                {
+                  "oda": "@return.nachhut"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "if": {
+            "all": [
+              {
+                "v": "wave"
+              },
+              {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "setFlag": {
+                "rearguardRepelled": true
+              }
+            },
+            {
+              "radio": {
+                "from": "grauzahn",
+                "text": "@funk.grauzahn_diesmal"
+              }
+            },
+            {
+              "do": "npc_gedaechtnis",
+              "npc": "grauzahn",
+              "ereignis": "nachhut_verloren",
+              "text": "@gedaechtnis.grauzahn_nachhut"
+            },
+            {
+              "oda": "@return.heimweg"
+            },
+            {
+              "after": {
+                "sec": 5,
+                "do": [
+                  {
+                    "if": {
+                      "not": {
+                        "flag": "selaCalled"
+                      }
+                    },
+                    "wirkung": [
+                      {
+                        "setFlag": {
+                          "selaCalled": true
+                        }
+                      },
+                      {
+                        "do": "reveal_location",
+                        "loc": "vaelen"
+                      },
+                      {
+                        "radio": {
+                          "from": "sela",
+                          "text": "@funk.sela_notruf"
+                        }
+                      },
+                      {
+                        "oda": "@return.notruf"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "rearguard",
+          "text": "@ziel.nachhut",
+          "done": {
+            "flag": "rearguardRepelled"
+          }
+        },
+        {
+          "id": "vaelen",
+          "text": "@ziel.notruf",
+          "optional": true,
+          "show": {
+            "flag": "selaCalled"
+          },
+          "done": {
+            "flag": "vaelenHelped"
+          }
+        },
+        {
+          "id": "home",
+          "text": "@ziel.heimflug",
+          "done": {
+            "atLocation": "hafen"
+          }
+        }
+      ],
+      "jumpBlock": [
+        {
+          "if": {
+            "not": {
+              "flag": "rearguardRepelled"
+            }
+          },
+          "reason": "@sprung.ortung"
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "atLocation": "hafen"
+          },
+          "goto": "port"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_clear_enemies"
+        },
+        {
+          "if": {
+            "not": {
+              "flag": "selaCalled"
+            }
+          },
+          "wirkung": [
+            {
+              "setFlag": {
+                "selaCalled": true
+              }
+            },
+            {
+              "do": "reveal_location",
+              "loc": "vaelen"
+            },
+            {
+              "radio": {
+                "from": "sela",
+                "text": "@funk.sela_notruf"
+              }
+            },
+            {
+              "oda": "@return.notruf"
+            }
+          ]
+        },
+        {
+          "do": "debug_jump",
+          "loc": "hafen"
+        }
+      ]
+    },
+    {
+      "id": "port",
+      "loc": "hafen",
+      "timers": [
+        {
+          "at": 0.5,
+          "oda": "@port.zuhause"
+        },
+        {
+          "at": 40,
+          "if": {
+            "docked": false
+          },
+          "oda": "@port.andock_tipp",
+          "garantie": "hinweis"
+        }
+      ],
+      "objectives": [
+        {
+          "id": "dock",
+          "text": "@ziel.andocken",
+          "done": {
+            "docked": "hafen"
+          }
+        },
+        {
+          "id": "vaelen",
+          "text": "@ziel.notruf",
+          "optional": true,
+          "show": {
+            "flag": "selaCalled"
+          },
+          "done": {
+            "flag": "vaelenHelped"
+          }
+        }
+      ],
+      "next": [
+        {
+          "if": {
+            "all": [
+              {
+                "docked": "hafen"
+              },
+              {
+                "not": {
+                  "flag": {
+                    "decision": "decode"
+                  }
+                }
+              }
+            ]
+          },
+          "do": [
+            {
+              "radio": {
+                "from": "tesk",
+                "text": "@funk.willkommen"
+              }
+            },
+            {
+              "reward": {
+                "deko": [
+                  "trophaee_boje"
+                ]
+              }
+            },
+            {
+              "log": "@log.abschluss",
+              "loc": "hafen"
+            },
+            {
+              "oda": "@port.angedockt"
+            }
+          ],
+          "complete": "geliefert"
+        },
+        {
+          "if": {
+            "docked": "hafen"
+          },
+          "do": [
+            {
+              "radio": {
+                "from": "tesk",
+                "text": "@funk.willkommen"
+              }
+            },
+            {
+              "reward": {
+                "deko": [
+                  "trophaee_boje"
+                ]
+              }
+            },
+            {
+              "log": "@log.abschluss",
+              "loc": "hafen"
+            },
+            {
+              "oda": "@port.angedockt"
+            }
+          ],
+          "complete": "entschluesselt"
+        }
+      ],
+      "skip": [
+        {
+          "do": "debug_dock",
+          "loc": "hafen"
+        }
+      ]
+    }
+  ],
+  "on": {
+    "sondeDisabled": [
+      {
+        "oda": "@aussen.sonde_aus",
+        "once": "sondeOff"
+      }
+    ],
+    "datenkernTaken": [
+      {
+        "oda": "@aussen.kern_geborgen",
+        "once": "coreTaken"
+      }
+    ],
+    "coreRebooted": [
+      {
+        "reward": {
+          "marks": 40
+        }
+      },
+      {
+        "radio": {
+          "from": "tesk",
+          "text": "@funk.b7_sendet"
+        }
+      },
+      {
+        "wendung": "waechter_drohnen",
+        "ankuendigung": {
+          "art": "sichtbar",
+          "grund": "Die Drohnen starten sichtbar neu; der Baustein meldet ihre Zahl per ODA."
+        },
+        "wirkung": [
+          {
+            "do": "activate_away_group",
+            "map": "platform",
+            "group": "guards",
+            "text": "@aussen.drohnen_wach"
+          }
+        ]
+      }
+    ],
+    "npcRescued": [
+      {
+        "reward": {
+          "marks": 50
+        }
+      },
+      {
+        "setFlag": {
+          "technikerRescued": true
+        }
+      },
+      {
+        "oda": "@aussen.ivo_an_bord"
+      },
+      {
+        "do": "npc_gedaechtnis",
+        "npc": "ivo",
+        "ereignis": "gerettet",
+        "text": "@gedaechtnis.ivo_gerettet"
+      },
+      {
+        "do": "npc_haltung",
+        "npc": "ivo",
+        "delta": 2
+      },
+      {
+        "do": "npc_status",
+        "npc": "ivo",
+        "status": "lebt",
+        "ort": "lerche"
+      }
+    ],
+    "nachzueglerHit": [
+      {
+        "wendung": "transfer_treffer",
+        "ankuendigung": {
+          "art": "sichtbar",
+          "grund": "Folge eines sichtbaren Treffers des Nachzüglers; ODA meldet den Ausfall."
+        },
+        "wirkung": [
+          {
+            "do": "damage_system",
+            "system": "transfer",
+            "state": "broken"
+          }
+        ]
+      },
+      {
+        "oda": "@aussen.transfer_hin",
+        "once": "transferBroken"
+      }
+    ],
+    "selaHelped": [
+      {
+        "do": "npc_gedaechtnis",
+        "npc": "sela",
+        "ereignis": "notruf_geholfen",
+        "text": "@gedaechtnis.sela_geholfen"
+      },
+      {
+        "do": "npc_haltung",
+        "npc": "sela",
+        "delta": 1
+      }
+    ]
+  },
+  "ausgaenge": {
+    "geliefert": {
+      "beschreibung": "B-7 sendet wieder, der Datenkern geht ans Konkordat.",
+      "folgen": [
+        {
+          "do": "welt_fakt",
+          "key": "b7",
+          "value": "sendet"
+        },
+        {
+          "do": "welt_fakt",
+          "key": "datenkern",
+          "value": "konkordat"
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "tesk",
+          "ereignis": "b7_sendet",
+          "text": "@gedaechtnis.tesk_b7"
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "tesk",
+          "ereignis": "datenkern_geliefert",
+          "text": "@gedaechtnis.tesk_kern_geliefert"
+        },
+        {
+          "do": "npc_haltung",
+          "npc": "tesk",
+          "delta": 1
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "melk",
+          "ereignis": "datenkern_im_archiv",
+          "text": "@gedaechtnis.melk_kern_archiv"
+        },
+        {
+          "if": {
+            "not": {
+              "flag": "technikerRescued"
+            }
+          },
+          "do": "npc_status",
+          "npc": "ivo",
+          "status": "vermisst"
+        },
+        {
+          "if": {
+            "flag": "technikerRescued"
+          },
+          "do": "chronik",
+          "text": "@chronik.geliefert_ivo"
+        },
+        {
+          "if": {
+            "not": {
+              "flag": "technikerRescued"
+            }
+          },
+          "do": "chronik",
+          "text": "@chronik.geliefert"
+        }
+      ]
+    },
+    "entschluesselt": {
+      "beschreibung": "B-7 sendet wieder, die Crew behält den Datenkern und entschlüsselt ihn selbst.",
+      "folgen": [
+        {
+          "do": "welt_fakt",
+          "key": "b7",
+          "value": "sendet"
+        },
+        {
+          "do": "welt_fakt",
+          "key": "datenkern",
+          "value": "lerche"
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "tesk",
+          "ereignis": "b7_sendet",
+          "text": "@gedaechtnis.tesk_b7"
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "tesk",
+          "ereignis": "datenkern_behalten",
+          "text": "@gedaechtnis.tesk_kern_behalten"
+        },
+        {
+          "do": "npc_gedaechtnis",
+          "npc": "melk",
+          "ereignis": "datenkern_nie_angekommen",
+          "text": "@gedaechtnis.melk_kern_fehlt"
+        },
+        {
+          "if": {
+            "not": {
+              "flag": "technikerRescued"
+            }
+          },
+          "do": "npc_status",
+          "npc": "ivo",
+          "status": "vermisst"
+        },
+        {
+          "if": {
+            "flag": "technikerRescued"
+          },
+          "do": "chronik",
+          "text": "@chronik.entschluesselt_ivo"
+        },
+        {
+          "if": {
+            "not": {
+              "flag": "technikerRescued"
+            }
+          },
+          "do": "chronik",
+          "text": "@chronik.entschluesselt"
+        }
+      ]
+    },
+    "uebersprungen": {
+      "beschreibung": "Kampagne ohne Tutorial: m1 gilt als erledigt, nur die Fakten (kein Gedächtnis).",
+      "folgen": [
+        {
+          "do": "welt_fakt",
+          "key": "b7",
+          "value": "sendet"
+        },
+        {
+          "do": "welt_fakt",
+          "key": "datenkern",
+          "value": "konkordat"
+        }
+      ]
+    }
+  },
+  "debug": {
+    "prep": {
+      "undock": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        }
+      ],
+      "route": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        }
+      ],
+      "combat": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        }
+      ],
+      "scan": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        }
+      ],
+      "away": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "do": "debug_mark_scanned",
+          "id": "buoy"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        }
+      ],
+      "decision": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "do": "debug_mark_scanned",
+          "id": "buoy"
+        },
+        {
+          "do": "debug_skip_away",
+          "map": "platform"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        }
+      ],
+      "return": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "do": "debug_mark_scanned",
+          "id": "buoy"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        },
+        {
+          "if": {
+            "flag": {
+              "decision": null
+            }
+          },
+          "setFlag": {
+            "decision": "deliver"
+          }
+        }
+      ],
+      "port": [
+        {
+          "do": "reveal_location",
+          "loc": "b7"
+        },
+        {
+          "if": {
+            "flag": {
+              "bribed": null
+            }
+          },
+          "setFlag": {
+            "bribed": false
+          }
+        },
+        {
+          "if": {
+            "flag": {
+              "decision": null
+            }
+          },
+          "setFlag": {
+            "decision": "deliver"
+          }
+        }
+      ]
+    },
+    "done": [
+      {
+        "do": "reveal_location",
+        "loc": "b7"
+      },
+      {
+        "setFlag": {
+          "bribed": false,
+          "decision": "deliver"
+        }
+      },
+      {
+        "reward": {
+          "deko": [
+            "trophaee_boje"
+          ]
+        }
+      }
+    ]
+  },
+  "texte": {
+    "buch.briefing": "Boje B-7 ist verstummt. Sie liegt hinter dem Splittergürtel. Nachsehen, was los ist – und sie wieder zum Senden bringen.",
+    "buch.belohnung": "Zahlung wie üblich, Boni für Bergung und Rettung",
+    "funk.angebot": "Lerche, hier Tesk. Boje B-7 ist verstummt – liegt hinter dem Splittergürtel. Seht nach, ja? Zahlung wie üblich.",
+    "funk.grauzahn_zoll": "Hier Grauzahn. Die Boje gehört uns. Dreht um – oder zahlt Wegezoll.",
+    "funk.grauzahn_bezahlt": "Kluge Kleine. Fliegt weiter. Wir sehen nicht hin.",
+    "funk.grauzahn_mutig": "Mutig. Dann treffen wir uns an der Boje.",
+    "funk.grauzahn_nicht_ankommen": "Bezahlt hast du für die Durchfahrt, Kleine. Nicht fürs Ankommen.",
+    "funk.grauzahn_da_seid_ihr": "Da seid ihr ja. Mal sehen, wie lange eure Schilde halten.",
+    "funk.grauzahn_kanonenboot": "Genug gespielt. Das Kanonenboot übernimmt.",
+    "funk.grauzahn_nicht_geplant": "Das… war nicht geplant. Wir sehen uns, Lerche!",
+    "funk.grauzahn_rueckfahrt": "Wegezoll galt für die Hinfahrt, Kleine. Die Rückfahrt kostet extra.",
+    "funk.grauzahn_blamiert": "Ihr habt meine Jungs blamiert. Die Nachhut verabschiedet euch persönlich.",
+    "funk.grauzahn_diesmal": "Schon gut, schon gut! Fliegt nach Hause, Lerche. Diesmal.",
+    "funk.sela_notruf": "Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?",
+    "funk.b7_sendet": "Lerche? B-7 sendet wieder! Tesk dankt – 40 Marken Bonus sind unterwegs.",
+    "funk.willkommen": "Willkommen zurück, Lerche. B-7 sendet wieder – sauber gemacht. Hier, eine Kleinigkeit für die Vitrine.",
+    "dock.begruessung": "Guten Morgen, Crew der Lerche! Ich bin ODA, eure Bordintelligenz. Laufen: WASD oder Pfeiltasten.",
+    "dock.rempler": "Andock-Rempler: Kabelbrand im Vorraum, Leck im Lager, der Transfer ist hinüber. Die Schrauber machen Hafen-Check.",
+    "dock.lager": "Lager oben links: E am Regal nimmt etwas – 1 Ersatzteil, 2 Löschgel, 3 Flickblech. G legt es ab.",
+    "dock.feuer_leck": "Feuer: mit Löschgel davor E halten. Leck: mit Flickblech E halten. Kaputtes: Ersatzteil tragen, E halten.",
+    "dock.orte": "Der Transfer steht in der Transferkammer unten links, das Feuer im Vorraum, das Leck im Lager.",
+    "dock.zu_zweit": "Kleiner Tipp: Zu zweit oder zu dritt teilt man sich die Übung auf. Allein dauert es halt etwas länger.",
+    "dock.sauber": "Sauber! Genau so geht das im Ernstfall. Oh – ein Funkspruch. Ab auf die Brücke, Captain-Konsole!",
+    "dock.funk_wartet": "Der Funkspruch wartet: Captain-Konsole auf der Brücke, Reiter „Funk“, Enter.",
+    "dock.spaeter": "Die Übung holen wir später nach – da kommt ein Funkspruch rein. Captain-Konsole auf der Brücke!",
+    "dock.uebung_uebersprungen": "Übung übersprungen – alte Hasen also. Lager oben links, Brücke ganz vorn rechts.",
+    "undock.steuer": "Auftrag angenommen! Steuerkonsole ganz vorn auf der Brücke: W gibt Schub und legt ab.",
+    "undock.sternkarte": "Captain: Sternkarte, Ziel „Splittergürtel“ – B-7 liegt dahinter. Gesprungen wird ab 300 px Abstand.",
+    "undock.solo": "Wer am Steuer sitzt, kann nicht gleichzeitig Captain sein. Esc, rüberlaufen, E – Bordgymnastik.",
+    "undock.checkliste": "Checkliste: abgelegt? Ziel Splittergürtel gewählt? 300 px Abstand? Dann F an der Steuer.",
+    "route.faltsprung": "Faltsprung geglückt! B-7 liegt hinter dem Gürtel – aber erst das Bergungsgut.",
+    "route.kisten": "Tesk meldet drei Bergungskisten im Feld (grün). Drüberfliegen sammelt sie ein. Taktik lotst!",
+    "route.kisten_hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
+    "route.grauzahn_wartet": "Captain: Grauzahn wartet auf Antwort – Reiter „Funk“.",
+    "route.treiben_lassen": "Den Rest vom Bergungsgut lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
+    "route.bestechen_tipp": "Bestechen kostet 100 Marken. Kämpfen kostet Nerven. Beides ist legitim, sagt mein Handbuch.",
+    "route.bezahlt": "Bezahlt. Ob die Rostmeute Wort hält? Ich wette nicht. Weiter nach B-7.",
+    "route.kampf": "Kampf also! Captain: Energie auf Schilde und Waffen. Dann Kurs B-7.",
+    "wahl.grauzahn.frage": "Grauzahn verlangt Wegezoll. Antwort?",
+    "wahl.grauzahn.bestechen": "Bestechen (100 Marken)",
+    "wahl.grauzahn.kaempfen": "Kämpfen",
+    "wahl.datenkern.frage": "Der Datenkern summt leise. Was tun wir damit?",
+    "wahl.datenkern.liefern": "Ans Konkordat (+200)",
+    "wahl.datenkern.entschluesseln": "Selbst entschlüsseln (+80, Spur zu den Kustoden)",
+    "sprung.bergungsgut": "Noch Bergungsgut im Feld – die Kisten sind grün markiert.",
+    "sprung.grauzahn": "Captain: erst auf Grauzahn antworten.",
+    "sprung.ortung": "Ortung läuft … Sprungantrieb wartet.",
+    "combat.rostmeute": "Rostmeute auf dem Schirm! Taktik besetzen, Captain verteilt Schilde auf die bedrohte Seite.",
+    "combat.breitseite": "Die Lerche feuert über die Seiten: Batterien backbord und steuerbord, vorn nur die Lanze. Pilot: Breitseite zum Gegner!",
+    "combat.scan": "Taktik: Gegner anvisieren und S halten – der Scan zeigt Schilde und Feuerbögen.",
+    "combat.unbesetzt": "Unbesetzte Taktik? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.",
+    "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Captain setzt im Reiter „Schäden“ Prioritäten.",
+    "combat.streifschuss": "Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!",
+    "combat.kanonenboot_laedt": "Das Kanonenboot lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
+    "combat.erste_salve": "Kanonenboot! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
+    "combat.huellenbruch": "Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.",
+    "combat.durchschlag": "Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.",
+    "scan.ruhe": "Ruhe am Himmel. Gut gemacht! Jetzt zur Boje – die Markierung mitten in der Szene.",
+    "scan.relais": "Drei Störrelais kreisen um die Boje und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
+    "scan.relais_erledigt": "Relais erledigt, der Weg ist frei! Captain: in Reichweite (420) die Leertaste halten – Scan.",
+    "scan.relais_zerlegt": "Relais zerlegt! Noch {left:relay}.",
+    "scan.ziel": "Boje B-7",
+    "scan.blockiert": "Störrelais stören den Scan – erst abschießen (Taktik).",
+    "scan.komplett": "Scan komplett: Kustoden-Signatur! Und ein schwaches Lebenszeichen auf der Plattform.",
+    "away.pads": "Außenteam: auf die Transferpads (Kammer unten). Schiff ≤ 320 von der Boje, Tempo ≤ 30.",
+    "away.beamen": "Beamen geht an der Transferkonsole – oder auf einem Pad E halten. Klappt auch solo.",
+    "away.medipack": "Das Lebenszeichen klingt schwach. Ein Medipack aus dem Lager (Regal 5) mitzunehmen wäre klug.",
+    "away.solo": "Ganz allein? Dann zeigt die Sonde nach 20 s ohne Menschen an Bord die Codetabelle selbst.",
+    "away.ivo_verletzt": "Ivo ist verletzt. Ein Medipack hilft: mitbringen oder per Nachschub (Transfer) auf eine Markierung.",
+    "away.nachzuegler": "Ein Nachzügler der Rostmeute! Oben wird's ungemütlich – wer an Bord ist: Taktik!",
+    "away.boje_schweigt": "Datenkern ist an Bord – aber B-7 schweigt noch. Jemand muss runter und den Bojenkern neu starten.",
+    "away.ohne_kern": "Zurück an Bord – aber ohne Datenkern. Der liegt noch unten.",
+    "away.ohne_neustart": "Kern an Bord, aber der Bojenkern ist noch aus. Ohne Neustart bleibt B-7 stumm.",
+    "aussen.sonde_aus": "Sonde aus, Drohnen schlafen, Tür offen. Datenkern rechts unten, der Bojenkern steht mitten im Saal.",
+    "aussen.kern_geborgen": "Datenkern geborgen! Er summt. Das ist entweder gut oder sehr schlecht.",
+    "aussen.drohnen_wach": "Uh-oh. Der Neustart hat die Wächter-Routine geweckt: {n} Drohnen starten neu. Zurück zu den Pads!",
+    "aussen.ivo_an_bord": "Ivo ist an Bord! Er bringt 50 Marken Finderlohn mit. Und Kekse. Er zieht ins Gästequartier.",
+    "aussen.transfer_hin": "Treffer im Transferraum – Transfer ausgefallen! Bots holen ein Ersatzteil.",
+    "decision.frage": "Alle an Bord, Datenkern gesichert. Captain: Was machen wir damit? Reiter „Funk“.",
+    "decision.geliefert": "Das Konkordat zahlt 200 Marken. Brav, ordentlich, ein bisschen langweilig.",
+    "decision.entschluesselt": "Ich entschlüssle im Hintergrund… Kustoden-Koordinaten! Das wird spannend. +80 Marken.",
+    "return.ortung": "Datenkern verstaut. Moment … Ortung achtern! Die Rostmeute ist noch nicht fertig mit uns.",
+    "return.nachhut": "Nachhut von achtern! Ihr Störsender blockiert den Faltsprung. Taktik besetzen, Schilde nach hinten!",
+    "return.heimweg": "Störsender weg! Heimweg: über den Splittergürtel zum Hafen (Sternkarte).",
+    "return.notruf": "Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela.",
+    "port.zuhause": "Zuhause! Steuer: langsam in den Dock-Ring neben der Station. Unter 28 px/s docke ich an.",
+    "port.andock_tipp": "Andock-Tipp: S bremst. Kurz vor dem Ring fast stehen, dann übernehme ich.",
+    "port.angedockt": "Angedockt! Die Bojen-Trophäe liegt im Inventar – an der eigenen Koje aufstellen. Terminal ist offen.",
+    "ziel.uebung_feuer": "Übung: Löschgel holen (Lager), Kabelbrand im Vorraum löschen",
+    "ziel.uebung_leck": "Übung: Flickblech holen, Leck im Lager flicken (E halten)",
+    "ziel.uebung_reparatur": "Übung: Ersatzteil holen, Transfer reparieren (E halten)",
+    "ziel.captain_konsole": "Brücke: Captain-Konsole betreten (E)",
+    "ziel.funk_annehmen": "Funkspruch annehmen",
+    "ziel.ablegen": "Steuer: ablegen (W)",
+    "ziel.ziel_splitter": "Captain: Ziel Splittergürtel wählen (Sternkarte)",
+    "ziel.faltsprung": "Steuer: Faltsprung (F)",
+    "ziel.bergung": "Bergungsgut im Feld einsammeln ({salvaged}/3)",
+    "ziel.grauzahn_antworten": "Captain: auf Grauzahn antworten",
+    "ziel.ziel_b7": "Captain: Ziel Boje B-7 wählen",
+    "ziel.rostmeute_abwehren": "Rostmeute abwehren",
+    "ziel.tipp_scan": "Tipp: Taktik – Gegner scannen (S halten)",
+    "ziel.tipp_schilde": "Tipp: Captain – Schilde zur bedrohten Seite",
+    "ziel.tipp_reparatur": "Tipp: Schäden reparieren (E halten) oder Bots machen lassen",
+    "ziel.zur_boje": "Zur Boje fliegen",
+    "ziel.relais": "Taktik: Störrelais abschießen ({killed:relay}/3)",
+    "ziel.boje_scannen": "Captain: Boje scannen (Leertaste halten)",
+    "ziel.runterbeamen": "Außenteam auf die Pads, Transfer auslösen",
+    "ziel.sonde": "Sonde abschalten",
+    "ziel.neustart": "Bojenkern neu starten (E halten)",
+    "ziel.datenkern": "Datenkern bergen",
+    "ziel.ivo_verarzten": "Techniker verarzten (Medipack) und retten",
+    "ziel.ivo_retten": "Techniker retten",
+    "ziel.alle_zurueck": "Alle zurück an Bord",
+    "ziel.entscheiden": "Captain: über den Datenkern entscheiden",
+    "ziel.nachhut": "Nachhut der Rostmeute abwehren",
+    "ziel.notruf": "Notruf: bei der Vaelen-Karawane andocken (optional)",
+    "ziel.heimflug": "Heimflug: über den Splittergürtel zum Hafen",
+    "ziel.andocken": "Steuer: im Hafen andocken (langsam in den Ring)",
+    "log.datenkern": "B-7: Datenkern geborgen – Entscheidung getroffen.",
+    "log.abschluss": "Mission „Die stumme Boje“ abgeschlossen. Belohnung: Bojen-Trophäe.",
+    "gedaechtnis.grauzahn_wegezoll_gezahlt": "Die Lerche hat am Splittergürtel brav Wegezoll gezahlt.",
+    "gedaechtnis.grauzahn_wegezoll_verweigert": "Die Lerche hat sich geweigert, Wegezoll zu zahlen.",
+    "gedaechtnis.grauzahn_b7": "Die Lerche hat meine Jäger an B-7 zurückgeschlagen.",
+    "gedaechtnis.grauzahn_nachhut": "Meine Nachhut hat die Lerche nicht aufhalten können.",
+    "gedaechtnis.ivo_gerettet": "Die Lerche hat mich verletzt von der Plattform B-7 geholt.",
+    "gedaechtnis.sela_geholfen": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.",
+    "gedaechtnis.tesk_b7": "Die Lerche hat B-7 wieder zum Senden gebracht.",
+    "gedaechtnis.tesk_kern_geliefert": "Die Crew hat den Datenkern von B-7 ans Konkordat geliefert.",
+    "gedaechtnis.tesk_kern_behalten": "Die Crew hat den Datenkern von B-7 behalten und selbst entschlüsselt.",
+    "gedaechtnis.melk_kern_archiv": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche.",
+    "gedaechtnis.melk_kern_fehlt": "Der Datenkern von B-7 ist nie im Archiv angekommen. Die Lerche hat ihn behalten.",
+    "chronik.geliefert": "Die stumme Boje: Die Lerche bringt B-7 wieder zum Senden und kämpft sich an der Rostmeute vorbei. Den Datenkern bekommt das Konkordat.",
+    "chronik.geliefert_ivo": "Die stumme Boje: Die Lerche bringt B-7 wieder zum Senden, rettet den Techniker Ivo und kämpft sich an der Rostmeute vorbei. Den Datenkern bekommt das Konkordat.",
+    "chronik.entschluesselt": "Die stumme Boje: Die Lerche bringt B-7 wieder zum Senden und kämpft sich an der Rostmeute vorbei. Den Datenkern entschlüsselt die Crew selbst.",
+    "chronik.entschluesselt_ivo": "Die stumme Boje: Die Lerche bringt B-7 wieder zum Senden, rettet den Techniker Ivo und kämpft sich an der Rostmeute vorbei. Den Datenkern entschlüsselt die Crew selbst.",
+    "skip.angebot": "Boje B-7 ist verstummt."
+  }
+}

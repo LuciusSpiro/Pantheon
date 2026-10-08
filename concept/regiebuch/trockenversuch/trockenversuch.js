@@ -10,7 +10,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const DIR = __dirname;
-const CONCEPT = path.join(DIR, '..');
+const CONCEPT = path.join(DIR, '..', '..', '..', 'content', 'regiebuch');   // S1: Vorarbeit liegt in content/
 const ROOT = path.join(CONCEPT, '..', '..');
 const OUT = path.join(DIR, 'out');
 const { check } = require(path.join(ROOT, 'tools', 'check-missions.js'));
@@ -72,7 +72,7 @@ function katalog() {
 function prompt(auftrag) {
   const weltstand = fs.readFileSync(path.join(DIR, 'weltstand-nach-tutorial.json'), 'utf8');
   const schema = fs.readFileSync(path.join(CONCEPT, 'regiebuch.schema.json'), 'utf8');
-  const beispiel = fs.readFileSync(path.join(CONCEPT, 'm3.regiebuch.json'), 'utf8');
+  const beispiel = fs.readFileSync(path.join(ROOT, 'content', 'regiebuecher', 'm3.regiebuch.json'), 'utf8');
   return [
     '<weltstand>\n' + weltstand + '\n</weltstand>',
     '<katalog>\n' + katalog() + '\n</katalog>',

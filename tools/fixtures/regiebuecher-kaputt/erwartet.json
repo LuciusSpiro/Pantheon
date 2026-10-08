@@ -1,0 +1,10 @@
+{
+  "ref-ort.json": "REF-ORT",
+  "unerreichbar.json": "ABLAUF-UNERREICHBAR",
+  "entscheidung-ohne-ausgang.json": "ENTSCHEIDUNG-OHNE-AUSGANG",
+  "fehlender-text.json": "REF-TEXT",
+  "wendung-ohne-ankuendigung.json": "FAIRNESS",
+  "flag-form.json": "FLAG-FORM",
+  "flag-ungesetzt.json": "FLAG-UNGESETZT",
+  "neustart.json": "NEUSTART"
+}

@@ -1,0 +1,197 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "szene",
+  "key": "675a4cabfeaa789184ecf34a988b5d8f5041f7c5",
+  "name": "grauzahn-rache.s3_funkduell.haiku.3",
+  "modell": "haiku",
+  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.haiku.3.json",
+  "input": {
+    "quelle": "trockenversuch/stufe2",
+    "modell": "haiku",
+    "grobplan": {
+      "format": "grobplan/2",
+      "id": "grauzahn_zahlt_heim",
+      "titel": "Zahltag im Splittergürtel",
+      "auftraggeber": "sela",
+      "zielspieldauer_min": 12,
+      "aufhaenger": "Sela meldet per Funk, dass Rostmeute-Jäger ihre Karawane abschneiden – Grauzahn nutzt sie als Köder, um die Lerche aus dem Hafen zu locken. Die Crew kennt die Route, niemand sonst ist nah genug.",
+      "erinnerung": "Grauzahn hat sich den Bluff im Nebel gemerkt: Die Lerche hat ihn mit einer erfundenen Konkordat-Patrouille abgespeist. Jetzt zieht er die Linie – aber er ist klug genug, ein Angebot zu machen, bevor er schießt.",
+      "szenen": [
+        {
+          "id": "s1_hafen",
+          "szenentyp": "hafen",
+          "ort": "hafen",
+          "karte": null,
+          "molekuele": [],
+          "sachverhalt": "Sela funkt in den Hafen: Rostmeute-Jäger umkreisen ihre Karawane im Splittergürtel, sie kann nicht springen. Sie klingt gefasst, aber knapp.",
+          "wendung": null,
+          "dauer_min": 1,
+          "weiter": [
+            {
+              "wenn": "immer",
+              "nach": "s2_splitter_annaeherung"
+            }
+          ]
+        },
+        {
+          "id": "s2_splitter_annaeherung",
+          "szenentyp": "annaeherung_und_erkundung",
+          "ort": "splitter",
+          "karte": null,
+          "molekuele": [
+            {
+              "id": "signal_orten",
+              "umsetzung": "weitscan_peilung"
+            }
+          ],
+          "sachverhalt": "Im Splittergürtel empfängt die Lerche widersprüchliche Signale – Selas Karawane ist da, aber auch mehrere Rostmeute-Signale, die nicht auf der Karte stehen. Der Scan zeigt, dass es eine Falle ist.",
+          "wendung": "Noch während gescannt wird, funkt Grauzahn selbst – ruhig, fast amüsiert – und kündigt ein 'Gespräch' an, bevor er angreift.",
+          "dauer_min": 2,
+          "weiter": [
+            {
+              "wenn": "immer",
+              "nach": "s3_funkduell"
+            }
+          ]
+        },
+        {
+          "id": "s3_funkduell",
+          "szenentyp": "begegnung",
+          "ort": "splitter",
+          "karte": null,
+          "molekuele": [
+            {
+              "id": "verhandeln",
+              "umsetzung": "funkduell"
+            }
+          ],
+          "sachverhalt": "Grauzahn bietet der Crew eine Wahl: die Marken, die die Lerche ihm im Nebel 'gestohlen' hat – oder er lässt Sela treiben und holt sich das Geld anders. Er ist nicht wütend, er testet.",
+          "wendung": null,
+          "dauer_min": 2,
+          "weiter": [
+            {
+              "wenn": "zahlen oder nachgeben",
+              "nach": "s4_gefecht_leicht"
+            },
+            {
+              "wenn": "ablehnen oder bluffen",
+              "nach": "s4_gefecht_schwer"
+            }
+          ]
+        },
+        {
+          "id": "s4_gefecht_leicht",
+          "szenentyp": "raumgefecht",
+          "ort": "splitter",
+          "karte": null,
+          "molekuele": [
+            {
+              "id": "vernichten",
+              "umsetzung": "angriffswelle"
+            }
+          ],
+          "sachverhalt": "Grauzahn hat ein Abkommen, aber seine Jäger greifen trotzdem an – er lässt sie eine Runde laufen, um zu sehen, wie die Lerche kämpft. Dann bricht er ab.",
+          "wendung": null,
+          "dauer_min": 4,
+          "weiter": [
+            {
+              "wenn": "Jäger besiegt oder Grauzahn bricht ab",
+              "nach": "ausgang:abkommen"
+            }
+          ]
+        },
+        {
+          "id": "s4_gefecht_schwer",
+          "szenentyp": "raumgefecht",
+          "ort": "splitter",
+          "karte": null,
+          "molekuele": [
+            {
+              "id": "vernichten",
+              "umsetzung": "angriffswelle"
+            }
+          ],
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "wendung": null,
+          "dauer_min": 4,
+          "weiter": [
+            {
+              "wenn": "Sela überlebt und Jäger zurückgedrängt",
+              "nach": "ausgang:sieg"
+            },
+            {
+              "wenn": "Sela schwer getroffen oder Lerche kritisch beschädigt",
+              "nach": "ausgang:pyrrhus"
+            }
+          ]
+        }
+      ],
+      "entscheidungen": [
+        {
+          "szene": "s3_funkduell",
+          "frage": "Geht die Crew auf Grauzahns Angebot ein oder lehnt sie ab?",
+          "optionen": [
+            {
+              "id": "zahlen",
+              "text": "Zahlen oder eine symbolische Geste machen",
+              "folge": "Grauzahn-Haltung steigt auf -1; Gefecht ist kürzer und endet mit Abkommen; Sela kommt unbeschädigt davon"
+            },
+            {
+              "id": "ablehnen",
+              "text": "Ablehnen oder erneut bluffen",
+              "folge": "Grauzahn-Haltung bleibt -2; Gefecht ist härter; Sela gerät unter Beschuss; Sieg möglich aber teuer"
+            }
+          ]
+        }
+      ],
+      "ausgaenge": {
+        "abkommen": {
+          "wann": "Die Crew hat gezahlt oder nachgegeben, das Gefecht endet vorzeitig",
+          "folgen": [
+            "npc_haltung grauzahn +1",
+            "npc_gedaechtnis grauzahn: Die Lerche hat bezahlt. Kein Respekt, aber kein offener Krieg.",
+            "npc_haltung sela +0",
+            "chronik Die Lerche hat Grauzahns Forderung angenommen; Sela ist frei, aber der Preis war real.",
+            "welt_fakt rostmeute_lerche: waffenstillstand_erkauft"
+          ]
+        },
+        "sieg": {
+          "wann": "Die Crew lehnt ab, schlägt alle Jäger zurück und hält Sela am Leben",
+          "folgen": [
+            "npc_haltung grauzahn -1",
+            "npc_gedaechtnis grauzahn: Die Lerche kämpft. Beim nächsten Mal bringe ich mehr.",
+            "npc_haltung sela +1",
+            "chronik Die Lerche hat Grauzahns Hinterhalt zurückgeschlagen und Sela gerettet – aber Grauzahn ist noch da.",
+            "welt_fakt rostmeute_lerche: offene_feindschaft_bestätigt"
+          ]
+        },
+        "pyrrhus": {
+          "wann": "Sela wird schwer getroffen oder die Lerche erleidet kritischen Schaden",
+          "folgen": [
+            "npc_haltung grauzahn -1",
+            "npc_gedaechtnis grauzahn: Sie kämpfen, aber sie zahlen den Preis. Das merke ich mir.",
+            "npc_haltung sela -1",
+            "npc_gedaechtnis sela: Die Lerche hat gekämpft, aber ich bin verwundbar geworden. Ich weiß nicht, ob ich dankbar sein soll.",
+            "chronik Grauzahns Hinterhalt hat Selas Karawane beschädigt; die Lerche hat sich durchgebissen, aber nichts gewonnen.",
+            "welt_fakt rostmeute_lerche: offene_feindschaft_bestätigt"
+          ]
+        }
+      }
+    },
+    "szene": "s3_funkduell",
+    "variante": "3"
+  },
+  "response": {
+    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche, hier Grauzahn. Deine Freundin Sela ist festgefahren – und ihr schuldet mir noch immer für den Bluff im Nebel. Hundert Marken, und ich lass sie laufen.\",\n        \"frage\": \"Zahlt die Crew oder lehnt sie ab?\",\n        \"antwort_a\": \"Einverstanden. Hundert Marken für Sela.\",\n        \"antwort_b\": \"Das ist Erpressung. Wir zahlen nicht.\",\n        \"folgen_a\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 100\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Klug. Sela ist frei. Bis bald, Lerche.\"\n            }\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Dann sehen wir uns im Feuer. Jäger, angriff!\"\n            }\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Schweigen ist auch eine Antwort. Angriff!\"\n            }\n          }\n        ],\n        \"geduld_s\": 60\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\",\n      \"if\": {\n        \"not\": {\n          \"flag\": \"s3_gezahlt\"\n        }\n      }\n    }\n  ]\n}",
+    "usage": {
+      "input": null,
+      "output": null
+    },
+    "sec": null,
+    "modelId": null
+  },
+  "erwartet": {
+    "gueltig": true,
+    "fehler": []
+  }
+}

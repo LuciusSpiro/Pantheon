@@ -381,6 +381,50 @@
     return Math.max(0, Math.min(1, shelfStock(inv, item) / cap));
   }
 
+  // ---- S1 (Studioleitung, CONTRACT-S1 §4): Objekte und Bereiche der Außenkarten ----
+  // Objekte: logische Kennung -> { legend (Interaktion bzw. Laufzeitobjekt), zustaende, viele? }. Den Laufzeitzustand liest
+  // und setzt server/mission/objects.js (Team ENGINE); hier steht nur, was es gibt.
+  const MAP_OBJECTS = {
+    platform: {
+      sonde: { legend: 'sonde', zustaende: ['on', 'off'] },
+      core: { legend: 'buoy_core', zustaende: ['off', 'rebooted'] },
+      ivo: { legend: 'npc', zustaende: ['injured', 'ok', 'rescued'] },
+      datenkern: { legend: 'datenkern', zustaende: ['present', 'taken'] },
+    },
+    wreck: {
+      hollow: { legend: 'hollow', zustaende: ['closed', 'open'] },
+      lore: { legend: 'lore', zustaende: ['unread', 'read'] },
+      container: { legend: 'salvage', zustaende: ['full', 'taken'], viele: true },   // S1: Bergungscontainer 'h'
+    },
+    kesh: {
+      jammer: { legend: 'jammer', zustaende: ['on', 'off'], viele: true },
+      vault: { legend: 'vault_gate', zustaende: ['closed', 'open'] },
+      key: { legend: 'archkey', zustaende: ['idle', 'held'], viele: true },
+      tablet: { legend: 'tablet', zustaende: ['present', 'taken'] },
+      warden: { legend: 'warden', zustaende: ['asleep', 'awake', 'dead'] },
+    },
+  };
+  // Bereiche in Kachelkoordinaten: { rect: [x, y, w, h] } oder { cols: [min, max] } (alle Zeilen, x von min bis max).
+  // Kesh: hof/halle sind bewusst Spaltenbereiche wie bisher (CONFIG.missionM3.courtyardX = 27, hallX = 37) – der Hof umfasst
+  // damit auch die Landezone und die Halle das Gewölbe. So spielt sich m3 genau wie vorher.
+  const MAP_AREAS = {
+    platform: {},
+    wreck: {},
+    kesh: {
+      landezone: { rect: [1, 15, 14, 10] },
+      hof: { cols: [0, 27] },
+      halle: { cols: [37, 47] },
+      gewoelbe: { rect: [39, 16, 6, 6] },
+    },
+  };
+  function inArea(mapId, areaId, tx, ty) {
+    const a = MAP_AREAS[mapId] && MAP_AREAS[mapId][areaId];
+    if (!a) return false;
+    if (a.cols) return tx >= a.cols[0] && tx <= a.cols[1];
+    if (a.rect) return tx >= a.rect[0] && tx < a.rect[0] + a.rect[2] && ty >= a.rect[1] && ty < a.rect[1] + a.rect[3];
+    return false;
+  }
+
   function makeMap(id, rows, legend) {
     return {
       id, rows, legend,
@@ -410,6 +454,8 @@
     // M2 (Studioleitung): Mond Kesh
     KESH_ROWS, KESH_LEGEND, KESH_PADS,
     kesh: makeMap('kesh', KESH_ROWS, KESH_LEGEND),
+    // S1: Objekte und Bereiche (CONTRACT-S1 §4)
+    MAP_OBJECTS, MAP_AREAS, inArea,
     makeMap, shelfStock, shelfFill,
   };
 });
