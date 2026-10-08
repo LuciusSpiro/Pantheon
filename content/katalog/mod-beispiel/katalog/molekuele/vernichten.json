@@ -9,7 +9,7 @@
   "szenentypen": ["A5"],
   "umsetzungen": [
     {
-      "id": "pylonen_pruefung",
+      "id": "pylonen_mod_beispiel",
       "name": "Pylonen mit Frontschild um ein Objekt",
       "beschreibung": "Pylonen der Kustoden stehen um das Hauptobjekt, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem Abschuss erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen.",
       "schauplatz": "weltraum",

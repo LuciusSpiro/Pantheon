@@ -2663,6 +2663,173 @@
     const miss = Math.round(Math.hypot(dx + vx * tc, dy + vy * tc));
     lab('ANFLUG ' + miss, c.x, c.y + 5, { color: '#FF5A4A', align: 'center' }, 2, true);
   }
+  // ------------------------------------------------------------------ S2: Schützling (CONTRACT-S2 §5/§7)
+  // Eisblau + Messing, runde Silhouette, gestrichelter Schutzring, Segmentbalken 32×4 über dem Sprite.
+  // Lesbarkeit nie nur über Farbe: Notruf = pulsierender Ring + Wort NOTRUF, kampfunfähig = Kreuz + Wort.
+  const ESCORT_COL = { ice: '#A9D6E5', brass: '#C9974A', amber: '#FFC66B', wreck: '#6B7380' };
+  const ESCORT_R = { frachter: 42, karawane: 32, bergungsboot: 26 };   // Radius des Schutzrings (Sprite-Pixel)
+  const ESCORT_KIND_NAMES = { frachter: 'Frachter', karawane: 'Karawane', bergungsboot: 'Bergungsboot' };
+  const ESCORT_STATE_NAMES = { ok: 'heil', beschaedigt: 'beschädigt', kampfunfaehig: 'KAMPFUNFÄHIG', entkommen: 'IN SICHERHEIT' };
+  const ESCORT_ORDER_NAMES = { halten: 'Halten', folgen: 'Folgen', volle_kraft: 'Volle Kraft', andocken: 'Andocken' };
+  const ESCORT_SEGS = 4;
+  function escortHpFrac(e) { const m = +e.hpMax || 0; return m > 0 ? Math.max(0, Math.min(1, (+e.hp || 0) / m)) : (e.state === 'kampfunfaehig' ? 0 : 1); }
+  function escortName(e) { return String((e && (e.name || ESCORT_KIND_NAMES[e.kind] || e.tag || e.id)) || 'Schützling'); }
+  function escortDown(e) { return e && e.state === 'kampfunfaehig'; }
+  // Ringfarbe: Notruf pulsiert Eisblau -> Bernstein (Mischung), sonst Eisblau, Wrack grau
+  function escortRingCol(e, t) {
+    if (escortDown(e)) return ESCORT_COL.wreck;
+    if (!e.distress) return ESCORT_COL.ice;
+    const k = 0.5 + 0.5 * Math.sin(t * 6);
+    const a = [0xA9, 0xD6, 0xE5], b = [0xFF, 0xC6, 0x6B];
+    return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')';
+  }
+  // Segmentbalken (32×4, 4 Segmente) – Segmente leer = dunkel umrandet, damit „wie viel fehlt“ ohne Farbe lesbar ist
+  function escortSegBar(ctx, x, y, frac, w, h, col) {
+    w = w || 32; h = h || 4;
+    const gap = 1, sw = (w - gap * (ESCORT_SEGS - 1)) / ESCORT_SEGS;
+    ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    for (let i = 0; i < ESCORT_SEGS; i++) {
+      const sx = Math.round(x + i * (sw + gap)), sw2 = Math.round(sw);
+      const fill = Math.max(0, Math.min(1, frac * ESCORT_SEGS - i));
+      ctx.fillStyle = '#26313F'; ctx.fillRect(sx, y, sw2, h);
+      if (fill > 0) { ctx.fillStyle = col || ESCORT_COL.ice; ctx.fillRect(sx, y, Math.max(1, Math.round(sw2 * fill)), h); }
+    }
+  }
+  function fbEscort(ctx, kind, x, y, angle, o) {
+    o = o || {};
+    const down = o.state === 'kampfunfaehig';
+    const hull = down ? ESCORT_COL.wreck : (o.hitT != null && o.hitT < 0.15 ? '#FFFFFF' : ESCORT_COL.ice);
+    const rim = down ? '#4A5260' : ESCORT_COL.brass;
+    ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.lineWidth = 2; ctx.strokeStyle = rim; ctx.fillStyle = hull;
+    if (kind === 'karawane') {
+      // Mittelkörper + zwei Kapseln im Schlepp
+      for (const py of [-11, 11]) { ctx.beginPath(); ctx.arc(-16, py, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      ctx.beginPath(); ctx.ellipse(4, 0, 18, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = PAL.space; ctx.fillRect(12, -3, 6, 6);
+    } else if (kind === 'bergungsboot') {
+      ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = rim; ctx.lineWidth = 3;   // Greifarm
+      ctx.beginPath(); ctx.moveTo(10, -6); ctx.lineTo(19, -9); ctx.moveTo(10, 6); ctx.lineTo(19, 9); ctx.stroke();
+      ctx.fillStyle = PAL.space; ctx.fillRect(3, -3, 6, 6);
+    } else {
+      // Frachter: lange, runde Hülle mit Ladebuchten
+      ctx.beginPath(); ctx.ellipse(0, 0, 34, 12, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = down ? '#4A5260' : ESCORT_COL.brass;
+      for (const bx of [-18, -6, 6]) ctx.fillRect(bx, -6, 9, 12);
+      ctx.fillStyle = PAL.space; ctx.fillRect(22, -3, 6, 6);
+    }
+    if (!down && (o.thrust == null || o.thrust > 0)) { ctx.fillStyle = 'rgba(255,198,107,0.8)'; ctx.fillRect(kind === 'frachter' ? -40 : kind === 'karawane' ? -26 : -18, -2, 4, 4); }
+    ctx.restore();
+    if (down) {   // Wrack: Kreuz (Form, nicht nur Farbe)
+      ctx.strokeStyle = '#E0473C'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke();
+    }
+  }
+  function drawEscortSprite(ctx, e, sx, sy, angle, t, hitT) {
+    const o = { hpFrac: escortHpFrac(e), hitT: hitT != null ? hitT : 99, time: t, distress: !!e.distress, state: e.state || 'ok' };
+    if (!art('drawEscort', 'drawEscort:' + e.kind, [ctx, e.kind, sx, sy, angle, o])) fbEscort(ctx, e.kind, sx, sy, angle, o);
+  }
+  // Schutzring (gestrichelt); Notruf: pulsiert in Farbe UND Radius
+  function drawEscortRing(ctx, e, sx, sy, r, t) {
+    const col = escortRingCol(e, t);
+    const puls = e.distress && !escortDown(e) ? Math.round(2 + 2 * Math.sin(t * 6)) : 0;
+    ctx.save();
+    ctx.strokeStyle = col; ctx.lineWidth = e.distress ? 2 : 1; ctx.setLineDash(escortDown(e) ? [2, 4] : [5, 3]);
+    ctx.lineDashOffset = -t * 6;
+    ctx.beginPath(); ctx.arc(sx, sy, r + puls, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  // Randanzeige in Ringform (für Schützlinge außerhalb des Sichtfelds): kleiner gestrichelter Ring + Pfeilspitze
+  function escortEdgeRing(ctx, x, y, ang, e, t) {
+    const col = escortRingCol(e, t);
+    const r = 6 + (e.distress && !escortDown(e) ? Math.round(1.5 + 1.5 * Math.sin(t * 6)) : 0);
+    ctx.save();
+    ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.beginPath(); ctx.arc(x, y, r + 2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([3, 2]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(r + 7, 0); ctx.lineTo(r + 1, -4); ctx.lineTo(r + 1, 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (escortDown(e)) { ctx.strokeStyle = '#E0473C'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - 3, y - 3); ctx.lineTo(x + 3, y + 3); ctx.moveTo(x + 3, y - 3); ctx.lineTo(x - 3, y + 3); ctx.stroke(); }
+    else if (e.distress) { ctx.fillStyle = ESCORT_COL.amber; ctx.fillRect(x - 1, y - 3, 2, 4); ctx.fillRect(x - 1, y + 2, 2, 1); }   // „!“ im Ring
+  }
+  // Ziel der Route: Server-Feld ziel/dest {x,y}, sonst nach Befehl (folgen/andocken -> Lerche, volle Kraft -> Sprungpunkt)
+  function escortRouteTarget(e, ship, space) {
+    const z = e.ziel || e.dest || e.route;
+    if (z && isFinite(+z.x) && isFinite(+z.y)) return { x: +z.x, y: +z.y };
+    if (e.befehl === 'folgen' || e.befehl === 'andocken') return { x: ship.x, y: ship.y };
+    if (e.befehl === 'volle_kraft') { const ex = (space.markers || []).find(m => m.kind === 'exit' || m.kind === 'dock'); if (ex) return { x: ex.x, y: ex.y }; }
+    return null;
+  }
+  // Schützlinge in drawSpace (env = Hilfen aus drawSpace)
+  function drawEscortsInSpace(ctx, view, env) {
+    const list = view.escorts || (view.state.space && view.state.space.escorts) || [];
+    if (!list.length) return;
+    const { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space } = env;
+    for (const e of list) {
+      if (!e || !isFinite(+e.x) || !isFinite(+e.y)) continue;
+      if (e.state === 'entkommen') continue;   // in Sicherheit: nicht mehr im Raum
+      const s = toS(+e.x, +e.y);
+      const r = ESCORT_R[e.kind] || 32;
+      const name = escortName(e).toUpperCase();
+      // Route (nur Karten): gepunktete Messing-Linie
+      if (!front && !escortDown(e)) {
+        const rt = escortRouteTarget(e, ship, space || {});
+        if (rt) {
+          const d = toS(rt.x, rt.y);
+          ctx.save(); ctx.strokeStyle = 'rgba(201,151,74,0.85)'; ctx.lineWidth = 1; ctx.setLineDash([1, 4]);
+          ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(d.x, d.y); ctx.stroke(); ctx.restore();
+          if (inB(d, -4) && (rt.x !== ship.x || rt.y !== ship.y)) { ctx.strokeStyle = ESCORT_COL.brass; ctx.strokeRect(d.x - 3.5, d.y - 3.5, 7, 7); }
+        }
+      }
+      if (!inB(s, 0)) {
+        if (!visible(+e.x, +e.y) && front) continue;
+        const ang = Math.atan2(s.y - cy, s.x - cx);
+        const p = rayToRect(B, cx, cy, ang, 14);
+        // Frontsicht: unten liegen die Lerche und die Drehanzeige – „hinter uns“ an die untere Ecke der passenden Seite
+        if (front && p.y > B.y + B.h - 54) { p.x = s.x < cx ? B.x + 16 : B.x + B.w - 16; p.y = B.y + B.h - 60; }
+        escortEdgeRing(ctx, p.x, p.y, ang, e, t);
+        const dist = Math.round(Math.hypot(+e.x - ship.x, +e.y - ship.y));
+        const lw = measure(name, 1) / 2 + 3;
+        const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, p.x - Math.cos(ang) * 32));
+        const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, p.y - Math.sin(ang) * 18 - 3));
+        lab(name + (e.distress && !escortDown(e) ? ' NOTRUF' : '') + ' ' + dist, lx, ly, { color: escortRingCol(e, t), align: 'center' }, 6);
+        continue;
+      }
+      const hitT = view.escortHit && view.escortHit[e.id] != null ? view.escortHit[e.id] : 99;
+      drawEscortRing(ctx, e, s.x, s.y, r, t);
+      drawEscortSprite(ctx, e, s.x, s.y, (+e.angle || 0) + (env.rot || 0), t, hitT);
+      const frac = escortHpFrac(e);
+      escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, escortDown(e) ? ESCORT_COL.wreck : frac < 0.3 ? '#E0473C' : frac < 0.6 ? ESCORT_COL.amber : ESCORT_COL.ice);
+      block(s.x - r, s.y - r - 10, r * 2, r * 2 + 10);
+      const stTxt = escortDown(e) ? ' · KAMPFUNFÄHIG' : e.distress ? ' · NOTRUF' : (e.repair != null && e.repair < 1) ? ' · REPARATUR ' + Math.round(e.repair * 100) + ' %' : '';
+      lab(name + stTxt, s.x, s.y + r + 3, { color: escortDown(e) ? ESCORT_COL.wreck : e.distress ? ESCORT_COL.amber : ESCORT_COL.ice, align: 'center' }, 5);
+    }
+  }
+  // Rot gestrichelte Bedrohungslinie von gescannten Gegnern mit tgt (nur Karten). Pfeilspitze am Schützling.
+  function drawEscortThreats(ctx, view, env) {
+    const list = view.escorts || (view.state.space && view.state.space.escorts) || [];
+    if (!list.length || env.front) return;
+    const { toS, lab, t } = env;
+    for (const en of view.enemies || []) {
+      if (!en || en.tgt == null || !en.scanned) continue;
+      const e = list.find(q => q && q.id === en.tgt);
+      if (!e || e.state === 'entkommen') continue;
+      const a = toS(en.x, en.y), b = toS(+e.x, +e.y);
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      const r = (ESCORT_R[e.kind] || 32) + 4;
+      const bx = b.x - Math.cos(ang) * r, by = b.y - Math.sin(ang) * r;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,90,74,0.9)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]); ctx.lineDashOffset = -t * 10;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+      ctx.translate(bx, by); ctx.rotate(ang); ctx.fillStyle = '#FF5A4A';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-7, -4); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      lab('ZIELT AUF ' + escortName(e).toUpperCase(), Math.round((a.x + bx) / 2), Math.round((a.y + by) / 2) - 4, { color: '#FF5A4A', align: 'center' }, 2, true);   // QA-Abnahme S2: nach den Gegnernamen setzen (sonst überlappt JÄGER)
+    }
+  }
+
   function drawSpace(ctx, view, rect, cfg) {
     const st = view.state;
     const ship = view.ship || st.ship || {};
@@ -2690,6 +2857,9 @@
     const lab = (str, x, y, o, prio, optional) => { if (str) labels.push({ str: String(str), x, y, o: o || {}, prio: prio || 0, optional: !!optional }); };
     const placed = [];
     const block = (x, y, w, h) => placed.push({ x, y, w, h });   // Sprites als Hindernis für Labels
+    const edge = front ? 6 : 4;
+    // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
+    const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;
     const flushLabels = () => {
       labels.sort((a, b) => b.prio - a.prio);
       for (const l of labels) {
@@ -2698,7 +2868,13 @@
         let best = null;
         // QA M3a: Label nie über den Kartenrand hinaus (z. B. „LANZE BEREIT“ rechts abgeschnitten) – schon vor der
         // Kollisionsprüfung in den Rahmen schieben, damit geklemmte Labels nicht übereinander landen
-        const inside = (r) => { r.x = Math.max(B.x + 2, Math.min(B.x + B.w - w - 2, r.x)); r.y = Math.max(B.y + 2, Math.min(B.y + B.h - h - 1, r.y)); return r; };
+        // QA-Abnahme S2: Rand der Frontsicht (Messingrahmen mit Fase) und der Kartenrahmen fressen ein paar Pixel –
+        // daher 6 bzw. 4 px Abstand; in der Frontsicht liegt unten mittig die DREHEN-Anzeige (Label darüber setzen).
+        const inside = (r) => {
+          r.x = Math.max(B.x + edge, Math.min(B.x + B.w - w - edge, r.x)); r.y = Math.max(B.y + 2, Math.min(B.y + B.h - h - 1, r.y));
+          if (gauge && r.x < gauge.x + gauge.w && gauge.x < r.x + r.w && r.y < gauge.y + gauge.h && gauge.y < r.y + h) r.y = gauge.y - h - 1;
+          return r;
+        };
         for (const [dx, dy] of [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]]) {
           const r = inside({ x: left + dx, y: l.y + dy, w, h });
           if (!placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h)) { best = r; break; }
@@ -2863,6 +3039,10 @@
       }
     }
 
+    // S2: Schützlinge (unter Projektilen und Gegnern, über Asteroiden)
+    const escEnv = { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space, rot, mode: cfg.mode };
+    try { drawEscortsInSpace(ctx, view, escEnv); } catch (e) { report('Render.escorts', e); }
+
     // Strahlen: §20.1 aus dem lokalen Speicher, gezeichnet erst nach Gegnern und Schiff (z-Order); hier nur Projektile
     if (st !== lastIngested) { lastIngested = st; try { ingestSnap(st); } catch (e) { report('Render.ingestSnap', e); } }
     for (const pr of view.spaceProjectiles || []) {
@@ -2924,6 +3104,8 @@
         lab('ZIEL', s.x, s.y + size + 8, { color: PAL.amber, align: 'center' }, 4);
       }
     }
+    // S2: Bedrohungslinien gescannter Gegner auf Schützlinge
+    try { drawEscortThreats(ctx, view, escEnv); } catch (e) { report('Render.escortThreats', e); }
     // M3a: Ladungen – höchstens 3 Countdowns gleichzeitig (die kürzesten zuerst)
     teleList.sort((a, b) => (+a.e.tele.left || 0) - (+b.e.tele.left || 0));
     teleList.forEach((o, i) => {
@@ -3395,6 +3577,8 @@
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
     drawSpace, drawFrontView, drawStarMap, drawLocalMap, FRONT,
+    // S2: Schützling
+    ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, fbEscort, drawEscortSprite,
     // M3a
     SIDE_SHORT, STATE_SHORT, FRAGILE_COL, OFFLINE_COL, BURST_COL, MOUNT_SYS, SECTOR_SHORT,
     fragileOf, stateCode, stateColor, stateBadge, stationPlate, hatch, crossX, tape, shipStations, stationOfSystem, actionBar, cfgM3, fmt1, wedge,

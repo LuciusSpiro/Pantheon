@@ -198,6 +198,16 @@
           "{{id}}.ziel": "Captain: antworten (Funk)"
         }
       },
+      "rueckfall": {
+        "params": {
+          "eroeffnung": "Lerche, hier spricht jemand, der euch schon eine Weile beobachtet. Wir sollten reden, bevor es teuer wird.",
+          "frage": "Wie antworten wir?",
+          "antwort_a": "Wir hören zu. Was wollt ihr?",
+          "antwort_b": "Kein Interesse. Gebt den Kurs frei.",
+          "folgen_a": [ { "reward": { "marks": 30 } } ],
+          "folgen_b": [ { "log": "Die Lerche hat ein Gesprächsangebot abgelehnt." } ]
+        }
+      },
       "test": {
         "params": {
           "loc": "nebel",

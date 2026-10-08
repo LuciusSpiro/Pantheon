@@ -48,6 +48,8 @@
     setbacks: [],   // M3b §4: repairSetback-Ereignisse { system, pid, bot, t0 } für den Rückschritt im Fortschrittsbalken
     minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
     shootCd: 0, stepT: 0, repairTickT: 0,
+    // S2: neue Angebote (id -> Zeitpunkt offerIn), Schützling-Treffer (id -> performance.now()), letzte Befehlsrückmeldung, Kapitelkarte
+    newOffers: {}, escortHit: {}, escortOrder: null, chapter: null,
     view: null,
   };
 
@@ -406,6 +408,7 @@
     },
     holdDelete(id) { startDelete(id, true); },
     dismissEnd() { Client.endDismissed = true; audio.play('ui_back'); },
+    closeChapter() { if (Client.chapter) { Client.chapter = null; audio.play('ui_back'); } },   // S2: Kapitelkarte schließen
     // M0: Hafen-Übung überspringen (jeder darf umschalten, Server hält den Zustand)
     toggleSkipDrill() {
       const st = Client.state;
@@ -521,6 +524,7 @@
     if (s.mission && !s.mission.chronik && prev && prev.mission && prev.mission.chronik && prev.phase !== 'lobby') s.mission.chronik = prev.mission.chronik;
     Client.state = s; G.state = s; R.lastState = s;
     Net.guard('Client.phaseS1', () => onPhaseS1(prev, s));
+    Net.guard('Client.planningS2', () => onPlanningS2(prev, s));
     const now = performance.now();
     Client.snaps.push({ t: now, s });
     while (Client.snaps.length > 3 && now - Client.snaps[1].t > 1000) Client.snaps.shift();
@@ -637,9 +641,83 @@
     return false;
   }
 
+  // S2 (CONTRACT-S2 §4/§7): Töne nur, wenn die Audio-Bibliothek sie kennt (fehlen sie, passiert nichts)
+  function s2Sfx(name, opts) {
+    if (!audio.has()) return;
+    const list = window.GameAudio && GameAudio.SOUNDS;
+    if (Array.isArray(list) && list.indexOf(name) < 0) return;
+    audio.play(name, opts);
+  }
+  function escortById(id) { const l = (Client.state && Client.state.space && Client.state.space.escorts) || []; return l.find(e => e && e.id === id) || null; }
+  function escortLabel(id) { const e = escortById(id); return e ? R.escortName(e) : 'Schützling'; }
+  function pct(f) { return Math.round(Math.max(0, Math.min(1, +f || 0)) * 100) + ' %'; }
+  // S2: Spielleiter-Angebote, Kapitelkarte, Schützling
+  function onEventS2(ev) {
+    const PAL = R.PAL;
+    switch (ev.kind) {
+      // Töne offer_in, escort_hit, distress, escort_lost, escort_saved schickt der Server per sfx (hier keine Doppelung)
+      case 'offerIn':
+        Client.newOffers[ev.id] = performance.now();
+        if (K.seenOffers) delete K.seenOffers[ev.id];   // Bernstein-Punkt „neu“ im Missionsbuch
+        H.pushNotice('Neues Angebot im Missionsbuch: ' + String(ev.title || ev.id || '').slice(0, 40) + (ev.from ? ' – ' + ev.from : ''), PAL.amber, 4);
+        return true;
+      case 'escortSpawn': {
+        const e = ev.escort || ev;
+        if (e && (e.name || e.id)) H.pushNotice('Schützling: ' + (e.name || escortLabel(e.id)) + ' – bleibt in seiner Nähe', R.ESCORT_COL.ice, 4);
+        return true;
+      }
+      case 'escortShielded': {
+        const id = ev.id || (ev.escort && ev.escort.id);
+        if (id) H.pushNotice('Abgefangen! Die Lerche deckt ' + escortLabel(id), PAL.mint, 3);
+        return true;
+      }
+      case 'escortRebuke': case 'enemyLeft': return true;   // Funk-Rüffel kommt als radio; abgezogene Gegner verschwinden einfach
+      case 'enemyRetreat': H.pushNotice('Die Angreifer drehen ab', PAL.mint, 3); return true;
+      case 'sceneWait':
+        // keine Sperre: nur eine ODA-Zeile
+        H.pushOda('Kurs wird berechnet …' + (ev.sec > 0 ? ' (höchstens ' + Math.ceil(+ev.sec) + ' s)' : ''));
+        return true;
+      case 'chapter':
+        Client.chapter = { title: String(ev.title || 'Kapitel abgeschlossen'), text: String(ev.text || ''), t0: performance.now() };
+        return true;
+      case 'escortHit':
+        Client.escortHit[ev.id] = performance.now();
+        return true;
+      case 'escortDistress':
+        H.pushNotice('NOTRUF: ' + escortLabel(ev.id) + ' – Hülle ' + pct(ev.hpFrac), PAL.red, 4);
+        return true;
+      case 'escortDisabled':
+        H.pushNotice(escortLabel(ev.id) + ' ist kampfunfähig', PAL.red, 5);
+        return true;
+      case 'escortArrived':
+        H.pushNotice(escortLabel(ev.id) + ' hat das Ziel erreicht', PAL.mint, 4);
+        return true;
+      case 'escortSaved':
+        H.pushNotice(escortLabel(ev.id) + ' ist in Sicherheit', PAL.mint, 4);
+        return true;
+      case 'escortOrder':
+        // ok:false = verweigert (Funktext kommt vom Server), ok:true + delay = gehorcht nach delay s
+        Client.escortOrder = { id: ev.id, befehl: ev.befehl, ok: ev.ok !== false, delay: +ev.delay || 0, t0: performance.now() };
+        return true;
+      case 'hit':
+        // §5 Breitseite als Schild: die Lerche fängt eine Ladung für den Schützling ab (Ereignis läuft weiter in onEvent)
+        if (ev.shielded) H.pushNotice('Abgefangen! Die Lerche deckt ' + escortLabel(ev.shielded), PAL.mint, 3);
+        return false;
+    }
+    return false;
+  }
+  // S2: Planungsanzeige – Rauschen beim Beginn und bei jeder neuen Prägestufe
+  function onPlanningS2(prev, s) {
+    const a = prev && prev.mission ? prev.mission.planning : null;
+    const b = s && s.mission ? s.mission.planning : null;
+    if (s && s.phase === 'lobby') { Client.chapter = null; Client.newOffers = {}; }
+    if (b && (!a || a.stage !== b.stage)) s2Sfx('gm_static', { volume: 0.5 });
+  }
+
   function onEvent(ev) {
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
+    if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;
     if (Net.guard('Client.eventM3', () => onEventM3(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
@@ -873,7 +951,7 @@
     const pmi = prev.mission || {}, cmi = cur.mission || {};
     const pl = (pmi.log || []).length, cl = (cmi.log || []).length;
     if (cl > pl && pmi.log && Client.skipLogNotice && performance.now() - Client.skipLogNotice < 3000) Client.skipLogNotice = 0;
-    else if (cl > pl && pmi.log) { const e = cmi.log[cl - 1]; audio.play('discovery'); H.pushNotice('Logbuch: ' + String(e.text || '').slice(0, 70), PAL.ice); }
+    else if (cl > pl && pmi.log) { const e = cmi.log[cl - 1]; audio.play('discovery'); H.pushNotice('Logbuch: ' + String(e.text || '').slice(0, 150), PAL.ice, 5); }   // QA-Abnahme S2: umbrochen statt bei 70 Zeichen abgeschnitten
     // Phasenkanonen
     const pb = (prev.space && prev.space.beams) || [], cb = (cur.space && cur.space.beams) || [];
     if (cb.length > pb.length && cb.slice(pb.length).some(b => b.kind === 'phase')) audio.play('phase', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
@@ -1303,6 +1381,11 @@
       if (line) { Client.lastDebugLine = line; const msg = G.dbg(line); if (msg) H.pushNotice('Debug: ' + line, '#FF66CC'); }
       return;
     }
+    // S2: Kapitelkarte liegt über allem – Enter (oder Esc/Leertaste) schließt, andere Tasten gehen nicht ins Spiel
+    if (Client.chapter && Client.state && Client.state.phase !== 'lobby') {
+      if (!e.repeat && (code === 'Enter' || code === 'NumpadEnter' || code === 'Escape' || code === 'Space')) actions.closeChapter();
+      return;
+    }
     // S1: offene Menüseite (Spielmenü, Optionen, Steuerung, Weltstände) bekommt alle Tasten
     if (uiTop()) { Client.keys = {}; Net.guard('Client.uiKey', () => uiKey(e)); return; }
     const st = Client.state, m = me();
@@ -1388,7 +1471,7 @@
     const r = R.clickUi(p.x, p.y);
     if (r === 'ok') { audio.play('ui_click'); return; }
     if (r === 'denied') { audio.play('error'); return; }
-    if (uiTop()) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter
+    if (uiTop() || Client.chapter) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter (S2: Kapitelkarte ebenso)
     const m = me();
     if (m && m.console) { Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return; }
     if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') shoot();
@@ -1413,7 +1496,7 @@
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
     Net.guard('Client.minigame', () => updateMinigame(dt));
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused;
+    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused && !Client.chapter;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
@@ -1484,6 +1567,11 @@
     v.enemies = lerpEnemies(as.enemies, bs.enemies, f, pair.dt, pair.ext);
     v.spaceProjectiles = lerpList(as.projectiles, bs.projectiles, f);
     const aa = A.away || {}, ba = B.away || {};
+    // S2: Schützlinge (≤ 2) interpoliert wie Projektile; Trefferblitz und Befehlsrückmeldung
+    v.escorts = lerpList(as.escorts, bs.escorts, f);
+    v.escortHit = {};
+    for (const id in Client.escortHit) { const s = (nowMs - Client.escortHit[id]) / 1000; if (s > 2) delete Client.escortHit[id]; else v.escortHit[id] = s; }
+    if (Client.escortOrder && nowMs - Client.escortOrder.t0 < 6000) v.escortOrder = Object.assign({ age: (nowMs - Client.escortOrder.t0) / 1000 }, Client.escortOrder);
     v.drones = lerpList(aa.drones, ba.drones, f);
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
     if (ba.npc) {
@@ -1552,6 +1640,7 @@
       else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
+      if (Client.chapter) Net.guard('Hud.drawChapter', () => H.drawChapter(ctx, v, Client.chapter));   // S2
       const fl = (performance.now() - Client.flashT) / 400;
       if (fl >= 0 && fl < 1) { ctx.fillStyle = 'rgba(244,238,220,' + (1 - fl) * 0.85 + ')'; ctx.fillRect(0, 0, VW, VH); }
       if (!v.me.console) R.drawTooltip(ctx);
@@ -1591,7 +1680,9 @@
     ];
     // QA M1: An Konsolen nur eine kompakte Zeile oben mittig – sonst verdeckt das Overlay die Seitenpanels.
     const me = (st.players || []).find(p => p.id === Client.pid);
-    if (me && me.console) {
+    // QA-Abnahme S2: Bei Kapitelkarte, Ende- oder Menüseite ebenfalls kompakt – sonst liegt das Overlay über dem Text.
+    const overlay = !!Client.chapter || !!uiTop() || st.phase === 'end';
+    if ((me && me.console) || overlay) {
       const line = 'FPS ' + Client.fps + ' · Ping ' + Net.ping + ' · Fehler ' + G.errors + '/' + (st.errors || 0) + ' · ' + ((st.mission && st.mission.stage) || '-');
       const w = R.measure ? R.measure(line, 1) + 8 : 220;
       R.backdrop(ctx, 320 - w / 2, 1, w, 10, 0.75);

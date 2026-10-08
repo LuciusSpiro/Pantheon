@@ -173,6 +173,11 @@
           "{{id}}.ziel": "Gegner ausschalten ({squadLeft:{{trupp}}} übrig) – oder durchbrechen"
         }
       },
+      "rueckfall": {
+        "params": {
+          "trupp": "squad1"
+        }
+      },
       "test": {
         "params": {
           "loc": "kesh",

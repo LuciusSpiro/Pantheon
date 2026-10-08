@@ -21,7 +21,7 @@ const worldFiles = (d) => fs.readdirSync(d).filter((f) => /^[a-z0-9-]+\.json$/.t
 
 // Partie mit `players` verbundenen Spielern; Lobby-Optionen vor dem Bereit-Melden
 function setup(dir, players, lobby, opts) {
-  const g = new Game(Object.assign({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} }, opts || {}));
+  const g = new Game(Object.assign({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(ROOT_TMP, 'regie') }, log: () => {} }, opts || {}));
   const conns = [];
   for (let i = 0; i < players; i++) {
     const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
@@ -51,7 +51,10 @@ function makeCampaign(dir, startMission) {
 function main() {
   // ------------------------------------------------------------------------------------------------------------
   section('Protokoll');
-  ok(Protocol.VERSION === 5, 'Protocol.VERSION = 5');
+  ok(Protocol.VERSION === 6, 'Protocol.VERSION = 6 (S2)');
+  ok(Protocol.CMD_PLAN_BOOK.includes('plan.decline') && Protocol.CMD_PLAN_DECLINE === 'plan.decline', 'S2: plan.decline');
+  ok(JSON.stringify(Protocol.ESCORT_ORDERS) === JSON.stringify(['halten', 'folgen', 'volle_kraft', 'andocken']), 'S2: ESCORT_ORDERS');
+  ok(['offerIn', 'sceneWait', 'chapter', 'escortOrder'].every((k) => Protocol.S2_EVENTS.includes(k)) && Protocol.DEBUG_CMDS.includes('sl') && Protocol.DEBUG_CMDS.includes('escort'), 'S2: Ereignisse und Debug-Befehle');
   ok(Protocol.C.WORLD === 'world' && Protocol.C.MENU === 'menu', 'C.WORLD / C.MENU');
   ok(JSON.stringify(Protocol.START_MISSIONS) === JSON.stringify(['m1', 'free', 'm3', 'arena_space', 'arena_away']), 'START_MISSIONS mit free');
   ok(Protocol.START_LABELS.m1 === 'Kampagne' && Protocol.START_LABELS.free === 'Kampagne ohne Tutorial', 'START_LABELS');
@@ -349,10 +352,18 @@ function main() {
     ok(!r3.ok && r3.state === 'kaputt' && /Format/.test(r3.error), 'Schemafehler -> kaputt mit Grund');
     // neuere Version
     const id4 = 'w-neu1';
-    fs.writeFileSync(path.join(dir, id4 + '.json'), JSON.stringify(Object.assign({}, d3, { id: id4, version: 2 })));
+    fs.writeFileSync(path.join(dir, id4 + '.json'), JSON.stringify(Object.assign({}, d3, { id: id4, version: Weltstand.VERSION + 1 })));
     ok(Weltstand.list(dir).find((x) => x.id === id4).state === 'neuer', 'neuere Version -> neuer');
     const r4 = Weltstand.load(dir, id4);
     ok(!r4.ok && r4.state === 'neuer' && fs.existsSync(path.join(dir, id4 + '.json')), 'neuere Version wird nicht geladen und nicht umbenannt');
+    // S2 §3.2: Version 2 mit Block spielleiter; S1-Stände (v1) werden migriert
+    ok(Weltstand.VERSION === 2 && d3.version === 2 && d3.spielleiter && typeof d3.spielleiter === 'object', 'S2: capture schreibt version 2 + Block spielleiter');
+    const id5 = 'w-alt1';
+    const v1 = Object.assign({}, d3, { id: id5, version: 1 }); delete v1.spielleiter;
+    fs.writeFileSync(path.join(dir, id5 + '.json'), JSON.stringify(v1));
+    const r5 = Weltstand.load(dir, id5);
+    ok(r5.ok && r5.data.version === 2 && r5.data.spielleiter && Object.keys(r5.data.spielleiter).length === 0, 'S2: v1-Stand lädt, migriert auf v2 mit spielleiter {}');
+    ok(Weltstand.list(dir).find((x) => x.id === id5).state === 'ok', 'S2: v1-Stand steht als ok in der Liste');
     // Unsinn
     ok(Weltstand.load(dir, '../x').ok === false && Weltstand.load(dir, 'w-gibtsnicht').ok === false, 'ungültige/fehlende ID: kein Wurf');
   }

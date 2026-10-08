@@ -7,7 +7,7 @@ const path = require('path');
 const Locations = require('../shared/locations.js');
 
 const ROOT = path.join(__dirname, '..');
-const VERSION = 1;
+const VERSION = 2;   // S2: Block 'spielleiter' (v1 -> v2 per MIGRATIONS[1])
 const MAX = 5;
 const SCHEMA_FILE = path.join(ROOT, 'content', 'schema', 'weltstand.schema.json');
 const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
@@ -18,8 +18,18 @@ const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thru
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const CHRONIK_KEEP = 200;
 
-// Migrationskette: MIGRATIONS[n](data) hebt Version n auf n + 1. Für v1 leer.
-const MIGRATIONS = {};
+// Migrationskette: MIGRATIONS[n](data) hebt Version n auf n + 1.
+const MIGRATIONS = {
+  // S2 (CONTRACT-S2 §3.2): v1 (S1) bekommt einen leeren Spielleiter-Block
+  1: (data) => Object.assign({}, data, { version: 2, spielleiter: Object.assign({}, data.spielleiter || {}) }),
+};
+// Block 'spielleiter' (§3.2): { plaene: { <missionId>: { grobplan, anlass, origin, szenen, buch } }, archiv_gespielt: [],
+// zusammenfassung: [{ id, titel, auftraggeber, ausgang }], naechste_id }. Inhalt gehört dem Spielleiter (toSave/restore).
+function spielleiterSave(game) {
+  const sl = game.spielleiter;
+  if (!sl || typeof sl.toSave !== 'function') return {};
+  try { const r = sl.toSave(); return r && typeof r === 'object' && !Array.isArray(r) ? clone(r) : {}; } catch (e) { countError(game, 'weltstand-spielleiter', e); return {}; }
+}
 
 // ---------- Hilfen ----------
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -394,7 +404,7 @@ function makeRuntime(game, base) {
   const resolveText = (t) => {
     let s = t == null ? '' : String(t);
     if (s.startsWith('@')) {
-      const def = game.mission && game.mission.def;
+      const def = game.mission && (game.mission.textDef || game.mission.def);
       const key = s.slice(1);
       if (def && def.texte && typeof def.texte[key] === 'string') s = def.texte[key];
       else countError(game, 'weltstand-text', new Error('Text ' + s + ' nicht gefunden'));
@@ -446,11 +456,18 @@ function makeRuntime(game, base) {
     n.status = status;
     return true;
   };
-  ws.fact = (key, value, quelle) => {
+  // opts (S2): { faden: bool } – offener Erzählfaden (welt.faeden), false schließt ihn
+  ws.fact = (key, value, quelle, opts) => {
     if (typeof key !== 'string' || !key) { countError(game, 'weltstand-fact', new Error('key ' + key)); return false; }
     if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) { countError(game, 'weltstand-fact', new Error('Wert für ' + key)); return false; }
     ws.data.fakten[key] = value;
     if (quelle != null) ws.data.faktenQuelle[key] = String(quelle);
+    if (opts && opts.faden !== undefined) {
+      const f = ws.data.faeden || (ws.data.faeden = []);
+      const i = f.indexOf(key);
+      if (opts.faden && i < 0) f.push(key);
+      if (!opts.faden && i >= 0) f.splice(i, 1);
+    }
     return true;
   };
   // entry: Text oder { text, mission?, ausgang? }
@@ -575,7 +592,9 @@ function capture(game) {
     missionen: Object.assign({}, ms, { missionen, flags }),   // Vertrag §5.1: = mission.toSave()
     npc: clone(ws.data.npc),
     chronik: clone(ws.data.chronik),
+    spielleiter: spielleiterSave(game),   // S2 §3.2
   };
+  if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
   return data;
 }
 
@@ -585,7 +604,8 @@ function apply(game, data) {
   const C = game.C; const ship = game.ship;
   const ws = makeRuntime(game, { id: d.id, name: d.name, persistent: true, dir: (game.weltstand && game.weltstand.dir) || dir(game.env) });
   ws.data = { npc: d.npc || {}, chronik: d.chronik || [], fakten: (d.welt && d.welt.fakten) || {}, faktenQuelle: (d.welt && d.welt.faktenQuelle) || {},
-    tutorial: d.tutorial === 'gespielt' ? 'erledigt' : (d.tutorial || 'laeuft'), erstellt: d.erstellt };
+    tutorial: d.tutorial === 'gespielt' ? 'erledigt' : (d.tutorial || 'laeuft'), erstellt: d.erstellt,
+    faeden: Array.isArray(d.welt && d.welt.faeden) ? d.welt.faeden.slice() : [] };
   for (const n of Object.values(ws.data.npc)) if (!Array.isArray(n.gedaechtnis)) n.gedaechtnis = [];
   // Fakten in der Form { value, quelle } auf Wert + faktenQuelle abbilden
   for (const [k, v] of Object.entries(ws.data.fakten)) {
@@ -635,6 +655,12 @@ function apply(game, data) {
   Object.assign(flags, ms.flags || {});
   Object.assign(game.mission.flags, flags);
   const obj = Object.assign({}, ms, { missionen: ms.missionen || {}, flags });
+  // S2 §3.2: Spielleiter vor mission.restore (seine Bücher müssen registriert sein, bevor die aktive Mission neu startet)
+  if (typeof game.createSpielleiter === 'function') { try { game.createSpielleiter(); } catch (e) { countError(game, 'weltstand-spielleiter', e); } }
+  const sl = game.spielleiter;
+  if (sl && typeof sl.restore === 'function') {
+    try { sl.restore(d.spielleiter && typeof d.spielleiter === 'object' ? d.spielleiter : {}); } catch (e) { countError(game, 'weltstand-spielleiter', e); }
+  }
   const m = game.mission;
   if (typeof m.restore === 'function') {
     m.restore(obj);
@@ -643,6 +669,11 @@ function apply(game, data) {
     restoreFallback(game, obj);
   }
   game.asteroidsDirty = true;
+  // S2 (BAUSTEINE): Außenkarten aus den Fakten herrichten (Tafel weg vom Kesh-Sockel, zerstörter Wächter bleibt zerstört)
+  try {
+    const away = require('./sim/away.js');
+    if (typeof away.applyWorldFacts === 'function') away.applyWorldFacts(game);
+  } catch (e) { countError(game, 'weltstand-applyWorldFacts', e); }
   return ws;
 }
 

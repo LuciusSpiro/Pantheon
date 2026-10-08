@@ -1,0 +1,211 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-treibgut_zaunkoenig-1",
+  "name": "treibgut_zaunkoenig",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission (CONTRACT-S2 §6, Team KATALOG, von Hand). Grauzahn als Auftraggeber: Bergung am Wrack 'Zaunkönig' (Treibgut im All + Container im Wrack, Karte zurückgesetzt), dann will er alles – Verhandeln oder Vertreiben.",
+  "input": { "auftrag": "Archiv: Grauzahn – Wrack-Bergung am Zaunkönig, danach Hinterhalt mit Verhandeln oder Vertreiben. Ziel 15 min zu dritt, ohne Tutorial-Voraussetzung." },
+  "erinnerung_varianten": [
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "geblufft" }, "text": "Grauzahn weiß, dass die Lerche ihn im Nebel geblufft hat. Er bietet trotzdem ein Geschäft an – oder gerade deshalb." },
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "echo_geteilt" }, "text": "Die Lerche hat im Nebel mit Grauzahn geteilt. Er glaubt, sie teilt wieder." },
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "bluff_durchschaut" }, "text": "Grauzahn hat den Bluff der Lerche durchschaut. Diesmal will er schriftlich, was ihm zusteht." },
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "wegezoll_gezahlt" }, "text": "Die Lerche hat Grauzahn schon einmal Zoll gezahlt. Jetzt soll sie für ihn arbeiten." }
+  ],
+  "erinnerung_neutral": "Grauzahn bietet selten Arbeit an. Wer annimmt, sollte die Hand am Abzug lassen.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "treibgut_zaunkoenig",
+    "titel": "Treibgut Zaunkönig",
+    "auftraggeber": "grauzahn",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Grauzahn. Am Wrack Zaunkönig treibt frische Ware, und meine Leute sind zu ungeschickt für Bergung. Halbe-halbe. Ihr holt, ich zahle.",
+    "erinnerung": { "npc": "grauzahn", "ereignis": "geblufft" },
+    "erinnerung_text": "Grauzahn weiß, dass die Lerche ihn im Nebel geblufft hat. Er bietet trotzdem ein Geschäft an – oder gerade deshalb.",
+    "szenen": [
+      {
+        "id": "tz_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Grauzahn funkt in den Hafen und bietet ein Geschäft an: Bergung am Wrack Zaunkönig, Beute halbe-halbe.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [ { "wenn": "Auftrag angenommen", "nach": "tz_treibgut" } ]
+      },
+      {
+        "id": "tz_treibgut",
+        "szenentyp": "bergung_im_all",
+        "ort": "wrack",
+        "karte": null,
+        "molekuele": [ { "id": "ladung_bergen", "umsetzung": "bergungskisten" } ],
+        "sachverhalt": "Rund um das Wrack treiben Kisten, die aus einem aufgeplatzten Frachtraum gerissen wurden. Die Lerche sammelt sie ein.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [ { "wenn": "Kisten geborgen", "nach": "tz_wrack" } ]
+      },
+      {
+        "id": "tz_wrack",
+        "szenentyp": "erkundung",
+        "ort": "wrack",
+        "karte": "wreck",
+        "molekuele": [ { "id": "ausschlachten", "umsetzung": "wrack_container" } ],
+        "sachverhalt": "Im Wrack selbst stehen frisch angetriebene Container. Das Außenteam räumt sie aus, während sich draußen etwas sammelt.",
+        "wendung": "Nach einer Minute meldet die Ortung Jäger-Signaturen hinter dem Wrack; Grauzahn funkt, er sehe nur zu.",
+        "dauer_min": 4,
+        "weiter": [ { "wenn": "Container geborgen, alle an Bord", "nach": "tz_forderung" } ]
+      },
+      {
+        "id": "tz_forderung",
+        "szenentyp": "begegnung",
+        "ort": "wrack",
+        "karte": null,
+        "molekuele": [ { "id": "verhandeln", "umsetzung": "funkduell" } ],
+        "sachverhalt": "Grauzahns Jäger kommen hinter dem Wrack hervor. Halbe-halbe war gestern: Er will die ganze Beute – oder er holt sie sich.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          { "wenn": "Ablehnen oder Schweigen", "nach": "tz_abwehr" },
+          { "wenn": "Alles abgeben", "nach": "ausgang:abgegeben" }
+        ]
+      },
+      {
+        "id": "tz_abwehr",
+        "szenentyp": "raumgefecht",
+        "ort": "wrack",
+        "karte": null,
+        "molekuele": [ { "id": "vertreiben", "umsetzung": "bis_zur_flucht" } ],
+        "sachverhalt": "Die Rostmeute greift an, will aber keine Verluste: Wer genug abbekommt, dreht ab. Ein Kanonenboot gibt Rückendeckung.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [ { "wenn": "Angreifer vertrieben", "nach": "ausgang:vertrieben" } ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "tz_forderung",
+        "frage": "Gibt die Lerche Grauzahn die ganze Beute?",
+        "optionen": [
+          { "id": "abgeben", "text": "Alles abgeben", "folge": "Kein Gefecht; die Lerche verliert die Beute (Marken), Grauzahn wird umgänglicher." },
+          { "id": "behalten", "text": "Behalten (oder schweigen)", "folge": "Die Rostmeute greift an, bis sie abdreht; die Lerche behält die Beute, Grauzahn ist gereizt." }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "abgegeben": {
+        "wann": "Die Lerche hat Grauzahn die ganze Beute überlassen.",
+        "folgen": [
+          "npc_haltung grauzahn +1",
+          "npc_gedaechtnis grauzahn: Die Lerche hat am Zaunkönig gearbeitet und mir die ganze Beute gelassen. Brauchbare Leute.",
+          "npc_gedaechtnis tesk: Die Lerche hat für Grauzahn am Zaunkönig geborgen – und ihm alles überlassen.",
+          "chronik: Treibgut Zaunkönig: Die Lerche barg Treibgut und Container am Wrack und überließ Grauzahn die Beute."
+        ]
+      },
+      "vertrieben": {
+        "wann": "Die Lerche hat die Beute behalten und die Rostmeute vertrieben.",
+        "folgen": [
+          "npc_haltung grauzahn -1",
+          "npc_gedaechtnis grauzahn: Die Lerche hat am Zaunkönig meine Beute behalten und meine Jäger verjagt. Abgemacht war halbe-halbe – das merke ich mir.",
+          "npc_gedaechtnis tesk: Die Lerche hat Grauzahn am Zaunkönig die Beute abgenommen. Mutig. Oder dumm.",
+          "chronik: Treibgut Zaunkönig: Die Lerche barg Treibgut und Container am Wrack, behielt alles und schlug die Rostmeute in die Flucht.",
+          "welt_fakt rostmeute_zaunkoenig (faden): Grauzahn fühlt sich am Zaunkönig betrogen und sinnt auf Ausgleich."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "tz_treibgut": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "bergungskisten",
+          "params": {
+            "loc": "wrack",
+            "anzahl": 3,
+            "aufgeben_nach": 150,
+            "auftraggeber_hinweis": "Treibgut rund ums Wrack (grün)! Drüberfliegen sammelt ein – Taktik lotst, Pilot fliegt."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "tz_wrack": {
+      "molekuele": [
+        {
+          "id": "ausschlachten",
+          "umsetzung": "wrack_container",
+          "params": {
+            "loc": "wrack",
+            "map": "wreck",
+            "zuruecksetzen": true,
+            "grund": "Ortung: Ein zweiter Frachtraum ist aufgeplatzt – frische Container sind ins Wrack gedriftet."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "zuschauer",
+        "nach_s": 60,
+        "ankuendigung": "Ortung: Jäger-Signaturen hinter dem Wrack. Noch halten sie Abstand.",
+        "wirkung": [
+          { "radio": { "from": "grauzahn", "text": "Schön fleißig, Lerche. Lasst euch nicht stören – ich sehe nur zu." } }
+        ]
+      }
+    },
+    "tz_forderung": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "wrack",
+            "npc": "grauzahn",
+            "eroeffnung": "Gute Arbeit. Wirklich. Und jetzt die Planänderung: Halbe-halbe war gestern. Ihr gebt mir alles, und wir bleiben Freunde.",
+            "frage": "Grauzahn die ganze Beute geben?",
+            "antwort_a": "Nimm sie. Wir wollen keinen Ärger.",
+            "antwort_b": "Abgemacht war halbe-halbe. Mehr gibt es nicht.",
+            "folgen_a": [
+              { "setFlag": { "tz_forderung_abgegeben": true } },
+              { "do": "pay_marks", "marks": 80 },
+              { "radio": { "from": "grauzahn", "text": "Seht ihr? Geht doch. Ich melde mich wieder, wenn ich ungeschickte Leute brauche." } }
+            ],
+            "folgen_b": [
+              { "radio": { "from": "grauzahn", "text": "Falsche Antwort. Jäger – holt mir meine Kisten!" } }
+            ],
+            "folgen_schweigen": [
+              { "radio": { "from": "grauzahn", "text": "Funkstille? Dann holen wir es uns eben." } }
+            ],
+            "geduld_s": 75
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "ausgang:abgegeben", "if": { "flag": "tz_forderung_abgegeben" } },
+        { "nach": "tz_abwehr" }
+      ],
+      "wendung": null
+    },
+    "tz_abwehr": {
+      "molekuele": [
+        {
+          "id": "vertreiben",
+          "umsetzung": "bis_zur_flucht",
+          "params": {
+            "loc": "wrack",
+            "npc": "grauzahn",
+            "jaeger": 2,
+            "mit_kanonenboot": true,
+            "flucht_unter": 40,
+            "funk_start": "Letzte Chance, Lerche. Kisten raus, oder wir schneiden sie euch aus dem Rumpf.",
+            "funk_abzug": "Genug! Rückzug. Das war nicht das letzte Wort am Zaunkönig."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    }
+  }
+}

@@ -459,5 +459,20 @@ section('QA M3b: Jäger schießen mit Vorhalt (spaceM3b.pilotFire)', () => {
   ok(lead < CONFIG.flight.projectileHitDist && plain > CONFIG.flight.projectileHitDist, `mit Vorhalt trifft der Schuss (${f1(lead)} px), ohne nicht (${f1(plain)} px; Trefferradius ${CONFIG.flight.projectileHitDist})`);
 });
 
+section('S2: Schützlings-Klassen und Gegnerziele (CONTRACT-S2 §5)', () => {
+  const Pilot = require('../server/sim/pilot.js');
+  for (const k of ['frachter', 'karawane', 'bergungsboot']) {
+    const c = CLS[k];
+    ok(!!c && c.maxSpeed < CLS.lerche.maxSpeed + 1 && c.stages[0] === 0, `${k}: Klasse da, maxSpeed ${c && c.maxSpeed} (nicht schneller als die Lerche), Stopp-Stufe`);
+    const b = makeBody(c, Flight.agileStage(c), 0, 0);
+    stepN(b, { stage: c.stages.length - 1, rudder: 0 }, c, 30);
+    ok(near(fwd(b), c.maxSpeed, 1), `${k}: erreicht Voll (${f1(fwd(b))} px/s)`);
+  }
+  const { g } = arena(1);
+  const e = spawn(g, 'raider', 0.5);
+  ok(Pilot.targetOf(g, e) === g.ship && !('targetId' in e), 'ohne ziel: targetOf = Lerche, kein targetId-Feld (Ablauf wie bisher)');
+  ok(g.errors === 0, 'keine Server-Fehler');
+});
+
 console.log(`\n${n - fails}/${n} ok${fails ? ` – ${fails} FEHLER` : ''}`);
 process.exit(fails ? 1 : 0);

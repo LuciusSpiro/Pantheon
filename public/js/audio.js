@@ -37,7 +37,9 @@
     // M4 „Zwei Decks“
     'lift',
     // S1 „Regiebuch & Weltstand“
-    'save_seal', 'world_load', 'save_delete'];
+    'save_seal', 'world_load', 'save_delete',
+    // S2 „Spielleiter & Schützling“
+    'gm_static', 'offer_in', 'distress', 'escort_hit', 'escort_lost', 'escort_saved'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -71,7 +73,9 @@
     // M4
     lift: 600,
     // S1 (Speichern ist entprellt, trotzdem nie als Teppich)
-    save_seal: 1500, world_load: 2000, save_delete: 300
+    save_seal: 1500, world_load: 2000, save_delete: 300,
+    // S2 (Notruf nie als Dauerton, Treffer am Schützling nicht als Teppich)
+    gm_static: 700, offer_in: 1000, distress: 1500, escort_hit: 150, escort_lost: 1500, escort_saved: 1500
   };
   var DEFAULT_GAP = 50;
 
@@ -87,7 +91,9 @@
     tele_charge: 1.1, heavy_hit: 1.3, system_break: 1.1, lance_fire: 1.1, burst_perfect: 1.1, dodge_evade: 1.1,
     minigame_tick: 0.7, minigame_hit: 0.8, minigame_miss: 0.8, minigame_done: 0.85,
     // S1: Speichersiegel leise im Hintergrund
-    save_seal: 0.7, save_delete: 0.8
+    save_seal: 0.7, save_delete: 0.8,
+    // S2: Funkrauschen leise, Notruf vorne, Treffer am Schützling unter hull_hit
+    gm_static: 0.6, offer_in: 0.9, distress: 1.1, escort_hit: 0.85, escort_lost: 1.0, escort_saved: 0.85
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
   var DUCK = {
@@ -105,7 +111,9 @@
     tele_charge: [0.7, 1.5], heavy_hit: [0.3, 0.7], lance_fire: [0.6, 0.35], system_break: [0.55, 0.4],
     burst_perfect: [0.7, 0.6],
     // S1
-    world_load: [0.6, 1.4]
+    world_load: [0.6, 1.4],
+    // S2
+    distress: [0.6, 0.8], escort_lost: [0.45, 1.4], escort_saved: [0.7, 1.0], offer_in: [0.75, 0.7]
   };
   // Sounds, die die Stimmen-Obergrenze ignorieren dürfen
   var PRIORITY = { alarm_yellow: 1, alarm_red: 1, emergency: 1, hull_hit: 1, shield_hit: 1, explosion_big: 1,
@@ -113,7 +121,9 @@
     // M2: Warntöne und Schildzustand müssen immer durchkommen
     enemy_aim: 1, warden_aim: 1, shield_break: 1, wounded: 1, squad_recall: 1, warden_wake: 1,
     // M3a: Ansage, schwere Treffer, Systembruch
-    tele_charge: 1, heavy_hit: 1, system_break: 1 };
+    tele_charge: 1, heavy_hit: 1, system_break: 1,
+    // S2: Notruf und Verlust des Schützlings müssen durchkommen
+    distress: 1, escort_lost: 1 };
 
   var GA = {
     errors: 0,
@@ -412,6 +422,71 @@
         noise({ t: t + 0.02 + k * 0.05, dur: 0.012, vol: 0.1, out: o, filter: 'bandpass', ff: 1500 + k * 250, q: 3 });
       }
       return 0.3;
+    },
+    // S2: Spielleiter berät – kurzer Fetzen Funkrauschen (bandpass, leise), zerhackt, mit einem fernen Trägerpfeifen
+    gm_static: function (t, o) {
+      noise({ t: t, dur: 0.6, a: 0.04, hold: 0.3, vol: 0.12, out: o, filter: 'bandpass', ff: 1700, ff2: 1300, q: 1.4 });
+      var at = [0.03, 0.14, 0.22, 0.37, 0.46], len = [0.06, 0.04, 0.09, 0.05, 0.08];
+      for (var i = 0; i < at.length; i++) {
+        noise({ t: t + at[i], dur: len[i], a: 0.004, vol: 0.13, out: o, filter: 'bandpass', ff: 1200 + hrand(i, 3) * 1800, q: 2.2 });
+      }
+      tone({ f: 2350, f2: 2280, t: t + 0.1, dur: 0.4, a: 0.08, vol: 0.012, out: o });
+      return 0.62;
+    },
+    // S2: Angebot eingetroffen – Messing-Motiv Quarte + Quinte aufwärts (G4 – C5 – G5), glockig, letzter Ton klingt aus
+    offer_in: function (t, o) {
+      var notes = [67, 72, 79], at = [0, 0.16, 0.32], len = [0.3, 0.3, 0.58];
+      for (var i = 0; i < notes.length; i++) {
+        var f = mtof(notes[i]);
+        fm({ f: f, ratio: 3.5, index: 1.4, index2: 0.05, iglide: 0.35, t: t + at[i], dur: len[i], a: 0.003, vol: 0.07, out: o });
+        tone({ type: 'sawtooth', f: f, t: t + at[i], dur: len[i], a: 0.012, vol: 0.045, out: o, filter: 'lowpass', ff: 2200, ff2: 700, q: 0.7 });
+        tone({ f: f * 2, t: t + at[i], dur: len[i] * 0.7, a: 0.002, vol: 0.03, out: o });
+      }
+      return 0.9;
+    },
+    // S2: Notruf eines Schützlings – Zweiton 880/660 Hz durch Funkfilter (bandpass), mit Rauschfahne.
+    // Unterschied zu alarm_red (622/466 Hz, Puls, sechsmal, voll): höher, dünner, nur vier Töne, „aus dem Funkgerät“.
+    distress: function (t, o) {
+      noise({ t: t, dur: 0.8, a: 0.01, hold: 0.6, vol: 0.06, out: o, filter: 'bandpass', ff: 1800, q: 0.9 });
+      for (var i = 0; i < 4; i++) {
+        var f = i % 2 ? 660 : 880, tt = t + i * 0.19;
+        tone({ type: 'square', f: f, t: tt, dur: 0.17, a: 0.006, hold: 0.11, vol: 0.13, out: o, filter: 'bandpass', ff: 1400, q: 1.6 });
+        tone({ f: f, t: tt, dur: 0.17, a: 0.006, hold: 0.11, vol: 0.06, out: o });
+      }
+      noise({ t: t + 0.76, dur: 0.04, vol: 0.1, out: o, filter: 'bandpass', ff: 2400, q: 1 });
+      return 0.82;
+    },
+    // S2: Treffer am Schützling – dumpf und entfernt, deutlich leiser als hull_hit
+    escort_hit: function (t, o) {
+      noise({ t: t, dur: 0.4, a: 0.004, vol: 0.4, out: o, filter: 'lowpass', ff: 550, ff2: 120, q: 0.8 });
+      tone({ f: 105, f2: 42, t: t, dur: 0.36, vol: 0.3, out: o });
+      fm({ f: 410, ratio: 2.9, index: 2.5, t: t + 0.015, dur: 0.25, vol: 0.05, out: o });
+      return 0.45;
+    },
+    // S2: Schützling verloren – absteigender Moll-Dreiklang (E5 – C5 – A4), dann hart abgeschnittenes Rauschen
+    escort_lost: function (t, o) {
+      var notes = [76, 72, 69], at = [0, 0.32, 0.64], len = [0.36, 0.36, 0.55];
+      for (var i = 0; i < notes.length; i++) {
+        var f = mtof(notes[i]);
+        tone({ type: 'triangle', f: f, t: t + at[i], dur: len[i], a: 0.02, hold: 0.08, vol: 0.16, out: o, filter: 'lowpass', ff: 1800 });
+        tone({ type: 'sawtooth', f: f / 2, t: t + at[i], dur: len[i], a: 0.03, vol: 0.04, out: o, filter: 'lowpass', ff: 900 });
+      }
+      tone({ f: mtof(45), t: t + 0.64, dur: 0.6, a: 0.05, vol: 0.1, out: o });
+      // Funk bricht ab: Rauschen schwillt an und endet ohne Ausklang
+      noise({ t: t + 1.18, dur: 0.3, a: 0.03, hold: 0.26, vol: 0.32, out: o, filter: 'bandpass', ff: 1600, q: 0.7 });
+      return 1.5;
+    },
+    // S2: Schützling gerettet – warmer Dur-Akkord auf H (verwandt mit save_seal: gleicher Stempel, gleiche H/Fis-Quinte, dazu Dis)
+    escort_saved: function (t, o) {
+      noise({ t: t, dur: 0.09, a: 0.002, vol: 0.26, out: o, filter: 'lowpass', ff: 400, ff2: 180, q: 0.9 });
+      tone({ f: 110, f2: 70, t: t, dur: 0.11, a: 0.002, vol: 0.24, out: o });
+      var chord = [246.94, 311.13, 369.99, 493.88], at = [0.08, 0.14, 0.2, 0.26];
+      for (var i = 0; i < chord.length; i++) {
+        tone({ type: 'sawtooth', f: chord[i], t: t + at[i], dur: 1.1 - at[i], a: 0.06, hold: 0.35, vol: 0.04, out: o, filter: 'lowpass', ff: 1500, ff2: 600, q: 0.6, detune: i * 3 });
+        tone({ type: 'triangle', f: chord[i], t: t + at[i], dur: 1.1 - at[i], a: 0.06, hold: 0.3, vol: 0.05, out: o });
+      }
+      tone({ f: 123.47, t: t + 0.08, dur: 1.1, a: 0.1, hold: 0.3, vol: 0.06, out: o });
+      return 1.2;
     },
     extinguish: function (t, o) {
       noise({ t: t, dur: 0.55, a: 0.02, hold: 0.2, vol: 0.32, out: o, filter: 'bandpass', ff: 3200, ff2: 1200, q: 0.7 });

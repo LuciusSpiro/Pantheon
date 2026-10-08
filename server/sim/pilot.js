@@ -22,11 +22,44 @@ function P(game) {
 }
 function shipClass(game, kind) { const SC = game.C.shipClasses; return SC ? SC[kind] || null : null; }
 
+// S2 §5: Ziel eines Gegners. e.targetId == null -> die Lerche (game.ship, unverändert wie bisher). Sonst der Schützling
+// mit dieser ID, solange er kampffähig ist; Treffer der Lerche (e.aggroUntil) ziehen den Gegner auf die Lerche.
+// Ist der Schützling ausgefallen/entkommen, nimmt der Gegner einen anderen aktiven Schützling oder wieder die Lerche.
+function targetOf(game, e) {
+  if (e.targetId == null) return game.ship;
+  if (e.aggroUntil != null && e.aggroUntil > game.time) return game.ship;
+  const L = game.space.escorts || [];
+  const ok = (q) => q.state === 'ok' || q.state === 'beschaedigt';
+  const es = L.find((q) => q.id === e.targetId);
+  if (es && ok(es)) return es;
+  const alt = L.find(ok);
+  e.targetId = alt ? alt.id : null;
+  return alt || game.ship;
+}
+
+// S2 §5: Wegpunkt-Steuerung eines Schützlings. goal = { x, y, speed (px/s), stopDist } oder null (anhalten).
+// Liefert { stage, rudder, brake } für Flight.stepBody (gleiche Physik wie Lerche und Gegner).
+function escort(game, es, c, goal) {
+  if (!goal) return { stage: Flight.stopStage(c), rudder: rudderFor(game, es, c, es.angle), brake: true };
+  const dx = goal.x - es.x, dy = goal.y - es.y; const d = Math.hypot(dx, dy);
+  let speed = Math.max(0, Number(goal.speed) || 0);
+  const stopDist = goal.stopDist || 0;
+  if (stopDist > 0) speed = d < stopDist ? 0 : Math.min(speed, (d - stopDist) * 0.6 + 8);
+  let head = d > 2 ? Math.atan2(dy, dx) : es.angle;
+  // große Kursänderung: wendigste Stufe statt Vollgas (im Stand dreht ein Schiff kaum)
+  if (speed > 0 && Math.abs(norm(head - es.angle)) > 1.0) speed = Math.max(Math.min(speed, Flight.stageSpeed(c, Flight.agileStage(c))), 8);
+  head = avoid(game, es, c, head);
+  const stage = speed > 0 ? Math.max(stageFor(c, speed), speed > 4 ? 1 : 0) : Flight.stopStage(c);
+  return { stage, rudder: speed > 0 || d > 2 ? rudderFor(game, es, c, head) : 0, brake: speed === 0 };
+}
+
 // Neues Flugmodell an? Testgelände: flightV2.arena, sonst flightV2.missions (per tune umschaltbar)
 function active(game) {
   const F = M3B(game).flightV2;
   if (!F) return false;
   const arena = !!(game.arena && game.arena.kind === 'arena_space');
+  // S2 §0.17: erzeugte Missionen (kopf.art 'generiert'|'archiv') fliegen mit der neuen KI (ENGINE liefert mission.flightV2)
+  if (!arena && game.mission && typeof game.mission.flightV2 === 'function' && game.mission.flightV2()) return true;
   return arena ? !!F.arena : !!F.missions;
 }
 // Fliegt dieser Gegner über das Flugmodell?
@@ -66,7 +99,7 @@ function initSpawn(game, e) {
     else { setState(e, 'turn'); newPass(game, e); }
   }
   if (e.kind === 'gunboat') {
-    const L = game.ship;
+    const L = targetOf(game, e);
     const rel = norm(Math.atan2(e.y - L.y, e.x - L.x) - L.angle);
     e.side = rel >= 0 ? 1 : -1;
   }
@@ -112,7 +145,7 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
 
 // ---------- Kanonenboot: Stationshalten im Bezugssystem der Lerche ----------
 function gunboat(game, e, c, dt) {
-  const p = P(game); const L = game.ship;
+  const p = P(game); const L = targetOf(game, e);
   const R = p.gunboatRange; const lead = p.lead;
   const tv = Math.hypot(L.vx, L.vy);
   const base = tv > 15 ? Math.atan2(L.vy, L.vx) : L.angle;   // Bezugsrichtung: Fahrtrichtung, sonst Bug
@@ -208,10 +241,11 @@ function newPass(game, e) {
 function raiders(game) { return game.space.enemies.filter((q) => q.kind === 'raider' && q._pilot); }
 // Darf dieser Jäger jetzt anfliegen? Höchstens einer in approach innerhalb 300 px, Staffelung raiderStagger s
 function mayApproach(game, e) {
-  const p = P(game); const L = game.ship; const sp = game.space;
+  const p = P(game); const sp = game.space;
   if (sp._lastApproachT != null && game.time - sp._lastApproachT < p.raiderStagger && sp._lastApproachId !== e.id) return false;
   for (const q of raiders(game)) {
     if (q === e || q.pstate !== 'approach') continue;
+    const L = targetOf(game, q);   // S2: Ziel des anderen Jägers (Lerche oder Schützling)
     if (Math.hypot(q.x - L.x, q.y - L.y) < 300) return false;
   }
   return true;
@@ -222,7 +256,7 @@ function startApproach(game, e) {
   game.space._lastApproachT = game.time; game.space._lastApproachId = e.id;
 }
 function raider(game, e, c) {
-  const p = P(game); const L = game.ship;
+  const p = P(game); const L = targetOf(game, e);
   const dx = L.x - e.x, dy = L.y - e.y; const d = Math.hypot(dx, dy) || 1;
   const bearing = Math.atan2(dy, dx);
   const top = c.stages.length - 1;
@@ -292,7 +326,7 @@ function raider(game, e, c) {
 
 // ---------- Pylon: Turm ----------
 function pylon(game, e) {
-  const L = game.ship;
+  const L = targetOf(game, e);
   return { stage: 0, head: Math.atan2(L.y - e.y, L.x - e.x), noAvoid: true };
 }
 
@@ -313,6 +347,7 @@ function avoid(game, e, c, head) {
   const myR = c.radius || 20;
   const others = [{ id: '', x: L.x, y: L.y, vx: L.vx, vy: L.vy, r: (game.C.flight && game.C.flight.radius) || 36 }];
   for (const q of sp.enemies) if (q !== e) others.push({ id: q.id, x: q.x, y: q.y, vx: q.vx || 0, vy: q.vy || 0, r: (shipClass(game, q.kind) || {}).radius || 20 });
+  if (sp.escorts) for (const q of sp.escorts) if (q !== e) others.push({ id: q.id, x: q.x, y: q.y, vx: q.vx || 0, vy: q.vy || 0, r: (shipClass(game, q.kind) || {}).radius || 30 });   // S2
   for (const o of others) {
     const thr = Math.max(p.minSeparation, myR + o.r) + 40;
     const look = clamp(1.2 / (c.turnRate || 1), 0.6, 2);   // träge Schiffe schauen weiter voraus
@@ -339,8 +374,8 @@ function avoid(game, e, c, head) {
 function update(game, e, dt) {
   ensure(game, e);
   const c = shipClass(game, e.kind);
-  const p = P(game); const sp = game.space; const L = game.ship;
-  e.pT = (e.pT || 0) + dt;
+  const p = P(game); const sp = game.space; const L = targetOf(game, e);
+  e.pT =(e.pT || 0) + dt;
   e.forceCenterT = Math.max(0, (e.forceCenterT || 0) - dt);
   let cmd;
   if (e.kind === 'pylon') cmd = pylon(game, e);
@@ -374,6 +409,7 @@ function keepApart(game, e, c) {
   const myR = c.radius || 20;
   const list = [{ x: L.x, y: L.y, r: (game.C.flight && game.C.flight.radius) || 36 }];
   for (const q of game.space.enemies) if (q !== e) list.push({ kind: q.kind + ':' + q.pstate, x: q.x, y: q.y, r: (shipClass(game, q.kind) || {}).radius || 20 });
+  if (game.space.escorts) for (const q of game.space.escorts) list.push({ kind: 'escort', x: q.x, y: q.y, r: (shipClass(game, q.kind) || {}).radius || 30 });   // S2
   for (const o of list) {
     const min = Math.max(p.minSeparation, myR + o.r);
     let dx = e.x - o.x, dy = e.y - o.y; let d = Math.hypot(dx, dy);
@@ -420,4 +456,5 @@ function snapState(e) {
   return e.pstate === 'cross' ? 'station' : e.pstate;
 }
 
-module.exports = { update, fly, flies, active, ensure, initSpawn, snapState, rudderFor, FLYING };
+module.exports = { update, fly, flies, active, ensure, initSpawn, snapState, rudderFor, FLYING,
+  targetOf, escort, avoid, stageFor };   // S2 §5 (SCHUETZLING)

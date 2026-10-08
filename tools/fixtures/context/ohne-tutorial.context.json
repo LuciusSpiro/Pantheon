@@ -6,10 +6,7 @@
   },
   "chronik": [],
   "crew": {
-    "anzahl": 1,
-    "spieler": [
-      "Kai"
-    ]
+    "anzahl": 1
   },
   "fakten": {
     "tutorial": "uebersprungen"
@@ -311,6 +308,69 @@
       },
       {
         "ansaetze": [
+          "technik"
+        ],
+        "id": "ausschlachten",
+        "kern": "Ersatzteile oder Rohstoffe aus einem Wrack holen",
+        "name": "Ausschlachten",
+        "szenentypen": [
+          "A11",
+          "C1",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Neues Treibgut ist ins Wrack „Zaunkönig“ gedriftet (die Karte wird dafür zurückgesetzt, der Grund wird erzählt). Das Außenteam sucht im Dunkeln die Bergungscontainer, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Heute nur im Wrack.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "wrack_container",
+            "karten": [
+              "wreck"
+            ],
+            "name": "Container im Wrack bergen",
+            "nur_an": [
+              "wrack"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik",
+          "heimlich"
+        ],
+        "id": "datenkern_bergen",
+        "kern": "Daten aus einem Wrack oder einer Anlage holen",
+        "name": "Datenkern bergen",
+        "szenentypen": [
+          "C1",
+          "C4",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Auf der Plattform unter Boje B-7 steckt ein Datenkern. Das Außenteam holt ihn aus der Halterung (E halten) und bringt ihn über die Pads an Bord; der Captain behält oben Drohnen und Zeit im Blick. Die Karte wird vorher zurückgesetzt (das Konkordat hat einen neuen Kern eingesetzt – der Grund wird erzählt). Der Kern bleibt an Bord, bis eine spätere Szene ihn abgibt. Heute nur auf B-7.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "plattform_kern",
+            "karten": [
+              "platform"
+            ],
+            "name": "Datenkern von der Plattform holen",
+            "nur_an": [
+              "b7"
+            ],
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "gewalt",
           "heimlich"
         ],
@@ -342,6 +402,65 @@
       },
       {
         "ansaetze": [
+          "gewalt",
+          "technik"
+        ],
+        "id": "halten",
+        "kern": "Bis Zeit X oder Ereignis Y durchhalten",
+        "name": "Halten",
+        "szenentypen": [
+          "A5",
+          "C3"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Captain verteilt Schilde. Nur an Orten mit Hauptobjekt.",
+            "dauer_min": [
+              3,
+              4
+            ],
+            "id": "position_halten",
+            "name": "Position am Objekt halten, bis der Uplink steht",
+            "nur_an": [
+              "b7",
+              "relais",
+              "wrack",
+              "vaelen",
+              "kesh"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "kurs_durch_gefahr",
+        "kern": "Einen Weg durch Nebel, Asteroiden, Minen oder Gravitationsfelder finden",
+        "name": "Kurs durch Gefahr",
+        "szenentypen": [
+          "A7"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Taktik deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "nebelflug",
+            "name": "Blindflug durch Feld oder Nebel",
+            "nur_an": [
+              "splitter",
+              "nebel"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "technik",
           "gewalt"
         ],
@@ -362,6 +481,93 @@
             "id": "bergungskisten",
             "name": "Bergungsgut im Feld einsammeln",
             "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "ladung_liefern",
+        "kern": "Fracht ans Ziel bringen und übergeben",
+        "name": "Ladung liefern",
+        "szenentypen": [
+          "A1",
+          "A12",
+          "D1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Abschluss einer Mission: Die Lerche dockt am Hafen oder bei der Karawane an, der Empfänger quittiert per Funk und zahlt. Liegt ein Gegenstand der Mission an Bord (Datenkern, Tafel), wird er übergeben. Keine Schlepparbeit: Was an Bord ist, fliegt einfach mit. Am Ziel kann gespeichert werden.",
+            "dauer_min": [
+              1,
+              2
+            ],
+            "id": "im_hafen_abgeben",
+            "name": "Am Hafen andocken und übergeben",
+            "nur_an": [
+              "hafen",
+              "vaelen"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "pannenhilfe",
+        "kern": "Fremdes Schiff reparieren (fremde Technik eines anderen Volks)",
+        "name": "Pannenhilfe",
+        "szenentypen": [
+          "A3",
+          "A9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein Havarist treibt mit totem Antrieb. Die Steuer bringt die Lerche nah heran und fast zum Stehen, dann flicken die Schrauber den Antrieb von außen (Fortschritt läuft nur nah, langsam und ohne Beschuss). Optional stören Jäger als angekündigte Wendung. Ruhige, präzise Flugarbeit; der Captain hält die Lage im Blick.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "andocken_und_flicken",
+            "name": "Längsseits gehen und flicken",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "personen_bergen",
+        "kern": "Schiffbrüchige, Verletzte, Verschüttete retten und stabilisieren",
+        "name": "Personen bergen",
+        "szenentypen": [
+          "A11",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Auf der Außenkarte (Plattform B-7, Wrack, Kesh) sitzt eine verletzte Person fest (wie damals Ivo). Das Außenteam nimmt ein Medipack mit, versorgt sie (E halten), sie folgt zu den Pads und wird mit hochgebeamt. Der Captain behält oben die Lage im Blick. Die Karte wird vorher zurückgesetzt, der Grund wird erzählt. Eine Person je Karte.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "techniker_retten",
+            "karten": [
+              "platform",
+              "wreck",
+              "kesh"
+            ],
+            "name": "Verletzte Person von einer Außenkarte holen",
+            "nur_an": [
+              "b7",
+              "wrack",
+              "kesh"
+            ],
+            "schauplatz": "aussen"
           }
         ]
       },
@@ -441,6 +647,41 @@
       },
       {
         "ansaetze": [
+          "gewalt"
+        ],
+        "id": "schuetzen",
+        "kern": "Einen Schützling (Schiff, Person, Anlage) heil durchbringen",
+        "name": "Schützen",
+        "szenentypen": [
+          "A3",
+          "A8",
+          "C3"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Kanonenboot + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "geleit_durch_angriff",
+            "name": "Geleit durch einen Angriff",
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Ein liegengebliebenes NSC-Schiff funkt Notruf, Jäger kreisen schon und laden auf den Havaristen. Die Lerche fängt Ladungen mit der Breitseite ab und vertreibt die Angreifer. Endet, wenn die Angreifer erledigt sind oder der Havarist kampfunfähig treibt. Lässt sich mit Pannenhilfe danach verbinden.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "notruf_verteidigen",
+            "name": "Notruf: Havaristen verteidigen",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "technik"
         ],
         "id": "signal_orten",
@@ -490,6 +731,62 @@
               "kesh"
             ],
             "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt"
+        ],
+        "id": "system_ausschalten",
+        "kern": "Gezielt Antrieb, Waffen oder Schilde treffen, um zu kapern statt zu zerstören",
+        "name": "System ausschalten",
+        "szenentypen": [
+          "A4",
+          "A5"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Taktik schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "stoerrelais",
+            "name": "Störrelais blockieren den Faltsprung",
+            "nur_an": [
+              "b7",
+              "relais",
+              "wrack",
+              "vaelen",
+              "kesh"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "reden",
+          "heimlich"
+        ],
+        "id": "taeuschen",
+        "kern": "Bluffen, Verkleidung, falsche Identität",
+        "name": "Täuschen",
+        "szenentypen": [
+          "A3",
+          "C6"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein NSC verlangt etwas und droht. Kurz darauf liefert die Ortung einen Hinweis (z. B. ein beschädigter Antrieb, ein leerer Laderaum). Der Captain wählt zwischen zwei Bluffs oder der Wahrheit; nur der Bluff, der zum Hinweis passt, verfängt. Wer genau zuhört, gewinnt. Die Folgen jeder Antwort legt der Spielleiter fest.",
+            "dauer_min": [
+              1,
+              3
+            ],
+            "id": "bluff_funk",
+            "name": "Bluff per Funk mit Hinweis von der Ortung",
+            "schauplatz": "weltraum"
           }
         ]
       },
@@ -560,11 +857,12 @@
         "szenentypen": [
           "A10",
           "A4",
+          "A5",
           "C2"
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte.",
+            "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
             "dauer_min": [
               3,
               5
@@ -572,54 +870,81 @@
             "id": "angriffswelle",
             "name": "Angriffswelle mit Verstärkung",
             "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "pylonen_pruefung",
+            "name": "Pylonen mit Frontschild um ein Objekt",
+            "nur_an": [
+              "relais",
+              "b7",
+              "kesh",
+              "wrack"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
+          "reden"
+        ],
+        "id": "vertreiben",
+        "kern": "Gegner besiegen oder zur Flucht/Aufgabe zwingen",
+        "name": "Vertreiben",
+        "szenentypen": [
+          "A4",
+          "C2"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein Trupp (Jäger, optional ein Kanonenboot) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "bis_zur_flucht",
+            "name": "Angreifer bis zur Flucht zurückschlagen",
+            "schauplatz": "weltraum"
           }
         ]
       }
     ],
     "noch_nicht_spielbar": {
       "molekuele": [
-        "ausschlachten",
         "befragen",
         "beobachten",
         "daten_stehlen",
-        "datenkern_bergen",
         "durchbrechen",
         "evakuieren",
         "gefahrgut",
         "gefangenen_ueberstellen",
         "geiseln_befreien",
-        "halten",
         "handeln",
         "kapern",
         "krise_eindaemmen",
-        "kurs_durch_gefahr",
-        "ladung_liefern",
-        "pannenhilfe",
         "passagiere_befoerdern",
-        "personen_bergen",
         "probe_nehmen",
         "sabotieren",
         "schlichten",
         "schmuggeln",
-        "schuetzen",
         "suchen",
-        "system_ausschalten",
-        "taeuschen",
         "unbemerkt_durchfliegen",
         "unbemerkt_hineinkommen",
         "versorgen",
-        "vertreiben",
         "wettflug",
         "ziel_markieren"
       ],
       "szenentypen": [
-        "ablieferung",
         "andocken_und_entern",
         "ausbruch",
-        "belagerung",
         "enterabwehr",
         "gast_an_bord",
-        "geleit",
         "gesellschaft",
         "halten",
         "hyperraumflug",
@@ -632,6 +957,23 @@
       ]
     },
     "szenentypen": [
+      {
+        "bereich": "weltraum",
+        "id": "ablieferung",
+        "kennung": "A12",
+        "kern": "Am Ziel ankommen und Ladung oder Passagiere übergeben: zum Ziel beamen oder andocken. Kontrolle, Quittung, Bezahlung",
+        "kippt_zu": [
+          "begegnung"
+        ],
+        "molekuele": [
+          "ladung_liefern"
+        ],
+        "name": "Ablieferung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
       {
         "bereich": "weltraum",
         "id": "annaeherung_und_erkundung",
@@ -661,9 +1003,32 @@
           "verfolgung"
         ],
         "molekuele": [
+          "pannenhilfe",
+          "schuetzen",
+          "taeuschen",
           "verhandeln"
         ],
         "name": "Begegnung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "belagerung",
+        "kennung": "A5",
+        "kern": "Kampf um ein festes Objekt: Station oder Plattform angreifen bzw. verteidigen, Sektoren knacken",
+        "kippt_zu": [
+          "andocken_und_entern",
+          "rueckzug"
+        ],
+        "molekuele": [
+          "halten",
+          "system_ausschalten",
+          "vernichten"
+        ],
+        "name": "Belagerung",
         "plaetze": [
           1,
           2
@@ -697,7 +1062,10 @@
           "halten"
         ],
         "molekuele": [
-          "artefakt_freilegen"
+          "artefakt_freilegen",
+          "ausschlachten",
+          "datenkern_bergen",
+          "personen_bergen"
         ],
         "name": "Bergung vor Ort",
         "plaetze": [
@@ -716,6 +1084,8 @@
         ],
         "molekuele": [
           "artefakt_freilegen",
+          "ausschlachten",
+          "datenkern_bergen",
           "rekonstruieren"
         ],
         "name": "Erkundung",
@@ -733,6 +1103,7 @@
           "raumgefecht"
         ],
         "molekuele": [
+          "kurs_durch_gefahr",
           "vermessen"
         ],
         "name": "Gefahrennavigation",
@@ -754,6 +1125,24 @@
           "stellung_nehmen"
         ],
         "name": "Gefecht",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "geleit",
+        "kennung": "A8",
+        "kern": "Einen Schützling schützen: Frachter, Fähre, beschädigtes Schiff",
+        "kippt_zu": [
+          "raumgefecht",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "schuetzen"
+        ],
+        "name": "Geleit",
         "plaetze": [
           1,
           2
@@ -802,7 +1191,9 @@
           "verfolgung"
         ],
         "molekuele": [
-          "vernichten"
+          "system_ausschalten",
+          "vernichten",
+          "vertreiben"
         ],
         "name": "Raumgefecht",
         "plaetze": [

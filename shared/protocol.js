@@ -6,7 +6,28 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return {
-    VERSION: 5,   // S1 „Regiebuch & Weltstand“ (vorher 4 = M4 Stufe 1 „Zwei Decks“)
+    VERSION: 6,   // S2 „Spielleiter an der Missionsgrenze“ (5 = S1 „Regiebuch & Weltstand“, 4 = M4 Stufe 1 „Zwei Decks“)
+    // ---- S2 (CONTRACT-S2 §4): Spielleiter-Angebote, Schützling, Kapitelkarte ----
+    // cmd { c: 'plan.decline', id } – Angebot im Missionsbuch ablehnen (wie plan.accept; ohne Malus).
+    // cmd { c: 'captain.escort', tag, befehl: ESCORT_ORDERS } – Befehl an einen Schützling (Captain-Konsole).
+    // Snapshot space.escorts[] (≤ 2): ESCORT_FIELDS; space.enemies[].tgt = Escort-ID, wenn ein Gegner einen Schützling anvisiert.
+    // Snapshot mission.planning: null | { stage: 0|1|2, von } (immer, klein). 0 Peilung, 1 Rat berät, 2 gesiegelt.
+    // Bucheintrag state 'angeboten' (Spielleiter): zusätzlich von, ziel, dauer_min, belohnung, erinnerung; origin ('sl'|'archiv')
+    //   nur bei Debug-Servern.
+    // Ereignisse: offerIn { id, title, from }, sceneWait { sec }, chapter { title, text }, escortHit { id, hpFrac },
+    //   escortDistress { id, hpFrac }, escortDisabled { id }, escortArrived { id }, escortSaved { id }, escortOrder { id, befehl, ok }.
+    // Debug: sl status | sl plan | sl fail grobplan|szene | sl archiv; escort <kind>  (Text in msg.args).
+    CMD_PLAN_DECLINE: 'plan.decline',
+    CMD_CAPTAIN_ESCORT: 'captain.escort',
+    ESCORT_ORDERS: ['halten', 'folgen', 'volle_kraft', 'andocken'],
+    ESCORT_STATES: ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'],
+    ESCORT_KINDS: ['frachter', 'karawane', 'bergungsboot'],
+    ESCORT_FIELDS: ['id', 'tag', 'kind', 'name', 'x', 'y', 'angle', 'hp', 'hpMax', 'state', 'befehl', 'distress'],
+    PLANNING_STAGES: [0, 1, 2],
+    OFFER_FIELDS: ['von', 'ziel', 'dauer_min', 'belohnung', 'erinnerung'],
+    OFFER_ORIGINS: ['sl', 'archiv'],
+    S2_EVENTS: ['offerIn', 'sceneWait', 'chapter', 'escortHit', 'escortDistress', 'escortDisabled', 'escortArrived', 'escortSaved', 'escortOrder'],
+    SL_DEBUG: ['status', 'plan', 'fail', 'archiv'],
     // ---- S1 (CONTRACT-S1 §6): Weltstand, Spielmenü ----
     // lobbyOpt { world: id | null } – Fortsetzen wählen (null = neu); gesetzt -> startMission wird beim Start ignoriert.
     // world { op: 'delete', id } – nur Lobby; gesperrt -> { t: 'error', code: 'worldbusy' }.
@@ -71,7 +92,7 @@
     // Snapshot mission.book { version, focus, entries[] } nur bei Änderung; immer: mission.bookVersion und die HUD-Felder
     // mission.focusId, mission.focusTitle, mission.focusObjectives [{ id?, text, done, optional? }], mission.focusLoc
     // (= fokussierter Eintrag, ohne Fokus die laufende Mission).
-    CMD_PLAN_BOOK: ['plan.focus', 'plan.accept'],
+    CMD_PLAN_BOOK: ['plan.focus', 'plan.accept', 'plan.decline'],   // S2: plan.decline
     BOOK_KINDS: ['mission', 'nebenauftrag', 'hinweis'],
     BOOK_STATES: ['angeboten', 'aktiv', 'erledigt'],
     // M3a §20.2: teleMiss { id, dodged: true } – Ladung endete ≤ spaceM3.dodgeWindow s nach einem Ausweichen
@@ -80,7 +101,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile'],   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort'],   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
     // ---- M3b Schritt A (CONTRACT-M3B) ----
     // §2 Temporegler: cmd { c: 'helm.throttle', delta: ±1 } oder { set: index }. Snapshot ship.helm.stage (Index),
     // ship.helm.stages (px/s je Stufe), ship.helm.autoStop. helm.input.thrust ist Altname (> 0,5 / < −0,5 = einmal ±1 Stufe).

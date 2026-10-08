@@ -19,6 +19,13 @@ const Objects = require('../mission/objects.js');
 
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
+// S2: Schützlinge (escort.js, Team SCHUETZLING) – defensiv, fehlt das Modul: 0 %
+let escortMod;
+function escortHpPct(g, tag) {
+  if (escortMod === undefined) { try { escortMod = require('./escort.js'); } catch (e) { escortMod = null; } }
+  if (!escortMod || typeof escortMod.hpPct !== 'function') return 0;
+  try { const v = Number(escortMod.hpPct(g, tag)); return Number.isFinite(v) ? Math.round(v) : 0; } catch (e) { g.countError('mission-escortHp', e); return 0; }
+}
 const { ITEM_NAMES, DEKO_NAMES } = require('./explore.js');
 // §21.2 Missionsbuch
 const BOOK_LOG_MAX = 6;   // Log-Einträge je Buch-Eintrag (die jüngsten)
@@ -149,6 +156,10 @@ class Mission {
     this.textDef = null;         // Def für @-Texte außerhalb der aktiven Mission (Folgen, danach, Nebenaufträge)
     this.writeCtx = null;        // { mission, ausgang } für Weltstand-Bausteine
     this.dormant = false;        // Schritt nach dem Laden noch nicht am Ort (siehe wakeIfThere)
+    // S2 §3.1: zur Laufzeit registrierte Bücher (Spielleiter/Archiv), außerhalb von order
+    this.extra = {};             // id -> { book, origin: 'sl'|'archiv' }
+    this.entered = new Set();    // 'missionId:schrittId' – betretene Schritte (updateBook ändert nur unbetretene)
+    this.seenOffers = new Set(); this.offerCheckT = 0;
     const cat = catalog();
     // Entscheidung 14: ungültiges Regiebuch mit --debug -> Abbruch, sonst laut loggen und nicht anbieten
     const fatal = cat.invalid;
@@ -161,13 +172,26 @@ class Mission {
   get order() { return catalog().order; }
 
   // ---------- Katalog ----------
-  info(id) { return catalog().info[id] || null; }
+  info(id) {
+    const x = this.extra[id];
+    if (x) {
+      const k = x.book.kopf || {};
+      return { id, title: k.titel || id, art: k.art || 'generiert', tutorial: false, angebot: x.book.angebot || {}, isBook: true, origin: x.origin };
+    }
+    return catalog().info[id] || null;
+  }
+  // Rohes Regiebuch (statischer Katalog oder zur Laufzeit registriert)
+  rawBook(id) { return this.extra[id] ? this.extra[id].book : (catalog().books[id] || null); }
+  // Alle Missionskennungen: Angebotsreihenfolge, danach die Spielleiter-Bücher (in Registrierungsreihenfolge)
+  allIds() { const o = this.order; return o.concat(Object.keys(this.extra).filter((id) => !o.includes(id))); }
   // Frische Laufzeit-Def (Bücher: cfg mit game.C aufgelöst)
   loadDef(id) {
     const cat = catalog();
     let def = null;
-    if (cat.books[id]) {
-      def = Loader.prepare(cat.books[id], this.game.C);
+    const raw = this.extra[id] ? this.extra[id].book : cat.books[id];
+    if (raw) {
+      def = Loader.prepare(raw, this.game.C);
+      if (this.extra[id]) def.origin = this.extra[id].origin;
       for (const e of def.cfgErrors) this.game.countError('mission-cfg', new Error(`${id}: ${e}`));
     } else if (cat.jsModules[id]) def = cat.jsModules[id];
     if (def) this.defCache[id] = def;
@@ -187,6 +211,7 @@ class Mission {
     if (tutorial) {
       const first = this.order.find((id) => this.info(id).angebot.start) || this.order[0];
       if (first) this.startMission(first);
+      this.sl('onCampaignStart', { tutorial: true });   // S2 §2.1
       return;
     }
     for (const id of this.order) {
@@ -199,6 +224,9 @@ class Mission {
       const ag = def && def.ausgaenge && def.ausgaenge.uebersprungen;
       if (ag) this.withContext(def, { mission: id, ausgang: 'uebersprungen' }, () => this.run((ag.folgen || []).filter((a) => a && a.do === 'welt_fakt')));
     }
+    // S2 (QA-INTEGRATION): Kartenstand wie nach dem Tutorial – alle Orte bekannt (nicht besucht), gesperrte Verbindungen
+    // (nebel–relais, kesh), die m2/m3 öffnen, offen. Still: kein ODA, kein Logbuch.
+    this.openTutorialMap();
     const camp = C.campaign || {};
     g.inventory.marks = camp.skipTutorialMarks != null ? camp.skipTutorialMarks : C.economy.startMarks;
     const kamp = (Loader.npcData().kampagne || {}).ohne_tutorial || {};
@@ -211,7 +239,127 @@ class Mission {
     this.pending.push({ at: g.time + (camp.teskRumorAt != null ? camp.teskRumorAt : 8), actions: [{ radio: { from: funk.from || 'tesk', text: funk.text } }] });
     this.refreshObjectives();
     this.checkOffers();
+    this.sl('onCampaignStart', { tutorial: false });   // S2 §2.1: Planung nach dem Tesk-Funk (Spielleiter plant selbst)
   }
+
+  // ---------- S2: Spielleiter-Nähte ----------
+  // Aufruf in game.spielleiter (defensiv, Fehler gezählt); ohne Spielleiter undefined
+  sl(method, ...args) {
+    const g = this.game;
+    if (!g || !g.spielleiter) return undefined;
+    if (typeof g.callSpielleiter === 'function') return g.callSpielleiter(method, ...args);
+    const s = g.spielleiter;
+    if (typeof s[method] !== 'function') return undefined;
+    try { return s[method](...args); } catch (e) { g.countError('spielleiter-' + method, e); return undefined; }
+  }
+  // Neue Gegner-KI (flightV2) für erzeugte Missionen (kopf.art generiert|archiv); Tutorial unverändert (pilot.js fragt)
+  flightV2() {
+    const a = this.def && this.def.kopf && this.def.kopf.art;
+    return a === 'generiert' || a === 'archiv';
+  }
+  // §3.1: Buch zur Laufzeit registrieren. -> { ok, errors?, warnings? }. Prüft (Checker) und bereitet vor (Loader.prepare).
+  registerBook(book, opts) {
+    const fail = (code, p, msg, extra) => Object.assign({ ok: false, errors: [{ code, p, msg }] }, extra || {});
+    if (!isObj(book) || typeof book.id !== 'string') return fail('SCHEMA', 'id', 'Buch ohne id');
+    const id = book.id;
+    const art = book.kopf && book.kopf.art;
+    if (art !== 'generiert' && art !== 'archiv') return fail('ART', 'kopf.art', `kopf.art muss 'generiert' oder 'archiv' sein (ist ${JSON.stringify(art)})`);
+    if (catalog().info[id]) return fail('DOPPELT', 'id', `Mission '${id}' gibt es schon im Katalog`);
+    if (this.missions[id]) return fail('LAEUFT', 'id', `Mission '${id}' läuft schon bzw. ist erledigt – updateBook benutzen`);
+    let r;
+    try { r = Checker.check(book); } catch (e) { return fail('PRUEFER', '$', 'Prüfer abgestürzt: ' + e.message); }
+    if (!r.ok) return { ok: false, errors: r.errors, warnings: r.warnings };
+    const copy = JSON.parse(JSON.stringify(book));
+    const def = Loader.prepare(copy, this.game.C);
+    if (def.cfgErrors.length) return fail('REF-CFG', '$', def.cfgErrors.join('; '));
+    const origin = (opts && opts.origin) || (art === 'archiv' ? 'archiv' : 'sl');
+    this.extra[id] = { book: copy, origin };
+    delete this.defCache[id];
+    return { ok: true, warnings: r.warnings };
+  }
+  // §3.1: Buch ersetzen (zwischen zwei Ticks). Nur unbetretene Schritte dürfen sich ändern; der laufende Schritt wird per
+  // ID neu gebunden (Timer/Regeln-Zustand bleibt, weil der Schritt selbst unverändert ist).
+  updateBook(id, book) {
+    const fail = (code, p, msg) => ({ ok: false, errors: [{ code, p, msg }] });
+    const x = this.extra[id];
+    if (!x) return fail('UNBEKANNT', 'id', `Kein Spielleiter-Buch '${id}'`);
+    if (!isObj(book) || book.id !== id) return fail('SCHEMA', 'id', 'id passt nicht');
+    if (this.missions[id] && this.missions[id].state === 'done') return fail('ERLEDIGT', 'id', `Mission '${id}' ist erledigt`);
+    const art = book.kopf && book.kopf.art;
+    if (art !== 'generiert' && art !== 'archiv') return fail('ART', 'kopf.art', "kopf.art muss 'generiert' oder 'archiv' sein");
+    let r;
+    try { r = Checker.check(book); } catch (e) { return fail('PRUEFER', '$', 'Prüfer abgestürzt: ' + e.message); }
+    if (!r.ok) return { ok: false, errors: r.errors, warnings: r.warnings };
+    const oldSteps = new Map((x.book.steps || []).map((s) => [s.id, JSON.stringify(s)]));
+    const newSteps = new Map((book.steps || []).map((s) => [s.id, JSON.stringify(s)]));
+    for (const key of this.entered) {
+      const [mid, sid] = key.split(':');
+      if (mid !== id) continue;
+      if (oldSteps.get(sid) !== newSteps.get(sid)) return fail('BETRETEN', `steps.${sid}`, `Schritt '${sid}' wurde schon betreten und darf sich nicht ändern`);
+    }
+    const copy = JSON.parse(JSON.stringify(book));
+    const def = Loader.prepare(copy, this.game.C);
+    if (def.cfgErrors.length) return fail('REF-CFG', '$', def.cfgErrors.join('; '));
+    def.origin = x.origin;
+    if (this.activeId === id && this.def) {
+      const st = this.step ? def.steps.find((s) => s.id === this.step.id) : null;
+      if (this.step && !st) return fail('BETRETEN', 'steps', `laufender Schritt '${this.step.id}' fehlt im neuen Buch`);
+      this.def = def; this.defCache[id] = def;
+      if (st) this.step = st;
+      this.missions[id].title = def.title;
+    } else delete this.defCache[id];
+    x.book = copy;
+    return { ok: true, warnings: r.warnings };
+  }
+  unregisterBook(id) {
+    if (!this.extra[id]) return { ok: false, errors: [{ code: 'UNBEKANNT', p: 'id', msg: `Kein Spielleiter-Buch '${id}'` }] };
+    if (this.activeId === id) return { ok: false, errors: [{ code: 'LAEUFT', p: 'id', msg: `Mission '${id}' läuft gerade` }] };
+    delete this.extra[id]; delete this.defCache[id];
+    if (this.missions[id] && this.missions[id].state !== 'done') delete this.missions[id];
+    return { ok: true };
+  }
+  // §3.1: Missionsbuch-Einträge 'angeboten' aus game.spielleiter.offers()
+  offerList() {
+    const list = this.sl('offers');
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    for (const o of list) {
+      if (!isObj(o) || typeof o.id !== 'string' || this.missions[o.id]) continue;
+      if (['running', 'done', 'declined', 'abgelehnt', 'aktiv', 'erledigt'].includes(o.state)) continue;
+      const str = (v, n) => (v == null ? null : String(v).slice(0, n));
+      const vonName = o.von != null ? this.npcName(String(o.von)) : null;   // QA-INTEGRATION S2: Anzeigename statt Kennung
+      const e = { id: o.id, title: str(o.titel || o.title, 60) || o.id, from: str(vonName, 40), kind: 'mission', state: 'angeboten',
+        briefing: str(o.briefing, 300) || '', reward: str(o.belohnung, 80) || '', objectives: [], log: [], loc: str(o.ziel, 40),
+        von: str(vonName, 40), ziel: str(o.ziel, 40), dauer_min: Number.isFinite(o.dauer_min) ? o.dauer_min : null,
+        belohnung: str(o.belohnung, 80), erinnerung: str(o.erinnerung, 160) };
+      if (this.game.debug && o.origin) e.origin = o.origin === 'archiv' ? 'archiv' : 'sl';
+      out.push(e);
+    }
+    return out;
+  }
+  // Neue Angebote melden (Ereignis offerIn) – höchstens alle 0,5 s nachsehen
+  checkNewOffers(dt) {
+    if (!this.game.spielleiter) return;
+    this.offerCheckT -= dt;
+    if (this.offerCheckT > 0) return;
+    this.offerCheckT = 0.5;
+    for (const o of this.offerList()) {
+      if (this.seenOffers.has(o.id)) continue;
+      this.seenOffers.add(o.id);
+      this.game.emit('offerIn', { id: o.id, title: o.title, from: o.from });
+      this.game.emit('sfx', { name: 'offer_in' });
+    }
+  }
+  // Ereignis chapter (Kapitelkarte): Kampagne läuft weiter
+  chapter(a) {
+    const g = this.game;
+    const title = this.tpl(a.title) || 'Kapitel abgeschlossen';
+    const text = a.text != null ? this.tpl(a.text) : null;
+    g.emit('chapter', { title, text });
+    g.log(`Kapitelkarte: ${title}`);
+  }
+  // Anflug/sceneWait (Absprache Studioleitung): Der Spielleiter hält seine Anflug-Schritte selbst über die Prüfung
+  // szene_bereit { szene } (registry.js) und sendet sceneWait selbst. Die Engine hält nicht zusätzlich.
 
   // M2: Lobby-Direktstart (CONTRACT-M2 §3.3): frühere Missionen gelten als erledigt, Schiff im Hafen (nicht angedockt),
   // angebot.direktstart.setFlag/prep, Auftrag kommt als Funk zum Annehmen. Ohne Weltstand (S1 Entscheidung 18).
@@ -235,18 +383,43 @@ class Mission {
     this.startMission(id);
   }
 
+  openTutorialMap() {
+    const ex = this.game.explore;
+    if (!ex || typeof ex.knowSilently !== 'function') return;
+    try {
+      for (const l of Locations.LOCKED_LINKS) ex.openLink(l.key);
+      for (const l of Locations.LOCATIONS) ex.knowSilently(l.id);
+    } catch (e) { this.game.countError('openTutorialMap', e); }
+  }
+  // S2 (QA-INTEGRATION): erzeugte/Archiv-Missionen – Route zu allen Orten der Bühne herstellen (still), sonst sind z. B.
+  // Kesh oder das Relais ohne Tutorial unerreichbar.
+  openStageRoutes(id, def) {
+    const ex = this.game.explore;
+    if (!ex || typeof ex.ensureRoute !== 'function' || !def || (def.art !== 'generiert' && def.art !== 'archiv')) return;
+    try {
+      const raw = this.rawBook(id) || {};
+      const orte = ((raw.buehne && raw.buehne.orte) || (def.buehne && def.buehne.orte) || []);
+      for (const o of orte) if (typeof o === 'string') ex.ensureRoute(o);
+    } catch (e) { this.game.countError('openStageRoutes', e); }
+  }
   startMission(id) {
     const def = this.loadDef(id);
     if (!def) { this.game.countError('mission-start', new Error('Unbekannte Mission ' + id)); return; }
     if (def.isBook) {
       // §3.3: Prüfer beim Missionsstart noch einmal (das Buch ist geladen und gültig – Sicherung gegen Laufzeitänderungen)
-      const r = Checker.check(catalog().books[id]);
+      const r = Checker.check(this.rawBook(id));
       if (!r.ok) { this.game.countError('mission-book', new Error(`${id}: ${r.errors.map((e) => e.code + ' ' + e.p).slice(0, 3).join('; ')}`)); return; }
     }
     if (def.art === 'intern') this.mode = this.mode || 'arena';
     this.applyExpected(def);
+    this.openStageRoutes(id, def);
+    // QA-INTEGRATION S2: Schützlinge einer früheren Mission gehören nicht in die neue (Tags wiederholen sich)
+    if ((def.art === 'generiert' || def.art === 'archiv') && this.game.space) { this.game.space.escorts = []; this.game.space.escortsGone = []; }
     this.missions[id] = { id, title: def.title, state: 'active' };
     this.activeId = id; this.def = def;
+    // S2 (Bericht SPIELLEITER): Entscheidungen gelten je Mission – sonst überspringt ein wiederholtes Archiv-Buch mit
+    // gleicher Entscheidungs-ID die Wahl. restore() überlagert danach wie bisher.
+    this.choicesMade = new Set();
     const st = this.game.stats;
     st.missions[id] = { start: this.playTime(), end: null };
     this.game.emit('missionStart', { id, title: def.title });
@@ -276,6 +449,7 @@ class Mission {
     if (def.onComplete) this.run(def.onComplete);   // nur Altmodule
     if (ag && ag.danach) this.withContext(def, { mission: id, ausgang }, () => this.run(ag.danach));
     if (this.mode !== 'direct' && this.mode !== 'arena') this.checkOffers();
+    this.sl('onMissionDone', { id, ausgang });   // S2 §3.1: für jede Mission, der Spielleiter filtert
   }
 
   // Angebote: nächste Mission starten, deren angebot.nach gilt (sofort aktiv wie bisher)
@@ -298,13 +472,17 @@ class Mission {
     const step = this.def.steps.find((s) => s.id === id);
     if (!step) { g.countError('mission-step', new Error('Unbekannter Schritt ' + id)); return; }
     this.collectStepEnd();
+    const prevStep = this.step && this.def && this.def.steps.includes(this.step) ? this.step : null;
     this.dormant = !!(opts && opts.dormant);
     this.step = step; this.state.stage = id;
+    if (this.activeId) this.entered.add(this.activeId + ':' + id);
     this.stepTime = 0; this.v = {}; this.events = new Set(); this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set();
     this.kills = {}; this.state.choice = null; this.scanPoint = null;
     g.ship.scan.progress = 0; g.ship.scan.done = false; g.ship.scanning = false;
     g.stats.stages[id] = this.playTime();
     g.emit('stage', { stage: id, mission: this.activeId });
+    // S2 §3.1: Wechsel auf einen Schritt mit neuer Umsetzung -> Spielleiter fragt die Nachfolgeszene(n) an (Vorlauf)
+    if (step.umsetzung && (!prevStep || prevStep.umsetzung !== step.umsetzung || prevStep === step)) this.sl('onSceneEnter', this.activeId, step.szene || step.id);
     if (step.enter && !this.dormant) this.run(step.enter);
     this.refreshObjectives();
   }
@@ -353,6 +531,8 @@ class Mission {
         e.v = JSON.parse(JSON.stringify(this.v));
         e.ereignisse = [...this.events];
         e.entscheidungen = [...this.choicesMade];
+        // S2: betretene Schritte erzeugter Missionen (updateBook ändert nur unbetretene)
+        if (this.extra[id]) e.betreten = [...this.entered].filter((k) => k.startsWith(id + ':')).map((k) => k.slice(id.length + 1));
       }
       missionen[id] = e;
     }
@@ -390,6 +570,7 @@ class Mission {
       const resume = st && st.wiederaufnahme && def.steps.some((s) => s.id === st.wiederaufnahme.ab) ? st.wiederaufnahme : null;
       const target = resume ? resume.ab : sid;
       for (const z of this.doneLog[aid] || []) this.done.add(aid + ':' + z.id);
+      for (const sidB of Array.isArray(m.betreten) ? m.betreten : []) this.entered.add(aid + ':' + sidB);
       const tStep = def.steps.find((s) => s.id === target);
       this.setStep(target, { dormant: !!(tStep && tStep.loc && g.ship.scene !== tStep.loc) });
       if (target === sid && isObj(m.v)) Object.assign(this.v, m.v);
@@ -505,6 +686,7 @@ class Mission {
     if (a.wirkung) this.runEffect(a);
     if (a.complete) { this.completeMission(a.complete); }
     if (a.startMission) this.startMission(a.startMission);
+    if (a.chapter) this.chapter(a);   // S2: Kapitelkarte, Spiel läuft weiter
     if (a.end) g.endGame(a.title || a.text ? { title: this.tpl(a.title), text: this.tpl(a.text) } : undefined);
     if (a.goto) this.setStep(a.goto);
   }
@@ -536,6 +718,7 @@ class Mission {
     const st = space.stationPoint(g);
     for (let i = 0; i < n; i++) {
       const opts = { tag: s.tag || null };
+      if (s.ziel != null) opts.ziel = s.ziel;   // S2: lerche|schuetzling|auto|<escort-tag> (space.js, SCHUETZLING)
       if (s.angles) opts.angle = s.angles[i % s.angles.length];
       else if (s.behind) opts.angle = g.ship.angle + Math.PI + (n > 1 ? (i ? 0.35 : -0.35) : 0);   // M3a: klar achtern (Hecksektor)
       if (s.atStation) {
@@ -585,6 +768,7 @@ class Mission {
       if (k === 'jammersOff') return String(Objects.countInState(g, 'kesh', 'jammer', 'off'));
       if (k === 'arena') return arena().objectiveText(g);
       if (k === 'reward') return this.lastReward || '';
+      if (k === 'escortHp') return String(escortHpPct(g, arg));   // S2: Hülle eines Schützlings in % (escort.js)
       return all;
     });
   }
@@ -681,6 +865,7 @@ class Mission {
       }
     }
     this.globalComments();
+    this.checkNewOffers(dt);   // S2: Ereignis offerIn
     if (!this.step) {
       if (this.mode === 'campaign') this.checkOffers();
       if (!this.step) { this.refreshObjectives(); return; }
@@ -842,7 +1027,7 @@ class Mission {
 
   lastDoneDef() {
     let best = null; let bestEnd = -Infinity;
-    for (const id of this.order) {
+    for (const id of this.allIds()) {
       const ms = this.missions[id];
       if (!ms || ms.state !== 'done') continue;
       const end = (this.game.stats.missions[id] && this.game.stats.missions[id].end) || 0;
@@ -908,7 +1093,7 @@ class Mission {
 
   // ---------- Snapshot ----------
   snapshotList() {
-    return this.order.filter((id) => this.missions[id]).map((id) => ({ id, title: this.missions[id].title, state: this.missions[id].state }));
+    return this.allIds().filter((id) => this.missions[id]).map((id) => ({ id, title: this.missions[id].title, state: this.missions[id].state }));
   }
 
   // ---------- §21.2 Missionsbuch ----------
@@ -969,7 +1154,7 @@ class Mission {
   // Alle Einträge, die die Crew als Auftrag kennt (Reihenfolge: Missionen, Nebenaufträge, Ausblick, Hinweise)
   bookEntries() {
     const g = this.game; const ex = g.explore; const out = [];
-    for (const id of this.order) {
+    for (const id of this.allIds()) {
       const ms = this.missions[id];
       if (!ms) continue;
       const def = id === this.activeId && this.def ? this.def : this.defFor(id);
@@ -982,9 +1167,13 @@ class Mission {
       const done = (this.doneLog[id] || []).map((o) => objOut(o.text, true, o.optional));
       const open = running && this.step ? this.state.objectives.filter((o) => !o.done && !(this.doneLog[id] || []).some((x) => x.id === o.id)).map((o) => objOut(o.text, false, o.optional)) : [];
       const bi = this.bookInfo(def);
-      out.push({ id, title: def.title, from: bi.from, kind: 'mission', state, briefing: bi.briefing, reward: bi.reward,
-        objectives: done.concat(open), log: this.entryLog(id), loc: running && this.step && this.step.loc ? this.step.loc : null });
+      const entry = { id, title: def.title, from: bi.from, kind: 'mission', state, briefing: bi.briefing, reward: bi.reward,
+        objectives: done.concat(open), log: this.entryLog(id), loc: running && this.step && this.step.loc ? this.step.loc : null };
+      if (g.debug && this.extra[id]) entry.origin = this.extra[id].origin;   // S2: nur Debug
+      out.push(entry);
     }
+    // S2 §3.1: Angebote des Spielleiters (state 'angeboten', mit von/ziel/dauer_min/belohnung/erinnerung)
+    for (const e of this.offerList()) out.push(e);
     // Nebenaufträge aus Daten; Übergang: Sela/Zaunkönig fest, solange es kein Buch mit dieser Kennung gibt
     const sides = catalog().sides;
     for (const id of sides) {
@@ -1060,12 +1249,30 @@ class Mission {
     this.game.emit('sfx', { name: 'ui_click' });
     return null;
   }
+  // S2: Angebot des Spielleiters? -> Eintrag aus offerList()
+  slOffer(id) { return this.game.spielleiter ? this.offerList().find((x) => x.id === id) || null : null; }
   acceptEntry(id) {
+    // S2 (Absprache): Spielleiter-Angebot -> nur spielleiter.accept(id); er startet die Mission selbst (startMission)
+    if (this.slOffer(id)) {
+      if (this.activeId && this.missions[this.activeId] && this.missions[this.activeId].state !== 'done') return 'Erst die laufende Mission abschließen.';
+      const r = this.sl('accept', id);
+      if (typeof r === 'string' && r) return r;
+      this.game.emit('sfx', { name: 'ui_click' });
+      return null;
+    }
     const e = this.bookEntries().find((x) => x.id === id);
     if (!e) return 'Unbekannter Eintrag im Missionsbuch.';
     if (id === 'teaser') return 'Nur ein Ausblick – Fortsetzung folgt.';
     if (e.state !== 'angeboten' || id !== this.activeId || !this.offerPending()) return 'Hier gibt es nichts anzunehmen.';
     return this.doAccept();
+  }
+  // S2 §4: cmd plan.decline – nur Spielleiter-Angebote (ohne Malus; Gedächtnis-Eintrag macht der Spielleiter)
+  declineEntry(id) {
+    if (!this.slOffer(id)) return this.bookEntries().some((x) => x.id === id) ? 'Das lässt sich nicht ablehnen.' : 'Unbekannter Eintrag im Missionsbuch.';
+    const r = this.sl('decline', id);
+    if (typeof r === 'string' && r) return r;
+    this.game.emit('sfx', { name: 'ui_click' });
+    return null;
   }
 
   // ---------- Debug ----------

@@ -1,19 +1,21 @@
 'use strict';
-// Teaser-Mission (§8): Claude-Bridge oder Archiv (fallback.json). Token wird nie geloggt oder an Clients gegeben.
+// Teaser-Mission (§8) – seit S2 STILLGELEGT (CONTRACT-S2 Entscheidung 19): Der Spielleiter (server/mission/spielleiter.js)
+// löst den Teaser ab. generate() liefert immer das Archiv (fallback.json), die Claude-Bridge wird nicht mehr gerufen.
+// Die Exporte bleiben als Altnamen (game.startTeaser, Tests). Token-Zählung läuft über den EINEN Prozess-Zähler in
+// server/mission/llm.js (LLM.budget()). Token wird nie geloggt oder an Clients gegeben.
 const fs = require('fs');
 const path = require('path');
 const Schema = require('../../shared/schema.js');
+const LLM = require('./llm.js');
 
 const FALLBACK = JSON.parse(fs.readFileSync(path.join(__dirname, 'fallback.json'), 'utf8')).missions;
 const TIMEOUT_MS = 90000;
 
-let inFlight = null; // nur ein Bridge-Aufruf gleichzeitig
+let inFlight = null; // nur ein Bridge-Aufruf gleichzeitig (Altlast, nur noch über bridgeImpl in Tests)
 
-// Token-Deckel pro Serverlauf (Kai, 2026-10-04: 500k). Gezählt wird, was die CLI als usage meldet
-// (Eingabe inkl. Cache + Ausgabe). Ist der Deckel erreicht, kommen nur noch Archiv-Missionen.
-// Ein laufender Aufruf darf den Deckel um seinen eigenen Verbrauch überschreiten.
+// Token-Deckel pro Serverlauf (Kai, 2026-10-04: 500k) – S2: ein Zähler für den ganzen Prozess (LLM.budget()).
 const DEFAULT_TOKEN_BUDGET = 500000;
-const usage = { tokens: 0, calls: 0 };
+const usage = { get tokens() { return LLM.budget().used; }, get calls() { return LLM.budget().calls; } };
 
 function settings(env) {
   const e = env || process.env;
@@ -36,7 +38,7 @@ function tokensFromCli(cli) {
 function recordUsage(body, log) {
   try {
     const n = tokensFromCli(JSON.parse(body.stdout));
-    usage.tokens += n; usage.calls++;
+    LLM.addUsage(n);
     log('Teaser: Claude-Aufruf ' + usage.calls + ' verbrauchte ' + n + ' Tokens, gesamt ' + usage.tokens + '.');
   } catch (e) { /* unlesbare Antwort: parseBridgeResponse meldet den Fehler */ }
 }
@@ -119,6 +121,8 @@ function generate(flags, opts) {
   const cfg = settings(o.env);
   if (cfg.source !== 'bridge') return Promise.resolve(pickFallback(flags));
   if (!cfg.token) { log('Teaser: MISSION_SOURCE=bridge, aber kein CLAUDE_BRIDGE_TOKEN – nutze Archiv.'); return Promise.resolve(pickFallback(flags)); }
+  // S2: stillgelegt – ohne ausdrücklich übergebene bridgeImpl (nur Tests) nie mehr die Bridge rufen
+  if (!o.bridgeImpl) { log('Teaser: stillgelegt (Spielleiter S2) – nutze Archiv.'); return Promise.resolve(pickFallback(flags)); }
   if (inFlight) return inFlight;
   if (usage.tokens >= cfg.tokenBudget) {
     log('Teaser: Token-Deckel erreicht (' + usage.tokens + ' / ' + cfg.tokenBudget + ') – nutze Archiv.');
@@ -131,7 +135,7 @@ function generate(flags, opts) {
   return inFlight;
 }
 
-function getTokenUsage() { return { tokens: usage.tokens, calls: usage.calls }; }
-function resetTokenUsage() { usage.tokens = 0; usage.calls = 0; }
+function getTokenUsage() { const b = LLM.budget(); return { tokens: b.used, calls: b.calls }; }
+function resetTokenUsage() { LLM.resetBudget(); }
 
 module.exports = { generate, pickFallback, buildPrompt, parseBridgeResponse, settings, tokensFromCli, getTokenUsage, resetTokenUsage, FALLBACK };

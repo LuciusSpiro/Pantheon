@@ -33,6 +33,8 @@
   <span id="status">lade …</span>
 </header>
 
+<section id="secEscort"><h2>S2 · Schützlinge (Art.drawEscort): Frachter „Kontor“ · Vaelen-Karawane · Bergungsboot</h2><div class="scroll"><canvas id="cEscort"></canvas></div>
+<p class="note">Art.drawEscort(ctx, kind, x, y, angle, { hpFrac, hitT, time, distress, state }) – Spalten: heil · drehend · 50 % (Rauch) · 20 % (Feuer) · Trefferblitz eisblau · Notruf (Ring Eisblau→Bernstein) · kampfunfähig (Wrack). Bug zeigt nach +x.</p></section>
 <section id="secSeal"><h2>S1 · Siegel „Weltstand gesichert“ (Art.drawSeal)</h2><div class="scroll"><canvas id="cSeal"></canvas></div>
   <p class="note">Art.drawSeal(ctx, x, y, size, variant) – x/y Mittelpunkt, Größen 12 · 16 · 20 · 24 · 32 · 48 · 64 px; oben 'ok' (Lerche-Rot #9E1F27, Messingkante, Lorbeer; klein Raute), unten 'warn' (#E0473C, Ausrufezeichen). Links auf Tiefraum #0B0E1A, rechts auf Fläche #2E3A4A, darunter die HUD-Zeile.</p></section>
 <section><h2>M3a · Lerche (44 × 13) – komplette Karte mit allen Stationen</h2><div class="scroll"><canvas id="cShip"></canvas></div>
@@ -107,6 +109,7 @@
     canv.m3obj = cv('cM3Obj', 1000, 610);
     canv.m3rooms = cv('cM3Rooms', 1090, 368);
     canv.m3space = cv('cM3Space', 1000, 560);
+    canv.escort = cv('cEscort', ESC_W, ESC_H);
   }
 
   // M1: Quartier-Stile für die Vorschau (wie Snapshot quarters) + Deko in den Slots
@@ -901,6 +904,7 @@
       drawM1ObjSection(t); drawQuartersSection(t); drawWreckSection(t); drawWreckSrvSection(t); drawM1SpaceSection(t); drawM1IconsSection(t);
       drawKeshSection(t); drawM2ObjSection(t); drawM2FigSection(t); drawM2FxSection(t); drawM2SpaceSection(t);
       drawM3ObjSection(t); drawM3RoomsSection(t); drawM3SpaceSection(t);
+      drawEscortSection(t);
     } catch (e) { console.error(e); window.__artPreview.frameErrors++; }
     requestAnimationFrame(frame);
   }
@@ -1144,7 +1148,7 @@
 
   // S1: Siegel in allen Größen und beiden Varianten, auf beiden Hintergründen (statisch, einmal gezeichnet)
   function drawSealSection() {
-    var sizes = [12, 16, 20, 24, 32, 48, 64], W = 1000, H = 230;
+    var sizes = [12, 16, 20, 24, 32, 48, 64], W = 1000, H = 310;
     var g = cv('cSeal', W, H);
     g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, W / 2, H);
     g.fillStyle = '#2E3A4A'; g.fillRect(W / 2, 0, W / 2, H);
@@ -1162,6 +1166,32 @@
       Art.drawText(g, 'WELTSTAND GESICHERT · HAFEN LICHTKORDON', x0 + 38, 191, { color: '#7FE0C2' });
       Art.drawSeal(g, x0 + 24, 216, 16, 'warn');
       Art.drawText(g, 'WELTSTAND NICHT GESICHERT', x0 + 38, 211, { color: '#F2C94C' });
+      // S2: Prägestufen 0 / 1 / 2 („Hafenmeisterei · Lage wird geprüft“)
+      var sx = x0 + 24;
+      [16, 32, 48].forEach(function (s) {
+        for (var st = 0; st <= 2; st++) { Art.drawSeal(g, sx + s / 2, 270, s, 'ok', { stage: st }); sx += s + 8; }
+        sx += 14;
+      });
+      Art.drawText(g, 'S2 PRÄGESTUFEN 0 · 1 · 2', x0 + 24, 300, { color: '#8EA3B5' });
+    });
+  }
+
+  // S2: Schützlinge in allen Zuständen (animiert)
+  var ESC_W = 1000, ESC_H = 450;
+  function drawEscortSection(t) {
+    var g = canv.escort; if (!g || !Art.drawEscort) return;
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, ESC_W, ESC_H);
+    var kinds = ['frachter', 'karawane', 'bergungsboot'], labels = ['FRACHTER', 'KARAWANE', 'BERGUNGSBOOT'];
+    var cols = [
+      { a: 0, o: {} }, { a: t * 0.4, o: {} }, { a: 0, o: { hpFrac: 0.5 } }, { a: 0, o: { hpFrac: 0.2 } },
+      { a: 0, o: { hitT: (t % 0.5) * 0.3 } }, { a: 0, o: { distress: true, hpFrac: 0.4 } }, { a: 0.4, o: { state: 'kampfunfaehig', hpFrac: 0 } }];
+    kinds.forEach(function (k, r) {
+      var y = 75 + r * 145;
+      Art.drawText(g, labels[r], 6, y - 66, { color: '#8EA3B5' });
+      cols.forEach(function (c, i) {
+        var x = 80 + i * 140 - (k === 'karawane' ? -14 : 0);
+        Art.drawEscort(g, k, x, y, c.a, Object.assign({ time: t }, c.o));
+      });
     });
   }
 

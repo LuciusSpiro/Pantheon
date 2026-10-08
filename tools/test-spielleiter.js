@@ -1,32 +1,42 @@
 'use strict';
-// Spielleiter-Tests ohne LLM (CONTRACT-S1 §8.3) – npm run test:spielleiter. Kein Netz, keine LLM-Aufrufe, < 10 s.
+// Spielleiter-Tests ohne LLM (CONTRACT-S1 §8.3, CONTRACT-S2 §8) – npm run test:spielleiter. Kein Netz, keine LLM-Aufrufe.
 //
 //   0. Schnittstelle: server/mission/llm.js – off wirft, live ohne LLM_LIVE=1 wirft, replay ohne Aufzeichnung wirft
-//      mit Hinweis auf --record (kein Live-Fallback), Schlüssel stabil gegen Schlüsselreihenfolge
+//      mit Hinweis auf --record (kein Live-Fallback), Schlüssel stabil gegen Schlüsselreihenfolge, Modus script, ein Zähler
 //   1. Prüfer: m1–m3 gültig; kaputte Bücher aus tools/fixtures/regiebuecher-kaputt/ liefern ihren Code mit Begründung
-//   2. Kontext: tools/fixtures/context/*.weltstand.json -> Context.build == *.context.json (Golden), deterministisch
+//   2. Kontext: tools/fixtures/context/*.weltstand.json -> Context.build == *.context.json (Golden), deterministisch,
+//      keine Spielernamen
 //   3. Replay: Aufzeichnungen tools/fixtures/llm/<kind>/*.json (aus dem Trockenversuch) -> Grobplan-Prüfung bzw.
 //      katalog.instantiate + Prüfer -> erwartetes Ergebnis (Feld 'erwartet' in der Aufzeichnung)
 //   4. Mock: Weltstand -> Kontext -> mock-Grobplan -> Grobplan-Prüfung -> mock-Szenen -> Regiebuch-Prüfer, ohne Fehler
 //   5. Registry: jedes do/check in content/regiebuecher/* steht in Registry.describe()
+//   S2:
+//   6. Szenenbau: Einheitentests (Folgen, S2-Regeln, Rohfassung, Anflug, umsetzung, liefert_flags, neu:-Stimmen)
+//   7. Pipeline (Modus script, Test-Engine): missionDone → planning → offered → accept → Szenen ersetzt → betretene Szene
+//      bleibt → sceneWait ≤ 20 s → missionDone → neue Runde; toSave/restore
+//   8. Rückfälle: Timeout, Müll-JSON, zweimal ungültig, Budget leer, CLI fehlt, 429 → Archiv/Mock, keine Ausnahme
+//   9. Echte Engine (wenn ENGINE registerBook liefert): Angebote nach „ohne Tutorial“, Annehmen, Skip-Lauf bis missionDone,
+//      Speichern/Laden mitten in einer erzeugten Mission (wenn Weltstand v2)
+//  10. Archiv: Lader + jedes Archiv-Buch besteht den Prüfer; Skip-Lauf je Archiv-Buch (echte Engine)
+//  11. Replay-Regression: Buch-Hash aus den Aufzeichnungen stabil (tools/fixtures/llm/buch-hashes.json)
 //
-// Fehlt ein Baustein eines anderen Teams (Prüfer-Fixtures, Registry, Bücher), wird der Teil als „übersprungen“ gemeldet,
-// nicht als grün. Aufruf: node tools/test-spielleiter.js [--update] [--strict] [--verbose]
-//   --update  schreibt Kontext-Goldens und 'erwartet' in den Aufzeichnungen neu (nur bewusst, Diff ansehen!)
+// Fehlt ein Baustein eines anderen Teams (Prüfer-Fixtures, Registry, Bücher, registerBook), wird der Teil als
+// „übersprungen“ gemeldet, nicht als grün. Aufruf: node tools/test-spielleiter.js [--update] [--strict] [--verbose]
+//   --update  schreibt Kontext-Goldens, 'erwartet' in den Aufzeichnungen und die Buch-Hashes neu (nur bewusst!)
 //   --strict  übersprungene Teile zählen als Fehler (für die Integration, wenn alle Teile da sein müssen)
-//
-// Die Helfer checkGrobplan / assembleScene / sceneTestBook sind aus dem Trockenversuch übernommen
-// (concept/regiebuch/trockenversuch/grobplan.js → pruefe, szene.js → baueSzene/pruefRegiebuch) und exportiert.
-// In S2 gehören sie in den Szenen-Bauer des Servers (z. B. server/mission/spielleiter.js).
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const FIX = path.join(__dirname, 'fixtures');
 const LLM = require('../server/mission/llm.js');
 const Context = require('../server/mission/context.js');
-const Locations = require('../shared/locations.js');
+const SB = require('../server/mission/szenenbau.js');
+const Archiv = require('../server/mission/archiv.js');
+const Regielog = require('../server/mission/regielog.js');
 
 // ---------- Module der anderen Teams (defensiv) ----------
 function tryRequire(rel) {
@@ -48,196 +58,8 @@ function checkBook(book) {
   const r = CHECKER.check(book) || {};
   return { errors: r.errors || [], warnings: r.warnings || [] };
 }
-
-// ---------- Umgebung für die Grobplan-Prüfung ----------
-function buildEnv(katalog) {
-  const REG = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'regiebuch', 'bausteine.json'), 'utf8'));
-  const npc = new Set(Object.keys(REG.npc).filter((k) => !k.startsWith('$')));
-  const npcFile = path.join(ROOT, 'content', 'npc.json');
-  if (fs.existsSync(npcFile)) { try { for (const k of Object.keys(JSON.parse(fs.readFileSync(npcFile, 'utf8')).npc || {})) npc.add(k); } catch (e) { /* bleibt bei bausteine.json */ } }
-  return {
-    katalog,
-    LOC: Object.fromEntries(Locations.LOCATIONS.map((l) => [l.id, l])),
-    MAP_OF_LOC: Object.fromEntries(Locations.LOCATIONS.filter((l) => l.scene.beam).map((l) => [l.scene.beam.map, l.id])),
-    karten: REG.karten,
-    npc: [...npc],
-  };
-}
-function hops(LOC, a, b) {
-  if (a === b) return 0;
-  const seen = new Set([a]); let front = [a]; let d = 0;
-  while (front.length) { d++; const next = []; for (const x of front) for (const y of (LOC[x] ? LOC[x].links : [])) { if (y === b) return d; if (!seen.has(y)) { seen.add(y); next.push(y); } } front = next; }
-  return -1;
-}
-
-// ---------- Grobplan-Prüfung (aus trockenversuch/grobplan.js → pruefe) ----------
-function checkGrobplan(g, env) {
-  const KAT = env.katalog; const LOC = env.LOC; const NPC = env.npc;
-  const E = [];
-  for (const k of ['format', 'id', 'titel', 'auftraggeber', 'zielspieldauer_min', 'aufhaenger', 'erinnerung', 'szenen', 'entscheidungen', 'ausgaenge']) if (!(k in g)) E.push(`Feld '${k}' fehlt`);
-  if (!Array.isArray(g.szenen)) return E;
-  if (!NPC.includes(g.auftraggeber)) E.push(`Auftraggeber '${g.auftraggeber}' unbekannt`);
-  if (g.szenen.length < 3 || g.szenen.length > 6) E.push(`${g.szenen.length} Szenen (erlaubt 3–6)`);
-  const ids = new Set(g.szenen.map((s) => s.id)); const aus = new Set(Object.keys(g.ausgaenge || {}));
-  const s0 = g.szenen[0];
-  if (s0 && (s0.szenentyp !== 'hafen' || s0.ort !== 'hafen')) E.push('Erste Szene ist nicht Szenentyp hafen am Ort hafen');
-  let summe = 0; const seen = new Set([s0 && s0.id]); const vorher = new Set();
-  for (const s of g.szenen) {
-    const p = `Szene '${s.id}'`;
-    const st = KAT.szenentypen[s.szenentyp];
-    if (!st) E.push(`${p}: Szenentyp '${s.szenentyp}' nicht registriert`);
-    else if (st.status !== 'verfuegbar') E.push(`${p}: Szenentyp '${s.szenentyp}' ist noch nicht spielbar`);
-    if (!LOC[s.ort]) E.push(`${p}: Ort '${s.ort}' gibt es nicht`);
-    if (s.karte && !env.karten[s.karte]) E.push(`${p}: Außenkarte '${s.karte}' gibt es nicht`);
-    if (s.karte && env.MAP_OF_LOC[s.karte] !== s.ort) E.push(`${p}: Außenkarte '${s.karte}' gehört zu Ort '${env.MAP_OF_LOC[s.karte]}', nicht zu '${s.ort}'`);
-    const mols = s.molekuele || [];
-    if (st && (mols.length < st.molekuele_plaetze.min || mols.length > st.molekuele_plaetze.max)) E.push(`${p}: ${mols.length} Moleküle, Szenentyp erlaubt ${st.molekuele_plaetze.min}–${st.molekuele_plaetze.max}`);
-    for (const m of mols) {
-      const mol = KAT.molekuele[m.id];
-      if (!mol) { E.push(`${p}: Molekül '${m.id}' nicht registriert`); continue; }
-      const u = mol.umsetzungen.find((x) => x.id === m.umsetzung);
-      if (!u) { E.push(`${p}: Molekül '${m.id}' hat keine Umsetzung '${m.umsetzung}'`); continue; }
-      if (u.status !== 'verfuegbar') E.push(`${p}: Umsetzung '${m.id}/${m.umsetzung}' ist noch nicht spielbar`);
-      if (st && !mol.szenentypen.includes(st.kennung) && st.id !== 'hafen') E.push(`${p}: Molekül '${m.id}' passt nicht zu Szenentyp ${st.kennung} ${st.name}`);
-      if (st && u.schauplatz !== st.bereich && st.id !== 'hafen') E.push(`${p}: Umsetzung '${m.umsetzung}' spielt '${u.schauplatz}', Szenentyp ist '${st.bereich}'`);
-      if (u.params.loc && u.params.loc.werte && !u.params.loc.werte.includes(s.ort)) E.push(`${p}: Umsetzung '${m.umsetzung}' gibt es nur an ${u.params.loc.werte.join(', ')}`);
-      if (u.params.map && u.params.map.werte && !u.params.map.werte.includes(s.karte)) E.push(`${p}: Umsetzung '${m.umsetzung}' braucht Karte ${u.params.map.werte.join(', ')}`);
-      for (const n of u.nach || []) if (!vorher.has(n)) E.push(`${p}: Umsetzung '${m.umsetzung}' setzt '${n}' in einer früheren Szene voraus`);
-      vorher.add(`${m.id}/${m.umsetzung}`);
-    }
-    summe += Number(s.dauer_min) || 0;
-    for (const w of s.weiter || []) {
-      const n = String(w.nach || '');
-      if (n.startsWith('ausgang:')) { if (!aus.has(n.slice(8))) E.push(`${p}: Ausgang '${n.slice(8)}' fehlt`); } else if (!ids.has(n)) E.push(`${p}: Folgeszene '${n}' gibt es nicht`); else seen.add(n);
-    }
-    if (!(s.weiter || []).length) E.push(`${p}: kein 'weiter'`);
-  }
-  for (const s of g.szenen) if (!seen.has(s.id)) E.push(`Szene '${s.id}' ist nicht erreichbar`);
-  const byId = Object.fromEntries(g.szenen.map((s) => [s.id, s]));
-  let sprungMin = 0;
-  for (const s of g.szenen) for (const [i, w] of (s.weiter || []).entries()) {
-    const t = byId[w.nach]; if (!t || !LOC[s.ort] || !LOC[t.ort]) continue;
-    const h = hops(LOC, s.ort, t.ort);
-    if (h < 0) E.push(`Route '${s.id}' (${s.ort}) → '${t.id}' (${t.ort}): keine Verbindung`);
-    else if (i === 0) sprungMin += h * 0.5;
-  }
-  const z = Number(g.zielspieldauer_min) || 0; const gesamt = summe + sprungMin;
-  if (z && (gesamt < z * 0.75 || gesamt > z * 1.25)) E.push(`Dauer ${gesamt} min (Szenen ${summe} + Sprünge ${sprungMin}) passt nicht zu Ziel ${z} min (±25 %)`);
-  const reachedOut = new Set(g.szenen.flatMap((s) => (s.weiter || []).map((w) => String(w.nach || '')).filter((n) => n.startsWith('ausgang:')).map((n) => n.slice(8))));
-  for (const k of Object.keys(g.ausgaenge || {})) if (!reachedOut.has(k)) E.push(`Ausgang '${k}' wird von keiner Szene erreicht`);
-  for (const m of JSON.stringify(g).matchAll(/npc_(?:haltung|gedaechtnis):? ([a-z_]+)/g)) if (!NPC.includes(m[1])) E.push(`Folge für unbekannten NSC '${m[1]}' (neue NSC nur als neu:<name>, Folgen als welt_fakt)`);
-  for (const e of g.entscheidungen || []) {
-    if (!ids.has(e.szene)) E.push(`Entscheidung in unbekannter Szene '${e.szene}'`);
-    if (!Array.isArray(e.optionen) || e.optionen.length < 2) E.push(`Entscheidung '${e.frage}' hat weniger als 2 Optionen`);
-    const folgen = new Set((e.optionen || []).map((o) => (o.folge || '').trim()));
-    if (folgen.size < (e.optionen || []).length) E.push(`Entscheidung '${e.frage}': Optionen mit gleicher Folge (Scheinwahl)`);
-  }
-  const na = Object.keys(g.ausgaenge || {}).length;
-  if (na < 2 || na > 3) E.push(`${na} Ausgänge (erlaubt 2–3)`);
-  for (const [k, a] of Object.entries(g.ausgaenge || {})) if (!(a.folgen || []).length) E.push(`Ausgang '${k}' ohne Folgen`);
-  return [...new Set(E)];
-}
-
-// ---------- Szene zusammensetzen (aus trockenversuch/szene.js → baueSzene/pruefRegiebuch) ----------
-const target = (n) => (n.startsWith('ausgang:') ? { complete: n.slice(8) } : { goto: n });
-function assembleScene(g, s, answer, env) {
-  const KAT = env.katalog;
-  const a = JSON.parse(JSON.stringify(answer));   // nie die Antwort selbst verändern (Fehler im Trockenversuch)
-  const E = []; const steps = []; const texte = {}; const buehne = { orte: [] }; const besetzung = { npc: [] };
-  const mols = a.molekuele || [];
-  if (mols.length !== s.molekuele.length) E.push(`${mols.length} Moleküle statt ${s.molekuele.length} wie im Grobplan`);
-  mols.forEach((m, i) => {
-    const soll = s.molekuele[i] || {};
-    if (m.id !== soll.id || m.umsetzung !== soll.umsetzung) E.push(`Molekül ${i + 1}: ${m.id}/${m.umsetzung} statt ${soll.id}/${soll.umsetzung}`);
-    const mol = KAT.molekuele[m.id]; const u = mol && mol.umsetzungen.find((x) => x.id === m.umsetzung);
-    if (!u) return;
-    const id = mols.length > 1 ? `${s.id}_${i + 1}` : s.id;
-    const weiter = i < mols.length - 1 ? `${s.id}_${i + 2}` : '__weiter__';
-    const { frag, errs } = Katalog.instantiate(u, m.params || {}, id, weiter);
-    E.push(...errs.map((e) => `${m.id}/${m.umsetzung}: ${e}`));
-    steps.push(...frag.steps); Object.assign(texte, frag.texte);
-    for (const [k, v] of Object.entries(frag.buehne || {})) buehne[k] = Array.isArray(v) ? [...new Set([...(buehne[k] || []), ...v])] : Object.assign(buehne[k] || {}, v);
-    for (const [k, v] of Object.entries(frag.besetzung || {})) besetzung[k] = Array.isArray(v) ? [...new Set([...(besetzung[k] || []), ...v])] : Object.assign(besetzung[k] || {}, v);
-  });
-  const w = a.wendung;
-  if (s.wendung && !w) E.push(`Der Grobplan sieht eine Wendung vor („${s.wendung}“), die Antwort hat keine`);
-  if (w && steps[0]) {
-    if (!w.kennung || !w.ankuendigung || !Array.isArray(w.wirkung) || !w.wirkung.length) E.push("Wendung braucht 'kennung', 'ankuendigung' und eine nicht leere 'wirkung'");
-    const at = Number(w.nach_s);
-    if (!(at >= 20 && at <= 120)) E.push(`Wendung: nach_s = ${w.nach_s}, erlaubt 20–120`);
-    const erlaubt = ['setFlag', 'reward', 'radio', 'oda', 'log'];
-    for (const x of w.wirkung || []) if (!(x.do === 'pay_marks' || (Object.keys(x).length === 1 && erlaubt.includes(Object.keys(x)[0])))) E.push(`Wendung: Aktion ${JSON.stringify(x)} ist nicht erlaubt`);
-    (steps[0].timers = steps[0].timers || []).push({ at: at || 30, do: [{ wendung: `${s.id.split('_')[0]}_${w.kennung}`.slice(0, 40), ankuendigung: { oda: w.ankuendigung, art: 'gleichzeitig' }, wirkung: w.wirkung || [] }] });
-  }
-  let nr = 0;
-  const extract = (node) => {
-    if (Array.isArray(node)) return node.forEach(extract);
-    if (!node || typeof node !== 'object') return;
-    for (const k of ['oda', 'log']) if (typeof node[k] === 'string' && !node[k].startsWith('@')) { const key = `${s.id}.t${++nr}`; texte[key] = node[k]; node[k] = '@' + key; }
-    if (node.radio && typeof node.radio.text === 'string' && !node.radio.text.startsWith('@')) { const key = `${s.id}.t${++nr}`; texte[key] = node.radio.text; node.radio.text = '@' + key; }
-    for (const v of Object.values(node)) extract(v);
-  };
-  extract(steps);
-  for (const x of JSON.stringify(steps).match(/"radio":{"from":"([^"]+)"/g) || []) { const n = x.slice(17, -1); if (!besetzung.npc.includes(n)) besetzung.npc.push(n); }
-  for (const x of JSON.stringify(steps).match(/"setFlag":\{[^}]*\}/g) || []) for (const [k, v] of Object.entries(JSON.parse(x.slice(10)))) if (typeof v === 'string' || k === 'name') E.push(`setFlag {"${k}": ${JSON.stringify(v)}}: der Schlüssel ist der Flag-Name, der Wert true – richtig wäre {"${typeof v === 'string' ? v : k}": true}`);
-  const soll = s.weiter.map((x) => x.nach);
-  let zweige = (a.verzweigung || []).filter((z) => z && z.nach);
-  if (soll.length === 1) zweige = [{ nach: soll[0] }];
-  else {
-    if (zweige.length < 2) E.push(`Szene verzweigt im Grobplan nach ${soll.join(', ')}, aber 'verzweigung' hat ${zweige.length} Einträge`);
-    for (const z of zweige) if (!soll.includes(z.nach)) E.push(`Verzweigung nach '${z.nach}', im Grobplan nicht vorgesehen`);
-    for (const n of soll) if (!zweige.some((z) => z.nach === n)) E.push(`Verzweigung: Ziel '${n}' aus dem Grobplan wird nie erreicht`);
-    const gesetzt = new Set(JSON.stringify(mols).match(/"setFlag":\{[^}]*\}/g) || []);
-    const gesetzteFlags = new Set([...gesetzt].flatMap((x) => Object.keys(JSON.parse(x.slice(10)))));
-    for (const z of zweige) for (const f of (JSON.stringify(z.if || {}).match(/"flag":"([^"]+)"/g) || []).map((x) => x.slice(8, -1))) if (!gesetzteFlags.has(f)) E.push(`Verzweigung prüft Flag '${f}', das keine Folge setzt`);
-  }
-  for (const st of steps) {
-    if (!st.next) continue;
-    st.next = st.next.flatMap((n) => {
-      if (n.goto !== '__weiter__') return [n];
-      const { goto, ...rest } = n;
-      return zweige.map((z, i) => Object.assign({}, rest, { if: i < zweige.length - 1 && z.if ? { all: [n.if, z.if] } : n.if }, target(z.nach)));
-    });
-  }
-  return { steps, texte, buehne, besetzung, fehler: E };
-}
-function sceneTestBook(g, s, sz) {
-  const vorher = { id: 'start', objectives: [], next: [{ if: true, goto: sz.steps[0] ? sz.steps[0].id : s.id }], skip: [] };
-  const ziele = [...new Set(s.weiter.map((w) => w.nach))];
-  const platzhalter = ziele.filter((n) => !n.startsWith('ausgang:')).map((n) => ({ id: n, objectives: [], next: [{ if: true, complete: 'platzhalter' }], skip: [] }));
-  const ausgaenge = { platzhalter: { beschreibung: 'Rest der Mission (noch nicht ausgearbeitet)', folgen: [{ chronik: '@test.text' }] } };
-  for (const n of ziele.filter((x) => x.startsWith('ausgang:'))) ausgaenge[n.slice(8)] = { beschreibung: (g.ausgaenge[n.slice(8)] || {}).wann || n, folgen: [{ chronik: '@test.text' }] };
-  return {
-    format: 'regiebuch/1', id: `${g.id}_${s.id}`.slice(0, 40),
-    kopf: { titel: g.titel.slice(0, 60), art: 'mission', auftraggeber: g.auftraggeber, zielspieldauer_min: g.zielspieldauer_min },
-    buch: { von: [{ npc: g.auftraggeber }], briefing: '@test.text', belohnung: '@test.text' },
-    buehne: Object.assign({}, sz.buehne, { orte: [...new Set(['hafen', ...(sz.buehne.orte || [])])] }),
-    besetzung: Object.assign({}, sz.besetzung, { npc: [...new Set([g.auftraggeber, ...(sz.besetzung.npc || [])])] }),
-    steps: [vorher, ...sz.steps, ...platzhalter], on: {}, ausgaenge,
-    texte: Object.assign({ 'test.text': 'Platzhalter' }, sz.texte),
-  };
-}
-function parseJsonAnswer(text) {
-  const a = text.indexOf('{'); const b = text.lastIndexOf('}');
-  return JSON.parse(text.slice(a, b + 1));
-}
-// Szene aus Antworttext -> { gueltig, fehler: Codes (sortiert, eindeutig), details }
-function evaluateScene(g, sid, text, env) {
-  const s = (g.szenen || []).find((x) => x.id === sid);
-  if (!s) return { gueltig: false, fehler: ['SZENE-UNBEKANNT'], details: [`Szene '${sid}' fehlt im Grobplan`] };
-  let a;
-  try { a = parseJsonAnswer(text); } catch (e) { return { gueltig: false, fehler: ['JSON'], details: [e.message] }; }
-  const sz = assembleScene(g, s, a, env);
-  const r = checkBook(sceneTestBook(g, s, sz));
-  const codes = [...new Set([...sz.fehler.map(() => 'SZENE'), ...r.errors.map((e) => e.code)])].sort();
-  return { gueltig: !codes.length, fehler: codes, details: [...sz.fehler, ...r.errors.map((e) => `${e.code} ${e.p}: ${e.msg}`)] };
-}
-function evaluateGrobplan(text, env) {
-  let g;
-  try { g = parseJsonAnswer(text); } catch (e) { return { gueltig: false, fehler: ['kein gültiges JSON: ' + e.message] }; }
-  const f = checkGrobplan(g, env);
-  return { gueltig: !f.length, fehler: f };
-}
+// Altnamen (S1): die Helfer leben seit S2 in server/mission/szenenbau.js
+const { buildEnv, checkGrobplan, assembleScene, sceneTestBook, evaluateScene, evaluateGrobplan, parseJsonAnswer } = SB;
 
 // Anlässe der Kontext-Fixtures (gehören zum Golden; Änderung = bewusst --update)
 const ANLASS = {
@@ -247,6 +69,14 @@ const ANLASS = {
   'ohne-tutorial': { art: 'kampagnenstart', tutorial: false, crew: 1 },
   'nach-tutorial': { art: 'missionsgrenze', nach: 'm3', crew: 3, zielspieldauer_min: 12, auftraggeber: 'tesk' },
 };
+
+const flush = () => new Promise((r) => setImmediate(r));
+const sha1 = (o) => crypto.createHash('sha1').update(LLM.canonical(o)).digest('hex');
+let TMP = null;
+function tmpDir(name) {
+  if (!TMP) TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sl-'));
+  const d = path.join(TMP, name); fs.mkdirSync(d, { recursive: true }); return d;
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 async function main() {
@@ -259,6 +89,7 @@ async function main() {
   const bad = (teil, name, detail) => add(teil, name, 'fehler', detail);
   const skip = (teil, name, detail) => add(teil, name, 'übersprungen', detail);
   const safe = async (teil, name, fn) => { try { await fn(); } catch (e) { bad(teil, name, 'Ausnahme: ' + (e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e)); } };
+  const check = (teil, name, cond, detail) => (cond ? ok : bad)(teil, name, detail);
 
   const katalog = Katalog.load({});
   const env = buildEnv(katalog);
@@ -285,6 +116,33 @@ async function main() {
     const k2 = LLM.key('grobplan', { a: { x: 'ü', y: [1, { c: 3, d: 2 }] }, b: 1 });
     const k3 = LLM.key('szene', { b: 1, a: { y: [1, { d: 2, c: 3 }], x: 'ü' } });
     (k1 === k2 && k1 !== k3 && /^[0-9a-f]{40}$/.test(k1) ? ok : bad)(T0, 'Schlüssel unabhängig von der Schlüsselreihenfolge', k1);
+  });
+  await safe(T0, 'script: Antworten, Fehler, hold/release, Prozess-Zähler', async () => {
+    LLM.resetBudget();
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ text: '{"a":1}', tokens: 100 }, { error: 'timeout' }, { hold: true, json: { b: 2 }, tokens: 50 }] } });
+    const r1 = await llm.ask('grobplan', { n: 1 });
+    let e2 = null; try { await llm.ask('grobplan', { n: 2 }); } catch (e) { e2 = e; }
+    const p3 = llm.ask('grobplan', { n: 3 }); let r3 = null; p3.then((x) => { r3 = x; });
+    await flush(); const before = r3; llm.release(); await flush();
+    const llm2 = LLM.create({ mode: 'script', katalog, script: [{ error: 'enoent' }] });
+    let e4 = null; try { await llm2.ask('szene', {}); } catch (e) { e4 = e; }
+    const b = LLM.budget();
+    const fine = r1.text === '{"a":1}' && r1.source === 'script' && e2 && e2.code === 'ETIMEDOUT' && before === null && r3 && r3.text === '{"b":2}' && e4 && e4.code === 'ENOENT' && b.used === 150;
+    check(T0, 'script: Antworten, Fehler, hold/release, Prozess-Zähler', fine, `Zähler ${b.used}, Fehlercodes ${e2 && e2.code}/${e4 && e4.code}`);
+    // generator.js hängt am selben Zähler
+    const gen = require('../server/mission/generator.js');
+    check(T0, 'generator.js nutzt den Prozess-Zähler (Altname getTokenUsage)', gen.getTokenUsage().tokens === b.used, JSON.stringify(gen.getTokenUsage()));
+    const r5 = await gen.generate({ bribed: false }, { env: { MISSION_SOURCE: 'bridge', CLAUDE_BRIDGE_TOKEN: 'x' } });
+    check(T0, 'Teaser-Generator stillgelegt (ohne bridgeImpl nur Archiv)', r5.source === 'archiv', r5.source);
+    LLM.resetBudget();
+  });
+  await safe(T0, 'Transport-Schnittstelle cli|api, Prompts aus content/spielleiter/prompts', async () => {
+    let e = null; try { await LLM.TRANSPORTS.api.call('x', {}); } catch (x) { e = x; }
+    const sysG = LLM.systemPromptFile('grobplan'); const sysS = LLM.systemPromptFile('szene');
+    const p = LLM.buildPrompt({ katalog: 'K', grobplan: { id: 'g' }, variabel: [['szene', 'S']], schluss: 'Los.' });
+    const order = p.indexOf('<katalog>') < p.indexOf('<grobplan>') && p.indexOf('<grobplan>') < p.indexOf('<szene>');
+    check(T0, 'Transport-Schnittstelle cli|api, Prompts aus content/spielleiter/prompts', !!e && typeof LLM.TRANSPORTS.cli.call === 'function' && /content[\\/]spielleiter[\\/]prompts/.test(sysG) && /content[\\/]spielleiter[\\/]prompts/.test(sysS) && order,
+      `api: ${e && e.message}; Reihenfolge Katalog→Grobplan→variabel: ${order}`);
   });
 
   // ---------- 1. Prüfer ----------
@@ -327,11 +185,12 @@ async function main() {
   const CTX = path.join(FIX, 'context');
   const worlds = fs.existsSync(CTX) ? fs.readdirSync(CTX).filter((f) => f.endsWith('.weltstand.json')).sort() : [];
   if (!worlds.length) bad(T2, 'Fixtures vorhanden', 'tools/fixtures/context/*.weltstand.json fehlen');
-  const contexts = {};
+  const contexts = {}; const worldData = {};
   for (const wf of worlds) {
     const name = wf.replace('.weltstand.json', '');
     await safe(T2, name, () => {
       const w = JSON.parse(fs.readFileSync(path.join(CTX, wf), 'utf8'));
+      worldData[name] = w;
       const anlass = ANLASS[name] || { art: 'test' };
       const c1 = Context.build(w, anlass, katalog);
       const c2 = Context.build(reverseKeys(w), reverseKeys(anlass), katalog);
@@ -342,6 +201,11 @@ async function main() {
       for (const n of c1.npc) if (n.gedaechtnis.length > Context.NPC_MEMORY) inv.push(`${n.id}: ${n.gedaechtnis.length} Gedächtniseinträge`);
       if (c1.chronik.length > Context.CHRONIK) inv.push(`chronik: ${c1.chronik.length}`);
       if (!isSorted(c1)) inv.push('Schlüssel nicht sortiert');
+      // S2 Entscheidung 14: keine Spielernamen
+      const names = ((w.meta && w.meta.spieler) || []).filter((x) => typeof x === 'string' && x.length > 2);
+      const leaked = names.filter((nm) => s1.includes(JSON.stringify(nm)));
+      if (c1.crew && c1.crew.spieler !== undefined) inv.push('crew.spieler gesetzt');
+      if (leaked.length) inv.push(`Spielernamen im Kontext: ${leaked.join(', ')}`);
       if (inv.length) { bad(T2, `${name}: Grenzen`, inv.join(', ')); return; }
       const gf = path.join(CTX, `${name}.context.json`);
       if (UPDATE) { fs.writeFileSync(gf, JSON.stringify(c1, null, 2) + '\n', 'utf8'); ok(T2, `${name} == Golden`, `neu geschrieben (${s1.length} Zeichen)`); return; }
@@ -400,7 +264,9 @@ async function main() {
         const r = evaluateScene(g, s.id, sa.text, env);
         if (!r.gueltig) errs.push(`${s.id}: ${r.details.join(' | ')}`);
       }
-      (errs.length ? bad : ok)(T4, `${name}: Weltstand → Kontext → Grobplan → Prüfer`, errs.length ? errs.join(' || ') : `Grobplan '${g.titel}' (${g.szenen.length} Szenen, Auftraggeber ${g.auftraggeber}) + ${scenes.length} Szenen gültig`);
+      const book = SB.buildBook(g, {}, env, { id: 'sl_9_mock', kontext: ctx });
+      if (book.errors.length) errs.push('Rohfassung: ' + book.errors.map((e) => `${e.code} ${e.p}: ${e.msg}`).join(' | '));
+      (errs.length ? bad : ok)(T4, `${name}: Weltstand → Kontext → Grobplan → Prüfer`, errs.length ? errs.join(' || ') : `Grobplan '${g.titel}' (${g.szenen.length} Szenen, Auftraggeber ${g.auftraggeber}) + ${scenes.length} Szenen + Rohfassung gültig`);
     });
   }
   if (!Object.keys(contexts).length) skip(T4, 'Mock-Durchlauf', 'keine Kontexte aus Teil 2');
@@ -427,19 +293,543 @@ async function main() {
     }
   });
 
+  // ---------- 6.–11. S2 ----------
+  await s2Tests({ katalog, env, contexts, worldData, ok, bad, skip, safe, check, UPDATE, VERBOSE });
+
   // ---------- Ausgabe ----------
   const ms = Date.now() - t0;
-  const parts = [...new Set(results.map((r) => r.teil))].sort();
+  const parts = [...new Set(results.map((r) => r.teil))].sort((a, b) => parseInt(a, 10) - parseInt(b, 10) || a.localeCompare(b));
   for (const p of parts) {
     console.log(`\n${p}`);
     for (const r of results.filter((x) => x.teil === p)) console.log(`  ${r.status === 'ok' ? '✓' : r.status === 'fehler' ? '✗' : '–'} ${r.name}${r.detail && (r.status !== 'ok' || VERBOSE) ? `\n      ${r.detail}` : ''}${r.status === 'übersprungen' ? '  [übersprungen]' : ''}`);
   }
   const n = (s) => results.filter((r) => r.status === s).length;
   console.log(`\nPrüfer: ${CHECKER.src}`);
-  console.log(`${n('ok')} ok, ${n('fehler')} Fehler, ${n('übersprungen')} übersprungen – ${ms} ms${UPDATE ? ' (--update: Goldens/erwartet neu geschrieben)' : ''}`);
+  console.log(`${n('ok')} ok, ${n('fehler')} Fehler, ${n('übersprungen')} übersprungen – ${ms} ms${UPDATE ? ' (--update: Goldens/erwartet/Hashes neu geschrieben)' : ''}`);
   if (n('übersprungen')) console.log(`NICHT vollständig grün: ${n('übersprungen')} Teil(e) übersprungen, weil Dateien anderer Teams fehlen${STRICT ? ' (--strict: zählt als Fehler)' : ''}.`);
-  if (ms > 10000) console.log(`WARNUNG: Laufzeit ${ms} ms über dem Ziel von 10 s`);
+  if (ms > 20000) console.log(`WARNUNG: Laufzeit ${ms} ms über dem Ziel von 20 s`);
+  try { if (TMP) fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
   process.exit(n('fehler') || (STRICT && n('übersprungen')) ? 1 : 0);
+}
+
+// =================================================================================================================
+// S2-Tests
+// =================================================================================================================
+const Spielleiter = require('../server/mission/spielleiter.js');
+
+// Test-Engine: das Nötigste von mission.js (registerBook/updateBook/startMission/step) – unabhängig von ENGINE
+function fakeGame(opts) {
+  const events = []; const errors = []; const notices = [];
+  const g = {
+    time: 0, C: require('../shared/config.js'), env: {}, players: [{ connected: true }, { connected: true }, { connected: true }],
+    ship: { scene: 'hafen' },
+    emit(k, d) { events.push({ k, d }); }, oda(t) { events.push({ k: 'oda', d: { text: t } }); }, notice(p, t) { notices.push(t); },
+    countError(w, e) { errors.push(w + ': ' + (e && e.message)); }, log() {},
+    weltstand: { id: 'w-test', persistent: true, data: null, npcMemory(n, e) { events.push({ k: 'mem', d: { n, e } }); return true; } },
+  };
+  const m = {
+    books: {}, updates: [], activeId: null, step: null, missions: {}, order: ['m1', 'm2', 'm3'],
+    info(id) { return ['m1', 'm2', 'm3'].includes(id) ? { id, tutorial: true } : (this.books[id] ? { id, tutorial: false } : null); },
+    registerBook(b, o) { const r = CHECKER.check(b); this.books[b.id] = { book: b, origin: o && o.origin }; return { ok: !r.errors.length, errors: r.errors }; },
+    updateBook(id, b) { const r = CHECKER.check(b); if (r.errors.length) return { ok: false, errors: r.errors }; this.books[id].book = b; this.updates.push(id); return { ok: true }; },
+    unregisterBook(id) { delete this.books[id]; },
+    startMission(id) { if (!this.books[id]) return; this.activeId = id; this.missions[id] = { state: 'active' }; this.step = { id: this.books[id].book.steps[0].id }; },
+    radio(from, text) { events.push({ k: 'radio', d: { from, text } }); },
+    playTime() { return g.time; },
+  };
+  for (const id of m.order) m.missions[id] = { state: (opts && opts.tutorialOpen) ? 'active' : 'done' };
+  g.mission = m;
+  return { g, m, events, errors, notices };
+}
+async function ticks(sl, g, sec, dt, until) {
+  const step = dt || 0.25;
+  for (let t = 0; t < sec; t += step) {
+    g.time += step; sl.update(step); await flush();
+    if (until && until()) return true;
+  }
+  return until ? !!until() : true;
+}
+function archivEntriesFor(env) {
+  const loaded = Archiv.load();
+  if (loaded.entries.length) return { entries: loaded.entries, synthetic: false, errors: loaded.errors };
+  // Archiv von KATALOG fehlt noch: zwei Einträge aus dem Trockenversuch (nur für die Pipeline-Tests)
+  const mk = (f) => ({ name: 'test_' + f.replace(/-/g, '_'), file: f, grobplan: JSON.parse(fs.readFileSync(path.join(ROOT, 'concept', 'regiebuch', 'trockenversuch', 'out', f + '.grobplan.json'), 'utf8')), szenen: {}, rec: { erinnerung_neutral: 'Man kennt sich vom Hafen.' } });
+  return { entries: [mk('sela-fund'), mk('grauzahn-rache')], synthetic: true, errors: [] };
+}
+
+async function s2Tests(T) {
+  const { katalog, env, contexts, ok, bad, skip, safe, check } = T;
+  const ctxNT = contexts['nach-tutorial'] || Context.build({}, {}, katalog);
+  const ctxOT = contexts['ohne-tutorial'] || Context.build({}, {}, katalog);
+  const AR = archivEntriesFor(env);
+
+  // ---------- 6. Szenenbau ----------
+  const T6 = '6 Szenenbau';
+  await safe(T6, 'parseFolge', () => {
+    const a = SB.parseFolge('npc_haltung grauzahn -1'); const b = SB.parseFolge('npc_gedaechtnis melk: Die Crew hat geholfen.');
+    const c = SB.parseFolge('chronik: Etwas geschah.'); const d = SB.parseFolge('welt_fakt kustoden_echo (faden): Es summt.');
+    const e = SB.parseFolge({ chronik: '@x' }); const f = SB.parseFolge('npc_haltung tesk +3');
+    check(T6, 'parseFolge', a.art === 'npc_haltung' && a.delta === -1 && b.npc === 'melk' && b.text === 'Die Crew hat geholfen.' && c.art === 'chronik' && d.faden && d.key === 'kustoden_echo' && e.art === 'chronik' && f.delta === 2,
+      JSON.stringify([a, b, c, d, e, f]));
+  });
+  await safe(T6, 'S2-Regeln Grobplan', () => {
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    const r0 = SB.checkGrobplanS2(g, env, ctxNT, { origin: 'sl' });
+    const g1 = JSON.parse(JSON.stringify(g)); g1.erinnerung = { npc: 'tesk', ereignis: 'gibt_es_nicht' };
+    const g2 = JSON.parse(JSON.stringify(g)); g2.erinnerung = 'nur Text';
+    const g3 = JSON.parse(JSON.stringify(g)); g3.ausgaenge.teilerfolg.folgen = ['npc_haltung tesk -1'];
+    const g4 = JSON.parse(JSON.stringify(g)); g4.ausgaenge.erfolg.folgen.push('welt_fakt a (faden): x', 'welt_fakt b (faden): y');
+    const found = ((ctxNT.orte || []).flatMap((l) => l.funde).find((f) => f.status === 'gefunden') || {}).id;
+    const g5 = JSON.parse(JSON.stringify(g)); if (found) g5.szenen[1].fund = found;
+    const g6 = JSON.parse(JSON.stringify(g)); g6.aufhaenger = 'Ivo braucht Hilfe.';
+    const ctxSkip = Object.assign({}, ctxOT);
+    const g7 = LLM.mockGrobplan({ kontext: ctxSkip }, katalog);
+    const r = (x, c) => SB.checkGrobplanS2(x, env, c || ctxNT, { origin: 'sl' });
+    const res = {
+      gueltig: r0.errors.length === 0, dauerWarnung: r0.warnings.some((w) => /unter 10 min/.test(w)),
+      erinnerungFalsch: r(g1).errors.some((e) => /gibt_es_nicht/.test(e)), erinnerungText: r(g2).errors.some((e) => /erinnerung/.test(e)),
+      archivNurWarnung: SB.checkGrobplanS2(g2, env, ctxNT, { origin: 'archiv' }).errors.length === 0,
+      ausgangOhne: r(g3).errors.some((e) => /teilerfolg/.test(e)), faeden: r(g4).errors.some((e) => /Fäden/.test(e)),
+      fund: !found || r(g5).errors.some((e) => /schon gefunden/.test(e)),
+      tutorial: r(g6, ctxSkip).errors.some((e) => /Tutorial-Bezug/.test(e)) && r(g7, ctxSkip).errors.length === 0,
+    };
+    check(T6, 'S2-Regeln Grobplan', Object.values(res).every(Boolean), JSON.stringify(res) + ' ' + JSON.stringify(r0) + (Object.values(res).every(Boolean) ? '' : ' g7: ' + JSON.stringify(r(g7, ctxSkip))));
+  });
+  await safe(T6, 'Rohfassung: vollständiges Buch, Hafen-Rahmen, Anflug, umsetzung', () => {
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    const r = SB.buildBook(g, {}, env, { id: 'sl_1_mock', art: 'generiert', kontext: ctxNT });
+    const b = r.book;
+    const hafen = b.steps[0];
+    const anflug = b.steps.filter((s) => /_anflug$/.test(s.id));
+    const ohneUms = b.steps.filter((s) => !s.umsetzung).map((s) => s.id);
+    const briefing = hafen.enter.find((a) => a.radio);
+    const fine = !r.errors.length && b.kopf.art === 'generiert' && briefing && briefing.radio.accept && hafen.onAccept
+      && anflug.length >= 1 && anflug.every((s) => s.next[0].goto && s.skip[0].do === 'debug_jump') && !ohneUms.length && b.buch.ziel && b.buch.erinnerung && b.erinnerung
+      && Object.values(b.ausgaenge).every((a) => a.folgen.some((x) => x.do === 'npc_gedaechtnis') && a.folgen.some((x) => x.do === 'chronik'));
+    check(T6, 'Rohfassung: vollständiges Buch, Hafen-Rahmen, Anflug, umsetzung', fine,
+      `${b.steps.length} Schritte, Anflug ${anflug.map((s) => s.id).join(',')}, ohne umsetzung: ${ohneUms.join(',') || '–'}, Fehler: ${r.errors.map((e) => e.code + ' ' + e.p).join(' | ') || '–'}`);
+  });
+  await safe(T6, 'Trockenversuch-Grobpläne als Rohfassung prüferfest', () => {
+    const out = [];
+    for (const f of ['grauzahn-rache', 'sela-fund', 'melk-klausel']) {
+      const g = JSON.parse(fs.readFileSync(path.join(ROOT, 'concept', 'regiebuch', 'trockenversuch', 'out', f + '.grobplan.json'), 'utf8'));
+      const r = SB.buildBook(g, {}, env, { id: 'sl_1_' + f.replace(/-/g, '_'), kontext: ctxNT });
+      if (r.errors.length) out.push(`${f}: ${r.errors.map((e) => e.code + ' ' + e.p + ' ' + e.msg).slice(0, 3).join(' | ')}`);
+    }
+    check(T6, 'Trockenversuch-Grobpläne als Rohfassung prüferfest', !out.length, out.join(' || ') || '3 Bücher gültig');
+  });
+  await safe(T6, 'liefert_flags erlaubt Verzweigung, neu:-Stimme wird Stimme', () => {
+    const kat2 = JSON.parse(JSON.stringify({ molekuele: katalog.molekuele, szenentypen: katalog.szenentypen }));
+    const u = kat2.molekuele.vernichten.umsetzungen.find((x) => x.id === 'angriffswelle');
+    u.liefert_flags = ['{{id}}_heil', '{{id}}_verloren'];
+    const env2 = Object.assign({}, env, { katalog: kat2 });
+    const s = { id: 's3_kampf', szenentyp: 'raumgefecht', ort: 'b7', karte: null, molekuele: [{ id: 'vernichten', umsetzung: 'angriffswelle' }], weiter: [{ nach: 'ausgang:erfolg' }, { nach: 'ausgang:teil' }] };
+    const g = { id: 'x', titel: 'X', auftraggeber: 'tesk', zielspieldauer_min: 10, szenen: [{ id: 's1', ort: 'hafen', szenentyp: 'hafen', molekuele: [], weiter: [{ nach: 's3_kampf' }] }, s], ausgaenge: { erfolg: {}, teil: {} } };
+    const ans = { molekuele: [{ id: 'vernichten', umsetzung: 'angriffswelle', params: { loc: 'b7', npc: 'neu:Kapitän Orr' } }], verzweigung: [{ nach: 'ausgang:erfolg', if: { flag: 's3_kampf_heil' } }, { nach: 'ausgang:teil' }] };
+    const sz = SB.assembleScene(g, s, ans, env2, { book: true });
+    const st = sz.steps[0];
+    const stimme = sz.besetzung.stimmen && Object.keys(sz.besetzung.stimmen)[0];
+    check(T6, 'liefert_flags erlaubt Verzweigung, neu:-Stimme wird Stimme', !sz.fehler.length && st.umsetzung === 'vernichten/angriffswelle' && JSON.stringify(st.liefert_flags) === '["s3_kampf_heil","s3_kampf_verloren"]' && stimme && /^neu_/.test(stimme) && !JSON.stringify(sz.steps).includes('neu:'),
+      `Fehler: ${sz.fehler.join(' | ') || '–'}, Stimme ${stimme}`);
+    // Rohfassung nimmt rueckfall.params
+    u.rueckfall = { params: { jaeger: 2 } };
+    const roh = SB.rohAnswer(g, s, env2);
+    check(T6, 'Rohfassung nutzt rueckfall.params und verzweigt über liefert_flags', roh.molekuele[0].params.jaeger === 2 && roh.verzweigung[0].if && roh.verzweigung[0].if.flag === 's3_kampf_heil', JSON.stringify(roh));
+  });
+  await safe(T6, 'Schritt → Szene, Anflug nur bei Ortswechsel', () => {
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    const a = SB.sceneOfStep(g, 's2_mock_anflug'); const b2 = SB.sceneOfStep(g, 's3_mock'); const c = SB.sceneOfStep(g, 's3_mock_2'); const d = SB.sceneOfStep(g, 'xyz');
+    check(T6, 'Schritt → Szene, Anflug nur bei Ortswechsel', a === 's2_mock' && b2 === 's3_mock' && c === 's3_mock' && d === null && SB.needsApproach(g, g.szenen[1]) && !SB.needsApproach(g, g.szenen[0]), [a, b2, c, d].join(','));
+  });
+  await safe(T6, 'Regie-Logbuch: Datei, Rotation, Wunschliste, Bericht', () => {
+    const dir = tmpDir('regie6');
+    const log = Regielog.create({ dir, weltId: 'w-abc', rotateBytes: 400 });
+    for (let i = 0; i < 6; i++) log.write({ art: 'grobplan', mission: 'sl_1', quelle: 'llm', tokens: 100, fehler: [], begruendung: 'Test ' + i, spielzeit: i });
+    log.wish('Schützling mit Andockmanöver', { mission: 'sl_1' }); log.wish('Schützling mit Andockmanöver', { mission: 'sl_2' });
+    const r = Regielog.read(dir, 'w-abc'); const w = Regielog.readWishes(dir);
+    const rotated = fs.existsSync(path.join(dir, 'w-abc.1.jsonl'));
+    const Bericht = require('./regie-bericht.js');
+    const md = Bericht.report(dir, 'w-abc');
+    check(T6, 'Regie-Logbuch: Datei, Rotation, Wunschliste, Bericht', rotated && r.entries.length >= 3 && r.entries.every((e) => 'quelle' in e && 'tokens' in e && 'fehler' in e) && w['Schützling mit Andockmanöver'].n === 2 && /# Regie-Bericht/.test(md) && /Schützling mit Andockmanöver/.test(md),
+      `${r.entries.length} Einträge (rotiert: ${rotated}), Bericht ${md.length} Zeichen`);
+  });
+
+  // ---------- 7. Pipeline (script, Test-Engine) ----------
+  const T7 = '7 Pipeline';
+  let savedState = null; let savedOffers = null;
+  await safe(T7, 'missionDone → planning → offered (2 SL + 1 Archiv)', async () => {
+    LLM.resetBudget();
+    const F = fakeGame();
+    const llm = LLM.create({ mode: 'script', katalog, script: {} });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie7'), katalog });
+    sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    const p0 = sl.planning(); const arch0 = sl.offers().filter((o) => o.origin === 'archiv').length;
+    const teaser = F.events.filter((e) => e.k === 'radio' && e.d.text === Spielleiter.TEASER_TEXT).length;
+    const done = await ticks(sl, F.g, 10, 0.25, () => sl.offers().length >= 3);
+    const offers = sl.offers();
+    const sealed = sl.planning();
+    check(T7, 'missionDone → planning → offered (2 SL + 1 Archiv)', done && p0 && p0.stage === 0 && arch0 === 1 && teaser === 1 && offers.filter((o) => o.origin === 'sl').length === 2 && sealed && sealed.stage === 2 && Object.keys(F.m.books).length === 3 && !F.errors.length,
+      `Angebote: ${offers.map((o) => `${o.id}[${o.origin}]`).join(', ')}; planning vorher ${JSON.stringify(p0)}, danach ${JSON.stringify(sealed)}; Teaser ${teaser}; Fehler ${F.errors.join(' | ') || '–'}`);
+    const o = offers.find((x) => x.origin === 'sl');
+    check(T7, 'Angebot hat Absender, Ziel, Dauer, Belohnung, Erinnerung', o && o.von && o.ziel && o.dauer_min && o.belohnung && o.erinnerung, JSON.stringify(o));
+    // accept → Szenen-Vorlauf → ersetzt
+    const err = sl.accept(o.id);
+    const plan = sl.planById(o.id);
+    await ticks(sl, F.g, 5, 0.25, () => F.m.updates.length >= 1);
+    const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
+    check(T7, 'accept → Mission läuft, Nachfolgeszene ausgearbeitet und ersetzt (updateBook)', err === null && F.m.activeId === o.id && F.m.updates.includes(o.id) && plan.szenen[s2].state === 'ready' && plan.szenen[s2].quelle === 'llm',
+      `Fehler ${err}; Szenen ${JSON.stringify(Object.fromEntries(Object.entries(plan.szenen).map(([k, v]) => [k, v.state + '/' + v.quelle])))}; Updates ${F.m.updates.length}`);
+    // betretene Szene wird nicht ersetzt: s3 zurückhalten, dann s3 betreten, dann freigeben
+    llm._hold = true;
+    const scr = { szene: [{ hold: true }] };
+    sl.llm = LLM.create({ mode: 'script', katalog, script: scr });
+    F.m.step = { id: `${s2}_anflug` }; sl.update(0.1); await flush();
+    F.m.step = { id: s2 }; F.g.time += 0.25; sl.update(0.25); await flush();
+    const req = plan.szenen[s3].state;
+    const upd0 = F.m.updates.length;
+    F.m.step = { id: `${s3}_anflug` }; F.g.time += 0.25; sl.update(0.25); await flush();
+    F.m.step = { id: s3 }; F.g.time += 0.25; sl.update(0.25); await flush();
+    sl.llm.release(); await ticks(sl, F.g, 2);
+    check(T7, 'betretene Szene wird nicht mehr ersetzt', req === 'requested' && F.m.updates.length === upd0 && plan.szenen[s3].state === 'active',
+      `vorher ${req}, nachher ${plan.szenen[s3].state}, Updates ${upd0} -> ${F.m.updates.length}`);
+    // Speichern mitten in der Mission
+    savedState = JSON.parse(JSON.stringify(sl.toSave())); savedOffers = sl.offers().map((x) => x.id).sort();
+    const keys = Object.keys(savedState.plaene);
+    check(T7, 'toSave: Format §3.2 (plaene, archiv_gespielt, zusammenfassung, naechste_id)', keys.includes(o.id) && savedState.plaene[o.id].buch && savedState.plaene[o.id].grobplan && savedState.plaene[o.id].szenen[s2].antwort && Array.isArray(savedState.archiv_gespielt) && Number.isFinite(savedState.naechste_id),
+      `Pläne ${keys.join(', ')}, ${JSON.stringify(savedState).length} Bytes`);
+    // missionDone → Zusammenfassung + neue Runde
+    F.m.activeId = null; F.m.step = null;
+    sl.onMissionDone({ id: o.id, ausgang: 'erfolg' });
+    await ticks(sl, F.g, 10, 0.25, () => sl.offers().filter((x) => x.origin === 'sl').length >= 2);
+    check(T7, 'missionDone → Zusammenfassung, Gedächtnis-taugliche Ausgänge, neue Runde', sl.zusammenfassung.length === 1 && sl.zusammenfassung[0].ausgang === 'erfolg' && sl.offers().length >= 3 && !sl.planById(o.id),
+      `Zusammenfassung ${JSON.stringify(sl.zusammenfassung)}, Angebote ${sl.offers().length}`);
+    // ablehnen: leichter Gedächtnis-Eintrag, Ersatz-Angebot
+    const d = sl.offers().find((x) => x.origin === 'sl');
+    const mem0 = F.events.filter((e) => e.k === 'mem').length;
+    const derr = sl.decline(d.id);
+    await ticks(sl, F.g, 5, 0.25, () => sl.offers().filter((x) => x.origin === 'sl').length >= 2);
+    const mem = F.events.filter((e) => e.k === 'mem').slice(mem0);
+    check(T7, 'decline: Buch abgemeldet, leichter Gedächtnis-Eintrag, Ersatz geplant', derr === null && !F.m.books[d.id] && mem.length === 1 && mem[0].d.e.gewicht < 1 && sl.offers().filter((x) => x.origin === 'sl').length === 2,
+      `Gedächtnis ${JSON.stringify(mem.map((x) => x.d))}`);
+    check(T7, 'keine gezählten Fehler, Tokens auf dem Prozess-Zähler', !F.errors.length, `${F.errors.join(' | ') || '0 Fehler'}; Tokens ${LLM.budget().used}`);
+  });
+  await safe(T7, 'restore: Bücher wieder registriert, Angebote gleich', async () => {
+    if (!savedState) { skip(T7, 'restore: Bücher wieder registriert, Angebote gleich', 'kein gespeicherter Stand aus dem vorigen Test'); return; }
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: {} }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie7b'), katalog });
+    const r = sl.restore(JSON.parse(JSON.stringify(savedState)));
+    const active = Object.keys(savedState.plaene).find((id) => !savedOffers.includes(id));
+    // aktive Mission: Engine stellt sie her -> Spielleiter erkennt 'running', betretene Szene, fordert Nachfolger an
+    F.m.activeId = active; F.m.step = { id: F.m.books[active].book.steps[0].id };
+    sl.update(0.1);
+    const offers = sl.offers().map((x) => x.id).sort();
+    const plan = sl.planById(active);
+    const same = JSON.stringify(sl.toSave().plaene[active].buch) === JSON.stringify(savedState.plaene[active].buch);
+    check(T7, 'restore: Bücher wieder registriert, Angebote gleich', r && Object.keys(F.m.books).length === Object.keys(savedState.plaene).length && plan && plan.state === 'running' && same && offers.every((id) => savedOffers.includes(id)) && !F.errors.length,
+      `registriert ${Object.keys(F.m.books).join(', ')}, aktiv ${active} (${plan && plan.state}), Buch gleich ${same}, Angebote ${offers.join(',')} / gespeichert ${savedOffers.join(',')}, Fehler ${F.errors.join(' | ') || '–'}`);
+  });
+  await safe(T7, 'sceneWait: höchstens sceneWaitMax s, dann Rohfassung', async () => {
+    const F = fakeGame();
+    const scr = { grobplan: [], szene: [{ hold: true }, { hold: true }, { hold: true }] };
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: scr }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie7c'), katalog });
+    sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    await ticks(sl, F.g, 10, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const o = sl.offers().find((x) => x.origin === 'sl');
+    sl.accept(o.id); sl.update(0.1); await flush();
+    const plan = sl.planById(o.id); const s2 = plan.grobplan.szenen[1];
+    F.m.step = { id: `${s2.id}_anflug` }; F.g.ship.scene = s2.ort;
+    const t0 = F.g.time; let readyAt = null;
+    for (let i = 0; i < 200 && readyAt === null; i++) { F.g.time += 0.25; sl.update(0.25); await flush(); if (sl.sceneReady(o.id, s2.id)) readyAt = F.g.time - t0; }
+    const waits = F.events.filter((e) => e.k === 'sceneWait');
+    const odas = F.events.filter((e) => e.k === 'oda' && e.d.text === Spielleiter.WAIT_ODA);
+    check(T7, 'sceneWait: höchstens sceneWaitMax s, dann Rohfassung', readyAt !== null && readyAt <= F.g.C.spielleiter.sceneWaitMax + 0.5 && waits.length === 1 && waits[0].d.sec === F.g.C.spielleiter.sceneWaitMax && odas.length === 1 && plan.szenen[s2.id].state === 'failed' && plan.szenen[s2.id].quelle === 'rohfassung' && sl.stats.maxWait <= F.g.C.spielleiter.sceneWaitMax + 0.5,
+      `bereit nach ${readyAt} s, sceneWait ${waits.length}×, ODA ${odas.length}×, Szene ${plan.szenen[s2.id].state}, max. Wartezeit ${sl.stats.maxWait} s`);
+    // max. 1 CLI-Prozess: der zurückgehaltene Prozess blockiert weitere Starts, bis er endet
+    check(T7, 'höchstens 1 CLI-Prozess gleichzeitig', sl.inflight <= 1, `inflight ${sl.inflight}, Warteschlange ${sl.queue.length}`);
+    sl.llm.release(); await ticks(sl, F.g, 1);
+  });
+  await safe(T7, 'ohne Tutorial: Archiv ab Sekunde 0, Planung nach dem Tesk-Funk', async () => {
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: {} }), kontext: () => ctxOT, archiv: AR.entries, regieDir: tmpDir('regie7d'), katalog });
+    sl.onCampaignStart({ tutorial: false });
+    const at0 = sl.offers().length;
+    const p0 = sl.planning();
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().length >= 3);
+    check(T7, 'ohne Tutorial: Archiv ab Sekunde 0, Planung nach dem Tesk-Funk', at0 === 1 && p0 && p0.stage === 2 && sl.offers().length >= 3, `sofort ${at0}, nach 20 s ${sl.offers().length} (${sl.offers().map((x) => x.origin + ':' + x.titel).join(', ')})`);
+    // QA-INTEGRATION S2: abgelehnte Archiv-Mission kommt nicht sofort wieder, solange eine andere frei ist; Liste im Weltstand
+    const offA = sl.offers().filter((x) => x.origin === 'archiv');
+    const dec = offA[offA.length - 1];
+    if (!dec || offA.length >= AR.entries.length) { skip(T7, 'Ablehnen: Archiv-Mission kommt nicht sofort wieder', 'zu wenige Archiv-Einträge'); return; }
+    sl.decline(dec.id);
+    await ticks(sl, F.g, 5, 0.25, () => sl.offers().length >= 3);
+    const again = sl.offers().filter((x) => x.titel === dec.titel);
+    const sv = sl.toSave();
+    check(T7, 'Ablehnen: Archiv-Mission kommt nicht sofort wieder, archiv_abgelehnt im Weltstand', !again.length && sl.offers().length >= 3 && Array.isArray(sv.archiv_abgelehnt) && sv.archiv_abgelehnt.length === 1,
+      `abgelehnt „${dec.titel}“ -> jetzt ${sl.offers().map((x) => x.titel).join(', ')}; archiv_abgelehnt ${JSON.stringify(sv.archiv_abgelehnt)}`);
+  });
+  await safe(T7, 'mit Tutorial: m1/m2 lösen keine Planung aus', async () => {
+    const F = fakeGame({ tutorialOpen: true });
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: {} }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie7e'), katalog });
+    sl.onCampaignStart({ tutorial: true });
+    F.m.missions.m1.state = 'done'; sl.onMissionDone({ id: 'm1', ausgang: 'geliefert' });
+    F.m.activeId = 'm2';
+    await ticks(sl, F.g, 3);
+    check(T7, 'mit Tutorial: m1/m2 lösen keine Planung aus', sl.offers().length === 0 && !sl.planning(), `Angebote ${sl.offers().length}`);
+  });
+
+  // ---------- 8. Rückfälle ----------
+  const T8 = '8 Rückfälle';
+  const fallbackCase = async (name, script, prep, expect) => {
+    await safe(T8, name, async () => {
+      LLM.resetBudget();
+      const F = fakeGame();
+      if (prep && prep.budget != null) LLM.setBudgetLimit(prep.budget);
+      const sl = Spielleiter.create(F.g, { llm: LLM.create(script === 'off' ? { mode: 'off' } : { mode: 'script', katalog, script }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie8'), katalog, config: { offers: 1 } });
+      let thrown = null;
+      try {
+        sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+        await ticks(sl, F.g, (prep && prep.sec) || 10, 0.5, () => sl.offers().length >= 2);
+      } catch (e) { thrown = e; }
+      LLM.setBudgetLimit(null);
+      const offers = sl.offers(); const t = F.g.time;
+      const rueck = sl.regie ? sl.regie.entries.filter((e) => e.art === 'rueckfall') : [];
+      const extra = expect ? expect(sl, F) : true;
+      check(T8, name, !thrown && offers.length >= 2 && offers.every((o) => o.origin === 'archiv' || /mock/.test(o.id) || o.origin === 'sl') && rueck.length >= 1 && extra && !F.errors.filter((e) => !/fallback/.test(e)).length,
+        `${thrown ? 'Ausnahme ' + thrown.message + '; ' : ''}Angebote nach ${t.toFixed(1)} s: ${offers.map((o) => `${o.id}[${o.origin}]`).join(', ')}; Rückfall: ${rueck.map((e) => e.begruendung).join(' | ')}; Fehler ${F.errors.join(' | ') || '–'}`);
+    });
+  };
+  await fallbackCase('Timeout (Grobplan hält > 120 s) → Archiv', { grobplan: [{ hold: true }] }, { sec: 130 }, (sl) => sl.inflight === 0);
+  await fallbackCase('Müll-JSON zweimal → Nachbesserung, dann Archiv', { grobplan: [{ text: 'Hier ist dein Plan: {kaputt' }, { text: 'immer noch {{ kaputt' }] }, null,
+    (sl) => sl.regie.entries.filter((e) => e.art === 'grobplan' && e.fehler.length).length === 2);
+  await fallbackCase('zweimal ungültig (Prüfer) → Archiv', { grobplan: [{ json: { format: 'grobplan/2', id: 'x', szenen: [] } }, { json: { format: 'grobplan/2', id: 'x', szenen: [] } }] }, null,
+    (sl) => sl.regie.entries.filter((e) => e.art === 'grobplan' && e.versuch === 2).length === 1);
+  await fallbackCase('Budget leer → Archiv ohne Aufruf', { grobplan: [] }, { budget: 10 }, (sl) => sl.llm.calls().length === 0);
+  await fallbackCase('CLI fehlt (ENOENT) → Transport für den Lauf aus', { grobplan: [{ error: 'enoent' }] }, null, (sl) => !!sl.transportOff && !sl.transportUsable());
+  await fallbackCase('429 → 60 s Pause, Rückfall', { grobplan: [{ error: '429' }] }, null, (sl) => sl.pauseUntil > 50);
+  await fallbackCase('LLM aus (Modus off) → nur Archiv/Mock', 'off', null, (sl) => sl.offers().every((o) => o.origin === 'archiv' || /mock/.test(o.id)));
+  await safe(T8, 'Szene: zweimal ungültig → bleibt Rohfassung', async () => {
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: { szene: [{ text: '{"molekuele": []}' }, { text: 'kein json' }] } }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie8b'), katalog });
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 10, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const o = sl.offers().find((x) => x.origin === 'sl'); sl.accept(o.id);
+    const plan = sl.planById(o.id); const s2 = plan.grobplan.szenen[1].id;
+    await ticks(sl, F.g, 5, 0.25, () => plan.szenen[s2].state === 'failed');
+    check(T8, 'Szene: zweimal ungültig → bleibt Rohfassung', plan.szenen[s2].state === 'failed' && plan.szenen[s2].quelle === 'rohfassung' && !F.m.updates.includes(o.id) && !F.errors.length, `Szene ${plan.szenen[s2].state}, Fehler ${F.errors.join(' | ') || '–'}`);
+  });
+  await safe(T8, 'Debug: sl status / fail / archiv', async () => {
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: {} }), kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie8c'), katalog, config: { offers: 1 } });
+    const e1 = sl.debug(['sl', 'status'], {}); const e2 = sl.debug(['fail', 'grobplan'], {}); const e3 = sl.debug(['fail', 'quatsch'], {});
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 5, 0.25, () => sl.offers().length >= 2);
+    const viaFail = sl.regie.entries.some((e) => e.art === 'rueckfall' && /Debug/.test(e.begruendung));
+    const e4 = sl.debug(['archiv'], {});
+    check(T8, 'Debug: sl status / fail / archiv', e1 === null && e2 === null && typeof e3 === 'string' && viaFail && F.notices.length >= 2, `notices ${F.notices.length}, archiv: ${e4}`);
+  });
+
+  // ---------- 9. Echte Engine ----------
+  const T9 = '9 Engine';
+  const MissionMod = tryRequire('server/sim/mission.js').mod;
+  const hasEngine = !!(MissionMod && MissionMod.Mission && typeof MissionMod.Mission.prototype.registerBook === 'function' && typeof MissionMod.Mission.prototype.updateBook === 'function');
+  if (!hasEngine) {
+    skip(T9, 'Kampagne ohne Tutorial → Angebote → Annehmen → Skip-Lauf → missionDone', 'mission.registerBook/updateBook fehlen noch (ENGINE)');
+    skip(T9, 'Speichern/Laden mitten in einer erzeugten Mission', 'mission.registerBook fehlt noch (ENGINE)');
+  } else {
+    await engineTests(Object.assign({}, T, { T9, AR }));
+  }
+
+  // ---------- 10. Archiv ----------
+  const T10 = '10 Archiv';
+  await safe(T10, 'Lader', () => {
+    const r = Archiv.load();
+    if (!r.entries.length && !r.errors.length) { skip(T10, 'Lader', 'content/spielleiter/archiv/*.json fehlen noch (KATALOG)'); return; }
+    check(T10, 'Lader', !r.errors.length && r.entries.length >= 4, `${r.entries.length} Einträge (${r.entries.map((e) => e.name).join(', ')}); Fehler: ${r.errors.map((e) => e.file + ': ' + e.msg).join(' | ') || '–'}`);
+    const names = r.entries.map((e) => e.name);
+    const p1 = Archiv.pick(r.entries, [], ctxNT); const p2 = Archiv.pick(r.entries, [p1.name], ctxNT); const pAll = Archiv.pick(r.entries, names, ctxNT);
+    const p1b = Archiv.pick(r.entries, names.slice(1).concat([names[0]]), ctxNT);   // zuletzt gespielt: names[0] -> ältester zuerst
+    check(T10, 'Wiederholung erst, wenn alle gespielt', !!p1 && (names.length < 2 || (p2 && p1.name !== p2.name)) && !!pAll && (names.length < 2 || (p1b && p1b.name === names[1])),
+      `${p1 && p1.name} → ${p2 && p2.name}; alle gespielt → ${pAll && pAll.name}; ältester zuerst → ${p1b && p1b.name}`);
+    for (const e of r.entries) {
+      for (const [cname, ctx] of [['nach-tutorial', ctxNT], ['ohne-tutorial', ctxOT]]) {
+        const er = Archiv.erinnerung(e, ctx);
+        const g = JSON.parse(JSON.stringify(e.grobplan)); if (er.ref) g.erinnerung = er.ref; else delete g.erinnerung; g.erinnerung_text = er.text;
+        const legacy = SB.checkGrobplan(Object.assign({ erinnerung: er.text || '' }, g), env);
+        const s2 = SB.checkGrobplanS2(g, env, ctx, { origin: 'archiv' });
+        const answers = {}; for (const [sid, a] of Object.entries(e.szenen)) answers[sid] = { answer: a, quelle: 'archiv' };
+        const b = SB.buildBook(g, answers, env, { id: 'ar_1_' + SB.slug(e.name, 20), art: 'archiv', kontext: ctx });
+        const roh = Object.entries(b.szenen).filter(([, v]) => v.quelle === 'rohfassung' && Object.keys(e.szenen).length).map(([k]) => k);
+        const warn = b.warnings.filter((w) => /OBJEKT-BUEHNE|NPC-BESETZUNG|BEREICH-BUEHNE|ORT-BUEHNE/.test(w));
+        if (cname === 'nach-tutorial') {
+          const lohn = Object.entries(b.book.ausgaenge).map(([k, a]) => [k, (a.folgen.find((x) => x.reward) || { reward: { marks: 0 } }).reward.marks]);
+          check(T10, `${e.name}: Lohn je Ausgang (kein Malus für die andere Wahl)`, new Set(lohn.filter(([k]) => !/abbruch|gescheitert|verloren|unvollstaendig/.test(k)).map(([, m]) => m)).size <= 1, lohn.map(([k, m]) => `${k} ${m}`).join(', '));
+        }
+        check(T10, `${e.name} (${cname}): Bühne/Besetzung vollständig`, !warn.length, warn.join(' | ') || 'keine Bühnen-/Besetzungs-Warnungen');
+        check(T10, `${e.name} (${cname}): Grobplan + Buch prüferfest`, !legacy.length && !s2.errors.length && !b.errors.length,
+          `Grobplan: ${legacy.concat(s2.errors).join(' | ') || 'ok'}; Buch: ${b.errors.map((x) => x.code + ' ' + x.p + ' ' + x.msg).slice(0, 4).join(' | ') || 'ok'}; Erinnerung ${er.ref ? JSON.stringify(er.ref) : 'neutral'}; Szenen als Rohfassung: ${roh.join(',') || '–'}`);
+      }
+    }
+  });
+
+  // ---------- 11. Replay-Regression ----------
+  const T11 = '11 Regression';
+  await safe(T11, 'Buch-Hash aus den Aufzeichnungen stabil', () => {
+    const file = path.join(FIX, 'llm', 'buch-hashes.json');
+    const now = {};
+    const dir = path.join(FIX, 'llm', 'grobplan');
+    for (const f of fs.existsSync(dir) ? fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort() : []) {
+      const rec = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      let g; try { g = SB.parseJsonAnswer(rec.response.text); } catch (e) { continue; }
+      const r = SB.buildBook(g, {}, env, { id: 'sl_1_' + SB.slug(g.id, 20), kontext: ctxNT });
+      now['grobplan/' + (rec.name || f)] = { hash: sha1(r.book), fehler: r.errors.map((e) => e.code).sort() };
+    }
+    const sdir = path.join(FIX, 'llm', 'szene');
+    for (const f of fs.existsSync(sdir) ? fs.readdirSync(sdir).filter((x) => x.endsWith('.json')).sort() : []) {
+      const rec = JSON.parse(fs.readFileSync(path.join(sdir, f), 'utf8'));
+      let a; try { a = SB.parseJsonAnswer(rec.response.text); } catch (e) { continue; }
+      const g = rec.input.grobplan;
+      const r = SB.buildBook(g, { [rec.input.szene]: { answer: a, quelle: 'llm' } }, env, { id: 'sl_1_' + SB.slug(g.id, 20), kontext: ctxNT });
+      now['szene/' + (rec.name || f)] = { hash: sha1(r.book), fehler: r.errors.map((e) => e.code).sort(), szene: r.szenen[rec.input.szene] ? r.szenen[rec.input.szene].quelle : null };
+    }
+    if (T.UPDATE || !fs.existsSync(file)) { fs.writeFileSync(file, JSON.stringify(now, null, 2) + '\n', 'utf8'); ok(T11, 'Buch-Hash aus den Aufzeichnungen stabil', `neu geschrieben (${Object.keys(now).length} Bücher)`); return; }
+    const old = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const diff = Object.keys(Object.assign({}, old, now)).filter((k) => JSON.stringify(old[k]) !== JSON.stringify(now[k]));
+    check(T11, 'Buch-Hash aus den Aufzeichnungen stabil', !diff.length, diff.length ? `abweichend: ${diff.join(', ')} (bewusst? dann --update)` : `${Object.keys(now).length} Bücher, Hash gleich`);
+    const twice = sha1(SB.buildBook(LLM.mockGrobplan({ kontext: ctxNT }, katalog), {}, env, { id: 'sl_1_m', kontext: ctxNT }).book) === sha1(SB.buildBook(LLM.mockGrobplan({ kontext: ctxNT }, katalog), {}, env, { id: 'sl_1_m', kontext: ctxNT }).book);
+    check(T11, 'Buchbau deterministisch', twice, '');
+  });
+}
+
+// ---------- 9. echte Engine (Game + Mission aus server/) ----------
+async function engineTests(T) {
+  const { katalog, ok, bad, skip, safe, check, T9, AR } = T;
+  const { Game } = require('../server/game.js');
+  const Weltstand = require('../server/weltstand.js');
+  const worldDir = tmpDir('worlds9'); const regieDir = tmpDir('regie9');
+  const setup = (lobby) => {
+    const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir, seed: 7, debug: false, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: regieDir, WORLD_DIR: worldDir }, log: () => {} });
+    const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
+    g.addConnection(c);
+    g.handleMessage(c, { t: 'hello', clientId: 'SL0', name: 'Testcrew', color: 0 });
+    if (lobby) g.handleMessage(c, Object.assign({ t: 'lobbyOpt' }, lobby));
+    g.handleMessage(c, { t: 'ready', ready: true });
+    return { g, c };
+  };
+  const errorsOf = (g) => (g.stats && g.stats.errors) || g.errors || {};
+  // ENGINE ruft spielleiter.update aus game.step (vertraglich); sonst hier von Hand
+  const runner = (g, sl) => {
+    let wired = null;
+    return async (sec) => {
+      for (let k = 0; k < Math.round(sec * 30); k++) {
+        const before = sl.__calls || 0;
+        g.step();
+        if (wired === null) wired = (sl.__calls || 0) > before;
+        if (!wired) sl.update(1 / 30);
+        await flush();
+      }
+    };
+  };
+  const instrument = (sl) => { const u = sl.update.bind(sl); sl.update = (dt) => { sl.__calls = (sl.__calls || 0) + 1; return u(dt); }; return sl; };
+  let savedWorld = null;
+  await safe(T9, 'Kampagne ohne Tutorial → Angebote → Annehmen → Skip-Lauf → missionDone', async () => {
+    const { g } = setup({ startMission: 'free' });
+    for (let i = 0; i < 6; i++) g.step();
+    const own = instrument(Spielleiter.create(g, { llm: LLM.create({ mode: 'script', katalog, script: {} }), archiv: AR.entries, regieDir, memoryLog: true, katalog }));
+    g.spielleiter = own;
+    own.onCampaignStart({ tutorial: false });
+    const run = runner(g, own);
+    let t = 0; while (own.offers().length < 3 && t < 30) { await run(1); t++; }
+    const offers = own.offers();
+    const entries = typeof g.mission.offerList === 'function' ? g.mission.offerList() : null;
+    check(T9, 'Angebote nach „ohne Tutorial“ (Spielleiter + Archiv) im Missionsbuch', offers.length >= 3 && (!entries || entries.length >= 3), `${offers.map((o) => `${o.id}[${o.origin}]`).join(', ')} nach ${t} s; offerList ${entries ? entries.length : 'fehlt'}`);
+    const o = offers.find((x) => x.origin === 'sl') || offers[0];
+    const err = own.accept(o.id);
+    check(T9, 'Annehmen startet die erzeugte Mission', err === null && g.mission.activeId === o.id && g.mission.def && g.mission.def.kopf && g.mission.def.kopf.art === 'generiert', `Fehler ${err}, aktiv ${g.mission.activeId}`);
+    await run(1);
+    if (Weltstand.VERSION >= 2) {
+      // Datei sofort sichern: das Auto-Speichern bei missionDone überschreibt den Stand später
+      try {
+        const r = Weltstand.save(g, { sync: true });
+        const file = path.join(worldDir, g.weltstand.id + '.json');
+        savedWorld = r && r.ok ? { id: g.weltstand.id, mission: o.id, raw: fs.readFileSync(file, 'utf8'), file } : { error: (r && r.error) || 'unbekannt' };
+      } catch (e) { savedWorld = { error: e.message }; }
+    }
+    const plan = own.planById(o.id);
+    const steps = [];
+    for (let i = 0; i < 120 && g.mission.activeId === o.id; i++) {
+      const st = g.mission.step && g.mission.step.id; if (st && steps[steps.length - 1] !== st) steps.push(st);
+      g.mission.skip(); await run(2);
+    }
+    const done = g.mission.missions[o.id] && g.mission.missions[o.id].state === 'done';
+    if (done && own.planById(o.id)) own.onMissionDone({ id: o.id, ausgang: g.mission.missions[o.id].ausgang });
+    const replaced = own.regie ? own.regie.entries.filter((e) => e.art === 'szene' && /ersetzt/.test(e.begruendung || '')).length : 0;
+    check(T9, 'Skip-Lauf bis missionDone, Szenen ersetzt, Zusammenfassung', done && replaced >= 1 && own.zusammenfassung.some((z) => z.id === o.id),
+      `Schritte ${steps.join(' → ')}; erledigt ${done} (${done ? g.mission.missions[o.id].ausgang : '–'}); ersetzt ${replaced}; Szenen ${plan ? Object.entries(plan.szenen).map(([k, v]) => k + ':' + v.quelle).join(' ') : '–'}`);
+    await run(2);
+    check(T9, 'nach missionDone wieder ≥ 1 Angebot', own.offers().length >= 1, `${own.offers().length} Angebote`);
+    const errs = errorsOf(g); const slErr = Object.keys(errs).filter((k) => /spielleiter|mission/.test(k));
+    check(T9, 'keine gezählten Fehler in Spielleiter/Mission', !slErr.length, slErr.map((k) => `${k}: ${JSON.stringify(errs[k]).slice(0, 120)}`).join(' | ') || '0');
+    // Archiv-Skip-Lauf: jedes Archiv-Buch einmal (Standardweg)
+    if (!Archiv.load().entries.length) { skip('10 Archiv', 'Skip-Lauf je Archiv-Buch (echte Engine)', 'content/spielleiter/archiv/*.json fehlen noch (KATALOG)'); return; }
+    // je Archiv-Buch bis zu 3 Varianten: offene Entscheidungen nehmen Option v (mod Anzahl), dann skip
+    const res = []; const names = Archiv.load().entries.map((e) => e.name);
+    for (const name of names) {
+      const reached = new Set(); let total = 0; let hang = null; const variants = [];
+      for (const v of [0, 1, 2, -1]) {   // Option v bei jeder offenen Entscheidung; v = -1: nur skip (Standardweg)
+        if (hang) break;
+        // Angebot genau dieses Buchs herstellen
+        const plan = own.newPlan('archiv', { art: 'test' });
+        plan.kontext = own.kontext({ crew: 1 });
+        const entry = own.archiv().find((e) => e.name === name);
+        own.archivGespielt = own.archivGespielt.filter((x) => x !== name);
+        plan.triedArchiv = own.archiv().filter((e) => e.name !== name).map((e) => e.name);
+        for (const p of Object.values(own.plans)) if (p !== plan && p.archivName === name && p.state === 'offered') { own.callMission('unregisterBook', p.id); delete own.plans[p.key]; }
+        if (!entry || !own.planFromArchive(plan, 'Skip-Lauf')) { hang = 'kein Angebot'; break; }
+        total = Object.keys(plan.book.ausgaenge).length;
+        g.inventory.marks = 2000;   // Optionen mit Kosten (Zoll, Bestechung) sollen wählbar sein
+        if (own.accept(plan.id) !== null) { hang = 'Annehmen fehlgeschlagen'; break; }
+        const chosen = [];
+        for (let k = 0; k < 150 && g.mission.activeId === plan.id; k++) {
+          const ch = g.mission.state && g.mission.state.choice;
+          if (v >= 0 && ch && ch.options && ch.options.length) { const opt = ch.options.filter((o) => !o.disabled); if (opt.length) { chosen.push(opt[v % opt.length].id); g.mission.choice(opt[v % opt.length].id); } else g.mission.skip(); }
+          else g.mission.skip();
+          await run(2);
+        }
+        const ms = g.mission.missions[plan.id];
+        if (!(ms && ms.state === 'done')) {
+          hang = 'HÄNGT bei ' + (g.mission.step && g.mission.step.id) + (g.mission.step && g.mission.step.umsetzung ? ` (${g.mission.step.umsetzung})` : '');
+          try { g.mission.completeMission(Object.keys(plan.book.ausgaenge)[0]); } catch (e) { /* weiter mit dem nächsten Buch */ }
+          if (own.planById(plan.id)) own.onMissionDone({ id: plan.id, ausgang: 'abbruch' });
+          break;
+        }
+        reached.add(ms.ausgang); variants.push(`${v < 0 ? 'skip' : 'opt' + v}=${ms.ausgang}${chosen.length ? '[' + chosen.join(',') + ']' : ''}`);
+        if (own.planById(plan.id)) own.onMissionDone({ id: plan.id, ausgang: ms.ausgang });
+        await run(1);
+      }
+      res.push(`${name}: ${hang || `Ausgänge ${[...reached].join('/')} (${reached.size} von ${total})`}${variants.length ? ' – ' + variants.join(' ') : ''}`);
+    }
+    check('10 Archiv', 'Skip-Lauf je Archiv-Buch (echte Engine, Standardweg + 3 Optionsvarianten)', res.length >= 1 && res.every((x) => !/HÄNGT|kein Angebot|fehlgeschlagen/.test(x)), res.join('; '));
+  });
+  await safe(T9, 'Speichern/Laden mitten in einer erzeugten Mission', async () => {
+    if (Weltstand.VERSION < 2) { skip(T9, 'Speichern/Laden mitten in einer erzeugten Mission', `Weltstand Version ${Weltstand.VERSION} – Block 'spielleiter' kommt mit Weltstand v2 (ENGINE)`); return; }
+    if (!savedWorld || savedWorld.error) { bad(T9, 'Speichern/Laden mitten in einer erzeugten Mission', 'Speichern nach dem Annehmen fehlgeschlagen: ' + (savedWorld && savedWorld.error)); return; }
+    fs.writeFileSync(savedWorld.file, savedWorld.raw, 'utf8');
+    try { fs.unlinkSync(path.join(worldDir, savedWorld.id + '.lock')); } catch (e) { /* keine Sperre */ }
+    const data = Weltstand.load(worldDir, savedWorld.id);
+    if (!data.ok) { bad(T9, 'Speichern/Laden mitten in einer erzeugten Mission', 'Laden: ' + data.error); return; }
+    const hasBlock = data.ok && data.data.spielleiter && data.data.spielleiter.plaene && data.data.spielleiter.plaene[savedWorld.mission];
+    const { g } = setup({ world: savedWorld.id });
+    for (let i = 0; i < 6; i++) g.step();
+    const sl = g.spielleiter;
+    const active = g.mission.activeId;
+    check(T9, 'Speichern/Laden mitten in einer erzeugten Mission', hasBlock && sl && active === savedWorld.mission && sl.planById(active) && g.mission.def && g.mission.def.kopf.art === 'generiert',
+      `Block gespeichert ${!!hasBlock}, Spielleiter ${!!sl}, aktiv ${active} (erwartet ${savedWorld.mission})`);
+    if (sl && active === savedWorld.mission) {
+      instrument(sl); const run = runner(g, sl);
+      for (let i = 0; i < 120 && g.mission.activeId === active; i++) { g.mission.skip(); await run(2); }
+      check(T9, 'nach dem Laden zu Ende spielbar', g.mission.missions[active] && g.mission.missions[active].state === 'done', `Schritt ${g.mission.step && g.mission.step.id}`);
+    }
+  });
 }
 
 // erwartet.json (DATEN) flexibel lesen: { datei: code | [codes] | { code|codes|fehler } } oder [{ datei|file, code|codes }]
@@ -485,4 +875,4 @@ function isSorted(x) {
 
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
 
-module.exports = { checkGrobplan, assembleScene, sceneTestBook, evaluateScene, evaluateGrobplan, parseJsonAnswer, buildEnv, checkBook, collectBausteine, normalizeExpected, CHECKER, ANLASS };
+module.exports = { checkGrobplan, assembleScene, sceneTestBook, evaluateScene, evaluateGrobplan, parseJsonAnswer, buildEnv, checkBook, collectBausteine, normalizeExpected, CHECKER, ANLASS, fakeGame };

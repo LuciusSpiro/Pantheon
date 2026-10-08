@@ -305,7 +305,37 @@
       sentinel: { maxSpeed: 40, minSpeed: 0, accel: 15, decel: 20, brakeFactor: 1, stages: [0, 0.5, 1],
         turnRate: 0.36, turnCurve: [[0, 0.5], [0.5, 1], [1, 0.8]], turnAccel: 0.8, lateralDrag: 2.2, radius: 26 },
       pylon: { maxSpeed: 0, minSpeed: 0, accel: 0, decel: 0, brakeFactor: 1, stages: [0], turnRate: 0.15, turnCurve: [[0, 1], [1, 1]], turnAccel: 1, lateralDrag: 5, radius: 20 },
+      // S2 (CONTRACT-S2 §5): Schützlinge – träger als die Lerche, Startwerte, SCHUETZLING balanciert
+      frachter: { maxSpeed: 90, minSpeed: 0, accel: 14, decel: 22, brakeFactor: 1.4, stages: [0, 0.25, 0.5, 0.75, 1],
+        turnRate: 0.4, turnCurve: [[0, 0.3], [0.5, 1], [1, 0.7]], turnAccel: 0.6, lateralDrag: 2.4, radius: 34 },
+      karawane: { maxSpeed: 80, minSpeed: 0, accel: 12, decel: 20, brakeFactor: 1.4, stages: [0, 0.25, 0.5, 0.75, 1],
+        turnRate: 0.45, turnCurve: [[0, 0.3], [0.5, 1], [1, 0.7]], turnAccel: 0.6, lateralDrag: 2.4, radius: 30 },
+      bergungsboot: { maxSpeed: 110, minSpeed: 0, accel: 20, decel: 26, brakeFactor: 1.4, stages: [0, 0.25, 0.5, 0.75, 1],
+        turnRate: 0.6, turnCurve: [[0, 0.4], [0.5, 1], [1, 0.8]], turnAccel: 0.8, lateralDrag: 2.2, radius: 22 },
     },
+    // ---- S2 „Spielleiter an der Missionsgrenze“ (CONTRACT-S2) ----
+    // mode: Standard 'off' (nur Archiv); live nur mit SPIELLEITER_LLM=live UND LLM_LIVE=1 in der .env (Kai, Entscheidung 12)
+    spielleiter: { offers: 2, archivOffers: 1, grobplanTimeout: 120, sceneTimeout: 45, retries: 1, minBudget: 30000,
+      sceneWaitMax: 20, prefetch: 'start', maxConcurrent: 1, rateLimitPause: 60, regieRotateBytes: 5 * 1024 * 1024,
+      minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1 },
+    // Schützlinge: Hülle je Klasse, Gehorsam nach Haltung (s Verzögerung), Warnschwellen, Aggro-Dauer nach Treffer der Lerche
+    escorts: { max: 2, hull: { frachter: 120, karawane: 100, bergungsboot: 70 }, obeyDelay: { pos: 0, neutral: 2, neg: 4 },
+      warnAt: [0.75, 0.5, 0.25], aggroOnHit: 10, rebukeCooldown: 30, distressBelow: 0.5, distressFastBelow: 0.3,
+      // ---- Ergänzung SCHUETZLING (server/sim/escort.js) ----
+      hullPerDamage: 5,          // Hülle je Schadenspunkt (wie die Lerche: Kanonenboot-Ladung 3 -> 15 Hülle)
+      tele: { dur: 2 },          // Ankündigung für Gegner ohne eigene Ladung (Jäger): s bis zur Salve auf den Schützling
+      empStall: 6,               // s Antrieb aus nach EMP-Treffer (kein Hüllenschaden)
+      underFireHold: 4,          // s nach einem Treffer bzw. solange eine Ladung auf ihn läuft: hält an (außer volle_kraft/flieht)
+      followDist: 200, leash: 480, arriveDist: 130,   // px: folgen hinter der Lerche; Geleit wartet ab diesem Abstand; Ziel erreicht
+      dockGap: 30, dockSpeed: 35,                     // andocken: Lücke zwischen den Rümpfen (px), Lerche langsamer als (px/s)
+      repairDist: 180, repairSpeed: 40,               // Havarist: Lerche so nah und so langsam -> Reparatur läuft
+      shieldRadius: 46,          // px: Lerche „dazwischen“, wenn die Schusslinie so nah an ihrer Mitte vorbeigeht (Breitseite als Schild)
+      hitRadius: 8,              // px zusätzlich zum Klassenradius für Projektile mit Schützling-Ziel
+      spawnDist: 260,            // px: von 'lerche' = so weit steuerbord der Lerche
+      // Reisetempo folgt_kurs als Anteil der Klassen-Höchstfahrt (QA-INTEGRATION S2: deutlich unter der Lerche, Geleit ~3–4 min)
+      cruise: { min: 0.2, max: 0.45 },
+      // Schaden auf Schützlinge je Crewgröße (Faktor auf hullPerDamage); Ziel: zu dritt 70–90 % heil, solo 50–70 % heil
+      crewDamage: { 1: 0.4, 2: 0.9, 3: 1.25 } },
     spaceM3b: {
       flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
       pilot: { kP: 2.5, kD: 1.2, gunboatRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,

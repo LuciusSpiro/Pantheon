@@ -1756,8 +1756,893 @@ function printResult(r) {
   if (top.length) log('Häufigste Notices: ' + top.map(([t, c]) => `${c}× „${t}“`).join(' | '));
 }
 
+// =====================================================================================================================
+// S2 (CONTRACT-S2 §8, Team BOTS): generische Bots je Umsetzung für erzeugte/Archiv-Bücher.
+// Jeder Schritt eines solchen Buchs trägt `umsetzung: "<molekuel>/<umsetzung>"`; der Handler heißt
+// `umsetzung_<molekuel>_<umsetzung>` und nutzt die vorhandene Flug-, Kampf-, Scan-, Transfer- und Außenteam-Logik.
+// Hafen-Rahmen (Funk annehmen), Anflug-Schritte (`<szene>_anflug`, Ziel atLocation) und Entscheidungen (Captain) sind
+// allgemein. Unbekannte Umsetzung: kämpfen/warten; der Lauf skippt nach Zeitlimit und zählt sie als „nicht gespielt“.
+// Die Tutorial-Bots (Agent, KeshAgent) bleiben unverändert – GenericAgent ist eine eigene Unterklasse.
+//
+//   node tools/sim-headless.js archiv --seeds 5 [--crew 1|3]     Kampagne ohne Tutorial, 4 Archiv-Missionen nacheinander
+//   node tools/sim-headless.js escort --seeds 10 [--crew 1|3]    Geleit (+ Havarist) aus einem Testbuch, Anteil heil
+//   node tools/sim-headless.js umsetzung --seeds 3 [--crew 1|3] [--only mol/ums]   alle Umsetzungen einzeln (Testbücher)
+//   node tools/sim-headless.js dauer --seeds 5                    umsetzung + archiv, Median je Crew -> tools/fixtures/dauer-s2.json
+// =====================================================================================================================
+const KESH_STAGE_OF = { 'stellung_nehmen/trupp_raeumen': 'courtyard', 'raetsel_loesen/zwei_schluessel': 'archive',
+  'artefakt_freilegen/fund_aus_gewoelbe': 'tablet', 'entkommen/zu_den_pads': 'extract' };
+// Außenteam-Umsetzungen auf B-7/Wrack: Aufgabe + Missionsziel (Objective-ID), an dem „erledigt“ abgelesen wird
+const AWAY_TASK_OF = {
+  'personen_bergen/techniker_retten': { npc: true, obj: 'person' },
+  'raetsel_loesen/sonden_code': { sonde: true, obj: 'sonde' },
+  'datenkern_bergen/plattform_kern': { core: true, obj: 'kern' },
+  'ausschlachten/wrack_container': { container: true, obj: 'container' },
+  'rekonstruieren/wrack_logbuch': { lore: true, obj: 'lesen' },
+};
+const ESCORT_UMS = ['schuetzen/geleit_durch_angriff', 'schuetzen/notruf_verteidigen', 'pannenhilfe/andocken_und_flicken'];
+
+class GenericAgent extends KeshAgent {
+  constructor(game, idx, role, opts) { super(game, idx, role, opts); this.curKey = null; this.sm = {}; }
+  stepInfo() { const m = this.game.mission; return m && m.activeId && m.step && m.def ? { m, step: m.step, def: m.def } : null; }
+  update(S) {
+    const p = this.me(S);
+    if (!p) return;
+    this.updateLocs(S);
+    if (this.waitT > 0) { this.waitT -= DT; return; }
+    if (S.phase === 'end') return;
+    const info = this.stepInfo();
+    const key = info ? info.m.activeId + ':' + info.step.id : null;
+    if (key !== this.curKey) { this.curKey = key; this.sm = {}; }
+    if (p.downed) {
+      if (p.zone === 'away' && S.away.map === 'kesh') { this.awayLogic(S, p, 'courtyard'); return; }   // KeshAgent: verwundet weiterschießen
+      this.input(0, 0); this.act(false); this.ix = null; return;
+    }
+    if (this.reactorDuty(S, p)) return;
+    if (this.role === 'captain' && p.console === 'captain') this.queueRepairs(S);
+    if (!info) { this.betweenMissions(S, p); return; }
+    this.genericStep(S, p, info);
+  }
+  objDone(S, id) { const o = (S.mission.objectives || []).find((x) => x.id === id); return !!(o && o.done); }
+  // Route über die ganze Sternkarte (nicht nur die angezeigten Orte): die Crew kennt die Wege; gesperrte Verbindungen
+  // (explore.isLinkOpen) zählen nicht. Kein Weg -> simStats.noRoute (der Lauf skippt den Anflug dann früh).
+  nextHop(S, goal) {
+    const here = S.ship.scene;
+    if (here === goal) return null;
+    const ex = this.game.explore;
+    const prev = { [here]: null }; const q = [here];
+    while (q.length) {
+      const c = q.shift();
+      if (c === goal) break;
+      const l = Locations.get(c);
+      for (const n of (l ? l.links : [])) if (!(n in prev) && ex.isLinkOpen(c, n)) { prev[n] = c; q.push(n); }
+    }
+    if (!(goal in prev)) { this.game.simStats.noRoute = { loc: goal, from: here, t: this.game.time }; return null; }
+    let n = goal; while (prev[n] !== here) n = prev[n];
+    return n;
+  }
+
+  // ---------- zwischen den Missionen: Angebot annehmen (Captain/solo am Planungstisch) ----------
+  betweenMissions(S, p) {
+    if (p.zone === 'away') { this.padsUp(S, p); return; }
+    const want = this.game.simWant;
+    if (want && this.is('captain')) {
+      if (this.role === 'solo' && p.console === 'helm' && !this.brake(S)) return;
+      if (!this.enter(S, 'plan')) return;
+      if ((this.memo.acceptAt || 0) < S.time) { this.memo.acceptAt = S.time + 1; this.cmd('plan.accept', { id: want }); this.game.simStats.accepts = (this.game.simStats.accepts || 0) + 1; }
+      return;
+    }
+    this.idleStations(S, p);
+  }
+  // ---------- ein Schritt eines erzeugten/Archiv-Buchs ----------
+  genericStep(S, p, info) {
+    const { step, def } = info;
+    const ums = step.umsetzung || null;
+    const sh = S.ship;
+    // Funk zum Annehmen (Hafen-Rahmen) – Captain bzw. solo, wenn keine Gefahr
+    if (S.mission.radio && S.mission.radio.needsAccept && this.is('captain') && p.zone === 'ship' && !S.space.enemies.length) {
+      if (this.role === 'solo' && p.console === 'helm' && !this.brake(S)) return;
+      this.acceptRadio(S); return;
+    }
+    // Entscheidung (Funkduell, Bluff, …): Captain bzw. solo
+    if (S.mission.choice && this.is('captain') && p.zone === 'ship') { this.decide(S, p, step); return; }
+    if (def.steps[0] === step) { this.idleStations(S, p); return; }
+    if (/_anflug$/.test(step.id)) { this.approach(S, p, this.anflugLoc(step)); return; }
+    if (step.loc && sh.scene !== step.loc) { this.approach(S, p, step.loc); return; }
+    if (p.zone === 'away' && !this.isAwayUms(ums)) { this.padsUp(S, p); return; }
+    const fn = ums && this['umsetzung_' + ums.replace('/', '_')];
+    if (typeof fn !== 'function') { this.unknownUms(S, p, step); return; }
+    fn.call(this, S, p, step);
+  }
+  isAwayUms(ums) { return !!(ums && (AWAY_TASK_OF[ums] || KESH_STAGE_OF[ums])); }
+  anflugLoc(step) {
+    for (const o of step.objectives || []) if (o.done && o.done.atLocation) return o.done.atLocation;
+    const sk = (step.skip || []).find((a) => a && a.loc);
+    return sk ? sk.loc : null;
+  }
+  unknownUms(S, p, step) {
+    const u = this.game.simStats.unknownUms || (this.game.simStats.unknownUms = {});
+    u[step.umsetzung || '(ohne)'] = true;
+    this.fightOrHold(S, p);
+  }
+  pickOption(ch, step) {
+    const ums = step.umsetzung || '';
+    const o = this.opts || {};
+    let prefs = [];
+    if (ums === 'verhandeln/funkduell') prefs = [o.funk || 'a', 'a', 'b', 'schweigen'];
+    else if (ums === 'taeuschen/bluff_funk') prefs = [o.bluff || 'passend', 'wahrheit', 'falsch'];
+    const ok = (ch.options || []).filter((x) => !x.disabled).map((x) => x.id);
+    return prefs.find((x) => ok.includes(x)) || ok[0] || (ch.options[0] && ch.options[0].id);
+  }
+  decide(S, p, step) {
+    if (this.role === 'solo' && p.console === 'helm' && !this.brake(S)) return;
+    if (!this.enter(S, 'captain')) return;
+    if ((this.memo.choiceAt || 0) > S.time) return;
+    this.memo.choiceAt = S.time + 1;
+    const ch = S.mission.choice;
+    const opt = this.pickOption(ch, step);
+    this.cmd('captain.choice', { option: opt });
+    (this.game.simStats.choices || (this.game.simStats.choices = [])).push({ mission: this.game.mission.activeId, id: ch.id, option: opt });
+  }
+  // ---------- Grundbausteine ----------
+  approach(S, p, loc) {
+    if (S.space.enemies.length && p.zone === 'ship') { this.combatGeneric(S, p); return; }
+    if (p.zone === 'away') { this.padsUp(S, p); return; }
+    if (!loc) { this.idleStations(S, p); return; }
+    if (S.ship.scene === loc) { this.idleStations(S, p); return; }   // angekommen, Szene wird bereitgestellt
+    this.travel(S, p, loc);
+  }
+  idleStations(S, p) {
+    if (p.zone === 'away') { this.padsUp(S, p); return; }
+    if (p.carry && !this.actDown && ['ersatzteil', 'loeschgel', 'flickblech', 'medipack'].includes(p.carry)) { const shelf = shelfOf(p.carry); if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; } }
+    if (p.carry && !this.actDown) { this.send({ t: 'drop' }); return; }
+    if (this.role === 'captain') { this.enter(S, 'captain'); return; }
+    if (this.role === 'weapons') { if (!this.repairDuty(S, p, { damaged: true, cooldown: 3 })) this.enter(S, 'weapons'); return; }
+    const sh = S.ship;
+    if (this.role === 'solo' && (sh.docked || sh.speed < 8) && this.repairDuty(S, p, { cooldown: 5 })) return;
+    if (this.enter(S, 'helm')) { if (sh.docked) this.helmS(S, 0, STOP); else this.brake(S); }
+  }
+  calm(S, p, goal) {
+    if (p.zone === 'away') { this.padsUp(S, p); return; }
+    if (goal && this.is('helm')) {
+      const sh = S.ship;
+      if (!this.enter(S, 'helm')) return;
+      if (dist(sh.x, sh.y, goal.x, goal.y) > (goal.r || 60)) this.steer(S, goal.x, goal.y, (goal.r || 60) * 0.5, goal.v || 100); else this.brake(S);
+      return;
+    }
+    this.idleStations(S, p);
+  }
+  fightOrHold(S, p, goal) { if (S.space.enemies.length && p.zone === 'ship') { this.combatGeneric(S, p); return; } this.calm(S, p, goal); }
+  // Kampf: wie im Tutorial (combat je Rolle); nur Störrelais (stehen still, schießen nicht) fliegt die Steuer mit dem Bug an
+  combatGeneric(S, p) {
+    const en = S.space.enemies;
+    if (en.length && en.every((e) => e.kind === 'relay') && this.role === 'helm') { if (this.enter(S, 'helm')) this.aimHelm(S, this.nearestEnemy(S), 300); return; }
+    this.combat(S, p);
+  }
+  padsUp(S, p) {
+    if (S.away.map === 'kesh') { const role = this.role; if (role === 'solo') this.role = 'helm'; try { this.awayLogic(S, p, 'extract'); } finally { this.role = role; } return; }
+    if (this.shootDrones(S)) { this.ix = null; return; }
+    const npc = S.away.npc;
+    this.returnToPads(S, p, npc && npc.following === this.pid ? npc : null);
+  }
+  beamSpot(S) {
+    const st = this.station(S);
+    if (!st) return null;
+    return S.ship.scene === 'kesh' ? { st, near: 330, spot: { x: st.x - 250, y: st.y } } : { st, near: 240, spot: { x: st.x - 160, y: st.y } };
+  }
+  // An Bord: Schiff an die Beam-Position, anhalten, Hände frei (ggf. Medipack holen), aufs Pad, runterbeamen
+  beamDown(S, p, t) {
+    const sh = S.ship; const B = this.beamSpot(S);
+    if (!B) { this.idleStations(S, p); return; }
+    const shipOk = dist(sh.x, sh.y, B.st.x, B.st.y) <= B.near && sh.speed <= 8;
+    const steerer = this.role === 'solo' || this.role === 'helm';
+    if (p.console && !(steerer && p.console === 'helm' && !shipOk)) { this.leave(S); return; }
+    if (sh.systems.transfer === 'broken' || sh.systems.transfer === 'offline') {
+      if (this.role !== 'helm' && sh.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
+      this.input(0, 0); return;
+    }
+    if (steerer && !shipOk) {
+      if (this.enter(S, 'helm')) { if (dist(sh.x, sh.y, B.spot.x, B.spot.y) > 60) this.steer(S, B.spot.x, B.spot.y, 30, 90); else this.brake(S); }
+      return;
+    }
+    if (p.carry && p.carry !== 'medipack') {
+      if (this.actDown && !(this.ix && this.ix.phase === 'up')) { this.act(false); return; }
+      const shelf = shelfOf(p.carry);
+      if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; }
+      this.send({ t: 'drop' }); return;
+    }
+    const npc = S.away.npc;
+    if (t && t.npc && steerer && !p.carry && S.inventory.medipack > 0 && npc && npc.present && npc.injured && !npc.rescued) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
+    if (!shipOk) { this.onMyPad(S, p); this.input(0, 0); return; }
+    if (!this.onMyPad(S, p)) return;
+    this.holdBeam(S, p);
+  }
+  supportAway(S, p) {
+    if (!this.enter(S, 'captain')) return;
+    if (S.away.active && S.players.some((o) => o.zone === 'away') && (this.memo.supAt || 0) < S.time) {
+      this.memo.supAt = S.time + 2;
+      if (S.support.sensor === 0) this.cmd('captain.support', { kind: 'sensor' });
+      else if (S.support.kuppel === 0 && S.players.some((o) => o.zone === 'away' && o.hp < 60)) this.cmd('captain.support', { kind: 'kuppel' });
+    }
+  }
+
+  // ---------- Raumkampf-Umsetzungen ----------
+  umsetzung_vernichten_angriffswelle(S, p) { this.fightOrHold(S, p); }
+  umsetzung_vernichten_pylonen_pruefung(S, p) { this.fightOrHold(S, p); }
+  umsetzung_vertreiben_bis_zur_flucht(S, p) { this.fightOrHold(S, p); }
+  umsetzung_system_ausschalten_stoerrelais(S, p) { this.fightOrHold(S, p); }
+  // Störrelais zerstören, dann nah an die Station und scannen (Captain)
+  umsetzung_vermessen_stoerrelais_scan(S, p, step) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const sh = S.ship; const st = this.station(S);
+    if (!st) { this.idleStations(S, p); return; }
+    const range = Number(step.scan && step.scan.range) || 300;
+    const spot = { x: st.x - range * 0.5, y: st.y };
+    const near = dist(sh.x, sh.y, st.x, st.y) <= range * 0.85;
+    const scan = () => { this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.2; this.cmd('captain.scan', { on: true }); } };
+    if (this.role === 'solo') {
+      if (!near || sh.speed > 10) { if (this.enter(S, 'helm')) { if (!near) this.steer(S, spot.x, spot.y, 40, 100); else this.brake(S); } return; }
+      if (this.enter(S, 'captain')) scan();
+      return;
+    }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (!near) this.steer(S, spot.x, spot.y, 40, 100); else this.brake(S); } return; }
+    if (this.role === 'captain') { if (this.enter(S, 'captain') && near) scan(); return; }
+    this.idleStations(S, p);
+  }
+  // Position halten: innerhalb des Radius um die Station bleiben, Bug zum Gegner drehen statt zu manövrieren
+  umsetzung_halten_position_halten(S, p, step) {
+    const sh = S.ship; const st = this.station(S);
+    if (!st) { this.fightOrHold(S, p); return; }
+    let R = 250;
+    for (const r of step.rules || []) { const s = JSON.stringify(r.if || {}); const m = /"name":"ship_hold_position"[^}]*"dist":(\d+)/.exec(s) || /"dist":(\d+)[^}]*"name":"ship_hold_position"/.exec(s); if (m) { R = Number(m[1]); break; } }
+    const spot = { x: st.x - R * 0.4, y: st.y };
+    const d = dist(sh.x, sh.y, spot.x, spot.y);
+    const inside = d <= R * 0.45;
+    const en = S.space.enemies;
+    if (this.role === 'helm' || (this.role === 'solo' && (!inside || sh.speed > 12))) {
+      if (!this.enter(S, 'helm')) return;
+      if (!inside) { this.steer(S, spot.x, spot.y, R * 0.2, 70); return; }
+      if (en.length && this.role === 'helm') { const e = this.helmFocus(S); this.helmS(S, this.turnCmd(S, norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle)), STOP); return; }
+      this.brake(S); return;
+    }
+    if (en.length) {
+      if (this.role === 'solo') { if (this.enter(S, 'weapons')) this.fight(S); return; }
+      this.combat(S, p); return;
+    }
+    this.idleStations(S, p);
+  }
+  // Nebelflug: in die zweite Hälfte der Szene (Zone „durchquert“), Hinterhalt abwehren
+  umsetzung_kurs_durch_gefahr_nebelflug(S, p) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const sh = S.ship;
+    if (this.objDone(S, 'durch')) { this.calm(S, p); return; }
+    const w = S.space.w || 2400, h = S.space.h || 1400;
+    this.calm(S, p, { x: Math.min(w - 200, 1800), y: clamp(sh.y, 200, h - 200), r: 80, v: 120 });
+  }
+  // Bergungskisten im All einsammeln (überfliegen), wie m1 „route“
+  umsetzung_ladung_bergen_bergungskisten(S, p) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const sh = S.ship; const sm = this.sm;
+    const skip = sm.skipSalvage || (sm.skipSalvage = new Set());
+    let sv = (S.space.salvage || []).filter((q) => !skip.has(q.id)).sort((a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y))[0];
+    if (sv) { if (sm.svId !== sv.id) { sm.svId = sv.id; sm.svT = 0; } sm.svT += DT; if (sm.svT > 45) { skip.add(sv.id); sv = null; } }
+    if (!sv) { this.calm(S, p); return; }
+    if (this.is('helm')) { if (this.enter(S, 'helm')) this.steer(S, sv.x, sv.y, 0, 90); return; }
+    if (this.role === 'weapons') { if (this.enter(S, 'weapons') && !S.ship.markers.tactical) this.cmd('weapons.marker', { x: sv.x, y: sv.y }); return; }
+    this.idleStations(S, p);
+  }
+  // Im Hafen (bzw. bei Vaelen) andocken
+  umsetzung_ladung_liefern_im_hafen_abgeben(S, p, step) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const loc = step.loc || S.ship.scene;
+    if (S.ship.docked && S.ship.dockedAt === loc) { this.idleStations(S, p); return; }
+    if (this.is('helm')) { if (p.zone === 'away') { this.padsUp(S, p); return; } this.dock(S, p, loc); return; }
+    this.idleStations(S, p);
+  }
+  // Weitscan-Peilung: Wegpunkte abfliegen, Weitscan, dann den Fund anvisieren und scannen (wie m2 „beacon“)
+  umsetzung_signal_orten_weitscan_peilung(S, p, step) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const sh = S.ship; const sm = this.sm;
+    let fund = null;
+    for (const o of step.objectives || []) if (o.done && o.done.revealed) fund = o.done.revealed;
+    const target = (S.space.hidden || []).find((h) => (fund ? h.id === fund : true) && !h.found) || null;
+    const w = S.space.w || 2400, hh = S.space.h || 1400;
+    const WPS = [{ x: w * 0.5, y: hh * 0.5 }, { x: w * 0.25, y: hh * 0.3 }, { x: w * 0.75, y: hh * 0.3 }, { x: w * 0.75, y: hh * 0.72 }, { x: w * 0.25, y: hh * 0.72 }];
+    sm.wp = sm.wp || 0;
+    const wp = target ? { x: clamp(target.x - 350, 150, w - 150), y: clamp(target.y + 150, 150, hh - 150) } : WPS[sm.wp % WPS.length];
+    const atWp = dist(sh.x, sh.y, wp.x, wp.y) < 120;
+    const tac = () => {
+      if (!target) { if (sh.widescan.cd === 0 && atWp && sm.scannedWp !== sm.wp) { this.cmd('weapons.widescan'); sm.scannedWp = sm.wp; this.game.simStats.widescans++; return 'scanned'; } return 'wait'; }
+      if (sh.target !== target.id) { this.cmd('weapons.target', { id: target.id }); return 'busy'; }
+      if (dist(sh.x, sh.y, target.x, target.y) <= 790) { this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); } return 'busy'; }
+      return 'wait';
+    };
+    const syncWp = (n) => { for (const a of this.game.simAgents) a.sm.wp = n; };
+    if (this.role === 'solo') {
+      if (!atWp || sh.speed > 12) { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+      if (!this.enter(S, 'weapons')) return;
+      const r = tac();
+      if (r === 'scanned' || (r === 'wait' && !target && sm.scannedWp === sm.wp)) sm.wp++;
+      return;
+    }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+    if (this.role === 'weapons') {
+      if (!this.enter(S, 'weapons')) return;
+      tac();
+      if (!target && sm.scannedWp === sm.wp && sh.widescan.cd < 15) syncWp(sm.wp + 1);
+      return;
+    }
+    this.idleStations(S, p);
+  }
+  // Entscheidungen laufen über decide() (Captain); hier nur stehen und ggf. kämpfen
+  umsetzung_verhandeln_funkduell(S, p) { this.fightOrHold(S, p); }
+  umsetzung_taeuschen_bluff_funk(S, p) { this.fightOrHold(S, p); }
+
+  // ---------- Schützling (Geleit, Havarist, Pannenhilfe) ----------
+  umsetzung_schuetzen_geleit_durch_angriff(S, p, step) { this.guardEscort(S, p, step, { course: true }); }
+  umsetzung_schuetzen_notruf_verteidigen(S, p, step) { this.guardEscort(S, p, step, { course: false }); }
+  umsetzung_pannenhilfe_andocken_und_flicken(S, p, step) { this.guardEscort(S, p, step, { repair: true }); }
+  escortOf(S, step) { return (S.space.escorts || []).find((e) => e.tag === step.id) || null; }
+  escortRaw(es) { return es ? ((this.game.space.escorts || []).find((e) => e.id === es.id) || null) : null; }
+  guardEscort(S, p, step, o) {
+    const es = this.escortOf(S, step);
+    const act = es && (es.state === 'ok' || es.state === 'beschaedigt');
+    if (!act || p.zone !== 'ship') { this.fightOrHold(S, p); return; }
+    const en = S.space.enemies;
+    if (this.role === 'captain') { this.escortCaptain(S, p, es, o); return; }
+    if (this.role === 'weapons') { if (en.length) this.combat(S, p); else this.idleStations(S, p); return; }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) this.escortHelm(S, es, o); return; }
+    // solo: Befehl im Notfall, sonst kämpfen; ohne Gegner dicht beim Schützling (Pannenhilfe: nah und langsam)
+    if (o.course && es.distress && !this.sm.ordered && es.befehl !== 'volle_kraft' && !es.pending) {
+      if (p.console === 'helm' && !this.brake(S)) return;
+      if (this.enter(S, 'captain')) { this.cmd('captain.escort', { tag: es.tag, befehl: 'volle_kraft' }); this.sm.ordered = true; this.game.simStats.escortOrders = (this.game.simStats.escortOrders || 0) + 1; }
+      return;
+    }
+    if (en.length) { this.combat(S, p); return; }
+    if (this.enter(S, 'helm')) this.escortHelm(S, es, o);
+  }
+  escortCaptain(S, p, es, o) {
+    if (!this.enter(S, 'captain')) return;
+    if (o.course && es.distress && !this.sm.ordered && es.befehl !== 'volle_kraft' && !es.pending && (this.memo.escAt || 0) < S.time) {
+      this.memo.escAt = S.time + 2; this.sm.ordered = true;
+      this.cmd('captain.escort', { tag: es.tag, befehl: 'volle_kraft' });
+      this.game.simStats.escortOrders = (this.game.simStats.escortOrders || 0) + 1;
+      return;
+    }
+    if (S.space.enemies.length) this.captainFight(S, p); else this.queueRepairs(S);
+  }
+  // Steuer: zwischen Schützling und Bedrohung (lädt zuerst), sonst voraus auf seinem Kurs bzw. dicht daneben
+  escortHelm(S, es, o) {
+    const sh = S.ship; const raw = this.escortRaw(es);
+    const w = S.space.w || 2400, h = S.space.h || 1400;
+    const evx = raw ? raw.vx || 0 : 0, evy = raw ? raw.vy || 0 : 0;
+    const threats = S.space.enemies.filter((e) => e.tgt === es.id);
+    const pool = threats.length ? threats : S.space.enemies.filter((e) => e.kind !== 'relay' && e.kind !== 'pylon');
+    const byEs = (a, b) => dist(a.x, a.y, es.x, es.y) - dist(b.x, b.y, es.x, es.y);
+    const T = pool.filter((e) => e.tele).sort((a, b) => a.tele.left - b.tele.left)[0] || pool.slice().sort(byEs)[0] || null;
+    let gx, gy; let maxSpd = 130; let arrive = 20;
+    const repairing = o.repair && raw && raw.verhalten === 'treibt' && !raw.repaired;
+    if (T && dist(T.x, T.y, es.x, es.y) < 1000) {
+      const a = Math.atan2(T.y - es.y, T.x - es.x);
+      const d = clamp(dist(T.x, T.y, es.x, es.y) * 0.45, 70, repairing ? 110 : 150);
+      gx = es.x + Math.cos(a) * d; gy = es.y + Math.sin(a) * d;
+      if (repairing) maxSpd = 60;
+    } else if (o.course && !repairing) {
+      // seitlich voraus (nie genau auf dem Kurs – sonst blockiert die Lerche den Schützling)
+      const side = Math.sign(Math.cos(es.angle) * (sh.y - es.y) - Math.sin(es.angle) * (sh.x - es.x)) || 1;
+      const pa = es.angle + side * Math.PI / 2;
+      gx = es.x - Math.cos(es.angle) * 30 + Math.cos(pa) * 140; gy = es.y - Math.sin(es.angle) * 30 + Math.sin(pa) * 140;
+    } else {
+      const a = Math.atan2(sh.y - es.y, sh.x - es.x);
+      gx = es.x + Math.cos(a) * 100; gy = es.y + Math.sin(a) * 100;
+      maxSpd = 60; arrive = 25;
+    }
+    gx += evx * 1.2; gy += evy * 1.2;
+    gx = clamp(gx, 90, w - 90); gy = clamp(gy, 90, h - 90);
+    const gd = dist(sh.x, sh.y, gx, gy);
+    if (gd <= arrive && Math.hypot(evx, evy) < 8) { this.brake(S); return; }
+    this.steer(S, gx, gy, arrive, maxSpd);
+  }
+
+  // ---------- Außenteam B-7 / Wrack ----------
+  umsetzung_personen_bergen_techniker_retten(S, p, step) { this.awayScene(S, p, step); }
+  umsetzung_raetsel_loesen_sonden_code(S, p, step) { this.awayScene(S, p, step); }
+  umsetzung_datenkern_bergen_plattform_kern(S, p, step) { this.awayScene(S, p, step); }
+  umsetzung_ausschlachten_wrack_container(S, p, step) { this.awayScene(S, p, step); }
+  umsetzung_rekonstruieren_wrack_logbuch(S, p, step) { this.awayScene(S, p, step); }
+  awayScene(S, p, step) {
+    const t = AWAY_TASK_OF[step.umsetzung];
+    const need = !this.objDone(S, t.obj);
+    if (p.zone === 'away') { this.awayWork(S, p, t, need); return; }
+    if (S.space.enemies.length && !S.players.some((o) => o.zone === 'away')) { this.combatGeneric(S, p); return; }
+    if (this.role === 'captain') { this.supportAway(S, p); return; }
+    if (!need) { this.idleStations(S, p); return; }
+    // zu dritt: Taktik beamt erst nach, wenn unten schon jemand ist (wie m1) – nur auf B-7 für die Sonde nötig
+    this.beamDown(S, p, t);
+  }
+  awayWork(S, p, t, need) {
+    if (this.shootDrones(S)) { this.ix = null; return; }
+    const aw = S.away; const npc = aw.npc;
+    if (!need) { this.padsUp(S, p); return; }
+    if (t.npc) {
+      if (npc && npc.present && !npc.rescued) {
+        if (npc.following === this.pid) { this.returnToPads(S, p, npc); return; }
+        if (!npc.following && (!npc.injured || p.carry === 'medipack' || this.role === 'solo' || this.role === 'helm')) { this.interact(S, Math.floor(npc.x / TILE), Math.floor(npc.y / TILE), { floor: true }); return; }
+      }
+      this.padsUp(S, p); return;
+    }
+    // Sonde (eigene Aufgabe oder Voraussetzung für die Kerntür nach einem Zurücksetzen der Karte)
+    if (t.sonde || (t.core && aw.sonde && !aw.sonde.disabled && !(aw.items || []).every((i) => i.kind !== 'datenkern'))) {
+      const hasWeaponsMate = (this.game.simAgents || []).some((a) => a !== this && a.role === 'weapons' && a.me(S) && a.me(S).zone === 'away');
+      if (this.role === 'helm' && hasWeaponsMate) { this.input(0, 0); return; }   // Taktik gibt den Code ein
+      if (p.console !== 'sonde') { this.enter(S, 'sonde'); return; }
+      const s = aw.sonde;
+      const codeKnown = aw.odaCodeHelp || this.teamOnShipCaptain(S);
+      if (!codeKnown || s.lockout > 0) { this.input(0, 0); return; }
+      if ((this.memo.codeAt || 0) < S.time) { this.memo.codeAt = S.time + 0.4; this.cmd('sonde.input', { color: aw.codeTable[s.symbols[s.entered.length]] }); }
+      return;
+    }
+    if (p.console) { this.leave(S); return; }
+    if (t.core) {
+      const core = (aw.items || []).find((i) => i.kind === 'datenkern');
+      if (p.carry === 'datenkern') { this.padsUp(S, p); return; }
+      const carrier = S.players.some((o) => o.id !== this.pid && o.carry === 'datenkern');
+      if (carrier) { this.padsUp(S, p); return; }
+      if (aw.sonde && aw.sonde.disabled && !aw.coreRebooted) { this.interact(S, 14, 7, { hold: true, until: (S2) => S2.away.coreRebooted }); return; }
+      if (core) {
+        if (!aw.doorOpen) { this.input(0, 0); return; }
+        if (p.carry && !this.actDown) { this.send({ t: 'drop' }); return; }
+        this.interact(S, Math.floor(core.x / TILE), Math.floor(core.y / TILE), { floor: true });
+        return;
+      }
+      this.padsUp(S, p); return;
+    }
+    if (t.lore) {
+      if (!aw.loreRead) { const g = Maps.wreck.find('g')[0]; this.interact(S, g.x, g.y, {}); return; }
+      this.padsUp(S, p); return;
+    }
+    if (t.container) {
+      // versteckter Container (Hohlraum) steht nicht im Snapshot-Feld – Kennzeichen vom Server lesen; unerreichbare überspringen
+      const srv = (this.game.aways[aw.map] && this.game.aways[aw.map].salvage) || [];
+      const isHidden = (s) => srv.some((q) => q.x === s.x && q.y === s.y && q.hidden);
+      const bad = this.sm.badSalvage || (this.sm.badSalvage = {});
+      const left = (aw.salvage || []).filter((s) => !s.done && !s.hidden && !isHidden(s) && (bad[s.x + ',' + s.y] || 0) < 3);
+      // zu dritt teilen sich die beiden unten die Container (der eine von vorn, der andere von hinten)
+      const pt = this.tile(p);
+      const order = left.slice().sort((a, b) => Math.abs(a.x - pt.x) + Math.abs(a.y - pt.y) - Math.abs(b.x - pt.x) - Math.abs(b.y - pt.y));
+      const s = this.role === 'weapons' && order.length > 1 ? order[order.length - 1] : order[0];
+      if (s) { const r = this.interact(S, s.x, s.y, { hold: true, until: (S2) => S2.away.salvage.some((q) => q.x === s.x && q.y === s.y && q.done) }); if (r === 'fail') { this.waitT = 0.3; bad[s.x + ',' + s.y] = (bad[s.x + ',' + s.y] || 0) + 1; } return; }
+      this.padsUp(S, p); return;
+    }
+    this.padsUp(S, p);
+  }
+
+  // ---------- Außenteam Kesh (KeshAgent-Logik je Abschnitt) ----------
+  umsetzung_stellung_nehmen_trupp_raeumen(S, p, step) { this.keshScene(S, p, step); }
+  umsetzung_raetsel_loesen_zwei_schluessel(S, p, step) { this.keshScene(S, p, step); }
+  umsetzung_artefakt_freilegen_fund_aus_gewoelbe(S, p, step) { this.keshScene(S, p, step); }
+  umsetzung_entkommen_zu_den_pads(S, p, step) { this.keshScene(S, p, step); }
+  keshScene(S, p, step) {
+    const st = KESH_STAGE_OF[step.umsetzung];
+    if (p.zone === 'away') {
+      if (this.role === 'solo' && st === 'archive' && !S.away.vault.open && !this.enemiesInSight(S, p).length) { this.soloKeys(S, p); return; }
+      const role = this.role; if (role === 'solo') this.role = 'helm';
+      try { this.awayLogic(S, p, st); } finally { this.role = role; }
+      return;
+    }
+    if (this.role === 'captain') { this.captainLogic(S, p, st); return; }
+    if (st === 'extract') { this.idleStations(S, p); return; }
+    this.beamDown(S, p, null);
+  }
+  // Solo: Archivschlüssel nacheinander (Solo-Zeitfenster), wie golden-trace SoloKeshAgent
+  soloKeys(S, p) {
+    const m = this.memo;
+    if (m.soloKey == null) m.soloKey = 0;
+    if (S.away.keys[m.soloKey].t >= 1 && S.away.keys[1 - m.soloKey].t < 1) { m.soloKey = 1 - m.soloKey; this.ix = null; if (this.actDown) this.act(false); }
+    const k = m.soloKey;
+    const acc = k === 0 ? KESH_GOALS.keyA : KESH_GOALS.keyB;
+    const key = S.away.keys[k];
+    const t = this.tile(p);
+    if (t.x !== acc.x || t.y !== acc.y) { if (this.actDown) this.act(false); this.ix = null; this.goto(S, [acc]); return; }
+    const r = this.interact(S, key.x, key.y, { hold: true, max: 6, until: (S2) => S2.away.vault.open || S2.away.keys[k].t >= 1 });
+    if (r === 'fail') this.waitT = 0.4;
+  }
+}
+
+// ---------- Läufe mit GenericAgent ----------
+const SceneKind = { HAFEN: 'hafen', ANFLUG: 'anflug', SZENE: 'szene' };
+function sceneOfStepId(def, stepId) {
+  if (def && def.steps && def.steps[0] && def.steps[0].id === stepId) return stepId;
+  return String(stepId).replace(/_anflug$/, '').replace(/_x(_\d+)?$/, '').replace(/_\d+$/, '');
+}
+const median = (xs) => { const a = xs.filter((x) => x != null && isFinite(x)).sort((p, q) => p - q); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+const r1 = (x) => Math.round(x * 10) / 10;
+
+// opts: { seed, crew, mode: 'archiv'|'book', books?: [book], count?, order?, funk?, maxSec?, label? }
+async function runGeneric(opts) {
+  const os = require('os'); const path = require('path');
+  const Escort = require('../server/sim/escort.js');
+  const seed = opts.seed, crew = opts.crew;
+  simRng = makeRng(seed * 7919 + 500 + crew);
+  const env = { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') };
+  const game = new Game({ noStore: true, seed, env, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const errList = [];
+  const origCount = game.countError.bind(game);
+  game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
+  game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0, accepts: 0, choices: [], unknownUms: {}, escortOrders: 0 };
+  const roles = crew === 1 ? ['solo'] : ['captain', 'helm', 'weapons'].slice(0, crew);
+  const agents = roles.map((r, i) => new GenericAgent(game, i, r, opts));
+  game.simAgents = agents;
+  const res = { seed, crew, missions: [], errors: 0, errList, aborted: null, snapMax: 0 };
+  let cur = null;
+  const doneEvents = [];
+  const watcher = { send: (o) => {
+    if (o.t !== 'event') return;
+    if (o.kind === 'missionDone') doneEvents.push(o);
+    if (!VERBOSE) return;
+    if (o.kind === 'oda') log(`  [ODA ${game.time.toFixed(1)}] ${o.text}`);
+    if (o.kind === 'radio') log(`  [Funk ${game.time.toFixed(1)}] ${o.from}: ${o.text}`);
+    if (o.kind === 'stage') log(`--- Schritt ${o.mission}/${o.stage} @ ${game.time.toFixed(1)} s (${game.ship.scene})`);
+    if (/^escort/.test(o.kind)) log(`  [${o.kind} ${game.time.toFixed(1)}] ${JSON.stringify(o)}`);
+  } };
+  game.addConnection(watcher); watcher.observer = true;
+  game.lobbyOpts.startMission = 'free';
+  for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  let S = game.snapshot();
+  const maxSec = opts.maxSec || 7200;
+  let ticks = 0; let idleSince = game.time; let bookIdx = 0; const played = new Set();
+  let curStep = null;
+  const escortStats = () => JSON.parse(JSON.stringify(game.stats.escort || {}));
+  const closeStep = () => {
+    if (!curStep || !cur) return;
+    const dur = r1(game.time - curStep.t0);
+    const e = { step: curStep.id, scene: curStep.scene, ums: curStep.ums, kind: curStep.kind, dur, skipped: curStep.skips > 0 };
+    if (curStep.kind === SceneKind.SZENE && ESCORT_UMS.includes(curStep.ums)) { try { e.escort = Escort.outcome(game, curStep.id); e.escortHp = Escort.hpPct(game, curStep.id); } catch (err) { e.escort = null; } }
+    cur.steps.push(e);
+    curStep = null;
+  };
+  const finishMission = (ev) => {
+    closeStep();
+    const ms = game.stats.missions[cur.id];
+    cur.success = true; cur.ausgang = ev ? ev.ausgang : null;
+    cur.dur = ms && ms.end != null ? r1(ms.end - ms.start) : r1(game.time - cur.t0);
+    const e1 = escortStats(); cur.escortStats = {};
+    for (const k of Object.keys(e1)) cur.escortStats[k] = r1((e1[k] || 0) - (cur.escort0[k] || 0));
+    cur.errors = game.errors - cur.err0;
+    res.missions.push(cur); cur = null;
+    idleSince = game.time;
+  };
+  while (game.time < maxSec) {
+    game.step(); ticks++;
+    if (game.wantsSnapshot()) { S = game.snapshot(); if (ticks % 30 === 0) res.snapMax = Math.max(res.snapMax, Buffer.byteLength(JSON.stringify(S))); }
+    for (const a of agents) a.update(S);
+    const m = game.mission;
+    if (VERBOSE && ticks % Number(argVal('--every', 120)) === 0) {
+      const sh = game.ship;
+      log(`  [t ${game.time.toFixed(0)} ${m.state.stage || '-'}@${sh.scene}] v${Math.round(Math.hypot(sh.vx, sh.vy))} Hülle ${Math.round(sh.hull)} Gegner ${game.space.enemies.map((e) => e.kind + ':' + Math.round(e.hp) + '@' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + (e.targetId ? '>' + e.targetId : '') + (e.tele ? 'T' : '')).join(' ')}`
+        + ` Schützling ${(game.space.escorts || []).map((q) => `${q.tag}:${q.state}:${Math.round(q.hp)}@${Math.round(dist(q.x, q.y, sh.x, sh.y))}`).join(' ')} Spieler ${S.players.map((q) => q.zone + ':' + (q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32))).join(' ')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'}`
+        + (S.away.active ? ` | unten ${S.away.map}: Salvage ${(S.away.salvage || []).map((q) => `${q.x},${q.y}${q.done ? '✓' : ''}${q.hidden ? 'h' : ''}`).join(' ')} Gegner ${(S.away.drones || []).filter((d) => d.alive).length} Aktion ${S.players.map((q) => q.action ? q.action.kind : '-').join('/')}` : ''));
+    }
+    // Missionsende (Ereignis)
+    while (doneEvents.length) { const ev = doneEvents.shift(); if (cur && ev.id === cur.id) finishMission(ev); }
+    // Missionsstart
+    if (m.activeId && (!cur || cur.id !== m.activeId)) {
+      if (cur) { closeStep(); cur.success = false; cur.ausgang = null; cur.dur = r1(game.time - cur.t0); res.missions.push(cur); }
+      const sl = game.spielleiter; const plan = sl && sl.planById ? sl.planById(m.activeId) : null;
+      cur = { id: m.activeId, title: m.def && m.def.title, archiv: plan ? plan.archivName : null, origin: plan ? plan.origin : 'test', t0: game.time, steps: [], escort0: escortStats(), err0: game.errors, softlock: null };
+      if (plan && plan.archivName) played.add(plan.archivName);
+      game.simWant = null;
+    }
+    // Kein Weg (gesperrte Verbindung, z. B. Kesh ohne Tutorial): Verbindung wie Debug `reveal` öffnen und markieren
+    const nr = game.simStats.noRoute;
+    if (nr) {
+      game.simStats.noRoute = null;
+      for (const L of Locations.LOCKED_LINKS) if (!game.explore.linksOpen.has(L.key)) {
+        game.explore.openLink(L.key);
+        (res.debugLinks || (res.debugLinks = [])).push(`${L.key} (für ${nr.loc}, ${cur ? cur.archiv || cur.id : '-'})`);
+        if (cur) cur.debugLink = true;
+      }
+    }
+    // Schrittwechsel + Zeitlimit (Debug-skip, zählt als „nicht gespielt“)
+    if (cur && m.activeId === cur.id && m.step) {
+      if (!curStep || curStep.id !== m.step.id) {
+        closeStep();
+        const st = m.step; const id = st.id;
+        const kind = m.def.steps[0] === st ? SceneKind.HAFEN : /_anflug$/.test(id) ? SceneKind.ANFLUG : SceneKind.SZENE;
+        const ums = st.umsetzung || null;
+        const fnName = ums ? 'umsetzung_' + ums.replace('/', '_') : null;
+        const known = !!(fnName && typeof GenericAgent.prototype[fnName] === 'function');
+        const limit = kind === SceneKind.HAFEN ? 60 : kind === SceneKind.ANFLUG ? 300 : (known ? 600 : 90);
+        curStep = { id, ums, kind, scene: sceneOfStepId(m.def, id), t0: game.time, limitAt: game.time + limit, skips: 0, known };
+      } else if (game.time > curStep.limitAt) {
+        curStep.skips++;
+        if (curStep.skips > 3) { cur.softlock = `${cur.id}/${curStep.id}`; res.aborted = `Softlock in ${cur.id}/${curStep.id} (Skip hilft nicht)`; break; }
+        const why = curStep.known ? `Zeitlimit` : `Umsetzung ohne Bot-Handler`;
+        (cur.skips || (cur.skips = [])).push({ step: curStep.id, ums: curStep.ums, why, t: r1(game.time - cur.t0) });
+        if (VERBOSE) log(`  [SKIP ${game.time.toFixed(1)}] ${curStep.id} (${curStep.ums}) – ${why}`);
+        try { const e = m.skip(); if (e && VERBOSE) log('  skip: ' + e); } catch (e) { errList.push('skip: ' + e.message); }
+        curStep.limitAt = game.time + 45;
+      }
+      if (game.time - cur.t0 > (opts.missionMax || 2700)) { cur.softlock = `${cur.id}/${m.step.id}`; res.aborted = `Mission ${cur.id} über ${opts.missionMax || 2700} s`; break; }
+    }
+    // zwischen den Missionen: nächstes Angebot bzw. Testbuch
+    if (!m.activeId) {
+      if (opts.mode === 'archiv') {
+        if (res.missions.length >= (opts.count || 4)) break;
+        const sl = game.spielleiter;
+        const offers = sl ? sl.offers() : [];
+        const order = opts.order || [];
+        const named = offers.map((o) => ({ o, name: (sl.planById(o.id) || {}).archivName || null })).filter((x) => x.name && !played.has(x.name))
+          .sort((a, b) => (order.indexOf(a.name) < 0 ? 99 : order.indexOf(a.name)) - (order.indexOf(b.name) < 0 ? 99 : order.indexOf(b.name)));
+        game.simWant = named.length ? named[0].o.id : null;
+        if (!named.length && game.time - idleSince > 180) { res.aborted = `kein ungespieltes Archiv-Angebot nach ${Math.round(game.time - idleSince)} s (Angebote: ${offers.map((o) => o.titel).join(', ') || '–'})`; break; }
+        if (named.length && game.time - idleSince > 240) { res.aborted = `Angebot ${named[0].o.id} nach 240 s nicht angenommen`; break; }
+      } else if (opts.mode === 'book') {
+        if (bookIdx >= opts.books.length) break;
+        if (game.time - idleSince > 3) {
+          const book = opts.books[bookIdx++];
+          const r = m.registerBook(JSON.parse(JSON.stringify(book)), { origin: 'sl' });
+          if (!r || r.ok === false) { res.aborted = `Testbuch ${book.id} abgelehnt: ${JSON.stringify((r && r.errors) || []).slice(0, 300)}`; break; }
+          m.startMission(book.id);
+          if (m.activeId !== book.id) { res.aborted = `Testbuch ${book.id} startet nicht`; break; }
+        }
+      }
+    }
+    if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
+  }
+  if (cur) { closeStep(); cur.success = false; cur.dur = r1(game.time - cur.t0); cur.errors = game.errors - cur.err0; res.missions.push(cur); }
+  if (!res.aborted && game.time >= maxSec) res.aborted = `Spielzeit über ${maxSec} s`;
+  res.errors = game.errors; res.sim = game.simStats; res.gameTime = r1(game.time); res.marks = game.inventory.marks; res.hull = Math.round(game.ship.hull);
+  return res;
+}
+
+// Dauer je Umsetzung aus einem Lauf: Szenen-Schritte (ohne Anflug/Hafen), je Szene summiert (mehrere Schritte einer Szene
+// mit derselben Umsetzung zählen zusammen). Übersprungene Szenen zählen als „nicht gespielt“.
+function umsetzungSamples(run) {
+  const out = [];
+  for (const ms of run.missions) {
+    const byScene = {};
+    for (const s of ms.steps) {
+      if (s.kind !== SceneKind.SZENE || !s.ums) continue;
+      const k = s.scene + '|' + s.ums;
+      const x = byScene[k] || (byScene[k] = { ums: s.ums, scene: s.scene, mission: ms.id, sec: 0, skipped: false, escort: null });
+      x.sec += s.dur; if (s.skipped) x.skipped = true; if (s.escort !== undefined) { x.escort = s.escort; x.escortHp = s.escortHp; }
+    }
+    out.push(...Object.values(byScene));
+  }
+  return out;
+}
+
+// ---------- Testbücher (je Umsetzung bzw. Kette auf derselben Außenkarte) ----------
+function testBooks(only) {
+  const Szenenbau = require('../server/mission/szenenbau.js');
+  const SL = require('../server/mission/spielleiter.js');
+  const kat = SL.katalog();
+  const env = Szenenbau.buildEnv(kat);
+  const umsOf = (key) => { const [mid, uid] = key.split('/'); const mol = kat.molekuele[mid]; return mol ? mol.umsetzungen.find((u) => u.id === uid) : null; };
+  const all = [];
+  for (const mol of Object.values(kat.molekuele)) for (const u of mol.umsetzungen || []) all.push(`${mol.id}/${u.id}`);
+  const chains = [
+    ['personen_bergen/techniker_retten', 'raetsel_loesen/sonden_code', 'datenkern_bergen/plattform_kern'],
+    ['rekonstruieren/wrack_logbuch', 'ausschlachten/wrack_container'],
+    ['stellung_nehmen/trupp_raeumen', 'raetsel_loesen/zwei_schluessel', 'artefakt_freilegen/fund_aus_gewoelbe', 'entkommen/zu_den_pads'],
+  ];
+  const inChain = new Set(chains.flat());
+  const groups = chains.map((c) => c.filter((k) => all.includes(k))).filter((c) => c.length);
+  for (const k of all) if (!inChain.has(k)) groups.push([k]);
+  const books = [];
+  groups.forEach((keys, gi) => {
+    if (only && !keys.includes(only)) return;
+    const scenes = keys.map((k) => ({ key: k, u: umsOf(k), override: {} }));
+    books.push(buildTestBook(Szenenbau, env, `bt${gi + 1}`, scenes));
+  });
+  return books;
+}
+// scenes: [{ key: 'mol/ums', u, override: {params}, loc? }]
+function buildTestBook(Szenenbau, env, id, scenes) {
+  const szenen = [{ id: 'th', szenentyp: 'hafen', ort: 'hafen', molekuele: [], weiter: [{ nach: id + 's1' }] }];
+  const answers = {};
+  scenes.forEach((sc, i) => {
+    const [mid, uid] = sc.key.split('/');
+    const u = sc.u;
+    const params = Object.assign({}, JSON.parse(JSON.stringify((u.test && u.test.params) || {})), JSON.parse(JSON.stringify((u.rueckfall && u.rueckfall.params) || {})), sc.override || {});
+    const loc = sc.loc || params.loc || 'b7';
+    if (u.params.loc) params.loc = loc;
+    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && params[pn] === undefined) params[pn] = 'tesk';
+    const sid = id + 's' + (i + 1);
+    szenen.push({ id: sid, szenentyp: 'test', ort: loc, karte: params.map, molekuele: [{ id: mid, umsetzung: uid }], weiter: [{ nach: i < scenes.length - 1 ? id + 's' + (i + 2) : 'ausgang:erfolg' }] });
+    answers[sid] = { answer: { molekuele: [{ id: mid, umsetzung: uid, params }], verzweigung: [], wendung: null }, quelle: 'archiv' };
+  });
+  const g = { format: 'grobplan/1', id, titel: 'Bot-Test ' + scenes.map((s) => s.key).join(' + '), auftraggeber: 'tesk', zielspieldauer_min: 15,
+    aufhaenger: 'Testbuch für die Bot-Messung (sim-headless).', szenen, entscheidungen: [],
+    ausgaenge: { erfolg: { wann: 'Test durch', folgen: ['chronik: Bot-Test durch', 'npc_gedaechtnis tesk: Bot-Test'] } } };
+  const built = Szenenbau.buildBook(g, answers, env, { id: 'bot_' + id, art: 'archiv', marks: 0 });
+  if (built.errors.length) throw new Error(`Testbuch ${id} (${scenes.map((s) => s.key).join(', ')}): ` + built.errors.slice(0, 4).map((e) => (e.code ? `${e.code} ${e.p}: ${e.msg}` : e)).join(' | '));
+  for (const [sid, x] of Object.entries(built.szenen)) if (x.fehler.length) throw new Error(`Testbuch ${id} Szene ${sid}: ${x.fehler.slice(0, 3).join(' | ')}`);
+  return built.book;
+}
+function escortBooks() {
+  const Szenenbau = require('../server/mission/szenenbau.js');
+  const SL = require('../server/mission/spielleiter.js');
+  const kat = SL.katalog(); const env = Szenenbau.buildEnv(kat);
+  const u = (m, i) => kat.molekuele[m].umsetzungen.find((x) => x.id === i);
+  return [
+    buildTestBook(Szenenbau, env, 'geleit', [{ key: 'schuetzen/geleit_durch_angriff', u: u('schuetzen', 'geleit_durch_angriff'), loc: 'nebel', override: { funk_npc: 'sela', name: 'Frachter Ilka' } }]),
+    buildTestBook(Szenenbau, env, 'karawane', [{ key: 'schuetzen/geleit_durch_angriff', u: u('schuetzen', 'geleit_durch_angriff'), loc: 'nebel', override: { funk_npc: 'sela', kind: 'karawane', name: 'Selas Karawane', jaeger: 2, angriff_nach: 20, verstaerkung: 'gunboat' } }]),
+    buildTestBook(Szenenbau, env, 'havarist', [{ key: 'schuetzen/notruf_verteidigen', u: u('schuetzen', 'notruf_verteidigen'), loc: 'wrack', override: { funk_npc: 'tesk' } }]),
+    buildTestBook(Szenenbau, env, 'panne', [{ key: 'pannenhilfe/andocken_und_flicken', u: u('pannenhilfe', 'andocken_und_flicken'), loc: 'splitter', override: { funk_npc: 'sela', mit_angriff: true } }]),
+  ];
+}
+
+// ---------- Ausgabe ----------
+const fmtMin = (s) => (s == null ? '—' : (s / 60).toFixed(1));
+function printGenericRun(r, label) {
+  log(`\n--- ${label} · Crew ${r.crew} · Seed ${r.seed}${r.aborted ? ' · ABBRUCH: ' + r.aborted : ''} · Spielzeit ${fmtMin(r.gameTime)} min · Fehler ${r.errors}`);
+  for (const ms of r.missions) {
+    const scenes = {};
+    for (const s of ms.steps) { const k = s.kind === SceneKind.ANFLUG ? s.scene + '(Anflug)' : s.scene; scenes[k] = r1((scenes[k] || 0) + s.dur); }
+    log(`  ${ms.archiv || ms.id}: ${ms.success ? 'erledigt' : 'NICHT erledigt'}${ms.debugLink ? ' [Route per Debug geöffnet]' : ''}${ms.ausgang ? ' – Ausgang ' + ms.ausgang : ''} · ${fmtMin(ms.dur)} min${ms.softlock ? ' · SOFTLOCK ' + ms.softlock : ''}${ms.skips ? ' · Skips: ' + ms.skips.map((x) => `${x.step}(${x.why})`).join(', ') : ''} · Fehler ${ms.errors || 0}`);
+    log('    Szenen (s): ' + Object.entries(scenes).map(([k, v]) => `${k} ${v}`).join(' · '));
+    const esc = ms.steps.filter((s) => s.escort !== undefined);
+    if (esc.length) log('    Schützling: ' + esc.map((s) => `${s.step} ${s.escort} (${s.escortHp} %)`).join(', ') + ` · stats.escort ${JSON.stringify(ms.escortStats)}`);
+  }
+  if (r.errList.length) log('  Server-Fehler: ' + [...new Set(r.errList)].slice(0, 6).join(' | '));
+  if (r.sim && Object.keys(r.sim.unknownUms || {}).length) log('  Ohne Bot-Handler: ' + Object.keys(r.sim.unknownUms).join(', '));
+}
+
+async function archivMain() {
+  const nSeeds = Number(argVal('--seeds', 5)); const base = seedArg != null ? seedArg : 1;
+  const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
+  const all = await runArchivSet(nSeeds, base, crews, true);
+  printArchivTable(all);
+  const ok = all.every((r) => !r.aborted && r.errors === 0 && r.missions.every((m) => m.success && !m.softlock));
+  log(ok ? '\nSIM ARCHIV OK' : '\nSIM ARCHIV: Auffälligkeiten (siehe oben)');
+  return all;
+}
+const ARCHIV_ORDER = ['zollfeuer', 'karawane_im_nebel', 'abschrift_b7', 'treibgut_zaunkoenig'];
+async function runArchivSet(nSeeds, base, crews, print) {
+  const all = [];
+  for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
+    const seed = base + i;
+    // Entscheidungen streuen: ungerade Seeds lehnen ab (Gefecht/harter Weg), gerade zahlen/geben nach
+    const r = await runGeneric({ seed, crew, mode: 'archiv', count: 4, order: ARCHIV_ORDER, funk: seed % 2 ? 'b' : 'a', pilot: 'maneuver', maxSec: 9000 });
+    all.push(r);
+    if (print) printGenericRun(r, 'Archiv');
+  }
+  return all;
+}
+function printArchivTable(all) {
+  log('\n=== Archiv-Missionen (Bot-Spieler, Spielzeit – Menschen brauchen länger) ===');
+  log('| Mission | Crew | erledigt | Ausgänge | Dauer Median (min) | Min–Max (min) | Skips | Softlocks | Server-Fehler | Route per Debug |');
+  log('|---|---|---|---|---|---|---|---|---|---|');
+  const names = [...new Set(all.flatMap((r) => r.missions.map((m) => m.archiv || m.id)))];
+  for (const name of ARCHIV_ORDER.filter((n) => names.includes(n)).concat(names.filter((n) => !ARCHIV_ORDER.includes(n)))) {
+    for (const crew of [...new Set(all.map((r) => r.crew))]) {
+      const ms = all.filter((r) => r.crew === crew).flatMap((r) => r.missions.filter((m) => (m.archiv || m.id) === name));
+      const runs = all.filter((r) => r.crew === crew).length;
+      if (!ms.length) { log(`| ${name} | ${crew} | 0/${runs} | – | – | – | – | – | – | – |`); continue; }
+      const ok = ms.filter((m) => m.success);
+      const aus = {}; for (const m of ok) aus[m.ausgang] = (aus[m.ausgang] || 0) + 1;
+      const d = ok.map((m) => m.dur);
+      log(`| ${name} | ${crew} | ${ok.length}/${runs} | ${Object.entries(aus).map(([k, v]) => `${k} ${v}×`).join(', ')} | ${fmtMin(median(d))} | ${d.length ? fmtMin(Math.min(...d)) + '–' + fmtMin(Math.max(...d)) : '–'} | ${ms.reduce((a, m) => a + (m.skips ? m.skips.length : 0), 0)} | ${ms.filter((m) => m.softlock).length} | ${ms.reduce((a, m) => a + (m.errors || 0), 0)} | ${ms.filter((m) => m.debugLink).length} |`);
+    }
+  }
+  const esc = all.flatMap((r) => r.missions.map((m) => ({ crew: r.crew, s: m.escortStats || {} }))).filter((x) => Object.keys(x.s).length);
+  if (esc.length) {
+    for (const crew of [...new Set(esc.map((x) => x.crew))]) {
+      const xs = esc.filter((x) => x.crew === crew).map((x) => x.s);
+      const sum = {}; for (const s of xs) for (const [k, v] of Object.entries(s)) sum[k] = r1((sum[k] || 0) + v);
+      log(`stats.escort Summe Crew ${crew} (${xs.length} Missionen mit Schützling-Zählern): ${JSON.stringify(sum)}`);
+    }
+  }
+}
+
+async function escortMain() {
+  const nSeeds = Number(argVal('--seeds', 10)); const base = seedArg != null ? seedArg : 1;
+  const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [3, 1];
+  const books = escortBooks();
+  const rows = [];
+  for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
+    const r = await runGeneric({ seed: base + i, crew, mode: 'book', books, pilot: 'maneuver', maxSec: 4000 });
+    if (VERBOSE || r.aborted || r.errors) printGenericRun(r, 'Schützling');
+    for (const s of umsetzungSamples(r)) rows.push({ crew, seed: base + i, ums: s.ums, book: s.mission.replace(/^bot_/, ''), out: s.skipped ? 'nicht gespielt' : (s.escort || '?'), hp: s.escortHp, sec: s.sec, errors: r.errors, aborted: r.aborted });
+  }
+  log(`\n=== Schützling (Testbücher: geleit = Frachter, Nebel, 2 Jäger + Kanonenboot, Angriff nach 25 s · karawane = wie „Karawane im Nebel“ hart · havarist = Notruf am Wrack · panne = Pannenhilfe mit Angriff), ${nSeeds} Seeds ===`);
+  log('| Testbuch (Umsetzung) | Crew | heil | beschädigt | verloren/schwer | nicht gespielt | Hülle Median % | Dauer Median (min) |');
+  log('|---|---|---|---|---|---|---|---|');
+  // Eine Quelle für Tabelle und Zielauswertung: Kennzahlen je Testbuch × Crew
+  const statsOf = (book, crew) => {
+    const xs = rows.filter((x) => x.book === book && x.crew === crew);
+    const c = (f) => xs.filter(f).length;
+    return { xs, n: xs.length, heil: c((x) => x.out === 'heil'), besch: c((x) => x.out === 'beschaedigt'),
+      lost: c((x) => x.out === 'verloren' || x.out === 'schwer_beschaedigt'), notPlayed: c((x) => x.out === 'nicht gespielt' || x.out === '?') };
+  };
+  for (const book of [...new Set(rows.map((x) => x.book))]) for (const crew of crews) {
+    const st = statsOf(book, crew);
+    if (!st.n) continue;
+    const pct = (k) => `${k} (${Math.round(k / st.n * 100)} %)`;
+    log(`| ${book} (${st.xs[0].ums}) | ${crew} | ${pct(st.heil)} | ${pct(st.besch)} | ${pct(st.lost)} | ${st.notPlayed} | ${median(st.xs.map((x) => x.hp))} | ${fmtMin(median(st.xs.map((x) => x.sec)))} |`);
+  }
+  // Ziel (CONTRACT-S2 §5): Geleit-Testbuch „geleit“ (Katalog-Standardparameter), zu dritt 70–90 %, solo 50–70 % heil
+  for (const [crew, lo, hi] of [[3, 0.7, 0.9], [1, 0.5, 0.7]]) {
+    if (!crews.includes(crew)) continue;
+    const st = statsOf('geleit', crew);
+    if (!st.n) continue;
+    const q = st.heil / st.n;
+    log(`Geleit (Testbuch geleit) ${crew === 3 ? 'zu dritt' : 'solo'} heil: ${st.heil}/${st.n} = ${Math.round(q * 100)} % (Ziel ${lo * 100}–${hi * 100} %): ${q >= lo && q <= hi ? 'IM ZIEL' : q > hi ? 'ZU LEICHT' : 'ZU HART'}`);
+  }
+  const errs = rows.filter((x) => x.errors).length; const ab = rows.filter((x) => x.aborted).length;
+  log(errs || ab ? `\nSIM ESCORT: ${errs} Läufe mit Server-Fehlern, ${ab} abgebrochen` : '\nSIM ESCORT OK');
+  return rows;
+}
+
+async function umsetzungMain(write) {
+  const nSeeds = Number(argVal('--seeds', 3)); const base = seedArg != null ? seedArg : 1;
+  const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
+  const only = argVal('--only', null);
+  const books = testBooks(only);
+  const samples = [];
+  for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
+    for (const book of books) {
+      const r = await runGeneric({ seed: base + i, crew, mode: 'book', books: [book], pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
+      if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Testbuch ' + book.id);
+      for (const s of umsetzungSamples(r)) samples.push(Object.assign({ crew, seed: base + i, src: 'test', errors: r.missions[0] ? r.missions[0].errors : 0 }, s));
+    }
+  }
+  printUmsetzungTable(samples, crews);
+  return samples;
+}
+function printUmsetzungTable(samples, crews) {
+  log('\n=== Dauer je Umsetzung (Median Spielzeit der Szene ohne Anflug, Bot-Spieler) ===');
+  log('| Umsetzung | ' + crews.map((c) => `Crew ${c} Median (min) | n | nicht gespielt`).join(' | ') + ' |');
+  log('|---|' + crews.map(() => '---|---|---').join('|') + '|');
+  const keys = [...new Set(samples.map((s) => s.ums))].sort();
+  for (const k of keys) {
+    const cells = crews.map((c) => {
+      const xs = samples.filter((s) => s.ums === k && s.crew === c);
+      const played = xs.filter((s) => !s.skipped);
+      return `${fmtMin(median(played.map((s) => s.sec)))} | ${played.length} | ${xs.length - played.length}`;
+    });
+    log(`| ${k} | ${cells.join(' | ')} |`);
+  }
+}
+async function dauerMain() {
+  const fs = require('fs'); const path = require('path');
+  const nSeeds = Number(argVal('--seeds', 5)); const base = seedArg != null ? seedArg : 1;
+  const crews = [1, 3];
+  log(`=== Dauer-Messung: Testbücher (${nSeeds} Seeds) + Archiv (${nSeeds} Seeds), Crew 1 und 3 ===`);
+  const test = await umsetzungMain();
+  const arch = await runArchivSet(nSeeds, base, crews, !!VERBOSE);
+  printArchivTable(arch);
+  const archSamples = arch.flatMap((r) => umsetzungSamples(r).map((s) => Object.assign({ crew: r.crew, seed: r.seed, src: 'archiv' }, s)));
+  const all = test.concat(archSamples);
+  printUmsetzungTable(all, crews);
+  const out = { format: 'dauer-messung/1', erzeugt: new Date().toISOString().slice(0, 10), werkzeug: 'node tools/sim-headless.js dauer --seeds ' + nSeeds,
+    hinweis: 'Bot-Spieler (sim-headless GenericAgent), Spielzeit der Szene ohne Anflug-Sprung, Median in Minuten. Menschen brauchen länger. Crew 2 nicht gemessen. '
+      + 'Quellen: Testbücher je Umsetzung (Test-/Rückfallparameter) und die 4 Archiv-Missionen.',
+    umsetzungen: {} };
+  for (const k of [...new Set(all.map((s) => s.ums))].sort()) {
+    const e = {};
+    for (const c of crews) {
+      const xs = all.filter((s) => s.ums === k && s.crew === c);
+      const played = xs.filter((s) => !s.skipped);
+      const sec = played.map((s) => s.sec);
+      e[String(c)] = { median_min: sec.length ? r1(median(sec) / 60) : null, min_min: sec.length ? r1(Math.min(...sec) / 60) : null, max_min: sec.length ? r1(Math.max(...sec) / 60) : null,
+        n: played.length, nicht_gespielt: xs.length - played.length, quellen: { test: played.filter((s) => s.src === 'test').length, archiv: played.filter((s) => s.src === 'archiv').length } };
+    }
+    out.umsetzungen[k] = e;
+  }
+  const file = path.join(__dirname, 'fixtures', 'dauer-s2.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n', 'utf8');
+  log(`\nGeschrieben: ${file}`);
+}
+
 (async () => {
   if (args.includes('arena')) { await arenaMain(); return; }
+  if (args.includes('archiv')) { await archivMain(); process.exit(0); }
+  if (args.includes('escort')) { await escortMain(); process.exit(0); }
+  if (args.includes('umsetzung')) { await umsetzungMain(); process.exit(0); }
+  if (args.includes('dauer')) { await dauerMain(); process.exit(0); }
   const onlyM3 = args.includes('m3');
   const runs = onlyM3 ? [] : (counts.length ? counts : [1, 3, 'skip']);
   let ok = true;

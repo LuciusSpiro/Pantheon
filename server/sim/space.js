@@ -7,6 +7,7 @@ const Locations = require('../../shared/locations.js');
 const Flight = require('../../shared/flight.js');
 const interior = require('./interior.js');
 const Pilot = require('./pilot.js');
+const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlinge/Gegnerziel kein Einfluss auf den Ablauf)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -90,6 +91,7 @@ function enterScene(game, locId, opts) {
   const loc = Locations.get(locId) || Locations.get('hafen');
   const sc = loc.scene;
   const ship = game.ship;
+  const fromScene = ship.scene;
   const docked = !!(opts && opts.docked && sc.dock);
   const st = docked ? Object.assign({ angle: 0 }, sc.start || sc.dock) : sc.arrive;
   ship.scene = loc.id;
@@ -121,6 +123,9 @@ function enterScene(game, locId, opts) {
   game.asteroidsDirty = true;
   if (game.explore) game.explore.location = loc.id;
   if (sc.beam && game.setAwayMap && !game.players.some((p) => p.zone === 'away')) game.setAwayMap(sc.beam.map);
+  // S2 §5: Rückzugsregel gilt nur im Ort; Schützlinge springen mit oder bleiben zurück
+  if (sp.retreatRule) delete sp.retreatRule;
+  if (sp.escorts && sp.escorts.length) { try { Escort.onSceneChange(game, fromScene); } catch (err) { if (game.countError) game.countError('escort-scene', err); } }
 }
 
 function makeAsteroids(game, loc) {
@@ -643,26 +648,28 @@ function shipHit(game, sector, dmg, opts) {
   if (!D) return hitLegacy(game, sector, dmg, opts);
   const heavy = !!opts.heavy;
   const before = sh.current[sector] || 0;
+  // S2 §5: Breitseite als Schild – das 'hit'-Ereignis nennt den geschützten Schützling (shielded: '<escortId>')
+  const hitEv = (d) => (opts.shielded ? Object.assign(d, { shielded: opts.shielded }) : d);
   let r;
   try { r = D.resolveHit(game, sector, dmg, opts); }
   catch (err) { if (game.countError) game.countError('resolveHit', err); return hitLegacy(game, sector, dmg, opts); }
   r = r || {};
   syncWeaponsAlias(game);
   if (r.evaded) {   // z. B. Ausweichfenster – kein Treffer
-    game.emit('hit', { sector, shield: true, dmg: 0, heavy, evaded: true });
+    game.emit('hit', hitEv({ sector, shield: true, dmg: 0, heavy, evaded: true }));
     return;
   }
   const hull = Number(r.hull) || 0;
   const absorbed = Number(r.absorbed) || 0;
   const empThrough = !!opts.emp && (r.empThrough != null ? !!r.empThrough : hull > 0);
   if (empThrough) {
-    game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy, absorbed });
+    game.emit('hit', hitEv({ sector, shield: false, dmg: 0, emp: true, heavy, absorbed }));
     game.emit('sfx', { name: 'emp' });
   } else if (hull > 0) {
-    game.emit('hit', { sector, shield: false, dmg: r1(hull / 5), heavy, absorbed, hull: r1(hull) });
+    game.emit('hit', hitEv({ sector, shield: false, dmg: r1(hull / 5), heavy, absorbed, hull: r1(hull) }));
     game.emit('sfx', { name: 'hull_hit' });
   } else {
-    game.emit('hit', { sector, shield: true, dmg, heavy, absorbed });
+    game.emit('hit', hitEv({ sector, shield: true, dmg, heavy, absorbed }));
     game.emit('sfx', { name: 'shield_hit' });
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
@@ -942,6 +949,8 @@ function fireLance(game, power, auto) {
   const beam = { x1: tr.o.x, y1: tr.o.y, x2, y2, ttl: game.C.combat.beamTtl * 2, ttlMax: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', power: r2(p) };
   if (!tr.hit) beam.miss = true;
   game.space.beams.push(beam);
+  // S2 §5: kein Eigenbeschuss – die Lanze geht durch Schützlinge hindurch, nur ein Funk-Rüffel
+  if (game.space.escorts && game.space.escorts.length) { try { Escort.lanceCrossed(game, tr); } catch (err) { if (game.countError) game.countError('escort-lance', err); } }
   game.stats.lanceShots = (game.stats.lanceShots || 0) + 1;
   // Achtung: emit() mischt data in { t, kind } – kein Feld 'kind' mitgeben
   game.emit('lance', { state: 'fire', power: r2(p), hit: tr.hit ? tr.hit.id : null, auto: !!auto });
@@ -1270,6 +1279,11 @@ function spawnEnemy(game, kind, opts) {
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
+  // S2 §5: Spawn-Parameter ziel (lerche | schuetzling | auto | Tag eines Schützlings) -> e.targetId (null = Lerche)
+  if (o.ziel != null && o.ziel !== 'lerche') {
+    try { e.targetId = Escort.pickTarget(game, o.ziel); } catch (err) { e.targetId = null; if (game.countError) game.countError('escort-ziel', err); }
+    if (e.targetId != null && o.facing == null) { const T = Pilot.targetOf(game, e); e.angle = Math.atan2(T.y - y, T.x - x); }
+  }
   // M3b §3/§7: im neuen Flugmodell mit Anfangstempo (Kanonenboot ½, Jäger Voll), nicht aus dem Stand
   if (Pilot.flies(game, e)) Pilot.initSpawn(game, e);
   sp.enemies.push(e);
@@ -1286,6 +1300,7 @@ function crewScale(game) {
 // opts.pierce: der Schildsektor zählt bei diesem Treffer so viele Punkte weniger (Lanze, §5.1).
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hitT = game.time;
+  if (e.targetId != null) Escort.onLercheHit(game, e);   // S2 §5: Treffer der Lerche ziehen den Gegner 10 s auf sie
   // M3a §7.1: Treffer verlängern eine laufende Ladung (je Treffer delayPerHit, insgesamt höchstens delayMax)
   if (e.tele) {
     const T = M3(game).tele;
@@ -1321,9 +1336,9 @@ function stationPoint(game) {
   return loc.scene.station || { x: game.space.w / 2, y: game.space.h / 2 };
 }
 
-function enemyCanHit(game, e) {
+function enemyCanHit(game, e, target) {
   const W = game.C.enemyWeapons[e.kind] || [];
-  const s = game.ship;
+  const s = target || game.ship;
   return W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, s.x, s.y));
 }
 
@@ -1340,6 +1355,17 @@ function updateEnemies(game, dt) {
       try { Pilot.fly(game, e, dt); }
       catch (err) { if (game.countError) game.countError('pilot', err); moveLegacy(game, e, dt, retreating); }
     } else moveLegacy(game, e, dt, retreating);
+    // S2 §5: Gegner mit Schützling als Ziel – eigene, immer angekündigte Angriffslogik (escort.js)
+    if (e.targetId != null) {
+      const T = Pilot.targetOf(game, e);
+      if (T !== ship) {
+        if (e.tele && !e.tele.tgt) { updateTele(game, e, Math.hypot(e.x - ship.x, e.y - ship.y) || 1, retreating, dt); continue; }
+        try { Escort.updateAttack(game, e, T, Math.hypot(e.x - T.x, e.y - T.y) || 1, retreating, dt); }
+        catch (err) { if (game.countError) game.countError('escort-attack', err); }
+        continue;
+      }
+    }
+    if (e.tele && e.tele.tgt) { e.tele = null; e.fireT = 0; game.emit('teleMiss', { id: e.id }); }   // Ziel gewechselt (Treffer der Lerche)
     const d = Math.hypot(e.x - ship.x, e.y - ship.y) || 1;
     const toShip = Math.atan2(ship.y - e.y, ship.x - e.x);
     // M3a §7.1: Kanonenboot, Pylon, Wächter kündigen an (tele) und treffen am Ende sofort
@@ -1364,7 +1390,7 @@ function updateEnemies(game, dt) {
 
 // M3a-Bewegung (kinematisch): Missionen bis Schritt B, Relais und Wächter immer. Setzt vx/vy für die Interpolation.
 function moveLegacy(game, e, dt, retreating) {
-  const C = game.C; const ship = game.ship; const sp = game.space;
+  const C = game.C; const ship = Pilot.targetOf(game, e); const sp = game.space;   // S2: Ziel (ohne targetId die Lerche)
   const cfg = C.enemies[e.kind];
   const x0 = e.x, y0 = e.y;
   {
@@ -1520,8 +1546,12 @@ function updateProjectiles(game, dt) {
         const owner = sp.enemies.find((e) => e.id === p.owner);
         const pierce = !!(owner && owner.tag === 'nachzuegler' && !owner.hasHit);
         if (pierce) owner.hasHit = true;
-        shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y), p.dmg, { pierce, emp: p.kind === 'emp' });
+        const hopts = { pierce, emp: p.kind === 'emp' };
+        if (p.tgt) { hopts.shielded = p.tgt; if (game.stats.escort) game.stats.escort.shielded++; }   // S2: Lerche fängt Salve auf den Schützling
+        shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y), p.dmg, hopts);
         if (pierce) game.missionEvent('nachzueglerHit', {});
+      } else if (p.tgt) {
+        try { hit = Escort.projectileHit(game, p); } catch (err) { if (game.countError) game.countError('escort-projectile', err); }
       }
     } else {
       for (const e of sp.enemies) {
@@ -1542,6 +1572,11 @@ function update(game, dt) {
   updateWeapons(game, dt);
   updateTargetScan(game, dt);
   updateEnemies(game, dt);
+  // S2 §5: Schützlinge und Rückzugsregel (nur wenn vorhanden – sonst unverändert)
+  const sp = game.space;
+  if ((sp.escorts && sp.escorts.length) || sp.retreatRule || sp.enemies.some((e) => e.leaving)) {
+    try { Escort.update(game, dt); } catch (err) { if (game.countError) game.countError('escort', err); }
+  }
   updateProjectiles(game, dt);
   updateHull(game, dt);
   updateSalvage(game);
@@ -1588,4 +1623,5 @@ module.exports = {
   // M3b §2/§3 (SERVER-FLIGHT): Temporegler, Snapshot-Ergänzungen
   helmThrottle, helmSnapshot, enemySnapExtra, engineSpeedFactor, lercheClass,
   leadAngle,   // QA M3b: Vorhalt der Jäger-Schüsse (spaceM3b.pilotFire)
+  crewScale, holdingFire, enemyCanHit,   // S2 §5 (escort.js)
 };

@@ -9,6 +9,7 @@
   ],
   "szenentypen": [
     "A4",
+    "A5",
     "A10",
     "C2"
   ],
@@ -17,7 +18,7 @@
       "id": "angriffswelle",
       "name": "Angriffswelle mit Verstärkung",
       "schauplatz": "weltraum",
-      "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte.",
+      "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
       "braucht": [
         "raumkampf",
         "bordschaeden"
@@ -26,6 +27,8 @@
         3,
         5
       ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [4, 6], "2": [3, 5], "3": [3, 4] },
       "ereignisse": [
         "enemyKilled",
         "systemDamaged"
@@ -61,6 +64,16 @@
           "min": 20,
           "max": 120
         },
+        "ziel": {
+          "typ": "text",
+          "default": "lerche",
+          "werte": [
+            "lerche",
+            "schuetzling",
+            "auto"
+          ],
+          "beschreibung": "Wen die Gegner angreifen (S2): lerche, schuetzling (Schützling derselben Szene) oder auto"
+        },
         "funk_start": {
           "typ": "text",
           "default": "Da seid ihr ja. Mal sehen, wie lange eure Schilde halten."
@@ -91,6 +104,7 @@
                   "kind": "raider",
                   "tag": "{{id}}_w1",
                   "n": "{{jaeger}}",
+                  "ziel": "{{ziel}}",
                   "angles": [
                     0.2,
                     -0.6,
@@ -173,7 +187,13 @@
                             {
                               "spawn": {
                                 "kind": "{{verstaerkung}}",
-                                "tag": "{{id}}_w2"
+                                "tag": "{{id}}_w2",
+                                "ziel": "{{ziel}}"
+                              }
+                            },
+                            {
+                              "set": {
+                                "{{id}}_w2_da": true
                               }
                             }
                           ]
@@ -196,7 +216,7 @@
                 "if": {
                   "all": [
                     {
-                      "v": "{{id}}_w2"
+                      "v": "{{id}}_w2_da"
                     },
                     {
                       "enemiesLeft": {
@@ -214,7 +234,8 @@
               },
               {
                 "set": {
-                  "{{id}}_w2": true
+                  "{{id}}_w2": true,
+                  "{{id}}_w2_da": true
                 }
               }
             ]
@@ -235,7 +256,171 @@
           "npc": "grauzahn"
         }
       }
+    },
+    {
+      "id": "pylonen_pruefung",
+      "name": "Pylonen mit Frontschild um ein Objekt",
+      "schauplatz": "weltraum",
+      "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
+      "braucht": [
+        "raumkampf"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [5, 7], "2": [4, 5], "3": [3, 5] },
+      "ereignisse": [
+        "enemyKilled",
+        "enemyScanned"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "relais",
+            "b7",
+            "kesh",
+            "wrack"
+          ],
+          "beschreibung": "Ort mit Hauptobjekt (Relais, Boje, Mond, Wrack)"
+        },
+        "pylonen": {
+          "typ": "zahl",
+          "default": 3,
+          "min": 2,
+          "max": 4
+        },
+        "waechter_nach": {
+          "typ": "zahl",
+          "default": 30,
+          "min": 15,
+          "max": 90
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "spawn": {
+                  "kind": "pylon",
+                  "tag": "{{id}}_pylon",
+                  "face": "out",
+                  "n": "{{pylonen}}",
+                  "atStation": [
+                    { "dx": -300, "dy": -240 },
+                    { "dx": 340, "dy": -40 },
+                    { "dx": -230, "dy": 290 },
+                    { "dx": 200, "dy": 260 }
+                  ]
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 1,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 30,
+                "if": {
+                  "not": {
+                    "event": "enemyScanned"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    { "atLocation": "{{loc}}" },
+                    { "not": { "v": "{{id}}_waechter" } },
+                    {
+                      "any": [
+                        { "elapsed": "{{waechter_nach}}" },
+                        { "killed": { "tag": "{{id}}_pylon", "min": 1 } }
+                      ]
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "wendung": "{{id}}_waechter",
+                    "ankuendigung": {
+                      "oda": "@{{id}}.waechter",
+                      "art": "gleichzeitig",
+                      "grund": "Der Wächter erscheint sichtbar und lädt seine EMP-Schüsse sichtbar."
+                    },
+                    "wirkung": [
+                      { "set": { "{{id}}_waechter": true } },
+                      {
+                        "spawn": {
+                          "kind": "sentinel",
+                          "tag": "{{id}}_waechter",
+                          "atStation": [ { "dx": 160, "dy": 120 } ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "pylonen",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "all": [
+                    { "elapsed": 0.5 },
+                    { "enemiesLeft": { "tag": "{{id}}_pylon", "max": 0 } }
+                  ]
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    { "v": "{{id}}_waechter" },
+                    { "enemiesLeft": { "max": 0 } }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_waechter": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "Pylonen mit Frontschild. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+          "{{id}}.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
+          "{{id}}.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
+          "{{id}}.ziel": "Pylonen ausschalten ({killed:{{id}}_pylon}/{{pylonen}}) – von der Seite!"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "relais"
+        }
+      }
     }
   ],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; pylonen_pruefung aus m2 (Relais), S2 in den Kern übernommen"
 }

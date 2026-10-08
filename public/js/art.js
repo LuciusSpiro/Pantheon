@@ -3056,6 +3056,240 @@
     teleGlowOver(ctx, kind, x, y, o);
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // S2: Schützlinge (CONTRACT-S2 §7). Bug +x, gedreht vorgerendert in ROT_STEPS Stufen wie die Gegner.
+  // drawEscort(ctx, kind, x, y, angle, { hpFrac, hitT, time, distress, state })
+  //   kind 'frachter' (Konkordat „Kontor“, ~72×28) | 'karawane' (Vaelen, ~48×36 + 2 Kapseln) | 'bergungsboot' (~40×32)
+  //   state 'kampfunfaehig' -> grau-dunkles Wrack (eigene Sprites, ohne Triebwerk und Ring)
+  // Eigener begrenzter Cache (escortCache), damit drehende Schützlinge den Gesamt-Cache nicht aufblähen.
+  // ---------------------------------------------------------------------------------------------
+  var ESCORT = {
+    frachter: { size: 90, ring: 46, engines: [[-40, -6], [-40, 0], [-40, 6]], smoke: [-6, -5], fire: [10, 6], lights: [[34, -2], [-20, -13], [-20, 13]] },
+    karawane: { size: 124, ring: 40, engines: [[-21, -4], [-21, 4]], smoke: [2, -6], fire: [-8, 5], lights: [[2, -19], [2, 19], [-36, 0], [-52, 0]] },
+    bergungsboot: { size: 68, ring: 32, engines: [[-21, -5], [-21, 5]], smoke: [-6, 3], fire: [4, -4], lights: [[18, -14], [-14, -14], [-14, 14]] },
+  };
+  var escortCache = new SmallCache(200);
+  function buildFrachter(g, c, ang, cx) {
+    var S = Rot(g, cx, cx, ang, idMap), st = PAL.stahl, pa = PAL.paneel, paL = PAL.paneelHell, ms = PAL.messing;
+    // Triebwerksblock
+    [-6, 0, 6].forEach(function (yy) { S.poly([-40, yy - 2.5, -34, yy - 2.5, -34, yy + 2.5, -40, yy + 2.5], '#1E2631'); S.poly([-40, yy - 2.5, -34, yy - 2.5, -34, yy - 1.5, -40, yy - 1.5], pa); });
+    S.poly([-35, -10, -28, -11, -28, 11, -35, 10], st);
+    S.poly([-35, -10, -28, -11, -28, -7, -35, -6], pa);
+    // Kiel
+    S.poly([-30, -3, 22, -3, 22, 3, -30, 3], '#1E2631');
+    // Vier Containermodule je Seite
+    var mods = [[-28, -15], [-14, -1], [0, 13]];
+    var tints = [[st, pa], [pa, paL], [st, pa]];
+    mods.forEach(function (m, i) {
+      [-1, 1].forEach(function (sg) {
+        var y0 = sg < 0 ? -14 : 3, y1 = sg < 0 ? -3 : 14;
+        var body = sg < 0 ? tints[i][1] : tints[i][0];
+        S.poly([m[0], y0, m[1], y0, m[1], y1, m[0], y1], body);
+        S.poly(sg < 0 ? [m[0], y0, m[1], y0, m[1], y0 + 2, m[0], y0 + 2] : [m[0], y1 - 2, m[1], y1 - 2, m[1], y1, m[0], y1], sg < 0 ? shade(body, 0.25) : shade(body, -0.3));
+        for (var rx = m[0] + 3; rx < m[1] - 1; rx += 3) S.line(rx, y0 + 1, rx, y1 - 1, 0.6, shade(body, -0.22));   // Sicken
+        S.line(m[0] + 0.5, y0, m[0] + 0.5, y1, 1.2, ms); S.line(m[1] - 0.5, y0, m[1] - 0.5, y1, 1.2, ms);         // Messingbänder
+      });
+    });
+    // Vierter Container quer hinter dem Brückenhaus (mittig)
+    S.poly([14, -9, 19, -9, 19, 9, 14, 9], pa); S.line(14.5, -9, 14.5, 9, 1, ms); S.line(18.5, -9, 18.5, 9, 1, ms);
+    // Registriernummern-Streifen (Sternweiß mit „Ziffern“)
+    S.poly([-26, -12, -16, -12, -16, -9, -26, -9], PAL.sternweiss);
+    [-25, -23, -20, -18].forEach(function (dx, k) { S.line(dx, -11.5, dx, -9.5, 0.8, st); if (k % 2) S.dot(dx + 1, -10.5, st); });
+    S.poly([2, 10, 11, 10, 11, 12, 2, 12], PAL.sternweiss);
+    [3, 5, 8, 10].forEach(function (dx) { S.dot(dx, 11, st); });
+    // Brückenhaus am Bug (Kasten, angeschrägt)
+    S.poly([19, -10, 30, -10, 36, -5, 36, 5, 30, 10, 19, 10], pa);
+    S.poly([19, -10, 30, -10, 34, -6, 19, -6], paL);
+    S.poly([19, 7, 33, 6, 30, 10, 19, 10], st);
+    S.poly([29, -5, 33, -3, 33, 3, 29, 5], PAL.eisblau);
+    S.poly([29, -5, 31, -4, 31, -1, 29, -1], '#E4F4FA');
+    S.line(20, -10, 20, 10, 1.2, ms);
+    // Antenne
+    S.line(23, -2, 16, -2, 0.8, paL); S.dot(16, -2, PAL.bernstein);
+    outline(c, PAL.outline);
+  }
+  function buildKarawane(g, c, ang, cx) {
+    var S = Rot(g, cx, cx, ang, idMap), mo = PAL.moos, ho = PAL.holz, te = PAL.terrakotta, ms = PAL.messing;
+    // Schleppleinen zu den Kapseln
+    S.line(-20, 0, -58, 0, 1, '#4A3524');
+    S.line(-20, -1, -58, -1, 0.5, shade(ho, 0.2));
+    // Anhängerkapseln (rund, Holz/Terrakotta mit Messingring)
+    [-36, -52].forEach(function (kx, k) {
+      S.ellL(kx, 0, 7, 6, ho, 18);
+      S.ellL(kx - 0.5, -1, 5.5, 4, k ? te : shade(ho, 0.2), 16);
+      S.ellL(kx - 1.5, -2.5, 2.5, 1.5, shade(te, 0.3), 10);
+      S.line(kx, -6, kx, 6, 1, ms);
+    });
+    // Segelfinnen oben/unten (Moos-Segel mit Holzrippen)
+    [-1, 1].forEach(function (sg) {
+      S.poly([-14, sg * 7, 8, sg * 7, 3, sg * 19, -6, sg * 18, -16, sg * 12], sg < 0 ? mo : shade(mo, -0.25));
+      S.poly([-12, sg * 8, 6, sg * 8, 4, sg * 11, -13, sg * 11], sg < 0 ? shade(mo, 0.25) : mo);
+      S.line(-10, sg * 8, -5, sg * 17, 1, ho); S.line(-2, sg * 8, 1, sg * 18, 1, ho); S.line(5, sg * 8, 3, sg * 18, 1, ho);
+      S.line(-6, sg * 18, 3, sg * 19, 1.2, shade(ho, -0.2));
+    });
+    // Rumpf: gerundet, Holz mit Terrakotta-Dachplatten
+    S.ellL(2, 0, 21, 9, shade(ho, -0.25), 28);
+    S.ellL(2, -0.5, 20, 8, ho, 28);
+    S.ellL(1, -2.5, 16, 4, shade(ho, 0.22), 24);
+    for (var px = -12; px <= 12; px += 6) S.poly([px, -4, px + 5, -4, px + 5, 4, px, 4], (px / 6) % 2 ? te : shade(te, -0.18));
+    S.line(-16, 0, 20, 0, 0.8, shade(te, -0.4));
+    // Moos-Bewuchs an den Kanten
+    [[-14, -6], [-8, 7], [9, -7], [14, 6], [-18, 2]].forEach(function (p) { S.ellL(p[0], p[1], 2.2, 1.4, mo, 8); });
+    // Bugkanzel
+    S.ellL(19, 0, 5, 4.5, ms, 14);
+    S.ellL(19.5, 0, 3.5, 3, PAL.eisblau, 12);
+    S.dot(19, -1, '#E4F4FA');
+    // Heck mit zwei Düsen
+    S.poly([-21, -6, -17, -6, -17, 6, -21, 6], '#3A2A20');
+    S.dot(-21, -4, ms); S.dot(-21, 4, ms);
+    outline(c, PAL.outlineWarm);
+  }
+  function buildBergungsboot(g, c, ang, cx) {
+    var S = Rot(g, cx, cx, ang, idMap), st = PAL.stahl, pa = PAL.paneel, paL = PAL.paneelHell, ms = PAL.messing, wg = PAL.warngelb;
+    // Ausleger-Pontons
+    [-1, 1].forEach(function (sg) {
+      S.poly([-16, sg * 11, 8, sg * 11, 11, sg * 13.5, 8, sg * 16, -16, sg * 16, -18, sg * 13.5], sg < 0 ? pa : st);
+      S.poly([-16, sg * 11, 8, sg * 11, 9, sg * 12, -17, sg * 12], sg < 0 ? paL : pa);
+      S.line(-6, sg * 6, -6, sg * 11, 2, st); S.line(4, sg * 6, 4, sg * 11, 2, st);
+    });
+    // Triebwerke
+    S.poly([-22, -8, -17, -8, -17, -2, -22, -2], '#1E2631'); S.poly([-22, 2, -17, 2, -17, 8, -22, 8], '#1E2631');
+    // Rumpf (gedrungen)
+    S.poly([-18, -8, 10, -8, 16, -4, 16, 4, 10, 8, -18, 8], pa);
+    S.poly([-18, -8, 10, -8, 14, -5, -18, -5], paL);
+    S.poly([-18, 5, 14, 5, 10, 8, -18, 8], st);
+    // Rammbügel mit Warnstreifen am Bug
+    S.poly([15, -6, 19, -4, 19, 4, 15, 6], st);
+    for (var k = -5; k < 5; k += 2) S.poly([15, k, 19, k + 1.4, 19, k + 2.4, 15, k + 1], wg);
+    // Warnstreifen am Heck
+    for (var j = -17; j < -9; j += 3) S.poly([j, 5.5, j + 1.5, 5.5, j + 2.5, 7.5, j + 1, 7.5], wg);
+    // Kanzel
+    S.ellL(6, 0, 5, 4, ms, 14); S.ellL(6.5, 0, 3.5, 2.8, PAL.eisblau, 12); S.dot(6, -1, '#E4F4FA');
+    // Kran: Drehteller, Ausleger schräg nach vorn-backbord, Greifklaue
+    S.ellL(-6, -2, 4, 4, ms, 14); S.ellL(-6, -2, 2, 2, shade(ms, -0.35), 10);
+    S.line(-6, -2, 20, -14, 3, st);
+    S.line(-6, -3, 20, -15, 1, wg);
+    S.line(4, -7, 4, -11, 1, paL);
+    S.poly([19, -17, 24, -18, 26, -15, 23, -14], ms);
+    S.poly([19, -11, 24, -10, 26, -13, 23, -14], ms);
+    S.dot(21, -14, st);
+    outline(c, PAL.outline);
+  }
+  // Wrack: entsättigt + abgedunkelt, Brandflecken (deterministisch je kind)
+  function wreckify(c, seed) {
+    var g = c.g, w = c.width, h = c.height, id = g.getImageData(0, 0, w, h), d = id.data;
+    for (var i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 40) continue;
+      var l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+      var v = 26 + l * 0.42;
+      d[i] = v * 0.98; d[i + 1] = v; d[i + 2] = v * 1.08;
+    }
+    var r = rng(seed);
+    for (var k = 0; k < 14; k++) {
+      var bx = (w * 0.25 + r() * w * 0.5) | 0, by = (h * 0.3 + r() * h * 0.4) | 0, br = 1 + (r() * 3) | 0;
+      for (var yy = -br; yy <= br; yy++) for (var xx = -br; xx <= br; xx++) {
+        if (xx * xx + yy * yy > br * br) continue;
+        var px = bx + xx, py = by + yy; if (px < 0 || py < 0 || px >= w || py >= h) continue;
+        var j = (py * w + px) * 4; if (d[j + 3] < 40) continue;
+        d[j] = 18; d[j + 1] = 17; d[j + 2] = 20;
+      }
+    }
+    g.putImageData(id, 0, 0);
+  }
+  function escortSprite(kind, b, wreck) {
+    var key = kind + '|' + b + (wreck ? '|w' : ''), c = escortCache.get(key);
+    if (c) return c;
+    var sz = ESCORT[kind].size, ang = b / ROT_STEPS * Math.PI * 2;
+    c = escortCache.make(sz, sz);
+    try {
+      if (kind === 'frachter') buildFrachter(c.g, c, ang, sz / 2);
+      else if (kind === 'karawane') buildKarawane(c.g, c, ang, sz / 2);
+      else buildBergungsboot(c.g, c, ang, sz / 2);
+      if (wreck) wreckify(c, kind.length * 131 + 7);
+    } catch (e) { warn('build escort ' + key, e); missing(c.g, 0, 0, sz, sz); }
+    escortCache.set(key, c);
+    return c;
+  }
+  function escortSilhouette(kind, b, spr) {
+    var key = kind + '|' + b + '|sil', c = escortCache.get(key);
+    if (c) return c;
+    c = escortCache.make(spr.width, spr.height);
+    c.g.drawImage(spr, 0, 0);
+    c.g.globalCompositeOperation = 'source-in';
+    c.g.fillStyle = PAL.eisblau;
+    c.g.fillRect(0, 0, c.width, c.height);
+    c.g.globalCompositeOperation = 'source-over';
+    escortCache.set(key, c);
+    return c;
+  }
+  // Gestrichelter Schutzring in Pixeln: 24 Striche, langsam drehend
+  function escortRing(ctx, x, y, r, col, a, t) {
+    if (a <= 0) return;
+    var ga = ctx.globalAlpha, n = 24, rot = (t || 0) * 0.25;
+    ctx.globalAlpha = ga * Math.min(1, a);
+    ctx.fillStyle = col;
+    for (var i = 0; i < n; i++) {
+      var a0 = rot + i / n * Math.PI * 2;
+      for (var s = 0; s < 4; s++) {
+        var aa = a0 + s * (Math.PI * 2 / n) * 0.13;
+        ctx.fillRect(Math.round(x + Math.cos(aa) * r), Math.round(y + Math.sin(aa) * r), 2, 1);
+      }
+    }
+    ctx.globalAlpha = ga;
+  }
+  function drawEscort(ctx, kind, x, y, angle, opts) {
+    var o = opts || {};
+    var def = ESCORT[kind];
+    if (!def) { missing(ctx, Math.round(x - 16), Math.round(y - 16), 32, 32); return; }
+    var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2;
+    var co = Math.cos(bang), si = Math.sin(bang);
+    function W(lx, ly) { return [x + lx * co - ly * si, y + lx * si + ly * co]; }
+    var wreck = o.state === 'kampfunfaehig';
+    var hp = o.hpFrac == null ? 1 : Math.max(0, Math.min(1, +o.hpFrac || 0));
+    // Schutzring: dezent eisblau; bei Notruf pulsierend Eisblau -> Bernstein
+    if (!wreck) {
+      if (o.distress) {
+        var p = 0.5 + 0.5 * Math.sin(t * 6);
+        var col = mix(PAL.eisblau, PAL.bernstein, p);
+        escortRing(ctx, x, y, def.ring + 2 * p, col, 0.55 + 0.4 * p, t * 2);
+        escortRing(ctx, x, y, def.ring + 5 + 3 * p, col, 0.25 * p, -t * 2);
+      } else {
+        escortRing(ctx, x, y, def.ring, PAL.eisblau, 0.32, t);
+      }
+      // Triebwerksglühen (eisblau)
+      for (var i = 0; i < def.engines.length; i++) {
+        var e = W(def.engines[i][0], def.engines[i][1]);
+        glow(ctx, e[0], e[1], PAL.eisblau, kind === 'frachter' ? 7 : 6, 0.5 + 0.2 * Math.sin(t * 14 + i * 1.7));
+      }
+    }
+    var spr = escortSprite(kind, b, wreck), half = spr.width / 2;
+    var dx = Math.round(x - half), dy = Math.round(y - half);
+    ctx.drawImage(spr, dx, dy);
+    if (!wreck && o.hitT != null && o.hitT >= 0 && o.hitT < 0.18) {
+      var sil = escortSilhouette(kind, b, spr);
+      var ga = ctx.globalAlpha; ctx.globalAlpha = ga * (1 - o.hitT / 0.18) * 0.85; ctx.drawImage(sil, dx, dy); ctx.globalAlpha = ga;
+    }
+    // Lichter: Frachter Positionslichter, Karawane Bernstein-Laternen (flackernd), Bergungsboot Warnleuchten
+    if (!wreck) {
+      for (var k = 0; k < def.lights.length; k++) {
+        var lp = W(def.lights[k][0], def.lights[k][1]);
+        if (kind === 'karawane') glow(ctx, lp[0], lp[1], PAL.bernstein, 6, 0.55 + 0.25 * Math.sin(t * 9 + k * 2.1) * Math.sin(t * 3.3 + k));
+        else if (kind === 'bergungsboot') glow(ctx, lp[0], lp[1], k ? PAL.warngelb : PAL.bernstein, 5, ((t * 1.6 + k * 0.5) % 1) < 0.5 ? 0.85 : 0.15);
+        else glow(ctx, lp[0], lp[1], k === 0 ? PAL.eisblau : PAL.bernstein, 5, ((t % 1.4) < 0.7) === (k === 1) ? 0.9 : 0.3);
+      }
+    }
+    // Zustände
+    var sp = W(def.smoke[0], def.smoke[1]), fp = W(def.fire[0], def.fire[1]);
+    if (wreck) {
+      drawFx(ctx, 'smoke', sp[0], sp[1], t * 0.6 + x * 0.01, { small: true });
+      if ((t * 0.7 + (x | 0) * 0.13) % 2 < 0.25) drawFx(ctx, 'sparks', fp[0], fp[1], ((t * 0.7) % 2) * 1.6, { small: true, seed: 5 });
+      glow(ctx, fp[0], fp[1], '#F08A3C', 5, 0.25 + 0.15 * Math.sin(t * 5));
+      return;
+    }
+    if (hp < 0.6) drawFx(ctx, 'smoke', sp[0], sp[1], t + x * 0.01, { small: true });
+    if (hp < 0.3) drawFx(ctx, 'fire', fp[0], fp[1], t, { small: true });
+  }
+
   // --- Asteroiden -------------------------------------------------------------------------------
   function drawAsteroid(ctx, x, y, r, seed) {
     r = Math.max(4, Math.min(120, Math.round(r || 20)));
@@ -6014,8 +6248,9 @@
   // (unter 20 px eine Raute), 'warn' ist warnrot mit Ausrufezeichen. Je (size, variant) gecacht, Cache begrenzt (24).
   // ---------------------------------------------------------------------------------------------
   var SEAL_COL = { ok: '#9E1F27', warn: PAL.alarmrot };
-  var sealCache = new SmallCache(24);
-  function buildSeal(g, s, variant) {
+  var sealCache = new SmallCache(36);
+  function buildSeal(g, s, variant, stage) {
+    if (stage == null) stage = 2;
     var base = SEAL_COL[variant], brass = PAL.messing, cx = s / 2, cy = s / 2;
     var Rr = s / 2 - 1;                                   // 1 px Rand für die Outline
     var rimW = Math.max(1, Math.round(s / 14));
@@ -6029,7 +6264,9 @@
       var lit = -(dx + dy) / (Rr * 1.42);                 // Licht von oben links: -1..1
       var col;
       if (d > edge - rimW) col = lit > 0.35 ? brassHi : lit < -0.35 ? brassLo : brass;
-      else {
+      else if (stage === 0) {                             // S2 Stufe 0: nur der Messingrand, innen leer
+        continue;
+      } else {
         // weiche Kante per Schachbrett-Dither zwischen den Stufen
         var dz = ((x + y) & 1) ? 0.08 : -0.08;
         col = lit + dz > 0.6 ? lightHi : lit + dz < -0.55 ? lightDark : base;
@@ -6039,6 +6276,15 @@
       }
       P(g, x, y, col);
     }
+    if (stage === 0) return;
+    if (stage === 1) {                                    // S2 Stufe 1: halb geprägt – Prägebild nur in der unteren Hälfte
+      g.save(); g.beginPath(); g.rect(0, Math.round(cy), s, s); g.clip();
+      try { buildSealEmblem(g, s, variant, base, brass, cx, cy, Rr, lightDark, brassHi, brassLo); } finally { g.restore(); }
+      return;
+    }
+    buildSealEmblem(g, s, variant, base, brass, cx, cy, Rr, lightDark, brassHi, brassLo);
+  }
+  function buildSealEmblem(g, s, variant, base, brass, cx, cy, Rr, lightDark, brassHi, brassLo) {
     if (variant === 'warn') {                             // Ausrufezeichen, hell mit Schatten
       var bw = Math.max(1, Math.round(s / 9)), top = Math.round(cy - Rr * 0.45), bot = Math.round(cy + Rr * 0.12);
       var dot = Math.max(1, bw), x0 = Math.round(cx - bw / 2);
@@ -6068,13 +6314,15 @@
       if (s >= 28) { var cd = Math.max(1, Math.round(s / 20)); R(g, Math.round(cx - cd / 2), Math.round(cy - cd / 2), cd, cd, brass); }
     }
   }
-  function drawSeal(ctx, x, y, size, variant) {
+  // S2: opts.stage 0 = nur Rand, 1 = halb geprägt, 2 = fertig (Standard, wie bisher)
+  function drawSeal(ctx, x, y, size, variant, opts) {
     var s = Math.round(+size || 16); if (!(s >= 8)) s = 8; if (s > 96) s = 96;
     var v = variant === 'warn' ? 'warn' : 'ok';
-    var key = s + '|' + v, c = sealCache.get(key);
+    var st = opts && opts.stage != null ? Math.max(0, Math.min(2, Math.round(+opts.stage) || 0)) : 2;
+    var key = s + '|' + v + (st === 2 ? '' : '|' + st), c = sealCache.get(key);
     if (!c) {
       c = sealCache.make(s, s);
-      try { buildSeal(c.g, s, v); outline(c, PAL.outlineWarm); } catch (e) { warn('build seal ' + key, e); missing(c.g, 0, 0, s, s); }
+      try { buildSeal(c.g, s, v, st); outline(c, PAL.outlineWarm); } catch (e) { warn('build seal ' + key, e); missing(c.g, 0, 0, s, s); }
       sealCache.set(key, c);
     }
     ctx.drawImage(c, Math.round(x - s / 2), Math.round(y - s / 2));
@@ -6142,13 +6390,16 @@
   Art.stateColor = function (state, fragile) { return STATE_COL[stateCode(state, fragile)]; };
   // S1
   Art.drawSeal = safe('drawSeal', drawSeal);
+  // S2
+  Art.drawEscort = safe('drawEscort', drawEscort);
+  Art.ESCORT_KINDS = ['frachter', 'karawane', 'bergungsboot'];
   Art.cacheSize = function () { return cache.size; };
   Art.LINE_H = LINE_H;
 
   if (!hasDom) {   // ohne DOM (z. B. Node): alle Zeichenfunktionen No-op
     ['drawTile', 'drawObject', 'drawCharacter', 'drawBot', 'drawNpc', 'drawDrone', 'drawItem', 'drawFx', 'drawShip', 'drawEnemy',
       'drawAsteroid', 'drawStation', 'drawProjectile', 'drawBeam', 'drawStarfield', 'drawText', 'drawPanel', 'drawIcon', 'drawOverlay',
-      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst', 'drawSeal']
+      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst', 'drawSeal', 'drawEscort']
       .forEach(function (k) { Art[k] = function () { return 0; }; });
   }
   root.Art = Art;

@@ -26,7 +26,12 @@ function buy(game, p, itemId) {
   else if (entry.kind === 'item') game.inventory[entry.id] = (game.inventory[entry.id] || 0) + 1;
   else if (entry.kind === 'deko') game.inventory.deko.push(entry.id);
   game.emit('sfx', { name: ctx === 'vaelen' ? 'trade' : 'buy' });
-  game.missionEvent('bought', { item: entry.id, ctx });
+  // S2 (CONTRACT-S2 §6): Ereignis bought { item, n, marks } für `handeln`; Käufe je Mission für die Prüfung `purchased`
+  const m = game.mission;
+  game.purchases = game.purchases || [];
+  game.purchases.push({ item: entry.id, n: 1, marks: price, ctx, mission: (m && m.activeId) || null, t: game.time });
+  if (game.purchases.length > 100) game.purchases.splice(0, game.purchases.length - 100);
+  game.missionEvent('bought', { item: entry.id, n: 1, marks: price, ctx });
   return null;
 }
 

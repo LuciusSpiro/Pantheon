@@ -4,12 +4,96 @@
   "name": "Ladung liefern",
   "familie": "transport_und_transfer",
   "kern": "Fracht ans Ziel bringen und übergeben",
-  "ansaetze": [],
+  "ansaetze": [
+    "technik"
+  ],
   "szenentypen": [
     "A1",
     "A12",
     "D1"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "im_hafen_abgeben",
+      "name": "Am Hafen andocken und übergeben",
+      "schauplatz": "weltraum",
+      "beschreibung": "Abschluss einer Mission: Die Lerche dockt am Hafen oder bei der Karawane an, der Empfänger quittiert per Funk und zahlt. Liegt ein Gegenstand der Mission an Bord (Datenkern, Tafel), wird er übergeben. Keine Schlepparbeit: Was an Bord ist, fliegt einfach mit. Am Ziel kann gespeichert werden.",
+      "braucht": [
+        "andocken"
+      ],
+      "dauer_min": [
+        1,
+        2
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [1, 2], "2": [1, 2], "3": [1, 2] },
+      "ereignisse": [
+        "docked"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["hafen", "vaelen"], "beschreibung": "Hafen oder Karawane (andocken)" },
+        "empfaenger": { "typ": "npc", "pflicht": true, "beschreibung": "Wer quittiert" },
+        "item": { "typ": "text", "default": "datenkern", "werte": ["datenkern", "tafel"], "beschreibung": "Gegenstand, der übergeben wird, falls er an Bord ist" },
+        "lohn": { "typ": "zahl", "default": 80, "min": 0, "max": 300 },
+        "was": { "typ": "text", "default": "die Ladung", "beschreibung": "Was übergeben wird, für die Texte (z. B. „die Messdaten“)" },
+        "funk_quittung": { "typ": "text", "default": "Angekommen und quittiert. Gute Arbeit, Lerche – die Marken sind unterwegs." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{empfaenger}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "timers": [
+              { "at": 1, "if": { "not": { "docked": "{{loc}}" } }, "oda": "@{{id}}.anflug" },
+              { "at": 60, "if": { "not": { "docked": "{{loc}}" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "docked": "{{loc}}" }, { "not": { "v": "{{id}}_quittiert" } } ] },
+                "do": [
+                  { "set": { "{{id}}_quittiert": true } },
+                  { "if": { "itemAboard": "{{item}}" }, "do": "remove_item", "item": "{{item}}" },
+                  { "radio": { "from": "{{empfaenger}}", "text": "@{{id}}.quittung" } },
+                  { "reward": { "marks": "{{lohn}}" } },
+                  { "log": "@{{id}}.log" }
+                ]
+              }
+            ],
+            "objectives": [
+              { "id": "andocken", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_quittiert" } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_quittiert" }, { "elapsed": 1 } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_dock", "loc": "{{loc}}" },
+              { "set": { "{{id}}_quittiert": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.quittung": "{{funk_quittung}}",
+          "{{id}}.anflug": "Kurs auf den Andockpunkt. Steuer: langsam ran, dann andocken.",
+          "{{id}}.tipp": "Andocken: nah an die Schleuse, Tempo runter, dann die Andocktaste der Steuer.",
+          "{{id}}.log": "Übergabe von {{was}} quittiert.",
+          "{{id}}.ziel": "Andocken und {{was}} übergeben"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "was": "die Ladung",
+          "funk_quittung": "Angekommen und quittiert. Gute Arbeit, Lerche – die Marken sind unterwegs."
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "hafen",
+          "empfaenger": "tesk"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"
 }

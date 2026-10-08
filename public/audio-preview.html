@@ -23,6 +23,7 @@
   button.m2 { box-shadow: inset 3px 0 0 var(--mint); }
   button.m3 { box-shadow: inset 3px 0 0 var(--brass); }
   button.s1 { box-shadow: inset 3px 0 0 #9E1F27; }
+  button.s2 { box-shadow: inset 3px 0 0 #A9D6E5; }
   .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
   label { display:flex; gap:8px; align-items:center; }
   input[type=range] { width:180px; accent-color:var(--mint); }
@@ -32,7 +33,7 @@
 </head>
 <body>
 <h1>Pantheon – Audio-Vorschau</h1>
-<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“), messing: neu in M3a („Breitseite &amp; Schaden“), rot: neu in S1 („Regiebuch &amp; Weltstand“).</p>
+<p class="hint">Alles synthetisch (WebAudio). Der Ton startet beim ersten Klick. Gelb markiert: neu in M1, mint: neu in M2 („Schildwall“), messing: neu in M3a („Breitseite &amp; Schaden“), rot: neu in S1 („Regiebuch &amp; Weltstand“), eisblau: neu in S2 („Spielleiter &amp; Schützling“).</p>
 
 <h2>Musik</h2>
 <div class="grid" id="moods"></div>
@@ -64,6 +65,11 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
 <code>setVolume</code>/<code>setMuted</code>, Anzeige über <code>getVolume</code>/<code>isMuted</code>.</p>
 <div class="grid" id="variantsS1"></div>
 
+<h2>S2 – Spielleiter &amp; Schützling</h2>
+<p class="hint">gm_static (Spielleiter berät), offer_in (Angebot), distress (Notruf, gegen alarm_red abgrenzen), escort_hit (leiser als
+hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
+<div class="grid" id="variantsS2"></div>
+
 <h2>Master</h2>
 <div class="row">
   <label>Lautstärke <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
@@ -90,7 +96,9 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
   LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
   LOUD.tele_charge = 1; LOUD.heavy_hit = 1; LOUD.system_break = 1;
   var S1 = { save_seal:1, world_load:1, save_delete:1 };
-  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : S1[n] ? 's1' : '')).trim(); }
+  var S2 = { gm_static:1, offer_in:1, distress:1, escort_hit:1, escort_lost:1, escort_saved:1 };
+  LOUD.distress = 1;
+  function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : S1[n] ? 's1' : S2[n] ? 's2' : '')).trim(); }
 
   function ensure() { if (A) A.init(); }
   function make(parent, label, fn, cls) {
@@ -216,6 +224,33 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
     A.play('world_load', base());
     at(2200, function () { A.play('save_seal', base()); });
   }, 's1');
+
+  // S2: Vergleiche und Abläufe
+  make($('variantsS2'), 'Vergleich: distress · alarm_red', function () {
+    A.play('distress', base());
+    at(1300, function () { A.play('alarm_red', base()); });
+  }, 's2');
+  make($('variantsS2'), 'Vergleich: escort_hit · hull_hit', function () {
+    A.play('escort_hit', base());
+    at(800, function () { A.play('hull_hit', base()); });
+  }, 's2');
+  make($('variantsS2'), 'Vergleich: escort_saved · save_seal', function () {
+    A.play('escort_saved', base());
+    at(1600, function () { A.play('save_seal', base()); });
+  }, 's2');
+  make($('variantsS2'), 'Ablauf: Spielleiter berät, Angebote kommen', function () {
+    A.play('gm_static', base());
+    at(1500, function () { A.play('gm_static', base()); });
+    at(2600, function () { A.play('offer_in', base()); });
+    at(3800, function () { A.play('offer_in', base()); });
+  }, 's2');
+  make($('variantsS2'), 'Ablauf: Schützling unter Beschuss, verloren', function () {
+    A.play('escort_hit', withP({ pan: 0.4 }));
+    at(500, function () { A.play('escort_hit', withP({ pan: 0.4 })); });
+    at(900, function () { A.play('distress', withP({ pan: 0.4 })); });
+    at(2300, function () { A.play('escort_hit', withP({ pan: 0.4 })); });
+    at(2700, function () { A.play('escort_lost', base()); });
+  }, 's2 loud');
 
   $('intensity').addEventListener('input', function () {
     ensure(); A.setIntensity(+this.value); $('intensityVal').textContent = (+this.value).toFixed(2);

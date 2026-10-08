@@ -152,10 +152,12 @@
       const inConsole = !!view.me.console;
       if (!inConsole) {
         if (view.self.zone === 'away') this.drawAwayHud(ctx, view); else this.drawShipHud(ctx, view);
-        this.drawObjectives(ctx, view);
+        const objBottom = this.drawObjectives(ctx, view);
+        Net.guard('Hud.planningLine', () => this.drawPlanningLine(ctx, view, (objBottom || 30) + 2));   // S2
         this.drawInteraction(ctx, view);
         this.drawCarry(ctx, view);
-        this.drawRadio(ctx, view, false);
+        const radioBottom = this.drawRadio(ctx, view, false);
+        Net.guard('Hud.escortStrip', () => this.drawEscortStrip(ctx, view, radioBottom ? radioBottom + 3 : 6));   // S2
       } else {
         this.drawRadio(ctx, view, true);
       }
@@ -210,6 +212,7 @@
         R.text(ctx, l.text, 18, y, { color: l.done ? '#6E8A6A' : l.optional ? PAL.panelLight : PAL.star });
         y += 10;
       }
+      return 4 + h;   // S2: Unterkante (Planungszeile darunter)
     },
 
     // M3a: 14 Systeme als 7×2-Raster (Kürzel Art+Seite, Zustand über Farbe/Muster), Reparaturliste = Bernstein-Strich
@@ -629,6 +632,7 @@
         const blink = Math.floor(view.time * 2) % 2 === 0;
         R.text(ctx, '> Captain-Konsole: annehmen', x + 6, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
+      return 6 + h;   // S2: Unterkante (Schützling-Zeile darunter)
     },
 
     drawOda(ctx, view, top) {
@@ -660,15 +664,28 @@
       let all = this.notices.slice();
       if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000 });
       if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
+      // QA-Abnahme S2: lange Hinweise (z. B. Logbuch-Notizen) umbrechen statt abschneiden – höchstens 2 Zeilen
+      const maxW = Math.min(VW - 40, 440);
       for (const n of all) {
-        const w = R.measure(n.text, 1) + 12;
+        let lines = [n.text];
+        if (R.measure(n.text, 1) > maxW) {
+          lines = [''];
+          for (const word of String(n.text).split(' ')) {
+            const cur = lines[lines.length - 1];
+            const next = cur ? cur + ' ' + word : word;
+            if (cur && R.measure(next, 1) > maxW) lines.push(word); else lines[lines.length - 1] = next;
+          }
+          if (lines.length > 2) { lines = [lines[0], this.fit(lines.slice(1).join(' '), maxW, 1)]; }
+        }
+        const w = Math.max(...lines.map((l) => R.measure(l, 1))) + 12;
+        const h = 13 + (lines.length - 1) * 10;
         const a = Math.max(0, Math.min(1, (n.d || 3) - (now - n.t)));
         ctx.globalAlpha = a;
-        R.backdrop(ctx, VW / 2 - w / 2, y, w, 13, 0.85);
-        ctx.strokeStyle = n.color; ctx.strokeRect(VW / 2 - w / 2 + 0.5, y + 0.5, w - 1, 12);
-        R.text(ctx, n.text, VW / 2, y + 3, { color: n.color, align: 'center' });
+        R.backdrop(ctx, VW / 2 - w / 2, y, w, h, 0.85);
+        ctx.strokeStyle = n.color; ctx.strokeRect(VW / 2 - w / 2 + 0.5, y + 0.5, w - 1, h - 1);
+        lines.forEach((l, i) => R.text(ctx, l, VW / 2, y + 3 + i * 10, { color: n.color, align: 'center' }));
         ctx.globalAlpha = 1;
-        y += 16;
+        y += h + 3;
       }
     },
 
@@ -1001,8 +1018,8 @@
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
       ['Taktik', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
-      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan) · Energie & Schilde · Schadensplan · Außenteam'],
-      ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch'],
+      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Energie & Schilde · Schadensplan · Außenteam'],
+      ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
       ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],
       ['Ansicht', 'F8 Voxel/2D · +/− oder Mausrad Zoom (Voxel) · Esc: erst Konsole/Minispiel verlassen, dann Menü'],
@@ -1093,13 +1110,139 @@
       R.text(ctx, 'W/S wählen · Enter ' + (full ? 'fortsetzen statt neu' : 'wählen') + ' · Entf ' + String(holdMax).replace('.', ',') + ' s halten: löschen', VW / 2, by - 12, { color: PAL.panelLight, align: 'center' });
     },
 
+    // ---------------------------------------------------------------- S2: Spielleiter, Kapitelkarte, Schützling
+    PLANNING_WORDS: ['peilt', 'berät', 'siegelt'],
+    planningOf(st) { const p = st && st.mission && st.mission.planning; return p && typeof p === 'object' ? p : null; },
+    // Drei kleine Prägemarken neben dem Siegel: Stufe lesbar, auch wenn Art.drawSeal die Stufe nicht kennt
+    drawStagePips(ctx, x, y, stage) {
+      for (let i = 0; i < 3; i++) {
+        const on = i <= stage;
+        ctx.fillStyle = on ? PAL.brass : '#2E3A4A'; ctx.fillRect(x + i * 5, y, 3, 3);
+        if (!on) { ctx.strokeStyle = '#4F6178'; ctx.lineWidth = 1; ctx.strokeRect(x + i * 5 + 0.5, y + 0.5, 2, 2); }
+      }
+    },
+    planningText(p) { return 'Funk: ' + String(p.von || 'Hafenmeisterei') + ' ' + (this.PLANNING_WORDS[Math.max(0, Math.min(2, +p.stage || 0))]) + ' …'; },
+    // HUD-Zeile (dezent, kein Countdown) unter der Auftragsliste
+    drawPlanningLine(ctx, view, y) {
+      const p = this.planningOf(view.state);
+      if (!p) return y;
+      const stage = Math.max(0, Math.min(2, +p.stage || 0));
+      const text = this.fit(this.planningText(p), 160, 1);
+      const w = Math.min(200, R.measure(text, 1) + 40);
+      R.backdrop(ctx, 4, y, w, 14, 0.55);
+      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, 12, y + 7, 10, 'ok', { stage }));
+      R.text(ctx, text, 21, y + 3, { color: PAL.panelLight });
+      this.drawStagePips(ctx, 4 + w - 17, y + 6, stage);
+      return y + 16;
+    },
+    escortsOf(view) {
+      const l = view.escorts || (view.state && view.state.space && view.state.space.escorts) || [];
+      return Array.isArray(l) ? l.filter(e => e && e.id != null).slice(0, 2) : [];
+    },
+    // „SCHÜTZLING · Name ▮▮▮▯“ oben mittig. y0 = Oberkante; liefert die Unterkante
+    drawEscortStrip(ctx, view, y0, opts) {
+      const list = this.escortsOf(view);
+      if (!list.length) return y0;
+      const t = view.time;
+      if (opts && opts.row && list.length > 1) return this.drawEscortRow(ctx, view, y0, list, t);
+      let y = y0;
+      for (const e of list) {
+        const down = e.state === 'kampfunfaehig', safe = e.state === 'entkommen';
+        const name = R.escortName(e);
+        const tag = down ? 'KAMPFUNFÄHIG' : safe ? 'IN SICHERHEIT' : e.distress ? 'NOTRUF' : '';
+        const head = 'SCHÜTZLING · ';
+        const nm = this.fit(name, 120, 1);
+        const wHead = R.measure(head, 1), wName = R.measure(nm, 1), wTag = tag ? R.measure(tag, 1) + 6 : 0;
+        const w = 8 + wHead + wName + 6 + 34 + wTag + 6;
+        const x = Math.round(VW / 2 - w / 2);
+        R.backdrop(ctx, x, y, w, 13, 0.82);
+        const ring = down ? R.ESCORT_COL.wreck : R.escortRingCol(e, t);
+        ctx.strokeStyle = ring; ctx.lineWidth = 1;
+        if (e.distress && !down) { ctx.setLineDash([3, 2]); ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 12); ctx.setLineDash([]); }
+        else { ctx.fillStyle = ring; ctx.fillRect(x, y, 2, 13); }
+        R.text(ctx, head, x + 6, y + 3, { color: PAL.brass, shadow: false });
+        R.text(ctx, nm, x + 6 + wHead, y + 3, { color: down ? R.ESCORT_COL.wreck : R.ESCORT_COL.ice, shadow: false });
+        const frac = R.escortHpFrac(e);
+        const bx = x + 6 + wHead + wName + 6;
+        R.escortSegBar(ctx, bx, y + 4, frac, 32, 5, down ? R.ESCORT_COL.wreck : frac < 0.3 ? PAL.red : frac < 0.6 ? PAL.amber : R.ESCORT_COL.ice);
+        if (tag) {
+          const blink = e.distress && !down && Math.floor(t * 3) % 2 === 0;
+          R.text(ctx, tag, bx + 38, y + 3, { color: down ? PAL.red : safe ? PAL.mint : blink ? PAL.star : PAL.amber, shadow: false });
+        }
+        y += 14;
+      }
+      return y;
+    },
+    // Konsolen (Titelbalken): mehrere Schützlinge nebeneinander, kompakt
+    drawEscortRow(ctx, view, y, list, t) {
+      const head = 'SCHÜTZLING';
+      const parts = list.map(e => {
+        const down = e.state === 'kampfunfaehig', safe = e.state === 'entkommen';
+        const tag = down ? 'KAMPFUNF.' : safe ? 'SICHER' : e.distress ? 'NOTRUF' : '';
+        const nm = this.fit(R.escortName(e), 84, 1);
+        return { e, down, safe, tag, nm, w: R.measure(nm, 1) + 6 + 32 + (tag ? R.measure(tag, 1) + 6 : 0) };
+      });
+      const wHead = R.measure(head, 1);
+      const w = 8 + wHead + parts.reduce((s, p) => s + 10 + p.w, 0) + 6;
+      let x = Math.round(VW / 2 - w / 2);
+      R.backdrop(ctx, x, y, w, 13, 0.82);
+      const any = parts.some(p => p.e.distress && !p.down);
+      ctx.strokeStyle = any ? R.escortRingCol(parts.find(p => p.e.distress && !p.down).e, t) : R.ESCORT_COL.ice; ctx.lineWidth = 1;
+      if (any) { ctx.setLineDash([3, 2]); ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 12); ctx.setLineDash([]); } else { ctx.fillStyle = R.ESCORT_COL.ice; ctx.fillRect(x, y, 2, 13); }
+      R.text(ctx, head, x + 6, y + 3, { color: PAL.brass, shadow: false });
+      x += 6 + wHead;
+      for (const p of parts) {
+        x += 10;
+        ctx.fillStyle = '#4F6178'; ctx.fillRect(x - 6, y + 3, 1, 7);
+        R.text(ctx, p.nm, x, y + 3, { color: p.down ? R.ESCORT_COL.wreck : R.ESCORT_COL.ice, shadow: false });
+        const bx = x + R.measure(p.nm, 1) + 6, frac = R.escortHpFrac(p.e);
+        R.escortSegBar(ctx, bx, y + 4, frac, 32, 5, p.down ? R.ESCORT_COL.wreck : frac < 0.3 ? PAL.red : frac < 0.6 ? PAL.amber : R.ESCORT_COL.ice);
+        if (p.tag) { const blink = p.e.distress && !p.down && Math.floor(t * 3) % 2 === 0; R.text(ctx, p.tag, bx + 38, y + 3, { color: p.down ? PAL.red : p.safe ? PAL.mint : blink ? PAL.star : PAL.amber, shadow: false }); }
+        x += p.w;
+      }
+      return y + 14;
+    },
+    // Kapitelkarte (Overlay, Enter schließt)
+    drawChapter(ctx, view, ch) {
+      if (!ch) return;
+      const age = (performance.now() - (ch.t0 || 0)) / 1000;
+      const a = Math.max(0, Math.min(1, age / 0.5));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = 'rgba(11,14,26,0.78)'; ctx.fillRect(0, 0, VW, VH);
+      const w = 400, x = Math.round(VW / 2 - w / 2);
+      const lines = R.wrap(ch.text || '', w - 48, 1).slice(0, 10);
+      const titleLines = R.wrap(String(ch.title || '').toUpperCase(), w - 40, 2).slice(0, 2);
+      const h = 96 + titleLines.length * 17 + lines.length * 11;
+      const y = Math.round(VH / 2 - h / 2);
+      R.panel(ctx, x, y, w, h, { style: 'brass' });
+      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, VW / 2, y + 22, 24, 'ok', { stage: 2 }));
+      R.text(ctx, 'KAPITEL ABGESCHLOSSEN', VW / 2, y + 40, { color: PAL.brass, align: 'center' });
+      let ly = y + 54;
+      for (const l of titleLines) { R.text(ctx, l, VW / 2, ly, { color: PAL.amber, scale: 2, align: 'center' }); ly += 17; }
+      ly += 4;
+      for (const l of lines) { R.text(ctx, l, VW / 2, ly, { color: PAL.star, align: 'center' }); ly += 11; }
+      R.button(ctx, VW / 2 - 70, y + h - 26, 140, 18, 'Weiterspielen', { hotkey: 'Enter', onClick: () => view.actions.closeChapter && view.actions.closeChapter() });
+      ctx.globalAlpha = 1;
+    },
+
     // ---------------------------------------------------------------- Siegel „Weltstand gesichert“, Pause
     saveSeal: null,
     showSaveSeal(ok, text) { this.saveSeal = { t: performance.now() / 1000, ok: !!ok, text: String(text || '') }; },
     // Art.drawSeal(ctx, x, y, size, variant) – Mittelpunkt x/y; ohne Art eine kleine Raute in Siegelrot mit Messingkante
-    drawSeal(ctx, x, y, size, variant) {
-      if (R.art('drawSeal', 'drawSeal', [ctx, x, y, size, variant])) return;
+    // S2: opts.stage 0|1|2 = Prägestufen (0 Peilung, 1 Rat berät, 2 gesiegelt) – Art.drawSeal(..., { stage }), sonst Fallback
+    drawSeal(ctx, x, y, size, variant, opts) {
+      const staged = opts && opts.stage != null;
+      if (R.art('drawSeal', 'drawSeal', staged ? [ctx, x, y, size, variant, opts] : [ctx, x, y, size, variant])) return;
       const s = size / 2;
+      if (staged && opts.stage < 2) {
+        // 0: nur gestrichelter Messingrand (Peilung); 1: Rand + halb geprägte Füllung (Rat berät)
+        ctx.save();
+        if (opts.stage >= 1) { ctx.fillStyle = PAL.seal; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.arc(x, y, s, Math.PI, 0); ctx.closePath(); ctx.fill(); }
+        ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.setLineDash(opts.stage >= 1 ? [] : [2, 2]);
+        ctx.beginPath(); ctx.arc(x, y, s - 0.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        return;
+      }
       const diamond = (r) => { ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); };
       diamond(s); ctx.fillStyle = variant === 'warn' ? '#6A5320' : PAL.seal; ctx.fill();
       ctx.strokeStyle = variant === 'warn' ? PAL.warn : PAL.brass; ctx.lineWidth = 1; ctx.stroke();
@@ -1122,8 +1265,15 @@
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
       let text;
-      if (inGame) text = this.fit(s.text, 300, 1);
-      else {
+      if (inGame) {
+        // QA-INTEGRATION S2: läuft unten eine ODA-Zeile (nicht an der Konsole), darf das Siegel nicht hineinragen
+        const odaBottom = this.oda && this.oda.cur && !(me && me.console);
+        const room = odaBottom ? Math.max(80, Math.round(VW / 2 - 142) - 4 - 34 - 6) : 300;
+        const parts = s.text.split(' · ');
+        const short = parts[0].split(' – ')[0];
+        const cands = [s.text, parts.length > 1 ? 'Gesichert · ' + parts.slice(1).join(' · ') : null, short];
+        text = cands.find(c => c && R.measure(c, 1) <= room) || this.fit(short, room, 1);
+      } else {
         y = VH - h - 26;
         const short = s.text.split(' · ')[0].split(' – ')[0];
         const parts = s.text.split(' · ');

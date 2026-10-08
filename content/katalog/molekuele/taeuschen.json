@@ -12,6 +12,131 @@
     "A3",
     "C6"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "bluff_funk",
+      "name": "Bluff per Funk mit Hinweis von der Ortung",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein NSC verlangt etwas und droht. Kurz darauf liefert die Ortung einen Hinweis (z. B. ein beschädigter Antrieb, ein leerer Laderaum). Der Captain wählt zwischen zwei Bluffs oder der Wahrheit; nur der Bluff, der zum Hinweis passt, verfängt. Wer genau zuhört, gewinnt. Die Folgen jeder Antwort legt der Spielleiter fest.",
+      "braucht": [
+        "funk_entscheidung"
+      ],
+      "dauer_min": [
+        1,
+        3
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [1, 2], "2": [2, 3], "3": [2, 3] },
+      "liefert_flags": [
+        "{{id}}_geglueckt",
+        "{{id}}_durchschaut"
+      ],
+      "ereignisse": [
+        "choice"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "beschreibung": "Ort der Szene" },
+        "npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wer gefoppt werden soll" },
+        "forderung": { "typ": "text", "pflicht": true, "beschreibung": "Funkspruch des NSC: Forderung und Drohung" },
+        "hinweis": { "typ": "text", "pflicht": true, "beschreibung": "ODA-Satz der Ortung (≤ 120 Zeichen), der verrät, welcher Bluff passt" },
+        "frage": { "typ": "text", "pflicht": true },
+        "bluff_passend": { "typ": "text", "pflicht": true, "beschreibung": "Der Bluff, der zum Hinweis passt (≤ 60 Zeichen)" },
+        "bluff_falsch": { "typ": "text", "pflicht": true, "beschreibung": "Ein Bluff, der nicht verfängt (≤ 60 Zeichen)" },
+        "wahrheit": { "typ": "text", "default": "Die Wahrheit sagen" },
+        "funk_geglueckt": { "typ": "text", "default": "… Na schön. Diesmal. Verschwindet." },
+        "funk_durchschaut": { "typ": "text", "default": "Netter Versuch. Glaubt ihr, ich kann nicht zählen?" },
+        "folgen_geglueckt": { "typ": "aktionen", "default": [] },
+        "folgen_durchschaut": { "typ": "aktionen", "default": [] },
+        "folgen_wahrheit": { "typ": "aktionen", "default": [] },
+        "geduld_s": { "typ": "zahl", "default": 75, "min": 40, "max": 180 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{npc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              { "radio": { "from": "{{npc}}", "text": "@{{id}}.forderung" } },
+              { "oda": "@{{id}}.captain" }
+            ],
+            "timers": [
+              { "at": 8, "oda": "@{{id}}.hinweis" },
+              { "at": 10, "do": [ { "choice": "{{id}}_wahl" } ] },
+              { "at": 50, "if": { "not": { "choiceMade": "{{id}}_wahl" } }, "oda": "@{{id}}.ungeduldig", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "elapsed": "{{geduld_s}}" }, { "not": { "choiceMade": "{{id}}_wahl" } } ] },
+                "do": [ { "do": "force_choice", "option": "wahrheit" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "choices": {
+              "{{id}}_wahl": {
+                "prompt": "@{{id}}.frage",
+                "options": [
+                  { "id": "passend", "label": "@{{id}}.passend" },
+                  { "id": "falsch", "label": "@{{id}}.falsch" },
+                  { "id": "wahrheit", "label": "@{{id}}.wahrheit" }
+                ],
+                "on": {
+                  "passend": [ { "setFlag": { "{{id}}_geglueckt": true } }, { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk_geglueckt" } }, { "wirkung": "{{folgen_geglueckt}}" } ],
+                  "falsch": [ { "setFlag": { "{{id}}_durchschaut": true } }, { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk_durchschaut" } }, { "wirkung": "{{folgen_durchschaut}}" } ],
+                  "wahrheit": [ { "setFlag": { "{{id}}_durchschaut": true } }, { "wirkung": "{{folgen_wahrheit}}" } ]
+                }
+              }
+            },
+            "objectives": [
+              { "id": "antwort", "text": "@{{id}}.ziel", "done": { "choiceMade": "{{id}}_wahl" } }
+            ],
+            "next": [
+              { "if": { "choiceMade": "{{id}}_wahl" }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "force_choice", "option": "passend" }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.forderung": "{{forderung}}",
+          "{{id}}.hinweis": "{{hinweis}}",
+          "{{id}}.frage": "{{frage}}",
+          "{{id}}.passend": "{{bluff_passend}}",
+          "{{id}}.falsch": "{{bluff_falsch}}",
+          "{{id}}.wahrheit": "{{wahrheit}}",
+          "{{id}}.funk_geglueckt": "{{funk_geglueckt}}",
+          "{{id}}.funk_durchschaut": "{{funk_durchschaut}}",
+          "{{id}}.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+          "{{id}}.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+          "{{id}}.ziel": "Captain: antworten (Funk) – Ortung beachten"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "forderung": "Ihr seid auf meinem Kurs. Dreht bei, oder wir helfen nach.",
+          "hinweis": "Ortung: Ihr Antrieb flackert – der Reaktor läuft auf halber Last. Die können kaum folgen.",
+          "frage": "Wie antworten wir?",
+          "bluff_passend": "Wir springen gleich – folgt uns, wenn ihr könnt.",
+          "bluff_falsch": "Eine Patrouille ist auf dem Weg hierher.",
+          "folgen_geglueckt": [ { "reward": { "marks": 20 } } ],
+          "folgen_durchschaut": [ { "do": "pay_marks", "marks": 20 } ]
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "nebel",
+          "npc": "grauzahn",
+          "forderung": "Dreht bei.",
+          "hinweis": "Ortung: Antrieb flackert.",
+          "frage": "Antwort?",
+          "bluff_passend": "Folgt uns doch.",
+          "bluff_falsch": "Patrouille kommt.",
+          "folgen_durchschaut": [ { "setFlag": { "test_bezahlt": true } } ]
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"
 }

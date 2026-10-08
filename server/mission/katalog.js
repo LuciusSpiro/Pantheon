@@ -25,6 +25,14 @@ function schemas() {
   return cache;
 }
 
+// S2: Namen aller Bausteine, die im Vertrag content/regiebuch/bausteine.json stehen (Aktionen + Prüfungen)
+function vertragsBausteine() {
+  try {
+    const bs = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'regiebuch', 'bausteine.json'), 'utf8'));
+    return new Set([...Object.keys(bs.aktionen || {}), ...Object.keys(bs.pruefungen || {})]);
+  } catch (e) { return new Set(); }
+}
+
 // ---------- Vorlagen einsetzen ----------
 // Platzhalter {{name}}: ganzer String -> Wert (beliebiger Typ), sonst Textersetzung. Gilt auch für Objektschlüssel.
 function expand(node, vars) {
@@ -142,6 +150,17 @@ function load(opts) {
       if (!errs.length) pruefung = Checker.check(testRegiebuch(frag, m.id, u));
       u.pruefung = { fehler: pruefung.errors.length, warnungen: pruefung.warnings.length, details: pruefung.errors };
       u.fehlende_mechaniken = fehlend;
+      // S2 (Studioleitung): Fehlen nur Bausteine, die als Vertrag in content/regiebuch/bausteine.json stehen (noch nicht
+      // geliefert), ist die Umsetzung 'geplant' (fehlende_bausteine) statt 'fehlerhaft' – kein Eintrag in k.fehler.
+      const errs2 = pruefung.errors;
+      const missingB = errs2.length && errs2.every((e) => e.code === 'REF-BAUSTEIN' || e.code === 'REF-PRUEFUNG')
+        ? [...new Set(errs2.map((e) => (/'([a-z0-9_]+)'/.exec(e.msg) || [])[1]).filter(Boolean))] : [];
+      const contract = vertragsBausteine();
+      if (missingB.length && missingB.every((b) => contract.has(b)) && errs2.every((e) => /'([a-z0-9_]+)'/.test(e.msg))) {
+        u.fehlende_bausteine = missingB;
+        u.status = 'geplant';
+        continue;
+      }
       u.status = pruefung.errors.length ? 'fehlerhaft' : fehlend.length ? 'geplant' : 'verfuegbar';
       if (pruefung.errors.length) fehler.push(...pruefung.errors.map((e) => ({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}' besteht den Prüfer nicht: ${e.code} ${e.p} – ${e.msg}` })));
     }

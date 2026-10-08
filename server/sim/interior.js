@@ -357,15 +357,7 @@ function interactionsAt(game, p, tx, ty, own) {
         if (aw.sonde.disabled) list.push({ kind: 'reboot' });
         else list.push({ kind: 'reboot', blocked: 'Der Bojenkern ist gesperrt – erst die Kustoden-Sonde abschalten.' });
       }
-      const npc = aw.npc;
-      if (npc.present && !npc.rescued) {
-        const nt = Physics.toTile(npc.x, npc.y);
-        if (nt.x === tx && nt.y === ty) {
-          if (!npc.injured) list.push({ kind: 'npc' });
-          else if (p.carry === 'medipack') list.push({ kind: 'npcHeal' });
-          else list.push({ kind: 'npc', blocked: 'Ivo ist verletzt – er braucht ein Medipack (Lager an Bord oder Nachschub per Transfer auf die Markierung).' });
-        }
-      }
+      npcInteraction(aw, p, tx, ty, list);
     } else if (aw.map === 'wreck') {
       if (ch === 'h') {
         const s = aw.salvage.find((q) => q.x === tx && q.y === ty);
@@ -381,6 +373,7 @@ function interactionsAt(game, p, tx, ty, own) {
     } else if (aw.map === 'kesh') {
       combat().interactionsAt(game, p, tx, ty, ch, list);   // M2: Störrelais, Archivschlüssel, Tafel
     }
+    if (aw.map !== 'platform') npcInteraction(aw, p, tx, ty, list);   // S2: NSC-Person auf Wrack/Kesh (spawn_person)
     for (const it of aw.items) {
       const it2 = Physics.toTile(it.x, it.y);
       if (it2.x === tx && it2.y === ty) {
@@ -393,6 +386,17 @@ function interactionsAt(game, p, tx, ty, own) {
   }
   list.sort((a, b) => PRIORITY[a.kind] - PRIORITY[b.kind]);
   return list;
+}
+
+// NSC-Person auf einer Außenkarte (Ivo auf B-7; S2: spawn_person auf jeder Karte, Name in npc.name)
+function npcInteraction(aw, p, tx, ty, list) {
+  const npc = aw.npc;
+  if (!npc || !npc.present || npc.rescued) return;
+  const nt = Physics.toTile(npc.x, npc.y);
+  if (nt.x !== tx || nt.y !== ty) return;
+  if (!npc.injured) list.push({ kind: 'npc' });
+  else if (p.carry === 'medipack' || (npc.name && p.medkit > 0)) list.push({ kind: 'npcHeal' });
+  else list.push({ kind: 'npc', blocked: `${npc.name || 'Ivo'} ist verletzt – ${npc.name ? 'braucht' : 'er braucht'} ein Medipack (Lager an Bord oder Nachschub per Transfer auf die Markierung).` });
 }
 
 function itemName(item) {
@@ -484,6 +488,14 @@ function performInteraction(game, p, it) {
     case 'pickup': return pickupItem(game, p, it.item, it.where);
     case 'npcHeal': {
       const npc = game.away.npc;
+      if (npc.person) {   // S2: Person aus spawn_person (Medipack getragen oder eingesteckt)
+        if (p.carry === 'medipack') p.carry = null; else if (p.medkit > 0) p.medkit = 0;
+        npc.injured = false; npc.following = p.id; npc.met = true;
+        game.emit('sfx', { name: 'heal', zone: 'away', x: Math.round(npc.x), y: Math.round(npc.y) });
+        game.emit('radio', { from: npc.name, text: `Danke! Ich bin ${npc.name} – ich folge dir zu den Pads!` });
+        game.missionEvent('npcHealed', { person: npc.person, name: npc.name, map: game.away.map });
+        return;
+      }
       p.carry = null; npc.injured = false; npc.following = p.id; game.flags.npcMet = true;
       game.emit('sfx', { name: 'heal', zone: 'away', x: Math.round(npc.x), y: Math.round(npc.y) });
       game.emit('radio', { from: 'Techniker Ivo', text: 'Danke! Das Bein hält wieder. Ich bin Ivo, Wartung B-7 – ich folge dir zu den Pads!' });
@@ -492,11 +504,15 @@ function performInteraction(game, p, it) {
     }
     case 'npc': {
       const npc = game.away.npc;
-      if (npc.following === p.id) { npc.following = null; game.emit('radio', { from: 'Techniker Ivo', text: 'Gut, ich warte hier. Aber nicht vergessen, ja?' }); }
+      const from = npc.name || 'Techniker Ivo';
+      if (npc.following === p.id) { npc.following = null; game.emit('radio', { from, text: 'Gut, ich warte hier. Aber nicht vergessen, ja?' }); }
       else {
         npc.following = p.id;
-        if (!game.flags.npcMet) { game.flags.npcMet = true; game.emit('radio', { from: 'Techniker Ivo', text: 'Endlich! Ich bin Ivo, Wartung B-7. Ich folge dir – bring mich zu den Pads!' }); }
-        else game.emit('radio', { from: 'Techniker Ivo', text: 'Bin direkt hinter dir.' });
+        if (npc.name) {
+          if (!npc.met) { npc.met = true; game.emit('radio', { from, text: `Endlich! Ich bin ${npc.name}. Ich folge dir – bring mich zu den Pads!` }); }
+          else game.emit('radio', { from, text: 'Bin direkt hinter dir.' });
+        } else if (!game.flags.npcMet) { game.flags.npcMet = true; game.emit('radio', { from, text: 'Endlich! Ich bin Ivo, Wartung B-7. Ich folge dir – bring mich zu den Pads!' }); }
+        else game.emit('radio', { from, text: 'Bin direkt hinter dir.' });
       }
       return;
     }

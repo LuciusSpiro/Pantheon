@@ -44,6 +44,28 @@ Szene = Szenentyp + Ort + 1–2 Moleküle (je eine Umsetzung) + Besetzung + Wend
 | Entkommen | Mit der Beute zu den Pads | Außen (Kesh) | m3 Rückzug |
 | Rekonstruieren | Logbuch im Wrack lesen | Außen (Wrack) | Zaunkönig |
 
+**S2 (2026-10-08):** 13 neue Umsetzungen, Stand `node tools/katalog.js`: 27 Szenentypen (14 verfügbar, neu A5, A8, A12),
+43 Moleküle (21 verfügbar), 24 Umsetzungen (alle verfügbar). Dauern sind **Schätzungen** (`dauer_quelle`), BOTS misst.
+
+| Molekül | Umsetzung | Schauplatz | Bausteine (neu) |
+|---|---|---|---|
+| Schützen | Geleit durch einen Angriff (A8) | Weltraum | spawn_escort, escort_*, enemies_retreat |
+| Schützen | Notruf: Havaristen verteidigen (A3/A8) | Weltraum | spawn_escort, escort_* |
+| Pannenhilfe | Längsseits gehen und flicken (A3) | Weltraum | spawn_escort (treibt, reparatur_s) |
+| Kurs durch Gefahr | Blindflug durch Feld oder Nebel (A7) | Weltraum | ship_in_zone (splitter/nebel) |
+| Vernichten | Pylonen mit Frontschild (A5, aus m2) | Weltraum | – |
+| System ausschalten | Störrelais blockieren den Faltsprung (A4/A5) | Weltraum | jumpBlock |
+| Täuschen | Bluff per Funk mit Hinweis der Ortung (A3) | Weltraum | – |
+| Ausschlachten | Container im Wrack bergen (C1/C9) | Außen (Wrack) | map_reset |
+| Datenkern bergen | Datenkern von der Plattform holen (C1/C9) | Außen (B-7) | map_reset |
+| Ladung liefern | Am Hafen andocken und übergeben (A12/D1) | Weltraum/Hafen | – |
+| Vertreiben | Angreifer bis zur Flucht (A4) | Weltraum | enemies_retreat |
+| Personen bergen | Verletzte Person holen (C9) | Außen (B-7, Wrack, Kesh) | map_reset, spawn_person, person_rescued |
+| Halten | Position am Objekt halten (A5) | Weltraum | ship_hold_position |
+
+Neue Felder je Umsetzung (S2): `liefert_flags` (für Verzweigungen; bei Schützlingen setzt die Engine `<tag>_heil|_beschaedigt|_verloren`,
+Tag = Szenen-ID), `rueckfall.params` (Rohfassung ohne LLM), `dauer_quelle`, `dauer_je_crew`. Archiv-Missionen: `content/spielleiter/archiv/`.
+
 ## Etwas hinzufügen
 - **Neue Umsetzung für ein bestehendes Molekül:** in `molekuele/<id>.json` unter `umsetzungen` ergänzen. Pflicht:
   `beschreibung` (für den Spielleiter), `braucht`, `params`, `vorlage` (Regiebuch-Fragment) und `test.params`.
@@ -59,8 +81,9 @@ Szene = Szenentyp + Ort + 1–2 Moleküle (je eine Umsetzung) + Besetzung + Wend
 - **Neues Molekül oder neuer Szenentyp:** einfach als Datei ablegen (eigene ID).
 - **Bestehendes Molekül erweitern:** Datei mit gleicher ID und `"erweitert": true`. Die Umsetzungen werden angehängt,
   Szenentypen und Ansätze ergänzt (nie entfernt).
-- **Beispiel:** `mod-beispiel/` ergänzt „Vernichten“ um die Pylonen-Prüfung aus m2 und schaltet damit den Szenentyp
-  A5 Belagerung frei: `node tools/katalog.js --mod concept/katalog/mod-beispiel`.
+- **Beispiel:** `mod-beispiel/` ergänzt „Vernichten“ um eine Kopie der Pylonen-Prüfung aus m2 (Umsetzung
+  `pylonen_mod_beispiel`; seit S2 steht `vernichten/pylonen_pruefung` auch im Kern):
+  `node tools/katalog.js --mod content/katalog/mod-beispiel`.
 
 ## Für den Spielleiter
 `node tools/katalog.js --spielleiter kurz` (für den Grobplan) bzw. `voll` (mit Parametern, zum Ausarbeiten einer

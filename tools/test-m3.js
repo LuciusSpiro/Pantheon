@@ -1513,12 +1513,11 @@ section('Missionsbuch: Annehmen, Fokus, HUD (§21.2)', () => {
   g.snapshot();
   ok(entry('sela').state === 'erledigt' && g.mission.book.focus === null, 'Fokus auf erledigten Eintrag fällt zurück auf die laufende Mission');
   ok(entry('sela').log.length >= 1 || g.explore.log.some((l) => l.mission === 'sela'), 'Selas Log-Eintrag ist dem Nebenauftrag zugeordnet');
-  // Teaser
+  // S2: Teaser abgelöst (Spielleiter) – startTeaser ist ein No-op-Altname, kein Ausblick im Buch
   g.startTeaser();
-  const t = entry('teaser');
-  ok(t && t.kind === 'hinweis' && t.state === 'angeboten' && t.title, 'Ausblick (Teaser) im Buch: hinweis/angeboten');
+  ok(!entry('teaser'), 'S2: kein Ausblick (Teaser) mehr im Buch');
   cmd(0, 'plan.accept', { id: 'teaser' });
-  ok(notices(0).some((x) => /Ausblick/.test(x)), 'Teaser annehmen: „Nur ein Ausblick“');
+  ok(notices(0).some((x) => /Unbekannter Eintrag/.test(x)), 'S2: Teaser annehmen -> „Unbekannter Eintrag“');
   void conns;
 });
 

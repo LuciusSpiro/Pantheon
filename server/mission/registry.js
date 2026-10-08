@@ -18,7 +18,7 @@ const world = lazy('world', '../world.js');
 
 const ENTRIES = new Map();
 const PARAM_TYPES = ['map', 'loc', 'squad', 'unit', 'object', 'area', 'item', 'npc', 'text', 'system', 'number', 'bool', 'string',
-  'state', 'mission', 'hidden', 'console', 'option', 'region', 'sector', 'zone'];
+  'state', 'mission', 'hidden', 'console', 'option', 'region', 'sector', 'zone', 'ship'];   // S2: ship = Tag aus besetzung.schiffe
 
 function define(entry) {
   if (!entry || !/^[a-z][a-z0-9_]*$/.test(entry.id || '')) throw new Error('Baustein ohne gültige snake_case-Kennung: ' + (entry && entry.id));
@@ -201,11 +201,13 @@ define({ id: 'npc_status', art: 'aktion', beschreibung: 'Status eines NSC setzen
     ort: { typ: 'string' } },
   run(m, a) { if (a.ort !== undefined) callWeltstand(m, 'npcStatus', a.npc, a.status, a.ort); else callWeltstand(m, 'npcStatus', a.npc, a.status); } });
 define({ id: 'welt_fakt', art: 'aktion', beschreibung: 'Fakt im Weltstand setzen (key = value)',
-  params: { key: { typ: 'string', pflicht: true }, value: { typ: 'string' }, wert: { typ: 'string' }, quelle: { typ: 'string' } },
+  params: { key: { typ: 'string', pflicht: true }, value: { typ: 'string' }, wert: { typ: 'string' }, quelle: { typ: 'string' },
+    faden: { typ: 'bool' } },   // S2: faden = offener Erzählfaden (höchstens 1 je Grobplan; Spielleiter greift ihn später auf)
   run(m, a) {
     const ctx = m.writeContext();
     const value = a.value !== undefined ? a.value : a.wert;
-    callWeltstand(m, 'fact', a.key, value === undefined ? true : value, a.quelle || ctx.mission || null);
+    if (a.faden !== undefined) callWeltstand(m, 'fact', a.key, value === undefined ? true : value, a.quelle || ctx.mission || null, { faden: !!a.faden });
+    else callWeltstand(m, 'fact', a.key, value === undefined ? true : value, a.quelle || ctx.mission || null);
   } });
 define({ id: 'chronik', art: 'aktion', beschreibung: 'Eintrag in die Chronik der Kampagne',
   params: { text: { typ: 'text', pflicht: true } },
@@ -369,6 +371,16 @@ define({ id: 'squad_cleared', art: 'pruefung', beschreibung: 'Trupp ist erschien
   params: { map: { typ: 'map', pflicht: true }, squad: { typ: 'squad', pflicht: true } },
   test: (m, a) => { const aw = g_(m).aways[a.map]; return !!(aw && aw.spawned && aw.spawned[a.squad]) && !aw.drones.some((d) => d.alive && d.squad === a.squad); } });
 
+// S2 (CONTRACT-S2 §2.1 „Szene nicht fertig bei Ankunft“): Szene des Spielleiters ausgearbeitet bzw. nicht mehr zu erwarten.
+// Ohne Spielleiter (Direktstart, Testgelände, Tests) gilt jede Szene als bereit.
+define({ id: 'szene_bereit', art: 'pruefung', beschreibung: 'Spielleiter-Szene ist bereit (ausgearbeitet oder Rohfassung endgültig) – für Anflug-Schritte',
+  params: { szene: { typ: 'string', pflicht: true } },
+  test: (m, a) => {
+    const sl = m.game && m.game.spielleiter;
+    if (!sl || typeof sl.sceneReady !== 'function') return true;
+    try { return !!sl.sceneReady(m.activeId, a.szene); } catch (e) { m.game.countError('spielleiter-sceneReady', e); return true; }
+  } });
+
 // Name -> { entry, args } | null. Seit S1-QA gibt es keine Übergangs-Aliasse der alten JS-Module m1–m3 mehr
 // (gelöscht nach grünem Golden-Trace-Vergleich); nur noch registrierte snake_case-Bausteine.
 function resolve(name, args, art) {
@@ -377,4 +389,38 @@ function resolve(name, args, art) {
   return null;
 }
 
-module.exports = { define, get, describe, resolve, PARAM_TYPES };
+// ---------- S2 §3.3: Plugins aus server/mission/bausteine/*.js ----------
+// Je Datei: module.exports = (Registry) => { Registry.define(...) }. Reihenfolge nach Dateiname; ein kaputtes Plugin wird
+// laut geloggt und übersprungen (der Rest der Registry bleibt nutzbar). Doppelte Kennungen: Plugin gewinnt nicht –
+// eine schon definierte Kennung wird abgelehnt (Fehler in PLUGINS[].errors).
+const PLUGINS = [];
+function loadPlugins(dirIn) {
+  const fs = require('fs');
+  const path = require('path');
+  const dir = dirIn || path.join(__dirname, 'bausteine');
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).sort(); } catch (e) { return PLUGINS; }
+  for (const f of files) {
+    const file = path.join(dir, f);
+    if (PLUGINS.some((p) => p.file === file)) continue;
+    const rec = { file, name: f, ids: [], errors: [] };
+    const api = Object.assign({}, module.exports, {
+      define(entry) {
+        if (entry && ENTRIES.has(entry.id) && !rec.ids.includes(entry.id)) { rec.errors.push(`Kennung '${entry.id}' gibt es schon`); return ENTRIES.get(entry.id); }
+        const e = define(entry); rec.ids.push(e.id); return e;
+      },
+    });
+    try {
+      const mod = require(file);
+      const fn = typeof mod === 'function' ? mod : (mod && typeof mod.register === 'function' ? mod.register : null);
+      if (!fn) rec.errors.push('exportiert keine Funktion (Registry) => { … }');
+      else fn(api);
+    } catch (e) { rec.errors.push(e.message); }
+    if (rec.errors.length) console.error(`[Pantheon] Baustein-Plugin ${f}: ${rec.errors.join('; ')}`);
+    PLUGINS.push(rec);
+  }
+  return PLUGINS;
+}
+
+module.exports = { define, get, describe, resolve, PARAM_TYPES, PLUGINS, loadPlugins };
+loadPlugins();

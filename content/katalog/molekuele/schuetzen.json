@@ -8,9 +8,316 @@
     "gewalt"
   ],
   "szenentypen": [
+    "A3",
     "A8",
     "C3"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "geleit_durch_angriff",
+      "name": "Geleit durch einen Angriff",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Kanonenboot + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
+      "braucht": [
+        "raumkampf",
+        "schuetzling"
+      ],
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [5, 7], "2": [4, 6], "3": [4, 5] },
+      "liefert_flags": [
+        "{{id}}_heil",
+        "{{id}}_beschaedigt",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "escortHit",
+        "escortDistress",
+        "escortArrived",
+        "escortDisabled",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "beschreibung": "Ort der Szene" },
+        "funk_npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wem der Schützling gehört bzw. wer von dort funkt (Gehorsam nach dessen Haltung)" },
+        "kind": { "typ": "kind", "default": "frachter", "werte": ["frachter", "karawane", "bergungsboot"] },
+        "name": { "typ": "text", "default": "Frachter", "beschreibung": "Anzeigename des Schützlings (höchstens 24 Zeichen)" },
+        "von": { "typ": "text", "default": "west", "werte": ["west", "ost", "nord", "sued", "lerche"] },
+        "nach": { "typ": "text", "default": "ost", "werte": ["west", "ost", "nord", "sued", "station"] },
+        "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
+        "angriff_nach": { "typ": "zahl", "default": 5, "min": 3, "max": 60, "beschreibung": "s bis zur Ankündigung der ersten Welle (sie kommt 5 s später)" },
+        "verstaerkung": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Anführer jeder weiteren Welle (dazu ein Jäger)" },
+        "wellen_pause": { "typ": "zahl", "default": 8, "min": 5, "max": 30, "beschreibung": "s Ankündigung vor jeder weiteren Welle; Wellen kommen bis zur Ankunft" },
+        "funk_start": { "typ": "text", "default": "Lerche, wir nehmen Kurs. Bleibt in unserer Nähe – allein kommen wir hier nicht durch." },
+        "funk_notruf": { "typ": "text", "default": "Wir werden getroffen! Die Hülle hält das nicht mehr lange aus!" }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{funk_npc}}"], "schiffe": { "{{id}}": { "kind": "{{kind}}", "name": "{{name}}", "npc": "{{funk_npc}}" } } },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              { "do": "spawn_escort", "tag": "{{id}}", "kind": "{{kind}}", "name": "{{name}}", "npc": "{{funk_npc}}", "verhalten": "folgt_kurs", "von": "{{von}}", "nach": "{{nach}}" },
+              { "after": { "sec": 2, "do": [ { "radio": { "from": "{{funk_npc}}", "text": "@{{id}}.funk_start" } } ] } }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              {
+                "at": "{{angriff_nach}}",
+                "do": [
+                  {
+                    "wendung": "{{id}}_angriff",
+                    "ankuendigung": { "oda": "@{{id}}.ankuendigung", "art": "vorher", "vorlauf_s": 5 },
+                    "wirkung": [
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "ziel": "schuetzling", "angles": [0.4, -0.8, 1.6] } },
+                      { "set": { "{{id}}_w1": true } }
+                    ]
+                  }
+                ]
+              },
+              { "at": 70, "if": { "not": { "v": "{{id}}_ende" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "_kommentar": "Wellen bis zur Ankunft (höchstens 3 weitere): jede erst, wenn die vorige da (Flag nach dem Spawn) und erledigt ist",
+                "if": { "all": [ { "v": "{{id}}_w1" }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [
+                  {
+                    "wendung": "{{id}}_verstaerkung",
+                    "ankuendigung": { "oda": "@{{id}}.verstaerkung", "art": "vorher", "vorlauf_s": "{{wellen_pause}}" },
+                    "wirkung": [
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "{{verstaerkung}}", "tag": "{{id}}_w2", "ziel": "schuetzling" } },
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "raider", "tag": "{{id}}_w2", "ziel": "auto", "angles": [2.2] } },
+                      { "set": { "{{id}}_w2": true } }
+                    ]
+                  }
+                ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_w2" }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [
+                  {
+                    "wendung": "{{id}}_welle3",
+                    "ankuendigung": { "oda": "@{{id}}.welle", "art": "vorher", "vorlauf_s": "{{wellen_pause}}" },
+                    "wirkung": [
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "raider", "tag": "{{id}}_w3", "crew": { "1": 1, "2": 2, "3": 3 }, "ziel": "schuetzling", "angles": [-0.5, 0.9, 2.8] } },
+                      { "set": { "{{id}}_w3": true } }
+                    ]
+                  }
+                ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_w3" }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [
+                  {
+                    "wendung": "{{id}}_welle4",
+                    "ankuendigung": { "oda": "@{{id}}.welle", "art": "vorher", "vorlauf_s": "{{wellen_pause}}" },
+                    "wirkung": [
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "{{verstaerkung}}", "tag": "{{id}}_w4", "ziel": "schuetzling" } },
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "raider", "tag": "{{id}}_w4", "ziel": "schuetzling", "angles": [-2.0] } }
+                    ]
+                  }
+                ]
+              },
+              {
+                "if": { "all": [ { "check": { "name": "escort_hp_below", "tag": "{{id}}", "pct": 50 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "radio": { "from": "{{funk_npc}}", "text": "@{{id}}.funk_notruf" } }, { "oda": "@{{id}}.notruf_tipp" } ]
+              },
+              {
+                "if": { "all": [ { "check": { "name": "escort_arrived", "tag": "{{id}}" } }, { "not": { "check": { "name": "escort_hp_below", "tag": "{{id}}", "pct": 75 } } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } },{ "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.heil" } ]
+              },
+              {
+                "if": { "all": [ { "check": { "name": "escort_arrived", "tag": "{{id}}" } }, { "check": { "name": "escort_hp_below", "tag": "{{id}}", "pct": 75 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } },{ "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.beschaedigt" } ]
+              },
+              {
+                "if": { "all": [ { "check": { "name": "escort_state", "tag": "{{id}}", "state": "kampfunfaehig" } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } },{ "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.verloren" } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": 300 }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "do": "enemies_retreat", "unter_pct": 100 }, { "do": "escort_order", "tag": "{{id}}", "befehl": "volle_kraft" }, { "oda": "@{{id}}.abgedreht" } ],
+                "garantie": "autoloesung"
+              },
+              {
+                "if": { "all": [ { "elapsed": 420 }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } }, { "do": "escort_order", "tag": "{{id}}", "befehl": "halten" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              { "id": "schuetzen", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_ende" } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_ende" }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" },
+              { "if": { "all": [ { "v": "{{id}}_ende" }, { "elapsed": 480 } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_ende": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk_start": "{{funk_start}}",
+          "{{id}}.funk_notruf": "{{funk_notruf}}",
+          "{{id}}.lage": "Schützling: {{name}}. Dranbleiben, Captain sieht Route und Befehle (Reiter „Schützling“).",
+          "{{id}}.ankuendigung": "Ortung: Jäger halten auf {{name}} zu! Pilot: Breitseite zwischen sie und den Schützling.",
+          "{{id}}.verstaerkung": "Ortung: Verstärkung im Anflug! Schilde zur Angriffsseite, Schützling dicht halten.",
+          "{{id}}.welle": "Ortung: die nächste Welle hält auf {{name}} zu! Dazwischen bleiben.",
+          "{{id}}.tipp": "Lädt ein Gegner auf den Schützling, stellt euch dazwischen – unser Schild fängt die Ladung ab.",
+          "{{id}}.notruf_tipp": "Notruf! Captain: Befehl „Halten“ oder „Volle Kraft“. Taktik: wer lädt, wird zuerst beschossen.",
+          "{{id}}.heil": "{{name}} ist durch – heil. Die Angreifer drehen ab.",
+          "{{id}}.beschaedigt": "{{name}} ist durch, aber angeschlagen. Die Angreifer drehen ab.",
+          "{{id}}.verloren": "{{name}} treibt kampfunfähig. Die Angreifer drehen ab – die Besatzung lebt.",
+          "{{id}}.abgedreht": "Die Angreifer brechen ab. {{name}} gibt volle Kraft – hinterher!",
+          "{{id}}.ziel": "{{name}} schützen – Hülle {escortHp:{{id}}} %"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "kind": "frachter",
+          "name": "Frachter",
+          "funk_start": "Lerche, wir nehmen Kurs. Bleibt in unserer Nähe – allein kommen wir hier nicht durch.",
+          "funk_notruf": "Wir werden getroffen! Die Hülle hält das nicht mehr lange aus!"
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "funk_npc": "tesk",
+          "name": "Frachter Ilka"
+        }
+      }
+    },
+    {
+      "id": "notruf_verteidigen",
+      "name": "Notruf: Havaristen verteidigen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein liegengebliebenes NSC-Schiff funkt Notruf, Jäger kreisen schon und laden auf den Havaristen. Die Lerche fängt Ladungen mit der Breitseite ab und vertreibt die Angreifer. Endet, wenn die Angreifer erledigt sind oder der Havarist kampfunfähig treibt. Lässt sich mit Pannenhilfe danach verbinden.",
+      "braucht": [
+        "raumkampf",
+        "schuetzling"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [4, 6], "2": [3, 5], "3": [3, 4] },
+      "liefert_flags": [
+        "{{id}}_heil",
+        "{{id}}_beschaedigt",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "escortHit",
+        "escortDistress",
+        "escortDisabled",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "beschreibung": "Ort der Szene" },
+        "funk_npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wer den Notruf funkt" },
+        "kind": { "typ": "kind", "default": "bergungsboot", "werte": ["frachter", "karawane", "bergungsboot"] },
+        "name": { "typ": "text", "default": "Bergungsboot" },
+        "huelle": { "typ": "zahl", "default": 85, "min": 30, "max": 100, "beschreibung": "Hülle des Havaristen zu Beginn in %" },
+        "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
+        "angreifer": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Schwerer Angreifer zusätzlich zu den Jägern (lädt auf den Havaristen)" },
+        "funk_notruf": { "typ": "text", "default": "Notruf an alle! Antrieb tot, Jäger kreisen um uns. Wer das hört: Bitte kommt schnell!" },
+        "funk_dank": { "typ": "text", "default": "Sie drehen ab … Lerche, das war knapp. Danke." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{funk_npc}}"], "schiffe": { "{{id}}": { "kind": "{{kind}}", "name": "{{name}}", "npc": "{{funk_npc}}" } } },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              { "do": "spawn_escort", "tag": "{{id}}", "kind": "{{kind}}", "name": "{{name}}", "npc": "{{funk_npc}}", "verhalten": "treibt", "von": "vorn", "huelle": "{{huelle}}" },
+              { "radio": { "from": "{{funk_npc}}", "text": "@{{id}}.funk_notruf" } }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              {
+                "at": 6,
+                "do": [
+                  {
+                    "wendung": "{{id}}_angriff",
+                    "ankuendigung": { "oda": "@{{id}}.ankuendigung", "art": "gleichzeitig", "grund": "Die Jäger erscheinen sichtbar; jeder Angriff auf den Schützling ist mit tele angekündigt." },
+                    "wirkung": [
+                      { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "ziel": "schuetzling", "angles": [0.9, -1.2, 2.4] } },
+                      { "spawn": { "kind": "{{angreifer}}", "tag": "{{id}}_w1", "ziel": "schuetzling", "angles": [-2.6] } },
+                      { "set": { "{{id}}_w1": true } }
+                    ]
+                  }
+                ]
+              },
+              { "at": 60, "if": { "not": { "v": "{{id}}_ende" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "check": { "name": "escort_state", "tag": "{{id}}", "state": "kampfunfaehig" } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } },{ "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.verloren" } ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_w1" }, { "elapsed": 8 }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [
+                  { "set": { "{{id}}_ende": true } },
+                  { "radio": { "from": "{{funk_npc}}", "text": "@{{id}}.funk_dank" } }
+                ]
+              },
+              {
+                "if": { "all": [ { "elapsed": 300 }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.abgedreht" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              { "id": "verteidigen", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_ende" } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_ende" }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_ende": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk_notruf": "{{funk_notruf}}",
+          "{{id}}.funk_dank": "{{funk_dank}}",
+          "{{id}}.lage": "Notruf von {{name}}! Der Havarist treibt – wir sind seine Schilde.",
+          "{{id}}.ankuendigung": "Jäger kreisen um {{name}}! Pilot: dazwischen. Taktik: wer auf den Havaristen lädt, zuerst.",
+          "{{id}}.tipp": "Lädt ein Jäger auf den Havaristen, stellt euch quer dazwischen – unser Schild fängt die Ladung ab.",
+          "{{id}}.verloren": "{{name}} treibt kampfunfähig. Die Jäger drehen ab – die Besatzung lebt noch.",
+          "{{id}}.abgedreht": "Die Jäger brechen ab und verschwinden. Durchatmen.",
+          "{{id}}.ziel": "{{name}} verteidigen – Hülle {escortHp:{{id}}} %"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "kind": "bergungsboot",
+          "name": "Bergungsboot",
+          "funk_notruf": "Notruf an alle! Antrieb tot, Jäger kreisen um uns. Wer das hört: Bitte kommt schnell!",
+          "funk_dank": "Sie drehen ab … Lerche, das war knapp. Danke."
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "wrack",
+          "funk_npc": "tesk"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzungen S2 (CONTRACT-S2 §5/§6)"
 }

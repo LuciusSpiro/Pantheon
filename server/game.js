@@ -1,5 +1,6 @@
 'use strict';
 // Spielzustand, Spielerverwaltung, Nachrichten, Tick (30 Hz) und Snapshot (§5.3 + CONTRACT-M1 §10). Maßgeblich (autoritativ).
+const path = require('path');
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const Locations = require('../shared/locations.js');
@@ -15,7 +16,6 @@ const shop = require('./sim/shop.js');
 const onboard = require('./sim/onboard.js');
 const { Explore } = require('./sim/explore.js');
 const { Mission } = require('./sim/mission.js');
-const generator = require('./mission/generator.js');
 const store = require('./store.js');
 const Weltstand = require('./weltstand.js');   // S1 §5: Speicherstand der Kampagne
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
@@ -51,6 +51,21 @@ function fallbackShieldCaps(game) {
   return interior.EMITTERS.map((k) => Math.round(base * capFor(E, s[k], 1)));
 }
 function fallbackChargePoints(game) { const w = game.ship.power.weapons; return w > 0 ? w + 2 : 0; }
+
+// ---------- S2: Nähte zu SPIELLEITER (server/mission/spielleiter.js) und SCHUETZLING (server/sim/escort.js) ----------
+// Beide Module entstehen parallel; fehlen sie, läuft das Spiel ohne Spielleiter bzw. ohne Schützlinge weiter.
+const optMods = {};
+function optional(name, p) {
+  if (name in optMods) return optMods[name];
+  try { optMods[name] = require(p); } catch (e) {
+    if (!(e && e.code === 'MODULE_NOT_FOUND' && String(e.message).includes(path.basename(p)))) console.error(`[Pantheon] ${p}:`, e && e.message);
+    optMods[name] = null;
+  }
+  return optMods[name];
+}
+const escortMod = () => optional('escort', './sim/escort.js');
+const spielleiterMod = () => optional('spielleiter', './mission/spielleiter.js');
+const argList = (msg) => (typeof msg.args === 'string' ? msg.args.trim().split(/\s+/).filter(Boolean) : (Array.isArray(msg.args) ? msg.args.map(String) : []));
 
 class Game {
   constructor(opts) {
@@ -148,6 +163,22 @@ class Game {
   refuseStart(text) {
     for (const p of this.players) { p.ready = false; this.notice(p, text); }
     this.log('Start abgelehnt: ' + text);
+  }
+
+  // S2 §2.1: Spielleiter nur in der Kampagne (game.weltstand.persistent). Defensiv: fehlt das Modul, bleibt er null.
+  createSpielleiter() {
+    if (this.spielleiter || !this.weltstand || !this.weltstand.persistent) return this.spielleiter || null;
+    const mod = spielleiterMod();
+    const create = mod && (typeof mod.create === 'function' ? mod.create : (mod.Spielleiter && typeof mod.Spielleiter.create === 'function' ? mod.Spielleiter.create : null));
+    if (!create) return null;
+    try { this.spielleiter = create(this) || null; } catch (e) { this.countError('spielleiter-create', e); this.spielleiter = null; }
+    return this.spielleiter;
+  }
+  // Aufruf in den Spielleiter: fehlt er oder die Methode -> undefined; Fehler werden gezählt (nichts wirft in den Tick)
+  callSpielleiter(method, ...args) {
+    const sl = this.spielleiter;
+    if (!sl || typeof sl[method] !== 'function') return undefined;
+    try { return sl[method](...args); } catch (e) { this.countError('spielleiter-' + method, e); return undefined; }
   }
 
   // Kampagne starten (ENGINE: mission.startCampaign). Fehlt sie: mit Tutorial das alte start(), ohne Tutorial ein Ersatz.
@@ -254,6 +285,8 @@ class Game {
   reset() {
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
+    if (this.spielleiter) this.callSpielleiter('dispose');   // S2: laufende Anfragen verwerfen (optional)
+    this.spielleiter = null;
     this.phase = 'lobby';
     this.paused = false;
     this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
@@ -552,6 +585,7 @@ class Game {
         if (lk.ok) this.worldLock = { dir: this.worldDir, id: this.weltstand.id }; else this.countError('weltstand-lock', new Error(lk.error));
       }
     }
+    if (campaign) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart)
     if (!arena.isArena(sm)) this.explore.arrive(Locations.START);   // Testgelände: keine Hafen-Erstbesuchsansage
     if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm);   // Testgelände Raumkampf / Außenteam
@@ -590,25 +624,9 @@ class Game {
     const f = this.mission.flags;
     return { bribed: f.bribed, decision: f.decision, technikerRescued: f.technikerRescued };
   }
-  startTeaser() {
-    const m = this.mission.state;
-    if (m.teaser) return;
-    m.teaser = { status: 'pending', source: null, title: null, from: null, briefing: null, reward: null };
-    const apply = (res) => {
-      m.teaser = { status: 'ready', source: res.source, title: res.title, from: res.from, briefing: res.briefing, reward: res.reward, hook: res.hook };
-      this.log(`Teaser bereit (${res.source}): ${res.title}`);
-    };
-    const cfg = generator.settings(this.env);
-    if (cfg.source !== 'bridge') { apply(generator.pickFallback(this.teaserFlags())); return; }
-    generator.generate(this.teaserFlags(), { env: this.env, log: (s) => this.log(s) }).then(apply).catch((e) => { this.countError('teaser', e); apply(generator.pickFallback(this.teaserFlags())); });
-  }
-  refreshTeaserForFlags() {
-    const t = this.mission.state.teaser;
-    if (t && t.status === 'ready' && t.source === 'archiv') {
-      const r = generator.pickFallback(this.teaserFlags());
-      Object.assign(t, { title: r.title, from: r.from, briefing: r.briefing, reward: r.reward, hook: r.hook });
-    }
-  }
+  // S2 Entscheidung 19: Der Teaser „Fortsetzung folgt“ ist durch den Spielleiter abgelöst. Altnamen bleiben als No-op.
+  startTeaser() { /* S2: abgelöst (Spielleiter) */ }
+  refreshTeaserForFlags() { /* S2: abgelöst */ }
 
   // ---------- Befehle ----------
   onCmd(p, msg) {
@@ -702,6 +720,15 @@ class Game {
       // §21.2 Missionsbuch (direkt an mission.js; onboard.js gehört gerade dem CLIENT-Team)
       case 'plan.focus': err = this.mission.setFocus(msg.id == null || msg.id === '' ? null : String(msg.id)); break;
       case 'plan.accept': err = this.mission.acceptEntry(String(msg.id)); break;
+      case 'plan.decline': err = this.mission.declineEntry(String(msg.id)); break;   // S2 §4
+      case 'captain.escort': {   // S2 §4/§5: Befehl an einen Schützling (escort.js, SCHUETZLING)
+        const E = escortMod();
+        const befehl = String(msg.befehl);
+        if (!Protocol.ESCORT_ORDERS.includes(befehl)) { err = 'Unbekannter Befehl an den Schützling.'; break; }
+        if (!E || typeof E.order !== 'function') { err = 'Kein Schützling in Funkreichweite.'; break; }
+        try { err = E.order(this, msg.tag == null ? null : String(msg.tag), befehl, p) || null; } catch (e) { this.countError('escort-order', e); err = null; }
+        break;
+      }
       case 'sonde.input': err = away.sondeInput(this, p, String(msg.color)); break;
       default: err = 'Unbekannter Befehl.';
     }
@@ -799,9 +826,35 @@ class Game {
       case 'skip': if (this.phase === 'lobby') this.startGame(); err = this.mission.skip(); break;
       case 'god': this.god = !!msg.on; break;
       case 'tune': case 'kesh': case 'squad': case 'wake': case 'shield': case 'wound': err = this.onDebugM2(p, cmd, msg); break;
+      case 'sl': err = this.onDebugSl(p, msg); break;           // S2 §4: an game.spielleiter
+      case 'escort': err = this.onDebugEscort(p, msg); break;   // S2 §4: an escort.js
       default: err = 'Unbekannter Debug-Befehl.';
     }
     if (err) this.notice(p, err);
+  }
+
+  // S2: sl status | sl plan | sl fail grobplan|szene | sl archiv  (Text in msg.args oder msg.sub/msg.what)
+  onDebugSl(p, msg) {
+    const args = argList(msg);
+    if (!args.length && msg.sub != null) { args.push(String(msg.sub)); if (msg.what != null) args.push(String(msg.what)); }
+    const sl = this.spielleiter;
+    if (!sl) return this.weltstand && this.weltstand.persistent ? 'Spielleiter nicht verfügbar (Modul fehlt).' : 'Kein Spielleiter – nur in der Kampagne.';
+    if (typeof sl.debug !== 'function') return 'Spielleiter kennt keine Debug-Befehle.';
+    try {
+      const r = sl.debug(args, p);
+      if (typeof r === 'string' && r) { this.notice(p, r); return null; }
+      if (r && typeof r === 'object') { this.notice(p, (r.text || JSON.stringify(r)).slice(0, 400)); return null; }
+      return null;
+    } catch (e) { this.countError('spielleiter-debug', e); return 'sl: Fehler (' + e.message + ')'; }
+  }
+  // S2: escort <kind> [name] – Schützling zum Testen erscheinen lassen (escort.js)
+  onDebugEscort(p, msg) {
+    if (this.phase === 'lobby') return 'Erst das Spiel starten.';
+    const args = argList(msg);
+    if (!args.length && msg.kind != null) args.push(String(msg.kind));
+    const E = escortMod();
+    if (!E || typeof E.debug !== 'function') return 'escort: noch nicht verfügbar (SCHUETZLING).';
+    try { const r = E.debug(this, args, p); if (typeof r === 'string' && r) return r; return null; } catch (e) { this.countError('escort-debug', e); return 'escort: Fehler (' + e.message + ')'; }
   }
 
   // M2 „Schildwall“: Debug-Befehle (CONTRACT-M2 §8). Argumente als Felder oder als Text in msg.args ('shield.regenDelay 3').
@@ -888,6 +941,7 @@ class Game {
       this.safe('away', () => away.update(this, dt));
       this.safe('explore', () => this.explore.update(dt));
       this.safe('onboard', () => onboard.updateIvo(this, dt));
+      this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
       this.safe('mission', () => this.mission.update(dt));
       if (this.arena) this.safe('arena', () => arena.update(this, dt));
       this.safe('alert', () => this.updateAlert());
@@ -969,6 +1023,17 @@ class Game {
     return left == null ? this.ship.reactor : Object.assign({}, this.ship.reactor, { autoIn: left });
   }
 
+  // S2 §4: mission.planning aus spielleiter.planning() – nur { stage: 0|1|2, von }
+  planningSnap() {
+    const r = this.callSpielleiter('planning');
+    if (!r || typeof r !== 'object') return null;
+    const stage = [0, 1, 2].includes(r.stage) ? r.stage : 0;
+    // QA-INTEGRATION S2: Anzeigename statt NSC-Kennung („Hafenmeisterin Tesk“ statt „tesk“)
+    let von = r.von != null ? String(r.von) : null;
+    try { if (von && this.mission && typeof this.mission.npcName === 'function') von = String(this.mission.npcName(von) || von); } catch (e) { this.countError('planningSnap', e); }
+    return { stage, von: von != null ? von.slice(0, 40) : null };
+  }
+
   wantsSnapshot() { return this.tick % this.C.net.snapEvery === 0; }
 
   // ---------- Snapshot (§5.3 + M1 §10) ----------
@@ -1014,6 +1079,7 @@ class Game {
         if (tele) o.tele = tele;
         // M3b §3: vx, vy, state (SERVER-FLIGHT)
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
+        if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)
         return o;
       }),
       projectiles: sp.projectiles.map((q) => ({ id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
@@ -1031,6 +1097,15 @@ class Game {
       hidden: this.explore.hiddenSnapshot(),
     };
     if (includeAsteroids) spaceOut.asteroids = sp.asteroids;
+    // S2 §4: Schützlinge (≤ 2) – Feldliste aus escort.snapshot (SCHUETZLING), sonst nichts
+    if (sp.escorts && sp.escorts.length) {
+      const E = escortMod();
+      let list = null;
+      if (E && typeof E.snapshot === 'function') { try { list = E.snapshot(this); } catch (e) { this.countError('escort-snapshot', e); } }
+      if (!Array.isArray(list)) list = sp.escorts.slice(0, 2).map((x) => ({ id: x.id, tag: x.tag, kind: x.kind, name: x.name, x: r1(x.x), y: r1(x.y), angle: r3(x.angle || 0),
+        hp: r1(x.hp), hpMax: x.hpMax, state: x.state, befehl: x.befehl || null, distress: !!x.distress }));
+      if (list.length) spaceOut.escorts = list.slice(0, 2);
+    }
     const scanT = this.mission.scanTarget();
     const world = { location: ship.scene };
     if (includeWorld) world.locations = this.explore.locationsSnapshot();
@@ -1044,6 +1119,7 @@ class Game {
       // §21.2: HUD-Ziele der fokussierten Mission (ohne Fokus: laufende Mission) – immer dabei, klein
       bookVersion: book.version,
       ...this.mission.focusSnapshot(),
+      planning: this.planningSnap(),   // S2 §4: null | { stage, von } (immer, klein)
     };
     if (includeLog) missionOut.log = this.explore.log.slice(-30).map((e) => ({ id: e.id, text: e.text, loc: e.loc, t: e.t }));   // §21.2: + t (Spielzeit s)
     // S1 §6 (Kann): Chronik (letzte 10) im Log-Slot

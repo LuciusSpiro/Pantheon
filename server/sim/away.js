@@ -25,8 +25,10 @@ function baseAway(map) {
 }
 
 // ---------- Aufbau ----------
-function makeAway(game) {
-  const rng = makeRng(game.seed ^ 0xC0DE);
+// opts (S2 map_reset): { salt } = anderer Code je Zurücksetzen, { noNpc } = ohne Ivo (Ivo ist längst gerettet/vermisst)
+function makeAway(game, opts) {
+  const o = opts || {};
+  const rng = makeRng(o.salt ? ((game.seed ^ 0xC0DE ^ Math.imul(o.salt, 0x9E3779B1)) >>> 0) : game.seed ^ 0xC0DE);
   const symbols = rng.shuffle(Protocol.CODE_SYMBOLS.slice()).slice(0, game.C.away.codeLength);
   const colors = rng.shuffle(Protocol.CODE_COLORS.slice());
   const codeTable = {};
@@ -39,8 +41,8 @@ function makeAway(game) {
       return { id: 'd' + i, kind: 'drone', x: c.x, y: c.y, hp: game.C.away.drone.hp, dir: 'down', revealed: false, alive: true,
         home: { x: c.x, y: c.y }, fireT: i * 0.4, wander: null, wanderT: 0, hitT: -9 };
     }),
-    npc: { x: npcC.x, y: npcC.y, dir: 'down', following: null, rescued: false, present: true, injured: true, path: null, pathT: 0, moving: false },
-    items: [{ id: 'core', kind: 'datenkern', x: qC.x, y: qC.y }],
+    npc: { x: npcC.x, y: npcC.y, dir: 'down', following: null, rescued: false, present: !o.noNpc, injured: !o.noNpc, path: null, pathT: 0, moving: false },
+    items: o.noCore ? [] : [{ id: 'core', kind: 'datenkern', x: qC.x, y: qC.y }],
     sonde: { disabled: false, symbols, entered: [], lockout: 0 },
     codeTable, doorOpen: false,
   });
@@ -168,12 +170,16 @@ function executeBeam(game, pids, dir) {
     game.emit('sfx', { name: 'beam' });
     game.missionEvent('beamedDown', { players, map: away.map });
   } else {
+    // S2: NSC-Person (Ivo auf B-7 oder per spawn_person auf jeder Außenkarte) wird mit hochgebeamt, wenn sie folgt
+    const npc = away.npc;
+    if (npc && npc.present && !npc.rescued && npc.following && players.some((p) => dist(p.x, p.y, npc.x, npc.y) <= game.C.awayExtra.rescueRange)) {
+      npc.rescued = true; npc.present = false; npc.following = null;
+      if (npc.person) {
+        markRescued(game, away.map, npc.person);
+        game.missionEvent('npcRescued', { person: npc.person, name: npc.name, map: away.map });
+      } else game.missionEvent('npcRescued', {});
+    }
     if (away.map === 'platform') {
-      const npc = away.npc;
-      if (npc.present && !npc.rescued && npc.following && players.some((p) => dist(p.x, p.y, npc.x, npc.y) <= game.C.awayExtra.rescueRange)) {
-        npc.rescued = true; npc.present = false; npc.following = null;
-        game.missionEvent('npcRescued', {});
-      }
       for (const it of away.items.slice()) {
         const t = Physics.toTile(it.x, it.y);
         if (it.kind === 'datenkern' && W.PLATFORM_PADS.some((q) => q.x === t.x && q.y === t.y)) {
@@ -389,7 +395,8 @@ function update(game, dt) {
     if (awayPlayers.length || away.drones.some((d) => d.alive)) updateDrones(game, dt, awayPlayers);
     updateAwayProjectiles(game, dt);
   }
-  if (away.map === 'platform') updateNpc(game, dt);
+  if (away.npc && away.npc.present) updateNpc(game, dt);   // S2: Person auf jeder Außenkarte (bisher nur B-7)
+  else if (away.npc) away.npc.moving = false;
   for (const s of away.pendingStrikes.slice()) {
     if (game.time < s.at) continue;
     away.pendingStrikes.splice(away.pendingStrikes.indexOf(s), 1);
@@ -490,7 +497,8 @@ function updateNpc(game, dt) {
     if (kit) {
       game.away.items.splice(game.away.items.indexOf(kit), 1);
       npc.injured = false;
-      game.emit('radio', { from: 'Techniker Ivo', text: 'Ein Medipack vom Himmel! Danke, Lerche. Jetzt kann ich wieder laufen – holt mich ab!' });
+      game.emit('radio', npc.name ? { from: npc.name, text: 'Ein Medipack vom Himmel! Danke, Lerche. Jetzt kann ich wieder laufen – holt mich ab!' }
+        : { from: 'Techniker Ivo', text: 'Ein Medipack vom Himmel! Danke, Lerche. Jetzt kann ich wieder laufen – holt mich ab!' });
       game.emit('sfx', { name: 'heal', zone: 'away', x: Math.round(npc.x), y: Math.round(npc.y) });
       game.missionEvent('npcHealed', {});
     }
@@ -506,7 +514,8 @@ function updateNpc(game, dt) {
   if (!npc.path || npc.pathT <= 0) {
     npc.pathT = 0.4;
     const st = Physics.toTile(npc.x, npc.y), pt = Physics.toTile(p.x, p.y);
-    npc.path = bfs((x, y) => !solid(x, y), st, (x, y) => x === pt.x && y === pt.y, W.platform.w, W.platform.h);
+    const mp = interior.awayInfo(game).map;
+    npc.path = bfs((x, y) => !solid(x, y), st, (x, y) => x === pt.x && y === pt.y, mp.w, mp.h);
   }
   if (!npc.path || !npc.path.length) {
     const s = Math.min(d, C.awayExtra.npcSpeed * dt);
@@ -525,7 +534,106 @@ function updateNpc(game, dt) {
   npc.moving = true;
 }
 
+// =================================================================================================================
+// S2 (CONTRACT-S2 §6, Team BAUSTEINE): Außenkarten zurücksetzen, NSC-Personen auf jeder Außenkarte
+// =================================================================================================================
+// Liegt die Tafel von Kesh schon beim Konkordat (Fakt aus m3 bzw. „ohne Tutorial“), an Bord oder ist m3 erledigt?
+function tabletGone(game) {
+  const f = game.weltstand && game.weltstand.data && game.weltstand.data.fakten;
+  if (f && f.tafel_von_kesh != null && f.tafel_von_kesh !== false) return true;
+  if ((game.inventory && game.inventory.tafel) >= 1) return true;
+  const ms = game.mission && game.mission.missions && game.mission.missions.m3;
+  return !!(ms && ms.state === 'done');
+}
+function wardenGone(game) {
+  const f = game.weltstand && game.weltstand.data && game.weltstand.data.fakten;
+  return !!(f && f.waechter_kesh === 'zerstoert');
+}
+// Kesh an die Weltfakten anpassen: Sockel leer (Tafel im Archiv) bzw. neuer Fund; zerstörter Wächter bleibt zerstört.
+// fund = Gegenstand auf dem Sockel (Inventar-Schlüssel), null = nach Fakten
+function applyKeshFacts(game, aw, fund) {
+  if (!aw || !aw.tablet) return;
+  if (fund) { aw.tablet.item = String(fund); aw.tablet.taken = false; aw.tablet.empty = false; }
+  else if (tabletGone(game)) { aw.tablet.taken = true; aw.tablet.empty = true; aw.tablet.item = null; aw.tablet.by = null; }
+  if (wardenGone(game)) for (const d of aw.drones) if (d.kind === 'warden') { d.alive = false; d.asleep = false; d.aim = null; }
+}
+// Nach dem Laden eines Weltstands aufrufen (ENGINE, defensiv): frisch gebaute Karten an die Fakten anpassen,
+// ohne sie sonst zu verändern (Kesh-Sockel/Wächter). Ohne Fakten (Direktstart, Tests) No-op.
+function applyWorldFacts(game) {
+  const k = game.aways && game.aways.kesh;
+  if (k && !k.active && !k.tablet.item && !k.resets) applyKeshFacts(game, k, null);
+}
+
+// Karte zurück auf Anfang. opts: { fund? (nur Kesh), datenkern? (nur Plattform, Standard true) }.
+// Spieler auf der Karte kommen vorher an Bord. Liefert { ok, map, resets, moved } bzw. { ok: false, reason }.
+function resetMap(game, map, opts) {
+  const o = opts || {};
+  const old = game.aways && game.aways[map];
+  if (!old) return { ok: false, reason: 'Unbekannte Außenkarte ' + map };
+  // Wer gerade auf dieser Karte steht, kommt an Bord (die Karte wird neu aufgebaut)
+  let moved = 0;
+  if (game.away === old) {
+    if (game.ship.beaming && game.ship.beaming.dir === 'up') game.ship.beaming = null;
+    const list = game.players.filter((p) => p.zone === 'away');
+    list.forEach((p, i) => { if (p.downed) interior.revivePlayer(game, p); interior.placeOnShipPad(game, p, i); p.beamLock = false; p.hold = null; moved++; });
+  }
+  const resets = (old.resets || 0) + 1;
+  game.mapResets = game.mapResets || {};
+  game.mapResets[map] = resets;
+  let fresh;
+  if (map === 'platform') {
+    fresh = makeAway(game, { salt: resets, noNpc: true, noCore: o.datenkern === false });
+    // Ivo kommt nicht zurück auf die Plattform: Objekt platform.ivo bleibt 'rescued', wenn er gerettet wurde
+    if (old.npc && old.npc.rescued && !old.npc.name) fresh.npc.rescued = true;
+  } else if (map === 'wreck') {
+    fresh = makeWreck(game);
+    // Den Hohlraum kennt die Crew schon (Weitscan): die Wand bleibt markiert
+    const hid = Locations.LOCATIONS.flatMap((l) => l.hidden || []).find((h) => h.kind === 'hollow');
+    if (hid && game.explore && game.explore.isRevealed && game.explore.isRevealed(hid.id)) fresh.hollow.marked = true;
+  } else if (map === 'kesh') {
+    fresh = makeKesh(game);
+    fresh.rng = makeRng(((game.seed ^ 0x5C0B1) + Math.imul(resets, 0x9E3779B1)) >>> 0);
+    applyKeshFacts(game, fresh, o.fund || null);
+  } else return { ok: false, reason: 'Karte ' + map + ' kann nicht zurückgesetzt werden' };
+  fresh.resets = resets;
+  game.aways[map] = fresh;
+  if (game.away === old) game.away = fresh;
+  game.emit('mapReset', { map });
+  return { ok: true, map, resets, moved };
+}
+
+// NSC-Person auf eine Außenkarte setzen (Kachel tile). opts: { person (Kennung, Pflicht), name (Anzeige), injured }.
+// Ersetzt eine frühere Person dieser Karte (je Karte eine; Ivo ist die namenlose Person von B-7 und bleibt unberührt,
+// solange kein Regiebuch eine Person auf B-7 setzt).
+function spawnPerson(game, map, tile, opts) {
+  const aw = game.aways && game.aways[map];
+  const o = opts || {};
+  if (!aw || !tile || !o.person) return false;
+  const c = W.tileCenter(tile.x, tile.y);
+  aw.npc = { x: c.x, y: c.y, dir: 'down', following: null, rescued: false, present: true, injured: !!o.injured, path: null, pathT: 0, moving: false,
+    person: String(o.person), name: String(o.name || o.person), met: false };
+  return true;
+}
+function markRescued(game, map, person) {
+  game.rescuedPersons = game.rescuedPersons || [];
+  const key = map + ':' + person;
+  if (!game.rescuedPersons.includes(key)) game.rescuedPersons.push(key);
+}
+function personRescued(game, map, person) {
+  if ((game.rescuedPersons || []).includes(map + ':' + person)) return true;
+  const a = game.aways && game.aways[map];
+  return !!(a && a.npc && a.npc.person === person && a.npc.rescued);
+}
+// Zustand einer Person: 'injured' | 'ok' | 'following' | 'rescued' | null (nicht auf der Karte)
+function personState(game, map, person) {
+  if (personRescued(game, map, person)) return 'rescued';
+  const a = game.aways && game.aways[map];
+  if (!a || !a.npc || a.npc.person !== person || !a.npc.present) return null;
+  return a.npc.injured ? 'injured' : a.npc.following ? 'following' : 'ok';
+}
+
 module.exports = {
+  resetMap, spawnPerson, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
   setMarker, shoot, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
 };

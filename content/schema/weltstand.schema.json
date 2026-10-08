@@ -1,14 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "pantheon/weltstand/1",
-  "title": "Weltstand (Pantheon, Version 1)",
+  "$id": "pantheon/weltstand/2",
+  "title": "Weltstand (Pantheon, Version 2)",
   "description": "Speicherstand einer Kampagne: Welt + Schiff + NSC + Chronik (CONTRACT-S1 §5). Liegt auf dem Server (WORLD_DIR, Standard data/worlds/<id>.json), atomar geschrieben, vorherige Fassung als <id>.bak.json. Gespeichert wird angedockt und beim Abschluss einer Mission. Höchstens 5 Weltstände.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "name", "erstellt", "gespeichert", "ort", "schiff", "welt", "missionen", "npc", "chronik"],
   "properties": {
     "$schema": { "type": "string" },
-    "version": { "const": 1, "description": "Formatversion für spätere Migrationen (server/weltstand.js MIGRATIONS)" },
+    "version": { "enum": [1, 2], "description": "Formatversion 2 (S2, geschrieben wird immer 2). 1 = S1-Stand: bleibt gültig und wird beim Laden per server/weltstand.js MIGRATIONS[1] auf 2 gehoben (+ leerer Block spielleiter)." },
+    "spielleiter": {
+      "type": "object",
+      "description": "S2 (CONTRACT-S2 §3.2): Zustand des Spielleiters. Bücher nur für angebotene/aktive Missionen, erledigte nur als Zusammenfassung.",
+      "properties": {
+        "plaene": { "type": "object", "description": "missionId -> { grobplan, anlass, origin, szenen: { sid: { quelle, antwort, key } }, buch }",
+          "additionalProperties": { "type": "object" } },
+        "archiv_gespielt": { "type": "array", "items": { "type": "string" } },
+        "archiv_abgelehnt": { "type": "array", "items": { "type": "string" }, "description": "abgelehnte Archiv-Missionen: erst wieder anbieten, wenn alle anderen gespielt/abgelehnt sind" },
+        "zusammenfassung": { "type": "array", "items": { "type": "object", "properties": {
+          "id": { "type": "string" }, "titel": { "type": "string" }, "auftraggeber": { "type": ["string", "null"] }, "ausgang": { "type": ["string", "null"] } } } },
+        "naechste_id": { "type": "integer", "minimum": 0 }
+      }
+    },
     "id": { "type": "string", "pattern": "^[a-z0-9-]{4,40}$" },
     "name": { "type": "string", "maxLength": 40, "description": "Anzeigename in der Lobby, z. B. 'Lerche · 07.10.'" },
     "erstellt": { "type": "string", "format": "date-time" },
@@ -66,6 +79,7 @@
         "fakten": { "type": "object", "description": "Kanon aus Folgen, z. B. tafel_von_kesh: konkordat_archiv. Der Server schreibt den Wert direkt (Quelle in faktenQuelle); die Form { value, quelle } (wie content/npc.json) wird ebenfalls gelesen.",
           "additionalProperties": { "type": ["string", "number", "boolean", "null", "object"], "properties": { "value": { "type": ["string", "number", "boolean", "null"] }, "quelle": { "type": ["string", "null"] } } } },
         "faktenQuelle": { "type": "object", "description": "Fakt -> Quelle (Mission/Ausgang)", "additionalProperties": { "type": "string" } },
+        "faeden": { "type": "array", "items": { "type": "string" }, "description": "S2: offene Erzählfäden (Fakt-Schlüssel aus welt_fakt { faden: true })" },
         "odaSeen": { "type": "array", "items": { "type": "string" }, "description": "schon gesagte ODA-Einmal-Texte" },
         "scans": { "type": "array", "items": { "type": "string" }, "description": "abgeschlossene Captain-Scans" },
         "wrack": {

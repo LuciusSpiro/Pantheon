@@ -179,6 +179,8 @@
           default: R.text(ctx, 'Unbekannte Konsole: ' + c, 20, 40, { color: PAL.red });
         }
       } catch (e) { Net.reportError('Consoles.draw:' + c, e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 20, 60, { color: PAL.red }); }
+      // S2: Schützling-Zeile oben mittig (im Titelbalken) an den Raumkampf-Konsolen
+      if (c === 'helm' || c === 'weapons' || c === 'captain') Net.guard('Hud.escortStrip', () => H.drawEscortStrip(ctx, view, 9, { row: true }));
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(8, VH - 17, VW - 16, 11);
       R.text(ctx, (controls ? controls + ' · ' : '') + (c === 'plan' ? 'Esc aufstehen' : 'Esc verlassen'), VW / 2, VH - 15, { color: PAL.amber, align: 'center', shadow: false });
       R.drawTooltip(ctx);
@@ -531,6 +533,8 @@
       });
       const radio = st.mission && st.mission.radio;
       if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'Funk wartet! (Reiter 1)', VW - 14, 41, { color: PAL.amber, align: 'right' });
+      // S2: Notruf eines Schützlings – Hinweis auf den Lage-Reiter
+      else if (this.tab !== 2 && this.escortList(view).some(e => e.distress && e.state !== 'kampfunfaehig') && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'NOTRUF Schützling! (Reiter 3)', VW - 14, 41, { color: PAL.amber, align: 'right' });
       // M3b: Schildstoß entfällt – oben rechts nur noch eine Schild-Übersicht mit Ladungs-Warnung (keine Knöpfe)
       if (this.tab !== 3) { try { this.shieldStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.shieldStrip', e); } }
       const area = { x: 12, y: 48, w: 616, h: 274 };
@@ -745,15 +749,90 @@
       }
       R.bar(ctx, rx, y, rw, 6, n(scan.progress), scan.done ? PAL.moss : PAL.mint); y += 9;
       R.button(ctx, rx, y, rw, 16, this.scanOn ? 'Scanne … (halten)' : 'Scannen (halten)', { hotkey: 'Leer', active: this.scanOn, disabled: !!scanReason, reason: scanReason, onClick: () => { this.mouseHold = 'scan'; this.setScan(view, true); } }); y += 22;
+      // S2: Schützling – Befehle per Funk (Gehorsam nach Haltung, Rückmeldung aus escortOrder)
+      const escHelp = this.escortList(view).length ? ' · H/F/V/D Schützling' : '';
+      try { y = this.capEscort(ctx, view, rx, y, rw); } catch (err) { Net.reportError('Consoles.capEscort', err); }
       // Scan-Info gescannter Gegner
       const scanned = (view.enemies || []).filter(e => e.scanned);
-      R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
-      if (!scanned.length) { for (const l of R.wrap('Keine – die Taktik scannt Gegner (S halten).', rw, 1)) { R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
-      for (const e of scanned.slice(0, 4)) {
-        R.text(ctx, R.ENEMY_NAMES[e.kind] || e.kind, rx, y, { color: PAL.amber }); y += 10;
-        R.text(ctx, this.shieldText(e), rx + 4, y, { color: PAL.ice }); y += 11;
+      if (y < a.y + a.h - 22) {
+        R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
+        if (!scanned.length) { for (const l of R.wrap('Keine – die Taktik scannt Gegner (S halten).', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
+        for (const e of scanned.slice(0, 4)) {
+          if (y > a.y + a.h - 20) break;
+          const tg = e.tgt != null ? this.escortList(view).find(q => q.id === e.tgt) : null;
+          R.text(ctx, (R.ENEMY_NAMES[e.kind] || e.kind) + (tg ? ' → ' + R.escortName(tg) : ''), rx, y, { color: tg ? '#FF5A4A' : PAL.amber }); y += 10;
+          R.text(ctx, this.shieldText(e), rx + 4, y, { color: PAL.ice }); y += 11;
+        }
       }
-      return 'Linksklick Captain-Marker · X löschen · Leertaste Scan · Z Zoom · 1–6 Reiter';
+      return 'Klick Marker · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–6 Reiter';
+    },
+    // ---- S2: Schützling-Befehle (Captain, Reiter Lage)
+    ESCORT_KEYS: { halten: 'H', folgen: 'F', volle_kraft: 'V', andocken: 'D' },
+    escortSel: 0,
+    escortPending: null,   // { id, befehl, t } bis escortOrder oder befehl im Snapshot
+    escortList(view) { const l = view.escorts || (view.state.space && view.state.space.escorts) || []; return Array.isArray(l) ? l.filter(e => e && e.id != null).slice(0, 2) : []; },
+    escortSelected(view) {
+      const l = this.escortList(view).filter(e => e.state !== 'entkommen');
+      if (!l.length) return null;
+      this.escortSel = clamp(this.escortSel || 0, 0, l.length - 1);
+      return l[this.escortSel];
+    },
+    escortOrderReason(e) {
+      if (!e) return 'Kein Schützling';
+      if (e.state === 'kampfunfaehig') return 'Kampfunfähig – treibt';
+      if (e.state === 'entkommen') return 'Schon in Sicherheit';
+      return null;
+    },
+    orderEscort(view, befehl) {
+      const e = this.escortSelected(view);
+      const why = this.escortOrderReason(e);
+      if (why) { this.denied(why); return; }
+      this.cmd(view, PROTO.CMD_CAPTAIN_ESCORT || 'captain.escort', { tag: e.tag != null ? e.tag : e.id, befehl });
+      this.escortPending = { id: e.id, befehl, t: performance.now() };
+    },
+    capEscort(ctx, view, rx, y, rw) {
+      const list = this.escortList(view);
+      if (!list.length) return y;
+      const e = this.escortSelected(view) || list[0];
+      const t = view.time;
+      R.text(ctx, 'SCHÜTZLING', rx, y, { color: PAL.brass });
+      const live = list.filter(q => q.state !== 'entkommen');
+      if (live.length > 1) R.button(ctx, rx + rw - 62, y - 2, 62, 11, 'Wechseln', { hotkey: 'N', onClick: () => { this.escortSel = (this.escortSel + 1) % live.length; } });
+      y += 11;
+      // Name + Segmentbalken + Zustand (Wort, nicht nur Farbe)
+      const down = e.state === 'kampfunfaehig';
+      ctx.strokeStyle = R.escortRingCol(e, t); ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.arc(rx + 5, y + 4, 4, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      R.text(ctx, H.fit(R.escortName(e), rw - 56, 1), rx + 13, y, { color: down ? R.ESCORT_COL.wreck : R.ESCORT_COL.ice });
+      R.escortSegBar(ctx, rx + rw - 34, y + 2, R.escortHpFrac(e), 32, 4, down ? R.ESCORT_COL.wreck : R.ESCORT_COL.ice);
+      y += 10;
+      const stw = down ? 'KAMPFUNFÄHIG' : e.state === 'entkommen' ? 'IN SICHERHEIT' : e.distress ? 'NOTRUF' : (R.ESCORT_STATE_NAMES[e.state] || 'heil');
+      R.text(ctx, stw + ' · Befehl: ' + (R.ESCORT_ORDER_NAMES[e.befehl] || e.befehl || '–'), rx, y, { color: down ? PAL.red : e.distress ? PAL.amber : PAL.panelLight }); y += 11;
+      // Befehle 2×2
+      const why = this.escortOrderReason(e);
+      const orders = PROTO.ESCORT_ORDERS || ['halten', 'folgen', 'volle_kraft', 'andocken'];
+      const bw = Math.floor((rw - 3) / 2);
+      orders.slice(0, 4).forEach((o, i) => {
+        const bx = rx + (i % 2) * (bw + 3), by = y + Math.floor(i / 2) * 15;
+        R.button(ctx, bx, by, bw, 13, R.ESCORT_ORDER_NAMES[o] || o, { hotkey: this.ESCORT_KEYS[o], active: e.befehl === o, disabled: !!why, reason: why, onClick: () => this.orderEscort(view, o) });
+      });
+      y += 31;
+      // Rückmeldung: gesendet … / bestätigt / zögert
+      const fb = view.escortOrder && view.escortOrder.id === e.id ? view.escortOrder : null;
+      const pend = this.escortPending && this.escortPending.id === e.id && performance.now() - this.escortPending.t < 6000 ? this.escortPending : null;
+      if (pend && fb && fb.t0 >= pend.t) this.escortPending = null;
+      if (pend && e.befehl === pend.befehl && !fb) this.escortPending = null;
+      let msg = null, col = PAL.panelLight;
+      if (this.escortPending) msg = 'Funk an ' + R.escortName(e) + ' …';
+      else if (e.pending) { msg = (R.ESCORT_ORDER_NAMES[e.pending] || e.pending) + ' – zögert (Haltung) …'; col = PAL.warn; }
+      else if (fb && fb.age < 5) {
+        const nm = R.ESCORT_ORDER_NAMES[fb.befehl] || fb.befehl || '–';
+        msg = !fb.ok ? 'Abgelehnt: ' + nm : fb.delay > 0 && fb.age < fb.delay ? nm + ' – folgt in ' + Math.ceil(fb.delay - fb.age) + ' s' : 'Bestätigt: ' + nm;
+        col = !fb.ok ? PAL.red : fb.delay > 0 && fb.age < fb.delay ? PAL.warn : PAL.mint;
+      }
+      if (e.repair != null && e.repair < 1 && y + 10 < 322) { R.text(ctx, 'Reparatur ' + Math.round(e.repair * 100) + ' %', rx, y, { color: PAL.ice }); R.bar(ctx, rx + 80, y + 2, rw - 80, 4, e.repair, PAL.ice); y += 10; }
+      if (msg) { R.text(ctx, H.fit(msg, rw, 1), rx, y, { color: col }); y += 10; }
+      return y + 4;
     },
     shieldText(e) {
       const s = e.shields || [], m = e.shieldsMax || [];
@@ -1823,14 +1902,35 @@
     },
     // ---- §21.2 Missionsbuch: Liste (aktiv/angeboten/erledigt) links, Details rechts
     bookEntries(st) {
-      const book = (st.mission && st.mission.book) || null;
-      const all = (book && Array.isArray(book.entries)) ? book.entries : [];
+      let book = (st.mission && st.mission.book) || null;
+      const all = (book && Array.isArray(book.entries)) ? book.entries.slice() : [];
+      // S2: laufende Planung als eigener Eintrag unter ANGEBOTEN (Siegel in drei Prägestufen, kein Countdown)
+      const pl = H.planningOf ? H.planningOf(st) : null;
+      if (pl) {
+        all.push({ id: '__planning', pseudo: true, state: 'angeboten', kind: 'planung', stage: Math.max(0, Math.min(2, +pl.stage || 0)),
+          title: String(pl.von || 'Hafenmeisterei') + ' · Lage wird geprüft', von: pl.von || 'Hafenmeisterei' });
+        if (!book) book = { entries: [], focus: null };
+      }
       const order = ['aktiv', 'angeboten', 'erledigt'];
       const out = [];
       for (const s of order) for (const e of all) if (e.state === s) out.push(e);
       for (const e of all) if (order.indexOf(e.state) < 0) out.push(e);
       return { book, list: out };
     },
+    // S2: Angebote – neu (Bernstein-Punkt), bis der Eintrag einmal ausgewählt war
+    seenOffers: {},
+    isNewOffer(e) { return !!(e && !e.pseudo && e.state === 'angeboten' && !this.seenOffers[e.id]); },
+    offerFrom(e) { return e.von || e.from || null; },
+    offerReward(e) { return e.belohnung != null && e.belohnung !== '' ? e.belohnung : e.reward; },
+    // erinnerung: Text oder { npc, ereignis } | { fakt } | { text }
+    memoryText(e) {
+      const m = e && e.erinnerung;
+      if (!m) return null;
+      if (typeof m === 'string') return m;
+      if (typeof m === 'object') return String(m.text || m.ereignis || m.fakt || '') || null;
+      return null;
+    },
+    originTag(view, e) { return view.debug && e && e.origin ? (e.origin === 'archiv' ? '[AR] ' : e.origin === 'sl' ? '[SL] ' : '[' + String(e.origin).slice(0, 2).toUpperCase() + '] ') : ''; },
     drawPlanBook(ctx, view) {
       const st = view.state, P = this.plan;
       const { book, list } = this.bookEntries(st);
@@ -1853,13 +1953,19 @@
         }
         const sel = i === P.bookSel;
         const isFocus = focus != null ? e.id === focus : false;
+        const isNew = this.isNewOffer(e);
         if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.14)'; ctx.fillRect(lx + 2, y - 2, lw - 4, 12); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(lx + 2.5, y - 1.5, lw - 5, 11); }
         if (isFocus) R.shape(ctx, 'diamond', lx + 9, y + 4, 7, PAL.amber);
-        const col = e.state === 'erledigt' ? '#6E8A6A' : e.state === 'angeboten' ? PAL.ice : PAL.star;
-        let title = String(e.title || e.id);
-        while (R.measure(title, 1) > lw - 64 && title.length > 4) title = title.slice(0, -1);
-        R.text(ctx, title + (title.length < String(e.title || e.id).length ? '…' : ''), lx + 16, y, { color: isFocus ? PAL.amber : col });
-        R.text(ctx, ({ mission: 'Mission', nebenauftrag: 'Neben', hinweis: 'Hinweis' })[e.kind] || '', lx + lw - 6, y, { color: PAL.panelLight, align: 'right' });
+        else if (isNew) { ctx.fillStyle = PAL.amber; ctx.beginPath(); ctx.arc(lx + 9, y + 4, 3, 0, Math.PI * 2); ctx.fill(); }   // S2: Bernstein-Punkt = neu
+        else if (e.pseudo) Net.guard('Hud.drawSeal', () => H.drawSeal(ctx, lx + 9, y + 4, 9, 'ok', { stage: e.stage }));
+        const col = e.state === 'erledigt' ? '#6E8A6A' : e.pseudo ? PAL.panelLight : e.state === 'angeboten' ? PAL.ice : PAL.star;
+        const full = this.originTag(view, e) + String(e.title || e.id);
+        const rightTxt = isNew ? 'NEU' : e.pseudo ? '' : (({ mission: 'Mission', nebenauftrag: 'Neben', hinweis: 'Hinweis' })[e.kind] || '');
+        let title = full;
+        while (R.measure(title, 1) > lw - 30 - (e.pseudo ? 14 : Math.max(34, R.measure(rightTxt, 1) + 6)) && title.length > 4) title = title.slice(0, -1);
+        R.text(ctx, title + (title.length < full.length ? '…' : ''), lx + 16, y, { color: isFocus ? PAL.amber : col });
+        if (e.pseudo) H.drawStagePips(ctx, lx + lw - 20, y + 3, e.stage);
+        else R.text(ctx, rightTxt, lx + lw - 6, y, { color: isNew ? PAL.amber : PAL.panelLight, align: 'right' });
         // Klickfläche
         R.ui.buttons.push({ x: lx + 2, y: y - 2, w: lw - 4, h: 11, label: '', disabled: false, onClick: () => { P.bookSel = i; } });
         y += 12;
@@ -1870,23 +1976,52 @@
       const dx = 232, dw = VW - 12 - dx;
       R.panel(ctx, dx, ly, dw, lh, { style: 'screen' });
       if (!e) return 'M Karten';
+      // S2: 1,5 s angesehen = nicht mehr neu
+      if (!e.pseudo && e.state === 'angeboten' && !this.seenOffers[e.id]) {
+        const now = performance.now();
+        if (!this.offerSelT || this.offerSelT.id !== e.id) this.offerSelT = { id: e.id, t: now };
+        else if (now - this.offerSelT.t > 1500) this.seenOffers[e.id] = true;
+      }
       let yy = ly + 5;
       const wrapW = dw - 12;
-      for (const l of R.wrap(String(e.title || e.id), wrapW, 2).slice(0, 2)) { R.text(ctx, l, dx + 6, yy, { color: PAL.amber, scale: 2 }); yy += 17; }
-      const stCol = e.state === 'aktiv' ? PAL.mint : e.state === 'angeboten' ? PAL.ice : '#6E8A6A';
-      R.text(ctx, (KIND[e.kind] || e.kind || '') + ' · ' + (e.state || ''), dx + 6, yy, { color: stCol });
-      if (focus != null && e.id === focus) R.text(ctx, 'VERFOLGT', dx + dw - 6, yy, { color: PAL.amber, align: 'right' });
-      yy += 11;
-      if (e.from) { R.text(ctx, 'Auftraggeber: ' + e.from, dx + 6, yy, { color: PAL.star }); yy += 11; }
-      if (e.reward) { R.text(ctx, 'Belohnung: ' + e.reward, dx + 6, yy, { color: PAL.brass }); yy += 11; }
-      // Knöpfe
-      const focR = e.state === 'erledigt' ? 'Schon erledigt' : (focus != null && focus === e.id) ? 'Wird schon verfolgt' : null;
-      R.button(ctx, dx + 6, yy + 1, 150, 13, 'Als aktiv markieren', { hotkey: 'Enter', disabled: !!focR, reason: focR, onClick: () => this.cmd(view, 'plan.focus', { id: e.id }) });
-      const accR = e.state !== 'angeboten' ? 'Nur angebotene Aufträge' : null;
-      R.button(ctx, dx + 162, yy + 1, dw - 168, 13, 'Annehmen', { hotkey: 'A', disabled: !!accR, reason: accR, onClick: () => this.cmd(view, 'plan.accept', { id: e.id }) });
-      yy += 19;
       const maxY = ly + lh - 6;
       const line = (str, col, indent) => { for (const l of R.wrap(str, wrapW - (indent || 0), 1)) { if (yy > maxY - 10) return false; R.text(ctx, l, dx + 6 + (indent || 0), yy, { color: col }); yy += 10; } return true; };
+      // S2: laufende Planung – Siegel groß in der aktuellen Prägestufe, keine Knöpfe, kein Countdown
+      if (e.pseudo) {
+        R.text(ctx, 'LAGE WIRD GEPRÜFT', dx + 6, yy, { color: PAL.brass }); yy += 14;
+        Net.guard('Hud.drawSeal', () => H.drawSeal(ctx, dx + 30, yy + 22, 40, 'ok', { stage: e.stage }));
+        const words = ['Peilung', 'Der Rat berät', 'Gesiegelt'];
+        R.text(ctx, 'Prägung: ' + words[e.stage], dx + 60, yy + 10, { color: PAL.star });
+        H.drawStagePips(ctx, dx + 60, yy + 24, e.stage);
+        yy += 52;
+        line('Die ' + e.von + ' sichtet, was im Saumraum los ist. Neue Aufträge erscheinen hier, sobald sie gesiegelt sind – bis dahin weiterfliegen, erkunden, handeln.', PAL.panelLight, 0);
+        return 'W/S wählen · M Karten';
+      }
+      const offered = e.state === 'angeboten';
+      const titleFull = this.originTag(view, e) + String(e.title || e.id);
+      for (const l of R.wrap(titleFull, wrapW, 2).slice(0, 2)) { R.text(ctx, l, dx + 6, yy, { color: PAL.amber, scale: 2 }); yy += 17; }
+      const stCol = e.state === 'aktiv' ? PAL.mint : offered ? PAL.ice : '#6E8A6A';
+      R.text(ctx, (KIND[e.kind] || e.kind || '') + ' · ' + (e.state || ''), dx + 6, yy, { color: stCol });
+      if (focus != null && e.id === focus) R.text(ctx, 'VERFOLGT', dx + dw - 6, yy, { color: PAL.amber, align: 'right' });
+      else if (this.isNewOffer(e)) R.text(ctx, 'NEU', dx + dw - 6, yy, { color: PAL.amber, align: 'right' });
+      yy += 11;
+      // S2-Felder (von, ziel, dauer_min, belohnung, erinnerung) mit Rückfall auf die alten (from, reward)
+      const from = this.offerFrom(e), reward = this.offerReward(e), mem = this.memoryText(e);
+      if (from) { R.text(ctx, 'Auftraggeber: ' + from, dx + 6, yy, { color: PAL.star }); yy += 11; }
+      if (e.ziel) { line('Ziel: ' + (typeof e.ziel === 'string' ? (R.locById(view.state, e.ziel) ? R.locName(view.state, e.ziel) : e.ziel) : (e.ziel.text || e.ziel.name || '')), PAL.star, 0); yy += 1; }
+      if (e.dauer_min != null && e.dauer_min !== '') { R.text(ctx, 'Dauer: etwa ' + e.dauer_min + ' min', dx + 6, yy, { color: PAL.panelLight }); yy += 11; }
+      if (reward) { R.text(ctx, 'Belohnung: ' + reward, dx + 6, yy, { color: PAL.brass }); yy += 11; }
+      if (mem) { line('Erinnerung: ' + mem, PAL.ice, 0); yy += 1; }
+      // Knöpfe – S2: angebotene Aufträge: Annehmen (Enter/A) · Ablehnen (Entf); sonst: Als aktiv markieren (Enter)
+      if (offered) {
+        R.button(ctx, dx + 6, yy + 1, 150, 13, 'Annehmen', { hotkey: 'Enter', onClick: () => this.cmd(view, 'plan.accept', { id: e.id }) });
+        R.button(ctx, dx + 162, yy + 1, dw - 168, 13, 'Ablehnen', { hotkey: 'Entf', onClick: () => { this.cmd(view, 'plan.decline', { id: e.id }); } });
+      } else {
+        const focR = e.state === 'erledigt' ? 'Schon erledigt' : (focus != null && focus === e.id) ? 'Wird schon verfolgt' : null;
+        R.button(ctx, dx + 6, yy + 1, 150, 13, 'Als aktiv markieren', { hotkey: 'Enter', disabled: !!focR, reason: focR, onClick: () => this.cmd(view, 'plan.focus', { id: e.id }) });
+        R.button(ctx, dx + 162, yy + 1, dw - 168, 13, 'Annehmen', { hotkey: 'A', disabled: true, reason: 'Nur angebotene Aufträge' });
+      }
+      yy += 19;
       if (e.briefing) { R.text(ctx, 'BRIEFING', dx + 6, yy, { color: PAL.brass }); yy += 10; for (const l of R.wrap(String(e.briefing), wrapW, 1).slice(0, 5)) { R.text(ctx, l, dx + 6, yy, { color: PAL.star }); yy += 10; } yy += 3; }
       const objs = Array.isArray(e.objectives) ? e.objectives : [];
       if (objs.length && yy < maxY - 20) {
@@ -1908,7 +2043,7 @@
           if (!line((when ? when + ' · ' : '') + (where ? where + ': ' : '') + String(g.text || ''), PAL.panelLight, 0)) break;
         }
       }
-      return 'W/S wählen · Enter als aktiv markieren · A annehmen · M Karten';
+      return offered ? 'W/S wählen · Enter annehmen · Entf ablehnen · M Karten' : 'W/S wählen · Enter als aktiv markieren · M Karten';
     },
     planClick(view, x, y, button) {
       const st = view.state, P = this.plan, mp = this.maps.plan;
@@ -2029,6 +2164,10 @@
             if (code === 'KeyX') return press(() => this.tryButton('Marker löschen'));
             if (code === 'KeyZ' || code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('lage', code === 'KeyZ' ? 0 : 1); return true; }
             if (code === 'Minus' || code === 'NumpadSubtract') { this.cycleZoom('lage', -1); return true; }
+            // S2: Schützling-Befehle H halten · F folgen · V volle Kraft · D andocken · N wechseln
+            const escKey = { KeyH: 'halten', KeyF: 'folgen', KeyV: 'volle_kraft', KeyD: 'andocken' }[code];
+            if (escKey && this.escortList(view).length) return press(() => this.tryButton(R.ESCORT_ORDER_NAMES[escKey]));
+            if (code === 'KeyN' && this.escortList(view).length) return press(() => this.tryButton('Wechseln'));
           } else if (tab === 3) {
             if (code === 'KeyU') return press(() => this.tryButton('Reaktor überladen …'));
             if (code === 'KeyJ' || (code === 'Enter' && performance.now() - this.overloadAsk < 6000)) return press(() => this.tryButton('Ja, überladen'));
@@ -2145,8 +2284,10 @@
             const { list } = this.bookEntries(st);
             if (code === 'KeyW' || code === 'ArrowUp') { P.bookSel = Math.max(0, (P.bookSel || 0) - 1); return true; }
             if (code === 'KeyS' || code === 'ArrowDown') { P.bookSel = Math.min(Math.max(0, list.length - 1), (P.bookSel || 0) + 1); return true; }
-            if (code === 'Enter') return press(() => this.tryButton('Als aktiv markieren'));
+            // S2: Enter = Annehmen (angeboten) bzw. Als aktiv markieren; Entf = Ablehnen
+            if (code === 'Enter' || code === 'NumpadEnter') return press(() => { const b = this.findButton('Annehmen'); if (b && !b.disabled) this.activate(b); else this.tryButton('Als aktiv markieren'); });
             if (code === 'KeyA') return press(() => this.tryButton('Annehmen'));
+            if (code === 'Delete') return press(() => { if (this.findButton('Ablehnen')) this.tryButton('Ablehnen'); else this.denied('Nur angebotene Aufträge lassen sich ablehnen'); });
             if (code === 'Backspace') { P.tab = 'map'; return true; }
             return true;
           }

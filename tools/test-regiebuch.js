@@ -58,9 +58,17 @@ console.log('\n[Registry]');
   ok(JSON.stringify(JSON.parse(JSON.stringify(d))) === JSON.stringify(d) && !JSON.stringify(d).includes('function'), 'describe() ist reines JSON ohne Funktionen');
   ok(d.every((x) => /^[a-z][a-z0-9_]*$/.test(x.id)), 'alle Kennungen snake_case');
   const bs = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuch', 'bausteine.json'), 'utf8'));
-  const want = [...Object.keys(bs.aktionen || {}), ...Object.keys(bs.pruefungen || {})];
-  const missing = want.filter((id) => !Registry.get(id));
-  ok(!missing.length, `alle ${want.length} Bausteine aus bausteine.json registriert${missing.length ? ' – fehlt: ' + missing.join(', ') : ''}`);
+  const all = Object.assign({}, bs.aktionen || {}, bs.pruefungen || {});
+  const want = Object.keys(all);
+  // S2 (Studioleitung): Einträge, die KATALOG als Vertrag einträgt (status 'vertrag' bzw. vertrag: true), sind bis zur
+  // Lieferung durch SCHUETZLING/BAUSTEINE nur ein Hinweis. Seit QA-INTEGRATION S2 (alle geliefert) ist der strenge Modus
+  // Standard; STRICT_BAUSTEINE=0 erlaubt Vertrags-Einträge wieder als Hinweis (für künftige Ausbaustufen).
+  const isContract = (id) => !!all[id] && (all[id].status === 'vertrag' || all[id].vertrag === true);
+  const strict = process.env.STRICT_BAUSTEINE !== '0';
+  const missing = want.filter((id) => !Registry.get(id) && (strict || !isContract(id)));
+  const pending = want.filter((id) => !Registry.get(id) && !strict && isContract(id));
+  ok(!missing.length, `alle ${want.length - pending.length} Bausteine aus bausteine.json registriert${missing.length ? ' – fehlt: ' + missing.join(', ') : ''}`);
+  if (pending.length) console.log(`  HINWEIS ${pending.length} Vertrags-Bausteine noch nicht registriert: ${pending.join(', ')}`);
   for (const id of ['npc_gedaechtnis', 'npc_haltung', 'npc_status', 'welt_fakt', 'chronik', 'remove_item']) ok(Registry.get(id) && Registry.get(id).art === 'aktion', `Weltstand-Baustein ${id}`);
   // jeder do/check in content/regiebuecher/* ist registriert (CONTRACT-S1 §8.3 Punkt 5)
   const dir = Loader.BOOK_DIR; const unknown = []; let uses = 0;
@@ -380,6 +388,217 @@ console.log('\n[Nebenaufträge aus Daten]');
   ok(zk && zk.state === 'aktiv' && zk.objectives.some((o) => /Container bergen \(0\/\d\)/.test(o.text)), `Zaunkönig-Eintrag mit Live-Zähler („${zk && zk.objectives[1] && zk.objectives[1].text}“)`);
   g.mission.flags.vaelenHelped = true;
   ok(g.mission.bookEntries().find((x) => x.id === 'sela').state === 'erledigt', 'Sela erledigt nach vaelenHelped');
+}
+
+// =================================================================================================================
+// S2 (CONTRACT-S2 §3/§4): Bücher zur Laufzeit, Spielleiter-Nähte, Kapitelkarte, Plugins, Weltstand v2
+// =================================================================================================================
+const genBook = (id, extra) => Object.assign({
+  format: 'regiebuch/1', id,
+  kopf: { titel: 'Testauftrag', art: 'generiert', auftraggeber: 'tesk', zielspieldauer_min: 15 },
+  erinnerung: { npc: 'tesk', ereignis: 'tafel_uebergeben' },
+  buch: { von: [{ npc: 'tesk' }], briefing: '@b', belohnung: '@b', ziel: 'splitter', dauer_min: 15, erinnerung: '@b' },
+  buehne: { orte: ['hafen', 'splitter'] }, besetzung: { npc: ['tesk'] },
+  steps: [
+    { id: 'anflug', umsetzung: 'anflug/sprung', objectives: [{ id: 'go', text: '@b', done: { atLocation: 'splitter' } }],
+      timers: [{ at: 60, oda: '@b', garantie: 'hinweis' }],
+      next: [{ if: { all: [{ atLocation: 'splitter' }, { check: { name: 'szene_bereit', szene: 's1' } }] }, goto: 's1' }],
+      skip: [{ do: 'debug_jump', loc: 'splitter' }] },
+    { id: 's1', loc: 'splitter', umsetzung: 'vertreiben/bis_zur_flucht', objectives: [], next: [{ if: { elapsed: 1 }, complete: 'erfolg' }], skip: [] },
+  ],
+  ausgaenge: { erfolg: { beschreibung: 'ok', folgen: [{ do: 'chronik', text: '@b' }, { do: 'npc_gedaechtnis', npc: 'tesk', ereignis: 'test', text: '@b' }] } },
+  texte: { b: 'Text' },
+}, extra || {});
+function mockSl(g) {
+  const calls = [];
+  const sl = { calls, ready: false, declined: false,
+    update: () => calls.push(['update', g.mission.stepTime]),
+    offers: () => (sl.declined || g.mission.missions.sl_1_test ? [] : [{ id: 'sl_1_test', titel: 'Testauftrag', von: 'Hafenmeisterin Tesk', ziel: 'splitter',
+      dauer_min: 15, belohnung: '50 Marken', erinnerung: 'Tesk erinnert sich an die Tafel.', origin: 'sl', state: 'offered' }]),
+    accept: (id) => { calls.push(['accept', id]); g.mission.startMission(id); return null; },
+    decline: (id) => { calls.push(['decline', id]); sl.declined = true; return null; },
+    planning: () => ({ stage: 1, von: 'Hafenmeisterei' }),
+    sceneReady: (mid, sid) => { calls.push(['sceneReady', mid, sid]); return sl.ready; },
+    onSceneEnter: (mid, sid) => calls.push(['onSceneEnter', mid, sid]),
+    onMissionDone: (o) => calls.push(['onMissionDone', o.id, o.ausgang]),
+    onCampaignStart: (o) => calls.push(['onCampaignStart', o.tutorial]),
+    debug: (args) => { calls.push(['debug', args.join(' ')]); return null; },
+    toSave: () => ({ naechste_id: 7, archiv_gespielt: ['ar_zollfeuer'] }),
+    restore: (o) => calls.push(['restore', o, !!g.mission.activeId]) };
+  g.spielleiter = sl;
+  return sl;
+}
+
+console.log('\n[S2: Prüfer – Schema, Schützling, liefert_flags]');
+{
+  ok(Checker.check(genBook('sl_1_test')).ok, `erzeugtes Testbuch besteht den Prüfer${Checker.check(genBook('sl_1_test')).errors.map((e) => ' ' + e.code + ' ' + e.p).join('')}`);
+  const withShip = genBook('sl_2_ship', { besetzung: { npc: ['tesk'], schiffe: { konvoi: { kind: 'frachter', name: 'Konvoi Kel' } } } });
+  const r1 = Checker.check(withShip);
+  ok(!r1.ok && r1.errors.some((e) => e.code === 'SCHUETZLING-OHNE-VERLUST') && !r1.errors.some((e) => e.code === 'MECHANIK-GEPLANT'), 'besetzung.schiffe erlaubt, ohne Verlustweg: SCHUETZLING-OHNE-VERLUST');
+  withShip.steps[1].next.unshift({ if: { flag: 'konvoi_verloren' }, complete: 'erfolg' });
+  ok(Checker.check(withShip).ok, 'Schützling mit Weg über Flag konvoi_verloren: gültig (Flag gilt als gesetzt)');
+  const lf = genBook('sl_3_lf');
+  lf.steps[1].liefert_flags = ['ziel_vertrieben'];
+  lf.steps[1].next.unshift({ if: { flag: 'ziel_vertrieben' }, complete: 'erfolg' });
+  ok(Checker.check(lf).ok, 'liefert_flags zählen als gesetzt (kein FLAG-UNGESETZT)');
+  const badShip = genBook('sl_4_bad', { besetzung: { npc: ['tesk'], schiffe: { konvoi: { kind: 'pilgerschiff', name: 'X' } } } });
+  ok(Checker.check(badShip).errors.some((e) => e.code === 'SCHEMA'), 'unbekannte Schiffsklasse: SCHEMA');
+  ok(Checker.check(genBook('sl_5_um', { steps: [Object.assign({}, genBook('x').steps[0], { umsetzung: 'Kein Format' }), genBook('x').steps[1]] })).errors.some((e) => e.code === 'SCHEMA'), 'umsetzung muss <molekuel>/<umsetzung> sein');
+  const fd = genBook('sl_6_fd');
+  fd.ausgaenge.erfolg.folgen.push({ do: 'welt_fakt', key: 'test_faden', value: 'offen', faden: true });
+  ok(Checker.check(fd).ok, 'welt_fakt mit faden: true gültig');
+}
+
+console.log('\n[S2: Registry-Plugins]');
+{
+  ok(Array.isArray(Registry.PLUGINS) && typeof Registry.loadPlugins === 'function', `Plugin-Lader da (${Registry.PLUGINS.map((p) => p.name + (p.errors.length ? '!' : '')).join(', ') || 'keine Plugins'})`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-plugins-'));
+  fs.writeFileSync(path.join(dir, 'a_ok.js'), "module.exports = (R) => { R.define({ id: 'test_plugin_ping', art: 'pruefung', beschreibung: 'Test', params: {}, test: () => true }); };");
+  fs.writeFileSync(path.join(dir, 'b_kaputt.js'), "throw new Error('kaputt');");
+  fs.writeFileSync(path.join(dir, 'c_doppelt.js'), "module.exports = (R) => { R.define({ id: 'no_fires', art: 'pruefung', params: {}, test: () => false }); };");
+  const err0 = console.error; const logged = []; console.error = (...a) => logged.push(a.join(' '));
+  try { Registry.loadPlugins(dir); } finally { console.error = err0; }
+  ok(Registry.get('test_plugin_ping') && Registry.get('test_plugin_ping').art === 'pruefung', 'Plugin definiert Baustein');
+  ok(logged.some((l) => /b_kaputt/.test(l)) && logged.some((l) => /c_doppelt/.test(l)), 'kaputtes Plugin und doppelte Kennung: geloggt, kein Absturz');
+  ok(Registry.get('no_fires').test({ game: { ship: { fireList: [] } } }) === true, 'doppelte Kennung überschreibt nichts');
+  ok(Registry.get('szene_bereit') && Registry.get('szene_bereit').test({ game: {}, activeId: null }, { szene: 's1' }) === true, 'szene_bereit ohne Spielleiter: true');
+  fs.rmSync(dir, { recursive: true, force: true });
+}
+
+console.log('\n[S2: Bücher zur Laufzeit, Angebote, Hooks]');
+{
+  const s = setup(1, { start: false });
+  const { g, run, send, events } = s;
+  send(0, { t: 'lobbyOpt', startMission: 'free' });
+  send(0, { t: 'ready', ready: true });
+  ok(g.phase === 'play' && !g.mission.activeId && g.weltstand.persistent, 'Kampagne ohne Tutorial läuft');
+  const sl = mockSl(g);
+  const m = g.mission;
+  ok(!m.registerBook(genBook('sl_9_x', { kopf: { titel: 'X', art: 'mission', auftraggeber: 'tesk', zielspieldauer_min: 5 } })).ok, 'registerBook: kopf.art mission abgelehnt');
+  const bad = genBook('sl_9_y'); bad.steps[0].next[0].goto = 'gibtsnicht';
+  const rb = m.registerBook(bad);
+  ok(!rb.ok && rb.errors.some((e) => e.code === 'REF-SCHRITT'), 'registerBook: Prüferfehler -> ok false mit Fehlerliste');
+  ok(!m.registerBook(genBook('m2')).ok, 'registerBook: Kennung aus dem Katalog abgelehnt');
+  const r = m.registerBook(genBook('sl_1_test'), { origin: 'sl' });
+  ok(r.ok && m.info('sl_1_test').art === 'generiert' && !m.order.includes('sl_1_test') && !m.missions.sl_1_test, 'registerBook: ok, außerhalb von order, nicht gestartet');
+  run(1);
+  const e = m.bookEntries().find((x) => x.id === 'sl_1_test');
+  ok(e && e.state === 'angeboten' && e.von === 'Hafenmeisterin Tesk' && e.ziel === 'splitter' && e.dauer_min === 15 && e.belohnung === '50 Marken' && /Tafel/.test(e.erinnerung), 'Bucheintrag angeboten mit von/ziel/dauer_min/belohnung/erinnerung');
+  ok(e.origin === 'sl', 'origin im Bucheintrag (Debug-Server)');
+  g.debug = false; ok(!('origin' in m.bookEntries().find((x) => x.id === 'sl_1_test')), 'origin fehlt ohne Debug'); g.debug = true;
+  ok(events('offerIn').filter((x) => x.id === 'sl_1_test').length === 1, 'Ereignis offerIn genau einmal');
+  const snap = g.snapshot();
+  ok(snap.mission.planning && snap.mission.planning.stage === 1 && snap.mission.planning.von === 'Hafenmeisterei', 'Snapshot mission.planning');
+  ok(sl.calls.some((c) => c[0] === 'update'), 'spielleiter.update im Tick');
+  g.players[0].console = 'plan';
+  const notices = () => s.conns[0].inbox.filter((x) => x.kind === 'notice').map((x) => x.text);
+  send(0, { t: 'cmd', c: 'plan.decline', id: 'm3' });
+  ok(notices().some((t) => /lässt sich nicht ablehnen|Unbekannter Eintrag/.test(t)), 'plan.decline auf Nicht-Angebot: Hinweis');
+  // updateBook vor dem Betreten: alles darf sich ändern
+  const b2 = genBook('sl_1_test'); b2.texte.b = 'Text neu';
+  ok(m.updateBook('sl_1_test', b2).ok, 'updateBook vor dem Start: ok');
+  send(0, { t: 'cmd', c: 'plan.accept', id: 'sl_1_test' });
+  ok(sl.calls.some((c) => c[0] === 'accept' && c[1] === 'sl_1_test') && m.activeId === 'sl_1_test' && m.state.stage === 'anflug', 'plan.accept -> spielleiter.accept, Mission läuft (Spielleiter startet)');
+  ok(m.flightV2() === true, 'flightV2() für kopf.art generiert');
+  ok(sl.calls.some((c) => c[0] === 'onSceneEnter' && c[1] === 'sl_1_test' && c[2] === 'anflug'), 'onSceneEnter beim ersten Schritt mit umsetzung');
+  // Szene nicht bereit: Anflug hält
+  g.debugGoto('splitter');
+  run(1);
+  ok(m.state.stage === 'anflug' && sl.calls.some((c) => c[0] === 'sceneReady' && c[2] === 's1'), 'szene_bereit false: Anflug-Schritt hält');
+  const b3 = genBook('sl_1_test'); b3.texte.b = 'Text neu'; b3.steps[0].timers[0].at = 61;
+  const rb3 = m.updateBook('sl_1_test', b3);
+  ok(!rb3.ok && rb3.errors[0].code === 'BETRETEN', 'updateBook: betretener Schritt darf sich nicht ändern');
+  const b4 = genBook('sl_1_test'); b4.texte.b = 'Text neu'; b4.steps[1].next[0].if = { elapsed: 0.5 };
+  const stepBefore = m.step;
+  ok(m.updateBook('sl_1_test', b4).ok && m.step !== stepBefore && m.step.id === 'anflug' && m.def.steps[1].next[0].if.elapsed === 0.5, 'updateBook: unbetretener Schritt ersetzt, laufender Schritt neu gebunden');
+  ok(!m.unregisterBook('sl_1_test').ok, 'unregisterBook: laufende Mission abgelehnt');
+  sl.ready = true;
+  run(0.2);
+  ok(m.state.stage === 's1' && sl.calls.some((c) => c[0] === 'onSceneEnter' && c[2] === 's1'), 'Szene bereit -> s1, onSceneEnter');
+  run(1.5);
+  ok(!m.activeId && m.missions.sl_1_test.state === 'done' && sl.calls.some((c) => c[0] === 'onMissionDone' && c[1] === 'sl_1_test' && c[2] === 'erfolg'), 'Mission erledigt, onMissionDone({ id, ausgang })');
+  ok(m.bookEntries().some((x) => x.id === 'sl_1_test' && x.state === 'erledigt') && m.snapshotList().some((x) => x.id === 'sl_1_test'), 'erledigte erzeugte Mission im Buch und in der Liste');
+  ok(m.flightV2() === false, 'flightV2() ohne aktive erzeugte Mission: false');
+  const sv = m.toSave();
+  ok(sv.missionen.sl_1_test && sv.missionen.sl_1_test.status === 'erledigt', 'toSave enthält die erzeugte Mission');
+  // decline
+  sl.declined = false; m.missions.sl_1_test = undefined; delete m.missions.sl_1_test;
+  send(0, { t: 'cmd', c: 'plan.decline', id: 'sl_1_test' });
+  ok(sl.calls.some((c) => c[0] === 'decline' && c[1] === 'sl_1_test'), 'plan.decline -> spielleiter.decline');
+  // Debug-Weiterleitung
+  send(0, { t: 'debug', cmd: 'sl', args: 'status' });
+  ok(sl.calls.some((c) => c[0] === 'debug' && c[1] === 'status'), 'Debug sl status -> spielleiter.debug([status])');
+  send(0, { t: 'debug', cmd: 'escort', args: 'frachter' });
+  ok(true, 'Debug escort frachter ohne Absturz');
+  ok(/^\d+$/.test(m.tpl('{escortHp:konvoi}')), `Platzhalter {escortHp:konvoi} -> „${m.tpl('{escortHp:konvoi}')}“`);
+  ok(g.errors === 0, `keine Fehler (${g.errors})`);
+}
+
+console.log('\n[S2: onCampaignStart, Teaser abgelöst]');
+{
+  const { g } = setup(1, { start: false });
+  const sl = mockSl(g);
+  // startGame -> reset() setzt spielleiter = null, danach createSpielleiter(): Ersatz-Fabrik liefert den Mock
+  g.createSpielleiter = function () { this.spielleiter = sl; return sl; };
+  g.handleMessage(s0conn(g), { t: 'ready', ready: true });
+  ok(sl.calls.some((c) => c[0] === 'onCampaignStart' && c[1] === true), 'onCampaignStart({ tutorial: true })');
+  g.startTeaser();
+  ok(g.mission.state.teaser == null, 'startTeaser ist No-op (Altname)');
+}
+function s0conn(g) { return [...g.conns][0]; }
+
+console.log('\n[S2: Karte ohne Tutorial, Routen zur Bühne (QA-INTEGRATION)]');
+{
+  const s = setup(1, { start: false });
+  s.send(0, { t: 'lobbyOpt', startMission: 'free' });
+  s.send(0, { t: 'ready', ready: true });
+  const ex = s.g.explore;
+  ok(ex.isLinked('hafen', 'kesh') && ex.isLinked('splitter', 'kesh') && ex.isLinked('nebel', 'relais'), 'ohne Tutorial: hafen–kesh, splitter–kesh, nebel–relais offen');
+  ok(['b7', 'vaelen', 'wrack', 'nebel', 'relais', 'kesh'].every((id) => ex.isKnown(id)) && ex.visited.size <= 1, `ohne Tutorial: alle Orte bekannt, nicht besucht (besucht: ${[...ex.visited].join(',') || '–'})`);
+  // generisch: Mission mit kopf.art archiv öffnet die Route zu ihren Bühnen-Orten (frischer Kartenstand)
+  const t = setup(1);
+  const ex2 = t.g.explore;
+  ok(!ex2.isLinked('hafen', 'kesh') && !ex2.isKnown('relais'), 'Kampagne mit Tutorial: Kesh/Relais anfangs zu');
+  mockSl(t.g);
+  const book = genBook('ar_1_route', { kopf: { titel: 'Route', art: 'archiv', auftraggeber: 'tesk', zielspieldauer_min: 15 }, buehne: { orte: ['hafen', 'kesh', 'relais'] } });
+  const r = t.g.mission.registerBook(book, { origin: 'archiv' });
+  t.g.mission.activeId = null; t.g.mission.def = null;
+  t.g.space.escorts = [{ id: 'es9', tag: 'konvoi', state: 'entkommen' }]; t.g.space.escortsGone = [{ id: 'es8', tag: 'konvoi' }];
+  t.g.mission.startMission('ar_1_route');
+  ok(t.g.space.escorts.length === 0 && t.g.space.escortsGone.length === 0, 'archiv-Mission: Schützlinge früherer Missionen geleert');
+  ok(r.ok && ex2.isLinked('hafen', 'kesh') && ex2.isLinked('nebel', 'relais') && ex2.isKnown('relais') && ex2.isKnown('nebel') && ex2.isKnown('kesh'),
+    `archiv-Mission: Route zu kesh/relais offen, Orte bekannt (${r.ok ? '' : JSON.stringify(r.errors && r.errors.slice(0, 2))})`);
+  ok(!t.events('oda').some((e) => /Neuer Ort/.test(e.text || '')), 'Routen still geöffnet (kein ODA „Neuer Ort“)');
+}
+
+console.log('\n[S2: Kapitelkarte nach m3]');
+{
+  const { g, events } = setup(1);
+  ok(!g.mission.forceStep('m3', 'extract'), 'Kampagne: m3/extract');
+  g.mission.completeMission('erfolg');
+  ok(events('chapter').length === 1 && /Kapitel/.test(events('chapter')[0].title) && g.phase === 'play' && events('ending').length === 0, 'Kampagne: Ereignis chapter, Spiel läuft weiter');
+  const d = setup(1, { start: false });
+  d.send(0, { t: 'lobbyOpt', startMission: 'm3' });
+  d.send(0, { t: 'ready', ready: true });
+  ok(!d.g.mission.forceStep('m3', 'extract'), 'Direktstart: m3/extract');
+  d.g.mission.completeMission('erfolg');
+  ok(d.g.phase === 'end' && d.events('chapter').length === 0 && d.events('ending').length === 1 && d.events('ending')[0].title === 'Die Tafel ist sicher', 'Direktstart m3: Ende wie bisher');
+}
+
+console.log('\n[S2: Weltstand v2 – Spielleiter.restore vor mission.restore]');
+{
+  const Weltstand = require('../server/weltstand.js');
+  const { g } = setup(1);
+  mockSl(g);
+  const data = Weltstand.capture(g);
+  ok(data.version === 2 && data.spielleiter.naechste_id === 7, 'capture: version 2, Block spielleiter aus toSave()');
+  ok(Weltstand.validate(data).length === 0, `capture ist schemagültig${Weltstand.validate(data).slice(0, 1).map((x) => ' – ' + x).join('')}`);
+  const f = freshForRestore(1);
+  let sl2 = null;
+  f.g.createSpielleiter = function () { sl2 = mockSl(this); sl2.calls.length = 0; return sl2; };
+  Weltstand.apply(f.g, data);
+  const rc = sl2 && sl2.calls.find((c) => c[0] === 'restore');
+  ok(rc && rc[1].naechste_id === 7 && rc[2] === false && f.g.mission.activeId === 'm1', 'restore(data.spielleiter) vor mission.restore (aktive Mission danach)');
 }
 
 console.log(`\n${n - fails}/${n} Regiebuch-Tests bestanden (${((Date.now() - t0) / 1000).toFixed(1)} s).`);

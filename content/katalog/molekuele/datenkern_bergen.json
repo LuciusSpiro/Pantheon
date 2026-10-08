@@ -13,6 +13,97 @@
     "C4",
     "C9"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "plattform_kern",
+      "name": "Datenkern von der Plattform holen",
+      "schauplatz": "aussen",
+      "beschreibung": "Auf der Plattform unter Boje B-7 steckt ein Datenkern. Das Außenteam holt ihn aus der Halterung (E halten) und bringt ihn über die Pads an Bord; der Captain behält oben Drohnen und Zeit im Blick. Die Karte wird vorher zurückgesetzt (das Konkordat hat einen neuen Kern eingesetzt – der Grund wird erzählt). Der Kern bleibt an Bord, bis eine spätere Szene ihn abgibt. Heute nur auf B-7.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [3, 5], "2": [2, 4], "3": [2, 3] },
+      "liefert_flags": [
+        "{{id}}_geborgen",
+        "{{id}}_verpasst"
+      ],
+      "ereignisse": [
+        "datenkernTaken",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["b7"] },
+        "map": { "typ": "map", "pflicht": true, "werte": ["platform"] },
+        "zuruecksetzen": { "typ": "bool", "default": true, "beschreibung": "Karte vorher zurücksetzen (map_reset) – false, wenn eine frühere Szene der Mission das schon getan hat" },
+        "grund": { "typ": "text", "default": "Das Konkordat hat auf B-7 einen frischen Datenkern eingesetzt – die Plattform ist wieder in Betrieb.", "beschreibung": "Erzählte Begründung für das Zurücksetzen (ODA, ≤ 120 Zeichen)" },
+        "aufgeben_nach": { "typ": "zahl", "default": 300, "min": 120, "max": 480 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"], "aussenkarten": ["{{map}}"], "objekte": { "{{map}}": ["datenkern"] } },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": ["{{map}}"],
+            "enter": [
+              { "if": "{{zuruecksetzen}}", "do": "map_reset", "map": "{{map}}", "grund": "@{{id}}.grund" }
+            ],
+            "timers": [
+              { "at": 2, "oda": "@{{id}}.start" },
+              { "at": 70, "if": { "not": { "itemAboard": "datenkern" } }, "oda": "@{{id}}.hinweis", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "itemAboard": "datenkern" }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } }, { "setFlag": { "{{id}}_geborgen": true } }, { "oda": "@{{id}}.an_bord" } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": "{{aufgeben_nach}}" }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } }, { "setFlag": { "{{id}}_verpasst": true } }, { "oda": "@{{id}}.verpasst" } ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              { "id": "runter", "text": "@{{id}}.ziel_runter", "done": { "any": [ { "check": { "name": "away_active", "map": "{{map}}" } }, { "v": "{{id}}_ende" } ] } },
+              { "id": "kern", "text": "@{{id}}.ziel_kern", "done": { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "datenkern", "state": "taken" } }, { "v": "{{id}}_ende" } ] } },
+              { "id": "hoch", "text": "@{{id}}.ziel_hoch", "done": { "all": [ { "v": "{{id}}_ende" }, { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } ] } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_ende" }, { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_item_aboard", "item": "datenkern" },
+              { "do": "debug_skip_away", "map": "{{map}}" }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.grund": "{{grund}}",
+          "{{id}}.start": "Außenteam auf die Pads. Der Datenkern steckt in seiner Halterung auf der Plattform – E halten.",
+          "{{id}}.hinweis": "Der Kern sitzt in der Halterung mitten auf der Plattform. Nehmen, zurück zu den Pads, hochbeamen.",
+          "{{id}}.an_bord": "Datenkern an Bord und sicher verstaut.",
+          "{{id}}.verpasst": "Die Zeit drängt – wir lassen den Kern zurück. Alle zurück zu den Pads.",
+          "{{id}}.ziel_runter": "Außenteam auf die Plattform beamen",
+          "{{id}}.ziel_kern": "Datenkern aus der Halterung nehmen (E halten)",
+          "{{id}}.ziel_hoch": "Mit dem Kern zurück an Bord"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "b7",
+          "map": "platform"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6), Datenkern aus m1"
 }

@@ -570,7 +570,8 @@ function interactionsAt(game, p, tx, ty, ch, list) {
   }
   if (ch === 'T') {
     if (!aw.vault.open) list.push({ kind: 'tablet', blocked: 'Das Gewölbe ist verschlossen.' });
-    else if (aw.tablet.taken) list.push({ kind: 'tablet', blocked: 'Der Sockel ist leer – die Tafel ist schon bei uns.' });
+    else if (aw.tablet.taken && aw.tablet.empty) list.push({ kind: 'tablet', blocked: 'Der Sockel ist leer – die Tafel liegt längst im Konkordat-Archiv.' });
+    else if (aw.tablet.taken) list.push({ kind: 'tablet', blocked: aw.tablet.item && aw.tablet.item !== 'tafel' ? 'Der Sockel ist leer – der Fund ist schon bei uns.' : 'Der Sockel ist leer – die Tafel ist schon bei uns.' });
     else list.push({ kind: 'tablet' });
   }
 }
@@ -648,11 +649,14 @@ function takeTablet(game, p) {
   const aw = game.aways.kesh;
   if (aw.tablet.taken) return;
   aw.tablet.taken = true; aw.tablet.by = p ? p.id : null;   // QA M2: Träger für den Wächter-Schritt (tabletInCourtyard)
-  game.inventory.tafel = (game.inventory.tafel || 0) + 1;
+  // S2: Nach map_reset kann ein anderer Fund auf dem Sockel liegen (aw.tablet.item); Standard bleibt die Tafel
+  const item = aw.tablet.item || 'tafel';
+  game.inventory[item] = (game.inventory[item] || 0) + 1;
   const x = aw.tablet.x * TILE + TILE / 2, y = aw.tablet.y * TILE + TILE / 2;
   game.emit('tabletTaken', { pid: p ? p.id : null, x, y });
   game.emit('sfx', { name: 'tablet', zone: 'away', x, y });
-  game.missionEvent('tabletTaken', { p });
+  if (aw.tablet.item) game.missionEvent('tabletTaken', { p, item });
+  else game.missionEvent('tabletTaken', { p });
 }
 // Schlüssel: Fortschritt 0..1 für den Snapshot; einer allein -> Hinweis und Rücksetzen (§4.7)
 function updateKeys(game) {

@@ -19,7 +19,7 @@
       "properties": {
         "_kommentar": { "$ref": "#/$defs/kommentar" },
         "titel": { "type": "string", "maxLength": 60 },
-        "art": { "enum": ["mission", "nebenauftrag", "intern"], "description": "mission = Kampagnenmission; nebenauftrag = nur Bucheintrag (buch + Ziele des ersten Schritts, kein Ablauf); intern = Testgelände/Debug (interne Bausteine erlaubt)" },
+        "art": { "enum": ["mission", "nebenauftrag", "intern", "generiert", "archiv"], "description": "mission = Kampagnenmission; nebenauftrag = nur Bucheintrag (buch + Ziele des ersten Schritts, kein Ablauf); intern = Testgelände/Debug (interne Bausteine erlaubt); generiert/archiv (S2) = vom Spielleiter zur Laufzeit angeboten (mission.registerBook), außerhalb der Angebotsreihenfolge, neue Gegner-KI (flightV2)" },
         "auftraggeber": { "$ref": "#/$defs/kennung", "description": "NSC-Kennung (content/npc.json) oder Stimme aus besetzung.stimmen" },
         "zielspieldauer_min": { "type": "number", "minimum": 1, "maximum": 120 },
         "crew": {
@@ -73,6 +73,9 @@
         "sichtbar": { "$ref": "#/$defs/bedingung", "description": "nur art 'nebenauftrag': ab wann der Eintrag im Missionsbuch steht" },
         "erledigt": { "$ref": "#/$defs/bedingung", "description": "nur art 'nebenauftrag': Eintrag gilt als erledigt (Standard: alle Pflichtziele erledigt)" },
         "ort": { "$ref": "#/$defs/kennung", "description": "nur art 'nebenauftrag': Ort des Eintrags (Karte/HUD)" },
+        "ziel": { "$ref": "#/$defs/kennung", "description": "S2: Zielort des Angebots (Missionsbuch, state 'angeboten')" },
+        "dauer_min": { "type": "number", "minimum": 1, "maximum": 120, "description": "S2: geschätzte Dauer fürs Angebot" },
+        "erinnerung": { "$ref": "#/$defs/text", "description": "S2: sichtbare NSC-Erinnerung im Angebot („Tesk erinnert sich …“)" },
         "ziele": { "type": "array", "items": { "$ref": "#/$defs/ziel" }, "description": "nur art 'nebenauftrag': Ziele, live ausgewertet (Platzhalter erlaubt)" }
       }
     },
@@ -106,8 +109,22 @@
         },
         "gruppen": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
         "einheiten": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
-        "schiffe": { "description": "reserviert für S2 (schuetzling) – der Prüfer lehnt mit MECHANIK-GEPLANT ab" }
+        "schiffe": {
+          "type": "object", "description": "S2: NSC-Schiffe/Schützlinge, Tag -> { kind, name, npc? }. Ein Buch mit Schützling braucht einen Weg für 'kampfunfaehig' (Prüfer: SCHUETZLING-OHNE-VERLUST).",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+          "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["kind", "name"],
+            "properties": { "_kommentar": { "$ref": "#/$defs/kommentar" }, "kind": { "enum": ["frachter", "karawane", "bergungsboot"] },
+              "name": { "type": "string", "maxLength": 40 }, "npc": { "$ref": "#/$defs/kennung" } } }
+        }
       }
+    },
+
+    "erinnerung": {
+      "description": "S2: Bezug des Spielleiters auf einen vorhandenen Gedächtnis-Eintrag oder Fakt (Grobplan-Regel)",
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["npc", "ereignis"], "properties": { "npc": { "$ref": "#/$defs/kennung" }, "ereignis": { "type": "string" } } },
+        { "type": "object", "additionalProperties": false, "required": ["fakt"], "properties": { "fakt": { "type": "string" } } }
+      ]
     },
 
     "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/schritt" }, "description": "Pflicht bei art mission/intern; ein Nebenauftrag hat keinen Ablauf (buch.ziele)" },
@@ -234,6 +251,7 @@
           }
         },
         "garantie": { "enum": ["hinweis", "zeitlimit", "autoloesung", "notausgang"] },
+        "chapter": { "const": true, "description": "S2: Kapitelkarte (Ereignis chapter { title, text }), das Spiel läuft weiter" },
         "neu": { "type": "string", "description": "Kommentar: gegenüber dem JS-Original ergänzt" }
       },
       "dependentRequired": { "wendung": ["ankuendigung", "wirkung"] }
@@ -287,6 +305,9 @@
         "id": { "$ref": "#/$defs/kennung" },
         "loc": { "$ref": "#/$defs/kennung" },
         "drill": { "type": "boolean", "description": "Hafen-Übungsschritt (isDrillStep); gilt als neustartfest" },
+        "umsetzung": { "type": "string", "pattern": "^[a-z0-9_]+/[a-z0-9_]+$", "description": "S2: '<molekuel>/<umsetzung>' aus dem Katalog (Bots, Logbuch). Wechsel auf einen Schritt mit neuer umsetzung ruft spielleiter.onSceneEnter." },
+        "szene": { "$ref": "#/$defs/kennung", "description": "S2: Szenen-Kennung des Spielleiters (Standard: Schritt-ID)" },
+        "liefert_flags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9_]*$" }, "description": "S2: Flags, die die Umsetzung zur Laufzeit setzt (z. B. konvoi_heil/_beschaedigt/_verloren) – für Verzweigungen erlaubt" },
         "wiederaufnahme": {
           "type": "object", "additionalProperties": false, "required": ["ab"],
           "description": "Schritt ist nicht neustartfest: Laden setzt bei 'ab' fort; prep läuft nach setStep und dem Überlagern von v/Ereignissen",

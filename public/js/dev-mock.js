@@ -967,6 +967,7 @@
   function cmd(p, m) {
     const s = W.ship, a = W.away, inv = W.inventory;
     if (m3Cmd(p, m)) return;
+    if (s2Cmd(p, m)) return;
     switch (m.c) {
       case 'helm.input': {   // M3b: nur Ruder; thrust = Altname (Flanke > 0,5 / < −0,5 = eine Stufe)
         const prev = s.helm.thrust || 0, th = +m.thrust || 0;
@@ -1236,6 +1237,7 @@
     // Waffen laden (Phasen 2 s)
     for (const mt of s.mounts) if (!MOUNT_SYS[mt.id]) mt.charge = Math.min(1, mt.charge + dt / 2);
     m3Tick(dt);   // M3a: Drehen, Waffen, Ladungen, Schildstoß, Reparaturliste
+    s2Tick(dt);   // S2: Planung, Schützlinge, geplante Ereignisse
     // Reaktor
     const r = s.reactor;
     if (r.state === 'overload') { r.overloadLeft = Math.max(0, r.overloadLeft - dt); if (r.overloadLeft <= 0) setReactor('offline'); }
@@ -1349,7 +1351,7 @@
       bots: W.bots.map(b => { const r = strip(b); delete r.home; return r; }),
       world: { location: W.world.location },
       ship: W.ship,
-      space: { w: W.space.w, h: W.space.h, enemies: W.space.enemies.map(e => { const r = strip(e); if (!r.scanned) r.weapons = null; return r; }), projectiles: W.space.projectiles.map(strip), beams: W.space.beams, markers: W.space.markers, salvage: W.space.salvage, hidden: W.space.hidden },
+      space: { w: W.space.w, h: W.space.h, enemies: W.space.enemies.map(e => { const r = strip(e); if (!r.scanned) r.weapons = null; return r; }), projectiles: W.space.projectiles.map(strip), beams: W.space.beams, markers: W.space.markers, salvage: W.space.salvage, hidden: W.space.hidden, escorts: W.space.escorts || [] },
       away: Object.assign({}, W.away, { drones: W.away.drones.map(strip), projectiles: W.away.projectiles.map(strip) }),
       support: W.support, inventory: W.inventory, upgrades: W.upgrades, quarters: W.quarters, deco: W.deco, plan: W.plan,
       mission: W.mission, stats: W.stats, shopContext: W.shopContext, errors: 0,
@@ -1361,6 +1363,117 @@
     W._locSent++;
     if (W._sendAsteroids || W.tick % 15 === 0) { snap.space.asteroids = W.space.asteroids; W._sendAsteroids = false; }
     return clone(snap);
+  }
+
+  // ---------------------------------------------------------------- S2: Spielleiter-Angebote, Planung, Schützling, Kapitelkarte
+  // ?mock=1&planning=1[&planstage=0|1|2]&offers=3&escort=frachter[,karawane][&escortstate=ok|beschaedigt|distress|disabled]
+  //   [&haltung=1|0|-1][&chapter=1][&scenewait=1]
+  const S2_OFFERS = [
+    { id: 'sl_zollfeuer', title: 'Zollfeuer', von: 'Tesk (Hafenmeister)', ziel: 'splitter', dauer_min: 15, belohnung: '180 Marken', origin: 'sl',
+      erinnerung: 'Tesk hat nicht vergessen, dass ihr Grauzahns Nachhut vertrieben habt.',
+      briefing: 'Im Splittergürtel brennt eine Zollbake. Tesk will wissen, wer sie angezündet hat – und ob der Zoll noch steht.' },
+    { id: 'sl_karawane', title: 'Karawane im Nebel', von: 'Händlerin Sela', ziel: 'nebel', dauer_min: 15, belohnung: '220 Marken · Kristalllampe', origin: 'sl',
+      erinnerung: { npc: 'sela', ereignis: 'Sela erinnert sich an ihre Rettung und vertraut euch ihre Karawane an.' },
+      briefing: 'Selas Karawane muss durch die Graue Weite. Plünderer lauern im Nebel. Geleit bis zum Sprungpunkt.' },
+    { id: 'ar_treibgut', title: 'Treibgut Zaunkönig', von: 'Grauzahn', ziel: 'wrack', dauer_min: 14, belohnung: '150 Marken', origin: 'archiv',
+      erinnerung: { fakt: 'Das Wrack Zaunkönig treibt noch in der Grauen Weite.' },
+      briefing: 'Grauzahn bietet einen Handel an: Ihr holt die Container aus dem Zaunkönig, er schaut weg.' },
+  ];
+  const S2_ESCORT_NAMES = { frachter: 'Frachter Kordel', karawane: 'Selas Karawane', bergungsboot: 'Bergungsboot Muschel' };
+  function s2Later(sec, kind, extra) { (W._s2Ev = W._s2Ev || []).push({ at: W.time + sec, kind, extra: extra || {} }); }
+  function s2Params() {
+    const m = W.mission;
+    m.planning = null;
+    if (params.get('planning') === '1') {
+      const fixed = params.get('planstage');
+      m.planning = { stage: fixed != null && isFinite(+fixed) ? Math.max(0, Math.min(2, +fixed)) : 0, von: params.get('von') || 'Hafenmeisterei' };
+      W._planFixed = fixed != null;
+      W._planT = 0;
+    }
+    const nOff = Math.max(0, Math.min(3, +params.get('offers') || 0));
+    if (nOff && m.book) {
+      m.book.entries = m.book.entries.filter(e => e.state !== 'angeboten');
+      S2_OFFERS.slice(0, nOff).forEach((o, i) => {
+        m.book.entries.push(Object.assign({ kind: 'mission', state: 'angeboten', from: o.von, reward: o.belohnung, objectives: [], log: [] }, clone(o)));
+        s2Later(1 + i * 0.6, 'offerIn', { id: o.id, title: o.title, from: o.von });
+      });
+      m.book.version++;
+    }
+    const kinds = (params.get('escort') || '').split(',').map(s => s.trim()).filter(k => S2_ESCORT_NAMES[k]).slice(0, 2);
+    W.space.escorts = [];
+    if (kinds.length) {
+      const s = W.ship;
+      if (s.dockedAt) { s.dockedAt = null; s.docked = false; }
+      const hullOf = (k) => (CFG.escorts && CFG.escorts.hull && CFG.escorts.hull[k]) || 100;
+      const how = params.get('escortstate') || 'ok';
+      kinds.forEach((k, i) => {
+        const hpMax = hullOf(k);
+        const e = { id: 'esc' + (i + 1), tag: i ? 'schuetzling2' : 'schuetzling', kind: k, name: S2_ESCORT_NAMES[k], x: Math.round(s.x - 150 - i * 120), y: Math.round(s.y + 110 + i * 90),
+          angle: s.angle || 0, hp: hpMax, hpMax, state: 'ok', befehl: 'folgen', distress: false };
+        if (i === 0 && how === 'distress') { e.hp = Math.round(hpMax * 0.4); e.state = 'beschaedigt'; e.distress = true; }
+        if (i === 0 && how === 'beschaedigt') { e.hp = Math.round(hpMax * 0.6); e.state = 'beschaedigt'; }
+        if (i === 0 && how === 'repair') { e.repair = 0.45; e.befehl = 'halten'; e.hp = Math.round(hpMax * 0.55); e.state = 'beschaedigt'; }
+        if (i === 0 && how === 'disabled') { e.hp = 0; e.state = 'kampfunfaehig'; e.befehl = 'halten'; }
+        if (i === 0 && how === 'offscreen') { e.x = Math.round(s.x + 1300); e.y = Math.round(s.y - 500); if (params.get('distress') === '1') { e.distress = true; e.hp = Math.round(hpMax * 0.35); e.state = 'beschaedigt'; } }
+        W.space.escorts.push(e);
+      });
+      if (!W.space.enemies.length && params.get('noenemies') !== '1') {
+        spawnEnemy('gunboat', s.x + 380, s.y + 260);
+        spawnEnemy('raider', s.x + 520, s.y - 200);
+      }
+      const ge = W.space.enemies.find(e => e.kind === 'gunboat') || W.space.enemies[0];
+      if (ge) ge.tgt = W.space.escorts[0].id;
+    }
+    if (params.get('chapter') === '1') s2Later(1, 'chapter', { title: 'Kapitel I – Die Tafel von Kesh', text: 'Die Vertragstafel ist in Sicherheit. Im Hafen spricht man über die Lerche – und darüber, wer als Nächstes Arbeit für sie hat. Die Hafenmeisterei hört sich um.' });
+    if (params.get('scenewait') === '1') s2Later(1, 'sceneWait', { sec: 20 });
+  }
+  function s2Tick(dt) {
+    const m = W.mission;
+    if (W._s2Ev && W._s2Ev.length) {
+      const due = W._s2Ev.filter(x => W.time >= x.at);
+      W._s2Ev = W._s2Ev.filter(x => W.time < x.at);
+      for (const x of due) {
+        if (x.kind === 'escortOrderApply') { const e = W.space.escorts.find(q => q.id === x.extra.id); if (e) { e.befehl = x.extra.befehl; delete e.pending; } continue; }
+        ev(x.kind, x.extra);
+      }
+    }
+    // Planung: Prägestufe alle 4 s weiter (0 -> 1 -> 2 -> 0 …)
+    if (m.planning && !W._planFixed) { W._planT = (W._planT || 0) + dt; if (W._planT > 4) { W._planT = 0; m.planning.stage = (m.planning.stage + 1) % 3; } }
+    // Schützlinge: folgen = versetzt hinter der Lerche, halten = stehen, volle Kraft = geradeaus, andocken = an die Lerche
+    const s = W.ship;
+    (W.space.escorts || []).forEach((e, i) => {
+      if (e.state === 'kampfunfaehig' || e.state === 'entkommen') { e.angle += dt * 0.05; return; }
+      let tx = e.x, ty = e.y, sp = 0;
+      if (e.befehl === 'folgen') { tx = s.x - Math.cos(s.angle) * (180 + i * 110) - Math.sin(s.angle) * 70; ty = s.y - Math.sin(s.angle) * (180 + i * 110) + Math.cos(s.angle) * 70; sp = 90; }
+      else if (e.befehl === 'andocken') { tx = s.x - Math.cos(s.angle) * 70; ty = s.y - Math.sin(s.angle) * 70; sp = 60; }
+      else if (e.befehl === 'volle_kraft') { tx = e.x + Math.cos(e.angle) * 200; ty = e.y + Math.sin(e.angle) * 200; sp = 90; }
+      const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy);
+      if (sp && d > 8) { const v = Math.min(sp, d * 1.2) * dt; e.x += dx / d * v; e.y += dy / d * v; if (e.befehl !== 'volle_kraft') e.angle += Phys.normAngle(Math.atan2(dy, dx) - e.angle) * Math.min(1, dt * 1.5); }
+    });
+  }
+  function s2Cmd(p, m) {
+    switch (m.c) {
+      case 'plan.decline': {
+        const b = W.mission.book; const e = b && b.entries.find(x => x.id === m.id);
+        if (!e || e.state !== 'angeboten') { notice('Nichts abzulehnen'); return true; }
+        b.entries = b.entries.filter(x => x !== e); b.version++;
+        ev('oda', { text: (e.von || e.from || 'Der Auftraggeber') + ' nimmt es gelassen. Vielleicht ein andermal.' });
+        return true;
+      }
+      case 'captain.escort': {
+        const e = (W.space.escorts || []).find(q => q.tag === m.tag || q.id === m.tag);
+        if (!e) { notice('Kein Schützling mit diesem Namen'); return true; }
+        // wie server/sim/escort.js: kampfunfähig -> ok:false; sonst ok:true + delay (Haltung), bis dahin pending
+        if (e.state === 'kampfunfaehig') { ev('escortOrder', { id: e.id, befehl: m.befehl, ok: false }); notice(e.name + ' antwortet nicht – kampfunfähig.'); return true; }
+        const h = +(params.get('haltung') || 1);
+        const delay = h >= 1 ? 0 : h === 0 ? 2 : 4;
+        ev('escortOrder', { id: e.id, befehl: m.befehl, ok: true, delay });
+        if (delay > 0) { e.pending = m.befehl; s2Later(delay, 'escortOrderApply', { id: e.id, befehl: m.befehl }); }
+        else e.befehl = m.befehl;
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- Startzustand aus URL
@@ -1395,6 +1508,7 @@
       'Sela von der Vaelen-Karawane gerettet. Handel möglich.',
     ];
     m3Params();
+    s2Params();
     const pos = (params.get('pos') || '').split(',').map(Number);
     if (pos.length === 2 && isFinite(pos[0]) && p.zone === 'ship') Object.assign(p, tc(pos[0], pos[1]));
     const c = params.get('console');

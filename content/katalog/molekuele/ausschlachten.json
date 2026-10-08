@@ -9,8 +9,99 @@
   ],
   "szenentypen": [
     "A11",
-    "C1"
+    "C1",
+    "C9"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "wrack_container",
+      "name": "Container im Wrack bergen",
+      "schauplatz": "aussen",
+      "beschreibung": "Neues Treibgut ist ins Wrack „Zaunkönig“ gedriftet (die Karte wird dafür zurückgesetzt, der Grund wird erzählt). Das Außenteam sucht im Dunkeln die Bergungscontainer, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Heute nur im Wrack.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [5, 7], "2": [4, 5], "3": [3, 4] },
+      "ereignisse": [
+        "wreckSalvage",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["wrack"] },
+        "map": { "typ": "map", "pflicht": true, "werte": ["wreck"] },
+        "zuruecksetzen": { "typ": "bool", "default": true, "beschreibung": "Karte vorher zurücksetzen (map_reset) – nur false, wenn eine frühere Szene der Mission sie schon zurückgesetzt hat" },
+        "grund": { "typ": "text", "default": "Ortung: Seit eurem letzten Besuch ist neues Treibgut ins Wrack gedriftet – frische Container.", "beschreibung": "Erzählte Begründung für das Zurücksetzen (ODA, ≤ 120 Zeichen)" },
+        "aufgeben_nach": { "typ": "zahl", "default": 300, "min": 120, "max": 480 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"], "aussenkarten": ["{{map}}"], "objekte": { "{{map}}": ["container"] } },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": ["{{map}}"],
+            "enter": [
+              { "if": "{{zuruecksetzen}}", "do": "map_reset", "map": "{{map}}", "grund": "@{{id}}.grund" }
+            ],
+            "timers": [
+              { "at": 2, "oda": "@{{id}}.start" },
+              { "at": 70, "if": { "not": { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } } }, "oda": "@{{id}}.hinweis", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "check": { "name": "team_down", "map": "{{map}}" } } ] },
+                "do": [ { "oda": "@{{id}}.alles" } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": "{{aufgeben_nach}}" }, { "not": { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } } } ] },
+                "do": [ { "set": { "{{id}}_genug": true } }, { "oda": "@{{id}}.genug" } ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              { "id": "runter", "text": "@{{id}}.ziel_runter", "done": { "any": [ { "check": { "name": "away_active", "map": "{{map}}" } }, { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken" } } ] } },
+              { "id": "container", "text": "@{{id}}.ziel_container", "done": { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] } },
+              { "id": "hoch", "text": "@{{id}}.ziel_hoch", "show": { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] }, "done": { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } }
+            ],
+            "next": [
+              {
+                "if": { "all": [ { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] }, { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } ] },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              { "do": "debug_skip_away", "map": "{{map}}" },
+              { "set": { "{{id}}_genug": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.grund": "{{grund}}",
+          "{{id}}.start": "Außenteam auf die Pads. Im Wrack ist es dunkel – Captain: Reiter „Außenteam“ zeigt die Container.",
+          "{{id}}.hinweis": "Captain: die Container auf der Außenteam-Karte ansagen. Unten: hingehen, E halten, dann zurück zu den Pads.",
+          "{{id}}.alles": "Alle Container offen! Zurück zu den Pads, dann holen wir euch hoch.",
+          "{{id}}.genug": "Genug gewühlt – den Rest lassen wir liegen. Zurück zu den Pads.",
+          "{{id}}.ziel_runter": "Außenteam ins Wrack beamen",
+          "{{id}}.ziel_container": "Container bergen ({objectsInState:container:taken}/{objectsCount:container})",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "wrack",
+          "map": "wreck"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6), Container aus dem Nebenauftrag Zaunkönig"
 }

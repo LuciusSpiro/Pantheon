@@ -1,0 +1,209 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-zollfeuer-1",
+  "name": "zollfeuer",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission (CONTRACT-S2 §6, Team KATALOG, von Hand). Grobplan als Objekt (archiv.js liest 'grobplan', wenn 'response.text' fehlt), Szenen-Antworten als Objekte. Auftraggeber Tesk; Störrelais + Funkduell + Angriffswelle im Kesh-Orbit.",
+  "input": { "auftrag": "Archiv: Tesk – Störrelais blockieren die Kesh-Route, Grauzahn verlangt Wegezoll. Ziel 15 min zu dritt, ohne Tutorial-Voraussetzung." },
+  "erinnerung_varianten": [
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "wegezoll_verweigert" }, "text": "Grauzahn hat nicht vergessen, dass die Lerche ihm im Splittergürtel den Wegezoll verweigert hat." },
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "wegezoll_gezahlt" }, "text": "Grauzahn erinnert sich gern: Die Lerche hat schon einmal gezahlt. Er rechnet fest damit, dass sie es wieder tut." },
+    { "erinnerung": { "npc": "grauzahn", "ereignis": "b7_zurueckgeschlagen" }, "text": "Bei B-7 hat die Lerche Grauzahns Jäger zurückgeschlagen. Diesmal will er kassieren, nicht kämpfen." }
+  ],
+  "erinnerung_neutral": "Tesk kennt die Rostmeute seit Jahren: Wo Frachter ausbleiben, kassiert irgendwo Grauzahn.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "zollfeuer",
+    "titel": "Zollfeuer",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Tesk. Seit gestern springt kein Frachter mehr aus dem Kesh-Orbit – jemand hat Störrelais gesetzt und kassiert Wegezoll. Räumt mir die Route frei.",
+    "erinnerung": { "npc": "grauzahn", "ereignis": "wegezoll_verweigert" },
+    "erinnerung_text": "Grauzahn hat nicht vergessen, dass die Lerche ihm im Splittergürtel den Wegezoll verweigert hat.",
+    "szenen": [
+      {
+        "id": "zf_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk schickt die Lerche in den Kesh-Orbit: Die Frachter stauen sich, jemand blockiert die Sprungroute.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [ { "wenn": "Auftrag angenommen", "nach": "zf_relais" } ]
+      },
+      {
+        "id": "zf_relais",
+        "szenentyp": "belagerung",
+        "ort": "kesh",
+        "karte": null,
+        "molekuele": [ { "id": "system_ausschalten", "umsetzung": "stoerrelais" } ],
+        "sachverhalt": "Störrelais kreisen um die Station im Kesh-Orbit und blockieren jeden Faltsprung, ein Wachjäger der Rostmeute passt auf. Grauzahn meldet sich, als die Lerche zu schießen beginnt.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [ { "wenn": "Relais zerstört", "nach": "zf_zoll" } ]
+      },
+      {
+        "id": "zf_zoll",
+        "szenentyp": "begegnung",
+        "ort": "kesh",
+        "karte": null,
+        "molekuele": [ { "id": "verhandeln", "umsetzung": "funkduell" } ],
+        "sachverhalt": "Grauzahn verlangt für seine zerlegten Relais und die freie Route sechzig Marken. Die Crew muss sich entscheiden: zahlen oder es darauf ankommen lassen.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          { "wenn": "Ablehnen oder Schweigen", "nach": "zf_gefecht" },
+          { "wenn": "Zahlen", "nach": "ausgang:zoll_bezahlt" }
+        ]
+      },
+      {
+        "id": "zf_gefecht",
+        "szenentyp": "raumgefecht",
+        "ort": "kesh",
+        "karte": null,
+        "molekuele": [ { "id": "vernichten", "umsetzung": "angriffswelle" } ],
+        "sachverhalt": "Grauzahns Jäger gehen auf die Lerche los, ein Kanonenboot folgt als Verstärkung.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [ { "wenn": "Angriff abgewehrt", "nach": "zf_bericht" } ]
+      },
+      {
+        "id": "zf_bericht",
+        "szenentyp": "ablieferung",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [ { "id": "ladung_liefern", "umsetzung": "im_hafen_abgeben" } ],
+        "sachverhalt": "Zurück im Hafen: Tesk nimmt die Messdaten der Relais entgegen, die ersten Frachter springen schon wieder.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [ { "wenn": "angedockt", "nach": "ausgang:zoll_gebrochen" } ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "zf_zoll",
+        "frage": "Zahlt die Lerche Grauzahns Wegezoll?",
+        "optionen": [
+          { "id": "zahlen", "text": "Sechzig Marken zahlen", "folge": "Kein Gefecht, die Route ist offen – zu Grauzahns Preis. Tesk ist enttäuscht, Grauzahn zufrieden." },
+          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Gefecht mit Jägern und Kanonenboot. Tesk ist dankbar, Grauzahn gereizt." }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "zoll_bezahlt": {
+        "wann": "Die Crew hat Grauzahn den Wegezoll gezahlt.",
+        "folgen": [
+          "npc_haltung grauzahn +1",
+          "npc_gedaechtnis grauzahn: Die Lerche hat im Kesh-Orbit Wegezoll gezahlt. Sie lernt.",
+          "npc_haltung tesk -1",
+          "npc_gedaechtnis tesk: Die Lerche hat der Rostmeute Zoll gezahlt, statt die Route freizukämpfen.",
+          "chronik: Zollfeuer: Die Lerche zahlte Grauzahn im Kesh-Orbit sechzig Marken. Die Route ist offen – zu seinem Preis.",
+          "welt_fakt kesh_route (faden): Die Rostmeute kassiert Wegezoll im Kesh-Orbit."
+        ]
+      },
+      "zoll_gebrochen": {
+        "wann": "Die Crew hat abgelehnt, die Rostmeute vertrieben und Tesk Bericht erstattet.",
+        "folgen": [
+          "npc_haltung tesk +1",
+          "npc_gedaechtnis tesk: Die Lerche hat die Kesh-Route freigekämpft und mir die Relais-Daten gebracht.",
+          "npc_haltung grauzahn -1",
+          "npc_gedaechtnis grauzahn: Die Lerche hat meine Zollschranke im Kesh-Orbit zerschossen. Das merke ich mir.",
+          "chronik: Zollfeuer: Die Lerche zerstörte die Störrelais im Kesh-Orbit und schlug Grauzahns Jäger zurück. Die Frachter springen wieder.",
+          "welt_fakt kesh_route: frei"
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "zf_relais": {
+      "molekuele": [
+        {
+          "id": "system_ausschalten",
+          "umsetzung": "stoerrelais",
+          "params": {
+            "loc": "kesh",
+            "npc": "grauzahn",
+            "relais": 3,
+            "mit_wache": true,
+            "funk_nach": 35,
+            "funk": "Hört ihr das Rauschen, Lerche? Das ist meine Zollschranke. Wer hier rauswill, redet erst mit mir."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "zf_zoll": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "kesh",
+            "npc": "grauzahn",
+            "eroeffnung": "Ihr habt meine Relais zerlegt. Teures Spielzeug. Sechzig Marken, und wir vergessen das – sonst hole ich sie mir anders.",
+            "frage": "Grauzahns Wegezoll zahlen?",
+            "antwort_a": "Sechzig Marken. Und dann ist Ruhe.",
+            "antwort_b": "Die Route gehört dem Konkordat. Kein Zoll.",
+            "folgen_a": [
+              { "setFlag": { "zf_zoll_gezahlt": true } },
+              { "do": "pay_marks", "marks": 60 },
+              { "radio": { "from": "grauzahn", "text": "Geht doch. Die Route ist offen – solange ich es sage." } }
+            ],
+            "folgen_b": [
+              { "radio": { "from": "grauzahn", "text": "Dann zahlt ihr eben mit Blech. Jäger, holt sie euch!" } }
+            ],
+            "folgen_schweigen": [
+              { "radio": { "from": "grauzahn", "text": "Schweigen kostet auch. Jäger, los!" } }
+            ],
+            "geduld_s": 75
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "ausgang:zoll_bezahlt", "if": { "flag": "zf_zoll_gezahlt" } },
+        { "nach": "zf_gefecht" }
+      ],
+      "wendung": null
+    },
+    "zf_gefecht": {
+      "molekuele": [
+        {
+          "id": "vernichten",
+          "umsetzung": "angriffswelle",
+          "params": {
+            "loc": "kesh",
+            "npc": "grauzahn",
+            "jaeger": 2,
+            "verstaerkung": "gunboat",
+            "verstaerkung_nach": 55,
+            "funk_start": "Ihr wolltet es so. Jäger, zeigt der Lerche, was Zoll kostet.",
+            "funk_verstaerkung": "Kanonenboot, nach vorn. Ich will ihre Schilde glühen sehen."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "zf_bericht": {
+      "molekuele": [
+        {
+          "id": "ladung_liefern",
+          "umsetzung": "im_hafen_abgeben",
+          "params": {
+            "loc": "hafen",
+            "empfaenger": "tesk",
+            "lohn": 120,
+            "was": "die Messdaten der Relais",
+            "funk_quittung": "Route frei, Relais verstummt – die ersten Frachter springen schon. Das vergesse ich euch nicht, Lerche."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    }
+  }
+}

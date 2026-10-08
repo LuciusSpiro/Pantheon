@@ -22,6 +22,7 @@ const MAP_GROUPS = {
 // Benannte Zonen der Raumszenen (ersetzt Pixelgrenzen wie shipX gt 1500): Ort -> Zone -> { xMin?, xMax?, yMin?, yMax? }
 const SPACE_ZONES = {
   splitter: { durchquert: { xMin: 1500 } },
+  nebel: { durchquert: { xMin: 1500 } },   // S2: kurs_durch_gefahr/nebelflug (wie splitter: zweite Hälfte der Szene erreicht)
 };
 // Beam-Regeln je Außenkarte (ersetzt die m1-Sonderlogik in beamDownBlocked): nur, wenn der Schritt die Karte in
 // allowBeam nennt; Texte vorher bzw. nachher (Karte schon benutzt oder Mission mit dieser Karte erledigt).

@@ -10,6 +10,97 @@
   "szenentypen": [
     "A7"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "nebelflug",
+      "name": "Blindflug durch Feld oder Nebel",
+      "schauplatz": "weltraum",
+      "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Taktik deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
+      "braucht": [
+        "gelaende",
+        "weitscan"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [3, 4], "2": [2, 4], "3": [2, 3] },
+      "ereignisse": [
+        "asteroid",
+        "widescan"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["splitter", "nebel"], "beschreibung": "Ort mit durchquerbarem Feld (Zone 'durchquert')" },
+        "mit_hinterhalt": { "typ": "bool", "default": false, "beschreibung": "Jäger lauern im Feld (Wendung)" },
+        "hinterhalt_nach": { "typ": "zahl", "default": 45, "min": 20, "max": 120 },
+        "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 2 },
+        "lage": { "typ": "text", "default": "Dichtes Feld voraus. Pilot sieht nur nach vorn – Taktik: Weitscan, Marker setzen!" }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              { "at": 10, "oda": "@{{id}}.captain" },
+              { "at": 60, "if": { "not": { "v": "{{id}}_durch" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ "{{mit_hinterhalt}}", { "elapsed": "{{hinterhalt_nach}}" }, { "not": { "v": "{{id}}_durch" } } ] },
+                "do": [
+                  {
+                    "wendung": "{{id}}_hinterhalt",
+                    "ankuendigung": { "oda": "@{{id}}.hinterhalt", "art": "gleichzeitig", "grund": "Die Jäger tauchen sichtbar aus dem Feld auf; ODA warnt im selben Moment." },
+                    "wirkung": [ { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "angles": [1.3, -1.3] } } ]
+                  }
+                ]
+              },
+              {
+                "if": { "all": [ { "check": { "name": "ship_in_zone", "loc": "{{loc}}", "zone": "durchquert" } }, { "not": { "v": "{{id}}_durch" } } ] },
+                "do": [ { "set": { "{{id}}_durch": true } }, { "oda": "@{{id}}.durch" } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": 240 }, { "not": { "v": "{{id}}_durch" } } ] },
+                "do": [ { "set": { "{{id}}_durch": true } }, { "oda": "@{{id}}.ausweg" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              { "id": "durch", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_durch" } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_durch" }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_durch": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.captain": "Captain: Sternkarte und Taktikkarte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
+          "{{id}}.tipp": "Ziel ist die andere Seite des Felds. Langsam ist sicherer – jeder Brocken kostet Schild.",
+          "{{id}}.hinterhalt": "Jäger kommen aus dem Feld! Breitseite, und die Brocken als Deckung nutzen.",
+          "{{id}}.durch": "Wir sind durch! Freie Sicht voraus.",
+          "{{id}}.ausweg": "Der Navigationsrechner hat eine Lücke gefunden – Kurs liegt an, wir sind durch.",
+          "{{id}}.ziel": "Das Feld durchqueren (andere Seite erreichen)"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "mit_hinterhalt": true
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"
 }

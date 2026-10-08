@@ -407,10 +407,28 @@
   // Bereiche in Kachelkoordinaten: { rect: [x, y, w, h] } oder { cols: [min, max] } (alle Zeilen, x von min bis max).
   // Kesh: hof/halle sind bewusst Spaltenbereiche wie bisher (CONFIG.missionM3.courtyardX = 27, hallX = 37) – der Hof umfasst
   // damit auch die Landezone und die Halle das Gewölbe. So spielt sich m3 genau wie vorher.
+  // S2 (Team BAUSTEINE): Räume auf B-7 und im Wrack als Bereiche (Anker für spawn_person, area_occupied …).
+  // kernraum (B-7) liegt hinter der Sondentür, hohlraum (Wrack) hinter der dünnen Wand – beide erst nach dem Öffnen begehbar.
+  // nsc = NSC-Anker der Karte (eine Kachel; Standardplatz für spawn_person). Als Bereich statt Objekt, weil Wrack/Kesh keine
+  // NSC-Kachel in der Legende haben (ein Objekt ohne Kachel meldet der Prüfer als REF-KACHEL). B-7: Ivos Platz 'N'.
   const MAP_AREAS = {
-    platform: {},
-    wreck: {},
+    platform: {
+      nsc: { rect: [26, 2, 1, 1] },
+      landedeck: { rect: [2, 2, 7, 7] },
+      halle: { rect: [10, 2, 10, 11] },
+      nordraum: { rect: [21, 2, 9, 5] },
+      kernraum: { rect: [21, 8, 9, 6] },
+      sondenraum: { rect: [10, 14, 10, 2] },
+    },
+    wreck: {
+      nsc: { rect: [26, 3, 1, 1] },
+      vorderdeck: { rect: [2, 2, 7, 4] },
+      bruecke: { rect: [20, 2, 8, 4] },
+      laderaum: { rect: [2, 7, 26, 7] },
+      hohlraum: { rect: [13, 9, 7, 2] },
+    },
     kesh: {
+      nsc: { rect: [8, 4, 1, 1] },
       landezone: { rect: [1, 15, 14, 10] },
       hof: { cols: [0, 27] },
       halle: { cols: [37, 47] },

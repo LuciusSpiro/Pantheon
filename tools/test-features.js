@@ -523,16 +523,21 @@ console.log('\n[Missions-Engine, Mission 2, Ende M1, Snapshot]');
   ok(g.mission.state.stage === 'finale', 'Relaiskern gescannt -> Finale');
   run(5);
   // M2 „Schildwall“: nach Mission 2 geht die Kampagne mit Mission 3 weiter (CONTRACT-M2 §3.2)
-  ok(g.phase === 'play' && g.mission.missions.m2.state === 'done' && g.mission.activeId === 'm3' && g.mission.state.teaser && g.mission.state.teaser.status === 'ready', 'Ende M2: Mission 3 beginnt, Teaser bereit');
+  // S2: Teaser „Fortsetzung folgt“ abgelöst (Spielleiter) – kein Teaser mehr nach m2
+  ok(g.phase === 'play' && g.mission.missions.m2.state === 'done' && g.mission.activeId === 'm3' && !g.mission.state.teaser, 'Ende M2: Mission 3 beginnt (S2: kein Teaser mehr)');
   run(g.C.missionM3.offerAfter + 1);
   ok(g.mission.state.radio && g.mission.state.radio.needsAccept && /Kesh/.test(g.mission.state.radio.text), 'Tesk bietet Mission 3 an');
+  const chapters = [];
+  const watch = { send: (o) => { if (o && o.t === 'event' && (o.kind === 'chapter' || o.kind === 'ending')) chapters.push(o); } };
+  g.addConnection(watch); watch.observer = true;
   send(0, { t: 'debug', cmd: 'mission', id: 'm3', step: 'extract' });
   g.mission.v = {}; g.inventory.tafel = 1; g.aways.kesh.active = true;
   run(0.5);
-  ok(g.phase === 'end' && g.mission.missions.m3.state === 'done', 'Ende M3: phase end');
-  ok(g.snapshot().mission.objectives[0].id === 'explore', 'nach dem Ende: frei erkunden');
+  // S2 Entscheidung 9: in der Kampagne Kapitelkarte und weiterspielen (Direktstart m3: Ende wie bisher, test-regiebuch)
+  ok(g.phase === 'play' && g.mission.missions.m3.state === 'done' && chapters.some((o) => o.kind === 'chapter') && !chapters.some((o) => o.kind === 'ending'), 'Ende M3 (Kampagne): Kapitelkarte, Spiel läuft weiter');
+  ok(g.snapshot().mission.objectives[0].id === 'explore', 'nach m3: frei erkunden');
   cmd(0, 'captain.listen');
-  ok(g.mission.state.radio && /Belohnung/.test(g.mission.state.radio.text), 'Teaser abhören');
+  ok(!(g.mission.state.radio && /Belohnung/.test(g.mission.state.radio.text)), 'S2: kein Teaser zum Abhören');
   // Engine: unbekannte Bausteine werden gezählt, nicht verschluckt
   const errs = g.errors;
   g.mission.cond({ quatsch: 1 });

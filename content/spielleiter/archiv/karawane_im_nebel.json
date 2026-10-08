@@ -1,0 +1,228 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-karawane_im_nebel-1",
+  "name": "karawane_im_nebel",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission (CONTRACT-S2 §6, Team KATALOG, von Hand). Geleit mit Schützling 'karawane' (nur innerhalb der Szene) + Funkduell mit Grauzahn, das die Härte des Geleits bestimmt. Verzweigung nach dem Geleit über die liefert_flags <szene>_verloren.",
+  "input": { "auftrag": "Archiv: Sela – Nachzügler-Karawane durch den Nebel geleiten, vorher Funkduell mit der Rostmeute. Ziel 15 min zu dritt, ohne Tutorial-Voraussetzung." },
+  "erinnerung_varianten": [
+    { "erinnerung": { "npc": "sela", "ereignis": "notruf_geholfen" }, "text": "Sela weiß noch, wer ihren hustenden Reaktor geflickt hat. Sie fragt zuerst die Lerche." },
+    { "erinnerung": { "npc": "sela", "ereignis": "sonde_gefunden" }, "text": "Sela hat nicht vergessen, wer ihre verlorene Sonde im Nebel gefunden hat." },
+    { "erinnerung": { "npc": "sela", "ereignis": "karte_gekauft" }, "text": "Sela erinnert sich an die Nebelkarte, die sie der Lerche verkauft hat – jetzt braucht sie selbst jemanden, der den Nebel kennt." }
+  ],
+  "erinnerung_neutral": "Die Vaelen fragen nicht jeden um Hilfe. Dass Sela die Lerche ruft, heißt: Es eilt.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "karawane_im_nebel",
+    "titel": "Karawane im Nebel",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Sela. Zwei Kapseln meiner Karawane hängen im Nebel fest, und die Rostmeute hat sie gerochen. Holt sie mir da raus – ich zahle in Marken, nicht in Versprechen.",
+    "erinnerung": { "npc": "sela", "ereignis": "notruf_geholfen" },
+    "erinnerung_text": "Sela weiß noch, wer ihren hustenden Reaktor geflickt hat. Sie fragt zuerst die Lerche.",
+    "szenen": [
+      {
+        "id": "kn_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Sela funkt in den Hafen: Ein Teil ihrer Karawane steckt im Nebel, Rostmeute-Jäger kreisen schon.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [ { "wenn": "Auftrag angenommen", "nach": "kn_zoll" } ]
+      },
+      {
+        "id": "kn_zoll",
+        "szenentyp": "begegnung",
+        "ort": "vaelen",
+        "karte": null,
+        "molekuele": [ { "id": "verhandeln", "umsetzung": "funkduell" } ],
+        "sachverhalt": "Bei der Karawane meldet sich Grauzahn: Der Nebel gehört der Rostmeute. Zahlt die Lerche für Sela vierzig Marken, schickt er nur einen Jäger – sonst kommt er mit allem.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          { "wenn": "Zahlen", "nach": "kn_geleit_ruhig" },
+          { "wenn": "Ablehnen oder Schweigen", "nach": "kn_geleit_hart" }
+        ]
+      },
+      {
+        "id": "kn_geleit_ruhig",
+        "szenentyp": "geleit",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [ { "id": "schuetzen", "umsetzung": "geleit_durch_angriff" } ],
+        "sachverhalt": "Die Lerche holt die Kapseln aus dem Nebel. Grauzahn hält Wort – halb: Ein einzelner Jäger testet die Lerche, später noch einer.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          { "wenn": "Karawane durch", "nach": "kn_ankunft" },
+          { "wenn": "Karawane kampfunfähig", "nach": "ausgang:schwer_beschaedigt" }
+        ]
+      },
+      {
+        "id": "kn_geleit_hart",
+        "szenentyp": "geleit",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [ { "id": "schuetzen", "umsetzung": "geleit_durch_angriff" } ],
+        "sachverhalt": "Grauzahn macht ernst: Jäger gehen auf die Kapseln, dann kommt ein Kanonenboot. Die Lerche muss sich dazwischenstellen.",
+        "wendung": null,
+        "dauer_min": 6,
+        "weiter": [
+          { "wenn": "Karawane durch", "nach": "kn_ankunft" },
+          { "wenn": "Karawane kampfunfähig", "nach": "ausgang:schwer_beschaedigt" }
+        ]
+      },
+      {
+        "id": "kn_ankunft",
+        "szenentyp": "ablieferung",
+        "ort": "vaelen",
+        "karte": null,
+        "molekuele": [ { "id": "ladung_liefern", "umsetzung": "im_hafen_abgeben" } ],
+        "sachverhalt": "Die Kapseln sind vorausgesprungen. Bei der Karawane dockt die Lerche an, Sela rechnet ab.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [ { "wenn": "angedockt", "nach": "ausgang:durchgebracht" } ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "kn_zoll",
+        "frage": "Zahlt die Lerche Grauzahn vierzig Marken für einen ruhigeren Nebel?",
+        "optionen": [
+          { "id": "zahlen", "text": "Vierzig Marken zahlen", "folge": "Nur einzelne Jäger im Nebel; Grauzahn wird umgänglicher, Sela sieht, dass die Lerche für sie zahlt." },
+          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Jäger und Kanonenboot greifen die Kapseln an; Grauzahn wird gereizt." }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "durchgebracht": {
+        "wann": "Die Kapseln sind aus dem Nebel heraus und Sela hat abgerechnet.",
+        "folgen": [
+          "npc_haltung sela +1",
+          "npc_gedaechtnis sela: Die Lerche hat meine Kapseln aus dem Nebel geholt, als die Rostmeute schon zugriff.",
+          "npc_gedaechtnis grauzahn: Die Lerche hat Selas Kapseln durch meinen Nebel gebracht.",
+          "chronik: Karawane im Nebel: Die Lerche geleitete zwei Vaelen-Kapseln aus dem Nebel. Sela hat bezahlt – in Marken, nicht in Versprechen."
+        ]
+      },
+      "schwer_beschaedigt": {
+        "wann": "Die Kapseln treiben kampfunfähig im Nebel; die Rostmeute zieht mit Beute ab, die Besatzung lebt.",
+        "folgen": [
+          "npc_haltung sela -1",
+          "npc_gedaechtnis sela: Die Lerche war da, aber meine Kapseln sind im Nebel liegen geblieben. Die Besatzung lebt – immerhin.",
+          "npc_gedaechtnis grauzahn: Selas Kapseln treiben in meinem Nebel. Die Lerche konnte sie nicht schützen.",
+          "chronik: Karawane im Nebel: Zwei Vaelen-Kapseln blieben schwer beschädigt im Nebel liegen. Die Rostmeute hat sich bedient.",
+          "welt_fakt vaelen_kapseln (faden): Zwei beschädigte Vaelen-Kapseln treiben im Nebel."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "kn_zoll": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "vaelen",
+            "npc": "grauzahn",
+            "eroeffnung": "Lerche, der Nebel gehört der Rostmeute. Vierzig Marken für Selas Kapseln, und ich schicke nur einen Jäger zum Gucken. Sonst komme ich selbst.",
+            "frage": "Vierzig Marken an Grauzahn zahlen?",
+            "antwort_a": "Vierzig Marken. Und ihr haltet Abstand.",
+            "antwort_b": "Der Nebel gehört niemandem. Kommt doch.",
+            "folgen_a": [
+              { "setFlag": { "kn_zoll_gezahlt": true } },
+              { "do": "pay_marks", "marks": 40 },
+              { "radio": { "from": "grauzahn", "text": "Vernünftig. Ein Jäger zum Gucken – mehr nicht. Fürs Erste." } },
+              { "radio": { "from": "sela", "text": "Ihr habt für mich gezahlt? Das schreibe ich mir auf, Lerche." } }
+            ],
+            "folgen_b": [
+              { "radio": { "from": "grauzahn", "text": "Dann sehen wir uns im Nebel. Bringt Flickblech mit." } }
+            ],
+            "folgen_schweigen": [
+              { "radio": { "from": "grauzahn", "text": "Funkstille? Ich nehme das als Nein." } }
+            ],
+            "geduld_s": 75
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "kn_geleit_ruhig", "if": { "flag": "kn_zoll_gezahlt" } },
+        { "nach": "kn_geleit_hart" }
+      ],
+      "wendung": null
+    },
+    "kn_geleit_ruhig": {
+      "molekuele": [
+        {
+          "id": "schuetzen",
+          "umsetzung": "geleit_durch_angriff",
+          "params": {
+            "loc": "nebel",
+            "funk_npc": "sela",
+            "kind": "karawane",
+            "name": "Selas Karawane",
+            "von": "west",
+            "nach": "ost",
+            "jaeger": 1,
+            "angriff_nach": 30,
+            "verstaerkung": "raider",
+            "funk_start": "Lerche, wir sehen euch! Kapseln koppeln an, wir nehmen Kurs nach Osten. Bleibt dicht bei uns.",
+            "funk_notruf": "Treffer an der hinteren Kapsel! Lerche, stellt euch dazwischen!"
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "ausgang:schwer_beschaedigt", "if": { "flag": "kn_geleit_ruhig_verloren" } },
+        { "nach": "kn_ankunft" }
+      ],
+      "wendung": null
+    },
+    "kn_geleit_hart": {
+      "molekuele": [
+        {
+          "id": "schuetzen",
+          "umsetzung": "geleit_durch_angriff",
+          "params": {
+            "loc": "nebel",
+            "funk_npc": "sela",
+            "kind": "karawane",
+            "name": "Selas Karawane",
+            "von": "west",
+            "nach": "ost",
+            "jaeger": 2,
+            "angriff_nach": 20,
+            "verstaerkung": "gunboat",
+            "funk_start": "Lerche, wir sehen euch! Kapseln koppeln an. Grauzahn ist hier irgendwo – bleibt dicht bei uns.",
+            "funk_notruf": "Die Kapseln halten das nicht aus! Lerche, Breitseite – bitte!"
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "ausgang:schwer_beschaedigt", "if": { "flag": "kn_geleit_hart_verloren" } },
+        { "nach": "kn_ankunft" }
+      ],
+      "wendung": null
+    },
+    "kn_ankunft": {
+      "molekuele": [
+        {
+          "id": "ladung_liefern",
+          "umsetzung": "im_hafen_abgeben",
+          "params": {
+            "loc": "vaelen",
+            "empfaenger": "sela",
+            "lohn": 110,
+            "was": "Selas Kapseln",
+            "funk_quittung": "Alle Kapseln da, alle Leute da. Hier sind eure Marken, Lerche – und ein Platz an unserem Feuer."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    }
+  }
+}

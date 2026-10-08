@@ -1,0 +1,1578 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_3_fluesterer_im_nebel",
+  "name": "2026-10-08_sl_3_fluesterer_im_nebel",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 26098,
+  "erstellt": "2026-10-08T09:45:12.617Z",
+  "aktualisiert": "2026-10-08T09:45:12.617Z",
+  "meta": {
+    "mission_id": "sl_3_fluesterer_im_nebel",
+    "welt": "w-zus6",
+    "plan": "p3",
+    "origin": "sl",
+    "anlass": {
+      "art": "kampagnenstart",
+      "tutorial": false
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_nebel_einfahrt": "rohfassung",
+      "s3_signal_orten": "rohfassung",
+      "s4_entscheidung_auftritt": "rohfassung",
+      "s5_pannenhilfe": "rohfassung",
+      "s5b_gefecht": "rohfassung"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's4_entscheidung_auftritt_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_entscheidung_auftritt_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's5_pannenhilfe_beschaedigt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's5_pannenhilfe_verloren' wird gesetzt, aber in diesem Buch nie gelesen"
+      ]
+    }
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "fakt": "datenkern"
+      },
+      "text": "Sela deutet auf den Datenkern an Bord: 'Konkordat-Technik. Ihr wisst, wie man mit heißem Material umgeht. Gut.'"
+    }
+  ],
+  "erinnerung_neutral": "Sela (Vaelen-Händlerin) hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "fluesterer_im_nebel",
+    "titel": "Der Flüsterer in der Grauen Weite",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Eine Karawane ist spurlos ausgeblieben – mein bestes Schiff, drei Tage überfällig, letztes Signal aus der Grauen Weite. Ihr seid nah genug und klein genug, um unbemerkt hineinzufliegen.",
+    "erinnerung": {
+      "fakt": "datenkern"
+    },
+    "erinnerung_text": "Sela deutet auf den Datenkern an Bord: 'Konkordat-Technik. Ihr wisst, wie man mit heißem Material umgeht. Gut.'",
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Sela funkt aus der Vaelen-Karawane über Relay zum Hafen Lichtkordon: Die Karawane 'Goldkehle' ist drei Tage überfällig, letztes Signal aus der Grauen Weite. Sie bietet 80 Marken für Nachricht oder Rettung.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Crew nimmt an",
+            "nach": "s2_nebel_einfahrt"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_einfahrt",
+        "szenentyp": "gefahrennavigation",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "kurs_durch_gefahr",
+            "umsetzung": "nebelflug"
+          }
+        ],
+        "sachverhalt": "Die Graue Weite liegt dicht und still – kein Funksignal, kein Licht. Der Pilot muss das Feld durchqueren, die Taktik deckt mit Weitscan auf und setzt Marker, der Captain plant den Kurs.",
+        "wendung": "Ankündigung: Mitten im Nebelflug bricht kurz ein Funksignal durch – Vaelen-Kennung, dann Stille. Das Signal kommt von vorn.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Feld durchquert",
+            "nach": "s3_signal_orten"
+          }
+        ]
+      },
+      {
+        "id": "s3_signal_orten",
+        "szenentyp": "annaeherung_und_erkundung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "signal_orten",
+            "umsetzung": "weitscan_peilung"
+          }
+        ],
+        "sachverhalt": "Das Signal ist schwach und springt. Die Taktik pingt mit dem Weitscan, der Pilot fliegt die Peilung ab – bis die 'Goldkehle' aufleuchtet: treibend, Antrieb tot, Schild ausgefallen.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Goldkehle gefunden, Rostmeute taucht auf",
+            "nach": "s4_entscheidung_auftritt"
+          }
+        ]
+      },
+      {
+        "id": "s4_entscheidung_auftritt",
+        "szenentyp": "begegnung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "taeuschen",
+            "umsetzung": "bluff_funk"
+          }
+        ],
+        "sachverhalt": "Ein Rostmeute-Kanonenboot taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Bluff gelingt oder Crew weicht aus",
+            "nach": "s5_pannenhilfe"
+          },
+          {
+            "wenn": "Bluff scheitert oder Crew greift an",
+            "nach": "s5b_gefecht"
+          }
+        ]
+      },
+      {
+        "id": "s5_pannenhilfe",
+        "szenentyp": "begegnung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "pannenhilfe",
+            "umsetzung": "andocken_und_flicken"
+          }
+        ],
+        "sachverhalt": "Das Kanonenboot zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Antrieb geflickt, Goldkehle fährt selbst",
+            "nach": "ausgang:begleitet"
+          },
+          {
+            "wenn": "Kanonenboot greift während der Arbeit an",
+            "nach": "s5b_gefecht"
+          }
+        ]
+      },
+      {
+        "id": "s5b_gefecht",
+        "szenentyp": "raumgefecht",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "sachverhalt": "Das Kanonenboot und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht das Kanonenboot knurrend ab.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Rostmeute flieht, Goldkehle gerettet",
+            "nach": "ausgang:befreit"
+          },
+          {
+            "wenn": "Lerche zu schwer beschädigt, Rückzug",
+            "nach": "ausgang:rueckzug"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s4_entscheidung_auftritt",
+        "frage": "Wie antwortet der Captain dem Rostmeute-Kanonenboot?",
+        "optionen": [
+          {
+            "id": "bluff_schrotthaendler",
+            "text": "Wir sind Schrotthändler, suchen Treibgut",
+            "folge": "Kanonenboot glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig"
+          },
+          {
+            "id": "wahrheit_konkordat",
+            "text": "Wir suchen die Goldkehle im Auftrag der Karawane",
+            "folge": "Kanonenboot fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe"
+          }
+        ]
+      },
+      {
+        "szene": "s5_pannenhilfe",
+        "frage": "Was macht die Crew mit dem Wissen über die Kustoden-Sonde an Bord der Goldkehle?",
+        "optionen": [
+          {
+            "id": "sonde_konfiszieren",
+            "text": "Sonde sicherstellen und mitführen",
+            "folge": "Rostmeute verfolgt die Lerche; Kustoden-Faden öffnet sich"
+          },
+          {
+            "id": "sonde_vernichten",
+            "text": "Sonde vor Ort zerstören",
+            "folge": "Rostmeute verliert Interesse; Kustoden-Faden bleibt geschlossen"
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "begleitet": {
+        "wann": "Antrieb geflickt, Rostmeute abgezogen, Goldkehle fährt selbst zum Treffpunkt",
+        "folgen": [
+          "npc_gedaechtnis sela: Lerche hat die Goldkehle ohne Kampf heimgebracht – schulde ihnen etwas",
+          "npc_haltung sela +2",
+          "chronik: Crew rettet Vaelen-Frachter 'Goldkehle' aus der Grauen Weite durch Pannenhilfe",
+          "welt_fakt kustoden_sonde (faden): Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen"
+        ]
+      },
+      "befreit": {
+        "wann": "Rostmeute vertrieben nach Gefecht, Goldkehle gerettet",
+        "folgen": [
+          "npc_gedaechtnis sela: Lerche hat die Goldkehle mit Waffengewalt befreit – mutiger Einsatz",
+          "npc_haltung sela +1",
+          "npc_haltung grauzahn -1",
+          "chronik: Crew vertreibt Rostmeute-Trupp im Nebel und befreit die Goldkehle",
+          "welt_fakt kustoden_sonde (faden): Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen"
+        ]
+      },
+      "rueckzug": {
+        "wann": "Lerche zu schwer beschädigt, Rückzug ohne Goldkehle",
+        "folgen": [
+          "npc_gedaechtnis sela: Lerche musste ohne die Goldkehle abdrehen – kein Vorwurf, aber kein Vertrauen gewonnen",
+          "npc_haltung grauzahn +1",
+          "chronik: Crew muss im Nebel vor der Rostmeute abdrehen, Goldkehle-Schicksal unbekannt",
+          "welt_fakt goldkehle_vermisst: Die Goldkehle ist weiter verschollen – die Rostmeute hat sie"
+        ]
+      }
+    },
+    "wuensche": [
+      "Szenentyp 'verfolgung' wäre hier passend gewesen – Kanonenboot, das die Lerche durch den Nebel jagt, nach einem gescheiterten Bluff."
+    ]
+  },
+  "szenen": {},
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_3_fluesterer_im_nebel",
+    "kopf": {
+      "titel": "Der Flüsterer in der Grauen Weite",
+      "art": "generiert",
+      "auftraggeber": "sela",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 3
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "sela"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "nebel",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "nebel"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "sela",
+        "grauzahn"
+      ],
+      "schiffe": {
+        "s5_pannenhilfe": {
+          "kind": "bergungsboot",
+          "name": "Bergungsboot",
+          "npc": "sela"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "kurs_durch_gefahr/nebelflug",
+        "enter": [
+          {
+            "setFlag": {
+              "s4_entscheidung_auftritt_durchschaut": null,
+              "s4_entscheidung_auftritt_geglueckt": null,
+              "s4_roh": null,
+              "s5_pannenhilfe_beschaedigt": null,
+              "s5_pannenhilfe_heil": null,
+              "s5_pannenhilfe_verloren": null,
+              "s5b_gefecht_vertrieben": null
+            }
+          },
+          {
+            "radio": {
+              "from": "sela",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_nebel_einfahrt_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_einfahrt_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_nebel_einfahrt.anflug_ziel",
+            "done": {
+              "atLocation": "nebel"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "nebel"
+              }
+            },
+            "oda": "@s2_nebel_einfahrt.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "nebel"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_nebel_einfahrt"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_nebel_einfahrt"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "nebel"
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s2_nebel_einfahrt",
+        "loc": "nebel",
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s2_nebel_einfahrt.lage"
+          },
+          {
+            "at": 10,
+            "oda": "@s2_nebel_einfahrt.captain"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "v": "s2_nebel_einfahrt_durch"
+              }
+            },
+            "oda": "@s2_nebel_einfahrt.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                true,
+                {
+                  "elapsed": 45
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_einfahrt_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s2_nebel_einfahrt_hinterhalt",
+                "ankuendigung": {
+                  "oda": "@s2_nebel_einfahrt.hinterhalt",
+                  "art": "gleichzeitig",
+                  "grund": "Die Jäger tauchen sichtbar aus dem Feld auf; ODA warnt im selben Moment."
+                },
+                "wirkung": [
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s2_nebel_einfahrt_w1",
+                      "n": 1,
+                      "angles": [
+                        1.3,
+                        -1.3
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "ship_in_zone",
+                    "loc": "nebel",
+                    "zone": "durchquert"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_einfahrt_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_einfahrt_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel_einfahrt.durch"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_einfahrt_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_einfahrt_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel_einfahrt.ausweg"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "durch",
+            "text": "@s2_nebel_einfahrt.ziel",
+            "done": {
+              "v": "s2_nebel_einfahrt_durch"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s2_nebel_einfahrt_durch"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s3_signal_orten"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s2_nebel_einfahrt_durch": true
+            }
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s3_signal_orten",
+        "loc": "nebel",
+        "timers": [
+          {
+            "at": 1,
+            "oda": "@s3_signal_orten.start"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 35
+                },
+                {
+                  "not": {
+                    "event": "widescan"
+                  }
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_lore"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "oda": "@s3_signal_orten.tipp"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 70
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_lore"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "direction_hint",
+                "find": "nebel_lore",
+                "text": "@s3_signal_orten.richtung"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 160
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_lore"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "reveal_find",
+                "id": "nebel_lore"
+              },
+              {
+                "oda": "@s3_signal_orten.aufgedeckt"
+              }
+            ],
+            "garantie": "autoloesung"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "revealed": "nebel_lore"
+                },
+                {
+                  "elapsed": 360
+                },
+                {
+                  "not": {
+                    "found": "nebel_lore"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "complete_find",
+                "id": "nebel_lore"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "finden",
+            "text": "@s3_signal_orten.ziel_finden",
+            "done": {
+              "revealed": "nebel_lore"
+            }
+          },
+          {
+            "id": "scannen",
+            "text": "@s3_signal_orten.ziel_scannen",
+            "show": {
+              "revealed": "nebel_lore"
+            },
+            "done": {
+              "found": "nebel_lore"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "found": "nebel_lore"
+            },
+            "goto": "s4_entscheidung_auftritt"
+          }
+        ],
+        "skip": [
+          {
+            "do": "complete_find",
+            "id": "nebel_lore"
+          }
+        ],
+        "umsetzung": "signal_orten/weitscan_peilung"
+      },
+      {
+        "id": "s4_entscheidung_auftritt",
+        "loc": "nebel",
+        "enter": [
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "@s4_entscheidung_auftritt.forderung"
+            }
+          },
+          {
+            "oda": "@s4_entscheidung_auftritt.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 8,
+            "oda": "@s4_entscheidung_auftritt.hinweis"
+          },
+          {
+            "at": 10,
+            "do": [
+              {
+                "choice": "s4_entscheidung_auftritt_wahl"
+              }
+            ]
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "choiceMade": "s4_entscheidung_auftritt_wahl"
+              }
+            },
+            "oda": "@s4_entscheidung_auftritt.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 75
+                },
+                {
+                  "not": {
+                    "choiceMade": "s4_entscheidung_auftritt_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "wahrheit"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s4_entscheidung_auftritt_wahl": {
+            "prompt": "@s4_entscheidung_auftritt.frage",
+            "options": [
+              {
+                "id": "passend",
+                "label": "@s4_entscheidung_auftritt.passend"
+              },
+              {
+                "id": "falsch",
+                "label": "@s4_entscheidung_auftritt.falsch"
+              },
+              {
+                "id": "wahrheit",
+                "label": "@s4_entscheidung_auftritt.wahrheit"
+              }
+            ],
+            "on": {
+              "passend": [
+                {
+                  "setFlag": {
+                    "s4_entscheidung_auftritt_geglueckt": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s4_entscheidung_auftritt.funk_geglueckt"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "reward": {
+                        "marks": 20
+                      }
+                    },
+                    {
+                      "setFlag": {
+                        "s4_roh": true
+                      }
+                    }
+                  ]
+                }
+              ],
+              "falsch": [
+                {
+                  "setFlag": {
+                    "s4_entscheidung_auftritt_durchschaut": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s4_entscheidung_auftritt.funk_durchschaut"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "do": "pay_marks",
+                      "marks": 20
+                    }
+                  ]
+                }
+              ],
+              "wahrheit": [
+                {
+                  "setFlag": {
+                    "s4_entscheidung_auftritt_durchschaut": true
+                  }
+                },
+                {
+                  "wirkung": []
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s4_entscheidung_auftritt.ziel",
+            "done": {
+              "choiceMade": "s4_entscheidung_auftritt_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "choiceMade": "s4_entscheidung_auftritt_wahl"
+                },
+                {
+                  "flag": "s4_roh"
+                }
+              ]
+            },
+            "goto": "s5_pannenhilfe"
+          },
+          {
+            "if": {
+              "choiceMade": "s4_entscheidung_auftritt_wahl"
+            },
+            "goto": "s5b_gefecht"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "passend"
+          }
+        ],
+        "umsetzung": "taeuschen/bluff_funk",
+        "liefert_flags": [
+          "s4_entscheidung_auftritt_geglueckt",
+          "s4_entscheidung_auftritt_durchschaut"
+        ]
+      },
+      {
+        "id": "s5_pannenhilfe",
+        "loc": "nebel",
+        "enter": [
+          {
+            "do": "spawn_escort",
+            "tag": "s5_pannenhilfe",
+            "kind": "bergungsboot",
+            "name": "Bergungsboot",
+            "npc": "sela",
+            "verhalten": "treibt",
+            "von": "vorn",
+            "huelle": 45,
+            "reparatur_s": 45
+          },
+          {
+            "after": {
+              "sec": 2,
+              "do": [
+                {
+                  "radio": {
+                    "from": "sela",
+                    "text": "@s5_pannenhilfe.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s5_pannenhilfe.lage"
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "v": "s5_pannenhilfe_ende"
+              }
+            },
+            "oda": "@s5_pannenhilfe.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                true,
+                {
+                  "elapsed": 15
+                },
+                {
+                  "not": {
+                    "v": "s5_pannenhilfe_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s5_pannenhilfe_stoerer",
+                "ankuendigung": {
+                  "oda": "@s5_pannenhilfe.ankuendigung",
+                  "art": "vorher",
+                  "vorlauf_s": 5
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s5_pannenhilfe_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "gunboat",
+                      "tag": "s5_pannenhilfe_w1",
+                      "ziel": "schuetzling",
+                      "angles": [
+                        2.4
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s5_pannenhilfe_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s5_pannenhilfe_w1",
+                      "n": 1,
+                      "ziel": "auto",
+                      "angles": [
+                        1.2,
+                        -1.4
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Kanonenboote gleichzeitig)",
+            "if": {
+              "all": [
+                true,
+                {
+                  "elapsed": 40
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s5_pannenhilfe_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s5_pannenhilfe_stoerer2",
+                "ankuendigung": {
+                  "oda": "@s5_pannenhilfe.ankuendigung",
+                  "art": "vorher",
+                  "vorlauf_s": 5
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s5_pannenhilfe_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "gunboat",
+                      "tag": "s5_pannenhilfe_w2",
+                      "ziel": "schuetzling",
+                      "angles": [
+                        -2.2
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "event": "escortSaved"
+                },
+                {
+                  "not": {
+                    "v": "s5_pannenhilfe_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_pannenhilfe_ende": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "sela",
+                  "text": "@s5_pannenhilfe.funk_dank"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_state",
+                    "tag": "s5_pannenhilfe",
+                    "state": "kampfunfaehig"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s5_pannenhilfe_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_pannenhilfe_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s5_pannenhilfe.verloren"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s5_pannenhilfe_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_pannenhilfe_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s5_pannenhilfe.aufgegeben"
+              }
+            ],
+            "garantie": "zeitlimit"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "flicken",
+            "text": "@s5_pannenhilfe.ziel",
+            "done": {
+              "v": "s5_pannenhilfe_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s5_pannenhilfe_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s5_pannenhilfe_heil"
+                }
+              ]
+            },
+            "complete": "begleitet"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s5_pannenhilfe_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s5b_gefecht"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s5_pannenhilfe_ende": true
+            }
+          }
+        ],
+        "umsetzung": "pannenhilfe/andocken_und_flicken",
+        "liefert_flags": [
+          "s5_pannenhilfe_heil",
+          "s5_pannenhilfe_beschaedigt",
+          "s5_pannenhilfe_verloren"
+        ]
+      },
+      {
+        "id": "s5b_gefecht",
+        "loc": "nebel",
+        "enter": [
+          {
+            "spawn": {
+              "kind": "raider",
+              "tag": "s5b_gefecht_w1",
+              "n": 2,
+              "angles": [
+                0.3,
+                -0.7,
+                1.2
+              ]
+            }
+          },
+          {
+            "if": true,
+            "spawn": {
+              "kind": "gunboat",
+              "tag": "s5b_gefecht_w1"
+            }
+          },
+          {
+            "do": "enemies_retreat",
+            "tag": "s5b_gefecht_w1",
+            "unter_pct": 40
+          },
+          {
+            "after": {
+              "sec": 3,
+              "do": [
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s5b_gefecht.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s5b_gefecht.lage"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            },
+            "oda": "@s5b_gefecht.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 3
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s5b_gefecht_w1",
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s5b_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5b_gefecht_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "s5b_gefecht_vertrieben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "@s5b_gefecht.funk_abzug"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s5b_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "tag": "s5b_gefecht_w1",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s5b_gefecht.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "vertreiben",
+            "text": "@s5b_gefecht.ziel",
+            "done": {
+              "v": "s5b_gefecht_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s5b_gefecht_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s5b_gefecht_vertrieben"
+                }
+              ]
+            },
+            "complete": "befreit"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s5b_gefecht_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "rueckzug"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s5b_gefecht_ende": true
+            }
+          },
+          {
+            "setFlag": {
+              "s5b_gefecht_vertrieben": true
+            }
+          }
+        ],
+        "umsetzung": "vertreiben/bis_zur_flucht",
+        "liefert_flags": [
+          "s5b_gefecht_vertrieben"
+        ]
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "begleitet": {
+        "beschreibung": "Antrieb geflickt, Rostmeute abgezogen, Goldkehle fährt selbst zum Treffpunkt",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 190
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "fluesterer_im_nebel_begleitet",
+            "text": "@aus.begleitet.t1"
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "sela",
+            "delta": 2
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.begleitet.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "kustoden_sonde",
+            "value": "Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen",
+            "quelle": "sl_3_fluesterer_im_nebel",
+            "faden": true
+          }
+        ]
+      },
+      "befreit": {
+        "beschreibung": "Rostmeute vertrieben nach Gefecht, Goldkehle gerettet",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 190
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "fluesterer_im_nebel_befreit",
+            "text": "@aus.befreit.t1"
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "sela",
+            "delta": 1
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "grauzahn",
+            "delta": -1
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.befreit.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "kustoden_sonde",
+            "value": "Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen",
+            "quelle": "sl_3_fluesterer_im_nebel",
+            "faden": true
+          }
+        ]
+      },
+      "rueckzug": {
+        "beschreibung": "Lerche zu schwer beschädigt, Rückzug ohne Goldkehle",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 190
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "fluesterer_im_nebel_rueckzug",
+            "text": "@aus.rueckzug.t1"
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "grauzahn",
+            "delta": 1
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.rueckzug.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "goldkehle_vermisst",
+            "value": "Die Goldkehle ist weiter verschollen – die Rostmeute hat sie",
+            "quelle": "sl_3_fluesterer_im_nebel"
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Eine Karawane ist spurlos ausgeblieben – mein bestes Schiff, drei Tage überfällig, letztes Signal aus der Grauen Weite. Ihr seid nah genug und klein genug, um unbemerkt hineinzufliegen.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_nebel_einfahrt.anflug_ziel": "Nach Graue Weite springen",
+      "s2_nebel_einfahrt.anflug_tipp": "Kurs liegt an: Graue Weite. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_nebel_einfahrt.lage": "Dichtes Feld voraus. Pilot sieht nur nach vorn – Taktik: Weitscan, Marker setzen!",
+      "s2_nebel_einfahrt.captain": "Captain: Sternkarte und Taktikkarte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
+      "s2_nebel_einfahrt.tipp": "Ziel ist die andere Seite des Felds. Langsam ist sicherer – jeder Brocken kostet Schild.",
+      "s2_nebel_einfahrt.hinterhalt": "Jäger kommen aus dem Feld! Breitseite, und die Brocken als Deckung nutzen.",
+      "s2_nebel_einfahrt.durch": "Wir sind durch! Freie Sicht voraus.",
+      "s2_nebel_einfahrt.ausweg": "Der Navigationsrechner hat eine Lücke gefunden – Kurs liegt an, wir sind durch.",
+      "s2_nebel_einfahrt.ziel": "Das Feld durchqueren (andere Seite erreichen)",
+      "s3_signal_orten.start": "Irgendwo hier ist die alte Bake. Taktik: Weitscan (W) – Marker für den Piloten!",
+      "s3_signal_orten.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+      "s3_signal_orten.richtung": "die alte Bake kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+      "s3_signal_orten.aufgedeckt": "Ich habe die alte Bake angepeilt und markiert. Anvisieren (T) und scannen (S)!",
+      "s3_signal_orten.ziel_finden": "Taktik: Weitscan (W) – die alte Bake suchen",
+      "s3_signal_orten.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)",
+      "s4_entscheidung_auftritt.forderung": "Ihr seid auf meinem Kurs. Dreht bei, oder wir helfen nach.",
+      "s4_entscheidung_auftritt.hinweis": "Ortung: Ihr Antrieb flackert – der Reaktor läuft auf halber Last. Die können kaum folgen.",
+      "s4_entscheidung_auftritt.frage": "Wie antworten wir?",
+      "s4_entscheidung_auftritt.passend": "Wir springen gleich – folgt uns, wenn ihr könnt.",
+      "s4_entscheidung_auftritt.falsch": "Eine Patrouille ist auf dem Weg hierher.",
+      "s4_entscheidung_auftritt.wahrheit": "Die Wahrheit sagen",
+      "s4_entscheidung_auftritt.funk_geglueckt": "… Na schön. Diesmal. Verschwindet.",
+      "s4_entscheidung_auftritt.funk_durchschaut": "Netter Versuch. Glaubt ihr, ich kann nicht zählen?",
+      "s4_entscheidung_auftritt.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+      "s4_entscheidung_auftritt.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+      "s4_entscheidung_auftritt.ziel": "Captain: antworten (Funk) – Ortung beachten",
+      "s5_pannenhilfe.funk_start": "Lerche? Unser Antrieb ist tot, wir treiben. Kommt längsseits – wir brauchen eure Schrauber.",
+      "s5_pannenhilfe.funk_dank": "Er läuft! Hört ihr das? Wir schulden euch was, Lerche.",
+      "s5_pannenhilfe.lage": "Bergungsboot treibt. Steuer: nah ran und fast stehen bleiben – dann flicken die Schrauber.",
+      "s5_pannenhilfe.tipp": "Reparatur läuft nur nah, langsam und ohne Beschuss. Steuer: Tempo auf null, Bug zum Havaristen.",
+      "s5_pannenhilfe.ankuendigung": "Ortung: Angreifer halten auf den Havaristen zu! Reparatur pausiert unter Beschuss – dazwischen.",
+      "s5_pannenhilfe.verloren": "Bergungsboot ist kampfunfähig. Die Besatzung steigt in die Kapseln – wir melden es dem Hafen.",
+      "s5_pannenhilfe.aufgegeben": "Fremde Technik, keine Chance. Wir funken einen Schlepper vom Hafen herbei.",
+      "s5_pannenhilfe.ziel": "Bergungsboot flicken: längsseits gehen und stillhalten",
+      "s5b_gefecht.funk_start": "Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer.",
+      "s5b_gefecht.funk_abzug": "Das ist es nicht wert. Rückzug! Wir sehen uns wieder.",
+      "s5b_gefecht.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+      "s5b_gefecht.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+      "s5b_gefecht.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+      "s5b_gefecht.ziel": "Angreifer vertreiben ({left:s5b_gefecht_w1} übrig)",
+      "aus.begleitet.t1": "Lerche hat die Goldkehle ohne Kampf heimgebracht – schulde ihnen etwas",
+      "aus.begleitet.t2": "Crew rettet Vaelen-Frachter 'Goldkehle' aus der Grauen Weite durch Pannenhilfe",
+      "aus.befreit.t1": "Lerche hat die Goldkehle mit Waffengewalt befreit – mutiger Einsatz",
+      "aus.befreit.t2": "Crew vertreibt Rostmeute-Trupp im Nebel und befreit die Goldkehle",
+      "aus.rueckzug.t1": "Lerche musste ohne die Goldkehle abdrehen – kein Vorwurf, aber kein Vertrauen gewonnen",
+      "aus.rueckzug.t2": "Crew muss im Nebel vor der Rostmeute abdrehen, Goldkehle-Schicksal unbekannt",
+      "buch.briefing": "Eine Karawane ist spurlos ausgeblieben – mein bestes Schiff, drei Tage überfällig, letztes Signal aus der Grauen Weite. Ihr seid nah genug und klein genug, um unbemerkt hineinzufliegen.",
+      "buch.belohnung": "190 Marken",
+      "buch.erinnerung": "Sela deutet auf den Datenkern an Bord: 'Konkordat-Technik. Ihr wisst, wie man mit heißem Material umgeht. Gut.'"
+    },
+    "erinnerung": {
+      "fakt": "datenkern"
+    }
+  },
+  "gespielt": []
+}

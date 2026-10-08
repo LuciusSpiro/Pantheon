@@ -1,0 +1,210 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-abschrift_b7-1",
+  "name": "abschrift_b7",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission (CONTRACT-S2 §6, Team KATALOG, von Hand). Plattform B-7 wieder bespielbar (map_reset in der ersten Außenszene, erzählt), Person retten, Sonden-Code, Kern holen, im Hafen entscheiden, wer das Original bekommt. Ohne die Wörter, die der Tutorial-Prüfer sucht (Datenkern, Ivo, stumme Boje, Nachhut) in Titel/Aufhänger/Sachverhalten.",
+  "input": { "auftrag": "Archiv: Melk – Abschrift der Aufzeichnungen von B-7, Plattform zurückgesetzt, Person retten, Sonden-Code. Ziel 15 min zu dritt, ohne Tutorial-Voraussetzung." },
+  "erinnerung_varianten": [
+    { "erinnerung": { "npc": "melk", "ereignis": "tafel_im_archiv" }, "text": "Melk hat die Tafel von Kesh aus den Händen der Lerche bekommen. Wem sonst sollte sie B-7 anvertrauen?" },
+    { "erinnerung": { "npc": "melk", "ereignis": "datenkern_im_archiv" }, "text": "Melk hat den ersten Kern von B-7 schon im Archiv. Jetzt will sie die ganze Aufzeichnung." },
+    { "erinnerung": { "fakt": "tafel_von_kesh" }, "text": "Die Tafel von Kesh liegt im Konkordat-Archiv. Melk will wissen, was B-7 dazu aufgezeichnet hat." }
+  ],
+  "erinnerung_neutral": "Melk sammelt alles, was die Kustoden hinterlassen. B-7 hat zu lange niemand abgeschrieben.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "abschrift_b7",
+    "titel": "Abschrift von B-7",
+    "auftraggeber": "melk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Archivarin Melk. Mein Gehilfe Pell sollte auf B-7 die Aufzeichnungen abschreiben und meldet sich nicht mehr. Holt ihn – und bringt mir mit, was die Plattform gespeichert hat.",
+    "erinnerung": { "fakt": "tafel_von_kesh" },
+    "erinnerung_text": "Melk vergleicht im Konkordat-Archiv alles, was die Kustoden hinterlassen haben – B-7 fehlt ihr noch.",
+    "szenen": [
+      {
+        "id": "ab_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Melk bittet die Lerche, ihren verletzten Gehilfen von der Plattform unter B-7 zu holen und den Speicher der Plattform mitzubringen.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [ { "wenn": "Auftrag angenommen", "nach": "ab_pell" } ]
+      },
+      {
+        "id": "ab_pell",
+        "szenentyp": "bergung_vor_ort",
+        "ort": "b7",
+        "karte": "platform",
+        "molekuele": [ { "id": "personen_bergen", "umsetzung": "techniker_retten" } ],
+        "sachverhalt": "Das Konkordat hat die Plattform neu besetzt und wieder in Betrieb genommen. Pell ist bei der Wartung gestürzt und sitzt verletzt fest.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [ { "wenn": "Pell an Bord", "nach": "ab_sonde" } ]
+      },
+      {
+        "id": "ab_sonde",
+        "szenentyp": "raetselort",
+        "ort": "b7",
+        "karte": "platform",
+        "molekuele": [ { "id": "raetsel_loesen", "umsetzung": "sonden_code" } ],
+        "sachverhalt": "Pell erzählt: Die Sonde der Plattform sperrt den Speicher, solange sie läuft. Den Code dafür sieht nur der Captain.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [ { "wenn": "Sonde aus", "nach": "ab_kern" } ]
+      },
+      {
+        "id": "ab_kern",
+        "szenentyp": "bergung_vor_ort",
+        "ort": "b7",
+        "karte": "platform",
+        "molekuele": [ { "id": "datenkern_bergen", "umsetzung": "plattform_kern" } ],
+        "sachverhalt": "Mit abgeschalteter Sonde lässt sich der Speicherkern aus der Halterung lösen und an Bord bringen.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [ { "wenn": "Kern an Bord oder Zeit um", "nach": "ab_archiv" } ]
+      },
+      {
+        "id": "ab_archiv",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [
+          { "id": "ladung_liefern", "umsetzung": "im_hafen_abgeben" },
+          { "id": "verhandeln", "umsetzung": "funkduell" }
+        ],
+        "sachverhalt": "Im Hafen nimmt die Hafenmeisterei den Speicherkern in Verwahrung. Melk will das Original fürs Archiv, Tesk will es zurück auf B-7, damit die Boje vollständig sendet – die Crew entscheidet.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [
+          { "wenn": "Original ins Archiv", "nach": "ausgang:archiv" },
+          { "wenn": "Abschrift für Melk, Original zurück", "nach": "ausgang:abschrift" }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "ab_archiv",
+        "frage": "Wer bekommt das Original des Speicherkerns von B-7?",
+        "optionen": [
+          { "id": "archiv", "text": "Original ins Archiv zu Melk", "folge": "Melk ist begeistert und forscht weiter; B-7 sendet nur lückenhaft, Tesk ist verstimmt." },
+          { "id": "abschrift", "text": "Abschrift für Melk, Original zurück nach B-7", "folge": "Tesk ist zufrieden, die Boje sendet vollständig; Melk bekommt nur die Abschrift und ist enttäuscht." }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "archiv": {
+        "wann": "Das Original des Speicherkerns liegt im Konkordat-Archiv.",
+        "folgen": [
+          "npc_haltung melk +1",
+          "npc_gedaechtnis melk: Die Lerche hat Pell von B-7 geholt und mir das Original des Speichers ins Archiv gebracht.",
+          "npc_haltung tesk -1",
+          "npc_gedaechtnis tesk: Die Lerche hat das Original von B-7 ins Archiv gegeben. Die Boje sendet nur noch lückenhaft.",
+          "chronik: Abschrift von B-7: Pell ist gerettet, das Original des Speichers liegt bei Melk im Archiv.",
+          "welt_fakt b7_speicher (faden): Im Speicher von B-7 steckt eine Aufzeichnung, die Melk mit der Tafel von Kesh abgleicht."
+        ]
+      },
+      "abschrift": {
+        "wann": "Melk hat eine Abschrift, das Original geht zurück nach B-7.",
+        "folgen": [
+          "npc_haltung tesk +1",
+          "npc_gedaechtnis tesk: Die Lerche hat das Original von B-7 zurückgegeben. Die Boje sendet wieder vollständig.",
+          "npc_gedaechtnis melk: Die Lerche hat Pell gerettet, mir aber nur eine Abschrift des Speichers gelassen.",
+          "chronik: Abschrift von B-7: Pell ist gerettet, Melk hat eine Abschrift, B-7 sendet wieder vollständig.",
+          "welt_fakt b7_speicher: abschrift_im_archiv"
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "ab_pell": {
+      "molekuele": [
+        {
+          "id": "personen_bergen",
+          "umsetzung": "techniker_retten",
+          "params": {
+            "loc": "b7",
+            "map": "platform",
+            "name": "Archivgehilfe Pell",
+            "verletzt": true,
+            "zuruecksetzen": true,
+            "grund": "Das Konkordat hat B-7 neu besetzt: Wartung, Drohnen, Sonde – alles wieder in Betrieb.",
+            "funk_person": "Hallo? Lerche? Hier Pell, Melks Gehilfe. Ich bin von der Leiter gefallen … das Bein will nicht. Bitte beeilt euch."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ab_sonde": {
+      "molekuele": [
+        {
+          "id": "raetsel_loesen",
+          "umsetzung": "sonden_code",
+          "params": { "loc": "b7", "map": "platform" }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ab_kern": {
+      "molekuele": [
+        {
+          "id": "datenkern_bergen",
+          "umsetzung": "plattform_kern",
+          "params": { "loc": "b7", "map": "platform", "zuruecksetzen": false }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ab_archiv": {
+      "molekuele": [
+        {
+          "id": "ladung_liefern",
+          "umsetzung": "im_hafen_abgeben",
+          "params": {
+            "loc": "hafen",
+            "empfaenger": "tesk",
+            "item": "datenkern",
+            "lohn": 100,
+            "was": "den Speicher von B-7",
+            "funk_quittung": "Speicherkern in Verwahrung der Hafenmeisterei. Und Pell ist auf der Krankenstation – gute Arbeit, Lerche."
+          }
+        },
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "hafen",
+            "npc": "melk",
+            "eroeffnung": "Lerche, hier Melk. Tesk will das Original zurück auf die Boje. Ich sage: Ins Archiv gehört es, nicht in den Wind. Ihr habt es geholt – ihr entscheidet.",
+            "frage": "Wer bekommt das Original?",
+            "antwort_a": "Das Original kommt ins Archiv.",
+            "antwort_b": "Melk bekommt eine Abschrift, B-7 das Original.",
+            "folgen_a": [
+              { "setFlag": { "ab_archiv_2_original": true } },
+              { "reward": { "marks": 40 } },
+              { "radio": { "from": "melk", "text": "Danke. Ihr wisst gar nicht, was ihr dem Archiv da gebt." } }
+            ],
+            "folgen_b": [
+              { "radio": { "from": "tesk", "text": "Vernünftig. Die Boje sendet wieder – die Frachter werden es euch danken." } }
+            ],
+            "folgen_schweigen": [
+              { "radio": { "from": "tesk", "text": "Keiner entscheidet? Dann entscheide ich: Das Original geht zurück nach B-7." } }
+            ],
+            "geduld_s": 90
+          }
+        }
+      ],
+      "verzweigung": [
+        { "nach": "ausgang:archiv", "if": { "flag": "ab_archiv_2_original" } },
+        { "nach": "ausgang:abschrift" }
+      ],
+      "wendung": null
+    }
+  }
+}

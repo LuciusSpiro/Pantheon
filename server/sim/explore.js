@@ -48,6 +48,27 @@ class Explore {
     return true;
   }
   openLink(key) { if (!this.linksOpen.has(key)) { this.linksOpen.add(key); this.version++; } }
+  // S2 (QA-INTEGRATION): Ort still bekannt machen (ohne ODA/Logbuch, nicht besucht)
+  knowSilently(id) { if (!Locations.get(id) || this.known.has(id)) return false; this.known.add(id); this.version++; return true; }
+  // S2: Route vom Hafen zu `target` herstellen – Orte auf dem kürzesten Weg (über alle, auch gesperrte Verbindungen)
+  // still aufdecken und gesperrte Verbindungen darauf öffnen. -> true, wenn sich etwas geändert hat
+  ensureRoute(target, from) {
+    const start = from || Locations.START;
+    if (!Locations.get(target) || !Locations.get(start)) return false;
+    const prev = { [start]: null }; const queue = [start];
+    while (queue.length) {
+      const id = queue.shift(); if (id === target) break;
+      for (const b of Locations.get(id).links) if (!(b in prev)) { prev[b] = id; queue.push(b); }
+    }
+    if (!(target in prev)) return false;
+    let changed = false;
+    for (let id = target; prev[id] != null; id = prev[id]) {
+      const k = Locations.lockedKey(prev[id], id);
+      if (k && !this.linksOpen.has(k)) { this.openLink(k); changed = true; }
+      if (this.knowSilently(id)) changed = true;
+    }
+    return changed;
+  }
 
   arrive(id) {
     const g = this.game; const loc = Locations.get(id);

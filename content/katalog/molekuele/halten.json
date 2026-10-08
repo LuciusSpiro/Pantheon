@@ -12,6 +12,119 @@
     "A5",
     "C3"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "position_halten",
+      "name": "Position am Objekt halten, bis der Uplink steht",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Captain verteilt Schilde. Nur an Orten mit Hauptobjekt.",
+      "braucht": [
+        "raumkampf",
+        "bordschaeden"
+      ],
+      "dauer_min": [
+        3,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [3, 5], "2": [3, 4], "3": [3, 4] },
+      "ereignisse": [
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["b7", "relais", "wrack", "vaelen", "kesh"], "beschreibung": "Ort mit Hauptobjekt" },
+        "was": { "typ": "text", "default": "der Uplink", "beschreibung": "Was läuft, für die Texte (z. B. „die Abschrift“)" },
+        "radius": { "typ": "zahl", "default": 380, "min": 250, "max": 500 },
+        "abschnitt_s": { "typ": "zahl", "default": 45, "min": 20, "max": 90, "beschreibung": "Sekunden je Abschnitt (drei Abschnitte)" },
+        "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
+        "angriff_nach": { "typ": "zahl", "default": 20, "min": 10, "max": 60 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              {
+                "at": "{{angriff_nach}}",
+                "do": [
+                  {
+                    "wendung": "{{id}}_stoerer",
+                    "ankuendigung": { "oda": "@{{id}}.ankuendigung", "art": "vorher", "vorlauf_s": 5 },
+                    "wirkung": [
+                      { "set": { "{{id}}_w1": true } },
+                      { "after": { "sec": 5, "do": [ { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "angles": [0.9, -0.9, 2.6] } } ] } }
+                    ]
+                  }
+                ]
+              },
+              { "at": 60, "if": { "not": { "v": "{{id}}_a1" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "check": { "name": "ship_hold_position", "loc": "{{loc}}", "dist": "{{radius}}", "sec": "{{abschnitt_s}}" } }, { "not": { "v": "{{id}}_a1" } } ] },
+                "do": [ { "set": { "{{id}}_a1": true } }, { "oda": "@{{id}}.a1" } ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_a1" }, { "check": { "name": "ship_hold_position", "loc": "{{loc}}", "dist": "{{radius}}", "sec": "{{abschnitt_s}}" } }, { "not": { "v": "{{id}}_a2" } }, { "v": "{{id}}_t2" } ] },
+                "do": [ { "set": { "{{id}}_a2": true } }, { "oda": "@{{id}}.a2" } ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_a2" }, { "check": { "name": "ship_hold_position", "loc": "{{loc}}", "dist": "{{radius}}", "sec": "{{abschnitt_s}}" } }, { "not": { "v": "{{id}}_fertig" } }, { "v": "{{id}}_t3" } ] },
+                "do": [ { "set": { "{{id}}_fertig": true } }, { "oda": "@{{id}}.fertig" } ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_a1" }, { "not": { "v": "{{id}}_t2" } } ] },
+                "do": [ { "after": { "sec": "{{abschnitt_s}}", "do": [ { "set": { "{{id}}_t2": true } } ] } } ]
+              },
+              {
+                "if": { "all": [ { "v": "{{id}}_a2" }, { "not": { "v": "{{id}}_t3" } } ] },
+                "do": [ { "after": { "sec": "{{abschnitt_s}}", "do": [ { "set": { "{{id}}_t3": true } } ] } } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": 420 }, { "not": { "v": "{{id}}_fertig" } } ] },
+                "do": [ { "set": { "{{id}}_fertig": true } }, { "oda": "@{{id}}.notloesung" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              { "id": "halten", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_fertig" } },
+              { "id": "frei", "text": "@{{id}}.ziel_frei", "show": { "v": "{{id}}_fertig" }, "done": { "enemiesLeft": { "max": 0 } } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_fertig" }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_fertig": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "Für {{was}} müssen wir nah am Objekt bleiben. Pilot: in den Kreis und Position halten!",
+          "{{id}}.ankuendigung": "Ortung: Jäger im Anflug – die wollen uns vom Objekt wegdrängen. Position halten!",
+          "{{id}}.tipp": "Die Uhr läuft nur im Kreis um das Objekt. Wer herausfliegt, beginnt den Abschnitt neu.",
+          "{{id}}.a1": "Ein Drittel geschafft. Weiter im Kreis bleiben!",
+          "{{id}}.a2": "Zwei Drittel! Noch ein Abschnitt.",
+          "{{id}}.fertig": "Geschafft – {{was}} steht. Jetzt nur noch die Störer loswerden.",
+          "{{id}}.notloesung": "Mit Ach und Krach geschafft – {{was}} steht, wenn auch mit Lücken.",
+          "{{id}}.ziel": "Position am Objekt halten (drei Abschnitte)",
+          "{{id}}.ziel_frei": "Störer abwehren"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "b7",
+          "was": "die Abschrift"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"
 }

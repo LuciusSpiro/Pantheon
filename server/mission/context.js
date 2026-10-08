@@ -1,11 +1,12 @@
 'use strict';
-// Kontext des Spielleiters (CONTRACT-S1 §8.2): was der Spielleiter ab S2 aus Weltstand + Anlass + Katalog bekommt.
+// Kontext des Spielleiters (CONTRACT-S1 §8.2, S2 §2.2): was der Spielleiter aus Weltstand + Anlass + Katalog bekommt.
+// S2: keine Spielernamen (nur crew.anzahl).
 // Orientiert an der Kurzform im Trockenversuch (concept/regiebuch/trockenversuch/grobplan.js: weltstandKurz + katalogKurz),
 // aber als Objekt statt Text. Deterministisch: gleiche Eingabe -> gleiches Objekt, alle Schlüssel sortiert, Listen in
 // fester Reihenfolge (NSC und Orte nach Kennung, Gedächtnis/Chronik in Spielreihenfolge). Keine Zeitstempel, kein Zufall.
 //
 //   Context.build(weltstandData, anlass, katalog) -> {
-//     anlass, crew, schiff, ort, orte, fakten, flags, missionen, tutorial,
+//     anlass, crew: { anzahl }, schiff, ort, orte, fakten, flags, missionen, tutorial,
 //     npc: [{ id, name, titel, fraktion, rolle, status, haltung, ort, gedaechtnis: letzte 5 }],
 //     chronik: letzte 8, verfuegbar: { szenentypen, molekuele, noch_nicht_spielbar } | null }
 // katalog = Ergebnis von Katalog.load() (tools/katalog.js bzw. server/mission/katalog.js); ohne Katalog verfuegbar: null.
@@ -30,10 +31,11 @@ const obj = (x) => (x && typeof x === 'object' && !Array.isArray(x) ? x : {});
 const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const pick = (o, keys) => { const r = {}; for (const k of keys) if (o[k] !== undefined && o[k] !== null) r[k] = o[k]; return r; };
 
+// S2 Entscheidung 14: keine Spielernamen ans LLM, nur die Crewgröße
 function crewOf(w, anlass) {
-  const spieler = arr(obj(w.meta).spieler).map(String);
+  const spieler = arr(obj(w.meta).spieler);
   const anzahl = typeof anlass.crew === 'number' ? anlass.crew : (spieler.length || null);
-  return { anzahl, spieler };
+  return { anzahl };
 }
 
 function schiffOf(w) {

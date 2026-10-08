@@ -11,6 +11,91 @@
     "A4",
     "A5"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "stoerrelais",
+      "name": "Störrelais blockieren den Faltsprung",
+      "schauplatz": "weltraum",
+      "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Taktik schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
+      "braucht": [
+        "raumkampf",
+        "sternkarte_sprung"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [4, 6], "2": [3, 5], "3": [3, 4] },
+      "ereignisse": [
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["b7", "relais", "wrack", "vaelen", "kesh"], "beschreibung": "Ort mit Hauptobjekt" },
+        "npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wer die Relais gesetzt hat und sich meldet" },
+        "relais": { "typ": "zahl", "default": 3, "min": 2, "max": 4 },
+        "mit_wache": { "typ": "bool", "default": true, "beschreibung": "Ein Wachjäger schützt die Relais" },
+        "funk_nach": { "typ": "zahl", "default": 30, "min": 15, "max": 90 },
+        "funk": { "typ": "text", "default": "Hier springt keiner raus, der nicht bezahlt hat. Die Relais bleiben, wo sie sind." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{npc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              { "spawn": { "kind": "relay", "tag": "{{id}}_relay", "n": "{{relais}}", "atStation": [ { "dx": 220, "dy": -160 }, { "dx": -250, "dy": 120 }, { "dx": 60, "dy": 280 }, { "dx": -120, "dy": -260 } ] } },
+              { "if": "{{mit_wache}}", "spawn": { "kind": "raider", "tag": "{{id}}_wache", "n": 1, "angles": [0.6] } }
+            ],
+            "jumpBlock": [
+              { "if": { "not": { "enemiesLeft": { "tag": "{{id}}_relay", "max": 0 } } }, "reason": "@{{id}}.blockiert" }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              { "at": "{{funk_nach}}", "do": [ { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk" } } ] },
+              { "at": 75, "if": { "not": { "enemiesLeft": { "tag": "{{id}}_relay", "max": 0 } } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "elapsed": 1 }, { "enemiesLeft": { "tag": "{{id}}_relay", "max": 0 } } ] },
+                "do": [ { "oda": "@{{id}}.frei" } ]
+              }
+            ],
+            "objectives": [
+              { "id": "relais", "text": "@{{id}}.ziel", "done": { "all": [ { "elapsed": 0.5 }, { "enemiesLeft": { "tag": "{{id}}_relay", "max": 0 } } ] } }
+            ],
+            "next": [
+              { "if": { "all": [ { "elapsed": 1 }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk": "{{funk}}",
+          "{{id}}.lage": "Störrelais am Hauptobjekt! Solange eins sendet, gibt es keinen Faltsprung. Taktik: abschießen!",
+          "{{id}}.blockiert": "Störrelais senden – der Sprungrechner findet keinen Kurs. Erst die Relais abschießen.",
+          "{{id}}.tipp": "Die Relais kreisen nah am Hauptobjekt. Taktik: T schaltet durch, Pilot: Bug drauf, Batterien frei.",
+          "{{id}}.frei": "Letztes Relais verstummt – der Sprungrechner hat wieder Sterne.",
+          "{{id}}.ziel": "Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "funk": "Hier springt keiner raus, der nicht bezahlt hat. Die Relais bleiben, wo sie sind."
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "npc": "grauzahn"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6), Relais aus m1 (B-7)"
 }

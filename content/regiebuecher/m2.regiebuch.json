@@ -330,7 +330,6 @@
         { "reward": { "marks": 150 } },
         { "log": "@log.abschluss", "loc": "relais" },
         { "if": { "flag": "sharedEcho" }, "after": { "sec": 2, "do": [{ "radio": { "from": "grauzahn", "text": "@funk.grauzahn_leuchtet" } }] } },
-        { "startTeaser": true },
         { "after": { "sec": 4, "do": [{ "oda": "@finale.geweckt" }, { "complete": "erfolg" }] } }
       ],
       "objectives": [{ "id": "listen", "text": "@ziel.zuhoeren", "done": false }]

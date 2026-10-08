@@ -12,6 +12,103 @@
     "A4",
     "C2"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "bis_zur_flucht",
+      "name": "Angreifer bis zur Flucht zurückschlagen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein Trupp (Jäger, optional ein Kanonenboot) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
+      "braucht": [
+        "raumkampf",
+        "bordschaeden"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [3, 5], "2": [2, 4], "3": [2, 3] },
+      "liefert_flags": [
+        "{{id}}_vertrieben"
+      ],
+      "ereignisse": [
+        "enemyRetreat",
+        "enemyLeft",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "beschreibung": "Ort der Szene" },
+        "npc": { "typ": "npc", "pflicht": true, "beschreibung": "Anführer der Angreifer (funkt)" },
+        "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
+        "mit_kanonenboot": { "typ": "bool", "default": false },
+        "flucht_unter": { "typ": "zahl", "default": 40, "min": 10, "max": 80, "beschreibung": "Hülle in %, unter der ein Gegner abdreht" },
+        "funk_start": { "typ": "text", "default": "Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer." },
+        "funk_abzug": { "typ": "text", "default": "Das ist es nicht wert. Rückzug! Wir sehen uns wieder." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "besetzung": { "npc": ["{{npc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "angles": [0.3, -0.7, 1.2] } },
+              { "if": "{{mit_kanonenboot}}", "spawn": { "kind": "gunboat", "tag": "{{id}}_w1" } },
+              { "do": "enemies_retreat", "tag": "{{id}}_w1", "unter_pct": "{{flucht_unter}}" },
+              { "after": { "sec": 3, "do": [ { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk_start" } } ] } }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              { "at": 60, "if": { "not": { "enemiesLeft": { "max": 0 } } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "elapsed": 3 }, { "enemiesLeft": { "tag": "{{id}}_w1", "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "set": { "{{id}}_ende": true } }, { "setFlag": { "{{id}}_vertrieben": true } }, { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk_abzug" } } ]
+              },
+              {
+                "if": { "all": [ { "elapsed": 240 }, { "not": { "v": "{{id}}_ende" } } ] },
+                "do": [ { "do": "enemies_retreat", "tag": "{{id}}_w1", "unter_pct": 100 }, { "oda": "@{{id}}.abgedreht" } ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              { "id": "vertreiben", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_ende" } }
+            ],
+            "next": [
+              { "if": { "all": [ { "v": "{{id}}_ende" }, { "enemiesLeft": { "max": 0 } } ] }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_ende": true } },
+              { "setFlag": { "{{id}}_vertrieben": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.funk_start": "{{funk_start}}",
+          "{{id}}.funk_abzug": "{{funk_abzug}}",
+          "{{id}}.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+          "{{id}}.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+          "{{id}}.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+          "{{id}}.ziel": "Angreifer vertreiben ({left:{{id}}_w1} übrig)"
+        }
+      },
+      "rueckfall": {
+        "params": {
+          "funk_start": "Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer.",
+          "funk_abzug": "Das ist es nicht wert. Rückzug! Wir sehen uns wieder."
+        }
+      },
+      "test": {
+        "params": {
+          "loc": "wrack",
+          "npc": "grauzahn",
+          "mit_kanonenboot": true
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"
 }

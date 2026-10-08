@@ -238,7 +238,11 @@
         { "do": "npc_gedaechtnis", "npc": "melk", "ereignis": "tafel_im_archiv", "text": "@gedaechtnis.melk_tafel" },
         { "do": "chronik", "text": "@chronik.erfolg" }
       ],
-      "danach": [{ "end": true, "title": "@ende.titel", "text": "@ende.text" }]
+      "_kommentar": "S2 Entscheidung 9: Kampagne -> Kapitelkarte (Ereignis chapter), weiterspielen; Direktstart (m3Direct) -> Ende wie bisher.",
+      "danach": [
+        { "if": { "flag": "m3Direct" }, "end": true, "title": "@ende.titel", "text": "@ende.text" },
+        { "if": { "not": { "flag": "m3Direct" } }, "chapter": true, "title": "@kapitel.titel", "text": "@kapitel.text" }
+      ]
     },
     "uebersprungen": {
       "_kommentar": "Die Tafel steht in der Kampagne ohne Tutorial nur als Gerücht im Weltstand (content/npc.json, kampagne.ohne_tutorial.fakten).",
@@ -330,6 +334,8 @@
 
     "ende.titel": "Die Tafel ist sicher",
     "ende.text": "Die Vertragstafel der Kustoden liegt im Archiv des Konkordats. Was darauf steht? Fortsetzung folgt.",
+    "kapitel.titel": "Kapitel 1: Die Tafel ist sicher",
+    "kapitel.text": "Die Vertragstafel der Kustoden liegt im Archiv des Konkordats. Im Lichtkordon spricht sich herum, dass die Lerche Aufträge annimmt – am Planungstisch warten neue.",
 
     "skip.angebot": "Plünderer auf Kesh. Holt die Tafel."
   }

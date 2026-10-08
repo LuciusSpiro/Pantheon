@@ -18,7 +18,7 @@
 
     "hyperraum":         { "status": "geplant", "beschreibung": "Langstreckensprung als eigene Szene" },
     "verfolgung":        { "status": "geplant", "beschreibung": "Flucht und Jagd mit Sprungaufladung unter Druck" },
-    "schuetzling":       { "status": "geplant", "beschreibung": "NSC-Schiff, das geschützt werden muss" },
+    "schuetzling":       { "status": "verfuegbar", "beschreibung": "NSC-Schiff, das geschützt werden muss (S2: server/sim/escort.js)" },
     "entern":            { "status": "geplant", "beschreibung": "Andocken an fremde Schiffe, Hülle aufschneiden" },
     "verbuendete":       { "status": "geplant", "beschreibung": "Verbündete NSC-Schiffe mit Oberbefehl der Flotte" },
     "schleichfahrt":     { "status": "geplant", "beschreibung": "Signatur, Sensorkreise der Patrouillen, Schilde runter" },

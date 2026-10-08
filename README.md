@@ -1,12 +1,95 @@
-# Pantheon – Ausbaustufe S1 „Regiebuch & Weltstand“
+# Pantheon – Ausbaustufe S2 „Spielleiter an der Missionsgrenze“
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
 
 Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt weiter `sternenschicht/`. Bisherige
 Ausbaustufen: M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) ·
-M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ · M4 „Voxel & Lerche Rom“ · **S1 „Regiebuch &
-Weltstand“** (Vertrag `CONTRACT-S1.md`).
+M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ · M4 „Voxel & Lerche Rom“ · S1 „Regiebuch &
+Weltstand“ (`CONTRACT-S1.md`) · **S2 „Spielleiter an der Missionsgrenze“** (Vertrag `CONTRACT-S2.md`).
+
+## Neu in S2 – Spielleiter, Schützling, Missionen reviewen
+
+Nach dem Tutorial (bzw. sofort bei „Kampagne ohne Tutorial“) geht die Kampagne weiter: Ein **Spielleiter** (Claude Sonnet über
+die Claude-CLI) plant neue Missionen aus den Bausteinen des Katalogs, ein Prüfer kontrolliert sie, und ein **Archiv** springt
+ein, wenn etwas schiefgeht. Das Spiel wartet nie auf das LLM.
+
+### Wie Angebote entstehen
+- **Am Planungstisch → Missionsbuch** (Taste M) stehen unter **ANGEBOTEN** je Missionsgrenze bis zu **3 Angebote**: 2 vom
+  Spielleiter und 1 aus dem Archiv. Das Archiv-Angebot ist ab Sekunde 0 da – es gibt also immer etwas zu tun.
+- Solange der Spielleiter plant, steht dort „Hafenmeisterei · Lage wird geprüft“ mit einem Siegel in drei Prägestufen, im HUD
+  dezent „Funk: Hafenmeisterei berät …“. Kein Countdown. Neue Angebote bekommen einen Bernstein-Punkt („NEU“).
+- Jedes Angebot zeigt Absender, Ziel, Dauer, Belohnung und eine **Erinnerung** des Auftraggebers („Grauzahn hat mitgehört …“).
+  Was ihr in einer Mission entscheidet, landet im Gedächtnis der NSC und in der Chronik und fließt in die nächste Planung ein.
+- **Enter** nimmt an, **Entf** lehnt ab (ohne Malus, nur ein leichter Gedächtnis-Eintrag beim Auftraggeber). Für ein
+  abgelehntes Angebot plant der Spielleiter ein neues. Angebote laufen nicht ab.
+- Ob ein Angebot erzeugt oder aus dem Archiv ist, sehen Spieler nicht; nur mit `?debug=1` steht `[SL]` bzw. `[AR]` davor.
+- **Archiv:** vier handgeschriebene Missionen („Zollfeuer“ – Tesk, „Karawane im Nebel“ – Sela, mit Geleit, „Abschrift von
+  B-7“ – Melk, „Treibgut Zaunkönig“ – Grauzahn) plus alle erzeugten Missionen, die Kai freigegeben hat (siehe unten).
+  Gespielte Archiv-Missionen kommen erst wieder, wenn alle durch sind.
+- **Szenen kommen nach:** Angeboten wird eine vollständige **Rohfassung** (spielbar, mit Standardtexten der Bausteine). Die
+  ausgearbeiteten Szenen fragt der Spielleiter kurz vorher an und ersetzt die Rohfassung, solange die Szene noch nicht
+  betreten ist. Ist eine Szene beim Anflug noch nicht fertig: höchstens **20 s** „Kurs wird berechnet …“ (ODA-Zeile, die Steuerung
+  bleibt frei), dann spielt die Rohfassung.
+- **Kapitelkarte:** In der Kampagne endet „Die Tafel von Kesh“ (m3) nicht mehr mit dem Ende-Bildschirm, sondern mit der Karte
+  „Kapitel abgeschlossen“ (**Enter** = weiterspielen); danach kommen die Angebote. Der Direktstart der Planetenmission endet
+  wie bisher.
+
+### Schützling (zu schützende NSC-Schiffe)
+- Drei Klassen: **Frachter** (Konkordat), **Karawane** (Vaelen), **Bergungsboot**. Eisblau mit Messing, gestrichelter
+  Schutzring, Segmentbalken über dem Schiff, oben mittig „SCHÜTZLING · Name ▮▮▮▯“. Notruf: Der Ring pulsiert Eisblau →
+  Bernstein; außerhalb des Bildes zeigt ein Ring-Pfeil am Rand, wo er ist.
+- **Captain-Befehle** (Captain-Konsole, Reiter Lage **3**): **H** Halten · **F** Folgen · **V** Volle Kraft · **D** Andocken.
+  Ob und wie schnell der Schützling gehorcht, hängt von der Haltung des NSC zur Lerche ab (gut: sofort, neutral: nach 2 s,
+  schlecht: nach 4 s mit Murren). Die Rückmeldung steht in der Captain-Konsole.
+- **Jeder Angriff auf den Schützling wird angekündigt** („Kanonenboot lädt auf …“). Auf der Captain-Karte zeigen rot
+  gestrichelte Linien „ZIELT AUF …“, welcher gescannte Gegner wen anvisiert.
+- **Breitseite als Schild:** Stellt sich die Lerche zwischen den Ladenden und den Schützling und hat auf der Seite Schild
+  (≥ 1), fängt sie die Ladung ab („Abgefangen! Die Lerche deckt …“).
+- Kein Eigenbeschuss: Lanze und Batterien treffen Schützlinge nicht (geht die Lanze durch ihn, gibt es einen Funk-Rüffel).
+- Verlust ist kein Game Over: Ein Schützling mit Hülle 0 ist kampfunfähig und treibt; die Mission läuft mit einem anderen
+  Ausgang weiter. Benannte NSC sterben nie (höchstens „schwer beschädigt“).
+
+### Missionen reviewen (für Kai)
+Jede Mission, die der Spielleiter live erzeugt, wird dauerhaft abgelegt: `content/spielleiter/erzeugt/<datum>_<kennung>/`
+mit `mission.md` (lesbare Fassung) und `mission.json` (spielbar). Details: `content/spielleiter/erzeugt/README.md`.
+1. `npm run missionen` – Liste mit Status, Titel, Quelle, Auftraggeber, wie oft gespielt.
+2. `npm run missionen -- zeigen <ordner>` oder die `mission.md` öffnen: Pitch, Erinnerung, je Szene Ort, Baustein, Ziele,
+   alle Funk-/ODA-Texte, Entscheidungen, Ausgänge, Prüfer-Warnungen und „Gespielt“.
+3. Im Frontmatter `status: offen` → `angenommen` (oder `abgelehnt`) – oder `npm run missionen -- annehmen <ordner>`.
+4. **Angenommene Missionen vergrößern den Vorrat** der Standard-Missionen (wie das Archiv), ab dem nächsten Serverstart.
+   Offene und abgelehnte werden nie angeboten. Anmerkungen gehören unter `## Notizen`.
+
+### Live-Spielleiter einschalten
+Ohne Schalter spielt nur das Archiv (kostet nichts). Live braucht **beide** Einträge in der `.env` und die Claude-CLI (Abo):
+```
+SPIELLEITER_LLM=live
+LLM_LIVE=1
+CLAUDE_TOKEN_BUDGET=500000     # ein Zähler für den ganzen Serverlauf; danach nur noch Archiv bzw. Rohfassung
+```
+Fehlt die CLI, kommt ein Fehler, ein Timeout oder ist das Budget fast leer (< 30 000), fällt der Spielleiter still auf
+Archiv bzw. Rohfassung zurück. **Kosten (gemessen, siehe unten):** ein Grobplan ≈ 26 000 Tokens, eine Szene ≈ 24 000 Tokens –
+eine voll ausgearbeitete Mission mit 5 Szenen liegt damit bei rund 150 000 Tokens, mit Nachbesserungen mehr. Mit dem Deckel
+von 500 000 reicht ein Serverlauf für etwa 2–3 Missionsgrenzen.
+
+### Regie-Logbuch
+Was der Spielleiter getan hat (Grobpläne, Szenen, Rückfälle, Wartezeiten, Tokens, Wunschliste fehlender Bausteine), steht je
+Weltstand in `data/regie/<weltId>.jsonl` (anderer Ordner: `REGIE_DIR`). Lesbar: `npm run regie -- <weltId>` (die Welt-ID
+steht im Dateinamen unter `data/worlds/`).
+
+### Messwerte S2 (QA-Abnahme 2026-10-08) – ehrlich
+- **Bots sind keine Menschen.** Archiv-Missionen dauern mit Bots 2,5–3,3 min (Ziel 15 min zu dritt) – Menschenzeiten sind
+  **nicht gemessen**, Kai bewertet sie beim Spieleabend.
+- **Geleit (Bot-Sim, 10 Seeds):** zu dritt 80 % heil, solo 60 % heil (im Ziel). Pannenhilfe zu dritt 3/10 verloren (härter als solo).
+- **Live-Spielleiter (ein Lauf zu dritt im Browser, Kampagne ohne Tutorial):** Planung sichtbar, 2 Spielleiter-Angebote nach
+  73 s bzw. 126 s, Archiv-Angebot ab Sekunde 0. Beide Grobpläne gültig beim ersten Versuch (je ≈ 26 000 Tokens, 54–63 s).
+  Die Szenen sind aber **nicht** live angekommen: Szene 2 zweimal vom Prüfer abgelehnt, Szene 3 war gültig, aber erst fertig,
+  als die Crew sie schon betreten hatte (Szenen laufen nacheinander durch einen CLI-Prozess; die zwei Versuche für Szene 2
+  hielten sie auf), Szene 4/5 am Budget-Deckel des Testlaufs. Gespielt wurde also der live erzeugte Grobplan in der **Rohfassung**
+  (mit Debug-Skip im Kampf). Die Rohfassung nutzt Standardtexte der Bausteine – dabei funken z. B. Sela oder Grauzahn
+  Sätze, die nicht zur geplanten Geschichte passen. `sceneWait` trat in diesem Lauf nicht auf (Test: höchstens 20 s).
+- **Grobplan-Trefferquote live:** vor der Prompt-Nachschärfung 0 von 4 Versuchen gültig (JSON mit „…"-Anführungszeichen,
+  unerreichbare Ausgänge, Ortsbindung, Tutorial-Bezug), danach 2 von 2. Zu wenige Versuche für eine belastbare Quote.
 
 ## Neu in S1 – Hauptmenü, Weltstände, Spielmenü
 
@@ -518,7 +601,8 @@ CLAUDE_TOKEN_BUDGET=500000      # Token-Deckel pro Serverlauf
 
 Ein Aufruf pro Partie (beim Finale am Kustoden-Relais). Fehler, Timeout oder falsche URL → automatisch Archiv (getestet).
 Token-Deckel: höchstens 500 000 Token pro Serverlauf (`CLAUDE_TOKEN_BUDGET`), danach kommen nur noch Archiv-Missionen.
-Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag.
+Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag. **Seit S2 abgelöst:** Nach m3 übernimmt der Spielleiter
+(siehe „Neu in S2“); die Bridge wird für die Kampagne nicht mehr gebraucht.
 
 ## Bekannte Grenzen
 
@@ -707,7 +791,10 @@ gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewSca
 | `npm run test:weltstand` | Weltstand: Liste, Speichern, Laden, `.bak`, Sperre, 5 Stände, Lobby, Spielmenü (ohne Browser) |
 | `npm run test:spielleiter` | Spielleiter-Tests **ohne LLM** (< 10 s, kein Netz): Prüfer, Kontext-Goldens, Replay, Mock |
 | `npm run golden` | Golden Trace: `--all` zeichnet m1–m3 × Crew 1/3 × Seeds auf, `--compare <A> <B> --allow <json>` vergleicht |
-| `npm run test:llm` | **nur von Hand** und nur mit `LLM_LIVE=1`: 1 Grobplan + 1 Szene live, `--record` legt Aufzeichnungen an |
+| `npm run test:llm` | **nur von Hand** und nur mit `LLM_LIVE=1`: 1 Grobplan + 1 Szene live, `--record` legt Aufzeichnungen an; `-- --pipeline --welt ohne-tutorial --auftraggeber sela` fährt den echten Spielleiter (Grobplan + alle Szenen) und legt die Mission in `content/spielleiter/erzeugt/` ab (≈ 26 000 Tokens je Grobplan-Versuch, ≈ 24 000 je Szene) |
+| `npm run missionen` | (S2) erzeugte Missionen: `liste`, `zeigen`, `annehmen`, `ablehnen`, `md` |
+| `npm run regie -- <weltId>` | (S2) Regie-Logbuch als Markdown-Bericht |
+| `npm run test:escort` | (S2) Schützling: Bewegung, Befehle, Schaden, Breitseite, Ausgänge |
 
 `npm test` = test-features, test-combat, test-m3, test-flight, test-regiebuch, test-weltstand, test-spielleiter (`--strict`).
 Golden-Vergleich wie in der Abnahme: `node tools/golden-trace.js --compare tools/fixtures/golden/base tools/fixtures/golden/s1 --allow tools/fixtures/golden/allow-s1.json`.

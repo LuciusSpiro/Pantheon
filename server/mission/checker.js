@@ -29,6 +29,8 @@ const FLAG_KEY = /^[a-z][A-Za-z0-9_]*$/;
 // Flags, deren Setzen durch Andocken einen Schritt speicherbar macht (Andocken bei Vaelen setzt vaelenHelped)
 const DOCK_FLAGS = ['vaelenHelped'];
 const PLANNED_FOLGEN = ['ruf', 'uhr'];
+// S2: Flags, die die Schützlings-Umsetzung je Tag setzt (<tag>_heil, <tag>_beschaedigt, <tag>_verloren)
+const SHIP_FLAG_SUFFIXES = ['_heil', '_beschaedigt', '_verloren'];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Mini-Validator für JSON-Schema (nur die Teile, die die Schemas des Projekts benutzen)
@@ -211,8 +213,9 @@ function check(doc, ctxIn) {
   doc.steps.forEach((s, i) => { if (stepIds.has(s.id)) E('ABLAUF-DOPPELT', `steps[${i}]`, `Schritt-ID '${s.id}' doppelt`); stepIds.set(s.id, i); });
   const ausgaenge = new Set(Object.keys(doc.ausgaenge || {}));
 
-  // --- geplante Mechaniken (CONTRACT-S1 Entscheidung 15)
-  if (bes.schiffe !== undefined) E('MECHANIK-GEPLANT', 'besetzung.schiffe', 'Schiffe/Schützlinge (schuetzling) kommen erst in S2 – in S1 nicht erlaubt');
+  // --- S2: Schiffe/Schützlinge (besetzung.schiffe: Tag -> { kind, name, npc? })
+  const schiffe = isObj(bes.schiffe) ? bes.schiffe : {};
+  const shipTags = new Set(Object.keys(schiffe));
 
   // --- Texte
   const usedTexts = new Set();
@@ -259,6 +262,9 @@ function check(doc, ctxIn) {
   ((doc.buch || {}).von || []).forEach((v, i) => npcRef(v.npc, `buch.von[${i}]`));
   if (doc.buch) { textRef(doc.buch.briefing, 'buch.briefing'); textRef(doc.buch.belohnung, 'buch.belohnung'); }
   if (doc.angebot && doc.angebot.anbieter) npcRef(doc.angebot.anbieter, 'angebot.anbieter');
+  if (doc.buch) { if (doc.buch.erinnerung !== undefined) textRef(doc.buch.erinnerung, 'buch.erinnerung'); if (doc.buch.ziel !== undefined && !LOC_IDS.has(doc.buch.ziel)) E('REF-ORT', 'buch.ziel', `Ort '${doc.buch.ziel}' gibt es nicht`); }
+  if (isObj(doc.erinnerung) && doc.erinnerung.npc) npcRef(doc.erinnerung.npc, 'erinnerung.npc');
+  for (const [tag, sh] of Object.entries(schiffe)) if (isObj(sh) && sh.npc) npcRef(sh.npc, `besetzung.schiffe.${tag}.npc`);
 
   // --- Flags
   const flagsSet = new Set(); const flagsReadSet = new Set();
@@ -270,6 +276,9 @@ function check(doc, ctxIn) {
     }
   };
   if (doc.erwartet) { flagForm(doc.erwartet, 'erwartet', 'erwartet'); if (isObj(doc.erwartet)) for (const k of Object.keys(doc.erwartet)) flagsSet.add(k); }
+  // S2: Flags, die Umsetzungen zur Laufzeit liefern (steps[].liefert_flags) und die Schützlings-Flags je Tag
+  for (const s of Array.isArray(doc.steps) ? doc.steps : []) for (const f of (isObj(s) && Array.isArray(s.liefert_flags) ? s.liefert_flags : [])) flagsSet.add(f);
+  for (const tag of shipTags) for (const suf of SHIP_FLAG_SUFFIXES) flagsSet.add(tag + suf);
   const dsf = doc.angebot && doc.angebot.direktstart && doc.angebot.direktstart.setFlag;
   if (dsf !== undefined) { flagForm(dsf, 'angebot.direktstart.setFlag', 'setFlag'); if (isObj(dsf)) for (const k of Object.keys(dsf)) flagsSet.add(k); }
 
@@ -298,6 +307,7 @@ function check(doc, ctxIn) {
       if (pd.typ === 'hidden' && !HIDDEN_IDS.has(val)) E('REF-FUND', p, `Fund '${val}' gibt es nicht`);
       if (pd.typ === 'squad' && !(val in gruppen)) E('REF-GRUPPE', p, `Trupp '${val}' fehlt in besetzung.gruppen`);
       if (pd.typ === 'unit' && !(val in einheiten)) E('REF-GRUPPE', p, `Einheit '${val}' fehlt in besetzung.einheiten`);
+      if (pd.typ === 'ship' && !shipTags.has(val)) E('REF-SCHIFF', p, `Schiff '${val}' fehlt in besetzung.schiffe`);
       if (pd.typ === 'zone' && !(Obj.SPACE_ZONES[args.loc] && Obj.SPACE_ZONES[args.loc][val])) E('REF-ZONE', p, `Zone '${val}' gibt es für Ort '${args.loc}' nicht (objects.js SPACE_ZONES)`);
       if (pd.typ === 'object') {
         const map = args.map; const def2 = Obj.declared(map)[val];
@@ -318,6 +328,7 @@ function check(doc, ctxIn) {
   };
 
   // --- Bedingungen
+  const lossPaths = new Set();   // S2: Tags mit einem Weg für 'kampfunfaehig' (escort_state … kampfunfaehig)
   const condCheck = (c, p, cctx) => {
     flagsRead(c, flagsReadSet);
     eachAtom(c, p, (k, v, ap) => {
@@ -325,6 +336,7 @@ function check(doc, ctxIn) {
         const name = typeof v === 'string' ? v : v && v.name;
         const args = typeof v === 'string' ? {} : Object.fromEntries(Object.entries(v || {}).filter(([x]) => x !== 'name'));
         paramCheck('pruefung', name, args, ap, cctx);
+        if (name === 'escort_state' && args.state === 'kampfunfaehig') lossPaths.add(args.tag || '*');
       }
       if (k === 'atLocation' || k === 'dest' || (k === 'docked' && typeof v === 'string')) {
         if (!LOC_IDS.has(v)) E('REF-ORT', ap, `Ort '${v}' gibt es nicht`);
@@ -498,6 +510,16 @@ function check(doc, ctxIn) {
     if (!flagsReadSet.has(f) && !GLOBAL_FLAGS.includes(f) && !(doc.erwartet && f in doc.erwartet)) W('FLAG-UNGELESEN', 'flags', `Flag '${f}' wird gesetzt, aber in diesem Buch nie gelesen`);
   }
 
+  // --- S2: Schützling ohne Verlustweg. Ein Weg ist: Prüfung escort_state { tag, state: 'kampfunfaehig' }, gelesene Flag
+  // <tag>_verloren bzw. <tag>_beschaedigt (liefert_flags der Umsetzung) oder ein Handler für escortDisabled.
+  if (shipTags.size && !isSide) {
+    const onDisabled = !!((doc.on || {}).escortDisabled) || doc.steps.some((s) => s.on && s.on.escortDisabled);
+    for (const tag of shipTags) {
+      const ok = onDisabled || lossPaths.has(tag) || lossPaths.has('*') || flagsReadSet.has(tag + '_verloren') || flagsReadSet.has(tag + '_beschaedigt');
+      if (!ok) E('SCHUETZLING-OHNE-VERLUST', `besetzung.schiffe.${tag}`, `Schützling '${tag}' hat keinen Weg für 'kampfunfaehig' (escort_state … kampfunfaehig, Flag ${tag}_verloren/${tag}_beschaedigt oder on.escortDisabled) – Verlust darf kein Softlock sein`);
+    }
+  }
+
   // --- Ablauf (nicht für Nebenaufträge: dort nur Bucheintrag)
   if (!isSide) {
     const first = doc.steps[0] && doc.steps[0].id;
@@ -542,7 +564,7 @@ function selftest(baseFile) {
     ['setFlag als Liste', 'FLAG-FORM', (d) => { step(d, 'flight').timers[0].do = [{ setFlag: ['kaputt'] }]; }],
     ['Flag mit falschem Namen', 'FLAG-FORM', (d) => { step(d, 'flight').timers[0].do = [{ setFlag: { 'Kaputt-Flag': true } }]; }],
     ['Gelesene Flag nie gesetzt', 'FLAG-UNGESETZT', (d) => { step(d, 'flight').timers[0].if = { flag: 'gibtsNicht' }; }],
-    ['Schützling (S2)', 'MECHANIK-GEPLANT', (d) => { d.besetzung.schiffe = { frachter: { art: 'schuetzling' } }; }],
+    ['Schützling ohne Verlustweg (S2)', 'SCHUETZLING-OHNE-VERLUST', (d) => { d.besetzung.schiffe = { konvoi: { kind: 'frachter', name: 'Konvoi' } }; }],
     ['Unbekannter Baustein', 'REF-BAUSTEIN', (d) => { step(d, 'flight').enter = [{ do: 'spawnSquad', squad: 'squad1' }]; }],
     ['Interner Baustein im Ablauf', 'BAUSTEIN-INTERN', (d) => { step(d, 'flight').enter = [{ do: 'debug_jump', loc: 'kesh' }]; }],
     ['ODA-Text zu lang', 'ODA-LAENGE', (d) => { d.texte['flight.kurs'] = 'x'.repeat(130); }],
@@ -572,4 +594,4 @@ function selftest(baseFile) {
   return { ok: ok === total, passed: ok, total, lines };
 }
 
-module.exports = { check, validate, selftest, schema, eachAction, eachAtom, stepActionLists, stepConditions, GLOBAL_FLAGS, ODA_MAX };
+module.exports = { check, validate, selftest, schema, eachAction, eachAtom, stepActionLists, stepConditions, GLOBAL_FLAGS, ODA_MAX, SHIP_FLAG_SUFFIXES };
