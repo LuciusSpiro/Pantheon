@@ -1,0 +1,217 @@
+{
+ "_quelle": "S2-Abnahme live (content/spielleiter/erzeugt/2026-10-08_sl_3_fluesterer_im_nebel), Grobplan unverändert – Fälle für CONTRACT-S2B §4.1/§4.5",
+ "grobplan": {
+  "format": "grobplan/2",
+  "id": "fluesterer_im_nebel",
+  "titel": "Der Flüsterer in der Grauen Weite",
+  "auftraggeber": "sela",
+  "zielspieldauer_min": 15,
+  "aufhaenger": "Eine Karawane ist spurlos ausgeblieben – mein bestes Schiff, drei Tage überfällig, letztes Signal aus der Grauen Weite. Ihr seid nah genug und klein genug, um unbemerkt hineinzufliegen.",
+  "erinnerung": {
+   "fakt": "datenkern"
+  },
+  "erinnerung_text": "Sela deutet auf den Datenkern an Bord: 'Konkordat-Technik. Ihr wisst, wie man mit heißem Material umgeht. Gut.'",
+  "szenen": [
+   {
+    "id": "s1_hafen",
+    "szenentyp": "hafen",
+    "ort": "hafen",
+    "karte": null,
+    "molekuele": [],
+    "sachverhalt": "Sela funkt aus der Vaelen-Karawane über Relay zum Hafen Lichtkordon: Die Karawane 'Goldkehle' ist drei Tage überfällig, letztes Signal aus der Grauen Weite. Sie bietet 80 Marken für Nachricht oder Rettung.",
+    "wendung": null,
+    "dauer_min": 2,
+    "weiter": [
+     {
+      "wenn": "Crew nimmt an",
+      "nach": "s2_nebel_einfahrt"
+     }
+    ]
+   },
+   {
+    "id": "s2_nebel_einfahrt",
+    "szenentyp": "gefahrennavigation",
+    "ort": "nebel",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "kurs_durch_gefahr",
+      "umsetzung": "nebelflug"
+     }
+    ],
+    "sachverhalt": "Die Graue Weite liegt dicht und still – kein Funksignal, kein Licht. Der Pilot muss das Feld durchqueren, die Taktik deckt mit Weitscan auf und setzt Marker, der Captain plant den Kurs.",
+    "wendung": "Ankündigung: Mitten im Nebelflug bricht kurz ein Funksignal durch – Vaelen-Kennung, dann Stille. Das Signal kommt von vorn.",
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Feld durchquert",
+      "nach": "s3_signal_orten"
+     }
+    ]
+   },
+   {
+    "id": "s3_signal_orten",
+    "szenentyp": "annaeherung_und_erkundung",
+    "ort": "nebel",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "signal_orten",
+      "umsetzung": "weitscan_peilung"
+     }
+    ],
+    "sachverhalt": "Das Signal ist schwach und springt. Die Taktik pingt mit dem Weitscan, der Pilot fliegt die Peilung ab – bis die 'Goldkehle' aufleuchtet: treibend, Antrieb tot, Schild ausgefallen.",
+    "wendung": null,
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Goldkehle gefunden, Rostmeute taucht auf",
+      "nach": "s4_entscheidung_auftritt"
+     }
+    ]
+   },
+   {
+    "id": "s4_entscheidung_auftritt",
+    "szenentyp": "begegnung",
+    "ort": "nebel",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "taeuschen",
+      "umsetzung": "bluff_funk"
+     }
+    ],
+    "sachverhalt": "Ein Rostmeute-Kanonenboot taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'",
+    "wendung": null,
+    "dauer_min": 2,
+    "weiter": [
+     {
+      "wenn": "Bluff gelingt oder Crew weicht aus",
+      "nach": "s5_pannenhilfe"
+     },
+     {
+      "wenn": "Bluff scheitert oder Crew greift an",
+      "nach": "s5b_gefecht"
+     }
+    ]
+   },
+   {
+    "id": "s5_pannenhilfe",
+    "szenentyp": "begegnung",
+    "ort": "nebel",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "pannenhilfe",
+      "umsetzung": "andocken_und_flicken"
+     }
+    ],
+    "sachverhalt": "Das Kanonenboot zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.",
+    "wendung": null,
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Antrieb geflickt, Goldkehle fährt selbst",
+      "nach": "ausgang:begleitet"
+     },
+     {
+      "wenn": "Kanonenboot greift während der Arbeit an",
+      "nach": "s5b_gefecht"
+     }
+    ]
+   },
+   {
+    "id": "s5b_gefecht",
+    "szenentyp": "raumgefecht",
+    "ort": "nebel",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "vertreiben",
+      "umsetzung": "bis_zur_flucht"
+     }
+    ],
+    "sachverhalt": "Das Kanonenboot und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht das Kanonenboot knurrend ab.",
+    "wendung": null,
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Rostmeute flieht, Goldkehle gerettet",
+      "nach": "ausgang:befreit"
+     },
+     {
+      "wenn": "Lerche zu schwer beschädigt, Rückzug",
+      "nach": "ausgang:rueckzug"
+     }
+    ]
+   }
+  ],
+  "entscheidungen": [
+   {
+    "szene": "s4_entscheidung_auftritt",
+    "frage": "Wie antwortet der Captain dem Rostmeute-Kanonenboot?",
+    "optionen": [
+     {
+      "id": "bluff_schrotthaendler",
+      "text": "Wir sind Schrotthändler, suchen Treibgut",
+      "folge": "Kanonenboot glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig"
+     },
+     {
+      "id": "wahrheit_konkordat",
+      "text": "Wir suchen die Goldkehle im Auftrag der Karawane",
+      "folge": "Kanonenboot fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe"
+     }
+    ]
+   },
+   {
+    "szene": "s5_pannenhilfe",
+    "frage": "Was macht die Crew mit dem Wissen über die Kustoden-Sonde an Bord der Goldkehle?",
+    "optionen": [
+     {
+      "id": "sonde_konfiszieren",
+      "text": "Sonde sicherstellen und mitführen",
+      "folge": "Rostmeute verfolgt die Lerche; Kustoden-Faden öffnet sich"
+     },
+     {
+      "id": "sonde_vernichten",
+      "text": "Sonde vor Ort zerstören",
+      "folge": "Rostmeute verliert Interesse; Kustoden-Faden bleibt geschlossen"
+     }
+    ]
+   }
+  ],
+  "ausgaenge": {
+   "begleitet": {
+    "wann": "Antrieb geflickt, Rostmeute abgezogen, Goldkehle fährt selbst zum Treffpunkt",
+    "folgen": [
+     "npc_gedaechtnis sela: Lerche hat die Goldkehle ohne Kampf heimgebracht – schulde ihnen etwas",
+     "npc_haltung sela +2",
+     "chronik: Crew rettet Vaelen-Frachter 'Goldkehle' aus der Grauen Weite durch Pannenhilfe",
+     "welt_fakt kustoden_sonde (faden): Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen"
+    ]
+   },
+   "befreit": {
+    "wann": "Rostmeute vertrieben nach Gefecht, Goldkehle gerettet",
+    "folgen": [
+     "npc_gedaechtnis sela: Lerche hat die Goldkehle mit Waffengewalt befreit – mutiger Einsatz",
+     "npc_haltung sela +1",
+     "npc_haltung grauzahn -1",
+     "chronik: Crew vertreibt Rostmeute-Trupp im Nebel und befreit die Goldkehle",
+     "welt_fakt kustoden_sonde (faden): Eine Kustoden-Sonde war an Bord der Goldkehle – ihr Verbleib ist offen"
+    ]
+   },
+   "rueckzug": {
+    "wann": "Lerche zu schwer beschädigt, Rückzug ohne Goldkehle",
+    "folgen": [
+     "npc_gedaechtnis sela: Lerche musste ohne die Goldkehle abdrehen – kein Vorwurf, aber kein Vertrauen gewonnen",
+     "npc_haltung grauzahn +1",
+     "chronik: Crew muss im Nebel vor der Rostmeute abdrehen, Goldkehle-Schicksal unbekannt",
+     "welt_fakt goldkehle_vermisst: Die Goldkehle ist weiter verschollen – die Rostmeute hat sie"
+    ]
+   }
+  },
+  "wuensche": [
+   "Szenentyp 'verfolgung' wäre hier passend gewesen – Kanonenboot, das die Lerche durch den Nebel jagt, nach einem gescheiterten Bluff."
+  ]
+ }
+}

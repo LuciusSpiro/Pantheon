@@ -41,10 +41,10 @@
         "funk_npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wer vom Havaristen funkt" },
         "kind": { "typ": "kind", "default": "bergungsboot", "werte": ["frachter", "karawane", "bergungsboot"] },
         "name": { "typ": "text", "default": "Bergungsboot" },
-        "huelle": { "typ": "zahl", "default": 45, "min": 20, "max": 100 },
-        "reparatur_s": { "typ": "zahl", "default": 45, "min": 10, "max": 120, "beschreibung": "Sekunden nah und langsam, bis der Antrieb läuft (lang genug, dass der Angriff vorher ankommt)" },
+        "huelle": { "typ": "zahl", "default": 90, "min": 20, "max": 100 },
+        "reparatur_s": { "typ": "zahl", "default": 30, "min": 10, "max": 120, "beschreibung": "Sekunden nah und langsam, bis der Antrieb läuft (lang genug, dass der Angriff vorher ankommt)" },
         "mit_angriff": { "typ": "bool", "default": true, "beschreibung": "Angreifer stören die Reparatur (Wendung)" },
-        "angriff_nach": { "typ": "zahl", "default": 15, "min": 10, "max": 120 },
+        "angriff_nach": { "typ": "zahl", "default": 20, "min": 10, "max": 120 },
         "angriff2_nach": { "typ": "zahl", "default": 40, "min": 20, "max": 180, "beschreibung": "s bis zum Ersatz-Angreifer (nur solange die Reparatur läuft und die erste Welle erledigt ist)" },
         "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 2 },
         "angreifer": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Schwerer Angreifer auf den Havaristen (lädt angekündigt)" },
@@ -105,6 +105,12 @@
                 "if": { "all": [ { "elapsed": 240 }, { "not": { "v": "{{id}}_ende" } } ] },
                 "do": [ { "set": { "{{id}}_ende": true } },{ "do": "enemies_retreat", "unter_pct": 100 }, { "oda": "@{{id}}.aufgegeben" } ],
                 "garantie": "zeitlimit"
+              },
+              {
+                "_kommentar": "QA-Abnahme S2b: Havarist geflickt, später doch kampfunfähig – dann setzte keine Regel mehr den Rückzug und ein Kanonenboot konnte die Szene festhalten",
+                "if": { "all": [ { "v": "{{id}}_ende" }, { "elapsed": 300 } ] },
+                "do": [ { "do": "enemies_retreat", "unter_pct": 100 } ],
+                "garantie": "autoloesung"
               }
             ],
             "objectives": [

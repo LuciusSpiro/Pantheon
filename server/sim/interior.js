@@ -991,8 +991,20 @@ function updateHazards(game, dt) {
       game.oda(`Keine Ersatzteile mehr – ich habe ${sysName(sys)} mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt.`, null);
     }
   }
+  // QA S2b: Softlock-Schutz gegen Dauerbrand außerhalb des Kampfs (Brandschutz-Flutung, emergencyRepair.fireMin/fireDelay)
+  const ER = C.emergencyRepair || {};
+  const calm = !drill && !(game.space && game.space.enemies && game.space.enemies.some((e) => e.kind !== 'relay'));
+  if (ER.fireDelay > 0 && calm && ship.fireList.length >= (ER.fireMin || 1)) {
+    ship.fireCalmT = (ship.fireCalmT || 0) + dt;
+    if (ship.fireCalmT >= ER.fireDelay) {
+      ship.fireCalmT = 0;
+      for (const f of ship.fireList.slice()) removeFire(game, f.tx, f.ty, 'oda');
+      game.emit('sfx', { name: 'extinguish', zone: 'ship' });
+      game.oda('Dauerbrand! Ich flute die Sektionen mit Löschschaum – alle Feuer aus. Bitte nicht zur Gewohnheit machen.', null);
+    }
+  } else ship.fireCalmT = 0;
   updateSystemAnnounce(game);
-  const noPlates = game.inventory.flickblech <= 0 && !carried('flickblech');
+  const noPlates =game.inventory.flickblech <= 0 && !carried('flickblech');
   if (noPlates && ship.breachList.length) {
     ship.noPlateT += dt;
     if (ship.noPlateT >= C.emergencyRepair.breachDelay) {

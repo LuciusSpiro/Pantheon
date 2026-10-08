@@ -1,0 +1,1406 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_2_nebel_phantom",
+  "name": "2026-10-08_sl_2_nebel_phantom",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 42723,
+  "erstellt": "2026-10-08T13:58:14.202Z",
+  "aktualisiert": "2026-10-08T13:59:14.666Z",
+  "meta": {
+    "mission_id": "sl_2_nebel_phantom",
+    "welt": "w-1pj2",
+    "plan": "p2",
+    "origin": "sl",
+    "anlass": {
+      "art": "kampagnenstart",
+      "tutorial": false
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_nebel_scan": "llm",
+      "s3_begegnung": "rohfassung",
+      "s4_geleit": "llm",
+      "s4_gefecht": "llm"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's3_begegnung_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's3_begegnung_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_beschaedigt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_verloren' wird gesetzt, aber in diesem Buch nie gelesen"
+      ]
+    },
+    "aktualisierungen": 3
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "fakt": "kustoden_relais"
+      },
+      "text": "Das Kustoden-Relais ist geweckt – Tesk hat das im Kopf, wenn sie eine Crew in die Graue Weite schickt, die an das Relais grenzt."
+    }
+  ],
+  "erinnerung_neutral": "Hafenmeisterin Tesk hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "nebel_phantom",
+    "titel": "Signal in der Grauen Weite",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Eine Bake sendet aus der Grauen Weite – unbekanntes Muster, kein Konkordat-Code. Ich brauche eine Crew, die diskret ist und keine Fragen stellt, bis sie Antworten hat.",
+    "erinnerung": {
+      "fakt": "kustoden_relais"
+    },
+    "erinnerung_text": "Das Kustoden-Relais ist geweckt – Tesk hat das im Kopf, wenn sie eine Crew in die Graue Weite schickt, die an das Relais grenzt.",
+    "belohnung_marken": 150,
+    "besetzung": [
+      "tesk"
+    ],
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "stimme": "tesk",
+        "sachverhalt": "Tesk erteilt den Auftrag am Lichtkordon: Eine unbekannte Bake sendet aus der Grauen Weite. Herausfinden, was dort ist – und ob es eine Gefahr für den Hafen darstellt.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "s2_nebel_scan"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_scan",
+        "szenentyp": "annaeherung_und_erkundung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "signal_orten",
+            "umsetzung": "weitscan_peilung"
+          }
+        ],
+        "stimme": "tesk",
+        "sachverhalt": "Die Lerche fliegt in die Graue Weite. Irgendwo im Nebel sendet die Bake – Taktik peilt, Pilot fliegt die Richtung ab, bis die Quelle geortet ist.",
+        "wendung": "Angekündigt: Beim Annähern an die Bake meldet sich eine fremde Stimme – kein Konkordat-Signal.",
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Bake geortet",
+            "nach": "s3_begegnung"
+          }
+        ]
+      },
+      {
+        "id": "s3_begegnung",
+        "szenentyp": "begegnung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "taeuschen",
+            "umsetzung": "bluff_funk"
+          }
+        ],
+        "stimme": "neu:Stimme der Bake",
+        "sachverhalt": "Ein automatisiertes Schiff – kein Pilot, aber eine Stimme – verlangt Identifikation und Zweck. Die Ortung zeigt: Das Schiff hat leere Laderäume und einen beschädigten Antrieb. Der Captain wählt seinen Bluff.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Bluff gelingt",
+            "nach": "s4_geleit"
+          },
+          {
+            "wenn": "Bluff scheitert oder Wahrheit",
+            "nach": "s4_gefecht"
+          }
+        ]
+      },
+      {
+        "id": "s4_geleit",
+        "szenentyp": "geleit",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "schuetzen",
+            "umsetzung": "notruf_verteidigen"
+          }
+        ],
+        "stimme": "neu:Stimme der Bake",
+        "sachverhalt": "Das automatisierte Schiff – jetzt Schützling – driftet mit totem Antrieb, und Rostmeute-Jäger kreisen bereits. Die Lerche muss es schützen, bis die Angreifer vertrieben sind.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Schützling heil",
+            "nach": "ausgang:erfolg"
+          },
+          {
+            "wenn": "Schützling kampfunfähig",
+            "nach": "ausgang:teilerfolg"
+          }
+        ]
+      },
+      {
+        "id": "s4_gefecht",
+        "szenentyp": "raumgefecht",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "stimme": "neu:Stimme der Bake",
+        "sachverhalt": "Das automatisierte Schiff schaltet auf feindlich: Jäger erscheinen aus dem Nebel – offenbar Wächter, die die Bake schützen. Die Lerche muss sie vertreiben, bevor die Bake ihrerseits Verstärkung ruft.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Jäger vertrieben",
+            "nach": "ausgang:erfolg"
+          },
+          {
+            "wenn": "Lerche schwer beschädigt",
+            "nach": "ausgang:teilerfolg"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s3_begegnung",
+        "frage": "Welche Identität gibt der Captain der automatisierten Stimme gegenüber an?",
+        "optionen": [
+          {
+            "id": "bluff_bergung",
+            "text": "Bergungscrew des Konkordats",
+            "folge": "Passt zum leeren Laderaum – Bluff verfängt, Schiff wird zum Schützling statt zum Feind."
+          },
+          {
+            "id": "wahrheit",
+            "text": "Freie Crew, Auftrag von Tesk",
+            "folge": "Stimme stuft die Lerche als unbefugte Eindringlinge ein – Wächter-Jäger greifen an."
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "erfolg": {
+        "wann": "Schützling heil oder Jäger vertrieben, Bake gesichert",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche hat die Bake in der Grauen Weite gesichert und Rostmeute-Aktivität dort gemeldet.",
+          "chronik: Die Crew sicherte eine unbekannte Bake in der Grauen Weite und schlug Angreifer zurück.",
+          "welt_fakt nebel_bake (faden): Die Bake in der Grauen Weite gehört keiner bekannten Fraktion – ihr Ursprung ist ungeklärt."
+        ]
+      },
+      "teilerfolg": {
+        "wann": "Schützling kampfunfähig oder Lerche zum Rückzug gezwungen, Bake-Daten nur teilweise",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche kehrte mit Bruchstücken zurück – die Bake sendet noch, ihr Ursprung bleibt unklar.",
+          "chronik: Die Crew erkundete die Graue Weite, musste aber ohne vollständige Antwort abdrehen.",
+          "welt_fakt nebel_bake (faden): Die Bake in der Grauen Weite sendet weiter – niemand weiß, für wen."
+        ]
+      }
+    },
+    "wuensche": [
+      "Ein Molekül 'Passagiere befördern' oder 'Gast an Bord' für automatisierte oder herrenlose Schiffe als Findlinge wäre hilfreich."
+    ]
+  },
+  "szenen": {
+    "s2_nebel_scan": {
+      "molekuele": [
+        {
+          "id": "signal_orten",
+          "umsetzung": "weitscan_peilung",
+          "params": {
+            "loc": "nebel",
+            "fund": "nebel_beacon",
+            "fund_name": "die Bake",
+            "hinweis_nach": 50,
+            "aufdecken_nach": 100,
+            "scannen_nach": 180
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "fremde_stimme_meldet_sich",
+        "nach_s": 40,
+        "ankuendigung": "ODA: Eingehende Übertragung – kein Konkordat-Code, kein bekanntes Protokoll. Quelle: nahe der Bake.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "neu:Stimme der Bake",
+              "text": "Unbekanntes Schiff, haltet Abstand. Identifiziert euch oder dreht ab."
+            }
+          }
+        ]
+      }
+    },
+    "s4_geleit": {
+      "molekuele": [
+        {
+          "id": "schuetzen",
+          "umsetzung": "notruf_verteidigen",
+          "params": {
+            "loc": "nebel",
+            "funk_npc": "neu:Stimme der Bake",
+            "kind": "frachter",
+            "name": "Bake",
+            "huelle": 60,
+            "jaeger": 2,
+            "angreifer": "raider",
+            "angreifer_nach": 35,
+            "funk_notruf": "Antrieb ausgefallen, Angreifer auf Kollisionskurs. Wer auch immer das hört – ich brauche jetzt Hilfe.",
+            "funk_dank": "Sie ziehen zurück … Lerche, ich stehe in eurer Schuld."
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:erfolg",
+          "if": {
+            "flag": "s4_geleit_heil"
+          }
+        },
+        {
+          "nach": "ausgang:teilerfolg"
+        }
+      ],
+      "wendung": null
+    },
+    "s4_gefecht": {
+      "molekuele": [
+        {
+          "id": "vertreiben",
+          "umsetzung": "bis_zur_flucht",
+          "params": {
+            "loc": "nebel",
+            "npc": "neu:Stimme der Bake",
+            "jaeger": 2,
+            "mit_kanonenboot": false,
+            "flucht_unter": 35,
+            "funk_start": "Unbefugtes Schiff, ihr seid zu nah. Verlasst die Zone oder wir sorgen dafür.",
+            "funk_abzug": "Genug. Rückzug – die Bake ist nicht schützbar, wenn wir fallen."
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:erfolg",
+          "if": {
+            "flag": "s4_gefecht_vertrieben"
+          }
+        },
+        {
+          "nach": "ausgang:teilerfolg"
+        }
+      ],
+      "wendung": null
+    }
+  },
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_2_nebel_phantom",
+    "kopf": {
+      "titel": "Signal in der Grauen Weite",
+      "art": "generiert",
+      "auftraggeber": "tesk",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 3
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "tesk"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "nebel",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "nebel"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "tesk"
+      ],
+      "stimmen": {
+        "neu_stimme_der_bake": {
+          "name": "Stimme der Bake"
+        }
+      },
+      "schiffe": {
+        "s4_geleit": {
+          "kind": "frachter",
+          "name": "Bake",
+          "npc": "neu_stimme_der_bake"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "signal_orten/weitscan_peilung",
+        "enter": [
+          {
+            "setFlag": {
+              "s3_begegnung_durchschaut": null,
+              "s3_begegnung_geglueckt": null,
+              "s3_roh": null,
+              "s4_gefecht_vertrieben": null,
+              "s4_geleit_beschaedigt": null,
+              "s4_geleit_heil": null,
+              "s4_geleit_verloren": null
+            }
+          },
+          {
+            "radio": {
+              "from": "tesk",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_nebel_scan_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_scan_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_nebel_scan.anflug_ziel",
+            "done": {
+              "atLocation": "nebel"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "nebel"
+              }
+            },
+            "oda": "@s2_nebel_scan.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "nebel"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_nebel_scan"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_nebel_scan"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "nebel"
+          }
+        ],
+        "umsetzung": "signal_orten/weitscan_peilung"
+      },
+      {
+        "id": "s2_nebel_scan",
+        "loc": "nebel",
+        "timers": [
+          {
+            "at": 1,
+            "oda": "@s2_nebel_scan.start"
+          },
+          {
+            "at": 40,
+            "do": [
+              {
+                "wendung": "s2_fremde_stimme_meldet_sich",
+                "ankuendigung": {
+                  "oda": "@s2_nebel_scan.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "neu_stimme_der_bake",
+                      "text": "@s2_nebel_scan.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 35
+                },
+                {
+                  "not": {
+                    "event": "widescan"
+                  }
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_beacon"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "oda": "@s2_nebel_scan.tipp"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 50
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_beacon"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "direction_hint",
+                "find": "nebel_beacon",
+                "text": "@s2_nebel_scan.richtung"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 100
+                },
+                {
+                  "not": {
+                    "revealed": "nebel_beacon"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "reveal_find",
+                "id": "nebel_beacon"
+              },
+              {
+                "oda": "@s2_nebel_scan.aufgedeckt"
+              }
+            ],
+            "garantie": "autoloesung"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "revealed": "nebel_beacon"
+                },
+                {
+                  "elapsed": 180
+                },
+                {
+                  "not": {
+                    "found": "nebel_beacon"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "complete_find",
+                "id": "nebel_beacon"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "finden",
+            "text": "@s2_nebel_scan.ziel_finden",
+            "done": {
+              "revealed": "nebel_beacon"
+            }
+          },
+          {
+            "id": "scannen",
+            "text": "@s2_nebel_scan.ziel_scannen",
+            "show": {
+              "revealed": "nebel_beacon"
+            },
+            "done": {
+              "found": "nebel_beacon"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "found": "nebel_beacon"
+            },
+            "goto": "s3_begegnung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "complete_find",
+            "id": "nebel_beacon"
+          }
+        ],
+        "umsetzung": "signal_orten/weitscan_peilung"
+      },
+      {
+        "id": "s3_begegnung",
+        "loc": "nebel",
+        "enter": [
+          {
+            "radio": {
+              "from": "neu_stimme_der_bake",
+              "text": "@s3_begegnung.forderung"
+            }
+          },
+          {
+            "oda": "@s3_begegnung.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 8,
+            "oda": "@s3_begegnung.hinweis"
+          },
+          {
+            "at": 10,
+            "do": [
+              {
+                "choice": "s3_begegnung_wahl"
+              }
+            ]
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "choiceMade": "s3_begegnung_wahl"
+              }
+            },
+            "oda": "@s3_begegnung.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 75
+                },
+                {
+                  "not": {
+                    "choiceMade": "s3_begegnung_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "wahrheit"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s3_begegnung_wahl": {
+            "prompt": "@s3_begegnung.frage",
+            "options": [
+              {
+                "id": "passend",
+                "label": "@s3_begegnung.passend"
+              },
+              {
+                "id": "falsch",
+                "label": "@s3_begegnung.falsch"
+              },
+              {
+                "id": "wahrheit",
+                "label": "@s3_begegnung.wahrheit"
+              }
+            ],
+            "on": {
+              "passend": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_geglueckt": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_stimme_der_bake",
+                    "text": "@s3_begegnung.funk_geglueckt"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "reward": {
+                        "marks": 20
+                      }
+                    },
+                    {
+                      "setFlag": {
+                        "s3_roh": true
+                      }
+                    }
+                  ]
+                }
+              ],
+              "falsch": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_durchschaut": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_stimme_der_bake",
+                    "text": "@s3_begegnung.funk_durchschaut"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "do": "pay_marks",
+                      "marks": 20
+                    }
+                  ]
+                }
+              ],
+              "wahrheit": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_durchschaut": true
+                  }
+                },
+                {
+                  "wirkung": []
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s3_begegnung.ziel",
+            "done": {
+              "choiceMade": "s3_begegnung_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "choiceMade": "s3_begegnung_wahl"
+                },
+                {
+                  "flag": "s3_roh"
+                }
+              ]
+            },
+            "goto": "s4_geleit"
+          },
+          {
+            "if": {
+              "choiceMade": "s3_begegnung_wahl"
+            },
+            "goto": "s4_gefecht"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "passend"
+          }
+        ],
+        "umsetzung": "taeuschen/bluff_funk",
+        "liefert_flags": [
+          "s3_begegnung_geglueckt",
+          "s3_begegnung_durchschaut"
+        ]
+      },
+      {
+        "id": "s4_geleit",
+        "loc": "nebel",
+        "enter": [
+          {
+            "do": "spawn_escort",
+            "tag": "s4_geleit",
+            "kind": "frachter",
+            "name": "Bake",
+            "npc": "neu_stimme_der_bake",
+            "verhalten": "treibt",
+            "von": "vorn",
+            "huelle": 60
+          },
+          {
+            "radio": {
+              "from": "neu_stimme_der_bake",
+              "text": "@s4_geleit.funk_notruf"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s4_geleit.lage"
+          },
+          {
+            "at": 6,
+            "do": [
+              {
+                "wendung": "s4_geleit_angriff",
+                "ankuendigung": {
+                  "oda": "@s4_geleit.ankuendigung",
+                  "art": "gleichzeitig",
+                  "grund": "Die Jäger erscheinen sichtbar; jeder Angriff auf den Schützling ist mit tele angekündigt."
+                },
+                "wirkung": [
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_w1",
+                      "n": 2,
+                      "ziel": "schuetzling",
+                      "angles": [
+                        0.9,
+                        -1.2,
+                        2.4
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "_kommentar": "QA-Abnahme S2b: der schwere Angreifer kommt angekündigt später (vorher starb der Havarist zu dritt in ~1 min)",
+            "at": 35,
+            "do": [
+              {
+                "wendung": "s4_geleit_schwer",
+                "ankuendigung": {
+                  "oda": "@s4_geleit.schwer",
+                  "art": "vorher",
+                  "vorlauf_s": 5
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_w1",
+                      "ziel": "schuetzling",
+                      "angles": [
+                        -2.6
+                      ]
+                    }
+                  },
+                  {
+                    "set": {
+                      "s4_geleit_w1": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "v": "s4_geleit_ende"
+              }
+            },
+            "oda": "@s4_geleit.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_state",
+                    "tag": "s4_geleit",
+                    "state": "kampfunfaehig"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit.verloren"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_w1"
+                },
+                {
+                  "elapsed": 8
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_ende": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu_stimme_der_bake",
+                  "text": "@s4_geleit.funk_dank"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 300
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "verteidigen",
+            "text": "@s4_geleit.ziel",
+            "done": {
+              "v": "s4_geleit_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s4_geleit_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s4_geleit_heil"
+                }
+              ]
+            },
+            "complete": "erfolg"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "teilerfolg"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s4_geleit_ende": true
+            }
+          }
+        ],
+        "umsetzung": "schuetzen/notruf_verteidigen",
+        "liefert_flags": [
+          "s4_geleit_heil",
+          "s4_geleit_beschaedigt",
+          "s4_geleit_verloren"
+        ]
+      },
+      {
+        "id": "s4_gefecht",
+        "loc": "nebel",
+        "enter": [
+          {
+            "spawn": {
+              "kind": "raider",
+              "tag": "s4_gefecht_w1",
+              "n": 2,
+              "angles": [
+                0.3,
+                -0.7,
+                1.2
+              ]
+            }
+          },
+          {
+            "if": false,
+            "spawn": {
+              "kind": "gunboat",
+              "tag": "s4_gefecht_w1"
+            }
+          },
+          {
+            "do": "enemies_retreat",
+            "tag": "s4_gefecht_w1",
+            "unter_pct": 35
+          },
+          {
+            "after": {
+              "sec": 3,
+              "do": [
+                {
+                  "radio": {
+                    "from": "neu_stimme_der_bake",
+                    "text": "@s4_gefecht.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s4_gefecht.lage"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            },
+            "oda": "@s4_gefecht.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 3
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s4_gefecht_w1",
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_gefecht_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "s4_gefecht_vertrieben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu_stimme_der_bake",
+                  "text": "@s4_gefecht.funk_abzug"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s4_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "tag": "s4_gefecht_w1",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_gefecht.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "vertreiben",
+            "text": "@s4_gefecht.ziel",
+            "done": {
+              "v": "s4_gefecht_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s4_gefecht_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s4_gefecht_vertrieben"
+                }
+              ]
+            },
+            "complete": "erfolg"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_gefecht_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "teilerfolg"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s4_gefecht_ende": true
+            }
+          },
+          {
+            "setFlag": {
+              "s4_gefecht_vertrieben": true
+            }
+          }
+        ],
+        "umsetzung": "vertreiben/bis_zur_flucht",
+        "liefert_flags": [
+          "s4_gefecht_vertrieben"
+        ]
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "erfolg": {
+        "beschreibung": "Schützling heil oder Jäger vertrieben, Bake gesichert",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "tesk",
+            "ereignis": "nebel_phantom_erfolg",
+            "text": "@aus.erfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.erfolg.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "nebel_bake",
+            "value": "Die Bake in der Grauen Weite gehört keiner bekannten Fraktion – ihr Ursprung ist ungeklärt.",
+            "quelle": "sl_2_nebel_phantom",
+            "faden": true
+          }
+        ]
+      },
+      "teilerfolg": {
+        "beschreibung": "Schützling kampfunfähig oder Lerche zum Rückzug gezwungen, Bake-Daten nur teilweise",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "tesk",
+            "ereignis": "nebel_phantom_teilerfolg",
+            "text": "@aus.teilerfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.teilerfolg.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "nebel_bake",
+            "value": "Die Bake in der Grauen Weite sendet weiter – niemand weiß, für wen.",
+            "quelle": "sl_2_nebel_phantom",
+            "faden": true
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Eine Bake sendet aus der Grauen Weite – unbekanntes Muster, kein Konkordat-Code. Ich brauche eine Crew, die diskret ist und keine Fragen stellt, bis sie Antworten hat.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_nebel_scan.anflug_ziel": "Nach Graue Weite springen",
+      "s2_nebel_scan.anflug_tipp": "Kurs liegt an: Graue Weite. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_nebel_scan.start": "Irgendwo hier ist die Bake. Taktik: Weitscan (W) – Marker für den Piloten!",
+      "s2_nebel_scan.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+      "s2_nebel_scan.richtung": "die Bake kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+      "s2_nebel_scan.aufgedeckt": "Ich habe die Bake angepeilt und markiert. Anvisieren (T) und scannen (S)!",
+      "s2_nebel_scan.ziel_finden": "Taktik: Weitscan (W) – die Bake suchen",
+      "s2_nebel_scan.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)",
+      "s2_nebel_scan.t1": "ODA: Eingehende Übertragung – kein Konkordat-Code, kein bekanntes Protokoll. Quelle: nahe der Bake.",
+      "s2_nebel_scan.t2": "Unbekanntes Schiff, haltet Abstand. Identifiziert euch oder dreht ab.",
+      "s3_begegnung.forderung": "Ihr seid auf meinem Kurs. Dreht bei, oder wir helfen nach.",
+      "s3_begegnung.hinweis": "Ortung: Ihr Antrieb flackert – der Reaktor läuft auf halber Last. Die können kaum folgen.",
+      "s3_begegnung.frage": "Wie antworten wir?",
+      "s3_begegnung.passend": "Wir springen gleich – folgt uns, wenn ihr könnt.",
+      "s3_begegnung.falsch": "Eine Patrouille ist auf dem Weg hierher.",
+      "s3_begegnung.wahrheit": "Die Wahrheit sagen",
+      "s3_begegnung.funk_geglueckt": "… Na schön. Diesmal. Verschwindet.",
+      "s3_begegnung.funk_durchschaut": "Netter Versuch. Glaubt ihr, ich kann nicht zählen?",
+      "s3_begegnung.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+      "s3_begegnung.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+      "s3_begegnung.ziel": "Captain: antworten (Funk) – Ortung beachten",
+      "s4_geleit.funk_notruf": "Antrieb ausgefallen, Angreifer auf Kollisionskurs. Wer auch immer das hört – ich brauche jetzt Hilfe.",
+      "s4_geleit.funk_dank": "Sie ziehen zurück … Lerche, ich stehe in eurer Schuld.",
+      "s4_geleit.lage": "Notruf von Bake! Der Havarist treibt – wir sind seine Schilde.",
+      "s4_geleit.ankuendigung": "Jäger kreisen um Bake! Pilot: dazwischen. Taktik: wer auf den Havaristen lädt, zuerst.",
+      "s4_geleit.schwer": "Ortung: ein schwerer Angreifer hält auf Bake zu! Schilde zur Angriffsseite, Breitseite dazwischen.",
+      "s4_geleit.tipp": "Lädt ein Jäger auf den Havaristen, stellt euch quer dazwischen – unser Schild fängt die Ladung ab.",
+      "s4_geleit.verloren": "Bake treibt kampfunfähig. Die Jäger drehen ab – die Besatzung lebt noch.",
+      "s4_geleit.abgedreht": "Die Jäger brechen ab und verschwinden. Durchatmen.",
+      "s4_geleit.ziel": "Bake verteidigen – Hülle {escortHp:s4_geleit} %",
+      "s4_gefecht.funk_start": "Unbefugtes Schiff, ihr seid zu nah. Verlasst die Zone oder wir sorgen dafür.",
+      "s4_gefecht.funk_abzug": "Genug. Rückzug – die Bake ist nicht schützbar, wenn wir fallen.",
+      "s4_gefecht.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+      "s4_gefecht.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+      "s4_gefecht.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+      "s4_gefecht.ziel": "Angreifer vertreiben ({left:s4_gefecht_w1} übrig)",
+      "aus.erfolg.t1": "Die Lerche hat die Bake in der Grauen Weite gesichert und Rostmeute-Aktivität dort gemeldet.",
+      "aus.erfolg.t2": "Die Crew sicherte eine unbekannte Bake in der Grauen Weite und schlug Angreifer zurück.",
+      "aus.teilerfolg.t1": "Die Lerche kehrte mit Bruchstücken zurück – die Bake sendet noch, ihr Ursprung bleibt unklar.",
+      "aus.teilerfolg.t2": "Die Crew erkundete die Graue Weite, musste aber ohne vollständige Antwort abdrehen.",
+      "buch.briefing": "Eine Bake sendet aus der Grauen Weite – unbekanntes Muster, kein Konkordat-Code. Ich brauche eine Crew, die diskret ist und keine Fragen stellt, bis sie Antworten hat.",
+      "buch.belohnung": "150 Marken",
+      "buch.erinnerung": "Das Kustoden-Relais ist geweckt – Tesk hat das im Kopf, wenn sie eine Crew in die Graue Weite schickt, die an das Relais grenzt."
+    },
+    "erinnerung": {
+      "fakt": "kustoden_relais"
+    }
+  },
+  "gespielt": [
+    {
+      "datum": "2026-10-08T14:01:02.700Z",
+      "ausgang": "teilerfolg",
+      "dauer_s": 153,
+      "crew": 3
+    }
+  ]
+}

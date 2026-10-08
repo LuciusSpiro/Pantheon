@@ -43,10 +43,12 @@
       "fraktion": "rostmeute",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Die Lerche hat sich geweigert, Wegezoll zu zahlen, und an B-7 meine Jäger zerlegt."
         },
         {
+          "ereignis": "m1_erinnerung_2",
           "mission": "m1",
           "text": "Meine Nachhut hat die Lerche nicht aufhalten können."
         }
@@ -62,6 +64,7 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Die Lerche hat mich verletzt von der Plattform B-7 geholt."
         }
@@ -78,6 +81,7 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche."
         }
@@ -93,6 +97,7 @@
       "fraktion": "vaelen",
       "gedaechtnis": [
         {
+          "ereignis": "sela_erinnerung",
           "mission": "sela",
           "text": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt."
         }
@@ -109,10 +114,12 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Die Lerche hat B-7 wieder zum Senden gebracht."
         },
         {
+          "ereignis": "m1_erinnerung_2",
           "mission": "m1",
           "text": "Die Crew hat den Datenkern ans Konkordat geliefert."
         }

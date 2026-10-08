@@ -631,6 +631,20 @@ section('M3b: Eskalation nach 20 s (§4)', () => {
   const left = g.snapshot().ship.escalate.emitter_aft;
   send(0, { t: 'act', down: false });
   ok(working && left == null, `Spieler arbeitet daran: kein Zähler (hold ${hk}, escalate ${left})`);
+  // QA S2b: ab maxFires Bränden an Bord zündet keine Eskalation mehr (Zähler läuft weiter, Druck bleibt)
+  {
+    const cap = M3B.escalation.maxFires;
+    ok(cap === 3, `spaceM3b.escalation.maxFires ${cap}`);
+    resetSystems(g); clearHazards(g); g.ship.escalateT = {};
+    for (let y = 0; y < 16 && g.ship.fireList.length < cap; y++) for (let x = 0; x < 40 && g.ship.fireList.length < cap; x++) interior.addFire(g, x, y);
+    g.ship.systems.battery_stbd = 'damaged';
+    const esc0 = g.stats.escalations;
+    const botsMod = require('../server/sim/bots.js'); const bu = botsMod.update; botsMod.update = () => {};
+    const tick2 = () => { tick(); for (const f of g.ship.fireList) { f.spreadT = 0; f.dmgT = 0; } };
+    try { run(after + 2, tick2); } finally { botsMod.update = bu; }
+    ok(g.stats.escalations === esc0 && g.ship.fireList.length === cap, `${cap} Brände: nach ${after + 2} s keine Eskalation (${g.stats.escalations - esc0}), Brände ${g.ship.fireList.length}`);
+    clearHazards(g);
+  }
   ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
 });
 
@@ -764,7 +778,8 @@ section('Ladung / tele (§7.1)', () => {
   const gb2 = pinnedEnemy(g, 'gunboat', sh.x, sh.y + 380, 0, { hp: 999 });
   gb2.keepFire = true; gb2.fireT = 0;
   let teleSeen = false, proj = 0;
-  run(12, () => { proj += g.space.projectiles.filter((q) => q.owner === gb2.id).length; pin(g); noFire(g); if (gb2.tele) teleSeen = true; });
+  // S2b: Sperrfeuer ist eine eigene Projektilwaffe und zählt hier nicht (geprüft wird nur der Ladeschuss)
+  run(12, () => { proj += g.space.projectiles.filter((q) => q.owner === gb2.id && q.kind !== 'sperrfeuer').length; pin(g); noFire(g); if (gb2.tele) teleSeen = true; });
   ok(teleSeen && proj === 0, 'Kanonenboot schießt nicht sofort: Ladung statt Projektil');
   // Jäger schießen in M3a weiter wie bisher (kein tele)
   g.space.enemies = [];

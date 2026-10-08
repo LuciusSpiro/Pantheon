@@ -1,0 +1,1725 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_2_geleit_nebel",
+  "name": "2026-10-08_sl_2_geleit_nebel",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 42894,
+  "erstellt": "2026-10-08T14:12:01.233Z",
+  "aktualisiert": "2026-10-08T14:12:55.316Z",
+  "meta": {
+    "mission_id": "sl_2_geleit_nebel",
+    "welt": "w-xb82",
+    "plan": "p2",
+    "origin": "sl",
+    "anlass": {
+      "art": "debug",
+      "auftraggeber": "sela",
+      "auftrag": "Geleit: Sela ist Auftraggeberin und braucht Schutz für eine Vaelen-Karawane (Schützling) durch den Nebel. Sela ist Stimme, nicht Gegnerin. 4-5 Szenen."
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_nebel_eingang": "llm",
+      "s3_angriff": "llm",
+      "s4_geleit_kampf": "llm",
+      "s5_notbergung": "llm"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's3_angriff_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's3_angriff_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_kampf_beschaedigt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_kampf_verloren' wird gesetzt, aber in diesem Buch nie gelesen"
+      ]
+    },
+    "aktualisierungen": 4
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "fakt": "kustoden_relais"
+      },
+      "text": "Sela hat gehört, dass die Lerche das Kustoden-Relais geweckt hat – wer mit solcher Technik umgehen kann, dem traut sie zu, ihre Karawane durch den Nebel zu bringen."
+    }
+  ],
+  "erinnerung_neutral": "Sela (Vaelen-Händlerin) hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "geleit_nebel",
+    "titel": "Sicheres Geleit durch die Graue Weite",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Meine Karawane muss durch die Graue Weite – die Rostmeute hat die Route ausgespäht. Ihr seid das einzige Schiff, das schnell genug wäre.",
+    "erinnerung": {
+      "fakt": "kustoden_relais"
+    },
+    "erinnerung_text": "Sela hat gehört, dass die Lerche das Kustoden-Relais geweckt hat – wer mit solcher Technik umgehen kann, dem traut sie zu, ihre Karawane durch den Nebel zu bringen.",
+    "belohnung_marken": 150,
+    "besetzung": [
+      "sela"
+    ],
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "stimme": "sela",
+        "sachverhalt": "Sela funkt vom Hafen aus: Die Vaelen-Karawane muss durch den Nebel nach draußen – Rostmeute-Jäger wurden gesichtet. Sie braucht die Lerche als Begleitschutz.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "s2_nebel_eingang"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_eingang",
+        "szenentyp": "gefahrennavigation",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "kurs_durch_gefahr",
+            "umsetzung": "nebelflug"
+          }
+        ],
+        "stimme": "sela",
+        "ziel_name": "Karawane der Vaelen",
+        "sachverhalt": "Die Lerche eskortiert die Karawane in die Graue Weite. Der Nebel macht jeden Scan blind – Pilot und Taktik müssen den Kurs gemeinsam halten, während Sela von Bord der Karawane meldet.",
+        "wendung": "Ankündigung: Taktik erfasst schwache Antriebssignaturen – Rostmeute-Jäger lauern im Nebel.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Feld durchquert",
+            "nach": "s3_angriff"
+          }
+        ]
+      },
+      {
+        "id": "s3_angriff",
+        "szenentyp": "begegnung",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "taeuschen",
+            "umsetzung": "bluff_funk"
+          }
+        ],
+        "stimme": "neu:Rostmeute-Anführer Keld",
+        "sachverhalt": "Rostmeute-Jäger erscheinen und stellen die Lerche: Keld verlangt die Ladung der Karawane oder droht mit Gewalt. Der Captain muss entscheiden, wie er antwortet.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Bluff gelingt oder Crew weicht aus",
+            "nach": "s4_geleit_kampf"
+          }
+        ]
+      },
+      {
+        "id": "s4_geleit_kampf",
+        "szenentyp": "geleit",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "schuetzen",
+            "umsetzung": "geleit_durch_angriff"
+          }
+        ],
+        "stimme": "sela",
+        "ziel_name": "Karawane der Vaelen",
+        "sachverhalt": "Keld schickt Jäger und ein Kanonenboot auf die Karawane. Die Lerche muss sie abschirmen, bis die Karawane das Nebel-Ende erreicht.",
+        "wendung": "Ankündigung: Sela meldet Triebwerksschaden an der Karawane – sie wird langsamer.",
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Karawane heil durchgebracht",
+            "nach": "ausgang:erfolg"
+          },
+          {
+            "wenn": "Karawane schwer beschädigt",
+            "nach": "s5_notbergung"
+          }
+        ]
+      },
+      {
+        "id": "s5_notbergung",
+        "szenentyp": "bergung_im_all",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "ladung_bergen",
+            "umsetzung": "bergungskisten"
+          }
+        ],
+        "stimme": "sela",
+        "ziel_name": "Verlorene Fracht der Karawane",
+        "sachverhalt": "Die Karawane treibt, Frachtkisten sind ausgebrochen. Sela bittet die Lerche, wenigstens die wichtigsten Container zu sichern, bevor die Rostmeute sie holt.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Ladung gesichert oder Zeit abgelaufen",
+            "nach": "ausgang:teilerfolg"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s3_angriff",
+        "frage": "Keld fordert die Ladung – wie antwortet der Captain?",
+        "optionen": [
+          {
+            "id": "bluff_eskorte",
+            "text": "Wir sind Konkordat-Eskorte, greift ab.",
+            "folge": "Keld zögert kurz, schickt aber trotzdem Jäger – die Lerche hat jedoch einen Moment Vorsprung im Gefecht."
+          },
+          {
+            "id": "bluff_leer",
+            "text": "Die Karawane transportiert nur Ballast, lohnt nicht.",
+            "folge": "Keld glaubt es nicht und schickt sofort Kanonenboot und Jäger ohne Vorwarnung."
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "erfolg": {
+        "wann": "Karawane heil durch den Nebel gebracht",
+        "folgen": [
+          "npc_haltung sela +2",
+          "npc_gedaechtnis sela: Die Lerche hat die Karawane heil durch die Graue Weite eskortiert – Sela schuldet der Crew einen Gefallen.",
+          "chronik: Die Crew geleitete Selas Karawane sicher durch die Graue Weite und schlug die Rostmeute zurück.",
+          "welt_fakt rostmeute_nebel (faden): Die Rostmeute kennt jetzt die Vaelen-Route durch den Nebel."
+        ]
+      },
+      "teilerfolg": {
+        "wann": "Karawane beschädigt, aber Fracht teilweise gerettet",
+        "folgen": [
+          "npc_haltung sela +1",
+          "npc_gedaechtnis sela: Die Lerche hat gerettet, was zu retten war – die Karawane wurde beschädigt, aber die wichtigste Fracht ist sicher.",
+          "chronik: Die Karawane erlitt Schäden im Nebel; die Crew sicherte den Rest der Ladung unter Beschuss."
+        ]
+      }
+    },
+    "wuensche": [
+      "Ein Szenentyp 'Verfolgung' wäre passend gewesen, um die Rostmeute nach dem Geleit durch den Nebel abzuschütteln."
+    ]
+  },
+  "szenen": {
+    "s2_nebel_eingang": {
+      "molekuele": [
+        {
+          "id": "kurs_durch_gefahr",
+          "umsetzung": "nebelflug",
+          "params": {
+            "loc": "nebel",
+            "mit_hinterhalt": true,
+            "hinterhalt_nach": 50,
+            "jaeger": 2,
+            "lage": "Der Nebel frisst jeden Scan. Pilot: Augen auf die Schubvektoren – Taktik: Weitscan läuft, Marker rein, sonst fliegen wir blind in die Wand!"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "rostmeute_lauert",
+        "nach_s": 50,
+        "ankuendigung": "Taktik meldet schwache Antriebssignaturen, zwei Kontakte, Kurs parallel zur Karawane – das sind keine Echos.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "sela",
+              "text": "Lerche, ich sehe Lichtpunkte querab – das ist die Rostmeute. Bleibt nah!"
+            }
+          }
+        ]
+      }
+    },
+    "s3_angriff": {
+      "molekuele": [
+        {
+          "id": "taeuschen",
+          "umsetzung": "bluff_funk",
+          "params": {
+            "loc": "nebel",
+            "npc": "neu:Rostmeute-Anführer Keld",
+            "forderung": "Hier Keld von der Rostmeute. Ihr begleitet eine fette Karawane – die Ladung gehört jetzt uns. Gebt sie raus, oder wir machen Kleinholz aus euch beiden.",
+            "hinweis": "ODA: Ortung zeigt Keldsschiff – Backbord-Antrieb mit Hitzesignatur. Er ist nicht auf vollen Schub.",
+            "frage": "Keld fordert die Ladung – wie antwortet der Captain?",
+            "bluff_passend": "Wir sind Konkordat-Eskorte – ihr wollt keinen Streit mit uns.",
+            "bluff_falsch": "Die Karawane fährt nur Ballast, kein Wert drin.",
+            "wahrheit": "Die Wahrheit sagen",
+            "funk_geglueckt": "Konkordat, ja? … Schert euch weg, diesmal lass ich's laufen.",
+            "funk_durchschaut": "Ballast? Ich rieche den Gewinn von hier. Jäger, raus!",
+            "folgen_geglueckt": [
+              {
+                "setFlag": {
+                  "s3_angriff_geglueckt": true
+                }
+              },
+              {
+                "oda": "Keldsformation zieht sich leicht zurück – wir haben einen Moment Vorsprung."
+              },
+              {
+                "log": "Keld durch Konkordat-Bluff verunsichert. Karawane gewinnt Abstand."
+              }
+            ],
+            "folgen_durchschaut": [
+              {
+                "setFlag": {
+                  "s3_angriff_durchschaut": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Rostmeute-Anführer Keld",
+                  "text": "Alle Jäger vor – kein Erbarmen!"
+                }
+              },
+              {
+                "log": "Bluff ist aufgeflogen. Keld schickt sofort alle Einheiten."
+              }
+            ],
+            "folgen_wahrheit": [
+              {
+                "setFlag": {
+                  "s3_angriff_durchschaut": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Rostmeute-Anführer Keld",
+                  "text": "Ehrlich? Respekt. Aber die Ladung bleibt trotzdem meine."
+                }
+              },
+              {
+                "log": "Captain hat die Wahrheit gesagt. Keld greift ohne Zögern an."
+              }
+            ],
+            "geduld_s": 60
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "s4_geleit_kampf": {
+      "molekuele": [
+        {
+          "id": "schuetzen",
+          "umsetzung": "geleit_durch_angriff",
+          "params": {
+            "loc": "nebel",
+            "funk_npc": "sela",
+            "kind": "karawane",
+            "name": "Karawane der Vaelen",
+            "von": "west",
+            "nach": "ost",
+            "jaeger": 3,
+            "angriff_nach": 8,
+            "verstaerkung": "gunboat",
+            "wellen_pause": 10,
+            "funk_start": "Lerche, wir nehmen Kurs. Bleibt dicht bei uns – der Nebel schützt uns nicht lange.",
+            "funk_notruf": "Treffer am Rumpf! Wir können das Tempo nicht halten!"
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:erfolg",
+          "if": {
+            "flag": "s4_geleit_kampf_heil"
+          }
+        },
+        {
+          "nach": "s5_notbergung"
+        }
+      ],
+      "wendung": {
+        "kennung": "triebwerksschaden_karawane",
+        "nach_s": 40,
+        "ankuendigung": "ODA: Karawane der Vaelen meldet Triebwerksschaden – Geschwindigkeit sinkt, Angriffsfenster für Keld öffnet sich.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "sela",
+              "text": "Triebwerk zwei ausgefallen! Wir werden langsamer – haltet sie von uns fern!"
+            }
+          }
+        ]
+      }
+    },
+    "s5_notbergung": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "bergungskisten",
+          "params": {
+            "loc": "nebel",
+            "anzahl": 4,
+            "aufgeben_nach": 180,
+            "auftraggeber_hinweis": "Die markierten Container sind das Wichtigste – holt sie raus, bevor die Rostmeute sie krallt!"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    }
+  },
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_2_geleit_nebel",
+    "kopf": {
+      "titel": "Sicheres Geleit durch die Graue Weite",
+      "art": "generiert",
+      "auftraggeber": "sela",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 3
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "sela"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "nebel",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "nebel"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "sela"
+      ],
+      "stimmen": {
+        "neu_rostmeute_anfuehrer_keld": {
+          "name": "Rostmeute-Anführer Keld"
+        }
+      },
+      "schiffe": {
+        "s4_geleit_kampf": {
+          "kind": "karawane",
+          "name": "Karawane der Vaelen",
+          "npc": "sela"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "kurs_durch_gefahr/nebelflug",
+        "enter": [
+          {
+            "setFlag": {
+              "s3_angriff_durchschaut": null,
+              "s3_angriff_geglueckt": null,
+              "s4_geleit_kampf_beschaedigt": null,
+              "s4_geleit_kampf_heil": null,
+              "s4_geleit_kampf_verloren": null
+            }
+          },
+          {
+            "radio": {
+              "from": "sela",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_nebel_eingang_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_eingang_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_nebel_eingang.anflug_ziel",
+            "done": {
+              "atLocation": "nebel"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "nebel"
+              }
+            },
+            "oda": "@s2_nebel_eingang.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "nebel"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_nebel_eingang"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_nebel_eingang"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "nebel"
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s2_nebel_eingang",
+        "loc": "nebel",
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s2_nebel_eingang.lage"
+          },
+          {
+            "at": 10,
+            "oda": "@s2_nebel_eingang.captain"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "v": "s2_nebel_eingang_durch"
+              }
+            },
+            "oda": "@s2_nebel_eingang.tipp",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 50,
+            "do": [
+              {
+                "wendung": "s2_rostmeute_lauert",
+                "ankuendigung": {
+                  "oda": "@s2_nebel_eingang.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "sela",
+                      "text": "@s2_nebel_eingang.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                true,
+                {
+                  "elapsed": 50
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_eingang_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s2_nebel_eingang_hinterhalt",
+                "ankuendigung": {
+                  "oda": "@s2_nebel_eingang.hinterhalt",
+                  "art": "gleichzeitig",
+                  "grund": "Die Jäger tauchen sichtbar aus dem Feld auf; ODA warnt im selben Moment."
+                },
+                "wirkung": [
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s2_nebel_eingang_w1",
+                      "n": 2,
+                      "angles": [
+                        1.3,
+                        -1.3
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "ship_in_zone",
+                    "loc": "nebel",
+                    "zone": "durchquert"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_eingang_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_eingang_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel_eingang.durch"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_eingang_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_eingang_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel_eingang.ausweg"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "durch",
+            "text": "@s2_nebel_eingang.ziel",
+            "done": {
+              "v": "s2_nebel_eingang_durch"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s2_nebel_eingang_durch"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s3_angriff"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s2_nebel_eingang_durch": true
+            }
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s3_angriff",
+        "loc": "nebel",
+        "enter": [
+          {
+            "radio": {
+              "from": "neu_rostmeute_anfuehrer_keld",
+              "text": "@s3_angriff.forderung"
+            }
+          },
+          {
+            "oda": "@s3_angriff.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 8,
+            "oda": "@s3_angriff.hinweis"
+          },
+          {
+            "at": 10,
+            "do": [
+              {
+                "choice": "s3_angriff_wahl"
+              }
+            ]
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "choiceMade": "s3_angriff_wahl"
+              }
+            },
+            "oda": "@s3_angriff.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 60
+                },
+                {
+                  "not": {
+                    "choiceMade": "s3_angriff_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "wahrheit"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s3_angriff_wahl": {
+            "prompt": "@s3_angriff.frage",
+            "options": [
+              {
+                "id": "passend",
+                "label": "@s3_angriff.passend"
+              },
+              {
+                "id": "falsch",
+                "label": "@s3_angriff.falsch"
+              },
+              {
+                "id": "wahrheit",
+                "label": "@s3_angriff.wahrheit"
+              }
+            ],
+            "on": {
+              "passend": [
+                {
+                  "setFlag": {
+                    "s3_angriff_geglueckt": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_rostmeute_anfuehrer_keld",
+                    "text": "@s3_angriff.funk_geglueckt"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_angriff_geglueckt": true
+                      }
+                    },
+                    {
+                      "oda": "@s3_angriff.t1"
+                    },
+                    {
+                      "log": "@s3_angriff.t2"
+                    }
+                  ]
+                }
+              ],
+              "falsch": [
+                {
+                  "setFlag": {
+                    "s3_angriff_durchschaut": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_rostmeute_anfuehrer_keld",
+                    "text": "@s3_angriff.funk_durchschaut"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_angriff_durchschaut": true
+                      }
+                    },
+                    {
+                      "radio": {
+                        "from": "neu_rostmeute_anfuehrer_keld",
+                        "text": "@s3_angriff.t3"
+                      }
+                    },
+                    {
+                      "log": "@s3_angriff.t4"
+                    }
+                  ]
+                }
+              ],
+              "wahrheit": [
+                {
+                  "setFlag": {
+                    "s3_angriff_durchschaut": true
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_angriff_durchschaut": true
+                      }
+                    },
+                    {
+                      "radio": {
+                        "from": "neu_rostmeute_anfuehrer_keld",
+                        "text": "@s3_angriff.t5"
+                      }
+                    },
+                    {
+                      "log": "@s3_angriff.t6"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s3_angriff.ziel",
+            "done": {
+              "choiceMade": "s3_angriff_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "choiceMade": "s3_angriff_wahl"
+            },
+            "goto": "s4_geleit_kampf"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "passend"
+          }
+        ],
+        "umsetzung": "taeuschen/bluff_funk",
+        "liefert_flags": [
+          "s3_angriff_geglueckt",
+          "s3_angriff_durchschaut"
+        ]
+      },
+      {
+        "id": "s4_geleit_kampf",
+        "loc": "nebel",
+        "enter": [
+          {
+            "do": "spawn_escort",
+            "tag": "s4_geleit_kampf",
+            "kind": "karawane",
+            "name": "Karawane der Vaelen",
+            "npc": "sela",
+            "verhalten": "folgt_kurs",
+            "von": "west",
+            "nach": "ost"
+          },
+          {
+            "after": {
+              "sec": 2,
+              "do": [
+                {
+                  "radio": {
+                    "from": "sela",
+                    "text": "@s4_geleit_kampf.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s4_geleit_kampf.lage"
+          },
+          {
+            "at": 8,
+            "do": [
+              {
+                "wendung": "s4_geleit_kampf_angriff",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_kampf.ankuendigung",
+                  "art": "vorher",
+                  "vorlauf_s": 5
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_kampf_w1",
+                      "n": 3,
+                      "ziel": "schuetzling",
+                      "angles": [
+                        0.4,
+                        -0.8,
+                        1.6
+                      ]
+                    }
+                  },
+                  {
+                    "set": {
+                      "s4_geleit_kampf_w1": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "at": 70,
+            "if": {
+              "not": {
+                "v": "s4_geleit_kampf_ende"
+              }
+            },
+            "oda": "@s4_geleit_kampf.tipp",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 40,
+            "do": [
+              {
+                "wendung": "s4_triebwerksschaden_karawane",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_kampf.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "sela",
+                      "text": "@s4_geleit_kampf.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "_kommentar": "Wellen bis zur Ankunft (höchstens 3 weitere): jede erst, wenn die vorige da (Flag nach dem Spawn) und erledigt ist",
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_kampf_w1"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s4_geleit_kampf_verstaerkung",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_kampf.verstaerkung",
+                  "art": "vorher",
+                  "vorlauf_s": 10
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "gunboat",
+                      "tag": "s4_geleit_kampf_w2",
+                      "ziel": "schuetzling"
+                    }
+                  },
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_kampf_w2",
+                      "ziel": "auto",
+                      "angles": [
+                        2.2
+                      ]
+                    }
+                  },
+                  {
+                    "set": {
+                      "s4_geleit_kampf_w2": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_kampf_w2"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s4_geleit_kampf_welle3",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_kampf.welle",
+                  "art": "vorher",
+                  "vorlauf_s": 10
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_kampf_w3",
+                      "crew": {
+                        "1": 1,
+                        "2": 2,
+                        "3": 3
+                      },
+                      "ziel": "schuetzling",
+                      "angles": [
+                        -0.5,
+                        0.9,
+                        2.8
+                      ]
+                    }
+                  },
+                  {
+                    "set": {
+                      "s4_geleit_kampf_w3": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_kampf_w3"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s4_geleit_kampf_welle4",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_kampf.welle",
+                  "art": "vorher",
+                  "vorlauf_s": 10
+                },
+                "wirkung": [
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "gunboat",
+                      "tag": "s4_geleit_kampf_w4",
+                      "ziel": "schuetzling"
+                    }
+                  },
+                  {
+                    "if": {
+                      "not": {
+                        "v": "s4_geleit_kampf_ende"
+                      }
+                    },
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_kampf_w4",
+                      "ziel": "schuetzling",
+                      "angles": [
+                        -2
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_hp_below",
+                    "tag": "s4_geleit_kampf",
+                    "pct": 50
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "radio": {
+                  "from": "sela",
+                  "text": "@s4_geleit_kampf.funk_notruf"
+                }
+              },
+              {
+                "oda": "@s4_geleit_kampf.notruf_tipp"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_arrived",
+                    "tag": "s4_geleit_kampf"
+                  }
+                },
+                {
+                  "not": {
+                    "check": {
+                      "name": "escort_hp_below",
+                      "tag": "s4_geleit_kampf",
+                      "pct": 75
+                    }
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_kampf_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit_kampf.heil"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_arrived",
+                    "tag": "s4_geleit_kampf"
+                  }
+                },
+                {
+                  "check": {
+                    "name": "escort_hp_below",
+                    "tag": "s4_geleit_kampf",
+                    "pct": 75
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_kampf_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit_kampf.beschaedigt"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_state",
+                    "tag": "s4_geleit_kampf",
+                    "state": "kampfunfaehig"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_kampf_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit_kampf.verloren"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 300
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "do": "escort_order",
+                "tag": "s4_geleit_kampf",
+                "befehl": "volle_kraft"
+              },
+              {
+                "oda": "@s4_geleit_kampf.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 420
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_kampf_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_kampf_ende": true
+                }
+              },
+              {
+                "do": "escort_order",
+                "tag": "s4_geleit_kampf",
+                "befehl": "halten"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "schuetzen",
+            "text": "@s4_geleit_kampf.ziel",
+            "done": {
+              "v": "s4_geleit_kampf_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s4_geleit_kampf_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s4_geleit_kampf_heil"
+                }
+              ]
+            },
+            "complete": "erfolg"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_kampf_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s5_notbergung"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s4_geleit_kampf_ende"
+                    },
+                    {
+                      "elapsed": 480
+                    }
+                  ]
+                },
+                {
+                  "flag": "s4_geleit_kampf_heil"
+                }
+              ]
+            },
+            "complete": "erfolg"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_kampf_ende"
+                },
+                {
+                  "elapsed": 480
+                }
+              ]
+            },
+            "goto": "s5_notbergung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s4_geleit_kampf_ende": true
+            }
+          }
+        ],
+        "umsetzung": "schuetzen/geleit_durch_angriff",
+        "liefert_flags": [
+          "s4_geleit_kampf_heil",
+          "s4_geleit_kampf_beschaedigt",
+          "s4_geleit_kampf_verloren"
+        ]
+      },
+      {
+        "id": "s5_notbergung",
+        "loc": "nebel",
+        "enter": [
+          {
+            "spawnSalvage": 4
+          }
+        ],
+        "timers": [
+          {
+            "at": 3,
+            "oda": "@s5_notbergung.start"
+          },
+          {
+            "at": 45,
+            "if": {
+              "not": {
+                "check": "salvage_done"
+              }
+            },
+            "oda": "@s5_notbergung.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 180
+                },
+                {
+                  "not": {
+                    "check": "salvage_done"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_notbergung_aufgegeben": true
+                }
+              },
+              {
+                "oda": "@s5_notbergung.aufgegeben"
+              }
+            ],
+            "garantie": "zeitlimit"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "bergen",
+            "text": "@s5_notbergung.ziel",
+            "done": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s5_notbergung_aufgegeben"
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s5_notbergung_aufgegeben"
+                }
+              ]
+            },
+            "complete": "teilerfolg"
+          }
+        ],
+        "skip": [
+          {
+            "set": {
+              "s5_notbergung_aufgegeben": true
+            }
+          }
+        ],
+        "umsetzung": "ladung_bergen/bergungskisten"
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "erfolg": {
+        "beschreibung": "Karawane heil durch den Nebel gebracht",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "sela",
+            "delta": 2
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "geleit_nebel_erfolg",
+            "text": "@aus.erfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.erfolg.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "rostmeute_nebel",
+            "value": "Die Rostmeute kennt jetzt die Vaelen-Route durch den Nebel.",
+            "quelle": "sl_2_geleit_nebel",
+            "faden": true
+          }
+        ]
+      },
+      "teilerfolg": {
+        "beschreibung": "Karawane beschädigt, aber Fracht teilweise gerettet",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "sela",
+            "delta": 1
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "geleit_nebel_teilerfolg",
+            "text": "@aus.teilerfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.teilerfolg.t2"
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Meine Karawane muss durch die Graue Weite – die Rostmeute hat die Route ausgespäht. Ihr seid das einzige Schiff, das schnell genug wäre.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_nebel_eingang.anflug_ziel": "Nach Graue Weite springen",
+      "s2_nebel_eingang.anflug_tipp": "Kurs liegt an: Graue Weite. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_nebel_eingang.lage": "Der Nebel frisst jeden Scan. Pilot: Augen auf die Schubvektoren – Taktik: Weitscan läuft, Marker rein, sonst fliegen wi…",
+      "s2_nebel_eingang.captain": "Captain: Sternkarte und Taktikkarte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
+      "s2_nebel_eingang.tipp": "Ziel ist die andere Seite des Felds. Langsam ist sicherer – jeder Brocken kostet Schild.",
+      "s2_nebel_eingang.hinterhalt": "Jäger kommen aus dem Feld! Breitseite, und die Brocken als Deckung nutzen.",
+      "s2_nebel_eingang.durch": "Wir sind durch! Freie Sicht voraus.",
+      "s2_nebel_eingang.ausweg": "Der Navigationsrechner hat eine Lücke gefunden – Kurs liegt an, wir sind durch.",
+      "s2_nebel_eingang.ziel": "Das Feld durchqueren (andere Seite erreichen)",
+      "s2_nebel_eingang.t1": "Taktik meldet schwache Antriebssignaturen, zwei Kontakte, Kurs parallel zur Karawane – das sind keine Echos.",
+      "s2_nebel_eingang.t2": "Lerche, ich sehe Lichtpunkte querab – das ist die Rostmeute. Bleibt nah!",
+      "s3_angriff.forderung": "Hier Keld von der Rostmeute. Ihr begleitet eine fette Karawane – die Ladung gehört jetzt uns. Gebt sie raus, oder wir machen Kleinholz aus euch beiden.",
+      "s3_angriff.hinweis": "ODA: Ortung zeigt Keldsschiff – Backbord-Antrieb mit Hitzesignatur. Er ist nicht auf vollen Schub.",
+      "s3_angriff.frage": "Keld fordert die Ladung – wie antwortet der Captain?",
+      "s3_angriff.passend": "Wir sind Konkordat-Eskorte – ihr wollt keinen Streit mit uns.",
+      "s3_angriff.falsch": "Die Karawane fährt nur Ballast, kein Wert drin.",
+      "s3_angriff.wahrheit": "Die Wahrheit sagen",
+      "s3_angriff.funk_geglueckt": "Konkordat, ja? … Schert euch weg, diesmal lass ich's laufen.",
+      "s3_angriff.funk_durchschaut": "Ballast? Ich rieche den Gewinn von hier. Jäger, raus!",
+      "s3_angriff.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+      "s3_angriff.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+      "s3_angriff.ziel": "Captain: antworten (Funk) – Ortung beachten",
+      "s3_angriff.t1": "Keldsformation zieht sich leicht zurück – wir haben einen Moment Vorsprung.",
+      "s3_angriff.t2": "Keld durch Konkordat-Bluff verunsichert. Karawane gewinnt Abstand.",
+      "s3_angriff.t3": "Alle Jäger vor – kein Erbarmen!",
+      "s3_angriff.t4": "Bluff ist aufgeflogen. Keld schickt sofort alle Einheiten.",
+      "s3_angriff.t5": "Ehrlich? Respekt. Aber die Ladung bleibt trotzdem meine.",
+      "s3_angriff.t6": "Captain hat die Wahrheit gesagt. Keld greift ohne Zögern an.",
+      "s4_geleit_kampf.funk_start": "Lerche, wir nehmen Kurs. Bleibt dicht bei uns – der Nebel schützt uns nicht lange.",
+      "s4_geleit_kampf.funk_notruf": "Treffer am Rumpf! Wir können das Tempo nicht halten!",
+      "s4_geleit_kampf.lage": "Schützling: Karawane der Vaelen. Dranbleiben, Captain sieht Route und Befehle (Reiter „Schützling“).",
+      "s4_geleit_kampf.ankuendigung": "Ortung: Jäger halten auf Karawane der Vaelen zu! Pilot: Breitseite zwischen sie und den Schützling.",
+      "s4_geleit_kampf.verstaerkung": "Ortung: Verstärkung im Anflug! Schilde zur Angriffsseite, Schützling dicht halten.",
+      "s4_geleit_kampf.welle": "Ortung: die nächste Welle hält auf Karawane der Vaelen zu! Dazwischen bleiben.",
+      "s4_geleit_kampf.tipp": "Lädt ein Gegner auf den Schützling, stellt euch dazwischen – unser Schild fängt die Ladung ab.",
+      "s4_geleit_kampf.notruf_tipp": "Notruf! Captain: Befehl „Halten“ oder „Volle Kraft“. Taktik: wer lädt, wird zuerst beschossen.",
+      "s4_geleit_kampf.heil": "Karawane der Vaelen ist durch – heil. Die Angreifer drehen ab.",
+      "s4_geleit_kampf.beschaedigt": "Karawane der Vaelen ist durch, aber angeschlagen. Die Angreifer drehen ab.",
+      "s4_geleit_kampf.verloren": "Karawane der Vaelen treibt kampfunfähig. Die Angreifer drehen ab – die Besatzung lebt.",
+      "s4_geleit_kampf.abgedreht": "Die Angreifer brechen ab. Karawane der Vaelen gibt volle Kraft – hinterher!",
+      "s4_geleit_kampf.ziel": "Karawane der Vaelen schützen – Hülle {escortHp:s4_geleit_kampf} %",
+      "s4_geleit_kampf.t1": "ODA: Karawane der Vaelen meldet Triebwerksschaden – Geschwindigkeit sinkt, Angriffsfenster für Keld öffnet sich.",
+      "s4_geleit_kampf.t2": "Triebwerk zwei ausgefallen! Wir werden langsamer – haltet sie von uns fern!",
+      "s5_notbergung.start": "Die markierten Container sind das Wichtigste – holt sie raus, bevor die Rostmeute sie krallt!",
+      "s5_notbergung.hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
+      "s5_notbergung.aufgegeben": "Den Rest lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
+      "s5_notbergung.ziel": "Bergungsgut einsammeln ({salvaged}/4)",
+      "aus.erfolg.t1": "Die Lerche hat die Karawane heil durch die Graue Weite eskortiert – Sela schuldet der Crew einen Gefallen.",
+      "aus.erfolg.t2": "Die Crew geleitete Selas Karawane sicher durch die Graue Weite und schlug die Rostmeute zurück.",
+      "aus.teilerfolg.t1": "Die Lerche hat gerettet, was zu retten war – die Karawane wurde beschädigt, aber die wichtigste Fracht ist sicher.",
+      "aus.teilerfolg.t2": "Die Karawane erlitt Schäden im Nebel; die Crew sicherte den Rest der Ladung unter Beschuss.",
+      "buch.briefing": "Meine Karawane muss durch die Graue Weite – die Rostmeute hat die Route ausgespäht. Ihr seid das einzige Schiff, das schnell genug wäre.",
+      "buch.belohnung": "150 Marken",
+      "buch.erinnerung": "Sela hat gehört, dass die Lerche das Kustoden-Relais geweckt hat – wer mit solcher Technik umgehen kann, dem traut sie zu, ihre Karawane durch den Nebel zu bringen."
+    },
+    "erinnerung": {
+      "fakt": "kustoden_relais"
+    }
+  },
+  "gespielt": [
+    {
+      "datum": "2026-10-08T14:15:20.929Z",
+      "ausgang": "erfolg",
+      "dauer_s": 194,
+      "crew": 3
+    }
+  ]
+}

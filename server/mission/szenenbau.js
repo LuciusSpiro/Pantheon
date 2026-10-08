@@ -16,6 +16,17 @@
 // Jeder Schritt bekommt `umsetzung: "<molekuel>/<umsetzung>"` (Bots, Logbuch, onSceneEnter); Anflug-Schritte tragen die
 // Umsetzung der Szene, zu der sie führen. `liefert_flags` der Umsetzungen (KATALOG, z. B. "{{id}}_heil") sind für die
 // Verzweigung erlaubt und stehen am Schritt.
+//
+// S2b (CONTRACT-S2B §4):
+//   missionCast(g, env)                                 -> { named: Set(npc), neu: Set(Name) }  Besetzung der Mission
+//   sceneVoice(g, s, role)                              -> Funk-Sprecher einer Szene (stimme | Auftraggeber | neu:…)
+//   normalizeGrobplan(g)                                -> [Reparatur]  (Belohnung nur als belohnung_marken, doppelte weiter)
+//   repairSceneAnswer(g, s, answer, env)                -> { answer, repairs: [Text] }  (einfache Szenenfehler)
+//   speakerErrors(steps, cast, stimmen)                 -> [Text]  (Prüfregel SPRECHER: Funk-Sprecher ∈ Besetzung)
+//   factContradictions(texte, fakten)                   -> [Text]  (Prüfregel ERINNERUNG-WIDERSPRUCH)
+//   rewardContradictions(g)                             -> [Text]  (Belohnung im Text ≠ belohnung_marken)
+// Rohfassung plan-treu: Funk-Sprecher = stimme der Szene (sonst Auftraggeber; Gegenüber-Rolle `npc` ohne stimme: neue
+// Stimme), Namen aus ziel_name, Schiffsklasse aus schiff/ziel_name – nie ein Fremd-NSC aus den Testwerten.
 
 const fs = require('fs');
 const path = require('path');
@@ -57,6 +68,297 @@ function hops(LOC, a, b) {
 function umsetzungOf(env, m) {
   const mol = env.katalog.molekuele[m && m.id];
   return mol ? mol.umsetzungen.find((x) => x.id === m.umsetzung) || null : null;
+}
+
+// ---------- S2b: Besetzung, Stimmen, Belohnung, Fakten ----------
+const NEU_DEFAULT = 'neu:Unbekannte Stimme';
+const isNeu = (v) => typeof v === 'string' && /^neu:/.test(v);
+const neuName = (v) => String(v).slice(4).trim() || 'Unbekannt';
+const neuId = (name) => ('neu_' + slug(name, 30)).slice(0, 34);
+// Besetzung der Mission: Auftraggeber, Grobplan-Feld `besetzung`, `stimme` jeder Szene, NSC der Erinnerung, NSC aus den
+// Folgen der Ausgänge und NSC, die der Grobplan beim Namen nennt (Titel, Aufhänger, Sachverhalte, Entscheidungen).
+// env (optional): bekannte NSC-Kennungen für die Namenssuche.
+function missionCast(g, env) {
+  const named = new Set(); const neu = new Set();
+  const add = (v) => { if (typeof v !== 'string' || !v.trim()) return; if (isNeu(v)) neu.add(neuName(v)); else named.add(v.trim()); };
+  if (g) {
+    add(g.auftraggeber);
+    for (const v of Array.isArray(g.besetzung) ? g.besetzung : []) add(v);
+    for (const s of Array.isArray(g.szenen) ? g.szenen : []) add(s && s.stimme);
+    if (isObj(g.erinnerung) && typeof g.erinnerung.npc === 'string') add(g.erinnerung.npc);
+    for (const a of Object.values(isObj(g.ausgaenge) ? g.ausgaenge : {})) for (const f of (isObj(a) && Array.isArray(a.folgen) ? a.folgen : [])) { const p = parseFolge(f); if (p && p.npc) add(p.npc); }
+    const known = (env && env.npc) || [];
+    if (known.length) {
+      const txt = grobplanTexts(g).map((x) => x.text).join(' \n ');
+      for (const id of known) if (new RegExp(`\\b${id.replace(/[^a-z0-9_]/gi, '')}\\b`, 'i').test(txt)) add(id);
+    }
+  }
+  return { named, neu };
+}
+// Funk-Sprecher einer Szene. role 'gegenueber' (Parameter `npc`: Gegner/Gegenüber) bekommt ohne stimme eine neue Stimme –
+// der Auftraggeber droht der Crew nie (Fall „Grauzahn droht in seiner eigenen Mission“).
+function sceneVoice(g, s, role) {
+  const st = s && typeof s.stimme === 'string' && s.stimme.trim() ? s.stimme.trim() : null;
+  if (st) return st;
+  if (role === 'gegenueber') return NEU_DEFAULT;
+  return (g && g.auftraggeber) || 'tesk';
+}
+// Belohnung nur als lesbares Feld (§4.5): Marken-Folgen („schiff_marken +80“) entfernen, Betrag übernehmen,
+// doppelte `weiter` derselben Szene zusammenfassen. Verändert g, liefert die Reparaturen.
+const NO_WENDUNG = /^\s*(null|none|keine?( wendung)?|nein|-|–|—)?\s*\.?\s*$/i;
+const hasWendung = (s) => !!(s && s.wendung && !(typeof s.wendung === 'string' && NO_WENDUNG.test(s.wendung)));
+const MARKS_FOLGE =/^(?:schiff_)?(?:marken|marks|belohnung|lohn|reward)\b[^0-9+\-]*([+\-]?\s*\d+)/i;
+const REWARD_TEXT = /(?:biete\w*|zahl\w*|versprech\w*|verspricht|lohn\w*|belohnung|prämie|honorar|gibt es)[^.!?:;]{0,40}?(\d{2,4})\s*marken|(\d{2,4})\s*marken[^.!?:;]{0,25}?(?:lohn|belohnung|prämie|honorar|für (?:euch|die crew|eure|den auftrag|nachricht|die rettung))/gi;
+const META_FAKTEN = new Set(['tutorial']);   // Weltstand-Fakten über das Spiel, nicht über die Welt (keine Erinnerung)
+function normalizeGrobplan(g) {
+  const repairs = [];
+  if (!isObj(g)) return repairs;
+  const found = [];
+  for (const [aid, a] of Object.entries(isObj(g.ausgaenge) ? g.ausgaenge : {})) {
+    if (!isObj(a) || !Array.isArray(a.folgen)) continue;
+    const keep = [];
+    for (const f of a.folgen) {
+      const m = typeof f === 'string' ? MARKS_FOLGE.exec(f.trim()) : null;
+      if (m) { const n = Number(m[1].replace(/\s/g, '')); if (n > 0) found.push(n); repairs.push(`Ausgang '${aid}': Folge „${shortText(f, 40)}“ entfernt – Belohnung nur als belohnung_marken`); continue; }
+      keep.push(f);
+    }
+    a.folgen = keep;
+  }
+  if (g.belohnung_marken != null && !Number.isFinite(Number(g.belohnung_marken))) { repairs.push(`belohnung_marken „${g.belohnung_marken}“ ist keine Zahl – entfernt`); delete g.belohnung_marken; }
+  if (g.belohnung_marken != null) g.belohnung_marken = Math.max(0, Math.min(600, Math.round(Number(g.belohnung_marken))));
+  if (g.belohnung_marken == null) {
+    const inText = [...new Set(rewardAmounts(g))];
+    const pick = inText.length === 1 ? inText[0] : (found.length ? Math.max(...found) : null);
+    if (pick != null) { g.belohnung_marken = Math.max(0, Math.min(600, pick)); repairs.push(`belohnung_marken = ${g.belohnung_marken} (aus ${inText.length === 1 ? 'dem Text' : 'den Folgen'} übernommen)`); }
+  }
+  for (const k of ['aufhaenger', 'erinnerung_text', 'titel']) { const u = unquote(g[k]); if (u !== g[k]) { g[k] = u; repairs.push(`${k}: äußere Anführungszeichen entfernt`); } }
+  // QA S2b (Live „ohne Tutorial“): Der Meta-Fakt `tutorial` ist keine Erinnerung – neutrale Variante statt „ihr habt das
+  // Tutorial übersprungen“ im Angebot. Ein Text, der das Tutorial/Überspringen erwähnt, fällt weg.
+  if (isObj(g.erinnerung) && META_FAKTEN.has(g.erinnerung.fakt)) { repairs.push(`erinnerung: Meta-Fakt '${g.erinnerung.fakt}' → neutral`); g.erinnerung = { neutral: true }; }
+  if (typeof g.erinnerung_text === 'string' && /tutorial|übersprung|uebersprung/i.test(g.erinnerung_text)) { repairs.push('erinnerung_text erwähnt das Tutorial – entfernt'); delete g.erinnerung_text; }
+  for (const s of Array.isArray(g.szenen) ? g.szenen : []) {
+    if (!isObj(s)) continue;
+    // Live S2b: Sonnet schreibt „keine Wendung“ gern als Text "null" – das ist keine Wendung
+    if (typeof s.wendung === 'string' && NO_WENDUNG.test(s.wendung)) { s.wendung = null; repairs.push(`Szene '${s.id}': wendung „null“ als keine Wendung gelesen`); }
+    if (!Array.isArray(s.weiter)) continue;
+    const seen = new Set(); const w2 = [];
+    for (const w of s.weiter) { const n = w && String(w.nach || ''); if (seen.has(n)) continue; seen.add(n); w2.push(w); }
+    if (w2.length < s.weiter.length) { repairs.push(`Szene '${s.id}': doppelte Folgeszene in 'weiter' zusammengefasst`); s.weiter = w2; }
+  }
+  return repairs;
+}
+// Texte des Grobplans, die die Crew sieht oder die Szenen prägen (ohne Folgen-Kurzform)
+function grobplanTexts(g) {
+  const out = [];
+  const push = (where, t) => { if (typeof t === 'string' && t.trim()) out.push({ where, text: t }); };
+  push('titel', g.titel); push('aufhaenger', g.aufhaenger); push('erinnerung_text', g.erinnerung_text);
+  for (const s of Array.isArray(g.szenen) ? g.szenen : []) { push(`Szene '${s.id}'`, s.sachverhalt); push(`Szene '${s.id}' (Wendung)`, s.wendung); }
+  for (const e of Array.isArray(g.entscheidungen) ? g.entscheidungen : []) { push('Entscheidung', e.frage); for (const o of e.optionen || []) { push('Entscheidung', o.text); push('Entscheidung', o.folge); } }
+  return out;
+}
+function rewardAmounts(g) {
+  const r = [];
+  for (const { text } of grobplanTexts(g)) for (const m of text.matchAll(REWARD_TEXT)) r.push(Number(m[1] || m[2]));
+  return r;
+}
+function rewardContradictions(g) {
+  const want = Number(g && g.belohnung_marken);
+  if (!Number.isFinite(want)) return [];
+  const E = [];
+  for (const { where, text } of grobplanTexts(g)) for (const m of text.matchAll(REWARD_TEXT)) {
+    const n = Number(m[1] || m[2]);
+    if (n !== want) E.push(`BELOHNUNG-WIDERSPRUCH ${where}: „${shortText(m[0], 60)}“ nennt ${n} Marken, belohnung_marken ist ${want} – Betrag nur in belohnung_marken, im Text weglassen oder angleichen`);
+  }
+  return E;
+}
+// Wo liegt ein Gegenstand laut Weltstand? (Fall „Datenkern an Bord“, obwohl beim Konkordat)
+const HOLDERS = {
+  lerche: /\ban bord\b|\bim laderaum\b|\bbei euch\b|\bauf der lerche\b|\bihr (?:habt|tragt|transportiert|bringt|fliegt mit|habt noch)\b|\beur(?:en|em)? (?:fracht|laderaum)\b/i,
+  konkordat: /\bkonkordat|\barchiv\b|\bmelk\b|\bhafenmeister|\bim hafen\b/i,
+};
+const FACT_ITEMS = [
+  { key: /datenkern/, re: /datenkern/i, was: 'der Datenkern' },
+  { key: /tafel/, re: /\btafel\b/i, was: 'die Tafel' },
+];
+function holderOf(v) {
+  const s = String(v == null ? '' : v).toLowerCase();
+  if (/lerche|bord|crew/.test(s)) return 'lerche';
+  if (/konkordat|archiv|melk|hafen/.test(s)) return 'konkordat';
+  return null;
+}
+// texte: [{ where, text }] | [Text]; fakten: { key: value } -> [Fehlertext]
+function factContradictions(texte, fakten) {
+  const E = [];
+  const list = (texte || []).map((x) => (typeof x === 'string' ? { where: 'Text', text: x } : x)).filter((x) => x && typeof x.text === 'string');
+  for (const [key, value] of Object.entries(isObj(fakten) ? fakten : {})) {
+    const item = FACT_ITEMS.find((i) => i.key.test(key));
+    const holder = holderOf(value);
+    if (!item || !holder) continue;
+    for (const { where, text } of list) {
+      for (const seg of text.split(/[.:;!?…\n]+/)) {
+        if (!item.re.test(seg)) continue;
+        const claims = Object.keys(HOLDERS).filter((h) => HOLDERS[h].test(seg));
+        if (claims.length && !claims.includes(holder)) E.push(`ERINNERUNG-WIDERSPRUCH ${where}: „${shortText(seg, 70)}“ – laut Weltstand ${item.was}: ${key} = ${value}`);
+      }
+    }
+  }
+  return [...new Set(E)];
+}
+// Prüfregel SPRECHER: alle Funk-Sprecher der Schritte sind Besetzung der Mission (oder neue Stimmen dieses Buchs)
+function speakerErrors(steps, cast, stimmen) {
+  const E = [];
+  const st = stimmen || {};
+  const walk = (n) => {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (!isObj(n)) return;
+    for (const r of [n.radio, n.ankuendigung && n.ankuendigung.radio]) {
+      if (!isObj(r) || typeof r.from !== 'string') continue;
+      const f = r.from;
+      if (isNeu(f) || /^neu_/.test(f) || st[f] || cast.named.has(f) || /^\{\{|^[a-z0-9_]+_person$/.test(f)) continue;
+      E.push(`SPRECHER: '${f}' funkt, gehört aber nicht zur Besetzung der Mission (${[...cast.named].join(', ') || '–'}${cast.neu.size ? ', neu: ' + [...cast.neu].join(', ') : ''}) – Fremd-NSC durch eine Stimme der Besetzung ersetzen`);
+    }
+    for (const v of Object.values(n)) walk(v);
+  };
+  walk(steps);
+  return [...new Set(E)];
+}
+// Prüfregel GEGNER-AUFTRAGGEBER (Fall „Grauzahn droht als Gegner, obwohl Auftraggeber“): in Kampf-Umsetzungen funkt der
+// Anführer der Angreifer (Parameter `npc`) – das ist nie der Auftraggeber der Mission.
+const HOSTILE_MOLS = new Set(['vertreiben', 'vernichten']);
+function hostileVoiceErrors(g, s, answer) {
+  const E = [];
+  const auf = g && g.auftraggeber;
+  if (!auf || !s) return E;
+  (s.molekuele || []).forEach((m, i) => {
+    if (!HOSTILE_MOLS.has(m.id)) return;
+    const am = answer ? ((answer.molekuele || [])[i] || {}) : null;
+    const v = am ? (am.params || {}).npc : s.stimme;
+    if (v === auf) E.push(`GEGNER-AUFTRAGGEBER Szene '${s.id}': ${m.id}/${m.umsetzung} – der Auftraggeber '${auf}' funkt als Anführer der Angreifer; Gegner bekommen eine eigene Stimme (neu:Name)`);
+  });
+  return E;
+}
+// Typografische Anführungszeichen um einen ganzen Text entfernen (das Spiel setzt selbst welche: „„…““)
+function unquote(t) {
+  if (typeof t !== 'string') return t;
+  const m = /^\s*[„"“'‚](.*)[“"”'‘]\s*$/s.exec(t);
+  return m && !/[„“"]/.test(m[1]) ? m[1].trim() : t;
+}
+function unquoteDeep(n, count) {
+  if (Array.isArray(n)) return n.map((x) => unquoteDeep(x, count));
+  if (isObj(n)) { const o = {}; for (const [k, v] of Object.entries(n)) o[k] = unquoteDeep(v, count); return o; }
+  if (typeof n === 'string') { const u = unquote(n); if (u !== n) count.n++; return u; }
+  return n;
+}
+
+// Texte einer Szenen-Antwort (für den Fakten-Abgleich)
+function answerTexts(a) {
+  const out = [];
+  const walk = (n, k) => {
+    if (typeof n === 'string') { if (n.length > 8 && !/^[a-z0-9_:]+$/.test(n)) out.push({ where: `Szene (${k || 'Text'})`, text: n }); return; }
+    if (Array.isArray(n)) return n.forEach((x) => walk(x, k));
+    if (isObj(n)) for (const [kk, v] of Object.entries(n)) walk(v, kk);
+  };
+  walk(a, null);
+  return out;
+}
+
+// ---------- S2b: einfache Szenenfehler reparieren (§4.3) ----------
+// Verzweigung ohne Einträge / mit fehlenden Zielen, Ziele, die der Grobplan nicht kennt, Flag ohne setzende Folge ->
+// Standardweg; doppelte weiter-Ziele. Die Antwort wird nicht verändert (Kopie). -> { answer, repairs }
+// Flags, die das Buch außerhalb einer Szene setzt: setFlag aller (anderen) Antworten + liefert_flags aller Umsetzungen
+// answers: { sid: answerObj | { answer } }
+function planFlags(g, answers, env) {
+  const out = new Set();
+  for (const [, x] of Object.entries(answers || {})) {
+    const a = x && x.answer ? x.answer : x;
+    for (const m of JSON.stringify((a && a.molekuele) || []).match(/"setFlag":\{[^}]*\}/g) || []) { try { for (const k of Object.keys(JSON.parse(m.slice(10)))) out.add(k); } catch (e) { /* kein reines Objekt */ } }
+  }
+  for (const s of (g && g.szenen) || []) (s.molekuele || []).forEach((m, i) => {
+    const u = umsetzungOf(env, m);
+    const id = (s.molekuele || []).length > 1 ? `${s.id}_${i + 1}` : s.id;
+    if (u && Array.isArray(u.liefert_flags)) for (const f of Katalog.expand(u.liefert_flags, { id })) if (typeof f === 'string') out.add(f);
+  });
+  return out;
+}
+function repairSceneAnswer(g, s, answer, env, opts) {
+  const a = clone(isObj(answer) ? answer : {});
+  const repairs = [];
+  if (!Array.isArray(a.molekuele)) { a.molekuele = []; }
+  // Moleküle: id/umsetzung aus dem Grobplan, wenn die Antwort sie weglässt (Reihenfolge wie im Plan)
+  const soll = s.molekuele || [];
+  if (a.molekuele.length === soll.length) a.molekuele.forEach((m, i) => {
+    if (!isObj(m)) return;
+    if (!m.id && soll[i]) { m.id = soll[i].id; repairs.push(`Molekül ${i + 1}: id ergänzt`); }
+    if (!m.umsetzung && soll[i]) { m.umsetzung = soll[i].umsetzung; repairs.push(`Molekül ${i + 1}: umsetzung ergänzt`); }
+    if (!isObj(m.params)) m.params = {};
+  });
+  // setFlag in falscher Form {"name": "s3_x"} -> {"s3_x": true}
+  const fixFlags = (n) => {
+    if (Array.isArray(n)) return n.forEach(fixFlags);
+    if (!isObj(n)) return;
+    if (isObj(n.setFlag)) {
+      const e = Object.entries(n.setFlag);
+      if (e.length === 1 && typeof e[0][1] === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(e[0][1])) { n.setFlag = { [e[0][1]]: true }; repairs.push(`setFlag {"${e[0][0]}": "${e[0][1]}"} → {"${e[0][1]}": true}`); }
+    }
+    for (const v of Object.values(n)) fixFlags(v);
+  };
+  fixFlags(a.molekuele);
+  // Anführungszeichen um ganze Texte, Lohn der Lieferung (die Mission zahlt belohnung_marken am Ende – sonst doppelt)
+  const qn = { n: 0 };
+  a.molekuele = unquoteDeep(a.molekuele, qn);
+  if (isObj(a.wendung)) a.wendung = unquoteDeep(a.wendung, qn);
+  if (qn.n) repairs.push(`${qn.n} Text(e) ohne äußere Anführungszeichen`);
+  a.molekuele.forEach((m) => {
+    const u = isObj(m) ? umsetzungOf(env, m) : null;
+    if (u && u.params.lohn && u.params.lohn.typ === 'zahl' && isObj(m.params) && m.params.lohn !== 0) { m.params.lohn = 0; repairs.push(`${m.id}/${m.umsetzung}: lohn 0 (Belohnung nur als belohnung_marken am Missionsende)`); }
+  });
+  if (a.wendung && !isObj(a.wendung)) { a.wendung = null; repairs.push('wendung kein Objekt – entfernt'); }
+  if (isObj(a.wendung)) {
+    const at = Number(a.wendung.nach_s);
+    if (!(at >= 20 && at <= 120)) { a.wendung.nach_s = Math.max(20, Math.min(120, Number.isFinite(at) ? Math.round(at) : 40)); repairs.push(`Wendung: nach_s ${a.wendung.nach_s}`); }
+    if (!a.wendung.kennung) { a.wendung.kennung = 'wendung'; repairs.push('Wendung: kennung ergänzt'); }
+    if (!Array.isArray(a.wendung.wirkung) || !a.wendung.wirkung.length) {
+      if (a.wendung.ankuendigung) { a.wendung.wirkung = [{ log: shortText(a.wendung.ankuendigung, 120) }]; repairs.push('Wendung: leere wirkung durch Logeintrag ersetzt'); }
+    }
+  }
+  // Verzweigung
+  const targets = [...new Set((s.weiter || []).map((w) => String(w.nach || '')).filter(Boolean))];
+  if (targets.length <= 1) {
+    if (Array.isArray(a.verzweigung) && a.verzweigung.length) repairs.push('Verzweigung entfernt (Szene hat nur ein Ziel)');
+    a.verzweigung = [];
+    return { answer: a, repairs };
+  }
+  const flagsSet = new Set((opts && opts.knownFlags) || []);
+  for (const x of JSON.stringify(a.molekuele).match(/"setFlag":\{[^}]*\}/g) || []) { try { for (const k of Object.keys(JSON.parse(x.slice(10)))) flagsSet.add(k); } catch (e) { /* kein reines Objekt */ } }
+  a.molekuele.forEach((m, i) => {
+    const u = isObj(m) ? umsetzungOf(env, m) : null;
+    const id = a.molekuele.length > 1 ? `${s.id}_${i + 1}` : s.id;
+    if (u && Array.isArray(u.liefert_flags)) for (const f of Katalog.expand(u.liefert_flags, { id })) if (typeof f === 'string') flagsSet.add(f);
+  });
+  const never = { v: `${slug(s.id.split('_')[0], 12)}_alt` };
+  let z = (Array.isArray(a.verzweigung) ? a.verzweigung : []).filter((x) => isObj(x) && x.nach);
+  const before = z.length;
+  z = z.filter((x) => targets.includes(x.nach));
+  if (z.length < before) repairs.push(`Verzweigung: ${before - z.length} Ziel(e) außerhalb des Grobplans entfernt`);
+  // je Ziel nur der erste Eintrag
+  const seenT = new Set(); z = z.filter((x) => (seenT.has(x.nach) ? false : (seenT.add(x.nach), true)));
+  // Flag ohne setzende Folge -> Eintrag nie wahr (Standardweg)
+  for (const x of z) {
+    const fl = (JSON.stringify(x.if || {}).match(/"flag":"([^"]+)"/g) || []).map((y) => y.slice(8, -1));
+    const missing = fl.filter((f) => !flagsSet.has(f));
+    if (missing.length) { repairs.push(`Verzweigung nach '${x.nach}': Flag ${missing.join(', ')} setzt keine Folge → Standardweg`); x.if = never; }
+  }
+  // fehlende Ziele ergänzen; das letzte Ziel des Grobplans ist der Standardweg, wenn kein Eintrag ohne Bedingung existiert
+  for (const t of targets) if (!z.some((x) => x.nach === t)) { z.push({ nach: t, if: never }); repairs.push(`Verzweigung: Ziel '${t}' ergänzt (Standardweg bzw. nie gewählt)`); }
+  // Standardweg = Eintrag ohne Bedingung, sonst ein ersetzter (never) Eintrag, sonst das letzte Ziel des Grobplans
+  let defIdx = z.findIndex((x) => !x.if);
+  if (defIdx < 0) defIdx = z.findIndex((x) => x.if === never);
+  if (defIdx < 0) defIdx = z.findIndex((x) => x.nach === targets[targets.length - 1]);
+  if (defIdx >= 0 && defIdx !== z.length - 1) { const [d] = z.splice(defIdx, 1); z.push(d); repairs.push(`Verzweigung: Standardweg '${d.nach}' ans Ende gestellt`); }
+  const last = z[z.length - 1];
+  if (last && last.if === never) delete last.if;
+  a.verzweigung = z;
+  return { answer: a, repairs };
 }
 
 // ---------- Grobplan-Prüfung (aus trockenversuch/grobplan.js → pruefe; unverändert, Replay-Erwartungen hängen daran) ----------
@@ -177,7 +479,11 @@ function checkGrobplanS2(g, env, kontext, opts) {
   const fakten = isObj(k.fakten) ? k.fakten : {};
   const erErr = (() => {
     if (!isObj(er)) return "'erinnerung' muss { npc, ereignis } (Gedächtnis-Eintrag) oder { fakt } (Fakt aus dem Weltstand) sein";
-    if (typeof er.fakt === 'string') return er.fakt in fakten ? null : `Erinnerung: Fakt '${er.fakt}' gibt es im Weltstand nicht (vorhanden: ${Object.keys(fakten).join(', ') || '–'})`;
+    // QA S2b: neutral nur, wenn es nichts zu erinnern gibt (kein Gedächtnis-Eintrag, kein Fakt außer Meta-Fakten)
+    const usable = Object.keys(fakten).filter((f) => !META_FAKTEN.has(f)).length + (k.npc || []).reduce((n, x) => n + (x.gedaechtnis || []).length, 0);
+    if (er.neutral === true) return usable ? `Erinnerung: neutral nur ohne Gedächtnis-Einträge und Fakten – es gibt ${usable}, bitte einen davon nutzen` : null;
+    if (META_FAKTEN.has(er.fakt)) return `Erinnerung: '${er.fakt}' ist ein Meta-Fakt, keine Erinnerung – ${usable ? 'Gedächtnis-Eintrag oder Fakt nutzen' : '{ "neutral": true } verwenden'}`;
+    if (typeof er.fakt === 'string') return er.fakt in fakten ? null :`Erinnerung: Fakt '${er.fakt}' gibt es im Weltstand nicht (vorhanden: ${Object.keys(fakten).join(', ') || '–'})`;
     if (typeof er.npc === 'string' && typeof er.ereignis === 'string') {
       const n = (k.npc || []).find((x) => x.id === er.npc);
       if (!n) return `Erinnerung: NSC '${er.npc}' gibt es nicht`;
@@ -218,6 +524,17 @@ function checkGrobplanS2(g, env, kontext, opts) {
     for (const f of fs2) if (f.art === 'unbekannt') warnings.push(`Ausgang '${aid}': Folge „${shortText(f.text, 60)}“ nicht lesbar (wird ignoriert)`);
   }
   if (threads.size > o.maxThreads) errors.push(`${threads.size} offene Fäden (${[...threads].join(', ')}), erlaubt ${o.maxThreads}`);
+  // 7. S2b: Stimmen/Besetzung nur bekannte NSC oder neu:Name
+  const npcKnown = new Set(env.npc || []);
+  for (const v of [...(Array.isArray(g.besetzung) ? g.besetzung : []), ...g.szenen.map((s) => s && s.stimme)]) {
+    if (v == null || v === '' || isNeu(v)) continue;
+    if (typeof v !== 'string' || !npcKnown.has(v)) errors.push(`SPRECHER: Stimme/Besetzung '${v}' ist kein bekannter NSC (neue Stimmen als neu:Name)`);
+  }
+  // 8. S2b: Belohnung im Text = belohnung_marken; Erinnerung/Texte gegen Fakten (ERINNERUNG-WIDERSPRUCH)
+  const sev = o.origin === 'sl' ? errors : warnings;
+  for (const s of g.szenen) sev.push(...hostileVoiceErrors(g, s, null));
+  sev.push(...rewardContradictions(g));
+  sev.push(...factContradictions(grobplanTexts(g), fakten));
   return { errors: [...new Set(errors)], warnings: [...new Set(warnings)] };
 }
 
@@ -233,6 +550,8 @@ function assembleScene(g, s, answer, env, opts) {
   const mols = a.molekuele || [];
   if (mols.length !== (s.molekuele || []).length) E.push(`${mols.length} Moleküle statt ${(s.molekuele || []).length} wie im Grobplan`);
   const target = (n) => (n.startsWith('ausgang:') ? { complete: n.slice(8) } : { goto: o.entryOf ? o.entryOf(n) : n });
+  const stimmen = {};
+  const fixVoice = (v) => { const name = neuName(v); const kid = neuId(name); stimmen[kid] = { name: shortText(name, 40) }; return kid; };
   mols.forEach((m, i) => {
     const soll = s.molekuele[i] || {};
     if (m.id !== soll.id || m.umsetzung !== soll.umsetzung) E.push(`Molekül ${i + 1}: ${m.id}/${m.umsetzung} statt ${soll.id}/${soll.umsetzung}`);
@@ -241,7 +560,11 @@ function assembleScene(g, s, answer, env, opts) {
     const id = mols.length > 1 ? `${s.id}_${i + 1}` : s.id;
     const weiter = i < mols.length - 1 ? `${s.id}_${i + 2}` : '__weiter__';
     if (o.found) for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'find' && o.found.has((m.params || {})[pn])) E.push(`${m.id}/${m.umsetzung}: Fund '${m.params[pn]}' ist schon gefunden`);
-    const { frag, errs } = Katalog.instantiate(u, m.params || {}, id, weiter);
+    // S2b: NSC-Parameter mit neuer Stimme (neu:Name) -> Stimmen-Kennung des Buchs (auch in besetzung/spawn_escort)
+    const params = Object.assign({}, m.params || {});
+    if (o.book) for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && isNeu(params[pn])) params[pn] = fixVoice(params[pn]);
+    const { frag, errs } = Katalog.instantiate(u, params, id, weiter);
+    if (o.book && frag.besetzung && Array.isArray(frag.besetzung.npc)) frag.besetzung.npc = frag.besetzung.npc.filter((n) => !stimmen[n]);
     E.push(...errs.map((e) => `${m.id}/${m.umsetzung}: ${e}`));
     const lf = Array.isArray(u.liefert_flags) ? Katalog.expand(u.liefert_flags, { id }).filter((x) => typeof x === 'string') : [];
     lf.forEach((f) => liefert.add(f));
@@ -255,7 +578,7 @@ function assembleScene(g, s, answer, env, opts) {
     for (const [ev, list] of Object.entries(frag.on || {})) on[ev] = (on[ev] || []).concat(list);
   });
   const w = a.wendung;
-  if (s.wendung && !w && !o.roh) E.push(`Der Grobplan sieht eine Wendung vor („${s.wendung}“), die Antwort hat keine`);
+  if (hasWendung(s) && !w && !o.roh) E.push(`Der Grobplan sieht eine Wendung vor („${s.wendung}“), die Antwort hat keine`);
   if (w && steps[0]) {
     if (!w.kennung || !w.ankuendigung || !Array.isArray(w.wirkung) || !w.wirkung.length) E.push("Wendung braucht 'kennung', 'ankuendigung' und eine nicht leere 'wirkung'");
     const at = Number(w.nach_s);
@@ -265,13 +588,9 @@ function assembleScene(g, s, answer, env, opts) {
     (steps[0].timers = steps[0].timers || []).push({ at: at || 30, do: [{ wendung: `${s.id.split('_')[0]}_${w.kennung}`.slice(0, 40), ankuendigung: { oda: w.ankuendigung, art: 'gleichzeitig' }, wirkung: w.wirkung || [] }] });
   }
   let nr = 0;
-  const stimmen = {};
   const fixRadio = (r) => {
     if (!o.book || !r || typeof r.from !== 'string' || !r.from.startsWith('neu:')) return;
-    const name = r.from.slice(4).trim() || 'Unbekannt';
-    const kid = ('neu_' + slug(name, 30)).slice(0, 34);
-    stimmen[kid] = { name: shortText(name, 40) };
-    r.from = kid;
+    r.from = fixVoice(r.from);
   };
   const extract = (node) => {
     if (Array.isArray(node)) return node.forEach(extract);
@@ -283,10 +602,17 @@ function assembleScene(g, s, answer, env, opts) {
     for (const v of Object.values(node)) extract(v);
   };
   extract(steps);
+  // S2b (Live-Befund ODA-LAENGE): ODA-Texte aus Parametern der Vorlage (oda: "@<id>.x") ebenfalls auf ODA_MAX kürzen
+  if (o.book) {
+    const odaKeys = new Set((JSON.stringify(steps).match(/"oda":"@[^"]+"/g) || []).map((m) => m.slice(8, -1)));
+    const walkDir = (n) => { if (Array.isArray(n)) return n.forEach(walkDir); if (!isObj(n)) return; if (n.do === 'direction_hint' && typeof n.text === 'string' && n.text[0] === '@') odaKeys.add(n.text.slice(1)); for (const v of Object.values(n)) walkDir(v); };
+    walkDir(steps);
+    for (const k of odaKeys) if (typeof texte[k] === 'string' && texte[k].length > ODA_MAX) texte[k] = shortText(texte[k], ODA_MAX);
+  }
   if (Object.keys(stimmen).length) besetzung.stimmen = Object.assign(besetzung.stimmen || {}, stimmen);
   for (const x of JSON.stringify(steps).match(/"radio":{"from":"([^"]+)"/g) || []) { const n = x.slice(17, -1); if (!stimmen[n] && !besetzung.npc.includes(n)) besetzung.npc.push(n); }
   for (const x of JSON.stringify(steps).match(/"setFlag":\{[^}]*\}/g) || []) for (const [k, v] of Object.entries(JSON.parse(x.slice(10)))) if (typeof v === 'string' || k === 'name') E.push(`setFlag {"${k}": ${JSON.stringify(v)}}: der Schlüssel ist der Flag-Name, der Wert true – richtig wäre {"${typeof v === 'string' ? v : k}": true}`);
-  const soll = (s.weiter || []).map((x) => x.nach);
+  const soll = o.book ? [...new Set((s.weiter || []).map((x) => x.nach))] : (s.weiter || []).map((x) => x.nach);
   let zweige = (a.verzweigung || []).filter((z) => z && z.nach);
   if (soll.length === 1) zweige = [{ nach: soll[0] }];
   else {
@@ -296,6 +622,7 @@ function assembleScene(g, s, answer, env, opts) {
     const gesetzt = new Set(JSON.stringify(mols).match(/"setFlag":\{[^}]*\}/g) || []);
     const gesetzteFlags = new Set([...gesetzt].flatMap((x) => Object.keys(JSON.parse(x.slice(10)))));
     for (const f of liefert) gesetzteFlags.add(f);
+    for (const f of o.knownFlags || []) gesetzteFlags.add(f);   // S2b: Flags früherer/anderer Szenen desselben Buchs
     for (const z of zweige) for (const f of (JSON.stringify(z.if || {}).match(/"flag":"([^"]+)"/g) || []).map((x) => x.slice(8, -1))) if (!gesetzteFlags.has(f)) E.push(`Verzweigung prüft Flag '${f}', das keine Folge setzt`);
   }
   for (const st of steps) {
@@ -364,17 +691,43 @@ function evaluateGrobplan(text, env) {
 // Parameter: Testwerte der Umsetzung, überlagert von rueckfall.params (KATALOG); loc/map aus dem Grobplan.
 // Verzweigung (Standard): Aktionsliste setzt eine Flag -> erster Zweig; sonst liefert_flags[0]; sonst Laufzeitwert v
 // (wird in der Rohfassung nie gesetzt -> immer der letzte, also der Standardweg).
+// S2b plan-treu: alle NSC-Parameter aus dem Grobplan (stimme der Szene; ohne stimme der Auftraggeber bzw. für das Gegenüber
+// `npc` eine neue Stimme), Funk-Absender in Aktionslisten ebenso; Namen aus ziel_name, Schiffsklasse aus schiff/ziel_name.
+const SHIP_KINDS = ['frachter', 'karawane', 'bergungsboot'];
+const NAME_PARAMS = ['name', 'fund_name', 'objekt_name', 'was'];
+function shipKindOf(s) {
+  if (typeof s.schiff === 'string' && SHIP_KINDS.includes(s.schiff)) return s.schiff;
+  const t = String(s.ziel_name || '').toLowerCase();
+  return SHIP_KINDS.find((k) => t.includes(k)) || null;
+}
 function rohAnswer(g, s, env) {
   const flag = `${slug(s.id.split('_')[0], 12)}_roh`;
   let branchIf = null;
+  const cast = missionCast(g, env);
   const molekuele = (s.molekuele || []).map((m, i) => {
     const u = umsetzungOf(env, m);
     if (!u) return { id: m.id, umsetzung: m.umsetzung, params: {} };
     const params = Object.assign({}, clone((u.test && u.test.params) || {}), clone((u.rueckfall && u.rueckfall.params) || {}));
     if (u.params.loc) params.loc = s.ort;
     if (u.params.map && s.karte) params.map = s.karte;
-    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && params[pn] === undefined && g.auftraggeber) params[pn] = g.auftraggeber;
-    if ((s.weiter || []).length > 1 && !branchIf) {
+    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc') params[pn] = sceneVoice(g, s, pn === 'npc' ? 'gegenueber' : 'verbuendet');
+    if (HOSTILE_MOLS.has(m.id) && params.npc === g.auftraggeber) params.npc = NEU_DEFAULT;   // Auftraggeber nie als Angreifer
+    const own = sceneVoice(g, s, 'verbuendet');
+    const fixFrom = (n) => {
+      if (Array.isArray(n)) return n.forEach(fixFrom);
+      if (!isObj(n)) return;
+      if (isObj(n.radio) && typeof n.radio.from === 'string' && !isNeu(n.radio.from) && !cast.named.has(n.radio.from)) n.radio.from = own;
+      for (const v of Object.values(n)) fixFrom(v);
+    };
+    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'aktionen' && Array.isArray(params[pn])) fixFrom(params[pn]);
+    if (typeof s.ziel_name === 'string' && s.ziel_name.trim()) {
+      for (const pn of NAME_PARAMS) if (u.params[pn] && u.params[pn].typ === 'text') params[pn] = shortText(s.ziel_name, pn === 'name' ? 24 : 60);
+    }
+    if (u.params.lohn && u.params.lohn.typ === 'zahl') params.lohn = 0;   // Lohn nur am Missionsende (belohnung_marken)
+    const kind = shipKindOf(s);
+    if (kind && u.params.kind && (!u.params.kind.werte || u.params.kind.werte.includes(kind))) params.kind = kind;
+    if (kind && !(typeof s.ziel_name === 'string' && s.ziel_name.trim()) && u.params.name && u.params.name.typ === 'text') params.name = kind === 'frachter' ? 'Frachter' : kind === 'karawane' ? 'Karawane' : 'Bergungsboot';
+    if (new Set((s.weiter || []).map((w) => w.nach)).size > 1 && !branchIf) {
       const n = Object.keys(u.params).find((p) => u.params[p].typ === 'aktionen' && Array.isArray(params[p]));
       const id = (s.molekuele || []).length > 1 ? `${s.id}_${i + 1}` : s.id;
       if (n) { params[n] = params[n].concat([{ setFlag: { [flag]: true } }]); branchIf = { flag }; }
@@ -382,7 +735,7 @@ function rohAnswer(g, s, env) {
     }
     return { id: m.id, umsetzung: m.umsetzung, params };
   });
-  const weiter = (s.weiter || []).map((w) => w.nach);
+  const weiter = [...new Set((s.weiter || []).map((w) => w.nach))];
   const cond = branchIf || { v: flag };
   const verzweigung = weiter.length > 1 ? weiter.map((n, i) => (i === 0 ? { nach: n, if: cond } : { nach: n })) : [];
   return { molekuele, verzweigung, wendung: null };
@@ -446,7 +799,9 @@ function buildBook(g, answers, env, opts) {
     entry[s.id] = needsApproach(g, s, pre) ? `${s.id}_anflug` : firstStep[s.id];
   }
   const entryOf = (sid) => entry[sid] || sid;
-  const sceneUmsetzung = (s) => { const m = (s.molekuele || [])[0]; return m ? `${m.id}/${m.umsetzung}` : undefined; };
+  const cast = missionCast(g, env);
+  const bookFlags = planFlags(g, ans, env);
+  const sceneUmsetzung =(s) => { const m = (s.molekuele || [])[0]; return m ? `${m.id}/${m.umsetzung}` : undefined; };
 
   // Szene bauen: Antwort -> sonst Rohfassung
   const buildScene = (s, sidForIds) => {
@@ -456,13 +811,16 @@ function buildBook(g, answers, env, opts) {
     const fehler = [];
     let sz = null;
     if (given && given.answer) {
-      sz = assembleScene(g, sc, given.answer, env, { entryOf, book: true, found });
+      sz = assembleScene(g, sc, given.answer, env, { entryOf, book: true, found, knownFlags: bookFlags });
+      // S2b Prüfregel SPRECHER (nur für Spielleiter-Antworten; Archiv-Szenen sind von Hand geprüft)
+      if (!sz.fehler.length && quelle !== 'archiv') sz.fehler.push(...speakerErrors(sz.steps, cast, sz.besetzung.stimmen), ...hostileVoiceErrors(g, s, given.answer));
       if (sz.fehler.length) { fehler.push(...sz.fehler); sz = null; }
     }
     if (!sz) {
       if (given) quelle = 'rohfassung';
       sz = assembleScene(g, sc, rohAnswer(g, sc, env), env, { entryOf, book: true, found, roh: true });
       if (sz.fehler.length) fehler.push(...sz.fehler.map((x) => 'Rohfassung: ' + x));
+      for (const e of speakerErrors(sz.steps, cast, sz.besetzung.stimmen)) result.warnings.push(`Rohfassung '${s.id}': ${e}`);
     }
     result.szenen[s.id] = { quelle, fehler };
     return sz;
@@ -530,6 +888,39 @@ function buildBook(g, answers, env, opts) {
     if (s.karte) buehne.aussenkarten = [...new Set([...buehne.aussenkarten, s.karte])];
   }
   if (!buehne.aussenkarten.length) delete buehne.aussenkarten;
+  // S2b (Live-Befund, QA-INTEGRATION): Umsetzungen mit Spieleffekten beim Betreten oder im Timer (Spawn: vertreiben,
+  // notruf_verteidigen, angriffswelle …) an Hafen-/Händlerorten sind speicherbar – beim Laden wiederholten sich die Effekte
+  // (Prüfer: NEUSTART). Sauberes Muster statt der früheren Notlösung (Timer mit `docked: false`, die bei angedockter Lerche
+  // ganz ausfiel): ein Wartepunkt „Ablegen“ am selben Ort vor dem Schritt, und der Schritt nimmt beim Laden dort wieder auf
+  // (`wiederaufnahme.ab`). So beginnt der Kampf immer erst, wenn die Lerche abgelegt hat – auch nach dem Laden.
+  const ports = new Set(Locations.LOCATIONS.filter((l) => l.kind === 'port' || l.kind === 'trader').map((l) => l.id));
+  const effectDo = (() => { try { const R = require('./registry.js'); return (n) => { const d = R.get && R.get(n); return !!(d && d.effekt && !d.intern); }; } catch (e) { return () => false; } })();
+  const hasRestartEffect = (st) => {
+    const js = JSON.stringify([st.enter || [], st.timers || []]);
+    if (/"(?:spawn|spawnSalvage)":/.test(js)) return true;
+    return (js.match(/"do":"(\w+)"/g) || []).some((m) => effectDo(m.slice(6, -1)));
+  };
+  const retarget = (node, from, to) => {
+    if (Array.isArray(node)) { node.forEach((x) => retarget(x, from, to)); return; }
+    if (!isObj(node)) return;
+    for (const [k, v] of Object.entries(node)) { if (k === 'goto' && v === from) node[k] = to; else retarget(v, from, to); }
+  };
+  for (let i = 0; i < steps.length; i++) {
+    const st = steps[i];
+    if (!st.loc || !ports.has(st.loc) || st.drill || st.wiederaufnahme || st === hafenStep || !hasRestartEffect(st)) continue;
+    const gid = `${st.id}_ablegen`;
+    texte[`${gid}.ziel`] = 'Ablegen – erst draußen geht es weiter';
+    texte[`${gid}.tipp`] = 'Wir liegen noch an der Schleuse. Steuer: ablegen – der Auftrag wartet draußen.';
+    const gate = { id: gid, loc: st.loc, objectives: [{ id: 'ablegen', text: `@${gid}.ziel`, done: { docked: false } }],
+      timers: [{ at: 20, if: { docked: true }, do: [{ oda: `@${gid}.tipp` }], garantie: 'hinweis' }],
+      next: [{ if: { any: [{ docked: false }, { v: `${gid}_skip` }] }, goto: st.id }], skip: [{ set: { [`${gid}_skip`]: true } }] };
+    if (st.umsetzung) gate.umsetzung = st.umsetzung;
+    if (st.szene) gate.szene = st.szene;
+    for (const other of steps) if (other !== st) retarget(other, st.id, gid);
+    st.wiederaufnahme = { ab: gid };
+    steps.splice(i, 0, gate); i++;
+    result.warnings.push(`Szene am Andock-Ort '${st.loc}': Schritt '${st.id}' bekommt den Wartepunkt '${gid}' (Ablegen) und wiederaufnahme`);
+  }
   // Flags sind global und Szenen-IDs (s3_…) wiederholen sich zwischen erzeugten Missionen: alle Flags, die dieses Buch
   // selbst setzt oder die seine Umsetzungen liefern, beim Missionsstart zurücksetzen (nie die globalen Kampagnen-Flags)
   const own = new Set();
@@ -577,7 +968,7 @@ function buildBook(g, answers, env, opts) {
   // 4. Rahmen
   const ziel = (g.szenen.find((s) => s.ort && s.ort !== 'hafen') || s0).ort;
   texte['buch.briefing'] = shortText(g.aufhaenger || g.titel, 400);
-  texte['buch.belohnung'] = `${marks} Marken`;
+  texte['buch.belohnung'] = marks > 0 ? `${marks} Marken` : 'keine Marken – ein Gefallen';   // QA S2b: nie „0 Marken“
   const erText = o.erinnerungText || g.erinnerung_text || (typeof g.erinnerung === 'string' ? g.erinnerung : null);
   const buch = { von: [{ npc: g.auftraggeber }], briefing: '@buch.briefing', belohnung: '@buch.belohnung', ziel,
     dauer_min: Math.max(1, Math.min(120, Math.round(Number(g.zielspieldauer_min) || 15))) };
@@ -599,6 +990,21 @@ function buildBook(g, answers, env, opts) {
   return result;
 }
 
+// Prüferfehler des Buchs für die Nachbesserung des Grobplans lesbar machen (S2b): NEUSTART an Hafen-/Händlerorten heißt
+// für den Spielleiter „diese Umsetzung nicht an diesem Ort“.
+function explainBookErrors(g, errors, env) {
+  return (errors || []).map((x) => {
+    if (typeof x === 'string') return x;
+    const m = /steps\[\d+:([^\]]+)\]/.exec(x.p || '');
+    const sid = m ? sceneOfStep(g, m[1]) : null;
+    const s = sid && (g.szenen || []).find((y) => y.id === sid);
+    if (x.code === 'NEUSTART' && s && env && env.LOC[s.ort] && ['port', 'trader'].includes(env.LOC[s.ort].kind)) {
+      return `Szene '${s.id}': ${(s.molekuele || []).map((mm) => mm.umsetzung).join('+')} kann nicht am Hafen-/Händlerort '${s.ort}' spielen (dort wird angedockt gespeichert) – Ort ohne Andocken wählen (${x.code})`;
+    }
+    return `${x.code} ${x.p}: ${x.msg}`;
+  });
+}
+
 // Kurzfassung des Buchs fürs Angebot
 function offerInfo(book, g) {
   const t = (k) => (book.texte && typeof book.buch[k] === 'string' && book.buch[k][0] === '@' ? book.texte[book.buch[k].slice(1)] : book.buch[k]) || null;
@@ -610,4 +1016,7 @@ module.exports = {
   buildEnv, hops, checkGrobplan, checkGrobplanS2, parseFolge, umsetzungDauer, assembleScene, sceneTestBook, parseJsonAnswer,
   checkBook, evaluateScene, evaluateGrobplan, rohAnswer, sceneOfStep, predecessors, needsApproach, buildBook, offerInfo, slug, shortText,
   TUTORIAL_TERMS, ODA_MAX,
+  // S2b
+  missionCast, sceneVoice, normalizeGrobplan, repairSceneAnswer, planFlags, explainBookErrors, speakerErrors, factContradictions, rewardContradictions,
+  grobplanTexts, answerTexts, umsetzungOf, NEU_DEFAULT,
 };

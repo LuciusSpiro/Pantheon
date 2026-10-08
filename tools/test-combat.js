@@ -676,5 +676,234 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
   }
 }
 
+// ======================================================================
+// S2b (CONTRACT-S2B §2): zähere Jäger, Ladeschuss, Sperrfeuer des Kanonenboots
+// ======================================================================
+{
+  const CONFIG = require('../shared/config.js');
+  const space = require('../server/sim/space.js');
+  const Escort = require('../server/sim/escort.js');
+  const DT = 1 / CONFIG.tickHz;
+  const SF = CONFIG.spaceS2b.sperrfeuer;
+  const info = (t) => console.log('  info ' + t);
+  const f2 = (v) => (Math.round(v * 100) / 100).toString();
+  function spaceArena(players, seed) {
+    const g = new Game({ noStore: true, seed: seed || 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const conns = [];
+    for (let i = 0; i < players; i++) {
+      const c = { inbox: [], send(m) { this.inbox.push(m); } };
+      g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); conns.push(c);
+    }
+    g.handleMessage(conns[0], { t: 'lobbyOpt', startMission: 'arena_space' });
+    for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+    if (g.arena) g.arena.nextAt = null;
+    g.space.enemies = []; g.space.projectiles = [];
+    const sh = g.ship; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; sh.vx = 0; sh.vy = 0; sh.turnVel = 0;
+    const run = (sec, each) => { for (let k = 0; k < Math.round(sec / DT); k++) { if (each) each(k * DT); g.step(); } };
+    const ev = (kind) => conns[0].inbox.filter((m) => m.kind === kind);
+    return { g, conns, run, ev };
+  }
+  // Lerche heil halten (Messung des Sperrfeuers, nicht der Folgeschäden) und im Feld zentrieren
+  function keep(g) {
+    const sh = g.ship; sh.hull = 100;
+    for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable && sh.systems[k] !== 'ok') sh.systems[k] = 'ok'; }
+    sh.fireList.length = 0; sh.breachList.length = 0;
+    const cx = g.space.w / 2, cy = g.space.h / 2;
+    if (Math.hypot(sh.x - cx, sh.y - cy) > 400) {
+      const dx = cx - sh.x, dy = cy - sh.y; sh.x += dx; sh.y += dy;
+      for (const e of g.space.enemies) { e.x += dx; e.y += dy; } for (const p of g.space.projectiles) { p.x += dx; p.y += dy; }
+    }
+  }
+
+  console.log('\n[S2b: Jäger hält eine volle Salve aus, stirbt nach drei]');
+  {
+    const L = CONFIG.spaceM3.lance; const M = CONFIG.spaceM3.mounts;
+    const full = L.maxDamage + M.port.damage * M.port.tubes + M.stbd.damage * M.stbd.tubes;
+    ok(CONFIG.enemies.raider.hp >= 36, `enemies.raider.hp ${CONFIG.enemies.raider.hp} (vorher 12)`);
+    for (const crew of [1, 2, 3]) {
+      const { g } = spaceArena(crew, 3);
+      const sh = g.ship;
+      const e = space.spawnEnemy(g, 'raider', { tag: 'arena', x: sh.x + 300, y: sh.y, facing: Math.PI });
+      const salvo = () => {   // Lanze voll (Bug, Durchschlag) + Batterie Bb + Batterie Stb (je volle Rohrzahl)
+        space.damageEnemy(g, e, L.maxDamage, sh.x + 34, sh.y, { pierce: M.bow.pierce });
+        for (let i = 0; i < M.port.tubes; i++) space.damageEnemy(g, e, M.port.damage, sh.x + 300, sh.y - 60);
+        for (let i = 0; i < M.stbd.tubes; i++) space.damageEnemy(g, e, M.stbd.damage, sh.x + 300, sh.y + 60);
+      };
+      const alive = () => g.space.enemies.includes(e);
+      const hp = [e.hpMax];
+      let dead = 0;
+      for (let s = 1; s <= 3 && alive(); s++) { e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!alive()) dead = s; }
+      // Solo (crewScaling.enemyHp 0,5) hält der Jäger keine volle Salve aus – solo feuert die Taktik selten alle drei Waffen
+      // zugleich (Bericht); geprüft wird zu zweit und zu dritt
+      if (crew >= 2) ok(hp[1] > 0, `${crew} Spieler: Jäger (${e.hpMax} HP) übersteht eine volle Salve (${full} Schaden roh) – Rest ${hp[1]} HP`);
+      else info(`solo: Jäger ${e.hpMax} HP, nach einer vollen Salve ${hp[1]} HP`);
+      ok(dead >= 1 && dead <= 3 && (crew < 2 || dead >= 2), `${crew} Spieler: nach spätestens drei Salven zerstört (nach ${dead}; HP ${hp.join(' -> ')})`);
+    }
+  }
+
+  console.log('\n[S2b: Ladeschuss des Kanonenboots]');
+  {
+    ok(CONFIG.spaceM3.tele.gunboat.damage >= 4 && CONFIG.spaceM3.tele.gunboat.dur === 3, `tele.gunboat: Schaden ${CONFIG.spaceM3.tele.gunboat.damage} (vorher 3), Ladung ${CONFIG.spaceM3.tele.gunboat.dur} s`);
+  }
+
+  console.log('\n[S2b: Sperrfeuer – Stöße, Geschosse, sfx, Ruhe während der Ladung]');
+  {
+    const { g, run, ev } = spaceArena(3, 7);
+    const sh = g.ship;
+    space.helmThrottle(g, { set: 1 });
+    const gb = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + 280, y: sh.y - 280 });
+    gb.hp = gb.hpMax = 9999;
+    let duringTele = 0, maxSperr = 0, firstSeen = null, maxAge = 0;
+    const born = new Map();
+    const seen = new Set();
+    run(60, () => {
+      keep(g);
+      for (const p of g.space.projectiles) {
+        if (p.kind !== 'sperrfeuer') continue;
+        if (!seen.has(p.id)) {
+          seen.add(p.id); born.set(p.id, g.time);
+          if (!firstSeen) firstSeen = { p: { id: p.id, kind: p.kind, x: p.x, y: p.y, speed: p.speed, owner: p.owner }, d: Math.hypot(p.x - gb.x, p.y - gb.y) };
+          if (gb.tele) duringTele++;
+        }
+        maxAge = Math.max(maxAge, g.time - born.get(p.id));
+      }
+      maxSperr = Math.max(maxSperr, g.space.projectiles.filter((p) => p.kind === 'sperrfeuer').length);
+    });
+    const S = g.stats.sperrfeuer || {};
+    const sfx = ev('sfx').filter((m) => m.name === 'sperrfeuer');
+    ok(S.bursts >= 6 && S.shots >= S.bursts * 2, `Kanonenboot feuert Sperrfeuer: ${S.bursts} Stöße, ${S.shots} Geschosse in 60 s (Soll ≥ 6 Stöße)`);
+    ok(sfx.length === S.bursts, `sfx sperrfeuer einmal je Stoß (${sfx.length}/${S.bursts})`);
+    ok(!!firstSeen && firstSeen.p.speed === SF.speed && firstSeen.p.owner === gb.id, `Geschoss: kind sperrfeuer, Tempo ${firstSeen && firstSeen.p.speed} px/s = CONFIG (${SF.speed}), Besitzer Kanonenboot`);
+    ok(!!firstSeen && firstSeen.d <= 30, `Spawn an der Breitseite (${firstSeen && Math.round(firstSeen.d)} px von der Bootsmitte)`);
+    ok(SF.speed < CONFIG.shipClasses.lerche.maxSpeed, `langsamer als die Lerche (${SF.speed} < ${CONFIG.shipClasses.lerche.maxSpeed} px/s)`);
+    ok(maxAge <= SF.ttl + 0.1, `begrenzte Lebensdauer (ältestes Geschoss ${f2(maxAge)} s ≤ ${SF.ttl} s)`);
+    ok(duringTele === 0 && ev('tele').length >= 2, `kein Sperrfeuer während der Ladung (${ev('tele').length} Ladungen, ${duringTele} Geschosse während einer Ladung)`);
+    const snap = g.snapshot();
+    const sp = (snap.space.projectiles || []).find((p) => p.kind === 'sperrfeuer');
+    ok(!sp || ['id', 'kind', 'x', 'y', 'angle'].every((k) => k in sp), 'Snapshot: Projektil { id, kind, x, y, angle }');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[S2b: Sperrfeuer – Kurs halten wird getroffen, Ausweichen spart Hülle (mehrere Seeds)]');
+  {
+    const res = {};
+    for (const how of ['steht', 'kurs', 'weicht']) {
+      let shots = 0, hits = 0, hull = 0, absorbed = 0;
+      for (let seed = 1; seed <= 6; seed++) {
+        const { g, run } = spaceArena(3, 100 + seed);
+        const sh = g.ship;
+        g.players[0].console = 'helm';   // Steuer besetzt (Ruder wirkt nur dann)
+        space.helmThrottle(g, { set: how === 'steht' ? 1 : 3 });
+        const gb = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + 300, y: sh.y - 300 });
+        gb.hp = gb.hpMax = 9999;
+        let shield0 = null;
+        run(90, (t) => {
+          keep(g);
+          if (how === 'weicht') {
+            // Steuer reagiert auf einen anfliegenden Stoß: Ruder umlegen (Kurswechsel), wenn bereit Ausweichrolle
+            const near = g.space.projectiles.some((p) => p.kind === 'sperrfeuer' && Math.hypot(p.x - sh.x, p.y - sh.y) < 220);
+            space.helmInput(g, near ? (Math.floor(t / 6) % 2 ? 1 : -1) : 0, 0);
+            if (near && !(sh.dodgeCd > 0) && g.space.projectiles.some((p) => p.kind === 'sperrfeuer' && Math.hypot(p.x - sh.x, p.y - sh.y) < 120)) space.dodge(g, Math.floor(t) % 2 ? 1 : -1);
+          } else space.helmInput(g, 0, 0);
+          // Ladung abschalten: hier zählt nur das Sperrfeuer
+          if (gb.tele) { gb.tele = null; gb.fireT = 0; }
+          gb.fireT = Math.min(gb.fireT, 0.5);
+        });
+        const S = g.stats.sperrfeuer || {};
+        shots += S.shots || 0; hits += S.hits || 0; hull += S.hull || 0;
+        if (g.errors) fails++;
+      }
+      res[how] = { shots, hits, rate: shots ? hits / shots : 0, hull };
+      info(`${how}: ${hits}/${shots} Treffer (${Math.round(res[how].rate * 100)} %), Hülle ${f2(hull)} in 6 × 90 s`);
+    }
+    ok(res.steht.rate >= 0.7, `stehende Lerche wird getroffen (${Math.round(res.steht.rate * 100)} %, Soll ≥ 70 %)`);
+    ok(res.kurs.rate >= 0.7, `Lerche hält Kurs (½): wird getroffen (${Math.round(res.kurs.rate * 100)} %, Soll ≥ 70 %)`);
+    ok(res.weicht.rate <= res.kurs.rate * 0.7, `ausweichende Lerche deutlich seltener getroffen (${Math.round(res.weicht.rate * 100)} % ≤ 0,7 × ${Math.round(res.kurs.rate * 100)} %)`);
+    ok(res.weicht.hull < res.kurs.hull * 0.6 && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Hülle (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
+  }
+
+  console.log('\n[S2b: Sperrfeuer – leichter Treffer, kein Systemschaden durch den Schild]');
+  {
+    const { g } = spaceArena(3, 9);
+    const sh = g.ship;
+    sh.shields.current = [2, 2, 2, 2];
+    let sys = 0;
+    for (let i = 0; i < 200; i++) {
+      sh.shields.current[1] = 1;
+      const before = JSON.stringify(sh.systems);
+      g.space.projectiles.push({ id: 'sf' + i, kind: 'sperrfeuer', x: sh.x + 10, y: sh.y + 30, angle: -Math.PI / 2, speed: SF.speed, ttl: 1, dmg: SF.damage, owner: 'x' });
+      g.step();
+      if (JSON.stringify(sh.systems) !== before) sys++;
+      for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable) sh.systems[k] = 'ok'; }
+    }
+    ok(sys === 0, `200 Treffer auf Schild 1: kein Systemschaden (${sys})`);
+    ok(sh.hull === 100, `Schild fängt den Treffer (Hülle ${sh.hull})`);
+  }
+
+  console.log('\n[S2b: Sperrfeuer auf Schützlinge – Breitseite schützt]');
+  {
+    const { g } = spaceArena(3, 11);
+    const sh = g.ship;
+    const es = Escort.spawn(g, { tag: 'konvoi', kind: 'frachter', verhalten: 'folgt_kurs', von: { x: sh.x, y: sh.y + 200 } });
+    Escort.order(g, 'konvoi', 'halten');
+    for (let k = 0; k < 10; k++) g.step();
+    // Lerche zwischen Boot (oben) und Schützling (unten): Geschoss fliegt von oben auf den Schützling
+    const ex = es.x, ey = es.y;
+    const pinAll = () => { es.x = ex; es.y = ey; es.vx = 0; es.vy = 0; sh.x = ex; sh.y = ey - 120; sh.vx = 0; sh.vy = 0; };
+    pinAll();
+    const hp0 = es.hp; const sh0 = sh.shields.current.slice();
+    g.space.projectiles.push({ id: 'sfA', kind: 'sperrfeuer', x: ex, y: ey - 300, angle: Math.PI / 2, speed: SF.speed, ttl: 6, dmg: SF.damage, owner: 'x', tgt: es.id });
+    for (let k = 0; k < 90; k++) { pinAll(); g.step(); }
+    ok(es.hp === hp0 && !g.space.projectiles.some((p) => p.id === 'sfA'), `Lerche fängt das Geschoss ab (Schützling ${es.hp}/${hp0})`);
+    ok(SF.shieldedFactor !== 0 || JSON.stringify(sh.shields.current.map((v, i) => v >= sh0[i])) === '[true,true,true,true]', `abgefangen: Schild der Lerche bleibt (shieldedFactor ${SF.shieldedFactor})`);
+    // ohne Lerche: Treffer, aber der Schützling hält deshalb nicht an
+    sh.x = es.x + 600; sh.y = es.y;
+    const hitT0 = es.hitT;
+    g.space.projectiles.push({ id: 'sfB', kind: 'sperrfeuer', x: ex, y: ey - 200, angle: Math.PI / 2, speed: SF.speed, ttl: 6, dmg: SF.damage, owner: 'x', tgt: es.id });
+    for (let k = 0; k < 90; k++) { es.x = ex; es.y = ey; es.vx = 0; es.vy = 0; g.step(); }
+    const exp = SF.damage * (SF.escortFactor != null ? SF.escortFactor : 1) * CONFIG.escorts.hullPerDamage * CONFIG.escorts.crewDamage[3];
+    ok(Math.abs(hp0 - es.hp - exp) < 0.2, `ohne Lerche: Treffer am Schützling (−${Math.round((hp0 - es.hp) * 10) / 10} Hülle, Soll ${Math.round(exp * 10) / 10})`);
+    ok(es.hitT === hitT0, 'leichter Treffer: kein Anhalten (hitT unverändert)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[S2b: Snapshot mit viel Sperrfeuer]');
+  {
+    const { g, run } = spaceArena(3, 13);
+    const sh = g.ship;
+    space.helmThrottle(g, { set: 1 });
+    const boats = [[300, -300], [-300, 300], [350, 250]].map(([dx, dy]) => { const e = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + dx, y: sh.y + dy }); e.hp = e.hpMax = 9999; return e; });
+    for (let i = 0; i < 3; i++) { const e = space.spawnEnemy(g, 'raider', { tag: 'arena' }); e.hp = e.hpMax = 9999; }
+    let maxSz = 0, maxSperr = 0, tk = 0;
+    run(60, () => {
+      tk++;
+      keep(g);
+      for (const e of boats) { if (e.tele) { e.tele = null; } e.fireT = 0; }   // nur Sperrfeuer, Dauerfeuer
+      maxSperr = Math.max(maxSperr, g.space.projectiles.filter((p) => p.kind === 'sperrfeuer').length);
+      if (tk % 15 === 0) maxSz = Math.max(maxSz, Buffer.byteLength(JSON.stringify(g.snapshot())));
+    });
+    ok(maxSperr <= SF.maxProjectiles, `Obergrenze: höchstens ${maxSperr} Sperrfeuer-Geschosse gleichzeitig (maxProjectiles ${SF.maxProjectiles})`);
+    ok(maxSz < 13 * 1024, `Snapshot mit 3 Kanonenbooten + 3 Jägern < 13 KB (max ${maxSz} B)`);
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[QA S2b: Jäger (alte KI) klebt nicht in der Kartenecke]');
+  {
+    const { g, run } = spaceArena(1, 17);
+    const F = g.C.spaceM3b.flightV2; const savedArena = F.arena; F.arena = false;   // Missions-KI (moveLegacy)
+    try {
+      const sh = g.ship; const W2 = g.space.w;
+      const pinShip = () => { sh.x = W2 - 40; sh.y = 40; sh.vx = 0; sh.vy = 0; sh.hull = 100; };
+      pinShip();
+      const e = space.spawnEnemy(g, 'raider', { tag: 'ecke', x: W2 - 30, y: 30 }); e.hp = e.hpMax = 9999;
+      e.x = W2 - 30; e.y = 30;
+      run(6, pinShip);
+      const fromShip = Math.hypot(e.x - sh.x, e.y - sh.y);
+      ok(fromShip > 80 && e.y > 60 && e.x < W2 - 60, `Jäger löst sich aus der Ecke (Abstand zum Schiff ${Math.round(fromShip)} px, Position ${Math.round(e.x)},${Math.round(e.y)})`);
+      ok(g.errors === 0, 'keine Server-Fehler');
+    } finally { F.arena = savedArena; }
+  }
+}
+
 console.log(`\n${n - fails}/${n} Kampf-Tests bestanden.`);
 process.exit(fails ? 1 : 0);

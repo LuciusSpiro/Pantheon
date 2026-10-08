@@ -508,6 +508,11 @@ console.log('\n[S2: Bücher zur Laufzeit, Angebote, Hooks]');
   const b3 = genBook('sl_1_test'); b3.texte.b = 'Text neu'; b3.steps[0].timers[0].at = 61;
   const rb3 = m.updateBook('sl_1_test', b3);
   ok(!rb3.ok && rb3.errors[0].code === 'BETRETEN', 'updateBook: betretener Schritt darf sich nicht ändern');
+  // QA-Abnahme S2b: nur die Flag-Rücksetzung im enter des betretenen Schritts ändert sich (andere Flags der ersetzten Szene)
+  const b3r = genBook('sl_1_test'); b3r.texte.b = 'Text neu';
+  b3r.steps[0].enter = (b3r.steps[0].enter || []).concat([{ setFlag: { s9_neu: null } }]);
+  const rb3r = m.updateBook('sl_1_test', b3r);
+  ok(rb3r.ok, 'updateBook: geänderte Flag-Rücksetzung im betretenen Schritt ist kein BETRETEN' + (rb3r.ok ? '' : ' – ' + JSON.stringify(rb3r.errors).slice(0, 300)));
   const b4 = genBook('sl_1_test'); b4.texte.b = 'Text neu'; b4.steps[1].next[0].if = { elapsed: 0.5 };
   const stepBefore = m.step;
   ok(m.updateBook('sl_1_test', b4).ok && m.step !== stepBefore && m.step.id === 'anflug' && m.def.steps[1].next[0].if.elapsed === 0.5, 'updateBook: unbetretener Schritt ersetzt, laufender Schritt neu gebunden');

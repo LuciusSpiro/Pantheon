@@ -460,7 +460,8 @@ async function s2Tests(T) {
   await safe(T7, 'missionDone → planning → offered (2 SL + 1 Archiv)', async () => {
     LLM.resetBudget();
     const F = fakeGame();
-    const llm = LLM.create({ mode: 'script', katalog, script: {} });
+    // S2b-Vorlauf: s2 und s3 werden beim Annehmen angefragt; s3 bleibt offen (hold), um „betreten vor fertig“ zu prüfen
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [], szene: [{}, { hold: true }] } });
     const sl = Spielleiter.create(F.g, { llm, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie7'), katalog });
     sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
     const p0 = sl.planning(); const arch0 = sl.offers().filter((o) => o.origin === 'archiv').length;
@@ -479,17 +480,14 @@ async function s2Tests(T) {
     const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
     check(T7, 'accept → Mission läuft, Nachfolgeszene ausgearbeitet und ersetzt (updateBook)', err === null && F.m.activeId === o.id && F.m.updates.includes(o.id) && plan.szenen[s2].state === 'ready' && plan.szenen[s2].quelle === 'llm',
       `Fehler ${err}; Szenen ${JSON.stringify(Object.fromEntries(Object.entries(plan.szenen).map(([k, v]) => [k, v.state + '/' + v.quelle])))}; Updates ${F.m.updates.length}`);
-    // betretene Szene wird nicht ersetzt: s3 zurückhalten, dann s3 betreten, dann freigeben
-    llm._hold = true;
-    const scr = { szene: [{ hold: true }] };
-    sl.llm = LLM.create({ mode: 'script', katalog, script: scr });
+    // betretene Szene wird nicht ersetzt: s3 ist zurückgehalten (hold), s3 betreten, dann freigeben
     F.m.step = { id: `${s2}_anflug` }; sl.update(0.1); await flush();
     F.m.step = { id: s2 }; F.g.time += 0.25; sl.update(0.25); await flush();
     const req = plan.szenen[s3].state;
     const upd0 = F.m.updates.length;
     F.m.step = { id: `${s3}_anflug` }; F.g.time += 0.25; sl.update(0.25); await flush();
     F.m.step = { id: s3 }; F.g.time += 0.25; sl.update(0.25); await flush();
-    sl.llm.release(); await ticks(sl, F.g, 2);
+    llm.release(); await ticks(sl, F.g, 2);
     check(T7, 'betretene Szene wird nicht mehr ersetzt', req === 'requested' && F.m.updates.length === upd0 && plan.szenen[s3].state === 'active',
       `vorher ${req}, nachher ${plan.szenen[s3].state}, Updates ${upd0} -> ${F.m.updates.length}`);
     // Speichern mitten in der Mission
@@ -697,6 +695,291 @@ async function s2Tests(T) {
     check(T11, 'Buch-Hash aus den Aufzeichnungen stabil', !diff.length, diff.length ? `abweichend: ${diff.join(', ')} (bewusst? dann --update)` : `${Object.keys(now).length} Bücher, Hash gleich`);
     const twice = sha1(SB.buildBook(LLM.mockGrobplan({ kontext: ctxNT }, katalog), {}, env, { id: 'sl_1_m', kontext: ctxNT }).book) === sha1(SB.buildBook(LLM.mockGrobplan({ kontext: ctxNT }, katalog), {}, env, { id: 'sl_1_m', kontext: ctxNT }).book);
     check(T11, 'Buchbau deterministisch', twice, '');
+  });
+
+  // ---------- 12. S2b ----------
+  await s2bTests(Object.assign({}, T, { ctxNT, AR }));
+}
+
+// =================================================================================================================
+// S2b-Tests (CONTRACT-S2B §4): Rohfassung plan-treu, Sprecher ∈ Besetzung, ERINNERUNG-WIDERSPRUCH, Belohnung,
+// Reparatur einfacher Szenenfehler, Szenen-Prompt-Größe, Vorlauf
+// =================================================================================================================
+function loadS2bPlan(name) { return JSON.parse(fs.readFileSync(path.join(FIX, 'llm', 's2b', name + '.grobplan.json'), 'utf8')).grobplan; }
+const radiosOf = (steps) => [...new Set((JSON.stringify(steps).match(/"from":"[^"]+"/g) || []).map((x) => x.slice(8, -1)))];
+async function s2bTests(T) {
+  const { katalog, env, ok, bad, safe, check, ctxNT, AR } = T;
+  const T12 = '12 S2b';
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  // 1. Rohfassung ohne Fremd-NSC (Fall „Sela funkt in Grauzahns Mission“, „Grauzahn droht als Gegner“)
+  await safe(T12, 'Rohfassung ohne Fremd-NSC (Grauzahn-/Sela-Mission aus der S2-Abnahme)', () => {
+    const out = [];
+    for (const name of ['splitter-grauzahn', 'fluesterer-sela']) {
+      const g = loadS2bPlan(name); SB.normalizeGrobplan(g);
+      const r = SB.buildBook(g, {}, env, { id: 'sl_9_' + name.replace(/-/g, '_'), kontext: ctxNT });
+      const cast = SB.missionCast(g, env);
+      const foreign = radiosOf(r.book.steps).filter((f) => !cast.named.has(f) && !/^neu_/.test(f));
+      const spk = r.warnings.filter((w) => /SPRECHER/.test(w));
+      // Gegenüber-Rollen (Bluff, Abwehr) funken nie als Auftraggeber
+      const hostile = r.book.steps.filter((st) => /^(taeuschen|vertreiben|vernichten|verhandeln|system_ausschalten)\//.test(st.umsetzung || ''));
+      const threat = radiosOf(hostile).filter((f) => f === g.auftraggeber);
+      if (r.errors.length || foreign.length || spk.length || threat.length) out.push(`${name}: Fehler ${r.errors.map((e) => e.code).join(',') || '–'}, Fremd-NSC ${foreign.join(',') || '–'}, Auftraggeber als Gegner ${threat.length}`);
+    }
+    check(T12, 'Rohfassung ohne Fremd-NSC (Grauzahn-/Sela-Mission aus der S2-Abnahme)', !out.length, out.join(' | ') || 'Funk nur Besetzung/neue Stimmen, Gegner nie der Auftraggeber');
+  });
+  await safe(T12, 'Rohfassung plan-treu: stimme, ziel_name, Schiffsklasse, belohnung_marken', () => {
+    const g = loadS2bPlan('splitter-grauzahn'); SB.normalizeGrobplan(g);
+    const bl = g.szenen.find((s) => s.id === 's3_entscheidung_bluff'); bl.stimme = 'neu:Inspektor Varn';
+    const ph = g.szenen.find((s) => s.id === 's4_pannenhilfe'); ph.ziel_name = 'Frachter Schiefmaul';
+    g.belohnung_marken = 140;
+    const r = SB.buildBook(g, {}, env, { id: 'sl_9_split', kontext: ctxNT, marks: g.belohnung_marken });
+    const bluff = r.book.steps.filter((st) => /^s3_entscheidung_bluff/.test(st.id));
+    const ship = r.book.besetzung.schiffe && r.book.besetzung.schiffe.s4_pannenhilfe;
+    const lohn = Object.values(r.book.ausgaenge).map((a) => (a.folgen.find((x) => x.reward) || { reward: { marks: 0 } }).reward.marks);
+    const fine = !r.errors.length && radiosOf(bluff).includes('neu_inspektor_varn') && !radiosOf(bluff).includes('grauzahn') && ship && ship.kind === 'frachter' && ship.name === 'Frachter Schiefmaul'
+      && r.book.texte['buch.belohnung'] === '140 Marken' && Math.max(...lohn) === 140 && r.book.besetzung.stimmen && r.book.besetzung.stimmen.neu_inspektor_varn;
+    check(T12, 'Rohfassung plan-treu: stimme, ziel_name, Schiffsklasse, belohnung_marken', fine,
+      `Funk Bluff ${radiosOf(bluff).join(',')}; Schiff ${JSON.stringify(ship)}; Belohnung ${r.book.texte['buch.belohnung']} / Ausgänge ${lohn.join(',')}; Fehler ${r.errors.map((e) => e.code + ' ' + e.p).join(' | ') || '–'}`);
+  });
+  // 2. Sprecher ∈ Besetzung
+  await safe(T12, 'Prüfregel SPRECHER: Fremd-NSC in einer LLM-Szene → Rohfassung, unbekannte stimme → Grobplanfehler', () => {
+    const g = loadS2bPlan('splitter-grauzahn'); SB.normalizeGrobplan(g);
+    const s = g.szenen.find((x) => x.id === 's4_pannenhilfe');
+    const ans = { molekuele: [{ id: 'pannenhilfe', umsetzung: 'andocken_und_flicken', params: { loc: 'splitter', funk_npc: 'sela', mit_angriff: true } }], verzweigung: [], wendung: { kennung: 'stoerer', nach_s: 40, ankuendigung: 'Ortung: Kontakt!', wirkung: [{ oda: 'Jäger im Anflug.' }] } };
+    const r = SB.buildBook(g, { [s.id]: { answer: ans, quelle: 'llm' } }, env, { id: 'sl_9_spk', kontext: ctxNT });
+    const info = r.szenen[s.id];
+    const ok1 = info.quelle === 'rohfassung' && info.fehler.some((f) => /^SPRECHER: 'sela'/.test(f));
+    const ans2 = clone(ans); ans2.molekuele[0].params.funk_npc = 'grauzahn';
+    const r2 = SB.buildBook(g, { [s.id]: { answer: ans2, quelle: 'llm' } }, env, { id: 'sl_9_spk', kontext: ctxNT });
+    const ans3 = clone(ans); ans3.molekuele[0].params.funk_npc = 'neu:Kapitän Orr';
+    const r3 = SB.buildBook(g, { [s.id]: { answer: ans3, quelle: 'llm' } }, env, { id: 'sl_9_spk', kontext: ctxNT });
+    const g4 = clone(g); g4.szenen[1].stimme = 'quatschkopf';
+    const e4 = SB.checkGrobplanS2(g4, env, ctxNT, { origin: 'sl' }).errors.filter((e) => /SPRECHER/.test(e));
+    // GEGNER-AUFTRAGGEBER (Live-Befund „Grauzahns Preis“: stimme grauzahn in seiner eigenen Abwehr-Szene)
+    const g5 = clone(g); g5.szenen.find((x) => x.id === 's5_abwehr').stimme = 'grauzahn';
+    const e5 = SB.checkGrobplanS2(g5, env, ctxNT, { origin: 'sl' }).errors.filter((e) => /^GEGNER-AUFTRAGGEBER/.test(e));
+    const r5 = SB.buildBook(g5, {}, env, { id: 'sl_9_g5', kontext: ctxNT });
+    const abw = r5.book.steps.filter((st) => /^s5_abwehr/.test(st.id));
+    const ok2 = r2.szenen[s.id].quelle === 'llm' && r3.szenen[s.id].quelle === 'llm' && !r3.errors.length && e4.length === 1 && e5.length === 1 && !radiosOf(abw).includes('grauzahn');
+    check(T12, 'Prüfregel SPRECHER: Fremd-NSC in einer LLM-Szene → Rohfassung, unbekannte stimme → Grobplanfehler', ok1 && ok2,
+      `sela: ${info.quelle} (${info.fehler.slice(0, 1).join('')}); grauzahn: ${r2.szenen[s.id].quelle}; neu: ${r3.szenen[s.id].quelle} ${r3.errors.map((e) => e.code).join(',')}; stimme quatschkopf: ${e4.join(' | ')}`);
+  });
+  // 3. ERINNERUNG-WIDERSPRUCH + Belohnung
+  await safe(T12, 'Prüfregel ERINNERUNG-WIDERSPRUCH (Datenkern „an Bord“, obwohl beim Konkordat)', () => {
+    const g = loadS2bPlan('fluesterer-sela'); SB.normalizeGrobplan(g);
+    const k = (f) => Object.assign({}, ctxNT, { fakten: Object.assign({}, ctxNT.fakten, f) });
+    const err = SB.checkGrobplanS2(g, env, k({ datenkern: 'konkordat' }), { origin: 'sl' }).errors.filter((e) => /^ERINNERUNG-WIDERSPRUCH/.test(e));
+    const fine = SB.checkGrobplanS2(g, env, k({ datenkern: 'lerche' }), { origin: 'sl' }).errors.filter((e) => /^ERINNERUNG-WIDERSPRUCH/.test(e));
+    const arch = SB.checkGrobplanS2(g, env, k({ datenkern: 'konkordat' }), { origin: 'archiv' });
+    const tafel = SB.factContradictions(['Die Tafel liegt bei euch im Laderaum.', 'Melk hütet die Tafel im Archiv.'], { tafel_von_kesh: 'konkordat_archiv' });
+    const scene = SB.factContradictions(SB.answerTexts({ molekuele: [{ params: { funk_start: 'Ihr habt den Datenkern noch an Bord, oder?' } }] }), { b7_datenkern: 'konkordat' });
+    check(T12, 'Prüfregel ERINNERUNG-WIDERSPRUCH (Datenkern „an Bord“, obwohl beim Konkordat)', err.length === 1 && !fine.length && arch.warnings.some((w) => /ERINNERUNG-WIDERSPRUCH/.test(w)) && !arch.errors.some((e) => /ERINNERUNG-WIDERSPRUCH/.test(e)) && tafel.length === 1 && scene.length === 1,
+      `konkordat: ${err.join(' | ')}; lerche: ${fine.length}; Archiv nur Warnung; Tafel ${tafel.length}; Szene ${scene.length}`);
+  });
+  await safe(T12, 'Belohnung nur als belohnung_marken (Fall 80 im Text vs. 190 im Buch)', () => {
+    const g = loadS2bPlan('splitter-grauzahn');
+    const reps = SB.normalizeGrobplan(g);
+    const noMarks = Object.values(g.ausgaenge).every((a) => !a.folgen.some((f) => /marken/i.test(String(f))));
+    const g2 = loadS2bPlan('fluesterer-sela'); SB.normalizeGrobplan(g2);   // „Sie bietet 80 Marken“ -> belohnung_marken 80
+    const g3 = loadS2bPlan('fluesterer-sela'); g3.belohnung_marken = 190;
+    const e3 = SB.checkGrobplanS2(g3, env, ctxNT, { origin: 'sl' }).errors.filter((e) => /^BELOHNUNG-WIDERSPRUCH/.test(e));
+    const b2 = SB.buildBook(g2, {}, env, { id: 'sl_9_b', kontext: ctxNT, marks: g2.belohnung_marken });
+    check(T12, 'Belohnung nur als belohnung_marken (Fall 80 im Text vs. 190 im Buch)', noMarks && g.belohnung_marken === 80 && reps.some((x) => /entfernt/.test(x)) && g2.belohnung_marken === 80 && b2.book.texte['buch.belohnung'] === '80 Marken' && e3.length >= 1,
+      `Splitter: ${g.belohnung_marken} (${reps.length} Reparaturen); Flüsterer: ${g2.belohnung_marken} -> Buch ${b2.book.texte['buch.belohnung']}; 190 vs. Text: ${e3.slice(0, 1).join('')}`);
+  });
+  // 4. Reparatur einfacher Szenenfehler
+  await safe(T12, 'Reparatur: Verzweigung ohne Einträge, Flag ohne Folge, setFlag-Form, Anführungszeichen, doppeltes weiter', async () => {
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    const s = g.szenen[2];   // zwei Ziele (Ausgänge)
+    const base = JSON.parse((await LLM.create({ mode: 'mock', katalog }).ask('szene', { grobplan: g, szene: s.id })).text);
+    const cases = {};
+    const a1 = clone(base); a1.verzweigung = [];
+    const a2 = clone(base); a2.verzweigung = [{ nach: 'ausgang:erfolg', if: { flag: 's3_gibt_es_nicht' } }, { nach: 'ausgang:teilerfolg' }];
+    const a3 = clone(base); a3.verzweigung = [{ nach: 'ausgang:teilerfolg' }, { nach: 'ausgang:erfolg', if: { flag: 's3_wahl' } }, { nach: 'ausgang:quatsch' }];
+    for (const [k, a] of Object.entries({ leer: a1, flag: a2, reihenfolge: a3 })) {
+      const before = SB.assembleScene(g, s, a, env, { book: true }).fehler.length;
+      const rep = SB.repairSceneAnswer(g, s, a, env);
+      const r = SB.buildBook(g, { [s.id]: { answer: rep.answer, quelle: 'llm' } }, env, { id: 'sl_9_rep', kontext: ctxNT });
+      cases[k] = { vorher: before, reparaturen: rep.repairs.length, quelle: r.szenen[s.id].quelle, fehler: r.errors.length };
+    }
+    // Anführungszeichen: „…" (ASCII-Schluss) im JSON
+    let parsed = null; try { parsed = SB.parseJsonAnswer(JSON.stringify({ x: 'a' }).replace('"a"', '"Er sagt „Halt" und geht."')); } catch (e) { parsed = null; }
+    // doppeltes weiter im Grobplan -> eine Verzweigung genügt
+    const gd = clone(g); gd.szenen[1].weiter = [{ wenn: 'a', nach: s.id }, { wenn: 'b', nach: s.id }];
+    const repG = SB.normalizeGrobplan(gd);
+    const ok1 = Object.values(cases).every((c) => c.vorher > 0 && c.reparaturen > 0 && c.quelle === 'llm' && c.fehler === 0);
+    check(T12, 'Reparatur: Verzweigung ohne Einträge, Flag ohne Folge, setFlag-Form, Anführungszeichen, doppeltes weiter', ok1 && parsed && /Halt/.test(parsed.x) && gd.szenen[1].weiter.length === 1 && repG.length === 1,
+      `${JSON.stringify(cases)}; Anführungszeichen ${parsed ? 'repariert' : 'nicht lesbar'}; doppeltes weiter ${gd.szenen[1].weiter.length}`);
+    // setFlag {"name": "s3_x"} -> {"s3_x": true}
+    const a4 = clone(base); const n = Object.keys(a4.molekuele[0].params).find((p) => Array.isArray(a4.molekuele[0].params[p]));
+    if (n) {
+      a4.molekuele[0].params[n] = [{ setFlag: { name: 's3_gewaehlt' } }]; a4.verzweigung = [{ nach: 'ausgang:erfolg', if: { flag: 's3_gewaehlt' } }, { nach: 'ausgang:teilerfolg' }];
+      const rep4 = SB.repairSceneAnswer(g, s, a4, env);
+      check(T12, 'Reparatur: setFlag {"name": …} → {flag: true}', JSON.stringify(rep4.answer.molekuele[0].params[n]) === '[{"setFlag":{"s3_gewaehlt":true}}]' && rep4.answer.verzweigung[0].if.flag === 's3_gewaehlt', JSON.stringify(rep4.answer.molekuele[0].params[n]));
+    }
+  });
+  await safe(T12, 'Live-Befunde S2b: wendung "null", ODA-Text aus Parametern zu lang, Flag aus früherer Szene, Spawn am Händlerort', async () => {
+    // 1. Grobplan mit "wendung": "null" verlangt keine Wendung
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog); g.szenen[1].wendung = 'null';
+    const rep = SB.normalizeGrobplan(g);
+    const a = LLM.mockSzene({ grobplan: g, szene: g.szenen[1].id }, katalog);
+    const w = SB.assembleScene(g, g.szenen[1], a, env, { book: true }).fehler.filter((x) => /Wendung/.test(x));
+    // 2. ODA-Text aus einem Parameter (Vorlage oda "@id.x") > 120 Zeichen wird gekürzt
+    const gs = loadS2bPlan('splitter-grauzahn'); SB.normalizeGrobplan(gs);
+    const s2 = gs.szenen[1]; s2.wendung = null;
+    const ans = SB.rohAnswer(gs, s2, env);
+    const long = 'Ortung: ' + 'sehr '.repeat(40) + 'weit draußen.';
+    const u = SB.umsetzungOf(env, s2.molekuele[0]);
+    const tp = Object.keys(u.params).find((p) => u.params[p].typ === 'text');
+    if (tp) ans.molekuele[0].params[tp] = long;
+    const b = SB.buildBook(gs, { [s2.id]: { answer: ans, quelle: 'llm' } }, env, { id: 'sl_9_oda', kontext: ctxNT });
+    const odaLen = b.errors.filter((e) => e.code === 'ODA-LAENGE');
+    // 3. Verzweigung auf eine Flag, die eine andere Szene setzt
+    const known = SB.planFlags(gs, { s2_splitter_suche: { answer: { molekuele: [{ params: { x: [{ setFlag: { s2_frueh: true } }] } }] } } }, env);
+    // 4. Spawn-Timer an einem Händlerort (Vaelen) ist abgesichert (pannenhilfe: Angriff per Timer); Spawn beim Betreten
+    //    (vertreiben) bleibt NEUSTART, wird für die Nachbesserung aber als „nicht an diesem Ort“ erklärt
+    const gv = clone(gs); gv.szenen.find((x) => x.id === 's4_pannenhilfe').ort = 'vaelen';
+    for (const x of gv.szenen) if (x.id !== 's1_hafen') x.ort = 'vaelen';
+    const bv = SB.buildBook(gv, {}, env, { id: 'sl_9_vae', kontext: ctxNT });
+    const neu4 = bv.errors.filter((e) => e.code === 'NEUSTART');
+    const expl = SB.explainBookErrors(gv, neu4, env);
+    // ODA aus Parameter: Bergungskisten (auftraggeber_hinweis wird ODA-Text) – Live-Befund s2_splitter_bergen
+    const gk = clone(gs); gk.szenen[1].molekuele = [{ id: 'ladung_bergen', umsetzung: 'bergungskisten' }];
+    const ak = SB.rohAnswer(gk, gk.szenen[1], env); ak.molekuele[0].params.auftraggeber_hinweis = long;
+    const bk = SB.buildBook(gk, { [gk.szenen[1].id]: { answer: ak, quelle: 'llm' } }, env, { id: 'sl_9_oda2', kontext: ctxNT });
+    check(T12, 'Live-Befunde S2b: wendung "null", ODA-Text aus Parametern zu lang, Flag aus früherer Szene, Spawn am Händlerort',
+      rep.some((x) => /wendung/.test(x)) && g.szenen[1].wendung === null && !w.length && !odaLen.length && b.szenen[s2.id].quelle === 'llm' && known.has('s2_frueh')
+      && !neu4.length && expl.length === 0 && bv.book.steps.some((x) => /_ablegen$/.test(x.id) && x.loc === 'vaelen')
+      && bv.book.steps.filter((x) => x.wiederaufnahme && /_ablegen$/.test(x.wiederaufnahme.ab)).every((x) => bv.book.steps.some((y) => y.id === x.wiederaufnahme.ab)) && bk.szenen[gk.szenen[1].id].quelle === 'llm' && !bk.errors.some((e) => e.code === 'ODA-LAENGE'),
+      `wendung: ${rep.join('; ')}; ODA-LAENGE ${odaLen.length}/${bk.errors.filter((e) => e.code === 'ODA-LAENGE').length} (Bergung: ${bk.szenen[gk.szenen[1].id].quelle}); Flag bekannt ${known.has('s2_frueh')}; NEUSTART bei Vaelen ${neu4.length} (${neu4.map((e) => e.p).join(',')}), Wartepunkte ${bv.book.steps.filter((x) => /_ablegen$/.test(x.id)).map((x) => x.id).join(',')}, Prüferfehler ${bv.errors.length}`);
+  });
+  await safe(T12, 'QA S2b: ohne Tutorial – Meta-Fakt tutorial wird neutrale Erinnerung, Lohn 0 nie „0 Marken“', async () => {
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    g.erinnerung = { fakt: 'tutorial' }; g.erinnerung_text = 'Ihr habt das Tutorial übersprungen, Lerche.';
+    const rep = SB.normalizeGrobplan(g);
+    const leer = { fakten: { tutorial: 'uebersprungen' }, npc: [{ id: 'tesk', gedaechtnis: [] }] };
+    const voll = { fakten: { tutorial: 'uebersprungen', datenkern: 'konkordat' }, npc: [{ id: 'tesk', gedaechtnis: [] }] };
+    const errLeer = SB.checkGrobplanS2(g, env, leer).errors.filter((e) => /Erinnerung/.test(e));
+    const errVoll = SB.checkGrobplanS2(g, env, voll).errors.filter((e) => /Erinnerung/.test(e));
+    const b = SB.buildBook(g, {}, env, { id: 'sl_9_neutral', kontext: ctxNT, marks: 0 });
+    check(T12, 'QA S2b: ohne Tutorial – Meta-Fakt tutorial wird neutrale Erinnerung, Lohn 0 nie „0 Marken“',
+      g.erinnerung.neutral === true && g.erinnerung_text === undefined && rep.some((x) => /Meta-Fakt/.test(x)) && !errLeer.length && errVoll.length === 1
+      && !b.book.erinnerung && !/\b0 Marken/.test(JSON.stringify(b.book.texte)),
+      `Reparaturen ${rep.join('; ')}; Fehler ohne Erinnerungsstoff ${errLeer.length}, mit Fakt ${errVoll.length}; Belohnung „${b.book.texte['buch.belohnung']}“`);
+  });
+  await safe(T12, 'QA S2b: Gefecht am Andock-Ort – Wartepunkt „Ablegen“, Laden angedockt nimmt dort auf, Kampf erst nach dem Ablegen', async () => {
+    const { Game: G2 } = require('../server/game.js');
+    const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    g.szenen[1].ort = 'vaelen'; g.szenen[1].molekuele = [{ id: 'vertreiben', umsetzung: 'bis_zur_flucht' }];
+    g.szenen[2].ort = 'vaelen'; g.szenen[2].molekuele = [{ id: 'schuetzen', umsetzung: 'notruf_verteidigen' }];
+    const b = SB.buildBook(g, {}, env, { id: 'sl_9_gate', kontext: ctxNT });
+    const sid = g.szenen[1].id;
+    const gm = new G2({ noStore: true, seed: 3, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const cc = { send() {} }; gm.addConnection(cc); gm.handleMessage(cc, { t: 'hello', clientId: 'A', name: 'A', color: 0 }); gm.handleMessage(cc, { t: 'ready', ready: true });
+    const tick = (n) => { for (let i = 0; i < n; i++) gm.step(); };
+    tick(30);
+    const reg = gm.mission.registerBook(b.book, { origin: 'sl' });
+    gm.mission.run([{ do: 'debug_jump', loc: 'vaelen' }]); tick(60);
+    gm.mission.run([{ do: 'debug_dock', loc: 'vaelen' }]); tick(30);
+    gm.mission.restore({ missionen: { [b.book.id]: { status: 'aktiv', schritt: sid } }, aktiv: b.book.id });
+    tick(300);
+    const docked = { stage: gm.mission.state.stage, enemies: gm.space.enemies.length };
+    const sh = gm.ship; sh.docked = false; sh.dockedAt = null; sh.dockArmed = false; sh.undockT = gm.time; sh.x += 300;
+    tick(90);
+    const out = { stage: gm.mission.state.stage, enemies: gm.space.enemies.length };
+    check(T12, 'QA S2b: Gefecht am Andock-Ort – Wartepunkt „Ablegen“, Laden angedockt nimmt dort auf, Kampf erst nach dem Ablegen',
+      !b.errors.length && reg && reg.ok !== false && docked.stage === `${sid}_ablegen` && docked.enemies === 0 && out.stage === sid && out.enemies > 0 && gm.errors === 0,
+      `Prüfer ${b.errors.length}; angedockt geladen: ${JSON.stringify(docked)}; nach Ablegen: ${JSON.stringify(out)}; Fehler ${gm.errors}`);
+  });
+  await safe(T12, 'Pipeline: reparierbare Szene gilt beim 1. Versuch, Sprecherfehler → 2. Versuch mit Prüferfehlern', async () => {
+    const F = fakeGame();
+    // s2 des Mock-Plans: Testwerte, aber Verzweigung kaputt (hat nur ein Ziel -> wird entfernt); s3: leere Verzweigung
+    const gm = LLM.mockGrobplan({ kontext: ctxNT }, katalog);
+    const mk = (sid, mut) => { const a = LLM.mockSzene({ grobplan: gm, szene: sid }, katalog); mut(a); return { json: a, tokens: 10 }; };
+    const scr = { grobplan: [], szene: [mk('s2_mock', (a) => { a.verzweigung = [{ nach: 'gibt_es_nicht' }]; }), mk('s3_mock', (a) => { a.verzweigung = []; })] };
+    const llm = LLM.create({ mode: 'script', katalog, script: scr });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie12'), katalog, config: { offers: 1 } });
+    sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    await ticks(sl, F.g, 10, 0.25, () => sl.offers().some((o) => o.origin === 'sl'));
+    const o = sl.offers().find((x) => x.origin === 'sl'); sl.accept(o.id);
+    const plan = sl.planById(o.id);
+    await ticks(sl, F.g, 10, 0.25, () => ['s2_mock', 's3_mock'].every((x) => ['ready', 'failed'].includes(plan.szenen[x].state)));
+    const sz = sl.regie.entries.filter((e) => e.art === 'szene');
+    check(T12, 'Pipeline: reparierbare Szene gilt beim 1. Versuch, Sprecherfehler → 2. Versuch mit Prüferfehlern', plan.szenen.s2_mock.state === 'ready' && plan.szenen.s3_mock.state === 'ready' && sz.length === 2 && sz.every((e) => !e.fehler.length && /Reparatur/.test(e.begruendung)) && !F.errors.length,
+      `Szenen ${plan.szenen.s2_mock.state}/${plan.szenen.s3_mock.state}; Logbuch: ${sz.map((e) => e.begruendung).join(' | ')}; Fehler ${F.errors.join(' | ') || '–'}`);
+    // Sprecherfehler: Retry-Prompt enthält die Prüferfehler
+    const F2 = fakeGame();
+    const gs = loadS2bPlan('splitter-grauzahn');
+    const badAns = { molekuele: [{ id: 'pannenhilfe', umsetzung: 'andocken_und_flicken', params: { loc: 'splitter', funk_npc: 'sela' } }], verzweigung: [], wendung: { kennung: 'stoerer', nach_s: 40, ankuendigung: 'Ortung: Kontakt!', wirkung: [{ oda: 'Jäger.' }] } };
+    const llm2 = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: gs }], szene: [] } });
+    const sl2 = Spielleiter.create(F2.g, { llm: llm2, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie12b'), katalog, config: { offers: 1 } });
+    sl2.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    await ticks(sl2, F2.g, 10, 0.25, () => sl2.offers().some((x) => x.origin === 'sl'));
+    const o2 = sl2.offers().find((x) => x.origin === 'sl');
+    if (!o2) { bad(T12, 'SPRECHER → Nachbesserung mit Prüferfehler', `kein SL-Angebot: ${sl2.regie.entries.filter((e) => e.art === 'grobplan').map((e) => e.fehler.join(';')).join(' | ')}`); return; }
+    const p2 = sl2.planById(o2.id);
+    // nur s4 per Skript beantworten: erst falsch (Sela), dann Mock
+    sl2.llm =LLM.create({ mode: 'script', katalog, script: { szene: [] } });
+    const order = [];
+    const ask0 = sl2.llm.ask; sl2.llm.ask = (kind, input, ao) => { order.push(input.szene); if (input.szene === 's4_pannenhilfe' && !order.slice(0, -1).includes('s4_pannenhilfe')) return Promise.resolve({ text: JSON.stringify(badAns), tokens: 5, source: 'script', key: 'x' }); return ask0(kind, input, ao).then((r) => { if (input.szene === 's4_pannenhilfe') sl2.__retryPrompt = input.prompt; return r; }); };
+    sl2.accept(o2.id);
+    await ticks(sl2, F2.g, 20, 0.25, () => ['ready', 'failed'].includes(p2.szenen.s4_pannenhilfe.state) && p2.szenen.s4_pannenhilfe.versuche >= 2);
+    const e4 = sl2.regie.entries.filter((e) => e.art === 'szene' && e.szene === 's4_pannenhilfe');
+    check(T12, 'SPRECHER → Nachbesserung mit Prüferfehler', e4.length === 2 && /SPRECHER/.test(e4[0].fehler.join(' ')) && /<pruefer>[\s\S]*SPRECHER/.test(sl2.__retryPrompt || ''),
+      `Versuche ${e4.map((e) => (e.fehler.length ? 'ungültig: ' + e.fehler[0].slice(0, 60) : 'gültig')).join(' → ')}; Retry-Prompt mit Prüferfehler: ${/SPRECHER/.test(sl2.__retryPrompt || '')}`);
+  });
+  // 5. Szenen-Prompt-Größe (Ziel < 8k Tokens je Szene; ohne Katalog)
+  await safe(T12, 'Szenen-Prompt ohne Katalog, geschätzt < 8k Tokens', () => {
+    const sys = fs.readFileSync(LLM.systemPromptFile('szene'), 'utf8').length;
+    const kat = require('../server/mission/katalog.js').fuerSpielleiter(katalog, 'kurz').length;
+    const rows = []; let max = 0; let withKat = false;
+    for (const name of ['splitter-grauzahn', 'fluesterer-sela']) {
+      const g = loadS2bPlan(name); SB.normalizeGrobplan(g);
+      for (const s of g.szenen.filter((x) => (x.molekuele || []).length)) {
+        const p = Spielleiter.scenePrompt(g, s.id, env, ctxNT, { crew: 3 });
+        if (/<katalog>/.test(p)) withKat = true;
+        const est = Math.round((p.length + sys) / 2.5);   // gemessen S2: ~2,5 Zeichen je Token (Deutsch + JSON)
+        max = Math.max(max, est); rows.push(`${s.id} ${p.length + sys} Z ≈ ${est}`);
+      }
+    }
+    // Größe der S2-Fassung zum Vergleich: + Katalog-Kurzform
+    check(T12, 'Szenen-Prompt ohne Katalog, geschätzt < 8k Tokens', !withKat && max < 6000, `max ≈ ${max} Tokens (ohne CLI-Grundlast; S2 zusätzlich Katalog ${kat} Z ≈ ${Math.round(kat / 2.5)}): ${rows.join(', ')}`);
+  });
+  // 6. Vorlauf: zwei Szenen nach dem Hafen + Szenen am selben Ort ohne Anflug
+  await safe(T12, 'Vorlauf: beim Annehmen bis zur zweiten Szene, Szenen am selben Ort mit; „zu spät“ im Logbuch', async () => {
+    const F = fakeGame();
+    const g = loadS2bPlan('splitter-grauzahn');   // s2 Anflug (splitter), s3–s5 am selben Ort
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: g }], szene: [{ hold: true }, { hold: true }, { hold: true }, { hold: true }, { hold: true }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie12c'), katalog, config: { offers: 1 } });
+    sl.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    await ticks(sl, F.g, 10, 0.25, () => sl.offers().some((x) => x.origin === 'sl'));
+    const o = sl.offers().find((x) => x.origin === 'sl');
+    if (!o) { bad(T12, 'Vorlauf: beim Annehmen bis zur zweiten Szene, Szenen am selben Ort mit; „zu spät“ im Logbuch', 'kein SL-Angebot'); return; }
+    sl.accept(o.id);
+    const plan = sl.planById(o.id);
+    const req = Object.entries(plan.szenen).filter(([, x]) => x.state === 'requested').map(([k]) => k);
+    await ticks(sl, F.g, 1, 0.25);
+    const first = llm.calls().filter((c) => c.kind === 'szene').length;
+    // s3 betreten, während die Antworten noch ausstehen -> Rohfassung mit Grund „zu spät“
+    F.m.step = { id: 's2_splitter_suche' }; sl.update(0.1); await flush();
+    F.m.step = { id: 's3_entscheidung_bluff' }; F.g.time += 0.25; sl.update(0.25); await flush();
+    const late = sl.regie.entries.filter((e) => e.art === 'rueckfall' && /zu spät/.test(e.begruendung || ''));
+    llm.release(); await ticks(sl, F.g, 2);
+    const want = ['s2_splitter_suche', 's3_entscheidung_bluff', 's4_pannenhilfe', 's5_abwehr'];
+    check(T12, 'Vorlauf: beim Annehmen bis zur zweiten Szene, Szenen am selben Ort mit; „zu spät“ im Logbuch', want.every((x) => req.includes(x)) && first === 1 && late.length >= 1 && late.some((e) => e.szene === 's3_entscheidung_bluff'),
+      `angefragt beim Annehmen: ${req.join(', ')}; gleichzeitig laufend ${first}; zu spät: ${late.map((e) => e.szene + ' – ' + e.begruendung).join(' | ') || '–'}`);
+    // Reihenfolge: früheste Szene zuerst
+    const F2 = fakeGame();
+    const llm2 = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: g }], szene: [] } });
+    const sl2 = Spielleiter.create(F2.g, { llm: llm2, kontext: () => ctxNT, archiv: AR.entries, regieDir: tmpDir('regie12d'), katalog, config: { offers: 1 } });
+    sl2.onMissionDone({ id: 'm3', ausgang: 'erfolg' });
+    await ticks(sl2, F2.g, 10, 0.25, () => sl2.offers().some((x) => x.origin === 'sl'));
+    sl2.accept(sl2.offers().find((x) => x.origin === 'sl').id);
+    await ticks(sl2, F2.g, 10, 0.25);
+    const seq = llm2.calls().filter((c) => c.kind === 'szene').map((c) => c.key);
+    const ord = [...new Set(sl2.regie.entries.filter((e) => e.art === 'szene').map((e) => e.szene))];
+    check(T12, 'Vorlauf: Szenen in Grobplan-Reihenfolge, alle vor dem Betreten fertig', JSON.stringify(ord) === JSON.stringify(want) && seq.length >= 4,
+      `Reihenfolge ${ord.join(' → ')} (${seq.length} Aufrufe)`);
   });
 }
 

@@ -146,6 +146,7 @@ function pick(entries, gespielt, kontext, ausser) {
 function refOk(ref, kontext) {
   const k = kontext || {};
   if (!isObj(ref)) return false;
+  if (ref.neutral === true) return false;   // QA S2b: neutrale Erinnerung -> Archiv nimmt seine neutrale Variante
   if (typeof ref.fakt === 'string') return ref.fakt in (k.fakten || {});
   const n = (k.npc || []).find((x) => x.id === ref.npc);
   return !!(n && (n.gedaechtnis || []).some((g) => g.ereignis === ref.ereignis));

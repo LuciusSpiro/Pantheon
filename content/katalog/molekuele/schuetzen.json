@@ -227,9 +227,10 @@
         "funk_npc": { "typ": "npc", "pflicht": true, "beschreibung": "Wer den Notruf funkt" },
         "kind": { "typ": "kind", "default": "bergungsboot", "werte": ["frachter", "karawane", "bergungsboot"] },
         "name": { "typ": "text", "default": "Bergungsboot" },
-        "huelle": { "typ": "zahl", "default": 85, "min": 30, "max": 100, "beschreibung": "Hülle des Havaristen zu Beginn in %" },
-        "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
+        "huelle": { "typ": "zahl", "default": 100, "min": 30, "max": 100, "beschreibung": "Hülle des Havaristen zu Beginn in %" },
+        "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 3 },
         "angreifer": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Schwerer Angreifer zusätzlich zu den Jägern (lädt auf den Havaristen)" },
+        "angreifer_nach": { "typ": "zahl", "default": 45, "min": 10, "max": 90, "beschreibung": "s bis der schwere Angreifer kommt (5 s vorher angekündigt)" },
         "funk_notruf": { "typ": "text", "default": "Notruf an alle! Antrieb tot, Jäger kreisen um uns. Wer das hört: Bitte kommt schnell!" },
         "funk_dank": { "typ": "text", "default": "Sie drehen ab … Lerche, das war knapp. Danke." }
       },
@@ -253,8 +254,20 @@
                     "wendung": "{{id}}_angriff",
                     "ankuendigung": { "oda": "@{{id}}.ankuendigung", "art": "gleichzeitig", "grund": "Die Jäger erscheinen sichtbar; jeder Angriff auf den Schützling ist mit tele angekündigt." },
                     "wirkung": [
-                      { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "ziel": "schuetzling", "angles": [0.9, -1.2, 2.4] } },
-                      { "spawn": { "kind": "{{angreifer}}", "tag": "{{id}}_w1", "ziel": "schuetzling", "angles": [-2.6] } },
+                      { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "ziel": "schuetzling", "angles": [0.9, -1.2, 2.4] } }
+                    ]
+                  }
+                ]
+              },
+              {
+                "_kommentar": "QA-Abnahme S2b: der schwere Angreifer kommt angekündigt später (vorher starb der Havarist zu dritt in ~1 min)",
+                "at": "{{angreifer_nach}}",
+                "do": [
+                  {
+                    "wendung": "{{id}}_schwer",
+                    "ankuendigung": { "oda": "@{{id}}.schwer", "art": "vorher", "vorlauf_s": 5 },
+                    "wirkung": [
+                      { "if": { "not": { "v": "{{id}}_ende" } }, "spawn": { "kind": "{{angreifer}}", "tag": "{{id}}_w1", "ziel": "schuetzling", "angles": [-2.6] } },
                       { "set": { "{{id}}_w1": true } }
                     ]
                   }
@@ -297,6 +310,7 @@
           "{{id}}.funk_dank": "{{funk_dank}}",
           "{{id}}.lage": "Notruf von {{name}}! Der Havarist treibt – wir sind seine Schilde.",
           "{{id}}.ankuendigung": "Jäger kreisen um {{name}}! Pilot: dazwischen. Taktik: wer auf den Havaristen lädt, zuerst.",
+          "{{id}}.schwer": "Ortung: ein schwerer Angreifer hält auf {{name}} zu! Schilde zur Angriffsseite, Breitseite dazwischen.",
           "{{id}}.tipp": "Lädt ein Jäger auf den Havaristen, stellt euch quer dazwischen – unser Schild fängt die Ladung ab.",
           "{{id}}.verloren": "{{name}} treibt kampfunfähig. Die Jäger drehen ab – die Besatzung lebt noch.",
           "{{id}}.abgedreht": "Die Jäger brechen ab und verschwinden. Durchatmen.",

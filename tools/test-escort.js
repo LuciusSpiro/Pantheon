@@ -170,11 +170,14 @@ section('Ankündigung: jeder Angriff auf den Schützling ist angesagt (§5)', ()
   run(60, () => {
     for (const e of g.space.enemies) e.hp = e.hpMax;   // Gegner bleiben am Leben
     if (es.hp <= 20) es.hp = es.hpMax;                 // Schützling bleibt am Leben (Messung)
-    for (const p of g.space.projectiles) if (p.tgt && !pjOwner.has(p.id)) { pjOwner.set(p.id, p.owner); const k = pend.get(p.owner) || 0; if (k <= 0) unannounced++; else pend.set(p.owner, k - 1); }
+    // S2b: Sperrfeuer ist kein angekündigter Angriff (Feuerstoß mit sfx sperrfeuer) – zählt hier nicht
+    for (const p of g.space.projectiles) if (p.tgt && p.kind !== 'sperrfeuer' && !pjOwner.has(p.id)) { pjOwner.set(p.id, p.owner); const k = pend.get(p.owner) || 0; if (k <= 0) unannounced++; else pend.set(p.owner, k - 1); }
   });
   for (const t of ev('tele')) if (t.tgt) pend.set(t.id, (pend.get(t.id) || 0) + 1);
   const teles = ev('tele').filter((t) => t.tgt === es.id);
-  hits = ev('escortHit').length;
+  const sperrHits = (g.stats.sperrfeuer || {}).escortHits || 0;
+  hits = ev('escortHit').length - sperrHits;
+  info(`Sperrfeuer: ${(g.stats.sperrfeuer || {}).bursts || 0} Stöße, ${sperrHits} Treffer am Schützling (nicht angekündigt, nicht mitgezählt)`);
   const odas = ev('oda').filter((o) => /lädt auf/.test(o.text));
   ok(teles.length >= 3, `Ankündigungen (tele mit tgt): ${teles.length} in 60 s`);
   ok(odas.length === teles.length, `ODA „<Gegner> lädt auf <Name>“ je Ankündigung (${odas.length}/${teles.length})`);
@@ -183,6 +186,7 @@ section('Ankündigung: jeder Angriff auf den Schützling ist angesagt (§5)', ()
   const raiderProj = g.space.projectiles.filter((p) => !p.tgt).length;
   info(`Gegner: ${foes.map((e) => e.kind).join(', ')}; ungezielte Projektile im Feld am Ende: ${raiderProj}`);
   // Projektile ohne tgt (auf die Lerche) treffen Schützlinge nie
+  g.space.enemies = []; g.space.projectiles = [];   // nur das Test-Projektil im Feld
   const hpA = es.hp;
   g.space.projectiles.push({ id: 'x1', kind: 'enemy', x: es.x - 30, y: es.y, angle: 0, speed: 210, ttl: 1, dmg: 5, owner: 'nix' });
   run(0.5);

@@ -193,9 +193,10 @@
             "name": "Selas Karawane",
             "von": "west",
             "nach": "ost",
-            "jaeger": 2,
+            "jaeger": 1,
             "angriff_nach": 20,
             "verstaerkung": "gunboat",
+            "wellen_pause": 15,
             "funk_start": "Lerche, wir sehen euch! Kapseln koppeln an. Grauzahn ist hier irgendwo – bleibt dicht bei uns.",
             "funk_notruf": "Die Kapseln halten das nicht aus! Lerche, Breitseite – bitte!"
           }

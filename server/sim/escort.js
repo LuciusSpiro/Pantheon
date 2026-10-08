@@ -383,7 +383,7 @@ function hit(game, es, dmg, opts) {
   if (!active(es)) return null;
   const o = opts || {}; const C = cfg(game);
   const st = stats(game);
-  es.hitT = game.time;
+  if (!o.light) es.hitT = game.time;   // S2b: leichte Treffer (Sperrfeuer) lösen kein Anhalten aus
   const f0 = hpFrac(es);
   let hull = 0;
   if (o.emp) {
@@ -457,6 +457,15 @@ function projectileHit(game, p) {
   if (!es || !active(es)) return false;
   const r = ((cls(game, es.kind) || {}).radius || 30) + cfg(game).hitRadius;
   if (Math.hypot(p.x - es.x, p.y - es.y) >= r) return false;
+  // S2b: Sperrfeuer trifft leicht – eigener Schadensfaktor, und der Schützling hält deshalb nicht an (sonst stünde er
+  // still und jeder weitere Stoß träfe)
+  if (p.kind === 'sperrfeuer') {
+    const S = (game.C.spaceS2b && game.C.spaceS2b.sperrfeuer) || {};
+    const f = S.escortFactor != null ? Number(S.escortFactor) : 1;
+    hit(game, es, (Number(p.dmg) || 0) * f, { light: true });
+    if (game.stats.sperrfeuer) game.stats.sperrfeuer.escortHits++;
+    return true;
+  }
   hit(game, es, p.dmg, { emp: p.kind === 'emp' });
   return true;
 }

@@ -1,0 +1,1721 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_1_m4_rueckforderung",
+  "name": "2026-10-08_sl_1_m4_rueckforderung",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 60862,
+  "erstellt": "2026-10-08T11:23:08.118Z",
+  "aktualisiert": "2026-10-08T11:42:22.165Z",
+  "meta": {
+    "mission_id": "sl_1_m4_rueckforderung",
+    "welt": "w-test",
+    "plan": "p1",
+    "origin": "sl",
+    "anlass": {
+      "werkzeug": "test-llm-live --pipeline (S2b §4.6), Szenen mit S2b-Prüfer nachgeprüft",
+      "welt_fixture": "nach-tutorial",
+      "art": "missionsgrenze",
+      "nach": "m3",
+      "auftraggeber": "grauzahn"
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_splitter": "llm",
+      "s3_begegnung": "llm",
+      "s4_bergung": "llm",
+      "s5_gefecht": "rohfassung",
+      "s5_uebergabe": "llm"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's3_begegnung_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's3_begegnung_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's5_teil_geliefert' wird gesetzt, aber in diesem Buch nie gelesen",
+        "Grobplan: GEGNER-AUFTRAGGEBER Szene 's5_gefecht': vertreiben/bis_zur_flucht – der Auftraggeber 'grauzahn' funkt als Anführer der Angreifer; Gegner bekommen eine eigene Stimme (neu:Name)"
+      ]
+    },
+    "aktualisierungen": 6
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "npc": "grauzahn",
+        "ereignis": "geblufft"
+      },
+      "text": "Im Nebel hat die Lerche mich mit einer Konkordat-Patrouille geblufft – und es hat geklappt. Das merke ich mir."
+    }
+  ],
+  "erinnerung_neutral": "Grauzahn (Rostmeute) hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "m4_rueckforderung",
+    "titel": "Grauzahns Preis",
+    "auftraggeber": "grauzahn",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Ihr habt mir zweimal die Nase gerieben, Lerche. Diesmal bezahlt ihr – oder ihr eskoriert meine Ladung durch den Splitter. Meine Bedingungen, mein Kurs.",
+    "erinnerung": {
+      "npc": "grauzahn",
+      "ereignis": "geblufft"
+    },
+    "erinnerung_text": "Im Nebel hat die Lerche mich mit einer Konkordat-Patrouille geblufft – und es hat geklappt. Das merke ich mir.",
+    "belohnung_marken": 160,
+    "besetzung": [
+      "grauzahn",
+      "neu:Skart"
+    ],
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "stimme": "grauzahn",
+        "sachverhalt": "Grauzahn meldet sich direkt am Andockarm: Er hat eine Fracht im Splittergürtel liegen, seine eigenen Leute trauen sich nicht ran – ein Konkordats-Aufpasser patrouilliert dort. Er will, dass die Lerche die Ladung birgt und an seinen Läufer Skart am Wrack übergibt. Kein fairer Deal, aber die Alternative klingt schlechter.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Crew nimmt den Auftrag an",
+            "nach": "s2_splitter"
+          }
+        ]
+      },
+      {
+        "id": "s2_splitter",
+        "szenentyp": "annaeherung_und_erkundung",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "signal_orten",
+            "umsetzung": "weitscan_peilung"
+          }
+        ],
+        "stimme": "neu:Skart",
+        "sachverhalt": "Im Splittergürtel funkt Skart kurz auf: Die Kisten sind irgendwo im Feld, er weiß selbst nicht mehr genau wo. Die Crew muss die Ladung per Weitscan orten, bevor der Aufpasser sie entdeckt.",
+        "wendung": "Ankündigung: Ein Konkordat-Inspektor meldet sich auf dem offiziellen Kanal und fragt nach dem Auftrag der Lerche.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Ladung geortet",
+            "nach": "s3_begegnung"
+          }
+        ]
+      },
+      {
+        "id": "s3_begegnung",
+        "szenentyp": "begegnung",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "taeuschen",
+            "umsetzung": "bluff_funk"
+          }
+        ],
+        "stimme": "neu:Inspektor Varn",
+        "sachverhalt": "Inspektor Varn funkt die Lerche direkt an: Er hat ihren Weitscan registriert und will wissen, was sie in dem Sektor suchen. Die Ortung zeigt gleichzeitig, dass Varns Schiff einen beschädigten Scanarm hat – ein Detail, das sich für einen Bluff nutzen lässt.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Bluff gelingt oder Crew gibt zu",
+            "nach": "s4_bergung"
+          }
+        ]
+      },
+      {
+        "id": "s4_bergung",
+        "szenentyp": "bergung_im_all",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "ladung_bergen",
+            "umsetzung": "bergungskisten"
+          }
+        ],
+        "stimme": "neu:Skart",
+        "sachverhalt": "Die Kisten treiben im dichten Gestein. Skart funkt ungeduldig; Varn könnte zurückkommen. Die Crew muss die Ladung schnell einsammeln, bevor die Zeit abläuft.",
+        "wendung": "Ankündigung: Rostmeute-Jäger tauchen auf – Grauzahn schickt sie, um 'aufzupassen', aber sie machen Druck auf die Lerche.",
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Ladung vollständig geborgen",
+            "nach": "s5_uebergabe"
+          },
+          {
+            "wenn": "Jäger greifen an oder Crew bricht ab",
+            "nach": "s5_gefecht"
+          }
+        ]
+      },
+      {
+        "id": "s5_gefecht",
+        "szenentyp": "raumgefecht",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "stimme": "grauzahn",
+        "sachverhalt": "Die Rostmeute-Jäger greifen offen an – entweder auf Befehl Grauzahns oder weil sie die halbgeborgene Ladung selbst wollen. Die Crew muss sie vertreiben, um danach die restliche Ladung zu sichern oder abzuhauen.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Jäger fliehen, Ladung teilweise an Bord",
+            "nach": "s5_uebergabe"
+          },
+          {
+            "wenn": "Crew flieht ohne Ladung",
+            "nach": "ausgang:abbruch"
+          }
+        ]
+      },
+      {
+        "id": "s5_uebergabe",
+        "szenentyp": "begegnung",
+        "ort": "wrack",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "verhandeln",
+            "umsetzung": "funkduell"
+          }
+        ],
+        "stimme": "grauzahn",
+        "sachverhalt": "Am Wrack wartet Skart mit seinem Kutter. Grauzahn schaltet sich per Funk zu und verhandelt die Auszahlung: Er kennt die Lage und will wissen, ob die Lerche sauber geliefert hat. Der Captain muss Farbe bekennen – Grauzahn zahlt entsprechend.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "volle Lieferung, Bluff gelungen",
+            "nach": "ausgang:erfolg"
+          },
+          {
+            "wenn": "Teillieferung oder Bluff aufgeflogen",
+            "nach": "ausgang:halbvoll"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s3_begegnung",
+        "frage": "Was antwortet die Crew Inspektor Varn?",
+        "optionen": [
+          {
+            "id": "bluff_scanner",
+            "text": "Wir testen unseren eigenen Scanarm – nichts Besonderes.",
+            "folge": "Varn zieht sich zurück; sein beschädigter Scanner kann die Lüge nicht prüfen. Kein Aufpasser bei der Bergung."
+          },
+          {
+            "id": "wahrheit",
+            "text": "Wir suchen Treibgut – alles legal.",
+            "folge": "Varn bleibt misstrauisch und dreht eine zweite Runde; die Crew hat weniger Zeit beim Bergen und Varn meldet den Fund später."
+          }
+        ]
+      },
+      {
+        "szene": "s4_bergung",
+        "frage": "Die Rostmeute-Jäger machen Druck – was tut die Crew?",
+        "optionen": [
+          {
+            "id": "weiter_bergen",
+            "text": "Ladung zuerst, dann kämpfen.",
+            "folge": "Mehr Kisten gesichert, aber Hüllenschaden durch Beschuss. Bessere Auszahlung, schwächeres Schiff."
+          },
+          {
+            "id": "jaeger_zuerst",
+            "text": "Zuerst die Jäger vertreiben.",
+            "folge": "Weniger Kisten geborgen, Schiff bleibt heil. Grauzahn zahlt weniger und ist verstimmt."
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "erfolg": {
+        "wann": "Volle Ladung geliefert und Bluff bei Varn gelungen",
+        "folgen": [
+          "npc_haltung grauzahn +1",
+          "npc_gedaechtnis grauzahn: Die Lerche hat geliefert und Varn ausgetrickst. Vielleicht sind sie nützlicher als gedacht.",
+          "chronik: Grauzahns Preis – Die Crew birgt Rostmeute-Ladung aus dem Splitter und überlistet einen Konkordat-Inspektor.",
+          "welt_fakt inspektor_varn (faden): Varn hat die Lerche im Splitter bemerkt – er könnte später nachfragen."
+        ]
+      },
+      "halbvoll": {
+        "wann": "Teillieferung oder Bluff ist aufgeflogen",
+        "folgen": [
+          "npc_gedaechtnis grauzahn: Halbe Arbeit. Die Lerche ist unzuverlässig oder zu ehrlich – beides stört mich.",
+          "chronik: Grauzahns Preis – Teilauftrag erfüllt; Varn hat die Lerche auf dem Schirm.",
+          "welt_fakt inspektor_varn (faden): Varn hat konkrete Hinweise auf die Lerche und die Rostmeute – er wird ermitteln."
+        ]
+      },
+      "abbruch": {
+        "wann": "Crew flieht ohne Ladung",
+        "folgen": [
+          "npc_haltung grauzahn -1",
+          "npc_gedaechtnis grauzahn: Die Lerche ist geflüchtet und hat meine Ladung im Splitter gelassen. Das kostet sie.",
+          "chronik: Grauzahns Preis – Die Crew floh vor der Rostmeute ohne die Lieferung.",
+          "welt_fakt inspektor_varn (faden): Varn sichert die herrenlosen Kisten – Inhalt unbekannt, Konkordat ermittelt."
+        ]
+      }
+    },
+    "wuensche": [
+      "Ein Szenentyp 'Verfolgung' wäre nützlich gewesen, um die Flucht aus dem Splitter als eigene Szene auszuspielen."
+    ]
+  },
+  "szenen": {
+    "s2_splitter": {
+      "molekuele": [
+        {
+          "id": "signal_orten",
+          "umsetzung": "weitscan_peilung",
+          "params": {
+            "loc": "splitter",
+            "fund": "splitter_cache2",
+            "fund_name": "die Kisten",
+            "hinweis_nach": 45,
+            "aufdecken_nach": 90,
+            "scannen_nach": 150
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "inspektor_meldet_sich",
+        "nach_s": 60,
+        "ankuendigung": "Offizieller Kanal aktiv – ein Konkordat-Inspektor fragt nach eurem Auftrag im Splittergürtel.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "neu:Inspektor Varn",
+              "text": "Unbekanntes Schiff im Sektor 7-Delta – nennt Auftrag und Registrierung. Sofort."
+            }
+          }
+        ]
+      }
+    },
+    "s3_begegnung": {
+      "molekuele": [
+        {
+          "id": "taeuschen",
+          "umsetzung": "bluff_funk",
+          "params": {
+            "loc": "splitter",
+            "npc": "neu:Inspektor Varn",
+            "forderung": "Hier Inspektor Varn, Konkordat-Aufsicht Splitter-Sektor 7. Ihr Weitscan hat unser System getriggert – nennt Zweck und Ziel, sonst eskoriere ich euch persönlich raus.",
+            "hinweis": "ODA: Varns Schiff – Scanarm Backbord defekt, keine aktive Tiefenortung möglich.",
+            "frage": "Was antwortet die Crew Inspektor Varn?",
+            "bluff_passend": "Wir testen unseren Scanarm – Kalibrierungsfahrt, nichts weiter.",
+            "bluff_falsch": "Wir suchen einen vermissten Frachter auf Anfrage des Hafens.",
+            "wahrheit": "Wir suchen Treibgut – alles legal angemeldet.",
+            "funk_geglueckt": "Kalibrierung, ja. Mein System zeigte Ausschläge. Passt. Haltet euch an die Leitlinien.",
+            "funk_durchschaut": "Kalibrierung? Euer Muster sieht aus wie gezieltes Absuchen. Ich komme näher.",
+            "folgen_geglueckt": [
+              {
+                "setFlag": {
+                  "s3_begegnung_geglueckt": true
+                }
+              },
+              {
+                "oda": "Varn dreht ab. Kein Aufklärer mehr in Sichtweite."
+              },
+              {
+                "log": "Bluff verfangen – Varns Scanarm war tatsächlich blind. Freie Bahn zur Bergung."
+              }
+            ],
+            "folgen_durchschaut": [
+              {
+                "setFlag": {
+                  "s3_begegnung_durchschaut": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Inspektor Varn",
+                  "text": "Ich melde das. Rührt nichts an, bis ich zurück bin."
+                }
+              },
+              {
+                "oda": "Varn dreht eine zweite Runde. Zeitfenster für die Bergung schrumpft."
+              }
+            ],
+            "folgen_wahrheit": [
+              {
+                "setFlag": {
+                  "s3_begegnung_durchschaut": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Inspektor Varn",
+                  "text": "Treibgut. Schön. Ich behalte euch im Auge – eine Runde noch."
+                }
+              },
+              {
+                "oda": "Varn bleibt im Sektor. Wir haben weniger Zeit als geplant."
+              }
+            ],
+            "geduld_s": 60
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "s4_bergung": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "bergungskisten",
+          "params": {
+            "loc": "splitter",
+            "anzahl": 4,
+            "aufgeben_nach": 180,
+            "auftraggeber_hinweis": "Holt die Kisten raus – grüne Marker, drüberfliegen reicht. Varn kommt vielleicht zurück, also zieht Tempo!"
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "s5_uebergabe",
+          "if": {
+            "v": "s4_alt"
+          }
+        },
+        {
+          "nach": "s5_gefecht"
+        }
+      ],
+      "wendung": {
+        "kennung": "jaeger_tauchen_auf",
+        "nach_s": 55,
+        "ankuendigung": "ODA: Zwei Signale auf Kollisionskurs – Rostmeute-Transponder, Klasse Jäger. Abstand sinkt.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "neu:Skart",
+              "text": "Grauzahns Aufpasser. Ignoriert die, sammelt weiter – oder ihr bereut es."
+            }
+          }
+        ]
+      }
+    },
+    "s5_uebergabe": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "wrack",
+            "npc": "grauzahn",
+            "eroeffnung": "Lerche, ich sehe Skart – und ich sehe seine Kisten. Jetzt rede ich mit euch, nicht mit ihm.",
+            "frage": "Saubere Lieferung, oder habt ihr mich wieder mal überrascht?",
+            "antwort_a": "Alles da. Volle Ladung, kein Kratzer.",
+            "antwort_b": "Was ankam, ankam. Mehr war nicht drin.",
+            "folgen_a": [
+              {
+                "setFlag": {
+                  "s5_voll_geliefert": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "Hm. Skart nickt. Dann war das ein ordentlicher Lauf – für euch."
+                }
+              },
+              {
+                "oda": "Grauzahn bestätigt die Übergabe. Abrechnung folgt."
+              }
+            ],
+            "folgen_b": [
+              {
+                "setFlag": {
+                  "s5_teil_geliefert": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "Dachte ich mir. Ihr bekommt, was übrig blieb – nicht mehr."
+                }
+              },
+              {
+                "oda": "Teilabnahme registriert. Grauzahn ist nicht zufrieden."
+              }
+            ],
+            "folgen_schweigen": [
+              {
+                "setFlag": {
+                  "s5_teil_geliefert": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "grauzahn",
+                  "text": "Schweigen ist auch eine Antwort. Und keine gute."
+                }
+              },
+              {
+                "oda": "Keine Rückmeldung. Grauzahn wertet es als Teilergebnis."
+              }
+            ],
+            "geduld_s": 60
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:erfolg",
+          "if": {
+            "flag": "s5_voll_geliefert"
+          }
+        },
+        {
+          "nach": "ausgang:halbvoll"
+        }
+      ],
+      "wendung": null
+    }
+  },
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_1_m4_rueckforderung",
+    "kopf": {
+      "titel": "Grauzahns Preis",
+      "art": "generiert",
+      "auftraggeber": "grauzahn",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 3
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "grauzahn"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "splitter",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "splitter",
+        "wrack"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "grauzahn"
+      ],
+      "stimmen": {
+        "neu_inspektor_varn": {
+          "name": "Inspektor Varn"
+        },
+        "neu_skart": {
+          "name": "Skart"
+        },
+        "neu_unbekannte_stimme": {
+          "name": "Unbekannte Stimme"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "signal_orten/weitscan_peilung",
+        "enter": [
+          {
+            "setFlag": {
+              "s3_begegnung_durchschaut": null,
+              "s3_begegnung_geglueckt": null,
+              "s5_gefecht_vertrieben": null,
+              "s5_teil_geliefert": null,
+              "s5_voll_geliefert": null
+            }
+          },
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_splitter_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_splitter_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_splitter.anflug_ziel",
+            "done": {
+              "atLocation": "splitter"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "splitter"
+              }
+            },
+            "oda": "@s2_splitter.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "splitter"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_splitter"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_splitter"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "splitter"
+          }
+        ],
+        "umsetzung": "signal_orten/weitscan_peilung"
+      },
+      {
+        "id": "s2_splitter",
+        "loc": "splitter",
+        "timers": [
+          {
+            "at": 1,
+            "oda": "@s2_splitter.start"
+          },
+          {
+            "at": 60,
+            "do": [
+              {
+                "wendung": "s2_inspektor_meldet_sich",
+                "ankuendigung": {
+                  "oda": "@s2_splitter.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "neu_inspektor_varn",
+                      "text": "@s2_splitter.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 35
+                },
+                {
+                  "not": {
+                    "event": "widescan"
+                  }
+                },
+                {
+                  "not": {
+                    "revealed": "splitter_cache2"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "oda": "@s2_splitter.tipp"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 45
+                },
+                {
+                  "not": {
+                    "revealed": "splitter_cache2"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "direction_hint",
+                "find": "splitter_cache2",
+                "text": "@s2_splitter.richtung"
+              }
+            ],
+            "garantie": "hinweis"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 90
+                },
+                {
+                  "not": {
+                    "revealed": "splitter_cache2"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "reveal_find",
+                "id": "splitter_cache2"
+              },
+              {
+                "oda": "@s2_splitter.aufgedeckt"
+              }
+            ],
+            "garantie": "autoloesung"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "revealed": "splitter_cache2"
+                },
+                {
+                  "elapsed": 150
+                },
+                {
+                  "not": {
+                    "found": "splitter_cache2"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "complete_find",
+                "id": "splitter_cache2"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "finden",
+            "text": "@s2_splitter.ziel_finden",
+            "done": {
+              "revealed": "splitter_cache2"
+            }
+          },
+          {
+            "id": "scannen",
+            "text": "@s2_splitter.ziel_scannen",
+            "show": {
+              "revealed": "splitter_cache2"
+            },
+            "done": {
+              "found": "splitter_cache2"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "found": "splitter_cache2"
+            },
+            "goto": "s3_begegnung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "complete_find",
+            "id": "splitter_cache2"
+          }
+        ],
+        "umsetzung": "signal_orten/weitscan_peilung"
+      },
+      {
+        "id": "s3_begegnung",
+        "loc": "splitter",
+        "enter": [
+          {
+            "radio": {
+              "from": "neu_inspektor_varn",
+              "text": "@s3_begegnung.forderung"
+            }
+          },
+          {
+            "oda": "@s3_begegnung.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 8,
+            "oda": "@s3_begegnung.hinweis"
+          },
+          {
+            "at": 10,
+            "do": [
+              {
+                "choice": "s3_begegnung_wahl"
+              }
+            ]
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "choiceMade": "s3_begegnung_wahl"
+              }
+            },
+            "oda": "@s3_begegnung.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 60
+                },
+                {
+                  "not": {
+                    "choiceMade": "s3_begegnung_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "wahrheit"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s3_begegnung_wahl": {
+            "prompt": "@s3_begegnung.frage",
+            "options": [
+              {
+                "id": "passend",
+                "label": "@s3_begegnung.passend"
+              },
+              {
+                "id": "falsch",
+                "label": "@s3_begegnung.falsch"
+              },
+              {
+                "id": "wahrheit",
+                "label": "@s3_begegnung.wahrheit"
+              }
+            ],
+            "on": {
+              "passend": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_geglueckt": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_inspektor_varn",
+                    "text": "@s3_begegnung.funk_geglueckt"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_geglueckt": true
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung.t1"
+                    },
+                    {
+                      "log": "@s3_begegnung.t2"
+                    }
+                  ]
+                }
+              ],
+              "falsch": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_durchschaut": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_inspektor_varn",
+                    "text": "@s3_begegnung.funk_durchschaut"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_durchschaut": true
+                      }
+                    },
+                    {
+                      "radio": {
+                        "from": "neu_inspektor_varn",
+                        "text": "@s3_begegnung.t3"
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung.t4"
+                    }
+                  ]
+                }
+              ],
+              "wahrheit": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_durchschaut": true
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_durchschaut": true
+                      }
+                    },
+                    {
+                      "radio": {
+                        "from": "neu_inspektor_varn",
+                        "text": "@s3_begegnung.t5"
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung.t6"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s3_begegnung.ziel",
+            "done": {
+              "choiceMade": "s3_begegnung_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "choiceMade": "s3_begegnung_wahl"
+            },
+            "goto": "s4_bergung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "passend"
+          }
+        ],
+        "umsetzung": "taeuschen/bluff_funk",
+        "liefert_flags": [
+          "s3_begegnung_geglueckt",
+          "s3_begegnung_durchschaut"
+        ]
+      },
+      {
+        "id": "s4_bergung",
+        "loc": "splitter",
+        "enter": [
+          {
+            "spawnSalvage": 4
+          }
+        ],
+        "timers": [
+          {
+            "at": 3,
+            "oda": "@s4_bergung.start"
+          },
+          {
+            "at": 45,
+            "if": {
+              "not": {
+                "check": "salvage_done"
+              }
+            },
+            "oda": "@s4_bergung.hinweis",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 55,
+            "do": [
+              {
+                "wendung": "s4_jaeger_tauchen_auf",
+                "ankuendigung": {
+                  "oda": "@s4_bergung.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "neu_skart",
+                      "text": "@s4_bergung.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 180
+                },
+                {
+                  "not": {
+                    "check": "salvage_done"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_bergung_aufgegeben": true
+                }
+              },
+              {
+                "oda": "@s4_bergung.aufgegeben"
+              }
+            ],
+            "garantie": "zeitlimit"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "bergen",
+            "text": "@s4_bergung.ziel",
+            "done": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s4_bergung_aufgegeben"
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "any": [
+                    {
+                      "check": "salvage_done"
+                    },
+                    {
+                      "v": "s4_bergung_aufgegeben"
+                    }
+                  ]
+                },
+                {
+                  "v": "s4_alt"
+                }
+              ]
+            },
+            "goto": "s5_uebergabe_anflug"
+          },
+          {
+            "if": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s4_bergung_aufgegeben"
+                }
+              ]
+            },
+            "goto": "s5_gefecht"
+          }
+        ],
+        "skip": [
+          {
+            "set": {
+              "s4_bergung_aufgegeben": true
+            }
+          }
+        ],
+        "umsetzung": "ladung_bergen/bergungskisten"
+      },
+      {
+        "id": "s5_gefecht",
+        "loc": "splitter",
+        "enter": [
+          {
+            "spawn": {
+              "kind": "raider",
+              "tag": "s5_gefecht_w1",
+              "n": 2,
+              "angles": [
+                0.3,
+                -0.7,
+                1.2
+              ]
+            }
+          },
+          {
+            "if": true,
+            "spawn": {
+              "kind": "gunboat",
+              "tag": "s5_gefecht_w1"
+            }
+          },
+          {
+            "do": "enemies_retreat",
+            "tag": "s5_gefecht_w1",
+            "unter_pct": 40
+          },
+          {
+            "after": {
+              "sec": 3,
+              "do": [
+                {
+                  "radio": {
+                    "from": "neu_unbekannte_stimme",
+                    "text": "@s5_gefecht.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s5_gefecht.lage"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            },
+            "oda": "@s5_gefecht.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 3
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s5_gefecht_w1",
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s5_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_gefecht_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "s5_gefecht_vertrieben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu_unbekannte_stimme",
+                  "text": "@s5_gefecht.funk_abzug"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s5_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "tag": "s5_gefecht_w1",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s5_gefecht.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "vertreiben",
+            "text": "@s5_gefecht.ziel",
+            "done": {
+              "v": "s5_gefecht_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s5_gefecht_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s5_gefecht_vertrieben"
+                }
+              ]
+            },
+            "goto": "s5_uebergabe_anflug"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s5_gefecht_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "abbruch"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s5_gefecht_ende": true
+            }
+          },
+          {
+            "setFlag": {
+              "s5_gefecht_vertrieben": true
+            }
+          }
+        ],
+        "umsetzung": "vertreiben/bis_zur_flucht",
+        "liefert_flags": [
+          "s5_gefecht_vertrieben"
+        ]
+      },
+      {
+        "id": "s5_uebergabe_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s5_uebergabe.anflug_ziel",
+            "done": {
+              "atLocation": "wrack"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "wrack"
+              }
+            },
+            "oda": "@s5_uebergabe.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "wrack"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s5_uebergabe"
+                  }
+                }
+              ]
+            },
+            "goto": "s5_uebergabe"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "wrack"
+          }
+        ],
+        "umsetzung": "verhandeln/funkduell"
+      },
+      {
+        "id": "s5_uebergabe",
+        "loc": "wrack",
+        "enter": [
+          {
+            "radio": {
+              "from": "grauzahn",
+              "text": "@s5_uebergabe.eroeffnung"
+            }
+          },
+          {
+            "choice": "s5_uebergabe_wahl"
+          },
+          {
+            "oda": "@s5_uebergabe.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 45,
+            "if": {
+              "not": {
+                "choiceMade": "s5_uebergabe_wahl"
+              }
+            },
+            "oda": "@s5_uebergabe.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 60
+                },
+                {
+                  "not": {
+                    "choiceMade": "s5_uebergabe_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "schweigen"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s5_uebergabe_wahl": {
+            "prompt": "@s5_uebergabe.frage",
+            "options": [
+              {
+                "id": "a",
+                "label": "@s5_uebergabe.a"
+              },
+              {
+                "id": "b",
+                "label": "@s5_uebergabe.b"
+              },
+              {
+                "id": "schweigen",
+                "label": "@s5_uebergabe.schweigen"
+              }
+            ],
+            "on": {
+              "a": [
+                {
+                  "setFlag": {
+                    "s5_voll_geliefert": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s5_uebergabe.t1"
+                  }
+                },
+                {
+                  "oda": "@s5_uebergabe.t2"
+                }
+              ],
+              "b": [
+                {
+                  "setFlag": {
+                    "s5_teil_geliefert": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s5_uebergabe.t3"
+                  }
+                },
+                {
+                  "oda": "@s5_uebergabe.t4"
+                }
+              ],
+              "schweigen": [
+                {
+                  "setFlag": {
+                    "s5_teil_geliefert": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "grauzahn",
+                    "text": "@s5_uebergabe.t5"
+                  }
+                },
+                {
+                  "oda": "@s5_uebergabe.t6"
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s5_uebergabe.ziel",
+            "done": {
+              "choiceMade": "s5_uebergabe_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "choiceMade": "s5_uebergabe_wahl"
+                },
+                {
+                  "flag": "s5_voll_geliefert"
+                }
+              ]
+            },
+            "complete": "erfolg"
+          },
+          {
+            "if": {
+              "choiceMade": "s5_uebergabe_wahl"
+            },
+            "complete": "halbvoll"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "schweigen"
+          }
+        ],
+        "umsetzung": "verhandeln/funkduell"
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "erfolg": {
+        "beschreibung": "Volle Ladung geliefert und Bluff bei Varn gelungen",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 160
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "grauzahn",
+            "delta": 1
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "grauzahn",
+            "ereignis": "m4_rueckforderung_erfolg",
+            "text": "@aus.erfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.erfolg.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "inspektor_varn",
+            "value": "Varn hat die Lerche im Splitter bemerkt – er könnte später nachfragen.",
+            "quelle": "sl_1_m4_rueckforderung",
+            "faden": true
+          }
+        ]
+      },
+      "halbvoll": {
+        "beschreibung": "Teillieferung oder Bluff ist aufgeflogen",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 160
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "grauzahn",
+            "ereignis": "m4_rueckforderung_halbvoll",
+            "text": "@aus.halbvoll.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.halbvoll.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "inspektor_varn",
+            "value": "Varn hat konkrete Hinweise auf die Lerche und die Rostmeute – er wird ermitteln.",
+            "quelle": "sl_1_m4_rueckforderung",
+            "faden": true
+          }
+        ]
+      },
+      "abbruch": {
+        "beschreibung": "Crew flieht ohne Ladung",
+        "folgen": [
+          {
+            "do": "npc_haltung",
+            "npc": "grauzahn",
+            "delta": -1
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "grauzahn",
+            "ereignis": "m4_rueckforderung_abbruch",
+            "text": "@aus.abbruch.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.abbruch.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "inspektor_varn",
+            "value": "Varn sichert die herrenlosen Kisten – Inhalt unbekannt, Konkordat ermittelt.",
+            "quelle": "sl_1_m4_rueckforderung",
+            "faden": true
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Ihr habt mir zweimal die Nase gerieben, Lerche. Diesmal bezahlt ihr – oder ihr eskoriert meine Ladung durch den Splitter. Meine Bedingungen, mein Kurs.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_splitter.anflug_ziel": "Nach Splittergürtel springen",
+      "s2_splitter.anflug_tipp": "Kurs liegt an: Splittergürtel. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_splitter.start": "Irgendwo hier ist die Kisten. Taktik: Weitscan (W) – Marker für den Piloten!",
+      "s2_splitter.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+      "s2_splitter.richtung": "die Kisten kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
+      "s2_splitter.aufgedeckt": "Ich habe die Kisten angepeilt und markiert. Anvisieren (T) und scannen (S)!",
+      "s2_splitter.ziel_finden": "Taktik: Weitscan (W) – die Kisten suchen",
+      "s2_splitter.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)",
+      "s2_splitter.t1": "Offizieller Kanal aktiv – ein Konkordat-Inspektor fragt nach eurem Auftrag im Splittergürtel.",
+      "s2_splitter.t2": "Unbekanntes Schiff im Sektor 7-Delta – nennt Auftrag und Registrierung. Sofort.",
+      "s3_begegnung.forderung": "Hier Inspektor Varn, Konkordat-Aufsicht Splitter-Sektor 7. Ihr Weitscan hat unser System getriggert – nennt Zweck und Ziel, sonst eskoriere ich euch persönlich raus.",
+      "s3_begegnung.hinweis": "ODA: Varns Schiff – Scanarm Backbord defekt, keine aktive Tiefenortung möglich.",
+      "s3_begegnung.frage": "Was antwortet die Crew Inspektor Varn?",
+      "s3_begegnung.passend": "Wir testen unseren Scanarm – Kalibrierungsfahrt, nichts weiter.",
+      "s3_begegnung.falsch": "Wir suchen einen vermissten Frachter auf Anfrage des Hafens.",
+      "s3_begegnung.wahrheit": "Wir suchen Treibgut – alles legal angemeldet.",
+      "s3_begegnung.funk_geglueckt": "Kalibrierung, ja. Mein System zeigte Ausschläge. Passt. Haltet euch an die Leitlinien.",
+      "s3_begegnung.funk_durchschaut": "Kalibrierung? Euer Muster sieht aus wie gezieltes Absuchen. Ich komme näher.",
+      "s3_begegnung.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+      "s3_begegnung.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+      "s3_begegnung.ziel": "Captain: antworten (Funk) – Ortung beachten",
+      "s3_begegnung.t1": "Varn dreht ab. Kein Aufklärer mehr in Sichtweite.",
+      "s3_begegnung.t2": "Bluff verfangen – Varns Scanarm war tatsächlich blind. Freie Bahn zur Bergung.",
+      "s3_begegnung.t3": "Ich melde das. Rührt nichts an, bis ich zurück bin.",
+      "s3_begegnung.t4": "Varn dreht eine zweite Runde. Zeitfenster für die Bergung schrumpft.",
+      "s3_begegnung.t5": "Treibgut. Schön. Ich behalte euch im Auge – eine Runde noch.",
+      "s3_begegnung.t6": "Varn bleibt im Sektor. Wir haben weniger Zeit als geplant.",
+      "s4_bergung.start": "Holt die Kisten raus – grüne Marker, drüberfliegen reicht. Varn kommt vielleicht zurück, also zieht Tempo!",
+      "s4_bergung.hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
+      "s4_bergung.aufgegeben": "Den Rest lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
+      "s4_bergung.ziel": "Bergungsgut einsammeln ({salvaged}/4)",
+      "s4_bergung.t1": "ODA: Zwei Signale auf Kollisionskurs – Rostmeute-Transponder, Klasse Jäger. Abstand sinkt.",
+      "s4_bergung.t2": "Grauzahns Aufpasser. Ignoriert die, sammelt weiter – oder ihr bereut es.",
+      "s5_gefecht.funk_start": "Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer.",
+      "s5_gefecht.funk_abzug": "Das ist es nicht wert. Rückzug! Wir sehen uns wieder.",
+      "s5_gefecht.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+      "s5_gefecht.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+      "s5_gefecht.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+      "s5_gefecht.ziel": "Angreifer vertreiben ({left:s5_gefecht_w1} übrig)",
+      "s5_uebergabe.anflug_ziel": "Nach Wrack „Zaunkönig“ springen",
+      "s5_uebergabe.anflug_tipp": "Kurs liegt an: Wrack „Zaunkönig“. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s5_uebergabe.eroeffnung": "Lerche, ich sehe Skart – und ich sehe seine Kisten. Jetzt rede ich mit euch, nicht mit ihm.",
+      "s5_uebergabe.frage": "Saubere Lieferung, oder habt ihr mich wieder mal überrascht?",
+      "s5_uebergabe.a": "Alles da. Volle Ladung, kein Kratzer.",
+      "s5_uebergabe.b": "Was ankam, ankam. Mehr war nicht drin.",
+      "s5_uebergabe.schweigen": "Funkstille",
+      "s5_uebergabe.captain": "Funkspruch! Captain: Antwort im Reiter „Funk“ – sprecht euch ab.",
+      "s5_uebergabe.ungeduldig": "Die Gegenseite wird ungeduldig. Schweigen ist auch eine Antwort – aber keine freundliche.",
+      "s5_uebergabe.ziel": "Captain: antworten (Funk)",
+      "s5_uebergabe.t1": "Hm. Skart nickt. Dann war das ein ordentlicher Lauf – für euch.",
+      "s5_uebergabe.t2": "Grauzahn bestätigt die Übergabe. Abrechnung folgt.",
+      "s5_uebergabe.t3": "Dachte ich mir. Ihr bekommt, was übrig blieb – nicht mehr.",
+      "s5_uebergabe.t4": "Teilabnahme registriert. Grauzahn ist nicht zufrieden.",
+      "s5_uebergabe.t5": "Schweigen ist auch eine Antwort. Und keine gute.",
+      "s5_uebergabe.t6": "Keine Rückmeldung. Grauzahn wertet es als Teilergebnis.",
+      "aus.erfolg.t1": "Die Lerche hat geliefert und Varn ausgetrickst. Vielleicht sind sie nützlicher als gedacht.",
+      "aus.erfolg.t2": "Grauzahns Preis – Die Crew birgt Rostmeute-Ladung aus dem Splitter und überlistet einen Konkordat-Inspektor.",
+      "aus.halbvoll.t1": "Halbe Arbeit. Die Lerche ist unzuverlässig oder zu ehrlich – beides stört mich.",
+      "aus.halbvoll.t2": "Grauzahns Preis – Teilauftrag erfüllt; Varn hat die Lerche auf dem Schirm.",
+      "aus.abbruch.t1": "Die Lerche ist geflüchtet und hat meine Ladung im Splitter gelassen. Das kostet sie.",
+      "aus.abbruch.t2": "Grauzahns Preis – Die Crew floh vor der Rostmeute ohne die Lieferung.",
+      "buch.briefing": "Ihr habt mir zweimal die Nase gerieben, Lerche. Diesmal bezahlt ihr – oder ihr eskoriert meine Ladung durch den Splitter. Meine Bedingungen, mein Kurs.",
+      "buch.belohnung": "160 Marken",
+      "buch.erinnerung": "Im Nebel hat die Lerche mich mit einer Konkordat-Patrouille geblufft – und es hat geklappt. Das merke ich mir."
+    },
+    "erinnerung": {
+      "npc": "grauzahn",
+      "ereignis": "geblufft"
+    }
+  },
+  "gespielt": []
+}

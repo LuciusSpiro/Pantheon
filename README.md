@@ -1,4 +1,4 @@
-# Pantheon – Ausbaustufe S2 „Spielleiter an der Missionsgrenze“
+# Pantheon – Ausbaustufe S2b „Spielleiter live tauglich + Kampf nach Kais Runde“
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
@@ -6,7 +6,71 @@ Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert
 Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt weiter `sternenschicht/`. Bisherige
 Ausbaustufen: M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) ·
 M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ · M4 „Voxel & Lerche Rom“ · S1 „Regiebuch &
-Weltstand“ (`CONTRACT-S1.md`) · **S2 „Spielleiter an der Missionsgrenze“** (Vertrag `CONTRACT-S2.md`).
+Weltstand“ (`CONTRACT-S1.md`) · S2 „Spielleiter an der Missionsgrenze“ (`CONTRACT-S2.md`) · **S2b „Spielleiter live
+tauglich + Kampf nach Kais Runde“** (Vertrag `CONTRACT-S2B.md`).
+
+## Neu in S2b – zähere Gegner, Sperrfeuer, Spielleiter günstiger
+
+Nach Kais erster S2-Runde („sieht echt gut aus“, aber Gegner zu schwach) und mit dem Ziel, den Spielleiter wirklich live zu
+benutzen.
+
+### Kampf
+- **Jäger 3× zäher:** 36 statt 12 Hülle (Crew-Skalierung wie bisher: zu dritt/zu zweit × 0,7, solo × 0,5). Eine volle Salve
+  (Lanze voll + beide Batterien) zerstört einen Jäger zu zweit/zu dritt nicht mehr, spätestens die dritte schon (Test). Der
+  Lebensbalken über dem Gegner ist in Segmente geteilt, damit man den Fortschritt sieht.
+- **Kanonenboot:** Der angekündigte Ladeschuss bleibt (Schaden 3 → 4). Neu ist das **Sperrfeuer**: Feuerstöße aus der
+  Breitseite (3 bernsteinfarbene Bolzen, etwa alle 3 s), **langsam** (110 px/s, die Lerche ist schneller) und **ausweichbar** –
+  es zielt dorthin, wo die Lerche bei gehaltenem Kurs sein wird. Wer stehen bleibt oder stur geradeaus fliegt, wird getroffen;
+  ein Kurs- oder Tempowechsel bzw. die Ausweichrolle in den ~3 s Flugzeit bringt den Stoß vorbei. Während ein Ladeschuss lädt,
+  schweigt das Sperrfeuer (lesbar halten). Lanze/Batterien können die Bolzen nicht abschießen. Volle Schilde fangen das meiste.
+- **Kollisionsbahn:** Jeder Bolzen zieht eine kurze Bahnvorschau; liegt die Lerche auf Kollisionskurs, wird sie rot-orange mit
+  Kreuz – das ist das Signal für die Steuer. Mündungsblitz an der Breitseite, eigener dumpfer Ton (`sperrfeuer`).
+- **Brandschutz-Flutung:** Brennt es außerhalb des Kampfs an mindestens 4 Stellen 45 s lang ununterbrochen, flutet ODA und
+  löscht alles (Softlock-Schutz nach langen Gefechten). **Eskalationsdeckel:** Unbearbeitete Schäden zünden ab 3 Bränden
+  kein weiteres Feuer mehr (vorher Feuerspirale nach längeren Gefechten).
+- Schützling-Härte: Havarist, Pannenhilfe und „Karawane im Nebel“ wurden nach den zäheren Jägern über die Katalog-Startwerte
+  nachgezogen (siehe Messwerte).
+
+### Spielleiter
+- **Plan-treue Rohfassung:** Auch ohne ausgearbeitete Szene funken nur NSC, die zur Mission gehören (Auftraggeber, Besetzung,
+  `stimme` je Szene) – kein „Sela funkt in Grauzahns Mission“ mehr. Prüfregeln für Sprecher und für Erinnerungen, die den
+  Fakten widersprechen.
+- **Szenen günstiger:** Eine Szene kostet jetzt **≈ 3 700–4 700 Tokens** (vorher ≈ 24 000), ein Grobplan-Versuch ≈ 12 500–17 000.
+  Eine voll ausgearbeitete Mission mit 4–5 Szenen liegt damit bei rund **45 000 Tokens** (mit einem zweiten Grobplan-Versuch).
+- **Szenen öfter gültig:** Selbstprüfung im Prompt, automatische Reparatur einfacher Fehler, zweiter Versuch mit den
+  Prüferfehlern. Beim Annehmen werden die ersten Szenen sofort angefragt; die Szenen kamen in den Live-Läufen alle vor dem
+  Anflug an – `sceneWait` („Kurs wird berechnet …“) trat nicht auf.
+- **Wartepunkt „Ablegen“:** Szenen mit Kampf an Hafen-/Händlerorten beginnen erst, wenn die Lerche abgelegt hat (auch nach dem
+  Laden eines Weltstands).
+- **Golden-Basis neu:** Weil die stärkeren Jäger und das Sperrfeuer auch im Tutorial gelten, wurde der Golden-Trace m1–m3 bewusst
+  neu aufgenommen (alte Basis: `tools/fixtures/golden/base-s1/`); vorher geprüft: gleiche Schrittfolge, nur Kampfdauer/Hülle anders.
+- Debug: `sl plan [npc] [Vorgabe …]` fordert einen Grobplan mit vorgegebenem Auftraggeber an (nur `--debug`).
+
+### Messwerte S2b (QA-Abnahme 2026-10-08) – ehrlich, Bots ≠ Menschen
+- **Sperrfeuer ausweichen** (headless, nur ein Kanonenboot ohne Ladeschuss, zu dritt, 3 × 60 s je Fahrweise): Lerche steht –
+  93 % getroffen, ≈ 43 Hülle/min; hält Kurs (½) – 89 % getroffen, ≈ 16 Hülle/min; weicht aus (Kurswechsel/Ausweichrolle bei
+  anfliegendem Stoß) – 35 % getroffen, < 1 Hülle/min. Im Browser (solo, Welle Kanonenboot + 2 Jäger, je 30 s): stehen −51 Hülle,
+  ausweichen −19 Hülle (inkl. Jäger und Ladeschüssen).
+- **Arena (Bots, 10 Seeds):** „Nase drauf“ verliert 1,83× so viel Hülle wie „Manöver“ (Ziel ≥ 1,4).
+- **Schützling (Bot-Sim, 30 Seeds je Fall):** Geleit zu dritt 83 % heil, solo 50 % heil; Havarist zu dritt 23 % verloren,
+  solo 0 %; Pannenhilfe zu dritt 20 % verloren, solo 0 %. Archiv „Karawane im Nebel“ (10 Seeds) solo 9/10 heil, zu dritt 9/10.
+- **Live-Spielleiter:** siehe nächster Abschnitt.
+
+### Live-Messung S2b (QA-Abnahme, 175 000 Tokens von 200 000 Budget)
+- **Szenen:** 14 Live-Szenen (15 Aufrufe) – 13 gültig beim ersten Versuch, 1 beim zweiten (100 % bis zum 2. Versuch).
+  Tokens je Szene: Median ≈ 3 740, höchstens 4 670 (Ziel < 8 000). Dauer 7–17 s.
+- **Grobpläne:** 8 Aufrufe, je ≈ 12 500–17 000 Tokens, 33–57 s. **Der erste Versuch war in allen 4 Planungen ungültig**
+  (zweimal Dauer zu lang, zweimal „neutrale“ Erinnerung, obwohl es Fakten gab; einmal kannte der Kontext keine
+  Gedächtnis-Kennungen – behoben), der zweite gültig in 3 von 4. Ein Grobplan kostet also in der Praxis ≈ 27 000–31 000 Tokens.
+- **Im Spiel zu dritt (2 Läufe, Kampagne ohne Tutorial):** Angebot nach 80–90 s, Szenen kamen 9–48 s nach dem Annehmen,
+  alle vor dem Anflug – **kein `sceneWait`**. Lauf 1 (Tesk, „Signal in der Grauen Weite“): eine fertige Szene wurde vom
+  Spiel abgelehnt („schon betreten“), weil sich die Flag-Rücksetzung im Hafen-Schritt änderte – **behoben**; Lauf 2 (Sela,
+  „Sicheres Geleit durch die Graue Weite“, Geleit mit Karawane): alle gespielten Szenen ausgearbeitet, Ausgang „erfolg“.
+  Gespielt wurde mit menschlichen Pausen (40–75 s je Schritt) und Debug-Skip am Ende jedes Schritts – das sind **keine**
+  Menschen-Spielzeiten und kein echter Kampf.
+- **Erzeugte Missionen zum Review** (`npm run missionen`): „Die Antwort des Relais“ (Tesk), „Signal in der Grauen Weite“
+  (Tesk), „Sicheres Geleit durch die Graue Weite“ (Sela, mit Geleit) – Status `offen`. Melk, Grauzahn und „melk-klausel“
+  wurden aus Budgetgründen **nicht** aufgenommen.
 
 ## Neu in S2 – Spielleiter, Schützling, Missionen reviewen
 
@@ -68,9 +132,10 @@ LLM_LIVE=1
 CLAUDE_TOKEN_BUDGET=500000     # ein Zähler für den ganzen Serverlauf; danach nur noch Archiv bzw. Rohfassung
 ```
 Fehlt die CLI, kommt ein Fehler, ein Timeout oder ist das Budget fast leer (< 30 000), fällt der Spielleiter still auf
-Archiv bzw. Rohfassung zurück. **Kosten (gemessen, siehe unten):** ein Grobplan ≈ 26 000 Tokens, eine Szene ≈ 24 000 Tokens –
-eine voll ausgearbeitete Mission mit 5 Szenen liegt damit bei rund 150 000 Tokens, mit Nachbesserungen mehr. Mit dem Deckel
-von 500 000 reicht ein Serverlauf für etwa 2–3 Missionsgrenzen.
+Archiv bzw. Rohfassung zurück. **Kosten (gemessen S2b):** ein Grobplan-Versuch ≈ 12 500–17 000 Tokens (oft braucht es zwei),
+eine Szene ≈ 3 700–4 700 Tokens – eine voll ausgearbeitete Mission mit 4–5 Szenen liegt bei rund 45 000 Tokens. Achtung: Je
+Missionsgrenze plant der Spielleiter 2 Angebote (2 Grobpläne). Mit dem Deckel von 500 000 reicht ein Serverlauf für etwa
+6–8 Missionsgrenzen. (S2 vorher: Szene ≈ 24 000, Mission ≈ 150 000.)
 
 ### Regie-Logbuch
 Was der Spielleiter getan hat (Grobpläne, Szenen, Rückfälle, Wartezeiten, Tokens, Wunschliste fehlender Bausteine), steht je

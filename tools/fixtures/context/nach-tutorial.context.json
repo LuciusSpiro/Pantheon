@@ -117,6 +117,7 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Die Lerche hat mich verletzt von der Plattform B-7 geholt."
         }
@@ -133,10 +134,12 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche."
         },
         {
+          "ereignis": "m3_erinnerung",
           "mission": "m3",
           "text": "Die Tafel von Kesh liegt jetzt im Konkordat-Archiv. Gebracht hat sie die Crew der Lerche."
         }
@@ -153,10 +156,12 @@
       "fraktion": "vaelen",
       "gedaechtnis": [
         {
+          "ereignis": "sela_erinnerung",
           "mission": "sela",
           "text": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt."
         },
         {
+          "ereignis": "m2_erinnerung",
           "mission": "m2",
           "text": "Die Crew hat meine verlorene Messsonde gefunden."
         }
@@ -173,14 +178,17 @@
       "fraktion": "konkordat",
       "gedaechtnis": [
         {
+          "ereignis": "m1_erinnerung",
           "mission": "m1",
           "text": "Die Lerche hat B-7 wieder zum Senden gebracht."
         },
         {
+          "ereignis": "m1_erinnerung_2",
           "mission": "m1",
           "text": "Die Crew hat den Datenkern ans Konkordat geliefert, nicht selbst geknackt."
         },
         {
+          "ereignis": "m3_erinnerung",
           "mission": "m3",
           "text": "Die Lerche hat die Tafel von Kesh aus dem Archiv geholt und mir übergeben."
         }

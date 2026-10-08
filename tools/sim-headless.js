@@ -722,6 +722,13 @@ class Agent {
     if (this.opts.queue !== false && (m.queueAt || 0) < S.time) {
       m.queueAt = S.time + 1.5;
       if (sh.botAuto) { this.cmd('captain.botAuto', { on: false }); return; }
+      // QA S2b: Die Schrauber nehmen die Reparaturliste vor Feuer. Brennt es nach einem harten Gefecht an mehreren Stellen,
+      // bricht das Feuer frisch Geflicktes sofort wieder (Golden m1/3 Seed 8: Triebwerk 5 Min. im Kreis geflickt, kein
+      // Sprung). Wie ein Mensch: Captain stellt „Feuer zuerst“, solange es brennt und kein Gegner mehr da ist (oder ≥ 3 Brände).
+      const fires = (sh.fires || []).length;
+      const wantFire = fires > 0 && (!S.space.enemies.some((e) => e.kind !== 'relay') || fires >= 3);
+      if (wantFire && !m.firePrio) { m.firePrio = true; this.cmd('captain.priority', { target: 'fire' }); return; }
+      if (!wantFire && m.firePrio) { m.firePrio = false; this.cmd('captain.priority', { target: null }); }
       const q = sh.repairQueue || [];
       const busyPlayer = (s) => (this.game.simAgents || []).some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
       const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))

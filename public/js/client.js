@@ -732,6 +732,8 @@
         const o = { volume: vol, pan: audio.panFor(ev.x, ev.zone), seg: ev.seg, max: ev.max, text: ev.text, syl: ev.syl, q: ev.q,
           count: ev.count, kind: ev.enemy != null ? ev.enemy : ev.sfxKind, dur: ev.dur, n: ev.n, key: ev.key };
         if (ev.x != null && ev.y != null) o.dist = (ev.zone && ev.zone !== Client.self.zone) ? 1 : clamp(Math.hypot(ev.x - Client.self.x, ev.y - Client.self.y) / 300, 0, 1);
+        // S2b: Sperrfeuer kommt von draußen (Raumkoordinaten) – kein Abstand/Panorama zur Figur im Schiff, an Bord voll hörbar
+        if (ev.name === 'sperrfeuer') { delete o.dist; o.pan = 0; o.volume = Client.self.zone === 'away' ? 0.35 : 0.9; }
         audio.play(ev.name, o);
         break;
       }

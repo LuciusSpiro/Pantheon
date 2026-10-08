@@ -40,7 +40,23 @@ sie in die Vorlage ein und prüft das Ergebnis.
   Szene (20–120), `ankuendigung` = ein Satz von ODA, `wirkung` = Aktionsliste wie oben (meist ein Funkspruch). Ohne
   Wendung im Grobplan: `"wendung": null`.
 - Keine neuen Schiffe, Funde, Objekte oder Karten. Halte dich an Sachverhalt, Wendung und Entscheidungen des Grobplans
-  und an den Weltstand (Erinnerungen der NSC).
+  und an den Weltstand (Erinnerungen der NSC, Fakten).
+- **Besetzung:** Funken dürfen nur die NSC aus `besetzung` des Grobplans (bzw. die `stimme` der Szene) und neue Stimmen
+  `neu:Name`. NSC-Parameter (`npc`, `funk_npc`, `empfaenger`) bekommen die `stimme` der Szene, sonst den Auftraggeber;
+  Gegner/Gegenüber ohne `stimme` als `neu:Name` – nie den Auftraggeber als Gegner.
+- **Belohnung:** Den Lohn der Mission (`belohnung_marken`) zahlt das Spiel am Ende. Nenne keinen anderen Betrag als Lohn.
 - **Kein Widerspruch zu den Folgeszenen:** Funk und Log dürfen nichts vorwegnehmen oder ausschließen, was der
   Sachverhalt der nächsten Szene vorsieht (z. B. nicht „die Jäger ziehen ab“, wenn danach ein Gefecht folgt).
   Zahlen in Texten und Aktionen stimmen überein.
+- In Texten Anführungszeichen nur typografisch („…“) oder einfach ('…') – **nie** das Zeichen `"` innerhalb eines Textes.
+
+## Selbstprüfung vor der Ausgabe (der Prüfer lehnt sonst ab)
+1. `molekuele`: genau die Moleküle/Umsetzungen der Szene, gleiche Reihenfolge, alle Pflichtparameter (`*`) gefüllt,
+   nur Parameter aus der Liste, Werte aus den erlaubten Listen und Zahlen im erlaubten Bereich.
+2. `verzweigung`: Hat die Szene **ein** Ziel in `weiter` → `[]`. Hat sie **mehrere** → je Ziel genau ein Eintrag, der
+   letzte ohne `if` (Standardweg). Jede Flag in einem `if` wird in **dieser** Antwort per `setFlag` gesetzt (oder steht
+   unter „liefert Flags“). Keine Flag erfinden, die nichts setzt.
+3. `setFlag` immer als `{ "flag_name": true }`, Flag-Name mit dem Präfix der Szene.
+4. Jeder Funk (`radio.from`, NSC-Parameter) ist die `stimme` der Szene, Auftraggeber, Besetzung oder `neu:Name`.
+5. Wendung im Grobplan → `wendung` mit `kennung`, `nach_s` 20–120, `ankuendigung` und nicht leerer `wirkung`; sonst `null`.
+6. Kein Text widerspricht den Fakten im Weltstand (z. B. wo ein Gegenstand liegt).

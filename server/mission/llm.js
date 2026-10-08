@@ -138,9 +138,9 @@ function mockErinnerung(kontext, auftraggeber) {
   const n = (kontext.npc || []).find((x) => x.id === auftraggeber);
   const g = n && (n.gedaechtnis || []).slice(-1)[0];
   if (g && g.ereignis) return { ref: { npc: auftraggeber, ereignis: g.ereignis }, text: g.text || 'Noch keine gemeinsame Erinnerung.' };
-  const fk = Object.keys(kontext.fakten || {}).sort()[0];
+  const fk = Object.keys(kontext.fakten || {}).filter((k) => k !== 'tutorial').sort()[0];   // QA S2b: Meta-Fakt ist keine Erinnerung
   if (fk) return { ref: { fakt: fk }, text: `Man spricht im Hafen über ${fk.replace(/_/g, ' ')}.` };
-  return { ref: null, text: (g && g.text) || 'Noch keine gemeinsame Erinnerung.' };
+  return { ref: { neutral: true }, text: 'Noch keine gemeinsame Geschichte – ein erster Auftrag.' };
 }
 
 // Minimal-Grobplan: Hafen -> Szene A -> Szene B (verzweigt in zwei Ausgänge). Jede Umsetzung spielt an ihrem Testort,
@@ -202,6 +202,9 @@ function mockSzene(input, kat) {
     if (!u) throw new Error(`mock: Umsetzung ${m.id}/${m.umsetzung} unbekannt`);
     const params = JSON.parse(JSON.stringify((u.test && u.test.params) || {}));
     if (u.params.loc) params.loc = s.ort;
+    // S2b: Funk nur aus der Besetzung (stimme der Szene, sonst Auftraggeber; Gegenüber `npc` ohne stimme: neue Stimme)
+    // (Mock bleibt ohne neue Stimmen, damit auch die S1-Prüfung ohne Buchbau sie annimmt)
+    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc') params[pn] = (typeof s.stimme === 'string' && s.stimme && !/^neu:/.test(s.stimme)) ? s.stimme : (g.auftraggeber || 'tesk');
     if ((s.weiter || []).length > 1 && !flagSet) {
       const n = Object.keys(u.params).find((p) => u.params[p].typ === 'aktionen' && Array.isArray(params[p]));
       if (n) { params[n] = params[n].concat([{ setFlag: { [flag]: true } }]); flagSet = true; }
@@ -224,6 +227,19 @@ const SCRIPT_ERRORS = {
 
 // ---------- Transport 'cli' (live) ----------
 function claudeCli() { return process.env.CLAUDE_CLI || path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'); }
+// S2b §4.2: Die CLI hängt sonst CLAUDE.md-Dateien (Projekt + Nutzer) und Auto-Memory an jeden Aufruf (~13k Tokens je Aufruf,
+// gemessen S2: Szene 24k bei ~8k eigenem Prompt). Der Spielleiter braucht nur seinen Systemprompt: neutrales
+// Arbeitsverzeichnis und CLAUDE.md/Memory aus. LLM_CLI_CONTEXT=voll schaltet das für Vergleichsmessungen ab.
+function cliEnv() {
+  const env = Object.assign({}, process.env, { MAX_THINKING_TOKENS: '0' });
+  if (process.env.LLM_CLI_CONTEXT !== 'voll') Object.assign(env, { CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' });
+  return env;
+}
+function cliCwd() {
+  if (process.env.LLM_CLI_CONTEXT === 'voll') return process.cwd();
+  const d = path.join(require('os').tmpdir(), 'pantheon-spielleiter-cli');
+  try { fs.mkdirSync(d, { recursive: true }); return d; } catch (e) { return process.cwd(); }
+}
 function callClaude(text, sysFile, model, timeoutMs) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
@@ -234,7 +250,7 @@ function callClaude(text, sysFile, model, timeoutMs) {
     try {
       p = spawn(process.execPath, [cli, '-p', '--model', model, '--tools', '', '--output-format', 'stream-json', '--verbose',
         '--include-partial-messages', '--no-session-persistence', '--strict-mcp-config', '--system-prompt-file', sysFile],
-      { env: Object.assign({}, process.env, { MAX_THINKING_TOKENS: '0' }), windowsHide: true });
+      { env: cliEnv(), cwd: cliCwd(), windowsHide: true });
     } catch (e) { reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar: ${e.message}`)); return; }
     let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false;
     const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* schon weg */ } }, timeoutMs || 5 * 60 * 1000);

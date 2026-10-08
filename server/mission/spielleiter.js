@@ -52,6 +52,62 @@ function llmModeFromEnv(env) {
   return 'off';
 }
 
+// ---------- Szenen-Prompt (CONTRACT-S2B §4.2): kein Katalog, nur Auszug der Umsetzung(en) + Grobplan-Kurzform + Kontextauszug ----------
+function umsetzungAuszug(env, kontext, s, cast) {
+  const k = kontext || {};
+  const stimmen = [...cast.named].join(', ');
+  return (s.molekuele || []).map((m) => {
+    const mol = env.katalog.molekuele[m.id]; const u = mol && mol.umsetzungen.find((x) => x.id === m.umsetzung);
+    if (!u) return `### ${m.id} / ${m.umsetzung} – unbekannt`;
+    const L = [`### ${mol.id} / ${u.id} – ${u.name}`, u.beschreibung, 'Parameter (* = Pflicht):'];
+    for (const [n, d] of Object.entries(u.params)) {
+      let hint = '';
+      if (d.typ === 'loc') hint = ` → ${s.ort}`;
+      if (d.typ === 'map') hint = ` → ${s.karte || '–'}`;
+      if (d.typ === 'npc') hint = ` → ${s.stimme ? `Stimme der Szene: ${s.stimme}` : `Besetzung: ${stimmen}`}${n === 'npc' && !s.stimme ? ' (Gegner/Gegenüber: neu:Name, nie der Auftraggeber)' : ''}`;
+      if (d.typ === 'find') hint = ` → Funde an ${s.ort}: ${((k.orte || []).find((l) => l.id === s.ort) || { funde: [] }).funde.filter((f) => f.status !== 'gefunden').map((f) => f.id).join(', ') || '–'}`;
+      if (['name', 'fund_name', 'objekt_name', 'was'].includes(n) && s.ziel_name) hint = ` → „${s.ziel_name}“`;
+      L.push(`- ${n}${d.pflicht ? '*' : ''} (${d.typ}${d.werte ? ': ' + d.werte.join('|') : ''}${d.min != null ? `, ${d.min}–${d.max}` : ''}${d.default !== undefined && d.typ !== 'aktionen' ? ', Standard ' + JSON.stringify(d.default) : ''})${d.beschreibung ? ' – ' + d.beschreibung : ''}${hint}`);
+    }
+    if (Array.isArray(u.liefert_flags) && u.liefert_flags.length) L.push(`liefert Flags: ${u.liefert_flags.join(', ')} ({{id}} = ${(s.molekuele.length > 1 ? s.id + '_<n>' : s.id)})`);
+    return L.join('\n');
+  }).join('\n\n');
+}
+function grobplanKurz(g, sid, cast) {
+  const s = g.szenen.find((x) => x.id === sid) || {};
+  const nah = new Set((s.weiter || []).map((w) => w.nach));
+  return {
+    titel: g.titel, auftraggeber: g.auftraggeber, besetzung: [...cast.named, ...[...cast.neu].map((n) => 'neu:' + n)],
+    belohnung_marken: Number.isFinite(g.belohnung_marken) ? g.belohnung_marken : undefined, aufhaenger: g.aufhaenger,
+    szenen: g.szenen.map((x) => {
+      const e = { id: x.id, ort: x.ort, umsetzungen: (x.molekuele || []).map((m) => `${m.id}/${m.umsetzung}`) };
+      if (x.stimme) e.stimme = x.stimme;
+      if (nah.has(x.id)) e.sachverhalt = x.sachverhalt;
+      e.weiter = [...new Set((x.weiter || []).map((w) => w.nach))];
+      return e;
+    }),
+    ausgaenge: Object.fromEntries(Object.entries(g.ausgaenge || {}).map(([k, a]) => [k, (a && a.wann) || ''])),
+  };
+}
+function scenePrompt(g, sid, env, kontext, opts) {
+  const o = opts || {}; const k = kontext || {};
+  const s = g.szenen.find((x) => x.id === sid);
+  if (!s) throw new Error(`Szene '${sid}' fehlt im Grobplan`);
+  const cast = Szenenbau.missionCast(g, env);
+  const npc = (k.npc || []).filter((n) => cast.named.has(n.id))
+    .map((n) => `- ${n.id} (${[n.titel, n.name].filter(Boolean).join(' ')}, Haltung ${n.haltung}): ${(n.gedaechtnis || []).slice(-3).map((x) => x.text).join(' | ') || '–'}`).join('\n');
+  const fakten = Object.entries(k.fakten || {}).map(([a, b]) => `${a} = ${typeof b === 'string' ? b : JSON.stringify(b)}`).join('; ') || '–';
+  const szene = Object.assign({}, s, { weiter: s.weiter });
+  const ent = (g.entscheidungen || []).filter((e) => e.szene === sid);
+  if (ent.length) szene.entscheidungen = ent;
+  return LLM.buildPrompt({
+    grobplan: grobplanKurz(g, sid, cast),
+    variabel: [['weltstand', `Crew: ${(k.crew && k.crew.anzahl) || o.crew || 3}. Fakten: ${fakten}\nNSC der Besetzung:\n${npc || '–'}`], ['szene', szene], ['umsetzungen', umsetzungAuszug(env, k, s, cast)]],
+    schluss: `Arbeite jetzt die Szene '${s.id}' aus. Nur das JSON-Objekt.`,
+    vorher: o.retry || null,
+  });
+}
+
 class Spielleiter {
   constructor(game, opts) {
     const o = opts || {};
@@ -245,7 +301,14 @@ class Spielleiter {
   enqueue(job) { job.token = 0; this.queue.push(job); }
   nextJob() {
     if (!this.queue.length) return null;
-    let i = this.queue.findIndex((j) => j.type === 'szene');
+    // Szenen vor Grobplänen; unter den Szenen die früheste im Grobplan zuerst (auch Nachbesserungen), laufende Mission zuerst
+    let i = -1; let best = Infinity;
+    this.queue.forEach((j, k) => {
+      if (j.type !== 'szene') return;
+      const idx = j.plan && j.plan.grobplan ? j.plan.grobplan.szenen.findIndex((x) => x.id === j.sid) : 99;
+      const score = (j.plan && j.plan.state === 'running' ? 0 : 1000) + (idx < 0 ? 99 : idx);
+      if (score < best) { best = score; i = k; }
+    });
     if (i < 0) i = 0;
     return this.queue.splice(i, 1)[0];
   }
@@ -331,15 +394,16 @@ class Spielleiter {
     this.stats.grobplaene++;
     let g = null; const errs = []; let warns = [];
     try { g = Szenenbau.parseJsonAnswer(r.text); } catch (e) { errs.push('kein gültiges JSON: ' + e.message); }
-    let built = null;
+    let built = null; let repairs = [];
     if (g) {
+      repairs = Szenenbau.normalizeGrobplan(g);   // S2b §4.5: Belohnung nur als belohnung_marken, doppelte weiter
       errs.push(...Szenenbau.checkGrobplan(g, this.env2()));
       const s2 = Szenenbau.checkGrobplanS2(g, this.env2(), plan.kontext, { origin: 'sl', minMinutes: this.C.minPlanMinutes, maxThreads: this.C.maxOpenThreads, crew: this.crew() });
-      errs.push(...s2.errors); warns = s2.warnings;
+      errs.push(...s2.errors); warns = s2.warnings.concat(repairs.map((x) => 'repariert: ' + x));
       if (!errs.length) {
         plan.state = 'checking';
         built = this.buildPlanBook(plan, g, {});
-        if (built.errors.length) errs.push(...built.errors.map((x) => (typeof x === 'string' ? x : `${x.code} ${x.p}: ${x.msg}`)));
+        if (built.errors.length) errs.push(...new Set(Szenenbau.explainBookErrors(g, built.errors, this.env2())));
       }
     }
     this.log({ art: 'grobplan', mission: built && !errs.length ? built.book.id : null, quelle, dauer_s: dauer, tokens: r.tokens || 0, fehler: errs.slice(0, 20),
@@ -475,8 +539,8 @@ class Spielleiter {
         this.log({ art: 'annahme', mission: id, fehler: ['mission.startMission hat die Mission nicht gestartet'], begruendung: 'Start fehlgeschlagen' });
         return 'Die Mission ließ sich nicht starten.';
       }
-      // Vorlauf: Szenen nach dem Hafen
-      this.requestSuccessors(plan, plan.grobplan.szenen[0].id);
+      // Vorlauf (S2b §4.4): alle Szenen bis einschließlich der zweiten nach dem Hafen, dazu Szenen am selben Ort ohne Anflug
+      this.requestAhead(plan, plan.grobplan.szenen[0].id, 2);
       return null;
     } catch (e) { this.countError('accept', e); return 'Annehmen fehlgeschlagen.'; }
   }
@@ -530,14 +594,34 @@ class Spielleiter {
     plan.entered.add(sid);
     const sc = plan.szenen[sid];
     if (sc) {
-      if (sc.state === 'requested') this.cancelScene(plan, sid);
+      if (sc.state === 'requested') {
+        this.cancelScene(plan, sid);
+        sc.quelle = 'rohfassung';
+        this.log({ art: 'rueckfall', mission: plan.id, szene: sid, quelle: 'rohfassung', plan: plan.key,
+          begruendung: `Szene bleibt Rohfassung: zu spät – betreten nach ${Math.round((this.time - (sc.requestedAt || this.time)) * 10) / 10} s Anfrage (${sc.versuche || 0} Versuch(e) fertig)` });
+      }
       sc.state = 'active';
     }
-    this.requestSuccessors(plan, sid);
+    this.requestAhead(plan, sid, 1);
   }
-  requestSuccessors(plan, sid) {
-    const s = plan.grobplan.szenen.find((x) => x.id === sid);
-    for (const w of (s && s.weiter) || []) { const n = String(w.nach || ''); if (!n.startsWith('ausgang:')) this.requestScene(plan, n); }
+  requestSuccessors(plan, sid) { this.requestAhead(plan, sid, 1); }
+  // Vorlauf (S2b §4.4): Nachfolger bis zur Tiefe `depth` anfragen; Nachfolger am selben Ort ohne Anflug-Schritt zählen nicht
+  // als Stufe (sie beginnen ohne Sprung sofort), deren Nachfolger kommen also gleich mit.
+  requestAhead(plan, sid, depth, seen) {
+    const g = plan.grobplan; if (!g) return;
+    const vis = seen || new Set([sid]);
+    const s = g.szenen.find((x) => x.id === sid);
+    const pre = Szenenbau.predecessors(g);
+    for (const w of (s && s.weiter) || []) {
+      const n = String(w.nach || '');
+      if (n.startsWith('ausgang:') || vis.has(n)) continue;
+      vis.add(n);
+      this.requestScene(plan, n);
+      const t = g.szenen.find((x) => x.id === n);
+      const sameSpot = t && !Szenenbau.needsApproach(g, t, pre);
+      const d = sameSpot ? depth : depth - 1;
+      if (d > 0) this.requestAhead(plan, n, d, vis);
+    }
   }
   requestScene(plan, sid) {
     const sc = plan.szenen[sid];
@@ -554,33 +638,8 @@ class Spielleiter {
   }
   sceneInput(job) {
     const plan = job.plan; const g = plan.grobplan;
-    const s = g.szenen.find((x) => x.id === job.sid);
-    const env = this.env2(); const k = plan.kontext || {};
-    const npc = (k.npc || []).map((n) => `- ${n.id} (${[n.titel, n.name].filter(Boolean).join(' ')}, Haltung ${n.haltung}): ${(n.gedaechtnis || []).map((x) => x.text).join(' | ')}`).join('\n');
-    const umsetzungen = (s.molekuele || []).map((m) => {
-      const mol = env.katalog.molekuele[m.id]; const u = mol && mol.umsetzungen.find((x) => x.id === m.umsetzung);
-      if (!u) return `### ${m.id} / ${m.umsetzung} – unbekannt`;
-      const L = [`### ${mol.id} / ${u.id} – ${u.name}`, u.beschreibung, 'Parameter (* = Pflicht):'];
-      for (const [n, d] of Object.entries(u.params)) {
-        let hint = '';
-        if (d.typ === 'loc') hint = ` → Ort der Szene: ${s.ort}`;
-        if (d.typ === 'map') hint = ` → Karte der Szene: ${s.karte || '–'}`;
-        if (d.typ === 'npc') hint = ` → eine von: ${env.npc.join(', ')}`;
-        if (d.typ === 'find') hint = ` → Funde an ${s.ort}: ${((k.orte || []).find((l) => l.id === s.ort) || { funde: [] }).funde.filter((f) => f.status !== 'gefunden').map((f) => f.id).join(', ') || '–'}`;
-        L.push(`- ${n}${d.pflicht ? '*' : ''} (${d.typ}${d.werte ? ': ' + d.werte.join('|') : ''}${d.min != null ? `, ${d.min}–${d.max}` : ''}${d.default !== undefined ? ', Standard ' + JSON.stringify(d.default) : ''})${d.beschreibung ? ' – ' + d.beschreibung : ''}${hint}`);
-      }
-      if (Array.isArray(u.liefert_flags) && u.liefert_flags.length) L.push(`liefert Flags: ${u.liefert_flags.join(', ')} ({{id}} = ${(s.molekuele.length > 1 ? s.id + '_<n>' : s.id)})`);
-      return L.join('\n');
-    }).join('\n\n');
-    const plan2 = Object.assign({}, g, { szenen: g.szenen.map((x) => ({ id: x.id, ort: x.ort, molekuele: (x.molekuele || []).map((m) => m.umsetzung), sachverhalt: x.sachverhalt, weiter: x.weiter })) });
-    const prompt = LLM.buildPrompt({
-      katalog: require('./katalog.js').fuerSpielleiter(this.katalog(), 'kurz'),
-      grobplan: plan2,
-      variabel: [['weltstand', `Crew: ${(k.crew && k.crew.anzahl) || this.crew()}. NSC:\n${npc}`], ['szene', s], ['umsetzungen', umsetzungen]],
-      schluss: `Arbeite jetzt die Szene '${s.id}' aus. Nur das JSON-Objekt.`,
-      vorher: job.retry || null,
-    });
-    return { prompt, system: LLM.systemPromptFile('szene'), art: 'szene', welt: this.weltId(), mission: plan.id, szene: s.id, versuch: (plan.szenen[s.id].versuche || 0) + 1, grobplan: g };
+    const prompt = scenePrompt(g, job.sid, this.env2(), plan.kontext || {}, { crew: this.crew(), retry: job.retry || null });
+    return { prompt, system: LLM.systemPromptFile('szene'), art: 'szene', welt: this.weltId(), mission: plan.id, szene: job.sid, versuch: (plan.szenen[job.sid].versuche || 0) + 1, grobplan: g };
   }
   handleScene(plan, job, r, dauer, quelle) {
     const sid = job.sid; const sc = plan.szenen[sid];
@@ -590,10 +649,18 @@ class Spielleiter {
       return;
     }
     sc.versuche = (sc.versuche || 0) + 1;
-    let a = null; const errs = [];
+    let a = null; const errs = []; let repairs = [];
     try { a = Szenenbau.parseJsonAnswer(r.text); } catch (e) { errs.push('kein gültiges JSON: ' + e.message); }
     let built = null; const answers = Object.assign({}, plan.bookAnswers);
     if (a) {
+      // S2b §4.3: einfache Fehler automatisch reparieren (Verzweigung, Flag ohne Folge, setFlag-Form, Wendung)
+      const s = plan.grobplan.szenen.find((x) => x.id === sid);
+      try {
+        const others = Object.assign({}, plan.bookAnswers); delete others[sid];
+        const rep = Szenenbau.repairSceneAnswer(plan.grobplan, s, a, this.env2(), { knownFlags: Szenenbau.planFlags(plan.grobplan, others, this.env2()) });
+        a = rep.answer; repairs = rep.repairs;
+      } catch (e) { this.countError('repair', e); }
+      errs.push(...Szenenbau.factContradictions(Szenenbau.answerTexts(a), (plan.kontext && plan.kontext.fakten) || {}));
       answers[sid] = { answer: a, quelle };
       built = this.buildPlanBook(plan, plan.grobplan, answers);
       const info = built.szenen[sid] || {};
@@ -601,15 +668,19 @@ class Spielleiter {
       if (built.errors.length) errs.push(...built.errors.map((x) => (typeof x === 'string' ? x : `${x.code} ${x.p}: ${x.msg}`)));
       if (info.quelle === 'rohfassung' && !errs.length) errs.push('Szene ließ sich nicht zusammensetzen');
     }
-    this.log({ art: 'szene', mission: plan.id, szene: sid, quelle, dauer_s: dauer, tokens: r.tokens || 0, fehler: errs.slice(0, 20), versuch: sc.versuche,
-      begruendung: errs.length ? `Szene ungültig (Versuch ${sc.versuche})` : 'Szene ausgearbeitet, Rohfassung ersetzt' });
+    this.log({ art: 'szene', mission: plan.id, szene: sid, quelle, dauer_s: dauer, tokens: r.tokens || 0, fehler: errs.slice(0, 20), versuch: sc.versuche, reparaturen: repairs.slice(0, 10),
+      begruendung: (errs.length ? `Szene ungültig (Versuch ${sc.versuche})` : 'Szene ausgearbeitet, Rohfassung ersetzt') + (repairs.length ? ` – ${repairs.length} Reparatur(en): ${repairs.slice(0, 3).join(' | ')}` : '') });
     if (errs.length) {
       if (sc.versuche <= this.C.retries) { this.enqueue({ type: 'szene', plan, sid, retry: { antwort: String(r.text).slice(0, 8000), fehler: errs.slice(0, 20) } }); return; }
       this.sceneFailed(plan, sid, 'zweimal ungültig');
       return;
     }
     const res = this.callMission('updateBook', plan.id, built.book);
-    if (res && res.ok === false) { this.sceneFailed(plan, sid, 'updateBook abgelehnt: ' + ((res.errors || []).slice(0, 2).map((x) => x.code || x).join(', ') || res.error || '')); return; }
+    if (res && res.ok === false) {
+      const why = ((res.errors || []).slice(0, 2).map((x) => x.code || x).join(', ') || res.error || '');
+      this.sceneFailed(plan, sid, (/BETRETEN/.test(why) ? 'zu spät – Szene schon betreten; ' : '') + 'updateBook abgelehnt: ' + why);
+      return;
+    }
     plan.book = built.book; plan.bookAnswers = answers;
     sc.state = 'ready'; sc.quelle = quelle; sc.antwort = a; sc.key = r.key || null;
     this.ablageStore(plan, 'update');   // §8c: Szene ersetzt
@@ -765,7 +836,15 @@ class Spielleiter {
       const say = (t) => { try { if (player && this.game && typeof this.game.notice === 'function') this.game.notice(player, t); else if (this.game && this.game.log) this.game.log(t); } catch (e) { this.countError('debug', e); } };
       switch (a[0]) {
         case 'status': case undefined: say(this.status()); return null;
-        case 'plan': this.startRound({ art: 'debug' }, { force: true }); say('Spielleiter: neuer Grobplan angefragt.'); return null;
+        case 'plan': {
+          // QA-Abnahme S2b: `sl plan [npc] [Vorgabe …]` – Auftraggeber/Vorgabe für die Live-Abnahme vorgeben (Debug)
+          const an = { art: 'debug' };
+          if (a[1]) an.auftraggeber = a[1];
+          if (a.length > 2) an.auftrag = a.slice(2).join(' ');
+          this.startRound(an, { force: true });
+          say(`Spielleiter: neuer Grobplan angefragt${an.auftraggeber ? ' (Auftraggeber ' + an.auftraggeber + ')' : ''}.`);
+          return null;
+        }
         case 'fail':
           if (a[1] !== 'grobplan' && a[1] !== 'szene') return 'sl fail grobplan|szene';
           this.failNext[a[1]] = true; say(`Spielleiter: nächster ${a[1]}-Aufruf schlägt fehl.`); return null;
@@ -789,4 +868,4 @@ Spielleiter.prototype.dispose = function dispose() {
 
 function create(game, opts) { return new Spielleiter(game, opts); }
 
-module.exports = { create, Spielleiter, DEFAULTS, llmModeFromEnv, TEASER_TEXT, WAIT_ODA, katalog };
+module.exports = { create, Spielleiter, DEFAULTS, llmModeFromEnv, TEASER_TEXT, WAIT_ODA, katalog, scenePrompt, grobplanKurz };

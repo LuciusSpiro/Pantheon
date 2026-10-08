@@ -23,7 +23,7 @@
     {"t":53.3,"from":"Hafenmeisterin Tesk","text":"Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen."},
     {"t":151.3,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
     {"t":172.2,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
-    {"t":224,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Dann bleibt sie, wo sie hingehört. Danke, Lerche – 120 Marken sind unterwegs."}
+    {"t":224,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
   ],
   "oda": [
     {"t":0,"text":"Bo ist an Bord gekommen. Willkommen in der Schicht!"},
@@ -79,7 +79,7 @@
     {"t":12.4,"marks":190,"delta":20},
     {"t":224,"marks":310,"delta":120}
   ],
-  "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":false,"m3Direct":true},"marks":310,"inventory":{"loeschgelCharges":0,"marks":310,"deko":["trophaee_boje"],"tafel":1,"ersatzteil":4,"loeschgel":2,"flickblech":3,"bolzen":6,"medipack":1}},
+  "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":false,"m3Direct":true},"marks":310,"inventory":{"loeschgelCharges":0,"marks":310,"deko":["trophaee_boje"],"tafel":0,"ersatzteil":4,"loeschgel":2,"flickblech":3,"bolzen":6,"medipack":1}},
   "errors": 0,
   "ending": {"t":224,"title":"Die Tafel ist sicher"}
 }

@@ -70,6 +70,10 @@ lance_aim/tele_charge vorzeitig per <code>GameAudio.stop</code>. Abläufe spiele
 hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
 <div class="grid" id="variantsS2"></div>
 
+<h2>S2b – Sperrfeuer</h2>
+<p class="hint">sperrfeuer (ein Ton je Feuerstoß des Kanonenboots: drei dumpfe Wummer, nicht lauter als hull_hit, Rate-Limit 600 ms).</p>
+<div class="grid" id="variantsS2b"></div>
+
 <h2>Master</h2>
 <div class="row">
   <label>Lautstärke <input type="range" id="volume" min="0" max="1" step="0.05" value="0.8"></label>
@@ -96,7 +100,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
   LOUD.shield_break = 1; LOUD.enemy_aim = 1; LOUD.warden_aim = 1; LOUD.wounded = 1;
   LOUD.tele_charge = 1; LOUD.heavy_hit = 1; LOUD.system_break = 1;
   var S1 = { save_seal:1, world_load:1, save_delete:1 };
-  var S2 = { gm_static:1, offer_in:1, distress:1, escort_hit:1, escort_lost:1, escort_saved:1 };
+  var S2 = { gm_static:1, offer_in:1, distress:1, escort_hit:1, escort_lost:1, escort_saved:1, sperrfeuer:1 };
   LOUD.distress = 1;
   function cls(n) { return ((LOUD[n] ? 'loud ' : '') + (M1[n] ? 'm1' : M2[n] ? 'm2' : M3[n] ? 'm3' : S1[n] ? 's1' : S2[n] ? 's2' : '')).trim(); }
 
@@ -251,6 +255,26 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     at(2300, function () { A.play('escort_hit', withP({ pan: 0.4 })); });
     at(2700, function () { A.play('escort_lost', base()); });
   }, 's2 loud');
+
+  // S2b: Sperrfeuer – Lautheit gegen hull_hit, Ablauf eines Gefechts mit Kanonenboot
+  make($('variantsS2b'), 'Vergleich: sperrfeuer · hull_hit', function () {
+    A.play('sperrfeuer', base());
+    at(900, function () { A.play('hull_hit', base()); });
+  }, 's2');
+  make($('variantsS2b'), 'Vergleich: sperrfeuer · bolzen · enemy_shot', function () {
+    A.play('sperrfeuer', base());
+    at(800, function () { A.play('bolzen', base()); });
+    at(1400, function () { A.play('enemy_shot', base()); });
+  }, 's2');
+  make($('variantsS2b'), 'Ablauf: Sperrfeuer alle 3 s, ein Treffer, Ladeschuss', function () {
+    A.play('sperrfeuer', withP({ pan: -0.4 }));
+    at(3000, function () { A.play('sperrfeuer', withP({ pan: -0.4 })); });
+    at(4200, function () { A.play('shield_hit', withP({ seg: 1 })); });
+    at(5000, function () { A.play('tele_charge', withP({ kind: 'gunboat' })); });
+    at(7000, function () { A.play('dodge', base()); });
+    at(7600, function () { A.play('dodge_evade', base()); });
+    at(9000, function () { A.play('sperrfeuer', withP({ pan: -0.4 })); });
+  }, 's2');
 
   $('intensity').addEventListener('input', function () {
     ensure(); A.setIntensity(+this.value); $('intensityVal').textContent = (+this.value).toFixed(2);

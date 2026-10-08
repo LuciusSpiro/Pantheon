@@ -50,7 +50,11 @@
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
     },
     enemies: {
-      raider: { hp: 12, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
+      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp wird noch mit crewScaling.enemyHp
+      // (solo 0,5 / zu zweit, zu dritt 0,7) und spaceM3.enemyHpFactor 0,8 multipliziert – mit 36 hatte ein Jäger zu dritt
+      // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
+      // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
+      raider: { hp: 44, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
       // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Kanonenboot-Welle bis 60 Hülle)
       gunboat: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
       relay: { hp: 2, speed: 30, fireInterval: 999, damage: 0, range: 0, salvage: 5 },   // Störrelais der Boje (schießt nicht)
@@ -139,7 +143,10 @@
     emergency: { hull: 30, marksCost: 50 },
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
-    emergencyRepair: { brokenDelay: 45, breachDelay: 30 },
+    // QA S2b: fireMin/fireDelay – brennt es außerhalb des Kampfs an ≥ fireMin Stellen ununterbrochen fireDelay s lang, löscht
+    // ODA alles (Brandschutz-Flutung). Sonst kippt ein Schiff nach langem Gefecht in einen Dauerbrand an der Obergrenze
+    // (fire.max), der Geflicktes immer wieder bricht – Golden m1/3 Seed 8: Triebwerk 5 Min. kaputt, kein Sprung, Softlock.
+    emergencyRepair: { brokenDelay: 45, breachDelay: 30, fireMin: 4, fireDelay: 45 },
     mission: {
       combatFireBy: 40, gunboatAfter: 50, bribeShieldBreakAt: 25, gunboatBreachAt: 0.5,
       grauzahnRadioX: 1500, scanHoldTimeout: 0.4, softlockWarn: 240,
@@ -277,7 +284,8 @@
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,
       // QA M3a: gunboat.damage 4 -> 3 (ein voller Treffer kostete 20 Hülle, jetzt 15)
-      tele: { gunboat: { dur: 3, damage: 3 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
+      // S2b (Kai: mehr Feuerkraft): gunboat.damage 3 -> 4
+      tele: { gunboat: { dur: 3, damage: 4 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
         delayPerHit: 1, delayMax: 2, captainSeesLast: 1.2, odaCooldown: 4 },
       burst: { duration: 1.5, perfect: 0.5, absorb: 5, absorbDamaged: 2, cooldown: 8 },
       repair: { flickTime: 1.5, partTime: 3, minigameMinTime: 2.5, queueMax: 3, odaCooldown: 3 },
@@ -318,6 +326,19 @@
     spielleiter: { offers: 2, archivOffers: 1, grobplanTimeout: 120, sceneTimeout: 45, retries: 1, minBudget: 30000,
       sceneWaitMax: 20, prefetch: 'start', maxConcurrent: 1, rateLimitPause: 60, regieRotateBytes: 5 * 1024 * 1024,
       minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1 },
+    // ---- S2b (CONTRACT-S2B §2): Sperrfeuer des Kanonenboots – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
+    // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
+    // escortFactor = Schaden auf Schützlinge (× escorts.hullPerDamage × crewDamage). interval gilt für eine Dreier-Crew,
+    // kleinere Crews × crewScaling-Verhältnis (solo ~3,9 s).
+    // Zielen (Abweichung vom Vertragswortlaut „Vorhalt ≤ 0,5 s“): lead = Anteil der Kurs-Vorhersage (Abfangpunkt bei
+    // gehaltenem Kurs und Tempo), maxLead = höchstens so viele s voraus. Mit 0,5 s traf das Sperrfeuer eine fahrende Lerche
+    // nie (Flugzeit ~3,5 s), nur eine stehende. Jetzt: wer Kurs hält, wird getroffen; Kurs-/Tempowechsel oder Ausweichen
+    // in den ~3 s Flugzeit bringen den Stoß vorbei.
+    spaceS2b: { sperrfeuer: { burst: 3, burstGap: 0.25, interval: 3, speed: 110, ttl: 6, damage: 0.5, spread: 0.12, range: 520, lead: 1, maxLead: 4,
+      maxProjectiles: 18, escortFactor: 0.5, leakFactor: 0.3, shieldedFactor: 0 } },   // damage 1 -> 0,5 (KAMPF: mit 1 kostete Kurshalten ~1 Hülle/s)
+    // leakFactor: Systemschaden-Chance eines Sperrfeuer-Treffers ohne Schild (× shieldLeak[0]); mit Schild nie.
+    // shieldedFactor: Schaden, wenn die Lerche ein Geschoss auf einen Schützling mit dem Rumpf abfängt (0 = Breitseite
+    // schluckt es ganz – mit 0,5/1 räumte das Sperrfeuer ihren Schild ab und die nächste Ladung ging ungedeckt durch).
     // Schützlinge: Hülle je Klasse, Gehorsam nach Haltung (s Verzögerung), Warnschwellen, Aggro-Dauer nach Treffer der Lerche
     escorts: { max: 2, hull: { frachter: 120, karawane: 100, bergungsboot: 70 }, obeyDelay: { pos: 0, neutral: 2, neg: 4 },
       warnAt: [0.75, 0.5, 0.25], aggroOnHit: 10, rebukeCooldown: 30, distressBelow: 0.5, distressFastBelow: 0.3,
@@ -335,7 +356,7 @@
       // Reisetempo folgt_kurs als Anteil der Klassen-Höchstfahrt (QA-INTEGRATION S2: deutlich unter der Lerche, Geleit ~3–4 min)
       cruise: { min: 0.2, max: 0.45 },
       // Schaden auf Schützlinge je Crewgröße (Faktor auf hullPerDamage); Ziel: zu dritt 70–90 % heil, solo 50–70 % heil
-      crewDamage: { 1: 0.4, 2: 0.9, 3: 1.25 } },
+      crewDamage: { 1: 0.18, 2: 0.9, 3: 1.25 } },   // QA S2b: solo 0.4 -> 0.18 (Jäger 3× zäher: Geleit solo 0/10 -> 5/10 heil)
     spaceM3b: {
       flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
       pilot: { kP: 2.5, kD: 1.2, gunboatRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
@@ -349,7 +370,7 @@
         4: { chance: 0, heavyReduce: 1 },
       },
       shieldOverflow: true,
-      escalation: { after: 20 },          // s beschädigt/zerstört im Kampf ohne Arbeit -> Feuer neben der Station
+      escalation: { after: 20, maxFires: 3 },   // s beschädigt/zerstört im Kampf ohne Arbeit -> Feuer neben der Station; QA S2b: nicht ab 3 Bränden
       repairHitLoss: 0.5,                  // Anteil Fortschritt, den ein Hüllentreffer im Sektor kostet
       reactorAutoRestart: 3,               // s: zerstörter Reaktor repariert + Gegner da -> startet selbst
       // QA M3b (Gegnerdruck, nur im neuen Flugmodell): Feuerintervall (× crewScaling) und Vorhalt (0..1) der Blaster-Schüsse

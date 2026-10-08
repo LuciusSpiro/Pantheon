@@ -290,8 +290,19 @@ class Mission {
     let r;
     try { r = Checker.check(book); } catch (e) { return fail('PRUEFER', '$', 'Prüfer abgestürzt: ' + e.message); }
     if (!r.ok) return { ok: false, errors: r.errors, warnings: r.warnings };
-    const oldSteps = new Map((x.book.steps || []).map((s) => [s.id, JSON.stringify(s)]));
-    const newSteps = new Map((book.steps || []).map((s) => [s.id, JSON.stringify(s)]));
+    // QA-Abnahme S2b: Die Flag-Rücksetzung im enter des ersten Schritts ({ setFlag: { a: null, … } }) listet alle Flags des
+    // Buchs; bringt eine ersetzte Szene andere Flags mit, änderte sich dadurch der schon betretene Hafen-Schritt und die
+    // ausgearbeitete Szene wurde mit BETRETEN abgelehnt (live: s3_begegnung). Ein bereits gelaufenes enter wirkt nicht mehr –
+    // reine Rücksetzungen zählen beim Vergleich daher nicht.
+    const isReset = (a) => isObj(a) && isObj(a.setFlag) && Object.keys(a).length === 1 && Object.values(a.setFlag).every((v) => v === null);
+    const norm = (s) => {
+      if (!Array.isArray(s.enter)) return JSON.stringify(s);
+      const o = Object.assign({}, s, { enter: s.enter.filter((a) => !isReset(a)) });
+      if (!o.enter.length) delete o.enter;
+      return JSON.stringify(o);
+    };
+    const oldSteps = new Map((x.book.steps || []).map((s) => [s.id, norm(s)]));
+    const newSteps = new Map((book.steps || []).map((s) => [s.id, norm(s)]));
     for (const key of this.entered) {
       const [mid, sid] = key.split(':');
       if (mid !== id) continue;

@@ -39,7 +39,9 @@
     // S1 „Regiebuch & Weltstand“
     'save_seal', 'world_load', 'save_delete',
     // S2 „Spielleiter & Schützling“
-    'gm_static', 'offer_in', 'distress', 'escort_hit', 'escort_lost', 'escort_saved'];
+    'gm_static', 'offer_in', 'distress', 'escort_hit', 'escort_lost', 'escort_saved',
+    // S2b „Sperrfeuer“ (Kanonenboot)
+    'sperrfeuer'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -75,7 +77,9 @@
     // S1 (Speichern ist entprellt, trotzdem nie als Teppich)
     save_seal: 1500, world_load: 2000, save_delete: 300,
     // S2 (Notruf nie als Dauerton, Treffer am Schützling nicht als Teppich)
-    gm_static: 700, offer_in: 1000, distress: 1500, escort_hit: 150, escort_lost: 1500, escort_saved: 1500
+    gm_static: 700, offer_in: 1000, distress: 1500, escort_hit: 150, escort_lost: 1500, escort_saved: 1500,
+    // S2b: ein Ton je Feuerstoß (Stoß ≈ alle 3 s), nie als Teppich
+    sperrfeuer: 600
   };
   var DEFAULT_GAP = 50;
 
@@ -93,7 +97,9 @@
     // S1: Speichersiegel leise im Hintergrund
     save_seal: 0.7, save_delete: 0.8,
     // S2: Funkrauschen leise, Notruf vorne, Treffer am Schützling unter hull_hit
-    gm_static: 0.6, offer_in: 0.9, distress: 1.1, escort_hit: 0.85, escort_lost: 1.0, escort_saved: 0.85
+    gm_static: 0.6, offer_in: 0.9, distress: 1.1, escort_hit: 0.85, escort_lost: 1.0, escort_saved: 0.85,
+    // S2b: Sperrfeuer dumpf und deutlich unter hull_hit (1,3)
+    sperrfeuer: 0.8
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
   var DUCK = {
@@ -487,6 +493,18 @@
       }
       tone({ f: 123.47, t: t + 0.08, dur: 1.1, a: 0.1, hold: 0.3, vol: 0.06, out: o });
       return 1.2;
+    },
+    // S2b: Sperrfeuer des Kanonenboots – drei dumpfe, kurze Wummer (ein Feuerstoß), tief und gefiltert, mit leisem
+    // Ploppen der Treibladung. Lesbar als „langsam, kommt auf uns zu“, nicht als Treffer: kein Metall, kein Knall,
+    // Spitzenpegel deutlich unter hull_hit (Rausch 0,3 statt 0,85, Ton 0,3 statt 0,6; LEVEL 0,8 statt 1,3).
+    sperrfeuer: function (t, o) {
+      for (var i = 0; i < 3; i++) {
+        var tt = t + i * 0.11, d = 1 - i * 0.12;
+        tone({ f: 96 - i * 6, f2: 44, t: tt, dur: 0.2, a: 0.004, vol: 0.3 * d, out: o });
+        noise({ t: tt, dur: 0.16, a: 0.003, vol: 0.3 * d, out: o, filter: 'lowpass', ff: 520, ff2: 130, q: 0.9 });
+        tone({ type: 'triangle', f: 210, f2: 120, t: tt + 0.005, dur: 0.06, vol: 0.06 * d, out: o, filter: 'lowpass', ff: 900 });
+      }
+      return 0.55;
     },
     extinguish: function (t, o) {
       noise({ t: t, dur: 0.55, a: 0.02, hold: 0.2, vol: 0.32, out: o, filter: 'bandpass', ff: 3200, ff2: 1200, q: 0.7 });

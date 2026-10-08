@@ -1,18 +1,18 @@
 {
   "grobplan/grauzahn-rache.sonnet": {
-    "hash": "4ec47c97ec62e74e4f3603c33709b40958103edf",
+    "hash": "d43d302878f2d524bbe12807581839ee9e9b8b09",
     "fehler": []
   },
   "grobplan/sela-fund.haiku": {
-    "hash": "daed9cb85049ffb68cd1ef17c57ed14aae4fc5b2",
+    "hash": "121d14c4c25a8997099381978eecab83603691d0",
     "fehler": []
   },
   "grobplan/melk-klausel.sonnet": {
-    "hash": "4b659d4887a1def100f286b412a3972c303445ec",
+    "hash": "49d535105a47f577a4bd3b3d5694acb61b0d0df9",
     "fehler": []
   },
   "grobplan/melk-klausel.haiku": {
-    "hash": "e53a47add318a1198cc7090102b25959d17a8ce2",
+    "hash": "d539855940f1e70fa01e83b2be50ef25b52be727",
     "fehler": [
       "ABLAUF-KEIN-ENDE",
       "ABLAUF-KEIN-ENDE",
@@ -28,7 +28,7 @@
     ]
   },
   "grobplan/grauzahn-rache.haiku": {
-    "hash": "445bf16a3dbc54734384aa3beffdb455827db2de",
+    "hash": "a4cd633f4d4de9cbf289454191e5b66094a3f37d",
     "fehler": [
       "ABLAUF-KEIN-ENDE",
       "ABLAUF-KEIN-ENDE",
@@ -43,66 +43,66 @@
     ]
   },
   "grobplan/sela-fund.sonnet": {
-    "hash": "e2ed1157194a0103ec7603f88c6c414970b0745c",
+    "hash": "3360e4767d802c4f10da6325ce621a3c038214ce",
     "fehler": []
   },
   "szene/grauzahn-rache.s3_funkduell.haiku.w": {
-    "hash": "ab3585f3f1ab3f4855872658f354d0bfd65d431a",
+    "hash": "c9d3c5185d662093c5b270f300aae7f65f69a0c7",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.sonnet.2": {
-    "hash": "216a3d70a57c253c02a45758bfd244588ee5429a",
+    "hash": "2f54c74663bc00f5ca641a9fe5a79b24e38d04fa",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s2_splitter_annaeherung.sonnet.final": {
-    "hash": "4ec47c97ec62e74e4f3603c33709b40958103edf",
+    "hash": "d43d302878f2d524bbe12807581839ee9e9b8b09",
     "fehler": [],
     "szene": "rohfassung"
   },
   "szene/grauzahn-rache.s3_funkduell.sonnet.1": {
-    "hash": "a824ca932593cff3ee56d55af7365ee7ed2be560",
+    "hash": "2f32099f7ab441d14312db89518081dec3b764cf",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.haiku.1": {
-    "hash": "5b687ab534928aa4faf707094799a46fefebfeca",
+    "hash": "c2a7bcefa8fb5ab3aae3113bbd79640f70769ce5",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.haiku.3": {
-    "hash": "2b6fcda0008ed83481b11373c1a2362b5ac5b12f",
+    "hash": "55eb3da22b32303c850924d6fe84508abccc8713",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s2_splitter_annaeherung.haiku.final": {
-    "hash": "4ec47c97ec62e74e4f3603c33709b40958103edf",
+    "hash": "d43d302878f2d524bbe12807581839ee9e9b8b09",
     "fehler": [],
     "szene": "rohfassung"
   },
   "szene/grauzahn-rache.s3_funkduell.sonnet.w": {
-    "hash": "e282f157fa85be69bf923d9af0fd8f692332a257",
+    "hash": "fcb9a7c4117e6ceee291c00961b6d33541e537ee",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.sonnet.final": {
-    "hash": "e282f157fa85be69bf923d9af0fd8f692332a257",
+    "hash": "fcb9a7c4117e6ceee291c00961b6d33541e537ee",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.sonnet.3": {
-    "hash": "577a3856db1afecdf707f301118c457d8646e96c",
+    "hash": "dfd315ccd5b4609b470a79b5d32f79a7eb12c49a",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.haiku.2": {
-    "hash": "58df1550d6cda1d4dc5ffd85a351adbb3307fa94",
+    "hash": "6d8934c7f481d99365ea3b63e6f7f37456f2c53c",
     "fehler": [],
     "szene": "llm"
   },
   "szene/grauzahn-rache.s3_funkduell.haiku.final": {
-    "hash": "ab3585f3f1ab3f4855872658f354d0bfd65d431a",
+    "hash": "c9d3c5185d662093c5b270f300aae7f65f69a0c7",
     "fehler": [],
     "szene": "llm"
   }

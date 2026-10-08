@@ -442,6 +442,8 @@
     Art.drawProjectile(g, 'bolzen', 300 + (t * 100 % 120), 315, 0.2, t);
     Art.drawProjectile(g, 'blaster', 300 + (t * 120 % 120), 330, 0, t);
     Art.drawProjectile(g, 'drone', 300 + (t * 60 % 120), 345, 0, t);
+    // S2b: Sperrfeuer des Kanonenboots – langsamer Stoß aus drei Bolzen (aus der Breitseite des Boots bei 470/250)
+    for (var sk = 0; sk < 3; sk++) Art.drawProjectile(g, 'sperrfeuer', 470 + 30 + ((t * 40 + sk * 14) % 110), 268 + sk * 12, 0.25, t);
     Art.drawBeam(g, 400, 140, 470, 240, 'lanze', 0.25 - (t % 0.5) / 2 + 0.1);
     Art.drawBeam(g, 380, 110, 300, 250, 'seitenturm', 0.2);
     Art.drawEnemy(g, 'unknown', 690, 380, 0, {});
@@ -953,7 +955,7 @@
     ['raider', 'gunboat', 'x'].forEach(function (k) { call(function () { Art.drawEnemy(g, k, 100, 100, -2, { hpFrac: 0.1, hitT: 0.05, time: 1 }); }); call(function () { Art.drawEnemy(g, k, 100, 100); }); });
     call(function () { Art.drawAsteroid(g, 100, 100, 30, 5); }); call(function () { Art.drawAsteroid(g, 100, 100); });
     ['port', 'buoy', 'x'].forEach(function (k) { call(function () { Art.drawStation(g, k, 100, 100, { time: 1 }); }); call(function () { Art.drawStation(g, k, 100, 100); }); });
-    ['enemy', 'bolzen', 'blaster', 'drone', 'x'].forEach(function (k) { call(function () { Art.drawProjectile(g, k, 50, 50, 1, 2); }); call(function () { Art.drawProjectile(g, k, 50, 50); }); });
+    ['enemy', 'bolzen', 'blaster', 'drone', 'sperrfeuer', 'x'].forEach(function (k) { call(function () { Art.drawProjectile(g, k, 50, 50, 1, 2); }); call(function () { Art.drawProjectile(g, k, 50, 50); }); });
     ['lanze', 'seitenturm', 'x'].forEach(function (k) { call(function () { Art.drawBeam(g, 0, 0, 100, 50, k, 0.1); }); call(function () { Art.drawBeam(g, 0, 0, 100, 50, k); }); });
     call(function () { Art.drawStarfield(g, -500, 300, 200, 200, 4); }); call(function () { Art.drawStarfield(g); });
     call(function () { Art.drawText(g, ALL_GLYPHS + '☃', 0, 0, { scale: 2, align: 'center', shadow: true, color: '#fff' }); });

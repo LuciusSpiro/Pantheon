@@ -36,7 +36,7 @@
         "item": { "typ": "text", "default": "datenkern", "werte": ["datenkern", "tafel"], "beschreibung": "Gegenstand, der übergeben wird, falls er an Bord ist" },
         "lohn": { "typ": "zahl", "default": 80, "min": 0, "max": 300 },
         "was": { "typ": "text", "default": "die Ladung", "beschreibung": "Was übergeben wird, für die Texte (z. B. „die Messdaten“)" },
-        "funk_quittung": { "typ": "text", "default": "Angekommen und quittiert. Gute Arbeit, Lerche – die Marken sind unterwegs." }
+        "funk_quittung": { "typ": "text", "default": "Angekommen und quittiert. Gute Arbeit, Lerche – sauber übergeben." }
       },
       "vorlage": {
         "buehne": { "orte": ["{{loc}}"] },
@@ -84,7 +84,7 @@
       "rueckfall": {
         "params": {
           "was": "die Ladung",
-          "funk_quittung": "Angekommen und quittiert. Gute Arbeit, Lerche – die Marken sind unterwegs."
+          "funk_quittung": "Angekommen und quittiert. Gute Arbeit, Lerche – sauber übergeben."
         }
       },
       "test": {

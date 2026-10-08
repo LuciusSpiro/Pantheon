@@ -1,0 +1,1763 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_1_m4_antwort_vorbereit-2",
+  "name": "2026-10-08_sl_1_m4_antwort_vorbereit-2",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 23637,
+  "erstellt": "2026-10-08T13:51:14.565Z",
+  "aktualisiert": "2026-10-08T13:52:10.984Z",
+  "meta": {
+    "mission_id": "sl_1_m4_antwort_vorbereit",
+    "welt": "w-test",
+    "plan": "p1",
+    "origin": "sl",
+    "anlass": {
+      "werkzeug": "test-llm-live --pipeline",
+      "welt_fixture": "nach-tutorial",
+      "art": "missionsgrenze",
+      "nach": "m3",
+      "crew": 3,
+      "zielspieldauer_min": 12,
+      "auftraggeber": "tesk"
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_nebel": "llm",
+      "s3_relais_gefecht": "llm",
+      "s3_relais_scan": "llm",
+      "s4_funkduell": "llm",
+      "s5_pylonen": "llm"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's3_relais_gefecht_vertrieben' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's2_jaeger_angriff' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_verweigert' wird gesetzt, aber in diesem Buch nie gelesen"
+      ]
+    },
+    "aktualisierungen": 6
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "npc": "tesk",
+        "ereignis": "m3_erinnerung"
+      },
+      "text": "Tesk erinnert sich: Die Lerche hat die Tafel von Kesh ins Archiv gebracht – dieser Crew vertraut sie das Relais an."
+    }
+  ],
+  "erinnerung_neutral": "Hafenmeisterin Tesk hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "m4_antwort_vorbereitet",
+    "titel": "Die Antwort des Relais",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Das Kustoden-Relais hat geantwortet: Antwort wird vorbereitet. Ich brauche die Lerche dort – holt ab, was das Relais zu sagen hat, bevor jemand anderes es tut.",
+    "erinnerung": {
+      "npc": "tesk",
+      "ereignis": "m3_erinnerung"
+    },
+    "erinnerung_text": "Tesk erinnert sich: Die Lerche hat die Tafel von Kesh ins Archiv gebracht – dieser Crew vertraut sie das Relais an.",
+    "belohnung_marken": 180,
+    "besetzung": [
+      "tesk",
+      "sela"
+    ],
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "stimme": "tesk",
+        "sachverhalt": "Tesk erteilt den Auftrag im Hafen: Das Relais sendet ein vorbereitetes Signal, und sie will die Lerche dort, bevor fremde Schiffe die Gelegenheit nutzen.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "s2_nebel"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel",
+        "szenentyp": "gefahrennavigation",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "kurs_durch_gefahr",
+            "umsetzung": "nebelflug"
+          }
+        ],
+        "stimme": "sela",
+        "sachverhalt": "Sela funkt: Sie sieht unbekannte Schiffe in Richtung Relais. Die Lerche muss durch die Graue Weite, um als Erste dort zu sein.",
+        "wendung": "Ankündigung: Im Nebel tauchen Echos auf – Jäger folgen der Lerche.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Feld durchquert ohne Kampf",
+            "nach": "s3_relais_scan"
+          },
+          {
+            "wenn": "Jäger greifen an",
+            "nach": "s3_relais_gefecht"
+          }
+        ]
+      },
+      {
+        "id": "s3_relais_gefecht",
+        "szenentyp": "raumgefecht",
+        "ort": "nebel",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "stimme": "neu:Jägerpilot",
+        "sachverhalt": "Die Jäger greifen offen an – sie wollen die Lerche vom Relais fernhalten. Sind sie vertrieben, kann die Crew weiter.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Jäger vertrieben",
+            "nach": "s3_relais_scan"
+          }
+        ]
+      },
+      {
+        "id": "s3_relais_scan",
+        "szenentyp": "annaeherung_und_erkundung",
+        "ort": "relais",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vermessen",
+            "umsetzung": "stoerrelais_scan"
+          }
+        ],
+        "stimme": "tesk",
+        "sachverhalt": "Am Relais hängen Störrelais – jemand hat sie neu angebracht. Die Crew schießt sie ab und führt den Captain-Scan durch, um die Relaisbotschaft zu empfangen.",
+        "wendung": "Ankündigung: Sobald das letzte Relais fällt, meldet sich eine fremde Stimme per Funk.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Scan abgeschlossen",
+            "nach": "s4_funkduell"
+          }
+        ]
+      },
+      {
+        "id": "s4_funkduell",
+        "szenentyp": "begegnung",
+        "ort": "relais",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "verhandeln",
+            "umsetzung": "funkduell"
+          }
+        ],
+        "stimme": "neu:Inspektor Varn",
+        "ziel_name": "Konkordat-Inspektionsschiff Lanze",
+        "sachverhalt": "Inspektor Varn beansprucht das Relais-Signal als Konkordat-Eigentum und verlangt, dass die Lerche die Daten übergibt oder abzieht.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Crew gibt Daten ab",
+            "nach": "ausgang:daten_weg"
+          },
+          {
+            "wenn": "Crew verweigert",
+            "nach": "s5_pylonen"
+          }
+        ]
+      },
+      {
+        "id": "s5_pylonen",
+        "szenentyp": "raumgefecht",
+        "ort": "relais",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vernichten",
+            "umsetzung": "pylonen_pruefung"
+          }
+        ],
+        "stimme": "neu:Inspektor Varn",
+        "sachverhalt": "Kustoden-Pylonen werden aktiv. Die Crew muss sie ausschalten, um das Signal vollständig zu empfangen. Nach dem ersten Abschuss erwacht ein Wächter mit EMP.",
+        "wendung": "Ankündigung: Nach dem ersten Pylonenabschuss erwacht ein Wächter mit EMP.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Pylonen zerstört, Signal empfangen",
+            "nach": "ausgang:erfolg"
+          },
+          {
+            "wenn": "Schiff zu schwer beschädigt",
+            "nach": "ausgang:rueckzug"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s4_funkduell",
+        "frage": "Gibt die Crew die Relaisdaten an Inspektor Varn ab oder verweigert sie?",
+        "optionen": [
+          {
+            "id": "uebergeben",
+            "text": "Daten übergeben",
+            "folge": "Varn zieht ab, Tesk ist enttäuscht, das Relais-Geheimnis bleibt beim Konkordat."
+          },
+          {
+            "id": "verweigern",
+            "text": "Verweigern und durchkämpfen",
+            "folge": "Pylonen werden aktiv – die Crew muss den Wächter überstehen, bringt Tesk aber das vollständige Signal."
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "erfolg": {
+        "wann": "Pylonen zerstört, Signal vollständig empfangen",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche hat sich gegen Varn durchgesetzt und mir das vollständige Relais-Signal gebracht.",
+          "npc_gedaechtnis sela: Die Lerche hat das Relais-Signal trotz Gegenwehr gesichert.",
+          "chronik: Die Antwort des Relais: Die Crew empfängt das vollständige Kustoden-Signal und bringt es Tesk.",
+          "welt_fakt kustoden_relais_antwort (faden): Das Signal enthält eine Koordinate – der Ursprungsort der Kustoden ist markiert."
+        ]
+      },
+      "daten_weg": {
+        "wann": "Crew übergibt Daten an Inspektor Varn",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche hat die Relaisdaten an Konkordat-Inspektor Varn abgegeben – das Signal ist weg.",
+          "npc_gedaechtnis sela: Die Lerche musste beim Relais zurückweichen.",
+          "chronik: Die Antwort des Relais: Das Kustoden-Signal geht an das Konkordat – was Varn damit macht, bleibt offen.",
+          "welt_fakt relais_signal_konkordat: Inspektor Varn hat das Relaissignal; das Konkordat besitzt jetzt die Antwort der Kustoden."
+        ]
+      },
+      "rueckzug": {
+        "wann": "Schiff zu schwer beschädigt, Rückzug vor den Pylonen",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche musste vor den Kustoden-Pylonen am Relais abdrehen – das Signal ist noch nicht empfangen.",
+          "npc_gedaechtnis sela: Die Lerche ist beschädigt vom Relais zurückgekehrt.",
+          "chronik: Die Antwort des Relais: Die Crew übersteht die Pylonen nicht – das Signal wartet noch."
+        ]
+      }
+    },
+    "wuensche": [
+      "Ein Szenentyp 'Enterabwehr' wäre nützlich, um Varns Inspektion als Boarding darzustellen statt nur als Funkduell."
+    ]
+  },
+  "szenen": {
+    "s2_nebel": {
+      "molekuele": [
+        {
+          "id": "kurs_durch_gefahr",
+          "umsetzung": "nebelflug",
+          "params": {
+            "loc": "nebel",
+            "mit_hinterhalt": true,
+            "hinterhalt_nach": 50,
+            "jaeger": 2,
+            "lage": "Die Graue Weite liegt vor uns. Sela meldet unbekannte Schiffe auf Kurs Relais – wir müssen schneller sein."
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "s3_relais_gefecht",
+          "if": {
+            "v": "s2_alt"
+          }
+        },
+        {
+          "nach": "s3_relais_scan"
+        }
+      ],
+      "wendung": {
+        "kennung": "jaeger_folgen",
+        "nach_s": 50,
+        "ankuendigung": "ODA: Bewegungsechos im Nebel – zwei Kontakte, Kurs identisch mit uns. Wir werden verfolgt.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "sela",
+              "text": "Lerche, die Echos gewinnen auf – das sind Jäger. Durchbrechen oder kämpfen?"
+            }
+          },
+          {
+            "setFlag": {
+              "s2_jaeger_angriff": true
+            }
+          }
+        ]
+      }
+    },
+    "s3_relais_gefecht": {
+      "molekuele": [
+        {
+          "id": "vertreiben",
+          "umsetzung": "bis_zur_flucht",
+          "params": {
+            "loc": "nebel",
+            "npc": "neu:Jägerpilot",
+            "jaeger": 2,
+            "mit_kanonenboot": false,
+            "flucht_unter": 35,
+            "funk_start": "Das Relais gehört uns heute. Verschwindet, oder wir machen Schrott aus euch.",
+            "funk_abzug": "Nicht schlecht, Lerche. Aber wir merken uns das."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "s3_relais_scan": {
+      "molekuele": [
+        {
+          "id": "vermessen",
+          "umsetzung": "stoerrelais_scan",
+          "params": {
+            "loc": "relais",
+            "objekt_name": "das Kustoden-Relais",
+            "relais": 3,
+            "reichweite": 400,
+            "scan_s": 6
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "fremde_stimme_meldet_sich",
+        "nach_s": 55,
+        "ankuendigung": "ODA: Unbekanntes Schiff auf Abfangkurs – eingehender Funk.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "neu:Inspektor Varn",
+              "text": "Hier Inspektor Varn, Konkordat-Aufsicht. Ihr befasst euch mit einem gesperrten Signal. Haltet sofort inne."
+            }
+          }
+        ]
+      }
+    },
+    "s4_funkduell": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "relais",
+            "npc": "neu:Inspektor Varn",
+            "eroeffnung": "Hier spricht Inspektor Varn, Konkordat-Inspektionsschiff Lanze. Das Signal dieses Relais ist Konkordat-Eigentum. Übergabe oder Abzug – wählt jetzt.",
+            "frage": "Gebt ihr die Relaisdaten an Inspektor Varn ab?",
+            "antwort_a": "Daten werden übertragen.",
+            "antwort_b": "Wir übergeben nichts. Zieht ab.",
+            "folgen_a": [
+              {
+                "setFlag": {
+                  "s4_uebergeben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Inspektor Varn",
+                  "text": "Kluge Entscheidung. Lanze zieht ab – belastet uns nicht weiter."
+                }
+              },
+              {
+                "radio": {
+                  "from": "tesk",
+                  "text": "Das Signal ist weg. Schade, Lerche."
+                }
+              },
+              {
+                "log": "Relaisdaten an Inspektor Varn übergeben. Tesk nicht zufrieden."
+              }
+            ],
+            "folgen_b": [
+              {
+                "setFlag": {
+                  "s4_verweigert": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Inspektor Varn",
+                  "text": "Dann aktiviere ich die Pylonen. Ihr habt eure Wahl getroffen."
+                }
+              },
+              {
+                "oda": "Kustoden-Pylonen werden aktiv. Vorsicht."
+              }
+            ],
+            "folgen_schweigen": [
+              {
+                "setFlag": {
+                  "s4_verweigert": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu:Inspektor Varn",
+                  "text": "Schweigen gilt als Weigerung. Pylonen-Aktivierung eingeleitet."
+                }
+              },
+              {
+                "oda": "Kustoden-Pylonen werden aktiv. Vorsicht."
+              }
+            ],
+            "geduld_s": 60
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:daten_weg",
+          "if": {
+            "flag": "s4_uebergeben"
+          }
+        },
+        {
+          "nach": "s5_pylonen"
+        }
+      ],
+      "wendung": null
+    },
+    "s5_pylonen": {
+      "molekuele": [
+        {
+          "id": "vernichten",
+          "umsetzung": "pylonen_pruefung",
+          "params": {
+            "loc": "relais",
+            "pylonen": 3,
+            "waechter_nach": 25
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:rueckzug",
+          "if": {
+            "v": "s5_alt"
+          }
+        },
+        {
+          "nach": "ausgang:erfolg"
+        }
+      ],
+      "wendung": {
+        "kennung": "waechter_emp",
+        "nach_s": 25,
+        "ankuendigung": "Energiesignatur wächst hinter Pylone zwei – ein Wächter wird aktiv, EMP-Entladung in Kürze.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "neu:Inspektor Varn",
+              "text": "Ihr habt das Relais geweckt. Der Wächter gehört dazu – zieht euch zurück oder ihr brennt."
+            }
+          }
+        ]
+      }
+    }
+  },
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_1_m4_antwort_vorbereit",
+    "kopf": {
+      "titel": "Die Antwort des Relais",
+      "art": "generiert",
+      "auftraggeber": "tesk",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 3
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "tesk"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "nebel",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "nebel",
+        "relais"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "tesk",
+        "sela"
+      ],
+      "stimmen": {
+        "neu_jaegerpilot": {
+          "name": "Jägerpilot"
+        },
+        "neu_inspektor_varn": {
+          "name": "Inspektor Varn"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "kurs_durch_gefahr/nebelflug",
+        "enter": [
+          {
+            "setFlag": {
+              "s2_jaeger_angriff": null,
+              "s3_relais_gefecht_vertrieben": null,
+              "s4_uebergeben": null,
+              "s4_verweigert": null
+            }
+          },
+          {
+            "radio": {
+              "from": "tesk",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_nebel_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_nebel_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_nebel.anflug_ziel",
+            "done": {
+              "atLocation": "nebel"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "nebel"
+              }
+            },
+            "oda": "@s2_nebel.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "nebel"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_nebel"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_nebel"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "nebel"
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s2_nebel",
+        "loc": "nebel",
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s2_nebel.lage"
+          },
+          {
+            "at": 10,
+            "oda": "@s2_nebel.captain"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "v": "s2_nebel_durch"
+              }
+            },
+            "oda": "@s2_nebel.tipp",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 50,
+            "do": [
+              {
+                "wendung": "s2_jaeger_folgen",
+                "ankuendigung": {
+                  "oda": "@s2_nebel.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "sela",
+                      "text": "@s2_nebel.t2"
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "s2_jaeger_angriff": true
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                true,
+                {
+                  "elapsed": 50
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s2_nebel_hinterhalt",
+                "ankuendigung": {
+                  "oda": "@s2_nebel.hinterhalt",
+                  "art": "gleichzeitig",
+                  "grund": "Die Jäger tauchen sichtbar aus dem Feld auf; ODA warnt im selben Moment."
+                },
+                "wirkung": [
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s2_nebel_w1",
+                      "n": 2,
+                      "angles": [
+                        1.3,
+                        -1.3
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "ship_in_zone",
+                    "loc": "nebel",
+                    "zone": "durchquert"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel.durch"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s2_nebel_durch"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_nebel_durch": true
+                }
+              },
+              {
+                "oda": "@s2_nebel.ausweg"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "durch",
+            "text": "@s2_nebel.ziel",
+            "done": {
+              "v": "s2_nebel_durch"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s2_nebel_durch"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "v": "s2_alt"
+                }
+              ]
+            },
+            "goto": "s3_relais_gefecht"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s2_nebel_durch"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s3_relais_scan_anflug"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s2_nebel_durch": true
+            }
+          }
+        ],
+        "umsetzung": "kurs_durch_gefahr/nebelflug"
+      },
+      {
+        "id": "s3_relais_gefecht",
+        "loc": "nebel",
+        "enter": [
+          {
+            "spawn": {
+              "kind": "raider",
+              "tag": "s3_relais_gefecht_w1",
+              "n": 2,
+              "angles": [
+                0.3,
+                -0.7,
+                1.2
+              ]
+            }
+          },
+          {
+            "if": false,
+            "spawn": {
+              "kind": "gunboat",
+              "tag": "s3_relais_gefecht_w1"
+            }
+          },
+          {
+            "do": "enemies_retreat",
+            "tag": "s3_relais_gefecht_w1",
+            "unter_pct": 35
+          },
+          {
+            "after": {
+              "sec": 3,
+              "do": [
+                {
+                  "radio": {
+                    "from": "neu_jaegerpilot",
+                    "text": "@s3_relais_gefecht.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s3_relais_gefecht.lage"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            },
+            "oda": "@s3_relais_gefecht.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 3
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s3_relais_gefecht_w1",
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s3_relais_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s3_relais_gefecht_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "s3_relais_gefecht_vertrieben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu_jaegerpilot",
+                  "text": "@s3_relais_gefecht.funk_abzug"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s3_relais_gefecht_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "tag": "s3_relais_gefecht_w1",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s3_relais_gefecht.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "vertreiben",
+            "text": "@s3_relais_gefecht.ziel",
+            "done": {
+              "v": "s3_relais_gefecht_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s3_relais_gefecht_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s3_relais_scan_anflug"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s3_relais_gefecht_ende": true
+            }
+          },
+          {
+            "setFlag": {
+              "s3_relais_gefecht_vertrieben": true
+            }
+          }
+        ],
+        "umsetzung": "vertreiben/bis_zur_flucht",
+        "liefert_flags": [
+          "s3_relais_gefecht_vertrieben"
+        ]
+      },
+      {
+        "id": "s3_relais_scan_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s3_relais_scan.anflug_ziel",
+            "done": {
+              "atLocation": "relais"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "relais"
+              }
+            },
+            "oda": "@s3_relais_scan.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "relais"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s3_relais_scan"
+                  }
+                }
+              ]
+            },
+            "goto": "s3_relais_scan"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "relais"
+          }
+        ],
+        "umsetzung": "vermessen/stoerrelais_scan"
+      },
+      {
+        "id": "s3_relais_scan",
+        "loc": "relais",
+        "restartOnReturn": true,
+        "enter": [
+          {
+            "spawn": {
+              "kind": "relay",
+              "tag": "s3_relais_scan_relay",
+              "n": 3,
+              "atStation": [
+                {
+                  "dx": 157,
+                  "dy": 66
+                },
+                {
+                  "dx": -136,
+                  "dy": 103
+                },
+                {
+                  "dx": -21,
+                  "dy": -169
+                },
+                {
+                  "dx": 120,
+                  "dy": -120
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s3_relais_scan.anflug"
+          },
+          {
+            "at": 6,
+            "oda": "@s3_relais_scan.stoerung"
+          },
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "scanDone": "s3_relais_scan_scan"
+              }
+            },
+            "oda": "@s3_relais_scan.hinweis",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 55,
+            "do": [
+              {
+                "wendung": "s3_fremde_stimme_meldet_sich",
+                "ankuendigung": {
+                  "oda": "@s3_relais_scan.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "neu_inspektor_varn",
+                      "text": "@s3_relais_scan.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 1
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s3_relais_scan_relay",
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "oda": "@s3_relais_scan.frei"
+              }
+            ]
+          }
+        ],
+        "scan": {
+          "id": "s3_relais_scan_scan",
+          "label": "@s3_relais_scan.label",
+          "range": 400,
+          "time": 6,
+          "requires": {
+            "enemiesLeft": {
+              "tag": "s3_relais_scan_relay",
+              "max": 0
+            }
+          },
+          "blocked": "@s3_relais_scan.blockiert"
+        },
+        "objectives": [
+          {
+            "id": "anflug",
+            "text": "@s3_relais_scan.ziel_anflug",
+            "done": {
+              "near": {
+                "station": 400
+              }
+            }
+          },
+          {
+            "id": "relais",
+            "text": "@s3_relais_scan.ziel_relais",
+            "done": {
+              "all": [
+                {
+                  "elapsed": 0.5
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s3_relais_scan_relay",
+                    "max": 0
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": "scan",
+            "text": "@s3_relais_scan.ziel_scan",
+            "done": {
+              "scanDone": "s3_relais_scan_scan"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "scanDone": "s3_relais_scan_scan"
+            },
+            "goto": "s4_funkduell"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies",
+            "kind": "relay"
+          },
+          {
+            "do": "debug_mark_scanned",
+            "id": "s3_relais_scan_scan"
+          }
+        ],
+        "umsetzung": "vermessen/stoerrelais_scan"
+      },
+      {
+        "id": "s4_funkduell",
+        "loc": "relais",
+        "enter": [
+          {
+            "radio": {
+              "from": "neu_inspektor_varn",
+              "text": "@s4_funkduell.eroeffnung"
+            }
+          },
+          {
+            "choice": "s4_funkduell_wahl"
+          },
+          {
+            "oda": "@s4_funkduell.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 45,
+            "if": {
+              "not": {
+                "choiceMade": "s4_funkduell_wahl"
+              }
+            },
+            "oda": "@s4_funkduell.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 60
+                },
+                {
+                  "not": {
+                    "choiceMade": "s4_funkduell_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "schweigen"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s4_funkduell_wahl": {
+            "prompt": "@s4_funkduell.frage",
+            "options": [
+              {
+                "id": "a",
+                "label": "@s4_funkduell.a"
+              },
+              {
+                "id": "b",
+                "label": "@s4_funkduell.b"
+              },
+              {
+                "id": "schweigen",
+                "label": "@s4_funkduell.schweigen"
+              }
+            ],
+            "on": {
+              "a": [
+                {
+                  "setFlag": {
+                    "s4_uebergeben": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_inspektor_varn",
+                    "text": "@s4_funkduell.t1"
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "tesk",
+                    "text": "@s4_funkduell.t2"
+                  }
+                },
+                {
+                  "log": "@s4_funkduell.t3"
+                }
+              ],
+              "b": [
+                {
+                  "setFlag": {
+                    "s4_verweigert": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_inspektor_varn",
+                    "text": "@s4_funkduell.t4"
+                  }
+                },
+                {
+                  "oda": "@s4_funkduell.t5"
+                }
+              ],
+              "schweigen": [
+                {
+                  "setFlag": {
+                    "s4_verweigert": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_inspektor_varn",
+                    "text": "@s4_funkduell.t6"
+                  }
+                },
+                {
+                  "oda": "@s4_funkduell.t7"
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s4_funkduell.ziel",
+            "done": {
+              "choiceMade": "s4_funkduell_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "choiceMade": "s4_funkduell_wahl"
+                },
+                {
+                  "flag": "s4_uebergeben"
+                }
+              ]
+            },
+            "complete": "daten_weg"
+          },
+          {
+            "if": {
+              "choiceMade": "s4_funkduell_wahl"
+            },
+            "goto": "s5_pylonen"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "schweigen"
+          }
+        ],
+        "umsetzung": "verhandeln/funkduell"
+      },
+      {
+        "id": "s5_pylonen",
+        "loc": "relais",
+        "restartOnReturn": true,
+        "enter": [
+          {
+            "spawn": {
+              "kind": "pylon",
+              "tag": "s5_pylonen_pylon",
+              "face": "out",
+              "n": 3,
+              "atStation": [
+                {
+                  "dx": -300,
+                  "dy": -240
+                },
+                {
+                  "dx": 340,
+                  "dy": -40
+                },
+                {
+                  "dx": -230,
+                  "dy": 290
+                },
+                {
+                  "dx": 200,
+                  "dy": 260
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 1,
+            "oda": "@s5_pylonen.lage"
+          },
+          {
+            "at": 30,
+            "if": {
+              "not": {
+                "event": "enemyScanned"
+              }
+            },
+            "oda": "@s5_pylonen.tipp",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 25,
+            "do": [
+              {
+                "wendung": "s5_waechter_emp",
+                "ankuendigung": {
+                  "oda": "@s5_pylonen.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "neu_inspektor_varn",
+                      "text": "@s5_pylonen.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "relais"
+                },
+                {
+                  "not": {
+                    "v": "s5_pylonen_waechter"
+                  }
+                },
+                {
+                  "any": [
+                    {
+                      "elapsed": 25
+                    },
+                    {
+                      "killed": {
+                        "tag": "s5_pylonen_pylon",
+                        "min": 1
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "do": [
+              {
+                "wendung": "s5_pylonen_waechter",
+                "ankuendigung": {
+                  "oda": "@s5_pylonen.waechter",
+                  "art": "gleichzeitig",
+                  "grund": "Der Wächter erscheint sichtbar und lädt seine EMP-Schüsse sichtbar."
+                },
+                "wirkung": [
+                  {
+                    "set": {
+                      "s5_pylonen_waechter": true
+                    }
+                  },
+                  {
+                    "spawn": {
+                      "kind": "sentinel",
+                      "tag": "s5_pylonen_waechter",
+                      "atStation": [
+                        {
+                          "dx": 160,
+                          "dy": 120
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "objectives": [
+          {
+            "id": "pylonen",
+            "text": "@s5_pylonen.ziel",
+            "done": {
+              "all": [
+                {
+                  "elapsed": 0.5
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s5_pylonen_pylon",
+                    "max": 0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s5_pylonen_waechter"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "v": "s5_alt"
+                }
+              ]
+            },
+            "complete": "rueckzug"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s5_pylonen_waechter"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "erfolg"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s5_pylonen_waechter": true
+            }
+          }
+        ],
+        "umsetzung": "vernichten/pylonen_pruefung"
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "erfolg": {
+        "beschreibung": "Pylonen zerstört, Signal vollständig empfangen",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 180
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "tesk",
+            "ereignis": "m4_antwort_vorbereit_erfolg",
+            "text": "@aus.erfolg.t1"
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "m4_antwort_vorbereit_erfolg",
+            "text": "@aus.erfolg.t2"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.erfolg.t3"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "kustoden_relais_antwort",
+            "value": "Das Signal enthält eine Koordinate – der Ursprungsort der Kustoden ist markiert.",
+            "quelle": "sl_1_m4_antwort_vorbereit",
+            "faden": true
+          }
+        ]
+      },
+      "daten_weg": {
+        "beschreibung": "Crew übergibt Daten an Inspektor Varn",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 180
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "tesk",
+            "ereignis": "m4_antwort_vorbereit_daten_weg",
+            "text": "@aus.daten_weg.t1"
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "m4_antwort_vorbereit_daten_weg",
+            "text": "@aus.daten_weg.t2"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.daten_weg.t3"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "relais_signal_konkordat",
+            "value": "Inspektor Varn hat das Relaissignal; das Konkordat besitzt jetzt die Antwort der Kustoden.",
+            "quelle": "sl_1_m4_antwort_vorbereit"
+          }
+        ]
+      },
+      "rueckzug": {
+        "beschreibung": "Schiff zu schwer beschädigt, Rückzug vor den Pylonen",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 180
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "tesk",
+            "ereignis": "m4_antwort_vorbereit_rueckzug",
+            "text": "@aus.rueckzug.t1"
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "m4_antwort_vorbereit_rueckzug",
+            "text": "@aus.rueckzug.t2"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.rueckzug.t3"
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Das Kustoden-Relais hat geantwortet: Antwort wird vorbereitet. Ich brauche die Lerche dort – holt ab, was das Relais zu sagen hat, bevor jemand anderes es tut.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_nebel.anflug_ziel": "Nach Graue Weite springen",
+      "s2_nebel.anflug_tipp": "Kurs liegt an: Graue Weite. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_nebel.lage": "Die Graue Weite liegt vor uns. Sela meldet unbekannte Schiffe auf Kurs Relais – wir müssen schneller sein.",
+      "s2_nebel.captain": "Captain: Sternkarte und Taktikkarte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
+      "s2_nebel.tipp": "Ziel ist die andere Seite des Felds. Langsam ist sicherer – jeder Brocken kostet Schild.",
+      "s2_nebel.hinterhalt": "Jäger kommen aus dem Feld! Breitseite, und die Brocken als Deckung nutzen.",
+      "s2_nebel.durch": "Wir sind durch! Freie Sicht voraus.",
+      "s2_nebel.ausweg": "Der Navigationsrechner hat eine Lücke gefunden – Kurs liegt an, wir sind durch.",
+      "s2_nebel.ziel": "Das Feld durchqueren (andere Seite erreichen)",
+      "s2_nebel.t1": "ODA: Bewegungsechos im Nebel – zwei Kontakte, Kurs identisch mit uns. Wir werden verfolgt.",
+      "s2_nebel.t2": "Lerche, die Echos gewinnen auf – das sind Jäger. Durchbrechen oder kämpfen?",
+      "s3_relais_gefecht.funk_start": "Das Relais gehört uns heute. Verschwindet, oder wir machen Schrott aus euch.",
+      "s3_relais_gefecht.funk_abzug": "Nicht schlecht, Lerche. Aber wir merken uns das.",
+      "s3_relais_gefecht.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+      "s3_relais_gefecht.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+      "s3_relais_gefecht.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+      "s3_relais_gefecht.ziel": "Angreifer vertreiben ({left:s3_relais_gefecht_w1} übrig)",
+      "s3_relais_scan.anflug_ziel": "Nach Kustoden-Relais springen",
+      "s3_relais_scan.anflug_tipp": "Kurs liegt an: Kustoden-Relais. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s3_relais_scan.anflug": "Ruhe am Himmel. Jetzt zu das Kustoden-Relais – die Markierung mitten in der Szene.",
+      "s3_relais_scan.stoerung": "Störrelais kreisen um das Kustoden-Relais und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
+      "s3_relais_scan.frei": "Relais erledigt, der Weg ist frei! Captain: in Reichweite die Leertaste halten – Scan.",
+      "s3_relais_scan.hinweis": "Captain: nah ran an das Kustoden-Relais und Leertaste halten. Störrelais vorher abschießen (Taktik).",
+      "s3_relais_scan.label": "Scan: das Kustoden-Relais",
+      "s3_relais_scan.blockiert": "Störrelais stören den Scan – erst abschießen (Taktik).",
+      "s3_relais_scan.ziel_anflug": "Zu das Kustoden-Relais fliegen",
+      "s3_relais_scan.ziel_relais": "Taktik: Störrelais abschießen ({killed:s3_relais_scan_relay}/3)",
+      "s3_relais_scan.ziel_scan": "Captain: das Kustoden-Relais scannen (Leertaste halten)",
+      "s3_relais_scan.t1": "ODA: Unbekanntes Schiff auf Abfangkurs – eingehender Funk.",
+      "s3_relais_scan.t2": "Hier Inspektor Varn, Konkordat-Aufsicht. Ihr befasst euch mit einem gesperrten Signal. Haltet sofort inne.",
+      "s4_funkduell.eroeffnung": "Hier spricht Inspektor Varn, Konkordat-Inspektionsschiff Lanze. Das Signal dieses Relais ist Konkordat-Eigentum. Übergabe oder Abzug – wählt jetzt.",
+      "s4_funkduell.frage": "Gebt ihr die Relaisdaten an Inspektor Varn ab?",
+      "s4_funkduell.a": "Daten werden übertragen.",
+      "s4_funkduell.b": "Wir übergeben nichts. Zieht ab.",
+      "s4_funkduell.schweigen": "Funkstille",
+      "s4_funkduell.captain": "Funkspruch! Captain: Antwort im Reiter „Funk“ – sprecht euch ab.",
+      "s4_funkduell.ungeduldig": "Die Gegenseite wird ungeduldig. Schweigen ist auch eine Antwort – aber keine freundliche.",
+      "s4_funkduell.ziel": "Captain: antworten (Funk)",
+      "s4_funkduell.t1": "Kluge Entscheidung. Lanze zieht ab – belastet uns nicht weiter.",
+      "s4_funkduell.t2": "Das Signal ist weg. Schade, Lerche.",
+      "s4_funkduell.t3": "Relaisdaten an Inspektor Varn übergeben. Tesk nicht zufrieden.",
+      "s4_funkduell.t4": "Dann aktiviere ich die Pylonen. Ihr habt eure Wahl getroffen.",
+      "s4_funkduell.t5": "Kustoden-Pylonen werden aktiv. Vorsicht.",
+      "s4_funkduell.t6": "Schweigen gilt als Weigerung. Pylonen-Aktivierung eingeleitet.",
+      "s4_funkduell.t7": "Kustoden-Pylonen werden aktiv. Vorsicht.",
+      "s5_pylonen.lage": "Pylonen mit Frontschild. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+      "s5_pylonen.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
+      "s5_pylonen.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
+      "s5_pylonen.ziel": "Pylonen ausschalten ({killed:s5_pylonen_pylon}/3) – von der Seite!",
+      "s5_pylonen.t1": "Energiesignatur wächst hinter Pylone zwei – ein Wächter wird aktiv, EMP-Entladung in Kürze.",
+      "s5_pylonen.t2": "Ihr habt das Relais geweckt. Der Wächter gehört dazu – zieht euch zurück oder ihr brennt.",
+      "aus.erfolg.t1": "Die Lerche hat sich gegen Varn durchgesetzt und mir das vollständige Relais-Signal gebracht.",
+      "aus.erfolg.t2": "Die Lerche hat das Relais-Signal trotz Gegenwehr gesichert.",
+      "aus.erfolg.t3": "Die Antwort des Relais: Die Crew empfängt das vollständige Kustoden-Signal und bringt es Tesk.",
+      "aus.daten_weg.t1": "Die Lerche hat die Relaisdaten an Konkordat-Inspektor Varn abgegeben – das Signal ist weg.",
+      "aus.daten_weg.t2": "Die Lerche musste beim Relais zurückweichen.",
+      "aus.daten_weg.t3": "Die Antwort des Relais: Das Kustoden-Signal geht an das Konkordat – was Varn damit macht, bleibt offen.",
+      "aus.rueckzug.t1": "Die Lerche musste vor den Kustoden-Pylonen am Relais abdrehen – das Signal ist noch nicht empfangen.",
+      "aus.rueckzug.t2": "Die Lerche ist beschädigt vom Relais zurückgekehrt.",
+      "aus.rueckzug.t3": "Die Antwort des Relais: Die Crew übersteht die Pylonen nicht – das Signal wartet noch.",
+      "buch.briefing": "Das Kustoden-Relais hat geantwortet: Antwort wird vorbereitet. Ich brauche die Lerche dort – holt ab, was das Relais zu sagen hat, bevor jemand anderes es tut.",
+      "buch.belohnung": "180 Marken",
+      "buch.erinnerung": "Tesk erinnert sich: Die Lerche hat die Tafel von Kesh ins Archiv gebracht – dieser Crew vertraut sie das Relais an."
+    },
+    "erinnerung": {
+      "npc": "tesk",
+      "ereignis": "m3_erinnerung"
+    }
+  },
+  "gespielt": []
+}

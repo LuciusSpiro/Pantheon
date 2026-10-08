@@ -720,7 +720,7 @@ function checkEmergency(game) {
   ship.fireList = [];
   ship.breachList = [];   // M1: Notschaum dichtet auch alle Lecks ab (sonst Notfall-Schleife ohne Flickblech)
   for (const e of game.space.enemies) { e.retreatUntil = game.time + C.combat.retreatTime; if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); } }
-  game.space.projectiles = game.space.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp');
+  game.space.projectiles = game.space.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp' && p.kind !== 'sperrfeuer');
   game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
   game.stats.emergencies++;
   game.emit('emergency', {});
@@ -1355,6 +1355,11 @@ function updateEnemies(game, dt) {
       try { Pilot.fly(game, e, dt); }
       catch (err) { if (game.countError) game.countError('pilot', err); moveLegacy(game, e, dt, retreating); }
     } else moveLegacy(game, e, dt, retreating);
+    // S2b §2: Sperrfeuer des Kanonenboots (eigener Takt, ruht während einer Ladung)
+    if (e.kind === 'gunboat') {
+      try { updateSperrfeuer(game, e, retreating, dt); }
+      catch (err) { if (game.countError) game.countError('sperrfeuer', err); }
+    }
     // S2 §5: Gegner mit Schützling als Ziel – eigene, immer angekündigte Angriffslogik (escort.js)
     if (e.targetId != null) {
       const T = Pilot.targetOf(game, e);
@@ -1386,6 +1391,91 @@ function updateEnemies(game, dt) {
       game.emit('sfx', { name: 'blaster' });
     }
   }
+}
+
+// ---------- S2b §2: Sperrfeuer (Kanonenboot) ----------
+// Feuerstöße aus der Breitseite: burst Geschosse im Abstand burstGap, Stoß alle interval s (× Crew-Faktor relativ zu
+// einer Dreier-Crew). Geschosse fliegen langsam (speed) und geradeaus (kein Zielsuchen), gezielt auf den Abfangpunkt bei
+// gehaltenem Kurs (sperrAim, höchstens maxLead s) plus Streuung ±spread/2.
+// Kein Sperrfeuer, solange eine Ladung läuft, kurz bevor eine beginnt, beim Rückzug, angedockt oder bei Feuerpause.
+function sperrCfg(game) { const s = game.C.spaceS2b; return s && s.sperrfeuer ? s.sperrfeuer : null; }
+function sperrInterval(game, S) {
+  const cs = game.C.crewScaling || {}; const ref = (cs[3] && cs[3].enemyFireInterval) || 1;
+  return S.interval * (crewScale(game).enemyFireInterval / ref);
+}
+function sperrStats(game) {
+  return game.stats.sperrfeuer || (game.stats.sperrfeuer = { bursts: 0, shots: 0, hits: 0, hull: 0, shielded: 0, escortHits: 0 });
+}
+function sperrMuzzle(e, T) {
+  // Mündung an der Breitseite, die zum Ziel zeigt
+  const rel = Physics.normAngle(Math.atan2(T.y - e.y, T.x - e.x) - e.angle);
+  const side = e.angle + (rel >= 0 ? 1 : -1) * Math.PI / 2;
+  return { x: e.x + Math.cos(side) * 22, y: e.y + Math.sin(side) * 22 };
+}
+// Abfang-Winkel von o auf T (Geschwindigkeit T.vx/T.vy) bei Geschosstempo S.speed; Vorhersage höchstens S.maxLead s,
+// anteilig S.lead (0 = auf die aktuelle Position). Ohne Lösung (Ziel schneller und flieht): aktuelle Position.
+function sperrAim(o, T, S) {
+  const f = S.lead != null ? Math.max(0, Math.min(1, Number(S.lead))) : 1;
+  const rx = T.x - o.x, ry = T.y - o.y; const vx = (T.vx || 0) * f, vy = (T.vy || 0) * f; const v = S.speed;
+  const a = vx * vx + vy * vy - v * v, b = 2 * (rx * vx + ry * vy), c = rx * rx + ry * ry;
+  let t = 0;
+  if (Math.abs(a) < 1e-6) t = b < 0 ? -c / b : 0;
+  else { const disc = b * b - 4 * a * c; if (disc >= 0) { const s = Math.sqrt(disc); const t1 = (-b - s) / (2 * a), t2 = (-b + s) / (2 * a); const ts = [t1, t2].filter((q) => q > 0); t = ts.length ? Math.min(...ts) : 0; } }
+  t = Math.max(0, Math.min(S.maxLead != null ? Number(S.maxLead) : 4, t));
+  return Math.atan2(ry + vy * t, rx + vx * t);
+}
+function updateSperrfeuer(game, e, retreating, dt) {
+  const S = sperrCfg(game);
+  if (!S || !(S.burst > 0) || !(S.interval > 0)) return;
+  const ship = game.ship; const sp = game.space; const C = game.C;
+  const sf = e.sf || (e.sf = { t: 0, left: 0, gapT: 0, n: 0 });
+  const T = Pilot.targetOf(game, e);
+  const cfg = C.enemies[e.kind];
+  // Ladung läuft (auch auf einen Schützling): Stoß abbrechen, Takt ruht
+  if (e.tele || retreating || e.leaving || ship.docked || holdingFire(game) || !T) {
+    sf.left = 0;
+    if (e.tele) sf.t = Math.min(sperrInterval(game, S), sf.t + dt);   // nach der Ladung sofort wieder bereit
+    return;
+  }
+  const range = S.range || cfg.range;
+  const W = C.enemyWeapons[e.kind] || [];
+  const inArc = W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, range, T.x, T.y));
+  if (sf.left > 0) {
+    sf.gapT -= dt;
+    while (sf.left > 0 && sf.gapT <= 0) {
+      sf.gapT += S.burstGap || 0.25;
+      const i = sf.n++; sf.left--;
+      if (!inArc) continue;   // Ziel aus dem Bogen gedreht: Geschoss entfällt
+      const o = sperrMuzzle(e, T);
+      // Kurs-Vorhersage: gezielt wird dorthin, wo das Ziel ist, wenn es Kurs und Tempo hält (Abfangpunkt, höchstens
+      // maxLead s voraus). Ungelenkt und langsam: Kurswechsel, Tempowechsel oder Ausweichen bringen den Stoß vorbei.
+      const ang = sperrAim(o, T, S) + game.rng.range(-(S.spread || 0) / 2, (S.spread || 0) / 2);
+      const p = { id: game.nextId('pr'), kind: 'sperrfeuer', x: o.x, y: o.y, angle: ang, speed: S.speed, ttl: S.ttl, dmg: S.damage, owner: e.id };
+      if (T !== ship) p.tgt = T.id;
+      // Obergrenze (Snapshot-Budget): das älteste Sperrfeuer-Geschoss fällt weg
+      const max = S.maxProjectiles || 0;
+      if (max > 0) {
+        let n = 0; for (const q of sp.projectiles) if (q.kind === 'sperrfeuer') n++;
+        if (n >= max) { const k = sp.projectiles.findIndex((q) => q.kind === 'sperrfeuer'); if (k >= 0) sp.projectiles.splice(k, 1); }
+      }
+      sp.projectiles.push(p);
+      sperrStats(game).shots++;
+    }
+    if (sf.left <= 0) { sf.left = 0; sf.t = 0; }
+    return;
+  }
+  sf.t += dt;
+  if (sf.t < sperrInterval(game, S) || !inArc) return;
+  // Kurz vor einer Ladung keinen Stoß beginnen (lesbar: erst Sperrfeuer, dann Ruhe, dann Ladung)
+  const teleIv = cfg.fireInterval * crewScale(game).enemyFireInterval;
+  const burstDur = (S.burst - 1) * (S.burstGap || 0.25);
+  // (nur wenn die Ladung auch beginnen kann – im Band zwischen Lade- und Sperrfeuer-Reichweite feuert das Boot weiter)
+  if (M3(game).tele && M3(game).tele[e.kind] && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= cfg.range) return;
+  sf.left = S.burst; sf.n = 0; sf.gapT = 0; sf.t = 0;
+  sperrStats(game).bursts++;
+  const o = sperrMuzzle(e, T);
+  game.emit('sfx', { name: 'sperrfeuer', enemy: e.kind, x: Math.round(o.x), y: Math.round(o.y) });
+  game.missionEvent('sperrfeuer', { enemy: e });
 }
 
 // M3a-Bewegung (kinematisch): Missionen bis Schritt B, Relais und Wächter immer. Setzt vx/vy für die Interpolation.
@@ -1439,6 +1529,9 @@ function moveLegacy(game, e, dt, retreating) {
       }
       face = toShip + Math.PI / 2;
     }
+    // QA S2b (Golden m2/3 Seed 6): Steht das Ziel in einer Ecke, lag der Kreispunkt außerhalb der Karte – der Jäger klebte
+    // am Rand auf dem Schiff (Abstand 14 px), traf nicht und war nicht zu treffen: 400 s Patt. Zielpunkt im Feld halten.
+    if (!retreating && e.kind !== 'pylon' && e.kind !== 'relay') { tx = clamp(tx, 120, sp.w - 120); ty = clamp(ty, 120, sp.h - 120); }
     const mx = tx - e.x, my = ty - e.y;
     const md = Math.hypot(mx, my);
     const step = Math.min(md, cfg.speed * dt);
@@ -1540,15 +1633,25 @@ function updateProjectiles(game, dt) {
     }
     p.x += Math.cos(p.angle) * p.speed * dt; p.y += Math.sin(p.angle) * p.speed * dt;
     let hit = false;
-    if (p.kind === 'enemy' || p.kind === 'emp') {
+    if (p.kind === 'enemy' || p.kind === 'emp' || p.kind === 'sperrfeuer') {
       if (dist(p.x, p.y, ship.x, ship.y) < C.flight.projectileHitDist) {
         hit = true;
+        const sperr = p.kind === 'sperrfeuer';
         const owner = sp.enemies.find((e) => e.id === p.owner);
-        const pierce = !!(owner && owner.tag === 'nachzuegler' && !owner.hasHit);
+        const pierce = !sperr && !!(owner && owner.tag === 'nachzuegler' && !owner.hasHit);
         if (pierce) owner.hasHit = true;
         const hopts = { pierce, emp: p.kind === 'emp' };
+        if (sperr) hopts.sperrfeuer = true;
         if (p.tgt) { hopts.shielded = p.tgt; if (game.stats.escort) game.stats.escort.shielded++; }   // S2: Lerche fängt Salve auf den Schützling
-        shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y), p.dmg, hopts);
+        const hull0 = ship.hull;
+        // S2b: Sperrfeuer auf einen Schützling, das die Lerche abfängt, zählt × shieldedFactor (sonst räumt es ihren Schild
+        // ab, und die nächste Ladung auf den Schützling geht ungedeckt durch)
+        let dmg = p.dmg;
+        if (sperr && p.tgt) { const SF = sperrCfg(game) || {}; if (SF.shieldedFactor != null) dmg *= Number(SF.shieldedFactor); }
+        const hsec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
+        if (dmg > 0) shipHit(game, hsec, dmg, hopts);
+        else { game.emit('hit', { sector: hsec, shield: true, dmg: 0, heavy: false, absorbed: 0, shielded: p.tgt }); game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); }
+        if (sperr) { const st = sperrStats(game); st.hits++; st.hull = r1(st.hull + Math.max(0, hull0 - ship.hull)); if (p.tgt) st.shielded++; }
         if (pierce) game.missionEvent('nachzueglerHit', {});
       } else if (p.tgt) {
         try { hit = Escort.projectileHit(game, p); } catch (err) { if (game.countError) game.countError('escort-projectile', err); }

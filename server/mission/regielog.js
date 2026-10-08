@@ -1,7 +1,8 @@
 'use strict';
 // Regie-Logbuch (CONTRACT-S2 §2.3): Was der Spielleiter getan hat, je Weltstand eine Datei <REGIE_DIR>/<weltId>.jsonl
 // (anhängen, Rotation bei 5 MB -> <weltId>.1.jsonl). Eintrag:
-//   { t, spielzeit, art, mission, szene, quelle: 'llm'|'archiv'|'rohfassung'|'mock', dauer_s, tokens, fehler[], begruendung, wunsch? }
+//   { t, spielzeit, art, mission, szene, quelle: 'llm'|'archiv'|'rohfassung'|'mock', dauer_s, tokens, fehler[], begruendung, wunsch?,
+//     reparaturen? (S2b) }
 // wunschliste.json sammelt fehlende Bausteine ({ text: { n, zuerst, zuletzt, missionen[] } }).
 // Schreiben wirft nie (Fehler -> onError, z. B. game.countError). Lesen: Regielog.read(dir, weltId).
 //
@@ -50,6 +51,8 @@ function create(opts) {
       begruendung: x.begruendung != null ? String(x.begruendung).slice(0, 500) : null,
     };
     if (x.wunsch != null) out.wunsch = x.wunsch;
+    // QA S2b: automatische Reparaturen der Szenen-Antwort (spielleiter.js) mitschreiben
+    if (Array.isArray(x.reparaturen) && x.reparaturen.length) out.reparaturen = x.reparaturen.map((r) => String(r).slice(0, 200)).slice(0, 10);
     for (const k of ['origin', 'titel', 'auftraggeber', 'ausgang', 'versuch', 'budget', 'key', 'plan']) if (x[k] !== undefined) out[k] = x[k];
     return out;
   }

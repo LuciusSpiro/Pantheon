@@ -67,9 +67,15 @@ function resolveHit(game, sector, dmg, opts) {
   }
   // 4. Systemschaden nach Durchlass-Tabelle – bei jedem Treffer, auch voll gefangen
   const heavyOnly = !!row.heavyOnly && !heavy;
-  const chance = heavyOnly ? 0 : (Number(row.chance) || 0);
+  let chance = heavyOnly ? 0 : (Number(row.chance) || 0);
+  // S2b: Sperrfeuer ist ein leichter Treffer – mit Schild kein Systemschaden, ohne Schild nur × leakFactor
+  // (sonst würfelte jedes der vielen kleinen Geschosse die volle Durchlass-Tabelle)
+  if (o.sperrfeuer) {
+    const SF = (C.spaceS2b && C.spaceS2b.sperrfeuer) || {};
+    chance = s > 0 ? 0 : chance * (SF.leakFactor != null ? Number(SF.leakFactor) : 1);
+  }
   out.systems = interior.hitSystems(game, sector, {
-    chance, maxState: row.maxState || 'broken', centre: !!row.centre, breakFragile: !!row.breakFragile && !heavyOnly,
+    chance, maxState: row.maxState || 'broken', centre: !!row.centre, breakFragile: !!row.breakFragile && !heavyOnly && !(o.sperrfeuer && s > 0),
     fragileAlways: s === 0 && rest > 0,   // ohne Schild bricht Geflicktes im Sektor sicher (wie M3a)
   });
   if (s > 0 && out.systems.length) game.stats.leakHits++;
@@ -142,6 +148,10 @@ function updateEscalation(game, dt) {
     T[sys] = (T[sys] || 0) + dt;
     if (T[sys] < after) continue;
     T[sys] = 0;   // Zähler beginnt neu
+    // QA S2b: Seit Jäger 3× so viel aushalten, dauern Gefechte länger; ungedeckelt zündete jede Eskalation weiter, bis das
+    // Schiff an der Feuer-Obergrenze brannte (Arena Seed 4: 32 Eskalationen, 170× Flicken im Kreis). Ab maxFires Bränden
+    // an Bord entsteht durch Eskalation kein weiteres Feuer – der Druck bleibt, die Spirale nicht.
+    if (Number(E.maxFires) > 0 && ship.fireList.length >= Number(E.maxFires)) continue;
     const at = igniteNear(game, sys);
     if (!at) continue;
     ensureStats(game);

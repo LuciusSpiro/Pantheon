@@ -721,16 +721,33 @@ console.log('\n[M4 Zwei Decks: kein Feuer/Leck auf Deck II]');
   const lift0 = lt[2];
   interior.addFire(g, lift0[0] + 2, lift0[1]);
   const savedMax = g.C.fire.max; g.C.fire.max = 40;
+  const savedFlood = g.C.emergencyRepair.fireDelay; g.C.emergencyRepair.fireDelay = 0;   // QA S2b: Brandschutz-Flutung aus
   const botsMod = require('../server/sim/bots.js');
   const botUpdate = botsMod.update;
   botsMod.update = () => {};   // Schrauber aus, sonst löschen sie sofort
-  try { for (let k = 0; k < 300 * 30; k++) g.step(); } finally { botsMod.update = botUpdate; g.C.fire.max = savedMax; }
+  try { for (let k = 0; k < 300 * 30; k++) g.step(); } finally { botsMod.update = botUpdate; g.C.fire.max = savedMax; g.C.emergencyRepair.fireDelay = savedFlood; }
   ok(g.ship.fireList.length > 1 && g.ship.fireList.every((f) => Maps.deckOf(f.ty) === 0 && Maps.hazardAllowed(f.tx, f.ty)),
     `Ausbreitung: ${g.ship.fireList.length} Feuer, keines auf Lift/Leiter/Deck II`);
   // Debug-Feuer auf Deck II wird abgelehnt
   g.ship.fireList = [];
   send(0, { t: 'debug', cmd: 'fire', x: 15, y: 22 });
   ok(g.ship.fireList.length === 0, 'Debug-Feuer auf Deck II: keins');
+  // QA S2b: Brandschutz-Flutung – außerhalb des Kampfs ≥ fireMin Brände fireDelay s lang -> ODA löscht alles
+  {
+    const ER = g.C.emergencyRepair;
+    for (let y = 0; y < 16 && g.ship.fireList.length < ER.fireMin + 1; y++) for (let x = 0; x < 40 && g.ship.fireList.length < ER.fireMin + 1; x++) interior.addFire(g, x, y);
+    const n0 = g.ship.fireList.length;
+    const savedSpread = g.C.fire.spreadChance; g.C.fire.spreadChance = 0;
+    const botsMod2 = require('../server/sim/bots.js'); const bu2 = botsMod2.update; botsMod2.update = () => {};
+    let before = -1;
+    try {
+      for (let k = 0; k < (ER.fireDelay - 1) * 30; k++) g.step();
+      before = g.ship.fireList.length;
+      for (let k = 0; k < 2 * 30; k++) g.step();
+    } finally { botsMod2.update = bu2; g.C.fire.spreadChance = savedSpread; }
+    ok(n0 >= ER.fireMin && before === n0 && g.ship.fireList.length === 0,
+      `Brandschutz-Flutung: ${n0} Brände, nach ${ER.fireDelay - 1} s noch ${before}, nach ${ER.fireDelay + 1} s ${g.ship.fireList.length}`);
+  }
   void conns;
 }
 

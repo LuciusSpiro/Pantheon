@@ -1,0 +1,207 @@
+{
+ "_quelle": "S2-Abnahme live (content/spielleiter/erzeugt/2026-10-08_sl_2_splitter_versorgung), Grobplan unverändert – Fälle für CONTRACT-S2B §4.1/§4.5",
+ "grobplan": {
+  "format": "grobplan/2",
+  "id": "splitter_versorgung",
+  "titel": "Was im Splitter treibt",
+  "auftraggeber": "grauzahn",
+  "zielspieldauer_min": 15,
+  "aufhaenger": "Hier Grauzahn. Kein Witz – ich hab ein Problem, das euch nützt. Ein Versorgungsfrachter der Meute ist im Splitter stecken, und ich will nicht, dass das Konkordat ihn findet. Holt ihn raus, und wir reden über Schulden.",
+  "erinnerung": {
+   "fakt": "kustoden_relais"
+  },
+  "erinnerung_text": "Grauzahn hat mitgehört, dass im Splitter was geweckt wurde – er will das Gebiet sauber halten, bevor die Kustoden nachschauen.",
+  "szenen": [
+   {
+    "id": "s1_hafen",
+    "szenentyp": "hafen",
+    "ort": "hafen",
+    "karte": null,
+    "molekuele": [],
+    "sachverhalt": "Grauzahn funkt verschlüsselt auf einen Nebenkanal: Ein Frachter der Rostmeute treibt im Splittergürtel, Antrieb tot, und Konkordat-Schiffe sind unterwegs. Er will keinen Gefallen – er will ein Geschäft.",
+    "wendung": null,
+    "dauer_min": 2,
+    "weiter": [
+     {
+      "wenn": "Crew nimmt an",
+      "nach": "s2_splitter_suche"
+     }
+    ]
+   },
+   {
+    "id": "s2_splitter_suche",
+    "szenentyp": "annaeherung_und_erkundung",
+    "ort": "splitter",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "signal_orten",
+      "umsetzung": "weitscan_peilung"
+     }
+    ],
+    "sachverhalt": "Im Splittergürtel liegt der Frachter 'Schiefmaul' irgendwo versteckt zwischen Brocken – kein Transponder, nur ein schwaches Notfunksignal. Die Taktik muss ihn triangulieren, der Pilot fliegt die Richtung ab.",
+    "wendung": "Beim letzten Ping antwortet ein zweites, unbekanntes Signal kurz – dann Stille. Ankündigung: noch jemand ist hier.",
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Frachter geortet",
+      "nach": "s3_entscheidung_bluff"
+     },
+     {
+      "wenn": "Konkordat-Schiff erscheint bevor Fund",
+      "nach": "s3_entscheidung_bluff"
+     }
+    ]
+   },
+   {
+    "id": "s3_entscheidung_bluff",
+    "szenentyp": "begegnung",
+    "ort": "splitter",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "taeuschen",
+      "umsetzung": "bluff_funk"
+     }
+    ],
+    "sachverhalt": "Ein Konkordat-Inspektionsboot funkt die Lerche an: Was macht sie hier, hat sie verdächtige Funde gemacht? Der Frachter liegt noch nicht gesichert – die Crew muss entscheiden, wie viel sie preisgibt.",
+    "wendung": null,
+    "dauer_min": 2,
+    "weiter": [
+     {
+      "wenn": "Bluff verfängt – Inspektor zieht ab",
+      "nach": "s4_pannenhilfe"
+     },
+     {
+      "wenn": "Bluff scheitert oder Wahrheit – Inspektor bleibt",
+      "nach": "s4_pannenhilfe"
+     }
+    ]
+   },
+   {
+    "id": "s4_pannenhilfe",
+    "szenentyp": "begegnung",
+    "ort": "splitter",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "pannenhilfe",
+      "umsetzung": "andocken_und_flicken"
+     }
+    ],
+    "sachverhalt": "Die Crew erreicht den treibenden Frachter 'Schiefmaul'. Die Schrauber flicken den toten Antrieb von außen, während der Pilot die Lerche nah und ruhig hält. Der Funkton des Kapitäns der Meute ist mürrisch, aber er zahlt.",
+    "wendung": "Während der Reparatur meldet die Taktik das unbekannte Signal von vorhin – näher, auf Annäherungskurs. Ankündigung: Jäger, kein Transponder.",
+    "dauer_min": 4,
+    "weiter": [
+     {
+      "wenn": "Antrieb geflickt vor Jäger-Ankunft",
+      "nach": "s5_abwehr"
+     },
+     {
+      "wenn": "Antrieb noch nicht fertig, Jäger da",
+      "nach": "s5_abwehr"
+     }
+    ]
+   },
+   {
+    "id": "s5_abwehr",
+    "szenentyp": "raumgefecht",
+    "ort": "splitter",
+    "karte": null,
+    "molekuele": [
+     {
+      "id": "vertreiben",
+      "umsetzung": "bis_zur_flucht"
+     }
+    ],
+    "sachverhalt": "Zwei Jäger ohne Kennung – Freischärler, die auf Beutezüge im Splitter spezialisiert sind – greifen an. Sie wollen den Frachter, nicht die Lerche; läuft die Lerche dazwischen, nehmen sie sie trotzdem ins Visier. Wenn ihre Hülle fällt, drehen sie ab.",
+    "wendung": null,
+    "dauer_min": 3,
+    "weiter": [
+     {
+      "wenn": "Jäger vertrieben, Frachter heil",
+      "nach": "ausgang:erfolg"
+     },
+     {
+      "wenn": "Jäger vertrieben, Frachter schwer beschädigt",
+      "nach": "ausgang:teilerfolg"
+     },
+     {
+      "wenn": "Frachter kampfunfähig treibt",
+      "nach": "ausgang:frachter_verloren"
+     }
+    ]
+   }
+  ],
+  "entscheidungen": [
+   {
+    "szene": "s3_entscheidung_bluff",
+    "frage": "Was sagt die Crew dem Konkordat-Inspektor?",
+    "optionen": [
+     {
+      "id": "bluff_sensor",
+      "text": "Wir suchen Sensoranomalien – Routinemessung",
+      "folge": "Inspektor glaubt es, zieht ab; Konkordat notiert die Lerche als unauffällig – nützt später"
+     },
+     {
+      "id": "bluff_bergung",
+      "text": "Wir haben einen Bergungsauftrag für Treibgut",
+      "folge": "Inspektor will einen Nachweis sehen; er bleibt in der Nähe und taucht in s4 erneut auf – Druck während der Reparatur"
+     },
+     {
+      "id": "wahrheit",
+      "text": "Wir helfen einem Havaristen – privater Auftrag",
+      "folge": "Inspektor begleitet 'zur Sicherheit'; er sieht den Frachter, meldet Rostmeute ans Konkordat – Grauzahns Haltung −1"
+     }
+    ]
+   },
+   {
+    "szene": "s4_pannenhilfe",
+    "frage": "Der Kapitän des Schiefmaul bietet als Bonus Frachtraum-Informationen an – über eine Route, die Grauzahn geheim hält. Nehmt ihr sie?",
+    "optionen": [
+     {
+      "id": "info_annehmen",
+      "text": "Ja, wir nehmen die Infos",
+      "folge": "Welt-Fakt über Rostmeute-Route gesetzt – nützlicher Faden, aber Grauzahn erfährt es irgendwann"
+     },
+     {
+      "id": "info_ablehnen",
+      "text": "Nein, das geht uns nichts an",
+      "folge": "Grauzahn hört es von seinem Kapitän – Haltung +1, er respektiert die Crew"
+     }
+    ]
+   }
+  ],
+  "ausgaenge": {
+   "erfolg": {
+    "wann": "Jäger vertrieben, Frachter heil entkommen",
+    "folgen": [
+     "npc_haltung grauzahn +1",
+     "npc_gedaechtnis grauzahn: Die Lerche hat den Schiefmaul im Splitter gerettet – ohne Fragen.",
+     "chronik: Die Crew hat den Frachter der Rostmeute aus dem Splitter befreit. Grauzahn ist im Soll.",
+     "schiff_marken +80"
+    ]
+   },
+   "teilerfolg": {
+    "wann": "Jäger vertrieben, Frachter beschädigt aber flugfähig",
+    "folgen": [
+     "npc_gedaechtnis grauzahn: Die Lerche hat sich redlich geschlagen – der Schiefmaul lebt, wenn auch mit Narben.",
+     "chronik: Die Crew hat den Frachter gerettet, aber nicht unversehrt. Grauzahn zahlt halb.",
+     "schiff_marken +40"
+    ]
+   },
+   "frachter_verloren": {
+    "wann": "Frachter kampfunfähig treibt oder verlorengeht",
+    "folgen": [
+     "npc_haltung grauzahn -1",
+     "npc_gedaechtnis grauzahn: Der Schiefmaul ist weg. Die Lerche hat es versucht – aber versucht ist nicht geliefert.",
+     "chronik: Der Frachter der Rostmeute ging im Splitter verloren. Grauzahn schuldet der Crew nichts.",
+     "welt_fakt splitter_freischarer (faden): Jäger ohne Kennung operieren im Splittergürtel – wer steckt dahinter?"
+    ]
+   }
+  },
+  "wuensche": [
+   "Ein Szenentyp 'Geleit' für Raumkampf mit einem begleiteten NSC-Schiff (Frachter folgt, Captain gibt Befehle) wäre für diese Mission ideal gewesen – schuetzen/geleit_durch_angriff deckt es teils ab, aber ein expliziter Gefechtsmodus mit dem Schützling als eigenem Objekt fehlt."
+  ]
+ }
+}

@@ -171,7 +171,7 @@ function renderMarkdown(entry, opts) {
   L.push('## Pitch', '', String(g.aufhaenger || T(book.buch && book.buch.briefing) || '–').trim(), '');
   // Erinnerung
   L.push('## Erinnerung', '');
-  const ref = (r) => (isObj(r) ? (r.fakt ? `Fakt \`${r.fakt}\`` : `${who(r.npc)} / \`${r.ereignis}\``) : '–');
+  const ref = (r) => (isObj(r) ? (r.neutral ? 'neutral (noch keine gemeinsame Geschichte)' : r.fakt ? `Fakt \`${r.fakt}\`` : `${who(r.npc)} / \`${r.ereignis}\``) : '–');
   const erBuch = book.buch && book.buch.erinnerung ? T(book.buch.erinnerung) : (g.erinnerung_text || null);
   if (erBuch) L.push(`${q(erBuch)}${isObj(g.erinnerung) ? ` – Bezug: ${ref(g.erinnerung)}` : ''}`, '');
   const vars = (e.erinnerung_varianten || []).filter((v) => v && v.text && v.text !== erBuch);
@@ -331,7 +331,7 @@ function actionLines(list, T, q, who, ctx, depth, notes) {
 }
 function folgeLine(f, T, q, who) {
   if (!isObj(f)) return String(f);
-  if (isObj(f.reward)) return `Belohnung: ${f.reward.marks || 0} Marken`;
+  if (isObj(f.reward)) return f.reward.marks > 0 ? `Belohnung: ${f.reward.marks} Marken` : 'Belohnung: keine Marken';   // QA S2b: nie „0 Marken“
   switch (f.do) {
     case 'npc_haltung': return `Haltung ${who(f.npc)}: ${f.delta > 0 ? '+' : ''}${f.delta}`;
     case 'npc_gedaechtnis': return `Gedächtnis ${who(f.npc)} (\`${f.ereignis}\`): ${q(f.text)}`;

@@ -2398,8 +2398,135 @@
     for (const m of ship.mounts || []) if ((m.id === 'port' || m.id === 'stbd') && newBat[m.id] && !(+m.salvo > 0) && salvoSeen[m.id] == null) salvoSeen[m.id] = 0;
     if (beamFx.length > 60) beamFx.splice(0, beamFx.length - 60);
     if (muzzleFx.length > 40) muzzleFx.splice(0, muzzleFx.length - 40);
+    try { ingestSperrfeuer(st, now); } catch (e) { report('Render.ingestSperrfeuer', e); }
   }
-  function resetBeamFx() { beamFx.length = 0; muzzleFx.length = 0; for (const k in salvoSeen) delete salvoSeen[k]; }
+  function resetBeamFx() { beamFx.length = 0; muzzleFx.length = 0; for (const k in salvoSeen) delete salvoSeen[k]; sperrSeen = null; sperrMuzzle.length = 0; }
+
+  // ------------------------------------------------------------------ S2b: Sperrfeuer des Kanonenboots (CONTRACT-S2B §3)
+  // Langsame Bernstein-Bolzen { id, kind: 'sperrfeuer', x, y, angle }. Lesbarkeit „langsam, ausweichen!“:
+  // Frontsicht/Taktik = Art-Sprite (Glut + kurze Spur) und eine kurze Bahnvorschau; liegt die Lerche auf Kollisionskurs,
+  // wird die Vorschau rot-orange und endet in einem Kreuz am Treffpunkt. Captain-Lage = kleine Punkte mit Mini-Spur.
+  // Neue IDs erzeugen einen Mündungsblitz am Startpunkt (Breitseite des Boots). Alle Listen begrenzt.
+  let sperrSeen = null;        // Set der zuletzt gesehenen Sperrfeuer-IDs (null = noch kein Snapshot → kein Blitz-Schwall)
+  const sperrMuzzle = [];      // { x, y, a, t0 }
+  function ingestSperrfeuer(st, now) {
+    const list = (st.space && st.space.projectiles) || [];
+    const ids = new Set();
+    for (const pr of list) {
+      if (!pr || pr.kind !== 'sperrfeuer') continue;
+      ids.add(pr.id);
+      if (sperrSeen && !sperrSeen.has(pr.id) && isFinite(pr.x) && isFinite(pr.y)) {
+        const a = +pr.angle || 0;
+        sperrMuzzle.push({ x: pr.x - Math.cos(a) * 6, y: pr.y - Math.sin(a) * 6, a, t0: now });
+      }
+    }
+    sperrSeen = ids;
+    for (let i = sperrMuzzle.length - 1; i >= 0; i--) if (now - sperrMuzzle[i].t0 > 0.5) sperrMuzzle.splice(i, 1);
+    if (sperrMuzzle.length > 24) sperrMuzzle.splice(0, sperrMuzzle.length - 24);
+  }
+  function sperrSpeed() {
+    const c = CFG.spaceS2b && CFG.spaceS2b.sperrfeuer;
+    const v = c && +c.speed;
+    return v > 0 ? v : 110;
+  }
+  function drawSperrfeuerShot(ctx, pr, s, ship, toS, rot, t, mode) {
+    const a = +pr.angle || 0, ux = Math.cos(a), uy = Math.sin(a);
+    if (mode === 'lage') {
+      // Captain-Lage: kleiner Bernstein-Punkt, Spur 2 Punkte dahinter (Flugrichtung bleibt lesbar)
+      const b = toS(pr.x - ux * 18, pr.y - uy * 18), c = toS(pr.x - ux * 36, pr.y - uy * 36);
+      ctx.fillStyle = 'rgba(255,198,107,0.35)'; ctx.fillRect(c.x - 1, c.y - 1, 1, 1);
+      ctx.fillStyle = 'rgba(255,198,107,0.6)'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
+      ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(s.x - 2, s.y - 2, 5, 5);
+      ctx.fillStyle = '#FFC66B'; ctx.fillRect(s.x - 1, s.y - 1, 3, 3);
+      return;
+    }
+    // Bahnvorschau (0,9 s Flug); auf Kollisionskurs bis zum nächsten Punkt, rot-orange mit Kreuz
+    const v = sperrSpeed();
+    const rvx = ux * v - (+ship.vx || 0), rvy = uy * v - (+ship.vy || 0), rv2 = rvx * rvx + rvy * rvy;
+    const dx = pr.x - (ship.x || 0), dy = pr.y - (ship.y || 0);
+    let danger = false, tc = 0;
+    if (rv2 > 1) {
+      tc = -(dx * rvx + dy * rvy) / rv2;
+      if (tc > 0 && tc < 3.5) danger = Math.hypot(dx + rvx * tc, dy + rvy * tc) < 44;
+    }
+    const tEnd = danger ? tc : 0.9;
+    const e = toS(pr.x + ux * v * tEnd, pr.y + uy * v * tEnd);
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.setLineDash(danger ? [3, 2] : [2, 4]);
+    ctx.lineDashOffset = -Math.floor(t * 10) % 6;
+    ctx.strokeStyle = danger ? 'rgba(255,120,70,' + (0.55 + 0.3 * Math.sin(t * 10)).toFixed(3) + ')' : 'rgba(255,198,107,0.35)';
+    ctx.beginPath(); ctx.moveTo(s.x + 0.5, s.y + 0.5); ctx.lineTo(e.x + 0.5, e.y + 0.5); ctx.stroke();
+    ctx.setLineDash([]);
+    if (danger) {
+      ctx.strokeStyle = '#FF784A';
+      ctx.beginPath(); ctx.moveTo(e.x - 3, e.y - 3); ctx.lineTo(e.x + 3, e.y + 3); ctx.moveTo(e.x + 3, e.y - 3); ctx.lineTo(e.x - 3, e.y + 3); ctx.stroke();
+    }
+    ctx.restore();
+    if (artK('drawProjectile', 'sperrfeuer', [ctx, 'sperrfeuer', s.x, s.y, a + rot, t], (g) => window.Art.drawProjectile(g, 'sperrfeuer', 48, 48, 0, 0))) return;
+    // Fallback ohne Art: Glutpunkt mit Spur
+    const sa = a + rot, sx = Math.cos(sa), sy = Math.sin(sa);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,198,107,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(s.x - sx * 12, s.y - sy * 12); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,198,107,0.35)'; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFC66B'; ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFF1B8'; ctx.fillRect(s.x - 1, s.y - 1, 2, 2);
+    ctx.restore();
+  }
+  function drawSperrMuzzles(ctx, toS, mode) {
+    if (!sperrMuzzle.length) return;
+    const now = performance.now() / 1000;
+    const small = mode === 'lage';
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const m of sperrMuzzle) {
+      const age = now - m.t0;
+      if (age < 0 || age > 0.35) continue;
+      const k = 1 - age / 0.35, s = toS(m.x, m.y);
+      const r = (small ? 3 : 6) + (small ? 3 : 9) * (1 - k);
+      ctx.fillStyle = 'rgba(255,170,70,' + (0.6 * k).toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
+      if (age < 0.12 && !small) {
+        ctx.fillStyle = 'rgba(255,241,184,' + (0.9 * k).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // S2b: Gegner-HP-Balken in Segmenten (Jäger halten 3× so viel aus → jeder Treffer muss sichtbar ein Stück abtragen).
+  // Ein Segment ≈ 6 HP (Jäger 36 HP = 6 Segmente), 1–12 Segmente. Eben verlorene HP leuchten kurz hell nach (Geist,
+  // läuft nach 0,25 s mit 0,8/s nach), der Rahmen blitzt beim Treffer. Speicher je Gegner-ID, begrenzt und aufgeräumt.
+  const hpGhost = new Map();   // id -> { shown, frac, hitAt, seen }
+  function enemyHpBar(ctx, e, cx, y, now) {
+    const max = +e.hpMax || 0;
+    const frac = max > 0 ? clamp01((+e.hp || 0) / max) : 1;
+    const n = max > 0 ? Math.max(1, Math.min(12, Math.round(max / 6))) : 1;
+    if (n <= 2) { bar(ctx, Math.round(cx - 12), y, 24, 3, frac, PAL.red); return; }
+    let g = e.id != null ? hpGhost.get(e.id) : null;
+    if (!g) { g = { shown: frac, frac, hitAt: -9, seen: now }; if (e.id != null) hpGhost.set(e.id, g); }
+    if (frac < g.frac - 1e-6) { g.hitAt = now; if (g.shown < g.frac) g.shown = g.frac; }
+    if (frac > g.shown) g.shown = frac;
+    const dt = Math.max(0, Math.min(0.1, now - g.seen));
+    if (now - g.hitAt > 0.25) g.shown = Math.max(frac, g.shown - 0.8 * dt);
+    g.frac = frac; g.seen = now;
+    if (hpGhost.size > 64) for (const [k, v] of hpGhost) { if (now - v.seen > 5) hpGhost.delete(k); if (hpGhost.size <= 48) break; }
+    const sw = 4, gap = 1, h = 4, w = n * (sw + gap) - gap;
+    const x = Math.round(cx - w / 2);
+    ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    const flash = now - g.hitAt < 0.15;
+    for (let i = 0; i < n; i++) {
+      const sx = x + i * (sw + gap);
+      const f0 = i / n, f1 = (i + 1) / n;
+      ctx.fillStyle = 'rgba(46,58,74,0.95)'; ctx.fillRect(sx, y, sw, h);
+      const ghostW = Math.round(sw * clamp01((g.shown - f0) / (f1 - f0)));
+      if (ghostW > 0) { ctx.fillStyle = '#FFF1B8'; ctx.fillRect(sx, y, ghostW, h); }
+      const fillW = Math.round(sw * clamp01((frac - f0) / (f1 - f0)));
+      if (fillW > 0) { ctx.fillStyle = PAL.red; ctx.fillRect(sx, y, fillW, h); ctx.fillStyle = 'rgba(255,138,122,0.9)'; ctx.fillRect(sx, y, fillW, 1); }
+    }
+    if (flash) { ctx.strokeStyle = PAL.star; ctx.lineWidth = 1; ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
+  }
   // Lanzenschaden aus power (§20.3): min + (max − min) × power; beschädigt max × 0,75
   function lanceDamage(m, power) {
     if (power == null && m && typeof m.dmg === 'number' && isFinite(m.dmg)) return Math.round(m.dmg * 10) / 10;   // Server liefert dmg
@@ -3045,9 +3172,12 @@
 
     // Strahlen: §20.1 aus dem lokalen Speicher, gezeichnet erst nach Gegnern und Schiff (z-Order); hier nur Projektile
     if (st !== lastIngested) { lastIngested = st; try { ingestSnap(st); } catch (e) { report('Render.ingestSnap', e); } }
+    const sperrList = [];
     for (const pr of view.spaceProjectiles || []) {
+      if (!pr || !isFinite(pr.x) || !isFinite(pr.y)) continue;
       if (!visible(pr.x, pr.y)) continue;
       const s = toS(pr.x, pr.y);
+      if (pr.kind === 'sperrfeuer') { if (inB(s, 40)) sperrList.push({ pr, s }); continue; }   // S2b: über den Gegnern gezeichnet
       if (!inB(s, 8)) continue;
       if (!art('drawProjectile', 'drawProjectile:' + pr.kind, [ctx, pr.kind, s.x, s.y, (pr.angle || 0) + rot, t])) {
         ctx.fillStyle = pr.kind === 'enemy' || pr.kind === 'emp' ? PAL.red : PAL.amber; ctx.fillRect(s.x - 2, s.y - 2, 4, 4);
@@ -3063,6 +3193,7 @@
     const teleMode = cfg.teleVis || (cfg.mode === 'tactical' ? 'all' : 'late');
     const teleShown = (e) => !!(e && e.tele && teleMode !== 'none' && (teleMode === 'all' || (+e.tele.left || 0) <= teleLate));
     const teleList = [];
+    const now0 = performance.now() / 1000;
     for (const e of view.enemies || []) {
       if (!visible(e.x, e.y)) continue;
       if (!front && Math.hypot(e.x - ship.x, e.y - ship.y) > sensR) continue;   // Sensorreichweite filtert der Client
@@ -3081,7 +3212,7 @@
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
-      bar(ctx, s.x - 12, s.y - size - 8, 24, 3, hpFrac, PAL.red);
+      enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
       if (clicks && !front) clicks.push({ id: e.id, x: s.x - size - 4, y: s.y - size - 4, w: size * 2 + 8, h: size * 2 + 8 });
       const isTarget = target && target.id === e.id;
@@ -3104,6 +3235,9 @@
         lab('ZIEL', s.x, s.y + size + 8, { color: PAL.amber, align: 'center' }, 4);
       }
     }
+    // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt das Kanonenboot den Abschuss)
+    for (const o of sperrList) { try { drawSperrfeuerShot(ctx, o.pr, o.s, ship, toS, rot, t, cfg.mode); } catch (e) { report('Render.sperrfeuer', e); } }
+    try { drawSperrMuzzles(ctx, toS, cfg.mode); } catch (e) { report('Render.sperrMuzzle', e); }
     // S2: Bedrohungslinien gescannter Gegner auf Schützlinge
     try { drawEscortThreats(ctx, view, escEnv); } catch (e) { report('Render.escortThreats', e); }
     // M3a: Ladungen – höchstens 3 Countdowns gleichzeitig (die kürzesten zuerst)

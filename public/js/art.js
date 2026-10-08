@@ -3426,8 +3426,39 @@
     });
   }
   var PROJ_GLOW = { enemy: PAL.alarmrot, bolzen: PAL.bernstein, blaster: PAL.mint, drone: PAL.alarmrot };
+  // S2b: Sperrfeuer des Kanonenboots – dicker, glühender Bernstein-Bolzen (Bug +x) mit kurzer, ausfransender Spur.
+  // Absichtlich größer und runder als Jäger-Schuss (rot, klein) und eigener Bolzen (Messing, schlank, rote Spitze):
+  // liest sich als „schwer und langsam – ausweichen“. 2 Glutphasen, feste Schlüssel → Cache wächst nicht.
+  function sperrSprite(f) {
+    return cached('proj|sperrfeuer|' + f, 24, 12, function (g) {
+      // Spur (hinten, x 0..11): drei ausdünnende Glutfetzen
+      R(g, 1, 5, 2, 2, 'rgba(255,198,107,0.25)');
+      R(g, 4, 5, 3, 2, 'rgba(255,198,107,0.45)');
+      R(g, 7, 4, 3, 4, 'rgba(255,198,107,0.6)');
+      R(g, 10, 4, 3, 4, 'rgba(255,214,140,0.8)');
+      if (f) { P(g, 3, 4, 'rgba(255,241,184,0.5)'); P(g, 6, 7, 'rgba(255,241,184,0.6)'); }
+      else { P(g, 2, 7, 'rgba(255,241,184,0.5)'); P(g, 8, 3, 'rgba(255,241,184,0.6)'); }
+      // Kopf: dunkler Bernstein-Rand, heller Kern, weiße Glutspitze
+      ell(g, 16, 6, 5.5, 4, '#C9822E');
+      ell(g, 16, 6, 4.5, 3.2, PAL.bernstein);
+      ell(g, 17, 6, 3, 2.2, f ? '#FFE3A8' : '#FFD58A');
+      R(g, 17, 5, 3, 2, PAL.funke);
+      P(g, 20, 6, '#FFFFFF');
+    });
+  }
+  function drawSperrfeuer(ctx, x, y, angle, t) {
+    var tt = t || 0, pulse = 0.5 + 0.5 * Math.sin(tt * 9 + x * 0.05);
+    glow(ctx, x, y, PAL.bernstein, 12, 0.35 + 0.25 * pulse);
+    glow(ctx, x, y, PAL.funke, 5, 0.5 + 0.3 * pulse);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle || 0);
+    ctx.drawImage(sperrSprite(frameOf(tt, 12, 2)), -16, -6);
+    ctx.restore();
+  }
   function drawProjectile(ctx, kind, x, y, angle, t) {
     if (kind === 'pistol' || kind === 'warden') { drawProjectileM2(ctx, kind, x, y, angle, t); return; }   // M2
+    if (kind === 'sperrfeuer') { drawSperrfeuer(ctx, x, y, angle, t); return; }   // S2b
     if (!PROJ_GLOW[kind]) { missing(ctx, Math.round(x - 4), Math.round(y - 4), 8, 8); return; }
     var spr = projSprite(kind);
     glow(ctx, x, y, PROJ_GLOW[kind], kind === 'bolzen' ? 5 : 7, 0.6);

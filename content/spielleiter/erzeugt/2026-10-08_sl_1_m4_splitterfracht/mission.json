@@ -1,0 +1,1692 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "erzeugt-2026-10-08_sl_1_m4_splitterfracht",
+  "name": "2026-10-08_sl_1_m4_splitterfracht",
+  "quelle": "llm",
+  "modell": "sonnet",
+  "tokens": 50835,
+  "erstellt": "2026-10-08T11:31:12.230Z",
+  "aktualisiert": "2026-10-08T11:42:22.205Z",
+  "meta": {
+    "mission_id": "sl_1_m4_splitterfracht",
+    "welt": "w-test",
+    "plan": "p1",
+    "origin": "sl",
+    "anlass": {
+      "werkzeug": "test-llm-live --pipeline (S2b §4.6), Szenen mit S2b-Prüfer nachgeprüft",
+      "welt_fixture": "ohne-tutorial",
+      "art": "kampagnenstart",
+      "tutorial": false,
+      "auftraggeber": "sela"
+    },
+    "szenen_quelle": {
+      "s1_hafen": "rohfassung",
+      "s2_splitter_bergen": "llm",
+      "s3_begegnung_meute": "llm",
+      "s4_gefecht_meute": "llm",
+      "s4_geleit_vaelen": "llm",
+      "s5_ablieferung": "llm"
+    },
+    "pruefer": {
+      "fehler": [],
+      "warnungen": [
+        "FLAG-UNGELESEN flags: Flag 's3_begegnung_meute_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_gefecht_meute_vertrieben' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_vaelen_beschaedigt' wird gesetzt, aber in diesem Buch nie gelesen",
+        "FLAG-UNGELESEN flags: Flag 's4_geleit_vaelen_verloren' wird gesetzt, aber in diesem Buch nie gelesen"
+      ]
+    },
+    "aktualisierungen": 7
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "fakt": "tutorial"
+      },
+      "text": "Sela hat gehört, dass diese Crew das Tutorial übersprungen hat – frische Leute, die sich noch beweisen wollen."
+    }
+  ],
+  "erinnerung_neutral": "Sela (Vaelen-Händlerin) hat wieder Arbeit für die Lerche.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "m4_splitterfracht",
+    "titel": "Verlorene Ladung im Splittergürtel",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, ich brauche euch. Meine Karawane hat drei Container im Splittergürtel verloren – Medizin für die Außenposten. Holt sie raus, bevor die Rostmeute sie findet. Ihr seid nah genug.",
+    "erinnerung": {
+      "fakt": "tutorial"
+    },
+    "erinnerung_text": "Sela hat gehört, dass diese Crew das Tutorial übersprungen hat – frische Leute, die sich noch beweisen wollen.",
+    "belohnung_marken": 150,
+    "besetzung": [
+      "sela"
+    ],
+    "szenen": [
+      {
+        "id": "s1_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "stimme": "sela",
+        "sachverhalt": "Sela funkt von der Vaelen-Karawane aus: Drei Container mit Medizin sind beim letzten Durchflug durch den Splittergürtel abgerissen. Sie braucht sie zurück, bevor Piraten sie plündern.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "s2_splitter_bergen"
+          }
+        ]
+      },
+      {
+        "id": "s2_splitter_bergen",
+        "szenentyp": "bergung_im_all",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "ladung_bergen",
+            "umsetzung": "bergungskisten"
+          }
+        ],
+        "stimme": "sela",
+        "ziel_name": "Medizin-Container",
+        "sachverhalt": "Im Splittergürtel treiben die drei markierten Container zwischen Brocken. Die Taktik lotst, der Pilot fliegt – aber die Trümmer machen das Einsammeln gefährlich.",
+        "wendung": "Ankündigung: Kurz bevor der letzte Container gesichert ist, meldet die Ortung zwei Rostmeute-Jäger auf Kurs.",
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Container geborgen, Jäger im Anflug",
+            "nach": "s3_begegnung_meute"
+          }
+        ]
+      },
+      {
+        "id": "s3_begegnung_meute",
+        "szenentyp": "begegnung",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "taeuschen",
+            "umsetzung": "bluff_funk"
+          }
+        ],
+        "stimme": "neu:Vrann",
+        "ziel_name": "Rostmeute-Jäger Vrann",
+        "sachverhalt": "Vrann funkt und fordert die Hälfte der Ladung als Durchfahrgebühr. Die Ortung zeigt: Sein Wingman hat einen schwachen Schild. Der Captain muss wählen – bluffen oder kämpfen.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Bluff gelingt oder Zahlung",
+            "nach": "s4_geleit_vaelen"
+          },
+          {
+            "wenn": "Bluff scheitert oder Angriff",
+            "nach": "s4_gefecht_meute"
+          }
+        ]
+      },
+      {
+        "id": "s4_gefecht_meute",
+        "szenentyp": "raumgefecht",
+        "ort": "splitter",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "stimme": "neu:Vrann",
+        "ziel_name": "Vrann und Wingman",
+        "sachverhalt": "Die Jäger greifen an, wollen die Container, nicht die Lerche zerstören. Wer unter die Schwelle sinkt, dreht ab. Vrann droht beim Abzug laut.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Jäger vertrieben",
+            "nach": "s5_ablieferung"
+          }
+        ]
+      },
+      {
+        "id": "s4_geleit_vaelen",
+        "szenentyp": "geleit",
+        "ort": "vaelen",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "schuetzen",
+            "umsetzung": "notruf_verteidigen"
+          }
+        ],
+        "stimme": "sela",
+        "ziel_name": "Vaelen-Karawane",
+        "sachverhalt": "Die Karawane hat gewartet – aber ein zweiter Rostmeute-Trupp hat sie bereits eingekreist. Die Lerche fängt die Ladungen ab und vertreibt die Angreifer.",
+        "wendung": null,
+        "dauer_min": 4,
+        "weiter": [
+          {
+            "wenn": "Karawane gehalten",
+            "nach": "s5_ablieferung"
+          },
+          {
+            "wenn": "Karawane kampfunfähig",
+            "nach": "ausgang:teilerfolg"
+          }
+        ]
+      },
+      {
+        "id": "s5_ablieferung",
+        "szenentyp": "ablieferung",
+        "ort": "vaelen",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "ladung_liefern",
+            "umsetzung": "im_hafen_abgeben"
+          }
+        ],
+        "stimme": "sela",
+        "sachverhalt": "Sela quittiert die Container persönlich. Je nachdem, wie viele Container geborgen wurden, fällt ihr Dank knapper oder herzlicher aus.",
+        "wendung": null,
+        "dauer_min": 1,
+        "weiter": [
+          {
+            "wenn": "alle drei Container geliefert",
+            "nach": "ausgang:vollerfolg"
+          },
+          {
+            "wenn": "ein oder zwei Container geliefert",
+            "nach": "ausgang:teilerfolg"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "s3_begegnung_meute",
+        "frage": "Was antwortet der Captain auf Vranns Forderung?",
+        "optionen": [
+          {
+            "id": "bluff_schild",
+            "text": "Bluffen: ‚Euer Schild hält unsere Verstärkung nicht aus.'",
+            "folge": "Passt zum Scan – Vrann zieht ab, kein Kampf, aber er merkt sich die Lerche"
+          },
+          {
+            "id": "bluff_ladung",
+            "text": "Bluffen: ‚Da ist nur Ballast drin.'",
+            "folge": "Passt nicht zum Scan – Vrann glaubt es nicht, Kampf beginnt"
+          },
+          {
+            "id": "zahlung",
+            "text": "Einen Container abtreten",
+            "folge": "Vrann lässt durch, aber ein Container fehlt bei der Ablieferung"
+          }
+        ]
+      },
+      {
+        "szene": "s4_geleit_vaelen",
+        "frage": "Die Karawane steht unter Beschuss – wohin zuerst?",
+        "optionen": [
+          {
+            "id": "schutzschild",
+            "text": "Lerche stellt sich schützend vor die Karawane",
+            "folge": "Mehr Treffer auf der Lerche, Karawane bleibt länger heil"
+          },
+          {
+            "id": "angreifer_zuerst",
+            "text": "Sofort auf die Angreifer feuern",
+            "folge": "Karawane nimmt früh Schaden, Angreifer schneller erledigt"
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "vollerfolg": {
+        "wann": "Alle drei Container bei Sela abgeliefert, Karawane heil",
+        "folgen": [
+          "npc_haltung sela +1",
+          "npc_gedaechtnis sela: Die Lerche hat alle drei Container unbeschädigt geborgen und die Karawane verteidigt.",
+          "chronik: Die Crew lieferte Selas Medizin-Fracht vollständig durch den Splittergürtel."
+        ]
+      },
+      "teilerfolg": {
+        "wann": "Nicht alle Container geliefert oder Karawane kampfunfähig getrieben",
+        "folgen": [
+          "npc_gedaechtnis sela: Die Lerche hat geholfen, aber ein Teil der Ladung ging verloren oder die Karawane hat schwer gelitten.",
+          "chronik: Die Crew brachte Selas Fracht nur teilweise durch – ein Verlust, den Sela schweigend quittiert.",
+          "welt_fakt rostmeute_spur (faden): Vrann kennt die Lerche jetzt – Grauzahn könnte davon erfahren."
+        ]
+      }
+    },
+    "wuensche": [
+      "Ein Szenentyp 'Verfolgung' wäre hilfreich, um Vranns Abzug als eigene Szene spielbar zu machen."
+    ]
+  },
+  "szenen": {
+    "s2_splitter_bergen": {
+      "molekuele": [
+        {
+          "id": "ladung_bergen",
+          "umsetzung": "bergungskisten",
+          "params": {
+            "loc": "splitter",
+            "anzahl": 3,
+            "aufgeben_nach": 180,
+            "auftraggeber_hinweis": "Drei Container treiben zwischen den Brocken – grün markiert. Taktik lotst, Pilot fliegt drüber. Vorsicht: jeder Rempler kostet Schild!"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "meute_anflug",
+        "nach_s": 90,
+        "ankuendigung": "Achtung: Ortung zeigt zwei unbekannte Jäger auf Kurs – Ankunft in etwa 60 Sekunden.",
+        "wirkung": [
+          {
+            "radio": {
+              "from": "sela",
+              "text": "Lerche, beeilt euch – da nähern sich Signale, die mir gar nicht gefallen."
+            }
+          }
+        ]
+      }
+    },
+    "s3_begegnung_meute": {
+      "molekuele": [
+        {
+          "id": "taeuschen",
+          "umsetzung": "bluff_funk",
+          "params": {
+            "loc": "splitter",
+            "npc": "neu:Vrann",
+            "forderung": "Lerche, hört her. Ihr seid in unserem Revier. Halbe Ladung als Durchfahrgebühr – oder wir holen sie uns selbst.",
+            "hinweis": "Ortung: Wingman-Schild bei 18 %. Ein gezielter Treffer würde reichen.",
+            "frage": "Was antwortet der Captain auf Vranns Forderung?",
+            "bluff_passend": "Eure Schilde halten unsere Verstärkung keine Minute.",
+            "bluff_falsch": "Da ist nur Ballast – lohnt sich nicht für euch.",
+            "wahrheit": "Einen Container abtreten",
+            "funk_geglueckt": "… Verstärkung, ja. Schön. Diesmal lassen wir euch durch, Lerche.",
+            "funk_durchschaut": "Ballast? Ich seh drei volle Container auf meinem Schirm. Greift an!",
+            "folgen_geglueckt": [
+              {
+                "setFlag": {
+                  "s3_begegnung_meute_geglueckt": true
+                }
+              },
+              {
+                "oda": "Vrann dreht ab. Die Route nach Vaelen ist frei."
+              },
+              {
+                "log": "Vrann ließ sich täuschen – er kennt die Lerche jetzt."
+              }
+            ],
+            "folgen_durchschaut": [
+              {
+                "setFlag": {
+                  "s3_begegnung_meute_durchschaut": true
+                }
+              },
+              {
+                "oda": "Vrann hat den Bluff durchschaut. Jäger auf Angriffskurs."
+              }
+            ],
+            "folgen_wahrheit": [
+              {
+                "setFlag": {
+                  "s3_begegnung_meute_geglueckt": true
+                }
+              },
+              {
+                "oda": "Ein Container bleibt zurück. Vrann lässt die Lerche passieren."
+              },
+              {
+                "log": "Einen Container an die Rostmeute abgetreten."
+              }
+            ],
+            "geduld_s": 60
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "s4_geleit_vaelen",
+          "if": {
+            "flag": "s3_begegnung_meute_geglueckt"
+          }
+        },
+        {
+          "nach": "s4_gefecht_meute"
+        }
+      ],
+      "wendung": null
+    },
+    "s4_gefecht_meute": {
+      "molekuele": [
+        {
+          "id": "vertreiben",
+          "umsetzung": "bis_zur_flucht",
+          "params": {
+            "loc": "splitter",
+            "npc": "neu:Vrann",
+            "jaeger": 2,
+            "mit_kanonenboot": false,
+            "flucht_unter": 35,
+            "funk_start": "Ihr habt die falsche Wahl getroffen, Lerche. Diese Container gehören jetzt uns.",
+            "funk_abzug": "Schießt euch nicht in den Schlaf. Wir holen uns die Ware anderswo."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "s4_geleit_vaelen": {
+      "molekuele": [
+        {
+          "id": "schuetzen",
+          "umsetzung": "notruf_verteidigen",
+          "params": {
+            "loc": "vaelen",
+            "funk_npc": "sela",
+            "kind": "karawane",
+            "name": "Vaelen-Karawane",
+            "huelle": 55,
+            "jaeger": 2,
+            "angreifer": "raider",
+            "funk_notruf": "Lerche, hier Sela – zweiter Rostmeute-Trupp hat uns eingekreist. Antrieb läuft noch, aber nicht mehr lang!",
+            "funk_dank": "Sie ziehen ab … Lerche, ihr habt uns gerade das Leben gerettet. Danke."
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "s5_ablieferung",
+          "if": {
+            "flag": "s4_geleit_vaelen_heil"
+          }
+        },
+        {
+          "nach": "ausgang:teilerfolg"
+        }
+      ],
+      "wendung": null
+    },
+    "s5_ablieferung": {
+      "molekuele": [
+        {
+          "id": "ladung_liefern",
+          "umsetzung": "im_hafen_abgeben",
+          "params": {
+            "loc": "vaelen",
+            "empfaenger": "sela",
+            "was": "die Medizincontainer",
+            "funk_quittung": "Quittiert. Jeder Container zählt – die Außenposten danken euch, Lerche.",
+            "lohn": 0
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:vollerfolg",
+          "if": {
+            "v": "s5_alt"
+          }
+        },
+        {
+          "nach": "ausgang:teilerfolg"
+        }
+      ],
+      "wendung": null
+    }
+  },
+  "regiebuch": {
+    "format": "regiebuch/1",
+    "id": "sl_1_m4_splitterfracht",
+    "kopf": {
+      "titel": "Verlorene Ladung im Splittergürtel",
+      "art": "generiert",
+      "auftraggeber": "sela",
+      "zielspieldauer_min": 15,
+      "crew": {
+        "empfohlen": 1
+      }
+    },
+    "buch": {
+      "von": [
+        {
+          "npc": "sela"
+        }
+      ],
+      "briefing": "@buch.briefing",
+      "belohnung": "@buch.belohnung",
+      "ziel": "splitter",
+      "dauer_min": 15,
+      "erinnerung": "@buch.erinnerung"
+    },
+    "buehne": {
+      "orte": [
+        "hafen",
+        "splitter",
+        "vaelen"
+      ]
+    },
+    "besetzung": {
+      "npc": [
+        "sela"
+      ],
+      "stimmen": {
+        "neu_vrann": {
+          "name": "Vrann"
+        }
+      },
+      "schiffe": {
+        "s4_geleit_vaelen": {
+          "kind": "karawane",
+          "name": "Vaelen-Karawane",
+          "npc": "sela"
+        }
+      }
+    },
+    "steps": [
+      {
+        "id": "s1_hafen",
+        "umsetzung": "ladung_bergen/bergungskisten",
+        "enter": [
+          {
+            "setFlag": {
+              "s3_begegnung_meute_durchschaut": null,
+              "s3_begegnung_meute_geglueckt": null,
+              "s4_gefecht_meute_vertrieben": null,
+              "s4_geleit_vaelen_beschaedigt": null,
+              "s4_geleit_vaelen_heil": null,
+              "s4_geleit_vaelen_verloren": null
+            }
+          },
+          {
+            "radio": {
+              "from": "sela",
+              "text": "@s1_hafen.funk",
+              "accept": true
+            }
+          }
+        ],
+        "onAccept": [
+          {
+            "set": {
+              "briefed": true
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 6,
+            "if": {
+              "not": {
+                "event": "accepted"
+              }
+            },
+            "oda": "@s1_hafen.hinweis",
+            "garantie": "hinweis"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "auftrag",
+            "text": "@s1_hafen.ziel",
+            "done": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "event": "accepted"
+                },
+                {
+                  "elapsed": 12
+                }
+              ]
+            },
+            "goto": "s2_splitter_bergen_anflug",
+            "garantie": "autoloesung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_accept"
+          }
+        ]
+      },
+      {
+        "id": "s2_splitter_bergen_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s2_splitter_bergen.anflug_ziel",
+            "done": {
+              "atLocation": "splitter"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "splitter"
+              }
+            },
+            "oda": "@s2_splitter_bergen.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "splitter"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s2_splitter_bergen"
+                  }
+                }
+              ]
+            },
+            "goto": "s2_splitter_bergen"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "splitter"
+          }
+        ],
+        "umsetzung": "ladung_bergen/bergungskisten"
+      },
+      {
+        "id": "s2_splitter_bergen",
+        "loc": "splitter",
+        "enter": [
+          {
+            "spawnSalvage": 3
+          }
+        ],
+        "timers": [
+          {
+            "at": 3,
+            "oda": "@s2_splitter_bergen.start"
+          },
+          {
+            "at": 45,
+            "if": {
+              "not": {
+                "check": "salvage_done"
+              }
+            },
+            "oda": "@s2_splitter_bergen.hinweis",
+            "garantie": "hinweis"
+          },
+          {
+            "at": 90,
+            "do": [
+              {
+                "wendung": "s2_meute_anflug",
+                "ankuendigung": {
+                  "oda": "@s2_splitter_bergen.t1",
+                  "art": "gleichzeitig"
+                },
+                "wirkung": [
+                  {
+                    "radio": {
+                      "from": "sela",
+                      "text": "@s2_splitter_bergen.t2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 180
+                },
+                {
+                  "not": {
+                    "check": "salvage_done"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s2_splitter_bergen_aufgegeben": true
+                }
+              },
+              {
+                "oda": "@s2_splitter_bergen.aufgegeben"
+              }
+            ],
+            "garantie": "zeitlimit"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "bergen",
+            "text": "@s2_splitter_bergen.ziel",
+            "done": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s2_splitter_bergen_aufgegeben"
+                }
+              ]
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "any": [
+                {
+                  "check": "salvage_done"
+                },
+                {
+                  "v": "s2_splitter_bergen_aufgegeben"
+                }
+              ]
+            },
+            "goto": "s3_begegnung_meute"
+          }
+        ],
+        "skip": [
+          {
+            "set": {
+              "s2_splitter_bergen_aufgegeben": true
+            }
+          }
+        ],
+        "umsetzung": "ladung_bergen/bergungskisten"
+      },
+      {
+        "id": "s3_begegnung_meute",
+        "loc": "splitter",
+        "enter": [
+          {
+            "radio": {
+              "from": "neu_vrann",
+              "text": "@s3_begegnung_meute.forderung"
+            }
+          },
+          {
+            "oda": "@s3_begegnung_meute.captain"
+          }
+        ],
+        "timers": [
+          {
+            "at": 8,
+            "oda": "@s3_begegnung_meute.hinweis"
+          },
+          {
+            "at": 10,
+            "do": [
+              {
+                "choice": "s3_begegnung_meute_wahl"
+              }
+            ]
+          },
+          {
+            "at": 50,
+            "if": {
+              "not": {
+                "choiceMade": "s3_begegnung_meute_wahl"
+              }
+            },
+            "oda": "@s3_begegnung_meute.ungeduldig",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 60
+                },
+                {
+                  "not": {
+                    "choiceMade": "s3_begegnung_meute_wahl"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "force_choice",
+                "option": "wahrheit"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "choices": {
+          "s3_begegnung_meute_wahl": {
+            "prompt": "@s3_begegnung_meute.frage",
+            "options": [
+              {
+                "id": "passend",
+                "label": "@s3_begegnung_meute.passend"
+              },
+              {
+                "id": "falsch",
+                "label": "@s3_begegnung_meute.falsch"
+              },
+              {
+                "id": "wahrheit",
+                "label": "@s3_begegnung_meute.wahrheit"
+              }
+            ],
+            "on": {
+              "passend": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_meute_geglueckt": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_vrann",
+                    "text": "@s3_begegnung_meute.funk_geglueckt"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_meute_geglueckt": true
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung_meute.t1"
+                    },
+                    {
+                      "log": "@s3_begegnung_meute.t2"
+                    }
+                  ]
+                }
+              ],
+              "falsch": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_meute_durchschaut": true
+                  }
+                },
+                {
+                  "radio": {
+                    "from": "neu_vrann",
+                    "text": "@s3_begegnung_meute.funk_durchschaut"
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_meute_durchschaut": true
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung_meute.t3"
+                    }
+                  ]
+                }
+              ],
+              "wahrheit": [
+                {
+                  "setFlag": {
+                    "s3_begegnung_meute_durchschaut": true
+                  }
+                },
+                {
+                  "wirkung": [
+                    {
+                      "setFlag": {
+                        "s3_begegnung_meute_geglueckt": true
+                      }
+                    },
+                    {
+                      "oda": "@s3_begegnung_meute.t4"
+                    },
+                    {
+                      "log": "@s3_begegnung_meute.t5"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "objectives": [
+          {
+            "id": "antwort",
+            "text": "@s3_begegnung_meute.ziel",
+            "done": {
+              "choiceMade": "s3_begegnung_meute_wahl"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "choiceMade": "s3_begegnung_meute_wahl"
+                },
+                {
+                  "flag": "s3_begegnung_meute_geglueckt"
+                }
+              ]
+            },
+            "goto": "s4_geleit_vaelen_anflug"
+          },
+          {
+            "if": {
+              "choiceMade": "s3_begegnung_meute_wahl"
+            },
+            "goto": "s4_gefecht_meute"
+          }
+        ],
+        "skip": [
+          {
+            "do": "force_choice",
+            "option": "passend"
+          }
+        ],
+        "umsetzung": "taeuschen/bluff_funk",
+        "liefert_flags": [
+          "s3_begegnung_meute_geglueckt",
+          "s3_begegnung_meute_durchschaut"
+        ]
+      },
+      {
+        "id": "s4_gefecht_meute",
+        "loc": "splitter",
+        "enter": [
+          {
+            "spawn": {
+              "kind": "raider",
+              "tag": "s4_gefecht_meute_w1",
+              "n": 2,
+              "angles": [
+                0.3,
+                -0.7,
+                1.2
+              ]
+            }
+          },
+          {
+            "if": false,
+            "spawn": {
+              "kind": "gunboat",
+              "tag": "s4_gefecht_meute_w1"
+            }
+          },
+          {
+            "do": "enemies_retreat",
+            "tag": "s4_gefecht_meute_w1",
+            "unter_pct": 35
+          },
+          {
+            "after": {
+              "sec": 3,
+              "do": [
+                {
+                  "radio": {
+                    "from": "neu_vrann",
+                    "text": "@s4_gefecht_meute.funk_start"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s4_gefecht_meute.lage"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "enemiesLeft": {
+                  "max": 0
+                }
+              }
+            },
+            "oda": "@s4_gefecht_meute.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 3
+                },
+                {
+                  "enemiesLeft": {
+                    "tag": "s4_gefecht_meute_w1",
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_gefecht_meute_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_gefecht_meute_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "s4_gefecht_meute_vertrieben": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "neu_vrann",
+                  "text": "@s4_gefecht_meute.funk_abzug"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 240
+                },
+                {
+                  "not": {
+                    "v": "s4_gefecht_meute_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "tag": "s4_gefecht_meute_w1",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_gefecht_meute.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "vertreiben",
+            "text": "@s4_gefecht_meute.ziel",
+            "done": {
+              "v": "s4_gefecht_meute_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_gefecht_meute_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "goto": "s5_ablieferung_anflug"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s4_gefecht_meute_ende": true
+            }
+          },
+          {
+            "setFlag": {
+              "s4_gefecht_meute_vertrieben": true
+            }
+          }
+        ],
+        "umsetzung": "vertreiben/bis_zur_flucht",
+        "liefert_flags": [
+          "s4_gefecht_meute_vertrieben"
+        ]
+      },
+      {
+        "id": "s4_geleit_vaelen_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s4_geleit_vaelen.anflug_ziel",
+            "done": {
+              "atLocation": "vaelen"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "vaelen"
+              }
+            },
+            "oda": "@s4_geleit_vaelen.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "vaelen"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s4_geleit_vaelen"
+                  }
+                }
+              ]
+            },
+            "goto": "s4_geleit_vaelen"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "vaelen"
+          }
+        ],
+        "umsetzung": "schuetzen/notruf_verteidigen"
+      },
+      {
+        "id": "s4_geleit_vaelen",
+        "loc": "vaelen",
+        "enter": [
+          {
+            "do": "spawn_escort",
+            "tag": "s4_geleit_vaelen",
+            "kind": "karawane",
+            "name": "Vaelen-Karawane",
+            "npc": "sela",
+            "verhalten": "treibt",
+            "von": "vorn",
+            "huelle": 55
+          },
+          {
+            "radio": {
+              "from": "sela",
+              "text": "@s4_geleit_vaelen.funk_notruf"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 0.5,
+            "oda": "@s4_geleit_vaelen.lage"
+          },
+          {
+            "at": 6,
+            "do": [
+              {
+                "wendung": "s4_geleit_vaelen_angriff",
+                "ankuendigung": {
+                  "oda": "@s4_geleit_vaelen.ankuendigung",
+                  "art": "gleichzeitig",
+                  "grund": "Die Jäger erscheinen sichtbar; jeder Angriff auf den Schützling ist mit tele angekündigt."
+                },
+                "wirkung": [
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_vaelen_w1",
+                      "n": 2,
+                      "ziel": "schuetzling",
+                      "angles": [
+                        0.9,
+                        -1.2,
+                        2.4
+                      ]
+                    }
+                  },
+                  {
+                    "spawn": {
+                      "kind": "raider",
+                      "tag": "s4_geleit_vaelen_w1",
+                      "ziel": "schuetzling",
+                      "angles": [
+                        -2.6
+                      ]
+                    }
+                  },
+                  {
+                    "set": {
+                      "s4_geleit_vaelen_w1": true
+                    }
+                  }
+                ]
+              }
+            ],
+            "if": {
+              "docked": false
+            }
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "v": "s4_geleit_vaelen_ende"
+              }
+            },
+            "oda": "@s4_geleit_vaelen.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "check": {
+                    "name": "escort_state",
+                    "tag": "s4_geleit_vaelen",
+                    "state": "kampfunfaehig"
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_vaelen_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_vaelen_ende": true
+                }
+              },
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit_vaelen.verloren"
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_vaelen_w1"
+                },
+                {
+                  "elapsed": 8
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_vaelen_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s4_geleit_vaelen_ende": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "sela",
+                  "text": "@s4_geleit_vaelen.funk_dank"
+                }
+              }
+            ]
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "elapsed": 300
+                },
+                {
+                  "not": {
+                    "v": "s4_geleit_vaelen_ende"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "do": "enemies_retreat",
+                "unter_pct": 100
+              },
+              {
+                "oda": "@s4_geleit_vaelen.abgedreht"
+              }
+            ],
+            "garantie": "autoloesung"
+          }
+        ],
+        "objectives": [
+          {
+            "id": "verteidigen",
+            "text": "@s4_geleit_vaelen.ziel",
+            "done": {
+              "v": "s4_geleit_vaelen_ende"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s4_geleit_vaelen_ende"
+                    },
+                    {
+                      "enemiesLeft": {
+                        "max": 0
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flag": "s4_geleit_vaelen_heil"
+                }
+              ]
+            },
+            "goto": "s5_ablieferung_anflug"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s4_geleit_vaelen_ende"
+                },
+                {
+                  "enemiesLeft": {
+                    "max": 0
+                  }
+                }
+              ]
+            },
+            "complete": "teilerfolg"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_clear_enemies"
+          },
+          {
+            "set": {
+              "s4_geleit_vaelen_ende": true
+            }
+          }
+        ],
+        "umsetzung": "schuetzen/notruf_verteidigen",
+        "liefert_flags": [
+          "s4_geleit_vaelen_heil",
+          "s4_geleit_vaelen_beschaedigt",
+          "s4_geleit_vaelen_verloren"
+        ]
+      },
+      {
+        "id": "s5_ablieferung_anflug",
+        "objectives": [
+          {
+            "id": "sprung",
+            "text": "@s5_ablieferung.anflug_ziel",
+            "done": {
+              "atLocation": "vaelen"
+            }
+          }
+        ],
+        "timers": [
+          {
+            "at": 90,
+            "if": {
+              "not": {
+                "atLocation": "vaelen"
+              }
+            },
+            "oda": "@s5_ablieferung.anflug_tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "atLocation": "vaelen"
+                },
+                {
+                  "check": {
+                    "name": "szene_bereit",
+                    "szene": "s5_ablieferung"
+                  }
+                }
+              ]
+            },
+            "goto": "s5_ablieferung"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_jump",
+            "loc": "vaelen"
+          }
+        ],
+        "umsetzung": "ladung_liefern/im_hafen_abgeben"
+      },
+      {
+        "id": "s5_ablieferung",
+        "loc": "vaelen",
+        "timers": [
+          {
+            "at": 1,
+            "if": {
+              "not": {
+                "docked": "vaelen"
+              }
+            },
+            "oda": "@s5_ablieferung.anflug"
+          },
+          {
+            "at": 60,
+            "if": {
+              "not": {
+                "docked": "vaelen"
+              }
+            },
+            "oda": "@s5_ablieferung.tipp",
+            "garantie": "hinweis"
+          }
+        ],
+        "rules": [
+          {
+            "if": {
+              "all": [
+                {
+                  "docked": "vaelen"
+                },
+                {
+                  "not": {
+                    "v": "s5_ablieferung_quittiert"
+                  }
+                }
+              ]
+            },
+            "do": [
+              {
+                "set": {
+                  "s5_ablieferung_quittiert": true
+                }
+              },
+              {
+                "if": {
+                  "itemAboard": "datenkern"
+                },
+                "do": "remove_item",
+                "item": "datenkern"
+              },
+              {
+                "radio": {
+                  "from": "sela",
+                  "text": "@s5_ablieferung.quittung"
+                }
+              },
+              {
+                "reward": {
+                  "marks": 0
+                }
+              },
+              {
+                "log": "@s5_ablieferung.log"
+              }
+            ]
+          }
+        ],
+        "objectives": [
+          {
+            "id": "andocken",
+            "text": "@s5_ablieferung.ziel",
+            "done": {
+              "v": "s5_ablieferung_quittiert"
+            }
+          }
+        ],
+        "next": [
+          {
+            "if": {
+              "all": [
+                {
+                  "all": [
+                    {
+                      "v": "s5_ablieferung_quittiert"
+                    },
+                    {
+                      "elapsed": 1
+                    }
+                  ]
+                },
+                {
+                  "v": "s5_alt"
+                }
+              ]
+            },
+            "complete": "vollerfolg"
+          },
+          {
+            "if": {
+              "all": [
+                {
+                  "v": "s5_ablieferung_quittiert"
+                },
+                {
+                  "elapsed": 1
+                }
+              ]
+            },
+            "complete": "teilerfolg"
+          }
+        ],
+        "skip": [
+          {
+            "do": "debug_dock",
+            "loc": "vaelen"
+          },
+          {
+            "set": {
+              "s5_ablieferung_quittiert": true
+            }
+          }
+        ],
+        "umsetzung": "ladung_liefern/im_hafen_abgeben"
+      }
+    ],
+    "on": {},
+    "ausgaenge": {
+      "vollerfolg": {
+        "beschreibung": "Alle drei Container bei Sela abgeliefert, Karawane heil",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_haltung",
+            "npc": "sela",
+            "delta": 1
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "m4_splitterfracht_vollerfolg",
+            "text": "@aus.vollerfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.vollerfolg.t2"
+          }
+        ]
+      },
+      "teilerfolg": {
+        "beschreibung": "Nicht alle Container geliefert oder Karawane kampfunfähig getrieben",
+        "folgen": [
+          {
+            "reward": {
+              "marks": 150
+            },
+            "rewardNotice": true
+          },
+          {
+            "do": "npc_gedaechtnis",
+            "npc": "sela",
+            "ereignis": "m4_splitterfracht_teilerfolg",
+            "text": "@aus.teilerfolg.t1"
+          },
+          {
+            "do": "chronik",
+            "text": "@aus.teilerfolg.t2"
+          },
+          {
+            "do": "welt_fakt",
+            "key": "rostmeute_spur",
+            "value": "Vrann kennt die Lerche jetzt – Grauzahn könnte davon erfahren.",
+            "quelle": "sl_1_m4_splitterfracht",
+            "faden": true
+          }
+        ]
+      }
+    },
+    "texte": {
+      "s1_hafen.funk": "Lerche, ich brauche euch. Meine Karawane hat drei Container im Splittergürtel verloren – Medizin für die Außenposten. Holt sie raus, bevor die Rostmeute sie findet. Ihr seid nah genug.",
+      "s1_hafen.ziel": "Auftrag annehmen (Funk) – oder kurz warten",
+      "s1_hafen.hinweis": "Der Auftrag läuft. Captain: Funk annehmen – sonst geht es gleich von allein los.",
+      "s2_splitter_bergen.anflug_ziel": "Nach Splittergürtel springen",
+      "s2_splitter_bergen.anflug_tipp": "Kurs liegt an: Splittergürtel. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s2_splitter_bergen.start": "Drei Container treiben zwischen den Brocken – grün markiert. Taktik lotst, Pilot fliegt drüber. Vorsicht: jeder Rempler…",
+      "s2_splitter_bergen.hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
+      "s2_splitter_bergen.aufgegeben": "Den Rest lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
+      "s2_splitter_bergen.ziel": "Bergungsgut einsammeln ({salvaged}/3)",
+      "s2_splitter_bergen.t1": "Achtung: Ortung zeigt zwei unbekannte Jäger auf Kurs – Ankunft in etwa 60 Sekunden.",
+      "s2_splitter_bergen.t2": "Lerche, beeilt euch – da nähern sich Signale, die mir gar nicht gefallen.",
+      "s3_begegnung_meute.forderung": "Lerche, hört her. Ihr seid in unserem Revier. Halbe Ladung als Durchfahrgebühr – oder wir holen sie uns selbst.",
+      "s3_begegnung_meute.hinweis": "Ortung: Wingman-Schild bei 18 %. Ein gezielter Treffer würde reichen.",
+      "s3_begegnung_meute.frage": "Was antwortet der Captain auf Vranns Forderung?",
+      "s3_begegnung_meute.passend": "Eure Schilde halten unsere Verstärkung keine Minute.",
+      "s3_begegnung_meute.falsch": "Da ist nur Ballast – lohnt sich nicht für euch.",
+      "s3_begegnung_meute.wahrheit": "Einen Container abtreten",
+      "s3_begegnung_meute.funk_geglueckt": "… Verstärkung, ja. Schön. Diesmal lassen wir euch durch, Lerche.",
+      "s3_begegnung_meute.funk_durchschaut": "Ballast? Ich seh drei volle Container auf meinem Schirm. Greift an!",
+      "s3_begegnung_meute.captain": "Funkspruch! Gleich kommt die Ortung – hört genau hin, bevor der Captain antwortet.",
+      "s3_begegnung_meute.ungeduldig": "Die Gegenseite wird ungeduldig. Was hat die Ortung gesagt?",
+      "s3_begegnung_meute.ziel": "Captain: antworten (Funk) – Ortung beachten",
+      "s3_begegnung_meute.t1": "Vrann dreht ab. Die Route nach Vaelen ist frei.",
+      "s3_begegnung_meute.t2": "Vrann ließ sich täuschen – er kennt die Lerche jetzt.",
+      "s3_begegnung_meute.t3": "Vrann hat den Bluff durchschaut. Jäger auf Angriffskurs.",
+      "s3_begegnung_meute.t4": "Ein Container bleibt zurück. Vrann lässt die Lerche passieren.",
+      "s3_begegnung_meute.t5": "Einen Container an die Rostmeute abgetreten.",
+      "s4_gefecht_meute.funk_start": "Ihr habt die falsche Wahl getroffen, Lerche. Diese Container gehören jetzt uns.",
+      "s4_gefecht_meute.funk_abzug": "Schießt euch nicht in den Schlaf. Wir holen uns die Ware anderswo.",
+      "s4_gefecht_meute.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
+      "s4_gefecht_meute.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+      "s4_gefecht_meute.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
+      "s4_gefecht_meute.ziel": "Angreifer vertreiben ({left:s4_gefecht_meute_w1} übrig)",
+      "s4_geleit_vaelen.anflug_ziel": "Nach Vaelen-Karawane springen",
+      "s4_geleit_vaelen.anflug_tipp": "Kurs liegt an: Vaelen-Karawane. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s4_geleit_vaelen.funk_notruf": "Lerche, hier Sela – zweiter Rostmeute-Trupp hat uns eingekreist. Antrieb läuft noch, aber nicht mehr lang!",
+      "s4_geleit_vaelen.funk_dank": "Sie ziehen ab … Lerche, ihr habt uns gerade das Leben gerettet. Danke.",
+      "s4_geleit_vaelen.lage": "Notruf von Vaelen-Karawane! Der Havarist treibt – wir sind seine Schilde.",
+      "s4_geleit_vaelen.ankuendigung": "Jäger kreisen um Vaelen-Karawane! Pilot: dazwischen. Taktik: wer auf den Havaristen lädt, zuerst.",
+      "s4_geleit_vaelen.tipp": "Lädt ein Jäger auf den Havaristen, stellt euch quer dazwischen – unser Schild fängt die Ladung ab.",
+      "s4_geleit_vaelen.verloren": "Vaelen-Karawane treibt kampfunfähig. Die Jäger drehen ab – die Besatzung lebt noch.",
+      "s4_geleit_vaelen.abgedreht": "Die Jäger brechen ab und verschwinden. Durchatmen.",
+      "s4_geleit_vaelen.ziel": "Vaelen-Karawane verteidigen – Hülle {escortHp:s4_geleit_vaelen} %",
+      "s5_ablieferung.anflug_ziel": "Nach Vaelen-Karawane springen",
+      "s5_ablieferung.anflug_tipp": "Kurs liegt an: Vaelen-Karawane. Steuer: Ziel wählen, F für den Faltsprung.",
+      "s5_ablieferung.quittung": "Quittiert. Jeder Container zählt – die Außenposten danken euch, Lerche.",
+      "s5_ablieferung.anflug": "Kurs auf den Andockpunkt. Steuer: langsam ran, dann andocken.",
+      "s5_ablieferung.tipp": "Andocken: nah an die Schleuse, Tempo runter, dann die Andocktaste der Steuer.",
+      "s5_ablieferung.log": "Übergabe von die Medizincontainer quittiert.",
+      "s5_ablieferung.ziel": "Andocken und die Medizincontainer übergeben",
+      "aus.vollerfolg.t1": "Die Lerche hat alle drei Container unbeschädigt geborgen und die Karawane verteidigt.",
+      "aus.vollerfolg.t2": "Die Crew lieferte Selas Medizin-Fracht vollständig durch den Splittergürtel.",
+      "aus.teilerfolg.t1": "Die Lerche hat geholfen, aber ein Teil der Ladung ging verloren oder die Karawane hat schwer gelitten.",
+      "aus.teilerfolg.t2": "Die Crew brachte Selas Fracht nur teilweise durch – ein Verlust, den Sela schweigend quittiert.",
+      "buch.briefing": "Lerche, ich brauche euch. Meine Karawane hat drei Container im Splittergürtel verloren – Medizin für die Außenposten. Holt sie raus, bevor die Rostmeute sie findet. Ihr seid nah genug.",
+      "buch.belohnung": "150 Marken",
+      "buch.erinnerung": "Sela hat gehört, dass diese Crew das Tutorial übersprungen hat – frische Leute, die sich noch beweisen wollen."
+    },
+    "erinnerung": {
+      "fakt": "tutorial"
+    }
+  },
+  "gespielt": []
+}

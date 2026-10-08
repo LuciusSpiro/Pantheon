@@ -131,9 +131,9 @@ Ohne passende Erinnerung: „Die Vaelen fragen nicht jeden um Hilfe. Dass Sela d
 - *(nach 2 s)* **Funk – Sela (Vaelen-Händlerin):** „Lerche, wir sehen euch! Kapseln koppeln an. Grauzahn ist hier irgendwo – bleibt dicht bei uns.“
 - *(nach 20 s)* **Wendung** `kn_geleit_hart_angriff` – Ankündigung (vorher, 5 s Vorlauf): ODA „Ortung: Jäger halten auf Selas Karawane zu! Pilot: Breitseite zwischen sie und den Schützling.“
 - *(nach 70 s, Hinweis, falls nötig)* **ODA:** „Lädt ein Gegner auf den Schützling, stellt euch dazwischen – unser Schild fängt die Ladung ab.“
-- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_verstaerkung` – Ankündigung (vorher, 8 s Vorlauf): ODA „Ortung: Verstärkung im Anflug! Schilde zur Angriffsseite, Schützling dicht halten.“
-- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_welle3` – Ankündigung (vorher, 8 s Vorlauf): ODA „Ortung: die nächste Welle hält auf Selas Karawane zu! Dazwischen bleiben.“
-- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_welle4` – Ankündigung (vorher, 8 s Vorlauf): ODA „Ortung: die nächste Welle hält auf Selas Karawane zu! Dazwischen bleiben.“
+- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_verstaerkung` – Ankündigung (vorher, 15 s Vorlauf): ODA „Ortung: Verstärkung im Anflug! Schilde zur Angriffsseite, Schützling dicht halten.“
+- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_welle3` – Ankündigung (vorher, 15 s Vorlauf): ODA „Ortung: die nächste Welle hält auf Selas Karawane zu! Dazwischen bleiben.“
+- *(sobald erfüllt)* **Wendung** `kn_geleit_hart_welle4` – Ankündigung (vorher, 15 s Vorlauf): ODA „Ortung: die nächste Welle hält auf Selas Karawane zu! Dazwischen bleiben.“
 - *(sobald erfüllt)* **Funk – Sela (Vaelen-Händlerin):** „Die Kapseln halten das nicht aus! Lerche, Breitseite – bitte!“
 - *(sobald erfüllt)* **ODA:** „Notruf! Captain: Befehl „Halten“ oder „Volle Kraft“. Taktik: wer lädt, wird zuerst beschossen.“
 - *(sobald erfüllt)* **ODA:** „Selas Karawane ist durch – heil. Die Angreifer drehen ab.“

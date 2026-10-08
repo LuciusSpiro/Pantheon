@@ -76,6 +76,15 @@ function npcOf(w) {
     const e = pick(n, ['name', 'titel', 'fraktion', 'rolle', 'status', 'haltung', 'ort']);
     e.id = id;
     e.gedaechtnis = arr(n.gedaechtnis).slice(-NPC_MEMORY).map((g) => pick(obj(g), ['text', 'mission', 'ereignis', 'haltung']));
+    // QA-Abnahme S2b: Einträge ohne 'ereignis' (S1-Weltstände, Fixtures) bekommen eine stabile Kennung, sonst kann der
+    // Grobplan sie nicht als Erinnerung { npc, ereignis } nennen (live: LLM erfand 'm1'/'m3', Prüfer lehnte 2× ab)
+    const seen = {};
+    for (const g of e.gedaechtnis) {
+      if (typeof g.ereignis === 'string' && g.ereignis) continue;
+      const base = `${String(g.mission || 'welt').replace(/[^a-z0-9_]/gi, '_').toLowerCase()}_erinnerung`;
+      seen[base] = (seen[base] || 0) + 1;
+      g.ereignis = seen[base] > 1 ? `${base}_${seen[base]}` : base;
+    }
     return e;
   }).sort(byId);
 }
