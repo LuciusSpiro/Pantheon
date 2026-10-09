@@ -14,6 +14,7 @@ const CONFIG = require('../shared/config.js');
 // Gilt auch für golden-trace.js (lädt diese Datei ohne Hauptteil). Snapshot-Leser: alive fehlt = true, asleep/cr fehlen = false.
 CONFIG.debug.snapKiRolle = true;
 const Locations = require('../shared/locations.js');
+const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
@@ -1390,6 +1391,21 @@ class KeshAgent extends Agent {
     if ((m.shotAt || 0) > S.time) return;
     if (!p.downed && p.wf === 'lanze') { this.fireLanze(S, p, d); return; }
     if (!p.downed && p.ov) return;   // überhitzt: Abzug ist gesperrt
+    // AP3a (BOT_WAFFE=rotation): Granatwerfer mit Zielabstand (shoot.dist wie der Mauszeiger, Wurfweite 4–12 Kacheln),
+    // Nahkampf nur in Reichweite (sonst ginge der Schlag ins Leere; heranlaufen macht der Aufrufer)
+    if (!p.downed && p.wf === 'granatwerfer') {
+      const dk = dist(d.x, d.y, p.x, p.y) / TILE;
+      if (dk < 4) return;   // zu nah: die Granate träfe die Crew mit
+      m.shotAt = S.time + 0.9;
+      this.send({ t: 'shoot', angle: Math.atan2(d.y - p.y, d.x - p.x) + (simRng() - 0.5) * 0.1, dist: Math.round(dk * 10) / 10 });
+      return;
+    }
+    if (!p.downed && p.wf === 'nahkampf') {
+      if (dist(d.x, d.y, p.x, p.y) > 1.25 * TILE) return;
+      m.shotAt = S.time + 0.7;
+      this.send({ t: 'shoot', angle: Math.atan2(d.y - p.y, d.x - p.x) });
+      return;
+    }
     if (!p.downed && p.wf === 'sturmgewehr') {
       // Stöße bis ~75 % Hitze, dann bis ≤ 25 % abkühlen lassen (nie in die Sperre); jeder Treffer hält den Schild des Ziels leer
       const ht = p.ht || 0;
@@ -1422,8 +1438,16 @@ class KeshAgent extends Agent {
   // Waffenwahl (BOTS W3, B2 E26): einmal an der Transfer-Konsole vor dem ersten Runterbeamen, deterministisch je Seed
   // (eigener Zufall aus Seed und Platz, unabhängig vom Sim-Zufall). Lage und Rolle: Tabelle BOT_WAFFEN.
   // Umgebung BOT_WAFFE=<waffe>|aus erzwingt eine Waffe bzw. schaltet die Wahl ab (Vergleiche).
+  // AP3a: BOT_WAFFE=rotation – jeder Bot eine andere der 6 Waffen (Protocol.WAFFEN_WAHL), über die Seeds verschoben:
+  // Waffe = WAHL[(Platz + (Seed − 1) · Crew) mod 6] -> solo Seeds 1–6 bzw. zu dritt Seeds 1–2 decken alle 6 ab.
   pickWeapon() {
     const env = process.env.BOT_WAFFE;
+    if (env === 'rotation') {
+      const wahl = Protocol.WAFFEN_WAHL;
+      const crew = Math.max(1, (this.opts && this.opts.crew) || (this.game.simAgents || []).length || 1);
+      const seed = Math.max(1, (this.opts && this.opts.seed) || 1);
+      return wahl[(this.idx + (seed - 1) * crew) % wahl.length];
+    }
     if (env) return env === 'aus' ? null : env;
     const opts = (BOT_WAFFEN.kesh)[this.role];
     if (!opts) return null;
@@ -1897,7 +1921,8 @@ function printResult(r) {
 //
 //   node tools/sim-headless.js archiv --seeds 5 [--crew 1|3]     Kampagne ohne Tutorial, 4 der 6 Archiv-Missionen nacheinander (ARCHIV_ORDER zuerst)
 //   node tools/sim-headless.js escort --seeds 10 [--crew 1|3]    Geleit (+ Havarist) aus einem Testbuch, Anteil heil
-//   node tools/sim-headless.js umsetzung --seeds 3 [--crew 1|3] [--only mol/ums]   alle Umsetzungen einzeln (Testbücher)
+//   node tools/sim-headless.js labor <id>|alle --seeds 3 [--crew 1|3]   Umsetzungen einzeln über das Szenario-Labor (AP3a)
+//   node tools/sim-headless.js umsetzung [<id>] [--only mol/ums]       Alias von labor
 //   node tools/sim-headless.js dauer --seeds 5                    umsetzung + archiv, Median je Crew -> tools/fixtures/dauer-s2.json
 // =====================================================================================================================
 const KESH_STAGE_OF = { 'stellung_nehmen/trupp_raeumen': 'courtyard', 'raetsel_loesen/zwei_schluessel': 'archive',
@@ -2718,6 +2743,9 @@ class GenericAgent extends KeshAgent {
     if (!ds.length) { this.input(0, 0); return; }
     ds.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
     const t = this.tile(ds[0]);
+    // Nachauftrag AP3a (Kette kesh solo): nah dran, aber ohne Sicht (Wand, schlafender Gegner) – ganz hingehen statt stehen
+    const nahOhneSicht = dist(ds[0].x, ds[0].y, p.x, p.y) <= 3 * TILE && !this.enemiesInSight(S, p).length;
+    if (nahOhneSicht) { if (this.goto(S, [t]) === 'fail') this.input(0, 0); return; }
     if (this.gotoNear(S, p, t.x, t.y, 2) === 'fail') this.input(0, 0);
   }
   // Person: hingehen, E (verletzt: mit Medipack), sie folgt; dann buehneHoch
@@ -2848,6 +2876,9 @@ class GenericAgent extends KeshAgent {
   umsetzung_entkommen_zu_den_pads(S, p, step) { this.keshScene(S, p, step); }
   keshScene(S, p, step) {
     const st = KESH_STAGE_OF[step.umsetzung];
+    // Nachauftrag AP3a (Ketten): Hof räumen auf einer gebauten Karte – die Kesh-Hofziele (Handkarte) passen dort nicht,
+    // solo stand der Bot 600 s am Pad (Kette kesh auf kesh.kastell). Der Bühnen-Bot kennt Anker und Gefechtsbereich.
+    if (st === 'courtyard' && p.zone === 'away' && S.away.map !== 'kesh' && typeof this.buehneScene === 'function') { this.buehneScene(S, p, step); return; }
     if (p.zone === 'away') {
       if (this.role === 'solo' && st === 'archive' && !S.away.vault.open && !this.enemiesInSight(S, p).length) { this.soloKeys(S, p); return; }
       const role = this.role; if (role === 'solo') this.role = 'helm';
@@ -2925,12 +2956,27 @@ async function runGeneric(opts) {
     if (/^escort/.test(o.kind)) log(`  [${o.kind} ${game.time.toFixed(1)}] ${JSON.stringify(o)}`);
   } };
   game.addConnection(watcher); watcher.observer = true;
-  game.lobbyOpts.startMission = 'free';
-  for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  if (opts.mode === 'labor') {
+    // AP3a: derselbe Einstieg wie in der Lobby – Modus labor, Umsetzung, Seed; erst alle verbinden, dann alle bereit
+    game.lobbyOpts.startMission = 'labor';
+    game.lobbyOpts.labor = { id: opts.labor, seed, staerke: opts.staerke || null, god: false, ...(opts.kette ? { kette: opts.kette } : {}) };
+    for (const a of agents) {
+      game.addConnection(a.conn);
+      a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx });
+      const wf = a.pickWeapon();   // BOT_WAFFE (auch rotation) bzw. Tabelle: Waffe gleich in der Lobby wählen
+      if (wf) a.send({ t: 'lobbyOpt', waffe: wf });
+    }
+    for (const a of agents) a.send({ t: 'ready', ready: true });
+    if (game.phase !== 'play' || !game.labor) res.aborted = `Labor-Start ${opts.labor} abgelehnt (${JSON.stringify(errList.slice(0, 2))})`;
+  } else {
+    game.lobbyOpts.startMission = 'free';
+    for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  }
   let S = game.snapshot();
   const maxSec = opts.maxSec || 7200;
   let ticks = 0; let idleSince = game.time; let bookIdx = 0; const played = new Set();
   let curStep = null;
+  if (res.aborted) return Object.assign(res, { errors: game.errors, sim: game.simStats, gameTime: 0 });
   const escortStats = () => JSON.parse(JSON.stringify(game.stats.escort || {}));
   const closeStep = () => {
     if (!curStep || !cur) return;
@@ -3016,6 +3062,9 @@ async function runGeneric(opts) {
         game.simWant = named.length ? named[0].o.id : null;
         if (!named.length && game.time - idleSince > 180) { res.aborted = `kein ungespieltes Archiv-Angebot nach ${Math.round(game.time - idleSince)} s (Angebote: ${offers.map((o) => o.titel).join(', ') || '–'})`; break; }
         if (named.length && game.time - idleSince > 240) { res.aborted = `Angebot ${named[0].o.id} nach 240 s nicht angenommen`; break; }
+      } else if (opts.mode === 'labor') {
+        if (res.missions.length >= 1) break;
+        if (game.time - idleSince > 10) { res.aborted = `Labor-Mission ${opts.labor} läuft nicht`; break; }
       } else if (opts.mode === 'book') {
         if (bookIdx >= opts.books.length) break;
         if (game.time - idleSince > 3) {
@@ -3052,80 +3101,18 @@ function umsetzungSamples(run) {
   return out;
 }
 
-// ---------- Testbücher (je Umsetzung bzw. Kette auf derselben Außenkarte) ----------
-function testBooks(only) {
-  const Szenenbau = require('../server/mission/szenenbau.js');
-  const SL = require('../server/mission/spielleiter.js');
-  const kat = SL.katalog();
-  const env = Szenenbau.buildEnv(kat);
-  const umsOf = (key) => { const [mid, uid] = key.split('/'); const mol = kat.molekuele[mid]; return mol ? mol.umsetzungen.find((u) => u.id === uid) : null; };
-  const all = [];
-  for (const mol of Object.values(kat.molekuele)) for (const u of mol.umsetzungen || []) all.push(`${mol.id}/${u.id}`);
-  const chains = [
-    ['personen_bergen/techniker_retten', 'raetsel_loesen/sonden_code', 'datenkern_bergen/plattform_kern'],
-    ['rekonstruieren/wrack_logbuch', 'ausschlachten/wrack_container'],
-    ['stellung_nehmen/trupp_raeumen', 'raetsel_loesen/zwei_schluessel', 'artefakt_freilegen/fund_aus_gewoelbe', 'entkommen/zu_den_pads'],
-  ];
-  const inChain = new Set(chains.flat());
-  const groups = chains.map((c) => c.filter((k) => all.includes(k))).filter((c) => c.length);
-  for (const k of all) if (!inChain.has(k)) groups.push([k]);
-  const books = [];
-  groups.forEach((keys, gi) => {
-    if (only && !keys.includes(only)) return;
-    const scenes = keys.map((k) => ({ key: k, u: umsOf(k), override: {} }));
-    books.push(buildTestBook(Szenenbau, env, `bt${gi + 1}`, scenes));
-  });
-  // F15: Landepunkte wie im Spiel vorbauen (dort bei der Ankunft am Ort, außerhalb des Ticks). Der Karten-Cache von
-  // landepunkte.js gilt prozessweit und hängt nur von Landepunkt, Seed und Achsen ab; die Registrierung (game.aways)
-  // macht im Lauf der Schritt-Baustein (besetzen, anker_zustand …) über landepunkte.sobaldGeladen aus diesem Cache.
-  const L = require('../server/sim/landepunkte.js');
-  const W = require('../server/world.js');
-  const maps = new Set();
-  for (const b of books) {
-    for (const id of (b.buehne && b.buehne.aussenkarten) || []) maps.add(id);
-    for (const s of b.steps || []) for (const id of s.allowBeam || []) maps.add(id);
-  }
-  const vorbau = {};   // eigener Laufzeitzustand nur für den Vorbau (keine Partie)
-  for (const id of maps) {
-    if (W.istHand(id) || !L.defs().byId[id]) continue;
-    try { L.karte(vorbau, id); } catch (e) { log(`Testbuch-Vorbau ${id}: ${e.message}`); }
-  }
-  return books;
-}
-// scenes: [{ key: 'mol/ums', u, override: {params}, loc? }]
-function buildTestBook(Szenenbau, env, id, scenes) {
-  const szenen = [{ id: 'th', szenentyp: 'hafen', ort: 'hafen', molekuele: [], weiter: [{ nach: id + 's1' }] }];
-  const answers = {};
-  scenes.forEach((sc, i) => {
-    const [mid, uid] = sc.key.split('/');
-    const u = sc.u;
-    const params = Object.assign({}, JSON.parse(JSON.stringify((u.test && u.test.params) || {})), JSON.parse(JSON.stringify((u.rueckfall && u.rueckfall.params) || {})), sc.override || {});
-    const loc = sc.loc || params.loc || 'b7';
-    if (u.params.loc) params.loc = loc;
-    for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && params[pn] === undefined) params[pn] = 'tesk';
-    const sid = id + 's' + (i + 1);
-    szenen.push({ id: sid, szenentyp: 'test', ort: loc, karte: params.map, molekuele: [{ id: mid, umsetzung: uid }], weiter: [{ nach: i < scenes.length - 1 ? id + 's' + (i + 2) : 'ausgang:erfolg' }] });
-    answers[sid] = { answer: { molekuele: [{ id: mid, umsetzung: uid, params }], verzweigung: [], wendung: null }, quelle: 'archiv' };
-  });
-  const g = { format: 'grobplan/1', id, titel: 'Bot-Test ' + scenes.map((s) => s.key).join(' + '), auftraggeber: 'tesk', zielspieldauer_min: 15,
-    aufhaenger: 'Testbuch für die Bot-Messung (sim-headless).', szenen, entscheidungen: [],
-    ausgaenge: { erfolg: { wann: 'Test durch', folgen: ['chronik: Bot-Test durch', 'npc_gedaechtnis tesk: Bot-Test'] } } };
-  const built = Szenenbau.buildBook(g, answers, env, { id: 'bot_' + id, art: 'archiv', marks: 0 });
-  if (built.errors.length) throw new Error(`Testbuch ${id} (${scenes.map((s) => s.key).join(', ')}): ` + built.errors.slice(0, 4).map((e) => (e.code ? `${e.code} ${e.p}: ${e.msg}` : e)).join(' | '));
-  for (const [sid, x] of Object.entries(built.szenen)) if (x.fehler.length) throw new Error(`Testbuch ${id} Szene ${sid}: ${x.fehler.slice(0, 3).join(' | ')}`);
-  return built.book;
-}
+// ---------- Testbücher: Bau und Landepunkt-Vorbau liegen in server/mission/labor.js (AP3a, ein Einstieg für Lobby und Bots) ----------
+const Labor = lazy('../server/mission/labor.js');
 function escortBooks() {
-  const Szenenbau = require('../server/mission/szenenbau.js');
-  const SL = require('../server/mission/spielleiter.js');
-  const kat = SL.katalog(); const env = Szenenbau.buildEnv(kat);
-  const u = (m, i) => kat.molekuele[m].umsetzungen.find((x) => x.id === i);
-  return [
-    buildTestBook(Szenenbau, env, 'geleit', [{ key: 'schuetzen/geleit_durch_angriff', u: u('schuetzen', 'geleit_durch_angriff'), loc: 'nebel', override: { funk_npc: 'sela', name: 'Frachter Ilka' } }]),
-    buildTestBook(Szenenbau, env, 'karawane', [{ key: 'schuetzen/geleit_durch_angriff', u: u('schuetzen', 'geleit_durch_angriff'), loc: 'nebel', override: { funk_npc: 'sela', kind: 'karawane', name: 'Selas Karawane', jaeger: 2, angriff_nach: 20, verstaerkung: 'gunboat' } }]),
-    buildTestBook(Szenenbau, env, 'havarist', [{ key: 'schuetzen/notruf_verteidigen', u: u('schuetzen', 'notruf_verteidigen'), loc: 'wrack', override: { funk_npc: 'tesk' } }]),
-    buildTestBook(Szenenbau, env, 'panne', [{ key: 'pannenhilfe/andocken_und_flicken', u: u('pannenhilfe', 'andocken_und_flicken'), loc: 'splitter', override: { funk_npc: 'sela', mit_angriff: true } }]),
+  const kat = require('../server/mission/spielleiter.js').katalog();
+  const books = [
+    Labor().testBuch(kat, [{ key: 'schuetzen/geleit_durch_angriff', loc: 'nebel', override: { funk_npc: 'sela', name: 'Frachter Ilka' } }], 'geleit'),
+    Labor().testBuch(kat, [{ key: 'schuetzen/geleit_durch_angriff', loc: 'nebel', override: { funk_npc: 'sela', kind: 'karawane', name: 'Selas Karawane', jaeger: 2, angriff_nach: 20, verstaerkung: 'gunboat' } }], 'karawane'),
+    Labor().testBuch(kat, [{ key: 'schuetzen/notruf_verteidigen', loc: 'wrack', override: { funk_npc: 'tesk' } }], 'havarist'),
+    Labor().testBuch(kat, [{ key: 'pannenhilfe/andocken_und_flicken', loc: 'splitter', override: { funk_npc: 'sela', mit_angriff: true } }], 'panne'),
   ];
+  for (const f of Labor().vorbauen(books)) log('Testbuch-' + f);
+  return books;
 }
 
 // ---------- Ausgabe ----------
@@ -3230,21 +3217,80 @@ async function escortMain() {
   return rows;
 }
 
-async function umsetzungMain(write) {
+// ---------- AP3a: Szenario-Labor (derselbe Einstieg wie die Lobby: server/mission/labor.js) ----------
+//   node tools/sim-headless.js labor <id>|alle [--seeds N] [--crew 1|3] [--staerke klein|mittel|gross]
+//   node tools/sim-headless.js umsetzung …   Alias (auch --only <id>)
+// Tabelle: Umsetzung, Crew, erledigt (Mission erfolgreich, Szene ohne Skip), Median-Zeit der Szene (ohne Anflug), Fehler, Softlock.
+function laborIds() {
+  const pos = args.find((a, i) => i > 0 && (args[i - 1] === 'labor' || args[i - 1] === 'umsetzung') && !a.startsWith('--'));
+  const id = argVal('--only', null) || pos || 'alle';
+  const liste = Labor().laborListe();
+  laborIds.alle = id === 'alle';
+  if (id === 'alle') return liste.map((e) => e.id);
+  if (!liste.some((e) => e.id === id)) { log(`Labor: „${id}“ ist nicht in laborListe (verfügbar mit test.params). Bekannt: ${liste.map((e) => e.id).join(', ')}`); process.exit(2); }
+  return [id];
+}
+async function umsetzungMain() {
   const nSeeds = Number(argVal('--seeds', 3)); const base = seedArg != null ? seedArg : 1;
   const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
-  const only = argVal('--only', null);
-  const books = testBooks(only);
-  const samples = [];
+  const ids = laborIds();
+  const staerke = argVal('--staerke', null);
+  const samples = []; const runs = [];
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
-    for (const book of books) {
-      const r = await runGeneric({ seed: base + i, crew, mode: 'book', books: [book], pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
-      if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Testbuch ' + book.id);
+    for (const id of ids) {
+      const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, staerke, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
+      runs.push({ id, crew, seed: base + i, r });
+      if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Labor ' + id);
       for (const s of umsetzungSamples(r)) samples.push(Object.assign({ crew, seed: base + i, src: 'test', errors: r.missions[0] ? r.missions[0].errors : 0 }, s));
     }
   }
-  printUmsetzungTable(samples, crews);
+  printLaborTable(runs, crews, ids);
+  if (args[0] === 'labor' && laborIds.alle) await kettenMain(nSeeds, base, crews);   // `labor alle` spielt auch die Ketten
   return samples;
+}
+// Nachauftrag AP3a: Ketten (server/mission/labor.js KETTEN) – mehrere Umsetzungen nacheinander auf demselben Landepunkt.
+//   node tools/sim-headless.js labor ketten [--seeds 3] [--crew 1|3]
+async function kettenMain(nSeeds, base, crews) {
+  const K = Labor().KETTEN;
+  const rows = [];
+  for (const name of Object.keys(K)) for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
+    const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: K[name].ids[0], kette: name, pilot: 'maneuver', maxSec: 6000, missionMax: 4500, funk: (base + i) % 2 ? 'b' : 'a' });
+    if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Kette ' + name);
+    const ms = r.missions[0];
+    const sz = umsetzungSamples(r);
+    rows.push({ name, crew, ok: !r.aborted && ms && ms.success && !(ms.skips || []).length, dur: ms && ms.success ? ms.dur : null,
+      gespielt: sz.filter((s) => !s.skipped).length, szenen: K[name].ids.length, fehler: r.errors || 0,
+      soft: (ms && ms.softlock) || r.aborted ? 1 : 0, skips: ms && ms.skips ? ms.skips.length : 0 });
+  }
+  log('\n=== Szenario-Labor: Ketten (gleicher Landepunkt, Bot-Spieler, Missionszeit ohne Anflug ab Hafen) ===');
+  log('| Kette (Landepunkt) | Crew | erledigt | Median (min) | Szenen gespielt | Fehler | Softlock | Skips |');
+  log('|---|---|---|---|---|---|---|---|');
+  let ok = true;
+  for (const name of Object.keys(K)) for (const crew of crews) {
+    const xs = rows.filter((x) => x.name === name && x.crew === crew);
+    if (xs.some((x) => !x.ok || x.fehler)) ok = false;
+    log(`| ${name} (${K[name].map}, ${K[name].ids.length} Szenen) | ${crew} | ${xs.filter((x) => x.ok).length}/${xs.length} | ${fmtMin(median(xs.map((x) => x.dur)))} | ${xs.reduce((s, x) => s + x.gespielt, 0)}/${xs.reduce((s, x) => s + x.szenen, 0)} | ${xs.reduce((s, x) => s + x.fehler, 0)} | ${xs.reduce((s, x) => s + x.soft, 0)} | ${xs.reduce((s, x) => s + x.skips, 0)} |`);
+  }
+  log(ok ? '\nSIM LABOR KETTEN OK' : '\nSIM LABOR KETTEN: Auffälligkeiten (siehe oben)');
+  return rows;
+}
+function printLaborTable(runs, crews, ids) {
+  log(`\n=== Szenario-Labor (Bot-Spieler, Spielzeit der Szene ohne Anflug${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''}) ===`);
+  log('| Umsetzung | Crew | erledigt | Median (min) | Fehler | Softlock | Skips |');
+  log('|---|---|---|---|---|---|---|');
+  let alleOk = true;
+  for (const id of ids) for (const crew of crews) {
+    const xs = runs.filter((x) => x.id === id && x.crew === crew);
+    if (!xs.length) continue;
+    const ok = xs.filter((x) => !x.r.aborted && x.r.missions[0] && x.r.missions[0].success && !(x.r.missions[0].skips || []).length);
+    const sec = xs.flatMap((x) => umsetzungSamples(x.r).filter((s) => s.ums === id && !s.skipped).map((s) => s.sec));
+    const fehler = xs.reduce((s, x) => s + (x.r.errors || 0), 0);
+    const soft = xs.filter((x) => x.r.missions.some((m) => m.softlock) || x.r.aborted).length;
+    const skips = xs.reduce((s, x) => s + x.r.missions.reduce((t, m) => t + (m.skips ? m.skips.length : 0), 0), 0);
+    if (ok.length < xs.length || fehler) alleOk = false;
+    log(`| ${id} | ${crew} | ${ok.length}/${xs.length} | ${fmtMin(median(sec))} | ${fehler} | ${soft} | ${skips} |`);
+  }
+  log(alleOk ? '\nSIM LABOR OK' : '\nSIM LABOR: Auffälligkeiten (siehe oben)');
 }
 function printUmsetzungTable(samples, crews) {
   log('\n=== Dauer je Umsetzung (Median Spielzeit der Szene ohne Anflug, Bot-Spieler) ===');
@@ -3297,6 +3343,8 @@ async function dauerMain() {
 // Bot-Spieler kämpfen ohne Debug-Befehle (Deckung, Ziel, Aufhelfen; ohne Sicht zum nächsten Gegner). Ausgabe je Lauf:
 // erreichte Welle, Zeit, Abschüsse je Spieler, Fehler, Snapshot-Max (Budget 13 KB), höchstens stehende Gegner.
 class WellenAgent extends GenericAgent {
+  // AP3a: Waffe nur per BOT_WAFFE=rotation|<waffe> (gewählt in der Lobby wie ein Mensch); ohne Umgebung bleibt der Blaster
+  pickWeapon() { return process.env.BOT_WAFFE ? super.pickWeapon() : null; }
   // wie KeshAgent, aber bis zur Sichtweite (10 Kacheln): Karls schießen ab 10 Kacheln, die Bots sollen antworten
   enemiesInSight(S, p) {
     const solid = this.keshSolid(S); const blocked = Los.sightFn(this.awayMap(S), solid);
@@ -3316,6 +3364,23 @@ class WellenAgent extends GenericAgent {
     // (Deckung/Verstecken, Kamerad aufhelfen)
     const sicht = this.enemiesInSight(S, p);
     const mate = S.players.some((o) => o.id !== this.pid && o.zone === 'away' && o.downed && dist(o.x, o.y, p.x, p.y) < 7 * TILE);
+    // AP3a: Waffen mit Abstandsregel – Nahkampf läuft heran, Granatwerfer weicht unter 4 Kacheln zurück
+    if (sicht.length && !mate && (p.wf === 'nahkampf' || p.wf === 'granatwerfer')) {
+      const f = this.pickTarget(S, p, sicht);
+      const d = dist(f.x, f.y, p.x, p.y);
+      if (this.actDown) this.act(false);
+      if (p.wf === 'nahkampf' && d > 1.1 * TILE) { if (this.goto(S, [this.tile(f)]) === 'fail') this.input((f.x - p.x) / d, (f.y - p.y) / d); this.fire(S, p, f); return; }
+      if (p.wf === 'granatwerfer' && d < 4.5 * TILE) { this.ix = null; this.input(-(f.x - p.x) / Math.max(1, d), -(f.y - p.y) / Math.max(1, d)); return; }
+      this.ix = null; this.input(0, 0); this.fire(S, p, f); return;
+    }
+    // AP3a (Abnahme Wellen): Patt hinter niedriger Deckung (Gegner duckt im Rückzug, lädt nie voll, der Bot nagt nur am
+    // Schild) – nach 12 s am selben Ziel ohne Fall 4 s lang auf das Ziel zu gehen (Flanke wie ein Mensch), dabei feuern
+    {
+      const m = this.memo; const f0 = sicht[0];
+      if (!f0 || m.pattId !== f0.id) { m.pattId = f0 ? f0.id : null; m.pattSeit = S.time; }
+      if (f0 && !mate && m.pattBis && S.time < m.pattBis) { if (this.goto(S, [this.tile(f0)]) === 'fail') this.input(0, 0); this.fire(S, p, f0); return; }
+      if (f0 && S.time - m.pattSeit > 12) { m.pattBis = S.time + 4; m.pattSeit = S.time + 4; }
+    }
     if (sicht.length && !mate && (!p.sh || p.sh[0] >= 2)) {
       if (this.ix) this.ix = null;
       if (this.actDown) this.act(false);
@@ -3325,7 +3390,12 @@ class WellenAgent extends GenericAgent {
     // kein Gegner in Sicht: Richtung nächster stehender Gegner (bis ~6 Kacheln), sonst stehen bleiben
     const foes = S.away.drones.filter((d) => d.alive !== false && (!d.zs || d.zs === 'ok'));
     const f = foes.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y))[0];
-    if (f && dist(f.x, f.y, p.x, p.y) > 6 * TILE) { if (this.goto(S, [this.tile(f)]) === 'fail') this.input(0, 0); return; }
+    // AP3a (Abnahme Wellen): auch nah (hinter einer Wand, ohne Sicht) nach 5 s ohne Sicht hingehen – sonst Patt mit einem
+    // Gegner, der im Rückzug hinter der Ecke wartet (Bot stand 600 s neben ihm)
+    const m = this.memo;
+    if (sicht.length) m.ohneSicht = S.time; else if (m.ohneSicht == null) m.ohneSicht = S.time;
+    const nah = p.wf === 'nahkampf' ? 1.1 : S.time - m.ohneSicht > 5 ? 0.9 : 6;
+    if (f && dist(f.x, f.y, p.x, p.y) > nah * TILE) { if (this.goto(S, [this.tile(f)]) === 'fail') this.input(0, 0); return; }
     this.input(0, 0);
   }
 }
@@ -3348,12 +3418,24 @@ async function runWellen(opts) {
   game.lobbyOpts.startMission = 'arena_away';
   game.lobbyOpts.wellen = opts.karte;
   // erst alle verbinden, dann alle bereit (sonst startet die Runde mit dem ersten Spieler und die anderen kommen oben an)
-  for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx }); }
+  for (const a of agents) {
+    game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx });
+    const wf = a.pickWeapon();   // AP3a: BOT_WAFFE=rotation|<waffe> – Waffenwahl in der Lobby (Lobby-Parameter wie ein Mensch)
+    if (wf) a.send({ t: 'lobbyOpt', waffe: wf });
+  }
   for (const a of agents) a.send({ t: 'ready', ready: true });
+  // Schüsse je Spieler (Waffe zum Zeitpunkt des Schusses) für die Waffen-Tabelle
+  const schuesse = {};
+  for (const a of agents) {
+    const send0 = a.send.bind(a);
+    a.send = (msg) => { if (msg && msg.t === 'shoot' && !msg.los) { const pl = game.playerById(a.pid); if (pl && pl.zone === 'away' && !pl.downed) { const k = pl.id + '|' + (pl.waffe || '?'); schuesse[k] = (schuesse[k] || 0) + 1; } } return send0(msg); };
+  }
   let S = game.snapshot();
   let snapMax = 0, snapWelle = 0, maxStehend = 0, ticks = 0, lastN = 0, lastProgress = 0, softlock = false;
   const W8 = game.arena && game.arena.wellen;
   const lp = W8 && W8.lp;
+  const startWaffe = {};
+  for (const pl of game.players) startWaffe[pl.id] = pl.waffe || null;
   while (game.time < opts.maxSec && game.phase === 'play') {
     game.step(); ticks++;
     if (game.phase !== 'play') break;
@@ -3374,6 +3456,14 @@ async function runWellen(opts) {
     karte: opts.karte, players: opts.players, seed, lp, wellenSeed: W8 && W8.seed, ende: !!ende, welle: ende ? ende.welle : (W9 ? W9.n : lastN), zeit: ende ? ende.zeit : Math.round(game.time),
     kills: ende ? ende.kills.map((k) => k[1] + ' ' + k[2]).join(', ') : (W9 ? JSON.stringify(W9.kills) : '–'), abschuesse: W9 ? W9.abschuesse : null,
     errors: game.errors, errorLog: game.errorLog, snapMax, snapWelle, maxStehend, softlock, lobby: game.phase === 'lobby', treffer: game.simStats.gegnerTreffer || 0,
+    // AP3a: je Spieler Waffe (beim Start), Schüsse, Abschüsse
+    waffen: agents.map((a) => {
+      const pl = game.playerById(a.pid);
+      const wf = startWaffe[a.pid] || (pl && pl.waffe) || '?';
+      const sch = Object.entries(schuesse).filter(([k]) => k.startsWith(a.pid + '|')).reduce((s, [, v]) => s + v, 0);
+      const kills = ende ? ((ende.kills.find((k) => k[0] === a.pid) || [])[2] || 0) : ((W9 && W9.kills && W9.kills[a.pid]) || 0);
+      return { pid: a.pid, waffe: wf, schuesse: sch, abschuesse: kills };
+    }),
   };
 }
 async function wellenMain() {
@@ -3384,15 +3474,30 @@ async function wellenMain() {
   const maxSec = Number(argVal('--max', 1500));
   const base = seedArg != null ? seedArg : 1;
   let ok = true;
-  log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 13 KB ===`);
-  for (const karte of karten) for (const np of crews) {
-    const r = await runWellen({ karte, players: np, seed: base, maxSec });
+  const nSeeds = Number(argVal('--seeds', 1));
+  const waffenRows = [];
+  log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 13 KB${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''} ===`);
+  for (const karte of karten) for (const np of crews) for (let si = 0; si < nSeeds; si++) {
+    const r = await runWellen({ karte, players: np, seed: base + si, maxSec });
+    for (const w of r.waffen || []) waffenRows.push(Object.assign({ karte, crew: np, seed: base + si, welle: r.welle }, w));
     const bad = r.errors > 0 || r.softlock || r.snapMax >= CONFIG.net.snapMax || r.maxStehend > CONFIG.wellen.maxLebend;
     if (bad) ok = false;
     log(`${karte.padEnd(12)} ${np === 1 ? 'solo ' : 'zu 3 '} Welle ${String(r.welle).padStart(2)} ${r.ende ? 'erreicht (Crew unten)' : 'bei Zeitende'} nach ${r.zeit} s · ` +
       `Abschüsse ${r.kills} (gefallen ${r.abschuesse}, Schildtreffer ${r.treffer}) · stehend max ${r.maxStehend} · Snapshot max ${r.snapMax} B (Welle ${r.snapWelle}) · Fehler ${r.errors}` +
       `${r.softlock ? ' · SOFTLOCK' : ''}${r.ende && !r.lobby ? ' · nicht zurück in der Lobby' : ''} · Karte ${r.lp} Seed ${r.wellenSeed}`);
     if (r.errors) log('  Fehler: ' + JSON.stringify(r.errorLog));
+    if (process.env.BOT_WAFFE) log('  Waffen: ' + (r.waffen || []).map((w) => `${w.waffe} ${w.schuesse} Schuss/${w.abschuesse} Abschuss`).join(' · '));
+  }
+  if (process.env.BOT_WAFFE) {
+    log('\n| Waffe | Spieler-Läufe | Schüsse | Abschüsse | Abschüsse je Lauf | Welle Median |');
+    log('|---|---|---|---|---|---|');
+    for (const wf of Protocol.WAFFEN_WAHL.concat([...new Set(waffenRows.map((w) => w.waffe))].filter((x) => !Protocol.WAFFEN_WAHL.includes(x)))) {
+      const xs = waffenRows.filter((w) => w.waffe === wf);
+      const sch = xs.reduce((s, w) => s + w.schuesse, 0); const ab = xs.reduce((s, w) => s + w.abschuesse, 0);
+      log(`| ${wf} | ${xs.length} | ${sch} | ${ab} | ${xs.length ? r1(ab / xs.length) : '–'} | ${xs.length ? median(xs.map((w) => w.welle)) : '–'} |`);
+    }
+    const benutzt = Protocol.WAFFEN_WAHL.filter((wf) => waffenRows.some((w) => w.waffe === wf && w.schuesse > 0));
+    log(`Benutzt: ${benutzt.length}/${Protocol.WAFFEN_WAHL.length}${benutzt.length < Protocol.WAFFEN_WAHL.length ? ' – fehlt: ' + Protocol.WAFFEN_WAHL.filter((x) => !benutzt.includes(x)).join(', ') : ''}`);
   }
   log(ok ? '\nSIM WELLEN OK' : '\nSIM WELLEN FEHLGESCHLAGEN');
   process.exit(ok ? 0 : 1);
@@ -3403,7 +3508,11 @@ async function wellenMain() {
   if (args.includes('arena')) { await arenaMain(); return; }
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }
-  if (args.includes('umsetzung')) { await umsetzungMain(); process.exit(0); }
+  if (args[0] === 'labor' && args[1] === 'ketten') {   // Nachauftrag AP3a: nur die Ketten
+    await kettenMain(Number(argVal('--seeds', 3)), seedArg != null ? seedArg : 1, argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3]);
+    process.exit(0);
+  }
+  if (args[0] === 'labor' || args.includes('umsetzung')) { await umsetzungMain(); process.exit(0); }   // AP3a: labor, Alias umsetzung
   if (args.includes('dauer')) { await dauerMain(); process.exit(0); }
   const onlyM3 = args.includes('m3');
   const runs = onlyM3 ? [] : (counts.length ? counts : [1, 3, 'skip']);

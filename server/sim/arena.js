@@ -275,7 +275,16 @@ function startWellen(game, karte, params) {
 function update(game, dt) {
   if (!game.arena) return;
   if (game.arena.kind === 'arena_space') updateSpace(game);
-  else if (game.arena.wellen) require('./wellen.js').update(game, dt);
+  else if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }
+}
+// AP3a (Abnahme Wellen Boden): Zielanzeige statt „Frei erkunden – Entdeckungen“ (ohne Mission zeigt mission.js sonst die Erkundung)
+function wellenZiel(game) {
+  const s = require('./wellen.js').snap(game);
+  if (!s || !game.mission || !game.mission.state || game.mission.activeId) return;
+  const text = s.ph === 'countdown' ? `Welle 1 in ${s.t} s – Deckung suchen`
+    : s.ph === 'kampf' ? `Welle ${s.n}: Gegner ausschalten (${s.r} übrig)`
+      : s.ph === 'pause' ? `Welle ${s.n} überstanden – nächste in ${s.t} s` : `Erreicht: Welle ${s.n}`;
+  game.mission.state.objectives = [{ id: 'welle', text, done: false }];
 }
 function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
 

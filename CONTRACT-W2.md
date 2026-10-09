@@ -98,3 +98,110 @@ Codeänderung.
 - Tabelle Waffen-Rotation im Wellenmodus: alle 6 Waffen mindestens einmal benutzt.
 - Lobby-Screenshots unter `shots/labor/`: Labor-Liste, Wellen Boden, Wellen All.
 - `npm run check`, `npm test` (mit `test-labor`), Golden gegen `base-w1` und `snap:mess` grün.
+
+---
+
+## 2. AP6 Bodenkampf-Feinschliff (Team BODEN)
+
+Arbeitsbaum, Port und Startzeitpunkt stehen im Auftrag. AP6 beginnt erst, wenn AP3a im Stand ist, weil das Labor zum
+Beobachten gebraucht wird. Port 3377–3378, `WORLD_DIR=data/worlds-boden`, `REGIE_DIR=data/regie-boden`.
+
+### 2.1 Ziel
+Gegner und Personen verhalten sich auf engen Karten glaubwürdiger:
+- Enterer nutzen Engstellen.
+- Bis zu **3 Personen** gleichzeitig je Karte (E6).
+
+### 2.2 Befund (von der Studioleitung geprüft)
+- `away.npc` ist ein einzelnes Objekt `{x, y, dir, following, rescued, present, injured, path, pathT, moving, person,
+  name, met}`. Angelegt wird es in `baseAway` (`away.js:~21`), `makeAway` (:~47, Ivo) und `spawnPerson` (:~679).
+  Weitere Personen warten in `aw.personen` und rücken nach (`welt.js:~89–101, 183–189`, `game.js:~1302`).
+- **Etwa 70 Zugriffe in 15 Dateien:**
+  - Server ~40: `away.js`, `interior.js`, `objects.js`, `welt.js`, `game.js:~1668`
+  - Client 8: `client.js`, `render.js`, `voxel/actors.js`, `dev-mock.js`
+  - Tools ~16: `sim-headless.js`, `test-bausteine.js`, `test-buehne.js`
+  - Regiebücher und Katalog greifen nur über die Bausteine `spawn_person`, `person_rescued` und `person_state` zu.
+- Der Snapshot sendet heute keinen Namen.
+- Enterer: `decideB2` (`squad.js:~930`) läuft direkt zum Spieler. Engstellen sind auf **gebauten** Karten vorhanden:
+  - `karte.kanten[id] = {a, b, typ, tiles, zustand}`, Tür- und Torkacheln zwischen Plätzen (`shared/buehne.js:~850`)
+  - Anker `tor` und `eingang`
+  `engstellen()` in `shared/buehne-kennzahlen.js` wird im Spiel nicht berechnet. **Handkarten (Kesh, Wrack, Plattform)
+  haben keine Kanten.**
+
+### 2.3 Lieferung
+1. **Erst umbauen:** Zugriffsfunktionen in `away.js`, z. B. `personen(aw)`, `personAn(aw, x, y)`,
+   `folgendePersonen(aw)`, `hauptPerson(aw)`. Alle Zugriffe werden darauf umgestellt, die Speicherform bleibt
+   `away.npc`. **Golden gegen `base-w1` ohne Allow-Liste byte-gleich.** Dieser Zwischenstand wird im Bericht eigens
+   gemeldet.
+2. **Dann erweitern:** Die Speicherform wird `aw.npcs[]` mit bis zu `CONFIG.personen.maxGleichzeitig = 3`. Das Nachrücken
+   aus `aw.personen` füllt freie Plätze auf. m1 (Ivo) und die Rettungsabläufe bleiben unverändert (Golden m1 gleich).
+   Der Snapshot bekommt `away.npcs[]` mit `name`. **Budget:** `snap:mess` bleibt ≤ 11 776 B, die Größe je Person steht im
+   Bericht.
+3. **HUD und Captain:** eine Liste der Personen mit Name und Zustandssymbol (folgt, verletzt, gerettet) und ein Randpfeil
+   zur nächsten nicht geretteten Person. In 3D und 2D.
+4. **Enterer an Engstellen**, nur auf gebauten Karten:
+   - Liegt auf dem Weg zum Ziel eine Tür- oder Tor-Kante, sammelt sich der Trupp davor, bis 2 Enterer da sind oder 4 s
+     vergangen sind, und stürmt dann gemeinsam durch.
+   - Gibt es einen zweiten Weg (BFS mit Kantenstrafe), nimmt jeder zweite Enterer den längeren (Flanke).
+   - Für Türen gelten die vorhandenen Regeln für beide Seiten. Es gibt keine neue Regel nur für Gegner.
+   - Auf Handkarten bleibt das heutige Verhalten.
+5. **Tests:** `test-combat` (Sammeln, Durchbruch, Flanke auf einer Testkarte mit Tür) und `test-bausteine` (3 Personen
+   gleichzeitig, Nachrücken, Rettung).
+   **Labor:** Damit 3 Personen beobachtbar sind, wird ein Labor-Eintrag gebraucht. Gibt es keine passende Umsetzung,
+   kommt ein Parameter `personen` an einer vorhandenen Umsetzung wie `geiseln_befreien` dazu.
+
+### 2.4 Abnahme
+- Zwischenstand 1 byte-gleich.
+- Golden gegen `base-w1` grün: m1 und m2 unverändert, m3 nur in den erlaubten Kampfverläufen.
+- `snap:mess` im Budget, `npm run check` und `npm test` grün.
+- Labor-Lauf der Bots und Screenshots unter `shots/boden/`: Enterer sammeln sich an einer Tür, Liste mit 3 Personen.
+
+---
+
+## 3. AP3b Wellenkampf All (Team ALL)
+
+Arbeitsbaum, Port und Startzeitpunkt stehen im Auftrag. Port 3382–3383, `WORLD_DIR=data/worlds-all`,
+`REGIE_DIR=data/regie-all`.
+
+### 3.1 Ziel
+Wellenkampf All als echter Lobby-Modus mit **Szenenwahl**:
+- freier Raum
+- Nebel
+- Asteroiden still
+- Asteroiden bewegt
+
+Für Nebel und Asteroiden gelten **dieselben Regeln für Spieler und Gegner**.
+
+### 3.2 Befund (von der Studioleitung geprüft)
+- `arena_space` (`server/sim/arena.js` `startSpace` :~77, `updateSpace` und `spawnWave` :~100–140) nutzt die feste Szene
+  `CONFIG.arena.spaceScene: 'b7'` und spawnt 6 Wellen zyklisch (`CONFIG.arena.waves`).
+- Raumszenen stehen fest in `shared/locations.js`: `splitter` (38 Brocken), `nebel` (`fog:true`, 10 Brocken), `b7` und
+  weitere.
+- **Nebel hat auf dem Server keine Wirkung.** `CONFIG.sensors.fogFactor` liest nur der Client (`render.js`). Der Ziel-Scan
+  hat eine feste Reichweite (`space.js:~1144`).
+- **Asteroiden** werden per Seed erzeugt (`space.js:~132–155`), sind statisch, und **nur das Spielerschiff** kollidiert
+  (`space.js:~463–477`). Gesendet werden sie nur jeden 15. Snapshot (`asteroidSnapEvery`).
+- Wellen Boden (`wellen.js`) wertet Welle, Zeit und Abschüsse aus. Das ist das Vorbild.
+
+### 3.3 Lieferung
+1. **Szenenwahl** mit K im Modus Wellen All: `frei` (b7 ohne Brocken), `nebel`, `asteroiden` (splitter) und
+   `asteroiden_bewegt`. Die Startposition liegt sicher frei von Brocken.
+2. **Wellen-Ablauf** wie beim Boden: Welle, Zeit und Abschüsse werden ausgewertet und am Ende angezeigt. Eskaliert wird
+   nur über Zahl und Typ der Gegner. Die Logik, die beide Wellenmodi brauchen, gibt es nur einmal.
+3. **Nebel auf dem Server:** Sensor- und Zielerfassungs-Reichweite × `fogFactor`, für die Lerche **und** für die
+   Gegner-KI (Erfassen und Feuern). Der Client zeigt weiter an, was er heute zeigt.
+4. **Asteroiden für alle (E4):** Gegner kollidieren und weichen aus, Projektile schlagen ein. Das gilt auch in der
+   Kampagne. Die dadurch bedingten Golden-Abweichungen (m1 Splitter, m2 Nebel) stehen in `allow-w2.json` mit Begründung.
+   Entscheidungsflags und Ausgang bleiben streng.
+5. **Bewegte Asteroiden als deterministische Drift:** Jeder Brocken bekommt Bahnparameter (Seed, Richtung,
+   Geschwindigkeit, Rotation). Die Position ist eine reine Funktion der Spielzeit und wird auf Server und Client mit
+   **derselben** Funktion in `shared/` berechnet. Gesendet werden nur die Parameter, das 15er-Schema bleibt. Kollision
+   wie in Nr. 4. Nur in der Szene `asteroiden_bewegt`; die Kampagne bleibt still.
+6. **Bots:** Der Arena-Agent spielt alle 4 Szenen (`sim-headless arena --szene <id>`). Tabelle mit Welle, Zeit,
+   Abschüssen und Treffern durch Brocken.
+
+### 3.4 Abnahme
+- Jede der 4 Szenen von Bots gespielt (Tabelle) und mindestens 3 Szenen von einem Menschen (Playwright mit echten
+  Eingaben). Screenshots unter `shots/all/`.
+- Golden gegen `base-w1` mit `allow-w1.json` und `allow-w2.json` grün.
+- `snap:mess` im Budget, dazu eine Messung im Modus Wellen All mit `asteroiden_bewegt`.
+- `npm run check` und `npm test` grün (mit einem neuen Test für die Drift-Funktion und den Nebel-Faktor).

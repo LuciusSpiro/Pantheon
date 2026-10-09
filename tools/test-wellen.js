@@ -97,7 +97,7 @@ section('plan: Eskalation laut Tabelle (Zahl, Rollen, Waffen, Rang, Trupps)', ()
 
 // ---------------------------------------------------------------------------------------------------------------------
 section('lobby: Kartenwahl, Altweg ohne Wahl, neuer Seed je Start', () => {
-  ok(Protocol.START_LABELS.arena_away === 'Bodenkampf: Wellen' && Protocol.WELLEN_KARTEN.join(',') === 'aussenposten,station,ruine,schiff,kesh', 'Label und Kartenliste im Protokoll');
+  ok(Protocol.START_LABELS.arena_away === 'Wellen Boden' && Protocol.WELLEN_KARTEN.join(',') === 'aussenposten,station,ruine,schiff,kesh', 'Label (AP3a: Wellen Boden) und Kartenliste im Protokoll');
   const t = wellenSpiel(2, 'station');
   ok(t.g.phase === 'play' && t.S() && t.S().karte === 'station' && t.g.away.map === t.S().lp && /station/.test(t.S().lp), `Start auf gebauter Station (${t.S() && t.S().lp})`);
   ok(t.g.players.every((p) => p.zone === 'away'), 'Team unten');
