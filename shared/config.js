@@ -163,6 +163,11 @@
     awayExtra: { npcSpeed: 96, npcFollowDist: 40, droneStopDist: 80, dronePatrolRadius: 96, blasterTtl: 1.2, droneShotTtl: 2,
       hitRadiusDrone: 12, hitRadiusPlayer: 12, rescueRange: 64, alarmTime: 10,
       rebootTime: 5, rebootReward: 40, npcKitRange: 48, guardSpawns: [{ x: 12, y: 10 }, { x: 17, y: 3 }] }, // Bojenkern-Neustart weckt Wächter-Drohnen
+    // W2 AP6 (E6): NSC-Personen je Außenkarte (aw.npcs[]). maxGleichzeitig = so viele stehen auf einer gebauten Karte
+    // zugleich (offen, nicht gerettet); weitere warten in aw.personen und rücken in freie Plätze nach. Handkarten: eine.
+    // folgeAbstand: jede weitere Person, die demselben Spieler folgt, hält so viele px mehr Abstand (kein Stapeln);
+    // höchstens bis awayExtra.rescueRange − 4, damit alle beim Hochbeamen in Reichweite stehen.
+    personen: { maxGleichzeitig: 3, folgeAbstand: 8 },
     // Hafen-Übung (Stage dock): Kabelbrand + zerstörtes System; Funkspruch spätestens nach timeout s
     // fire/breach sind Altnamen; maßgeblich ist Shared_Maps.SHIP_DRILL (M4: Feuer im Vorraum, Leck im Lager)
     drill: { fire: { x: 7, y: 6 }, breach: { x: 5, y: 3 }, system: 'transfer', timeout: 150 },

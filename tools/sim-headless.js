@@ -59,6 +59,11 @@ const TILE = 32;
 
 const norm = Physics.normAngle;
 const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
+// W2 AP6: NSC-Personen im Snapshot (away.npcs[]). Fehlende Felder = Standard (dir down, following null, injured/rescued
+// false); present = auf der Karte, d. h. nicht gerettet. Ohne Person: leere Person (wie früher away.npc mit present false).
+const KEINE_PERSON = Object.freeze({ id: null, x: 0, y: 0, dir: 'down', following: null, injured: false, rescued: false, present: false });
+function personenIm(S) { return ((S.away && S.away.npcs) || []).map((n) => Object.assign({ dir: 'down', following: null, injured: false, rescued: false }, n, { present: !n.rescued })); }
+function hauptPersonIm(S) { return personenIm(S)[0] || KEINE_PERSON; }   // Ivo bzw. die erste Person
 const NEBEL_WAYPOINTS = [{ x: 1300, y: 1200 }, { x: 2200, y: 800 }, { x: 2300, y: 1700 }, { x: 1200, y: 600 }, { x: 900, y: 1900 }];
 
 // ---------- Spieler-Agent ----------
@@ -1004,7 +1009,7 @@ class Agent {
         if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; }
         this.send({ t: 'drop' }); return;
       }
-      if ((this.role === 'solo' || this.role === 'helm') && !S.away.active && !p.carry && S.inventory.medipack > 0 && S.away.npc.injured) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
+      if ((this.role === 'solo' || this.role === 'helm') && !S.away.active && !p.carry && S.inventory.medipack > 0 && hauptPersonIm(S).injured) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
       if (!this.onMyPad(S, p)) return;
       if (this.role === 'weapons' && !S.away.active) { this.input(0, 0); return; }
       if (this.role === 'helm' && !S.away.active) {
@@ -1017,8 +1022,8 @@ class Agent {
     }
     this.memo.holdT = 0;
     if (this.shootDrones(S)) { this.ix = null; return; }
-    const npc = S.away.npc;
-    const core = S.away.items.find((i) => i.kind === 'datenkern');
+    const npc = hauptPersonIm(S);
+    const core =S.away.items.find((i) => i.kind === 'datenkern');
     const doesNpc = this.role === 'solo' || this.role === 'helm';
     const hasWeaponsMate = S.players.length >= 3;
     const doesSonde = this.role === 'solo' || this.role === 'weapons' || (this.role === 'helm' && !hasWeaponsMate);
@@ -2087,7 +2092,7 @@ class GenericAgent extends KeshAgent {
     if (this.builtInfo(S)) { this.buehneHoch(S, p); return; }
     if (S.away.map === 'kesh') { const role = this.role; if (role === 'solo') this.role = 'helm'; try { this.awayLogic(S, p, 'extract'); } finally { this.role = role; } return; }
     if (this.shootDrones(S)) { this.ix = null; return; }
-    const npc = S.away.npc;
+    const npc = hauptPersonIm(S);
     this.returnToPads(S, p, npc && npc.following === this.pid ? npc : null);
   }
   beamSpot(S) {
@@ -2116,7 +2121,7 @@ class GenericAgent extends KeshAgent {
       if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; }
       this.send({ t: 'drop' }); return;
     }
-    const npc = S.away.npc;
+    const npc = hauptPersonIm(S);
     if (t && t.npc && steerer && !p.carry && S.inventory.medipack > 0 && npc && npc.present && npc.injured && !npc.rescued) { const shelf = shelfOf('medipack'); this.interact(S, shelf.x, shelf.y, {}); return; }
     if (!shipOk) { this.onMyPad(S, p); this.input(0, 0); return; }
     if (!this.onMyPad(S, p)) return;
@@ -2449,7 +2454,11 @@ class GenericAgent extends KeshAgent {
     }
     for (const c of checks) {
       if (c.map !== M) continue;
-      if (c.name === 'person_rescued' && !Away().personRescued(this.game, M, c.person)) tasks.push({ kind: 'person', person: c.person });
+      // W2 AP6: nur Personen, die es auf der Karte gibt (oder die dort warten) – eine Prüfung hinter einer Bedingung
+      // (z. B. geiseln_befreien mit personen < 3) nennt auch Personen, die nie erscheinen
+      const awM = this.game.aways && this.game.aways[M];
+      const gibt = awM && (Away().personMit(awM, c.person) || (awM.personen || []).some((q) => q.person === c.person));
+      if (c.name === 'person_rescued' && gibt && !Away().personRescued(this.game, M, c.person)) tasks.push({ kind: 'person', person: c.person });
       if (c.name === 'trupp_geraeumt' && !this.truppFrei(c)) tasks.push({ kind: 'trupp', tag: c.tag });
       if (c.name === 'team_im_bereich' && !this.imBereich(S, M, c.bereich)) tasks.push({ kind: 'bereich', bereich: c.bereich });
     }
@@ -2531,8 +2540,11 @@ class GenericAgent extends KeshAgent {
     if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
     if (this.combatAway(S, p, null)) return;
     const sm = this.sm;
-    const npc = S.away.npc;
-    if (npc && npc.present && !npc.rescued && npc.following === this.pid) { this.buehneHoch(S, p, npc); return; }   // Person folgt: hoch
+    // W2 AP6: bis zu 3 Personen – erst alle freien einsammeln (sie folgen), dann gemeinsam hoch
+    const ps = personenIm(S);
+    const meine = ps.filter((n) => n.present && n.following === this.pid);
+    const frei = ps.filter((n) => n.present && !n.following);
+    if (meine.length && !frei.length) { this.buehneHoch(S, p, meine[meine.length - 1]); return; }   // Personen folgen: hoch
     const k = W.AWAY_MAPS[M].karte;
     const scharf = k.anker.find((a) => a.rolle === 'sprengpunkt' && this.ankerZ(M, a.id) === 'scharf');
     if (scharf) { this.awayFrom(S, p, scharf, 5); return; }   // Ladung scharf: Abstand halten
@@ -2555,7 +2567,7 @@ class GenericAgent extends KeshAgent {
     const t = tasks[Math.min(rank, tasks.length - 1)];
     sm.task = t.kind + ':' + (t.a ? t.a.id : t.person || t.bereich || '');
     if (t.kind === 'anker') { this.ankerHalten(S, p, M, t.a, t.z); return; }
-    if (t.kind === 'person') { this.personHolen(S, p, npc); return; }
+    if (t.kind === 'person') { this.personHolen(S, p, frei.find((n) => n.id === t.person) || frei[0] || null, M); return; }
     if (t.kind === 'hin') { this.gotoNear(S, p, t.a.x, t.a.y, 1); return; }
     if (t.kind === 'bereich') { this.inBereich(S, p, M, t.bereich); return; }
     if (t.kind === 'trupp') { this.jagen(S, p, t.tag); return; }
@@ -2622,10 +2634,16 @@ class GenericAgent extends KeshAgent {
     if (this.gotoNear(S, p, t.x, t.y, 2) === 'fail') this.input(0, 0);
   }
   // Person: hingehen, E (verletzt: mit Medipack), sie folgt; dann buehneHoch
-  personHolen(S, p, npc) {
+  personHolen(S, p, npc, M) {
     if (!npc || !npc.present || npc.rescued || (npc.following && npc.following !== this.pid)) { this.input(0, 0); return; }
     const nt = this.tile(npc);
-    if (this.interactBuilt(S, nt.x, nt.y, { floor: true }) === 'fail') this.waitT = 0.3;
+    // W2 AP6: Person in einer noch geschlossenen Zelle (mehrere Geiseln, mehrere Zellen): erst die Zelle öffnen
+    const k = M && W.AWAY_MAPS[M] && W.AWAY_MAPS[M].karte;
+    const zelle = k && k.anker.find((a) => a.rolle === 'zelle' && a.x === nt.x && a.y === nt.y && this.ankerZ(M, a.id) !== 'offen');
+    if (zelle) { this.ankerHalten(S, p, M, zelle, 'offen'); return; }
+    // folgen mir schon Personen, nicht auf die Kachel der nächsten stellen (E träfe sonst die Person vor mir)
+    const folgen = personenIm(S).some((n) => n.present && n.following === this.pid);
+    if (this.interactBuilt(S, nt.x, nt.y, { floor: !folgen }) === 'fail') this.waitT = 0.3;
   }
   // Rätselpaar: zu zweit je ein Schloss gleichzeitig; solo erst eines, dann sofort das andere (Fenster aus dem Laufweg)
   raetselPaar(S, p, M, rs, mates, rank) {
@@ -2663,7 +2681,8 @@ class GenericAgent extends KeshAgent {
     const c = Physics.tileCenter(pt.x, pt.y);
     if (dist(p.x, p.y, c.x, c.y) > 5) { this.goto(S, [pt]); return; }
     this.input(0, 0);
-    if (follower && dist(follower.x, follower.y, p.x, p.y) > 56) return;
+    // W2 AP6: alle folgenden Personen in Reichweite (rescueRange 64; weitere Folgende halten etwas mehr Abstand)
+    if (personenIm(S).filter((n) => n.present && n.following === this.pid).concat(follower ? [follower] : []).some((f) => dist(f.x, f.y, p.x, p.y) > 60)) return;
     if (S.ship.systems.transfer === 'broken' || S.ship.systems.transfer === 'offline') { if (this.actDown) this.act(false); return; }
     if (!this.actDown) this.act(true);
     else if (!p.action && (this.memo.holdUp = (this.memo.holdUp || 0) + DT) > 0.6) { this.act(false); this.memo.holdUp = 0; this.waitT = 1; }
@@ -2687,7 +2706,7 @@ class GenericAgent extends KeshAgent {
   }
   awayWork(S, p, t, need) {
     if (this.shootDrones(S)) { this.ix = null; return; }
-    const aw = S.away; const npc = aw.npc;
+    const aw = S.away; const npc = hauptPersonIm(S);
     if (!need) { this.padsUp(S, p); return; }
     if (t.npc) {
       if (npc && npc.present && !npc.rescued) {
@@ -2870,6 +2889,8 @@ async function runGeneric(opts) {
   while (game.time < maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) { S = game.snapshot(); if (ticks % 30 === 0) res.snapMax = Math.max(res.snapMax, Buffer.byteLength(JSON.stringify(S))); }
+    // W2 AP6: Beobachtung Personen (gleichzeitig offen) und Enterer an Engstellen (aw.engStats)
+    if (S.away && S.away.npcs) res.personenMax = Math.max(res.personenMax || 0, S.away.npcs.filter((n) => !n.rescued).length);
     for (const a of agents) a.update(S);
     const m = game.mission;
     if (VERBOSE && ticks % Number(argVal('--every', 120)) === 0) {
@@ -2950,6 +2971,8 @@ async function runGeneric(opts) {
   }
   if (cur) { closeStep(); cur.success = false; cur.dur = r1(game.time - cur.t0); cur.errors = game.errors - cur.err0; res.missions.push(cur); }
   if (!res.aborted && game.time >= maxSec) res.aborted = `Spielzeit über ${maxSec} s`;
+  res.eng = { sammeln: 0, sturm: 0, flanke: 0 };   // W2 AP6
+  for (const aw of Object.values(game.aways || {})) if (aw && aw.engStats) for (const k of Object.keys(res.eng)) res.eng[k] += aw.engStats[k] || 0;
   res.errors = game.errors; res.sim = game.simStats; res.gameTime = r1(game.time); res.marks = game.inventory.marks; res.hull = Math.round(game.ship.hull);
   return res;
 }
@@ -3114,6 +3137,15 @@ async function umsetzungMain() {
     }
   }
   printLaborTable(runs, crews, ids);
+  // W2 AP6: Beobachtung je Umsetzung und Crew (Personen gleichzeitig, Enterer an Engstellen, Snapshot-Maximum)
+  log('\n| Umsetzung | Crew | Personen max gleichzeitig | Enterer sammeln/sturm/flanke | Snapshot max (B) |');
+  log('|---|---|---|---|---|');
+  for (const id of ids) for (const crew of crews) {
+    const xs = runs.filter((x) => x.id === id && x.crew === crew);
+    if (!xs.length) continue;
+    const e = xs.reduce((s, x) => { for (const k of ['sammeln', 'sturm', 'flanke']) s[k] += (x.r.eng && x.r.eng[k]) || 0; return s; }, { sammeln: 0, sturm: 0, flanke: 0 });
+    log(`| ${id} | ${crew} | ${Math.max(...xs.map((x) => x.r.personenMax || 0))} | ${e.sammeln}/${e.sturm}/${e.flanke} | ${Math.max(...xs.map((x) => x.r.snapMax || 0))} |`);
+  }
   return samples;
 }
 function printLaborTable(runs, crews, ids) {
@@ -3273,7 +3305,7 @@ async function runWellen(opts) {
     a.send = (msg) => { if (msg && msg.t === 'shoot' && !msg.los) { const pl = game.playerById(a.pid); if (pl && pl.zone === 'away' && !pl.downed) { const k = pl.id + '|' + (pl.waffe || '?'); schuesse[k] = (schuesse[k] || 0) + 1; } } return send0(msg); };
   }
   let S = game.snapshot();
-  let snapMax = 0, snapWelle = 0, maxStehend = 0, ticks = 0, lastN = 0, lastProgress = 0, softlock = false;
+  let snapMax = 0, snapWelle = 0, maxStehend = 0, ticks = 0, lastN = 0, lastProgress = 0, softlock = false, engRef = null;
   const W8 = game.arena && game.arena.wellen;
   const lp = W8 && W8.lp;
   const startWaffe = {};
@@ -3286,6 +3318,7 @@ async function runWellen(opts) {
       const b = Buffer.byteLength(JSON.stringify(S));
       if (b > snapMax) { snapMax = b; snapWelle = S.wellen ? S.wellen.n : 0; }
       if (S.wellen) maxStehend = Math.max(maxStehend, S.wellen.l);
+      if (game.away && game.away.engStats) engRef = game.away.engStats;   // W2 AP6: Enterer an Engstellen
       if (S.wellen && S.wellen.n !== lastN) { lastN = S.wellen.n; lastProgress = game.time; }
     }
     for (const a of agents) a.update(S);
@@ -3298,6 +3331,7 @@ async function runWellen(opts) {
     karte: opts.karte, players: opts.players, seed, lp, wellenSeed: W8 && W8.seed, ende: !!ende, welle: ende ? ende.welle : (W9 ? W9.n : lastN), zeit: ende ? ende.zeit : Math.round(game.time),
     kills: ende ? ende.kills.map((k) => k[1] + ' ' + k[2]).join(', ') : (W9 ? JSON.stringify(W9.kills) : '–'), abschuesse: W9 ? W9.abschuesse : null,
     errors: game.errors, errorLog: game.errorLog, snapMax, snapWelle, maxStehend, softlock, lobby: game.phase === 'lobby', treffer: game.simStats.gegnerTreffer || 0,
+    eng: engRef ? { sammeln: engRef.sammeln, sturm: engRef.sturm, flanke: engRef.flanke } : { sammeln: 0, sturm: 0, flanke: 0 },   // W2 AP6
     // AP3a: je Spieler Waffe (beim Start), Schüsse, Abschüsse
     waffen: agents.map((a) => {
       const pl = game.playerById(a.pid);
@@ -3326,7 +3360,8 @@ async function wellenMain() {
     if (bad) ok = false;
     log(`${karte.padEnd(12)} ${np === 1 ? 'solo ' : 'zu 3 '} Welle ${String(r.welle).padStart(2)} ${r.ende ? 'erreicht (Crew unten)' : 'bei Zeitende'} nach ${r.zeit} s · ` +
       `Abschüsse ${r.kills} (gefallen ${r.abschuesse}, Schildtreffer ${r.treffer}) · stehend max ${r.maxStehend} · Snapshot max ${r.snapMax} B (Welle ${r.snapWelle}) · Fehler ${r.errors}` +
-      `${r.softlock ? ' · SOFTLOCK' : ''}${r.ende && !r.lobby ? ' · nicht zurück in der Lobby' : ''} · Karte ${r.lp} Seed ${r.wellenSeed}`);
+      `${r.softlock ? ' · SOFTLOCK' : ''}${r.ende && !r.lobby ? ' · nicht zurück in der Lobby' : ''} · Karte ${r.lp} Seed ${r.wellenSeed}` +
+      ` · Enterer sammeln/sturm/flanke ${r.eng.sammeln}/${r.eng.sturm}/${r.eng.flanke}`);
     if (r.errors) log('  Fehler: ' + JSON.stringify(r.errorLog));
     if (process.env.BOT_WAFFE) log('  Waffen: ' + (r.waffen || []).map((w) => `${w.waffe} ${w.schuesse} Schuss/${w.abschuesse} Abschuss`).join(' · '));
   }

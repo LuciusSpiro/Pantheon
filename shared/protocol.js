@@ -81,6 +81,10 @@
     //     (Client: kit bzw. ID-Präfix). role (KI-Rolle pin/flank/retreat/aufrichten …, ≠ ro) nur mit CONFIG.debug.snapKiRolle
     //     (Bots, Debug-Overlay per `tune debug.snapKiRolle on`). Nicht-v2-Karten (Plattform, Wrack): revealed und alive wie bisher.
     //   Grenze: CONFIG.net.snapMax (13 312 B), Worst Case ≤ snapMax − snapLuft (tools/snap-mess.js, npm run snap:mess).
+    // W2 AP6 (E6): away.npcs[] ersetzt away.npc. Je Person auf der aktiven Außenkarte (auf der Karte oder gerettet):
+    //   { id, name, x, y, dir?, following?, injured?, rescued? } – id = Kennung aus spawn_person bzw. 'ivo' (Name 'Ivo');
+    //   dir fehlt = 'down', following fehlt = null (sonst Spieler-ID), injured/rescued fehlen = false. Gerettete stehen nicht
+    //   mehr auf der Karte (früher present: false). Keine Person = leere Liste. Bis CONFIG.personen.maxGleichzeitig offene.
     // Debug: tune waffen.<waffe>.<wert> | waffe <id> | gegner <rolle> [fraktion] | alarm on|off | fang.
     // FIX-ZIELEN: input { seq, mx, my, aim? } – aim = Zielwinkel zum Mauszeiger in ganzen Grad (atan2, x rechts, y unten),
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.

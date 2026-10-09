@@ -131,7 +131,7 @@ function main() {
     const code0 = g.aways.platform.sonde.symbols.join(',');
     Objects.setState(g, 'platform', 'sonde', 'off');
     Objects.setState(g, 'platform', 'core', 'rebooted');
-    g.aways.platform.npc.rescued = true; g.aways.platform.npc.present = false;
+    Away.hauptPerson(g.aways.platform).rescued = true; Away.hauptPerson(g.aways.platform).present = false;
     g.aways.platform.items = [];
     for (const dr of g.aways.platform.drones) dr.alive = false;
     ok(st(g, 'platform', 'datenkern') === 'taken' && st(g, 'platform', 'ivo') === 'rescued', 'Vorher: Kern weg, Ivo gerettet');
@@ -139,7 +139,7 @@ function main() {
     ok(st(g, 'platform', 'sonde') === 'on' && g.aways.platform.doorOpen === false, 'Sonde wieder an, Tür zu');
     ok(st(g, 'platform', 'core') === 'off', 'Bojenkern aus');
     ok(st(g, 'platform', 'datenkern') === 'present', 'neuer Datenkern liegt bereit');
-    ok(st(g, 'platform', 'ivo') === 'rescued' && !g.aways.platform.npc.present, 'Ivo bleibt gerettet (nicht wieder auf der Plattform)');
+    ok(st(g, 'platform', 'ivo') === 'rescued' && !Away.hauptPerson(g.aways.platform).present,'Ivo bleibt gerettet (nicht wieder auf der Plattform)');
     ok(g.aways.platform.drones.length === require('../server/world.js').DRONE_SPAWNS.length && g.aways.platform.drones.every((x) => x.alive), 'Drohnen zurück');
     ok(g.aways.platform.sonde.symbols.length === code0.split(',').length, 'neuer Sondencode gleicher Länge');
     act('map_reset', g, { map: 'platform', grund: 'x', datenkern: false });
@@ -195,7 +195,7 @@ function main() {
     ok(chk('person_state', g, Object.assign({ state: 'injured' }, A)) && !chk('person_rescued', g, A), 'Mira verletzt am NSC-Anker, nicht gerettet');
     ok(!chk('person_rescued', g, { map: 'kesh', person: 'mira' }), 'person_rescued: andere Karte -> false');
     beamDown(t, 'wreck', 0);
-    const npc = g.aways.wreck.npc;
+    const npc = Away.personMit(g.aways.wreck, 'mira');
     p.x = npc.x; p.y = npc.y;
     interior.onAct(g, p, true); interior.onAct(g, p, false);
     ok(!npc.following, 'ohne Medipack: folgt nicht (Hinweis)');
@@ -219,10 +219,10 @@ function main() {
   {
     const t = setup(1); const g = t.g; const p = t.p;   // Kesh: eingestecktes Medipack (Kampf v2) heilt
     act('spawn_person', g, { map: 'kesh', person: 'sela', verletzt: true, anker: 'hof' });
-    ok(g.aways.kesh.npc.name === 'Sela', 'Name aus dem NSC-Datensatz (person = sela)');
+    ok(Away.personMit(g.aways.kesh, 'sela').name === 'Sela', 'Name aus dem NSC-Datensatz (person = sela)');
     beamDown(t, 'kesh', 0);
     p.medkit = 1;
-    const npc = g.aways.kesh.npc;
+    const npc = Away.personMit(g.aways.kesh, 'sela');
     p.x = npc.x; p.y = npc.y;
     interior.onAct(g, p, true); interior.onAct(g, p, false);
     ok(!npc.injured && npc.following === p.id && p.medkit === 0, 'Kesh: eingestecktes Medipack verarztet, folgt');
@@ -231,7 +231,7 @@ function main() {
   }
   {
     const t = setup(1); const g = t.g;   // Ivo unverändert
-    const npc = g.aways.platform.npc;
+    const npc = Away.hauptPerson(g.aways.platform);
     ok(npc.present && npc.injured && !npc.name, 'Ivo liegt wie bisher verletzt auf B-7 (ohne Namen)');
     beamDown(t, 'platform', 0);
     const p = t.p; p.x = npc.x; p.y = npc.y;
@@ -400,12 +400,37 @@ function main() {
       act('spawn_person', g, { map: lp2, person: 'p1', name: 'Eins', verletzt: true });
       act('spawn_person', g, { map: lp2, person: 'p2', name: 'Zwei' });
       act('spawn_person', g, { map: lp2, person: 'p3', name: 'Drei' });
-      const npc = g.aways[lp2].npc;
-      ok(nsc.length > 0 && npc.present && npc.person === 'p1' && Math.floor(npc.x / 32) === nsc[0].x && Math.floor(npc.y / 32) === nsc[0].y, `spawn_person auf gebauter Karte am Anker ${nsc[0] && nsc[0].id}`);
-      ok((g.aways[lp2].personen || []).length === 2 && chk('person_state', g, { map: lp2, person: 'p2', state: 'ok' }), 'weitere Personen warten (p2, p3), person_state kennt sie');
+      act('spawn_person', g, { map: lp2, person: 'p4', name: 'Vier' });
+      const aw2 = g.aways[lp2];
+      const npc = Away.personMit(aw2, 'p1');
+      ok(nsc.length > 0 && !!npc && npc.present && npc.person === 'p1' && Math.floor(npc.x / 32) === nsc[0].x && Math.floor(npc.y / 32) === nsc[0].y, `spawn_person auf gebauter Karte am Anker ${nsc[0] && nsc[0].id}`);
+      // W2 AP6 (E6): bis CONFIG.personen.maxGleichzeitig = 3 gleichzeitig, jede an ihrem eigenen Anker; die vierte wartet
+      const offen = Away.offenePersonen(aw2);
+      const kach = new Set(offen.map((n) => Math.floor(n.x / 32) + ',' + Math.floor(n.y / 32)));
+      ok(offen.length === 3 && offen.map((n) => n.person).join() === 'p1,p2,p3', `3 Personen gleichzeitig auf der Karte (${offen.map((n) => n.person).join(', ')})`);
+      ok(kach.size === 3, `jede Person auf eigener Kachel (Anker, bei zu wenigen Ankern daneben: ${[...kach].join(' ')})`);
+      ok((aw2.personen || []).length === 1 && aw2.personen[0].person === 'p4' && chk('person_state', g, { map: lp2, person: 'p4', state: 'ok' }), 'vierte Person wartet (p4), person_state kennt sie');
+      const sn = g.snapshot().away;
+      ok(Array.isArray(sn.npcs) && sn.npcs.length === 0 && !('npc' in sn), 'Snapshot: away.npcs[] nur für die aktive Karte, kein away.npc mehr');
+      // Snapshot-Form direkt aus der Karte: Name, Zustand, Standardfelder fehlen
+      const ps = Away.personenSnap(aw2);
+      ok(ps.length === 3 && ps[0].id === 'p1' && ps[0].name === 'Eins' && ps[0].injured === true && !('following' in ps[0]) && !('rescued' in ps[1]) && !('injured' in ps[1]),
+        'personenSnap: id, name, injured nur wenn wahr, Standardfelder fehlen');
+      // Rettung: p2 folgt einem Spieler und wird mit hochgebeamt
+      const p0 = t.p;
+      const p2 = Away.personMit(aw2, 'p2');
+      g.away = aw2; p0.zone = 'away'; p0.x = p2.x; p0.y = p2.y;
+      p2.following = p0.id;
+      ok(Away.folgendePersonen(aw2).length === 1 && chk('person_state', g, { map: lp2, person: 'p2', state: 'following' }), 'p2 folgt (person_state following)');
+      require('../server/sim/away.js').executeBeam(g, [p0.id], 'up');
+      ok(chk('person_rescued', g, { map: lp2, person: 'p2' }) && Away.personMit(aw2, 'p2').rescued, 'p2 mit hochgebeamt -> person_rescued');
+      t.run(0.1);
+      const nach = Away.offenePersonen(aw2).map((n) => n.person);
+      ok(nach.length === 3 && nach.includes('p4') && !(aw2.personen || []).length, `nach der Rettung rückt p4 in den freien Platz nach (${nach.join(', ')})`);
+      ok(Away.personenSnap(aw2).some((n) => n.id === 'p2' && n.rescued === true), 'gerettete Person bleibt in der Liste (HUD: gerettet)');
       npc.rescued = true; npc.present = false; require('../server/sim/away.js').markRescued(g, lp2, 'p1');
       t.run(0.1);
-      ok(g.aways[lp2].npc.person === 'p2' && g.aways[lp2].npc.present && chk('person_rescued', g, { map: lp2, person: 'p1' }), 'nach der Rettung rückt p2 nach (an einem eigenen Anker)');
+      ok(Away.offenePersonen(aw2).length === 2 && chk('person_rescued', g, { map: lp2, person: 'p1' }), 'p1 gerettet, niemand wartet mehr: 2 offen');
       const ziele = Objects.resolveAnker(g, lp, 'beute');
       if (ziele.length >= 2) {
         act('anker_zustand', g, { map: lp, anker: ziele[0].id, zustand: 'leer' });

@@ -86,14 +86,16 @@ function personTile(g, map, anker, n) {
   const a = list[n % list.length];
   return { x: a.x, y: a.y, anker: a.id };
 }
-// Mehrere Personen je gebauter Karte: Die Laufzeit (away.js) führt eine Person je Karte; weitere warten in aw.personen und
-// rücken nach, sobald die vorige gerettet ist (game.js ruft personenNachruecken jeden Tick).
+// Mehrere Personen je gebauter Karte (W2 AP6, E6): Die Laufzeit (away.js) führt bis CONFIG.personen.maxGleichzeitig offene
+// Personen je Karte; weitere warten in aw.personen und rücken in freie Plätze nach, sobald eine gerettet ist (game.js ruft
+// personenNachruecken jeden Tick).
 function personenNachruecken(g) {
   for (const [map, aw] of Object.entries(g.aways || {})) {
     if (!aw || !Array.isArray(aw.personen) || !aw.personen.length || isHandMap(map)) continue;
-    if (aw.npc && aw.npc.present && !aw.npc.rescued) continue;
-    const next = aw.personen.shift();
-    away().spawnPerson(g, map, next.tile, { person: next.person, name: next.name, injured: next.injured });
+    while (aw.personen.length && away().personPlatzFrei(g, aw)) {
+      const next = aw.personen.shift();
+      away().spawnPersonDazu(g, map, next.tile, { person: next.person, name: next.name, injured: next.injured });
+    }
   }
 }
 function wartend(g, map, person) {
@@ -172,7 +174,7 @@ module.exports = (Registry) => {
       + 'zu den Pads und wird mit hochgebeamt (Ereignis npcRescued { person, name, map }); verletzt = braucht erst ein Medipack '
       + '(getragen, eingesteckt oder per Nachschub). person = Kennung (auch NSC-ID), name = Anzeige (Standard: NSC-Name bzw. person). '
       + 'Optional anker = Bereich, Objekt oder "x,y" (Handkarten) bzw. Ankerrolle/-ID (gebaute Karten: Standard nsc, dann zelle). '
-      + 'Handkarten: eine Person je Karte; gebaute Karten: mehrere (je ein Anker, weitere rücken nach der Rettung nach). Prüfen mit person_rescued { map, person }.',
+      + 'Handkarten: eine Person je Karte; gebaute Karten: bis zu 3 gleichzeitig (je ein Anker), weitere rücken nach einer Rettung nach. Prüfen mit person_rescued { map, person }.',
     params: { map: { typ: 'map', pflicht: true }, person: { typ: 'string', pflicht: true }, name: { typ: 'string' },
       verletzt: { typ: 'bool' }, anker: { typ: 'string' } },
     run(m, a) {
@@ -186,8 +188,8 @@ module.exports = (Registry) => {
         aw.personenZahl++;
         const npcRec0 = g.weltstand && g.weltstand.data && g.weltstand.data.npc && g.weltstand.data.npc[a.person];
         const p0 = { person: a.person, name: a.name || (npcRec0 && npcRec0.name) || a.person, injured: !!a.verletzt, tile: { x: pt.x, y: pt.y } };
-        if (aw.npc && aw.npc.present && !aw.npc.rescued && aw.npc.person !== a.person) { (aw.personen || (aw.personen = [])).push(p0); return; }
-        away().spawnPerson(g, a.map, p0.tile, p0);
+        // W2 AP6: bis CONFIG.personen.maxGleichzeitig gleichzeitig; ist kein Platz frei, wartet sie in aw.personen
+        if ((aw.personen && aw.personen.length) || !away().spawnPersonDazu(g, a.map, p0.tile, p0)) (aw.personen || (aw.personen = [])).push(p0);
         return;
       }
       const anker = a.anker || 'nsc';
@@ -202,7 +204,7 @@ module.exports = (Registry) => {
     params: { map: { typ: 'map', pflicht: true }, person: { typ: 'string', pflicht: true } },
     run(m, a) {
       const g = m.game; const aw = g.aways && g.aways[a.map];
-      if (aw && aw.npc && aw.npc.person === a.person) { aw.npc.rescued = true; aw.npc.present = false; aw.npc.following = null; aw.npc.injured = false; }
+      away().setzePersonZustand(away().personMit(aw, a.person), 'rescued');
       if (away().personRescued(g, a.map, a.person)) return;
       away().markRescued(g, a.map, a.person);
       g.missionEvent('npcRescued', { person: a.person, map: a.map, debug: true });

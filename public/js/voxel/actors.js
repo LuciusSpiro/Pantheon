@@ -1196,8 +1196,11 @@ const layer = {
       for (const it of (st.ship && st.ship.groundItems) || []) { try { updateGroundItem(it, t); } catch (e) { err('item', e); } }
     } else {
       const aw = st.away || {};
-      const npc = view.npc;
-      if (npc && npc.present !== false && !npc.rescued && zone !== 'kesh') { try { updateNpc('n:tech', npc, dt, t, npc.injured ? 'injured' : null); } catch (e) { err('npc', e); } }
+      // W2 AP6: bis 3 Personen (away.npcs[], Schlüssel je id; Ivo bleibt 'n:tech')
+      for (const npc of view.npcs || []) {
+        if (npc.rescued) continue;
+        try { updateNpc(npc.id === 'ivo' ? 'n:tech' : 'n:p:' + npc.id, npc, dt, t, npc.injured ? 'injured' : null); } catch (e) { err('npc', e); }
+      }
       for (const e of view.drones || []) { try { updateEnemy(e, view, st, dt, t); } catch (e2) { err('enemy', e2); } }
       for (const it of aw.items || []) { try { updateGroundItem(it, t); } catch (e) { err('item', e); } }
     }
