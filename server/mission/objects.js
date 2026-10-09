@@ -5,6 +5,8 @@
 // Ohne Server nutzbar (Prüfer): schwere Module werden erst beim Setzen geladen.
 const Maps = require('../../shared/maps.js');
 const Locations = require('../../shared/locations.js');
+let awayMod = null;   // W2 AP6: Personen nur über die Zugriffsfunktionen in away.js (lazy)
+const away = () => awayMod || (awayMod = require('../sim/away.js'));
 
 const TILE = Maps.TILE || 32;
 
@@ -80,7 +82,7 @@ function state(game, map, object, index) {
   switch (map + '.' + object) {
     case 'platform.sonde': return a.sonde && a.sonde.disabled ? 'off' : 'on';
     case 'platform.core': return a.coreRebooted ? 'rebooted' : 'off';
-    case 'platform.ivo': return a.npc && a.npc.rescued ? 'rescued' : a.npc && a.npc.injured ? 'injured' : 'ok';
+    case 'platform.ivo': { const ivo = away().hauptPerson(a); return ivo && ivo.rescued ? 'rescued' : ivo && ivo.injured ? 'injured' : 'ok'; }
     case 'platform.datenkern': return (a.items || []).some((i) => i.kind === 'datenkern') ? 'present' : 'taken';
     // 'open' = Hohlraum ausgeräumt (wie das Original: versteckter Container erledigt); ohne versteckten Container: Wand offen
     case 'wreck.hollow': {
@@ -140,9 +142,8 @@ function setState(game, map, object, z) {
     case 'platform.core=rebooted': a.coreRebooted = true; return true;
     case 'wreck.lore=read': a.loreRead = true; return true;
     // B1 Nachauftrag: Ivo, Wächter, Container über Bausteine setzbar
-    case 'platform.ivo=injured': if (a.npc) { a.npc.injured = true; a.npc.rescued = false; } return true;
-    case 'platform.ivo=ok': if (a.npc) { a.npc.injured = false; a.npc.rescued = false; } return true;
-    case 'platform.ivo=rescued': if (a.npc) { a.npc.injured = false; a.npc.rescued = true; a.npc.present = false; a.npc.following = null; } return true;
+    case 'platform.ivo=injured': case 'platform.ivo=ok': case 'platform.ivo=rescued':
+      away().setzePersonZustand(away().hauptPerson(a), z); return true;
     case 'kesh.warden=dead': for (const d of a.drones || []) if (d.kind === 'warden') { d.alive = false; d.asleep = false; d.aim = null; } return true;
     case 'kesh.warden=asleep': for (const d of a.drones || []) if (d.kind === 'warden' && d.alive) { d.asleep = true; d.aim = null; } return true;
     case 'wreck.container=full': case 'wreck.container=taken': for (const s of a.salvage || []) if (!s.hidden) s.done = z === 'taken'; return true;
@@ -181,7 +182,7 @@ function teamOn(game, map) {
 // Pixelpositionen eines Objekts (Ivo dynamisch, sonst Kacheln aus der Legende)
 function positions(game, map, object) {
   const a = aw(game, map);
-  if (map === 'platform' && object === 'ivo') return a && a.npc && a.npc.present ? [{ x: a.npc.x, y: a.npc.y }] : [];
+  if (map === 'platform' && object === 'ivo') { const ivo = away().hauptPerson(a); return ivo && ivo.present ? [{ x: ivo.x, y: ivo.y }] : []; }
   return tilesOf(map, object).map((t) => ({ x: t.x * TILE + TILE / 2, y: t.y * TILE + TILE / 2 }));
 }
 function carrierOf(game, item) {

@@ -1000,9 +1000,10 @@ async function f1f6() {
     await tick(6);
     const aw2 = g2.aways['hafen.kontor'];
     const kacheln = aw2 ? aw2.drones.map((d) => Math.floor(d.x / 32) + ',' + Math.floor(d.y / 32)) : [];
-    ok(aw2 && kacheln.length > 0 && aw2.npc && aw2.npc.present && aw2.npc.person === 'geisel', `hafen.kontor: ${kacheln.length} Wachen und Geisel nachgeholt`);
+    const geisel = aw2 ? require('../server/sim/away.js').personMit(aw2, 'geisel') : null;   // W2 AP6: Zugriffsfunktion
+    ok(aw2 && kacheln.length > 0 && geisel && geisel.present, `hafen.kontor: ${kacheln.length} Wachen und Geisel nachgeholt`);
     ok(new Set(kacheln).size === kacheln.length, 'besetzen: jede Wache auf eigener Kachel (' + kacheln.join(' ') + ')');
-    ok(!aw2 || !aw2.npc || !kacheln.includes(Math.floor(aw2.npc.x / 32) + ',' + Math.floor(aw2.npc.y / 32)), 'Geisel nicht auf einer Wachen-Kachel');
+    ok(!geisel || !kacheln.includes(Math.floor(geisel.x / 32) + ',' + Math.floor(geisel.y / 32)), 'Geisel nicht auf einer Wachen-Kachel');
     ok(!f2.some((x) => /nicht geladen|unbekannt/.test(x)), 'kein „spawn_person: Karte … nicht geladen“' + (f2.length ? ' (' + f2.slice(0, 3).join(' | ') + ')' : ''));
   }
 

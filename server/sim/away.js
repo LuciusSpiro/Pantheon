@@ -8,6 +8,7 @@ const interior = require('./interior.js');
 const combat = require('./combat.js');
 const squad = require('./squad.js');
 const { bfs, lineOfSight, dist, makeRng } = require('../util.js');
+const { ohneStandard } = require('./snapform.js');
 
 const TILE = Physics.TILE;
 const DRONE_HITBOX = { w: 14, h: 10 };
@@ -18,13 +19,51 @@ const isDown = (st) => st === 'broken' || st === 'offline';
 function baseAway(map) {
   return {
     map, kampf: 'alt', active: false, drones: [], projectiles: [],
-    npc: { x: 0, y: 0, dir: 'down', following: null, rescued: false, present: false, injured: false, path: null, pathT: 0, moving: false },
+    npcs: [],   // W2 AP6: NSC-Personen dieser Karte (Zugriff nur über die Funktionen unten)
     items: [], marker: null, strikes: [], pendingStrikes: [],
     sonde: { disabled: true, symbols: [], entered: [], lockout: 0 },
     codeTable: {}, odaCodeHelp: false, kuppelUntil: 0, sensorUntil: 0, doorOpen: true,
     kuppelHp: 0, alarmUntil: 0, noHumanT: 0, firstBeamAt: null, coreRebooted: false,
     salvage: [], hollow: null, loreRead: false,
   };
+}
+
+// ---------- Personen (W2 AP6): Zugriff nur über diese Funktionen ----------
+// Speicherform: aw.npcs[] (Datensätze { x, y, dir, following, rescued, present, injured, path, pathT, moving, person, name,
+// met }; present = auf der Karte). Ivo ist die Person ohne Kennung (person) auf B-7 und steht immer an Stelle 0 der Plattform.
+// Handkarten führen eine Person (spawnPerson ersetzt), gebaute Karten bis CONFIG.personen.maxGleichzeitig offene
+// (spawnPersonDazu). Gerettete bleiben in der Liste (HUD: „gerettet“), zählen aber nicht mehr als offen.
+// Alle Leser und Schreiber außerhalb dieses Blocks gehen über die Funktionen, nie direkt an aw.npcs.
+function personen(aw) { return aw && Array.isArray(aw.npcs) ? aw.npcs : []; }    // alle Datensätze (auch abwesend, gerettet)
+function hauptPerson(aw) { return personen(aw)[0] || null; }                     // Ivo bzw. die erste Person (Objekt platform.ivo)
+function offenePersonen(aw) { return personen(aw).filter((n) => n.present && !n.rescued); }   // auf der Karte, nicht gerettet
+function folgendePersonen(aw) { return offenePersonen(aw).filter((n) => n.following); }
+function personMit(aw, person) { return personen(aw).find((n) => n.person === person) || null; }   // nach Kennung
+// offene Person auf der Kachel tx, ty (Interaktion, Bots). Stehen mehrere dort (Zelle mit einem Platz), zuerst eine, die
+// noch niemandem folgt, dann eine, die nicht schon dem Spieler pid folgt (E an einer Gruppe sammelt alle nacheinander ein).
+function personAn(aw, tx, ty, pid) {
+  const da = offenePersonen(aw).filter((n) => { const t = Physics.toTile(n.x, n.y); return t.x === tx && t.y === ty; });
+  if (da.length < 2) return da[0] || null;
+  return da.find((n) => !n.following) || da.find((n) => n.following !== pid) || da[0];
+}
+// Snapshot away.npcs[] (W2 AP6): Personen auf der Karte bzw. gerettete. Felder mit Standardwert fehlen (snapform):
+// dir 'down', following null, injured false, rescued false. Ivo heißt im Snapshot 'Ivo' (id 'ivo').
+const PERSON_STANDARD = Object.freeze({ dir: 'down', following: null, injured: false, rescued: false });
+function personenSnap(aw) {
+  const r1 = (v) => Math.round(v * 10) / 10;
+  return personen(aw).filter((n) => n.present || n.rescued).map((n) => ohneStandard({ id: n.person || 'ivo', name: n.name || 'Ivo',
+    x: r1(n.x), y: r1(n.y), dir: n.dir, following: n.following, injured: !!n.injured, rescued: !!n.rescued }, PERSON_STANDARD));
+}
+function maxPersonen(game) { return Math.max(1, Number(game && game.C && game.C.personen && game.C.personen.maxGleichzeitig) || 3); }
+// Hat die Karte einen freien Platz für eine weitere offene Person?
+function personPlatzFrei(game, aw) { return offenePersonen(aw).length < maxPersonen(game); }
+function setzePerson(aw, rec) { aw.npcs = [rec]; return rec; }   // Handkarte: je Karte eine, ersetzt die bisherige Person
+// Gebaute Karte: Person dazu; dieselbe Kennung ersetzt ihren alten Datensatz an seiner Stelle
+function personDazu(aw, rec) {
+  if (!Array.isArray(aw.npcs)) aw.npcs = [];
+  const i = aw.npcs.findIndex((n) => n.person === rec.person);
+  if (i >= 0) aw.npcs[i] = rec; else aw.npcs.push(rec);
+  return rec;
 }
 
 // ---------- Aufbau ----------
@@ -44,7 +83,7 @@ function makeAway(game, opts) {
       return { id: 'd' + i, kind: 'drone', x: c.x, y: c.y, hp: game.C.away.drone.hp, dir: 'down', revealed: false, alive: true,
         home: { x: c.x, y: c.y }, fireT: i * 0.4, wander: null, wanderT: 0, hitT: -9 };
     }),
-    npc: { x: npcC.x, y: npcC.y, dir: 'down', following: null, rescued: false, present: !o.noNpc, injured: !o.noNpc, path: null, pathT: 0, moving: false },
+    npcs: [{ x: npcC.x, y: npcC.y, dir: 'down', following: null, rescued: false, present: !o.noNpc, injured: !o.noNpc, path: null, pathT: 0, moving: false }],   // Ivo
     items: o.noCore ? [] : [{ id: 'core', kind: 'datenkern', x: qC.x, y: qC.y }],
     sonde: { disabled: false, symbols, entered: [], lockout: 0 },
     codeTable, doorOpen: false,
@@ -220,8 +259,8 @@ function executeBeam(game, pids, dir) {
     game.missionEvent('beamedDown', { players, map: away.map });
   } else {
     // S2: NSC-Person (Ivo auf B-7 oder per spawn_person auf jeder Außenkarte) wird mit hochgebeamt, wenn sie folgt
-    const npc = away.npc;
-    if (npc && npc.present && !npc.rescued && npc.following && players.some((p) => dist(p.x, p.y, npc.x, npc.y) <= game.C.awayExtra.rescueRange)) {
+    for (const npc of folgendePersonen(away)) {
+      if (!players.some((p) => dist(p.x, p.y, npc.x, npc.y) <= game.C.awayExtra.rescueRange)) continue;
       npc.rescued = true; npc.present = false; npc.following = null;
       if (npc.person) {
         markRescued(game, away.map, npc.person);
@@ -460,8 +499,10 @@ function update(game, dt) {
     if (awayPlayers.length || away.drones.some((d) => d.alive)) updateDrones(game, dt, awayPlayers);
     updateAwayProjectiles(game, dt);
   }
-  if (away.npc && away.npc.present) updateNpc(game, dt);   // S2: Person auf jeder Außenkarte (bisher nur B-7)
-  else if (away.npc) away.npc.moving = false;
+  for (const npc of personen(away)) {   // S2: Person auf jeder Außenkarte (bisher nur B-7)
+    if (npc.present) updateNpc(game, npc, dt);
+    else npc.moving = false;
+  }
   for (const s of away.pendingStrikes.slice()) {
     if (game.time < s.at) continue;
     away.pendingStrikes.splice(away.pendingStrikes.indexOf(s), 1);
@@ -554,8 +595,8 @@ function updateAwayProjectiles(game, dt) {
   away.projectiles = keep;
 }
 
-function updateNpc(game, dt) {
-  const C = game.C; const npc = game.away.npc;
+function updateNpc(game, npc, dt) {
+  const C = game.C;
   npc.moving = false;
   if (npc.present && npc.injured) {
     const kit = game.away.items.find((i) => i.kind === 'medipack' && dist(i.x, i.y, npc.x, npc.y) <= C.awayExtra.npcKitRange);
@@ -573,7 +614,11 @@ function updateNpc(game, dt) {
   const p = game.playerById(npc.following);
   if (!p || p.zone !== 'away') { npc.following = null; return; }
   const d = dist(npc.x, npc.y, p.x, p.y);
-  if (d <= C.awayExtra.npcFollowDist) { npc.path = null; return; }
+  // W2 AP6: folgen mehrere Personen demselben Spieler, hält jede weitere etwas mehr Abstand (kein Stapeln)
+  const rang = folgendePersonen(game.away).filter((n) => n.following === npc.following).indexOf(npc);
+  const abstand = Math.min(C.awayExtra.npcFollowDist + Math.max(0, rang) * ((C.personen && Number(C.personen.folgeAbstand)) || 0),
+    Math.max(C.awayExtra.npcFollowDist, C.awayExtra.rescueRange - 4));
+  if (d <= abstand) { npc.path = null; return; }
   const solid = interior.awaySolid(game);
   npc.pathT -= dt;
   if (!npc.path || npc.pathT <= 0) {
@@ -649,7 +694,8 @@ function resetMap(game, map, opts) {
   if (map === 'platform') {
     fresh = makeAway(game, { salt: resets, noNpc: true, noCore: o.datenkern === false });
     // Ivo kommt nicht zurück auf die Plattform: Objekt platform.ivo bleibt 'rescued', wenn er gerettet wurde
-    if (old.npc && old.npc.rescued && !old.npc.name) fresh.npc.rescued = true;
+    const ivo = hauptPerson(old);
+    if (ivo && ivo.rescued && !ivo.name) hauptPerson(fresh).rescued = true;
   } else if (map === 'wreck') {
     fresh = makeWreck(game);
     // Den Hohlraum kennt die Crew schon (Weitscan): die Wand bleibt markiert
@@ -675,10 +721,41 @@ function spawnPerson(game, map, tile, opts) {
   const aw = game.aways && game.aways[map];
   const o = opts || {};
   if (!aw || !tile || !o.person) return false;
-  const c = W.tileCenter(tile.x, tile.y);
-  aw.npc = { x: c.x, y: c.y, dir: 'down', following: null, rescued: false, present: true, injured: !!o.injured, path: null, pathT: 0, moving: false,
-    person: String(o.person), name: String(o.name || o.person), met: false };
+  setzePerson(aw, neuePerson(tile, o));
   return true;
+}
+// W2 AP6 (E6): weitere Person auf einer gebauten Karte (bis CONFIG.personen.maxGleichzeitig offene). Kein Platz -> false
+// (Aufrufer reiht sie in aw.personen ein). Dieselbe Kennung ersetzt ihren alten Datensatz.
+function spawnPersonDazu(game, map, tile, opts) {
+  const aw = game.aways && game.aways[map];
+  const o = opts || {};
+  if (!aw || !tile || !o.person) return false;
+  const alt = personMit(aw, String(o.person));
+  if (!(alt && alt.present && !alt.rescued) && !personPlatzFrei(game, aw)) return false;
+  personDazu(aw, neuePerson(freiePersonenKachel(aw, map, tile, String(o.person)), o));
+  return true;
+}
+// Weniger Anker als Personen: nicht auf eine besetzte Kachel stellen, sondern auf die nächste freie begehbare daneben
+function freiePersonenKachel(aw, map, tile, person) {
+  const belegt = new Set(offenePersonen(aw).filter((n) => n.person !== person).map((n) => { const t = Physics.toTile(n.x, n.y); return t.x + ',' + t.y; }));
+  if (!belegt.has(tile.x + ',' + tile.y)) return tile;
+  const info = interior.awayInfoOf(map);
+  const mp = info && info.map;
+  if (!mp || typeof mp.info !== 'function') return tile;
+  for (let r = 1; r <= 2; r++) {
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = tile.x + dx, y = tile.y + dy;
+      if (x < 0 || y < 0 || x >= mp.w || y >= mp.h || belegt.has(x + ',' + y) || mp.info(x, y).solid) continue;
+      return { x, y };
+    }
+  }
+  return tile;
+}
+function neuePerson(tile, o) {
+  const c = W.tileCenter(tile.x, tile.y);
+  return { x: c.x, y: c.y, dir: 'down', following: null, rescued: false, present: true, injured: !!o.injured, path: null, pathT: 0, moving: false,
+    person: String(o.person), name: String(o.name || o.person), met: false };
 }
 function markRescued(game, map, person) {
   game.rescuedPersons = game.rescuedPersons || [];
@@ -688,18 +765,29 @@ function markRescued(game, map, person) {
 function personRescued(game, map, person) {
   if ((game.rescuedPersons || []).includes(map + ':' + person)) return true;
   const a = game.aways && game.aways[map];
-  return !!(a && a.npc && a.npc.person === person && a.npc.rescued);
+  const n = personMit(a, person);
+  return !!(n && n.rescued);
 }
 // Zustand einer Person: 'injured' | 'ok' | 'following' | 'rescued' | null (nicht auf der Karte)
 function personState(game, map, person) {
   if (personRescued(game, map, person)) return 'rescued';
   const a = game.aways && game.aways[map];
-  if (!a || !a.npc || a.npc.person !== person || !a.npc.present) return null;
-  return a.npc.injured ? 'injured' : a.npc.following ? 'following' : 'ok';
+  const n = personMit(a, person);
+  if (!n || !n.present) return null;
+  return n.injured ? 'injured' : n.following ? 'following' : 'ok';
+}
+// Kartenzustand einer Person setzen (Bausteine, Objekt platform.ivo): 'injured' | 'ok' | 'rescued'. n = Datensatz.
+function setzePersonZustand(n, z) {
+  if (!n) return false;
+  if (z === 'injured') { n.injured = true; n.rescued = false; }
+  else if (z === 'ok') { n.injured = false; n.rescued = false; }
+  else if (z === 'rescued') { n.rescued = true; n.present = false; n.following = null; n.injured = false; }
+  return true;
 }
 
 module.exports = {
-  resetMap, spawnPerson, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
+  resetMap, spawnPerson, spawnPersonDazu, personPlatzFrei, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
+  personen, hauptPerson, offenePersonen, personenSnap, folgendePersonen, personMit, personAn, setzePersonZustand,
   baseAway, makeLandepunkt, tutorialLaeuft, kampfPruefen,
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
   setMarker, shoot, setAim, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,

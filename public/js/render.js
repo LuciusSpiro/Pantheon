@@ -1773,8 +1773,7 @@
     const fogSet = v2 ? teamVision(view, map, st) : null;
     if (zone === 'away') {
       for (const it of away.items || []) drawables.push({ key: it.y - 4, type: 'item', kind: it.kind, x: it.x, y: it.y });
-      const npc = view.npc;
-      if (npc && npc.present !== false && !npc.rescued && !isKesh) drawables.push({ key: npc.y, type: 'npc', e: npc });
+      for (const npc of view.npcs || []) if (!npc.rescued) drawables.push({ key: npc.y, type: 'npc', e: npc });   // W2 AP6: bis 3 Personen (auch auf Kesh)
       for (const d of view.drones || []) {
         if (v2 && !enemyShown(d, fogSet)) continue;   // Außenteam sieht nur, was jemand im Team sieht (Server: vis)
         drawables.push({ key: d.y, type: 'drone', e: d });
@@ -1889,7 +1888,7 @@
             ctx.fillStyle = PAL.ice; ctx.fillRect(n.x - camX - 7, n.y - camY - 24, 14, 17);
           }
           if (n.shipNpc) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), n.x - camX, n.y - camY - 48, { color: PAL.ice, align: 'center' });
-          else text(ctx, n.injured ? 'Techniker (verletzt)' : n.following ? 'Techniker (folgt)' : 'Techniker', n.x - camX, n.y - camY - 48, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
+          else text(ctx, personLabel(n), n.x - camX, n.y - camY - 48, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
         } else if (d.type === 'drone') {
           const e = d.e;
           const hidden = !e.alive && false;
@@ -2196,10 +2195,10 @@
       }
     });
     if (zone === 'away') guard('npc', () => {
-      const n = view.npc;
-      if (n && n.present !== false && !n.rescued && !isKesh) {
+      for (const n of view.npcs || []) {   // W2 AP6: bis 3 Personen
+        if (n.rescued) continue;
         const s = P(n.x, n.y, 48);
-        text(ctx, n.injured ? 'Techniker (verletzt)' : n.following ? 'Techniker (folgt)' : 'Techniker', s.x, s.y, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
+        text(ctx, personLabel(n), s.x, s.y, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
       }
       for (const e of view.drones || []) {
         if (e.alive === false) continue;
@@ -3935,6 +3934,38 @@
     ctx.restore();
   }
 
+  // ------------------------------------------------------------------ W2 AP6: NSC-Personen (away.npcs[])
+  // Gemeinsame Anzeige für Szene (2D/3D-Overlay), Außenteam-HUD und Captain: Name + Zustandssymbol.
+  // Snapshot-Felder fehlen beim Standard (following null, injured/rescued false). Ivo hat id 'ivo'.
+  function personLabel(n) {
+    const name = n.id === 'ivo' ? 'Techniker' : String(n.name || n.id || 'Person');
+    return n.injured ? name + ' (verletzt)' : n.following ? name + ' (folgt)' : name;
+  }
+  function personZustand(n) { return n.rescued ? 'gerettet' : n.injured ? 'verletzt' : n.following ? 'folgt' : 'wartet'; }
+  const PERSON_COL = { gerettet: PAL.moss, verletzt: PAL.red, folgt: PAL.mint, wartet: PAL.amber };
+  // Zustandssymbol 7×7 px: verletzt = Kreuz, folgt = Doppelpfeil, gerettet = Haken, wartet = Rahmen
+  function personSymbol(ctx, x, y, z) {
+    const c = PERSON_COL[z] || PAL.star;
+    ctx.fillStyle = c;
+    if (z === 'verletzt') { ctx.fillRect(x + 2, y, 3, 7); ctx.fillRect(x, y + 2, 7, 3); }
+    else if (z === 'folgt') { for (let i = 0; i < 4; i++) { ctx.fillRect(x + i, y + i, 1, 1); ctx.fillRect(x + i, y + 6 - i, 1, 1); ctx.fillRect(x + 3 + i, y + i, 1, 1); ctx.fillRect(x + 3 + i, y + 6 - i, 1, 1); } }
+    else if (z === 'gerettet') { ctx.fillRect(x, y + 3, 1, 2); ctx.fillRect(x + 1, y + 4, 1, 2); ctx.fillRect(x + 2, y + 5, 1, 2); ctx.fillRect(x + 3, y + 4, 1, 2); ctx.fillRect(x + 4, y + 2, 1, 3); ctx.fillRect(x + 5, y + 1, 1, 2); ctx.fillRect(x + 6, y, 1, 2); }
+    else { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, 6, 6); }
+  }
+  // Personen der Außenkarte für Listen (Snapshot st.away.npcs; Ivo heißt hier „Ivo“)
+  function personenListe(st) { return ((st && st.away && st.away.npcs) || []).map(n => ({ id: n.id, name: n.id === 'ivo' ? 'Ivo' : String(n.name || n.id), x: n.x, y: n.y, z: personZustand(n), following: n.following || null })); }
+  // Zeilen ab (x, y), Zeilenhöhe 10; meId: „folgt dir“. Rückgabe: y unter der letzten Zeile
+  function drawPersonenListe(ctx, list, x, y, w, meId) {
+    for (const n of list) {
+      personSymbol(ctx, x, y + 1, n.z);
+      const zt = n.z === 'folgt' && meId && n.following === meId ? 'folgt dir' : n.z;
+      text(ctx, n.name.slice(0, 14), x + 10, y, { color: n.z === 'gerettet' ? PAL.panelLight : PAL.star });
+      text(ctx, zt, x + Math.min(w - 44, 92), y, { color: PERSON_COL[n.z] || PAL.star });
+      y += 10;
+    }
+    return y;
+  }
+
   // ------------------------------------------------------------------ Mini-Plan (Schiff oder Plattform)
   // opts: { zone, cell, showDrones, highlight }
   function drawMiniPlan(ctx, view, x, y, opts) {
@@ -4012,8 +4043,7 @@
     }
     if (zone === 'away') {
       for (const it of away.items || []) { ctx.fillStyle = it.kind === 'datenkern' ? PAL.mint : PAL.star; ctx.fillRect(x + Math.floor(it.x / TILE) * c, y + Math.floor(it.y / TILE) * c, c, c); }
-      const npc = view.npc;
-      if (npc && npc.present !== false && !npc.rescued && !keshMap) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(npc.x / TILE) * c, y + Math.floor(npc.y / TILE) * c, c, c); }
+      for (const npc of view.npcs || []) if (!npc.rescued) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(npc.x / TILE) * c, y + Math.floor(npc.y / TILE) * c, c, c); }
       const sensorOn = away.sensorUntil && st.time < away.sensorUntil;
       const v2m = isV2(st);
       for (const d of view.drones || []) {
@@ -4047,6 +4077,7 @@
     legendOf, sysOf, consoleOf, objKindOf, shelfItemAt, shelfTiles,
     art, artOk, artFail,
     text, measure, wrap, panel, backdrop, shape, icon, bar, ring, edgeArrow,
+    personLabel, personenListe, drawPersonenListe,   // W2 AP6
     beginUi, button, clickUi, drawTooltip, ui,
     camera, mapFor, floorFor, bedAt, sysState, itemFallback, drawFx,
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,

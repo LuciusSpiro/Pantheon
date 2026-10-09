@@ -248,6 +248,8 @@ function onEnemyHit(game, e, src) {
     if (s.schleich) alarmiere(game, game.away, s, src && Number.isFinite(src.x) ? src.x : e.x, src && Number.isFinite(src.y) ? src.y : e.y, 'treffer');
     else { s.alert = true; s.contactAt = game.time; s.lostBarked = false; }
     bark(game, s, e, 'contact');
+  } else if (s.schleich && !s.gemeldet && !e.asleep) {   // W2 AP6: wach gestarteter Trupp – Treffer = Crew entdeckt
+    alarmiere(game, game.away, s, src && Number.isFinite(src.x) ? src.x : e.x, src && Number.isFinite(src.y) ? src.y : e.y, 'treffer');
   }
 }
 function onEnemyDown(game, e) {
@@ -326,11 +328,12 @@ function perceive(game, E) {
       for (const p of e.sees) s.geteilt[p.id] = game.time + ttl;
     }
     s.seesNow = true;
+    const melden = s.schleich && !s.gemeldet;   // W2 AP6: Entdeckung melden, auch wenn der Trupp schon wach ist
     if (!s.alert || s.lostBarked) {
-      if (!s.alert && s.schleich) alarmiere(game, aw, s, e.sees[0].x, e.sees[0].y, 'sicht');
+      if (melden) alarmiere(game, aw, s, e.sees[0].x, e.sees[0].y, 'sicht');
       s.alert = true; s.lostBarked = false;
       bark(game, s, e, 'contact');
-    }
+    } else if (melden) alarmiere(game, aw, s, e.sees[0].x, e.sees[0].y, 'sicht');
     s.contactAt = game.time;
   }
   if (waffenMod()) perceiveB2(game, E);
@@ -360,11 +363,16 @@ function decide(game, E, e) {
   // Rückzug, bis der Schild wieder voll ist (daraus entsteht Unterdrückung)
   if (e.role === 'retreat') {
     if (e.seg >= e.max) { onShieldFull(game, e); }
-    else {
+    // W2 AP6 (Wellen-Abnahme): Rückzug höchstens retreatHoldMax s (Wert stand in CONFIG, wurde nie gelesen) – danach wieder
+    // ins Gefecht, auch mit halbem Schild (sonst verstecken sich Gegner ohne Ende, z. B. unter Dauerbeschuss)
+    else if (game.time - (e.roleAt || 0) > (Number(C.retreatHoldMax) || 12)) {
+      setRole(game, e, 'pin'); e.goal = null; e.path = null;
+      e.rueckzugPause = game.time + (Number(C.retreatHoldMax) || 12);   // nicht sofort wieder in den Rückzug
+    } else {
       if (!e.goal || (vis.length && game.time - e.goalAt > 1.5)) planRetreat(game, E, e, s);
       return;
     }
-  } else if (e.seg <= 1 && e.max > 1) {
+  } else if (e.seg <= 1 && e.max > 1 && !(game.time < (e.rueckzugPause || 0))) {
     bark(game, s, e, 'retreat');
     setRole(game, e, 'retreat');
     planRetreat(game, E, e, s);
@@ -814,15 +822,18 @@ const IDEAL = { grenadier: 8, schuetze: 9, niederhalter: 7, haescher: 6 };   // 
 
 // ---------- Schleichen: Alarm je Trupp (B2 §6) ----------
 // Trupp wird wach; Ereignis truppAlarm; nach funkVerzoegerung s alle Trupps im Umkreis alarm.funk; Landepunkt-Alarm.
+// W2 AP6 (Studioleitung): Gemeldet wird die ENTDECKUNG der Crew, einmal je Trupp (s.gemeldet) – auch bei Trupps, die schon
+// wach starten (Landepunkt umkaempft, haltung wach). Früher meldete nur der Wechsel ruhig -> wach, ein wach gestarteter
+// Trupp löste darum nie Alarm/truppAlarm aus. Rückgabe: true = Entdeckung neu gemeldet.
 function alarmiere(game, aw, s, x, y, grund) {
   if (!s) return false;
-  const neu = !s.alert;
   s.alert = true; s.contactAt = game.time; s.lostBarked = false;
   let best = null, bd = Infinity;
   for (const p of game.players) if (p.zone === 'away' && p.connected) { const d = dist(p.x, p.y, x, y); if (d < bd) { bd = d; best = p; } }
   if (best && !s.lastKnown[best.id]) s.lastKnown[best.id] = { x, y, t: game.time };
   for (const e of aw.drones) if (e.squad === s.name) e.patrouilliert = false;
-  if (!neu) return false;
+  if (s.gemeldet) return false;
+  s.gemeldet = true;
   game.emit('truppAlarm', { map: aw.map, trupp: s.name, x: Math.round(x), y: Math.round(y), grund: grund || null });
   const A = cfg(game).alarm || {};
   if (!aw.funk) aw.funk = [];
@@ -834,6 +845,8 @@ function alarmiere(game, aw, s, x, y, grund) {
   game.missionEvent('truppAlarm', { map: aw.map, trupp: s.name, tag: s.tag || null, grund: grund || null });
   return true;
 }
+// Trupp hat die Entdeckung schon gemeldet (bzw. ist ein wacher Trupp ohne Schleich-Besetzung, z. B. Kesh: wie bisher)
+function schonGemeldet(s) { return !!s.gemeldet || (s.alert && !s.schleich); }
 function perceiveB2(game, E) {
   const aw = game.away; const C = cfg(game); const A = C.alarm || {};
   const Wf = waffenMod();
@@ -844,14 +857,14 @@ function perceiveB2(game, E) {
   if (neu.length) {
     aw.laermGelesen = Math.max(...neu.map((ev) => ev.t));
     for (const ev of neu) for (const s of squads) {
-      if (s.alert) continue;
+      if (schonGemeldet(s)) continue;
       const m = mitglieder(s).find((e) => Wf.hoert(ev, e.x, e.y));
       if (m && alarmiere(game, aw, s, ev.x, ev.y, 'laerm')) bark(game, s, m, 'alarm_laerm');
     }
   }
   // Liegender Kamerad in Sicht
   for (const s of squads) {
-    if (s.alert) continue;
+    if (schonGemeldet(s)) continue;
     for (const e of mitglieder(s)) {
       const d = aw.drones.find((q) => !q.alive && q.liegt && dist(q.x, q.y, e.x, e.y) <= E.R && Los.lineOfSight(E.blocked, e.x, e.y, q.x, q.y));
       if (d) { alarmiere(game, aw, s, d.x, d.y, 'liegender'); break; }
@@ -862,7 +875,7 @@ function perceiveB2(game, E) {
     const due = aw.funk.filter((f) => game.time >= f.at);
     aw.funk = aw.funk.filter((f) => game.time < f.at);
     for (const f of due) for (const s of squads) {
-      if (s.alert) continue;
+      if (schonGemeldet(s)) continue;
       if (mitglieder(s).some((e) => dist(e.x, e.y, f.x, f.y) <= (Number(A.funk) || 20) * TILE)) alarmiere(game, aw, s, f.x, f.y, 'funk');
     }
   }
@@ -870,7 +883,7 @@ function perceiveB2(game, E) {
   for (const s of squads) {
     if (!s.schleich || !s.alert || s.seesNow) continue;
     if (game.time - s.contactAt > (Number(A.ruheNach) || 60)) {
-      s.alert = false; s.lastKnown = {}; s.lostBarked = true;
+      s.alert = false; s.gemeldet = false; s.lastKnown = {}; s.lostBarked = true;
       for (const e of mitglieder(s)) { e.role = 'idle'; e.goal = null; e.path = null; e.aim = null; e.shootTarget = null; }
     }
   }
@@ -934,6 +947,7 @@ function decideB2(game, E, e, s, prof) {
     if (!t) return false;
     setRole(game, e, 'push');
     e.target = t.id; e.shootTarget = targets.includes(t) ? t.id : null;
+    if (E.info && E.info.karte && entererEngstelle(game, E, e, s, t, targets.includes(t))) return true;   // W2 AP6: nur gebaute Karten
     if (!e.goal || game.time - e.goalAt > 1) setGoal(game, E, e, tileOf(t.x, t.y), 0.9 * TILE, targets.includes(t) ? t : null);
     return true;
   }
@@ -970,6 +984,81 @@ function decideB2(game, E, e, s, prof) {
     if (n && dist(n.x, n.y, e.x, e.y) > 3 * TILE && (!e.goal || game.time - e.goalAt > 2)) { setRole(game, e, 'advance'); setGoal(game, E, e, tileOf(n.x, n.y), 2 * TILE); return true; }
   }
   return false;
+}
+
+// ---------- W2 AP6: Enterer an Engstellen (nur gebaute Karten; Handkarten ohne Kanten bleiben wie bisher) ----------
+// Liegt auf dem direkten Weg zum Ziel eine Tür-/Tor-Kante (karte.kanten, typ tuer/schott/tor/luke, begehbar), sammeln sich
+// die Enterer des Trupps 2 Kacheln davor, bis 2 dort sind oder 4 s seit dem ersten vergangen sind, und stürmen dann
+// gemeinsam durch. Gibt es einen zweiten Weg (BFS ohne die Kacheln dieser Kante, d. h. Kantenstrafe ∞; höchstens
+// FLANKE_FAKTOR × direkt + FLANKE_PLUS Kacheln), nimmt jeder zweite Enterer (Index 1, 3 … im Trupp) den längeren (Flanke).
+// Türen: dieselbe Begehbarkeit wie für Spieler (interior.awaySolid) – keine Sonderregel für Gegner.
+// Rückgabe true = Weg gesetzt (Sammeln bzw. Flanke), false = normal direkt aufs Ziel (auch: Sturm).
+const ENG_TYPEN = { tuer: 1, schott: 1, tor: 1, luke: 1 };
+const SAMMEL_N = 2, SAMMEL_S = 4, SAMMEL_ABSTAND = 2, FLANKE_FAKTOR = 2.5, FLANKE_PLUS = 10;
+function kanteAufWeg(E, path) {
+  const info = E.info; const kanten = (info.karte && info.karte.kanten) || {};
+  if (!info.kanteAt) return null;
+  for (let i = 0; i < path.length; i++) {
+    const kid = info.kanteAt.get(path[i].x + ',' + path[i].y);
+    if (kid && kanten[kid] && ENG_TYPEN[kanten[kid].typ]) return { kid, i };
+  }
+  return null;
+}
+function engStat(game, k) { const aw = game.away; const st = aw.engStats || (aw.engStats = { sammeln: 0, sturm: 0, flanke: 0, sturmNach: [] }); st[k]++; return st; }
+function entererEngstelle(game, E, e, s, t, sichtbar) {
+  const aw = game.away;
+  const here = tileOf(e.x, e.y); const tt = tileOf(t.x, t.y);
+  const ziel = (x, y) => x === tt.x && y === tt.y;
+  const direkt = bfs(E.walk, here, ziel, E.map.w, E.map.h, undefined, E.links || undefined);
+  const war = e.sturm;
+  const k = direkt ? kanteAufWeg(E, direkt) : null;
+  if (!k || k.i < 1) { if (war && war.sammeln) e.goal = null; e.sturm = null; return false; }   // keine Engstelle (mehr) vor mir
+  const enterer = aw.drones.filter((d) => d.alive && d.squad === e.squad && d.rolle === 'enterer');
+  const idx = enterer.indexOf(e);
+  // Flanke: jeder zweite Enterer, wenn es einen zweiten Weg gibt
+  if (idx % 2 === 1) {
+    // Die gemiedene Kante bleibt fest, solange die Flanke läuft (sonst kippt der „direkte“ Weg unterwegs zur anderen Tür)
+    const meide = war && war.flanke && war.kante ? war.kante : k.kid;
+    const sperr = new Set(((E.info.karte.kanten[meide] || {}).tiles || []).map((q) => q[0] + ',' + q[1]));
+    if (war && war.flanke && e.path && e.path.length && game.time - e.goalAt < 2) return true;
+    const alt = bfs((x, y) => E.walk(x, y) && !sperr.has(x + ',' + y), here, ziel, E.map.w, E.map.h, undefined, E.links || undefined);
+    if (alt && alt.length && alt.length <= direkt.length * FLANKE_FAKTOR + FLANKE_PLUS) {
+      if (!(war && war.flanke)) engStat(game, 'flanke');
+      e.sturm = { kante: meide, flanke: true };
+      e.path = alt; e.goal = { x: tt.x, y: tt.y }; e.goalAt = game.time;
+      e.stopNear = 0.9 * TILE; e.stopTarget = sichtbar ? t.id : null;
+      return true;
+    }
+  }
+  // Sammeln vor der Kante (Hauptgruppe = alle Enterer ohne Flanke)
+  const sm = s.sammeln || (s.sammeln = {});
+  let g = sm[k.kid];
+  if (g && g.los && game.time - g.losAt > 8) { delete sm[k.kid]; g = null; }   // alter Sturm: neu sammeln
+  if (!g) g = sm[k.kid] = { seit: null, los: false, losAt: null, t0: game.time };
+  if (g.los) { if (war && war.sammeln) e.goal = null; e.sturm = { kante: k.kid, los: true }; return false; }
+  const pi = k.i - SAMMEL_ABSTAND;   // direkt[k.i] = Türkachel, direkt[k.i - 2] = 2 Kacheln davor
+  const punkt = pi >= 0 ? direkt[pi] : here;
+  const pc = W.tileCenter(punkt.x, punkt.y);
+  const haupt = enterer.filter((d) => !(d.sturm && d.sturm.flanke));
+  const da = haupt.filter((d) => d.sturm && d.sturm.kante === k.kid && dist(d.x, d.y, pc.x, pc.y) <= 2.5 * TILE);
+  if (dist(e.x, e.y, pc.x, pc.y) <= 2.5 * TILE && !da.includes(e)) da.push(e);
+  if (da.length && g.seit == null) g.seit = game.time;
+  // Sturm: 2 da, 4 s seit dem ersten am Punkt, oder (Notbremse, z. B. Weg verstellt) 12 s seit Beginn des Sammelns
+  if (da.length >= SAMMEL_N || (g.seit != null && game.time - g.seit >= SAMMEL_S) || game.time - g.t0 >= 3 * SAMMEL_S) {
+    g.los = true; g.losAt = game.time;
+    const st = engStat(game, 'sturm'); st.sturmNach.push({ n: da.length, s: Math.round((game.time - (g.seit == null ? game.time : g.seit)) * 10) / 10 });
+    game.emit('entererSturm', { map: aw.map, trupp: s.name, kante: k.kid, n: da.length });
+    bark(game, s, e, 'contact');
+    for (const d of haupt) if (d.sturm && d.sturm.kante === k.kid) { d.sturm = { kante: k.kid, los: true }; d.goal = null; d.goalAt = -99; }
+    e.sturm = { kante: k.kid, los: true }; e.goal = null;
+    return false;
+  }
+  if (!(war && war.sammeln && war.kante === k.kid)) { engStat(game, 'sammeln'); e.path = null; e.goal = null; }   // alten Weg (durch die Tür) verwerfen
+  e.sturm = { kante: k.kid, sammeln: true };
+  const amPunkt = dist(e.x, e.y, pc.x, pc.y) <= 2.5 * TILE;
+  if (amPunkt && (!e.path || !e.path.length)) return true;   // warten (nahe am Sammelpunkt; setGoal verteilt auf freie Kacheln)
+  if (!amPunkt && (!e.path || !e.path.length || !(war && war.sammeln) || game.time - e.goalAt > 1)) setGoal(game, E, e, punkt);
+  return true;
 }
 
 // ---------- Profile (act, jeden Tick) ----------

@@ -1756,7 +1756,7 @@ class Game {
         projectiles: aw.projectiles.map((q) => (q.kind === 'granate'
           ? { id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle), tx: r1(q.tx), ty: r1(q.ty), t: r2(q.t || 0), flug: r2(q.flug || 0.8) }
           : { id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
-        npc: { x: r1(aw.npc.x), y: r1(aw.npc.y), dir: aw.npc.dir, following: aw.npc.following, rescued: aw.npc.rescued, present: aw.npc.present, injured: aw.npc.injured },
+        npcs: away.personenSnap(aw),   // W2 AP6: NSC-Personen [{ id, name, x, y, dir?, following?, injured?, rescued? }]
         items: aw.items.map((i) => ({ id: i.id, kind: i.kind, x: i.x, y: i.y })),
         marker: aw.marker, strikes: aw.strikes.map((s) => ({ x: s.x, y: s.y, t: r2(s.t) })),
         sonde: { disabled: aw.sonde.disabled, symbols: aw.sonde.symbols, entered: aw.sonde.entered, lockout: r1(aw.sonde.lockout) },

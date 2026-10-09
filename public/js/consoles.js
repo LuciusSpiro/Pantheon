@@ -1328,6 +1328,7 @@
         if (p.connected === false) R.text(ctx, 'getrennt', lx + 196, y, { color: PAL.grey });
         y += 11;
       }
+      y = this.drawPersonen(ctx, st, lx, y + 3, lw);   // W2 AP6
       // Karte rechts
       const rect = { x: a.x + 246, y: a.y + 2, w: a.w - 246, h: 196 };
       this.maps.away = Object.assign(R.drawAwayCommandMap(ctx, view, rect, { highlight: this.order.hoverEnemy }), { rect });
@@ -1734,6 +1735,7 @@
         R.drawMiniPlan(ctx, view, 420, ry + 14, { zone: 'away', cell });
         ry += 14 + amap.h * cell + 8;
         if (R.isBuehne(amap)) ry = this.drawAwayLage(ctx, st, amap, 420, ry, 200);
+        ry = this.drawPersonen(ctx, st, 420, ry, 200);   // W2 AP6
       } else if (!lps.length) {
         R.text(ctx, 'Hinweis', 420, ry, { color: PAL.brass });
         for (const [i, l] of R.wrap('Außenteam stellt sich auf die drei Pads in der Transferkammer. Auf einem Pad kann man auch selbst E halten (Selbst-Transfer). Beamen geht bei der Boje B-7, beim Wrack und auf Mond Kesh.', 200, 1).entries()) R.text(ctx, l, 420, 44 + i * 10, { color: PAL.panelLight });
@@ -1809,6 +1811,13 @@
       return y + 4;
     },
     // B1: Lage einer gebauten Karte (Alarm, Countdown, Ankerstände) unter der Minikarte
+    // W2 AP6 (E6): Personen der Außenkarte für den Captain (Name + Zustandssymbol). Rückgabe: y darunter
+    drawPersonen(ctx, st, x, y, w) {
+      const list = R.personenListe(st);
+      if (!list.length || y > 300) return y;
+      R.text(ctx, 'PERSONEN · ' + list.filter(q => q.z === 'gerettet').length + '/' + list.length + ' gerettet', x, y, { color: PAL.brass });
+      return R.drawPersonenListe(ctx, list, x, y + 11, w, null) + 4;
+    },
     drawAwayLage(ctx, st, amap, x, y, w) {
       const away = st.away || {};
       if (away.al) { R.text(ctx, 'ALARM – die Besatzung ist gewarnt', x, y, { color: PAL.red }); y += 10; }

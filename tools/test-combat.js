@@ -1637,6 +1637,142 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     } catch (e) { console.log('  info Außenposten nicht baubar: ' + e.message); }
     if (!karteOk) console.log('  info Snapshot-Messung übersprungen (kein baubarer Außenposten)');
   }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // W2 AP6: Alarm auch bei wach gestarteten Trupps (Landepunkt umkaempft / haltung wach)
+  console.log('\n[W2 AP6: Crew entdeckt – Alarm auch bei wach gestarteten Trupps]');
+  {
+    const { g, run, place, events, aw } = setupB2(1);
+    place(0, 3, 11);
+    combat.besetzen(g, { map: LP, bereich: 'hof', fraktion: 'rostmeute', staerke: 'mittel', haltung: 'wach', tag: 'wach' });
+    const trupps = Object.values(aw().squads).filter((s) => s.tag === 'wach');
+    ok(trupps.length >= 1 && trupps.every((s) => s.alert && s.schleich) && !aw().alarm && !events('truppAlarm').length, 'haltung wach: Trupps wach, aber noch kein Alarm (niemand entdeckt)');
+    const e0 = aw().drones.find((d) => d.tag === 'wach' && d.alive);
+    const t0 = Physics.toTile(e0.x, e0.y);
+    place(0, Math.max(1, t0.x - 3), t0.y);   // in Sichtweite
+    run(1.5, () => { const p = g.players[0]; p.shield.seg = 3; });
+    ok(events('truppAlarm').length >= 1 && aw().alarm && trupps.some((s) => s.gemeldet), 'wacher Trupp sieht die Crew: truppAlarm, Landepunkt-Alarm (früher nie)');
+    const n1 = events('truppAlarm').length;
+    run(1.5, () => { const p = g.players[0]; p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); });
+    ok(events('truppAlarm').length <= n1 + trupps.length - 1, 'je Trupp nur einmal gemeldet');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[W2 AP6: Rückzug mit Zeitlimit (retreatHoldMax)]');
+  {
+    const { g, run, place, aw, gegner } = setupB2(1);
+    place(0, 3, 11);
+    const e = gegner('grundtyp', 20, 6, { trupp: 'r', frozen: false }); aw().squads.r.alert = true;
+    e.seg = 1; e.lastHitAt = g.time;
+    run(1);
+    ok(e.role === 'retreat', 'schwacher Schild: Rückzug (' + e.role + ')');
+    e.seg = 1; e.roleAt = g.time - C.retreatHoldMax - 1;
+    run(1, () => { e.seg = Math.min(e.seg, 1); });
+    ok(e.role !== 'retreat' && e.rueckzugPause > g.time, 'nach retreatHoldMax s zurück ins Gefecht, auch mit schwachem Schild (' + e.role + ')');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // W2 AP6: Enterer an Engstellen (Sammeln, Durchbruch, Flanke) – Testkarte: zwei Räume, Wand bei x = 15, Tür(en) offen
+  const LPE = 'test.eng';
+  function karteEng(zweiTueren) {
+    const rows = [];
+    for (let y = 0; y < 16; y++) {
+      let r = '';
+      for (let x = 0; x < 30; x++) {
+        let ch = (x === 0 || y === 0 || x === 29 || y === 15) ? '#' : '.';
+        if (x === 15) ch = y === 4 || (zweiTueren && y === 12) ? 'D' : (y > 0 && y < 15 ? '#' : ch);
+        r += ch;
+      }
+      rows.push(r);
+    }
+    const legende = {};
+    for (const r of rows) for (const ch of r) legende[ch] = KACHELN[ch];
+    const A = (id, rolle, x, y, extra) => Object.assign({ id, rolle, x, y, platz: id.split('.')[0], bereich: null }, extra || {});
+    const kanten = { 'links~rechts': { a: 'links', b: 'rechts', typ: 'tuer', tiles: [[15, 4]], zustand: 'offen' } };
+    if (zweiTueren) kanten['links~rechts.2'] = { a: 'links', b: 'rechts', typ: 'tuer', tiles: [[15, 12]], zustand: 'offen' };
+    return { id: LPE, erzeuger: 'modul/1', art: 'station', bauweise: 'germanen', besitz: 'kontor', zustand: 'intakt', seed: 1, bauversion: 'test',
+      schablone: null, spiegel: null, w: 30, h: 16, rows, legende,
+      anker: [A('rechts.abholpunkt', 'abholpunkt', 26, 4, { ankunft: true, bereich: 'rechts' })],
+      bereiche: { links: { name: 'Links', rects: [[1, 1, 14, 14]], rolle: 'ziel', gefecht: true }, rechts: { name: 'Rechts', rects: [[16, 1, 13, 14]], rolle: 'hinein', gefecht: false } },
+      plaetze: {}, eingaenge: [], abholpunkte: ['rechts.abholpunkt'], ankunft: 'rechts.abholpunkt', patrouillen: [], coverSpots: [], decks: null,
+      kanten, gelaende: null, meta: {} };
+  }
+  function setupEng(zweiTueren) {
+    const g = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const c = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c);
+    g.handleMessage(c, { t: 'hello', clientId: 'E0', name: 'E0', color: 0 });
+    g.handleMessage(c, { t: 'ready', ready: true });
+    W.AWAY_MAPS[LPE] = { id: LPE, karte: karteEng(zweiTueren) };
+    g.aways[LPE] = away.makeLandepunkt(g, LPE);
+    g.setAwayMap(LPE);
+    away.executeBeam(g, [g.players[0].id], 'down');
+    const p = g.players[0];
+    const pc = Physics.tileCenter(26, 8); p.x = pc.x; p.y = pc.y; p.input.mx = 0; p.input.my = 0;
+    const aw = g.aways[LPE];
+    aw.squads.e = squad.newSquad('e', 3); aw.squads.e.alert = true;
+    const enterer = (tx, ty) => {
+      const e = squad.makeEnemy(g, aw, 'scavenger', 'EN' + g.nextId(''), Physics.tileCenter(tx, ty), 'e');
+      e.rolle = 'enterer'; e.asleep = false; aw.drones.push(e); combat.kaempfer(g, e); return e;
+    };
+    // Spieler bleibt stehen und unverwundbar; der Trupp kennt seine Position (Funk), sieht ihn aber nicht (Wand)
+    const keep = () => { p.shield.seg = 3; p.zustand = 'ok'; if (p.downed) combat.revive(g, p, 3, { quiet: true }); p.x = pc.x; p.y = pc.y; aw.squads.e.lastKnown[p.id] = { x: p.x, y: p.y, t: g.time }; };
+    // Durchgang je Enterer: Zeitpunkt und Kachel beim ersten Schritt auf x ≥ 15
+    const durch = {};
+    const track = (list) => () => { keep(); for (const e of list) if (!durch[e.id] && Physics.toTile(e.x, e.y).x >= 15) durch[e.id] = { t: g.time, y: Physics.toTile(e.x, e.y).y }; };
+    const run = (sec, each) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.step(); if (each) each(); } };
+    return { g, aw, p, enterer, run, track, durch, events: (kind) => c.inbox.filter((m) => m.kind === kind) };
+  }
+
+  console.log('\n[W2 AP6: Enterer an Engstellen – Sammeln und Durchbruch]');
+  {
+    const { g, aw, enterer, run, track, durch, events } = setupEng(false);
+    const a = enterer(10, 4), b = enterer(7, 7);   // a ist früher an der Tür als b
+    run(25, track([a, b]));
+    const st = aw.engStats || {};
+    ok(st.sammeln >= 1 && st.sturm >= 1, `Enterer sammeln sich vor der Tür und stürmen (sammeln ${st.sammeln || 0}, sturm ${st.sturm || 0})`);
+    ok(durch[a.id] && durch[b.id], 'beide Enterer kommen durch die Tür');
+    const s0 = (st.sturmNach || [])[0];
+    ok(s0 && s0.n === 2 && s0.s < 4, `Sturm, sobald 2 Enterer da sind (${s0 ? s0.n + ' da, nach ' + s0.s + ' s' : '–'})`);
+    ok(durch[a.id] && durch[b.id] && Math.abs(durch[a.id].t - durch[b.id].t) <= 1.0, `Durchbruch gemeinsam: a und b ${durch[a.id] && durch[b.id] ? (Math.abs(durch[a.id].t - durch[b.id].t)).toFixed(1) : '?'} s auseinander`);
+    ok(events('entererSturm').length >= 1, 'Ereignis entererSturm');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+  {
+    const { g, aw, enterer, run, track, durch } = setupEng(false);
+    const a = enterer(8, 4);   // allein: wartet 4 s, dann Sturm
+    run(20, track([a]));
+    const s0 = ((aw.engStats || {}).sturmNach || [])[0];
+    ok(s0 && s0.n === 1 && s0.s >= 3.9 && durch[a.id], `einzelner Enterer wartet 4 s und stürmt dann (${s0 ? s0.s + ' s' : '–'})`);
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+  console.log('\n[W2 AP6: Enterer an Engstellen – Flanke über den zweiten Weg]');
+  {
+    const { g, aw, enterer, run, track, durch } = setupEng(true);
+    const a = enterer(10, 5), b = enterer(10, 6);
+    run(25, track([a, b]));
+    const st = aw.engStats || {};
+    ok(st.flanke >= 1, `zweiter Enterer nimmt die Flanke (flanke ${st.flanke || 0})`);
+    ok(durch[a.id] && durch[b.id] && durch[a.id].y !== durch[b.id].y, `durch verschiedene Türen (${durch[a.id] ? durch[a.id].y : '?'} / ${durch[b.id] ? durch[b.id].y : '?'})`);
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+  {
+    const { g, aw, enterer, run } = setupEng(false);
+    aw.zustaende['links~rechts'] = 'zu';   // Tür zu: gleiche Regel wie für Spieler – kein Durchgang, kein Sammeln
+    const a = enterer(10, 4);
+    run(6, () => { const p = g.players[0]; p.shield.seg = 3; aw.squads.e.lastKnown[p.id] = { x: p.x, y: p.y, t: g.time }; });
+    ok(Physics.toTile(a.x, a.y).x < 15 && !((aw.engStats || {}).sturm), 'geschlossene Tür: Enterer kommt nicht durch (keine Sonderregel)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+  {
+    const { g, aw, gegner, run, place } = setupB2(1);   // Karte ohne Kanten: Verhalten wie bisher
+    place(0, 12, 6);
+    const en = gegner('enterer', 4, 6, { trupp: 'e', frozen: false }); aw().squads.e.alert = true;
+    run(4, () => { const p = g.players[0]; p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); aw().squads.e.lastKnown[p.id] = { x: p.x, y: p.y, t: g.time }; });
+    ok(!aw().engStats && Physics.toTile(en.x, en.y).x > 6, `Karte ohne Tür-Kanten: Enterer läuft direkt (kein Sammeln; x ${Physics.toTile(en.x, en.y).x}, ${en.role}, ${JSON.stringify(aw().engStats || null)})`);
+  }
+  delete W.AWAY_MAPS[LPE];
   WAFFEN_MOD.aktiv = WAFFEN_AN;
   delete W.AWAY_MAPS[LP];
 }

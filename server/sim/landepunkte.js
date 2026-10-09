@@ -98,7 +98,7 @@ function bauen(game, lpId) {
 function makeAway(game, lpId, karte, e) {
   const aw = {
     map: lpId, active: false, drones: [], projectiles: [],
-    npc: { x: 0, y: 0, dir: 'down', following: null, rescued: false, present: false, injured: false, path: null, pathT: 0, moving: false },
+    npcs: [],   // W2 AP6: Personen (away.js personen()), ersetzt away.npc
     items: [], marker: null, strikes: [], pendingStrikes: [],
     sonde: { disabled: true, symbols: [], entered: [], lockout: 0 },
     codeTable: {}, odaCodeHelp: false, kuppelUntil: 0, sensorUntil: 0, doorOpen: true,

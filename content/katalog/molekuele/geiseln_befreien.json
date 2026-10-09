@@ -107,6 +107,13 @@
           "typ": "text",
           "default": "die Geisel",
           "beschreibung": "Name der Person (höchstens 24 Zeichen)"
+        },
+        "personen": {
+          "typ": "zahl",
+          "default": 1,
+          "min": 1,
+          "max": 3,
+          "beschreibung": "Anzahl Geiseln, gleichzeitig auf der Karte (W2 AP6, E6); weitere heißen wie die erste mit (2) bzw. (3)"
         }
       },
       "vorlage": {
@@ -153,6 +160,69 @@
                 "anker": "zelle"
               },
               {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "set": {
+                  "{{id}}_n": "{{personen}}"
+                }
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "not": {
+                        "v": "{{id}}_besetzt"
+                      }
+                    },
+                    {
+                      "any": [
+                        {
+                          "v": {
+                            "{{id}}_n": 2
+                          }
+                        },
+                        {
+                          "v": {
+                            "{{id}}_n": 3
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "do": "spawn_person",
+                "map": "{{map}}",
+                "person": "{{id}}_geisel2",
+                "name": "{{name}} (2)",
+                "verletzt": false,
+                "anker": "zelle"
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "not": {
+                        "v": "{{id}}_besetzt"
+                      }
+                    },
+                    {
+                      "v": {
+                        "{{id}}_n": 3
+                      }
+                    }
+                  ]
+                },
+                "do": "spawn_person",
+                "map": "{{map}}",
+                "person": "{{id}}_geisel3",
+                "name": "{{name}} (3)",
+                "verletzt": false,
+                "anker": "zelle"
+              },
+              {
                 "set": {
                   "{{id}}_besetzt": true
                 }
@@ -184,6 +254,51 @@
                         "map": "{{map}}",
                         "person": "{{id}}_geisel"
                       }
+                    },
+                    {
+                      "any": [
+                        {
+                          "not": {
+                            "any": [
+                              {
+                                "v": {
+                                  "{{id}}_n": 2
+                                }
+                              },
+                              {
+                                "v": {
+                                  "{{id}}_n": 3
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "person_rescued",
+                            "map": "{{map}}",
+                            "person": "{{id}}_geisel2"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "any": [
+                        {
+                          "not": {
+                            "v": {
+                              "{{id}}_n": 3
+                            }
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "person_rescued",
+                            "map": "{{map}}",
+                            "person": "{{id}}_geisel3"
+                          }
+                        }
+                      ]
                     },
                     {
                       "not": {
@@ -302,6 +417,16 @@
                 "person": "{{id}}_geisel"
               },
               {
+                "do": "debug_rescue_person",
+                "map": "{{map}}",
+                "person": "{{id}}_geisel2"
+              },
+              {
+                "do": "debug_rescue_person",
+                "map": "{{map}}",
+                "person": "{{id}}_geisel3"
+              },
+              {
                 "set": {
                   "{{id}}_ende": true
                 }
@@ -341,7 +466,8 @@
       "test": {
         "params": {
           "loc": "hafen",
-          "map": "hafen.kontor"
+          "map": "hafen.kontor",
+          "personen": 3
         }
       }
     }

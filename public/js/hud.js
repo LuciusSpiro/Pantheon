@@ -512,6 +512,8 @@
       R.icon(ctx, 'transfer', x0 + 6, 37, { color: STATE_COL[tr] });
       R.text(ctx, 'Transfer ' + ({ ok: 'ok', damaged: 'beschädigt', broken: 'kaputt' }[tr] || tr), x0 + 14, 34, { color: STATE_COL[tr] });
 
+      Net.guard('Hud.personen', () => this.drawPersonen(ctx, view, 50));   // W2 AP6: Personen-Liste + Randpfeil
+
       // HP + Hinweise unten links (M2: auf v2-Karten Schildsegmente statt HP)
       let topY = VH - 44;
       if (Array.isArray(me.sh)) topY = this.drawCombatHud(ctx, view);
@@ -708,9 +710,42 @@
       const w = 300, x = Math.round(VW / 2 - w / 2) + 38, y = r ? 6 + rh + 4 : 24, cx = x + w / 2;
       R.backdrop(ctx, x, y, w, 40, 0.82);
       ctx.strokeStyle = Math.floor(t * 2) % 2 ? PAL.red : '#7A2420'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 39);
-      R.text(ctx, 'VERWUNDET' + (me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(me.bleed)) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
-      R.text(ctx, 'Kameraden: neben dir E halten', cx, y + 16, { color: PAL.star, align: 'center' });
+      // W2 AP6 (Wellen-Abnahme): im Wellenmodus gibt es keine Notrückholung (alle unten = Ende der Runde); ohne stehenden
+      // Kameraden kein „E halten“-Hinweis
+      const wellen = !!st.wellen;
+      const kamerad = (st.players || []).some(q => q.id !== me.id && q.zone === 'away' && !q.downed && q.connected !== false);
+      R.text(ctx, 'VERWUNDET' + (!wellen && me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(me.bleed)) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
+      R.text(ctx, kamerad ? 'Kameraden: neben dir E halten' : wellen ? 'Niemand steht mehr – die Runde endet' : 'Allein unten – warte auf die Notrückholung', cx, y + 16, { color: PAL.star, align: 'center' });
       R.text(ctx, 'Du: mit der Maus zielen, Klick = Pistole', cx, y + 27, { color: R.SHIELD_COL, align: 'center' });
+    },
+
+    // W2 AP6 (E6): Personen der Außenkarte (bis 3 gleichzeitig) – Liste mit Name und Zustandssymbol oben rechts unter dem
+    // Schiffsstatus, dazu ein Randpfeil zur nächsten nicht geretteten Person außerhalb des Bildes (2D und 3D über worldToScreen).
+    drawPersonen(ctx, view, y0) {
+      const st = view.state, me = view.me;
+      const list = R.personenListe(st);
+      if (!list.length) return;
+      const w = 150, x = VW - w - 4;
+      R.backdrop(ctx, x - 2, y0 - 2, w + 4, 12 + list.length * 10, 0.62);
+      R.text(ctx, 'PERSONEN', x + 2, y0, { color: PAL.brass });
+      R.text(ctx, list.filter(n => n.z === 'gerettet').length + '/' + list.length + ' gerettet', x + w - 2, y0, { color: PAL.panelLight, align: 'right' });
+      R.drawPersonenListe(ctx, list, x + 2, y0 + 11, w - 4, me && me.id);
+      // Randpfeil: nächste offene Person, die nicht schon mir folgt
+      const self = view.self;
+      const offen = list.filter(n => n.z !== 'gerettet' && !(me && n.following === me.id));
+      if (!offen.length || !R.worldToScreen) return;
+      offen.sort((a, b) => Math.hypot(a.x - self.x, a.y - self.y) - Math.hypot(b.x - self.x, b.y - self.y));
+      const tg = offen[0];
+      const sp = R.worldToScreen(tg.x, tg.y);
+      if (sp.x > 8 && sp.y > 8 && sp.x < VW - 8 && sp.y < VH - 8) return;
+      const cx = VW / 2, cy = VH / 2;
+      const ang = Math.atan2(sp.y - cy, sp.x - cx);
+      const k = Math.min((VW / 2 - 18) / Math.abs(Math.cos(ang) || 1e-6), (VH / 2 - 18) / Math.abs(Math.sin(ang) || 1e-6));
+      const ex = cx + Math.cos(ang) * k, ey = cy + Math.sin(ang) * k;
+      const col = tg.z === 'verletzt' ? PAL.red : PAL.ice;
+      R.edgeArrow(ctx, ex, ey, ang, col);
+      const lx = ex - Math.cos(ang) * 16, ly = ey - Math.sin(ang) * 16 - 4;
+      R.text(ctx, tg.name.slice(0, 12), Math.max(4, Math.min(VW - 4, lx)), Math.max(4, Math.min(VH - 12, ly)), { color: col, align: Math.cos(ang) > 0.3 ? 'right' : Math.cos(ang) < -0.3 ? 'left' : 'center' });
     },
 
     drawEdgeArrows(ctx, view) {

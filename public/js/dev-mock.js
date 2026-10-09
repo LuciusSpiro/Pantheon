@@ -4,7 +4,7 @@
 //   loc=hafen|splitter|b7|vaelen|wrack|nebel|relais   Start-Ort        console=helm|captain|weapons|plan|quartier|shop|transfer
 //   tab=0..5 (Captain-Reiter)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
 //   markers=1 (Captain-/Taktik-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
-//   pos=x,y (eigene Kachel)   phase=lobby
+//   pos=x,y (eigene Kachel)   phase=lobby   personen=1 (W2 AP6: drei Personen auf der Außenkarte, mit zone=away)
 //   M3a/§20: gunboat=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
 //   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
 //        setback=1 (alle 3 s Rückschlag an der eigenen Reparatur / am Schrauber)  repair=1 (eigene Figur flickt die Stb-Batterie)
@@ -173,7 +173,7 @@
       },
       space: { w: 2000, h: 1400, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [], hidden: [] },
       away: {
-        active: false, map: 'platform', drones: [], projectiles: [], npc: { ...tc(26, 2), dir: 'down', following: null, rescued: true, present: false },
+        active: false, map: 'platform', drones: [], projectiles: [], npcs: [{ id: 'ivo', name: 'Ivo', ...tc(26, 2), rescued: true }],   // W2 AP6: away.npcs[]
         items: [], marker: null, strikes: [], salvage: [], hollow: null,
         sonde: { disabled: true, symbols: ['dreieck', 'welle', 'kreis'], entered: [], lockout: 0 },
         codeTable: { kreis: 'mint', dreieck: 'bernstein', raute: 'rot', stern: 'blau', welle: 'pink', kreuz: 'weiss' },
@@ -322,7 +322,7 @@
   function setupKesh(scene, meDown) {
     const a = W.away, map = keshMap();
     a.active = true; a.map = 'kesh'; a.combat = 'v2'; a.salvage = []; a.hollow = null; a.items = []; a.marker = null;
-    a.npc = Object.assign({}, a.npc, { present: false });
+    a.npcs = [];
     a.jammers = map.find('r').map((t, i) => ({ x: t.x, y: t.y, off: i === 1 }));
     a.keys = map.find('k').map(t => ({ x: t.x, y: t.y, t: 0, _done: -99 }));
     const tt = map.find('T')[0];
@@ -1509,6 +1509,14 @@
     ];
     m3Params();
     s2Params();
+    // W2 AP6: personen=1 – drei Personen (away.npcs[]): eine folgt mir, eine verletzt weit weg (Randpfeil), eine gerettet
+    if (params.get('personen') === '1') {
+      W.away.npcs = [
+        { id: 'geisel', name: 'Mara', x: p.x - 40, y: p.y + 6, dir: 'right', following: p.id },
+        Object.assign({ id: 'geisel2', name: 'Oswin', injured: true }, tc(2, 13)),
+        Object.assign({ id: 'geisel3', name: 'Thea', rescued: true }, tc(6, 6)),
+      ];
+    }
     const pos = (params.get('pos') || '').split(',').map(Number);
     if (pos.length === 2 && isFinite(pos[0]) && p.zone === 'ship') Object.assign(p, tc(pos[0], pos[1]));
     const c = params.get('console');

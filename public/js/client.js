@@ -1574,10 +1574,16 @@
       return off ? { label: 'Halten: Bojenkern neu starten', ok: true } : { label: 'Bojenkern gesperrt (erst Sonde)', ok: false };
     }
     if (zone === 'away') {
-      const npc = platform && st.away && st.away.npc;
-      if (npc && npc.present !== false && !npc.rescued && Math.floor(npc.x / TILE) === tx && Math.floor(npc.y / TILE) === ty) {
+      // W2 AP6: Personen away.npcs[] (Ivo: id 'ivo'; gerettete stehen nicht mehr auf der Karte)
+      const npc = ((st.away && st.away.npcs) || []).find(n => !n.rescued && Math.floor(n.x / TILE) === tx && Math.floor(n.y / TILE) === ty);
+      if (npc && npc.id === 'ivo' && platform) {
         if (npc.injured) return carry === 'medipack' ? { label: 'Ivo verarzten (Medipack)', ok: true } : { label: 'Ivo ist verletzt: Medipack nötig', ok: false };
         return { label: npc.following === m.id ? 'Techniker: warten' : 'Techniker: folgen', ok: true };
+      }
+      if (npc && npc.id !== 'ivo') {
+        const name = String(npc.name || npc.id);
+        if (npc.injured) return carry === 'medipack' || m.medkit > 0 ? { label: name + ' verarzten (Medipack)', ok: true } : { label: name + ' ist verletzt: Medipack nötig', ok: false };
+        return { label: name + (npc.following === m.id ? ': warten' : ': folgen'), ok: true };
       }
       const it = ((st.away && st.away.items) || []).find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);
       if (it) return carry ? { label: 'Hände voll (G ablegen)', ok: false } : { label: 'Aufheben: ' + (ITEM_LABEL[it.kind] || it.kind), ok: true };
@@ -1976,7 +1982,7 @@
       state: st, pid: Client.pid, me: m, time: Client.time, debug: DEBUG,
       self: { x: self.x + self.offX, y: self.y + self.offY, zone: self.zone, dir: self.dir, moving: self.moving },
       mouse: Client.mouse, lobby: Client.lobby, actions, send, audioOn: Client.audioOn,
-      players: [], bots: [], enemies: [], spaceProjectiles: [], drones: [], awayProjectiles: [], npc: null, ship: null,
+      players: [], bots: [], enemies: [], spaceProjectiles: [], drones: [], awayProjectiles: [], npcs: [], ship: null,
       beamFx: {}, enemyHit: {}, shipHit: null, interaction: null,
       ui: Client.ui,   // S1
     };
@@ -2013,10 +2019,8 @@
     if (Client.escortOrder && nowMs - Client.escortOrder.t0 < 6000) v.escortOrder = Object.assign({ age: (nowMs - Client.escortOrder.t0) / 1000 }, Client.escortOrder);
     v.drones = lerpList(aa.drones, ba.drones, f);
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
-    if (ba.npc) {
-      v.npc = Object.assign({}, ba.npc);
-      if (aa.npc && f > 0 && Math.hypot(aa.npc.x - ba.npc.x, aa.npc.y - ba.npc.y) < 200) { v.npc.x = lerp(aa.npc.x, ba.npc.x, f); v.npc.y = lerp(aa.npc.y, ba.npc.y, f); }
-    }
+    // W2 AP6: Personen (bis 3 gleichzeitig) interpoliert über die id; nur die auf der Karte (gerettete: HUD-Liste aus st)
+    v.npcs = lerpList(aa.npcs, ba.npcs, f).filter(n => !n.rescued);
     const sa = A.ship || {}, sb = B.ship || {};
     v.ship = Object.assign({}, sb);
     if (sa.scene === sb.scene && f > 0 && isFinite(sa.x)) { v.ship.x = lerp(sa.x, sb.x, f); v.ship.y = lerp(sa.y, sb.y, f); v.ship.angle = lerpAngle(sa.angle || 0, sb.angle || 0, f); }

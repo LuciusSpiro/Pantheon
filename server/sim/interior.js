@@ -9,6 +9,8 @@ const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const TILE = Physics.TILE;
 let combatMod = null;   // M2: Kampf v2 (lazy, wegen Zirkelbezug combat -> interior)
 const combat = () => combatMod || (combatMod = require('./combat.js'));
+let awayMod = null;   // W2 AP6: Personen-Zugriff (lazy, Zirkelbezug away -> interior)
+const away = () => awayMod || (awayMod = require('./away.js'));
 // M3a (CONTRACT-M3 §4.1): alle 14 Systeme mit Station; 'weapons' ist nur noch Altname (schlechtester der drei Waffen).
 const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer',
   'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
@@ -616,13 +618,11 @@ function interactionsAt(game, p, tx, ty, own) {
 
 // NSC-Person auf einer Außenkarte (Ivo auf B-7; S2: spawn_person auf jeder Karte, Name in npc.name)
 function npcInteraction(aw, p, tx, ty, list) {
-  const npc = aw.npc;
-  if (!npc || !npc.present || npc.rescued) return;
-  const nt = Physics.toTile(npc.x, npc.y);
-  if (nt.x !== tx || nt.y !== ty) return;
-  if (!npc.injured) list.push({ kind: 'npc' });
-  else if (p.carry === 'medipack' || (npc.name && p.medkit > 0)) list.push({ kind: 'npcHeal' });
-  else list.push({ kind: 'npc', blocked: `${npc.name || 'Ivo'} ist verletzt – ${npc.name ? 'braucht' : 'er braucht'} ein Medipack (Lager an Bord oder Nachschub per Transfer auf die Markierung).` });
+  const npc = away().personAn(aw, tx, ty, p.id);   // W2 AP6: Personen nur über die Zugriffsfunktionen in away.js
+  if (!npc) return;
+  if (!npc.injured) list.push({ kind: 'npc', npc });
+  else if (p.carry === 'medipack' || (npc.name && p.medkit > 0)) list.push({ kind: 'npcHeal', npc });
+  else list.push({ kind: 'npc', npc, blocked: `${npc.name || 'Ivo'} ist verletzt – ${npc.name ? 'braucht' : 'er braucht'} ein Medipack (Lager an Bord oder Nachschub per Transfer auf die Markierung).` });
 }
 
 function itemName(item) {
@@ -720,7 +720,7 @@ function performInteraction(game, p, it) {
     }
     case 'pickup': return pickupItem(game, p, it.item, it.where);
     case 'npcHeal': {
-      const npc = game.away.npc;
+      const npc = it.npc;   // W2 AP6: Person aus npcInteraction (away.personAn)
       if (npc.person) {   // S2: Person aus spawn_person (Medipack getragen oder eingesteckt)
         if (p.carry === 'medipack') p.carry = null; else if (p.medkit > 0) p.medkit = 0;
         npc.injured = false; npc.following = p.id; npc.met = true;
@@ -736,7 +736,7 @@ function performInteraction(game, p, it) {
       return;
     }
     case 'npc': {
-      const npc = game.away.npc;
+      const npc = it.npc;
       const from = npc.name || 'Techniker Ivo';
       if (npc.following === p.id) { npc.following = null; game.emit('radio', { from, text: 'Gut, ich warte hier. Aber nicht vergessen, ja?' }); }
       else {
