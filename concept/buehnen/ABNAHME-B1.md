@@ -447,3 +447,4 @@ Zum Golden:
   per Sprengen/E).
 - Kontrolle Studioleitung: `npm test` Exit 0, `npm run check` Exit 0, Golden frisch aufgenommen vs. `base`: GRÜN.
 - **Stand Studio: B1 abnahmereif.** Offen nur F3 (Grobplan live messen, Kai-Freigabe).
+- **Abgenommen von Kai (2026-10-09).** F3 bleibt als späterer Punkt in `OFFEN-STUDIO.md`.

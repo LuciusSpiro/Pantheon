@@ -266,3 +266,4 @@ z. B. `0206` Lichtkordon). Die Daten liegen in `content/welt/limes.json`.
   Randpfeile gebündelt, Ortslabels nur im Bild, eigenes Schiff/DREHEN-Anzeige frei (`shots/b3-nach/`). Rest: gemeinsamer
   Pfeil nimmt die Farbe des ersten Ziels (kosmetisch).
 - **Stand Studio: B3 abnahmereif.**
+- **Abgenommen von Kai (2026-10-09).**

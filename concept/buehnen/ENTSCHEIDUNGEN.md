@@ -63,3 +63,6 @@ stark parallelisieren.**
 **Außerdem aus dem Pitch:** Germanen-Gegner Karl (Grundtyp), Bolzer (Niederhalter), Donnerwerfer (Grenadier), Jäger
 (Schütze), Berserker (Enterer), Wergeld-Fänger (Häscher). Konkordat ist kein Gegner. Kit-Legende fraktionsneutral,
 Bauweise als Parameter, Besetzung aus Trupp-Rezepten der Fraktion. Akzent im UI unverändert.
+
+**Abnahme (Kai, 2026-10-09):** B1–B3 abgenommen, einschließlich Wellenmodus, Blickrichtung zur Maus und FX-Fix.
+B2-Feinschliff (Lanze/E13, Solo-Balancing) beim Spieleabend; offene Punkte in `OFFEN-STUDIO.md`.
