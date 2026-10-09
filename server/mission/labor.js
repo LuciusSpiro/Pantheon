@@ -143,15 +143,58 @@ function ueberschreibungen(u, params) {
 // Startet die Umsetzung in einer laufenden Partie (game.phase 'play', Spieler an Bord; Aufruf aus game.startGame bzw. Tests).
 function laborStart(game, id, params) {
   const q = params || {};
-  const fail = (fehler) => { game.log && game.log('Labor: ' + fehler); return { ok: false, fehler }; };
-  if (!an(game.C)) return fail('Das Szenario-Labor ist ausgeschaltet (CONFIG.lobby.labor).');
+  if (!an(game.C)) return laborFail(game, 'Das Szenario-Labor ist ausgeschaltet (CONFIG.lobby.labor).');
   const kat = q.katalog || standardKatalog();
   const e = eintragVon(kat, id);
-  if (!e) return fail(`Umsetzung „${id}“ ist im Labor nicht verfügbar.`);
+  if (!e) return laborFail(game, `Umsetzung „${id}“ ist im Labor nicht verfügbar.`);
   const u = umsetzungVon(kat, id);
   const ov = ueberschreibungen(u, q);
+  return starte(game, kat, [{ key: id, u, override: ov, loc: ov.loc }], { id, name: e.name, eintrag: e, ov }, q);
+}
+function laborFail(game, fehler) { if (game.log) game.log('Labor: ' + fehler); return { ok: false, fehler }; }
+
+// ---------- Ketten (Nachauftrag AP3a): mehrere Umsetzungen nacheinander auf demselben Landepunkt ----------
+// Prüft, ob der Zustand einer Außenkarte über mehrere Szenen richtig weiterläuft (Anker-Zustände, Besetzung, Personen) – so
+// plant der Spielleiter. Ketten stehen nicht in laborListe und damit nicht in der Lobby (nur Bots, Tests, API).
+// Der gemeinsame Landepunkt (map, loc) gilt für alle Szenen, deren Umsetzung 'map' kennt (sonst deren Testwerte).
+const KETTEN = {
+  b7: { name: 'B-7 Plattform', map: 'platform', loc: 'b7',
+    ids: ['personen_bergen/techniker_retten', 'raetsel_loesen/sonden_code', 'datenkern_bergen/plattform_kern'] },
+  wrack: { name: 'Wrack (Handelsschiff Vaelen)', map: 'vaelen.handelsschiff', loc: 'vaelen',
+    ids: ['rekonstruieren/wrack_logbuch', 'ausschlachten/wrack_container'] },
+  kesh: { name: 'Kesh (Kastell)', map: 'kesh.kastell', loc: 'kesh',
+    ids: ['stellung_nehmen/trupp_raeumen', 'raetsel_loesen/zwei_schluessel', 'artefakt_freilegen/fund_aus_gewoelbe', 'entkommen/zu_den_pads'] },
+};
+// laborKette(game, ids[], params) – params wie laborStart, dazu map/loc (Standard: Landepunkt der ersten Umsetzung)
+function laborKette(game, ids, params) {
+  const q = params || {};
+  if (!an(game.C)) return laborFail(game, 'Das Szenario-Labor ist ausgeschaltet (CONFIG.lobby.labor).');
+  const kat = q.katalog || standardKatalog();
+  const liste = laborListe(kat);
+  if (!Array.isArray(ids) || !ids.length) return laborFail(game, 'Kette ohne Umsetzungen.');
+  const fehlt = ids.filter((id) => !liste.some((e) => e.id === id));
+  if (fehlt.length) return laborFail(game, `Kette: ${fehlt.join(', ')} im Labor nicht verfügbar.`);
+  const erste = umsetzungVon(kat, ids[0]);
+  const map = q.map || q.landepunkt || (erste.test && erste.test.params.map) || null;
+  const loc = q.loc || (erste.test && erste.test.params.loc) || null;
+  const szenen = ids.map((id) => {
+    const u = umsetzungVon(kat, id);
+    const ov = ueberschreibungen(u, Object.assign({}, q, { map, loc }));
+    if (!u.params.map) delete ov.loc;   // ohne Landepunkt-Parameter (Raum) eigener Ort
+    return { key: id, u, override: ov, loc: ov.loc };
+  });
+  const name = 'Kette: ' + ids.map((id) => (liste.find((e) => e.id === id) || {}).name || id).join(' → ');
+  return starte(game, kat, szenen, { id: ids.join('+'), name, kette: ids.slice(), ov: { map, loc } }, q);
+}
+function kette(name) { return KETTEN[name] ? Object.assign({ id: name }, KETTEN[name], { ids: KETTEN[name].ids.slice() }) : null; }
+
+// gemeinsamer Start (Einzel-Umsetzung und Kette): Testbuch bauen, vorbauen, Partie vorbereiten, Mission starten
+function starte(game, kat, szenen, meta, q) {
+  const fail = (fehler) => laborFail(game, fehler);
+  const ov = meta.ov || {};
+  const id = meta.id;
   let buch;
-  try { buch = testBuch(kat, [{ key: id, u, override: ov, loc: ov.loc }], 'lab'); } catch (err) { game.countError('labor-buch', err); return fail(err.message); }
+  try { buch = testBuch(kat, szenen, 'lab'); } catch (err) { game.countError('labor-buch', err); return fail(err.message); }
   for (const f of vorbauen([buch])) game.countError('labor-vorbau', new Error(f));
   // Partie vorbereiten: Seed, Kartenstand wie nach dem Tutorial (ohne Weltstand, ohne Spielleiter)
   if (Number.isFinite(Number(q.seed)) && q.seed !== null && q.seed !== '') {
@@ -182,10 +225,10 @@ function laborStart(game, id, params) {
   // wirksame Stärke (Anzeige): aus der Besetzung, die der Szenenbau ins Buch geschrieben hat
   const bm = JSON.stringify(buch).match(/"do":"besetzen"[^}]*?"staerke":"(\w+)"/);
   const staerke = bm ? bm[1] : (ov.staerke || null);
-  game.labor = { id, buch: buch.id, start: game.time, seed: game.seed, staerke, god: game.god, gemeldet: false };
-  game.oda(`Szenario-Labor: ${e.name} (Seed ${game.seed}${staerke ? ', Stärke ' + staerke : ''}${game.god ? ', god' : ''}).`, null);
+  game.labor = { id, buch: buch.id, start: game.time, seed: game.seed, staerke, god: game.god, gemeldet: false, ...(meta.kette ? { kette: meta.kette } : {}) };
+  game.oda(`Szenario-Labor: ${meta.name} (Seed ${game.seed}${staerke ? ', Stärke ' + staerke : ''}${game.god ? ', god' : ''}).`, null);
   game.log(`Labor gestartet: ${id} Seed ${game.seed}${staerke ? ' Stärke ' + staerke : ''}${game.god ? ' god' : ''} (${JSON.stringify(ov)}).`);
-  return { ok: true, eintrag: e, buch: buch.id };
+  return { ok: true, eintrag: meta.eintrag || null, buch: buch.id, ...(meta.kette ? { kette: meta.kette } : {}) };
 }
 
 // Tick: Ende der Labor-Mission einmal melden (zurück in die Lobby über das Spielmenü)
@@ -198,4 +241,4 @@ function update(game) {
   game.oda(`Labor: Szenario durch (Ausgang ${ms.ausgang || 'erfolg'}). Esc → „Partie beenden“ führt zurück in die Lobby.`, null);
 }
 
-module.exports = { laborListe, laborStart, testBuch, vorbauen, update, startzustand, an, STAERKEN };
+module.exports = { laborListe, laborStart, laborKette, KETTEN, kette, testBuch, vorbauen, update, startzustand, an, STAERKEN };

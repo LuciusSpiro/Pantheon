@@ -2619,6 +2619,9 @@ class GenericAgent extends KeshAgent {
     if (!ds.length) { this.input(0, 0); return; }
     ds.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
     const t = this.tile(ds[0]);
+    // Nachauftrag AP3a (Kette kesh solo): nah dran, aber ohne Sicht (Wand, schlafender Gegner) – ganz hingehen statt stehen
+    const nahOhneSicht = dist(ds[0].x, ds[0].y, p.x, p.y) <= 3 * TILE && !this.enemiesInSight(S, p).length;
+    if (nahOhneSicht) { if (this.goto(S, [t]) === 'fail') this.input(0, 0); return; }
     if (this.gotoNear(S, p, t.x, t.y, 2) === 'fail') this.input(0, 0);
   }
   // Person: hingehen, E (verletzt: mit Medipack), sie folgt; dann buehneHoch
@@ -2749,6 +2752,9 @@ class GenericAgent extends KeshAgent {
   umsetzung_entkommen_zu_den_pads(S, p, step) { this.keshScene(S, p, step); }
   keshScene(S, p, step) {
     const st = KESH_STAGE_OF[step.umsetzung];
+    // Nachauftrag AP3a (Ketten): Hof räumen auf einer gebauten Karte – die Kesh-Hofziele (Handkarte) passen dort nicht,
+    // solo stand der Bot 600 s am Pad (Kette kesh auf kesh.kastell). Der Bühnen-Bot kennt Anker und Gefechtsbereich.
+    if (st === 'courtyard' && p.zone === 'away' && S.away.map !== 'kesh' && typeof this.buehneScene === 'function') { this.buehneScene(S, p, step); return; }
     if (p.zone === 'away') {
       if (this.role === 'solo' && st === 'archive' && !S.away.vault.open && !this.enemiesInSight(S, p).length) { this.soloKeys(S, p); return; }
       const role = this.role; if (role === 'solo') this.role = 'helm';
@@ -2829,7 +2835,7 @@ async function runGeneric(opts) {
   if (opts.mode === 'labor') {
     // AP3a: derselbe Einstieg wie in der Lobby – Modus labor, Umsetzung, Seed; erst alle verbinden, dann alle bereit
     game.lobbyOpts.startMission = 'labor';
-    game.lobbyOpts.labor = { id: opts.labor, seed, staerke: opts.staerke || null, god: false };
+    game.lobbyOpts.labor = { id: opts.labor, seed, staerke: opts.staerke || null, god: false, ...(opts.kette ? { kette: opts.kette } : {}) };
     for (const a of agents) {
       game.addConnection(a.conn);
       a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx });
@@ -3095,6 +3101,7 @@ function laborIds() {
   const pos = args.find((a, i) => i > 0 && (args[i - 1] === 'labor' || args[i - 1] === 'umsetzung') && !a.startsWith('--'));
   const id = argVal('--only', null) || pos || 'alle';
   const liste = Labor().laborListe();
+  laborIds.alle = id === 'alle';
   if (id === 'alle') return liste.map((e) => e.id);
   if (!liste.some((e) => e.id === id)) { log(`Labor: „${id}“ ist nicht in laborListe (verfügbar mit test.params). Bekannt: ${liste.map((e) => e.id).join(', ')}`); process.exit(2); }
   return [id];
@@ -3114,7 +3121,34 @@ async function umsetzungMain() {
     }
   }
   printLaborTable(runs, crews, ids);
+  if (args[0] === 'labor' && laborIds.alle) await kettenMain(nSeeds, base, crews);   // `labor alle` spielt auch die Ketten
   return samples;
+}
+// Nachauftrag AP3a: Ketten (server/mission/labor.js KETTEN) – mehrere Umsetzungen nacheinander auf demselben Landepunkt.
+//   node tools/sim-headless.js labor ketten [--seeds 3] [--crew 1|3]
+async function kettenMain(nSeeds, base, crews) {
+  const K = Labor().KETTEN;
+  const rows = [];
+  for (const name of Object.keys(K)) for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
+    const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: K[name].ids[0], kette: name, pilot: 'maneuver', maxSec: 6000, missionMax: 4500, funk: (base + i) % 2 ? 'b' : 'a' });
+    if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Kette ' + name);
+    const ms = r.missions[0];
+    const sz = umsetzungSamples(r);
+    rows.push({ name, crew, ok: !r.aborted && ms && ms.success && !(ms.skips || []).length, dur: ms && ms.success ? ms.dur : null,
+      gespielt: sz.filter((s) => !s.skipped).length, szenen: K[name].ids.length, fehler: r.errors || 0,
+      soft: (ms && ms.softlock) || r.aborted ? 1 : 0, skips: ms && ms.skips ? ms.skips.length : 0 });
+  }
+  log('\n=== Szenario-Labor: Ketten (gleicher Landepunkt, Bot-Spieler, Missionszeit ohne Anflug ab Hafen) ===');
+  log('| Kette (Landepunkt) | Crew | erledigt | Median (min) | Szenen gespielt | Fehler | Softlock | Skips |');
+  log('|---|---|---|---|---|---|---|---|');
+  let ok = true;
+  for (const name of Object.keys(K)) for (const crew of crews) {
+    const xs = rows.filter((x) => x.name === name && x.crew === crew);
+    if (xs.some((x) => !x.ok || x.fehler)) ok = false;
+    log(`| ${name} (${K[name].map}, ${K[name].ids.length} Szenen) | ${crew} | ${xs.filter((x) => x.ok).length}/${xs.length} | ${fmtMin(median(xs.map((x) => x.dur)))} | ${xs.reduce((s, x) => s + x.gespielt, 0)}/${xs.reduce((s, x) => s + x.szenen, 0)} | ${xs.reduce((s, x) => s + x.fehler, 0)} | ${xs.reduce((s, x) => s + x.soft, 0)} | ${xs.reduce((s, x) => s + x.skips, 0)} |`);
+  }
+  log(ok ? '\nSIM LABOR KETTEN OK' : '\nSIM LABOR KETTEN: Auffälligkeiten (siehe oben)');
+  return rows;
 }
 function printLaborTable(runs, crews, ids) {
   log(`\n=== Szenario-Labor (Bot-Spieler, Spielzeit der Szene ohne Anflug${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''}) ===`);
@@ -3350,6 +3384,10 @@ async function wellenMain() {
   if (args.includes('arena')) { await arenaMain(); return; }
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }
+  if (args[0] === 'labor' && args[1] === 'ketten') {   // Nachauftrag AP3a: nur die Ketten
+    await kettenMain(Number(argVal('--seeds', 3)), seedArg != null ? seedArg : 1, argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3]);
+    process.exit(0);
+  }
   if (args[0] === 'labor' || args.includes('umsetzung')) { await umsetzungMain(); process.exit(0); }   // AP3a: labor, Alias umsetzung
   if (args.includes('dauer')) { await dauerMain(); process.exit(0); }
   const onlyM3 = args.includes('m3');

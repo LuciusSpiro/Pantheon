@@ -139,6 +139,39 @@ section('Schalter aus: kein Eintrag, Start abgelehnt', () => {
   } finally { CONFIG.lobby.labor = alt; }
 });
 
+// Nachauftrag AP3a: Ketten (mehrere Umsetzungen auf demselben Landepunkt), nicht in der Lobby
+section('Kette auf der Handkarte Kesh: Start, Übergang, Anker-Zustände bleiben', () => {
+  const ids = ['raetsel_loesen/zwei_schluessel', 'artefakt_freilegen/fund_aus_gewoelbe'];
+  ok(Object.keys(Labor.KETTEN).join(',') === 'b7,wrack,kesh' && Labor.KETTEN.kesh.ids.includes(ids[0]), 'Ketten b7, wrack, kesh aus labor.js');
+  const liste = Labor.laborListe();
+  ok(!liste.some((e) => /\+|^kette/.test(e.id)) && !liste.some((e) => /^Kette/.test(e.name)), 'Ketten stehen nicht in laborListe (nicht in der Lobby)');
+  const { g, cs } = lobbySpiel(1, 3);
+  g.handleMessage(cs[0], { t: 'lobbyOpt', labor: { kette: 'kesh' } });
+  ok(!g.lobbyOpts.labor.kette && !('kette' in (g.snapshot().lobby.labor || {})), 'lobbyOpt nimmt keine Kette an (nur serverseitig)');
+  g.reset(); g.phase = 'play';
+  const r = Labor.laborKette(g, ids, { seed: 3, map: 'kesh', loc: 'kesh' });
+  ticks(g, 5);
+  const buch = g.mission.rawBook('bot_lab');
+  const szenen = buch.steps.filter((s) => s.loc).map((s) => s.id);
+  ok(r.ok && g.mission.step && g.mission.step.id === 'labs1' && szenen.join(',') === 'labs1,labs2' && g.errors === 0, `Kette startet fehlerfrei (Szenen ${szenen.join(', ')}, Fehler ${g.errors})`);
+  ok(buch.steps.every((s) => !s.allowBeam || s.allowBeam.every((m) => m === 'kesh')), 'beide Szenen auf demselben Landepunkt (kesh)');
+  // Anker der Handkarte über ihre Objekte (anker.js: Handkarten über ihre Objekte): Tor = Gewölbe, Rätsel = Schlüssel, Fund = Tafel
+  const aw = g.aways.kesh;
+  const anker = () => ({ 'gewoelbe.tor': aw.vault.open ? 'offen' : 'zu', 'halle.raetsel.1': aw.keys[0].t >= 1 ? 'geloest' : 'offen',
+    'halle.raetsel.2': aw.keys[1].t >= 1 ? 'geloest' : 'offen', 'gewoelbe.fund': JSON.stringify(aw.tablet || null) });
+  const vor = anker();
+  ok(vor['gewoelbe.tor'] === 'zu', 'Szene 1: Gewölbe zu');
+  g.mission.skip();   // Szene 1 abschließen wie Debug-skip (Rätsel gelöst, Tor offen)
+  const nachSzene1 = anker();
+  ticks(g, 5);
+  const inSzene2 = anker();
+  ok(g.mission.step && g.mission.step.id === 'labs2', 'Übergang in Szene 2');
+  ok(g.aways.kesh === aw, 'dieselbe Laufzeitkarte (nicht neu gebaut)');
+  ok(nachSzene1['gewoelbe.tor'] === 'offen' && JSON.stringify(inSzene2) === JSON.stringify(nachSzene1),
+    `Anker-Zustände über den Übergang gleich (${JSON.stringify(inSzene2)})`);
+  ok(g.errors === 0, 'keine Server-Fehler');
+});
+
 section('Startfehler führen zurück in die Lobby', () => {
   const { g, cs } = lobbySpiel(1);
   g.lobbyOpts.startMission = 'labor'; g.lobbyOpts.labor.id = 'gibt/es_nicht';
