@@ -11,6 +11,20 @@
   const PROTO = window.Shared_Protocol || {};
   const TILE = 32, VW = 640, VH = 360;
 
+  // W2 AP3b: bewegte Brocken – dieselbe Funktion wie der Server (shared/drift.js). index.html lädt sie (noch) nicht:
+  // dann einmal nachladen; bis dahin stehen die Brocken an ihrer Bahnmitte.
+  if (!window.Shared_Drift && typeof document !== 'undefined') {
+    try { const s = document.createElement('script'); s.src = '/shared/drift.js'; s.async = true; document.head.appendChild(s); } catch (e) { /* ohne Drift: still */ }
+  }
+  // Brocken zur Spielzeit (Snapshot-Zeit + Zeit seit Empfang, höchstens 0,25 s weitergerechnet)
+  function brockenJetzt(st) {
+    const list = (st && st.space && st.space.asteroids) || [];
+    const D = window.Shared_Drift;
+    if (!D || !D.bewegt(list)) return list;
+    const seit = st._empfangen ? Math.max(0, Math.min(0.25, (performance.now() - st._empfangen) / 1000)) : 0;
+    return D.jetzt(list, (+st.time || 0) + seit);
+  }
+
   const PAL = {
     wood: '#8A5A3B', brass: '#C9974A', terra: '#B4573E', hull: '#2E3A4A', panel: '#4F6178',
     panelLight: '#8EA3B5', mint: '#7FE0C2', amber: '#FFC66B', warn: '#F2C94C', red: '#E0473C',
@@ -3442,15 +3456,19 @@
     }
 
     // Asteroiden
-    for (const a of space.asteroids || []) {
+    for (const a of brockenJetzt(st)) {   // W2 AP3b: bewegt -> Lage zur Spielzeit, Eigendrehung
       if (!visible(a.x, a.y, a.r)) continue;
       const s = toS(a.x, a.y);
       const r = Math.max(3, Math.round((a.r || 20) * zoom));
       if (!inB(s, r + 4)) continue;
-      if (!art('drawAsteroid', null, [ctx, s.x, s.y, r, a.seed || 0])) {
-        ctx.fillStyle = '#5A5560'; ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#6E6873'; ctx.beginPath(); ctx.arc(s.x - r * 0.3, s.y - r * 0.3, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      const dreh = a.rot ? a.rot + rot : 0;
+      if (dreh) { ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(dreh); }
+      const px = dreh ? 0 : s.x, py = dreh ? 0 : s.y;
+      if (!art('drawAsteroid', null, [ctx, px, py, r, a.seed || 0])) {
+        ctx.fillStyle = '#5A5560'; ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#6E6873'; ctx.beginPath(); ctx.arc(px - r * 0.3, py - r * 0.3, r * 0.5, 0, Math.PI * 2); ctx.fill();
       }
+      if (dreh) ctx.restore();
     }
 
     // Eigene Feuerbögen
@@ -3871,7 +3889,7 @@
       ctx.strokeStyle = PAL.panel; ctx.strokeRect(Math.round(ox) + 0.5, Math.round(oy) + 0.5, Math.round(sw * s0) - 1, Math.round(sh * s0) - 1);
       if (here) {
         ctx.fillStyle = '#5A5560';
-        for (const a of space.asteroids || []) { const s = toS(a.x, a.y); const r = Math.max(1, Math.round(a.r * s0)); ctx.fillRect(s.x - r, s.y - r, r * 2, r * 2); }
+        for (const a of brockenJetzt(st)) { const s = toS(a.x, a.y); const r = Math.max(1, Math.round(a.r * s0)); ctx.fillRect(s.x - r, s.y - r, r * 2, r * 2); }   // W2: bewegt
         for (const m of space.markers || []) {
           const s = toS(m.x, m.y);
           ctx.strokeStyle = m.kind === 'exit' || m.kind === 'dock' ? PAL.mint : PAL.amber;

@@ -10,6 +10,7 @@ const Pilot = require('./pilot.js');
 const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlinge/Gegnerziel kein Einfluss auf den Ablauf)
 const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähiges Feindschiff; Stub -> wie bisher
 const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
+const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -115,7 +116,7 @@ function enterScene(game, locId, opts) {
   const sp = game.space;
   sp.w = sc.w; sp.h = sc.h;
   sp.enemies = []; sp.projectiles = []; sp.beams = [];
-  sp.asteroids = makeAsteroids(game, loc);
+  sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc) : makeAsteroids(game, loc);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
   sp.salvage = [];
   sp.markers = [];
   if (sc.station) sp.markers.push({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r });
@@ -149,6 +150,135 @@ function makeAsteroids(game, loc) {
     list.push({ id: 'a' + list.length, x, y, r, seed: rng.int(100000) });
   }
   return list;
+}
+
+// W2 AP3b: Brocken mit Bahn (shared/drift.js). Gleiche Zahl und Größe wie still, aber jede Bahnstrecke hält Abstand zu den
+// Schutzpunkten (Ankunft, Station, Dock: wie still + 280 px), zu Verstecken und zu allen anderen Bahnen (nie Berührung).
+function makeDriftAsteroids(game, loc) {
+  const sc = loc.scene;
+  const n = sc.asteroids || 0;
+  if (!n) return [];
+  const D = (game.C.arena && game.C.arena.drift) || { tempo: [12, 40], amplitude: [80, 240], drehung: 0.6 };
+  const rng = makeRng((game.seed ^ 0xD71F7 ^ hashStr(loc.id)) >>> 0);
+  const f = sc.field || { x0: 200, x1: sc.w - 120, y0: 80, y1: sc.h - 80 };
+  const keep = [sc.arrive, sc.station, sc.dock].filter(Boolean);
+  const hiddenPts = loc.hidden || [];
+  const list = []; const bahnen = [];
+  const Mi = Drift.MILLI;
+  let guard = 0;
+  while (list.length < n && guard++ < 12000) {
+    const r = Math.round(rng.range(16, 44));
+    const x = Math.round(rng.range(f.x0, f.x1));
+    const y = Math.round(rng.range(f.y0, f.y1));
+    const dir = rng.range(-Math.PI, Math.PI);
+    const amp = Math.round(rng.range(D.amplitude[0], D.amplitude[1]));
+    const tempo = Math.round(rng.range(D.tempo[0], D.tempo[1]));
+    const ph = rng.range(-Math.PI, Math.PI);
+    const rot = rng.range(-D.drehung, D.drehung);
+    const a = { id: 'a' + list.length, x, y, r, seed: rng.int(100000),
+      b: [Math.round(dir * Mi), tempo, amp, Math.round(ph * Mi), Math.round(rot * Mi)] };
+    const s = Drift.strecke(a);
+    if (Math.min(s.x1, s.x2) - r < f.x0 - 60 || Math.max(s.x1, s.x2) + r > f.x1 + 60) continue;
+    if (Math.min(s.y1, s.y2) - r < 40 || Math.max(s.y1, s.y2) + r > sc.h - 40) continue;
+    if (keep.some((k) => Drift.punktStrecke(k.x, k.y, s) < (k.r || 0) + 280 + r)) continue;
+    if (hiddenPts.some((h) => Drift.punktStrecke(h.x, h.y, s) < r + 110)) continue;
+    if (list.some((o, i) => Drift.streckeStrecke(bahnen[i], s) < o.r + r + 30)) continue;
+    list.push(a); bahnen.push(s);
+  }
+  return list;
+}
+
+// ---------- W2 AP3b: Nebel und Brocken – dieselben Regeln für Lerche und Gegner ----------
+// Nebel (Ort mit fog): Sensor- und Zielerfassungs-Reichweite × CONFIG.sensors.fogFactor.
+//  - Sensorreichweite (CONFIG.sensors.range): Ziele aufschalten (weapons.target) – der Client zeigt dieselbe Reichweite.
+//  - Zielerfassung (CONFIG.tscan.range): Ziel-Scan und Waffen. Wirksame Waffenreichweite = min(Waffe, Zielerfassung),
+//    für Lanze, Batterien und Bolzenwerfer der Lerche genauso wie für Feuern und Laden der Gegner.
+//    Ohne Nebel ist die Zielerfassung (800) größer als jede Waffe (≤ 650): keine Wirkung.
+// Wo die Regel gilt: CONFIG.sensors.nebelServer 'wellen' = nur im Modus Wellen All (Kampagne wie bisher), 'immer' = überall.
+function nebelAktiv(game) {
+  const S = game.C.sensors || {};
+  if (S.nebelServer === 'immer') return true;
+  return !!(game.arena && game.arena.kind === 'arena_space' && game.arena.szene);
+}
+function nebelFaktor(game) {
+  const loc = Locations.get(game.ship.scene);
+  const S = game.C.sensors || {};
+  return loc && loc.fog && nebelAktiv(game) ? (S.fogFactor != null ? Number(S.fogFactor) : 0.5) : 1;
+}
+function sensorReichweite(game) { return ((game.C.sensors && game.C.sensors.range) || 1400) * nebelFaktor(game); }
+function erfassung(game) { return ((game.C.tscan && game.C.tscan.range) || 800) * nebelFaktor(game); }
+function waffenReichweite(game, range) { return Math.min(range, erfassung(game)); }
+
+// Brocken jetzt (bewegt: Lage zur Spielzeit, still: die Liste selbst)
+function brocken(game) { return Drift.jetzt(game.space.asteroids, game.time); }
+function brockenStats(game) { return game.stats.brocken || (game.stats.brocken = { lerche: 0, gegner: 0, schuesse: 0, strahlen: 0 }); }
+// Körper (x, y, vx, vy) aus Brocken hinausschieben; die Geschwindigkeit relativ zum Brocken prallt ab (Faktor 1,6 wie
+// bisher bei der Lerche). onHit(a) je Berührung. Still: Rechnung wie vor W2 (Brocken-Tempo 0).
+function brockenStoss(game, body, rad, onHit) {
+  for (const a of brocken(game)) {
+    const d = dist(body.x, body.y, a.x, a.y);
+    const min = a.r + rad;
+    if (d >= min || d === 0) continue;
+    const nx = (body.x - a.x) / d, ny = (body.y - a.y) / d;
+    body.x = a.x + nx * min; body.y = a.y + ny * min;
+    const avx = a.vx || 0, avy = a.vy || 0;
+    if (typeof body.vx === 'number' && typeof body.vy === 'number') {
+      const vn = (body.vx - avx) * nx + (body.vy - avy) * ny;
+      if (vn < 0) { body.vx -= 1.6 * vn * nx; body.vy -= 1.6 * vn * ny; }
+    }
+    if (onHit) onHit(a);
+  }
+}
+// Erster Brocken auf der Strecke (x1,y1)->(x2,y2) -> { x, y, a } | null (Strahlwaffen: Lanze, Batterien, Ladungen)
+function brockenImWeg(game, x1, y1, x2, y2) {
+  const list = brocken(game);
+  if (!list.length) return null;
+  const h = Drift.strahlTrifft(list, x1, y1, x2, y2);
+  return h ? { x: x1 + (x2 - x1) * h.t, y: y1 + (y2 - y1) * h.t, a: h.a, t: h.t } : null;
+}
+// Ausweichen ohne Flugmodell (kinematische Gegner, moveLegacy): Liegt ein Brocken auf den nächsten `look` px der
+// Bewegungsrichtung (ux, uy), seitlich vom Brocken weg lenken. -> neue Einheitsrichtung
+function brockenAusweichen(game, x, y, ux, uy, rad, look) {
+  const list = brocken(game);
+  if (!list.length) return { x: ux, y: uy };
+  let hx = ux, hy = uy;
+  for (const a of list) {
+    const rx = a.x - x, ry = a.y - y;
+    const along = rx * ux + ry * uy;
+    if (along < 0 || along > look + a.r) continue;
+    const perp = -rx * uy + ry * ux;   // >0: Brocken links der Bahn
+    const clear = a.r + rad + 30;
+    if (Math.abs(perp) >= clear) continue;
+    const s = perp >= 0 ? -1 : 1;      // vom Brocken weg
+    const w = 2.5 * (1 - Math.abs(perp) / clear) + 0.4;
+    hx += w * s * -uy; hy += w * s * ux;
+  }
+  const l = Math.hypot(hx, hy) || 1;
+  return { x: hx / l, y: hy / l };
+}
+// Gegner und Brocken: hinausschieben, Treffer wie bei der Lerche (C.asteroid.damage, je Brocken Sperre asteroidImmunity s)
+function gegnerRadius(game, e) {
+  const SC = game.C.shipClasses && game.C.shipClasses[e.kind];
+  return (SC && SC.radius) || (game.C.combat.hitRadius && game.C.combat.hitRadius[e.kind]) || 18;
+}
+function gegnerBrocken(game, e) {
+  if (!game.space.asteroids.length) return;
+  const C = game.C;
+  const home = e.kind === 'pylon' && e.home ? { x: e.x, y: e.y } : null;
+  brockenStoss(game, e, gegnerRadius(game, e), (a) => {
+    const im = e.brockenImmun || (e.brockenImmun = {});
+    if ((im[a.id] || 0) > game.time) return;
+    im[a.id] = game.time + C.flight.asteroidImmunity;
+    brockenStats(game).gegner++;
+    damageEnemy(game, e, C.asteroid.damage, a.x, a.y);
+  });
+  if (home) { e.x = home.x; e.y = home.y; e.vx = 0; e.vy = 0; }   // Pylon ist verankert (Turm)
+}
+// Spawnpunkt nicht in einem Brocken: nach außen schieben (ohne Schaden)
+function freiVonBrocken(game, x, y, rad) {
+  const p = { x, y, vx: 0, vy: 0 };
+  for (let i = 0; i < 3; i++) brockenStoss(game, p, rad + 10, null);
+  return p;
 }
 
 // Bergungsgut im Splittergürtel (Mission 1): abseits der direkten Linie, frei von Brocken.
@@ -460,21 +590,15 @@ function updateFlight(game, dt) {
       game.missionEvent('docked', { loc: loc.id });
     }
   }
-  // Asteroiden
-  for (const a of sp.asteroids) {
-    const d = dist(ship.x, ship.y, a.x, a.y);
-    const min = a.r + C.flight.radius;
-    if (d >= min || d === 0) continue;
-    const nx = (ship.x - a.x) / d, ny = (ship.y - a.y) / d;
-    ship.x = a.x + nx * min; ship.y = a.y + ny * min;
-    const vn = ship.vx * nx + ship.vy * ny;
-    if (vn < 0) { ship.vx -= 1.6 * vn * nx; ship.vy -= 1.6 * vn * ny; }
+  // Asteroiden (W2 AP3b: gemeinsame Regel brockenStoss, auch für Gegner)
+  brockenStoss(game, ship, C.flight.radius, (a) => {
     if ((ship.asteroidImmune[a.id] || 0) <= game.time) {
       ship.asteroidImmune[a.id] = game.time + C.flight.asteroidImmunity;
+      brockenStats(game).lerche++;
       shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, a.x, a.y), C.asteroid.damage, {});
       game.missionEvent('asteroid', {});
     }
-  }
+  });
 }
 
 function dodge(game, dir) {
@@ -754,7 +878,7 @@ function chargeFactor(game) { return bolzenFactor(game); }
 function inMountArc(game, mount, x, y) {
   const s = game.ship; const cfg = mountCfg(game, mount);
   if (!cfg) return false;
-  return Physics.inArc(s.x, s.y, s.angle, cfg.facing, cfg.arc, cfg.range, x, y);
+  return Physics.inArc(s.x, s.y, s.angle, cfg.facing, cfg.arc, waffenReichweite(game, cfg.range), x, y);   // W2: Nebel
 }
 function mountOrigin(game, mount) {
   const s = game.ship; const a = s.angle; const m = normMount(mount);
@@ -843,17 +967,22 @@ function lanceTrace(game) {
   const o = mountOrigin(game, 'bow');
   const ang = ship.angle + (cfg.facing || 0) * Math.PI / 180;
   const dx = Math.cos(ang), dy = Math.sin(ang);
+  const range = waffenReichweite(game, cfg.range);   // W2: Nebel
+  // W2: ein Brocken im Strahl hält ihn auf (Gegner dahinter werden nicht getroffen)
+  const rock = brockenImWeg(game, o.x, o.y, o.x + dx * range, o.y + dy * range);
+  const stop = rock ? rock.t * range : Infinity;
   let hit = null, ht = Infinity;
   for (const e of game.space.enemies) {
     const rx = e.x - o.x, ry = e.y - o.y;
     const t = rx * dx + ry * dy;              // Abstand entlang des Strahls
     const rad = (C.combat.hitRadius[e.kind] || 18) + (L.width || 0);
-    if (t < -rad || t > cfg.range + rad) continue;
+    if (t < -rad || t > range + rad) continue;
     const perp = Math.abs(-rx * dy + ry * dx); // Abstand zur Strahllinie
     if (perp >= rad) continue;
+    if (t > stop) continue;
     if (t < ht) { ht = t; hit = e; }
   }
-  return { o, dx, dy, range: cfg.range, hit, t: hit ? Math.max(0, ht) : cfg.range };
+  return { o, dx, dy, range, hit, t: hit ? Math.max(0, ht) : Math.min(range, stop), rock: !hit && rock ? rock : null };
 }
 function lanceFizzle(game, why) {
   const bow = game.ship.mount.bow;
@@ -902,6 +1031,7 @@ function fireLance(game, power, auto) {
   const x2 = tr.o.x + tr.dx * tr.t, y2 = tr.o.y + tr.dy * tr.t;
   const beam = { x1: tr.o.x, y1: tr.o.y, x2, y2, ttl: game.C.combat.beamTtl * 2, ttlMax: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', power: r2(p) };
   if (!tr.hit) beam.miss = true;
+  if (tr.rock) brockenStats(game).strahlen++;   // W2: Brocken hat den Strahl geschluckt
   game.space.beams.push(beam);
   // S2 §5: kein Eigenbeschuss – die Lanze geht durch Schützlinge hindurch, nur ein Funk-Rüffel
   if (game.space.escorts && game.space.escorts.length) { try { Escort.lanceCrossed(game, tr); } catch (err) { if (game.countError) game.countError('escort-lance', err); } }
@@ -957,6 +1087,13 @@ function updateSalvos(game, dt) {
       if (!e) {   // §20.4: Schuss ins Leere – Strahl trotzdem zeichnen
         const p = voidShotEnd(game, k, o, idx);
         game.space.beams.push({ x1: o.x, y1: o.y, x2: p.x, y2: p.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, miss: true });
+        continue;
+      }
+      // W2: Brocken zwischen Rohr und Ziel fängt den Treffer
+      const rock = brockenImWeg(game, o.x, o.y, e.x, e.y);
+      if (rock) {
+        brockenStats(game).strahlen++;
+        game.space.beams.push({ x1: o.x, y1: o.y, x2: rock.x, y2: rock.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, miss: true });
         continue;
       }
       game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl, ttlMax: ttl, kind: 'battery', mount: k });
@@ -1128,7 +1265,10 @@ function resolveTarget(game, id) {
 }
 function weaponsTarget(game, id) {
   if (id === null || id === undefined) { game.ship.target = null; return null; }
-  if (!resolveTarget(game, id)) return 'Ziel nicht gefunden.';
+  const rt = resolveTarget(game, id);
+  if (!rt) return 'Ziel nicht gefunden.';
+  // W2: Gegner nur innerhalb der Sensorreichweite aufschalten (im Nebel × fogFactor; der Client zeigt dieselbe Grenze)
+  if (rt.type === 'enemy' && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game)) return 'Ziel außerhalb der Sensoren.';
   if (game.ship.target !== id) game.ship.tscan.progress = 0;
   game.ship.target = id;
   return null;
@@ -1141,7 +1281,8 @@ function weaponsScan(game, on) {
   if (!on) return null;
   const t = resolveTarget(game, game.ship.target);
   if (!t) return 'Erst ein Ziel wählen (T oder anklicken).';
-  if (dist(game.ship.x, game.ship.y, t.x, t.y) > game.C.tscan.range) return 'Ziel zu weit für den Scan (max. 800).';
+  const R = erfassung(game);   // W2: im Nebel × fogFactor
+  if (dist(game.ship.x, game.ship.y, t.x, t.y) > R) return `Ziel zu weit für den Scan (max. ${Math.round(R)}${R < game.C.tscan.range ? ', Nebel' : ''}).`;
   return null;
 }
 function updateTargetScan(game, dt) {
@@ -1152,7 +1293,7 @@ function updateTargetScan(game, dt) {
   if (!t) { ts.targetId = null; ts.progress = 0; return; }
   if (ts.targetId !== t.id) { ts.targetId = t.id; ts.progress = 0; }
   if (!ts.on) { ts.progress = 0; return; }
-  if (dist(ship.x, ship.y, t.x, t.y) > C.tscan.range) { ts.progress = 0; return; }
+  if (dist(ship.x, ship.y, t.x, t.y) > erfassung(game)) { ts.progress = 0; return; }   // W2: Nebel
   if (alreadyScanned(game, t)) { ts.progress = 1; return; }
   const before = ts.progress;
   ts.progress = Math.min(1, ts.progress + dt / C.tscan.time);
@@ -1228,6 +1369,7 @@ function spawnEnemy(game, kind, opts) {
   let x = o.x != null ? o.x : ship.x + Math.cos(a) * C.combat.spawnDist;
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;
   x = clamp(x, 60, sp.w - 60); y = clamp(y, 60, sp.h - 60);
+  if (sp.asteroids.length) { const f = freiVonBrocken(game, x, y, (C.combat.hitRadius && C.combat.hitRadius[kind]) || 18); x = f.x; y = f.y; }   // W2: nicht im Brocken
   const shields = (C.enemyShields[kind] || [0, 0, 0, 0]).slice();
   const e = { id: game.nextId('e'), kind, x, y, angle: o.facing != null ? o.facing : Math.atan2(ship.y - y, ship.x - x), hp, hpMax: hp,
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
@@ -1294,7 +1436,7 @@ function stationPoint(game) {
 function enemyCanHit(game, e, target) {
   const W = game.C.enemyWeapons[e.kind] || [];
   const s = target || game.ship;
-  return W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, s.x, s.y));
+  return W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, waffenReichweite(game, w.range), s.x, s.y));   // W2: Nebel
 }
 
 function updateEnemies(game, dt) {
@@ -1310,6 +1452,9 @@ function updateEnemies(game, dt) {
       try { Pilot.fly(game, e, dt); }
       catch (err) { if (game.countError) game.countError('pilot', err); moveLegacy(game, e, dt, retreating); }
     } else moveLegacy(game, e, dt, retreating);
+    // W2 AP3b (E4): Brocken gelten für Gegner wie für die Lerche (hinausschieben, Treffer)
+    gegnerBrocken(game, e);
+    if (!(e.hp > 0) || !sp.enemies.includes(e)) continue;   // am Brocken zerschellt
     // S2b §2: Sperrfeuer des Kanonenboots (eigener Takt, ruht während einer Ladung)
     if (e.kind === 'gunboat') {
       try { updateSperrfeuer(game, e, retreating, dt); }
@@ -1337,7 +1482,7 @@ function updateEnemies(game, dt) {
     // Anflug kaum: ein Schuss je Überflug, gezielt auf die alte Position (Schiff fährt 1–1,5 s Flugzeit weiter)
     const PF = Pilot.flies(game, e) ? ((M3B(game).pilotFire || {})[e.kind] || null) : null;
     const interval = PF && PF.fireInterval != null ? PF.fireInterval : cfg.fireInterval;
-    if (!retreating && e.fireT >= interval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e) && !ship.docked && !holdingFire(game)) {
+    if (!retreating && e.fireT >= interval * crewScale(game).enemyFireInterval && d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e) && !ship.docked && !holdingFire(game)) {
       e.fireT = 0;
       const kind = cfg.emp ? 'emp' : 'enemy';
       const ang = PF && PF.lead ? leadAngle(e.x, e.y, ship, C.combat.enemyShotSpeed, PF.lead) : toShip;
@@ -1392,7 +1537,7 @@ function updateSperrfeuer(game, e, retreating, dt) {
     if (e.tele) sf.t = Math.min(sperrInterval(game, S), sf.t + dt);   // nach der Ladung sofort wieder bereit
     return;
   }
-  const range = S.range || cfg.range;
+  const range = waffenReichweite(game, S.range || cfg.range);   // W2: Nebel
   const W = C.enemyWeapons[e.kind] || [];
   const inArc = W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, range, T.x, T.y));
   if (sf.left > 0) {
@@ -1425,7 +1570,7 @@ function updateSperrfeuer(game, e, retreating, dt) {
   const teleIv = cfg.fireInterval * crewScale(game).enemyFireInterval;
   const burstDur = (S.burst - 1) * (S.burstGap || 0.25);
   // (nur wenn die Ladung auch beginnen kann – im Band zwischen Lade- und Sperrfeuer-Reichweite feuert das Boot weiter)
-  if (M3(game).tele && M3(game).tele[e.kind] && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= cfg.range) return;
+  if (M3(game).tele && M3(game).tele[e.kind] && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= waffenReichweite(game, cfg.range)) return;
   sf.left = S.burst; sf.n = 0; sf.gapT = 0; sf.t = 0;
   sperrStats(game).bursts++;
   const o = sperrMuzzle(e, T);
@@ -1490,7 +1635,11 @@ function moveLegacy(game, e, dt, retreating) {
     const mx = tx - e.x, my = ty - e.y;
     const md = Math.hypot(mx, my);
     const step = Math.min(md, cfg.speed * dt);
-    if (md > 1 && cfg.speed > 0) { e.x += mx / md * step; e.y += my / md * step; }
+    if (md > 1 && cfg.speed > 0) {
+      // W2 AP3b: um Brocken herum (Vorausschau 1,5 s, mindestens 80 px) – ohne Brocken unverändert
+      const u = game.space.asteroids.length ? brockenAusweichen(game, e.x, e.y, mx / md, my / md, gegnerRadius(game, e), Math.max(80, cfg.speed * 1.5)) : { x: mx / md, y: my / md };
+      e.x += u.x * step; e.y += u.y * step;
+    }
     e.x = clamp(e.x, 30, sp.w - 30); e.y = clamp(e.y, 30, sp.h - 30);
     if (e.kind !== 'pylon') {
       const want = retreating ? (md > 2 ? Math.atan2(my, mx) : e.angle) : (face != null ? face : (md > 2 ? Math.atan2(my, mx) : e.angle));
@@ -1546,7 +1695,14 @@ function updateTele(game, e, d, retreating, dt) {
       game.missionEvent('dodgeEvade', { enemy: e });
       return;
     }
-    if (d <= cfg.range && enemyCanHit(game, e)) {
+    // W2: ein Brocken zwischen Gegner und Lerche fängt die Ladung (wie bei den Strahlen der Lerche)
+    const rock = d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e) ? brockenImWeg(game, e.x, e.y, ship.x, ship.y) : null;
+    if (rock) {
+      brockenStats(game).strahlen++;
+      game.space.beams.push({ x1: e.x, y1: e.y, x2: rock.x, y2: rock.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
+      game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
+      game.emit('teleMiss', { id: e.id, brocken: true });
+    } else if (d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e)) {
       game.space.beams.push({ x1: e.x, y1: e.y, x2: ship.x, y2: ship.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
       game.emit('sfx', { name: 'heavy_hit', enemy: e.kind });
       game.stats.heavyHits = (game.stats.heavyHits || 0) + 1;
@@ -1558,7 +1714,7 @@ function updateTele(game, e, d, retreating, dt) {
     return;
   }
   e.fireT += dt;
-  if (!retreating && !ship.docked && !holdingFire(game) && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= cfg.range && enemyCanHit(game, e)) startTele(game, e);
+  if (!retreating && !ship.docked && !holdingFire(game) && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e)) startTele(game, e);
 }
 // M4 §2.4: erster Feindkontakt frühestens CONFIG.lift.firstContactDelay s nach dem Gefechtsalarm, wenn jemand auf Deck II war
 // (game.updateAlert setzt ship.holdFireUntil).
@@ -1580,6 +1736,7 @@ function debugTele(game, id) {
 function updateProjectiles(game, dt) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   const keep = [];
+  const rocks = brocken(game);
   for (const p of sp.projectiles) {
     p.ttl -= dt;
     if (p.kind === 'bolzen') {
@@ -1588,6 +1745,8 @@ function updateProjectiles(game, dt) {
     }
     p.x += Math.cos(p.angle) * p.speed * dt; p.y += Math.sin(p.angle) * p.speed * dt;
     let hit = false;
+    // W2 AP3b (E4): Geschosse beider Seiten schlagen in Brocken ein
+    if (rocks.length && rocks.some((a) => dist(p.x, p.y, a.x, a.y) < a.r)) { brockenStats(game).schuesse++; continue; }
     if (p.kind === 'enemy' || p.kind === 'emp' || p.kind === 'sperrfeuer') {
       if (dist(p.x, p.y, ship.x, ship.y) < C.flight.projectileHitDist) {
         hit = true;
@@ -1623,6 +1782,8 @@ function updateProjectiles(game, dt) {
 
 function update(game, dt) {
   ensureM3(game);
+  // W2 AP3b: wirksame Waffenreichweite (Nebel) für pilot.js – ohne Require von space.js (Zirkelbezug)
+  if (!game.waffenReichweite) game.waffenReichweite = (range) => waffenReichweite(game, range);
   game.ship.widescan.cd = Math.max(0, game.ship.widescan.cd - dt);
   updateSystems(game, dt);
   updateFlight(game, dt);
@@ -1634,6 +1795,18 @@ function update(game, dt) {
   const sp = game.space;
   if ((sp.escorts && sp.escorts.length) || sp.retreatRule || sp.enemies.some((e) => e.leaving)) {
     try { Escort.update(game, dt); } catch (err) { if (game.countError) game.countError('escort', err); }
+  }
+  // W2 AP3b: Schützlinge und Brocken – dieselbe Regel (hinausschieben, Treffer über Escort.hit, Sperre je Brocken)
+  if (sp.escorts && sp.escorts.length && sp.asteroids.length) {
+    for (const es of sp.escorts) {
+      const SC = game.C.shipClasses && game.C.shipClasses[es.kind];
+      brockenStoss(game, es, (SC && SC.radius) || 30, (a) => {
+        const im = es.brockenImmun || (es.brockenImmun = {});
+        if ((im[a.id] || 0) > game.time) return;
+        im[a.id] = game.time + game.C.flight.asteroidImmunity;
+        try { Escort.hit(game, es, game.C.asteroid.damage, { light: true }); } catch (err) { if (game.countError) game.countError('escort-brocken', err); }
+      });
+    }
   }
   updateProjectiles(game, dt);
   updateHull(game, dt);
@@ -1682,4 +1855,6 @@ module.exports = {
   helmThrottle, helmSnapshot, enemySnapExtra, engineSpeedFactor, lercheClass,
   leadAngle,   // QA M3b: Vorhalt der Jäger-Schüsse (spaceM3b.pilotFire)
   crewScale, holdingFire, enemyCanHit,   // S2 §5 (escort.js)
+  // W2 AP3b: Nebel und Brocken (gleiche Regeln für Lerche und Gegner)
+  nebelFaktor, sensorReichweite, erfassung, waffenReichweite, brocken, brockenStoss, brockenImWeg, brockenStats, makeDriftAsteroids,
 };

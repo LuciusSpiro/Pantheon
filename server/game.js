@@ -130,6 +130,7 @@ class Game {
     this.runCounter = 0;
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
     this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
+      szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
       labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
     this.reset();
   }
@@ -521,6 +522,15 @@ class Game {
               this.lobbyOpts.wellen = k;
             }
           }
+          // W2 AP3b: Wellen All – Szenenwahl (null = Altweg ohne Wellen); jeder darf umschalten
+          if (this.phase === 'lobby' && 'szene' in msg) {
+            const z = msg.szene == null ? null : String(msg.szene);
+            const def = z ? arena.szeneDef(this, z) : null;
+            if (z === null || def) {
+              if (def && z !== this.lobbyOpts.szene) this.log(`${p.name}: Wellen All – ${def.name}.`);
+              this.lobbyOpts.szene = z;
+            }
+          }
           // S1 §6: Weltstand zum Fortsetzen wählen (null = neu)
           if (this.phase === 'lobby' && 'world' in msg) {
             const id = msg.world == null || msg.world === '' ? null : String(msg.world);
@@ -838,7 +848,7 @@ class Game {
     if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Locations.START);   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
     if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
     else if (sm === 'm3') this.mission.startDirect('m3');
-    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte)
+    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
@@ -1625,7 +1635,9 @@ class Game {
       salvage: (sp.salvage || []).map((s) => ({ id: s.id, x: s.x, y: s.y, kind: s.kind })),
       hidden: this.explore.hiddenSnapshot(),
     };
-    if (includeAsteroids) spaceOut.asteroids = sp.asteroids;
+    // W2 AP3b: bewegte Brocken (Feld b) nur mit Bahnparametern, ohne id (Netzbudget; der Client braucht sie nicht).
+    // Stille Brocken (Kampagne) unverändert.
+    if (includeAsteroids) spaceOut.asteroids = sp.asteroids.length && sp.asteroids[0].b ? sp.asteroids.map((a) => ({ x: a.x, y: a.y, r: a.r, seed: a.seed, b: a.b })) : sp.asteroids;
     // S2 §4: Schützlinge (≤ 2) – Feldliste aus escort.snapshot (SCHUETZLING), sonst nichts
     if (sp.escorts && sp.escorts.length) {
       const E = escortMod();
@@ -1670,6 +1682,7 @@ class Game {
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
           ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl
+          ...(this.lobbyOpts.szene ? { szene: this.lobbyOpts.szene } : {}),   // W2 AP3b: Wellen All – Szenenwahl
           ...this.lobbyLaborSnap() }   // AP3a: Labor, Lobby-Waffen
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,

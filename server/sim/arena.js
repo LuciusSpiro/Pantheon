@@ -4,6 +4,8 @@
 //  - arena_space: Schiff abgelegt in einer Szene ohne Brocken (CONFIG.arena.spaceScene), Crew auf der Brücke,
 //    Pseudo-Mission „Testgelände: Raumkampf“ mit Gegnerwellen (zyklisch). Nächste Welle CONFIG.arena.nextWaveDelay s
 //    nach der Räumung. Schaden, Bots, Notfallprotokoll wie im Spiel.
+//  - arena_space mit Szenenwahl (lobbyOpts.szene, W2 AP3b): „Wellen All“ – frei / nebel / asteroiden / asteroiden_bewegt
+//    (CONFIG.arena.szenen), Ablauf aus wellen.js (Bühne all). Ohne Szene der Altweg oben (Tests).
 //  - arena_away mit Kartenwahl (lobbyOpts.wellen): Bodenkampf: Wellen (wellen.js) auf Außenposten/Station/Ruine/Schiff/Kesh-Hof.
 //  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
 //    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
@@ -21,10 +23,12 @@ function isArena(kind) { return KINDS.includes(kind); }
 function cfg(game) { return game.C.arena; }
 
 // opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
+// opts.szene = Szenenwahl Wellen All (CONFIG.arena.szenen) -> Wellen im Raum; ohne: Altweg (feste Wellen zyklisch)
 function start(game, kind, params, opts) {
   const wk = opts && opts.wellen;
   if (kind === 'arena_away' && wk) return startWellen(game, wk, params);
   if (kind === 'arena_away') return params && params.art ? startAwayBuehne(game, params) : startAway(game);
+  if (opts && opts.szene) return startWellenAll(game, opts.szene);
   return startSpace(game);
 }
 
@@ -95,6 +99,31 @@ function startSpace(game) {
   game.log('Testgelände Raumkampf gestartet.');
 }
 
+// ---------- W2 AP3b: Wellen All (Szenenwahl, Ablauf aus wellen.js) ----------
+function szenen(game) { return cfg(game).szenen || []; }
+function szeneDef(game, id) { return szenen(game).find((s) => s.id === id) || null; }
+function startWellenAll(game, szeneId) {
+  const Z = szeneDef(game, szeneId) || szenen(game)[0];
+  const loc = Locations.get(Z.ort) ? Z.ort : 'b7';
+  const ex = game.explore;
+  if (!ex.known.has(loc)) { ex.known.add(loc); ex.version++; }
+  if (!ex.visited.has(loc)) { ex.visited.add(loc); ex.version++; }
+  // vor enterScene: der Nebel auf dem Server gilt ab dem ersten Tick (space.nebelAktiv)
+  game.arena = { kind: 'arena_space', szene: Z.id, wellen: null };
+  space.enterScene(game, loc, { docked: false, drift: Z.brocken === 'bewegt' });
+  if (Z.brocken === false) game.space.asteroids = [];
+  const ship = game.ship; const sc = Locations.get(loc).scene;
+  // Start: fester Punkt der Szene oder die Ankunft des Orts (makeAsteroids/makeDriftAsteroids halten dort 280 px frei)
+  const p0 = Z.start || sc.arrive;
+  ship.x = p0.x; ship.y = p0.y; ship.angle = p0.angle || 0;
+  ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  repairShip(game);
+  worldFirst(game);
+  placeOnBridge(game);
+  require('./wellen.js').startAll(game, { szene: Z.id, karte: 'all:' + Z.id, seed: wellenSeed(game), name: Z.name });
+  game.mission.startMission('arena_space');   // nach startAll: die Zielanzeige ({arena}) liest den Wellen-Stand
+}
+
 function waveDef(game, n) {
   const W8 = cfg(game).waves;
   return W8[(n - 1) % W8.length];
@@ -143,6 +172,7 @@ function updateSpace(game) {
 function objectiveText(game) {
   const a = game.arena;
   if (!a || a.kind !== 'arena_space') return '';
+  if (a.wellen) return wellenText(game) || '';   // Wellen All
   if (a.active) return `Welle ${a.wave}: Gegner ausschalten (${arenaEnemies(game).length} übrig)`;
   const left = a.nextAt != null ? Math.max(0, Math.ceil(a.nextAt - game.time)) : 0;
   return `Welle ${a.wave + 1} kommt in ${left} s` + (a.cleared ? ` (${a.cleared} geräumt)` : '');
@@ -152,6 +182,7 @@ function objectiveText(game) {
 function skipWave(game) {
   const a = game.arena;
   if (!a || a.kind !== 'arena_space') return;
+  if (a.wellen) { if (a.wellen.ph !== 'ende') require('./wellen.js').debugWelle(game, a.wellen.n + 1); return; }   // Wellen All
   if (a.active) game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG);
   else a.nextAt = game.time;
 }
@@ -274,18 +305,23 @@ function startWellen(game, karte, params) {
 
 function update(game, dt) {
   if (!game.arena) return;
-  if (game.arena.kind === 'arena_space') updateSpace(game);
-  else if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }
+  if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }   // Wellen Boden und Wellen All
+  else if (game.arena.kind === 'arena_space') updateSpace(game);
 }
 // AP3a (Abnahme Wellen Boden): Zielanzeige statt „Frei erkunden – Entdeckungen“ (ohne Mission zeigt mission.js sonst die Erkundung)
-function wellenZiel(game) {
+function wellenText(game) {
   const s = require('./wellen.js').snap(game);
-  if (!s || !game.mission || !game.mission.state || game.mission.activeId) return;
-  const text = s.ph === 'countdown' ? `Welle 1 in ${s.t} s – Deckung suchen`
+  if (!s) return null;
+  const all = game.arena && game.arena.kind === 'arena_space';
+  return s.ph === 'countdown' ? `Welle 1 in ${s.t} s – ${all ? 'auf Station' : 'Deckung suchen'}`
     : s.ph === 'kampf' ? `Welle ${s.n}: Gegner ausschalten (${s.r} übrig)`
       : s.ph === 'pause' ? `Welle ${s.n} überstanden – nächste in ${s.t} s` : `Erreicht: Welle ${s.n}`;
-  game.mission.state.objectives = [{ id: 'welle', text, done: false }];
+}
+function wellenZiel(game) {
+  if (!game.mission || !game.mission.state || game.mission.activeId) return;   // Wellen All: Pseudo-Mission zeigt objectiveText
+  const text = wellenText(game);
+  if (text) game.mission.state.objectives = [{ id: 'welle', text, done: false }];
 }
 function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
 
-module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole, wellenSnap, KARTEN_WELLEN };
+module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };

@@ -1,4 +1,8 @@
 'use strict';
+// Wellenmodi (Boden und All). Der Ablauf ist EINER für beide Bühnen (W2 AP3b): Countdown -> Welle -> Pause -> …,
+// Ende -> Ergebnis (Welle, Zeit, Abschüsse je Spieler) -> Lobby; Snapshot-Block, Debug-Sprung, Abschuss-Zählung.
+// Was je Bühne verschieden ist (Plan, Spawnen, „Crew unten“, Pause-Auffüllen), steht in BUEHNEN.boden bzw. BUEHNEN.all.
+//
 // Bodenkampf: Wellen (Lobby-Start 'arena_away' mit Kartenwahl). Endlos-Wellenmodus auf einer vorgebauten Karte bzw. dem
 // Kesh-Hof. Alle Zahlen in CONFIG.wellen (per `tune wellen.<pfad>`).
 //  - Welle n: Gesamtzahl wächst, Rollen und Karl-Waffen kommen nacheinander dazu (höchstens eine Neuheit je Welle), später
@@ -8,6 +12,8 @@
 //    Kacheln von jedem Spieler versetzt; Kesh über die Kesh-Spawnpunkte. Gebaut wird nie im Tick (Karte beim Start vorgebaut).
 //  - Ablauf: Countdown -> Welle -> Pause (Aufrichten, Befreien, Auffüllen) -> … Ende, wenn die ganze Crew kampfunfähig ist
 //    (Ergebnis: Welle, Zeit, Abschüsse je Spieler), dann zurück in die Lobby. Kein Weltstand.
+// Wellen All (Lobby-Start 'arena_space' mit Szene, arena.js): Raumgegner (space.spawnEnemy), Eskalation nur über Zahl und
+// Typ (planAll, CONFIG.wellen.all). Ende: Notfallprotokoll (Hülle 0). Pause: Gefallene stehen auf, Schilde voll.
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
@@ -89,6 +95,34 @@ function plan(C, n, spieler, rng) {
   return { gesamt: N, liste: geordnet, neu, gemischt };
 }
 
+// Wellen All: planAll(A = CONFIG.wellen.all, n, spieler, rng) -> { gesamt, liste: [{ typ }], neu: { typ? } }
+// Eskalation nur über Zahl (anzahl wie am Boden) und Typ (typenAb, je Welle höchstens ein neuer, der genau einmal kommt).
+// Mindestens jaegerAnteil Jäger; der Rest reihum aus den älteren Typen. Höchstens ein Pylon je Welle (Turm, steht fest).
+function planAll(A, n, spieler, rng) {
+  const r = rng || Math.random;
+  const N = anzahl(A, n, spieler);
+  const typen = reihe(A.typenAb, n);
+  if (!typen.includes('raider')) typen.unshift('raider');
+  const neu = {};
+  const nt = neuIn(A.typenAb, n);
+  if (nt && nt !== 'raider' && n > 1) neu.typ = nt;
+  const liste = [];
+  if (neu.typ) liste.push({ typ: neu.typ });
+  const jaeger = Math.min(N - liste.length, Math.max(1, Math.ceil(N * (Number(A.jaegerAnteil) || 0))));
+  for (let i = 0; i < jaeger; i++) liste.push({ typ: 'raider' });
+  const alt = typen.filter((t) => t !== 'raider' && t !== neu.typ);
+  const off = Math.floor(r() * Math.max(1, alt.length));
+  let pylone = liste.filter((e) => e.typ === 'pylon').length;
+  for (let i = 0; liste.length < N; i++) {
+    let t = alt.length ? alt[(off + i) % alt.length] : 'raider';
+    if (t === 'pylon' && pylone >= 1) t = 'raider';
+    if (t === 'pylon') pylone++;
+    liste.push({ typ: t });
+  }
+  for (let i = liste.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = liste[i]; liste[i] = liste[j]; liste[j] = t; }
+  return { gesamt: N, liste, neu };
+}
+
 // ---------------------------------------------------------------- Laufzeit
 function st(game) { return game.arena && game.arena.wellen ? game.arena.wellen : null; }
 function welleGegner(aw) { return ((aw && aw.drones) || []).filter((e) => e.tag === TAG); }
@@ -104,7 +138,7 @@ function start(game, o) {
   aw.squads = {}; aw.projectiles = [];
   aw.ausbruchErlaubt = false;   // kein Ausbruch: gefangen = kampfunfähig
   const S = {
-    karte: o.karte, seed: o.seed, lp: o.lp, fraktion: o.fraktion || 'raubzug', n: 0, ph: 'countdown', bis: game.time + Number(C.countdown || 0),
+    buehne: 'boden', karte: o.karte, seed: o.seed, lp: o.lp, fraktion: o.fraktion || 'raubzug', n: 0, ph: 'countdown', bis: game.time + Number(C.countdown || 0),
     queue: [], gesamt: 0, start: game.time, kills: {}, abschuesse: 0, lebt: new Set(), proj: [], nachschubAt: 0, suchAt: 0,
     untenSeit: null, squadNr: 0, kandidaten: null, rng: makeRng(((o.seed | 0) * 2654435761 + 7) >>> 0), ergebnis: null, maxLebend: 0,
   };
@@ -345,99 +379,237 @@ const NEU_TEXT = {
 const ROLLE = { grundtyp: 'Karl', niederhalter: 'Bolzer', grenadier: 'Donnerwerfer', schuetze: 'Jäger', enterer: 'Berserker', haescher: 'Wergeld-Fänger' };
 const WAFFE = { schrottblaster: 'Schrottblaster', blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze' };
 
+// ---------------------------------------------------------------- Bühne Boden
+const BODEN = {
+  bereit(game, S) { return !!game.aways[S.lp]; },
+  zaehle(game, S) { zaehleAbschuesse(game, S, game.aways[S.lp]); },
+  // „Crew unten“: alle verbundenen Spieler unten auf der Karte und kampfunfähig (verwundet/bewusstlos/gefesselt)
+  unten(game) { const crew = team(game); return !!crew.length && crew.every((p) => p.zone === 'away' && p.downed); },
+  stehend(game, S) { const aw = game.aways[S.lp]; return aw ? stehend(aw).length : 0; },
+  plan(game, S, n) {
+    const P = plan(cfg(game), n, Math.max(1, Math.min(3, team(game).length)), S.rng);
+    if (P.neu.rolle) {
+      // Ankündigung zu Wellenbeginn; als gesehen vermerken, damit combat.rolleGesehen sie beim ersten Anblick nicht noch einmal meldet
+      try { const ws = game.weltstand; if (ws && typeof ws.rolleGesehen === 'function') ws.rolleGesehen(P.neu.rolle); } catch (e) { /* ohne Weltstand */ }
+    }
+    const extra = [];
+    if (P.neu.rolle) extra.push(NEU_TEXT.rolle(P.neu.rolle));
+    if (P.neu.waffe) extra.push(NEU_TEXT.waffe(P.neu.waffe));
+    if (P.neu.rang) extra.push('Häuptlinge führen die Trupps.');
+    if (P.neu.gemischt) extra.push('Ab jetzt gemischte Trupps.');
+    return { gesamt: P.gesamt, liste: P.liste, neu: P.neu, extra };
+  },
+  angekuendigt(game, S, P) { if (P.neu.rolle) game.emit('rolleNeu', { rolle: P.neu.rolle }); },
+  // Erstbesetzung: so viele Trupps wie Platz ist (verschiedene Eingänge)
+  erstbesetzung(game, S) {
+    const C = cfg(game); const aw = game.aways[S.lp];
+    S.suchAt = game.time + 2;
+    let guard = 0;
+    while (S.queue.length && imSpiel(aw) < C.maxLebend && guard++ < 12) {
+      const k = Math.min(Number(C.truppGroesse) || 3, C.maxLebend - imSpiel(aw), S.queue.length);
+      if (!spawnTrupp(game, S, aw, k)) break;
+    }
+    S.nachschubAt = game.time + (Number(C.nachschubTakt) || 2);
+  },
+  // Kampf: Körper-Budget, Nachschub, Suche
+  kampf(game, S) {
+    const C = cfg(game); const aw = game.aways[S.lp];
+    koerperBudget(game, S, aw);
+    S.maxLebend = Math.max(S.maxLebend, stehend(aw).length);
+    const belegt = imSpiel(aw);
+    if (S.queue.length && belegt < C.maxLebend && game.time >= S.nachschubAt) {
+      const k = Math.min(Number(C.truppGroesse) || 3, C.maxLebend - belegt, S.queue.length);
+      spawnTrupp(game, S, aw, k);
+      S.nachschubAt = game.time + (Number(C.nachschubTakt) || 2);
+    }
+    suchen(game, S, aw);
+  },
+  wegraeumen(game, S) { const aw = game.aways[S.lp]; if (aw) aw.drones = aw.drones.filter((e) => e.tag !== TAG); },
+  // Aufrichten, Befreien, Auffüllen (wie Medipack: combat.revive bzw. voller Schild + Wunden)
+  auffuellen(game, S) {
+    const cb = M().combat; const aw = game.aways[S.lp];
+    const oben = [];
+    for (const p of team(game)) {
+      if (p.zone === 'away') {
+        if (p.downed) cb.revive(game, p, null);
+        else { cb.fullShield(game, p); if (p.wunden) p.wunden.n = p.wunden.max; p.betaeubtBis = 0; }
+      } else if (!p.console) oben.push(p.id);
+    }
+    if (oben.length && game.away === aw) M().away.executeBeam(game, oben, 'down');
+  },
+  geschafftText: (S, pause) => `Welle ${S.n} überstanden! Alle auf den Beinen – nächste Welle in ${pause} s.`,
+  einfrieren(game, S) { for (const e of welleGegner(game.aways[S.lp])) { e.frozen = true; e.aim = null; e.path = null; } },
+  endeTick(game, S) { const aw = game.aways[S.lp]; if (aw) aw.recallT = -1e6; },   // keine Notrückholung während der Ergebnisanzeige
+  endeText: (S) => `Die Crew ist am Boden. Erreicht: Welle ${S.n}.`,
+};
+
+// ---------------------------------------------------------------- Bühne All (Raum)
+const TYP_NAME = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const cfgAll = (game) => (game.C.wellen && game.C.wellen.all) || {};
+function spaceMod() { return require('./space.js'); }
+function allGegner(game) { return game.space.enemies.filter((e) => e.tag === TAG); }
+// Spawnpunkt: spawnAbstand px vom Schiff, Richtung Feldmitte ± 70°, frei von Brocken (still: aktuelle Lage; bewegt: Bahn)
+function allPunkt(game, S, typ) {
+  const A = cfgAll(game); const ship = game.ship; const sp = game.space;
+  const pylon = typ === 'pylon';
+  const R = pylon ? Number(A.pylonAbstand) || 480 : Number(A.spawnAbstand) || 900;
+  const base = Math.atan2(sp.h / 2 - ship.y, sp.w / 2 - ship.x);
+  const Drift = require('../../shared/drift.js');
+  const bahnen = sp.asteroids.map((a) => ({ a, s: Drift.strecke(a) }));
+  let best = null;
+  for (let i = 0; i < 12; i++) {
+    const ang = base + (S.rng() - 0.5) * 2.4;
+    const x = Math.max(80, Math.min(sp.w - 80, ship.x + Math.cos(ang) * R));
+    const y = Math.max(80, Math.min(sp.h - 80, ship.y + Math.sin(ang) * R));
+    const frei = bahnen.every((q) => Drift.punktStrecke(x, y, q.s) > q.a.r + (pylon ? 90 : 50));
+    if (frei) return { x, y };
+    if (!best) best = { x, y };
+  }
+  return best;
+}
+function allSpawn(game, S, k) {
+  let n = 0;
+  for (let i = 0; i < k && S.queue.length; i++) {
+    const g = S.queue.shift();
+    const p = allPunkt(game, S, g.typ);
+    const e = spaceMod().spawnEnemy(game, g.typ, { tag: TAG, x: p.x, y: p.y });
+    S.lebt.add(e.id); n++;
+  }
+  return n;
+}
+// Abschüsse: Gegner der Welle, der aus space.enemies verschwand (zerstört oder treibt). Schütze = Spieler an der Taktik,
+// sonst an der Steuer (Bolzen/Rammen); unbesetzt (Automatik) zählt für niemanden.
+function allZaehle(game, S) {
+  const da = new Set(allGegner(game).map((e) => e.id));
+  for (const id of [...S.lebt]) {
+    if (da.has(id)) continue;
+    S.lebt.delete(id);
+    S.abschuesse++;
+    const p = game.players.find((q) => q.connected && q.console === 'weapons') || game.players.find((q) => q.connected && q.console === 'helm');
+    if (p) S.kills[p.id] = (S.kills[p.id] || 0) + 1;
+  }
+}
+const ALL = {
+  bereit() { return true; },
+  zaehle: allZaehle,
+  // „Crew unten“ im Raum: das Notfallprotokoll hat gegriffen (Hülle 0) – kein Game Over, die Runde endet
+  unten(game, S) { return (game.stats.emergencies || 0) > S.em0; },
+  stehend(game) { return allGegner(game).length; },
+  plan(game, S, n) {
+    const P = planAll(cfgAll(game), n, Math.max(1, Math.min(3, team(game).length)), S.rng);
+    const extra = P.neu.typ ? [`Neu: ${TYP_NAME[P.neu.typ] || P.neu.typ}.`] : [];
+    const cnt = {};
+    for (const e of P.liste) cnt[e.typ] = (cnt[e.typ] || 0) + 1;
+    extra.unshift(Object.keys(cnt).map((k) => (cnt[k] > 1 ? cnt[k] + '× ' : '') + (TYP_NAME[k] || k)).join(', ') + '.');
+    return { gesamt: P.gesamt, liste: P.liste, neu: P.neu, extra };
+  },
+  angekuendigt() {},
+  erstbesetzung(game, S) {
+    const A = cfgAll(game);
+    allSpawn(game, S, Math.min(Number(A.maxLebend) || 6, S.queue.length));
+    S.nachschubAt = game.time + (Number(A.nachschubTakt) || 4);
+  },
+  kampf(game, S) {
+    const A = cfgAll(game);
+    const l = allGegner(game).length;
+    S.maxLebend = Math.max(S.maxLebend, l);
+    if (S.queue.length && l < (Number(A.maxLebend) || 6) && game.time >= S.nachschubAt) {
+      allSpawn(game, S, Math.min(Number(A.truppGroesse) || 2, (Number(A.maxLebend) || 6) - l, S.queue.length));
+      S.nachschubAt = game.time + (Number(A.nachschubTakt) || 4);
+    }
+  },
+  wegraeumen(game) { game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG); },
+  // Pause: Gefallene an Bord stehen auf, Schilde voll (Hülle bleibt – reparieren ist Arbeit der Crew)
+  auffuellen(game) {
+    const it = M().interior;
+    for (const p of team(game)) if (p.downed && typeof it.revivePlayer === 'function') it.revivePlayer(game, p);
+    const sh = game.ship.shields;
+    if (sh && Array.isArray(sh.alloc)) sh.current = sh.alloc.slice();
+  },
+  geschafftText: (S, pause) => `Welle ${S.n} geräumt! Schilde geladen – nächste Welle in ${pause} s. Kurz reparieren.`,
+  // Ende: Gegner drehen ab und schießen nicht mehr (Ergebnisanzeige ohne weitere Treffer)
+  einfrieren(game) {
+    game.ship.holdFireUntil = game.time + 1e6;
+    for (const e of allGegner(game)) { e.retreatUntil = game.time + 1e6; e.tele = null; }
+  },
+  endeTick() {},
+  endeText: (S) => `Notfallprotokoll – die Runde ist vorbei. Erreicht: Welle ${S.n}.`,
+};
+const BUEHNEN = { boden: BODEN, all: ALL };
+function buehne(S) { return BUEHNEN[S.buehne] || BODEN; }
+
+// start All (arena.js): Szene steht, Schiff abgelegt, Crew an Bord. o = { szene, karte, seed, name }
+function startAll(game, o) {
+  const C = cfg(game);
+  const S = {
+    buehne: 'all', karte: o.karte, szene: o.szene, seed: o.seed, lp: null, n: 0, ph: 'countdown', bis: game.time + Number(C.countdown || 0),
+    queue: [], gesamt: 0, start: game.time, kills: {}, abschuesse: 0, lebt: new Set(), nachschubAt: 0,
+    untenSeit: null, rng: makeRng(((o.seed | 0) * 2654435761 + 11) >>> 0), ergebnis: null, maxLebend: 0,
+    em0: game.stats.emergencies || 0,
+  };
+  game.arena.wellen = S;
+  game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Taktik, Captain auf Station.`, null);
+  game.log(`Wellen All gestartet: ${o.szene} Seed ${o.seed}.`);
+  return S;
+}
+
+// ---------------------------------------------------------------- gemeinsamer Ablauf
 function beginne(game, S, n) {
-  const aw = game.aways[S.lp];
-  const sp = Math.max(1, Math.min(3, team(game).length));
-  const P = plan(cfg(game), n, sp, S.rng);
-  S.n = n; S.queue = P.liste.slice(); S.gesamt = P.gesamt; S.ph = 'kampf'; S.bis = null; S.nachschubAt = 0; S.suchAt = game.time + 2;
+  const B = buehne(S);
+  const P = B.plan(game, S, n);
+  S.n = n; S.queue = P.liste.slice(); S.gesamt = P.gesamt; S.ph = 'kampf'; S.bis = null; S.nachschubAt = 0;
   S.welleStart = game.time;
   game.emit('welle', { n, gesamt: P.gesamt, neu: P.neu });
-  if (P.neu.rolle) {
-    // Ankündigung zu Wellenbeginn; als gesehen vermerken, damit combat.rolleGesehen sie beim ersten Anblick nicht noch einmal meldet
-    try { const ws = game.weltstand; if (ws && typeof ws.rolleGesehen === 'function') ws.rolleGesehen(P.neu.rolle); } catch (e) { /* ohne Weltstand */ }
-    game.emit('rolleNeu', { rolle: P.neu.rolle });
-  }
-  const extra = [];
-  if (P.neu.rolle) extra.push(NEU_TEXT.rolle(P.neu.rolle));
-  if (P.neu.waffe) extra.push(NEU_TEXT.waffe(P.neu.waffe));
-  if (P.neu.rang) extra.push('Häuptlinge führen die Trupps.');
-  if (P.neu.gemischt) extra.push('Ab jetzt gemischte Trupps.');
-  game.oda(`Welle ${n}: ${P.gesamt} Gegner.${extra.length ? ' ' + extra.join(' ') : ''}`, null);
+  B.angekuendigt(game, S, P);
+  game.oda(`Welle ${n}: ${P.gesamt} Gegner.${P.extra.length ? ' ' + P.extra.join(' ') : ''}`, null);
   game.emit('sfx', { name: 'alarm_red' });
-  // Erstbesetzung: so viele Trupps wie Platz ist (verschiedene Eingänge)
-  const C = cfg(game);
-  let guard = 0;
-  while (S.queue.length && imSpiel(aw) < C.maxLebend && guard++ < 12) {
-    const k = Math.min(Number(C.truppGroesse) || 3, C.maxLebend - imSpiel(aw), S.queue.length);
-    if (!spawnTrupp(game, S, aw, k)) break;
-  }
-  S.nachschubAt = game.time + (Number(C.nachschubTakt) || 2);
+  B.erstbesetzung(game, S);
 }
 
-function geschafft(game, S, aw) {
-  const C = cfg(game); const cb = M().combat;
+function geschafft(game, S) {
+  const C = cfg(game); const B = buehne(S);
   S.ph = 'pause'; S.bis = game.time + Number(C.pause || 0);
-  aw.drones = aw.drones.filter((e) => e.tag !== TAG);
-  for (const id of [...S.lebt]) S.lebt.delete(id);
-  // Aufrichten, Befreien, Auffüllen (wie Medipack: combat.revive bzw. voller Schild + Wunden)
-  const oben = [];
-  for (const p of team(game)) {
-    if (p.zone === 'away') {
-      if (p.downed) cb.revive(game, p, null);
-      else { cb.fullShield(game, p); if (p.wunden) p.wunden.n = p.wunden.max; p.betaeubtBis = 0; }
-    } else if (!p.console) oben.push(p.id);
-  }
-  if (oben.length && game.away === aw) M().away.executeBeam(game, oben, 'down');
+  B.wegraeumen(game, S);
+  S.lebt.clear();
+  B.auffuellen(game, S);
   game.emit('welleGeschafft', { n: S.n, pause: Number(C.pause || 0) });
-  game.oda(`Welle ${S.n} überstanden! Alle auf den Beinen – nächste Welle in ${Math.round(C.pause)} s.`, null);
+  game.oda(B.geschafftText(S, Math.round(C.pause)), null);
 }
 
-function ende(game, S, aw) {
-  const C = cfg(game);
+function ende(game, S) {
+  const C = cfg(game); const B = buehne(S);
   S.ph = 'ende'; S.bis = game.time + Number(C.ergebnisZeit || 10);
-  for (const e of welleGegner(aw)) { e.frozen = true; e.aim = null; e.path = null; }
+  B.einfrieren(game, S);
   const zeit = Math.round(game.time - S.start);
   const kills = game.players.map((p) => [p.id, p.name, S.kills[p.id] || 0]);
   S.ergebnis = { karte: S.karte, seed: S.seed, welle: S.n, geschafft: Math.max(0, S.n - 1), zeit, kills, ...(S.debug ? { debug: true } : {}) };
+  if (S.buehne === 'all') S.ergebnis.brocken = Object.assign({ lerche: 0, gegner: 0, schuesse: 0, strahlen: 0 }, game.stats.brocken || {});
   game.emit('wellenEnde', S.ergebnis);
-  game.oda(`Die Crew ist am Boden. Erreicht: Welle ${S.n}.`, null);
+  game.oda(B.endeText(S), null);
   game.log(`Wellen Ende: ${S.karte} Seed ${S.seed}, Welle ${S.n}, ${zeit} s, Abschüsse ${kills.map((k) => k[1] + ' ' + k[2]).join(', ')}.`);
 }
 
 function update(game, dt) {
   const S = st(game);
   if (!S || game.phase !== 'play') return;
-  const C = cfg(game);
-  const aw = game.aways[S.lp];
-  if (!aw) return;
+  const C = cfg(game); const B = buehne(S);
+  if (!B.bereit(game, S)) return;
   if (S.ph === 'ende') {
-    aw.recallT = -1e6;   // keine Notrückholung während der Ergebnisanzeige
+    B.endeTick(game, S);
     if (game.time >= S.bis) zurLobby(game);
     return;
   }
-  zaehleAbschuesse(game, S, aw);
-  // Ende: alle verbundenen Spieler unten auf der Karte und kampfunfähig (verwundet/bewusstlos/gefesselt)
-  const crew = team(game);
-  const unten = crew.length && crew.every((p) => p.zone === 'away' && p.downed);
-  if (unten && S.ph !== 'countdown') {
+  B.zaehle(game, S);
+  if (B.unten(game, S) && S.ph !== 'countdown') {
     if (S.untenSeit == null) S.untenSeit = game.time;
-    if (game.time - S.untenSeit >= Number(C.endeNach || 0)) { ende(game, S, aw); return; }
+    if (game.time - S.untenSeit >= Number(C.endeNach || 0)) { ende(game, S); return; }
   } else S.untenSeit = null;
   if (S.ph === 'countdown' || S.ph === 'pause') {
     if (game.time >= S.bis) beginne(game, S, S.n + 1);
     return;
   }
-  // Kampf: Nachschub, Suche, Wellenende
-  koerperBudget(game, S, aw);
-  S.maxLebend = Math.max(S.maxLebend, stehend(aw).length);
-  const belegt = imSpiel(aw);
-  if (S.queue.length && belegt < C.maxLebend && game.time >= S.nachschubAt) {
-    const k = Math.min(Number(C.truppGroesse) || 3, C.maxLebend - belegt, S.queue.length);
-    spawnTrupp(game, S, aw, k);
-    S.nachschubAt = game.time + (Number(C.nachschubTakt) || 2);
-  }
-  suchen(game, S, aw);
-  if (!S.queue.length && !stehend(aw).length) geschafft(game, S, aw);
+  B.kampf(game, S);
+  if (!S.queue.length && !B.stehend(game, S)) geschafft(game, S);
 }
 
 function zurLobby(game) {
@@ -448,22 +620,20 @@ function zurLobby(game) {
 function snap(game) {
   const S = st(game);
   if (!S) return null;
-  const aw = game.aways[S.lp];
-  const l = aw ? stehend(aw).length : 0;
+  const l = buehne(S).stehend(game, S);
   return { k: S.karte, s: S.seed, n: S.n, ph: S.ph, t: S.bis != null ? Math.max(0, Math.ceil(S.bis - game.time)) : 0, r: S.ph === 'kampf' ? S.queue.length + l : 0, l };
 }
 
 // Debug `welle <n>` (nur --debug): aktuelle Gegner weg, sofort Welle n
 function debugWelle(game, n) {
   const S = st(game);
-  if (!S) return 'welle: nur im Wellenmodus (Bodenkampf: Wellen).';
+  if (!S) return 'welle: nur im Wellenmodus (Wellen Boden / Wellen All).';
   const k = Math.max(1, Math.min(999, Math.round(Number(n)) || 1));
   if (S.ph === 'ende') return 'welle: die Runde ist vorbei.';
-  const aw = game.aways[S.lp];
-  if (aw) aw.drones = aw.drones.filter((e) => e.tag !== TAG);
+  buehne(S).wegraeumen(game, S);
   S.lebt.clear(); S.untenSeit = null; S.debug = true;   // Runde mit Debug-Sprung zählt nicht als Rekord
   beginne(game, S, k);
   return null;
 }
 
-module.exports = { TAG, plan, anzahl, haeuptlinge, start, update, snap, debugWelle, kandidaten, spawnPlatz, _st: st };
+module.exports = { TAG, plan, planAll, anzahl, haeuptlinge, start, startAll, update, snap, debugWelle, kandidaten, spawnPlatz, BUEHNEN, _st: st };

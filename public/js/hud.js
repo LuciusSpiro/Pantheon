@@ -180,7 +180,13 @@
     // Snapshot wellen { k, s, n, ph, t, r, l } (shared/protocol.js); Ereignisse welle/welleGeschafft/wellenEnde setzt client.js
     // in wellenBanner/wellenErgebnis. Rekorde je Karte: wellenRekorde (localStorage, client.js).
     wellenBanner: null, wellenErgebnis: null, wellenRekorde: {},
-    wellenKarteName(k) { const P = window.Shared_Protocol || {}; return (P.WELLEN_KARTEN_NAMEN && P.WELLEN_KARTEN_NAMEN[k]) || k || '–'; },
+    wellenKarteName(k) {
+      const P = window.Shared_Protocol || {};
+      if (/^all:/.test(k || '')) { const z = this.allSzene(k.slice(4)); return 'All: ' + (z ? z.name : k.slice(4)); }   // W2 AP3b: Wellen All
+      return (P.WELLEN_KARTEN_NAMEN && P.WELLEN_KARTEN_NAMEN[k]) || k || '–';
+    },
+    // W2 AP3b: Szenen von Wellen All (CONFIG.arena.szenen)
+    allSzene(id) { return ((CFG.arena && CFG.arena.szenen) || []).find(z => z.id === id) || null; },
     drawWellen(ctx, view, inConsole) {
       const w = view.state.wellen;
       const t = performance.now();
@@ -199,8 +205,9 @@
       }
       // Banner Mitte oben: Countdown/Pause dauerhaft, Wellenbeginn kurz
       let big = null, sub = null, bc = PAL.amber;
-      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = 'Deckung suchen – sie kommen von den Eingängen'; }
-      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
+      const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
+      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Taktik, Captain auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
+      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
       if (big && w.ph !== 'ende') {
         const scale = R.measure(big, 2) > VW - 40 ? 1 : 2;
@@ -232,6 +239,11 @@
         R.text(ctx, String(n), x + bw - 30, ly, { color: PAL.star, align: 'right' });
         ly += 11;
       }
+      if (e && e.brocken) {   // W2 AP3b: Wellen All – Treffer durch Brocken
+        const b = e.brocken;
+        R.text(ctx, 'Brocken: Lerche ' + (b.lerche || 0) + ' · Gegner ' + (b.gegner || 0) + ' · Schüsse ' + ((b.schuesse || 0) + (b.strahlen || 0)), VW / 2, ly + 2, { color: PAL.panelLight, align: 'center' });
+        ly += 12;
+      }
       ly += 6;
       const rek = (this.wellenRekorde || {})[w.k];
       if (e && e.debug) R.text(ctx, 'Debug-Sprung – zählt nicht als Rekord', VW / 2, ly, { color: PAL.panelLight, align: 'center' });
@@ -255,6 +267,27 @@
       const last = this.wellenErgebnis;
       let info = rek ? 'Rekord: Welle ' + rek.welle + ' · ' + fmtTime(rek.zeit) : k ? 'Noch kein Rekord' : 'K: Karte wählen';
       if (last && k && last.karte === (url ? url.art : k)) info += ' · zuletzt W' + last.welle;
+      R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
+    },
+
+    // W2 AP3b: Lobby-Block Wellen All – Szenenwahl (K), Rekord je Szene; ersetzt dort den Block HAFEN-ÜBUNG
+    drawLobbyAll(ctx, view, rx, rw, me) {
+      const lob = (view.state && view.state.lobby) || {};
+      const z = lob.szene ? this.allSzene(lob.szene) : null;
+      const list = (CFG.arena && CFG.arena.szenen) || [];
+      const i = z ? list.indexOf(z) + 1 : 0;
+      R.text(ctx, 'SZENE', rx, 164, { color: PAL.brass });
+      R.text(ctx, z ? i + '/' + list.length + ' · K' : '', rx + rw, 164, { color: PAL.panelLight, align: 'right' });
+      R.button(ctx, rx, 174, rw, 16, z ? z.name : 'Altweg (ohne Wellen)', {
+        hotkey: 'K', active: !!z, disabled: !me, reason: 'Noch nicht verbunden',
+        onClick: () => view.actions.toggleWellenKarte && view.actions.toggleWellenKarte(),
+      });
+      const key = z ? 'all:' + z.id : null;
+      const rek = key ? (this.wellenRekorde || {})[key] : null;
+      const last = this.wellenErgebnis;
+      const art = !z ? 'K: Szene wählen' : z.brocken === false ? 'ohne Brocken' : z.brocken === 'bewegt' ? 'Brocken treiben' : z.ort === 'nebel' ? 'Nebel: halbe Reichweite' : 'Brocken stehen';
+      let info = (rek ? 'Rekord W' + rek.welle + ' · ' + fmtTime(rek.zeit) : art);
+      if (last && key && last.karte === key) info += ' · zuletzt W' + last.welle;
       R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
     },
 
@@ -1014,6 +1047,7 @@
       const startHint = (P.START_HINTS && P.START_HINTS[startId]) || { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
       const skip = !!(st.lobby && st.lobby.skipDrill);
       if (startId === 'arena_away' && !resume) this.drawLobbyWellen(ctx, view, rx, rw, me);   // Bodenkampf: Wellen – Kartenwahl statt Übung
+      else if (startId === 'arena_space' && !resume) this.drawLobbyAll(ctx, view, rx, rw, me);   // W2 AP3b: Wellen All – Szenenwahl
       else if (startId === 'labor' && !resume) this.drawLobbyLabor(ctx, view, rx, rw, me);   // AP3a: Szenario-Labor
       else {
         R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });

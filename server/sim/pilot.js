@@ -8,6 +8,7 @@
 // Keine Abhängigkeit zu space.js (sonst Zirkelbezug) – alles kommt über game.
 const Flight = require('../../shared/flight.js');
 const Physics = require('../../shared/physics.js');
+const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage (Freigabe Studioleitung: nur avoid/keepApart)
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -146,7 +147,10 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
 // ---------- Kanonenboot: Stationshalten im Bezugssystem der Lerche ----------
 function gunboat(game, e, c, dt) {
   const p = P(game); const L = targetOf(game, e);
-  const R = p.gunboatRange; const lead = p.lead;
+  // W2 AP3b (Freigabe Studioleitung): Abstand höchstens wirksame Breitseitenreichweite − 40 (im Nebel kürzer, wie bei der Lerche)
+  const bs = Math.max(0, ...((game.C.enemyWeapons && game.C.enemyWeapons.gunboat) || []).map((w) => w.range || 0));
+  const R = bs > 0 && typeof game.waffenReichweite === 'function' ? Math.min(p.gunboatRange, game.waffenReichweite(bs) - 40) : p.gunboatRange;
+  const lead = p.lead;
   const tv = Math.hypot(L.vx, L.vy);
   const base = tv > 15 ? Math.atan2(L.vy, L.vx) : L.angle;   // Bezugsrichtung: Fahrtrichtung, sonst Bug
   const dx = L.x - e.x, dy = L.y - e.y; const d = Math.hypot(dx, dy) || 1;
@@ -206,7 +210,8 @@ function gunboat(game, e, c, dt) {
   }
   // Lerche (fast) im Stand, Boot nah am Sollpunkt: quer liegen bleiben (Bug parallel oder antiparallel – beides ist
   // Breitseite) und nur mit ¼ / Stopp / Rückwärts nachrücken, statt Kreise zu fahren
-  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190) {
+  // (W2: nur, solange die Lerche in Reichweite der Breitseite liegt – sonst nachrücken statt außer Reichweite liegen bleiben)
+  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= p.gunboatRange || d <= R + 40)) {
     const hd = Math.cos(norm(base - e.angle)) >= 0 ? base : norm(base + Math.PI);
     const along = ex * Math.cos(e.angle) + ey * Math.sin(e.angle);
     const stage = along > 40 ? stageNear(c, 0.25) : along < -40 ? 0 : Flight.stopStage(c);
@@ -348,6 +353,15 @@ function avoid(game, e, c, head) {
   const others = [{ id: '', x: L.x, y: L.y, vx: L.vx, vy: L.vy, r: (game.C.flight && game.C.flight.radius) || 36 }];
   for (const q of sp.enemies) if (q !== e) others.push({ id: q.id, x: q.x, y: q.y, vx: q.vx || 0, vy: q.vy || 0, r: (shipClass(game, q.kind) || {}).radius || 20 });
   if (sp.escorts) for (const q of sp.escorts) if (q !== e) others.push({ id: q.id, x: q.x, y: q.y, vx: q.vx || 0, vy: q.vy || 0, r: (shipClass(game, q.kind) || {}).radius || 30 });   // S2
+  // W2 AP3b (E4): Brocken sind Hindernisse wie Schiffe (bewegte mit ihrer Drift-Geschwindigkeit). Lage aus shared/drift.js –
+  // dieselbe Funktion wie space.js und Client. Berühren wird nicht hier verhindert: das macht space.js für alle gleich
+  // (hinausschieben, Treffer wie bei der Lerche).
+  if (sp.asteroids && sp.asteroids.length) {
+    for (const a of Drift.jetzt(sp.asteroids, game.time)) {
+      if (Math.abs(a.x - e.x) > 700 || Math.abs(a.y - e.y) > 700) continue;
+      others.push({ id: a.id, x: a.x, y: a.y, vx: a.vx || 0, vy: a.vy || 0, r: a.r });
+    }
+  }
   for (const o of others) {
     const thr = Math.max(p.minSeparation, myR + o.r) + 40;
     const look = clamp(1.2 / (c.turnRate || 1), 0.6, 2);   // träge Schiffe schauen weiter voraus

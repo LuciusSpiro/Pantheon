@@ -427,6 +427,8 @@
       const msg = { t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next };
       // Bodenkampf: Wellen – die Kartenwahl geht immer mit (ohne sie startet der Server den Altweg Kesh/m3)
       if (next === 'arena_away') msg.wellen = (st && st.lobby && st.lobby.wellen) || (P.WELLEN_KARTEN || ['aussenposten'])[0];
+      // W2 AP3b: Wellen All – die Szenenwahl geht immer mit (ohne sie startet der Server den Altweg „Testgelände Raumkampf“)
+      if (next === 'arena_space') msg.szene = (st && st.lobby && st.lobby.szene) || (allSzenen()[0] || {}).id || null;
       send(msg);
       audio.play('ui_click');
     },
@@ -475,6 +477,14 @@
     // Bodenkampf: Wellen – Karte reihum (Taste K / Klick); jeder darf umschalten, alle sehen die Wahl
     toggleWellenKarte() {
       const st = Client.state;
+      if (st && st.lobby && st.lobby.startMission === 'arena_space') {   // W2 AP3b: Wellen All – Szene reihum (K)
+        const list = allSzenen().map((z) => z.id);
+        if (!list.length) return;
+        const cur = st.lobby.szene;
+        send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', szene: cur ? list[(list.indexOf(cur) + 1) % list.length] : list[0] });
+        audio.play('ui_click');
+        return;
+      }
       if (!st || !st.lobby || st.lobby.startMission !== 'arena_away') return;
       const list = P.WELLEN_KARTEN || ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'];
       const cur = st.lobby.wellen;
@@ -570,6 +580,7 @@
   function onSnap(s) {
     const prev = Client.state;
     if (s.space && !s.space.asteroids) s.space.asteroids = (prev && prev.space && prev.space.asteroids) || [];
+    s._empfangen = performance.now();   // W2 AP3b: Brocken-Drift zwischen zwei Snapshots weiterrechnen (render.js)
     if (!s.players) s.players = [];
     // M1: statische Ortsdaten kommen nur alle 15 Snapshots (oder bei Änderung) – letzte Liste behalten
     if (prev && prev.world) {
@@ -936,6 +947,7 @@
         const neu = ev.neu || {};
         const teile = [];
         if (neu.waffe) teile.push('Karl trägt jetzt ' + (H.WAFFE_NAME[neu.waffe] || neu.waffe));
+        if (neu.typ) teile.push('neu: ' + ({ raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kustoden-Wächter', pylon: 'Pylon' }[neu.typ] || neu.typ));   // W2: Wellen All
         if (neu.rang) teile.push('Häuptlinge führen die Trupps');
         if (neu.gemischt) teile.push('gemischte Trupps');
         H.wellenBanner = { text: 'WELLE ' + ev.n, sub: ev.gesamt + ' Gegner' + (teile.length ? ' · ' + teile.join(' · ') : ''), t0: performance.now() };
@@ -944,7 +956,7 @@
         return true;
       }
       case 'welleGeschafft':
-        H.wellenBanner = { text: 'WELLE ' + ev.n + ' ÜBERSTANDEN', sub: 'Alle wieder auf den Beinen', t0: performance.now() };
+        H.wellenBanner = { text: 'WELLE ' + ev.n + ' ÜBERSTANDEN', sub: Client.state && Client.state.wellen && /^all:/.test(Client.state.wellen.k || '') ? 'Schilde geladen – kurz reparieren' : 'Alle wieder auf den Beinen', t0: performance.now() };
         audio.play('repair_done');
         return true;
       case 'wellenEnde':
@@ -958,6 +970,8 @@
       default: return false;
     }
   }
+  // W2 AP3b: Szenen von Wellen All (CONFIG.arena.szenen)
+  function allSzenen() { return (CFG.arena && Array.isArray(CFG.arena.szenen)) ? CFG.arena.szenen : []; }
   // Bodenkampf: Wellen – Rekord je Karte nur im Browser (localStorage; ohne Speicher einfach kein Rekord)
   const REKORD_KEY = 'pantheon.wellen.rekord';
   function wellenRekorde() {
@@ -2054,8 +2068,11 @@
       Net.guard('Render.drawWorld', () => R.drawWorld(ctx, v));
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       Net.guard('Hud.draw', () => H.draw(ctx, v));
-      if (v.me.console) Net.guard('Consoles.draw', () => K.draw(ctx, v));
-      else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
+      if (v.me.console) {
+        Net.guard('Consoles.draw', () => K.draw(ctx, v));
+        // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
+        if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
+      } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
       if (Client.chapter) Net.guard('Hud.drawChapter', () => H.drawChapter(ctx, v, Client.chapter));   // S2

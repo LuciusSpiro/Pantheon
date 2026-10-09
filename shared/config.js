@@ -187,7 +187,10 @@
       pylon: [{ facing: 0, arc: 60, range: 460 }],
       relay: [],
     },
-    sensors: { range: 1400, fogFactor: 0.5 },
+    // W2 AP3b: Nebel wirkt auf dem Server (space.js nebelFaktor): Sensor- und Zielerfassungs-Reichweite × fogFactor, für die
+    // Lerche und die Gegner gleich. nebelServer: 'wellen' = nur in Wellen All; 'immer' = auch in der Kampagne. Die Kampagne
+    // bleibt vorerst aus: mit 'immer' blieben im Golden alle 20 m2-solo- und 20 m2-zu-dritt-Läufe am Kustoden-Relais hängen.
+    sensors: { range: 1400, fogFactor: 0.5, nebelServer: 'wellen' },
     tscan: { range: 800, time: 2, holdTimeout: 0.5 },          // Ziel-Scan der Taktik (S halten)
     widescan: { cooldown: 20, radius: 1000 },                  // Weitscan (W)
     emp: { offlineTime: 12 },                                  // EMP-Treffer durch die Schilde: System offline
@@ -306,6 +309,17 @@
         ['gunboat', 'raider'], ['pylon', 'gunboat']],   // M3a §15: Wellen 4 und 5 (jetzt 5 und 6)
       pylonAt: { dx: 120, dy: -430 },   // M3a: Pylon fest relativ zu shipPos (im Backbord-Bogen der Startlage)
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
+      // W2 AP3b „Wellen All“: Szenenwahl mit K (lobbyOpt { startMission: 'arena_space', szene }). Ohne Szene bleibt arena_space
+      // der Altweg oben (feste Wellen zyklisch, Tests). ort = Raumszene aus shared/locations.js; brocken: false = ohne Brocken,
+      // 'bewegt' = deterministische Drift (shared/drift.js). start: Startpunkt der Lerche (sonst die Ankunft des Orts, frei von Brocken).
+      szenen: [
+        { id: 'frei', name: 'Freier Raum', ort: 'b7', brocken: false, start: { x: 1100, y: 1500, angle: 0 } },
+        { id: 'nebel', name: 'Nebel', ort: 'nebel' },
+        { id: 'asteroiden', name: 'Asteroiden still', ort: 'splitter' },
+        { id: 'asteroiden_bewegt', name: 'Asteroiden bewegt', ort: 'splitter', brocken: 'bewegt' },
+      ],
+      // Bahnen der bewegten Brocken: Höchsttempo px/s, halbe Bahnlänge px, Eigendrehung rad/s (±)
+      drift: { tempo: [12, 40], amplitude: [80, 240], drehung: 0.6 },
     },
 
     // Lobby (CONTRACT-W2 §1, AP3a)
@@ -340,6 +354,19 @@
       waffenAb: { schrottblaster: 1, blaster: 3, sturmgewehr: 5, granatwerfer: 7, lanze: 9 },
       rang: { ab: 11, alleWellen: 3, max: 3, wunden: 2 },   // Häuptlinge (rank 1): ab Welle, +1 je alleWellen, Wunden wie Enterer
       gemischtAb: 12,          // ab dieser Welle gemischte Trupps (vorher ein Trupp = eine Rolle)
+      // W2 AP3b „Wellen All“ (Raum): derselbe Ablauf (countdown, pause, endeNach, ergebnisZeit oben), eigene Gegnerzahlen.
+      // Eskalation nur über Zahl und Typ: typenAb = Welle, ab der ein Typ vorkommt (je Welle höchstens ein neuer).
+      // Ende der Runde: Notfallprotokoll (Hülle 0) – kein Game Over, Ergebnis und zurück in die Lobby.
+      all: {
+        anzahl: { basis: 1, jeWelle: 0.5, jeSpielerWelle: 0.25, max: 12 },
+        typenAb: { raider: 1, gunboat: 2, sentinel: 4, pylon: 6 },
+        jaegerAnteil: 0.5,     // Mindestanteil Jäger je Welle
+        maxLebend: 6,          // höchstens so viele gleichzeitig (Rest rückt nach)
+        truppGroesse: 2,       // Gegner je Nachschub
+        nachschubTakt: 4,      // s zwischen zwei Nachschüben
+        spawnAbstand: 900,     // px vom Schiff (Anflug), Pylon: pylonAbstand
+        pylonAbstand: 480,
+      },
     },
 
     // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
