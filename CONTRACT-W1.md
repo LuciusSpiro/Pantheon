@@ -162,3 +162,99 @@ Die Regel „Boje anfliegen, um zu springen“ gilt überall, auch in m1–m3 (K
 - Bot-Zeiten m1–m3 vorher und nachher in einer Tabelle.
 - Browserlauf m1 mit echten Eingaben (Playwright, Port 3377): Ohne Anflug ist der Sprung gesperrt und der Hinweis wird gezeigt; nach dem Anflug geht der Sprung. Screenshots unter `shots/sprung/`.
 - Notfallsprung: unverändert (keine Sonderregel).
+---
+
+## 5. AP4 Spielleiter Boden II (Team SPIELLEITER)
+
+Studioleitung: AP2 ist abgenommen (`b364306`). AP4 läuft im Baum `Pantheon-play`. Parallel arbeitet Team LABOR (AP3a,
+`CONTRACT-W2.md`) in einem **eigenen** Arbeitsbaum. Die Studioleitung führt beide Stände zusammen.
+**Konfliktregel:** In `tools/sim-headless.js` änderst du **nicht** `testBooks`, `buildTestBook`, das Vorbauen der
+Landepunkte und `umsetzungMain`. Diese Teile zieht LABOR nach `server/mission/labor.js` um. Nur Agenten-Verhalten
+ist dein Teil (Gefangenschaft, Funkduell-Wahl, Schleichen).
+
+### 5.1 Ziel
+1. Der Spielleiter kann *Ausbruch* und *Unbemerkt hineinkommen* planen.
+2. Gefangenschaft entsteht ohne Kampf, wenn ein Gespräch eskaliert, während das Schiff angedockt ist (Kai, E5).
+3. Der Katalog im Grobplan wird kürzer.
+4. Der Kampagnenstart verbrennt keine 77k Tokens mehr.
+
+### 5.2 Befund (von der Studioleitung geprüft)
+- `combat.ausbruch()` (`combat.js:~1283`) prüft keine Fesseln. Es setzt die Zelle auf „zu“, die Beute auf „voll“, belebt
+  das Team an der Zelle wieder, setzt die Faust und `p.gefangen`. Das Team muss **schon auf der Bodenkarte** sein.
+- Das Schrittfeld `ausbruch_erlaubt` (`CONTRACT-B2.md:195`) ist nie gebaut worden. Nur `wellen.js` setzt
+  `aw.ausbruchErlaubt = false`.
+- Die Mechaniken `gefangenschaft` und `stealth_aussen` stehen auf „geplant“. Echte Prüfer-Warnungen:
+  - `ausbruch/zelle_und_kammer`: `FLAG-UNGELESEN s1_frei`
+  - `unbemerkt_hineinkommen/leise_bis_ziel`: `FLAG-UNGELESEN s1_unbemerkt`, `s1_entdeckt` und `TEXT-UNBENUTZT s1.ziel_hoch`
+- **Andocken** geht nur am Hafen (`hafen.kontor`, Station) und an Vaelen (`vaelen.handelsschiff`, Schiff, Seed 207,
+  Schablone per Seed). **Zellen gibt es unter den Schiffsschablonen nur in `schiff.kriegsschiff`**, nicht im Frachter.
+  Ob die Vaelen-Karte eine `zelle` hat, prüfst du zuerst. Hat sie keine, wählst du in dieser Reihenfolge:
+  - (a) Der Szenenbau wählt über `buehne_braucht` einen Seed oder eine Schablone mit Zelle, sofern es dafür schon einen
+    Mechanismus gibt.
+  - (b) Der Frachter bekommt eine Arrestkammer als Modul. Dann muss `buehne alle` bei 100 % bleiben.
+  - (c) Die Studioleitung fragen.
+- Das Gespräch: `verhandeln/funkduell` (`funk_entscheidung`, verfügbar). Folgen sind `folgen_a`, `folgen_b` und
+  `folgen_schweigen` vom Typ `aktionen`. Eine Haltung je Fraktion gibt es im Weltstand (`server/weltstand.js`), das ist
+  das Vorbild für „Verhältnis zum Kontor sinkt“.
+- Den Katalog-Text für den Grobplan liefert `katalog.js` `fuerSpielleiter(k,'kurz')`, verwendet in `spielleiter.js:~500`.
+  Ein Offline-Token-Werkzeug gibt es nicht.
+- `KARTE-WIEDERHOLT` (`szenenbau.js:~316`) vergleicht nur mit gespielten Missionen. Das Vorbild für eine Prüfung über die
+  Runde ist `LANG-RUNDE` (:~313).
+- Kampagnenstart: `retries: 1` (2 Versuche mit vollem Kontext), danach `planFromArchive`. Ohne Tutorial gibt es sofort ein
+  Archiv-Angebot (`spielleiter.js:~325`).
+
+### 5.3 Dateien
+`server/sim/combat.js` (nur Ausbruch/Gefangenschaft), `server/sim/away.js` (nur falls zum Hinunterbringen nötig),
+`server/sim/interior.js` (nur falls nötig), `server/mission/{bausteine/*.js,checker.js,katalog.js,szenenbau.js,
+spielleiter.js,registry.js,context.js}`, `server/sim/mission.js` (nur `ausbruch_erlaubt`), `server/weltstand.js` (nur
+Haltung), `content/katalog/**`, `content/buehnen/schiff/**` (nur Fall b), `shared/config.js` (nur `spielleiter`,
+`ausbruch`), `tools/katalog.js`, `tools/sim-headless.js` (nur Agenten, siehe Konfliktregel), `tools/test-*.js` (neue
+Prüfungen), `tools/fixtures/context/**` (nur per `--update`, einmal am Ende), `content/katalog/README.md`. Port 3391–3392,
+`WORLD_DIR=data/worlds-sl`, `REGIE_DIR=data/regie-sl`.
+
+### 5.4 Lieferung
+1. **Kern-Routine `teamGefangenNehmen(game, landepunkt)`** in `combat.js`. Sie baut die Karte, bringt das Team von Bord
+   hinunter (vorhandene Wege für das Beamen bzw. Betreten der Bühne nutzen) und ruft `ausbruch()` auf. `ausbruch()` nach
+   einem verlorenen Kampf bleibt unverändert. Gleiche Regeln: Zellentür 8 s, laut, Faust, Ausrüstung an `beute`.
+2. **Aktion `team_gefangen { landepunkt }`** im Registry. Sie ist an zwei Stellen gültig:
+   - im `enter` eines Schritts (Szenenstart in der Zelle)
+   - als Folge im `funkduell` (Eskalation), solange das Schiff angedockt ist
+3. **Prüfer:** `team_gefangen` verlangt Anker `zelle` und `beute` auf dem Landepunkt. Neue Fehlercodes:
+   - `GEFANGEN-OHNE-DOCK`: als Funkduell-Folge ohne Andock-Ort in der Szene
+   - `GEFANGEN-HEIMATHAFEN`: Landepunkt am Hafen
+   Beide bekommen einen Test.
+4. **Schrittfeld `ausbruch_erlaubt`** (Standard true) und ein Test dafür.
+5. Die Vorlagen `ausbruch.json` und `unbemerkt_hineinkommen.json` werden prüferfest: Flags lesen, `ziel_hoch` benutzen oder
+   streichen. Die Ausbruch-Vorlage startet über `team_gefangen` im `enter`.
+6. **Neue Umsetzung `verhandeln/andockkontrolle_eskaliert`:** Andocken an Vaelen, dann Kontrolle durch das Kontor als
+   Funkduell. Eine Antwort eskaliert: Abblende, Folge `team_gefangen`, weiter mit dem Ausbruch-Teil. Die Haltung zum
+   Kontor sinkt. Nach gelungenem Ausbruch kann das Schiff ablegen. Texte im Ton der vorhandenen Regiebücher.
+   Mit `test.params` und `buehne_braucht`.
+7. `mechaniken.json`: `gefangenschaft` verfügbar. `stealth_aussen` verfügbar, mit der Beschreibung „Lärmradius, Alarm je
+   Trupp, Patrouillen, Sicht 10, kein Sichtkegel (E18)“.
+8. **`node tools/katalog.js --tokens`:** Zeichen und geschätzte Tokens je Abschnitt des Grobplan-Katalogs (Schätzung
+   Zeichen/3,5 reicht, im Kopf dokumentiert). Vorher messen.
+9. **Kurzfassung:** je Umsetzung eine Zeile (ID, Kartenarten, Pflicht-Params, Dauer). Prosa und „Noch nicht spielbar“
+   fallen aus dem Grobplan-Prompt. **Ziel: −40 % im Katalogteil.** Nachher messen.
+10. **`KARTE-WIEDERHOLT` über die ganze Runde** nach dem Muster `LANG-RUNDE`. Test: `wreck` zweimal in einer Runde.
+11. **Kampagnenstart:** neue Funktion `startRundeKampagnenstart` mit 0 Wiederholungen, denn das Archiv-Angebot liegt dort
+    schon. In normalen Runden bekommt der zweite Versuch die Prüferfehler als gezielte Liste. Falls das schon so ist,
+    bleibt es dabei, und der Bericht nennt es. Nachweis offline mit einem Mock-LLM, das ungültige Pläne liefert: Zahl
+    der Aufrufe und Prompt-Zeichen vorher und nachher.
+12. **Bots:** Der Agent kommt mit `p.gefangen` zurecht (Zellentür halten, Ausrüstung holen, zum Abholpunkt), schleicht
+    sinnvoll und wählt im Funkduell nach `BOT_WAHL=a|b|schweigen`. Gespielt wird mit
+    `sim-headless umsetzung <id>` für `ausbruch/zelle_und_kammer`, `unbemerkt_hineinkommen/leise_bis_ziel` und
+    `verhandeln/andockkontrolle_eskaliert`, je 3 Seeds × Crew 1 und 3.
+13. **Kontext-Goldens** einmal am Ende mit `--update` neu schreiben. Die Änderung wird im Bericht begründet.
+
+### 5.5 Abnahme
+- `npm run katalog`: 38/38 verfügbar (37 + die neue Umsetzung).
+- Die Bot-Tabelle aus 5.4 Nr. 12 im Bericht.
+- Token-Messwerte vorher und nachher, Mock-Nachweis Kampagnenstart.
+- `npm run check` und `npm test` grün (Zahlen). Golden gegen `base-w1` mit `allow-w1.json` grün.
+- Browser (Port 3391), Screenshots unter `shots/sl/`:
+  - Ausbruch ab Start
+  - Schleichen bis ins Ziel, einmal ohne und einmal mit Alarm
+  - Andocken an Vaelen → Eskalation → Zelle → Ausbruch
+  Wenn der Browserlauf zu aufwendig wird, reicht für das Schleichen ein Bot-Lauf mit Zustandsprotokoll. Der Bericht
+  nennt das dann.
