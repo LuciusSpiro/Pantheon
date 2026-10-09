@@ -93,6 +93,13 @@ function put(mesh, x, y, z, size, hex, sx, sy, sz, yaw) {
   const L = IMM[mesh]; if (!L) return;
   L.push(x, y, z, size, hex, sx || 1, sy || 1, sz || 1, yaw || 0);
 }
+// FIX-WAFFEN: Vorrang-Instanzen (Projektile) – werden vor allen anderen Partikeln geschrieben und fallen bei vollem Budget
+// nie weg. Vorher verdrängten im Wellenmodus die Schildringe vieler Gegner (je 24 glow) die Bolzen aus dem glow-Budget.
+const IMM_TOP = { emit: [], lit: [], glow: [] };
+function putTop(mesh, x, y, z, size, hex, sx, sy, sz, yaw) {
+  const L = IMM_TOP[mesh]; if (!L) return;
+  L.push(x, y, z, size, hex, sx || 1, sy || 1, sz || 1, yaw || 0);
+}
 const _m = { mat: null, q: null, v: null, s: null, e: null, c: null, up: null };
 function writeInstances() {
   const T = F.THREE;
@@ -101,6 +108,19 @@ function writeInstances() {
   for (const name of ['emit', 'lit', 'glow']) {
     const im = F.meshes[name], P = F.pools[name], d = P.d;
     let n = 0;
+    const writeImm = (L) => {
+      for (let q = 0; q < L.length && n < P.n; q += 9) {
+        _m.v.set(L[q], L[q + 1], L[q + 2]);
+        _m.e.set(0, L[q + 8], 0); _m.q.setFromEuler(_m.e);
+        _m.s.set(L[q + 3] * L[q + 5], L[q + 3] * L[q + 6], L[q + 3] * L[q + 7]);
+        _m.mat.compose(_m.v, _m.q, _m.s);
+        im.setMatrixAt(n, _m.mat);
+        im.setColorAt(n, colorOf(L[q + 4]));
+        n++;
+      }
+    };
+    const top = IMM_TOP[name];
+    writeImm(top);
     for (let r = 0; r < P.live && n < P.n; r++) {
       const i = r * STRIDE;
       const k = d[i + 6] / d[i + 7];
@@ -125,17 +145,10 @@ function writeInstances() {
       n++;
     }
     const L = IMM[name];
-    for (let q = 0; q < L.length && n < P.n; q += 9) {
-      _m.v.set(L[q], L[q + 1], L[q + 2]);
-      _m.e.set(0, L[q + 8], 0); _m.q.setFromEuler(_m.e);
-      _m.s.set(L[q + 3] * L[q + 5], L[q + 3] * L[q + 6], L[q + 3] * L[q + 7]);
-      _m.mat.compose(_m.v, _m.q, _m.s);
-      im.setMatrixAt(n, _m.mat);
-      im.setColorAt(n, colorOf(L[q + 4]));
-      n++;
-    }
-    if (L.length / 9 + P.live > P.n) F.stats.dropped += L.length / 9 + P.live - P.n;
-    L.length = 0;
+    writeImm(L);
+    const want = (top.length + L.length) / 9 + P.live;
+    if (want > P.n) F.stats.dropped += want - P.n;
+    L.length = 0; top.length = 0;
     im.count = n; im.visible = n > 0;
     if (n) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; calls++; }
     F.stats[name] = n; total += n;
@@ -444,12 +457,13 @@ const FX = {
     // Projektil: gestreckter Würfel in Flugrichtung + kurze Spur
     const hex = kind === 'enemy' ? COL.enemyBolt : kind === 'warden' ? COL.violet : kind === 'pistol' ? COL.shield : kind === 'betaeuber' ? '#3D8BFF' : kind === 'sturmgewehr' ? '#FFD98A' : COL.mint;
     const yaw = Math.atan2(Math.cos(angle), Math.sin(angle));
+    // FIX-WAFFEN: Vorrang (putTop) – ein Schuss bleibt sichtbar, auch wenn viele Schildringe das Budget füllen
     if (kind === 'warden') {
-      put('glow', p[0], p[1], p[2], 0.34, hex);
-      put('emit', p[0], p[1], p[2], 0.16, COL.white);
+      putTop('glow', p[0], p[1], p[2], 0.34, hex);
+      putTop('emit', p[0], p[1], p[2], 0.16, COL.white);
     } else {
-      put('emit', p[0], p[1], p[2], 0.07, hex, 1, 1, kind === 'pistol' ? 5 : 7, yaw);
-      put('glow', p[0], p[1], p[2], 0.12, hex, 1, 1, 4, yaw);
+      putTop('emit', p[0], p[1], p[2], 0.07, hex, 1, 1, kind === 'pistol' ? 5 : 7, yaw);
+      putTop('glow', p[0], p[1], p[2], 0.12, hex, 1, 1, 4, yaw);
     }
     if (Math.random() < dt * 40) spawn({ mesh: 'emit', p: p.slice(), v: [rnd(-0.1, 0.1), rnd(-0.1, 0.1), rnd(-0.1, 0.1)], life: 0.15, s0: 0.04, s1: 0, c0: hex, c1: hex });
   },
@@ -647,9 +661,9 @@ const FX2 = {
     }
     if (k < 1) {
       const b = arcPoint(from, to, k, peak);
-      put('emit', b[0], b[1], b[2], 0.16, '#3A3E46');
-      put('emit', b[0], b[1] + 0.06, b[2], 0.07, (t * 10 | 0) % 2 ? TEL.glutHot : TEL.glut);
-      put('glow', b[0], b[1], b[2], 0.28, TEL.glut);
+      putTop('emit', b[0], b[1], b[2], 0.16, '#3A3E46');   // FIX-WAFFEN: Geschoss selbst hat Vorrang (wie FX.bolt)
+      putTop('emit', b[0], b[1] + 0.06, b[2], 0.07, (t * 10 | 0) % 2 ? TEL.glutHot : TEL.glut);
+      putTop('glow', b[0], b[1], b[2], 0.28, TEL.glut);
       if (Math.random() < dt * 30) spawn({ mesh: 'lit', p: b.slice(), v: [rnd(-0.1, 0.1), rnd(0.1, 0.3), rnd(-0.1, 0.1)], life: rnd(0.5, 0.8), s0: 0.06, s1: 0.16, c0: '#6A6470', c1: COL.smokeLight, drag: 0.6 });
     }
     FX2.grenadeRing(to, R, k, t);
@@ -1199,21 +1213,20 @@ function awayFx(view, st, dt, t) {
     // B2: Granate = Bogen + Ring (Ereignis bzw. Snapshot kind 'granate'), kein Bolzen
     if (grenadeProjectile(q)) { now.set(q.id, { p: null, kind: 'granate' }); continue; }
     const p = W(q.x, q.y, v2 ? 1.0 : 0.9);
-    now.set(q.id, { p, kind: q.kind });
-    if (!F.prev.proj.has(q.id)) {
+    const old = F.prev.proj.get(q.id);
+    let look = old ? old.kind : null;
+    if (!old) {
       // B2: Mündungsfeuer je Waffe (kind = Waffe laut waffen.js, sonst wf des nächsten Schützen)
       const sh = shooterNear(q.x, q.y);
-      const waffe = MUZZLE_OF[q.kind] || (sh && sh.wf && MUZZLE_OF[sh.wf]) || null;
-      if (waffe) {
-        const a = +q.angle || 0;
-        if (sh) setAng(sh.id, a);
-        FX2.muzzle(waffe, sh ? sockAt(sh, 'muzzle', a) : p, a);
-      } else {
-        const hex = q.kind === 'enemy' ? COL.enemyBolt : q.kind === 'warden' ? COL.violet : COL.shield;
-        FX.muzzle(p, hex);
-      }
+      look = boltLook(q.kind, sh);
+      const a = +q.angle || 0;
+      if (sh) setAng(sh.id, a);
+      const waffe = look === 'enemy' || look === 'warden' ? null : MUZZLE_OF[q.kind] || (sh && sh.wf && MUZZLE_OF[sh.wf]) || null;
+      if (waffe) FX2.muzzle(waffe, sh ? sockAt(sh, 'muzzle', a) : p, a);
+      else FX.muzzle(sh && !isPlayer(sh) ? sockAt(sh, 'muzzle', a) : p, look === 'enemy' ? COL.enemyBolt : look === 'warden' ? COL.violet : COL.shield);
     }
-    FX.bolt(p, +q.angle || 0, BOLT_OF[q.kind] || q.kind, dt);
+    now.set(q.id, { p, kind: look });
+    FX.bolt(p, +q.angle || 0, look, dt);
   }
   for (const [id, o] of F.prev.proj) if (!now.has(id) && o.p) FX.impact(o.p, o.kind === 'enemy' ? COL.enemyBolt : o.kind === 'warden' ? COL.violet : o.kind === 'betaeuber' ? TEL.blau : COL.shield);
   F.prev.proj = now;
@@ -1310,7 +1323,14 @@ function handleEvent(ev, st) {
 // B2-Ereignisse (CONTRACT-B2 §8, Nachtrag FX). true = vollständig behandelt.
 const MELEE = { nahkampf: 1, faust: 1 };
 const MUZZLE_OF = { blaster: 'blaster', sturmgewehr: 'sturmgewehr', granatwerfer: 'granatwerfer', lanze: 'lanze', betaeuber: 'betaeuber', faust: 'faust', pistole: 'pistole' };
-const BOLT_OF = { blaster: 'player', pistole: 'pistol' };
+const BOLT_OF = { blaster: 'player', pistole: 'pistol', schrottblaster: 'enemy', waechter: 'warden' };
+// FIX-WAFFEN: Bolzenbild eines Projektils (FX.bolt kind). Seit B2 heißt kind = Waffe (waffen.js) – auch bei Gegnern; ein
+// Gegner-Blaster sah deshalb wie der eigene Schuss aus (Minze). Der Schütze (nächste Figur beim ersten Sehen) entscheidet:
+// Gegner mit Blaster = 'enemy'. Wirkungsfarben (Betäuber blau, Sturmgewehr gelb) bleiben für beide Seiten gleich.
+function boltLook(kind, sh) {
+  if (kind === 'blaster' && sh && !isPlayer(sh)) return 'enemy';
+  return BOLT_OF[kind] || kind;
+}
 function meleeHitAt(e, a) {
   if (!e) return;
   const key = 'mh:' + e.id;
