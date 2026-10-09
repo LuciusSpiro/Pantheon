@@ -1,0 +1,71 @@
+{
+  "format": "modul/1",
+  "id": "schiff.bruecke.a",
+  "art": "schiff",
+  "typ": "bruecke",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Steuerstand am Bug: Steuerkonsole (ziel) hinter dem Pult, Logbuch-Terminal, Notpad, Leiter nach oben.",
+  "rows": [
+    "#####_",
+    "#...##",
+    "#.PP.#",
+    "#.P..#",
+    "#....#",
+    "#.OO.#",
+    "..OO.#",
+    "#....#",
+    "#....#",
+    "#,..o#",
+    "#....#",
+    "##...#",
+    "#####_"
+  ],
+  "anker": [
+    "......",
+    "......",
+    "..a...",
+    "......",
+    "...t..",
+    "..i...",
+    "....g.",
+    "......",
+    ".n..q.",
+    "......",
+    "..h.b.",
+    "......",
+    "......"
+  ],
+  "anker_legende": {
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "t": {
+      "rolle": "terminal"
+    },
+    "i": {
+      "rolle": "leit"
+    },
+    "g": {
+      "rolle": "ziel"
+    },
+    "n": {
+      "rolle": "nsc"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "h": {
+      "rolle": "leiter",
+      "deck": 1
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": []
+}

@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "aussenposten.abfluss.c", "art": "aussenposten", "typ": "abfluss",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "===#LL#=",
+    "...#..#.",
+    "...#..#.",
+    "...#..#.",
+    "........",
+    "..oooo..",
+    "........"
+  ],
+  "anker": [
+    ".....e..",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    ".p......",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "technisch" },
+    "p": { "rolle": "patrouille", "kette": "a" }
+  },
+  "belegungen": []
+}

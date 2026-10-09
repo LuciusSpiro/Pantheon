@@ -1,0 +1,43 @@
+{
+  "format": "fraktion/1",
+  "id": "herrenlos",
+  "name": "Herrenlos",
+  "beschreibung": "Ohne Besatzung. In den alten Grenzkastellen aus der Zeit, als Rom den Saumraum hielt, wachen noch Kastell-Automaten mit Scutum.",
+  "modelle": {
+    "waechter": "actor/rom/waechter"
+  },
+  "palette": null,
+  "rezepte": {
+    "kastellwache": [
+      {
+        "rolle": "waechter",
+        "n": 1
+      }
+    ],
+    "torwache": [
+      {
+        "rolle": "waechter",
+        "n": 2
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": null,
+  "einsatz": {
+    "kastellwache": [
+      "ruine",
+      "station",
+      "schiff",
+      "aussenposten",
+      "hand"
+    ],
+    "torwache": [
+      "ruine"
+    ]
+  },
+  "funkstil": "maschinell, Latein in Großbuchstaben, kurze Befehle"
+}

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bühnen-Werkstatt – Pantheon</title>
+<link rel="icon" href="data:,">
+<!-- CONTRACT-B1 §4 (Team WERKSTATT): Module (modul/1) und Schablonen (schablone/1) zeichnen, live prüfen (shared/buehne.js),
+     speichern über POST /werkstatt/save (nur mit WERKSTATT=1) oder als Download.
+     URL: werkstatt.html?modul=<id> | ?schablone=<id>&seed=<n> | ?art=<kartenart> | &quelle=fixtures
+     Start: PowerShell  $env:WERKSTATT=1; $env:PORT=3371; npm run werkstatt   → http://localhost:3371/werkstatt.html -->
+<style>
+  :root { --bg: #0d1018; --panel: #161b27; --line: #2a3242; --text: #d8dde8; --dim: #8791a5; --ok: #7FE0C2; --warn: #F2C94C; --bad: #E0473C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0; }
+  header a { color: var(--ok); }
+  #kopfInhalt { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; flex: 1; }
+  .titel { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+  #meldung { flex-basis: 100%; min-height: 0; font-size: 12px; }
+  #meldung.ok { color: var(--ok); } #meldung.bad { color: var(--bad); } #meldung.warn { color: var(--warn); }
+  select, input, button, textarea { background: #0f131c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--ok); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.an { background: #23314a; border-color: var(--ok); }
+  .tabs { display: inline-flex; gap: 2px; }
+  .knoepfe { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+  #app { flex: 1; display: grid; grid-template-columns: 210px 1fr 360px; min-height: 0; }
+  #liste { border-right: 1px solid var(--line); padding: 8px; overflow: auto; }
+  #liste > input { width: 100%; margin: 4px 0; }
+  #liste .gruppe { color: var(--dim); font-size: 11px; margin-top: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .eintrag { padding: 2px 6px; border-radius: 3px; cursor: pointer; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .eintrag:hover { background: #1d2433; }
+  .eintrag.an { background: #23314a; }
+  .eintrag.bad { color: var(--bad); }
+  label.datei { border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; cursor: pointer; }
+  label.datei input { display: none; }
+  #mitte { padding: 10px 14px; overflow: auto; }
+  #panel { border-left: 1px solid var(--line); padding: 8px 10px; overflow: auto; }
+  #panel section { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; }
+  h3 { font-size: 13px; margin: 10px 0 6px; }
+  #panel h3 { margin-top: 2px; }
+  .werkzeug { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 6px 0; }
+  .leinwand canvas { display: block; cursor: crosshair; outline: none; }
+  .feld { display: flex; align-items: center; gap: 6px; margin: 3px 0; color: var(--dim); }
+  .feld > span:first-child { min-width: 84px; }
+  .feld input:not([type=checkbox]) { flex: 1; min-width: 0; }
+  .palette { display: flex; flex-wrap: wrap; gap: 3px; }
+  .palette .farbe { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 5px; }
+  .palette i { display: inline-block; width: 12px; height: 12px; border: 1px solid rgba(255,255,255,.25); }
+  .attrs { margin-top: 6px; }
+  .legzeile { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
+  .legzeile input { flex: 1; }
+  .mono, code, textarea { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  textarea { width: 100%; resize: vertical; }
+  .dim { color: var(--dim); }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .fz { font-size: 12px; padding: 1px 2px; cursor: pointer; border-radius: 3px; }
+  .fz:hover { background: #1d2433; }
+  .fz.bad b { color: var(--bad); } .fz.warn b { color: var(--warn); }
+  .fz.bad, .fz.warn { color: var(--text); }
+  .lagen { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .lage { text-align: center; font-size: 11px; }
+  .legende { display: flex; gap: 10px; font-size: 11px; color: var(--dim); }
+  .legende i { display: inline-block; width: 14px; height: 6px; margin-right: 4px; vertical-align: middle; }
+  .tab { border-collapse: collapse; font-size: 12px; margin: 4px 0; }
+  .tab td, .tab th { border-bottom: 1px solid var(--line); padding: 2px 8px; text-align: left; }
+  .box { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; margin: 6px 0; }
+  .box.bad { border-color: var(--bad); }
+  .reihe { display: flex; gap: 4px; align-items: center; margin: 2px 0; }
+  .reihe input { min-width: 0; }
+  .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+  .pflicht { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+  .pflicht label { display: flex; justify-content: space-between; align-items: center; color: var(--dim); font-size: 12px; }
+  #bau canvas { display: block; margin: 6px 0; image-rendering: pixelated; }
+  #probebau canvas { display: block; margin: 6px 0; }
+  #mitte a { color: var(--ok); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bühnen-Werkstatt</h1>
+  <div id="kopfInhalt"></div>
+  <a href="galerie.html" target="_blank">Galerie ↗</a>
+  <div id="meldung"></div>
+</header>
+<div id="app">
+  <aside id="liste"></aside>
+  <main id="mitte"></main>
+  <aside id="panel"></aside>
+</div>
+<script src="/shared/config.js"></script>
+<script src="/shared/buehne-kennzahlen.js"></script>
+<script src="/shared/buehne.js"></script>
+<script src="/js/werkstatt/format.js"></script>
+<script src="/js/werkstatt/basis.js"></script>
+<script src="/js/werkstatt/werkstatt.js"></script>
+</body>
+</html>

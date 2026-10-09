@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/katalog/gegner/1",
+  "title": "Gegnerrolle (CONTRACT-B2 §7)",
+  "description": "content/katalog/gegner/<rolle>.json. Rollen sind fraktionsneutral; Zahlen stehen nur in CONFIG.awayCombat.gegner, Funk aus INHALT §7.4. Prüfer-Code GEGNER-TYP bei unbekannter Rolle.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "rolle", "waffe", "profil", "namen"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "gegner/1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "rolle": { "enum": ["grundtyp", "niederhalter", "grenadier", "schuetze", "enterer", "haescher", "waechter"] },
+    "waffe": { "type": "string", "description": "Waffe aus CONFIG.awayCombat.waffen bzw. 'waechter'" },
+    "profil": { "type": "string", "description": "KI-Profil in squad.js (BODENKAMPF)" },
+    "namen": { "type": "object", "description": "Bauweise bzw. Fraktion -> Anzeigename (z. B. germanen: Bolzer)", "additionalProperties": { "type": "string", "maxLength": 40 } },
+    "beschreibung": { "type": "string", "maxLength": 300, "description": "Für den Spielleiter: was die Rolle sichtbar tut" },
+    "funk": { "type": "object", "description": "Anlass -> Funksätze (INHALT §7.4)", "additionalProperties": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }
+  }
+}

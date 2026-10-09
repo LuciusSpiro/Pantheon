@@ -1,0 +1,23 @@
+{
+  "id": "fig/rolle/enterer/baerenhaube",
+  "name": "Enterer: Bärenfell-Haube mit Ohren, Schnauze und Fangzähnen (Aufsatz head_top)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "enterer", "aufsatz", "kopf", "fell"],
+  "notes": "Rollenteil, fraktionsneutral. Aufsatz head_top über dem Standardkopf, anchor = Gelenk head [0,25,0]. Fell wie fig/germanen/fellumhang (leather/hair-Rauschen), passt zum Fellumhang der Rolle. Von oben: breite Haube mit zwei Ohren und Schnauze nach vorn. Bewusst Bär (Tierkopf), kein Schädel/Totenkopf. Erwartet hair 0 (Rolle setzt das). Flach gehalten (Ohren bis y 33), damit die Figur trotz Größe 1,1 nur 2,27 m hoch wird.",
+  "ops": [
+    { "name": "Haube Decke", "op": "box", "at": [-3, 31, -3], "size": [6, 1, 6], "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 1 } },
+    { "name": "Haube Seiten", "op": "box", "at": [3, 28, -3], "size": [1, 4, 4], "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 1 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Nackenfell", "op": "box", "at": [-3, 28, -4], "size": [6, 4, 1], "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 1 } },
+    { "name": "Decke Ecken", "op": "box", "at": [2, 31, -3], "size": [1, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Ohren", "op": "box", "at": [2, 32, -2], "size": [1, 1, 2], "color": { "shade": "leather", "f": 0.62 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Ohren innen", "op": "box", "at": [2, 32, -1], "size": [1, 1, 1], "color": { "shade": "leather", "f": 1.2 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schnauze", "op": "box", "at": [-2, 30, 3], "size": [4, 2, 2], "color": { "noise": ["leather", { "shade": "leather", "f": 0.85 }], "weights": [2, 1], "cell": 1 } },
+    { "name": "Schnauze oben schmal", "op": "box", "at": [1, 31, 4], "size": [1, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Nase", "op": "box", "at": [-1, 31, 5], "size": [2, 1, 1], "color": "dark", "jitter": false },
+    { "name": "Bärenaugen", "op": "box", "at": [1, 31, 3], "size": [1, 1, 1], "color": "dark", "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Fangzähne", "op": "box", "at": [1, 29, 3], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Fellwulst über der Stirn", "op": "box", "at": [-3, 31, 2], "size": [6, 1, 1], "color": { "shade": "leather", "f": 0.62 } }
+  ],
+  "anchor": [0, 25, 0]
+}

@@ -1,0 +1,68 @@
+{
+  "id": "prop/germanen/gemein/runenstein_terminal",
+  "name": "Runenstein-Terminal (Germanen): Steinblock mit Eisenbändern, Bildschirm und Runen-Schaltkreis",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","anker","terminal","konsole","raetsel"],
+  "footprint": [1,1],
+  "params": {
+    "state": {"default":0,"min":0,"max":3,"step":1,"label":"Zustand (Terminal: 0 bereit, 1 laedt, 2 geladen, 3 gesperrt; Rätsel: 0 ruhe, 1 gehalten, 2 geloest)"},
+    "raetsel": {"default":0,"min":0,"max":1,"step":1,"label":"als Rätselhälfte (Handplatte statt Bildschirm)"}
+  },
+  "variants": {
+    "laedt": {"state":1},
+    "geladen": {"state":2},
+    "gesperrt": {"state":3},
+    "raetsel_ruhe": {"raetsel":1,"state":0},
+    "raetsel_gehalten": {"raetsel":1,"state":1},
+    "raetsel_geloest": {"raetsel":1,"state":2}
+  },
+  "let": {
+    "bem": "state == 0 ? 0.6 : (state == 1 ? 0.9 : 1.1)"
+  },
+  "sockets": {"use":[0,0,0.55],"screen":[0,0.94,0.22],"label":[0,1.75,0],"fx_spark":[0.3,0.9,0.22],"fx_smoke":[0,1.5,-0.1]},
+  "ops": [
+    {"op":"box","name":"Sockelplatte","at":[-7,0,-5],"size":[14,1,10],"color":"metal_dark","jitter":false},
+    {"op":"box","name":"Stein","at":[-6,1,-3],"size":[12,20,6],"color":{"noise":["stone_dark","rock_dark"],"weights":[3,2],"cell":4},"jitter":false},
+    {"op":"wedge","name":"Steinkopf","at":[-6,21,-3],"size":[12,3,6],"gable":"x","color":"stone_dark","jitter":false},
+    {"op":"erode","name":"Bruchkanten","density":0.35,"depth":1,"at":[-6,15,-3],"size":[12,9,6],"salt":4},
+    {"op":"box","name":"Eisenband unten","at":[-7,1,-4],"size":[14,2,8],"color":"metal","jitter":false},
+    {"op":"box","name":"Eisenband oben","at":[-7,19,-4],"size":[14,2,8],"color":"metal","jitter":false},
+    {"op":"box","name":"Nieten unten","at":[-5,2,4],"size":[1,1,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[2,0,0]}},
+    {"op":"box","name":"Nieten oben","at":[-5,20,4],"size":[1,1,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[2,0,0]}},
+    {"op":"box","name":"Seitenschiene","at":[-7,3,-2],"size":[1,16,4],"color":"metal_dark","mirror":"x","mirrorAt":0},
+    {"op":"box","name":"Rahmen","at":[-5,11,3],"size":[10,8,1],"color":"metal_dark"},
+    {"op":"group","name":"Bildschirm","if":"!raetsel", "ops": [
+      {"op":"box","name":"Glas","at":[-4,12,3],"size":[8,6,1],"color":"glass","jitter":false},
+      {"op":"box","name":"Statuszeile","if":"state == 0","at":[-3,16,3],"size":[6,1,1],"color":"glow","emit":0.6,"jitter":false},
+      {"op":"box","name":"Fortschritt halb","if":"state == 1","at":[-3,13,3],"size":[3,2,1],"color":"glow","emit":1.1,"jitter":false},
+      {"op":"box","name":"Fortschritt Rahmen","if":"state == 1","at":[0,13,3],"size":[3,2,1],"color":"metal_light","jitter":false},
+      {"op":"box","name":"Datenzeilen","if":"state == 1","at":[-3,16,3],"size":[4,1,1],"color":"glow","emit":0.7,"jitter":false},
+      {"op":"box","name":"Fortschritt voll","if":"state == 2","at":[-3,13,3],"size":[6,2,1],"color":"glow","emit":1.1,"jitter":false},
+      {"op":"box","name":"Datenzeilen voll","if":"state == 2","at":[-3,16,3],"size":[6,1,1],"color":"glow","emit":0.8,"jitter":false},
+      {"op":"group","name":"Sperrbügel","if":"state == 3", "ops": [
+        {"op":"box","name":"Bügel","at":[-6,13,4],"size":[12,1,1],"color":"metal_light","repeat":{"count":2,"step":[0,3,0]}},
+        {"op":"box","name":"Klammer","at":[-6,12,3],"size":[1,6,2],"color":"metal","mirror":"x","mirrorAt":0},
+        {"op":"box","name":"Schloss","at":[-1,14,4],"size":[2,2,1],"color":"metal_dark"}
+      ]}
+    ]},
+    {"op":"group","name":"Handplatte","if":"raetsel", "ops": [
+      {"op":"box","name":"Platte","at":[-4,12,3],"size":[8,6,1],"color":"metal_light"},
+      {"op":"cyl","name":"Ring","at":[0,15,3],"r":2.6,"hollow":1,"h":1,"axis":"z","color":"dark","jitter":false},
+      {"op":"cyl","name":"Ring an","if":"state >= 1","at":[0,15,3],"r":2.6,"hollow":1,"h":1,"axis":"z","color":"rune","emit":"state == 1 ? 0.9 : 1.1","jitter":false},
+      {"op":"box","name":"Mittelauge","at":[-1,14,3],"size":[2,2,1],"color":"dark","jitter":false},
+      {"op":"box","name":"Mittelauge an","if":"state == 2","at":[-1,14,3],"size":[2,2,1],"color":"rune","emit":1.1,"jitter":false}
+    ]},
+    {"op":"use","name":"Runen-Schaltkreis","model":"prop/germanen/gemein/teil/runenband","at":[0,3,2],"params":{"n":3,"lit":"state == 3 ? 0 : 3","emit":"bem","rahmen":1,"start":1,"schritt":1}},
+    {"op":"box","name":"Kernkäfig","at":[-2,22,-2],"size":[4,4,4],"color":"metal_dark"},
+    {"op":"box","name":"Kernkäfig hohl","at":[-1,22,-2],"size":[2,3,4],"mode":"carve"},
+    {"op":"box","name":"Kernkäfig hohl 2","at":[-2,22,-1],"size":[4,3,2],"mode":"carve"},
+    {"op":"box","name":"Kern","if":"state != 2","at":[-1,22,-1],"size":[2,3,2],"color":"glass","jitter":false},
+    {"op":"box","name":"Kern geladen","if":"state == 2","at":[-1,22,-1],"size":[2,3,2],"color":"rune","emit":1.2,"jitter":false},
+    {"op":"line","name":"Kabel 1","from":[-3.5,14.5,-3.5],"to":[-4.5,0.5,-6.5],"r":0.6,"color":"rubber"},
+    {"op":"line","name":"Kabel 2","from":[2.5,10.5,-3.5],"to":[3.5,0.5,-6.5],"r":0.6,"color":"rubber"},
+    {"op":"box","name":"Verteiler","at":[-6,0,-8],"size":[12,2,2],"color":"metal"},
+    {"op":"box","name":"Verteiler Licht","at":[4,1,-7],"size":[1,1,1],"color":"glow","emit":"state == 3 ? 0 : 0.6","jitter":false}
+  ],
+  "anchor": [0,0,0]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "kit/rom/gemein/tor_rahmen",
+  "name": "Rom-Steckplatz tor_rahmen: Porta-Schwelle / Sturz mit Panzerband, Inschriftband und Schlussstein",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":8,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":3,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "teil": {"default":1,"min":0,"max":1,"step":1,"label":"0 Schwelle · 1 Sturz"},
+    "state": {"default":0,"min":0,"max":3,"step":1}
+  },
+  "ops": [
+    {"name":"Schwelle","op":"box","if":"teil == 0","at":[0,0,0],"size":["w","h","d"],"color":{"frame":{"shade":"stone_light","f":"1 * (1 - zustand * 0.08)"},"fill":{"shade":"stone_dark","f":"1 * (1 - zustand * 0.08)"},"axes":"x"}},
+    {"name":"Sturz","op":"box","if":"teil == 1","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"secondary","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Sturz Panzerband","op":"box","if":"teil == 1","at":[0,0,0],"size":["w",1,"d"],"color":{"shade":"primary","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Inschriftband","op":"box","if":"teil == 1 && h >= 3","at":[1,1,0],"size":["w - 2",1,"d"],"color":{"stripes":[{"shade":"trim","f":"0.9 * (1 - zustand * 0.08)"},{"shade":"secondary","f":"0.8 * (1 - zustand * 0.08)"}],"axis":"x","period":1}},
+    {"name":"Schlussstein","op":"box","if":"teil == 1 && h >= 3","at":["floor(w / 2) - 1",1,0],"size":[2,"h - 1","d"],"color":{"frame":{"shade":"trim","f":"1 * (1 - zustand * 0.08)"},"fill":{"shade":"stone_light","f":"1 * (1 - zustand * 0.08)"},"axes":"xy"}}
+  ],
+  "anchor": [0,0,0]
+}

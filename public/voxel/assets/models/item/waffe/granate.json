@@ -1,0 +1,37 @@
+{
+  "id": "item/waffe/granate",
+  "name": "Granate (Geschoss des Granatwerfers)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "geschoss", "held"],
+  "notes": "Geschoss im Flug (Projektil kind granate). Anker = Mittelpunkt. Ø 0,31 m, damit sie im Bogen von oben lesbar bleibt. Zündring leuchtet ruhig (emit ≤ 1,2); Wirkungsfarbe (Glut-Orange) kommt vom FX-Kreis, nicht vom Modell.",
+  "footprint": [0.4, 0.4],
+  "params": { "scharf": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Zündring an" } },
+  "ops": [
+    { "name": "Körper", "op": "ellipsoid", "at": [0, 0, 0], "r": [2.5, 3, 2.5], "color": "metal_dark" },
+    {
+      "name": "Gürtel",
+      "op": "cyl",
+      "at": [0, -0.5, 0],
+      "r": 2.6,
+      "h": 1,
+      "axis": "y",
+      "color": "metal_light"
+    },
+    {
+      "name": "Zündring",
+      "op": "cyl",
+      "at": [0, 1, 0],
+      "r": 2.1,
+      "h": 1,
+      "axis": "y",
+      "color": "glow2",
+      "emit": "scharf ? 1.1 : 0",
+      "jitter": false
+    },
+    { "name": "Zünder", "op": "cyl", "at": [0, 3, 0], "r": 1, "h": 1, "axis": "y", "color": "trim" },
+    { "name": "Leitwerk", "op": "box", "at": [-2, -3, -0.5], "size": [4, 1, 1], "color": "metal" },
+    { "name": "Leitwerk quer", "op": "box", "at": [-0.5, -3, -2], "size": [1, 1, 4], "color": "metal" }
+  ],
+  "anchor": [0, 0, 0]
+}

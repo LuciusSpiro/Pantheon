@@ -1,0 +1,18 @@
+{
+  "id": "kit/test/ruine/wand_fuellung",
+  "name": "Probebauweise – wand_fuellung nur Ruine (halb gefüllt, oben Vertiefung)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["test","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "ops": [
+    {"name":"untere Hälfte","op":"box","at":[0,0,0],"size":["w","ceil(h / 2)","d"],"color":{"checker":["plant_dark","rock"],"period":1}}
+  ],
+  "anchor": [0,0,0]
+}

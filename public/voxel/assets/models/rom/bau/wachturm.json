@@ -1,0 +1,64 @@
+{
+  "id": "rom/bau/wachturm",
+  "name": "Wachturm mit Sensorkuppel (Rom)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["architektur", "rom", "turm", "befestigung"],
+  "footprint": [3.5, 3.5],
+  "params": {
+    "shaft": { "default": 16, "min": 8, "max": 32, "step": 4, "label": "Schafthöhe (Voxel, 4/m)" },
+    "ladder": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Leiter an der Ostseite (+x)" },
+    "banner": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Banner vorn" }
+  },
+  "variants": { "niedrig": { "shaft": 8, "banner": 0 }, "hoch": { "shaft": 24 } },
+  "let": { "top": "3+shaft" },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [0, 0, 0], "size": [12, 3, 12], "color": { "noise": ["stone_dark", { "shade": "stone_dark", "f": 0.9 }, "stone"], "weights": [3, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Sockel-Abdeckung", "at": [0, 2, 0], "size": [12, 1, 12], "color": "stone_light", "mode": "paint" },
+    { "op": "box", "name": "Stufe 1", "at": [3, 0, 12], "size": [6, 2, 1], "color": "stone_light" },
+    { "op": "box", "name": "Stufe 2", "at": [3, 0, 13], "size": [6, 1, 1], "color": "stone" },
+
+    { "op": "box", "name": "Schaft", "at": [1, 3, 1], "size": [10, "shaft", 10], "color": "secondary" },
+    { "op": "box", "name": "Panzerband rot", "at": [1, 3, 1], "size": [10, 3, 10], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Energiefuge", "at": [1, 6, 1], "size": [10, 1, 10], "color": { "role": "glow", "emit": 1.2 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Paneelfuge", "repeat": { "count": "floor((shaft-4)/5)", "step": [0, 5, 0] }, "at": [1, 11, 1], "size": [10, 1, 10], "color": { "shade": "secondary", "f": 0.8 }, "mode": "paint" },
+    { "op": "box", "name": "Eckpilaster", "mirror": "xz", "mirrorAt": 6, "at": [0, 3, 0], "size": [2, "shaft", 2], "color": { "frame": "metal_light", "fill": "metal", "axes": "x" } },
+    { "op": "box", "name": "Pilasterfuß gold", "mirror": "xz", "mirrorAt": 6, "at": [0, 3, 0], "size": [2, 1, 2], "color": "trim" },
+
+    { "op": "box", "name": "Tür", "at": [4, 3, 10], "size": [4, 8, 1], "color": { "frame": "metal_light", "fill": "glass", "axes": "xy" } },
+    { "op": "box", "name": "Türfuge", "at": [5, 4, 10], "size": [2, 6, 1], "color": { "stripes": [{ "shade": "glass", "f": 1.6 }, "glass"], "axis": "x" } },
+    { "op": "box", "name": "Türsturz gold", "at": [3, 11, 11], "size": [6, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Türleuchte", "at": [5, 12, 11], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+    { "op": "box", "name": "Türgewände", "mirror": "x", "mirrorAt": 6, "at": [3, 3, 11], "size": [1, 8, 1], "color": "metal" },
+    { "op": "use", "name": "Banner", "if": "banner && shaft >= 14", "model": "rom/bau/banner", "params": { "w": 4, "h": "shaft-10", "emblem": 1 }, "at": [6, 13, 11] },
+
+    { "op": "box", "name": "Sehschlitz vorn", "if": "!banner || shaft < 14", "mirror": "x", "mirrorAt": 6, "at": [3, "top-5", 10], "size": [1, 3, 1], "color": "glass", "mode": "paint" },
+    { "op": "box", "name": "Sehschlitz Seiten", "mirror": "x", "mirrorAt": 6, "at": [1, "top-5", 5], "size": [1, 3, 2], "color": "glass", "mode": "paint" },
+    { "op": "box", "name": "Sehschlitz hinten", "at": [5, "top-5", 1], "size": [2, 3, 1], "color": "glass", "mode": "paint" },
+
+    { "op": "group", "name": "Leiter", "if": "ladder", "ops": [
+      { "op": "box", "name": "Holm", "at": [11, 3, 4], "size": [1, "shaft+1", 1], "color": "metal", "mirror": "z", "mirrorAt": 6 },
+      { "op": "box", "name": "Sprosse", "repeat": { "count": "floor(shaft/2)", "step": [0, 2, 0] }, "at": [11, 4, 5], "size": [1, 1, 2], "color": "metal_light" }
+    ] },
+
+    { "op": "box", "name": "Konsolen vorn/hinten", "mirror": "xz", "mirrorAt": 6, "at": [2, "top-2", 0], "size": [2, 2, 1], "color": "metal" },
+    { "op": "box", "name": "Konsolen Seiten", "mirror": "xz", "mirrorAt": 6, "at": [0, "top-2", 2], "size": [1, 2, 2], "color": "metal" },
+    { "op": "box", "name": "Plattform", "at": [-1, "top", -1], "size": [14, 1, 14], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz" } },
+    { "op": "box", "name": "Plattformbelag", "at": [0, "top", 0], "size": [12, 1, 12], "color": { "stripes": ["paving", "paving_dark"], "axis": "x", "period": 2 } },
+    { "op": "use", "name": "Zinnen vorn", "model": "rom/bau/zinnen", "params": { "len": 12 }, "at": [0, "top+1", 11] },
+    { "op": "use", "name": "Zinnen hinten", "model": "rom/bau/zinnen", "params": { "len": 12, "lights": 0 }, "at": [0, "top+1", -1] },
+    { "op": "box", "name": "Brüstung Seite", "mirror": "x", "mirrorAt": 6, "at": [-1, "top+1", -1], "size": [1, 2, 14], "color": "primary" },
+    { "op": "box", "name": "Brüstung Seite Kappe", "mirror": "x", "mirrorAt": 6, "at": [-1, "top+2", -1], "size": [1, 1, 14], "color": "metal" },
+    { "op": "box", "name": "Dachstütze", "mirror": "xz", "mirrorAt": 6, "at": [-1, "top+1", -1], "size": [1, 7, 1], "color": { "frame": "trim", "fill": "metal", "axes": "y" } },
+
+    { "op": "box", "name": "Dach unten", "at": [-2, "top+8", -2], "size": [16, 1, 16], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz" } },
+    { "op": "box", "name": "Dach Mitte", "at": [0, "top+9", 0], "size": [12, 1, 12], "color": { "frame": { "shade": "primary", "f": 0.8 }, "fill": "primary", "axes": "xz" } },
+    { "op": "box", "name": "Dach Rippen", "at": [0, "top+9", 0], "size": [12, 1, 12], "color": { "stripes": ["primary", "primary", { "shade": "primary", "f": 0.75 }], "axis": "x" }, "mode": "paint" },
+    { "op": "ellipsoid", "name": "Sensorkuppel", "at": [6, "top+10", 6], "r": [3.2, 3, 3.2], "half": "+y", "color": "glass" },
+    { "op": "box", "name": "Kuppel-Leuchtring", "at": [2, "top+11", 2], "size": [8, 1, 8], "color": { "role": "glow", "emit": 1.0 }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Kuppel-Kragen", "at": [3, "top+10", 3], "size": [6, 1, 6], "color": "metal_light", "mode": "paint" },
+    { "op": "line", "name": "Antenne", "from": [10.5, "top+10", 1.5], "to": [10.5, "top+14", 1.5], "r": 0.5, "color": "metal_light" },
+    { "op": "box", "name": "Antennenlicht", "at": [10, "top+14", 1], "size": [1, 1, 1], "color": "warning", "emit": 1.2, "jitter": false }
+  ],
+  "anchor": [6, 0, 6]
+}

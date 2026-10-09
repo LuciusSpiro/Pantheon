@@ -1,0 +1,38 @@
+{
+  "id": "rom/energiezelle",
+  "name": "Energiezelle in Amphorenform (Rom)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "energie", "lager", "amphore"],
+  "footprint": [0.45, 0.45],
+  "params": {
+    "charge": { "default": 4, "min": 0, "max": 4, "step": 1, "label": "Ladestand (0–4)" },
+    "band": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "Zierband (0 keins, 1 rot, 2 purpur)" },
+    "stand": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Standring" }
+  },
+  "variants": {
+    "leer": { "charge": 0 },
+    "halb": { "charge": 2, "band": 2 },
+    "schlicht": { "band": 0, "stand": 0 }
+  },
+  "ops": [
+    { "op": "cyl", "name": "Standring", "if": "stand", "at": [0, 0, 0], "r": 2.6, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Fußspitze", "at": [0, "stand ? 1 : 0", 0], "r": 1, "h": "stand ? 1 : 2", "color": "metal" },
+    { "op": "cyl", "name": "Fußring", "at": [0, 2, 0], "r": 1.6, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Unterbauch", "at": [0, 3, 0], "r": 2.1, "r2": 3.4, "h": 3, "color": "secondary" },
+    { "op": "cyl", "name": "Bauch", "at": [0, 6, 0], "r": 3.55, "h": 3, "color": "secondary" },
+    { "op": "cyl", "name": "Schulter", "at": [0, 9, 0], "r": 3.2, "r2": 2.2, "h": 2, "color": "secondary" },
+    { "op": "box", "name": "Zierband rot", "if": "band == 1", "at": [-4, 7, -4], "size": [8, 2, 8], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Zierband purpur", "if": "band == 2", "at": [-4, 7, -4], "size": [8, 2, 8], "color": "cloth2", "mode": "paint" },
+    { "op": "cyl", "name": "Goldring Schulter", "at": [0, 9, 0], "r": 3.3, "h": 1, "color": "trim" },
+    { "op": "box", "name": "Sichtfenster Glas", "at": [-1, 3, 2], "size": [2, 5, 3], "color": "glass", "mode": "paint", "jitter": false, "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Ladestand", "if": "charge > 0", "at": [-1, 4, 2], "size": [2, "min(4, charge)", 3], "color": { "role": "glow", "emit": 1.1 }, "mode": "paint", "jitter": false, "mirror": "z", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Hals", "at": [0, 11, 0], "r": 1.6, "h": 2, "color": "metal" },
+    { "op": "cyl", "name": "Mündung", "at": [0, 13, 0], "r": 2.2, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Kappe", "at": [0, 14, 0], "r": 1.6, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Kontakt", "if": "charge > 0", "at": [0, 14, 0], "r": 0.8, "h": 1, "color": "glow", "jitter": false },
+    { "op": "line", "name": "Henkel oben", "from": [1.5, 12.5, 0.5], "to": [3.5, 12.5, 0.5], "r": 0.5, "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "Henkel seitlich", "from": [3.5, 12.5, 0.5], "to": [3.5, 10.5, 0.5], "r": 0.5, "color": "trim", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 0, 0]
+}

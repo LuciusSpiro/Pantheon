@@ -1,0 +1,37 @@
+{
+  "id": "prop/germanen/station/schacht_gitter",
+  "name": "Station Germanen: Schachtgitter (Wartungsschacht im Boden, Klappgitter)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "station", "schacht", "boden"],
+  "notes": "ART-STATION. 1 x 1 m Bodeneinbau, Oberkante 0,125 m. Schwerer Eisenrahmen, darunter schwarzer Schacht, Gitterstäbe quer mit Mittelholm. open 1: Gitter steht an den Scharnieren hinten senkrecht hoch (0,9 m), Schacht offen mit Leitersprossen. Runen als gepunktete Leiterbahn auf der Rahmenvorderkante (emit 0,6).",
+  "footprint": [1, 1],
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Gitter offen" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 verfallen, 2 umkämpft)" }
+  },
+  "variants": { "offen": { "open": 1 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2, "open": 1 } },
+  "ops": [
+    { "name": "Rahmen", "op": "box", "at": [-8, 0, -8], "size": [16, 2, 16], "color": "metal_dark", "jitter": false },
+    { "name": "Schachtöffnung", "op": "box", "at": [-6, 1, -6], "size": [12, 1, 12], "mode": "carve" },
+    { "name": "Schacht (dunkel)", "op": "box", "at": [-6, 0, -6], "size": [12, 1, 12], "color": "black", "mode": "paint", "jitter": false },
+    { "name": "Rahmen Lichtkante", "op": "box", "at": [-8, 1, 7], "size": [16, 1, 1], "color": "metal_light", "jitter": false },
+    { "name": "Leiterbahn Rahmen (gepunktet)", "op": "box", "at": [-6, 1, 7], "size": [1, 1, 1], "repeat": { "count": 7, "step": [2, 0, 0] }, "color": { "shade": "glow", "f": 0.75, "emit": 0.6 }, "mode": "paint", "jitter": false },
+    { "name": "Ecknieten", "op": "box", "at": [-8, 1, -8], "size": [1, 1, 1], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Scharniere", "op": "box", "at": [-5, 2, -8], "size": [2, 1, 2], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+
+    { "name": "Gitterstäbe (zu)", "if": "open == 0", "op": "box", "at": [-6, 1, -5], "size": [12, 1, 1], "repeat": { "count": 6, "step": [0, 0, 2] }, "color": "metal", "jitter": false },
+    { "name": "Mittelholm (zu)", "if": "open == 0", "op": "box", "at": [-1, 1, -6], "size": [2, 1, 12], "color": "metal_light", "jitter": false },
+    { "name": "Griff (zu)", "if": "open == 0", "op": "box", "at": [-2, 2, 4], "size": [4, 1, 1], "color": "trim" },
+
+    { "name": "Gitterstäbe (offen, senkrecht)", "if": "open == 1", "op": "box", "at": [-6, 3, -8], "size": [12, 1, 1], "repeat": { "count": 6, "step": [0, 2, 0] }, "color": "metal", "jitter": false },
+    { "name": "Mittelholm (offen)", "if": "open == 1", "op": "box", "at": [-1, 2, -8], "size": [2, 12, 1], "color": "metal_light", "jitter": false },
+    { "name": "Seitenholme (offen)", "if": "open == 1", "op": "box", "at": [-6, 2, -8], "size": [1, 12, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Griff (offen)", "if": "open == 1", "op": "box", "at": [-2, 13, -7], "size": [4, 1, 1], "color": "trim" },
+    { "name": "Leitersprossen (offen)", "if": "open == 1", "op": "box", "at": [-3, 0, -6], "size": [6, 1, 1], "repeat": { "count": 2, "step": [0, 0, 3] }, "color": "metal_light", "mode": "paint", "jitter": false },
+
+    { "name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand * 0.1", "depth": 1, "at": [-8, 1, -8], "size": [16, 14, 16] },
+    { "name": "Ruß", "if": "zustand == 2", "op": "line", "from": [-8, 1, 4], "to": [6, 1, -4], "r": 2, "mode": "paint", "color": { "noise": ["black", "metal_dark"], "weights": [1, 1], "cell": 1 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

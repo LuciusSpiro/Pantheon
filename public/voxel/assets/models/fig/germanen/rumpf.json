@@ -1,0 +1,52 @@
+{
+  "id": "fig/germanen/rumpf",
+  "name": "Germanen-Rumpf: geklinkerte Plattenweste (3 Planken, Leiterbahn-Runenband)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "germanen", "rumpf", "ruestung"],
+  "notes": "Klinker wie ein Langschiff-Rumpf: drei waagrechte Planken je 3 Voxel (unten dunkle Überlappungskante, oben Lichtkante), vorn steht die Unterkante der oberen Planke 1 Voxel über. Runen nur als gepunktetes Leiterbahn-Band (Einzelpunkte im Takt 2 auf Eisen-Einlage, gedämpftes Frostblau), emit 0,6, nie als Einzelzeichen. Rücken flach (z = −3) für Rückenaufsätze am Socket back. Kein Fell: das ist das Rollenteil fig/germanen/fellumhang. rank 1 = Häuptling (Knochen-Halsreif, Knochenkanten).",
+  "params": { "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)" } },
+  "ops": [
+    { "name": "Unteranzug", "op": "use", "model": "fig/basis/rumpf" },
+    { "name": "Plankenweste", "op": "box", "at": [-4, 16, -3], "size": [8, 9, 6], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary", "metal_light"], "axis": "y", "period": 1 } },
+    { "name": "Taille schräg", "op": "box", "at": [3, 16, -3], "size": [1, 2, 1], "mode": "carve", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Klinkerkante vorn", "op": "box", "at": [-4, 19, 3], "size": [8, 1, 1], "repeat": { "count": 2, "step": [0, 3, 0] }, "color": { "shade": "primary", "f": 1.15 } },
+    { "name": "Klinkerkante Knochen (Häuptling)", "if": "rank", "op": "box", "at": [-4, 19, 3], "size": [8, 1, 1], "repeat": { "count": 2, "step": [0, 3, 0] }, "color": "trim" },
+    { "name": "Klinkernieten vorn", "op": "box", "at": [3, 17, 2], "size": [1, 1, 1], "repeat": { "count": 3, "step": [0, 3, 0] }, "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Klinkernieten hinten", "op": "box", "at": [3, 17, -3], "size": [1, 1, 1], "repeat": { "count": 3, "step": [0, 3, 0] }, "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Seitenlasche (Leder)", "op": "box", "at": [3, 17, -1], "size": [1, 6, 2], "color": "leather", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Runenband vorn Einlage", "op": "box", "at": [-4, 20, 2], "size": [8, 1, 1], "color": "metal_dark", "mode": "paint", "jitter": false },
+    {
+      "name": "Runenband vorn Leiterbahn (gepunktet)",
+      "op": "box",
+      "at": [-4, 20, 2],
+      "size": [1, 1, 1],
+      "repeat": { "count": 4, "step": [2, 0, 0] },
+      "color": { "shade": "glow", "f": 0.75, "emit": 0.6 },
+      "mode": "paint",
+      "jitter": false
+    },
+    { "name": "Runenband hinten Einlage", "op": "box", "at": [-3, 20, -3], "size": [6, 1, 1], "color": "metal_dark", "mode": "paint", "jitter": false },
+    {
+      "name": "Runenband hinten Leiterbahn (gepunktet)",
+      "op": "box",
+      "at": [-3, 20, -3],
+      "size": [1, 1, 1],
+      "repeat": { "count": 3, "step": [2, 0, 0] },
+      "color": { "shade": "glow", "f": 0.75, "emit": 0.6 },
+      "mode": "paint",
+      "jitter": false
+    },
+    { "name": "Halsberge", "op": "box", "at": [-3, 24, -3], "size": [6, 1, 6], "color": "metal_dark" },
+    { "name": "Halsberge Nieten", "op": "box", "at": [2, 24, 2], "size": [1, 1, 1], "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schulterkanten", "op": "box", "at": [3, 24, -3], "size": [1, 1, 6], "color": { "shade": "primary", "f": 1.25 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Gurt (Tragriemen Rücken)", "op": "box", "at": [1, 17, -4], "size": [1, 7, 1], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Gurtschnalle", "op": "box", "at": [1, 19, -4], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Halsreif (Häuptling)", "if": "rank", "op": "box", "at": [-2, 25, -2], "size": [4, 1, 4], "color": "trim" },
+    { "name": "Halsreif frei", "if": "rank", "op": "box", "at": [-1, 25, -1], "size": [2, 1, 2], "mode": "carve" },
+    { "name": "Halsreif Enden", "if": "rank", "op": "box", "at": [-1, 25, 2], "size": [2, 1, 1], "color": "metal_light" },
+    { "name": "Schulterkanten Knochen (Häuptling)", "if": "rank", "op": "box", "at": [3, 24, -3], "size": [1, 1, 6], "color": "trim", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "variants": { "haeuptling": { "rank": 1 } },
+  "anchor": [0, 0, 0]
+}

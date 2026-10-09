@@ -1,0 +1,75 @@
+{
+  "id": "leit/germanen/aussenposten/kraehenwacht_turm",
+  "name": "Krähenwacht-Turm mit Leuchtfeuer (Leitstück Außenposten, Ziel)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["leit", "germanen", "aussenposten", "ziel", "herzstueck", "light", "turm"],
+  "notes": "ART-LEIT (Draufsicht-Überarbeitung): Von oben liest man ein vierstufiges Frost-Walmdach (helle Stufenringe) mit offenem Feuerkorb und großem Glutfeuer (ember) auf der Spitze, vier schräge Krähen-Ausleger bis an die Ecken (bricht das Quadrat, kein Überhang über die Grundfläche) mit Waidblau-Wimpeln, Krähen auf den Dachecken. Bodenring: Steinsockel mit Frostkante und Leitlicht (Rolle leit) rahmt den Platz. Grundfläche 2×2 wie bisher, bis 3,5 m.",
+  "footprint": [2, 2],
+  "budgetTris": 10000,
+  "params": {
+    "state": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 frei, 1 genommen, 2 aktiviert)"}
+  },
+  "let": {"feuer": "state != 1"},
+  "variants": {"genommen": {"state": 1}, "aktiviert": {"state": 2}},
+  "ops": [
+    {"op": "box", "name": "Bodenring Sockel", "at": [-16, 0, -16], "size": [32, 2, 32], "color": "stone_dark", "jitter": false},
+    {"op": "box", "name": "Bodenring Frostkante", "at": [-16, 1, -16], "size": [32, 1, 32], "mode": "paint", "color": {"frame": "frost", "fill": "stone", "axes": "xz", "width": 2}, "jitter": false},
+    {"op": "box", "name": "Bodenring Leitlicht (durchgehend)", "at": [-15, 1, -15], "size": [30, 1, 30], "mode": "paint", "color": {"frame": {"role": "leit", "emit": 1.1}, "fill": "stone", "axes": "xz", "width": 1}, "jitter": false},
+    {"op": "box", "name": "Leitlicht Seiten z", "at": [-15, 1, -14], "size": [30, 1, 28], "mode": "paint", "color": {"frame": {"role": "leit", "emit": 1.1}, "fill": "stone", "axes": "x", "width": 1}, "jitter": false},
+    {"op": "box", "name": "Stufe vorn", "at": [-4, 0, 15], "size": [8, 1, 1], "color": "stone_light", "jitter": false},
+    {"op": "box", "name": "Turmschaft Bohlen", "at": [-9, 2, -9], "size": [18, 32, 18], "color": {"stripes": ["wood", "wood_dark"], "axis": "x", "period": 2}, "jitter": false},
+    {"op": "box", "name": "Turmschaft Seiten", "at": [-9, 2, -8], "size": [18, 32, 16], "mode": "paint", "color": {"stripes": ["wood", "wood_dark"], "axis": "z", "period": 2}, "jitter": false},
+    {"op": "box", "name": "Eckständer", "at": [-10, 2, -10], "size": [3, 32, 3], "color": "wood_dark", "jitter": false, "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}},
+    {"op": "box", "name": "Eisenband", "at": [-10, 12, -10], "size": [20, 1, 20], "mode": "paint", "color": "metal_dark", "jitter": false, "repeat": {"count": 3, "step": [0, 8, 0]}},
+    {"op": "box", "name": "Türöffnung", "at": [-3, 2, 7], "size": [6, 10, 3], "mode": "carve"},
+    {"op": "box", "name": "Türdunkel", "at": [-3, 2, 7], "size": [6, 10, 1], "color": "black", "jitter": false},
+    {"op": "box", "name": "Türsturz", "at": [-4, 12, 9], "size": [8, 2, 1], "color": "wood_dark"},
+    {"op": "line", "name": "Stützstrebe", "from": [-14, 2, -14], "to": [-10, 22, -10], "r": 0.8, "color": "wood_dark", "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}},
+    {"op": "box", "name": "Umgang", "at": [-15, 32, -15], "size": [30, 2, 30], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Umgang Bohlen", "at": [-15, 33, -15], "size": [30, 1, 30], "mode": "paint", "color": {"stripes": ["wood", "wood_dark"], "axis": "z", "period": 3}, "jitter": false},
+    {"op": "box", "name": "Dach Stufe 1", "at": [-15, 34, -15], "size": [30, 4, 30], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Dach Stufe 2", "at": [-12, 38, -12], "size": [24, 4, 24], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Dach Stufe 3", "at": [-9, 42, -9], "size": [18, 4, 18], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Dach Stufe 4", "at": [-7, 46, -7], "size": [14, 3, 14], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Schnee Stufe 1", "at": [-15, 37, -15], "size": [30, 1, 30], "mode": "paint", "color": "frost", "jitter": false},
+    {"op": "box", "name": "Schnee Stufe 2", "at": [-12, 41, -12], "size": [24, 1, 24], "mode": "paint", "color": "frost", "jitter": false},
+    {"op": "box", "name": "Schnee Stufe 3", "at": [-9, 45, -9], "size": [18, 1, 18], "mode": "paint", "color": "frost", "jitter": false},
+    {"op": "box", "name": "Schnee Stufe 4", "at": [-7, 48, -7], "size": [14, 1, 14], "mode": "paint", "color": "frost", "jitter": false},
+    {"op": "box", "name": "Traufe Eisen", "at": [-15, 34, -15], "size": [30, 1, 30], "mode": "paint", "color": "metal_dark", "jitter": false},
+    {"op": "group", "name": "Krähen-Ausleger mit Wimpel", "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}, "ops": [
+      {"op": "line", "name": "Ausleger", "from": [-9, 40, -9], "to": [-15, 44, -15], "r": 0.8, "color": "wood_dark"},
+      {"op": "box", "name": "Auslegerkopf", "at": [-16, 43, -16], "size": [2, 2, 2], "color": "metal_dark"},
+      {"op": "box", "name": "Krähe Leib", "at": [-14, 38, -14], "size": [3, 3, 3], "color": "black"},
+      {"op": "box", "name": "Krähe Kopf", "at": [-15, 41, -15], "size": [2, 2, 2], "color": "black"},
+      {"op": "box", "name": "Krähe Schnabel", "at": [-16, 41, -16], "size": [1, 1, 1], "color": "trim"}
+    ] },
+    {"op": "group", "name": "Wimpel (frei, aktiviert)", "if": "feuer", "mirror": "x", "mirrorAt": 0, "ops": [
+      {"op": "box", "name": "Wimpel vorn", "at": [-16, 32, 13], "size": [1, 11, 3], "color": {"frame": {"shade": "cloth", "f": 0.7}, "fill": "cloth", "axes": "yz", "width": 1}},
+      {"op": "box", "name": "Wimpel vorn Tuch", "at": [-16, 36, 12], "size": [1, 8, 2], "color": "cloth"},
+      {"op": "box", "name": "Wimpel hinten", "at": [-16, 34, -16], "size": [1, 9, 3], "color": {"frame": {"shade": "cloth", "f": 0.7}, "fill": "cloth", "axes": "yz", "width": 1}}
+    ] },
+    {"op": "group", "name": "Wimpel heruntergerissen (genommen)", "if": "state == 1", "ops": [
+      {"op": "box", "name": "Fetzen", "at": [-16, 38, 14], "size": [1, 4, 2], "color": "cloth"},
+      {"op": "box", "name": "Tuch am Boden", "at": [3, 2, 11], "size": [9, 1, 4], "color": "cloth"}
+    ] },
+    {"op": "group", "name": "Clanbanner Vorderseite (flach lesbar)", "if": "feuer", "ops": [
+      {"op": "box", "name": "Bannerstange", "at": [-6, 31, 9], "size": [12, 1, 1], "color": "wood_dark"},
+      {"op": "box", "name": "Bannertuch", "at": [-5, 16, 9], "size": [10, 15, 1], "color": {"frame": {"shade": "cloth", "f": 0.65}, "fill": "cloth", "axes": "xy", "width": 1}},
+      {"op": "box", "name": "Ornamentband (gepunktet)", "at": [-3, 18, 10], "size": [1, 1, 1], "repeat": {"count": 4, "step": [2, 0, 0]}, "color": "trim"},
+      {"op": "box", "name": "Krähe Leib", "at": [-2, 23, 10], "size": [4, 3, 1], "color": "leather"},
+      {"op": "box", "name": "Krähe Kopf", "at": [1, 26, 10], "size": [2, 2, 1], "color": "leather"},
+      {"op": "box", "name": "Krähe Schwinge", "at": [-4, 25, 10], "size": [3, 2, 1], "color": "leather"}
+    ] },
+    {"op": "box", "name": "Feuerkorb", "at": [-6, 49, -6], "size": [12, 4, 12], "color": "metal_dark", "jitter": false},
+    {"op": "box", "name": "Feuerkorb innen", "at": [-5, 50, -5], "size": [10, 3, 10], "mode": "carve"},
+    {"op": "box", "name": "Korbrand Leitlicht", "at": [-6, 52, -6], "size": [12, 1, 12], "mode": "paint", "color": {"frame": {"role": "leit", "emit": 1.1}, "fill": "metal_dark", "axes": "xz", "width": 1}, "jitter": false},
+    {"op": "box", "name": "Glutbett", "if": "feuer", "at": [-5, 50, -5], "size": [10, 2, 10], "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+    {"op": "box", "name": "Flamme", "if": "feuer", "at": [-3, 52, -3], "size": [6, 2, 6], "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+    {"op": "box", "name": "Flammenspitze", "if": "feuer", "at": [-1, 54, -1], "size": [2, 1, 2], "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+    {"op": "box", "name": "Signalfeuer hoch", "if": "state == 2", "at": [-2, 54, -2], "size": [4, 2, 4], "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+    {"op": "box", "name": "Signalfeuer Glutkranz", "if": "state == 2", "at": [-5, 52, -5], "size": [10, 1, 10], "mode": "paint", "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+    {"op": "box", "name": "Asche (genommen)", "if": "state == 1", "at": [-5, 50, -5], "size": [10, 2, 10], "color": {"noise": ["ember_dark", "dark"], "weights": [1, 2]}}
+  ],
+  "anchor": [0, 0, 0]
+}

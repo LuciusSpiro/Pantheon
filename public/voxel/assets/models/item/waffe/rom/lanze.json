@@ -1,0 +1,32 @@
+{
+  "id": "item/waffe/rom/lanze",
+  "name": "Crew-Lanze – Anbau rom für item/waffe/lanze",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/lanze. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Crew-Lanze",
+      "op": "group",
+      "at": [-1, -33, 1.5],
+      "ops": [
+        { "name": "Lauf Marmor", "op": "box", "at": [0, 3, 1], "size": [2, 20, 2], "color": "secondary" },
+        { "name": "Laufring Bronze 1", "op": "box", "at": [0, 5, 0], "size": [2, 1, 4], "color": "trim" },
+        { "name": "Laufring Bronze 2", "op": "box", "at": [0, 8, 0], "size": [2, 1, 4], "color": "trim" },
+        { "name": "Fassung Bronze", "op": "box", "at": [0, 1, 0], "size": [2, 2, 4], "color": "trim" },
+        {
+          "name": "Gehäuse Rot",
+          "op": "box",
+          "at": [0, 28, 0],
+          "size": [2, 5, 4],
+          "color": { "frame": "trim", "fill": "primary", "axes": "yz", "width": 1 }
+        },
+        { "name": "Schaft Marmor", "op": "box", "at": [0, 33, 0], "size": [2, 4, 3], "color": "secondary" },
+        { "name": "Kolben Bronze", "op": "box", "at": [0, 37, -1], "size": [2, 1, 5], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

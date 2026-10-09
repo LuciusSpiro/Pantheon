@@ -1,0 +1,20 @@
+{
+  "id": "kit/geruest/slot/boden_fuge",
+  "name": "Gerüst-Steckplatz boden_fuge (neutral): Fuge (wird aufgemalt, mode paint): Nord- und Westrand → 1-m-Raster",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["geruest","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "belag": {"default":0,"min":0,"max":3,"step":1}
+  },
+  "ops": [
+    {"name":"Fuge N","op":"box","at":[0,0,0],"size":["w","h",1],"color":{"shade":"paving_dark","f":"1 * (1 - zustand * 0.1)"}},
+    {"name":"Fuge W","op":"box","at":[0,0,0],"size":[1,"h","d"],"color":{"shade":"paving_dark","f":"1 * (1 - zustand * 0.1)"}}
+  ],
+  "anchor": [0,0,0]
+}

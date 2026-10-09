@@ -1,0 +1,38 @@
+{
+  "id": "prop/germanen/schiff/huellenbruch",
+  "name": "Hüllenbruch in den Deckplanken (offen / geflickt, Germanen, Schiff)",
+  "notes": "Laderaum, eingang leise. Bodenkachel: Planken über freigelegtem Eisenspant, Loch ins All. geflickt 1: Eisenblech mit Nieten, Teernähte und Seilzurrung (keine Zustandsfarben).",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["germanen", "schiff", "prop", "leck", "eingang"],
+  "footprint": [1, 1],
+  "params": {
+    "geflickt": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "geflickt" }
+  },
+  "let": { "ox": "seed % 3 - 1", "oz": "floor(seed / 3) % 3 - 1" },
+  "variants": { "geflickt": { "geflickt": 1 }, "anders": { "seed": 5 } },
+  "ops": [
+    { "op": "box", "name": "Deckplanken", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "stripes": ["wood", "wood", "wood", { "shade": "wood_dark", "f": 0.8 }], "axis": "z", "period": 1 } },
+    { "op": "box", "name": "Eisenleiste", "at": [-8, 1, -8], "size": [1, 1, 16], "mode": "paint", "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "op": "ellipsoid", "name": "Rußhof", "at": ["ox", 1, "oz"], "r": [7, 3, 6.5], "mode": "paint", "color": { "noise": ["wood_dark", "black", { "shade": "wood_dark", "f": 0.6 }], "weights": [3, 2, 1] } },
+    { "op": "ellipsoid", "name": "Bruchkante (frisches Holz)", "at": ["ox", 1, "oz"], "r": [5, 3, 4.2], "mode": "paint", "color": { "noise": [{ "shade": "wood", "f": 1.25 }, "wood"], "weights": [2, 1] } },
+    { "op": "ellipsoid", "name": "Loch", "at": ["ox", 1, "oz"], "r": [4, 3, 3.2], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "ellipsoid", "name": "Zacke 1", "at": ["-3 + ox", 1, "2 + oz"], "r": [1.6, 3, 1.2], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "ellipsoid", "name": "Zacke 2", "at": ["3 + ox", 1, "-2 + oz"], "r": [1.4, 3, 1.6], "mode": "paint", "color": "black", "jitter": false },
+    { "op": "box", "name": "Spant im Loch", "at": [-5, 1, -1], "size": [10, 1, 2], "mode": "paint", "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Stern", "at": ["-2 + ox", 1, "-2 + oz"], "size": [1, 1, 1], "mode": "paint", "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Stern 2", "at": ["2 + ox", 1, "1 + oz"], "size": [1, 1, 1], "mode": "paint", "color": { "role": "glow", "emit": 0.7 }, "jitter": false },
+    { "op": "line", "name": "Splitter 1", "if": "!geflickt", "from": ["-4 + ox", 2, "-1 + oz"], "to": ["-3 + ox", 5, "0 + oz"], "r": 0.6, "color": { "shade": "wood", "f": 1.2 } },
+    { "op": "line", "name": "Splitter 2", "if": "!geflickt", "from": ["4 + ox", 2, "1 + oz"], "to": ["3 + ox", 4, "2 + oz"], "r": 0.6, "color": "wood" },
+    { "op": "line", "name": "Splitter 3", "if": "!geflickt", "from": ["0 + ox", 2, "-4 + oz"], "to": ["1 + ox", 4, "-3 + oz"], "r": 0.6, "color": "metal_light" },
+    { "op": "group", "name": "Flickblech", "if": "geflickt", "ops": [
+      { "op": "box", "name": "Blech", "at": [-5, 2, -5], "size": [10, 1, 10], "color": { "frame": "metal_light", "fill": "metal", "axes": "xz" } },
+      { "op": "box", "name": "Teernaht", "at": [-6, 2, -6], "size": [12, 1, 1], "color": "dark", "mirror": "z", "mirrorAt": 0 },
+      { "op": "box", "name": "Nieten", "at": [-4, 3, -5], "size": [1, 1, 1], "color": "metal_dark", "repeat": { "count": 3, "step": [3, 0, 0] }, "mirror": "z", "mirrorAt": 0 },
+      { "op": "box", "name": "Zurrseil", "at": [-6, 3, -1], "size": [12, 1, 2], "color": { "shade": "leather", "f": 1.3 } },
+      { "op": "box", "name": "Zurrring", "at": [-7, 2, -1], "size": [1, 2, 2], "color": "metal_light", "mirror": "x", "mirrorAt": 0 }
+    ] }
+  ],
+  "sockets": { "use": [0, 0, 0], "fx_smoke": [0, 0.2, 0], "label": [0, 0.8, 0] },
+  "anchor": [0, 0, 0]
+}

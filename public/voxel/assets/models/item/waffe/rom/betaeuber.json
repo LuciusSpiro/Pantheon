@@ -1,0 +1,30 @@
+{
+  "id": "item/waffe/rom/betaeuber",
+  "name": "Crew-Betäuber – Anbau rom für item/waffe/betaeuber",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/betaeuber. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Crew-Betäuber",
+      "op": "group",
+      "at": [-1, -9, 1],
+      "ops": [
+        { "name": "Hals Bronze", "op": "box", "at": [0, 5, 0], "size": [2, 1, 3], "color": "trim" },
+        { "name": "Stab Marmor", "op": "box", "at": [0, 6, 0], "size": [2, 2, 2], "color": "secondary" },
+        { "name": "Rotes Band", "op": "box", "at": [0, 7, 0], "size": [2, 1, 2], "color": "primary" },
+        { "name": "Endkappe Bronze", "op": "box", "at": [0, 10, -1], "size": [2, 1, 4], "color": "trim" },
+        {
+          "name": "Griffschale",
+          "op": "box",
+          "at": [0, 8, -2],
+          "size": [2, 2, 2],
+          "color": { "frame": "trim", "fill": "secondary", "axes": "yz", "width": 1 }
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

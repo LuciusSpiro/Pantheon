@@ -1,0 +1,28 @@
+{
+  "id": "rom/bau/saeule",
+  "name": "Säule mit Lichtkanälen (Rom)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["architektur", "rom", "saeule", "baustein"],
+  "footprint": [1.5, 1.5],
+  "params": {
+    "h": { "default": 16, "min": 8, "max": 40, "step": 1, "label": "Schafthöhe (Voxel, 4/m)" },
+    "r": { "default": 2.5, "min": 1.5, "max": 4, "step": 0.5, "label": "Radius" },
+    "lights": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Lichtkanäle an" }
+  },
+  "let": { "base": 2 },
+  "ops": [
+    { "op": "box", "name": "Plinthe", "at": [-3, 0, -3], "size": [6, 1, 6], "color": "stone_dark" },
+    { "op": "cyl", "name": "Basis-Wulst", "at": [0, 1, 0], "r": "r+0.6", "h": 1, "color": "stone_light" },
+    { "op": "cyl", "name": "Schaft", "at": [0, "base", 0], "r": "r", "h": "h", "color": { "noise": ["stone", "stone_light"], "weights": [3, 1] } },
+    { "op": "box", "name": "Lichtkanal vorn/hinten", "if": "lights", "at": [0, "base+2", -4], "size": [1, "h-4", 8], "color": "glow", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Lichtkanal links/rechts", "if": "lights", "at": [-4, "base+2", 0], "size": [8, "h-4", 1], "color": "glow", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Kannelur vorn/hinten", "if": "!lights", "at": [0, "base+2", -4], "size": [1, "h-4", 8], "color": "stone_dark", "mode": "paint" },
+    { "op": "box", "name": "Kannelur links/rechts", "if": "!lights", "at": [-4, "base+2", 0], "size": [8, "h-4", 1], "color": "stone_dark", "mode": "paint" },
+    { "op": "cyl", "name": "Metallmanschette unten", "at": [0, "base", 0], "r": "r+0.3", "h": 1, "color": "metal" },
+    { "op": "cyl", "name": "Goldring", "at": [0, "base+h-2", 0], "r": "r+0.5", "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Echinus", "at": [0, "base+h", 0], "r": "r+0.6", "h": 1, "color": "stone_light" },
+    { "op": "box", "name": "Abakus", "at": [-3, "base+h+1", -3], "size": [6, 1, 6], "color": { "frame": "trim", "fill": "stone", "axes": "xz" } }
+  ],
+  "anchor": [0, 0, 0]
+}

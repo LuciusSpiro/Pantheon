@@ -1,14 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "pantheon/weltstand/2",
-  "title": "Weltstand (Pantheon, Version 2)",
+  "$id": "pantheon/weltstand/3",
+  "title": "Weltstand (Pantheon, Version 3)",
   "description": "Speicherstand einer Kampagne: Welt + Schiff + NSC + Chronik (CONTRACT-S1 §5). Liegt auf dem Server (WORLD_DIR, Standard data/worlds/<id>.json), atomar geschrieben, vorherige Fassung als <id>.bak.json. Gespeichert wird angedockt und beim Abschluss einer Mission. Höchstens 5 Weltstände.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "id", "name", "erstellt", "gespeichert", "ort", "schiff", "welt", "missionen", "npc", "chronik"],
   "properties": {
     "$schema": { "type": "string" },
-    "version": { "enum": [1, 2], "description": "Formatversion 2 (S2, geschrieben wird immer 2). 1 = S1-Stand: bleibt gültig und wird beim Laden per server/weltstand.js MIGRATIONS[1] auf 2 gehoben (+ leerer Block spielleiter)." },
+    "version": { "enum": [1, 2, 3], "description": "Formatversion 3 (B1–B3, geschrieben wird immer 3). 2 = S2-Stand, 1 = S1-Stand: bleiben gültig und werden beim Laden per server/weltstand.js MIGRATIONS[n] gehoben (v1 -> v2: leerer Block spielleiter; v2 -> v3: leere Blöcke welt.landepunkte, welt.wracks, crew, welt.sektoren aus den Orten)." },
+    "crew": {
+      "type": "object", "additionalProperties": false,
+      "description": "B2 (CONTRACT-B2 §9, CONTRACT-B1 §8): Crew-weite Daten ohne Namen. Inhaber: waffen.js (waffen), squad.js über game.weltstand.rolleGesehen (rollen_gesehen).",
+      "properties": {
+        "waffen": { "type": "object", "description": "Hash der Browser-Kennung (12 Hex-Zeichen, SHA-1) -> gewählte Waffe (Waffenwahl am Transporter, E26). Nie Namen.",
+          "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "string" } },
+        "rollen_gesehen": { "type": "array", "items": { "type": "string" }, "description": "Gegnerrollen, die die Crew schon gesehen hat (Einführungsregel E24)" }
+      }
+    },
     "spielleiter": {
       "type": "object",
       "description": "S2 (CONTRACT-S2 §3.2): Zustand des Spielleiters. Bücher nur für angebotene/aktive Missionen, erledigte nur als Zusammenfassung.",
@@ -18,7 +27,11 @@
         "archiv_gespielt": { "type": "array", "items": { "type": "string" } },
         "archiv_abgelehnt": { "type": "array", "items": { "type": "string" }, "description": "abgelehnte Archiv-Missionen: erst wieder anbieten, wenn alle anderen gespielt/abgelehnt sind" },
         "zusammenfassung": { "type": "array", "items": { "type": "object", "properties": {
-          "id": { "type": "string" }, "titel": { "type": "string" }, "auftraggeber": { "type": ["string", "null"] }, "ausgang": { "type": ["string", "null"] } } } },
+          "id": { "type": "string" }, "titel": { "type": "string" }, "auftraggeber": { "type": ["string", "null"] }, "ausgang": { "type": ["string", "null"] },
+          "boden": { "type": "boolean", "description": "B1: Mission hatte eine Bodenszene (Bodenquote)" },
+          "lang": { "type": "boolean", "description": "B1: lange Mission (ab CONFIG.spielleiter.boden.langAbMin)" },
+          "landepunkte": { "type": "array", "items": { "type": "string" }, "description": "B1: benutzte Landepunkte (lpId)" },
+          "dauer_ziel_min": { "type": ["number", "null"], "minimum": 0 } } } },
         "naechste_id": { "type": "integer", "minimum": 0 }
       }
     },
@@ -74,6 +87,42 @@
           }
         },
         "verbindungen_offen": { "type": "array", "items": { "type": "string" }, "description": "Schlüssel aus LOCKED_LINKS, die offen sind" },
+        "landepunkte": {
+          "type": "object",
+          "description": "B1 (CONTRACT-B1 §8): Landepunkt-ID -> gebaute Karte (Seed) und ihre Zustände. Inhaber server/sim/landepunkte.js (toSave/restore). Weicht bauversion ab, wird neu gebaut und Zustände über Anker-/Kanten-IDs übertragen.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "seed": { "type": "integer" },
+              "bauversion": { "type": ["string", "null"] },
+              "schablone": { "type": ["string", "null"] },
+              "art": { "type": "string" },
+              "bauweise": { "type": ["string", "null"] },
+              "besitz": { "type": ["string", "null"] },
+              "zustand": { "type": ["string", "null"] },
+              "zustaende": { "type": "object", "description": "Anker-ID bzw. Kanten-ID -> Zustand", "additionalProperties": { "type": "string" } },
+              "alarm": { "type": "boolean" },
+              "besuche": { "type": "integer", "minimum": 0 },
+              "letzte_mission": { "type": ["string", "null"] },
+              "neu": { "type": "boolean" },
+              "gesperrt": { "type": "boolean" }
+            }
+          }
+        },
+        "wracks": {
+          "type": "array", "description": "B1 (§7/§8): treibende Wracks als Landepunkte. Inhaber server/sim/entern.js.",
+          "items": { "type": "object", "required": ["lpId"], "properties": {
+            "lpId": { "type": "string" }, "ort": { "type": ["string", "null"] }, "quelle": { "enum": ["entern", "daten"] } } }
+        },
+        "sektoren": {
+          "type": "object", "description": "B3 (CONTRACT-B3 §5): Erkundungsstand der Sektorkarte. Inhaber explore.js/sprung.js. orte.* bleibt als Altfeld.",
+          "properties": {
+            "erkundet": { "type": "array", "items": { "type": "string" }, "description": "besuchte Hexe (SSZZ)" },
+            "bojen": { "type": "array", "items": { "type": "string" }, "description": "bekannte Bojen (Kanten-IDs a-b)" },
+            "temp": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "a": { "type": "string" }, "b": { "type": "string" }, "bis": { "type": "string" } } }, "description": "temporäre Sprungpunkte" },
+            "offen": { "type": "array", "items": { "type": "string" }, "description": "geöffnete gesperrte Kanten" }
+          }
+        },
         "karten": { "type": "array", "items": { "type": "string" }, "description": "kartierte Außenkarten (platform, wreck, kesh)" },
         "flags": { "type": "object", "description": "Weltweite Flags (bribed, decision, technikerRescued …)", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
         "fakten": { "type": "object", "description": "Kanon aus Folgen, z. B. tafel_von_kesh: konkordat_archiv. Der Server schreibt den Wert direkt (Quelle in faktenQuelle); die Form { value, quelle } (wie content/npc.json) wird ebenfalls gelesen.",
@@ -113,6 +162,7 @@
               "ereignisse": { "type": "array", "items": { "type": "string" } },
               "entscheidungen": { "type": "array", "items": { "type": "string" } },
               "erledigte_ziele": { "type": "array", "items": { "type": "object" } },
+              "fund": { "type": "string", "description": "B1: gemerkter Fund der laufenden Mission (Aktion fund, Textbaustein {fund}); fehlt -> „die Beute“" },
               "ausgang": { "type": ["string", "null"] },
               "start_s": { "type": ["number", "null"] }, "ende_s": { "type": ["number", "null"] }
             }

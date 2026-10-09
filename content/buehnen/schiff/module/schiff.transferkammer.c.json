@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.transferkammer.c",
+  "art": "schiff",
+  "typ": "transferkammer",
+  "groesse": [5, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Transferkammer zwischen zwei Druckschotts (Türen im Längsgang).",
+  "rows": [
+    "#####",
+    "#.PP#",
+    "#.P.#",
+    "#o..#",
+    "#..O#",
+    "#...#",
+    "D.I.D",
+    "#...#",
+    "#o.o#",
+    "#...#",
+    "#...#",
+    "#O..#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    "..a..",
+    ".....",
+    ".....",
+    ".....",
+    "..e..",
+    ".....",
+    "..p..",
+    ".....",
+    ".....",
+    "..q..",
+    ".....",
+    "....."
+  ],
+  "anker_legende": {
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "laut"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    }
+  },
+  "belegungen": []
+}

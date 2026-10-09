@@ -12,6 +12,576 @@
     "A9",
     "C2"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "bruecke_nehmen",
+      "name": "Brücke nehmen",
+      "schauplatz": "aussen",
+      "beschreibung": "Auf dem fremden Schiff: Brücke räumen und das Steuer 3 s halten. Danach gehört das Schiff kurz euch – die Folge (Ladung, Kennung) wird erzählt, es gibt keinen Schiffswechsel.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "schiff"
+        ],
+        "anker": [
+          "ziel",
+          "wache"
+        ]
+      },
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          6,
+          8
+        ],
+        "2": [
+          5,
+          7
+        ],
+        "3": [
+          4,
+          6
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gekapert"
+      ],
+      "ereignisse": [
+        "ankerZustand",
+        "droneKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "raubzug",
+          "werte": [
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer bzw. Gegner (Fraktion = Besitz-ID); Rollen kommen aus den Trupp-Rezepten der Fraktion"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "mittel",
+          "werte": [
+            "klein",
+            "mittel",
+            "gross"
+          ]
+        },
+        "folge": {
+          "typ": "text",
+          "default": "Das Steuer gehört euch. Die Ladeliste und die Kennung liegen jetzt offen.",
+          "beschreibung": "Erzählte Folge (ODA, ≤ 120 Zeichen)"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen",
+                "map": "{{map}}",
+                "fraktion": "{{fraktion}}",
+                "staerke": "{{staerke}}",
+                "haltung": "wach",
+                "tag": "{{id}}_bruecke",
+                "bereich": "ziel"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 60,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "ziel",
+                        "state": "aktiviert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gekapert": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "ziel",
+                "zustand": "aktiviert"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gekapert": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Die Brücke liegt vorn. Räumen, dann das Steuer halten (E).",
+          "{{id}}.hinweis": "Captain: Die Brücke ist auf der Außenteam-Karte markiert. Einer hält das Steuer, die anderen decken.",
+          "{{id}}.geschafft": "{{folge}}",
+          "{{id}}.ziel": "Brücke räumen und das Steuer halten (E)"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "vaelen",
+          "map": "vaelen.handelsschiff"
+        }
+      }
+    },
+    {
+      "id": "prise_entern",
+      "name": "Prise entern",
+      "schauplatz": "aussen",
+      "beschreibung": "Erst im Raum: ein Schiff kampfunfähig schießen. Bei Hülle 0 explodiert es nicht, es treibt als Prise (Landepunkt <ort>.prise, Schiff, germanische Bauweise, umkämpft). Dann an der Transfer-Konsole „Prise“ wählen, nah ran, hinüberbeamen, die Restbesatzung räumen und den Steuerpunkt halten. Die Folge (Ladung, Kennung) wird erzählt, es gibt keinen Schiffswechsel. merken: die Prise bleibt nach der Szene als treibendes Wrack am Ort.",
+      "braucht": [
+        "raumkampf",
+        "transfer",
+        "aussen_kampf",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "schiff"
+        ],
+        "anker": [
+          "ziel",
+          "wache"
+        ],
+        "gefecht": true,
+        "landepunkt": "laufzeit"
+      },
+      "dauer_min": [
+        5,
+        8
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          7,
+          10
+        ],
+        "2": [
+          6,
+          8
+        ],
+        "3": [
+          5,
+          7
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gekapert"
+      ],
+      "ereignisse": [
+        "enemyKilled",
+        "ankerZustand",
+        "droneKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort des Gefechts; die Prise liegt dann am Landepunkt <loc>.prise (setzt ENTERN, nie das LLM)"
+        },
+        "schiff": {
+          "typ": "kind",
+          "default": "raider",
+          "werte": [
+            "raider",
+            "gunboat"
+          ],
+          "beschreibung": "Das Schiff, das gekapert wird"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "rostmeute",
+          "werte": [
+            "rostmeute",
+            "raubzug"
+          ],
+          "beschreibung": "Besitz der Prise und Fraktion der Restbesatzung (germanische Schiffe: Rostmeute oder Raubzug)"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "klein",
+          "werte": [
+            "klein",
+            "mittel"
+          ],
+          "beschreibung": "Restbesatzung an Bord (die Prise ist angeschlagen)"
+        },
+        "merken": {
+          "typ": "bool",
+          "default": false,
+          "beschreibung": "Prise bleibt nach der Szene als treibendes Wrack am Ort (Weltstand)"
+        },
+        "folge": {
+          "typ": "text",
+          "default": "Die Prise gehört euch. Ladeliste und Kennung liegen offen.",
+          "beschreibung": "Erzählte Folge (ODA, ≤ 120 Zeichen)"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{loc}}.prise"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{loc}}.prise"
+            ],
+            "enter": [
+              {
+                "do": "entern_ziel",
+                "tag": "{{id}}_schiff",
+                "merken": "{{merken}}",
+                "fraktion": "{{fraktion}}"
+              },
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_treibt"
+                  }
+                },
+                "spawn": {
+                  "kind": "{{schiff}}",
+                  "tag": "{{id}}_schiff",
+                  "n": 1,
+                  "angles": [
+                    0.4
+                  ]
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 1,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 90,
+                "if": {
+                  "all": [
+                    {
+                      "killed": {
+                        "tag": "{{id}}_schiff",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "killed": {
+                        "tag": "{{id}}_schiff",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_treibt"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_treibt": true
+                    }
+                  },
+                  {
+                    "wendung": "{{id}}_restbesatzung",
+                    "ankuendigung": {
+                      "oda": "@{{id}}.treibt",
+                      "art": "gleichzeitig"
+                    },
+                    "wirkung": [
+                      {
+                        "do": "besetzen",
+                        "map": "{{loc}}.prise",
+                        "fraktion": "{{fraktion}}",
+                        "staerke": "{{staerke}}",
+                        "haltung": "wach",
+                        "tag": "{{id}}_crew",
+                        "bereich": "ziel"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{loc}}.prise",
+                        "anker": "ziel",
+                        "state": "aktiviert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gekapert": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "schiff",
+                "text": "@{{id}}.ziel_schiff",
+                "done": {
+                  "any": [
+                    {
+                      "killed": {
+                        "tag": "{{id}}_schiff",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{loc}}.prise"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_treibt": true
+                }
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gekapert": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_schiff": "Das Schiff kampfunfähig schießen",
+          "{{id}}.ziel_runter": "Außenteam auf die Prise beamen",
+          "{{id}}.start": "Das Schiff wollen wir ganz. Schießt es zusammen, bis es treibt – dann gehen wir hinüber.",
+          "{{id}}.treibt": "Es treibt! Transfer-Konsole: Landepunkt „Prise“ wählen, nah heran, dann hinüber. An Bord sind noch Leute.",
+          "{{id}}.hinweis": "Captain: {{lex.ziel:der}} der Prise ist auf der Außenteam-Karte markiert. Einer hält dort E, die anderen decken.",
+          "{{id}}.geschafft": "{{folge}}",
+          "{{id}}.ziel": "Die Prise räumen und {{lex.ziel:den}} halten (E)"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

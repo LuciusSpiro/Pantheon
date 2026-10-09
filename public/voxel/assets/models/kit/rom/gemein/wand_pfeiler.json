@@ -1,0 +1,24 @@
+{
+  "id": "kit/rom/gemein/wand_pfeiler",
+  "name": "Rom-Steckplatz wand_pfeiler: Mauerknoten: Turmpfeiler mit Panzerband und Eckpilastern",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":11,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "conn": {"default":10,"min":0,"max":15,"step":1}
+  },
+  "ops": [
+    {"name":"Körper","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"secondary","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Sockel","op":"box","at":[0,0,0],"size":["w","min(2, h)","d"],"color":{"shade":"stone_dark","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Panzerband","op":"box","if":"h > 4","at":[0,2,0],"size":["w",2,"d"],"color":{"shade":"primary","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Eckpilaster","op":"box","at":[0,2,0],"size":[1,"max(1, h - 2)",1],"color":{"shade":"metal","f":"1 * (1 - zustand * 0.08)"},"mirror":"xz","mirrorAt":{"x":"w / 2","z":"d / 2"}},
+    {"name":"Paneelfuge","op":"box","if":"h > 8","at":[1,7,0],"size":["w - 2",1,"d"],"color":{"shade":"secondary","f":"0.75 * (1 - zustand * 0.08)"}},
+    {"name":"Moos","op":"box","mode":"paint","if":"zustand > 0","at":[0,0,0],"size":["w",2,"d"],"color":{"noise":[{"shade":"plant_dark","f":0.75},"stone_dark","stone"],"weights":[1,3,3],"cell":1}}
+  ],
+  "anchor": [0,0,0]
+}

@@ -165,8 +165,14 @@ function mockGrobplan(input, kat) {
       }
     }
   }
-  const a = pairs[0];
+  let a = pairs[0];
   const b = pairs.find((p) => p !== a && p.mol.id !== a.mol.id && hasActionList(p.u));
+  // B1 §11.2: Bodenquote fällig -> Szene A wird eine Bodenszene (erste verfügbare Außen-Umsetzung an ihrem Testort)
+  let landepunkt = null;
+  if (kontext.bodenbilanz && kontext.bodenbilanz.pflicht_jetzt) {
+    const g = groundPair(kat, LOC, b);
+    if (g) { a = g; landepunkt = (g.u.test && g.u.test.params && g.u.test.params.map) || null; }
+  }
   if (!a || !b) throw new Error('mock: im Katalog fehlen zwei verfügbare Weltraum-Umsetzungen (eine davon mit Aktionsliste)');
   const dauer = (u) => u.dauer_min[0];
   const sprung = (hops(LOC, 'hafen', a.ort) + hops(LOC, a.ort, b.ort)) * 0.5;
@@ -177,7 +183,7 @@ function mockGrobplan(input, kat) {
     aufhaenger: 'Deterministischer Testauftrag aus dem Katalog (mock).', erinnerung: er.ref || er.text,
     szenen: [
       { id: 's1_hafen', szenentyp: 'hafen', ort: 'hafen', karte: null, molekuele: [], sachverhalt: 'Auftrag im Hafen.', wendung: null, dauer_min: 1, weiter: [{ wenn: 'immer', nach: 's2_mock' }] },
-      { id: 's2_mock', szenentyp: a.st.id, ort: a.ort, karte: null, molekuele: [{ id: a.mol.id, umsetzung: a.u.id }], sachverhalt: `${a.u.name} (mock).`, wendung: null, dauer_min: dauer(a.u), weiter: [{ wenn: 'immer', nach: 's3_mock' }] },
+      Object.assign({ id: 's2_mock', szenentyp: a.st.id, ort: a.ort, karte: null }, landepunkt ? { landepunkt } : {}, { molekuele: [{ id: a.mol.id, umsetzung: a.u.id }], sachverhalt: `${a.u.name} (mock).`, wendung: null, dauer_min: dauer(a.u), weiter: [{ wenn: 'immer', nach: 's3_mock' }] }),
       { id: 's3_mock', szenentyp: b.st.id, ort: b.ort, karte: null, molekuele: [{ id: b.mol.id, umsetzung: b.u.id }], sachverhalt: `${b.u.name} (mock).`, wendung: null, dauer_min: dauer(b.u),
         weiter: [{ wenn: 'Wahl A', nach: 'ausgang:erfolg' }, { wenn: 'sonst', nach: 'ausgang:teilerfolg' }] },
     ],
@@ -189,6 +195,24 @@ function mockGrobplan(input, kat) {
   };
   if (er.ref) plan.erinnerung_text = er.text;
   return plan;
+}
+// Außen-Umsetzung für die Bodenszene des Mocks (ohne 'nach', Testort erreichbar, Szenentyp draußen verfügbar)
+function groundPair(kat, LOC, b) {
+  const types = Object.values(kat.szenentypen).filter((s) => s.status === 'verfuegbar' && s.bereich === 'aussen')
+    .sort((x, y) => x.kennung.localeCompare(y.kennung, 'de', { numeric: true }));
+  for (const st of types) {
+    for (const mid of [...st.verfuegbare_molekuele].sort()) {
+      const mol = kat.molekuele[mid];
+      if (!mol || (b && mol.id === b.mol.id)) continue;
+      for (const u of [...mol.umsetzungen].sort(byId)) {
+        if (u.status !== 'verfuegbar' || u.schauplatz !== 'aussen' || (u.nach || []).length) continue;
+        const ort = (u.test && u.test.params && u.test.params.loc) || (u.params.loc && u.params.loc.werte && u.params.loc.werte[0]);
+        if (!ort || !LOC[ort] || hops(LOC, 'hafen', ort) < 0 || (b && hops(LOC, ort, b.ort) < 0)) continue;
+        return { st, mol, u, ort };
+      }
+    }
+  }
+  return null;
 }
 // Szene: Parameter = Testwerte der Umsetzung (Ort aus der Szene). Bei Verzweigung setzt die erste Aktionsliste eine Flag.
 function mockSzene(input, kat) {

@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const Loader = require('./loader.js');
+const Lexikon = require('./lexikon.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const SCHEMA_FILE = path.join(ROOT, 'content', 'regiebuch', 'regiebuch.schema.json');
@@ -41,13 +42,34 @@ function typeOf(v) {
   return typeof v;
 }
 function typeOk(v, t) {
-  const ts = [].concat(t); const vt = typeOf(v);
-  return ts.some((x) => x === vt || (x === 'number' && vt === 'integer'));
+  const vt = typeOf(v);
+  if (typeof t === 'string') return t === vt || (t === 'number' && vt === 'integer');
+  for (const x of t) if (x === vt || (x === 'number' && vt === 'integer')) return true;
+  return false;
 }
+// Caches (Tempo, Ergebnis unverändert): $ref je Wurzelschema, RegExp je Muster
+const refCache = new WeakMap();
 function resolveRef(ref, root) {
-  if (!ref.startsWith('#/')) throw new Error('Nur lokale $ref: ' + ref);
-  return ref.slice(2).split('/').reduce((o, k) => o[k], root);
+  let m = refCache.get(root);
+  if (!m) { m = new Map(); refCache.set(root, m); }
+  let r = m.get(ref);
+  if (r === undefined && !m.has(ref)) {
+    if (!ref.startsWith('#/')) throw new Error('Nur lokale $ref: ' + ref);
+    r = ref.slice(2).split('/').reduce((o, k) => o[k], root);
+    m.set(ref, r);
+  }
+  return r;
 }
+const reCache = new Map();
+function re(pattern) { let r = reCache.get(pattern); if (!r) { r = new RegExp(pattern); reCache.set(pattern, r); } return r; }
+// oneOf-Vorfilter: Zweig (über $ref aufgelöst) mit type, der nicht zu v passt, liefert genau den Typ-Fehler – ohne Prüflauf
+function typFehler(v, alt, p, root) {
+  let s = alt; let n = 0;
+  while (s && typeof s === 'object' && s.$ref && n++ < 16) s = resolveRef(s.$ref, root);
+  if (s && typeof s === 'object' && s.type && !typeOk(v, s.type)) return [[p, `Typ ${typeOf(v)} statt ${[].concat(s.type).join('|')}`]];
+  return null;
+}
+const NO_DEPS = {};
 // validate(v, s, p, out, root) wie tools/check-missions.js; Kurzform validate(obj, schema) -> Liste
 function validate(v, s, p, out, root) {
   if (out === undefined) { const o = []; validate(v, s, '$', o, s); return o; }
@@ -61,38 +83,37 @@ function validate(v, s, p, out, root) {
   if (typeof v === 'string') {
     if (s.maxLength != null && v.length > s.maxLength) out.push([p, `länger als ${s.maxLength} Zeichen`]);
     if (s.minLength != null && v.length < s.minLength) out.push([p, `kürzer als ${s.minLength} Zeichen`]);
-    if (s.pattern && !new RegExp(s.pattern).test(v)) out.push([p, `passt nicht zu ${s.pattern}`]);
-  }
-  if (typeof v === 'number') {
+    if (s.pattern && !re(s.pattern).test(v)) out.push([p, `passt nicht zu ${s.pattern}`]);
+  } else if (typeof v === 'number') {
     if (s.minimum != null && v < s.minimum) out.push([p, `kleiner als ${s.minimum}`]);
     if (s.maximum != null && v > s.maximum) out.push([p, `größer als ${s.maximum}`]);
-  }
-  if (Array.isArray(v)) {
+  } else if (Array.isArray(v)) {
     if (s.minItems != null && v.length < s.minItems) out.push([p, `weniger als ${s.minItems} Einträge`]);
     if (s.maxItems != null && v.length > s.maxItems) out.push([p, `mehr als ${s.maxItems} Einträge`]);
-    if (s.items) v.forEach((x, i) => validate(x, s.items, `${p}[${i}]`, out, root));
-  }
-  if (typeOf(v) === 'object') {
+    if (s.items) for (let i = 0; i < v.length; i++) validate(v[i], s.items, `${p}[${i}]`, out, root);
+  } else if (v !== null && typeof v === 'object') {
     const keys = Object.keys(v);
-    for (const r of s.required || []) if (!(r in v)) out.push([p, `Pflichtfeld '${r}' fehlt`]);
+    if (s.required) for (const r of s.required) if (!(r in v)) out.push([p, `Pflichtfeld '${r}' fehlt`]);
     if (s.minProperties != null && keys.length < s.minProperties) out.push([p, `weniger als ${s.minProperties} Felder`]);
     if (s.maxProperties != null && keys.length > s.maxProperties) out.push([p, `mehr als ${s.maxProperties} Felder`]);
-    for (const [k, deps] of Object.entries(s.dependentRequired || {})) {
-      if (k in v) for (const d of deps) if (!(d in v)) out.push([p, `'${k}' verlangt '${d}'`]);
+    const deps = s.dependentRequired || NO_DEPS;
+    for (const k in deps) {
+      if (k in v) for (const d of deps[k]) if (!(d in v)) out.push([p, `'${k}' verlangt '${d}'`]);
     }
+    const pn = s.propertyNames; const props = s.properties; const ap = s.additionalProperties;
     for (const k of keys) {
-      if (s.propertyNames) {
-        if (s.propertyNames.enum && !s.propertyNames.enum.includes(k)) out.push([`${p}.${k}`, `unbekannter Schlüssel '${k}'`]);
-        if (s.propertyNames.pattern && !new RegExp(s.propertyNames.pattern).test(k)) out.push([`${p}.${k}`, `Schlüssel passt nicht zu ${s.propertyNames.pattern}`]);
+      if (pn) {
+        if (pn.enum && !pn.enum.includes(k)) out.push([`${p}.${k}`, `unbekannter Schlüssel '${k}'`]);
+        if (pn.pattern && !re(pn.pattern).test(k)) out.push([`${p}.${k}`, `Schlüssel passt nicht zu ${pn.pattern}`]);
       }
-      if (s.properties && k in s.properties) validate(v[k], s.properties[k], `${p}.${k}`, out, root);
-      else if (s.additionalProperties === false) out.push([`${p}.${k}`, `unbekanntes Feld '${k}'`]);
-      else if (typeof s.additionalProperties === 'object') validate(v[k], s.additionalProperties, `${p}.${k}`, out, root);
+      if (props && k in props) validate(v[k], props[k], `${p}.${k}`, out, root);
+      else if (ap === false) out.push([`${p}.${k}`, `unbekanntes Feld '${k}'`]);
+      else if (typeof ap === 'object' && ap !== null) validate(v[k], ap, `${p}.${k}`, out, root);
     }
   }
   if (s.oneOf) {
-    const results = s.oneOf.map((alt) => { const o = []; validate(v, alt, p, o, root); return o; });
-    const ok = results.filter((r) => !r.length).length;
+    const results = s.oneOf.map((alt) => typFehler(v, alt, p, root) || validate(v, alt, p, [], root));
+    let ok = 0; for (const r of results) if (!r.length) ok++;
     if (ok !== 1) {
       const best = results.filter((r) => r.length && !r.some(([, m]) => m.startsWith('Typ '))).sort((a, b) => a.length - b.length)[0];
       if (ok === 0 && best) out.push(...best);
@@ -105,6 +126,18 @@ function validate(v, s, p, out, root) {
 // ---------------------------------------------------------------------------------------------------------------
 // Hilfen zum Durchlaufen von Aktionen und Bedingungen
 function isObj(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+const map0 = (args) => (args && args.map != null ? String(args.map) : '');
+// B1: Ankerrollen (content/buehnen/anker.json); B3: Sektorkarte (shared/sektoren.js) – beides optional
+let ankerRollen = null;
+function ANKER_ROLLEN() {
+  if (!ankerRollen) { try { ankerRollen = require('../../content/buehnen/anker.json').rollen || {}; } catch (e) { ankerRollen = {}; } }
+  return ankerRollen;
+}
+const Sek = {
+  mod() { try { const S = require('../../shared/sektoren.js'); return S && S.KARTE ? S : null; } catch (e) { return null; } },
+  ok(hex) { const S = this.mod(); if (!S) return true; return typeof hex === 'string' && S.imRaster(hex) && S.spielbar(hex); },
+  kante(id) { const S = this.mod(); if (!S) return { art: 'open' }; return S.kante(id); },
+};
 
 // cb(aktion, kontext) für jede Aktion, auch in 'wirkung' und 'after'
 function eachAction(list, ctx, cb) {
@@ -179,6 +212,7 @@ function defaultCtx() {
 function check(doc, ctxIn) {
   const ctx = Object.assign(defaultCtx(), ctxIn || {});
   const Reg = ctx.registry; const Obj = ctx.objects; const L = ctx.locations;
+  const isHandM = (m) => (typeof Obj.isHand === 'function' ? Obj.isHand(m) : !!Obj.AWAY_LEGENDS[m]);
   const LOC_IDS = new Set(L.LOCATIONS.map((l) => l.id));
   const PORT_IDS = new Set(L.LOCATIONS.filter((l) => l.kind === 'port' || l.kind === 'trader').map((l) => l.id));
   const HIDDEN_IDS = new Set(L.LOCATIONS.flatMap((l) => (l.hidden || []).map((h) => h.id)));
@@ -227,12 +261,40 @@ function check(doc, ctxIn) {
       if (!(k in doc.texte)) { E('REF-TEXT', p, `Text '${val}' fehlt in 'texte'`); return; }
       resolved = doc.texte[k];
     } else W('TEXT-LITERAL', p, 'Literaltext statt Verweis (@kennung) – der Spielleiter kann ihn nicht austauschen');
-    if (maxLen && typeof resolved === 'string' && resolved.length > maxLen) E('ODA-LAENGE', p, `ODA-Text hat ${resolved.length} Zeichen (höchstens ${maxLen})`);
+    const len = Lexikon.laengste(resolved);   // B1: {{lex.*}} aufgelöst, längste Bauweise
+    if (maxLen && typeof resolved === 'string' && len > maxLen) E('ODA-LAENGE', p, `ODA-Text hat ${len} Zeichen (höchstens ${maxLen})`);
   };
+
+  // --- B1 F2: Platzhalter. Erlaubt ist nur {{lex.<schluessel>}} mit einem Schlüssel aus content/buehnen/lexikon; alles
+  // andere ({{fund_name}}, {{lex.gibtsnicht}}, offenes {{) sähe der Spieler roh.
+  (function platzhalter(node, p) {
+    if (typeof node === 'string') {
+      for (const h of Lexikon.namenHinweise(node)) W('NAME-PRAEPOSITION', p, `„${h} …“: Name nach Präposition im Nominativ – Fallform/Genus unbekannt, Text umstellen (bleibt unverändert)`);
+      for (const o of Lexikon.offene(node)) (o.hinweis ? W : E)(o.code, p, `${o.platzhalter}: ${o.grund}`); return; }
+    if (Array.isArray(node)) { node.forEach((x, i) => platzhalter(x, `${p}[${i}]`)); return; }
+    if (isObj(node)) for (const [k, v] of Object.entries(node)) platzhalter(v, p ? `${p}.${k}` : k);
+  })(doc, '');
 
   // --- Bühne
   for (const o of orte) if (!LOC_IDS.has(o)) E('REF-ORT', 'buehne.orte', `Ort '${o}' gibt es nicht (shared/locations.js)`);
-  for (const k of karten) if (!Obj.AWAY_LEGENDS[k]) E('REF-KARTE', 'buehne.aussenkarten', `Außenkarte '${k}' gibt es nicht (shared/maps.js)`);
+  // B1 §11.3: aussenkarten nimmt Handkarten und Landepunkt-IDs (content/welt/landepunkte.json bzw. <ort>.<art>-<n>, <ort>.prise)
+  const mapKnown = (k) => !!Obj.AWAY_LEGENDS[k] || !!(Obj.landepunkt && Obj.landepunkt(k));
+  const mapRef = (k, p) => {
+    const lp = Obj.landepunkt && Obj.landepunkt(k);
+    if (!Obj.AWAY_LEGENDS[k] && !lp) { E(String(k).includes('.') ? 'LANDEPUNKT' : 'REF-KARTE', p, `Außenkarte/Landepunkt '${k}' gibt es nicht (shared/maps.js, content/welt/landepunkte.json)`); return false; }
+    if (lp && lp.gesperrt) E('LANDEPUNKT-GESPERRT', p, `Landepunkt '${k}' ist gesperrt (nicht anfliegbar)`);
+    return true;
+  };
+  for (const k of karten) mapRef(k, 'buehne.aussenkarten');
+  // B1 §11.3 KOORDINATE: Die Bühne nennt nie Koordinaten (x, y, tile, pos)
+  (function koord(node, p) {
+    if (Array.isArray(node)) { node.forEach((x, i) => koord(x, `${p}[${i}]`)); return; }
+    if (!isObj(node)) return;
+    for (const [k, v] of Object.entries(node)) {
+      if (['x', 'y', 'tile', 'pos'].includes(k)) E('KOORDINATE', `${p}.${k}`, `Koordinate '${k}' in der Bühne – Bühnen binden an Anker und Kartenart, nie an Koordinaten`);
+      else koord(v, `${p}.${k}`);
+    }
+  })(buehne, 'buehne');
   for (const [map, objs] of Object.entries(buehne.objekte || {})) for (const o of objs) {
     if (!Obj.declared(map)[o]) E('REF-OBJEKT', `buehne.objekte.${map}`, `Objekt '${o}' ist für Karte '${map}' nicht deklariert (MAP_OBJECTS)`);
   }
@@ -288,6 +350,7 @@ function check(doc, ctxIn) {
     if (!def || def.art !== kind) { E(kind === 'aktion' ? 'REF-BAUSTEIN' : 'REF-PRUEFUNG', p, `${kind === 'aktion' ? 'Baustein' : 'Prüfung'} '${name}' ist nicht registriert`); return null; }
     if (def.intern && !actx.debug && !isIntern) E('BAUSTEIN-INTERN', p, `Interner Baustein '${name}' nur in 'skip', 'debug' oder Büchern mit kopf.art 'intern' erlaubt`);
     for (const [pn, pd] of Object.entries(def.params)) if (pd.pflicht && !(pn in args)) E('PARAM-FEHLT', p, `'${name}' braucht Parameter '${pn}'`);
+    if (def.params.object && def.params.anker && !('object' in args) && !('anker' in args)) E('PARAM-FEHLT', p, `'${name}' braucht 'object' (Handkarte, Altform) oder 'anker'`);
     for (const [pn, val] of Object.entries(args)) {
       const pd = def.params[pn];
       if (!pd) { E('PARAM-UNBEKANNT', p, `'${name}' kennt keinen Parameter '${pn}'`); continue; }
@@ -300,8 +363,26 @@ function check(doc, ctxIn) {
       if (pd.typ === 'region' && !(val === 'random' || (Number.isInteger(val) && val >= 0 && val <= 3))) E('PARAM-WERT', p, `'${pn}' muss 0–3 oder "random" sein`);
       if (pd.typ === 'loc' && !LOC_IDS.has(val)) E('REF-ORT', p, `Ort '${val}' gibt es nicht`);
       if (pd.typ === 'loc' && !actx.debug && LOC_IDS.has(val) && !orte.has(val)) W('ORT-BUEHNE', p, `Ort '${val}' fehlt in buehne.orte`);
-      if (pd.typ === 'map' && !Obj.AWAY_LEGENDS[val]) E('REF-KARTE', p, `Außenkarte '${val}' gibt es nicht`);
+      if (pd.typ === 'map' && !mapKnown(val)) mapRef(val, p);
       else if (pd.typ === 'map' && !karten.has(val)) E('REF-KARTE', p, `Karte '${val}' fehlt in buehne.aussenkarten`);
+      if (pd.typ === 'anker') {
+        // B1 §6.3: Rolle oder Anker-ID; Handkarten gegen MAP_ANCHORS, gebaute Karten gegen das Vokabular (Rollen) – IDs erst zur Laufzeit
+        const map = map0(args); const hand = isHandM(map);
+        const rollen = Object.keys(ANKER_ROLLEN());
+        if (hand && !Obj.resolveAnker(null, map, val).length) E('REF-ANKER', p, `Anker '${val}' gibt es auf der Handkarte '${map}' nicht (MAP_ANCHORS)`);
+        else if (!hand && !String(val).includes('.') && !rollen.includes(val)) E('REF-ANKER', p, `Ankerrolle '${val}' gibt es nicht (content/buehnen/anker.json)`);
+        else if (args.state !== undefined) {
+          const zs = hand ? Obj.ankerZustaende(map, val) : (rollen.includes(val) ? Obj.rolleZustaende(val) : []);
+          if (zs.length && !zs.includes(args.state)) E('PARAM-WERT', p, `Zustand '${args.state}' gibt es für Anker '${val}' nicht (${zs.join(', ')})`);
+        }
+      }
+      if (pd.typ === 'hex' && !Sek.ok(val)) E('HEX-UNSPIELBAR', p, `Hex '${val}' gibt es nicht bzw. ist nicht spielbar`);
+      if (pd.typ === 'kante' && /^\d{4}-\d{4}$/.test(String(val))) {
+        const kk = Sek.kante(val);
+        if (!kk) E('SPRUNG-KANTE', p, `Sprungkante '${val}' gibt es nicht (Hexe keine Nachbarn bzw. ohne Kante)`);
+        else if (kk.art === 'hidden') W('SPRUNG-HIDDEN', p, `Kante '${val}' ist verborgen (hidden) – in B3 nicht aufzudecken`);
+      }
+      if (pd.typ === 'landepunkt') mapRef(val, p);
       if (pd.typ === 'npc') npcRef(val, p);
       if (pd.typ === 'text') textRef(val, p, pd.oda ? ODA_MAX : 0);
       if (pd.typ === 'hidden' && !HIDDEN_IDS.has(val)) E('REF-FUND', p, `Fund '${val}' gibt es nicht`);
@@ -317,7 +398,7 @@ function check(doc, ctxIn) {
           if (args.state !== undefined && !def2.zustaende.includes(args.state)) E('PARAM-WERT', p, `Zustand '${args.state}' gibt es für '${val}' nicht (${def2.zustaende.join(', ')})`);
         }
       }
-      if (pd.typ === 'area') {
+      if (pd.typ === 'area' && !isHandM(map0(args)) && mapKnown(map0(args))) { /* gebaute Karte: Bereiche erst zur Laufzeit (buehne_braucht) */ } else if (pd.typ === 'area') {
         const map = args.map;
         if (!Obj.areas(map)[val]) E('REF-BEREICH', p, `Bereich '${val}' ist für Karte '${map}' nicht deklariert`);
         else if (!((buehne.bereiche || {})[map] || []).includes(val)) W('BEREICH-BUEHNE', p, `Bereich '${val}' fehlt in buehne.bereiche.${map}`);
@@ -404,7 +485,7 @@ function check(doc, ctxIn) {
     gotos.set(s.id, new Set());
     if (s.loc && !LOC_IDS.has(s.loc)) E('REF-ORT', `${sp}.loc`, `Ort '${s.loc}' gibt es nicht`);
     else if (s.loc && !orte.has(s.loc)) W('ORT-BUEHNE', `${sp}.loc`, `Ort '${s.loc}' fehlt in buehne.orte`);
-    for (const m of s.allowBeam || []) if (!Obj.AWAY_LEGENDS[m]) E('REF-KARTE', `${sp}.allowBeam`, `Außenkarte '${m}' gibt es nicht`);
+    for (const m of s.allowBeam || []) if (!mapKnown(m)) mapRef(m, `${sp}.allowBeam`);
     if (s.wiederaufnahme && !stepIds.has(s.wiederaufnahme.ab)) E('REF-SCHRITT', `${sp}.wiederaufnahme.ab`, `Schritt '${s.wiederaufnahme.ab}' gibt es nicht`);
     const choiceHere = new Set(Object.keys(s.choices || {}));
     const optionIds = new Set(Object.values(s.choices || {}).flatMap((c) => (c.options || []).map((o) => o.id)));
@@ -568,6 +649,13 @@ function selftest(baseFile) {
     ['Unbekannter Baustein', 'REF-BAUSTEIN', (d) => { step(d, 'flight').enter = [{ do: 'spawnSquad', squad: 'squad1' }]; }],
     ['Interner Baustein im Ablauf', 'BAUSTEIN-INTERN', (d) => { step(d, 'flight').enter = [{ do: 'debug_jump', loc: 'kesh' }]; }],
     ['ODA-Text zu lang', 'ODA-LAENGE', (d) => { d.texte['flight.kurs'] = 'x'.repeat(130); }],
+    ['Koordinate in der Bühne (B1)', 'KOORDINATE', (d) => { d.buehne.ziel = { x: 12, y: 4 }; }],
+    ['Gesperrter Landepunkt (B1)', 'LANDEPUNKT-GESPERRT', (d) => { d.buehne.aussenkarten.push('rostnest.kastell'); }],
+    ['Unbekannter Lexikon-Schlüssel (B1 F2)', 'PLATZHALTER', (d) => { d.texte['flight.kurs'] = 'Zum {{lex.gibtsnicht}} fliegen'; }],
+    ['Offener Platzhalter (B1 F2)', 'PLATZHALTER', (d) => { d.texte['flight.kurs'] = '{{fund_name}} bergen'; }],
+    ['Unbekannter Landepunkt (B1)', 'LANDEPUNKT', (d) => { d.buehne.aussenkarten.push('kesh.gibtsnicht'); }],
+    ['Unbekannter Anker auf Handkarte (B1)', 'REF-ANKER', (d) => { step(d, 'flight').enter = [{ do: 'set_object_state', map: 'kesh', anker: 'terminal', state: 'bereit' }]; }],
+    ['Falscher Ankerzustand (B1)', 'PARAM-WERT', (d) => { step(d, 'flight').enter = [{ do: 'set_object_state', map: 'kesh', anker: 'tor', state: 'open' }]; }],
   ];
   const lines = [];
   let ok = 0;

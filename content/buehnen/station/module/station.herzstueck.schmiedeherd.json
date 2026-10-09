@@ -1,0 +1,31 @@
+{
+  "format": "modul/1", "id": "station.herzstueck.schmiedeherd", "art": "station", "typ": "herzstueck",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 2, "bauweise": ["germanen"],
+  "rows": [
+    "################",
+    "#..OOO.........#",
+    "#..OOO...o.o...#",
+    "D..............D",
+    "D....o.o.......D",
+    "#..........OO..#",
+    "#..............#",
+    "################"
+  ],
+  "anker": [
+    "................",
+    "....i.s.........",
+    ".............z..",
+    "................",
+    "................",
+    "................",
+    ".b.......w....b.",
+    "................"
+  ],
+  "anker_legende": {
+    "z": { "rolle": "ziel" },
+    "s": { "rolle": "sprengpunkt" },
+    "b": { "rolle": "beute" },
+    "w": { "rolle": "wache" },
+    "i": { "rolle": "leit" }
+  }
+}

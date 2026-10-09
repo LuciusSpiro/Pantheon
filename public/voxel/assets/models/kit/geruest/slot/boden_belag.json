@@ -1,0 +1,22 @@
+{
+  "id": "kit/geruest/slot/boden_belag",
+  "name": "Gerüst-Steckplatz boden_belag (neutral): Bodenbelag (Platte unter der Lauffläche)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["geruest","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "belag": {"default":0,"min":0,"max":3,"step":1,"label":"0 Platte · 1 Gitter · 2 Planke/Erde · 3 Schmuck"}
+  },
+  "ops": [
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"paving","f":"1 * (1 - zustand * 0.1)"},"if":"belag == 0"},
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"checker":["metal","metal_dark"],"period":1},"if":"belag == 1"},
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"stripes":["wood","wood_dark"],"axis":"x","period":1},"if":"belag == 2"},
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"checker":["stone_light","paving"],"period":1},"if":"belag == 3"}
+  ],
+  "anchor": [0,0,0]
+}

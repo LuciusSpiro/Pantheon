@@ -1,0 +1,90 @@
+{
+ "id": "kit/germanen/gemein/teil/grund_fuge",
+ "name": "Germanen gemein – teil/grund_fuge: Fuge des Grundbelags (N- und W-Rand)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Fuge N",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "paving_dark",
+    "f": "dk"
+   }
+  },
+  {
+   "name": "Fuge W",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "paving_dark",
+    "f": "dk"
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

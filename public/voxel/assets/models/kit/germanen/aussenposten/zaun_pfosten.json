@@ -1,0 +1,24 @@
+{
+  "id": "kit/germanen/aussenposten/zaun_pfosten",
+  "name": "Außenposten – zaun_pfosten: Palisaden-Hauptpfahl mit Spitze und Eisenring",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": ["germanen", "aussenposten", "slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default": 2, "min": 1, "max": 16, "step": 1, "label": "Breite (Voxel)"},
+    "h": {"default": 10, "min": 1, "max": 16, "step": 1, "label": "Höhe (Voxel)"},
+    "d": {"default": 2, "min": 1, "max": 4, "step": 1, "label": "Tiefe (Voxel)"},
+    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "ops": [
+    {"name": "Pfahl", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": {"shade": "wood_dark", "f": "1 - zustand * 0.12"}},
+    {"name": "Spitze", "op": "box", "at": [0, "h - 1", 0], "size": ["w", 1, "d"], "mode": "carve"},
+    {"name": "Spitze Rest", "op": "box", "at": [0, "h - 1", 0], "size": [1, 1, 1], "color": "frost"},
+    {"name": "Kopf hell (geschält)", "op": "box", "at": [0, "h - 3", 0], "size": ["w", 2, "d"], "mode": "paint", "color": {"shade": "wood", "f": "1.45 - zustand * 0.1"}},
+    {"name": "Eisenring", "op": "box", "at": [0, "h - 4", 0], "size": ["w", 1, "d"], "mode": "paint", "color": "metal_dark"},
+    {"name": "Frostwehe am Fuß", "op": "box", "at": [0, 0, 0], "size": ["w", 1, "d"], "mode": "paint", "color": "frost_dark"},
+    {"name": "Ruß (umkämpft)", "op": "box", "if": "zustand == 2", "at": [0, 1, 0], "size": ["w", "h - 4", "d"], "mode": "paint", "color": {"noise": ["wood_dark", "dark"], "weights": [2, 1], "seed": "seed"}}
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,97 @@
+{
+ "id": "kit/germanen/gemein/gitter_feld",
+ "name": "Germanen gemein – gitter_feld: Eisengeflecht (Gittermaschen)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. Sicht frei laut Kachelart: dunkle Maschen lesen sich als durchlässig; Voxel bleiben voll wegen der Naht.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 2,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 9,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 1,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Geflecht",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "checker": [
+     {
+      "shade": "metal",
+      "f": "0.9 * dk"
+     },
+     "dark"
+    ],
+    "period": 1
+   }
+  },
+  {
+   "name": "Oberer Riegel",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

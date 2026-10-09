@@ -1,0 +1,27 @@
+{
+  "id": "item/waffe/pistole",
+  "name": "Pistole (Verwundete) – Alias von lerche/item/blaster, Optik unverändert",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau", "held", "griff_pistole"],
+  "notes": "Anbau handR. Setzt lerche/item/blaster unverändert ein (eigene Palette lerche_rom fest). bauweise und heat sind nur für die einheitliche Art-API deklariert und wirken nicht: Die Pistole der Verwundeten bleibt, wie sie ist (CONTRACT-B2 §0.1). Länge 0,44 m.",
+  "footprint": [0.4, 0.4],
+  "params": {
+    "bauweise": {
+      "default": "rom",
+      "options": ["germanen", "rom", "rostmeute", "neutral"],
+      "label": "Bauweise (Fraktion der Figur; Spieler = rom)"
+    },
+    "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze 0–3 (Kühlrippen glühen)" }
+  },
+  "ops": [
+    {
+      "name": "Crew-Pistole",
+      "op": "use",
+      "model": "lerche/item/blaster",
+      "at": [0, 0, 0],
+      "palette": "lerche_rom"
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

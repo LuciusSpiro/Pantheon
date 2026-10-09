@@ -1,0 +1,32 @@
+{
+  "id": "friedlose",
+  "name": "Friedlose: Germanen-Formen in Rostmeute-Farben (Rost, Stahlblau-Flicken, Knochen) – ohne Zustandsfarben",
+  "extends": "nord",
+  "roles": {
+    "primary": "#A4502C",
+    "secondary": "#4F6178",
+    "trim": "#C8682E",
+    "metal": "#6A5A50",
+    "metal_dark": "#5E3A2C",
+    "metal_light": "#9A8A78",
+    "cloth": "#B0582C",
+    "cloth2": "#4F6178",
+    "leather": "#7A3E22",
+    "warning": "#C9A23E",
+    "glow": {
+      "color": "#E8C89A",
+      "emit": 1
+    },
+    "rune": {
+      "color": "#E8C89A",
+      "emit": 1
+    },
+    "rune_dim": {
+      "color": "#A8906E",
+      "emit": 0.5
+    },
+    "glass": "#2F3E52",
+    "dark": "#2A201A"
+  },
+  "notes": "Besitz auf großen Flächen: trim (Deckungsoberkante, Wandstreifen) und cloth (Planen, Banner) Rostorange, metal_dark rostig."
+}

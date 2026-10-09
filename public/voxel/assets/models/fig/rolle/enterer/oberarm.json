@@ -1,0 +1,17 @@
+{
+  "id": "fig/rolle/enterer/oberarm",
+  "name": "Enterer: nackter Oberarm links mit Armring (unter dem Fell-Schulterstück)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "enterer", "arm"],
+  "notes": "Rollenteil, fraktionsneutral, ersetzt upperArm (rechts gespiegelt). Maße wie fig/basis/oberarm (x 4..6, y 17..23). Ohne Schulterplanken: die Schulter deckt das Fell-Schulterstück des Nackenbuckels, so bleibt das Dreiecksbudget. Berserker: Haut mit Lederriemen. rank 1: zweiter Armring in trim.",
+  "params": { "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)" } },
+  "ops": [
+    { "name": "Arm", "op": "box", "at": [4, 17, -1], "size": [3, 7, 3], "color": "skin" },
+    { "name": "Riemen", "op": "box", "at": [4, 21, -1], "size": [3, 1, 3], "color": "leather", "mode": "paint" },
+    { "name": "Armring", "op": "box", "at": [4, 18, -1], "size": [3, 1, 3], "color": "trim", "mode": "paint" },
+    { "name": "Armring Häuptling", "if": "rank", "op": "box", "at": [4, 19, -1], "size": [3, 1, 3], "color": "trim", "mode": "paint" }
+  ],
+  "variants": { "haeuptling": { "rank": 1 } },
+  "anchor": [0, 0, 0]
+}

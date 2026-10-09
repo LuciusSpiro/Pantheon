@@ -1,0 +1,30 @@
+{
+  "id": "fig/germanen/grenadier",
+  "name": "Germanen: Grenadier",
+  "generated": true,
+  "quelle": { "fraktion": "baukasten/fraktionen/germanen.json", "rolle": "baukasten/rollen/grenadier.json", "generator": "tools/gen-figuren.mjs" },
+  "rig": "human",
+  "palette": "nord",
+  "tags": ["figur", "baukasten", "germanen", "grenadier"],
+  "posen": { "ruhe": "stand", "ziel": "launch" },
+  "waffe": { "typ": "granatwerfer", "bauweise": "germanen", "platzhalter": false },
+  "params": { "rank": 0 },
+  "parts": {
+    "hips": { "model": "fig/germanen/huefte" },
+    "torso": { "model": "fig/germanen/rumpf" },
+    "head": { "model": "fig/germanen/helm_a" },
+    "upperArmL": { "model": "fig/germanen/oberarm" },
+    "upperArmR": { "model": "fig/germanen/oberarm", "mirror": true },
+    "lowerArmL": { "model": "fig/germanen/unterarm" },
+    "lowerArmR": { "model": "fig/germanen/unterarm", "mirror": true },
+    "thighL": { "model": "fig/germanen/oberschenkel" },
+    "thighR": { "model": "fig/germanen/oberschenkel", "mirror": true },
+    "shinL": { "model": "fig/germanen/unterschenkel" },
+    "shinR": { "model": "fig/germanen/unterschenkel", "mirror": true }
+  },
+  "attach": {
+    "back": { "model": "fig/rolle/grenadier/trommel" },
+    "handR": { "model": "item/waffe/granatwerfer", "params": { "bauweise": "germanen" } },
+    "torso": { "model": "fig/rolle/grenadier/granatgurt" }
+  }
+}

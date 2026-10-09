@@ -1,0 +1,26 @@
+{
+  "format": "modul/1", "id": "aussenposten.gelaende.b", "art": "aussenposten", "typ": "gelaende",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "::::::::",
+    "::::::::",
+    ":::OO:::",
+    "::::O:::",
+    "::::::::",
+    "::::::::",
+    "::::::::"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {},
+  "belegungen": []
+}

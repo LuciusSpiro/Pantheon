@@ -1,0 +1,33 @@
+{
+  "id": "prop/germanen/aussenposten/landeplatz_2x2",
+  "name": "Landeplatz 2×2 (Außenposten)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "aussenposten", "landeplatz", "light"],
+  "footprint": [2, 2],
+  "budgetTris": 10000,
+  "params": {
+    "lit": {"default": 1, "min": 0, "max": 1, "step": 1, "label": "Positionslichter an"}
+  },
+  "variants": {"dunkel": {"lit": 0}},
+  "ops": [
+    {"op": "box", "name": "Unterbau Stein", "at": [-16, 0, -16], "size": [32, 1, 32], "color": "stone_dark", "jitter": false},
+    {"op": "box", "name": "Bohlendeck", "at": [-15, 1, -15], "size": [30, 1, 30], "color": {"stripes": ["wood", "wood_dark"], "axis": "x", "period": 3}, "jitter": false},
+    {"op": "box", "name": "Eisenrahmen x", "at": [-16, 1, -16], "size": [32, 2, 1], "color": "metal_dark", "jitter": false, "mirror": "z", "mirrorAt": 0},
+    {"op": "box", "name": "Eisenrahmen z", "at": [-16, 1, -15], "size": [1, 2, 30], "color": "metal_dark", "jitter": false, "mirror": "x", "mirrorAt": 0},
+    {"op": "cyl", "name": "Landering", "at": [0, 2, 0], "r": 10, "h": 1, "hollow": 2, "color": "trim", "jitter": false},
+    {"op": "box", "name": "Mittelplatte", "at": [-3, 2, -3], "size": [6, 1, 6], "color": "metal_light", "jitter": false},
+    {"op": "box", "name": "Aufsetzstreifen", "at": [-13, 2, -6], "size": [1, 1, 12], "color": "metal", "jitter": false, "mirror": "x", "mirrorAt": 0},
+    {"op": "group", "name": "Eckbaken", "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}, "ops": [
+      {"op": "box", "name": "Bakenfuß", "at": [-15, 1, -15], "size": [3, 2, 3], "color": "metal_dark"},
+      {"op": "box", "name": "Bakenpfahl", "at": [-14, 3, -14], "size": [1, 5, 1], "color": "wood_dark"},
+      {"op": "box", "name": "Bakenlicht an", "if": "lit", "at": [-14, 8, -14], "size": [1, 1, 1], "color": {"role": "glow", "emit": 1.1}, "jitter": false},
+      {"op": "box", "name": "Bakenlicht aus", "if": "!lit", "at": [-14, 8, -14], "size": [1, 1, 1], "color": "glass", "jitter": false},
+      {"op": "box", "name": "Bakenkappe", "at": [-14, 9, -14], "size": [1, 1, 1], "color": "metal_dark"}
+    ] },
+    {"op": "box", "name": "Frostkanten", "at": [-15, 2, 10], "size": [8, 1, 4], "mode": "paint", "color": {"noise": ["wood", "frost"], "weights": [2, 1], "cell": 2}},
+    {"op": "box", "name": "Frostkanten 2", "at": [8, 2, -15], "size": [6, 1, 5], "mode": "paint", "color": {"noise": ["wood_dark", "frost"], "weights": [2, 1], "cell": 2}},
+    {"op": "box", "name": "Halteklampe", "at": [-4, 1, 15], "size": [2, 2, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0}
+  ],
+  "anchor": [0, 0, 0]
+}

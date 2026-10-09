@@ -1,0 +1,35 @@
+{
+  "id": "ship_nord",
+  "name": "Germanen-Schiff innen: enge Spanten, helles, leicht warmes Arbeitslicht (Holz-Dollborde lesbar), gedämpfter Rot-Alarm von unten; kälter als hall_forge",
+  "background": "#12141A",
+  "fog": {
+    "color": "#1A1E26",
+    "near": 1.8,
+    "far": 5
+  },
+  "hemi": {
+    "sky": "#A4ACBA",
+    "ground": "#5A3A2C",
+    "intensity": 1.05
+  },
+  "ambient": {
+    "color": "#3A3634",
+    "intensity": 0.35
+  },
+  "sun": {
+    "color": "#ECE6DC",
+    "intensity": 1.7,
+    "dir": [
+      -0.3,
+      1,
+      0.3
+    ],
+    "softness": 4
+  },
+  "exposure": 1.25,
+  "bloom": {
+    "strength": 0.6,
+    "radius": 0.5,
+    "threshold": 0.8
+  }
+}

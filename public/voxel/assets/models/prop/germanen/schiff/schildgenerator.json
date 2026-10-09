@@ -1,0 +1,51 @@
+{
+  "id": "prop/germanen/schiff/schildgenerator",
+  "name": "Schildgenerator: Mast mit drei Rundschilden (Germanen, Schiff, Ziel)",
+  "notes": "Anker ziel (bug_oben). state 0 frei (ruhiges Kaltlicht), 1 genommen (gedimmt, Hebel umgelegt, weiße Statuslampe), 2 aktiviert (Volllast, Lichtsäule). Von oben ein Rundschild mit Buckel.",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "ziel", "schild"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 frei / 1 genommen / 2 aktiviert" }
+  },
+  "let": { "e": "state == 1 ? 0.3 : (state == 2 ? 1.2 : 0.9)" },
+  "variants": { "genommen": { "state": 1 }, "aktiviert": { "state": 2 } },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-7, 0, -7], "size": [14, 3, 14], "color": { "frame": "metal", "fill": "metal_dark", "axes": "xz" } },
+    { "op": "use", "name": "Runenband", "model": "prop/germanen/schiff/teil/runenband", "params": { "len": 3, "an": "state != 1" }, "at": [-7, 0, 7] },
+    { "op": "cyl", "name": "Mast", "at": [0, 3, 0], "r": 1.5, "h": 25, "color": "metal" },
+    { "op": "cyl", "name": "Feldring unten", "at": [0, 13, 0], "r": 4.5, "h": 1, "hollow": 1, "color": { "shade": "glow", "f": "state == 1 ? 0.45 : 1" }, "emit": "e", "jitter": false },
+    { "op": "cyl", "name": "Feldring oben", "at": [0, 20, 0], "r": 4.5, "h": 1, "hollow": 1, "color": { "shade": "glow", "f": "state == 1 ? 0.45 : 1" }, "emit": "e", "jitter": false },
+    { "op": "group", "name": "Schild unten", "at": [0, 9, 0], "ops": [
+      { "op": "cyl", "name": "Planken", "at": [0, 0, 0], "r": 5.5, "h": 1, "color": { "stripes": ["wood", "wood_dark"], "axis": "x", "period": 2 } },
+      { "op": "cyl", "name": "Rand", "at": [0, 0, 0], "r": 5.5, "h": 1, "hollow": 1, "color": "metal_light" },
+      { "op": "ellipsoid", "name": "Buckel", "at": [0, 1, 0], "r": [1.8, 1.2, 1.8], "half": "+y", "color": "metal_light" }
+    ] },
+    { "op": "group", "name": "Schild mitte", "at": [0, 16, 0], "ops": [
+      { "op": "cyl", "name": "Planken", "at": [0, 0, 0], "r": 6, "h": 1, "color": { "stripes": ["wood", "wood_dark"], "axis": "x", "period": 2 } },
+      { "op": "cyl", "name": "Rand", "at": [0, 0, 0], "r": 6, "h": 1, "hollow": 1, "color": "metal_light" },
+      { "op": "ellipsoid", "name": "Buckel", "at": [0, 1, 0], "r": [1.8, 1.2, 1.8], "half": "+y", "color": "metal_light" }
+    ] },
+    { "op": "group", "name": "Schild oben", "at": [0, 23, 0], "ops": [
+      { "op": "cyl", "name": "Planken", "at": [0, 0, 0], "r": 7.4, "h": 1, "color": { "stripes": ["wood", "wood", "wood_dark"], "axis": "x", "period": 1 } },
+      { "op": "box", "name": "Halbfeld Waid (cloth)", "at": [-8, 0, -8], "size": [8, 1, 16], "mode": "paint", "color": "cloth" },
+      { "op": "cyl", "name": "Rand", "at": [0, 0, 0], "r": 7.4, "h": 1, "hollow": 1, "color": "metal_light" },
+      { "op": "cyl", "name": "Buckelring", "at": [0, 1, 0], "r": 2.8, "h": 1, "color": "metal" },
+      { "op": "ellipsoid", "name": "Buckel", "at": [0, 2, 0], "r": [2.2, 1.8, 2.2], "half": "+y", "color": "metal_light" },
+      { "op": "box", "name": "Randnieten", "at": [-1, 1, -7], "size": [2, 1, 1], "color": "trim", "mirror": "z", "mirrorAt": 0 },
+      { "op": "box", "name": "Randnieten quer", "at": [-7, 1, -1], "size": [1, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 }
+    ] },
+    { "op": "cyl", "name": "Lichtsäule", "if": "state == 2", "at": [0, 27, 0], "r": 1, "h": 7, "color": { "role": "glow", "emit": 1.6 }, "jitter": false },
+    { "op": "cyl", "name": "Entladung Schild", "if": "state == 2", "at": [0, 23, 0], "r": 7.4, "h": 1, "hollow": 1, "mode": "paint", "color": { "role": "glow", "emit": 1.4 }, "jitter": false },
+    { "op": "box", "name": "Hebelbock", "at": [3, 3, 4], "size": [3, 3, 2], "color": "metal_dark" },
+    { "op": "line", "name": "Hebel bereit", "if": "state != 1", "from": [4, 6, 5], "to": [4, 12, 5], "r": 0.6, "color": "metal_light" },
+    { "op": "line", "name": "Hebel umgelegt", "if": "state == 1", "from": [4, 6, 5], "to": [4, 8, 7], "r": 0.6, "color": "metal_light" },
+    { "op": "box", "name": "Hebelknauf bereit", "if": "state != 1", "at": [3, 12, 4], "size": [2, 2, 2], "color": "trim" },
+    { "op": "box", "name": "Hebelknauf umgelegt", "if": "state == 1", "at": [3, 8, 6], "size": [2, 2, 2], "color": "trim" },
+    { "op": "box", "name": "Statuslampe", "at": [-5, 3, 5], "size": [2, 2, 2], "color": { "shade": "white", "f": "state == 1 ? 1 : 0.5" }, "emit": "state == 1 ? 1.0 : 0", "jitter": false }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "fx_smoke": [0, 1.8, 0], "fx_spark": [0.3, 1.1, 0.3], "light": [0, 1.2, 0], "label": [0, 2.3, 0] },
+  "anchor": [0, 0, 0]
+}

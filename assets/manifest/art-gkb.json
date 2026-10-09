@@ -1,0 +1,1024 @@
+{
+ "team": "art-gkb",
+ "notes": "ART-GK-BAU (B1): Germanen-Grundkit. Instanzen kit/germanen/<kind> = Hülle um kit/geruest/<kind> mit bauweise germanen; der Parameter art (aussenposten|station|schiff|ruine, Options-Parameter, nicht im Manifest) wählt die Steckplätze kit/germanen/<art>/<slot> vor kit/germanen/gemein/<slot>. Gemeinsame Steckplätze (gemein/, nicht im Manifest, nur über die Instanzen gebaut): wand_fuellung (=fuellung_klinker), wand_sockel (=sockel), wand_krone (=krone_runen), wand_kante/wand_pfeiler (=kante), boden_belag belag 0/1/2/3 (=belag_platte/gitter/planke/schmuck), boden_fuge, *_rahmen (=rahmen), *_blatt (=blatt), deckung_halb_koerper (=koerper_schildwall), deckung_halb_oberkante/kante_oberkante (helle Oberkante), deckung_voll_oberkante/pfeiler_kopf (dunkle Krone), deckung_voll_koerper, kante_koerper, pfeiler_*, zaun_*, gitter_*, fenster_*, wand_schwach_*, truemmer_haufen. state = Index der Kachelzustände (kacheln.json). Runen nur als Strich-Lücke-Schaltkreisband, glow emit 0,5. Pivot Mitte unten (Türen/Boden/Luke y = Lauffläche).",
+ "assets": [
+  {
+   "id": "kit/germanen/boden",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "belag": [
+     0,
+     3
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "gitter": {
+     "belag": 1
+    },
+    "planke": {
+     "belag": 2
+    },
+    "schmuck": {
+     "belag": 3
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 4
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 150,
+   "tags": [
+    "germanen",
+    "kit",
+    "boden"
+   ]
+  },
+  {
+   "id": "kit/germanen/wand",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "wand",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/zaun",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "zaun",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/gitter",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "gitter",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/fenster",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "fenster",
+    "wall",
+    "window"
+   ]
+  },
+  {
+   "id": "kit/germanen/tuer",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    2,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     3
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "offen": {
+     "state": 0
+    },
+    "offen_geschnitten": {
+     "state": 0,
+     "cut": 1
+    },
+    "zu": {
+     "state": 1
+    },
+    "zu_geschnitten": {
+     "state": 1,
+     "cut": 1
+    },
+    "verschlossen": {
+     "state": 2
+    },
+    "verschlossen_geschnitten": {
+     "state": 2,
+     "cut": 1
+    },
+    "gesprengt": {
+     "state": 3
+    },
+    "gesprengt_geschnitten": {
+     "state": 3,
+     "cut": 1
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "germanen",
+    "kit",
+    "tuer",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/tor",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    4,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     2
+    ],
+    "breite": [
+     2,
+     4
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "zu": {
+     "state": 0
+    },
+    "zu_geschnitten": {
+     "state": 0,
+     "cut": 1
+    },
+    "offen": {
+     "state": 1
+    },
+    "offen_geschnitten": {
+     "state": 1,
+     "cut": 1
+    },
+    "gesprengt": {
+     "state": 2
+    },
+    "gesprengt_geschnitten": {
+     "state": 2,
+     "cut": 1
+    },
+    "breit": {
+     "breite": 4
+    },
+    "breit_offen": {
+     "breite": 4,
+     "state": 1
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "germanen",
+    "kit",
+    "tor",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/schott",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    2,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     3
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "zu": {
+     "state": 0
+    },
+    "zu_geschnitten": {
+     "state": 0,
+     "cut": 1
+    },
+    "offen": {
+     "state": 1
+    },
+    "offen_geschnitten": {
+     "state": 1,
+     "cut": 1
+    },
+    "gehackt": {
+     "state": 2
+    },
+    "gehackt_geschnitten": {
+     "state": 2,
+     "cut": 1
+    },
+    "verschlossen": {
+     "state": 3
+    },
+    "verschlossen_geschnitten": {
+     "state": 3,
+     "cut": 1
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "germanen",
+    "kit",
+    "schott",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/luke",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     1
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "offen": {
+     "state": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "luke"
+   ]
+  },
+  {
+   "id": "kit/germanen/deckung_halb",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [
+    "cloth"
+   ],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "deckung_halb",
+    "cover_low"
+   ]
+  },
+  {
+   "id": "kit/germanen/deckung_voll",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "deckung_voll",
+    "wall",
+    "cover_full"
+   ]
+  },
+  {
+   "id": "kit/germanen/pfeiler",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "pfeiler",
+    "wall",
+    "cover_full"
+   ]
+  },
+  {
+   "id": "kit/germanen/kante",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "kante",
+    "cover_low"
+   ]
+  },
+  {
+   "id": "kit/germanen/wand_schwach",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     1
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "offen": {
+     "state": 1
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "wand_schwach",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/germanen/truemmer",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 1
+    },
+    "b": {
+     "seed": 2
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "germanen",
+    "kit",
+    "truemmer",
+    "cover_low"
+   ]
+  }
+ ]
+}

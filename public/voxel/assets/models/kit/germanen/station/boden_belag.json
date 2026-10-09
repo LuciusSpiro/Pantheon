@@ -1,0 +1,33 @@
+{
+  "id": "kit/germanen/station/boden_belag",
+  "name": "Station – boden_belag (belag_schmiede): Schmiedeboden (0 Eisenplatte, 1 Gitterrost über Glut, 2 Eisenplanken, 3 Schmuckplatte mit Leiterbahn)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": ["germanen", "station", "slot"],
+  "notes": "ART-STATION, Steckplatz belag_schmiede (Gerüst-Slot boden_belag). Ruhig für die Fläche (Bodenbudget 150): 0 Eisenplatte mit dunkler Fuge an N- und W-Rand (Raster macht boden_fuge zusätzlich), 1 Gitterrost (dunkel/mittel) mit seltenem Glutschein darunter (Feuerschein, gedämpft, nur intakt), 2 Eisenplanken längs x, 3 Schmuckplatte mit Knochenrand und einem gedämpften Leiterbahn-Punkt (Ornament, kein Zeichen). Zustand dunkelt ab; umkämpft Rußfleck.",
+  "jitter": 0,
+  "params": {
+    "w": { "default": 4, "min": 1, "max": 16, "step": 1, "label": "Breite (Voxel)" },
+    "h": { "default": 1, "min": 1, "max": 16, "step": 1, "label": "Höhe (Voxel)" },
+    "d": { "default": 4, "min": 1, "max": 4, "step": 1, "label": "Tiefe (Voxel)" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft" },
+    "belag": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "0 Platte · 1 Gitter · 2 Planke · 3 Schmuck" }
+  },
+  "let": { "dk": "1 - zustand * 0.1" },
+  "variants": { "gitter": { "belag": 1 }, "gitter_glut": { "belag": 1, "seed": 3 }, "planke": { "belag": 2 }, "schmuck": { "belag": 3 }, "umkaempft": { "zustand": 2, "seed": 1 } },
+  "ops": [
+    { "name": "Eisenplatte", "if": "belag == 0", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "shade": "secondary", "f": "1.1 * dk" } },
+    { "name": "Platte Fuge", "if": "belag == 0", "op": "box", "at": [0, "h - 1", 0], "size": ["w", 1, 1], "mode": "paint", "color": { "shade": "metal_dark", "f": "dk" } },
+
+    { "name": "Gitterrost", "if": "belag == 1", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "checker": [{ "shade": "metal_dark", "f": "0.9 * dk" }, { "shade": "metal", "f": "dk" }], "period": 1 } },
+    { "name": "Glutschein unter dem Rost", "if": "belag == 1 && zustand == 0 && hash(seed, 5) < 0.2 && w >= 4 && d >= 4", "op": "box", "at": [1, "h - 1", 1], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "ember", "f": 0.55, "emit": 0.5 } },
+
+    { "name": "Eisenplanken", "if": "belag == 2", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "stripes": [{ "shade": "primary", "f": "1.1 * dk" }, { "shade": "primary", "f": "0.9 * dk" }], "axis": "z", "period": 2 } },
+
+    { "name": "Schmuckplatte", "if": "belag == 3", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "frame": { "shade": "trim", "f": "0.7 * dk" }, "fill": { "shade": "secondary", "f": "dk" }, "axes": "xz", "width": 1 } },
+    { "name": "Schmuck Leiterbahn-Punkt", "if": "belag == 3 && zustand < 2 && w >= 3 && d >= 3", "op": "box", "at": [1, "h - 1", 2], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "glow", "f": 0.7, "emit": 0.5 } },
+
+    { "name": "Rußfleck (umkämpft)", "if": "zustand == 2 && hash(seed, 8) < 0.5 && w >= 3 && d >= 3", "op": "box", "at": [1, "h - 1", 1], "size": [2, 1, 2], "mode": "paint", "color": { "shade": "dark", "f": 1.2 } }
+  ],
+  "anchor": [0, 0, 0]
+}

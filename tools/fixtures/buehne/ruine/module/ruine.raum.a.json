@@ -1,0 +1,4 @@
+{ "format": "modul/1", "id": "ruine.raum.a", "art": "ruine", "typ": "raum", "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows":   ["########", "#......#", "#......#", "#......#", "#......#", "#.o..o.#", "#......#", "###DD###"],
+  "anker":  ["........", "........", "..t..k..", "........", "........", "........", "........", "........"],
+  "anker_legende": { "t": { "rolle": "terminal" }, "k": { "rolle": "beute" } } }

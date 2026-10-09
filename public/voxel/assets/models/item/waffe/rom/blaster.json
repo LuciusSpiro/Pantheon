@@ -1,0 +1,31 @@
+{
+  "id": "item/waffe/rom/blaster",
+  "name": "Crew-Blaster – Anbau rom für item/waffe/blaster",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/blaster. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Crew-Blaster",
+      "op": "group",
+      "at": [-1, -9, 1.5],
+      "ops": [
+        { "name": "Lauf Marmor", "op": "box", "at": [0, 1, 1], "size": [2, 5, 2], "color": "secondary" },
+        { "name": "Laufring Bronze", "op": "box", "at": [0, 1, 1], "size": [2, 1, 2], "color": "trim" },
+        { "name": "Gehäuse Bronze", "op": "box", "at": [0, 6, 0], "size": [2, 4, 4], "color": "trim" },
+        { "name": "Rote Markierung", "op": "box", "at": [0, 9, 0], "size": [2, 1, 4], "color": "primary" },
+        {
+          "name": "Griffschale",
+          "op": "box",
+          "at": [0, 8, -3],
+          "size": [2, 2, 3],
+          "color": { "frame": "trim", "fill": "secondary", "axes": "yz", "width": 1 }
+        },
+        { "name": "Schaft Bronze", "op": "box", "at": [0, 10, -1], "size": [2, 1, 5], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

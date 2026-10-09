@@ -1,0 +1,112 @@
+{
+ "id": "kit/germanen/gemein/teil/grund_aussenposten",
+ "name": "Germanen gemein – teil/grund_aussenposten: Grundbelag Außenposten-Hof: Frostkies mit Reif",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Frostkies",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "soil",
+    "f": "1.12 * dk"
+   }
+  },
+  {
+   "name": "Reif",
+   "op": "box",
+   "at": [
+    "floor(hash(seed, 11) * max(1, w - 1))",
+    "h - 1",
+    "floor(hash(seed, 12) * max(1, d - 1))"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "0.85 * dk"
+   },
+   "mode": "paint",
+   "if": "w >= 3 && d >= 3"
+  },
+  {
+   "name": "Kiesfleck",
+   "op": "box",
+   "at": [
+    "floor(hash(seed, 13) * max(1, w - 1))",
+    "h - 1",
+    "floor(hash(seed, 14) * max(1, d - 1))"
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": {
+    "shade": "soil",
+    "f": "0.96 * dk"
+   },
+   "mode": "paint",
+   "if": "w >= 3 && d >= 3 && hash(seed, 15) < 0.6"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

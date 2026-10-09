@@ -1,0 +1,29 @@
+{ "format": "schablone/1", "id": "station.spindel", "art": "station", "name": "Spindel", "linear": true, "zellen": [6, 3], "spiegeln": ["x", "y"], "fuellung": "wand",
+  "plaetze": [
+    { "id": "zellen",     "typ": "zellen",       "x": 0, "y": 0, "richtung": "W", "bereich": "kern", "kern": true },
+    { "id": "gang_n",     "typ": "abzweig",      "x": 1, "y": 0, "richtung": "N", "bereich": "gang" },
+    { "id": "schacht_1",  "typ": "schacht",      "x": 2, "y": 0, "bereich": "schacht" },
+    { "id": "schacht_2",  "typ": "schacht",      "x": 3, "y": 0, "bereich": "schacht" },
+    { "id": "schacht_3",  "typ": "schacht",      "x": 4, "y": 0, "bereich": "schacht" },
+    { "id": "fracht",     "typ": "schleuse",     "x": 5, "y": 0, "richtung": "O", "bereich": "fracht", "kern": true, "eingang_art": "technisch" },
+    { "id": "andock",     "typ": "schleuse",     "x": 0, "y": 1, "richtung": "W", "bereich": "andock", "kern": true, "eingang_art": "laut", "ankunft": true },
+    { "id": "kreuz",      "typ": "kreuzung",     "x": 1, "y": 1, "bereich": "gang" },
+    { "id": "schott_1",   "typ": "schott",       "x": 2, "y": 1, "richtung": "N", "bereich": "gang" },
+    { "id": "gang_mitte", "typ": "abzweig",      "x": 3, "y": 1, "richtung": "N", "bereich": "gang" },
+    { "id": "schott_2",   "typ": "schott",       "x": 4, "y": 1, "richtung": "N", "bereich": "gang" },
+    { "id": "leitstand",  "typ": "kontrollraum", "x": 5, "y": 1, "w": 1, "h": 2, "richtung": "O", "bereich": "kern", "kern": true },
+    { "id": "quartiere",  "typ": "quartiere",    "x": 0, "y": 2, "w": 2, "h": 1, "richtung": "S", "bereich": "wohnen" },
+    { "id": "reaktor",    "typ": "reaktorraum",  "x": 2, "y": 2, "w": 2, "h": 1, "richtung": "S", "bereich": "kern", "kern": true }
+  ],
+  "bereiche": {
+    "andock":  { "name": "Andockring", "rolle": "hinein" },
+    "gang":    { "name": "Hauptgang", "rolle": null },
+    "kern":    { "name": "Leitstand, Reaktor, Zellen", "rolle": "ziel" },
+    "wohnen":  { "name": "Quartiere", "rolle": null },
+    "schacht": { "name": "Wartungsschacht", "rolle": null },
+    "fracht":  { "name": "Frachtschleuse", "rolle": "rueckzug" }
+  },
+  "gefecht": ["kreuz", "schott_1", "gang_mitte", "schott_2"],
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 2, "terminal": 2, "sprengpunkt": 1, "ziel": 3, "zelle": 2, "nsc": 2, "beute": 3, "tor": 1, "wache": 4, "patrouille": 4, "versteck": 1 }
+}

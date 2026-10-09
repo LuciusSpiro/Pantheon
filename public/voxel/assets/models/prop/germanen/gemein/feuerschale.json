@@ -1,0 +1,36 @@
+{
+  "id": "prop/germanen/gemein/feuerschale",
+  "name": "Feuerschale (Germanen): Eisenschale auf Dreibein, Glut",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","light","feuer"],
+  "footprint": [1,1],
+  "params": {
+    "an": {"default":1,"min":0,"max":1,"step":1,"label":"brennt"}
+  },
+  "variants": {
+    "aus": {"an":0}
+  },
+  "sockets": {"light":[0,1,0],"fx_smoke":[0,1.25,0],"fx_spark":[0,0.95,0]},
+  "ops": [
+    {"op":"line","name":"Bein vorn","from":[0,0.5,6],"to":[0,9.5,2],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein links","from":[-5.2,0.5,-3],"to":[-1.8,9.5,-1],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein rechts","from":[5.2,0.5,-3],"to":[1.8,9.5,-1],"r":0.7,"color":"metal"},
+    {"op":"box","name":"Fuß","at":[-1,0,5],"size":[2,1,2],"color":"metal_dark"},
+    {"op":"box","name":"Fuß l","at":[-6,0,-4],"size":[2,1,2],"color":"metal_dark"},
+    {"op":"box","name":"Fuß r","at":[4,0,-4],"size":[2,1,2],"color":"metal_dark"},
+    {"op":"cyl","name":"Ring","at":[0,4,0],"r":3.6,"hollow":1,"h":1,"color":"metal_dark"},
+    {"op":"cyl","name":"Schale","at":[0,9,0],"r":3,"r2":6,"h":4,"color":"metal_dark"},
+    {"op":"cyl","name":"Schalenrand","at":[0,13,0],"r":6.4,"hollow":1,"h":1,"color":"metal"},
+    {"op":"cyl","name":"Rand Kerben","at":[0,13,0],"r":6.4,"hollow":1,"h":1,"color":"metal_light","arc":[80,100],"mode":"paint"},
+    {"op":"box","name":"Nietband","at":[-7,11,-7],"size":[14,1,14],"color":{"stripes":["metal","metal_light"],"axis":"x","period":2},"mode":"paint"},
+    {"op":"cyl","name":"Glut","if":"an","at":[0,13,0],"r":5.2,"h":1,"color":{"noise":["ember","soil_dark",{"shade":"ember","f":1.06}],"weights":[3,2,1]},"emit":1},
+    {"op":"cyl","name":"Asche","if":"!an","at":[0,13,0],"r":5.2,"h":1,"color":{"noise":["stone_dark","dark","stone"],"weights":[3,2,1]}},
+    {"op":"box","name":"Scheite","at":[-4,14,-1],"size":[8,1,2],"color":"wood_dark"},
+    {"op":"box","name":"Scheite quer","at":[-1,14,-4],"size":[2,1,8],"color":"wood_dark"},
+    {"op":"cyl","name":"Flamme","if":"an","at":[0,14,0],"r":3.4,"r2":0.6,"h":6,"color":{"noise":["ember",{"shade":"ember","f":1.06}],"weights":[2,1]},"emit":1.2,"jitter":false},
+    {"op":"cyl","name":"Flamme 2","if":"an","at":[2,14,1],"r":1.6,"r2":0.5,"h":4,"color":{"noise":["ember",{"shade":"ember","f":1.06}],"weights":[2,1]},"emit":1.2,"jitter":false},
+    {"op":"cyl","name":"Flamme 3","if":"an","at":[-2,14,-1],"r":1.6,"r2":0.5,"h":3,"color":{"shade":"ember","f":1.06},"emit":1.2,"jitter":false}
+  ],
+  "anchor": [0,0,0]
+}

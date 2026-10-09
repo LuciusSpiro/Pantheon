@@ -1,0 +1,17 @@
+{
+  "id": "kit/test/gemein/wand_pfeiler",
+  "name": "Probebauweise – wand_pfeiler (Klötzchen, alle Kartenarten)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["test","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"}
+  },
+  "ops": [
+    {"name":"Klötzchen","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"checker":["cloth2","trim"],"period":1}}
+  ],
+  "anchor": [0,0,0]
+}

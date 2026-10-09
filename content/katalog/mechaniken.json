@@ -29,8 +29,8 @@
     "stealth_aussen":    { "status": "geplant", "beschreibung": "Sichtkegel, Alarmstufen" },
     "gesellschaft_orte": { "status": "geplant", "beschreibung": "Siedlung, Markt, Gespräche mit NSC vor Ort" },
     "gefangenschaft":    { "status": "geplant", "beschreibung": "Crew gefangen, ohne Ausrüstung" },
-    "sprengladung":      { "status": "geplant", "beschreibung": "Ladung setzen, Countdown, Explosion" },
-    "hacken":            { "status": "geplant", "beschreibung": "Terminal-Minispiel" },
+    "sprengladung":      { "status": "verfuegbar", "beschreibung": "Ladung setzen, Countdown, Explosion" },
+    "hacken":            { "status": "verfuegbar", "beschreibung": "Terminal-Minispiel" },
     "ladung_transfer":   { "status": "geplant", "beschreibung": "Ladung und Personen per Transfer an Bord holen oder abgeben" }
   }
 }

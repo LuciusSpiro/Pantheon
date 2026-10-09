@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FX-Prüfstand B2</title>
+<link rel="icon" href="data:,">
+<!-- Team FX (ART-PLAN §2.2): Testseite für die B2-Effekte aus public/js/voxel/fx.js. Echte Spielkamera (renderer.js),
+     Auslösung über dieselben Wege wie im Spiel: Server-Ereignisse (VoxelFx.onEvent) + nachgestellte Snapshot-Felder.
+     Figuren sind Platzhalter-Quader (actors.js gehört VOXEL). URL: ?run=<szene>&zoom=0|1&loop=1
+     Tasten: Z Zoomstufe, A alle Szenen nacheinander. Budget-Anzeige: Partikel (≤ 2000), Lichter (fx ≤ 2 + Renderer ≤ 2). -->
+<script type="importmap">
+{ "imports": { "three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/" } }
+</script>
+<style>
+  :root { --bg: #0d1018; --panel: #161b27; --line: #2a3242; --text: #d8dde8; --dim: #8791a5; --ok: #9fd8b0; --bad: #ff8a80; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+  #wrap { display: flex; flex-direction: column; height: 100%; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  header h1 { font-size: 14px; margin: 0 10px 0 0; }
+  header button { background: #0f131c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; font: inherit; cursor: pointer; }
+  header button.on { border-color: #FFE9A8; }
+  #stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  canvas#gl { width: min(100vw, calc((100vh - 90px) * 16 / 9)); aspect-ratio: 16 / 9; display: block; }
+  #hud { position: absolute; left: 10px; bottom: 8px; background: rgba(13,16,24,.8); border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; font: 12px ui-monospace, Consolas, monospace; white-space: pre; }
+  #hud .bad { color: var(--bad); }
+  #cap { position: absolute; left: 10px; top: 8px; background: rgba(13,16,24,.8); border-radius: 4px; padding: 3px 8px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<header>
+  <h1>FX-Prüfstand B2</h1>
+  <span id="btns"></span>
+  <button id="bAll">alle nacheinander (A)</button>
+  <button id="bZoom">Zoom: nah (Z)</button>
+</header>
+<div id="stage"><canvas id="gl" width="1280" height="720"></canvas><div id="cap"></div><div id="hud"></div></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import * as Renderer from '/js/voxel/renderer.js';
+import '/js/voxel/fx.js';
+
+const T = 32, px = (t) => t * T + 16;
+const canvas = document.getElementById('gl');
+Renderer.init(canvas, null, { quality: 'high', preserve: true, onError: (w, e) => console.warn('[fx-test]', w, e) });
+const S = Renderer.state();
+const FXA = window.VoxelFx;
+
+// ------------------------------------------------------------------ Bühne: Boden + Platzhalterfiguren
+const deco = new THREE.Group(); S.scene.add(deco);
+{
+  const g = new THREE.BoxGeometry(0.98, 0.1, 0.98);
+  const mA = new THREE.MeshStandardMaterial({ color: '#4A4E58', roughness: 0.95 }), mB = new THREE.MeshStandardMaterial({ color: '#41454E', roughness: 0.95 });
+  for (let x = 0; x < 24; x++) for (let z = 0; z < 20; z++) { const m = new THREE.Mesh(g, (x + z) % 2 ? mA : mB); m.position.set(x + 0.5, -0.05, z + 0.5); m.receiveShadow = true; deco.add(m); }
+}
+function figure(hex) {
+  const grp = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.8 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.3, 0.32), mat); body.position.y = 0.65; body.castShadow = true;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), mat); head.position.y = 1.5; head.castShadow = true;
+  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: '#2A2D33' })); gun.position.set(0.18, 1.1, 0.3);
+  const inner = new THREE.Group(); inner.add(body, head, gun); grp.add(inner); grp.userData.inner = inner;
+  deco.add(grp); return grp;
+}
+
+// ------------------------------------------------------------------ Spielzustand (nachgestellter Snapshot)
+const P = (id, tx, ty, color) => ({ id, name: id, color, connected: true, zone: 'away', x: px(tx), y: px(ty), dir: 'right', hp: 100 });
+const D = (id, tx, ty, ro) => ({ id, kind: 'scavenger', ro, wf: 'blaster', x: px(tx), y: px(ty), alive: true, vis: true });
+let players, drones, proj, figs;
+function reset() {
+  if (FXA.clear) FXA.clear();
+  players = [P('p1', 8, 9, 0), P('p2', 7, 10, 1)];
+  players[1].x = -999;   // p2 nur in der Aufrichten-Szene
+  drones = [D('e1', 14, 9, 'schuetze'), D('e2', 11, 12, 'grenadier'), D('e3', 9.3, 9, 'enterer')];
+  drones[2].x = -999;
+  proj = [];
+  if (figs) for (const f of Object.values(figs)) deco.remove(f);
+  figs = { p1: figure('#56718F'), p2: figure('#8F7656'), e1: figure('#8F4B3A'), e2: figure('#7A5A3A'), e3: figure('#9A3A2E') };
+}
+reset();
+let time = 0, projSeq = 1;
+const self = { zone: 'away', x: px(11), y: px(9.6) };
+function view() {
+  const st = { time, players, away: { map: 'platform', combat: 'v2', drones, projectiles: proj } };
+  return { self, me: {}, time, state: st, players, drones, awayProjectiles: proj };
+}
+const ev = (kind, o) => FXA.onEvent(Object.assign({ t: 'event', kind }, o));
+const byId = (id) => players.find((p) => p.id === id) || drones.find((d) => d.id === id);
+const ang = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
+
+// ------------------------------------------------------------------ Zeitplan-Helfer
+let tasks = [];
+const at = (s, fn) => tasks.push({ t: time + s, fn });
+const ramp = (s0, s1, fn) => tasks.push({ t: time + s0, t1: time + s1, fn, ramp: true });
+function stepTasks() {
+  for (const k of tasks.slice()) {
+    if (k.ramp) {
+      if (time >= k.t) { const u = Math.min(1, (time - k.t) / (k.t1 - k.t)); k.fn(u); if (u >= 1) tasks.splice(tasks.indexOf(k), 1); }
+    } else if (time >= k.t) { tasks.splice(tasks.indexOf(k), 1); k.fn(); }
+  }
+}
+function shoot(src, kind, target, extra) {
+  const a = ang(src, target);
+  proj.push(Object.assign({ id: 'q' + projSeq++, kind, x: src.x + Math.cos(a) * 14, y: src.y + Math.sin(a) * 14, angle: a, v: 380, ttl: Math.hypot(target.x - src.x, target.y - src.y) / 380 }, extra || {}));
+}
+function stepProj(dt) {
+  for (const q of proj.slice()) {
+    if (q.kind === 'granate') { q.t += dt; const u = Math.min(1, q.t / q.flug); q.x = q.x0 + (q.tx - q.x0) * u; q.y = q.y0 + (q.ty - q.y0) * u; continue; }
+    q.x += Math.cos(q.angle) * q.v * dt; q.y += Math.sin(q.angle) * q.v * dt; q.ttl -= dt;
+    if (q.ttl <= 0) proj.splice(proj.indexOf(q), 1);
+  }
+}
+
+// ------------------------------------------------------------------ Szenen (Ereignisse wie CONTRACT-B2 §8)
+// shot: Zeitpunkt (s nach Start) für den Screenshot – mitten in der Ankündigung bzw. im Effekt
+const SCENES = {
+  lanze: { name: 'Lanze laden + Strahl', shots: [1.1, 1.62], dur: 2.4, run() {
+    const e = byId('e1'), p = byId('p1');
+    ev('ladungLanze', { id: 'e1', x: e.x, y: e.y, tx: p.x, ty: p.y });
+    ramp(0, 1.5, (u) => { e.ch = Math.round(u * 100); });
+    at(1.55, () => { delete e.ch; ev('lanzeSchuss', { id: 'e1', x: e.x, y: e.y, tx: p.x, ty: p.y, stufe: 2 }); });
+  } },
+  granate: { name: 'Granate: Anlegen, Bogen, Aufschlagring, Explosion, Betäubungswolke', shots: [0.4, 1.0, 1.55, 2.2], dur: 3.6, run() {
+    const e = byId('e2'), p = byId('p1');
+    const tx = p.x + 10, ty = p.y + 6;
+    // wie der Server: gr.t = Spielzeit des Zielbeginns, Fortschritt in aim.p (0–1)
+    const t0 = time;
+    ramp(0, 0.6, (u) => { e.gr = { x: tx, y: ty, t: t0 }; e.aim = { target: 'p1', p: Math.round(u * 100) / 100 }; });
+    at(0.62, () => {
+      delete e.gr; delete e.aim;
+      ev('granate', { id: 'e2', x: e.x, y: e.y, tx, ty, flug: 0.8 });
+      proj.push({ id: 'q' + projSeq++, kind: 'granate', x: e.x, y: e.y, x0: e.x, y0: e.y, tx, ty, t: 0, flug: 0.8, angle: ang(e, { x: tx, y: ty }) });
+    });
+    at(1.42, () => { proj = proj.filter((q) => q.kind !== 'granate'); ev('granateEinschlag', { x: tx, y: ty, radius: 1.5 }); });
+  } },
+  betaeubt: { name: 'Betäubung (Funkenkranz)', shots: [0.6], dur: 2.4, run() {
+    const p = byId('p1');
+    ev('betaeubt', { id: 'p1', waffe: 'betaeuber' }); p.bt = 1;
+    at(2.0, () => { delete p.bt; });
+  } },
+  hitze: { name: 'Hitze-Dampf + Überhitzen (Sturmgewehr)', shots: [1.2, 2.4], dur: 4.6, run() {
+    const p = byId('p1'), e = byId('e1'); p.wf = 'sturmgewehr';
+    for (let i = 0; i < 12; i++) at(i * 0.15, () => { shoot(p, 'sturmgewehr', e); p.ht = Math.min(100, Math.round((i + 1) / 12 * 100)); });
+    at(1.85, () => { p.ov = 1; ev('ueberhitzt', { id: 'p1' }); });
+    ramp(1.9, 4.4, (u) => { p.ht = Math.round(100 * (1 - u)); if (u >= 1) { delete p.ov; delete p.ht; } });
+  } },
+  nahkampf: { name: 'Ausholen + Schlag + Nahkampftreffer (Berserker)', shots: [0.3, 0.56], dur: 1.6, run() {
+    const e = byId('e3'), p = byId('p1');
+    e.x = p.x + 42; e.y = p.y; e.wf = 'nahkampf';
+    const w = ang(e, p);
+    ev('ausholen', { id: 'e3', winkel: w });
+    ramp(0, 0.5, (u) => { e.wu = Math.round(u * 100); });
+    at(0.52, () => { delete e.wu; ev('schlag', { id: 'e3', x: e.x, y: e.y, winkel: w }); ev('shieldHit', { pid: 'p1', x: p.x, y: p.y, waffe: 'nahkampf' }); });
+    at(1.5, () => { e.x = -999; });
+  } },
+  bewusstlos: { name: 'Bewusstlos (langsamer blauer Puls)', shots: [1.0], dur: 5, run() {
+    const e = byId('e2'); e.zs = 'bewusstlos'; ev('bewusstlos', { id: 'e2' });
+    at(4.8, () => { delete e.zs; });
+  } },
+  fesseln: { name: 'Fesseln (Energiefessel-Bogen) + Befreien', shots: [0.3, 1.5, 3.65], dur: 4.2, run() {
+    const e = byId('e2'); e.zs = 'bewusstlos';
+    at(0.05, () => { e.zs = 'gefesselt'; ev('gefesselt', { id: 'e2', durch: 'p1' }); });
+    at(3.6, () => { delete e.zs; ev('befreit', { id: 'e2' }); });
+  } },
+  muendung: { name: 'Mündungsfeuer je Waffe', shots: [0.05, 0.55, 1.05, 1.55, 2.05, 2.55, 3.05], dur: 3.6, run() {
+    const p = byId('p1'), e = byId('e1');
+    ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'betaeuber', 'pistole', 'faust'].forEach((w, i) => at(i * 0.5, () => {
+      p.wf = w;
+      if (w === 'granatwerfer') ev('granate', { id: 'p1', x: p.x, y: p.y, tx: e.x, ty: e.y, flug: 0.8 });
+      else if (w === 'lanze') ev('lanzeSchuss', { id: 'p1', x: p.x, y: p.y, tx: e.x, ty: e.y, stufe: 1 });
+      else if (w === 'faust') FXA.spawnFx('muzzle_faust', { id: 'p1', winkel: ang(p, e) });
+      else shoot(p, w, e);
+      cap(SCENES.muendung.name + ' – ' + w);
+    }));
+    at(3.4, () => FXA.spawnFx.stop());
+  } },
+  treffer: { name: 'Nahkampftreffer + Abgelenkt (Frontschild)', shots: [0.04, 0.84], dur: 1.6, run() {
+    const p = byId('p1'), e = byId('e1');
+    ev('shieldHit', { pid: 'p1', x: p.x, y: p.y, waffe: 'faust' });
+    at(0.8, () => ev('abgelenkt', { id: 'e1', waffe: 'nahkampf' }));
+  } },
+  aufrichten: { name: 'Kamerad aufrichten', shots: [0.8, 1.58], dur: 2.6, run() {
+    const p = byId('p1'), q = byId('p2'); q.x = p.x - 30; q.y = p.y + 22; q.zs = 'verwundet'; q.downed = true;
+    p.action = { kind: 'aufrichten', progress: 0 };
+    ramp(0, 1.5, (u) => { if (p.action) p.action.progress = u; });
+    at(1.52, () => { p.action = null; delete q.zs; q.downed = false; ev('aufgerichtet', { id: 'p2' }); });
+    at(2.5, () => { q.x = -999; });
+  } },
+  budget: { name: 'Budget-Stress (alles gleichzeitig ×3)', shots: [0.7], dur: 3, run() {
+    for (let r = 0; r < 3; r++) for (const k of ['lanze', 'granate', 'betaeubt', 'hitze', 'nahkampf', 'bewusstlos', 'fesseln', 'aufrichten']) SCENES[k].run();
+    for (let i = 0; i < 6; i++) FXA.spawnFx('grenade_blast', { x: px(6 + i * 2), y: px(7 + (i % 3)) });
+  } },
+};
+const ORDER = ['lanze', 'granate', 'betaeubt', 'hitze', 'nahkampf', 'bewusstlos', 'fesseln', 'muendung', 'treffer', 'aufrichten'];
+
+let current = null, started = 0, maxPart = 0, maxLights = 0;
+function cap(s) { document.getElementById('cap').textContent = s; }
+function run(key) {
+  reset(); tasks = [];
+  current = key; started = time; maxPart = 0; maxLights = 0;
+  cap(SCENES[key].name);
+  for (const b of document.querySelectorAll('#btns button')) b.classList.toggle('on', b.dataset.k === key);
+  SCENES[key].run();
+  return SCENES[key];
+}
+const btns = document.getElementById('btns');
+for (const k of [...ORDER, 'budget']) { const b = document.createElement('button'); b.textContent = SCENES[k].name.split(' (')[0].split(':')[0]; b.dataset.k = k; b.onclick = () => run(k); btns.appendChild(b); }
+let playAll = null;
+function all() { let i = 0; const next = () => { if (i >= ORDER.length) { playAll = null; return; } const s = run(ORDER[i++]); playAll = setTimeout(next, (s.dur + 0.4) * 1000); }; clearTimeout(playAll); next(); }
+document.getElementById('bAll').onclick = all;
+const bZoom = document.getElementById('bZoom');
+function setZoom(z) { Renderer.setZoom(z); bZoom.textContent = 'Zoom: ' + (z ? 'weit' : 'nah') + ' (Z)'; }
+bZoom.onclick = () => setZoom(Renderer.getZoom() ? 0 : 1);
+addEventListener('keydown', (e) => { if (e.key === 'z' || e.key === 'Z') bZoom.onclick(); if (e.key === 'a' || e.key === 'A') all(); });
+
+// ------------------------------------------------------------------ Figuren nachführen
+function placeFigs() {
+  for (const [id, g] of Object.entries(figs)) {
+    const e = byId(id);
+    if (!e || e.x < 0) { g.visible = false; continue; }
+    g.visible = true;
+    g.position.set(e.x / T, 0, e.y / T);
+    const other = id === 'p1' || id === 'p2' ? byId('e1') : byId('p1');
+    const a = other ? ang(e, other) : 0;
+    g.rotation.y = Math.atan2(Math.cos(a), Math.sin(a));
+    const inner = g.userData.inner;
+    const lyingNow = e.zs === 'bewusstlos' || e.zs === 'verwundet';
+    inner.rotation.x = lyingNow ? -Math.PI / 2 : 0; inner.position.y = lyingNow ? 0.18 : 0;
+    inner.scale.y = e.zs === 'gefesselt' ? 0.66 : 1;
+  }
+}
+
+// ------------------------------------------------------------------ Schleife (feste Schrittweite → reproduzierbare Bilder)
+const hud = document.getElementById('hud');
+let last = performance.now(), paused = false;
+function tick(dt) {
+  time += dt;
+  stepTasks(); stepProj(dt); placeFigs();
+  Renderer.frame(view(), dt);
+  const s = FXA.stats(), inf = Renderer.info();
+  maxPart = Math.max(maxPart, s.particles); maxLights = Math.max(maxLights, s.lights);
+  const lightsTotal = s.lights + 2;   // Renderer-Pool hält 2 (MAX_POINT_LIGHTS), fx.js 2
+  hud.innerHTML = `Partikel ${s.particles} (max ${maxPart}) <span class="${maxPart > 2000 ? 'bad' : ''}">/ 2000</span>  emit ${s.emit} lit ${s.lit} glow ${s.glow}  verworfen ${s.dropped}\n` +
+    `FX-Lichter ${s.lights} (max ${maxLights}) / 2 · gesamt ≤ ${lightsTotal} / 4  · Draw Calls fx ${s.drawCalls} · FPS ${inf.fps} · Fehler ${s.errors}`;
+}
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) tick(dt);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ------------------------------------------------------------------ Automatik für Screenshots (Playwright)
+window.fxTest = {
+  scenes: SCENES, order: ORDER, run, setZoom, stats: () => FXA.stats(), maxima: () => ({ particles: maxPart, lights: maxLights }),
+  /** Szene starten und deterministisch bis t s vorspulen (30 fps), dann anhalten */
+  async seek(key, t) {
+    paused = true; run(key);
+    const n = Math.round(t * 30);
+    for (let i = 0; i < n; i++) tick(1 / 30);
+    return FXA.stats();
+  },
+  advance(t) { const n = Math.round(t * 30); for (let i = 0; i < n; i++) tick(1 / 30); return FXA.stats(); },
+  resume() { paused = false; last = performance.now(); },
+};
+const qs = new URLSearchParams(location.search);
+setZoom(qs.get('zoom') === '1' ? 1 : 0);
+if (qs.get('run') && SCENES[qs.get('run')]) run(qs.get('run'));
+else if (qs.get('loop') === '1') all();
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" font-family="IBM Plex Sans, Segoe UI, Arial, sans-serif">
+<rect width="1600" height="900" fill="#0B0E1A"/>
+<style>.t{fill:#F4EEDC;font-size:18px}</style>
+<text x="60" y="56" fill="#F4EEDC" font-size="34" font-weight="600">Sektorkarte: Ausschnitt Saumraum</text>
+<text x="60" y="94" fill="#9AA6B8" font-size="20">Ein Hex = ein Sektor = eine Raumszene · Sprungpunkte liegen auf den Kanten · ganze Karte Limes sichtbar, spielbar nur der Saumraum</text>
+<polygon points="244,199.7 198,279.3 106,279.3 60,199.7 106,120 198,120" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="152" y="144.5" fill="#2E3A4A" font-size="15" text-anchor="middle">0105</text>
+<polygon points="244,359 198,438.7 106,438.7 60,359 106,279.3 198,279.3" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="152" y="303.8" fill="#2E3A4A" font-size="15" text-anchor="middle">0106</text>
+<polygon points="244,518.4 198,598 106,598 60,518.4 106,438.7 198,438.7" fill="#141A2A" stroke="#9AA6B8" stroke-width="2" stroke-dasharray="6,6"/>
+<text x="152" y="532.3716857408417" fill="#9AA6B8" font-size="40" text-anchor="middle">?</text>
+<text x="152" y="463.2" fill="#9AA6B8" font-size="15" text-anchor="middle">0107</text>
+<polygon points="244,677.7 198,757.4 106,757.4 60,677.7 106,598 198,598" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="152" y="622.5" fill="#2E3A4A" font-size="15" text-anchor="middle">0108</text>
+<polygon points="382,279.3 336,359 244,359 198,279.3 244,199.7 336,199.7" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="290" y="242.5" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0205</text>
+<text x="290" y="332.7" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Mond Kesh</text>
+<polygon points="290,268.3486742963367 305,283.3486742963367 290,298.3486742963367 275,283.3486742963367" fill="none" stroke="#B79CE0" stroke-width="3"/><circle cx="290" cy="283.3486742963367" r="4" fill="#B79CE0"/>
+<polygon points="382,438.7 336,518.4 244,518.4 198,438.7 244,359 336,359" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="290" y="401.9" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0206</text>
+<text x="290" y="492.1" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Lichtkordon</text>
+<rect x="278" y="430.6973485926734" width="24" height="24" fill="none" stroke="#F4EEDC" stroke-width="3"/><circle cx="290" cy="442.6973485926734" r="5" fill="#FFC66B"/>
+<polygon points="382,598 336,677.7 244,677.7 198,598 244,518.4 336,518.4" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="290" y="561.2" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0207</text>
+<text x="290" y="651.4" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Karawane</text>
+<polygon points="276,612.04602288901 304,612.04602288901 290,589.04602288901" fill="none" stroke="#F4EEDC" stroke-width="3"/>
+<polygon points="382,757.4 336,837.1 244,837.1 198,757.4 244,677.7 336,677.7" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="290" y="702.2" fill="#2E3A4A" font-size="15" text-anchor="middle">0208</text>
+<polygon points="520,199.7 474,279.3 382,279.3 336,199.7 382,120 474,120" fill="#6B2E2E" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<polygon points="520,199.7 474,279.3 382,279.3 336,199.7 382,120 474,120" fill="#0B0E1A" fill-opacity="0.45"/>
+<text x="428" y="162.9" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0305</text>
+<text x="428" y="253" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Statio Limitis</text>
+<rect x="416" y="191.67433714816835" width="24" height="24" fill="none" stroke="#F4EEDC" stroke-width="3"/><circle cx="428" cy="203.67433714816835" r="5" fill="#FFC66B"/>
+<polygon points="520,359 474,438.7 382,438.7 336,359 382,279.3 474,279.3" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="428" y="322.2" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0306</text>
+<text x="428" y="412.4" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Splittergürtel</text>
+<circle cx="419" cy="367.0230114445051" r="6" fill="#9AA6B8"/><circle cx="436" cy="358.0230114445051" r="5" fill="#9AA6B8"/><circle cx="434" cy="372.0230114445051" r="3.5" fill="#9AA6B8"/>
+<polygon points="520,518.4 474,598 382,598 336,518.4 382,438.7 474,438.7" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="428" y="481.6" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0307</text>
+<text x="428" y="571.7" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Graue Weite</text>
+<path d="M412,516.3716857408417 q8,-7 16,0 t16,0 M412,526.3716857408417 q8,-7 16,0 t16,0" fill="none" stroke="#A9D6E5" stroke-width="3"/>
+<polygon points="520,677.7 474,757.4 382,757.4 336,677.7 382,598 474,598" fill="#1F5555" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="428" y="640.9" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0308</text>
+<text x="428" y="731.1" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Kustoden-Relais</text>
+<polygon points="428,666.7203600371785 443,681.7203600371785 428,696.7203600371785 413,681.7203600371785" fill="none" stroke="#B79CE0" stroke-width="3"/><circle cx="428" cy="681.7203600371785" r="4" fill="#B79CE0"/>
+<polygon points="658,279.3 612,359 520,359 474,279.3 520,199.7 612,199.7" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="566" y="242.5" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0405</text>
+<text x="566" y="332.7" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Wrack</text>
+<path d="M551,291.3486742963367 L562,273.3486742963367 L567,282.3486742963367 L581,275.3486742963367 L574,293.3486742963367 Z" fill="none" stroke="#C9974A" stroke-width="3"/>
+<polygon points="658,438.7 612,518.4 520,518.4 474,438.7 520,359 612,359" fill="#4A4466" stroke="#F4EEDC" stroke-opacity="0.35" stroke-width="1.5"/>
+<text x="566" y="401.9" fill="#F4EEDC" fill-opacity="0.75" font-size="15" text-anchor="middle">0406</text>
+<text x="566" y="492.1" fill="#F4EEDC" font-size="16" font-weight="600" text-anchor="middle">Boje B-7</text>
+<circle cx="566" cy="442.6973485926734" r="11" fill="none" stroke="#FFC66B" stroke-width="3"/><line x1="566" y1="425.6973485926734" x2="566" y2="459.6973485926734" stroke="#FFC66B" stroke-width="2"/>
+<polygon points="658,598 612,677.7 520,677.7 474,598 520,518.4 612,518.4" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="566" y="542.8" fill="#2E3A4A" font-size="15" text-anchor="middle">0407</text>
+<polygon points="658,757.4 612,837.1 520,837.1 474,757.4 520,677.7 612,677.7" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/>
+<text x="566" y="702.2" fill="#2E3A4A" font-size="15" text-anchor="middle">0408</text>
+<line x1="382" y1="438.7" x2="336" y2="359" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="359" cy="398.9" r="8" fill="#FFC66B"/>
+<line x1="244" y1="518.4" x2="336" y2="518.4" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="290" cy="518.4" r="8" fill="#FFC66B"/>
+<line x1="520" y1="359" x2="474" y2="438.7" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="497" cy="398.9" r="8" fill="#FFC66B"/>
+<line x1="474" y1="279.3" x2="520" y2="359" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="497" cy="319.2" r="8" fill="#FFC66B"/>
+<line x1="520" y1="518.4" x2="474" y2="438.7" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="497" cy="478.5" r="8" fill="#FFC66B"/>
+<line x1="382" y1="598" x2="336" y2="518.4" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="359" cy="558.2" r="8" fill="#FFC66B"/>
+<line x1="612" y1="359" x2="520" y2="359" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="566" cy="359" r="8" fill="#FFC66B"/>
+<line x1="336" y1="359" x2="244" y2="359" stroke="#FF8A4C" stroke-width="7" stroke-dasharray="10,7" stroke-linecap="round"/>
+<circle cx="290" cy="359" r="9" fill="#0B0E1A" stroke="#FF8A4C" stroke-width="3"/><path d="M286,355 L294,363 M294,355 L286,363" stroke="#FF8A4C" stroke-width="2.5"/>
+<line x1="382" y1="279.3" x2="336" y2="359" stroke="#FF8A4C" stroke-width="7" stroke-dasharray="10,7" stroke-linecap="round"/>
+<circle cx="359" cy="319.2" r="9" fill="#0B0E1A" stroke="#FF8A4C" stroke-width="3"/><path d="M355,315.2 L363,323.2 M363,315.2 L355,323.2" stroke="#FF8A4C" stroke-width="2.5"/>
+<line x1="474" y1="598" x2="382" y2="598" stroke="#FF8A4C" stroke-width="7" stroke-dasharray="10,7" stroke-linecap="round"/>
+<circle cx="428" cy="598" r="9" fill="#0B0E1A" stroke="#FF8A4C" stroke-width="3"/><path d="M424,594 L432,602 M432,594 L424,602" stroke="#FF8A4C" stroke-width="2.5"/>
+<line x1="474" y1="279.3" x2="382" y2="279.3" stroke="#FF8A4C" stroke-width="7" stroke-dasharray="10,7" stroke-linecap="round"/>
+<circle cx="428" cy="279.3" r="9" fill="#0B0E1A" stroke="#FF8A4C" stroke-width="3"/><path d="M424,275.3 L432,283.3 M432,275.3 L424,283.3" stroke="#FF8A4C" stroke-width="2.5"/>
+<line x1="198" y1="598" x2="244" y2="518.4" stroke="#9AA6B8" stroke-width="3" stroke-dasharray="2,6" stroke-linecap="round"/>
+
+<line x1="612" y1="518.4" x2="520" y2="518.4" stroke="#A9D6E5" stroke-width="5" stroke-dasharray="3,7" stroke-linecap="round"/>
+<circle cx="566" cy="518.4" r="8" fill="#A9D6E5"/>
+<line x1="244" y1="677.7" x2="336" y2="677.7" stroke="#9AA6B8" stroke-width="7" stroke-linecap="round"/>
+<circle cx="290" cy="677.7" r="8" fill="#0B0E1A" stroke="#9AA6B8" stroke-width="3"/>
+<path d="M458,697.7 Q628,767.7 758,687.7" fill="none" stroke="#7FD6C8" stroke-width="3" stroke-dasharray="3,7"/>
+<polygon points="758,687.7 740,681.7 748,701.7" fill="#7FD6C8"/>
+<text x="678" y="763.7" fill="#7FD6C8" font-size="16">Fernsprung → Eridu (0508)</text>
+<text x="1060" y="160" fill="#9AA6B8" font-size="17" font-weight="600" letter-spacing="1.5">SPRUNGPUNKTE AN DEN KANTEN (BOJEN)</text>
+<line x1="1060" y1="186" x2="1104" y2="186" stroke="#FFC66B" stroke-width="7" stroke-linecap="round"/>
+<circle cx="1082" cy="186" r="8" fill="#FFC66B"/>
+<text x="1122" y="192" class="t">aktiv (offen)</text>
+<line x1="1060" y1="220" x2="1104" y2="220" stroke="#FF8A4C" stroke-width="7" stroke-dasharray="10,7" stroke-linecap="round"/>
+<circle cx="1082" cy="220" r="9" fill="#0B0E1A" stroke="#FF8A4C" stroke-width="3"/><path d="M1078,216 L1086,224 M1086,216 L1078,224" stroke="#FF8A4C" stroke-width="2.5"/>
+<text x="1122" y="226" class="t">gesperrt</text>
+<line x1="1060" y1="254" x2="1104" y2="254" stroke="#A9D6E5" stroke-width="5" stroke-dasharray="3,7" stroke-linecap="round"/>
+<circle cx="1082" cy="254" r="8" fill="#A9D6E5"/>
+<text x="1122" y="260" class="t">temporär</text>
+<line x1="1060" y1="288" x2="1104" y2="288" stroke="#9AA6B8" stroke-width="7" stroke-linecap="round"/>
+<circle cx="1082" cy="288" r="8" fill="#0B0E1A" stroke="#9AA6B8" stroke-width="3"/>
+<text x="1122" y="294" class="t">ohne Strom</text>
+<line x1="1060" y1="322" x2="1104" y2="322" stroke="#9AA6B8" stroke-width="3" stroke-dasharray="2,6" stroke-linecap="round"/>
+
+<text x="1122" y="328" class="t">verborgen</text>
+<path d="M1060,358 q22,-14 44,0" fill="none" stroke="#7FD6C8" stroke-width="3" stroke-dasharray="3,7"/><text x="1122" y="362" class="t">Fernsprungpunkt</text>
+<text x="1060" y="408" fill="#9AA6B8" font-size="17" font-weight="600" letter-spacing="1.5">HEXE</text>
+<rect x="1060" y="424" width="44" height="20" fill="#4A4466"/><text x="1122" y="440" class="t">Konkordat (Saumraum)</text>
+<rect x="1060" y="456" width="44" height="20" fill="#6B2E2E"/><text x="1122" y="472" class="t">Rom</text>
+<rect x="1060" y="488" width="44" height="20" fill="#1F5555"/><text x="1122" y="504" class="t">Vorläufer</text>
+<rect x="1060" y="520" width="44" height="20" fill="#6B2E2E"/><rect x="1060" y="520" width="44" height="20" fill="#0B0E1A" fill-opacity="0.45"/><text x="1122" y="536" class="t">sichtbar, gesperrt (nicht spielbar)</text>
+<rect x="1060" y="552" width="44" height="20" fill="#141A2A" stroke="#9AA6B8" stroke-dasharray="5,5"/><text x="1122" y="568" class="t">unerkundet (nur Umriss)</text>
+<rect x="1060" y="584" width="44" height="20" fill="#0B0E1A" stroke="#2E3A4A" stroke-width="1.5"/><text x="1122" y="600" class="t">Leerraum (Barriere)</text>
+<text x="1060" y="644" fill="#9AA6B8" font-size="16">„temporär“ und „ohne Strom“ sind hier Beispiele,</text>
+<text x="1060" y="666" fill="#9AA6B8" font-size="16">nicht Teil der Karte Limes.</text>
+</svg>

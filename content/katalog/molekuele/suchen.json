@@ -10,6 +10,223 @@
   "szenentypen": [
     "C1"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "weitscan_versteck",
+      "name": "Mit dem Weitscan suchen",
+      "schauplatz": "aussen",
+      "beschreibung": "Irgendwo liegt, was gesucht wird. Der Captain markiert mit dem Weitscan Bergungsgut und Verstecke, das Team birgt (E halten). Ein Versteck hinter dünner Wand gibt es nur auf manchen Karten.",
+      "braucht": [
+        "transfer",
+        "weitscan",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "ruine",
+          "schiff"
+        ],
+        "anker": [
+          "beute"
+        ]
+      },
+      "dauer_min": [
+        3,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          5
+        ],
+        "2": [
+          3,
+          4
+        ],
+        "3": [
+          3,
+          4
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gefunden"
+      ],
+      "ereignisse": [
+        "beuteGeborgen",
+        "ankerZustand"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "gesucht": {
+          "typ": "text",
+          "default": "das Gesuchte",
+          "beschreibung": "Was gesucht wird"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 50,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "anker_state",
+                            "map": "{{map}}",
+                            "anker": "beute",
+                            "state": "leer"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "anker_state",
+                            "map": "{{map}}",
+                            "anker": "versteck",
+                            "state": "offen"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gefunden": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft",
+                    "fund": "{{gesucht}}"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "beute",
+                "zustand": "leer"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gefunden": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Gesucht: {{gesucht}}. Captain: Weitscan auf den Landepunkt, dann ansagen.",
+          "{{id}}.hinweis": "Captain: Reiter „Außenteam“ – was der Weitscan markiert hat, ist das Ziel. Unten: hingehen, E halten.",
+          "{{id}}.geschafft": "Gefunden: {{gesucht}}.",
+          "{{id}}.ziel": "{{gesucht}} finden und bergen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "kesh",
+          "map": "kesh.kastell"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

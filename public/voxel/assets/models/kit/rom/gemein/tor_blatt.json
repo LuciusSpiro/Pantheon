@@ -1,0 +1,23 @@
+{
+  "id": "kit/rom/gemein/tor_blatt",
+  "name": "Rom-Steckplatz tor_blatt: Fallgitter: Gunmetal-Stäbe mit Querstreben und Goldspitzen",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":8,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":9,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":2,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "state": {"default":0,"min":0,"max":3,"step":1}
+  },
+  "ops": [
+    {"name":"Stäbe","op":"box","repeat":{"count":"ceil(w / 2)","step":[2,0,0]},"at":[0,0,"d - 1"],"size":[1,"h",1],"color":{"shade":"metal_dark","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Querstrebe unten","op":"box","at":[0,"min(2, h - 1)","d - 1"],"size":["w",1,1],"color":{"shade":"metal","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Querstrebe oben","op":"box","if":"h > 5","at":[0,"h - 3","d - 1"],"size":["w",1,1],"color":{"shade":"metal","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Spitzen gold","op":"box","repeat":{"count":"ceil(w / 2)","step":[2,0,0]},"at":[0,0,"d - 1"],"size":[1,1,1],"color":{"shade":"trim","f":"0.85 * (1 - zustand * 0.08)"}},
+    {"name":"Hinterband rot","op":"box","at":[0,"floor(h / 2)",0],"size":["w",1,1],"color":{"shade":"primary","f":"0.85 * (1 - zustand * 0.08)"}}
+  ],
+  "anchor": [0,0,0]
+}

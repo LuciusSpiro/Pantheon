@@ -1,0 +1,63 @@
+{
+  "format": "modul/1",
+  "id": "schiff.reaktor.a",
+  "art": "schiff",
+  "typ": "reaktor",
+  "groesse": [5, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Reaktorkern mittig, drei Kühlventile (ziel) verteilt; der Längsgang teilt sich und führt beidseitig am Kern vorbei (Nadelöhr). Notluke oben = zweiter Eingang für den Ein-Deck-Fallback.",
+  "rows": [
+    "##L##",
+    "#...#",
+    "#..o#",
+    "#...#",
+    "#...#",
+    "#.O.#",
+    "..O..",
+    "#.O.#",
+    "#...#",
+    "#o..#",
+    "#...#",
+    "#...#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    "..e..",
+    ".g...",
+    ".....",
+    "..s..",
+    ".....",
+    ".....",
+    ".p...",
+    ".....",
+    "...g.",
+    "...q.",
+    ".g...",
+    "....."
+  ],
+  "anker_legende": {
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    },
+    "g": {
+      "rolle": "ziel"
+    },
+    "s": {
+      "rolle": "sprengpunkt"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    }
+  },
+  "belegungen": []
+}

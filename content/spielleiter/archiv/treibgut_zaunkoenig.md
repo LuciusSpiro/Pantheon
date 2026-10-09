@@ -81,18 +81,18 @@ Ohne passende Erinnerung: „Grauzahn bietet selten Arbeit an. Wer annimmt, soll
 
 **Ziele**
 
-- Außenteam ins Wrack beamen
-- Container bergen ({objectsInState:container:taken}/{objectsCount:container})
+- Außenteam runterbeamen
+- Bergungsgut bergen (E halten)
 - Zurück an Bord beamen
 
 **Texte in Reihenfolge**
 
 - **grund:** „Ortung: Ein zweiter Frachtraum ist aufgeplatzt – frische Container sind ins Wrack gedriftet.“
-- *(nach 2 s)* **ODA:** „Außenteam auf die Pads. Im Wrack ist es dunkel – Captain: Reiter „Außenteam“ zeigt die Container.“
+- *(nach 2 s)* **ODA:** „Außenteam auf die Pads. Drinnen ist es dunkel – Captain: Reiter „Außenteam“ zeigt die Kisten.“
 - *(nach 60 s)* **Wendung** `tz_zuschauer` – Ankündigung (gleichzeitig): ODA „Ortung: Jäger-Signaturen hinter dem Wrack. Noch halten sie Abstand.“
   - **Funk – Grauzahn (Rostmeute):** „Schön fleißig, Lerche. Lasst euch nicht stören – ich sehe nur zu.“
-- *(nach 70 s, Hinweis, falls nötig)* **ODA:** „Captain: die Container auf der Außenteam-Karte ansagen. Unten: hingehen, E halten, dann zurück zu den Pads.“
-- *(sobald erfüllt)* **ODA:** „Alle Container offen! Zurück zu den Pads, dann holen wir euch hoch.“
+- *(nach 70 s, Hinweis, falls nötig)* **ODA:** „Captain: die Kisten auf der Außenteam-Karte ansagen. Unten: hingehen, E halten, dann zurück zu den Pads.“
+- *(sobald erfüllt)* **ODA:** „Alles geborgen! Zurück zu den Pads, dann holen wir euch hoch.“
 - *(sobald erfüllt)* **ODA:** „Genug gewühlt – den Rest lassen wir liegen. Zurück zu den Pads.“
 
 ### 4. tz_forderung – Wrack „Zaunkönig“
@@ -167,6 +167,8 @@ Ohne passende Erinnerung: „Grauzahn bietet selten Arbeit an. Wer annimmt, soll
 
 ## Prüfer
 
+- Warnung: FLAG-UNGELESEN flags: Flag 'tz_wrack_alles' wird gesetzt, aber in diesem Buch nie gelesen
+- Warnung: FLAG-UNGELESEN flags: Flag 'tz_wrack_genug' wird gesetzt, aber in diesem Buch nie gelesen
 - Warnung: FLAG-UNGELESEN flags: Flag 'tz_abwehr_vertrieben' wird gesetzt, aber in diesem Buch nie gelesen
 
 ## Gespielt

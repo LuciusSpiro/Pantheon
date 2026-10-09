@@ -1,0 +1,87 @@
+{
+  "format": "bauweise/1",
+  "id": "rom",
+  "hinweis": "ART-RUINE. Rom = verfallenes Grenzkastell (Kartenart ruine). Kit-Teile kit/rom/<kind> = Hülle um kit/geruest/<kind> mit bauweise rom; Steckplätze kit/rom/gemein/* (Kastell intakt) und kit/rom/ruine/* (verfallen, Moos, tote Energiefugen). gelaende/fels = Terrain (VOXEL), abgrund/leere = nichts.",
+  "kits": {
+    "boden": {
+      "id": "kit/rom/boden",
+      "belag": 0
+    },
+    "boden2": {
+      "id": "kit/rom/boden",
+      "belag": 2
+    },
+    "plateau": {
+      "id": "kit/rom/boden",
+      "belag": 3
+    },
+    "rampe": {
+      "id": "kit/rom/boden",
+      "belag": 2
+    },
+    "pad": {
+      "id": "kit/rom/boden",
+      "belag": 1
+    },
+    "kante": "kit/rom/kante",
+    "wand": "kit/rom/wand",
+    "wand_schwach": "kit/rom/wand_schwach",
+    "zaun": "kit/rom/zaun",
+    "gitter": "kit/rom/gitter",
+    "tuer": "kit/rom/tuer",
+    "tor": "kit/rom/tor",
+    "luke": "kit/rom/luke",
+    "deckung_halb": "kit/rom/deckung_halb",
+    "deckung_voll": "kit/rom/deckung_voll",
+    "pfeiler": "kit/rom/pfeiler",
+    "truemmer": "kit/rom/truemmer",
+    "schutt": {
+      "id": "kit/rom/deckung_voll",
+      "zustand": 2
+    }
+  },
+  "anker": {
+    "terminal": {
+      "*": "prop/rom/ruine/offiziersschloss"
+    },
+    "raetsel": {
+      "*": "prop/rom/ruine/aquaedukt_verteiler",
+      "innerstes": "prop/rom/ruine/offiziersschloss"
+    },
+    "sprengpunkt": {
+      "*": "prop/rom/ruine/munitionskammer"
+    },
+    "beute": {
+      "*": "prop/rom/ruine/legionskasse"
+    },
+    "fund": {
+      "*": "prop/rom/ruine/legionskasse"
+    },
+    "tor": {
+      "*": "prop/rom/ruine/kassengewoelbe_tor"
+    },
+    "ziel": {
+      "*": "leit/rom/ruine/fahnenheiligtum"
+    },
+    "abholpunkt": {
+      "*": "prop/germanen/gemein/bake_abholpunkt"
+    },
+    "zelle": {
+      "*": "prop/rom/ruine/carcer"
+    }
+  },
+  "leit": {
+    "innerstes": {
+      "ruine": "leit/rom/ruine/fahnenheiligtum"
+    }
+  },
+  "leit_fuss": {
+    "leit/rom/ruine/fahnenheiligtum": [2, 2]
+  },
+  "paletten": {
+    "basis": "rom_kastell"
+  },
+  "stimmung": {
+    "ruine": "ruin_rom"
+  }
+}

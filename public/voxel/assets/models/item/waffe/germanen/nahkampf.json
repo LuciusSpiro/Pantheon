@@ -1,0 +1,49 @@
+{
+  "id": "item/waffe/germanen/nahkampf",
+  "name": "Bartaxt – Anbau germanen für item/waffe/nahkampf",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["waffe", "anbau-teil", "germanen"],
+  "notes": "Steckplatz-Teil (Bauweise germanen) des Gerüsts item/waffe/nahkampf. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Bartaxt",
+      "op": "group",
+      "at": [-1, -11, -1],
+      "ops": [
+        {
+          "name": "Kopf (quer, von oben lesbar)",
+          "op": "group",
+          "rot": 90,
+          "pivot": [1, 1],
+          "ops": [
+            { "name": "Stielende", "op": "box", "at": [0, 0, 0], "size": [2, 8, 2], "color": "wood" },
+            { "name": "Kopfkappe", "op": "box", "at": [0, 0, 0], "size": [2, 1, 2], "color": "metal_dark" },
+            { "name": "Nacken", "op": "box", "at": [0, 1, -3], "size": [2, 3, 3], "color": "metal" },
+            { "name": "Blattansatz", "op": "box", "at": [0, 0, 2], "size": [2, 4, 1], "color": "metal" },
+            { "name": "Blatt", "op": "box", "at": [0, 0, 3], "size": [2, 5, 3], "color": "metal" },
+            { "name": "Bart", "op": "box", "at": [0, 5, 5], "size": [2, 3, 1], "color": "metal" },
+            { "name": "Schneide", "op": "box", "at": [0, 0, 6], "size": [2, 9, 1], "color": "metal_light" },
+            {
+              "name": "Ornamentband",
+              "op": "box",
+              "at": [0, 1, 4],
+              "size": [2, 3, 1],
+              "color": { "stripes": ["trim", "secondary"], "axis": "y", "period": 1 }
+            },
+            { "name": "Niete Knochen", "op": "box", "at": [0, 1, 3], "size": [2, 1, 1], "color": "trim" }
+          ]
+        },
+        {
+          "name": "Griff Leder",
+          "op": "box",
+          "at": [0, 10, 0],
+          "size": [2, 3, 2],
+          "color": { "stripes": ["leather", "dark"], "axis": "y", "period": 1 }
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

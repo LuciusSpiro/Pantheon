@@ -1,0 +1,23 @@
+{
+  "id": "rom/bau/banner",
+  "name": "Wandbanner / Vexillum (Rom, Baustein)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["architektur", "rom", "banner", "stoff", "baustein"],
+  "footprint": [1.5, 0.25],
+  "params": {
+    "w": { "default": 6, "min": 4, "max": 12, "step": 2, "label": "Breite (Voxel, gerade)" },
+    "h": { "default": 10, "min": 6, "max": 24, "step": 1, "label": "Höhe (Voxel)" },
+    "emblem": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Goldemblem" }
+  },
+  "ops": [
+    { "op": "box", "name": "Querstange", "at": [-1, "h-1", 0], "size": ["w+2", 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Stangenknauf", "at": [-1, "h-1", 0], "size": [1, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": "w/2" },
+    { "op": "box", "name": "Tuch", "at": [0, 1, 0], "size": ["w", "h-2", 1], "color": { "frame": { "shade": "cloth", "f": 0.8 }, "fill": "cloth", "axes": "x" } },
+    { "op": "box", "name": "Goldborte oben", "at": [0, "h-3", 0], "size": ["w", 1, 1], "color": "trim" },
+    { "op": "box", "name": "Fransen", "at": [0, 0, 0], "size": ["w", 1, 1], "color": { "stripes": ["trim", { "shade": "cloth", "f": 0.85 }], "axis": "x" } },
+    { "op": "box", "name": "Emblem Kranz", "if": "emblem", "at": ["w/2-1", "floor(h/2)-1", 1], "size": [2, 3, 1], "color": "trim" },
+    { "op": "box", "name": "Emblem Schwingen", "if": "emblem", "at": ["w/2-2", "floor(h/2)", 1], "size": [4, 1, 1], "color": { "shade": "trim", "f": 0.9 } }
+  ],
+  "anchor": ["w/2", 0, 0]
+}

@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "station.zellen.b", "art": "station", "typ": "zellen",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "########",
+    "#.z.z..#",
+    "#.z.z..#",
+    "#......#",
+    "#...o..#",
+    "#.o....#",
+    "#......#",
+    "###DD###"
+  ],
+  "anker": [
+    "........",
+    ".c.c..b.",
+    "........",
+    "........",
+    "........",
+    ".....w..",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "c": { "rolle": "zelle" },
+    "b": { "rolle": "beute" },
+    "w": { "rolle": "wache" }
+  }
+}

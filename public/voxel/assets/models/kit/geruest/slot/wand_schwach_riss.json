@@ -1,0 +1,20 @@
+{
+  "id": "kit/geruest/slot/wand_schwach_riss",
+  "name": "Gerüst-Steckplatz wand_schwach_riss (neutral): Rissmarke der schwachen Wand (wird aufgemalt, mode paint)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["geruest","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "state": {"default":0,"min":0,"max":1,"step":1}
+  },
+  "ops": [
+    {"name":"Riss","op":"line","from":[0,0,0],"to":["w - 1","h - 1",0],"r":0.5,"color":{"shade":"dark","f":"1 * (1 - zustand * 0.1)"}},
+    {"name":"Riss Ast","op":"line","from":["w - 1","floor(h / 2)",0],"to":[0,"h - 1",0],"r":0.5,"color":{"shade":"dark","f":"1 * (1 - zustand * 0.1)"}}
+  ],
+  "anchor": [0,0,0]
+}

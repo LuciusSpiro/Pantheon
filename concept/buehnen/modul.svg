@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" font-family="IBM Plex Sans, Segoe UI, Arial, sans-serif">
+<style>.t{fill:#F4EEDC;font-size:18px}.c{text-anchor:middle}.p{stroke-width:2;stroke-opacity:.75}.o{fill:#0B0E1A;stroke-dasharray:8 5}.i{fill:#141A2A}.op{stroke:#A9D6E5;stroke-width:5;stroke-dasharray:4 5}.dr{fill:#C9974A}.wl{stroke:#F4EEDC;stroke-width:4}</style>
+<defs>
+<polygon id="ein" points="-9,8 9,8 0,-9" fill="#A9D6E5"/>
+<polygon id="zi" points="0,-11 11,0 0,11 -11,0" fill="#FFC66B"/>
+<polygon id="sp" points="11,0 4.6,1.9 7.8,7.8 1.9,4.6 0,11 -1.9,4.6 -7.8,7.8 -4.6,1.9 -11,0 -4.6,-1.9 -7.8,-7.8 -1.9,-4.6 0,-11 1.9,-4.6 7.8,-7.8 4.6,-1.9" fill="#FF8A4C"/>
+<circle id="ab" r="9" fill="none" stroke="#A9D6E5" stroke-width="3.5"/>
+<g id="aus"><circle r="9" fill="none" stroke="#F4EEDC" stroke-width="2.5"/><circle r="3.5" fill="#F4EEDC"/></g>
+<g id="ze" stroke="#F4EEDC" fill="none"><rect x="-9" y="-9" width="18" height="18" stroke-width="2.5"/><path d="M-3,-9V9M3,-9V9" stroke-width="2"/></g>
+<g id="te"><rect x="-10" y="-7" width="20" height="14" rx="2" fill="#A9D6E5"/><rect x="-6" y="-3" width="12" height="5" fill="#141A2A"/></g>
+<path id="wa" d="M-10,7L0,-9L10,7" fill="none" stroke="#FF8A4C" stroke-width="3"/>
+<g id="be"><rect x="-9" y="-7" width="18" height="14" fill="#C9974A"/><path d="M-9,-1H9" stroke="#141A2A" stroke-width="2"/></g>
+<g id="de"><rect x="-11" y="-4" width="22" height="8" fill="#9AA6B8"/><rect x="-11" y="-4" width="22" height="2.5" fill="#F4EEDC"/></g>
+</defs>
+<rect width="1600" height="900" fill="#0B0E1A"/>
+<text x="40" y="56" fill="#F4EEDC" font-size="34" font-weight="600">Modulsystem: Schablone Außenposten A</text>
+<text x="40" y="94" fill="#9AA6B8" font-size="20">9 × 5 Zellen à 8 × 8 Kacheln = 72 × 40 m · je Platz ein passendes Modul per seed, gedreht oder gespiegelt</text>
+<path d="M40,128V808M176,128V808M312,128V808M448,128V808M584,128V808M720,128V808M856,128V808M992,128V808M1128,128V808M1264,128V808M40,128H1264M40,264H1264M40,400H1264M40,536H1264M40,672H1264M40,808H1264" stroke="#2E3A4A" stroke-dasharray="3,5"/>
+<rect x="46" y="134" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="46" y="134" width="124" height="6" fill="#A9D6E5"/>
+<text x="108" y="170" class="t c">Hügel</text>
+<rect x="46" y="270" width="124" height="260" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="46" y="270" width="124" height="6" fill="#A9D6E5"/>
+<text x="108" y="306" class="t c">Landeplatz</text>
+<rect x="46" y="542" width="124" height="260" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="46" y="542" width="124" height="6" fill="#A9D6E5"/>
+<text x="108" y="578" class="t c">Gelände</text>
+<rect x="182" y="134" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="182" y="134" width="124" height="6" fill="#A9D6E5"/>
+<text x="244" y="170" class="t c">Wachturm</text>
+<rect x="182" y="270" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="182" y="270" width="124" height="6" fill="#A9D6E5"/>
+<text x="244" y="306" class="t c">Zaunlücke</text>
+<rect x="182" y="406" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="182" y="406" width="124" height="6" fill="#A9D6E5"/>
+<text x="244" y="442" class="t c">Tor</text>
+<rect x="182" y="542" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="182" y="542" width="124" height="6" fill="#A9D6E5"/>
+<text x="244" y="578" class="t c">Wachturm</text>
+<rect x="182" y="678" width="124" height="124" rx="6" class="p o" stroke="#A9D6E5"/>
+<rect x="182" y="678" width="124" height="6" fill="#A9D6E5"/>
+<text x="244" y="714" class="t c">Abfluss</text>
+<rect x="318" y="134" width="260" height="260" rx="6" class="p i" stroke="#FF8A4C"/>
+<rect x="318" y="134" width="260" height="6" fill="#FF8A4C"/>
+<text x="448" y="170" class="t c">Lagerhalle 2×2</text>
+<rect x="318" y="406" width="260" height="124" rx="6" class="p o" stroke="#FF8A4C"/>
+<rect x="318" y="406" width="260" height="6" fill="#FF8A4C"/>
+<text x="448" y="442" class="t c">Hof 2×1</text>
+<rect x="318" y="542" width="260" height="260" rx="6" class="p i" stroke="#FF8A4C"/>
+<rect x="318" y="542" width="260" height="6" fill="#FF8A4C"/>
+<text x="448" y="578" class="t c">Zellenblock 2×2</text>
+<rect x="590" y="134" width="124" height="124" rx="6" class="p o" stroke="#FF8A4C"/>
+<rect x="590" y="134" width="124" height="6" fill="#FF8A4C"/>
+<text x="652" y="170" class="t c">Funkmast</text>
+<rect x="590" y="270" width="260" height="260" rx="6" class="p o" stroke="#FF8A4C"/>
+<rect x="590" y="270" width="260" height="6" fill="#FF8A4C"/>
+<text x="720" y="306" class="t c">Hof 2×2</text>
+<rect x="590" y="542" width="124" height="124" rx="6" class="p o" stroke="#FF8A4C"/>
+<rect x="590" y="542" width="124" height="6" fill="#FF8A4C"/>
+<text x="652" y="578" class="t c">Treibstoff</text>
+<rect x="590" y="678" width="124" height="124" rx="6" class="p i" stroke="#FF8A4C"/>
+<rect x="590" y="678" width="124" height="6" fill="#FF8A4C"/>
+<text x="652" y="714" class="t c">Lager</text>
+<rect x="726" y="134" width="124" height="124" rx="6" class="p o" stroke="#FF8A4C"/>
+<rect x="726" y="134" width="124" height="6" fill="#FF8A4C"/>
+<text x="788" y="170" class="t c">Wachturm</text>
+<rect x="726" y="542" width="124" height="260" rx="6" class="p i" stroke="#FF8A4C"/>
+<rect x="726" y="542" width="124" height="6" fill="#FF8A4C"/>
+<text x="788" y="578" class="t c">Werkstatt</text>
+<rect x="862" y="134" width="260" height="260" rx="6" class="p i" stroke="#FFC66B"/>
+<rect x="862" y="134" width="260" height="6" fill="#FFC66B"/>
+<text x="992" y="170" class="t c">Kommando 2×2</text>
+<rect x="862" y="406" width="124" height="124" rx="6" class="p o" stroke="#FFC66B"/>
+<rect x="862" y="406" width="124" height="6" fill="#FFC66B"/>
+<text x="924" y="442" class="t c">Generator</text>
+<rect x="862" y="542" width="260" height="260" rx="6" class="p i" stroke="#FFC66B"/>
+<rect x="862" y="542" width="260" height="6" fill="#FFC66B"/>
+<text x="992" y="578" class="t c">Lagerhalle 2×2</text>
+<rect x="998" y="406" width="124" height="124" rx="6" class="p o" stroke="#C9974A"/>
+<rect x="998" y="406" width="124" height="6" fill="#C9974A"/>
+<text x="1060" y="442" class="t c">Hintertor</text>
+<rect x="1134" y="134" width="124" height="260" rx="6" class="p o" stroke="#C9974A"/>
+<rect x="1134" y="134" width="124" height="6" fill="#C9974A"/>
+<text x="1196" y="170" class="t c">Felsen</text>
+<rect x="1134" y="406" width="124" height="124" rx="6" class="p o" stroke="#C9974A"/>
+<rect x="1134" y="406" width="124" height="6" fill="#C9974A"/>
+<text x="1196" y="442" class="t c">Gelände</text>
+<rect x="1134" y="542" width="124" height="260" rx="6" class="p o" stroke="#C9974A"/>
+<rect x="1134" y="542" width="124" height="6" fill="#C9974A"/>
+<text x="1196" y="578" class="t c">Landeplatz</text>
+<path d="M176,179v34" class="wl"/>
+<path d="M91,264h34" class="op"/>
+<path d="M176,315v34" class="op"/>
+<rect x="170" y="451" width="12" height="34" class="dr"/>
+<path d="M91,536h34" class="op"/>
+<path d="M176,587v34" class="wl"/>
+<rect x="170" y="723" width="12" height="34" class="dr"/>
+<path d="M312,179v34" class="wl"/>
+<path d="M227,264h34" class="op"/>
+<path d="M312,315v34" class="wl"/>
+<path d="M227,400h34" class="op"/>
+<path d="M312,451v34" class="op"/>
+<path d="M227,536h34" class="op"/>
+<path d="M312,587v34" class="wl"/>
+<path d="M227,672h34" class="op"/>
+<rect x="306" y="723" width="12" height="34" class="dr"/>
+<rect x="363" y="394" width="34" height="12" class="dr"/>
+<rect x="363" y="530" width="34" height="12" class="dr"/>
+<path d="M584,179v34" class="wl"/>
+<path d="M584,315v34" class="wl"/>
+<rect x="499" y="394" width="34" height="12" class="dr"/>
+<path d="M584,451v34" class="op"/>
+<path d="M499,536h34" class="wl"/>
+<path d="M584,587v34" class="wl"/>
+<path d="M584,723v34" class="wl"/>
+<path d="M720,179v34" class="op"/>
+<path d="M635,264h34" class="op"/>
+<path d="M635,536h34" class="op"/>
+<rect x="714" y="587" width="12" height="34" class="dr"/>
+<rect x="635" y="666" width="34" height="12" class="dr"/>
+<path d="M720,723v34" class="wl"/>
+<rect x="850" y="179" width="12" height="34" class="dr"/>
+<path d="M771,264h34" class="op"/>
+<path d="M856,315v34" class="wl"/>
+<path d="M856,451v34" class="op"/>
+<rect x="771" y="530" width="34" height="12" class="dr"/>
+<path d="M856,587v34" class="wl"/>
+<path d="M856,723v34" class="wl"/>
+<rect x="907" y="394" width="34" height="12" class="dr"/>
+<path d="M992,451v34" class="op"/>
+<rect x="907" y="530" width="34" height="12" class="dr"/>
+<path d="M1128,179v34" class="wl"/>
+<path d="M1128,315v34" class="wl"/>
+<path d="M1043,400h34" class="wl"/>
+<rect x="1122" y="451" width="12" height="34" class="dr"/>
+<rect x="1043" y="530" width="34" height="12" class="dr"/>
+<path d="M1128,587v34" class="wl"/>
+<path d="M1128,723v34" class="wl"/>
+<path d="M1179,400h34" class="op"/>
+<path d="M1179,536h34" class="op"/>
+<line x1="176" y1="128" x2="176" y2="808" stroke="#9AA6B8" stroke-width="1.5" stroke-dasharray="2,6"/>
+<line x1="1128" y1="128" x2="1128" y2="808" stroke="#9AA6B8" stroke-width="1.5" stroke-dasharray="2,6"/>
+<use href="#aus" x="108" y="210"/>
+<use href="#ab" x="108" y="408"/>
+<use href="#wa" x="229" y="210"/>
+<use href="#aus" x="259" y="210"/>
+<use href="#ein" x="244" y="346"/>
+<use href="#ein" x="244" y="482"/>
+<use href="#wa" x="244" y="618"/>
+<use href="#ein" x="244" y="754"/>
+<use href="#be" x="433" y="272"/>
+<use href="#de" x="463" y="272"/>
+<use href="#de" x="433" y="482"/>
+<use href="#wa" x="463" y="482"/>
+<use href="#ze" x="448" y="680"/>
+<use href="#sp" x="652" y="210"/>
+<use href="#de" x="705" y="408"/>
+<use href="#wa" x="735" y="408"/>
+<use href="#sp" x="652" y="618"/>
+<use href="#be" x="652" y="754"/>
+<use href="#wa" x="773" y="210"/>
+<use href="#aus" x="803" y="210"/>
+<use href="#te" x="788" y="680"/>
+<use href="#zi" x="977" y="272"/>
+<use href="#te" x="1007" y="272"/>
+<use href="#sp" x="924" y="482"/>
+<use href="#be" x="992" y="680"/>
+<use href="#ein" x="1060" y="482"/>
+<use href="#aus" x="1196" y="272"/>
+<use href="#ab" x="1196" y="680"/>
+<text x="1290" y="150" fill="#9AA6B8" font-size="17" font-weight="600" letter-spacing="1.5">BEREICHE</text>
+<rect x="1290" y="166" width="28" height="16" fill="#A9D6E5"/><text x="1330" y="180" class="t">hinein</text>
+<rect x="1290" y="194" width="28" height="16" fill="#FF8A4C"/><text x="1330" y="208" class="t">Gefecht</text>
+<rect x="1290" y="222" width="28" height="16" fill="#FFC66B"/><text x="1330" y="236" class="t">Ziel</text>
+<rect x="1290" y="250" width="28" height="16" fill="#C9974A"/><text x="1330" y="264" class="t">Rückzug</text>
+<text x="1290" y="306" fill="#9AA6B8" font-size="17" font-weight="600" letter-spacing="1.5">ANSCHLÜSSE</text>
+<line x1="1290" y1="330" x2="1318" y2="330" stroke="#A9D6E5" stroke-width="5" stroke-dasharray="4,5"/><text x="1330" y="336" class="t">offen</text>
+<rect x="1290" y="352" width="28" height="12" fill="#C9974A"/><text x="1330" y="364" class="t">Tür / Tor</text>
+<line x1="1290" y1="386" x2="1318" y2="386" stroke="#F4EEDC" stroke-width="4"/><text x="1330" y="392" class="t">Wand</text>
+<line x1="1290" y1="414" x2="1318" y2="414" stroke="#9AA6B8" stroke-width="1.5" stroke-dasharray="2,6"/><text x="1330" y="420" class="t">Zaun</text>
+<text x="1290" y="462" fill="#9AA6B8" font-size="17" font-weight="600" letter-spacing="1.5">ANKER</text>
+<use href="#ein" x="1304" y="486"/>
+<text x="1330" y="492" class="t">eingang</text>
+<use href="#zi" x="1304" y="513"/>
+<text x="1330" y="519" class="t">ziel</text>
+<use href="#sp" x="1304" y="540"/>
+<text x="1330" y="546" class="t">sprengpunkt</text>
+<use href="#ab" x="1304" y="567"/>
+<text x="1330" y="573" class="t">abholpunkt</text>
+<use href="#aus" x="1304" y="594"/>
+<text x="1330" y="600" class="t">aussicht</text>
+<use href="#wa" x="1304" y="621"/>
+<text x="1330" y="627" class="t">wache</text>
+<use href="#te" x="1304" y="648"/>
+<text x="1330" y="654" class="t">terminal</text>
+<use href="#ze" x="1304" y="675"/>
+<text x="1330" y="681" class="t">zelle</text>
+<use href="#be" x="1304" y="702"/>
+<text x="1330" y="708" class="t">beute</text>
+<use href="#de" x="1304" y="729"/>
+<text x="1330" y="735" class="t">deckung</text>
+<text x="40" y="854" fill="#9AA6B8" font-size="18">Drei Eingänge: laut (Tor), leise (Zaunlücke), technisch (Abfluss) · 2 Abholpunkte · Prüfung beim Zusammenbau: BFS zu allen Pflichtankern</text>
+</svg>

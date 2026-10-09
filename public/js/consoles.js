@@ -48,6 +48,11 @@
     const parts = [...cnt].map(([r, k]) => (k > 1 ? r + ' ' + k + '×' : r));
     return parts.length > max ? parts.slice(0, max).join(', ') + ' …' : parts.join(', ');
   }
+  // B3: Leerraum-Ort-ID (leer-<SSZZ>) und „am Sprungpunkt“ (ship.jump.d ≤ CONFIG.sektoren.sprungpunktRadius)
+  function isLeerId(id) { return typeof id === 'string' && /^leer-\d{4}$/.test(id); }
+  function jumpPointNear(jump) { const r = (CFG.sektoren && CFG.sektoren.sprungpunktRadius) || 250; return !!jump && jump.d != null && jump.d <= r; }
+  // QA-B3 F4: Anflugpflicht (freies Spiel) – im Tutorial keine Sprungpunkt-Hinweise. Quelle: StarMap.anflugPflicht (KARTE)
+  function anflugPflicht(st) { const SM = window.StarMap; return SM && typeof SM.anflugPflicht === 'function' ? SM.anflugPflicht(st) : true; }
   const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
   function m3(path, d) { return R.cfgM3 ? R.cfgM3(path, d) : d; }
   function f1(v) { return R.fmt1 ? R.fmt1(v) : (Math.round((+v || 0) * 10) / 10).toFixed(1).replace('.', ','); }
@@ -101,6 +106,8 @@
     tscanRefreshT: 0,
     scanRefreshT: 0,
     overloadAsk: -1e9,
+    notsprungAsk: -1e9,   // B3: Bestätigung Notfallsprung (Steuer)
+    starHex: null,        // B3: Hex der Sternkarten-Auswahl (StarMap.hit)
     plan: { mapId: 'star', selected: null, label: 'ziel', tab: 'map', bookSel: 0 },
     starSel: null,
     maps: {},          // zuletzt gezeichnete Karten (Umrechnung Klick -> Welt): weapons, lage, star, plan
@@ -121,6 +128,7 @@
       this.helmSent = { turn: 0, t: 0 };
       this.helmPending = null;
       this.overloadAsk = -1e9;
+      this.notsprungAsk = -1e9;
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
     },
@@ -143,6 +151,18 @@
     transferBlock(st) {
       const ship = st.ship || {};
       if (sysDown(ship, 'transfer')) return 'Transfer ausgefallen – reparieren';
+      const maxSp = (CFG.ship && CFG.ship.beamMaxSpeed) || 30;
+      const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
+      // B1 (F12): gewählter Landepunkt -> Sperre/Reichweite aus transfer.lp (grund, inReichweite) wie Server-beamSpot
+      const zielId = st.transfer && st.transfer.ziel;
+      const lp = zielId ? this.landepunkte(st).find(l => l.id === zielId) : null;
+      if (lp) {
+        const nm = lp.name && lp.name !== lp.id ? lp.name : lp.id;
+        if (!lp.frei) return lp.grund || 'Landepunkt gesperrt';
+        if (!lp.inR) return 'Zu weit von ' + nm + ' – näher heranfliegen';
+        if (sp > maxSp) return 'Zu schnell (' + Math.round(sp) + '/' + maxSp + ') – Steuer auf STOPP';
+        return null;
+      }
       const space = st.space || {};
       const target = (space.markers || []).find(m => m.kind === 'buoy' || m.kind === 'wreck' || m.kind === 'moon');
       const sc = (CFG.scenes && CFG.scenes.buoy) || {};
@@ -152,8 +172,7 @@
       const range = target.beamRange || (sl && sl.scene && sl.scene.beam && sl.scene.beam.range) || sc.beamRange || 320;
       const d = Math.hypot(n(ship.x) - target.x, n(ship.y) - target.y);
       if (d > range) return 'Zu weit vom Ziel (' + Math.round(d) + '/' + range + ')';
-      const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      if (sp > ((CFG.ship && CFG.ship.beamMaxSpeed) || 30)) return 'Zu schnell (' + Math.round(sp) + '/' + ((CFG.ship && CFG.ship.beamMaxSpeed) || 30) + ') – Steuer auf STOPP';
+      if (sp > maxSp) return 'Zu schnell (' + Math.round(sp) + '/' + maxSp + ') – Steuer auf STOPP';
       return null;
     },
 
@@ -315,7 +334,16 @@
       let jumpReason = null;
       if (!jump.ready) jumpReason = jump.blockedReason || (!jump.dest ? 'Kein Ziel gewählt (Captain-Konsole)' : 'Sprungantrieb lädt (' + Math.round(n(jump.charge) * 100) + ' %)');
       R.button(ctx, lx, y, lw, 14, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready, reason: jumpReason, active: !!jump.ready, onClick: () => this.cmd(view, 'helm.jump') }); y += 16;
-      if (jumpReason && jump.dest) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
+      // B3: Abstand zum Sprungpunkt (ship.jump.d) – im freien Spiel lädt der Antrieb nur am Sprungpunkt
+      const anflug = !!(jumpReason && /^Sprungpunkt/.test(jumpReason));
+      if (jump.dest && jump.d != null && anflug) { R.text(ctx, 'Sprungpunkt anfliegen: ' + jump.d + ' m', lx, y, { color: PAL.amber }); y += 10; }
+      else {
+        if (jumpReason && jump.dest) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
+        // ohne Sperrgrund und weit weg = Faltsprung von überall (Tutorial, E29) -> Abstand nicht zeigen
+        if (jump.dest && jump.d != null && anflugPflicht(st) && (jumpReason || jumpPointNear(jump))) { const near = jumpPointNear(jump); R.text(ctx, near ? 'Am Sprungpunkt (' + jump.d + ' m)' : 'Sprungpunkt ' + jump.d + ' m', lx, y, { color: near ? PAL.mint : PAL.panelLight }); y += 10; }
+      }
+      // B3: Notfallsprung (cmd helm.notsprung) mit Bestätigung: N, dann J
+      y = this.helmNotsprung(ctx, view, lx, y, lw);
       // M3a/§20.3: Lanze (Taktik lädt auf und feuert) – der Pilot sieht, wann er den Bug aufs Ziel halten muss
       const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
       if (bow && y < 254) {
@@ -385,7 +413,7 @@
       R.button(ctx, rx + bw2 + 2, by, bw2, 14, 'Stufe −', { hotkey: 'S', disabled: hi.stage <= 0, reason: 'Schon auf Rückwärts (R)', onClick: () => this.throttle(view, -1) });
       const hb = (x, yy, label, id) => R.button(ctx, x, yy, bw2, 14, label, { active: this.mouseHold === id, onClick: () => { this.mouseHold = id; } });
       hb(rx, by + 16, '< Bb (A)', 'left'); hb(rx + bw2 + 2, by + 16, 'Stb (D) >', 'right');
-      return 'W/S Fahrtstufe · A/D Ruder · Shift+A/D ausweichen · X Allstopp · F Faltsprung';
+      return 'W/S Fahrtstufe · A/D Ruder · Sh+A/D ausweichen · X Allstopp · F Faltsprung · N Notsprung';
     },
     // Schildanzeige mit Bug nach oben (passend zur Frontsicht)
     drawShieldUp(ctx, x, y, ship, view) {
@@ -457,6 +485,31 @@
     },
     // §20.2: Ausweich-Anzeige – laufende Ladung mit Seite und Countdown, grün im Ausweich-Fenster (left ≤ dodgeWindow);
     // §20.3: Hinweis, dass die Taktik die Lanze auflädt (Visierlinie zeichnet Render in der Frontsicht)
+    // B3 §4: Notfallsprung (cmd helm.notsprung). N fragt nach, J (oder Enter) bestätigt binnen 6 s, N bricht ab.
+    notsprungReason(st) {
+      const ship = st.ship || {};
+      const r = ship.reactor || {};
+      if (r.state === 'offline' || (ship.systems && (ship.systems.reactor === 'broken' || ship.systems.reactor === 'offline'))) return 'Reaktor offline – erst neu starten';
+      if (ship.dockedAt || ship.docked) return 'Erst ablegen';
+      if ((st.players || []).some(p => p.zone === 'away')) return 'Außenteam noch unten';
+      return null;
+    },
+    helmNotsprung(ctx, view, lx, y, lw) {
+      const reason = this.notsprungReason(view.state);
+      const ask = performance.now() - this.notsprungAsk < 6000;
+      if (reason && ask) this.notsprungAsk = -1e9;
+      if (ask && !reason) {
+        const bw = Math.floor((lw - 2) * 0.62);
+        R.button(ctx, lx, y, bw, 14, 'Ja, Notsprung', { hotkey: 'J', active: true, onClick: () => { this.notsprungAsk = -1e9; this.cmd(view, 'helm.notsprung', {}); } });
+        R.button(ctx, lx + bw + 2, y, lw - bw - 2, 14, 'Nein', { hotkey: 'N', onClick: () => { this.notsprungAsk = -1e9; } });
+        y += 16;
+        R.text(ctx, 'Reaktor fällt aus, Hülle −' + ((CFG.sektoren && CFG.sektoren.notsprung && CFG.sektoren.notsprung.huelle) || 15), lx, y, { color: PAL.red }); y += 10;
+      } else {
+        R.button(ctx, lx, y, lw, 14, 'Notsprung …', { hotkey: 'N', disabled: !!reason, reason, onClick: () => { this.notsprungAsk = performance.now(); } });
+        y += 16;
+      }
+      return y;
+    },
     helmAlerts(ctx, view, fv) {
       const st = view.state, ship = st.ship || {};
       const t = view.time;
@@ -678,11 +731,14 @@
       const st = view.state, ship = st.ship || {};
       const w = R.worldOf(st);
       const locs = this.visibleLocs(st);
-      if (!this.starSel || !locs.some(l => l.id === this.starSel)) this.starSel = (ship.jump && ship.jump.dest) || w.location;
+      // B3: Auswahl per Hex (StarMap.hit). Leerraum (leer-<hex>) steht nicht in world.locations und bleibt trotzdem gewählt.
+      const leerSel = isLeerId(this.starSel);
+      if (!this.starSel || (!leerSel && !locs.some(l => l.id === this.starSel))) { this.starSel = (ship.jump && ship.jump.dest) || w.location; this.starHex = null; }
       const mapRect = { x: a.x, y: a.y, w: 410, h: a.h - 2 };
       this.maps.star = R.drawStarMap(ctx, view, mapRect, { selected: this.starSel, mouse: view.mouse, rects: this.starRects });
       const rx = a.x + 420, rw = a.w - 420;
       let y = a.y + 2;
+      if (isLeerId(this.starSel)) return this.capStarLeer(ctx, view, rx, y, rw);
       const loc = R.locById(st, this.starSel) || {};
       R.text(ctx, 'ORT', rx, y, { color: PAL.brass }); y += 11;
       for (const l of R.wrap(loc.known ? loc.name : 'Unbekanntes Signal', rw, 1).slice(0, 2)) { R.text(ctx, l, rx, y, { color: loc.known ? PAL.amber : PAL.panelLight }); y += 10; }
@@ -696,17 +752,65 @@
       let reason = null;
       if (loc.id === w.location) reason = 'Hier sind wir schon';
       else if (!R.locVisible(loc)) reason = 'Ort unbekannt';
+      else if (isLeerId(w.location) && this.hexAktiv() && !this.leerKanteZu(st, w.location, loc.id)) reason = 'Kein Sprungpunkt dorthin – nur Notfallsprung (Steuer N)';   // QA-B3 F5
       const cur = R.locById(st, w.location);
       const linked = cur && (cur.links || []).indexOf(loc.id) >= 0;
-      R.button(ctx, rx, y, rw, 17, jump.dest === loc.id ? 'Sprungziel (gewählt)' : 'Als Sprungziel wählen', { hotkey: 'Enter', active: jump.dest === loc.id, disabled: !!reason, reason, onClick: () => this.cmd(view, 'captain.selectDest', { dest: loc.id }) }); y += 20;
-      if (!reason && !linked && !w.fallback) { R.text(ctx, 'Keine direkte Verbindung', rx, y, { color: PAL.warn }); y += 10; }
+      R.button(ctx, rx, y, rw, 17, jump.dest === loc.id ? 'Sprungziel (gewählt)' : 'Als Sprungziel wählen', { hotkey: 'Enter', active: jump.dest === loc.id, disabled: !!reason, reason, onClick: () => this.selectDest(view, loc.id) }); y += 20;
+      if (!reason && !linked && !w.fallback && !this.hexAktiv()) { R.text(ctx, 'Keine direkte Verbindung', rx, y, { color: PAL.warn }); y += 10; }
       y += 4;
+      return this.capStarSprung(ctx, view, rx, y, rw);
+    },
+    // QA-B3 F5: aus dem Leerraum führt nur eine temporäre Kante (world.sektoren.t) hinaus (Server: sprung.hexGrund)
+    leerKanteZu(st, leerId, zielId) {
+      const SS = window.Shared_Sektoren;
+      if (!SS || typeof SS.hexVonOrt !== 'function' || typeof SS.kanteId !== 'function') return true;   // unbekannt: Server entscheidet
+      let ziel = null; try { ziel = SS.hexVonOrt(zielId); } catch (e) { return true; }
+      if (!ziel) return true;
+      const temp = (st.world && st.world.sektoren && st.world.sektoren.t) || [];
+      return temp.indexOf(SS.kanteId(leerId.slice(5), ziel)) >= 0;
+    },
+    // B3: Sternkarte als Hexfeld aktiv (StarMap von KARTE mit Kartendaten)
+    hexAktiv() { return !!(window.StarMap && window.StarMap.aktiv); },
+    // B3: Sprungziel wählen – mit Hex (captain.selectDest { hex }), sobald die Hexkarte läuft; sonst wie bisher { dest }
+    selectDest(view, id) {
+      const SS = window.Shared_Sektoren;
+      let hex = this.starSel === id ? this.starHex : null;
+      if (!hex && this.hexAktiv() && SS && typeof SS.hexVonOrt === 'function') { try { hex = SS.hexVonOrt(id); } catch (e) { hex = null; } }
+      if (hex && this.hexAktiv()) this.cmd(view, 'captain.selectDest', { hex });
+      else this.cmd(view, 'captain.selectDest', { dest: id });
+    },
+    // B3: Seitenleiste für ein gewähltes Leerraum-Hex (nur über temporäre Sprungpunkte erreichbar)
+    capStarLeer(ctx, view, rx, y, rw) {
+      const st = view.state, jump = (st.ship && st.ship.jump) || {};
+      const id = this.starSel, hex = id.slice(5);
+      R.text(ctx, 'SEKTOR ' + hex, rx, y, { color: PAL.brass }); y += 11;
+      R.text(ctx, 'Leerraum', rx, y, { color: PAL.amber }); y += 11;
+      for (const l of R.wrap('Barriere ohne System. Erreichbar nur über einen temporären Sprungpunkt oder per Notfallsprung.', rw, 1).slice(0, 4)) { R.text(ctx, l, rx, y, { color: PAL.star }); y += 10; }
+      y += 4;
+      const reason = id === R.worldOf(st).location ? 'Hier sind wir schon' : null;
+      R.button(ctx, rx, y, rw, 17, jump.dest === id ? 'Sprungziel (gewählt)' : 'Als Sprungziel wählen', { hotkey: 'Enter', active: jump.dest === id, disabled: !!reason, reason, onClick: () => this.selectDest(view, id) }); y += 24;
+      return this.capStarSprung(ctx, view, rx, y, rw);
+    },
+    // B3: Sprungstatus + Legende (gemeinsam für Ort und Leerraum)
+    capStarSprung(ctx, view, rx, y, rw) {
+      const st = view.state, jump = (st.ship && st.ship.jump) || {};
       R.text(ctx, 'SPRUNG', rx, y, { color: PAL.brass }); y += 11;
       R.text(ctx, 'Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins'), rx, y, { color: PAL.star }); y += 10;
+      const pflicht = anflugPflicht(st);   // F4: im Tutorial Faltsprung von überall – kein Abstand, kein Anflug-Hinweis
+      if (jump.dest && jump.d != null && pflicht) { R.text(ctx, 'Sprungpunkt: ' + jump.d + ' m', rx, y, { color: jumpPointNear(jump) ? PAL.mint : PAL.amber }); y += 10; }
       R.bar(ctx, rx, y + 1, rw, 6, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 10;
       if (jump.blockedReason && !jump.ready) { for (const l of R.wrap(jump.blockedReason, rw, 1).slice(0, 2)) { R.text(ctx, l, rx, y, { color: PAL.warn }); y += 10; } }
       if (jump.ready) { R.text(ctx, 'Bereit – Steuer: F', rx, y, { color: PAL.mint }); y += 10; }
       y += 4;
+      if (this.hexAktiv()) {
+        R.text(ctx, 'Kanten: gelb offen, rot gesperrt,', rx, y, { color: PAL.panelLight }); y += 10;
+        if (pflicht) {
+          R.text(ctx, 'blau temporär. Sprung nur am', rx, y, { color: PAL.panelLight }); y += 10;
+          R.text(ctx, 'Sprungpunkt (Boje) im Sektor.', rx, y, { color: PAL.panelLight }); y += 10;
+        } else { R.text(ctx, 'blau temporär.', rx, y, { color: PAL.panelLight }); y += 10; }
+        R.text(ctx, 'M: ' + (window.StarMap.ansicht === 'limes' ? 'Saumraum zeigen' : 'ganze Karte Limes'), rx, y, { color: PAL.amber });
+        return 'Klick Sektor · ←→ Ort · Enter Sprungziel · M Ansicht · 1–6 / Tab Reiter';
+      }
       R.text(ctx, 'Legende: Linie = Route,', rx, y, { color: PAL.panelLight }); y += 10;
       R.text(ctx, 'gestrichelt = unerforscht, ? = Signal', rx, y, { color: PAL.panelLight });
       return 'Klick/←→ Ort wählen · Enter Sprungziel · 1–6 / Tab Reiter';
@@ -716,6 +820,7 @@
       if (!locs.length) return;
       const i = locs.findIndex(l => l.id === this.starSel);
       this.starSel = locs[(i + dir + locs.length) % locs.length].id;
+      this.starHex = null;   // QA-B3 F2: Hex des letzten Klicks verwerfen – selectDest leitet das Hex aus dem Ort ab
     },
 
     // ---- Lage (lokale Karte, Captain-Marker, Scan)
@@ -753,7 +858,7 @@
       const escHelp = this.escortList(view).length ? ' · H/F/V/D Schützling' : '';
       try { y = this.capEscort(ctx, view, rx, y, rw); } catch (err) { Net.reportError('Consoles.capEscort', err); }
       // Scan-Info gescannter Gegner
-      const scanned = (view.enemies || []).filter(e => e.scanned);
+      const scanned = (view.enemies || []).filter(e => e.scanned && e.st !== 'treibt');   // B1: Wrack ohne Waffen
       if (y < a.y + a.h - 22) {
         R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
         if (!scanned.length) { for (const l of R.wrap('Keine – die Taktik scannt Gegner (S halten).', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
@@ -1325,7 +1430,7 @@
       const ship = view.ship || {};
       const dist = (p) => Math.hypot(p.x - ship.x, p.y - ship.y);
       const sr = R.sensorRange(st);
-      const en = (view.enemies || []).filter(e => dist(e) <= sr).sort((p, q) => dist(p) - dist(q));
+      const en = (view.enemies || []).filter(e => e.st !== 'treibt' && dist(e) <= sr).sort((p, q) => dist(p) - dist(q));   // B1: treibende Schiffe sind kein Ziel
       const hid = ((st.space && st.space.hidden) || []).filter(h => !h.found && h.kind !== 'cache').sort((p, q) => dist(p) - dist(q));
       const so = R.stationOf(st.space);
       return en.concat(hid, so && dist(so) <= sr ? [so] : []);
@@ -1518,7 +1623,7 @@
           const target = this.targetOf(view);
           let aimTxt = 'ins Leere', aimCol = PAL.panelLight;
           const g = R.mountGeom(m);
-          const inArc = (e) => e && !e.hidden && Phys.inArc(n(ship.x), n(ship.y), n(ship.angle), g.facing, g.arc, g.range, e.x, e.y);
+          const inArc = (e) => e && !e.hidden && e.st !== 'treibt' && Phys.inArc(n(ship.x), n(ship.y), n(ship.angle), g.facing, g.arc, g.range, e.x, e.y);
           if (inArc(target)) { aimTxt = '→ Ziel'; aimCol = PAL.amber; }
           else if ((view.enemies || []).some(inArc)) { aimTxt = '→ nächster'; aimCol = PAL.mint; }
           R.text(ctx, aimTxt, rx + 66, y2 + 2, { color: aimCol });
@@ -1571,11 +1676,12 @@
       const players = st.players || [];
       const block = this.transferBlock(st);
       const amap = R.mapFor('away', st);
-      const pads = amap.find ? amap.find('P') : (Maps.PLATFORM_PADS || []);
+      const pads = amap.pads || (amap.find ? amap.find('P') : (Maps.PLATFORM_PADS || []));   // B1: gebaute Karte -> Abholpunkt (Ankunft)
+      const awayTitle = this.awayMapTitle(st, amap);
       let y = 30;
       const shipPads = Maps.ship.find('P');
       R.text(ctx, 'SCHIFFS-PADS', 16, y, { color: PAL.brass });
-      R.text(ctx, amap.id === 'wreck' ? 'WRACK-PADS' : amap.id === 'kesh' ? 'KESH-PADS' : 'PLATTFORM-PADS', 220, y, { color: PAL.brass });
+      R.text(ctx, R.isBuehne(amap) ? 'ABHOLPUNKT' : amap.id === 'wreck' ? 'WRACK-PADS' : amap.id === 'kesh' ? 'KESH-PADS' : 'PLATTFORM-PADS', 220, y, { color: PAL.brass });
       y += 12;
       const padBox = (x, yy, occ) => {
         ctx.fillStyle = '#0E1A1F'; ctx.fillRect(x, yy, 44, 44);
@@ -1617,15 +1723,108 @@
         R.button(ctx, 220, y, 184, 16, 'Notrückholung', { hotkey: String(4 + i), disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'transfer.recall', { pid: p.id }) });
         y += 20;
       });
+      // B2 §8: Waffenwahl am Transporter (cmd loadout.waffe), je Spieler; unten links
+      if (y < 262) this.drawWaffenwahl(ctx, view, 16, Math.max(y + 6, 262), 388);
+      const lps = this.landepunkte(st);
+      let ry = 30;
       if (away.active || awayTeam.length) {
-        R.text(ctx, amap.id === 'wreck' ? 'WRACK' : amap.id === 'kesh' ? 'MOND KESH' : 'PLATTFORM B-7', 420, 30, { color: PAL.brass });
-        const cell = Math.max(3, Math.min(6, Math.floor(Math.min(200 / amap.w, 260 / amap.h))));
-        R.drawMiniPlan(ctx, view, 420, 44, { zone: 'away', cell });
-      } else {
-        R.text(ctx, 'Hinweis', 420, 30, { color: PAL.brass });
+        R.text(ctx, awayTitle, 420, ry, { color: PAL.brass });
+        const cell = Math.max(2, Math.min(6, Math.floor(Math.min(200 / amap.w, (lps.length > 1 ? 150 : 260) / amap.h))));
+        R.drawMiniPlan(ctx, view, 420, ry + 14, { zone: 'away', cell });
+        ry += 14 + amap.h * cell + 8;
+        if (R.isBuehne(amap)) ry = this.drawAwayLage(ctx, st, amap, 420, ry, 200);
+      } else if (!lps.length) {
+        R.text(ctx, 'Hinweis', 420, ry, { color: PAL.brass });
         for (const [i, l] of R.wrap('Außenteam stellt sich auf die drei Pads in der Transferkammer. Auf einem Pad kann man auch selbst E halten (Selbst-Transfer). Beamen geht bei der Boje B-7, beim Wrack und auf Mond Kesh.', 200, 1).entries()) R.text(ctx, l, 420, 44 + i * 10, { color: PAL.panelLight });
       }
-      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung';
+      // B1 §6.1: Landepunkte am Ort (cmd transfer.ziel), nur solange niemand unten ist
+      if (lps.length && !awayTeam.length) ry = this.drawLandepunkte(ctx, view, lps, 420, (away.active ? ry : 30), 200);
+      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung · Q/E Waffe' + (lps.length > 1 && !awayTeam.length ? ' · 7–0 Landepunkt' : '');
+    },
+    // B2: Waffenwahl (Protocol.WAFFEN_WAHL). Eigene Waffe = me.wf; die Crew daneben mit ihrer Waffe.
+    waffenListe() { return PROTO.WAFFEN_WAHL || ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber']; },
+    waffeWaehlen(view, dir) {
+      const list = this.waffenListe(), me = view.me || {};
+      const i = Math.max(0, list.indexOf(me.wf || this.myWaffe || 'blaster'));
+      this.cmd(view, 'loadout.waffe', { waffe: list[(i + dir + list.length) % list.length] });
+    },
+    drawWaffenwahl(ctx, view, x, y, w) {
+      const st = view.state, me = view.me || {}, IB = window.IconsB;
+      const list = this.waffenListe();
+      const cur = me.wf || this.myWaffe || 'blaster';   // an Bord fehlt wf im Snapshot: letzte Bestätigung (Ereignis loadout)
+      R.text(ctx, 'DEINE WAFFE (Q/E)', x, y, { color: PAL.brass });
+      const crew = (st.players || []).filter(p => p.id !== me.id && p.connected !== false && p.wf);
+      if (crew.length) R.text(ctx, crew.slice(0, 3).map(p => String(p.name).slice(0, 8) + ': ' + (H.WAFFE_NAME[p.wf] || p.wf)).join(' · '), x + w, y, { color: PAL.panelLight, align: 'right' });
+      y += 11;
+      const bw = Math.floor((w - (list.length - 1) * 2) / list.length);
+      const reason = me.zone === 'away' ? 'Nur an Bord' : null;
+      list.forEach((wf, i) => {
+        const bx = x + i * (bw + 2);
+        R.button(ctx, bx, y, bw, 26, '', { active: wf === cur, disabled: !!reason, reason, onClick: () => { if (wf !== cur) this.cmd(view, 'loadout.waffe', { waffe: wf }); } });
+        if (!(IB && IB.draw && IB.has && IB.has('waffe', wf) && IB.draw(ctx, 'waffe', wf, bx + bw / 2, y + 9, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(bx + bw / 2 - 5, y + 5, 10, 8); }
+        R.text(ctx, H.WAFFE_KURZ[wf] || H.WAFFE_NAME[wf] || wf, bx + bw / 2, y + 16, { color: wf === cur ? PAL.mint : PAL.panelLight, align: 'center' });
+      });
+      return y + 30;
+    },
+    // B1: Kartenname für die Transfer-Konsole
+    awayMapTitle(st, amap) {
+      if (R.isBuehne(amap)) {
+        const lp = this.landepunkte(st).find(l => l.id === amap.id);
+        const ART = { aussenposten: 'AUSSENPOSTEN', station: 'RAUMSTATION', ruine: 'RUINE', schiff: 'SCHIFF' };
+        return (lp && lp.name && lp.name !== lp.id ? String(lp.name).toUpperCase() : ART[amap.art] || 'LANDEPUNKT');
+      }
+      return amap.id === 'wreck' ? 'WRACK' : amap.id === 'kesh' ? 'MOND KESH' : 'PLATTFORM B-7';
+    },
+    // B1: Landepunkte des Orts. Snapshot transfer { lp: [[id, name, art, frei, grund, inReichweite]], ziel } (Studioleitung bestätigt),
+    // ohne Liste nur der aktuelle Landepunkt (away.map) einer gebauten Karte.
+    landepunkte(st) {
+      const t = st.transfer || null;
+      const raw = (t && Array.isArray(t.lp)) ? t.lp : [];
+      const out = raw.map(r => Array.isArray(r) ? { id: r[0], name: r[1], art: r[2], frei: !!r[3], grund: r[4] || null, inR: r[5] == null ? true : !!r[5] }
+        : { id: r.id, name: r.name, art: r.art, frei: r.frei !== false, grund: r.grund || null, inR: r.inReichweite !== false });
+      if (!out.length && st.away && st.away.map && R.isBuehne(Maps[st.away.map])) {
+        const m = Maps[st.away.map];
+        out.push({ id: m.id, name: null, art: m.art, frei: true, grund: null, inR: true });
+      }
+      return out;
+    },
+    drawLandepunkte(ctx, view, lps, x, y, w) {
+      const st = view.state, away = st.away || {};
+      const ziel = (st.transfer && st.transfer.ziel) || away.map || null;
+      const ART = { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', hand: '' };
+      R.text(ctx, 'LANDEPUNKT', x, y, { color: PAL.brass }); y += 12;
+      // aktuelles Ziel immer sichtbar: höchstens 4 Zeilen (Tasten 7, 8, 9, 0)
+      let rows = lps.slice(0, 4);
+      const zi = lps.findIndex(l => l.id === ziel);
+      if (zi >= 4) rows = lps.slice(0, 3).concat([lps[zi]]);
+      rows.forEach((l, i) => {
+        const reason = !l.frei ? (l.grund || 'Gesperrt') : !l.inR ? 'Außer Reichweite – näher heranfliegen' : null;
+        const nm = l.name && l.name !== l.id ? l.name : (ART[l.art] || l.id);
+        const label = nm + (ART[l.art] && nm !== ART[l.art] ? ' · ' + ART[l.art] : '');
+        R.button(ctx, x, y, w, 15, label, { hotkey: String((7 + i) % 10), active: l.id === ziel, disabled: !!reason, reason, onClick: () => this.cmd(view, 'transfer.ziel', { landepunkt: l.id }) });
+        y += 17;
+      });
+      if (lps.length > 4) { R.text(ctx, '+' + (lps.length - 4) + ' weitere', x, y, { color: PAL.panelLight }); y += 10; }
+      return y + 4;
+    },
+    // B1: Lage einer gebauten Karte (Alarm, Countdown, Ankerstände) unter der Minikarte
+    drawAwayLage(ctx, st, amap, x, y, w) {
+      const away = st.away || {};
+      if (away.al) { R.text(ctx, 'ALARM – die Besatzung ist gewarnt', x, y, { color: PAL.red }); y += 10; }
+      if (away.cd) {
+        const a = amap.anker && amap.anker[away.cd.i];
+        R.text(ctx, 'LADUNG SCHARF: ' + Math.ceil(n(away.cd.t)) + ' s' + (a ? ' (' + (R.ANKER_NAME[a[1]] || a[1]) + ')' : ''), x, y, { color: Math.floor(performance.now() / 300) % 2 ? PAL.red : PAL.amber }); y += 10;
+      }
+      const cnt = {};
+      (amap.anker || []).forEach((a, i) => {
+        if (['terminal', 'sprengpunkt', 'beute', 'fund', 'ziel', 'zelle'].indexOf(a[1]) < 0) return;
+        const z = R.ankerZustand(amap, st, i);
+        const c = cnt[a[1]] || (cnt[a[1]] = { n: 0, fertig: 0 });
+        c.n++;
+        if (['geladen', 'zerstoert', 'leer', 'genommen', 'aktiviert', 'offen'].indexOf(z) >= 0) c.fertig++;
+      });
+      for (const r of Object.keys(cnt)) { if (y > 300) break; R.text(ctx, (R.ANKER_NAME[r] || r) + ': ' + cnt[r].fertig + '/' + cnt[r].n, x, y, { color: cnt[r].fertig === cnt[r].n ? PAL.mint : PAL.panelLight }); y += 10; }
+      return y + 4;
     },
 
     // ================================================================= Shop (Sortiment nach shopContext)
@@ -2058,9 +2257,10 @@
         return true;
       }
       if (P.mapId === 'star') {
-        const hitLoc = this.planRects.find(r => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h);
+        // B3 (Welle 0): zuerst StarMap.hit (Team KARTE, Hexkarte); der Stub liefert null -> bisherige Trefferliste
+        const hitLoc = (window.StarMap && typeof window.StarMap.hit === 'function' && window.StarMap.hit(x, y, this.planRects)) || this.planRects.find(r => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h);
         if (hitLoc && !this.keys.ShiftLeft && !this.keys.ShiftRight) {
-          if (P.selected === hitLoc.id && performance.now() - (this.lastLocClick || 0) < 400) P.mapId = hitLoc.id;
+          if (P.selected === hitLoc.id && performance.now() - (this.lastLocClick || 0) < 400 && !isLeerId(hitLoc.id)) P.mapId = hitLoc.id;   // B3: Leerraum hat keine Ortskarte
           P.selected = hitLoc.id; this.lastLocClick = performance.now();
           view.actions.sfx('ui_click');
           return true;
@@ -2144,6 +2344,9 @@
           if ((code === 'KeyS' || code === 'ArrowDown') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, -1)); return true; }
           if (code === 'KeyF') return press(() => this.tryButton('Faltsprung'));
           if (code === 'KeyX') return press(() => this.tryButton(/^Allstopp/));   // §21.1
+          // B3: Notfallsprung – N fragt nach (bzw. bricht die Nachfrage ab), J/Enter bestätigt
+          if (code === 'KeyN') return press(() => { if (performance.now() - this.notsprungAsk < 6000) this.notsprungAsk = -1e9; else this.tryButton('Notsprung …'); });
+          if (code === 'KeyJ' || ((code === 'Enter' || code === 'NumpadEnter') && performance.now() - this.notsprungAsk < 6000)) return press(() => this.tryButton('Ja, Notsprung'));
           return true;
         case 'captain': {
           const awayOn = this.awayActive(st);
@@ -2159,6 +2362,8 @@
             if (code === 'ArrowLeft' || code === 'ArrowUp' || code === 'KeyA' || code === 'KeyW') { this.cycleStar(st, -1); return true; }
             if (code === 'ArrowRight' || code === 'ArrowDown' || code === 'KeyD' || code === 'KeyS') { this.cycleStar(st, 1); return true; }
             if (code === 'Enter') return press(() => this.tryButton(/^(Als Sprungziel|Sprungziel)/));
+            // B3 (Nachtrag Sternkarte): M wechselt Saumraum <-> ganze Karte Limes (StarMap, Team KARTE)
+            if (code === 'KeyM') { if (this.hexAktiv() && typeof window.StarMap.toggleAnsicht === 'function') { window.StarMap.toggleAnsicht(); view.actions.sfx('ui_click'); } return true; }
           } else if (tab === 2) {
             if (code === 'Space') { const b = this.findButton(/^Scan/); if (b && !b.disabled) this.setScan(view, true); else if (b) this.denied(b.reason); return true; }
             if (code === 'KeyX') return press(() => this.tryButton('Marker löschen'));
@@ -2244,6 +2449,8 @@
           if (d === 2) return press(() => this.tryButton(/^Hochbeamen/));
           if (d === 3) return press(() => this.tryButton(/^Nachschub/));
           if (d >= 4 && d <= 6) { const list = this.findButtons(/^Notrückholung/); const b = list[d - 4]; if (b) this.activate(b); return true; }
+          if (code === 'KeyQ' || code === 'KeyE') return press(() => this.waffeWaehlen(view, code === 'KeyQ' ? -1 : 1));   // B2: Waffenwahl
+          if ((d >= 7 && d <= 9) || code === 'Digit0' || code === 'Numpad0') { const k = d ? String(d) : '0'; const b = R.ui.buttons.filter(q => q.hotkey === k)[0]; if (b) this.activate(b); return true; }   // B1: Landepunkt
           return true;
         case 'shop': {
           const rows = this.shopRows(view);
@@ -2364,8 +2571,16 @@
       }
       if (c === 'captain' && this.tab === 5 && this.isAwayV2(view.state)) return this.awayMapClick(view, x, y, button);
       if (c === 'captain' && this.tab === 1 && button === 0) {
-        const hitLoc = this.starRects.find(r => this.inRect(x, y, r));
-        if (hitLoc) { this.starSel = hitLoc.id; view.actions.sfx('ui_click'); return true; }
+        // B3 (Welle 0): zuerst StarMap.hit (Team KARTE, Hexkarte); der Stub liefert null -> bisherige Trefferliste
+        const hitLoc = (window.StarMap && typeof window.StarMap.hit === 'function' && window.StarMap.hit(x, y, this.starRects)) || this.starRects.find(r => this.inRect(x, y, r));
+        if (hitLoc) {
+          // B3: Hex-Auswahl ({ id: ort|leer-<hex>, hex }); Doppelklick wählt das Sprungziel
+          const dbl = this.starSel === hitLoc.id && performance.now() - (this.lastStarClick || 0) < 400;
+          this.starSel = hitLoc.id; this.starHex = hitLoc.hex || null; this.lastStarClick = performance.now();
+          view.actions.sfx('ui_click');
+          if (dbl && this.findButton('Als Sprungziel wählen')) this.tryButton('Als Sprungziel wählen');
+          return true;
+        }
         return false;
       }
       if (c === 'plan') return this.planClick(view, x, y, button);

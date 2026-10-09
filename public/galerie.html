@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bühnen-Galerie – Pantheon</title>
+<link rel="icon" href="data:,">
+<script type="importmap">{"imports": {"three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/"}}</script>
+<!-- CONTRACT-B1 §4 (Team WERKSTATT): galerie.html?art=station&seeds=1-24&bauweise=germanen&besitz=kontor&zustand=verfallen
+     weitere Parameter: schablone=<id>  decks=1|2  quelle=content|fixtures  vorschau=voxel|2d
+     Vorschau: Voxel über den Kit-Renderer (VOXEL, /js/voxel/kit.js), 2D-Raster bis dahin und als Rückfall.
+     Rot = Fehlbau (genau dieser Seed besteht Buehne.pruefen nicht; gezeigt wird die Karte nach seed+1-Rückfall).
+     Klick auf eine Kachel öffnet die Karte zum Umsehen. Daten: /werkstatt/daten (Server mit WERKSTATT=1). -->
+<style>
+  :root { --bg: #0d1018; --panel: #161b27; --line: #2a3242; --text: #d8dde8; --dim: #8791a5; --ok: #7FE0C2; --warn: #F2C94C; --bad: #E0473C; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line);
+           padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; }
+  header a { color: var(--ok); }
+  form { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  label { color: var(--dim); }
+  select, input, button { background: #0f131c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font: inherit; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--ok); }
+  #status { margin-left: auto; color: var(--dim); }
+  #status.err { color: var(--bad); }
+  main { padding: 12px 14px 60px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+  .kachel { background: var(--panel); border: 2px solid var(--line); border-radius: 6px; padding: 6px; width: 316px; cursor: pointer; }
+  .kachel:hover { border-color: var(--ok); }
+  .kachel.fehlbau { border-color: var(--bad); }
+  .kachel.tot { background: #2a1416; }
+  .kachel canvas { display: block; margin: 0 auto; image-rendering: pixelated; }
+  .kachel canvas.rueckfall { display: none; }
+  .kachel img.voxelbild { display: block; margin: 0 auto; }
+  .keinbild { height: 120px; display: flex; align-items: center; justify-content: center; color: var(--bad); }
+  .cap { margin-top: 4px; font-size: 12px; }
+  .kzs { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 11px; color: var(--text); margin-top: 3px; }
+  .kz i { color: var(--dim); font-style: normal; }
+  .kz.bad, .bad { color: var(--bad); }
+  .fehler { color: var(--bad); font-size: 11px; margin-top: 4px; }
+  .warn { color: var(--warn); font-size: 11px; margin-top: 3px; }
+  .leer { color: var(--dim); padding: 30px 0; }
+  .dim { color: var(--dim); }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 20; display: flex; align-items: center; justify-content: center; }
+  .modalBox { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-width: 98vw; max-height: 96vh; display: flex; flex-direction: column; }
+  .modalKopf { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .modalInhalt { display: flex; gap: 12px; padding: 10px; overflow: auto; }
+  .kartenSpalte canvas { display: block; image-rendering: pixelated; }
+  .hover { margin-top: 6px; min-height: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .seite { width: 360px; flex: none; overflow: auto; max-height: calc(96vh - 70px); }
+  .seite h3 { font-size: 13px; margin: 10px 0 4px; }
+  .seite pre { font-size: 11px; background: #0f131c; padding: 6px; border-radius: 4px; white-space: pre-wrap; }
+  .seite a { color: var(--ok); }
+  .ebenen { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; }
+  .fz { font-size: 12px; padding: 1px 0; }
+  .fz.bad b { color: var(--bad); } .fz.warn b { color: var(--warn); }
+  .plist { font-size: 11px; columns: 2; }
+  canvas.voxel { display: block; cursor: grab; }
+</style>
+</head>
+<body>
+<header id="kopf">
+  <h1>Bühnen-Galerie</h1>
+  <a href="werkstatt.html">Werkstatt</a>
+  <span id="status">lädt …</span>
+</header>
+<main id="liste"></main>
+<script src="/shared/config.js"></script>
+<script src="/shared/buehne-kennzahlen.js"></script>
+<script src="/shared/buehne.js"></script>
+<script src="/js/werkstatt/basis.js"></script>
+<script src="/js/werkstatt/galerie.js"></script>
+</body>
+</html>

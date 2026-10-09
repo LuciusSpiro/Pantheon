@@ -1,0 +1,21 @@
+{
+  "id": "kit/rom/gemein/gitter_feld",
+  "name": "Rom-Steckplatz gitter_feld: Gitterstäbe mit Querstrebe",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":2,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":9,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "conn": {"default":10,"min":0,"max":15,"step":1}
+  },
+  "ops": [
+    {"name":"Stab","op":"box","at":[0,0,0],"size":[1,"h","d"],"color":{"shade":"metal_dark","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Querstrebe","op":"box","at":[0,"floor(h / 2)",0],"size":["w",1,"d"],"color":{"shade":"metal","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Oberholm","op":"box","at":[0,"h - 1",0],"size":["w",1,"d"],"color":{"shade":"metal","f":"1 * (1 - zustand * 0.08)"}}
+  ],
+  "anchor": [0,0,0]
+}

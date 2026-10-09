@@ -2,6 +2,7 @@
 // Offene Welt (CONTRACT-M1 §9.1/9.2): bekannte/besuchte Orte, Verbindungen, versteckte Objekte (Weitscan),
 // Erstbesuch-Belohnungen, Logbuch der Entdeckungen, Kartenscans für den Planungstisch.
 const Locations = require('../../shared/locations.js');
+const Sektoren = require('../../shared/sektoren.js');   // B3 (Team SEKTOR): Hexe, Kanten, Bojen
 const { dist } = require('../util.js');
 
 const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', tafel: 'Vertragstafel' };
@@ -29,6 +30,13 @@ class Explore {
     this.version = 1;            // ändert sich bei jeder Änderung an Orten (Snapshot sendet dann world.locations)
     this.logVersion = 1;         // ändert sich bei neuen Logbuch-Einträgen (Snapshot sendet dann mission.log)
     this.locTime = {};
+    // B3 Sektorkarte (CONTRACT-B3 §4/§5): erkundete Hexe, gefundene Bojen (Kanten-IDs), temporäre Kanten, offene Kanten
+    this.erkundet = new Set();
+    this.bojenGefunden = new Set();
+    this.temp = [];              // [{ id, a, b, bis: 'mission'|'immer' }]
+    this.offenExtra = new Set(); // Kanten, die per Baustein geöffnet wurden (locked ohne Schlüssel in linksOpen)
+    this.leerGesehen = new Set();
+    this.sektorVersion = 1;
   }
 
   // ---------- Orte ----------
@@ -73,6 +81,12 @@ class Explore {
   arrive(id) {
     const g = this.game; const loc = Locations.get(id);
     this.location = id;
+    this.erkunde(Sektoren.hexVonOrt(id));
+    if (loc && loc.leer) {   // B3: Leerraum ist kein Ort (nicht in bekannt/besucht), nur ein erkundetes Hex
+      if (!this.leerGesehen.has(id)) { this.leerGesehen.add(id); this.addLog(loc.desc, id, null); }
+      g.oda(loc.first, null);
+      return;
+    }
     const wasKnown = this.known.has(id);
     if (!wasKnown) { this.known.add(id); this.version++; }
     if (!this.visited.has(id)) {
@@ -98,6 +112,7 @@ class Explore {
       if (this.isRevealed(h.id)) continue;
       if (dist(x, y, h.x, h.y) <= r) { this.revealHidden(h); n++; }
     }
+    this.weitscanBojen(x, y);   // B3: Bojen zählen nicht in n (Rückgabe und Missions-Ereignis wie bisher)
     return n;
   }
   revealHidden(h, quiet) {
@@ -197,6 +212,118 @@ class Explore {
     }
   }
 
+  // ---------- B3 Sektorkarte: Erkundung und Bojen (CONTRACT-B3 §4) ----------
+  hexHier() { return Sektoren.hexVonOrt(this.location); }
+  // Hex gilt als bekannt: Ort bekannt (Sternkarte) oder Hex erkundet
+  hexBekannt(hex) {
+    const ort = Sektoren.ortVonHex(hex);
+    if (ort && !Sektoren.istLeerId(ort) && this.known.has(ort)) return true;
+    return this.erkundet.has(hex);
+  }
+  erkunde(hex) {
+    if (!hex || this.erkundet.has(hex)) return false;
+    this.erkundet.add(hex); this.sektorVersion++;
+    this.game.emit('hexErkundet', { hex });
+    return true;
+  }
+  tempKante(id) { return this.temp.find((t) => t.id === id) || null; }
+  // Kante sprungfähig: open, geöffnete locked-Kante oder temporäre Kante
+  kanteOffen(id) {
+    if (this.tempKante(id)) return true;
+    const e = Sektoren.kante(id);
+    if (!e) return false;
+    if (e.art === 'open') return true;
+    if (e.art === 'locked') return this.offenExtra.has(id) || (!!e.key && this.linksOpen.has(e.key));
+    return false;   // hidden/far: in B3 nie
+  }
+  // Boje bekannt: temporär geöffnet, gefunden, oder open/locked zwischen zwei bekannten Hexen (= heutige Sichtbarkeit der Links)
+  bojeBekannt(id) {
+    if (this.tempKante(id)) return true;
+    const e = Sektoren.kante(id);
+    if (!e || e.art === 'far') return false;
+    if (this.bojenGefunden.has(id)) return true;
+    if (e.art === 'hidden') return false;
+    return this.hexBekannt(e.a) && this.hexBekannt(e.b);
+  }
+  bojenBekannt() {
+    const out = [];
+    for (const e of (Sektoren.KARTE && Sektoren.KARTE.kanten) || []) { const id = Sektoren.kanteId(e.a, e.b); if (this.bojeBekannt(id)) out.push(id); }
+    return out;
+  }
+  // Boje als gefunden merken (Weitscan, Durchfliegen, Baustein). -> true, wenn sie dadurch neu bekannt ist
+  markBoje(id) {
+    const e = Sektoren.kante(id);
+    if (!e || e.art === 'far' || this.bojenGefunden.has(id)) return false;
+    const neu = !this.bojeBekannt(id);
+    this.bojenGefunden.add(id); this.sektorVersion++;
+    if (neu) this.game.emit('bojeGefunden', { kante: id });
+    return neu;
+  }
+  // Weitscan: unbekannte Bojen der Szene im Umkreis C.sektoren.weitscanBoje (hidden-Kanten nie)
+  weitscanBojen(x, y) {
+    const g = this.game; const C = (g.C && g.C.sektoren) || {};
+    const here = this.hexHier(); const loc = Locations.get(this.location);
+    if (!here || !loc) return 0;
+    let n = 0;
+    for (const e of Sektoren.kantenVon(here)) {
+      if (e.art !== 'open' && e.art !== 'locked') continue;
+      const id = Sektoren.kanteId(e.a, e.b);
+      if (this.bojeBekannt(id)) continue;
+      const p = Sektoren.sprungpunktLage(loc.scene.w, loc.scene.h, Sektoren.richtung(here, Sektoren.anderes(e, here)), C.randAbstand);
+      if (dist(x, y, p.x, p.y) <= (C.weitscanBoje || 1400) && this.markBoje(id)) n++;
+    }
+    // ODA nur mit Anflugpflicht: im Tutorial bleiben die ODA-Texte wie heute (Golden m1–m3)
+    if (n && require('./sprung.js').anflugPflicht(g)) g.oda(n === 1 ? 'Weitscan: Boje eines Sprungpunkts gefunden – auf der Sternkarte eingetragen.' : `Weitscan: ${n} Sprungpunkt-Bojen gefunden – auf der Sternkarte eingetragen.`, null);
+    return n;
+  }
+  // geöffnete locked-Kanten (Weltstand/Snapshot `offen`)
+  kantenOffen() {
+    const out = [];
+    for (const e of (Sektoren.KARTE && Sektoren.KARTE.kanten) || []) {
+      if (e.art !== 'locked') continue;
+      const id = Sektoren.kanteId(e.a, e.b);
+      if (this.kanteOffen(id)) out.push(id);
+    }
+    return out;
+  }
+  // Weltstand v3 `welt.sektoren` (CONTRACT-B3 §5, CONTRACT-B1 §8). ENGINE schreibt den Block: welt.sektoren = explore.sektorenToSave()
+  sektorenToSave() {
+    return { erkundet: [...this.erkundet].sort(), bojen: this.bojenBekannt().filter((id) => !this.tempKante(id)),
+      temp: this.temp.map((t) => ({ id: t.id, a: t.a, b: t.b, bis: t.bis })), offen: this.kantenOffen() };
+  }
+  // Gegenstück (läuft am Ende von restore(welt) automatisch). Ohne Block (Weltstand v1/v2) Migration aus den Altfeldern:
+  //   erkundet = Hexe aller orte.besucht, bojen = open/locked-Kanten zwischen bekannten Orten, offen = Schlüssel aus verbindungen_offen
+  sektorenRestore(s, welt) {
+    this.erkundet = new Set(); this.bojenGefunden = new Set(); this.temp = []; this.offenExtra = new Set();
+    if (s && typeof s === 'object') {
+      for (const h of Array.isArray(s.erkundet) ? s.erkundet : []) if (Sektoren.imRaster(h)) this.erkundet.add(h);
+      for (const id of Array.isArray(s.bojen) ? s.bojen : []) { const e = Sektoren.kante(id); if (e && e.art !== 'far') this.bojenGefunden.add(id); }
+      for (const t of Array.isArray(s.temp) ? s.temp : []) {
+        if (!t || !Sektoren.sindNachbarn(t.a, t.b) || !Sektoren.spielbar(t.a) || !Sektoren.spielbar(t.b)) continue;
+        const id = Sektoren.kanteId(t.a, t.b);
+        if (!this.tempKante(id)) this.temp.push({ id, a: t.a, b: t.b, bis: t.bis === 'immer' ? 'immer' : 'mission' });
+      }
+      for (const id of Array.isArray(s.offen) ? s.offen : []) {
+        const e = Sektoren.kante(id);
+        if (!e || e.art !== 'locked') continue;
+        if (e.key && this.linksOpen.has(e.key)) continue;
+        this.offenExtra.add(id);
+      }
+    } else {
+      const o = (welt && welt.orte) || {};
+      for (const id of o.besucht || []) { const h = Sektoren.hexVonOrt(id); if (h) this.erkundet.add(h); }
+      for (const id of this.bojenBekannt()) this.bojenGefunden.add(id);
+    }
+    for (const id of this.visited) { const h = Sektoren.hexVonOrt(id); if (h) this.erkundet.add(h); }
+    this.sektorVersion++;
+  }
+  // Snapshot `world.sektoren` (CONTRACT-B3 §6): { e, b, t, o, v }; v ändert sich mit jeder Änderung an Hexen, Bojen und Orten
+  sektorenVersion() { return this.sektorVersion + this.version; }
+  sektorenSnapshot() {
+    return { e: [...this.erkundet], b: this.bojenBekannt().filter((id) => !this.tempKante(id)), t: this.temp.map((t) => t.id),
+      o: this.kantenOffen(), v: this.sektorenVersion() };
+  }
+
   // ---------- Weltstand (CONTRACT-S1 §5.1): nur Lesen/Schreiben, keine Ereignisse ----------
   // -> { orte: { bekannt, besucht, aufgedeckt, gefunden }, verbindungen_offen, karten, log (letzte logKeep) }
   toSave(logKeep) {
@@ -230,6 +357,8 @@ class Explore {
     this.log = Array.isArray(w && w.log) ? w.log.map((e) => Object.assign({}, e)) : [];
     this.logSeq = this.log.reduce((mx, e) => Math.max(mx, Number(String(e.id || '').replace(/\D/g, '')) || 0), 0);
     this.version++; this.logVersion++;
+    // B3: welt.sektoren (Weltstand v3) bzw. Migration aus orte/verbindungen_offen (v1/v2)
+    this.sektorenRestore(w && w.sektoren, w);
   }
 
   // ---------- Snapshot ----------

@@ -1,0 +1,74 @@
+{
+  "format": "modul/1",
+  "id": "schiff.bruecke.drachenkopf",
+  "art": "schiff",
+  "typ": "bruecke",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": ["germanen"],
+  "hinweis": "Signatur germanen: Steuerstand im Bugdrachen auf einem Hochsitz (^, Rampe /, Brüstung k), Aussicht nach achtern.",
+  "rows": [
+    "####__",
+    "#.PP#_",
+    "#.P.o#",
+    "#..kk#",
+    "#./^k#",
+    "#.k^k#",
+    "...k.#",
+    "#.o..#",
+    "#.OO.#",
+    "#OOO.#",
+    "#....#",
+    "#...#_",
+    "####__"
+  ],
+  "anker": [
+    "......",
+    "..a...",
+    "......",
+    "......",
+    "...u..",
+    "...j..",
+    "......",
+    "...t..",
+    ".ni.q.",
+    "......",
+    ".bh...",
+    "......",
+    "......"
+  ],
+  "anker_legende": {
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "u": {
+      "rolle": "aussicht"
+    },
+    "j": {
+      "rolle": "ziel"
+    },
+    "i": {
+      "rolle": "leit"
+    },
+    "t": {
+      "rolle": "terminal"
+    },
+    "n": {
+      "rolle": "nsc"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "h": {
+      "rolle": "leiter",
+      "deck": 1
+    }
+  },
+  "belegungen": []
+}

@@ -1,0 +1,37 @@
+{
+  "id": "kit/geruest/luke",
+  "name": "Bausatz-Gerüst – Luke (Bodenluke, Abfluss, Schacht; flach)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","luke"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["luke_rahmen","luke_blatt"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"},
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"0 zu · 1 offen"}
+  },
+  "variants": {
+    "offen": {"state":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "probe": {"bauweise":"test"},
+    "probe_offen": {"bauweise":"test","state":1}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    {"name":"Steckplatz luke_rahmen","op":"use","model":"kit/{bauweise}/{art}/luke_rahmen","fallback":["kit/{bauweise}/gemein/luke_rahmen","kit/geruest/slot/luke_rahmen"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":1,"d":4,"state":"state"}},
+    {"name":"Öffnung","op":"box","at":[1,0,1],"size":[2,1,2],"mode":"carve"},
+    {"name":"Steckplatz luke_blatt","op":"use","model":"kit/{bauweise}/{art}/luke_blatt","fallback":["kit/{bauweise}/gemein/luke_blatt","kit/geruest/slot/luke_blatt"],"at":[1,0,1],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":2,"h":1,"d":2,"state":"state"},"if":"state == 0"},
+    {"name":"Steckplatz luke_blatt","op":"use","model":"kit/{bauweise}/{art}/luke_blatt","fallback":["kit/{bauweise}/gemein/luke_blatt","kit/geruest/slot/luke_blatt"],"at":[1,1,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":2,"h":2,"d":1,"state":"state"},"if":"state == 1"}
+  ],
+  "anchor": [2,1,2]
+}

@@ -1,0 +1,38 @@
+{
+  "format": "gegner/1",
+  "id": "niederhalter",
+  "rolle": "niederhalter",
+  "waffe": "sturmgewehr",
+  "profil": "niederhalter",
+  "namen": {
+    "germanen": "Bolzer",
+    "rostmeute": "Bolzer"
+  },
+  "beschreibung": "Bleibt stehen und hält eine Deckung mit langen Stößen fest, damit ein Kamerad flankieren kann. Feuert auch auf die letzte bekannte Position.",
+  "funk": {
+    "allgemein": [
+      "Ich halt sie fest!",
+      "Die kommen da nicht raus!",
+      "Köpfe runter da drüben!",
+      "Ich nagel sie fest, geht rum!",
+      "Bolzen frei, Dauerfeuer!",
+      "Weiter drauf, nicht nachlassen!"
+    ],
+    "ueberhitzt": [
+      "Heiß gelaufen, kurz Pause!"
+    ],
+    "kamerad_liegt": [
+      "Hoch mit dir!",
+      "Ich hol dich!"
+    ],
+    "spieler_gefesselt": [
+      "Den haben wir!"
+    ],
+    "alarm_laerm": [
+      "Das war ein Schuss! Alle wach!"
+    ],
+    "friendly_fire": [
+      "Pass doch auf, du Narr!"
+    ]
+  }
+}

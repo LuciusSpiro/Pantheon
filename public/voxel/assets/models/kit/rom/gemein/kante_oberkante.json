@@ -1,0 +1,19 @@
+{
+  "id": "kit/rom/gemein/kante_oberkante",
+  "name": "Rom-Steckplatz kante_oberkante: helle Oberkante",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "conn": {"default":0,"min":0,"max":15,"step":1}
+  },
+  "ops": [
+    {"name":"Oberkante hell","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"frame":{"shade":"stone_light","f":"1.05 * (1 - zustand * 0.08)"},"fill":{"shade":"secondary","f":"1.05 * (1 - zustand * 0.08)"},"axes":"xz"}}
+  ],
+  "anchor": [0,0,0]
+}

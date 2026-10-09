@@ -1,0 +1,70 @@
+{
+  "format": "lexikon/1",
+  "bauweise": "rom",
+  "quelle": "INHALT §8 (Team KATALOG); Lore: verfallene römische Grenzkastelle aus der Zeit, als Rom den Saumraum hielt",
+  "hinweis": "Platzhalter {{lex.<schluessel>}} in Umsetzungs- und Spielleitertexten, aufgelöst nach der Bauweise des Landepunkts. Zeichenketten ersetzen direkt; Listen (namen, fund_alt, ort_muster) sind Auswahl für den Spielleiter, als Platzhalter gilt der erste Eintrag. rollen: Anzeigenamen der neutralen Gegnerrollen. Fehlt ein Schlüssel, gilt 'neutral'. Einträge: Zeichenkette (nur artikellos) oder { wort, genus m|f|n, plural?, gen?, dat? }. Formen im Text: {{lex.x}} Wort, {{lex.x:der|den|dem|des|ein|einen|einem}} mit Artikel, {{lex.x:pl}} Plural (server/mission/lexikon.js).",
+  "eintraege": {
+    "fund": { "wort": "Legionskasse", "genus": "f", "plural": "Legionskassen" },
+    "fund_alt": [
+      "Adlerstandarte",
+      "Archivtafeln"
+    ],
+    "tor": { "wort": "Kassentür", "genus": "f", "plural": "Kassentüren" },
+    "schluessel": { "wort": "Zwei-Offiziers-Schloss", "genus": "n", "plural": "Zwei-Offiziers-Schlösser", "gen": "Zwei-Offiziers-Schlosses" },
+    "raetsel_tipp": "Die Kasse öffnet nie einer allein.",
+    "herzstueck": { "wort": "Fahnenheiligtum", "genus": "n", "plural": "Fahnenheiligtümer", "gen": "Fahnenheiligtums" },
+    "terminal": { "wort": "Wachbuch", "genus": "n", "plural": "Wachbücher", "gen": "Wachbuchs" },
+    "sprengpunkt": { "wort": "Pulverkammer", "genus": "f", "plural": "Pulverkammern" },
+    "zelle": { "wort": "Carcer", "genus": "m", "plural": "Carcer", "gen": "Carcers" },
+    "beute": { "wort": "Vorratsamphore", "genus": "f", "plural": "Vorratsamphoren" },
+    "ziel": { "wort": "Feldzeichen", "genus": "n", "plural": "Feldzeichen", "gen": "Feldzeichens" },
+    "aussicht": { "wort": "Turmstumpf", "genus": "m", "plural": "Turmstümpfe", "gen": "Turmstumpfs" },
+    "abholpunkt": { "wort": "Vorfeld", "genus": "n", "plural": "Vorfelder", "gen": "Vorfelds" },
+    "wachen": { "wort": "Kastell-Automaten", "plural": "Kastell-Automaten" },
+    "eingang_laut": { "wort": "Porta", "genus": "f", "plural": "Portae" },
+    "eingang_leise": { "wort": "Bresche", "genus": "f", "plural": "Breschen" },
+    "eingang_technisch": { "wort": "Cloaca", "genus": "f", "plural": "Cloacae" },
+    "ort_muster": [
+      "Castellum <Name>"
+    ],
+    "namen": [
+      "Varus",
+      "Licinia",
+      "Aquila",
+      "Severus"
+    ]
+  },
+  "varianten": {
+    "tor": [
+      "Kassentür",
+      "Porta"
+    ],
+    "terminal": [
+      "Wachbuch",
+      "Tabularium"
+    ]
+  },
+  "rollen": {
+    "waechter": "Kastell-Automat"
+  },
+  "neutral": {
+    "fund": { "wort": "Fundstück", "genus": "n", "plural": "Fundstücke", "gen": "Fundstücks" },
+    "tor": { "wort": "Tor", "genus": "n", "plural": "Tore", "gen": "Tors" },
+    "schluessel": { "wort": "Doppelschloss", "genus": "n", "plural": "Doppelschlösser", "gen": "Doppelschlosses" },
+    "raetsel_tipp": "Das Schloss öffnet nur, wenn zwei gleichzeitig halten.",
+    "terminal": { "wort": "Terminal", "genus": "n", "plural": "Terminals", "gen": "Terminals" },
+    "sprengpunkt": { "wort": "Sprengziel", "genus": "n", "plural": "Sprengziele", "gen": "Sprengziels" },
+    "zelle": { "wort": "Zelle", "genus": "f", "plural": "Zellen" },
+    "beute": { "wort": "Kiste", "genus": "f", "plural": "Kisten" },
+    "ziel": { "wort": "Steuerpunkt", "genus": "m", "plural": "Steuerpunkte", "gen": "Steuerpunkts" },
+    "aussicht": { "wort": "Aussichtspunkt", "genus": "m", "plural": "Aussichtspunkte", "gen": "Aussichtspunkts" },
+    "abholpunkt": { "wort": "Landeplatz", "genus": "m", "plural": "Landeplätze", "gen": "Landeplatzes" },
+    "wachen": { "wort": "Wachen", "plural": "Wachen" },
+    "tor_station": { "wort": "Schott", "genus": "n", "plural": "Schotts", "gen": "Schotts" },
+    "herzstueck": { "wort": "Hauptgebäude", "genus": "n", "plural": "Hauptgebäude", "gen": "Hauptgebäudes" },
+    "eingang_laut": { "wort": "Haupteingang", "genus": "m", "plural": "Haupteingänge", "gen": "Haupteingangs" },
+    "eingang_leise": { "wort": "Seiteneingang", "genus": "m", "plural": "Seiteneingänge", "gen": "Seiteneingangs" },
+    "eingang_technisch": { "wort": "Wartungsschacht", "genus": "m", "plural": "Wartungsschächte", "gen": "Wartungsschachts" },
+    "fund_alt": "Fundstück"
+  }
+}

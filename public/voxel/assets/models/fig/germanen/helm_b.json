@@ -1,0 +1,45 @@
+{
+  "id": "fig/germanen/helm_b",
+  "name": "Germanen-Helm B: geschlossener Spitz-Spangenhelm mit Klinker-Visier, Atemschlauch und Nackenplanken",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "germanen", "kopf", "helm"],
+  "notes": "Kopfteil ohne sichtbares Gesicht. Spitze Kalotte in drei Stufen (von oben konzentrische Ringe), keine Hörner. Sehschlitz dunkel (Glas), kein Leuchtauge. Kein Leuchten am Helm; Runen-Leiterbahn nur am Rumpf. rank 1 = Häuptling: Spangen und Spitze in Knochenweiß.",
+  "params": { "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)" } },
+  "ops": [
+    { "name": "Halsdichtung", "op": "box", "at": [-2, 25, -2], "size": [4, 1, 4], "color": "metal_dark" },
+    { "name": "Helmschale", "op": "box", "at": [-3, 26, -3], "size": [6, 5, 6], "color": { "noise": ["primary", { "shade": "primary", "f": 0.85 }], "weights": [3, 1], "cell": 2 } },
+    { "name": "Stufe 1", "op": "box", "at": [-3, 31, -3], "size": [6, 1, 6], "color": { "shade": "primary", "f": 1.08 } },
+    { "name": "Stufe 1 Ecken", "op": "box", "at": [2, 31, -3], "size": [1, 1, 1], "mode": "carve", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Stufe 2", "op": "box", "at": [-2, 32, -2], "size": [4, 1, 4], "color": "metal_light" },
+    { "name": "Spitze", "op": "box", "at": [-1, 33, -1], "size": [2, 1, 2], "color": "metal_light" },
+    { "name": "Stirnreif", "op": "box", "at": [-3, 30, -3], "size": [6, 1, 6], "color": "metal_dark", "mode": "paint" },
+    { "name": "Spange hinten", "op": "box", "at": [-1, 26, -3], "size": [2, 4, 1], "color": "metal_light", "mode": "paint" },
+    { "name": "Spangen Seiten", "op": "box", "at": [2, 26, -1], "size": [1, 4, 2], "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Spangen oben", "op": "box", "at": [-1, 31, -3], "size": [2, 2, 6], "color": "metal_light", "mode": "paint" },
+    { "name": "Spangen oben quer", "op": "box", "at": [-3, 31, -1], "size": [6, 2, 2], "color": "metal_light", "mode": "paint" },
+    { "name": "Visier (Klinkerplanken)", "op": "box", "at": [-3, 26, 3], "size": [6, 4, 1], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary", "metal_light"], "axis": "y", "period": 1, "offset": 2 } },
+    { "name": "Visier Kanten", "op": "box", "at": [2, 26, 3], "size": [1, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Sehschlitz", "op": "box", "at": [-2, 28, 3], "size": [4, 1, 1], "color": "glass", "jitter": false },
+    { "name": "Visier Mittelgrat", "op": "box", "at": [-1, 26, 4], "size": [2, 2, 1], "color": "metal_dark" },
+    { "name": "Atemgitter", "op": "box", "at": [-1, 26, 4], "size": [2, 1, 1], "color": { "stripes": ["metal_dark", "metal"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false },
+    { "name": "Atemschlauch", "op": "line", "from": [1.5, 26.5, 4.5], "to": [3.5, 24.5, 1.5], "r": 0.5, "color": "dark" },
+    { "name": "Schlauchschelle", "op": "box", "at": [3, 25, 2], "size": [1, 1, 1], "color": "metal_light" },
+    { "name": "Wangenplanken", "op": "box", "at": [3, 26, -1], "size": [1, 3, 4], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary", "metal_light"], "axis": "y", "period": 1 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Nackenplanken oben", "op": "box", "at": [-3, 26, -4], "size": [6, 2, 1], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary"], "axis": "y", "period": 1 } },
+    { "name": "Nackenplanke unten", "op": "box", "at": [-3, 25, -5], "size": [6, 1, 1], "color": { "shade": "primary", "f": 0.7 } },
+    {
+      "name": "Spangen Knochen (Häuptling)",
+      "if": "rank",
+      "op": "group",
+      "ops": [
+        { "name": "Spangen oben Knochen", "op": "box", "at": [-1, 31, -3], "size": [2, 2, 6], "color": "trim", "mode": "paint" },
+        { "name": "Spangen quer Knochen", "op": "box", "at": [-3, 31, -1], "size": [6, 2, 2], "color": "trim", "mode": "paint" },
+        { "name": "Spitze Knochen", "op": "box", "at": [-1, 33, -1], "size": [2, 1, 2], "color": "trim" },
+        { "name": "Spitzenaufsatz", "op": "box", "at": [-1, 34, 0], "size": [1, 1, 1], "color": "trim" }
+      ]
+    }
+  ],
+  "variants": { "haeuptling": { "rank": 1 } },
+  "anchor": [0, 0, 0]
+}

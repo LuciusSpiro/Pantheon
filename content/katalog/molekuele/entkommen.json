@@ -17,46 +17,83 @@
       "id": "zu_den_pads",
       "name": "Mit der Beute zu den Pads",
       "schauplatz": "aussen",
-      "beschreibung": "Eine Nachhut stellt sich in den Weg, das Team schlägt sich mit der Beute zu den Pads durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt. Heute nur auf Kesh.",
+      "beschreibung": "Ein Trupp der Fraktion stellt sich in den Weg, das Team schlägt sich mit der Beute zum nächsten Abholpunkt durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt.",
       "braucht": [
         "transfer",
         "aussen_kampf"
       ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten",
+          "station",
+          "ruine",
+          "schiff",
+          "kesh"
+        ],
+        "anker": [
+          "abholpunkt"
+        ]
+      },
       "dauer_min": [
         2,
         4
       ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          3
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_entkommen"
+      ],
       "ereignisse": [
-        "beamedUp"
+        "beamedUp",
+        "alarm"
       ],
       "params": {
         "loc": {
           "typ": "loc",
-          "pflicht": true,
-          "werte": [
-            "kesh"
-          ]
+          "pflicht": true
         },
         "map": {
           "typ": "map",
           "pflicht": true,
-          "werte": [
-            "kesh"
-          ]
-        },
-        "nachhut": {
-          "typ": "squad",
-          "default": "rearguard",
-          "werte": [
-            "rearguard",
-            "squad2"
-          ]
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
         },
         "gegenstand": {
           "typ": "text",
-          "default": "tafel",
+          "default": "{fund}",
+          "beschreibung": "Was das Team trägt, im Nominativ mit Artikel (z. B. „die Legionskasse“). Standard {fund}: Fund der Mission (Aktion fund der Fund-Umsetzungen), sonst „die Beute“"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "rostmeute",
           "werte": [
-            "tafel"
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer bzw. Gegner (Fraktion = Besitz-ID); Rollen kommen aus den Trupp-Rezepten der Fraktion"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "klein",
+          "werte": [
+            "klein",
+            "mittel",
+            "gross"
           ]
         }
       },
@@ -69,18 +106,13 @@
             "{{map}}"
           ]
         },
-        "besetzung": {
-          "gruppen": {
-            "{{nachhut}}": {
-              "map": "{{map}}",
-              "quelle": "karte"
-            }
-          }
-        },
         "steps": [
           {
             "id": "{{id}}",
             "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
             "enter": [
               {
                 "wendung": "{{id}}_nachhut",
@@ -90,9 +122,12 @@
                 },
                 "wirkung": [
                   {
-                    "do": "spawn_squad",
+                    "do": "besetzen",
                     "map": "{{map}}",
-                    "squad": "{{nachhut}}"
+                    "fraktion": "{{fraktion}}",
+                    "staerke": "{{staerke}}",
+                    "haltung": "wach",
+                    "tag": "{{id}}_nachhut"
                   }
                 ]
               }
@@ -100,65 +135,74 @@
             "timers": [
               {
                 "at": 45,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
                 "oda": "@{{id}}.hinweis",
                 "garantie": "hinweis"
               }
             ],
-            "objectives": [
+            "rules": [
               {
-                "id": "hoch",
-                "text": "@{{id}}.ziel",
-                "done": {
+                "if": {
                   "all": [
                     {
-                      "check": {
-                        "name": "item_count",
-                        "item": "{{gegenstand}}",
-                        "min": 1
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "away_active",
-                        "map": "{{map}}"
-                      }
+                      "all": [
+                        {
+                          "check": {
+                            "name": "away_active",
+                            "map": "{{map}}"
+                          }
+                        },
+                        {
+                          "not": {
+                            "check": {
+                              "name": "team_down",
+                              "map": "{{map}}"
+                            }
+                          }
+                        }
+                      ]
                     },
                     {
                       "not": {
-                        "check": {
-                          "name": "team_down"
-                        }
+                        "v": "{{id}}_ende"
                       }
                     }
                   ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_entkommen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
                 }
               }
             ],
             "next": [
               {
                 "if": {
-                  "all": [
-                    {
-                      "check": {
-                        "name": "item_count",
-                        "item": "{{gegenstand}}",
-                        "min": 1
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "away_active",
-                        "map": "{{map}}"
-                      }
-                    },
-                    {
-                      "not": {
-                        "check": {
-                          "name": "team_down"
-                        }
-                      }
-                    }
-                  ]
+                  "v": "{{id}}_ende"
                 },
                 "goto": "{{weiter}}"
               }
@@ -166,22 +210,37 @@
             "skip": [
               {
                 "do": "debug_recall_all",
-                "map": "{{map}}",
-                "ensureItem": "{{gegenstand}}"
+                "map": "{{map}}"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_entkommen": true
+                }
               }
             ]
           }
         ],
         "texte": {
-          "{{id}}.nachhut": "Nachhut im Weg! Durchschlagen, dann zu den Pads und hochbeamen.",
-          "{{id}}.hinweis": "Die Pads liegen unten links in der Landezone. Draufstellen und E halten – ich hole euch.",
-          "{{id}}.ziel": "Alle zurück an Bord (Pads, hochbeamen)"
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.nachhut": "Gegner im Weg! Durchschlagen, dann {{lex.abholpunkt:zum}} und hochbeamen.",
+          "{{id}}.hinweis": "Captain: Der nächste Abholpunkt ist auf der Außenteam-Karte markiert. Draufstellen, E halten – wir holen euch.",
+          "{{id}}.geschafft": "Alle an Bord. In Sicherheit: {{gegenstand}}!",
+          "{{id}}.ziel": "Zurück an Bord (Abholpunkt, hochbeamen), dabei: {{gegenstand}}"
         }
+      },
+      "rueckfall": {
+        "params": {}
       },
       "test": {
         "params": {
           "loc": "kesh",
-          "map": "kesh"
+          "map": "kesh.kastell"
         }
       }
     }

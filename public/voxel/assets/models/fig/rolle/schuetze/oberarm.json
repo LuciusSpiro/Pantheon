@@ -1,0 +1,18 @@
+{
+  "id": "fig/rolle/schuetze/oberarm",
+  "name": "Schütze: schlanker Oberarm links (Lederärmel, flache Schulterkappe, keine Planken)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "schuetze", "arm"],
+  "notes": "Rollenteil, fraktionsneutral, ersetzt upperArm (rechts gespiegelt). Maße wie fig/basis/oberarm (x 4..6, y 17..23), Schulterkappe bleibt in der Armbreite: so ist der Schütze die schmalste Rolle (Leitform schlank). rank 1: Armring in trim.",
+  "params": { "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)" } },
+  "ops": [
+    { "name": "Ärmel", "op": "box", "at": [4, 17, -1], "size": [3, 6, 3], "color": { "stripes": ["leather", { "shade": "leather", "f": 0.85 }], "axis": "y", "period": 2 } },
+    { "name": "Schulterkappe", "op": "box", "at": [4, 22, -1], "size": [3, 2, 3], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary"], "axis": "y", "period": 1 } },
+    { "name": "Kappe Kante", "op": "box", "at": [4, 23, -1], "size": [2, 1, 3], "color": "metal_light", "mode": "paint" },
+    { "name": "Riemen", "op": "box", "at": [4, 19, -1], "size": [3, 1, 3], "color": "metal_dark", "mode": "paint" },
+    { "name": "Armring (Häuptling)", "if": "rank", "op": "box", "at": [4, 18, -1], "size": [3, 1, 3], "color": "trim", "mode": "paint" }
+  ],
+  "variants": { "haeuptling": { "rank": 1 } },
+  "anchor": [0, 0, 0]
+}

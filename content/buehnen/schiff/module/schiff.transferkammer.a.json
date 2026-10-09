@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.transferkammer.a",
+  "art": "schiff",
+  "typ": "transferkammer",
+  "groesse": [5, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Transferkammer wie auf der Lerche: Pads im Bugwinkel, Transferpult, Stützpfeiler im Gang.",
+  "rows": [
+    "#####",
+    "#PP.#",
+    "#P.o#",
+    "#...#",
+    "#o.O#",
+    "#...#",
+    "..I..",
+    "#...#",
+    "#O.o#",
+    "#...#",
+    "#o..#",
+    "#...#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    ".a...",
+    ".....",
+    "..e..",
+    ".....",
+    ".....",
+    ".....",
+    ".p...",
+    ".....",
+    ".....",
+    "...q.",
+    ".....",
+    "....."
+  ],
+  "anker_legende": {
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "laut"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    }
+  },
+  "belegungen": []
+}

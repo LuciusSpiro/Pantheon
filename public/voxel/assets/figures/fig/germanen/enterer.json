@@ -1,0 +1,32 @@
+{
+  "id": "fig/germanen/enterer",
+  "name": "Germanen: Enterer (Berserker)",
+  "generated": true,
+  "quelle": { "fraktion": "baukasten/fraktionen/germanen.json", "rolle": "baukasten/rollen/enterer.json", "generator": "tools/gen-figuren.mjs" },
+  "rig": "human",
+  "palette": "nord",
+  "tags": ["figur", "baukasten", "germanen", "enterer"],
+  "scale": 1.1,
+  "posen": { "ruhe": "guard_hunched", "ziel": "windup" },
+  "waffe": { "typ": "nahkampf", "bauweise": "germanen", "platzhalter": false },
+  "params": { "rank": 0, "hair": 0, "bottom": 16 },
+  "parts": {
+    "hips": { "model": "fig/germanen/huefte" },
+    "torso": { "model": "fig/germanen/rumpf" },
+    "head": { "model": "fig/germanen/kopf" },
+    "upperArmL": { "model": "fig/rolle/enterer/oberarm" },
+    "upperArmR": { "model": "fig/rolle/enterer/oberarm", "mirror": true },
+    "lowerArmL": { "model": "fig/germanen/unterarm" },
+    "lowerArmR": { "model": "fig/germanen/unterarm", "mirror": true },
+    "thighL": { "model": "fig/germanen/oberschenkel" },
+    "thighR": { "model": "fig/germanen/oberschenkel", "mirror": true },
+    "shinL": { "model": "fig/germanen/unterschenkel" },
+    "shinR": { "model": "fig/germanen/unterschenkel", "mirror": true }
+  },
+  "attach": {
+    "back": { "model": "fig/germanen/fellumhang" },
+    "handR": { "model": "item/waffe/nahkampf", "params": { "bauweise": "germanen" } },
+    "head": { "model": "fig/rolle/enterer/baerenhaube" },
+    "torso": { "model": "fig/rolle/enterer/nackenbuckel" }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format": "modul/1", "id": "station.herzstueck.a", "art": "station", "typ": "herzstueck",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "################",
+    "#.OO.......OOO.#",
+    "#.OO..o..o.OOO.#",
+    "D..............D",
+    "D..............D",
+    "#.OO..o..o..OO.#",
+    "#..............#",
+    "################"
+  ],
+  "anker": [
+    "................",
+    ".b.....z....i...",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......s..w...b.",
+    "................"
+  ],
+  "anker_legende": {
+    "z": { "rolle": "ziel" },
+    "s": { "rolle": "sprengpunkt" },
+    "b": { "rolle": "beute" },
+    "w": { "rolle": "wache" },
+    "i": { "rolle": "leit" }
+  }
+}

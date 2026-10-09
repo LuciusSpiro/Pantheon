@@ -1,0 +1,247 @@
+{
+  "id": "kit/germanen/schiff/wand_fuellung",
+  "name": "Schiff – wand_fuellung (fuellung_spant): enge Eisenspanten zwischen warmen Holzbohlen, Rumpf nach unten dunkler, Kaltlicht je Fach",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "schiff",
+    "slot"
+  ],
+  "notes": "ART-SCHIFF, Steckplatz fuellung_spant (Gerüst-Slot wand_fuellung). Senkrechte Rippen statt waagrechter Streifen: jede zweite Spalte ein dunkler Eisenspant (50 cm Raster, Spant auf x = 0 hält das Raster über Kachelgrenzen), dazwischen warme Bohlen mit Verlauf nach unten dunkler (schräge Rumpfwand im Eigenschatten). Hohe Felder: je Fach ein gedämpfter Kaltlichtpunkt unter der Krone (rune), bei umkämpft Rot-Alarm (Rolle alarm). Kasten immer voll (Naht).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1"
+  },
+  "variants": {
+    "geschnitten": {
+      "h": 3
+    },
+    "schmal": {
+      "w": 2
+    },
+    "verfallen": {
+      "zustand": 1,
+      "seed": 3
+    },
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 5
+    }
+  },
+  "ops": [
+    {
+      "name": "Bohlen (Rumpf, unten dunkler)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "gradient": [
+          {
+            "shade": "wood_dark",
+            "f": "0.9 * dk"
+          },
+          {
+            "shade": "wood",
+            "f": "1.08 * dk"
+          }
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Eisenspant",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "i * 2 < w",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.85 * dk"
+      }
+    },
+    {
+      "name": "Spantfuß",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "i * 2 < w && h >= 4",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Kaltlicht je Fach",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "1 + i * 2 < w && h >= 8 && zustand < 2",
+      "at": [
+        1,
+        "h - 2",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "glow",
+        "emit": "zustand == 0 ? 0.8 : 0.4"
+      }
+    },
+    {
+      "name": "Rot-Alarm je Fach (umkämpft)",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "1 + i * 2 < w && h >= 8 && zustand == 2",
+      "at": [
+        1,
+        "h - 2",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "alarm",
+        "emit": 0.9
+      }
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "min(h, 5)",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "wood",
+            "f": 0.7
+          },
+          "dark",
+          {
+            "shade": "wood",
+            "f": 0.85
+          }
+        ],
+        "weights": [
+          3,
+          1,
+          2
+        ],
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

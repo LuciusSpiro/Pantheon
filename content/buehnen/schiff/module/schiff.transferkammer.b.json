@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.transferkammer.b",
+  "art": "schiff",
+  "typ": "transferkammer",
+  "groesse": [5, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Pads unten, Pult oben, Wache am Pult.",
+  "rows": [
+    "#####",
+    "#o..#",
+    "#...#",
+    "#O.o#",
+    "#...#",
+    "#...#",
+    "..I..",
+    "#...#",
+    "#o.O#",
+    "#...#",
+    "#.PP#",
+    "#..P#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    ".....",
+    "..q..",
+    ".....",
+    ".....",
+    "..p..",
+    ".....",
+    "..e..",
+    ".....",
+    ".....",
+    "...a.",
+    ".....",
+    "....."
+  ],
+  "anker_legende": {
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "laut"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    }
+  },
+  "belegungen": []
+}

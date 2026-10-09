@@ -1,0 +1,32 @@
+{
+  "id": "fig/rolle/grenadier/trommel",
+  "name": "Grenadier-Rückentrommel: stehende Granattrommel mit Kammerring, Tragrahmen, Zuführschlauch",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "grenadier", "anbau", "ruecken"],
+  "notes": "ROLLENTEIL, fraktionsneutral. Aufsatz back (anchor [0,20,-3]), Figur-Koordinaten. Leitform: stehender Zylinder r 5 (Ø 10, breiter als der Rumpf), y 18..28, also über Schulterhöhe und neben dem Kopf sichtbar. Oben ein heller Ring aus 6 Granatköpfen (trim) um eine dunkle Nabe: von oben eine runde, gefüllte Scheibe. Kein Leuchten (Granatkreis/Glut ist FX-Telegraf).",
+  "params": {"rank": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)"}},
+  "ops": [
+    {"name": "Tragrahmen", "op": "box", "at": [-3, 17, -4], "size": [6, 9, 1], "color": "metal_dark", "jitter": false},
+    {"name": "Trommel", "op": "cyl", "at": [0, 18, -9], "r": 5, "h": 10, "color": "primary", "jitter": false},
+    {"name": "Band unten", "op": "box", "at": [-5, 19, -14], "size": [10, 1, 10], "color": "metal_light", "mode": "paint", "jitter": false},
+    {"name": "Band oben", "op": "box", "at": [-5, 26, -14], "size": [10, 1, 10], "color": "metal_light", "mode": "paint", "jitter": false},
+    {"name": "Deckel", "op": "box", "at": [-5, 27, -14], "size": [10, 1, 10], "color": "metal", "mode": "paint", "jitter": false},
+    {"name": "Nabe", "op": "box", "at": [-1, 28, -10], "size": [2, 1, 2], "color": "metal_dark"},
+    {"name": "Granatkopf 1", "op": "box", "at": [2, 28, -10], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Granatkopf 2", "op": "box", "at": [-4, 28, -10], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Granatkopf 3", "op": "box", "at": [1, 28, -7], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Granatkopf 4", "op": "box", "at": [-3, 28, -7], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Granatkopf 5", "op": "box", "at": [1, 28, -13], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Granatkopf 6", "op": "box", "at": [-3, 28, -13], "size": [2, 1, 2], "color": "trim"},
+    {"name": "Kammerleisten", "op": "box", "at": [4, 21, -10], "size": [1, 4, 2], "color": "metal_dark", "mode": "paint", "mirror": "x", "mirrorAt": 0},
+    {"name": "Zuführschlauch", "op": "line", "from": [-4.5, 19.5, -6.5], "to": [-6.5, 15.5, -2.5], "r": 0.5, "color": "dark"},
+    {"name": "Schlauchkupplung", "op": "box", "at": [-5, 19, -7], "size": [1, 2, 1], "color": "metal_light"},
+    {"name": "Bänder Knochen (Häuptling)", "if": "rank", "op": "group", "ops": [
+        {"name": "Band unten Knochen", "op": "box", "at": [-5, 19, -14], "size": [10, 1, 10], "color": "trim", "mode": "paint"},
+        {"name": "Band oben Knochen", "op": "box", "at": [-5, 26, -14], "size": [10, 1, 10], "color": "trim", "mode": "paint"}
+    ] }
+  ],
+  "variants": {"haeuptling": {"rank": 1}},
+  "anchor": [0, 20, -3]
+}

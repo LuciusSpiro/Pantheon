@@ -1,0 +1,39 @@
+{
+  "format": "gegner/1",
+  "id": "haescher",
+  "rolle": "haescher",
+  "waffe": "betaeuber",
+  "profil": "haescher",
+  "namen": {
+    "germanen": "Wergeld-Fänger",
+    "rostmeute": "Wergeld-Fänger"
+  },
+  "beschreibung": "Folgt dem Niederhalter, betäubt und fesselt einzelne oder liegende Spieler. Wer gefangen wird, muss ausbrechen.",
+  "funk": {
+    "allgemein": [
+      "Den nehm ich mit.",
+      "Lebend!",
+      "Das gibt gutes Wergeld.",
+      "Haltet sie mir vom Leib, ich fessle!"
+    ],
+    "fesselt": [
+      "Der schläft, ich binde ihn!"
+    ],
+    "gefesselt": [
+      "Einer ist gebunden!"
+    ],
+    "kamerad_liegt": [
+      "Hoch mit dir!",
+      "Ich hol dich!"
+    ],
+    "spieler_gefesselt": [
+      "Den haben wir!"
+    ],
+    "alarm_laerm": [
+      "Das war ein Schuss! Alle wach!"
+    ],
+    "friendly_fire": [
+      "Pass doch auf, du Narr!"
+    ]
+  }
+}

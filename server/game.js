@@ -24,7 +24,7 @@ const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die T
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan' };
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -65,6 +65,39 @@ function optional(name, p) {
 }
 const escortMod = () => optional('escort', './sim/escort.js');
 const spielleiterMod = () => optional('spielleiter', './mission/spielleiter.js');
+// B1–B3: Module anderer Teams, die parallel entstehen (defensiv; fehlt eins, läuft das Spiel ohne diesen Teil)
+const sprungMod = () => optional('sprung', './sim/sprung.js');            // SEKTOR (B3)
+const sektorenMod = () => optional('sektoren', '../shared/sektoren.js'); // SEKTOR (B3)
+const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   // BUEHNE (B1)
+const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
+const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
+const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
+const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
+const fnOf = (mod, name) => (mod && !mod.stub && typeof mod[name] === 'function' ? mod[name] : null);
+// B3 §6: Sektorkarte für welcome (limes.json ohne praesenz), einmal je Prozess
+let sektorkarteCache;
+function sektorkarte() {
+  if (sektorkarteCache !== undefined) return sektorkarteCache;
+  const S = sektorenMod();
+  if (!S || !S.KARTE) return null;   // noch nicht geladen: beim nächsten welcome erneut versuchen
+  let k = null;
+  if (typeof S.fuerClient === 'function') { try { k = S.fuerClient(); } catch (e) { k = null; } }
+  if (!k) { k = Object.assign({}, S.KARTE); delete k.praesenz; }
+  sektorkarteCache = k;
+  return k;
+}
+// B1 §3.1: Zustände je Kachelart (kind) aus content/buehnen/kacheln.json (für awayMap.kanten startZustandIdx)
+let kachelZustaende = null;
+function kantenZustaende(kind) {
+  if (!kachelZustaende) {
+    kachelZustaende = {};
+    try {
+      const k = require('../content/buehnen/kacheln.json');
+      for (const t of Object.values(k.zeichen || {})) if (t && t.kind && Array.isArray(t.zustaende)) kachelZustaende[t.kind] = t.zustaende;
+    } catch (e) { /* ohne Vokabular: Index 0 */ }
+  }
+  return kachelZustaende[kind] || [];
+}
 const argList = (msg) => (typeof msg.args === 'string' ? msg.args.trim().split(/\s+/).filter(Boolean) : (Array.isArray(msg.args) ? msg.args.map(String) : []));
 
 class Game {
@@ -95,7 +128,7 @@ class Game {
     this.idCounter = 0;
     this.runCounter = 0;
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null };
+    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null };
     this.reset();
   }
 
@@ -285,6 +318,9 @@ class Game {
   reset() {
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
+    // B1 F6: Landepunkte (Registrierungen, Laufzeitzustand, ausstehende Schritt-Aktionen) gehören zur Partie – vollständig leeren
+    const lpReset = fnOf(landepunkteMod(), 'zuruecksetzen');
+    if (lpReset) { try { lpReset(this); } catch (e) { this.countError('landepunkte-reset', e); } } else this.landepunkte = null;
     if (this.spielleiter) this.callSpielleiter('dispose');   // S2: laufende Anfragen verwerfen (optional)
     this.spielleiter = null;
     this.phase = 'lobby';
@@ -338,6 +374,10 @@ class Game {
     };
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
+    this.notsprungIn = null;
+    this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
+    this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
+    this.vorbauOrt = null;      // B1: Ort, dessen Landepunkte zuletzt vorgebaut wurden (vorbauBeiAnkunft)
     this.arena = null;   // Testgelände (server/sim/arena.js), nur bei Lobby-Start arena_space/arena_away
     this.explore = new Explore(this);
     this.aways = { platform: away.makeAway(this), wreck: away.makeWreck(this), kesh: away.makeKesh(this) };
@@ -349,7 +389,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -393,7 +433,8 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
-    if (name === 'docked') this.markSaveDue('docked');   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
+    if (name === 'docked') this.markSaveDue('docked');
+    if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     try { this.mission.onEvent(name, data || {}); } catch (e) { this.countError('mission-event', e); }
   }
   log(...a) { this.logFn(...a); }
@@ -458,6 +499,8 @@ class Game {
             this.lobbyOpts.startMission = msg.startMission;
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
           }
+          // B1 §4: Direktstart Testgelände mit Kartenparametern { arena: { art, schablone?, seed, bauweise, besitz, zustand, fraktion?, staerke?, haltung? } }
+          if (this.phase === 'lobby' && 'arena' in msg) this.lobbyOpts.arena = Game.arenaParams(msg.arena);
           // S1 §6: Weltstand zum Fortsetzen wählen (null = neu)
           if (this.phase === 'lobby' && 'world' in msg) {
             const id = msg.world == null || msg.world === '' ? null : String(msg.world);
@@ -481,12 +524,20 @@ class Game {
           break;
         }
         case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down); break;
-        case C.SHOOT: if (this.phase !== 'lobby') away.shoot(this, p, Number(msg.angle)); break;
+        case C.SHOOT: if (this.phase !== 'lobby') {   // B2: los = Lanze loslassen; dist = Zielabstand in Kacheln (Wurfweite)
+          const dist = msg.dist == null ? NaN : Number(msg.dist);
+          away.shoot(this, p, Number(msg.angle), msg.los === true ? { los: true } : Number.isFinite(dist) && dist >= 0 ? { dist } : undefined);
+        } break;
         case C.MARK: if (this.phase !== 'lobby') away.setMarker(this, p, Number(msg.x), Number(msg.y)); break;
         case C.DROP: if (this.phase !== 'lobby') interior.onDrop(this, p); break;
         case C.LEAVE: interior.leaveConsole(this, p); break;
         case C.CMD: if (this.phase !== 'lobby') this.onCmd(p, msg); break;
         case C.DEBUG: this.onDebug(p, msg); break;
+        case 'clientError': {   // B1 (F7): gedrosselte Client-Fehlermeldung; nur Log, kein countError („Fehler Server“ bleibt sauber)
+          this.log(`Client ${p.name}: ${String(msg.label).slice(0, 80)} ×${msg.n | 0} – ${String(msg.msg).slice(0, 300)}`);
+          if (msg.stack) console.warn(`[Client ${p.name}] ${String(msg.stack).slice(0, 1500)}`);
+          break;
+        }
         default: break;
       }
     } catch (e) { this.countError('message:' + msg.t, e); }
@@ -517,8 +568,8 @@ class Game {
       p.conn = conn; p.connected = true; conn.player = p;
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
-      this.sendTo(conn, { t: 'welcome', pid: p.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
+      this.sendTo(conn, this.welcomeMsg(p.id));
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -528,8 +579,8 @@ class Game {
       free.clientId = clientId; free.conn = conn; free.connected = true; conn.player = free;
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
-      this.sendTo(conn, { t: 'welcome', pid: free.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
+      this.sendTo(conn, this.welcomeMsg(free.id));
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -543,9 +594,122 @@ class Game {
       p.ready = true;
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
-    this.sendTo(conn, { t: 'welcome', pid: p.id, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode });
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1;
+    this.sendTo(conn, this.welcomeMsg(p.id));
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
+  }
+
+  // ---------- B1 §9: gebaute Außenkarten an die Clients (Ereignis awayMap) ----------
+  // Kompilierte Karte eines Landepunkts (Vertrag `Karte`, CONTRACT-B1 §2). Handkarten (art 'hand') kennt der Client statisch.
+  karteOf(lpId) {
+    if (!lpId) return null;
+    const reg = (W.AWAY_MAPS || {})[lpId];
+    const k = reg && (reg.karte || (Array.isArray(reg.rows) && reg.anker ? reg : null));
+    if (k) return k;
+    const fn = fnOf(landepunkteMod(), 'karte');
+    if (fn) { try { return fn(this, lpId) || null; } catch (e) { this.countError('landepunkte-karte', e); } }
+    return null;
+  }
+  // kv = Kartenversion (Seed + bauversion): ändert sich, wenn die Karte neu gebaut wird
+  static kartenVersion(k) { return k ? `${k.seed != null ? k.seed : 0}.${k.bauversion || 'x'}` : null; }
+  awayMapPayload(k) {
+    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
+    const anker = (k.anker || []).map((a) => {
+      const row = [a.id, a.rolle, a.x, a.y];
+      const attr = {};
+      for (const key of attrKeys) if (a[key] != null && a[key] !== false) attr[key] = a[key];
+      if (a.rolle === 'leit') { if (Array.isArray(a.fuss)) attr.fuss = a.fuss; if (a.modell) attr.modell = a.modell; }   // Leitstück: Grundfläche + Modell (BUEHNE)
+      if (Object.keys(attr).length) row.push(attr);
+      return row;
+    });
+    const bereiche = {};
+    for (const [id, b] of Object.entries(k.bereiche || {})) {   // rolle/gefecht nur, wenn gesetzt (Budget)
+      const o = { name: b.name, rects: b.rects };
+      if (b.rolle) o.rolle = b.rolle;
+      if (b.gefecht) o.gefecht = true;
+      bereiche[id] = o;
+    }
+    // plaetze: [[platzId, typ, x, y, w, h]] in Kacheln (aus karte.plaetze[].rect)
+    const plaetze = Object.keys(k.plaetze || {}).sort().map((id) => { const pl = k.plaetze[id] || {}; const r = pl.rect || [0, 0, 0, 0]; return [id, pl.typ || null, r[0], r[1], r[2], r[3]]; });
+    // kanten: [[kantenId, tiles, startZustandIdx]] nach kantenId sortiert (= kantenIdx im Snapshot ko)
+    const kanten = Object.keys(k.kanten || {}).sort().map((id) => {
+      const kk = k.kanten[id] || {};
+      const zs = kantenZustaende(kk.typ);
+      const i = zs.indexOf(kk.zustand);
+      return [id, kk.tiles || [], i >= 0 ? i : 0];
+    });
+    return { id: k.id, erzeuger: k.erzeuger, art: k.art, bauweise: k.bauweise, besitz: k.besitz, zustand: k.zustand,
+      w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k) };
+  }
+  // an einen Spieler senden (cmd awayMap.get bzw. syncAwayMaps). -> Fehlertext | null
+  sendAwayMap(p, id) {
+    const lp = id || (this.away && this.away.map);
+    const k = this.karteOf(lp);
+    if (!k) return (W.AWAY_MAPS || {})[lp] ? null : 'Karte unbekannt.';   // Handkarte: nichts zu senden
+    if (k.art === 'hand') return null;
+    const payload = this.awayMapPayload(k);
+    const s = Buffer.byteLength(JSON.stringify(payload));
+    if (s > (Protocol.AWAY_MAP_MAX_BYTES || 10240)) this.countError('awayMap-groesse', new Error(`${lp}: ${s} B > ${Protocol.AWAY_MAP_MAX_BYTES} B`));
+    if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: Protocol.EVT_AWAY_MAP || 'awayMap' }, payload));
+    p.awayKv = lp + '@' + payload.kv;
+    return null;
+  }
+  // Beim Betreten bzw. sobald der Transfer auf eine gebaute Karte zeigt: jedem verbundenen Spieler einmal je Kartenversion
+  syncAwayMaps() {
+    const aw = this.away; const lp = aw && aw.map;
+    if (!lp || ['platform', 'wreck', 'kesh'].includes(lp)) return;
+    const k = this.karteOf(lp);
+    if (!k || k.art === 'hand') return;
+    const key = lp + '@' + Game.kartenVersion(k);
+    for (const p of this.players) if (p.connected && p.conn && p.awayKv !== key) this.sendAwayMap(p, lp);
+  }
+
+  // B1 §6.1 cmd transfer.ziel: Landepunkt am aktuellen Ort für den nächsten Transfer wählen. Prüfen und Bauen macht
+  // landepunkte.js (BUEHNE): waehlen(game, lpId, p) -> Fehlertext | null, sonst get(game, lpId) (legt game.aways[lpId] an).
+  chooseLandepunkt(p, lp) {
+    if (!lp) return 'Kein Landepunkt angegeben.';
+    if (this.players.some((o) => o.zone === 'away')) return 'Erst alle zurückbeamen.';
+    const L = landepunkteMod();
+    const waehlen = fnOf(L, 'waehlen');
+    if (waehlen) {
+      let e = null;
+      try { e = waehlen(this, lp, p) || null; } catch (x) { this.countError('landepunkte-waehlen', x); return 'Landepunkt nicht verfügbar.'; }
+      if (e) return e;
+    } else {
+      const get = fnOf(L, 'get');
+      if (!get && !this.aways[lp]) return 'Landepunkte noch nicht verfügbar.';
+      if (get) { try { get(this, lp); } catch (x) { this.countError('landepunkte-get', x); return 'Landepunkt nicht verfügbar.'; } }
+    }
+    if (!this.aways[lp]) return 'Landepunkt nicht verfügbar.';
+    this.transferZiel = { lp, scene: this.ship.scene };
+    this.setAwayMap(lp);
+    return null;
+  }
+
+  // B1 §4: Parameter des Direktstarts prüfen (unbekannte Felder fallen weg) -> Objekt | null (= Kesh wie bisher)
+  static arenaParams(a) {
+    if (!a || typeof a !== 'object' || Array.isArray(a)) return null;
+    const out = {};
+    for (const k of Protocol.ARENA_AWAY_FIELDS || []) {
+      const v = a[k];
+      if (v == null || v === '') continue;
+      if (k === 'seed') { const n = Math.round(Number(v)); if (Number.isFinite(n) && n >= 0) out.seed = n; continue; }
+      const s = String(v).toLowerCase().slice(0, 40);
+      if (/^[a-z0-9_.-]+$/.test(s)) out[k] = s;
+    }
+    if (!out.art) return null;
+    if (!(Protocol.KARTEN_ARTEN || []).includes(out.art) || out.art === 'hand') return null;
+    if (out.seed == null) out.seed = 1;
+    return out;
+  }
+
+  // welcome (§5.1) + B3 §6 sektorkarte (nur hier, nie im Snapshot)
+  welcomeMsg(pid) {
+    const m = { t: 'welcome', pid, serverVersion: SERVER_VERSION, debug: this.debug, roomCode: this.roomCode };
+    const pl = this.playerById(pid); if (pl) pl.awayKv = null;   // B1: gebaute Karte nach (Neu-)Verbindung erneut senden
+    const k = sektorkarte();
+    if (k) m[Protocol.WELCOME_SEKTORKARTE || 'sektorkarte'] = k;
+    return m;
   }
 
   applyColorWish(p, wish) {
@@ -586,9 +750,13 @@ class Game {
       }
     }
     if (campaign) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart)
+    if (campaign) {   // B2 (Wunsch WAFFEN): neue Kampagne -> leerer Block crew.waffen
+      const wr = fnOf(waffenMod(), 'restore');
+      if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
+    }
     if (!arena.isArena(sm)) this.explore.arrive(Locations.START);   // Testgelände: keine Hafen-Erstbesuchsansage
     if (sm === 'm3') this.mission.startDirect('m3');
-    else if (arena.isArena(sm)) arena.start(this, sm);   // Testgelände Raumkampf / Außenteam
+    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null);   // Testgelände Raumkampf / Außenteam (B1: Karte)
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
@@ -635,6 +803,18 @@ class Game {
     if (c === 'crouch') { const e = combat.setCrouch(this, p, !!msg.on); if (e) this.notice(p, e); return; }
     // M3a §8.1: Minispiel-Reparatur – ohne Konsole, nur Zone ship
     if (Protocol.CMD_REPAIR.includes(c)) { const e = interior.repairCmd(this, p, c, msg); if (e) this.notice(p, e); return; }
+    // B3 §4/§6: Notfallsprung – Pilot (helm) oder Captain
+    if (c === Protocol.CMD_HELM_NOTSPRUNG) {
+      if (p.console !== 'helm' && p.console !== 'captain') return this.notice(p, 'Dafür musst du am Steuer oder an der Captain-Konsole sein.');
+      if (p.downed) return;
+      const fn = fnOf(sprungMod(), 'notsprung');
+      let e = fn ? null : 'Notfallsprung noch nicht verfügbar.';
+      if (fn) { try { e = fn(this) || null; } catch (x) { this.countError('notsprung', x); e = null; } }
+      if (e) this.notice(p, e);
+      return;
+    }
+    // B1 §9: Karte nachfordern (ohne Konsole; Client fehlt die Karte oder kv passt nicht)
+    if (c === Protocol.CMD_AWAY_MAP_GET) { const e = this.sendAwayMap(p, msg.id == null ? null : String(msg.id)); if (e) this.notice(p, e); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -654,7 +834,11 @@ class Game {
       case 'helm.jump': err = space.doJump(this); break;
       case 'captain.accept': err = this.mission.accept(); break;
       case 'captain.choice': err = this.mission.choice(String(msg.option)); break;
-      case 'captain.selectDest': err = space.selectDest(this, String(msg.dest)); break;
+      case 'captain.selectDest': {   // B3 §6: zusätzlich { hex } erlaubt (sprung.js löst SSZZ auf)
+        const dest = msg.dest != null ? String(msg.dest) : (msg.hex != null ? String(msg.hex) : '');
+        err = space.selectDest(this, dest);
+        break;
+      }
       case 'captain.power': err = space.captainPower(this, String(msg.sys), Number(msg.delta)); break;
       case 'captain.shield': err = space.captainShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
       case 'captain.priority': {
@@ -703,7 +887,13 @@ class Game {
       case 'weapons.reload': err = space.weaponsReload(this); break;
       case 'weapons.strike': err = away.weaponsStrike(this); break;
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
-      case 'weapons.widescan': err = space.weaponsWidescan(this); break;
+      case 'weapons.widescan': {   // B1 §3.3 (W5): Weitscan deckt Verstecke der gebauten Karte am Ort auf (anker.markieren)
+        err = space.weaponsWidescan(this);
+        const mk = !err && fnOf(ankerMod(), 'markieren');
+        const lp = this.away && this.away.map;
+        if (mk && lp && !['platform', 'wreck', 'kesh'].includes(lp)) { try { mk(this, lp); } catch (e) { this.countError('anker-markieren', e); } }
+        break;
+      }
       case 'weapons.marker':
         if (msg.onTarget) err = space.markerOnTarget(this);
         else err = space.setMarker(this, 'tactical', Number(msg.x), Number(msg.y), !!msg.clear);
@@ -711,6 +901,15 @@ class Game {
       case 'transfer.down': err = away.consoleBeam(this, p, 'down'); break;
       case 'transfer.up': err = away.consoleBeam(this, p, 'up'); break;
       case 'transfer.recall': err = away.recall(this, msg.pid); break;
+      case 'transfer.ziel': err = this.chooseLandepunkt(p, msg.landepunkt == null ? '' : String(msg.landepunkt)); break;   // B1 §6.1
+      case 'loadout.waffe': {   // B2 §8: Waffenwahl an der Transfer-Konsole (waffen.js, WAFFEN)
+        const wf = String(msg.waffe);
+        if (!(Protocol.WAFFEN_WAHL || []).includes(wf)) { err = 'Unbekannte Waffe.'; break; }
+        const fn = fnOf(waffenMod(), 'waffeSetzen');
+        if (!fn) { err = 'Waffenwahl noch nicht verfügbar.'; break; }
+        try { err = fn(this, p, wf) || null; } catch (e) { this.countError('loadout', e); err = null; }
+        break;
+      }
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
       case 'deco.place': err = shop.placeDeco(this, p, String(msg.slot), msg.item == null ? null : String(msg.item)); break;
@@ -828,6 +1027,10 @@ class Game {
       case 'tune': case 'kesh': case 'squad': case 'wake': case 'shield': case 'wound': err = this.onDebugM2(p, cmd, msg); break;
       case 'sl': err = this.onDebugSl(p, msg); break;           // S2 §4: an game.spielleiter
       case 'escort': err = this.onDebugEscort(p, msg); break;   // S2 §4: an escort.js
+      case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
+      case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
+      case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
+      case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
       default: err = 'Unbekannter Debug-Befehl.';
     }
     if (err) this.notice(p, err);
@@ -855,6 +1058,148 @@ class Game {
     const E = escortMod();
     if (!E || typeof E.debug !== 'function') return 'escort: noch nicht verfügbar (SCHUETZLING).';
     try { const r = E.debug(this, args, p); if (typeof r === 'string' && r) return r; return null; } catch (e) { this.countError('escort-debug', e); return 'escort: Fehler (' + e.message + ')'; }
+  }
+
+  // B3 §6: hex <SSZZ> | boje <kante> | notsprung | erkunde alle  (sprung.js, SEKTOR)
+  onDebugB3(p, cmd, msg) {
+    if (this.phase === 'lobby') return 'Erst das Spiel starten.';
+    const args = argList(msg); const S = sprungMod();
+    const call = (name, ...a) => {
+      const fn = fnOf(S, name);
+      if (!fn) return `${cmd}: noch nicht verfügbar (SEKTOR).`;
+      try { return fn(this, ...a) || null; } catch (e) { this.countError('debug-' + cmd, e); return `${cmd}: Fehler (${e.message})`; }
+    };
+    switch (cmd) {
+      case 'hex': {
+        const hex = String(msg.hex != null ? msg.hex : (args[0] || ''));
+        if (!/^\d{4}$/.test(hex)) return 'hex <SSZZ>';
+        for (const o of this.players) if (o.zone === 'away') interior.placeOnShipPad(this, o);
+        return call('debugHex', hex);
+      }
+      case 'boje': { const k = String(msg.kante != null ? msg.kante : (args[0] || '')); return k ? call('bojeAufdecken', k) : 'boje <kante>'; }
+      case 'notsprung': {
+        // Debug: Voraussetzung „Reaktor ok“ bleibt, Station/Außenteam werden nicht umgangen (Grund kommt als Hinweis)
+        return call('notsprung');
+      }
+      case 'erkunde': return (args[0] || msg.what || 'alle') === 'alle' ? call('debugErkundeAlle') : 'erkunde alle';
+      default: return 'Unbekannter Debug-Befehl.';
+    }
+  }
+  // B1 §9: buehne <art> <seed> [bauweise besitz zustand] | anker <id> <zustand> | lp list | lp neu <ort> <art>
+  // Ausführung in landepunkte.js (debug(game, cmd, args, p) -> Text | null), anker über anker.js setzen(game, map, id, zustand).
+  onDebugB1(p, cmd, msg) {
+    if (this.phase === 'lobby' && cmd !== 'buehne') return 'Erst das Spiel starten.';
+    const args = argList(msg);
+    const L = landepunkteMod();
+    if (cmd === 'anker') {
+      const fn = fnOf(ankerMod(), 'setzen');
+      if (!fn) return 'anker: noch nicht verfügbar (BUEHNE).';
+      if (args.length < 2) return 'anker <id> <zustand>';
+      try { return fn(this, this.away && this.away.map, args[0], args[1], p.id) || null; } catch (e) { this.countError('debug-anker', e); return 'anker: Fehler (' + e.message + ')'; }
+    }
+    if (cmd === 'lp' && (args[0] || 'list') === 'list' && !fnOf(L, 'debug')) {
+      const ids = Object.keys(this.aways || {});
+      this.notice(p, 'Landepunkte geladen: ' + ids.join(', ') + (this.transferZiel ? ` · Ziel ${this.transferZiel.lp}` : ''));
+      return null;
+    }
+    const fn = fnOf(L, 'debug');
+    if (!fn) return `${cmd}: noch nicht verfügbar (BUEHNE).`;
+    if (cmd === 'buehne' && this.phase === 'lobby') this.startGame();
+    try {
+      const r = fn(this, cmd, args, p);
+      if (typeof r === 'string' && r) { this.notice(p, r.slice(0, 400)); }
+      return null;
+    } catch (e) { this.countError('debug-' + cmd, e); return `${cmd}: Fehler (${e.message})`; }
+  }
+  // B2 §8: waffe <id> | gegner <rolle> [fraktion] | alarm on|off | fang – Ausführung bei WAFFEN (waffe) bzw. BODENKAMPF
+  // (combat.debugB2(game, cmd, args, p) -> Text | null). tune waffen.<waffe>.<wert> läuft über 'tune'.
+  onDebugB2(p, cmd, msg) {
+    if (this.phase === 'lobby') return 'Erst das Spiel starten.';
+    const args = argList(msg);
+    if (cmd === 'waffe') {
+      const fn = fnOf(waffenMod(), 'waffeSetzen');
+      const wf = String(msg.waffe != null ? msg.waffe : (args[0] || ''));
+      if (!(Protocol.WAFFEN || []).includes(wf)) return 'waffe <' + (Protocol.WAFFEN || []).join('|') + '>';
+      if (!fn) return 'waffe: noch nicht verfügbar (WAFFEN).';
+      try { return fn(this, p, wf) || null; } catch (e) { this.countError('debug-waffe', e); return 'waffe: Fehler (' + e.message + ')'; }
+    }
+    const fn = typeof combat.debugB2 === 'function' ? combat.debugB2 : null;
+    if (!fn) return `${cmd}: noch nicht verfügbar (BODENKAMPF).`;
+    try { const r = fn(this, cmd, args, p, msg); if (typeof r === 'string' && r) this.notice(p, r.slice(0, 400)); return null; } catch (e) { this.countError('debug-' + cmd, e); return `${cmd}: Fehler (${e.message})`; }
+  }
+
+  // QA-Nachzug (OFFEN-STUDIO, nur mit --debug). Die Logik bleibt in den Modulen der Teams; hier nur Aufrufe ihrer Exporte.
+  //   sprungpunkt auf <ziel> [temp] | sprungpunkt zu <ziel|kantenId>   (sprung.oeffnen/schliessen, SEKTOR; ziel = Hex SSZZ oder Ort-ID)
+  //   ladung [ankerId] [sek]   Sprengladung auf der aktuellen gebauten Karte scharf schalten (anker.ladungScharf, BUEHNE);
+  //                            ohne ankerId der erste intakte Sprengpunkt; sek setzt den Countdown (Snapshot away.cd)
+  //   prise [kind]             Feindschiff am aktuellen Ort erscheinen lassen und sofort kampfunfähig machen -> <ort>.prise
+  //                            (space.spawnEnemy + entern.onEnemyZero, ENTERN)
+  onDebugQa(p, cmd, msg) {
+    if (this.phase === 'lobby') return 'Erst das Spiel starten.';
+    const args = argList(msg);
+    if (cmd === 'sprungpunkt') {
+      const S = sprungMod(); const Sk = sektorenMod();
+      const op = args[0]; const ziel = args[1];
+      if (!['auf', 'zu'].includes(op) || !ziel) return 'sprungpunkt auf <hex|ort> [temp] | sprungpunkt zu <hex|ort|kantenId>';
+      const hier = Sk && typeof Sk.hexVonOrt === 'function' ? Sk.hexVonOrt(this.ship.scene) : null;
+      if (!hier) return 'sprungpunkt: Ort ohne Hex (SEKTOR fehlt?).';
+      try {
+        if (op === 'auf') {
+          const fn = fnOf(S, 'oeffnen');
+          if (!fn) return 'sprungpunkt: noch nicht verfügbar (SEKTOR).';
+          const e = fn(this, { von: hier, nach: ziel, temp: args[2] === 'temp', bis: 'mission' });
+          if (e) return 'sprungpunkt: ' + e;
+          this.notice(p, `Sprungpunkt ${hier} → ${ziel} offen${args[2] === 'temp' ? ' (temporär)' : ''}.`);
+          return null;
+        }
+        const fn = fnOf(S, 'schliessen');
+        if (!fn) return 'sprungpunkt: noch nicht verfügbar (SEKTOR).';
+        let kid = ziel;
+        if (!/^\d{4}$/.test(ziel) && Sk.hexVonOrt(ziel)) kid = Sk.kanteId(hier, Sk.hexVonOrt(ziel));
+        else if (/^\d{4}$/.test(ziel)) kid = Sk.kanteId(hier, ziel);
+        const e = fn(this, kid);
+        if (e) return 'sprungpunkt: ' + e;
+        this.notice(p, `Sprungpunkt ${kid} geschlossen.`);
+        return null;
+      } catch (e) { this.countError('debug-sprungpunkt', e); return 'sprungpunkt: Fehler (' + e.message + ')'; }
+    }
+    if (cmd === 'ladung') {
+      const A = ankerMod(); const fn = fnOf(A, 'ladungScharf');
+      if (!fn) return 'ladung: noch nicht verfügbar (BUEHNE).';
+      const map = this.away && this.away.map;
+      const k = map && W.AWAY_MAPS[map] && W.AWAY_MAPS[map].karte;
+      if (!k || !Array.isArray(k.anker)) return 'ladung: nur auf einer gebauten Karte (aktuelle Außenkarte).';
+      const zst = fnOf(A, 'zustand');
+      const sek = args.find((a) => /^\d+(\.\d+)?$/.test(a));
+      const wunsch = args.find((a) => a !== sek);
+      const a = wunsch ? { id: wunsch } : k.anker.find((x) => x.rolle === 'sprengpunkt' && (!zst || zst(this, map, x.id) === 'intakt'));
+      if (!a) return `ladung: kein intakter Sprengpunkt auf ${map}.`;
+      let e;
+      try { e = fn(this, map, a.id, sek != null ? Math.max(0.5, Number(sek)) : undefined, p.id); } catch (x) { this.countError('debug-ladung', x); return 'ladung: Fehler (' + x.message + ')'; }
+      if (e) return 'ladung: ' + e;
+      this.notice(p, `Ladung an ${a.id} scharf${sek != null ? ' – ' + sek + ' s' : ''}.`);
+      return null;
+    }
+    if (cmd === 'prise') {
+      const E = enternMod(); const fn = fnOf(E, 'onEnemyZero');
+      if (!fn) return 'prise: noch nicht verfügbar (ENTERN).';
+      if (this.ship.docked) return 'prise: erst ablegen (angedockt).';
+      const kind = Protocol.ENEMY_KINDS.includes(args[0]) && args[0] !== 'relay' ? args[0] : 'raider';
+      const e = space.spawnEnemy(this, kind, {});
+      if (!e) return 'prise: Gegner ließ sich nicht erzeugen.';
+      const a = this.ship.angle || 0;   // 220 px vor dem Bug, ruhend: in Transferreichweite
+      e.x = this.ship.x + Math.cos(a) * 220; e.y = this.ship.y + Math.sin(a) * 220; e.vx = 0; e.vy = 0;
+      e.entern = true; e.hp = 0;
+      let ok = false;
+      try { ok = !!fn(this, e); } catch (x) { this.countError('debug-prise', x); }
+      if (!ok) {
+        this.space.enemies = this.space.enemies.filter((o) => o !== e);
+        return 'prise: ENTERN lehnt ab (Tutorial läuft, Entern aus oder am Ort liegt schon eine Prise).';
+      }
+      this.notice(p, `Prise ${this.ship.scene}.prise (${kind}) treibt vor dem Bug – Transfer-Konsole.`);
+      return null;
+    }
+    return 'Unbekannter Debug-Befehl.';
   }
 
   // M2 „Schildwall“: Debug-Befehle (CONTRACT-M2 §8). Argumente als Felder oder als Text in msg.args ('shield.regenDelay 3').
@@ -935,10 +1280,14 @@ class Game {
       this.safe('players', () => interior.updatePlayers(this, dt));
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
+      { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
+      { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
+      this.safe('betreten', () => this.trackBetreten());
+      this.safe('personen', () => weltBausteine().personenNachruecken(this));   // B1: wartende Personen auf gebauten Karten   // B1 §6.1: erstes Hinunterbeamen zählt den Besuch
       this.safe('explore', () => this.explore.update(dt));
       this.safe('onboard', () => onboard.updateIvo(this, dt));
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
@@ -947,7 +1296,15 @@ class Game {
       this.safe('alert', () => this.updateAlert());
       if (this.phase === 'play') this.stats.elapsed = this.time - this.stats.playTimeStart;
       // Ohne Außenteam folgt der Transfer der Außenkarte des aktuellen Orts
-      if (!this.players.some((p) => p.zone === 'away')) { const spot = away.beamSpot(this); if (spot) this.setAwayMap(spot.map); }
+      if (!this.players.some((p) => p.zone === 'away')) {
+        // B1 §6.1: gewählter Landepunkt (transfer.ziel) gilt, solange das Schiff am Ort bleibt; sonst Karte des Orts
+        const z = this.transferZiel;
+        if (z && ((z.scene && z.scene !== this.ship.scene) || !z.lp || !this.aways[z.lp])) this.transferZiel = null;
+        if (this.transferZiel) this.setAwayMap(this.transferZiel.lp);
+        else { const spot = away.beamSpot(this); if (spot) this.setAwayMap(spot.map); }
+      }
+      this.safe('awayMap', () => this.syncAwayMaps());   // B1 §9: gebaute Karte vor dem Betreten an alle
+      this.safe('vorbau', () => this.vorbauBeiAnkunft());   // B1: Landepunkte des neuen Orts vorbauen (nach dem Tick)
       this.safe('weltstand', () => this.updateWeltstand(dt));   // S1 §5.3: am Ende des Ticks
     }
   }
@@ -1034,6 +1391,93 @@ class Game {
     return { stage, von: von != null ? von.slice(0, 40) : null };
   }
 
+  // ship.jump + B3 §6 jp (Kante des gewählten Ziels), d (Abstand zum Sprungpunkt in m) – nur wenn sprung.js sie setzt;
+  // anflug (boolean) immer
+  jumpSnap() {
+    const j = this.ship.jump;
+    const o = { dest: j.dest, charge: f2(j.charge), ready: j.ready, blockedReason: j.blockedReason };
+    if (j.jp != null) o.jp = j.jp;
+    if (Number.isFinite(j.d)) o.d = Math.round(j.d);
+    // B3-NACH: anflug = gilt die Anflugpflicht (sprung.anflugPflicht – dieselbe Regel wie die Sprunglogik)
+    const af = fnOf(sprungMod(), 'anflugPflicht');
+    if (af) { try { o.anflug = !!af(this); } catch (e) { this.countError('jumpSnap-anflug', e); } }
+    return o;
+  }
+
+  // B1 §9: Snapshot away für gebaute Karten: kv + Anker-/Kantenabweichungen, Alarm, Countdown (anker.js, BUEHNE:
+  // awaySnap(game, aw) -> { ao?, ko?, al?, cd? }). Handkarten: leer (Golden/Budget unverändert).
+  awayB1Snap(aw) {
+    if (!aw || ['platform', 'wreck', 'kesh'].includes(aw.map)) return {};
+    const k = this.karteOf(aw.map);
+    if (!k || k.art === 'hand') return {};
+    const o = { kv: Game.kartenVersion(k) };
+    const fn = fnOf(ankerMod(), 'awaySnap');
+    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
+    return o;
+  }
+
+  // B1 §6.1: erstes Hinunterbeamen auf eine gebaute Karte -> landepunkte.betreten (einmal je Mission bzw. Partie)
+  trackBetreten() {
+    const lp = this.away && this.away.map;
+    if (!lp || ['platform', 'wreck', 'kesh'].includes(lp)) return;
+    if (!this.players.some((p) => p.zone === 'away')) return;
+    const key = lp + '@' + ((this.mission && this.mission.activeId) || '-');
+    this.betretenKeys = this.betretenKeys || new Set();
+    if (this.betretenKeys.has(key)) return;
+    this.betretenKeys.add(key);
+    const fn = fnOf(landepunkteMod(), 'betreten');
+    if (fn) fn(this, lp);
+  }
+
+  // B2 (Wunsch CLIENT): wf = gewählte Waffe auch außerhalb der Außenzone (Bord, Transfer-Konsole). Unten setzt combat.playerSnap
+  // wf selbst (PLAYER_SNAP_B2). Nur zone 'ship', nur mit aktiven Waffen; ≈ 16 B je Spieler an Bord.
+  wfAnBord(p) {
+    if (p.zone !== 'ship') return null;
+    const Wf = waffenMod();
+    if (!Wf || Wf.stub || Wf.aktiv === false) return null;
+    if (p.waffe) return { wf: p.waffe };
+    const fn = fnOf(Wf, 'waffeFuer');
+    if (!fn) return null;
+    try { const wf = fn(this, p); return wf ? { wf } : null; } catch (e) { this.countError('snapshot-wf', e); return null; }
+  }
+
+  // B1 (OFFEN-STUDIO): Ankunft an einem Ort (Sprung, Notsprung, Debug, Spielstart) -> landepunkte.vorbauenOrt.
+  // Ein Außenposten-Bau dauert bis 90 ms: nie im Tick bauen. Hier wird nur der Ortswechsel erkannt; Auswahl und Bau laufen
+  // per setImmediate nach dem Tick (vorbauen baut je Landepunkt in einem eigenen setImmediate und füllt den Karten-Cache).
+  vorbauBeiAnkunft() {
+    const ort = this.ship && this.ship.scene;
+    if (!ort || ort === this.vorbauOrt) return;
+    this.vorbauOrt = ort;
+    const fn = fnOf(landepunkteMod(), 'vorbauenOrt');
+    if (!fn) return;
+    setImmediate(() => {
+      if (!this.ship || this.ship.scene !== ort) return;   // inzwischen weitergesprungen bzw. Partie zurückgesetzt
+      try { fn(this, ort); } catch (e) { this.countError('landepunkte-vorbau', e); }
+    });
+  }
+
+  // B1 §7: treibende Schiffe (space.treibend, ENTERN) reisen im Snapshot mit space.enemies[] (st: 'treibt')
+  treibendeSnapList() {
+    const fn = fnOf(enternMod(), 'treibende');
+    if (!fn) return [];
+    try { const l = fn(this); return Array.isArray(l) ? l : []; } catch (e) { this.countError('snapshot-entern', e); return []; }
+  }
+
+  // B1 Nachtrag (Transfer-Konsole): { lp: [[lpId, name, art, frei, grund, inReichweite]], ziel } aus landepunkte.liste;
+  // nur mit Landepunkten am Ort, nur bei Änderung bzw. alle 15 Snapshots (wie world.locations). -> Objekt | null
+  transferSnap() {
+    const fn = fnOf(landepunkteMod(), 'liste');
+    if (!fn || this.phase === 'lobby') return null;
+    let list;
+    try { list = fn(this, this.ship.scene); } catch (e) { this.countError('snapshot-transfer', e); return null; }
+    if (!Array.isArray(list) || !list.length) { this.sentTransferKey = null; return null; }
+    const o = { lp: list.map((r) => [r.id, r.name || r.id, r.art, r.frei ? 1 : 0, r.grund || null, r.inReichweite ? 1 : 0]), ziel: (this.transferZiel && this.transferZiel.lp) || null };
+    const key = JSON.stringify(o);
+    if (key === this.sentTransferKey && this.snapCount % 15 !== 0) return null;
+    this.sentTransferKey = key;
+    return o;
+  }
+
   wantsSnapshot() { return this.tick % this.C.net.snapEvery === 0; }
 
   // ---------- Snapshot (§5.3 + M1 §10) ----------
@@ -1071,14 +1515,15 @@ class Game {
     const rc = ship.reactorCtl;
     const spaceOut = {
       w: sp.w, h: sp.h,
-      enemies: sp.enemies.map((e) => {
+      enemies: sp.enemies.concat(this.treibendeSnapList()).map((e) => {
         const o = { id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
-          shields: e.shields.map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? (C.enemyWeapons[e.kind] || []) : null };
+          shields: (e.shields || []).map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? (C.enemyWeapons[e.kind] || []) : null };
         // M3a §7.1: angekündigter Angriff (nur solange er lädt)
         const tele = hasFn('enemyTeleSnap') ? space.enemyTeleSnap(e) : (e.tele ? { kind: e.tele.kind, left: r2(e.tele.left), dur: e.tele.dur, sector: e.tele.sector } : null);
         if (tele) o.tele = tele;
         // M3b §3: vx, vy, state (SERVER-FLIGHT)
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
+        if (e.st) o.st = e.st;   // B1 §7/§9: 'treibt' = kampfunfähiges Feindschiff (entern.js, liegt in space.treibend)
         if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)
         return o;
       }),
@@ -1109,6 +1554,15 @@ class Game {
     const scanT = this.mission.scanTarget();
     const world = { location: ship.scene };
     if (includeWorld) world.locations = this.explore.locationsSnapshot();
+    // B3 §6: world.sektoren nur bei geänderter Version (wie world.locations)
+    const ex = this.explore;
+    if (ex && typeof ex.sektorenSnapshot === 'function') {
+      const sv = typeof ex.sektorenVersion === 'function' ? ex.sektorenVersion() : null;
+      if (sv !== this.sentSektorenVersion) { try { world.sektoren = ex.sektorenSnapshot(); this.sentSektorenVersion = sv; } catch (e) { this.countError('snapshot-sektoren', e); } }
+    }
+    // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
+    const jpFn = fnOf(sprungMod(), 'jpSnapshot');
+    if (jpFn) { try { const jp = jpFn(this); if (Array.isArray(jp) && jp.length) spaceOut.jp = jp.slice(0, 6); } catch (e) { this.countError('snapshot-jp', e); } }
     const missionOut = {
       stage: m.stage, objectives: m.objectives, radio: m.radio, choice: m.choice,
       teaser: m.teaser ? { status: m.teaser.status, source: m.teaser.source, title: m.teaser.title, from: m.teaser.from, briefing: m.teaser.briefing, reward: m.teaser.reward } : null,
@@ -1129,7 +1583,8 @@ class Game {
       t: 'snap', tick: this.tick, time: r2(this.time), phase: this.phase,
       lobby: this.phase === 'lobby'
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
-          worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax() }
+          worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
+          ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}) }   // B1 §4: gewählte Testgelände-Karte
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
@@ -1141,6 +1596,7 @@ class Game {
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
         ...combat.playerSnap(this, p),
+        ...this.wfAnBord(p),   // B2 (Wunsch CLIENT): gewählte Waffe auch an Bord
         ...interior.deckSnap(this, p),   // M4 §2.4: deck (Schiff), lift { to, t, T }, ladder { t, T } – nur wenn aktiv
       })),
       bots: this.bots.map((b) => {
@@ -1179,7 +1635,7 @@ class Game {
         breaches: ship.breachList.map((b) => ({ tx: b.tx, ty: b.ty })),
         groundItems: ship.groundItems.map((i) => ({ id: i.id, kind: i.kind, x: i.x, y: i.y })),
         dodgeCd: r1(ship.dodgeCd),
-        jump: { dest: ship.jump.dest, charge: f2(ship.jump.charge), ready: ship.jump.ready, blockedReason: ship.jump.blockedReason },
+        jump: this.jumpSnap(),
         mounts, target: ship.target, priority: ship.priority,
         scan: { progress: r2(ship.scan.progress), done: ship.scan.done, target: scanT ? { id: scanT.id, label: scanT.label, x: scanT.x, y: scanT.y, range: scanT.range } : null },
         markers: ship.markers,
@@ -1191,7 +1647,10 @@ class Game {
       away: {
         map: aw.map, active: aw.active,
         drones: aw.drones.map((d) => { const o = { id: d.id, kind: d.kind, x: r1(d.x), y: r1(d.y), hp: d.hp, dir: d.dir, revealed: d.revealed, alive: d.alive }; return v2 ? combat.droneSnap(this, d, o) : o; }),
-        projectiles: aw.projectiles.map((q) => ({ id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
+        // B2 §8: Granaten zusätzlich tx, ty (Ziel, px), t (s seit dem Wurf, 0…flug), flug (Flugzeit in s)
+        projectiles: aw.projectiles.map((q) => (q.kind === 'granate'
+          ? { id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle), tx: r1(q.tx), ty: r1(q.ty), t: r2(q.t || 0), flug: r2(q.flug || 0.8) }
+          : { id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
         npc: { x: r1(aw.npc.x), y: r1(aw.npc.y), dir: aw.npc.dir, following: aw.npc.following, rescued: aw.npc.rescued, present: aw.npc.present, injured: aw.npc.injured },
         items: aw.items.map((i) => ({ id: i.id, kind: i.kind, x: i.x, y: i.y })),
         marker: aw.marker, strikes: aw.strikes.map((s) => ({ x: s.x, y: s.y, t: r2(s.t) })),
@@ -1201,6 +1660,7 @@ class Game {
         ...(aw.loreRead ? { loreRead: true } : {}),   // M4 (QA-AWAY): Logbuch-Terminal im Wrack als gelesen zeigen (nur wenn gelesen – Snapshot-Budget)
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
+        ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },
       inventory: {
@@ -1212,6 +1672,7 @@ class Game {
       quarters: this.quarters,
       plan: { seated: onboard.seated(this), pins: this.plan.pins },
       world,
+      ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
       mission: missionOut,
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,

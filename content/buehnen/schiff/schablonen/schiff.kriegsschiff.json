@@ -1,0 +1,38 @@
+{
+  "format": "schablone/1",
+  "id": "schiff.kriegsschiff",
+  "art": "schiff",
+  "name": "Kriegsschiff",
+  "hinweis": "INHALT §5.5 F2. Rein: Schleuse auf Deck II oder Wartungsluke/Notluke. Gefecht: Der Reaktor ist das Nadelöhr zwischen Heck und Bug, das Batteriedeck der Platz für Nahkampf und Granaten. Ziele: Brücke einnehmen (kapern), Zellen öffnen, Schildgenerator oder Reaktor sprengen. Deck I erfüllt allein den Pflichtsatz ohne lift/leiter (CONTRACT-B1 §5.5). Spiegeln y = Backbord/Steuerbord des ganzen Schiffs (beide Decks gemeinsam), Bug bleibt rechts.",
+  "spiegeln": ["y"],
+  "fuellung": "leere",
+  "decks": [
+    {
+      "plaetze": [
+        { "id": "antrieb", "typ": "antrieb", "breite": 6, "fest": true, "kern": true, "bereich": "hinein", "ankunft": true },
+        { "id": "zellen", "typ": "zellen", "breite": 8, "fest": false, "kern": true, "bereich": "ziel" },
+        { "id": "reaktor", "typ": "reaktor", "breite": 5, "fest": true, "kern": true, "bereich": "ziel" },
+        { "id": "batteriedeck", "typ": "batteriedeck", "breite": 12, "fest": false, "kern": false, "bereich": null },
+        { "id": "bruecke", "typ": "bruecke", "breite": 6, "fest": true, "kern": true, "bereich": "ziel" }
+      ]
+    },
+    {
+      "plaetze": [
+        { "id": "heck_oben", "typ": "heck_oben", "breite": 6, "fest": true, "kern": true, "bereich": "rueckzug" },
+        { "id": "waffenkammer", "typ": "waffenkammer", "breite": 8, "fest": false, "kern": true, "bereich": "ziel" },
+        { "id": "schleuse", "typ": "schleuse", "breite": 5, "fest": false, "kern": true, "bereich": "hinein", "eingang_art": "technisch" },
+        { "id": "laderaum", "typ": "laderaum", "breite": 12, "fest": false, "kern": true, "bereich": null, "eingang_art": "leise" },
+        { "id": "bug_oben", "typ": "bug_oben", "breite": 6, "fest": true, "kern": true, "bereich": "ziel" }
+      ]
+    }
+  ],
+  "bereiche": {
+    "hinein": { "name": "Heck und Schleuse", "rolle": "hinein" },
+    "ziel": { "name": "Zellen, Waffenkammer, Brücke, Schildgenerator", "rolle": "ziel" },
+    "rueckzug": { "name": "Liftvorraum oben", "rolle": "rueckzug" }
+  },
+  "gefecht": ["reaktor", "batteriedeck", "laderaum"],
+  "paare": {},
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 2, "sprengpunkt": 1, "ziel": 2, "terminal": 2, "zelle": 1, "beute": 3, "nsc": 1, "wache": 4, "lift": 1, "leiter": 1 }
+}

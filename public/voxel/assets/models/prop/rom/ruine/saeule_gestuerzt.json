@@ -1,0 +1,26 @@
+{
+  "id": "prop/rom/ruine/saeule_gestuerzt",
+  "name": "Gestürzte Säule der Kolonnade (Kastellruine)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "saeule", "deckung_halb"],
+  "notes": "Stumpf (rom/bau/saeule, Lichtkanäle aus) + liegender Schaft entlang +x + Kapitellbrocken. Liegt in 3 Kacheln entlang x; Pivot Mitte unten. Als Deko oder als Rest einer halben Deckung nutzbar (Schafthöhe 1,25 m).",
+  "footprint": [3.5, 1.5],
+  "params": {},
+  "variants": { "b": { "seed": 5 } },
+  "ops": [
+    { "name": "Stumpf", "op": "use", "model": "rom/bau/saeule", "params": { "h": 8, "lights": 0 }, "at": [-4, 0, 0] },
+    { "name": "Stumpf abbrechen", "op": "box", "mode": "carve", "at": [-8, 7, -4], "size": [8, 10, 8] },
+    { "name": "Bruchkante schräg", "op": "box", "mode": "carve", "at": [-8, 6, -4], "size": [4, 1, 8] },
+    { "name": "Schaft liegend", "op": "cyl", "axis": "x", "at": [-1, 2.5, 0], "r": 2.5, "h": 6, "color": { "noise": ["stone", "stone_light"], "weights": [3, 1] } },
+    { "name": "Kannelur liegend", "op": "box", "mode": "paint", "at": [-1, 2, -3], "size": [6, 1, 6], "color": "stone_dark" },
+    { "name": "Goldring liegend", "op": "cyl", "axis": "x", "at": [4, 2.5, 0], "r": 2.8, "h": 1, "color": { "shade": "trim", "f": 0.8 } },
+    { "name": "Kapitellbrocken", "op": "box", "at": [5, 0, -3], "size": [2, 5, 6], "color": { "frame": { "shade": "trim", "f": 0.8 }, "fill": "stone", "axes": "yz" } },
+    { "name": "Schaftsplitter", "op": "box", "at": [-2, 0, 2], "size": [2, 1, 1], "color": "stone_light" },
+    { "name": "Verfall", "op": "erode", "density": 0.35, "depth": 2, "salt": 3 },
+    { "name": "Moos", "op": "box", "mode": "paint", "at": [-8, 0, -4], "size": [16, 3, 8], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone_dark", "stone", "stone"], "weights": [1, 2, 3, 3], "cell": 1 } },
+    { "name": "Moos oben", "op": "box", "mode": "paint", "at": [-1, 4, -3], "size": [6, 2, 6], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone", "stone_light"], "weights": [1, 4, 2], "cell": 1 } }
+  ],
+  "sockets": { "cover": [0, 1.25, 0] },
+  "anchor": [0, 0, 0]
+}

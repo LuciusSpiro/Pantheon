@@ -18,7 +18,8 @@ const world = lazy('world', '../world.js');
 
 const ENTRIES = new Map();
 const PARAM_TYPES = ['map', 'loc', 'squad', 'unit', 'object', 'area', 'item', 'npc', 'text', 'system', 'number', 'bool', 'string',
-  'state', 'mission', 'hidden', 'console', 'option', 'region', 'sector', 'zone', 'ship'];   // S2: ship = Tag aus besetzung.schiffe
+  'state', 'mission', 'hidden', 'console', 'option', 'region', 'sector', 'zone', 'ship',   // S2: ship = Tag aus besetzung.schiffe
+  'anker', 'kante', 'hex', 'landepunkt'];   // B1: anker = Rolle oder Anker-ID der Karte args.map; kante = Kanten-ID (Bühne bzw. Sektor); B3: hex = SSZZ
 
 function define(entry) {
   if (!entry || !/^[a-z][a-z0-9_]*$/.test(entry.id || '')) throw new Error('Baustein ohne gültige snake_case-Kennung: ' + (entry && entry.id));
@@ -175,10 +176,14 @@ define({ id: 'wake_unit', art: 'aktion', effekt: 'gegner', ereignisse: ['wardenW
     if (a.unit === 'warden') combat().wakeWarden(g_(m));
     else m.game.countError('mission-hook', new Error(`wake_unit: Einheit ${a.map}.${a.unit} unbekannt`));
   } });
-define({ id: 'set_object_state', art: 'aktion', ereignisse: ['vaultOpened', 'tabletTaken'],
-  beschreibung: 'Zustand eines Kartenobjekts setzen (Tor öffnen …)',
-  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object', pflicht: true }, state: { typ: 'state', pflicht: true } },
-  run(m, a) { Objects.setState(g_(m), a.map, a.object, a.state); } });
+define({ id: 'set_object_state', art: 'aktion', ereignisse: ['vaultOpened', 'tabletTaken', 'ankerZustand'],
+  beschreibung: 'Zustand eines Kartenobjekts setzen (Tor öffnen …). B1: neu mit anker (Rolle oder Anker-ID, Zustände aus anker.json) statt object (Altform der Handkarten)',
+  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object' }, anker: { typ: 'anker' }, state: { typ: 'state', pflicht: true } },
+  run(m, a) {
+    if (a.anker != null) Objects.setAnkerState(g_(m), a.map, a.anker, a.state);
+    else if (a.object != null) Objects.setState(g_(m), a.map, a.object, a.state);
+    else m.game.countError('mission-hook', new Error('set_object_state ohne object/anker'));
+  } });
 
 // ---------- Weltstand (CONTRACT-S1 §5.4; ohne game.weltstand No-op) ----------
 define({ id: 'npc_gedaechtnis', art: 'aktion', beschreibung: 'Eintrag ins Gedächtnis eines NSC (Text wird beim Schreiben aufgelöst)',
@@ -336,15 +341,15 @@ define({ id: 'away_since', art: 'pruefung', beschreibung: 'Außenmission läuft 
     const g = g_(m); const aw = g.aways[a.map];
     return !!(aw && aw.active && g.time - aw.firstBeamAt >= a.sec && g.ship.scene === Objects.locOfMap(a.map));
   } });
-define({ id: 'object_state', art: 'pruefung', beschreibung: 'Kartenobjekt ist im Zustand (viele: eins bzw. alle mit all: true)',
-  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object', pflicht: true }, state: { typ: 'state', pflicht: true }, all: { typ: 'bool' } },
-  test: (m, a) => Objects.inState(g_(m), a.map, a.object, a.state, !!a.all) });
+define({ id: 'object_state', art: 'pruefung', beschreibung: 'Kartenobjekt ist im Zustand (viele: eins bzw. alle mit all: true). B1: neu mit anker (Rolle oder Anker-ID) statt object',
+  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object' }, anker: { typ: 'anker' }, state: { typ: 'state', pflicht: true }, all: { typ: 'bool' } },
+  test: (m, a) => (a.anker != null ? Objects.ankerInState(g_(m), a.map, a.anker, a.state, !!a.all) : Objects.inState(g_(m), a.map, a.object, a.state, !!a.all)) });
 define({ id: 'near_object', art: 'pruefung', beschreibung: 'Ein Spieler der Karte ist höchstens dist Pixel vom Objekt entfernt',
-  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object', pflicht: true }, dist: { typ: 'number', pflicht: true, min: 0 } },
+  params: { map: { typ: 'map', pflicht: true }, object: { typ: 'object' }, anker: { typ: 'anker' }, dist: { typ: 'number', pflicht: true, min: 0 } },
   test: (m, a) => {
     const g = g_(m);
     if (!g.away || g.away.map !== a.map) return false;
-    const pos = Objects.positions(g, a.map, a.object);
+    const pos = a.anker != null ? Objects.ankerPositions(g, a.map, a.anker) : Objects.positions(g, a.map, a.object);
     return awayTeam(m, a.map).some((p) => pos.some((o) => Math.hypot(p.x - o.x, p.y - o.y) < a.dist));
   } });
 define({ id: 'area_occupied', art: 'pruefung', beschreibung: 'Mindestens min Spieler (Standard 1) im Bereich der Karte',

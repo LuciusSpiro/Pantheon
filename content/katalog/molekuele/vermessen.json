@@ -46,7 +46,7 @@
         "objekt_name": {
           "typ": "text",
           "default": "das Objekt",
-          "beschreibung": "Name im Text, z. B. „die Boje“"
+          "beschreibung": "Sachname im Nominativ mit Artikel, z. B. „die Boje“ (Texte setzen ihn nie nach einer Präposition ein)"
         },
         "relais": {
           "typ": "zahl",
@@ -216,13 +216,13 @@
           }
         ],
         "texte": {
-          "{{id}}.anflug": "Ruhe am Himmel. Jetzt zu {{objekt_name}} – die Markierung mitten in der Szene.",
-          "{{id}}.stoerung": "Störrelais kreisen um {{objekt_name}} und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
+          "{{id}}.anflug": "Ruhe am Himmel. Jetzt anfliegen: {{objekt_name}}, die Markierung mitten in der Szene.",
+          "{{id}}.stoerung": "Störrelais kreisen dort und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
           "{{id}}.frei": "Relais erledigt, der Weg ist frei! Captain: in Reichweite die Leertaste halten – Scan.",
-          "{{id}}.hinweis": "Captain: nah ran an {{objekt_name}} und Leertaste halten. Störrelais vorher abschießen (Taktik).",
+          "{{id}}.hinweis": "Captain: nah ran und Leertaste halten – Ziel: {{objekt_name}}. Störrelais vorher abschießen (Taktik).",
           "{{id}}.label": "Scan: {{objekt_name}}",
           "{{id}}.blockiert": "Störrelais stören den Scan – erst abschießen (Taktik).",
-          "{{id}}.ziel_anflug": "Zu {{objekt_name}} fliegen",
+          "{{id}}.ziel_anflug": "Anfliegen: {{objekt_name}}",
           "{{id}}.ziel_relais": "Taktik: Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})",
           "{{id}}.ziel_scan": "Captain: {{objekt_name}} scannen (Leertaste halten)"
         }

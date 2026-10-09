@@ -1,0 +1,125 @@
+{
+  "id": "item/waffe/betaeuber",
+  "name": "Betäuber – Gerüst (Stab mit Kopf)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau", "held", "geruest", "griff_gewehr"],
+  "notes": "Anbau handR, Anker = Griff (Socket grip). Mündung/Spitze −y, Oberseite +z. Länge fest 0,69 m (11 Voxel), Griffklasse gewehr. bauweise wählt den Anbau item/waffe/<bauweise>/betaeuber (ändert nie Länge und Grundform), heat 0–3 lässt die Kühlrippen per emit-Ausdruck glühen.",
+  "footprint": [0.4, 0.4],
+  "params": {
+    "bauweise": {
+      "default": "rom",
+      "options": ["germanen", "rom", "rostmeute", "neutral"],
+      "label": "Bauweise (Fraktion der Figur; Spieler = rom)"
+    },
+    "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze 0–3 (Kühlrippen glühen)" }
+  },
+  "variants": {
+    "germanen_h0": { "bauweise": "germanen", "heat": 0 },
+    "germanen_h1": { "bauweise": "germanen", "heat": 1 },
+    "germanen_h2": { "bauweise": "germanen", "heat": 2 },
+    "germanen_h3": { "bauweise": "germanen", "heat": 3 },
+    "rom_h0": { "bauweise": "rom", "heat": 0 },
+    "rom_h1": { "bauweise": "rom", "heat": 1 },
+    "rom_h2": { "bauweise": "rom", "heat": 2 },
+    "rom_h3": { "bauweise": "rom", "heat": 3 },
+    "rostmeute_h0": { "bauweise": "rostmeute", "heat": 0 },
+    "rostmeute_h1": { "bauweise": "rostmeute", "heat": 1 },
+    "rostmeute_h2": { "bauweise": "rostmeute", "heat": 2 },
+    "rostmeute_h3": { "bauweise": "rostmeute", "heat": 3 },
+    "neutral_h0": { "bauweise": "neutral", "heat": 0 },
+    "neutral_h1": { "bauweise": "neutral", "heat": 1 },
+    "neutral_h2": { "bauweise": "neutral", "heat": 2 },
+    "neutral_h3": { "bauweise": "neutral", "heat": 3 }
+  },
+  "ops": [
+    {
+      "name": "Gerüst (neutrale Silhouette)",
+      "op": "group",
+      "at": [-1, -9, 1],
+      "ops": [
+        { "name": "Käfig", "op": "ellipsoid", "at": [1, 2.5, 1.5], "r": 2.5, "color": "metal_dark" },
+        {
+          "name": "Schlitz quer",
+          "op": "box",
+          "at": [-2, 1, 1],
+          "size": [6, 3, 1],
+          "color": "metal",
+          "mode": "carve"
+        },
+        {
+          "name": "Schlitz oben",
+          "op": "box",
+          "at": [0, 1, -1],
+          "size": [2, 3, 6],
+          "color": "metal",
+          "mode": "carve"
+        },
+        {
+          "name": "Kern (blau, ruhig)",
+          "op": "ellipsoid",
+          "at": [1, 2.5, 1.5],
+          "r": 1.6,
+          "color": "#4C8DFF",
+          "emit": 0.9,
+          "jitter": false
+        },
+        { "name": "Hals", "op": "box", "at": [0, 5, 0], "size": [2, 1, 3], "color": "metal" },
+        { "name": "Stab", "op": "box", "at": [0, 6, 0], "size": [2, 5, 2], "color": "metal" },
+        { "name": "Griff", "op": "box", "at": [0, 8, -2], "size": [2, 2, 2], "color": "dark" },
+        { "name": "Endkappe", "op": "box", "at": [0, 10, -1], "size": [2, 1, 4], "color": "metal_dark" },
+        { "name": "Kühlrippe 1", "op": "box", "at": [0, 8, 2], "size": [2, 1, 2], "color": "metal_dark" },
+        { "name": "Kühlrippe 2", "op": "box", "at": [0, 6, 2], "size": [2, 1, 2], "color": "metal_dark" }
+      ]
+    },
+    {
+      "name": "Anbau (Bauweise)",
+      "op": "use",
+      "model": "item/waffe/{bauweise}/betaeuber",
+      "fallback": "item/waffe/neutral/betaeuber",
+      "at": [0, 0, 0],
+      "params": { "heat": "heat" }
+    },
+    {
+      "name": "Hitze (Kühlrippen glühen)",
+      "op": "group",
+      "at": [-1, -9, 1],
+      "ops": [
+        {
+          "name": "Rippe 1 glüht (ab heat 1)",
+          "op": "box",
+          "at": [0, 8, 2],
+          "size": [2, 1, 2],
+          "mode": "paint",
+          "color": { "shade": "#B23A1A", "f": "0.8 + heat * 0.14" },
+          "emit": "0.15 + heat * 0.4",
+          "jitter": false,
+          "if": "heat >= 1"
+        },
+        {
+          "name": "Rippe 2 glüht (ab heat 2)",
+          "op": "box",
+          "at": [0, 6, 2],
+          "size": [2, 1, 2],
+          "mode": "paint",
+          "color": { "shade": "#B23A1A", "f": "0.8 + heat * 0.14" },
+          "emit": "0.15 + heat * 0.4",
+          "jitter": false,
+          "if": "heat >= 2"
+        },
+        {
+          "name": "Weißglut (heat 3)",
+          "op": "box",
+          "at": [0, 8, 2],
+          "size": [2, 1, 2],
+          "mode": "paint",
+          "color": "#FFC98A",
+          "emit": 1.6,
+          "jitter": false,
+          "if": "heat >= 3"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

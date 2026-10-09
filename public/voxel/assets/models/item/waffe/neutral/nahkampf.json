@@ -1,0 +1,31 @@
+{
+  "id": "item/waffe/neutral/nahkampf",
+  "name": "Klinge – Anbau neutral für item/waffe/nahkampf",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["waffe", "anbau-teil", "neutral"],
+  "notes": "Steckplatz-Teil (Bauweise neutral) des Gerüsts item/waffe/nahkampf. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Klinge",
+      "op": "group",
+      "at": [-1, -11, -1],
+      "ops": [
+        {
+          "name": "Kopf (quer, von oben lesbar)",
+          "op": "group",
+          "rot": 90,
+          "pivot": [1, 1],
+          "ops": [
+            { "name": "Blatt", "op": "box", "at": [0, 1, 0], "size": [2, 7, 6], "color": "metal" },
+            { "name": "Spitze", "op": "box", "at": [0, 0, 0], "size": [2, 1, 5], "color": "metal" },
+            { "name": "Schneide", "op": "box", "at": [0, 0, 6], "size": [2, 9, 1], "color": "metal_light" },
+            { "name": "Rückendorn", "op": "box", "at": [0, 2, -3], "size": [2, 3, 3], "color": "metal_dark" }
+          ]
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

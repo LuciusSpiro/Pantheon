@@ -1,0 +1,63 @@
+{
+  "format": "modul/1",
+  "id": "schiff.heck_oben.b",
+  "art": "schiff",
+  "typ": "heck_oben",
+  "groesse": [6, 13],
+  "deck": 2,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Liftvorraum, zwei Arrestzellen gegenüber, Mastpfeiler im Gang.",
+  "rows": [
+    "_#####",
+    "##.o.#",
+    "#.,,.#",
+    "#.,,.#",
+    "#O..O#",
+    "#...o#",
+    "#.I...",
+    "#....#",
+    "#zz.z#",
+    "#....#",
+    "#zz.z#",
+    "#....#",
+    "_#####"
+  ],
+  "anker": [
+    "......",
+    "......",
+    "..l...",
+    "......",
+    "......",
+    "......",
+    "....p.",
+    "......",
+    "......",
+    ".c..c.",
+    "......",
+    ".b..q.",
+    "......"
+  ],
+  "anker_legende": {
+    "l": {
+      "rolle": "lift",
+      "deck": 2
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "c": {
+      "rolle": "zelle"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "q": {
+      "rolle": "wache"
+    }
+  },
+  "belegungen": []
+}

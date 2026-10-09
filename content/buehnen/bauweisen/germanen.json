@@ -1,0 +1,247 @@
+{
+  "format": "bauweise/1",
+  "id": "germanen",
+  "quelle": "CONTRACT-B1.md §10.2, ART-PLAN §4 (Art pflegt: ART-GK-BAU)",
+  "hinweis": "kits: kind → Kit-Teil; Objekt = { id, <feste Parameter> }, optional je_art: { <art>: { id?, <Parameter> } } überschreibt für eine Kartenart. Terrain-Kinds (gelaende, fels) und leere/abgrund haben kein Kit-Teil (terrain/leer). Der Kit-Renderer setzt conn, cut, zustand, art, seed und state selbst; art wird an die Instanz kit/germanen/<kind> durchgereicht, die die Steckplätze kit/germanen/<art>/… vor kit/germanen/gemein/… wählt. anker: rolle → { <art>|'*': Prop-ID oder { id, <feste Parameter> } }, Zustand = state-Index der Rolle (anker.json). leit: platztyp → art → Leitstück.",
+  "kits": {
+    "boden": {
+      "id": "kit/germanen/boden",
+      "belag": 0,
+      "hinweis": "Außenposten: Hof (.) = Frostkies (belag 0 wird je art zu kit/germanen/gemein/teil/grund_aussenposten); Station/Schiff: Platte"
+    },
+    "boden2": {
+      "id": "kit/germanen/boden",
+      "belag": 1,
+      "je_art": {
+        "aussenposten": {
+          "belag": 2
+        }
+      },
+      "hinweis": "Außenposten: innen in Gebäuden und Bohlenwege (,) = Eichenbohlen; Station/Schiff: Gitterrost"
+    },
+    "pad": {
+      "id": "kit/germanen/boden",
+      "belag": 3
+    },
+    "plateau": {
+      "id": "kit/germanen/boden",
+      "belag": 0,
+      "hoehe": 0.5
+    },
+    "rampe": {
+      "id": "kit/germanen/boden",
+      "belag": 2,
+      "hoehe": 0.25
+    },
+    "kante": {
+      "id": "kit/germanen/kante",
+      "je_art": {
+        "aussenposten": {
+          "id": "prop/germanen/aussenposten/plateau_kante"
+        }
+      }
+    },
+    "wand": {
+      "id": "kit/germanen/wand"
+    },
+    "wand_schwach": {
+      "id": "kit/germanen/wand_schwach"
+    },
+    "zaun": {
+      "id": "kit/germanen/zaun"
+    },
+    "gitter": {
+      "id": "kit/germanen/gitter"
+    },
+    "fenster": {
+      "id": "kit/germanen/fenster"
+    },
+    "tuer": {
+      "id": "kit/germanen/tuer"
+    },
+    "schott": {
+      "id": "kit/germanen/schott"
+    },
+    "tor": {
+      "id": "kit/germanen/tor",
+      "breite": 2
+    },
+    "luke": {
+      "id": "kit/germanen/luke"
+    },
+    "deckung_halb": {
+      "id": "kit/germanen/deckung_halb"
+    },
+    "deckung_voll": {
+      "id": "kit/germanen/deckung_voll"
+    },
+    "pfeiler": {
+      "id": "kit/germanen/pfeiler"
+    },
+    "truemmer": {
+      "id": "kit/germanen/truemmer"
+    },
+    "schutt": {
+      "id": "kit/germanen/deckung_voll",
+      "zustand": 2
+    },
+    "gelaende": {
+      "terrain": true,
+      "hinweis": "Außenposten: außerhalb der Palisade (:)",
+      "je_art": {
+        "aussenposten": {
+          "top": "stone_light",
+          "fill": "soil_dark"
+        },
+        "station": {
+          "top": "paving_dark",
+          "fill": "stone_dark"
+        },
+        "schiff": {
+          "top": "metal_dark",
+          "fill": "metal_dark"
+        },
+        "ruine": {
+          "top": "soil",
+          "fill": "soil_dark"
+        }
+      }
+    },
+    "fels": {
+      "terrain": true
+    },
+    "leere": {
+      "leer": true
+    },
+    "abgrund": {
+      "leer": true
+    }
+  },
+  "anker": {
+    "terminal": {
+      "*": "prop/germanen/gemein/runenstein_terminal"
+    },
+    "raetsel": {
+      "*": {
+        "id": "prop/germanen/gemein/runenstein_terminal",
+        "raetsel": 1
+      }
+    },
+    "sprengpunkt": {
+      "aussenposten": "prop/germanen/aussenposten/runenmast",
+      "station": "prop/germanen/station/schmiedeherd_reaktor_2x2",
+      "schiff": "prop/germanen/schiff/reaktor_schiff",
+      "*": "prop/germanen/aussenposten/tank"
+    },
+    "zelle": {
+      "*": "prop/germanen/gemein/kaefig_zelle"
+    },
+    "beute": {
+      "*": "prop/germanen/gemein/truhe"
+    },
+    "fund": {
+      "*": "prop/germanen/station/met_kessel"
+    },
+    "ziel": {
+      "aussenposten": "leit/germanen/aussenposten/thing_stein",
+      "station": "prop/germanen/schiff/schildgenerator",
+      "schiff": "prop/germanen/schiff/schildgenerator",
+      "*": "leit/germanen/aussenposten/thing_stein"
+    },
+    "abholpunkt": {
+      "*": "prop/germanen/gemein/bake_abholpunkt"
+    },
+    "lift": {
+      "*": "prop/germanen/schiff/lift_schacht"
+    },
+    "leiter": {
+      "*": "prop/germanen/schiff/leiter"
+    },
+    "aussicht": {
+      "aussenposten": "prop/germanen/aussenposten/wachturm"
+    }
+  },
+  "alternativen": {
+    "hinweis": "Weitere passende Props je Rolle (Platz/Modul darf sie über eigene Belegungen wählen; der Kit-Renderer nimmt den Eintrag aus anker).",
+    "sprengpunkt": {
+      "aussenposten": [
+        "prop/germanen/aussenposten/tank",
+        "prop/germanen/aussenposten/tanklager_2x1"
+      ]
+    },
+    "ziel": {
+      "aussenposten": [
+        "leit/germanen/aussenposten/kraehenwacht_turm"
+      ]
+    },
+    "eingang": {
+      "aussenposten": [
+        "prop/germanen/aussenposten/abflussgitter"
+      ],
+      "station": [
+        "prop/germanen/station/andockring_2x1",
+        "prop/germanen/station/schacht_gitter"
+      ],
+      "schiff": [
+        "prop/germanen/schiff/schleuse",
+        "prop/germanen/schiff/huellenbruch"
+      ]
+    }
+  },
+  "leit": {
+    "herzstueck": {
+      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
+      "station": "leit/germanen/station/schmiedeherd"
+    },
+    "kontrollraum": {
+      "station": "leit/germanen/station/hochsitz_halle"
+    },
+    "bruecke": {
+      "schiff": "leit/germanen/schiff/drachenkopf_bug"
+    },
+    "batteriedeck": {
+      "schiff": "leit/germanen/schiff/ruderbank"
+    }
+  },
+  "leit_fuss": {
+    "leit/germanen/aussenposten/kraehenwacht_turm": [2, 2],
+    "leit/germanen/station/schmiedeherd": [3, 2],
+    "leit/germanen/station/hochsitz_halle": [3, 2],
+    "leit/germanen/schiff/drachenkopf_bug": [2, 2],
+    "leit/germanen/schiff/ruderbank": [2, 2]
+  },
+  "paletten": {
+    "basis": "nord",
+    "zustand": {
+      "intakt": "nord",
+      "verfallen": "nord_verfallen",
+      "umkaempft": "nord_umkaempft"
+    }
+  },
+  "stimmung": {
+    "aussenposten": "outpost_frost",
+    "station": "hall_forge",
+    "schiff": "ship_nord",
+    "ruine": "outpost_frost"
+  },
+  "leitmaterial": {
+    "hinweis": "artdirector.md §8.6: geteilt werden Props und Details, nie Wand, Boden und Licht zugleich.",
+    "aussenposten": {
+      "wand": "kit/germanen/aussenposten/wand_fuellung (Langhaus-Bohlen)",
+      "zaun": "Palisade (aussenposten/zaun_*)",
+      "boden": "Hof Frostkies (boden, belag 0 je art), innen Eichenbohlen (boden2, belag 2), außen Terrain (gelaende)",
+      "licht": "outpost_frost"
+    },
+    "station": {
+      "wand": "kit/germanen/station/wand_fuellung (Schmiedeeisen-Klinker) + wand_krone (Rohr)",
+      "boden": "kit/germanen/station/boden_belag (Schmiede)",
+      "licht": "hall_forge"
+    },
+    "schiff": {
+      "wand": "kit/germanen/schiff/* (Spanten, ART-SCHIFF)",
+      "boden": "Eisenrost (belag 1) bzw. schiff/boden_belag",
+      "licht": "ship_nord"
+    }
+  },
+  "leit_hinweis": "leit: Platztyp → art → Leitstück (Ankerrolle leit, sonst Platzmitte). Platztypen geprüft gegen die Schablonen: herzstueck (Außenposten alle 3, Station nur kreuz), kontrollraum (Station alle 3), bruecke/batteriedeck (Schiff, leit-Anker gesetzt). thing_stein erscheint über anker.ziel (Außenposten). Alternative für den Platztyp wachturm: kraehenwacht_turm."
+}

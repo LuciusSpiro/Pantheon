@@ -17,79 +17,274 @@
       "id": "wrack_container",
       "name": "Container im Wrack bergen",
       "schauplatz": "aussen",
-      "beschreibung": "Neues Treibgut ist ins Wrack „Zaunkönig“ gedriftet (die Karte wird dafür zurückgesetzt, der Grund wird erzählt). Das Außenteam sucht im Dunkeln die Bergungscontainer, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Heute nur im Wrack.",
+      "beschreibung": "Ein Wrack bzw. verfallenes Schiff oder eine aufgegebene Station: Das Außenteam sucht im Halbdunkel die Bergungskisten, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Am besten auf verfallenen Landepunkten.",
       "braucht": [
         "transfer",
         "aussen_objekte"
       ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "wreck",
+          "schiff",
+          "station"
+        ],
+        "anker": [
+          "beute"
+        ],
+        "min": {
+          "beute": 3
+        }
+      },
       "dauer_min": [
         3,
         5
       ],
       "dauer_quelle": "schaetzung",
-      "dauer_je_crew": { "1": [5, 7], "2": [4, 5], "3": [3, 4] },
+      "dauer_je_crew": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          4,
+          5
+        ],
+        "3": [
+          3,
+          4
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_alles",
+        "{{id}}_genug"
+      ],
       "ereignisse": [
         "wreckSalvage",
+        "beuteGeborgen",
         "beamedUp"
       ],
       "params": {
-        "loc": { "typ": "loc", "pflicht": true, "werte": ["wrack"] },
-        "map": { "typ": "map", "pflicht": true, "werte": ["wreck"] },
-        "zuruecksetzen": { "typ": "bool", "default": true, "beschreibung": "Karte vorher zurücksetzen (map_reset) – nur false, wenn eine frühere Szene der Mission sie schon zurückgesetzt hat" },
-        "grund": { "typ": "text", "default": "Ortung: Seit eurem letzten Besuch ist neues Treibgut ins Wrack gedriftet – frische Container.", "beschreibung": "Erzählte Begründung für das Zurücksetzen (ODA, ≤ 120 Zeichen)" },
-        "aufgeben_nach": { "typ": "zahl", "default": 300, "min": 120, "max": 480 }
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "zuruecksetzen": {
+          "typ": "bool",
+          "default": true,
+          "beschreibung": "Karte vorher zurücksetzen (map_reset) – nur false, wenn eine frühere Szene der Mission sie schon zurückgesetzt hat oder die Karte neu ist"
+        },
+        "grund": {
+          "typ": "text",
+          "default": "Ortung: Seit eurem letzten Besuch ist neues Treibgut ins Wrack gedriftet – frische Container.",
+          "beschreibung": "Erzählte Begründung für das Zurücksetzen (ODA, ≤ 120 Zeichen)"
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 300,
+          "min": 120,
+          "max": 480
+        }
       },
       "vorlage": {
-        "buehne": { "orte": ["{{loc}}"], "aussenkarten": ["{{map}}"], "objekte": { "{{map}}": ["container"] } },
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
         "steps": [
           {
             "id": "{{id}}",
             "loc": "{{loc}}",
-            "allowBeam": ["{{map}}"],
+            "allowBeam": [
+              "{{map}}"
+            ],
             "enter": [
-              { "if": "{{zuruecksetzen}}", "do": "map_reset", "map": "{{map}}", "grund": "@{{id}}.grund" }
+              {
+                "if": "{{zuruecksetzen}}",
+                "do": "map_reset",
+                "map": "{{map}}",
+                "grund": "@{{id}}.grund"
+              }
             ],
             "timers": [
-              { "at": 2, "oda": "@{{id}}.start" },
-              { "at": 70, "if": { "not": { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } } }, "oda": "@{{id}}.hinweis", "garantie": "hinweis" }
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
             ],
             "rules": [
               {
-                "if": { "all": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "check": { "name": "team_down", "map": "{{map}}" } } ] },
-                "do": [ { "oda": "@{{id}}.alles" } ]
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "beute",
+                        "state": "leer",
+                        "all": true
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_alles": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
               },
               {
-                "if": { "all": [ { "elapsed": "{{aufgeben_nach}}" }, { "not": { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } } } ] },
-                "do": [ { "set": { "{{id}}_genug": true } }, { "oda": "@{{id}}.genug" } ],
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_genug": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.genug"
+                  }
+                ],
                 "garantie": "zeitlimit"
               }
             ],
             "objectives": [
-              { "id": "runter", "text": "@{{id}}.ziel_runter", "done": { "any": [ { "check": { "name": "away_active", "map": "{{map}}" } }, { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken" } } ] } },
-              { "id": "container", "text": "@{{id}}.ziel_container", "done": { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] } },
-              { "id": "hoch", "text": "@{{id}}.ziel_hoch", "show": { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] }, "done": { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } }
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
             ],
             "next": [
               {
-                "if": { "all": [ { "any": [ { "check": { "name": "object_state", "map": "{{map}}", "object": "container", "state": "taken", "all": true } }, { "v": "{{id}}_genug" } ] }, { "not": { "check": { "name": "team_down", "map": "{{map}}" } } } ] },
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
                 "goto": "{{weiter}}"
               }
             ],
             "skip": [
-              { "do": "debug_skip_away", "map": "{{map}}" },
-              { "set": { "{{id}}_genug": true } }
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_alles": true
+                }
+              },
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}"
+              }
             ]
           }
         ],
         "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
           "{{id}}.grund": "{{grund}}",
-          "{{id}}.start": "Außenteam auf die Pads. Im Wrack ist es dunkel – Captain: Reiter „Außenteam“ zeigt die Container.",
-          "{{id}}.hinweis": "Captain: die Container auf der Außenteam-Karte ansagen. Unten: hingehen, E halten, dann zurück zu den Pads.",
-          "{{id}}.alles": "Alle Container offen! Zurück zu den Pads, dann holen wir euch hoch.",
+          "{{id}}.start": "Außenteam auf die Pads. Drinnen ist es dunkel – Captain: Reiter „Außenteam“ zeigt die Kisten.",
+          "{{id}}.hinweis": "Captain: die Kisten auf der Außenteam-Karte ansagen. Unten: hingehen, E halten, dann zurück zu den Pads.",
+          "{{id}}.geschafft": "Alles geborgen! Zurück zu den Pads, dann holen wir euch hoch.",
           "{{id}}.genug": "Genug gewühlt – den Rest lassen wir liegen. Zurück zu den Pads.",
-          "{{id}}.ziel_runter": "Außenteam ins Wrack beamen",
-          "{{id}}.ziel_container": "Container bergen ({objectsInState:container:taken}/{objectsCount:container})",
-          "{{id}}.ziel_hoch": "Zurück an Bord beamen"
+          "{{id}}.ziel": "Bergungsgut bergen (E halten)"
         }
       },
       "rueckfall": {
@@ -97,8 +292,9 @@
       },
       "test": {
         "params": {
-          "loc": "wrack",
-          "map": "wreck"
+          "loc": "vaelen",
+          "map": "vaelen.handelsschiff",
+          "zuruecksetzen": false
         }
       }
     }

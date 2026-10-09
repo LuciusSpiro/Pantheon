@@ -1,0 +1,43 @@
+{
+  "id": "prop/germanen/aussenposten/tank",
+  "name": "Treibstofftank (Außenposten, Sprengpunkt)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "aussenposten", "sprengpunkt", "tank"],
+  "footprint": [1, 1],
+  "params": {
+    "state": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 scharf, 2 zerstoert)"}
+  },
+  "let": {"heil": "state < 2"},
+  "variants": {"scharf": {"state": 1}, "zerstoert": {"state": 2}},
+  "ops": [
+    {"op": "box", "name": "Kufe", "at": [-7, 0, -5], "size": [14, 2, 3], "color": "wood_dark", "jitter": false, "mirror": "z", "mirrorAt": 0},
+    {"op": "box", "name": "Querholz", "at": [-5, 0, -7], "size": [3, 2, 14], "color": "wood", "jitter": false, "mirror": "x", "mirrorAt": 0},
+    {"op": "cyl", "name": "Tankkörper", "if": "heil", "at": [0, 2, 0], "r": 6.4, "h": 22, "color": "metal", "jitter": false},
+    {"op": "ellipsoid", "name": "Kuppel", "if": "heil", "at": [0, 24, 0], "r": [6.4, 4, 6.4], "half": "+y", "color": "metal_dark", "jitter": false},
+    {"op": "cyl", "name": "Eisenreifen", "if": "heil", "at": [0, 3, 0], "r": 6.4, "h": 1, "color": "metal_dark", "jitter": false, "repeat": {"count": 3, "step": [0, 9, 0]}, "mode": "paint"},
+    {"op": "cyl", "name": "Clanband", "if": "heil", "at": [0, 15, 0], "r": 6.4, "h": 3, "color": "cloth", "jitter": false, "mode": "paint"},
+    {"op": "cyl", "name": "Domdeckel", "if": "heil", "at": [0, 27, 0], "r": 2, "h": 2, "color": "metal_light"},
+    {"op": "box", "name": "Frost Kuppel", "if": "heil", "at": [-4, 26, -4], "size": [8, 2, 8], "mode": "paint", "color": {"noise": ["metal", "frost"], "weights": [1, 1], "cell": 3}},
+    {"op": "box", "name": "Ventilstutzen", "if": "state == 0", "at": [-1, 4, 5], "size": [2, 2, 2], "color": "metal_light"},
+    {"op": "cyl", "name": "Ventilrad", "if": "state == 0", "at": [0, 5, 7], "r": 2, "h": 1, "axis": "z", "hollow": 1, "color": "metal_light"},
+    {"op": "box", "name": "Steigleiter Holm", "if": "heil", "at": [-3, 3, -8], "size": [1, 24, 1], "color": "wood_dark", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Sprossen", "if": "heil", "at": [-2, 5, -8], "size": [4, 1, 1], "color": "wood", "repeat": {"count": 4, "step": [0, 6, 0]}},
+    {"op": "group", "name": "Ladung (scharf)", "if": "state == 1", "ops": [
+      {"op": "box", "name": "Ladungspaket", "at": [-4, 7, 3], "size": [8, 5, 5], "color": "metal_dark", "jitter": false, "mode": "paint"},
+      {"op": "cyl", "name": "Sprengrollen", "at": [-2, 7, 7], "r": 0.9, "h": 5, "color": "leather", "jitter": false, "repeat": {"count": 2, "step": [4, 0, 0]}},
+      {"op": "box", "name": "Zünder", "at": [-1, 12, 5], "size": [2, 2, 2], "color": "trim"},
+      {"op": "line", "name": "Zündkabel", "from": [4, 8, 7], "to": [5, 2, 7], "r": 0.5, "color": "dark"}
+    ] },
+    {"op": "group", "name": "Geplatzt (zerstört)", "if": "state == 2", "ops": [
+      {"op": "cyl", "name": "Tankrest", "at": [0, 2, 0], "r": 6.4, "h": 10, "hollow": 1, "color": "metal_dark"},
+      {"op": "cyl", "name": "Boden innen", "at": [0, 2, 0], "r": 5.5, "h": 1, "color": "black"},
+      {"op": "box", "name": "Blechlappen", "at": [-7, 10, -2], "size": [1, 5, 4], "color": "metal"},
+      {"op": "box", "name": "Blechlappen 2", "at": [3, 10, 5], "size": [3, 4, 1], "color": "metal"},
+      {"op": "ellipsoid", "name": "Kuppel am Boden", "at": [-4, 0, 4.5], "r": [3.5, 2.5, 3], "half": "+y", "color": "metal_dark"},
+      {"op": "erode", "name": "Riss", "density": 0.5, "depth": 3, "at": [-7, 6, -7], "size": [14, 9, 14]},
+      {"op": "box", "name": "Ruß", "at": [-8, 0, -8], "size": [16, 15, 16], "mode": "paint", "color": {"noise": ["dark", "black", "metal_dark"], "weights": [2, 1, 2]}}
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

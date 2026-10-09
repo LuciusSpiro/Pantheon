@@ -1,0 +1,44 @@
+{
+  "id": "item/waffe/germanen/blaster",
+  "name": "Karabiner – Anbau germanen für item/waffe/blaster",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["waffe", "anbau-teil", "germanen"],
+  "notes": "Steckplatz-Teil (Bauweise germanen) des Gerüsts item/waffe/blaster. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Karabiner",
+      "op": "group",
+      "at": [-1, -9, 1.5],
+      "ops": [
+        { "name": "Holzschaft vorn", "op": "box", "at": [0, 6, 0], "size": [2, 4, 2], "color": "wood" },
+        {
+          "name": "Ornamentband",
+          "op": "box",
+          "at": [0, 6, 3],
+          "size": [2, 4, 1],
+          "color": { "stripes": ["trim", "secondary"], "axis": "y", "period": 1 }
+        },
+        { "name": "Laufband Eisen", "op": "box", "at": [0, 2, 1], "size": [2, 1, 2], "color": "metal_light" },
+        {
+          "name": "Laufband Eisen 2",
+          "op": "box",
+          "at": [0, 4, 1],
+          "size": [2, 1, 2],
+          "color": "metal_light"
+        },
+        {
+          "name": "Griff Leder",
+          "op": "box",
+          "at": [0, 8, -3],
+          "size": [2, 2, 3],
+          "color": { "stripes": ["leather", "dark"], "axis": "y", "period": 1 }
+        },
+        { "name": "Kolben Holz", "op": "box", "at": [0, 10, -1], "size": [2, 1, 5], "color": "wood_dark" },
+        { "name": "Kolbenkappe Knochen", "op": "box", "at": [0, 10, 3], "size": [2, 1, 1], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,48 @@
+{
+  "format": "modul/1",
+  "id": "station.werkstatt.a",
+  "art": "station",
+  "typ": "werkstatt",
+  "groesse": [1, 1],
+  "drehen": true,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "rows": [
+    "###..###",
+    "#......#",
+    "#.o....#",
+    "#......D",
+    "#......D",
+    "#....o.#",
+    "#......#",
+    "###..###"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    ".....pe.",
+    "..w.....",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "w": { "rolle": "wache" },
+    "p": { "kette": "a", "rolle": "patrouille" },
+    "e": { "art": "leise", "rolle": "eingang" }
+  },
+  "belegungen": [
+    [
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "..O.....",
+      "........",
+      "........"
+    ]
+  ]
+}

@@ -1,0 +1,125 @@
+{
+ "id": "kit/germanen/wand",
+ "name": "Germanen – wand: Hallenwand: Granitsockel, Klinkerfüllung, Eisenecken, dunkle Runenkrone",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "kit",
+  "germanen",
+  "wand"
+ ],
+ "notes": "ART-GK-BAU: Instanz des Gerüsts kit/geruest/wand mit bauweise germanen; art wird durchgereicht (Steckplätze kit/germanen/<art>/… → kit/germanen/gemein/… → kit/geruest/slot/…).",
+ "footprint": [
+  1,
+  1
+ ],
+ "jitter": 0,
+ "params": {
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1,
+   "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+  },
+  "cut": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Geschnitten (1,25 m)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "art": {
+   "default": "station",
+   "options": [
+    "aussenposten",
+    "station",
+    "ruine",
+    "schiff"
+   ],
+   "label": "Kartenart"
+  }
+ },
+ "variants": {
+  "frei": {
+   "conn": 0
+  },
+  "ende": {
+   "conn": 2
+  },
+  "ecke": {
+   "conn": 6
+  },
+  "t": {
+   "conn": 7
+  },
+  "kreuz": {
+   "conn": 15
+  },
+  "geschnitten": {
+   "cut": 1
+  },
+  "verfallen": {
+   "zustand": 1,
+   "seed": 1
+  },
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  },
+  "art_aussenposten": {
+   "art": "aussenposten"
+  },
+  "art_station": {
+   "art": "station"
+  },
+  "art_schiff": {
+   "art": "schiff"
+  },
+  "art_ruine": {
+   "art": "ruine"
+  },
+  "art_schiff_umkaempft": {
+   "art": "schiff",
+   "zustand": 2,
+   "seed": 3
+  },
+  "art_aussenposten_verfallen": {
+   "art": "aussenposten",
+   "zustand": 1,
+   "seed": 4
+  }
+ },
+ "ops": [
+  {
+   "name": "Gerüst (Bauweise germanen) wand",
+   "op": "use",
+   "model": "kit/geruest/wand",
+   "at": [
+    2,
+    0,
+    2
+   ],
+   "params": {
+    "conn": "conn",
+    "cut": "cut",
+    "zustand": "zustand",
+    "art": "{art}",
+    "bauweise": "germanen",
+    "seed": "seed"
+   }
+  }
+ ],
+ "anchor": [
+  2,
+  0,
+  2
+ ]
+}

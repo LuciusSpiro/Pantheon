@@ -1,0 +1,15 @@
+{
+  "id": "kontor",
+  "name": "Kontor: Germanen-Formen, Handelsblau, Messing, Pergament",
+  "extends": "nord",
+  "roles": {
+    "cloth": "#2E5C8A",
+    "cloth2": "#D9C9A0",
+    "trim": "#4E7EAE",
+    "secondary": "#4E6680",
+    "leather": "#6E4E30",
+    "metal_dark": "#34465C",
+    "metal": "#5E7088"
+  },
+  "notes": "Besitz auf großen Flächen: trim (Deckungsoberkante, Wandstreifen) und cloth (Planen, Banner) Handelsblau, Metall blaustahl."
+}

@@ -1,0 +1,40 @@
+{
+  "id": "prop/germanen/gemein/bake_abholpunkt",
+  "name": "Abholpunkt-Bake (Germanen): Dreibein-Mast mit Strahlerkopf und Bodenring",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","anker","abholpunkt","bake","light"],
+  "footprint": [1,1],
+  "params": {
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"Zustand (0 bereit, 1 gestoert)"}
+  },
+  "variants": {
+    "gestoert": {"state":1}
+  },
+  "sockets": {"beam":[0,1.9,0],"light":[0,1.8,0],"label":[0,2.15,0],"fx_spark":[0.15,1.75,0.1]},
+  "ops": [
+    {"op":"cyl","name":"Bodenring","at":[0,0,0],"r":7.8,"hollow":1,"h":1,"color":"metal_dark"},
+    {"op":"cyl","name":"Bodenring Licht","if":"state == 0","at":[0,0,0],"r":7.8,"hollow":1,"h":1,"color":"glow","emit":0.7,"jitter":false,"arc":[0,300]},
+    {"op":"box","name":"Ringmarken","at":[-1,0,6],"size":[2,1,2],"color":"metal_light","mirror":"z","mirrorAt":0},
+    {"op":"line","name":"Bein vorn","from":[0,0.5,5.5],"to":[0,14.5,1],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein links","from":[-4.8,0.5,-3],"to":[-1,14.5,-0.5],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein rechts","if":"state == 0","from":[4.8,0.5,-3],"to":[1,14.5,-0.5],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein rechts geknickt","if":"state == 1","from":[5.8,0.5,-2],"to":[3.5,6.5,-1.5],"r":0.7,"color":"metal"},
+    {"op":"line","name":"Bein rechts Rest","if":"state == 1","from":[3.5,6.5,-1.5],"to":[1,14.5,-0.5],"r":0.7,"color":"metal_dark"},
+    {"op":"box","name":"Mast","at":[-1,12,-1],"size":[2,16,2],"color":"metal_dark"},
+    {"op":"box","name":"Akkukasten","at":[-2,8,-2],"size":[4,5,4],"color":"primary"},
+    {"op":"box","name":"Akkuanzeige","at":[-1,10,2],"size":[2,1,1],"color":"glow","emit":"state == 0 ? 0.8 : 0","jitter":false},
+    {"op":"use","name":"Mastband","model":"prop/germanen/gemein/teil/runenband","at":[0,15,1],"params":{"n":3,"lit":"state == 0 ? 3 : 1","emit":"state == 0 ? 0.8 : 0.3","rahmen":1,"start":1,"schritt":1}},
+    {"op":"box","name":"Bandträger","at":[-6,15,0],"size":[12,9,1],"color":"metal"},
+    {"op":"group","name":"Kopf","at":["state == 1 ? 1 : 0",0,0], "ops": [
+      {"op":"cyl","name":"Schüssel","at":[0,27,0],"r":2,"r2":4.5,"h":3,"color":"metal"},
+      {"op":"cyl","name":"Schüsselrand","at":[0,29,0],"r":4.5,"hollow":1,"h":1,"color":"metal_light"},
+      {"op":"cyl","name":"Emitter","if":"state == 0","at":[0,29,0],"r":1.6,"h":2,"color":"glow","emit":1.2,"jitter":false},
+      {"op":"cyl","name":"Emitter tot","if":"state == 1","at":[0,29,0],"r":1.6,"h":1,"color":"glass","jitter":false},
+      {"op":"box","name":"Splitter","if":"state == 1","at":[2,29,-3],"size":[2,1,1],"mode":"carve"}
+    ]},
+    {"op":"line","name":"Kabel gerissen","if":"state == 1","from":[1.5,20.5,1.5],"to":[3.5,9.5,3.5],"r":0.5,"color":"rubber"},
+    {"op":"line","name":"Kabel","if":"state == 0","from":[1.5,12.5,1.5],"to":[1.5,26.5,1.5],"r":0.5,"color":"rubber"}
+  ],
+  "anchor": [0,0,0]
+}

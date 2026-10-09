@@ -1,0 +1,39 @@
+{
+  "id": "kit/geruest/boden",
+  "name": "Bausatz-Gerüst – Boden (Platte 25 cm unter der Lauffläche, Belag 0–3)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","boden"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["boden_belag","boden_fuge"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"},
+    "belag": {"default":0,"min":0,"max":3,"step":1,"label":"0 Platte · 1 Gitter · 2 Planke/Erde · 3 Schmuck"}
+  },
+  "variants": {
+    "gitter": {"belag":1},
+    "planke": {"belag":2},
+    "schmuck": {"belag":3},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":4},
+    "probe": {"bauweise":"test"},
+    "probe_planke": {"bauweise":"test","belag":2}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    {"name":"Steckplatz boden_belag","op":"use","model":"kit/{bauweise}/{art}/boden_belag","fallback":["kit/{bauweise}/gemein/boden_belag","kit/geruest/slot/boden_belag"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":1,"d":4,"belag":"belag"}},
+    {"name":"Steckplatz boden_fuge","op":"use","model":"kit/{bauweise}/{art}/boden_fuge","fallback":["kit/{bauweise}/gemein/boden_fuge","kit/geruest/slot/boden_fuge"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":1,"d":4,"belag":"belag"},"mode":"paint"},
+    {"name":"Ruß/Schmutzfleck","op":"box","if":"zustand > 0 && hash(seed, 7) < zustand * 0.45","mode":"paint","at":["floor(hash(seed, 1) * 3)",0,"floor(hash(seed, 2) * 3)"],"size":[2,1,2],"color":{"shade":"soil_dark","f":0.7}}
+  ],
+  "anchor": [2,1,2]
+}

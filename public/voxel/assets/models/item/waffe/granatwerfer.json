@@ -1,0 +1,179 @@
+{
+  "id": "item/waffe/granatwerfer",
+  "name": "Granatwerfer – Gerüst (dickes Rohr, Trommel)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau", "held", "geruest", "griff_schwer"],
+  "notes": "Anbau handR, Anker = Griff (Socket grip). Mündung/Spitze −y, Oberseite +z. Länge fest 0,81 m (13 Voxel), Griffklasse schwer. bauweise wählt den Anbau item/waffe/<bauweise>/granatwerfer (ändert nie Länge und Grundform), heat 0–3 lässt die Kühlrippen per emit-Ausdruck glühen.",
+  "footprint": [0.4, 0.4],
+  "params": {
+    "bauweise": {
+      "default": "rom",
+      "options": ["germanen", "rom", "rostmeute", "neutral"],
+      "label": "Bauweise (Fraktion der Figur; Spieler = rom)"
+    },
+    "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze 0–3 (Kühlrippen glühen)" }
+  },
+  "variants": {
+    "germanen_h0": { "bauweise": "germanen", "heat": 0 },
+    "germanen_h1": { "bauweise": "germanen", "heat": 1 },
+    "germanen_h2": { "bauweise": "germanen", "heat": 2 },
+    "germanen_h3": { "bauweise": "germanen", "heat": 3 },
+    "rom_h0": { "bauweise": "rom", "heat": 0 },
+    "rom_h1": { "bauweise": "rom", "heat": 1 },
+    "rom_h2": { "bauweise": "rom", "heat": 2 },
+    "rom_h3": { "bauweise": "rom", "heat": 3 },
+    "rostmeute_h0": { "bauweise": "rostmeute", "heat": 0 },
+    "rostmeute_h1": { "bauweise": "rostmeute", "heat": 1 },
+    "rostmeute_h2": { "bauweise": "rostmeute", "heat": 2 },
+    "rostmeute_h3": { "bauweise": "rostmeute", "heat": 3 },
+    "neutral_h0": { "bauweise": "neutral", "heat": 0 },
+    "neutral_h1": { "bauweise": "neutral", "heat": 1 },
+    "neutral_h2": { "bauweise": "neutral", "heat": 2 },
+    "neutral_h3": { "bauweise": "neutral", "heat": 3 }
+  },
+  "ops": [
+    {
+      "name": "Gerüst (neutrale Silhouette)",
+      "op": "group",
+      "at": [-1, -11, 2.5],
+      "ops": [
+        { "name": "Rohr", "op": "cyl", "at": [1, 0, 2], "r": 2.5, "h": 8, "axis": "y", "color": "metal" },
+        {
+          "name": "Mündungsring",
+          "op": "cyl",
+          "at": [1, 0, 2],
+          "r": 2.5,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_dark"
+        },
+        {
+          "name": "Bohrung",
+          "op": "cyl",
+          "at": [1, 0, 2],
+          "r": 1.5,
+          "h": 2,
+          "axis": "y",
+          "color": "black",
+          "jitter": false
+        },
+        {
+          "name": "Bohrung offen",
+          "op": "cyl",
+          "at": [1, 0, 2],
+          "r": 1.5,
+          "h": 1,
+          "axis": "y",
+          "mode": "carve"
+        },
+        {
+          "name": "Trommel",
+          "op": "cyl",
+          "at": [1, 8, 1.5],
+          "r": 2.5,
+          "h": 3,
+          "axis": "y",
+          "color": "metal_dark"
+        },
+        { "name": "Griff", "op": "box", "at": [0, 10, -4], "size": [2, 2, 3], "color": "dark" },
+        { "name": "Schaft", "op": "box", "at": [0, 11, 0], "size": [2, 2, 4], "color": "metal" },
+        {
+          "name": "Kühlrippe 1",
+          "op": "cyl",
+          "at": [1, 6, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_dark"
+        },
+        {
+          "name": "Kühlrippe 2",
+          "op": "cyl",
+          "at": [1, 4, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_dark"
+        },
+        {
+          "name": "Kühlrippe 3",
+          "op": "cyl",
+          "at": [1, 2, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_dark"
+        }
+      ]
+    },
+    {
+      "name": "Anbau (Bauweise)",
+      "op": "use",
+      "model": "item/waffe/{bauweise}/granatwerfer",
+      "fallback": "item/waffe/neutral/granatwerfer",
+      "at": [0, 0, 0],
+      "params": { "heat": "heat" }
+    },
+    {
+      "name": "Hitze (Kühlrippen glühen)",
+      "op": "group",
+      "at": [-1, -11, 2.5],
+      "ops": [
+        {
+          "name": "Rippe 1 glüht (ab heat 1)",
+          "op": "cyl",
+          "at": [1, 6, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "mode": "paint",
+          "color": { "shade": "#B23A1A", "f": "0.8 + heat * 0.14" },
+          "emit": "0.15 + heat * 0.4",
+          "jitter": false,
+          "if": "heat >= 1"
+        },
+        {
+          "name": "Rippe 2 glüht (ab heat 2)",
+          "op": "cyl",
+          "at": [1, 4, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "mode": "paint",
+          "color": { "shade": "#B23A1A", "f": "0.8 + heat * 0.14" },
+          "emit": "0.15 + heat * 0.4",
+          "jitter": false,
+          "if": "heat >= 2"
+        },
+        {
+          "name": "Rippe 3 glüht (ab heat 3)",
+          "op": "cyl",
+          "at": [1, 2, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "mode": "paint",
+          "color": { "shade": "#B23A1A", "f": "0.8 + heat * 0.14" },
+          "emit": "0.15 + heat * 0.4",
+          "jitter": false,
+          "if": "heat >= 3"
+        },
+        {
+          "name": "Weißglut (heat 3)",
+          "op": "cyl",
+          "at": [1, 6, 2],
+          "r": 3,
+          "h": 1,
+          "axis": "y",
+          "mode": "paint",
+          "color": "#FFC98A",
+          "emit": 1.6,
+          "jitter": false,
+          "if": "heat >= 3"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "item/waffe/rostmeute/blaster",
+  "name": "Flickblaster – Anbau rostmeute für item/waffe/blaster",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["waffe", "anbau-teil", "rostmeute"],
+  "notes": "Steckplatz-Teil (Bauweise rostmeute) des Gerüsts item/waffe/blaster. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Flickblaster",
+      "op": "group",
+      "at": [-1, -9, 1.5],
+      "ops": [
+        {
+          "name": "Gehäuse Rost",
+          "op": "box",
+          "at": [0, 6, 0],
+          "size": [2, 4, 4],
+          "color": { "noise": ["primary", { "shade": "primary", "f": 0.78 }, "metal"], "weights": [3, 2, 1] }
+        },
+        { "name": "Flickblech", "op": "box", "at": [0, 7, 3], "size": [2, 2, 1], "color": "secondary" },
+        { "name": "Klebeband", "op": "box", "at": [0, 3, 1], "size": [2, 1, 2], "color": "secondary" },
+        { "name": "Schaft Knochen", "op": "box", "at": [0, 10, -1], "size": [2, 1, 5], "color": "trim" },
+        {
+          "name": "Kabel",
+          "op": "line",
+          "from": [0.5, 5.5, -1.5],
+          "to": [0.5, 4.5, 0.5],
+          "r": 0.5,
+          "color": "dark"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

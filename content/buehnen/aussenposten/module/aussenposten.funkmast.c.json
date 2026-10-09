@@ -1,0 +1,30 @@
+{
+  "format": "modul/1", "id": "aussenposten.funkmast.c", "art": "aussenposten", "typ": "funkmast",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "........",
+    "...o....",
+    ".OO.,,..",
+    ".OO.,I,.",
+    "....,,,.",
+    ".o....o.",
+    "....O...",
+    "........"
+  ],
+  "anker": [
+    "........",
+    "........",
+    ".....t..",
+    "........",
+    ".s...z..",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "s": { "rolle": "sprengpunkt" },
+    "t": { "rolle": "terminal" },
+    "z": { "rolle": "ziel" }
+  },
+  "belegungen": []
+}

@@ -1,0 +1,46 @@
+{
+  "id": "kit/geruest/tuer",
+  "name": "Bausatz-Gerüst – Tür (2 Kacheln, Kantenmitte)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","tuer"],
+  "footprint": [2,1],
+  "jitter": 0,
+  "slots": ["tuer_rahmen","tuer_blatt"],
+  "params": {
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"},
+    "state": {"default":0,"min":0,"max":3,"step":1,"label":"0 offen · 1 zu · 2 verschlossen · 3 gesprengt"}
+  },
+  "variants": {
+    "geschnitten": {"cut":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":2},
+    "probe": {"bauweise":"test"},
+    "offen": {"state":0},
+    "offen_geschnitten": {"state":0,"cut":1},
+    "probe_offen": {"state":0,"bauweise":"test"},
+    "zu": {"state":1},
+    "zu_geschnitten": {"state":1,"cut":1},
+    "probe_zu": {"state":1,"bauweise":"test"},
+    "verschlossen": {"state":2},
+    "verschlossen_geschnitten": {"state":2,"cut":1},
+    "probe_verschlossen": {"state":2,"bauweise":"test"},
+    "gesprengt": {"state":3},
+    "gesprengt_geschnitten": {"state":3,"cut":1},
+    "probe_gesprengt": {"state":3,"bauweise":"test"}
+  },
+  "let": {
+    "W": 8,
+    "zu": "state == 1 || state == 2"
+  },
+  "ops": [
+    {"name":"Steckplatz tuer_rahmen","op":"use","model":"kit/{bauweise}/{art}/tuer_rahmen","fallback":["kit/{bauweise}/gemein/tuer_rahmen","kit/geruest/slot/tuer_rahmen"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":1,"d":4,"teil":0,"state":"state"}},
+    {"name":"Steckplatz tuer_rahmen","op":"use","model":"kit/{bauweise}/{art}/tuer_rahmen","fallback":["kit/{bauweise}/gemein/tuer_rahmen","kit/geruest/slot/tuer_rahmen"],"at":[0,10,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":3,"d":4,"teil":1,"state":"state"},"if":"!cut"},
+    {"name":"Steckplatz tuer_blatt","op":"use","model":"kit/{bauweise}/{art}/tuer_blatt","fallback":["kit/{bauweise}/gemein/tuer_blatt","kit/geruest/slot/tuer_blatt"],"at":[0,1,1],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":"cut ? 5 : 9","d":2,"state":"state"},"if":"zu"},
+    {"name":"Verfall am Sturz","op":"erode","if":"zustand > 0 && !cut","density":"zustand == 1 ? 0.2 : 0.35","depth":"zustand","at":[1,10,0],"size":["W - 2",3,4]}
+  ],
+  "anchor": [4,1,2]
+}

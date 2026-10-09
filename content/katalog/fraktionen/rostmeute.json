@@ -1,0 +1,104 @@
+{
+  "format": "fraktion/1",
+  "id": "rostmeute",
+  "name": "Rostmeute",
+  "beschreibung": "Piraten des Saumraums. Die Muskeln sind die Friedlosen, ein geächteter Germanenclan, dazu Plünderer in Flickrüstung. Nehmen Lösegeld, schlachten Wracks aus, graben in alten Kastellen.",
+  "modelle": {
+    "grundtyp": "lerche/scavenger",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer",
+    "haescher": "fig/germanen/haescher"
+  },
+  "palette": "friedlose",
+  "rezepte": {
+    "rotte": [
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      },
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      }
+    ],
+    "enterrotte": [
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "enterer",
+        "n": 2
+      }
+    ],
+    "soeldner": [
+      {
+        "rolle": "grenadier",
+        "n": 1
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      }
+    ],
+    "loesegeld": [
+      {
+        "rolle": "haescher",
+        "n": 1
+      },
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 1
+      }
+    ],
+    "posten": [
+      {
+        "rolle": "schuetze",
+        "n": 1
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": "posten",
+  "einsatz": {
+    "rotte": [
+      "aussenposten",
+      "station",
+      "ruine",
+      "schiff",
+      "hand"
+    ],
+    "enterrotte": [
+      "station",
+      "schiff"
+    ],
+    "soeldner": [
+      "aussenposten",
+      "ruine"
+    ],
+    "loesegeld": [
+      "aussenposten",
+      "station",
+      "schiff"
+    ],
+    "posten": [
+      "aussenposten",
+      "ruine"
+    ]
+  },
+  "funkstil": "rau und spöttisch, Beute und Lösegeld im Kopf; die Friedlosen reden vom Clan, der sie verstoßen hat"
+}

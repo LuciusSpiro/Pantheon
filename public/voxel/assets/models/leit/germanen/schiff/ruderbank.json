@@ -1,0 +1,59 @@
+{
+  "id": "leit/germanen/schiff/ruderbank",
+  "name": "Leitstück: Ruderbank-Batterie an der Klinker-Bordwand (Germanen, Schiff)",
+  "notes": "Herzstück 2x2 (Batteriedeck), überarbeitet von ART-LEIT für die Draufsicht: breitere schräge Klinkerwand (von oben als helle Schrägfläche lesbar), große Schildreihe Waid/Bein vor der Reling, breites Leitlicht-Dollbord (Rolle leit) und gestrichelter Leitring auf der Deckkante rahmen den Platz. Schilde Holz/Waid und Holz/Bein (kein Schwarz-Weiß-Rot). Füllt die Grundfläche 2x2, kein Überhang, bis 3,5 m. alarm 1: Lichtleiste Rolle alarm.",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "leit", "herzstueck", "batterie"],
+  "footprint": [2, 2],
+  "params": {
+    "alarm": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Rot-Alarm"},
+    "ladung": {"default": 1, "min": 0, "max": 1, "step": 1, "label": "geladen"}
+  },
+  "variants": {"alarm": {"alarm": 1}, "leer": {"ladung": 0}},
+  "ops": [
+    {"op": "box", "name": "Deck", "at": [-16, 0, -16], "size": [32, 1, 32], "color": {"stripes": ["wood", "wood", {"shade": "wood_dark", "f": 0.85}], "axis": "z", "period": 1}},
+    {"op": "box", "name": "Leitring Deck x (durchgehend)", "at": [-16, 0, -16], "size": [32, 1, 32], "mode": "paint", "color": {"frame": {"role": "leit", "emit": 1.2}, "fill": {"stripes": ["wood", "wood", {"shade": "wood_dark", "f": 0.85}], "axis": "z", "period": 1}, "axes": "z", "width": 1}, "jitter": false},
+    {"op": "box", "name": "Leitring Deck z (durchgehend)", "at": [-16, 0, -15], "size": [32, 1, 30], "mode": "paint", "color": {"frame": {"role": "leit", "emit": 1.2}, "fill": {"stripes": ["wood", "wood", {"shade": "wood_dark", "f": 0.85}], "axis": "z", "period": 1}, "axes": "x", "width": 1}, "jitter": false},
+    {"op": "wedge", "name": "Bordwand (Klinker, schräg)", "at": [-16, 1, -16], "size": [32, 50, 11], "slope": "+z", "color": {"stripes": ["wood", "wood", {"shade": "trim", "f": 0.8}, {"shade": "wood_dark", "f": 0.7}], "axis": "y", "period": 1}},
+    {"op": "wedge", "name": "Spant", "at": [-16, 1, -16], "size": [2, 50, 9], "slope": "+z", "color": "metal_dark", "repeat": {"count": 4, "step": [10, 0, 0]}},
+    {"op": "box", "name": "Spant rechts", "at": [14, 1, -16], "size": [2, 50, 3], "color": "metal_dark"},
+    {"op": "group", "name": "Riemenpforte mit Rohr", "repeat": {"count": 3, "step": [10, 0, 0], "var": "k"}, "at": [-10, 0, 0], "ops": [
+      {"op": "cyl", "name": "Pforte", "axis": "z", "at": [0, 11, -16], "r": 2.5, "h": 7, "mode": "carve"},
+      {"op": "cyl", "name": "Pforte schwarz", "axis": "z", "at": [0, 11, -16], "r": 2.5, "h": 1, "color": "black", "jitter": false},
+      {"op": "cyl", "name": "Pfortenring", "axis": "z", "at": [0, 11, -12], "r": 3.2, "h": 1, "hollow": 1, "color": "metal_light"},
+      {"op": "cyl", "name": "Rohr", "axis": "z", "at": [0, 11, -15], "r": 1.6, "h": 15, "color": "metal_dark"},
+      {"op": "cyl", "name": "Rohrring", "axis": "z", "at": [0, 11, -8], "r": 2, "h": 1, "hollow": 1, "color": "metal_light", "repeat": {"count": 2, "step": [0, 0, 4]}},
+      {"op": "box", "name": "Verschluss", "at": [-2, 8, 0], "size": [4, 6, 3], "color": {"frame": "metal_light", "fill": "metal", "axes": "xy"}},
+      {"op": "box", "name": "Ladelicht", "at": [-1, 14, 1], "size": [2, 1, 1], "color": {"shade": "glow", "f": "ladung ? 1 : 0.3"}, "emit": "ladung ? 1.0 : 0", "jitter": false},
+      {"op": "box", "name": "Lafette", "at": [-2, 1, -3], "size": [4, 7, 5], "color": "metal"},
+      {"op": "line", "name": "Riemengriff", "from": [0, 11, 3], "to": [0, 7, 7], "r": 0.7, "color": "leather"}
+    ] },
+    {"op": "box", "name": "Reling", "at": [-16, 34, -14], "size": [32, 1, 2], "color": "metal_light"},
+    {"op": "group", "name": "Schild Waid (cloth)", "repeat": {"count": 2, "step": [14, 0, 0]}, "at": [-10.5, 0, 0], "ops": [
+      {"op": "cyl", "name": "Schild", "axis": "z", "at": [0, 40, -11], "r": 5, "h": 1, "color": {"stripes": ["wood", "cloth"], "axis": "x", "period": 4}},
+      {"op": "cyl", "name": "Schildrand", "axis": "z", "at": [0, 40, -11], "r": 5, "h": 1, "hollow": 1, "color": "metal"},
+      {"op": "ellipsoid", "name": "Buckel", "at": [0, 40, -10], "r": [1.8, 1.8, 1.4], "half": "+z", "color": "metal_light"}
+    ] },
+    {"op": "group", "name": "Schild Bein", "repeat": {"count": 2, "step": [14, 0, 0]}, "at": [-3.5, 0, 0], "ops": [
+      {"op": "cyl", "name": "Schild", "axis": "z", "at": [0, 40, -11], "r": 5, "h": 1, "color": {"stripes": ["wood", "cloth2"], "axis": "y", "period": 4}},
+      {"op": "cyl", "name": "Schildrand", "axis": "z", "at": [0, 40, -11], "r": 5, "h": 1, "hollow": 1, "color": "metal"},
+      {"op": "ellipsoid", "name": "Buckel", "at": [0, 40, -10], "r": [1.8, 1.8, 1.4], "half": "+z", "color": "metal_light"}
+    ] },
+    {"op": "box", "name": "Dollbord-Balken", "at": [-16, 51, -16], "size": [32, 2, 5], "color": "metal_dark"},
+    {"op": "box", "name": "Leitlicht Dollbord", "at": [-16, 52, -13], "size": [32, 1, 1], "mode": "paint", "color": {"role": "leit", "emit": 1.2}, "jitter": false},
+    {"op": "line", "name": "Stevenlocke", "from": [-15, 53, -15], "to": [-13, 55, -12], "r": 0.8, "color": "trim", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Lichtleiste", "at": [-14, 31, -12], "size": [28, 1, 1], "color": {"shade": "glow", "f": 0.9}, "emit": 0.8, "if": "!alarm", "jitter": false},
+    {"op": "box", "name": "Lichtleiste Alarm", "at": [-14, 31, -12], "size": [28, 1, 1], "color": {"role": "alarm", "emit": 1.2}, "if": "alarm", "jitter": false},
+    {"op": "box", "name": "Ruderbank", "at": [-15, 4, 6], "size": [30, 2, 4], "color": {"stripes": ["wood", "wood", "wood_dark"], "axis": "z", "period": 1}},
+    {"op": "box", "name": "Bankbeine", "at": [-14, 1, 7], "size": [2, 3, 2], "color": "wood_dark", "repeat": {"count": 4, "step": [9, 0, 0]}},
+    {"op": "ellipsoid", "name": "Bankende Schnecke", "at": [-14, 5, 8], "r": [1.5, 2.5, 2.5], "color": "wood_dark", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Munitionstruhe", "at": [-3, 1, 11], "size": [6, 6, 4], "color": {"frame": "metal", "fill": "wood", "axes": "xy"}},
+    {"op": "use", "name": "Runenband Truhe", "model": "prop/germanen/schiff/teil/runenband", "params": {"len": 1, "an": "ladung"}, "at": [-2, 1, 15]},
+    {"op": "cyl", "name": "Granaten", "at": [-9, 1, 13], "r": 1, "h": 3, "color": "trim", "repeat": {"count": 3, "step": [2, 0, 0]}},
+    {"op": "box", "name": "Granatgestell", "at": [-10, 1, 12], "size": [7, 1, 2], "color": "metal_dark"}
+  ],
+  "sockets": {"use": [0, 0, 0.6], "fx_smoke": [0, 0.7, -0.3], "fx_spark": [0.6, 0.7, 0], "light": [0, 2, -0.7], "label": [0, 3.6, 0]},
+  "anchor": [0, 0, 0]
+}

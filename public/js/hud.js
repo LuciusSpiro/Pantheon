@@ -38,6 +38,12 @@
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Taktik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
+  // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
+  const WAFFE_KURZ = { schrottblaster: 'Schrottbl.', sturmgewehr: 'Gewehr', granatwerfer: 'Granaten', betaeuber: 'Betäuber', nahkampf: 'Klinge' };
+  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Faust', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
+  // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
+  function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
+  const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
   const STATE_COL = { ok: PAL.moss, damaged: PAL.warn, broken: PAL.red, offline: '#9A7AE0' };
   STATE_NAMES.offline = 'offline (EMP)';
 
@@ -263,6 +269,7 @@
       pips(cur[1] || 0, x + 3, y + 13, false, 1);  // Steuerbord unten
     },
 
+    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
@@ -288,10 +295,30 @@
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
       R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
       R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
+      this.drawJumpLine(ctx, view, 63);
       // Mini-Schiffsplan unten rechts
       const map = Maps.ship;
       R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'ship', cell: 3 });
       this.drawEdgeArrows(ctx, view);
+    },
+
+    // B3: Sprungstatus unter dem Raumnamen (Ziel, Abstand zum Sprungpunkt ship.jump.d, bereit). -> Höhe der Zeile (0 = keine)
+    jumpLineH: 0,
+    drawJumpLine(ctx, view, y) {
+      const st = view.state, j = (st.ship && st.ship.jump) || {};
+      this.jumpLineH = 0;
+      if (!j.dest || st.phase === 'lobby') return 0;
+      const r = (CFG.sektoren && CFG.sektoren.sprungpunktRadius) || 250;
+      let txt, col;
+      if (j.ready) { txt = 'SPRUNG BEREIT → ' + R.locName(st, j.dest); col = PAL.mint; }
+      else if (j.d != null && j.blockedReason && /^Sprungpunkt/.test(j.blockedReason)) { txt = 'SPRUNGPUNKT ' + R.locName(st, j.dest) + ': ' + j.d + ' m'; col = PAL.amber; }
+      else if (j.d != null && j.d <= r) { txt = 'AM SPRUNGPUNKT → ' + R.locName(st, j.dest); col = PAL.mint; }
+      else { txt = 'SPRUNG → ' + R.locName(st, j.dest) + (j.charge > 0 && !j.blockedReason ? ' · lädt ' + Math.round(j.charge * 100) + ' %' : ''); col = PAL.star; }
+      const w = R.measure(txt, 1) + 8;
+      R.backdrop(ctx, VW - 2 - w, y - 1, w, 11, 0.62);
+      R.text(ctx, txt, VW - 6, y, { color: col, align: 'right' });
+      this.jumpLineH = 12;
+      return 12;
     },
 
     // M1: Reaktor überladen / offline – Anzeige und Neustart-Hinweise (§6)
@@ -299,7 +326,7 @@
       const st = view.state;
       const r = (st.ship && st.ship.reactor) || {};
       const onShip = view.self.zone === 'ship';
-      const x = VW - 232, y = onShip ? 66 : 50, w = 228;
+      const x = VW - 232, y = (onShip ? 66 : 50) + (onShip ? this.jumpLineH : 0), w = 228;
       if (r.state === 'overload') {
         const left = +r.overloadLeft || 0;
         const warn = left <= 30;
@@ -363,10 +390,11 @@
       }
       if (away.sensorUntil && st.time < away.sensorUntil) R.text(ctx, (R.isV2(st) ? 'Sensor: Gegner sichtbar ' : 'Sensor: Drohnen sichtbar ') + Math.ceil(away.sensorUntil - st.time) + ' s', 8, topY - 6, { color: PAL.amber });
       const map = R.mapFor('away', st);
-      R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'away', cell: 3 });
+      const mc = map.w > 48 || map.h > 30 ? 2 : 3;   // B1: große gebaute Karten kleiner
+      R.drawMiniPlan(ctx, view, VW - map.w * mc - 6, VH - map.h * mc - 6, { zone: 'away', cell: mc });
       // M1: Wrack-Hinweise (Bergung, Hohlraum) und Plan-Pins dieser Karte
       const pins = ((st.plan && st.plan.pins) || []).filter(p => p.map === map.id);
-      let hy = VH - map.h * 3 - 20;
+      let hy = VH - map.h * mc - 20;
       if (map.id === 'wreck') {
         const sal = away.salvage || [];
         const hv = away.hollow;
@@ -388,6 +416,34 @@
         hy = VH - map.h * 3 - 12 - lines.length * 10;
         R.backdrop(ctx, VW - 196, hy - 2, 192, lines.length * 10 + 4, 0.7);
         lines.forEach((l, i) => R.text(ctx, l[0], VW - 192, hy + i * 10, { color: l[1] }));
+      } else if (R.isBuehne(map)) {
+        // B1: gebaute Karte – Alarm, Countdown der Ladung (away.cd), offene Anker
+        const lines = [];
+        if (away.al) lines.push(['ALARM – Besatzung gewarnt', Math.floor(view.time * 2) % 2 ? PAL.red : '#FF8A7A']);
+        if (away.cd) {
+          const a = map.anker && map.anker[away.cd.i];
+          lines.push(['LADUNG SCHARF · ' + Math.ceil(+away.cd.t || 0) + ' s', Math.floor(view.time * 4) % 2 ? PAL.red : PAL.amber]);
+          // gut sichtbarer Countdown oben mittig (away.cd { i, t })
+          const txt = 'LADUNG SCHARF ' + Math.ceil(+away.cd.t || 0) + ' s';
+          const w = R.measure(txt, 2) + 16;
+          R.backdrop(ctx, Math.round(VW / 2 - w / 2), 4, w, 22, 0.8);
+          R.text(ctx, txt, VW / 2, 8, { color: Math.floor(view.time * 4) % 2 ? PAL.red : PAL.amber, align: 'center', scale: 2 });
+        }
+        const cnt = {};
+        (map.anker || []).forEach((a, i) => {
+          if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle'].indexOf(a[1]) < 0) return;
+          const z = R.ankerZustand(map, st, i);
+          const c = cnt[a[1]] || (cnt[a[1]] = [0, 0]); c[1]++;
+          if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen'].indexOf(z) >= 0) c[0]++;
+          if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
+        });
+        for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
+        if (pins.length) lines.push(['Plan-Pins: ' + pins.length, PAL.panelLight]);
+        if (lines.length) {
+          hy = VH - map.h * mc - 12 - lines.length * 10;
+          R.backdrop(ctx, VW - 196, hy - 2, 192, lines.length * 10 + 4, 0.7);
+          lines.forEach((l, i) => R.text(ctx, l[0], VW - 192, hy + i * 10, { color: l[1] }));
+        }
       } else if (pins.length) {
         R.backdrop(ctx, VW - 130, hy - 2, 126, 12, 0.7);
         R.text(ctx, 'Plan-Pins: ' + pins.length + ' (Tisch)', VW - 126, hy, { color: PAL.panelLight });
@@ -407,13 +463,21 @@
       const sh = me.sh || [0, 3];
       const team = (st.players || []).filter(p => p.id !== me.id && p.zone === 'away' && p.connected !== false);
       const crouched = !!me.cr && !me.downed;   // §15
-      const h = 44 + team.length * 11 + (crouched ? 11 : 0);
+      const waffeZeile = me.wf != null;   // B2: Waffe mit Hitze (Snapshot wf/ht/ov/ch/wu)
+      const zsZeile = !!(me.bt || (me.zs && me.zs !== 'ok' && me.zs !== 'verwundet'));
+      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (zsZeile ? 11 : 0);
       const y0 = VH - h - 4;
       R.backdrop(ctx, 4, y0, 170, h, 0.68);   // schmal genug, dass die ODA-Box (unten mittig) nichts verdeckt
       // Schild
       R.text(ctx, 'SCHILD', 8, y0 + 5, { color: R.SHIELD_COL });
       R.drawShieldPips(ctx, 46, y0 + 3, sh[0], sh[1], me.downed ? 0 : (+me.shR || 0), 12, 3);
-      const mx = 46 + sh[1] * 15 + 8;
+      // B2: Wunden-Pip im Raster der Schildsegmente (Spieler: 1 Wunde; fällt = 0)
+      let wx = 46 + sh[1] * 15;
+      if (waffeZeile && window.IconsB && typeof IconsB.wundenPips === 'function') {
+        const wm = Math.max(1, +me.wm || 1), wn = me.downed || (me.zs && me.zs !== 'ok') ? 0 : (me.wn != null ? +me.wn : wm);
+        wx += 2 + IconsB.wundenPips(ctx, wx + 2, y0 + 3, wn, wm, 12, 3);
+      }
+      const mx = wx + 8;
       // Medipack-Symbol
       if (me.medkit) {
         if (!R.art('drawItem', 'drawItem:medipack', [ctx, 'medipack', mx + 6, y0 + 9, { time: t }])) {
@@ -427,6 +491,13 @@
       }
       // Deckung / Flanke bzw. Verwundet
       let y = y0 + 20;
+      if (waffeZeile) { this.drawWaffeZeile(ctx, view, 8, y); y += 12; }
+      if (zsZeile) {
+        const id = me.bt ? 'betaeubt' : me.zs;
+        R.statusIcon(ctx, id, 14, y + 3);
+        R.text(ctx, ZS_TEXT[id] || id, 24, y, { color: PAL.warn });
+        y += 11;
+      }
       if (me.downed) {
         const b = me.bleed != null ? fmtTime(Math.ceil(me.bleed)) : '–';
         R.text(ctx, 'VERWUNDET · Rückholung in ' + b, 8, y, { color: Math.floor(t * 2) % 2 ? PAL.red : '#FF8A7A' });
@@ -455,14 +526,36 @@
         R.shape(ctx, R.SHAPES[p.color || 0], 12, y + 4, 7, col);
         R.text(ctx, String(p.name || '?').slice(0, 9), 19, y, { color: col });
         const ps = Array.isArray(p.sh) ? p.sh : null;
-        if (p.downed) R.text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.ceil(p.bleed) + ' s' : ''), 82, y, { color: PAL.red });
+        if (p.zs && p.zs !== 'ok' && p.zs !== 'verwundet') { R.statusIcon(ctx, p.zs, 88, y + 4); R.text(ctx, (ZS_TEXT[p.zs] || p.zs).split(' ')[0], 96, y, { color: PAL.warn }); }
+        else if (p.downed) R.text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.ceil(p.bleed) + ' s' : ''), 82, y, { color: PAL.red });
         else if (ps) R.drawShieldPips(ctx, 82, y + 1, ps[0], ps[1], +p.shR || 0, 7, 2);
         if (p.medkit && !p.downed) { ctx.fillStyle = PAL.star; ctx.fillRect(ps ? 82 + ps[1] * 9 + 4 : 150, y + 1, 7, 7); ctx.fillStyle = PAL.red; ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 3, y + 2, 1, 5); ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 1, y + 4, 5, 1); }
         y += 11;
       }
-      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick Blaster · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
+      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick ' + (WAFFE_NAME[me.wf] || 'Blaster') + ' · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
+    },
+    // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
+    drawWaffeZeile(ctx, view, x, y) {
+      const me = view.me, IB = window.IconsB;
+      const wf = me.wf || 'blaster';
+      const wi = waffeIcon(wf);
+      if (!(IB && IB.draw && IB.has && IB.has('waffe', wi) && IB.draw(ctx, 'waffe', wi, x + 6, y + 4, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(x, y, 10, 8); }
+      R.text(ctx, WAFFE_KURZ[wf] || WAFFE_NAME[wf] || wf, x + 15, y, { color: PAL.star });
+      const bx = x + 68, bw = 54;
+      const ht = Math.max(0, Math.min(100, +me.ht || 0)) / 100;
+      const ov = !!me.ov;
+      const ibOk = !!(IB && typeof IB.hitzebalken === 'function' && IB.hitzebalken(ctx, bx, y + 1, bw, 6, ht, { ueberhitzt: ov, t: view.time }) !== false);
+      if (!ibOk) {
+        ctx.fillStyle = '#1A2230'; ctx.fillRect(bx, y + 1, bw, 6);
+        ctx.fillStyle = ov ? PAL.red : ht > 0.7 ? '#FF8A4C' : PAL.amber; ctx.fillRect(bx, y + 1, Math.round(bw * ht), 6);
+      }
+      // Zustand rechts neben dem Balken (kurz): überhitzt, Lanze lädt, Ausholen
+      const tx = bx + bw + (ibOk && ov ? 12 : 4);   // IconsB setzt beim Überhitzen eine Flamme rechts an den Balken
+      if (ov) R.text(ctx, 'HEISS', tx, y, { color: Math.floor(view.time * 4) % 2 ? PAL.red : PAL.star });
+      else if (+me.ch > 0) R.text(ctx, Math.round(+me.ch) + '%', tx, y, { color: '#FFF1B8' });
+      else if (+me.wu > 0) R.text(ctx, 'HOLT', tx, y, { color: '#FFF1B8' });
     },
     drawDownedBanner(ctx, view) {
       const me = view.me, t = view.time;

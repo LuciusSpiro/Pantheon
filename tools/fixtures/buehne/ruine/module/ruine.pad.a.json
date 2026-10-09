@@ -1,0 +1,4 @@
+{ "format": "modul/1", "id": "ruine.pad.a", "art": "ruine", "typ": "pad", "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows":   ["........", "........", "........", "...P....", "........", "........", ".o....o.", "........"],
+  "anker":  ["........", "........", "........", "...a....", "........", "........", "........", "........"],
+  "anker_legende": { "a": { "rolle": "abholpunkt" } } }

@@ -1,0 +1,31 @@
+{
+  "id": "ruin_rom",
+  "name": "Ruine Rom (Grenzkastell, verfallen): späte Dämmerung, tiefe, aber nur leicht warme Sonne, kühler Lavendelhimmel als Gegenlicht (Lesbarkeit von oben)",
+  "background": "#3A3A4E",
+  "fog": {
+    "color": "#4E4E62",
+    "near": 2.2,
+    "far": 6
+  },
+  "hemi": {
+    "sky": "#A4AACC",
+    "ground": "#4A4640",
+    "intensity": 1.25
+  },
+  "sun": {
+    "color": "#FFE2C8",
+    "intensity": 2.6,
+    "dir": [
+      -0.7,
+      0.85,
+      0.35
+    ],
+    "softness": 3
+  },
+  "exposure": 1.05,
+  "bloom": {
+    "strength": 0.5,
+    "radius": 0.5,
+    "threshold": 0.85
+  }
+}

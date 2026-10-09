@@ -1,0 +1,33 @@
+{
+  "id": "kit/germanen/schiff/boden_belag",
+  "name": "Schiff – boden_belag (belag_deck): Schiffsdeck (0 Deckplanken, 1 Gitterrost mit Kaltlicht, 2 Eisen-Laufsteg, 3 Schmuckplanken mit Knochenrand)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": ["germanen", "schiff", "slot"],
+  "notes": "ART-SCHIFF, Steckplatz belag_deck (Gerüst-Slot boden_belag). Ruhig für die Fläche (Bodenbudget 150). 0 Deckplanken längs x (zum Bug) mit dunkler Fuge, 1 Gitterrost über seltenem Kaltlicht, 2 Eisen-Laufsteg mit Nietrand (Maschinenräume), 3 Schmuckplanken mit Knochenrand und einem gedämpften Leiterbahn-Punkt (Brücke). Zustand dunkelt ab, umkämpft Rußfleck.",
+  "jitter": 0,
+  "params": {
+    "w": { "default": 4, "min": 1, "max": 16, "step": 1, "label": "Breite (Voxel)" },
+    "h": { "default": 1, "min": 1, "max": 16, "step": 1, "label": "Höhe (Voxel)" },
+    "d": { "default": 4, "min": 1, "max": 4, "step": 1, "label": "Tiefe (Voxel)" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft" },
+    "belag": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "0 Planken · 1 Gitter · 2 Laufsteg · 3 Schmuck" }
+  },
+  "let": { "dk": "1 - zustand * 0.1" },
+  "variants": { "gitter": { "belag": 1 }, "gitter_licht": { "belag": 1, "seed": 2 }, "laufsteg": { "belag": 2 }, "schmuck": { "belag": 3 }, "umkaempft": { "zustand": 2, "seed": 1 } },
+  "ops": [
+    { "name": "Deckplanken", "if": "belag == 0", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "stripes": [{ "shade": "wood", "f": "dk" }, { "shade": "wood", "f": "0.88 * dk" }], "axis": "z", "period": 2 } },
+    { "name": "Planken Fuge", "if": "belag == 0", "op": "box", "at": [0, "h - 1", 0], "size": ["w", 1, 1], "mode": "paint", "color": { "shade": "wood_dark", "f": "dk" } },
+
+    { "name": "Gitterrost", "if": "belag == 1", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "checker": [{ "shade": "metal_dark", "f": "0.9 * dk" }, { "shade": "metal", "f": "dk" }], "period": 1 } },
+    { "name": "Kaltlicht unter dem Rost", "if": "belag == 1 && zustand == 0 && hash(seed, 5) < 0.25 && w >= 4 && d >= 4", "op": "box", "at": [2, "h - 1", 1], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "glow", "f": 0.6, "emit": 0.5 } },
+
+    { "name": "Laufsteg", "if": "belag == 2", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "frame": { "shade": "metal_light", "f": "0.85 * dk" }, "fill": { "shade": "metal", "f": "dk" }, "axes": "z", "width": 1 } },
+
+    { "name": "Schmuckplanken", "if": "belag == 3", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": { "frame": { "shade": "trim", "f": "0.75 * dk" }, "fill": { "shade": "wood_dark", "f": "1.1 * dk" }, "axes": "xz", "width": 1 } },
+    { "name": "Schmuck Leiterbahn-Punkt", "if": "belag == 3 && zustand < 2 && w >= 3 && d >= 3", "op": "box", "at": [1, "h - 1", 2], "size": [1, 1, 1], "mode": "paint", "color": { "shade": "rune", "f": 0.7, "emit": 0.5 } },
+
+    { "name": "Rußfleck (umkämpft)", "if": "zustand == 2 && hash(seed, 8) < 0.5 && w >= 3 && d >= 3", "op": "box", "at": [1, "h - 1", 1], "size": [2, 1, 2], "mode": "paint", "color": { "shade": "dark", "f": 1.2 } }
+  ],
+  "anchor": [0, 0, 0]
+}

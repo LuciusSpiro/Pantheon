@@ -1,0 +1,189 @@
+{
+ "id": "kit/germanen/gemein/fenster_rahmen",
+ "name": "Germanen gemein – fenster_rahmen (rahmen): Brüstung Granit (teil 0) bzw. Eichensturz mit dunkler Krone (teil 1)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "teil": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 Schwelle/Brüstung · 1 Sturz"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "sturz": {
+   "teil": 1,
+   "h": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Brüstung",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "stone_dark",
+      "f": "dk"
+     },
+     {
+      "shade": "stone_dark",
+      "f": "0.85 * dk"
+     }
+    ],
+    "axis": "x",
+    "period": 2
+   },
+   "if": "teil == 0"
+  },
+  {
+   "name": "Fensterbank",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "stone",
+    "f": "0.95 * dk"
+   },
+   "mode": "paint",
+   "if": "teil == 0"
+  },
+  {
+   "name": "Sturz",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "wood_dark",
+    "f": "dk"
+   },
+   "if": "teil == 1"
+  },
+  {
+   "name": "Krone dunkel",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "0.7 * dk"
+   },
+   "mode": "paint",
+   "if": "teil == 1"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "stone_dark",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "stone_dark",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

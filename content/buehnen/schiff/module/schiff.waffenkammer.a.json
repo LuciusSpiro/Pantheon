@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.waffenkammer.a",
+  "art": "schiff",
+  "typ": "waffenkammer",
+  "groesse": [8, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Zwei-Mann-Regel: Schlösser (raetsel, Paar A) an gegenüberliegenden Wänden, Waffenregale als Deckung.",
+  "rows": [
+    "########",
+    "#.....o#",
+    "#o.....#",
+    "#.OO.OO#",
+    "#......#",
+    "#..o...#",
+    "...O....",
+    "#......#",
+    "#OO.OO.#",
+    "#.....o#",
+    "#......#",
+    "#o.....#",
+    "########"
+  ],
+  "anker": [
+    "........",
+    "...r....",
+    "........",
+    "........",
+    "........",
+    ".q......",
+    ".....p..",
+    "........",
+    "........",
+    "........",
+    ".b......",
+    ".....r..",
+    "........"
+  ],
+  "anker_legende": {
+    "r": {
+      "rolle": "raetsel",
+      "paar": "A"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": []
+}

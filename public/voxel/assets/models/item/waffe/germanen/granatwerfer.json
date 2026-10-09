@@ -1,0 +1,59 @@
+{
+  "id": "item/waffe/germanen/granatwerfer",
+  "name": "Donnerrohr – Anbau germanen für item/waffe/granatwerfer",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["waffe", "anbau-teil", "germanen"],
+  "notes": "Steckplatz-Teil (Bauweise germanen) des Gerüsts item/waffe/granatwerfer. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Donnerrohr",
+      "op": "group",
+      "at": [-1, -11, 2.5],
+      "ops": [
+        {
+          "name": "Rohr Holz",
+          "op": "cyl",
+          "at": [1, 1, 2],
+          "r": 2.5,
+          "h": 7,
+          "axis": "y",
+          "color": "wood_dark",
+          "hollow": 1
+        },
+        {
+          "name": "Reifen vorn",
+          "op": "cyl",
+          "at": [1, 1, 2],
+          "r": 2.5,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_light",
+          "hollow": 1
+        },
+        {
+          "name": "Reifen hinten",
+          "op": "cyl",
+          "at": [1, 7, 2],
+          "r": 2.5,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_light",
+          "hollow": 1
+        },
+        {
+          "name": "Trommel Leder",
+          "op": "cyl",
+          "at": [1, 8, 1.5],
+          "r": 2.5,
+          "h": 3,
+          "axis": "y",
+          "color": { "stripes": ["leather", "trim"], "axis": "y", "period": 1 }
+        },
+        { "name": "Schaft Holz", "op": "box", "at": [0, 11, 0], "size": [2, 2, 4], "color": "wood" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

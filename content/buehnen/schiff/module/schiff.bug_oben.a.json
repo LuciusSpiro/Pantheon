@@ -1,0 +1,63 @@
+{
+  "format": "modul/1",
+  "id": "schiff.bug_oben.a",
+  "art": "schiff",
+  "typ": "bug_oben",
+  "groesse": [6, 13],
+  "deck": 2,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Schildgenerator-Block (sprengpunkt an der Flanke, Steuerung ziel davor), Leiter über der Brückenleiter.",
+  "rows": [
+    "#####_",
+    "#...##",
+    "#.o..#",
+    "#.OO.#",
+    "#.OO.#",
+    "#....#",
+    ".....#",
+    "#.o..#",
+    "#....#",
+    "#o...#",
+    "#...o#",
+    "##...#",
+    "#####_"
+  ],
+  "anker": [
+    "......",
+    "......",
+    "......",
+    "......",
+    ".s....",
+    "..g...",
+    "......",
+    "....q.",
+    ".p....",
+    "......",
+    "..h...",
+    "......",
+    "......"
+  ],
+  "anker_legende": {
+    "s": {
+      "rolle": "sprengpunkt"
+    },
+    "g": {
+      "rolle": "ziel"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "h": {
+      "rolle": "leiter",
+      "deck": 2
+    }
+  },
+  "belegungen": []
+}

@@ -1,11 +1,21 @@
 // Kleiner, sicherer Ausdrucksauswerter für Rezept-Parameter.
 // Erlaubt: Zahlen, Parameternamen, + - * / % ( ), Vergleiche (< <= > >= == !=), && || !,
-// Bedingung a ? b : c und die Funktionen min max floor ceil round abs sqrt sin cos.
-// Beispiel: "h - 2", "floor(w / 2)", "damage > 0.5", "side == 1 ? 3 : 0"
+// Bedingung a ? b : c und die Funktionen min max floor ceil round abs sqrt sin cos hash.
+// Beispiel: "h - 2", "floor(w / 2)", "damage > 0.5", "side == 1 ? 3 : 0", "hash(seed, i) < 0.3"
+
+/**
+ * hash(a[, b[, c[, d]]]) → Zahl in [0, 1), stabil. Argumente werden abgerundet (ganze Zahlen).
+ * Gleiche Mischung wie hash3 in color.js: hash(x, y, z, seed) == hash3(x, y, z, seed).
+ */
+function hash(a = 0, b = 0, c = 0, d = 0) {
+  let h = (Math.imul(Math.floor(a), 374761393) + Math.imul(Math.floor(b), 668265263) + Math.imul(Math.floor(c), 1440662683) + Math.imul(Math.floor(d), 2246822519)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
 
 const FUNCS = {
   min: Math.min, max: Math.max, floor: Math.floor, ceil: Math.ceil, round: Math.round,
-  abs: Math.abs, sqrt: Math.sqrt, sin: Math.sin, cos: Math.cos,
+  abs: Math.abs, sqrt: Math.sqrt, sin: Math.sin, cos: Math.cos, hash,
 };
 const TOKEN = /\s*(?:(\d+\.?\d*|\.\d+)|([A-Za-z_][A-Za-z0-9_]*)|(<=|>=|==|!=|&&|\|\||[-+*/%()<>!?:,]))/y;
 

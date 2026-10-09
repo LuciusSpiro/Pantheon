@@ -6,7 +6,103 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return {
-    VERSION: 6,   // S2 „Spielleiter an der Missionsgrenze“ (5 = S1 „Regiebuch & Weltstand“, 4 = M4 Stufe 1 „Zwei Decks“)
+    VERSION: 7,   // B1–B3 „Bühnen & Bodenkampf“ (6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
+    // ---- B1 (CONTRACT-B1 §9): Bühnen – gebaute Außenkarten, Landepunkte, Anker ----
+    // Ereignis awayMap { id, erzeuger, art, bauweise, besitz, zustand, w, h, rows, anker: [[id, rolle, x, y, attr?]], bereiche,
+    //   decks, kv } – kompilierte Karte (≤ 10 KB laut Nachtrag), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen
+    //   Spieler bzw. per Anfrage; nie im Snapshot. Der Client registriert sie in Shared_Maps (würfelt nie selbst).
+    // cmd { c: 'awayMap.get', id } – ohne Konsole; Client fehlt die Karte oder kv passt nicht.
+    // cmd { c: 'transfer.ziel', landepunkt } – Transfer-Konsole: Landepunkt (lpId) am Ort für den nächsten Transfer wählen.
+    // Snapshot away: map (= lpId), kv (Kartenversion), ao [[ankerIdx, zustandIdx]] und ko [[kantenIdx, zustandIdx]] (nur
+    //   Abweichungen vom Start; Indizes in awayMap.anker bzw. Kanten-Reihenfolge, Zustände nach anker.json/kacheln.json),
+    //   al (Alarm 0/1), cd { i, t } (laufender Countdown, sonst fehlt das Feld). Handkarten: map = platform|wreck|kesh wie bisher.
+    // Snapshot transfer (Nachtrag, Transfer-Konsole): { lp: [[lpId, name, art, frei 0|1, grund|null, inReichweite 0|1]], ziel: lpId|null }
+    //   aus landepunkte.liste(game, ort); nur wenn der Ort Landepunkte hat (Handkarten zählen mit), nur bei Änderung bzw. alle
+    //   15 Snapshots (wie world.locations); ziel = per transfer.ziel gewählter Landepunkt.
+    // Snapshot space.enemies[].st: 'treibt' (kampfunfähiges Feindschiff, CONTRACT-B1 §7; sonst fehlt das Feld).
+    // Ereignisse: ankerZustand { map, anker, zustand, rolle?, pid? }, downloadAbbruch { anker }, ladungScharf { anker, t },
+    //   ladungExplodiert { anker }, landepunktAlarm { map, an } (Entscheidung Studioleitung: `alarm` bleibt der Schiffsalarm
+    //   { level }), enternFrei { id }.
+    // awayMap.kanten: [[kantenId, [[x, y], …], startZustandIdx]] sortiert nach kantenId (Quelle karte.kanten); diese Reihenfolge
+    //   ist der kantenIdx im Snapshot ko. awayMap.anker-Reihenfolge = ankerIdx im Snapshot ao.
+    // awayMap.plaetze: [[platzId, typ, x, y, w, h]] in Kacheln (aus karte.plaetze, nach platzId sortiert).
+    // awayMap.anker attr (optional, nur gesetzte): art, paar, kette, schwer, ankunft, deck, kern; bei Rolle 'leit' zusätzlich
+    //   fuss [x0, y0, w, h] (Grundfläche des Leitstücks in Kartenkacheln, nach Spiegeln/Drehen) und modell (Asset-ID), sofern die
+    //   Bauweise eine Grundfläche kennt (leit_fuss); sonst fehlen beide (VOXEL: Platzmitte bzw. Anker).
+    // Statische Daten für den Kit-Renderer: GET /content/buehnen/<pfad>.json (nur .json, nur lesen, kein Listing) – kacheln.json,
+    //   bauweisen/<bw>.json, paletten/<besitz>.json, deko/<bw>.json.
+    // Debug: buehne <art> <seed> [bauweise besitz zustand] | anker <id> <zustand> | lp list | lp neu <ort> <art>.
+    // Debug für QA (QA_DEBUG, nur --debug; { c: 'debug', cmd, args: 'text' }):
+    //   sprungpunkt auf <hex|ort> [temp] | sprungpunkt zu <hex|ort|kantenId>   (Kante vom Hex des aktuellen Orts)
+    //   ladung [ankerId] [sek]   Sprengpunkt der aktuellen gebauten Karte scharf (Countdown im Snapshot away.cd)
+    //   prise [kind]             Feindschiff am Ort, sofort kampfunfähig -> Landepunkt <ort>.prise (nicht im Tutorial)
+    // Ankunft an einem Ort: der Server baut die freien Landepunkte des Orts nach dem Tick vor (landepunkte.vorbauenOrt).
+    // Direktstart Testgelände Außenteam (§4): lobbyOpt { startMission: 'arena_away', arena: ARENA_AWAY_FIELDS } bzw. URL
+    //   ?arena=away&art=ruine&seed=3&bauweise=rom&besitz=herrenlos&zustand=verfallen. Ohne Parameter wie bisher (Kesh).
+    EVT_AWAY_MAP: 'awayMap',
+    AWAY_MAP_FIELDS: ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv'],
+    CONTENT_BUEHNEN_PREFIX: '/content/buehnen/',
+    AWAY_MAP_MAX_BYTES: 10240,   // Entscheidung Studioleitung: bis 10 KB (Vertrag ursprünglich 8 KB)
+    CMD_AWAY_MAP_GET: 'awayMap.get',
+    CMD_TRANSFER_ZIEL: 'transfer.ziel',
+    AWAY_SNAP_B1: ['map', 'kv', 'ao', 'ko', 'al', 'cd'],
+    SPACE_ENEMY_ST: ['treibt'],
+    TRANSFER_SNAP_FIELDS: ['lpId', 'name', 'art', 'frei', 'grund', 'inReichweite'],
+    KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'hand'],
+    ARENA_AWAY_FIELDS: ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'],
+    B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei'],
+    B1_DEBUG: ['buehne', 'anker', 'lp'],
+    QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
+    // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----
+    // cmd { c: 'loadout.waffe', waffe: WAFFEN_WAHL } – an der Transfer-Konsole (nicht unten); gespeichert je Spieler über den
+    //   Hash der Browser-Kennung (Weltstand crew.waffen), nie über Namen.
+    // Halte-Interaktionen über den bestehenden Hold-Mechanismus (act), Kinds HOLD_KINDS_B2.
+    // Snapshot players[]: PLAYER_SNAP_B2 – wf (Waffe), ht (Hitze 0–100), ov (1 = überhitzt), ch (Laden 0–100), wu (Ausholen 0–100),
+    //   zs (KOERPER_ZUSTAENDE ohne 'aus'), bt (1 = betäubt). Nur gesetzte Felder (Budget). Außenzone: alle Felder (v2-Karten).
+    //   An Bord (zone 'ship'): nur wf = gewählte Waffe (gespeicherte Wahl, sonst 'blaster'); fehlt bei WAFFEN=aus.
+    // Snapshot away.drones[]: DRONE_SNAP_B2 – ro (Rolle), fr (Fraktion), pa (Palette), wf, ch, wu, zs (inkl. 'aus'), bt, wn (Wunden),
+    //   wm (Wunden max), gr { x, y, t } (Zielkreis beim Zielen, höchstens 2 s nach Zielbeginn): x, y = Zielpunkt in px;
+    //   t = Spielzeit des Zielbeginns in s (dieselbe Uhr wie snap.time), KEIN Fortschritt 0–1. Fortschritt für die Anzeige:
+    //   drones[].aim.p (0–1, Zielen bis zum Schuss) oder clamp((snap.time − gr.t) / 2, 0, 1).
+    // Snapshot away.projectiles[]: kind 'granate' zusätzlich tx, ty (Ziel in px), t (s seit dem Wurf, 0 … flug), flug (Flugzeit
+    //   in s); Fortschritt des Bogens = t / flug. x, y bleiben der Abwurfpunkt (die Granate fliegt nicht über x/y). Snapshot away.tr: [[trupp, 0|1]] (Haltung je Trupp; nur
+    //   bei ?debug=1 oder Captain-Scan).
+    // Ereignisse B2_EVENTS (auch FX-Auslöser). Trupp-Alarm heißt truppAlarm { map, trupp, x, y } (`alarm` = Schiffsalarm { level }).
+    //   Ergänzungen (SCHNITTSTELLEN-NACHTRAG FX, verbindlich): ausholen { id, winkel? }; granateEinschlag { x, y, radius } (Radius in
+    //   Kacheln); Treffer-Ereignisse (shieldHit, enemyShieldHit …) tragen zusätzlich waffe (WAFFEN bzw. Gegnerwaffe).
+    //   FX liest: players[] ch wu zs bt ht ov wf; away.drones[] ch wu zs bt wf gr facing; away.projectiles[] kind 'granate' tx ty t flug.
+    // Debug: tune waffen.<waffe>.<wert> | waffe <id> | gegner <rolle> [fraktion] | alarm on|off | fang.
+    CMD_LOADOUT_WAFFE: 'loadout.waffe',
+    WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
+    WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
+    GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],
+    KOERPER_ZUSTAENDE: ['ok', 'verwundet', 'bewusstlos', 'gefesselt', 'gefangen', 'aus'],
+    HOLD_KINDS_B2: ['fesseln', 'befreien', 'aufrichten', 'ausruestung', 'zellentuer'],
+    PLAYER_SNAP_B2: ['wf', 'ht', 'ov', 'ch', 'wu', 'zs', 'bt'],
+    DRONE_SNAP_B2: ['ro', 'fr', 'pa', 'wf', 'ch', 'wu', 'zs', 'bt', 'wn', 'wm', 'gr'],
+    AWAY_SNAP_B2: ['tr'],
+    B2_EVENTS: ['ueberhitzt', 'ladungLanze', 'lanzeSchuss', 'ausholen', 'schlag', 'granate', 'granateEinschlag', 'betaeubt', 'bewusstlos',
+      'gefesselt', 'befreit', 'aufgerichtet', 'abgelenkt', 'truppAlarm', 'gefangen', 'rolleNeu', 'loadout'],
+    B2_DEBUG: ['waffe', 'gegner', 'alarm', 'fang'],
+    // ---- B3 (CONTRACT-B3 §6): Sektorkarte (Hexfeld) ----
+    // welcome.sektorkarte: Inhalt von content/welt/limes.json ohne praesenz (≈ 6 KB), nur im welcome, nie im Snapshot.
+    // Snapshot world.sektoren { e: [hex], b: [kantenId], t: [kantenId], o: [kantenId], v } – nur wenn sich v ändert (wie
+    //   world.locations), sonst fehlt das Feld.
+    // Snapshot space.jp [{ k: kantenId, x, y, z: JP_STATES, n: zielHex }] (nur bekannte Bojen der Szene, ≤ 6).
+    // Snapshot ship.jump: zusätzlich jp (Kante des gewählten Ziels), d (Abstand in m, gerundet).
+    // Snapshot ship.jump.anflug (boolean, immer): true = Sprungpunkt muss angeflogen werden (freies Spiel), false = Tutorial
+    //   (Faltsprung von überall). Quelle: server/sim/sprung.js anflugPflicht(game).
+    // cmd { c: 'helm.notsprung' } – Pilot oder Captain. cmd captain.selectDest { dest } wie bisher (Ort-ID oder leer-<hex>);
+    //   zusätzlich { hex } erlaubt.
+    // Debug: hex <SSZZ> | boje <kante> | notsprung | erkunde alle.
+    WELCOME_SEKTORKARTE: 'sektorkarte',
+    WORLD_SEKTOREN_FIELDS: ['e', 'b', 't', 'o', 'v'],
+    SPACE_JP_FIELDS: ['k', 'x', 'y', 'z', 'n'],
+    JP_STATES: ['aktiv', 'gesperrt', 'temporaer', 'ohne_strom'],
+    SHIP_JUMP_B3: ['jp', 'd', 'anflug'],
+    CMD_HELM_NOTSPRUNG: 'helm.notsprung',
+    B3_EVENTS: ['notsprung', 'bojeGefunden', 'hexErkundet', 'sprungpunktOffen', 'sprungpunktZu'],
+    B3_DEBUG: ['hex', 'boje', 'notsprung', 'erkunde'],
     // ---- S2 (CONTRACT-S2 §4): Spielleiter-Angebote, Schützling, Kapitelkarte ----
     // cmd { c: 'plan.decline', id } – Angebot im Missionsbuch ablehnen (wie plan.accept; ohne Malus).
     // cmd { c: 'captain.escort', tag, befehl: ESCORT_ORDERS } – Befehl an einen Schützling (Captain-Konsole).
@@ -58,7 +154,10 @@
     DECK_FIELDS: ['deck', 'lift', 'ladder'],
     LIFT_PHASES: ['start', 'arrive'],
     WS_PATH: '/ws',
-    // Client -> Server
+    // Client -> Server   (B2: shoot { angle, los?: true } – los = Abzug losgelassen: Lanze feuert mit der erreichten Stufe.
+    //   Der Server reicht msg.los an away.shoot weiter (Auswertung BODENKAMPF); ohne los gilt shoot wie bisher als Halten/Schuss.
+    //   B2-NACH: shoot { angle, dist? } – dist = Abstand Spieler → Mauszeiger in Kacheln. Wurfwaffen landen dort, begrenzt auf
+    //   [min, max] der Waffe; ohne dist volle Weite wie bisher. Direkte Waffen nutzen nur den Winkel.)
     C: {
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
       DROP: 'drop', LEAVE: 'leave', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
@@ -105,7 +204,11 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort'],   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
+      'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
+      'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
+      'sprungpunkt', 'ladung', 'prise'],   // QA-Nachzug (QA_DEBUG)
     // ---- M3b Schritt A (CONTRACT-M3B) ----
     // §2 Temporegler: cmd { c: 'helm.throttle', delta: ±1 } oder { set: index }. Snapshot ship.helm.stage (Index),
     // ship.helm.stages (px/s je Stufe), ship.helm.autoStop. helm.input.thrust ist Altname (> 0,5 / < −0,5 = einmal ±1 Stufe).
@@ -131,7 +234,7 @@
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr
     AWAY_ENEMY_KINDS: ['drone', 'scavenger', 'warden'],
     AWAY_ROLES: ['idle', 'pin', 'flank', 'retreat', 'push', 'advance'],
-    AWAY_PROJECTILES: ['blaster', 'drone', 'pistol', 'enemy', 'warden'],
+    AWAY_PROJECTILES: ['blaster', 'drone', 'pistol', 'enemy', 'warden', 'granate'],   // B2: granate (tx, ty, t, flug)
     CODE_SYMBOLS: ['kreis', 'dreieck', 'raute', 'stern', 'welle', 'kreuz'],
     CODE_COLORS: ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'],
     CODE_COLOR_HEX: { mint: '#7FE0C2', bernstein: '#FFC66B', rot: '#E0473C', blau: '#56B4E9', pink: '#CC79A7', weiss: '#F4EEDC' },

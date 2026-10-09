@@ -1,0 +1,61 @@
+{
+  "id": "prop/germanen/schiff/reaktor_schiff",
+  "name": "Schiffsreaktor: Eisenkessel in Spanten (Germanen, Sprengpunkt)",
+  "notes": "Anker sprengpunkt. state 0 intakt, 1 scharf (Ladung angeschnallt, rotes Blinklicht), 2 zerstört. Kern kaltes Blau hinter Eisenkäfig, vier Spanten wie Rippen eines Langschiffs.",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "sprengpunkt", "reaktor"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand 0 intakt / 1 scharf / 2 zerstört" }
+  },
+  "let": { "tot": "state == 2" },
+  "variants": { "scharf": { "state": 1 }, "zerstoert": { "state": 2 } },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-8, 0, -8], "size": [16, 2, 16], "color": "metal_dark" },
+    { "op": "box", "name": "Sockel Nieten", "at": [-7, 2, -7], "size": [1, 1, 1], "color": "metal_light", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "cyl", "name": "Kesselfuß", "at": [0, 2, 0], "r": 5.5, "h": 4, "color": "metal" },
+    { "op": "cyl", "name": "Käfig", "at": [0, 6, 0], "r": 4.6, "h": 16, "hollow": 1.2, "color": "metal_dark" },
+    { "op": "box", "name": "Sichtschlitz längs", "at": [-2, 8, -6], "size": [4, 12, 12], "mode": "carve" },
+    { "op": "box", "name": "Sichtschlitz quer", "at": [-6, 8, -2], "size": [12, 12, 4], "mode": "carve" },
+    { "op": "cyl", "name": "Kern", "if": "!tot", "at": [0, 6, 0], "r": 3.4, "h": 16, "color": { "role": "glow", "emit": "state == 1 ? 1.6 : 1.2" }, "jitter": false },
+    { "op": "cyl", "name": "Kern Ader", "if": "!tot", "at": [0, 6, 0], "r": 1.6, "h": 16, "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "cyl", "name": "Kern tot", "if": "tot", "at": [0, 6, 0], "r": 3, "h": 16, "color": { "noise": ["glass", "black"], "weights": [2, 1] } },
+    { "op": "cyl", "name": "Eisenbänder", "at": [0, 7, 0], "r": 5, "h": 1, "hollow": 1, "color": "metal_light", "repeat": { "count": 1, "step": [0, 9, 0] } },
+    { "op": "cyl", "name": "Deckel", "at": [0, 22, 0], "r": 5.5, "h": 2, "color": { "frame": "metal_light", "fill": "metal", "axes": "y" } },
+    { "op": "cyl", "name": "Glimmring", "at": [0, 24, 0], "r": 5, "h": 1, "hollow": 1, "color": { "shade": "glow", "f": "tot ? 0.3 : 1" }, "emit": "tot ? 0 : 1.0", "jitter": false },
+    { "op": "ellipsoid", "name": "Haube", "at": [0, 24, 0], "r": [3.4, 3, 3.4], "half": "+y", "color": "metal_dark" },
+    { "op": "cyl", "name": "Abdampf", "at": [0, 26, 0], "r": 1.5, "h": 4, "color": "metal" },
+    { "op": "cyl", "name": "Abdampf Kappe", "at": [0, 30, 0], "r": 2, "h": 1, "color": "trim" },
+    { "op": "group", "name": "Spanten", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 }, "ops": [
+      { "op": "box", "name": "Spant unten", "at": [-8, 2, -8], "size": [2, 9, 2], "color": "metal" },
+      { "op": "box", "name": "Spant mitte", "at": [-7, 11, -7], "size": [2, 7, 2], "color": "metal" },
+      { "op": "box", "name": "Spant oben", "at": [-6, 18, -6], "size": [2, 5, 2], "color": "metal" },
+      { "op": "box", "name": "Spant Kopf", "at": [-5, 23, -5], "size": [2, 1, 2], "color": "trim" }
+    ] },
+    { "op": "box", "name": "Bedienblock", "at": [-4, 2, 4], "size": [8, 6, 3], "color": { "frame": "metal", "fill": "secondary", "axes": "xy" } },
+    { "op": "use", "name": "Runenband", "model": "prop/germanen/schiff/teil/runenband", "params": { "len": 2, "an": "!tot" }, "at": [-5, 2, 7] },
+    { "op": "box", "name": "Ventilrad", "at": [-1, 8, 5], "size": [2, 1, 2], "color": "metal_light" },
+
+    { "op": "group", "name": "Ladung (scharf)", "if": "state == 1", "ops": [
+      { "op": "box", "name": "Sprengpaket", "at": [-3, 9, 4], "size": [6, 6, 2], "color": { "frame": "metal_dark", "fill": "warning", "axes": "xy" } },
+      { "op": "box", "name": "Zünder", "at": [-1, 15, 4], "size": [2, 1, 2], "color": "metal_light" },
+      { "op": "box", "name": "Blinklicht", "at": [-1, 16, 5], "size": [2, 1, 1], "color": { "role": "alarm", "emit": 1.2 }, "jitter": false },
+      { "op": "box", "name": "Ladung Deckel", "at": [-2, 31, -2], "size": [4, 2, 4], "color": { "frame": "metal_dark", "fill": "warning", "axes": "xz" } },
+      { "op": "box", "name": "Blinklicht oben", "at": [-1, 33, -1], "size": [2, 1, 2], "color": { "role": "alarm", "emit": 1.2 }, "jitter": false }
+    ] },
+
+    { "op": "group", "name": "Zerstört", "if": "tot", "ops": [
+      { "op": "ellipsoid", "name": "Aufgerissen", "at": [2, 19, 2], "r": [5, 8, 5], "mode": "carve" },
+      { "op": "box", "name": "Haube weg", "at": [-6, 24, -6], "size": [12, 8, 12], "mode": "carve" },
+      { "op": "box", "name": "Spant gebrochen", "at": [3, 14, 3], "size": [5, 10, 5], "mode": "carve" },
+      { "op": "line", "name": "Blech aufgebogen 1", "from": [3, 18, 4], "to": [6, 23, 6], "r": 0.6, "color": "metal_light" },
+      { "op": "line", "name": "Blech aufgebogen 2", "from": [4, 16, -1], "to": [7, 20, -2], "r": 0.6, "color": "metal_light" },
+      { "op": "box", "name": "Ruß", "at": [-8, 0, -8], "size": [16, 32, 16], "mode": "paint", "color": { "noise": ["metal", "metal_dark"], "weights": [1, 2], "cell": 3 } },
+      { "op": "box", "name": "Glutnest", "at": [-1, 6, -1], "size": [2, 2, 2], "color": { "role": "ember", "emit": 0.6 }, "jitter": false }
+    ] }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "charge": [0, 0.75, 0.35], "fx_explode": [0, 1.0, 0], "fx_smoke": [0, 1.9, 0], "fx_spark": [0.25, 1.0, 0.3], "light": [0, 1.0, 0], "label": [0, 2.2, 0] },
+  "anchor": [0, 0, 0]
+}

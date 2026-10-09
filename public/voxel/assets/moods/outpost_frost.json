@@ -1,0 +1,10 @@
+{
+  "id": "outpost_frost",
+  "name": "Germanen-Außenposten: kalter, klarer Frosttag, offener Himmel, tiefe Wintersonne, Holz und Palisade lesbar",
+  "background": "#AFC2D2",
+  "fog": { "color": "#C2D0DA", "near": 2.2, "far": 6 },
+  "hemi": { "sky": "#C8D8E6", "ground": "#7A7266", "intensity": 1.2 },
+  "sun": { "color": "#FFF0DC", "intensity": 2.9, "dir": [-0.5, 0.85, 0.55], "softness": 2.5 },
+  "exposure": 1.0,
+  "bloom": { "strength": 0.25, "radius": 0.4, "threshold": 0.92 }
+}

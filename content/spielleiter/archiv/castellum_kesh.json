@@ -1,0 +1,356 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-castellum_kesh-1",
+  "name": "castellum_kesh",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission B2 (INHALT §9.3, Team KATALOG, von Hand). Lange Mission (28 min) mit drei Bodenszenen auf dem Landepunkt kesh.kastell (Ruine, rom, herrenlos): Hof räumen (Grabräuber der Rostmeute), Zwei-Offiziers-Schloss + Legionskasse, Rückzug mit erwachendem Kastell-Automaten. Kesh-Vorläuferstätte und Tutorialbegriffe kommen nicht vor.",
+  "input": {
+    "auftrag": "Archiv: Melk – römisches Grenzkastell unter dem Mond Kesh, Grabräuber der Rostmeute, Legionskasse mit Archivtafeln. Lang (28 min) zu dritt, Bodenszenen auf kesh.kastell, ohne Tutorial-Voraussetzung."
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "npc": "melk",
+        "ereignis": "tafel_im_archiv"
+      },
+      "text": "Melk hat der Lerche schon einmal etwas fürs Archiv zu verdanken. Diesmal geht es um Rom."
+    }
+  ],
+  "erinnerung_neutral": "Melk sammelt alles, was ältere Mächte im Saumraum zurückgelassen haben – und Rom hielt ihn einst.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "castellum_kesh",
+    "titel": "Castellum Kesh",
+    "auftraggeber": "melk",
+    "zielspieldauer_min": 28,
+    "aufhaenger": "Lerche, hier Archivarin Melk. Unter dem Mond Kesh liegt ein römisches Grenzkastell, und Grabräuber der Rostmeute graben nach der Legionskasse. Darin liegen Archivtafeln aus der Zeit, als Rom den Saumraum hielt. Holt sie, bevor sie verschwinden.",
+    "erinnerung": {
+      "neutral": true
+    },
+    "erinnerung_text": "Melk sammelt alles, was ältere Mächte im Saumraum zurückgelassen haben – und Rom hielt ihn einst.",
+    "szenen": [
+      {
+        "id": "ck_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Melk zeigt der Lerche eine alte Lagekarte: ein Kastell der Legion am Rand des Saumraums, halb unter Geröll. Die Rostmeute gräbt dort.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "ck_anflug"
+          }
+        ]
+      },
+      {
+        "id": "ck_anflug",
+        "szenentyp": "raumgefecht",
+        "ort": "kesh",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "vertreiben",
+            "umsetzung": "bis_zur_flucht"
+          }
+        ],
+        "sachverhalt": "Über dem Kastell kreist ein Wachboot der Rostmeute. Es soll die Grabung schützen, will aber keine Verluste.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Wachboot vertrieben",
+            "nach": "ck_hof"
+          }
+        ]
+      },
+      {
+        "id": "ck_hof",
+        "szenentyp": "gefecht",
+        "ort": "kesh",
+        "landepunkt": "kesh.kastell",
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "rostmeute",
+            "staerke": "mittel",
+            "haltung": "wach"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "stellung_nehmen",
+            "umsetzung": "trupp_raeumen"
+          }
+        ],
+        "sachverhalt": "Im Kastellhof graben Grabräuber der Rostmeute zwischen gestürzten Säulen. Sie wissen seit dem Wachboot, dass Besuch kommt.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Hof geräumt oder durchgebrochen",
+            "nach": "ck_kasse"
+          }
+        ]
+      },
+      {
+        "id": "ck_kasse",
+        "szenentyp": "raetselort",
+        "ort": "kesh",
+        "landepunkt": "kesh.kastell",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "raetsel_loesen",
+            "umsetzung": "zwei_schluessel"
+          },
+          {
+            "id": "artefakt_freilegen",
+            "umsetzung": "fund_aus_gewoelbe"
+          }
+        ],
+        "sachverhalt": "Die Kassentür der Legion hat ein Zwei-Offiziers-Schloss: Zwei Schlösser weit auseinander, gleichzeitig gedreht. Dahinter die Legionskasse.",
+        "wendung": null,
+        "dauer_min": 6,
+        "weiter": [
+          {
+            "wenn": "Legionskasse geborgen",
+            "nach": "ck_rueckzug"
+          }
+        ]
+      },
+      {
+        "id": "ck_rueckzug",
+        "szenentyp": "rueckzug",
+        "ort": "kesh",
+        "landepunkt": "kesh.kastell",
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "herrenlos",
+            "staerke": "klein",
+            "haltung": "wach"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "entkommen",
+            "umsetzung": "zu_den_pads"
+          }
+        ],
+        "sachverhalt": "Mit der Kasse in den Armen zurück zum Vorfeld. Der Lärm hat etwas geweckt, das seit Jahrhunderten das Kastell bewacht.",
+        "wendung": "Der Kastell-Automat erwacht: SIGNUM IGNOTUM. HALT.",
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Alle an Bord",
+            "nach": "ck_abgabe"
+          }
+        ]
+      },
+      {
+        "id": "ck_abgabe",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [
+          {
+            "id": "verhandeln",
+            "umsetzung": "funkduell"
+          }
+        ],
+        "sachverhalt": "Melk will die Archivtafeln. Die Münzen der Legionskasse beansprucht die Hafenmeisterei als Fund im Konkordat – oder die Lerche behält sie.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Alles ins Archiv",
+            "nach": "ausgang:archiv"
+          },
+          {
+            "wenn": "Tafeln an Melk, Münzen behalten",
+            "nach": "ausgang:muenzen"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [
+      {
+        "szene": "ck_abgabe",
+        "frage": "Gibt die Lerche die ganze Legionskasse ins Archiv?",
+        "optionen": [
+          {
+            "id": "archiv",
+            "text": "Alles ins Archiv",
+            "folge": "Melk bekommt Tafeln und Kasse; das Archiv ist der Lerche verpflichtet, die Marken bleiben aus."
+          },
+          {
+            "id": "muenzen",
+            "text": "Tafeln an Melk, Münzen behalten",
+            "folge": "Melk bekommt die Tafeln, die Lerche behält die Münzen; Melk findet das unwürdig."
+          }
+        ]
+      }
+    ],
+    "ausgaenge": {
+      "archiv": {
+        "wann": "Die Legionskasse samt Archivtafeln liegt im Konkordat-Archiv.",
+        "folgen": [
+          "npc_haltung melk +1",
+          "npc_gedaechtnis melk: Die Lerche hat mir die Legionskasse aus dem Castellum unter Kesh gebracht – Tafeln und Münzen.",
+          "chronik: Castellum Kesh: Die Lerche räumte das Grenzkastell unter Kesh, öffnete die Kassentür und brachte die Legionskasse ins Archiv.",
+          "welt_fakt legionskasse_kesh: archiv"
+        ]
+      },
+      "muenzen": {
+        "wann": "Melk hat die Archivtafeln, die Lerche hat die Münzen behalten.",
+        "folgen": [
+          "npc_gedaechtnis melk: Die Lerche hat mir die Archivtafeln aus dem Castellum gebracht, die Münzen der Legion aber behalten.",
+          "chronik: Castellum Kesh: Die Lerche barg die Legionskasse unter Kesh; die Tafeln gingen ins Archiv, die Münzen blieben an Bord.",
+          "welt_fakt legionskasse_kesh (faden): Die Münzen der Legionskasse von Kesh sind an Bord der Lerche."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "ck_anflug": {
+      "molekuele": [
+        {
+          "id": "vertreiben",
+          "umsetzung": "bis_zur_flucht",
+          "params": {
+            "loc": "kesh",
+            "npc": "grauzahn",
+            "jaeger": 2,
+            "mit_kanonenboot": false,
+            "funk_start": "Lerche? Das Kastell gehört der Rostmeute. Dreht ab, dann bleibt euer Rumpf heil.",
+            "funk_abzug": "Zu heiß hier. Abdrehen – die Gräber sollen selbst sehen."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ck_hof": {
+      "molekuele": [
+        {
+          "id": "stellung_nehmen",
+          "umsetzung": "trupp_raeumen",
+          "params": {
+            "loc": "kesh",
+            "map": "kesh.kastell",
+            "fraktion": "rostmeute",
+            "staerke": "mittel",
+            "haltung": "wach",
+            "lage": "Grabräuber zwischen den Säulen. Deckung suchen, zusammen vorrücken – ins Innere des Kastells durchbrechen."
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ck_kasse": {
+      "molekuele": [
+        {
+          "id": "raetsel_loesen",
+          "umsetzung": "zwei_schluessel",
+          "params": {
+            "loc": "kesh",
+            "map": "kesh.kastell",
+            "funk_npc": "melk",
+            "funk_tipp": "Die Kasse öffnet nie einer allein. Zwei Offiziere, zwei Schlüssel – so hielt es die Legion."
+          }
+        },
+        {
+          "id": "artefakt_freilegen",
+          "umsetzung": "fund_aus_gewoelbe",
+          "params": {
+            "loc": "kesh",
+            "map": "kesh.kastell",
+            "fund_name": "die Legionskasse"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ck_rueckzug": {
+      "molekuele": [
+        {
+          "id": "entkommen",
+          "umsetzung": "zu_den_pads",
+          "params": {
+            "loc": "kesh",
+            "map": "kesh.kastell",
+            "fraktion": "herrenlos",
+            "staerke": "klein"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "ck_abgabe": {
+      "molekuele": [
+        {
+          "id": "verhandeln",
+          "umsetzung": "funkduell",
+          "params": {
+            "loc": "hafen",
+            "npc": "melk",
+            "eroeffnung": "Lerche, hier Melk. Die Tafeln gehören ins Archiv, keine Frage. Und die Münzen der Legion – die gehören zur Geschichte dazu. Gebt mir alles.",
+            "frage": "Die ganze Legionskasse ins Archiv geben?",
+            "antwort_a": "Alles ins Archiv. Rom gehört euch.",
+            "antwort_b": "Die Tafeln bekommt ihr. Die Münzen behalten wir.",
+            "folgen_a": [
+              {
+                "setFlag": {
+                  "ck_abgabe_alles": true
+                }
+              },
+              {
+                "radio": {
+                  "from": "melk",
+                  "text": "Danke. Das Archiv vergisst so etwas nicht."
+                }
+              }
+            ],
+            "folgen_b": [
+              {
+                "radio": {
+                  "from": "melk",
+                  "text": "Münzen. Natürlich. Dann eben nur die Tafeln."
+                }
+              }
+            ],
+            "folgen_schweigen": [
+              {
+                "radio": {
+                  "from": "melk",
+                  "text": "Keine Antwort? Dann nehme ich die Tafeln, und ihr behaltet euer Blech."
+                }
+              }
+            ],
+            "geduld_s": 90
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "ausgang:archiv",
+          "if": {
+            "flag": "ck_abgabe_alles"
+          }
+        },
+        {
+          "nach": "ausgang:muenzen"
+        }
+      ],
+      "wendung": null
+    }
+  }
+}

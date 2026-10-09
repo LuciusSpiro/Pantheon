@@ -8,11 +8,11 @@
     "fehler": []
   },
   "grobplan/melk-klausel.sonnet": {
-    "hash": "49d535105a47f577a4bd3b3d5694acb61b0d0df9",
+    "hash": "7f154d25a6074171ef05b7a0006a6b18ec23d3ff",
     "fehler": []
   },
   "grobplan/melk-klausel.haiku": {
-    "hash": "d539855940f1e70fa01e83b2be50ef25b52be727",
+    "hash": "2c274b537f35803adc72095e9795a0d4f9e10f04",
     "fehler": [
       "ABLAUF-KEIN-ENDE",
       "ABLAUF-KEIN-ENDE",
@@ -22,6 +22,7 @@
       "ABLAUF-KEIN-ENDE",
       "ABLAUF-KEIN-ENDE",
       "ABLAUF-KEIN-ENDE",
+      "REF-BEREICH",
       "REF-SCHRITT",
       "REF-SCHRITT",
       "REF-SCHRITT"

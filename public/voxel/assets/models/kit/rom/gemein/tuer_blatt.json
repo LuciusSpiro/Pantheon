@@ -1,0 +1,23 @@
+{
+  "id": "kit/rom/gemein/tuer_blatt",
+  "name": "Rom-Steckplatz tuer_blatt: Gunmetal-Flügel mit Goldnaht; verschlossen: roter Riegel + Amber-Siegel",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":8,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":9,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":2,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "state": {"default":1,"min":0,"max":3,"step":1}
+  },
+  "ops": [
+    {"name":"Flügel","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"frame":{"shade":"metal_light","f":"1 * (1 - zustand * 0.08)"},"fill":{"shade":"metal_dark","f":"1 * (1 - zustand * 0.08)"},"axes":"xy"}},
+    {"name":"Mittelnaht gold","op":"box","at":["floor(w / 2) - 1",0,"d - 1"],"size":[2,"h",1],"color":{"shade":"trim","f":"0.85 * (1 - zustand * 0.08)"}},
+    {"name":"Paneel rot","op":"box","if":"h > 5","at":[1,1,"d - 1"],"size":["w - 2",2,1],"color":{"shade":"primary","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Riegel","op":"box","if":"state == 2","at":[0,"floor(h / 2)","d - 1"],"size":["w",1,1],"color":{"shade":"primary","f":"0.9 * (1 - zustand * 0.08)"}},
+    {"name":"Siegel","op":"box","if":"state == 2","at":["floor(w / 2) - 1","floor(h / 2)","d - 1"],"size":[2,1,1],"color":{"role":"glow2","emit":1.2},"jitter":false}
+  ],
+  "anchor": [0,0,0]
+}

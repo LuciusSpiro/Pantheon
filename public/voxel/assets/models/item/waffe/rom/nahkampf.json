@@ -1,0 +1,52 @@
+{
+  "id": "item/waffe/rom/nahkampf",
+  "name": "Gladius-Klinge – Anbau rom für item/waffe/nahkampf",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/nahkampf. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Gladius-Klinge",
+      "op": "group",
+      "at": [-1, -11, -1],
+      "ops": [
+        {
+          "name": "Kopf (quer, von oben lesbar)",
+          "op": "group",
+          "rot": 90,
+          "pivot": [1, 1],
+          "ops": [
+            { "name": "Parierstück Gold", "op": "box", "at": [0, 8, -3], "size": [2, 1, 10], "color": "trim" },
+            {
+              "name": "Klingenblatt",
+              "op": "box",
+              "at": [0, 1, -2],
+              "size": [2, 7, 7],
+              "color": "metal_light"
+            },
+            { "name": "Spitze", "op": "box", "at": [0, 0, -1], "size": [2, 1, 5], "color": "metal_light" },
+            {
+              "name": "Blutrinne (Energie)",
+              "op": "box",
+              "at": [0, 1, 1],
+              "size": [2, 6, 1],
+              "color": { "role": "glow", "emit": 0.9 },
+              "jitter": false
+            }
+          ]
+        },
+        {
+          "name": "Griff Rot",
+          "op": "box",
+          "at": [0, 10, 0],
+          "size": [2, 3, 2],
+          "color": { "stripes": ["primary", "trim"], "axis": "y", "period": 1 }
+        },
+        { "name": "Knauf Gold", "op": "box", "at": [0, 13, -1], "size": [2, 1, 4], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "fig/germanen/huefte",
+  "name": "Germanen-Hüfte: Plattengurt, geklinkerter Mittelschurz vorn/hinten, Gürteltasche",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "germanen", "huefte", "ruestung"],
+  "notes": "Schurz nur mittig (x −2..1), damit die Beinplatten (x 2..3 bzw. −4..−3) beim Gehen nicht hineinlaufen. Tasche hinten, damit die Arme frei schwingen.",
+  "params": { "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)" } },
+  "ops": [
+    { "name": "Unteranzug", "op": "use", "model": "fig/basis/huefte" },
+    { "name": "Becken dunkel", "op": "box", "at": [-4, 13, -2], "size": [8, 2, 4], "color": "secondary", "mode": "paint" },
+    { "name": "Plattengurt", "op": "box", "at": [-4, 15, -3], "size": [8, 1, 6], "color": { "stripes": ["metal_dark", "leather"], "axis": "x", "period": 2 } },
+    { "name": "Gurtschloss", "op": "box", "at": [-1, 14, 3], "size": [2, 2, 1], "color": "metal_light" },
+    { "name": "Gurtschloss Kern", "op": "box", "at": [-1, 14, 3], "size": [2, 1, 1], "color": "metal_dark", "mode": "paint" },
+    { "name": "Gurtschloss Knochen (Häuptling)", "if": "rank", "op": "box", "at": [-1, 15, 3], "size": [2, 1, 1], "color": "trim", "mode": "paint" },
+    { "name": "Schurz vorn", "op": "box", "at": [-2, 11, 2], "size": [4, 4, 1], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary", "metal_light"], "axis": "y", "period": 1, "offset": 2 } },
+    { "name": "Schurz vorn Spitze", "op": "box", "at": [-1, 10, 2], "size": [2, 1, 1], "color": { "shade": "primary", "f": 0.78 } },
+    { "name": "Schurz hinten", "op": "box", "at": [-2, 11, -3], "size": [4, 4, 1], "color": { "stripes": [{ "shade": "primary", "f": 0.78 }, "primary", "metal_light"], "axis": "y", "period": 1, "offset": 2 } },
+    { "name": "Schurz Nieten", "op": "box", "at": [1, 13, 2], "size": [1, 1, 1], "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schurz Saum (Tuch)", "op": "box", "at": [-2, 11, 2], "size": [4, 1, 1], "color": "cloth", "mode": "paint" },
+    { "name": "Gürteltasche", "op": "box", "at": [1, 13, -4], "size": [3, 2, 1], "color": "leather" },
+    { "name": "Taschendeckel", "op": "box", "at": [1, 14, -4], "size": [3, 1, 1], "color": { "shade": "leather", "f": 0.75 }, "mode": "paint" },
+    { "name": "Werkzeugöse", "op": "box", "at": [-4, 13, -4], "size": [1, 2, 1], "color": "metal" }
+  ],
+  "variants": { "haeuptling": { "rank": 1 } },
+  "anchor": [0, 0, 0]
+}

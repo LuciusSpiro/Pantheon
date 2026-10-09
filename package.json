@@ -7,9 +7,10 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "debug": "node --env-file-if-exists=.env server/index.js --debug",
-    "check": "node tools/check-maps.js",
+    "werkstatt": "node --env-file-if-exists=.env server/index.js --debug --werkstatt",
+    "check": "node tools/check-maps.js && node tools/check-sektoren.js",
     "sim": "node tools/sim-headless.js",
-    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js && node tools/test-flight.js && node tools/test-escort.js && node tools/test-bausteine.js && node tools/test-regiebuch.js && node tools/test-weltstand.js && node tools/test-spielleiter.js --strict && node tools/test-ablage.js",
+    "test": "node tools/test-features.js && node tools/test-combat.js && node tools/test-m3.js && node tools/test-flight.js && node tools/test-escort.js && node tools/test-bausteine.js && node tools/test-regiebuch.js && node tools/test-weltstand.js && node tools/test-spielleiter.js --strict && node tools/test-ablage.js && node tools/test-buehne.js && node tools/test-waffen.js && node tools/test-sektoren.js && node tools/test-entern.js",
     "test:ablage": "node tools/test-ablage.js",
     "missionen": "node tools/missionen.js",
     "test:flight": "node tools/test-flight.js",
@@ -26,7 +27,11 @@
     "test:llm": "node tools/test-llm-live.js",
     "golden": "node tools/golden-trace.js",
     "test:escort": "node tools/test-escort.js",
-    "regie": "node tools/regie-bericht.js"
+    "regie": "node tools/regie-bericht.js",
+    "buehne": "node tools/buehne.js",
+    "test:buehne": "node tools/test-buehne.js",
+    "test:waffen": "node tools/test-waffen.js",
+    "test:sektoren": "node tools/test-sektoren.js"
   },
   "engines": {
     "node": ">=24"

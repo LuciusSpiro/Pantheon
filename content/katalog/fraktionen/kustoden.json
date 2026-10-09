@@ -1,0 +1,31 @@
+{
+  "format": "fraktion/1",
+  "id": "kustoden",
+  "name": "Kustoden",
+  "beschreibung": "Die Wächter der Vorläufer. Stumm und langsam, nur dort, wo die Kustoden gebaut haben.",
+  "modelle": {
+    "waechter": "lerche/actor/warden"
+  },
+  "palette": null,
+  "rezepte": {
+    "waechter": [
+      {
+        "rolle": "waechter",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": null,
+  "einsatz": {
+    "waechter": [
+      "hand",
+      "ruine"
+    ]
+  },
+  "funkstil": "stumm"
+}

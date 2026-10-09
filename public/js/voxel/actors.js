@@ -17,6 +17,24 @@ const ACTION_POSES = { flick: 'repair', swap: 'repair', patch: 'repair', minigam
 const UPPER = ['torso', 'head', 'upperArmL', 'upperArmR', 'lowerArmL', 'lowerArmR', 'handL', 'handR'];
 const SWAP = { thighL: 'thighR', thighR: 'thighL', shinL: 'shinR', shinR: 'shinL', upperArmL: 'upperArmR', upperArmR: 'upperArmL',
   lowerArmL: 'lowerArmR', lowerArmR: 'lowerArmL', handL: 'handR', handR: 'handL' };
+// ---- B2 (Team VOXEL, CONTRACT-B2 §10, ART-PLAN §4.3): Germanen-Figuren, Waffen nach Fraktion, Körperzustände
+const ROLLEN = { grundtyp: 1, niederhalter: 1, grenadier: 1, schuetze: 1, enterer: 1, haescher: 1 };
+const ROLLE_SCALE = { enterer: 1.1 };   // Rückfall, solange die Figur noch nicht geladen ist (sonst fig.scale)
+// Fraktion (= Besitz) → Waffen-Bauweise; Spieler bekommen 'rom' (Lerche)
+const WAFFE_BW = { rostmeute: 'rostmeute', kontor: 'germanen', raubzug: 'germanen', germanen: 'germanen', herrenlos: 'rom', rom: 'rom', kustoden: 'neutral', konkordat: 'neutral' };
+// Waffenlänge (m, ART-PLAN §2.3) – entscheidet die Ruhehaltung (lange Waffen nie durch den Boden)
+const WAFFE_LEN = { pistole: 0.45, blaster: 0.7, betaeuber: 0.7, sturmgewehr: 0.95, granatwerfer: 0.8, lanze: 1.63, nahkampf: 0.9 };
+// Waffen mit eigenem Namen, aber Modell einer Grundwaffe in fester Bauweise (SCHNITTSTELLEN-NACHTRAG „Transfer-Konsole“:
+// schrottblaster = Blaster-Regeln für Plünderer/Rostmeute) → item/waffe/<typ> mit bauweise
+const WAFFE_VARIANTE = { schrottblaster: { typ: 'blaster', bauweise: 'rostmeute' } };
+const waffeTyp = (wf) => (WAFFE_VARIANTE[wf] ? WAFFE_VARIANTE[wf].typ : wf);
+const WAFFE_ZIEL = { sturmgewehr: 'aim_rifle', betaeuber: 'aim_rifle', lanze: 'aim_rifle', granatwerfer: 'aim_heavy', blaster: 'aim', pistole: 'aim', nahkampf: 'guard' };
+const STRIKE_T = 0.35;          // s Schlagpose nach dem Ausholen
+const LIEGT = { wounded: 1, unconscious: 1 };
+// Ersatz, falls eine neue Pose (ART-POSEN) in der geladenen Posen-Datei fehlt
+const POSE_ALIAS = { unconscious: 'wounded', bound: 'kneel', carried: 'wounded', charge: 'kneel', stagger: 'hit', windup: 'guard', strike: 'aim',
+  aim_heavy: 'aim_rifle', aim_rifle: 'aim', launch: 'aim', lift_comrade: 'revive' };
+const BODEN_HOEHE_CH = { '^': 0.5, '/': 0.25 };   // optisch erhöhter Boden der Bühnen (kit.js BODEN_HOEHE, E27)
 const INSTANCE_THRESHOLD = 6;   // ab mehr sichtbaren Figuren werden gleiche Teile per InstancedMesh gezeichnet (§7)
 const STRIDE = 1.25;            // m pro Laufzyklus (ein Doppelschritt)
 
@@ -88,6 +106,35 @@ const L = {
   stats: { figures: 0, models: 0, drawCalls: 0, instanced: 0, placeholders: 0, errors: 0, visible: 0 },
   fbGeo: null, fbMats: new Map(), lastZone: null, shotAt: {}, muzzles: new Map(),
 };
+
+// Fülllicht nur für Akteure (SICHTUNG-ART): gegen den Eigenschatten unter Helm und Schulterplatten.
+// Eigenes Material statt eines Szenenlichts (three.js-Lichter wirken immer auf alles): etwas Grundhelligkeit + weiches Licht
+// von schräg vorn oben (Kamerarichtung). Sonst wie VOXEL_MAT (aEmit-Leuchten).
+const FILL = { amb: 0.08, dir: 0.2 };
+let actorMat = null;
+function getActorMat() {
+  if (actorMat) return actorMat;
+  const m = new L.THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
+  m.userData.fill = { amb: { value: FILL.amb }, dir: { value: FILL.dir } };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uFillAmb = m.userData.fill.amb; sh.uniforms.uFillDir = m.userData.fill.dir;
+    sh.vertexShader = 'attribute float aEmit;\nvarying float vEmit;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvEmit = aEmit;');
+    sh.fragmentShader = 'varying float vEmit;\nuniform float uFillAmb;\nuniform float uFillDir;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n' +
+      '\t{ vec3 fv = normalize(vec3(0.0, 0.55, 0.84)); totalEmissiveRadiance += diffuseColor.rgb * (uFillAmb + uFillDir * max(dot(normal, fv), 0.0)); }\n' +
+      '\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * min(1.2, 1.5 / eM); diffuseColor.rgb *= 0.0; }');
+  };
+  m.customProgramCacheKey = () => 'actor-fill-2';
+  actorMat = m;
+  return m;
+}
+/** Voxel-Netze eines Akteurs (Figur, Gegenstand) auf das Akteur-Material mit Fülllicht umstellen */
+function useActorMat(root) {
+  const base = L.ctx && L.ctx.material;
+  if (!root || !base) return;
+  const am = getActorMat();
+  root.traverse((o) => { if (o.isMesh && o.material === base) o.material = am; });
+}
 
 function err(where, e) {
   L.stats.errors++;
@@ -269,10 +316,10 @@ function posesFromLoader(ld, figId) {
 }
 // CORE-Lader: object() liefert sofort eine Group (userData.ready false = Platzhalter, wird nach dem Laden gefüllt).
 // Wir zeigen bis dahin bzw. bei fehlendem Asset unseren kleinen Ersatz (Gegenstände sonst als 0,8-m-Kiste in der Hand).
-function loadModel(id, params, fbKind) {
+function loadModel(id, params, fbKind, palette) {
   const ld = L.ctx && L.ctx.loader;
   let o = null;
-  try { if (ld && typeof ld.object === 'function') o = ld.object(id, params || {}); } catch (e) { err('object:' + id, e); o = null; }
+  try { if (ld && typeof ld.object === 'function') o = ld.object(id, params || {}, palette ? { palette } : {}); } catch (e) { err('object:' + id, e); o = null; }
   if (o && typeof o.then === 'function') o = null;
   const slot = new L.THREE.Group(); slot.name = 'slot:' + id;
   const fb = fallbackModel(fbKind); fb.userData.fallback = true;
@@ -287,7 +334,7 @@ function refreshSlot(slot) {
   const s = slot.userData.slot; if (!s) return;
   const ready = !!(s.obj && s.obj.userData.ready !== false);
   s.ready = ready;
-  if (s.obj) s.obj.visible = ready;
+  if (s.obj) { s.obj.visible = ready; if (ready && !s.matSet) { useActorMat(s.obj); s.matSet = true; } }
   s.fb.visible = !ready;
 }
 
@@ -305,10 +352,17 @@ class Actor {
   }
   setFigure(figId, opts, fbKind, color) {
     // Einmal je Figur-ID laden; die echte Figur ersetzt den Ersatz, sobald der Lader sie fertig hat (Promise).
-    if (this.figId === figId && this.fig) return;
-    this.figId = figId;
-    const f = loadFigure(figId, opts, fbKind, color, (late) => { if (this.figId === figId) this.attachFigure(late); });
+    // Schlüssel inkl. Palette/Parameter (Besitz-Palette per palette-Override, CONTRACT-B2 §10)
+    const key = figId + '|' + ((opts && opts.palette) || '') + '|' + JSON.stringify((opts && opts.params) || {});
+    if (this.figKey === key && this.fig) return;
+    this.figId = figId; this.figKey = key;
+    const f = loadFigure(figId, opts, fbKind, color, (late) => { if (this.figKey === key) this.attachFigure(late); });
     this.attachFigure(f);
+  }
+  /** Größe der Figur (Figurenbaukasten: fig.scale, z. B. Enterer 1,1) */
+  figScale() {
+    try { const lib = L.ctx.loader && L.ctx.loader.lib; const fd = lib && lib.get('figures', L.ctx.loader.src(this.figId)); if (fd && fd.scale) return +fd.scale; } catch (e) { /* egal */ }
+    return this.rolle && ROLLE_SCALE[this.rolle] || 1;
   }
   attachFigure(f) {
     if (this.fig && this.fig.root) this.body.remove(this.fig.root);
@@ -318,6 +372,7 @@ class Actor {
     if (this.fig && this.fig.skinned && this.fig !== f) this.fig.skinned.geometry.dispose();
     this.fig = f; this.cur = {};
     this.body.add(f.root);
+    useActorMat(f.root);
     if (this.item) { this.item.parent && this.item.parent.remove(this.item); this.item = null; this.itemKey = null; }
   }
   setModel(id, params, fbKind) {
@@ -332,18 +387,33 @@ class Actor {
     refreshSlot(this.model);
   }
   // Gegenstand in der Hand (handR) bzw. auf dem Bot
-  setItem(itemKind, anchor) {
-    const k = itemKind && anchor ? itemKind + '@' + anchor.uuid : null;
+  // itemKind: Spielgegenstand (lerche/item/<id>) oder volle Modell-ID (z. B. item/waffe/lanze); params/palette für Waffen (B2)
+  setItem(itemKind, anchor, params, palette) {
+    const k = itemKind && anchor ? itemKind + '@' + anchor.uuid + JSON.stringify(params || {}) + (palette || '') : null;
     if (k !== this.itemKey) {
       if (this.item && this.item.parent) this.item.parent.remove(this.item);
       this.item = null; this.itemKey = k;
       if (k) {
-        const id = 'lerche/item/' + (ITEM_IDS[itemKind] || itemKind);
-        this.item = loadModel(id, {}, 'item');
+        const id = itemKind.indexOf('/') >= 0 ? itemKind : 'lerche/item/' + (ITEM_IDS[itemKind] || itemKind);
+        this.item = loadModel(id, params || {}, 'item', palette);
+        this.item.userData.itemId = id;
         anchor.add(this.item);
       }
     }
     if (this.item) refreshSlot(this.item);
+  }
+  // Zusatzteil (Fessel) frei am Körper
+  setExtra(id, params, on) {
+    if (!on) { if (this.extra) this.extra.visible = false; return null; }
+    const key = id + JSON.stringify(params || {});
+    if (this.extraKey !== key) {
+      if (this.extra && this.extra.parent) this.extra.parent.remove(this.extra);
+      this.extra = loadModel(id, params || {}, 'item'); this.extraKey = key;
+      this.body.add(this.extra);
+    }
+    this.extra.visible = true;
+    refreshSlot(this.extra);
+    return this.extra;
   }
   dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) this.fig.skinned.geometry.dispose(); }
 }
@@ -360,7 +430,11 @@ function actor(key) {
 // Posen
 function poseOf(fig, name) {
   const p = fig && fig.poses;
-  return (p && p[name]) || FALLBACK_POSES[name] || (name === 'aim_rifle' && ((p && p.aim) || FALLBACK_POSES.aim)) || (p && p.stand) || FALLBACK_POSES.stand;
+  for (let n = name, i = 0; n && i < 4; n = POSE_ALIAS[n], i++) {
+    const hit = (p && p[n]) || FALLBACK_POSES[n];
+    if (hit) return hit;
+  }
+  return (p && p.stand) || FALLBACK_POSES.stand;
 }
 const TMP = {};
 function mirrorVal(j, src) {
@@ -376,6 +450,7 @@ function pose(a, st, dt) {
   const f = a.fig; if (!f || !f.joints) return;
   const joints = f.joints;
   const base = poseOf(f, st.base);
+  a.poseNow = { base: st.base, upper: st.upper || null };
   const tgt = TMP; for (const k in tgt) delete tgt[k];
   let lift = base.lift || 0, breathe = base.breathe != null ? base.breathe : 0.5, rootLift = base.rootLift || 0;
   for (const [j, r] of Object.entries(base.joints || {})) tgt[j] = [r[0], r[1], r[2]];
@@ -522,28 +597,148 @@ function targetYaw(p, st) {
 // ------------------------------------------------------------------------------------------------------------------------------
 // Sichtbarkeit nach Zone/Deck
 function zoneOfCtx() { return L.ctx.zone || 'ship'; }
+// Schiff und Bühnen mit Decks (Schiffskarte, B1): nur das Deck der eigenen Figur zeigen
+function isDecked() { const c = L.ctx; return zoneOfCtx() === 'ship' || !!(c && typeof c.decked === 'function' && c.decked()); }
+function deckOfPxCtx(py) {
+  if (zoneOfCtx() === 'ship') { const M = maps(); if (M && M.deckOfPx) return M.deckOfPx(py); }
+  return L.ctx && typeof L.ctx.deckOf === 'function' ? L.ctx.deckOf(py) : 0;
+}
 function onVisibleDeck(py) {
-  if (zoneOfCtx() !== 'ship') return true;
-  const M = maps(); if (!M || !M.deckOfPx) return true;
-  const d = M.deckOfPx(py);
+  if (!isDecked()) return true;
+  const d = deckOfPxCtx(py);
   return L.ctx.deck == null || d === L.ctx.deck || d < 0;
+}
+// Bühnen: Plateau 0,5 m / Rampe 0,25 m nur optisch erhöht (E27) – Figuren stehen sichtbar oben
+function bodenHoehe(px, py) {
+  if (zoneOfCtx() !== 'buehne') return 0;
+  const m = L.ctx.map; if (!m || typeof m.at !== 'function') return 0;
+  return BODEN_HOEHE_CH[m.at(Math.floor(px / TILE), Math.floor(py / TILE))] || 0;
 }
 function place(a, px, py, yOff) {
   const v = L.ctx.toWorld(px, py);
-  a.container.position.set(v.x, (v.y || 0) + (yOff || 0), v.z);
+  a.container.position.set(v.x, (v.y || 0) + (yOff || 0) + bodenHoehe(px, py), v.z);
   return v;
 }
 function deckOfPlayer(p) {
   if (p.deck != null) return p.deck;
-  const M = maps(); return M && M.deckOfPx ? M.deckOfPx(p.y) : 0;
+  return deckOfPxCtx(p.y);
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
 // Spieler
+// ------------------------------------------------------------------------------------------------------------------------------
+// B2: Körperzustand (zs), Waffenaktion (ch/wu/bt) und Waffe – gleiche Regeln für Spieler und Gegner (CONTRACT-B2 §8, §10)
+/** → { base, upper, lie, waffe: 'hand'|'boden'|'keine', fessel, ziel } */
+function kampfZustand(a, e, t, aiming, isPlayer) {
+  const zs = e.zs || (e.downed ? 'verwundet' : e.alive === false ? 'aus' : 'ok');
+  const o = { base: null, upper: null, lie: false, waffe: 'hand', fessel: false, ziel: false, zs };
+  // Ausholen → Schlag: Ende des Ausholens (wu fällt auf 0) zeigt STRIKE_T s die Schlagpose
+  const wu = +e.wu || 0;
+  if (wu > 0) a.wuAt = t; else if (a.wuAt != null && t - a.wuAt < 0.2) { a.strikeAt = t; a.wuAt = null; }
+  if (zs === 'verwundet') { o.base = 'wounded'; o.lie = true; o.waffe = isPlayer ? 'keine' : 'boden'; return o; }
+  if (zs === 'bewusstlos') { o.base = 'unconscious'; o.lie = true; o.waffe = 'boden'; return o; }
+  if (zs === 'aus') { o.base = 'wounded'; o.lie = true; o.waffe = 'boden'; return o; }
+  if (zs === 'gefesselt') { o.base = 'bound'; o.waffe = 'keine'; o.fessel = true; return o; }
+  if (zs === 'gefangen') { o.waffe = 'keine'; return o; }
+  if (e.bt) { o.base = 'stagger'; return o; }
+  if ((+e.ch || 0) > 0) { o.base = 'charge'; o.ziel = true; return o; }
+  if (wu > 0) { o.base = 'windup'; o.ziel = true; return o; }
+  if (a.strikeAt != null && t - a.strikeAt < STRIKE_T) { o.base = 'strike'; o.ziel = true; return o; }
+  if (aiming) { o.upper = WAFFE_ZIEL[waffeTyp(e.wf)] || 'aim'; o.ziel = true; }
+  return o;
+}
+// Besitz-Palette erst verwenden, wenn sie geladen ist (sonst bricht der Bau mit „Palette nicht gefunden“); bis dahin Standardpalette
+const palLaden = new Set();
+function palReady(pal) {
+  if (!pal) return null;
+  const lib = L.ctx && L.ctx.loader && L.ctx.loader.lib;
+  if (!lib) return null;
+  if (lib.get('palettes', pal)) return pal;
+  if (!palLaden.has(pal)) { palLaden.add(pal); lib.load('palettes', pal).catch(() => null); }
+  return null;
+}
+function heatStufe(e) { if (e.ov) return 3; const h = +e.ht || 0; return h >= 75 ? 3 : h >= 50 ? 2 : h >= 25 ? 1 : 0; }
+/** Waffe item/waffe/<typ> an handR, am Boden neben der Figur oder keine. Ruhehaltung: lange Waffen nie durch den Boden. */
+function applyWaffe(a, wf, bauweise, heat, palette, ks) {
+  const hand = a.fig && a.fig.joints && a.fig.joints.handR;
+  if (!wf || wf === 'faust' || ks.waffe === 'keine' || !hand) { a.setItem(null, null); return; }
+  const vari = WAFFE_VARIANTE[wf];
+  if (vari) { wf = vari.typ; bauweise = vari.bauweise; }
+  const id = 'item/waffe/' + wf;
+  const params = { bauweise, heat: heat | 0 };
+  if (ks.waffe === 'boden') {
+    if (!a.groundAnchor) { a.groundAnchor = new L.THREE.Group(); a.groundAnchor.name = 'waffe-boden'; a.container.add(a.groundAnchor); }
+    // liegt flach neben dem Körper (quer zur Liegerichtung), Griff zur Hand
+    a.groundAnchor.position.set(0.55, 0.16, 0.15); a.groundAnchor.rotation.set(0, 0.4, Math.PI / 2);
+    a.setItem(id, a.groundAnchor, params, palette);
+    if (a.item) a.item.rotation.set(0, 0, 0);
+    return;
+  }
+  a.setItem(id, hand, params, palette);
+  if (!a.item) return;
+  // ART-POSEN: pose.itemOffset[modell] (Voxel im Handgelenk-System) – z. B. rest_upright stellt die Lanze mit dem Fuß auf den Boden.
+  // Die Pose dreht die Hand selbst; das Modell bleibt dann ungedreht. In allen anderen Posen ist der Versatz 0.
+  const off = poseItemOffset(a, id);
+  if (off) {
+    const s = (a.fig && a.fig.inner && a.fig.inner.s) || VX;
+    a.item.position.set(off[0] * s, off[1] * s, off[2] * s); a.item.rotation.set(0, 0, 0);
+    return;
+  }
+  a.item.position.set(0, 0, 0);
+  const len = WAFFE_LEN[wf] || 0.7;
+  if (ks.ziel) a.item.rotation.set(0, 0, 0);
+  else if (wf === 'lanze') a.item.rotation.set(Math.PI, 0, 0);        // ohne rest_upright: Lanze aufrecht wie ein Stab
+  else if (len > 0.72) a.item.rotation.set(-1.2, 0, 0);                // lange Waffen schräg nach vorn (Mündung ~0,4 m über dem Boden)
+  else a.item.rotation.set(0, 0, 0);
+}
+/** itemOffset der aktuell gezeigten Pose (Oberkörper vor Grundpose) für ein Modell, sonst null */
+function poseItemOffset(a, modelId) {
+  const now = a.poseNow; if (!now || !a.fig) return null;
+  for (const n of [now.upper, now.base]) {
+    if (!n) continue;
+    const p = a.fig.poses && a.fig.poses[n];   // nur echte ART-Posen tragen itemOffset
+    if (p && p.itemOffset && p.itemOffset[modelId]) return p.itemOffset[modelId];
+  }
+  return null;
+}
+/** Ruhepose je Waffe/Rolle (OFFEN-STUDIO): Jäger bzw. lange Stangenwaffe → rest_upright, Berserker → guard_hunched */
+function ruhePose(a, wf, rolle) {
+  const ps = a.fig && a.fig.poses;
+  if (rolle === 'enterer' && ps && ps.guard_hunched) return 'guard_hunched';
+  if ((wf === 'lanze' || (rolle === 'schuetze' && wf === 'lanze')) && ps && ps.rest_upright) return 'rest_upright';
+  return null;
+}
+/** Fessel (item/fessel) zwischen den Händen (Socket wrists ≈ Hände, Pose bound) */
+function applyFessel(a, on) {
+  const ex = a.setExtra('item/fessel', { aktiv: 1 }, on);
+  if (!on || !ex || !a.fig || !a.fig.joints) return;
+  const hl = a.fig.joints.handL, hr = a.fig.joints.handR;
+  if (!hl || !hr) return;
+  a.container.updateMatrixWorld(true);
+  const p1 = hl.getWorldPosition(new L.THREE.Vector3()), p2 = hr.getWorldPosition(new L.THREE.Vector3());
+  const mid = p1.add(p2).multiplyScalar(0.5);
+  ex.position.copy(a.body.worldToLocal(mid));
+}
+// Getragene Figur (Pose carried): Träger = Spieler, dessen carry auf die ID zeigt
+function carrierOf(id) { return L.carriedBy ? L.carriedBy.get(String(id)) || null : null; }
+function applyCarried(a, carrier, dt, t) {
+  const ca = L.actors.get('p:' + carrier.id);
+  place(a, carrier.x, carrier.y, 0);
+  a.yaw = ca && ca.yaw != null ? ca.yaw : a.yaw;
+  a.container.rotation.y = a.yaw || 0;
+  // ART-POSEN: Wurzel ≈ −5,5 Voxel in x (rechte Schulter des Trägers)
+  a.body.position.set(-5.5 * VX, 0, 0);
+  pose(a, { base: 'carried', walk: 0, phase: a.phase, t }, dt);
+  a.setItem(null, null);
+}
+
 function updatePlayer(p, view, st, dt, t) {
   const zone = zoneOfCtx();
   const inShip = zone === 'ship';
   const a = actor('p:' + p.id);
+  a.entityId = String(p.id);
+  a.body.position.set(0, 0, 0);
+  if (!inShip) { const c = carrierOf(p.id); if (c) { a.setFigure(AWAY_FIGURES[p.color || 0] || AWAY_FIGURES[0], { colors: { primary: PLAYER_COLORS[p.color || 0], cloth2: PLAYER_COLORS[p.color || 0] } }, 'away'); applyCarried(a, c, dt, t); return; } }
   const color = p.color || 0;
   const col = PLAYER_COLORS[color] || PLAYER_COLORS[0];
   if (inShip) a.setFigure('lerche/crew_' + Math.min(2, color), { colors: { cloth2: col } }, 'crew', col);
@@ -552,16 +747,23 @@ function updatePlayer(p, view, st, dt, t) {
   // Lift/Leiter (DECKS): Fahrt sichtbar machen, Ankunft auf dem neuen Deck von unten/oben einblenden
   const deck = deckOfPlayer(p);
   let yOff = 0, base = 'stand', upper = null, special = null, walkW = 0, wantYaw = null;
-  if (a.deck != null && deck !== a.deck && inShip) {
-    if (a.lift || a.ladder) a.arrive = { t: 0, from: deck > a.deck ? -1 : 1, T: a.ladder ? 0.4 : 0.6 };
+  const decked = isDecked();
+  if (a.deck != null && deck !== a.deck && decked) {
+    // nicht doppelt: das Ereignis lift { phase:'arrive' } kann vor dem (interpolierten) Snapshot ankommen
+    if ((a.lift || a.ladder) && !a.arrive) a.arrive = { t: 0, from: deck > a.deck ? -1 : 1, T: a.ladder ? 0.4 : 0.6 };
   }
   a.deck = deck; a.lift = p.lift || null; a.ladder = p.ladder || null;
-  if (inShip && !onVisibleDeck(p.y) && !(p.lift && p.lift.to === L.ctx.deck)) { a.container.visible = false; return; }
+  if (decked && !onVisibleDeck(p.y) && !(p.lift && p.lift.to === L.ctx.deck)) { a.container.visible = false; return; }
 
   const pos = place(a, p.x, p.y, 0);
   const beam = beamAmount(p, view);
   const moving = !!p.moving;
-  if (p.downed) { base = 'wounded'; wantYaw = lieYaw(a); }
+  // B2: Körperzustand und Waffenaktion (nur außen und nur, wenn der Server die B2-Felder liefert)
+  const b2 = !inShip && (p.zs != null || p.wf != null);
+  const shot0 = L.shotAt[p.id] != null && performance.now() / 1000 - L.shotAt[p.id] < 0.6;
+  const ks = b2 ? kampfZustand(a, p, t, shot0, true) : null;
+  if (ks && ks.base) { base = ks.base; if (ks.lie) wantYaw = lieYaw(a, base); }
+  else if (p.downed) { base = 'wounded'; wantYaw = lieYaw(a); }
   else if (p.lift) {
     base = 'lift_ride';
     const q = clamp01((p.lift.t || 0) / Math.max(0.1, p.lift.T || 1.5));
@@ -590,6 +792,7 @@ function updatePlayer(p, view, st, dt, t) {
   if (wantYaw == null && moving && DIR_YAW[p.dir] != null && a.speed < 0.2) wantYaw = DIR_YAW[p.dir];
   const busy = base !== 'stand' && base !== 'crouch';
   walkW = busy ? 0 : locomote(a, pos.x, pos.z, dt, wantYaw, moving);
+  if (ks && ks.ziel && !ks.lie && wantYaw == null) { /* Ausrichtung kommt aus der Laufrichtung bzw. dir */ }
   if (busy) locomote(a, pos.x, pos.z, dt, wantYaw, false);
   a.container.position.y += yOff;
 
@@ -602,11 +805,19 @@ function updatePlayer(p, view, st, dt, t) {
     else if (away && (base === 'crouch')) upper = null;
   }
   if (base === 'crouch' && shot) upper = 'aim';
+  if (ks && ks.upper && !busy) upper = ks.upper;
+  else if (ks && !ks.base && !busy && !upper) { const rp = ruhePose(a, p.wf, null); if (rp) upper = rp; }   // Ruhe mit Lanze: rest_upright
   pose(a, { base, upper, walk: walkW, phase: a.phase, t, special }, dt);
+  if (b2) {
+    // B2: Waffe der Crew (Bauweise rom), Hitze 0–3, Fessel; Getragenes und Halteaktionen gehen vor
+    const busyHand = p.carry || (p.action && p.action.kind !== 'beam');
+    applyFessel(a, !!ks.fessel);
+    if (!busyHand) { applyWaffe(a, p.wf || 'blaster', 'rom', heatStufe(p), null, ks); L.muzzles.delete(p.id); beamFx(a, p, beam); return; }
+  } else applyFessel(a, false);
 
   // Gegenstand: getragen > Waffe (Außenteam) > Löscher beim Löschen
   const hand = a.fig && a.fig.joints && a.fig.joints.handR;
-  let item = p.carry || null;
+  let item = p.carry && !(L.carriedBy && L.carriedBy.has(String(p.carry).replace(/^[pe]:/, ''))) ? p.carry : null;   // getragene Figur ist kein Gegenstand
   if (!item && away && !p.downed) item = 'blaster';
   if (p.action && p.action.kind === 'extinguish') item = 'loeschgel';
   if ((p.action && (p.action.kind === 'flick' || p.action.kind === 'swap')) && !p.carry) item = 'wrench';
@@ -624,15 +835,19 @@ function updatePlayer(p, view, st, dt, t) {
     } catch (e) { L.muzzles.delete(p.id); err('muzzle', e); }
   } else L.muzzles.delete(p.id);
 
-  // Beamen: Figur zerfällt/entsteht (Partikel macht fx.js) – hier flackern + schrumpfen
+  beamFx(a, p, beam);
+}
+// Beamen: Figur zerfällt/entsteht (Partikel macht fx.js) – hier flackern + schrumpfen
+function beamFx(a, p, beam) {
   if (beam != null) {
     const v = clamp01(beam);
     a.body.scale.set(1 - v * 0.35, 1 + v * 0.08, 1 - v * 0.35);
     a.container.visible = a.container.visible && !(v > 0.55 && ((L.frame + (p.color || 0)) % 3 !== 0)) && v < 0.95;
   } else a.body.scale.set(1, 1, 1);
 }
-// Liegen quer zur Kamera: ART-F-Pose liegt längs z (Kopf nach −z) → Figur um 90° drehen; unsere Ersatzpose liegt schon quer
-function lieYaw(a) { return a.fig && a.fig.poses && a.fig.poses.wounded ? Math.PI / 2 : 0; }
+// Liegen quer zur Kamera: ART-F-Pose liegt längs z (Kopf nach −z) → Figur um 90° drehen; unsere Ersatzpose liegt schon quer.
+// unconscious (Seitenlage) liegt wie wounded (ART-POSEN) und wird gleich gedreht.
+function lieYaw(a, base) { const ps = a.fig && a.fig.poses; return ps && (ps[base || 'wounded'] || ps.wounded) ? Math.PI / 2 : 0; }
 function beamAmount(p, view) {
   let b = null;
   if (p.action && p.action.kind === 'beam') b = clamp01(p.action.progress || 0) * 0.85;
@@ -725,14 +940,72 @@ function scavRole(e) {
   if (i < 0) { list.push(e.id); i = list.length - 1; }
   return i === 0 ? 2 : (i % 2 ? 0 : 1);
 }
+// Waffentyp aus der Figurdefinition (Figurenbaukasten: waffe.typ), falls der Snapshot kein wf liefert
+function figWaffe(a) {
+  try { const lib = L.ctx.loader && L.ctx.loader.lib; const fd = lib && lib.get('figures', L.ctx.loader.src(a.figId)); return (fd && fd.waffe && fd.waffe.typ) || 'blaster'; } catch (e) { return 'blaster'; }
+}
+// B2: Germanen-Gegner fig/germanen/<rolle> (Karl, Bolzer, Donnerwerfer, Jäger, Berserker, Wergeld-Fänger).
+// Besitz-Palette per palette-Override (pa), Waffe item/waffe/<wf> mit bauweise aus der Fraktion (fr), Zustände zs/bt/ch/wu.
+function updateGermane(a, e, view, dt, t, hitAge) {
+  a.rolle = e.ro;
+  const opts = { attach: { handR: null } };   // Waffe setzt das Spiel selbst (Fraktion, Hitze, Ablage am Boden)
+  const pa = palReady(e.pa);
+  if (pa) opts.palette = pa;
+  if (e.rk != null) opts.params = { rank: +e.rk ? 1 : 0 };
+  a.setFigure('fig/germanen/' + e.ro, opts, 'scav');
+  const carrier = carrierOf(e.id);
+  if (carrier) { applyCarried(a, carrier, dt, t); return; }
+  a.body.position.set(0, 0, 0);
+  const pos = place(a, e.x, e.y, 0);
+  a.container.position.y += arriveOffset(a, dt);   // Deckwechsel (enemyDeck)
+  let wantYaw = null;
+  if (e.aim && e.aim.target != null) { const tp = (view.players || []).find((q) => q.id === e.aim.target); if (tp) wantYaw = yawOf(tp.x - e.x, tp.y - e.y); }
+  if (wantYaw == null && e.gr) wantYaw = yawOf(e.gr.x - e.x, e.gr.y - e.y);
+  if (wantYaw == null && e.facing != null && isFinite(+e.facing)) wantYaw = yawOf(Math.cos(+e.facing), Math.sin(+e.facing));
+  if (wantYaw == null && typeof e.dir === 'number') wantYaw = yawOf(Math.cos(e.dir), Math.sin(e.dir));
+  if (wantYaw == null && DIR_YAW[e.dir] != null) wantYaw = DIR_YAW[e.dir];
+  const aiming = !!(e.aim || e.gr);
+  const ks = kampfZustand(a, e, t, aiming, false);
+  let base = ks.base || 'stand', upper = null;
+  if (ks.lie) wantYaw = lieYaw(a, base);
+  else if (!ks.base && hitAge < 0.25) base = 'hit';
+  else if (!ks.base && e.cr) base = 'crouch';
+  const still = !!ks.base || base === 'crouch' || base === 'hit';
+  const w = still ? (locomote(a, pos.x, pos.z, dt, wantYaw, false), 0) : locomote(a, pos.x, pos.z, dt, wantYaw, null);
+  const rp = ruhePose(a, e.wf || figWaffe(a), e.ro);
+  const lang = (e.wf || figWaffe(a)) === 'lanze';   // Lanze ohne rest_upright: Arm hängen lassen (guard dreht die Hand, die Lanze ginge durch den Boden)
+  if (!ks.base) upper = ks.upper || (rp === 'rest_upright' ? rp : w > 0.2 || lang ? null : 'guard');
+  if (!ks.base && !ks.upper && rp === 'guard_hunched' && base === 'stand') { if (w > 0.2) upper = rp; else { base = rp; upper = null; } }
+  if (base === 'crouch' && ks.upper) upper = ks.upper;
+  pose(a, { base, upper, walk: still ? 0 : w, phase: a.phase, t }, dt);
+  // Ersatzfigur (noch nicht geladen): Rollengröße selbst anwenden; die echte Figur bringt fig.scale mit
+  const s = a.fig && a.fig.fallback ? ROLLE_SCALE[e.ro] || 1 : 1;
+  a.body.scale.set(s, s, s);
+  applyWaffe(a, e.wf || figWaffe(a), WAFFE_BW[e.fr] || 'germanen', 0, pa, ks);
+  applyFessel(a, !!ks.fessel);
+}
+
 function updateEnemy(e, view, st, dt, t) {
   const map = L.ctx.map;
   const kind = e.kind || (map && map.id === 'wreck' ? 'scavenger' : 'drone');
   const key = 'e:' + e.id;
-  if (!enemyShown(e, view, st)) { const a0 = L.actors.get(key); if (a0) a0.container.visible = false; return; }
+  if (!enemyShown(e, view, st) || !onVisibleDeck(e.y)) { const a0 = L.actors.get(key); if (a0) a0.container.visible = false; return; }
   const a = actor(key);
+  a.entityId = String(e.id);
   const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
-  const alive = e.alive !== false;
+  const alive = e.alive !== false && e.zs !== 'aus';
+  if (e.ro && ROLLEN[e.ro]) { updateGermane(a, e, view, dt, t, hitAge); return; }
+  if (kind === 'scavenger' && e.zs && e.zs !== 'ok') {
+    // B2: Plünderer liegen/knien nach denselben Zuständen (Gewehr steckt in der Figur)
+    a.setFigure('lerche/scavenger', { params: { role: a.role != null ? a.role : (a.role = scavRole(e)) } }, 'scav');
+    const pos = place(a, e.x, e.y, 0);
+    const ks = kampfZustand(a, e, t, false, false);
+    const lie = ks.lie ? lieYaw(a, ks.base) : null;
+    locomote(a, pos.x, pos.z, dt, lie, false);
+    pose(a, { base: ks.base || 'stand', walk: 0, phase: a.phase, t }, dt);
+    applyFessel(a, !!ks.fessel);
+    return;
+  }
   if (kind === 'scavenger') {
     // DECKS liefert away.drones[i].kit (0 Schütze / 1 Flanker / 2 Funker, nur Kesh); Notbehelf nur ohne kit
     if (e.kit != null && +e.kit >= 0 && +e.kit <= 2) a.role = +e.kit;
@@ -757,9 +1030,13 @@ function updateEnemy(e, view, st, dt, t) {
     a.setItem(null, null);   // ART-G: Gewehr steckt schon in der Figur (handR)
     return;
   }
-  if (kind === 'warden') {
+  if (kind === 'warden' || e.ro === 'waechter') {
     const state = !alive ? 2 : hitAge < 0.15 ? 1 : 0;
-    a.setModel('lerche/actor/warden', { state, front: e.asleep || !alive ? 0 : 1 }, 'warden');
+    // Kastell-Automat (Rom, herrenlose Kastelle) statt Kustoden-Wächter: Fraktion bzw. Bauweise der Bühne
+    const mk = L.ctx.map && (L.ctx.map.karte || L.ctx.map);
+    const rom = e.fr === 'herrenlos' || e.fr === 'rom' || (!e.fr && mk && mk.bauweise === 'rom');
+    a.setModel(rom ? 'actor/rom/waechter' : 'lerche/actor/warden', { state, front: e.asleep || !alive ? 0 : 1 }, 'warden');
+    a.labelH = rom ? 2.3 : null;
     const pos = place(a, e.x, e.y, 0);
     const f = +e.facing || 0;
     locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), false);
@@ -863,6 +1140,7 @@ const layer = {
     if (!L.THREE) layer.build(L.ctx);
     if (L.group.parent !== L.ctx.root) L.ctx.root.add(L.group);
     L.frame++; L.time += dt;
+    installDeckHook();
     const t = view.time != null ? view.time : L.time;
     const st = view.state || {};
     const zone = zoneOfCtx();
@@ -870,6 +1148,12 @@ const layer = {
     // Schüsse (fx.js meldet Mündungsfeuer je Spieler)
     try { const fx = window.VoxelFx; if (fx && fx.shots) for (const k in fx.shots) L.shotAt[k] = fx.shots[k]; } catch (e) { /* egal */ }
     const want = zone === 'ship' ? 'ship' : 'away';
+    // B2 (carried): Träger = Spieler, dessen carry auf eine Figur-ID zeigt (Spieler oder Gegner)
+    L.carriedBy = new Map();
+    if (zone !== 'ship') {
+      const ids = new Set([...(view.players || []).map((q) => String(q.id)), ...(view.drones || []).map((q) => String(q.id))]);
+      for (const q of view.players || []) if (q.zone === 'away' && q.carry != null && !ITEM_IDS[q.carry] && ids.has(String(q.carry).replace(/^[pe]:/, ''))) L.carriedBy.set(String(q.carry).replace(/^[pe]:/, ''), q);
+    }
     for (const p of view.players || []) {
       if (p.zone !== want || p.connected === false) continue;
       try { updatePlayer(p, view, st, dt, t); } catch (e) { err('player', e); }
@@ -922,7 +1206,97 @@ const layer = {
 registerLayer(layer);
 
 // Debug/QA: window.VoxelActors.stats() – Figuren, Draw Calls (Layer), instanzierte Teile, Ersatzfiguren, Fehler
+// ------------------------------------------------------------------------------------------------------------------------------
+// Deck-Ereignisse der Bühnen (BODENKAMPF, B1 §6.2): lift { pid, deck, phase, T, zone:'away' }, enemyDeck { id, via, x, y }.
+// Spieler: Snapshot players[].deck/lift trägt den Wechsel (Aufstiegs-Einblendung wie an Bord); das Ereignis sichert die
+// Ankunft auch ohne lift im Snapshot. Gegner haben kein lift-Feld: Sie tauchen 0,4 s lang aus dem Schacht auf.
+function onDeckEvent(ev) {
+  if (!ev || typeof ev !== 'object') return;
+  const kind = ev.kind || ev.name || ev.e;
+  if (kind === 'lift' && ev.zone === 'away' && ev.pid != null && ev.phase === 'arrive') {
+    const a = L.actors.get('p:' + ev.pid);
+    if (a && !a.arrive) a.arrive = { t: 0, from: (ev.deck | 0) > (a.deck | 0) ? -1 : 1, T: ev.via === 'ladder' ? 0.4 : 0.6 };
+    if (a) a.deck = ev.deck;
+  } else if (kind === 'enemyDeck' && ev.id != null) {
+    const a = L.actors.get('e:' + ev.id);
+    if (a) a.arrive = { t: 0, from: -1, T: 0.4 };
+    L.stats.deckWechsel = (L.stats.deckWechsel || 0) + 1;
+  }
+}
+// F7 (B1-FIX-CLIENT): einmal als Zuhörer anmelden (Net.onEvent), statt Net.onMessage je Frame zu überschreiben
+function installDeckHook() {
+  const Net = window.Net;
+  if (L.netHook || !Net || typeof Net.onEvent !== 'function') return;
+  L.netHook = Net.onEvent('*', (msg) => { try { onDeckEvent(msg); } catch (e) { err('deckEvent', e); } });
+}
+// Einblendung beim Deckwechsel (Gegner): von unten auftauchen
+function arriveOffset(a, dt) {
+  if (!a.arrive) return 0;
+  a.arrive.t += dt;
+  const q = clamp01(a.arrive.t / a.arrive.T);
+  const y = a.arrive.from * (1 - q) * (1 - q) * 2.2;
+  if (q >= 1) a.arrive = null;
+  return y;
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+// FX-Schnittstelle (SCHNITTSTELLEN-NACHTRAG „FX“): Weltpunkt eines Sockets der Figur bzw. ihrer Waffe
+const WAFFEN_SOCKETS = { muzzle: 1, vent: 1, charge: 1, blade_tip: 1, grip: 1 };
+function actorOf(id) {
+  const s = String(id);
+  if (/^[pebin]:/.test(s)) return L.actors.get(s) || null;
+  const a = L.actors.get('p:' + s) || L.actors.get('e:' + s);
+  return a && a.container.visible ? a : (a || null);
+}
+/** socket(id, name) → [x, y, z] (Welt) oder null. id = Spieler- bzw. Gegner-ID (Präfix p:/e: optional). */
+function socketWorld(id, name) {
+  try {
+    const a = actorOf(id);
+    if (!a || !a.container.parent) return null;
+    a.container.updateMatrixWorld(true);
+    const V = L.THREE.Vector3;
+    if (WAFFEN_SOCKETS[name]) {
+      const it = a.item, iid = it && it.userData.itemId;
+      if (!it || !iid) return null;
+      const s = manifestSocket(iid, name);
+      if (!s) return null;
+      const v = it.localToWorld(new V(s[0], s[1], s[2]));
+      return [v.x, v.y, v.z];
+    }
+    const j = a.fig && a.fig.joints;
+    if (name === 'head_top') {
+      if (j && j.head) { const v = j.head.localToWorld(new V(0, 9 * VX, 0)); return [v.x, v.y, v.z]; }
+      const v = a.container.localToWorld(new V(0, 2.1, 0)); return [v.x, v.y, v.z];
+    }
+    if (name === 'wrists') {
+      if (j && j.handL && j.handR) { const v = j.handL.getWorldPosition(new V()).add(j.handR.getWorldPosition(new V())).multiplyScalar(0.5); return [v.x, v.y, v.z]; }
+      return null;
+    }
+    if (name === 'label') { const v = a.container.localToWorld(new V(0, labelHeight(a), 0)); return [v.x, v.y, v.z]; }
+    if (name === 'fx_spark') { const v = a.container.localToWorld(new V(0, 1.3 * (a.figScale ? a.figScale() : 1), 0.2)); return [v.x, v.y, v.z]; }
+    return null;
+  } catch (e) { err('socket', e); return null; }
+}
+/** Höhe des label-Sockets über dem Boden (m): Figur-Manifest × Größe (Enterer 1,1 → höher), Kastell-Automat 2,3 */
+function labelHeight(a) {
+  if (a.labelH) return a.labelH;
+  let h = 2.3;
+  try { const m = a.figId && L.ctx.loader.manifest(a.figId); if (m && m.sockets && m.sockets.label) h = m.sockets.label[1]; } catch (e) { /* egal */ }
+  return h * (a.figScale ? a.figScale() : 1);
+}
+
 window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FALLBACK_POSES,
   // QA: Weltpunkt der Löscher-Mündung je Spieler (null, wenn kein Löscher in der Hand)
-  muzzle: (pid) => L.muzzles.get(pid) || null };
+  muzzle: (pid) => L.muzzles.get(pid) || null,
+  // FX: Weltpunkt eines Sockets (muzzle, vent, charge, blade_tip, head_top, wrists, label, fx_spark) oder null
+  socket: socketWorld,
+  onEvent: onDeckEvent,
+  // QA: Höhe des Gegenstands in der Hand (min/max y in m, Welt) – Lanzenfuß auf dem Boden?
+  // QA: Modell und Schlüssel (inkl. Parameter wie bauweise) des Gegenstands in der Hand
+  itemInfo: (id) => { const a = actorOf(id); return a && a.item ? { id: a.item.userData.itemId, key: a.itemKey } : null; },
+  // QA: Deck und laufende Einblendung einer Figur
+  deckInfo: (id) => { const a = actorOf(id); return a ? { deck: a.deck, arrive: a.arrive ? Object.assign({}, a.arrive) : null, visible: a.container.visible } : null; },
+  itemBox: (id) => { const a = actorOf(id); if (!a || !a.item) return null; a.container.updateMatrixWorld(true); const b = new L.THREE.Box3().setFromObject(a.item); return [b.min.y, b.max.y]; },
+  // CLIENT-Overlay: Höhe des Namens/der Marke über dem Boden (m) je Spieler-/Gegner-ID
+  labelY: (id) => { const a = actorOf(id); return a ? labelHeight(a) + (a.container.position.y || 0) : null; } };
 export { layer as actorsLayer, FALLBACK_POSES };

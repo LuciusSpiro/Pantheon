@@ -1,0 +1,75 @@
+{
+  "format": "modul/1",
+  "id": "schiff.zellen.a",
+  "art": "schiff",
+  "typ": "zellen",
+  "groesse": [8, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Zwei Zellennischen hinter Gittern an der Bordwand, Asservatenkiste (Ausrüstung beim Ausbruch).",
+  "rows": [
+    "########",
+    "#.z..z.#",
+    "#.z..z.#",
+    "#......#",
+    "#o.Oo..#",
+    "#......#",
+    "....O...",
+    "#..o..O#",
+    "#O.....#",
+    "#..o.o.#",
+    "#......#",
+    "#..O...#",
+    "########"
+  ],
+  "anker": [
+    "........",
+    ".c....c.",
+    "........",
+    "........",
+    "........",
+    ".....q..",
+    "..p.....",
+    "........",
+    "........",
+    "........",
+    "..b.....",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "c": {
+      "rolle": "zelle"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": [
+    [
+      "........",
+      "........",
+      "........",
+      "...o....",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........",
+      ".....O..",
+      "........",
+      "........"
+    ]
+  ]
+}

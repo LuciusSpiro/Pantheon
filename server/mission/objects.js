@@ -38,7 +38,13 @@ const MAP_IDS = Object.keys(AWAY_LEGENDS);
 function declared(map) {
   return Object.assign({}, EXTRA_OBJECTS[map] || {}, (Maps.MAP_OBJECTS || {})[map] || {});
 }
-function areas(map) { return ((Maps.MAP_AREAS || {})[map]) || {}; }
+// B1: gebaute Karten liefern ihre Bereiche aus der Karte ({ rects } wie MAP_AREAS mit rects)
+function areas(map) {
+  const a = (Maps.MAP_AREAS || {})[map];
+  if (a || isHand(map)) return a || {};
+  const k = karte(null, map);
+  return (k && k.bereiche) || {};
+}
 function groups(map) { return (MAP_GROUPS[map] && MAP_GROUPS[map].gruppen) || {}; }
 function units(map) { return (MAP_GROUPS[map] && MAP_GROUPS[map].einheiten) || {}; }
 function legendKinds(map) {
@@ -133,6 +139,13 @@ function setState(game, map, object, z) {
     case 'platform.sonde=off': if (a.sonde) a.sonde.disabled = true; a.doorOpen = true; return true;
     case 'platform.core=rebooted': a.coreRebooted = true; return true;
     case 'wreck.lore=read': a.loreRead = true; return true;
+    // B1 Nachauftrag: Ivo, Wächter, Container über Bausteine setzbar
+    case 'platform.ivo=injured': if (a.npc) { a.npc.injured = true; a.npc.rescued = false; } return true;
+    case 'platform.ivo=ok': if (a.npc) { a.npc.injured = false; a.npc.rescued = false; } return true;
+    case 'platform.ivo=rescued': if (a.npc) { a.npc.injured = false; a.npc.rescued = true; a.npc.present = false; a.npc.following = null; } return true;
+    case 'kesh.warden=dead': for (const d of a.drones || []) if (d.kind === 'warden') { d.alive = false; d.asleep = false; d.aim = null; } return true;
+    case 'kesh.warden=asleep': for (const d of a.drones || []) if (d.kind === 'warden' && d.alive) { d.asleep = true; d.aim = null; } return true;
+    case 'wreck.container=full': case 'wreck.container=taken': for (const s of a.salvage || []) if (!s.hidden) s.done = z === 'taken'; return true;
     case 'wreck.hollow=open': {
       if (a.hollow) a.hollow.open = true;
       const hid = (a.salvage || []).find((s) => s.hidden);
@@ -146,9 +159,20 @@ function setState(game, map, object, z) {
 }
 
 // ---------- Bereiche und Positionen ----------
+function areaDef(map, area) {
+  const all = areas(map);
+  if (all[area]) return all[area];
+  if (isHand(map) || !['hinein', 'ziel', 'rueckzug'].includes(area)) return null;
+  const key = Object.keys(all).sort().find((k) => all[k] && all[k].rolle === area);
+  return key ? all[key] : null;
+}
 function inArea(game, map, area, x, y) {
-  if (!areas(map)[area]) { countErr(game, 'mission-area', `Bereich ${map}.${area} unbekannt`); return false; }
-  return Maps.inArea(map, area, Math.floor(x / TILE), Math.floor(y / TILE));
+  // Wunsch KATALOG (genehmigt): auf gebauten Karten löst hinein|ziel|rueckzug auch über die Bereichsrolle auf
+  const def = areaDef(map, area);
+  if (!def) { countErr(game, 'mission-area', `Bereich ${map}.${area} unbekannt`); return false; }
+  const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+  if (!isHand(map)) return (def.rects || []).some((q) => tx >= q[0] && tx < q[0] + q[2] && ty >= q[1] && ty < q[1] + q[3]);
+  return Maps.inArea(map, area, tx, ty);
 }
 // Spieler auf dieser Außenkarte (Zone away, aktive Karte)
 function teamOn(game, map) {
@@ -175,7 +199,214 @@ function inZone(game, loc, zone) {
   return (z.xMin == null || s.x > z.xMin) && (z.xMax == null || s.x < z.xMax) && (z.yMin == null || s.y > z.yMin) && (z.yMax == null || s.y < z.yMax);
 }
 
+// =================================================================================================================
+// B1 (CONTRACT-B1 §6.3): Ankermodell. Objektbezug neu { map: <lpId>, anker: <rolle>|<ankerId>, state, all? }.
+// Handkarten (platform, wreck, kesh): Maps.MAP_ANCHORS (BUEHNE) + Adapter auf die alten Objekte (Zustandsnamen übersetzt).
+// Gebaute Karten: Anker aus der Karte (world.AWAY_MAPS[lpId].karte bzw. landepunkte.karte), Zustand über anker.js (BUEHNE).
+// =================================================================================================================
+const HAND_MAPS = ['platform', 'wreck', 'kesh'];
+let ankerVokabular = null;
+function vokabular() {
+  if (!ankerVokabular) { try { ankerVokabular = require('../../content/buehnen/anker.json'); } catch (e) { ankerVokabular = { rollen: {} }; } }
+  return ankerVokabular;
+}
+const ROLLEN = () => vokabular().rollen || {};
+function rolleZustaende(rolle) { const r = ROLLEN()[rolle]; return (r && Array.isArray(r.zustaende)) ? r.zustaende : []; }
+// Zustandsübersetzung alt (MAP_OBJECTS) -> neu (anker.json). Objekte ohne Rollenzustände (warden, ivo) behalten ihre Namen.
+const ADAPTER_ZUSTAENDE = {
+  vault: { closed: 'zu', open: 'offen' },
+  key: { idle: 'ruhe', held: 'gehalten' },
+  tablet: { present: 'da', taken: 'genommen' },
+  container: { full: 'voll', taken: 'leer' },
+  lore: { unread: 'bereit', read: 'geladen' },
+  hollow: { closed: 'zu', open: 'offen' },
+  datenkern: { present: 'frei', taken: 'genommen' },
+  jammer: { on: 'frei', off: 'aktiviert' },
+};
+const zuNeu = (alt, z) => { const t = ADAPTER_ZUSTAENDE[alt]; return t && t[z] != null ? t[z] : z; };
+const zuAlt = (alt, z) => { const t = ADAPTER_ZUSTAENDE[alt]; if (!t) return z; const k = Object.keys(t).find((x) => t[x] === z); return k != null ? k : z; };
+const isHand = (map) => HAND_MAPS.includes(map);
+
+let worldMod = null; let ankerSim; let lpSim;
+const world = () => worldMod || (worldMod = require('../world.js'));
+function optSim(name) {
+  try { const m = require('../sim/' + name + '.js'); return m && !m.stub ? m : null; } catch (e) { return null; }
+}
+function ankerMod() { if (ankerSim === undefined) ankerSim = optSim('anker'); return ankerSim; }
+function landepunkteMod() { if (lpSim === undefined) lpSim = optSim('landepunkte'); return lpSim; }
+
+// Gebaute Karte eines Landepunkts (Vertrag Karte, §2) oder null
+function karte(game, map) {
+  if (!map || isHand(map)) return null;
+  try {
+    const reg = (world().AWAY_MAPS || {})[map];
+    const k = reg && (reg.karte || (Array.isArray(reg.rows) && reg.anker ? reg : null));
+    if (k) return k;
+    const L = landepunkteMod();
+    if (L && typeof L.karte === 'function') return L.karte(game, map) || null;
+  } catch (e) { if (game && game.countError) game.countError('mission-anker', e); }
+  return null;
+}
+// Alle Anker einer Karte: [{ id, rolle, x, y, alt?, … }]
+function anchors(game, map) {
+  if (isHand(map)) return ((Maps.MAP_ANCHORS || {})[map]) || [];
+  const k = karte(game, map);
+  return (k && Array.isArray(k.anker)) ? k.anker : [];
+}
+// ref = Anker-ID oder Rolle -> passende Anker (Rolle: alle dieser Rolle)
+function resolveAnker(game, map, ref) {
+  const list = anchors(game, map);
+  const byId = list.filter((a) => a.id === ref);
+  return byId.length ? byId : list.filter((a) => a.rolle === ref);
+}
+// Index eines Hand-Ankers unter den Ankern mit demselben alten Objekt (viele: container, key, jammer)
+function altIndex(map, a) {
+  const same = (((Maps.MAP_ANCHORS || {})[map]) || []).filter((x) => x.alt === a.alt);
+  return same.length > 1 ? same.indexOf(a) : null;
+}
+// Zustand eines Ankers (Vokabular anker.json) bzw. null
+function ankerState(game, map, a) {
+  if (!a) return null;
+  if (isHand(map)) {
+    if (!a.alt) return rolleZustaende(a.rolle)[0] || null;
+    if (a.alt === 'pads') return 'bereit';
+    if (a.alt === 'container') {   // Container über die Kachel (auch der versteckte im Hohlraum ist ein beute-Anker)
+      const w = aw(game, map); const s = w && (w.salvage || []).find((x) => x.x === a.x && x.y === a.y);
+      return s ? (s.done ? 'leer' : 'voll') : null;
+    }
+    if (a.alt === 'key') {   // gelöstes Paar = Gewölbe offen
+      if (state(game, 'kesh', 'vault') === 'open') return 'geloest';
+    }
+    const idx = altIndex(map, a);
+    const s = declared(map)[a.alt] ? state(game, map, a.alt, idx != null ? idx : undefined) : null;
+    if (Array.isArray(s)) return s.length ? zuNeu(a.alt, s[0]) : null;
+    return s == null ? null : zuNeu(a.alt, s);
+  }
+  const A = ankerMod();
+  if (A && typeof A.zustand === 'function') { try { const z = A.zustand(game, map, a.id); if (z != null) return z; } catch (e) { game.countError('mission-anker', e); } }
+  const k = karte(game, map);
+  if (k && k.zustaende && k.zustaende[a.id] != null) return k.zustaende[a.id];
+  return rolleZustaende(a.rolle)[0] || null;
+}
+// anker_state / object_state { anker }: eins (bzw. alle mit all) im Zustand z
+function ankerInState(game, map, ref, z, all) {
+  const list = resolveAnker(game, map, ref);
+  if (!list.length) return false;
+  const st = list.map((a) => ankerState(game, map, a));
+  return all ? st.every((s) => s === z) : st.some((s) => s === z);
+}
+function ankerCount(game, map, ref, z) {
+  return resolveAnker(game, map, ref).filter((a) => z == null || ankerState(game, map, a) === z).length;
+}
+// Zustand setzen. Handkarten über das alte Objekt (setState), gebaute Karten über anker.js setzen(game, map, id, z, pid?).
+function setAnkerState(game, map, ref, z, opts) {
+  const list = resolveAnker(game, map, ref);
+  if (!list.length) { countErr(game, 'mission-anker', `Anker ${map}.${ref} unbekannt`); return false; }
+  let ok = true;
+  if (isHand(map)) {
+    const done = new Set();
+    for (const a of list) {
+      if (a.alt === 'container') {   // einzelner Container über seine Kachel (auch der versteckte im Hohlraum)
+        const w = aw(game, map); const s = w && (w.salvage || []).find((x) => x.x === a.x && x.y === a.y);
+        if (s && (z === 'voll' || z === 'leer')) s.done = z === 'leer'; else ok = false;
+        continue;
+      }
+      if (!a.alt || a.alt === 'pads' || done.has(a.alt)) continue;
+      done.add(a.alt);
+      ok = setState(game, map, a.alt, zuAlt(a.alt, z)) && ok;
+    }
+    return ok;
+  }
+  const A = ankerMod();
+  if (!A || typeof A.setzen !== 'function') { countErr(game, 'mission-anker', `anker.js fehlt – ${map}.${ref}=${z} nicht gesetzt`); return false; }
+  for (const a of list) {
+    try { const e = A.setzen(game, map, a.id, z, null, opts || {}); if (e) { ok = false; countErr(game, 'mission-anker', e); } } catch (e) { game.countError('mission-anker', e); ok = false; }
+  }
+  return ok;
+}
+// Zustände, die ein Anker-Bezug kennen kann (Prüfer): Rollenzustände, bei Handkarten auch die alten Namen ohne Übersetzung
+function ankerZustaende(map, ref) {
+  const out = new Set();
+  const list = isHand(map) ? resolveAnker(null, map, ref) : [];
+  const rollen = list.length ? [...new Set(list.map((a) => a.rolle))] : (ROLLEN()[ref] ? [ref] : []);
+  for (const r of rollen) for (const z of rolleZustaende(r)) out.add(z);
+  for (const a of list) if (a.alt && declared(map)[a.alt]) for (const z of declared(map)[a.alt].zustaende) out.add(zuNeu(a.alt, z));
+  if (rollen.includes('raetsel')) out.add('geloest');
+  return [...out];
+}
+// Positionen (Pixel) der Anker eines Bezugs
+function ankerPositions(game, map, ref) {
+  return resolveAnker(game, map, ref).map((a) => ({ x: a.x * TILE + TILE / 2, y: a.y * TILE + TILE / 2 }));
+}
+// Ankerzahlen je Rolle einer Karte (Kontext, Prüfer): { rolle: anzahl }
+function ankerZahlen(list) {
+  const out = {};
+  for (const a of list || []) out[a.rolle] = (out[a.rolle] || 0) + 1;
+  return out;
+}
+
+// ---------- Landepunkte (content/welt/landepunkte.json, BUEHNE) – für Prüfer und Kontext ohne Server ----------
+let lpDaten;
+function landepunktDaten() {
+  if (lpDaten === undefined) {
+    lpDaten = {};
+    try {
+      const d = require('../../content/welt/landepunkte.json');
+      for (const [ort, list] of Object.entries((d && d.orte) || {})) for (const e of list || []) if (e && e.id) lpDaten[e.id] = Object.assign({ ort }, e);
+    } catch (e) { /* Datei fehlt: nur Handkarten */ }
+  }
+  return lpDaten;
+}
+const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff'];
+// Landepunkt-ID -> { id, ort, art, gesperrt, frei, dynamisch? } | null. Dynamisch: <ort>.<art>-<n> (lp neu) und <ort>.prise (§7)
+function landepunkt(id) {
+  if (typeof id !== 'string' || !id) return null;
+  const d = landepunktDaten()[id];
+  if (d) return d;
+  if (isHand(id)) return { id, ort: locOfMap(id), art: 'hand', gesperrt: false, frei: 'immer' };
+  const m = /^([a-z0-9_]+)\.(?:(prise)|([a-z]+)-\d+)$/.exec(id);
+  if (m && Locations.LOCATIONS.some((l) => l.id === m[1]) && (m[2] || KARTEN_ARTEN.includes(m[3]) || m[3] === 'wrack')) {   // wrack-<n>: treibendes Wrack (ENTERN)
+    return { id, ort: m[1], art: m[2] || m[3] === 'wrack' ? 'schiff' : m[3], gesperrt: false, frei: 'immer', dynamisch: true };
+  }
+  return null;
+}
+function landepunkteAm(ort) { return Object.values(landepunktDaten()).filter((e) => e.ort === ort); }
+
+// §11.1/§11.3: buehne_braucht einer Umsetzung gegen eine gebaute Karte prüfen.
+//   braucht = { kartenarten?: [..], anker: ['tor', 'fund', { rolle: 'raetsel', paar: 1 }], min?: { eingang: 2 }, gefecht?: true }
+//   k = Karte (§2) oder { art, anker, bereiche } (Handkarte: art 'hand' bzw. die Karten-ID in kartenarten)
+// -> [{ code: 'BUEHNE-ART'|'BUEHNE-ANKER', msg }]
+function pruefeBuehneBraucht(braucht, k, mapId) {
+  const out = [];
+  if (!braucht || typeof braucht !== 'object') return out;
+  const list = (k && k.anker) || [];
+  const art = k && k.art;
+  const arten = Array.isArray(braucht.kartenarten) ? braucht.kartenarten : null;
+  if (arten && arten.length && !arten.includes(art) && !(mapId && arten.includes(mapId))) out.push({ code: 'BUEHNE-ART', msg: `Kartenart '${art}'${mapId ? ` (${mapId})` : ''} passt nicht (verlangt: ${arten.join(', ')})` });
+  const zahl = ankerZahlen(list);
+  for (const req of braucht.anker || []) {
+    const rolle = typeof req === 'string' ? req : req && req.rolle;
+    if (!rolle) continue;
+    if (typeof req === 'object' && req.paar) {
+      const paare = {};
+      for (const a of list) if (a.rolle === rolle && a.paar) paare[a.paar] = (paare[a.paar] || 0) + 1;
+      const n = Object.values(paare).filter((c) => c >= 2).length;
+      if (n < req.paar) out.push({ code: 'BUEHNE-ANKER', msg: `Karte hat ${n} vollständige ${rolle}-Paare (verlangt ${req.paar})` });
+    } else if (!zahl[rolle]) out.push({ code: 'BUEHNE-ANKER', msg: `Karte hat keinen Anker '${rolle}'` });
+  }
+  for (const [rolle, n] of Object.entries(braucht.min || {})) {
+    if ((zahl[rolle] || 0) < n) out.push({ code: 'BUEHNE-ANKER', msg: `Karte hat ${zahl[rolle] || 0}× '${rolle}' (verlangt mindestens ${n})` });
+  }
+  if (braucht.gefecht) {
+    const b = (k && k.bereiche) || {};
+    if (!Object.values(b).some((x) => x && x.gefecht)) out.push({ code: 'BUEHNE-ANKER', msg: 'Karte hat keinen Gefechtsbereich' });
+  }
+  return out;
+}
+
 module.exports = {
+  HAND_MAPS, ADAPTER_ZUSTAENDE, karte, anchors, resolveAnker, ankerState, ankerInState, ankerCount, setAnkerState, ankerZustaende,
+  ankerPositions, ankerZahlen, pruefeBuehneBraucht, rolleZustaende, isHand, landepunkt, landepunkteAm, landepunktDaten, KARTEN_ARTEN,
   EXTRA_OBJECTS, MAP_GROUPS, SPACE_ZONES, BEAM_RULES, ITEM_CARRIER, AWAY_LEGENDS, MAP_IDS,
   declared, areas, groups, units, legendKinds, locOfMap, tilesOf,
   state, setState, inArea, countInState, countAll, inState, teamOn, positions, carrierOf, inZone,

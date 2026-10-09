@@ -1,0 +1,19 @@
+{
+  "id": "fig/rolle/haescher/fesselgurt",
+  "name": "Häscher: Fesselkette schräg über die Brust, Fesselschlaufen am Gürtel (Aufsatz shoulder)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "haescher", "aufsatz"],
+  "notes": "Rollenteil, fraktionsneutral. Aufsatz shoulder (Gelenk torso, anchor [0,16,0]), Figur-Koordinaten. Kette von der linken Schulter zur rechten Hüfte vorn (z 3), an den Klinkerkanten des Rumpfs (y 19/22, z 3) ausgespart. Je zwei Fesselschlaufen vorn links und rechts am Gürtel (vor dem Oberschenkel, nicht seitlich, damit die Arme frei schwingen). Kein Leuchten: Blau am Häscher gehört allein dem Betäuber-Kopf/Telegraf (Elektrisch-Blau).",
+  "ops": [
+    { "name": "Kette", "op": "line", "from": [3.5, 24.5, 3.5], "to": [-3.5, 15.5, 3.5], "r": 0.5, "color": { "stripes": ["metal_light", "metal_dark"], "axis": "y", "period": 1 }, "jitter": false },
+    { "name": "Kette frei an Klinkerkanten", "op": "box", "at": [-4, 19, 3], "size": [8, 1, 1], "mode": "carve", "repeat": { "count": 2, "step": [0, 3, 0] } },
+    { "name": "Kettenhaken", "op": "box", "at": [3, 24, 2], "size": [1, 1, 2], "color": "metal" },
+    { "name": "Fesselschlaufe", "op": "box", "at": [1, 10, 3], "size": [3, 4, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schlaufe innen", "op": "box", "at": [2, 11, 3], "size": [1, 2, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schlaufe Schloss", "op": "box", "at": [2, 13, 3], "size": [1, 1, 1], "color": "metal_dark", "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schlaufe 2", "op": "box", "at": [2, 9, 4], "size": [2, 3, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schlaufe 2 innen", "op": "box", "at": [2, 10, 4], "size": [1, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 16, 0]
+}

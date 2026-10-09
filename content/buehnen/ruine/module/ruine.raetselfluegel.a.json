@@ -1,0 +1,28 @@
+{
+  "format": "modul/1", "id": "ruine.raetselfluegel.a", "art": "ruine", "typ": "raetselfluegel",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "###DD###",
+    "#......#",
+    "#.o..o.#",
+    "D......#",
+    "D..OO..#",
+    "#......#",
+    "#......#",
+    "########"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "...r....",
+    "........"
+  ],
+  "anker_legende": {
+    "r": { "rolle": "raetsel" }
+  },
+  "belegungen": []
+}

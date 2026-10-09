@@ -1,0 +1,27 @@
+{ "format": "schablone/1", "id": "station.kreuz", "art": "station", "name": "Kreuz", "zellen": [6, 3], "spiegeln": ["x", "y"], "fuellung": "wand",
+  "plaetze": [
+    { "id": "zellen",    "typ": "zellen",       "x": 0, "y": 0, "richtung": "W", "bereich": "kern", "kern": true },
+    { "id": "gang_nw",   "typ": "abzweig",      "x": 1, "y": 0, "richtung": "N", "bereich": "gang" },
+    { "id": "gang_n",    "typ": "abzweig",      "x": 2, "y": 0, "richtung": "N", "bereich": "gang" },
+    { "id": "herz",      "typ": "herzstueck",   "x": 3, "y": 0, "w": 2, "h": 1, "richtung": "N", "bereich": "kern", "kern": true },
+    { "id": "fracht",    "typ": "schleuse",     "x": 5, "y": 0, "richtung": "O", "bereich": "fracht", "kern": true, "eingang_art": "technisch" },
+    { "id": "andock",    "typ": "schleuse",     "x": 0, "y": 1, "richtung": "W", "bereich": "andock", "kern": true, "eingang_art": "laut", "ankunft": true },
+    { "id": "gang_w",    "typ": "kreuzung",     "x": 1, "y": 1, "bereich": "gang" },
+    { "id": "kreuzung",  "typ": "kreuzung",     "x": 2, "y": 1, "bereich": "gang" },
+    { "id": "gang_o",    "typ": "abzweig",      "x": 3, "y": 1, "richtung": "N", "bereich": "gang" },
+    { "id": "schott",    "typ": "schott",       "x": 4, "y": 1, "richtung": "N", "bereich": "gang" },
+    { "id": "leitstand", "typ": "kontrollraum", "x": 5, "y": 1, "w": 1, "h": 2, "richtung": "O", "bereich": "kern", "kern": true },
+    { "id": "reaktor",   "typ": "reaktorraum",  "x": 0, "y": 2, "w": 2, "h": 1, "richtung": "S", "bereich": "kern", "kern": true },
+    { "id": "lager",     "typ": "lager",        "x": 2, "y": 2, "richtung": "S", "bereich": "gang" },
+    { "id": "quartiere", "typ": "quartiere",    "x": 3, "y": 2, "w": 2, "h": 1, "richtung": "S", "bereich": "kern" }
+  ],
+  "bereiche": {
+    "andock": { "name": "Andockring", "rolle": "hinein" },
+    "gang":   { "name": "Kreuzgänge", "rolle": null },
+    "kern":   { "name": "Halle, Leitstand, Reaktor, Quartiere", "rolle": "ziel" },
+    "fracht": { "name": "Frachtschleuse", "rolle": "rueckzug" }
+  },
+  "gefecht": ["gang_nw", "gang_n", "gang_w", "kreuzung", "gang_o", "schott"],
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 2, "terminal": 2, "sprengpunkt": 1, "ziel": 3, "zelle": 2, "nsc": 2, "beute": 3, "tor": 1, "wache": 4, "patrouille": 4, "versteck": 1 }
+}

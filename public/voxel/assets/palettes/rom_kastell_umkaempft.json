@@ -1,0 +1,28 @@
+{
+  "id": "rom_kastell_umkaempft",
+  "name": "rom_kastell umkämpft: Ruß nur an Wand/Krone/Trümmer (dark), Boden ruhig wie verfallen, warmer Feuerschein",
+  "extends": "rom_kastell",
+  "adjust": {
+    "sat": 0.9,
+    "light": 0.88,
+    "tint": "#4A2818",
+    "mix": 0.1,
+    "except": [
+      "glow",
+      "glow2",
+      "leit"
+    ]
+  },
+  "roles": {
+    "soil_dark": "#8A8476",
+    "dark": "#141210",
+    "glow2": {
+      "color": "#FFB070",
+      "emit": 1.2
+    },
+    "ember": {
+      "color": "#FFB070",
+      "emit": 1.2
+    }
+  }
+}

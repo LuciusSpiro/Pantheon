@@ -435,13 +435,45 @@
       gewoelbe: { rect: [39, 16, 6, 6] },
     },
   };
+  // B1 (BUEHNE, CONTRACT-B1 §2): Bereiche gebauter Karten tragen Rechtecklisten { rects: [[x, y, w, h], …] }.
   function inArea(mapId, areaId, tx, ty) {
     const a = MAP_AREAS[mapId] && MAP_AREAS[mapId][areaId];
     if (!a) return false;
+    if (a.rects) { for (const q of a.rects) if (tx >= q[0] && tx < q[0] + q[2] && ty >= q[1] && ty < q[1] + q[3]) return true; return false; }
     if (a.cols) return tx >= a.cols[0] && tx <= a.cols[1];
     if (a.rect) return tx >= a.rect[0] && tx < a.rect[0] + a.rect[2] && ty >= a.rect[1] && ty < a.rect[1] + a.rect[3];
     return false;
   }
+
+  // ---- B1 (BUEHNE, CONTRACT-B1 §6.3): Anker der Handkarten (Rollen aus content/buehnen/anker.json) ----
+  // alt = altes Objekt in MAP_OBJECTS (Adapter ENGINE); viele Objekte (container, key) in der Reihenfolge von find().
+  // Handkarten-Anker dürfen auf Objektkacheln stehen (die Objekte sind dort Kacheln); IDs <bereich>.<rolle>[.<n>].
+  function ankerAus(rows, ch) { const out = []; rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === ch) out.push({ x, y }); }); return out; }
+  function nummeriert(list, id, rolle, extra) {
+    return list.map((t, i) => Object.assign({ id: list.length > 1 ? `${id}.${rolle}.${i + 1}` : `${id}.${rolle}`, rolle, x: t.x, y: t.y }, extra));
+  }
+  const MAP_ANCHORS = {
+    platform: [].concat(
+      [{ id: 'landedeck.abholpunkt', rolle: 'abholpunkt', x: PLATFORM_PADS[0].x, y: PLATFORM_PADS[0].y, ankunft: true, alt: 'pads' }],
+      nummeriert(ankerAus(PLATFORM_ROWS, 'Q'), 'kernraum', 'ziel', { alt: 'datenkern', bereich: 'kernraum' }),
+      nummeriert(ankerAus(PLATFORM_ROWS, 'N'), 'nordraum', 'nsc', { alt: 'ivo', bereich: 'nordraum' }),
+      nummeriert(ankerAus(PLATFORM_ROWS, 'd'), 'halle', 'wache', { bereich: 'halle' })),
+    wreck: [].concat(
+      [{ id: 'vorderdeck.abholpunkt', rolle: 'abholpunkt', x: WRECK_PADS[0].x, y: WRECK_PADS[0].y, ankunft: true, alt: 'pads' }],
+      nummeriert(ankerAus(WRECK_ROWS, 'h'), 'laderaum', 'beute', { alt: 'container' }),
+      nummeriert(ankerAus(WRECK_ROWS, 'g'), 'laderaum', 'terminal', { alt: 'lore', bereich: 'laderaum' }),
+      nummeriert(ankerAus(WRECK_ROWS, 'V'), 'hohlraum', 'versteck', { alt: 'hollow', bereich: 'hohlraum' }),
+      nummeriert(ankerAus(WRECK_ROWS, 'a'), 'laderaum', 'wache', { bereich: 'laderaum' })),
+    kesh: [].concat(
+      [{ id: 'landezone.abholpunkt', rolle: 'abholpunkt', x: KESH_PADS[0].x, y: KESH_PADS[0].y, ankunft: true, alt: 'pads', bereich: 'landezone' }],
+      [{ id: 'hof.eingang', rolle: 'eingang', x: 9, y: 15, art: 'laut', bereich: 'landezone' }],
+      nummeriert(ankerAus(KESH_ROWS, 'G').slice(0, 1), 'gewoelbe', 'tor', { alt: 'vault', bereich: 'gewoelbe' }),
+      nummeriert(ankerAus(KESH_ROWS, 'k'), 'halle', 'raetsel', { paar: 'A', alt: 'key', bereich: 'halle' }),
+      nummeriert(ankerAus(KESH_ROWS, 'T'), 'gewoelbe', 'fund', { alt: 'tablet', bereich: 'gewoelbe' }),
+      nummeriert(ankerAus(KESH_ROWS, 'L'), 'halle', 'wache', { schwer: true, alt: 'warden', bereich: 'halle' }).map((a) => Object.assign(a, { id: 'halle.waechter' })),
+      nummeriert(ankerAus(KESH_ROWS, 'a'), 'hof', 'wache', { bereich: 'hof' }),
+      nummeriert(ankerAus(KESH_ROWS, 'r'), 'hof', 'ziel', { alt: 'jammer' })),
+  };
 
   function makeMap(id, rows, legend) {
     return {
@@ -474,6 +506,8 @@
     kesh: makeMap('kesh', KESH_ROWS, KESH_LEGEND),
     // S1: Objekte und Bereiche (CONTRACT-S1 §4)
     MAP_OBJECTS, MAP_AREAS, inArea,
+    // B1 (BUEHNE): Anker der Handkarten
+    MAP_ANCHORS,
     makeMap, shelfStock, shelfFill,
   };
 });

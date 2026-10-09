@@ -21,6 +21,7 @@
 //   missionCast(g, env)                                 -> { named: Set(npc), neu: Set(Name) }  Besetzung der Mission
 //   sceneVoice(g, s, role)                              -> Funk-Sprecher einer Szene (stimme | Auftraggeber | neu:…)
 //   normalizeGrobplan(g)                                -> [Reparatur]  (Belohnung nur als belohnung_marken, doppelte weiter)
+//   repairGrobplan(g, env, opts) / grobplanVorgaben(...) -> B1-FIX F3, siehe Abschnitt nach checkGrobplanB1
 //   repairSceneAnswer(g, s, answer, env)                -> { answer, repairs: [Text] }  (einfache Szenenfehler)
 //   speakerErrors(steps, cast, stimmen)                 -> [Text]  (Prüfregel SPRECHER: Funk-Sprecher ∈ Besetzung)
 //   factContradictions(texte, fakten)                   -> [Text]  (Prüfregel ERINNERUNG-WIDERSPRUCH)
@@ -57,7 +58,473 @@ function buildEnv(katalog) {
     MAP_OF_LOC: Object.fromEntries(Locations.LOCATIONS.filter((l) => l.scene.beam).map((l) => [l.scene.beam.map, l.id])),
     karten: REG.karten,
     npc: [...npc],
+    // B1: Landepunkt-Adapter (Standard: Landepunkte aus content/welt ohne Weltstand; der Spielleiter setzt seinen ein)
+    lp: (() => { let a; return () => (a === undefined ? (a = Ctx().lpAdapterAusWelt({})) : a); })(),
   };
+}
+
+// =================================================================================================================
+// B1 (CONTRACT-B1 §11.2/§11.3): Landepunkte statt Koordinaten, Szenenauflösung gegen die gebaute Karte, Bodenquote,
+// lange Missionen. B2 (§7): Besetzung einer Bodenszene nur als Fraktion, Stärke, Haltung (+ höchstens eine neue_rolle).
+//
+//   sceneMap(s)                                   -> Landepunkt der Szene (landepunkt | Altname karte) | null
+//   aufloesen(g, env, kontext, { lp, kartenNeu }) -> { errors, warnings, neu: [{ sid, ort, art, besitz, seed, id }] }
+//        setzt s.landepunkt jeder Bodenszene (gewählt am Ort, geprüft gegen buehne_braucht der gebauten Karte).
+//        Codes: LANDEPUNKT, LANDEPUNKT-GESPERRT, KOORDINATE, BUEHNE-ART, BUEHNE-ANKER (Fehler), BESITZ-REGION (Warnung),
+//        FRAKTION, GEGNER-TYP, BESETZUNG-NEU (Fehler), BESETZUNG-SOLO, BESETZUNG-ENTERER (Warnung)
+//   checkGrobplanB1(g, env, kontext, { boden, langImAngebot }) -> { errors, warnings }
+//        BODEN-QUOTE (Fehler; mit ohne_boden_grund Warnung), BODEN-LANG (Fehler), LANG-RUNDE (Fehler: schon eine lange
+//        Mission in der Angebotsrunde), KARTE-WIEDERHOLT, DAUER-ABWEICHUNG (Warnung)
+//   bodenInfo(g, env)                             -> { boden, lang, landepunkte, dauer_ziel_min, dauer_plan_min }
+// Meldungen beginnen mit dem Code („BODEN-QUOTE: …“), wie SPRECHER/ERINNERUNG-WIDERSPRUCH.
+// =================================================================================================================
+const KOORD_KEYS = ['x', 'y', 'tile', 'pos'];
+const KARTEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff'];
+const STAERKEN = ['klein', 'mittel', 'gross'];
+const HALTUNGEN = ['ruhig', 'wach'];
+let ContextMod = null;
+const Ctx = () => ContextMod || (ContextMod = require('./context.js'));
+let ObjMod;
+const Obj = () => { if (ObjMod === undefined) { try { ObjMod = require('./objects.js'); } catch (e) { ObjMod = null; } } return ObjMod; };
+// Landepunkt-ID (content/welt/landepunkte.json bzw. <ort>.<art>-<n>, <ort>.prise)?
+function isLandepunktId(id) { const O = Obj(); return !!(O && O.landepunkt && typeof id === 'string' && O.landepunkt(id)); }
+function sceneMap(s) {
+  if (!s) return null;
+  if (typeof s.landepunkt === 'string' && s.landepunkt) return s.landepunkt;
+  if (typeof s.karte === 'string' && s.karte) return s.karte;
+  return null;
+}
+function sceneUmsetzungen(s, env) { return ((s && s.molekuele) || []).map((m) => umsetzungOf(env, m)).filter(Boolean); }
+// Karte entsteht erst zur Laufzeit (buehne_braucht.landepunkt 'laufzeit', z. B. kapern/prise_entern -> <loc>.prise):
+// kein Landepunkt im Grobplan, keine Auflösung; die Szene zählt trotzdem als Bodenszene (schauplatz aussen)
+const laufzeitKarte = (u) => !!(u && isObj(u.buehne_braucht) && u.buehne_braucht.landepunkt === 'laufzeit');
+const brauchtKarte = (u) => !laufzeitKarte(u) && !!(u && (isObj(u.buehne_braucht) || (u.params && (u.params.map || Object.values(u.params).some((d) => d && d.typ === 'landepunkt')))));
+// Bodenszene = eine Umsetzung spielt draußen (Team auf einer Außenkarte)
+function istBodenszene(s, env) { return sceneUmsetzungen(s, env).some((u) => u.schauplatz === 'aussen'); }
+// Dauer wie checkGrobplan: alle Szenen (auch Zweige) + Sprünge auf dem ersten weiter
+function planDauer(g, env) {
+  const LOC = env.LOC;
+  let summe = 0; let sprung = 0;
+  const byId = Object.fromEntries((g.szenen || []).map((s) => [s.id, s]));
+  for (const s of g.szenen || []) {
+    summe += Number(s.dauer_min) || 0;
+    const w = (s.weiter || [])[0]; const t = w && byId[w.nach];
+    if (t && LOC[s.ort] && LOC[t.ort]) { const h = hops(LOC, s.ort, t.ort); if (h > 0) sprung += h * 0.5; }
+  }
+  const ziel = Number(g.zielspieldauer_min) || 0;
+  return { ziel, plan: summe + sprung, wert: Math.max(ziel, summe + sprung) };
+}
+function bodenInfo(g, env, boden) {
+  const C = Object.assign(Ctx().bodenConfig(), boden || {});
+  const szenen = (g && Array.isArray(g.szenen)) ? g.szenen : [];
+  const bodenSz = szenen.filter((s) => istBodenszene(s, env));
+  const d = planDauer(g || {}, env);
+  return { boden: bodenSz.length > 0, lang: d.wert >= C.langAbMin, landepunkte: [...new Set(bodenSz.map(sceneMap).filter(Boolean))],
+    dauer_ziel_min: d.ziel || null, dauer_plan_min: Math.round(d.plan * 10) / 10 };
+}
+// x/y/tile/pos irgendwo in der Bühne der Szene (Szene selbst, buehne, landepunkt als Objekt, besetzung)
+function koordinaten(s) {
+  const found = [];
+  const walk = (n, p) => {
+    if (Array.isArray(n)) return n.forEach((x, i) => walk(x, `${p}[${i}]`));
+    if (!isObj(n)) return;
+    for (const [k, v] of Object.entries(n)) { if (KOORD_KEYS.includes(k)) found.push(`${p}.${k}`); walk(v, `${p}.${k}`); }
+  };
+  for (const k of KOORD_KEYS) if (s && s[k] !== undefined) found.push(k);
+  if (s) { walk(s.buehne, 'buehne'); if (isObj(s.landepunkt)) walk(s.landepunkt, 'landepunkt'); walk(s.besetzung, 'besetzung'); }
+  return found;
+}
+// Präsenz der Fraktionen je Hex (content/welt/limes.json, B3 §2) -> { praesenz, hexOf: { ort: hex } }
+let LIMES = null;
+function limes() {
+  if (LIMES) return LIMES;
+  LIMES = { praesenz: {}, hexOf: {} };
+  try {
+    const d = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'welt', 'limes.json'), 'utf8'));
+    LIMES.praesenz = isObj(d.praesenz) ? d.praesenz : {};
+    for (const [hex, h] of Object.entries(isObj(d.hexe) ? d.hexe : {})) if (h && h.ort) LIMES.hexOf[h.ort] = hex;
+  } catch (e) { /* ohne Sektorkarte keine BESITZ-REGION-Prüfung */ }
+  return LIMES;
+}
+function besitzRegion(besitz, ort) {
+  const L = limes(); const hex = L.hexOf[ort]; const pr = L.praesenz[besitz];
+  if (!besitz || !hex || !Array.isArray(pr)) return null;
+  return pr.includes(hex) ? null : `${besitz} ist am Ort '${ort}' (${hex}) nicht präsent (Präsenz: ${pr.join(', ')})`;
+}
+// Besetzung einer Bodenszene: s.besetzung[0] bzw. aus dem Landepunkt (Fraktion = Besitz, Stärke mittel, Haltung nach Zustand)
+function sceneBesetzung(s, env, lp) {
+  const b = Array.isArray(s && s.besetzung) && isObj(s.besetzung[0]) ? s.besetzung[0] : null;
+  const id = sceneMap(s);
+  const d = id && lp ? (lp.liste(s.ort).find((x) => x.id === id) || null) : null;
+  const fraktion = (b && b.fraktion) || (s && isObj(s.buehne) && s.buehne.besitz) || (d && d.besitz) || null;
+  if (!fraktion) return null;
+  const out = { fraktion, staerke: (b && STAERKEN.includes(b.staerke)) ? b.staerke : 'mittel',
+    haltung: (b && HALTUNGEN.includes(b.haltung)) ? b.haltung : ((d && (d.zustand === 'umkaempft' || d.alarm)) ? 'wach' : 'ruhig') };
+  if (b && typeof b.neue_rolle === 'string' && b.neue_rolle) out.neue_rolle = b.neue_rolle;
+  return out;
+}
+// Parameter, die der Szenenbau setzt (nie das LLM): map/landepunkt aus der Szene, Besetzung aus dem Grobplan
+function buehnenParams(u, params, s, env) {
+  if (!u || !u.params) return params;
+  const map = sceneMap(s);
+  for (const [pn, d] of Object.entries(u.params)) if (d && (d.typ === 'map' || d.typ === 'landepunkt') && map) params[pn] = map;
+  const bes = (u.params.fraktion || u.params.staerke || u.params.haltung || u.params.besetzung) ? sceneBesetzung(s, env, env.lp ? env.lp() : null) : null;
+  if (bes) {
+    for (const k of ['fraktion', 'staerke', 'haltung', 'neue_rolle']) if (u.params[k] && bes[k] !== undefined) params[k] = bes[k];
+    if (u.params.besetzung) params.besetzung = Object.assign({}, bes);
+  }
+  return params;
+}
+
+function aufloesen(g, env, kontext, opts) {
+  const o = opts || {};
+  const k = kontext || {};
+  const errors = []; const warnings = []; const neu = [];
+  if (!g || !Array.isArray(g.szenen)) return { errors, warnings, neu };
+  const lp = o.lp !== undefined ? o.lp : (env.lp ? env.lp() : null);
+  const O = Obj();
+  const recent = new Set(((k.bodenbilanz && k.bodenbilanz.letzte) || []).flatMap((x) => x.landepunkte || []));
+  const kat = env.katalog || {};
+  const mitFraktionen = Object.keys(kat.fraktionen || {}).length > 0;
+  let pruefeBesetzung = null; try { pruefeBesetzung = Katalog.pruefeBesetzung || require('./katalog.js').pruefeBesetzung; } catch (e) { pruefeBesetzung = null; }
+  const besetzungNeu = new Set();
+  for (const s of g.szenen) {
+    if (!isObj(s)) continue;
+    const p = `Szene '${s.id}'`;
+    for (const kk of koordinaten(s)) errors.push(`KOORDINATE: ${p}: '${kk}' – Bühnen nennen nie Koordinaten, nur Landepunkt bzw. Kartenart/Besitz`);
+    const us = sceneUmsetzungen(s, env).filter(brauchtKarte);
+    const want = (typeof s.landepunkt === 'string' && s.landepunkt) || (typeof s.karte === 'string' && s.karte) || null;
+    const b = isObj(s.buehne) ? s.buehne : null;
+    if (!us.length) {
+      const lz = sceneUmsetzungen(s, env).filter(laufzeitKarte);
+      if (lz.length && ((typeof s.landepunkt === 'string' && s.landepunkt) || b)) {
+        warnings.push(`${p}: ${lz.map((u) => u.id).join('+')} – die Karte entsteht zur Laufzeit (${s.ort}.prise), Landepunkt/Bühne wird ignoriert`);
+        delete s.landepunkt; delete s.buehne; if (typeof s.karte === 'string') s.karte = null;
+      } else if ((typeof s.landepunkt === 'string' && s.landepunkt) || b) warnings.push(`${p}: Landepunkt/Bühne angegeben, aber keine Umsetzung der Szene spielt auf einer Außenkarte`);
+      continue;
+    }
+    if (!lp) continue;   // ohne Landepunkte (BUEHNE fehlt): Altverhalten
+    if (b && b.kartenart && !KARTEN_ARTEN.includes(b.kartenart)) { errors.push(`BUEHNE-ART: ${p}: Kartenart '${b.kartenart}' gibt es nicht (${KARTEN_ARTEN.join(', ')})`); continue; }
+    const check = (id, karte) => {
+      const out = [];
+      if (!karte) return [{ code: 'LANDEPUNKT', msg: `Karte für '${id}' ließ sich nicht bauen` }];
+      for (const u of us) {
+        if (isObj(u.buehne_braucht) && O && O.pruefeBuehneBraucht) out.push(...O.pruefeBuehneBraucht(u.buehne_braucht, karte, id));
+        else if (u.params.map && Array.isArray(u.params.map.werte) && !u.params.map.werte.includes(id)) out.push({ code: 'BUEHNE-ART', msg: `Umsetzung '${u.id}' braucht Karte ${u.params.map.werte.join(', ')}` });
+      }
+      return out;
+    };
+    let chosen = null;
+    if (want) {
+      const d = lp.info(want) || (O && O.landepunkt ? O.landepunkt(want) : null);
+      if (!d) { errors.push(`LANDEPUNKT: ${p}: Landepunkt '${want}' gibt es nicht (Landepunkte am Ort '${s.ort}': ${lp.liste(s.ort).map((x) => x.id).join(', ') || '–'})`); continue; }
+      const e = lp.eintrag(want);
+      if (d.gesperrt || (e && e.gesperrt)) { errors.push(`LANDEPUNKT-GESPERRT: ${p}: Landepunkt '${want}' ist gesperrt (nicht anfliegbar)`); continue; }
+      if (d.ort && d.ort !== s.ort) { errors.push(`LANDEPUNKT: ${p}: Landepunkt '${want}' liegt am Ort '${d.ort}', nicht an '${s.ort}'`); continue; }
+      const grund = lp.sperrgrund(want);
+      if (grund) { errors.push(`LANDEPUNKT: ${p}: Landepunkt '${want}' ist noch nicht frei (${grund})`); continue; }
+      const errs = check(want, lp.karte(want));
+      if (errs.length) {
+        // B1-FIX (F3): beim Neuversuch gleich die passenden Landepunkte nennen
+        const hint = us.map((u) => `${u.id}: ${landepunkteText(passendeLandepunkte(u, env, k, { lp }), new Set())}`).join('; ');
+        errors.push(...errs.map((x, i) => `${x.code}: ${p}: ${x.msg} (Landepunkt '${want}')${i === errs.length - 1 ? ` – passend: ${hint}` : ''}`)); continue;
+      }
+      chosen = want;
+    } else if (b && b.neu === true) {
+      if (!b.kartenart) { errors.push(`BUEHNE-ART: ${p}: buehne.neu braucht eine kartenart`); continue; }
+      let v = null;
+      try { v = lp.vorschau(s.ort, { art: b.kartenart, besitz: b.besitz || undefined }); } catch (e) { errors.push(`LANDEPUNKT: ${p}: neuer Landepunkt ${b.kartenart} am Ort '${s.ort}' nicht möglich (${e.message})`); continue; }
+      const errs = check(v.id, v.karte);
+      if (errs.length) { errors.push(...errs.map((x) => `${x.code}: ${p}: ${x.msg} (neuer Landepunkt ${b.kartenart})`)); continue; }
+      chosen = v.id;
+      // zweite Szene mit buehne.neu (gleicher Ort, gleiche Art) = derselbe neue Landepunkt (z. B. hinein, dann Rückzug)
+      if (!neu.some((x) => x.id === v.id)) neu.push({ sid: s.id, ort: s.ort, art: b.kartenart, besitz: b.besitz || undefined, seed: v.seed, id: v.id });
+    } else {
+      let list = lp.liste(s.ort).filter((x) => x.frei && !x.gesperrt);
+      if (b && b.kartenart) list = list.filter((x) => x.art === b.kartenart);
+      if (b && b.besitz) { const mit = list.filter((x) => x.besitz === b.besitz); if (mit.length) list = mit; else warnings.push(`${p}: kein Landepunkt mit Besitz '${b.besitz}' am Ort '${s.ort}' – Besitz des Landepunkts gilt`); }
+      for (const u of us) {
+        const arten = isObj(u.buehne_braucht) && Array.isArray(u.buehne_braucht.kartenarten) ? u.buehne_braucht.kartenarten : null;
+        if (arten && arten.length) list = list.filter((x) => arten.includes(x.art) || arten.includes(x.id));
+        if (u.params.map && Array.isArray(u.params.map.werte)) list = list.filter((x) => u.params.map.werte.includes(x.id));
+      }
+      // nicht gerade gespielt, dann wenig besucht, dann Kennung
+      list.sort((x, y) => (recent.has(x.id) - recent.has(y.id)) || ((x.besuche | 0) - (y.besuche | 0)) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
+      let firstErr = null;
+      for (const x of list.slice(0, 3)) {
+        const errs = check(x.id, lp.karte(x.id));
+        if (!errs.length) { chosen = x.id; break; }
+        if (!firstErr) firstErr = `${x.id}: ${errs.map((e) => e.msg).join('; ')}`;
+      }
+      if (!chosen) {
+        const was = b ? `${b.kartenart || 'Bühne'}${b.besitz ? '/' + b.besitz : ''}` : 'für diese Umsetzung';
+        errors.push(`LANDEPUNKT: ${p}: kein passender Landepunkt ${was} am Ort '${s.ort}'${firstErr ? ` (${firstErr})` : ''} – anderen Ort, anderen Landepunkt oder buehne: { kartenart, neu: true } wählen`);
+        continue;
+      }
+    }
+    s.landepunkt = chosen;
+    // BESITZ-REGION (Warnung): Besitz des Landepunkts bzw. der Bühne und Fraktion der Besetzung
+    const info = lp.liste(s.ort).find((x) => x.id === chosen);
+    const besitz = (b && b.neu && b.besitz) || (info && info.besitz) || null;
+    const r1 = besitz && besitz !== 'konkordat' ? besitzRegion(besitz, s.ort) : null;
+    if (r1) warnings.push(`BESITZ-REGION: ${p}: Landepunkt '${chosen}': ${r1}`);
+    // B2 §7: Besetzung nur { fraktion, staerke, haltung, neue_rolle? }
+    if (s.besetzung !== undefined) {
+      if (!Array.isArray(s.besetzung)) { errors.push(`FRAKTION: ${p}: besetzung muss eine Liste [{ fraktion, staerke, haltung }] sein`); continue; }
+      s.besetzung.forEach((x, i) => {
+        if (!isObj(x)) { errors.push(`FRAKTION: ${p}: besetzung[${i}] ist kein Objekt`); return; }
+        const extra = Object.keys(x).filter((kk) => !['fraktion', 'staerke', 'haltung', 'neue_rolle'].includes(kk));
+        if (extra.length) warnings.push(`${p}: besetzung[${i}]: ${extra.join(', ')} wird ignoriert – nur Fraktion, Stärke, Haltung (+ höchstens eine neue_rolle)`);
+        if (x.staerke !== undefined && !STAERKEN.includes(x.staerke)) errors.push(`FRAKTION: ${p}: besetzung[${i}]: Stärke '${x.staerke}' (erlaubt ${STAERKEN.join('|')})`);
+        if (x.haltung !== undefined && !HALTUNGEN.includes(x.haltung)) errors.push(`FRAKTION: ${p}: besetzung[${i}]: Haltung '${x.haltung}' (erlaubt ${HALTUNGEN.join('|')})`);
+        const r2 = x.fraktion && x.fraktion !== besitz ? besitzRegion(x.fraktion, s.ort) : null;
+        if (r2) warnings.push(`BESITZ-REGION: ${p}: Besetzung: ${r2}`);
+        if (typeof x.neue_rolle === 'string' && x.neue_rolle && !(k.rollen_gesehen || []).includes(x.neue_rolle)) besetzungNeu.add(x.neue_rolle);
+      });
+      if (mitFraktionen && typeof pruefeBesetzung === 'function') {
+        const art = info ? info.art : (b && b.kartenart) || null;
+        const r = pruefeBesetzung(s.besetzung, { katalog: kat, rollen_gesehen: k.rollen_gesehen || [], spieler: (k.crew && k.crew.anzahl) || 3, kartenart: art === 'hand' ? 'hand' : art });
+        for (const x of r.fehler || []) errors.push(`${x.code}: ${p}: ${x.msg}`);
+        for (const x of r.warnungen || []) warnings.push(`${x.code}: ${p}: ${x.msg}`);
+      }
+    }
+  }
+  if (besetzungNeu.size > 1) errors.push(`BESETZUNG-NEU: ${besetzungNeu.size} neue Gegnerrollen in einer Mission (${[...besetzungNeu].join(', ')}) – höchstens eine neue Rolle je Gefecht`);
+  return { errors: [...new Set(errors)], warnings: [...new Set(warnings)], neu };
+}
+
+function checkGrobplanB1(g, env, kontext, opts) {
+  const o = opts || {};
+  const k = kontext || {};
+  const C = Object.assign(Ctx().bodenConfig(), o.boden || {});
+  const errors = []; const warnings = [];
+  if (!g || !Array.isArray(g.szenen)) return { errors, warnings };
+  const info = bodenInfo(g, env, C);
+  const bil = k.bodenbilanz || {};
+  const grund = [g.ohne_boden_grund, ...g.szenen.map((s) => s && s.ohne_boden_grund)].find((x) => typeof x === 'string' && x.trim().length >= 3) || null;
+  if (bil.pflicht_jetzt && !info.boden) {
+    const letzte = (bil.letzte || []).slice(-1)[0];
+    const msg = `BODEN-QUOTE: Letzte gespielte Mission${letzte ? ` „${letzte.titel}“` : ''} ohne Bodenszene, diese braucht eine (Umsetzung auf einem Landepunkt)`;
+    if (grund) warnings.push(`${msg} – ohne_boden_grund: „${shortText(grund, 80)}“`);
+    else errors.push(`${msg} – oder ohne_boden_grund begründen`);
+  }
+  const d = planDauer(g, env);
+  if (info.lang && !info.boden) errors.push(`BODEN-LANG: Mission ist lang (${Math.round(d.wert)} min, ab ${C.langAbMin} min) und hat keine Bodenszene`);
+  if (info.lang && o.langImAngebot) errors.push(`LANG-RUNDE: In dieser Angebotsrunde ist schon eine lange Mission („${o.langImAngebot}“) – diese höchstens ${C.langAbMin - 5} min planen`);
+  if (d.ziel && ((d.ziel >= C.langAbMin) !== (d.plan >= C.langAbMin))) warnings.push(`DAUER-ABWEICHUNG: Zieldauer ${d.ziel} min, Planung ${Math.round(d.plan * 10) / 10} min: gilt als ${info.lang ? 'lang' : 'normal'}`);
+  if (d.wert > C.langMaxMin) warnings.push(`DAUER-ABWEICHUNG: ${Math.round(d.wert)} min über ${C.langMaxMin} min (lange Missionen 25–${C.langMaxMin} min)`);
+  // F14: Landepunkt (+ Seed, wenn bekannt) einer der letzten Missionen; Spielleiter stellt die Warnung im Regielog nach vorn
+  const fenster = (bil.letzte || []).slice(-(C.wiederholtFenster || 3));
+  let lp = null; try { lp = o.lp !== undefined ? o.lp : (env.lp ? env.lp() : null); } catch (e) { lp = null; }
+  for (const id of info.landepunkte) {
+    const wo = fenster.filter((x) => (x.landepunkte || []).includes(id));
+    if (!wo.length) continue;
+    let seed = null; try { const e = lp && lp.eintrag(id); seed = e && Number.isFinite(e.seed) ? e.seed : null; } catch (e) { seed = null; }
+    warnings.push(`KARTE-WIEDERHOLT: Landepunkt '${id}'${seed != null ? ` (Seed ${seed})` : ''} lief in den letzten ${C.wiederholtFenster || 3} Missionen (${wo.map((x) => `„${shortText(x.titel, 40)}“`).join(', ')}) – neuer Seed (buehne: { kartenart, neu: true }) oder Wiederkehr begründen`);
+  }
+  return { errors, warnings };
+}
+
+// =================================================================================================================
+// B1-FIX (ABNAHME-B1 F3): was der Prompt nicht leisten muss, steht vorab fest (grobplanVorgaben), harmlose Fehler
+// repariert der Code (repairGrobplan) statt eines Neuversuchs – nur, wo die Bedeutung eindeutig ist.
+//
+//   passendeLandepunkte(u, env, kontext, { lp, ort }) -> { orte: { ort: [lpId] }, neu: [kartenart] }
+//   grobplanVorgaben(env, kontext, { lp, dauer: { soll, min, max }, szenen: [min, max] }) -> Text (Prompt-Block <vorgaben>)
+//   repairGrobplan(g, env, { minMinutes, maxMinutes }) -> [Reparatur]   (verändert g)
+// =================================================================================================================
+const KENNUNG = /^[a-z][a-z0-9_]*$/;
+// Anker-Zahlen { rolle: n } als Ankerliste (Rätsel paarweise) – Ersatzkarte für noch nicht gebaute Landepunkte
+function ankerListe(z) {
+  const out = [];
+  for (const [r, n] of Object.entries(isObj(z) ? z : {})) for (let i = 0; i < n; i++) out.push(r === 'raetsel' ? { rolle: r, paar: 'p' + Math.floor(i / 2) } : { rolle: r });
+  return out;
+}
+// Karte zum Abgleich: Handkarte -> echte Karte (statisch, wie aufloesen); gebaute Kartenarten -> Anker aus dem Kontext
+// (gebaute Karte, sobald bekannt) bzw. Pflichtsatz der Art (jede Karte der Art hat ihn) und immer ein Gefechtsbereich.
+// Baut nie eine Karte (läuft beim Prompt-Bau im Tick).
+function fitKarte(d, k, lp) {
+  if (lp && d.art === 'hand') { try { const real = lp.karte(d.id); if (real) return real; } catch (e) { /* Ersatz */ } }
+  const pf = ((k.kartenarten || []).find((x) => x.id === d.art) || {}).pflichtsatz;
+  return { art: d.art, anker: ankerListe(d.anker || pf || {}), bereiche: d.art === 'hand' ? {} : { gefecht: { gefecht: true } } };
+}
+function passtAuf(u, d, ort, karte) {
+  if (u.params.loc && Array.isArray(u.params.loc.werte) && !u.params.loc.werte.includes(ort)) return false;
+  if (u.params.map && Array.isArray(u.params.map.werte)) return u.params.map.werte.includes(d.id);
+  const bb = isObj(u.buehne_braucht) ? u.buehne_braucht : null;
+  if (!bb) return true;
+  const arten = Array.isArray(bb.kartenarten) ? bb.kartenarten : null;
+  if (arten && arten.length && !arten.includes(d.art) && !arten.includes(d.id)) return false;
+  const O = Obj();
+  if (!O || !O.pruefeBuehneBraucht) return true;
+  return O.pruefeBuehneBraucht(bb, karte(), d.id).length === 0;
+}
+function passendeLandepunkte(u, env, kontext, opts) {
+  const o = opts || {}; const k = kontext || {};
+  const lp = o.lp !== undefined ? o.lp : (env.lp ? env.lp() : null);
+  const orte = {};
+  for (const ort of k.orte || []) {
+    if (o.ort && ort.id !== o.ort) continue;
+    for (const d of ort.landepunkte || []) {
+      if (d.gesperrt || d.frei) continue;   // gesperrt bzw. noch nicht anfliegbar
+      let kc; const karte = () => (kc = kc || fitKarte(d, k, lp));
+      if (passtAuf(u, d, ort.id, karte)) (orte[ort.id] = orte[ort.id] || []).push(d.id);
+    }
+  }
+  const neu = [];
+  const bb = isObj(u.buehne_braucht) ? u.buehne_braucht : null;
+  if (bb && !(u.params.map && u.params.map.werte)) {
+    for (const art of KARTEN_ARTEN) {
+      const pf = ((k.kartenarten || []).find((x) => x.id === art) || {}).pflichtsatz;
+      const d = { id: '', art, anker: pf || {} };
+      if (passtAuf({ params: {}, buehne_braucht: bb }, d, null, () => fitKarte(d, k, null))) neu.push(art);
+    }
+  }
+  return { orte, neu };
+}
+function landepunkteText(r, recent) {
+  const teile = Object.entries(r.orte).map(([ort, ids]) => `${ort}: ${ids.map((id) => id + (recent.has(id) ? '↺' : '')).join(', ')}`);
+  if (r.neu.length) teile.push(`neu: ${r.neu.join('/')}`);
+  return teile.join(' · ') || '– (an keinem freien Landepunkt spielbar)';
+}
+// Kurzform je Umsetzung: Kartenarten (= jeder freie Landepunkt dieser Art + buehne neu) und Abweichungen davon
+function umsetzungKurz(r, alleFrei) {
+  const passt = new Set(Object.values(r.orte).flat());
+  const proArt = alleFrei.filter((d) => r.neu.includes(d.art)).map((d) => d.id);
+  const auch = [...passt].filter((id) => !proArt.includes(id));
+  const nicht = proArt.filter((id) => !passt.has(id));
+  const teile = [];
+  if (r.neu.length) teile.push(r.neu.join('/'));
+  if (auch.length) teile.push((r.neu.length ? 'auch ' : 'nur ') + auch.join(', '));
+  if (nicht.length) teile.push('nicht ' + nicht.join(', '));
+  return teile.join(' · ') || '– (zurzeit an keinem Landepunkt)';
+}
+function grobplanVorgaben(env, kontext, opts) {
+  const o = opts || {}; const k = kontext || {};
+  const L = [];
+  const sz = o.szenen || [4, 6];
+  const d = o.dauer;
+  L.push(`Umfang (hart): ${sz[0]}–${sz[1]} Szenen einschließlich Hafen.${d ? ` zielspieldauer_min: ${d.soll}; Summe aller dauer_min (alle Zweige) + 0,5 min je Sprung: ${d.min}–${d.max}.` : ''}`);
+  L.push('Jede Szene außer dem Hafen hat 1–2 Moleküle; keine Anflug-Szene ohne Molekül (den Flug fügt das Spiel selbst ein). Jede Szenen-ID nur einmal, jede Szene erreichbar.');
+  L.push('Kennungen (Szenen, Ausgänge, Optionen, Fakten) nur a–z, 0–9, _ (keine Umlaute).');
+  // Erinnerung: die erlaubten Werte als Aufzählung (Prüfregel checkGrobplanS2 §1)
+  const fakten = Object.keys(isObj(k.fakten) ? k.fakten : {}).filter((f) => !META_FAKTEN.has(f)).sort();
+  const mem = [];
+  for (const n of k.npc || []) { const ev = [...new Set((n.gedaechtnis || []).map((g) => g && g.ereignis).filter(Boolean))].slice(-2); if (ev.length) mem.push(`${n.id}: ${ev.join(', ')}`); }
+  if (fakten.length || mem.length) {
+    L.push(`erinnerung (Pflicht, kein neutral) – genau ein vorhandener Eintrag: ${fakten.length ? `{"fakt": …} mit ${fakten.join(', ')}` : ''}${fakten.length && mem.length ? ' oder ' : ''}${mem.length ? `{"npc", "ereignis"} mit ${mem.join('; ')}` : ''}. Andere Kennungen gibt es nicht.`);
+  } else L.push('erinnerung: {"neutral": true} (noch keine Gedächtnis-Einträge und Fakten); erinnerung_text erzählt eine erste Begegnung.');
+  if (k.tutorial === 'uebersprungen') {
+    const WORT = { tafel: 'Tafel', ivo: 'Ivo', b7: 'Datenkern, stumme Boje', nachhut: 'Nachhut' };
+    const tabu = TUTORIAL_TERMS.filter((t) => !fakten.some((f) => f.includes(t.fakt))).map((t) => WORT[t.fakt] || t.was);
+    if (tabu.length) L.push(`Tutorial übersprungen – nirgends erwähnen (kein Fakt): ${tabu.join(', ')}.`);
+  }
+  // Bodenszenen: freie Landepunkte einmal, dann je Umsetzung die passenden Kartenarten (wie aufloesen geprüft)
+  const recent = new Set(((k.bodenbilanz && k.bodenbilanz.letzte) || []).flatMap((x) => x.landepunkte || []));
+  const frei = []; const zu = [];
+  for (const ort of k.orte || []) for (const x of ort.landepunkte || []) (x.gesperrt || x.frei ? zu : frei).push(Object.assign({ ort: ort.id }, x));
+  if (!frei.length) return L.join('\n');
+  const byOrt = {};
+  for (const x of frei) (byOrt[x.ort] = byOrt[x.ort] || []).push(`${x.id} (${[x.art === 'hand' ? 'Handkarte' : x.art, x.besitz, x.zustand].filter(Boolean).join(', ')}${x.besucht ? `, ${x.besucht}× besucht` : ''}${x.alarm ? ', Alarm' : ''})${recent.has(x.id) ? ' ↺' : ''}`);
+  L.push(`Landepunkte (frei${recent.size ? '; ↺ = in den letzten Missionen gespielt, besser buehne neu' : ''}): ${Object.entries(byOrt).map(([ort, l]) => `${ort}: ${l.join(', ')}`).join(' · ')}${zu.length ? `. Tabu (gesperrt/noch nicht frei): ${zu.map((x) => x.id).join(', ')}` : ''}.`);
+  L.push('Bodenszenen – passende Kartenarten je Umsetzung: `landepunkt` = ein freier Landepunkt dieser Art am Ort der Szene, oder `buehne: { kartenart, neu: true }`. Handkarten nur, wo sie genannt sind:');
+  for (const mol of Object.values((env.katalog && env.katalog.molekuele) || {}).filter((m) => m.status === 'verfuegbar').sort((a, b) => (a.id < b.id ? -1 : 1))) {
+    for (const u of mol.umsetzungen.filter((x) => x.status === 'verfuegbar' && x.schauplatz === 'aussen' && brauchtKarte(x))) {
+      L.push(`- ${mol.id}/${u.id}: ${umsetzungKurz(passendeLandepunkte(u, env, k, { lp: o.lp }), frei)}`);
+    }
+    for (const u of mol.umsetzungen.filter((x) => x.status === 'verfuegbar' && laufzeitKarte(x))) {
+      L.push(`- ${mol.id}/${u.id}: ${u.name || u.id} (nach Raumgefecht) – ohne landepunkt/buehne: die Karte (<ort>.prise) entsteht, wenn die Crew am Ort der Szene ein Feindschiff kampfunfähig schießt; zählt als Bodenszene`);
+    }
+  }
+  return L.join('\n');
+}
+
+// Harmlose Fehler im Code reparieren statt Neuversuch. Nur eindeutige Fälle; alles andere bleibt für den Prüfer.
+function repairGrobplan(g, env, opts) {
+  const o = Object.assign({ minMinutes: 10, maxMinutes: 35 }, opts || {});
+  const R = [];
+  if (!isObj(g) || !Array.isArray(g.szenen) || !g.szenen.every(isObj)) return R;
+  const each = (fn) => { for (const s of g.szenen) for (const w of Array.isArray(s.weiter) ? s.weiter : []) if (isObj(w)) fn(w, s); };
+  // 1. Ausgang-Kennungen mit Umlauten/Großbuchstaben (Schema ^[a-z][a-z0-9_]*$) -> slug, Verweise mitziehen
+  if (isObj(g.ausgaenge)) {
+    const neu = {}; let changed = false;
+    for (const [key, a] of Object.entries(g.ausgaenge)) {
+      let nk = key;
+      if (!KENNUNG.test(key)) { const c = slug(key, 40); if (c && KENNUNG.test(c) && !(c in g.ausgaenge) && !(c in neu)) nk = c; }
+      if (nk !== key) {
+        changed = true; R.push(`Ausgang '${key}' → '${nk}' (Kennung ohne Umlaute)`);
+        each((w) => { if (w.nach === 'ausgang:' + key) w.nach = 'ausgang:' + nk; });
+      }
+      neu[nk] = a;
+    }
+    if (changed) g.ausgaenge = neu;
+  }
+  // 2. Szenen-Kennungen ebenso (Schritt-IDs ^[A-Za-z][A-Za-z0-9_]*$)
+  const ids = new Set(g.szenen.map((s) => s.id));
+  for (const s of g.szenen) {
+    if (typeof s.id !== 'string' || /^[A-Za-z][A-Za-z0-9_]*$/.test(s.id)) continue;
+    const c = slug(s.id, 40);
+    if (!c || ids.has(c)) continue;
+    const old = s.id; s.id = c; ids.add(c);
+    each((w) => { if (w.nach === old) w.nach = c; });
+    for (const e of Array.isArray(g.entscheidungen) ? g.entscheidungen : []) if (isObj(e) && e.szene === old) e.szene = c;
+    R.push(`Szene '${old}' → '${c}' (Kennung ohne Umlaute)`);
+  }
+  const ziele = (s) => [...new Set((Array.isArray(s.weiter) ? s.weiter : []).map((w) => String((w && w.nach) || '')))];
+  const mols = (s) => (Array.isArray(s.molekuele) ? s.molekuele.length : 0);
+  // 3. Doppelte Szenen-ID: leere Dublette (ohne Moleküle, keine anderen Ziele) einer Szene mit Molekülen fällt weg
+  for (const id of [...new Set(g.szenen.map((s) => s.id))]) {
+    const same = g.szenen.filter((s) => s.id === id);
+    if (same.length < 2) continue;
+    const keep = same.reduce((a, b) => (mols(b) > mols(a) ? b : a));
+    const drop = same.filter((s) => s !== keep);
+    if (!mols(keep) || drop.some((s) => mols(s) || ziele(s).some((z) => !ziele(keep).includes(z)))) continue;
+    g.szenen = g.szenen.filter((s) => !drop.includes(s));
+    R.push(`Szene '${id}' doppelt – leere Dublette entfernt`);
+  }
+  // 4. Leere Durchgangsszene (kein Molekül, Szenentyp verlangt welche, genau eine Folgeszene, keine Entscheidung):
+  //    entfernen, Vorgänger zeigen auf die Folgeszene (den Anflug fügt der Szenenbau selbst ein)
+  const KAT = (env && env.katalog) || {};
+  const entsch = new Set((Array.isArray(g.entscheidungen) ? g.entscheidungen : []).filter(isObj).map((e) => e.szene));
+  for (const s of g.szenen.slice(1)) {
+    const st = KAT.szenentypen && KAT.szenentypen[s.szenentyp];
+    if (!st || st.id === 'hafen' || mols(s) || !(st.molekuele_plaetze && st.molekuele_plaetze.min > 0) || entsch.has(s.id)) continue;
+    const z = ziele(s);
+    if (z.length !== 1 || z[0].startsWith('ausgang:') || z[0] === s.id || !g.szenen.some((x) => x.id === z[0])) continue;
+    if (g.szenen.filter((x) => x.id === s.id).length > 1) continue;
+    g.szenen = g.szenen.filter((x) => x !== s);
+    for (const p of g.szenen) {
+      if (!Array.isArray(p.weiter) || !p.weiter.some((w) => w && w.nach === s.id)) continue;
+      const seen = new Set(); const w2 = [];
+      for (const w of p.weiter) { if (isObj(w) && w.nach === s.id) w.nach = z[0]; const n = String((w && w.nach) || ''); if (seen.has(n)) continue; seen.add(n); w2.push(w); }
+      p.weiter = w2;
+    }
+    R.push(`Szene '${s.id}' ohne Molekül (nur Anflug) entfernt – Vorgänger führen direkt zu '${z[0]}'`);
+  }
+  // 5. Folgen für neue NSC: npc_gedaechtnis neu:Name: Text -> welt_fakt name: Text; npc_haltung neu:… entfällt
+  for (const [aid, a] of Object.entries(isObj(g.ausgaenge) ? g.ausgaenge : {})) {
+    if (!isObj(a) || !Array.isArray(a.folgen)) continue;
+    const out = [];
+    for (const f of a.folgen) {
+      const t = typeof f === 'string' ? f.trim() : null;
+      let m;
+      if (t && (m = /^npc_gedaechtnis:?\s+neu:\s*([^:]+?)\s*:\s*(.+)$/.exec(t))) { const key = slug(m[1], 30); out.push(`welt_fakt ${key}: ${m[2]}`); R.push(`Ausgang '${aid}': Gedächtnis für neu:${m[1]} als welt_fakt ${key}`); continue; }
+      if (t && /^npc_haltung:?\s+neu:/.test(t)) { R.push(`Ausgang '${aid}': „${shortText(t, 40)}“ entfernt (neue NSC haben keine Haltung)`); continue; }
+      out.push(f);
+    }
+    a.folgen = out;
+  }
+  // 6. Dauer: Summe der Szenen (+ Sprünge) ist die geplante Dauer; weicht zielspieldauer_min mehr als ±25 % ab und liegt die
+  //    Summe im erlaubten Rahmen, gilt die Summe
+  if (env && env.LOC) {
+    const d = planDauer(g, env);
+    const z = Number(g.zielspieldauer_min) || 0;
+    if (z && (d.plan < z * 0.75 || d.plan > z * 1.25) && d.plan >= o.minMinutes && d.plan <= o.maxMinutes) {
+      g.zielspieldauer_min = Math.round(d.plan);
+      R.push(`zielspieldauer_min ${z} → ${g.zielspieldauer_min} (Summe der Szenen + Sprünge)`);
+    }
+  }
+  return R;
 }
 function hops(LOC, a, b) {
   if (a === b) return 0;
@@ -379,8 +846,10 @@ function checkGrobplan(g, env) {
     if (!st) E.push(`${p}: Szenentyp '${s.szenentyp}' nicht registriert`);
     else if (st.status !== 'verfuegbar') E.push(`${p}: Szenentyp '${s.szenentyp}' ist noch nicht spielbar`);
     if (!LOC[s.ort]) E.push(`${p}: Ort '${s.ort}' gibt es nicht`);
-    if (s.karte && !env.karten[s.karte]) E.push(`${p}: Außenkarte '${s.karte}' gibt es nicht`);
-    if (s.karte && env.MAP_OF_LOC[s.karte] !== s.ort) E.push(`${p}: Außenkarte '${s.karte}' gehört zu Ort '${env.MAP_OF_LOC[s.karte]}', nicht zu '${s.ort}'`);
+    // B1: Landepunkt-IDs (auch im Altnamen karte) prüft aufloesen (LANDEPUNKT …); hier nur die Handkarten wie bisher
+    const lpKarte = s.karte && !env.karten[s.karte] && isLandepunktId(s.karte);
+    if (s.karte && !env.karten[s.karte] && !lpKarte) E.push(`${p}: Außenkarte '${s.karte}' gibt es nicht`);
+    if (s.karte && !lpKarte && env.MAP_OF_LOC[s.karte] !== s.ort) E.push(`${p}: Außenkarte '${s.karte}' gehört zu Ort '${env.MAP_OF_LOC[s.karte]}', nicht zu '${s.ort}'`);
     const mols = s.molekuele || [];
     if (st && (mols.length < st.molekuele_plaetze.min || mols.length > st.molekuele_plaetze.max)) E.push(`${p}: ${mols.length} Moleküle, Szenentyp erlaubt ${st.molekuele_plaetze.min}–${st.molekuele_plaetze.max}`);
     for (const m of mols) {
@@ -392,7 +861,7 @@ function checkGrobplan(g, env) {
       if (st && !mol.szenentypen.includes(st.kennung) && st.id !== 'hafen') E.push(`${p}: Molekül '${m.id}' passt nicht zu Szenentyp ${st.kennung} ${st.name}`);
       if (st && u.schauplatz !== st.bereich && st.id !== 'hafen') E.push(`${p}: Umsetzung '${m.umsetzung}' spielt '${u.schauplatz}', Szenentyp ist '${st.bereich}'`);
       if (u.params.loc && u.params.loc.werte && !u.params.loc.werte.includes(s.ort)) E.push(`${p}: Umsetzung '${m.umsetzung}' gibt es nur an ${u.params.loc.werte.join(', ')}`);
-      if (u.params.map && u.params.map.werte && !u.params.map.werte.includes(s.karte)) E.push(`${p}: Umsetzung '${m.umsetzung}' braucht Karte ${u.params.map.werte.join(', ')}`);
+      if (u.params.map && u.params.map.werte && !u.params.map.werte.includes(sceneMap(s))) E.push(`${p}: Umsetzung '${m.umsetzung}' braucht Karte ${u.params.map.werte.join(', ')}`);
       for (const n of u.nach || []) if (!vorher.has(n)) E.push(`${p}: Umsetzung '${m.umsetzung}' setzt '${n}' in einer früheren Szene voraus`);
       vorher.add(`${m.id}/${m.umsetzung}`);
     }
@@ -562,6 +1031,7 @@ function assembleScene(g, s, answer, env, opts) {
     if (o.found) for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'find' && o.found.has((m.params || {})[pn])) E.push(`${m.id}/${m.umsetzung}: Fund '${m.params[pn]}' ist schon gefunden`);
     // S2b: NSC-Parameter mit neuer Stimme (neu:Name) -> Stimmen-Kennung des Buchs (auch in besetzung/spawn_escort)
     const params = Object.assign({}, m.params || {});
+    if (o.book) buehnenParams(u, params, s, env);   // B1: map/Besetzung setzt der Szenenbau, nie das LLM
     if (o.book) for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && isNeu(params[pn])) params[pn] = fixVoice(params[pn]);
     const { frag, errs } = Katalog.instantiate(u, params, id, weiter);
     if (o.book && frag.besetzung && Array.isArray(frag.besetzung.npc)) frag.besetzung.npc = frag.besetzung.npc.filter((n) => !stimmen[n]);
@@ -709,7 +1179,7 @@ function rohAnswer(g, s, env) {
     if (!u) return { id: m.id, umsetzung: m.umsetzung, params: {} };
     const params = Object.assign({}, clone((u.test && u.test.params) || {}), clone((u.rueckfall && u.rueckfall.params) || {}));
     if (u.params.loc) params.loc = s.ort;
-    if (u.params.map && s.karte) params.map = s.karte;
+    buehnenParams(u, params, s, env);   // B1: map = Landepunkt der Szene (bzw. Altname karte), Besetzung aus dem Grobplan
     for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc') params[pn] = sceneVoice(g, s, pn === 'npc' ? 'gegenueber' : 'verbuendet');
     if (HOSTILE_MOLS.has(m.id) && params.npc === g.auftraggeber) params.npc = NEU_DEFAULT;   // Auftraggeber nie als Angreifer
     const own = sceneVoice(g, s, 'verbuendet');
@@ -885,7 +1355,7 @@ function buildBook(g, answers, env, opts) {
       result.szenen[s.id] = { quelle: 'rohfassung', fehler: [] };
     }
     buehne.orte = [...new Set([...buehne.orte, s.ort])];
-    if (s.karte) buehne.aussenkarten = [...new Set([...buehne.aussenkarten, s.karte])];
+    if (sceneMap(s)) buehne.aussenkarten = [...new Set([...buehne.aussenkarten, sceneMap(s)])];
   }
   if (!buehne.aussenkarten.length) delete buehne.aussenkarten;
   // S2b (Live-Befund, QA-INTEGRATION): Umsetzungen mit Spieleffekten beim Betreten oder im Timer (Spawn: vertreiben,
@@ -1019,4 +1489,8 @@ module.exports = {
   // S2b
   missionCast, sceneVoice, normalizeGrobplan, repairSceneAnswer, planFlags, explainBookErrors, speakerErrors, factContradictions, rewardContradictions,
   grobplanTexts, answerTexts, umsetzungOf, NEU_DEFAULT,
+  // B1/B2
+  sceneMap, aufloesen, checkGrobplanB1, bodenInfo, planDauer, istBodenszene, sceneBesetzung, besitzRegion, isLandepunktId, KARTEN_ARTEN,
+  // B1-FIX (F3)
+  grobplanVorgaben, repairGrobplan, passendeLandepunkte,
 };

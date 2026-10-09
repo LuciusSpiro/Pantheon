@@ -1,0 +1,103 @@
+{
+  "team": "art-gkp",
+  "notes": "Germanen-Grundkit, gemeinsame Props (ART-PLAN §2.4, CONTRACT-B1 §3.3/§10.1). Pivot = Mitte unten, Vorderseite +z. Ankerzustände über den Parameter state (Index in die Zustände der Rolle). Runen nur als Ornamentband (Teil prop/germanen/gemein/teil/runenband, mind. 3 Zeichen) aus Isa, Fehu, Uruz, Raido, Kaunan, Wunjo (Gebo gestrichen); Glow emit ≤ 1,2, kein Pulsieren. Banner: Tierzeichen Krähe in Besitzfarbe cloth (tint) auf Lederfeld, Runen nur als unbeleuchtetes Saumband; kein cloth2/trim/white/black.",
+  "assets": [
+    {
+      "id": "prop/germanen/gemein/truhe", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.13, "facing": "+z",
+      "params": { "state": [0, 1] },
+      "states": { "voll": { "state": 0 }, "leer": { "state": 1 } },
+      "sockets": { "use": [0, 0, 0.55], "label": [0, 0.95, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "anker", "beute", "kiste"]
+    },
+    {
+      "id": "prop/germanen/gemein/fass", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.0, "facing": "+z",
+      "params": { "typ": [0, 1] },
+      "states": { "holz": { "typ": 0 }, "tonne": { "typ": 1 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "fass"]
+    },
+    {
+      "id": "prop/germanen/gemein/bank", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [2, 1], "height": 0.44, "facing": "+z",
+      "params": { "len": [12, 30] },
+      "states": { "lang": { "len": 24 }, "kurz": { "len": 14 } },
+      "sockets": { "seat": [0, 0.44, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "bank", "seat"]
+    },
+    {
+      "id": "prop/germanen/gemein/feuerschale", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.19, "facing": "+z",
+      "params": { "an": [0, 1] },
+      "states": { "an": { "an": 1 }, "aus": { "an": 0 } },
+      "sockets": { "light": [0, 1.0, 0], "fx_smoke": [0, 1.25, 0], "fx_spark": [0, 0.95, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "light", "feuer"]
+    },
+    {
+      "id": "prop/germanen/gemein/runenstein_terminal", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.63, "facing": "+z",
+      "params": { "state": [0, 3], "raetsel": [0, 1] },
+      "states": { "bereit": { "state": 0 }, "laedt": { "state": 1 }, "geladen": { "state": 2 }, "gesperrt": { "state": 3 },
+                  "raetsel_ruhe": { "raetsel": 1, "state": 0 }, "raetsel_gehalten": { "raetsel": 1, "state": 1 }, "raetsel_geloest": { "raetsel": 1, "state": 2 } },
+      "sockets": { "use": [0, 0, 0.55], "screen": [0, 0.94, 0.22], "label": [0, 1.75, 0], "fx_spark": [0.3, 0.9, 0.22], "fx_smoke": [0, 1.5, -0.1] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "anker", "terminal", "raetsel", "console"]
+    },
+    {
+      "id": "prop/germanen/gemein/kaefig_zelle", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.88, "facing": "+z",
+      "params": { "state": [0, 1] },
+      "states": { "zu": { "state": 0 }, "offen": { "state": 1 } },
+      "sockets": { "prisoner": [0, 0.06, -0.05], "use": [0, 0, 0.6], "label": [0, 2.15, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "anker", "zelle"]
+    },
+    {
+      "id": "prop/germanen/gemein/banner_clan", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 2.19, "facing": "+z",
+      "params": { "zustand": [0, 2] },
+      "states": { "intakt": { "zustand": 0 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2 } },
+      "sockets": { "label": [0, 2.2, 0] },
+      "tint": ["cloth"], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "banner", "besitz"]
+    },
+    {
+      "id": "prop/germanen/gemein/decal_runen", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 0.63, "facing": "+z",
+      "params": { "seed": [0, 63], "wand": [0, 1] },
+      "states": { "s0": { "seed": 0 }, "s1": { "seed": 1 }, "s2": { "seed": 2 }, "s3": { "seed": 3 }, "wand": { "wand": 1, "seed": 4 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "decal", "runen"]
+    },
+    {
+      "id": "prop/germanen/gemein/kiste_stapel", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 0.81, "facing": "+z",
+      "params": { "zustand": [0, 2] },
+      "states": { "intakt": { "zustand": 0 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2 } },
+      "sockets": { "cover": [0, 0.81, 0] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deckung", "cover", "cover_half"]
+    },
+    {
+      "id": "prop/germanen/gemein/werkzeug", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.31, "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": { "use": [0, 0, 0.5] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "werkzeug"]
+    },
+    {
+      "id": "prop/germanen/gemein/kette", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 2.0, "facing": "+z",
+      "params": { "form": [0, 1] },
+      "states": { "liegend": { "form": 0 }, "haengend": { "form": 1 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "kette"]
+    },
+    {
+      "id": "prop/germanen/gemein/bake_abholpunkt", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.94, "facing": "+z",
+      "params": { "state": [0, 1] },
+      "states": { "bereit": { "state": 0 }, "gestoert": { "state": 1 } },
+      "sockets": { "beam": [0, 1.9, 0], "light": [0, 1.8, 0], "label": [0, 2.15, 0], "fx_spark": [0.15, 1.75, 0.1] },
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "anker", "abholpunkt", "light"]
+    }
+  ]
+}

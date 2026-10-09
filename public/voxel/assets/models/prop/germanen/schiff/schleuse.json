@@ -1,0 +1,45 @@
+{
+  "id": "prop/germanen/schiff/schleuse",
+  "name": "Schleuse: Rundluke im Giebelrahmen (Germanen, Schiff)",
+  "notes": "Steht an der Hülle (Rückseite -z an der Bordwand), Öffnung nach +z. state 0 zu (Lukenrad, Lampen kalt), 1 offen (Blick ins All, Lampen rot).",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "schleuse", "eingang"],
+  "footprint": [2, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Zustand 0 zu / 1 offen" }
+  },
+  "variants": { "offen": { "state": 1 } },
+  "ops": [
+    { "op": "box", "name": "Rahmen", "at": [-15, 0, -8], "size": [30, 31, 3], "color": { "stripes": ["metal_dark", "metal_dark", "metal_dark", { "shade": "metal_dark", "f": 0.75 }], "axis": "y", "period": 1 } },
+    { "op": "wedge", "name": "Giebel", "at": [-15, 31, -8], "size": [30, 4, 3], "gable": "x", "color": "metal" },
+    { "op": "box", "name": "Pfosten", "at": [-15, 0, -5], "size": [3, 31, 2], "color": { "frame": "metal_light", "fill": "metal", "axes": "y" }, "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "Giebelbalken links", "from": [-15, 31, -5], "to": [0, 35, -5], "r": 0.6, "color": "trim" },
+    { "op": "line", "name": "Giebelbalken rechts", "from": [14, 31, -5], "to": [-1, 35, -5], "r": 0.6, "color": "trim" },
+    { "op": "cyl", "name": "Öffnung", "axis": "z", "at": [0, 15, -9], "r": 10.5, "h": 6, "mode": "carve" },
+    { "op": "cyl", "name": "Lukenring", "axis": "z", "at": [0, 15, -6], "r": 12, "h": 2, "hollow": 1.6, "color": { "frame": "metal_light", "fill": "metal", "axes": "z" } },
+    { "op": "box", "name": "Ringbolzen", "at": [-1, 26, -5], "size": [2, 1, 1], "color": "trim", "mirror": "y", "mirrorAt": 15.5 },
+    { "op": "box", "name": "Ringbolzen quer", "at": [-12, 14, -5], "size": [1, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Schwarz", "if": "state == 1", "axis": "z", "at": [0, 15, -8], "r": 10.5, "h": 1, "color": "black", "jitter": false },
+    { "op": "box", "name": "Stern 1", "if": "state == 1", "at": [-4, 19, -8], "size": [1, 1, 1], "color": { "role": "white", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Stern 2", "if": "state == 1", "at": [5, 11, -8], "size": [1, 1, 1], "color": { "role": "white", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Stern 3", "if": "state == 1", "at": [2, 21, -8], "size": [1, 1, 1], "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "group", "name": "Lukendeckel", "if": "state == 0", "ops": [
+      { "op": "cyl", "name": "Deckel", "axis": "z", "at": [0, 15, -8], "r": 10.5, "h": 2, "color": { "stripes": ["metal", "metal", { "shade": "metal", "f": 0.8 }], "axis": "y", "period": 1 } },
+      { "op": "line", "name": "Speiche senkrecht", "from": [-0.5, 6, -6], "to": [-0.5, 24, -6], "r": 0.6, "color": "metal_light" },
+      { "op": "line", "name": "Speiche waagrecht", "from": [-9, 14.5, -6], "to": [9, 14.5, -6], "r": 0.6, "color": "metal_light" },
+      { "op": "ellipsoid", "name": "Buckel", "at": [0, 15, -6], "r": [3, 3, 2], "half": "+z", "color": "metal_light" },
+      { "op": "cyl", "name": "Lukenrad", "axis": "z", "at": [0, 15, -4], "r": 4.5, "h": 1, "hollow": 1, "color": "trim" },
+      { "op": "line", "name": "Radspeiche", "from": [-4, 15, -4], "to": [4, 15, -4], "r": 0.5, "color": "trim" }
+    ] },
+    { "op": "use", "name": "Runenband", "model": "prop/germanen/schiff/teil/runenband", "params": { "len": 3, "an": "state == 0" }, "at": [-6, 28, -5] },
+    { "op": "box", "name": "Lampe", "at": [-11, 28, -5], "size": [2, 2, 2], "color": { "role": "glow", "emit": 0.8 }, "if": "state == 0", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Lampe Alarm", "at": [-11, 28, -5], "size": [2, 2, 2], "color": { "role": "alarm", "emit": 1.2 }, "if": "state == 1", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Schwelle", "at": [-11, 0, -5], "size": [22, 1, 5], "color": { "checker": ["trim", "metal_dark"], "period": 2 } },
+    { "op": "box", "name": "Bedienkasten", "at": [11, 8, -5], "size": [3, 6, 2], "color": { "frame": "metal", "fill": "secondary", "axes": "xy" } },
+    { "op": "box", "name": "Bedienknopf", "at": [12, 11, -3], "size": [1, 1, 1], "color": { "shade": "alarm", "f": "state == 1 ? 1 : 0.6" }, "emit": "state == 1 ? 1.2 : 0", "jitter": false }
+  ],
+  "sockets": { "use": [0, 0, 0.1], "light": [0, 1.85, -0.25], "fx_smoke": [0, 1.0, -0.3], "label": [0, 2.3, -0.3] },
+  "anchor": [0, 0, 0]
+}

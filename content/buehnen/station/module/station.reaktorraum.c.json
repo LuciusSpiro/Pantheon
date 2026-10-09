@@ -1,0 +1,30 @@
+{
+  "format": "modul/1", "id": "station.reaktorraum.c", "art": "station", "typ": "reaktorraum",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "#########w######",
+    "#..............#",
+    "#..OO......OO..#",
+    "#..OO......OO..#",
+    "#..OO......OO..#",
+    "#..............#",
+    "#.o.....o......#",
+    "###DD###########"
+  ],
+  "anker": [
+    "................",
+    ".z.......v......",
+    "........z.......",
+    ".....s..........",
+    "................",
+    "................",
+    "......t.......z.",
+    "................"
+  ],
+  "anker_legende": {
+    "z": { "rolle": "ziel" },
+    "s": { "rolle": "sprengpunkt" },
+    "t": { "rolle": "terminal" },
+    "v": { "rolle": "versteck" }
+  }
+}

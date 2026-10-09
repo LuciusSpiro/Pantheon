@@ -1,0 +1,44 @@
+{
+  "id": "kit/geruest/deckung_voll",
+  "name": "Bausatz-Gerüst – Deckung voll (2,5 m, dunkle Krone)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","deckung_voll"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["deckung_voll_koerper","deckung_voll_oberkante"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"}
+  },
+  "variants": {
+    "frei": {"conn":0},
+    "ende": {"conn":2},
+    "ecke": {"conn":6},
+    "t": {"conn":7},
+    "kreuz": {"conn":15},
+    "geschnitten": {"cut":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":2},
+    "probe": {"bauweise":"test"},
+    "probe_ecke": {"bauweise":"test","conn":6,"art":"aussenposten"},
+    "probe_station": {"bauweise":"test","art":"station"},
+    "probe_ruine_verfallen": {"bauweise":"test","art":"ruine","zustand":2,"seed":3}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "H": "cut ? 5 : 10"
+  },
+  "ops": [
+    {"name":"Steckplatz deckung_voll_koerper","op":"use","model":"kit/{bauweise}/{art}/deckung_voll_koerper","fallback":["kit/{bauweise}/gemein/deckung_voll_koerper","kit/geruest/slot/deckung_voll_koerper"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":"H - 1","d":4}},
+    {"name":"Steckplatz deckung_voll_oberkante","op":"use","model":"kit/{bauweise}/{art}/deckung_voll_oberkante","fallback":["kit/{bauweise}/gemein/deckung_voll_oberkante","kit/geruest/slot/deckung_voll_oberkante"],"at":[0,"H - 1",0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":1,"d":4}},
+    {"name":"Verfall (schont Anschlussnähte und Unterkante)","op":"erode","if":"zustand > 0","density":"zustand == 1 ? 0.2 : 0.35","depth":"zustand","at":["cw",0,"cn"],"size":["4 - cw - ce","H","4 - cn - cs"]}
+  ],
+  "anchor": [2,0,2]
+}

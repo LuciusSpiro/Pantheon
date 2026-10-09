@@ -41,6 +41,8 @@ sie in die Vorlage ein und prüft das Ergebnis.
   Wendung im Grobplan: `"wendung": null`.
 - Keine neuen Schiffe, Funde, Objekte oder Karten. Halte dich an Sachverhalt, Wendung und Entscheidungen des Grobplans
   und an den Weltstand (Erinnerungen der NSC, Fakten).
+- **Bühne:** `map` (Landepunkt) und die Besetzung (`fraktion`, `staerke`, `haltung`) setzt das Spiel aus dem Grobplan –
+  diese Parameter kannst du weglassen. Nie Koordinaten. Gegenstände und Orte heißen wie in der Bühne der Szene.
 - **Besetzung:** Funken dürfen nur die NSC aus `besetzung` des Grobplans (bzw. die `stimme` der Szene) und neue Stimmen
   `neu:Name`. NSC-Parameter (`npc`, `funk_npc`, `empfaenger`) bekommen die `stimme` der Szene, sonst den Auftraggeber;
   Gegner/Gegenüber ohne `stimme` als `neu:Name` – nie den Auftraggeber als Gegner.
@@ -49,6 +51,11 @@ sie in die Vorlage ein und prüft das Ergebnis.
   Sachverhalt der nächsten Szene vorsieht (z. B. nicht „die Jäger ziehen ab“, wenn danach ein Gefecht folgt).
   Zahlen in Texten und Aktionen stimmen überein.
 - In Texten Anführungszeichen nur typografisch („…“) oder einfach ('…') – **nie** das Zeichen `"` innerhalb eines Textes.
+- **Lexikon-Platzhalter `{{lex.x}}`:** nie einen Artikel oder eine Verschmelzung (der, dem, zum, durchs …) davor
+  schreiben und keine Endung anhängen – stattdessen die Form im Platzhalter: `{{lex.x:der|den|dem|des|ein|einen|einem|pl}}`
+  bzw. `{{lex.x:zum|vom|im|beim|am|ins}}` (z. B. „Öffnet {{lex.tor:den}}“, „zurück {{lex.abholpunkt:zum}}“).
+- Namens-Parameter (`fund_name`, `ziel_name`, `gegenstand`, `daten_name`, `probe_name`) im Nominativ mit Artikel
+  („die Legionskasse“). Bei `entkommen` den `gegenstand` weglassen (Standard = der gemerkte Fund).
 
 ## Selbstprüfung vor der Ausgabe (der Prüfer lehnt sonst ab)
 1. `molekuele`: genau die Moleküle/Umsetzungen der Szene, gleiche Reihenfolge, alle Pflichtparameter (`*`) gefüllt,

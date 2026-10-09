@@ -1,0 +1,48 @@
+{
+  "id": "prop/rom/ruine/legionskasse",
+  "name": "Legionskasse auf Sockel (Fund/Beute, Kassengewölbe)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "fund", "beute"],
+  "notes": "Anker fund (state 0 da / 1 genommen) bzw. beute (0 voll / 1 leer). Sockel bleibt immer stehen; bei 1 nur Abdruck, offener Riegel und gerissene Kette.",
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Fund (0 da, 1 genommen)" }
+  },
+  "variants": { "genommen": { "state": 1 } },
+  "ops": [
+    { "name": "Sockel", "op": "box", "at": [-7, 0, -6], "size": [14, 3, 12], "color": { "noise": ["stone", "stone_light", "stone_dark"], "weights": [3, 1, 1], "cell": 2 } },
+    { "name": "Sockelkante gold", "op": "box", "at": [-7, 3, -6], "size": [14, 1, 12], "color": { "frame": { "shade": "trim", "f": 0.75 }, "fill": "stone_light", "axes": "xz" } },
+
+    { "name": "Kasse", "op": "group", "if": "state == 0", "ops": [
+      { "name": "Korpus", "op": "box", "at": [-6, 4, -4], "size": [12, 7, 8], "color": { "frame": "trim", "fill": "primary", "axes": "xy" } },
+      { "name": "Eisenbänder", "op": "box", "mode": "paint", "repeat": { "count": 3, "step": [5, 0, 0] }, "at": [-5, 4, -4], "size": [1, 7, 8], "color": "metal_dark" },
+      { "name": "Deckel", "op": "box", "at": [-6, 11, -4], "size": [12, 2, 8], "color": { "frame": "trim", "fill": { "shade": "primary", "f": 0.85 }, "axes": "xz" } },
+      { "name": "Deckelwölbung", "op": "box", "at": [-5, 13, -3], "size": [10, 1, 6], "color": { "shade": "primary", "f": 0.9 } },
+      { "name": "Adler vorn", "op": "box", "at": [-3, 8, 4], "size": [6, 1, 1], "color": "trim" },
+      { "name": "Adler Leib", "op": "box", "at": [-1, 6, 4], "size": [2, 4, 1], "color": { "shade": "trim", "f": 1.1 } },
+      { "name": "Schloss", "op": "box", "at": [-1, 10, 4], "size": [2, 2, 1], "color": "metal_light" },
+      { "name": "Schlossleuchte", "op": "box", "at": [-1, 11, 4], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "name": "Tragegriffe", "op": "box", "at": [6, 8, -2], "size": [1, 1, 4], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+      { "name": "Münzen auf dem Sockel", "op": "box", "at": [3, 4, 4], "size": [3, 1, 2], "color": { "noise": ["trim", { "shade": "trim", "f": 0.8 }, { "shade": "trim", "f": 1.15 }], "cell": 1 } },
+      { "name": "Münzrolle", "op": "box", "at": [-6, 4, 4], "size": [2, 1, 1], "color": "trim" }
+    ] },
+
+    { "name": "Leer", "op": "group", "if": "state == 1", "ops": [
+      { "name": "Abdruck", "op": "box", "mode": "paint", "at": [-6, 3, -4], "size": [12, 1, 8], "color": { "frame": "stone_light", "fill": { "shade": "stone", "f": 0.8 }, "axes": "xz" } },
+      { "name": "Schleifspur", "op": "box", "mode": "paint", "at": [-2, 3, 2], "size": [4, 1, 4], "color": { "shade": "stone", "f": 0.85 } },
+      { "name": "Riegel offen", "op": "box", "at": [-6, 4, -5], "size": [2, 1, 1], "color": "metal_dark" },
+      { "name": "Kette gerissen", "op": "line", "from": [6, 4, -3], "to": [7, 1, 4], "r": 0.5, "color": "metal" },
+      { "name": "Einzelne Münze", "op": "box", "at": [4, 4, 3], "size": [1, 1, 1], "color": "trim" }
+    ] },
+
+    { "name": "Kettenhalter", "op": "box", "at": [6, 3, -4], "size": [1, 2, 1], "color": "metal_dark" },
+    { "name": "Verfall Sockel", "op": "erode", "density": 0.2, "depth": 1, "salt": 7, "at": [-8, 0, -7], "size": [16, 4, 14] },
+    { "name": "Moos", "op": "box", "mode": "paint", "at": [-8, 0, -7], "size": [16, 2, 14], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone_dark", "stone"], "weights": [1, 3, 3], "cell": 1 } }
+  ],
+  "sockets": {
+    "use": [0, 0.4, 0.5],
+    "label": [0, 1.2, 0]
+  },
+  "anchor": [0, 0, 0]
+}

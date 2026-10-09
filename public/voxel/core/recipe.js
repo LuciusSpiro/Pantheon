@@ -136,6 +136,7 @@ function runOp(op, scope, T, ctx, path) {
     case 'line': return shapeLine(op, s, T, ctx);
     case 'wedge': return shapeWedge(op, s, T, ctx);
     case 'loft': return shapeLoft(op, s, T, ctx);
+    case 'erode': return opErode(op, s, T, ctx);
     default: throw new Error(`Unbekannter Bauschritt "${op.op}"`);
   }
 }
@@ -164,11 +165,18 @@ function opGroup(op, scope, T, ctx, path) {
 }
 
 function opUse(op, scope, T, ctx) {
-  const sub = ctx.env.getModel(op.model);
+  const tmpl = isTemplateUse(op);
+  const sub = tmpl ? resolveTemplateUse(op, scope, ctx.env) : ctx.env.getModel(op.model);
   if (!sub) throw new Error(`Teilmodell "${op.model}" nicht geladen`);
-  if (sub.tier !== ctx.tier) throw new Error(`Teilmodell "${op.model}" hat Stufe ${sub.tier}, erwartet ${ctx.tier} (Stufen nicht mischen – Szene benutzen)`);
+  if (sub.tier !== ctx.tier) throw new Error(`Teilmodell "${sub.id}" hat Stufe ${sub.tier}, erwartet ${ctx.tier} (Stufen nicht mischen – Szene benutzen)`);
   const params = {};
-  for (const [k, v] of Object.entries(op.params || {})) params[k] = typeof v === 'string' && !(sub.params?.[k]?.options) ? evalNum(v, scope) : v;
+  for (const [k, v] of Object.entries(op.params || {})) {
+    // Vorlagen: nur Parameter weitergeben, die das gewählte Modell kennt (Steckplätze dürfen weniger deklarieren)
+    if (tmpl && k !== 'seed' && !(k in (sub.params || {}))) continue;
+    if (typeof v !== 'string') params[k] = v;
+    else if (sub.params?.[k]?.options) params[k] = fillTemplate(v, scope, op.model);   // "{art}" reicht den eigenen Wert durch
+    else params[k] = evalNum(v, scope);
+  }
   if (params.seed === undefined) params.seed = ctx.seed;
   // Farbüberschreibungen des Elternteils (z. B. Crew-Akzent der Figur) bleiben erhalten
   const env = op.palette || op.colors
@@ -180,11 +188,52 @@ function opUse(op, scope, T, ctx) {
   for (const v of built.grid.values()) write(ctx, Tt, v.x, v.y, v.z, mode, () => ({ c: v.c, e: v.e }), null, false);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Vorlagen in use: "model": "kit/{bauweise}/{art}/fuellung", optional "fallback": "<id>" | ["<id>", …]
+// Platzhalter = options-Parameter des Modells, das den Schritt enthält. collectDeps lädt alle Kombinationen
+// (fehlende Dateien sind erlaubt); beim Bauen gewinnt der erste vorhandene Kandidat.
+// ---------------------------------------------------------------------------------------------
+const PLACEHOLDER = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+const MAX_TEMPLATE_COMBOS = 1024;
+const hasPlaceholder = (s) => typeof s === 'string' && /\{[A-Za-z_][A-Za-z0-9_]*\}/.test(s);
+const useCandidates = (op) => [op.model, ...[].concat(op.fallback ?? [])];
+/** Ein use ist eine Vorlage, wenn Modell oder Fallback Platzhalter enthält oder ein Fallback angegeben ist. */
+export const isTemplateUse = (op) => op.fallback !== undefined || hasPlaceholder(op.model);
+const placeholderNames = (cands) => [...new Set(cands.flatMap((c) => [...c.matchAll(PLACEHOLDER)].map((m) => m[1])))];
+
+function fillTemplate(t, values, where) {
+  return t.replace(PLACEHOLDER, (_, n) => {
+    const v = values[n];
+    if (v === undefined) throw new Error(`Vorlage "${where}": Platzhalter {${n}} hat keinen Wert`);
+    return String(v);
+  });
+}
+
+function resolveTemplateUse(op, scope, env) {
+  const cands = useCandidates(op), ids = cands.map((c) => fillTemplate(c, scope, op.model));
+  for (const id of ids) { const m = env.getModel(id); if (m) return m; }
+  const names = placeholderNames(cands);
+  const vals = names.length ? ' mit ' + names.map((n) => `${n}=${scope[n]}`).join(', ') : '';
+  throw new Error(`Vorlage "${op.model}"${vals}: kein Modell vorhanden (versucht: ${ids.join(', ')})`);
+}
+
+/** Alle Kombinationen einer Vorlage: [{ values: {name: wert}, ids: [Kandidat, Fallback …] }]. */
+export function expandTemplateUse(model, op) {
+  const cands = useCandidates(op), names = placeholderNames(cands);
+  for (const n of names) {
+    if (!model.params?.[n]?.options) throw new Error(`Modell "${model.id}": Vorlage "${op.model}": Platzhalter {${n}} muss ein Parameter mit "options" sein`);
+  }
+  let combos = [{}];
+  for (const n of names) combos = combos.flatMap((c) => model.params[n].options.map((o) => ({ ...c, [n]: o })));
+  if (combos.length > MAX_TEMPLATE_COMBOS) throw new Error(`Modell "${model.id}": Vorlage "${op.model}" ergibt ${combos.length} Kombinationen (höchstens ${MAX_TEMPLATE_COMBOS})`);
+  return combos.map((values) => ({ values, ids: cands.map((c) => fillTemplate(c, values, op.model)) }));
+}
+
 function opVox(op, scope, T, ctx) {
   const vox = ctx.env.getVox(op.file);
   if (!vox) throw new Error(`.vox-Datei "${op.file}" nicht geladen`);
   const Tt = localT(op, scope, T), remap = {};
-  for (const [idx, spec] of Object.entries(op.remap || {})) remap[idx] = compileColor(spec, ctx.palette);
+  for (const [idx, spec] of Object.entries(op.remap || {})) remap[idx] = compileColor(spec, ctx.palette, undefined, scope);
   const mode = op.mode || 'add';
   // MagicaVoxel ist Z-oben → bei uns Y-oben: (x, y, z)vox → (x, z, y)
   for (const v of vox.voxels) {
@@ -196,9 +245,11 @@ function opVox(op, scope, T, ctx) {
 // ---------------------------------------------------------------------------------------------
 // Formen
 // ---------------------------------------------------------------------------------------------
-function colorFn(op, ctx) {
+function colorFn(op, ctx, scope) {
   if (op.mode === 'carve') return null;
-  return compileColor(op.color ?? 'primary', ctx.palette, op.emit ? op.emit : 0);
+  // emit darf ein Ausdruck sein ("0.3 + heat * 0.5"); gesetztes emit gilt auch bei 0, fehlendes = Leuchten der Rolle
+  const emit = op.emit !== undefined ? evalNum(op.emit, scope) : undefined;
+  return compileColor(op.color ?? 'primary', ctx.palette, emit, scope);
 }
 
 /**
@@ -224,7 +275,7 @@ function write(ctx, T, x, y, z, mode, col, local, jitter = true) {
 
 function shapeBox(op, scope, T, ctx) {
   const at = evalVec(op.at || [0, 0, 0], scope), size = evalVec(op.size, scope).map(Math.round);
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add';
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add';
   const [x0, y0, z0] = at.map(Math.round), jit = op.jitter !== false;
   for (let x = 0; x < size[0]; x++) for (let y = 0; y < size[1]; y++) for (let z = 0; z < size[2]; z++)
     write(ctx, Tl, x0 + x, y0 + y, z0 + z, mode, col, [x, y, z, size], jit);
@@ -235,7 +286,7 @@ function shapeCyl(op, scope, T, ctx) {
   const at = evalVec(op.at || [0, 0, 0], scope), r1 = evalNum(op.r, scope), r2 = op.r2 !== undefined ? evalNum(op.r2, scope) : r1;
   const h = Math.round(evalNum(op.h, scope)), hollow = op.hollow !== undefined ? evalNum(op.hollow, scope) : 0;
   const arc = op.arc ? evalVec(op.arc, scope) : null;
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add', jit = op.jitter !== false;
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add', jit = op.jitter !== false;
   const R = Math.max(r1, r2), cu = at[ui], cw = at[wi], a0 = Math.round(at[ai]);
   const size = [0, 0, 0]; size[ai] = h; size[ui] = Math.ceil(2 * R); size[wi] = Math.ceil(2 * R);
   for (let s = 0; s < h; s++) {
@@ -255,7 +306,7 @@ function inArc(a, a0, a1) { a0 = ((a0 % 360) + 360) % 360; a1 = ((a1 % 360) + 36
 
 function shapeEllipsoid(op, scope, T, ctx) {
   const c = evalVec(op.at, scope), rr = Array.isArray(op.r) ? evalVec(op.r, scope) : [evalNum(op.r, scope), evalNum(op.r, scope), evalNum(op.r, scope)];
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add', jit = op.jitter !== false;
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add', jit = op.jitter !== false;
   const half = op.half; // "+y", "-y", "+x" ...
   const lo = c.map((v, i) => Math.floor(v - rr[i])), hi = c.map((v, i) => Math.ceil(v + rr[i]));
   const size = hi.map((v, i) => v - lo[i]);
@@ -269,7 +320,7 @@ function shapeEllipsoid(op, scope, T, ctx) {
 
 function shapeLine(op, scope, T, ctx) {
   const a = evalVec(op.from, scope), b = evalVec(op.to, scope), r = op.r !== undefined ? evalNum(op.r, scope) : 0.5;
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add', jit = op.jitter !== false;
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add', jit = op.jitter !== false;
   const lo = [0, 1, 2].map((i) => Math.floor(Math.min(a[i], b[i]) - r)), hi = [0, 1, 2].map((i) => Math.ceil(Math.max(a[i], b[i]) + r));
   const ab = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L2 = ab[0] ** 2 + ab[1] ** 2 + ab[2] ** 2 || 1;
   const size = hi.map((v, i) => v - lo[i]);
@@ -294,7 +345,7 @@ function shapeLoft(op, scope, T, ctx) {
     return { z: n('z', 0), w: n('w', 1), up: n('up', h / 2), down: n('down', h / 2), x: n('x', 0), y: n('y', 0), bevel: n('bevel', 0), round: n('round', 0) };
   }).sort((a, b) => a.z - b.z);
   if (secs.length < 2) throw new Error('loft braucht mindestens 2 Querschnitte');
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add', jit = op.jitter !== false;
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add', jit = op.jitter !== false;
   const hol = op.hollow !== undefined ? evalNum(op.hollow, scope) : 0;   // Wandstärke; 0 = massiv
   const z0 = Math.round(secs[0].z), z1 = Math.round(secs[secs.length - 1].z);
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -331,7 +382,7 @@ function shapeLoft(op, scope, T, ctx) {
 /** Keil/Dach: slope "+x" fällt zur +x-Seite ab; gable "x" = Satteldach mit First in der Mitte entlang z, fällt nach ±x ab. */
 function shapeWedge(op, scope, T, ctx) {
   const at = evalVec(op.at || [0, 0, 0], scope).map(Math.round), size = evalVec(op.size, scope).map(Math.round);
-  const Tl = localT(op, scope, T), col = colorFn(op, ctx), mode = op.mode || 'add', jit = op.jitter !== false;
+  const Tl = localT(op, scope, T), col = colorFn(op, ctx, scope), mode = op.mode || 'add', jit = op.jitter !== false;
   const [w, h, d] = size;
   for (let x = 0; x < w; x++) for (let z = 0; z < d; z++) {
     let top = h;
@@ -348,17 +399,97 @@ function shapeWedge(op, scope, T, ctx) {
   }
 }
 
-/** Alle Abhängigkeiten eines Modells (Teilmodelle, .vox-Dateien, Paletten). */
+// ---------------------------------------------------------------------------------------------
+// Verfall: erode trägt Voxel an freiliegenden Kanten ab (deterministisch: hash3 + seed + salt)
+// ---------------------------------------------------------------------------------------------
+const N6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
+/**
+ * { op: "erode", density 0–1, depth 1–8, edges (Standard true), at/size (Bereich, lokal), ground (Standard true), salt }
+ * Durchgang 1: freiliegende Voxel (edges: nur Kanten/Ecken = an mindestens zwei Achsen frei) fallen mit
+ * Wahrscheinlichkeit density weg. Durchgang 2…depth: freiliegende Nachbarn der eben entfernten Voxel ebenso.
+ * Jede Entscheidung hängt nur von (x, y, z, seed, salt, Durchgang) ab → gleicher seed, gleiches Ergebnis.
+ * Zum Schluss fallen Voxel ohne jeden Nachbarn weg (keine schwebenden Krümel).
+ */
+function opErode(op, scope, T, ctx) {
+  const g = ctx.grid;
+  if (!g.size) return;
+  const density = Math.max(0, Math.min(1, evalNum(op.density ?? 0.3, scope)));
+  const depth = Math.max(1, Math.min(8, Math.round(evalNum(op.depth ?? 1, scope))));
+  const edges = op.edges !== false, ground = op.ground !== false;
+  const salt = op.salt !== undefined ? evalNum(op.salt, scope) | 0 : 0;
+  let lo = null, hi = null;
+  if (op.size) {
+    // Bereich in lokalen Koordinaten (wie box: at = Ecke), transformiert ins Modell
+    const at = evalVec(op.at || [0, 0, 0], scope), size = evalVec(op.size, scope), Tl = localT(op, scope, T);
+    const a = apply(Tl, at), b = apply(Tl, [at[0] + size[0], at[1] + size[1], at[2] + size[2]]);
+    lo = a.map((v, i) => Math.min(v, b[i])); hi = a.map((v, i) => Math.max(v, b[i]));
+  }
+  const inRegion = (v) => !lo || (v.x + 0.5 > lo[0] && v.x + 0.5 < hi[0] && v.y + 0.5 > lo[1] && v.y + 0.5 < hi[1] && v.z + 0.5 > lo[2] && v.z + 0.5 < hi[2]);
+  const minY = ground ? g.bounds().min[1] : -Infinity;
+  /** Anzahl Achsen mit mindestens einer freien Seite (unterhalb der Grundschicht zählt als Boden). */
+  const freeAxes = (x, y, z) => {
+    let n = 0;
+    for (let a = 0; a < 3; a++) {
+      const d = N6[a * 2], free = (s) => {
+        const nx = x + d[0] * s, ny = y + d[1] * s, nz = z + d[2] * s;
+        return !(ny < minY) && !g.has(nx, ny, nz);
+      };
+      if (free(1) || free(-1)) n++;
+    }
+    return n;
+  };
+  const seedMix = (Math.imul(ctx.seed ^ 0x5bd1e995, 31) + Math.imul(salt, 7919)) | 0;
+  let front = null;   // im letzten Durchgang entfernte Voxel
+  for (let pass = 0; pass < depth; pass++) {
+    const cand = [];
+    if (pass === 0) {
+      for (const v of g.values()) if (inRegion(v) && freeAxes(v.x, v.y, v.z) >= (edges ? 2 : 1)) cand.push(v);
+    } else {
+      const seen = new Set();
+      for (const r of front) for (const d of N6) {
+        const v = g.get(r.x + d[0], r.y + d[1], r.z + d[2]);
+        if (!v || seen.has(v) || !inRegion(v)) continue;
+        seen.add(v);
+        if (freeAxes(v.x, v.y, v.z) >= 1) cand.push(v);
+      }
+    }
+    const ps = (seedMix + Math.imul(pass + 1, 104729)) | 0;
+    front = cand.filter((v) => hash3(v.x, v.y, v.z, ps) < density);
+    for (const v of front) g.delete(v.x, v.y, v.z);
+    if (!front.length) break;
+  }
+  // Einzelne Voxel ohne jeden Nachbarn (schwebende Krümel) entfernen; die Grundschicht steht auf dem Boden
+  const lonely = [];
+  for (const v of g.values()) {
+    if (!inRegion(v) || (ground && v.y === minY)) continue;
+    if (!N6.some((d) => g.has(v.x + d[0], v.y + d[1], v.z + d[2]))) lonely.push(v);
+  }
+  for (const v of lonely) g.delete(v.x, v.y, v.z);
+}
+
+/**
+ * Alle Abhängigkeiten eines Modells (Teilmodelle, .vox-Dateien, Paletten).
+ * models = Pflicht; optional = Kandidaten aus Vorlagen (dürfen fehlen); templates = [{ template, combos }].
+ */
 export function collectDeps(model) {
-  const deps = { models: new Set(), vox: new Set(), palettes: new Set() };
+  const deps = { models: new Set(), optional: new Set(), vox: new Set(), palettes: new Set(), templates: [] };
   if (model.palette) deps.palettes.add(model.palette);
   const walk = (ops) => {
     for (const op of ops || []) {
-      if (op.op === 'use') { deps.models.add(op.model); if (op.palette) deps.palettes.add(op.palette); }
+      if (op.op === 'use') {
+        if (isTemplateUse(op)) {
+          const combos = expandTemplateUse(model, op);
+          for (const c of combos) for (const id of c.ids) deps.optional.add(id);
+          deps.templates.push({ template: op.model, fallback: op.fallback, combos });
+        } else deps.models.add(op.model);
+        if (op.palette) deps.palettes.add(op.palette);
+      }
       if (op.op === 'vox') deps.vox.add(op.file);
       if (op.ops) walk(op.ops);
     }
   };
   walk(model.ops);
+  for (const id of deps.models) deps.optional.delete(id);
   return deps;
 }

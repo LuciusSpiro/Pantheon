@@ -1,0 +1,22 @@
+{
+  "id": "fig/germanen/kopf",
+  "name": "Germanen-Kopf: Zopf, Vollbart mit geflochtenem Bartzopf und Eisenperle",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "germanen", "kopf"],
+  "notes": "Auf fig/basis/kopf (gleiche Maße). Haut/Haar kommen aus base (nord hat keine skin/hair-Rollen). Bartzopf vor dem Hals bei z = 3, kollidiert nicht mit der Halsberge (z ≤ 2).",
+  "params": {
+    "hair": { "default": 2, "min": 0, "max": 3, "step": 1, "label": "Frisur (0 kahl, 1 kurz, 2 Zopf, 3 lang)" },
+    "beard": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Bart" },
+    "braid": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Bartzopf" }
+  },
+  "ops": [
+    { "name": "Kopf", "op": "use", "model": "fig/basis/kopf", "params": { "hair": "hair", "beard": "beard" } },
+    { "name": "Bartzopf", "if": "beard && braid", "op": "box", "at": [-1, 24, 3], "size": [2, 2, 1], "color": { "stripes": ["hair", { "shade": "hair", "f": 0.75 }], "axis": "y", "period": 1 } },
+    { "name": "Bartperle", "if": "beard && braid", "op": "box", "at": [-1, 24, 3], "size": [2, 1, 1], "color": "metal_light", "mode": "paint" },
+    { "name": "Zopfringe", "if": "hair == 2", "op": "box", "at": [-1, 25, -4], "size": [2, 1, 1], "color": "metal_light", "mode": "paint", "repeat": { "count": 2, "step": [0, 2, 0] } },
+    { "name": "Schläfenrasur", "if": "hair == 1 || hair == 2", "op": "box", "at": [2, 29, -1], "size": [1, 1, 1], "color": "skin_shadow", "mode": "paint", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "variants": { "kahl": { "hair": 0 }, "glatt": { "beard": 0 }, "lang": { "hair": 3 } },
+  "anchor": [0, 0, 0]
+}

@@ -256,6 +256,233 @@ function main() {
     ok(!chk('ship_hold_position', g, a), 'verlassen -> Zähler beginnt neu');
   }
 
+  // ---------------------------------------------------------------------------------------------------------
+  section('B3: Bausteine Sektor (sektor.js) und Prüfer-Codes');
+  {
+    const recS = Registry.PLUGINS.find((p) => p.name === 'sektor.js');
+    const idsS = ['sprungpunkt_oeffnen', 'sprungpunkt_schliessen', 'boje_aufdecken', 'im_hex', 'sprungpunkt_erreicht', 'notgesprungen'];
+    ok(!!recS && !recS.errors.length && idsS.every((id) => Registry.get(id)), 'sektor.js: ' + idsS.join(', '));
+    const Sek = require('../shared/sektoren.js');
+    const t = setup(1); const g = t.g;
+    t.conns[0].inbox.length = 0;
+    g.handleMessage(t.conns[0], { t: 'ready', ready: true });
+    const hafen = Sek.hexVonOrt('hafen');
+    ok(chk('im_hex', g, { hex: hafen }) && !chk('im_hex', g, { hex: '0107' }), `im_hex ${hafen} (Hafen)`);
+    // Nachbar-Leerraum für eine temporäre Kante
+    const leer = Sek.nachbarn(hafen).find((h) => Sek.istLeerraum(h) && Sek.spielbar(h));
+    if (leer) {
+      act('sprungpunkt_oeffnen', g, { von: hafen, nach: leer, temp: true, bis: 'mission' });
+      const k = Sek.kanteId(hafen, leer);
+      ok(g.explore.temp.some((x) => x.id === k), `sprungpunkt_oeffnen: temporäre Kante ${k}`);
+      const snap = g.snapshot();
+      ok(snap.world.sektoren && snap.world.sektoren.t.includes(k), 'Snapshot world.sektoren.t enthält die Kante');
+      const snap2 = g.snapshot();
+      ok(!snap2.world.sektoren, 'world.sektoren nur bei geänderter Version');
+      act('sprungpunkt_schliessen', g, { kante: k });
+      ok(!g.explore.temp.some((x) => x.id === k), 'sprungpunkt_schliessen');
+    } else ok(false, 'kein Leerraum-Nachbar des Hafens gefunden');
+    const welcome = t.conns[0].inbox.find((m) => m.t === 'welcome');
+    ok(true, 'welcome (vor ready) geprüft unten');
+    const t2 = setup(1);
+    const w2 = t2.conns[0].inbox.find((m) => m.t === 'welcome');
+    ok(w2 && w2.sektorkarte && w2.sektorkarte.hexe && !('praesenz' in w2.sektorkarte), `welcome.sektorkarte ohne praesenz (${w2 && JSON.stringify(w2.sektorkarte).length} B)`);
+    void welcome;
+    ok(!chk('notgesprungen', g, {}), 'notgesprungen: false ohne Notfallsprung');
+    const s = g.snapshot();
+    ok(s.ship.jump && 'blockedReason' in s.ship.jump, 'ship.jump im Snapshot (jp/d, sobald sprung.js sie setzt)');
+    ok(Buffer.byteLength(JSON.stringify(s)) < 13 * 1024, `Snapshot im Raum ${Buffer.byteLength(JSON.stringify(s))} B < 13 KB`);
+    // Prüfer
+    const Checker = require('../server/mission/checker.js');
+    const book = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'content', 'regiebuecher', 'm3.regiebuch.json'), 'utf8'));
+    const st0 = book.steps[0];
+    st0.enter = (st0.enter || []).concat([{ do: 'boje_aufdecken', kante: '0101-0909' }]);
+    let r = Checker.check(book);
+    ok(r.errors.some((e) => e.code === 'SPRUNG-KANTE'), 'Prüfer: SPRUNG-KANTE bei unbekannter Kante');
+    const hidden = (Sek.KARTE.kanten || []).find((e) => e.art === 'hidden');
+    st0.enter[st0.enter.length - 1] = { do: 'boje_aufdecken', kante: Sek.kanteId(hidden.a, hidden.b) };
+    r = Checker.check(book);
+    ok(r.warnings.some((e) => e.code === 'SPRUNG-HIDDEN'), 'Prüfer: SPRUNG-HIDDEN (Warnung) bei verborgener Kante');
+    st0.enter.pop();
+    st0.next = [{ if: { check: { name: 'im_hex', hex: '0107' } }, goto: st0.next && st0.next[0] && st0.next[0].goto }].concat(st0.next || []);
+    r = Checker.check(book);
+    ok(r.errors.some((e) => e.code === 'HEX-UNSPIELBAR'), 'Prüfer: HEX-UNSPIELBAR (Rostnest 0107)');
+  }
+
+  // ---------------------------------------------------------------------------------------------------------
+  section('B1: Ankermodell (objects.js) und Bausteine Bühne (buehne.js)');
+  {
+    const idsB = ['anker_zustand', 'kante_zustand', 'landepunkt_alarm', 'ladung_geben', 'besetzen', 'entern_ziel', 'anker_state', 'download_fertig', 'ladung_gezuendet', 'alarm', 'team_im_bereich'];
+    const recB = Registry.PLUGINS.find((p) => p.name === 'buehne.js');
+    ok(!!recB && !recB.errors.length && idsB.every((id) => Registry.get(id)), 'buehne.js: ' + idsB.join(', '));
+    const t = setup(1); const g = t.g;
+    g.handleMessage(t.conns[0], { t: 'ready', ready: true });
+    // Adapter Kesh: tor = vault, raetsel = key, fund = tablet
+    ok(Objects.ankerState(g, 'kesh', Objects.resolveAnker(g, 'kesh', 'tor')[0]) === 'zu', 'kesh tor (vault closed) = zu');
+    ok(chk('anker_state', g, { map: 'kesh', anker: 'fund', state: 'da' }), 'kesh fund (tablet present) = da');
+    ok(chk('anker_state', g, { map: 'kesh', anker: 'raetsel', state: 'ruhe', all: true }), 'kesh raetsel (key idle) = ruhe, alle');
+    act('anker_zustand', g, { map: 'kesh', anker: 'tor', zustand: 'offen' });
+    ok(st(g, 'kesh', 'vault') === 'open' && chk('anker_state', g, { map: 'kesh', anker: 'tor', state: 'offen' }), 'anker_zustand tor offen -> vault open');
+    ok(chk('anker_state', g, { map: 'kesh', anker: 'raetsel', state: 'geloest', all: true }), 'Gewölbe offen -> Rätselpaar geloest');
+    ok(chk('object_state', g, { map: 'kesh', anker: 'tor', state: 'offen' }) && chk('object_state', g, { map: 'kesh', object: 'vault', state: 'open' }), 'object_state: neue Form { anker } und Altform { object }');
+    // Wrack: beute = container, terminal = lore, versteck = hollow
+    ok(chk('anker_state', g, { map: 'wreck', anker: 'beute', state: 'voll', all: true }), 'wreck beute (container full) = voll');
+    act('set_object_state', g, { map: 'wreck', anker: 'terminal', state: 'geladen' });
+    ok(st(g, 'wreck', 'lore') === 'read' && chk('download_fertig', g, { map: 'wreck' }), 'wreck terminal geladen -> lore read, download_fertig');
+    ok(chk('anker_state', g, { map: 'platform', anker: 'ziel', state: 'frei' }), 'platform ziel (datenkern present) = frei');
+    ok(chk('anker_state', g, { map: 'platform', anker: 'abholpunkt', state: 'bereit' }), 'Pads = abholpunkt bereit');
+    act('ladung_geben', g, { anzahl: 2 });
+    ok(g.inventory.ladung === 2, 'ladung_geben: Inventar ladung 2');
+    // buehne_braucht
+    const ruine = { art: 'ruine', anker: [{ rolle: 'tor' }, { rolle: 'fund' }, { rolle: 'raetsel', paar: 'A' }, { rolle: 'raetsel', paar: 'A' }, { rolle: 'eingang' }, { rolle: 'eingang' }], bereiche: { hof: { gefecht: true } } };
+    ok(Objects.pruefeBuehneBraucht({ kartenarten: ['ruine', 'kesh'], anker: ['tor', 'fund', { rolle: 'raetsel', paar: 1 }], min: { eingang: 2 }, gefecht: true }, ruine).length === 0, 'buehne_braucht erfüllt (Ruine)');
+    const f = Objects.pruefeBuehneBraucht({ kartenarten: ['station'], anker: ['terminal'], min: { eingang: 3 } }, ruine);
+    ok(f.some((x) => x.code === 'BUEHNE-ART') && f.filter((x) => x.code === 'BUEHNE-ANKER').length === 2, 'buehne_braucht verletzt: BUEHNE-ART + 2× BUEHNE-ANKER');
+    // Landepunkte
+    ok(Objects.landepunkt('kesh') && Objects.landepunkt('kesh').art === 'hand', 'Landepunkt kesh = Handkarte');
+    const lpr = Objects.landepunkt('rostnest.kastell');
+    ok(!lpr || lpr.gesperrt === true, 'rostnest.kastell gesperrt');
+    ok(Objects.landepunkt('splitter.station-2') && Objects.landepunkt('splitter.prise') && Objects.landepunkt('splitter.wrack-1') && !Objects.landepunkt('gibts.station-1'), 'dynamische Landepunkte <ort>.<art>-<n>, <ort>.prise, <ort>.wrack-<n>');
+    // katalog.pruefeBesetzung (B2 §7): nur ausdrückliche neue_rolle zählt für BESETZUNG-NEU
+    const Kat = require('../server/mission/katalog.js');
+    const kat = { gegner: { a: { rolle: 'grundtyp' }, b: { rolle: 'niederhalter' }, c: { rolle: 'enterer' }, d: { rolle: 'haescher' } },
+      fraktionen: { rostmeute: { id: 'rostmeute', staerke: { klein: 1, mittel: 2, gross: 3 }, rezepte: { rotte: [{ rolle: 'grundtyp', n: 2 }, { rolle: 'niederhalter', n: 1 }], jagd: [{ rolle: 'enterer', n: 2 }, { rolle: 'haescher', n: 1 }] } } } };
+    const r1 = Kat.pruefeBesetzung([{ fraktion: 'rostmeute', staerke: 'mittel', haltung: 'ruhig' }], { katalog: kat, rollen_gesehen: [], spieler: 3 });
+    ok(!r1.fehler.length && r1.warnungen.some((w) => w.code === 'BESETZUNG-NEU' && /jagd/.test(w.msg)) && !r1.warnungen.some((w) => /rotte/.test(w.msg)), 'pruefeBesetzung: Rezeptrollen zählen nicht; Warnung nur für Rezept aus lauter ungesehenen Rollen');
+    const r2 = Kat.pruefeBesetzung([{ fraktion: 'rostmeute', staerke: 'mittel', haltung: 'wach', neue_rolle: 'niederhalter' }, { fraktion: 'rostmeute', staerke: 'klein', haltung: 'wach', neue_rolle: 'enterer' }], { katalog: kat, rollen_gesehen: [], spieler: 3 });
+    ok(r2.fehler.some((e) => e.code === 'BESETZUNG-NEU'), 'pruefeBesetzung: zwei ungesehene neue_rolle -> Fehler BESETZUNG-NEU');
+    const r3 = Kat.pruefeBesetzung([{ fraktion: 'rostmeute', staerke: 'riesig', neue_rolle: 'laserhai' }, { fraktion: 'gibtsnicht' }], { katalog: kat, rollen_gesehen: ['niederhalter'], spieler: 1 });
+    ok(['FRAKTION', 'GEGNER-TYP'].every((c) => r3.fehler.some((e) => e.code === c)) && r3.warnungen.some((w) => w.code === 'BESETZUNG-SOLO'), 'pruefeBesetzung: FRAKTION, GEGNER-TYP, BESETZUNG-SOLO');
+    const Ck = require('../server/mission/checker.js'); const sch = Ck.schema();
+    const kr = (id) => Ck.validate(id, sch.$defs.kartenRef, '$', [], sch).length === 0;
+    ok(['kesh', 'kesh.kastell', 'splitter.prise', 'hafen.station-2', 'splitter.wrack-1'].every(kr) && !kr('a.b.c') && !kr('Kesh.X'), 'regiebuch.schema kartenRef nimmt Landepunkt-IDs (aussenkarten, allowBeam, besetzung.map)');
+  }
+
+  // ---------------------------------------------------------------------------------------------------------
+  section('B1: game.js – Direktstart arena_away, transfer.ziel, awayMap, Snapshot');
+  {
+    const Gm = require('../server/game.js').Game;
+    ok(Gm.arenaParams({ art: 'ruine', seed: '3', bauweise: 'rom', besitz: 'herrenlos', zustand: 'verfallen', quatsch: 1 }).seed === 3 && Gm.arenaParams({ art: 'hand' }) === null && Gm.arenaParams(null) === null, 'arenaParams: prüft Felder, Handkarte/leer -> null (Kesh)');
+    const t = setup(2); const g = t.g;
+    g.handleMessage(t.conns[0], { t: 'lobbyOpt', startMission: 'arena_away', arena: { art: 'ruine', seed: 3, bauweise: 'rom', besitz: 'herrenlos', zustand: 'verfallen' } });
+    for (const c of t.conns) g.handleMessage(c, { t: 'ready', ready: true });
+    const lp = g.arena && g.arena.lp;
+    const live = !!(lp && g.aways[lp]);
+    ok(live, `arena_away mit Karte: Landepunkt ${lp} gebaut und betreten`);
+    if (live) {
+      ok(g.players.every((p) => p.zone === 'away') && g.away.map === lp, 'Team unten auf der gebauten Karte');
+      t.run(0.2);
+      const am = t.conns[0].inbox.filter((m) => m.t === 'event' && m.kind === 'awayMap');
+      const bytes = am.length ? Buffer.byteLength(JSON.stringify(am[0])) : 0;
+      ok(am.length === 1 && am[0].id === lp && Array.isArray(am[0].kanten) && Array.isArray(am[0].plaetze) && am[0].kv, `awayMap einmal gesendet (kanten ${am[0] && am[0].kanten.length}, plaetze ${am[0] && am[0].plaetze.length}, ${bytes} B)`);
+      ok(bytes <= 10240, `awayMap ≤ 10 KB (${bytes} B)`);
+      const s = g.snapshot();
+      ok(s.away.map === lp && s.away.kv === am[0].kv && Array.isArray(s.away.ao) && s.away.al === 0, 'Snapshot away: map, kv, ao, al');
+      const tor = Objects.resolveAnker(g, lp, 'tor')[0] || Objects.resolveAnker(g, lp, 'fund')[0];
+      if (tor) {
+        const z = Objects.rolleZustaende(tor.rolle)[1];
+        act('anker_zustand', g, { map: lp, anker: tor.id, zustand: z, merken: true });
+        ok(chk('anker_state', g, { map: lp, anker: tor.id, state: z }), `anker_zustand auf gebauter Karte: ${tor.id} = ${z}`);
+        const s2 = g.snapshot();
+        ok(s2.away.ao.length >= 1, 'Snapshot away.ao meldet die Abweichung');
+      }
+      act('landepunkt_alarm', g, { map: lp, an: true });
+      ok(chk('alarm', g, { map: lp }) && g.snapshot().away.al === 1, 'landepunkt_alarm -> Prüfung alarm, Snapshot al 1');
+      t.conns[1].inbox.length = 0;
+      g.handleMessage(t.conns[1], { t: 'cmd', c: 'awayMap.get', id: lp });
+      ok(t.conns[1].inbox.some((m) => m.kind === 'awayMap' && m.id === lp), 'cmd awayMap.get schickt die Karte erneut');
+    }
+    if (live) {
+      // Nachauftrag: spawn_person über Anker, mehrere Personen, map_reset, anker_state min, download_fertig Kern
+      const Lp = require('../server/sim/landepunkte.js');
+      const lp2 = Lp.neu(g, 'kesh', { art: 'aussenposten', seed: 5 }); Lp.get(g, lp2);   // Außenposten: Pflichtsatz mit zelle
+      const nsc = Objects.resolveAnker(g, lp2, 'nsc').concat(Objects.resolveAnker(g, lp2, 'zelle'));
+      act('spawn_person', g, { map: lp2, person: 'p1', name: 'Eins', verletzt: true });
+      act('spawn_person', g, { map: lp2, person: 'p2', name: 'Zwei' });
+      act('spawn_person', g, { map: lp2, person: 'p3', name: 'Drei' });
+      const npc = g.aways[lp2].npc;
+      ok(nsc.length > 0 && npc.present && npc.person === 'p1' && Math.floor(npc.x / 32) === nsc[0].x && Math.floor(npc.y / 32) === nsc[0].y, `spawn_person auf gebauter Karte am Anker ${nsc[0] && nsc[0].id}`);
+      ok((g.aways[lp2].personen || []).length === 2 && chk('person_state', g, { map: lp2, person: 'p2', state: 'ok' }), 'weitere Personen warten (p2, p3), person_state kennt sie');
+      npc.rescued = true; npc.present = false; require('../server/sim/away.js').markRescued(g, lp2, 'p1');
+      t.run(0.1);
+      ok(g.aways[lp2].npc.person === 'p2' && g.aways[lp2].npc.present && chk('person_rescued', g, { map: lp2, person: 'p1' }), 'nach der Rettung rückt p2 nach (an einem eigenen Anker)');
+      const ziele = Objects.resolveAnker(g, lp, 'beute');
+      if (ziele.length >= 2) {
+        act('anker_zustand', g, { map: lp, anker: ziele[0].id, zustand: 'leer' });
+        ok(chk('anker_state', g, { map: lp, anker: 'beute', state: 'leer', min: 1 }) && !chk('anker_state', g, { map: lp, anker: 'beute', state: 'leer', min: 2 }), 'anker_state min: 1 von n ja, 2 von n nein');
+      }
+      const seed0 = g.landepunkte.eintraege[lp].seed;
+      act('map_reset', g, { map: lp });
+      ok(g.aways[lp] && !g.aways[lp].alarm && Object.keys(g.landepunkte.eintraege[lp].zustaende || {}).length === 0 && g.landepunkte.eintraege[lp].seed === seed0, 'map_reset gebaute Karte: Zustände/Alarm zurück, Seed bleibt');
+      act('map_reset', g, { map: lp, neuer_seed: true });
+      // B1 F1: neuer Seed = neuer Bau – nie im Tick; die Karte wird außerhalb des Ticks gebaut und dann registriert
+      ok(g.landepunkte.eintraege[lp].seed !== seed0, `map_reset neuer_seed: ${seed0} -> ${g.landepunkte.eintraege[lp].seed}`);
+      require('../server/sim/landepunkte.js').get(g, lp);   // Betreten (sonst nach dem Bau außerhalb des Ticks)
+      // Snapshot transfer
+      const st0 = g.snapshot();
+      ok(!st0.transfer || Array.isArray(st0.transfer.lp), 'Snapshot transfer (falls Landepunkte am Ort)');
+      ok(Buffer.byteLength(JSON.stringify(st0)) < 13 * 1024, `Snapshot auf gebauter Karte ${Buffer.byteLength(JSON.stringify(st0))} B < 13 KB`);
+    }
+    {   // download_fertig mit Kern-Terminal (Mock-Karte über world.register)
+      const Wd = require('../server/world.js');
+      const t3 = setup(1); const g3 = t3.g;
+      const k = { id: 'hafen.station-9', art: 'station', rows: ['....'], w: 4, h: 1, anker: [{ id: 'a.terminal.1', rolle: 'terminal', x: 0, y: 0 }, { id: 'b.terminal', rolle: 'terminal', x: 2, y: 0, kern: true }], bereiche: {}, zustaende: {} };
+      Wd.register('hafen.station-9', k);
+      g3.aways['hafen.station-9'] = { map: 'hafen.station-9', zustaende: { 'a.terminal.1': 'geladen' }, drones: [] };
+      ok(!chk('download_fertig', g3, { map: 'hafen.station-9' }), 'download_fertig: Neben-Terminal geladen zählt nicht, wenn ein Kern-Terminal da ist');
+      g3.aways['hafen.station-9'].zustaende['b.terminal'] = 'geladen';
+      ok(chk('download_fertig', g3, { map: 'hafen.station-9' }), 'download_fertig: Kern-Terminal geladen');
+      Wd.unregister('hafen.station-9');
+    }
+    {   // Handkarten: Ivo, Wächter, Container setzbar
+      const t4 = setup(1); const g4 = t4.g;
+      act('set_object_state', g4, { map: 'platform', object: 'ivo', state: 'ok' });
+      ok(st(g4, 'platform', 'ivo') === 'ok', 'set_object_state platform.ivo ok');
+      act('set_object_state', g4, { map: 'kesh', object: 'warden', state: 'dead' });
+      ok(st(g4, 'kesh', 'warden') === 'dead', 'set_object_state kesh.warden dead');
+      const c1 = Objects.resolveAnker(g4, 'wreck', 'beute')[1];
+      act('anker_zustand', g4, { map: 'wreck', anker: c1.id, zustand: 'leer' });
+      ok(Objects.ankerState(g4, 'wreck', c1) === 'leer' && chk('anker_state', g4, { map: 'wreck', anker: 'beute', state: 'leer', min: 1 }), 'anker_zustand einzelner Container (auch Hohlraum) leer');
+      act('set_object_state', g4, { map: 'wreck', object: 'container', state: 'taken' });
+      ok(st(g4, 'wreck', 'container').every((x) => x === 'taken'), 'set_object_state wreck.container taken (alle)');
+    }
+    // transfer.ziel an der Konsole
+    const t2 = setup(1); const g2 = t2.g; const p2 = g2.players[0];
+    g2.handleMessage(t2.conns[0], { t: 'ready', ready: true });
+    p2.console = 'transfer';
+    g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'transfer.ziel', landepunkt: 'gibts.nicht' });
+    ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /unbekannt|nicht/i.test(m.text)), 'transfer.ziel unbekannt -> Hinweis');
+    g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'loadout.waffe', waffe: 'laserschwert' });
+    ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /Unbekannte Waffe/.test(m.text)), 'loadout.waffe prüft die Waffe');
+  }
+
+  section('[B1 F2: Lexikon-Schlüssel der Umsetzungen]');
+  {
+    const fs = require('fs'); const path = require('path');
+    const Lexikon = require('../server/mission/lexikon.js');
+    const known = Lexikon.bekannt(); const dir = path.join(__dirname, '..', 'content', 'katalog', 'molekuele');
+    const fehlt = []; let zahl = 0;
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      const txt = fs.readFileSync(path.join(dir, f), 'utf8');
+      for (const m of txt.matchAll(/\{\{\s*lex\.([a-z0-9_]+)\s*\}\}/g)) { zahl++; if (!known.has(m[1])) fehlt.push(f + ': ' + m[1]); }
+    }
+    // Sachnamen (Nominativ mit Artikel) nie direkt nach einer Präposition; Eigennamen (name, ziel_name) dürfen
+    const PRAEP = /(^|[^A-Za-zÄÖÜäöüß])(zu|zum|zur|mit|von|vom|aus|bei|nach|seit|durch|für|gegen|ohne|um|in|im|an|am|auf|hinter|vor|unter|über|neben|zwischen)\s+\{\{([a-z_]+)\}\}/gi;
+    const praep = [];
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      for (const u of JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')).umsetzungen || []) {
+        const sach = new Set(Object.entries(u.params || {}).filter(([k, d]) => d.typ === 'text' && !['name', 'ziel_name'].includes(k)
+          && (/^(der|die|das|ein|eine) /i.test(String(d.default || '')) || /:(der|ein)\}\}$/.test(String(d.default || '')) || /_name$|^was$|^gegenstand$|^gesucht$/.test(k))).map(([k]) => k));
+        for (const t of Object.values((u.vorlage && u.vorlage.texte) || {})) for (const m of String(t).matchAll(PRAEP)) if (sach.has(m[3])) praep.push(`${f} ${u.id}: ${m[2]} {{${m[3]}}}`);
+      }
+    }
+    ok(!praep.length, `Sachnamen nie direkt nach Präposition${praep.length ? ' – ' + praep.join(', ') : ''}`);
+    ok(zahl > 0 && !fehlt.length, `${zahl} {{lex.*}} in Umsetzungen, alle im Lexikon${fehlt.length ? ' – fehlen: ' + fehlt.join(', ') : ''}`);
+    for (const bw of ['germanen', 'rom', 'vorlaeufer', null]) {
+      const roh = [...known].filter((k) => k !== 'namen' && k !== 'ort_muster' && !Lexikon.wort(k, bw));   // Auswahllisten des Spielleiters
+      ok(!roh.length, `Bauweise ${bw || 'ohne'}: jeder Schlüssel hat ein Wort (sonst neutral)${roh.length ? ' – fehlt: ' + roh.join(', ') : ''}`);
+    }
+  }
+
   console.log(`\n${n - fails}/${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);
   process.exit(fails ? 1 : 0);
 }

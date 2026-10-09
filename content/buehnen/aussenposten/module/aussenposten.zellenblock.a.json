@@ -1,0 +1,30 @@
+{
+  "format": "modul/1", "id": "aussenposten.zellenblock.a", "art": "aussenposten", "typ": "zellenblock",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "################",
+    "#,,,#,,,#,,,,,,#",
+    "#,,,#,,,#,,O,,,#",
+    "#z,z#z,z#,,,,,,#",
+    "#,,,,,,,,,,,,,,#",
+    "#,,,,,o,,,,o,,,#",
+    "#,,,,,,,,,,,,,,#",
+    "###DD###########"
+  ],
+  "anker": [
+    "................",
+    ".............t..",
+    "................",
+    "..c...c.........",
+    "................",
+    "........w.......",
+    "................",
+    "................"
+  ],
+  "anker_legende": {
+    "c": { "rolle": "zelle" },
+    "t": { "rolle": "terminal" },
+    "w": { "rolle": "wache" }
+  },
+  "belegungen": []
+}

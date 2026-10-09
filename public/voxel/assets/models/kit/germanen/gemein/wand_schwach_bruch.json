@@ -1,0 +1,127 @@
+{
+ "id": "kit/germanen/gemein/wand_schwach_bruch",
+ "name": "Germanen gemein – wand_schwach_bruch: Durchbruch: niedriger Granitschutt mit Plankensplittern (begehbar)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 2,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "state": {
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "1 offen"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Schuttbett",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "checker": [
+     {
+      "shade": "stone_dark",
+      "f": "dk"
+     },
+     {
+      "shade": "stone",
+      "f": "0.85 * dk"
+     }
+    ],
+    "period": 2
+   }
+  },
+  {
+   "name": "Brocken",
+   "op": "box",
+   "at": [
+    "floor(hash(seed, 1) * max(1, w - 1))",
+    1,
+    "floor(hash(seed, 2) * max(1, d - 1))"
+   ],
+   "size": [
+    2,
+    "h - 1",
+    1
+   ],
+   "color": {
+    "shade": "stone",
+    "f": "dk"
+   },
+   "if": "h >= 2"
+  },
+  {
+   "name": "Plankensplitter",
+   "op": "line",
+   "from": [
+    0,
+    1,
+    "floor(hash(seed, 3) * d)"
+   ],
+   "to": [
+    "w - 1",
+    1,
+    "floor(hash(seed, 4) * d)"
+   ],
+   "r": 0.5,
+   "color": {
+    "shade": "wood",
+    "f": "0.9 * dk"
+   },
+   "if": "h >= 2 && hash(seed, 5) < 0.7"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

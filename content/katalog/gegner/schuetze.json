@@ -1,0 +1,37 @@
+{
+  "format": "gegner/1",
+  "id": "schuetze",
+  "rolle": "schuetze",
+  "waffe": "lanze",
+  "profil": "schuetze",
+  "namen": {
+    "germanen": "Jäger",
+    "rostmeute": "Jäger"
+  },
+  "beschreibung": "Sucht die Aussicht oder lange Sichtlinien, lädt still und trifft auf Distanz. Weicht zurück, wenn man ihm nahe kommt.",
+  "funk": {
+    "allgemein": [
+      "Hab einen im Visier.",
+      "Position bezogen.",
+      "Lade … gleich.",
+      "Der da am Rand gehört mir.",
+      "Zu nah, ich wechsle!"
+    ],
+    "geteilte_sicht": [
+      "Ich seh sie vom Turm aus."
+    ],
+    "kamerad_liegt": [
+      "Hoch mit dir!",
+      "Ich hol dich!"
+    ],
+    "spieler_gefesselt": [
+      "Den haben wir!"
+    ],
+    "alarm_laerm": [
+      "Das war ein Schuss! Alle wach!"
+    ],
+    "friendly_fire": [
+      "Pass doch auf, du Narr!"
+    ]
+  }
+}

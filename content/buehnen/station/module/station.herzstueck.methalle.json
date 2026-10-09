@@ -1,0 +1,31 @@
+{
+  "format": "modul/1", "id": "station.herzstueck.methalle", "art": "station", "typ": "herzstueck",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 2, "bauweise": ["germanen"],
+  "rows": [
+    "################",
+    "#..o........o..#",
+    "#....OO..OOO...#",
+    "D....OO..OOO...D",
+    "D..............D",
+    "#..o..oooo..o..#",
+    "#..............#",
+    "################"
+  ],
+  "anker": [
+    "................",
+    ".b............b.",
+    ".......s..i.....",
+    "................",
+    "...........w....",
+    "................",
+    ".......z........",
+    "................"
+  ],
+  "anker_legende": {
+    "z": { "rolle": "ziel" },
+    "s": { "rolle": "sprengpunkt" },
+    "b": { "rolle": "beute" },
+    "w": { "rolle": "wache" },
+    "i": { "rolle": "leit" }
+  }
+}

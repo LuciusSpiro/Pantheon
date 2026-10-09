@@ -1,0 +1,38 @@
+{
+  "id": "friedlose_verfallen",
+  "name": "friedlose verfallen: entsättigt, Moos/Staub, Licht fast aus",
+  "extends": "friedlose",
+  "adjust": {
+    "sat": 0.45,
+    "light": 0.88,
+    "tint": "#5E5E44",
+    "mix": 0.2,
+    "except": [
+      "glow",
+      "glow2",
+      "rune",
+      "rune_dim",
+      "ember",
+      "alarm",
+      "leit"
+    ]
+  },
+  "roles": {
+    "glow": {
+      "color": "#7E8A90",
+      "emit": 0.25
+    },
+    "glow2": {
+      "color": "#8A6A4A",
+      "emit": 0.15
+    },
+    "rune": {
+      "color": "#7E8A90",
+      "emit": 0.25
+    },
+    "ember": {
+      "color": "#8A5A3A",
+      "emit": 0.15
+    }
+  }
+}

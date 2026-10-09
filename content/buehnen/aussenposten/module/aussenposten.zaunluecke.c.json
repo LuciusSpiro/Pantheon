@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "aussenposten.zaunluecke.c", "art": "aussenposten", "typ": "zaunluecke",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "=====..=",
+    "........",
+    "....ooo.",
+    "........",
+    ".o......",
+    ".o......",
+    "........"
+  ],
+  "anker": [
+    ".....e..",
+    "........",
+    "........",
+    "........",
+    "........",
+    "...p....",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "leise" },
+    "p": { "rolle": "patrouille", "kette": "a" }
+  },
+  "belegungen": []
+}

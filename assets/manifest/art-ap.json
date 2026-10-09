@@ -1,0 +1,593 @@
+{
+  "team": "art-ap",
+  "notes": "ART-AUSSENPOSTEN (B1): Props und Leitstücke Außenposten Germanen (Krähenwacht/Thinghof). Palette nord, Stufe detail, Pivot Mitte unten, Vorderseite +z. Sprengpunkt-/Ziel-/Luken-Zustände als state = Index der Zustände aus CONTRACT-B1 §3.1/§3.3. Steckplatzteile (kit/germanen/aussenposten/{zaun_feld, zaun_pfosten, wand_fuellung}) werden über das Gerüst eingebunden und stehen deshalb nicht einzeln im Manifest.",
+  "assets": [
+    {
+      "id": "prop/germanen/aussenposten/runenmast",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.4,
+          0.25
+        ],
+        "fx_explode": [
+          0,
+          1.2,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          2.0,
+          0
+        ],
+        "fx_spark": [
+          0,
+          1.0,
+          0.2
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "funkmast"
+      ],
+      "notes": "Sprengpunkt (CONTRACT-B1 §3.3): state 0 intakt / 1 scharf (Ladungspaket + Zünder am Mastfuß, vorn +z) / 2 zerstoert (Stumpf, Mast umgestürzt, Ruß). Runenband = Pseudorunen-Schaltkreis als Ornamentband (nur senkrechte/waagrechte Bahnen, keine Einzelzeichen), glow emit 0,9, pulsiert nie."
+    },
+    {
+      "id": "prop/germanen/aussenposten/tank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.85,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.55,
+          0.45
+        ],
+        "fx_explode": [
+          0,
+          1.0,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.85,
+          0
+        ],
+        "label": [
+          0,
+          2.1,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "tank"
+      ],
+      "notes": "Stehtank auf Holzkufen, Clanband = Rolle cloth (Besitz-Palette). state wie runenmast; zerstoert = aufgeplatzter Rest + Kuppel am Boden."
+    },
+    {
+      "id": "prop/germanen/aussenposten/tanklager_2x1",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.5,
+          0.45
+        ],
+        "fx_explode": [
+          0,
+          0.7,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.15,
+          0
+        ],
+        "label": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 5000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "tank"
+      ],
+      "notes": "Liegetank auf drei Holzsätteln + Pumpenhaus (+x). Länge entlang x. state wie runenmast."
+    },
+    {
+      "id": "prop/germanen/aussenposten/landeplatz_2x2",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.65,
+      "facing": "+z",
+      "params": {
+        "lit": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "lit": 1
+        },
+        "dunkel": {
+          "lit": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.55,
+          0
+        ],
+        "beam": [
+          0,
+          0.15,
+          0
+        ],
+        "label": [
+          0,
+          0.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "landeplatz",
+        "light"
+      ],
+      "notes": "Begehbares Bohlendeck 2×2 mit Eisenrahmen, Landering (trim) und vier Eckbaken (glow, emit 1,1). Bewusst kein Kreuz im Ring (Symbolik-Pflicht)."
+    },
+    {
+      "id": "prop/germanen/aussenposten/abflussgitter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.45,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          0.8,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "luke",
+        "abfluss",
+        "eingang"
+      ],
+      "notes": "Eingang technisch (Kachel L, Zustände zu/offen nach CONTRACT-B1 §3.1). Steinfassung bündig, offen = Gitter schräg aufgestemmt, Schloss aufgebrochen, Schacht dunkel."
+    },
+    {
+      "id": "prop/germanen/aussenposten/wachturm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "stand": [
+          0,
+          1.25,
+          0
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "aussicht"
+      ],
+      "notes": "Ausguck auf vier Pfosten, Bühne 1,25 m (Socket stand = Standpunkt der Figur), Leiter hinten (-z), Rundschild vorn (cloth). Kein Dach, damit die Figur bei 57° sichtbar bleibt."
+    },
+    {
+      "id": "prop/germanen/aussenposten/plateau_kante",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.95,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "seed": [
+          0,
+          9999
+        ]
+      },
+      "states": {
+        "gerade_x": {
+          "conn": 10
+        },
+        "gerade_z": {
+          "conn": 5
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 14
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "einzeln": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "kante",
+        "aussicht",
+        "autotile"
+      ],
+      "notes": "Kachel k (Plateaukante): Felsblock 0,5 m + Holzbrüstung bis 0,94 m (halbe Deckung). conn = Nachbar-Kanten N1 O2 S4 W8, Riegel laufen zu den gesetzten Bits. seed: Frostflecken und Brocken."
+    },
+    {
+      "id": "prop/germanen/aussenposten/schuerfgeraet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.0,
+      "facing": "+z",
+      "params": {
+        "an": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "an": 1
+        },
+        "aus": {
+          "an": 0
+        }
+      },
+      "sockets": {
+        "fx_smoke": [
+          -0.34,
+          1.0,
+          -0.34
+        ],
+        "fx_spark": [
+          0,
+          0.15,
+          0
+        ],
+        "light": [
+          -0.28,
+          0.25,
+          -0.06
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "deko",
+        "light"
+      ],
+      "notes": "Schürfgerät für Splittergürtel-Erz: Dreibein, Bohrgestänge, Motorkasten mit Auspuff (fx_smoke), Erzkasten mit Kristallen (glow ≤ 0,9)."
+    },
+    {
+      "id": "leit/germanen/aussenposten/kraehenwacht_turm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1.0
+        ],
+        "light": [
+          0,
+          2.75,
+          0
+        ],
+        "stand": [
+          0,
+          2.25,
+          0.6
+        ],
+        "label": [
+          0,
+          3.5,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "leit",
+        "herzstueck",
+        "ziel",
+        "light",
+        "turm"
+      ],
+      "notes": "Leitstück Krähenwacht (Überarbeitung nach SICHTUNG-ART): 2×2, Steinsockel mit hellem Frostkranz, schlanker Bohlenturm, offene Plattform 2,25 m mit Krähen auf den vier Ecken und Feuerkorb (Rolle ember, emit 1,2) – von oben: heller Rahmen, dunkle Plattform, amberfarbener Kern. Ziel-Zustände: 0 frei (Feuer, Banner), 1 genommen (Asche, Banner heruntergerissen), 2 aktiviert (hohes Signalfeuer, 3,44 m). Banner cloth + Krähe leather, kein Schwarz-Weiß-Rot. Höhe > 2,2 m: braucht Ausnahme für leit/* in check-assets."
+    },
+    {
+      "id": "leit/germanen/aussenposten/thing_stein",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2.7,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "light": [
+          0,
+          0.7,
+          0.3
+        ],
+        "label": [
+          0,
+          2.9,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "leit",
+        "ziel",
+        "thinghof",
+        "light"
+      ],
+      "notes": "Thingstein im Steinkreis (Überarbeitung nach SICHTUNG-ART): 2×2, heller Frost-Kreisplatz mit sechs Kreissteinen, Monolith 2,69 m, zwei Feuerschalen (ember) vorn. Ornamentband aus Isa und Kaunan (eingelegt metal_light, aktiviert Rolle rune emit 1,0, pulsiert nie). 1 genommen = Feuer aus, Speer mit Wimpel (cloth)."
+    }
+  ]
+}

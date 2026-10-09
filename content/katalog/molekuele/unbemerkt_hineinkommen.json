@@ -11,6 +11,320 @@
   "szenentypen": [
     "C4"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "leise_bis_ziel",
+      "name": "Leise bis ins Ziel",
+      "schauplatz": "aussen",
+      "beschreibung": "Die Besetzung ist ruhig und läuft Patrouillen. Über den leisen Eingang ins Ziel, ohne dass ein Trupp Alarm schlägt. Schlägt einer Alarm, kippt die Szene in einen Durchbruch (Flag _entdeckt).",
+      "braucht": [
+        "transfer",
+        "stealth_aussen"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten",
+          "station"
+        ],
+        "anker": [
+          "eingang",
+          "patrouille"
+        ]
+      },
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          8
+        ],
+        "2": [
+          4,
+          7
+        ],
+        "3": [
+          4,
+          6
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_unbemerkt",
+        "{{id}}_entdeckt"
+      ],
+      "ereignisse": [
+        "alarm"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "rostmeute",
+          "werte": [
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer bzw. Gegner (Fraktion = Besitz-ID); Rollen kommen aus den Trupp-Rezepten der Fraktion"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "mittel",
+          "werte": [
+            "klein",
+            "mittel",
+            "gross"
+          ]
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen",
+                "map": "{{map}}",
+                "fraktion": "{{fraktion}}",
+                "staerke": "{{staerke}}",
+                "haltung": "ruhig",
+                "tag": "{{id}}_posten"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 60,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "all": [
+                        {
+                          "check": {
+                            "name": "team_im_bereich",
+                            "map": "{{map}}",
+                            "bereich": "ziel"
+                          }
+                        },
+                        {
+                          "not": {
+                            "check": {
+                              "name": "alarm",
+                              "map": "{{map}}"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_unbemerkt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "alarm",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_alarm"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_alarm": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.alarm"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_alarm"
+                    },
+                    {
+                      "check": {
+                        "name": "team_im_bereich",
+                        "map": "{{map}}",
+                        "bereich": "ziel"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_entdeckt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.durch"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_unbemerkt": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Patrouillen unten, noch hat euch keiner gesehen. Über {{lex.eingang_leise:den}} hinein, geduckt, kein Schuss.",
+          "{{id}}.hinweis": "Captain: Patrouillen auf der Außenteam-Karte beobachten und Lücken ansagen.",
+          "{{id}}.alarm": "Alarm! Jetzt nur noch durch – ins Ziel!",
+          "{{id}}.durch": "Im Ziel – laut, aber drin.",
+          "{{id}}.geschafft": "Drin, und keiner hat was gemerkt.",
+          "{{id}}.ziel": "Unbemerkt in den Zielbereich"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "map": "splitter.schuerflager"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

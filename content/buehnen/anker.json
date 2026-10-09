@@ -1,0 +1,218 @@
+{
+  "format": "anker/1",
+  "quelle": "CONTRACT-B1.md §3.3",
+  "hinweis": "halten = Schlüssel in CONFIG.anker.halten (Sekunden). Zustände: erster = Start. Objekte werden über content/buehnen/bauweisen/<bauweise>.json zu Props.",
+  "rollen": {
+    "eingang": {
+      "objekt": null,
+      "zustaende": [
+        "offen",
+        "verschlossen"
+      ],
+      "halten": "schott_hacken",
+      "attribute": {
+        "art": [
+          "laut",
+          "leise",
+          "technisch"
+        ]
+      },
+      "regel": "vor bzw. auf Tür, Schott, Tor, Luke oder Lücke; der Platz darf art setzen (eingang_art); art technisch auf S: Schott hacken -> gehackt"
+    },
+    "abholpunkt": {
+      "objekt": "bake",
+      "zustaende": [
+        "bereit",
+        "gestoert"
+      ],
+      "halten": null,
+      "attribute": {
+        "ankunft": "bool"
+      },
+      "regel": "3 freie Kacheln in L-Form; ankunft genau einmal je Karte (nur dorthin hinunterbeamen), hinauf von jedem abholpunkt"
+    },
+    "wache": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {
+        "schwer": "bool",
+        "trupp": "text"
+      },
+      "regel": "Posten der Besetzung; schwer = Wächter-Platz"
+    },
+    "patrouille": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {
+        "kette": "buchstabe"
+      },
+      "regel": "Wegpunkt; Ketten benachbarter Plätze verbindet der Zusammenbau (karte.patrouillen)"
+    },
+    "deckung": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {},
+      "regel": "optional: Vorzugsplatz der KI"
+    },
+    "terminal": {
+      "objekt": "terminal",
+      "zustaende": [
+        "bereit",
+        "laedt",
+        "geladen",
+        "gesperrt"
+      ],
+      "halten": "terminal",
+      "attribute": {
+        "kern": "bool"
+      },
+      "regel": "Download (Abbruch bei Treffer, Fortschritt bleibt); Logbuch lesen mit Haltezeit lesen"
+    },
+    "sprengpunkt": {
+      "objekt": "sprengziel",
+      "zustaende": [
+        "intakt",
+        "scharf",
+        "zerstoert"
+      ],
+      "halten": "sprengpunkt",
+      "attribute": {},
+      "regel": "Ladung scharf machen (Abbruch bei Treffer setzt zurück), danach CONFIG.anker.countdown s -> zerstoert, Explosion Fläche r 2; braucht Inventar ladung"
+    },
+    "zelle": {
+      "objekt": "zelle",
+      "zustaende": [
+        "zu",
+        "offen"
+      ],
+      "halten": "zelle",
+      "attribute": {},
+      "regel": "Gefangene (NSC, Crew beim Ausbruch)"
+    },
+    "beute": {
+      "objekt": "kiste",
+      "zustaende": [
+        "voll",
+        "leer"
+      ],
+      "halten": "beute",
+      "attribute": {},
+      "regel": "mehrfach; beim Ausbruch liegt hier die Ausrüstung"
+    },
+    "ziel": {
+      "objekt": "ziel",
+      "zustaende": [
+        "frei",
+        "genommen",
+        "aktiviert"
+      ],
+      "halten": "ziel",
+      "attribute": {},
+      "regel": "allgemeines Halteziel (Ventil, Flagge, Konsole)"
+    },
+    "fund": {
+      "objekt": "sockel",
+      "zustaende": [
+        "da",
+        "genommen"
+      ],
+      "halten": "fund",
+      "attribute": {},
+      "regel": "Name über das Lexikon"
+    },
+    "tor": {
+      "objekt": null,
+      "zustaende": [
+        "zu",
+        "offen",
+        "verschlossen",
+        "gesprengt"
+      ],
+      "halten": null,
+      "attribute": {},
+      "regel": "allgemeiner verschließbarer Durchgang auf D/S/G/L; der Zustand steuert die Kachel; öffnet über Bausteine, gelöstes Rätselpaar oder eingang-Hacken"
+    },
+    "raetsel": {
+      "objekt": "schloss",
+      "zustaende": [
+        "ruhe",
+        "gehalten",
+        "geloest"
+      ],
+      "halten": "raetsel",
+      "attribute": {
+        "paar": "buchstabe"
+      },
+      "regel": "beide eines Paars im CONFIG.anker.paarFenster -> geloest; paar im Modul oder über schablone.paare; genau 2 je Paar"
+    },
+    "aussicht": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {},
+      "regel": "auf ^; Sicht über 10 Kacheln (B2)"
+    },
+    "nsc": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {},
+      "regel": "Platz für spawn_person"
+    },
+    "versteck": {
+      "objekt": null,
+      "zustaende": [
+        "zu",
+        "offen"
+      ],
+      "halten": "versteck",
+      "attribute": {},
+      "regel": "vor w; nur nach Weitscan markiert; öffnen -> w offen"
+    },
+    "lift": {
+      "objekt": "lift",
+      "zustaende": [],
+      "halten": null,
+      "attribute": {
+        "deck": [
+          1,
+          2
+        ]
+      },
+      "regel": "E tippen -> anderes Deck; paarweise übereinander"
+    },
+    "leiter": {
+      "objekt": "leiter",
+      "zustaende": [],
+      "halten": null,
+      "attribute": {
+        "deck": [
+          1,
+          2
+        ]
+      },
+      "regel": "E halten -> anderes Deck; paarweise übereinander"
+    },
+    "leit": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {},
+      "regel": "Position eines Leitstücks (Signatur/Herzstück) im Modul; nur Optik, keine Interaktion. Der Kit-Renderer setzt das Leitstück aus der Bauweisen-Tabelle leit[platztyp][art] hierhin, sonst in die Platzmitte. Höchstens 1 je Modul, auf begehbarer oder Deckungskachel."
+    }
+  },
+  "bereiche": [
+    "hinein",
+    "ziel",
+    "rueckzug"
+  ],
+  "gefecht": "Liste von Plätzen in der Schablone (schablone.gefecht)",
+  "ids": {
+    "anker": "<platz>.<rolle>[.<n>]",
+    "kante": "<platzA>~<platzB>"
+  },
+  "regeln": "Anker nie auf festen Kacheln, nie in Türkacheln, nie in der 2-Kachel-Kantenmitte (INHALT §1.5)"
+}

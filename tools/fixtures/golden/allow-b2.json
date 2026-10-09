@@ -1,0 +1,39 @@
+{
+  "_kommentar": "Gewollte Abweichungen B2 (CONTRACT-B2 §0) gegenüber base-s2b: m1/m2 byte-gleich, m3 gleiche Schrittfolge; Kampfdauer, Treffer, Schild, Verwundungen und der Ausgang des Wächterkampfs weichen ab (Hitze, Wunden, Wächter 4+2, liegende Gegner). Texte sind Regex auf ODA/Funk.",
+  "stages": [],
+  "texts": [
+    " ist verwundet! Kameraden: E halten zum Aufhelfen",
+    "^Notrückholung",
+    " ist bewusstlos! ",
+    "^Hafenmeisterin Tesk: Ihr habt die Tafel\\?",
+    "Wächter",
+    "Nachhut",
+    "Tafel",
+    "Störrelais",
+    "Schlüssel",
+    "Gewölbe",
+    "Pads",
+    " erledigt.",
+    "wieder auf den Beinen",
+    "^Captain: Reiter",
+    "Relais hat Alarm",
+    "bauten für Paare",
+    "Camp hat euch gehört",
+    "Archivschlüssel"
+  ],
+  "flags": [
+    "wardenKilled",
+    "rearguardRepelled",
+    "reliefSpawned"
+  ],
+  "inventory": [
+    "marks",
+    "medipack",
+    "deko",
+    "tafel"
+  ],
+  "duration": [
+    "m3/1",
+    "m3/3"
+  ]
+}

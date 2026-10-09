@@ -1,0 +1,141 @@
+{
+  "id": "kit/germanen/schiff/wand_sockel",
+  "name": "Schiff – wand_sockel: eiserner Kielbalken mit Nietreihe",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "schiff",
+    "slot"
+  ],
+  "notes": "ART-SCHIFF, Gerüst-Slot wand_sockel. Eisen statt Granit: dunkler Kielbalken, oben helle Nietkante je Spant (jede 2. Spalte).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 2,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1"
+  },
+  "variants": {
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 1
+    }
+  },
+  "ops": [
+    {
+      "name": "Kielbalken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.8 * dk"
+      }
+    },
+    {
+      "name": "Niet je Spant",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "i * 2 < w && h >= 2",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.9 * dk"
+      }
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal_dark",
+            "f": 0.7
+          },
+          "dark",
+          {
+            "shade": "metal_dark",
+            "f": 0.85
+          }
+        ],
+        "weights": [
+          3,
+          1,
+          2
+        ],
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

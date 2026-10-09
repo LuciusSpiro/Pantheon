@@ -1,0 +1,213 @@
+{
+ "id": "kit/germanen/gemein/deckung_halb_oberkante",
+ "name": "Germanen gemein – deckung_halb_oberkante (oberkante): heller Rand: knochenweiße Schildränder nur an freien Seiten, Oberseite mittelhell (M4 §3.6, Sichtung B1)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. Heller Rand 1 Voxel, gestrichelt (Schildränder), nur an freien Seiten: Deckungsreihen lesen sich als Umriss, nicht als helle Fläche.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1,
+   "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1",
+  "cn": "floor(conn) % 2",
+  "ce": "floor(conn / 2) % 2",
+  "cs": "floor(conn / 4) % 2",
+  "cw": "floor(conn / 8) % 2"
+ },
+ "variants": {
+  "ende": {
+   "conn": 2
+  },
+  "reihe": {
+   "conn": 10
+  },
+  "kreuz": {
+   "conn": 15
+  }
+ },
+ "ops": [
+  {
+   "name": "Oberseite mittelhell (Bohlen)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "wood",
+    "f": "1.25 * dk"
+   }
+  },
+  {
+   "name": "Rand N",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "1.0 - zustand * 0.05"
+     },
+     {
+      "shade": "wood",
+      "f": "1.25 * dk"
+     }
+    ],
+    "period": 1,
+    "axis": "x"
+   },
+   "mode": "paint",
+   "if": "!cn"
+  },
+  {
+   "name": "Rand S",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    "d - 1"
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "1.0 - zustand * 0.05"
+     },
+     {
+      "shade": "wood",
+      "f": "1.25 * dk"
+     }
+    ],
+    "period": 1,
+    "axis": "x"
+   },
+   "mode": "paint",
+   "if": "!cs"
+  },
+  {
+   "name": "Rand W",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "1.0 - zustand * 0.05"
+     },
+     {
+      "shade": "wood",
+      "f": "1.25 * dk"
+     }
+    ],
+    "period": 1,
+    "axis": "z"
+   },
+   "mode": "paint",
+   "if": "!cw"
+  },
+  {
+   "name": "Rand O",
+   "op": "box",
+   "at": [
+    "w - 1",
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "1.0 - zustand * 0.05"
+     },
+     {
+      "shade": "wood",
+      "f": "1.25 * dk"
+     }
+    ],
+    "period": 1,
+    "axis": "z"
+   },
+   "mode": "paint",
+   "if": "!ce"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

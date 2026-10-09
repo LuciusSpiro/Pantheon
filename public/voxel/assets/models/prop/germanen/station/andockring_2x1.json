@@ -1,0 +1,44 @@
+{
+  "id": "prop/germanen/station/andockring_2x1",
+  "name": "Station Germanen: Andockring 2x1 (Druckkragen mit rundem Schott, Seitenklammern, Kolben)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "station", "schleuse", "andockring"],
+  "notes": "ART-STATION. 2 x 1 m, 2,06 m. Rücken (-z) an der Außenhülle, Vorderseite +z in die Station. Dicker Ring mit heller Vorderkante, rundes Druckschott aus Klinkerringen mit zwei waagrechten Riegelbalken (bewusst KEIN Kreuz, keine Speichen: kein Sonnenrad/Keltenkreuz-Anklang). Klammern nur links und rechts. Runen als gepunkteter Leiterbahn-Kreis auf der Ringfront (emit 0,6). state 1 offen: Schott eingefahren, Tunnel dunkel.",
+  "footprint": [2, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Schott (0 zu, 1 offen)" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 verfallen, 2 umkämpft)" }
+  },
+  "variants": { "offen": { "state": 1 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2 } },
+  "ops": [
+    { "name": "Sockel", "op": "box", "at": [-14, 0, -7], "size": [28, 3, 12], "color": "metal_dark", "jitter": false },
+    { "name": "Sockel Stufe vorn", "op": "box", "at": [-10, 0, 5], "size": [20, 1, 2], "color": "metal_light", "jitter": false },
+    { "name": "Ring", "op": "cyl", "axis": "z", "at": [0, 16.5, -7], "r": 16, "h": 8, "hollow": 4, "color": "primary", "jitter": false },
+    { "name": "Ring Vorderkante", "op": "cyl", "axis": "z", "at": [0, 16.5, 1], "r": 16, "h": 1, "hollow": 1.5, "color": "metal_light", "jitter": false },
+    { "name": "Leiterbahn-Kreis (gepunktet)", "op": "box", "at": ["round(13.5 * cos(i * 0.3307)) - 0.5", "round(16 + 13.5 * sin(i * 0.3307))", 0], "size": [1, 1, 1], "repeat": { "count": 19, "step": [0, 0, 0], "var": "i" }, "color": { "shade": "glow", "f": 0.75, "emit": 0.6 }, "mode": "paint", "jitter": false },
+
+    { "name": "Schott", "if": "state == 0", "op": "cyl", "axis": "z", "at": [0, 16.5, -5], "r": 12, "h": 3, "color": "secondary", "jitter": false },
+    { "name": "Schott Klinkerring", "if": "state == 0", "op": "cyl", "axis": "z", "at": [0, 16.5, -2], "r": 9, "h": 1, "hollow": 1, "color": { "shade": "secondary", "f": 1.25 }, "jitter": false },
+    { "name": "Schott Nabe", "if": "state == 0", "op": "cyl", "axis": "z", "at": [0, 16.5, -2], "r": 3, "h": 2, "color": "metal_light", "jitter": false },
+    { "name": "Riegelbalken", "if": "state == 0", "op": "box", "at": [-10, 12, -2], "size": [20, 2, 1], "repeat": { "count": 2, "step": [0, 7, 0] }, "color": "metal_dark", "jitter": false },
+    { "name": "Riegelköpfe (Knochen)", "if": "state == 0", "op": "box", "at": [-11, 12, -2], "size": [1, 2, 2], "repeat": { "count": 2, "step": [0, 7, 0] }, "color": "trim", "mirror": "x", "mirrorAt": 0 },
+
+    { "name": "Tunnel offen", "if": "state == 1", "op": "cyl", "axis": "z", "at": [0, 16.5, -6], "r": 12, "h": 7, "mode": "carve" },
+    { "name": "Tunnelgrund", "if": "state == 1", "op": "cyl", "axis": "z", "at": [0, 16.5, -7], "r": 12, "h": 1, "color": "black", "jitter": false },
+    { "name": "Schott eingefahren (Rand sichtbar)", "if": "state == 1", "op": "cyl", "axis": "z", "at": [0, 16.5, -6], "r": 12, "h": 1, "hollow": 1, "color": "secondary", "jitter": false },
+
+    { "name": "Klammer", "op": "box", "at": [-16, 13, -5], "size": [3, 7, 6], "color": "metal_dark", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Klammer Backe", "op": "box", "at": [-16, 14, 1], "size": [2, 5, 2], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kolben", "op": "line", "from": [-14, 3, 2], "to": [-15, 13, 0], "r": 1, "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kolbenstange", "op": "line", "from": [-14, 3, 2], "to": [-14, 7, 2], "r": 0.6, "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    {"name": "Krone Hörner Ansatz", "op": "box", "at": [-4, 29, -3], "size": [2, 2, 2], "color": "trim", "mirror": "x", "mirrorAt": 0},
+    {"name": "Krone Hörner Bogen", "op": "box", "at": [-5, 31, -3], "size": [2, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0},
+    {"name": "Krone Hörner Spitze", "op": "box", "at": [-5, 32, -3], "size": [1, 2, 1], "color": {"shade": "trim", "f": 0.75}, "mirror": "x", "mirrorAt": 0},
+    { "name": "Krone Steg", "op": "box", "at": [-3, 31, -4], "size": [6, 2, 3], "color": "metal_dark" },
+
+    { "name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand * 0.05", "depth": 1, "at": [-16, 20, -7], "size": [32, 16, 10] },
+    { "name": "Ruß", "if": "zustand == 2", "op": "line", "from": [-12, 4, 2], "to": [6, 30, 2], "r": 2, "mode": "paint", "color": { "noise": ["black", "metal_dark"], "weights": [1, 1], "cell": 1 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

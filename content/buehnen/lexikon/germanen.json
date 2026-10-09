@@ -1,0 +1,87 @@
+{
+  "format": "lexikon/1",
+  "bauweise": "germanen",
+  "quelle": "INHALT §8 (Team KATALOG)",
+  "hinweis": "Platzhalter {{lex.<schluessel>}} in Umsetzungs- und Spielleitertexten, aufgelöst nach der Bauweise des Landepunkts. Zeichenketten ersetzen direkt; Listen (namen, fund_alt, ort_muster) sind Auswahl für den Spielleiter, als Platzhalter gilt der erste Eintrag. rollen: Anzeigenamen der neutralen Gegnerrollen (content/katalog/gegner/*.json). Fehlt ein Schlüssel, gilt der neutrale Wert aus 'neutral'. Einträge: Zeichenkette (nur artikellos) oder { wort, genus m|f|n, plural?, gen?, dat? }. Formen im Text: {{lex.x}} Wort, {{lex.x:der|den|dem|des|ein|einen|einem}} mit Artikel, {{lex.x:pl}} Plural (server/mission/lexikon.js).",
+  "eintraege": {
+    "fund": { "wort": "Runenstein", "genus": "m", "plural": "Runensteine", "gen": "Runensteins" },
+    "fund_alt": [
+      "Clanschatz",
+      "Eidring"
+    ],
+    "tor": { "wort": "Bohlentor", "genus": "n", "plural": "Bohlentore", "gen": "Bohlentors" },
+    "tor_station": { "wort": "Schott", "genus": "n", "plural": "Schotts", "gen": "Schotts" },
+    "schluessel": { "wort": "Runenpaar", "genus": "n", "plural": "Runenpaare", "gen": "Runenpaars" },
+    "raetsel_tipp": "Der Eid gilt nur, wenn zwei ihn sprechen.",
+    "herzstueck": { "wort": "Langhaus", "genus": "n", "plural": "Langhäuser", "gen": "Langhauses" },
+    "terminal": { "wort": "Runentafel", "genus": "f", "plural": "Runentafeln" },
+    "sprengpunkt": { "wort": "Tanklager", "genus": "n", "plural": "Tanklager", "gen": "Tanklagers" },
+    "zelle": { "wort": "Schuldkäfig", "genus": "m", "plural": "Schuldkäfige", "gen": "Schuldkäfigs" },
+    "beute": { "wort": "Truhe", "genus": "f", "plural": "Truhen" },
+    "ziel": { "wort": "Banner", "genus": "n", "plural": "Banner", "gen": "Banners" },
+    "aussicht": { "wort": "Krähennest", "genus": "n", "plural": "Krähennester", "gen": "Krähennests" },
+    "abholpunkt": { "wort": "Landeplatz", "genus": "m", "plural": "Landeplätze", "gen": "Landeplatzes" },
+    "wachen": { "wort": "Clankrieger", "plural": "Clankrieger" },
+    "eingang_laut": { "wort": "Haupttor", "genus": "n", "plural": "Haupttore", "gen": "Haupttors" },
+    "eingang_leise": { "wort": "Zaunlücke", "genus": "f", "plural": "Zaunlücken" },
+    "eingang_technisch": { "wort": "Wartungsluke", "genus": "f", "plural": "Wartungsluken" },
+    "ort_muster": [
+      "<Name>s Hof",
+      "<Name>wacht"
+    ],
+    "namen": [
+      "Hrolf",
+      "Asgerd",
+      "Brand",
+      "Ulva",
+      "Kjell",
+      "Sigrun"
+    ]
+  },
+  "varianten": {
+    "herzstueck": [
+      "Langhaus",
+      "Methalle"
+    ],
+    "sprengpunkt": [
+      "Met-Kessel",
+      "Tanklager"
+    ],
+    "ziel": [
+      "Hochsitz",
+      "Banner"
+    ],
+    "eingang_technisch": [
+      "Abfluss",
+      "Wartungsluke"
+    ]
+  },
+  "rollen": {
+    "grundtyp": "Karl",
+    "niederhalter": "Bolzer",
+    "grenadier": "Donnerwerfer",
+    "schuetze": "Jäger",
+    "enterer": "Berserker",
+    "haescher": "Wergeld-Fänger"
+  },
+  "neutral": {
+    "fund": { "wort": "Fundstück", "genus": "n", "plural": "Fundstücke", "gen": "Fundstücks" },
+    "tor": { "wort": "Tor", "genus": "n", "plural": "Tore", "gen": "Tors" },
+    "schluessel": { "wort": "Doppelschloss", "genus": "n", "plural": "Doppelschlösser", "gen": "Doppelschlosses" },
+    "raetsel_tipp": "Das Schloss öffnet nur, wenn zwei gleichzeitig halten.",
+    "terminal": { "wort": "Terminal", "genus": "n", "plural": "Terminals", "gen": "Terminals" },
+    "sprengpunkt": { "wort": "Sprengziel", "genus": "n", "plural": "Sprengziele", "gen": "Sprengziels" },
+    "zelle": { "wort": "Zelle", "genus": "f", "plural": "Zellen" },
+    "beute": { "wort": "Kiste", "genus": "f", "plural": "Kisten" },
+    "ziel": { "wort": "Steuerpunkt", "genus": "m", "plural": "Steuerpunkte", "gen": "Steuerpunkts" },
+    "aussicht": { "wort": "Aussichtspunkt", "genus": "m", "plural": "Aussichtspunkte", "gen": "Aussichtspunkts" },
+    "abholpunkt": { "wort": "Landeplatz", "genus": "m", "plural": "Landeplätze", "gen": "Landeplatzes" },
+    "wachen": { "wort": "Wachen", "plural": "Wachen" },
+    "tor_station": { "wort": "Schott", "genus": "n", "plural": "Schotts", "gen": "Schotts" },
+    "herzstueck": { "wort": "Hauptgebäude", "genus": "n", "plural": "Hauptgebäude", "gen": "Hauptgebäudes" },
+    "eingang_laut": { "wort": "Haupteingang", "genus": "m", "plural": "Haupteingänge", "gen": "Haupteingangs" },
+    "eingang_leise": { "wort": "Seiteneingang", "genus": "m", "plural": "Seiteneingänge", "gen": "Seiteneingangs" },
+    "eingang_technisch": { "wort": "Wartungsschacht", "genus": "m", "plural": "Wartungsschächte", "gen": "Wartungsschachts" },
+    "fund_alt": "Fundstück"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "fig/rolle/haescher/maske",
+  "name": "Häscher: Eisenmaske mit Atemfilter und Kopfriemen (Aufsatz head_top)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "haescher", "aufsatz", "kopf"],
+  "notes": "Rollenteil, fraktionsneutral. Aufsatz head_top vor dem Gesicht des Standardkopfs (Gesicht z 2, Nase z 3), anchor = Gelenk head [0,25,0]. Waagrechte Klinkerlamellen in Eisen (metal_light), dunkle Augenschlitze, kein Leuchten (Leuchtauge = Schütze). Bewusst KEIN weißer Schädel (Symbolik-Regel Totenkopf). Kopfriemen bei y 28, hinten mit Lücke für den Zopf.",
+  "ops": [
+    { "name": "Maskenplatte", "op": "box", "at": [-2, 26, 4], "size": [4, 4, 1], "color": { "stripes": ["metal_light", { "shade": "metal_light", "f": 0.8 }], "axis": "y", "period": 1 } },
+    { "name": "Wangen", "op": "box", "at": [2, 26, 3], "size": [1, 4, 1], "color": { "shade": "metal_light", "f": 0.85 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Stirnkante", "op": "box", "at": [-2, 30, 3], "size": [4, 1, 1], "color": "metal_dark" },
+    { "name": "Augenschlitze", "op": "box", "at": [-2, 28, 4], "size": [1, 1, 1], "color": "dark", "mode": "paint", "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Mittelgrat", "op": "box", "at": [-1, 28, 5], "size": [2, 2, 1], "color": "metal" },
+    { "name": "Atemfilter", "op": "box", "at": [-1, 25, 5], "size": [2, 3, 1], "color": "metal_dark" },
+    { "name": "Filtergitter", "op": "box", "at": [-1, 25, 5], "size": [2, 2, 1], "color": { "stripes": ["dark", "metal"], "axis": "y", "period": 1 }, "mode": "paint", "jitter": false },
+    { "name": "Filterdose", "op": "box", "at": [-1, 25, 6], "size": [2, 2, 1], "color": "metal" },
+    { "name": "Kopfriemen Seiten", "op": "box", "at": [3, 28, -3], "size": [1, 1, 6], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kopfriemen hinten (Zopf frei)", "op": "box", "at": [-3, 28, -4], "size": [2, 1, 1], "color": "leather", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Riemenschnalle", "op": "box", "at": [3, 28, 1], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 25, 0]
+}

@@ -699,6 +699,155 @@ async function s2Tests(T) {
 
   // ---------- 12. S2b ----------
   await s2bTests(Object.assign({}, T, { ctxNT, AR }));
+
+  // ---------- 13. B1/B2 ----------
+  await b1Tests(Object.assign({}, T, { ctxNT, ctxOT, AR }));
+
+  // ---------- 14. B1-FIX (ABNAHME-B1 F3, F14) ----------
+  await b1FixTests(Object.assign({}, T, { ctxNT, ctxOT, AR }));
+}
+
+// =================================================================================================================
+// B1-FIX (ABNAHME-B1 F3/F14): Vorgaben im Grobplan-Prompt, Reparatur eindeutiger Fehler, die 14 Live-Versuche der QA,
+// KARTE-WIEDERHOLT sichtbar
+// =================================================================================================================
+async function b1FixTests(T) {
+  const { katalog, env, ok, bad, skip, safe, check, ctxNT, ctxOT } = T;
+  const T14 = '14 B1-FIX';
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const lp0 = env.lp ? env.lp() : null;
+  if (!lp0) { skip(T14, 'B1-FIX Vorgaben/Reparatur', 'server/sim/landepunkte.js fehlt (BUEHNE)'); return; }
+  const LIVE = path.join(FIX, 'llm', 'b1-live');
+  const lpWelt = () => { const w = JSON.parse(fs.readFileSync(path.join(LIVE, '_welt.json'), 'utf8')); return Context.lpAdapterAusWelt({ meta: w.meta, welt: w.welt }); };
+  const live = fs.existsSync(LIVE) ? fs.readdirSync(LIVE).filter((f) => /^\d+_.*\.json$/.test(f)).sort().map((f) => Object.assign({ file: f }, JSON.parse(fs.readFileSync(path.join(LIVE, f), 'utf8')))) : [];
+  const lineOf = (v, uid) => (v.split('\n').find((l) => l.startsWith(`- ${uid}:`)) || '');
+
+  // 1. Vorgaben: Landepunkte je Umsetzung stimmen mit aufloesen überein (jede genannte Kombination löst ohne Bühnenfehler auf)
+  await safe(T14, 'Vorgaben: passende Landepunkte je Bodenumsetzung = was aufloesen annimmt; wreck nie für Gefecht', () => {
+    const v = SB.grobplanVorgaben(env, ctxNT, { lp: lp0, dauer: { soll: 15, min: 12, max: 18 } });
+    const fails = []; let pairs = 0;
+    for (const mol of Object.values(katalog.molekuele).filter((m) => m.status === 'verfuegbar')) {
+      for (const u of mol.umsetzungen.filter((x) => x.status === 'verfuegbar' && x.schauplatz === 'aussen')) {
+        const r = SB.passendeLandepunkte(u, env, ctxNT, { lp: lp0 });
+        for (const [ort, ids] of Object.entries(r.orte)) for (const id of ids) {
+          pairs++;
+          const g = b1Plan([{ id: 's2_x', ort, szenentyp: 'gefecht', landepunkt: id, mols: [`${mol.id}/${u.id}`] }]);
+          const a = SB.aufloesen(g, env, ctxNT, { lp: lp0 });
+          if (a.errors.length) fails.push(`${mol.id}/${u.id}@${id}: ${a.errors[0]}`);
+        }
+      }
+    }
+    const wreckIn = (uid) => /\bwreck\b/.test(lineOf(v, uid));
+    const res = { pairs: pairs >= 20, konsistent: !fails.length, durchbrechenOhneWreck: !wreckIn('durchbrechen/bis_zum_ziel'), entkommenOhneWreck: !wreckIn('entkommen/zu_den_pads'),
+      raeumenOhneWreck: !wreckIn('stellung_nehmen/trupp_raeumen'), ausschlachtenMitWreck: wreckIn('ausschlachten/wrack_container'), plattformNur: /nur platform/.test(lineOf(v, 'datenkern_bergen/plattform_kern')),
+      dauerHart: /zielspieldauer_min: 15; .*12–18/.test(v), umlaute: /keine Umlaute/.test(v) };
+    check(T14, 'Vorgaben: passende Landepunkte je Bodenumsetzung = was aufloesen annimmt; wreck nie für Gefecht', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${pairs} Paare; ${fails.slice(0, 3).join(' | ') || 'alle auflösbar'}; ${v.length} Zeichen`);
+  });
+
+  // 2. Vorgaben: Erinnerung als Aufzählung (kein neutral, wenn es Fakten gibt), Tutorial-Wörter, gerade gespielte Landepunkte
+  await safe(T14, 'Vorgaben: erlaubte Erinnerungen, verbotene Tutorial-Wörter, ↺ für gerade gespielte Landepunkte', () => {
+    const ctxSkip = Object.assign(clone(ctxOT), { tutorial: 'uebersprungen', fakten: { b7: 'sendet', datenkern: 'konkordat', tafel_von_kesh: 'konkordat_archiv', tutorial: 'uebersprungen' },
+      bodenbilanz: { letzte: [{ titel: 'Davor', boden: true, landepunkte: ['kesh.kastell'] }], pflicht_jetzt: false, lang_ab_min: 25 } });
+    const v = SB.grobplanVorgaben(env, ctxSkip, { lp: lp0 });
+    const leer = Object.assign(clone(ctxOT), { fakten: { tutorial: 'uebersprungen' }, npc: (ctxOT.npc || []).map((n) => Object.assign({}, n, { gedaechtnis: [] })) });
+    const v2 = SB.grobplanVorgaben(env, leer, { lp: lp0 });
+    const er = v.split('\n').find((l) => l.startsWith('erinnerung')) || '';
+    const res = { fakten: /b7, datenkern, tafel_von_kesh/.test(er) && !/tutorial/.test(er), keinNeutral: /kein neutral/.test(er) && !/"neutral": true/.test(er),
+      neutralOhne: /\{"neutral": true\}/.test(v2), tabu: /nirgends erwähnen \(kein Fakt\): Ivo, Nachhut\./.test(v), recent: /kesh\.kastell \([^)]*\) ↺/.test(v) };
+    check(T14, 'Vorgaben: erlaubte Erinnerungen, verbotene Tutorial-Wörter, ↺ für gerade gespielte Landepunkte', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${er}`);
+  });
+
+  // 3. Reparatur: nur eindeutige Fälle
+  await safe(T14, 'Reparatur: Umlaut-Ausgang, leere Dublette, Anflug ohne Molekül, neu:-Folgen, Dauer – Mehrdeutiges bleibt', () => {
+    const base = () => b1Plan([{ id: 's2_kastell', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 },
+      { id: 's3_raus', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 4 }]);
+    const R = (g) => SB.repairGrobplan(g, env, { minMinutes: 10, maxMinutes: 35 });
+    // Umlaut-Schlüssel
+    const g1 = base(); g1.ausgaenge = { erfolg: g1.ausgaenge.erfolg, 'teilerfüllt': g1.ausgaenge.teil }; g1.szenen[2].weiter[1].nach = 'ausgang:teilerfüllt';
+    const r1 = R(g1);
+    const umlaut = 'teilerfuellt' in g1.ausgaenge && g1.szenen[2].weiter[1].nach === 'ausgang:teilerfuellt' && !SB.checkGrobplan(g1, env).some((e) => /teilerf|Ausgang/.test(e)) && r1.length === 1;
+    // Anflug ohne Molekül: weg (Vorgänger zeigt auf die Folgeszene); mit Entscheidung: bleibt
+    const anflug = () => { const g = base(); g.szenen.splice(1, 0, { id: 's2_anflug', szenentyp: 'annaeherung_und_erkundung', ort: 'kesh', molekuele: [], sachverhalt: 'Anflug.', wendung: null, dauer_min: 2, weiter: [{ wenn: 'immer', nach: 's2_kastell' }] }); g.szenen[0].weiter = [{ wenn: 'immer', nach: 's2_anflug' }]; return g; };
+    const g2 = anflug(); R(g2);
+    const g2b = anflug(); g2b.entscheidungen = [{ szene: 's2_anflug', frage: 'Bluff?', optionen: [{ id: 'a', text: 'A', folge: 'x' }, { id: 'b', text: 'B', folge: 'y' }] }]; R(g2b);
+    const anflugWeg = g2.szenen.length === 3 && g2.szenen[0].weiter[0].nach === 's2_kastell' && !SB.checkGrobplan(g2, env).some((e) => /Moleküle|erreichbar|Folgeszene/.test(e));
+    const anflugBleibt = g2b.szenen.some((s) => s.id === 's2_anflug');
+    // leere Dublette
+    const g3 = base(); g3.szenen.splice(2, 0, Object.assign(clone(g3.szenen[1]), { molekuele: [] })); R(g3);
+    const dublette = g3.szenen.filter((s) => s.id === 's2_kastell').length === 1 && g3.szenen.find((s) => s.id === 's2_kastell').molekuele.length === 1;
+    // neue NSC in Folgen
+    const g4 = base(); g4.ausgaenge.erfolg.folgen.push('npc_gedaechtnis neu:Inspektor Varn: Varn ist gerettet.', 'npc_haltung neu:Inspektor Varn +1'); R(g4);
+    const neuNsc = g4.ausgaenge.erfolg.folgen.includes('welt_fakt inspektor_varn: Varn ist gerettet.') && !g4.ausgaenge.erfolg.folgen.some((f) => /neu:/.test(f)) && !SB.checkGrobplan(g4, env).some((e) => /unbekannten NSC/.test(e));
+    // Dauer: Summe gilt, wenn sie im Rahmen liegt; sonst bleibt der Fehler
+    const g5 = base(); g5.zielspieldauer_min = 30; R(g5);
+    const dauer = g5.zielspieldauer_min === Math.round(SB.planDauer(g5, env).plan) && !SB.checkGrobplan(g5, env).some((e) => /^Dauer/.test(e));
+    const g6 = base(); g6.szenen.forEach((s) => { s.dauer_min = 1; }); g6.zielspieldauer_min = 15; R(g6);
+    const kurzBleibt = g6.zielspieldauer_min === 15 && SB.checkGrobplan(g6, env).some((e) => /^Dauer/.test(e));
+    // 7 Szenen mit Molekülen: nicht eindeutig, welche weg soll -> bleibt
+    const g7 = b1Plan(Array.from({ length: 6 }, (_, i) => ({ id: `s${i + 2}_x`, ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 2 })));
+    R(g7);
+    const res = { umlaut, anflugWeg, anflugBleibt, dublette, neuNsc, dauer, kurzBleibt, siebenBleiben: g7.szenen.length === 7 };
+    check(T14, 'Reparatur: Umlaut-Ausgang, leere Dublette, Anflug ohne Molekül, neu:-Folgen, Dauer – Mehrdeutiges bleibt', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${r1.join(' | ')}`);
+  });
+
+  // 3b. Karte zur Laufzeit (kapern/prise_entern -> <loc>.prise): kein Landepunkt verlangt, Bodenszene zählt
+  await safe(T14, 'Laufzeit-Karte: prise_entern ohne Landepunkt einplanbar, zählt als Bodenszene', () => {
+    const u = (katalog.molekuele.kapern || { umsetzungen: [] }).umsetzungen.find((x) => x.id === 'prise_entern');
+    if (!u || u.status !== 'verfuegbar') { skip(T14, 'Laufzeit-Karte: prise_entern ohne Landepunkt einplanbar, zählt als Bodenszene', 'kapern/prise_entern nicht verfügbar (KATALOG)'); return; }
+    const plan = (extra) => b1Plan([Object.assign({ id: 's2_prise', ort: 'splitter', szenentyp: 'gefecht', mols: ['kapern/prise_entern'], dauer: 8 }, extra || {}),
+      { id: 's3_heim', ort: 'hafen', szenentyp: 'ablieferung', mols: ['ladung_liefern/im_hafen_abgeben'], dauer: 2 }]);
+    const g = plan(); const a = SB.aufloesen(g, env, ctxNT, { lp: lp0 });
+    const errs = [...a.errors, ...SB.checkGrobplan(g, env), ...SB.checkGrobplanB1(g, env, ctxNT).errors];
+    const b = SB.buildBook(g, {}, env, { id: 'sl_1_prise', kontext: ctxNT });
+    const g2 = plan({ landepunkt: 'splitter.treibgut' }); const a2 = SB.aufloesen(g2, env, ctxNT, { lp: lp0 });
+    const v = SB.grobplanVorgaben(env, ctxNT, { lp: lp0 });
+    const res = { gueltig: !errs.length, buch: !b.errors.length, boden: SB.bodenInfo(g, env).boden === true, laufzeit: u.buehne_braucht.landepunkt === 'laufzeit',
+      landepunktIgnoriert: !a2.errors.length && !g2.szenen[1].landepunkt && a2.warnings.some((w) => /Laufzeit/.test(w)), prompt: /prise_entern: Prise entern \(nach Raumgefecht\) – ohne landepunkt/.test(v) };
+    check(T14, 'Laufzeit-Karte: prise_entern ohne Landepunkt einplanbar, zählt als Bodenszene', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${[...errs, ...b.errors.map((e) => e.code + ' ' + e.msg), ...a2.errors].slice(0, 4).join(' | ')}`);
+  });
+
+  // 4. Die 14 Live-Grobplan-Versuche der QA-B1 (tools/fixtures/llm/b1-live) offline durch die Prüfkette wie handleGrobplan
+  if (!live.length) skip(T14, 'Live-Versuche QA-B1 offline', 'tools/fixtures/llm/b1-live fehlt');
+  else await safe(T14, `Live-Grobpläne QA-B1 offline: gültig nach Reparatur (live 6/${live.length})`, () => {
+    const lp = lpWelt();
+    const envL = Object.assign({}, env, { lp: () => lp });
+    const rows = []; const gueltig = [];
+    const ERWARTET = ['03_', '07_', '08_', '09_', '11_', '13_', '14_'];   // 03 neu gültig: Umlaut-Ausgang repariert
+    for (const r of live) {
+      const k = r.kontext; const errs = [];
+      let g = null; try { g = SB.parseJsonAnswer(r.antwort); } catch (e) { errs.push('JSON: ' + e.message); }
+      if (g) {
+        SB.normalizeGrobplan(g); SB.repairGrobplan(g, envL, { minMinutes: 10, maxMinutes: 35 });
+        const auf = SB.aufloesen(g, envL, k, { lp });
+        errs.push(...SB.checkGrobplan(g, envL), ...auf.errors, ...SB.checkGrobplanS2(g, envL, k, { origin: 'sl', minMinutes: 10, maxThreads: 1, crew: k.crew.anzahl }).errors,
+          ...SB.checkGrobplanB1(g, envL, k, { langImAngebot: r.lang_im_angebot, lp }).errors);
+        if (!errs.length) { const b = SB.buildBook(g, {}, envL, { id: 'sl_1_' + SB.slug(g.id, 20), kontext: k, marks: g.belohnung_marken }); errs.push(...SB.explainBookErrors(g, b.errors, envL)); }
+      }
+      if (!errs.length) gueltig.push(r.file);
+      rows.push(`${r.file.slice(0, 11)}${errs.length ? ' ✗ ' + errs.map((e) => String(e).split(':')[0].slice(0, 30)).join(', ') : ' ✓'}`);
+    }
+    const same = JSON.stringify(gueltig.map((f) => f.slice(0, 3))) === JSON.stringify(ERWARTET);
+    check(T14, `Live-Grobpläne QA-B1 offline: gültig nach Reparatur (live 6/${live.length})`, same, `${gueltig.length}/${live.length} gültig; ${rows.join(' · ')}`);
+  });
+
+  // 5. F14: KARTE-WIEDERHOLT (mit Seed) steht im Regielog vorn – im Live-Lauf ging es hinter Besetzungs-Warnungen verloren
+  const m6 = live.find((r) => /0518eccb/.test(r.file));
+  if (!m6) skip(T14, 'F14 KARTE-WIEDERHOLT im Regielog', 'Live-Versuch 14_0518eccb fehlt');
+  else await safe(T14, 'F14: KARTE-WIEDERHOLT (Landepunkt + Seed) im Regielog sichtbar, auch bei vielen Besetzungs-Warnungen', async () => {
+    const F = fakeGame(); F.g.players = [{ connected: true }];
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ text: m6.antwort }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => clone(m6.kontext), lp: lpWelt(), archiv: [], regieDir: tmpDir('regie14'), katalog, config: { offers: 1 } });
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().some((o) => o.origin === 'sl'));
+    const e = sl.regie.entries.find((x) => x.art === 'grobplan' && x.quelle === 'llm' && x.mission) || {};
+    const plan = Object.values(sl.plans).find((p) => p.grobplan && p.grobplan.id === 'langschiff_kapern') || Object.values(sl.plans).find((p) => p.slot === 'sl') || {};
+    const warns = plan.warnungen || [];
+    const alt = warns.join(' | ').indexOf('KARTE-WIEDERHOLT');
+    const b = String(e.begruendung || '');
+    const res = { gueltig: !!e.mission, warnung: warns.some((w) => /^KARTE-WIEDERHOLT: Landepunkt 'wrack\.langschiff' \(Seed \d+\)/.test(w)),
+      imLog: /KARTE-WIEDERHOLT: Landepunkt 'wrack\.langschiff' \(Seed \d+\)/.test(b) && b.length <= 500, vorn: b.indexOf('KARTE-WIEDERHOLT') < 80, warAltVerdeckt: alt > 400 || alt < 0 };
+    check(T14, 'F14: KARTE-WIEDERHOLT (Landepunkt + Seed) im Regielog sichtbar, auch bei vielen Besetzungs-Warnungen', Object.values(res).every(Boolean), `${JSON.stringify(res)}; Begründung: ${b.slice(0, 220)}; Fehler ${F.errors.join(' | ') || '–'} ${JSON.stringify(e.fehler || [])}`);
+  });
 }
 
 // =================================================================================================================
@@ -1112,6 +1261,335 @@ async function engineTests(T) {
       for (let i = 0; i < 120 && g.mission.activeId === active; i++) { g.mission.skip(); await run(2); }
       check(T9, 'nach dem Laden zu Ende spielbar', g.mission.missions[active] && g.mission.missions[active].state === 'done', `Schritt ${g.mission.step && g.mission.step.id}`);
     }
+  });
+}
+
+// =================================================================================================================
+// B1/B2-Tests (CONTRACT-B1 §11.2/§11.3, §8; CONTRACT-B2 §7): Kontext (Landepunkte, Bodenbilanz, Kartenarten, Fraktionen),
+// Token-Zuwachs, Landepunkt-Auflösung, Rostnest gesperrt, KOORDINATE, Bodenquote, lange Missionen, Zusammenfassung,
+// Besetzung, Archiv mit Boden
+// =================================================================================================================
+// Testplan: Hafen -> Szenen (Kette) -> zwei Ausgänge. szenen: [{ id, ort, szenentyp, mols: ['mol/umsetzung'], dauer, … }]
+function b1Plan(szenen, extra) {
+  const S = szenen.map((s, i) => {
+    const o = Object.assign({ karte: null, sachverhalt: `${s.id} (Test).`, wendung: null, dauer_min: s.dauer || 4 }, s);
+    o.molekuele = (s.mols || []).map((x) => ({ id: x.split('/')[0], umsetzung: x.split('/')[1] }));
+    delete o.mols; delete o.dauer;
+    o.weiter = i < szenen.length - 1 ? [{ wenn: 'immer', nach: szenen[i + 1].id }] : [{ wenn: 'gut', nach: 'ausgang:erfolg' }, { wenn: 'sonst', nach: 'ausgang:teil' }];
+    return o;
+  });
+  return Object.assign({
+    format: 'grobplan/2', id: 'b1_test', titel: 'B1-Test', auftraggeber: 'melk', zielspieldauer_min: 12, aufhaenger: 'Ein Testauftrag.',
+    erinnerung: { npc: 'melk', ereignis: 'm3_erinnerung' }, erinnerung_text: 'Melk erinnert sich an Kesh.', belohnung_marken: 120,
+    szenen: [{ id: 's1_hafen', szenentyp: 'hafen', ort: 'hafen', karte: null, molekuele: [], sachverhalt: 'Auftrag.', wendung: null, dauer_min: 2, weiter: [{ wenn: 'immer', nach: S[0].id }] }, ...S],
+    entscheidungen: [],
+    ausgaenge: { erfolg: { wann: 'geschafft', folgen: ['npc_gedaechtnis melk: Die Crew hat geholfen.', 'chronik: B1-Test geschafft.'] },
+      teil: { wann: 'halb', folgen: ['npc_gedaechtnis melk: Nur halb.', 'chronik: B1-Test halb.'] } },
+  }, extra || {});
+}
+async function b1Tests(T) {
+  const { katalog, env, ok, bad, skip, safe, check, ctxNT, AR, worldData } = T;
+  const T13 = '13 B1';
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const lp0 = env.lp ? env.lp() : null;
+  if (!lp0) { skip(T13, 'B1 Spielleiter-Anbindung', 'server/sim/landepunkte.js fehlt (BUEHNE)'); return; }
+  const codes = (list) => [...new Set((list || []).map((x) => String(x).split(':')[0]))].sort();
+  const ctxMit = (bil) => Object.assign(clone(ctxNT), { bodenbilanz: Object.assign({ letzte: [], pflicht_jetzt: false, lang_ab_min: 25 }, bil || {}) });
+  const ctxPflicht = ctxMit({ letzte: [{ titel: 'Nebelphantom', boden: false }], pflicht_jetzt: true });
+  const ground = (extra, sz) => b1Plan(sz || [{ id: 's2_kastell', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 },
+    { id: 's3_raus', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 4 }], extra);
+  const noGround = () => { const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog); g.belohnung_marken = 100; return g; };
+  // Bühnenbedarf steht genau einmal im Grobplan-Prompt: je Umsetzung eine Zeile „Bühne:“ aus katalog.fuerSpielleiter
+  const buehneZeilen = (t) => (String(t || '').match(/^\s+Bühne: /gm) || []).length;
+
+  // 1. Kontext: Landepunkte je Ort, Kartenarten, Bodenbilanz, Fraktionen/Gegner, Bewaffnung
+  await safe(T13, 'Kontext: Landepunkte je Ort, Kartenarten, Bodenbilanz, Fraktionen, Bewaffnung', () => {
+    const w = clone(worldData['nach-tutorial'] || {});
+    w.welt = Object.assign({}, w.welt, { landepunkte: { 'kesh.kastell': { seed: 205, bauversion: 'alt', art: 'ruine', bauweise: 'rom', besitz: 'herrenlos', zustand: 'verfallen', zustaende: {}, alarm: true, besuche: 2, letzte_mission: 'sl_3_x', neu: false, gesperrt: false } } });
+    w.spielleiter = { zusammenfassung: [{ id: 'sl_1', titel: 'Grauzahns Preis', boden: true, lang: false, landepunkte: ['kesh.kastell'], dauer_ziel_min: 15 }, { id: 'sl_2', titel: 'Nebelphantom', boden: false, landepunkte: [] }] };
+    w.crew = { waffen: { a1b2c3d4e5f6: 'blaster', ffeeddccbbaa: 'lanze' }, rollen_gesehen: ['grundtyp'] };
+    const c = Context.build(w, { art: 'missionsgrenze', crew: 3 }, katalog);
+    const c2 = Context.build(reverseKeys(w), { crew: 3, art: 'missionsgrenze' }, katalog);
+    const kesh = (c.orte.find((o) => o.id === 'kesh') || {}).landepunkte || [];
+    const kk = kesh.find((x) => x.id === 'kesh.kastell') || {};
+    const kg = kesh.find((x) => x.id === 'kesh.grabung') || {};
+    const all = c.orte.flatMap((o) => o.landepunkte || []);
+    const treib = all.find((x) => x.id === 'splitter.treibgut') || {};
+    const ruine = (c.kartenarten || []).find((x) => x.id === 'ruine') || { pflichtsatz: {} };
+    const mitBraucht = ((c.verfuegbar && c.verfuegbar.molekuele) || []).flatMap((m) => m.umsetzungen).filter((u) => u.braucht_anker);
+    const res = {
+      deterministisch: JSON.stringify(c) === JSON.stringify(c2),
+      keshDrei: kesh.map((x) => x.id).join(',') === 'kesh,kesh.grabung,kesh.kastell',
+      ankerGebaut: !!(kk.anker && kk.anker.raetsel >= 2 && kk.anker.fund >= 1 && !('deckung' in kk.anker)), besucht: kk.besucht === 2 && kk.alarm === true,
+      ankerPflicht: !kg.anker, ankerHand: !!((kesh.find((x) => x.id === 'kesh') || {}).anker || {}).tor,
+      treibgutNichtFrei: treib.frei === 'nach_raumgefecht', keinRostnest: !all.some((x) => /^rostnest/.test(x.id) && !x.gesperrt),
+      kartenarten: (c.kartenarten || []).map((x) => x.id).join(',') === 'aussenposten,station,ruine,schiff' && ruine.pflichtsatz.raetsel === 2 && !!ruine.kurz,
+      bilanz: c.bodenbilanz.pflicht_jetzt === true && c.bodenbilanz.letzte.length === 2 && c.bodenbilanz.lang_ab_min === 25 && c.bodenbilanz.letzte[0].landepunkte[0] === 'kesh.kastell',
+      bewaffnung: JSON.stringify(c.crew.bewaffnung) === '{"blaster":1,"lanze":1}' && !JSON.stringify(c).includes('a1b2c3d4e5f6'),
+      rollen: JSON.stringify(c.rollen_gesehen) === '["grundtyp"]',
+      fraktionen: !Object.keys(katalog.fraktionen || {}).length || (c.fraktionen.length === Object.keys(katalog.fraktionen).length && c.fraktionen.every((f) => f.rezepte.length && f.rollen.length)),
+      gegner: !Object.keys(katalog.gegner || {}).length || c.gegner.every((g) => g.rolle && g.name),
+      brauchtAnker: !mitBraucht.length || mitBraucht.every((u) => !u.karten),
+    };
+    const frisch = Context.build(worldData.frisch || { tutorial: 'laeuft' }, {}, katalog);
+    res.nachTutorial = ((frisch.orte.find((o) => o.id === 'kesh') || {}).landepunkte || []).find((x) => x.id === 'kesh.kastell').frei === 'nach_tutorial';
+    check(T13, 'Kontext: Landepunkte je Ort, Kartenarten, Bodenbilanz, Fraktionen, Bewaffnung', Object.values(res).every(Boolean),
+      `${JSON.stringify(res)}; kesh.kastell ${JSON.stringify(kk)}; ${mitBraucht.length} Umsetzungen mit braucht_anker`);
+  });
+
+  // 2. Token-Schätzung: Grobplan-Kontext (ohne verfuegbar, wie im Prompt) vorher (S2b-Felder) / nachher, Ziel + ≤ 2k
+  await safe(T13, 'Kontext wächst um höchstens 2k Tokens (Schätzung 2,5 Zeichen je Token)', () => {
+    const rows = []; let max = 0;
+    for (const [name, w] of Object.entries(worldData)) {
+      const c = Context.build(w, {}, katalog);
+      const nachher = Object.assign({}, c); delete nachher.verfuegbar;
+      const vorher = clone(nachher);
+      for (const k of ['bodenbilanz', 'kartenarten', 'fraktionen', 'gegner', 'rollen_gesehen']) delete vorher[k];
+      for (const o of vorher.orte) delete o.landepunkte;
+      if (vorher.crew) delete vorher.crew.bewaffnung;
+      const a = JSON.stringify(vorher).length; const b = JSON.stringify(nachher).length;
+      const plus = Math.round((b - a) / 2.5); max = Math.max(max, plus);
+      rows.push(`${name} ${Math.round(a / 2.5)}→${Math.round(b / 2.5)} (+${plus})`);
+    }
+    check(T13, 'Kontext wächst um höchstens 2k Tokens (Schätzung 2,5 Zeichen je Token)', max <= 2000, `Grobplan-Kontext in Tokens: ${rows.join(', ')}`);
+  });
+
+  // 3. Landepunkt-Auflösung
+  await safe(T13, 'Landepunkt-Auflösung: landepunkt, Wahl am Ort, buehne, buehne.neu, Karte gegen buehne_braucht', () => {
+    const res = {}; const det = [];
+    // a) ausdrücklich
+    const ga = ground();
+    const ra = SB.aufloesen(ga, env, ctxNT);
+    const ba = SB.buildBook(ga, {}, env, { id: 'sl_1_b1a', kontext: ctxNT });
+    const js = JSON.stringify(ba.book.steps);
+    res.ausdruecklich = !ra.errors.length && ga.szenen[1].landepunkt === 'kesh.kastell' && (ba.book.buehne.aussenkarten || []).includes('kesh.kastell') && /"map":"kesh\.kastell"/.test(js) && !/"map":"kesh"/.test(js);
+    det.push(`a: ${ra.errors.join(' | ') || 'ok'}; Buch ${ba.errors.map((e) => e.code).join(',') || 'ok'}`);
+    res.buchGueltig = !ba.errors.length;
+    // b) Wahl am Ort (nicht gerade gespielt, wenig besucht)
+    const gb = ground(null, [{ id: 's2_fund', ort: 'kesh', szenentyp: 'raetselort', mols: ['artefakt_freilegen/fund_aus_gewoelbe'], dauer: 6 }]);
+    const rb = SB.aufloesen(gb, env, ctxMit({ letzte: [{ titel: 'x', boden: true, landepunkte: ['kesh'] }] }));
+    res.wahlAmOrt = !rb.errors.length && gb.szenen[1].landepunkt === 'kesh.kastell';
+    det.push(`b: ${gb.szenen[1].landepunkt} ${rb.errors.join(' | ')}`);
+    // c) buehne { kartenart } am Ort
+    const gc = ground(null, [{ id: 's2_kontor', ort: 'hafen', szenentyp: 'gefecht', buehne: { kartenart: 'station', besitz: 'kontor' }, mols: ['daten_stehlen/download'], dauer: 6 }]);
+    const rc = SB.aufloesen(gc, env, ctxNT);
+    res.buehneArt = !rc.errors.length && gc.szenen[1].landepunkt === 'hafen.kontor';
+    det.push(`c: ${gc.szenen[1].landepunkt} ${rc.errors.join(' | ')}`);
+    // d) buehne.neu: Vorschau, das Spiel bleibt unverändert; zweite Szene am selben neuen Landepunkt
+    const gd = ground(null, [{ id: 's2_neu', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'ruine', besitz: 'herrenlos', neu: true }, mols: ['probe_nehmen/am_fund'], dauer: 3 },
+      { id: 's3_neu', ort: 'kesh', szenentyp: 'rueckzug', buehne: { kartenart: 'ruine', neu: true }, mols: ['entkommen/zu_den_pads'], dauer: 3 }]);
+    const rd = SB.aufloesen(gd, env, ctxNT);
+    res.neu = !rd.errors.length && /^kesh\.ruine-\d+$/.test(gd.szenen[1].landepunkt || '') && gd.szenen[2].landepunkt === gd.szenen[1].landepunkt && rd.neu.length === 1 && !lp0.liste('kesh').some((x) => x.id === gd.szenen[1].landepunkt);
+    det.push(`d: ${gd.szenen[1].landepunkt}/${gd.szenen[2].landepunkt} neu=${JSON.stringify(rd.neu)} ${rd.errors.join(' | ')}`);
+    // e) BUEHNE-ART: Rätsel (ruine/kesh) auf der Station
+    const ge = ground(null, [{ id: 's2_falsch', ort: 'hafen', szenentyp: 'raetselort', landepunkt: 'hafen.kontor', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 }]);
+    const re = SB.aufloesen(ge, env, ctxNT);
+    res.buehneArtFehler = codes(re.errors).includes('BUEHNE-ART');
+    // f) BUEHNE-ANKER: Umsetzung verlangt einen Anker, den die gebaute Station nicht hat (lift)
+    const kat2 = clone(katalog); const env2 = SB.buildEnv(kat2);
+    const u2 = kat2.molekuele.daten_stehlen && kat2.molekuele.daten_stehlen.umsetzungen.find((u) => u.id === 'download');
+    if (u2) u2.buehne_braucht = { kartenarten: ['station'], anker: ['lift'] };
+    const gf = ground(null, [{ id: 's2_lift', ort: 'hafen', szenentyp: 'gefecht', landepunkt: 'hafen.kontor', mols: ['daten_stehlen/download'], dauer: 6 }]);
+    const rf = SB.aufloesen(gf, env2, ctxNT);
+    res.buehneAnker = !u2 || codes(rf.errors).includes('BUEHNE-ANKER');
+    // g) LANDEPUNKT: unbekannt bzw. falscher Ort
+    const gg = ground(null, [{ id: 's2_x', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.gibtsnicht', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 },
+      { id: 's3_x', ort: 'kesh', szenentyp: 'gefecht', landepunkt: 'hafen.kontor', mols: ['stellung_nehmen/trupp_raeumen'], dauer: 4 }]);
+    const rg = SB.aufloesen(gg, env, ctxNT);
+    res.landepunktFehler = rg.errors.filter((e) => /^LANDEPUNKT:/.test(e)).length === 2;
+    det.push(`e-g: ${[...re.errors, ...rf.errors, ...rg.errors].map((e) => e.slice(0, 70)).join(' | ')}`);
+    check(T13, 'Landepunkt-Auflösung: landepunkt, Wahl am Ort, buehne, buehne.neu, Karte gegen buehne_braucht', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${det.join(' · ')}`);
+  });
+
+  // 4. Rostnest gesperrt (E33), Landepunkt erst nach dem Tutorial
+  await safe(T13, 'Rostnest gesperrt: LANDEPUNKT-GESPERRT, nie gewählt; nach_tutorial erst nach der Ausbildung', () => {
+    const g = ground(null, [{ id: 's2_nest', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'rostnest.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 }]);
+    const r = SB.aufloesen(g, env, ctxNT);
+    const g2 = ground(null, [{ id: 's2_nest', ort: 'kesh', szenentyp: 'raetselort', buehne: { kartenart: 'ruine', besitz: 'rostmeute' }, mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 }]);
+    const r2 = SB.aufloesen(g2, env, ctxNT);
+    const nest = lp0.liste('rostnest');
+    const lpFrisch = Context.lpAdapterAusWelt(worldData.frisch || { tutorial: 'laeuft' });
+    const g3 = ground();
+    const r3 = SB.aufloesen(g3, env, ctxNT, { lp: lpFrisch });
+    const res = { gesperrt: codes(r.errors).includes('LANDEPUNKT-GESPERRT'), nieGewaehlt: !/rostnest/.test(g2.szenen[1].landepunkt || '') && !codes(r2.errors).includes('LANDEPUNKT-GESPERRT'),
+      datei: nest.length === 2 && nest.every((x) => x.gesperrt && !x.frei), nachTutorial: r3.errors.some((e) => /^LANDEPUNKT: .*noch nicht frei/.test(e)) };
+    check(T13, 'Rostnest gesperrt: LANDEPUNKT-GESPERRT, nie gewählt; nach_tutorial erst nach der Ausbildung', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${r.errors.join(' | ')} · ohne Landepunkt: ${g2.szenen[1].landepunkt || '–'} · ${r3.errors.slice(0, 1).join('')}`);
+  });
+
+  // 5. KOORDINATE
+  await safe(T13, 'KOORDINATE: x/y/tile/pos in Szene, buehne oder besetzung sind Fehler', () => {
+    const g = ground(null, [{ id: 's2_k', ort: 'kesh', szenentyp: 'raetselort', buehne: { kartenart: 'ruine', x: 12, y: 4 }, mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 },
+      { id: 's3_k', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', pos: [3, 4], besetzung: [{ fraktion: 'herrenlos', tile: [1, 1] }], mols: ['entkommen/zu_den_pads'], dauer: 4 }]);
+    const r = SB.aufloesen(g, env, ctxNT);
+    const k = r.errors.filter((e) => /^KOORDINATE:/.test(e));
+    const sauber = SB.aufloesen(ground(), env, ctxNT).errors.filter((e) => /^KOORDINATE/.test(e));
+    check(T13, 'KOORDINATE: x/y/tile/pos in Szene, buehne oder besetzung sind Fehler', k.length === 4 && !sauber.length, k.join(' | '));
+  });
+
+  // 6. Bodenquote
+  await safe(T13, 'BODEN-QUOTE: Fehler, mit ohne_boden_grund nur Warnung; nicht fällig = still', () => {
+    const r1 = SB.checkGrobplanB1(noGround(), env, ctxPflicht);
+    const r2 = SB.checkGrobplanB1(Object.assign(noGround(), { ohne_boden_grund: 'Die Crew ist nach dem Gefecht verletzt, heute nur Raumarbeit.' }), env, ctxPflicht);
+    const r3 = SB.checkGrobplanB1(ground(), env, ctxPflicht);
+    const r4 = SB.checkGrobplanB1(noGround(), env, ctxNT);
+    const res = { fehler: codes(r1.errors).includes('BODEN-QUOTE'), grundWarnung: !r2.errors.length && codes(r2.warnings).includes('BODEN-QUOTE'),
+      mitBoden: !codes(r3.errors).includes('BODEN-QUOTE'), nichtFaellig: !r4.errors.length && !codes(r4.warnings).includes('BODEN-QUOTE') };
+    check(T13, 'BODEN-QUOTE: Fehler, mit ohne_boden_grund nur Warnung; nicht fällig = still', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${r1.errors.join(' | ')}`);
+  });
+  await safe(T13, 'Angebotsrunde bei fälliger Quote: Nachbesserung mit BODEN-QUOTE, beide Spielleiter-Angebote mit Boden, Archiv mit Boden', async () => {
+    const F = fakeGame();
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: noGround() }, { json: ground() }, { json: ground({ id: 'b1_zwei', titel: 'B1-Zwei' }) }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => clone(ctxPflicht), archiv: AR.entries, regieDir: tmpDir('regie13a'), katalog });
+    const prompts = []; const ask0 = sl.llm.ask; sl.llm.ask = (kind, input, ao) => { prompts.push(input.prompt); return ask0(kind, input, ao); };
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const sl0 = sl.offers().filter((o) => o.origin === 'sl').map((o) => sl.planById(o.id));
+    const ar = sl.plansBy((p) => p.slot === 'archiv' && p.state === 'offered')[0];
+    const quote = sl.regie.entries.filter((e) => e.art === 'grobplan' && (e.fehler || []).some((x) => /^BODEN-QUOTE/.test(x)));
+    const retry = prompts.find((p) => /<pruefer>[\s\S]*BODEN-QUOTE/.test(p));
+    const res = { zweiSl: sl0.length === 2, beideBoden: sl0.every((p) => sl.planBoden(p).boden), nachbesserung: quote.length === 1 && !!retry,
+      pflichtImPrompt: /PFLICHT: Diese Mission braucht eine Bodenszene/.test(prompts[0] || ''), buehneEinmal: buehneZeilen(prompts[0]) > 0 && buehneZeilen(prompts[0]) === buehneZeilen(require('../server/mission/katalog.js').fuerSpielleiter(katalog, 'kurz')) && !/Bühnen-Bedarf/.test(prompts[0] || ''),
+      archivBoden: !!ar && (AR.synthetic || sl.planBoden(ar).boden), fehlerfrei: !F.errors.length };
+    check(T13, 'Angebotsrunde bei fälliger Quote: Nachbesserung mit BODEN-QUOTE, beide Spielleiter-Angebote mit Boden, Archiv mit Boden', Object.values(res).every(Boolean),
+      `${JSON.stringify(res)}; Archiv ${ar && ar.archivName}; Fehler ${F.errors.join(' | ') || '–'}`);
+    // Archiv: Vorzug ordnet nur (ohne Quote die Dateireihenfolge)
+    if (!AR.synthetic) {
+      const info = (x) => SB.bodenInfo(x.grobplan, env);
+      const mit = Archiv.pick(AR.entries, [], ctxPflicht, [], { boden: true, info });
+      const ohne = Archiv.pick(AR.entries, [], ctxNT, [], { boden: false, info });
+      check(T13, 'Archiv bevorzugt bei fälliger Quote eine Bodenmission', !!mit && info(mit).boden && !!ohne && ohne.name === Archiv.pick(AR.entries, [], ctxNT).name, `Quote fällig → ${mit && mit.name}; sonst → ${ohne && ohne.name}`);
+    }
+  });
+
+  // 7. Lange Missionen
+  await safe(T13, 'Lange Mission: lang ab 25 min (größerer Wert), BODEN-LANG, LANG-RUNDE, DAUER-ABWEICHUNG', () => {
+    const langSz = (boden) => (boden
+      ? [{ id: 's2_hof', ort: 'kesh', szenentyp: 'gefecht', landepunkt: 'kesh.kastell', mols: ['stellung_nehmen/trupp_raeumen'], dauer: 8 }, { id: 's3_kasse', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 9 }, { id: 's4_raus', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 8 }]
+      : null);
+    const gl = ground({ zielspieldauer_min: 28 }, langSz(true));
+    const iLang = SB.bodenInfo(gl, env);
+    const gx = noGround(); gx.zielspieldauer_min = 28;
+    const gDecl = ground({ zielspieldauer_min: 15 }, langSz(true));   // als 15 min deklariert, geplant 27
+    const r1 = SB.checkGrobplanB1(gl, env, ctxNT);
+    const r2 = SB.checkGrobplanB1(gx, env, ctxNT);
+    const r3 = SB.checkGrobplanB1(gl, env, ctxNT, { langImAngebot: 'Castellum Kesh' });
+    const r4 = SB.checkGrobplanB1(gDecl, env, ctxNT);
+    const iDecl = SB.bodenInfo(gDecl, env);
+    const res = { lang: iLang.lang && iLang.boden && iLang.landepunkte.join() === 'kesh.kastell', mitBodenOk: !r1.errors.length, bodenLang: codes(r2.errors).includes('BODEN-LANG'),
+      langRunde: codes(r3.errors).includes('LANG-RUNDE'), groessererWert: iDecl.lang && iDecl.dauer_ziel_min === 15, abweichung: codes(r4.warnings).includes('DAUER-ABWEICHUNG'),
+      kurz: !SB.bodenInfo(ground(), env).lang };
+    check(T13, 'Lange Mission: lang ab 25 min (größerer Wert), BODEN-LANG, LANG-RUNDE, DAUER-ABWEICHUNG', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${JSON.stringify(iDecl)}; ${[...r2.errors, ...r3.errors, ...r4.warnings].join(' | ')}`);
+  });
+  await safe(T13, 'Angebotsrunde: höchstens eine lange Mission; die erste Planung ohne lange im Angebot darf lang sein', async () => {
+    const F = fakeGame();
+    const gl = ground({ id: 'b1_lang', titel: 'B1-Lang', zielspieldauer_min: 28 }, [{ id: 's2_hof', ort: 'kesh', szenentyp: 'gefecht', landepunkt: 'kesh.kastell', mols: ['stellung_nehmen/trupp_raeumen'], dauer: 8 },
+      { id: 's3_kasse', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 9 }, { id: 's4_raus', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 8 }]);
+    const gl2 = Object.assign(clone(gl), { id: 'b1_lang2', titel: 'B1-Lang-Zwei' });
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: gl }, { json: gl2 }, { json: ground() }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => clone(ctxNT), archiv: AR.entries.filter((e) => !SB.bodenInfo(e.grobplan, env).lang), regieDir: tmpDir('regie13b'), katalog });
+    const prompts = []; const ask0 = sl.llm.ask; sl.llm.ask = (kind, input, ao) => { prompts.push(input.prompt); return ask0(kind, input, ao); };
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const langOffers = sl.offers().filter((o) => sl.planBoden(sl.planById(o.id)).lang);
+    const runde = sl.regie.entries.some((e) => e.art === 'grobplan' && (e.fehler || []).some((x) => /^LANG-RUNDE/.test(x)));
+    const res = { eineLange: langOffers.length === 1, langRundeFehler: runde, ersterLang: /eine \*\*lange\*\* Mission/.test(prompts[0] || ''), zweiterKurz: /schon im Angebot/.test(prompts[1] || '') };
+    check(T13, 'Angebotsrunde: höchstens eine lange Mission; die erste Planung ohne lange im Angebot darf lang sein', Object.values(res).every(Boolean),
+      `${JSON.stringify(res)}; Angebote ${sl.offers().map((o) => `${o.titel}[${o.origin}]`).join(', ')}; Fehler ${F.errors.join(' | ') || '–'}`);
+  });
+
+  // 8. KARTE-WIEDERHOLT, BESITZ-REGION
+  await safe(T13, 'KARTE-WIEDERHOLT und BESITZ-REGION sind Warnungen', () => {
+    const r1 = SB.checkGrobplanB1(ground(), env, ctxMit({ letzte: [{ titel: 'Davor', boden: true, landepunkte: ['kesh.kastell'] }] }));
+    const g2 = ground(null, [{ id: 's2_neu', ort: 'hafen', szenentyp: 'gefecht', buehne: { kartenart: 'station', besitz: 'raubzug', neu: true }, mols: ['daten_stehlen/download'], dauer: 6 }]);
+    const r2 = SB.aufloesen(g2, env, ctxNT);
+    const res = { wiederholt: !r1.errors.length && codes(r1.warnings).includes('KARTE-WIEDERHOLT'), region: !r2.errors.length && codes(r2.warnings).includes('BESITZ-REGION'),
+      regionOk: !codes(SB.aufloesen(ground(), env, ctxNT).warnings).includes('BESITZ-REGION') };
+    check(T13, 'KARTE-WIEDERHOLT und BESITZ-REGION sind Warnungen', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${[...r1.warnings, ...r2.warnings, ...r2.errors].join(' | ')}`);
+  });
+
+  // 9. Zusammenfassung (Weltstand §8) und Bodenbilanz daraus; neuer Landepunkt im Spiel angelegt
+  await safe(T13, 'Zusammenfassung: boden, lang, landepunkte, dauer_ziel_min; buehne.neu legt den Landepunkt im Spiel an', async () => {
+    const F = fakeGame();
+    const gn = ground({ id: 'b1_neu', titel: 'B1-Neu' }, [{ id: 's2_neu', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'ruine', besitz: 'herrenlos', neu: true }, mols: ['probe_nehmen/am_fund'], dauer: 4 },
+      { id: 's3_raus', ort: 'kesh', szenentyp: 'rueckzug', buehne: { kartenart: 'ruine', neu: true }, mols: ['entkommen/zu_den_pads'], dauer: 4 }]);
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: gn }, { json: noGround() }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => clone(ctxNT), archiv: AR.entries, regieDir: tmpDir('regie13c'), katalog, config: { offers: 2 } });
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const o = sl.offers().find((x) => x.titel === 'B1-Neu');
+    const plan = o && sl.planById(o.id);
+    const lpId = plan && plan.grobplan.szenen[1].landepunkt;
+    const angelegt = !!(F.g.landepunkte && F.g.landepunkte.dyn && F.g.landepunkte.dyn[lpId]);
+    const imBuch = !!plan && JSON.stringify(plan.book).includes(`"map":"${lpId}"`);
+    if (o) sl.accept(o.id);
+    F.m.activeId = null; F.m.step = null;
+    if (o) sl.onMissionDone({ id: o.id, ausgang: 'erfolg' });
+    const z = sl.zusammenfassung[sl.zusammenfassung.length - 1] || {};
+    const saved = JSON.parse(JSON.stringify(sl.toSave()));
+    const c = Context.build({ spielleiter: saved }, {}, katalog);
+    const res = { angebot: !!o, angelegt, imBuch, beideSzenen: !!plan && plan.grobplan.szenen[2].landepunkt === lpId,
+      felder: z.boden === true && z.lang === false && JSON.stringify(z.landepunkte) === JSON.stringify([lpId]) && z.dauer_ziel_min === 12,
+      gespeichert: !!(saved.zusammenfassung || []).find((x) => x.id === (o && o.id) && x.boden === true), bilanz: c.bodenbilanz.letzte.slice(-1)[0].boden === true && c.bodenbilanz.pflicht_jetzt === false };
+    check(T13, 'Zusammenfassung: boden, lang, landepunkte, dauer_ziel_min; buehne.neu legt den Landepunkt im Spiel an', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${JSON.stringify(z)}; Fehler ${F.errors.join(' | ') || '–'}`);
+  });
+
+  // 10. Besetzung (B2 §7)
+  await safe(T13, 'Besetzung: Szenenbau setzt Fraktion/Stärke/Haltung (sonst Besitz), BESETZUNG-NEU, FRAKTION', () => {
+    const g = ground(null, [{ id: 's2_hof', ort: 'kesh', szenentyp: 'gefecht', landepunkt: 'kesh.kastell', besetzung: [{ fraktion: 'rostmeute', staerke: 'gross', haltung: 'wach' }], mols: ['stellung_nehmen/trupp_raeumen'], dauer: 5 },
+      { id: 's3_hof', ort: 'kesh', szenentyp: 'gefecht', landepunkt: 'kesh.kastell', mols: ['stellung_nehmen/trupp_raeumen'], dauer: 5 }]);
+    const r = SB.aufloesen(g, env, ctxNT);
+    const b = SB.buildBook(g, {}, env, { id: 'sl_1_b1bes', kontext: ctxNT });
+    const st = b.book.steps;
+    const s2 = JSON.stringify(st.filter((x) => /^s2_hof/.test(x.id))); const s3 = JSON.stringify(st.filter((x) => /^s3_hof/.test(x.id)));
+    const uses = /"fraktion"/.test(s2);
+    const gN = clone(g); gN.szenen[1].besetzung = [{ fraktion: 'rostmeute', staerke: 'mittel', haltung: 'ruhig', neue_rolle: 'niederhalter' }]; gN.szenen[2].besetzung = [{ fraktion: 'rostmeute', staerke: 'klein', haltung: 'ruhig', neue_rolle: 'schuetze' }];
+    const rN = SB.aufloesen(gN, env, ctxNT);
+    const gF = clone(g); gF.szenen[1].besetzung = [{ fraktion: 'piraten', staerke: 'riesig', haltung: 'wach' }];
+    const rF = SB.aufloesen(gF, env, ctxNT);
+    const mitFr = Object.keys(katalog.fraktionen || {}).length > 0;
+    const res = { ohneFehler: !r.errors.length, gesetzt: !uses || (/"rostmeute"/.test(s2) && /"gross"/.test(s2) && /"herrenlos"/.test(s3)), neu: codes(rN.errors).includes('BESETZUNG-NEU'),
+      fraktion: codes(rF.errors).includes('FRAKTION'), unbekannt: !mitFr || rF.errors.some((e) => /piraten/.test(e)) };
+    check(T13, 'Besetzung: Szenenbau setzt Fraktion/Stärke/Haltung (sonst Besitz), BESETZUNG-NEU, FRAKTION', Object.values(res).every(Boolean), `${JSON.stringify(res)} – ${[...r.errors, ...rN.errors, ...rF.errors].join(' | ')}; Buch ${b.errors.map((e) => e.code).join(',') || 'ok'}`);
+  });
+
+  // 11. Archiv mit Boden (KATALOG): Bühne auflösbar, B1-Regeln ohne Fehler
+  await safe(T13, 'Archivmissionen mit Boden: Bühne auflösbar, B1-Regeln ohne Fehler', () => {
+    const mitBoden = AR.entries.filter((e) => SB.bodenInfo(e.grobplan, env).boden);
+    if (!mitBoden.length) { skip(T13, 'Archivmissionen mit Boden: Bühne auflösbar, B1-Regeln ohne Fehler', 'keine Archivmission mit Bodenszene (KATALOG)'); return; }
+    const rows = []; let fine = true;
+    for (const e of mitBoden) {
+      const g = clone(e.grobplan);
+      const r = SB.aufloesen(g, env, ctxNT); const b = SB.checkGrobplanB1(g, env, ctxNT);
+      const i = SB.bodenInfo(g, env);
+      if (r.errors.length || b.errors.length) fine = false;
+      rows.push(`${e.name}: ${i.lang ? 'lang' : 'normal'} ${i.landepunkte.join('+')}${r.errors.length || b.errors.length ? ' – ' + [...r.errors, ...b.errors].join(' | ') : ''}${r.warnings.length ? ' (Warnungen: ' + r.warnings.join(' | ') + ')' : ''}`);
+    }
+    check(T13, 'Archivmissionen mit Boden: Bühne auflösbar, B1-Regeln ohne Fehler', fine && mitBoden.length >= 2, rows.join(' · '));
+  });
+
+  // Vorbau (OFFEN-STUDIO): accept -> landepunkte.vorbauen außerhalb des Aufrufs; doppelt = Cache-Treffer, Handkarte übersprungen
+  await safe(T13, 'Vorbau: Szenen-Landepunkte nach dem Annehmen per setImmediate, zweiter Aufruf baut nicht neu', async () => {
+    const Buehne = require('../shared/buehne.js');
+    const g = { seed: 7, countError(w, e) { errs.push(w + ': ' + (e && e.message)); }, log() {},
+      // eigener Seed -> eigener Cache-Schlüssel (der Karten-Cache ist modulweit)
+      landepunkte: { eintraege: { 'kesh.kastell': { seed: 918273, bauversion: null, schablone: null, art: 'ruine', bauweise: 'rom', besitz: 'herrenlos', zustand: 'verfallen', zustaende: {}, alarm: false, besuche: 0, letzte_mission: null, neu: false, gesperrt: false } }, lru: [], dyn: {} } };
+    const errs = [];
+    const ad = Context.lpAdapter(g);
+    const plan = { grobplan: ground() };
+    const self = { lp: () => ad, countError: (w, e) => errs.push(w + ': ' + e.message) };
+    const bau0 = Buehne.bauen; let n = 0; Buehne.bauen = (...a) => { if (a[0] && a[0].id === 'kesh.kastell' && a[0].seed === 918273) n++; return bau0(...a); };
+    try {
+      const ids = Spielleiter.Spielleiter.prototype.vorbauen.call(self, plan);
+      const sofort = n;
+      for (let i = 0; i < 6; i++) await flush();
+      const erst = n;
+      Spielleiter.Spielleiter.prototype.vorbauen.call(self, plan);
+      for (let i = 0; i < 6; i++) await flush();
+      const res = { ids: ids === 1, nichtImAufruf: sofort === 0, gebaut: erst === 1, doppeltHarmlos: n === 1, hand: Spielleiter.Spielleiter.prototype.vorbauen.call(self, { grobplan: b1Plan([{ id: 's2', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh', mols: ['raetsel_loesen/zwei_schluessel'] }]) }) === 1, fehlerfrei: !errs.length };
+      for (let i = 0; i < 4; i++) await flush();
+      res.handNichtGebaut = n === 1;
+      check(T13, 'Vorbau: Szenen-Landepunkte nach dem Annehmen per setImmediate, zweiter Aufruf baut nicht neu', Object.values(res).every(Boolean), `${JSON.stringify(res)}; Bauten ${n}; ${errs.join(' | ') || '0 Fehler'}`);
+    } finally { Buehne.bauen = bau0; }
   });
 }
 

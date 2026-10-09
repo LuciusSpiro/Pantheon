@@ -1,10 +1,13 @@
-// Orte der offenen Welt (CONTRACT-M1 §9.1). UMD: window.Shared_Locations / require. Team SERVER.
-// Reine Daten: Sternkarte, Verbindungen, Szenen (Welt-px der Raumszene), versteckte Objekte (nur per Weitscan).
+// Orte der offenen Welt (CONTRACT-M1 §9.1). UMD: window.Shared_Locations / require. Seit B3 Team SEKTOR.
+// Reine Daten: Sternkarte, Szenen (Welt-px der Raumszene), versteckte Objekte (nur per Weitscan).
+// B3 (CONTRACT-B3 §0.1): Die Verbindungen (`links`, `LOCKED_LINKS`) werden aus content/welt/limes.json abgeleitet
+// (shared/sektoren.js): open/locked-Kanten zwischen zwei Hexen mit Ort. API und Feldnamen bleiben.
+// `get('leer-<hex>')` liefert die leere Leerraum-Szene (Sektoren.leerraumOrt).
 // Der Server ist maßgeblich (bekannt/besucht/gefunden stehen im Snapshot unter world.locations).
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.Shared_Locations = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./sektoren.js'));
+  else root.Shared_Locations = factory(root.Shared_Sektoren || null);
+})(typeof self !== 'undefined' ? self : this, function (Sektoren) {
   'use strict';
 
   // scene: w/h Szenengröße, arrive = Ankunft per Faltsprung, station = Hauptobjekt (Marker-kind = station.kind),
@@ -13,7 +16,7 @@
   // hidden: kind 'cache' (drüberfliegen sammelt ein) | 'lore' (Ziel-Scan) | 'beacon' (Ziel-Scan, Mission) | 'hollow' (Wrack-Hohlraum).
   const LOCATIONS = [
     {
-      id: 'hafen', name: 'Hafen Lichtkordon', kind: 'port', x: 100, y: 300, links: ['splitter', 'vaelen', 'kesh'], fog: false,
+      id: 'hafen', name: 'Hafen Lichtkordon', kind: 'port', x: 100, y: 300, fog: false,
       desc: 'Heimathafen der Lerche: Liegeplatz, Hafenterminal und Tesks Funkturm. Riecht nach Öl und Kaffee.',
       first: 'Hafen Lichtkordon. Hier kennt man die Lerche – und ihre Schulden. Spaß beiseite: Liegeplatz rechts der Station.',
       scene: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, arrive: { x: 1650, y: 860, angle: 3.3 },
@@ -24,7 +27,7 @@
       ],
     },
     {
-      id: 'splitter', name: 'Splittergürtel', kind: 'asteroids', x: 260, y: 220, links: ['hafen', 'b7', 'wrack', 'kesh'], fog: false,
+      id: 'splitter', name: 'Splittergürtel', kind: 'asteroids', x: 260, y: 220, fog: false,
       desc: 'Ein Gürtel aus Felsbrocken und Wrackteilen. Ehrliche Bergung – und unehrliche Rostmeute.',
       first: 'Der Splittergürtel. Brocken prallen ab, kosten aber Schild. Langsam ist auch eine Geschwindigkeit.',
       scene: { w: 3000, h: 1600, arrive: { x: 150, y: 800, angle: 0 }, asteroids: 38, field: { x0: 380, x1: 2880, y0: 80, y1: 1520 } },
@@ -36,7 +39,7 @@
       ],
     },
     {
-      id: 'b7', name: 'Boje B-7', kind: 'buoy', x: 420, y: 150, links: ['splitter', 'nebel'], fog: false,
+      id: 'b7', name: 'Boje B-7', kind: 'buoy', x: 420, y: 150, fog: false,
       desc: 'Navigationsboje mit Wartungsplattform. Seit Kurzem verstummt – und von Kustoden-Technik umgeben.',
       first: 'Boje B-7. Kein Leuchtfeuer, kein Funk. Die Plattform hat Transferpads – falls wir runter müssen.',
       scene: { w: 3000, h: 3000, arrive: { x: 500, y: 1500, angle: 0 }, station: { kind: 'buoy', x: 2000, y: 1500, r: 48 },
@@ -50,7 +53,7 @@
       ],
     },
     {
-      id: 'vaelen', name: 'Vaelen-Karawane', kind: 'trader', x: 230, y: 430, links: ['hafen', 'nebel'], fog: false,
+      id: 'vaelen', name: 'Vaelen-Karawane', kind: 'trader', x: 230, y: 430, fog: false,
       desc: 'Fahrende Händler mit Kristalllampen, Tee und guten Preisen für Bolzenwerfer. Andocken erlaubt.',
       first: 'Die Vaelen-Karawane! Andocken am Ring längsseits – das Hafenterminal zeigt dann ihr Sortiment.',
       scene: { w: 2200, h: 1600, arrive: { x: 300, y: 800, angle: 0 }, station: { kind: 'vaelen', x: 1300, y: 760, r: 90 },
@@ -64,7 +67,7 @@
       ],
     },
     {
-      id: 'wrack', name: 'Wrack „Zaunkönig“', kind: 'wreck', x: 400, y: 330, links: ['splitter', 'nebel'], fog: false,
+      id: 'wrack', name: 'Wrack „Zaunkönig“', kind: 'wreck', x: 400, y: 330, fog: false,
       desc: 'Ein zerbrochener Frachter. Plünderer waren schon da – aber nicht überall.',
       first: 'Das Wrack der „Zaunkönig“. Transferpads auf dem Vorderdeck sind noch intakt. Ein Weitscan zeigt vielleicht mehr.',
       scene: { w: 2600, h: 2000, arrive: { x: 300, y: 1000, angle: 0 }, station: { kind: 'wreck', x: 1600, y: 1000, r: 120 },
@@ -78,7 +81,7 @@
       ],
     },
     {
-      id: 'nebel', name: 'Graue Weite', kind: 'nebula', x: 570, y: 280, links: ['b7', 'vaelen', 'wrack', 'relais'], fog: true,
+      id: 'nebel', name: 'Graue Weite', kind: 'nebula', x: 570, y: 280, fog: true,
       desc: 'Ein Nebel, der Sensoren schluckt. Wer hier etwas finden will, braucht Weitscan und Geduld.',
       first: 'Die Graue Weite. Sicht und Sensoren halbiert. Taktik: Weitscan (W) – hier versteckt sich gern etwas.',
       scene: { w: 3200, h: 2400, arrive: { x: 300, y: 1200, angle: 0 }, asteroids: 10, field: { x0: 700, x1: 3000, y0: 150, y1: 2250 } },
@@ -90,7 +93,7 @@
       ],
     },
     {
-      id: 'relais', name: 'Kustoden-Relais', kind: 'relay', x: 730, y: 230, links: ['nebel'], fog: true,
+      id: 'relais', name: 'Kustoden-Relais', kind: 'relay', x: 730, y: 230, fog: true,
       desc: 'Ein Relais der Kustoden, bewacht von Pylonen. Hier endet das Echo – oder es beginnt.',
       first: 'Das Kustoden-Relais. Pylonen mit Frontschild – Taktik: scannen und den Piloten an die Seite lotsen.',
       scene: { w: 2600, h: 2000, arrive: { x: 300, y: 1000, angle: 0 }, station: { kind: 'relay', x: 1700, y: 1000, r: 70 }, asteroids: 0 },
@@ -102,7 +105,7 @@
     {
       // M2 „Schildwall“ (CONTRACT-M2 §3.1): Planetenmission m3. Am Start unbekannt; Verbindungen gesperrt (Schlüssel 'kesh'),
       // bis die Mission den Ort aufdeckt – so bleibt die Sternkarte in M1/M2 unverändert (kein „Unbekanntes Signal“).
-      id: 'kesh', name: 'Mond Kesh', kind: 'moon', x: 160, y: 120, links: ['hafen', 'splitter'], fog: false,
+      id: 'kesh', name: 'Mond Kesh', kind: 'moon', x: 160, y: 120, fog: false,
       desc: 'Ein staubiger Mond mit einer Kustoden-Ruine. Plünderer graben dort seit Wochen.',
       first: 'Mond Kesh. Unten liegt ein Kustoden-Archiv – und ein Plünderercamp. Transferpads: Landezone im Südwesten.',
       scene: { w: 2400, h: 1800, arrive: { x: 300, y: 900, angle: 0 }, station: { kind: 'moon', x: 1500, y: 900, r: 180 },
@@ -111,13 +114,40 @@
     },
   ];
 
-  // Verbindungen, die erst später offen sind (Kante -> Bedingung). Server prüft game.world.linksOpen.
-  const LOCKED_LINKS = [{ a: 'nebel', b: 'relais', key: 'nebel-relais' }, { a: 'hafen', b: 'kesh', key: 'kesh' }, { a: 'splitter', b: 'kesh', key: 'kesh' }];
-
+  // Verbindungen (aus limes.json abgeleitet). links: Nachbarorte über open/locked-Kanten, in der Reihenfolge von LOCATIONS.
+  // LOCKED_LINKS: locked-Kanten zwischen zwei Orten (Kante -> Schlüssel). Server prüft game.world.linksOpen.
+  const LOCKED_LINKS = [];
   const byId = {};
   for (const l of LOCATIONS) byId[l.id] = l;
+  const ORDER = LOCATIONS.map((l) => l.id);
+  let linkMap = {};
+  function ableiten() {
+    linkMap = {}; LOCKED_LINKS.length = 0;
+    for (const l of LOCATIONS) linkMap[l.id] = [];
+    const K = Sektoren && Sektoren.KARTE;
+    if (!K) return;
+    for (const e of K.kanten || []) {
+      if (e.art !== 'open' && e.art !== 'locked') continue;
+      const a = Sektoren.ortVonHex(e.a), b = Sektoren.ortVonHex(e.b);
+      if (!byId[a] || !byId[b]) continue;
+      if (!linkMap[a].includes(b)) linkMap[a].push(b);
+      if (!linkMap[b].includes(a)) linkMap[b].push(a);
+      if (e.art === 'locked' && e.key) LOCKED_LINKS.push({ a, b, key: e.key });
+    }
+    for (const id of ORDER) linkMap[id].sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y));
+  }
+  for (const l of LOCATIONS) {
+    Object.defineProperty(l, 'links', { enumerable: true, configurable: true, get() { return linkMap[l.id] || []; } });
+    if (Sektoren && Sektoren.hexVonOrt) Object.defineProperty(l, 'hex', { enumerable: true, configurable: true, get() { return Sektoren.hexVonOrt(l.id); } });
+  }
+  ableiten();
+  if (Sektoren && Sektoren.beiKarte) Sektoren.beiKarte(ableiten);
 
-  function get(id) { return byId[id] || null; }
+  function get(id) {
+    if (byId[id]) return byId[id];
+    if (Sektoren && Sektoren.istLeerId && Sektoren.istLeerId(id)) return Sektoren.leerraumOrt(Sektoren.hexVonOrt(id) || '') || null;
+    return null;
+  }
   function linkKey(a, b) { return [a, b].sort().join('-'); }
   function lockedKey(a, b) {
     const k = LOCKED_LINKS.find((l) => (l.a === a && l.b === b) || (l.a === b && l.b === a));

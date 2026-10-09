@@ -1,0 +1,27 @@
+{
+  "format": "gegner/1",
+  "id": "waechter",
+  "rolle": "waechter",
+  "waffe": "waechter",
+  "profil": "waechter",
+  "namen": {
+    "rom": "Kastell-Automat",
+    "herrenlos": "Kastell-Automat",
+    "vorlaeufer": "Wächter",
+    "kustoden": "Wächter"
+  },
+  "beschreibung": "Langsamer, schwerer Wächter mit Frontschild, der auch Nahkampf von vorn blockt: von der Seite oder von hinten angreifen. Kustoden-Wächter bleiben stumm.",
+  "funk": {
+    "allgemein": [
+      "SIGNUM IGNOTUM. HALT.",
+      "KASTELL GESCHLOSSEN.",
+      "PRAETORIUM GESCHÜTZT."
+    ],
+    "parade": [
+      "PARADE."
+    ],
+    "wunde": [
+      "ORDO … GESTÖRT."
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{ "format": "schablone/1", "id": "station.ring", "art": "station", "name": "Ring", "zellen": [6, 3], "spiegeln": ["x"], "fuellung": "wand",
+  "plaetze": [
+    { "id": "zellen",      "typ": "zellen",         "x": 0, "y": 0, "richtung": "W", "bereich": "kern", "kern": true },
+    { "id": "ring_nw",     "typ": "abzweig",        "x": 1, "y": 0, "richtung": "N", "bereich": "ring" },
+    { "id": "ring_n",      "typ": "abzweig",        "x": 2, "y": 0, "richtung": "N", "bereich": "ring" },
+    { "id": "schott",      "typ": "schott",         "x": 3, "y": 0, "richtung": "N", "bereich": "ring" },
+    { "id": "ring_no",     "typ": "knick",          "x": 4, "y": 0, "richtung": "N", "bereich": "ring" },
+    { "id": "reaktor",     "typ": "reaktorraum",    "x": 5, "y": 0, "w": 1, "h": 2, "richtung": "O", "bereich": "kern", "kern": true },
+    { "id": "andock",      "typ": "schleuse",       "x": 0, "y": 1, "richtung": "W", "bereich": "andock", "kern": true, "eingang_art": "laut", "ankunft": true },
+    { "id": "ring_w",      "typ": "abzweig",        "x": 1, "y": 1, "richtung": "O", "bereich": "ring" },
+    { "id": "leitstand",   "typ": "kontrollraum",   "x": 2, "y": 1, "w": 2, "h": 1, "richtung": "S", "bereich": "kern", "kern": true },
+    { "id": "ring_o",      "typ": "abzweig",        "x": 4, "y": 1, "richtung": "W", "bereich": "ring" },
+    { "id": "zugang",      "typ": "schachtzugang",  "x": 0, "y": 2, "richtung": "W", "bereich": "andock", "kern": true, "eingang_art": "leise" },
+    { "id": "schacht_1",   "typ": "schachtabzweig", "x": 1, "y": 2, "richtung": "S", "bereich": "schacht" },
+    { "id": "schacht_2",   "typ": "schacht",        "x": 2, "y": 2, "bereich": "schacht" },
+    { "id": "schacht_3",   "typ": "schacht",        "x": 3, "y": 2, "bereich": "schacht" },
+    { "id": "schacht_4",   "typ": "schachtabzweig", "x": 4, "y": 2, "richtung": "S", "bereich": "schacht" },
+    { "id": "notschleuse", "typ": "schleuse",       "x": 5, "y": 2, "richtung": "O", "bereich": "notausgang", "kern": true, "eingang_art": "technisch" }
+  ],
+  "bereiche": {
+    "andock":     { "name": "Andockring", "rolle": "hinein" },
+    "ring":       { "name": "Ring", "rolle": null },
+    "kern":       { "name": "Leitstand und Reaktor", "rolle": "ziel" },
+    "schacht":    { "name": "Wartungsschacht", "rolle": null },
+    "notausgang": { "name": "Notschleuse", "rolle": "rueckzug" }
+  },
+  "gefecht": ["ring_nw", "ring_n", "schott", "ring_no", "ring_w", "ring_o"],
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 2, "terminal": 2, "sprengpunkt": 1, "ziel": 3, "zelle": 2, "nsc": 2, "beute": 3, "tor": 1, "wache": 4, "patrouille": 4, "versteck": 1 }
+}

@@ -1,0 +1,37 @@
+{
+  "id": "prop/germanen/gemein/teil/runenband",
+  "name": "Ornamentband (Teil): Rauten und Punkte als gedämpfter Schaltkreis – keine Runen (Symbolik-Sichtung)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "teil", "ornament"],
+  "footprint": [1, 0.1],
+  "params": {"n": {"default": 3, "min": 3, "max": 8, "step": 1, "label": "Motive (mind. 3, immer Band)"}, "lit": {"default": 3, "min": 0, "max": 8, "step": 1, "label": "leuchtende Motive (von links)"}, "emit": {"default": 0.8, "min": 0, "max": 1.2, "step": 0.1, "label": "Leuchten (≤ 1,2)"}, "flach": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "flach am Boden"}, "rahmen": {"default": 1, "min": 0, "max": 1, "step": 1, "label": "Leiterbahnen oben/unten"}, "start": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "erstes Motiv (0 Raute, 1 Punkt)"}, "schritt": {"default": 1, "min": 0, "max": 1, "step": 1, "label": "Zeichenschritt"}, "zufall": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Motivfolge aus seed"}},
+  "let": {"L": "n*4 - 1", "x0": "-floor((n*4 - 1)/2)", "gy": "rahmen ? 2 : 0", "yc": "rahmen ? 4 : 2", "rem": "min(emit, 1.2)"},
+  "ops": [
+    {"op": "group", "name": "Ornament", "at": ["x0", 0, 0], "repeat": {"count": "n", "step": [4, 0, 0], "var": "i"}, "let": {"g": "zufall ? floor(hash(seed, i, 3)*2) : (start + i*schritt) % 2"}, "ops": [
+      {"op": "box", "name": "Raute an", "if": "g == 0 && i < lit", "at": ["1", "flach ? 0 : (gy + 1)", "flach ? -((gy + 1) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "emit", "jitter": false},
+      {"op": "box", "name": "Raute an", "if": "g == 0 && i < lit", "at": ["0", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "emit", "jitter": false},
+      {"op": "box", "name": "Raute an", "if": "g == 0 && i < lit", "at": ["2", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "emit", "jitter": false},
+      {"op": "box", "name": "Raute an", "if": "g == 0 && i < lit", "at": ["1", "flach ? 0 : (gy + 3)", "flach ? -((gy + 3) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "emit", "jitter": false},
+      {"op": "box", "name": "Raute aus", "if": "g == 0 && i >= lit", "at": ["1", "flach ? 0 : (gy + 1)", "flach ? -((gy + 1) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+      {"op": "box", "name": "Raute aus", "if": "g == 0 && i >= lit", "at": ["0", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+      {"op": "box", "name": "Raute aus", "if": "g == 0 && i >= lit", "at": ["2", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+      {"op": "box", "name": "Raute aus", "if": "g == 0 && i >= lit", "at": ["1", "flach ? 0 : (gy + 3)", "flach ? -((gy + 3) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+      {"op": "box", "name": "Punkt an", "if": "g == 1 && i < lit", "at": ["1", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "emit", "jitter": false},
+      {"op": "box", "name": "Punkt aus", "if": "g == 1 && i >= lit", "at": ["1", "flach ? 0 : (gy + 2)", "flach ? -((gy + 2) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false}
+    ]},
+    {"op": "group", "name": "Leiterbahnen", "if": "rahmen", "ops": [
+      {"op": "box", "name": "Bahn unten an", "if": "lit > 0", "at": ["x0", "flach ? 0 : (0)", "flach ? -((0) + 1 - 1 - yc) : 0"], "size": ["L", "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "rem*0.6", "jitter": false},
+      {"op": "box", "name": "Bahn unten aus", "if": "lit == 0", "at": ["x0", "flach ? 0 : (0)", "flach ? -((0) + 1 - 1 - yc) : 0"], "size": ["L", "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+      {"op": "box", "name": "Bahnende an", "if": "lit > 0", "at": ["x0", "flach ? 0 : (1)", "flach ? -((1) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "rem*0.6", "jitter": false, "mirror": "x", "mirrorAt": "x0 + L/2"},
+      {"op": "box", "name": "Bahnende aus", "if": "lit == 0", "at": ["x0", "flach ? 0 : (1)", "flach ? -((1) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false, "mirror": "x", "mirrorAt": "x0 + L/2"},
+      {"op": "group", "name": "Bahn oben", "at": ["x0", 0, 0], "repeat": {"count": "n", "step": [4, 0, 0], "var": "i"}, "ops": [
+        {"op": "box", "name": "Segment an", "if": "i < lit", "at": ["0", "flach ? 0 : (8)", "flach ? -((8) + 1 - 1 - yc) : 0"], "size": [3, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "rune", "emit": "rem*0.6", "jitter": false},
+        {"op": "box", "name": "Segment aus", "if": "i >= lit", "at": ["0", "flach ? 0 : (8)", "flach ? -((8) + 1 - 1 - yc) : 0"], "size": [3, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "dark", "jitter": false},
+        {"op": "box", "name": "Abzweig", "if": "i < n-1", "at": ["3", "flach ? 0 : (1)", "flach ? -((1) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 2", "flach ? 2 : 1"], "color": "dark", "jitter": false},
+        {"op": "box", "name": "Lötauge", "if": "i < n-1", "at": ["3", "flach ? 0 : (3)", "flach ? -((3) + 1 - 1 - yc) : 0"], "size": [1, "flach ? 1 : 1", "flach ? 1 : 1"], "color": "metal_light", "jitter": false}
+      ]}
+    ]}
+  ],
+  "anchor": [0, 0, 0]
+}

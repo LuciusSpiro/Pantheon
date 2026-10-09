@@ -33,7 +33,7 @@ const VR = {
     return VR.mode;
   },
   toggle() { return VR.setMode(VR.mode === 'voxel' ? '2d' : 'voxel'); },
-  /** true, wenn 3D diese Zone zeichnet ('ship' | 'platform' | 'wreck' | 'kesh'; 'away' wird über den Zustand aufgelöst) */
+  /** true, wenn 3D diese Zone zeichnet ('ship' | 'platform' | 'wreck' | 'kesh' | 'buehne'; 'away' wird über den Zustand aufgelöst) */
   handles(zone) {
     if (!VR.ready || VR.mode !== 'voxel' || !R) return false;
     try { return R.handles(zone); } catch (e) { return false; }
@@ -110,7 +110,7 @@ function start() {
       const z = +lsGet(LS_ZOOM, '0'); if (z) R.setZoom(1);
       await Promise.race([L.ready, new Promise((r) => setTimeout(r, 5000))]);
       // Layer: eigener Schiffs-Layer + die der Teams ACTORS und AWAY, jeder für sich fehlertolerant
-      await Promise.all(['ship', 'actors', 'fx', 'away'].map(importLayer));
+      await Promise.all(['ship', 'actors', 'fx', 'away', 'kit'].map(importLayer));   // B1: kit = Bühnen (Zone 'buehne')
       VR.ready = true;
     } catch (e) {
       starting = null;

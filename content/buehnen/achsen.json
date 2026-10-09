@@ -1,0 +1,102 @@
+{
+  "format": "achsen/1",
+  "quelle": "CONTRACT-B1.md §3.5",
+  "bauweisen": {
+    "germanen": {
+      "status": "aktiv"
+    },
+    "rom": {
+      "status": "aktiv"
+    },
+    "vorlaeufer": {
+      "status": "spaeter"
+    },
+    "konkordat": {
+      "status": "spaeter"
+    }
+  },
+  "besitz": {
+    "rostmeute": {
+      "status": "aktiv"
+    },
+    "kontor": {
+      "status": "aktiv"
+    },
+    "raubzug": {
+      "status": "aktiv"
+    },
+    "herrenlos": {
+      "status": "aktiv"
+    },
+    "kustoden": {
+      "status": "aktiv"
+    },
+    "konkordat": {
+      "status": "aktiv",
+      "hinweis": "nur Handkarte B-7"
+    },
+    "rom": {
+      "status": "spaeter"
+    }
+  },
+  "zustaende": {
+    "intakt": {
+      "kit": 0
+    },
+    "verfallen": {
+      "kit": 1
+    },
+    "umkaempft": {
+      "kit": 2,
+      "starthaltung": "wach"
+    }
+  },
+  "kartenarten": {
+    "aussenposten": {
+      "zellen": [
+        9,
+        5
+      ],
+      "kacheln": [
+        72,
+        40
+      ],
+      "bauweise": "germanen"
+    },
+    "station": {
+      "zellen": [
+        6,
+        3
+      ],
+      "kacheln": [
+        48,
+        24
+      ],
+      "bauweise": "germanen"
+    },
+    "ruine": {
+      "zellen": [
+        8,
+        5
+      ],
+      "kacheln": [
+        64,
+        40
+      ],
+      "bauweise": "rom",
+      "zustand": "verfallen"
+    },
+    "schiff": {
+      "decks": 2,
+      "kacheln": [
+        37,
+        13
+      ],
+      "atlas": [
+        37,
+        29
+      ],
+      "bauweise": "germanen"
+    }
+  }
+}

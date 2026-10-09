@@ -1,0 +1,44 @@
+{
+  "id": "fig/germanen/fellumhang",
+  "name": "Fellumhang (Rollenteil Grundtyp/Enterer): Fellkragen über den Schultern, Pelzbahn am Rücken",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "germanen", "anbau", "umhang", "fell"],
+  "notes": "Anbau am Socket back (0, 20, −3), in Figur-Koordinaten modelliert wie fig/rom/umhang. ROLLENTEIL, kein Fraktionsteil (§6): nur Grundtyp und Enterer. Kragen sitzt über der Halsberge (y 24..26), Halsloch frei für Kopf/Helm. Pelzbahn hinten bei z −4/−5, Saum ausgefranst. nord hat keine Rolle fur: dunkel = hair/leather aus base, hell = cloth2 (Knochenweiß) mit Grau.",
+  "params": { "fell": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Fell (0 dunkel/Bär, 1 hell/Wolf)" }, "bottom": { "default": 11, "min": 6, "max": 18, "step": 1, "label": "Saum-Höhe (Figur-y)" } },
+  "let": { "len": "24 - bottom" },
+  "ops": [
+    {
+      "name": "Fellkragen dunkel",
+      "if": "!fell",
+      "op": "box",
+      "at": [-6, 24, -4],
+      "size": [12, 2, 7],
+      "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 1 }
+    },
+    { "name": "Fellkragen hell", "if": "fell", "op": "box", "at": [-6, 24, -4], "size": [12, 2, 7], "color": { "noise": ["cloth2", { "shade": "cloth2", "f": 0.78 }, "metal_light"], "weights": [3, 3, 1], "cell": 1 } },
+    { "name": "Kragen oben dichter", "op": "box", "at": [-5, 26, -4], "size": [10, 1, 5], "mode": "under", "color": { "noise": [{ "shade": "leather", "f": 1.12 }, "leather"], "weights": [1, 1], "cell": 1 }, "if": "!fell" },
+    { "name": "Kragen oben dichter hell", "op": "box", "at": [-5, 26, -4], "size": [10, 1, 5], "mode": "under", "color": { "noise": ["cloth2", { "shade": "cloth2", "f": 0.88 }], "weights": [1, 1], "cell": 1 }, "if": "fell" },
+    { "name": "Halsloch", "op": "box", "at": [-3, 24, -3], "size": [6, 3, 6], "mode": "carve" },
+    { "name": "Kragen Ecken", "op": "box", "at": [5, 24, 2], "size": [1, 3, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    {
+      "name": "Pelzbahn dunkel",
+      "if": "!fell",
+      "op": "box",
+      "at": [-4, "bottom", -4],
+      "size": [8, "len", 1],
+      "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 1 }
+    },
+    { "name": "Pelzbahn hell", "if": "fell", "op": "box", "at": [-4, "bottom", -4], "size": [8, "len", 1], "color": { "noise": ["cloth2", { "shade": "cloth2", "f": 0.78 }, "metal_light"], "weights": [3, 3, 1], "cell": 1 } },
+    { "name": "Pelzsträhnen", "op": "box", "at": [-3, "bottom + 1", -5], "size": [1, "len - 3", 1], "repeat": { "count": 3, "step": [3, 0, 0] }, "color": { "shade": "leather", "f": 0.58 }, "if": "!fell" },
+    { "name": "Pelzsträhnen hell", "op": "box", "at": [-3, "bottom + 1", -5], "size": [1, "len - 3", 1], "repeat": { "count": 3, "step": [3, 0, 0] }, "color": { "shade": "cloth2", "f": 0.62 }, "if": "fell" },
+    { "name": "Saum Zotteln", "op": "box", "at": [-4, "bottom", -4], "size": [1, 1, 1], "repeat": { "count": 3, "step": [3, 0, 0] }, "mode": "carve" },
+    { "name": "Saum Zotteln 2", "op": "box", "at": [-3, "bottom - 1", -4], "size": [1, 1, 1], "repeat": { "count": 3, "step": [3, 0, 0] }, "color": { "shade": "leather", "f": 0.8 }, "if": "!fell" },
+    { "name": "Saum Zotteln 2 hell", "op": "box", "at": [-3, "bottom - 1", -4], "size": [1, 1, 1], "repeat": { "count": 3, "step": [3, 0, 0] }, "color": { "shade": "cloth2", "f": 0.85 }, "if": "fell" },
+    { "name": "Schulterspangen", "op": "box", "at": [3, 25, 2], "size": [2, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kette zwischen den Spangen", "op": "box", "at": [-3, 24, 3], "size": [6, 1, 1], "color": { "stripes": ["metal", "metal_dark"], "axis": "x", "period": 1 }, "jitter": false },
+    { "name": "Lederunterseite", "op": "box", "at": [-4, 23, -4], "size": [8, 1, 1], "color": "leather" }
+  ],
+  "variants": { "hell": { "fell": 1 }, "kurz": { "bottom": 16 } },
+  "anchor": [0, 20, -3]
+}

@@ -259,12 +259,11 @@
       }
     },
     "aim_rifle": {
-      "notes": "Gewehr zweihändig (Wunsch ART-G, scav_rifle an handR, Mündung -y): rechte Hand am Griff, linke Hand vorn am Handschutz, Oberkörper seitlich eingedreht.",
+      "notes": "Gewehr zweihändig (Wunsch ART-G; Gewehr an handR, Mündung −y): Schaft an der rechten Schulter, Lauf gerade nach vorn (+z, Figur dreht zum Ziel), Oberseite oben, linke Hand am Vorderschaft (6 Voxel vor dem Griff), Oberkörper 30° eingedreht. Überarbeitet von ART-POSEN (vorher zeigte der Lauf ca. 50° nach links, linke Hand 0,3 m hinter dem Vorderschaft).",
       "joints": {
-        "torso": [0, 22, 0], "head": [0, -20, 0],
-        "upperArmR": [-78, 28, 0], "lowerArmR": [-12, 0, 0],
-        "upperArmL": [-84, -24, 0], "lowerArmL": [-8, 0, 0],
-        "thighL": [-14, 0, 0], "shinL": [10, 0, 0], "thighR": [10, 0, 0]
+        "torso": [0, -30, 0], "head": [0, 27, 0], "upperArmR": [-18, 14, -5], "lowerArmR": [-120, 33, 0],
+        "upperArmL": [-66, -16, -15], "lowerArmL": [-38, 0, 0], "thighL": [-14, 0, 0], "shinL": [10, 0, 0],
+        "thighR": [10, 0, 0], "handR": [40, -22, -30]
       },
       "breathe": 0.25, "look": false
     },
@@ -276,6 +275,125 @@
         "thighL": [-12, 0, 0], "shinL": [8, 0, 0], "thighR": [14, 0, 0]
       },
       "lift": -0.5, "breathe": 0.2, "look": false
+    },
+
+    "aim_heavy": {
+      "notes": "Niederhalter: schweres Gewehr waagrecht in Hüfthöhe (Waffe an handR, Mündung −y), linke Hand am Vorderschaft (6 Voxel vor dem Griff), breiter Stand, Oberkörper eingedreht.",
+      "joints": {
+        "thighL": [-14, 0, 10], "shinL": [12, 0, 0], "thighR": [12, 0, -10], "shinR": [8, 0, 0], "torso": [-6, -32, 0],
+        "head": [2, 29, 0], "upperArmR": [-15, 30, 15], "lowerArmR": [-70, 0, 0], "handR": [1, 38, 0],
+        "upperArmL": [-50, -24, 10], "lowerArmL": [-24, 0, 0]
+      },
+      "lift": 0, "breathe": 0.3, "look": false
+    },
+
+    "charge": {
+      "notes": "Schütze lädt die Lanze: kniet (rechtes Knie am Boden, linker Fuß vorn), Lanze an handR waagrecht an der Schulter, linke Hand am Vorderschaft. Still halten, Ziellinie macht FX.",
+      "joints": {
+        "thighL": [-88, 0, 4], "shinL": [86, 0, 0], "thighR": [4, 0, -2], "shinR": [86, 0, 0], "torso": [6, -35, 0],
+        "head": [-2, 31, 0], "upperArmR": [-74, 53, -6], "lowerArmR": [-27, 0, 0], "handR": [13, 62, 0],
+        "upperArmL": [-92, 19, -13], "lowerArmL": [0, 0, 0]
+      },
+      "lift": -4, "breathe": 0.15, "look": false
+    },
+
+    "launch": {
+      "notes": "Grenadier legt an: kurzes Rohr an handR auf der Schulter, ca. 37° nach oben (Bogenschuss), linke Hand vorn am Rohr, linker Fuß vorn.",
+      "joints": {
+        "thighL": [-18, 0, 6], "shinL": [12, 0, 0], "thighR": [14, 0, -6], "shinR": [6, 0, 0], "torso": [-8, -42, 0],
+        "head": [-8, 38, 0], "upperArmR": [-60, 30, 15], "lowerArmR": [-60, 0, 0], "handR": [0, 43, 0],
+        "upperArmL": [-100, -7, 0], "lowerArmL": [-23, 0, 0]
+      },
+      "lift": 0.5, "breathe": 0.2, "look": false
+    },
+
+    "windup": {
+      "notes": "Enterer holt aus: Klinge (handR) hoch hinter der rechten Schulter, Oberkörper nach rechts eingedreht und vorgebeugt, linker Arm vorn zum Ausbalancieren.",
+      "joints": {
+        "thighL": [-30, 0, 8], "shinL": [30, 0, 0], "thighR": [18, 0, -8], "shinR": [14, 0, 0], "torso": [14, -34, 4],
+        "head": [-10, 30, 0], "upperArmR": [-170, 40, -20], "lowerArmR": [-70, 0, 0], "handR": [0, 0, 0],
+        "upperArmL": [-40, 0, 34], "lowerArmL": [-50, 0, 0]
+      },
+      "lift": 0, "breathe": 0.4, "look": false
+    },
+
+    "strike": {
+      "notes": "Enterer schlägt zu: Ausfallschritt links, Klinge (handR) vorn links unten durchgezogen, Oberkörper nach links gedreht. Folgepose von windup.",
+      "joints": {
+        "thighL": [-55, 0, 8], "shinL": [45, 0, 0], "thighR": [26, 0, -6], "shinR": [14, 0, 0], "torso": [24, 30, -4],
+        "head": [-16, -24, 0], "upperArmR": [-37, 5, 13], "lowerArmR": [-40, 0, 0], "handR": [-15, 6, 0],
+        "upperArmL": [-10, 0, 40], "lowerArmL": [-30, 0, 0]
+      },
+      "lift": -0.5, "breathe": 0.4, "look": false
+    },
+
+    "stagger": {
+      "notes": "Betäubt/taumelnd: Knie geben nach, Hüfte und Oberkörper kippen zur rechten Seite und nach hinten, Kopf hängt schräg, linker Arm rudert, rechter hängt. Anders als hit (kurzes Zucken, aufrecht).",
+      "joints": {
+        "hips": [-4, 0, -12], "thighL": [-26, 0, 22], "shinL": [46, 0, 0], "thighR": [8, 0, 2], "shinR": [12, 0, 0],
+        "torso": [-16, -12, -16], "head": [28, 14, -30], "upperArmL": [12, 0, 6], "lowerArmL": [-18, 0, 0],
+        "upperArmR": [-14, 0, -52], "lowerArmR": [-30, 0, 0], "handR": [10, 0, 0]
+      },
+      "lift": 0, "breathe": 0.9, "look": false
+    },
+
+    "unconscious": {
+      "notes": "Bewusstlos: stabile Seitenlage auf der rechten Seite, Kopf nach −z (wie wounded, damit das Spiel gleich dreht), Gesicht nach −x, oberes Bein angewinkelt, unterer Arm ausgestreckt. Waffe gehört daneben auf den Boden, nicht in die Hand. Kaum Atmen (breathe 0,2).",
+      "joints": {
+        "hips": [0, -90, 90], "thighL": [-70, 0, -6], "shinL": [85, 0, 0], "thighR": [-20, 0, 0], "shinR": [30, 0, 0],
+        "torso": [8, 0, 0], "head": [14, 0, 14], "upperArmR": [-125, 0, 0], "lowerArmR": [-25, 0, 0],
+        "upperArmL": [-50, 0, -25], "lowerArmL": [-50, 0, 0], "handR": [0, 0, 0]
+      },
+      "lift": -6.5, "breathe": 0.2, "look": false
+    },
+
+    "bound": {
+      "notes": "Gefesselt: kniet auf beiden Knien, Hände hinter dem Rücken zusammen (Socket wrists ≈ Hände), Kopf gesenkt.",
+      "joints": {
+        "thighL": [-58, 0, 5], "shinL": [146, 0, 0], "thighR": [-58, 0, -5], "shinR": [146, 0, 0], "torso": [14, 0, 0],
+        "head": [30, 0, 0], "upperArmL": [63, 28, -12], "lowerArmL": [-47, 0, 0], "upperArmR": [63, -28, 12],
+        "lowerArmR": [-47, 0, 0]
+      },
+      "lift": -7, "breathe": 0.5, "look": false
+    },
+
+    "carried": {
+      "notes": "Wird getragen (Feuerwehrgriff): Bauch auf der Schulter des Trägers, Beine hängen vorn, Oberkörper und Arme hängen hinten herab. lift 12 = Hüfte auf Schulterhöhe des Trägers bei gleicher Wurzel; das Spiel versetzt die Wurzel um ca. −5,5 Voxel in x (rechte Schulter des Trägers) und übernimmt seine Drehung.",
+      "joints": {
+        "hips": [150, 180, 0], "thighL": [-112, 0, 4], "shinL": [6, 0, 0], "thighR": [-106, 0, -4],
+        "shinR": [14, 0, 0], "torso": [6, 0, 0], "head": [20, 0, 6], "upperArmL": [-156, 0, 0],
+        "lowerArmL": [-10, 0, 0], "upperArmR": [-156, 0, 0], "lowerArmR": [-14, 0, 0]
+      },
+      "lift": 12, "breathe": 0.15, "look": false
+    },
+
+    "lift_comrade": {
+      "notes": "Kamerad aufrichten (E10): halb kniend (rechtes Knie am Boden), vorgebeugt, beide Hände greifen ca. 0,6 m vor der Wurzel unter die Achseln des Liegenden.",
+      "joints": {
+        "thighL": [-80, 0, 6], "shinL": [80, 0, 0], "thighR": [6, 0, -4], "shinR": [84, 0, 0], "torso": [30, 0, 0],
+        "head": [16, 0, 0], "upperArmL": [-61, -17, 6], "lowerArmL": [0, 0, 0], "upperArmR": [-61, 17, -6],
+        "lowerArmR": [0, 0, 0]
+      },
+      "lift": -4, "breathe": 0.6, "look": false
+    },
+
+    "rest_upright": {
+      "notes": "Ruhe mit langer Waffe senkrecht (Lanze/Jagdspeer, Bartaxt): rechter Arm leicht seitlich vor dem Körper, Hand dreht die Waffe um (Spitze/Kopf oben, Oberseite nach vorn). Der Griffpunkt (Anker) liegt nahe am Waffenende, deshalb steht der Fuß der Waffe nur mit itemOffset auf dem Boden: Versatz des Anbaus in Voxeln im Handgelenk-System, je Waffe (bei anderen Posen 0).",
+      "joints": {
+        "upperArmL": [2, 0, 4], "lowerArmL": [-8, 0, 0], "upperArmR": [-14, 0, -16], "lowerArmR": [-28, 0, 0],
+        "handR": [45, -22, 180], "thighL": [-3, 0, 3], "thighR": [2, 0, -4]
+      },
+      "breathe": 0.4, "itemOffset": {"item/waffe/lanze": [0.5, 9, -3.5], "item/waffe/nahkampf": [0, 11, 0]}
+    },
+
+    "guard_hunched": {
+      "notes": "Berserker-Ruhe: vornübergebeugt, Schultern vor, Knie gebeugt, Kopf hoch (Blick nach vorn), Klinge (handR) tief vorn rechts, Spitze schräg nach vorn unten, linke Hand hängt vor dem Körper. Höhe ohne Waffe ca. 1,9 m bei Größe 1,1 (Grenze 2,3 m).",
+      "joints": {
+        "hips": [8, 0, 0], "thighL": [-38, 0, 8], "shinL": [44, 0, 0], "thighR": [2, 0, -8], "shinR": [34, 0, 0],
+        "torso": [30, 0, 0], "head": [-34, 0, 0], "upperArmL": [-34, -10, 16], "lowerArmL": [-36, 0, 0],
+        "upperArmR": [-11, 0, -8], "lowerArmR": [-72, 0, 0], "handR": [-20, 26, 0]
+      },
+      "lift": 0, "breathe": 0.7, "look": false
     }
   }
 }

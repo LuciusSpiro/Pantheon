@@ -1,0 +1,177 @@
+{
+  "format": "deko/1",
+  "id": "rom",
+  "hinweis": "ART-RUINE. Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen).",
+  "regeln": {
+    "porta": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras",
+        "prop/rom/ruine/deko_standartenfuss"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "lagerstrasse": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "kolonnade": {
+      "props": [
+        "prop/rom/ruine/saeule_gestuerzt",
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_standartenfuss"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "raetselfluegel": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "innerstes": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_standartenfuss"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "wachlokal": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_standartenfuss"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "einsturzgang": {
+      "props": [
+        "prop/rom/ruine/cloaca_einsturz",
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "truemmerfeld": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/saeule_gestuerzt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "bresche": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "mauer": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "treppe": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "turm": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "vorfeld": {
+      "props": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/saeule_gestuerzt",
+        "prop/rom/ruine/deko_stein",
+        "prop/rom/ruine/deko_gras"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    }
+  }
+}

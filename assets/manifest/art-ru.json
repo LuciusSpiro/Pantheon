@@ -1,0 +1,1709 @@
+{
+ "team": "art-ru",
+ "notes": "ART-RUINE (B1/B2): Ruine Rom = verfallenes römisches Grenzkastell. Props/Leitstücke: Pivot Mitte unten, Vorderseite +z, Zustände als state-Index nach CONTRACT-B1 §3.3 (raetsel ruhe/gehalten/geloest, tor zu/offen/verschlossen/gesprengt, fund da/genommen, ziel frei/genommen/aktiviert). Kastell-Automat = Drop-in für lerche/actor/warden (state 0 aktiv/1 Treffer/2 zerstört, front 0/1). Sockets stehen auch im Voxelwerk-Rezept. Kit-Teile kit/rom/* folgen, sobald kit/geruest/** existiert.",
+ "assets": [
+  {
+   "id": "actor/rom/waechter",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1.25,
+    2
+   ],
+   "height": 2.15,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     2
+    ],
+    "front": [
+     0,
+     1
+    ]
+   },
+   "states": {
+    "aktiv": {
+     "state": 0
+    },
+    "treffer": {
+     "state": 1
+    },
+    "zerstoert": {
+     "state": 2
+    },
+    "schild_hinten": {
+     "front": 0
+    }
+   },
+   "sockets": {
+    "label": [
+     0,
+     2.3,
+     0
+    ],
+    "shield_front": [
+     0,
+     0.8,
+     1
+    ],
+    "fx_spark": [
+     0.35,
+     1.2,
+     0.4
+    ],
+    "head_top": [
+     0,
+     2.1,
+     0.6
+    ]
+   },
+   "tint": [
+    "cloth"
+   ],
+   "budgetTris": 5000,
+   "tags": [
+    "rom",
+    "actor",
+    "gegner",
+    "waechter",
+    "ruine"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/schutt",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.4,
+   "facing": "+z",
+   "params": {
+    "gross": [
+     0,
+     1
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 0
+    },
+    "b": {
+     "seed": 7
+    },
+    "c": {
+     "seed": 13,
+     "gross": 0
+    },
+    "flach": {
+     "gross": 0
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 1200,
+   "tags": [
+    "rom",
+    "ruine",
+    "deko",
+    "schutt"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/saeule_gestuerzt",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    3.5,
+    1.5
+   ],
+   "height": 1.75,
+   "facing": "+z",
+   "params": {
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 0
+    },
+    "b": {
+     "seed": 5
+    }
+   },
+   "sockets": {
+    "cover": [
+     0,
+     1.25,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 1200,
+   "tags": [
+    "rom",
+    "ruine",
+    "saeule",
+    "deko"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/cloaca_einsturz",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    2,
+    2
+   ],
+   "height": 0.85,
+   "facing": "+z",
+   "params": {
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 0
+    },
+    "b": {
+     "seed": 9
+    }
+   },
+   "sockets": {
+    "fx_smoke": [
+     0,
+     0.2,
+     0.2
+    ]
+   },
+   "tint": [],
+   "budgetTris": 5000,
+   "tags": [
+    "rom",
+    "ruine",
+    "cloaca",
+    "rueckzug"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/aquaedukt_verteiler",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 1.25,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     2
+    ]
+   },
+   "states": {
+    "ruhe": {
+     "state": 0
+    },
+    "gehalten": {
+     "state": 1
+    },
+    "geloest": {
+     "state": 2
+    }
+   },
+   "sockets": {
+    "use": [
+     0,
+     0.6,
+     0.6
+    ],
+    "label": [
+     0,
+     1.6,
+     0
+    ],
+    "fx_spark": [
+     0,
+     0.6,
+     0.5
+    ],
+    "charge": [
+     -0.3,
+     0.4,
+     0.45
+    ],
+    "fx_explode": [
+     0,
+     0.7,
+     0
+    ],
+    "fx_smoke": [
+     0,
+     1.3,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 2500,
+   "tags": [
+    "rom",
+    "ruine",
+    "raetsel",
+    "sprengpunkt",
+    "station"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/offiziersschloss",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 1.4,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     2
+    ]
+   },
+   "states": {
+    "ruhe": {
+     "state": 0
+    },
+    "gehalten": {
+     "state": 1
+    },
+    "geloest": {
+     "state": 2
+    }
+   },
+   "sockets": {
+    "use": [
+     0,
+     0.65,
+     0.55
+    ],
+    "screen": [
+     0,
+     1,
+     0.35
+    ],
+    "label": [
+     0,
+     1.65,
+     0
+    ],
+    "fx_spark": [
+     0.2,
+     0.7,
+     0.4
+    ],
+    "fx_smoke": [
+     0,
+     1.3,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 2500,
+   "tags": [
+    "rom",
+    "ruine",
+    "raetsel",
+    "terminal",
+    "station"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/kassengewoelbe_tor",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    2.75,
+    1.25
+   ],
+   "height": 2.75,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     3
+    ]
+   },
+   "states": {
+    "zu": {
+     "state": 0
+    },
+    "offen": {
+     "state": 1
+    },
+    "verschlossen": {
+     "state": 2
+    },
+    "gesprengt": {
+     "state": 3
+    }
+   },
+   "sockets": {
+    "label": [
+     0,
+     3,
+     0
+    ],
+    "fx_smoke": [
+     0,
+     1.2,
+     0.2
+    ]
+   },
+   "tint": [],
+   "budgetTris": 7500,
+   "tags": [
+    "rom",
+    "ruine",
+    "tor",
+    "door"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/legionskasse",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.9,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     1
+    ]
+   },
+   "states": {
+    "da": {
+     "state": 0
+    },
+    "genommen": {
+     "state": 1
+    }
+   },
+   "sockets": {
+    "use": [
+     0,
+     0.4,
+     0.5
+    ],
+    "label": [
+     0,
+     1.2,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 2000,
+   "tags": [
+    "rom",
+    "ruine",
+    "fund",
+    "beute"
+   ]
+  },
+  {
+   "id": "leit/rom/ruine/fahnenheiligtum",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    2,
+    2
+   ],
+   "height": 3.45,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     2
+    ]
+   },
+   "states": {
+    "frei": {
+     "state": 0
+    },
+    "genommen": {
+     "state": 1
+    },
+    "aktiviert": {
+     "state": 2
+    }
+   },
+   "sockets": {
+    "use": [
+     0,
+     0.2,
+     0
+    ],
+    "label": [
+     0,
+     3.7,
+     -0.4
+    ],
+    "light": [
+     0,
+     2.8,
+     -0.45
+    ],
+    "fx_spark": [
+     0,
+     1,
+     -0.3
+    ]
+   },
+   "tint": [
+    "cloth2"
+   ],
+   "budgetTris": 10000,
+   "tags": [
+    "rom",
+    "ruine",
+    "leit",
+    "herzstueck",
+    "ziel"
+   ]
+  },
+  {
+   "id": "leit/rom/ruine/wachturm_ruine",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    3,
+    3
+   ],
+   "height": 3.5,
+   "facing": "+z",
+   "params": {
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 0
+    },
+    "b": {
+     "seed": 4
+    }
+   },
+   "sockets": {
+    "stand": [
+     0,
+     0.75,
+     0
+    ],
+    "label": [
+     0,
+     3.7,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "rom",
+    "ruine",
+    "leit",
+    "turm",
+    "aussicht"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/munitionskammer",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 1.25,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     2
+    ]
+   },
+   "states": {
+    "intakt": {
+     "state": 0
+    },
+    "scharf": {
+     "state": 1
+    },
+    "zerstoert": {
+     "state": 2
+    }
+   },
+   "sockets": {
+    "charge": [
+     0,
+     0.25,
+     0.5
+    ],
+    "fx_explode": [
+     0,
+     0.6,
+     0
+    ],
+    "fx_smoke": [
+     0,
+     1.1,
+     0
+    ],
+    "label": [
+     0,
+     1.5,
+     0
+    ],
+    "use": [
+     0,
+     0.3,
+     0.6
+    ]
+   },
+   "tint": [],
+   "budgetTris": 2500,
+   "tags": [
+    "rom",
+    "ruine",
+    "sprengpunkt"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/carcer",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.2,
+   "facing": "+z",
+   "params": {
+    "state": [
+     0,
+     1
+    ]
+   },
+   "states": {
+    "zu": {
+     "state": 0
+    },
+    "offen": {
+     "state": 1
+    }
+   },
+   "sockets": {
+    "prisoner": [
+     0,
+     0.06,
+     0.1
+    ],
+    "use": [
+     0.25,
+     0.9,
+     0.55
+    ],
+    "label": [
+     0,
+     2.4,
+     0
+    ]
+   },
+   "tint": [],
+   "budgetTris": 2500,
+   "tags": [
+    "rom",
+    "ruine",
+    "zelle"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/deko_standartenfuss",
+   "source": "rom/standartenfuss",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.4,
+   "facing": "+z",
+   "params": {},
+   "states": {},
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 800,
+   "tags": [
+    "rom",
+    "ruine",
+    "deko"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/deko_stein",
+   "source": "natur/stein",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "planet_mediterran",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.2,
+   "facing": "+z",
+   "params": {
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {},
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 300,
+   "tags": [
+    "rom",
+    "ruine",
+    "deko"
+   ]
+  },
+  {
+   "id": "prop/rom/ruine/deko_gras",
+   "source": "natur/gras",
+   "kind": "model",
+   "tier": "detail",
+   "palette": "planet_mediterran",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.35,
+   "facing": "+z",
+   "params": {
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {},
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 300,
+   "tags": [
+    "rom",
+    "ruine",
+    "deko"
+   ]
+  },
+  {
+   "id": "kit/rom/boden",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "belag": [
+     0,
+     3
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "gitter": {
+     "belag": 1
+    },
+    "planke": {
+     "belag": 2
+    },
+    "schmuck": {
+     "belag": 3
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 4
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 150,
+   "tags": [
+    "rom",
+    "kit",
+    "boden"
+   ]
+  },
+  {
+   "id": "kit/rom/wand",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "wand",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/rom/zaun",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "zaun",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/rom/tuer",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    2,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     3
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "offen": {
+     "state": 0
+    },
+    "offen_geschnitten": {
+     "state": 0,
+     "cut": 1
+    },
+    "zu": {
+     "state": 1
+    },
+    "zu_geschnitten": {
+     "state": 1,
+     "cut": 1
+    },
+    "verschlossen": {
+     "state": 2
+    },
+    "verschlossen_geschnitten": {
+     "state": 2,
+     "cut": 1
+    },
+    "gesprengt": {
+     "state": 3
+    },
+    "gesprengt_geschnitten": {
+     "state": 3,
+     "cut": 1
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "rom",
+    "kit",
+    "tuer",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/rom/tor",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    4,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     2
+    ],
+    "breite": [
+     2,
+     4
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "zu": {
+     "state": 0
+    },
+    "zu_geschnitten": {
+     "state": 0,
+     "cut": 1
+    },
+    "offen": {
+     "state": 1
+    },
+    "offen_geschnitten": {
+     "state": 1,
+     "cut": 1
+    },
+    "gesprengt": {
+     "state": 2
+    },
+    "gesprengt_geschnitten": {
+     "state": 2,
+     "cut": 1
+    },
+    "breit": {
+     "breite": 4
+    },
+    "breit_offen": {
+     "breite": 4,
+     "state": 1
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3000,
+   "tags": [
+    "rom",
+    "kit",
+    "tor",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/rom/deckung_halb",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "deckung_halb",
+    "cover_low"
+   ]
+  },
+  {
+   "id": "kit/rom/deckung_voll",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "deckung_voll",
+    "wall",
+    "cover_full"
+   ]
+  },
+  {
+   "id": "kit/rom/pfeiler",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "pfeiler",
+    "wall",
+    "cover_full"
+   ]
+  },
+  {
+   "id": "kit/rom/luke",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     1
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "offen": {
+     "state": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "luke"
+   ]
+  },
+  {
+   "id": "kit/rom/kante",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "kante",
+    "cover_low"
+   ]
+  },
+  {
+   "id": "kit/rom/gitter",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 2.5,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "gitter",
+    "wall"
+   ]
+  },
+  {
+   "id": "kit/rom/truemmer",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 0.75,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "a": {
+     "seed": 1
+    },
+    "b": {
+     "seed": 2
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "truemmer",
+    "cover_low"
+   ]
+  },
+  {
+   "id": "kit/rom/wand_schwach",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "rom",
+   "footprint": [
+    1,
+    1
+   ],
+   "height": 3,
+   "facing": "+z",
+   "params": {
+    "conn": [
+     0,
+     15
+    ],
+    "cut": [
+     0,
+     1
+    ],
+    "zustand": [
+     0,
+     2
+    ],
+    "state": [
+     0,
+     1
+    ],
+    "seed": [
+     0,
+     63
+    ]
+   },
+   "states": {
+    "frei": {
+     "conn": 0
+    },
+    "ende": {
+     "conn": 2
+    },
+    "ecke": {
+     "conn": 6
+    },
+    "t": {
+     "conn": 7
+    },
+    "kreuz": {
+     "conn": 15
+    },
+    "geschnitten": {
+     "cut": 1
+    },
+    "verfallen": {
+     "zustand": 1,
+     "seed": 1
+    },
+    "umkaempft": {
+     "zustand": 2,
+     "seed": 2
+    },
+    "offen": {
+     "state": 1
+    },
+    "ruine_verfallen": {
+     "zustand": 1,
+     "seed": 5
+    },
+    "ruine_umkaempft": {
+     "zustand": 2,
+     "seed": 6
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 600,
+   "tags": [
+    "rom",
+    "kit",
+    "wand_schwach",
+    "wall"
+   ]
+  }
+ ]
+}

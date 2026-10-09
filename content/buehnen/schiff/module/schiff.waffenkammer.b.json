@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.waffenkammer.b",
+  "art": "schiff",
+  "typ": "waffenkammer",
+  "groesse": [8, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Schlösser in diagonal gegenüberliegenden Ecken, Regale quer.",
+  "rows": [
+    "########",
+    "#..O...#",
+    "#..O...#",
+    "#o...o.#",
+    "#..OO..#",
+    "#......#",
+    "..O.....",
+    "#....O.#",
+    "#o.....#",
+    "#..OO..#",
+    "#...o..#",
+    "#o..O..#",
+    "########"
+  ],
+  "anker": [
+    "........",
+    ".r....b.",
+    "........",
+    "........",
+    "........",
+    "..q.....",
+    ".....p..",
+    "........",
+    "........",
+    "........",
+    "........",
+    "......r.",
+    "........"
+  ],
+  "anker_legende": {
+    "r": {
+      "rolle": "raetsel",
+      "paar": "A"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    }
+  },
+  "belegungen": []
+}

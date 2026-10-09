@@ -1,0 +1,24 @@
+{
+  "id": "rom/standartenfuss",
+  "name": "Standartenfuß mit Emitterkreuz (Rom)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "teil", "sockel"],
+  "footprint": [0.8, 0.8],
+  "params": {
+    "glow": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Emitter leuchten" }
+  },
+  "ops": [
+    { "op": "box", "name": "Fußkreuz x", "at": [-6, 0, -1], "size": [12, 2, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Fußkreuz z", "at": [-1, 0, -6], "size": [2, 2, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Fußkappe x", "at": [-7, 0, -1], "size": [1, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Fußkappe z", "at": [-1, 0, -7], "size": [2, 1, 1], "color": "trim", "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Emitter x", "if": "glow", "at": [-6, 1, -1], "size": [1, 1, 2], "color": { "role": "glow", "emit": 0.9 }, "jitter": false, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Emitter z", "if": "glow", "at": [-1, 1, -6], "size": [2, 1, 1], "color": { "role": "glow", "emit": 0.9 }, "jitter": false, "mirror": "z", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Sockelscheibe", "at": [0, 0, 0], "r": 3.6, "h": 2, "color": "metal" },
+    { "op": "cyl", "name": "Sockelring", "at": [0, 2, 0], "r": 3, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Sockelhals", "at": [0, 3, 0], "r": 2.1, "h": 2, "color": "metal_dark" },
+    { "op": "cyl", "name": "Halsring", "at": [0, 5, 0], "r": 1.6, "h": 1, "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

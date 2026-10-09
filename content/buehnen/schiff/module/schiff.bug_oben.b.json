@@ -1,0 +1,59 @@
+{
+  "format": "modul/1",
+  "id": "schiff.bug_oben.b",
+  "art": "schiff",
+  "typ": "bug_oben",
+  "groesse": [6, 13],
+  "deck": 2,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Schildgenerator mittig im Längsgang, Umgang beidseitig, Leiter über der Brückenleiter.",
+  "rows": [
+    "####__",
+    "#...#_",
+    "#.o..#",
+    "#O..o#",
+    "#....#",
+    "#.OO.#",
+    "..OO.#",
+    "#....#",
+    "#o...#",
+    "#..o.#",
+    "#....#",
+    "#...#_",
+    "####__"
+  ],
+  "anker": [
+    "......",
+    "......",
+    "......",
+    "......",
+    "...s..",
+    "......",
+    "......",
+    "...g..",
+    "....q.",
+    "......",
+    "..h...",
+    "......",
+    "......"
+  ],
+  "anker_legende": {
+    "s": {
+      "rolle": "sprengpunkt"
+    },
+    "g": {
+      "rolle": "ziel"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "h": {
+      "rolle": "leiter",
+      "deck": 2
+    }
+  },
+  "belegungen": []
+}

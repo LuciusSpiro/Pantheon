@@ -16,6 +16,7 @@ const Registry = require('../mission/registry.js');
 const Loader = require('../mission/loader.js');
 const Checker = require('../mission/checker.js');
 const Objects = require('../mission/objects.js');
+const Lexikon = require('../mission/lexikon.js');
 
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
@@ -27,6 +28,30 @@ function escortHpPct(g, tag) {
   try { const v = Number(escortMod.hpPct(g, tag)); return Number.isFinite(v) ? Math.round(v) : 0; } catch (e) { g.countError('mission-escortHp', e); return 0; }
 }
 const { ITEM_NAMES, DEKO_NAMES } = require('./explore.js');
+
+// B1 F1 (B1-FIX-LP): Aktionen mit Kartenparameter (params typ 'map') auf einer gebauten Karte, die noch nicht registriert ist
+// (game.aways[lp] entsteht sonst erst bei der Wahl an der Transfer-Konsole), laufen erst nach der Registrierung:
+// landepunkte.sobaldGeladen registriert sofort aus dem Karten-Cache bzw. baut außerhalb des Ticks und holt die Aktion nach
+// (spätestens beim Betreten), je Aktion+Argumente nur einmal. Handkarten und unbekannte Karten: sofort (wie bisher).
+// Das ist der einzige Weg aller Bausteine auf eine Landepunkt-Karte – Bausteine prüfen game.aways[lp] nicht selbst.
+let lpMod;
+function landepunkte() {
+  if (lpMod === undefined) { try { lpMod = require('./landepunkte.js'); if (!lpMod || lpMod.stub || typeof lpMod.sobaldGeladen !== 'function') lpMod = null; } catch (e) { lpMod = null; } }
+  return lpMod;
+}
+function aufKarten(g, entry, args, fn) {
+  const L = landepunkte();
+  const keys = Object.keys((entry && entry.params) || {}).filter((k) => entry.params[k] && entry.params[k].typ === 'map');
+  const maps = L ? [...new Set(keys.map((k) => args && args[k]).filter((x) => typeof x === 'string' && x))] : [];
+  if (!maps.length) return fn();
+  const key = entry.id + ':' + JSON.stringify(args);
+  const weiter = (i) => {
+    if (i >= maps.length) return fn();
+    if (L.sobaldGeladen(g, maps[i], key, () => weiter(i + 1)) === 'unbekannt') weiter(i + 1);
+    return undefined;
+  };
+  return weiter(0);
+}
 // §21.2 Missionsbuch
 const BOOK_LOG_MAX = 6;   // Log-Einträge je Buch-Eintrag (die jüngsten)
 const BOOK_TEXT_MAX = 120;   // Zeichen je Log-Text im Buch (volle Texte im Logbuch)
@@ -111,6 +136,9 @@ function fitBook(entries, budget) {
   }
   return entries;
 }
+// B1 F2: {fund} ohne bekannten Fund; gemerkte Funde beginnen klein (Artikel), groß schreibt tpl am Satzanfang
+const FUND_NEUTRAL = 'die Beute';
+const fundText = (t) => String(t || '').trim().replace(/^(Der|Die|Das|Ein|Eine)\b/, (w) => w.toLowerCase()) || FUND_NEUTRAL;
 const objOut = (text, done, optional) => (optional ? { text, done: !!done, optional: true } : { text, done: !!done });
 function rewardText(r) {
   if (!r) return '';
@@ -158,6 +186,7 @@ class Mission {
     this.dormant = false;        // Schritt nach dem Laden noch nicht am Ort (siehe wakeIfThere)
     // S2 §3.1: zur Laufzeit registrierte Bücher (Spielleiter/Archiv), außerhalb von order
     this.extra = {};             // id -> { book, origin: 'sl'|'archiv' }
+    this.funde = {};             // B1 F2: missionId -> Fund der Mission (Aktion fund, Textbaustein {fund}), Nominativ mit Artikel
     this.entered = new Set();    // 'missionId:schrittId' – betretene Schritte (updateBook ändert nur unbetretene)
     this.seenOffers = new Set(); this.offerCheckT = 0;
     const cat = catalog();
@@ -428,6 +457,7 @@ class Mission {
     if ((def.art === 'generiert' || def.art === 'archiv') && this.game.space) { this.game.space.escorts = []; this.game.space.escortsGone = []; }
     this.missions[id] = { id, title: def.title, state: 'active' };
     this.activeId = id; this.def = def;
+    delete this.funde[id];
     // S2 (Bericht SPIELLEITER): Entscheidungen gelten je Mission – sonst überspringt ein wiederholtes Archiv-Buch mit
     // gleicher Entscheidungs-ID die Wahl. restore() überlagert danach wie bisher.
     this.choicesMade = new Set();
@@ -450,6 +480,8 @@ class Mission {
     this.missions[id].ausgang = ausgang;
     this.game.stats.missions[id].end = this.playTime();
     this.game.emit('missionDone', { id, title: def.title, ausgang });
+    // B3 §4: temporäre Sprungpunkte mit bis 'mission' schließen (sprung.js, SEKTOR); fehlt die Funktion: nichts
+    try { const S = require('./sprung.js'); if (S && typeof S.missionEnde === 'function') S.missionEnde(this.game); } catch (e) { this.game.countError('mission-sprung', e); }
     this.game.log(`Mission ${id} abgeschlossen (${ausgang}) nach ${Math.round(this.game.stats.missions[id].end - this.game.stats.missions[id].start)} s.`);
     const ag = def.ausgaenge && def.ausgaenge[ausgang];
     if (def.isBook && !ag) this.game.countError('mission-ausgang', new Error(`${id}: Ausgang '${ausgang}' fehlt`));
@@ -536,12 +568,13 @@ class Mission {
       if (ms.ausgang) e.ausgang = ms.ausgang;
       if (st.start != null) e.start_s = st.start;
       if (st.end != null) e.ende_s = st.end;
-      e.erledigte_ziele = (this.doneLog[id] || []).map((o) => (o.optional ? { id: o.id, text: o.text, optional: true } : { id: o.id, text: o.text }));
+      e.erledigte_ziele = (this.doneLog[id] || []).map((o) => Object.assign({ id: o.id, text: o.text }, o.optional ? { optional: true } : {}, o.schritt ? { schritt: o.schritt } : {}));
       if (active && ms.state !== 'done') {
         e.schritt = this.state.stage;
         e.v = JSON.parse(JSON.stringify(this.v));
         e.ereignisse = [...this.events];
         e.entscheidungen = [...this.choicesMade];
+        if (this.funde[id]) e.fund = this.funde[id];   // B1: gemerkter Fund ({fund})
         // S2: betretene Schritte erzeugter Missionen (updateBook ändert nur unbetretene)
         if (this.extra[id]) e.betreten = [...this.entered].filter((k) => k.startsWith(id + ':')).map((k) => k.slice(id.length + 1));
       }
@@ -564,7 +597,7 @@ class Mission {
       if (!isObj(m)) continue;
       const inf = this.info(id);
       g.stats.missions[id] = { start: m.start_s != null ? m.start_s : this.playTime(), end: m.ende_s != null ? m.ende_s : null };
-      this.doneLog[id] = (m.erledigte_ziele || []).filter(isObj).map((x) => ({ id: x.id, text: x.text, optional: !!x.optional }));
+      this.doneLog[id] = (m.erledigte_ziele || []).filter(isObj).map((x) => Object.assign({ id: x.id, text: x.text, optional: !!x.optional }, x.schritt ? { schritt: x.schritt } : {}));
       if (m.status === 'erledigt') this.missions[id] = { id, title: inf ? inf.title : id, state: 'done', ausgang: m.ausgang || null };
     }
     const aid = obj.aktiv;
@@ -580,13 +613,18 @@ class Mission {
       const st = def.steps.find((s) => s.id === sid);
       const resume = st && st.wiederaufnahme && def.steps.some((s) => s.id === st.wiederaufnahme.ab) ? st.wiederaufnahme : null;
       const target = resume ? resume.ab : sid;
-      for (const z of this.doneLog[aid] || []) this.done.add(aid + ':' + z.id);
+      // B1 F13: Schlüssel je Schritt; alte Stände ohne schritt gelten für jeden Schritt mit dieser Ziel-ID (wie bisher)
+      for (const z of this.doneLog[aid] || []) {
+        const sids = z.schritt ? [z.schritt] : def.steps.filter((s) => (s.objectives || []).some((o) => o.id === z.id)).map((s) => s.id);
+        for (const s of sids) this.done.add(aid + ':' + s + ':' + z.id);
+      }
       for (const sidB of Array.isArray(m.betreten) ? m.betreten : []) this.entered.add(aid + ':' + sidB);
       const tStep = def.steps.find((s) => s.id === target);
       this.setStep(target, { dormant: !!(tStep && tStep.loc && g.ship.scene !== tStep.loc) });
       if (target === sid && isObj(m.v)) Object.assign(this.v, m.v);
       for (const e of m.ereignisse || []) this.events.add(e);
       for (const c of m.entscheidungen || []) this.choicesMade.add(c);
+      if (typeof m.fund === 'string' && m.fund) this.funde[aid] = fundText(m.fund);   // B1: ohne Feld -> „die Beute“
       if (resume && resume.prep) this.run(resume.prep);
       this.refreshObjectives();
     } else this.refreshObjectives();
@@ -680,6 +718,7 @@ class Mission {
     if (a.sfx) g.emit('sfx', { name: a.sfx });
     if (a.set) Object.assign(this.v, a.set);
     if (a.setFlag) Object.assign(this.flags, a.setFlag);
+    if (typeof a.fund === 'string' && this.activeId) this.funde[this.activeId] = fundText(this.tpl('· ' + a.fund).slice(2));   // B1 F2: {fund}
     if (a.reveal) for (const l of [].concat(a.reveal)) g.explore.reveal(l, typeof a.text === 'string' ? this.tpl(a.text) : a.text);
     if (a.openLink) g.explore.openLink(a.openLink);
     if (a.reward) { const t = g.explore.reward(a.reward); this.lastReward = t || ''; if (a.rewardNotice && t) this.noticeAll('Belohnung: ' + t); }
@@ -692,7 +731,7 @@ class Mission {
     if (a.do) {
       const r = Registry.resolve(a.do, a, 'aktion');
       if (!r) g.countError('mission-hook', new Error('Unbekannte Aktion ' + a.do));
-      else r.entry.run(this, r.args);
+      else aufKarten(g, r.entry, r.args, () => r.entry.run(this, r.args));   // B1 F1: Karte erst registrieren
     }
     if (a.wirkung) this.runEffect(a);
     if (a.complete) { this.completeMission(a.complete); }
@@ -751,7 +790,7 @@ class Mission {
     this.game.emit('sfx', { name: 'radio' });
   }
 
-  // Textbausteine: '@kennung' (texte des Buchs), {salvaged}, {killed:relay}, {left:pylon}, {found}, {total}, {arena},
+  // Textbausteine: '@kennung' (texte des Buchs), {salvaged}, {killed:relay}, {left:pylon}, {found}, {total}, {arena}, {fund} (B1: Aktion fund, sonst „die Beute“),
   // {squadLeft:gruppe}, {objectsInState:objekt:zustand}, {objectsCount:objekt}; Altnamen {awayLeft:x}, {jammersOff};
   // {reward} = Text der zuletzt ausgeführten reward-Aktion (z. B. „60 Marken, Deko: Lamassu-Figur“), sonst leer
   tpl(text, defIn) {
@@ -759,11 +798,13 @@ class Mission {
     const g = this.game;
     const def = defIn || this.textDef || this.def;
     if (text[0] === '@') text = Loader.text(def, text, (e) => g.countError('mission-text', e));
+    if (typeof text === 'string' && text.indexOf('{{') >= 0) text = Lexikon.aufloesen(text, this.lexBauweise(def));   // B1 F2
     const mapOfObject = (o) => {
       const ks = ((def && def.buehne && def.buehne.aussenkarten) || []).concat(Objects.MAP_IDS);
       return ks.find((m) => Objects.declared(m)[o]) || null;
     };
-    return text.replace(/\{(\w+)(?::(\w+))?(?::(\w+))?\}/g, (all, k, arg, arg2) => {
+    return Lexikon.satzanfaenge(text.replace(/\{(\w+)(?::(\w+))?(?::(\w+))?\}/g, (all, k, arg, arg2, pos, whole) => {
+      if (k === 'fund') return Lexikon.einsetzen(whole.slice(0, pos), (this.activeId && this.funde[this.activeId]) || FUND_NEUTRAL, whole.slice(pos + all.length));   // B1 F2
       if (k === 'salvaged') return String(Math.min(g.C.salvage.count, g.salvaged || 0));
       if (k === 'killed') return String(this.kills[arg] || 0);
       if (k === 'left') return String(g.space.enemies.filter((e) => e.kind === arg || e.tag === arg).length);
@@ -781,7 +822,19 @@ class Mission {
       if (k === 'reward') return this.lastReward || '';
       if (k === 'escortHp') return String(escortHpPct(g, arg));   // S2: Hülle eines Schützlings in % (escort.js)
       return all;
-    });
+    }));
+  }
+
+  // B1 F2: Bauweise für {{lex.*}} – Landepunkt des laufenden Schritts (allowBeam; die Karte, auf der das Außenteam gerade
+  // ist, zuerst), sonst die einzige Außenkarte der Bühne; ohne Landepunkt bzw. Handkarte ohne Bauweise: null (neutral)
+  lexBauweise(def) {
+    const g = this.game;
+    let maps = [];
+    if (this.step && (!def || def === this.def)) maps = [].concat(this.step.allowBeam || []);
+    if (!maps.length) { const ak = (def && def.buehne && def.buehne.aussenkarten) || []; if (ak.length === 1) maps = ak; }
+    if (!maps.length) return null;
+    const aktiv = maps.find((m) => g.aways && g.aways[m] && g.aways[m].active);
+    return Lexikon.bauweiseVon(g, aktiv || maps[0]);
   }
 
   // ---------- Entscheidungen ----------
@@ -833,10 +886,14 @@ class Mission {
       return;
     }
     const list = [];
+    // B1 F13: abgehakt gilt je Schritt (Mission:Schritt:Ziel). Szenenbücher nutzen in jedem Schritt dieselben Ziel-IDs
+    // (runter, ziel, hoch) – ohne Schritt im Schlüssel stand das Ziel des neuen Schritts beim Start schon auf done.
+    const sid = this.state.stage;
     for (const o of this.step.objectives || []) {
       if (o.show !== undefined && !this.cond(o.show)) continue;
-      let done = this.done.has(this.activeId + ':' + o.id);
-      if (!done && o.done !== undefined && this.cond(o.done)) { done = true; if (o.sticky !== false) this.done.add(this.activeId + ':' + o.id); }
+      const key = this.activeId + ':' + sid + ':' + o.id;
+      let done = this.done.has(key);
+      if (!done && o.done !== undefined && this.cond(o.done)) { done = true; if (o.sticky !== false) this.done.add(key); }
       const text = this.tpl(o.text);
       if (done) this.collectDone(o.id, text, !!o.optional);
       list.push({ id: o.id, text, done, optional: !!o.optional });
@@ -845,11 +902,14 @@ class Mission {
   }
 
   // ---------- §21.2 Missionsbuch: erledigte Ziele sammeln ----------
+  // B1 F13: je Schritt (schritt); dasselbe Ziel mit gleichem Text aus einem früheren Schritt steht nur einmal im Buch
   collectDone(id, text, optional) {
     const mid = this.activeId;
     if (!mid) return;
     const list = this.doneLog[mid] || (this.doneLog[mid] = []);
-    if (!list.some((x) => x.id === id)) list.push({ id, text, optional });
+    const schritt = this.state.stage || null;
+    if (list.some((x) => x.id === id && ((x.schritt || null) === schritt || x.text === text))) return;
+    list.push(schritt ? { id, text, optional, schritt } : { id, text, optional });
   }
   // Vor einem Schrittwechsel bzw. Missionsende: Ziele des alten Schritts ein letztes Mal prüfen (die Bedingung, die den
   // Wechsel auslöst, wurde im laufenden Tick noch nicht abgehakt). Ziele ohne Haken-Bedingung (done: false, z. B.
@@ -1027,6 +1087,8 @@ class Mission {
           break;
         }
         if (data.map === 'wreck') { g.oda('Willkommen an Bord der „Zaunkönig“. Container: E halten. Vorsicht, Plünderer!', 'wreckDown'); break; }
+        // B1 (OFFEN-STUDIO): Tutorial-Begrüßung nur auf B-7 selbst, nie auf gebauten Karten (Landepunkte aus awayMap)
+        if (data.map && data.map !== 'platform') break;
         g.oda('Willkommen auf B-7! Leertaste/Klick: Blaster. Q: Markierung für Hilfe von oben.', 'beamDown1');
         g.oda('Die Sonde unten links steuert die Drohnen. Den Code sieht man an der Captain-Konsole.', 'beamDown2');
         break;
@@ -1176,7 +1238,7 @@ class Mission {
       else if (running && this.offerPending()) state = 'angeboten';
       else if (running && this.preOffer()) continue;
       const done = (this.doneLog[id] || []).map((o) => objOut(o.text, true, o.optional));
-      const open = running && this.step ? this.state.objectives.filter((o) => !o.done && !(this.doneLog[id] || []).some((x) => x.id === o.id)).map((o) => objOut(o.text, false, o.optional)) : [];
+      const open = running && this.step ? this.state.objectives.filter((o) => !o.done && !(this.doneLog[id] || []).some((x) => x.id === o.id && (!x.schritt || x.schritt === this.state.stage))).map((o) => objOut(o.text, false, o.optional)) : [];
       const bi = this.bookInfo(def);
       const entry = { id, title: def.title, from: bi.from, kind: 'mission', state, briefing: bi.briefing, reward: bi.reward,
         objectives: done.concat(open), log: this.entryLog(id), loc: running && this.step && this.step.loc ? this.step.loc : null };

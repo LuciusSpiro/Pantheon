@@ -1,0 +1,18 @@
+{
+  "id": "kit/geruest/slot/deckung_halb_oberkante",
+  "name": "Gerüst-Steckplatz deckung_halb_oberkante (neutral): HELLE Oberkante (Pflicht, M4 §3.6)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["geruest","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "ops": [
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"stone_light","f":"1.1 * (1 - zustand * 0.1)"}}
+  ],
+  "anchor": [0,0,0]
+}

@@ -1,0 +1,31 @@
+{
+  "id": "fig/germanen/haescher",
+  "name": "Germanen: Häscher (Wergeld-Fänger)",
+  "generated": true,
+  "quelle": { "fraktion": "baukasten/fraktionen/germanen.json", "rolle": "baukasten/rollen/haescher.json", "generator": "tools/gen-figuren.mjs" },
+  "rig": "human",
+  "palette": "nord",
+  "tags": ["figur", "baukasten", "germanen", "haescher"],
+  "posen": { "ruhe": "guard", "ziel": "aim_rifle" },
+  "waffe": { "typ": "betaeuber", "bauweise": "germanen", "platzhalter": false },
+  "params": { "rank": 0 },
+  "parts": {
+    "hips": { "model": "fig/germanen/huefte" },
+    "torso": { "model": "fig/germanen/rumpf" },
+    "head": { "model": "fig/germanen/kopf" },
+    "upperArmL": { "model": "fig/germanen/oberarm" },
+    "upperArmR": { "model": "fig/germanen/oberarm", "mirror": true },
+    "lowerArmL": { "model": "fig/germanen/unterarm" },
+    "lowerArmR": { "model": "fig/germanen/unterarm", "mirror": true },
+    "thighL": { "model": "fig/germanen/oberschenkel" },
+    "thighR": { "model": "fig/germanen/oberschenkel", "mirror": true },
+    "shinL": { "model": "fig/germanen/unterschenkel" },
+    "shinR": { "model": "fig/germanen/unterschenkel", "mirror": true }
+  },
+  "attach": {
+    "back": { "model": "fig/rolle/haescher/fangnetz" },
+    "handR": { "model": "item/waffe/betaeuber", "params": { "bauweise": "germanen" } },
+    "head": { "model": "fig/rolle/haescher/maske" },
+    "torso": { "model": "fig/rolle/haescher/fesselgurt" }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "format": "modul/1", "id": "ruine.vorfeld.c", "art": "ruine", "typ": "vorfeld",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "::o:::::",
+    ":::PPP:O",
+    ":::PPP::",
+    ":::PPP::",
+    "::::::::",
+    "~~~::~~~",
+    "::::::::"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "....a...",
+    "........",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "a": { "rolle": "abholpunkt" }
+  },
+  "belegungen": []
+}

@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.schleuse.a",
+  "art": "schiff",
+  "typ": "schleuse",
+  "groesse": [5, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Außenschott oben in der Hülle, Schleusenkammer mit Innentür, Pad unten.",
+  "rows": [
+    "##S##",
+    "#...#",
+    "#o.o#",
+    "#...#",
+    "##D##",
+    "#...#",
+    "..I..",
+    "#...#",
+    "#o.o#",
+    "#...#",
+    "#PP.#",
+    "#P..#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    "..e..",
+    ".....",
+    ".....",
+    ".....",
+    ".p...",
+    ".....",
+    "..q..",
+    ".....",
+    ".....",
+    ".a...",
+    ".....",
+    "....."
+  ],
+  "anker_legende": {
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    }
+  },
+  "belegungen": []
+}

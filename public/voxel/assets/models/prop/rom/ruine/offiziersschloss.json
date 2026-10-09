@@ -1,0 +1,50 @@
+{
+  "id": "prop/rom/ruine/offiziersschloss",
+  "name": "Zwei-Offiziers-Schloss (Kassentresor, Rätselhälfte)",
+  "tier": "detail",
+  "jitter": 0,
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "raetsel", "terminal", "station"],
+  "notes": "Rätselpaar-Hälfte / Terminal (Anker raetsel bzw. terminal): state 0 ruhe (Schlüsselschlitz senkrecht, Siegel dunkelrot), 1 gehalten (Schlüssel steckt und ist gedreht, Amber), 2 geloest (Riegelring offen, kaltweiß). Vorderseite +z: Schlossscheibe mit Schlitz, darüber Anzeige (screen).",
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Rätsel (0 ruhe, 1 gehalten, 2 geloest)" }
+  },
+  "variants": { "gehalten": { "state": 1 }, "geloest": { "state": 2 } },
+  "ops": [
+    { "name": "Fußtrommel", "op": "cyl", "at": [-0.5, 0, -0.5], "r": 7, "h": 3, "color": { "noise": ["stone_dark", "stone"], "weights": [3, 1], "cell": 2 } },
+    { "name": "Fußring gold", "op": "cyl", "at": [-0.5, 3, -0.5], "r": 6, "h": 1, "color": { "shade": "trim", "f": 0.8 } },
+    { "name": "Schaft", "op": "box", "at": [-5, 4, -5], "size": [10, 14, 9], "color": "metal_dark" },
+    { "name": "Paneel vorn", "op": "box", "at": [-4, 5, 4], "size": [8, 12, 1], "color": { "frame": "metal", "fill": { "shade": "primary", "f": 0.8 }, "axes": "xy" } },
+    { "name": "Paneele seitlich", "op": "box", "at": [-6, 5, -4], "size": [1, 12, 7], "color": { "frame": "metal", "fill": { "shade": "primary", "f": 0.8 }, "axes": "yz" }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Deckplatte", "op": "box", "at": [-6, 18, -6], "size": [12, 2, 12], "color": { "frame": "trim", "fill": "secondary", "axes": "xz" } },
+    { "name": "Siegeladler (Relief)", "op": "box", "at": [-3, 20, -1], "size": [6, 1, 2], "color": "trim" },
+    { "name": "Siegeladler Kopf", "op": "box", "at": [-1, 21, -1], "size": [2, 1, 2], "color": "trim" },
+
+    { "name": "Schlossscheibe", "op": "cyl", "axis": "z", "at": [-0.5, 10.5, 5], "r": 3.5, "h": 1, "color": "metal_light" },
+    { "name": "Riegelring", "op": "cyl", "axis": "z", "if": "state != 2", "at": [-0.5, 10.5, 5], "r": 4.5, "h": 1, "hollow": 1, "color": { "shade": "trim", "f": 0.9 } },
+    { "name": "Riegelring offen", "op": "cyl", "axis": "z", "if": "state == 2", "at": [-0.5, 10.5, 5], "r": 4.5, "h": 1, "hollow": 1, "arc": [40, 320], "color": { "shade": "trim", "f": 0.9 } },
+    { "name": "Schlitz senkrecht (ruhe)", "op": "box", "if": "state == 0", "at": [-1, 9, 6], "size": [1, 3, 1], "color": "dark", "jitter": false },
+    { "name": "Siegel ruhe", "op": "box", "if": "state == 0", "at": [-1, 7, 6], "size": [1, 1, 1], "color": { "shade": "primary", "f": 0.6 }, "jitter": false },
+    { "name": "Schlüssel gedreht (gehalten)", "op": "box", "if": "state == 1", "at": [-3, 10, 6], "size": [5, 1, 2], "color": "metal_light" },
+    { "name": "Schlüsselbart", "op": "box", "if": "state == 1", "at": [1, 9, 7], "size": [2, 3, 1], "color": "trim" },
+    { "name": "Schloss Amber", "op": "box", "if": "state == 1", "at": [-1, 7, 6], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 1.4 }, "jitter": false },
+    { "name": "Kern offen (geloest)", "op": "box", "if": "state == 2", "at": [-2, 9, 6], "size": [3, 3, 1], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+
+    { "name": "Anzeige", "op": "box", "at": [-3, 15, 5], "size": [6, 2, 1], "color": "glass", "jitter": false },
+    { "name": "Anzeige Amber", "op": "box", "if": "state == 1", "at": [-2, 15, 5], "size": [4, 1, 1], "color": { "role": "glow2", "emit": 1.2 }, "jitter": false },
+    { "name": "Anzeige offen", "op": "box", "if": "state == 2", "at": [-2, 15, 5], "size": [4, 2, 1], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+    { "name": "Anzeige ruhe", "op": "box", "if": "state == 0", "at": [-1, 16, 5], "size": [2, 1, 1], "color": { "shade": "primary", "f": 0.7 }, "jitter": false },
+
+    { "name": "Kabel zum Boden", "op": "line", "from": [3, 6, -5], "to": [6, 0, -7], "r": 0.6, "color": "rubber" },
+    { "name": "Verfall", "op": "erode", "density": 0.15, "depth": 1, "salt": 6, "at": [-8, 0, -8], "size": [16, 22, 12] },
+    { "name": "Moos Fuß", "op": "box", "mode": "paint", "at": [-8, 0, -8], "size": [16, 3, 16], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone_dark", "stone"], "weights": [1, 3, 2], "cell": 1 } }
+  ],
+  "sockets": {
+    "use": [0, 0.65, 0.55],
+    "screen": [0, 1.0, 0.35],
+    "label": [0, 1.65, 0],
+    "fx_spark": [0.2, 0.7, 0.4]
+  },
+  "anchor": [0, 0, 0]
+}

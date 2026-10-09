@@ -1,0 +1,251 @@
+{
+ "id": "kit/germanen/gemein/tuer_blatt",
+ "name": "Germanen gemein – tuer_blatt (blatt): Bohlentür: senkrechte Eichenbohlen, Eisenbänder, Knochenring; verschlossen mit Querriegel",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 8,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 9,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 2,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "state": {
+   "default": 1,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "1 zu · 2 verschlossen"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "verschlossen": {
+   "state": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Bohlen",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "wood",
+      "f": "dk"
+     },
+     {
+      "shade": "wood",
+      "f": "0.86 * dk"
+     }
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "name": "Flügelfuge",
+   "op": "box",
+   "at": [
+    "floor(w / 2) - 1",
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "wood_dark",
+    "f": "0.8 * dk"
+   },
+   "mode": "paint",
+   "if": "w >= 6"
+  },
+  {
+   "name": "Eisenband unten",
+   "op": "box",
+   "at": [
+    0,
+    1,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "h >= 4"
+  },
+  {
+   "name": "Eisenband oben",
+   "op": "box",
+   "at": [
+    0,
+    "h - 2",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "h >= 4"
+  },
+  {
+   "name": "Ring",
+   "op": "box",
+   "at": [
+    "floor(w / 2)",
+    "floor(h / 2)",
+    "d - 1"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "shade": "trim",
+    "f": "0.9 * dk"
+   },
+   "mode": "paint",
+   "mirror": "z",
+   "mirrorAt": "d / 2"
+  },
+  {
+   "name": "Querriegel (verschlossen)",
+   "op": "box",
+   "at": [
+    0,
+    "floor(h / 2) + 1",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_light",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "state == 2"
+  },
+  {
+   "name": "Riegelkrampen",
+   "op": "box",
+   "at": [
+    1,
+    "floor(h / 2)",
+    0
+   ],
+   "size": [
+    1,
+    3,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "0.8 * dk"
+   },
+   "mode": "paint",
+   "if": "state == 2 && h >= 4",
+   "mirror": "x",
+   "mirrorAt": "w / 2"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "wood",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "wood",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

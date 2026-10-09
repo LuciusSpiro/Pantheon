@@ -1,0 +1,40 @@
+{
+  "format": "gegner/1",
+  "id": "enterer",
+  "rolle": "enterer",
+  "waffe": "nahkampf",
+  "profil": "enterer",
+  "namen": {
+    "germanen": "Berserker",
+    "rostmeute": "Berserker"
+  },
+  "beschreibung": "Läuft ohne Deckung direkt auf den nächsten Spieler zu und schlägt im Nahkampf zu, oft zu zweit. Hält zwei Wunden aus.",
+  "funk": {
+    "allgemein": [
+      "Ich geh rein!",
+      "Nah ran!",
+      "Für den Clan!",
+      "Steh still, Kleiner!",
+      "Mir nach, in die Enge!"
+    ],
+    "erste_wunde": [
+      "Das war nur ein Kratzer!"
+    ],
+    "liegend": [
+      "Holt mich hier raus!"
+    ],
+    "kamerad_liegt": [
+      "Hoch mit dir!",
+      "Ich hol dich!"
+    ],
+    "spieler_gefesselt": [
+      "Den haben wir!"
+    ],
+    "alarm_laerm": [
+      "Das war ein Schuss! Alle wach!"
+    ],
+    "friendly_fire": [
+      "Pass doch auf, du Narr!"
+    ]
+  }
+}

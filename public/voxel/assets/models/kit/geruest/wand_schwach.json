@@ -1,0 +1,47 @@
+{
+  "id": "kit/geruest/wand_schwach",
+  "name": "Bausatz-Gerüst – Schwache Wand (Versteck): intakt wie Wand mit Rissmarke, offen = Durchbruch",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","wand_schwach"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["wand_*","wand_schwach_riss","wand_schwach_bruch"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"},
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"0 intakt · 1 offen"}
+  },
+  "variants": {
+    "frei": {"conn":0},
+    "ende": {"conn":2},
+    "ecke": {"conn":6},
+    "t": {"conn":7},
+    "kreuz": {"conn":15},
+    "geschnitten": {"cut":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":2},
+    "probe": {"bauweise":"test"},
+    "probe_ecke": {"bauweise":"test","conn":6,"art":"aussenposten"},
+    "probe_station": {"bauweise":"test","art":"station"},
+    "probe_ruine_verfallen": {"bauweise":"test","art":"ruine","zustand":2,"seed":3},
+    "offen": {"state":1},
+    "probe_offen": {"state":1,"bauweise":"test"}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "H": "cut ? 5 : 12"
+  },
+  "ops": [
+    {"name":"Wand (Gerüst)","op":"use","model":"kit/geruest/wand","at":[2,0,2],"if":"state == 0","params":{"conn":"conn","cut":"cut","zustand":"zustand","art":"{art}","bauweise":"{bauweise}","seed":"seed"}},
+    {"op":"group","name":"Rissmarke (nur freie Seiten)","repeat":{"count":4,"step":[0,0,0],"var":"f"},"rot":"f * 90","pivot":[2,2],"let":{"fc":"f == 0 ? cs : f == 1 ? ce : f == 2 ? cn : cw","fe":"1 - fc","le":"f == 0 ? 1 - cw : f == 1 ? 1 - cs : f == 2 ? 1 - ce : 1 - cn","re":"f == 0 ? 1 - ce : f == 1 ? 1 - cn : f == 2 ? 1 - cw : 1 - cs","u0":"le","uw":"4 - le - re"},"ops":[{"name":"Steckplatz wand_schwach_riss","op":"use","model":"kit/{bauweise}/{art}/wand_schwach_riss","fallback":["kit/{bauweise}/gemein/wand_schwach_riss","kit/geruest/slot/wand_schwach_riss"],"at":[1,1,3],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":2,"h":"H - 3","d":1,"state":"state"},"if":"fe && state == 0","mode":"paint"}]},
+    {"name":"Steckplatz wand_schwach_bruch","op":"use","model":"kit/{bauweise}/{art}/wand_schwach_bruch","fallback":["kit/{bauweise}/gemein/wand_schwach_bruch","kit/geruest/slot/wand_schwach_bruch"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":2,"d":4,"state":"state"},"if":"state == 1"}
+  ],
+  "anchor": [2,0,2]
+}

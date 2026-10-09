@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/katalog/fraktion/1",
+  "title": "Fraktion (CONTRACT-B2 §7)",
+  "description": "content/katalog/fraktionen/<id>.json. Fraktion = Besitz-ID (content/buehnen/achsen.json). Rezepte laut INHALT §7.2; der Spielleiter nennt nur Fraktion, Stärke, Haltung und höchstens eine neue_rolle. Prüfer-Code FRAKTION bei unbekannter Fraktion bzw. ohne Rezept für Kartenart oder Stärke.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "id", "name", "modelle", "rezepte", "staerke"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "fraktion/1" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "name": { "type": "string", "maxLength": 60 },
+    "beschreibung": { "type": "string", "maxLength": 300 },
+    "modelle": { "type": "object", "description": "Rolle -> Modell-ID (fig/germanen/<rolle>, lerche/scavenger, actor/rom/waechter …)",
+      "propertyNames": { "enum": ["grundtyp", "niederhalter", "grenadier", "schuetze", "enterer", "haescher", "waechter"] },
+      "additionalProperties": { "type": "string" } },
+    "palette": { "type": ["string", "null"], "description": "Paletten-Override (friedlose, kontor, …)" },
+    "rezepte": { "type": "object", "description": "Rezeptname -> Trupp [{ rolle, n }] (für 3 Spieler; squadScale skaliert)",
+      "additionalProperties": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["rolle", "n"],
+        "properties": { "rolle": { "enum": ["grundtyp", "niederhalter", "grenadier", "schuetze", "enterer", "haescher", "waechter"] }, "n": { "type": "integer", "minimum": 1, "maximum": 8 } } } } },
+    "staerke": { "type": "object", "additionalProperties": false, "required": ["klein", "mittel", "gross"],
+      "description": "Stärke -> Zahl der Trupps", "properties": { "klein": { "type": "integer", "minimum": 1 }, "mittel": { "type": "integer", "minimum": 1 }, "gross": { "type": "integer", "minimum": 1 } } },
+    "gross_extra": { "type": ["string", "null"], "description": "Zusatzrezept bei Stärke gross (z. B. posten)" },
+    "einsatz": { "type": "object", "description": "Rezeptname -> Kartenarten, auf denen es eingesetzt wird", "additionalProperties": { "type": "array", "items": { "enum": ["aussenposten", "station", "ruine", "schiff", "hand"] } } },
+    "funkstil": { "type": "string", "maxLength": 200 }
+  }
+}

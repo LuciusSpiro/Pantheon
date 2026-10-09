@@ -13,36 +13,71 @@
   "umsetzungen": [
     {
       "id": "wrack_logbuch",
-      "name": "Logbuch im Wrack lesen",
+      "name": "Logbuch lesen",
       "schauplatz": "aussen",
-      "beschreibung": "Im dunklen Wrack liegt ein Logbuch-Terminal, das erzählt, was passiert ist. Optional ein Hohlraum hinter einer dünnen Wand, den nur ein Weitscan aus dem Orbit verrät. Ruhige Erkundung, Stimmung statt Kampf. Heute nur im Wrack „Zaunkönig“.",
+      "beschreibung": "Ein Logbuch-Terminal (Ruine: Wachbuch) erzählt, was hier passiert ist. E halten, bis es ausgelesen ist. Optional ein Versteck hinter einer dünnen Wand, das nur ein Weitscan aus dem Orbit verrät – nur, wenn die Karte eins hat (mit_versteck). Ruhige Erkundung, Stimmung statt Kampf.",
       "braucht": [
         "transfer",
         "aussen_objekte",
         "weitscan"
       ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "wreck",
+          "schiff",
+          "station",
+          "ruine"
+        ],
+        "anker": [
+          "terminal"
+        ]
+      },
       "dauer_min": [
         2,
         4
       ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          3
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gelesen"
+      ],
       "ereignisse": [
         "wreckLore",
-        "wreckSalvage"
+        "ankerGelesen",
+        "ankerZustand"
       ],
       "params": {
         "loc": {
           "typ": "loc",
-          "pflicht": true,
-          "werte": [
-            "wrack"
-          ]
+          "pflicht": true
         },
         "map": {
           "typ": "map",
           "pflicht": true,
-          "werte": [
-            "wreck"
-          ]
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "mit_versteck": {
+          "typ": "bool",
+          "default": false,
+          "beschreibung": "Optionales Ziel Versteck (nur, wenn die Karte einen versteck-Anker hat: Wrack, Station, Kriegsschiff)"
+        },
+        "was": {
+          "typ": "text",
+          "default": "Das Logbuch erzählt von einem Überfall – die Besatzung hat es nicht mehr hinausgeschafft.",
+          "beschreibung": "Was das Logbuch erzählt (ODA, ≤ 120 Zeichen)"
         }
       },
       "vorlage": {
@@ -52,13 +87,7 @@
           ],
           "aussenkarten": [
             "{{map}}"
-          ],
-          "objekte": {
-            "{{map}}": [
-              "lore",
-              "hollow"
-            ]
-          }
+          ]
         },
         "steps": [
           {
@@ -67,50 +96,95 @@
             "allowBeam": [
               "{{map}}"
             ],
+            "enter": [],
             "timers": [
               {
-                "at": 1,
+                "at": 2,
                 "oda": "@{{id}}.start"
               },
               {
                 "at": 60,
                 "if": {
                   "not": {
-                    "check": {
-                      "name": "object_state",
-                      "map": "{{map}}",
-                      "object": "lore",
-                      "state": "read"
-                    }
+                    "v": "{{id}}_ende"
                   }
                 },
                 "oda": "@{{id}}.hinweis",
                 "garantie": "hinweis"
               }
             ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "terminal",
+                        "state": "geladen"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gelesen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
             "objectives": [
               {
-                "id": "lesen",
-                "text": "@{{id}}.ziel_lesen",
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
                 "done": {
-                  "check": {
-                    "name": "object_state",
-                    "map": "{{map}}",
-                    "object": "lore",
-                    "state": "read"
-                  }
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
                 }
               },
               {
-                "id": "hohlraum",
-                "text": "@{{id}}.ziel_hohlraum",
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "versteck",
+                "text": "@{{id}}.ziel_versteck",
                 "optional": true,
+                "show": "{{mit_versteck}}",
                 "done": {
                   "check": {
-                    "name": "object_state",
+                    "name": "anker_state",
                     "map": "{{map}}",
-                    "object": "hollow",
-                    "state": "open"
+                    "anker": "versteck",
+                    "state": "offen"
                   }
                 }
               }
@@ -118,35 +192,48 @@
             "next": [
               {
                 "if": {
-                  "check": {
-                    "name": "object_state",
-                    "map": "{{map}}",
-                    "object": "lore",
-                    "state": "read"
-                  }
+                  "v": "{{id}}_ende"
                 },
                 "goto": "{{weiter}}"
               }
             ],
             "skip": [
               {
-                "do": "debug_skip_away",
-                "map": "{{map}}"
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "terminal",
+                "zustand": "geladen"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gelesen": true
+                }
               }
             ]
           }
         ],
         "texte": {
-          "{{id}}.start": "Das Wrack. Transferpads auf dem Vorderdeck sind intakt. Ein Weitscan zeigt vielleicht mehr.",
-          "{{id}}.hinweis": "Das Logbuch-Terminal steht auf der Brücke des Wracks. Hingehen, E halten.",
-          "{{id}}.ziel_lesen": "Logbuch des Wracks lesen",
-          "{{id}}.ziel_hohlraum": "Hohlraum finden (Weitscan) und ausräumen"
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Unten ist es still. {{lex.terminal:ein}} wartet – und ein Weitscan zeigt vielleicht mehr.",
+          "{{id}}.hinweis": "Captain: {{lex.terminal:der}} ist auf der Außenteam-Karte markiert. Hingehen, E halten, bis alles ausgelesen ist.",
+          "{{id}}.geschafft": "{{was}}",
+          "{{id}}.ziel": "{{lex.terminal:den}} auslesen (E halten)",
+          "{{id}}.ziel_versteck": "Versteck finden (Weitscan) und öffnen"
         }
+      },
+      "rueckfall": {
+        "params": {}
       },
       "test": {
         "params": {
-          "loc": "wrack",
-          "map": "wreck"
+          "loc": "hafen",
+          "map": "hafen.kontor"
         }
       }
     }

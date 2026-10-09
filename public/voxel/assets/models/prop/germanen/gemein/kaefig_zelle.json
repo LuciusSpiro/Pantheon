@@ -1,0 +1,45 @@
+{
+  "id": "prop/germanen/gemein/kaefig_zelle",
+  "name": "Käfigzelle (Germanen): Gitterkäfig aus Eisenstäben mit Runenschloss",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","anker","zelle","gefangen"],
+  "footprint": [1,1],
+  "params": {
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"Zustand (0 zu, 1 offen)"}
+  },
+  "variants": {
+    "offen": {"state":1}
+  },
+  "sockets": {"prisoner":[0,0.06,-0.05],"use":[0,0,0.6],"label":[0,2.15,0]},
+  "ops": [
+    {"op":"box","name":"Bodenplatte","at":[-8,0,-8],"size":[16,1,16],"color":"metal_dark","jitter":false},
+    {"op":"box","name":"Eckpfosten","jitter":false,"at":[-8,1,-8],"size":[2,29,2],"color":"metal","mirror":"xz","mirrorAt":{"x":0,"z":0}},
+    {"op":"box","name":"Dachrahmen","jitter":false,"at":[-8,28,-8],"size":[16,2,16],"color":"metal"},
+    {"op":"box","name":"Dach hohl","at":[-6,28,-6],"size":[12,2,12],"mode":"carve"},
+    {"op":"box","name":"Dachgitter","at":[-5,29,-7],"size":[1,1,14],"color":"metal_dark","jitter":false,"repeat":{"count":3,"step":[4,0,0]}},
+    {"op":"box","name":"Querriegel","jitter":false,"at":[-8,14,-8],"size":[16,1,1],"color":"metal_dark"},
+    {"op":"box","name":"Stäbe hinten","at":[-5,1,-8],"size":[1,27,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[2,0,0]}},
+    {"op":"box","name":"Stäbe links","at":[-8,1,-5],"size":[1,27,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[0,0,2]}},
+    {"op":"box","name":"Stäbe rechts","at":[7,1,-5],"size":[1,27,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[0,0,2]}},
+    {"op":"box","name":"Türsturz","jitter":false,"at":[-6,24,7],"size":[12,4,1],"color":"metal_dark"},
+    {"op":"use","name":"Runenband Sturz","model":"prop/germanen/gemein/teil/runenband","at":[0,24,7],"params":{"n":3,"lit":"state == 0 ? 3 : 0","emit":0.7,"rahmen":0,"start":1,"schritt":1}},
+    {"op":"box","name":"Führungsschiene","jitter":false,"at":[-6,1,7],"size":[12,1,1],"color":"metal_dark"},
+    {"op":"group","name":"Tür zu","if":"state == 0", "ops": [
+      {"op":"box","name":"Türstäbe","at":[-5,2,7],"size":[1,21,1],"color":"metal_light","jitter":false,"repeat":{"count":6,"step":[2,0,0]}},
+      {"op":"box","name":"Türriegel","jitter":false,"at":[-6,6,7],"size":[12,1,1],"color":"metal","repeat":{"count":2,"step":[0,12,0]}},
+      {"op":"box","name":"Schlosskasten","jitter":false,"at":[3,11,6],"size":[3,4,2],"color":"metal_dark"},
+      {"op":"box","name":"Schlossauge","at":[4,13,7],"size":[1,1,1],"color":"rune","emit":0.9,"jitter":false}
+    ]},
+    {"op":"group","name":"Tür offen","if":"state == 1", "ops": [
+      {"op":"box","name":"Türstäbe","at":[-6,2,-3],"size":[1,21,1],"color":"metal_light","jitter":false,"repeat":{"count":5,"step":[0,0,2]}},
+      {"op":"box","name":"Türriegel","jitter":false,"at":[-6,6,-4],"size":[1,1,11],"color":"metal","repeat":{"count":2,"step":[0,12,0]}},
+      {"op":"box","name":"Schlosskasten","jitter":false,"at":[-6,11,-4],"size":[2,4,3],"color":"metal_dark"},
+      {"op":"box","name":"Schlossauge","at":[-5,13,-5],"size":[1,1,1],"color":"dark","jitter":false},
+      {"op":"box","name":"Kette lose","at":[5,4,7],"size":[1,9,1],"color":"metal_dark","jitter":false}
+    ]},
+    {"op":"box","name":"Stroh","at":[-6,1,-6],"size":[6,1,5],"color":"sand","jitter":false},
+    {"op":"box","name":"Eimer","jitter":false,"at":[3,1,-6],"size":[3,3,3],"color":"metal"}
+  ],
+  "anchor": [0,0,0]
+}

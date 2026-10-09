@@ -1,0 +1,42 @@
+{
+  "id": "prop/germanen/aussenposten/tanklager_2x1",
+  "name": "Tanklager 2×1 (Außenposten, Sprengpunkt)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "aussenposten", "sprengpunkt", "tank"],
+  "footprint": [2, 1],
+  "params": {
+    "state": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 scharf, 2 zerstoert)"}
+  },
+  "let": {"heil": "state < 2"},
+  "variants": {"scharf": {"state": 1}, "zerstoert": {"state": 2}},
+  "ops": [
+    {"op": "box", "name": "Bohlenboden", "at": [-15, 0, -7], "size": [30, 1, 14], "color": {"stripes": ["wood_dark", "wood"], "axis": "x", "period": 3}, "jitter": false},
+    {"op": "box", "name": "Sattelholz", "at": [-13, 1, -6], "size": [3, 4, 12], "color": "wood_dark", "jitter": false, "repeat": {"count": 3, "step": [11, 0, 0]}},
+    {"op": "box", "name": "Sattelwange", "at": [-13, 5, -7], "size": [3, 4, 2], "color": "wood_dark", "mirror": "z", "mirrorAt": 0, "repeat": {"count": 3, "step": [11, 0, 0]}},
+    {"op": "cyl", "name": "Liegetank", "if": "heil", "at": [-14, 11, 0], "r": 6, "h": 28, "axis": "x", "color": "metal", "jitter": false},
+    {"op": "cyl", "name": "Spannband", "if": "heil", "at": [-12, 11, 0], "r": 6.5, "h": 1, "axis": "x", "color": "metal_dark", "jitter": false, "repeat": {"count": 3, "step": [11, 0, 0]}},
+    {"op": "cyl", "name": "Clanband", "if": "heil", "at": [-6, 11, 0], "r": 6.3, "h": 3, "axis": "x", "color": "cloth", "jitter": false},
+    {"op": "box", "name": "Mannloch", "if": "heil", "at": [3, 17, -2], "size": [4, 1, 4], "color": "metal_light"},
+    {"op": "box", "name": "Pumpenhaus", "at": [10, 1, 3], "size": [5, 6, 4], "color": "metal_dark", "jitter": false},
+    {"op": "cyl", "name": "Pumpenrad", "at": [12.5, 4, 7], "r": 1.6, "h": 1, "axis": "z", "hollow": 1, "color": "metal_light"},
+    {"op": "line", "name": "Leitung", "if": "heil", "from": [11, 7, 4], "to": [11, 14, 1], "r": 0.6, "color": "metal_dark"},
+    {"op": "box", "name": "Frost oben", "if": "heil", "at": [-14, 16, -3], "size": [28, 2, 6], "mode": "paint", "color": {"noise": ["metal_light", "frost"], "weights": [3, 1], "cell": 2}},
+    {"op": "group", "name": "Ladung (scharf)", "if": "state == 1", "ops": [
+      {"op": "box", "name": "Ladungspaket", "at": [-4, 6, 5], "size": [8, 5, 2], "color": "metal_dark", "jitter": false},
+      {"op": "cyl", "name": "Sprengrollen", "at": [-2.5, 6, 7], "r": 0.9, "h": 5, "color": "leather", "jitter": false, "repeat": {"count": 3, "step": [2.5, 0, 0]}},
+      {"op": "box", "name": "Zünder", "at": [-1, 11, 5], "size": [3, 2, 2], "color": "trim"},
+      {"op": "line", "name": "Zündkabel", "from": [4, 7, 6], "to": [8, 1, 7], "r": 0.5, "color": "dark"}
+    ] },
+    {"op": "group", "name": "Aufgerissen (zerstört)", "if": "state == 2", "ops": [
+      {"op": "cyl", "name": "Tankhälfte", "at": [-14, 11, 0], "r": 6, "h": 14, "axis": "x", "hollow": 1, "color": "metal_dark"},
+      {"op": "box", "name": "Hälfte oben weg", "at": [-15, 12, -7], "size": [18, 8, 14], "mode": "carve"},
+      {"op": "box", "name": "Blech verbogen", "at": [1, 5, -6], "size": [7, 1, 9], "color": "metal"},
+      {"op": "box", "name": "Blech hoch", "at": [7, 6, -6], "size": [1, 6, 5], "color": "metal"},
+      {"op": "erode", "name": "Riss", "density": 0.5, "depth": 2, "at": [-15, 6, -7], "size": [24, 8, 14]},
+      {"op": "box", "name": "Ruß", "at": [-16, 0, -8], "size": [32, 16, 16], "mode": "paint", "color": {"noise": ["dark", "black", "wood_dark"], "weights": [2, 1, 2]}}
+    ] }
+  ],
+  "anchor": [0, 0, 0],
+  "budgetTris": 5000
+}

@@ -1,0 +1,21 @@
+{
+  "id": "kit/rom/tor",
+  "name": "Rom (Kastell) – tor: Porta-Gittertor",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["kit","rom","tor"],
+  "footprint": [4,1],
+  "jitter": 0,
+  "variants": {"geschnitten":{"cut":1},"verfallen":{"zustand":1,"seed":1},"umkaempft":{"zustand":2,"seed":2},"zu":{"state":0},"zu_geschnitten":{"state":0,"cut":1},"offen":{"state":1},"offen_geschnitten":{"state":1,"cut":1},"gesprengt":{"state":2},"gesprengt_geschnitten":{"state":2,"cut":1},"breit":{"breite":4},"breit_offen":{"breite":4,"state":1},"ruine_verfallen":{"zustand":1,"seed":5},"ruine_umkaempft":{"zustand":2,"seed":6}},
+  "params": {
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"ruine","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "state": {"default":0,"min":0,"max":2,"step":1,"label":"0 zu · 1 offen · 2 gesprengt"},
+    "breite": {"default":2,"min":2,"max":4,"step":1,"label":"Breite (Kacheln)"}
+  },
+  "ops": [
+    {"name":"Gerüst (Bauweise rom) tor","op":"use","model":"kit/geruest/tor","at":["breite * 2",1,2],"params":{"cut":"cut","zustand":"zustand","art":"{art}","state":"state","breite":"breite","bauweise":"rom","seed":"seed"}}
+  ],
+  "anchor": ["breite * 2",1,2]
+}

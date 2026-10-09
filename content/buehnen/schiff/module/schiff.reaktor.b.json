@@ -1,0 +1,63 @@
+{
+  "format": "modul/1",
+  "id": "schiff.reaktor.b",
+  "art": "schiff",
+  "typ": "reaktor",
+  "groesse": [5, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Hoher Kessel bis zur Decke, drei Ventile (ziel) verteilt; einziger Übergang südlich des Kessels (echtes Nadelöhr). Notluke im Kiel.",
+  "rows": [
+    "#####",
+    "#.O.#",
+    "#.O.#",
+    "#.O.#",
+    "#.O.#",
+    "#.O.#",
+    "..O..",
+    "#.O.#",
+    "#...#",
+    "#o..#",
+    "#...#",
+    "#...#",
+    "##L##"
+  ],
+  "anker": [
+    ".....",
+    ".g.s.",
+    ".....",
+    ".....",
+    ".....",
+    ".....",
+    ".....",
+    ".....",
+    ".p...",
+    "...g.",
+    "..q..",
+    ".ge..",
+    "....."
+  ],
+  "anker_legende": {
+    "g": {
+      "rolle": "ziel"
+    },
+    "s": {
+      "rolle": "sprengpunkt"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    }
+  },
+  "belegungen": []
+}

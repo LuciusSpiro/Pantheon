@@ -1,0 +1,12 @@
+{ "format": "schablone/1", "id": "ruine.test", "art": "ruine", "name": "Testgelände (Fixture)", "zellen": [3, 2], "spiegeln": ["x"], "fuellung": "fels",
+  "plaetze": [
+    { "id": "pad",   "typ": "pad",  "x": 0, "y": 0, "bereich": "landung", "ankunft": true },
+    { "id": "feld1", "typ": "feld", "x": 1, "y": 0, "bereich": "hof" },
+    { "id": "raum",  "typ": "raum", "x": 2, "y": 0, "bereich": "ziel", "kern": true },
+    { "id": "tor1",  "typ": "tor",  "x": 0, "y": 1, "bereich": "vorfeld", "kern": true, "richtung": "S" },
+    { "id": "feld2", "typ": "feld", "x": 1, "y": 1, "bereich": "hof" },
+    { "id": "tor2",  "typ": "tor",  "x": 2, "y": 1, "bereich": "vorfeld", "kern": true, "richtung": "S", "eingang_art": "leise" } ],
+  "bereiche": { "landung": { "name": "Landung", "rolle": "rueckzug" }, "hof": { "name": "Hof", "rolle": null }, "vorfeld": { "name": "Vorfeld", "rolle": "hinein" }, "ziel": { "name": "Raum", "rolle": "ziel" } },
+  "gefecht": ["feld1", "feld2"],
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 1, "terminal": 1, "beute": 1, "wache": 2 } }

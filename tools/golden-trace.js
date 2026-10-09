@@ -191,7 +191,8 @@ function makeSoloKesh(Sim, Maps, Physics) {
       const spot = { x: stn.x - 250, y: stn.y };
       const ok = dist(sh.x, sh.y, stn.x, stn.y) <= 330 && sh.speed <= 12;
       if (!ok) { if (this.enter(S, 'helm')) { if (dist(sh.x, sh.y, spot.x, spot.y) > 60) this.steer(S, spot.x, spot.y, 30, 90); else this.brake(S); } return; }
-      if (p.console) { this.leave(S); return; }   // Agent.send stellt vor dem Verlassen auf STOPP
+      if (p.console && p.console !== 'transfer') { this.leave(S); return; }   // Agent.send stellt vor dem Verlassen auf STOPP
+      if (this.loadoutStep(S, p)) return;   // BOTS W3: Waffenwahl an der Transfer-Konsole (sim-headless KeshAgent)
       if (!this.onMyPad(S, p)) return;
       this.holdBeam(S, p);
     }

@@ -35,7 +35,7 @@
         "empfaenger": { "typ": "npc", "pflicht": true, "beschreibung": "Wer quittiert" },
         "item": { "typ": "text", "default": "datenkern", "werte": ["datenkern", "tafel"], "beschreibung": "Gegenstand, der übergeben wird, falls er an Bord ist" },
         "lohn": { "typ": "zahl", "default": 80, "min": 0, "max": 300 },
-        "was": { "typ": "text", "default": "die Ladung", "beschreibung": "Was übergeben wird, für die Texte (z. B. „die Messdaten“)" },
+        "was": { "typ": "text", "default": "die Ladung", "beschreibung": "Was übergeben wird, im Akkusativ mit Artikel (z. B. „die Messdaten“, „den Speicher“); steht nur vor „übergeben“" },
         "funk_quittung": { "typ": "text", "default": "Angekommen und quittiert. Gute Arbeit, Lerche – sauber übergeben." }
       },
       "vorlage": {
@@ -77,7 +77,7 @@
           "{{id}}.quittung": "{{funk_quittung}}",
           "{{id}}.anflug": "Kurs auf den Andockpunkt. Steuer: langsam ran, dann andocken.",
           "{{id}}.tipp": "Andocken: nah an die Schleuse, Tempo runter, dann die Andocktaste der Steuer.",
-          "{{id}}.log": "Übergabe von {{was}} quittiert.",
+          "{{id}}.log": "{{was}} übergeben – quittiert.",
           "{{id}}.ziel": "Andocken und {{was}} übergeben"
         }
       },

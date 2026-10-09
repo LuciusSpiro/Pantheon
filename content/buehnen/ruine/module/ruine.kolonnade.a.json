@@ -1,0 +1,28 @@
+{
+  "format": "modul/1", "id": "ruine.kolonnade.a", "art": "ruine", "typ": "kolonnade",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "..I,,...",
+    "..I,,...",
+    "...,,I..",
+    "...,,I..",
+    "..I,,...",
+    "..I,,...",
+    "...,,I..",
+    "...,,I.."
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "......w.",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "w": { "rolle": "wache" }
+  },
+  "belegungen": []
+}

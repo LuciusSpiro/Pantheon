@@ -3,6 +3,7 @@
 // Downed/Revive, Reaktorschalter (M1 §6), Planungstisch (M1 §8), Offline-Systeme (EMP, M1 §5).
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
+const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 
 const TILE = Physics.TILE;
@@ -17,10 +18,114 @@ const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
 const isDown = (st) => st === 'broken' || st === 'offline';
 
+// ---------- B1 §2/§6.1 (BODENKAMPF): gebaute Karten (`Karte`) als Außenkarte ----------
+// W.AWAY_MAPS[lpId] ist für gebaute Karten { id, karte } oder die Karte selbst (landepunkte.js, BUEHNE). Daraus wird
+// einmal je Eintrag eine Laufzeit-Info abgeleitet (WeakMap, der Eintrag bleibt unverändert):
+//   { id, karte, map (at/info/solid/find wie shared/maps.js), pads (alle Abholpunkte), ankunftPads (nur ankunft),
+//     coverSpots, decks, links(x, y) -> [{ x, y, via: 'lift'|'leiter' }] }
+// Handkarten (platform, wreck, kesh) laufen unverändert über ihren Eintrag.
+const FEST = { kind: 'leere', solid: true, cover: 2, low: false, sperrtSicht: true };
+const ABGELEITET = new WeakMap();
+function karteVonEintrag(e) {
+  if (!e) return null;
+  if (e.karte && Array.isArray(e.karte.rows)) return e.karte;
+  if (!e.map && Array.isArray(e.rows) && Array.isArray(e.anker)) return e;
+  return null;
+}
+function kartenMap(k) {
+  const rows = k.rows; const legend = k.legende || {};
+  return {
+    id: k.id, rows, legend, w: k.w || rows[0].length, h: k.h || rows.length,
+    at(x, y) { return (y < 0 || y >= rows.length || x < 0 || x >= rows[y].length) ? '_' : rows[y][x]; },
+    info(x, y) { return legend[this.at(x, y)] || FEST; },
+    // Startzustand; den Laufzeitzustand (Türen, Tore, Schotts) kennt awaySolid
+    solid(x, y) { const i = this.info(x, y); return i.solid === 'zustand' ? !(i.begehbarIn || []).includes((i.zustaende || [])[0]) : !!i.solid; },
+    find(ch) { const out = []; rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === ch) out.push({ x, y }); }); return out; },
+  };
+}
+function abgeleitet(e) {
+  const k = karteVonEintrag(e);
+  if (!k) return e;
+  let d = ABGELEITET.get(e);
+  if (d && d.karte === k) return d;
+  const map = kartenMap(k);
+  const ab = (k.anker || []).filter((a) => a.rolle === 'abholpunkt');
+  const ank = ab.find((a) => a.ankunft || a.id === k.ankunft) || ab[0] || null;
+  const pads = [];
+  const seen = new Set();
+  for (const a of (ank ? [ank] : []).concat(ab.filter((q) => q !== ank))) {
+    for (const t of Buehne.padTiles(k, a)) { const key = t.x + ',' + t.y; if (!seen.has(key)) { seen.add(key); pads.push(t); } }
+  }
+  if (!pads.length) pads.push({ x: 1, y: 1 });
+  const ankunftPads = ank ? Buehne.padTiles(k, ank) : pads.slice(0, 3);   // Regel: shared/buehne.js padTiles (eine Quelle mit dem Client)
+  // Deck-Links beidseitig (B1 §6.2): Index "x,y" -> [{ x, y, via }]
+  const links = new Map();
+  const addL = (a, b, via) => { const key = a[0] + ',' + a[1]; if (!links.has(key)) links.set(key, []); links.get(key).push({ x: b[0], y: b[1], via }); };
+  for (const l of (k.decks && k.decks.links) || []) { addL(l.a, l.b, l.via || 'lift'); addL(l.b, l.a, l.via || 'lift'); }
+  // Kachel -> Kanten-ID (innere Türen) für Laufzeitzustände
+  const kanteAt = new Map();
+  for (const [kid, kt] of Object.entries(k.kanten || {})) for (const t of kt.tiles || []) kanteAt.set(t[0] + ',' + t[1], kid);
+  const ankerAt = new Map();
+  for (const a of k.anker || []) if (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'versteck') ankerAt.set(a.x + ',' + a.y, a);
+  d = {
+    id: k.id || e.id, karte: k, map, pads, ankunftPads, decks: k.decks || null,
+    coverSpots: Array.isArray(k.coverSpots) && k.coverSpots.length ? k.coverSpots : coverSpotsFor(map, pads),
+    links: links.size ? (x, y) => links.get(x + ',' + y) || [] : null,
+    linkAt: (x, y) => links.get(x + ',' + y) || null,
+    kanteAt, ankerAt, deckStride: (k.decks && k.decks.stride) || 16,
+  };
+  ABGELEITET.set(e, d);
+  return d;
+}
+// Deckungsplätze wie keshCoverSpots (server/world.js): begehbare Kacheln mit Deckung in der 8er-Nachbarschaft, ohne Pads/Rand
+function coverSpotsFor(map, pads) {
+  const out = [];
+  const p = new Set((pads || []).map((q) => q.x + ',' + q.y));
+  for (let y = 1; y < map.h - 1; y++) for (let x = 1; x < map.w - 1; x++) {
+    if (map.solid(x, y) || p.has(x + ',' + y)) continue;
+    let best = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const info = map.info(x + dx, y + dy);
+      if (info.cover && map.solid(x + dx, y + dy) && info.solid !== 'zustand') best = Math.max(best, info.cover);
+    }
+    if (best) out.push({ x, y, cover: best });
+  }
+  return out;
+}
+function awayInfoOf(id) { return abgeleitet(W.AWAY_MAPS[id]); }
+// Deckungsplätze einer Außenkarte (Kesh vorberechnet, gebaute Karten aus der Karte, sonst einmal berechnet)
+const COVER_CACHE = new WeakMap();
+function coverSpotsOf(info) {
+  if (!info) return [];
+  if (info.coverSpots) return info.coverSpots;
+  if (!COVER_CACHE.has(info)) COVER_CACHE.set(info, coverSpotsFor(info.map, info.pads));
+  return COVER_CACHE.get(info);
+}
+
 // ---------- Kollision ----------
-function awayInfo(game) { return W.AWAY_MAPS[(game.away && game.away.map) || 'platform']; }
+function awayInfo(game) { return abgeleitet(W.AWAY_MAPS[(game.away && game.away.map) || 'platform'] || W.AWAY_MAPS.platform); }
+// Laufzeitzustand einer Zustandskachel (D/S/G/L/w) auf einer gebauten Karte: aw.zustaende[kantenId|ankerId] (Weltstand-
+// Vokabular B1 §8), sonst Startzustand der Kante bzw. der Kachelart.
+// Regel: shared/buehne.js kachelZustandRegel (eine Quelle mit dem Client render.js kachelZustand)
+function kachelZustand(aw, info, tx, ty, ki) {
+  const zs = (aw && aw.zustaende) || {};
+  const key = tx + ',' + ty;
+  const kid = info.kanteAt.get(key);
+  const kk = kid ? info.karte.kanten[kid] : null;
+  const a = info.ankerAt.get(key);
+  const typInfo = kk ? Object.values(info.karte.legende || {}).find((i) => i.kind === kk.typ) : null;
+  return Buehne.kachelZustandRegel(ki.zustaende, (kid && zs[kid]) || null, (a && zs[a.id]) || null, kk ? kk.zustand : null, typInfo ? typInfo.begehbarIn : null);
+}
 function awaySolid(game) {
-  const aw = game.away; const map = awayInfo(game).map;
+  const aw = game.away; const info = awayInfo(game); const map = info.map;
+  if (info.karte) {
+    return (tx, ty) => {
+      const ki = map.info(tx, ty);
+      if (ki.solid !== 'zustand') return !!ki.solid;
+      return !(ki.begehbarIn || []).includes(kachelZustand(aw, info, tx, ty, ki));
+    };
+  }
   return (tx, ty) => {
     const ch = map.at(tx, ty);
     if (ch === 'L' && aw.map === 'platform') return !aw.sonde.disabled;
@@ -28,6 +133,29 @@ function awaySolid(game) {
     if (ch === 'G' && aw.map === 'kesh') return !(aw.vault && aw.vault.open);
     return map.solid(tx, ty);
   };
+}
+// Sichtsperre der aktuellen Außenkarte (B1 §3.1): gebaute Karten nach `sperrtSicht` bzw. Zustand, Handkarten wie bisher
+function awaySight(game, solid) {
+  const info = awayInfo(game); const map = info.map;
+  if (!info.karte) return null;
+  return (tx, ty) => {
+    const ki = map.info(tx, ty);
+    if (ki.solid === 'zustand') return solid(tx, ty) && !ki.low;
+    return !!ki.sperrtSicht;
+  };
+}
+// Schuss-Sperre (B1 §3.1): Fenster stoppt Schüsse trotz freier Sicht; Gitter und Abgrund lassen sie durch
+function awayShotBlock(game, sight) {
+  const info = awayInfo(game); const map = info.map;
+  if (!info.karte) return sight;
+  return (tx, ty) => sight(tx, ty) || map.info(tx, ty).kind === 'fenster';
+}
+// Deck-Links der aktuellen Außenkarte für bfs(…, links) (KI, Bots) – null ohne Decks
+function awayLinks(game) { return awayInfo(game).links || null; }
+function awayDeckOf(game, py) {
+  const info = awayInfo(game);
+  if (!info.decks) return -1;
+  return Math.floor(Math.floor(py / TILE) / info.deckStride);
 }
 const platformSolid = awaySolid;   // Altname (Tests/Tools)
 function solidFor(game, zone) {
@@ -124,12 +252,23 @@ function finishLift(game, actor, isBot) {
 }
 function updateLiftRide(game, p, dt) {
   p.moving = false;
+  if (p.lift.away) {   // B1 §6.2: Lift auf einer gebauten Außenkarte
+    if (p.zone !== 'away') { p.lift = null; p.liftDest = null; return; }
+    p.lift.t += dt;
+    if (p.lift.t >= p.lift.T) finishAwayDeck(game, p, p.liftDest, 'lift');
+    return;
+  }
   if (p.zone !== 'ship') { p.lift = null; p.liftDest = null; return; }
   p.lift.t += dt;
   if (p.lift.t >= p.lift.T) finishLift(game, p, false);
 }
 // Notleiter: E halten (ladderTime), dann Teleport auf die Gegenleiter
 function finishLadder(game, p, h) {
+  if (p.zone === 'away') {
+    const l = awayLink(game, h.tx, h.ty, 'leiter');
+    if (l) finishAwayDeck(game, p, l, 'leiter');
+    return;
+  }
   const partner = W.Maps.ladderPartner ? W.Maps.ladderPartner(h.tx, h.ty) : null;
   if (!partner) return;
   const at = arrivalTile(game, p, partner);
@@ -143,9 +282,53 @@ function finishLadder(game, p, h) {
 function deckSnap(game, p) {
   const o = {};
   if (p.zone === 'ship') { const d = shipDeckOf(p.y); if (d >= 0) o.deck = d; }
+  else if (p.zone === 'away') { const d = awayDeckOf(game, p.y); if (d >= 0) o.deck = d; }   // B1 §6.2: nur Karten mit Decks
   if (p.lift) o.lift = { to: p.lift.to, t: Math.round(p.lift.t * 100) / 100, T: p.lift.T };
   if (p.hold && p.hold.kind === 'ladder') o.ladder = { t: Math.round(p.hold.t * 100) / 100, T: p.hold.dur };
   return o;
+}
+
+// ---------- B1 §6.2 (BODENKAMPF): Lift/Leiter auf gebauten Außenkarten (karte.decks.links) ----------
+// Lift: auf dem Lift-Anker E tippen -> Fahrt (CONFIG.lift.rideTime), Leiter: E halten (ladderTime) -> Gegenstück.
+function awayLink(game, tx, ty, via) {
+  const info = awayInfo(game);
+  if (!info.linkAt) return null;
+  return (info.linkAt(tx, ty) || []).find((l) => l.via === via) || null;
+}
+function startAwayLift(game, p, tx, ty) {
+  const l = awayLink(game, tx, ty, 'lift');
+  if (!l) return false;
+  const L = game.C.lift || {};
+  const deck = awayDeckOf(game, l.y * TILE);
+  p.lift = { to: deck, t: 0, T: L.rideTime || 1.5, away: true };
+  p.liftDest = { x: l.x, y: l.y };
+  p.moving = false; p.hold = null; p.input.mx = 0; p.input.my = 0; p.crouch = false;
+  game.emit('lift', { pid: p.id, deck, phase: 'start', T: p.lift.T, zone: 'away' });
+  game.emit('sfx', { name: 'lift', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
+  return true;
+}
+// Ankunft: Zielkachel, belegt -> nächste freie begehbare Nachbarkachel auf demselben Deck
+function awayArrival(game, self, dest) {
+  const solid = awaySolid(game);
+  const busy = (x, y) => game.players.some((o) => o !== self && o.zone === 'away' && !o.lift && (() => { const t = Physics.toTile(o.x, o.y); return t.x === x && t.y === y; })()) ||
+    game.away.drones.some((d) => d.alive && (() => { const t = Physics.toTile(d.x, d.y); return t.x === x && t.y === y; })());
+  if (!busy(dest.x, dest.y)) return dest;
+  const deck = awayDeckOf(game, dest.y * TILE);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    const x = dest.x + dx, y = dest.y + dy;
+    if (solid(x, y) || awayDeckOf(game, y * TILE) !== deck || busy(x, y)) continue;
+    return { x, y };
+  }
+  return dest;
+}
+function finishAwayDeck(game, p, dest, via) {
+  const at = awayArrival(game, p, dest || Physics.toTile(p.x, p.y));
+  const c = W.tileCenter(at.x, at.y);
+  p.x = c.x; p.y = c.y;
+  p.lift = null; p.liftDest = null;
+  const deck = awayDeckOf(game, p.y);
+  game.emit('lift', { pid: p.id, deck, phase: 'arrive', via: via === 'leiter' ? 'ladder' : 'lift', zone: 'away' });
+  game.missionEvent('deckChanged', { p, deck, via: via === 'leiter' ? 'ladder' : 'lift', map: game.away.map });
 }
 
 function applyBreachPull(game, p, dt) {
@@ -220,7 +403,8 @@ function placeOnShipPad(game, p, idx) {
   p.zone = 'ship'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null; p.lift = null; p.liftDest = null;
 }
 function placeOnAwayPad(game, p, idx) {
-  const pads = awayInfo(game).pads;
+  const info = awayInfo(game);
+  const pads = info.ankunftPads || info.pads;   // B1 §3.3: gebaute Karten nur an den Abholpunkt mit ankunft
   const i = idx != null ? idx : game.players.filter((o) => o !== p && o.zone === 'away').length;
   const c = W.tileCenter(pads[i % pads.length].x, pads[i % pads.length].y);
   const arriving = p.zone !== 'away';
@@ -249,13 +433,38 @@ function onDrop(game, p) {
 }
 
 // ---------- Interaktion (§4.2) ----------
-const PRIORITY = { revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
+// B1 §6.2 (BUEHNE): Anker-Interaktionen (anker:*) und B2-Haltegriffe (combat.istB2Hold) – Module defensiv laden
+let ankerMod;
+function Anker() {
+  if (ankerMod === undefined) {
+    try { ankerMod = require('./anker.js'); } catch (e) {
+      if (!(e && e.code === 'MODULE_NOT_FOUND' && String(e.message).includes('anker.js'))) console.error('[interior] anker.js:', e && e.message);
+      ankerMod = null;
+    }
+  }
+  return ankerMod;
+}
+function istAnker(kind) { const A = Anker(); return !!(A && typeof A.istAnkerHold === 'function' && A.istAnkerHold(kind)); }
+function istB2(kind) { const c = combat(); return typeof c.istB2Hold === 'function' && c.istB2Hold(kind); }
+function ankerRuf(game, name, fallback, ...args) {
+  const A = Anker();
+  if (!A || typeof A[name] !== 'function') return fallback;
+  try { return A[name](game, ...args); } catch (e) { if (game.countError) game.countError('anker-' + name, e); return fallback; }
+}
+function prio(kind) {
+  if (PRIORITY[kind] != null) return PRIORITY[kind];
+  if (typeof kind === 'string' && kind.startsWith('anker:')) return kind === 'anker:tuer' ? 5 : 4;
+  return 6;
+}
+const PRIORITY = { fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
 
-function candidateTiles(p) {
+function candidateTiles(p, game) {
   const t = Physics.toTile(p.x, p.y);
   const out = [];
   const add = (x, y) => { if (!out.some((o) => o.x === x && o.y === y)) out.push({ x, y }); };
   const d = DIRS[p.dir] || DIRS.down;
+  // F5 (Studioleitung): auf einem Deck-Link-Feld (Lift/Leiter) zuerst die eigene Kachel – Regel shared/buehne.js interaktionsVorrang
+  if (game && p.zone === 'away') { const ai = awayInfo(game); if (ai.karte && Buehne.interaktionsVorrang(ai.karte, t.x, t.y) === 'eigen') add(t.x, t.y); }
   add(t.x + d.x, t.y + d.y);
   add(t.x, t.y);
   for (const n of NEIGHBOR_ORDER) add(t.x + DIRS[n].x, t.y + DIRS[n].y);
@@ -282,7 +491,9 @@ function interactionsAt(game, p, tx, ty, own) {
   for (const o of game.players) {
     if (o === p || !o.downed || o.zone !== p.zone) continue;
     const ot = Physics.toTile(o.x, o.y);
-    if (ot.x === tx && ot.y === ty) list.push({ kind: 'revive', target: o });
+    if (ot.x !== tx || ot.y !== ty) continue;
+    const sperre = p.zone === 'away' && typeof combat().reviveSperre === 'function' ? combat().reviveSperre(game, p, o) : null;   // B2: bewusstlos/gefesselt
+    if (sperre) list.push({ kind: 'revive', blocked: sperre }); else list.push({ kind: 'revive', target: o });
   }
   if (p.zone === 'ship') {
     if (game.ship.fireList.some((f) => f.tx === tx && f.ty === ty)) {
@@ -374,6 +585,21 @@ function interactionsAt(game, p, tx, ty, own) {
       combat().interactionsAt(game, p, tx, ty, ch, list);   // M2: Störrelais, Archivschlüssel, Tafel
     }
     if (aw.map !== 'platform') npcInteraction(aw, p, tx, ty, list);   // S2: NSC-Person auf Wrack/Kesh (spawn_person)
+    const ai = awayInfo(game);
+    if (ai.linkAt && !p.lift) {   // B1 §6.2: Lift (E tippen) und Leiter (E halten) – aus Reichweite wie jeder Anker (F5)
+      const pt = Physics.toTile(p.x, p.y);
+      if (Buehne.deckLinkInReichweite(pt.x, pt.y, tx, ty)) {   // Regel: shared/buehne.js (eine Quelle mit dem Client)
+        for (const l of ai.linkAt(tx, ty) || []) {
+          if (l.via === 'lift') list.push({ kind: 'lift', tx, ty });
+          else if (l.via === 'leiter') list.push({ kind: 'ladder', tx, ty });
+        }
+      }
+    }
+    if (own && ai.karte && ch !== 'P' && ai.pads.some((q) => q.x === tx && q.y === ty)) list.push({ kind: 'selfbeam' });
+    if (ai.karte) ankerRuf(game, 'interactionsAt', null, p, tx, ty, list);   // B1 §6.2: Anker (Terminal, Ladung, Zelle, Türen …)
+    if (typeof combat().interactionsB2 === 'function') {   // B2 §4: fesseln, befreien, Ausrüstung, Zellentür
+      try { combat().interactionsB2(game, p, tx, ty, list); } catch (e) { game.countError('b2-interactions', e); }
+    }
     for (const it of aw.items) {
       const it2 = Physics.toTile(it.x, it.y);
       if (it2.x === tx && it2.y === ty) {
@@ -384,7 +610,7 @@ function interactionsAt(game, p, tx, ty, own) {
     }
     if (own && ch === 'P') list.push({ kind: 'selfbeam' });
   }
-  list.sort((a, b) => PRIORITY[a.kind] - PRIORITY[b.kind]);
+  list.sort((a, b) => prio(a.kind) - prio(b.kind));
   return list;
 }
 
@@ -411,7 +637,7 @@ function onAct(game, p, down) {
   if (p.downed || p.console || p.beamLock || p.lift) return;
   const own = Physics.toTile(p.x, p.y);
   let blocked = null;
-  for (const t of candidateTiles(p)) {
+  for (const t of candidateTiles(p, game)) {
     const list = interactionsAt(game, p, t.x, t.y, t.x === own.x && t.y === own.y);
     if (!list.length) continue;
     const ok = list.find((i) => !i.blocked);
@@ -424,6 +650,8 @@ function onAct(game, p, down) {
 
 function holdDuration(game, p, kind, extra) {
   const C = game.C;
+  if (istAnker(kind)) return ankerRuf(game, 'holdDuration', 1, p, kind, extra);
+  if (istB2(kind)) return combat().holdDurationB2(game, p, kind, extra);
   const gear = p.gear.werkzeuggurt ? C.repair.werkzeuggurtFactor : 1;
   if (p.zone === 'away' && ['revive', 'jammer', 'archkey', 'tablet'].includes(kind) && combat().isV2(game)) return combat().holdDuration(game, p, kind);
   switch (kind) {
@@ -442,6 +670,11 @@ function holdDuration(game, p, kind, extra) {
 }
 
 function performInteraction(game, p, it) {
+  if (istAnker(it.kind) || istB2(it.kind)) {   // B1 §6.2 / B2 §4: Halten über anker.js bzw. combat.js
+    p.hold = Object.assign({}, it, { kind: it.kind, t: 0, dur: holdDuration(game, p, it.kind, it) });
+    if (istAnker(it.kind)) ankerRuf(game, 'holdStart', null, p, p.hold);
+    return;
+  }
   switch (it.kind) {
     case 'revive': case 'extinguish': case 'patch': case 'repair': case 'reboot': case 'salvage': case 'hollow': case 'switch':
     case 'jammer': case 'archkey': case 'tablet': {
@@ -459,7 +692,7 @@ function performInteraction(game, p, it) {
       p.hold = { kind: 'beam', t: 0, dur: holdDuration(game, p, 'beam'), dir: p.zone === 'ship' ? 'down' : 'up' };
       return;
     }
-    case 'lift': startLift(game, p, it.tx, it.ty, false); return;
+    case 'lift': if (p.zone === 'away') startAwayLift(game, p, it.tx, it.ty); else startLift(game, p, it.tx, it.ty, false); return;
     case 'ladder':
       p.hold = { kind: 'ladder', t: 0, dur: holdDuration(game, p, 'ladder'), tx: it.tx, ty: it.ty };
       return;
@@ -571,6 +804,8 @@ function updateHold(game, p, dt) {
 }
 
 function holdValid(game, p, h) {
+  if (istAnker(h.kind)) return !!ankerRuf(game, 'holdValid', false, p, h);
+  if (istB2(h.kind)) return !!combat().holdValidB2(game, p, h);
   switch (h.kind) {
     case 'revive': return h.target.downed && h.target.zone === p.zone;
     case 'extinguish': return p.carry === 'loeschgel' && game.ship.fireList.some((f) => f.tx === h.tx && f.ty === h.ty);
@@ -584,12 +819,14 @@ function holdValid(game, p, h) {
     case 'salvage': { const s = game.away.salvage && game.away.salvage.find((q) => q.x === h.sx && q.y === h.sy); return p.zone === 'away' && !!s && !s.done; }
     case 'hollow': return p.zone === 'away' && game.away.map === 'wreck' && game.away.hollow.marked && !game.away.hollow.open;
     case 'jammer': case 'archkey': case 'tablet': return combat().holdValid(game, p, h);
-    case 'ladder': return p.zone === 'ship' && !p.lift;
+    case 'ladder': return !p.lift && (p.zone === 'ship' || (p.zone === 'away' && !!awayLink(game, h.tx, h.ty, 'leiter')));
     default: return false;
   }
 }
 
 function completeHold(game, p, h) {
+  if (istAnker(h.kind)) { ankerRuf(game, 'completeHold', null, p, h); return; }
+  if (istB2(h.kind)) { combat().completeHoldB2(game, p, h); return; }
   switch (h.kind) {
     case 'jammer': case 'archkey': case 'tablet': combat().completeHold(game, p, h); break;
     case 'revive':
@@ -1032,7 +1269,9 @@ function sysNameNom(sys) { const n = SYS_NAMES[sys]; return n ? `${n[0]} ${n[2]}
 function sysName(sys) { const n = SYS_NAMES[sys]; return n ? `${n[1]} ${n[2]}` : sys; }
 
 module.exports = {
-  platformSolid, awaySolid, awayInfo, solidFor, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
+  platformSolid, awaySolid, awayInfo, solidFor,
+  // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
+  awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, isDown,

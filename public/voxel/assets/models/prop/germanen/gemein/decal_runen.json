@@ -1,0 +1,33 @@
+{
+  "id": "prop/germanen/gemein/decal_runen",
+  "name": "Runen-Decal (Germanen): eingelassenes Runen-Schaltkreisband, Folge aus seed",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deko","decal","runen"],
+  "footprint": [1,1],
+  "params": {
+    "wand": {"default":0,"min":0,"max":1,"step":1,"label":"an der Wand (stehend, Rückseite)"}
+  },
+  "let": {
+    "n": "hash(seed, 1) < 0.5 ? 3 : 4",
+    "lit": "hash(seed, 2) < 0.2 ? 0 : (hash(seed, 4) < 0.3 ? n - 1 : n)",
+    "ast": "hash(seed, 5) < 0.5 ? -1 : 1",
+    "em": "0.5 + floor(hash(seed, 6) * 4) / 10"
+  },
+  "variants": {
+    "s1": {"seed":1},
+    "s2": {"seed":2},
+    "s3": {"seed":3},
+    "wand": {"wand":1,"seed":4}
+  },
+  "sockets": {},
+  "ops": [
+    {"op":"use","name":"Band","model":"prop/germanen/gemein/teil/runenband","at":[0,"wand ? 1 : 0","wand ? -7 : 0"],"params":{"n":"n","lit":"lit","emit":"em","flach":"1 - wand","rahmen":1,"zufall":1,"schritt":0}},
+    {"op":"group","name":"Abzweig Boden","if":"!wand", "ops": [
+      {"op":"box","name":"Leiterbahn","at":["ast * 4",0,5],"size":[1,1,2],"color":"rune","emit":"lit > 0 ? em*0.6 : 0","jitter":false},
+      {"op":"box","name":"Lötauge","at":["ast * 4 - 1",0,6],"size":[3,1,2],"color":"metal_light","jitter":false}
+    ]},
+    {"op":"box","name":"Montageplatte","if":"wand","at":[-8,0,-8],"size":[16,10,1],"color":"metal_dark"}
+  ],
+  "anchor": [0,0,0]
+}

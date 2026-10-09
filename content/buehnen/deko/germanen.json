@@ -1,0 +1,49 @@
+{
+  "format": "deko/1",
+  "id": "germanen",
+  "quelle": "CONTRACT-B1.md §10.3, ART-PLAN §5 Wunsch 6 (Art pflegt: ART-GK-BAU)",
+  "hinweis": "Platztyp → Streu-Props. Nur Optik: keine Ankerobjekte (Truhe, Käfig, Runenstein, Bake, Tanks, Kessel), nie Deckung (kiste_stapel), nur 1-Kachel-Props (keine Bank 2×1). Besitzbanner kommen über die Besitz-Streuung (paletten/<besitz>.json). Dichte je 8×8-Zelle, Sichtung B1: Außenposten-Hof höchstens 4, Gefechtsplätze höchstens 6 je Zelle (deko.js begrenzt zusätzlich auf 12). Platztypen, die in mehreren Kartenarten vorkommen (herzstueck, lager, quartiere, zellen, schleuse), nutzen nur gemeinsame Props.",
+  "regeln": {
+    "*": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": false, "frei_halten": 1 },
+
+    "herzstueck": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
+    "lager": { "props": ["prop/germanen/gemein/fass", "prop/germanen/station/regal", "prop/germanen/gemein/werkzeug"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
+    "quartiere": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/kette", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 1 },
+    "zellen": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
+    "schleuse": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+
+    "abfluss": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/fass"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "funkmast": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass"], "dichte": [1, 3], "wandnah": false, "frei_halten": 2 },
+    "gelaende": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": false, "frei_halten": 1 },
+    "hof": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [1, 4], "wandnah": false, "frei_halten": 2 },
+    "huegel": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": false, "frei_halten": 1 },
+    "lagerhalle": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
+    "landeplatz": { "props": ["prop/germanen/gemein/fass", "prop/germanen/aussenposten/schuerfgeraet"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "lichtung": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": false, "frei_halten": 2 },
+    "palisade": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },
+    "innenzaun": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },
+    "tor": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 2 },
+    "treibstofflager": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [2, 5], "wandnah": true, "frei_halten": 2 },
+    "wachturm": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": false, "frei_halten": 2 },
+    "zaunluecke": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "zellenblock": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/fass"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
+
+    "kontrollraum": { "props": ["prop/germanen/station/wandmonitor", "prop/germanen/station/kontrollpult", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
+    "korridor": { "props": ["prop/germanen/gemein/decal_runen", "prop/germanen/station/wandmonitor"], "dichte": [0, 2], "wandnah": true, "frei_halten": 1 },
+    "kreuzung": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "reaktorraum": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette", "prop/germanen/station/regal"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
+    "schacht": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/werkzeug"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "schachtzugang": { "props": ["prop/germanen/gemein/kette"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
+    "schott": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
+
+    "antrieb": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette", "prop/germanen/schiff/ladenetz"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
+    "batteriedeck": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 2 },
+    "bruecke": { "props": ["prop/germanen/gemein/decal_runen", "prop/germanen/gemein/fass"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "bug_oben": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 1 },
+    "heck_oben": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/kette"], "dichte": [1, 2], "wandnah": true, "frei_halten": 1 },
+    "laderaum": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/fass", "prop/germanen/gemein/kette"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
+    "reaktor": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
+    "transferkammer": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
+    "waffenkammer": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass", "prop/germanen/gemein/kette"], "dichte": [2, 4], "wandnah": true, "frei_halten": 1 }
+  }
+}

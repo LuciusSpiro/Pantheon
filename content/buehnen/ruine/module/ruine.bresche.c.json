@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "ruine.bresche.c", "art": "ruine", "typ": "bresche",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "####O:O#",
+    "....O:O.",
+    "....O,O.",
+    "..o..,..",
+    ".O....o.",
+    "...o....",
+    "........"
+  ],
+  "anker": [
+    ".....e..",
+    "........",
+    "..w.....",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "leise" },
+    "w": { "rolle": "wache" }
+  },
+  "belegungen": []
+}

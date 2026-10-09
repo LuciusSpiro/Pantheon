@@ -1,0 +1,66 @@
+{
+  "format": "modul/1",
+  "id": "schiff.waffenkammer.c",
+  "art": "schiff",
+  "typ": "waffenkammer",
+  "groesse": [8, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Waffenschrank (tor auf Tür, fund dahinter) für zwei_schluessel; Schlösser oben und unten.",
+  "rows": [
+    "########",
+    "#.D....#",
+    "###....#",
+    "#o..O..#",
+    "#.O...o#",
+    "#......#",
+    "...O....",
+    "#......#",
+    "#.OO.O.#",
+    "#......#",
+    "#...o..#",
+    "#o.....#",
+    "########"
+  ],
+  "anker": [
+    "........",
+    ".fm..r..",
+    "........",
+    "........",
+    "........",
+    "...q....",
+    ".....p..",
+    "........",
+    "........",
+    "........",
+    ".b......",
+    "....r...",
+    "........"
+  ],
+  "anker_legende": {
+    "f": {
+      "rolle": "fund"
+    },
+    "m": {
+      "rolle": "tor"
+    },
+    "r": {
+      "rolle": "raetsel",
+      "paar": "A"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": []
+}

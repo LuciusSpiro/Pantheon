@@ -1,0 +1,51 @@
+{
+  "format": "landepunkte/1",
+  "quelle": "CONTRACT-B1.md §6.1, INHALT §6 (Team BUEHNE)",
+  "hinweis": "Je Ort (shared/locations.js-ID) die Landepunkte. Handkarten behalten ihre IDs platform/wreck/kesh (art 'hand', CONTRACT-B1 §3.4). seed = Startwert, der wirksame Seed steht im Weltstand. beam: Transferpunkt in der Raumszene (px) + Reichweite. frei: immer | nach_tutorial | nach_raumgefecht. gesperrt: nicht anfliegbar (LANDEPUNKT-GESPERRT, E33). <ort>.prise wird zur Laufzeit angelegt (§7).",
+  "orte": {
+    "b7": [
+      { "id": "platform", "art": "hand", "bauweise": null, "besitz": "konkordat", "zustand": "intakt", "seed": null, "schablone": null,
+        "beam": { "x": 2000, "y": 1500, "range": 320 }, "name": "Bojenplattform B-7", "frei": "immer", "gesperrt": false },
+      { "id": "b7.aussenstelle", "art": "station", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "verfallen", "seed": 7, "schablone": null,
+        "beam": { "x": 2350, "y": 1250, "range": 360 }, "name": "Außenstelle B-7", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "wrack": [
+      { "id": "wreck", "art": "hand", "bauweise": null, "besitz": "herrenlos", "zustand": "verfallen", "seed": null, "schablone": null,
+        "beam": { "x": 1600, "y": 1000, "range": 320 }, "name": "Wrack „Zaunkönig“", "frei": "immer", "gesperrt": false },
+      { "id": "wrack.langschiff", "art": "schiff", "bauweise": "germanen", "besitz": "raubzug", "zustand": "verfallen", "seed": 405, "schablone": null,
+        "beam": { "x": 2050, "y": 600, "range": 360 }, "name": "Treibendes Langschiff", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "kesh": [
+      { "id": "kesh", "art": "hand", "bauweise": "vorlaeufer", "besitz": "kustoden", "zustand": "intakt", "seed": null, "schablone": null,
+        "beam": { "x": 1500, "y": 900, "range": 360 }, "name": "Kustoden-Archiv", "frei": "immer", "gesperrt": false },
+      { "id": "kesh.kastell", "art": "ruine", "bauweise": "rom", "besitz": "herrenlos", "zustand": "verfallen", "seed": 205, "schablone": null,
+        "beam": { "x": 1350, "y": 760, "range": 360 }, "name": "Verfallenes Grenzkastell", "frei": "nach_tutorial", "gesperrt": false },
+      { "id": "kesh.grabung", "art": "aussenposten", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "umkaempft", "seed": 2051, "schablone": null,
+        "beam": { "x": 1650, "y": 1060, "range": 360 }, "name": "Grabungslager", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "hafen": [
+      { "id": "hafen.kontor", "art": "station", "bauweise": "germanen", "besitz": "kontor", "zustand": "intakt", "seed": 206, "schablone": null,
+        "beam": { "x": 520, "y": 700, "range": 360 }, "name": "Germanisches Kontor", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "splitter": [
+      { "id": "splitter.schuerflager", "art": "aussenposten", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "umkaempft", "seed": 306, "schablone": null,
+        "beam": { "x": 2200, "y": 600, "range": 360 }, "name": "Schürflager", "frei": "nach_tutorial", "gesperrt": false },
+      { "id": "splitter.treibgut", "art": "schiff", "bauweise": "germanen", "besitz": "raubzug", "zustand": "verfallen", "seed": 3061, "schablone": null,
+        "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Treibgut", "frei": "nach_raumgefecht", "gesperrt": false }
+    ],
+    "vaelen": [
+      { "id": "vaelen.handelsschiff", "art": "schiff", "bauweise": "germanen", "besitz": "kontor", "zustand": "intakt", "seed": 207, "schablone": null,
+        "beam": { "x": 1500, "y": 1000, "range": 360 }, "name": "Germanisches Handelsschiff", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "nebel": [
+      { "id": "nebel.havarist", "art": "schiff", "bauweise": "germanen", "besitz": "raubzug", "zustand": "umkaempft", "seed": 307, "schablone": null,
+        "beam": { "x": 1800, "y": 1100, "range": 360 }, "name": "Havarist im Nebel", "frei": "nach_tutorial", "gesperrt": false }
+    ],
+    "rostnest": [
+      { "id": "rostnest.kastell", "art": "ruine", "bauweise": "rom", "besitz": "rostmeute", "zustand": "verfallen", "seed": 107, "schablone": null,
+        "beam": { "x": 1400, "y": 900, "range": 360 }, "name": "Kastell im Rostnest", "frei": "nach_tutorial", "gesperrt": true },
+      { "id": "rostnest.lager", "art": "aussenposten", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "intakt", "seed": 1071, "schablone": null,
+        "beam": { "x": 1700, "y": 1100, "range": 360 }, "name": "Lager im Rostnest", "frei": "nach_tutorial", "gesperrt": true }
+    ]
+  }
+}

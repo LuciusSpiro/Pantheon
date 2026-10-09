@@ -1,0 +1,273 @@
+{
+  "format": "kacheln/1",
+  "quelle": "CONTRACT-B1.md §3.1",
+  "hinweis": "Fraktionsneutrale Kachelarten. solid \"zustand\" = fest außer in den Zuständen begehbarIn (erster Zustand = Start). kante = Wirkung bei der Anschluss-Ableitung (§3.2): begehbar | fest | tuer.",
+  "zeichen": {
+    ".": {
+      "kind": "boden",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "Standardboden (Platte)"
+    },
+    ",": {
+      "kind": "boden2",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "zweiter Belag (Weg, Planke, Gitterrost)"
+    },
+    ":": {
+      "kind": "gelaende",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "Außenboden (Frost, Schlamm, Sand)"
+    },
+    "^": {
+      "kind": "plateau",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "Aussichtsplateau (E27); nur von k und / umgeben (K-PLATEAU)"
+    },
+    "/": {
+      "kind": "rampe",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "einziger Zugang zum Plateau"
+    },
+    "k": {
+      "kind": "kante",
+      "solid": true,
+      "cover": 1,
+      "low": true,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "Plateaurand, Brüstung"
+    },
+    "#": {
+      "kind": "wand",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Innen- und Außenwand, Kastellmauer, Schiffswand"
+    },
+    "=": {
+      "kind": "zaun",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Palisade, Außengrenze (eigenes Kit-Teil)"
+    },
+    "z": {
+      "kind": "gitter",
+      "solid": true,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "Gitterzaun, Zellengitter: sperrt Bewegung, nicht Sicht und Schüsse"
+    },
+    "|": {
+      "kind": "fenster",
+      "solid": true,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "stopptSchuesse": true,
+      "hinweis": "nur Station/Schiff; Sicht frei, Schüsse gestoppt"
+    },
+    "F": {
+      "kind": "fels",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Gelände, Kartenrand außen"
+    },
+    "~": {
+      "kind": "abgrund",
+      "solid": true,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "Weltraum, Schlucht, Wasser"
+    },
+    "_": {
+      "kind": "leere",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Deck-Lücke im Atlas, außerhalb der Karte"
+    },
+    "o": {
+      "kind": "deckung_halb",
+      "solid": true,
+      "cover": 1,
+      "low": true,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "Kisten, Barrikade, Schildwall, Mauerrest"
+    },
+    "O": {
+      "kind": "deckung_voll",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Stapel, Tanks, Container"
+    },
+    "I": {
+      "kind": "pfeiler",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "Säule, Stütze, Mast"
+    },
+    "x": {
+      "kind": "truemmer",
+      "solid": true,
+      "cover": 1,
+      "low": true,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "nurUeberzug": true,
+      "hinweis": "nur aus dem Zustand-Überzug"
+    },
+    "X": {
+      "kind": "schutt",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "nurUeberzug": true,
+      "hinweis": "nur aus dem Zustand-Überzug"
+    },
+    "D": {
+      "kind": "tuer",
+      "solid": "zustand",
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "tuer",
+      "zustaende": [
+        "offen",
+        "zu",
+        "verschlossen",
+        "gesprengt"
+      ],
+      "begehbarIn": [
+        "offen",
+        "gesprengt"
+      ],
+      "sperrtSichtGeschlossen": true
+    },
+    "S": {
+      "kind": "schott",
+      "solid": "zustand",
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "tuer",
+      "zustaende": [
+        "zu",
+        "offen",
+        "gehackt",
+        "verschlossen"
+      ],
+      "begehbarIn": [
+        "offen",
+        "gehackt"
+      ],
+      "sperrtSichtGeschlossen": true,
+      "hinweis": "hackbar über eingang (art technisch)"
+    },
+    "G": {
+      "kind": "tor",
+      "solid": "zustand",
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "tuer",
+      "zustaende": [
+        "zu",
+        "offen",
+        "gesprengt"
+      ],
+      "begehbarIn": [
+        "offen",
+        "gesprengt"
+      ],
+      "sperrtSichtGeschlossen": true,
+      "hinweis": "großes Tor (2–4 breit), Eingang laut"
+    },
+    "L": {
+      "kind": "luke",
+      "solid": "zustand",
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "tuer",
+      "zustaende": [
+        "zu",
+        "offen"
+      ],
+      "begehbarIn": [
+        "offen"
+      ],
+      "sperrtSichtGeschlossen": true,
+      "hinweis": "Abfluss, Wartungsschacht, Eingang technisch"
+    },
+    "w": {
+      "kind": "wand_schwach",
+      "solid": "zustand",
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "zustaende": [
+        "intakt",
+        "offen"
+      ],
+      "begehbarIn": [
+        "offen"
+      ],
+      "sperrtSichtGeschlossen": true,
+      "hinweis": "nur mit Anker versteck"
+    },
+    "P": {
+      "kind": "pad",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "optional: Pad-Optik am abholpunkt"
+    }
+  }
+}

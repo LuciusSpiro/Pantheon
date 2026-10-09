@@ -132,15 +132,24 @@ function fits(entry, kontext) {
 }
 
 // ungespielte zuerst (Dateireihenfolge), dann – wenn alle gespielt – wieder von vorn; `ausser` = gerade angebotene Namen
-function pick(entries, gespielt, kontext, ausser) {
-  const list = (entries || []).filter((e) => fits(e, kontext) && !(ausser || []).includes(e.name));
+// vorzug (B1 §11.2, optional): { boden: true -> Bodenmissionen zuerst (Quote fällig), ohneLang: true -> lange Missionen nach
+//   hinten (schon eine lange im Angebot), info(entry) -> { boden, lang } }. Der Vorzug ordnet nur, er schließt nichts aus.
+function pick(entries, gespielt, kontext, ausser, vorzug) {
+  let list = (entries || []).filter((e) => fits(e, kontext) && !(ausser || []).includes(e.name));
   if (!list.length) return null;
   const played = new Set(gespielt || []);
+  const v = vorzug && typeof vorzug.info === 'function' ? vorzug : null;
+  const infoOf = (e) => { try { return (v && v.info(e)) || {}; } catch (x) { return {}; } };
+  // Quote fällig: Bodenmissionen gehen vor (auch vor ungespielten ohne Boden), sonst alle
+  if (v && v.boden) { const mit = list.filter((e) => infoOf(e).boden); if (mit.length) list = mit; }
+  const rang = (e) => (v && v.ohneLang && infoOf(e).lang ? 1 : 0);
+  const best = (arr) => { if (!v) return arr[0]; let b = arr[0]; let r = rang(b); for (const e of arr.slice(1)) { const x = rang(e); if (x < r) { b = e; r = x; } } return b; };
   const fresh = list.filter((e) => !played.has(e.name));
-  if (fresh.length) return fresh[0];
-  // alle gespielt: der am längsten zurückliegende zuerst
+  if (fresh.length) return best(fresh);
+  // alle gespielt: der am längsten zurückliegende zuerst (mit Vorzug: erst nach Rang)
   const order = (gespielt || []).slice();
-  return list.slice().sort((a, b) => order.lastIndexOf(a.name) - order.lastIndexOf(b.name))[0];
+  const sorted = list.slice().sort((a, b) => (rang(a) - rang(b)) || (order.lastIndexOf(a.name) - order.lastIndexOf(b.name)));
+  return sorted[0];
 }
 
 function refOk(ref, kontext) {

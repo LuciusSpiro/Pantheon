@@ -1,0 +1,38 @@
+{
+  "format": "schablone/1",
+  "id": "schiff.frachter",
+  "art": "schiff",
+  "name": "Frachter",
+  "hinweis": "INHALT §5.5 F1. Rein: Hüllenbruch im unteren Laderaum (leise), Transferkammer (laut) oder Wartungsluke/Notluke (technisch). Ziel: die Ladung oder die Brücke. Rückzug: hinauf zur Transferkammer auf Deck II. Deck I erfüllt allein den Pflichtsatz ohne lift/leiter (CONTRACT-B1 §5.5). Spiegeln y = Backbord/Steuerbord des ganzen Schiffs (beide Decks gemeinsam), Bug bleibt rechts.",
+  "spiegeln": ["y"],
+  "fuellung": "leere",
+  "decks": [
+    {
+      "plaetze": [
+        { "id": "antrieb", "typ": "antrieb", "breite": 6, "fest": true, "kern": true, "bereich": "hinein", "ankunft": true },
+        { "id": "quartiere", "typ": "quartiere", "breite": 8, "fest": false, "kern": false, "bereich": null },
+        { "id": "reaktor", "typ": "reaktor", "breite": 5, "fest": true, "kern": true, "bereich": "ziel" },
+        { "id": "laderaum_unten", "typ": "laderaum", "breite": 12, "fest": false, "kern": true, "bereich": "ziel", "eingang_art": "leise" },
+        { "id": "bruecke", "typ": "bruecke", "breite": 6, "fest": true, "kern": true, "bereich": "ziel" }
+      ]
+    },
+    {
+      "plaetze": [
+        { "id": "heck_oben", "typ": "heck_oben", "breite": 6, "fest": true, "kern": true, "bereich": "ziel" },
+        { "id": "lager", "typ": "lager", "breite": 8, "fest": false, "kern": false, "bereich": null },
+        { "id": "transfer", "typ": "transferkammer", "breite": 5, "fest": false, "kern": true, "bereich": "rueckzug", "eingang_art": "laut" },
+        { "id": "laderaum_oben", "typ": "laderaum", "breite": 12, "fest": false, "kern": true, "bereich": "ziel", "eingang_art": "leise" },
+        { "id": "bug_oben", "typ": "bug_oben", "breite": 6, "fest": true, "kern": true, "bereich": "ziel" }
+      ]
+    }
+  ],
+  "bereiche": {
+    "hinein": { "name": "Heck", "rolle": "hinein" },
+    "ziel": { "name": "Laderäume und Brücke", "rolle": "ziel" },
+    "rueckzug": { "name": "Transferkammer", "rolle": "rueckzug" }
+  },
+  "gefecht": ["reaktor", "laderaum_unten", "laderaum_oben"],
+  "paare": {},
+  "kanten_fest": [],
+  "pflicht": { "eingang": 2, "abholpunkt": 2, "sprengpunkt": 1, "ziel": 2, "terminal": 2, "zelle": 1, "beute": 3, "nsc": 1, "wache": 4, "lift": 1, "leiter": 1 }
+}

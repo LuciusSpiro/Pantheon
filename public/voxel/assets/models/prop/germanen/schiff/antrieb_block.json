@@ -1,0 +1,37 @@
+{
+  "id": "prop/germanen/schiff/antrieb_block",
+  "name": "Antriebsblock: liegende Eisentrommel mit Schildbuckel (Germanen, Schiff)",
+  "notes": "Sektion antrieb. Trommel liegt entlang x, Düse nach -x (Heck), Stirn mit Schildbuckel nach +x. schub 0 aus / 1 Leerlauf / 2 voll: kaltes Licht in Schlitz und Düse.",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "antrieb", "system"],
+  "footprint": [2, 1],
+  "params": {
+    "schub": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "Schub 0 aus / 1 Leerlauf / 2 voll" }
+  },
+  "let": { "e": "schub == 0 ? 0 : (schub == 1 ? 0.7 : 1.2)" },
+  "variants": { "aus": { "schub": 0 }, "voll": { "schub": 2 } },
+  "ops": [
+    { "op": "box", "name": "Fundament", "at": [-16, 0, -8], "size": [32, 2, 16], "color": { "frame": "metal", "fill": { "stripes": ["wood", "wood", "wood_dark"], "axis": "z", "period": 1 }, "axes": "xz" } },
+    { "op": "box", "name": "Lagerbock", "at": [-11, 2, -6], "size": [3, 4, 12], "color": "metal_dark", "repeat": { "count": 3, "step": [9, 0, 0] } },
+    { "op": "cyl", "name": "Trommel", "axis": "x", "at": [-12, 9.5, 0], "r": 7.5, "h": 23, "color": { "stripes": ["metal", "metal", { "shade": "metal", "f": 0.8 }], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Kaltlicht-Schlitz", "at": [-10, 8, 5], "size": [18, 3, 3], "mode": "paint", "color": { "shade": "glow", "f": "schub == 0 ? 0.35 : 1" }, "emit": "e", "jitter": false },
+    { "op": "cyl", "name": "Eisenreifen", "axis": "x", "at": [-11, 9.5, 0], "r": 7.6, "h": 1, "hollow": 1, "color": "metal_light", "repeat": { "count": 5, "step": [5, 0, 0] } },
+    { "op": "box", "name": "Kühlrippen", "at": [-9, 16, -3], "size": [1, 2, 6], "color": "metal_dark", "repeat": { "count": 9, "step": [2, 0, 0] } },
+    { "op": "cyl", "name": "Düse", "axis": "x", "at": [-16, 9.5, 0], "r": 7.4, "r2": 5.5, "h": 4, "hollow": 1.5, "color": "metal_dark" },
+    { "op": "cyl", "name": "Düsenglut", "axis": "x", "at": [-13, 9.5, 0], "r": 4.5, "h": 1, "color": { "shade": "glow", "f": "schub == 0 ? 0.3 : 1" }, "emit": "e + 0.2", "jitter": false },
+    { "op": "cyl", "name": "Stirnplatte", "axis": "x", "at": [11, 9.5, 0], "r": 6.5, "h": 2, "color": { "frame": "trim", "fill": "metal_light", "axes": "x" } },
+    { "op": "cyl", "name": "Stirnrand Bein", "axis": "x", "at": [12, 9.5, 0], "r": 6.6, "h": 1, "hollow": 1, "color": "trim" },
+    { "op": "ellipsoid", "name": "Schildbuckel", "at": [13, 9.5, 0], "r": [2.5, 3, 3], "half": "+x", "color": "metal_light" },
+    { "op": "box", "name": "Buckel-Nieten", "at": [13, 5, -1], "size": [1, 1, 2], "color": "metal_dark", "mirror": "y", "mirrorAt": 9.5 },
+    { "op": "box", "name": "Buckel-Nieten quer", "at": [13, 9, -5], "size": [1, 1, 1], "color": "metal_dark", "mirror": "z", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Abgasrohr", "at": [-6, 15, -5], "r": 1.4, "h": 12, "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "cyl", "name": "Abgasrohr Kappe", "at": [-6, 27, -5], "r": 1.9, "h": 1, "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "Leitung", "from": [9, 17, -2], "to": [14, 2, -5], "r": 0.7, "color": "leather" },
+    { "op": "box", "name": "Frontschürze", "at": [-12, 2, 5], "size": [25, 4, 2], "color": { "frame": "metal", "fill": "secondary", "axes": "xy" } },
+    { "op": "use", "name": "Runenband", "model": "prop/germanen/schiff/teil/runenband", "params": { "len": 5, "an": "schub > 0" }, "at": [-11, 1, 7] }
+  ],
+  "sockets": { "use": [0.8, 0, 0.6], "fx_smoke": [-0.4, 1.75, -0.3], "fx_spark": [0.7, 0.6, 0.4], "light": [-0.9, 0.6, 0], "label": [0, 2.0, 0] },
+  "anchor": [0, 0, 0]
+}

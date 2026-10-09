@@ -7,23 +7,23 @@
   "success": true,
   "softlock": null,
   "stageAtEnd": null,
-  "durationS": 263,
+  "durationS": 419.8,
   "stages": [
     {"t":0,"mission":"m3","stage":"briefing"},
     {"t":4.3,"mission":"m3","stage":"flight"},
     {"t":47.9,"mission":"m3","stage":"courtyard"},
-    {"t":127,"mission":"m3","stage":"archive"},
-    {"t":209.1,"mission":"m3","stage":"tablet"},
-    {"t":215.9,"mission":"m3","stage":"warden"},
-    {"t":258.3,"mission":"m3","stage":"extract"}
+    {"t":314.4,"mission":"m3","stage":"archive"},
+    {"t":368.1,"mission":"m3","stage":"tablet"},
+    {"t":374.9,"mission":"m3","stage":"warden"},
+    {"t":415.1,"mission":"m3","stage":"extract"}
   ],
   "radio": [
     {"t":2,"from":"Hafenmeisterin Tesk","text":"Lerche, hier Tesk. Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel – die darf nicht verkauft werden. Holt sie?"},
     {"t":4.3,"from":"Hafenmeisterin Tesk","text":"Danke. Die Plünderer sind gut bewaffnet, aber schlecht organisiert. Nehmt Medipacks mit – und bringt alle heil zurück."},
     {"t":55.9,"from":"Hafenmeisterin Tesk","text":"Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen."},
-    {"t":132,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
-    {"t":219.9,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
-    {"t":263,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
+    {"t":319.5,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
+    {"t":378.9,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
+    {"t":419.8,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
   ],
   "oda": [
     {"t":2,"text":"Direkt zur Planetenmission! Wir liegen im Hafen. Captain: Funk annehmen, dann Kurs Mond Kesh."},
@@ -37,40 +37,43 @@
     {"t":28.3,"text":"Deckung wirkt nur in Richtung des Schützen. Mauerreste schlucken viel – von der Seite nichts."},
     {"t":47.9,"text":"Kesh, Landezone. Klick/Leertaste: Blaster. Deckung neben Mauerresten, Schild lädt in Ruhe nach."},
     {"t":49.9,"text":"Plünderer im Hof der Ruine, hinterm Südtor. Deckung suchen, Schilde laden lassen, zusammen vorrücken."},
-    {"t":68.1,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":73.1,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":70.8,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":75.8,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
     {"t":87.9,"text":"Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben."},
-    {"t":127,"text":"Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor."},
-    {"t":147.8,"text":"Beide Schlüssel gleichzeitig – einer allein reicht dem Archiv nicht."},
-    {"t":185.6,"text":"Plünderer erledigt. Der hatte eh nur Schrott in den Taschen."},
-    {"t":187,"text":"Ein Schlüssel oben an der Hallenwand, einer unten rechts am Gewölbe. Anzählen, dann beide E!"},
-    {"t":191.8,"text":"Beide Schlüssel gleichzeitig – einer allein reicht dem Archiv nicht."},
-    {"t":209.1,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
-    {"t":215.9,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
-    {"t":229.8,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":234.8,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
-    {"t":258.3,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
+    {"t":131.3,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":136.3,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":227.6,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":228.3,"text":"Plünderer erledigt. Der hatte eh nur Schrott in den Taschen."},
+    {"t":232.7,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":310.1,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":314.4,"text":"Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor."},
+    {"t":315.1,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":368.1,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
+    {"t":374.9,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
+    {"t":386.6,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":391.6,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":415.1,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
   ],
   "notices": [
-    {"t":73.1,"text":"Transfer kühlt nach der Notrückholung ab (20 s)."},
-    {"t":74.8,"text":"Transfer kühlt nach der Notrückholung ab (19 s)."},
-    {"t":76.5,"text":"Transfer kühlt nach der Notrückholung ab (17 s)."},
-    {"t":78.2,"text":"Transfer kühlt nach der Notrückholung ab (15 s)."},
-    {"t":79.9,"text":"Transfer kühlt nach der Notrückholung ab (14 s)."},
-    {"t":81.6,"text":"Transfer kühlt nach der Notrückholung ab (12 s)."},
-    {"t":83.3,"text":"Transfer kühlt nach der Notrückholung ab (10 s)."},
-    {"t":85,"text":"Transfer kühlt nach der Notrückholung ab (9 s)."},
-    {"t":86.7,"text":"Transfer kühlt nach der Notrückholung ab (7 s)."},
-    {"t":88.4,"text":"Transfer kühlt nach der Notrückholung ab (5 s)."},
-    {"t":90.1,"text":"Transfer kühlt nach der Notrückholung ab (4 s)."},
-    {"t":91.8,"text":"Transfer kühlt nach der Notrückholung ab (2 s)."},
-    {"t":251.9,"text":"Transfer kühlt nach der Notrückholung ab (3 s)."}
+    {"t":75.8,"text":"Transfer kühlt nach der Notrückholung ab (20 s)."},
+    {"t":77.5,"text":"Transfer kühlt nach der Notrückholung ab (19 s)."},
+    {"t":79.2,"text":"Transfer kühlt nach der Notrückholung ab (17 s)."},
+    {"t":80.9,"text":"Transfer kühlt nach der Notrückholung ab (15 s)."},
+    {"t":82.6,"text":"Transfer kühlt nach der Notrückholung ab (14 s)."},
+    {"t":84.3,"text":"Transfer kühlt nach der Notrückholung ab (12 s)."},
+    {"t":86,"text":"Transfer kühlt nach der Notrückholung ab (10 s)."},
+    {"t":87.7,"text":"Transfer kühlt nach der Notrückholung ab (9 s)."},
+    {"t":89.4,"text":"Transfer kühlt nach der Notrückholung ab (7 s)."},
+    {"t":91.1,"text":"Transfer kühlt nach der Notrückholung ab (5 s)."},
+    {"t":92.8,"text":"Transfer kühlt nach der Notrückholung ab (4 s)."},
+    {"t":94.5,"text":"Transfer kühlt nach der Notrückholung ab (2 s)."},
+    {"t":332.1,"text":"Transfer kühlt nach der Notrückholung ab (3 s)."}
   ],
   "rewards": [
     {"t":12.4,"marks":190,"delta":20},
-    {"t":263,"marks":310,"delta":120}
+    {"t":419.8,"marks":310,"delta":120}
   ],
   "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":false,"m3Direct":true},"marks":310,"inventory":{"loeschgelCharges":0,"marks":310,"deko":["trophaee_boje"],"tafel":0,"ersatzteil":4,"loeschgel":2,"flickblech":3,"bolzen":6,"medipack":2}},
   "errors": 0,
-  "ending": {"t":263,"title":"Die Tafel ist sicher"}
+  "ending": {"t":419.8,"title":"Die Tafel ist sicher"}
 }

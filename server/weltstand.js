@@ -7,7 +7,7 @@ const path = require('path');
 const Locations = require('../shared/locations.js');
 
 const ROOT = path.join(__dirname, '..');
-const VERSION = 2;   // S2: Block 'spielleiter' (v1 -> v2 per MIGRATIONS[1])
+const VERSION = 3;   // B1–B3: welt.landepunkte, welt.wracks, welt.sektoren, crew (v2 -> v3 per MIGRATIONS[2]); S2: spielleiter (v1 -> v2)
 const MAX = 5;
 const SCHEMA_FILE = path.join(ROOT, 'content', 'schema', 'weltstand.schema.json');
 const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
@@ -18,10 +18,78 @@ const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thru
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const CHRONIK_KEEP = 200;
 
+// ---------- B1–B3 (CONTRACT-B1 §8): Blöcke anderer Teams ----------
+// Die Inhalte gehören den Modulen (toSave/restore), der Weltstand trägt sie nur ein. Aufrufkonvention für alle:
+//   mod.toSave(game) -> Block      mod.restore(block, game)
+// Fehlt ein Modul oder ist es noch der Welle-0-Stub (stub: true), bleibt der zuletzt geladene Block unverändert erhalten
+// (ws.data.bloecke) – ein Stand verliert also keine Daten, nur weil ein Team noch nicht geliefert hat.
+const BLOCK_MODS = {
+  landepunkte: './sim/landepunkte.js',   // welt.landepunkte (BUEHNE)
+  wracks: './sim/entern.js',             // welt.wracks (ENTERN)
+  waffen: './sim/waffen.js',             // crew.waffen (WAFFEN)
+  sektoren: './sim/sprung.js',           // welt.sektoren (SEKTOR; alternativ explore.toSave().sektoren / explore.restore(welt))
+};
+const BLOCK_DEFAULTS = { landepunkte: () => ({}), wracks: () => [], waffen: () => ({}), sektoren: () => ({ erkundet: [], bojen: [], temp: [], offen: [] }) };
+const modCache = {};
+function blockMod(key) {
+  if (key in modCache) return modCache[key];
+  let m = null;
+  try { m = require(BLOCK_MODS[key]); } catch (e) {
+    if (!(e && e.code === 'MODULE_NOT_FOUND' && String(e.message).includes(path.basename(BLOCK_MODS[key])))) console.warn('[Pantheon] Weltstand-Block ' + key + ':', e && e.message);
+    m = null;
+  }
+  modCache[key] = m;
+  return m;
+}
+const blockLive = (m, fn) => !!(m && !m.stub && typeof m[fn] === 'function');
+let sektorenMod;   // undefined = noch nicht gesucht
+function sektoren() {
+  if (sektorenMod === undefined) { try { sektorenMod = require('../shared/sektoren.js'); } catch (e) { sektorenMod = null; } }
+  return sektorenMod && sektorenMod.KARTE ? sektorenMod : null;
+}
+const uniq = (a) => [...new Set(a)];
+// B3 §5 Migration v2 -> v3: Erkundungsstand aus den Orten. erkundet = Hexe aller besuchten Orte; bojen = open/locked-Kanten
+// zwischen zwei bekannten Orten; offen = Kanten zu den Schlüsseln aus verbindungen_offen. Ohne shared/sektoren.js leer
+// (apply leitet dann beim Laden nach, sobald die Sektorkarte da ist).
+function sektorenAusOrten(welt) {
+  const out = { erkundet: [], bojen: [], temp: [], offen: [] };
+  const S = sektoren();
+  if (!S) return out;
+  const w = welt || {}; const orte = w.orte || {};
+  const hex = (id) => { try { return (typeof S.hexVonOrt === 'function' && S.hexVonOrt(id)) || null; } catch (e) { return null; } };
+  const kid = (a, b) => (typeof S.kanteId === 'function' ? S.kanteId(a, b) : [a, b].sort().join('-'));
+  const bekannt = new Set([...(orte.bekannt || []), ...(orte.besucht || [])].map(hex).filter(Boolean));
+  out.erkundet = uniq((orte.besucht || []).map(hex).filter(Boolean));
+  const keys = new Set(w.verbindungen_offen || []);
+  for (const k of (S.KARTE && S.KARTE.kanten) || []) {
+    if (!k || !k.a || !k.b) continue;
+    const id = kid(k.a, k.b);
+    if ((k.art === 'open' || k.art === 'locked') && bekannt.has(k.a) && bekannt.has(k.b)) out.bojen.push(id);
+    if (k.key && keys.has(k.key)) out.offen.push(id);
+  }
+  out.bojen = uniq(out.bojen); out.offen = uniq(out.offen);
+  return out;
+}
+function normSektoren(x) {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return { erkundet: [], bojen: [], temp: [], offen: [] };
+  const strs = (a) => (Array.isArray(a) ? uniq(a.filter((v) => typeof v === 'string')) : []);
+  return Object.assign({}, x, { erkundet: strs(x.erkundet), bojen: strs(x.bojen), offen: strs(x.offen),
+    temp: Array.isArray(x.temp) ? x.temp.filter((t) => t && typeof t === 'object' && !Array.isArray(t)) : [] });
+}
+
 // Migrationskette: MIGRATIONS[n](data) hebt Version n auf n + 1.
 const MIGRATIONS = {
   // S2 (CONTRACT-S2 §3.2): v1 (S1) bekommt einen leeren Spielleiter-Block
   1: (data) => Object.assign({}, data, { version: 2, spielleiter: Object.assign({}, data.spielleiter || {}) }),
+  // B1–B3 (CONTRACT-B1 §8, B3 §5): leere Blöcke landepunkte/wracks/crew, Sektoren aus den Orten abgeleitet. orte.* bleibt.
+  2: (data) => {
+    const welt = Object.assign({}, data.welt || {});
+    if (!welt.landepunkte || typeof welt.landepunkte !== 'object' || Array.isArray(welt.landepunkte)) welt.landepunkte = {};
+    if (!Array.isArray(welt.wracks)) welt.wracks = [];
+    welt.sektoren = welt.sektoren ? normSektoren(welt.sektoren) : sektorenAusOrten(welt);
+    const crew = Object.assign({ waffen: {}, rollen_gesehen: [] }, data.crew || {});
+    return Object.assign({}, data, { version: 3, welt, crew });
+  },
 };
 // Block 'spielleiter' (§3.2): { plaene: { <missionId>: { grobplan, anlass, origin, szenen, buch } }, archiv_gespielt: [],
 // zusammenfassung: [{ id, titel, auftraggeber, ausgang }], naechste_id }. Inhalt gehört dem Spielleiter (toSave/restore).
@@ -470,6 +538,16 @@ function makeRuntime(game, base) {
     }
     return true;
   };
+  // B2 §5/§9: Gegnerrolle gilt als gesehen (crew.rollen_gesehen, Einführungsregel E24). -> true, wenn sie neu ist.
+  // Aufruf: BODENKAMPF (squad.js), sobald ein Gegner dieser Rolle für einen Spieler sichtbar war.
+  ws.rolleGesehen = (rolle) => {
+    if (typeof rolle !== 'string' || !rolle) return false;
+    const l = ws.data.rollen_gesehen || (ws.data.rollen_gesehen = []);
+    if (l.includes(rolle)) return false;
+    l.push(rolle);
+    return true;
+  };
+  ws.rollenGesehen = () => ((ws.data && ws.data.rollen_gesehen) || []).slice();
   // entry: Text oder { text, mission?, ausgang? }
   ws.chronicle = (entry) => {
     const e = typeof entry === 'string' ? { text: entry } : (entry || {});
@@ -490,6 +568,8 @@ function makeRuntime(game, base) {
 // Neuer Stand im Speicher. opts: { tutorial, persistent? (Standard true), dir? }
 function create(game, opts) {
   const o = opts || {};
+  for (const k of Object.keys(BLOCK_MODS)) blockMod(k);   // B1 §8: Module jetzt laden, nicht beim ersten Erfassen im Tick
+  sektoren();
   const persistent = o.persistent !== false;
   const d = o.dir || dir(game && game.env);
   let id = null;
@@ -513,7 +593,7 @@ function create(game, opts) {
   }
   const ws = makeRuntime(game, { id, name, persistent, dir: d });
   ws.data = { npc: npcStartValues(game, readNpcFile(game, o.countMissing !== false && persistent)), chronik: [], fakten: {}, faktenQuelle: {},
-    tutorial: o.tutorial ? 'laeuft' : 'uebersprungen', erstellt: now.toISOString() };
+    tutorial: o.tutorial ? 'laeuft' : 'uebersprungen', erstellt: now.toISOString(), rollen_gesehen: [], bloecke: {} };
   return ws;
 }
 
@@ -536,6 +616,25 @@ function missionSave(game) {
   return out;
 }
 const isDone = (e) => !!e && (e.status === 'erledigt' || e.status === 'done');
+// B1 §8: Block eines anderen Teams erfassen (toSave(game)); fehlt das Modul -> zuletzt geladener Block bzw. Leerform
+function blockSave(game, key) {
+  const ws = game.weltstand;
+  const kept = ws && ws.data && ws.data.bloecke && ws.data.bloecke[key];
+  const m = blockMod(key);
+  if (blockLive(m, 'toSave')) {
+    try {
+      const r = m.toSave(game);
+      if (r != null && typeof r === 'object') return clone(r);
+    } catch (e) { countError(game, 'weltstand-' + key, e); }
+  }
+  return kept != null ? clone(kept) : BLOCK_DEFAULTS[key]();
+}
+// B1 §8: Block an sein Modul (restore(block, game)); fehlt es, bleibt er in ws.data.bloecke und wird unverändert gespeichert
+function blockRestore(game, key, block) {
+  const m = blockMod(key);
+  if (!blockLive(m, 'restore')) return false;
+  try { m.restore(clone(block), game); return true; } catch (e) { countError(game, 'weltstand-' + key, e); return false; }
+}
 
 function capture(game) {
   const ws = game.weltstand;
@@ -595,6 +694,13 @@ function capture(game) {
     spielleiter: spielleiterSave(game),   // S2 §3.2
   };
   if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
+  // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
+  data.welt.landepunkte = blockSave(game, 'landepunkte');
+  data.welt.wracks = blockSave(game, 'wracks');
+  let sek = data.welt.sektoren;
+  if (!sek && ex && typeof ex.sektorenToSave === 'function') { try { sek = ex.sektorenToSave(); } catch (e) { countError(game, 'weltstand-sektoren', e); } }
+  data.welt.sektoren = normSektoren(sek || blockSave(game, 'sektoren'));
+  data.crew = { waffen: blockSave(game, 'waffen'), rollen_gesehen: (ws.data.rollen_gesehen || []).slice() };
   return data;
 }
 
@@ -605,7 +711,9 @@ function apply(game, data) {
   const ws = makeRuntime(game, { id: d.id, name: d.name, persistent: true, dir: (game.weltstand && game.weltstand.dir) || dir(game.env) });
   ws.data = { npc: d.npc || {}, chronik: d.chronik || [], fakten: (d.welt && d.welt.fakten) || {}, faktenQuelle: (d.welt && d.welt.faktenQuelle) || {},
     tutorial: d.tutorial === 'gespielt' ? 'erledigt' : (d.tutorial || 'laeuft'), erstellt: d.erstellt,
-    faeden: Array.isArray(d.welt && d.welt.faeden) ? d.welt.faeden.slice() : [] };
+    faeden: Array.isArray(d.welt && d.welt.faeden) ? d.welt.faeden.slice() : [],
+    rollen_gesehen: Array.isArray(d.crew && d.crew.rollen_gesehen) ? d.crew.rollen_gesehen.filter((r) => typeof r === 'string') : [],
+    bloecke: {} };
   for (const n of Object.values(ws.data.npc)) if (!Array.isArray(n.gedaechtnis)) n.gedaechtnis = [];
   // Fakten in der Form { value, quelle } auf Wert + faktenQuelle abbilden
   for (const [k, v] of Object.entries(ws.data.fakten)) {
@@ -634,7 +742,17 @@ function apply(game, data) {
   ship.offline = {}; ship.fragile = {};
   // Welt
   const w = d.welt || {};
+  // B3 §5: Sektoren fehlen bzw. wurden ohne Sektorkarte migriert -> jetzt aus den Orten ableiten
+  if (!w.sektoren || (!(w.sektoren.erkundet || []).length && ((w.orte && w.orte.besucht) || []).length)) w.sektoren = sektorenAusOrten(w);
+  w.sektoren = normSektoren(w.sektoren);
+  ws.data.bloecke = { landepunkte: w.landepunkte || {}, wracks: Array.isArray(w.wracks) ? w.wracks : [], sektoren: w.sektoren,
+    waffen: (d.crew && d.crew.waffen) || {} };
+  // B1 §8 Reihenfolge: sektoren -> landepunkte -> spielleiter.restore -> mission.restore -> away.applyWorldFacts
+  // sektoren: explore.restore(w) bekommt den ganzen Block welt und stellt welt.sektoren selbst her (SEKTOR, sektorenRestore)
   if (game.explore.restore) game.explore.restore(w);
+  blockRestore(game, 'landepunkte', ws.data.bloecke.landepunkte);
+  blockRestore(game, 'wracks', ws.data.bloecke.wracks);
+  blockRestore(game, 'waffen', ws.data.bloecke.waffen);
   game.odaSeen = new Set(w.odaSeen || []);
   game.scans = new Set(w.scans || []);
   const wreck = game.aways && game.aways.wreck;
@@ -694,4 +812,4 @@ function restoreFallback(game, obj) {
   if (!started && !Object.keys(obj.missionen || {}).length && typeof m.start === 'function') m.start();
 }
 
-module.exports = { MAX, VERSION, MIGRATIONS, NPC_STATES, dir, list, create, capture, save, load, apply, remove, lock, unlock, validate, fallbackValidate, schema, readNpcFile, pidAlive };
+module.exports = { BLOCK_MODS, sektorenAusOrten, readChecked, MAX, VERSION, MIGRATIONS, NPC_STATES, dir, list, create, capture, save, load, apply, remove, lock, unlock, validate, fallbackValidate, schema, readNpcFile, pidAlive };

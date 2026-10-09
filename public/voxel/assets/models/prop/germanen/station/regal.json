@@ -1,0 +1,36 @@
+{
+  "id": "prop/germanen/station/regal",
+  "name": "Station Germanen: Eisenregal (Schmiedevorrat, Barren, Fässchen, Kisten)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "station", "lager", "regal"],
+  "notes": "ART-STATION. 1 x 0,5 m, 1,9 m hoch, Rücken an die Wand (-z). Vier Schmiedeeisen-Pfosten, Böden mit heller Vorderkante (von oben lesbar), Rückwand als Diagonalstreben. Inhalt je Fach über seed (Barren, Fässchen, Kiste). Runen nur als gepunktetes Leiterbahnband auf der Kopfleiste, emit 0,6. zustand 1/2: erode, 2 zusätzlich Ruß.",
+  "footprint": [1, 0.5],
+  "params": {
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 verfallen, 2 umkämpft)" }
+  },
+  "variants": { "seed3": { "seed": 3 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2, "seed": 5 } },
+  "ops": [
+    { "name": "Pfosten", "op": "box", "at": [-8, 0, -4], "size": [2, 30, 2], "color": "metal_dark", "jitter": false, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Pfosten Fuß", "op": "box", "at": [-8, 0, -4], "size": [2, 1, 2], "color": "metal_light", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Böden", "op": "box", "at": [-7, 1, -4], "size": [14, 1, 8], "repeat": { "count": 4, "step": [0, 9, 0] }, "color": "primary", "jitter": false },
+    { "name": "Bodenkante vorn (hell)", "op": "box", "at": [-7, 2, 3], "size": [14, 1, 1], "repeat": { "count": 4, "step": [0, 9, 0] }, "color": "metal_light" },
+    { "name": "Rückstrebe Mitte", "op": "box", "at": [-1, 1, -4], "size": [2, 29, 1], "color": "metal", "jitter": false },
+    { "name": "Nieten Pfosten", "op": "box", "at": [-8, 4, 3], "size": [1, 1, 1], "repeat": { "count": 3, "step": [0, 9, 0] }, "color": "metal_light", "mode": "paint", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kopfleiste", "op": "box", "at": [-8, 30, -4], "size": [16, 1, 8], "color": "metal_dark", "jitter": false },
+    { "name": "Kopfleiste Einlage", "op": "box", "at": [-6, 30, 3], "size": [12, 1, 1], "color": "metal_dark", "mode": "paint", "jitter": false },
+    { "name": "Leiterbahn-Runenband (gepunktet)", "op": "box", "at": [-6, 30, 3], "size": [1, 1, 1], "repeat": { "count": 6, "step": [2, 0, 0] }, "color": { "shade": "glow", "f": 0.75, "emit": 0.6 }, "mode": "paint", "jitter": false },
+    { "name": "Hornenden Kopfleiste", "op": "box", "at": [-8, 31, -1], "size": [1, 1, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+
+    { "name": "Fach: Barrenstapel unten", "op": "box", "if": "hash(seed, j, 1) < 0.65", "at": [-6, 3, -2], "size": [5, 1, 4], "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": "metal_light", "jitter": false },
+    { "name": "Fach: Barrenstapel oben", "op": "box", "if": "hash(seed, j, 1) < 0.4", "at": [-5, 4, -1], "size": [3, 1, 2], "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": "metal_light" },
+    { "name": "Fach: Fässchen", "op": "cyl", "if": "hash(seed, j, 2) < 0.6", "at": [3, 3, 0], "r": 2.5, "h": 6, "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": "wood", "jitter": false },
+    { "name": "Fach: Fässchen Reifen", "op": "cyl", "if": "hash(seed, j, 2) < 0.6", "at": [3, 5, 0], "r": 2.5, "h": 1, "hollow": 1, "mode": "paint", "jitter": false, "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": "metal_dark" },
+    { "name": "Fach: Kiste statt Fass", "op": "box", "if": "hash(seed, j, 2) >= 0.6", "at": [0, 3, -3], "size": [6, 5, 6], "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": { "frame": "metal_dark", "fill": "wood", "axes": "xy", "width": 1 } },
+    { "name": "Fach: Werkzeug (Zange)", "op": "line", "if": "hash(seed, j, 3) < 0.5", "from": [-6, 3, 2], "to": [-2, 3, 1], "r": 0.5, "repeat": { "count": 3, "step": [0, 9, 0], "var": "j" }, "color": "metal_light" },
+
+    { "name": "Verfall (nur Kopfbereich, Budget)", "op": "erode", "if": "zustand > 0", "density": "zustand * 0.07", "depth": 1, "at": [-8, 20, -4], "size": [16, 12, 8] },
+    { "name": "Ruß (umkämpft)", "op": "line", "if": "zustand == 2", "from": [-8, 8, 4], "to": [2, 30, 4], "r": 1.5, "mode": "paint", "color": { "noise": ["black", "metal_dark"], "weights": [1, 1], "cell": 1 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "prop/germanen/schiff/leiter",
+  "name": "Notleiter: Eisenholme mit Holzsprossen (Germanen, Schiff)",
+  "notes": "Anker leiter (deck 1|2, paarweise übereinander). deck 1: Leiter an der Rückwand bis zur Deckenluke. deck 2: offene Bodenluke, Holme ragen heraus, Deckel hinten aufgeklappt.",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["germanen", "schiff", "prop", "leiter"],
+  "footprint": [1, 1],
+  "params": {
+    "deck": { "default": 1, "min": 1, "max": 2, "step": 1, "label": "Deck 1 (hoch) / 2 (runter)" }
+  },
+  "variants": { "deck2": { "deck": 2 } },
+  "ops": [
+    { "op": "group", "name": "Deck 1: Leiter hoch", "if": "deck == 1", "ops": [
+      { "op": "box", "name": "Bodenplatte", "at": [-6, 0, -8], "size": [12, 1, 7], "color": { "checker": ["trim", "metal_dark"], "period": 2 } },
+      { "op": "box", "name": "Holm", "at": [-5, 0, -6], "size": [1, 33, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Wandhalter", "at": [-5, 6, -8], "size": [1, 1, 2], "color": "metal_dark", "repeat": { "count": 3, "step": [0, 11, 0] }, "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Sprosse", "at": [-4, 3, -6], "size": [8, 1, 1], "color": { "stripes": ["wood", "wood_dark"], "axis": "x", "period": 4 }, "repeat": { "count": 8, "step": [0, 4, 0] } },
+      { "op": "box", "name": "Deckenluke", "at": [-7, 33, -8], "size": [14, 2, 7], "color": { "frame": "metal_light", "fill": "black", "axes": "xz" } },
+      { "op": "box", "name": "Lukenlicht", "at": [-1, 33, -2], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false }
+    ] },
+    { "op": "group", "name": "Deck 2: Luke runter", "if": "deck == 2", "ops": [
+      { "op": "box", "name": "Lukenrahmen", "at": [-7, 0, -7], "size": [14, 1, 14], "color": { "frame": { "checker": ["trim", "metal_dark"], "period": 2 }, "fill": "metal", "axes": "xz", "width": 2 } },
+      { "op": "box", "name": "Schacht", "at": [-5, 0, -5], "size": [10, 1, 10], "mode": "paint", "color": "black", "jitter": false },
+      { "op": "box", "name": "Sprosse sichtbar", "at": [-4, 0, -5], "size": [8, 1, 1], "mode": "paint", "color": "wood_dark", "jitter": false },
+      { "op": "box", "name": "Holm oben", "at": [-5, 1, -5], "size": [1, 14, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+      { "op": "line", "name": "Haltebogen", "from": [-4.5, 15, -4.5], "to": [-4.5, 17, -2], "r": 0.5, "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Scharnier", "at": [-6, 1, -8], "size": [12, 1, 1], "color": "metal_dark" },
+      { "op": "box", "name": "Deckel aufgeklappt", "at": [-6, 1, -8], "size": [12, 12, 1], "color": { "frame": "metal", "fill": { "stripes": ["wood", "wood_dark"], "axis": "y", "period": 2 }, "axes": "xy" } },
+      { "op": "box", "name": "Deckelgriff", "at": [-1, 9, -7], "size": [2, 1, 1], "color": "metal_light" }
+    ] },
+    { "op": "box", "name": "Notlicht", "at": [-1, 30, -8], "size": [2, 1, 1], "if": "deck == 1", "color": { "role": "alarm", "emit": 0.9 }, "jitter": false }
+  ],
+  "sockets": { "use": [0, 0, 0.2], "label": [0, 2.3, 0] },
+  "anchor": [0, 0, 0]
+}

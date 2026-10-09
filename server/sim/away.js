@@ -6,15 +6,18 @@ const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
 const combat = require('./combat.js');
+const squad = require('./squad.js');
 const { bfs, lineOfSight, dist, makeRng } = require('../util.js');
 
 const TILE = Physics.TILE;
 const DRONE_HITBOX = { w: 14, h: 10 };
 const isDown = (st) => st === 'broken' || st === 'offline';
 
+// kampf (B1 §0.1): 'alt' = alter Kampf (Plattform/Wrack im Tutorial), 'v2' = Kampf v2 (combat.js). Kesh und gebaute
+// Karten setzen 'v2'; eine 'alt'-Karte wird beim nächsten Betreten bzw. map_reset nach dem Tutorial umgerüstet.
 function baseAway(map) {
   return {
-    map, active: false, drones: [], projectiles: [],
+    map, kampf: 'alt', active: false, drones: [], projectiles: [],
     npc: { x: 0, y: 0, dir: 'down', following: null, rescued: false, present: false, injured: false, path: null, pathT: 0, moving: false },
     items: [], marker: null, strikes: [], pendingStrikes: [],
     sonde: { disabled: true, symbols: [], entered: [], lockout: 0 },
@@ -71,8 +74,53 @@ function makeWreck(game) {
 // M2: Mond Kesh (Kampf v2, server/sim/combat.js)
 function makeKesh(game) { return combat.makeKesh(game, baseAway('kesh')); }
 
+// B1 §6.1: Laufzeitobjekt für einen Landepunkt mit gebauter Karte (landepunkte.js legt es als game.aways[lpId] an).
+// Kampf v2, kartenneutral; Besetzung kommt über squad.spawnSquad(game, name, { map: lpId, bereich, besetzung }).
+function makeLandepunkt(game, lpId) {
+  const aw = baseAway(lpId);
+  aw.kampf = 'v2';
+  aw.zustaende = {};   // Laufzeitzustände von Kanten/Ankern (ankerId|kantenId -> zustand), steuern Tür-Kacheln
+  return combat.ensureV2(game, aw, lpId);
+}
+
+// ---------- Tutorial-Schutz (B1 §0.1, E28) ----------
+// Gleiche Regel wie der Faltsprung (sprung.tutorialLaeuft, CONTRACT-B3 §0.1): ohne Kampagnen-Weltstand (Direktstart,
+// Golden, Tests) läuft das Tutorial immer – Plattform und Wrack behalten dort den alten Kampf.
+function tutorialLaeuft(game) {
+  try {
+    const sp = require('./sprung.js');
+    if (sp && typeof sp.tutorialLaeuft === 'function') return sp.tutorialLaeuft(game);
+  } catch (e) { /* SEKTOR-Modul fehlt: eigene Prüfung */ }
+  const ws = game.weltstand;
+  if (!ws || !ws.persistent) return true;
+  const t = ws.data && ws.data.tutorial;
+  return !(t === 'uebersprungen' || t === 'erledigt');
+}
+// Karte mit altem Kampf nach dem Tutorial auf Kampf v2 umrüsten (beim Betreten ohne Außenteam bzw. nach map_reset)
+function kampfPruefen(game, aw) {
+  if (!aw || aw.kampf !== 'alt' || tutorialLaeuft(game)) return false;
+  combat.ruesteV2(game, aw);
+  return true;
+}
+
 // ---------- Transfer ----------
+// B1 §6.1 (Wunsch ENTERN): gewählter Landepunkt mit gebauter Karte -> landepunkte.beamSpot (Lage und Reichweite, z. B.
+// der Prise). Handkarten (Eintrag ohne Karte) wie bisher über scene.beam.
+let lpMod;
+function landepunkte() {
+  if (lpMod === undefined) {
+    try { lpMod = require('./landepunkte.js'); } catch (e) { if (!(e && e.code === 'MODULE_NOT_FOUND' && String(e.message).includes('landepunkte.js'))) console.error('[away] landepunkte.js:', e && e.message); lpMod = null; }
+  }
+  return lpMod;
+}
 function beamSpot(game) {
+  const z = game.transferZiel;
+  if (z && z.lp && W.AWAY_MAPS[z.lp] && interior.awayInfoOf(z.lp).karte) {
+    const L = landepunkte();
+    if (L && typeof L.beamSpot === 'function') {
+      try { const sp = L.beamSpot(game); if (sp) return sp; } catch (e) { if (game.countError) game.countError('landepunkte-beamSpot', e); }
+    }
+  }
   const loc = Locations.get(game.ship.scene);
   const sc = loc && loc.scene;
   if (!sc || !sc.beam || !sc.station) return null;
@@ -164,6 +212,7 @@ function executeBeam(game, pids, dir) {
   const players = pids.map((id) => game.playerById(id)).filter(Boolean);
   if (!players.length) return;
   if (dir === 'down') {
+    if (!game.players.some((p) => p.zone === 'away')) kampfPruefen(game, away);   // B1 §0.1: neues Betreten
     players.forEach((p, i) => { interior.placeOnAwayPad(game, p, i); p.beamLock = false; });
     if (!away.active) { away.active = true; away.firstBeamAt = game.time; }
     game.emit('beam', { pids, dir, map: away.map });
@@ -234,12 +283,20 @@ function supply(game) {
 function spawnGuards(game) {
   const away = game.away; const C = game.C;
   let n = 0;
+  const v2 = combat.isV2(game);
   for (const t of C.awayExtra.guardSpawns || []) {
     const c = W.tileCenter(t.x, t.y);
+    if (v2) {   // B1 §0.1: Plattform nach dem Tutorial (Kampf v2) – Wachen als v2-Gegner, gleich alarmiert
+      const e = squad.makeEnemy(game, away, 'drone', 'w' + (++n), c, 'posten');
+      e.guard = true;
+      away.drones.push(e);
+      continue;
+    }
     away.drones.push({ id: 'w' + (++n), kind: 'drone', x: c.x, y: c.y, hp: C.away.drone.hp, dir: 'down', revealed: false, alive: true,
       home: { x: c.x, y: c.y }, fireT: n * 0.5, wander: null, wanderT: 0, hitT: -9, guard: true });
   }
   away.alarmUntil = game.time + C.awayExtra.alarmTime;
+  if (v2 && n) { if (!away.squads.posten) away.squads.posten = squad.newSquad('posten', n); away.squads.posten.noBark = true; squad.alertSquad(game, away, away.squads.posten); }
   game.emit('sfx', { name: 'code_fail', zone: 'away' });
   return n;
 }
@@ -330,9 +387,10 @@ function setMarker(game, p, x, y) {
   game.emit('sfx', { name: 'ui_click', zone: 'away', x: game.away.marker.x, y: game.away.marker.y });
 }
 
-function shoot(game, p, angle) {
+// opts (B2, optional): { los: true } = Abzug losgelassen (Lanze feuert). ENGINE reicht msg.los durch.
+function shoot(game, p, angle, opts) {
   const C = game.C;
-  if (p.zone === 'away' && combat.isV2(game)) return combat.shoot(game, p, angle);   // M2: Kampf v2 (inkl. Pistole verwundet)
+  if (p.zone === 'away' && combat.isV2(game)) return combat.shoot(game, p, angle, opts);   // M2: Kampf v2 (inkl. Pistole verwundet)
   if (p.zone !== 'away' || p.downed || p.console || p.beamLock) return;
   if (!Number.isFinite(angle)) return;
   if (game.time < p.shootReadyAt) return;
@@ -377,7 +435,7 @@ function update(game, dt) {
   const C = game.C; const away = game.away;
   for (const k of Object.keys(game.support)) game.support[k] = Math.max(0, game.support[k] - dt);
   updateBeaming(game, dt);
-  if (away.sonde.lockout > 0) away.sonde.lockout = Math.max(0, away.sonde.lockout - dt);
+  if (away.sonde && away.sonde.lockout > 0) away.sonde.lockout = Math.max(0, away.sonde.lockout - dt);
   if (game.time >= away.kuppelUntil) away.kuppelHp = 0;
   if (!away.active) return;
   const awayPlayers = game.players.filter((p) => p.zone === 'away' && !p.downed);
@@ -595,6 +653,7 @@ function resetMap(game, map, opts) {
     fresh.rng = makeRng(((game.seed ^ 0x5C0B1) + Math.imul(resets, 0x9E3779B1)) >>> 0);
     applyKeshFacts(game, fresh, o.fund || null);
   } else return { ok: false, reason: 'Karte ' + map + ' kann nicht zurückgesetzt werden' };
+  kampfPruefen(game, fresh);   // B1 §0.1: nach dem Tutorial gilt nach map_reset Kampf v2
   fresh.resets = resets;
   game.aways[map] = fresh;
   if (game.away === old) game.away = fresh;
@@ -634,6 +693,7 @@ function personState(game, map, person) {
 
 module.exports = {
   resetMap, spawnPerson, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
+  baseAway, makeLandepunkt, tutorialLaeuft, kampfPruefen,
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
   setMarker, shoot, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
 };

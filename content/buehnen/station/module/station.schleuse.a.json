@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "station.schleuse.a", "art": "station", "typ": "schleuse",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "########",
+    "#O....O#",
+    "#......#",
+    "#......#",
+    "#.o.O..#",
+    "#......#",
+    "#......#",
+    "###SS###"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "..a.....",
+    "........",
+    "......b.",
+    "........",
+    "...e....",
+    "........"
+  ],
+  "anker_legende": {
+    "a": { "rolle": "abholpunkt" },
+    "b": { "rolle": "beute" },
+    "e": { "rolle": "eingang", "art": "laut" }
+  }
+}

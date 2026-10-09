@@ -5,16 +5,19 @@
 //   npm run check:assets -- --team art-b     nur ein Team
 //   npm run check:assets -- lerche/station   nur IDs, die den Text enthalten
 //   npm run check:assets -- --no-missing     Liste der fehlenden Vertrags-IDs weglassen
+//   npm run check:assets -- --bauweisen-streng   Lücken der Bauweisen-Tabellen als Fehler (sonst Warnung; auch
+//                                            CHECK_BAUWEISEN_STRENG=1)
 //
 // Geprüft: Pflichtfelder (§5), Dreiecke je Zustand gegen budgetTris und Vertragsbudget (Warnung > 100 %, Fehler > 150 %),
 // Grundfläche/Höhe gegen footprint/height (+ 2,2-m-Grenze), Pflicht-Sockets, Parameter aus §3.3/§3.4/§3.6,
-// Posen aus §3.4. Fehlende IDs aus §3.3/§3.4/§3.6 werden je Team gelistet (kein Fehler).
+// Posen aus §3.4, Sockets aus dem Rezept (CONTRACT-B1 §10.1, Manifest hat Vorrang), Vollständigkeit der
+// Bauweisen-Tabellen content/buehnen/bauweisen/<bw>.json (CONTRACT-B1 §10.2). Fehlende IDs aus §3.3/§3.4/§3.6 werden je Team gelistet (kein Fehler).
 // Exit-Code 1 bei Fehlern.
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { readManifests } from './sync-assets.mjs';
+import { readManifests, mergeSockets } from './sync-assets.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -22,6 +25,7 @@ const opt = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : nu
 const USE_VW = argv.includes('--vw');
 const TEAM = opt('--team');
 const SHOW_MISSING = !argv.includes('--no-missing');
+const BW_STRICT = argv.includes('--bauweisen-streng') || process.env.CHECK_BAUWEISEN_STRENG === '1';
 const FILTER = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--team')[0] || null;
 const SRC = USE_VW ? path.resolve(ROOT, process.env.VOXELWERK_PATH || '../voxelwerk') : path.join(ROOT, 'public', 'voxel');
 const MANIFEST_DIR = path.join(ROOT, 'assets', 'manifest');
@@ -87,6 +91,16 @@ const footprintExempt = (id) => /^lerche\/kit\/(light|window|plaque)$/.test(id);
 // Handgehaltene Gegenstände (Pivot = Griff, Anker handR): keine Boden-/Grundflächen-/Höhenprüfung
 const isHeld = (id, e) => /^lerche\/item\//.test(id) || (e.tags || []).includes('held');
 const heightExempt = (id, e) => /(^|\/)(wall\w*|window|door|shaft|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
+// Wand-/Türklasse der Bühnen (M4 §5 „außer Wände, Türen, Fenster, Säulen“, deutsche Kit-Namen aus CONTRACT-B1 §10.1):
+// statt 2,2 m gilt die Wandhöhe 3 m.
+const WALL_H = 3.0;
+const wallClass = (id, e) => /^kit\/[^/]+\/(wand\w*|zaun|tuer|tor|schott|luke|fenster|pfeiler|deckung_voll)$/.test(id) ||
+  /(^|\/|_)(tor|tuer|schott)$/.test(id) || (e.tags || []).some((t) => ['door', 'gate', 'tuer', 'tor'].includes(t));
+// Leitstücke (Wahrzeichen) bis 3,5 m: Entscheidung Studioleitung (B1) – über 2,2 m Warnung, über 3,5 m Fehler.
+const LEIT_H = 3.5;
+const isLeit = (id) => id.startsWith('leit/');
+// Handgegenstände/Waffen: Lauf/Mündung entlang −y, Oberseite +z (art-f, art-g, art-waffe) ist als facing zulässig.
+const facingOk = (f, id, e) => f === '+z' || (isHeld(id, e) && typeof f === 'string' && /^\s*[-−]y\b/.test(f));
 /** Vertragsbudget §5 (Dreiecke je Zustand). */
 function contractBudget(id, e, tier) {
   if (e.kind === 'figure' || id.startsWith('lerche/actor/')) return { n: 6000, what: 'Figur' };
@@ -99,6 +113,124 @@ function contractBudget(id, e, tier) {
   const fp = Array.isArray(e.footprint) ? e.footprint : [1, 1];
   const tiles = Math.max(1, Math.min(4, Math.round(fp[0]) * Math.round(fp[1])));
   return { n: 2500 * tiles, what: tiles > 1 ? `Detail-Prop ${tiles} Kacheln` : 'Detail-Prop' };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bauweisen-Tabellen (CONTRACT-B1 §10.2): jede `kind`, die in Modulen der Bauweise vorkommt, und jede Ankerrolle mit
+// Objekt, die in diesen Modulen vorkommt, muss belegt sein. Lücken = Warnung, mit --bauweisen-streng Fehler.
+// ---------------------------------------------------------------------------------------------
+const BUEHNEN = path.join(ROOT, 'content', 'buehnen');
+const KARTENARTEN = ['aussenposten', 'station', 'ruine', 'schiff'];
+/** Besitzer der Tabelle (CONTRACT-B1 §1.1: germanen ART-GK-BAU, rom ART-RUINE) – für --team. */
+const BW_OWNER = { germanen: 'art-gkb', rom: 'art-ru' };
+/** §10.1: kein Kit-Teil (Terrain macht VOXEL, leere/abgrund = nichts). */
+const KIND_NO_KIT = new Set(['gelaende', 'fels', 'leere', 'abgrund']);
+/** §10.1: Ersatz-Schlüssel (plateau/rampe laufen über kit/<bw>/kante, schutt ersatzweise über truemmer). */
+const KIND_ALT = { plateau: ['kante'], rampe: ['kante'], schutt: ['truemmer'] };
+
+const readJson = async (f) => JSON.parse((await fsp.readFile(f, 'utf8')).replace(/^﻿/, ''));
+/** Tabellenwert → Liste von Asset-IDs: "id" | { id } | [ … ] */
+const refIds = (v) => v == null ? [] : Array.isArray(v) ? v.flatMap(refIds) : typeof v === 'string' ? [v] : typeof v === 'object' && typeof v.id === 'string' ? [v.id] : [];
+
+async function checkBauweisen(manifestIds) {
+  const out = [];   // { bw, owner, lines: [{ lvl: 'err'|'warn'|'info', msg }] }
+  const generalInfo = [];
+  let kacheln, anker, achsen, zustaende;
+  try {
+    kacheln = await readJson(path.join(BUEHNEN, 'kacheln.json'));
+    anker = await readJson(path.join(BUEHNEN, 'anker.json'));
+    achsen = await readJson(path.join(BUEHNEN, 'achsen.json'));
+    zustaende = await readJson(path.join(BUEHNEN, 'zustaende.json')).catch(() => ({}));
+  } catch (err) { return { out, generalInfo: [`Bauweisen-Prüfung übersprungen: ${err.message}`] }; }
+  const charKind = Object.fromEntries(Object.entries(kacheln.zeichen || {}).map(([c, d]) => [c, d.kind]));
+  const rollen = anker.rollen || {};
+  const defaultBw = Object.fromEntries(KARTENARTEN.map((a) => [a, achsen.kartenarten?.[a]?.bauweise || null]));
+  const overlayKinds = Object.values(zustaende.zustaende || {}).some((z) => z && z.truemmer) ? ['truemmer', 'schutt'] : [];
+
+  // Module und Schablonen aller Kartenarten (unlesbare Dateien: Info, die KITS-Teams schreiben parallel)
+  const modules = [], schablonen = [], unreadable = [];
+  for (const art of KARTENARTEN) {
+    for (const [sub, list] of [['module', modules], ['schablonen', schablonen]]) {
+      const dir = path.join(BUEHNEN, art, sub);
+      for (const f of (await fsp.readdir(dir).catch(() => [])).filter((f) => f.endsWith('.json')).sort()) {
+        try { const j = await readJson(path.join(dir, f)); list.push({ ...j, art: j.art || art, _file: `${art}/${sub}/${f}` }); }
+        catch (err) { unreadable.push(`${art}/${sub}/${f}`); }
+      }
+    }
+  }
+  if (unreadable.length) generalInfo.push(`${unreadable.length} Modul-/Schablonendatei(en) nicht lesbar, ignoriert: ${unreadable.slice(0, 6).join(', ')}${unreadable.length > 6 ? ' …' : ''}`);
+  const bwOf = (m) => m.bauweise == null ? [defaultBw[m.art]].filter(Boolean) : [].concat(m.bauweise);
+
+  // Bauweisen: alle Tabellen + alle aktiven aus achsen.json
+  const files = (await fsp.readdir(path.join(BUEHNEN, 'bauweisen')).catch(() => [])).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, ''));
+  const aktiv = Object.entries(achsen.bauweisen || {}).filter(([, v]) => v?.status === 'aktiv').map(([k]) => k);
+  for (const bw of [...new Set([...aktiv, ...files])].sort()) {
+    const lines = [];
+    const gap = (msg) => lines.push({ lvl: BW_STRICT ? 'err' : 'warn', msg });
+    out.push({ bw, owner: BW_OWNER[bw] || 'studio', lines });
+    let t;
+    try { t = await readJson(path.join(BUEHNEN, 'bauweisen', bw + '.json')); }
+    catch (err) { gap(`Tabelle content/buehnen/bauweisen/${bw}.json fehlt/ungültig (${err.code || err.message})`); continue; }
+    if (t.format !== 'bauweise/1') lines.push({ lvl: 'err', msg: `format "${t.format}" (erwartet "bauweise/1")` });
+    if (t.id !== bw) lines.push({ lvl: 'err', msg: `id "${t.id}" (erwartet "${bw}")` });
+    const kits = t.kits || {}, ank = t.anker || {}, leit = t.leit || {};
+
+    const mods = modules.filter((m) => bwOf(m).includes(bw));
+    const arts = [...new Set(mods.map((m) => m.art))].sort();
+    lines.push({ lvl: 'info', msg: `${mods.length} Module (${arts.map((a) => `${a} ${mods.filter((m) => m.art === a).length}`).join(', ') || '–'})` });
+
+    // Kachelarten
+    const kindsUsed = new Map();   // kind → erste Moduldatei
+    const note = (kind, src) => { if (kind && !kindsUsed.has(kind)) kindsUsed.set(kind, src); };
+    for (const m of mods) {
+      for (const rows of [m.rows, ...(Array.isArray(m.belegungen) ? m.belegungen : [])]) {
+        for (const row of Array.isArray(rows) ? rows : []) for (const ch of String(row)) note(charKind[ch], m.id || m._file);
+      }
+    }
+    for (const sb of schablonen.filter((s) => arts.includes(s.art))) if (typeof sb.fuellung === 'string') note(sb.fuellung, sb.id || sb._file);
+    if (mods.length) for (const k of overlayKinds) note(k, 'zustaende.json');
+    const missKinds = [];
+    for (const [kind, src] of kindsUsed) {
+      if (KIND_NO_KIT.has(kind)) continue;
+      if (refIds(kits[kind]).length || (KIND_ALT[kind] || []).some((a) => refIds(kits[a]).length)) continue;
+      missKinds.push(`${kind} (${src})`);
+    }
+    if (missKinds.length) gap(`kits: ${missKinds.length} Kachelart(en) ohne Kit-Teil: ${missKinds.join(', ')}`);
+
+    // Ankerrollen mit Objekt (je Kartenart: anker[rolle][art] oder anker[rolle]["*"])
+    const missAnker = [];
+    for (const art of arts) {
+      const used = new Set();
+      for (const m of mods.filter((x) => x.art === art)) for (const v of Object.values(m.anker_legende || {})) if (v?.rolle) used.add(v.rolle);
+      for (const r of [...used].sort()) {
+        if (!rollen[r]?.objekt) continue;
+        const slot = ank[r] || {};
+        if (!refIds(slot[art]).length && !refIds(slot['*']).length) missAnker.push(`${r}/${art} (Objekt ${rollen[r].objekt})`);
+      }
+    }
+    if (missAnker.length) gap(`anker: ${missAnker.length} Rolle(n) ohne Prop: ${missAnker.join(', ')}`);
+
+    // Stimmung je Kartenart, Herzstück (leit oder Signaturmodul), Basispalette
+    const missSt = arts.filter((a) => !t.stimmung?.[a]);
+    if (missSt.length) gap(`stimmung fehlt für: ${missSt.join(', ')}`);
+    const missLeit = arts.filter((a) => schablonen.some((s) => s.art === a && (s.plaetze || []).some((p) => p.typ === 'herzstueck')) &&
+      !refIds(leit.herzstueck?.[a]).length && !mods.some((m) => m.art === a && m.typ === 'herzstueck'));
+    if (missLeit.length) gap(`leit.herzstueck fehlt (weder Leitstück noch Signaturmodul) für: ${missLeit.join(', ')}`);
+    if (mods.length && !t.paletten?.basis) gap('paletten.basis fehlt');
+
+    // Verweise müssen im Manifest stehen
+    const refs = [
+      ...Object.entries(kits).flatMap(([k, v]) => refIds(v).map((id) => [`kits.${k}`, id])),
+      ...Object.entries(ank).flatMap(([r, m]) => Object.entries(m || {}).flatMap(([a, v]) => refIds(v).map((id) => [`anker.${r}.${a}`, id]))),
+      ...Object.entries(leit).flatMap(([r, m]) => Object.entries(m || {}).flatMap(([a, v]) => refIds(v).map((id) => [`leit.${r}.${a}`, id]))),
+    ];
+    const unknown = refs.filter(([, id]) => !manifestIds.has(id));
+    if (unknown.length) gap(`${unknown.length} Verweis(e) ohne Manifest-Eintrag: ${unknown.map(([w, id]) => `${w} → ${id}`).join(', ')}`);
+    for (const r of Object.keys(ank)) if (!rollen[r]) lines.push({ lvl: 'warn', msg: `anker.${r}: Rolle nicht in anker.json` });
+    for (const k of Object.keys(kits)) if (!Object.values(charKind).includes(k)) lines.push({ lvl: 'warn', msg: `kits.${k}: Kachelart nicht in kacheln.json` });
+    lines.push({ lvl: 'info', msg: `belegt: ${Object.keys(kits).length} Kit-Teile, ${Object.keys(ank).length} Rollen, ${refs.length} Verweise` });
+  }
+  return { out, generalInfo };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -142,7 +274,7 @@ async function main() {
 
   const byTeam = new Map();
   const entries = man.entries.filter((e) => (!TEAM || e.team === TEAM) && (!FILTER || e.id.includes(FILTER)));
-  for (const e of entries) {
+  for (let e of entries) {
     const res = { id: e.id, src: e.source, team: e.team, n: 0, tris: 0, dims: null, notes: [], err: 0, warn: 0, budget: null };
     const bad = (m) => { res.err++; res.notes.push('✗ ' + m); };
     const meh = (m) => { res.warn++; res.notes.push('! ' + m); };
@@ -153,9 +285,8 @@ async function main() {
     const fp = e.footprint;
     if (!(Array.isArray(fp) && fp.length === 2 && fp.every((x) => typeof x === 'number' && x > 0))) bad('footprint [x, z] (Meter) fehlt/ungültig');
     if (typeof e.height !== 'number') bad('height (Meter) fehlt');
-    if (e.facing !== '+z') meh(`facing "${e.facing ?? ''}" (erwartet "+z")`);
+    if (!facingOk(e.facing, e.id, e)) meh(`facing "${e.facing ?? ''}" (erwartet "+z"${isHeld(e.id, e) ? ' oder "-y" bei Handgegenständen' : ''})`);
     if (!e.params || typeof e.params !== 'object' || Array.isArray(e.params)) bad('params {} fehlt');
-    if (!e.sockets || typeof e.sockets !== 'object') bad('sockets {} fehlt');
     if (typeof e.budgetTris !== 'number') bad('budgetTris fehlt');
     if (!Array.isArray(e.tags)) meh('tags [] fehlt');
     if (e.states && typeof e.states !== 'object') bad('states muss ein Objekt sein');
@@ -165,9 +296,20 @@ async function main() {
     try { asset = await lib.load(kind, e.source); }
     catch (err) { bad(`lädt nicht: ${err.message}${USE_VW ? '' : ' (synchronisiert? npm run assets)'}`); continue; }
 
+    // Sockets: Rezept + Manifest (Manifest hat Vorrang)
+    const msk = mergeSockets(e, asset);
+    if (!msk.present) bad('sockets {} fehlt (weder im Manifest noch im Rezept)');
+    else if (e.sockets !== undefined && (typeof e.sockets !== 'object' || Array.isArray(e.sockets))) bad('sockets muss ein Objekt sein');
+    e = { ...e, sockets: msk.sockets };
+    if (msk.fromRecipe.length) res.notes.push(`· Sockets aus dem Rezept: ${msk.fromRecipe.join(', ')}`);
+    if (msk.overridden.length) res.notes.push(`· Manifest überschreibt Rezept-Socket: ${msk.overridden.join(', ')}`);
+
     // Parameter: Spiel-Parameter aus dem Vertrag
     const exp = (e.kind === 'figure' ? EXPECTED_FIGURES : EXPECTED)[e.id];
     const declared = e.kind === 'figure' ? (asset.params || {}) : (asset.params || {});
+    if (e.kind === 'figure') for (const k of Object.keys(e.params || {})) {
+      if (k !== 'seed' && !(k in declared)) meh(`params.${k}: Figur ${e.source} führt "${k}" nicht in params`);
+    }
     if (exp) for (const p of exp) {
       if (p === 'seed') continue;
       if (!(p in (e.params || {}))) meh(`Parameter "${p}" (Vertrag) fehlt in params`);
@@ -175,7 +317,7 @@ async function main() {
     }
     if (isStation(e.id) && e.params?.state && !(e.params.state[0] <= 0 && e.params.state[1] >= 5)) meh('state sollte 0–5 abdecken (§3.3)');
     for (const [k, r] of Object.entries(e.params || {})) {
-      if (!Array.isArray(r) || r.length !== 2) { bad(`params.${k} muss [min, max] sein`); continue; }
+      if (!Array.isArray(r) || r.length !== 2 || !r.every((x) => typeof x === 'number')) { bad(`params.${k} muss [min, max] (Zahlen) sein – Auswahl-Parameter (options) über states`); continue; }
       if (e.kind !== 'figure' && k !== 'seed' && !(k in declared)) bad(`params.${k}: Modell ${e.source} hat keinen Parameter "${k}"`);
       const d = declared[k];
       if (d && d.min !== undefined && r[0] < d.min) meh(`params.${k}: min ${r[0]} < Modell-min ${d.min}`);
@@ -188,19 +330,31 @@ async function main() {
       for (const j of ['handR', 'handL', 'back']) if (!rig.joints[j]) bad(`Rig ${rig.id}: Anker "${j}" fehlt`);
       const parts = [...Object.entries(asset.parts || {}), ...Object.entries(asset.attach || {})];
       if (parts.length > 16) bad(`${parts.length} Teile (max. 16)`);
-      let tris = 0;
-      const box = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
-      const s = voxelSize(rig.tier || 'detail');
-      for (const [jn, part] of parts) {
-        try {
-          const b = lib.build(part.model, { params: lib.partParams(part.model, asset.params, part.params), palette: part.palette || asset.palette, colors: asset.colors });
-          tris += (b.mesh.lit.quads + b.mesh.emit.quads) * 2;
-          const bb = b.grid.bounds();
-          if (bb && b.grid.size) for (let i = 0; i < 3; i++) { box.min[i] = Math.min(box.min[i], bb.min[i]); box.max[i] = Math.max(box.max[i], bb.max[i] + 1); }
-        } catch (err) { bad(`Teil ${jn} (${part.model}): ${err.message}`); }
+      // generierte Figuren: scale (z. B. Enterer 1,1) wirkt auf die Maße, nicht auf die Dreiecke
+      const s = voxelSize(rig.tier || 'detail') * (typeof asset.scale === 'number' && asset.scale > 0 ? asset.scale : 1);
+      // Jeder Zustand / jeder Parameterwert (z. B. rank 0/1) wird gebaut, gezählt wird der teuerste
+      const fvars = [{ label: 'Standard', params: {} }];
+      for (const [k, v] of Object.entries(e.states || {})) fvars.push({ label: k, params: v || {} });
+      for (const [k, r] of Object.entries(e.params || {})) if (Array.isArray(r) && r.length === 2) for (const v of steps(r)) fvars.push({ label: `${k}=${v}`, params: { [k]: v } });
+      const fseen = new Set(), partErr = new Set();
+      for (const fv of fvars.slice(0, 20)) {
+        const key = JSON.stringify(Object.entries(fv.params).sort());
+        if (fseen.has(key)) continue; fseen.add(key);
+        const fpar = { ...(asset.params || {}), ...fv.params };
+        let tris = 0;
+        const box = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+        for (const [jn, part] of parts) {
+          try {
+            const b = lib.build(part.model, { params: lib.partParams(part.model, fpar, part.params), palette: part.palette || asset.palette, colors: asset.colors });
+            tris += (b.mesh.lit.quads + b.mesh.emit.quads) * 2;
+            const bb = b.grid.bounds();
+            if (bb && b.grid.size) for (let i = 0; i < 3; i++) { box.min[i] = Math.min(box.min[i], bb.min[i]); box.max[i] = Math.max(box.max[i], bb.max[i] + 1); }
+          } catch (err) { const m = `Teil ${jn} (${part.model}): ${err.message}`; if (!partErr.has(m)) { partErr.add(m); bad(m); } }
+        }
+        res.n++;
+        if (tris > res.tris) { res.tris = tris; res.worst = fvars.length > 1 ? fv.label : null; }
+        if (isFinite(box.min[0])) { const d = [0, 2, 1].map((i) => (box.max[i] - box.min[i]) * s); if (!res.dims || d[2] > res.dims[2]) res.dims = d; }
       }
-      res.n = 1; res.tris = tris;
-      if (isFinite(box.min[0])) res.dims = [0, 2, 1].map((i) => (box.max[i] - box.min[i]) * s);
       if (rig.poses) {
         const poses = lib.get('poses', rig.poses)?.poses || {};
         const miss = EXPECTED_POSES.filter((p) => !poses[p]);
@@ -249,7 +403,14 @@ async function main() {
         if (maxH > e.height + tol) bad(`Höhe ${maxH.toFixed(2)} m > height ${e.height} m`);
         else if (maxH < e.height - 0.25) meh(`height ${e.height} m, Modell nur ${maxH.toFixed(2)} m hoch`);
       }
-      if (maxH > 2.2 + tol && !heightExempt(e.id, e) && !isHeld(e.id, e)) bad(`Höhe ${maxH.toFixed(2)} m > 2,2 m (§5)`);
+      if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
+        if (isLeit(e.id)) {
+          if (maxH > LEIT_H + tol) bad(`Höhe ${maxH.toFixed(2)} m > 3,5 m (Leitstück, Entscheidung Studioleitung B1)`);
+          else if (maxH > 2.2 + tol) meh(`Höhe ${maxH.toFixed(2)} m > 2,2 m – als Leitstück bis 3,5 m zulässig`);
+        } else if (wallClass(e.id, e)) {
+          if (maxH > WALL_H + tol) bad(`Höhe ${maxH.toFixed(2)} m > 3 m (Wand/Tür/Tor, §5)`);
+        } else if (maxH > 2.2 + tol) bad(`Höhe ${maxH.toFixed(2)} m > 2,2 m (§5)`);
+      }
     }
 
     // Sockets Pflicht
@@ -284,6 +445,22 @@ async function main() {
       const dims = r.dims ? r.dims.map((d) => d.toFixed(2)).join(' × ') : '–';
       console.log(' ' + (r.err ? '✗' : r.warn ? '!' : '✓') + ' ' + pad(r.id, W) + padL(r.n, 6) + padL(fmt(r.tris), 9) + padL(r.budget ? fmt(r.budget) : '–', 8) + padL(pct, 6) + '  ' + pad(dims, 20) + st);
       for (const n of r.notes) console.log('       ' + n);
+    }
+  }
+
+  // Bauweisen-Tabellen (§10.2): ohne ID-Filter; mit --team nur die Tabellen dieses Teams
+  if (!FILTER) {
+    const bwr = await checkBauweisen(new Set(man.entries.map((x) => x.id)));
+    const shown = bwr.out.filter((b) => !TEAM || b.owner === TEAM);
+    if (shown.length || !TEAM) {
+      console.log(`\n== Bauweisen-Tabellen (CONTRACT-B1 §10.2, Lücken = ${BW_STRICT ? 'Fehler (--bauweisen-streng)' : 'Warnung; --bauweisen-streng macht Fehler daraus'})`);
+      for (const g of bwr.generalInfo) console.log('   · ' + g);
+    }
+    for (const b of shown) {
+      const e = b.lines.filter((l) => l.lvl === 'err').length, w = b.lines.filter((l) => l.lvl === 'warn').length;
+      errors += e; warnings += w;
+      console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ` ${b.bw} (${b.owner})`);
+      for (const l of b.lines) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
     }
   }
 

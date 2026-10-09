@@ -1,0 +1,226 @@
+{
+ "version": 2,
+ "id": "fx-v2-mitten-m2",
+ "name": "Fixture v2",
+ "erstellt": "2026-10-07T19:02:00Z",
+ "gespeichert": "2026-10-07T19:23:40Z",
+ "spielzeit_s": 1295,
+ "tutorial": "laeuft",
+ "meta": {
+  "spieler": [
+   "Kai",
+   "Mira"
+  ],
+  "server": "s1-test"
+ },
+ "ort": {
+  "angedockt": "vaelen"
+ },
+ "schiff": {
+  "name": "Lerche",
+  "marken": 315,
+  "lager": {
+   "ersatzteil": 2,
+   "flickblech": 3,
+   "loeschgel": 2,
+   "medipack": 0,
+   "bolzen": 0
+  },
+  "ausbauten": [],
+  "deko": [
+   "trophaee_boje"
+  ],
+  "quartiere": {
+   "q1": {
+    "boden": 1,
+    "wand": 0,
+    "licht": 0,
+    "deko": [
+     "trophaee_boje",
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  "systeme": {
+   "transfer": "ok",
+   "shields": "damaged"
+  },
+  "huelle": 82
+ },
+ "welt": {
+  "orte": {
+   "bekannt": [
+    "hafen",
+    "splitter",
+    "b7",
+    "vaelen",
+    "wrack",
+    "nebel"
+   ],
+   "besucht": [
+    "hafen",
+    "splitter",
+    "b7",
+    "vaelen"
+   ],
+   "aufgedeckt": [
+    "vaelen_sonde"
+   ],
+   "gefunden": [
+    "splitter_cache1"
+   ]
+  },
+  "verbindungen_offen": [],
+  "flags": {
+   "bribed": false,
+   "decision": "deliver",
+   "technikerRescued": true,
+   "selaCalled": true,
+   "vaelenHelped": true
+  },
+  "fakten": {}
+ },
+ "missionen": {
+  "m1": {
+   "status": "erledigt",
+   "ausgang": "erfolg",
+   "start_s": 0,
+   "ende_s": 944
+  },
+  "m2": {
+   "status": "aktiv",
+   "schritt": "vaelen",
+   "v": {},
+   "ereignisse": [
+    "accepted"
+   ],
+   "entscheidungen": [],
+   "erledigte_ziele": [
+    {
+     "id": "toVaelen",
+     "text": "Zur Vaelen-Karawane fliegen und andocken"
+    }
+   ],
+   "start_s": 944
+  }
+ },
+ "npc": {
+  "tesk": {
+   "name": "Tesk",
+   "titel": "Hafenmeisterin",
+   "fraktion": "konkordat",
+   "rolle": "auftraggeberin",
+   "status": "lebt",
+   "haltung": 1,
+   "ort": "hafen",
+   "gedaechtnis": [
+    {
+     "text": "Die Lerche hat B-7 wieder zum Senden gebracht.",
+     "mission": "m1",
+     "spielzeit_s": 940
+    },
+    {
+     "text": "Die Crew hat den Datenkern ans Konkordat geliefert.",
+     "mission": "m1",
+     "spielzeit_s": 820
+    }
+   ]
+  },
+  "melk": {
+   "name": "Melk",
+   "titel": "Archivarin",
+   "fraktion": "konkordat",
+   "rolle": "archivarin",
+   "status": "lebt",
+   "haltung": 1,
+   "gedaechtnis": [
+    {
+     "text": "Der Datenkern von B-7 liegt im Archiv. Gebracht hat ihn die Lerche.",
+     "mission": "m1",
+     "spielzeit_s": 820
+    }
+   ]
+  },
+  "ivo": {
+   "name": "Ivo",
+   "titel": "Techniker",
+   "fraktion": "konkordat",
+   "rolle": "crew_gast",
+   "status": "lebt",
+   "haltung": 2,
+   "ort": "lerche",
+   "gedaechtnis": [
+    {
+     "text": "Die Lerche hat mich verletzt von der Plattform B-7 geholt.",
+     "mission": "m1",
+     "spielzeit_s": 610
+    }
+   ]
+  },
+  "sela": {
+   "name": "Sela",
+   "titel": "Vaelen-Händlerin",
+   "fraktion": "vaelen",
+   "rolle": "haendlerin",
+   "status": "lebt",
+   "haltung": 1,
+   "ort": "vaelen",
+   "gedaechtnis": [
+    {
+     "text": "Die Lerche hat auf meinen Notruf geantwortet und den Reaktor geflickt.",
+     "mission": "sela",
+     "spielzeit_s": 1010
+    }
+   ]
+  },
+  "grauzahn": {
+   "name": "Grauzahn",
+   "titel": "Anführer der Rostmeute",
+   "fraktion": "rostmeute",
+   "rolle": "gegenspieler",
+   "status": "lebt",
+   "haltung": -1,
+   "gedaechtnis": [
+    {
+     "text": "Die Lerche hat sich geweigert, Wegezoll zu zahlen, und an B-7 meine Jäger zerlegt.",
+     "mission": "m1",
+     "spielzeit_s": 420
+    },
+    {
+     "text": "Meine Nachhut hat die Lerche nicht aufhalten können.",
+     "mission": "m1",
+     "spielzeit_s": 900
+    }
+   ]
+  }
+ },
+ "chronik": [
+  {
+   "text": "Die stumme Boje: Die Lerche bringt B-7 wieder zum Senden, rettet den Techniker Ivo und kämpft sich an der Rostmeute vorbei. Den Datenkern bekommt das Konkordat.",
+   "mission": "m1",
+   "ausgang": "erfolg",
+   "spielzeit_s": 944
+  },
+  {
+   "text": "Selas Notruf: Die Crew hilft der Vaelen-Karawane mit dem Reaktor.",
+   "mission": "sela",
+   "ausgang": "erfolg",
+   "spielzeit_s": 1010
+  }
+ ],
+ "spielleiter": {
+  "plaene": {},
+  "archiv_gespielt": [],
+  "zusammenfassung": [
+   {
+    "id": "m1",
+    "titel": "Die stumme Boje",
+    "auftraggeber": "tesk",
+    "ausgang": "erfolg"
+   }
+  ],
+  "naechste_id": 1
+ }
+}

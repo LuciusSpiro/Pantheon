@@ -1,0 +1,32 @@
+{
+  "id": "kit/geruest/truemmer",
+  "name": "Bausatz-Gerüst – Trümmer (halbe Deckung, nur aus dem Zustand-Überzug)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","truemmer"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["truemmer_haufen"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"}
+  },
+  "variants": {
+    "a": {"seed":1},
+    "b": {"seed":2},
+    "probe": {"bauweise":"test"}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    {"name":"Steckplatz truemmer_haufen","op":"use","model":"kit/{bauweise}/{art}/truemmer_haufen","fallback":["kit/{bauweise}/gemein/truemmer_haufen","kit/geruest/slot/truemmer_haufen"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":3,"d":4}}
+  ],
+  "anchor": [2,0,2]
+}

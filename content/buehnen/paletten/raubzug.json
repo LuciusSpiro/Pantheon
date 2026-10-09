@@ -1,0 +1,29 @@
+{
+  "format": "besitz-palette/1",
+  "besitz": "raubzug",
+  "je_bauweise": {
+    "germanen": {
+      "intakt": "germanen_kraehenwacht",
+      "verfallen": "germanen_kraehenwacht_verfallen",
+      "umkaempft": "germanen_kraehenwacht_umkaempft"
+    },
+    "rom": {
+      "intakt": "rom_kastell",
+      "verfallen": "rom_kastell_verfallen",
+      "umkaempft": "rom_kastell_umkaempft"
+    }
+  },
+  "banner": {
+    "model": "prop/germanen/gemein/banner_clan",
+    "palette": "germanen_kraehenwacht"
+  },
+  "streu": [],
+  "varianten": {
+    "germanen": [
+      "germanen_kraehenwacht",
+      "germanen_erzklamm",
+      "germanen_hornfels"
+    ]
+  },
+  "hinweis": "Clan-Palette; Standard Krähenwacht, weitere Clans unter varianten (je mit _verfallen/_umkaempft)."
+}

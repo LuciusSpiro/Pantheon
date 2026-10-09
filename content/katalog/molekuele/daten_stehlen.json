@@ -9,8 +9,310 @@
     "heimlich"
   ],
   "szenentypen": [
-    "C4"
+    "C4",
+    "C1",
+    "C2"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "download",
+      "name": "Download am Terminal",
+      "schauplatz": "aussen",
+      "beschreibung": "Mindestens zwei Terminals, nur eins hat den Kern: Der Captain sieht oben, welches. Das Außenteam hält E am richtigen Terminal (6 s, ein Treffer bricht ab, der Fortschritt bleibt). Leise oder laut – je nach Besetzung der Szene.",
+      "braucht": [
+        "transfer",
+        "hacken",
+        "wissen_aufteilen",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "station",
+          "aussenposten",
+          "schiff"
+        ],
+        "anker": [
+          "terminal"
+        ],
+        "min": {
+          "terminal": 2
+        }
+      },
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          6
+        ],
+        "2": [
+          3,
+          5
+        ],
+        "3": [
+          3,
+          4
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_leise",
+        "{{id}}_entdeckt",
+        "{{id}}_daten"
+      ],
+      "ereignisse": [
+        "downloadAbbruch",
+        "ankerZustand",
+        "alarm"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "daten_name": {
+          "typ": "text",
+          "default": "die Daten",
+          "beschreibung": "Was heruntergeladen wird (z. B. „die Frachtlisten“)"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 60,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "download_fertig",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_daten": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft",
+                    "fund": "{{daten_name}}"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "alarm",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_alarm"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_alarm": true
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "v": "{{id}}_alarm"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_wie"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_wie": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_entdeckt": true
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_alarm"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_wie"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_wie": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_leise": true
+                    }
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "terminal",
+                "zustand": "geladen"
+              },
+              {
+                "setFlag": {
+                  "{{id}}_leise": true
+                }
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_daten": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Unten stehen mehrere {{lex.terminal:pl}}. Captain: Der Scan zeigt den richtigen Platz. Gesucht: {{daten_name}}.",
+          "{{id}}.hinweis": "Captain: Reiter „Außenteam“ – das Terminal mit dem Kern ansagen. Unten: E halten, Deckung geben, nicht getroffen werden.",
+          "{{id}}.geschafft": "Download fertig – {{daten_name}} sind bei uns.",
+          "{{id}}.ziel": "{{daten_name}} herunterladen (E halten am richtigen Terminal)"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "hafen",
+          "map": "hafen.kontor"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

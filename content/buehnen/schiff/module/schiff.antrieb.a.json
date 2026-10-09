@@ -1,0 +1,70 @@
+{
+  "format": "modul/1",
+  "id": "schiff.antrieb.a",
+  "art": "schiff",
+  "typ": "antrieb",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Triebwerkskammer am Heck: Triebwerksblock backbord, Liftschacht (Gitterrost) oben, Wartungsluke im Kiel, Ankunftspad, Kettenplatz für Ruderknechte (zelle).",
+  "rows": [
+    "_#####",
+    "##,,.#",
+    "#.,,.#",
+    "#.,,o#",
+    "#OO..#",
+    "#OO..#",
+    "#OO...",
+    "#OO.o#",
+    "#....#",
+    "#..PP#",
+    "#z.P.#",
+    "#....#",
+    "_##L##"
+  ],
+  "anker": [
+    "......",
+    "....t.",
+    "..l...",
+    "......",
+    "...p..",
+    "......",
+    "......",
+    "......",
+    ".b....",
+    "...a..",
+    "......",
+    ".c.e..",
+    "......"
+  ],
+  "anker_legende": {
+    "t": {
+      "rolle": "terminal"
+    },
+    "l": {
+      "rolle": "lift",
+      "deck": 1
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "c": {
+      "rolle": "zelle"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    }
+  },
+  "belegungen": []
+}

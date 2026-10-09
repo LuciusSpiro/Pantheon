@@ -1,0 +1,28 @@
+{
+  "id": "fig/rolle/niederhalter/schulterjoch",
+  "name": "Niederhalter-Schulterjoch: schwere Lamellen-Schulterplatten beidseits, Nackenkragen",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "niederhalter", "anbau", "ruestung"],
+  "notes": "ROLLENTEIL, fraktionsneutral (nur Palettenrollen). Aufsatz shoulder (Gelenk torso, anchor [0,16,0]), in Figur-Koordinaten modelliert. Leitform breit: Platten reichen bis x ±9 (Figur 19 Voxel statt 15). Oberste Lamelle hell (metal_light), damit die Breite von oben (57°) auch bei dunkler Palette liest. rank 1 = Häuptling: Knochenkante (trim).",
+  "params": {"rank": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)"}},
+  "ops": [
+    {"name": "Nackenkragen", "op": "box", "at": [-4, 24, -4], "size": [8, 2, 1], "color": "metal_dark", "jitter": false},
+    {"name": "Kragenkante", "op": "box", "at": [-4, 25, -4], "size": [8, 1, 1], "color": "metal", "mode": "paint"},
+    {"name": "Jochbügel", "op": "box", "at": [-4, 24, -3], "size": [8, 1, 1], "color": "metal_dark", "jitter": false},
+    {"name": "Schulterplatten", "op": "group", "mirror": "x", "mirrorAt": 0, "ops": [
+        {"name": "Lamelle 1 (oben)", "op": "box", "at": [3, 24, -3], "size": [5, 1, 7], "color": "metal_light", "jitter": false},
+        {"name": "Lamelle 1 Ecken", "op": "box", "at": [7, 24, -3], "size": [1, 1, 1], "mode": "carve", "mirror": "z", "mirrorAt": 0.5},
+        {"name": "Lamelle 2", "op": "box", "at": [3, 22, -4], "size": [6, 2, 9], "color": "primary", "jitter": false},
+        {"name": "Lamelle 2 Ecken", "op": "box", "at": [8, 22, -4], "size": [1, 2, 1], "mode": "carve", "mirror": "z", "mirrorAt": 0.5},
+        {"name": "Lamelle 3 (außen)", "op": "box", "at": [6, 20, -3], "size": [3, 2, 7], "color": {"shade": "primary", "f": 0.8}, "jitter": false},
+        {"name": "Lamellenkante hell", "op": "box", "at": [8, 22, -3], "size": [1, 1, 7], "color": "metal_light", "mode": "paint"},
+        {"name": "Nieten", "op": "box", "at": [8, 23, -2], "size": [1, 1, 1], "repeat": {"count": 3, "step": [0, 0, 2]}, "color": "metal_light", "mode": "paint"},
+        {"name": "Riemen", "op": "box", "at": [3, 21, -2], "size": [1, 1, 5], "color": "leather"},
+        {"name": "Knochenkante (Häuptling)", "if": "rank", "op": "box", "at": [3, 24, -3], "size": [5, 1, 7], "color": "trim", "mode": "paint"},
+        {"name": "Knochenkante außen (Häuptling)", "if": "rank", "op": "box", "at": [8, 20, -3], "size": [1, 1, 7], "color": "trim", "mode": "paint"}
+    ] }
+  ],
+  "variants": {"haeuptling": {"rank": 1}},
+  "anchor": [0, 16, 0]
+}

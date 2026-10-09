@@ -403,7 +403,7 @@
 
     "briefing.wrack_notiert": "Gerücht notiert: Wrack „Zaunkönig“ ist neu auf der Sternkarte. Optional – aber lohnend.",
     "briefing.erinnerung": "Ein neuer Auftrag wartet: Captain-Konsole, Reiter „Funk“, Enter. Einkaufen dürft ihr vorher.",
-    "briefing.nebel_aufgedeckt": "Graue Weite auf der Sternkarte! Erreichbar über B-7, die Vaelen-Karawane oder das Wrack.",
+    "briefing.nebel_aufgedeckt": "Graue Weite auf der Sternkarte! Erreichbar über B-7 oder die Vaelen-Karawane.",
 
     "vaelen.kurs": "Kurs Vaelen-Karawane (Sternkarte), dort am Ring andocken. Von da ist es nur ein Sprung in die Graue Weite.",
     "vaelen.hinweis": "Die Vaelen-Karawane liegt direkt am Hafen. Captain: Sternkarte, Ziel Vaelen, dann andocken.",
@@ -416,7 +416,7 @@
     "sonde.treiben_lassen": "Die Sonde lassen wir treiben – vielleicht später. Jetzt: Graue Weite!",
 
     "nebelflight.kurs": "Kurs Graue Weite – von hier ein Sprung. Der Planungstisch zeigt alle Routen, Pins helfen beim Absprechen.",
-    "nebelflight.hinweis": "Zur Grauen Weite geht es von B-7, der Vaelen-Karawane oder dem Wrack aus. Sternkarte!",
+    "nebelflight.hinweis": "Zur Grauen Weite geht es von B-7 oder der Vaelen-Karawane aus. Sternkarte!",
 
     "ambush.augen": "Im Nebel ist die Taktik die Augen des Piloten. Marker setzen, ansagen, lotsen!",
     "ambush.hinterhalt": "Hinterhalt! Zwei Jäger aus dem Nebel. Taktik: scannen, Ziel ansagen. Captain: Schilde!",
@@ -460,7 +460,7 @@
     "ziel.sela_antworten": "Captain: Selas Angebot beantworten (Funk)",
     "ziel.sonde_suchen": "Taktik: Weitscan (W) – Selas Messsonde suchen",
     "ziel.sonde_scannen": "Taktik: Sonde anvisieren (T) und scannen (S halten)",
-    "ziel.zum_nebel": "Zur Grauen Weite fliegen (über B-7, Vaelen oder das Wrack)",
+    "ziel.zum_nebel": "Zur Grauen Weite fliegen (über B-7 oder Vaelen)",
     "ziel.hinterhalt": "Rostmeute-Hinterhalt abwehren",
     "ziel.grauzahn_antworten": "Captain: Grauzahn antworten (Funk)",
     "ziel.jaeger_abwehren": "Jäger abwehren",

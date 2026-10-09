@@ -1,0 +1,53 @@
+{
+  "id": "item/waffe/rostmeute/lanze",
+  "name": "Rostlanze – Anbau rostmeute für item/waffe/lanze",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["waffe", "anbau-teil", "rostmeute"],
+  "notes": "Steckplatz-Teil (Bauweise rostmeute) des Gerüsts item/waffe/lanze. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Rostlanze",
+      "op": "group",
+      "at": [-1, -33, 1.5],
+      "ops": [
+        { "name": "Klebeband 1", "op": "box", "at": [0, 4, 1], "size": [2, 1, 2], "color": "secondary" },
+        { "name": "Klebeband 2", "op": "box", "at": [0, 9, 1], "size": [2, 1, 2], "color": "secondary" },
+        {
+          "name": "Gehäuse Rost",
+          "op": "box",
+          "at": [0, 28, 0],
+          "size": [2, 5, 4],
+          "color": { "noise": ["primary", { "shade": "primary", "f": 0.78 }, "metal"], "weights": [3, 2, 1] }
+        },
+        { "name": "Flickblech", "op": "box", "at": [0, 30, 3], "size": [2, 2, 1], "color": "secondary" },
+        {
+          "name": "Leuchtauge rot",
+          "op": "box",
+          "at": [0, 28, 4],
+          "size": [2, 1, 1],
+          "color": { "role": "glow", "emit": 1.1 },
+          "jitter": false
+        },
+        {
+          "name": "Schaft Leder",
+          "op": "box",
+          "at": [0, 33, 0],
+          "size": [2, 4, 3],
+          "color": { "shade": "leather", "f": 0.85 }
+        },
+        { "name": "Schaftkappe Knochen", "op": "box", "at": [0, 37, -1], "size": [2, 1, 5], "color": "trim" },
+        {
+          "name": "Kabel",
+          "op": "line",
+          "from": [0.5, 33.5, -0.5],
+          "to": [0.5, 30.5, -0.5],
+          "r": 0.5,
+          "color": "dark"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

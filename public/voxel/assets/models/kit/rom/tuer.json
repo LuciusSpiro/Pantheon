@@ -1,0 +1,20 @@
+{
+  "id": "kit/rom/tuer",
+  "name": "Rom (Kastell) – tuer: Tür mit Metallflügeln und Goldsturz",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["kit","rom","tuer"],
+  "footprint": [2,1],
+  "jitter": 0,
+  "variants": {"geschnitten":{"cut":1},"verfallen":{"zustand":1,"seed":1},"umkaempft":{"zustand":2,"seed":2},"offen":{"state":0},"offen_geschnitten":{"state":0,"cut":1},"zu":{"state":1},"zu_geschnitten":{"state":1,"cut":1},"verschlossen":{"state":2},"verschlossen_geschnitten":{"state":2,"cut":1},"gesprengt":{"state":3},"gesprengt_geschnitten":{"state":3,"cut":1},"ruine_verfallen":{"zustand":1,"seed":5},"ruine_umkaempft":{"zustand":2,"seed":6}},
+  "params": {
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"ruine","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "state": {"default":0,"min":0,"max":3,"step":1,"label":"0 offen · 1 zu · 2 verschlossen · 3 gesprengt"}
+  },
+  "ops": [
+    {"name":"Gerüst (Bauweise rom) tuer","op":"use","model":"kit/geruest/tuer","at":[4,1,2],"params":{"cut":"cut","zustand":"zustand","art":"{art}","state":"state","bauweise":"rom","seed":"seed"}}
+  ],
+  "anchor": [4,1,2]
+}

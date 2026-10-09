@@ -18,8 +18,8 @@ const ENEMY_NAMES = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kusto
 function isArena(kind) { return KINDS.includes(kind); }
 function cfg(game) { return game.C.arena; }
 
-function start(game, kind) {
-  if (kind === 'arena_away') return startAway(game);
+function start(game, kind, params) {
+  if (kind === 'arena_away') return params && params.art ? startAwayBuehne(game, params) : startAway(game);
   return startSpace(game);
 }
 
@@ -168,6 +168,51 @@ function startAway(game) {
   game.arena = { kind: 'arena_away' };
   game.oda('Testgelände Außenteam: direkt auf Kesh. Wer Captain spielen will, beamt hoch (Pads, E halten).', null);
   game.log('Testgelände Außenteam gestartet.');
+}
+
+// ---------- B1 §4: Direktstart Testgelände auf einer gebauten Karte (Karten-QA) ----------
+// params: { art, schablone?, seed, bauweise, besitz, zustand, fraktion?, staerke?, haltung? } (Protocol.ARENA_AWAY_FIELDS).
+// Bauen und Landepunkt anlegen macht landepunkte.js (BUEHNE): testgelaende(game, params) -> lpId bzw. neu(game, ort, params).
+const ARENA_ORT = 'kesh';
+function lpMod() { try { const m = require('./landepunkte.js'); return m && !m.stub ? m : null; } catch (e) { return null; } }
+function startAwayBuehne(game, params) {
+  const L = lpMod();
+  let lp = null;
+  try {
+    if (L && typeof L.testgelaende === 'function') lp = L.testgelaende(game, params);
+    else if (L && typeof L.neu === 'function') lp = L.neu(game, ARENA_ORT, params);
+  } catch (e) { game.countError('arena-buehne', e); }
+  if (lp && typeof lp === 'object') lp = lp.id || lp.lpId || null;
+  if (!lp || !game.aways[lp]) {
+    if (L && typeof L.get === 'function' && lp) { try { L.get(game, lp); } catch (e) { game.countError('arena-buehne', e); } }
+  }
+  if (!lp || !game.aways[lp]) {
+    game.oda('Testgelände: Diese Karte lässt sich (noch) nicht bauen – zurück nach Kesh.', null);
+    game.countError('arena-buehne', new Error('Landepunkt für ' + JSON.stringify(params) + ' nicht angelegt'));
+    return startAway(game);
+  }
+  const ex = game.explore;
+  if (!ex.known.has(ARENA_ORT)) { ex.known.add(ARENA_ORT); ex.version++; }
+  if (!ex.visited.has(ARENA_ORT)) { ex.visited.add(ARENA_ORT); ex.version++; }
+  space.enterScene(game, ARENA_ORT, { docked: false });
+  const ship = game.ship; const st = Locations.get(ARENA_ORT).scene.station || { x: 1200, y: 900 };
+  ship.x = st.x - cfg(game).keshShipOffset; ship.y = st.y; ship.angle = 0; ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  repairShip(game);
+  game.transferZiel = { lp, scene: ship.scene };
+  game.setAwayMap(lp);
+  worldFirst(game);
+  if (params.fraktion) {
+    let besetzen = null;
+    for (const n of ['./combat.js', './squad.js']) { try { const m = require(n); if (m && typeof m.besetzen === 'function') { besetzen = m.besetzen; break; } } catch (e) { /* weiter */ } }
+    const opts = { map: lp, bereich: null, fraktion: params.fraktion, staerke: params.staerke || 'mittel', haltung: params.haltung || 'ruhig', tag: 'arena', neue_rolle: null };
+    if (besetzen) { try { besetzen(game, opts); } catch (e) { game.countError('arena-besetzen', e); } } else game.countError('arena-besetzen', new Error('besetzen fehlt (BODENKAMPF)'));
+  }
+  const team = game.players.filter((p) => p.connected);
+  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+  if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
+  game.arena = { kind: 'arena_away', lp, params: Object.assign({}, params) };
+  game.oda(`Testgelände: ${params.art} (Seed ${params.seed}, ${params.bauweise || 'Standard'}, ${params.besitz || '–'}, ${params.zustand || 'intakt'}).`, null);
+  game.log(`Testgelände Außenteam auf ${lp} gestartet (${JSON.stringify(params)}).`);
 }
 
 function update(game) {

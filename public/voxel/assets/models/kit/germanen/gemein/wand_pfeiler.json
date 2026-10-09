@@ -1,0 +1,196 @@
+{
+ "id": "kit/germanen/gemein/wand_pfeiler",
+ "name": "Germanen gemein – wand_pfeiler (kante): Granitpfosten mit Eisenkanten und Eisenband (Knoten: Ende, Ecke, T, Kreuz)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 11,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "cut": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Geschnitten (1,25 m)"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  },
+  "geschnitten": {
+   "cut": 1,
+   "h": 4
+  }
+ },
+ "ops": [
+  {
+   "name": "Granit",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "stone",
+    "f": "0.95 * dk"
+   }
+  },
+  {
+   "name": "Fuß",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "min(h, cut ? 1 : 2)",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "stone_dark",
+      "f": "dk"
+     },
+     {
+      "shade": "stone_dark",
+      "f": "0.84 * dk"
+     }
+    ],
+    "axis": "x",
+    "period": 2
+   },
+   "mode": "paint"
+  },
+  {
+   "name": "Eisenkante",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": "w / 2",
+    "z": "d / 2"
+   }
+  },
+  {
+   "name": "Eisenband",
+   "op": "box",
+   "at": [
+    0,
+    "h - 2",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "0.9 * dk"
+   },
+   "mode": "paint",
+   "if": "h >= 6"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "max(1, floor(h / 2))",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "stone",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "stone",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

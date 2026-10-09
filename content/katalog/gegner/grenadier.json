@@ -1,0 +1,37 @@
+{
+  "format": "gegner/1",
+  "id": "grenadier",
+  "rolle": "grenadier",
+  "waffe": "granatwerfer",
+  "profil": "grenadier",
+  "namen": {
+    "germanen": "Donnerwerfer",
+    "rostmeute": "Donnerwerfer"
+  },
+  "beschreibung": "Hält Abstand hinter den anderen und wirft Granaten auf Ziele in Deckung. Treibt die Crew aus festen Stellungen.",
+  "funk": {
+    "allgemein": [
+      "Granate!",
+      "Raus da mit euch!",
+      "Donner kommt!",
+      "Hinter der Kiste sitzen sie, gleich nicht mehr!",
+      "Abstand, ich werfe!"
+    ],
+    "ueberhitzt": [
+      "Rohr kühlt, deckt mich!"
+    ],
+    "kamerad_liegt": [
+      "Hoch mit dir!",
+      "Ich hol dich!"
+    ],
+    "spieler_gefesselt": [
+      "Den haben wir!"
+    ],
+    "alarm_laerm": [
+      "Das war ein Schuss! Alle wach!"
+    ],
+    "friendly_fire": [
+      "Pass doch auf, du Narr!"
+    ]
+  }
+}

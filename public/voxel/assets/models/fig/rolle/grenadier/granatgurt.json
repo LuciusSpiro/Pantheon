@@ -1,0 +1,15 @@
+{
+  "id": "fig/rolle/grenadier/granatgurt",
+  "name": "Grenadier-Granatgurt: Bandelier quer über die Brust mit Ersatzgranaten",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "grenadier", "anbau"],
+  "notes": "ROLLENTEIL, fraktionsneutral. Aufsatz shoulder (Gelenk torso, anchor [0,16,0]), Figur-Koordinaten. Von der linken Schulter zur rechten Hüfte vorn (z 3..4). Granatköpfe hell (trim), damit die Brust von vorn/oben Granaten liest.",
+  "ops": [
+    { "name": "Gurt", "op": "line", "from": [3.5, 24.5, 3.5], "to": [-3.5, 16.5, 3.5], "r": 0.5, "color": "leather" },
+    { "name": "Granaten", "op": "box", "at": [1, 20, 4], "size": [2, 2, 1], "repeat": { "count": 3, "step": [-2, -2, 0] }, "color": "metal" },
+    { "name": "Granatköpfe", "op": "box", "at": [1, 22, 4], "size": [2, 1, 1], "repeat": { "count": 3, "step": [-2, -2, 0] }, "color": "trim" },
+    { "name": "Gurtschnalle Schulter", "op": "box", "at": [2, 23, 3], "size": [2, 1, 1], "color": "metal_light" }
+  ],
+  "anchor": [0, 16, 0]
+}

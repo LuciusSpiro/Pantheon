@@ -1,0 +1,20 @@
+{
+  "id": "kit/rom/gemein/boden_fuge",
+  "name": "Rom-Steckplatz boden_fuge: 1-m-Raster (N- und W-Rand)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "belag": {"default":0,"min":0,"max":3,"step":1,"label":"0 Platte · 1 Gitter · 2 Planke/Erde · 3 Schmuck"}
+  },
+  "ops": [
+    {"name":"Fuge N","op":"box","if":"belag != 1","at":[0,0,0],"size":["w","h",1],"color":{"shade":"paving","f":"0.88 * (1 - zustand * 0.08)"}},
+    {"name":"Fuge W","op":"box","if":"belag != 1","at":[0,0,0],"size":[1,"h","d"],"color":{"shade":"paving","f":"0.88 * (1 - zustand * 0.08)"}}
+  ],
+  "anchor": [0,0,0]
+}

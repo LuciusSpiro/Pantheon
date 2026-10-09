@@ -1,0 +1,18 @@
+{
+  "id": "fig/rolle/schuetze/koecher",
+  "name": "Schütze: schlanker Speerbolzen-Köcher schräg über dem Rücken (Aufsatz back)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "schuetze", "aufsatz", "ruecken"],
+  "notes": "Rollenteil, fraktionsneutral. Aufsatz back, Figur-Koordinaten, anchor = Gelenk back [0,20,−3]. Schmal (Leitform schlank): Rohr von der rechten Hüfte bis über die linke Schulter, oben ragen Bolzenköpfe heraus. Liegt bei z −7..−5, hinter Gurt (z −4) und Kapuze.",
+  "ops": [
+    { "name": "Köcherrohr", "op": "line", "from": [-3.5, 13.5, -5.5], "to": [2.5, 26.5, -5.5], "r": 1, "color": { "stripes": ["leather", "leather", "leather", { "shade": "leather", "f": 0.7 }], "axis": "y", "period": 1 } },
+    { "name": "Kappe unten", "op": "box", "at": [-5, 12, -7], "size": [3, 2, 3], "color": "metal_dark" },
+    { "name": "Mündung oben", "op": "box", "at": [1, 26, -7], "size": [3, 2, 3], "color": "metal_dark" },
+    { "name": "Mündung Ring", "op": "box", "at": [1, 27, -7], "size": [3, 1, 3], "color": "metal_light", "mode": "paint" },
+    { "name": "Bolzenköpfe", "op": "box", "at": [1, 28, -6], "size": [1, 2, 1], "color": "metal_light", "repeat": { "count": 2, "step": [2, 0, 0] } },
+    { "name": "Bolzenkopf hinten", "op": "box", "at": [2, 28, -7], "size": [1, 1, 1], "color": "metal" },
+    { "name": "Halteschlaufe", "op": "box", "at": [-1, 18, -5], "size": [2, 1, 1], "color": "metal" }
+  ],
+  "anchor": [0, 20, -3]
+}

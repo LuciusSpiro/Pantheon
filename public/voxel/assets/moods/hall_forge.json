@@ -1,0 +1,35 @@
+{
+  "id": "hall_forge",
+  "name": "Germanen-Station: hohe Schmiedehalle, warmer Feuerschein von unten, kühles Oberlicht, Rauchdunst",
+  "background": "#14100E",
+  "fog": {
+    "color": "#221C1A",
+    "near": 2.4,
+    "far": 6
+  },
+  "hemi": {
+    "sky": "#8A96A8",
+    "ground": "#6A3E22",
+    "intensity": 0.95
+  },
+  "ambient": {
+    "color": "#3A2C24",
+    "intensity": 0.3
+  },
+  "sun": {
+    "color": "#D8E2F0",
+    "intensity": 1.3,
+    "dir": [
+      -0.25,
+      1,
+      0.35
+    ],
+    "softness": 4
+  },
+  "exposure": 1.15,
+  "bloom": {
+    "strength": 0.6,
+    "radius": 0.5,
+    "threshold": 0.8
+  }
+}

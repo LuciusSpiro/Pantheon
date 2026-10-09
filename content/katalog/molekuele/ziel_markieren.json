@@ -11,6 +11,236 @@
     "C4",
     "C1"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "von_der_aussicht",
+      "name": "Von der Aussicht markieren",
+      "schauplatz": "aussen",
+      "beschreibung": "Einer muss hinauf auf die Aussicht (Plateau) und von dort das Sprengziel markieren; dann schlägt der Orbitalschlag ein und das Ziel ist zerstört. Auf der Aussicht steht man frei – die anderen decken.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten"
+        ],
+        "anker": [
+          "aussicht",
+          "sprengpunkt"
+        ]
+      },
+      "dauer_min": [
+        2,
+        3
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          4
+        ],
+        "2": [
+          2,
+          3
+        ],
+        "3": [
+          2,
+          3
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_getroffen"
+      ],
+      "ereignisse": [
+        "ankerZustand",
+        "ladungExplodiert"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "ziel_name": {
+          "typ": "text",
+          "default": "{{lex.sprengpunkt:der}}",
+          "beschreibung": "Was markiert wird: Eigenname ohne Artikel (z. B. „Frachter Schiefmaul“); Standard: Sprengpunkt aus dem Lexikon mit Artikel. Texte setzen ihn nur dort ein, wo beides passt"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "near_object",
+                        "map": "{{map}}",
+                        "anker": "aussicht",
+                        "dist": 48
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_getroffen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_schlag"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_schlag": true
+                    }
+                  },
+                  {
+                    "do": "anker_zustand",
+                    "map": "{{map}}",
+                    "anker": "sprengpunkt",
+                    "zustand": "zerstoert"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "sprengpunkt",
+                "zustand": "zerstoert"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_getroffen": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Ziel: {{ziel_name}}. Einer auf {{lex.aussicht:den}}, von dort markieren – den Rest macht der Orbit.",
+          "{{id}}.hinweis": "Captain: {{lex.aussicht:der}} ist auf der Außenteam-Karte markiert. Rampe hoch, oben stehen bleiben.",
+          "{{id}}.geschafft": "Markiert – Einschlag! {{ziel_name}} ist Geschichte.",
+          "{{id}}.ziel": "{{lex.aussicht:vom}} aus markieren: {{ziel_name}}"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "map": "splitter.schuerflager"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

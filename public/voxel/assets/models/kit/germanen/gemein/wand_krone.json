@@ -1,0 +1,290 @@
+{
+ "id": "kit/germanen/gemein/wand_krone",
+ "name": "Germanen gemein – wand_krone (krone_runen): dunkle Krone mit Pseudorunen-Schaltkreis und hellem Rand an den freien Seiten (Raumform von oben)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. Runen nur als Ornamentband: abwechselnde Strich-Lücke-Folge (Schaltkreis), kein Einzelzeichen. Glow emit 0,5.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1,
+   "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1",
+  "cn": "floor(conn) % 2",
+  "ce": "floor(conn / 2) % 2",
+  "cs": "floor(conn / 4) % 2",
+  "cw": "floor(conn / 8) % 2",
+  "bz": "cn || cs",
+  "bx": "ce || cw || !(cn || cs)"
+ },
+ "variants": {
+  "nord_sued": {
+   "conn": 5
+  },
+  "ecke": {
+   "conn": 6
+  },
+  "kreuz": {
+   "conn": 15
+  },
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Krone dunkel",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "0.72 * dk"
+   }
+  },
+  {
+   "name": "Schaltkreisband entlang x",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    "floor(d / 2) - 1"
+   ],
+   "size": [
+    "w",
+    1,
+    2
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "0.42 * dk"
+     },
+     "dark"
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "mode": "paint",
+   "if": "bx && d >= 3"
+  },
+  {
+   "name": "Schaltkreisband entlang z",
+   "op": "box",
+   "at": [
+    "floor(w / 2) - 1",
+    "h - 1",
+    0
+   ],
+   "size": [
+    2,
+    1,
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "0.42 * dk"
+     },
+     "dark"
+    ],
+    "axis": "z",
+    "period": 1
+   },
+   "mode": "paint",
+   "if": "bz && w >= 3"
+  },
+  {
+   "name": "Frostpunkt (gedämpft, pulsiert nie)",
+   "op": "box",
+   "at": [
+    "floor(w / 2) - 1",
+    "h - 1",
+    "floor(d / 2) - 1"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "shade": "glow",
+    "f": 0.7,
+    "emit": 0.5
+   },
+   "mode": "paint",
+   "if": "zustand < 2 && w >= 3 && d >= 3 && hash(seed, 6) < 0.35",
+   "jitter": false
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "metal_dark",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  },
+  {
+   "name": "Heller Kronenrand N",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.0 - zustand * 0.08"
+   },
+   "mode": "paint",
+   "if": "!cn"
+  },
+  {
+   "name": "Heller Kronenrand S",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    "d - 1"
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.0 - zustand * 0.08"
+   },
+   "mode": "paint",
+   "if": "!cs"
+  },
+  {
+   "name": "Heller Kronenrand W",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.0 - zustand * 0.08"
+   },
+   "mode": "paint",
+   "if": "!cw"
+  },
+  {
+   "name": "Heller Kronenrand O",
+   "op": "box",
+   "at": [
+    "w - 1",
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.0 - zustand * 0.08"
+   },
+   "mode": "paint",
+   "if": "!ce"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

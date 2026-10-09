@@ -1,0 +1,53 @@
+{
+  "id": "prop/rom/ruine/munitionskammer",
+  "name": "Munitionskammer der Ballisten (Energiezellenlager, Sprengziel)",
+  "tier": "detail",
+  "jitter": 0,
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "sprengpunkt"],
+  "notes": "Anker sprengpunkt: state 0 intakt (gepanzerte Kammer, drei Energiezellen in der Nische), 1 scharf (Haftladung mit Amber-Zünder vorn), 2 zerstoert (Decke weggesprengt, Zellen zerstört, Ruß, Trümmer). Vorderseite +z.",
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Sprengpunkt (0 intakt, 1 scharf, 2 zerstoert)" }
+  },
+  "variants": { "scharf": { "state": 1 }, "zerstoert": { "state": 2 } },
+  "ops": [
+    { "name": "Sockel", "op": "box", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "noise": ["stone_dark", "stone"], "weights": [3, 1], "cell": 4 } },
+    { "name": "Kammer", "op": "box", "at": [-7, 2, -7], "size": [14, 14, 13], "color": "secondary" },
+    { "name": "Panzerband", "op": "box", "mode": "paint", "at": [-7, 2, -7], "size": [14, 3, 13], "color": "primary" },
+    { "name": "Eckrippen", "op": "box", "at": [-8, 2, 5], "size": [2, 14, 2], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Deckplatte", "op": "box", "at": [-8, 16, -8], "size": [16, 2, 15], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz" } },
+    { "name": "Nische", "op": "box", "mode": "carve", "at": [-6, 5, 1], "size": [12, 9, 5] },
+    { "name": "Nischenrückwand", "op": "box", "mode": "paint", "at": [-6, 5, 0], "size": [12, 9, 1], "color": "metal_dark" },
+    { "name": "Ballistenzeichen", "op": "box", "at": [-3, 14, 6], "size": [6, 1, 1], "color": "trim" },
+
+    { "name": "Zelle links", "op": "use", "if": "state != 2", "model": "rom/energiezelle", "params": { "charge": 4, "band": 1, "stand": 0 }, "at": [-4, 5, 3] },
+    { "name": "Zelle mitte", "op": "use", "if": "state != 2", "model": "rom/energiezelle", "params": { "charge": 3, "band": 1, "stand": 0 }, "at": [0, 5, 3] },
+    { "name": "Zelle rechts", "op": "use", "if": "state != 2", "model": "rom/energiezelle", "params": { "charge": 4, "band": 2, "stand": 0 }, "at": [4, 5, 3] },
+
+    { "name": "Haftladung", "op": "group", "if": "state == 1", "ops": [
+      { "name": "Ladung", "op": "box", "at": [-3, 2, 6], "size": [6, 3, 2], "color": { "frame": "metal_light", "fill": "metal_dark", "axes": "xy" } },
+      { "name": "Zünder", "op": "box", "at": [-1, 3, 7], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 2.0 }, "jitter": false },
+      { "name": "Kabel", "op": "line", "from": [3, 4, 7], "to": [6, 8, 6], "r": 0.5, "color": "rubber" }
+    ] },
+
+    { "name": "Zerstört", "op": "group", "if": "state == 2", "ops": [
+      { "name": "Decke weg", "op": "box", "mode": "carve", "at": [-9, 11, -9], "size": [18, 10, 18] },
+      { "name": "Front aufgerissen", "op": "box", "mode": "carve", "at": [-5, 3, 2], "size": [10, 9, 5] },
+      { "name": "Ausbruch", "op": "erode", "density": 0.5, "depth": 3, "salt": 9, "at": [-8, 3, -8], "size": [16, 10, 16] },
+      { "name": "Ruß", "op": "box", "mode": "paint", "at": [-9, 0, -9], "size": [18, 14, 18], "color": { "noise": ["dark", "black", "metal_dark", "stone_dark"], "weights": [4, 2, 1, 1], "cell": 2 } },
+      { "name": "Zellensplitter", "op": "box", "repeat": { "count": 5, "step": [0, 0, 0], "var": "i" }, "at": ["floor(hash(seed, i, 1) * 14) - 7", 2, "floor(hash(seed, i, 2) * 6) + 1"], "size": [2, 1, 2], "color": { "noise": ["secondary", "dark", "glass"], "cell": 1 } },
+      { "name": "Glutrest", "op": "box", "at": [-1, 2, 1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.6 }, "jitter": false }
+    ] },
+
+    { "name": "Moos", "op": "box", "mode": "paint", "if": "state != 2", "at": [-8, 0, -8], "size": [16, 3, 16], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone_dark", "stone"], "weights": [1, 3, 3], "cell": 2 } }
+  ],
+  "sockets": {
+    "charge": [0, 0.25, 0.5],
+    "fx_explode": [0, 0.6, 0],
+    "fx_smoke": [0, 1.1, 0],
+    "label": [0, 1.5, 0],
+    "use": [0, 0.3, 0.6]
+  },
+  "anchor": [0, 0, 0]
+}

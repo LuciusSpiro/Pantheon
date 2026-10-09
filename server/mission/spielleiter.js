@@ -53,7 +53,7 @@ function llmModeFromEnv(env) {
 }
 
 // ---------- Szenen-Prompt (CONTRACT-S2B §4.2): kein Katalog, nur Auszug der Umsetzung(en) + Grobplan-Kurzform + Kontextauszug ----------
-function umsetzungAuszug(env, kontext, s, cast) {
+function umsetzungAuszug(env, kontext, s, cast, buehne) {
   const k = kontext || {};
   const stimmen = [...cast.named].join(', ');
   return (s.molekuele || []).map((m) => {
@@ -63,7 +63,8 @@ function umsetzungAuszug(env, kontext, s, cast) {
     for (const [n, d] of Object.entries(u.params)) {
       let hint = '';
       if (d.typ === 'loc') hint = ` → ${s.ort}`;
-      if (d.typ === 'map') hint = ` → ${s.karte || '–'}`;
+      if (d.typ === 'map' || d.typ === 'landepunkt') hint = ` → ${Szenenbau.sceneMap(s) || '–'} (setzt das Spiel)`;
+      if (['fraktion', 'staerke', 'haltung'].includes(n) && buehne && buehne.besetzung) hint = ` → ${buehne.besetzung[n]} (setzt das Spiel)`;
       if (d.typ === 'npc') hint = ` → ${s.stimme ? `Stimme der Szene: ${s.stimme}` : `Besetzung: ${stimmen}`}${n === 'npc' && !s.stimme ? ' (Gegner/Gegenüber: neu:Name, nie der Auftraggeber)' : ''}`;
       if (d.typ === 'find') hint = ` → Funde an ${s.ort}: ${((k.orte || []).find((l) => l.id === s.ort) || { funde: [] }).funde.filter((f) => f.status !== 'gefunden').map((f) => f.id).join(', ') || '–'}`;
       if (['name', 'fund_name', 'objekt_name', 'was'].includes(n) && s.ziel_name) hint = ` → „${s.ziel_name}“`;
@@ -72,6 +73,19 @@ function umsetzungAuszug(env, kontext, s, cast) {
     if (Array.isArray(u.liefert_flags) && u.liefert_flags.length) L.push(`liefert Flags: ${u.liefert_flags.join(', ')} ({{id}} = ${(s.molekuele.length > 1 ? s.id + '_<n>' : s.id)})`);
     return L.join('\n');
   }).join('\n\n');
+}
+function szenenBuehne(env, k, s) {
+  const id = Szenenbau.sceneMap(s);
+  if (!id) return null;
+  const lp = ((k.orte || []).find((o) => o.id === s.ort) || { landepunkte: [] }).landepunkte || [];
+  const d = lp.find((x) => x.id === id) || null;
+  let besetzung = null;
+  try { besetzung = Szenenbau.sceneBesetzung(s, env, env.lp ? env.lp() : null); } catch (e) { besetzung = null; }
+  const teile = [`${id}${d ? ` – ${d.name || ''} (${[d.art, d.bauweise, d.besitz, d.zustand].filter(Boolean).join(', ')})` : ''}`];
+  if (d && d.besucht) teile.push(`${d.besucht}× besucht`);
+  if (d && d.alarm) teile.push('in Alarm');
+  if (besetzung) teile.push(`Besetzung ${besetzung.fraktion}, ${besetzung.staerke}, ${besetzung.haltung}${besetzung.neue_rolle ? ', neu: ' + besetzung.neue_rolle : ''}`);
+  return { id, text: teile.join('; '), besetzung };
 }
 function grobplanKurz(g, sid, cast) {
   const s = g.szenen.find((x) => x.id === sid) || {};
@@ -100,12 +114,46 @@ function scenePrompt(g, sid, env, kontext, opts) {
   const szene = Object.assign({}, s, { weiter: s.weiter });
   const ent = (g.entscheidungen || []).filter((e) => e.szene === sid);
   if (ent.length) szene.entscheidungen = ent;
+  // B1: Bühne der Szene (Landepunkt aus dem Kontext, Besetzung aus dem Grobplan bzw. Besitz) – kurz, ohne Karte
+  const buehne = szenenBuehne(env, k, s);
+  const welt = `Crew: ${(k.crew && k.crew.anzahl) || o.crew || 3}. Fakten: ${fakten}\nNSC der Besetzung:\n${npc || '–'}${buehne ? `\nBühne: ${buehne.text}` : ''}`;
   return LLM.buildPrompt({
     grobplan: grobplanKurz(g, sid, cast),
-    variabel: [['weltstand', `Crew: ${(k.crew && k.crew.anzahl) || o.crew || 3}. Fakten: ${fakten}\nNSC der Besetzung:\n${npc || '–'}`], ['szene', szene], ['umsetzungen', umsetzungAuszug(env, k, s, cast)]],
+    variabel: [['weltstand', welt], ['szene', szene], ['umsetzungen', umsetzungAuszug(env, k, s, cast, buehne)]],
     schluss: `Arbeite jetzt die Szene '${s.id}' aus. Nur das JSON-Objekt.`,
     vorher: o.retry || null,
   });
+}
+
+// ---------- B1: Bodenbilanz im Grobplan-Prompt (GD §5) ----------
+// „Bodenbilanz (gespielt): vorletzte „…“: kein Boden · letzte „…“: Boden → PFLICHT: …“
+function bodenbilanzText(bil) {
+  if (!bil || typeof bil !== 'object') return '';
+  const l = Array.isArray(bil.letzte) ? bil.letzte : [];
+  const namen = ['drittletzte', 'vorletzte', 'letzte'];
+  const teile = l.slice(-3).map((x, i, a) => `${namen[3 - a.length + i] || 'früher'} „${x.titel}“: ${x.boden === true ? 'Boden' : x.boden === false ? 'kein Boden' : '–'}${x.lang ? ' (lang)' : ''}${(x.landepunkte || []).length ? ' @ ' + x.landepunkte.join(', ') : ''}`);
+  const head = `Bodenbilanz (gespielt): ${teile.join(' · ') || 'noch keine Mission gespielt'}.`;
+  return bil.pflicht_jetzt
+    ? `${head}\n→ PFLICHT: Diese Mission braucht eine Bodenszene (Quote), oder begründe in ohne_boden_grund, warum nicht.`
+    : `${head} Mindestens jede zweite Mission und jede lange (ab ${bil.lang_ab_min || 25} min) hat eine Bodenszene.`;
+}
+
+// F14: Warnungen fürs Regielog – wichtige Codes vollständig und zuerst, der Rest je Code gezählt
+const WARN_WICHTIG = ['KARTE-WIEDERHOLT', 'BODEN-QUOTE', 'BODEN-LANG', 'LANG-RUNDE', 'DAUER-ABWEICHUNG', 'BESITZ-REGION'];
+function warnCode(w) { const m = /^([A-Z][A-Z0-9-]+):/.exec(String(w)); return m ? m[1] : (/^repariert:/.test(w) ? 'repariert' : 'sonstige'); }
+function warnungenKurz(warns) {
+  const wichtig = []; const rest = {};
+  for (const w of warns || []) { const c = warnCode(w); if (WARN_WICHTIG.includes(c)) wichtig.push(w); else rest[c] = (rest[c] || 0) + 1; }
+  wichtig.sort((a, b) => WARN_WICHTIG.indexOf(warnCode(a)) - WARN_WICHTIG.indexOf(warnCode(b)));
+  const r = Object.entries(rest).map(([c, n]) => `${c} ×${n}`);
+  return wichtig.concat(r.length ? [r.join(', ')] : []).join(' | ');
+}
+// F3 (d): Prüferfehler für den Neuversuch – ohne Dubletten, höchstens 12, je höchstens 400 Zeichen (Hinweise auf passende
+// Landepunkte bleiben dran)
+function fehlerKurz(errs) {
+  const out = [];
+  for (const e of errs || []) { const t = String(e).replace(/\s+/g, ' ').trim(); if (t && !out.includes(t)) out.push(t.length > 400 ? t.slice(0, 399) + '…' : t); }
+  return out.length > 12 ? out.slice(0, 12).concat([`… und ${out.length - 12} weitere`]) : out;
 }
 
 class Spielleiter {
@@ -147,7 +195,57 @@ class Spielleiter {
   }
   countOnce(where, msg) { if (this.errorsOnce.has(where)) return; this.errorsOnce.add(where); this.countError(where, new Error(msg)); }
   katalog() { return (this.kat = this.kat || katalog()); }
-  env2() { return (this.envCache = this.envCache || Szenenbau.buildEnv(this.katalog())); }
+  env2() {
+    if (!this.envCache) {
+      this.envCache = Szenenbau.buildEnv(this.katalog());
+      this.envCache.lp = () => this.lp();   // B1: Landepunkte dieses Spiels (auch neu angelegte)
+    }
+    return this.envCache;
+  }
+  // B1: Landepunkt-Adapter auf server/sim/landepunkte.js für dieses Spiel (opts.lp in Tests)
+  lp() {
+    if (this.opts.lp !== undefined) return this.opts.lp;
+    if (this.lpCache === undefined) { try { this.lpCache = Context.lpAdapter(this.game); } catch (e) { this.countError('landepunkte', e); this.lpCache = null; } }
+    return this.lpCache;
+  }
+  bodenC() { return Object.assign(Context.bodenConfig(), this.C.boden || {}); }
+  // Lange Mission schon im Angebot dieser Runde? -> Titel | null (E4: eine lange je Angebotsrunde)
+  langImAngebot(ausser) {
+    const p = this.plansBy((x) => x !== ausser && x.grobplan && ['offered', 'checking'].includes(x.state)).find((x) => this.planBoden(x).lang);
+    return p ? (p.grobplan.titel || p.id) : null;
+  }
+  planBoden(plan) {
+    if (!plan || !plan.grobplan) return { boden: false, lang: false, landepunkte: [], dauer_ziel_min: null };
+    if (!plan.bodenInfo) { try { plan.bodenInfo = Szenenbau.bodenInfo(plan.grobplan, this.env2(), this.bodenC()); } catch (e) { this.countError('boden', e); plan.bodenInfo = { boden: false, lang: false, landepunkte: [], dauer_ziel_min: null }; } }
+    return plan.bodenInfo;
+  }
+  // Szenenauflösung (B1 §11.2): Landepunkte wählen und gegen die gebaute Karte prüfen; neue Landepunkte erst anlegen,
+  // wenn der Plan gültig ist (commit). -> { errors, warnings, neu }
+  aufloesen(plan, g) {
+    try { return Szenenbau.aufloesen(g, this.env2(), plan.kontext || {}, { lp: this.lp() }); } catch (e) { this.countError('aufloesen', e); return { errors: ['Szenenauflösung fehlgeschlagen: ' + e.message], warnings: [], neu: [] }; }
+  }
+  neueLandepunkteAnlegen(g, neu) {
+    const lp = this.lp();
+    for (const n of neu || []) {
+      try {
+        const id = lp.anlegen(n.ort, { art: n.art, besitz: n.besitz, seed: n.seed });
+        const s = g.szenen.find((x) => x.id === n.sid);
+        if (s) s.landepunkt = id;
+        for (const x of g.szenen) if (x.buehne && x.buehne.neu && x.landepunkt === n.id) x.landepunkt = id;   // zweite Szene am selben neuen Landepunkt
+        this.log({ art: 'landepunkt', begruendung: `Neuer Landepunkt ${id} (${n.art}${n.besitz ? '/' + n.besitz : ''}, Seed ${n.seed}) für Szene '${n.sid}'` });
+      } catch (e) { this.countError('landepunkt-neu', e); }
+    }
+  }
+  // B1 (OFFEN-STUDIO): Landepunkte der angenommenen Mission vorbauen (Karten-Cache), nie im Tick: setImmediate; der Bau selbst
+  // läuft in landepunkte.vorbauen je Landepunkt in einem eigenen setImmediate. ENGINE baut bei der Ankunft die freien
+  // Landepunkte des Orts (vorbauenOrt); hier kommen die Szenen-Landepunkte dazu (auch neu angelegte, auch an späteren Orten).
+  vorbauen(plan) {
+    const ids = [...new Set(((plan && plan.grobplan && plan.grobplan.szenen) || []).map(Szenenbau.sceneMap).filter(Boolean))];
+    const lp = this.lp();
+    if (!ids.length || !lp || typeof lp.vorbauen !== 'function') return 0;
+    setImmediate(() => { try { lp.vorbauen(ids); } catch (e) { this.countError('landepunkte-vorbau', e); } });
+    return ids.length;
+  }
   getLlm() {
     if (!this.llm) {
       try {
@@ -241,7 +339,10 @@ class Spielleiter {
       const plan = this.planById(id);
       if (plan) {
         plan.state = 'done';
-        this.zusammenfassung.push({ id, titel: plan.book ? plan.book.kopf.titel : id, auftraggeber: plan.book ? plan.book.kopf.auftraggeber : null, ausgang: ausgang || null });
+        // B1 §8: boden, lang, landepunkte, dauer_ziel_min (Bodenbilanz der gespielten Missionen)
+        const bi = this.planBoden(plan);
+        this.zusammenfassung.push({ id, titel: plan.book ? plan.book.kopf.titel : id, auftraggeber: plan.book ? plan.book.kopf.auftraggeber : null, ausgang: ausgang || null,
+          boden: !!bi.boden, lang: !!bi.lang, landepunkte: (bi.landepunkte || []).slice(), dauer_ziel_min: bi.dauer_ziel_min != null ? bi.dauer_ziel_min : null });
         if (this.zusammenfassung.length > 50) this.zusammenfassung.splice(0, this.zusammenfassung.length - 50);
         this.log({ art: 'abschluss', mission: id, quelle: plan.quelle, tokens: plan.tokens, ausgang, origin: plan.origin,
           begruendung: `Mission abgeschlossen (${ausgang || '–'}), Szenen: ${Object.entries(plan.szenen).map(([s, x]) => `${s}=${x.quelle}`).join(', ')}` });
@@ -373,21 +474,43 @@ class Spielleiter {
   // ---------- Grobplan ----------
   grobplanInput(job) {
     const plan = job.plan; const k = plan.kontext || {};
-    const kurz = Object.assign({}, k); delete kurz.verfuegbar;
+    // B1-FIX (F3): Landepunkte, Pflichtsätze und Spielstand-Flags stehen nicht mehr im Weltstand-Block – was der Prompt
+    // dazu wissen muss, steht vorab berechnet unter <vorgaben> (kürzer und eindeutig)
+    const kurz = Object.assign({}, k); delete kurz.verfuegbar; delete kurz.flags;
+    if (Array.isArray(k.orte)) kurz.orte = k.orte.map((o) => { const x = Object.assign({}, o); delete x.landepunkte; return x; });
+    if (Array.isArray(k.kartenarten)) kurz.kartenarten = k.kartenarten.map((a) => ({ id: a.id, kurz: a.kurz }));
+    // E4: eine lange Mission je Angebotsrunde – die erste Spielleiter-Planung ohne lange Mission im Angebot plant lang
+    if (plan.langErwuenscht === undefined) {
+      plan.langErwuenscht = !this.langImAngebot(plan) && !this.plansBy((p) => p !== plan && p.slot === 'sl' && p.langErwuenscht && ['planning', 'checking', 'retry'].includes(p.state)).length;
+    }
+    const BC = this.bodenC();
+    const dauer = this.planDauerVorgabe(plan);
+    const ziel = plan.langErwuenscht
+      ? `Ziel: eine **lange** Mission (${dauer.min}–${dauer.max} min), 5–6 Szenen, 1–2 Entscheidungen, mit Bodenszene (empfohlen zwei am selben Landepunkt: hinein/Ziel, dann Rückzug).`
+      : `Ziel: etwa ${dauer.soll} min (unter ${BC.langAbMin} min), 4–6 Szenen, 1–2 Entscheidungen.${this.langImAngebot(plan) ? ` Eine lange Mission ist schon im Angebot („${this.langImAngebot(plan)}“).` : ''}`;
+    let vorgaben = '';
+    try { vorgaben = Szenenbau.grobplanVorgaben(this.env2(), k, { lp: this.lp(), dauer, szenen: plan.langErwuenscht ? [5, 6] : [4, 6] }); } catch (e) { this.countError('vorgaben', e); }
     const auftrag = [`Plane die nächste Mission für eine Crew von ${(k.crew && k.crew.anzahl) || this.crew()}.`,
-      `Ziel: etwa ${this.C.targetMinutes} min, 4–6 Szenen, 1–2 Entscheidungen.`,
+      ziel, bodenbilanzText(k.bodenbilanz),
       plan.anlass && plan.anlass.nach ? `Anlass: Mission '${plan.anlass.nach}' ist gerade abgeschlossen (Ausgang ${plan.anlass.ausgang || '–'}).` : 'Anlass: Kampagnenstart.',
       `Schon im Angebot (bitte etwas anderes): ${this.offers().map((x) => `${x.titel} (${x.von})`).join('; ') || '–'}.`,
       plan.anlass && typeof plan.anlass.auftrag === 'string' ? `Vorgabe der Regie: ${plan.anlass.auftrag}` : '',
       plan.anlass && plan.anlass.auftraggeber ? `Auftraggeber: ${plan.anlass.auftraggeber}.` : ''].filter(Boolean).join('\n');
     const prompt = LLM.buildPrompt({
-      katalog: require('./katalog.js').fuerSpielleiter(this.katalog(), 'kurz'),
-      variabel: [['weltstand', JSON.stringify(kurz)], ['auftrag', auftrag]],
+      katalog: require('./katalog.js').fuerSpielleiter(this.katalog(), 'kurz'),   // B1 §11.1: Bühnenbedarf steht je Umsetzung als Zeile „Bühne:“
+      variabel: [['weltstand', JSON.stringify(kurz)], ...(vorgaben ? [['vorgaben', vorgaben]] : []), ['auftrag', auftrag]],
       schluss: 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.',
       vorher: job.retry || null,
     });
     // anlass/kontext stehen zusätzlich als Objekt im input (mock/script bauen daraus ihre Antwort; live sendet nur 'prompt')
     return { prompt, system: LLM.systemPromptFile('grobplan'), art: 'grobplan', welt: this.weltId(), plan: plan.key, versuch: plan.versuche + 1, anlass: plan.anlass, kontext: k };
+  }
+  // B1-FIX (F3): Zieldauer als hartes Feld – normal targetMinutes (±25 %), lang langAbMin–langMaxMin
+  planDauerVorgabe(plan) {
+    const BC = this.bodenC();
+    if (plan && plan.langErwuenscht) return { soll: Math.round((BC.langAbMin + BC.langMaxMin) / 2), min: BC.langAbMin, max: BC.langMaxMin };
+    const soll = this.C.targetMinutes;
+    return { soll, min: Math.max(this.C.minPlanMinutes, Math.ceil(soll * 0.75)), max: Math.min(BC.langAbMin - 1, Math.floor(soll * 1.25)) };
   }
   handleGrobplan(plan, job, r, dauer, quelle) {
     plan.versuche++;
@@ -397,29 +520,42 @@ class Spielleiter {
     let built = null; let repairs = [];
     if (g) {
       repairs = Szenenbau.normalizeGrobplan(g);   // S2b §4.5: Belohnung nur als belohnung_marken, doppelte weiter
+      // B1-FIX (F3): eindeutige Fehler im Code reparieren statt Neuversuch (Umlaut-Kennungen, leere Dublette/Anflug-Szene,
+      // Folgen für neue NSC, Zieldauer = Summe der Szenen)
+      try { repairs.push(...Szenenbau.repairGrobplan(g, this.env2(), { minMinutes: this.C.minPlanMinutes, maxMinutes: this.bodenC().langMaxMin })); } catch (e) { this.countError('reparatur', e); }
+      // B1 §11.2: Szenenauflösung vor der Prüfung (setzt s.landepunkt; die Altprüfung kennt dann die Karte)
+      const auf = Array.isArray(g.szenen) ? this.aufloesen(plan, g) : { errors: [], warnings: [], neu: [] };
       errs.push(...Szenenbau.checkGrobplan(g, this.env2()));
       const s2 = Szenenbau.checkGrobplanS2(g, this.env2(), plan.kontext, { origin: 'sl', minMinutes: this.C.minPlanMinutes, maxThreads: this.C.maxOpenThreads, crew: this.crew() });
-      errs.push(...s2.errors); warns = s2.warnings.concat(repairs.map((x) => 'repariert: ' + x));
+      const b1 = Szenenbau.checkGrobplanB1(g, this.env2(), plan.kontext, { boden: this.bodenC(), langImAngebot: this.langImAngebot(plan) });
+      errs.push(...auf.errors, ...s2.errors, ...b1.errors); warns = auf.warnings.concat(s2.warnings, b1.warnings, repairs.map((x) => 'repariert: ' + x));
       if (!errs.length) {
         plan.state = 'checking';
+        this.neueLandepunkteAnlegen(g, auf.neu);
+        plan.bodenInfo = null;
         built = this.buildPlanBook(plan, g, {});
         if (built.errors.length) errs.push(...new Set(Szenenbau.explainBookErrors(g, built.errors, this.env2())));
       }
     }
+    plan.warnungen = warns;
+    // F14: wichtige Warnungen (KARTE-WIEDERHOLT, Boden, Dauer) zuerst und ganz, Besetzungs-Hinweise gezählt – die Begründung
+    // im Regielog ist auf 500 Zeichen gekürzt, KARTE-WIEDERHOLT ging dort hinter den BESETZUNG-Warnungen verloren
     this.log({ art: 'grobplan', mission: built && !errs.length ? built.book.id : null, quelle, dauer_s: dauer, tokens: r.tokens || 0, fehler: errs.slice(0, 20),
-      begruendung: errs.length ? `Grobplan ungültig (Versuch ${plan.versuche})` : `Grobplan „${g.titel}“ gültig${warns.length ? ' – ' + warns.join(' | ') : ''}`, versuch: plan.versuche, plan: plan.key, budget: LLM.budget().used });
+      begruendung: errs.length ? `Grobplan ungültig (Versuch ${plan.versuche})${repairs.length ? ` – ${repairs.length} repariert` : ''}` : `Grobplan „${g.titel}“ gültig${warns.length ? ' – ' + warnungenKurz(warns) : ''}`,
+      reparaturen: repairs, versuch: plan.versuche, plan: plan.key, budget: LLM.budget().used });
     if (g && Array.isArray(g.wuensche) && this.regie) for (const w of g.wuensche.slice(0, 5)) this.regie.wish(w, { mission: built && built.book ? built.book.id : plan.key, quelle });
     if (errs.length) {
       plan.fehler = errs;
       if (plan.versuche <= this.C.retries) {
         plan.state = 'retry';
-        this.enqueue({ type: 'grobplan', plan, retry: { antwort: String(r.text).slice(0, 12000), fehler: errs.slice(0, 25) } });
+        // B1-FIX (F3 d): beim Neuversuch nur die Prüferfehler, knapp und ohne Dubletten
+        this.enqueue({ type: 'grobplan', plan, retry: { antwort: String(r.text).slice(0, 12000), fehler: fehlerKurz(errs) } });
         return;
       }
       this.fallbackPlan(plan, `Grobplan ${plan.versuche}× ungültig`);
       return;
     }
-    plan.grobplan = g; plan.quelle = quelle;
+    plan.grobplan = g; plan.quelle = quelle; plan.bodenInfo = null;
     plan.erinnerungText = g.erinnerung_text || null;
     this.adoptBook(plan, built, {});
     this.offer(plan);
@@ -463,17 +599,23 @@ class Spielleiter {
     for (let i = 0; i < entries.length; i++) {
       // eben abgelehnte Archiv-Missionen erst wieder, wenn sonst nichts passt (QA-INTEGRATION S2)
       const ausser = this.offeredArchivNames().concat(plan.triedArchiv);
-      let e = Archiv.pick(entries, this.archivGespielt, plan.kontext, ausser.concat(this.declinedArchiv || []));
-      if (!e) { e = Archiv.pick(entries, this.archivGespielt, plan.kontext, ausser); if (e) this.declinedArchiv = []; }   // alles andere gespielt/abgelehnt -> Liste leeren
+      // B1 §11.2: Quote fällig -> Bodenmission bevorzugt; lange Mission nur, wenn keine andere lange im Angebot ist
+      const vorzug = { boden: !!(plan.kontext && plan.kontext.bodenbilanz && plan.kontext.bodenbilanz.pflicht_jetzt), ohneLang: !!this.langImAngebot(plan),
+        info: (x) => Szenenbau.bodenInfo(x.grobplan, this.env2(), this.bodenC()) };
+      let e = Archiv.pick(entries, this.archivGespielt, plan.kontext, ausser.concat(this.declinedArchiv || []), vorzug);
+      if (!e) { e = Archiv.pick(entries, this.archivGespielt, plan.kontext, ausser, vorzug); if (e) this.declinedArchiv = []; }   // alles andere gespielt/abgelehnt -> Liste leeren
       if (!e) return false;
       plan.triedArchiv.push(e.name);
       const er = Archiv.erinnerung(e, plan.kontext);
       const g = clone(e.grobplan);
       if (er.ref) g.erinnerung = er.ref; else delete g.erinnerung;
       g.erinnerung_text = er.text || g.erinnerung_text || null;
+      const auf = this.aufloesen(plan, g);
+      if (auf.errors.length) { this.log({ art: 'archiv', begruendung: `Archiv '${e.name}': Bühne nicht auflösbar`, fehler: auf.errors, quelle: 'archiv' }); continue; }
       const errs = Szenenbau.checkGrobplan(Object.assign({ erinnerung: er.text || '' }, g), this.env2());
       if (errs.length) { this.log({ art: 'archiv', begruendung: `Archiv '${e.name}' ungültig`, fehler: errs, quelle: 'archiv' }); continue; }
-      plan.origin = 'archiv'; plan.archivName = e.name; plan.grobplan = g; plan.quelle = 'archiv'; plan.erinnerungText = g.erinnerung_text;
+      this.neueLandepunkteAnlegen(g, auf.neu);
+      plan.origin = 'archiv'; plan.archivName = e.name; plan.grobplan = g; plan.quelle = 'archiv'; plan.erinnerungText = g.erinnerung_text; plan.bodenInfo = null;
       plan.id = null;
       const answers = {};
       for (const [sid, a] of Object.entries(e.szenen || {})) answers[sid] = { answer: a, quelle: 'archiv' };
@@ -494,8 +636,11 @@ class Spielleiter {
       if (!plan.kontext) plan.kontext = this.kontext(Object.assign({ crew: this.crew() }, plan.anlass));
       const g = LLM.mockGrobplan({ anlass: plan.anlass, kontext: plan.kontext }, this.katalog());
       g.id = `mock_${this.nextId}`;
+      const auf = this.aufloesen(plan, g);
+      if (auf.errors.length) { this.countError('mock', new Error('Bühne: ' + auf.errors.slice(0, 2).join('; '))); return false; }
+      this.neueLandepunkteAnlegen(g, auf.neu);
       plan.origin = plan.slot === 'archiv' ? 'archiv' : 'sl'; plan.grobplan = g; plan.quelle = 'mock'; plan.erinnerungText = g.erinnerung_text || (typeof g.erinnerung === 'string' ? g.erinnerung : null);
-      plan.id = null;
+      plan.id = null; plan.bodenInfo = null;
       const built = this.buildPlanBook(plan, g, {});
       if (built.errors.length) { this.countError('mock', new Error(built.errors.slice(0, 3).map((x) => `${x.code} ${x.p}: ${x.msg}`).join('; '))); return false; }
       this.adoptBook(plan, built, {});
@@ -541,6 +686,7 @@ class Spielleiter {
       }
       // Vorlauf (S2b §4.4): alle Szenen bis einschließlich der zweiten nach dem Hafen, dazu Szenen am selben Ort ohne Anflug
       this.requestAhead(plan, plan.grobplan.szenen[0].id, 2);
+      this.vorbauen(plan);
       return null;
     } catch (e) { this.countError('accept', e); return 'Annehmen fehlgeschlagen.'; }
   }

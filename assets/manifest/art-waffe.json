@@ -1,0 +1,617 @@
+{
+  "team": "art-waffe",
+  "assets": [
+    {
+      "id": "item/waffe/blaster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.688,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.562,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.375,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.69 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim."
+    },
+    {
+      "id": "item/waffe/sturmgewehr",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.938,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.75,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.437,
+          0.344
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.94 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim_rifle."
+    },
+    {
+      "id": "item/waffe/granatwerfer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.813,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.687,
+          0.281
+        ],
+        "vent": [
+          0,
+          -0.437,
+          0.469
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_schwer"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.81 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse schwer, Pose aim_heavy."
+    },
+    {
+      "id": "item/waffe/lanze",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.375,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -2.062,
+          0.219
+        ],
+        "charge": [
+          0,
+          -2.031,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.5,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 2.38 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose charge. Socket charge = Emitter (Lanzenleuchten)."
+    },
+    {
+      "id": "item/waffe/nahkampf",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.875,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "blade_tip": [
+          0,
+          -0.687,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.406,
+          0
+        ],
+        "vent": [
+          0,
+          -0.156,
+          0.125
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_nahkampf"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.88 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse nahkampf, Pose windup/strike. Socket blade_tip = Klingenspitze; muzzle = Kopfmitte (Schlag-FX). Kopf quer (Blatt in der x-y-Ebene, 0,63 m breit), damit die Klinge aus der Spielansicht als Fläche erscheint."
+    },
+    {
+      "id": "item/waffe/betaeuber",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.688,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.562,
+          0.156
+        ],
+        "vent": [
+          0,
+          -0.125,
+          0.313
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.69 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim_rifle."
+    },
+    {
+      "id": "item/waffe/pistole",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.438,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.344,
+          0.25
+        ],
+        "vent": [
+          0,
+          -0.187,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_pistole"
+      ],
+      "notes": "Pistole der Verwundeten: Alias von lerche/item/blaster (Optik unverändert, Palette lerche_rom fest). bauweise/heat werden angenommen, wirken aber nicht. Anbau handR, Anker = Griff, Mündung −y, Oberseite +z."
+    },
+    {
+      "id": "item/waffe/granate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {
+        "scharf": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "scharf": {
+          "scharf": 1
+        },
+        "blind": {
+          "scharf": 0
+        }
+      },
+      "sockets": {
+        "center": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "geschoss"
+      ],
+      "notes": "Projektil kind granate. Anker = Mittelpunkt (nicht Boden). Zündring glow2 ruhig (emit 1,1); Telegraf (Glut-Orange Kreis) kommt von fx.js."
+    },
+    {
+      "id": "item/fessel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.13,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "aktiv": 1
+        },
+        "aus": {
+          "aktiv": 0
+        }
+      },
+      "sockets": {
+        "center": [
+          0,
+          0,
+          0
+        ],
+        "left": [
+          0.156,
+          0,
+          0
+        ],
+        "right": [
+          -0.156,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "item",
+        "held",
+        "fessel"
+      ],
+      "notes": "Am Figur-Socket wrists, Anker = Mitte zwischen den Schellen (Schellen bei x ±0,16 m). Energieband Rolle glow der Figurpalette, ruhig. aktiv 0 = Band aus."
+    }
+  ]
+}

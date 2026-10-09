@@ -1,0 +1,21 @@
+{
+  "id": "kit/rom/gemein/kante_koerper",
+  "name": "Rom-Steckplatz kante_koerper: Brüstung Travertin mit Panzerband",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":2,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "conn": {"default":0,"min":0,"max":15,"step":1}
+  },
+  "ops": [
+    {"name":"Körper","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"stone","f":"1 * (1 - zustand * 0.08)"}},
+    {"name":"Band","op":"box","if":"h >= 2","at":[0,1,0],"size":["w",1,"d"],"color":{"shade":"primary","f":"0.85 * (1 - zustand * 0.08)"}},
+    {"name":"Moos","op":"box","mode":"paint","if":"zustand > 0","at":[0,0,0],"size":["w",1,"d"],"color":{"noise":[{"shade":"plant_dark","f":0.75},"stone_dark","stone"],"weights":[1,3,3],"cell":1}}
+  ],
+  "anchor": [0,0,0]
+}

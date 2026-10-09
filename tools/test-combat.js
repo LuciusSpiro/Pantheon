@@ -7,6 +7,11 @@ const { Game } = require('../server/game.js');
 const combat = require('../server/sim/combat.js');
 const squad = require('../server/sim/squad.js');
 const away = require('../server/sim/away.js');
+// B2: Die Abschnitte bis „B2 Welle 2“ prüfen die Kampfregeln von M2/S2b und Welle 1 auf dem Altregel-Pfad
+// (Schalter WAFFEN=aus). Die B2-Abschnitte am Ende schalten waffen.js ein.
+const WAFFEN_MOD = require('../server/sim/waffen.js');
+const WAFFEN_AN = WAFFEN_MOD.aktiv;
+WAFFEN_MOD.aktiv = false;
 
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -903,6 +908,707 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       ok(g.errors === 0, 'keine Server-Fehler');
     } finally { F.arena = savedArena; }
   }
+}
+
+// ======================================================================
+// B1 Welle 1 (BODENKAMPF): Kampf v2 kartenneutral, Spawns an Ankern, Decks in der Außenzone, Waffen-Schnittstelle,
+// Tutorial-Schutz. Testkarte im Format `Karte` (CONTRACT-B1 §2), bis BUEHNE die Laufzeitkarten liefert.
+// ======================================================================
+{
+  const W = require('../server/world.js');
+  const interior = require('../server/sim/interior.js');
+  const KACHELN = require('../content/buehnen/kacheln.json').zeichen;
+  const LP = 'test.zweideck';
+  // Zwei Decks à 20×13 (Stride 16): Deck I mit Trennwand x=10 und Tür (10,6), Deck II offen; Lücke `_`
+  function testKarte() {
+    const deck = (oben) => {
+      const r = [];
+      for (let y = 0; y < 13; y++) {
+        let row = '';
+        for (let x = 0; x < 20; x++) {
+          let ch = (x === 0 || y === 0 || x === 19 || y === 12) ? '#' : '.';
+          if (oben && x === 10 && y > 0 && y < 12) ch = y === 6 ? 'D' : '#';
+          if (oben && y === 4 && (x === 5 || x === 6)) ch = 'o';
+          if (oben && x === 14 && y === 8) ch = 'O';
+          if (oben && x === 12 && y === 10) ch = 'z';
+          if (oben && x === 13 && y === 10) ch = '|';
+          row += ch;
+        }
+        r.push(row);
+      }
+      return r;
+    };
+    const rows = deck(true).concat(['_'.repeat(20), '_'.repeat(20), '_'.repeat(20)], deck(false));
+    const legende = {};
+    for (const r of rows) for (const ch of r) legende[ch] = KACHELN[ch];
+    const A = (id, rolle, x, y, extra) => Object.assign({ id, rolle, x, y, platz: id.split('.')[0], bereich: null }, extra || {});
+    const anker = [
+      A('lz.abholpunkt', 'abholpunkt', 2, 2, { ankunft: true, bereich: 'lz' }),
+      A('hof.wache.1', 'wache', 15, 3, { bereich: 'hof' }), A('hof.wache.2', 'wache', 16, 9, { bereich: 'hof' }),
+      A('hof.wache.3', 'wache', 17, 5, { bereich: 'hof', schwer: true }),
+      A('unten.wache.1', 'wache', 15, 20, { bereich: 'unten' }),
+      A('lz.lift', 'lift', 3, 10, { deck: 1 }), A('unten.lift', 'lift', 3, 26, { deck: 2 }),
+      A('hof.leiter', 'leiter', 17, 11, { deck: 1 }), A('unten.leiter', 'leiter', 17, 27, { deck: 2 }),
+    ];
+    return { id: LP, erzeuger: 'modul/1', art: 'schiff', bauweise: 'germanen', besitz: 'kontor', zustand: 'intakt', seed: 1, bauversion: 'test',
+      schablone: null, spiegel: null, w: 20, h: rows.length, rows, legende, anker,
+      bereiche: { lz: { name: 'Landezone', rects: [[1, 1, 9, 11]], rolle: 'hinein', gefecht: false },
+        hof: { name: 'Hof', rects: [[11, 1, 8, 11]], rolle: 'ziel', gefecht: true },
+        unten: { name: 'Unterdeck', rects: [[1, 17, 18, 11]], rolle: null, gefecht: false } },
+      plaetze: {}, eingaenge: [], abholpunkte: ['lz.abholpunkt'], ankunft: 'lz.abholpunkt', patrouillen: [], coverSpots: [],
+      decks: { stride: 16, links: [{ a: [3, 10], b: [3, 26], via: 'lift' }, { a: [17, 11], b: [17, 27], via: 'leiter' }] },
+      kanten: { 'lz~hof': { a: 'lz', b: 'hof', typ: 'tuer', tiles: [[10, 6]], zustand: 'zu' } }, gelaende: null, meta: {} };
+  }
+  function setupKarte(players) {
+    const g = new Game({ noStore: true, seed: 5, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const conns = [];
+    for (let i = 0; i < players; i++) {
+      const c = { inbox: [], send(m) { this.inbox.push(m); } };
+      g.addConnection(c);
+      g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i });
+      conns.push(c);
+    }
+    for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+    W.AWAY_MAPS[LP] = { id: LP, karte: testKarte() };   // wie landepunkte.get (BUEHNE): Eintrag mit karte
+    g.aways[LP] = away.makeLandepunkt(g, LP);
+    g.setAwayMap(LP);
+    away.executeBeam(g, g.players.map((p) => p.id), 'down');
+    const P = (i) => g.players[i];
+    const send = (i, m) => g.handleMessage(conns[i], m);
+    const run = (sec, each) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.step(); if (each) each(); } };
+    const place = (i, tx, ty, dir) => { const p = P(i); const c = Physics.tileCenter(tx, ty); p.x = c.x; p.y = c.y; p.dir = dir || 'down'; p.input.mx = 0; p.input.my = 0; };
+    const aw = () => g.aways[LP];
+    return { g, conns, P, send, run, place, aw };
+  }
+  const tileOf = (o) => Physics.toTile(o.x, o.y);
+
+  console.log('\n[B1 Welle 1: Kampf v2 auf gebauter Karte (Format Karte)]');
+  {
+    const { g, P, aw } = setupKarte(2);
+    ok(g.away === aw() && combat.isV2(g) && aw().kampf === 'v2', 'gebaute Karte: Kampf v2 über aw.kampf (keine Kesh-Kennung)');
+    ok(P(0).zone === 'away' && P(0).shield && P(0).shield.seg === 3, 'Herunterbeamen: voller Schild');
+    const t0 = tileOf(P(0));
+    ok(Math.abs(t0.x - 2) + Math.abs(t0.y - 2) <= 1, 'Ankunft am Abholpunkt mit ankunft (' + t0.x + ',' + t0.y + ')');
+    const s = g.snapshot();
+    ok(s.away.combat === 'v2' && s.away.vault === null && s.away.tablet === null && s.away.jammers.length === 0 && s.away.scanQuality === 1, 'Snapshot away: v2 ohne Kesh-Felder');
+    const solid = interior.awaySolid(g);
+    ok(solid(10, 6), 'Tür der Kante lz~hof im Zustand zu ist fest');
+    aw().zustaende['lz~hof'] = 'offen';
+    ok(!interior.awaySolid(g)(10, 6), 'aw.zustaende[kante] = offen öffnet die Tür');
+    aw().zustaende['lz~hof'] = 'zu';
+    const E = combat.env(g);
+    ok(E.blocked(5, 14) && E.blocked(10, 3) && !E.blocked(5, 4), '`_` und Wand sperren die Sicht, halbe Deckung nicht');
+    ok(E.solid(12, 10) && !E.blocked(12, 10) && !E.shotBlocked(12, 10), 'Gitter: fest, Sicht und Schüsse frei');
+    ok(!E.blocked(13, 10) && E.shotBlocked(13, 10), 'Fenster: Sicht frei, Schüsse gestoppt');
+    const cs = combat.coverSpots(g);
+    ok(cs.length > 0 && cs.some((c) => c.x === 5 && c.y === 5), 'coverSpots aus der Karte (' + cs.length + ')');
+    ok(interior.awayInfo(g).pads.length >= 1 && interior.awayInfo(g).links, 'Pads und Deck-Links abgeleitet');
+    ok(combat.order(g, { kind: 'halten', x: 99999, y: 100 }) === null && aw().orders[0].x === 20 * 32, 'Captain-Befehl auf der Karte (Punkt an die Kartengrenze)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B1 Welle 1: Spawns an wache-Ankern, Besetzung aus Daten]');
+  {
+    const { g, aw } = setupKarte(2);
+    const n = squad.spawnSquad(g, 'posten', { map: LP, bereich: 'hof', besetzung: [{ typ: 'grundtyp', anzahl: 2 }, { typ: 'waechter', anzahl: 1 }] });
+    const list = aw().drones.filter((d) => d.squad === 'posten');
+    ok(n === 3 && list.length === 3, 'Besetzung 2 grundtyp (×0,75 aufgerundet) + 1 Wächter = 3 (' + n + ')');
+    const w = list.find((d) => d.kind === 'warden');
+    ok(w && tileOf(w).x === 17 && tileOf(w).y === 5 && w.rolle === 'waechter', 'Wächter am schweren wache-Anker (17,5)');
+    const pl = list.filter((d) => d.kind === 'scavenger').map((d) => tileOf(d).x + ',' + tileOf(d).y).sort();
+    ok(JSON.stringify(pl) === '["15,3","16,9"]' && list.filter((d) => d.rolle === 'grundtyp').length === 2, 'grundtyp an den wache-Ankern des Bereichs (' + pl.join(' ') + ')');
+    ok(squad.spawnSquad(g, 'posten', { map: LP, bereich: 'hof' }) === 0, 'gleicher Trupp nicht doppelt (ohne force)');
+    const n2 = squad.spawnSquad(g, 'lz', { map: LP, bereich: 'lz', besetzung: [{ typ: 'scavenger', anzahl: 2 }] });
+    const lz = aw().drones.filter((d) => d.squad === 'lz');
+    ok(n2 === 2 && lz.every((d) => { const t = tileOf(d); return t.x >= 1 && t.x < 10 && t.y >= 1 && t.y < 12; }), 'Bereich ohne wache-Anker: freie Kacheln im Bereich');
+    const n3 = squad.spawnSquad(g, 'standard', { map: LP, force: true });
+    ok(n3 >= 1 && aw().drones.filter((d) => d.squad === 'standard').every((d) => tileOf(d).x > 10 && tileOf(d).y < 13), 'ohne Bereich: wache-Anker der Gefechtsbereiche');
+    const nAlert = squad.spawnSquad(g, 'unten', { map: LP, bereich: 'unten', besetzung: [{ typ: 'scavenger', anzahl: 1 }], alert: true });
+    ok(nAlert === 1 && aw().squads.unten.alert, 'alert: Trupp sofort wach');
+    ok(g.aways.kesh.drones.filter((d) => d.squad === 'squad1').length === 0 && !g.aways.kesh.spawned.posten, 'Kesh unberührt');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B1 Welle 1: Fog of War auf der Karte]');
+  {
+    const { g, P, place, aw } = setupKarte(1);
+    squad.spawnSquad(g, 'posten', { map: LP, bereich: 'hof', besetzung: [{ typ: 'scavenger', anzahl: 1 }] });
+    const e = aw().drones.find((d) => d.squad === 'posten'); e.frozen = true;
+    place(0, 5, 3);
+    combat.updateVisibility(g);
+    ok(!e.vis, 'Gegner hinter Wand und geschlossener Tür: unsichtbar');
+    place(0, 12, 3);
+    combat.updateVisibility(g);
+    ok(e.vis, 'gleicher Raum mit Sichtlinie: sichtbar');
+    place(0, 15, 19);
+    combat.updateVisibility(g);
+    ok(!e.vis, 'anderes Deck (über `_`): unsichtbar');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B1 Welle 1: Decks in der Außenzone – Lift, Leiter, KI]');
+  {
+    const { g, P, send, run, place, aw } = setupKarte(2);
+    place(0, 3, 10); place(1, 6, 6);
+    send(0, { t: 'act', down: true }); send(0, { t: 'act', down: false });
+    ok(P(0).lift && P(0).lift.away, 'Lift: E tippen startet die Fahrt');
+    run(2);
+    ok(!P(0).lift && tileOf(P(0)).y >= 16, 'Lift: angekommen auf Deck II (' + tileOf(P(0)).x + ',' + tileOf(P(0)).y + ')');
+    ok(g.snapshot().players.find((q) => q.id === P(0).id).deck === 1, 'Snapshot players.deck = 1 auf Deck II');
+    place(0, 17, 27, 'up');
+    send(0, { t: 'act', down: true });
+    ok(P(0).hold && P(0).hold.kind === 'ladder', 'Leiter: E halten');
+    run(((g.C.lift && g.C.lift.ladderTime) || 2) + 0.4);
+    send(0, { t: 'act', down: false });
+    ok(tileOf(P(0)).y < 13 && Math.abs(tileOf(P(0)).x - 17) <= 1, 'Leiter: oben auf Deck I (' + tileOf(P(0)).x + ',' + tileOf(P(0)).y + ')');
+    // KI: Gegner auf Deck I verfolgt die letzte bekannte Position auf Deck II über den Lift
+    place(0, 8, 21); place(1, 9, 22);
+    const n = squad.spawnSquad(g, 'jaeger', { map: LP, bereich: 'lz', besetzung: [{ typ: 'scavenger', anzahl: 1 }] });
+    const e = aw().drones.find((d) => d.squad === 'jaeger');
+    const c = Physics.tileCenter(5, 8); e.x = c.x; e.y = c.y; e.home = { x: c.x, y: c.y };
+    const s = aw().squads.jaeger; s.alert = true;
+    s.lastKnown[P(0).id] = { x: P(0).x, y: P(0).y, t: g.time };
+    const keep = () => { s.lastKnown[P(0).id] = { x: P(0).x, y: P(0).y, t: g.time }; for (const p of g.players) { if (p.shield) p.shield.seg = 3; p.downed = false; } };
+    let deckWechsel = false;
+    run(12, () => { keep(); if (tileOf(e).y >= 16) deckWechsel = true; });
+    ok(n === 1 && deckWechsel, 'KI findet den Weg über den Deck-Link (Gegner erreicht Deck II)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2-Schnittstelle: Waffen-Stub inaktiv = altes Verhalten, anker.onTreffer]');
+  {
+    const { g, P, aw } = setupKarte(1);
+    const anr = [];
+    combat._setzeModul('anker', { onTreffer: (game, pid) => anr.push(pid) });
+    try {
+      ok(!combat.waffenAktiv() && require('../server/sim/waffen.js').aktiv === false, 'waffen.aktiv === false -> keine Waffen-Aufrufe');
+      const r = combat.hitPlayer(g, P(0), 1, 'test');
+      ok(r === 'shield' && P(0).shield.seg === 2 && anr.length === 1 && anr[0] === P(0).id, 'alter Treffer + anker.onTreffer(game, pid)');
+      g.god = true; combat.hitPlayer(g, P(0), 1, 'test'); g.god = false;
+      ok(anr.length === 1, 'god: kein Treffer, kein onTreffer');
+      aw().kuppelHp = 50; aw().kuppelUntil = g.time + 5;
+      ok(combat.hitPlayer(g, P(0), 1, 'test') === 'kuppel' && anr.length === 1, 'Kuppel fängt ab: kein onTreffer');
+      aw().kuppelHp = 0;
+      combat._setzeModul('anker', { onTreffer: () => { throw new Error('kaputt'); } });
+      const before = g.errors;
+      combat.hitPlayer(g, P(0), 1, 'test');
+      ok(g.errors === before + 1, 'Fehler in anker.onTreffer wird gezählt, nicht geworfen');
+    } finally { combat._setzeModul('anker', undefined); }
+  }
+
+  console.log('\n[B2-Schnittstelle: Hüllen um waffen.treffer/feuern (Attrappe)]');
+  {
+    const { g, P, aw } = setupKarte(1);
+    const calls = { treffer: [], feuern: [], update: 0 };
+    const fake = { aktiv: true, treffer: (game, z, w, q) => { calls.treffer.push({ z, w, q }); return 'schild'; },
+      feuern: (game, k, ziel) => { calls.feuern.push({ k, ziel }); return null; }, update: () => { calls.update++; } };
+    const anr = [];
+    combat._setzeModul('waffen', fake); combat._setzeModul('anker', { onTreffer: (game, pid) => anr.push(pid) });
+    try {
+      ok(combat.waffenAktiv(), 'Attrappe aktiv');
+      const r = combat.hitPlayer(g, P(0), 1, 'enemy');
+      ok(r === 'shield' && calls.treffer.length === 1 && calls.treffer[0].z === P(0) && calls.treffer[0].w.schaden === 1 && anr.length === 1, 'hitPlayer -> waffen.treffer, Ergebnis schild -> shield, onTreffer');
+      ok(P(0).team === 'crew' && P(0).waffe === 'blaster' && P(0).schild === P(0).shield && P(0).wunden.n === 1, 'Kämpfer-Felder Spieler (schild = shield)');
+      squad.spawnSquad(g, 'z', { map: LP, bereich: 'hof', besetzung: [{ typ: 'grundtyp', anzahl: 1 }] });
+      const e = aw().drones.find((d) => d.squad === 'z'); e.frozen = true;
+      ok(combat.hitEnemy(g, e, 1, { x: P(0).x, y: P(0).y, pid: P(0).id }) === 'shield' && calls.treffer[1].z === e && calls.treffer[1].q.pid === P(0).id, 'hitEnemy -> waffen.treffer mit quelle');
+      ok(e.team === 'feind' && e.waffe === 'blaster' && e.schild.seg === e.seg && !Object.keys(e).includes('schild'), 'Kämpfer-Felder Gegner (Rolle grundtyp -> Blaster, schild als Alias)');
+      e.schild.seg = 1; ok(e.seg === 1 && e.hp === 1, 'Alias schreibt seg/hp');
+      combat.shoot(g, P(0), 0.5);
+      ok(calls.feuern.length === 1 && calls.feuern[0].ziel.angle === 0.5, 'shoot -> waffen.feuern({ angle })');
+      combat.fireEnemy(g, e, P(0));
+      ok(calls.feuern.length === 2 && calls.feuern[1].k === e && calls.feuern[1].ziel.x === P(0).x, 'fireEnemy (Gegner mit Waffe) -> waffen.feuern({ x, y })');
+      g.step();
+      ok(calls.update >= 2, 'update -> waffen.update je Kämpfer');
+      ok(g.waffenWelt && g.waffenWelt.kaempfer().length >= 2 && g.waffenWelt.wand(P(0).x, P(0).y, P(0).x, P(0).y + 32 * 20) === true, 'Welt-Adapter game.waffenWelt (Kämpfer, Wand über `_`)');
+    } finally { combat._setzeModul('waffen', undefined); combat._setzeModul('anker', undefined); }
+  }
+
+  console.log('\n[B2-Schnittstelle: echtes waffen.js aktiviert]');
+  {
+    const Wreal = require('../server/sim/waffen.js');
+    const { g, P, aw } = setupKarte(1);
+    const alt = Wreal.aktiv; Wreal.aktiv = true;
+    try {
+      const p = P(0);
+      ok(combat.hitPlayer(g, p, 1, 'test') === 'shield' && p.shield.seg === 2, 'waffen.treffer: Schild 3 -> 2');
+      combat.hitPlayer(g, p, 1, 'test'); combat.hitPlayer(g, p, 1, 'test');
+      const r = combat.hitPlayer(g, p, 1, 'test');
+      ok(r === 'wounded' && p.downed && p.wound && p.zustand === 'verwundet', 'ohne Schild: gefallen -> verwundet wie heute (' + r + ')');
+      combat.revive(g, p, 3);
+      ok(!p.downed && p.zustand === 'ok' && p.wunden.n === 1, 'Aufhelfen setzt Zustand und Wunden zurück');
+      squad.spawnSquad(g, 'z', { map: LP, bereich: 'hof', besetzung: [{ typ: 'grundtyp', anzahl: 1 }] });
+      const e = aw().drones.find((d) => d.squad === 'z'); e.frozen = true;
+      let res = '';
+      for (let i = 0; i < 10 && e.alive; i++) res = combat.hitEnemy(g, e, 1, { x: e.x - 40, y: e.y });
+      ok(!e.alive && res === 'down', 'Gegner fällt über waffen.treffer -> knockOut');
+      ok(g.errors === 0, 'keine Server-Fehler');
+    } finally { Wreal.aktiv = alt; }
+  }
+
+  console.log('\n[B1 §0.1: Tutorial-Schutz Plattform/Wrack]');
+  {
+    const { g } = setupKarte(1);
+    ok(g.aways.platform.kampf === 'alt' && g.aways.wreck.kampf === 'alt' && g.aways.kesh.kampf === 'v2', 'Start: Plattform/Wrack alt, Kesh v2');
+    ok(away.tutorialLaeuft(g) && !away.kampfPruefen(g, g.aways.platform), 'ohne Kampagnen-Weltstand: Tutorial läuft, kein Umrüsten');
+    const ws = g.weltstand;
+    g.weltstand = { persistent: true, data: { tutorial: 'erledigt' } };
+    try {
+      ok(!away.tutorialLaeuft(g), 'Tutorial erledigt');
+      ok(away.kampfPruefen(g, g.aways.wreck) && g.aways.wreck.kampf === 'v2', 'Wrack: Umrüsten auf v2');
+      const wr = g.aways.wreck;
+      ok(wr.drones.length > 0 && wr.drones.every((d) => d.seg === d.max && d.squad === 'posten' && Array.isArray(d.sees)), 'Plünderer als v2-Gegner (' + wr.drones.length + ')');
+      const r = away.resetMap(g, 'platform');
+      ok(r.ok && g.aways.platform.kampf === 'v2', 'map_reset Plattform nach dem Tutorial: v2');
+    } finally { g.weltstand = ws; }
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B1 Welle 1: Snapshot auf der Karte, 3 Spieler, 12 Gegner]');
+  {
+    const { g, run, aw } = setupKarte(3);
+    squad.spawnSquad(g, 'a', { map: LP, bereich: 'hof', besetzung: [{ typ: 'scavenger', anzahl: 6 }], alert: true });
+    squad.spawnSquad(g, 'b', { map: LP, bereich: 'unten', besetzung: [{ typ: 'scavenger', anzahl: 6 }], alert: true });
+    ok(aw().drones.length === 12, '12 Gegner');
+    let max = 0;
+    run(4, () => { max = Math.max(max, Buffer.byteLength(JSON.stringify(g.snapshot()))); for (const p of g.players) { if (p.shield) p.shield.seg = 3; } });
+    ok(max < 13 * 1024, 'Snapshot < 13 KB (max ' + max + ' B)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+  delete W.AWAY_MAPS[LP];
+}
+
+// ======================================================================
+// B2 Welle 2 (BODENKAMPF): waffen.js aktiv – Rollen, Hitze, Liegen/Aufrichten, Bewusstlos/Fesseln (beide Seiten),
+// Ausbruch, KI-Profile, Schleichen, Einführungsregel. Testkarte im Format `Karte` mit zelle/beute/patrouille/aussicht.
+// ======================================================================
+{
+  const W = require('../server/world.js');
+  const interior = require('../server/sim/interior.js');
+  const KACHELN = require('../content/buehnen/kacheln.json').zeichen;
+  const LP = 'test.b2';
+  WAFFEN_MOD.aktiv = true;
+  function karteB2() {
+    const rows = [];
+    for (let y = 0; y < 14; y++) {
+      let r = '';
+      for (let x = 0; x < 26; x++) {
+        let ch = (x === 0 || y === 0 || x === 25 || y === 13) ? '#' : '.';
+        if (x === 15 && (y === 5 || y === 6)) ch = 'o';
+        if (x === 10 && y === 8) ch = 'O';
+        r += ch;
+      }
+      rows.push(r);
+    }
+    const legende = {};
+    for (const r of rows) for (const ch of r) legende[ch] = KACHELN[ch];
+    const A = (id, rolle, x, y, extra) => Object.assign({ id, rolle, x, y, platz: id.split('.')[0], bereich: null }, extra || {});
+    const anker = [
+      A('lz.abholpunkt', 'abholpunkt', 3, 11, { ankunft: true, bereich: 'lz' }),
+      A('kerker.zelle', 'zelle', 3, 3, { bereich: 'kerker' }), A('kerker.beute', 'beute', 8, 3, { bereich: 'kerker' }),
+      A('hof.wache.1', 'wache', 18, 4, { bereich: 'hof' }), A('hof.wache.2', 'wache', 18, 9, { bereich: 'hof' }),
+      A('hof.wache.3', 'wache', 20, 6, { bereich: 'hof' }), A('hof.wache.4', 'wache', 22, 4, { bereich: 'hof' }),
+      A('hof.wache.5', 'wache', 22, 9, { bereich: 'hof' }), A('hof.wache.6', 'wache', 23, 6, { bereich: 'hof', schwer: true }),
+      A('gang.patrouille.1', 'patrouille', 12, 2, { kette: 'a' }), A('gang.patrouille.2', 'patrouille', 12, 11, { kette: 'a' }),
+      A('hof.aussicht', 'aussicht', 21, 2, { bereich: 'hof' }),
+    ];
+    return { id: LP, erzeuger: 'modul/1', art: 'aussenposten', bauweise: 'germanen', besitz: 'rostmeute', zustand: 'intakt', seed: 2, bauversion: 'test',
+      schablone: null, spiegel: null, w: 26, h: 14, rows, legende, anker,
+      bereiche: { lz: { name: 'Landezone', rects: [[1, 9, 8, 4]], rolle: 'hinein', gefecht: false },
+        kerker: { name: 'Kerker', rects: [[1, 1, 9, 5]], rolle: null, gefecht: false },
+        hof: { name: 'Hof', rects: [[16, 1, 9, 12]], rolle: 'ziel', gefecht: true } },
+      plaetze: {}, eingaenge: [], abholpunkte: ['lz.abholpunkt'], ankunft: 'lz.abholpunkt',
+      patrouillen: [['gang.patrouille.1', 'gang.patrouille.2']], coverSpots: [], decks: null, kanten: {}, gelaende: null, meta: {} };
+  }
+  function setupB2(players, opts) {
+    const o = opts || {};
+    const g = new Game({ noStore: true, seed: o.seed || 7, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const conns = [];
+    for (let i = 0; i < players; i++) {
+      const c = { inbox: [], send(m) { this.inbox.push(m); } };
+      g.addConnection(c);
+      g.handleMessage(c, { t: 'hello', clientId: 'B' + i, name: 'B' + i, color: i });
+      conns.push(c);
+    }
+    for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+    W.AWAY_MAPS[LP] = { id: LP, karte: karteB2() };
+    g.aways[LP] = away.makeLandepunkt(g, LP);
+    g.setAwayMap(LP);
+    away.executeBeam(g, g.players.map((p) => p.id), 'down');
+    const P = (i) => g.players[i];
+    const send = (i, m) => g.handleMessage(conns[i], m);
+    const run = (sec, each) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.step(); if (each) each(); } };
+    const place = (i, tx, ty, dir) => { const p = P(i); const c = Physics.tileCenter(tx, ty); p.x = c.x; p.y = c.y; p.dir = dir || 'down'; p.input.mx = 0; p.input.my = 0; };
+    const events = (kind) => conns[0].inbox.filter((m) => m.kind === kind);
+    const aw = () => g.aways[LP];
+    const gegner = (rolle, tx, ty, opts2) => {
+      const q = opts2 || {};
+      const e = squad.makeEnemy(g, aw(), squad.TYP_KIND[rolle] || 'scavenger', 'G' + g.nextId(''), Physics.tileCenter(tx, ty), q.trupp || 'test');
+      e.rolle = rolle; e.asleep = false; e.frozen = q.frozen !== false;
+      if (!aw().squads[e.squad]) aw().squads[e.squad] = squad.newSquad(e.squad, 1);
+      aw().drones.push(e);
+      combat.kaempfer(g, e);
+      return e;
+    };
+    return { g, conns, P, send, run, place, events, aw, gegner };
+  }
+  const C = AC;
+  const tileOf = (o) => Physics.toTile(o.x, o.y);
+
+  console.log('\n[B2 Welle 2: Waffen aktiv, Rollen und Kämpfer-Felder]');
+  {
+    const { g, P, gegner } = setupB2(1);
+    ok(combat.waffenAktiv(), 'waffen.js aktiv (Schalter WAFFEN=aus schaltet ab)');
+    const p = combat.kaempfer(g, P(0));
+    ok(p.waffe === 'blaster' && p.team === 'crew' && p.wunden.max === 1 && p.zustand === 'ok', 'Spieler: Blaster, crew, 1 Wunde');
+    const sc = squad.makeEnemy(g, g.aways.kesh, 'scavenger', 'K1', Physics.tileCenter(5, 5), 't');
+    combat.kaempfer(g, sc);
+    ok(sc.rolle === 'grundtyp' && sc.waffe === 'schrottblaster' && sc.max === C.gegner.grundtyp.seg, 'Kesh-Plünderer = grundtyp mit Schrottblaster (Blaster-Regeln, tempo 230)');
+    const karl = squad.makeEnemy(g, g.aways.kesh, 'scavenger', 'K3', Physics.tileCenter(5, 5), 't'); karl.rolle = 'grundtyp'; karl.fraktion = 'kontor'; combat.kaempfer(g, karl);
+    ok(karl.waffe === 'blaster', 'Karl (grundtyp Kontor) bleibt beim Blaster');
+    const w = squad.makeEnemy(g, g.aways.kesh, 'warden', 'K2', Physics.tileCenter(5, 5), 'warden');
+    combat.kaempfer(g, w);
+    ok(w.rolle === 'waechter' && w.max === 4 && w.wunden.max === 2 && w.frontArc === 120, 'Wächter: 4 Segmente + 2 Wunden, Frontbogen');
+    const s = g.snapshot();
+    const sp = s.players[0];
+    ok(sp.wf === 'blaster' && sp.zs === 'ok' && 'ht' in sp, 'Snapshot players: wf, ht, zs');
+    gegner('niederhalter', 20, 6);
+    const d = g.snapshot().away.drones.find((q) => q.ro === 'niederhalter');
+    ok(d && d.wf === 'sturmgewehr' && d.zs === undefined && d.wn === undefined && d.wm === undefined, 'Snapshot drones: ro, wf; Standardwerte (zs ok, Wunden 1/1) entfallen');
+  }
+
+  console.log('\n[B2: Hitze – Spieler und Gegner]');
+  {
+    const { g, P, run, events, gegner } = setupB2(1);
+    const p = P(0);
+    let n = 0;
+    run(3, () => { if (g.away.projectiles.length < 50) { combat.shoot(g, p, 0); } n++; });
+    ok(events('ueberhitzt').some((x) => x.id === p.id), 'Spieler: Dauerfeuer überhitzt den Blaster');
+    const e = gegner('niederhalter', 20, 6);
+    e.stoss = 30; e.shootTarget = p.id; e.frozen = false;
+    const vorher = events('ueberhitzt').length;
+    run(4, () => { e.stoss = Math.max(e.stoss, 0); });
+    ok(e.hitze <= 1 && events('ueberhitzt').filter((x) => x.id === e.id).length === 0, 'Niederhalter bricht den Stoß vor dem Überhitzen ab (Hitze ' + Math.round(e.hitze * 100) + ' %)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Gefallene Gegner liegen, Kamerad richtet auf, sonst Ausbluten]');
+  {
+    const { g, P, run, place, events, aw, gegner } = setupB2(1);
+    place(0, 3, 11);
+    const a = gegner('grundtyp', 18, 4, { trupp: 'paar', frozen: false });
+    const b = gegner('grundtyp', 20, 4, { trupp: 'paar', frozen: false });
+    let r = '';
+    for (let i = 0; i < 6 && a.alive; i++) r = combat.hitEnemy(g, a, 1, { x: a.x - 300, y: a.y });
+    ok(!a.alive && a.liegt && a.zustand === 'verwundet' && r === 'down' && events('enemyDown').length === 1, 'grundtyp fällt: liegt (verwundet), enemyDown');
+    ok(g.snapshot().away.drones.find((q) => q.id === a.id).zs === 'verwundet', 'Snapshot zs verwundet');
+    aw().squads.paar.alert = true;
+    place(0, 3, 2);   // weit weg, keine Sicht
+    run(9);
+    ok(a.alive && a.zustand === 'ok' && events('aufgerichtet').length >= 1 && b.role !== 'aufrichten', 'Kamerad geht hin und richtet auf (' + (a.alive ? 'steht' : a.zustand) + ')');
+    for (const d of aw().drones) { d.alive = false; d.liegt = false; }
+    const c = gegner('grundtyp', 22, 9, { trupp: 'allein' });
+    for (let i = 0; i < 6 && c.alive; i++) combat.hitEnemy(g, c, 1, { x: c.x - 300, y: c.y });
+    run(C.koerper.gegnerBleedout + 1);
+    ok(!c.alive && c.zustand === 'aus', 'ohne Kamerad: nach gegnerBleedout s aus');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Bewusstlos und Fesseln – Spieler]');
+  {
+    const { g, P, send, run, place, events, gegner } = setupB2(2);
+    place(0, 5, 10); place(1, 6, 10, 'left');
+    const p = P(0);
+    p.shield.seg = 0;
+    const r = combat.hitPlayer(g, p, 1, 'betaeuber', { nichttoedlich: true, waffe: 'betaeuber' });
+    ok(r === 'bewusstlos' && p.downed && p.zustand === 'bewusstlos' && p.bleed == null, 'Betäuber ohne Schild: bewusstlos, kein Ausbluten');
+    const n0 = g.away.projectiles.length;
+    combat.shoot(g, p, 0);
+    ok(g.away.projectiles.length === n0, 'bewusstlos: keine Pistole');
+    send(1, { t: 'act', down: true }); run(0.3); send(1, { t: 'act', down: false });
+    ok(p.downed && !(P(1).hold && P(1).hold.kind === 'revive'), 'bewusstlos: Aufhelfen gesperrt');
+    run(5);
+    ok(p.downed && p.zustand === 'bewusstlos', 'nach 5 s noch bewusstlos (kein Ausbluten, keine Rückholung)');
+    // Häscher fesselt
+    const h = gegner('haescher', 9, 10, { trupp: 'jagd', frozen: false });
+    g.away.squads.jagd.alert = true;
+    run(8);
+    ok(p.zustand === 'gefesselt' && p.downed, 'Häscher geht hin und fesselt den Bewusstlosen (' + p.zustand + ')');
+    h.alive = false;
+    place(1, 6, 10, 'left');
+    send(1, { t: 'act', down: true }); run(C.koerper.befreien + 0.4); send(1, { t: 'act', down: false });
+    ok(!p.downed && p.zustand === 'ok' && events('befreit').length === 1, 'Kamerad befreit (E halten): steht wieder');
+    p.shield.seg = 0;
+    combat.hitPlayer(g, p, 1, 'betaeuber', { nichttoedlich: true, waffe: 'betaeuber' });
+    run(C.koerper.bewusstlos + 0.5);
+    ok(!p.downed && p.zustand === 'ok' && p.shield.seg >= 1, 'nach koerper.bewusstlos s von selbst wach mit 1 Segment');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Bewusstlos und Fesseln – Gegner]');
+  {
+    const { g, P, send, run, place, gegner } = setupB2(1);
+    const e = gegner('grundtyp', 8, 10, { trupp: 'z' });
+    g.aways[LP].besetzt = { z: {} }; e.tag = 'z';
+    e.seg = 0;
+    const r = combat.hitEnemy(g, e, 1, { x: e.x - 100, y: e.y, wirkung: { nichttoedlich: true, waffe: 'betaeuber' } });
+    ok(r === 'bewusstlos' && !e.alive && e.zustand === 'bewusstlos' && e.liegt, 'Gegner betäubt ohne Schild: bewusstlos, liegt');
+    ok(combat.truppStatus(g, LP, 'z').aktiv === 0, 'truppStatus: bewusstlos zählt nicht als aktiv');
+    place(0, 7, 10, 'right');
+    send(0, { t: 'act', down: true }); run(C.koerper.fesseln + 0.4); send(0, { t: 'act', down: false });
+    ok(e.zustand === 'gefesselt', 'Spieler fesselt den Bewusstlosen (E halten)');
+    run(C.koerper.bewusstlos + 1);
+    ok(e.zustand === 'gefesselt' && !e.alive, 'gefesselt: wacht nicht auf');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Gefangen -> Ausbruch auf derselben Karte, zweites Mal Notrückholung]');
+  {
+    const { g, P, send, run, place, events, aw } = setupB2(2);
+    const t = combat.debugB2(g, 'fang', [], P(0));
+    ok(/Ausbruch/.test(t) && events('gefangen').length === 1, 'fang: Team gefangen (Ereignis gefangen)');
+    ok(g.players.every((p) => !p.downed && p.waffe === 'faust' && p.gefangen && Math.abs(tileOf(p).x - 3) <= 1 && Math.abs(tileOf(p).y - 3) <= 1), 'alle in der Zelle, Waffe Faust');
+    ok(g.snapshot().players.every((q) => q.zs === 'gefangen'), 'Snapshot zs gefangen');
+    P(0).input.mx = 1; run(1.5); P(0).input.mx = 0;
+    ok(Math.hypot(P(0).x - P(0).gefangen.x, P(0).y - P(0).gefangen.y) <= 1.7 * 32, 'Zelle hält (weiche Leine)');
+    place(0, 3, 3, 'right');
+    send(0, { t: 'act', down: true }); run(C.koerper.ausbruchTuer + 0.4); send(0, { t: 'act', down: false });
+    ok(P(0).gefangen && P(0).gefangen.offen && (g.away.laerm || []).some((l) => l.stufe === 'laut'), 'Zellentür von innen (E halten): offen, laut');
+    place(0, 7, 3, 'right');
+    send(0, { t: 'act', down: true }); run(2.5); send(0, { t: 'act', down: false });
+    ok(P(0).waffe === 'blaster' && !P(0).gefangen, 'Ausrüstung am beute-Anker zurück');
+    const t2 = combat.debugB2(g, 'fang', [], P(0));
+    ok(/kein Ausbruch/.test(t2), 'zweites Mal: kein Ausbruch');
+    run(C.wounded.squadRecallDelay + 0.5);
+    ok(g.players.every((p) => p.zone === 'ship'), 'Rückfall Notrückholung');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Frontschild blockt von vorn, auch Nahkampf]');
+  {
+    const { g, P, gegner } = setupB2(1);
+    const w = gegner('waechter', 20, 6);
+    w.facing = Math.PI;   // schaut nach links
+    ok(combat.hitEnemy(g, w, 1, { x: w.x - 100, y: w.y }) === 'deflect', 'Schuss von vorn: abgelenkt');
+    ok(combat.hitEnemy(g, w, 1, { x: w.x - 30, y: w.y, wirkung: { wunde: true, nahkampf: true, waffe: 'nahkampf' } }) === 'deflect', 'Nahkampf von vorn: abgelenkt');
+    ok(combat.hitEnemy(g, w, 1, { x: w.x + 100, y: w.y }) === 'shield', 'von hinten: Schild');
+  }
+
+  console.log('\n[B2: KI-Profile – Grenadier, Schütze, Enterer, Häscher]');
+  {
+    const { g, P, run, place, events, gegner, aw } = setupB2(1);
+    place(0, 12, 6);
+    const keep = () => { const p = P(0); if (p.downed) combat.revive(g, p, 3, { quiet: true }); p.shield.seg = 3; p.zustand = 'ok'; };
+    const gr = gegner('grenadier', 20, 6, { trupp: 'g', frozen: false }); aw().squads.g.alert = true;
+    run(8, keep);
+    ok(events('granate').some((e) => e.id === gr.id), 'Grenadier wirft (Ereignis granate, Zielkreis gr)');
+    gr.alive = false;
+    const sz = gegner('schuetze', 21, 2, { trupp: 's', frozen: false }); aw().squads.s.alert = true;
+    run(10, keep);
+    ok(events('ladungLanze').some((e) => e.id === sz.id) && events('lanzeSchuss').some((e) => e.id === sz.id), 'Schütze lädt sichtbar und schießt (ladungLanze, lanzeSchuss)');
+    sz.alive = false;
+    const en = gegner('enterer', 18, 9, { trupp: 'e', frozen: false }); aw().squads.e.alert = true;
+    run(8, keep);
+    ok(events('ausholen').some((e) => e.id === en.id) && events('schlag').some((e) => e.id === en.id), 'Enterer läuft heran, holt aus und schlägt');
+    en.alive = false;
+    const hs = gegner('haescher', 18, 4, { trupp: 'h', frozen: false }); aw().squads.h.alert = true;
+    let maxH = 0;
+    run(12, () => { keep(); maxH = Math.max(maxH, hs.hitze || 0); });
+    ok(g.away.stats.enemyShots > 0 && !events('ueberhitzt').some((e) => e.id === hs.id), 'Häscher schießt, überhitzt nicht (max. Hitze ' + Math.round(maxH * 100) + ' %)');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Schleichen – Lärm, Alarm je Trupp, Patrouille, Ruhe]');
+  {
+    const { g, P, run, place, events, aw } = setupB2(1);
+    place(0, 3, 11);
+    const n = combat.besetzen(g, { map: LP, bereich: 'hof', fraktion: 'rostmeute', staerke: 'mittel', haltung: 'ruhig', tag: 'hof' });
+    ok(n >= 2 && combat.truppStatus(g, LP, 'hof').haltung === 'ruhig', 'besetzen ruhig: ' + n + ' Gegner, Haltung ruhig');
+    const trupps = Object.values(aw().squads).filter((s) => s.tag === 'hof');
+    const pat = trupps.find((s) => s.weg && s.weg.length);
+    const pe = pat ? aw().drones.find((d) => d.squad === pat.name) : null;
+    const start = pe ? { x: pe.x, y: pe.y } : null;
+    run(6);
+    ok(pat && pe && Math.hypot(pe.x - start.x, pe.y - start.y) > 32 && trupps.every((s) => !s.alert), 'Patrouille läuft karte.patrouillen, keiner wach');
+    const Wm = require('../server/sim/waffen.js');
+    Wm.laerm(g, 3 * 32, 11 * 32, 'leise');
+    run(1);
+    ok(trupps.every((s) => !s.alert), 'leiser Schuss weit weg: kein Alarm');
+    const e0 = aw().drones.find((d) => d.tag === 'hof' && d.alive);
+    Wm.laerm(g, e0.x - 5 * 32, e0.y, 'laut');
+    run(1);
+    ok(events('truppAlarm').length >= 1 && aw().squads[e0.squad].alert && aw().alarm, 'lauter Schuss im Radius: truppAlarm, Trupp wach, Landepunkt im Alarm');
+    run(C.alarm.funkVerzoegerung + 1);
+    ok(trupps.every((s) => s.alert), 'Funk: nach funkVerzoegerung s alle Trupps im Umkreis wach');
+    place(0, 3, 2);
+    for (const s of trupps) s.contactAt = g.time - C.alarm.ruheNach - 1;
+    run(1);
+    ok(trupps.every((s) => !s.alert) && aw().alarm, 'ohne Kontakt nach ruheNach s wieder ruhig, Landepunkt bleibt im Alarm');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Einführungsregel und Besetzungsregeln]');
+  {
+    const { g, aw } = setupB2(1);
+    const ws = g.weltstand; const gesehen = ws.data.rollen_gesehen = [];
+    combat.besetzen(g, { map: LP, bereich: 'hof', fraktion: 'rostmeute', staerke: 'gross', haltung: 'wach', tag: 'a', neue_rolle: 'niederhalter' });
+    const rollen = new Set(aw().drones.filter((d) => d.tag === 'a').map((d) => d.rolle));
+    ok([...rollen].every((r) => r === 'grundtyp' || r === 'niederhalter'), 'ungesehen: nur grundtyp + die eine neue_rolle (' + [...rollen].join(',') + ')');
+    ok(!rollen.has('haescher'), 'solo: kein Häscher');
+    gesehen.push('haescher', 'enterer', 'grenadier', 'schuetze', 'niederhalter');
+    const { g: g3, aw: aw3 } = setupB2(3);
+    g3.weltstand.data.rollen_gesehen = ['haescher', 'enterer', 'grenadier', 'schuetze', 'niederhalter'];
+    combat.besetzen(g3, { map: LP, bereich: 'hof', fraktion: 'herrenlos', staerke: 'klein', haltung: 'ruhig', tag: 'h' });
+    ok(aw3().drones.filter((d) => d.tag === 'h').every((d) => d.rolle === 'waechter' && d.kind === 'warden'), 'herrenlos: Kastell-Automat bleibt Wächter');
+    combat.besetzen(g3, { map: LP, bereich: 'hof', fraktion: 'rostmeute', staerke: 'gross', haltung: 'wach', tag: 'b' });
+    const ent = aw3().drones.filter((d) => d.tag === 'b' && d.rolle === 'enterer').length;
+    ok(ent <= 3, 'höchstens 1 Enterer je Spieler (' + ent + ')');
+    const trupps = Object.values(aw3().squads).filter((s) => s.tag === 'b');
+    ok(trupps.every((s) => new Set(aw3().drones.filter((d) => d.squad === s.name).map((d) => d.rolle)).size <= 3), 'höchstens 3 Typen je Trupp');
+    ok(g.errors === 0 && g3.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2 E16: über 10 Kacheln nur vom aussicht-Anker oder mit geteilter Sicht]');
+  {
+    const { g, P, place, gegner, aw } = setupB2(1);
+    place(0, 5, 2);
+    const sz = gegner('schuetze', 21, 2, { trupp: 'fern' });   // auf dem aussicht-Anker (21,2), 16 Kacheln entfernt
+    const E = combat.env(g);
+    ok(squad.amAussicht(g, E, sz) && squad.zielbar(g, E, sz, P(0)), 'vom aussicht-Anker: Lanze zielt über 10 Kacheln');
+    const t = Physics.tileCenter(21, 6); sz.x = t.x; sz.y = t.y;
+    place(0, 5, 6);
+    ok(!squad.amAussicht(g, E, sz) && !squad.zielbar(g, E, sz, P(0)), 'ohne Aussicht und ohne geteilte Sicht: kein Ziel über 10 Kacheln');
+    aw().squads.fern.geteilt = { [P(0).id]: g.time + AC.sicht.geteiltTtl };
+    ok(squad.zielbar(g, E, sz, P(0)), 'Trupp-Funk (geteilte Sicht): Ziel erlaubt');
+    g.time += AC.sicht.geteiltTtl + 0.1;
+    ok(!squad.zielbar(g, E, sz, P(0)), 'nach geteiltTtl s verfallen');
+    const gr = gegner('grundtyp', 20, 6, { trupp: 'nah' });
+    place(0, 14, 6);
+    ok(squad.zielbar(g, E, gr, P(0)), 'unter 10 Kacheln mit Sichtlinie: wie bisher');
+  }
+
+  console.log('\n[B2 E16 Spieler, Lanze loslassen (shoot { los: true })]');
+  {
+    const { g, P, run, place, events, gegner } = setupB2(1);
+    const e = gegner('grundtyp', 5, 2);
+    place(0, 21, 2);   // am aussicht-Anker, 16 Kacheln
+    combat.updateVisibility(g);
+    ok(e.vis, 'Spieler vom aussicht-Anker sieht über 10 Kacheln');
+    place(0, 21, 6); e.focusUntil = 0;
+    combat.updateVisibility(g);
+    ok(!e.vis, 'ohne Aussicht nicht');
+    ok(combat.order(g, { kind: 'fokus', target: e.id }) === null && e.focusUntil - g.time >= AC.sicht.geteiltTtl, 'Captain-Markierung (fokus) teilt Sicht mindestens geteiltTtl s');
+    combat.updateVisibility(g);
+    ok(e.vis, 'markierter Gegner sichtbar');
+    const p = combat.kaempfer(g, P(0));
+    p.waffe = 'lanze';
+    place(0, 12, 2);
+    const t = Physics.tileCenter(5, 2);
+    const ang = Math.atan2(t.y - P(0).y, t.x - P(0).x);
+    for (let i = 0; i < 40; i++) { if (i % 9 === 0) away.shoot(g, P(0), ang); g.step(); }
+    ok(P(0).ladung && P(0).ladung.stufe >= 1, 'Lanze lädt, solange shoot kommt');
+    away.shoot(g, P(0), ang, { los: true });
+    ok(!P(0).ladung && events('lanzeSchuss').some((x) => x.id === P(0).id), 'shoot { los: true }: Lanze feuert');
+    ok(events('enemyShieldHit').some((x) => x.id === e.id && x.waffe === 'lanze'), 'Lanzentreffer: enemyShieldHit mit waffe lanze');
+  }
+
+  console.log('\n[B2-NACH: Wurfweite shoot { angle, dist }, Treffer-Ereignisse der Granate]');
+  {
+    const { g, P, send, run, place, events, gegner } = setupB2(1);
+    const AW = AC.waffen.granatwerfer; const st0 = AW.streuung; AW.streuung = 0;
+    const p = combat.kaempfer(g, P(0)); p.waffe = 'granatwerfer';
+    place(0, 12, 6);
+    const e = gegner('grundtyp', 18, 6);
+    const wurf = (msg) => {
+      p.bereitAt = 0; p.gesperrtBis = 0; p.hitze = 0;
+      const n0 = g.away.projectiles.length; send(0, Object.assign({ t: 'shoot' }, msg));
+      const q = g.away.projectiles.slice(n0).find((x) => x.kind === 'granate');
+      return q ? Math.hypot(q.tx - P(0).x, q.ty - P(0).y) / Physics.TILE : null;
+    };
+    ok(Math.abs(wurf({ angle: 0 }) - 12) < 1e-6, 'shoot ohne dist: volle Weite (12 Kacheln)');
+    g.away.projectiles = [];
+    ok(Math.abs(wurf({ angle: 0, dist: 6 }) - 6) < 1e-6, 'shoot { dist: 6 }: Landepunkt 6 Kacheln (Mauszeiger)');
+    run(1.2);
+    ok(events('enemyShieldHit').some((x) => x.id === e.id && x.waffe === 'granatwerfer'), 'Granatentreffer: enemyShieldHit mit waffe granatwerfer');
+    g.away.projectiles = [];
+    ok(Math.abs(wurf({ angle: 0, dist: 50 }) - 12) < 1e-6 && Math.abs(wurf({ angle: 0, dist: 1 }) - AW.min) < 1e-6, 'dist begrenzt auf [min, max]');
+    g.away.projectiles = [];
+    // Gegner-Granate auf Spieler: shieldHit mit waffe
+    const gr = gegner('grenadier', 18, 9); combat.kaempfer(g, gr); gr.bereitAt = 0;
+    require('../server/sim/waffen.js').feuern(g, gr, { x: P(0).x, y: P(0).y });
+    run(1.2);
+    ok(events('shieldHit').some((x) => x.pid === P(0).id && x.waffe === 'granatwerfer'), 'Gegner-Granate: shieldHit mit waffe granatwerfer');
+    AW.streuung = st0;
+  }
+
+  console.log('\n[KI: Sammeln am letzten bekannten Punkt verteilt sich (nie zwei Gegner auf einer Kachel)]');
+  {
+    const { g, P, run, place, aw, gegner } = setupB2(1);
+    place(0, 3, 2);   // weit weg; Sicht kurz, damit niemand den Spieler sieht (nur Suchen)
+    const sicht0 = AC.sightTiles; AC.sightTiles = 2;
+    const list = [[18, 4], [18, 9], [20, 6], [22, 4]].map(([x, y]) => gegner('grundtyp', x, y, { trupp: 'such', frozen: false }));
+    const s = aw().squads.such; s.alert = true;
+    const punkt = Physics.tileCenter(8, 10);
+    let doppelt = 0;
+    run(12, () => {
+      s.lastKnown[P(0).id] = { x: punkt.x, y: punkt.y, t: g.time };
+      P(0).shield.seg = 3;
+      const tiles = list.filter((e) => e.alive && (!e.path || !e.path.length)).map((e) => { const t = Physics.toTile(e.x, e.y); return t.x + ',' + t.y; });
+      if (new Set(tiles).size !== tiles.length) doppelt++;
+    });
+    const end = list.map((e) => { const t = Physics.toTile(e.x, e.y); return t.x + ',' + t.y; });
+    ok(new Set(end).size === end.length && list.every((e) => Math.hypot(e.x - punkt.x, e.y - punkt.y) <= 6 * 32), 'vier Gegner am Sammelpunkt auf vier Kacheln (' + end.join(' ') + ')');
+    ok(doppelt < 30, 'stehende Gegner teilen sich kaum je eine Kachel (' + doppelt + ' Ticks)');
+    AC.sightTiles = sicht0;
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[B2: Rolle gesehen (crew.rollen_gesehen)]');
+  {
+    const { g, P, place, events, gegner } = setupB2(1);
+    g.weltstand.data.rollen_gesehen = [];
+    place(0, 16, 6);
+    gegner('grenadier', 20, 6);
+    combat.updateVisibility(g);
+    ok(g.weltstand.data.rollen_gesehen.includes('grenadier') && events('rolleNeu').some((e) => e.rolle === 'grenadier'), 'Sichtkontakt: rolleGesehen + rolleNeu');
+  }
+
+  console.log('\n[B2: Snapshot Außenposten, 3 Spieler, 12 Gegner]');
+  {
+    let karteOk = false;
+    try {
+      const L = require('../server/sim/landepunkte.js');
+      const g = new Game({ noStore: true, seed: 4, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+      for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
+      const lp = Object.values(L.defs().byId || {}).filter((x) => x.art === 'aussenposten' && !x.gesperrt).map((x) => x.id).find((id) => { try { L.get(g, id); return true; } catch (e) { return false; } });
+      if (lp) {
+        karteOk = true;
+        g.setAwayMap(lp);
+        away.executeBeam(g, g.players.map((p) => p.id), 'down');
+        g.weltstand.data.rollen_gesehen = ['niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher'];
+        combat.besetzen(g, { map: lp, fraktion: 'rostmeute', staerke: 'gross', haltung: 'wach', tag: 'm' });
+        while (g.away.drones.filter((d) => d.alive).length > 12) g.away.drones.pop();
+        let i = 0;
+        while (g.away.drones.length < 12) { const t = Physics.toTile(g.players[0].x, g.players[0].y); const e = squad.makeEnemy(g, g.away, 'scavenger', 'f' + (i++), Physics.tileCenter(t.x + 6, t.y), 'm'); e.rolle = 'niederhalter'; g.away.drones.push(e); }
+        let max = 0;
+        const W2 = require('../server/sim/waffen.js');
+        for (let k = 0; k < 30 * 8; k++) {
+          g.step();
+          for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
+          if (k % 15 === 0) {
+            const e1 = g.away.drones[0], e2 = g.away.drones[1];
+            for (const e of [e1, e2]) { W2.ausstatten(g, e, 'grenadier'); e.bereitAt = 0; e.gesperrtBis = 0; W2.feuern(g, e, { x: g.players[0].x, y: g.players[0].y }); }
+            max = Math.max(max, Buffer.byteLength(JSON.stringify(g.snapshot())));
+          }
+        }
+        ok(max < 13 * 1024, 'Snapshot < 13 KB (max ' + max + ' B, ' + lp + ')');
+        ok(g.errors === 0, 'keine Server-Fehler');
+      }
+    } catch (e) { console.log('  info Außenposten nicht baubar: ' + e.message); }
+    if (!karteOk) console.log('  info Snapshot-Messung übersprungen (kein baubarer Außenposten)');
+  }
+  WAFFEN_MOD.aktiv = WAFFEN_AN;
+  delete W.AWAY_MAPS[LP];
 }
 
 console.log(`\n${n - fails}/${n} Kampf-Tests bestanden.`);

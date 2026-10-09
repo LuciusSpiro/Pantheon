@@ -1,0 +1,31 @@
+{
+  "id": "item/waffe/rom/sturmgewehr",
+  "name": "Crew-Sturmgewehr – Anbau rom für item/waffe/sturmgewehr",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/sturmgewehr. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Crew-Sturmgewehr",
+      "op": "group",
+      "at": [-1, -12, 1.5],
+      "ops": [
+        { "name": "Gehäuse Bronze", "op": "box", "at": [0, 8, 0], "size": [2, 4, 4], "color": "trim" },
+        { "name": "Rotes Band", "op": "box", "at": [0, 11, 0], "size": [2, 1, 4], "color": "primary" },
+        {
+          "name": "Magazin Marmor",
+          "op": "box",
+          "at": [-2, 8, 0],
+          "size": [2, 3, 3],
+          "color": { "frame": "trim", "fill": "secondary", "axes": "yz", "width": 1 }
+        },
+        { "name": "Mantelleiste Bronze", "op": "box", "at": [-1, 2, 0], "size": [4, 1, 4], "color": "trim" },
+        { "name": "Schaft Marmor", "op": "box", "at": [0, 12, 0], "size": [2, 3, 3], "color": "secondary" },
+        { "name": "Kolben Bronze", "op": "box", "at": [0, 14, -1], "size": [2, 1, 5], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

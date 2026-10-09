@@ -1,0 +1,48 @@
+{
+  "id": "prop/germanen/station/kontrollpult",
+  "name": "Station Germanen: Kontrollpult (Schmiedeeisen-Korpus, Schräge mit Hebeln, Runenbahn-Schirm, Hörner)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "station", "konsole", "kontrollraum"],
+  "notes": "ART-STATION. 1 x 1 m, 1,6 m. Bediener steht vorn (+z). Geklinkerter Korpus (überstehende Plankenkanten), Pultschräge fällt nach vorn, Schirmaufsatz hinten mit Knochenhörnern (Hornfels-Anklang, kein Abzeichen). Schirm: Leiterbahn-Ornament + Balken, Frostblau gedämpft (emit <= 0,9). Fell über der linken Kante. on 0 = dunkel. zustand 2 = Schirm gesprungen, Ruß.",
+  "footprint": [1, 1],
+  "params": {
+    "on": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Schirm an" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 verfallen, 2 umkämpft)" }
+  },
+  "let": { "lit": "on && zustand < 2" },
+  "variants": { "aus": { "on": 0 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2 } },
+  "ops": [
+    { "name": "Korpus", "op": "box", "at": [-7, 0, -6], "size": [14, 11, 10], "color": "primary", "jitter": false },
+    { "name": "Sockelleiste", "op": "box", "at": [-7, 0, 3], "size": [14, 1, 1], "color": "metal_dark", "jitter": false },
+    { "name": "Klinkerkanten vorn", "op": "box", "at": [-7, 4, 4], "size": [14, 1, 1], "repeat": { "count": 2, "step": [0, 4, 0] }, "color": { "shade": "primary", "f": 1.18 }, "jitter": false },
+    { "name": "Nieten vorn", "op": "box", "at": [-6, 6, 4], "size": [1, 1, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Pultschräge", "op": "wedge", "at": [-7, 11, -6], "size": [14, 4, 11], "slope": "+z", "color": "metal_dark", "jitter": false },
+    { "name": "Pultkante vorn", "op": "box", "at": [-7, 11, 4], "size": [14, 1, 1], "color": "metal_light", "jitter": false },
+    { "name": "Knochentasten", "op": "box", "at": [-4, 13, -1], "size": [1, 1, 1], "repeat": { "count": 4, "step": [2, 0, 0] }, "color": "trim" },
+    { "name": "Leuchttasten", "if": "lit", "op": "box", "at": [-3, 12, 2], "size": [1, 1, 1], "repeat": { "count": 3, "step": [2, 0, 0] }, "color": { "shade": "glow", "f": 0.75, "emit": 0.8 }, "jitter": false },
+    { "name": "Hebel", "op": "line", "from": [4, 12, 1], "to": [5, 17, 0], "r": 0.5, "color": "metal_light" },
+    { "name": "Hebel 2", "op": "line", "from": [6, 12, 1], "to": [6, 16, -1], "r": 0.5, "color": "metal_light" },
+    { "name": "Hebelknauf (Horn)", "op": "box", "at": [5, 17, 0], "size": [1, 1, 1], "color": "trim" },
+    { "name": "Hebelknauf 2", "op": "box", "at": [6, 16, -1], "size": [1, 1, 1], "color": "trim" },
+
+    { "name": "Schirmgehäuse", "op": "box", "at": [-7, 15, -7], "size": [14, 10, 3], "color": "metal_dark", "jitter": false },
+    { "name": "Gehäuse Oberkante", "op": "box", "at": [-7, 25, -7], "size": [14, 1, 4], "color": "metal_light", "jitter": false },
+    { "name": "Schirm", "op": "box", "at": [-5, 16, -4], "size": [10, 8, 1], "color": "glass", "jitter": false },
+    { "name": "Schirm: Leiterbahn oben", "if": "lit", "op": "box", "at": [-4, 22, -4], "size": [1, 1, 1], "repeat": { "count": 5, "step": [2, 0, 0] }, "color": { "shade": "glow", "f": 0.75, "emit": 0.7 }, "mode": "paint", "jitter": false },
+    { "name": "Schirm: Leiterbahn Mitte", "if": "lit", "op": "box", "at": [-4, 20, -4], "size": [4, 1, 1], "color": { "shade": "glow", "f": 0.8, "emit": 0.8 }, "mode": "paint", "jitter": false },
+    { "name": "Schirm: Leiterbahn Knick", "if": "lit", "op": "box", "at": [-1, 18, -4], "size": [1, 2, 1], "color": { "shade": "glow", "f": 0.8, "emit": 0.8 }, "mode": "paint", "jitter": false },
+    { "name": "Schirm: Balken", "if": "lit", "op": "box", "at": [1, 17, -4], "size": [1, "2 + floor(hash(seed, i) * 4)", 1], "repeat": { "count": 3, "step": [1, 0, 0], "var": "i" }, "color": { "shade": "glow", "f": 0.9, "emit": 0.9 }, "mode": "paint", "jitter": false },
+    {"name": "Hörner Ansatz", "op": "box", "at": [-8, 22, -7], "size": [2, 3, 2], "color": "trim", "mirror": "x", "mirrorAt": 0},
+    {"name": "Hörner Bogen", "op": "box", "at": [-8, 25, -6], "size": [1, 2, 2], "color": "trim", "mirror": "x", "mirrorAt": 0},
+    {"name": "Hörner Spitze", "op": "box", "at": [-7, 27, -5], "size": [1, 1, 1], "color": {"shade": "trim", "f": 0.75}, "mirror": "x", "mirrorAt": 0},
+
+    { "name": "Fell über der Kante", "op": "box", "at": [-7, 6, -4], "size": [1, 9, 7], "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }], "weights": [1, 1], "cell": 2 } },
+    { "name": "Fell oben", "op": "box", "at": [-7, 14, -4], "size": [3, 1, 6], "color": { "noise": ["leather", { "shade": "hair", "f": 1.5 }], "weights": [1, 1], "cell": 2 } },
+
+    { "name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand * 0.07", "depth": 1, "at": [-8, 11, -8], "size": [16, 18, 16] },
+    { "name": "Schirm gesprungen", "if": "zustand == 2", "op": "line", "from": [-5, 23, -4], "to": [3, 16, -4], "r": 0.5, "mode": "carve" },
+    { "name": "Ruß", "if": "zustand == 2", "op": "line", "from": [-7, 15, -4], "to": [2, 26, -5], "r": 1.5, "mode": "paint", "color": { "noise": ["black", "metal_dark"], "weights": [1, 1], "cell": 1 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,26 +1,69 @@
 {
   "id": "nord",
-  "name": "Nordmänner (Sci-Fi): Eisen, Frostblau, Knochenweiß, Blutrot",
+  "name": "Germanen (Sci-Fi): Eisen, Frostblau/Waid, Knochenweiß, Holz und Granit – Basis aller Germanen-Paletten",
   "extends": "base",
+  "notes": "B1 (ART-PALETTEN): Eisen aufgehellt (frontal in planet_day lesbar), cloth Waidblau statt Blutrot (kein Schwarz-Weiß-Rot), Runen kalt-weiß gedämpft (rune, glow = rune; weg von Eisblau/Telegraf-Blau), Feuerschein eigene Rolle ember (Gold-Amber, weg von Zustands-Orange/Glut), emit ≤ 1,2, warning ohne Zustandsfarbe, Rollen für Bau/Figur/Kupfer ergänzt. alarm (Rot-Alarm/Lampen/Augen) dunkles Signalrot, deutlich unter AUS-Rot; frost für Raureif/Schnee.",
   "roles": {
-    "primary": "#585C62",
-    "secondary": "#3C4046",
+    "primary": "#8E959D",
+    "secondary": "#3C4A58",
     "trim": "#E4DCC8",
-    "metal": "#4A4E54",
-    "metal_dark": "#26292D",
-    "metal_light": "#8E959C",
-    "cloth": "#9E2A22",
+    "metal": "#7A8088",
+    "metal_dark": "#52575E",
+    "metal_light": "#B4BAC0",
+    "cloth": "#4A6A86",
     "cloth2": "#E9E2D0",
     "leather": "#7A5234",
+    "skin": "#D6A486",
+    "skin_shadow": "#B07E64",
+    "hair": "#7A5A36",
+    "fur": "#6B5440",
+    "fur_dark": "#4A3A2C",
+    "fur_light": "#B9B2A4",
+    "stone": "#8C8F8E",
+    "stone_dark": "#5E6264",
+    "stone_light": "#B6B8B3",
+    "paving": "#7F807B",
+    "paving_dark": "#5E5F5B",
+    "wood": "#A07A50",
+    "wood_dark": "#4F3A28",
+    "soil": "#5F4C3A",
+    "soil_dark": "#43362A",
+    "warning": "#C08A2E",
     "glow": {
-      "color": "#8FD8FF",
-      "emit": 1.9
+      "color": "#D4DEE6",
+      "emit": 1
     },
     "glow2": {
-      "color": "#FF9A3C",
-      "emit": 2.0
+      "color": "#FFCC7A",
+      "emit": 1.2
     },
     "glass": "#1A2430",
-    "dark": "#121417"
+    "dark": "#1C1F23",
+    "rune": {
+      "color": "#D4DEE6",
+      "emit": 1
+    },
+    "rune_dim": {
+      "color": "#9AA6AE",
+      "emit": 0.5
+    },
+    "ember": {
+      "color": "#FFCC7A",
+      "emit": 1.2
+    },
+    "ember_dark": "#8A4A26",
+    "copper": "#B87348",
+    "copper_dark": "#7E4A2E",
+    "alarm": {
+      "color": "#A82A2A",
+      "emit": 1
+    },
+    "alarm_dark": "#6A2020",
+    "frost": "#DCE4E8",
+    "frost_dark": "#AEB8BE",
+    "leit": {
+      "color": "#B48CFF",
+      "emit": 1.1
+    }
   }
 }

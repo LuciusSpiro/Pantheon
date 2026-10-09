@@ -1,0 +1,217 @@
+{
+ "id": "kit/germanen/gemein/schott_rahmen",
+ "name": "Germanen gemein – schott_rahmen (rahmen): Eisenschwelle (teil 0) bzw. Eisensturz mit Schaltkreisband und dunkler Krone (teil 1)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. gehackt: Frostpunkt erloschen, Sturz verrußt (keine Zustandsfarbe).",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 8,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 3,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "teil": {
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 Schwelle/Brüstung · 1 Sturz"
+  },
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "0 zu · 1 offen · 2 gehackt · 3 verschlossen"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "schwelle": {
+   "teil": 0,
+   "h": 1
+  },
+  "gehackt": {
+   "state": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Schwelle",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "if": "teil == 0"
+  },
+  {
+   "name": "Sturz",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "metal",
+    "f": "dk"
+   },
+   "if": "teil == 1"
+  },
+  {
+   "name": "Schaltkreisband",
+   "op": "box",
+   "at": [
+    1,
+    1,
+    "d - 1"
+   ],
+   "size": [
+    "w - 2",
+    1,
+    1
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "trim",
+      "f": "0.45 * dk"
+     },
+     "dark"
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "mode": "paint",
+   "if": "teil == 1 && h >= 3 && w >= 4",
+   "mirror": "z",
+   "mirrorAt": "d / 2"
+  },
+  {
+   "name": "Frostpunkt",
+   "op": "box",
+   "at": [
+    "floor(w / 2) - 1",
+    1,
+    "d - 1"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "shade": "glow",
+    "f": 0.7,
+    "emit": 0.5
+   },
+   "mode": "paint",
+   "if": "teil == 1 && h >= 3 && w >= 4 && state != 2 && zustand < 2",
+   "jitter": false,
+   "mirror": "z",
+   "mirrorAt": "d / 2"
+  },
+  {
+   "name": "Krone dunkel",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "0.68 * dk"
+   },
+   "mode": "paint",
+   "if": "teil == 1"
+  },
+  {
+   "name": "Ruß (gehackt/umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal",
+      "f": 0.65
+     },
+     "dark"
+    ],
+    "weights": [
+     2,
+     1
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "teil == 1 && (state == 2 || zustand == 2)"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "natur/stein",
+  "name": "Stein mit Kieseln",
+  "tier": "detail",
+  "palette": "planet_mediterran",
+  "tags": ["natur", "stein", "streu"],
+  "footprint": [0.3, 0.3],
+  "params": {
+    "s": { "default": 1, "min": 0.6, "max": 2.5, "step": 0.1, "label": "Größe (Faktor)" },
+    "pebbles": { "default": 2, "min": 0, "max": 3, "step": 1, "label": "Kiesel" }
+  },
+  "let": {
+    "rx": "s * (2.6 + sin(seed * 1.9 + 0.4) * 0.8)",
+    "rz": "s * (2.2 + cos(seed * 2.3 + 0.9) * 0.6)",
+    "ry": "s * (2.7 + sin(seed * 3.1 + 1.3) * 0.6)"
+  },
+  "variants": {
+    "gross": { "s": 2, "pebbles": 3 },
+    "kiesel": { "s": 0.6, "pebbles": 3 }
+  },
+  "ops": [
+    { "op": "ellipsoid", "name": "Hauptstein", "at": [0, 0, 0], "r": ["rx", "ry", "rz"], "half": "+y", "color": { "noise": ["rock", "rock", "rock_dark", { "shade": "rock", "f": 1.12 }], "weights": [3, 2, 2, 1] } },
+    { "op": "ellipsoid", "name": "Kante", "at": ["rx * 0.35", "ry * 0.55", "-rz * 0.2"], "r": ["rx * 0.5", "ry * 0.5", "rz * 0.6"], "color": { "shade": "rock", "f": 1.08 } },
+    { "op": "box", "name": "Kiesel", "repeat": { "count": "pebbles", "step": [0, 0, 0], "var": "k" }, "let": { "pa": "k * 2.1 + seed * 0.8 + 0.5" },
+      "at": ["round(cos(pa) * (rx + 1.6))", 0, "round(sin(pa) * (rz + 1.6))"], "size": [1, 1, 1], "color": { "noise": ["rock_dark", "stone", "rock"] } }
+  ],
+  "anchor": [0, 0, 0]
+}

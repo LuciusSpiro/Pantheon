@@ -1,0 +1,71 @@
+{
+  "id": "leit/germanen/aussenposten/thing_stein",
+  "name": "Thingstein im Steinkreis (Leitstück Außenposten, Ziel)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["leit", "germanen", "aussenposten", "ziel", "thinghof", "light"],
+  "footprint": [2, 2],
+  "budgetTris": 10000,
+  "params": {
+    "state": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 frei, 1 genommen, 2 aktiviert)"}
+  },
+  "let": {"lit": "state == 2", "feuer": "state != 1"},
+  "variants": {"genommen": {"state": 1}, "aktiviert": {"state": 2}},
+  "ops": [
+    {"op": "cyl", "name": "Thingplatz (heller Kreis)", "at": [0, 0, 0], "r": 15.6, "h": 1, "color": "frost", "jitter": false},
+    {"op": "cyl", "name": "Kreisrand", "at": [0, 0, 0], "r": 15.6, "h": 1, "hollow": 1, "color": "stone_dark", "jitter": false},
+    {"op": "cyl", "name": "Innenpflaster", "at": [0, 0, 0], "r": 7.5, "h": 1, "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein O", "at": [10, 1, -1], "size": [3, 13, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein W", "at": [-13, 1, -2], "size": [3, 11, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein NO", "at": [5, 1, -12], "size": [3, 12, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein NW", "at": [-8, 1, -11], "size": [3, 14, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein SO", "at": [6, 1, 9], "size": [3, 10, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Kreisstein SW", "at": [-8, 1, 9], "size": [3, 12, 3], "color": "stone", "jitter": false},
+    {"op": "box", "name": "Frostkappen Kreis", "at": [-16, 10, -16], "size": [32, 5, 32], "mode": "paint", "color": "frost", "jitter": false},
+    {"op": "box", "name": "Schaft unten", "at": [-4, 1, -4], "size": [8, 14, 8], "color": {"noise": ["stone", "stone_dark"], "weights": [4, 1], "cell": 2}},
+    {"op": "box", "name": "Schaft Mitte", "at": [-3, 15, -3], "size": [6, 14, 6], "color": {"noise": ["stone", "stone_dark"], "weights": [4, 1], "cell": 2}},
+    {"op": "box", "name": "Schaft oben", "at": [-3, 29, -2], "size": [5, 11, 5], "color": {"noise": ["stone", "stone_dark"], "weights": [3, 1], "cell": 2}},
+    {"op": "box", "name": "Kappe", "at": [-2, 40, -2], "size": [3, 3, 4], "color": "stone_dark"},
+    {"op": "erode", "name": "Verwitterung", "density": 0.2, "depth": 1, "at": [-4, 15, -4], "size": [8, 28, 8], "salt": 3},
+    {"op": "box", "name": "Frost Kappe", "at": [-4, 39, -4], "size": [8, 4, 8], "mode": "paint", "color": "frost"},
+    {"op": "group", "name": "Ornamentband je Seite (Raute-Punkt-Raute, keine Runen)", "repeat": {"count": 4, "step": [0, 0, 0], "var": "i"}, "rot": "i*90", "pivot": [0, 0], "ops": [
+      {"op": "box", "name": "Bandgrund", "at": [-4, 7, 3], "size": [8, 5, 1], "mode": "paint", "color": "stone_dark", "jitter": false},
+      {"op": "group", "name": "Ornament eingelegt (Raute-Punkt-Raute)", "if": "!lit", "ops": [
+        {"op": "box", "name": "Ornament", "at": [-2, 8, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-3, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-1, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-2, 10, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [0, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [2, 8, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [1, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [3, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [2, 10, 3], "size": [1, 1, 1], "mode": "paint", "color": "metal_light", "jitter": false}
+      ] },
+      {"op": "group", "name": "Ornament leuchtend (Raute-Punkt-Raute)", "if": "lit", "ops": [
+        {"op": "box", "name": "Ornament", "at": [-2, 8, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-3, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-1, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [-2, 10, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [0, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [2, 8, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [1, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [3, 9, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false},
+        {"op": "box", "name": "Ornament", "at": [2, 10, 3], "size": [1, 1, 1], "mode": "paint", "color": {"role": "rune", "emit": 1.0}, "jitter": false}
+      ] }
+    ] },
+    {"op": "group", "name": "Feuerschalen links und rechts", "mirror": "x", "mirrorAt": 0, "ops": [
+      {"op": "box", "name": "Schalenfuß", "at": [-12, 1, 4], "size": [2, 6, 2], "color": "metal_dark"},
+      {"op": "cyl", "name": "Schale", "at": [-11, 7, 5], "r": 2.6, "h": 2, "color": "metal_dark", "jitter": false},
+      {"op": "cyl", "name": "Feuer", "if": "feuer", "at": [-11, 8, 5], "r": 1.8, "h": 3, "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+      {"op": "box", "name": "Flammenspitze", "if": "feuer", "at": [-12, 11, 4], "size": [2, 2, 2], "color": {"role": "ember", "emit": 1.2}, "jitter": false},
+      {"op": "cyl", "name": "Asche", "if": "!feuer", "at": [-11, 8, 5], "r": 1.8, "h": 1, "color": "ember_dark"}
+    ] },
+    {"op": "group", "name": "Speer mit Wimpel (genommen)", "if": "state == 1", "ops": [
+      {"op": "box", "name": "Speerschaft", "at": [-6, 1, 5], "size": [1, 34, 1], "color": "wood_dark"},
+      {"op": "box", "name": "Speerspitze", "at": [-6, 35, 5], "size": [1, 3, 1], "color": "metal_light"},
+      {"op": "box", "name": "Wimpel", "at": [-5, 28, 5], "size": [7, 5, 1], "color": "cloth"},
+      {"op": "box", "name": "Wimpel Saum", "at": [-5, 28, 5], "size": [7, 1, 1], "mode": "paint", "color": {"shade": "cloth", "f": 0.7}}
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,50 @@
+{
+  "id": "kit/geruest/wand",
+  "name": "Bausatz-Gerüst – Wand (voll 3 m / geschnitten 1,25 m, dunkle Krone)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","wand"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "slots": ["wand_fuellung","wand_sockel","wand_krone","wand_kante","wand_pfeiler"],
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"}
+  },
+  "variants": {
+    "frei": {"conn":0},
+    "ende": {"conn":2},
+    "ecke": {"conn":6},
+    "t": {"conn":7},
+    "kreuz": {"conn":15},
+    "geschnitten": {"cut":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":2},
+    "probe": {"bauweise":"test"},
+    "probe_ecke": {"bauweise":"test","conn":6,"art":"aussenposten"},
+    "probe_station": {"bauweise":"test","art":"station"},
+    "probe_ruine_verfallen": {"bauweise":"test","art":"ruine","zustand":2,"seed":3}
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "H": "cut ? 5 : 12",
+    "kh": 1,
+    "sh": "cut ? 1 : 2",
+    "fh": "H - sh - kh",
+    "knoten": "conn != 5 && conn != 10"
+  },
+  "ops": [
+    {"name":"Körper (garantiert die Naht)","op":"box","at":[0,0,0],"size":[4,"H",4],"color":"stone"},
+    {"name":"Steckplatz wand_pfeiler","op":"use","model":"kit/{bauweise}/{art}/wand_pfeiler","fallback":["kit/{bauweise}/gemein/wand_pfeiler","kit/geruest/slot/wand_pfeiler"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":"H - kh","d":4},"if":"knoten"},
+    {"op":"group","name":"Schauseiten (nur freie Seiten)","repeat":{"count":4,"step":[0,0,0],"var":"f"},"rot":"f * 90","pivot":[2,2],"let":{"fc":"f == 0 ? cs : f == 1 ? ce : f == 2 ? cn : cw","fe":"1 - fc","le":"f == 0 ? 1 - cw : f == 1 ? 1 - cs : f == 2 ? 1 - ce : 1 - cn","re":"f == 0 ? 1 - ce : f == 1 ? 1 - cn : f == 2 ? 1 - cw : 1 - cs","u0":"le","uw":"4 - le - re"},"ops":[{"name":"Feld frei machen","op":"box","if":"fe && !knoten","at":["u0",0,3],"size":["uw","H - kh",1],"mode":"carve"},{"name":"Steckplatz wand_sockel","op":"use","model":"kit/{bauweise}/{art}/wand_sockel","fallback":["kit/{bauweise}/gemein/wand_sockel","kit/geruest/slot/wand_sockel"],"at":["u0",0,3],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed * 4 + f","conn":"conn","w":"uw","h":"sh","d":1},"if":"fe && !knoten"},{"name":"Steckplatz wand_fuellung","op":"use","model":"kit/{bauweise}/{art}/wand_fuellung","fallback":["kit/{bauweise}/gemein/wand_fuellung","kit/geruest/slot/wand_fuellung"],"at":["u0","sh",3],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed * 4 + f","conn":"conn","w":"uw","h":"fh","d":1},"if":"fe && !knoten"},{"name":"Steckplatz wand_kante","op":"use","model":"kit/{bauweise}/{art}/wand_kante","fallback":["kit/{bauweise}/gemein/wand_kante","kit/geruest/slot/wand_kante"],"at":[3,0,3],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed * 4 + f","conn":"conn","w":1,"h":"H - kh","d":1},"if":"fe && re"}]},
+    {"name":"Steckplatz wand_krone","op":"use","model":"kit/{bauweise}/{art}/wand_krone","fallback":["kit/{bauweise}/gemein/wand_krone","kit/geruest/slot/wand_krone"],"at":[0,"H - kh",0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","conn":"conn","w":4,"h":"kh","d":4}},
+    {"name":"Verfall (schont Anschlussnähte und Unterkante)","op":"erode","if":"zustand > 0","density":"zustand == 1 ? 0.2 : 0.35","depth":"zustand","at":["cw",0,"cn"],"size":["4 - cw - ce","H","4 - cn - cs"]}
+  ],
+  "anchor": [2,0,2]
+}

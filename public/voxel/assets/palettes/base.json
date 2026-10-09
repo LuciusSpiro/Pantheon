@@ -19,8 +19,14 @@
     "skin": "#C69072",
     "skin_shadow": "#9E6A50",
     "hair": "#3A2A1E",
-    "glow": { "color": "#7FE0C2", "emit": 1.6 },
-    "glow2": { "color": "#FFB347", "emit": 1.5 },
+    "glow": {
+      "color": "#7FE0C2",
+      "emit": 1.6
+    },
+    "glow2": {
+      "color": "#FFB347",
+      "emit": 1.5
+    },
     "warning": "#E0473C",
     "glass": "#1A2230",
     "dark": "#15181D",
@@ -42,6 +48,30 @@
     "grass": "#6E9A3E",
     "grass_dark": "#58822F",
     "grass_light": "#8DB352",
-    "water": "#3A7FA6"
+    "water": "#3A7FA6",
+    "alarm": {
+      "color": "#A82A2A",
+      "emit": 1
+    },
+    "alarm_dark": "#6A2020",
+    "ember": {
+      "color": "#FFCC7A",
+      "emit": 1.2
+    },
+    "ember_dark": "#8A4A26",
+    "frost": "#DCE4E8",
+    "frost_dark": "#AEB8BE",
+    "rune": {
+      "color": "#D4DEE6",
+      "emit": 1
+    },
+    "rune_dim": {
+      "color": "#9AA6AE",
+      "emit": 0.5
+    },
+    "leit": {
+      "color": "#B48CFF",
+      "emit": 1.1
+    }
   }
 }

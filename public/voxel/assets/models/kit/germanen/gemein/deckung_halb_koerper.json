@@ -1,0 +1,150 @@
+{
+ "id": "kit/germanen/gemein/deckung_halb_koerper",
+ "name": "Germanen gemein – deckung_halb_koerper (koerper_schildwall): Schildwall: Rundschilde Waid/Holz im Wechsel vor Bohlen",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. cloth = Besitzfarbe (Palette); Schilde ohne Zeichen (keine Abzeichen). Sichtung B1: Körper mittelhell.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 2,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Schildreihe (mittelhell)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "checker": [
+     {
+      "shade": "cloth",
+      "f": "1.2 * dk"
+     },
+     {
+      "shade": "wood",
+      "f": "1.3 * dk"
+     }
+    ],
+    "period": 2
+   }
+  },
+  {
+   "name": "Schildfuß",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "checker": [
+     {
+      "shade": "cloth",
+      "f": "0.95 * dk"
+     },
+     {
+      "shade": "wood",
+      "f": "1.05 * dk"
+     }
+    ],
+    "period": 2
+   },
+   "mode": "paint",
+   "if": "h >= 2"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "cloth",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "cloth",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

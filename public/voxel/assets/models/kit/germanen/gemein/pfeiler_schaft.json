@@ -1,0 +1,136 @@
+{
+ "id": "kit/germanen/gemein/pfeiler_schaft",
+ "name": "Germanen gemein – pfeiler_schaft: Eichenschaft mit Eisenringen (auch Verbindungsarme)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 2,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 10,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 2,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Eiche",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "wood_dark",
+    "f": "1.05 * dk"
+   }
+  },
+  {
+   "name": "Eisenring",
+   "op": "box",
+   "at": [
+    0,
+    "1 + i * 3",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal",
+    "f": "0.85 * dk"
+   },
+   "mode": "paint",
+   "if": "1 + i * 3 < h",
+   "repeat": {
+    "count": 4,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "i"
+   }
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "max(1, floor(h / 2))",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "wood_dark",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "wood_dark",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

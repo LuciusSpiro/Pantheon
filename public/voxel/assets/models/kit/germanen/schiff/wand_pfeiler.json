@@ -1,0 +1,209 @@
+{
+  "id": "kit/germanen/schiff/wand_pfeiler",
+  "name": "Schiff – wand_pfeiler: Spantknoten (Eisenrippen an den Ecken, Bohlen dazwischen)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "schiff",
+    "slot"
+  ],
+  "notes": "ART-SCHIFF, Gerüst-Slot wand_pfeiler (Ende, Ecke, T, Kreuz). Bohlenblock mit Verlauf wie die Füllung, dunkle Eisenrippen an allen senkrechten Kanten und in der Mitte jeder Seite (50-cm-Raster wie die Füllung).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 11,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "cut": {
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "geschnitten"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1"
+  },
+  "variants": {
+    "geschnitten": {
+      "h": 4,
+      "cut": 1
+    },
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 3
+    }
+  },
+  "ops": [
+    {
+      "name": "Bohlenblock",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "gradient": [
+          {
+            "shade": "wood_dark",
+            "f": "0.9 * dk"
+          },
+          {
+            "shade": "wood",
+            "f": "1.08 * dk"
+          }
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Rippen x",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          2,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "i * 2 < w",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.85 * dk"
+      }
+    },
+    {
+      "name": "Rippen z",
+      "op": "box",
+      "repeat": {
+        "count": 8,
+        "step": [
+          0,
+          0,
+          2
+        ],
+        "var": "i"
+      },
+      "if": "i * 2 < d",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.85 * dk"
+      }
+    },
+    {
+      "name": "Fußband",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "min(h, 2)",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.8 * dk"
+      }
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "max(1, floor(h / 2))",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "wood",
+            "f": 0.7
+          },
+          "dark",
+          {
+            "shade": "wood",
+            "f": 0.85
+          }
+        ],
+        "weights": [
+          3,
+          1,
+          2
+        ],
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "id": "kit/germanen/schiff/wand_krone",
+  "name": "Schiff – wand_krone: dunkler Dollbord aus Holz mit eisernem Rand, Kaltlichtpunkt",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "schiff",
+    "slot"
+  ],
+  "notes": "ART-SCHIFF, Gerüst-Slot wand_krone (Pflicht dunkle Krone). Von oben: dunkles Holz (warm) mit Eisenrahmen statt des Schaltkreis-Strichbands der Station/gemein. Ein gedämpfter Kaltlichtpunkt in der Mitte, bei umkämpft Rot-Alarm.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn (N1 O2 S4 W8)"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1"
+  },
+  "variants": {
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 4
+    }
+  },
+  "ops": [
+    {
+      "name": "Dollbord",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "frame": {
+          "shade": "metal_dark",
+          "f": "0.8 * dk"
+        },
+        "fill": {
+          "shade": "wood",
+          "f": "0.8 * dk"
+        },
+        "axes": "xz",
+        "width": 1
+      }
+    },
+    {
+      "name": "Kaltlichtpunkt",
+      "op": "box",
+      "if": "zustand < 2 && w >= 4 && d >= 4",
+      "at": [
+        1,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "glow",
+        "emit": 0.6
+      }
+    },
+    {
+      "name": "Alarmpunkt (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2 && w >= 4 && d >= 4",
+      "at": [
+        1,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "alarm",
+        "emit": 0.9
+      }
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "wood_dark",
+            "f": 0.7
+          },
+          "dark",
+          {
+            "shade": "wood_dark",
+            "f": 0.85
+          }
+        ],
+        "weights": [
+          3,
+          1,
+          2
+        ],
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

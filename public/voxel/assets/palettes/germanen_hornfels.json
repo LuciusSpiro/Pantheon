@@ -1,0 +1,20 @@
+{
+  "id": "germanen_hornfels",
+  "name": "Clan Hornfels: Frostgrau, Silber, gedecktes Frostblau",
+  "extends": "nord",
+  "roles": {
+    "primary": "#98A3AE",
+    "secondary": "#74808C",
+    "trim": "#C6CDD3",
+    "metal": "#86909A",
+    "metal_dark": "#5A636C",
+    "metal_light": "#C4CCD4",
+    "cloth": "#5E7E9A",
+    "cloth2": "#D2D8DC",
+    "leather": "#6A5440",
+    "fur": "#A8A49C",
+    "fur_light": "#D0CCC2",
+    "stone": "#9AA0A4",
+    "stone_light": "#C2C7CA"
+  }
+}

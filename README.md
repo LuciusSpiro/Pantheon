@@ -669,6 +669,74 @@ Token-Deckel: höchstens 500 000 Token pro Serverlauf (`CLAUDE_TOKEN_BUDGET`), d
 Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag. **Seit S2 abgelöst:** Nach m3 übernimmt der Spielleiter
 (siehe „Neu in S2“); die Bridge wird für die Kampagne nicht mehr gebraucht.
 
+## Neu in B3 – Sektorkarte (Hexfeld)
+
+Die Sternkarte ist jetzt die **Karte Limes**: 10×8 Hexe, ein Hex = ein Sektor = eine Raumszene (Koordinate `SSZZ`,
+z. B. `0206` Lichtkordon). Die Daten liegen in `content/welt/limes.json`.
+
+- **Ansicht:** Captain-Reiter 2 zeigt den **Saumraum** (die 8 spielbaren Hexe und einen Ring). **M** schaltet auf die
+  ganze Karte Limes. Unerkundete Hexe zeigen nur Umriss und Name, gesperrte sind schraffiert und nennen beim Überfahren
+  den Grund (z. B. „Grenzposten Statio Limitis: Durchflug gesperrt“). Rostnest (0107) bleibt „?“ und ist nicht
+  anfliegbar.
+- **Springen:** nur ins Nachbarhex über eine **offene Kante mit bekannter Boje** (gelb = offen, rot gestrichelt =
+  gesperrt, blau = temporär). Sektor anklicken, Enter, am Steuer F.
+- **Anflug:** Im freien Spiel (Kampagne ohne Tutorial bzw. nach m3) muss die Lerche die **Boje anfliegen** (≤ 250 m),
+  sonst steht am Steuer „Sprungpunkt <Ziel> anfliegen (<m> m)“. Ankunft am Sprungpunkt der Gegenseite, Blick in
+  Flugrichtung.
+- **Tutorial (m1–m3):** Faltsprung wie bisher von überall (≥ 300 m von der Station), kein Anflug.
+- **Bojen finden:** Bojen zwischen bekannten Orten sind bekannt. Weitere findet der **Weitscan** der Taktik (Umkreis
+  1400 m, Meldung „Boje gefunden …“).
+- **Leerraum** (leere Hexe) ist eine Barriere: kein regulärer Sprung hinein oder heraus, nur über temporäre Sprungpunkte
+  (Missionen) oder den Notfallsprung.
+- **Notfallsprung** (Steuer **N**, dann **J**): zufällige Kante, bevorzugt in Flugrichtung, nur in spielbare Hexe
+  (auch Leerraum). Danach ist der Reaktor aus (Neustart an Schalter A und B im Maschinenraum) und die Hülle verliert 15.
+  Nach dem Neustart führt ein zweiter Notfallsprung immer wieder heraus.
+- **Wrack „Zaunkönig“:** Die Kante Wrack–Graue Weite gibt es nicht mehr. Dafür gibt es Wrack–B-7.
+- **Erkundung** (erkundete Hexe, gefundene Bojen, temporäre Kanten) steht im Weltstand (`welt.sektoren`) und überlebt
+  Speichern und Laden. Alte Weltstände übernehmen den Stand aus den besuchten Orten.
+- Liegt die Ziel-Boje außerhalb des Bildes, zeigt ein **Randpfeil** (Steuer und Taktik) Richtung und Abstand.
+- **Debug** (`npm run debug`): `hex <SSZZ>`, `boje <kante>`, `notsprung`, `erkunde alle`, `sprungpunkt auf/zu <hex|ort|kante>`.
+- **Messwerte (QA 2026-10-09):** `welcome` mit Sektorkarte 8,1 KB, Snapshot im Raum max 8,9 KB (Browser, solo). Golden
+  m1–m3 mit `WAFFEN=aus` 120/120 identisch.
+
+## Neu in B1 – Bühnen (modulare Außenkarten)
+
+Bodenszenen spielen jetzt auf **gebauten Karten**: Module (8×8-Zellen, ASCII + Anker) werden nach einer Schablone
+zusammengesetzt, eine **Bauweise** malt sie an (Germanen, Rom), **Besitz** (z. B. Friedlose, Kontor) und **Zustand**
+(intakt/verfallen/umkämpft) überziehen sie. Vier Kartenarten: **Außenposten** (Germanen), **Raumstation** (Germanen),
+**Ruine** (Rom, altes Grenzkastell), **Schiff** mit zwei Decks (Germanen). Jede Karte hat **Leitstücke** (Krähenwacht,
+Schmiedeherd, Hochsitz, Drachenkopf, Fahnenheiligtum …) – sie stehen auf festem Block, man läuft nicht hindurch.
+
+- **Landepunkte:** Jeder Ort hat mehrere (z. B. Kesh: Kustoden-Archiv, Verfallenes Grenzkastell, Grabungslager). An der
+  **Transfer-Konsole** mit **7–0** wählen, Schiff in Reichweite und langsam, dann aufs Pad und E halten. Hinunter geht es
+  zur Ankunft, hinauf von **jedem** Abholpunkt (E halten auf den Pad-Feldern).
+- **Türen, Schotts, Luken, Tore:** E halten öffnet. Technische Eingänge: Schott hacken (6 s) bzw. Luke öffnen. Rätseltore
+  sind verriegelt und öffnen nur über das **Rätselpaar**: zu zweit beide Schlösser gleichzeitig; **solo nacheinander**
+  in einem Zeitfenster, das aus dem Laufweg zwischen den Schlössern berechnet wird. Schiffe: Leiter (E halten) und Lift
+  (E; wer auf dem Lift steht, fährt – auch mit Blick auf ein Terminal).
+- **Objekte:** Terminal (Download, Treffer unterbricht), Kiste, Fund, Zelle, Ziel, Sprengpunkt (Ladung nötig).
+- **Weltstand:** Je Landepunkt bleiben Seed und Zustände (geöffnete Türen, leere Kisten) – beim zweiten Besuch ist es
+  dieselbe Karte im selben Zustand. „Partie beenden“ setzt alles zurück.
+- **Spielleiter:** plant Bodenszenen über Landepunkt oder `buehne: { kartenart, besitz, neu: true }` (neuer Seed, nie
+  Koordinaten). Mindestens jede zweite und jede lange Mission hat eine Bodenszene (Prüfer). Gegner und Objekte einer
+  Szene werden gesetzt, sobald die Karte gebaut ist – auch wenn noch niemand den Landepunkt gewählt hat.
+- **Texte je Bauweise:** Platzhalter `{{lex.x}}` mit Formen (`{{lex.fund:den}}`, `:zum`, `:pl` …) werden je Bauweise
+  aufgelöst („die Legionskasse“, „der Runenstein“). Ein Normalisierer korrigiert eindeutige Altformen vor dem Prüfer.
+- **Prisen und Wracks:** Ein kampfunfähiges Feindschiff treibt als Landepunkt `<ort>.prise`; treibende Wracks (z. B.
+  „Treibendes Langschiff“ am Wrack) sind feste Landepunkte. Rostnest bleibt gesperrt.
+- **Testgelände:** `?arena=away&art=ruine&seed=3&bauweise=rom&besitz=herrenlos&zustand=verfallen`
+  (optional `&schablone=…&fraktion=rostmeute&staerke=klein&haltung=ruhig`). Startet immer frisch, nie im Weltstand.
+- **Werkzeuge:** `npm run buehne -- alle` (Bestehensquoten), `npm run buehne -- bauen <schablone> <seed>`,
+  `npm run werkstatt`, dann `/werkstatt.html` (Module/Schablonen zeichnen, Live-Prüfung, Speichern) und
+  `/galerie.html?art=station&seeds=1-24` (Vorschau, Kennzahlen, Fehlbauten rot). Lesen geht immer, **Speichern nur mit
+  `WERKSTATT=1`** bzw. `npm run werkstatt`. Gespeicherte Module sind ohne Neustart im Spiel; Module mit Prüffehlern
+  werden nie verbaut.
+- **Debug** (`npm run debug`): `buehne <art> <seed> [bauweise besitz zustand]`, `lp list`, `lp neu <ort> <art>`,
+  `anker <id> <zustand>`, `ladung [anker] [sek]`, `prise [kind]`.
+- **Messwerte (QA 2026-10-09):** `buehne alle` 11 Schablonen × 50 Seeds 100 %; Snapshot Außenposten (3 Spieler,
+  12 Gegner) max 12,8 KB von 13 KB; awayMap max 8,6 KB von 10 KB; Bau „verfallen“ Median 3–10 ms, nie im Tick;
+  Golden m1–m3 120/120 identisch.
+
 ## Bekannte Grenzen
 
 - Umfang: drei Tutorial-Missionen und sieben Orte. Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –

@@ -11,7 +11,7 @@
     "metal_light": "#8C7C6A",
     "leather": "#7A3E22",
     "warning": "#F2C94C",
-    "glow": { "color": "#E0473C", "emit": 1.8 },
+    "glow": { "color": "#D9A050", "emit": 1.2 },
     "glow2": { "color": "#FFB347", "emit": 1.6 },
     "glass": "#2F3E52",
     "dark": "#1E1612"

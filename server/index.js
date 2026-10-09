@@ -13,6 +13,8 @@ const Weltstand = require('./weltstand.js');
 const ROOT = path.join(__dirname, '..');
 const STATIC_DIRS = [
   { prefix: '/shared/', dir: path.join(ROOT, 'shared') },
+  // B1 §9 (Wunsch VOXEL): Vokabular und Art-Daten für den Kit-Renderer – nur .json, nur lesen, kein Listing
+  { prefix: '/content/buehnen/', dir: path.join(ROOT, 'content', 'buehnen'), only: ['.json'] },
   { prefix: '/', dir: path.join(ROOT, 'public') },
 ];
 const MIME = {
@@ -32,6 +34,7 @@ function resolveStatic(urlPath) {
     const full = path.resolve(s.dir, '.' + path.sep + rel);
     // Kein Directory-Traversal: Ergebnis muss innerhalb des Ordners liegen
     if (full !== s.dir && !full.startsWith(s.dir + path.sep)) return null;
+    if (s.only && (full === s.dir || !s.only.includes(path.extname(full).toLowerCase()))) return null;
     return full;
   }
   return null;
@@ -72,8 +75,27 @@ function gzipped(file, st, cb) {
   });
 }
 
+// B1 (Wunsch WERKSTATT): /content/buehnen/index.json – Module und Schablonen je Kartenart, zur Laufzeit aus den Dateinamen
+// { <art>: { module: [ids], schablonen: [ids] } } (ID = Dateiname ohne .json). Kein Listing beliebiger Ordner.
+const BUEHNEN_ARTEN = ['aussenposten', 'station', 'ruine', 'schiff'];
+function buehnenIndex() {
+  const out = {};
+  for (const art of BUEHNEN_ARTEN) {
+    const ids = (sub) => {
+      try { return fs.readdirSync(path.join(ROOT, 'content', 'buehnen', art, sub)).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort(); } catch (e) { return []; }
+    };
+    out[art] = { module: ids('module'), schablonen: ids('schablonen') };
+  }
+  return out;
+}
+
 function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+  if ((req.url || '').split('?')[0] === '/content/buehnen/index.json') {
+    const body = JSON.stringify(buehnenIndex());
+    res.writeHead(200, { 'Content-Type': MIME['.json'], 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-cache' });
+    return res.end(req.method === 'HEAD' ? undefined : body);
+  }
   const file = resolveStatic(req.url);
   if (!file) { res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Verboten'); }
   fs.stat(file, (err, st) => {
@@ -117,7 +139,21 @@ function startServer(opts) {
   // S1 §5.2: Weltstände in WORLD_DIR (Standard data/worlds); noStore schaltet sie ab (Tests), worlds: true erzwingt
   const worldDir = o.worldDir || Weltstand.dir(process.env);
   const game = new Game({ debug, noStore: o.noStore, worlds: o.worlds, worldDir, port, roomCode, log: o.quiet ? () => {} : undefined });
-  const server = http.createServer(serveStatic);
+  // B1 (OFFEN-STUDIO): Landepunkte beim Serverstart laden; vorwaermen (Bühnendaten, ein Probebau je Kartenart ≈ 0,4 s)
+  // läuft per setImmediate vor dem ersten Spiel und nie im Tick. Fehlt das Modul, läuft der Server ohne gebaute Karten.
+  try {
+    const L = require('./sim/landepunkte.js');
+    if (L && typeof L.vorwaermen === 'function') { const t = setImmediate(() => { try { L.vorwaermen(); } catch (e) { game.countError('landepunkte-vorwaermen', e); } }); if (t && t.unref) t.unref(); }
+  } catch (e) { console.warn('[Pantheon] server/sim/landepunkte.js nicht geladen:', e && e.message); }
+  // B1 (CONTRACT-B1 §4, Abnahme F8): Werkstatt-Routen immer (Lesen: Galerie, Werkstatt nur lesen); Speichern nur mit
+  // WERKSTATT=1 bzw. --werkstatt (npm run werkstatt). Nach dem Speichern lädt werkstatt.js den Modulbestand neu (F9).
+  const werkstattSpeichern = process.env.WERKSTATT === '1' || process.argv.includes('--werkstatt');
+  let werkstatt = null;
+  try { werkstatt = require('./werkstatt.js'); } catch (e) { console.warn('[Pantheon] server/werkstatt.js nicht geladen:', e && e.message); }
+  const werkstattOpts = { speichern: werkstattSpeichern };
+  const server = http.createServer(werkstatt
+    ? (req, res) => { if (!werkstatt.route(req, res, werkstattOpts)) serveStatic(req, res); }
+    : serveStatic);
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   server.on('upgrade', (req, socket, head) => {

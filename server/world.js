@@ -75,6 +75,33 @@ AWAY_MAPS.kesh = {
   coverSpots: keshCoverSpots(),
 };
 
+// ---------- B1 (BUEHNE, CONTRACT-B1 §6.1): AWAY_MAPS als Registry ----------
+// Handkarten (platform, wreck, kesh) bleiben feste Einträge. Gebaute Karten (Vertrag `Karte`) registriert
+// server/sim/landepunkte.js als { id, karte, combat: 'v2' }; ihre Bereiche (Rechtecklisten) landen in Maps.MAP_AREAS[id],
+// damit Maps.inArea (team_im_bereich, area_occupied) sie kennt. Höchstens 2 gebaute Karten liegen gleichzeitig hier (LRU).
+const HAND_IDS = ['platform', 'wreck', 'kesh'];
+const istHand = (id) => HAND_IDS.includes(id);
+function register(id, karte) {
+  if (istHand(id)) throw new Error(`world.register: ${id} ist eine Handkarte`);
+  if (!karte || !Array.isArray(karte.rows)) throw new Error(`world.register: ${id} ohne Karte`);
+  const e = { id, karte, combat: 'v2' };
+  AWAY_MAPS[id] = e;
+  const areas = {};
+  for (const bid of Object.keys(karte.bereiche || {}).sort()) {
+    const b = karte.bereiche[bid];
+    areas[bid] = { rects: (b.rects || []).map((r) => r.slice()), rolle: b.rolle || null, gefecht: !!b.gefecht };
+  }
+  Maps.MAP_AREAS[id] = areas;
+  return e;
+}
+function unregister(id) {
+  if (istHand(id) || !AWAY_MAPS[id]) return false;
+  delete AWAY_MAPS[id];
+  delete Maps.MAP_AREAS[id];
+  return true;
+}
+function registered() { return Object.keys(AWAY_MAPS).filter((id) => !istHand(id)).sort(); }
+
 const floorWalkable = (map) => (x, y) => !map.solid(x, y);
 const shipWalkable = floorWalkable(ship);
 
@@ -122,4 +149,6 @@ module.exports = {
   NPC_SPAWN, DATENKERN_SPAWN, DRONE_SPAWNS, PLATFORM_DOORS, REACTOR_SWITCHES, AWAY_MAPS, SHIP_FLOORS, REGION_FLOORS, REGION_WALL_FLOORS,
   shipWalkable, accessTiles, tileCenter, findAll, roomAt,
   hazardAllowed, deckOf, liftLinks, deckLinksAll,
+  // B1 (BUEHNE): Registry gebauter Karten
+  HAND_IDS, istHand, register, unregister, registered,
 };

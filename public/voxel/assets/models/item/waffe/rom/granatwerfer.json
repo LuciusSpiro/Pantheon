@@ -1,0 +1,50 @@
+{
+  "id": "item/waffe/rom/granatwerfer",
+  "name": "Crew-Granatwerfer – Anbau rom für item/waffe/granatwerfer",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["waffe", "anbau-teil", "rom"],
+  "notes": "Steckplatz-Teil (Bauweise rom) des Gerüsts item/waffe/granatwerfer. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Crew-Granatwerfer",
+      "op": "group",
+      "at": [-1, -11, 2.5],
+      "ops": [
+        {
+          "name": "Rohr Marmor",
+          "op": "cyl",
+          "at": [1, 1, 2],
+          "r": 2.5,
+          "h": 7,
+          "axis": "y",
+          "color": "secondary",
+          "hollow": 1
+        },
+        {
+          "name": "Mündung Bronze",
+          "op": "cyl",
+          "at": [1, 0, 2],
+          "r": 2.5,
+          "h": 1,
+          "axis": "y",
+          "color": "trim",
+          "hollow": 1
+        },
+        {
+          "name": "Trommel Bronze",
+          "op": "cyl",
+          "at": [1, 8, 1.5],
+          "r": 2.5,
+          "h": 3,
+          "axis": "y",
+          "color": { "stripes": ["trim", "metal_dark"], "axis": "y", "period": 1 }
+        },
+        { "name": "Rote Markierung", "op": "box", "at": [-1, 9, 3], "size": [4, 1, 1], "color": "primary" },
+        { "name": "Schaft Marmor", "op": "box", "at": [0, 11, 0], "size": [2, 2, 4], "color": "secondary" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

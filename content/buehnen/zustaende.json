@@ -1,0 +1,18 @@
+{
+  "format": "zustaende/1",
+  "quelle": "CONTRACT-B1.md §5.4 (Team BUEHNE)",
+  "hinweis": "Zustand-Überzug, deterministisch aus Schablone + Seed. truemmer: plaetze 'fuell' (nicht kern) | 'gefecht' | 'alle'; je_zelle = [min, max] Trümmerkacheln je 8×8 Zelle; schutt_anteil = % davon X (voll) statt x (halb); max_anteil = Obergrenze neuer Deckungskacheln je Platz (Anteil der Fläche, Sichtung GD: +0,04); wandnah = Kacheln an Wänden/Ecken zuerst; gruppe = [min, max] Kacheln je Trümmergruppe (je_zelle zählt dann Gruppen). Nie auf Zellrändern, Ankern (+1 Kachel) oder neben Türen. tueren: Wahrscheinlichkeit in % je innerem Türanschluss (gesprengt zuerst, dann offen; nur Zustände, die die Kachelart kennt). verschliessen: Zahl innerer Anschlüsse, die 'verschlossen' werden. Bricht der Überzug die Prüfung: erst ohne verschliessen, dann ohne Überzug (meta.ueberzug = voll|teil|kein).",
+  "zustaende": {
+    "intakt": {},
+    "verfallen": {
+      "truemmer": { "plaetze": "fuell", "je_zelle": [1, 2], "gruppe": [2, 3], "schutt_anteil": 15, "max_anteil": 0.04, "wandnah": true },
+      "tueren": { "gesprengt": 20, "offen": 40 },
+      "verschliessen": 1
+    },
+    "umkaempft": {
+      "truemmer": { "plaetze": "gefecht", "je_zelle": [1, 2], "gruppe": [2, 3], "schutt_anteil": 10, "max_anteil": 0.04, "wandnah": true },
+      "tueren": { "gesprengt": 10, "offen": 30 },
+      "haltung": "wach"
+    }
+  }
+}

@@ -15,17 +15,20 @@ const VIEW_W = [15, 23];               // sichtbare Breite (m) in den Zoomstufen
 const LIFT_RIDE = 0.6;                 // s Kamerafahrt
 const LIFT_RISE = 3.2;                 // m senkrecht
 const MAX_POINT_LIGHTS = 2;               // §7: 4 dynamische Lichter gesamt – 2 im Pool (ship/away), 2 hält fx.js selbst
-const ZONES = ['ship', 'platform', 'wreck', 'kesh'];
-const MOOD_OF = { ship: 'ship_private', platform: 'platform_space', wreck: 'wreck_dark', kesh: 'kesh_dusk' };   // Nachrunde M4: Schiff überall warm/hell
+const ZONES = ['ship', 'platform', 'wreck', 'kesh', 'buehne'];
+const HAND_MAPS = ['platform', 'wreck', 'kesh'];   // B1: alle anderen Außenkarten sind Bühnen (Zone 'buehne', kit.js)
+const MOOD_OF = { ship: 'ship_private', platform: 'platform_space', wreck: 'wreck_dark', kesh: 'kesh_dusk', buehne: 'outpost_frost' };   // Bühne: kit.js setzt die Stimmung aus der Bauweisen-Tabelle   // Nachrunde M4: Schiff überall warm/hell
 const MOOD_FALLBACK = {
   ship_private: { background: '#14100E', hemi: { sky: '#C9A882', ground: '#3A2A20', intensity: 0.85 }, sun: { color: '#FFE2B8', intensity: 0.95, dir: [-0.3, 1, 0.35] }, exposure: 1.2, bloom: { strength: 0.45, radius: 0.4, threshold: 0.85 } },
   ship_interior: { background: '#0B0E1A', hemi: { sky: '#6F86A6', ground: '#1B2433', intensity: 0.55 }, sun: { color: '#CFE2FF', intensity: 0.9, dir: [-0.3, 1, 0.2] }, exposure: 1.1, bloom: { strength: 0.9, radius: 0.5, threshold: 0.7 } },
   platform_space: { background: '#05070E', hemi: { sky: '#8FA6C8', ground: '#141A26', intensity: 0.6 }, sun: { color: '#FFF2DC', intensity: 1.6, dir: [-0.5, 1, 0.4] }, exposure: 1.0 },
   wreck_dark: { background: '#04050A', hemi: { sky: '#3A4A60', ground: '#0C0F16', intensity: 0.35 }, sun: { color: '#9FB4D6', intensity: 0.5, dir: [-0.2, 1, 0.3] }, exposure: 1.0 },
+  buehne_neutral: { background: '#1A1E26', hemi: { sky: '#C8D2DE', ground: '#4A4236', intensity: 1.0 }, sun: { color: '#FFF0DC', intensity: 2.2, dir: [-0.5, 0.85, 0.55] }, exposure: 1.0 },
   kesh_dusk: { background: '#2A1E2E', hemi: { sky: '#C9A4B8', ground: '#3A2A22', intensity: 0.7 }, sun: { color: '#FFC79A', intensity: 1.8, dir: [-0.6, 0.8, 0.3] }, exposure: 1.0 },
 };
 
 import { VOXEL_MAT } from './loader.js';
+import { mitAkzent } from './stimmung.js';
 export { VOXEL_MAT };
 
 // ------------------------------------------------------------------------------------------------ Zustand
@@ -54,7 +57,26 @@ function report(where, e) {
 
 // ------------------------------------------------------------------------------------------------ Karten/Koordinaten
 function Maps() { return window.Shared_Maps || {}; }
+// B1: Bühnenkarte (awayMap, von CLIENT in Shared_Maps registriert) und ihre Decks (Schiff: stride 16, wie die Lerche)
+function buehneMap(id) {
+  const M = Maps();
+  if (!id) return null;
+  return M[id] || (M.AWAY && M.AWAY[id]) || null;
+}
+function buehneDecks() {
+  if (S.zone !== 'buehne') return null;
+  const m = buehneMap(S.mapId);
+  const dk = m && ((m.karte && m.karte.decks) || m.decks);
+  if (!dk || !dk.stride) return null;
+  const h = m.h || (m.rows ? m.rows.length : dk.stride), n = Math.max(1, Math.ceil(h / dk.stride));
+  const out = [];
+  for (let i = 0; i < n; i++) out.push({ id: 'deck' + (i + 1), name: 'Deck ' + (i + 1), level: i, y0: i * dk.stride, y1: Math.min(h - 1, i * dk.stride + dk.stride - 1) });
+  return out;
+}
+function decked() { return S.zone === 'ship' || !!buehneDecks(); }
 export function decks() {
+  const bd = buehneDecks();
+  if (bd) return bd;
   const M = Maps();
   if (Array.isArray(M.SHIP_DECKS) && M.SHIP_DECKS.length) return M.SHIP_DECKS;
   const h = (M.ship && M.ship.h) || 13;
@@ -62,6 +84,8 @@ export function decks() {
 }
 /** Deck einer Schiffszeile (Kachel) → 0|1, −1 in der Lücke */
 export function deckOfTile(ty) {
+  const bd = buehneDecks();
+  if (bd) { for (let i = 0; i < bd.length; i++) if (ty >= bd[i].y0 && ty <= bd[i].y1) return i; return -1; }
   const M = Maps();
   if (typeof M.deckOf === 'function') { const d = M.deckOf(ty); if (d != null) return d; }
   const D = decks();
@@ -73,6 +97,7 @@ function deckY0(d) { const D = decks(); return (D[d] || D[0]).y0; }
 function mapOfZone(zone) {
   const M = Maps();
   if (zone === 'ship') return M.ship;
+  if (zone === 'buehne') return buehneMap(S.mapId);
   if (zone === 'wreck') return M.wreck || (window.Render && Render.mapFor ? Render.mapFor('away', { away: { map: 'wreck' } }) : null);
   return M[zone] || null;
 }
@@ -81,8 +106,11 @@ export function zoneOf(view) {
   const z = view && view.self && view.self.zone;
   if (z === 'ship') return 'ship';
   if (z === 'away') {
-    const id = (view.state && view.state.away && view.state.away.map) || 'platform';
-    return ZONES.includes(id) ? id : 'platform';
+    const aw = (view.state && view.state.away) || {};
+    const id = aw.map || 'platform';
+    if (HAND_MAPS.includes(id)) return id;
+    S.pendingMap = id; S.pendingKv = aw.kv != null ? aw.kv : null;
+    return 'buehne';
   }
   return z || null;
 }
@@ -91,7 +119,7 @@ const tmpV = new THREE.Vector3();
 function toWorldIn(zone, px, py, out) {
   out = out || new THREE.Vector3();
   let z = py / TILE;
-  if (zone === 'ship') { const d = deckOfPx(py); z = (py - deckY0(d < 0 ? 0 : d) * TILE) / TILE; }
+  if (zone === 'ship' || (zone === 'buehne' && decked())) { const d = deckOfPx(py); z = (py - deckY0(d < 0 ? 0 : d) * TILE) / TILE; }
   return out.set(px / TILE, 0, z);
 }
 
@@ -189,6 +217,8 @@ function layerFor(layer, zone) { const z = layer.zones || ['*']; return z.includ
 /** Zeichnet 3D diese Zone? Nur, wenn ein Layer sie ausdrücklich bedient (nicht nur '*'). */
 export function handles(zone) {
   if (!ZONES.includes(zone)) return false;
+  // Bühne: erst zeichnen, wenn die Karte registriert ist (sonst bleibt der 2D-Rückfall, CONTRACT-B1 §0 Punkt 14)
+  if (zone === 'buehne' && !buehneMap(S.pendingMap || S.mapId)) return false;
   return layers.some((l) => (l.zones || []).includes(zone) && !(S.layerErrors[l.id] && S.layerErrors[l.id].disabled));
 }
 
@@ -199,7 +229,7 @@ function makeCtx(layer, zone) {
     THREE, root, loader: S.loader, zone, deck: S.shownDeck, map: mapOfZone(zone),
     tile(tx, ty) {
       let z = ty;
-      if (zone === 'ship') { const d = deckOfTile(ty); z = ty - deckY0(d < 0 ? 0 : d); }
+      if (zone === 'ship' || (zone === 'buehne' && decked())) { const d = deckOfTile(ty); z = ty - deckY0(d < 0 ? 0 : d); }
       return new THREE.Vector3(tx + 0.5, 0, z + 0.5);
     },
     toWorld(px, py) { return toWorldIn(zone, px, py); },
@@ -207,7 +237,7 @@ function makeCtx(layer, zone) {
     setMood(id) { applyMood(id); },
     countError(where, err) { report(layer.id + ':' + where, err); },
     // Zusätze (über §3.2 hinaus): Deck-Hilfen, Lichtpool, gemeinsamer Zustand der Layer
-    deckOf: deckOfPx, deckOfTile, decks, scene: S.scene, renderer: S.renderer, material: VOXEL_MAT,
+    deckOf: deckOfPx, deckOfTile, decks, decked, scene: S.scene, renderer: S.renderer, material: VOXEL_MAT,
     addLight(o) { if (o) S.lightReq.push(o); },
     shared: S.shared,
     view: null,
@@ -233,9 +263,10 @@ function disposeLayer(layer) {
   S.scene.remove(ctx.root);
   S.ctxs.delete(layer.id);
 }
-function enterZone(zone) {
+function enterZone(zone, key) {
   for (const l of layers) disposeLayer(l);
-  S.zone = zone;
+  S.zone = zone; S.zoneKey = key || zone;
+  if (zone === 'buehne') { S.mapId = S.pendingMap; S.mapKv = S.pendingKv; }
   S.shared = {};
   S.camInit = false;
   S.lift = { phase: 'idle', t: 0, dir: 1, hold: 0 };
@@ -253,6 +284,7 @@ function applyMood(id) {
   if (S.loader && S.loader.mood) S.loader.mood(id).then((m) => { if (m) set(m); }, () => {});
 }
 function setMoodObj(id, mood) {
+  mood = mitAkzent(id, mood);   // Station warm, Schiff kalt (stimmung.js)
   S.moodId = id; S.mood = mood;
   const col = (s, d) => new THREE.Color(s || d);
   S.scene.background = col(mood.background, '#0B0E1A');
@@ -318,7 +350,7 @@ function updateCamera(view, dt) {
   const p = toWorldIn(S.zone, self.x, self.y, tmpV);
   // eigene Figur etwas unter der Bildmitte (wie 2D: Kamera 16 px über den Füßen)
   p.y = 0.6;
-  if (S.zone === 'ship') p.z = (self.y - S.deckY0 * TILE) / TILE;
+  if (decked()) p.z = (self.y - S.deckY0 * TILE) / TILE;
   const jump = !S.camInit || p.distanceTo(S.target) > 6;
   if (jump) { S.target.copy(p); S.camInit = true; S.distNow = camDist(); }
   else { const k = 1 - Math.exp(-dt * 7); S.target.lerp(p, k); }
@@ -341,7 +373,7 @@ function updateCamera(view, dt) {
 // ------------------------------------------------------------------------------------------------ Liftfahrt
 function updateLift(view, dt) {
   const L = S.lift;
-  if (S.zone !== 'ship') { S.shownDeck = 0; S.deckY0 = deckY0(0); S.camOffY = 0; setBlend(0); return; }
+  if (!decked()) { S.shownDeck = 0; S.deckY0 = 0; S.camOffY = 0; setBlend(0); return; }
   const self = view.self || {};
   const me = view.me || {};
   const myDeck = Math.max(0, deckOfPx(self.y));
@@ -423,7 +455,9 @@ export function frame(view, dt) {
   const t0 = performance.now();
   S.view = view;
   const zone = zoneOf(view);
-  if (zone !== S.zone) enterZone(zone);
+  // Bühnen: neue Karte bzw. neue Kartenversion (kv) → neu aufbauen
+  const key = zone === 'buehne' ? 'buehne:' + S.pendingMap + ':' + (S.pendingKv == null ? '' : S.pendingKv) : zone;
+  if (key !== S.zoneKey) enterZone(zone, key);
   resize(false);
   watchFps(dt);
   updateLift(view, dt);
@@ -456,7 +490,7 @@ const pv = new THREE.Vector3();
 export function worldToScreen(px, py, h) {
   if (!S.inited) return { x: px, y: py, behind: true };
   toWorldIn(S.zone || 'ship', px, py, pv);
-  if (S.zone === 'ship') pv.z = (py - S.deckY0 * TILE) / TILE;
+  if (decked()) pv.z = (py - S.deckY0 * TILE) / TILE;
   pv.y = +h || 0;   // Höhe über dem Boden (m)
   pv.project(S.camera);
   return { x: (pv.x + 1) / 2 * VW, y: (1 - pv.y) / 2 * VH, behind: pv.z > 1 };
@@ -467,8 +501,8 @@ export function screenToWorld(sx, sy) {
   if (!S.inited) return { x: sx, y: sy };
   ndc.set(sx / VW * 2 - 1, 1 - sy / VH * 2);
   ray.setFromCamera(ndc, S.camera);
-  if (!ray.ray.intersectPlane(plane, hit)) return { x: S.target.x * TILE, y: (S.target.z + (S.zone === 'ship' ? S.deckY0 : 0)) * TILE };
-  return { x: hit.x * TILE, y: (hit.z + (S.zone === 'ship' ? S.deckY0 : 0)) * TILE };
+  if (!ray.ray.intersectPlane(plane, hit)) return { x: S.target.x * TILE, y: (S.target.z + (decked() ? S.deckY0 : 0)) * TILE };
+  return { x: hit.x * TILE, y: (hit.z + (decked() ? S.deckY0 : 0)) * TILE };
 }
 /** Pixel pro Meter am Boden in der Bildmitte (für Overlay-Größen) */
 export function pxPerMeter() {
@@ -488,7 +522,7 @@ export function info() {
   const mem = S.renderer ? S.renderer.info.memory : {};
   return {
     fps: Math.round(S.fps.value * 10) / 10, quality: S.quality, autoLow: !!S.autoLow, calls: S.info.calls, triangles: S.info.triangles,
-    frameMs: Math.round(S.info.frameMs * 100) / 100, zone: S.zone, deck: S.shownDeck, zoom: S.zoom, lift: S.lift.phase,
+    frameMs: Math.round(S.info.frameMs * 100) / 100, zone: S.zone, mapId: S.zone === 'buehne' ? S.mapId : undefined, deck: S.shownDeck, zoom: S.zoom, lift: S.lift.phase,
     layers: layers.map((l) => l.id), building: [...S.building], layerErrors: S.layerErrors, errors: S.errors,
     geometries: mem.geometries, textures: mem.textures, pixelRatio: S.PR, size: [S.W, S.H], renderer: rendererName,
   };

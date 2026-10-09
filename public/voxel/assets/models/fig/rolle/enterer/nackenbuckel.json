@@ -1,0 +1,21 @@
+{
+  "id": "fig/rolle/enterer/nackenbuckel",
+  "name": "Enterer: breiter Fellbuckel über Nacken und Schultern mit Fell-Schulterstücken und Bärenkrallen (Aufsatz shoulder)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "enterer", "aufsatz", "fell"],
+  "notes": "Rollenteil, fraktionsneutral. Aufsatz shoulder (Gelenk torso, anchor [0,16,0]), Figur-Koordinaten, sitzt auf dem Kragen des Fellumhangs (y 24..26). Leitform MASSIG: Fellbuckel hinter dem Kopf bis y 29 (Kopf wirkt eingezogen) und Fell-Schulterstücke bis x ±9 über den Oberarmen: Figur im Stand 18 Voxel = 1,24 m breit (bei Größe 1,1), deutlich breiter als der Grundtyp. Fell wie fig/germanen/fellumhang, jitter aus für die großen Flächen (Dreiecksbudget). Krallen in trim (Knochenweiß), keine Schädel.",
+  "ops": [
+    { "name": "Buckel hinten", "op": "box", "at": [-8, 26, -7], "size": [16, 3, 2], "color": { "stripes": [{ "shade": "leather", "f": 0.72 }, "leather"], "axis": "x", "period": 2 }, "jitter": false },
+    { "name": "Buckel hinten Kuppe", "op": "box", "at": [-5, 29, -7], "size": [10, 1, 2], "color": { "shade": "leather", "f": 0.8 }, "jitter": false },
+    { "name": "Buckel Ecken", "op": "box", "at": [7, 28, -7], "size": [1, 1, 2], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Fell-Schulterstück", "op": "box", "at": [5, 24, -5], "size": [4, 4, 7], "color": { "noise": ["leather", { "shade": "leather", "f": 0.72 }, { "shade": "hair", "f": 1.5 }], "weights": [3, 3, 2], "cell": 2 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schulterstück Kante außen", "op": "box", "at": [8, 27, -5], "size": [1, 1, 7], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schulterstück Kante vorn", "op": "box", "at": [5, 24, 1], "size": [4, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schulterbuckel innen", "op": "box", "at": [3, 27, -5], "size": [2, 2, 4], "color": { "shade": "leather", "f": 0.72 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kralle innen", "op": "box", "at": [5, 25, 2], "size": [1, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Kralle außen", "op": "box", "at": [7, 25, 2], "size": [1, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Krallenband", "op": "box", "at": [5, 27, 1], "size": [4, 1, 1], "color": "leather", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 16, 0]
+}

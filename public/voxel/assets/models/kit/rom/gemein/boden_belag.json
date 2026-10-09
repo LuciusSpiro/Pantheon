@@ -1,0 +1,22 @@
+{
+  "id": "kit/rom/gemein/boden_belag",
+  "name": "Rom-Steckplatz boden_belag: ruhige Platten, Gitterrost, Straßenplatten, Mosaik",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "belag": {"default":0,"min":0,"max":3,"step":1,"label":"0 Platte · 1 Gitter · 2 Planke/Erde · 3 Schmuck"}
+  },
+  "ops": [
+    {"name":"Platte (ruhig, Ton je Kachel leicht variiert)","op":"box","if":"belag == 0","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"paving","f":"0.97 + hash(seed, 1) * 0.06"}},
+    {"name":"Gitterrost","op":"box","if":"belag == 1","at":[0,0,0],"size":["w","h","d"],"color":{"stripes":[{"shade":"metal","f":"1 * (1 - zustand * 0.08)"},{"shade":"metal_dark","f":"0.8 * (1 - zustand * 0.08)"}],"axis":"x","period":1}},
+    {"name":"Straßenplatte","op":"box","if":"belag == 2","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"paving_dark","f":"1.08 + hash(seed, 2) * 0.05"}},
+    {"name":"Mosaik","op":"box","if":"belag == 3","at":[0,0,0],"size":["w","h","d"],"color":{"frame":{"shade":"primary","f":"0.85 * (1 - zustand * 0.08)"},"fill":{"shade":"stone_light","f":"1 * (1 - zustand * 0.08)"},"axes":"xz"}}
+  ],
+  "anchor": [0,0,0]
+}

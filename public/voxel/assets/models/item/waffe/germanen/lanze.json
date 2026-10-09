@@ -1,0 +1,46 @@
+{
+  "id": "item/waffe/germanen/lanze",
+  "name": "Jagdspeer-Gewehr – Anbau germanen für item/waffe/lanze",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["waffe", "anbau-teil", "germanen"],
+  "notes": "Steckplatz-Teil (Bauweise germanen) des Gerüsts item/waffe/lanze. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Jagdspeer-Gewehr",
+      "op": "group",
+      "at": [-1, -33, 1.5],
+      "ops": [
+        {
+          "name": "Speerblatt unten",
+          "op": "box",
+          "at": [0, 0, 0],
+          "size": [2, 1, 1],
+          "color": "metal_light"
+        },
+        { "name": "Speerblatt oben", "op": "box", "at": [0, 0, 3], "size": [2, 1, 1], "color": "metal_light" },
+        {
+          "name": "Tülle",
+          "op": "box",
+          "at": [0, 1, 0],
+          "size": [2, 2, 4],
+          "color": { "stripes": ["metal_light", "metal"], "axis": "y", "period": 1 }
+        },
+        { "name": "Laufring Knochen 1", "op": "box", "at": [0, 5, 0], "size": [2, 1, 4], "color": "trim" },
+        { "name": "Laufring Knochen 2", "op": "box", "at": [0, 8, 0], "size": [2, 1, 4], "color": "trim" },
+        { "name": "Gehäuse Holz", "op": "box", "at": [0, 28, 0], "size": [2, 5, 3], "color": "wood" },
+        {
+          "name": "Ornamentband",
+          "op": "box",
+          "at": [0, 29, 3],
+          "size": [2, 3, 1],
+          "color": { "stripes": ["trim", "secondary"], "axis": "y", "period": 1 }
+        },
+        { "name": "Schaft Holz", "op": "box", "at": [0, 33, 0], "size": [2, 4, 3], "color": "wood_dark" },
+        { "name": "Kolben Knochen", "op": "box", "at": [0, 37, -1], "size": [2, 1, 5], "color": "trim" }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "prop/germanen/aussenposten/wachturm",
+  "name": "Wachturm, Ausguck (Außenposten, Aussicht)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "aussenposten", "aussicht"],
+  "footprint": [1, 1],
+  "params": {
+
+  },
+  "ops": [
+    {"op": "box", "name": "Steinfüße", "at": [-8, 0, -8], "size": [4, 2, 4], "color": "stone_dark", "jitter": false, "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}},
+    {"op": "box", "name": "Eckpfosten", "at": [-7, 2, -7], "size": [2, 29, 2], "color": "wood_dark", "jitter": false, "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}},
+    {"op": "box", "name": "Pfostenkappe Frost", "at": [-7, 31, -7], "size": [2, 1, 2], "color": "frost", "mirror": "xz", "mirrorAt": {"x": 0, "z": 0}},
+    {"op": "line", "name": "Kreuzstrebe links a", "from": [-6.5, 3, -5], "to": [-6.5, 17, 4], "r": 0.5, "color": "wood", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Bühnenbalken", "at": [-8, 18, -8], "size": [16, 1, 16], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Bühnenbohlen", "at": [-8, 19, -8], "size": [16, 1, 16], "color": {"stripes": ["wood", "wood_dark"], "axis": "x", "period": 4}, "jitter": false},
+    {"op": "box", "name": "Luke", "at": [-3, 19, -7], "size": [5, 1, 4], "color": "wood_dark"},
+    {"op": "box", "name": "Frost Bohlen", "at": [3, 19, 2], "size": [5, 1, 5], "mode": "paint", "color": {"noise": ["wood", "frost"], "weights": [2, 1], "cell": 2}},
+    {"op": "box", "name": "Brüstung vorn", "at": [-5, 28, 6], "size": [10, 2, 1], "color": "wood_dark", "jitter": false},
+    {"op": "box", "name": "Brüstung seitlich", "at": [-7, 28, -5], "size": [1, 2, 10], "color": "wood_dark", "jitter": false, "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Brüstung hinten", "at": [-5, 28, -7], "size": [3, 2, 1], "color": "wood_dark", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Brüstungslatten vorn", "at": [-4, 20, 6], "size": [1, 8, 1], "color": "wood", "repeat": {"count": 3, "step": [4, 0, 0]}},
+    {"op": "box", "name": "Brüstungslatten seitlich", "at": [-7, 20, -4], "size": [1, 8, 1], "color": "wood", "mirror": "x", "mirrorAt": 0, "repeat": {"count": 3, "step": [0, 0, 4]}},
+    {"op": "cyl", "name": "Rundschild an der Brüstung", "at": [0, 24, 7], "r": 3.5, "h": 1, "axis": "z", "color": "cloth"},
+    {"op": "cyl", "name": "Schildrand", "at": [0, 24, 7], "r": 3.5, "h": 1, "axis": "z", "hollow": 1, "color": "metal_dark"},
+    {"op": "box", "name": "Schildbuckel", "at": [-1, 23, 7], "size": [2, 2, 1], "color": "metal_light", "mode": "paint"},
+    {"op": "line", "name": "Signalhorn", "from": [5, 30, 5], "to": [2, 33, 7], "r": 0.6, "color": "trim"},
+    {"op": "box", "name": "Leiter Holm", "at": [-3, 0, -8], "size": [1, 19, 1], "color": "wood_dark", "mirror": "x", "mirrorAt": 0},
+    {"op": "box", "name": "Leiter Sprossen", "at": [-2, 2, -8], "size": [4, 1, 1], "color": "wood", "repeat": {"count": 5, "step": [0, 3, 0]}}
+  ],
+  "anchor": [0, 0, 0]
+}

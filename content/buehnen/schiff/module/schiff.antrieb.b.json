@@ -1,0 +1,70 @@
+{
+  "format": "modul/1",
+  "id": "schiff.antrieb.b",
+  "art": "schiff",
+  "typ": "antrieb",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Zwei Triebwerksblöcke übereinander, Wartungsluke im Deck neben dem Liftschacht, Ankunftspad unten mit Kettenplatz.",
+  "rows": [
+    "_###L#",
+    "##...#",
+    "#.,,.#",
+    "#o,,.#",
+    "#OO..#",
+    "#OO..#",
+    "#.I...",
+    "#...o#",
+    "#OO..#",
+    "#OO..#",
+    "#zPP.#",
+    "#.P..#",
+    "_#####"
+  ],
+  "anker": [
+    "......",
+    "....e.",
+    ".tl...",
+    "......",
+    "......",
+    "...p..",
+    "......",
+    "......",
+    "......",
+    "....b.",
+    "..a...",
+    ".c....",
+    "......"
+  ],
+  "anker_legende": {
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    },
+    "t": {
+      "rolle": "terminal"
+    },
+    "l": {
+      "rolle": "lift",
+      "deck": 1
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "c": {
+      "rolle": "zelle"
+    }
+  },
+  "belegungen": []
+}

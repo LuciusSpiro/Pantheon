@@ -1,0 +1,54 @@
+{
+  "format": "fraktion/1",
+  "id": "kontor",
+  "name": "Kontor-Clan",
+  "beschreibung": "Germanischer Handelsclan in Lichtkordon. Neutral bis feindlich: Wer stiehlt, wird festgenommen und zahlt Wergeld, statt erschossen zu werden.",
+  "modelle": {
+    "grundtyp": "fig/germanen/grundtyp",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer",
+    "haescher": "fig/germanen/haescher"
+  },
+  "palette": "kontor",
+  "rezepte": {
+    "kontorwache": [
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      },
+      {
+        "rolle": "haescher",
+        "n": 1
+      }
+    ],
+    "schiffswache": [
+      {
+        "rolle": "enterer",
+        "n": 2
+      },
+      {
+        "rolle": "schuetze",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": null,
+  "einsatz": {
+    "kontorwache": [
+      "station",
+      "aussenposten",
+      "hand"
+    ],
+    "schiffswache": [
+      "schiff"
+    ]
+  },
+  "funkstil": "förmlich und kaufmännisch, droht mit Buße und Wergeld statt mit dem Tod"
+}

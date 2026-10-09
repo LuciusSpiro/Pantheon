@@ -1,0 +1,21 @@
+{
+  "id": "kit/germanen/aussenposten/wand_fuellung",
+  "name": "Außenposten – wand_fuellung: Langhaus-Bohlenwand mit Riegel",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": ["germanen", "aussenposten", "slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default": 4, "min": 1, "max": 16, "step": 1, "label": "Breite (Voxel)"},
+    "h": {"default": 9, "min": 1, "max": 16, "step": 1, "label": "Höhe (Voxel)"},
+    "d": {"default": 1, "min": 1, "max": 4, "step": 1, "label": "Tiefe (Voxel)"},
+    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "ops": [
+    {"name": "Bohlen", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": {"stripes": [{"shade": "wood", "f": "1 - zustand * 0.12"}, {"shade": "wood", "f": "0.82 - zustand * 0.1"}], "axis": "x", "period": 1}},
+    {"name": "Riegel", "op": "box", "if": "h > 4", "at": [0, "floor(h / 2)", 0], "size": ["w", 1, "d"], "mode": "paint", "color": {"shade": "wood_dark", "f": "1 - zustand * 0.12"}},
+    {"name": "Fußbohle", "op": "box", "at": [0, 0, 0], "size": ["w", 1, "d"], "mode": "paint", "color": {"shade": "wood_dark", "f": 0.9}},
+    {"name": "Ruß (umkämpft)", "op": "box", "if": "zustand == 2", "at": [0, 0, 0], "size": ["w", "h", "d"], "mode": "paint", "color": {"noise": [{"shade": "wood", "f": 0.75}, "dark", "wood_dark"], "weights": [3, 1, 2], "seed": "seed"}}
+  ],
+  "anchor": [0, 0, 0]
+}

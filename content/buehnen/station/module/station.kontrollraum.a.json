@@ -1,0 +1,31 @@
+{
+  "format": "modul/1", "id": "station.kontrollraum.a", "art": "station", "typ": "kontrollraum",
+  "groesse": [2, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "#||||######||||#",
+    "#......OOO.....#",
+    "#.ooo..OOO.ooo.#",
+    "#..............#",
+    "#..............#",
+    "#.O..........O.#",
+    "#..............#",
+    "###DD###########"
+  ],
+  "anker": [
+    "................",
+    "..t.....i....t..",
+    "................",
+    "........z.......",
+    "....n......n....",
+    "................",
+    "............w...",
+    "................"
+  ],
+  "anker_legende": {
+    "t": { "rolle": "terminal" },
+    "z": { "rolle": "ziel" },
+    "n": { "rolle": "nsc" },
+    "w": { "rolle": "wache" },
+    "i": { "rolle": "leit" }
+  }
+}

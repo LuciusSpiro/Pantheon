@@ -1,0 +1,138 @@
+{
+ "id": "kit/germanen/schott",
+ "name": "Germanen – schott: Eisenschott mit Runen-Schaltkreis am Schloss",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "kit",
+  "germanen",
+  "schott"
+ ],
+ "notes": "ART-GK-BAU: Instanz des Gerüsts kit/geruest/schott mit bauweise germanen; art wird durchgereicht (Steckplätze kit/germanen/<art>/… → kit/germanen/gemein/… → kit/geruest/slot/…).",
+ "footprint": [
+  2,
+  1
+ ],
+ "jitter": 0,
+ "params": {
+  "cut": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Geschnitten (1,25 m)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "art": {
+   "default": "station",
+   "options": [
+    "aussenposten",
+    "station",
+    "ruine",
+    "schiff"
+   ],
+   "label": "Kartenart"
+  },
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "0 zu · 1 offen · 2 gehackt · 3 verschlossen"
+  }
+ },
+ "variants": {
+  "geschnitten": {
+   "cut": 1
+  },
+  "verfallen": {
+   "zustand": 1,
+   "seed": 1
+  },
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  },
+  "zu": {
+   "state": 0
+  },
+  "zu_geschnitten": {
+   "state": 0,
+   "cut": 1
+  },
+  "offen": {
+   "state": 1
+  },
+  "offen_geschnitten": {
+   "state": 1,
+   "cut": 1
+  },
+  "gehackt": {
+   "state": 2
+  },
+  "gehackt_geschnitten": {
+   "state": 2,
+   "cut": 1
+  },
+  "verschlossen": {
+   "state": 3
+  },
+  "verschlossen_geschnitten": {
+   "state": 3,
+   "cut": 1
+  },
+  "art_aussenposten": {
+   "art": "aussenposten"
+  },
+  "art_station": {
+   "art": "station"
+  },
+  "art_schiff": {
+   "art": "schiff"
+  },
+  "art_ruine": {
+   "art": "ruine"
+  },
+  "art_schiff_umkaempft": {
+   "art": "schiff",
+   "zustand": 2,
+   "seed": 3
+  },
+  "art_aussenposten_verfallen": {
+   "art": "aussenposten",
+   "zustand": 1,
+   "seed": 4
+  }
+ },
+ "ops": [
+  {
+   "name": "Gerüst (Bauweise germanen) schott",
+   "op": "use",
+   "model": "kit/geruest/schott",
+   "at": [
+    4,
+    1,
+    2
+   ],
+   "params": {
+    "cut": "cut",
+    "zustand": "zustand",
+    "art": "{art}",
+    "state": "state",
+    "bauweise": "germanen",
+    "seed": "seed"
+   }
+  }
+ ],
+ "anchor": [
+  4,
+  1,
+  2
+ ]
+}

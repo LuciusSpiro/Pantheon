@@ -87,10 +87,10 @@
       "properties": {
         "_kommentar": { "$ref": "#/$defs/kommentar" },
         "orte": { "type": "array", "items": { "$ref": "#/$defs/kennung" }, "minItems": 1 },
-        "aussenkarten": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
-        "objekte": { "type": "object", "description": "Karte -> verwendete Objektkennungen (shared/maps.js MAP_OBJECTS)",
+        "aussenkarten": { "type": "array", "items": { "$ref": "#/$defs/kartenRef" }, "description": "Handkarten (platform, wreck, kesh) und Landepunkt-IDs (B1: kesh.kastell, splitter.prise, hafen.station-2 …)" },
+        "objekte": { "type": "object", "description": "Karte -> verwendete Objektkennungen (shared/maps.js MAP_OBJECTS)", "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[a-z0-9_]+(-[0-9]+)?)?$" },
           "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } },
-        "bereiche": { "type": "object", "description": "Karte -> verwendete Bereichskennungen (shared/maps.js MAP_AREAS)",
+        "bereiche": { "type": "object", "description": "Karte -> verwendete Bereichskennungen (shared/maps.js MAP_AREAS)", "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[a-z0-9_]+(-[0-9]+)?)?$" },
           "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/kennung" } } }
       }
     },
@@ -170,6 +170,7 @@
 
   "$defs": {
     "kennung": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$", "maxLength": 40 },
+    "kartenRef": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[a-z0-9_]+(-[0-9]+)?)?$", "maxLength": 60, "description": "B1: Außenkarte = Handkarte oder Landepunkt-ID <ort>.<name>, <ort>.<art>-<n>, <ort>.prise (Prüfer: LANDEPUNKT)" },
     "kommentar": { "type": "string", "maxLength": 2000, "description": "freier Kommentar (einziges freies Feld)" },
 
     "text": {
@@ -314,7 +315,7 @@
           "properties": { "ab": { "$ref": "#/$defs/kennung" }, "prep": { "$ref": "#/$defs/aktionen" } }
         },
         "restartOnReturn": { "type": "boolean" },
-        "allowBeam": { "type": "array", "items": { "$ref": "#/$defs/kennung" } },
+        "allowBeam": { "type": "array", "items": { "$ref": "#/$defs/kartenRef" } },
         "enter": { "$ref": "#/$defs/aktionen" },
         "timers": { "type": "array", "items": { "$ref": "#/$defs/zeitpunkt" } },
         "rules": { "type": "array", "items": { "$ref": "#/$defs/regel" } },
@@ -357,7 +358,7 @@
       "additionalProperties": false,
       "required": ["map", "quelle"],
       "properties": {
-        "map": { "$ref": "#/$defs/kennung" },
+        "map": { "$ref": "#/$defs/kartenRef" },
         "quelle": { "enum": ["karte", "katalog"], "description": "karte = Spawnpunkte aus den Kartendaten (heute), katalog = Gegnergruppe aus dem Katalog (S2)" },
         "anker": { "type": "string", "description": "Spawn-Zeichen der Karte (heute) bzw. Anker-Rolle (ab G1)" },
         "art": { "type": "string" },

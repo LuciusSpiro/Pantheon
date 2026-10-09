@@ -1,0 +1,149 @@
+{
+ "id": "kit/germanen/gemein/boden_fuge",
+ "name": "Germanen gemein – boden_fuge: Fuge an N- und W-Rand (1-m-Raster; Bohlen dunkles Holz, Rost und Frostkies ohne Fuge)",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "belag": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "0 Platte · 1 Gitter · 2 Planke · 3 Schmuck"
+  },
+  "art": {
+   "default": "station",
+   "options": [
+    "aussenposten",
+    "station",
+    "ruine",
+    "schiff"
+   ],
+   "label": "Kartenart"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {},
+ "ops": [
+  {
+   "name": "Fuge Grundbelag je Kartenart",
+   "op": "use",
+   "model": "kit/germanen/gemein/teil/grund_fuge_{art}",
+   "fallback": [
+    "kit/germanen/gemein/teil/grund_fuge"
+   ],
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "params": {
+    "w": "w",
+    "h": "h",
+    "d": "d",
+    "zustand": "zustand",
+    "seed": "seed"
+   },
+   "if": "belag == 0"
+  },
+  {
+   "name": "Fuge N",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "paving_dark",
+    "f": "dk"
+   },
+   "if": "belag == 3"
+  },
+  {
+   "name": "Fuge W",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "paving_dark",
+    "f": "dk"
+   },
+   "if": "belag == 3"
+  },
+  {
+   "name": "Fuge N Holz",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "wood_dark",
+    "f": "dk"
+   },
+   "if": "belag == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

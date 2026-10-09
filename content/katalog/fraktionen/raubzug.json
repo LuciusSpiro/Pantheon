@@ -1,0 +1,78 @@
+{
+  "format": "fraktion/1",
+  "id": "raubzug",
+  "name": "Raubzug",
+  "beschreibung": "Germanischer Plünderzug auf Langschiffen. Kämpft offen und im Keil, will Ruhm und Beute.",
+  "modelle": {
+    "grundtyp": "fig/germanen/grundtyp",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer",
+    "haescher": "fig/germanen/haescher"
+  },
+  "palette": null,
+  "rezepte": {
+    "keil": [
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "enterer",
+        "n": 2
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 1
+      }
+    ],
+    "jaeger": [
+      {
+        "rolle": "schuetze",
+        "n": 2
+      },
+      {
+        "rolle": "enterer",
+        "n": 1
+      }
+    ],
+    "sturm": [
+      {
+        "rolle": "grenadier",
+        "n": 1
+      },
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "enterer",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": "jaeger",
+  "einsatz": {
+    "keil": [
+      "schiff",
+      "station",
+      "hand"
+    ],
+    "jaeger": [
+      "aussenposten",
+      "ruine"
+    ],
+    "sturm": [
+      "aussenposten",
+      "ruine",
+      "schiff"
+    ]
+  },
+  "funkstil": "laut und stolz, ruft Clan und Ahnen an"
+}

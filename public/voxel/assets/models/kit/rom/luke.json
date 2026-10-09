@@ -1,0 +1,21 @@
+{
+  "id": "kit/rom/luke",
+  "name": "Rom (Kastell) – luke: Cloaca-Luke (Gitterdeckel)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["kit","rom","luke"],
+  "footprint": [1,1],
+  "jitter": 0,
+  "variants": {"offen":{"state":1},"verfallen":{"zustand":1,"seed":1},"ruine_verfallen":{"zustand":1,"seed":5},"ruine_umkaempft":{"zustand":2,"seed":6}},
+  "params": {
+    "conn": {"default":10,"min":0,"max":15,"step":1,"label":"Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"ruine","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"0 zu · 1 offen"}
+  },
+  "ops": [
+    {"name":"Gerüst (Bauweise rom) luke","op":"use","model":"kit/geruest/luke","at":[2,1,2],"params":{"conn":"conn","cut":"cut","zustand":"zustand","art":"{art}","state":"state","bauweise":"rom","seed":"seed"}}
+  ],
+  "anchor": [2,1,2]
+}

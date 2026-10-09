@@ -1,0 +1,42 @@
+{
+  "id": "prop/rom/ruine/cloaca_einsturz",
+  "name": "Eingestürzte Cloaca (Einsturzgang, Kastellruine)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "cloaca", "rueckzug"],
+  "notes": "2×2 Kacheln, Pivot Mitte unten. Eingebrochener Abwasserkanal: Pflasterrand, dunkle Kanalöffnung, halbes Tonnengewölbe (Mund nach +z), verbogenes Gitter daneben, Schutt. Nur Optik (begehbar gedacht), Socket fx_smoke für Dunst aus dem Kanal.",
+  "footprint": [2, 2],
+  "params": {},
+  "variants": { "b": { "seed": 9 } },
+  "ops": [
+    { "name": "Pflasterrand", "op": "box", "at": [-15, 0, -15], "size": [30, 2, 30], "color": { "noise": ["paving", "paving_dark", "stone", { "shade": "paving", "f": 0.9 }], "weights": [3, 2, 1, 2], "cell": 4 } },
+    { "name": "Plattenfugen längs", "op": "box", "mode": "paint", "repeat": { "count": 8, "step": [4, 0, 0] }, "at": [-15, 1, -15], "size": [1, 1, 30], "color": "paving_dark" },
+    { "name": "Plattenfugen quer", "op": "box", "mode": "paint", "repeat": { "count": 8, "step": [0, 0, 4] }, "at": [-15, 1, -15], "size": [30, 1, 1], "color": "paving_dark" },
+    { "name": "Kanalöffnung", "op": "box", "at": [-7, 0, -6], "size": [14, 2, 19], "color": { "noise": ["dark", { "shade": "water", "f": 0.3 }, "black"], "weights": [3, 1, 2], "cell": 1 }, "jitter": false },
+    { "name": "Kanalkante", "op": "box", "at": [-9, 0, -6], "size": [2, 3, 19], "color": { "noise": ["stone_light", "stone"], "cell": 2 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Gewölbe (Tonne)", "op": "cyl", "axis": "z", "at": [-0.5, 1, -12], "r": 12, "h": 8, "hollow": 3, "color": { "noise": ["stone", "stone_dark", "stone_light"], "weights": [3, 2, 1], "cell": 2 } },
+    { "name": "Gewölbe unter Boden weg", "op": "box", "mode": "carve", "at": [-16, -12, -16], "size": [32, 13, 32] },
+    { "name": "Gewölbe innen dunkel", "op": "box", "mode": "paint", "at": [-9, 1, -12], "size": [17, 10, 8], "color": "dark" },
+    { "name": "Stirnband rot", "op": "cyl", "axis": "z", "at": [-0.5, 1, -5], "r": 12, "h": 1, "hollow": 1, "color": { "shade": "primary", "f": 0.75 } },
+    { "name": "Schlussstein", "op": "box", "at": [-2, 11, -5], "size": [3, 3, 2], "color": { "frame": { "shade": "trim", "f": 0.8 }, "fill": "stone_light", "axes": "xy" } },
+    { "name": "Stirnband unter Boden weg", "op": "box", "mode": "carve", "at": [-16, -12, -6], "size": [32, 13, 2] },
+    { "name": "Einbruch Gewölbe", "op": "box", "mode": "carve", "at": [2, 5, -13], "size": [10, 8, 6] },
+    { "name": "Einbruch Gewölbe 2", "op": "box", "mode": "carve", "at": [5, 2, -13], "size": [6, 4, 4] },
+    { "name": "Gitter liegend", "op": "group", "at": [8, 2, 2], "ops": [
+      { "name": "Gitterrahmen", "op": "box", "at": [0, 0, 0], "size": [6, 1, 9], "color": { "frame": "metal", "fill": "metal_dark", "axes": "xz" } },
+      { "name": "Gitter Lücken", "op": "box", "mode": "carve", "repeat": { "count": 3, "step": [0, 0, 2] }, "at": [1, 0, 2], "size": [4, 1, 1] },
+      { "name": "Gitterstab verbogen", "op": "line", "from": [1, 1, 8], "to": [3, 3, 11], "r": 0.5, "color": "metal" }
+    ] },
+    { "name": "Schutt Blöcke", "op": "box", "repeat": { "count": 6, "step": [0, 0, 0], "var": "i" },
+      "at": ["floor(hash(seed, i, 1) * 12) - 14", 2, "floor(hash(seed, i, 2) * 20) - 10"],
+      "size": ["2 + floor(hash(seed, i, 3) * 3)", "1 + floor(hash(seed, i, 4) * 3)", "2 + floor(hash(seed, i, 5) * 3)"],
+      "color": { "noise": ["stone", "stone_light"], "weights": [2, 1], "cell": 2 } },
+    { "name": "Schutt im Kanal", "op": "ellipsoid", "at": [4, 1, -4], "r": [4, 3, 3], "half": "+y", "color": { "noise": ["stone", "stone_dark", "paving_dark"], "cell": 1 } },
+    { "name": "Verfall Gewölbe", "op": "erode", "density": 0.2, "depth": 1, "salt": 2, "at": [-16, 3, -16], "size": [32, 12, 14] },
+    { "name": "Verfall Rand", "op": "erode", "density": 0.25, "depth": 1, "salt": 5, "at": [-16, 2, -2], "size": [32, 4, 18] },
+    { "name": "Moos und Schlamm", "op": "box", "mode": "paint", "at": [-16, 1, -16], "size": [32, 3, 32], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "paving", "paving_dark", "soil_dark", "stone"], "weights": [1, 4, 3, 1, 3], "cell": 2 } },
+    { "name": "Kanal dunkel halten", "op": "box", "mode": "paint", "at": [-7, 1, -6], "size": [14, 1, 19], "color": { "noise": ["dark", { "shade": "water", "f": 0.3 }, "black"], "weights": [3, 1, 2], "cell": 1 }, "jitter": false }
+  ],
+  "sockets": { "fx_smoke": [0, 0.2, 0.2] },
+  "anchor": [0, 0, 0]
+}

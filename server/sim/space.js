@@ -8,10 +8,11 @@ const Flight = require('../../shared/flight.js');
 const interior = require('./interior.js');
 const Pilot = require('./pilot.js');
 const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlinge/Gegnerziel kein Einfluss auf den Ablauf)
+const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähiges Feindschiff; Stub -> wie bisher
+const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
-const JAMMERS = ['raider', 'gunboat'];   // Rostmeute: Störsender blockieren den Faltsprung
 const isDown = (st) => st === 'broken' || st === 'offline';
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -570,58 +571,11 @@ function helmSnapshot(game) {
 }
 
 // ---------- Reisen / Faltsprung (§9.2) ----------
-function jammersPresent(game) { return game.space.enemies.some((e) => JAMMERS.includes(e.kind)); }
-
-function updateJump(game, dt) {
-  const C = game.C; const ship = game.ship; const j = ship.jump;
-  const loc = Locations.get(ship.scene); const sc = loc.scene;
-  let reason = null;
-  if (!j.dest) reason = 'Kein Sprungziel gewählt (Captain, Sternkarte).';
-  else if (ship.docked) reason = 'Erst ablegen.';
-  else if (isDown(ship.systems.engines)) reason = 'Antrieb ausgefallen – reparieren.';
-  else if (ship.power.engines <= 0) reason = 'Antrieb ohne Energie.';
-  else if (game.players.some((p) => p.zone === 'away')) reason = 'Außenteam noch unten – erst alle zurückbeamen.';
-  else if (game.transfer.isBeaming(game)) reason = 'Transfer läuft.';
-  else if (jammersPresent(game)) reason = 'Störsender der Rostmeute – erst die Gegner abwehren.';
-  else if (sc.dock && dist(ship.x, ship.y, (sc.station || sc.dock).x, (sc.station || sc.dock).y) < C.travel.jumpMinStationDist) reason = 'Zu nah an der Station (≥ 300).';
-  else {
-    const why = game.mission.jumpBlocked(j.dest);
-    if (why) reason = why;
-  }
-  j.blockedReason = reason;
-  if (!reason) {
-    if (j.charge < 1 && j.charge + dt / C.ship.jumpCharge >= 1) game.missionEvent('jumpReady', {});
-    j.charge = Math.min(1, j.charge + dt / C.ship.jumpCharge);
-  } else j.charge = Math.max(0, j.charge - dt / C.ship.jumpCharge);
-  j.ready = !reason && j.charge >= 1;
-}
-
-function doJump(game) {
-  const j = game.ship.jump;
-  if (!j.ready) return j.blockedReason || 'Sprungantrieb lädt noch.';
-  const dest = j.dest;
-  if (!Locations.get(dest)) return 'Kein gültiges Sprungziel.';
-  const from = game.ship.scene;
-  game.emit('sfx', { name: 'jump' });
-  enterScene(game, dest, {});
-  game.emit('jump', { scene: dest, location: dest, from });
-  game.explore.arrive(dest);
-  game.missionEvent('jumped', { scene: dest, loc: dest, from });
-  return null;
-}
-
-function selectDest(game, dest) {
-  const ex = game.explore;
-  if (!Locations.get(dest)) return 'Unbekanntes Ziel.';
-  if (dest === game.ship.scene) return 'Da sind wir doch schon.';
-  if (!ex.isLinked(game.ship.scene, dest)) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
-  const why = game.mission.destBlocked(dest);
-  if (why) return why;
-  game.ship.jump.dest = dest;
-  game.emit('sfx', { name: 'jump_charge' });
-  game.missionEvent('destSelected', { dest });
-  return null;
-}
+// Welle 0 (CONTRACT-B1 §1.2): wörtlich nach server/sim/sprung.js verschoben (Team SEKTOR); hier nur Delegation.
+function jammersPresent(game) { return Sprung.jammersPresent(game); }
+function updateJump(game, dt) { return Sprung.updateJump(game, dt); }
+function doJump(game) { return Sprung.doJump(game); }
+function selectDest(game, dest) { return Sprung.selectDest(game, dest); }
 
 // ---------- Treffer ----------
 // opts: { pierce (bool, Schild ganz umgehen – Nachzügler), emp, heavy (angekündigter Treffer) }
@@ -1321,6 +1275,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
   if (e.hp > 0) return;
+  if (Entern.onEnemyZero(game, e)) return;   // Welle 0 (CONTRACT-B1 §7): Stub liefert false -> wie bisher
   const C = game.C;
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
   game.inventory.marks += C.enemies[e.kind].salvage;

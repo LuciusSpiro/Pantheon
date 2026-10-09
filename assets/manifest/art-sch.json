@@ -1,0 +1,376 @@
+{
+  "team": "art-sch",
+  "assets": [
+    {
+      "id": "prop/germanen/schiff/antrieb_block",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [2, 1],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {
+        "schub": [0, 2]
+      },
+      "states": {
+        "aus": {
+          "schub": 0
+        },
+        "leerlauf": {
+          "schub": 1
+        },
+        "voll": {
+          "schub": 2
+        }
+      },
+      "sockets": {
+        "use": [0.8, 0, 0.6],
+        "fx_smoke": [-0.4, 1.75, -0.3],
+        "fx_spark": [0.7, 0.6, 0.4],
+        "light": [-0.9, 0.6, 0],
+        "label": [0, 2, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 5000,
+      "measuredTris": 4646,
+      "tags": ["germanen", "schiff", "system", "antrieb"]
+    },
+    {
+      "id": "prop/germanen/schiff/reaktor_schiff",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "state": [0, 2]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.6],
+        "charge": [0, 0.75, 0.35],
+        "fx_explode": [0, 1, 0],
+        "fx_smoke": [0, 1.9, 0],
+        "fx_spark": [0.25, 1, 0.3],
+        "light": [0, 1, 0],
+        "label": [0, 2.2, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 2412,
+      "tags": ["germanen", "schiff", "anker", "sprengpunkt"]
+    },
+    {
+      "id": "prop/germanen/schiff/bruecke_konsole",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "alarm": [0, 1]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.6],
+        "screen": [0, 1.3, -0.3],
+        "fx_smoke": [0, 1.6, -0.4],
+        "fx_spark": [0.3, 1.05, 0.2],
+        "label": [0, 2, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1246,
+      "tags": ["germanen", "schiff", "konsole", "bruecke"]
+    },
+    {
+      "id": "prop/germanen/schiff/schildgenerator",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "state": [0, 2]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.6],
+        "fx_smoke": [0, 1.8, 0],
+        "fx_spark": [0.3, 1.1, 0.3],
+        "light": [0, 1.2, 0],
+        "label": [0, 2.3, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1582,
+      "tags": ["germanen", "schiff", "anker", "ziel"]
+    },
+    {
+      "id": "prop/germanen/schiff/ruderbank_batterie",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [2, 1],
+      "height": 0.69,
+      "facing": "+z",
+      "params": {
+        "ladung": [0, 1]
+      },
+      "states": {
+        "geladen": {
+          "ladung": 1
+        },
+        "leer": {
+          "ladung": 0
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.7],
+        "fx_smoke": [-0.55, 0.55, -0.5],
+        "fx_spark": [0.5, 0.55, -0.5],
+        "label": [0, 1.2, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 5000,
+      "measuredTris": 2952,
+      "tags": ["germanen", "schiff", "batterie"]
+    },
+    {
+      "id": "prop/germanen/schiff/schleuse",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [2, 1],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "state": [0, 1]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.1],
+        "light": [0, 1.85, -0.25],
+        "fx_smoke": [0, 1, -0.3],
+        "label": [0, 2.3, -0.3]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 5000,
+      "measuredTris": 2562,
+      "tags": ["germanen", "schiff", "eingang", "schleuse"]
+    },
+    {
+      "id": "prop/germanen/schiff/ladenetz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "seed": [0, 99]
+      },
+      "sockets": {
+        "label": [0, 1, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1580,
+      "tags": ["germanen", "schiff", "deko"]
+    },
+    {
+      "id": "prop/germanen/schiff/huellenbruch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 0.31,
+      "facing": "+z",
+      "params": {
+        "geflickt": [0, 1],
+        "seed": [0, 99]
+      },
+      "states": {
+        "offen": {
+          "geflickt": 0
+        },
+        "geflickt": {
+          "geflickt": 1
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0],
+        "fx_smoke": [0, 0.2, 0],
+        "label": [0, 0.8, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1260,
+      "tags": ["germanen", "schiff", "eingang", "leck"]
+    },
+    {
+      "id": "prop/germanen/schiff/lift_schacht",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "deck": [1, 2],
+        "faehrt": [0, 1]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        },
+        "faehrt": {
+          "faehrt": 1
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0],
+        "light": [0, 2, -0.4],
+        "label": [0, 2.3, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1518,
+      "tags": ["germanen", "schiff", "anker", "lift"]
+    },
+    {
+      "id": "prop/germanen/schiff/leiter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [1, 1],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "deck": [1, 2]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.2],
+        "label": [0, 2.3, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 2500,
+      "measuredTris": 1630,
+      "tags": ["germanen", "schiff", "anker", "leiter"]
+    },
+    {
+      "id": "leit/germanen/schiff/drachenkopf_bug",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [2, 2],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "alarm": [0, 1]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        }
+      },
+      "sockets": {
+        "use": [-0.75, 0, 0.75],
+        "seat": [-0.75, 0.55, -0.25],
+        "light": [0.69, 2.45, -0.38],
+        "screen": [-0.72, 0.75, 0.5],
+        "label": [0, 3.6, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 10000,
+      "measuredTris": 6744,
+      "tags": ["germanen", "schiff", "leit", "herzstueck"]
+    },
+    {
+      "id": "leit/germanen/schiff/ruderbank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [2, 2],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "alarm": [0, 1],
+        "ladung": [0, 1]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        },
+        "leer": {
+          "ladung": 0
+        }
+      },
+      "sockets": {
+        "use": [0, 0, 0.6],
+        "fx_smoke": [0, 0.7, -0.3],
+        "fx_spark": [0.6, 0.7, 0],
+        "light": [0, 2, -0.7],
+        "label": [0, 3.6, 0]
+      },
+      "tint": ["cloth", "cloth2"],
+      "budgetTris": 10000,
+      "measuredTris": 6358,
+      "tags": ["germanen", "schiff", "leit", "herzstueck"]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "rom_kastell_verfallen",
+  "name": "rom_kastell verfallen: entsättigt, Moos/Staub, Licht fast aus",
+  "extends": "rom_kastell",
+  "adjust": {
+    "sat": 0.7,
+    "light": 0.92,
+    "tint": "#4E5A40",
+    "mix": 0.12,
+    "except": [
+      "glow",
+      "glow2",
+      "leit"
+    ]
+  },
+  "roles": {
+    "glow": {
+      "color": "#7E8A90",
+      "emit": 0.25
+    },
+    "glow2": {
+      "color": "#8A6A4A",
+      "emit": 0.15
+    },
+    "soil_dark": "#A8A090"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "format": "besitz-palette/1",
+  "besitz": "kustoden",
+  "je_bauweise": {
+    "germanen": {
+      "intakt": "nord",
+      "verfallen": "nord_verfallen",
+      "umkaempft": "nord_umkaempft"
+    },
+    "rom": {
+      "intakt": "rom_kastell",
+      "verfallen": "rom_kastell_verfallen",
+      "umkaempft": "rom_kastell_umkaempft"
+    }
+  },
+  "banner": null,
+  "streu": [],
+  "hinweis": "Kustoden zeigen sich an Figuren/Technik (Palette kustoden), nicht an Bannern; Bau bleibt Bauweisen-Basis."
+}

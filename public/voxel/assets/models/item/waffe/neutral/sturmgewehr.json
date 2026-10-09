@@ -1,0 +1,18 @@
+{
+  "id": "item/waffe/neutral/sturmgewehr",
+  "name": "Sturmgewehr – Anbau neutral für item/waffe/sturmgewehr",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["waffe", "anbau-teil", "neutral"],
+  "notes": "Steckplatz-Teil (Bauweise neutral) des Gerüsts item/waffe/sturmgewehr. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Sturmgewehr",
+      "op": "group",
+      "at": [-1, -12, 1.5],
+      "ops": [{ "name": "Kennstreifen", "op": "box", "at": [0, 10, 0], "size": [2, 1, 4], "color": "metal_light" }]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

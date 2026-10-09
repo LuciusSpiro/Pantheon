@@ -1,0 +1,32 @@
+{
+  "id": "germanen_kraehenwacht_umkaempft",
+  "name": "germanen_kraehenwacht umkämpft: Ruß (soil_dark/dark), warmer Feuerschein, dunklere, aber gesättigte Flächen",
+  "extends": "germanen_kraehenwacht",
+  "adjust": {
+    "sat": 0.95,
+    "light": 0.85,
+    "tint": "#4A2818",
+    "mix": 0.2,
+    "except": [
+      "glow",
+      "glow2",
+      "rune",
+      "rune_dim",
+      "ember",
+      "alarm",
+      "leit"
+    ]
+  },
+  "roles": {
+    "soil_dark": "#1E1A18",
+    "dark": "#141210",
+    "glow2": {
+      "color": "#FFB070",
+      "emit": 1.2
+    },
+    "ember": {
+      "color": "#FFB070",
+      "emit": 1.2
+    }
+  }
+}

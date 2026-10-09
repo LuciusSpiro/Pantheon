@@ -1,0 +1,39 @@
+{
+  "id": "prop/germanen/schiff/bruecke_konsole",
+  "name": "Brückenkonsole: Eichenpult mit Eisenbändern und Kaltlicht-Schirm (Germanen, Schiff)",
+  "notes": "Brücke, Anker terminal/Steuer. alarm 1: Schirmzeilen und Lampe rot (Rot-Alarm der Schiffe).",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "konsole", "bruecke"],
+  "footprint": [1, 1],
+  "params": {
+    "alarm": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Rot-Alarm" }
+  },
+  "variants": { "alarm": { "alarm": 1 } },
+  "ops": [
+    { "op": "box", "name": "Fußplatte", "at": [-7, 0, -7], "size": [14, 2, 13], "color": { "frame": "metal", "fill": "metal_dark", "axes": "xz" } },
+    { "op": "box", "name": "Pultkörper", "at": [-5, 2, -5], "size": [10, 12, 9], "color": { "stripes": ["wood_dark", "wood_dark", { "shade": "wood_dark", "f": 0.75 }], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "Eckbänder", "at": [-5, 2, 3], "size": [1, 12, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Querband", "at": [-5, 9, -5], "size": [10, 1, 9], "mode": "paint", "color": "metal" },
+    { "op": "use", "name": "Runenband", "model": "prop/germanen/schiff/teil/runenband", "params": { "len": 2, "an": 1 }, "at": [-5, 3, 4] },
+    { "op": "box", "name": "Pultplatte", "at": [-7, 14, -6], "size": [14, 2, 12], "color": { "frame": "trim", "fill": "metal", "axes": "xz" } },
+    { "op": "box", "name": "Schirmrahmen", "at": [-7, 16, -7], "size": [14, 10, 2], "color": { "frame": "metal_light", "fill": "glass", "axes": "xy" } },
+    { "op": "box", "name": "Schirm Zeile 1", "if": "!alarm", "at": [-5, 18, -5], "size": [6, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "box", "name": "Schirm Zeile 2", "if": "!alarm", "at": [-5, 20, -5], "size": [9, 1, 1], "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Schirm Zeile 3", "if": "!alarm", "at": [-5, 22, -5], "size": [4, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "box", "name": "Schirm Kurs", "if": "!alarm", "at": [2, 22, -5], "size": [2, 2, 1], "color": { "role": "white", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Alarm Zeile 1", "if": "alarm", "at": [-5, 18, -5], "size": [10, 1, 1], "color": { "role": "alarm", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Alarm Zeile 2", "if": "alarm", "at": [-5, 21, -5], "size": [10, 1, 1], "color": { "role": "alarm", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Schirmhaube", "at": [-7, 26, -7], "size": [14, 1, 4], "color": "metal_dark" },
+    { "op": "box", "name": "Lampe", "at": [-1, 27, -7], "size": [2, 2, 2], "color": { "shade": "alarm", "f": "alarm ? 1 : 0.6" }, "emit": "alarm ? 1.2 : 0", "jitter": false },
+    { "op": "box", "name": "Taster", "at": [-5, 16, 0], "size": [2, 1, 2], "color": "metal_light", "repeat": { "count": 3, "step": [3, 0, 0] } },
+    { "op": "box", "name": "Taster Bein", "at": [-5, 16, 3], "size": [1, 1, 1], "color": "trim", "repeat": { "count": 3, "step": [2, 0, 0] } },
+    { "op": "box", "name": "Taster Leuchte", "at": [-4, 17, 1], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+    { "op": "line", "name": "Steuerhebel", "from": [4, 16, 2], "to": [5, 21, 3], "r": 0.6, "color": "metal_light" },
+    { "op": "box", "name": "Hebelknauf", "at": [4, 21, 2], "size": [2, 2, 2], "color": "trim" },
+    { "op": "box", "name": "Kabelkanal", "at": [-2, 2, -7], "size": [4, 14, 2], "color": "metal_dark" }
+  ],
+  "sockets": { "use": [0, 0, 0.6], "screen": [0, 1.3, -0.3], "fx_smoke": [0, 1.6, -0.4], "fx_spark": [0.3, 1.05, 0.2], "label": [0, 2.0, 0] },
+  "anchor": [0, 0, 0]
+}

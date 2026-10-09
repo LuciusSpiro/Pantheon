@@ -1,0 +1,30 @@
+{
+  "format": "modul/1", "id": "aussenposten.tor.c", "art": "aussenposten", "typ": "tor",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::::::::",
+    "===GG===",
+    "..=,,,,,",
+    "..=,,,,,",
+    "..=====,",
+    "...,,,,,",
+    ".o.,,.o.",
+    ".o.,,.o."
+  ],
+  "anker": [
+    "..e.....",
+    "........",
+    "........",
+    "....w...",
+    "........",
+    "........",
+    ".....p..",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "laut" },
+    "w": { "rolle": "wache" },
+    "p": { "rolle": "patrouille", "kette": "a" }
+  },
+  "belegungen": []
+}

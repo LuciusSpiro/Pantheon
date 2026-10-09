@@ -10,8 +10,27 @@ const BASE = '/voxel/';
 const LRU_MAX = 256;
 const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 
+// B1 (VOXEL): /voxel/index.json listet alle vorhandenen Assets je Art. Vorlagen (`use` mit options) fragen sonst jede
+// Kombination ab (z. B. kit/<bauweise>/<art>/wand_fuellung) – Hunderte vermeidbare 404 je Kartenbau. Was nicht im Index steht,
+// wird ohne Anfrage als fehlend gemeldet (loadOptional fängt das ab). Ohne Index: wie bisher.
+const indexReady = (async () => {
+  try {
+    const r = await fetch(BASE + 'index.json', { cache: 'no-cache' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const out = new Map();
+    for (const [kind, list] of Object.entries(j || {})) if (Array.isArray(list)) out.set(kind, new Set(list));
+    return out.size ? out : null;
+  } catch (e) { return null; }
+})();
+let index404 = 0;
 const io = {
   async json(p) {
+    const m = /^assets\/(models|palettes|rigs|figures|poses|moods|scenes)\/(.+)\.json$/.exec(p);
+    if (m) {
+      const idx = await indexReady;
+      if (idx && idx.has(m[1]) && !idx.get(m[1]).has(m[2])) { index404++; throw new Error('HTTP 404 ' + p + ' (nicht im Index)'); }
+    }
     const r = await fetch(BASE + p, { cache: 'no-cache' });
     if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + p);
     return r.json();
@@ -33,10 +52,12 @@ export const VOXEL_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, ro
 VOXEL_MAT.onBeforeCompile = (sh) => {
   sh.vertexShader = 'attribute float aEmit;\nvarying float vEmit;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvEmit = aEmit;');
   sh.fragmentShader = 'varying float vEmit;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
-    // QA: Emission farbtreu deckeln (Maximalkanal ≤ 1,0, dann ×0,85) – sonst brennen Kronen/Lampen mit emit 1,6–2 zu Weiß aus
-    '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * (min(1.0, 1.0 / eM) * 0.85); diffuseColor.rgb *= 0.0; }');
+    // Emission: Vertexfarbe = Rollenfarbe × emit (Mesher). Stärke bleibt erhalten (×1,2, damit ember/leit über die Bloom-Schwelle
+    // kommen und als Lichtpunkte lesbar sind), farbtreu gedeckelt bei Maximalkanal 1,5 (Kronen mit emit 1,6–2 brennen nicht weiß aus).
+    // Früher: Maximalkanal ≤ 1,0 × 0,85 – damit ging emit der Palette verloren (ember beige, leit lavendel).
+    '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * min(1.2, 1.5 / eM); diffuseColor.rgb *= 0.0; }');
 };
-VOXEL_MAT.customProgramCacheKey = () => 'voxel-emit-v2';
+VOXEL_MAT.customProgramCacheKey = () => 'voxel-emit-v3';
 
 /** lit + emit (je BufferGeometry oder null) → eine Geometrie mit Attribut aEmit. */
 export function combine(lit, emit) {
@@ -210,7 +231,9 @@ export function geometries(id0, params, opts = {}) {
     counters.builds++;
   } catch (e) {
     counters.errors++; onError('loader.build:' + id, e);
-    missing.add('models:' + id);
+    // fehlende Palette (palette-Override noch nicht geladen) macht das Modell nicht dauerhaft „fehlend“
+    if (!/Palette ".*" nicht gefunden/.test(String(e && e.message))) missing.add('models:' + id);
+    else if (opts.palette && lib.load) lib.load('palettes', opts.palette).catch(() => null);
     return null;
   }
   lru.set(k, hit);
@@ -326,6 +349,6 @@ export function stats() {
   return {
     manifest: manifestById.size, cached: lru.size, builds: counters.builds, hits: counters.hits,
     placeholders: counters.placeholders, missing: [...missing], errors: counters.errors, evicted: counters.evicted,
-    loading: loading.size,
+    loading: loading.size, vermiedeneAnfragen: index404,
   };
 }

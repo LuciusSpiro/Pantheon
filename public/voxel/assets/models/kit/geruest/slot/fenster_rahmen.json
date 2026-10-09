@@ -1,0 +1,20 @@
+{
+  "id": "kit/geruest/slot/fenster_rahmen",
+  "name": "Gerüst-Steckplatz fenster_rahmen (neutral): Brüstung (teil 0) bzw. Sturz mit dunkler Krone (teil 1)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["geruest","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "teil": {"default":0,"min":0,"max":1,"step":1,"label":"0 Brüstung · 1 Sturz"}
+  },
+  "ops": [
+    {"name":"Füllung","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"stone","f":"1 * (1 - zustand * 0.1)"}},
+    {"name":"Krone","op":"box","if":"teil == 1","at":[0,"h - 1",0],"size":["w",1,"d"],"color":{"shade":"stone_dark","f":"0.65 * (1 - zustand * 0.1)"}}
+  ],
+  "anchor": [0,0,0]
+}

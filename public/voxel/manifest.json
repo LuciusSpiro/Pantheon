@@ -7,6 +7,11 @@
       "count": 8
     },
     {
+      "team": "art-ap",
+      "file": "art-ap.json",
+      "count": 10
+    },
+    {
       "team": "art-b",
       "file": "art-b.json",
       "count": 7
@@ -32,17 +37,128 @@
       "count": 17
     },
     {
+      "team": "art-figa",
+      "file": "art-figa.json",
+      "count": 3
+    },
+    {
+      "team": "art-figb",
+      "file": "art-figb.json",
+      "count": 3
+    },
+    {
       "team": "art-g",
       "file": "art-g.json",
       "count": 5
     },
     {
+      "team": "art-gkb",
+      "file": "art-gkb.json",
+      "count": 15
+    },
+    {
+      "team": "art-gkp",
+      "file": "art-gkp.json",
+      "count": 12
+    },
+    {
       "team": "art-h",
       "file": "art-h.json",
       "count": 22
+    },
+    {
+      "team": "art-ru",
+      "file": "art-ru.json",
+      "count": 28
+    },
+    {
+      "team": "art-sch",
+      "file": "art-sch.json",
+      "count": 12
+    },
+    {
+      "team": "art-st",
+      "file": "art-st.json",
+      "count": 9
+    },
+    {
+      "team": "art-waffe",
+      "file": "art-waffe.json",
+      "count": 9
     }
   ],
   "assets": {
+    "actor/rom/waechter": {
+      "id": "actor/rom/waechter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1.25,
+        2
+      ],
+      "height": 2.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "front": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "aktiv": {
+          "state": 0
+        },
+        "treffer": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        },
+        "schild_hinten": {
+          "front": 0
+        }
+      },
+      "sockets": {
+        "label": [
+          0,
+          2.3,
+          0
+        ],
+        "shield_front": [
+          0,
+          0.8,
+          1
+        ],
+        "fx_spark": [
+          0.35,
+          1.2,
+          0.4
+        ],
+        "head_top": [
+          0,
+          2.1,
+          0.6
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 5000,
+      "tags": [
+        "rom",
+        "actor",
+        "gegner",
+        "waechter",
+        "ruine"
+      ],
+      "source": "actor/rom/waechter",
+      "team": "art-ru"
+    },
     "away/kesh/archive_key": {
       "id": "away/kesh/archive_key",
       "kind": "model",
@@ -1377,6 +1493,3642 @@
       ],
       "source": "crew/tami",
       "team": "art-f"
+    },
+    "fig/germanen/enterer": {
+      "id": "fig/germanen/enterer",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "height": 2.27,
+      "sockets": {
+        "handR": [
+          -0.378,
+          0.825,
+          0.034
+        ],
+        "handL": [
+          0.378,
+          0.825,
+          0.034
+        ],
+        "back": [
+          0,
+          1.375,
+          -0.207
+        ],
+        "label": [
+          0,
+          2.45,
+          0
+        ],
+        "head_top": [
+          0,
+          2.3,
+          0
+        ],
+        "wrists": [
+          0,
+          0.935,
+          -0.275
+        ],
+        "fx_spark": [
+          0,
+          1.43,
+          0.22
+        ]
+      },
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "enterer"
+      ],
+      "notes": "Berserker, 2 Wunden (Spielwert). Erzeugt (germanen × enterer), scale 1,1 (Sockets hier schon ×1,1). Leitform MASSIG + GEBEUGT: breiter Fellbuckel mit Fell-Schulterstücken (1,24 m breit), kurzer Fellumhang (bottom 16), Bärenfell-Haube, nackte Oberarme (fig/rolle/enterer/oberarm), item/waffe/nahkampf, keine Fernwaffe. Posen: ruhe guard_hunched, ziel windup. Höhe 2,27 m (110 %-Regel). Dreiecke 5.830 / 5.894 (rank 1). rank 1 = Häuptling.",
+      "source": "fig/germanen/enterer",
+      "team": "art-figb"
+    },
+    "fig/germanen/grenadier": {
+      "id": "fig/germanen/grenadier",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ],
+        "head_top": [
+          0,
+          2.15,
+          0
+        ],
+        "wrists": [
+          0,
+          0.85,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "grenadier"
+      ],
+      "notes": "Donnerwerfer. Erzeugt (germanen × grenadier). Leitform: stehende Rückentrommel Ø 0,63 m bis 1,81 m Höhe (von oben runde Scheibe mit hellem Granatkopf-Ring hinter dem Kopf; ragt 0,81 m hinter den Pivot), Granatgurt quer über der Brust, offener Helm helm_a, item/waffe/granatwerfer. Posen: ruhe stand, ziel launch. rank 1 = Häuptling (Knochenbänder an der Trommel). Dreiecke 5.510 / 5.628.",
+      "source": "fig/germanen/grenadier",
+      "team": "art-figa"
+    },
+    "fig/germanen/grundtyp": {
+      "id": "fig/germanen/grundtyp",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ],
+        "head_top": [
+          0,
+          2.15,
+          0
+        ],
+        "wrists": [
+          0,
+          0.85,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "grundtyp"
+      ],
+      "notes": "Karl. Erzeugt: voxelwerk tools/gen-figuren.mjs (baukasten/fraktionen/germanen.json × baukasten/rollen/grundtyp.json), nie von Hand ändern. Leitform: mittlere Figur, Fellumhang (Rollenteil), offener Helm helm_a, Blaster item/waffe/blaster (bauweise germanen). Posen: ruhe stand, ziel aim. rank 1 = Häuptling (Knochenkamm/-reif). Besitz-Palette (friedlose/kontor/Clan) per palette-Override. Dreiecke 5.044 (rank 0) / 5.130 (rank 1).",
+      "source": "fig/germanen/grundtyp",
+      "team": "art-figa"
+    },
+    "fig/germanen/haescher": {
+      "id": "fig/germanen/haescher",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "height": 2,
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.25,
+          0
+        ],
+        "head_top": [
+          0,
+          2.05,
+          0
+        ],
+        "wrists": [
+          0,
+          0.85,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "haescher"
+      ],
+      "notes": "Wergeld-Fänger. Erzeugt (germanen × haescher). Leitform: waagrechte Fangnetz-Rolle quer über den Schultern (von oben ein T hinter dem Kopf) mit Bola am Rücken, Eisenmaske mit Atemfilter, Fesselkette über der Brust, Fesselschlaufen vorn am Gürtel, item/waffe/betaeuber (Stab mit blauem Kopf). Rollenteile ohne Leuchten (Blau gehört dem Betäuber/Telegraf). Posen: ruhe guard, ziel aim_rifle. rank 1 = Häuptling.",
+      "source": "fig/germanen/haescher",
+      "team": "art-figb"
+    },
+    "fig/germanen/niederhalter": {
+      "id": "fig/germanen/niederhalter",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.35,
+          0
+        ],
+        "head_top": [
+          0,
+          2.2,
+          0
+        ],
+        "wrists": [
+          0,
+          0.85,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "niederhalter"
+      ],
+      "notes": "Bolzer. Erzeugt (germanen × niederhalter). Leitform BREIT: Schulterjoch mit Lamellenplatten bis ±0,56 m (Figur 1,13 m breit statt 0,94), flacher Kühlrippen-Tornister, geschlossener Helm helm_b, item/waffe/sturmgewehr (heat 0–3 setzt das Spiel an der Waffe). Posen: ruhe UND ziel aim_heavy (Gewehr waagrecht in Hüfthöhe = Leitform, auch im Stehen). rank 1 = Häuptling. Dreiecke 5.384 / 5.610.",
+      "source": "fig/germanen/niederhalter",
+      "team": "art-figa"
+    },
+    "fig/germanen/schuetze": {
+      "id": "fig/germanen/schuetze",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "facing": "+z",
+      "params": {
+        "rank": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "krieger": {
+          "rank": 0
+        },
+        "haeuptling": {
+          "rank": 1
+        }
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "height": 2.19,
+      "sockets": {
+        "handR": [
+          -0.344,
+          0.75,
+          0.031
+        ],
+        "handL": [
+          0.344,
+          0.75,
+          0.031
+        ],
+        "back": [
+          0,
+          1.25,
+          -0.188
+        ],
+        "label": [
+          0,
+          2.35,
+          0
+        ],
+        "head_top": [
+          0,
+          2.2,
+          0
+        ],
+        "wrists": [
+          0,
+          0.85,
+          -0.25
+        ],
+        "fx_spark": [
+          0,
+          1.3,
+          0.2
+        ]
+      },
+      "tags": [
+        "germanen",
+        "figure",
+        "enemy",
+        "away",
+        "baukasten",
+        "schuetze"
+      ],
+      "notes": "Jäger. Erzeugt: voxelwerk tools/gen-figuren.mjs (baukasten/fraktionen/germanen.json × baukasten/rollen/schuetze.json), nie von Hand ändern. Leitform SCHLANK: schmale Oberarme ohne Schulterplanken (fig/rolle/schuetze/oberarm), Jagdkapuze mit hoher Spitze und EINEM Leuchtauge am Halbvisier (glow, emit 1,2, ruhig), schmaler Speerbolzen-Köcher schräg am Rücken, item/waffe/lanze (bauweise germanen, 1,63 m). Kein Fellumhang. Posen: ruhe rest_upright (Lanze aufrecht, itemOffset wertet VOXEL aus), ziel charge (Lanzenleuchten + Zielstrahl am Ziel = FX). rank 1 = Häuptling.",
+      "source": "fig/germanen/schuetze",
+      "team": "art-figb"
+    },
+    "item/fessel": {
+      "id": "item/fessel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.13,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "aktiv": 1
+        },
+        "aus": {
+          "aktiv": 0
+        }
+      },
+      "sockets": {
+        "center": [
+          0,
+          0,
+          0
+        ],
+        "left": [
+          0.156,
+          0,
+          0
+        ],
+        "right": [
+          -0.156,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "item",
+        "held",
+        "fessel"
+      ],
+      "notes": "Am Figur-Socket wrists, Anker = Mitte zwischen den Schellen (Schellen bei x ±0,16 m). Energieband Rolle glow der Figurpalette, ruhig. aktiv 0 = Band aus.",
+      "source": "item/fessel",
+      "team": "art-waffe"
+    },
+    "item/waffe/betaeuber": {
+      "id": "item/waffe/betaeuber",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.688,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.562,
+          0.156
+        ],
+        "vent": [
+          0,
+          -0.125,
+          0.313
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.69 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim_rifle.",
+      "source": "item/waffe/betaeuber",
+      "team": "art-waffe"
+    },
+    "item/waffe/blaster": {
+      "id": "item/waffe/blaster",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.688,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.562,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.375,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.69 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim.",
+      "source": "item/waffe/blaster",
+      "team": "art-waffe"
+    },
+    "item/waffe/granate": {
+      "id": "item/waffe/granate",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {
+        "scharf": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "scharf": {
+          "scharf": 1
+        },
+        "blind": {
+          "scharf": 0
+        }
+      },
+      "sockets": {
+        "center": [
+          0,
+          0,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "geschoss"
+      ],
+      "notes": "Projektil kind granate. Anker = Mittelpunkt (nicht Boden). Zündring glow2 ruhig (emit 1,1); Telegraf (Glut-Orange Kreis) kommt von fx.js.",
+      "source": "item/waffe/granate",
+      "team": "art-waffe"
+    },
+    "item/waffe/granatwerfer": {
+      "id": "item/waffe/granatwerfer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.813,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.687,
+          0.281
+        ],
+        "vent": [
+          0,
+          -0.437,
+          0.469
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_schwer"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.81 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse schwer, Pose aim_heavy.",
+      "source": "item/waffe/granatwerfer",
+      "team": "art-waffe"
+    },
+    "item/waffe/lanze": {
+      "id": "item/waffe/lanze",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.375,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -2.062,
+          0.219
+        ],
+        "charge": [
+          0,
+          -2.031,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.5,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 2.38 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose charge. Socket charge = Emitter (Lanzenleuchten).",
+      "source": "item/waffe/lanze",
+      "team": "art-waffe"
+    },
+    "item/waffe/nahkampf": {
+      "id": "item/waffe/nahkampf",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.875,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "blade_tip": [
+          0,
+          -0.687,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.406,
+          0
+        ],
+        "vent": [
+          0,
+          -0.156,
+          0.125
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_nahkampf"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.88 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse nahkampf, Pose windup/strike. Socket blade_tip = Klingenspitze; muzzle = Kopfmitte (Schlag-FX). Kopf quer (Blatt in der x-y-Ebene, 0,63 m breit), damit die Klinge aus der Spielansicht als Fläche erscheint.",
+      "source": "item/waffe/nahkampf",
+      "team": "art-waffe"
+    },
+    "item/waffe/pistole": {
+      "id": "item/waffe/pistole",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.438,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.344,
+          0.25
+        ],
+        "vent": [
+          0,
+          -0.187,
+          0.406
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_pistole"
+      ],
+      "notes": "Pistole der Verwundeten: Alias von lerche/item/blaster (Optik unverändert, Palette lerche_rom fest). bauweise/heat werden angenommen, wirken aber nicht. Anbau handR, Anker = Griff, Mündung −y, Oberseite +z.",
+      "source": "item/waffe/pistole",
+      "team": "art-waffe"
+    },
+    "item/waffe/sturmgewehr": {
+      "id": "item/waffe/sturmgewehr",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.938,
+      "facing": "+z",
+      "params": {
+        "heat": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "germanen": {
+          "bauweise": "germanen"
+        },
+        "germanen_heiss": {
+          "bauweise": "germanen",
+          "heat": 3
+        },
+        "rom": {
+          "bauweise": "rom"
+        },
+        "rom_heiss": {
+          "bauweise": "rom",
+          "heat": 3
+        },
+        "rostmeute": {
+          "bauweise": "rostmeute"
+        },
+        "rostmeute_heiss": {
+          "bauweise": "rostmeute",
+          "heat": 3
+        },
+        "neutral": {
+          "bauweise": "neutral"
+        },
+        "neutral_heiss": {
+          "bauweise": "neutral",
+          "heat": 3
+        }
+      },
+      "sockets": {
+        "grip": [
+          0,
+          0,
+          0
+        ],
+        "muzzle": [
+          0,
+          -0.75,
+          0.219
+        ],
+        "vent": [
+          0,
+          -0.437,
+          0.344
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "item",
+        "weapon",
+        "held",
+        "waffe",
+        "griff_gewehr"
+      ],
+      "notes": "Anbau handR, Anker = Griff (grip), Mündung/Spitze −y, Oberseite +z. Länge fest 0.94 m (height = Länge entlang y). Parameter bauweise (options germanen|rom|rostmeute|neutral, Standard rom = Spieler) über states, heat 0–3 (Kühlrippen glühen, ab 1 je Stufe mehr Rippen, 3 = Weißglut). Palette folgt der Figur (palette-Override), Standalone lerche_rom. Griffklasse gewehr, Pose aim_rifle.",
+      "source": "item/waffe/sturmgewehr",
+      "team": "art-waffe"
+    },
+    "kit/germanen/boden": {
+      "id": "kit/germanen/boden",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "belag": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "gitter": {
+          "belag": 1
+        },
+        "planke": {
+          "belag": 2
+        },
+        "schmuck": {
+          "belag": 3
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 4
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "germanen",
+        "kit",
+        "boden"
+      ],
+      "source": "kit/germanen/boden",
+      "team": "art-gkb"
+    },
+    "kit/germanen/deckung_halb": {
+      "id": "kit/germanen/deckung_halb",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "deckung_halb",
+        "cover_low"
+      ],
+      "source": "kit/germanen/deckung_halb",
+      "team": "art-gkb"
+    },
+    "kit/germanen/deckung_voll": {
+      "id": "kit/germanen/deckung_voll",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "deckung_voll",
+        "wall",
+        "cover_full"
+      ],
+      "source": "kit/germanen/deckung_voll",
+      "team": "art-gkb"
+    },
+    "kit/germanen/fenster": {
+      "id": "kit/germanen/fenster",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "fenster",
+        "wall",
+        "window"
+      ],
+      "source": "kit/germanen/fenster",
+      "team": "art-gkb"
+    },
+    "kit/germanen/gitter": {
+      "id": "kit/germanen/gitter",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "gitter",
+        "wall"
+      ],
+      "source": "kit/germanen/gitter",
+      "team": "art-gkb"
+    },
+    "kit/germanen/kante": {
+      "id": "kit/germanen/kante",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "kante",
+        "cover_low"
+      ],
+      "source": "kit/germanen/kante",
+      "team": "art-gkb"
+    },
+    "kit/germanen/luke": {
+      "id": "kit/germanen/luke",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "offen": {
+          "state": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "luke"
+      ],
+      "source": "kit/germanen/luke",
+      "team": "art-gkb"
+    },
+    "kit/germanen/pfeiler": {
+      "id": "kit/germanen/pfeiler",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "pfeiler",
+        "wall",
+        "cover_full"
+      ],
+      "source": "kit/germanen/pfeiler",
+      "team": "art-gkb"
+    },
+    "kit/germanen/schott": {
+      "id": "kit/germanen/schott",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gehackt": {
+          "state": 2
+        },
+        "gehackt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 3
+        },
+        "verschlossen_geschnitten": {
+          "state": 3,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "germanen",
+        "kit",
+        "schott",
+        "wall"
+      ],
+      "source": "kit/germanen/schott",
+      "team": "art-gkb"
+    },
+    "kit/germanen/tor": {
+      "id": "kit/germanen/tor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        4,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          2
+        ],
+        "breite": [
+          2,
+          4
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gesprengt": {
+          "state": 2
+        },
+        "gesprengt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "breit": {
+          "breite": 4
+        },
+        "breit_offen": {
+          "breite": 4,
+          "state": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "germanen",
+        "kit",
+        "tor",
+        "wall"
+      ],
+      "source": "kit/germanen/tor",
+      "team": "art-gkb"
+    },
+    "kit/germanen/truemmer": {
+      "id": "kit/germanen/truemmer",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 1
+        },
+        "b": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "truemmer",
+        "cover_low"
+      ],
+      "source": "kit/germanen/truemmer",
+      "team": "art-gkb"
+    },
+    "kit/germanen/tuer": {
+      "id": "kit/germanen/tuer",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "offen": {
+          "state": 0
+        },
+        "offen_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "zu": {
+          "state": 1
+        },
+        "zu_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 2
+        },
+        "verschlossen_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "gesprengt": {
+          "state": 3
+        },
+        "gesprengt_geschnitten": {
+          "state": 3,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "germanen",
+        "kit",
+        "tuer",
+        "wall"
+      ],
+      "source": "kit/germanen/tuer",
+      "team": "art-gkb"
+    },
+    "kit/germanen/wand": {
+      "id": "kit/germanen/wand",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "wand",
+        "wall"
+      ],
+      "source": "kit/germanen/wand",
+      "team": "art-gkb"
+    },
+    "kit/germanen/wand_schwach": {
+      "id": "kit/germanen/wand_schwach",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "wand_schwach",
+        "wall"
+      ],
+      "source": "kit/germanen/wand_schwach",
+      "team": "art-gkb"
+    },
+    "kit/germanen/zaun": {
+      "id": "kit/germanen/zaun",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "kit",
+        "zaun",
+        "wall"
+      ],
+      "source": "kit/germanen/zaun",
+      "team": "art-gkb"
+    },
+    "kit/rom/boden": {
+      "id": "kit/rom/boden",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "belag": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "gitter": {
+          "belag": 1
+        },
+        "planke": {
+          "belag": 2
+        },
+        "schmuck": {
+          "belag": 3
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 4
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 150,
+      "tags": [
+        "rom",
+        "kit",
+        "boden"
+      ],
+      "source": "kit/rom/boden",
+      "team": "art-ru"
+    },
+    "kit/rom/deckung_halb": {
+      "id": "kit/rom/deckung_halb",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "deckung_halb",
+        "cover_low"
+      ],
+      "source": "kit/rom/deckung_halb",
+      "team": "art-ru"
+    },
+    "kit/rom/deckung_voll": {
+      "id": "kit/rom/deckung_voll",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "deckung_voll",
+        "wall",
+        "cover_full"
+      ],
+      "source": "kit/rom/deckung_voll",
+      "team": "art-ru"
+    },
+    "kit/rom/gitter": {
+      "id": "kit/rom/gitter",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "gitter",
+        "wall"
+      ],
+      "source": "kit/rom/gitter",
+      "team": "art-ru"
+    },
+    "kit/rom/kante": {
+      "id": "kit/rom/kante",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "kante",
+        "cover_low"
+      ],
+      "source": "kit/rom/kante",
+      "team": "art-ru"
+    },
+    "kit/rom/luke": {
+      "id": "kit/rom/luke",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "offen": {
+          "state": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "luke"
+      ],
+      "source": "kit/rom/luke",
+      "team": "art-ru"
+    },
+    "kit/rom/pfeiler": {
+      "id": "kit/rom/pfeiler",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "pfeiler",
+        "wall",
+        "cover_full"
+      ],
+      "source": "kit/rom/pfeiler",
+      "team": "art-ru"
+    },
+    "kit/rom/tor": {
+      "id": "kit/rom/tor",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        4,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          2
+        ],
+        "breite": [
+          2,
+          4
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gesprengt": {
+          "state": 2
+        },
+        "gesprengt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "breit": {
+          "breite": 4
+        },
+        "breit_offen": {
+          "breite": 4,
+          "state": 1
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "kit",
+        "tor",
+        "wall"
+      ],
+      "source": "kit/rom/tor",
+      "team": "art-ru"
+    },
+    "kit/rom/truemmer": {
+      "id": "kit/rom/truemmer",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 1
+        },
+        "b": {
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "truemmer",
+        "cover_low"
+      ],
+      "source": "kit/rom/truemmer",
+      "team": "art-ru"
+    },
+    "kit/rom/tuer": {
+      "id": "kit/rom/tuer",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "offen": {
+          "state": 0
+        },
+        "offen_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "zu": {
+          "state": 1
+        },
+        "zu_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 2
+        },
+        "verschlossen_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "gesprengt": {
+          "state": 3
+        },
+        "gesprengt_geschnitten": {
+          "state": 3,
+          "cut": 1
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "kit",
+        "tuer",
+        "wall"
+      ],
+      "source": "kit/rom/tuer",
+      "team": "art-ru"
+    },
+    "kit/rom/wand": {
+      "id": "kit/rom/wand",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "wand",
+        "wall"
+      ],
+      "source": "kit/rom/wand",
+      "team": "art-ru"
+    },
+    "kit/rom/wand_schwach": {
+      "id": "kit/rom/wand_schwach",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "offen": {
+          "state": 1
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "wand_schwach",
+        "wall"
+      ],
+      "source": "kit/rom/wand_schwach",
+      "team": "art-ru"
+    },
+    "kit/rom/zaun": {
+      "id": "kit/rom/zaun",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.5,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "ruine_verfallen": {
+          "zustand": 1,
+          "seed": 5
+        },
+        "ruine_umkaempft": {
+          "zustand": 2,
+          "seed": 6
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom",
+        "kit",
+        "zaun",
+        "wall"
+      ],
+      "source": "kit/rom/zaun",
+      "team": "art-ru"
+    },
+    "leit/germanen/aussenposten/kraehenwacht_turm": {
+      "id": "leit/germanen/aussenposten/kraehenwacht_turm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1
+        ],
+        "light": [
+          0,
+          2.75,
+          0
+        ],
+        "stand": [
+          0,
+          2.25,
+          0.6
+        ],
+        "label": [
+          0,
+          3.5,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "leit",
+        "herzstueck",
+        "ziel",
+        "light",
+        "turm"
+      ],
+      "notes": "Leitstück Krähenwacht (Überarbeitung nach SICHTUNG-ART): 2×2, Steinsockel mit hellem Frostkranz, schlanker Bohlenturm, offene Plattform 2,25 m mit Krähen auf den vier Ecken und Feuerkorb (Rolle ember, emit 1,2) – von oben: heller Rahmen, dunkle Plattform, amberfarbener Kern. Ziel-Zustände: 0 frei (Feuer, Banner), 1 genommen (Asche, Banner heruntergerissen), 2 aktiviert (hohes Signalfeuer, 3,44 m). Banner cloth + Krähe leather, kein Schwarz-Weiß-Rot. Höhe > 2,2 m: braucht Ausnahme für leit/* in check-assets.",
+      "source": "leit/germanen/aussenposten/kraehenwacht_turm",
+      "team": "art-ap"
+    },
+    "leit/germanen/aussenposten/thing_stein": {
+      "id": "leit/germanen/aussenposten/thing_stein",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2.7,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "light": [
+          0,
+          0.7,
+          0.3
+        ],
+        "label": [
+          0,
+          2.9,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "leit",
+        "ziel",
+        "thinghof",
+        "light"
+      ],
+      "notes": "Thingstein im Steinkreis (Überarbeitung nach SICHTUNG-ART): 2×2, heller Frost-Kreisplatz mit sechs Kreissteinen, Monolith 2,69 m, zwei Feuerschalen (ember) vorn. Ornamentband aus Isa und Kaunan (eingelegt metal_light, aktiviert Rolle rune emit 1,0, pulsiert nie). 1 genommen = Feuer aus, Speer mit Wimpel (cloth).",
+      "source": "leit/germanen/aussenposten/thing_stein",
+      "team": "art-ap"
+    },
+    "leit/germanen/schiff/drachenkopf_bug": {
+      "id": "leit/germanen/schiff/drachenkopf_bug",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "alarm": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          -0.75,
+          0,
+          0.75
+        ],
+        "seat": [
+          -0.75,
+          0.55,
+          -0.25
+        ],
+        "light": [
+          0.69,
+          2.45,
+          -0.38
+        ],
+        "screen": [
+          -0.72,
+          0.75,
+          0.5
+        ],
+        "label": [
+          0,
+          3.6,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 10000,
+      "measuredTris": 6744,
+      "tags": [
+        "germanen",
+        "schiff",
+        "leit",
+        "herzstueck"
+      ],
+      "source": "leit/germanen/schiff/drachenkopf_bug",
+      "team": "art-sch"
+    },
+    "leit/germanen/schiff/ruderbank": {
+      "id": "leit/germanen/schiff/ruderbank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "alarm": [
+          0,
+          1
+        ],
+        "ladung": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        },
+        "leer": {
+          "ladung": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          0.7,
+          -0.3
+        ],
+        "fx_spark": [
+          0.6,
+          0.7,
+          0
+        ],
+        "light": [
+          0,
+          2,
+          -0.7
+        ],
+        "label": [
+          0,
+          3.6,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 10000,
+      "measuredTris": 6358,
+      "tags": [
+        "germanen",
+        "schiff",
+        "leit",
+        "herzstueck"
+      ],
+      "source": "leit/germanen/schiff/ruderbank",
+      "team": "art-sch"
+    },
+    "leit/germanen/station/hochsitz_halle": {
+      "id": "leit/germanen/station/hochsitz_halle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        3,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "sockets": {
+        "stand": [
+          0,
+          0.35,
+          -0.5
+        ],
+        "use": [
+          0,
+          0.35,
+          0.5
+        ],
+        "light": [
+          -1.1,
+          0.75,
+          0.55
+        ],
+        "light_r": [
+          1.1,
+          0.75,
+          0.55
+        ],
+        "light_top": [
+          -0.9,
+          3.35,
+          -0.75
+        ],
+        "label": [
+          0,
+          3.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "station",
+        "leit",
+        "herzstueck",
+        "light"
+      ],
+      "source": "leit/germanen/station/hochsitz_halle",
+      "team": "art-st"
+    },
+    "leit/germanen/station/schmiedeherd": {
+      "id": "leit/germanen/station/schmiedeherd",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        3,
+        2
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "sockets": {
+        "use": [
+          0.8,
+          0,
+          0.75
+        ],
+        "light": [
+          -0.45,
+          0.65,
+          -0.25
+        ],
+        "fx_smoke": [
+          -0.45,
+          3.45,
+          -0.8
+        ],
+        "fx_spark": [
+          0.75,
+          0.75,
+          0.45
+        ],
+        "light_top": [
+          -0.45,
+          3.2,
+          -0.8
+        ],
+        "label": [
+          0,
+          3.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "station",
+        "leit",
+        "herzstueck",
+        "light"
+      ],
+      "source": "leit/germanen/station/schmiedeherd",
+      "team": "art-st"
+    },
+    "leit/rom/ruine/fahnenheiligtum": {
+      "id": "leit/rom/ruine/fahnenheiligtum",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 3.45,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0.2,
+          0
+        ],
+        "label": [
+          0,
+          3.7,
+          -0.4
+        ],
+        "light": [
+          0,
+          2.8,
+          -0.45
+        ],
+        "fx_spark": [
+          0,
+          1,
+          -0.3
+        ]
+      },
+      "tint": [
+        "cloth2"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "rom",
+        "ruine",
+        "leit",
+        "herzstueck",
+        "ziel"
+      ],
+      "source": "leit/rom/ruine/fahnenheiligtum",
+      "team": "art-ru"
+    },
+    "leit/rom/ruine/wachturm_ruine": {
+      "id": "leit/rom/ruine/wachturm_ruine",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        3,
+        3
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 4
+        }
+      },
+      "sockets": {
+        "stand": [
+          0,
+          0.75,
+          0
+        ],
+        "label": [
+          0,
+          3.7,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "ruine",
+        "leit",
+        "turm",
+        "aussicht"
+      ],
+      "source": "leit/rom/ruine/wachturm_ruine",
+      "team": "art-ru"
     },
     "lerche/actor/bot": {
       "id": "lerche/actor/bot",
@@ -5542,6 +9294,2680 @@
       ],
       "source": "lerche/station/transfer",
       "team": "art-c"
+    },
+    "prop/germanen/aussenposten/abflussgitter": {
+      "id": "prop/germanen/aussenposten/abflussgitter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.45,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          0.8,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "luke",
+        "abfluss",
+        "eingang"
+      ],
+      "notes": "Eingang technisch (Kachel L, Zustände zu/offen nach CONTRACT-B1 §3.1). Steinfassung bündig, offen = Gitter schräg aufgestemmt, Schloss aufgebrochen, Schacht dunkel.",
+      "source": "prop/germanen/aussenposten/abflussgitter",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/landeplatz_2x2": {
+      "id": "prop/germanen/aussenposten/landeplatz_2x2",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.65,
+      "facing": "+z",
+      "params": {
+        "lit": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "lit": 1
+        },
+        "dunkel": {
+          "lit": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.55,
+          0
+        ],
+        "beam": [
+          0,
+          0.15,
+          0
+        ],
+        "label": [
+          0,
+          0.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "landeplatz",
+        "light"
+      ],
+      "notes": "Begehbares Bohlendeck 2×2 mit Eisenrahmen, Landering (trim) und vier Eckbaken (glow, emit 1,1). Bewusst kein Kreuz im Ring (Symbolik-Pflicht).",
+      "source": "prop/germanen/aussenposten/landeplatz_2x2",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/plateau_kante": {
+      "id": "prop/germanen/aussenposten/plateau_kante",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.95,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "seed": [
+          0,
+          9999
+        ]
+      },
+      "states": {
+        "gerade_x": {
+          "conn": 10
+        },
+        "gerade_z": {
+          "conn": 5
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 14
+        },
+        "kreuz": {
+          "conn": 15
+        },
+        "einzeln": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "kante",
+        "aussicht",
+        "autotile"
+      ],
+      "notes": "Kachel k (Plateaukante): Felsblock 0,5 m + Holzbrüstung bis 0,94 m (halbe Deckung). conn = Nachbar-Kanten N1 O2 S4 W8, Riegel laufen zu den gesetzten Bits. seed: Frostflecken und Brocken.",
+      "source": "prop/germanen/aussenposten/plateau_kante",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/runenmast": {
+      "id": "prop/germanen/aussenposten/runenmast",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.4,
+          0.25
+        ],
+        "fx_explode": [
+          0,
+          1.2,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          2,
+          0
+        ],
+        "fx_spark": [
+          0,
+          1,
+          0.2
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "funkmast"
+      ],
+      "notes": "Sprengpunkt (CONTRACT-B1 §3.3): state 0 intakt / 1 scharf (Ladungspaket + Zünder am Mastfuß, vorn +z) / 2 zerstoert (Stumpf, Mast umgestürzt, Ruß). Runenband = Pseudorunen-Schaltkreis als Ornamentband (nur senkrechte/waagrechte Bahnen, keine Einzelzeichen), glow emit 0,9, pulsiert nie.",
+      "source": "prop/germanen/aussenposten/runenmast",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/schuerfgeraet": {
+      "id": "prop/germanen/aussenposten/schuerfgeraet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "an": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "an": 1
+        },
+        "aus": {
+          "an": 0
+        }
+      },
+      "sockets": {
+        "fx_smoke": [
+          -0.34,
+          1,
+          -0.34
+        ],
+        "fx_spark": [
+          0,
+          0.15,
+          0
+        ],
+        "light": [
+          -0.28,
+          0.25,
+          -0.06
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "deko",
+        "light"
+      ],
+      "notes": "Schürfgerät für Splittergürtel-Erz: Dreibein, Bohrgestänge, Motorkasten mit Auspuff (fx_smoke), Erzkasten mit Kristallen (glow ≤ 0,9).",
+      "source": "prop/germanen/aussenposten/schuerfgeraet",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/tank": {
+      "id": "prop/germanen/aussenposten/tank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.85,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.55,
+          0.45
+        ],
+        "fx_explode": [
+          0,
+          1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.85,
+          0
+        ],
+        "label": [
+          0,
+          2.1,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "tank"
+      ],
+      "notes": "Stehtank auf Holzkufen, Clanband = Rolle cloth (Besitz-Palette). state wie runenmast; zerstoert = aufgeplatzter Rest + Kuppel am Boden.",
+      "source": "prop/germanen/aussenposten/tank",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/tanklager_2x1": {
+      "id": "prop/germanen/aussenposten/tanklager_2x1",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.5,
+          0.45
+        ],
+        "fx_explode": [
+          0,
+          0.7,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.15,
+          0
+        ],
+        "label": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 5000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "sprengpunkt",
+        "tank"
+      ],
+      "notes": "Liegetank auf drei Holzsätteln + Pumpenhaus (+x). Länge entlang x. state wie runenmast.",
+      "source": "prop/germanen/aussenposten/tanklager_2x1",
+      "team": "art-ap"
+    },
+    "prop/germanen/aussenposten/wachturm": {
+      "id": "prop/germanen/aussenposten/wachturm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "stand": [
+          0,
+          1.25,
+          0
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "prop",
+        "anker",
+        "aussicht"
+      ],
+      "notes": "Ausguck auf vier Pfosten, Bühne 1,25 m (Socket stand = Standpunkt der Figur), Leiter hinten (-z), Rundschild vorn (cloth). Kein Dach, damit die Figur bei 57° sichtbar bleibt.",
+      "source": "prop/germanen/aussenposten/wachturm",
+      "team": "art-ap"
+    },
+    "prop/germanen/gemein/bake_abholpunkt": {
+      "id": "prop/germanen/gemein/bake_abholpunkt",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "bereit": {
+          "state": 0
+        },
+        "gestoert": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "beam": [
+          0,
+          1.9,
+          0
+        ],
+        "light": [
+          0,
+          1.8,
+          0
+        ],
+        "label": [
+          0,
+          2.15,
+          0
+        ],
+        "fx_spark": [
+          0.15,
+          1.75,
+          0.1
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "anker",
+        "abholpunkt",
+        "light"
+      ],
+      "source": "prop/germanen/gemein/bake_abholpunkt",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/bank": {
+      "id": "prop/germanen/gemein/bank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {
+        "len": [
+          12,
+          30
+        ]
+      },
+      "states": {
+        "lang": {
+          "len": 24
+        },
+        "kurz": {
+          "len": 14
+        }
+      },
+      "sockets": {
+        "seat": [
+          0,
+          0.44,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "bank",
+        "seat"
+      ],
+      "source": "prop/germanen/gemein/bank",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/banner_clan": {
+      "id": "prop/germanen/gemein/banner_clan",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "zustand": 0
+        },
+        "verfallen": {
+          "zustand": 1
+        },
+        "umkaempft": {
+          "zustand": 2
+        }
+      },
+      "sockets": {
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "banner",
+        "besitz"
+      ],
+      "source": "prop/germanen/gemein/banner_clan",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/decal_runen": {
+      "id": "prop/germanen/gemein/decal_runen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.63,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ],
+        "wand": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "s0": {
+          "seed": 0
+        },
+        "s1": {
+          "seed": 1
+        },
+        "s2": {
+          "seed": 2
+        },
+        "s3": {
+          "seed": 3
+        },
+        "wand": {
+          "wand": 1,
+          "seed": 4
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "decal",
+        "runen"
+      ],
+      "source": "prop/germanen/gemein/decal_runen",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/fass": {
+      "id": "prop/germanen/gemein/fass",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "typ": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "holz": {
+          "typ": 0
+        },
+        "tonne": {
+          "typ": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "fass"
+      ],
+      "source": "prop/germanen/gemein/fass",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/feuerschale": {
+      "id": "prop/germanen/gemein/feuerschale",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.19,
+      "facing": "+z",
+      "params": {
+        "an": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "an": 1
+        },
+        "aus": {
+          "an": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.25,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.95,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "light",
+        "feuer"
+      ],
+      "source": "prop/germanen/gemein/feuerschale",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/kaefig_zelle": {
+      "id": "prop/germanen/gemein/kaefig_zelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "prisoner": [
+          0,
+          0.06,
+          -0.05
+        ],
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          2.15,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "anker",
+        "zelle"
+      ],
+      "source": "prop/germanen/gemein/kaefig_zelle",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/kette": {
+      "id": "prop/germanen/gemein/kette",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "form": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "liegend": {
+          "form": 0
+        },
+        "haengend": {
+          "form": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "kette"
+      ],
+      "source": "prop/germanen/gemein/kette",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/kiste_stapel": {
+      "id": "prop/germanen/gemein/kiste_stapel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "zustand": 0
+        },
+        "verfallen": {
+          "zustand": 1
+        },
+        "umkaempft": {
+          "zustand": 2
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          0.81,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deckung",
+        "cover",
+        "cover_half"
+      ],
+      "source": "prop/germanen/gemein/kiste_stapel",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/runenstein_terminal": {
+      "id": "prop/germanen/gemein/runenstein_terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ],
+        "raetsel": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "bereit": {
+          "state": 0
+        },
+        "laedt": {
+          "state": 1
+        },
+        "geladen": {
+          "state": 2
+        },
+        "gesperrt": {
+          "state": 3
+        },
+        "raetsel_ruhe": {
+          "raetsel": 1,
+          "state": 0
+        },
+        "raetsel_gehalten": {
+          "raetsel": 1,
+          "state": 1
+        },
+        "raetsel_geloest": {
+          "raetsel": 1,
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "screen": [
+          0,
+          0.94,
+          0.22
+        ],
+        "label": [
+          0,
+          1.75,
+          0
+        ],
+        "fx_spark": [
+          0.3,
+          0.9,
+          0.22
+        ],
+        "fx_smoke": [
+          0,
+          1.5,
+          -0.1
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "anker",
+        "terminal",
+        "raetsel",
+        "console"
+      ],
+      "source": "prop/germanen/gemein/runenstein_terminal",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/truhe": {
+      "id": "prop/germanen/gemein/truhe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "voll": {
+          "state": 0
+        },
+        "leer": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          0.95,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "anker",
+        "beute",
+        "kiste"
+      ],
+      "source": "prop/germanen/gemein/truhe",
+      "team": "art-gkp"
+    },
+    "prop/germanen/gemein/werkzeug": {
+      "id": "prop/germanen/gemein/werkzeug",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "werkzeug"
+      ],
+      "source": "prop/germanen/gemein/werkzeug",
+      "team": "art-gkp"
+    },
+    "prop/germanen/schiff/antrieb_block": {
+      "id": "prop/germanen/schiff/antrieb_block",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {
+        "schub": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "aus": {
+          "schub": 0
+        },
+        "leerlauf": {
+          "schub": 1
+        },
+        "voll": {
+          "schub": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0.8,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          -0.4,
+          1.75,
+          -0.3
+        ],
+        "fx_spark": [
+          0.7,
+          0.6,
+          0.4
+        ],
+        "light": [
+          -0.9,
+          0.6,
+          0
+        ],
+        "label": [
+          0,
+          2,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 5000,
+      "measuredTris": 4646,
+      "tags": [
+        "germanen",
+        "schiff",
+        "system",
+        "antrieb"
+      ],
+      "source": "prop/germanen/schiff/antrieb_block",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/bruecke_konsole": {
+      "id": "prop/germanen/schiff/bruecke_konsole",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "alarm": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "ruhe": {
+          "alarm": 0
+        },
+        "alarm": {
+          "alarm": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "screen": [
+          0,
+          1.3,
+          -0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.6,
+          -0.4
+        ],
+        "fx_spark": [
+          0.3,
+          1.05,
+          0.2
+        ],
+        "label": [
+          0,
+          2,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1246,
+      "tags": [
+        "germanen",
+        "schiff",
+        "konsole",
+        "bruecke"
+      ],
+      "source": "prop/germanen/schiff/bruecke_konsole",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/huellenbruch": {
+      "id": "prop/germanen/schiff/huellenbruch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.31,
+      "facing": "+z",
+      "params": {
+        "geflickt": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          99
+        ]
+      },
+      "states": {
+        "offen": {
+          "geflickt": 0
+        },
+        "geflickt": {
+          "geflickt": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.2,
+          0
+        ],
+        "label": [
+          0,
+          0.8,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1260,
+      "tags": [
+        "germanen",
+        "schiff",
+        "eingang",
+        "leck"
+      ],
+      "source": "prop/germanen/schiff/huellenbruch",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/ladenetz": {
+      "id": "prop/germanen/schiff/ladenetz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          99
+        ]
+      },
+      "sockets": {
+        "label": [
+          0,
+          1,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1580,
+      "tags": [
+        "germanen",
+        "schiff",
+        "deko"
+      ],
+      "source": "prop/germanen/schiff/ladenetz",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/leiter": {
+      "id": "prop/germanen/schiff/leiter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          1,
+          2
+        ]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.2
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1630,
+      "tags": [
+        "germanen",
+        "schiff",
+        "anker",
+        "leiter"
+      ],
+      "source": "prop/germanen/schiff/leiter",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/lift_schacht": {
+      "id": "prop/germanen/schiff/lift_schacht",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          1,
+          2
+        ],
+        "faehrt": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "deck1": {
+          "deck": 1
+        },
+        "deck2": {
+          "deck": 2
+        },
+        "faehrt": {
+          "faehrt": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0
+        ],
+        "light": [
+          0,
+          2,
+          -0.4
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1518,
+      "tags": [
+        "germanen",
+        "schiff",
+        "anker",
+        "lift"
+      ],
+      "source": "prop/germanen/schiff/lift_schacht",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/reaktor_schiff": {
+      "id": "prop/germanen/schiff/reaktor_schiff",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "charge": [
+          0,
+          0.75,
+          0.35
+        ],
+        "fx_explode": [
+          0,
+          1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.9,
+          0
+        ],
+        "fx_spark": [
+          0.25,
+          1,
+          0.3
+        ],
+        "light": [
+          0,
+          1,
+          0
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 2412,
+      "tags": [
+        "germanen",
+        "schiff",
+        "anker",
+        "sprengpunkt"
+      ],
+      "source": "prop/germanen/schiff/reaktor_schiff",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/ruderbank_batterie": {
+      "id": "prop/germanen/schiff/ruderbank_batterie",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 0.69,
+      "facing": "+z",
+      "params": {
+        "ladung": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "geladen": {
+          "ladung": 1
+        },
+        "leer": {
+          "ladung": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.7
+        ],
+        "fx_smoke": [
+          -0.55,
+          0.55,
+          -0.5
+        ],
+        "fx_spark": [
+          0.5,
+          0.55,
+          -0.5
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 5000,
+      "measuredTris": 2952,
+      "tags": [
+        "germanen",
+        "schiff",
+        "batterie"
+      ],
+      "source": "prop/germanen/schiff/ruderbank_batterie",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/schildgenerator": {
+      "id": "prop/germanen/schiff/schildgenerator",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "frei": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "fx_smoke": [
+          0,
+          1.8,
+          0
+        ],
+        "fx_spark": [
+          0.3,
+          1.1,
+          0.3
+        ],
+        "light": [
+          0,
+          1.2,
+          0
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 2500,
+      "measuredTris": 1582,
+      "tags": [
+        "germanen",
+        "schiff",
+        "anker",
+        "ziel"
+      ],
+      "source": "prop/germanen/schiff/schildgenerator",
+      "team": "art-sch"
+    },
+    "prop/germanen/schiff/schleuse": {
+      "id": "prop/germanen/schiff/schleuse",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 2.19,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.1
+        ],
+        "light": [
+          0,
+          1.85,
+          -0.25
+        ],
+        "fx_smoke": [
+          0,
+          1,
+          -0.3
+        ],
+        "label": [
+          0,
+          2.3,
+          -0.3
+        ]
+      },
+      "tint": [
+        "cloth",
+        "cloth2"
+      ],
+      "budgetTris": 5000,
+      "measuredTris": 2562,
+      "tags": [
+        "germanen",
+        "schiff",
+        "eingang",
+        "schleuse"
+      ],
+      "source": "prop/germanen/schiff/schleuse",
+      "team": "art-sch"
+    },
+    "prop/germanen/station/andockring_2x1": {
+      "id": "prop/germanen/station/andockring_2x1",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 2.15,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.7
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 5000,
+      "tags": [
+        "germanen",
+        "station",
+        "schleuse",
+        "andockring"
+      ],
+      "source": "prop/germanen/station/andockring_2x1",
+      "team": "art-st"
+    },
+    "prop/germanen/station/kontrollpult": {
+      "id": "prop/germanen/station/kontrollpult",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.8,
+      "facing": "+z",
+      "params": {
+        "on": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "an": {
+          "on": 1
+        },
+        "aus": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "screen": [
+          0,
+          1.25,
+          -0.2
+        ],
+        "fx_smoke": [
+          0,
+          1.7,
+          -0.3
+        ],
+        "fx_spark": [
+          0.3,
+          1,
+          0.2
+        ],
+        "label": [
+          0,
+          2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "station",
+        "konsole"
+      ],
+      "source": "prop/germanen/station/kontrollpult",
+      "team": "art-st"
+    },
+    "prop/germanen/station/met_kessel": {
+      "id": "prop/germanen/station/met_kessel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.6,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "da": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.65
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "station",
+        "methalle",
+        "fund"
+      ],
+      "source": "prop/germanen/station/met_kessel",
+      "team": "art-st"
+    },
+    "prop/germanen/station/regal": {
+      "id": "prop/germanen/station/regal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        0.5
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "station",
+        "lager",
+        "regal",
+        "wandnah"
+      ],
+      "source": "prop/germanen/station/regal",
+      "team": "art-st"
+    },
+    "prop/germanen/station/schacht_gitter": {
+      "id": "prop/germanen/station/schacht_gitter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.9,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "zu": {
+          "open": 0
+        },
+        "offen": {
+          "open": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          0.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "station",
+        "schacht",
+        "boden"
+      ],
+      "source": "prop/germanen/station/schacht_gitter",
+      "team": "art-st"
+    },
+    "prop/germanen/station/schmiedeherd_reaktor_2x2": {
+      "id": "prop/germanen/station/schmiedeherd_reaktor_2x2",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2.2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1.15
+        ],
+        "charge": [
+          0,
+          0.45,
+          0.95
+        ],
+        "fx_explode": [
+          0,
+          1,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          2.2,
+          0
+        ],
+        "fx_spark": [
+          0.6,
+          1.2,
+          0.6
+        ],
+        "light": [
+          0,
+          1,
+          0
+        ],
+        "label": [
+          0,
+          2.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "station",
+        "sprengpunkt",
+        "reaktor",
+        "light"
+      ],
+      "source": "prop/germanen/station/schmiedeherd_reaktor_2x2",
+      "team": "art-st"
+    },
+    "prop/germanen/station/wandmonitor": {
+      "id": "prop/germanen/station/wandmonitor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        0.25
+      ],
+      "height": 2.15,
+      "facing": "+z",
+      "params": {
+        "on": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "an": {
+          "on": 1
+        },
+        "aus": {
+          "on": 0
+        }
+      },
+      "sockets": {
+        "screen": [
+          0,
+          1.5,
+          0.1
+        ],
+        "fx_spark": [
+          0.3,
+          1.6,
+          0.1
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "station",
+        "monitor",
+        "wandnah"
+      ],
+      "source": "prop/germanen/station/wandmonitor",
+      "team": "art-st"
+    },
+    "prop/rom/ruine/aquaedukt_verteiler": {
+      "id": "prop/rom/ruine/aquaedukt_verteiler",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "ruhe": {
+          "state": 0
+        },
+        "gehalten": {
+          "state": 1
+        },
+        "geloest": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0.6,
+          0.6
+        ],
+        "label": [
+          0,
+          1.6,
+          0
+        ],
+        "fx_spark": [
+          0,
+          0.6,
+          0.5
+        ],
+        "charge": [
+          -0.3,
+          0.4,
+          0.45
+        ],
+        "fx_explode": [
+          0,
+          0.7,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "rom",
+        "ruine",
+        "raetsel",
+        "sprengpunkt",
+        "station"
+      ],
+      "source": "prop/rom/ruine/aquaedukt_verteiler",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/carcer": {
+      "id": "prop/rom/ruine/carcer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "prisoner": [
+          0,
+          0.06,
+          0.1
+        ],
+        "use": [
+          0.25,
+          0.9,
+          0.55
+        ],
+        "label": [
+          0,
+          2.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "rom",
+        "ruine",
+        "zelle"
+      ],
+      "source": "prop/rom/ruine/carcer",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/cloaca_einsturz": {
+      "id": "prop/rom/ruine/cloaca_einsturz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 0.85,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 9
+        }
+      },
+      "sockets": {
+        "fx_smoke": [
+          0,
+          0.2,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 5000,
+      "tags": [
+        "rom",
+        "ruine",
+        "cloaca",
+        "rueckzug"
+      ],
+      "source": "prop/rom/ruine/cloaca_einsturz",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/deko_gras": {
+      "id": "prop/rom/ruine/deko_gras",
+      "source": "natur/gras",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "planet_mediterran",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.35,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "rom",
+        "ruine",
+        "deko"
+      ],
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/deko_standartenfuss": {
+      "id": "prop/rom/ruine/deko_standartenfuss",
+      "source": "rom/standartenfuss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.4,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "rom",
+        "ruine",
+        "deko"
+      ],
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/deko_stein": {
+      "id": "prop/rom/ruine/deko_stein",
+      "source": "natur/stein",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "planet_mediterran",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.2,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "rom",
+        "ruine",
+        "deko"
+      ],
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/kassengewoelbe_tor": {
+      "id": "prop/rom/ruine/kassengewoelbe_tor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2.75,
+        1.25
+      ],
+      "height": 2.75,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "zu": {
+          "state": 0
+        },
+        "offen": {
+          "state": 1
+        },
+        "verschlossen": {
+          "state": 2
+        },
+        "gesprengt": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "label": [
+          0,
+          3,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.2,
+          0.2
+        ]
+      },
+      "tint": [],
+      "budgetTris": 7500,
+      "tags": [
+        "rom",
+        "ruine",
+        "tor",
+        "door"
+      ],
+      "source": "prop/rom/ruine/kassengewoelbe_tor",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/legionskasse": {
+      "id": "prop/rom/ruine/legionskasse",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.9,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "da": {
+          "state": 0
+        },
+        "genommen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0.4,
+          0.5
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2000,
+      "tags": [
+        "rom",
+        "ruine",
+        "fund",
+        "beute"
+      ],
+      "source": "prop/rom/ruine/legionskasse",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/munitionskammer": {
+      "id": "prop/rom/ruine/munitionskammer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "intakt": {
+          "state": 0
+        },
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "charge": [
+          0,
+          0.25,
+          0.5
+        ],
+        "fx_explode": [
+          0,
+          0.6,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          1.1,
+          0
+        ],
+        "label": [
+          0,
+          1.5,
+          0
+        ],
+        "use": [
+          0,
+          0.3,
+          0.6
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "rom",
+        "ruine",
+        "sprengpunkt"
+      ],
+      "source": "prop/rom/ruine/munitionskammer",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/offiziersschloss": {
+      "id": "prop/rom/ruine/offiziersschloss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.4,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "ruhe": {
+          "state": 0
+        },
+        "gehalten": {
+          "state": 1
+        },
+        "geloest": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0.65,
+          0.55
+        ],
+        "screen": [
+          0,
+          1,
+          0.35
+        ],
+        "label": [
+          0,
+          1.65,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.7,
+          0.4
+        ],
+        "fx_smoke": [
+          0,
+          1.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "rom",
+        "ruine",
+        "raetsel",
+        "terminal",
+        "station"
+      ],
+      "source": "prop/rom/ruine/offiziersschloss",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/saeule_gestuerzt": {
+      "id": "prop/rom/ruine/saeule_gestuerzt",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        3.5,
+        1.5
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 5
+        }
+      },
+      "sockets": {
+        "cover": [
+          0,
+          1.25,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "rom",
+        "ruine",
+        "saeule",
+        "deko"
+      ],
+      "source": "prop/rom/ruine/saeule_gestuerzt",
+      "team": "art-ru"
+    },
+    "prop/rom/ruine/schutt": {
+      "id": "prop/rom/ruine/schutt",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.4,
+      "facing": "+z",
+      "params": {
+        "gross": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "a": {
+          "seed": 0
+        },
+        "b": {
+          "seed": 7
+        },
+        "c": {
+          "seed": 13,
+          "gross": 0
+        },
+        "flach": {
+          "gross": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "rom",
+        "ruine",
+        "deko",
+        "schutt"
+      ],
+      "source": "prop/rom/ruine/schutt",
+      "team": "art-ru"
     }
   }
 }

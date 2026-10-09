@@ -1,0 +1,19 @@
+{
+  "id": "germanen_kraehenwacht",
+  "name": "Clan Krähenwacht: Schwarzeisen, Rost-Ocker, Bronze (kein Schwarz-Weiß-Rot: kein Knochenweiß, kein reines Rot)",
+  "extends": "nord",
+  "roles": {
+    "primary": "#7C7E82",
+    "secondary": "#5E6064",
+    "trim": "#B08A50",
+    "metal": "#76787C",
+    "metal_dark": "#56585C",
+    "metal_light": "#8E9094",
+    "cloth": "#A8642A",
+    "cloth2": "#C49A4A",
+    "leather": "#5E3E28",
+    "fur": "#3E3630",
+    "fur_dark": "#2C2622",
+    "fur_light": "#7E7468"
+  }
+}

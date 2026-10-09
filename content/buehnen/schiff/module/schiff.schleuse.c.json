@@ -1,0 +1,60 @@
+{
+  "format": "modul/1",
+  "id": "schiff.schleuse.c",
+  "art": "schiff",
+  "typ": "schleuse",
+  "groesse": [5, 13],
+  "deck": null,
+  "drehen": false,
+  "spiegeln": true,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Notschleuse: Außenschott seitlich versetzt, enge Kammer, Kisten am Pad.",
+  "rows": [
+    "#S###",
+    "#...#",
+    "#.o.#",
+    "#...#",
+    "#D###",
+    "#...#",
+    "..I..",
+    "#...#",
+    "#.O.#",
+    "#...#",
+    "#PP.#",
+    "#P.o#",
+    "#####"
+  ],
+  "anker": [
+    ".....",
+    ".e...",
+    ".....",
+    ".....",
+    ".....",
+    ".....",
+    "...p.",
+    ".q...",
+    ".....",
+    ".....",
+    ".a...",
+    ".....",
+    "....."
+  ],
+  "anker_legende": {
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    }
+  },
+  "belegungen": []
+}

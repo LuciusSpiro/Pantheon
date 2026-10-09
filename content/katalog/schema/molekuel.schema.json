@@ -114,6 +114,22 @@
           },
           "description": "Mechaniken aus mechaniken.json"
         },
+        "buehne_braucht": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["anker"],
+          "description": "B1 (CONTRACT-B1 §11.1): was die gebaute Karte des Landepunkts haben muss; ersetzt params.map.werte. Der Szenenbau wählt den Landepunkt und setzt map ein (nie das LLM); Prüfung gegen die gebaute Karte (BUEHNE-ART, BUEHNE-ANKER, server/mission/objects.js pruefeBuehneBraucht).",
+          "properties": {
+            "kartenarten": { "type": "array", "items": { "enum": ["aussenposten", "station", "ruine", "schiff", "platform", "wreck", "kesh"] }, "description": "erlaubte Kartenarten bzw. Handkarten-IDs; fehlt = alle" },
+            "anker": { "type": "array", "items": { "oneOf": [
+              { "type": "string", "pattern": "^[a-z_]+$" },
+              { "type": "object", "additionalProperties": false, "required": ["rolle"], "properties": { "rolle": { "type": "string", "pattern": "^[a-z_]+$" }, "paar": { "type": "integer", "minimum": 1 } } }
+            ] }, "description": "Ankerrollen aus content/buehnen/anker.json; { rolle, paar: n } = n vollständige Paare" },
+            "min": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 }, "description": "Mindestzahl je Rolle, z. B. { eingang: 2 }" },
+            "gefecht": { "type": "boolean", "description": "Karte braucht einen Gefechtsbereich" },
+            "landepunkt": { "enum": ["laufzeit"], "description": "B1-FIX: Die Karte entsteht erst zur Laufzeit (z. B. kapern/prise_entern: <loc>.prise nach dem Raumgefecht) – der Szenenbau verlangt und wählt keinen Landepunkt; die Szene zählt trotzdem als Bodenszene. kartenarten/anker beschreiben die entstehende Karte." }
+          }
+        },
         "params": {
           "type": "object",
           "additionalProperties": {
@@ -134,7 +150,9 @@
                   "zahl",
                   "bool",
                   "aktionen",
-                  "kind"
+                  "kind",
+                  "anker",
+                  "landepunkt"
                 ]
               },
               "pflicht": {

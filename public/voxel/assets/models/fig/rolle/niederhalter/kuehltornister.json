@@ -1,0 +1,28 @@
+{
+  "id": "fig/rolle/niederhalter/kuehltornister",
+  "name": "Niederhalter-Kühltornister: flacher Rippenkühler mit Kühlmitteltank",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "niederhalter", "anbau", "ruecken"],
+  "notes": "ROLLENTEIL, fraktionsneutral. Aufsatz back (anchor [0,20,-3]), Figur-Koordinaten. Bewusst FLACH und eckig (Oberkante y 24 = Schulterhöhe), damit er von oben nicht mit der runden, hohen Grenadier-Trommel verwechselt wird. Vier senkrechte Kühlrippen (von oben ein Kamm). Kein Leuchten: das Hochglühen der Rippen ist Telegraf der Waffe (heat), nicht Deko.",
+  "params": {"rank": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Rang (0 Krieger, 1 Häuptling)"}},
+  "ops": [
+    {"name": "Tragplatte", "op": "box", "at": [-4, 16, -5], "size": [8, 8, 1], "color": "metal_dark", "jitter": false},
+    {"name": "Tank", "op": "box", "at": [-1, 16, -8], "size": [2, 7, 3], "color": "primary", "jitter": false},
+    {"name": "Tankband", "op": "box", "at": [-2, 21, -8], "size": [4, 1, 4], "color": "metal_light", "mode": "paint"},
+    {"name": "Tankdeckel", "op": "box", "at": [-1, 24, -7], "size": [2, 1, 2], "color": "metal_light"},
+    {"name": "Rippen", "op": "group", "mirror": "x", "mirrorAt": 0, "ops": [
+        {"name": "Rippe innen", "op": "box", "at": [2, 16, -8], "size": [1, 8, 3], "color": "metal", "jitter": false},
+        {"name": "Rippe außen", "op": "box", "at": [4, 16, -8], "size": [1, 8, 3], "color": "metal", "jitter": false},
+        {"name": "Rippenkanten oben", "op": "box", "at": [2, 23, -8], "size": [3, 1, 3], "color": "metal_light", "mode": "paint"},
+        {"name": "Rippensteg", "op": "box", "at": [2, 17, -6], "size": [3, 6, 1], "color": "metal_dark", "mode": "under"}
+    ] },
+    {"name": "Kopfleiste (verbindet die Rippen, keine Hörner von vorn)", "op": "box", "at": [-5, 23, -8], "size": [10, 1, 3], "color": "metal_light", "jitter": false},
+    {"name": "Kopfleiste Mitte frei für Tankdeckel", "op": "box", "at": [-1, 23, -7], "size": [2, 1, 1], "color": "metal_dark", "mode": "paint"},
+    {"name": "Schlauch zur Waffe", "op": "line", "from": [-5.5, 16.5, -5.5], "to": [-6.5, 14.5, -2.5], "r": 0.5, "color": "dark"},
+    {"name": "Schlauchschelle", "op": "box", "at": [-6, 16, -6], "size": [1, 1, 1], "color": "metal_light"},
+    {"name": "Tankband Knochen (Häuptling)", "if": "rank", "op": "box", "at": [-2, 21, -8], "size": [4, 1, 4], "color": "trim", "mode": "paint"}
+  ],
+  "variants": {"haeuptling": {"rank": 1}},
+  "anchor": [0, 20, -3]
+}

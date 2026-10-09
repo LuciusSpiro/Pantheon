@@ -1,0 +1,39 @@
+{
+  "id": "prop/germanen/gemein/werkzeug",
+  "name": "Werkzeug (Germanen): Werkbank mit Schraubstock, Hammer, Zange, Schlüssel und Schweißbrenner",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deko","werkzeug"],
+  "footprint": [1,1],
+  "params": {
+
+  },
+  "sockets": {"use":[0,0,0.5]},
+  "ops": [
+    {"op":"box","name":"Platte","at":[-8,11,-4],"size":[16,2,8],"color":{"stripes":["wood","wood_dark"],"axis":"z","period":2}},
+    {"op":"box","name":"Plattenkante","at":[-8,12,3],"size":[16,1,1],"color":"metal_light"},
+    {"op":"box","name":"Bein","at":[-8,0,-4],"size":[2,11,2],"color":"metal","mirror":"xz","mirrorAt":{"x":0,"z":0}},
+    {"op":"box","name":"Ablage","at":[-7,3,-3],"size":[14,1,6],"color":"metal_dark"},
+    {"op":"box","name":"Kiste unten","at":[-5,4,-3],"size":[5,3,5],"color":"primary"},
+    {"op":"box","name":"Rohrstücke","at":[2,4,-2],"size":[5,1,1],"color":"metal_light","repeat":{"count":3,"step":[0,1,1]}},
+    {"op":"box","name":"Schraubstock Fuß","at":[4,13,-2],"size":[3,1,4],"color":"metal_dark"},
+    {"op":"box","name":"Backe","at":[4,14,-1],"size":[3,3,1],"color":"metal","repeat":{"count":2,"step":[0,0,2]}},
+    {"op":"line","name":"Spindel","from":[5.5,15.5,1.5],"to":[5.5,15.5,4.5],"r":0.5,"color":"metal_light"},
+    {"op":"box","name":"Knebel","at":[4,15,4],"size":[3,1,1],"color":"metal_light"},
+    {"op":"line","name":"Hammerstiel","from":[-6.5,13.5,2.5],"to":[-1.5,13.5,-0.5],"r":0.5,"color":"wood"},
+    {"op":"box","name":"Hammerkopf","at":[-8,13,1],"size":[2,2,3],"color":"metal_light"},
+    {"op":"line","name":"Zangenschenkel 1","from":[-3.5,13.5,-3.5],"to":[1.5,13.5,-1.5],"r":0.5,"color":"metal"},
+    {"op":"line","name":"Zangenschenkel 2","from":[-3.5,13.5,-1.5],"to":[1.5,13.5,-3.5],"r":0.5,"color":"metal"},
+    {"op":"line","name":"Schlüssel","from":[0.5,13.5,2.5],"to":[2.5,13.5,0.5],"r":0.5,"color":"metal_light"},
+    {"op":"box","name":"Maul","at":[-1,13,2],"size":[2,1,2],"color":"metal_light"},
+    {"op":"box","name":"Gasflasche","at":[-8,0,4],"size":[3,10,3],"color":"metal"},
+    {"op":"box","name":"Flaschenkopf","at":[-7,10,5],"size":[1,1,1],"color":"metal_light"},
+    {"op":"line","name":"Schlauch","from":[-6.5,10.5,5.5],"to":[-3.5,13.5,2.5],"r":0.5,"color":"rubber"},
+    {"op":"box","name":"Brenner","at":[-4,13,1],"size":[1,1,2],"color":"metal_dark"},
+    {"op":"box","name":"Lochwand","at":[-8,13,-4],"size":[16,8,1],"color":"metal_dark","jitter":false},
+    {"op":"box","name":"Lochreihe","at":[-7,14,-4],"size":[1,1,1],"color":"dark","jitter":false,"repeat":{"count":8,"step":[2,0,0]}},
+    {"op":"line","name":"Säge","from":[-6.5,19.5,-2.5],"to":[-1.5,17.5,-2.5],"r":0.5,"color":"metal_light"},
+    {"op":"box","name":"Feile","at":[1,15,-3],"size":[1,5,1],"color":"metal_light","repeat":{"count":3,"step":[2,0,0]}}
+  ],
+  "anchor": [0,0,0]
+}

@@ -90,10 +90,11 @@ export function figureObject(lib, figId, opts = {}) {
   }
   const palette = opts.palette || fig.palette;
   const colors = { ...(fig.colors || {}), ...(opts.colors || {}) };
+  const params = { ...(fig.params || {}), ...(opts.params || {}) };   // opts.params (z. B. rank, role) überschreibt Figur-Defaults
   // Teile: in Figur-Koordinaten modelliert, Anker [0,0,0] → um die Gelenkposition verschieben
   for (const [jn, part] of Object.entries(fig.parts || {})) {
     const joint = joints[jn]; if (!joint) throw new Error(`Figur ${figId}: Gelenk "${jn}" gibt es im Rig ${rig.id} nicht`);
-    const o = modelObject(lib, part.model, { params: lib.partParams(part.model, fig.params, part.params), palette: part.palette || palette, colors, mirrorX: !!part.mirror });
+    const o = modelObject(lib, part.model, { params: lib.partParams(part.model, params, part.params), palette: part.palette || palette, colors, mirrorX: !!part.mirror });
     const at = rig.joints[jn].at;
     o.position.set(-at[0] * s, -at[1] * s, -at[2] * s);
     o.traverse((m) => { if (m.isMesh) m.castShadow = true; });
@@ -102,12 +103,13 @@ export function figureObject(lib, figId, opts = {}) {
   for (const [jn, a] of Object.entries({ ...(fig.attach || {}), ...(opts.attach || {}) })) {
     if (!a) continue;
     const joint = joints[jn]; if (!joint) throw new Error(`Figur ${figId}: Anbaupunkt "${jn}" fehlt im Rig`);
-    const o = modelObject(lib, a.model, { params: lib.partParams(a.model, fig.params, a.params), palette: a.palette || palette, colors, mirrorX: !!a.mirror });
+    const o = modelObject(lib, a.model, { params: lib.partParams(a.model, params, a.params), palette: a.palette || palette, colors, mirrorX: !!a.mirror });
     if (a.rot) o.rotation.set(a.rot[0] * D2R, a.rot[1] * D2R, a.rot[2] * D2R);
     if (a.offset) o.position.set(a.offset[0] * s, a.offset[1] * s, a.offset[2] * s);
     joint.add(o); voxels += o.userData.voxels;
   }
   root.userData.voxels = voxels;
+  if (fig.scale && fig.scale !== 1) root.scale.setScalar(fig.scale);   // Figurenbaukasten: Rollen-groesse (z. B. Enterer 1.1)
   const poses = rig.poses ? lib.get('poses', rig.poses)?.poses || {} : {};
   return { root, joints, rig, poses, phase: opts.phase ?? Math.random() * 6, s };
 }

@@ -1,0 +1,44 @@
+{
+  "id": "prop/germanen/gemein/truhe",
+  "name": "Beutetruhe (Germanen): Bohlen, Eisenbänder, Runenschloss",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","anker","beute","kiste"],
+  "footprint": [1,1],
+  "params": {
+    "state": {"default":0,"min":0,"max":1,"step":1,"label":"Zustand (0 voll, 1 leer)"}
+  },
+  "variants": {
+    "leer": {"state":1}
+  },
+  "sockets": {"use":[0,0,0.55],"label":[0,0.95,0]},
+  "ops": [
+    {"op":"box","name":"Kufen","at":[-7,0,-5],"size":[2,1,10],"color":"metal_dark","mirror":"x","mirrorAt":0},
+    {"op":"box","name":"Korpus","at":[-7,1,-5],"size":[14,7,10],"color":{"stripes":["wood","wood_dark"],"axis":"y","period":2}},
+    {"op":"box","name":"Eckwinkel","at":[-7,1,-5],"size":[2,7,2],"color":"metal","mirror":"xz","mirrorAt":{"x":0,"z":0}},
+    {"op":"box","name":"Eisenband","at":[-4,1,-5],"size":[1,7,10],"color":"metal_light","mirror":"x","mirrorAt":0},
+    {"op":"box","name":"Innenraum","if":"state == 1","at":[-6,2,-4],"size":[12,6,8],"mode":"carve"},
+    {"op":"box","name":"Boden innen","if":"state == 1","at":[-6,2,-4],"size":[12,1,8],"color":"wood_dark"},
+    {"op":"box","name":"Nieten vorn","at":[-6,2,5],"size":[1,1,1],"color":"metal_light","jitter":false,"repeat":{"count":3,"step":[0,2,0]}},
+    {"op":"box","name":"Nieten vorn r","at":[5,2,5],"size":[1,1,1],"color":"metal_light","jitter":false,"repeat":{"count":3,"step":[0,2,0]}},
+    {"op":"box","name":"Schlossplatte","at":[-2,3,5],"size":[4,5,1],"color":"metal"},
+    {"op":"box","name":"Schlossauge an","if":"state == 0","at":[-1,5,6],"size":[2,2,1],"color":"rune","emit":0.9,"jitter":false},
+    {"op":"box","name":"Schlossauge aus","if":"state == 1","at":[-1,5,6],"size":[2,2,1],"color":"dark","jitter":false},
+    {"op":"box","name":"Griff","at":[-8,5,-1],"size":[1,1,2],"color":"metal_light","mirror":"x","mirrorAt":0},
+    {"op":"group","name":"Deckel zu","if":"state == 0", "ops": [
+      {"op":"box","name":"Deckel","at":[-7,8,-5],"size":[14,3,10],"color":{"stripes":["wood","wood_dark"],"axis":"z","period":2}},
+      {"op":"box","name":"Deckelrand","at":[-7,8,-5],"size":[14,1,10],"color":"metal"},
+      {"op":"box","name":"Deckelband","at":[-4,8,-5],"size":[1,3,10],"color":"metal_light","mirror":"x","mirrorAt":0},
+      {"op":"box","name":"Überwurf","at":[-1,7,5],"size":[2,3,1],"color":"metal_light"},
+      {"op":"use","name":"Runenband Deckel","model":"prop/germanen/gemein/teil/runenband","at":[0,10,0],"params":{"n":3,"lit":3,"emit":0.8,"flach":1,"rahmen":0,"start":1,"schritt":1}}
+    ]},
+    {"op":"group","name":"Deckel offen","if":"state == 1", "ops": [
+      {"op":"box","name":"Deckel","at":[-7,8,-8],"size":[14,10,3],"color":{"stripes":["wood","wood_dark"],"axis":"y","period":2}},
+      {"op":"box","name":"Deckelrand","at":[-7,8,-6],"size":[14,10,1],"color":"metal","mode":"paint"},
+      {"op":"box","name":"Deckelband","at":[-4,8,-8],"size":[1,10,3],"color":"metal_light","mirror":"x","mirrorAt":0},
+      {"op":"box","name":"Scharnier","at":[-6,7,-6],"size":[3,2,2],"color":"metal_dark","mirror":"x","mirrorAt":0},
+      {"op":"use","name":"Runenband Deckel (erloschen)","model":"prop/germanen/gemein/teil/runenband","at":[0,10,-6],"params":{"n":3,"lit":0,"flach":0,"rahmen":0,"start":1,"schritt":1}}
+    ]}
+  ],
+  "anchor": [0,0,0]
+}

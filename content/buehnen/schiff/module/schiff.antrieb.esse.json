@@ -1,0 +1,70 @@
+{
+  "format": "modul/1",
+  "id": "schiff.antrieb.esse",
+  "art": "schiff",
+  "typ": "antrieb",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": ["germanen"],
+  "hinweis": "Signatur germanen: offene Glut-Esse mittschiffs im Antriebsraum (Deckung O), Umgang auf beiden Seiten.",
+  "rows": [
+    "_#####",
+    "##...#",
+    "#.,,.#",
+    "#.,,.#",
+    "#..o.#",
+    "#.OO.#",
+    "#.OO..",
+    "#.OO.#",
+    "#O...#",
+    "#...o#",
+    "#z.PP#",
+    "#..P.#",
+    "_#L###"
+  ],
+  "anker": [
+    "......",
+    "....t.",
+    "..l...",
+    "......",
+    "......",
+    "....p.",
+    "......",
+    "......",
+    "......",
+    ".b....",
+    "...a..",
+    ".ce...",
+    "......"
+  ],
+  "anker_legende": {
+    "t": {
+      "rolle": "terminal"
+    },
+    "l": {
+      "rolle": "lift",
+      "deck": 1
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "b": {
+      "rolle": "beute"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "c": {
+      "rolle": "zelle"
+    },
+    "e": {
+      "rolle": "eingang",
+      "art": "technisch"
+    }
+  },
+  "belegungen": []
+}

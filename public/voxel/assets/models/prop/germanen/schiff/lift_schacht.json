@@ -1,0 +1,45 @@
+{
+  "id": "prop/germanen/schiff/lift_schacht",
+  "name": "Liftkorb: Eisengerüst mit Plankenplattform (Germanen, Schiff)",
+  "notes": "Anker lift (deck 1|2, paarweise übereinander). deck 1: Pfeil hoch, deck 2: Pfeil runter. Vorn (+z) offen. faehrt 1: Runenring und Kopflicht hell.",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["germanen", "schiff", "prop", "lift"],
+  "footprint": [1, 1],
+  "params": {
+    "deck": { "default": 1, "min": 1, "max": 2, "step": 1, "label": "Deck 1 (hoch) / 2 (runter)" },
+    "faehrt": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "fährt" }
+  },
+  "variants": { "deck2": { "deck": 2 }, "faehrt": { "faehrt": 1 } },
+  "ops": [
+    { "op": "box", "name": "Bodenrahmen", "at": [-8, 0, -8], "size": [16, 1, 16], "color": { "checker": ["trim", "metal_dark"], "period": 2 } },
+    { "op": "cyl", "name": "Plattform", "at": [0, 1, 0], "r": 6.5, "h": 1, "color": { "stripes": ["wood", "wood", "wood_dark"], "axis": "x", "period": 1 } },
+    { "op": "cyl", "name": "Runenring", "at": [0, 1, 0], "r": 6.5, "h": 1, "hollow": 1, "color": { "shade": "rune", "f": "faehrt ? 1 : 0.6" }, "emit": "faehrt ? 1.2 : 0.4", "jitter": false },
+    { "op": "box", "name": "Eckpfosten", "at": [-8, 0, -8], "size": [2, 33, 2], "color": { "stripes": ["metal", "metal", "metal", "metal_light"], "axis": "y", "period": 1 }, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "box", "name": "Kopfbalken längs", "at": [-8, 33, -8], "size": [16, 2, 2], "color": "metal_dark", "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Kopfbalken quer", "at": [-8, 33, -8], "size": [2, 2, 16], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Kopfecken", "at": [-8, 34, -8], "size": [2, 1, 2], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "box", "name": "Kopflicht", "at": [-2, 32, -8], "size": [4, 1, 2], "color": { "shade": "glow", "f": "faehrt ? 1 : 0.5" }, "emit": "faehrt ? 1.2 : 0.3", "jitter": false },
+    { "op": "box", "name": "Geländer hinten", "at": [-6, 13, -8], "size": [12, 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Geländer seitlich", "at": [-8, 13, -6], "size": [1, 1, 12], "color": "metal_light", "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "Kette", "from": [-7, 33, -7], "to": [-7, 14, -7], "r": 0.5, "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Rückwand", "at": [-5, 15, -8], "size": [10, 12, 1], "color": { "frame": "metal", "fill": "metal_dark", "axes": "xy" } },
+    { "op": "group", "name": "Pfeil hoch", "if": "deck == 1", "ops": [
+      { "op": "box", "name": "Schaft", "at": [-1, 17, -7], "size": [2, 5, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 1", "at": [-3, 22, -7], "size": [6, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 2", "at": [-2, 23, -7], "size": [4, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 3", "at": [-1, 24, -7], "size": [2, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false }
+    ] },
+    { "op": "group", "name": "Pfeil runter", "if": "deck == 2", "ops": [
+      { "op": "box", "name": "Schaft", "at": [-1, 20, -7], "size": [2, 5, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 1", "at": [-3, 19, -7], "size": [6, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 2", "at": [-2, 18, -7], "size": [4, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false },
+      { "op": "box", "name": "Spitze 3", "at": [-1, 17, -7], "size": [2, 1, 1], "color": { "role": "trim", "emit": 0.6 }, "jitter": false }
+    ] },
+    { "op": "box", "name": "Bedienpfosten", "at": [5, 1, -7], "size": [2, 10, 2], "color": "metal" },
+    { "op": "box", "name": "Rufknopf", "at": [5, 11, -7], "size": [2, 1, 2], "color": { "role": "glow", "emit": 0.9 }, "jitter": false }
+  ],
+  "sockets": { "use": [0, 0, 0], "light": [0, 2.0, -0.4], "label": [0, 2.3, 0] },
+  "anchor": [0, 0, 0]
+}

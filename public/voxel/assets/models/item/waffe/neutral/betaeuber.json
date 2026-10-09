@@ -1,0 +1,18 @@
+{
+  "id": "item/waffe/neutral/betaeuber",
+  "name": "Betäuber – Anbau neutral für item/waffe/betaeuber",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["waffe", "anbau-teil", "neutral"],
+  "notes": "Steckplatz-Teil (Bauweise neutral) des Gerüsts item/waffe/betaeuber. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Betäuber",
+      "op": "group",
+      "at": [-1, -9, 1],
+      "ops": [{ "name": "Kennstreifen", "op": "box", "at": [0, 7, 0], "size": [2, 1, 2], "color": "metal_light" }]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

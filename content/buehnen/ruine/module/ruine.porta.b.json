@@ -1,0 +1,29 @@
+{
+  "format": "modul/1", "id": "ruine.porta.b", "art": "ruine", "typ": "porta",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    ":::,,:::",
+    "###,,O##",
+    "..O,,oO.",
+    "..o,,...",
+    "...,,.o.",
+    ".o.,,...",
+    "...,,O..",
+    "...,,..."
+  ],
+  "anker": [
+    "..e.....",
+    "........",
+    "........",
+    "........",
+    ".w......",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "laut" },
+    "w": { "rolle": "wache" }
+  },
+  "belegungen": []
+}

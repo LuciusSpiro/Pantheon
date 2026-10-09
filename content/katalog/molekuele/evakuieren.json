@@ -12,6 +12,306 @@
     "C3",
     "C9"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "quartiere",
+      "name": "Aus den Quartieren holen",
+      "schauplatz": "aussen",
+      "beschreibung": "Auf der Station sitzt Besatzung in den Quartieren fest. Hingehen, ansprechen (E), die Person folgt zum Abholpunkt und wird mit hochgebeamt. Heute eine Person je Karte; die übrigen werden erzählt.",
+      "braucht": [
+        "transfer",
+        "aussen_objekte",
+        "aussen_kampf"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "station"
+        ],
+        "anker": [
+          "nsc",
+          "abholpunkt"
+        ],
+        "min": {
+          "nsc": 2
+        }
+      },
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          4,
+          6
+        ],
+        "3": [
+          4,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_evakuiert",
+        "{{id}}_zurueck"
+      ],
+      "ereignisse": [
+        "npcRescued",
+        "beamedUp"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Vorarbeiterin Sif",
+          "beschreibung": "Name der Person, die geholt wird"
+        },
+        "aufgeben_nach": {
+          "typ": "zahl",
+          "default": 300,
+          "min": 120,
+          "max": 480
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "spawn_person",
+                "map": "{{map}}",
+                "person": "{{id}}_person",
+                "name": "{{name}}",
+                "verletzt": false,
+                "anker": "nsc"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "person_rescued",
+                        "map": "{{map}}",
+                        "person": "{{id}}_person"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_evakuiert": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{aufgeben_nach}}"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_zurueck": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.zurueck"
+                  }
+                ],
+                "garantie": "zeitlimit"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_rescue_person",
+                "map": "{{map}}",
+                "person": "{{id}}_person"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_evakuiert": true
+                }
+              },
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "In den Quartieren sitzt noch Besatzung fest, {{name}} vorneweg. Holt sie raus.",
+          "{{id}}.hinweis": "Captain: {{name}} ist auf der Außenteam-Karte markiert. Ansprechen (E), dann zum Abholpunkt.",
+          "{{id}}.geschafft": "{{name}} ist an Bord. Die anderen schaffen es über die Rettungskapseln.",
+          "{{id}}.zurueck": "Die anderen haben sich selbst zu den Kapseln durchgeschlagen. Kommt hoch.",
+          "{{id}}.ziel": "{{name}} zum Abholpunkt bringen"
+        },
+        "besetzung": {
+          "stimmen": {
+            "{{id}}_person": {
+              "name": "{{name}}"
+            }
+          }
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "hafen",
+          "map": "hafen.kontor"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

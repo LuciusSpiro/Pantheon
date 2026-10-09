@@ -143,6 +143,7 @@ class Agent {
     return (x, y) => !Maps.ship.solid(x, y);
   }
   mapFor(S, zone) { return zone === 'away' ? this.awayMap(S) : Maps.ship; }
+  pathLinks(S, zone) { return zone === 'ship' ? W.liftLinks : null; }
 
   goto(S, goals) {
     const p = this.me(S);
@@ -152,7 +153,7 @@ class Agent {
     // M4: im Lift warten (Eingaben sind gesperrt); an Bord mit Lift-Kanten planen (Agenten nehmen den Lift, nicht die Leiter)
     if (p.lift) { this.input(0, 0); this.stuckT = 0; return false; }
     const set = new Set(goals.map((g) => g.y * map.w + g.x));
-    const path = bfs(walk, st, (x, y) => set.has(y * map.w + x) && walk(x, y), map.w, map.h, null, p.zone === 'ship' ? W.liftLinks : null);
+    const path = bfs(walk, st, (x, y) => set.has(y * map.w + x) && walk(x, y), map.w, map.h, null, this.pathLinks(S, p.zone));
     if (!path) { this.input(0, 0); return 'fail'; }
     if (path.length && path[0].via === 'lift') {
       // auf der Liftkachel: zur Mitte, stehen bleiben, E tippen
@@ -1251,6 +1252,14 @@ class Agent {
 // ---------- M2 „Schildwall“: Mission 3 zu dritt (Captain an Bord, 2 Außenteam-Bots mit Deckung) ----------
 const Los = require('../shared/los.js');
 const KESH = Maps.kesh;
+// Waffenwahl der Bots je Lage und Rolle: [[waffe, Anteil der Seeds], …] (KeshAgent.pickWeapon). Gemessen m3, Seeds 1–20,
+// Waffe per BOT_WAFFE erzwungen (Bots W3): Blaster solo 20/20 (Median 198 s), zu dritt 20/20 (174 s); Sturmgewehr solo
+// 20/20 (183 s), aber Seed 93 von 100 Softlock -> solo nur Blaster; zu dritt 20/20, langsamer (221 s); Lanze solo 3/20,
+// zu dritt 10/20 (jeder Treffer bricht das Laden ab, ohne `aussicht` nur Sicht ≤ 10 Kacheln) -> in der Ruine nicht sinnvoll.
+// Lage Kesh: Plünderer auf 5–9 Kacheln hinter Mauerresten; die Spitze zu dritt (helm) kämpft in Halle/Gewölbe auf kurze Distanz.
+const BOT_WAFFEN = {
+  kesh: { solo: [['blaster', 1]], helm: [['blaster', 0.65], ['sturmgewehr', 0.35]], weapons: [['blaster', 1]] },
+};
 const KESH_GOALS = { hall: { x: 38, y: 10 }, keyA: { x: 38, y: 2 }, keyB: { x: 45, y: 14 }, tablet: { x: 41, y: 18 }, vaultDoor: { x: 41, y: 13 },
   courtyard: { x: 22, y: 10 }, jammerS: { x: 32, y: 12 } };
 class KeshAgent extends Agent {
@@ -1306,7 +1315,8 @@ class KeshAgent extends Agent {
       return;
     }
     if (!ok && !steerer) { if (p.console) this.leave(S); this.onMyPad(S, p); return; }
-    if (p.console) { this.leave(S); return; }
+    if (p.console && p.console !== 'transfer') { this.leave(S); return; }
+    if (this.loadoutStep(S, p)) return;
     if (!this.onMyPad(S, p)) return;
     if (this.role === 'helm') {
       const mate = S.players.find((o) => o.id !== this.pid && o.zone === 'ship' && o.console !== 'captain');
@@ -1318,24 +1328,92 @@ class KeshAgent extends Agent {
   }
   // ---- Unten auf Kesh ----
   enemiesInSight(S, p) {
-    const solid = this.keshSolid(S); const blocked = Los.sightFn(KESH, solid);
+    const solid = this.keshSolid(S); const blocked = Los.sightFn(this.awayMap(S), solid);
     // §15: geduckte Gegner (cr) hinter niedriger Deckung sind von hier aus nicht zu sehen – nicht blind draufhalten
-    const sight = (d) => d.cr ? Los.crouchSight(KESH, solid, blocked, [d]) : blocked;
-    return S.away.drones.filter((d) => d.alive && !d.asleep && d.vis && dist(d.x, d.y, p.x, p.y) <= 9 * TILE && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
-      .filter((d) => d.kind !== 'warden' || Math.abs(norm(Math.atan2(p.y - d.y, p.x - d.x) - (d.facing || 0))) > 1.1)   // Wächter nur von der Seite
+    const sight = (d) => d.cr ? Los.crouchSight(this.awayMap(S), solid, blocked, [d]) : blocked;
+    // B2: liegende/bewusstlose/gefesselte Gegner (zs ≠ ok) nehmen keine Treffer – nicht draufhalten
+    return S.away.drones.filter((d) => d.alive && !d.asleep && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= 9 * TILE && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
+      .filter((d) => d.kind !== 'warden' || p.wf === 'lanze' || Math.abs(norm(Math.atan2(p.y - d.y, p.x - d.x) - (d.facing || 0))) > 1.1)   // Wächter nur von der Seite (die Lanze schlägt durch den Frontschild)
       .sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
+  }
+  // Ziel wählen (BOTS W3): angeschlagene Gegner zuerst (leerer Schild -> nachsetzen, sonst lädt er hinter Deckung nach),
+  // Gegner ohne Deckung vor Gegnern hinter Deckung, dann Nähe; wer einen Kameraden aufrichtet, steht still und kommt zuerst dran;
+  // ein begonnenes Ziel wird gehalten (kein Hin- und Herspringen).
+  pickTarget(S, p, foes) {
+    if (foes.length < 2) return foes[0];
+    const solid = this.keshSolid(S); const m = this.memo;
+    let best = foes[0], bs = Infinity;
+    for (const d of foes) {
+      const seg = d.sh ? d.sh[0] : 1;
+      const cv = Los.coverAgainst(this.awayMap(S), solid, p.x, p.y, d.x, d.y);
+      const s = seg * 1.2 + cv * 1.5 + dist(d.x, d.y, p.x, p.y) / TILE * 0.15 - (d.id === m.foeId ? 0.8 : 0) - (d.role === 'aufrichten' ? 2 : 0);
+      if (s < bs) { bs = s; best = d; }
+    }
+    return best;
   }
   fire(S, p, d) {
     const m = this.memo;
+    // Lanze lädt schon: den Halte-Strom nicht abreißen lassen (sonst löst der Server nach 0,45 s ohne Stufe aus)
+    if (!p.downed && p.wf === 'lanze' && p.ch != null) { m.foeId = d.id; if ((m.shotAt || 0) <= S.time) this.fireLanze(S, p, d); return; }
     // menschennäher: Reaktionszeit 0,5 s auf ein neues Ziel, ~1,6 Schuss/s, Streuung ±7°
     if (m.foeId !== d.id) { m.foeId = d.id; m.shotAt = Math.max(m.shotAt || 0, S.time + 0.5); }
     if ((m.shotAt || 0) > S.time) return;
-    m.shotAt = S.time + (p.downed ? 0.9 : 0.6);
+    if (!p.downed && p.wf === 'lanze') { this.fireLanze(S, p, d); return; }
+    if (!p.downed && p.ov) return;   // überhitzt: Abzug ist gesperrt
+    if (!p.downed && p.wf === 'sturmgewehr') {
+      // Stöße bis ~75 % Hitze, dann bis ≤ 25 % abkühlen lassen (nie in die Sperre); jeder Treffer hält den Schild des Ziels leer
+      const ht = p.ht || 0;
+      if (ht >= 75) m.cool = true; else if (ht <= 25) m.cool = false;
+      if (m.cool) return;
+      m.shotAt = S.time + 0.2;
+      this.send({ t: 'shoot', angle: Math.atan2(d.y - p.y, d.x - p.x) + (simRng() - 0.5) * 0.25 });
+      return;
+    }
+    // B2 Hitze: Gegner mit leerem Schild -> nachsetzen (schneller, solange die Waffe kühl genug ist)
+    const finish = !p.downed && d.sh && d.sh[0] === 0 && (p.ht || 0) < 60;
+    m.shotAt = S.time + (p.downed ? 0.9 : finish ? 0.35 : 0.6);
     const jitter = (simRng() - 0.5) * 0.25;
     this.send({ t: 'shoot', angle: Math.atan2(d.y - p.y, d.x - p.x) + jitter });
   }
+  // Lanze (B2 §2 „Laden“): stehen, halten (shoot-Strom ≤ 0,45 s), loslassen mit shoot { los: true }. Volle Stufe (2 Segmente,
+  // durch den Frontschild), außer der Bot steht unter Druck oder das Ziel ist fast leer -> Stufe 1.
+  fireLanze(S, p, d) {
+    const m = this.memo;
+    const a = Math.atan2(d.y - p.y, d.x - p.x) + (simRng() - 0.5) * 0.1;
+    if (p.ch == null) {
+      if (p.ov) return;
+      this.send({ t: 'shoot', angle: a }); m.shotAt = S.time + 0.25; return;
+    }
+    const seg = p.sh ? p.sh[0] : 3;
+    const want = seg <= 1 || dist(d.x, d.y, p.x, p.y) < 4 * TILE || (d.sh && d.sh[0] <= 1) ? 50 : 100;
+    if (p.ch >= want) { this.send({ t: 'shoot', angle: a, los: true }); m.shotAt = S.time + 0.4; return; }
+    this.send({ t: 'shoot', angle: a }); m.shotAt = S.time + 0.25;
+  }
+  // Waffenwahl (BOTS W3, B2 E26): einmal an der Transfer-Konsole vor dem ersten Runterbeamen, deterministisch je Seed
+  // (eigener Zufall aus Seed und Platz, unabhängig vom Sim-Zufall). Lage und Rolle: Tabelle BOT_WAFFEN.
+  // Umgebung BOT_WAFFE=<waffe>|aus erzwingt eine Waffe bzw. schaltet die Wahl ab (Vergleiche).
+  pickWeapon() {
+    const env = process.env.BOT_WAFFE;
+    if (env) return env === 'aus' ? null : env;
+    const opts = (BOT_WAFFEN.kesh)[this.role];
+    if (!opts) return null;
+    let r = makeRng(((this.opts && this.opts.seed) || 1) * 7907 + this.idx * 131 + 11)();
+    for (const [wf, anteil] of opts) { if (r < anteil) return wf; r -= anteil; }
+    return opts[opts.length - 1][0];
+  }
+  // true, solange der Bot mit der Wahl beschäftigt ist. Ohne Waffen-Modul (WAFFEN=aus: kein wf im Snapshot) entfällt sie.
+  loadoutStep(S, p) {
+    const m = this.memo;
+    if (m.wantWf === undefined) m.wantWf = this.pickWeapon();
+    const want = m.wantWf;
+    if (!want || p.wf == null || (m.wfTries || 0) > 6) { if (p.console === 'transfer') { this.leave(S); return true; } return false; }
+    if (p.wf === want) { if (p.console === 'transfer') { this.leave(S); return true; } return false; }
+    if (!this.enter(S, 'transfer')) return true;
+    this.cmd('loadout.waffe', { waffe: want }); m.wfTries = (m.wfTries || 0) + 1; this.waitT = 0.1;
+    return true;
+  }
   coverSpot(S, p, foe, wantHidden) {
-    const solid = this.keshSolid(S); const blocked = Los.sightFn(KESH, solid); const walk = this.walkable(S, 'away');
+    const solid = this.keshSolid(S); const blocked = Los.sightFn(this.awayMap(S), solid); const walk = this.walkable(S, 'away');
     const me = this.tile(p);
     let best = null, bs = -Infinity;
     for (let y = me.y - 4; y <= me.y + 4; y++) for (let x = me.x - 4; x <= me.x + 4; x++) {
@@ -1346,7 +1424,7 @@ class KeshAgent extends Agent {
       if (wantHidden) { if (los) continue; score = -Math.abs(x - me.x) - Math.abs(y - me.y); }
       else {
         if (!los) continue;
-        const cv = Los.coverAgainst(KESH, solid, foe.x, foe.y, c.x, c.y);
+        const cv = Los.coverAgainst(this.awayMap(S), solid, foe.x, foe.y, c.x, c.y);
         if (!cv) continue;
         score = cv * 3 - Math.abs(x - me.x) - Math.abs(y - me.y);
       }
@@ -1354,9 +1432,9 @@ class KeshAgent extends Agent {
     }
     return best;
   }
-  awayLogic(S, p, st) {
+  // Außen-Gefecht (Kesh und gebaute Karten): Kamerad aufhelfen, Deckung, Ziel, Nachsetzen. true = Tick verbraucht.
+  combatAway(S, p, st) {
     const m = this.memo;
-    if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
     const foes = this.enemiesInSight(S, p);
     // Kamerad verwundet in der Nähe: wiederbeleben (Medipack, wenn vorhanden)
     const mate = S.players.find((o) => o.id !== this.pid && o.zone === 'away' && o.downed && dist(o.x, o.y, p.x, p.y) < 7 * TILE);
@@ -1364,7 +1442,7 @@ class KeshAgent extends Agent {
       const mt = this.tile(mate);
       const r = this.interact(S, mt.x, mt.y, { floor: true, hold: true, until: (S2) => !S2.players.find((o) => o.id === mate.id).downed, max: 8 });
       if (r === 'fail') this.waitT = 0.3;
-      return;
+      return true;
     }
     if (foes.length && !(st === 'extract' && this.nearPads(p))) {
       const f = foes[0];
@@ -1374,19 +1452,35 @@ class KeshAgent extends Agent {
       const solid = this.keshSolid(S);
       if (seg <= 1) {
         if (!m.hide || m.hideAt < S.time) { m.hide = this.coverSpot(S, p, f, true); m.hideAt = S.time + 1.5; }
-        if (m.hide && this.goto(S, [m.hide]) !== true) return;
-        this.input(0, 0); return;
+        if (m.hide && this.goto(S, [m.hide]) !== true) return true;
+        // kein Versteck oder dort trotzdem gesehen (Gegner rückt nach): zurückschießen statt still abwarten
+        this.input(0, 0); this.fire(S, p, this.pickTarget(S, p, foes)); return true;
       }
-      const cv = Los.coverAgainst(KESH, solid, f.x, f.y, p.x, p.y);
+      const cv = Los.coverAgainst(this.awayMap(S), solid, f.x, f.y, p.x, p.y);
       if (!cv) {
         if (!m.cov || m.covAt < S.time) { m.cov = this.coverSpot(S, p, f, false); m.covAt = S.time + 2; }
-        if (m.cov) { const r = this.goto(S, [m.cov]); if (r !== true && r !== 'fail') { if (simRng() < 0.3) this.fire(S, p, f); return; } }
+        if (m.cov) { const r = this.goto(S, [m.cov]); if (r !== true && r !== 'fail') { if (p.wf !== 'lanze' && simRng() < 0.3) this.fire(S, p, f); return true; } }
       } else this.game.simStats.coverShots++;
       this.input(0, 0);
-      this.fire(S, p, f);
-      return;
+      const tg = this.pickTarget(S, p, foes);
+      if (tg.sh && tg.sh[0] === 0 && tg.kind !== 'warden') { const tt = this.tile(tg); m.chase = { x: tt.x, y: tt.y, until: S.time + 4 }; }
+      this.fire(S, p, tg);
+      return true;
     }
     m.cov = null; m.hide = null;
+    // Nachsetzen (BOTS W3, B2 §5 grundtyp „zieht sich bei schwachem Schild zurück“): ein Gegner mit leerem Schild ist
+    // eben aus der Sicht verschwunden -> kurz hinterher, bevor er hinter Deckung nachlädt (nur mit eigenem Schild ≥ 2)
+    if (m.chase && S.time < m.chase.until && (!p.sh || p.sh[0] >= 2)) {
+      const ct = this.tile(p);
+      if (Math.abs(ct.x - m.chase.x) + Math.abs(ct.y - m.chase.y) > 1) { const r = this.goto(S, [{ x: m.chase.x, y: m.chase.y }]); if (r !== 'fail' && r !== true) return true; }
+    }
+    m.chase = null;
+    return false;
+  }
+  awayLogic(S, p, st) {
+    const m = this.memo;
+    if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
+    if (this.combatAway(S, p, st)) return;
     const ss = this.game.simStats;
     const goTo = (g) => this.goto(S, [g]);
     if (st === 'courtyard') {
@@ -1487,7 +1581,7 @@ function printKesh(r) {
   const c = r.combat;
   log(`Kampf: Verwundungen ${c.wounds}, Wiederbelebungen ${c.revives}, Notrückholungen alle ${c.squadRecalls} / einzeln ${c.bleedRecalls}, Spieler-Treffer ${c.playerHits}, Gegner-Schüsse ${c.enemyShots}, Deckung geschluckt ${c.coverBlocks}, Wächter-Abpraller ${c.deflects}, Kuppel ${c.kuppelBlocks}`);
   log(`Gegner: ${r.killed}/${r.spawned} ausgeschaltet, Wächter ${r.warden}, Störrelais aus ${r.jammersOff}/2, Funksprüche ${c.barks}, Befehle ${r.sim.orders}, Schüsse aus Deckung ${r.sim.coverShots}`);
-  log(`Invarianten: Treffer aus mehr als engageBox ${c.offBoxHits} (Schüsse außerhalb ${c.offBoxShots}), längstes Einklemmen ${c.maxStuck.toFixed(1)} s (max. 8)`);
+  log(`Invarianten: Treffer aus mehr als engageBox ohne Sichthilfe ${c.offBoxHits} (mit Aussicht/Trupp-Funk, E16: ${c.offBoxHitsHilfe || 0}; Schüsse außerhalb ${c.offBoxShots}), längstes Einklemmen ${c.maxStuck.toFixed(1)} s (max. 8)`);
   log(`Server-Fehlerzähler: ${r.errors} · Snapshot max ${r.snapMax} B · Marken ${r.marks}, Tafel ${r.tafel}`);
 }
 
@@ -1788,10 +1882,17 @@ const AWAY_TASK_OF = {
 };
 const ESCORT_UMS = ['schuetzen/geleit_durch_angriff', 'schuetzen/notruf_verteidigen', 'pannenhilfe/andocken_und_flicken'];
 
+// Server-Module für die gebauten Karten (lesend; wie der Client sie aus awayMap/Snapshot kennt), lazy
+const lazy = (f) => { let m; return () => m || (m = require(f)); };
+const LP = lazy('../server/sim/landepunkte.js'); const Interior = lazy('../server/sim/interior.js'); const Anker = lazy('../server/sim/anker.js');
+const Away = lazy('../server/sim/away.js'); const Entern = lazy('../server/sim/entern.js'); const Objects = lazy('../server/mission/objects.js'); const Buehne = lazy('../shared/buehne.js');
 class GenericAgent extends KeshAgent {
   constructor(game, idx, role, opts) { super(game, idx, role, opts); this.curKey = null; this.sm = {}; }
   stepInfo() { const m = this.game.mission; return m && m.activeId && m.step && m.def ? { m, step: m.step, def: m.def } : null; }
-  update(S) {
+  update(S0) {
+    // Treibende Schiffe (st 'treibt', Entern) sind keine Gegner: nicht anvisieren, keine Kampfhaltung (Snapshot-Sicht nur für diesen Bot)
+    const S = S0.space && (S0.space.enemies || []).some((e) => e.st === 'treibt')
+      ? Object.assign({}, S0, { space: Object.assign({}, S0.space, { enemies: S0.space.enemies.filter((e) => e.st !== 'treibt') }) }) : S0;
     const p = this.me(S);
     if (!p) return;
     this.updateLocs(S);
@@ -1828,6 +1929,26 @@ class GenericAgent extends KeshAgent {
     return n;
   }
 
+  // B3 §4 (außerhalb des Tutorials): gesprungen wird nur am Sprungpunkt der Kante zum Ziel (space.jp, ship.jump.jp).
+  // Die Tutorial-Bots (Agent.flyClear) bleiben unverändert; dort gilt die alte Regel (Abstand zur Station).
+  flyClear(S) {
+    const sh = S.ship; const j = sh.jump || {};
+    const jp = j.jp && (S.space.jp || []).find((q) => q.k === j.jp);
+    if (jp && /^Sprungpunkt/.test(j.blockedReason || '')) {
+      if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
+      // festgefahren (Brocken im Splittergürtel): kommt der Sprungpunkt 3 s nicht näher, 5 s seitlich ausweichen
+      const m = this.memo; const d = dist(sh.x, sh.y, jp.x, jp.y);
+      if (m.jpBest == null || d < m.jpBest - 20) { m.jpBest = d; m.jpAt = S.time; }
+      if (!m.detour && S.time - m.jpAt > 3) {
+        const a = Math.atan2(jp.y - sh.y, jp.x - sh.x) + ((m.detourN = (m.detourN || 0) + 1) % 2 ? Math.PI / 2 : -Math.PI / 2);
+        m.detour = { x: clamp(sh.x + Math.cos(a) * 350, 100, (S.space.w || 2400) - 100), y: clamp(sh.y + Math.sin(a) * 350, 100, (S.space.h || 1400) - 100), until: S.time + 5 };
+      }
+      if (m.detour && S.time < m.detour.until) { this.steer(S, m.detour.x, m.detour.y, 40, 120); return; }
+      if (m.detour) { m.detour = null; m.jpBest = null; }
+      this.steer(S, jp.x, jp.y, 80, 160); return;
+    }
+    super.flyClear(S);
+  }
   // ---------- zwischen den Missionen: Angebot annehmen (Captain/solo am Planungstisch) ----------
   betweenMissions(S, p) {
     if (p.zone === 'away') { this.padsUp(S, p); return; }
@@ -1855,6 +1976,7 @@ class GenericAgent extends KeshAgent {
     if (def.steps[0] === step) { this.idleStations(S, p); return; }
     if (/_anflug$/.test(step.id)) { this.approach(S, p, this.anflugLoc(step)); return; }
     if (step.loc && sh.scene !== step.loc) { this.approach(S, p, step.loc); return; }
+    if (this.builtMapOf(step)) { this.buehneScene(S, p, step); return; }   // B1: gebauter Landepunkt (vor den Handkarten-Handlern)
     if (p.zone === 'away' && !this.isAwayUms(ums)) { this.padsUp(S, p); return; }
     const fn = ums && this['umsetzung_' + ums.replace('/', '_')];
     if (typeof fn !== 'function') { this.unknownUms(S, p, step); return; }
@@ -1926,6 +2048,7 @@ class GenericAgent extends KeshAgent {
     this.combat(S, p);
   }
   padsUp(S, p) {
+    if (this.builtInfo(S)) { this.buehneHoch(S, p); return; }
     if (S.away.map === 'kesh') { const role = this.role; if (role === 'solo') this.role = 'helm'; try { this.awayLogic(S, p, 'extract'); } finally { this.role = role; } return; }
     if (this.shootDrones(S)) { this.ix = null; return; }
     const npc = S.away.npc;
@@ -2150,6 +2273,366 @@ class GenericAgent extends KeshAgent {
     this.steer(S, gx, gy, arrive, maxSpd);
   }
 
+  // ---------- B1: gebaute Landepunkte (BOTS W3, Nachauftrag) ----------
+  // Ein Schritt mit allowBeam auf eine gebaute Karte: an der Transfer-Konsole den Landepunkt wählen (transfer.ziel), Schiff in
+  // die Transferreichweite, runterbeamen; unten aus Regeln/Zielen/skip des Schritts die Aufgaben ableiten (Anker halten,
+  // Rätselpaar, Person bergen, Bereich, Trupp räumen, Aussicht), Türen/Schotts/Luken mit E, am Abholpunkt hochbeamen.
+  // Die Bots lesen dafür die gebaute Karte (wie der Client sie aus awayMap kennt) und Anker-Zustände des Servers.
+  // Landepunkt-ID -> gebaut und bekannt? Statisch (welt/landepunkte.json) oder zur Laufzeit am Ort angelegt (Prise, Wrack:
+  // landepunkte.liste kennt die dynamischen Einträge des Orts) bzw. schon registriert
+  lpRow(id) {
+    const L = LP(); const g = this.game;
+    const row = (L.liste(g, g.ship && g.ship.scene) || []).find((r) => r.id === id);
+    if (row) return row;
+    const d = L.defs().byId[id];
+    return d ? { id, beam: d.beam || null } : (W.AWAY_MAPS[id] && W.AWAY_MAPS[id].karte ? { id, beam: null } : null);
+  }
+  builtMapOf(step) {
+    for (const id of (step && step.allowBeam) || []) if (!W.istHand(id) && this.lpRow(id)) return id;
+    return null;
+  }
+  // Transferpunkt eines Landepunkts: treibende Prise (folgt dem Schiff, entern.beamPunkt), sonst aus dem Landepunkt
+  lpBeam(id) {
+    let b = null;
+    try { b = Entern().beamPunkt(this.game, id); } catch (e) { b = null; }
+    if (b) return b;
+    const r = this.lpRow(id);
+    return r && r.beam ? r.beam : null;
+  }
+  builtInfo(S) {
+    const id = S.away && S.away.map;
+    const e = id && W.AWAY_MAPS[id];
+    return e && e.karte ? Interior().awayInfoOf(id) : null;
+  }
+  awayMap(S) { const bi = this.builtInfo(S); return bi ? bi.map : super.awayMap(S); }
+  pathLinks(S, zone) {
+    if (zone === 'away') { const bi = this.builtInfo(S); if (bi && bi.links) return (x, y) => bi.links(x, y).filter((l) => l.via === 'lift'); return null; }
+    return super.pathLinks(S, zone);
+  }
+  // Begehbar für die Planung: jetzt frei, oder eine Tür/Luke/Schott/Tor, die E öffnet (Kante 'zu', technische Luke)
+  walkable(S, zone) {
+    const bi = zone === 'away' && this.builtInfo(S);
+    if (!bi) return super.walkable(S, zone);
+    const solid = Interior().awaySolid(this.game);
+    return (x, y) => !solid(x, y) || this.doorAt(S, bi, x, y) === 'zu';
+  }
+  keshSolid(S) {
+    if (!this.builtInfo(S)) return super.keshSolid(S);
+    return Interior().awaySolid(this.game);
+  }
+  // Tür auf (x,y): 'zu' (mit E zu öffnen) | 'fest' (verschlossen/verriegelt) | null (keine Tür bzw. offen)
+  doorAt(S, bi, x, y) {
+    const kid = bi.kanteAt.get(x + ',' + y);
+    if (!kid) return null;
+    const k = bi.karte; const map = S.away.map;
+    const z = Anker().zustand(this.game, map, kid);
+    if (z === 'offen' || z === 'gesprengt' || z === 'gehackt') return null;
+    const kk = k.kanten[kid];
+    const tech = kk.typ === 'luke' && k.anker.some((a) => a.rolle === 'eingang' && a.art === 'technisch' && Anker().kantenVonAnker(k, a).includes(kid));
+    if (tech) return 'zu';
+    const tor = k.anker.find((a) => a.rolle === 'tor' && Anker().kantenVonAnker(k, a).includes(kid));
+    const verriegelt = tor && k.anker.some((a) => a.rolle === 'raetsel' && (!tor.paar || a.paar === tor.paar));
+    return z === 'zu' && !verriegelt ? 'zu' : 'fest';
+  }
+  // goto mit Türen: ist die nächste Kachel des Wegs eine geschlossene Tür, E halten, bis sie offen ist
+  gotoBuilt(S, goals) {
+    const bi = this.builtInfo(S); const p = this.me(S);
+    if (bi) {
+      const solid = Interior().awaySolid(this.game); const walk = this.walkable(S, 'away');
+      const st = this.tile(p); const map = bi.map;
+      const set = new Set(goals.map((g) => g.y * map.w + g.x));
+      const path = bfs(walk, st, (x, y) => set.has(y * map.w + x) && walk(x, y), map.w, map.h, null, this.pathLinks(S, 'away'));
+      if (path && path.length && !path[0].via && solid(path[0].x, path[0].y)) {
+        const d = path[0];
+        this.sm.doorIx = true;
+        const r = this.interact(S, d.x, d.y, { hold: true, max: 8, until: () => !Interior().awaySolid(this.game)(d.x, d.y) });
+        if (r === 'fail') this.waitT = 0.3;
+        return false;
+      }
+      if (!path) return this.openWay(S, p);
+    }
+    return this.goto(S, goals);
+  }
+  // Kein Weg: einen erreichbaren Eingang hacken (Schott) bzw. eine Luke öffnen; sonst 'fail'
+  openWay(S, p) {
+    const bi = this.builtInfo(S); const k = bi.karte; const map = S.away.map;
+    const op = (a) => Buehne().eingangAktion(k, a, (kk) => Anker().zustand(this.game, map, kk.id));
+    const pt = this.tile(p);
+    const eing = k.anker.filter((a) => a.rolle === 'eingang' && op(a))
+      .sort((a, b) => Math.abs(a.x - pt.x) + Math.abs(a.y - pt.y) - Math.abs(b.x - pt.x) - Math.abs(b.y - pt.y));
+    const walk = this.walkable(S, 'away');
+    for (const a of eing) {
+      const goals = [[0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: a.x + dx, y: a.y + dy })).filter((g) => walk(g.x, g.y));
+      if (!goals.length) continue;
+      const path = bfs(walk, pt, (x, y) => goals.some((g) => g.x === x && g.y === y), bi.map.w, bi.map.h, null, this.pathLinks(S, 'away'));
+      if (!path) continue;
+      if (path.length) { this.goto(S, goals); return false; }
+      const r = this.interact(S, a.x, a.y, { hold: true, max: 12, floor: true, until: () => !op(a) });
+      if (r === 'fail') this.waitT = 0.3;
+      return false;
+    }
+    this.input(0, 0); return 'fail';
+  }
+  // Prüfungen eines Schritts (rules.if, objectives.done) -> [{ name, ...args }]
+  stepChecks(step) {
+    if (this.sm.checks) return this.sm.checks;
+    const out = [];
+    const walk = (o) => {
+      if (!o || typeof o !== 'object') return;
+      if (o.check && typeof o.check === 'object') out.push(o.check); else if (typeof o.check === 'string') out.push({ name: o.check });
+      for (const v of Object.values(o)) walk(v);
+    };
+    for (const r of step.rules || []) walk(r.if);
+    for (const o of step.objectives || []) walk(o.done);
+    return (this.sm.checks = out);
+  }
+  ankerZ(map, id) { return Anker().zustand(this.game, map, id); }
+  // Offene Aufgaben des Schritts auf der Karte M, in Reihenfolge: { kind: anker|raetsel|person|trupp|bereich|hin, … }
+  buehneTasks(S, step, M) {
+    const k = W.AWAY_MAPS[M] && W.AWAY_MAPS[M].karte; if (!k) return [];
+    const checks = this.stepChecks(step);
+    const want = [];   // [{ ref: rolle|id, z, min?, all? }]
+    for (const c of checks) if (c.name === 'anker_state' && c.map === M) want.push({ ref: c.anker, z: c.state, min: c.min || null, all: !!c.all });
+    for (const sk of step.skip || []) if (sk && sk.do === 'anker_zustand' && sk.map === M && !want.some((w) => w.ref === sk.anker)) want.push({ ref: sk.anker, z: sk.zustand });
+    if (checks.some((c) => c.name === 'download_fertig') && !want.some((w) => w.ref === 'terminal')) want.push({ ref: 'terminal', z: 'geladen' });
+    if (checks.some((c) => c.name === 'ladung_gezuendet') && !want.some((w) => w.ref === 'sprengpunkt')) want.push({ ref: 'sprengpunkt', z: 'zerstoert' });
+    const near = checks.find((c) => c.name === 'near_object' && c.map === M);
+    const order = ['versteck', 'zelle', 'tor', 'fund', 'beute', 'ziel', 'terminal', 'sprengpunkt'];
+    want.sort((a, b) => order.indexOf(a.ref) - order.indexOf(b.ref));
+    const tasks = [];
+    for (const w of want) {
+      let as = k.anker.filter((a) => a.id === w.ref || a.rolle === w.ref);
+      if (w.ref === 'terminal') { const kern = as.filter((a) => a.kern); if (kern.length) as = kern; }   // Kern-Terminal (der Captain sieht es)
+      if (w.ref === 'sprengpunkt' && near) continue;   // ziel_markieren: die Aussicht genügt
+      if (w.ref === 'sprengpunkt' && !((this.game.inventory.ladung || 0) > 0) && !as.some((a) => this.ankerZ(M, a.id) === 'scharf')) continue;
+      const open = as.filter((a) => this.ankerZ(M, a.id) !== w.z);
+      const done = as.length - open.length;
+      if (!as.length || (w.min ? done >= w.min : w.all ? !open.length : done >= 1)) continue;
+      if (w.ref === 'tor') { const rs = k.anker.filter((a) => a.rolle === 'raetsel'); if (rs.length) { tasks.push({ kind: 'raetsel', rs }); continue; } }
+      for (const a of open) if (this.ankerZ(M, a.id) !== 'scharf') tasks.push({ kind: 'anker', a, z: w.z });
+    }
+    for (const c of checks) {
+      if (c.map !== M) continue;
+      if (c.name === 'person_rescued' && !Away().personRescued(this.game, M, c.person)) tasks.push({ kind: 'person', person: c.person });
+      if (c.name === 'trupp_geraeumt' && !this.truppFrei(c)) tasks.push({ kind: 'trupp', tag: c.tag });
+      if (c.name === 'team_im_bereich' && !this.imBereich(S, M, c.bereich)) tasks.push({ kind: 'bereich', bereich: c.bereich });
+    }
+    if (near) { const ref = near.anker || near.object; const a = k.anker.find((q) => q.rolle === ref || q.id === ref); if (a) tasks.push({ kind: 'hin', a }); }
+    return tasks;
+  }
+  truppFrei(c) {
+    const ds = (this.game.away && this.game.away.drones) || [];
+    return !ds.some((d) => d.alive && (!c.tag || d.tag === c.tag) && (!d.zustand || d.zustand === 'ok' || d.zustand === 'verwundet'));
+  }
+  imBereich(S, M, bereich) { const p = this.me(S); return !!(p && p.zone === 'away' && Objects().inArea(this.game, M, bereich, p.x, p.y)); }
+  objOpen(S) { return (S.mission.objectives || []).filter((o) => !o.done && o.id !== 'hoch'); }
+  // Szene auf einer gebauten Karte (alle Umsetzungen mit allowBeam auf einen gebauten Landepunkt)
+  buehneScene(S, p, step) {
+    const M = this.builtMapOf(step);
+    if (!M) {   // Vor-Schritt ohne Karte (z. B. „ablegen“): Ziel docked:false -> ablegen, sonst kämpfen/halten
+      if (p.zone === 'away') { this.padsUp(S, p); return; }
+      if ((step.objectives || []).some((o) => o.done && o.done.docked === false) && S.ship.docked) { if (this.is('helm')) { if (this.enter(S, 'helm')) this.helmS(S, 0, QUARTER); } else this.idleStations(S, p); return; }
+      this.fightOrHold(S, p); return;
+    }
+    if (p.zone === 'away') {
+      if (S.away.map !== M) { this.buehneHoch(S, p); return; }
+      this.buehneAway(S, p, step, M); return;
+    }
+    if (S.space.enemies.length && !S.players.some((o) => o.zone === 'away')) { this.combatGeneric(S, p); return; }
+    const tasks = this.buehneTasks(S, step, M);
+    const need = this.objOpen(S).length > 0;
+    // Versteck: erst aus dem Orbit markieren (Weitscan mit gewähltem Landepunkt)
+    const aw = this.game.aways[M];
+    const markNeeded = tasks.some((t) => t.kind === 'anker' && t.a.rolle === 'versteck') && !(aw && aw.ankerLauf && aw.ankerLauf.markiert);
+    const zielOk = !!(this.game.transferZiel && this.game.transferZiel.lp === M);
+    const scan = () => {
+      if (this.role === 'solo' && p.console === 'helm' && !this.brake(S)) return;
+      if (this.enter(S, 'weapons') && S.ship.widescan.cd === 0 && (this.memo.wsAt || 0) < S.time) { this.memo.wsAt = S.time + 2; this.cmd('weapons.widescan'); this.game.simStats.widescans++; }
+    };
+    if (this.role === 'captain') { if (markNeeded && zielOk) { scan(); return; } this.supportAway(S, p); return; }
+    if (!need) { this.idleStations(S, p); return; }
+    // Landepunkt wählen (Transfer-Konsole): solo, sonst Taktik; die Steuer fliegt derweil in die Reichweite
+    if (!zielOk) {
+      if (this.role === 'helm' && (this.game.simAgents || []).some((a) => a.role === 'weapons' && a.me(S) && a.me(S).zone === 'ship')) { this.beamDownLp(S, p, M, tasks, true); return; }
+      if (!this.enter(S, 'transfer')) return;
+      if ((this.memo.zielAt || 0) < S.time) { this.memo.zielAt = S.time + 1; this.cmd('transfer.ziel', { landepunkt: M }); this.game.simStats.lpChoices = (this.game.simStats.lpChoices || 0) + 1; }
+      return;
+    }
+    if (markNeeded && this.role === 'solo') { scan(); return; }
+    this.beamDownLp(S, p, M, tasks, false);
+  }
+  // An Bord: Schiff in die Transferreichweite des Landepunkts, anhalten, ggf. Medipack holen, aufs Pad, runterbeamen
+  beamDownLp(S, p, M, tasks, steerOnly) {
+    const sh = S.ship;
+    const b = this.lpBeam(M); if (!b) { this.idleStations(S, p); return; }
+    const near = dist(sh.x, sh.y, b.x, b.y) <= b.range * 0.7;
+    const shipOk = near && sh.speed <= 8;
+    const steerer = this.role === 'solo' || this.role === 'helm';
+    if (p.console && !(steerer && p.console === 'helm' && (!shipOk || steerOnly))) { this.leave(S); return; }
+    if (steerOnly) { if (this.enter(S, 'helm')) { if (sh.docked) this.helmS(S, 0, QUARTER); else if (!near) this.steer(S, b.x, b.y, 40, 110); else this.brake(S); } return; }
+    if (sh.systems.transfer === 'broken' || sh.systems.transfer === 'offline') {
+      if (this.role !== 'helm' && sh.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
+      this.input(0, 0); return;
+    }
+    if (steerer && !shipOk) {
+      if (this.enter(S, 'helm')) { if (sh.docked) this.helmS(S, 0, QUARTER); else if (!near) this.steer(S, b.x, b.y, 40, 110); else this.brake(S); }
+      return;
+    }
+    const wantMedi = (tasks || []).some((t) => t.kind === 'person') && S.inventory.medipack > 0 && steerer;
+    if (p.carry && !(wantMedi && p.carry === 'medipack')) {
+      if (this.actDown && !(this.ix && this.ix.phase === 'up')) { this.act(false); return; }
+      const shelf = shelfOf(p.carry);
+      if (shelf) { this.interact(S, shelf.x, shelf.y, {}); return; }
+      this.send({ t: 'drop' }); return;
+    }
+    if (wantMedi && !p.carry && !this.memo.mediTaken) { const shelf = shelfOf('medipack'); if (shelf && this.interact(S, shelf.x, shelf.y, {}) === 'done') this.memo.mediTaken = true; return; }
+    if (!shipOk) { this.onMyPad(S, p); this.input(0, 0); return; }
+    if (!this.onMyPad(S, p)) return;
+    this.holdBeam(S, p);
+  }
+  // Unten auf der gebauten Karte
+  buehneAway(S, p, step, M) {
+    if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
+    if (this.combatAway(S, p, null)) return;
+    const sm = this.sm;
+    const npc = S.away.npc;
+    if (npc && npc.present && !npc.rescued && npc.following === this.pid) { this.buehneHoch(S, p, npc); return; }   // Person folgt: hoch
+    const k = W.AWAY_MAPS[M].karte;
+    const scharf = k.anker.find((a) => a.rolle === 'sprengpunkt' && this.ankerZ(M, a.id) === 'scharf');
+    if (scharf) { this.awayFrom(S, p, scharf, 5); return; }   // Ladung scharf: Abstand halten
+    const tasks = this.buehneTasks(S, step, M);
+    if (!tasks.length) {
+      // nichts mehr zu tun: kurz warten (Regel feuert im nächsten Tick), dann zum Abholpunkt
+      if (this.objOpen(S).length && (sm.idleT = (sm.idleT || 0) + DT) < 5) { this.input(0, 0); return; }
+      this.buehneHoch(S, p); return;
+    }
+    sm.idleT = 0;
+    const mates = (this.game.simAgents || []).filter((a) => { const q = a.me(S); return q && q.zone === 'away' && !q.downed; });
+    const rank = Math.max(0, mates.indexOf(this));
+    // Ziel hinter einem rätselgebundenen Tor (unerreichbar): erst das Rätselpaar lösen
+    if (sm.unreach && !tasks.some((x) => x.kind === 'raetsel')) {
+      const rs = k.anker.filter((a) => a.rolle === 'raetsel' && this.ankerZ(M, a.id) !== 'geloest');
+      if (rs.length >= 2 && k.anker.some((a) => a.rolle === 'tor' && this.ankerZ(M, a.id) !== 'offen')) tasks.unshift({ kind: 'raetsel', rs });
+    }
+    const rt = tasks.find((x) => x.kind === 'raetsel');
+    if (rt) { this.raetselPaar(S, p, M, rt.rs, mates, rank); return; }
+    const t = tasks[Math.min(rank, tasks.length - 1)];
+    sm.task = t.kind + ':' + (t.a ? t.a.id : t.person || t.bereich || '');
+    if (t.kind === 'anker') { this.ankerHalten(S, p, M, t.a, t.z); return; }
+    if (t.kind === 'person') { this.personHolen(S, p, npc); return; }
+    if (t.kind === 'hin') { this.gotoNear(S, p, t.a.x, t.a.y, 1); return; }
+    if (t.kind === 'bereich') { this.inBereich(S, p, M, t.bereich); return; }
+    if (t.kind === 'trupp') { this.jagen(S, p, t.tag); return; }
+    this.input(0, 0);
+  }
+  ankerHalten(S, p, M, a, z) {
+    const r = this.interactBuilt(S, a.x, a.y, { hold: true, max: 30, floor: true,
+      until: () => { const q = this.ankerZ(M, a.id); return q === z || (a.rolle === 'sprengpunkt' && q === 'scharf') || (a.rolle === 'raetsel' && q !== 'ruhe'); } });
+    if (r === 'fail') { this.waitT = 0.3; this.sm.unreach = a.id; }
+  }
+  // interact mit Türen auf dem Weg: Anlauf über gotoBuilt, danach wie Agent.interact (ausrichten, E, halten)
+  interactBuilt(S, tx, ty, opts) {
+    const o = opts || {}; const p = this.me(S);
+    const ix = this.ix;
+    if (ix && ix.tx === tx && ix.ty === ty && ix.phase !== 'go') return this.interact(S, tx, ty, o);
+    const walk = this.walkable(S, 'away'); const solid = Interior().awaySolid(this.game);
+    const goals = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([a, b]) => ({ x: tx + a, y: ty + b })).filter((g) => walk(g.x, g.y) && !solid(g.x, g.y));
+    if (o.floor && !solid(tx, ty)) goals.push({ x: tx, y: ty });
+    const st = this.tile(p);
+    if (goals.some((g) => g.x === st.x && g.y === st.y)) {
+      const c = Physics.tileCenter(st.x, st.y);
+      if (dist(p.x, p.y, c.x, c.y) > 5) { this.goto(S, [st]); return 'running'; }
+      this.ix = { tx, ty, phase: 'face', t: 0 };
+      return this.interact(S, tx, ty, o);
+    }
+    if (this.ix && this.ix.phase !== 'go' && (this.ix.tx !== tx || this.ix.ty !== ty)) return this.interact(S, this.ix.tx, this.ix.ty, { hold: true, max: 8, until: () => !Interior().awaySolid(this.game)(this.ix.tx, this.ix.ty) });   // Tür unterwegs
+    this.ix = null;
+    if (!goals.length) return 'fail';
+    const r = this.gotoBuilt(S, goals);
+    return r === 'fail' ? 'fail' : 'running';
+  }
+  gotoNear(S, p, x, y, r) {
+    const walk = this.walkable(S, 'away'); const solid = Interior().awaySolid(this.game);
+    const goals = [];
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (walk(x + dx, y + dy) && !solid(x + dx, y + dy)) goals.push({ x: x + dx, y: y + dy });
+    const st = this.tile(p);
+    if (goals.some((g) => g.x === st.x && g.y === st.y)) { this.input(0, 0); return true; }
+    if (!goals.length) { this.input(0, 0); return 'fail'; }
+    return this.gotoBuilt(S, goals);
+  }
+  awayFrom(S, p, a, r) {
+    const pt = this.tile(p);
+    if (Math.max(Math.abs(pt.x - a.x), Math.abs(pt.y - a.y)) > r) { this.input(0, 0); return; }
+    const bi = this.builtInfo(S); const walk = this.walkable(S, 'away'); const map = bi.map;
+    const path = bfs(walk, pt, (x, y) => Math.max(Math.abs(x - a.x), Math.abs(y - a.y)) > r + 1 && walk(x, y), map.w, map.h, null, null);
+    if (!path || !path.length) { this.input(0, 0); return; }
+    this.gotoBuilt(S, [path[path.length - 1]]);
+  }
+  inBereich(S, p, M, bereich) {
+    const sm = this.sm;
+    if (!sm.bereichT || sm.bereichT.b !== bereich) {
+      const map = this.builtInfo(S).map; const tiles = [];
+      for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) if (!map.solid(x, y) && Objects().inArea(this.game, M, bereich, x * TILE + 16, y * TILE + 16)) tiles.push({ x, y });
+      sm.bereichT = { b: bereich, tiles };
+    }
+    if (!sm.bereichT.tiles.length || this.gotoBuilt(S, sm.bereichT.tiles) === 'fail') this.input(0, 0);
+  }
+  // Trupp räumen: zum nächsten noch kampffähigen Gegner (die Sicht und das Feuer übernimmt combatAway)
+  jagen(S, p, tag) {
+    const ds = ((this.game.away && this.game.away.drones) || []).filter((d) => d.alive && (!tag || d.tag === tag) && (!d.zustand || d.zustand === 'ok'));
+    if (!ds.length) { this.input(0, 0); return; }
+    ds.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
+    const t = this.tile(ds[0]);
+    if (this.gotoNear(S, p, t.x, t.y, 2) === 'fail') this.input(0, 0);
+  }
+  // Person: hingehen, E (verletzt: mit Medipack), sie folgt; dann buehneHoch
+  personHolen(S, p, npc) {
+    if (!npc || !npc.present || npc.rescued || (npc.following && npc.following !== this.pid)) { this.input(0, 0); return; }
+    const nt = this.tile(npc);
+    if (this.interactBuilt(S, nt.x, nt.y, { floor: true }) === 'fail') this.waitT = 0.3;
+  }
+  // Rätselpaar: zu zweit je ein Schloss gleichzeitig; solo erst eines, dann sofort das andere (Fenster aus dem Laufweg)
+  raetselPaar(S, p, M, rs, mates, rank) {
+    const pt = this.tile(p);
+    const zA = (a) => this.ankerZ(M, a.id);
+    const pair = rs.slice().sort((a, b) => (a.id < b.id ? -1 : 1));
+    if (mates.length >= 2) {
+      const mine = pair[rank % 2];
+      const other = mates.find((a) => a !== this);
+      const solid = Interior().awaySolid(this.game);
+      const goals = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([a, b]) => ({ x: mine.x + a, y: mine.y + b })).filter((g) => !solid(g.x, g.y));
+      const at = goals.some((g) => g.x === pt.x && g.y === pt.y);
+      this.sm.amSchloss = at;
+      if (!at) { if (this.actDown) this.act(false); this.ix = null; this.gotoBuilt(S, goals); return; }
+      if (!(other && other.sm && other.sm.amSchloss) || zA(mine) !== 'ruhe') { if (this.actDown) this.act(false); this.ix = null; this.input(0, 0); return; }
+      const r = this.interact(S, mine.x, mine.y, { hold: true, max: 6, until: () => zA(mine) !== 'ruhe' });
+      if (r === 'fail') this.waitT = 0.4;
+      return;
+    }
+    const held = rs.find((a) => zA(a) === 'gehalten');
+    const byDist = rs.slice().sort((a, b) => Math.abs(a.x - pt.x) + Math.abs(a.y - pt.y) - Math.abs(b.x - pt.x) - Math.abs(b.y - pt.y));
+    const t = held ? rs.find((a) => a !== held && zA(a) === 'ruhe') : byDist[0];
+    if (!t) { this.input(0, 0); return; }
+    this.ankerHalten(S, p, M, t, 'gehalten');
+  }
+  // Zum Abholpunkt, E halten (selfbeam); eine folgende Person kommt mit
+  buehneHoch(S, p, follower) {
+    const bi = this.builtInfo(S);
+    if (!bi) { super.padsUp(S, p); return; }
+    const pt = this.tile(p);
+    const solid = Interior().awaySolid(this.game);
+    const pads = bi.pads.filter((q) => !solid(q.x, q.y));
+    const onPad = pads.some((q) => q.x === pt.x && q.y === pt.y);
+    if (!onPad) { if (this.actDown) this.act(false); if (this.gotoBuilt(S, pads) === 'fail') this.input(0, 0); return; }
+    const c = Physics.tileCenter(pt.x, pt.y);
+    if (dist(p.x, p.y, c.x, c.y) > 5) { this.goto(S, [pt]); return; }
+    this.input(0, 0);
+    if (follower && dist(follower.x, follower.y, p.x, p.y) > 56) return;
+    if (S.ship.systems.transfer === 'broken' || S.ship.systems.transfer === 'offline') { if (this.actDown) this.act(false); return; }
+    if (!this.actDown) this.act(true);
+    else if (!p.action && (this.memo.holdUp = (this.memo.holdUp || 0) + DT) > 0.6) { this.act(false); this.memo.holdUp = 0; this.waitT = 1; }
+  }
+
   // ---------- Außenteam B-7 / Wrack ----------
   umsetzung_personen_bergen_techniker_retten(S, p, step) { this.awayScene(S, p, step); }
   umsetzung_raetsel_loesen_sonden_code(S, p, step) { this.awayScene(S, p, step); }
@@ -2257,6 +2740,21 @@ class GenericAgent extends KeshAgent {
 
 // ---------- Läufe mit GenericAgent ----------
 const SceneKind = { HAFEN: 'hafen', ANFLUG: 'anflug', SZENE: 'szene' };
+// Umsetzungen mit buehne_braucht ohne eigenen Handler: generischer Bühnen-Bot (buehneScene)
+(() => {
+  const fs = require('fs'); const path = require('path');
+  const dir = path.join(__dirname, '..', 'content', 'katalog', 'molekuele');
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')); } catch (e) { files = []; }
+  for (const f of files) {
+    let mol; try { mol = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch (e) { continue; }
+    for (const u of mol.umsetzungen || []) {
+      if (!u.buehne_braucht) continue;
+      const fn = 'umsetzung_' + mol.id + '_' + u.id;
+      if (typeof GenericAgent.prototype[fn] !== 'function') GenericAgent.prototype[fn] = function (S, p, step) { this.buehneScene(S, p, step); };
+    }
+  }
+})();
 function sceneOfStepId(def, stepId) {
   if (def && def.steps && def.steps[0] && def.steps[0].id === stepId) return stepId;
   return String(stepId).replace(/_anflug$/, '').replace(/_x(_\d+)?$/, '').replace(/_\d+$/, '');
@@ -2442,6 +2940,21 @@ function testBooks(only) {
     const scenes = keys.map((k) => ({ key: k, u: umsOf(k), override: {} }));
     books.push(buildTestBook(Szenenbau, env, `bt${gi + 1}`, scenes));
   });
+  // F15: Landepunkte wie im Spiel vorbauen (dort bei der Ankunft am Ort, außerhalb des Ticks). Der Karten-Cache von
+  // landepunkte.js gilt prozessweit und hängt nur von Landepunkt, Seed und Achsen ab; die Registrierung (game.aways)
+  // macht im Lauf der Schritt-Baustein (besetzen, anker_zustand …) über landepunkte.sobaldGeladen aus diesem Cache.
+  const L = require('../server/sim/landepunkte.js');
+  const W = require('../server/world.js');
+  const maps = new Set();
+  for (const b of books) {
+    for (const id of (b.buehne && b.buehne.aussenkarten) || []) maps.add(id);
+    for (const s of b.steps || []) for (const id of s.allowBeam || []) maps.add(id);
+  }
+  const vorbau = {};   // eigener Laufzeitzustand nur für den Vorbau (keine Partie)
+  for (const id of maps) {
+    if (W.istHand(id) || !L.defs().byId[id]) continue;
+    try { L.karte(vorbau, id); } catch (e) { log(`Testbuch-Vorbau ${id}: ${e.message}`); }
+  }
   return books;
 }
 // scenes: [{ key: 'mol/ums', u, override: {params}, loc? }]
@@ -2656,7 +3169,8 @@ async function dauerMain() {
   if (onlyM3 || !counts.length) {
     const r = await runKesh({ seed: seedArg != null ? seedArg : 31 });
     printKesh(r);
-    if (!r.success || r.errors > 0 || r.combat.offBoxHits > 0 || r.combat.maxStuck > 8 || r.snapMax >= 12 * 1024) ok = false;
+    // E16: nur Treffer ohne geteilte Sicht/Aussicht zählen (offBoxHits); Snapshot-Budget B2: 13 KB
+    if (!r.success || r.errors > 0 || r.combat.offBoxHits > 0 || r.combat.maxStuck > 8 || r.snapMax >= 13 * 1024) ok = false;
   }
   for (const run of runs) {
     const skip = run === 'skip';
@@ -2668,7 +3182,7 @@ async function dauerMain() {
     base.pilot = PILOT && PILOT !== 'both' ? PILOT : 'maneuver';
     const r = await runScenario(n, base);
     printResult(r);
-    if (!r.success || r.errors > 0 || r.snapshot.maxBytesFull >= 12 * 1024) ok = false;
+    if (!r.success || r.errors > 0 || r.snapshot.maxBytesFull >= 13 * 1024) ok = false;
     if (r.wreck && !r.sim.wreckDone) ok = false;
   }
   log(ok ? '\nSIM OK' : '\nSIM FEHLGESCHLAGEN');

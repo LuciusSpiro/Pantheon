@@ -1,0 +1,29 @@
+{
+  "id": "item/waffe/neutral/granatwerfer",
+  "name": "Granatwerfer – Anbau neutral für item/waffe/granatwerfer",
+  "tier": "detail",
+  "palette": "base",
+  "tags": ["waffe", "anbau-teil", "neutral"],
+  "notes": "Steckplatz-Teil (Bauweise neutral) des Gerüsts item/waffe/granatwerfer. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Granatwerfer",
+      "op": "group",
+      "at": [-1, -11, 2.5],
+      "ops": [
+        {
+          "name": "Kennring",
+          "op": "cyl",
+          "at": [1, 7, 2],
+          "r": 2.5,
+          "h": 1,
+          "axis": "y",
+          "color": "metal_light",
+          "hollow": 1
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

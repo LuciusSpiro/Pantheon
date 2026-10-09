@@ -1,0 +1,28 @@
+{
+  "format": "modul/1", "id": "aussenposten.innenzaun.a", "art": "aussenposten", "typ": "innenzaun",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "::o:::::",
+    "========",
+    ".o......",
+    ".o......",
+    ".o......",
+    "......o.",
+    "......o.",
+    "......o."
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "...p....",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "p": { "rolle": "patrouille", "kette": "a" }
+  },
+  "belegungen": []
+}

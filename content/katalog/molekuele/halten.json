@@ -104,7 +104,7 @@
           }
         ],
         "texte": {
-          "{{id}}.lage": "Für {{was}} müssen wir nah am Objekt bleiben. Pilot: in den Kreis und Position halten!",
+          "{{id}}.lage": "{{was}} läuft nur, wenn wir nah am Objekt bleiben. Pilot: in den Kreis und Position halten!",
           "{{id}}.ankuendigung": "Ortung: Jäger im Anflug – die wollen uns vom Objekt wegdrängen. Position halten!",
           "{{id}}.tipp": "Die Uhr läuft nur im Kreis um das Objekt. Wer herausfliegt, beginnt den Abschnitt neu.",
           "{{id}}.a1": "Ein Drittel geschafft. Weiter im Kreis bleiben!",

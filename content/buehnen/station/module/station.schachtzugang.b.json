@@ -1,0 +1,27 @@
+{
+  "format": "modul/1", "id": "station.schachtzugang.b", "art": "station", "typ": "schachtzugang",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows": [
+    "########",
+    "#LL..o.#",
+    "#......#",
+    "#####..#",
+    "####...#",
+    "###..###",
+    "###..###",
+    "###..###"
+  ],
+  "anker": [
+    "........",
+    "........",
+    ".e......",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {
+    "e": { "rolle": "eingang", "art": "leise" }
+  }
+}

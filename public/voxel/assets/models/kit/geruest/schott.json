@@ -1,0 +1,46 @@
+{
+  "id": "kit/geruest/schott",
+  "name": "Bausatz-Gerüst – Schott (2 Kacheln, hackbar)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["kit","geruest","schott"],
+  "footprint": [2,1],
+  "jitter": 0,
+  "slots": ["schott_rahmen","schott_blatt"],
+  "params": {
+    "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"},
+    "state": {"default":0,"min":0,"max":3,"step":1,"label":"0 zu · 1 offen · 2 gehackt · 3 verschlossen"}
+  },
+  "variants": {
+    "geschnitten": {"cut":1},
+    "verfallen": {"zustand":1,"seed":1},
+    "umkaempft": {"zustand":2,"seed":2},
+    "probe": {"bauweise":"test"},
+    "zu": {"state":0},
+    "zu_geschnitten": {"state":0,"cut":1},
+    "probe_zu": {"state":0,"bauweise":"test"},
+    "offen": {"state":1},
+    "offen_geschnitten": {"state":1,"cut":1},
+    "probe_offen": {"state":1,"bauweise":"test"},
+    "gehackt": {"state":2},
+    "gehackt_geschnitten": {"state":2,"cut":1},
+    "probe_gehackt": {"state":2,"bauweise":"test"},
+    "verschlossen": {"state":3},
+    "verschlossen_geschnitten": {"state":3,"cut":1},
+    "probe_verschlossen": {"state":3,"bauweise":"test"}
+  },
+  "let": {
+    "W": 8,
+    "zu": "state == 0 || state == 3"
+  },
+  "ops": [
+    {"name":"Steckplatz schott_rahmen","op":"use","model":"kit/{bauweise}/{art}/schott_rahmen","fallback":["kit/{bauweise}/gemein/schott_rahmen","kit/geruest/slot/schott_rahmen"],"at":[0,0,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":1,"d":4,"teil":0,"state":"state"}},
+    {"name":"Steckplatz schott_rahmen","op":"use","model":"kit/{bauweise}/{art}/schott_rahmen","fallback":["kit/{bauweise}/gemein/schott_rahmen","kit/geruest/slot/schott_rahmen"],"at":[0,10,0],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":3,"d":4,"teil":1,"state":"state"},"if":"!cut"},
+    {"name":"Steckplatz schott_blatt","op":"use","model":"kit/{bauweise}/{art}/schott_blatt","fallback":["kit/{bauweise}/gemein/schott_blatt","kit/geruest/slot/schott_blatt"],"at":[0,1,1],"params":{"cut":"cut","zustand":"zustand","art":"{art}","seed":"seed","w":"W","h":"cut ? 5 : 9","d":2,"state":"state"},"if":"zu"},
+    {"name":"Verfall am Sturz","op":"erode","if":"zustand > 0 && !cut","density":"zustand == 1 ? 0.2 : 0.35","depth":"zustand","at":[1,10,0],"size":["W - 2",3,4]}
+  ],
+  "anchor": [4,1,2]
+}

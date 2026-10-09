@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kit-Prüfstand</title>
+<!-- Team VOXEL (B1/B2): Prüfstand für kit.js/deko.js/actors.js ohne Spielserver-Spielstand.
+     Fährt den echten Renderer (renderer.js, Zone 'buehne') mit einer Karte im awayMap-Format und einem nachgebauten View.
+     Steuerung über window.T (Playwright): T.setKarte(awayMap), T.view (players, drones, state.away.ao/ko), T.stats(). -->
+<style>
+  :root { --bg: #0B0E1A; --fg: #E4DCC8; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 12px/1.4 system-ui, sans-serif; }
+  #w { position: relative; width: 1280px; height: 720px; max-width: 100vw; }
+  #world3d { width: 100%; height: 100%; display: block; }
+  #info { position: absolute; left: 8px; top: 6px; white-space: pre; text-shadow: 0 1px 2px #000; pointer-events: none; }
+</style>
+<script src="/shared/config.js"></script>
+<script src="/shared/maps.js"></script>
+<script src="/shared/los.js"></script>
+<script src="/shared/protocol.js"></script>
+<script type="importmap">{"imports": {"three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/"}}</script>
+</head>
+<body>
+<div id="w"><canvas id="world3d"></canvas><div id="info"></div></div>
+<script type="module">
+import * as R from './renderer.js';
+import * as L from './loader.js';
+import * as K from './kit.js';
+const q = new URLSearchParams(location.search);
+const errors = [];
+L.setErrorHandler((w, e) => { errors.push(w + ': ' + (e && e.message)); });
+R.init(document.getElementById('world3d'), L, { onError: (w, e) => errors.push(w + ': ' + (e && e.message)), quality: q.get('quality'), preserve: true });
+R.registerLayer(K.layer);
+await import('./actors.js');
+const T = window.T = { R, L, K, errors, view: null, fps: 0, frames: 0, running: true, fpsSamples: [] };
+T.setKarte = (a) => {
+  const M = window.Shared_Maps;
+  const legend = {};
+  const m = M.makeMap(a.id, a.rows, legend);
+  m.karte = a;
+  // solid()/info() für Akteure/Sicht: grob aus der Kachelart (Spiel: CLIENT registriert mit echter Legende)
+  m.info = (x, y) => { const c = m.at(x, y); return { solid: !'.,:^/P'.includes(c) && !(c === 'D') }; };
+  m.solid = (x, y) => m.info(x, y).solid;
+  M[a.id] = m;
+  const ank = a.anker.find((x) => x[4] && x[4].ankunft) || a.anker[0];
+  T.view = {
+    self: { x: ank[2] * 32 + 16, y: ank[3] * 32 + 16, zone: 'away', id: 'p1' }, me: { id: 'p1' },
+    state: { phase: 'play', away: { map: a.id, kv: a.kv, ao: [], ko: [], combat: 'v2' }, players: [] },
+    players: [{ id: 'p1', zone: 'away', x: ank[2] * 32 + 16, y: ank[3] * 32 + 16, color: 0, dir: 'down', wf: 'blaster' }],
+    drones: [], time: 0,
+  };
+  return m;
+};
+let last = performance.now();
+function loop(t) {
+  const dt = Math.min(0.1, (t - last) / 1000); last = t;
+  if (T.view && T.running) {
+    T.view.time += dt;
+    try { R.frame(T.view, dt); T.frames++; } catch (e) { errors.push('frame: ' + e.message); }
+    const i = R.info();
+    document.getElementById('info').textContent = `fps ${i.fps}  calls ${i.calls}  tris ${i.triangles}  zone ${i.zone} ${i.mapId || ''}  deck ${i.deck}\n` +
+      JSON.stringify(K.layer.stats() ? { buildMs: K.layer.stats().buildMs, tris: K.layer.stats().tris, ph: K.layer.stats().platzhalter } : null);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+T.ready = true;
+</script>
+</body>
+</html>

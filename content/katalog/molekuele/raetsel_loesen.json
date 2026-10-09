@@ -15,32 +15,60 @@
       "id": "zwei_schluessel",
       "name": "Tor nur zu zweit zu öffnen",
       "schauplatz": "aussen",
-      "beschreibung": "Zwei Schlüssel weit auseinander müssen gleichzeitig gehalten werden, dann öffnet sich das Tor. Ruhiger Moment nach einem Gefecht: Absprache und Anzählen. Heute nur auf Kesh.",
+      "beschreibung": "Ein Rätselpaar (zwei Schlösser weit auseinander) muss gleichzeitig gehalten werden, dann öffnet sich das Tor. Ruhiger Moment nach einem Gefecht: Absprache und Anzählen. In der Ruine ist es das Zwei-Offiziers-Schloss der Legionskasse, auf Kesh die Kustoden-Schlüssel.",
       "braucht": [
         "transfer",
         "aussen_objekte"
       ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "ruine",
+          "kesh"
+        ],
+        "anker": [
+          {
+            "rolle": "raetsel",
+            "paar": 1
+          },
+          "tor"
+        ]
+      },
       "dauer_min": [
         1,
         3
       ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          2,
+          4
+        ],
+        "2": [
+          1,
+          3
+        ],
+        "3": [
+          1,
+          2
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_offen"
+      ],
       "ereignisse": [
-        "vaultOpened"
+        "raetselGeloest",
+        "vaultOpened",
+        "ankerZustand"
       ],
       "params": {
         "loc": {
           "typ": "loc",
-          "pflicht": true,
-          "werte": [
-            "kesh"
-          ]
+          "pflicht": true
         },
         "map": {
           "typ": "map",
           "pflicht": true,
-          "werte": [
-            "kesh"
-          ]
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
         },
         "funk_npc": {
           "typ": "npc",
@@ -48,7 +76,8 @@
         },
         "funk_tipp": {
           "typ": "text",
-          "default": "Die Kustoden bauten für Paare. Einer allein kommt da nicht rein."
+          "default": "{{lex.raetsel_tipp}}",
+          "beschreibung": "Funkhinweis; Standard aus dem Lexikon der Bauweise"
         }
       },
       "vorlage": {
@@ -58,29 +87,21 @@
           ],
           "aussenkarten": [
             "{{map}}"
-          ],
-          "objekte": {
-            "{{map}}": [
-              "vault",
-              "key"
-            ]
-          }
-        },
-        "besetzung": {
-          "npc": [
-            "{{funk_npc}}"
           ]
         },
         "steps": [
           {
             "id": "{{id}}",
             "loc": "{{loc}}",
-            "enter": [
-              {
-                "oda": "@{{id}}.ruhe"
-              }
+            "allowBeam": [
+              "{{map}}"
             ],
+            "enter": [],
             "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
               {
                 "at": 5,
                 "radio": {
@@ -92,66 +113,125 @@
                 "at": 60,
                 "if": {
                   "not": {
-                    "check": {
-                      "name": "object_state",
-                      "map": "{{map}}",
-                      "object": "vault",
-                      "state": "open"
-                    }
+                    "v": "{{id}}_ende"
                   }
                 },
                 "oda": "@{{id}}.hinweis",
                 "garantie": "hinweis"
               }
             ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "tor",
+                        "state": "offen"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_offen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
             "objectives": [
               {
-                "id": "schluessel",
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
                 "text": "@{{id}}.ziel",
                 "done": {
-                  "check": {
-                    "name": "object_state",
-                    "map": "{{map}}",
-                    "object": "vault",
-                    "state": "open"
-                  }
+                  "v": "{{id}}_ende"
                 }
               }
             ],
             "next": [
               {
                 "if": {
-                  "check": {
-                    "name": "object_state",
-                    "map": "{{map}}",
-                    "object": "vault",
-                    "state": "open"
-                  }
+                  "v": "{{id}}_ende"
                 },
                 "goto": "{{weiter}}"
               }
             ],
             "skip": [
               {
-                "do": "set_object_state",
+                "do": "anker_zustand",
                 "map": "{{map}}",
-                "object": "vault",
-                "state": "open"
+                "anker": "tor",
+                "zustand": "offen"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_offen": true
+                }
               }
             ]
           }
         ],
         "texte": {
-          "{{id}}.ruhe": "Ruhe. Zwei Schlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor.",
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Ruhe. {{lex.schluessel}}: zwei Schlösser, weit getrennt. Beide zugleich E halten – dann öffnet sich {{lex.tor:der}}.",
           "{{id}}.tipp": "{{funk_tipp}}",
-          "{{id}}.hinweis": "Ein Schlüssel oben an der Hallenwand, einer unten rechts am Gewölbe. Anzählen, dann beide E!",
-          "{{id}}.ziel": "Beide Schlüssel gleichzeitig halten (E)"
+          "{{id}}.hinweis": "Captain: Die beiden Schlösser sind auf der Außenteam-Karte markiert. Aufteilen, anzählen, dann beide E!",
+          "{{id}}.geschafft": "Beide gleichzeitig – {{lex.tor:der}} ist offen!",
+          "{{id}}.ziel": "Beide Schlösser gleichzeitig halten (E)"
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ]
         }
+      },
+      "rueckfall": {
+        "params": {}
       },
       "test": {
         "params": {
           "loc": "kesh",
-          "map": "kesh"
+          "map": "kesh.kastell"
         }
       }
     },

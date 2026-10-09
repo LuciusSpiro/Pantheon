@@ -170,7 +170,11 @@
   }
 
   // M3a: Fortschrittsbalken über dem Kopf (Flicken / Teil einbauen / Minispiel)
-  const ACTION_LABEL = { flick: 'FLICKEN', swap: 'TEIL EINBAUEN', minigame: 'MINISPIEL' };
+  const ACTION_LABEL = { flick: 'FLICKEN', swap: 'TEIL EINBAUEN', minigame: 'MINISPIEL',
+    // B1: Anker-Interaktionen (Kinds anker:<rolle>), B2: Halte-Interaktionen
+    'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
+    'anker:fund': 'BERGEN', 'anker:raetsel': 'SCHLOSS', 'anker:versteck': 'AUFBRECHEN', 'anker:eingang': 'HACKEN', 'anker:tuer': 'ÖFFNEN',
+    'anker:leiter': 'LEITER', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
   // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
   // Balken zittert, Beschriftung „RÜCKSCHLAG −50 %“.
   function actionBar(ctx, x, y, action, mine, setbackAge) {
@@ -226,7 +230,7 @@
       lx += kw + 2;
     }
     text(ctx, label, lx, y + Math.floor(h / 2) - 4, { color: col });
-    const b = { x, y, w, h, label, disabled: dis, reason: opts.reason, onClick: opts.onClick };
+    const b = { x, y, w, h, label, disabled: dis, reason: opts.reason, onClick: opts.onClick, hotkey: opts.hotkey || null };
     ui.buttons.push(b);
     if (hover && dis && opts.reason) ui.tooltip = { text: opts.reason, x: ui.mouse.x, y: ui.mouse.y };
     return b;
@@ -346,6 +350,195 @@
     if (id === 'wreck' || id === 'platform') return awayMapById(id);
     return id && Maps[id] && typeof Maps[id].at === 'function' ? Maps[id] : null;
   }
+  // ------------------------------------------------------------------ B1 Bühnen: gebaute Außenkarten (Ereignis awayMap)
+  // Der Server schickt die kompilierte Karte (CONTRACT-B1 §9 + Nachtrag: kanten, plaetze). CLIENT registriert sie als
+  // makeMap-Objekt in Shared_Maps[lpId]; die awayMap-Felder liegen direkt am Objekt und unter .karte (VOXEL liest beides).
+  // Kachelarten aus content/buehnen/kacheln.json (beim Start geladen; bis dahin dieser Auszug, gleiche Werte).
+  const KACHELN_FB = {
+    '.': ['boden'], ',': ['boden2'], ':': ['gelaende'], '^': ['plateau'], '/': ['rampe'], 'P': ['pad'],
+    'k': ['kante', true, 1, true], '#': ['wand', true, 2, false, true], '=': ['zaun', true, 2, false, true], 'z': ['gitter', true],
+    '|': ['fenster', true], 'F': ['fels', true, 2, false, true], '~': ['abgrund', true], '_': ['leere', true, 2, false, true],
+    'o': ['deckung_halb', true, 1, true], 'O': ['deckung_voll', true, 2, false, true], 'I': ['pfeiler', true, 2, false, true],
+    'x': ['truemmer', true, 1, true], 'X': ['schutt', true, 2, false, true],
+    'D': ['tuer', 'zustand', 0, false, false, ['offen', 'zu', 'verschlossen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
+    'S': ['schott', 'zustand', 0, false, false, ['zu', 'offen', 'gehackt', 'verschlossen'], ['offen', 'gehackt'], 'tuer'],
+    'G': ['tor', 'zustand', 2, false, false, ['zu', 'offen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
+    'L': ['luke', 'zustand', 0, false, false, ['zu', 'offen'], ['offen'], 'tuer'],
+    'w': ['wand_schwach', 'zustand', 2, false, false, ['intakt', 'offen'], ['offen']],
+  };
+  let KACHELN = {};
+  for (const [ch, a] of Object.entries(KACHELN_FB)) KACHELN[ch] = { kind: a[0], solid: a[1] || false, cover: a[2] || 0, low: !!a[3], sperrtSicht: !!a[4], zustaende: a[5], begehbarIn: a[6], kante: a[7] };
+  // Ankerrollen: Zustände (erster = Start) aus content/buehnen/anker.json (gleiche Werte als Auszug)
+  let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
+    sprengpunkt: ['intakt', 'scharf', 'zerstoert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
+    fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'] };
+  function ladeBuehnenDaten() {
+    if (typeof fetch !== 'function') return;
+    fetch('/content/buehnen/kacheln.json').then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.zeichen) return;
+      const neu = {};
+      for (const [ch, z] of Object.entries(j.zeichen)) neu[ch] = { kind: z.kind, solid: z.solid, cover: z.cover || 0, low: !!z.low, sperrtSicht: !!z.sperrtSicht, zustaende: z.zustaende, begehbarIn: z.begehbarIn, kante: z.kante };   // kante: Türgruppen (shared/buehne.js)
+      KACHELN = neu;
+      for (const id of Object.keys(buehnenKarten)) { const m = buehnenKarten[id]; for (const ch of Object.keys(neu)) m.legend[ch] = neu[ch]; }
+    }).catch(() => { /* Auszug bleibt */ });
+    fetch('/content/buehnen/anker.json').then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.rollen) return;
+      const z = {};
+      for (const [r, v] of Object.entries(j.rollen)) if (v && Array.isArray(v.zustaende) && v.zustaende.length) z[r] = v.zustaende;
+      ANKER_ZUSTAENDE = z;
+    }).catch(() => { /* Auszug bleibt */ });
+  }
+  // Shared_Buehne (shared/buehne.js: gemeinsame Regeln Server/Client – kachelZustandRegel, eingangAktion) bindet
+  // index.html ein; dieses Nachladen ist nur der Rückfall für Seiten ohne das Skript-Tag (ein vorhandenes Tag wird nicht
+  // doppelt gesetzt).
+  function sharedBuehne() {
+    if (window.Shared_Buehne || typeof document === 'undefined') return window.Shared_Buehne || null;
+    const lade = (src, weiter) => {
+      const da = document.querySelector('script[src="' + src + '"]');
+      if (da) { if (weiter) da.addEventListener('load', weiter); return; }
+      const sk = document.createElement('script'); sk.src = src; if (weiter) sk.onload = weiter; document.head.appendChild(sk);
+    };
+    if (window.Shared_BuehneKennzahlen) lade('/shared/buehne.js');
+    else lade('/shared/buehne-kennzahlen.js', () => { if (!window.Shared_Buehne) lade('/shared/buehne.js'); });
+    return null;
+  }
+  const buehnenKarten = {};   // lpId -> registriertes Kartenobjekt (auch in Maps[lpId])
+  const HAND_KARTEN = ['platform', 'wreck', 'kesh', 'ship'];
+  function registerAwayMap(ev) {
+    if (!ev || !ev.id || !Array.isArray(ev.rows) || HAND_KARTEN.indexOf(ev.id) >= 0) return null;
+    sharedBuehne();
+    const legend = {};
+    for (const ch of Object.keys(KACHELN)) legend[ch] = KACHELN[ch];
+    legend['#'] = legend['#'] || { kind: 'wand', solid: true, cover: 2, sperrtSicht: true };
+    const m = Maps.makeMap(ev.id, ev.rows, legend);
+    const karte = {};
+    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv']) if (ev[k] !== undefined) karte[k] = ev[k];
+    Object.assign(m, karte, { karte, buehne: true, legende: legend });
+    m.w = ev.rows[0].length; m.h = ev.rows.length;
+    // Kachel -> Kantenindex (Zustand aus ko), Kachel -> Ankerindex (tor/eingang/versteck steuern Kacheln)
+    m.kanteAt = new Map(); m.ankerAt = new Map(); m.ankerIdx = {};
+    (ev.kanten || []).forEach((k, i) => { for (const t of k[1] || []) m.kanteAt.set(t[0] + ',' + t[1], i); });
+    (ev.anker || []).forEach((a, i) => { m.ankerIdx[a[0]] = i; if (a[1] === 'tor' || a[1] === 'eingang' || a[1] === 'versteck') m.ankerAt.set(a[2] + ',' + a[3], i); });
+    // Abholpunkt (Ankunft zuerst) als Pads wie interior.padTiles: Ankerkachel + begehbare Nachbarn
+    const ab = (ev.anker || []).filter(a => a[1] === 'abholpunkt');
+    const ank = ab.find(a => a[4] && a[4].ankunft) || ab[0] || null;
+    m.pads = [];
+    // F11: Pad-Felder aus shared/buehne.js padTiles (eine Quelle mit interior.js); Rückfall nur, falls SB noch nicht geladen ist
+    const SBp = window.Shared_Buehne;
+    const padTiles = (a) => {
+      if (SBp && typeof SBp.padTiles === 'function') return SBp.padTiles(m, { x: a[2], y: a[3] });
+      const out = [{ x: a[2], y: a[3] }]; for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (!m.solid(a[2] + dx, a[3] + dy)) out.push({ x: a[2] + dx, y: a[3] + dy }); return out;
+    };
+    if (ank) m.pads = padTiles(ank);
+    // F11: alle Abholpunkte (Ankunft zuerst) wie interior.abgeleitet().pads – dort bietet der Server „Selbst-Transfer“ an
+    m.abholPads = [];
+    const gesehen = new Set();
+    for (const a of (ank ? [ank] : []).concat(ab.filter(q => q !== ank))) for (const t of padTiles(a)) { const key = t.x + ',' + t.y; if (!gesehen.has(key)) { gesehen.add(key); m.abholPads.push(t); } }
+    Maps[ev.id] = m;
+    buehnenKarten[ev.id] = m;
+    // Bereiche für Maps.inArea (Pins, Ziele)
+    if (Maps.MAP_AREAS && ev.bereiche) {
+      const areas = {};
+      for (const bid of Object.keys(ev.bereiche)) { const b = ev.bereiche[bid] || {}; areas[bid] = { rects: (b.rects || []).map(r => r.slice()), rolle: b.rolle || null, gefecht: !!b.gefecht }; }
+      Maps.MAP_AREAS[ev.id] = areas;
+    }
+    // höchstens 4 gebaute Karten behalten (Server: 2 + Handkarten)
+    const ids = Object.keys(buehnenKarten);
+    if (ids.length > 4) { const alt = ids.find(id => id !== ev.id && !(Render.lastState && Render.lastState.away && Render.lastState.away.map === id)); if (alt) { delete buehnenKarten[alt]; if (Maps[alt] && Maps[alt].buehne) delete Maps[alt]; } }
+    return m;
+  }
+  function isBuehne(map) { return !!(map && map.buehne); }
+  // Laufzeitzustand einer Ankerrolle: Start bzw. Abweichung aus away.ao
+  function ankerZustand(map, st, idx) {
+    const a = map && map.anker && map.anker[idx];
+    if (!a) return null;
+    const liste = ANKER_ZUSTAENDE[a[1]] || [];
+    const ao = (st && st.away && st.away.map === map.id && st.away.ao) || [];
+    for (const e of ao) if (e[0] === idx) return liste[e[1]] || liste[0] || null;
+    return liste[0] || null;
+  }
+  // Zustandsliste des Kantentyps: typ = Kachelart der ersten Kachel (so setzt shared/buehne.js bauen karte.kanten[].typ);
+  // in dieser Liste zählen startZustandIdx (awayMap.kanten) und der Snapshot-Index (ko) – auch bei gemischten Kanten.
+  function kantenTypInfo(map, k) { const t = (k[1] || [])[0]; return (t ? map.info(t[0], t[1]) : null) || {}; }
+  // Kante (awayMap.kanten-Index) -> { lauf: Laufzeitzustand aus ko oder null, start: Startzustand, durch: begehbarIn des Typs }
+  function kantenZustandRoh(map, st, idx) {
+    const k = map && map.kanten && map.kanten[idx]; if (!k) return { lauf: null, start: null, durch: null };
+    const ti = kantenTypInfo(map, k); const liste = ti.zustaende || [];
+    const ko = (st && st.away && st.away.map === map.id && st.away.ko) || [];
+    let lauf = null; for (const e of ko) if (e[0] === idx && liste[e[1]]) lauf = liste[e[1]];
+    return { lauf, start: liste[k[2] || 0] || null, durch: ti.begehbarIn || null };
+  }
+  // aktueller Zustand einer Kante (wie server zustandIn für Kanten)
+  function kantenZustand(map, st, idx) { const r = kantenZustandRoh(map, st, idx); return r.lauf || r.start; }
+  // Zustand einer Zustandskachel (D/S/G/L/w): eine Regel mit dem Server (shared/buehne.js kachelZustandRegel =
+  // server/sim/interior.js kachelZustand). Rückfall nur ohne Shared_Buehne (Seite ohne Skript-Tag, bis nachgeladen): Kantenstart.
+  function kachelZustand(map, st, tx, ty) {
+    const info = map.info(tx, ty);
+    const liste = info.zustaende || [];
+    const key = tx + ',' + ty;
+    const ki = map.kanteAt ? map.kanteAt.get(key) : undefined;
+    const kz = ki != null ? kantenZustandRoh(map, st, ki) : { lauf: null, start: null, durch: null };
+    const ai = map.ankerAt ? map.ankerAt.get(key) : undefined;
+    let az = null;   // Anker nur mit Laufzeitabweichung (ao), wie aw.zustaende[ankerId] beim Server
+    if (ai != null) { const ao = (st && st.away && st.away.map === map.id && st.away.ao) || []; if (ao.some(e => e[0] === ai)) az = ankerZustand(map, st, ai); }
+    const SB = window.Shared_Buehne || sharedBuehne();
+    if (SB && SB.kachelZustandRegel) return SB.kachelZustandRegel(liste, kz.lauf, az, kz.start, kz.durch);
+    return (kz.start && liste.indexOf(kz.start) >= 0) ? kz.start : (liste[0] || null);
+  }
+  function buehneSolid(map, st) {
+    return (tx, ty) => {
+      const info = map.info(tx, ty);
+      if (info.solid !== 'zustand') return !!info.solid;
+      return (info.begehbarIn || []).indexOf(kachelZustand(map, st, tx, ty)) < 0;
+    };
+  }
+  // 2D-Rückfall (E35): nur Flachraster nach Kachelart, ohne Art, ohne neue Figuren
+  const BUEHNE_FARBE = { boden: '#3A4250', boden2: '#465060', gelaende: '#4A4436', plateau: '#5E6448', rampe: '#565A40', pad: '#2F5E58',
+    kante: '#8A8262', wand: '#1C222D', zaun: '#3E3224', gitter: '#5C6472', fenster: '#5E8AA6', fels: '#2A2622', leere: '#0B0E1A',
+    deckung_halb: '#7A6340', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
+    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530' };
+  function buehneKachelFarbe(map, st, tx, ty) {
+    const info = map.info(tx, ty);
+    if (info.kind === 'abgrund') return null;
+    if (info.solid === 'zustand') {
+      const z = kachelZustand(map, st, tx, ty);
+      if ((info.begehbarIn || []).indexOf(z) >= 0) return z === 'gesprengt' ? '#4A3A30' : BUEHNE_FARBE.boden2;
+      return z === 'verschlossen' ? '#B5443A' : BUEHNE_FARBE[info.kind] || '#8A6A3A';
+    }
+    return BUEHNE_FARBE[info.kind] || '#3B4658';
+  }
+  const ANKER_FARBE = { terminal: '#7FE0C2', sprengpunkt: '#FF6A4C', zelle: '#C9974A', beute: '#D9A441', ziel: '#FFC66B', fund: '#E8D27A',
+    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5' };
+  const ANKER_NAME = { terminal: 'Terminal', sprengpunkt: 'Sprengpunkt', zelle: 'Zelle', beute: 'Kiste', ziel: 'Ziel', fund: 'Fund',
+    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang' };
+  const ANKER_ZUSTAND_NAME = { bereit: 'bereit', laedt: 'lädt', geladen: 'geladen', gesperrt: 'gesperrt', intakt: 'intakt', scharf: 'SCHARF',
+    zerstoert: 'zerstört', zu: 'zu', offen: 'offen', voll: 'voll', leer: 'leer', frei: 'frei', genommen: 'genommen', aktiviert: 'aktiviert',
+    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt' };
+  // Anker als einfache Marken (2D-Rückfall und Minikarte). Nur Rollen mit Objekt.
+  function drawBuehneAnker(ctx, map, st, camX, camY, t) {
+    const cd = st && st.away && st.away.map === map.id ? st.away.cd : null;
+    (map.anker || []).forEach((a, i) => {
+      const col = ANKER_FARBE[a[1]];
+      if (!col || a[1] === 'tor') return;
+      const px = a[2] * TILE - camX, py = a[3] * TILE - camY;
+      if (px < -TILE || py < -TILE || px > VW + TILE || py > VH + TILE) return;
+      const z = ankerZustand(map, st, i);
+      const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
+      ctx.save();
+      ctx.globalAlpha = aus ? 0.45 : 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      if (a[1] === 'abholpunkt') { ctx.beginPath(); ctx.arc(px + 16, py + 16, 11, 0, Math.PI * 2); ctx.stroke(); }
+      else { ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(px + 7, py + 7, 18, 18); ctx.strokeRect(px + 7.5, py + 7.5, 17, 17); }
+      ctx.restore();
+      if (a[1] === 'sprengpunkt' && z === 'scharf') {
+        const on = Math.floor(t * 4) % 2 === 0;
+        ctx.fillStyle = on ? '#FF6A4C' : '#7A2A20'; ctx.fillRect(px + 12, py + 12, 8, 8);
+        if (cd && cd.i === i) text(ctx, Math.ceil(+cd.t || 0) + ' s', px + 16, py - 4, { color: '#FF6A4C', align: 'center' });
+      }
+      if (a[1] === 'terminal' && z === 'laedt') { ctx.fillStyle = '#7FE0C2'; ctx.fillRect(px + 12, py + 12, 8, 8); }
+    });
+  }
+
   // Koordinaten aus dem Snapshot, die Kachel ODER Pixel sein können (salvage/hollow) -> Kachel
   function toTileXY(map, x, y) {
     if (x == null || y == null) return null;
@@ -850,6 +1043,7 @@
 
   // Aktueller Kollisionszustand einer Außenkarte (Kesh: Tor offen = begehbar; low-Kacheln bleiben solid)
   function solidFn(map, st) {
+    if (isBuehne(map)) return buehneSolid(map, st);   // B1: Türen/Tore/Schotts nach Zustand (ko/ao)
     if (!map || map.id !== 'kesh') return (tx, ty) => map.solid(tx, ty);
     const open = !!(st && st.away && st.away.vault && st.away.vault.open);
     return (tx, ty) => (open && map.at(tx, ty) === 'G') ? false : map.solid(tx, ty);
@@ -1186,6 +1380,24 @@
     }
   }
   // Gitter-Silhouette eines Geists (letzte bekannte Position), blasser mit dem Alter
+  // B2-NACH: Wurf-Zielvorschau (view.wurfZiel aus client.js): dezenter Bodenring am echten Landepunkt (auf min/max
+  // geklemmt), Radius = Explosionsradius. P(x, y) -> Bildschirmpunkt am Boden (3D: Projektion je Kreispunkt = Ellipse).
+  function drawWurfZiel(ctx, view, P) {
+    const z = view.wurfZiel;
+    if (!z) return;
+    const pts = [];
+    for (let i = 0; i <= 32; i++) { const a = i / 32 * Math.PI * 2; const s = P(z.x + Math.cos(a) * z.r, z.y + Math.sin(a) * z.r); if (s.behind) return; pts.push(s); }
+    const c = P(z.x, z.y);
+    const puls = 0.5 + 0.5 * Math.sin((view.time || 0) * 4);
+    ctx.save();
+    ctx.beginPath(); pts.forEach((s, i) => (i ? ctx.lineTo(s.x, s.y) : ctx.moveTo(s.x, s.y))); ctx.closePath();
+    ctx.fillStyle = 'rgba(255,198,107,0.08)'; ctx.fill();
+    ctx.setLineDash(z.geklemmt ? [3, 3] : []);
+    ctx.strokeStyle = 'rgba(255,198,107,' + (0.45 + 0.2 * puls).toFixed(2) + ')'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,198,107,0.75)'; ctx.fillRect(Math.round(c.x) - 1, Math.round(c.y) - 1, 3, 3);
+    ctx.restore();
+  }
   function drawGhost(ctx, x, y, kind, age, ttl) {
     const a = 0.15 + 0.6 * clamp01(1 - age / Math.max(0.5, ttl));
     const w = kind === 'warden' ? 44 : 14, h = kind === 'warden' ? 30 : 24;
@@ -1447,6 +1659,7 @@
     const map = mapFor(zone, st);
     const isWreck = map.id === 'wreck';
     const isKesh = map.id === 'kesh';
+    const buehne2d = zone === 'away' && isBuehne(map);
     // M3a: Schiff über die Legende (objKindOf), Außenkarten über ihre Tabellen
     const objKind = (ch) => (isWreck ? OBJ_WRECK[ch] : isKesh ? OBJ_KESH[ch] : objKindOf(map, ch)) || null;
     const v2 = zone === 'away' && isV2(st);
@@ -1478,6 +1691,16 @@
         const ch = map.at(tx, ty);
         if (ch === ' ' || ch === '~') continue;
         const px = tx * TILE - camX, py = ty * TILE - camY;
+        if (buehne2d) {
+          // B1/E35: gebaute Karte im 2D-Rückfall nur als Flachraster nach Kachelart
+          const col = buehneKachelFarbe(map, st, tx, ty);
+          if (!col) continue;
+          ctx.fillStyle = col; ctx.fillRect(px, py, TILE, TILE);
+          const info = map.info(tx, ty);
+          if (info.cover === 1 && info.solid === true) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(px, py + TILE - 6, TILE, 6); }
+          if (info.solid === true || info.solid === 'zustand') { ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1); }
+          continue;
+        }
         if (isKesh) {
           // M2: Kesh – Objekte stehen auf Boden, Spawns sind Ruinenboden
           const kb = OBJ_KESH[ch] ? floorFor(map, tx, ty) : (ch === 'L' || ch === 'a' || ch === 'b' || ch === 'c') ? ',' : ch;
@@ -1500,6 +1723,7 @@
       }
     }
     env.roomStyle = null;
+    if (buehne2d) drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
 
     // Deko in den Quartieren (nur Schiff)
     if (zone === 'ship' && st.deco) {
@@ -1748,6 +1972,7 @@
     if (v2) {
       try {
         if (fogSet) drawFog(ctx, fogSet, tx0, ty0, tx1, ty1, camX, camY);
+        try { drawWurfZiel(ctx, view, (x, y) => ({ x: x - camX, y: y - camY })); } catch (e) { report('Render.wurfZiel', e); }   // B2-NACH
         const ghostTtl = cfgNum('ghostTime', 3);
         for (const e of view.drones || []) {
           if (e.alive === false || e.vis || !e.ghost) continue;
@@ -1859,6 +2084,7 @@
         ctx.fillRect(r.x0, r.y0 + TILE, r.x1 - r.x0, r.y1 - r.y0 - TILE);
       }
     }
+    if (zone === 'away' && v2) { try { drawKoerperStatus(ctx, view, (x, y, hpx) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (hpx || 0)) }), fogSet); } catch (e) { report('Render.koerper', e); } }   // B2
     if (isWreck && !artOk('drawOverlay')) { ctx.fillStyle = 'rgba(5,7,14,0.35)'; ctx.fillRect(0, 0, VW, VH); }
     if (!art('drawOverlay', null, [ctx, VW, VH, ov])) {
       if (ov.alert === 'red') {
@@ -1867,6 +2093,39 @@
       } else if (ov.alert === 'yellow') {
         ctx.fillStyle = 'rgba(242,201,76,' + (0.04 + 0.04 * (0.5 + 0.5 * Math.sin(t * Math.PI))) + ')'; ctx.fillRect(0, 0, VW, VH);
       }
+    }
+  }
+
+  // ------------------------------------------------------------------ B2: Körperzustände und Wunden über Figuren
+  // Snapshot players[]/away.drones[]: zs (ok|verwundet|bewusstlos|gefesselt|gefangen|aus), bt (betäubt), wn/wm (Wunden, Gegner).
+  // Status-Icons aus IconsB.status (UI-ART); keine Rollensymbole (E25). P(x, y, hpx) -> Bildschirmpunkt (2D oder 3D-Overlay).
+  const ZS_FARBE = { bewusstlos: '#6FB8FF', gefesselt: '#C9974A', gefangen: '#E0473C', verwundet: '#E0473C', betaeubt: '#6FB8FF' };
+  function statusIcon(ctx, id, x, y) {
+    const IB = window.IconsB;
+    if (IB && typeof IB.draw === 'function' && IB.has && IB.has('status', id) && IB.draw(ctx, 'status', id, x, y, {}) !== false) return;
+    ctx.fillStyle = ZS_FARBE[id] || PAL.star; ctx.fillRect(Math.round(x) - 4, Math.round(y) - 4, 8, 8);
+  }
+  function drawKoerperStatus(ctx, view, P, fogSet) {
+    const inV = (s) => s && !s.behind && s.x > -20 && s.y > -20 && s.x < VW + 20 && s.y < VH + 20;
+    for (const e of view.drones || []) {
+      if (fogSet && !enemyShown(e, fogSet)) continue;
+      const zs = e.zs, liegt = zs && zs !== 'ok' && zs !== 'aus';
+      const id = e.bt ? 'betaeubt' : liegt ? zs : null;
+      const s = P(e.x, e.y, liegt ? 18 : 44);
+      if (!inV(s)) continue;
+      if (id) statusIcon(ctx, id, s.x, s.y);
+      // Wunden-Pips nur bei mehr als einer Wunde (Enterer 2, Wächter 2) und solange er steht
+      if (!liegt && +e.wm > 1 && window.IconsB && typeof IconsB.wundenPips === 'function') {
+        const n = Math.max(0, +e.wn || 0), m = +e.wm;
+        IconsB.wundenPips(ctx, Math.round(s.x - (m * 8) / 2), Math.round(s.y + (id ? 8 : 0)), n, m, 6, 2);
+      }
+    }
+    for (const p of view.players || []) {
+      if (p.zone !== 'away' || p.connected === false) continue;
+      const id = p.bt ? 'betaeubt' : (p.zs && p.zs !== 'ok' && p.zs !== 'verwundet') ? p.zs : null;   // verwundet zeigt der Ausblut-Ring
+      if (!id) continue;
+      const s = P(p.x, p.y, 52);
+      if (inV(s)) statusIcon(ctx, id, s.x, s.y);
     }
   }
 
@@ -1925,6 +2184,7 @@
       }
     });
 
+    if (zone === 'away' && v2) guard('koerper', () => drawKoerperStatus(ctx, view, P, fogSet));   // B2: Zustände, Wunden
     // Spieler: Namen, Verwundet, Fortschrittsbalken
     guard('players', () => {
       for (const p of view.players || []) {
@@ -2000,6 +2260,7 @@
     });
 
     // M2: „zuletzt gesehen“, Ziellinien, Medi-Kreuze, Captain-Befehle, Deckungs-Pips
+    if (v2) guard('wurfZiel', () => drawWurfZiel(ctx, view, (x, y) => P(x, y, 0)));   // B2-NACH: Bodenmarke Landepunkt
     if (v2) guard('v2', () => {
       const ghostTtl = cfgNum('ghostTime', 3);
       for (const e of view.drones || []) {
@@ -2152,6 +2413,7 @@
   function locVisible(l) { return !!(l && (l.known || l.unknown)); }
   function locName(st, id) {
     if (!id) return '—';
+    if (typeof id === 'string' && /^leer-\d{4}$/.test(id)) return 'Leerraum ' + id.slice(5);   // B3: Leerraum-Hex
     const l = locById(st, id);
     if (!l) { const f = LOC_FALLBACK.find(x => x.id === id); return f ? f.name : String(id); }
     if (!l.known) return 'Unbekanntes Signal';
@@ -2652,6 +2914,7 @@
     const HR = (CFG.combat && CFG.combat.hitRadius) || {};
     let hitE = null, hitT = Infinity;
     for (const e of view.enemies || []) {
+      if (e.st === 'treibt') continue;   // B1: Wrack
       const dx = e.x - ox, dy = e.y - oy, along = dx * ux + dy * uy;
       const rad = (HR[e.kind] || 18) + width;   // wie server lanceTrace
       if (along < -rad || along > range + rad) continue;
@@ -2988,6 +3251,7 @@
     // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
     const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;
     const flushLabels = () => {
+      flushArrows();
       labels.sort((a, b) => b.prio - a.prio);
       for (const l of labels) {
         const w = measure(l.str, 1) + 2, h = 9;
@@ -3012,18 +3276,42 @@
       }
       labels.length = 0;
     };
+    // B3-NACH: Randpfeile werden gesammelt und vor den Labels gezeichnet. Pfeile, deren Randpunkt nahe beieinander liegt
+    // (z. B. HAFEN und DOCK in fast derselben Richtung), teilen sich einen Pfeil, ihre Labels werden gestapelt; dasselbe
+    // Label zweimal entfällt. Frontsicht: Ziele „hinter uns“ (Randpunkt im unteren Band = Lerche und DREHEN-Anzeige)
+    // rücken an die untere Ecke der passenden Seite (wie die Schützlinge).
+    const arrows = [];
     const arrow = (wx, wy, col, label) => {
       const s = toS(wx, wy);
       const ang = Math.atan2(s.y - cy, s.x - cx);
       const e = rayToRect(B, cx, cy, ang, 12);
-      edgeArrow(ctx, e.x, e.y, ang, col);
-      if (label) {
-        const lw = measure(label, 1) / 2 + 3;
-        const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, e.x - Math.cos(ang) * 30));
-        const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, e.y - Math.sin(ang) * 16 - 3));
-        lab(label, lx, ly, { color: col, align: 'center' }, 3);
-      }
+      if (front && e.y > B.y + B.h - 54) { e.x = s.x < cx ? B.x + 16 : B.x + B.w - 16; e.y = B.y + B.h - 60; }
+      arrows.push({ e, ang, col, label: label ? String(label) : '' });
       return e;
+    };
+    const flushArrows = () => {
+      const groups = [];
+      for (const a of arrows) {
+        const g = groups.find((q) => Math.hypot(q[0].e.x - a.e.x, q[0].e.y - a.e.y) < 24);
+        if (!g) groups.push([a]);
+        else if (!g.some((q) => q.label === a.label)) g.push(a);
+      }
+      arrows.length = 0;
+      for (const g of groups) {
+        const a = g[0], e = a.e;
+        edgeArrow(ctx, e.x, e.y, a.ang, a.col);
+        const list = g.filter((q) => q.label);
+        if (!list.length) continue;
+        // Stapel vom Rand weg: unten nach oben, sonst nach unten
+        const lowHalf = e.y > B.y + B.h / 2;
+        const baseY = e.y - Math.sin(a.ang) * 16 - 3 + (lowHalf ? -(list.length - 1) * 10 : 0);
+        list.forEach((q, i) => {
+          const lw = measure(q.label, 1) / 2 + 3;
+          const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, e.x - Math.cos(a.ang) * 30));
+          const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, baseY + i * 10));
+          lab(q.label, lx, ly, { color: q.col, align: 'center' }, 3);
+        });
+      }
     };
 
     ctx.save();
@@ -3078,15 +3366,17 @@
         if (!inB(s, 160)) continue;
       }
       if (!vis) continue;
+      // B3-NACH: liegt der Ort außerhalb, trägt der Randpfeil Name und Abstand – kein zweites, an den Rand geklemmtes Label
+      const mLab = inB(s, 0) ? lab : () => {};
       if (m.kind === 'dock') {
         const r = Math.max(8, (m.r || 70) * zoom);
         ctx.strokeStyle = 'rgba(127,224,194,' + (0.55 + 0.3 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        lab('DOCK-RING', s.x, s.y - r - 10, { color: PAL.mint, align: 'center' }, 1);
+        mLab('DOCK-RING', s.x, s.y - r - 10, { color: PAL.mint, align: 'center' }, 1);
       } else if (m.kind === 'exit') {
         ctx.strokeStyle = 'rgba(127,224,194,' + (0.5 + 0.3 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, (m.r || 140) * zoom, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        lab('SPRUNGPUNKT', s.x, s.y - 4, { color: PAL.mint, align: 'center' }, 1);
+        mLab('SPRUNGPUNKT', s.x, s.y - 4, { color: PAL.mint, align: 'center' }, 1);
       } else if (STATION_ART[m.kind]) {
         const k = STATION_ART[m.kind];
         const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE : 1);
@@ -3094,7 +3384,7 @@
         if (!artStation(ctx, k, 0, 0, { time: t })) fbStation(ctx, m.kind, t);
         ctx.restore();
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : 70) * stScale) + 2;
-        lab(STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
+        mLab(STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
           const sc = (CFG.scenes && CFG.scenes.buoy) || {};
@@ -3104,6 +3394,11 @@
         }
       }
     }
+    // B3 (Welle 0, CONTRACT-B3 §8): Sprungpunkt-Bojen der Szene zeichnet StarMap (Team KARTE); der Stub zeichnet nichts
+    // B3 (CLIENT, Welle 2): cam trägt zusätzlich bound (Bildausschnitt in Bildschirmkoordinaten, für Randpfeile zu Bojen
+    // außerhalb), lab (Label-Kollision: lab(text, x, y, opts, prio, optional)), block (Hindernis für Labels), arrow (Randpfeil
+    // wie Stationen: arrow(wx, wy, farbe, label)), toW, cx/cy (Bildmitte = Schiff). bound/lab auch als 4./5. Argument.
+    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);
 
     // Bergungsgut im Raum
     for (const sv of space.salvage || []) {
@@ -3200,6 +3495,15 @@
       const s = toS(e.x, e.y);
       const hpFrac = e.hpMax ? e.hp / e.hpMax : 1;
       const size = ENEMY_SIZE[e.kind] || 16;
+      if (e.st === 'treibt') {   // B1 §7: kampfunfähig – ohne Waffen, Ziel, Anflug, Ladung; nur gedimmt mit Hinweis
+        if (!inB(s, size)) continue;
+        ctx.save(); ctx.globalAlpha = 0.55;
+        if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac: 0, hitT: 99, time: t, tele: null })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, 99);
+        ctx.restore();
+        if (!front) block(s.x - size, s.y - size, size * 2, size * 2);
+        lab('TREIBT · ENTERN', s.x, s.y + size + 6, { color: PAL.amber, align: 'center' }, 2);
+        continue;
+      }
       const tShown = teleShown(e);
       if (tShown) teleList.push({ e, s, on: inB(s, 0) });
       // M3b §5: Jäger im Anflug – gestrichelte Anfluglinie bis knapp hinter den nächsten Punkt zum Schiff (Taktik/Captain),
@@ -3271,6 +3575,7 @@
       systems: sship.systems || null, fragile: sship.fragile || null, shieldCap: sh.cap || null,
       burst: null,   // M3b: Schildstoß entfällt
       teleSectors: teleList.map(o => o.e.tele.sector).filter(v => v != null) };
+    { const br = Math.round(46 * shipScale) + 8; block(cx - br, cy - br, br * 2, br * 2); }   // B3-NACH: keine Labels über der Lerche
     ctx.save(); ctx.translate(cx, cy); ctx.scale(shipScale, shipScale);
     const shipDrawn = art('drawShip', null, [ctx, 0, 0, (ship.angle || 0) + rot, shipOpts]);
     ctx.restore();
@@ -3416,7 +3721,13 @@
 
   // ------------------------------------------------------------------ Sternkarte (Captain, Planungstisch)
   // opts = { selected, mouse, rects (füllt Klickflächen je Ort), pins: bool, highlightPin }
+  // B3 (Welle 0, CONTRACT-B3 §8): drawStarMap delegiert an window.StarMap.draw (Team KARTE, public/js/starmap.js);
+  // die bisherige Punktkarte heißt jetzt drawStarMapAlt und ist der Rückfall (auch für den StarMap-Stub).
   function drawStarMap(ctx, view, rect, opts) {
+    if (window.StarMap && typeof window.StarMap.draw === 'function') return window.StarMap.draw(ctx, view, rect, opts);
+    return drawStarMapAlt(ctx, view, rect, opts);
+  }
+  function drawStarMapAlt(ctx, view, rect, opts) {
     opts = opts || {};
     const st = view.state;
     const w = worldOf(st);
@@ -3556,7 +3867,7 @@
           text(ctx, ({ dock: 'Dock-Ring', exit: 'Sprungpunkt' }[m.kind] || (STATION_LABEL[m.kind] || '').toLowerCase().replace(/^./, c => c.toUpperCase())), s.x, s.y + 6, { color: ctx.strokeStyle, align: 'center' });
         }
         for (const h of space.hidden || []) { const s = toS(h.x, h.y); fbHidden(ctx, h.kind, s.x, s.y, t); }
-        for (const e of view.enemies || space.enemies || []) { const s = toS(e.x, e.y); ctx.fillStyle = e.kind === 'pylon' || e.kind === 'sentinel' ? PAL.ice : PAL.red; ctx.fillRect(s.x - 2, s.y - 2, 4, 4); }
+        for (const e of view.enemies || space.enemies || []) { const s = toS(e.x, e.y); ctx.fillStyle = e.st === 'treibt' ? PAL.amber : e.kind === 'pylon' || e.kind === 'sentinel' ? PAL.ice : PAL.red; ctx.fillRect(s.x - 2, s.y - 2, 4, 4); }
         const vs = view.ship || st.ship || {};
         if (isFinite(vs.x)) { const s = toS(vs.x, vs.y); ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(vs.angle || 0); ctx.fillStyle = PAL.mint; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.restore(); }
         text(ctx, 'SENSORDATEN (aktuell)', rect.x + 6, rect.y + 4, { color: PAL.mint });
@@ -3610,10 +3921,12 @@
     const blinkM = Math.floor(t * 3) % 2 === 0;
     const keshMap = map.id === 'kesh';
     const kSolid = keshMap ? solidFn(map, st) : null;
+    const buehneMap = zone === 'away' && isBuehne(map);
     for (let ty = 0; ty < map.h; ty++) for (let tx = 0; tx < map.w; tx++) {
       const ch = map.at(tx, ty);
       if (ch === ' ' || ch === '~') continue;
       let col;
+      if (buehneMap) { col = buehneKachelFarbe(map, st, tx, ty); if (col) { ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + ty * c, c, c); } continue; }   // B1
       if (keshMap) {
         // M2: Kesh – Fels dunkel, Mauer, Boden, Deckung, Relais/Schlüssel/Tor/Tafel
         if (ch === 'R') continue;
@@ -3646,6 +3959,12 @@
       ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + ty * c, c, c);
     }
     const blink = Math.floor(t * 3) % 2 === 0;
+    if (buehneMap) (map.anker || []).forEach((a, i) => {   // B1: Objektanker als Punkte
+      const col = ANKER_FARBE[a[1]]; if (!col || a[1] === 'tor') return;
+      const z = ankerZustand(map, st, i);
+      ctx.fillStyle = a[1] === 'sprengpunkt' && z === 'scharf' ? (blink ? PAL.red : '#5A1E1A') : col;
+      ctx.fillRect(x + a[2] * c, y + a[3] * c, c, c);
+    });
     if (zone === 'ship' && st.ship) {
       ctx.fillStyle = blink ? PAL.red : PAL.amber;
       for (const f of st.ship.fires || []) ctx.fillRect(x + f[0] * c, y + f[1] * c, c, c);
@@ -3710,7 +4029,10 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    drawSpace, drawFrontView, drawStarMap, drawLocalMap, FRONT,
+    drawSpace, drawFrontView, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    // B1: gebaute Außenkarten
+    drawKoerperStatus, statusIcon,
+    registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
     // S2: Schützling
     ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, fbEscort, drawEscortSprite,
     // M3a
@@ -3724,4 +4046,5 @@
     screenToWorld(x, y) { if (overlay3d.on) return vr().screenToWorld(x, y); return { x: x + camera.x, y: y + camera.y }; },
     overlay3d, enemyShown,
   };
+  ladeBuehnenDaten();   // B1: kacheln.json / anker.json (Auszug gilt bis dahin)
 })();

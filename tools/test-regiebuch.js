@@ -576,6 +576,96 @@ console.log('\n[S2: Karte ohne Tutorial, Routen zur Bühne (QA-INTEGRATION)]');
   ok(!t.events('oda').some((e) => /Neuer Ort/.test(e.text || '')), 'Routen still geöffnet (kein ODA „Neuer Ort“)');
 }
 
+console.log('\n[B1 F2/F13: Lexikon-Platzhalter und Ziele je Schritt]');
+{
+  const Lexikon = require('../server/mission/lexikon.js');
+  ok(Lexikon.aufloesen('{{lex.fund}} bergen', 'rom') === 'Legionskasse bergen' && Lexikon.aufloesen('{{lex.fund}}', null) === 'Fundstück'
+    && Lexikon.aufloesen('{{lex.tor_station}}', 'rom') === 'Schott' && Lexikon.aufloesen('{{lex.terminal}}', 'gibtsnicht') === 'Terminal' && Lexikon.aufloesen('{{lex.namen}}', 'germanen') === 'Hrolf',
+    'Lexikon: Bauweise, Rückfall neutral, Liste -> erster Eintrag');
+  ok(Lexikon.offene('{{lex.fund}} und {{lex.gibtsnicht}}').length === 1 && Lexikon.offene('{{fund_name}}').length === 1 && Lexikon.offene('kaputt {{lex.fund').length === 1
+    && Lexikon.offene('{{lex.fund}} ok').length === 0, 'Lexikon.offene: unbekannter Schlüssel, fremder Platzhalter, offenes {{');
+  const forms = ['der', 'den', 'dem', 'des', 'ein', 'einen', 'einem', 'zum', 'pl'].map((f) => Lexikon.aufloesen(`x {{lex.terminal:${f}}}`, 'rom').slice(2));
+  ok(forms.join('|') === 'das Wachbuch|das Wachbuch|dem Wachbuch|des Wachbuchs|ein Wachbuch|ein Wachbuch|einem Wachbuch|zum Wachbuch|Wachbücher',
+    `Formen (rom, n): ${forms.join(' | ')}`);
+  ok(Lexikon.aufloesen('{{lex.zelle:dem}} entkommen. Weiter {{lex.abholpunkt:zum}}.', 'vorlaeufer') === 'Der Ruhekammer entkommen. Weiter zur Lichtung.'
+    && Lexikon.aufloesen('Captain: {{lex.fund:der}} ist markiert. Ziel: {{lex.fund:der}}.', 'germanen') === 'Captain: Der Runenstein ist markiert. Ziel: der Runenstein.',
+    'Genus f/m, Verschmelzung, Großschreibung am Satzanfang (nach Doppelpunkt nur, wenn der Satz weitergeht)');
+  const code = (t) => Lexikon.offene(t).map((o) => o.code).join(',');
+  ok(code('eines {{lex.tor}}') === 'LEX-ARTIKEL' && code('Name {{lex.tor}}s') === 'LEX-ARTIKEL' && code('{{lex.tor}}chen') === 'LEX-ARTIKEL'
+    && code('{{lex.raetsel_tipp:der}}') === 'LEX-FORM' && code('{{lex.fund:dativ}}') === 'LEX-FORM' && code('Durch {{lex.tor:den}}, die {{lex.terminal:pl}}.') === '',
+    'Prüfer-Regeln: nicht eindeutige Artikel/Endungen (LEX-ARTIKEL), Form ohne Genus bzw. unbekannt (LEX-FORM)');
+  const nz = ['Ihr kommt in der {{lex.zelle}} zu euch.', 'Durchs {{lex.tor}}!', 'Das {{lex.tor}} ist zu.', 'mehrere {{lex.terminal}}en', 'Die {{lex.beute}}n', 'dann zum {{lex.abholpunkt}}', 'aus einer {{lex.beute}}']
+    .map((t) => Lexikon.aufloesen(t, 'vorlaeufer'));
+  ok(nz.join('|') === 'Ihr kommt in der Ruhekammer zu euch.|Durch das Gewölbetor!|Das Gewölbetor ist zu.|mehrere Inschriften|Die Reliquiare|dann zur Lichtung|aus einem Reliquiar'
+    && code('Durchs {{lex.tor}}!') === 'LEX-NORMALISIERT', `Normalisierer (Altformen, eindeutig): ${nz.join(' | ')}`);
+  const pr = ['Mit {{lex.fund}} zurück', 'weiter zu {{lex.abholpunkt}}', 'durch {{lex.tor}} hinein', 'auf {{lex.aussicht}} steigen'].map((t) => Lexikon.aufloesen(t, 'vorlaeufer'));
+  ok(pr.join('|') === 'Mit der Steintafel zurück|weiter zur Lichtung|durch das Gewölbetor hinein|auf Sternwarte steigen'
+    && ['Mit {{lex.fund}} zurück', 'auf {{lex.aussicht}} steigen'].every((t) => Lexikon.offene(t).every((o) => o.hinweis && o.code === 'LEX-PRAEPOSITION')),
+    `Präposition ohne Artikel: Hinweis LEX-PRAEPOSITION, eindeutiger Fall gesetzt (${pr.join(' | ')})`);
+  const sv = ['{{lex.fund}} ist geborgen!', 'Captain: {{lex.zelle}} ist markiert.', '{{lex.terminal}} auslesen'].map((t) => Lexikon.aufloesen(t, 'germanen'));
+  ok(sv.join('|') === 'Der Runenstein ist geborgen!|Captain: Der Schuldkäfig ist markiert.|Runentafel auslesen' && Lexikon.offene('{{lex.fund}} ist geborgen!')[0].code === 'LEX-NORMALISIERT',
+    `Satzanfang vor finitem Verb -> :der (${sv.join(' | ')})`);
+  const tm = setup(1).g.mission;
+  const bg = ['Zu die Boje fliegen', 'mit die Daten', 'für der Uplink', 'Zu {{lex.fund:der}} fliegen', 'mit {{lex.fund:der}} zurück'].map((x) => tm.tpl(x));
+  ok(bg.join('|') === 'Zu die Boje fliegen|mit die Daten|für der Uplink|Zum Fundstück fliegen|mit dem Fundstück zurück'
+    && ['Zur Legionskasse fliegen', 'mit der Legionskasse zurück'].join('|') === ['Zu {{lex.fund:der}} fliegen', 'mit {{lex.fund:der}} zurück'].map((x) => Lexikon.aufloesen(x, 'rom')).join('|')
+    && Lexikon.namenHinweise('Zu die Boje fliegen, mit die Daten').length === 2,
+    `Namen nach Präposition: nur mit bekanntem Genus gebeugt, Plural „mit die Daten“ bleibt (Hinweis NAME-PRAEPOSITION): ${bg.join(' | ')}`);
+  const t = setup(1);
+  mockSl(t.g);
+  const book = genBook('ar_1_lex', {
+    kopf: { titel: 'Lexikon', art: 'archiv', auftraggeber: 'tesk', zielspieldauer_min: 15 },
+    buehne: { orte: ['hafen', 'kesh'], aussenkarten: ['kesh.kastell', 'kesh.grabung'] },
+    steps: [
+      { id: 'a', loc: 'kesh', allowBeam: ['kesh.kastell'], objectives: [{ id: 'ziel', text: '@a.ziel', done: { v: 'a_ende' } }],
+        timers: [{ at: 1, oda: '@a.oda', fund: '{{lex.fund:der}}' }, { at: 1, radio: { from: 'tesk', text: '@a.funk' } }, { at: 60, oda: '@b', garantie: 'hinweis' }],
+        next: [{ if: { v: 'a_ende' }, goto: 'b' }], skip: [{ set: { a_ende: true } }] },
+      { id: 'b', loc: 'kesh', allowBeam: ['kesh.grabung'], objectives: [{ id: 'ziel', text: '@b.ziel', done: { v: 'b_ende' } }],
+        timers: [{ at: 60, oda: '@b', garantie: 'hinweis' }], next: [{ if: { v: 'b_ende' }, complete: 'erfolg' }], skip: [{ set: { b_ende: true } }] },
+    ],
+    texte: { b: 'Text', 'a.ziel': 'Bergen: {{lex.fund:der}}', 'a.oda': 'Durch {{lex.tor:den}}!', 'a.funk': '{{lex.raetsel_tipp}}', 'b.ziel': '{{lex.tor:den}} öffnen' },
+  });
+  const r = t.g.mission.registerBook(book, { origin: 'archiv' });
+  ok(r.ok, `Testbuch mit {{lex.*}} besteht den Prüfer${r.ok ? '' : ': ' + JSON.stringify(r.errors.slice(0, 2))}`);
+  const bad = JSON.parse(JSON.stringify(book)); bad.id = 'ar_1_lexbad'; bad.texte['a.oda'] = 'Durch {{lex.tuer:den}}!'; bad.texte['a.funk'] = 'Bei eines {{lex.tor}}!'; bad.texte['b'] = 'Durchs {{lex.tor}}!';
+  const rb = t.g.mission.registerBook(bad, { origin: 'archiv' });
+  ok(!rb.ok && rb.errors.some((e) => e.code === 'PLATZHALTER' && e.p === 'texte.a.oda') && rb.errors.some((e) => e.code === 'LEX-ARTIKEL' && e.p === 'texte.a.funk')
+    && !rb.errors.some((e) => e.p === 'texte.b') && rb.warnings.some((w) => w.code === 'LEX-NORMALISIERT' && w.p === 'texte.b'),
+    'Prüfer: PLATZHALTER/LEX-ARTIKEL mit Pfad; eindeutige Altform nur Hinweis LEX-NORMALISIERT');
+  const m = t.g.mission;
+  m.activeId = null; m.def = null;
+  m.startMission('ar_1_lex');
+  const z = () => m.state.objectives.find((o) => o.id === 'ziel');
+  ok(m.state.stage === 'a' && z() && z().text === 'Bergen: die Legionskasse' && !z().done, `Ziel aufgelöst (rom, kesh.kastell): „${z() && z().text}“`);
+  t.run(1.5);
+  const oda = t.events('oda').map((e) => e.text); const funk = t.events('radio').map((e) => e.text);
+  ok(m.tpl('In Sicherheit: {fund}!') === 'In Sicherheit: die Legionskasse!' && m.tpl('{fund} ist da.') === 'Die Legionskasse ist da.',
+    `Aktion fund merkt den Fund der Karte (rom): „${m.tpl('In Sicherheit: {fund}!')}“`);
+  ok(oda.includes('Durch die Kassentür!') && funk.includes('Die Kasse öffnet nie einer allein.') && !oda.concat(funk).some((x) => /\{\{/.test(x || '')),
+    `ODA und Funk aufgelöst (${oda.filter((x) => /Durch/.test(x || '')).join(' | ')} / ${funk.slice(-1).join('')})`);
+  m.v.a_ende = true; m.refreshObjectives();
+  ok(z().done, 'Schritt a: Ziel abgehakt');
+  t.run(0.2);
+  ok(m.state.stage === 'b' && z() && !z().done && z().text === 'Das Bohlentor öffnen', `F13: gleiche Ziel-ID im neuen Schritt startet offen (${m.state.stage}: ${z() && z().text}, done ${z() && z().done})`);
+  const entry = m.bookEntries().find((e) => e.id === 'ar_1_lex');
+  ok(entry && entry.objectives.some((o) => o.text === 'Bergen: die Legionskasse' && o.done) && entry.objectives.some((o) => o.text === 'Das Bohlentor öffnen' && !o.done),
+    'Missionsbuch: erledigtes Ziel aus a, offenes gleichnamiges Ziel aus b');
+  const t2 = setup(1); mockSl(t2.g);
+  const b2 = JSON.parse(JSON.stringify(book)); b2.id = 'ar_1_lex2'; t2.g.mission.registerBook(b2, { origin: 'archiv' });
+  t2.g.mission.activeId = null; t2.g.mission.def = null; t2.g.mission.startMission('ar_1_lex2');
+  ok(t2.g.mission.tpl('{fund} ist da.') === 'Die Beute ist da.', 'ohne gemerkten Fund: {fund} = „die Beute“');
+  const full = m.toSave();
+  const f = freshForRestore(1); mockSl(f.g);
+  const b3 = JSON.parse(JSON.stringify(book)); f.g.mission.registerBook(b3, { origin: 'archiv' });
+  f.g.mission.restore(full);
+  const altStand = JSON.parse(JSON.stringify(full)); delete altStand.missionen.ar_1_lex.fund;
+  const f2 = freshForRestore(1); mockSl(f2.g); f2.g.mission.registerBook(JSON.parse(JSON.stringify(book)), { origin: 'archiv' }); f2.g.mission.restore(altStand);
+  ok(full.missionen.ar_1_lex.fund === 'die Legionskasse' && f.g.mission.activeId === 'ar_1_lex' && f.g.mission.tpl('{fund} ist da.') === 'Die Legionskasse ist da.'
+    && f2.g.mission.tpl('{fund} ist da.') === 'Die Beute ist da.', `Fund überlebt Speichern/Laden (${f.g.mission.tpl('{fund}')}); alter Stand ohne Feld -> die Beute`);
+  const save = full.missionen.ar_1_lex;
+  ok(save && save.erledigte_ziele.length === 1 && save.erledigte_ziele[0].schritt === 'a', 'Weltstand: erledigte Ziele tragen den Schritt');
+}
+
 console.log('\n[S2: Kapitelkarte nach m3]');
 {
   const { g, events } = setup(1);
@@ -596,7 +686,7 @@ console.log('\n[S2: Weltstand v2 – Spielleiter.restore vor mission.restore]');
   const { g } = setup(1);
   mockSl(g);
   const data = Weltstand.capture(g);
-  ok(data.version === 2 && data.spielleiter.naechste_id === 7, 'capture: version 2, Block spielleiter aus toSave()');
+  ok(data.version === Weltstand.VERSION && data.version >= 3 && data.spielleiter.naechste_id === 7, `capture: version ${data.version}, Block spielleiter aus toSave()`);
   ok(Weltstand.validate(data).length === 0, `capture ist schemagültig${Weltstand.validate(data).slice(0, 1).map((x) => ' – ' + x).join('')}`);
   const f = freshForRestore(1);
   let sl2 = null;

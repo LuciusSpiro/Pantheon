@@ -1,0 +1,24 @@
+{
+  "id": "kit/rom/ruine/wand_fuellung",
+  "name": "Rom-Steckplatz wand_fuellung (Ruine): verblichenes Panzerband, tote Energiefuge, ausgebrochene Paneele, Moos",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","ruine"],
+  "jitter": 0,
+  "let": {"pb":"h >= 6 ? 2 : 1"},
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":9,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "ops": [
+    {"name":"Panzerband rot","op":"box","at":[0,0,0],"size":["w","pb","d"],"color":{"noise":[{"shade":"primary","f":0.7},{"shade":"primary","f":0.6},"stone"],"weights":[3,2,1],"cell":1}},
+    {"name":"Energiefuge tot","op":"box","at":[0,"pb",0],"size":["w",1,"d"],"color":"glass","jitter":false},
+    {"name":"Keramikpaneele","op":"box","if":"h > pb + 1","at":[0,"pb + 1",0],"size":["w","h - pb - 1","d"],"color":{"noise":[{"shade":"secondary","f":0.88},{"shade":"stone","f":0.95},{"shade":"secondary","f":0.8}],"weights":[3,2,1],"cell":2}},
+    {"name":"Paneelfuge","op":"box","if":"h > pb + 5","at":[0,"pb + 4",0],"size":["w",1,"d"],"color":{"shade":"secondary","f":"0.75 * (1 - zustand * 0.08)"}},
+    {"name":"Paneel ausgebrochen","op":"box","mode":"carve","if":"h > pb + 4 && hash(seed, 1) < 0.35 + zustand * 0.2","at":["floor(hash(seed, 2) * max(1, w - 1))","pb + 2 + floor(hash(seed, 3) * 3)",0],"size":[1,2,"d"]},
+    {"name":"Moos unten","op":"box","mode":"paint","at":[0,0,0],"size":["w","min(h, pb + 2)","d"],"color":{"noise":[{"shade":"plant_dark","f":0.75},{"shade":"primary","f":0.65},"stone_dark"],"weights":["1 + zustand",3,1],"cell":1}}
+  ],
+  "anchor": [0,0,0]
+}

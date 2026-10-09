@@ -4,6 +4,11 @@
     "crew": 3,
     "nach": "m1"
   },
+  "bodenbilanz": {
+    "lang_ab_min": 25,
+    "letzte": [],
+    "pflicht_jetzt": false
+  },
   "chronik": [
     {
       "ausgang": "erfolg",
@@ -22,6 +27,177 @@
     "decision": "deliver",
     "technikerRescued": false
   },
+  "fraktionen": [
+    {
+      "id": "herrenlos",
+      "name": "Herrenlos",
+      "rezepte": [
+        "kastellwache",
+        "torwache"
+      ],
+      "rollen": [
+        "waechter"
+      ]
+    },
+    {
+      "id": "kontor",
+      "name": "Kontor-Clan",
+      "rezepte": [
+        "kontorwache",
+        "schiffswache"
+      ],
+      "rollen": [
+        "enterer",
+        "grundtyp",
+        "haescher",
+        "schuetze"
+      ]
+    },
+    {
+      "id": "kustoden",
+      "name": "Kustoden",
+      "rezepte": [
+        "waechter"
+      ],
+      "rollen": [
+        "waechter"
+      ]
+    },
+    {
+      "id": "raubzug",
+      "name": "Raubzug",
+      "rezepte": [
+        "jaeger",
+        "keil",
+        "sturm"
+      ],
+      "rollen": [
+        "enterer",
+        "grenadier",
+        "grundtyp",
+        "niederhalter",
+        "schuetze"
+      ]
+    },
+    {
+      "id": "rostmeute",
+      "name": "Rostmeute",
+      "rezepte": [
+        "enterrotte",
+        "loesegeld",
+        "posten",
+        "rotte",
+        "soeldner"
+      ],
+      "rollen": [
+        "enterer",
+        "grenadier",
+        "grundtyp",
+        "haescher",
+        "niederhalter",
+        "schuetze"
+      ]
+    }
+  ],
+  "gegner": [
+    {
+      "name": "Berserker",
+      "rolle": "enterer"
+    },
+    {
+      "name": "Donnerwerfer",
+      "rolle": "grenadier"
+    },
+    {
+      "name": "Karl",
+      "rolle": "grundtyp"
+    },
+    {
+      "name": "Wergeld-Fänger",
+      "rolle": "haescher"
+    },
+    {
+      "name": "Bolzer",
+      "rolle": "niederhalter"
+    },
+    {
+      "name": "Jäger",
+      "rolle": "schuetze"
+    },
+    {
+      "name": "Kastell-Automat",
+      "rolle": "waechter"
+    }
+  ],
+  "kartenarten": [
+    {
+      "id": "aussenposten",
+      "kurz": "Germanisches Lager im Freien (72×40): Palisade, Tore, Höfe, Aussichtsplateau – Sturm, Sabotage, Geiseln, Daten.",
+      "pflichtsatz": {
+        "abholpunkt": 2,
+        "aussicht": 1,
+        "beute": 4,
+        "eingang": 3,
+        "patrouille": 4,
+        "sprengpunkt": 2,
+        "terminal": 1,
+        "wache": 6,
+        "zelle": 2,
+        "ziel": 1
+      }
+    },
+    {
+      "id": "station",
+      "kurz": "Germanische Raumstation (48×24): Gänge, Schotten, Hallen, Reaktor – Daten, Krise, Evakuieren, Sabotage.",
+      "pflichtsatz": {
+        "abholpunkt": 2,
+        "beute": 3,
+        "eingang": 2,
+        "nsc": 2,
+        "patrouille": 4,
+        "sprengpunkt": 1,
+        "terminal": 2,
+        "tor": 1,
+        "versteck": 1,
+        "wache": 4,
+        "zelle": 2,
+        "ziel": 3
+      }
+    },
+    {
+      "id": "ruine",
+      "kurz": "Verfallenes römisches Grenzkastell (64×40): Tore, Gewölbe, Rätselpaar, Fund – Rätsel, Bergung, Probe.",
+      "pflichtsatz": {
+        "abholpunkt": 2,
+        "aussicht": 1,
+        "beute": 2,
+        "eingang": 2,
+        "fund": 1,
+        "patrouille": 3,
+        "raetsel": 2,
+        "terminal": 1,
+        "tor": 1,
+        "wache": 4
+      }
+    },
+    {
+      "id": "schiff",
+      "kurz": "Germanisches Langschiff, zwei Decks (37×13): Brücke, Laderaum, Zellen – Kapern, Sabotage, Bergung.",
+      "pflichtsatz": {
+        "abholpunkt": 2,
+        "beute": 3,
+        "eingang": 2,
+        "leiter": 1,
+        "lift": 1,
+        "nsc": 1,
+        "sprengpunkt": 1,
+        "terminal": 2,
+        "wache": 4,
+        "zelle": 1,
+        "ziel": 2
+      }
+    }
+  ],
   "missionen": {
     "m1": {
       "ausgang": "erfolg",
@@ -138,11 +314,39 @@
         }
       ],
       "id": "b7",
+      "landepunkte": [
+        {
+          "art": "station",
+          "bauweise": "germanen",
+          "besitz": "rostmeute",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "b7.aussenstelle",
+          "name": "Außenstelle B-7",
+          "zustand": "verfallen"
+        },
+        {
+          "anker": {
+            "abholpunkt": 1,
+            "nsc": 1,
+            "wache": 4,
+            "ziel": 1
+          },
+          "art": "hand",
+          "bauweise": null,
+          "besitz": "konkordat",
+          "besucht": 0,
+          "id": "platform",
+          "name": "Bojenplattform B-7",
+          "zustand": "intakt"
+        }
+      ],
       "name": "Boje B-7",
       "status": "besucht",
       "verbindungen": [
         "nebel",
-        "splitter"
+        "splitter",
+        "wrack"
       ]
     },
     {
@@ -158,6 +362,18 @@
         "kesh"
       ],
       "id": "hafen",
+      "landepunkte": [
+        {
+          "art": "station",
+          "bauweise": "germanen",
+          "besitz": "kontor",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "hafen.kontor",
+          "name": "Germanisches Kontor",
+          "zustand": "intakt"
+        }
+      ],
       "name": "Hafen Lichtkordon",
       "status": "besucht",
       "verbindungen": [
@@ -175,6 +391,46 @@
         "splitter"
       ],
       "id": "kesh",
+      "landepunkte": [
+        {
+          "anker": {
+            "abholpunkt": 1,
+            "eingang": 1,
+            "fund": 1,
+            "raetsel": 2,
+            "tor": 1,
+            "wache": 5,
+            "ziel": 2
+          },
+          "art": "hand",
+          "bauweise": "vorlaeufer",
+          "besitz": "kustoden",
+          "besucht": 0,
+          "id": "kesh",
+          "name": "Kustoden-Archiv",
+          "zustand": "intakt"
+        },
+        {
+          "art": "aussenposten",
+          "bauweise": "germanen",
+          "besitz": "rostmeute",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "kesh.grabung",
+          "name": "Grabungslager",
+          "zustand": "umkaempft"
+        },
+        {
+          "art": "ruine",
+          "bauweise": "rom",
+          "besitz": "herrenlos",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "kesh.kastell",
+          "name": "Verfallenes Grenzkastell",
+          "zustand": "verfallen"
+        }
+      ],
       "name": "Mond Kesh",
       "status": "unbekannt",
       "verbindungen": []
@@ -196,12 +452,23 @@
         "relais"
       ],
       "id": "nebel",
+      "landepunkte": [
+        {
+          "art": "schiff",
+          "bauweise": "germanen",
+          "besitz": "raubzug",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "nebel.havarist",
+          "name": "Havarist im Nebel",
+          "zustand": "umkaempft"
+        }
+      ],
       "name": "Graue Weite",
       "status": "bekannt",
       "verbindungen": [
         "b7",
-        "vaelen",
-        "wrack"
+        "vaelen"
       ]
     },
     {
@@ -238,6 +505,28 @@
         "kesh"
       ],
       "id": "splitter",
+      "landepunkte": [
+        {
+          "art": "aussenposten",
+          "bauweise": "germanen",
+          "besitz": "rostmeute",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "splitter.schuerflager",
+          "name": "Schürflager",
+          "zustand": "umkaempft"
+        },
+        {
+          "art": "schiff",
+          "bauweise": "germanen",
+          "besitz": "raubzug",
+          "besucht": 0,
+          "frei": "nach_raumgefecht",
+          "id": "splitter.treibgut",
+          "name": "Treibgut",
+          "zustand": "verfallen"
+        }
+      ],
       "name": "Splittergürtel",
       "status": "besucht",
       "verbindungen": [
@@ -260,6 +549,18 @@
         }
       ],
       "id": "vaelen",
+      "landepunkte": [
+        {
+          "art": "schiff",
+          "bauweise": "germanen",
+          "besitz": "kontor",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "vaelen.handelsschiff",
+          "name": "Germanisches Handelsschiff",
+          "zustand": "intakt"
+        }
+      ],
       "name": "Vaelen-Karawane",
       "status": "unbekannt",
       "verbindungen": [
@@ -282,14 +583,43 @@
         }
       ],
       "id": "wrack",
+      "landepunkte": [
+        {
+          "art": "schiff",
+          "bauweise": "germanen",
+          "besitz": "raubzug",
+          "besucht": 0,
+          "frei": "nach_tutorial",
+          "id": "wrack.langschiff",
+          "name": "Treibendes Langschiff",
+          "zustand": "verfallen"
+        },
+        {
+          "anker": {
+            "abholpunkt": 1,
+            "beute": 4,
+            "terminal": 1,
+            "versteck": 1,
+            "wache": 3
+          },
+          "art": "hand",
+          "bauweise": null,
+          "besitz": "herrenlos",
+          "besucht": 0,
+          "id": "wreck",
+          "name": "Wrack „Zaunkönig“",
+          "zustand": "verfallen"
+        }
+      ],
       "name": "Wrack „Zaunkönig“",
       "status": "unbekannt",
       "verbindungen": [
-        "nebel",
+        "b7",
         "splitter"
       ]
     }
   ],
+  "rollen_gesehen": [],
   "schiff": {
     "ausbauten": [],
     "huelle": 74,
@@ -322,22 +652,23 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Hinter dem geöffneten Tor liegt der Fund. E halten, dann ist er im Inventar. Kurz und ruhig – meist folgt danach eine Wendung (Wächter, Verstärkung). Heute nur auf Kesh.",
+            "beschreibung": "Hinter dem Tor liegt der Fund (Ruine: die Legionskasse). Ist das Tor noch zu, muss es erst auf (Rätselpaar, Sprengen oder E am einfachen Tor). E halten am Sockel, dann ist der Fund geborgen. Kurz und ruhig, meist folgt eine Wendung (Wächter erwacht, Verstärkung).",
+            "braucht_anker": {
+              "anker": [
+                "tor",
+                "fund"
+              ],
+              "kartenarten": [
+                "ruine",
+                "kesh"
+              ]
+            },
             "dauer_min": [
               1,
               2
             ],
             "id": "fund_aus_gewoelbe",
-            "karten": [
-              "kesh"
-            ],
-            "nach": [
-              "raetsel_loesen/zwei_schluessel"
-            ],
             "name": "Fund aus dem Gewölbe bergen",
-            "nur_an": [
-              "kesh"
-            ],
             "schauplatz": "aussen"
           }
         ]
@@ -356,19 +687,65 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Neues Treibgut ist ins Wrack „Zaunkönig“ gedriftet (die Karte wird dafür zurückgesetzt, der Grund wird erzählt). Das Außenteam sucht im Dunkeln die Bergungscontainer, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Heute nur im Wrack.",
+            "beschreibung": "Ein Wrack bzw. verfallenes Schiff oder eine aufgegebene Station: Das Außenteam sucht im Halbdunkel die Bergungskisten, öffnet sie (E halten) und kommt zu den Pads zurück. Der Captain sieht von oben, wo noch etwas liegt. Ruhig, mit Stimmung; nach einer Weile lässt man den Rest liegen. Am besten auf verfallenen Landepunkten.",
+            "braucht_anker": {
+              "anker": [
+                "beute"
+              ],
+              "kartenarten": [
+                "wreck",
+                "schiff",
+                "station"
+              ],
+              "min": {
+                "beute": 3
+              }
+            },
             "dauer_min": [
               3,
               5
             ],
             "id": "wrack_container",
-            "karten": [
-              "wreck"
-            ],
             "name": "Container im Wrack bergen",
-            "nur_an": [
-              "wrack"
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik",
+          "heimlich"
+        ],
+        "id": "daten_stehlen",
+        "kern": "An ein Terminal kommen, Download abwarten",
+        "name": "Daten stehlen",
+        "szenentypen": [
+          "C1",
+          "C2",
+          "C4"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Mindestens zwei Terminals, nur eins hat den Kern: Der Captain sieht oben, welches. Das Außenteam hält E am richtigen Terminal (6 s, ein Treffer bricht ab, der Fortschritt bleibt). Leise oder laut – je nach Besetzung der Szene.",
+            "braucht_anker": {
+              "anker": [
+                "terminal"
+              ],
+              "kartenarten": [
+                "station",
+                "aussenposten",
+                "schiff"
+              ],
+              "min": {
+                "terminal": 2
+              }
+            },
+            "dauer_min": [
+              3,
+              5
             ],
+            "id": "download",
+            "name": "Download am Terminal",
             "schauplatz": "aussen"
           }
         ]
@@ -408,6 +785,47 @@
       {
         "ansaetze": [
           "gewalt",
+          "heimlich",
+          "reden"
+        ],
+        "id": "durchbrechen",
+        "kern": "Durch eine Sperre kommen, ohne alles zu bekämpfen",
+        "name": "Durchbrechen",
+        "szenentypen": [
+          "A6",
+          "A7",
+          "C2",
+          "C7"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Wache Besetzung, kein Schleichen: Vom Eingang aus kämpft sich das Team in den Zielbereich durch. Nicht alles bekämpfen – Deckung, Flanke, durch.",
+            "braucht_anker": {
+              "anker": [
+                "eingang",
+                "wache"
+              ],
+              "gefecht": true,
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "ruine",
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "bis_zum_ziel",
+            "name": "Vom Eingang bis ins Ziel",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
           "heimlich"
         ],
         "id": "entkommen",
@@ -419,19 +837,101 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Eine Nachhut stellt sich in den Weg, das Team schlägt sich mit der Beute zu den Pads durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt. Heute nur auf Kesh.",
+            "beschreibung": "Ein Trupp der Fraktion stellt sich in den Weg, das Team schlägt sich mit der Beute zum nächsten Abholpunkt durch und beamt hoch. Kein Game Over: Wer fällt, wird zurückgeholt.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "ruine",
+                "schiff",
+                "kesh"
+              ]
+            },
             "dauer_min": [
               2,
               4
             ],
             "id": "zu_den_pads",
-            "karten": [
-              "kesh"
-            ],
             "name": "Mit der Beute zu den Pads",
-            "nur_an": [
-              "kesh"
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "evakuieren",
+        "kern": "Viele Personen unter Zeitdruck holen. Kapazität ist begrenzt: Wen zuerst?",
+        "name": "Evakuieren",
+        "szenentypen": [
+          "A11",
+          "C3",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Auf der Station sitzt Besatzung in den Quartieren fest. Hingehen, ansprechen (E), die Person folgt zum Abholpunkt und wird mit hochgebeamt. Heute eine Person je Karte; die übrigen werden erzählt.",
+            "braucht_anker": {
+              "anker": [
+                "nsc",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "station"
+              ],
+              "min": {
+                "nsc": 2
+              }
+            },
+            "dauer_min": [
+              4,
+              6
             ],
+            "id": "quartiere",
+            "name": "Aus den Quartieren holen",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
+          "heimlich",
+          "reden"
+        ],
+        "id": "geiseln_befreien",
+        "kern": "Gefangene lebend herausholen",
+        "name": "Geiseln befreien",
+        "szenentypen": [
+          "C2",
+          "C4",
+          "C9"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Bewacht von der Fraktion sitzt eine Geisel in einer Zelle. Zelle öffnen (E halten), die Person folgt zum Abholpunkt und wird mit hochgebeamt. Leise mit dem Betäuber oder laut, je nach Haltung der Wachen.",
+            "braucht_anker": {
+              "anker": [
+                "zelle",
+                "wache",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "zellen_oeffnen",
+            "name": "Zelle öffnen, Geisel zum Pad",
             "schauplatz": "aussen"
           }
         ]
@@ -465,6 +965,97 @@
               "kesh"
             ],
             "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
+          "heimlich"
+        ],
+        "id": "kapern",
+        "kern": "Schiff oder Station übernehmen (nach Ausschalten und Entern)",
+        "name": "Kapern",
+        "szenentypen": [
+          "A9",
+          "C2"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Auf dem fremden Schiff: Brücke räumen und das Steuer 3 s halten. Danach gehört das Schiff kurz euch – die Folge (Ladung, Kennung) wird erzählt, es gibt keinen Schiffswechsel.",
+            "braucht_anker": {
+              "anker": [
+                "ziel",
+                "wache"
+              ],
+              "kartenarten": [
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "bruecke_nehmen",
+            "name": "Brücke nehmen",
+            "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Erst im Raum: ein Schiff kampfunfähig schießen. Bei Hülle 0 explodiert es nicht, es treibt als Prise (Landepunkt <ort>.prise, Schiff, germanische Bauweise, umkämpft). Dann an der Transfer-Konsole „Prise“ wählen, nah ran, hinüberbeamen, die Restbesatzung räumen und den Steuerpunkt halten. Die Folge (Ladung, Kennung) wird erzählt, es gibt keinen Schiffswechsel. merken: die Prise bleibt nach der Szene als treibendes Wrack am Ort.",
+            "braucht_anker": {
+              "anker": [
+                "ziel",
+                "wache"
+              ],
+              "gefecht": true,
+              "kartenarten": [
+                "schiff"
+              ],
+              "landepunkt": "laufzeit"
+            },
+            "dauer_min": [
+              5,
+              8
+            ],
+            "id": "prise_entern",
+            "name": "Prise entern",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "krise_eindaemmen",
+        "kern": "Brand, Leck, Reaktor, Seuche auf fremder Station oder an Bord",
+        "name": "Krise eindämmen",
+        "szenentypen": [
+          "B1",
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Der Reaktor geht durch: Steuerpunkte (Ventile) verteilt im Reaktorbereich, jeweils E halten. Aufteilen – nach 90 s ist es vorbei, ob alle zu sind oder nicht (Flag _gehalten bzw. _teilweise).",
+            "braucht_anker": {
+              "anker": [
+                "ziel"
+              ],
+              "kartenarten": [
+                "station",
+                "schiff"
+              ],
+              "min": {
+                "ziel": 3
+              }
+            },
+            "dauer_min": [
+              3,
+              4
+            ],
+            "id": "ventile",
+            "name": "Ventile schließen",
+            "schauplatz": "aussen"
           }
         ]
       },
@@ -586,23 +1177,56 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Auf der Außenkarte (Plattform B-7, Wrack, Kesh) sitzt eine verletzte Person fest (wie damals Ivo). Das Außenteam nimmt ein Medipack mit, versorgt sie (E halten), sie folgt zu den Pads und wird mit hochgebeamt. Der Captain behält oben die Lage im Blick. Die Karte wird vorher zurückgesetzt, der Grund wird erzählt. Eine Person je Karte.",
+            "beschreibung": "Auf der Außenkarte sitzt eine verletzte Person fest (wie damals Ivo). Das Außenteam nimmt ein Medipack mit, versorgt sie (E halten), sie folgt zu den Pads und wird mit hochgebeamt. Gebaute Karten: am nsc-Platz (Station, Schiff); Handkarten wie bisher. Eine Person je Karte.",
+            "braucht_anker": {
+              "anker": [
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "platform",
+                "wreck",
+                "kesh",
+                "station",
+                "schiff"
+              ]
+            },
             "dauer_min": [
               2,
               4
             ],
             "id": "techniker_retten",
-            "karten": [
-              "platform",
-              "wreck",
-              "kesh"
-            ],
             "name": "Verletzte Person von einer Außenkarte holen",
-            "nur_an": [
-              "b7",
-              "wrack",
-              "kesh"
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "probe_nehmen",
+        "kern": "Probe unter Gefahr sammeln und auswerten",
+        "name": "Probe nehmen",
+        "szenentypen": [
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Im Kastell lagert etwas, das jemand untersuchen will (Vorratsamphore, Kassenstaub, Mauerprobe). Hingehen, E halten, Probe genommen. Kurz; passt vor oder nach einem Gefecht.",
+            "braucht_anker": {
+              "anker": [
+                "beute"
+              ],
+              "kartenarten": [
+                "ruine"
+              ]
+            },
+            "dauer_min": [
+              2,
+              3
             ],
+            "id": "am_fund",
+            "name": "Probe aus dem Gewölbe",
             "schauplatz": "aussen"
           }
         ]
@@ -635,19 +1259,26 @@
             "schauplatz": "aussen"
           },
           {
-            "beschreibung": "Zwei Schlüssel weit auseinander müssen gleichzeitig gehalten werden, dann öffnet sich das Tor. Ruhiger Moment nach einem Gefecht: Absprache und Anzählen. Heute nur auf Kesh.",
+            "beschreibung": "Ein Rätselpaar (zwei Schlösser weit auseinander) muss gleichzeitig gehalten werden, dann öffnet sich das Tor. Ruhiger Moment nach einem Gefecht: Absprache und Anzählen. In der Ruine ist es das Zwei-Offiziers-Schloss der Legionskasse, auf Kesh die Kustoden-Schlüssel.",
+            "braucht_anker": {
+              "anker": [
+                {
+                  "paar": 1,
+                  "rolle": "raetsel"
+                },
+                "tor"
+              ],
+              "kartenarten": [
+                "ruine",
+                "kesh"
+              ]
+            },
             "dauer_min": [
               1,
               3
             ],
             "id": "zwei_schluessel",
-            "karten": [
-              "kesh"
-            ],
             "name": "Tor nur zu zweit zu öffnen",
-            "nur_an": [
-              "kesh"
-            ],
             "schauplatz": "aussen"
           }
         ]
@@ -664,19 +1295,60 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Im dunklen Wrack liegt ein Logbuch-Terminal, das erzählt, was passiert ist. Optional ein Hohlraum hinter einer dünnen Wand, den nur ein Weitscan aus dem Orbit verrät. Ruhige Erkundung, Stimmung statt Kampf. Heute nur im Wrack „Zaunkönig“.",
+            "beschreibung": "Ein Logbuch-Terminal (Ruine: Wachbuch) erzählt, was hier passiert ist. E halten, bis es ausgelesen ist. Optional ein Versteck hinter einer dünnen Wand, das nur ein Weitscan aus dem Orbit verrät – nur, wenn die Karte eins hat (mit_versteck). Ruhige Erkundung, Stimmung statt Kampf.",
+            "braucht_anker": {
+              "anker": [
+                "terminal"
+              ],
+              "kartenarten": [
+                "wreck",
+                "schiff",
+                "station",
+                "ruine"
+              ]
+            },
             "dauer_min": [
               2,
               4
             ],
             "id": "wrack_logbuch",
-            "karten": [
-              "wreck"
+            "name": "Logbuch lesen",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik",
+          "gewalt"
+        ],
+        "id": "sabotieren",
+        "kern": "Anlage lahmlegen oder sprengen und raus",
+        "name": "Sabotieren",
+        "szenentypen": [
+          "C2",
+          "C4"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Das Team bekommt eine Sprengladung, setzt sie am Sprengpunkt (E halten, ein Treffer bricht ab), dann laufen 60 s Countdown – raus zum Abholpunkt. Die Explosion trifft alle im Umkreis; der Sprengpunkt bleibt im Weltstand zerstört.",
+            "braucht_anker": {
+              "anker": [
+                "sprengpunkt",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              4,
+              6
             ],
-            "name": "Logbuch im Wrack lesen",
-            "nur_an": [
-              "wrack"
-            ],
+            "id": "ladung_am_sprengpunkt",
+            "name": "Ladung am Sprengpunkt",
             "schauplatz": "aussen"
           }
         ]
@@ -753,19 +1425,60 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein Trupp hält einen Bereich. Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn der Trupp fällt oder jemand durchbricht. Heute nur auf Kesh.",
+            "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
+            "braucht_anker": {
+              "anker": [
+                "wache"
+              ],
+              "gefecht": true,
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "ruine",
+                "schiff"
+              ],
+              "min": {
+                "wache": 2
+              }
+            },
             "dauer_min": [
               3,
               5
             ],
             "id": "trupp_raeumen",
-            "karten": [
-              "kesh"
-            ],
             "name": "Trupp ausschalten oder durchbrechen",
-            "nur_an": [
-              "kesh"
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "technik"
+        ],
+        "id": "suchen",
+        "kern": "Etwas oder jemanden im Gelände finden (wärmer/kälter)",
+        "name": "Suchen",
+        "szenentypen": [
+          "C1"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Irgendwo liegt, was gesucht wird. Der Captain markiert mit dem Weitscan Bergungsgut und Verstecke, das Team birgt (E halten). Ein Versteck hinter dünner Wand gibt es nur auf manchen Karten.",
+            "braucht_anker": {
+              "anker": [
+                "beute"
+              ],
+              "kartenarten": [
+                "ruine",
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              3,
+              4
             ],
+            "id": "weitscan_versteck",
+            "name": "Mit dem Weitscan suchen",
             "schauplatz": "aussen"
           }
         ]
@@ -949,32 +1662,56 @@
             "schauplatz": "weltraum"
           }
         ]
+      },
+      {
+        "ansaetze": [
+          "heimlich"
+        ],
+        "id": "ziel_markieren",
+        "kern": "Ziel für einen Orbitalschlag oder einen Verbündeten markieren",
+        "name": "Ziel markieren",
+        "szenentypen": [
+          "C1",
+          "C4"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Einer muss hinauf auf die Aussicht (Plateau) und von dort das Sprengziel markieren; dann schlägt der Orbitalschlag ein und das Ziel ist zerstört. Auf der Aussicht steht man frei – die anderen decken.",
+            "braucht_anker": {
+              "anker": [
+                "aussicht",
+                "sprengpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten"
+              ]
+            },
+            "dauer_min": [
+              2,
+              3
+            ],
+            "id": "von_der_aussicht",
+            "name": "Von der Aussicht markieren",
+            "schauplatz": "aussen"
+          }
+        ]
       }
     ],
     "noch_nicht_spielbar": {
       "molekuele": [
+        "ausbruch",
         "befragen",
         "beobachten",
-        "daten_stehlen",
-        "durchbrechen",
-        "evakuieren",
         "gefahrgut",
         "gefangenen_ueberstellen",
-        "geiseln_befreien",
         "handeln",
-        "kapern",
-        "krise_eindaemmen",
         "passagiere_befoerdern",
-        "probe_nehmen",
-        "sabotieren",
         "schlichten",
         "schmuggeln",
-        "suchen",
         "unbemerkt_durchfliegen",
         "unbemerkt_hineinkommen",
         "versorgen",
-        "wettflug",
-        "ziel_markieren"
+        "wettflug"
       ],
       "szenentypen": [
         "andocken_und_entern",
@@ -1101,6 +1838,8 @@
           "artefakt_freilegen",
           "ausschlachten",
           "datenkern_bergen",
+          "evakuieren",
+          "geiseln_befreien",
           "personen_bergen"
         ],
         "name": "Bergung vor Ort",
@@ -1121,8 +1860,13 @@
         "molekuele": [
           "artefakt_freilegen",
           "ausschlachten",
+          "daten_stehlen",
           "datenkern_bergen",
-          "rekonstruieren"
+          "krise_eindaemmen",
+          "probe_nehmen",
+          "rekonstruieren",
+          "suchen",
+          "ziel_markieren"
         ],
         "name": "Erkundung",
         "plaetze": [
@@ -1158,6 +1902,11 @@
           "rueckzug"
         ],
         "molekuele": [
+          "daten_stehlen",
+          "durchbrechen",
+          "geiseln_befreien",
+          "kapern",
+          "sabotieren",
           "stellung_nehmen"
         ],
         "name": "Gefecht",
@@ -1243,6 +1992,7 @@
         "kennung": "C7",
         "kern": "Ziel erfüllt, jetzt zum Abholpunkt durchschlagen (Missionen für das Außenteam)",
         "molekuele": [
+          "durchbrechen",
           "entkommen"
         ],
         "name": "Rückzug",

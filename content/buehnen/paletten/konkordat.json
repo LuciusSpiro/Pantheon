@@ -1,0 +1,27 @@
+{
+  "format": "besitz-palette/1",
+  "besitz": "konkordat",
+  "je_bauweise": {
+    "germanen": {
+      "intakt": "nord",
+      "verfallen": "nord_verfallen",
+      "umkaempft": "nord_umkaempft"
+    },
+    "rom": {
+      "intakt": "rom_kastell",
+      "verfallen": "rom_kastell_verfallen",
+      "umkaempft": "rom_kastell_umkaempft"
+    }
+  },
+  "banner": {
+    "model": "prop/germanen/gemein/banner_clan",
+    "palette": "nord",
+    "colors": {
+      "cloth": "#4A4466",
+      "leather": "#5E6670",
+      "trim": "#C99A3A"
+    }
+  },
+  "streu": [],
+  "hinweis": "Nur Handkarte B-7. Keine eigene VW-Palette; Banner per colors: Siegel-Violett, Stahlgrau, Signal-Ocker."
+}

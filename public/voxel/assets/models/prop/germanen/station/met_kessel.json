@@ -1,0 +1,46 @@
+{
+  "id": "prop/germanen/station/met_kessel",
+  "name": "Station Germanen: Met-Kessel (Eisenkessel mit Reifen, Schauglas, Zapfhahn und Horn)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop", "germanen", "station", "methalle", "fund"],
+  "notes": "ART-STATION. 1 x 1 m, 1,6 m. Gedrungener Kessel auf vier Füßen, zwei gemalte Reifen, Runen als gepunktetes Leiterbahnband (checker, emit 0,6), Kuppeldeckel mit Ventilrad, Rohrbogen zum Zapfhahn vorn, Trinkhorn am Haken. Schauglas zeigt den Met (ember gedämpft). Anker fund: state 0 da (Deckel zu, Schauglas voll) / 1 genommen (Deckel ab, Kessel leer, Schauglas dunkel).",
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Fund (0 da, 1 genommen)" },
+    "zustand": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 intakt, 1 verfallen, 2 umkämpft)" }
+  },
+  "variants": { "genommen": { "state": 1 }, "verfallen": { "zustand": 1 }, "umkaempft": { "zustand": 2 } },
+  "ops": [
+    { "name": "Füße", "op": "box", "at": [-6, 0, -6], "size": [2, 2, 2], "color": "metal_dark", "jitter": false, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "name": "Kessel", "op": "cyl", "at": [0, 2, 0], "r": 7.5, "h": 16, "color": "metal", "jitter": false },
+    { "name": "Reifen (gemalt)", "op": "cyl", "at": [0, 3, 0], "r": 7.6, "h": 1, "hollow": 1, "mode": "paint", "repeat": { "count": 2, "step": [0, 12, 0] }, "color": "metal_dark", "jitter": false },
+    { "name": "Runenband Einlage", "op": "cyl", "at": [0, 12, 0], "r": 7.6, "h": 1, "hollow": 1, "mode": "paint", "color": { "checker": ["metal_dark", { "shade": "glow", "f": 0.75, "emit": 0.6 }], "period": 1 }, "jitter": false },
+    { "name": "Kesselschulter", "op": "cyl", "at": [0, 17, 0], "r": 7, "h": 1, "color": "metal_light", "jitter": false },
+    { "name": "Deckel", "if": "state == 0", "op": "cyl", "at": [0, 18, 0], "r": 6.5, "h": 2, "color": "metal_dark", "jitter": false },
+    { "name": "Deckel Kuppe", "if": "state == 0", "op": "cyl", "at": [0, 20, 0], "r": 4, "h": 1, "color": "metal_dark", "jitter": false },
+    { "name": "Ventilrad Achse", "if": "state == 0", "op": "box", "at": [-1, 21, -1], "size": [2, 3, 2], "color": "metal" },
+    { "name": "Ventilrad", "if": "state == 0", "op": "cyl", "at": [0, 24, 0], "r": 3, "h": 1, "hollow": 1, "color": "trim" },
+    { "name": "Ventilrad Steg", "if": "state == 0", "op": "box", "at": [-3, 24, -1], "size": [6, 1, 2], "color": "trim" },
+    { "name": "Kessel offen (leer)", "if": "state == 1", "op": "cyl", "at": [0, 14, 0], "r": 6, "h": 5, "mode": "carve" },
+    { "name": "Kesselboden dunkel", "if": "state == 1", "op": "cyl", "at": [0, 13, 0], "r": 6, "h": 1, "color": "dark", "mode": "paint", "jitter": false },
+    { "name": "Metrest am Boden", "if": "state == 1", "op": "cyl", "at": [0, 13, 0], "r": 3, "h": 1, "mode": "paint", "color": { "shade": "leather", "f": 0.8 }, "jitter": false },
+
+    { "name": "Rohr hoch", "op": "box", "at": [4, 17, -1], "size": [2, 6, 2], "color": "metal_light" },
+    { "name": "Rohr Bogen", "op": "box", "at": [4, 21, 1], "size": [2, 2, 6], "color": "metal_light" },
+    { "name": "Rohr runter", "op": "box", "at": [4, 11, 6], "size": [2, 10, 2], "color": "metal_light" },
+    { "name": "Zapfhahn", "op": "box", "at": [3, 10, 6], "size": [4, 2, 2], "color": "metal_dark" },
+    { "name": "Zapfhebel (Horn)", "op": "box", "at": [4, 12, 7], "size": [1, 2, 1], "color": "trim" },
+    { "name": "Trinkhorn", "op": "line", "from": [-3, 9, 7], "to": [-6, 13, 7], "r": 1, "color": "trim" },
+    { "name": "Trinkhorn Spitze", "op": "box", "at": [-7, 13, 7], "size": [1, 2, 1], "color": { "shade": "trim", "f": 0.7 } },
+    { "name": "Trinkhorn Beschlag", "op": "box", "at": [-3, 8, 7], "size": [2, 2, 1], "color": "metal_light" },
+
+    { "name": "Schauglas Fassung", "op": "box", "at": [-2, 4, 7], "size": [3, 12, 1], "color": "metal_dark", "jitter": false },
+    { "name": "Schauglas leer", "op": "box", "at": [-1, 5, 7], "size": [1, 10, 1], "color": "glass", "jitter": false },
+    { "name": "Schauglas Met", "if": "state == 0 && zustand < 2", "op": "box", "at": [-1, 5, 7], "size": [1, 8, 1], "color": { "shade": "ember", "f": 0.8, "emit": 0.8 }, "jitter": false },
+
+    { "name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand * 0.07", "depth": 1, "at": [-8, 12, -8], "size": [16, 16, 16] },
+    { "name": "Ruß", "if": "zustand == 2", "op": "line", "from": [-8, 4, 6], "to": [0, 18, 8], "r": 2, "mode": "paint", "color": { "noise": ["black", "metal_dark"], "weights": [1, 1], "cell": 1 }, "jitter": false }
+  ],
+  "anchor": [0, 0, 0]
+}

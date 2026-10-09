@@ -1,0 +1,18 @@
+{
+  "id": "kit/test/gemein/truemmer_haufen",
+  "name": "Probebauweise – truemmer_haufen (Klötzchen, alle Kartenarten)",
+  "tier": "architecture",
+  "palette": "base",
+  "tags": ["test","slot"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":4,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":1,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"}
+  },
+  "ops": [
+    {"name":"Klötzchen unten","op":"box","at":[0,0,0],"size":["w",1,"d"],"color":{"checker":["rock","sand"],"period":1}},
+    {"name":"Klötzchen oben","op":"box","at":[1,1,1],"size":["max(1, w - 2)","h - 1","max(1, d - 2)"],"color":"sand"}
+  ],
+  "anchor": [0,0,0]
+}

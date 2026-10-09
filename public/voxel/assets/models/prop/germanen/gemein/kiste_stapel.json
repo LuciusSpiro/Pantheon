@@ -1,0 +1,33 @@
+{
+  "id": "prop/germanen/gemein/kiste_stapel",
+  "name": "Kistenstapel (Germanen): Frachtkisten, halbe Deckung mit heller Oberkante",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deckung","cover","cover_half","kiste"],
+  "footprint": [1,1],
+  "params": {
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"Zustand (0 intakt, 1 verfallen, 2 umkämpft)"}
+  },
+  "variants": {
+    "verfallen": {"zustand":1},
+    "umkaempft": {"zustand":2}
+  },
+  "sockets": {"cover":[0,0.81,0]},
+  "ops": [
+    {"op":"box","name":"Unterkiste","at":[-7,0,-5],"size":[14,7,10],"color":{"stripes":["wood","wood_dark"],"axis":"y","period":2}},
+    {"op":"box","name":"Rahmen unten","at":[-7,0,-5],"size":[14,7,10],"color":{"frame":"metal","fill":"wood","axes":"xy","width":1},"mode":"paint"},
+    {"op":"box","name":"Kante unten","at":[-7,6,-5],"size":[14,1,10],"color":{"frame":"trim","fill":{"shade":"wood","f":0.85},"axes":"xz","width":1}},
+    {"op":"box","name":"Spanngurt","at":[3,0,-5],"size":[1,7,10],"color":"leather"},
+    {"op":"box","name":"Mittelstrebe","at":[-1,1,4],"size":[1,5,1],"color":"metal"},
+    {"op":"box","name":"Oberkiste","at":[-6,7,-4],"size":[9,6,7],"color":"primary"},
+    {"op":"box","name":"Rippen","at":[-6,8,-4],"size":[9,1,7],"color":"metal_light","repeat":{"count":2,"step":[0,3,0]}},
+    {"op":"box","name":"Oberkante","at":[-6,12,-4],"size":[9,1,7],"color":{"frame":"trim","fill":"metal","axes":"xz","width":1}},
+    {"op":"box","name":"Griffmulde","at":[-1,10,2],"size":[3,1,1],"color":"dark"},
+    {"op":"use","name":"Frachtzeichen","model":"prop/germanen/gemein/teil/runenband","at":[-2,1,4],"params":{"n":3,"lit":0,"rahmen":0,"start":1,"schritt":1}},
+    {"op":"box","name":"Kleinkiste","at":[4,7,0],"size":[3,3,4],"color":"metal"},
+    {"op":"box","name":"Kleinkiste Kante","at":[4,9,0],"size":[3,1,4],"color":"trim"},
+    {"op":"erode","name":"Kanten","if":"zustand > 0","density":"zustand * 0.2","depth":"zustand","salt":3},
+    {"op":"box","name":"Ruß","if":"zustand == 2","at":[-7,0,-5],"size":[14,13,10],"color":{"noise":["wood_dark","soil_dark"],"weights":[1,1]},"mode":"paint"}
+  ],
+  "anchor": [0,0,0]
+}

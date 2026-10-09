@@ -16,55 +16,105 @@
       "id": "trupp_raeumen",
       "name": "Trupp ausschalten oder durchbrechen",
       "schauplatz": "aussen",
-      "beschreibung": "Ein Trupp hält einen Bereich. Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn der Trupp fällt oder jemand durchbricht. Heute nur auf Kesh.",
+      "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
       "braucht": [
         "transfer",
         "aussen_kampf"
       ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten",
+          "station",
+          "ruine",
+          "schiff"
+        ],
+        "anker": [
+          "wache"
+        ],
+        "min": {
+          "wache": 2
+        },
+        "gefecht": true
+      },
       "dauer_min": [
         3,
         5
       ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          4,
+          6
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_geraeumt"
+      ],
       "ereignisse": [
         "droneKilled",
-        "playerWounded"
+        "playerWounded",
+        "alarm"
       ],
       "params": {
         "loc": {
           "typ": "loc",
-          "pflicht": true,
-          "werte": [
-            "kesh"
-          ]
+          "pflicht": true
         },
         "map": {
           "typ": "map",
           "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "rostmeute",
           "werte": [
-            "kesh"
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer bzw. Gegner (Fraktion = Besitz-ID); Rollen kommen aus den Trupp-Rezepten der Fraktion"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "mittel",
+          "werte": [
+            "klein",
+            "mittel",
+            "gross"
           ]
         },
-        "trupp": {
-          "typ": "squad",
-          "pflicht": true,
+        "haltung": {
+          "typ": "text",
+          "default": "wach",
           "werte": [
-            "squad1",
-            "squad2",
-            "rearguard"
+            "ruhig",
+            "wach"
           ]
         },
         "durchbruch": {
           "typ": "text",
-          "default": "halle",
+          "default": "ziel",
           "werte": [
-            "halle",
-            "hof",
-            "gewoelbe"
-          ]
+            "ziel",
+            "rueckzug",
+            "hinein"
+          ],
+          "beschreibung": "Bereich (Rolle), dessen Erreichen als Durchbruch zählt"
         },
         "lage": {
           "typ": "text",
-          "default": "Gegner im Hof der Ruine. Deckung suchen, Schilde laden lassen, zusammen vorrücken."
+          "default": "Gegner vor euch. Deckung suchen, Schilde laden lassen, zusammen vorrücken."
         }
       },
       "vorlage": {
@@ -74,115 +124,166 @@
           ],
           "aussenkarten": [
             "{{map}}"
-          ],
-          "bereiche": {
-            "{{map}}": [
-              "{{durchbruch}}"
-            ]
-          }
-        },
-        "besetzung": {
-          "gruppen": {
-            "{{trupp}}": {
-              "map": "{{map}}",
-              "quelle": "karte"
-            }
-          }
+          ]
         },
         "steps": [
           {
             "id": "{{id}}",
             "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
             "enter": [
               {
-                "do": "spawn_squad",
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen",
                 "map": "{{map}}",
-                "squad": "{{trupp}}"
+                "fraktion": "{{fraktion}}",
+                "staerke": "{{staerke}}",
+                "haltung": "{{haltung}}",
+                "tag": "{{id}}_trupp"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
               }
             ],
             "timers": [
               {
                 "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 4,
                 "oda": "@{{id}}.lage"
               },
               {
                 "at": 40,
-                "oda": "@{{id}}.captain",
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
                 "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "any": [
+                        {
+                          "check": {
+                            "name": "trupp_geraeumt",
+                            "map": "{{map}}",
+                            "tag": "{{id}}_trupp"
+                          }
+                        },
+                        {
+                          "check": {
+                            "name": "team_im_bereich",
+                            "map": "{{map}}",
+                            "bereich": "{{durchbruch}}"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_geraeumt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
               }
             ],
             "objectives": [
               {
-                "id": "raeumen",
-                "text": "@{{id}}.ziel",
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
                 "done": {
                   "any": [
                     {
                       "check": {
-                        "name": "squad_cleared",
-                        "map": "{{map}}",
-                        "squad": "{{trupp}}"
+                        "name": "away_active",
+                        "map": "{{map}}"
                       }
                     },
                     {
-                      "check": {
-                        "name": "area_occupied",
-                        "map": "{{map}}",
-                        "area": "{{durchbruch}}"
-                      }
+                      "v": "{{id}}_ende"
                     }
                   ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
                 }
               }
             ],
             "next": [
               {
                 "if": {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "squad_cleared",
-                        "map": "{{map}}",
-                        "squad": "{{trupp}}"
-                      }
-                    },
-                    {
-                      "check": {
-                        "name": "area_occupied",
-                        "map": "{{map}}",
-                        "area": "{{durchbruch}}"
-                      }
-                    }
-                  ]
+                  "v": "{{id}}_ende"
                 },
                 "goto": "{{weiter}}"
               }
             ],
             "skip": [
               {
-                "do": "debug_kill_squad",
-                "map": "{{map}}",
-                "squad": "{{trupp}}"
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_geraeumt": true
+                }
               }
             ]
           }
         ],
         "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Außenteam unten. Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel.",
           "{{id}}.lage": "{{lage}}",
-          "{{id}}.captain": "Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben.",
-          "{{id}}.ziel": "Gegner ausschalten ({squadLeft:{{trupp}}} übrig) – oder durchbrechen"
+          "{{id}}.hinweis": "Captain: Ihr seid die Augen von oben. Flanke ansagen, dann gemeinsam durchbrechen.",
+          "{{id}}.geschafft": "Durchgebrochen! Der Weg ist frei.",
+          "{{id}}.ziel": "Gegner ausschalten oder in den Zielbereich durchbrechen"
         }
       },
       "rueckfall": {
-        "params": {
-          "trupp": "squad1"
-        }
+        "params": {}
       },
       "test": {
         "params": {
-          "loc": "kesh",
-          "map": "kesh",
-          "trupp": "squad1"
+          "loc": "splitter",
+          "map": "splitter.schuerflager"
         }
       }
     }

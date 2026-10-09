@@ -1,0 +1,59 @@
+{
+  "id": "item/waffe/rostmeute/sturmgewehr",
+  "name": "Rostspritze – Anbau rostmeute für item/waffe/sturmgewehr",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["waffe", "anbau-teil", "rostmeute"],
+  "notes": "Steckplatz-Teil (Bauweise rostmeute) des Gerüsts item/waffe/sturmgewehr. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Rostspritze",
+      "op": "group",
+      "at": [-1, -12, 1.5],
+      "ops": [
+        {
+          "name": "Gehäuse Rost",
+          "op": "box",
+          "at": [0, 8, 0],
+          "size": [2, 4, 4],
+          "color": { "noise": ["primary", { "shade": "primary", "f": 0.78 }, "metal"], "weights": [3, 2, 1] }
+        },
+        { "name": "Flickblech", "op": "box", "at": [0, 10, 3], "size": [2, 2, 1], "color": "secondary" },
+        {
+          "name": "Magazin Klebeband",
+          "op": "box",
+          "at": [-2, 9, 0],
+          "size": [2, 1, 3],
+          "color": "secondary"
+        },
+        {
+          "name": "Linsenauge",
+          "op": "box",
+          "at": [0, 8, 4],
+          "size": [2, 1, 1],
+          "color": { "role": "glow", "emit": 1.1 },
+          "jitter": false
+        },
+        {
+          "name": "Schaft Leder",
+          "op": "box",
+          "at": [0, 12, 0],
+          "size": [2, 3, 3],
+          "color": { "shade": "leather", "f": 0.85 }
+        },
+        { "name": "Schaftkappe Knochen", "op": "box", "at": [0, 14, -1], "size": [2, 1, 5], "color": "trim" },
+        { "name": "Mündung Klebeband", "op": "box", "at": [0, 1, 0], "size": [2, 1, 4], "color": "secondary" },
+        {
+          "name": "Kabel",
+          "op": "line",
+          "from": [-1.5, 10.5, 2.5],
+          "to": [-0.5, 12.5, 0.5],
+          "r": 0.5,
+          "color": "dark"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

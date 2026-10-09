@@ -1,0 +1,29 @@
+{
+  "id": "fig/rolle/schuetze/kapuze",
+  "name": "Schütze: Jagdkapuze mit Halbvisier und einem Leuchtauge (Aufsatz head_top)",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["figur", "rolle", "schuetze", "aufsatz", "kopf"],
+  "notes": "Rollenteil, fraktionsneutral (nur Palettenrollen). Aufsatz head_top, in Figur-Koordinaten über dem Standardkopf (Schädel x −2..1, y 26..30) modelliert, anchor = Gelenk head [0,25,0]. Leitform des Schützen: hohe Kapuzenspitze (nach hinten oben, macht die Figur schmal und hoch), Schirm nach vorn + EIN Leuchtauge (glow, emit 1,2, ruhig) am Halbvisier über dem rechten Auge. Kein Fell (§6). Erwartet Frisur hair ≤ 1 (Rolle setzt hair 1), sonst läuft der Zopf durch die Kapuze.",
+  "ops": [
+    { "name": "Haube oben", "op": "box", "at": [-4, 32, -4], "size": [8, 1, 7], "color": { "noise": ["leather", { "shade": "leather", "f": 0.84 }], "weights": [3, 1], "cell": 1 } },
+    { "name": "Haube Seiten", "op": "box", "at": [3, 26, -4], "size": [1, 6, 6], "color": { "noise": ["leather", { "shade": "leather", "f": 0.84 }], "weights": [3, 1], "cell": 1 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Haube hinten", "op": "box", "at": [-3, 26, -4], "size": [6, 6, 1], "color": { "noise": ["leather", { "shade": "leather", "f": 0.84 }], "weights": [3, 1], "cell": 1 } },
+    { "name": "Haube Ecken oben", "op": "box", "at": [3, 32, -4], "size": [1, 1, 1], "mode": "carve", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Gesichtssaum oben", "op": "box", "at": [-4, 31, 2], "size": [8, 1, 1], "color": { "shade": "leather", "f": 0.7 } },
+    { "name": "Gesichtssaum Seiten", "op": "box", "at": [3, 26, 2], "size": [1, 5, 1], "color": { "shade": "leather", "f": 0.7 }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Schirm (Spitze nach vorn)", "op": "box", "at": [-3, 32, 3], "size": [6, 1, 1], "color": "leather" },
+    { "name": "Schirmspitze", "op": "box", "at": [-1, 32, 4], "size": [2, 1, 1], "color": { "shade": "leather", "f": 0.9 } },
+    { "name": "Spitze Stufe 1", "op": "box", "at": [-3, 33, -4], "size": [6, 1, 5], "color": { "noise": ["leather", { "shade": "leather", "f": 0.84 }], "weights": [3, 1], "cell": 1 } },
+    { "name": "Spitze Stufe 2", "op": "box", "at": [-1, 34, -5], "size": [2, 1, 4], "color": "leather" },
+    { "name": "Spitze Ende", "op": "box", "at": [-1, 33, -6], "size": [2, 1, 1], "color": { "shade": "leather", "f": 0.7 } },
+    { "name": "Gugelkragen", "op": "box", "at": [-4, 25, -4], "size": [8, 1, 7], "color": { "shade": "leather", "f": 0.78 } },
+    { "name": "Gugelkragen Hals frei", "op": "box", "at": [-2, 25, -2], "size": [4, 1, 5], "mode": "carve" },
+    { "name": "Halbvisier (Augenband)", "op": "box", "at": [-4, 28, 3], "size": [8, 1, 1], "color": "metal_dark", "jitter": false },
+    { "name": "Okular Gehäuse", "op": "box", "at": [-3, 27, 4], "size": [2, 3, 1], "color": "metal" },
+    { "name": "Okular Ring", "op": "box", "at": [-3, 29, 4], "size": [2, 1, 1], "color": "metal_light", "mode": "paint" },
+    { "name": "Leuchtauge", "op": "box", "at": [-3, 28, 4], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+    { "name": "Entfernungsmesser", "op": "box", "at": [-5, 29, -1], "size": [1, 1, 4], "color": "metal_dark" }
+  ],
+  "anchor": [0, 25, 0]
+}

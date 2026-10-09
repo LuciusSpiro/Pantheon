@@ -1,0 +1,19 @@
+{
+  "id": "kit/rom/gemein/luke_blatt",
+  "name": "Rom-Steckplatz luke_blatt: Gitterdeckel (Gunmetal, Goldniete)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["rom","slot","gemein"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":2,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":2,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
+    "state": {"default":0,"min":0,"max":1,"step":1}
+  },
+  "ops": [
+    {"name":"Deckel","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"stripes":[{"shade":"metal","f":"1 * (1 - zustand * 0.08)"},{"shade":"metal_dark","f":"0.8 * (1 - zustand * 0.08)"}],"axis":"x","period":1}}
+  ],
+  "anchor": [0,0,0]
+}

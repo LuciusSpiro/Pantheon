@@ -1,0 +1,71 @@
+{
+  "format": "modul/1",
+  "id": "schiff.bruecke.b",
+  "art": "schiff",
+  "typ": "bruecke",
+  "groesse": [6, 13],
+  "deck": 1,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Spitzer Bug: Steuer vor dem Mastpfeiler, Kartentisch-Terminal am Bugende, Notpad backbord.",
+  "rows": [
+    "####__",
+    "#...#_",
+    "#....#",
+    "#PP.o#",
+    "#P...#",
+    "#.OO.#",
+    "..OO.#",
+    "#.o..#",
+    "#....#",
+    "#o..O#",
+    "#....#",
+    "#...#_",
+    "####__"
+  ],
+  "anker": [
+    "......",
+    "..t...",
+    "......",
+    ".a....",
+    "......",
+    "..i...",
+    "....g.",
+    "......",
+    "...q..",
+    "......",
+    ".nh.b.",
+    "......",
+    "......"
+  ],
+  "anker_legende": {
+    "t": {
+      "rolle": "terminal"
+    },
+    "a": {
+      "rolle": "abholpunkt"
+    },
+    "i": {
+      "rolle": "leit"
+    },
+    "g": {
+      "rolle": "ziel"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "n": {
+      "rolle": "nsc"
+    },
+    "h": {
+      "rolle": "leiter",
+      "deck": 1
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": []
+}

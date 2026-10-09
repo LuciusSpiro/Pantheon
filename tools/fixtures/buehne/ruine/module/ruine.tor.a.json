@@ -1,0 +1,4 @@
+{ "format": "modul/1", "id": "ruine.tor.a", "art": "ruine", "typ": "tor", "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "rows":   ["........", "###GG###", "........", "........", "...o....", "........", "........", "........"],
+  "anker":  ["..e.....", "........", "........", "........", "........", ".....w..", "........", "........"],
+  "anker_legende": { "e": { "rolle": "eingang", "art": "laut" }, "w": { "rolle": "wache" } } }

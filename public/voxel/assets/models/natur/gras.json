@@ -1,0 +1,27 @@
+{
+  "id": "natur/gras",
+  "name": "Grasbüschel",
+  "tier": "detail",
+  "palette": "planet_mediterran",
+  "tags": ["natur", "gras", "streu"],
+  "footprint": [0.15, 0.15],
+  "params": {
+    "blades": { "default": 6, "min": 3, "max": 8, "step": 1, "label": "Halme" },
+    "dry": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "trocken (sandfarbene Spitzen)" }
+  },
+  "variants": {
+    "duenn": { "blades": 4 },
+    "trocken": { "dry": 1 }
+  },
+  "ops": [
+    { "op": "line", "name": "Halm grün", "if": "!dry", "repeat": { "count": "blades", "step": [0, 0, 0], "var": "k" },
+      "let": { "a": "k * 2.3 + seed * 1.37", "bx": "round(cos(a) * 1.1)", "bz": "round(sin(a) * 1.1)", "th": "2.6 + (k * 7 + seed * 3) % 3" },
+      "from": ["bx + 0.5", 0.5, "bz + 0.5"], "to": ["bx + 0.5 + cos(a) * 1.4", "th", "bz + 0.5 + sin(a) * 1.4"], "r": 0.6,
+      "color": { "gradient": ["grass_dark", "grass_light"], "axis": "y" } },
+    { "op": "line", "name": "Halm trocken", "if": "dry", "repeat": { "count": "blades", "step": [0, 0, 0], "var": "k" },
+      "let": { "a": "k * 2.3 + seed * 1.37", "bx": "round(cos(a) * 1.1)", "bz": "round(sin(a) * 1.1)", "th": "2.6 + (k * 7 + seed * 3) % 3" },
+      "from": ["bx + 0.5", 0.5, "bz + 0.5"], "to": ["bx + 0.5 + cos(a) * 1.4", "th", "bz + 0.5 + sin(a) * 1.4"], "r": 0.6,
+      "color": { "gradient": ["grass", "sand"], "axis": "y" } }
+  ],
+  "anchor": [0.5, 0, 0.5]
+}

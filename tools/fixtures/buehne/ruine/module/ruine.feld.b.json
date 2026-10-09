@@ -1,0 +1,4 @@
+{ "format": "modul/1", "id": "ruine.feld.b", "art": "ruine", "typ": "feld", "groesse": [1, 1], "drehen": true, "spiegeln": false, "gewicht": 1, "bauweise": null,
+  "rows":   ["........", ".I....I.", "........", "..oo....", "........", "....oo..", "........", "........"],
+  "anker":  ["........", "........", ".....w..", "........", "........", "........", ".p......", "........"],
+  "anker_legende": { "w": { "rolle": "wache" }, "p": { "rolle": "patrouille", "kette": "a" } } }

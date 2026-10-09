@@ -1,7 +1,7 @@
 'use strict';
 // Kartenprüfung (CONTRACT.md §3, CONTRACT-M1 §3/§9.4): Zeilenlängen, Legende, Erreichbarkeit aller Interaktionspunkte (BFS).
 // Plattform: Sonde ohne Tür, Datenkern NUR nach der Tür. Wrack: Container/Terminal erreichbar, Hohlraum-Container NUR
-// nach Öffnen der dünnen Wand. Orte (shared/locations.js): Verbindungen symmetrisch, 7 Orte, 9 Verstecke, alles erreichbar.
+// nach Öffnen der dünnen Wand. Orte (shared/locations.js): seit B Welle 0 in tools/check-sektoren.js.
 const Maps = require('../shared/maps.js');
 const { bfs } = require('../server/util.js');
 const CONFIG = require('../shared/config.js');
@@ -431,30 +431,7 @@ check(as.length >= 2 && as.length <= 3, `${as.length} Plünderer-Spawns (2–3)`
 for (const a of as) check(wcSet.has(a.y * wr.w + a.x), `Plünderer-Spawn (${a.x},${a.y}) begehbar und erreichbar`);
 for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRECK_LEGEND[ch].solid, `Wrack-Legende '${ch}' (${Maps.WRECK_LEGEND[ch] && Maps.WRECK_LEGEND[ch].kind}) solid`);
 
-// ---------- M1: Orte (shared/locations.js) ----------
-{
-  const L = require('../shared/locations.js');
-  console.log('\n[locations]');
-  check(L.LOCATIONS.length === 8, '8 Orte (M2: + Mond Kesh)');
-  check(['hafen', 'splitter', 'b7', 'vaelen', 'wrack', 'nebel', 'relais', 'kesh'].every((id) => !!L.get(id)), 'Orts-IDs laut Vertrag');
-  for (const l of L.LOCATIONS) {
-    for (const b of l.links) check(L.get(b) && L.get(b).links.includes(l.id), `Verbindung ${l.id}–${b} symmetrisch`);
-    if (l.id === 'kesh') check(l.hidden.length === 0, 'kesh: keine versteckten Objekte (CONTRACT-M2 §3.1)');
-    else check(l.hidden.length >= 1 && l.hidden.length <= 3, `${l.id}: ${l.hidden.length} versteckte Objekte (1–3)`);
-    const sc = l.scene;
-    for (const h of l.hidden) check(h.x > 0 && h.y > 0 && h.x < sc.w && h.y < sc.h, `${h.id} liegt in der Szene`);
-    check(sc.arrive.x > 0 && sc.arrive.x < sc.w && sc.arrive.y > 0 && sc.arrive.y < sc.h, `${l.id}: Ankunft in der Szene`);
-    if (sc.beam) check(!!Maps[sc.beam.map], `${l.id}: Außenkarte ${sc.beam.map} vorhanden`);
-  }
-  check(L.totalHidden() === 12, `Entdeckungen gesamt: ${L.totalHidden()} (M1 nach QA: x/12)`);
-  check(L.get('nebel').fog && L.get('relais').links.join() === 'nebel', 'Nebel mit fog, Relais nur über den Nebel');
-  check(!!L.lockedKey('nebel', 'relais'), 'Verbindung nebel–relais zunächst gesperrt (Leitbake)');
-  const seen = new Set(['hafen']); const q = ['hafen'];
-  while (q.length) { const c = q.shift(); for (const nb of L.get(c).links) if (!seen.has(nb)) { seen.add(nb); q.push(nb); } }
-  check(seen.size === 8, 'alle Orte vom Hafen aus erreichbar');
-  check(!!L.lockedKey('hafen', 'kesh') && !!L.lockedKey('splitter', 'kesh'), 'Verbindungen zu Kesh zunächst gesperrt (Mission m3 öffnet)');
-  check(L.get('kesh').scene.beam.map === 'kesh' && L.get('kesh').scene.station.kind === 'moon', 'kesh: Station moon, Außenkarte kesh');
-}
+// ---------- M1: Orte – Welle 0 (CONTRACT-B1 §1.2): verschoben nach tools/check-sektoren.js ----------
 
 // ---------- M2: Mond Kesh (CONTRACT-M2 §2) ----------
 {
@@ -503,6 +480,82 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
   }
   check(Maps.MAP_AREAS.kesh.hof.cols[1] === C.missionM3.courtyardX && Maps.MAP_AREAS.kesh.halle.cols[0] === C.missionM3.hallX, 'kesh: hof/halle wie missionM3.courtyardX/hallX');
   check(['platform', 'wreck', 'kesh'].every((m) => Maps.MAP_OBJECTS[m] && Object.values(Maps.MAP_OBJECTS[m]).every((o) => o.zustaende.length >= 2)), 'MAP_OBJECTS: je Objekt mindestens zwei Zustände');
+}
+
+// ---------- B1 „Bühnen“ (CONTRACT-B1 §2, §3, §6.1, §11.3; Team BUEHNE) ----------
+// Vokabular, Handkarten-Anker, Landepunkte, Module und Schablonen × Seeds 1..sweepSeeds.
+// Inhaltsqualität der Kits (Modulfehler, Bestehensquote) ist bis zum Ende von Welle 1 nur Warnung; mit
+// STRICT_BUEHNE=1 bzw. --strict wird sie zum Fehler (Abnahme). Fehlende Kits sind kein Fehler.
+{
+  const fs = require('fs');
+  const path = require('path');
+  const Buehne = require('../shared/buehne.js');
+  const C = require('../shared/config.js');
+  const Locations = require('../shared/locations.js');
+  const STRICT = process.env.STRICT_BUEHNE === '1' || process.argv.includes('--strict');
+  const dir = path.join(__dirname, '..', 'content', 'buehnen');
+  const json = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+  let warn = 0;
+  const kit = (cond, text) => { if (STRICT) return check(cond, text); if (cond) console.log('  ok   ' + text); else { warn++; console.log('  WARNUNG ' + text); } return cond; };
+  console.log('\n[B1 Vokabular]');
+  const kach = json(path.join(dir, 'kacheln.json')), ank = json(path.join(dir, 'anker.json')), achsen = json(path.join(dir, 'achsen.json'));
+  const zust = json(path.join(dir, 'zustaende.json'));
+  check(kach.format === 'kacheln/1' && Object.keys(kach.zeichen).length >= 20, `kacheln.json (${Object.keys(kach.zeichen).length} Zeichen)`);
+  check(Object.values(kach.zeichen).every((z) => ['begehbar', 'fest', 'tuer'].includes(z.kante)), 'jede Kachelart hat kante begehbar|fest|tuer');
+  check(Object.values(kach.zeichen).every((z) => z.solid !== 'zustand' || (z.zustaende && z.begehbarIn && z.begehbarIn.every((q) => z.zustaende.includes(q)))), 'Zustandskacheln: begehbarIn ⊆ zustaende');
+  check(ank.format === 'anker/1' && Object.keys(ank.rollen).length === 19, `anker.json (${Object.keys(ank.rollen).length} Rollen)`);
+  check(Object.values(ank.rollen).every((r) => !r.halten || (C.anker.halten[r.halten] != null)), 'jede Halte-Interaktion hat CONFIG.anker.halten');
+  check(zust.format === 'zustaende/1' && Object.keys(achsen.zustaende).every((z) => zust.zustaende[z]), 'zustaende.json deckt alle Zustände aus achsen.json');
+  console.log('\n[B1 Handkarten-Anker]');
+  for (const id of ['platform', 'wreck', 'kesh']) {
+    const k = Buehne.hand(id);
+    const pr = Buehne.pruefen(k);
+    check(pr.ok, `hand(${id}) besteht pruefen${pr.ok ? '' : ': ' + pr.fehler.map((f) => f.code + ' ' + f.msg).join('; ')}`);
+    check(k.anker.every((a) => ank.rollen[a.rolle]), `${id}: alle Rollen aus anker.json`);
+    check(k.anker.every((a) => !a.alt || a.alt === 'pads' || (Maps.MAP_OBJECTS[id] && Maps.MAP_OBJECTS[id][a.alt]) || (id === 'platform' && a.alt === 'ivo') || (id === 'kesh' && a.alt === 'jammer')), `${id}: alt-Objekte existieren`);
+    check(new Set(k.anker.map((a) => a.id)).size === k.anker.length, `${id}: Anker-IDs eindeutig`);
+  }
+  console.log('\n[B1 Landepunkte]');
+  const lp = json(path.join(__dirname, '..', 'content', 'welt', 'landepunkte.json'));
+  check(lp.format === 'landepunkte/1', 'landepunkte.json Format');
+  const alle = []; for (const ort of Object.keys(lp.orte)) for (const e of lp.orte[ort]) alle.push(Object.assign({ ort }, e));
+  check(new Set(alle.map((e) => e.id)).size === alle.length, `${alle.length} Landepunkte, IDs eindeutig`);
+  for (const h of ['platform', 'wreck', 'kesh']) check(alle.some((e) => e.id === h && e.art === 'hand'), `Handkarte ${h} als Landepunkt (art hand)`);
+  for (const e of alle) {
+    const okArt = e.art === 'hand' ? !!Maps[e.id] : !!achsen.kartenarten[e.art];
+    const okAchsen = e.art === 'hand' || (achsen.bauweisen[e.bauweise] && achsen.besitz[e.besitz] && achsen.zustaende[e.zustand]);
+    const okOrt = !!Locations.get(e.ort) || e.gesperrt;
+    check(okArt && okAchsen && okOrt && ['immer', 'nach_tutorial', 'nach_raumgefecht'].includes(e.frei) && e.beam && e.beam.range > 0 &&
+      (e.art === 'hand' || (Number.isInteger(e.seed) && e.id.startsWith(e.ort + '.'))), `${e.id}: Art/Achsen/Ort/frei/beam gültig`);
+  }
+  check(alle.filter((e) => e.ort === 'rostnest').length >= 1 && alle.filter((e) => e.ort === 'rostnest').every((e) => e.gesperrt), 'Rostnest: alle Landepunkte gesperrt (E33)');
+  console.log('\n[B1 Module]');
+  const mods = Buehne.module();
+  let modFehler = 0;
+  for (const m of mods) { const r = Buehne.pruefeModul(m); if (!r.ok) { modFehler++; kit(false, `${m.id}: ${r.fehler.map((f) => f.code + ' ' + f.msg).join('; ')}`); } }
+  check(true, `${mods.length} Module geprüft, ${modFehler} mit Fehlern`);
+  console.log('\n[B1 Schablonen × Seeds]');
+  const n = (C.buehne && C.buehne.sweepSeeds) || 50;
+  const kartenarten = Object.keys(achsen.kartenarten);
+  for (const art of kartenarten) {
+    const list = Buehne.schablonen(art);
+    if (!list.length) { console.log(`  info ${art}: noch keine Schablonen (Kits in Arbeit)`); continue; }
+    for (const sch of list) {
+      let gut = 0; const codes = {}; let ms = 0; const hs = new Set();
+      for (let s = 1; s <= n; s++) {
+        const t0 = Date.now();
+        let r; try { r = Buehne.bauRoh({ schablone: sch.id, seed: s }); } catch (e) { r = { karte: null, pruefung: { ok: false, fehler: [{ code: 'AUSNAHME', msg: e.message }] } }; }
+        ms += Date.now() - t0;
+        if (r.pruefung.ok) gut++;
+        if (r.karte) hs.add(Buehne.hash(r.karte));
+        for (const f of r.pruefung.fehler) codes[f.code] = (codes[f.code] || 0) + 1;
+      }
+      const q = gut / n;
+      kit(q >= C.buehne.bestehensquote, `${sch.id}: Bestehensquote ${(q * 100).toFixed(0)} % (${gut}/${n}), ${hs.size} verschiedene, Ø ${(ms / n).toFixed(1)} ms` +
+        (Object.keys(codes).length ? ' – ' + JSON.stringify(codes) : ''));
+    }
+  }
+  if (warn) console.log(`  ${warn} Kit-Warnungen (STRICT_BUEHNE=1 macht sie zu Fehlern).`);
 }
 
 console.log(`\n${checks - failures}/${checks} Prüfungen bestanden.`);

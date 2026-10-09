@@ -1,0 +1,195 @@
+{
+ "id": "kit/germanen/gemein/wand_fuellung",
+ "name": "Germanen gemein – wand_fuellung (fuellung_klinker): Klinkerfüllung: überlappende Eichenplanken, Eisenband mit Nieten",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "gemein",
+  "slot"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. Leitmotiv Langschiff-Klinker in Holz; Station/Außenposten/Schiff ersetzen die Füllung durch ihr Leitmaterial.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 9,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 1,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "verfallen": {
+   "zustand": 1,
+   "seed": 3
+  },
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 5
+  },
+  "geschnitten": {
+   "h": 3
+  }
+ },
+ "ops": [
+  {
+   "name": "Klinkerplanken (Schatten unter der Überlappung, helle Lippe)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "wood",
+      "f": "0.86 * dk"
+     },
+     {
+      "shade": "wood",
+      "f": "1.06 * dk"
+     }
+    ],
+    "axis": "y",
+    "period": 1
+   }
+  },
+  {
+   "name": "Eisenband",
+   "op": "box",
+   "at": [
+    0,
+    "floor(h / 2)",
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "h >= 6"
+  },
+  {
+   "name": "Niete",
+   "op": "box",
+   "at": [
+    "1 + i * 2",
+    "floor(h / 2)",
+    "d - 1"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "shade": "metal_light",
+    "f": "0.9 * dk"
+   },
+   "mode": "paint",
+   "if": "h >= 6 && 1 + i * 2 < w - 1",
+   "repeat": {
+    "count": 4,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "i"
+   }
+  },
+  {
+   "name": "Ausgebrochene Planke (verfallen)",
+   "op": "box",
+   "at": [
+    "1 + floor(hash(seed, 4) * max(1, w - 2))",
+    "2 + floor(hash(seed, 5) * max(1, h - 5))",
+    0
+   ],
+   "size": [
+    1,
+    1,
+    "d"
+   ],
+   "color": "dark",
+   "mode": "carve",
+   "if": "zustand >= 1 && w >= 3 && h >= 6 && hash(seed, 3) < 0.5"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "max(1, floor(h / 2))",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "wood",
+      "f": 0.7
+     },
+     "dark",
+     {
+      "shade": "wood",
+      "f": 0.85
+     }
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

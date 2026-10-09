@@ -47,7 +47,7 @@
     teleSeen: {},   // M3a
     setbacks: [],   // M3b §4: repairSetback-Ereignisse { system, pid, bot, t0 } für den Rückschritt im Fortschrittsbalken
     minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
-    shootCd: 0, stepT: 0, repairTickT: 0,
+    shootCd: 0, stepT: 0, repairTickT: 0, fireHeld: { mouse: false, key: false },
     // S2: neue Angebote (id -> Zeitpunkt offerIn), Schützling-Treffer (id -> performance.now()), letzte Befehlsrückmeldung, Kapitelkarte
     newOffers: {}, escortHit: {}, escortOrder: null, chapter: null,
     view: null,
@@ -99,7 +99,7 @@
 
   function isSolidFor(zone, st) {
     const map = R.mapFor(zone, st);
-    if (zone === 'away' && map.id === 'kesh') return R.solidFn(map, st);   // M2: Tor offen = begehbar, low-Kacheln solid
+    if (zone === 'away' && (map.id === 'kesh' || R.isBuehne(map))) return R.solidFn(map, st);   // B1: Türen nach Zustand   // M2: Tor offen = begehbar, low-Kacheln solid
     const away = (st && st.away) || {};
     const open = !!(away.doorOpen || (away.sonde && away.sonde.disabled));
     const wreck = map.id === 'wreck';
@@ -484,6 +484,8 @@
         Client.pid = msg.pid; G.pid = msg.pid;
         Client.serverDebug = !!msg.debug;
         Client.self.init = false;
+        Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
+        Client.arenaSent = false; Client.awayMapAsk = {};
         break;
       case 'snap': onSnap(msg); break;
       case 'event': onEvent(msg); break;
@@ -515,6 +517,10 @@
     if (prev && prev.world) {
       if (!s.world) s.world = prev.world;
       else if (!s.world.locations) s.world = Object.assign({}, s.world, { locations: prev.world.locations });
+      // B1 §6.1: transfer { lp, ziel } kommt nur bei Änderung bzw. alle 15 Snapshots – behalten, solange der Ort gleich ist
+      if (!s.transfer && prev.transfer && s.phase !== 'lobby' && prev.ship && s.ship && prev.ship.scene === s.ship.scene) s.transfer = prev.transfer;
+      // B3 §6: world.sektoren kommt nur bei Versionswechsel – letzten Stand behalten (wie locations)
+      if (s.world && !s.world.sektoren && prev.world.sektoren && s.phase !== 'lobby') s.world = Object.assign({}, s.world, { sektoren: prev.world.sektoren });
     }
     // Logbuch kommt ebenfalls nur mit den Ortsdaten
     if (s.mission && !s.mission.log && prev && prev.mission && prev.mission.log) s.mission.log = prev.mission.log;
@@ -530,8 +536,59 @@
     while (Client.snaps.length > 3 && now - Client.snaps[1].t > 1000) Client.snaps.shift();
     if (Client.snaps.length > 40) Client.snaps.shift();
     if (prev && prev.phase !== 'end' && s.phase === 'end') Client.endDismissed = false;
-    reconcile(s);
+    Net.guard('Client.reconcile', () => reconcile(s));   // F7: ein Fehler hier darf diff/snapB nicht dauerhaft abschneiden
     Net.guard('Client.diff', () => diffState(prev, s));
+    Net.guard('Client.snapB', () => onSnapB(prev, s));
+  }
+
+  // ------------------------------------------------------------------ B1: gebaute Karten, Testgelände-Direktstart, Prefetch
+  // URL ?arena=away&art=…&seed=…&bauweise=…&besitz=…&zustand=…[&fraktion&staerke&haltung] -> lobbyOpt { startMission: 'arena_away', arena }
+  const ARENA_URL = (function () {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.get('arena') !== 'away' || !q.get('art')) return null;
+      const a = {};
+      for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'])) {
+        const v = q.get(k); if (v != null && v !== '') a[k] = k === 'seed' && isFinite(+v) ? +v : v;
+      }
+      return a;
+    } catch (e) { return null; }
+  })();
+  function onSnapB(prev, s) {
+    { const m = me(); if (m && m.wf) K.myWaffe = m.wf; }   // B2: zuletzt bekannte eigene Waffe (an Bord fehlt wf im Snapshot)
+    if (s.phase === 'lobby' && ARENA_URL && !Client.arenaSent) {
+      Client.arenaSent = true;
+      // F16: Testgelände startet nie einen gemerkten Weltstand (Server stellt nach „Partie beenden“ den vorigen wieder ein)
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: 'arena_away', arena: ARENA_URL, world: null });
+    }
+    // Karte fehlt oder kv passt nicht -> awayMap.get (höchstens alle 2 s je Karte)
+    const aw = s.away;
+    const id = aw && aw.map;
+    if (id && ['platform', 'wreck', 'kesh'].indexOf(id) < 0 && s.phase !== 'lobby') {
+      const m = Maps[id];
+      const ok = m && m.buehne && (aw.kv == null || m.kv === aw.kv);
+      if (!ok) {
+        const ask = Client.awayMapAsk || (Client.awayMapAsk = {});
+        const now = performance.now();
+        if (!ask[id] || now - ask[id] > 2000) { ask[id] = now; send({ t: 'cmd', c: (P.CMD_AWAY_MAP_GET || 'awayMap.get'), id }); }
+      }
+    }
+    // Nachtrag: VoxelKit.prefetch beim Betreten der Transferkammer (läuft dort nur einmal)
+    if (!Client.kitPrefetch && window.VoxelKit && typeof window.VoxelKit.prefetch === 'function') {
+      const m = me();
+      if (m && m.zone === 'ship' && Maps.roomAt) {
+        const r = Maps.roomAt(Math.floor(m.x / TILE), Math.floor(m.y / TILE));
+        if (r && (r.id === 'transfer' || (r.room && r.room.id === 'transfer'))) { Client.kitPrefetch = true; try { window.VoxelKit.prefetch(); } catch (e) { Net.reportError('VoxelKit.prefetch', e); } }
+      }
+    }
+  }
+
+  // B3 §6: Sektorkarte aus dem welcome an Shared_Sektoren (setzt dort auch die Ort-Links) und an StarMap
+  function setzeSektorkarte(k) {
+    if (!k || typeof k !== 'object' || !k.hexe) return;
+    const SS = window.Shared_Sektoren;
+    if (SS && typeof SS.setzeKarte === 'function' && SS.KARTE !== k) SS.setzeKarte(k);
+    if (window.StarMap && typeof window.StarMap.setKarte === 'function') window.StarMap.setKarte(k);
   }
 
   // S1: Lobby-Auswahl merken (für den Hinweis beim Beenden), Overlays bei Phasenwechsel schließen
@@ -714,11 +771,130 @@
     if (b && (!a || a.stage !== b.stage)) s2Sfx('gm_static', { volume: 0.5 });
   }
 
+  // ------------------------------------------------------------------ B1–B3 „Bühnen & Bodenkampf“: Ereignisse
+  // Mehrere gleichartige Meldungen (z. B. Debug „erkunde alle“) werden kurz gesammelt und als eine Zeile gezeigt.
+  const sammel = {};
+  function sammle(key, item, fmt, color) {
+    const q = sammel[key] || (sammel[key] = { items: [], timer: null });
+    q.items.push(item);
+    if (q.timer) return;
+    q.timer = setTimeout(() => { const list = q.items; q.items = []; q.timer = null; Net.guard('Client.sammle', () => H.pushNotice(fmt(list), color, 3)); }, 250);
+  }
+  function sektorName(hex) {
+    const SS = window.Shared_Sektoren;
+    try { if (SS && typeof SS.hexName === 'function' && hex) return SS.hexName(hex); } catch (e) { /* Ersatz */ }
+    return 'Sektor ' + hex;
+  }
+  // Ziel einer Kante „SSZZ-SSZZ“ von hier aus (sonst beide Namen)
+  function kantenName(id) {
+    const SS = window.Shared_Sektoren;
+    const [a, b] = String(id || '').split('-');
+    let hier = null;
+    try { hier = SS && SS.hexVonOrt ? SS.hexVonOrt(R.worldOf(Client.state).location) : null; } catch (e) { hier = null; }
+    if (hier === a) return sektorName(b);
+    if (hier === b) return sektorName(a);
+    return sektorName(a) + ' – ' + sektorName(b);
+  }
+  // true = Ereignis erledigt
+  function onEventB(ev) {
+    const PAL = R.PAL;
+    switch (ev.kind) {
+      // ---- B3 Sektorkarte
+      case 'hexErkundet':
+        sammle('hex', ev.hex, (l) => l.length === 1 ? 'Sektor erkundet: ' + sektorName(l[0]) + ' (' + l[0] + ')' : l.length + ' Sektoren erkundet', PAL.ice);
+        return true;
+      case 'bojeGefunden':
+        sammle('boje', ev.kante, (l) => l.length === 1 ? 'Boje gefunden: Sprungpunkt ' + kantenName(l[0]) : l.length + ' Bojen gefunden', PAL.amber);
+        audio.play('discovery', { volume: 0.5 });
+        return true;
+      case 'sprungpunktOffen':
+        H.pushNotice((ev.temp ? 'Temporärer Sprungpunkt offen: ' : 'Sprungpunkt offen: ') + kantenName(ev.kante), PAL.mint, 4);
+        audio.play('discovery', { volume: 0.5 });
+        return true;
+      case 'sprungpunktZu':
+        H.pushNotice('Sprungpunkt geschlossen: ' + kantenName(ev.kante), PAL.warn, 4);
+        return true;
+      case 'notsprung':
+        // ODA erzählt der Server (sprung.js); hier Blitz, Erschütterung, Kurzmeldung
+        Client.flashT = performance.now(); Client.shakeT = performance.now();
+        H.pushNotice('NOTFALLSPRUNG → ' + (ev.nach && ev.nach !== ev.von ? sektorName(ev.nach) : 'selber Sektor'), PAL.red, 4);
+        return true;
+      // ---- B1 Bühnen
+      case 'awayMap': R.registerAwayMap(ev); return true;
+      case 'ankerZustand': {
+        const msg = ANKER_MELDUNG[(ev.rolle || ankerRolle(ev.map, ev.anker)) + ':' + ev.zustand];
+        if (msg) H.pushNotice(msg, PAL.mint, 3);
+        return true;
+      }
+      case 'downloadAbbruch': H.pushNotice('Download unterbrochen – Treffer! Fortschritt bleibt.', PAL.red, 3); audio.play('error'); return true;
+      case 'ladungScharf': H.pushNotice('LADUNG SCHARF – ' + Math.ceil(+ev.t || 0) + ' s, weg da!', PAL.red, 4); return true;
+      case 'ladungExplodiert': {
+        const p = ankerPos(ev.map, ev.anker);
+        if (p) R.addFx('explosion', 'away', p.x, p.y, 0.9);
+        Client.shakeT = performance.now();
+        H.pushNotice('Sprengladung gezündet', PAL.amber, 3);
+        return true;
+      }
+      case 'landepunktAlarm':
+        if (ev.an) { H.pushNotice('ALARM – die Besatzung ist gewarnt', PAL.red, 4); audio.play('alarm_yellow'); }
+        else H.pushNotice('Alarm dort unten aufgehoben', PAL.mint, 3);
+        return true;
+      // ---- B2 Bodenkampf (FX hört selbst mit; hier nur Kurzmeldungen)
+      case 'loadout':
+        if (ev.pid === Client.pid) { K.myWaffe = ev.waffe; H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
+        return true;
+      case 'ueberhitzt':
+        if (ev.id === Client.pid) H.pushNotice('Überhitzt – kurz abkühlen lassen', PAL.warn, 2);
+        return true;
+      case 'gefesselt': {
+        const pl = playerName(ev.id);
+        H.pushNotice(pl ? pl + ' ist gefesselt – befreien: E halten' : 'Gegner gefesselt', pl ? PAL.red : PAL.mint, 3);
+        return true;
+      }
+      case 'befreit': { const pl = playerName(ev.id); if (pl) H.pushNotice(pl + ' ist frei', PAL.mint, 3); return true; }
+      case 'aufgerichtet': { const pl = playerName(ev.id); H.pushNotice(pl ? pl + ' steht wieder' : 'Ein Gegner wurde wieder aufgerichtet', pl ? PAL.mint : PAL.warn, 3); return true; }
+      case 'gefangen':
+        H.pushNotice('GEFANGEN – Zellentür von innen aufbrechen, Ausrüstung holen', PAL.red, 5);
+        return true;
+      case 'truppAlarm': {
+        // je Trupp höchstens alle 8 s melden (FX zeigt den Ort)
+        const k = 'ta:' + (ev.map || '') + ':' + (ev.trupp || '');
+        const now = performance.now(); const last = Client.b2Melde || (Client.b2Melde = {});
+        if (!last[k] || now - last[k] > 8000) { last[k] = now; H.pushNotice('ALARM – ein Trupp hat euch bemerkt', PAL.red, 3); audio.play('alarm_yellow', { volume: 0.6 }); }
+        return true;
+      }
+      case 'enemyDeck': {
+        const now = performance.now();
+        if (!Client.deckMeldung || now - Client.deckMeldung > 6000) { Client.deckMeldung = now; H.pushNotice('Gegner wechselt das Deck (' + (ev.via === 'leiter' ? 'Leiter' : 'Lift') + ')', PAL.warn, 2); }
+        return true;
+      }
+      case 'rolleNeu':
+        H.pushNotice('Neuer Gegnertyp: ' + (ROLLE_NAME[ev.rolle] || ev.rolle) + ' – genau hinsehen', PAL.amber, 4);
+        return true;
+      case 'enternFrei':
+        H.pushOda('Feindschiff treibt manövrierunfähig. Nah heranfliegen, dann kann das Außenteam über die Transfer-Konsole entern.');
+        return true;
+      default: return false;
+    }
+  }
+  // B2: Gegnerrollen (CONTRACT-B2 §0.10, Germanen-Namen); nur für die Kurzmeldung rolleNeu, keine Symbole über Köpfen (E25)
+  const ROLLE_NAME = { grundtyp: 'Karl', niederhalter: 'Bolzer', grenadier: 'Donnerwerfer', schuetze: 'Jäger', enterer: 'Berserker', haescher: 'Wergeld-Fänger', waechter: 'Wächter' };
+  const ANKER_MELDUNG = {
+    'terminal:geladen': 'Download abgeschlossen', 'terminal:laedt': 'Download läuft – E halten, Deckung!', 'beute:leer': 'Kiste geborgen',
+    'fund:genommen': 'Fund geborgen', 'zelle:offen': 'Zelle geöffnet', 'raetsel:geloest': 'Schloss gelöst', 'tor:offen': 'Durchgang offen',
+    'tor:gesprengt': 'Durchgang gesprengt', 'versteck:offen': 'Versteck geöffnet', 'ziel:genommen': 'Ziel genommen', 'ziel:aktiviert': 'Ziel aktiviert',
+    'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört',
+  };
+  function playerName(id) { const p = ((Client.state && Client.state.players) || []).find(q => q.id === id); return p ? p.name : null; }
+  function ankerRolle(mapId, id) { const m = Maps[mapId]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? a[1] : ''; }
+  function ankerPos(mapId, id) { const m = Maps[mapId || ((Client.state && Client.state.away) || {}).map]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? { x: a[2] * TILE + 16, y: a[3] * TILE + 16 } : null; }
+
   function onEvent(ev) {
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;
     if (Net.guard('Client.eventM3', () => onEventM3(ev), false)) return;
+    if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
       case 'radio': H.onRadio(ev.from, ev.text); audio.play('radio'); break;
@@ -1067,6 +1243,77 @@
   // ------------------------------------------------------------------ Interaktions-Hinweis (§4.2)
   const DIRV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const ITEM_LABEL = H.ITEM_NAMES;
+  // B1: E-Hinweise an Ankern gebauter Karten (Regeln wie server/sim/anker.js interactionsAt; der Server entscheidet)
+  // F10: Tür-Kachel gehört zu einem tor-Anker an einem Rätselpaar (Regel wie raetselGebunden in server/sim/anker.js:
+  // gleiches paar, oder Tor ohne paar und die Karte hat Rätselanker). Kanten über Shared_Buehne.ankerKanten (eine Quelle).
+  function torVerriegelt(map, tx, ty) {
+    const SB = window.Shared_Buehne;
+    const anker = map.anker || [];
+    const rs = anker.filter(a => a[1] === 'raetsel');
+    if (!rs.length) return false;
+    const ki = map.kanteAt ? map.kanteAt.get(tx + ',' + ty) : undefined;
+    for (const a of anker) {
+      if (a[1] !== 'tor') continue;
+      const hier = (a[2] === tx && a[3] === ty) || (ki != null && SB && SB.ankerKanten && SB.ankerKanten(map, { rolle: 'tor', x: a[2], y: a[3] }).some(k => k.idx === ki));
+      if (!hier) continue;
+      const paar = a[4] && a[4].paar;
+      return paar ? rs.some(r => r[4] && r[4].paar === paar) : true;
+    }
+    return false;
+  }
+  function buehneInteraction(st, m, map, tx, ty) {
+    const HZ = (CFG.anker && CFG.anker.halten) || {};
+    const sec = (k) => String(HZ[k] != null ? HZ[k] : 3).replace('.', ',') + ' s';
+    const inv = st.inventory || {};
+    for (let i = 0; i < (map.anker || []).length; i++) {
+      const a = map.anker[i];
+      if (a[2] !== tx || a[3] !== ty) continue;
+      const z = R.ankerZustand(map, st, i);
+      switch (a[1]) {
+        case 'terminal':
+          if (z === 'bereit' || z === 'laedt') return { label: 'E halten: Daten herunterladen (' + sec('terminal') + ', Treffer unterbricht)', ok: true };
+          if (z === 'geladen') return { label: 'E halten: Logbuch lesen (' + sec('lesen') + ')', ok: true };
+          return { label: 'Terminal gesperrt', ok: false };
+        case 'sprengpunkt':
+          if (z === 'intakt') return (inv.ladung || 0) > 0 ? { label: 'E halten: Ladung scharf machen (' + sec('sprengpunkt') + ')', ok: true } : { label: 'Sprengpunkt – keine Ladung dabei', ok: false };
+          if (z === 'scharf') return { label: 'SCHARF – weg da!', ok: false };
+          return { label: 'Gesprengt', ok: false };
+        case 'zelle': return z === 'zu' ? { label: 'E halten: Zelle öffnen (' + sec('zelle') + ')', ok: true } : { label: 'Zelle offen', ok: false };
+        case 'beute': return z === 'voll' ? { label: 'E halten: Kiste bergen (' + sec('beute') + ')', ok: true } : { label: 'Leer geräumt', ok: false };
+        case 'ziel': return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
+        case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };
+        case 'raetsel':
+          if (z === 'geloest') return { label: 'Gelöst', ok: false };
+          {   // F4: solo nacheinander mit Laufweg-Fenster, in der Gruppe beide gleichzeitig (Regel und Zählung: shared/buehne.js)
+            const SBr = window.Shared_Buehne;
+            const zusatz = SBr && SBr.raetselHinweis ? (SBr.raetselSolo(st.players) ? SBr.raetselHinweis(true, SBr.raetselSoloFenster(map, a[4] && a[4].paar, CFG)) : SBr.raetselHinweis(false)) : 'beide gleichzeitig!';
+            return { label: 'E halten: Schloss drehen (' + sec('raetsel') + ') · ' + zusatz, ok: z !== 'gehalten' };
+          }
+        case 'versteck': if (z !== 'offen') return { label: 'E halten: hohle Wand öffnen (' + sec('versteck') + ')', ok: true }; break;
+        case 'eingang': {
+          // Regel aus shared/buehne.js (eine Quelle mit dem Server): Schott/Luke zu/verschlossen -> hacken bzw. öffnen
+          const SB = window.Shared_Buehne;
+          if (!SB || !SB.eingangAktion || !(a[4] && a[4].art === 'technisch')) break;   // SB: index.html (Rückfall: render.js lädt nach)
+          const op = SB.eingangAktion(map, { rolle: 'eingang', x: a[2], y: a[3], art: 'technisch' }, (k) => R.kantenZustand(map, st, k.idx));
+          if (op === 'hacken') return { label: 'E halten: Schott hacken (' + sec('schott_hacken') + ')', ok: true };
+          if (op === 'luke') return { label: 'E halten: Luke öffnen (' + String(SB.TUER_ZEIT.luke).replace('.', ',') + ' s)', ok: true };
+          break;
+        }
+        case 'lift': return { label: 'E: Lift zum anderen Deck', ok: true };
+        case 'leiter': return { label: 'E halten: Leiter zum anderen Deck', ok: true };
+        default: break;
+      }
+    }
+    const info = map.info(tx, ty);
+    if (info.solid === 'zustand' && info.kind !== 'wand_schwach') {
+      const z = R.kachelZustand(map, st, tx, ty);
+      // F10: wie server/sim/anker.js – nur rätselgebundene Tore sind verriegelt, alle anderen 'zu'-Tore öffnen mit E
+      if (z !== 'offen' && z !== 'gesprengt' && torVerriegelt(map, tx, ty)) return { label: 'Verriegelt – das öffnet erst das Rätsel (beide Schlösser gleichzeitig).', ok: false };
+      if (z === 'zu') return { label: 'E halten: ' + (info.kind === 'tor' ? 'Tor' : info.kind === 'schott' ? 'Schott' : info.kind === 'luke' ? 'Luke' : 'Tür') + ' öffnen', ok: true };
+      if (z === 'verschlossen') return { label: 'Verschlossen', ok: false };
+    }
+    return null;
+  }
   function interactionAt(st, m, tx, ty, zone, ownTile) {
     const map = R.mapFor(zone, st);
     const ch = map.at(tx, ty);
@@ -1081,6 +1328,16 @@
       return { label: 'E halten: ' + downed.name + ' wiederbeleben (' + String(sec).replace('.', ',') + ' s' + (m.medkit ? ', Medipack' : '') + ')', ok: true };
     }
     if (downed) return { label: 'Halten: ' + downed.name + ' wiederbeleben', ok: true };
+    if (zone === 'away') {   // B2: Fesseln (bewusstloser Gegner), Befreien (gefesselter Kamerad)
+      const K = (CFG.awayCombat && CFG.awayCombat.koerper) || CFG.koerper || {};
+      const fs = (v, d) => String(v == null ? d : v).replace('.', ',') + ' s';
+      const at = (q) => Math.floor(q.x / TILE) === tx && Math.floor(q.y / TILE) === ty;
+      const dr = ((st.away && st.away.drones) || []).find(d => d.zs === 'bewusstlos' && at(d));
+      if (dr) return { label: 'E halten: fesseln (' + fs(K.fesseln, 3) + ')', ok: true };
+      const pl = players.find(p => p.id !== m.id && p.zone === 'away' && p.zs === 'gefesselt' && at(p));
+      if (pl) return { label: 'E halten: ' + pl.name + ' befreien (' + fs(K.befreien, 3) + ')', ok: true };
+    }
+    if (zone === 'away' && R.isBuehne(map)) { const b = buehneInteraction(st, m, map, tx, ty); if (b) return b; }   // B1: Anker
     if (map.id === 'kesh' && zone === 'away' && !ownTile) {
       // M2: Kesh-Interaktionen (§4.7)
       const ks = R.keshObjState(st, map, tx, ty);
@@ -1110,7 +1367,7 @@
       const items = zone === 'away' ? ((st.away && st.away.items) || []) : ((st.ship && st.ship.groundItems) || []);
       const it = items.find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);
       if (it) return carry ? { label: 'Hände voll (G ablegen)', ok: false } : { label: 'Aufheben: ' + (ITEM_LABEL[it.kind] || it.kind), ok: true };
-      if (ch === 'P') return { label: 'Halten: Selbst-Transfer', ok: true };
+      if (ch === 'P' || (zone === 'away' && R.isBuehne(map) && (map.abholPads || []).some(q => q.x === tx && q.y === ty))) return { label: 'Halten: Selbst-Transfer', ok: true };
       return null;
     }
     // M1: Wrack (Bergung, Logbuch-Terminal, Hohlraum)
@@ -1216,6 +1473,9 @@
     const t = Phys.toTile(self.x, self.y);
     const d = DIRV[self.dir] || DIRV.down;
     const order = [[d[0], d[1], false], [0, 0, true], [0, -1, false], [1, 0, false], [0, 1, false], [-1, 0, false]];
+    // F5 (Studioleitung): auf einem Deck-Link-Feld (Lift/Leiter) zuerst die eigene Kachel – Regel shared/buehne.js (wie der Server)
+    const SB = window.Shared_Buehne; const AM = self.zone === 'away' && st.away && window.Shared_Maps ? window.Shared_Maps[st.away.map] : null;
+    if (SB && SB.interaktionsVorrang && AM && SB.interaktionsVorrang(AM, t.x, t.y) === 'eigen') order.unshift([0, 0, true]);
     const seen = {};
     for (const [dx, dy, own] of order) {
       const k = dx + ',' + dy + own;
@@ -1235,6 +1495,29 @@
     return { mx, my };
   }
   function mouseWorld() { return R.screenToWorld(Client.mouse.x, Client.mouse.y); }
+  // B2: Lanze loslassen = Schuss (shoot { los: true }); der Server feuert sonst nach 0,45 s ohne Eingabe
+  function feuerLos() {
+    if (Client.fireHeld.mouse || Client.fireHeld.key) return;
+    const m = me();
+    if (!m || m.zone !== 'away' || m.console || m.wf !== 'lanze' || m.downed) return;
+    const w = mouseWorld();
+    const angle = Client.mouse.x >= 0 ? Math.atan2(w.y - (Client.self.y - 14), w.x - Client.self.x) : (function () { const d = DIRV[Client.self.dir] || DIRV.down; return Math.atan2(d[1], d[0]); })();
+    send({ t: P.C.SHOOT || 'shoot', angle, los: true });
+  }
+  // B2-NACH: Wurf-Zielvorschau – derselbe Landepunkt wie auf dem Server (Winkel wie shoot, Abstand Füße → Zeiger,
+  // auf [min, max] geklemmt; Streuung nicht). null, wenn keine Wurfwaffe aktiv ist oder der Zeiger fehlt.
+  function wurfZiel(m) {
+    if (!m || m.zone !== 'away' || m.console || m.downed || Client.mouse.x < 0 || uiTop()) return null;
+    const WD = m.wf && CFG.awayCombat && CFG.awayCombat.waffen ? CFG.awayCombat.waffen[m.wf] : null;
+    if (!WD || !WD.flaeche) return null;
+    const w = mouseWorld(); const sx = Client.self.x, sy = Client.self.y;
+    if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return null;
+    const a = Math.atan2(w.y - (sy - 14), w.x - sx);
+    const d = Math.hypot(w.x - sx, w.y - sy) / TILE;
+    const lo = +WD.min || 0, hi = +WD.max || d;
+    const k = Math.max(lo, Math.min(hi, d));
+    return { x: sx + Math.cos(a) * k * TILE, y: sy + Math.sin(a) * k * TILE, r: (+WD.radius || 1.5) * TILE, geklemmt: Math.abs(k - d) > 0.05, kach: k };
+  }
   function shoot() {
     const m = me();
     // M2: Verwundete schießen auf v2-Karten mit der Pistole (players[].sh gesetzt)
@@ -1243,9 +1526,13 @@
     const w = mouseWorld();
     const oy = pistol ? 6 : 14;
     const angle = Client.mouse.x >= 0 ? Math.atan2(w.y - (Client.self.y - oy), w.x - Client.self.x) : (function () { const d = DIRV[Client.self.dir] || DIRV.down; return Math.atan2(d[1], d[0]); })();
-    send({ t: P.C.SHOOT || 'shoot', angle });
+    // B2-NACH: dist = Abstand Füße → Mauszeiger in Kacheln (Wurfweite der Granate; der Server begrenzt auf min/max)
+    const dist = Client.mouse.x >= 0 ? Math.round(Math.hypot(w.x - Client.self.x, w.y - Client.self.y) / TILE * 100) / 100 : null;
+    send(dist != null && Number.isFinite(dist) ? { t: P.C.SHOOT || 'shoot', angle, dist } : { t: P.C.SHOOT || 'shoot', angle });
     const AC = CFG.awayCombat || {};
+    const WD = !pistol && m.wf && AC.waffen ? AC.waffen[m.wf] : null;   // B2: Takt je Waffe (der Server prüft Hitze/Sperre)
     if (pistol) Client.shootCd = (AC.wounded && AC.wounded.pistolCooldown) || 0.7;
+    else if (WD) Client.shootCd = m.wf === 'lanze' ? 0.2 : (+WD.kadenz || ((+WD.ausholen || 0) + (+WD.erholung || 0)) || 0.3);
     else if (Array.isArray(m.sh)) Client.shootCd = (AC.blaster && AC.blaster.cooldown) || 0.3;
     else Client.shootCd = ((CFG.away && CFG.away.blaster && CFG.away.blaster.cooldown) || 0.35);
     audio.play(pistol ? 'pistol' : 'blaster');
@@ -1356,7 +1643,7 @@
   }
 
   function releaseAll() {
-    Client.keys = {};
+    Client.keys = {}; Client.fireHeld = { mouse: false, key: false };
     if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     if (Client.view) K.releaseAll(Client.view);
     H.showCrew = false;
@@ -1420,7 +1707,7 @@
       }
       case 'KeyE': if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); } break;
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
-      case 'Space': shoot(); break;
+      case 'Space': shoot(); Client.fireHeld.key = true; break;
       case 'KeyC': toggleCrouch(); break;   // M2 §15: ducken (nur Außenzone auf v2-Karten)
       case 'KeyQ':
         if (m.zone === 'away') {
@@ -1444,6 +1731,7 @@
     if (uiTop()) return;
     if (code === 'KeyE' && Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     if (code === 'Tab') H.showCrew = false;
+    if (code === 'Space' && Client.fireHeld.key) { Client.fireHeld.key = false; feuerLos(); }
     const m = me();
     if (m && m.console) Net.guard('Consoles.keyUp', () => K.keyUp(e, Client.view));
   });
@@ -1476,8 +1764,9 @@
     if (uiTop() || Client.chapter) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter (S2: Kapitelkarte ebenso)
     const m = me();
     if (m && m.console) { Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return; }
-    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') shoot();
+    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') { shoot(); Client.fireHeld.mouse = true; }
   });
+  window.addEventListener('mouseup', (e) => { if (e.button === 0 && Client.fireHeld.mouse) { Client.fireHeld.mouse = false; feuerLos(); } });
   window.addEventListener('mouseup', () => {
     const h = Client.ui.hold;
     if (h && h.mouse && !h.sent) Client.ui.hold = null;   // S1: Löschknopf losgelassen
@@ -1489,6 +1778,8 @@
     Client.time += dt;
     Net.guard('Hud.update', () => H.update(dt));
     if (Client.shootCd > 0) Client.shootCd -= dt;
+    // B2: Feuer halten (Waffen mit Hitze: Dauerfeuer im Takt der Waffe; Lanze: laden, Loslassen feuert)
+    if ((Client.fireHeld.mouse || Client.fireHeld.key) && Client.shootCd <= 0) { const fm = me(); if (fm && fm.wf && fm.zone === 'away' && !fm.console && !uiTop()) shoot(); else if (!fm || fm.zone !== 'away') Client.fireHeld = { mouse: false, key: false }; }
     updateHold(dt);   // S1: Entf halten löscht einen Weltstand
     const st = Client.state, m = me(), self = Client.self;
     self.offX *= 0.85; self.offY *= 0.85;
@@ -1552,6 +1843,7 @@
       v.endInfo = endInfo();
     }
     if (!st || st.phase === 'lobby') return v;
+    v.wurfZiel = wurfZiel(m);   // B2-NACH: Landepunkt-Vorschau der Wurfwaffe
     const pair = snapPair(nowMs - INTERP_DELAY) || { a: st, b: st, f: 0 };
     const A = pair.a, B = pair.b, f = pair.f;
     v.players = lerpList(A.players, B.players, f).map(p => p.id === Client.pid ? p : p);
@@ -1724,6 +2016,9 @@
       // M3a §17
       case 'fragile': msg.system = args[0]; break;
       case 'tele': if (args[0]) msg.id = args[0]; break;
+      // B3: Hex-Codes bleiben Text (0306 nicht als Zahl 306)
+      case 'hex': if (args[0]) msg.hex = String(args[0]); msg.args = args; break;
+      case 'boje': if (args[0]) msg.kante = String(args[0]); msg.args = args; break;
       default: break;
     }
     return msg;
@@ -1765,6 +2060,7 @@
   }
 
   window.Client = Client;
+  Client.interactionAt = interactionAt;   // QA/Debug: E-Hinweis einer Kachel (st, me, tx, ty, zone, ownTile) -> { label, ok } | null
   Client.actions = actions;
   Client.audio = audio;
   boot();

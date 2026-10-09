@@ -1,0 +1,63 @@
+{
+  "format": "modul/1",
+  "id": "schiff.heck_oben.a",
+  "art": "schiff",
+  "typ": "heck_oben",
+  "groesse": [6, 13],
+  "deck": 2,
+  "drehen": false,
+  "spiegeln": false,
+  "gewicht": 1,
+  "bauweise": null,
+  "hinweis": "Liftvorraum über dem Antrieb, Arrestzelle hinter Gittern, Beutekiste.",
+  "rows": [
+    "_#####",
+    "##...#",
+    "#.,,.#",
+    "#.,,o#",
+    "#o...#",
+    "#..O.#",
+    "#..O..",
+    "#....#",
+    "#o...#",
+    "#zz..#",
+    "#...o#",
+    "#zz..#",
+    "_#####"
+  ],
+  "anker": [
+    "......",
+    "......",
+    "..l...",
+    "......",
+    "......",
+    "......",
+    "..p...",
+    "......",
+    "....q.",
+    "......",
+    ".c....",
+    "....b.",
+    "......"
+  ],
+  "anker_legende": {
+    "l": {
+      "rolle": "lift",
+      "deck": 2
+    },
+    "p": {
+      "rolle": "patrouille",
+      "kette": "a"
+    },
+    "q": {
+      "rolle": "wache"
+    },
+    "c": {
+      "rolle": "zelle"
+    },
+    "b": {
+      "rolle": "beute"
+    }
+  },
+  "belegungen": []
+}

@@ -1,0 +1,37 @@
+{
+  "id": "item/waffe/rostmeute/betaeuber",
+  "name": "Funkenstock – Anbau rostmeute für item/waffe/betaeuber",
+  "tier": "detail",
+  "palette": "rostmeute",
+  "tags": ["waffe", "anbau-teil", "rostmeute"],
+  "notes": "Steckplatz-Teil (Bauweise rostmeute) des Gerüsts item/waffe/betaeuber. Gerüst-Koordinaten, Anker [0,0,0] = Griff. Nur einzeln ansehen zum Prüfen; im Spiel immer über das Gerüst.",
+  "params": { "heat": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Hitze (vom Gerüst)" } },
+  "ops": [
+    {
+      "name": "Funkenstock",
+      "op": "group",
+      "at": [-1, -9, 1],
+      "ops": [
+        {
+          "name": "Stab Rost",
+          "op": "box",
+          "at": [0, 6, 0],
+          "size": [2, 2, 2],
+          "color": { "noise": ["primary", { "shade": "primary", "f": 0.78 }, "metal"], "weights": [3, 2, 1] }
+        },
+        { "name": "Klebeband", "op": "box", "at": [0, 7, 0], "size": [2, 1, 2], "color": "secondary" },
+        { "name": "Hals Flick", "op": "box", "at": [0, 5, 0], "size": [2, 1, 3], "color": "secondary" },
+        { "name": "Endkappe Knochen", "op": "box", "at": [0, 10, -1], "size": [2, 1, 4], "color": "trim" },
+        {
+          "name": "Kabel",
+          "op": "line",
+          "from": [-0.5, 9.5, -1.5],
+          "to": [-0.5, 5.5, 2.5],
+          "r": 0.5,
+          "color": "dark"
+        }
+      ]
+    }
+  ],
+  "anchor": [0, 0, 0]
+}

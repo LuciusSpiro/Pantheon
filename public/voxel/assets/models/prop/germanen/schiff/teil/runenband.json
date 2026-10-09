@@ -1,0 +1,33 @@
+{
+  "id": "prop/germanen/schiff/teil/runenband",
+  "name": "Teil: Leiterbahn-Ornamentband aus Rauten und Punkten (Schiff, Germanen) – keine Runen",
+  "notes": "Symbolik-Sichtung: keine Runen mehr, nur Rauten/Punkte (Folge aus seed) auf Leiterbahn, immer als Band; unter 3 Motiven nur Lötpunkte. Band läuft entlang +x, Vorderseite +z, 1 Voxel tief, 5 hoch. Breite = 1 + 4 * len. Anker = linke untere Ecke.",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["germanen", "schiff", "teil", "runen"],
+  "footprint": [0.5, 0.1],
+  "params": {
+    "len": { "default": 3, "min": 1, "max": 8, "step": 1, "label": "Motive" },
+    "an": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "leuchtet" }
+  },
+  "let": { "bw": "1 + 4 * len" },
+  "ops": [
+    { "op": "box", "name": "Eiseneinlage", "at": [0, 0, 0], "size": ["bw", 5, 1], "color": "metal_dark", "jitter": false },
+    { "op": "box", "name": "Leiterbahn", "at": [0, 0, 0], "size": ["bw", 1, 1], "color": { "shade": "rune", "f": "an ? 0.8 : 0.35" }, "emit": "an ? 0.5 : 0", "jitter": false },
+    { "op": "group", "name": "Zeichen", "if": "len >= 3", "repeat": { "count": "len", "step": [4, 0, 0], "var": "i" }, "ops": [
+      { "op": "group", "name": "Raute", "if": "floor(hash(seed, i) * 2) == 0", "ops": [
+        { "op": "box", "name": "Raute", "at": [2, 1, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 1 : 0.4" }, "emit": "an ? 1.0 : 0", "jitter": false },
+        { "op": "box", "name": "Raute", "at": [1, 2, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 1 : 0.4" }, "emit": "an ? 1.0 : 0", "jitter": false },
+        { "op": "box", "name": "Raute", "at": [3, 2, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 1 : 0.4" }, "emit": "an ? 1.0 : 0", "jitter": false },
+        { "op": "box", "name": "Raute", "at": [2, 3, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 1 : 0.4" }, "emit": "an ? 1.0 : 0", "jitter": false }
+      ] },
+      { "op": "box", "name": "Punkt", "if": "floor(hash(seed, i) * 2) == 1", "at": [2, 2, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 1 : 0.4" }, "emit": "an ? 1.0 : 0", "jitter": false },
+      { "op": "box", "name": "Lötpunkt", "at": [2, 0, 0], "size": [1, 1, 1], "color": "metal_light", "jitter": false }
+    ] },
+    { "op": "group", "name": "Kurzband ohne Rune (unter 3 Zeichen)", "if": "len < 3", "repeat": { "count": "len", "step": [4, 0, 0], "var": "i" }, "ops": [
+      { "op": "box", "name": "Abzweig", "at": [2, 1, 0], "size": [1, 1, 1], "color": { "shade": "rune", "f": "an ? 0.8 : 0.35" }, "emit": "an ? 0.5 : 0", "jitter": false },
+      { "op": "box", "name": "Lötauge", "at": [2, 2, 0], "size": [1, 1, 1], "color": "metal_light", "jitter": false }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

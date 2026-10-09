@@ -9,7 +9,8 @@
 //   public/voxel/core/*.js    DOM-freier Kern (ES-Module)
 //   public/voxel/render/voxel-three.js
 //   public/voxel/assets/…     alle Paletten, Rigs, Posen, Moods + alle Modelle/Figuren aus den Manifesten samt Abhängigkeiten
-//   public/voxel/manifest.json  zusammengeführte Manifeste (Format: assets/manifest/_schema.md)
+//   public/voxel/manifest.json  zusammengeführte Manifeste (Format: assets/manifest/_schema.md); `sockets` = Rezept-Sockets
+//                               + Manifest-Sockets (Manifest hat Vorrang, CONTRACT-B1 §10.1), `socketsFromRecipe` nennt die übernommenen
 //   public/voxel/VERSION.json   { voxelwerkCommit, dirty, date, three, counts }
 // Exit-Code 1 bei Fehlern (doppelte IDs, kaputte Manifeste, Assets, die sich nicht laden lassen).
 // Die Ausgabe wird trotzdem geschrieben (ohne die fehlerhaften Einträge), damit die anderen Teams weiterarbeiten können.
@@ -147,6 +148,20 @@ export async function readManifests(dir = MANIFEST_DIR) {
   return { teams, entries, errors };
 }
 
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+/**
+ * Sockets aus dem Voxelwerk-Rezept + Manifest (CONTRACT-B1 §3.4 AD 3, §10.1): Rezept-Sockets werden übernommen,
+ * der Manifest-Eintrag hat je Socket-Name Vorrang. Rückgabe { sockets, fromRecipe: [Namen], overridden: [Namen], present }.
+ * present = Manifest oder Rezept führt ein Feld `sockets` (auch leer).
+ */
+export function mergeSockets(entry, recipe) {
+  const rs = isObj(recipe?.sockets) ? recipe.sockets : {};
+  const ms = isObj(entry?.sockets) ? entry.sockets : {};
+  const fromRecipe = Object.keys(rs).filter((k) => !(k in ms));
+  const overridden = Object.keys(rs).filter((k) => k in ms && JSON.stringify(rs[k]) !== JSON.stringify(ms[k]));
+  return { sockets: { ...rs, ...ms }, fromRecipe, overridden, present: isObj(recipe?.sockets) || isObj(entry?.sockets) };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Ein Lauf
 // ---------------------------------------------------------------------------------------------
@@ -193,8 +208,11 @@ async function syncOnce() {
   for (const e of man.entries) {
     const kind = e.kind === 'figure' ? 'figures' : 'models';
     try {
-      await lib.load(kind, e.source);
+      const recipe = await lib.load(kind, e.source);
       const { file, ...entry } = e;
+      const ms = mergeSockets(e, recipe);
+      entry.sockets = ms.sockets;
+      if (ms.fromRecipe.length) entry.socketsFromRecipe = ms.fromRecipe;   // Herkunft (Info für Galerie/Fehlersuche)
       merged[e.id] = entry;
     } catch (err) { errors.push(`${e.file}: ${e.id}${e.source !== e.id ? ' (source ' + e.source + ')' : ''}: ${err.message}`); }
   }

@@ -1,0 +1,46 @@
+{
+  "id": "rom_kastell",
+  "name": "Römisches Grenzkastell (Ruine): verblichenes Rot (Wände), heller Travertin (Deckung), kühle graue Bodenplatten, olivgrauer Grund, Grünspan",
+  "extends": "rom",
+  "roles": {
+    "primary": "#A65A4E",
+    "secondary": "#D8CCB2",
+    "trim": "#B8B49A",
+    "metal": "#8E8E88",
+    "metal_dark": "#7A7A74",
+    "metal_light": "#8FA89A",
+    "stone": "#DCCFAF",
+    "stone_dark": "#B09F80",
+    "stone_light": "#E2D8C2",
+    "paving": "#A49E90",
+    "paving_dark": "#978F82",
+    "cloth": "#8A4A44",
+    "cloth2": "#6E5A6E",
+    "leather": "#6B4E36",
+    "warning": "#B0883E",
+    "glow": {
+      "color": "#DCE6DE",
+      "emit": 0.8
+    },
+    "glow2": {
+      "color": "#E8B070",
+      "emit": 0.8
+    },
+    "soil": "#7C7864",
+    "soil_dark": "#948E7E",
+    "sand": "#A8A08A",
+    "rock": "#7A7A74",
+    "rock_dark": "#5E5E5A",
+    "grass": "#7A8458",
+    "grass_dark": "#66704A",
+    "grass_light": "#8E9868",
+    "plant": "#5E7044",
+    "plant_dark": "#8A8E70",
+    "plant_light": "#7E8E5A",
+    "leit": {
+      "color": "#D9A55A",
+      "emit": 1.1
+    }
+  },
+  "notes": "Lesbarkeit von oben: Boden ruhig mittelhell (paving/paving_dark ±8 %), Wand rot, Deckung Travertin, Kronen (trim) travertin-grau, Grünspan nur noch als dünner Akzent in metal_light. Gelände olivgrau."
+}

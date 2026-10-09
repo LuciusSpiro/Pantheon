@@ -17,6 +17,7 @@ export class Library {
     this.vox = new Map();
     this.pending = new Map();
     this.buildCache = new Map();
+    this.missing = new Map();   // 'kind:id' → Fehlermeldung (nur optionale Abhängigkeiten aus Vorlagen)
   }
 
   get(kind, id) { return this.store[kind].get(id); }
@@ -60,6 +61,7 @@ export class Library {
     if (kind === 'models') {
       const d = collectDeps(obj);
       d.models.forEach((m) => need('models', m));
+      d.optional.forEach((m) => jobs.push(this.loadOptional('models', m)));
       d.palettes.forEach((p) => need('palettes', p));
       d.vox.forEach((f) => jobs.push(this.loadVox(f)));
     }
@@ -77,6 +79,29 @@ export class Library {
       for (const sc of obj.scatter || []) { for (const m of [].concat(sc.model)) need('models', m); need('palettes', sc.palette); }
     }
     await Promise.all(jobs);
+  }
+
+  /** Wie load, aber ein Fehlen ist kein Fehler (Vorlagen-Kandidaten). Liefert das Asset oder undefined. */
+  async loadOptional(kind, id) {
+    const k = kind + ':' + id;
+    if (this.store[kind].has(id)) return this.store[kind].get(id);
+    try { const obj = await this.load(kind, id); this.missing.delete(k); return obj; }
+    catch (e) { this.missing.set(k, e.message); return undefined; }
+  }
+
+  /** Vorlagen-Kombinationen eines geladenen Modells, für die kein Kandidat (auch kein Fallback) geladen ist. */
+  templateGaps(id) {
+    const model = this.get('models', id);
+    if (!model) throw new Error(`Modell "${id}" nicht geladen`);
+    const gaps = [];
+    for (const t of collectDeps(model).templates) {
+      for (const c of t.combos) {
+        if (c.ids.some((m) => this.get('models', m))) continue;
+        const vals = Object.entries(c.values).map(([k, v]) => `${k}=${v}`).join(', ');
+        gaps.push(`Vorlage "${t.template}"${vals ? ' mit ' + vals : ''}: kein Modell vorhanden (versucht: ${c.ids.join(', ')})`);
+      }
+    }
+    return gaps;
   }
 
   async loadVox(file) {

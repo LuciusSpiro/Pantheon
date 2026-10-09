@@ -1,0 +1,46 @@
+{
+  "id": "prop/rom/ruine/carcer",
+  "name": "Carcer-Gitterzelle (Kastellgefängnis)",
+  "tier": "detail",
+  "jitter": 0,
+  "palette": "rom",
+  "tags": ["prop", "rom", "ruine", "zelle"],
+  "notes": "Anker zelle: state 0 zu (Gittertür geschlossen, Schloss rot), 1 offen (Tür nach links aufgeschwungen, Schloss kaltweiß). 1 Kachel, Gefangener steht in der Mitte (Socket prisoner). Vorderseite +z = Tür.",
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Zelle (0 zu, 1 offen)" }
+  },
+  "variants": { "offen": { "state": 1 } },
+  "ops": [
+    { "name": "Boden", "op": "box", "at": [-8, 0, -8], "size": [16, 1, 16], "color": { "frame": "stone_light", "fill": "stone_dark", "axes": "xz" } },
+    { "name": "Rückwand", "op": "box", "at": [-8, 1, -8], "size": [16, 33, 2], "color": "secondary" },
+    { "name": "Rückwand Panzerband", "op": "box", "mode": "paint", "at": [-8, 1, -8], "size": [16, 3, 2], "color": "primary" },
+    { "name": "Eckpfosten", "op": "box", "at": [-8, 1, 6], "size": [2, 33, 2], "color": { "frame": "metal_light", "fill": "metal", "axes": "x" }, "mirror": "x", "mirrorAt": 0 },
+    { "name": "Eckpfosten hinten", "op": "box", "at": [-8, 1, -6], "size": [2, 33, 1], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Dach", "op": "box", "at": [-8, 34, -8], "size": [16, 1, 16], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz" } },
+    { "name": "Seitengitter", "op": "box", "repeat": { "count": 6, "step": [0, 0, 2] }, "at": [-8, 1, -5], "size": [1, 33, 1], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "name": "Seitenholme", "op": "box", "repeat": { "count": 2, "step": [0, 16, 0] }, "at": [-8, 9, -6], "size": [1, 1, 12], "color": "metal", "mirror": "x", "mirrorAt": 0 },
+
+    { "name": "Tür zu", "op": "group", "if": "state == 0", "ops": [
+      { "name": "Türstäbe", "op": "box", "repeat": { "count": 5, "step": [2, 0, 0] }, "at": [-5, 1, 7], "size": [1, 33, 1], "color": "metal_dark" },
+      { "name": "Türholme", "op": "box", "repeat": { "count": 2, "step": [0, 16, 0] }, "at": [-6, 9, 7], "size": [12, 1, 1], "color": "metal" },
+      { "name": "Schloss", "op": "box", "at": [3, 14, 7], "size": [2, 3, 1], "color": "metal_light" },
+      { "name": "Schlosslicht", "op": "box", "mode": "paint", "at": [3, 15, 7], "size": [1, 1, 1], "color": { "shade": "primary", "f": 1.2 }, "jitter": false }
+    ] },
+    { "name": "Tür offen", "op": "group", "if": "state == 1", "ops": [
+      { "name": "Türstäbe (aufgeschwungen)", "op": "box", "repeat": { "count": 5, "step": [0, 0, -2] }, "at": [-7, 1, 7], "size": [1, 33, 1], "color": "metal_dark" },
+      { "name": "Türholme (aufgeschwungen)", "op": "box", "repeat": { "count": 2, "step": [0, 16, 0] }, "at": [-7, 9, -1], "size": [1, 1, 9], "color": "metal" },
+      { "name": "Schloss offen", "op": "box", "at": [5, 15, 7], "size": [1, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false }
+    ] },
+
+    { "name": "Pritsche", "op": "box", "at": [-6, 1, -6], "size": [12, 4, 4], "color": { "frame": "metal", "fill": "stone", "axes": "x" } },
+    { "name": "Kette an der Wand", "op": "line", "from": [3, 20, -6], "to": [4, 8, -5], "r": 0.5, "color": "metal" },
+    { "name": "Moos", "op": "box", "mode": "paint", "at": [-8, 0, -8], "size": [16, 2, 16], "color": { "noise": [{ "shade": "plant_dark", "f": 0.75 }, "stone_dark", "stone"], "weights": [1, 3, 3], "cell": 4 } }
+  ],
+  "sockets": {
+    "prisoner": [0, 0.06, 0.1],
+    "use": [0.25, 0.9, 0.55],
+    "label": [0, 2.4, 0]
+  },
+  "anchor": [0, 0, 0]
+}

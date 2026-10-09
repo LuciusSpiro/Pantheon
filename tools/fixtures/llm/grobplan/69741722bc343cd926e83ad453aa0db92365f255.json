@@ -28,8 +28,7 @@
   "erwartet": {
     "gueltig": false,
     "fehler": [
-      "Szene 's2_splitter': Umsetzung 'stoerrelais_scan' gibt es nur an b7, relais, wrack, vaelen, kesh",
-      "Szene 's3_kesh_aussen': Umsetzung 'fund_aus_gewoelbe' setzt 'raetsel_loesen/zwei_schluessel' in einer früheren Szene voraus"
+      "Szene 's2_splitter': Umsetzung 'stoerrelais_scan' gibt es nur an b7, relais, wrack, vaelen, kesh"
     ]
   }
 }

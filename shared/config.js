@@ -247,6 +247,36 @@
         lost: ['Wo sind die hin?', 'Hab sie verloren …', 'Augen auf, die sind irgendwo!'],
         half: ['Rückzug zur zweiten Linie!', 'Wir sind nur noch die Hälfte – zurück!'],
       },
+      // ================= B2 „Bodenkampf“ (CONTRACT-B2 §1.1, Startwerte aus INHALT §10; Welle 0, noch ohne Wirkung) =================
+      // Gelesen erst, wenn server/sim/waffen.js aktiv ist (Team WAFFEN/BODENKAMPF). Alles per `tune awayCombat.<pfad>`.
+      // schuss = Schüsse bis 100 % Hitze · kadenz s · pause = Kühlbeginn nach s · kalt = s von 100 % auf 0 · sperre = Zwangspause s
+      // reichweite in Kacheln · tempo px/s · streuung Grad
+      waffen: {
+        blaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 380, streuung: 2, schaden: 1, laerm: 'mittel' },
+        sturmgewehr: { schuss: 12, kadenz: 0.15, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 9, tempo: 420, streuung: [6, 14], schaden: 0.5, schildReset: true, laerm: 'laut' },
+        granatwerfer: { schuss: 2, kadenz: 1.2, pause: 0.6, kalt: 3.0, sperre: 4.0, min: 4, max: 12, flug: 0.8, streuung: 0.5, radius: 1.5, schaden: 1, betaeubt: 1.5, flaeche: true, laerm: 'laut' },
+        lanze: { schuss: 1, laden: [1.0, 2.0], pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 22, schaden: [1, 2], durchschlagFront: true, stehen: true, laerm: 'leise' },
+        nahkampf: { schuss: 3, ausholen: 0.5, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.3, wunde: true, laerm: 'nah' },
+        betaeuber: { schuss: 4, kadenz: 0.45, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 9, tempo: 380, streuung: 2, schaden: 1, nichttoedlich: true, laerm: 'leise' },
+        schrottblaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 230, streuung: 3, schaden: 1, laerm: 'mittel' },   // Plünderer/Rostmeute: Blaster-Regeln, langsamere Geschosse (Entscheidung Studioleitung, B2-Balancing m3)
+        waechter: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 260, streuung: 0, schaden: 2, waechter: true, laerm: 'mittel' },   // Wächter/Kastell-Automat (WAFFEN-Wunsch)
+        faust: { schuss: 4, ausholen: 0.6, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.2, schaden: 1, laerm: 'nah' },
+      },
+      laerm: { laut: 18, mittel: 10, leise: 4, nah: 3 },   // Kacheln
+      sicht: { aussicht: 22, geteiltTtl: 6 },              // normal bleibt sightTiles (10)
+      koerper: { bewusstlos: 30, fesseln: 3, befreien: 3, aufrichten: 4, gegnerBleedout: 45, ankuendigung: 0.5, ausbruchTuer: 8 },
+      // seg, wunden, speed px/s, aim s, hitRadius px; regenDelay 4 / regenStep 1.5 (Wächter 6 / 2) wie enemy.*
+      gegner: {
+        grundtyp: { seg: 3, wunden: 1, waffe: 'blaster', speed: 70, aim: 0.8, hitRadius: 13, rhythmus: 1.3 },
+        niederhalter: { seg: 3, wunden: 1, waffe: 'sturmgewehr', speed: 60, aim: 0.9, hitRadius: 14, stoss: 8, stossPause: 2 },
+        grenadier: { seg: 3, wunden: 1, waffe: 'granatwerfer', speed: 60, aim: 1.0, hitRadius: 13, rhythmus: 3, fehlwurf: 0.2 },
+        schuetze: { seg: 2, wunden: 1, waffe: 'lanze', speed: 70, aim: 1.2, hitRadius: 12, abstand: 5 },
+        enterer: { seg: 3, wunden: 2, waffe: 'nahkampf', speed: 80, hitRadius: 15 },
+        haescher: { seg: 3, wunden: 1, waffe: 'betaeuber', speed: 70, aim: 0.9, hitRadius: 13, rhythmus: 1.0 },
+        waechter: { seg: 4, wunden: 2, waffe: 'waechter', speed: 32, aim: 1.4, hitRadius: 22, rhythmus: 2.6, schussSeg: 2, frontArc: 120, regenDelay: 6, regenStep: 2 },
+      },
+      alarm: { ruheNach: 60, funk: 20, funkVerzoegerung: 4 },
+      ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)
     missionM3: { offerAfter: 20, offerDirectAt: 2, wardenStepMax: 90, hallX: 37, courtyardX: 27 },
@@ -325,7 +355,9 @@
     // mode: Standard 'off' (nur Archiv); live nur mit SPIELLEITER_LLM=live UND LLM_LIVE=1 in der .env (Kai, Entscheidung 12)
     spielleiter: { offers: 2, archivOffers: 1, grobplanTimeout: 120, sceneTimeout: 45, retries: 1, minBudget: 30000,
       sceneWaitMax: 20, prefetch: 'start', maxConcurrent: 1, rateLimitPause: 60, regieRotateBytes: 5 * 1024 * 1024,
-      minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1 },
+      minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1,
+      // B1 (CONTRACT-B1 §11, Welle 0): Bodenquote und lange Missionen (SPIELLEITER/ENGINE lesen)
+      boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 } },
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer des Kanonenboots – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
     // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
     // escortFactor = Schaden auf Schützlinge (× escorts.hullPerDamage × crewDamage). interval gilt für eine Dreier-Crew,
@@ -385,6 +417,34 @@
       port: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, station: { x: 520, y: 700 }, arrival: { x: 1650, y: 860, angle: 3.3 } },
       route: { w: 3000, h: 1600, start: { x: 150, y: 800, angle: 0 }, exit: { x: 2850, y: 800, r: 140 } },
       buoy: { w: 3000, h: 3000, start: { x: 500, y: 1500, angle: 0 }, buoy: { x: 2000, y: 1500 }, scanRange: 420, beamRange: 320, scanTime: 5 },
+    },
+
+    // ================= B1 „Bühnen“ (CONTRACT-B1 §1.2, Welle 0: Startwerte, noch ohne Wirkung) =================
+    // Zusammenbau und Prüfung der Modulkarten (BUEHNE). deckungMin = Anteil Bodenkacheln mit Deckung in ≤ deckungRadius
+    // Kacheln im Gefechtsbereich; freiMin = begehbare Kantenkacheln (von 8), ab denen ein Anschluss 'frei' ist.
+    buehne: { versuche: 20, backtrack: 200, deckungMin: 0.6, deckungRadius: 2, sichtgasseMax: 12, deckungMaxGefecht: 0.16, deckungMaxAussen: 0.08, einzelblockMax: 0.4, schleifenMin: 1, eingaengeMin: 2, abholpunkteMin: 1,
+      sweepSeeds: 50, bestehensquote: 0.8, schiffDecks: 2, freiMin: 6,
+      // Prüfwerte je Kartenart (überschreiben die globalen; Sichtung GD 2026-10-08)
+      jeArt: { aussenposten: { sichtgasseMax: 24 }, ruine: { sichtgasseMax: 16 },
+        station: { sichtgasseMax: 12, deckungMaxGefecht: 0.18, deckungMaxAussen: 0.12 },
+        schiff: { sichtgasseMax: 12, deckungMaxGefecht: 0.22, deckungMaxAussen: 0.25 } } },   // innen enger: mehr Deckung erlaubt (Briefing: Schiff braucht mehr Deckung)
+    landepunkte: { transferRange: 360, maxGebaut: 2 },
+    // Anker-Interaktionen (s, E halten; Werte aus INHALT §1.4). countdown = Ladung bis zur Explosion.
+    // Rätselpaar (Abnahme F4, Studioleitung): solo Fenster = max(paarSoloFenster, Laufweg A->B / Spielertempo × paarLaufFaktor
+    // + halten.raetsel + paarPuffer) (shared/buehne.js raetselFenster); ab 2 Spielern das enge paarFenster (beide gleichzeitig).
+    anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6 },
+      countdown: 60, paarFenster: 1.5, paarSoloFenster: 15, paarLaufFaktor: 1.3, paarPuffer: 2 },
+    // Kampfunfähiges Feindschiff betreten (ENTERN): Transfer frei bis zu dieser Entfernung (px)
+    entern: { aktiv: true, transferRange: 300 },
+
+    // ================= B3 „Sektorkarte“ (CONTRACT-B3 §1.1, Welle 0: Startwerte, noch ohne Wirkung) =================
+    sektoren: {
+      tutorialFrei: true,              // E29: Faltsprung von überall, solange das Tutorial läuft
+      sprungpunktRadius: 250,          // px: so nah muss die Lerche am Sprungpunkt sein, damit der Antrieb lädt
+      randAbstand: 180,                // px: Lage des Sprungpunkts vor dem Szenenrand in Kantenrichtung
+      weitscanBoje: 1400,              // px: Weitscan findet unbekannte Bojen in dieser Entfernung
+      notsprung: { huelle: 15, reaktor: 'offline', richtung: 3, streuung: 0.35, sperreAuftrag: false },
+      leerraumSzene: { w: 2400, h: 1800, asteroids: 0 },
     },
   };
 });

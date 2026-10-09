@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Icons B2/B3 – Vorschau</title>
+<style>
+  body { margin: 0; background: #0B0E1A; color: #F4EEDC; font: 13px 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; }
+  h1 { font-size: 18px; margin: 14px 16px 4px; }
+  p { margin: 0 16px 10px; color: #9AA6B8; }
+  canvas { display: block; margin: 0 16px 16px; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<h1>Icons B2/B3 (Team UI-ART) – public/js/icons-b.js</h1>
+<p>Je Icon: links Zoom 1 (12×12, echte Größe), rechts ×4. Stil: concept/buehnen/STILBLATT-SEKTOR.md. <span id="err"></span></p>
+<canvas id="icons" width="1180" height="560"></canvas>
+<canvas id="karte" width="1180" height="420"></canvas>
+<canvas id="hud" width="1180" height="190"></canvas>
+<script src="js/icons-b.js"></script>
+<script>
+(function () {
+  var I = window.IconsB;
+  function lab(g, t, x, y, col, size) { g.fillStyle = col || '#9AA6B8'; g.font = (size || 11) + 'px "Segoe UI", Arial, sans-serif'; g.fillText(t, x, y); }
+
+  // --- Icons
+  var c = document.getElementById('icons'), g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  var GR = [['hex', 'Hex-Symbole ×11'], ['einfluss', 'Einflüsse ×8'], ['waffe', 'Waffen ×7 + Faust'], ['status', 'Zustände']];
+  var y = 22;
+  GR.forEach(function (gr) {
+    lab(g, gr[1], 8, y, '#F4EEDC', 13);
+    var ids = Object.keys(I[gr[0]]), x = 8;
+    ids.forEach(function (id) {
+      I.draw(g, gr[0], id, x + 6, y + 22);
+      var spr = I.sprite(gr[0], id);
+      g.drawImage(spr, x + 18, y + 10, 48, 48);
+      // Zoom 1 auf Fraktionsfläche (Lesbarkeit auf der Karte)
+      g.fillStyle = '#4A4466'; g.fillRect(x, y + 34, 14, 14);
+      I.draw(g, gr[0], id, x + 7, y + 41);
+      lab(g, id, x, y + 72);
+      x += 104;
+    });
+    y += 132;
+  });
+
+  // --- Sternkarte (Ausschnitt) + Bojen in der Raumszene
+  var k = document.getElementById('karte'), h = k.getContext('2d');
+  lab(h, 'Sternkarte nach Stilblatt (Ausschnitt, Hexradius 40) · Bojen in der Raumszene (Zoom 0,35 / 0,7 / 1,2)', 8, 16, '#F4EEDC', 13);
+  var R = 40, S3 = Math.sqrt(3), ox = 60, oy = 40 - S3 * R * 3;
+  function mitte(cc, rr) { return [ox + 1.5 * R * (cc - 1), oy + S3 * R * (rr - 1) + (cc % 2 === 0 ? S3 * R / 2 : 0)]; }
+  function ecken(m) { var p = []; for (var i = 0; i < 6; i++) { var a = Math.PI / 3 * i; p.push([m[0] + R * Math.cos(a), m[1] + R * Math.sin(a)]); } return p; }
+  var hexe = {
+    '0105': ['offen', 'leerraum'], '0106': ['offen', 'leerraum'], '0107': ['pirat', 'verborgen'], '0108': ['offen', 'leerraum'],
+    '0205': ['saum', 'erkundet', 'Mond Kesh', ['ruine']], '0206': ['saum', 'erkundet', 'Lichtkordon', ['heimat']], '0207': ['saum', 'unerkundet', 'Karawane', ['hafen']],
+    '0305': ['rom', 'gesperrt', 'Statio Limitis', ['festung']], '0306': ['saum', 'erkundet', 'Splitter', ['asteroiden'], 'asteroiden'],
+    '0307': ['saum', 'erkundet', 'Graue Weite', ['nebel'], 'nebel'], '0308': ['vorl', 'unerkundet', 'Relais', ['ruine']],
+    '0405': ['saum', 'erkundet', 'Wrack', ['wrack'], 'asteroiden'], '0406': ['saum', 'erkundet', 'Boje B-7', ['boje']],
+    '0404': ['frei', 'gesperrt', 'Rabenpass', [], 'gezeiten'], '0407': ['ger', 'gesperrt', 'Germanen', ['gasriese'], 'gas'],
+    '0408': ['neutral', 'gesperrt', 'Kreuzweg', ['hafen']], '0304': ['rom', 'gesperrt', 'Ferraria', [], 'asteroiden'],
+  };
+  Object.keys(hexe).forEach(function (code) {
+    var d = hexe[code], m = mitte(+code.slice(0, 2), +code.slice(2));
+    I.hexFlaeche(h, ecken(m), d[0], d[1], { s: R / 60 });
+    var st = I.HEXSTATUS[d[1]];
+    h.textAlign = 'center';
+    lab(h, code, m[0], m[1] - R * 0.55, st.koord, 10);
+    if (d[2] && st.name) lab(h, d[2], m[0], m[1] + R * 0.68, st.name, 10);
+    if (st.text) lab(h, st.text, m[0], m[1] + 8, st.koord, 22);
+    var sy = (d[4] && d[1] !== 'unerkundet') ? -10 : 0;
+    (d[3] || []).forEach(function (sid) { I.draw(h, 'hex', sid, m[0] + sy, m[1] + 4, { scale: 1, alpha: d[1] === 'unerkundet' ? 0.6 : 1 }); });
+    if (d[4] && d[1] !== 'unerkundet') I.draw(h, 'einfluss', d[4], m[0] + 10, m[1] + 4);
+    h.textAlign = 'left';
+  });
+  function kantePkt(a, b) {
+    var ma = mitte(+a.slice(0, 2), +a.slice(2)), mb = mitte(+b.slice(0, 2), +b.slice(2));
+    var mx = (ma[0] + mb[0]) / 2, my = (ma[1] + mb[1]) / 2, dx = mb[0] - ma[0], dy = mb[1] - ma[1], l = Math.hypot(dx, dy);
+    var nx = -dy / l * R / 2, ny = dx / l * R / 2;
+    return [mx - nx, my - ny, mx + nx, my + ny];
+  }
+  [['0206', '0306', 'open'], ['0206', '0207', 'open'], ['0306', '0406', 'open'], ['0306', '0405', 'open'], ['0405', '0406', 'open'],
+   ['0406', '0307', 'open'], ['0207', '0307', 'open'], ['0206', '0205', 'locked'], ['0306', '0205', 'locked'], ['0307', '0308', 'locked'],
+   ['0306', '0305', 'locked'], ['0406', '0407', 'temp'], ['0405', '0404', 'ohne_strom'], ['0207', '0107', 'hidden']].forEach(function (e) {
+    var p = kantePkt(e[0], e[1]); I.kante(h, p[0], p[1], p[2], p[3], e[2], { s: R / 60 });
+  });
+  var f0 = mitte(3, 8), f1 = mitte(5, 8); f1 = [f1[0] + 10, f1[1] + 18];
+  I.kante(h, f0[0], f0[1] + 20, f1[0], f1[1], 'far', { s: R / 60, bogen: -40 });
+
+  // Legende Kanten
+  var lx = 470, ly = 40;
+  lab(h, 'KANTEN / BOJEN-PERLEN', lx, ly, '#9AA6B8', 12);
+  [['open', 'aktiv (offen)'], ['locked', 'gesperrt'], ['temp', 'temporär'], ['ohne_strom', 'ohne Strom'], ['far', 'Fernsprung (gesperrt)'], ['hidden', 'verborgen (nur Debug)']].forEach(function (e, i) {
+    var yy = ly + 24 + i * 26;
+    if (e[0] === 'far') I.kante(h, lx, yy + 4, lx + 44, yy + 4, 'far', { s: 0.7, bogen: -8 });
+    else I.kante(h, lx, yy, lx + 44, yy, e[0], { s: 0.7, debug: true });
+    lab(h, e[1], lx + 56, yy + 4, '#F4EEDC', 12);
+  });
+  lab(h, 'HEXE', lx, ly + 200, '#9AA6B8', 12);
+  var fr = ['saum', 'rom', 'ger', 'pirat', 'frei', 'neutral', 'vorl', 'offen'];
+  fr.forEach(function (f, i) {
+    var xx = lx + (i % 2) * 150, yy = ly + 212 + Math.floor(i / 2) * 24;
+    I.hexFlaeche(h, [[xx, yy], [xx + 40, yy], [xx + 40, yy + 18], [xx, yy + 18]], f, 'erkundet', { s: 0.6 });
+    lab(h, I.FRAKTION[f].name.replace(/ \(.*\)/, ''), xx + 48, yy + 13, '#F4EEDC', 11);
+  });
+  ['unerkundet', 'gesperrt', 'leerraum'].forEach(function (st, i) {
+    var xx = lx + i * 110, yy = ly + 312;
+    I.hexFlaeche(h, [[xx, yy], [xx + 40, yy], [xx + 40, yy + 18], [xx, yy + 18]], 'rom', st, { s: 0.6 });
+    lab(h, st, xx + 46, yy + 13, '#F4EEDC', 11);
+  });
+
+  // Bojen
+  var bx = 820;
+  lab(h, 'BOJE (Raumszene)', bx, 40, '#9AA6B8', 12);
+  ['aktiv', 'gesperrt', 'temporaer', 'ohne_strom'].forEach(function (z, i) {
+    var yy = 90 + i * 84;
+    h.fillStyle = '#06080F'; h.fillRect(bx - 4, yy - 40, 352, 80);
+    [0.35, 0.7, 1.2].forEach(function (zoom, j) {
+      I.boje(h, z, bx + 34 + j * 100 + (j === 2 ? 20 : 0), yy, zoom, -Math.PI / 6, { t: 0.2, ziel: z === 'aktiv' });
+    });
+    lab(h, I.BOJE[z].text, bx, yy + 36, '#F4EEDC', 11);
+  });
+
+  // --- HUD
+  var u = document.getElementById('hud'), q = u.getContext('2d');
+  lab(q, 'Wunden-Pips (Raute; Schild bleibt Würfel) · Hitzebalken (Segmente, Höhe wächst, überhitzt = schraffiert + blinkender Rahmen)', 8, 16, '#F4EEDC', 13);
+  [[2, 2], [1, 2], [0, 2], [1, 1]].forEach(function (w, i) { I.wundenPips(q, 16 + i * 80, 36, w[0], w[1]); lab(q, w[0] + '/' + w[1], 16 + i * 80, 64); });
+  [0, 0.2, 0.5, 0.8, 1].forEach(function (v, i) {
+    I.hitzebalken(q, 16 + i * 150, 90, 100, 10, v, { segmente: 5 }); lab(q, 'Hitze ' + Math.round(v * 100) + ' %', 16 + i * 150, 118);
+  });
+  I.hitzebalken(q, 780, 90, 100, 10, 1, { segmente: 5, ueberhitzt: true, t: 0 }); lab(q, 'überhitzt (gesperrt)', 780, 118);
+  I.hitzebalken(q, 16, 140, 120, 8, 0.6, { segmente: 12 }); lab(q, 'Sturmgewehr (12 Schuss)', 146, 148);
+  I.hitzebalken(q, 330, 140, 60, 8, 0.5, { segmente: 2 }); lab(q, 'Granatwerfer (2)', 400, 148);
+
+  document.getElementById('err').textContent = I.errors ? ('Fehler: ' + I.errors) : 'Fehler: 0';
+  window.__ok = !I.errors;
+})();
+</script>
+</body>
+</html>

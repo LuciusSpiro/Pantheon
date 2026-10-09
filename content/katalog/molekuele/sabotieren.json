@@ -12,6 +12,257 @@
     "C4",
     "C2"
   ],
-  "umsetzungen": [],
+  "umsetzungen": [
+    {
+      "id": "ladung_am_sprengpunkt",
+      "name": "Ladung am Sprengpunkt",
+      "schauplatz": "aussen",
+      "beschreibung": "Das Team bekommt eine Sprengladung, setzt sie am Sprengpunkt (E halten, ein Treffer bricht ab), dann laufen 60 s Countdown – raus zum Abholpunkt. Die Explosion trifft alle im Umkreis; der Sprengpunkt bleibt im Weltstand zerstört.",
+      "braucht": [
+        "transfer",
+        "sprengladung",
+        "aussen_kampf"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten",
+          "station",
+          "schiff"
+        ],
+        "anker": [
+          "sprengpunkt",
+          "abholpunkt"
+        ]
+      },
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          6,
+          8
+        ],
+        "2": [
+          5,
+          7
+        ],
+        "3": [
+          4,
+          6
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gesprengt"
+      ],
+      "ereignisse": [
+        "ladungScharf",
+        "ladungExplodiert",
+        "downloadAbbruch"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "ziel_name": {
+          "typ": "text",
+          "default": "{{lex.sprengpunkt:der}}",
+          "beschreibung": "Was gesprengt wird: Eigenname ohne Artikel (z. B. „Frachter Schiefmaul“); Standard: Sprengpunkt aus dem Lexikon mit Artikel. Texte setzen ihn nur dort ein, wo beides passt"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "ladung_geben",
+                "anzahl": 1
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 70,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "ladung_gezuendet",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gesprengt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_ende"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_ende"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "sprengpunkt",
+                "zustand": "zerstoert"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gesprengt": true
+                }
+              },
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.start": "Eine Sprengladung liegt im Inventar. Ziel: {{ziel_name}}. Setzen (E halten), dann 60 Sekunden – und weg da.",
+          "{{id}}.hinweis": "Captain: {{ziel_name}} ist auf der Karte markiert. Einer setzt, die anderen decken – ein Treffer bricht ab.",
+          "{{id}}.geschafft": "{{ziel_name}} ist hochgegangen! Zum Abholpunkt, wir holen euch.",
+          "{{id}}.ziel": "Ladung setzen und zünden: {{ziel_name}}"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "map": "splitter.schuerflager"
+        }
+      }
+    }
+  ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"
 }

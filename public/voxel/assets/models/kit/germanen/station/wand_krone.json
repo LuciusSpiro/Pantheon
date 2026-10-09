@@ -1,0 +1,412 @@
+{
+  "id": "kit/germanen/station/wand_krone",
+  "name": "Station – wand_krone (krone_rohr): dunkle Krone mit Glutband (ember) und hellem Rand an den freien Seiten",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "station",
+    "slot"
+  ],
+  "notes": "ART-STATION, Steckplatz krone_rohr (Gerüst-Slot wand_krone). Pflicht dunkle Krone (metal_dark gedunkelt), darin ein 1 Voxel breites Glutband (Rolle ember, gedämpft emit 0,8) nur entlang der durchgehenden Wandachse (O+W verbunden → x, sonst N+S → z; reine L-Ecke → zwei Arme), damit doppelt dicke Wände kein Leitermuster bilden;, fest bei x = 1 / z = 1, damit es über Kachelgrenzen und Ecken durchläuft. Freistehend: Band entlang x. Heller Rand (metal_light, 1 Voxel) nur an den freien, nicht verbundenen Seiten (Wunsch ART-GK-BAU: Raumform von oben), das Innere bleibt dunkel; das Glutband liegt darüber. Daneben ein Rohrstrang (metal) bei x = 2 / z = 2. Von oben: jede Stationswand trägt eine warme Linie (Unterscheidung zum Schiff). Verfallen: Band schwächer, umkämpft: Band aus, Ruß.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1",
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "frei": "conn == 0",
+    "glut": "zustand < 2 && w >= 4 && d >= 4",
+    "gx": "ce && cw",
+    "gz": "cn && cs",
+    "lauf_x": "gx || (frei) || (!gz && (ce || cw) && !(cn || cs))",
+    "lauf_z": "!gx && (gz || (!(ce || cw) && (cn || cs)))",
+    "ecke": "!gx && !gz && (ce || cw) && (cn || cs)"
+  },
+  "variants": {
+    "frei": {
+      "conn": 0
+    },
+    "nord_sued": {
+      "conn": 5
+    },
+    "ecke": {
+      "conn": 6
+    },
+    "kreuz": {
+      "conn": 15
+    },
+    "verfallen": {
+      "zustand": 1
+    },
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 2
+    }
+  },
+  "ops": [
+    {
+      "name": "Krone dunkel",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.75 * dk"
+      }
+    },
+    {
+      "name": "Rohr O-W",
+      "op": "box",
+      "if": "w >= 4 && d >= 4 && (ce || cw || frei)",
+      "at": [
+        0,
+        "h - 1",
+        2
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal",
+        "f": "0.7 * dk"
+      }
+    },
+    {
+      "name": "Rohr N-S",
+      "op": "box",
+      "if": "w >= 4 && d >= 4 && (cn || cs) && !(ce || cw)",
+      "at": [
+        2,
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal",
+        "f": "0.7 * dk"
+      }
+    },
+    {
+      "name": "Heller Rand N (freie Seite)",
+      "op": "box",
+      "if": "!cn && d >= 4",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.78 - zustand * 0.1"
+      }
+    },
+    {
+      "name": "Heller Rand S (freie Seite)",
+      "op": "box",
+      "if": "!cs && d >= 4",
+      "at": [
+        0,
+        "h - 1",
+        "d - 1"
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.78 - zustand * 0.1"
+      }
+    },
+    {
+      "name": "Heller Rand W (freie Seite)",
+      "op": "box",
+      "if": "!cw && w >= 4",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.78 - zustand * 0.1"
+      }
+    },
+    {
+      "name": "Heller Rand O (freie Seite)",
+      "op": "box",
+      "if": "!ce && w >= 4",
+      "at": [
+        "w - 1",
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.78 - zustand * 0.1"
+      }
+    },
+    {
+      "name": "Glut entlang x",
+      "op": "box",
+      "if": "glut && lauf_x",
+      "at": [
+        0,
+        "h - 1",
+        1
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut entlang z",
+      "op": "box",
+      "if": "glut && lauf_z",
+      "at": [
+        1,
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut Ecke Mitte",
+      "op": "box",
+      "if": "glut && ecke",
+      "at": [
+        1,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut Ecke N",
+      "op": "box",
+      "if": "glut && ecke && cn",
+      "at": [
+        1,
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut Ecke S",
+      "op": "box",
+      "if": "glut && ecke && cs",
+      "at": [
+        1,
+        "h - 1",
+        2
+      ],
+      "size": [
+        1,
+        1,
+        2
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut Ecke W",
+      "op": "box",
+      "if": "glut && ecke && cw",
+      "at": [
+        0,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Glut Ecke O",
+      "op": "box",
+      "if": "glut && ecke && ce",
+      "at": [
+        2,
+        "h - 1",
+        1
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "ember",
+        "f": "1 - zustand * 0.15",
+        "emit": "0.9 - zustand * 0.3"
+      }
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "if": "zustand == 2",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal_dark",
+            "f": 0.6
+          },
+          "dark",
+          {
+            "shade": "ember_dark",
+            "f": 0.7
+          }
+        ],
+        "weights": [
+          2,
+          2,
+          1
+        ],
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

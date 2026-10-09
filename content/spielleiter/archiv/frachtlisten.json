@@ -1,0 +1,268 @@
+{
+  "format": "llm-aufzeichnung/1",
+  "kind": "grobplan",
+  "key": "archiv-frachtlisten-1",
+  "name": "frachtlisten",
+  "quelle": "archiv",
+  "modell": "hand",
+  "_kommentar": "Archiv-Mission B1 (INHALT §9.3, Team KATALOG, von Hand). Bodenszene auf dem Landepunkt hafen.kontor (Station, germanen, Besitz kontor). Download leise oder entdeckt; entdeckt verzweigt in die Flucht mit Wergeld-Fängern an der Schleuse. Abweichung von INHALT: s2 ist Erkundung (C1) statt Infiltration (C4), weil stealth_aussen noch geplant ist; die Kontorwache ist ruhig besetzt.",
+  "input": {
+    "auftrag": "Archiv: Tesk – echte Frachtlisten aus dem germanischen Kontor holen, ohne Streit mit dem Clan. Ziel 15 min zu dritt, Bodenszene auf hafen.kontor, ohne Tutorial-Voraussetzung."
+  },
+  "erinnerung_varianten": [
+    {
+      "erinnerung": {
+        "fakt": "kontor_bestohlen"
+      },
+      "text": "Die Lerche war schon einmal ungebeten im Kontor. Tesk hofft, dass sich dort niemand an Gesichter erinnert."
+    }
+  ],
+  "erinnerung_neutral": "Tesk zählt die Frachter, die durch den Saumraum kommen. Seit Wochen geht die Rechnung des Kontors nicht auf.",
+  "grobplan": {
+    "format": "grobplan/2",
+    "id": "frachtlisten",
+    "titel": "Frachtlisten",
+    "auftraggeber": "tesk",
+    "zielspieldauer_min": 15,
+    "aufhaenger": "Lerche, hier Tesk. Der Kontor-Clan meldet weniger Fracht, als er durch den Saumraum schleust. Ich brauche die echten Listen – leise, ohne Streit mit dem Clan.",
+    "erinnerung": {
+      "neutral": true
+    },
+    "erinnerung_text": "Tesk zählt die Frachter, die durch den Saumraum kommen. Seit Wochen geht die Rechnung des Kontors nicht auf.",
+    "szenen": [
+      {
+        "id": "fl_hafen",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk bittet die Lerche, im germanischen Kontor neben dem Hafen die echten Frachtlisten herunterzuladen, ohne dass der Clan es merkt.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Auftrag angenommen",
+            "nach": "fl_kontor"
+          }
+        ]
+      },
+      {
+        "id": "fl_kontor",
+        "szenentyp": "erkundung",
+        "ort": "hafen",
+        "landepunkt": "hafen.kontor",
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "kontor",
+            "staerke": "klein",
+            "haltung": "ruhig"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "daten_stehlen",
+            "umsetzung": "download"
+          }
+        ],
+        "sachverhalt": "Im Kontor stehen mehrere Runentafeln, nur eine führt die echten Listen. Die Kontorwache dreht ruhig ihre Runden; wer Lärm macht, weckt sie.",
+        "wendung": null,
+        "dauer_min": 5,
+        "weiter": [
+          {
+            "wenn": "Download fertig, unentdeckt",
+            "nach": "fl_raus"
+          },
+          {
+            "wenn": "Die Wache hat Alarm geschlagen",
+            "nach": "fl_flucht"
+          }
+        ]
+      },
+      {
+        "id": "fl_raus",
+        "szenentyp": "rueckzug",
+        "ort": "hafen",
+        "landepunkt": "hafen.kontor",
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "kontor",
+            "staerke": "klein",
+            "haltung": "ruhig"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "entkommen",
+            "umsetzung": "zu_den_pads"
+          }
+        ],
+        "sachverhalt": "Die Listen sind gespeichert. Jetzt ruhig zurück zum Landeplatz, bevor der Schichtwechsel kommt.",
+        "wendung": null,
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Alle an Bord",
+            "nach": "fl_abgabe_leise"
+          }
+        ]
+      },
+      {
+        "id": "fl_flucht",
+        "szenentyp": "rueckzug",
+        "ort": "hafen",
+        "landepunkt": "hafen.kontor",
+        "karte": null,
+        "besetzung": [
+          {
+            "fraktion": "kontor",
+            "staerke": "mittel",
+            "haltung": "wach"
+          }
+        ],
+        "molekuele": [
+          {
+            "id": "entkommen",
+            "umsetzung": "zu_den_pads"
+          }
+        ],
+        "sachverhalt": "Der Clan weiß, dass Diebe im Kontor sind. Die Wache will sie lebend – Diebe zahlen Wergeld.",
+        "wendung": "Wergeld-Fänger an der Schleuse: Zwei Fänger sperren den Weg zum Landeplatz.",
+        "dauer_min": 3,
+        "weiter": [
+          {
+            "wenn": "Alle an Bord",
+            "nach": "fl_abgabe_laut"
+          }
+        ]
+      },
+      {
+        "id": "fl_abgabe_leise",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk vergleicht die Listen mit den eigenen Zählungen. Der Clan ahnt nichts.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:leise"
+          }
+        ]
+      },
+      {
+        "id": "fl_abgabe_laut",
+        "szenentyp": "hafen",
+        "ort": "hafen",
+        "karte": null,
+        "molekuele": [],
+        "sachverhalt": "Tesk hat die Listen, aber im Kontor wird gerechnet, wer die Diebe waren. Die Hafenmeisterei schweigt offiziell.",
+        "wendung": null,
+        "dauer_min": 2,
+        "weiter": [
+          {
+            "wenn": "Abgegeben",
+            "nach": "ausgang:entdeckt"
+          }
+        ]
+      }
+    ],
+    "entscheidungen": [],
+    "ausgaenge": {
+      "leise": {
+        "wann": "Die Lerche hat die echten Frachtlisten unbemerkt aus dem Kontor geholt.",
+        "folgen": [
+          "npc_haltung tesk +1",
+          "npc_gedaechtnis tesk: Die Lerche hat mir die echten Frachtlisten des Kontors gebracht, ohne dass der Clan etwas gemerkt hat.",
+          "chronik: Frachtlisten: Die Lerche lud im germanischen Kontor die echten Frachtlisten herunter und verschwand ungesehen.",
+          "welt_fakt kontor_bestohlen: unbemerkt"
+        ]
+      },
+      "entdeckt": {
+        "wann": "Die Lerche hat die Listen, aber die Kontorwache hat sie gesehen.",
+        "folgen": [
+          "npc_gedaechtnis tesk: Die Lerche hat die Frachtlisten geholt, aber der Kontor-Clan hat sie gesehen. Das wird Ärger geben.",
+          "chronik: Frachtlisten: Die Lerche holte die Frachtlisten aus dem Kontor und entkam den Wergeld-Fängern nur knapp.",
+          "welt_fakt kontor_bestohlen (faden): Der Kontor-Clan weiß, dass die Lerche seine Frachtlisten gestohlen hat."
+        ]
+      }
+    }
+  },
+  "szenen": {
+    "fl_kontor": {
+      "molekuele": [
+        {
+          "id": "daten_stehlen",
+          "umsetzung": "download",
+          "params": {
+            "loc": "hafen",
+            "map": "hafen.kontor",
+            "daten_name": "die Frachtlisten"
+          }
+        }
+      ],
+      "verzweigung": [
+        {
+          "nach": "fl_flucht",
+          "if": {
+            "flag": "fl_kontor_entdeckt"
+          }
+        },
+        {
+          "nach": "fl_raus"
+        }
+      ],
+      "wendung": null
+    },
+    "fl_raus": {
+      "molekuele": [
+        {
+          "id": "entkommen",
+          "umsetzung": "zu_den_pads",
+          "params": {
+            "loc": "hafen",
+            "map": "hafen.kontor",
+            "fraktion": "kontor",
+            "staerke": "klein"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": null
+    },
+    "fl_flucht": {
+      "molekuele": [
+        {
+          "id": "entkommen",
+          "umsetzung": "zu_den_pads",
+          "params": {
+            "loc": "hafen",
+            "map": "hafen.kontor",
+            "fraktion": "kontor",
+            "staerke": "mittel"
+          }
+        }
+      ],
+      "verzweigung": [],
+      "wendung": {
+        "kennung": "schleuse",
+        "nach_s": 30,
+        "ankuendigung": "Wergeld-Fänger an der Schleuse! Die wollen euch lebend.",
+        "wirkung": [
+          {
+            "do": "besetzen",
+            "map": "hafen.kontor",
+            "fraktion": "kontor",
+            "staerke": "klein",
+            "haltung": "wach",
+            "tag": "fl_flucht_schleuse",
+            "bereich": "rueckzug"
+          }
+        ]
+      }
+    }
+  }
+}

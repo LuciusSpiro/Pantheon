@@ -1,0 +1,44 @@
+{
+  "id": "item/fessel",
+  "name": "Energiefessel (Handgelenke)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["held", "fessel", "zustand_gefesselt"],
+  "notes": "Am Figur-Socket wrists. Anker = Mitte zwischen den Schellen. Zwei Schellen quer (x), dazwischen ein Energieband. Bandfarbe Rolle glow (Palette der Figur), ruhig, emit ≤ 1,2. aktiv 0 = Band aus (liegt als Beute/Ausrüstung).",
+  "footprint": [0.4, 0.4],
+  "params": { "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Energieband an" } },
+  "ops": [
+    {
+      "name": "Schelle links",
+      "op": "cyl",
+      "at": [2.5, -1, 0],
+      "r": 1.5,
+      "h": 2,
+      "axis": "y",
+      "color": "metal_dark",
+      "hollow": 1
+    },
+    {
+      "name": "Schelle rechts",
+      "op": "cyl",
+      "at": [-2.5, -1, 0],
+      "r": 1.5,
+      "h": 2,
+      "axis": "y",
+      "color": "metal_dark",
+      "hollow": 1
+    },
+    { "name": "Schloss links", "op": "box", "at": [1, -1, -0.5], "size": [1, 2, 1], "color": "metal_light" },
+    { "name": "Schloss rechts", "op": "box", "at": [-2, -1, -0.5], "size": [1, 2, 1], "color": "metal_light" },
+    {
+      "name": "Energieband",
+      "op": "box",
+      "at": [-1, -0.5, -0.5],
+      "size": [2, 1, 1],
+      "color": "glow",
+      "emit": "aktiv ? 1.1 : 0",
+      "jitter": false
+    }
+  ],
+  "anchor": [0, 0, 0]
+}
