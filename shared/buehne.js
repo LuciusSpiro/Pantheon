@@ -1612,6 +1612,57 @@
     return solo ? 'nacheinander, ' + Math.floor(fensterSek || 0) + ' s Zeit' : 'beide gleichzeitig!';
   }
 
+  // ---------------- K-SILHOUETTE: was wie ein Turm aussieht, ist nicht begehbar (FIX-TURM) ----------------
+  // Props, die auf einer begehbaren Kachel stehen (Deko = nur Optik; Props an nicht blockenden Ankern wie `aussicht`),
+  // dürfen nicht höher als eine Figur sein – sonst läuft man sichtbar durch sie hindurch (Server-Kollision und
+  // Client-Vorhersage kennen nur die Kachel). Hohe Dinge gehören auf einen Block (`O`/`X`, vgl. Leitstück-Fuß) oder
+  // an einen blockenden Objektanker.
+  // o = { bauweisen: [bauweise/1-JSON], deko: [deko/1-JSON], modelle: { <id>: { height (m), footprint [w, d] } } }
+  // -> [{ code: 'K-SILHOUETTE', msg, id }]
+  const FIGUR_HOEHE_M = 31 / 16;   // Figur bis Helmoberkante 31 Voxel (actors.js FB_PARTS), 16 Voxel = 1 m
+  // Ausnahmen mit Grund (Manifest-Höhe gilt für die höchste Variante, die Deko-Streuung nutzt sie nicht):
+  const SILHOUETTE_AUSNAHMEN = {
+    'prop/germanen/gemein/kette': 'Deko streut Form 0 (liegend, < 0,2 m); 2 m nur hängend',
+  };
+  // Türrollen sitzen auf Tür-/Wandkacheln (Kit), lift/leiter sind Kabinen, in die man bewusst hineingeht.
+  const SILHOUETTE_ROLLEN_FREI = { tor: 1, eingang: 1, versteck: 1, lift: 1, leiter: 1 };
+  function silhouetteFehler(o, D) {
+    D = D || daten();
+    const M = (o && o.modelle) || {};
+    const out = [];
+    const pruef = (id, wo, wandstaendig) => {
+      if (!id || SILHOUETTE_AUSNAHMEN[id]) return;
+      const m = M[id];
+      if (!m || typeof m.height !== 'number') return;
+      if (m.height <= FIGUR_HOEHE_M + 0.005) return;   // Manifest rundet auf cm (Bake 1,94 m = Figurhöhe)
+      const fp = Array.isArray(m.footprint) ? m.footprint : [1, 1];
+      if (wandstaendig && Math.min(fp[0], fp[1]) < 1) return;   // schmales Wandteil (Monitor, Regal) an der Wand
+      out.push({ code: 'K-SILHOUETTE', id, msg: `${wo}: ${id} ist ${m.height} m hoch (Figur ${FIGUR_HOEHE_M.toFixed(2)} m) und steht auf begehbarer Kachel – man läuft hindurch` });
+    };
+    for (const b of (o && o.bauweisen) || []) {
+      for (const [rolle, je] of Object.entries(b.anker || {})) {
+        if (!je || typeof je !== 'object' || SILHOUETTE_ROLLEN_FREI[rolle] || blockendesObjekt(D, rolle)) continue;
+        for (const [art, v] of Object.entries(je)) pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+      }
+    }
+    for (const d of (o && o.deko) || []) {
+      for (const [typ, r] of Object.entries(d.regeln || {})) for (const id of (r && r.props) || []) pruef(id, `deko ${d.id}.${typ}`, !!r.wandnah);
+    }
+    return out;
+  }
+  // Node: Eingaben für silhouetteFehler aus content/buehnen/{bauweisen,deko} und public/voxel/manifest.json
+  function silhouetteDaten() {
+    if (!IST_NODE) throw new Error('silhouetteDaten: nur in Node');
+    const fs = require('fs'), path = require('path');
+    const wurzel = path.join(__dirname, '..');
+    const json = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+    const ordner = (d) => fs.readdirSync(d).filter((n) => n.endsWith('.json')).sort().map((n) => json(path.join(d, n)));
+    const man = json(path.join(wurzel, 'public', 'voxel', 'manifest.json'));
+    const modelle = {};
+    for (const [id, e] of Object.entries(man.assets || {})) modelle[id] = { height: e.height, footprint: e.footprint };
+    return { bauweisen: ordner(path.join(wurzel, 'content', 'buehnen', 'bauweisen')), deko: ordner(path.join(wurzel, 'content', 'buehnen', 'deko')), modelle };
+  }
+
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen
   const ANKER_GLYPHE = { eingang: 'E', abholpunkt: 'A', wache: 'W', patrouille: 'p', deckung: 'd', terminal: 'T', sprengpunkt: 'B', zelle: 'Z',
     beute: 'K', ziel: '*', fund: 'F', tor: 'G', raetsel: 'R', aussicht: 'V', nsc: 'N', versteck: 'H', lift: 'U', leiter: 'H' };
@@ -1628,5 +1679,6 @@
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
     TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
+    silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };
 });

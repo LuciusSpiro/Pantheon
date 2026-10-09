@@ -231,7 +231,11 @@ function cmdPruefe(art) {
     if (!r.ok || r.warnungen.length) { console.log((r.ok ? gelb('~ ') : rot('✗ ')) + m.id); zeigeFehler(r.fehler, 'f'); zeigeFehler(r.warnungen, 'w'); }
   }
   console.log(`${mods.length} Module, ${schlecht} mit Fehlern.`);
-  process.exit(schlecht ? 1 : 0);
+  // K-SILHOUETTE: Props über Figurhöhe auf begehbaren Kacheln (Deko, Props an nicht blockenden Ankern)
+  const sil = Buehne.silhouetteFehler(Buehne.silhouetteDaten());
+  if (sil.length) { console.log(rot('✗ Silhouetten')); zeigeFehler(sil, 'f'); }
+  console.log(`K-SILHOUETTE: ${sil.length} Fehler.`);
+  process.exit(schlecht || sil.length ? 1 : 0);
 }
 
 const cmd = pos[0];

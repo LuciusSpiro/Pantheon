@@ -1040,6 +1040,22 @@ async function f1f6() {
   }
 }
 
+// ---------------- K-SILHOUETTE (FIX-TURM): nichts Turmhohes auf begehbaren Kacheln ----------------
+abschnitt('K-SILHOUETTE');
+{
+  const echt = Buehne.silhouetteFehler(Buehne.silhouetteDaten());
+  ok(echt.length === 0, 'Inhalt: kein Prop über Figurhöhe auf begehbarer Kachel' + (echt.length ? ' – ' + echt.map((f) => f.msg).join(' | ') : ''));
+  const modelle = { 'p/turm': { height: 2.1, footprint: [1, 1] }, 'p/fass': { height: 1, footprint: [1, 1] }, 'p/monitor': { height: 2.15, footprint: [1, 0.25] }, 'p/tank': { height: 1.85, footprint: [1, 1] } };
+  const bw = { id: 't', anker: { aussicht: { aussenposten: 'p/turm' }, sprengpunkt: { '*': 'p/turm' }, lift: { '*': 'p/turm' } } };
+  const f = Buehne.silhouetteFehler({ bauweisen: [bw], deko: [], modelle });
+  ok(f.length === 1 && /aussicht/.test(f[0].msg), 'Wachturm am aussicht-Anker (begehbares Plateau) = K-SILHOUETTE; blockender Objektanker und lift nicht');
+  const dk = { id: 't', regeln: { hof: { props: ['p/turm', 'p/fass'], wandnah: false }, korridor: { props: ['p/monitor'], wandnah: true } } };
+  const g = Buehne.silhouetteFehler({ bauweisen: [], deko: [dk], modelle });
+  ok(g.length === 1 && g[0].id === 'p/turm', 'Deko: hoher Prop auf Hof = Fehler, Fass und schmaler Wandmonitor nicht');
+  const D0 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'buehnen', 'bauweisen', 'germanen.json'), 'utf8'));
+  ok(!(D0.anker.aussicht && D0.anker.aussicht.aussenposten), 'germanen: kein Wachturm-Prop am aussicht-Anker (Plateau ist der Ausguck)');
+}
+
 f1f6().catch((e) => { bad++; n++; console.log('FEHLER (F1/F6):', e && e.stack); }).then(() => {
   console.log(`test-buehne: ${n - bad}/${n} Prüfungen bestanden.`);
   if (bad) { console.log(`${bad} FEHLER.`); process.exit(1); }

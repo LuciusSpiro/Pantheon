@@ -18,7 +18,7 @@
     "hof": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [1, 4], "wandnah": false, "frei_halten": 2 },
     "huegel": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": false, "frei_halten": 1 },
     "lagerhalle": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
-    "landeplatz": { "props": ["prop/germanen/gemein/fass", "prop/germanen/aussenposten/schuerfgeraet"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
+    "landeplatz": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
     "lichtung": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": false, "frei_halten": 2 },
     "palisade": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },
     "innenzaun": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },

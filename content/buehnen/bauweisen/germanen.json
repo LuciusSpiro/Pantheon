@@ -156,9 +156,6 @@
     },
     "leiter": {
       "*": "prop/germanen/schiff/leiter"
-    },
-    "aussicht": {
-      "aussenposten": "prop/germanen/aussenposten/wachturm"
     }
   },
   "alternativen": {
