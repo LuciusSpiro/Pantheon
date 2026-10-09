@@ -762,7 +762,7 @@
     get karte() { return karte(); },
     get aktiv() { return !store.aus && !!karte(); },
     // QA-B3 F4: (state) -> true, wenn die Sprungpunkt-Boje angeflogen werden muss (freies Spiel); Tutorial: false
-    anflugPflicht(st) { try { return anflugPflicht(st); } catch (e) { return true; } },
+    anflugPflicht(st) { try { return anflugPflicht(st); } catch (e) { return false; } },   // W1 AP2: Rückfall einheitlich false
     // (ctx, view, rect, opts) -> { toS, toW, scale } wie bisher drawStarMap; opts.kompakt für den HUD-Ausschnitt
     draw(ctx, view, rect, opts) {
       opts = opts || {};

@@ -289,10 +289,10 @@
     "briefing.erinnerung": "Tesk wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",
     "briefing.kesh_aufgedeckt": "Mond Kesh ist auf der Sternkarte – direkt vom Hafen oder vom Splittergürtel aus.",
 
-    "flight.kurs": "Kurs Mond Kesh: Captain wählt das Ziel auf der Sternkarte, Steuer springt mit F.",
+    "flight.kurs": "Kurs Mond Kesh: Captain wählt das Ziel auf der Sternkarte, Steuer fliegt die Sprungboje an und springt mit F.",
     "flight.schild": "Unten zählt der Schild in Segmenten. Ohne Schild macht ein Treffer euch verwundet – nicht tot.",
     "flight.deckung": "Deckung wirkt nur in Richtung des Schützen. Mauerreste schlucken viel – von der Seite nichts.",
-    "flight.hinweis": "Kesh liegt gleich beim Hafen. Captain: Sternkarte, Ziel Kesh. Steuer: F.",
+    "flight.hinweis": "Kesh liegt gleich beim Hafen. Captain: Sternkarte, Ziel Kesh. Steuer: zur Sprungboje, dann F.",
     "flight.angekommen": "Kesh! Steuer: auf ≤ 360 an den Mond und langsam. Außenteam auf die Pads, der Captain bleibt oben.",
     "flight.transfer_tipp": "Tipp: Transferkammer unten links an Bord. Auf die Pads stellen, E halten – oder Transfer-Konsole.",
 

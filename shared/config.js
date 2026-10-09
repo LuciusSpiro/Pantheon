@@ -470,7 +470,6 @@
 
     // ================= B3 „Sektorkarte“ (CONTRACT-B3 §1.1, Welle 0: Startwerte, noch ohne Wirkung) =================
     sektoren: {
-      tutorialFrei: true,              // E29: Faltsprung von überall, solange das Tutorial läuft
       sprungpunktRadius: 250,          // px: so nah muss die Lerche am Sprungpunkt sein, damit der Antrieb lädt
       randAbstand: 180,                // px: Lage des Sprungpunkts vor dem Szenenrand in Kantenrichtung
       weitscanBoje: 1400,              // px: Weitscan findet unbekannte Bojen in dieser Entfernung

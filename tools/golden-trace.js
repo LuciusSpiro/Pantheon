@@ -1,4 +1,8 @@
 'use strict';
+// BASIS AB WELLE 1 (CONTRACT-W1 §4, AP2 Sprung im Tutorial): tools/fixtures/golden/base-w1 – seit der Anflugpflicht in
+// m1–m3 ist `base-w1` die Vergleichsbasis, nicht mehr `base`. Erlaubte Abweichungen base -> base-w1: allow-w1.json.
+//   node tools/golden-trace.js --compare tools/fixtures/golden/base-w1 <neu>
+//
 // Golden Trace (CONTRACT-S1 §9): zeichnet auf, wie sich m1–m3 mit den sim-headless-Bots abspielen, damit nach dem
 // Umbau der Missions-Engine gemessen werden kann, ob sich das Tutorial „genau wie heute“ spielt.
 //

@@ -67,23 +67,31 @@ function main() {
   }
 
   // ------------------------------------------------------------------------------------------------------------
-  section('Tutorial-Schutz (§0.1): Faltsprung von überall, Ort-Links wie heute');
+  section('Tutorial (E29, Nachtrag W1): Anflug wie überall, Zielwahl über Ort-Links');
   {
     const t = setup('m1'); const g = t.g;
-    ok(g.weltstand.persistent && Sprung.tutorialLaeuft(g) && !Sprung.anflugPflicht(g), 'Kampagne mit Tutorial: keine Anflugpflicht');
+    ok(g.weltstand.persistent && Sprung.tutorialLaeuft(g) && Sprung.anflugPflicht(g) && Sprung.zielwahlUeberOrtLinks(g), 'Kampagne mit Tutorial: Anflugpflicht, Zielwahl über Ort-Links');
+    ok(!('tutorialFrei' in g.C.sektoren), 'CONFIG.sektoren.tutorialFrei entfällt');
     place(g, 1200, 300); clearEnemies(g);
     ok(Sprung.selectDest(g, 'splitter') === null, 'Hafen -> Splittergürtel wählbar');
-    ok(charge(t) === null, 'Antrieb lädt ohne Anflug (Abstand zur Station ≥ 300)');
+    g.step();
+    ok(/^Sprungpunkt Splittergürtel anfliegen \(\d+ m\)$/.test(g.ship.jump.blockedReason || ''), `ohne Anflug gesperrt: „${g.ship.jump.blockedReason}“`);
+    ok(g.snapshot().ship.jump.anflug === true, 'Snapshot ship.jump.anflug = true im Tutorial');
+    ok((g.snapshot().space.jp || []).some((b) => b.k === '0206-0306'), 'space.jp enthält die Kante des Ziels');
+    const p = jpOf(g, '0306'); place(g, p.x - 100, p.y);
+    ok(charge(t) === null, 'am Sprungpunkt: Antrieb lädt');
     ok(Sprung.doJump(g) === null && g.ship.scene === 'splitter', 'Faltsprung zum Splittergürtel');
-    const arr = Locations.get('splitter').scene.arrive;
-    ok(g.ship.x === arr.x && g.ship.y === arr.y, 'Ankunft an scene.arrive wie heute');
+    const q = Sprung.sprungpunkt(g, '0206');
+    ok(q && g.ship.x === q.x && g.ship.y === q.y, 'Ankunft am Gegen-Sprungpunkt (nicht mehr scene.arrive)');
     ok(g.explore.erkundet.has('0306') && t.events('hexErkundet').some((e) => e.hex === '0306'), 'Hex 0306 erkundet (Ereignis hexErkundet)');
     ok(Sprung.selectDest(g, 'relais') === 'Keine bekannte Route dorthin – erst über einen Nachbarort.', 'kein Nachbar: alte Begründung');
+    // Ziel über Ort-Link wählbar, auch wenn die Boje noch unbekannt ist; jp enthält sie trotzdem (Ring/Randpfeil/Bots)
+    const kw = Sektoren.kanteId('0306', Sektoren.hexVonOrt('wrack'));
+    g.explore.known.delete('wrack'); g.explore.erkundet.delete(Sektoren.hexVonOrt('wrack')); g.explore.bojenGefunden.delete(kw);
+    ok(!g.explore.bojeBekannt(kw) && Sprung.selectDest(g, 'wrack') === null, 'Tutorial: Ziel mit unbekannter Boje über Ort-Link wählbar');
+    ok((g.snapshot().space.jp || []).some((b) => b.k === kw), 'space.jp enthält die unbekannte Boje des gewählten Ziels');
     const t3 = setup('m3');
-    ok(!t3.g.weltstand.persistent && !Sprung.anflugPflicht(t3.g), 'Direktstart m3: keine Anflugpflicht');
-    const prev = g.C.sektoren.tutorialFrei; g.C.sektoren.tutorialFrei = false;
-    ok(Sprung.anflugPflicht(g), 'CONFIG.sektoren.tutorialFrei = false schaltet den Schutz ab');
-    g.C.sektoren.tutorialFrei = prev;
+    ok(!t3.g.weltstand.persistent && Sprung.anflugPflicht(t3.g) && Sprung.zielwahlUeberOrtLinks(t3.g), 'Direktstart m3: Anflugpflicht, Zielwahl über Ort-Links');
   }
 
   // ------------------------------------------------------------------------------------------------------------

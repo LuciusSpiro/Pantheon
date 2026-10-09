@@ -2,8 +2,9 @@
 // Reisen / Faltsprung (§9.2) und Sektorkarte (CONTRACT-B3 §4, Team SEKTOR).
 // Welle 0: selectDest/updateJump/doJump wörtlich aus server/sim/space.js verschoben; space.js ruft sie weiter auf.
 // B3:
-//   - Tutorial-Schutz (§0.1, E29): Solange das Tutorial läuft, gilt die alte Regel (bekannter Nachbarort, Abstand zur
-//     Station ≥ 300, Ankunft an scene.arrive). Danach bzw. in der Kampagne ohne Tutorial: Sprungpunkt anfliegen.
+//   - Anflug (E29, Nachtrag W1 AP2): Sprungpunkt anfliegen gilt überall, auch in m1–m3; Ankunft am Gegen-Sprungpunkt.
+//     Im Tutorial bleibt nur die Zielwahl über Ort-Links (zielwahlUeberOrtLinks), damit kein Ort an einer unbekannten
+//     Boje hängt.
 //   - Ziele sind Nachbarhexe über bekannte, offene Kanten oder offene temporäre Kanten; Leerraum nur über temporäre Kanten.
 //   - Notfallsprung (helm.notsprung): zufällige Kante, bevorzugt in Flugrichtung, nur in spielbare Hexe; Reaktor offline.
 //   - Temporäre Sprungpunkte, Bojen, Debug-Hilfen und `space.jp` für den Snapshot.
@@ -18,9 +19,10 @@ let spaceMod = null;   // lazy wegen Zirkelbezug space -> sprung
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 const SK = (game) => (game.C && game.C.sektoren) || {};
 
-// ---------- Tutorial-Schutz (CONTRACT-B3 §0.1) ----------
+// ---------- Tutorial (CONTRACT-B3 §0.1, CONTRACT-W1 §4) ----------
 // Tutorial läuft: Kampagne mit Tutorial, solange m1–m3 nicht alle erledigt sind; jede Partie ohne Kampagnen-Weltstand
 // (Direktstart m3, Testgelände, Golden-Läufe, Tests). Kampagne ohne Tutorial bzw. nach dem Tutorial: läuft nicht.
+// Nutzer: zielwahlUeberOrtLinks (hier) und away.js (alter Bodenkampf).
 function tutorialLaeuft(game) {
   const ws = game.weltstand;
   if (!ws || !ws.persistent) return true;
@@ -29,7 +31,11 @@ function tutorialLaeuft(game) {
   const ms = (game.mission && game.mission.missions) || {};
   return !TUTORIAL_MISSIONS.every((id) => ms[id] && (ms[id].state === 'done' || ms[id].status === 'erledigt'));
 }
-function anflugPflicht(game) { return !(SK(game).tutorialFrei !== false && tutorialLaeuft(game)); }
+// Anflug (Sperrgrund, Ankunft am Gegen-Sprungpunkt): gilt immer (E29, Nachtrag W1). Bleibt als Funktion, weil Snapshot
+// (ship.jump.anflug), Clients und explore.js danach fragen.
+function anflugPflicht(game) { return true; }
+// Zielwahl: im Tutorial über Ort-Links wie heute (Boje muss nicht bekannt sein), sonst nach der Hex-Regel (hexGrund)
+function zielwahlUeberOrtLinks(game) { return tutorialLaeuft(game); }
 
 // ---------- Hilfen ----------
 function hexHier(game) { return Sektoren.hexVonOrt(game.ship.scene); }
@@ -122,7 +128,7 @@ function doJump(game) {
   const pflicht = anflugPflicht(game);
   game.emit('sfx', { name: 'jump' });
   space().enterScene(game, dest, {});
-  // B3 §4 Ankunft: am Sprungpunkt der Gegenkante, Blick in Flugrichtung (Tutorial: scene.arrive wie heute)
+  // B3 §4 Ankunft: am Sprungpunkt der Gegenkante, Blick in Flugrichtung (seit W1 auch im Tutorial)
   if (pflicht && vonHex && nachHex) ankunftAmSprungpunkt(game, vonHex, nachHex);
   game.emit('jump', { scene: dest, location: dest, from });
   game.explore.arrive(dest);
@@ -158,8 +164,8 @@ function selectDest(game, dest) {
   }
   if (id === game.ship.scene) return 'Da sind wir doch schon.';
   const here = hexHier(game); const ziel = Sektoren.hexVonOrt(id);
-  if (!anflugPflicht(game)) {
-    // Tutorial (E29): Ort-Links wie heute; Leerraum/temporäre Kanten nach der Hex-Regel
+  if (zielwahlUeberOrtLinks(game)) {
+    // Tutorial (E29): Ort-Links wie heute (Boje muss nicht bekannt sein); Leerraum/temporäre Kanten nach der Hex-Regel
     const beideOrte = !Sektoren.istLeerId(id) && !Sektoren.istLeerId(game.ship.scene);
     if (!ex.isLinked(game.ship.scene, id)) {
       if (beideOrte && !ex.tempKante(Sektoren.kanteId(here, ziel))) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
@@ -296,9 +302,14 @@ function jpSnapshot(game) {
   if (!here) return [];
   const loc = Locations.get(game.ship.scene);
   const out = [];
+  // W1 AP2: Die Kante des gewählten Ziels steht immer drin – im Tutorial ist das Ziel über Ort-Links wählbar, ohne dass
+  // seine Boje bekannt ist; Ring, Randpfeil und Bots brauchen trotzdem ihre Lage. (Ohne Tutorial setzt selectDest die
+  // bekannte Boje ohnehin voraus.)
+  const dest = game.ship.jump && game.ship.jump.dest;
+  const zielHex = dest ? Sektoren.hexVonOrt(dest) : null;
   for (const n of Sektoren.nachbarn(here)) {
     const id = Sektoren.kanteId(here, n);
-    if (!ex.bojeBekannt(id)) continue;
+    if (!ex.bojeBekannt(id) && n !== zielHex) continue;
     const p = Sektoren.sprungpunktLage(loc.scene.w, loc.scene.h, Sektoren.richtung(here, n), SK(game).randAbstand);
     const z = ex.tempKante(id) ? 'temporaer' : (!Sektoren.spielbar(n) || !ex.kanteOffen(id)) ? 'gesperrt' : 'aktiv';
     out.push({ k: id, x: p.x, y: p.y, z, n });
@@ -331,7 +342,7 @@ function debugErkundeAlle(game) {
 
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
-  tutorialLaeuft, anflugPflicht, zielId, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
+  tutorialLaeuft, anflugPflicht, zielwahlUeberOrtLinks, zielId, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
   notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };

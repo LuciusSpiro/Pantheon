@@ -306,7 +306,9 @@ console.log('\n[M1 §9: Reisen, Docken Vaelen, Weitscan, Verstecke, Leitbake]');
   ok(notices(0).some((t) => /Keine bekannte Route/.test(t)), 'nicht verbundener Ort abgelehnt');
   cmd(0, 'captain.selectDest', { dest: 'vaelen' });
   ok(sh.jump.dest === 'vaelen', 'unbekannter, aber verbundener Ort wählbar (Erkunden)');
-  sh.docked = false; sh.dockedAt = null; sh.x = 1200; sh.y = 700;
+  // W1 AP2: Anflugpflicht auch im Tutorial -> Lerche auf den Sprungpunkt der Kante zum Ziel
+  const jpV = require('../server/sim/sprung.js').sprungpunkt(g, require('../shared/sektoren.js').hexVonOrt('vaelen'));
+  sh.docked = false; sh.dockedAt = null; sh.x = jpV.x; sh.y = jpV.y;
   run(8.5);
   enter(1, 'helm'); cmd(1, 'helm.jump');
   ok(sh.scene === 'vaelen' && g.explore.visited.has('vaelen') && g.snapshot().world.location === 'vaelen', 'Sprung -> Vaelen besucht, world.location');
@@ -551,7 +553,9 @@ console.log('\n[Missions-Engine: Ort verlassen und zurück]');
 {
   const { g, send, run, cmd, enter } = setup(1);
   send(0, { t: 'debug', cmd: 'mission', id: 'm2', step: 'relay' });
-  const sh = g.ship; sh.x = 1000; sh.y = 1000; sh.vx = 0; sh.vy = 0;
+  // W1 AP2: Anflugpflicht auch im Tutorial -> Lerche auf den Sprungpunkt der Kante zum Ziel
+  const jpN = require('../server/sim/sprung.js').sprungpunkt(g, require('../shared/sektoren.js').hexVonOrt('nebel'));
+  const sh = g.ship; sh.x = jpN.x; sh.y = jpN.y; sh.vx = 0; sh.vy = 0;
   enter(0, 'captain'); cmd(0, 'captain.selectDest', { dest: 'nebel' });
   ok(!g.ship.jump.blockedReason || !/Störsender/.test(g.ship.jump.blockedReason), 'Pylonen haben keinen Störsender – Rückzug möglich');
   run(8.5); send(0, { t: 'leave' }); enter(0, 'helm'); cmd(0, 'helm.jump');

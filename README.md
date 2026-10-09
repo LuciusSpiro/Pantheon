@@ -680,10 +680,11 @@ z. B. `0206` Lichtkordon). Die Daten liegen in `content/welt/limes.json`.
   anfliegbar.
 - **Springen:** nur ins Nachbarhex über eine **offene Kante mit bekannter Boje** (gelb = offen, rot gestrichelt =
   gesperrt, blau = temporär). Sektor anklicken, Enter, am Steuer F.
-- **Anflug:** Im freien Spiel (Kampagne ohne Tutorial bzw. nach m3) muss die Lerche die **Boje anfliegen** (≤ 250 m),
+- **Anflug:** Überall (seit Welle 1 auch im Tutorial) muss die Lerche die **Boje anfliegen** (≤ 250 m),
   sonst steht am Steuer „Sprungpunkt <Ziel> anfliegen (<m> m)“. Ankunft am Sprungpunkt der Gegenseite, Blick in
   Flugrichtung.
-- **Tutorial (m1–m3):** Faltsprung wie bisher von überall (≥ 300 m von der Station), kein Anflug.
+- **Tutorial (m1–m3):** Seit Welle 1 gilt der Anflug auch hier (Boje anfliegen, Ankunft an der Gegenboje; ≥ 300 m von
+  der Station bleibt). Ziele wählt man im Tutorial weiter über die Ort-Links, auch wenn die Boje noch unbekannt ist.
 - **Bojen finden:** Bojen zwischen bekannten Orten sind bekannt. Weitere findet der **Weitscan** der Taktik (Umkreis
   1400 m, Meldung „Boje gefunden …“).
 - **Leerraum** (leere Hexe) ist eine Barriere: kein regulärer Sprung hinein oder heraus, nur über temporäre Sprungpunkte

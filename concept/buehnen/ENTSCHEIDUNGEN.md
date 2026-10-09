@@ -52,6 +52,9 @@ stark parallelisieren.**
 **Tutorial, Sektor, Ablauf**
 28. m1 (Plattform) behält den alten Kampf; spätere Besuche mit Kampf v2.
 29. Faltsprung von überall in m1–m3; im freien Spiel Sprungpunkt anfliegen.
+    **Nachtrag W1 (Kai, 2026-10-09):** Boje anfliegen gilt überall, auch in m1–m3, mit Ankunft an der Gegenboje.
+    Im Tutorial bleibt nur die Zielwahl über Ort-Links (`sprung.zielwahlUeberOrtLinks`), damit kein Ort an einer
+    unbekannten Boje hängt. Golden-Basis ist jetzt `base-w1` (`allow-w1.json`).
 30. Notfallsprung nur in spielbare Hexe; Leerraum als leere Szene, zweiter Notsprung nach Reaktor-Neustart als Ausweg.
 31. Karte Limes: JSON im Repo ist Quelle, Python im Vault bleibt Entwurf.
 32. Wrack-Abstecher in m2: einen Sprung mehr hinnehmen.

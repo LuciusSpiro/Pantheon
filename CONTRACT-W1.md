@@ -1,4 +1,4 @@
-# CONTRACT-W1 – Welle 1 (AP1 Netzbudget, AP7 Art-Nachzug und Ladezeit)
+# CONTRACT-W1 – Welle 1 (AP1 Netzbudget, AP7 Art-Nachzug und Ladezeit, AP2 Sprung im Tutorial)
 
 Studioleitung = Hauptsitzung („main“). Grundlage: Briefing und Planung im Vault
 (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\Briefing Welle 1+2 (AP1-AP7).md`, `…\Planung Welle 1+2 (AP1-AP7).md`).
@@ -121,3 +121,44 @@ Worst Case **mindestens 1,5 KB unter der Grenze**: Snapshot ≤ `13 312 − 1 53
 `npm run check:assets` ohne Fehler (Warnungen mit Zahl), Galerie 11/11 Schablonen bestanden, `buehne alle` 100 %,
 `npm run mess:kaltbau` mit Vorher- und Nachher-Tabelle (Schiff < 1,5 s), Screenshots vorhanden, `npm run check` und
 `npm test` grün.
+
+---
+
+## 4. AP2 Sprung im Tutorial (Team SPRUNG)
+
+Studioleitung: AP1 (`84e0a19`) und AP7 (`12bedec`) sind abgenommen. AP2 läuft allein im Baum.
+
+### 4.1 Ziel
+Die Regel „Boje anfliegen, um zu springen“ gilt überall, auch in m1–m3 (Kai, 2026-10-09). Abgesehen davon spielt sich das Tutorial wie heute.
+
+### 4.2 Befund (von der Studioleitung geprüft)
+- `anflugPflicht()` (`server/sim/sprung.js:32`) regelt **zwei** Dinge:
+  - **(a) Anflug:** Sperrgrund (:91) und Ankunft am Gegen-Sprungpunkt (:122/126).
+  - **(b) Zielwahl** (:161–168): im Tutorial über Ort-Links, sonst über `hexGrund`, wofür die Boje bekannt sein muss.
+  Wer nur `tutorialFrei` streicht, ändert auch (b). Dann droht im Tutorial ein Softlock, weil die Boje noch unbekannt ist.
+- `tutorialLaeuft()` (:24) ist auch dann wahr, wenn kein Weltstand persistiert ist (Direktstart m3, Golden, Tests).
+- Den Rückfall für ein fehlendes `ship.jump.anflug` behandeln die Clients unterschiedlich: `consoles.js:55` nimmt `true`, `starmap.js:645` nimmt `false`.
+- Texte stehen in `content/regiebuecher/m{1,2,3}.regiebuch.json` (`texte`). Die 300-px-Regel erklären in m1 die Texte `undock.sternkarte`, `undock.checkliste`, `route.faltsprung` und `ziel.faltsprung`. Der erste Sprung ist in m1 `undock`, in m2 `vaelen`, in m3 `flight`.
+- `explore.js:274` meldet „Boje gefunden“ nur, wenn Anflugpflicht besteht. Im Tutorial kommen damit neue ODA-Zeilen dazu, das ist erlaubt.
+- Den Bojenanflug für Bots gibt es schon: `GenericAgent.flyClear` (`sim-headless.js:~1932`). `Agent.flyClear` (:~457) fliegt dagegen nur auf Abstand.
+- Die Kontext-Goldens enthalten `buch-hashes.json` (`tools/test-spielleiter.js` T2). Textänderungen an m1–m3 machen T2 rot. Deshalb **einmal bewusst** mit `--update` neu schreiben, die Änderung prüfen und im Bericht nennen.
+
+### 4.3 Dateien
+`shared/config.js` (nur `sektoren.tutorialFrei`), `server/sim/sprung.js`, `server/sim/explore.js` (nur die Boje-Meldung, falls nötig), `public/js/{consoles.js,starmap.js}` (nur Rückfall/Hinweise), `content/regiebuecher/m{1,2,3}.regiebuch.json` (nur `texte`), `tools/{sim-headless,golden-trace,test-sektoren}.js`, `tools/fixtures/golden/base-w1/**` (neu), `tools/fixtures/golden/allow-w1.json` (neu), `tools/fixtures/context/**` (nur per `--update`), `concept/buehnen/ENTSCHEIDUNGEN.md` (Entscheidung 29), `README.md` (nur „Neu in B3“, Tutorial-Zeile). Port 3377–3378, `WORLD_DIR=data/worlds-sprung`, `REGIE_DIR=data/regie-sprung`.
+
+### 4.4 Lieferung
+1. **Vorher messen:** Bot-Zeit m1, m2, m3 solo und zu dritt (Median aus Golden `base`). Referenz für m1 sind 8:23.
+2. `anflugPflicht()` gibt immer `true` zurück. `tutorialFrei` entfällt. `test-sektoren.js` wird nachgezogen.
+3. Die Zielwahl bekommt eine eigene, benannte Funktion `zielwahlUeberOrtLinks(game)`. Sie ist wahr, solange das Tutorial läuft (Logik des heutigen `tutorialLaeuft`), und damit springt das Tutorial weiter über Ort-Links. **Ziel:** Kein Ort im Tutorial wird unerreichbar, weil seine Boje unbekannt ist. Falls die Ankunft am Gegen-Sprungpunkt (:122/126) Mission-Trigger an `scene.arrive` bricht (Schritt-Ziele „ankommen“), meldest du das an main, statt es selbst umzubauen.
+4. Client: fehlt `anflug`, gilt einheitlich `false`. Randpfeil, Ring und Steuer-Zeile funktionieren im Tutorial (Screenshot).
+5. **Texte:** m1 erklärt den Anflug beim ersten Sprung. Ersetze die vier 300-px-Stellen; der Mindestabstand von 300 px zur Station bleibt technisch bestehen und darf erwähnt werden. m2 `vaelen` und m3 `flight` bekommen einen Satz. Ton und Länge wie die vorhandenen Texte.
+6. **Bots:** Den Bojenanflug von `GenericAgent` nach `Agent` hochziehen. Damit fliegen Tutorial-Bots und `golden-trace` die Bojen an.
+7. **Golden neu aufnehmen:** `tools/fixtures/golden/base-w1/`, `--all` mit Standard-Seeds. Dazu `allow-w1.json` mit den erlaubten Abweichungen: Dauer, Ankunftsposition und Texte zu Anflug und Boje. **Flags, Inventar und Missionsausgang ändern sich nicht.** Den Vergleich `base` gegen `base-w1` mit `allow-w1.json` in den Bericht übernehmen. Ab jetzt ist `base-w1` die Basis; vermerke das in einem Kommentar am Kopf von `golden-trace.js`.
+8. **Doku:** Entscheidung 29 in `ENTSCHEIDUNGEN.md` (Nachtrag W1, Datum, Kai) und die Tutorial-Zeile in README „Neu in B3“.
+
+### 4.5 Abnahme
+- `npm run check` und `npm test` grün (Zahlen), `npm run test:sektoren` grün.
+- Golden `base` gegen `base-w1` grün mit `allow-w1.json`. Die Abweichungsliste steht im Bericht.
+- Bot-Zeiten m1–m3 vorher und nachher in einer Tabelle.
+- Browserlauf m1 mit echten Eingaben (Playwright, Port 3377): Ohne Anflug ist der Sprung gesperrt und der Hinweis wird gezeigt; nach dem Anflug geht der Sprung. Screenshots unter `shots/sprung/`.
+- Notfallsprung: unverändert (keine Sonderregel).

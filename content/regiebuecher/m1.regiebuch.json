@@ -568,11 +568,11 @@
     "dock.uebung_uebersprungen": "Übung übersprungen – alte Hasen also. Lager oben links, Brücke ganz vorn rechts.",
 
     "undock.steuer": "Auftrag angenommen! Steuerkonsole ganz vorn auf der Brücke: W gibt Schub und legt ab.",
-    "undock.sternkarte": "Captain: Sternkarte, Ziel „Splittergürtel“ – B-7 liegt dahinter. Gesprungen wird ab 300 px Abstand.",
+    "undock.sternkarte": "Captain: Sternkarte, Ziel „Splittergürtel“ – B-7 liegt dahinter. Gesprungen wird nur an der Sprungboje.",
     "undock.solo": "Wer am Steuer sitzt, kann nicht gleichzeitig Captain sein. Esc, rüberlaufen, E – Bordgymnastik.",
-    "undock.checkliste": "Checkliste: abgelegt? Ziel Splittergürtel gewählt? 300 px Abstand? Dann F an der Steuer.",
+    "undock.checkliste": "Checkliste: abgelegt? Ziel Splittergürtel gewählt? Steuer im Ring der Sprungboje – der Randpfeil zeigt hin? Dann F.",
 
-    "route.faltsprung": "Faltsprung geglückt! B-7 liegt hinter dem Gürtel – aber erst das Bergungsgut.",
+    "route.faltsprung": "Faltsprung geglückt – wir kommen an der Gegenboje raus. B-7 liegt hinter dem Gürtel, aber erst das Bergungsgut.",
     "route.kisten": "Tesk meldet drei Bergungskisten im Feld (grün). Drüberfliegen sammelt sie ein. Taktik lotst!",
     "route.kisten_hinweis": "Die Kisten sind auf der Taktikkarte grün. Der Pilot sieht nur nach vorn – Taktik, Marker setzen!",
     "route.grauzahn_wartet": "Captain: Grauzahn wartet auf Antwort – Reiter „Funk“.",
@@ -647,7 +647,7 @@
     "ziel.funk_annehmen": "Funkspruch annehmen",
     "ziel.ablegen": "Steuer: ablegen (W)",
     "ziel.ziel_splitter": "Captain: Ziel Splittergürtel wählen (Sternkarte)",
-    "ziel.faltsprung": "Steuer: Faltsprung (F)",
+    "ziel.faltsprung": "Steuer: Sprungboje anfliegen, dann Faltsprung (F)",
     "ziel.bergung": "Bergungsgut im Feld einsammeln ({salvaged}/3)",
     "ziel.grauzahn_antworten": "Captain: auf Grauzahn antworten",
     "ziel.ziel_b7": "Captain: Ziel Boje B-7 wählen",

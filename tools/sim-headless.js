@@ -456,8 +456,35 @@ class Agent {
     this.enter(S, 'weapons');
     return false;
   }
-  // Freifliegen für den Sprung: ablegen, Abstand zur Station gewinnen, sonst stehen
+  // Freifliegen für den Sprung: ablegen, Abstand zur Station gewinnen, dann den Sprungpunkt der Kante zum Ziel anfliegen
+  // (space.jp, ship.jump.jp), sonst stehen. W1 AP2: Bojenanflug aus GenericAgent hochgezogen – gilt seit E29-Nachtrag
+  // auch im Tutorial.
   flyClear(S) {
+    const sh = S.ship; const j = sh.jump || {};
+    const jp = j.jp && (S.space.jp || []).find((q) => q.k === j.jp);
+    if (jp && /^Sprungpunkt/.test(j.blockedReason || '')) {
+      if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
+      // festgefahren (Brocken im Splittergürtel): kommt der Sprungpunkt 3 s nicht näher, 2 s zurücksetzen (W1 AP2: sonst
+      // klemmt die Lerche am Szenenrand vor einem Brocken), dann 5 s seitlich ausweichen
+      const m = this.memo; const d = dist(sh.x, sh.y, jp.x, jp.y);
+      if (m.jpKey !== j.jp) { m.jpKey = j.jp; m.jpBest = null; m.detour = null; }
+      if (m.jpBest == null || d < m.jpBest - 20) { m.jpBest = d; m.jpAt = S.time; }
+      if (!m.detour && S.time - m.jpAt > 3) {
+        const a = Math.atan2(jp.y - sh.y, jp.x - sh.x) + ((m.detourN = (m.detourN || 0) + 1) % 2 ? Math.PI / 2 : -Math.PI / 2);
+        m.detour = { x: clamp(sh.x + Math.cos(a) * 350, 100, (S.space.w || 2400) - 100), y: clamp(sh.y + Math.sin(a) * 350, 100, (S.space.h || 1400) - 100), back: S.time + 2, until: S.time + 7 };
+      }
+      if (m.detour && S.time < m.detour.back) { this.helmS(S, 0, STOP - 1); return; }
+      if (m.detour && S.time < m.detour.until) { this.steer(S, m.detour.x, m.detour.y, 40, 120); return; }
+      if (m.detour) { m.detour = null; m.jpBest = null; }
+      // Ziel 180 px vom Szenenrand fernhalten (Sprungpunkte in Eckrichtung liegen nur ~90 px vom Rand; dort klemmt die
+      // Lerche vor Brocken fest). Höchstens ~130 px neben dem Sprungpunkt, + 80 Ankunft < sprungpunktRadius 250.
+      const tx = clamp(jp.x, 180, (S.space.w || 2400) - 180), ty = clamp(jp.y, 180, (S.space.h || 1400) - 180);
+      this.steer(S, tx, ty, 80, 160); return;
+    }
+    this.flyClearStation(S);
+  }
+  // Abstand zur Station gewinnen (Mindestabstand ≥ 300 gilt weiter), sonst stehen
+  flyClearStation(S) {
     const sh = S.ship; const l = Locations.get(sh.scene).scene;
     if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
     const ref = l.dock ? (l.station || l.dock) : null;
@@ -1932,26 +1959,7 @@ class GenericAgent extends KeshAgent {
     return n;
   }
 
-  // B3 §4 (außerhalb des Tutorials): gesprungen wird nur am Sprungpunkt der Kante zum Ziel (space.jp, ship.jump.jp).
-  // Die Tutorial-Bots (Agent.flyClear) bleiben unverändert; dort gilt die alte Regel (Abstand zur Station).
-  flyClear(S) {
-    const sh = S.ship; const j = sh.jump || {};
-    const jp = j.jp && (S.space.jp || []).find((q) => q.k === j.jp);
-    if (jp && /^Sprungpunkt/.test(j.blockedReason || '')) {
-      if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
-      // festgefahren (Brocken im Splittergürtel): kommt der Sprungpunkt 3 s nicht näher, 5 s seitlich ausweichen
-      const m = this.memo; const d = dist(sh.x, sh.y, jp.x, jp.y);
-      if (m.jpBest == null || d < m.jpBest - 20) { m.jpBest = d; m.jpAt = S.time; }
-      if (!m.detour && S.time - m.jpAt > 3) {
-        const a = Math.atan2(jp.y - sh.y, jp.x - sh.x) + ((m.detourN = (m.detourN || 0) + 1) % 2 ? Math.PI / 2 : -Math.PI / 2);
-        m.detour = { x: clamp(sh.x + Math.cos(a) * 350, 100, (S.space.w || 2400) - 100), y: clamp(sh.y + Math.sin(a) * 350, 100, (S.space.h || 1400) - 100), until: S.time + 5 };
-      }
-      if (m.detour && S.time < m.detour.until) { this.steer(S, m.detour.x, m.detour.y, 40, 120); return; }
-      if (m.detour) { m.detour = null; m.jpBest = null; }
-      this.steer(S, jp.x, jp.y, 80, 160); return;
-    }
-    super.flyClear(S);
-  }
+  // B3 §4: Bojenanflug (Sprungpunkt der Kante zum Ziel) erbt GenericAgent seit W1 AP2 von Agent.flyClear.
   // ---------- zwischen den Missionen: Angebot annehmen (Captain/solo am Planungstisch) ----------
   betweenMissions(S, p) {
     if (p.zone === 'away') { this.padsUp(S, p); return; }

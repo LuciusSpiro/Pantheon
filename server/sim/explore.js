@@ -272,7 +272,7 @@ class Explore {
       const p = Sektoren.sprungpunktLage(loc.scene.w, loc.scene.h, Sektoren.richtung(here, Sektoren.anderes(e, here)), C.randAbstand);
       if (dist(x, y, p.x, p.y) <= (C.weitscanBoje || 1400) && this.markBoje(id)) n++;
     }
-    // ODA nur mit Anflugpflicht: im Tutorial bleiben die ODA-Texte wie heute (Golden m1–m3)
+    // ODA nur mit Anflugpflicht (seit W1 AP2 immer, auch im Tutorial: neue ODA-Zeilen in Golden base-w1)
     if (n && require('./sprung.js').anflugPflicht(g)) g.oda(n === 1 ? 'Weitscan: Boje eines Sprungpunkts gefunden – auf der Sternkarte eingetragen.' : `Weitscan: ${n} Sprungpunkt-Bojen gefunden – auf der Sternkarte eingetragen.`, null);
     return n;
   }

@@ -51,8 +51,9 @@
   // B3: Leerraum-Ort-ID (leer-<SSZZ>) und „am Sprungpunkt“ (ship.jump.d ≤ CONFIG.sektoren.sprungpunktRadius)
   function isLeerId(id) { return typeof id === 'string' && /^leer-\d{4}$/.test(id); }
   function jumpPointNear(jump) { const r = (CFG.sektoren && CFG.sektoren.sprungpunktRadius) || 250; return !!jump && jump.d != null && jump.d <= r; }
-  // QA-B3 F4: Anflugpflicht (freies Spiel) – im Tutorial keine Sprungpunkt-Hinweise. Quelle: StarMap.anflugPflicht (KARTE)
-  function anflugPflicht(st) { const SM = window.StarMap; return SM && typeof SM.anflugPflicht === 'function' ? SM.anflugPflicht(st) : true; }
+  // QA-B3 F4 / W1 AP2: Anflugpflicht vom Server (ship.jump.anflug, seit W1 überall). Quelle: StarMap.anflugPflicht (KARTE);
+  // fehlt das Feld oder die Karte, gilt einheitlich false (keine Sprungpunkt-Hinweise)
+  function anflugPflicht(st) { const SM = window.StarMap; return SM && typeof SM.anflugPflicht === 'function' ? SM.anflugPflicht(st) : false; }
   const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
   function m3(path, d) { return R.cfgM3 ? R.cfgM3(path, d) : d; }
   function f1(v) { return R.fmt1 ? R.fmt1(v) : (Math.round((+v || 0) * 10) / 10).toFixed(1).replace('.', ','); }
@@ -339,7 +340,7 @@
       if (jump.dest && jump.d != null && anflug) { R.text(ctx, 'Sprungpunkt anfliegen: ' + jump.d + ' m', lx, y, { color: PAL.amber }); y += 10; }
       else {
         if (jumpReason && jump.dest) { for (const l of R.wrap(jumpReason, lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: PAL.warn }); y += 10; } }
-        // ohne Sperrgrund und weit weg = Faltsprung von überall (Tutorial, E29) -> Abstand nicht zeigen
+        // ohne Anflugpflicht (Feld fehlt) -> Abstand nicht zeigen
         if (jump.dest && jump.d != null && anflugPflicht(st) && (jumpReason || jumpPointNear(jump))) { const near = jumpPointNear(jump); R.text(ctx, near ? 'Am Sprungpunkt (' + jump.d + ' m)' : 'Sprungpunkt ' + jump.d + ' m', lx, y, { color: near ? PAL.mint : PAL.panelLight }); y += 10; }
       }
       // B3: Notfallsprung (cmd helm.notsprung) mit Bestätigung: N, dann J
