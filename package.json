@@ -21,6 +21,7 @@
     "assets": "node tools/sync-assets.mjs",
     "assets:watch": "node tools/sync-assets.mjs --watch",
     "check:assets": "node tools/check-assets.mjs",
+    "mess:kaltbau": "node tools/kaltbau-mess.js",
     "check-missions": "node tools/check-missions.js",
     "katalog": "node tools/katalog.js",
     "test:spielleiter": "node tools/test-spielleiter.js",

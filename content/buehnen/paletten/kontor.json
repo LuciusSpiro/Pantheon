@@ -21,7 +21,7 @@
     "prop/germanen/gemein/fass",
     "lerche/furn/crate",
     "lerche/furn/barrel",
-    "prop/germanen/station/regal"
+    { "id": "prop/germanen/station/regal", "wandnah": true }
   ],
-  "hinweis": "Germanen + Handelsblau (Deckungsoberkante, Planen, Banner). Streu laut ART-GK-BAU; regal nur wandnah (deko.js kennt wandnah nur je Regel, nicht je Streu-Prop – Wunsch an VOXEL)."
+  "hinweis": "Germanen + Handelsblau (Deckungsoberkante, Planen, Banner). Streu laut ART-GK-BAU."
 }

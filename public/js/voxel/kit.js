@@ -584,6 +584,10 @@ const PROP_FB = {
  * Die Karte liegt mit Kachel (0,0) bei Welt (0, 0, 0); Kachelmitte = (x + 0,5, 0, lokale Zeile + 0,5), Deck II bei z wie Deck I.
  */
 export async function build(parent, karteIn, opts = {}) {
+  bauBeginn();
+  try { return await bauKarte(parent, karteIn, opts); } finally { bauEnde(); }
+}
+async function bauKarte(parent, karteIn, opts) {
   const t0 = now();
   const loader = opts.loader || DefaultLoader;
   const stats = { buildMs: 0, ladeMs: 0, assetMs: 0, bakeMs: 0, tris: 0, chunks: 0, dynamisch: 0, deko: 0, dekoFehlt: {}, platzhalter: {}, assets: {}, fehlend: [], fehler: 0, version: VERSION };
@@ -1346,28 +1350,68 @@ function startBuild(ctx) {
   return p;
 }
 
+// Der Bau hat Vorrang: Solange build() läuft, schickt der Prefetch kein neues Paket los. Sonst belegt er die sechs
+// HTTP-Verbindungen, die der Bau braucht (Direktstart ?arena: Prefetch und Bau laufen gleichzeitig; AP7-Messung).
+let bauLaeuft = 0, bauFrei = null, bauFreigeben = null;
+function bauBeginn() { if (bauLaeuft++ === 0) bauFrei = new Promise((r) => { bauFreigeben = r; }); }
+function bauEnde() { if (--bauLaeuft <= 0) { bauLaeuft = 0; const f = bauFreigeben; bauFrei = bauFreigeben = null; if (f) f(); } }
+async function bauAbwarten() { while (bauLaeuft > 0 && bauFrei) await bauFrei; }
+
 /**
- * Kit-Teile und Props aller aktiven Bauweisen im Hintergrund laden (Spiel: einige Sekunden nach dem Start), damit der Bau
- * beim Betreten einer Bühne warm ist (Budget Außenposten < 1,5 s; kalt kostet allein das Laden ~1,5 s).
+ * Alles, was eine Bühne beim Betreten braucht, im Hintergrund laden (Spiel: im Leerlauf nach dem Start), damit Bau und
+ * Figuren warm sind (Budget < 1,5 s). Reihenfolge (AP7):
+ *   1. Daten, die jeder Bau zuerst liest: kacheln/anker/achsen, Bauweisen-, Deko- und Besitztabellen, shared/buehne.js
+ *   2. Paletten (Bauweisen-Basis, Besitz × Bauweise × Zustand = auch die palette-Overrides der Figuren), Stimmungen,
+ *      Crew-Figuren und die Grundwaffe der Spieler
+ *   3. Kit-Teile, Anker-Props, Leitstücke, Banner und Besitz-streu aller aktiven Bauweisen/Besitzer
+ *   4. Gegner- und NSC-Figuren (fig/*, lerche/*) und die übrigen Waffen-Gerüste (die Library lädt die Bauweise-Anbauten als optionale
+ *      Abhängigkeiten mit – alle vier, nicht nur die aktive)
+ * Pakete zu sechs; vor jedem Paket wartet der Prefetch, bis kein Bau läuft. → Promise<Anzahl Einträge>
  */
 export async function prefetch(opts = {}) {
   const loader = opts.loader || DefaultLoader;
   const base = opts.base || BASE;
   try {
     if (loader.ready) await loader.ready;
-    const achsen = await getJson(base + 'achsen.json');
-    const bws = achsen && achsen.bauweisen ? Object.keys(achsen.bauweisen).filter((b) => achsen.bauweisen[b].status === 'aktiv') : ['germanen', 'rom'];
-    const ids = new Set();
-    const add = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) ids.add(v); return; } if (Array.isArray(v)) v.forEach(add); else if (typeof v === 'object') Object.values(v).forEach(add); };
-    for (const bw of bws) {
-      const t = await getJson(base + 'bauweisen/' + bw + '.json');
-      if (t) { add(t.kits); add(t.anker); add(t.leit); }
-      const d = await getJson(base + 'deko/' + bw + '.json');
-      if (d && d.regeln) for (const r of Object.values(d.regeln)) add(r && r.props);
+    const [achsen] = await Promise.all([getJson(base + 'achsen.json'), getJson(base + 'kacheln.json'), getJson(base + 'anker.json'), sharedBuehne()]);
+    const aktiv = (o, fb) => (o ? Object.keys(o).filter((k) => o[k] && o[k].status === 'aktiv') : fb);
+    const bws = aktiv(achsen && achsen.bauweisen, ['germanen', 'rom']);
+    const besitze = aktiv(achsen && achsen.besitz, []);
+    const [tabs, dekos, bes] = await Promise.all([
+      Promise.all(bws.map((bw) => getJson(base + 'bauweisen/' + bw + '.json'))),
+      Promise.all(bws.map((bw) => getJson(base + 'deko/' + bw + '.json'))),
+      Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
+    ]);
+    const modelle = new Set(), paletten = new Set(), moods = new Set();
+    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
+    const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
+    for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); strings(t.paletten, paletten); strings(t.stimmung, moods); }
+    for (const d of dekos) if (d && d.regeln) for (const r of Object.values(d.regeln)) kitIds(r && r.props);
+    for (const b of bes) {
+      if (!b) continue;
+      strings(b.je_bauweise, paletten);
+      if (b.banner) { if (typeof b.banner.model === 'string') modelle.add(b.banner.model); if (typeof b.banner.palette === 'string') paletten.add(b.banner.palette); }
+      for (const e of Array.isArray(b.streu) ? b.streu : []) { const id = typeof e === 'string' ? e : e && e.id; if (typeof id === 'string') modelle.add(id); }
     }
-    const list = [...ids].filter((id) => { try { return !!loader.manifest(id); } catch (e) { return false; } });
-    for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map((id) => loader.load(id)));
-    return list.length;
+    const man = (id) => { try { return loader.manifest(id); } catch (e) { return null; } };
+    const alle = typeof loader.manifestIds === 'function' ? loader.manifestIds() : [];
+    const figur = (re) => alle.filter((id) => re.test(id) && (man(id) || {}).kind === 'figure');
+    const waffen = alle.filter((id) => /^item\/waffe\/[^/]+$/.test(id));
+    const grundwaffe = waffen.filter((id) => id === 'item/waffe/blaster');
+    const jobs = [
+      ...[...paletten].map((id) => [id, 'palettes']),
+      ...[...moods].map((id) => [id, 'moods']),
+      ...figur(/^crew\//).map((id) => [id, 'figures']),
+      ...grundwaffe.map((id) => [id, 'models']),
+      ...[...modelle].filter((id) => !!man(id)).map((id) => [id, 'models']),
+      ...figur(/^(fig|lerche)\//).map((id) => [id, 'figures']),
+      ...waffen.filter((id) => !grundwaffe.includes(id)).map((id) => [id, 'models']),
+    ];
+    for (let i = 0; i < jobs.length; i += 6) {
+      await bauAbwarten();
+      await Promise.all(jobs.slice(i, i + 6).map(([id, kind]) => loader.load(id, kind)));
+    }
+    return jobs.length;
   } catch (e) { return 0; }
 }
 

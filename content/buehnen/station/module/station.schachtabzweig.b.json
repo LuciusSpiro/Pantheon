@@ -1,0 +1,48 @@
+{
+  "format": "modul/1", "id": "station.schachtabzweig.b", "art": "station", "typ": "schachtabzweig",
+  "groesse": [1, 1], "drehen": true, "spiegeln": true, "gewicht": 1, "bauweise": null,
+  "hinweis": "AP7: Schachtkammer statt T-Stück – zwei Wandnischen gegenüber dem Abstieg, zwei Stützen rahmen die Luke.",
+  "rows": [
+    "########",
+    "########",
+    "#..##..#",
+    "........",
+    "........",
+    "#.I..I.#",
+    "##....##",
+    "###LL###"
+  ],
+  "anker": [
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........",
+    "........"
+  ],
+  "anker_legende": {},
+  "belegungen": [
+    [
+      "........",
+      "........",
+      ".o......",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ],
+    [
+      "........",
+      "........",
+      "......o.",
+      "........",
+      "........",
+      "........",
+      "........",
+      "........"
+    ]
+  ]
+}

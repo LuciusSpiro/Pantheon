@@ -234,6 +234,40 @@ async function checkBauweisen(manifestIds) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// AP7 (CONTRACT-W1 §3.2/5): Besitz-Paletten content/buehnen/paletten/*.json → `streu` (deko.js streuen, opts.extra).
+// Je Eintrag "id" oder { id, wandnah?: bool }. IDs müssen im Manifest oder in public/voxel/index.json (models) stehen,
+// sonst baut der Client nur Platzhalter. Falsche Form = Fehler, unbekannte Zusatzfelder = Warnung.
+// ---------------------------------------------------------------------------------------------
+async function checkStreu(manifestIds, indexModels) {
+  const lines = [];   // { lvl, msg }
+  const dir = path.join(BUEHNEN, 'paletten');
+  const files = (await fsp.readdir(dir).catch(() => [])).filter((f) => f.endsWith('.json')).sort();
+  let n = 0;
+  for (const f of files) {
+    let j;
+    try { j = await readJson(path.join(dir, f)); } catch (err) { lines.push({ lvl: 'err', msg: `${f}: nicht lesbar (${err.message})` }); continue; }
+    if (j.streu === undefined) continue;
+    if (!Array.isArray(j.streu)) { lines.push({ lvl: 'err', msg: `${f}: streu muss eine Liste sein` }); continue; }
+    j.streu.forEach((e, i) => {
+      const wo = `${f}: streu[${i}]`;
+      let id = null;
+      if (typeof e === 'string') id = e;
+      else if (e && typeof e === 'object' && !Array.isArray(e)) {
+        if (typeof e.id !== 'string' || !e.id) { lines.push({ lvl: 'err', msg: `${wo}: Objektform braucht { id: "<Asset-ID>" }` }); return; }
+        id = e.id;
+        if (e.wandnah !== undefined && typeof e.wandnah !== 'boolean') lines.push({ lvl: 'err', msg: `${wo} (${id}): wandnah muss true/false sein` });
+        const extra = Object.keys(e).filter((k) => k !== 'id' && k !== 'wandnah');
+        if (extra.length) lines.push({ lvl: 'warn', msg: `${wo} (${id}): unbekannte Felder ${extra.join(', ')} (deko.js liest nur id, wandnah)` });
+      } else { lines.push({ lvl: 'err', msg: `${wo}: erwartet "<Asset-ID>" oder { id, wandnah }` }); return; }
+      n++;
+      if (!manifestIds.has(id) && !indexModels.has(id)) lines.push({ lvl: 'err', msg: `${wo}: ${id} weder im Manifest noch in index.json (models) – würde Platzhalter` });
+    });
+  }
+  lines.unshift({ lvl: 'info', msg: `${files.length} Besitz-Paletten, ${n} streu-Einträge` });
+  return lines;
+}
+
+// ---------------------------------------------------------------------------------------------
 const fmt = (n) => Math.round(n).toLocaleString('de-DE');
 const pad = (s, n) => { s = String(s); return s.length >= n ? s : s + ' '.repeat(n - s.length); };
 const padL = (s, n) => { s = String(s); return s.length >= n ? s : ' '.repeat(n - s.length) + s; };
@@ -461,6 +495,15 @@ async function main() {
       errors += e; warnings += w;
       console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ` ${b.bw} (${b.owner})`);
       for (const l of b.lines) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
+    }
+    if (!TEAM) {
+      const idxJ = JSON.parse(await fsp.readFile(path.join(ROOT, 'public', 'voxel', 'index.json'), 'utf8').catch(() => '{}'));
+      const sl = await checkStreu(new Set(man.entries.map((x) => x.id)), new Set(idxJ.models || []));
+      const e = sl.filter((l) => l.lvl === 'err').length, w = sl.filter((l) => l.lvl === 'warn').length;
+      errors += e; warnings += w;
+      console.log(`\n== Besitz-streu (content/buehnen/paletten/*.json, AP7)`);
+      console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' streu');
+      for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
     }
   }
 
