@@ -128,7 +128,7 @@ class Game {
     this.idCounter = 0;
     this.runCounter = 0;
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null };
+    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null };   // wellen: Kartenwahl Bodenkampf: Wellen
     this.reset();
   }
 
@@ -274,12 +274,14 @@ class Game {
   }
 
   // §6 menu { op: 'end' }: Partie für alle beenden -> Lobby (Spieler bleiben verbunden, ready = false)
-  endSession(p) {
+  // opts.grund: 'wellen' = Bodenkampf: Wellen ist vorbei (Server beendet, nicht ein Spieler)
+  endSession(p, opts) {
     let saved = false;
     const ws = this.weltstand;
+    const grund = opts && opts.grund ? String(opts.grund) : null;
     if (ws && ws.persistent && this.ship.docked) saved = !!this.saveWorld('end', { sync: true }).ok;
-    this.emit('sessionEnded', { by: p ? p.id : null, byName: p ? p.name : null, saved });   // CLIENT: by = ID, byName = Anzeige
-    this.log(`${p ? p.name : 'Jemand'} hat die Partie beendet${saved ? ' (Weltstand gesichert)' : ''}.`);
+    this.emit('sessionEnded', { by: p ? p.id : null, byName: p ? p.name : null, saved, ...(grund ? { grund } : {}) });   // CLIENT: by = ID, byName = Anzeige
+    this.log(`${p ? p.name : grund ? 'Runde (' + grund + ')' : 'Jemand'} hat die Partie beendet${saved ? ' (Weltstand gesichert)' : ''}.`);
     if (this.phase !== 'end') { this.stats.elapsed = this.time - this.stats.playTimeStart; this.logRun(true); }
     const prevWorld = ws && ws.persistent && this.worldsEnabled ? ws.id : null;
     this.muteEvents = true;   // kein „Erstbesuch Hafen“ aus reset() in die Lobby
@@ -501,6 +503,14 @@ class Game {
           }
           // B1 §4: Direktstart Testgelände mit Kartenparametern { arena: { art, schablone?, seed, bauweise, besitz, zustand, fraktion?, staerke?, haltung? } }
           if (this.phase === 'lobby' && 'arena' in msg) this.lobbyOpts.arena = Game.arenaParams(msg.arena);
+          // Bodenkampf: Wellen – Kartenwahl (null = Altweg ohne Wellen)
+          if (this.phase === 'lobby' && 'wellen' in msg) {
+            const k = msg.wellen == null ? null : String(msg.wellen);
+            if (k === null || (Protocol.WELLEN_KARTEN || []).includes(k)) {
+              if (k !== this.lobbyOpts.wellen && k) this.log(`${p.name}: Wellen-Karte ${(Protocol.WELLEN_KARTEN_NAMEN || {})[k] || k}.`);
+              this.lobbyOpts.wellen = k;
+            }
+          }
           // S1 §6: Weltstand zum Fortsetzen wählen (null = neu)
           if (this.phase === 'lobby' && 'world' in msg) {
             const id = msg.world == null || msg.world === '' ? null : String(msg.world);
@@ -756,7 +766,7 @@ class Game {
     }
     if (!arena.isArena(sm)) this.explore.arrive(Locations.START);   // Testgelände: keine Hafen-Erstbesuchsansage
     if (sm === 'm3') this.mission.startDirect('m3');
-    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null);   // Testgelände Raumkampf / Außenteam (B1: Karte)
+    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte)
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
@@ -1031,6 +1041,7 @@ class Game {
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
       default: err = 'Unbekannter Debug-Befehl.';
     }
     if (err) this.notice(p, err);
@@ -1584,7 +1595,8 @@ class Game {
       lobby: this.phase === 'lobby'
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
-          ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}) }   // B1 §4: gewählte Testgelände-Karte
+          ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
+          ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}) }   // Bodenkampf: Wellen – Kartenwahl
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
@@ -1643,6 +1655,7 @@ class Game {
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
         npcs: onboard.npcsSnapshot(this),
       },
+      ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)
       space: spaceOut,
       away: {
         map: aw.map, active: aw.active,

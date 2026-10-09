@@ -4,7 +4,9 @@
 //  - arena_space: Schiff abgelegt in einer Szene ohne Brocken (CONFIG.arena.spaceScene), Crew auf der Brücke,
 //    Pseudo-Mission „Testgelände: Raumkampf“ mit Gegnerwellen (zyklisch). Nächste Welle CONFIG.arena.nextWaveDelay s
 //    nach der Räumung. Schaden, Bots, Notfallprotokoll wie im Spiel.
-//  - arena_away: Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads, Schiff in Transferreichweite.
+//  - arena_away mit Kartenwahl (lobbyOpts.wellen): Bodenkampf: Wellen (wellen.js) auf Außenposten/Station/Ruine/Schiff/Kesh-Hof.
+//  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
+//    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
 const W = require('../world.js');
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
@@ -18,7 +20,10 @@ const ENEMY_NAMES = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kusto
 function isArena(kind) { return KINDS.includes(kind); }
 function cfg(game) { return game.C.arena; }
 
-function start(game, kind, params) {
+// opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
+function start(game, kind, params, opts) {
+  const wk = opts && opts.wellen;
+  if (kind === 'arena_away' && wk) return startWellen(game, wk, params);
   if (kind === 'arena_away') return params && params.art ? startAwayBuehne(game, params) : startAway(game);
   return startSpace(game);
 }
@@ -175,7 +180,8 @@ function startAway(game) {
 // Bauen und Landepunkt anlegen macht landepunkte.js (BUEHNE): testgelaende(game, params) -> lpId bzw. neu(game, ort, params).
 const ARENA_ORT = 'kesh';
 function lpMod() { try { const m = require('./landepunkte.js'); return m && !m.stub ? m : null; } catch (e) { return null; } }
-function startAwayBuehne(game, params) {
+// Karte bauen und als Landepunkt registrieren (beim Start, nie im Tick) -> lpId | null
+function karteBauen(game, params) {
   const L = lpMod();
   let lp = null;
   try {
@@ -187,8 +193,15 @@ function startAwayBuehne(game, params) {
     if (L && typeof L.get === 'function' && lp) { try { L.get(game, lp); } catch (e) { game.countError('arena-buehne', e); } }
   }
   if (!lp || !game.aways[lp]) {
-    game.oda('Testgelände: Diese Karte lässt sich (noch) nicht bauen – zurück nach Kesh.', null);
     game.countError('arena-buehne', new Error('Landepunkt für ' + JSON.stringify(params) + ' nicht angelegt'));
+    return null;
+  }
+  return lp;
+}
+function startAwayBuehne(game, params) {
+  const lp = karteBauen(game, params);
+  if (!lp) {
+    game.oda('Testgelände: Diese Karte lässt sich (noch) nicht bauen – zurück nach Kesh.', null);
     return startAway(game);
   }
   const ex = game.explore;
@@ -215,9 +228,55 @@ function startAwayBuehne(game, params) {
   game.log(`Testgelände Außenteam auf ${lp} gestartet (${JSON.stringify(params)}).`);
 }
 
-function update(game) {
-  if (!game.arena) return;
-  if (game.arena.kind === 'arena_space') updateSpace(game);
+// ---------- Bodenkampf: Wellen (server/sim/wellen.js) ----------
+// karte: aussenposten|station|ruine|schiff|kesh. params (URL ?arena=away&art=…&seed=…): genau diese Karte mit festem Seed;
+// sonst neuer Zufalls-Seed je Start, Bauweise nach Kartenart-Standard (achsen.json), Besitz/Fraktion laut KARTEN_WELLEN,
+// Zustand umkaempft.
+const KARTEN_WELLEN = {
+  aussenposten: { besitz: 'raubzug', fraktion: 'raubzug', name: 'Außenposten' },
+  station: { besitz: 'kontor', fraktion: 'kontor', name: 'Station' },
+  ruine: { besitz: 'rostmeute', fraktion: 'raubzug', name: 'Ruine' },
+  schiff: { besitz: 'raubzug', fraktion: 'raubzug', name: 'Schiff' },
+  kesh: { besitz: 'kustoden', fraktion: 'rostmeute', name: 'Kesh-Hof' },
+};
+// neuer Seed je Start: Partie-Seed (je Reset neu) und Startzähler (auch bei festem Server-Seed, z. B. in Tests, je Start anders)
+function wellenSeed(game) { return 1 + ((Math.imul((game.seed >>> 0) ^ 0x9E3779B1, 2654435761) + Math.imul(game.runCounter | 0, 40503)) >>> 0) % 99999; }
+function startWellen(game, karte, params) {
+  const Wellen = require('./wellen.js');
+  const url = params && params.art ? params : null;
+  const art = url ? url.art : karte;
+  const K = KARTEN_WELLEN[art] || KARTEN_WELLEN.aussenposten;
+  const seed = url && url.seed != null ? url.seed : wellenSeed(game);
+  const ex = game.explore;
+  if (!ex.known.has(ARENA_ORT)) { ex.known.add(ARENA_ORT); ex.version++; }
+  if (!ex.visited.has(ARENA_ORT)) { ex.visited.add(ARENA_ORT); ex.version++; }
+  let lp = 'kesh';
+  if (art !== 'kesh') {
+    const p = Object.assign({ art, seed, besitz: K.besitz, zustand: 'umkaempft' }, url || {});
+    delete p.fraktion; delete p.staerke; delete p.haltung;
+    lp = karteBauen(game, p);
+    if (!lp) { game.oda('Diese Karte ließ sich nicht bauen – die Wellen kommen auf dem Kesh-Hof.', null); lp = 'kesh'; }
+  }
+  space.enterScene(game, ARENA_ORT, { docked: false });
+  const ship = game.ship; const st = Locations.get(ARENA_ORT).scene.station || { x: 1200, y: 900 };
+  ship.x = st.x - cfg(game).keshShipOffset; ship.y = st.y; ship.angle = 0; ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  repairShip(game);
+  game.transferZiel = { lp, scene: ship.scene };
+  game.setAwayMap(lp);
+  worldFirst(game);
+  const team = game.players.filter((p) => p.connected);
+  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+  if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
+  const echteKarte = lp === 'kesh' ? 'kesh' : art;
+  game.arena = { kind: 'arena_away', lp, wellen: null, params: url ? Object.assign({}, url) : null };
+  Wellen.start(game, { karte: echteKarte, seed, lp, fraktion: (KARTEN_WELLEN[echteKarte] || K).fraktion, name: (KARTEN_WELLEN[echteKarte] || K).name });
 }
 
-module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole };
+function update(game, dt) {
+  if (!game.arena) return;
+  if (game.arena.kind === 'arena_space') updateSpace(game);
+  else if (game.arena.wellen) require('./wellen.js').update(game, dt);
+}
+function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
+
+module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole, wellenSnap, KARTEN_WELLEN };

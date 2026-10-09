@@ -3157,7 +3157,114 @@ async function dauerMain() {
   log(`\nGeschrieben: ${file}`);
 }
 
+// ---------- Bodenkampf: Wellen (Lobby-Start arena_away mit Kartenwahl, server/sim/wellen.js) ----------
+//   node tools/sim-headless.js wellen [--karte aussenposten|…|alle] [--players 1|3|beide] [--seed n] [--max 900]
+// Bot-Spieler kämpfen ohne Debug-Befehle (Deckung, Ziel, Aufhelfen; ohne Sicht zum nächsten Gegner). Ausgabe je Lauf:
+// erreichte Welle, Zeit, Abschüsse je Spieler, Fehler, Snapshot-Max (Budget 13 KB), höchstens stehende Gegner.
+class WellenAgent extends GenericAgent {
+  // wie KeshAgent, aber bis zur Sichtweite (10 Kacheln): Karls schießen ab 10 Kacheln, die Bots sollen antworten
+  enemiesInSight(S, p) {
+    const solid = this.keshSolid(S); const blocked = Los.sightFn(this.awayMap(S), solid);
+    const sight = (d) => d.cr ? Los.crouchSight(this.awayMap(S), solid, blocked, [d]) : blocked;
+    const R = (CONFIG.awayCombat.sightTiles || 10) * TILE;
+    return S.away.drones.filter((d) => d.alive && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= R && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
+      .sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
+  }
+  update(S) {
+    const p = this.me(S);
+    if (!p || S.phase !== 'play') return;
+    if (this.waitT > 0) { this.waitT -= DT; return; }
+    if (p.zone !== 'away') { this.input(0, 0); return; }   // ausgeblutet: wartet an Bord (Wellenende beamt zurück)
+    if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
+    if (S.wellen && S.wellen.ph === 'ende') { this.input(0, 0); return; }
+    // Wellen: Gegner kommen ohnehin – mit Schild ≥ 2 stehen bleiben und feuern (kein Deckungstanz), sonst KeshAgent-Gefecht
+    // (Deckung/Verstecken, Kamerad aufhelfen)
+    const sicht = this.enemiesInSight(S, p);
+    const mate = S.players.some((o) => o.id !== this.pid && o.zone === 'away' && o.downed && dist(o.x, o.y, p.x, p.y) < 7 * TILE);
+    if (sicht.length && !mate && (!p.sh || p.sh[0] >= 2)) {
+      if (this.ix) this.ix = null;
+      if (this.actDown) this.act(false);
+      this.input(0, 0); this.fire(S, p, this.pickTarget(S, p, sicht)); return;
+    }
+    if (this.combatAway(S, p, null)) return;
+    // kein Gegner in Sicht: Richtung nächster stehender Gegner (bis ~6 Kacheln), sonst stehen bleiben
+    const foes = S.away.drones.filter((d) => d.alive && (!d.zs || d.zs === 'ok'));
+    const f = foes.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y))[0];
+    if (f && dist(f.x, f.y, p.x, p.y) > 6 * TILE) { if (this.goto(S, [this.tile(f)]) === 'fail') this.input(0, 0); return; }
+    this.input(0, 0);
+  }
+}
+async function runWellen(opts) {
+  const seed = opts.seed;
+  simRng = makeRng(seed * 7919 + 4242);
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
+  const agents = [];
+  for (let i = 0; i < opts.players; i++) agents.push(new WellenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain'][i], opts));
+  game.simAgents = agents;
+  let ende = null;
+  const watcher = { send: (o) => {
+    if (o.t !== 'event') return;
+    if (o.kind === 'wellenEnde') ende = o;
+    if (o.kind === 'enemyShieldHit') game.simStats.gegnerTreffer = (game.simStats.gegnerTreffer || 0) + 1;
+    if (VERBOSE && (o.kind === 'oda')) log(`  [ODA ${game.time.toFixed(1)}] ${o.text}`);
+  } };
+  game.addConnection(watcher); watcher.observer = true;
+  game.lobbyOpts.startMission = 'arena_away';
+  game.lobbyOpts.wellen = opts.karte;
+  // erst alle verbinden, dann alle bereit (sonst startet die Runde mit dem ersten Spieler und die anderen kommen oben an)
+  for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx }); }
+  for (const a of agents) a.send({ t: 'ready', ready: true });
+  let S = game.snapshot();
+  let snapMax = 0, snapWelle = 0, maxStehend = 0, ticks = 0, lastN = 0, lastProgress = 0, softlock = false;
+  const W8 = game.arena && game.arena.wellen;
+  const lp = W8 && W8.lp;
+  while (game.time < opts.maxSec && game.phase === 'play') {
+    game.step(); ticks++;
+    if (game.phase !== 'play') break;
+    if (game.wantsSnapshot()) {
+      S = game.snapshot();
+      const b = Buffer.byteLength(JSON.stringify(S));
+      if (b > snapMax) { snapMax = b; snapWelle = S.wellen ? S.wellen.n : 0; }
+      if (S.wellen) maxStehend = Math.max(maxStehend, S.wellen.l);
+      if (S.wellen && S.wellen.n !== lastN) { lastN = S.wellen.n; lastProgress = game.time; }
+    }
+    for (const a of agents) a.update(S);
+    if (VERBOSE && ticks % 900 === 0 && S.wellen) log(`  [t ${game.time.toFixed(0)}] ${JSON.stringify(S.wellen)} ` + S.players.map((q) => q.name + (q.downed ? ' unten' : '') + (q.zone !== 'away' ? ' oben' : '')).join(', '));
+    if (game.time - lastProgress > 600) { softlock = true; break; }
+    if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
+  }
+  const W9 = (game.arena && game.arena.wellen) || W8;
+  return {
+    karte: opts.karte, players: opts.players, seed, lp, wellenSeed: W8 && W8.seed, ende: !!ende, welle: ende ? ende.welle : (W9 ? W9.n : lastN), zeit: ende ? ende.zeit : Math.round(game.time),
+    kills: ende ? ende.kills.map((k) => k[1] + ' ' + k[2]).join(', ') : (W9 ? JSON.stringify(W9.kills) : '–'), abschuesse: W9 ? W9.abschuesse : null,
+    errors: game.errors, errorLog: game.errorLog, snapMax, snapWelle, maxStehend, softlock, lobby: game.phase === 'lobby', treffer: game.simStats.gegnerTreffer || 0,
+  };
+}
+async function wellenMain() {
+  const kArg = argVal('--karte', 'alle');
+  const karten = kArg === 'alle' ? ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'] : kArg.split(',');
+  const pArg = argVal('--players', 'beide');
+  const crews = pArg === 'beide' ? [1, 3] : [Number(pArg)];
+  const maxSec = Number(argVal('--max', 1500));
+  const base = seedArg != null ? seedArg : 1;
+  let ok = true;
+  log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 13 KB ===`);
+  for (const karte of karten) for (const np of crews) {
+    const r = await runWellen({ karte, players: np, seed: base, maxSec });
+    const bad = r.errors > 0 || r.softlock || r.snapMax >= 13 * 1024 || r.maxStehend > CONFIG.wellen.maxLebend;
+    if (bad) ok = false;
+    log(`${karte.padEnd(12)} ${np === 1 ? 'solo ' : 'zu 3 '} Welle ${String(r.welle).padStart(2)} ${r.ende ? 'erreicht (Crew unten)' : 'bei Zeitende'} nach ${r.zeit} s · ` +
+      `Abschüsse ${r.kills} (gefallen ${r.abschuesse}, Schildtreffer ${r.treffer}) · stehend max ${r.maxStehend} · Snapshot max ${r.snapMax} B (Welle ${r.snapWelle}) · Fehler ${r.errors}` +
+      `${r.softlock ? ' · SOFTLOCK' : ''}${r.ende && !r.lobby ? ' · nicht zurück in der Lobby' : ''} · Karte ${r.lp} Seed ${r.wellenSeed}`);
+    if (r.errors) log('  Fehler: ' + JSON.stringify(r.errorLog));
+  }
+  log(ok ? '\nSIM WELLEN OK' : '\nSIM WELLEN FEHLGESCHLAGEN');
+  process.exit(ok ? 0 : 1);
+}
+
 (async () => {
+  if (args.includes('wellen')) { await wellenMain(); return; }
   if (args.includes('arena')) { await arenaMain(); return; }
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }

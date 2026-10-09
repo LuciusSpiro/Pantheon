@@ -228,7 +228,22 @@
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
     // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Testgelände: Raumkampf', arena_away: 'Testgelände: Außenteam' },
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Testgelände: Raumkampf', arena_away: 'Bodenkampf: Wellen' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K' },
+    // ---- Bodenkampf: Wellen (server/sim/wellen.js, CONFIG.wellen) ----
+    // lobbyOpt { startMission: 'arena_away', wellen: WELLEN_KARTEN[i] } – Kartenwahl; jeder darf umschalten, Snapshot lobby.wellen.
+    //   Ohne `wellen` bleibt arena_away der Altweg (Kesh/m3-Hof bzw. statische Karte aus `arena`, für Tests/Karten-QA).
+    //   Mit `arena` (URL ?arena=away&art=…&seed=…) UND `wellen` = Wellen auf genau dieser Karte mit festem Seed; sonst neuer Zufalls-Seed.
+    // Snapshot wellen (nur im Wellenmodus): { k: karte, s: seed, n: Welle, ph: WELLEN_PHASEN, t: Restsekunden (Countdown/Pause/Ergebnis),
+    //   r: verbleibende Gegner der Welle (stehend + Nachschub), l: stehend }.
+    // Ereignisse: welle { n, gesamt, neu: { rolle?, waffe?, rang?, gemischt? } } (Wellenbeginn; neue Rolle zusätzlich als rolleNeu),
+    //   welleGeschafft { n, pause }, wellenEnde { karte, seed, welle, geschafft, zeit, kills: [[pid, name, n]], debug? } (debug = Debug-Sprung, kein Rekord).
+    //   Abschüsse: Spieler, dessen Projektil im Tick des Falls am Gegner verschwand, sonst nächster stehender Spieler mit Sichtlinie.
+    //   Nach wellenEnde + CONFIG.wellen.ergebnisZeit s: sessionEnded { by: null, grund: 'wellen' } und zurück in die Lobby.
+    // Debug (nur --debug): welle <n> – sofort Welle n (aktuelle Gegner weg).
+    WELLEN_KARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'],
+    WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)' },
+    WELLEN_PHASEN: ['countdown', 'kampf', 'pause', 'ende'],
     CAMPAIGN_STARTS: ['m1', 'free'],
     ORDER_KINDS: ['sammeln', 'halten', 'flanke', 'rueckzug', 'fokus', 'gefahr'],   // cmd captain.order { kind, x, y, target?, clear? }
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr

@@ -424,7 +424,22 @@
       if (st && st.lobby && st.lobby.world != null && H.lobbyWorld(st)) { H.pushNotice('Startauswahl entfällt beim Fortsetzen (F: „Neue Kampagne“ wählen)', R.PAL.warn); audio.play('error'); return; }
       const list = H.startList();   // S1: inkl. 'free' (Kampagne ohne Tutorial)
       const next = list[(list.indexOf(cur) + 1) % list.length];
-      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next });
+      const msg = { t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next };
+      // Bodenkampf: Wellen – die Kartenwahl geht immer mit (ohne sie startet der Server den Altweg Kesh/m3)
+      if (next === 'arena_away') msg.wellen = (st && st.lobby && st.lobby.wellen) || (P.WELLEN_KARTEN || ['aussenposten'])[0];
+      send(msg);
+      audio.play('ui_click');
+    },
+    // Bodenkampf: Wellen – nach der Ergebnisanzeige sofort zurück in die Lobby (wie „Partie beenden“)
+    wellenLobby() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'end' }); audio.play('ui_click'); },
+    // Bodenkampf: Wellen – Karte reihum (Taste K / Klick); jeder darf umschalten, alle sehen die Wahl
+    toggleWellenKarte() {
+      const st = Client.state;
+      if (!st || !st.lobby || st.lobby.startMission !== 'arena_away') return;
+      const list = P.WELLEN_KARTEN || ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'];
+      const cur = st.lobby.wellen;
+      const next = cur ? list[(list.indexOf(cur) + 1) % list.length] : list[0];
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', wellen: next, arena: null });   // eigene Kartenwahl ersetzt eine URL-Karte
       audio.play('ui_click');
     },
     // M0: Einladungslink (Origin + ?code=) in die Zwischenablage
@@ -551,6 +566,8 @@
       for (const k of (P.ARENA_AWAY_FIELDS || ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'])) {
         const v = q.get(k); if (v != null && v !== '') a[k] = k === 'seed' && isFinite(+v) ? +v : v;
       }
+      // Bodenkampf: Wellen auf genau dieser Karte (fester Seed); statische Karten-QA mit &wellen=0 bzw. mit fraktion
+      Object.defineProperty(a, 'wellen', { value: q.get('wellen') === '0' || a.fraktion ? null : a.art, enumerable: false });
       return a;
     } catch (e) { return null; }
   })();
@@ -559,7 +576,7 @@
     if (s.phase === 'lobby' && ARENA_URL && !Client.arenaSent) {
       Client.arenaSent = true;
       // F16: Testgelände startet nie einen gemerkten Weltstand (Server stellt nach „Partie beenden“ den vorigen wieder ein)
-      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: 'arena_away', arena: ARENA_URL, world: null });
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: 'arena_away', arena: ARENA_URL, world: null, wellen: ARENA_URL.wellen });
     }
     // Karte fehlt oder kv passt nicht -> awayMap.get (höchstens alle 2 s je Karte)
     const aw = s.away;
@@ -871,12 +888,50 @@
       case 'rolleNeu':
         H.pushNotice('Neuer Gegnertyp: ' + (ROLLE_NAME[ev.rolle] || ev.rolle) + ' – genau hinsehen', PAL.amber, 4);
         return true;
+      // ---- Bodenkampf: Wellen
+      case 'welle': {
+        const neu = ev.neu || {};
+        const teile = [];
+        if (neu.waffe) teile.push('Karl trägt jetzt ' + (H.WAFFE_NAME[neu.waffe] || neu.waffe));
+        if (neu.rang) teile.push('Häuptlinge führen die Trupps');
+        if (neu.gemischt) teile.push('gemischte Trupps');
+        H.wellenBanner = { text: 'WELLE ' + ev.n, sub: ev.gesamt + ' Gegner' + (teile.length ? ' · ' + teile.join(' · ') : ''), t0: performance.now() };
+        if (teile.length) H.pushNotice('Welle ' + ev.n + ': ' + teile.join(', '), PAL.amber, 4);
+        audio.play('alarm_yellow', { volume: 0.6 });
+        return true;
+      }
+      case 'welleGeschafft':
+        H.wellenBanner = { text: 'WELLE ' + ev.n + ' ÜBERSTANDEN', sub: 'Alle wieder auf den Beinen', t0: performance.now() };
+        audio.play('repair_done');
+        return true;
+      case 'wellenEnde':
+        H.wellenErgebnis = Object.assign({ rekordNeu: wellenRekord(ev) }, ev);
+        H.wellenRekorde = wellenRekorde();
+        audio.play('error');
+        return true;
       case 'enternFrei':
         H.pushOda('Feindschiff treibt manövrierunfähig. Nah heranfliegen, dann kann das Außenteam über die Transfer-Konsole entern.');
         return true;
       default: return false;
     }
   }
+  // Bodenkampf: Wellen – Rekord je Karte nur im Browser (localStorage; ohne Speicher einfach kein Rekord)
+  const REKORD_KEY = 'pantheon.wellen.rekord';
+  function wellenRekorde() {
+    try { const o = JSON.parse(localStorage.getItem(REKORD_KEY) || '{}'); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; }
+  }
+  // -> true, wenn neuer Rekord (mehr Wellen geschafft bzw. gleich viele schneller)
+  function wellenRekord(ev) {
+    if (!ev || !ev.karte || ev.debug) return false;   // Debug-Sprung (welle <n>) zählt nicht
+    const all = wellenRekorde();
+    const alt = all[ev.karte];
+    const neu = !alt || ev.welle > alt.welle || (ev.welle === alt.welle && ev.zeit > alt.zeit);
+    if (!neu) return false;
+    all[ev.karte] = { welle: ev.welle, zeit: ev.zeit, seed: ev.seed, am: Date.now() };
+    try { localStorage.setItem(REKORD_KEY, JSON.stringify(all)); } catch (e) { /* privater Modus */ }
+    return true;
+  }
+  H.wellenRekorde = wellenRekorde();
   // B2: Gegnerrollen (CONTRACT-B2 §0.10, Germanen-Namen); nur für die Kurzmeldung rolleNeu, keine Symbole über Köpfen (E25)
   const ROLLE_NAME = { grundtyp: 'Karl', niederhalter: 'Bolzer', grenadier: 'Donnerwerfer', schuetze: 'Jäger', enterer: 'Berserker', haescher: 'Wergeld-Fänger', waechter: 'Wächter' };
   const ANKER_MELDUNG = {
@@ -954,7 +1009,8 @@
         const mine = ev.by != null && ev.by === Client.pid;
         const p = ((Client.state && Client.state.players) || []).find(q => q.id === ev.by);
         const who = ev.byName || (p ? p.name : (typeof ev.by === 'string' && ev.by ? ev.by : 'Jemand'));
-        H.pushNotice((mine ? 'Du hast' : who + ' hat') + ' die Partie beendet' + (ev.saved ? ' – Weltstand gesichert' : ''), mine ? PAL.mint : PAL.amber, 6);
+        if (ev.grund === 'wellen') H.pushNotice('Runde vorbei – zurück in der Lobby. Enter: noch eine Runde', PAL.amber, 6);
+        else H.pushNotice((mine ? 'Du hast' : who + ' hat') + ' die Partie beendet' + (ev.saved ? ' – Weltstand gesichert' : ''), mine ? PAL.mint : PAL.amber, 6);
         Client.ui.pauseSent = false; uiCloseAll(true);
         Client.minigame = null; Client.endDismissed = true;
         break;
@@ -1685,6 +1741,7 @@
       if (code === 'Enter') actions.toggleReady();
       if (code === 'KeyU' && m) actions.toggleSkipDrill();
       if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
+      if (code === 'KeyK' && m && !e.repeat) actions.toggleWellenKarte();   // Bodenkampf: Wellen – Karte
       if (code === 'KeyL' && m && Net.serverRoomCode) actions.copyInvite();
       const d = /^Digit([1-3])$/.exec(code);
       if (d) actions.setColor(+d[1] - 1);
@@ -1694,6 +1751,7 @@
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
     if ((st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed && (code === 'Enter' || code === 'Escape')) { actions.dismissEnd(); return; }
+    if (st.wellen && st.wellen.ph === 'ende' && code === 'Enter') { actions.wellenLobby(); return; }   // Bodenkampf: Wellen – Ergebnis -> Lobby
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }
     // M3a: Minispiel offen -> nur Leertaste/Esc, kein E an den Server, keine Bewegung
     if (Client.minigame) { if (!e.repeat) Net.guard('Client.minigameKey', () => minigameKey(code)); return; }

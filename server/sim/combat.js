@@ -1175,6 +1175,7 @@ function b2SnapGegner(game, e, base) {
   const ro = rolleVon(e);
   if (ro) base.ro = ro;
   if (e.fraktion) base.fr = e.fraktion;
+  if (e.rank) base.rk = 1;   // Häuptling-Look (actors.js liest rk); Standard 0 wird nicht gesendet
   if (e.palette) { const fk = (katalogDaten(game).fraktionen || {})[e.fraktion]; if (!fk || fk.palette !== e.palette) base.pa = e.palette; }
   if (e.wunden && (e.wunden.max > 1 || e.wunden.n < e.wunden.max)) { base.wn = e.wunden.n; base.wm = e.wunden.max; }
   if (e.granatZiel && game.time - e.granatZiel.t < 2) base.gr = { x: Math.round(e.granatZiel.x), y: Math.round(e.granatZiel.y), t: r2(e.granatZiel.t) };

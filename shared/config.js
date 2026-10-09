@@ -302,6 +302,31 @@
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
     },
 
+    // Bodenkampf: Wellen (Lobby-Start 'arena_away' mit Kartenwahl, server/sim/wellen.js). Alle Zahlen per `tune wellen.<pfad>`.
+    // Eskalation nur über Zahl, Rollen, Waffen, Rang und Trupps – für Gegner gelten dieselben Regeln wie für Spieler.
+    // Je Welle höchstens eine Neuheit (Einführungsregel): Waffen in ungeraden, Rollen in geraden Wellen, dann Rang, dann gemischte Trupps.
+    wellen: {
+      countdown: 10,           // s vor Welle 1
+      pause: 15,               // s zwischen den Wellen (Aufrichten/Befreien/Auffüllen am Wellenende)
+      maxLebend: 12,           // höchstens so viele Gegner gleichzeitig stehend (Snapshot-Budget 13 KB)
+      maxKoerper: 3,           // endgültig liegende Gegner (aus/gefesselt), die zusätzlich im Snapshot bleiben (ältere verschwinden)
+      koerperZeit: 10,         // s: Liegende, die noch aufstehen könnten, zählen zum Budget; wartet Nachschub, verschwinden sie danach
+      anzahl: { basis: 1, jeWelle: 1, jeSpielerWelle: 0.5, max: 40 },   // Gesamt = basis + jeWelle·n + jeSpielerWelle·(Spieler−1)·n
+      truppGroesse: 3,         // Gegner je Trupp (ein Trupp erscheint gemeinsam an einem Eingang)
+      nachschubTakt: 2,        // s zwischen zwei Nachschub-Trupps
+      spawnAbstand: 10,        // Kacheln Mindestabstand zu jedem Spieler (außer Sicht)
+      spawnMax: 24,            // Kacheln: bevorzugt nicht weiter weg vom nächsten Spieler (kurze Anmärsche)
+      suchTakt: 6,             // s: Trupps ohne Kontakt bekommen die Position des nächsten Spielers (kein Herumstehen)
+      endeNach: 1.5,           // s, die die ganze Crew kampfunfähig sein muss, bis die Runde endet
+      ergebnisZeit: 15,        // s Ergebnisanzeige, dann zurück in die Lobby
+      karlAnteil: 0.4,         // Mindestanteil Karl (grundtyp) je Welle
+      // Welle, ab der eine Rolle bzw. Karl-Waffe vorkommt (Reihenfolge laut Studioleitung)
+      rollenAb: { grundtyp: 1, schuetze: 2, niederhalter: 4, grenadier: 6, enterer: 8, haescher: 10 },
+      waffenAb: { schrottblaster: 1, blaster: 3, sturmgewehr: 5, granatwerfer: 7, lanze: 9 },
+      rang: { ab: 11, alleWellen: 3, max: 3, wunden: 2 },   // Häuptlinge (rank 1): ab Welle, +1 je alleWellen, Wunden wie Enterer
+      gemischtAb: 12,          // ab dieser Welle gemischte Trupps (vorher ein Trupp = eine Rolle)
+    },
+
     // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
     spaceM3: {
       enemyHpFactor: 0.8, reactorBrokenOutput: 2, centreChance: 0.15, sectorWeight: 3, neighbourWeight: 1,
