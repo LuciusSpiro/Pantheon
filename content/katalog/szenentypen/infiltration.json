@@ -4,7 +4,7 @@
   "kennung": "C4",
   "name": "Infiltration",
   "bereich": "aussen",
-  "kern": "Unentdeckt bleiben, Sichtkegel, Alarmstufen",
+  "kern": "Unentdeckt bleiben: Patrouillen, Lärm, Alarm je Trupp (kein Sichtkegel)",
   "kippt_zu": [
     "gefecht",
     "rueckzug"

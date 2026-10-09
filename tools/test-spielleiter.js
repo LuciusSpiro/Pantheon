@@ -705,6 +705,89 @@ async function s2Tests(T) {
 
   // ---------- 14. B1-FIX (ABNAHME-B1 F3, F14) ----------
   await b1FixTests(Object.assign({}, T, { ctxNT, ctxOT, AR }));
+
+  // ---------- 15. W1 AP4 (Spielleiter Boden II) ----------
+  await w1Tests(Object.assign({}, T, { ctxNT, ctxOT, AR }));
+}
+
+// =================================================================================================================
+// W1 AP4 (CONTRACT-W1 §5.4 Nr. 9–11): Katalog-Kurzfassung, KARTE-WIEDERHOLT über die Angebotsrunde, Kampagnenstart ohne
+// Neuversuch (Mock-LLM mit ungültigen Plänen)
+// =================================================================================================================
+async function w1Tests(T) {
+  const { katalog, env, safe, check, ctxNT, ctxOT, AR } = T;
+  const T15 = '15 W1';
+  const SB = require('../server/mission/szenenbau.js');
+  const K = require('../server/mission/katalog.js');
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  // 1. Kurzfassung: je verfügbare Umsetzung genau eine Zeile, keine Beschreibungsprosa, kein „Noch nicht spielbar“,
+  //    höchstens 60 % der Fassung vor W1 (gemessen 19 768 Zeichen, node tools/katalog.js --tokens)
+  await safe(T15, 'Katalog-Kurzfassung: eine Zeile je Umsetzung, ohne Prosa, −40 %', () => {
+    const kurz = K.fuerSpielleiter(katalog, 'kurz');
+    const verf = Object.values(katalog.molekuele).flatMap((m) => m.umsetzungen.filter((u) => u.status === 'verfuegbar').map((u) => ({ key: `${m.id}/${u.id}`, u })));
+    const zeilen = verf.map((x) => (kurz.match(new RegExp(`^- ${x.key.replace('/', '\\/')} – `, 'gm')) || []).length);
+    const prosa = verf.filter((x) => x.u.beschreibung && kurz.includes(x.u.beschreibung.slice(0, 40))).map((x) => x.key);
+    const res = { jeEineZeile: zeilen.every((n) => n === 1), ohneProsa: !prosa.length, ohneGeplant: !/Noch nicht spielbar/.test(kurz), minus40: kurz.length <= Math.floor(19768 * 0.6),
+      vollUnveraendert: /Noch nicht spielbar/.test(K.fuerSpielleiter(katalog, 'voll')) };
+    check(T15, 'Katalog-Kurzfassung: eine Zeile je Umsetzung, ohne Prosa, −40 %', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${kurz.length} Zeichen; Prosa: ${prosa.join(', ') || '–'}`);
+  });
+
+  // 2. KARTE-WIEDERHOLT über die Runde (Muster LANG-RUNDE): wreck zweimal in einer Angebotsrunde
+  const wrackPlan = (id, titel) => b1Plan([{ id: 's2_wrack', ort: 'wrack', szenentyp: 'erkundung', landepunkt: 'wreck', mols: ['ausschlachten/wrack_container'], dauer: 4 },
+    { id: 's3_heim', ort: 'hafen', szenentyp: 'ablieferung', mols: ['ladung_liefern/im_hafen_abgeben'], dauer: 2 }], { id, titel });
+  await safe(T15, 'KARTE-WIEDERHOLT über die Angebotsrunde: wreck zweimal in einer Runde', async () => {
+    const g = wrackPlan('w1_a', 'Wrack A');
+    const mit = SB.checkGrobplanB1(clone(g), env, ctxNT, { landepunkteImAngebot: [{ titel: 'Wrack B', landepunkte: ['wreck'] }] });
+    const ohne = SB.checkGrobplanB1(clone(g), env, ctxNT, { landepunkteImAngebot: [{ titel: 'Anderswo', landepunkte: ['kesh.kastell'] }] });
+    const F = fakeGame();
+    const llm = LLM.create({ mode: 'script', katalog, script: { grobplan: [{ json: wrackPlan('w1_a', 'Wrack A') }, { json: wrackPlan('w1_b', 'Wrack B') }] } });
+    const sl = Spielleiter.create(F.g, { llm, kontext: () => clone(ctxNT), archiv: AR.entries, regieDir: tmpDir('regie15b'), katalog, config: { offers: 2 } });
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 20, 0.25, () => sl.offers().filter((o) => o.origin === 'sl').length >= 2);
+    const gp = sl.regie.entries.filter((e) => e.art === 'grobplan' && /^Grobplan/.test(e.begruendung || ''));
+    const res = { warnung: mit.warnings.some((w) => /^KARTE-WIEDERHOLT: Landepunkt 'wreck' ist in dieser Angebotsrunde schon im Angebot \(„Wrack B“\)/.test(w)) && !mit.errors.some((e) => /KARTE-WIEDERHOLT/.test(e)),
+      andereKarteStill: !ohne.warnings.some((w) => /Angebotsrunde/.test(w)),
+      spielleiter: sl.offers().filter((o) => o.origin === 'sl').length === 2 && gp.length === 2 && !/Angebotsrunde/.test(gp[0].begruendung || '') && /KARTE-WIEDERHOLT: Landepunkt 'wreck' ist in dieser Angebotsrunde/.test(gp[1].begruendung || '') };
+    check(T15, 'KARTE-WIEDERHOLT über die Angebotsrunde: wreck zweimal in einer Runde', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${gp.map((e) => (e.begruendung || '').slice(0, 160) + ' ' + (e.fehler || []).join(' | ')).join(' || ')}`);
+  });
+
+  // 2b. Gefangennahme nie am Heimathafen: Szenenauflösung meldet GEFANGEN-HEIMATHAFEN, Vorgaben bieten hafen.kontor nicht an
+  await safe(T15, 'Ausbruch nie am Heimathafen: Auflösung GEFANGEN-HEIMATHAFEN, Vorgaben ohne hafen.kontor', () => {
+    const g = b1Plan([{ id: 's2_zelle', ort: 'hafen', szenentyp: 'ausbruch', landepunkt: 'hafen.kontor', mols: ['ausbruch/zelle_und_kammer'], dauer: 5 }]);
+    const r = SB.aufloesen(g, env, ctxNT);
+    const g2 = b1Plan([{ id: 's2_zelle', ort: 'splitter', szenentyp: 'ausbruch', landepunkt: 'splitter.schuerflager', mols: ['ausbruch/zelle_und_kammer'], dauer: 5 }]);
+    const r2 = SB.aufloesen(g2, env, ctxNT);
+    const u = katalog.molekuele.ausbruch.umsetzungen.find((x) => x.id === 'zelle_und_kammer');
+    const pass = SB.passendeLandepunkte(u, env, ctxNT, {});
+    const res = { heimathafen: r.errors.some((e) => /^GEFANGEN-HEIMATHAFEN: Szene 's2_zelle'/.test(e)), anderswo: !r2.errors.length, vorgaben: !Object.values(pass.orte).flat().includes('hafen.kontor') };
+    check(T15, 'Ausbruch nie am Heimathafen: Auflösung GEFANGEN-HEIMATHAFEN, Vorgaben ohne hafen.kontor', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${[...r.errors, ...r2.errors].join(' | ')}; passend ${JSON.stringify(pass.orte)}`);
+  });
+
+  // 3. Kampagnenstart: 0 Wiederholungen (Archiv-Angebot liegt schon); normale Runde: Neuversuch mit Prüferfehlern als Liste
+  const kaputt = () => ({ grobplan: [1, 2, 3, 4].map(() => ({ text: '{"format":"grobplan/2","szenen":[]}' })) });
+  const mitZaehler = (sl) => { const calls = []; const ask0 = sl.llm.ask.bind(sl.llm); sl.llm.ask = (kind, input, o) => { calls.push({ kind, zeichen: String(input.prompt || '').length, pruefer: /<pruefer>/.test(input.prompt || '') }); return ask0(kind, input, o); }; return calls; };
+  await safe(T15, 'Kampagnenstart: kein Neuversuch, Rückfall aufs Archiv (Mock mit ungültigen Plänen)', async () => {
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: kaputt() }), kontext: () => clone(ctxOT), archiv: AR.entries, regieDir: tmpDir('regie15c'), katalog });
+    const calls = mitZaehler(sl);
+    sl.onCampaignStart({ tutorial: false });
+    await ticks(sl, F.g, 40, 0.25, () => !sl.planning() && sl.offers().length >= 3);
+    const rueck = sl.regie.entries.filter((e) => e.art === 'rueckfall' && /Kampagnenstart: kein Neuversuch/.test(e.begruendung || ''));
+    const res = { zweiAufrufe: calls.filter((c) => c.kind === 'grobplan').length === 2, ohnePruefer: !calls.some((c) => c.pruefer), rueckfall: rueck.length === 2,
+      angebote: sl.offers().length >= 3 && sl.offers().some((o) => o.origin === 'archiv'), fehlerfrei: !F.errors.length };
+    check(T15, 'Kampagnenstart: kein Neuversuch, Rückfall aufs Archiv (Mock mit ungültigen Plänen)', Object.values(res).every(Boolean), `${JSON.stringify(res)}; Aufrufe ${calls.map((c) => c.kind + ':' + c.zeichen).join(', ')}; Angebote ${sl.offers().map((o) => o.origin + ':' + o.titel).join(', ')}; Fehler ${F.errors.join(' | ') || '–'}`);
+  });
+  await safe(T15, 'Normale Runde: Neuversuch bekommt die Prüferfehler als Liste', async () => {
+    const F = fakeGame();
+    const sl = Spielleiter.create(F.g, { llm: LLM.create({ mode: 'script', katalog, script: kaputt() }), kontext: () => clone(ctxNT), archiv: AR.entries, regieDir: tmpDir('regie15d'), katalog });
+    const calls = mitZaehler(sl); const prompts = []; const ask1 = sl.llm.ask; sl.llm.ask = (k, i, o) => { prompts.push(String(i.prompt || '')); return ask1(k, i, o); };
+    sl.onMissionDone({ id: 'm3' });
+    await ticks(sl, F.g, 40, 0.25, () => !sl.planning() && calls.length >= 4);
+    const retry = prompts.filter((p) => /<pruefer>\n- /.test(p));
+    const res = { vierAufrufe: calls.length === 4, zweiNeuversuche: retry.length === 2, liste: retry.every((p) => /<pruefer>\n(- [^\n]+\n?)+<\/pruefer>/.test(p)) };
+    check(T15, 'Normale Runde: Neuversuch bekommt die Prüferfehler als Liste', Object.values(res).every(Boolean), `${JSON.stringify(res)}; Aufrufe ${calls.length}`);
+  });
 }
 
 // =================================================================================================================
@@ -1299,8 +1382,10 @@ async function b1Tests(T) {
   const ground = (extra, sz) => b1Plan(sz || [{ id: 's2_kastell', ort: 'kesh', szenentyp: 'raetselort', landepunkt: 'kesh.kastell', mols: ['raetsel_loesen/zwei_schluessel'], dauer: 4 },
     { id: 's3_raus', ort: 'kesh', szenentyp: 'rueckzug', landepunkt: 'kesh.kastell', mols: ['entkommen/zu_den_pads'], dauer: 4 }], extra);
   const noGround = () => { const g = LLM.mockGrobplan({ kontext: ctxNT }, katalog); g.belohnung_marken = 100; return g; };
-  // Bühnenbedarf steht genau einmal im Grobplan-Prompt: je Umsetzung eine Zeile „Bühne:“ aus katalog.fuerSpielleiter
+  // Bühnenbedarf steht genau einmal im Grobplan-Prompt. Seit W1 AP4 (Katalog-Kurzfassung) nur noch in <vorgaben>
+  // („Bodenszenen – passende Kartenarten je Umsetzung“), nicht mehr als Zeile „Bühne:“ im Katalog.
   const buehneZeilen = (t) => (String(t || '').match(/^\s+Bühne: /gm) || []).length;
+  const buehneEinmalIn = (t) => buehneZeilen(t) === 0 && (String(t || '').match(/Bodenszenen – passende Kartenarten je Umsetzung/g) || []).length === 1;
 
   // 1. Kontext: Landepunkte je Ort, Kartenarten, Bodenbilanz, Fraktionen/Gegner, Bewaffnung
   await safe(T13, 'Kontext: Landepunkte je Ort, Kartenarten, Bodenbilanz, Fraktionen, Bewaffnung', () => {
@@ -1448,7 +1533,7 @@ async function b1Tests(T) {
     const quote = sl.regie.entries.filter((e) => e.art === 'grobplan' && (e.fehler || []).some((x) => /^BODEN-QUOTE/.test(x)));
     const retry = prompts.find((p) => /<pruefer>[\s\S]*BODEN-QUOTE/.test(p));
     const res = { zweiSl: sl0.length === 2, beideBoden: sl0.every((p) => sl.planBoden(p).boden), nachbesserung: quote.length === 1 && !!retry,
-      pflichtImPrompt: /PFLICHT: Diese Mission braucht eine Bodenszene/.test(prompts[0] || ''), buehneEinmal: buehneZeilen(prompts[0]) > 0 && buehneZeilen(prompts[0]) === buehneZeilen(require('../server/mission/katalog.js').fuerSpielleiter(katalog, 'kurz')) && !/Bühnen-Bedarf/.test(prompts[0] || ''),
+      pflichtImPrompt: /PFLICHT: Diese Mission braucht eine Bodenszene/.test(prompts[0] || ''), buehneEinmal: buehneEinmalIn(prompts[0]) && !/Bühnen-Bedarf/.test(prompts[0] || ''),
       archivBoden: !!ar && (AR.synthetic || sl.planBoden(ar).boden), fehlerfrei: !F.errors.length };
     check(T13, 'Angebotsrunde bei fälliger Quote: Nachbesserung mit BODEN-QUOTE, beide Spielleiter-Angebote mit Boden, Archiv mit Boden', Object.values(res).every(Boolean),
       `${JSON.stringify(res)}; Archiv ${ar && ar.archivName}; Fehler ${F.errors.join(' | ') || '–'}`);

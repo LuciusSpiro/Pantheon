@@ -285,7 +285,14 @@
             "next": [
               {
                 "if": {
-                  "v": "{{id}}_ende"
+                  "any": [
+                    {
+                      "flag": "{{id}}_unbemerkt"
+                    },
+                    {
+                      "flag": "{{id}}_entdeckt"
+                    }
+                  ]
                 },
                 "goto": "{{weiter}}"
               }
@@ -306,7 +313,6 @@
         ],
         "texte": {
           "{{id}}.ziel_runter": "Außenteam runterbeamen",
-          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
           "{{id}}.start": "Patrouillen unten, noch hat euch keiner gesehen. Über {{lex.eingang_leise:den}} hinein, geduckt, kein Schuss.",
           "{{id}}.hinweis": "Captain: Patrouillen auf der Außenteam-Karte beobachten und Lücken ansagen.",
           "{{id}}.alarm": "Alarm! Jetzt nur noch durch – ins Ziel!",
@@ -320,8 +326,9 @@
       },
       "test": {
         "params": {
-          "loc": "splitter",
-          "map": "splitter.schuerflager"
+          "loc": "b7",
+          "map": "b7.aussenstelle",
+          "fraktion": "rostmeute"
         }
       }
     }

@@ -529,6 +529,35 @@ function check(doc, ctxIn) {
   });
   for (const cid of choiceIds) if (!opened.has(cid)) W('ENTSCHEIDUNG-NIE', 'steps', `Entscheidung '${cid}' wird nie geöffnet`);
 
+  // --- W1 AP4 (§5.4 Nr. 3): team_gefangen – nur im enter oder als Funkduell-Folge (choices.*.on) an einem Andock-Ort,
+  // nie am Heimathafen, Landepunkt mit Ankern zelle und beute
+  const HEIMATHAFEN = L.START || 'hafen';
+  doc.steps.forEach((s, i) => {
+    const sp = `steps[${i}:${s.id}]`;
+    for (const [lp, list] of stepActionLists(s)) {
+      if (lp === 'skip' || lp === 'wiederaufnahme.prep') continue;
+      eachAction(list, {}, (a) => {
+        if (!isObj(a) || a.do !== 'team_gefangen') return;
+        const p = `${sp}.${lp}.do(team_gefangen)`;
+        const folge = /^choices\.[^.]+\.on\./.test(lp);
+        if (!folge && lp !== 'enter') E('GEFANGEN-STELLE', p, "team_gefangen nur im 'enter' eines Schritts (Szenenstart in der Zelle) oder als Folge eines Funkduells (choices.*.on)");
+        const lpId = a.landepunkt;
+        const d = typeof lpId === 'string' && Obj.landepunkt ? Obj.landepunkt(lpId) : null;
+        if (d && d.ort === HEIMATHAFEN) E('GEFANGEN-HEIMATHAFEN', p, `Landepunkt '${lpId}' liegt am Heimathafen '${HEIMATHAFEN}' – dort nimmt niemand die Crew gefangen`);
+        if (folge) {
+          const loc = s.loc ? L.LOCATIONS.find((l) => l.id === s.loc) : null;
+          if (!loc || !loc.scene || !loc.scene.dock) E('GEFANGEN-OHNE-DOCK', p, `Gefangennahme als Funkduell-Folge nur, solange das Schiff angedockt ist – Schritt-Ort '${s.loc || '–'}' hat keinen Liegeplatz (${L.LOCATIONS.filter((l) => l.scene && l.scene.dock && l.id !== HEIMATHAFEN).map((l) => l.id).join(', ')})`);
+        }
+        if (d && !d.dynamisch && typeof Obj.karte === 'function') {
+          let k = null; try { k = Obj.karte({}, lpId); } catch (e) { k = null; }
+          const rollen = new Set(((k && k.anker) || []).map((x) => x.rolle));
+          const fehlt = ['zelle', 'beute'].filter((r) => !rollen.has(r));
+          if (fehlt.length) E('BUEHNE-ANKER', p, `team_gefangen: Landepunkt '${lpId}' hat keinen Anker ${fehlt.join(', ')}`);
+        }
+      });
+    }
+  });
+
   // --- missionsweite Handler, Ausgänge, Debug, Angebot, Buch
   for (const [ev, acts] of Object.entries(doc.on || {})) eachAction(acts, noStep(), (a, actx) => actionCheck(a, actx, `on.${ev}`));
   for (const [aid, ag] of Object.entries(doc.ausgaenge || {})) {

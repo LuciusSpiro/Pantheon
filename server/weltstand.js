@@ -494,6 +494,20 @@ function makeRuntime(game, base) {
     n.haltung = clampAtt(n.haltung + d);
     return true;
   };
+  // W1 AP4 (§5.4 Nr. 6): Haltung der Crew gegenüber einer Fraktion (Besitz-ID, z. B. kontor), Vorbild npcAttitude
+  // (−3 … +3, gekappt). Gespeichert als Fakt haltung_<fraktion> (welt.fakten, Zahl) – damit ohne neues Schemafeld im
+  // Weltstand und für den Spielleiter im Kontext sichtbar (Fakten). -> neue Haltung | null
+  ws.fraktionHaltung = (fraktion) => {
+    const v = Number(ws.data && ws.data.fakten && ws.data.fakten['haltung_' + fraktion]);
+    return Number.isFinite(v) ? clampAtt(v) : 0;
+  };
+  ws.fraktionHaltungAendern = (fraktion, delta, quelle) => {
+    if (typeof fraktion !== 'string' || !/^[a-z][a-z0-9_]*$/.test(fraktion)) { countError(game, 'weltstand-fraktionHaltung', new Error('Fraktion ' + fraktion)); return null; }
+    const d = Number(delta); if (!Number.isFinite(d)) { countError(game, 'weltstand-fraktionHaltung', new Error('delta ' + delta)); return null; }
+    const neu = clampAtt(ws.fraktionHaltung(fraktion) + d);
+    ws.fact('haltung_' + fraktion, neu, quelle != null ? quelle : null);
+    return neu;
+  };
   // entry: { ereignis, text, haltung?, gewicht?, mission?, schritt? } – text wird jetzt aufgelöst ('@kennung')
   ws.npcMemory = (npc, entry) => {
     const n = npcOf(npc, 'weltstand-npcMemory'); if (!n) return false;

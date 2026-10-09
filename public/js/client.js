@@ -1337,7 +1337,14 @@
           if (z === 'intakt') return (inv.ladung || 0) > 0 ? { label: 'E halten: Ladung scharf machen (' + sec('sprengpunkt') + ')', ok: true } : { label: 'Sprengpunkt – keine Ladung dabei', ok: false };
           if (z === 'scharf') return { label: 'SCHARF – weg da!', ok: false };
           return { label: 'Gesprengt', ok: false };
-        case 'zelle': return z === 'zu' ? { label: 'E halten: Zelle öffnen (' + sec('zelle') + ')', ok: true } : { label: 'Zelle offen', ok: false };
+        case 'zelle': {
+          // W1 AP4: Gefangene brechen die Zellentür von innen auf (Server: koerper.ausbruchTuer, laut)
+          if (z === 'zu' && m && m.zs === 'gefangen') {
+            const K = (CFG.awayCombat && CFG.awayCombat.koerper) || {};
+            return { label: 'E halten: Zellentür aufbrechen (' + String(K.ausbruchTuer || 8).replace('.', ',') + ' s, laut)', ok: true };
+          }
+          return z === 'zu' ? { label: 'E halten: Zelle öffnen (' + sec('zelle') + ')', ok: true } : { label: 'Zelle offen', ok: false };
+        }
         case 'beute': return z === 'voll' ? { label: 'E halten: Kiste bergen (' + sec('beute') + ')', ok: true } : { label: 'Leer geräumt', ok: false };
         case 'ziel': return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
         case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };

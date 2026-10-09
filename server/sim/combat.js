@@ -1233,10 +1233,12 @@ function interactionsB2(game, p, tx, ty, list) {
   }
   const g = p.gefangen;
   if (g) {
+    // W1 AP4: Für Gefangene gehen Ausrüstung und Zellentür vor die Anker-Interaktion derselben Kachel (anker:beute würde
+    // die Truhe leeren, ohne die Waffe zurückzugeben; anker:zelle öffnete ohne die ausbruchTuer-Regel)
     const b = g.beute ? kartenAnker(game, 'beute').find((a) => a.id === g.beute) : null;
-    if (b && p.waffeVorher && b.x === tx && b.y === ty) list.push({ kind: 'ausruestung', tx, ty });
+    if (b && p.waffeVorher && b.x === tx && b.y === ty) list.unshift({ kind: 'ausruestung', tx, ty });
     const z = kartenAnker(game, 'zelle').find((a) => a.id === g.zelle);
-    if (z && !g.offen && Math.abs(z.x - tx) <= 1 && Math.abs(z.y - ty) <= 1) list.push({ kind: 'zellentuer', tx, ty });
+    if (z && !g.offen && Math.abs(z.x - tx) <= 1 && Math.abs(z.y - ty) <= 1) list.unshift({ kind: 'zellentuer', tx, ty });
   }
 }
 function holdDurationB2(game, p, kind) {
@@ -1269,13 +1271,25 @@ function completeHoldB2(game, p, h) {
     game.emit('loadout', { pid: p.id, waffe: p.waffe });
     game.notice(p, 'Ausrüstung zurück.');
     game.missionEvent('ausruestungZurueck', { pid: p.id });
+    // W1 AP4: Haben alle Gefangenen dieser Truhe ihre Ausrüstung, ist sie leer (Vorlage ausbruch: anker_state beute leer)
+    const bid = p.gefangen && p.gefangen.beute;
+    if (bid && !game.players.some((q) => q.connected && q.gefangen && q.gefangen.beute === bid && q.waffeVorher)) ankerSetzen(game, bid, 'leer', p.id);
   } else if (h.kind === 'zellentuer') {
     zelleAuf(game, p);
   }
 }
 
 // ---------- Gefangen -> Ausbruch auf derselben Karte (B2 §4, E12) ----------
-function ausbruchMoeglich(game, team) {
+// Schrittfeld ausbruch_erlaubt (W1 AP4 §5.4 Nr. 4, Standard true, im Tutorial false) über mission.ausbruchErlaubt()
+function schrittErlaubtAusbruch(game) {
+  const m = game.mission;
+  if (!m || typeof m.ausbruchErlaubt !== 'function') return true;
+  try { return m.ausbruchErlaubt() !== false; } catch (e) { if (game.countError) game.countError('combat-ausbruch', e); return true; }
+}
+function ausbruchMoeglich(game, team) { return schrittErlaubtAusbruch(game) && ausbruchKarteBereit(game, team); }
+// Konfiguration, Karte (zelle + beute), erster Ausbruch, Team liegt (ohne Schrittfeld). Debug `fang` prüft nur das:
+// die erzwungene Gefangennahme geht auch in Schritten, die den Ausbruch nach einem verlorenen Kampf verbieten.
+function ausbruchKarteBereit(game, team) {
   const C = cfg(game); const aw = game.away;
   if (!(C.ausbruch && C.ausbruch.aktiv) || aw.ausbruchErlaubt === false || aw.ausbruchGehabt) return false;
   if (!team.length || !team.every((p) => p.downed) || !team.some((p) => p.zustand === 'gefesselt')) return false;
@@ -1314,6 +1328,54 @@ function ausbruch(game, team) {
   game.oda('Ihr kommt in einer Zelle zu euch. Ausrüstung weg – aber die Tür hält nicht ewig. E halten an der Zellentür.', null);
   game.missionEvent('teamGefangen', { map: aw.map, pids, zelle: zelle.id });
   return true;
+}
+// ---------- W1 AP4 (§5.4 Nr. 1): Gefangennahme ohne Kampf ----------
+// teamGefangenNehmen(game, landepunkt) -> null | Fehlertext. Für den Szenenstart in der Zelle und das eskalierte Gespräch
+// beim Andocken (E5, Aktion team_gefangen). Registriert die Karte des Landepunkts (landepunkte.get, wie die
+// Transfer-Konsole), bringt die Crew über den Transfer hinunter (away.executeBeam, wie Testgelände und Debug „buehne“)
+// und ruft ausbruch() – ab da dieselben Regeln wie nach einem verlorenen Kampf: Zellentür ausbruchTuer s von innen
+// (laut), Faust, Ausrüstung am beute-Anker; ausbruchGehabt gilt auch hier (ein zweites Mal -> Notrückholung).
+// Gefangen wird die ganze verbundene Crew: Das Schiff liegt angedockt, die Kontrolle nimmt alle mit.
+function teamGefangenNehmen(game, landepunkt) {
+  if (!waffen()) return 'Waffen-Modul aus – ohne Zellentür und Ausrüstung keine Gefangenschaft';
+  if (typeof landepunkt !== 'string' || !landepunkt) return 'Landepunkt fehlt';
+  if (!game.aways || !game.aways[landepunkt]) {
+    try { require('./landepunkte.js').get(game, landepunkt); } catch (e) { return `Landepunkt ${landepunkt}: ${e.message}`; }
+  }
+  if (!game.aways[landepunkt]) return `Landepunkt ${landepunkt} unbekannt`;
+  const team = game.players.filter((p) => p.connected);
+  if (!team.length) return 'keine Crew verbunden';
+  const it = interior();
+  // wer auf einer anderen Außenkarte steht, kommt zuerst an Bord
+  for (const p of team) if (p.zone === 'away' && game.away && game.away.map !== landepunkt) it.placeOnShipPad(game, p);
+  game.transferZiel = { lp: landepunkt, scene: game.ship && game.ship.scene };
+  game.setAwayMap(landepunkt);
+  if (!kartenAnker(game, 'zelle').length || !kartenAnker(game, 'beute').length) return `Landepunkt ${landepunkt} hat keine zelle bzw. beute`;
+  // Die Lerche muss in Transferreichweite liegen, sonst kommt die Crew nach dem Ausbruch nicht an Bord (an der Steuer sitzt
+  // niemand mehr): angedockt bleibt sie, wo sie ist; sonst treibt sie gestoppt am Transferpunkt des Landepunkts.
+  const ship = game.ship;
+  if (ship && !ship.docked) {
+    let spot = null; try { spot = require('./landepunkte.js').beamSpot(game); } catch (e) { spot = null; }
+    if (spot && Number.isFinite(spot.range)) {
+      const d = Math.hypot(ship.x - spot.x, ship.y - spot.y);
+      if (d > spot.range * 0.6) {
+        const k = d > 1 ? (spot.range * 0.4) / d : 0;
+        ship.x = spot.x + (ship.x - spot.x) * k; ship.y = spot.y + (ship.y - spot.y) * k + (d > 1 ? 0 : spot.range * 0.4);
+      }
+    }
+    try { require('./space.js').helmStop(game); } catch (e) { if (game.countError) game.countError('combat-gefangen', e); }
+    ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  }
+  for (const p of team) {
+    if (p.console) it.leaveConsole(game, p);
+    if (p.carry) it.dropCarry(game, p);
+    if (p.downed) revive(game, p, null, { quiet: true });
+    p.hold = null;
+  }
+  const anBord = team.filter((p) => p.zone !== 'away').map((p) => p.id);
+  if (anBord.length) require('./away.js').executeBeam(game, anBord, 'down');
+  ausbruch(game, team);
+  return null;
 }
 // Zellentür von innen geöffnet: laut (alarmiert), Zelle offen
 function zelleAuf(game, p) {
@@ -1470,7 +1532,7 @@ function debugB2(game, cmd, args, p, msg) {
     const team = teamOf(game);
     for (const q of team) { kaempfer(game, q); q.zustand = 'gefesselt'; }
     folgenAbgleich(game);
-    if (ausbruchMoeglich(game, team)) { ausbruch(game, team); return 'fang: Team gefangen, Ausbruch läuft.'; }
+    if (ausbruchKarteBereit(game, team)) { ausbruch(game, team); return 'fang: Team gefangen, Ausbruch läuft.'; }
     return 'fang: kein Ausbruch möglich (Karte ohne zelle/beute, schon gehabt oder abgeschaltet) – Notrückholung folgt.';
   }
   return null;
@@ -1617,6 +1679,8 @@ module.exports = {
   // B2 Welle 2
   rolleVon, besetzen, truppStatus, debugB2, istB2Hold, reviveSperre, interactionsB2, holdDurationB2, holdValidB2, completeHoldB2,
   ausbruch, ausbruchMoeglich, folgenAbgleich, _setzeKatalog, katalogDaten,
+  // W1 AP4
+  teamGefangenNehmen,
 };
 
 // B2 §0: Waffen-Regeln (Hitze, Wunden, Betäubung, Fesseln) sind an, sobald WAFFEN geliefert hat (kein Stub).

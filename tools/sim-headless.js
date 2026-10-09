@@ -2008,7 +2008,9 @@ class GenericAgent extends KeshAgent {
     const ums = step.umsetzung || '';
     const o = this.opts || {};
     let prefs = [];
-    if (ums === 'verhandeln/funkduell') prefs = [o.funk || 'a', 'a', 'b', 'schweigen'];
+    // W1 AP4: Umgebung BOT_WAHL=a|b|schweigen legt die Antwort im Funkduell fest (sonst wie bisher opts.funk)
+    const wahl = ['a', 'b', 'schweigen'].includes(process.env.BOT_WAHL) ? process.env.BOT_WAHL : null;
+    if (ums === 'verhandeln/funkduell' || ums === 'verhandeln/andockkontrolle_eskaliert') prefs = [wahl || o.funk || 'a', 'a', 'b', 'schweigen'];
     else if (ums === 'taeuschen/bluff_funk') prefs = [o.bluff || 'passend', 'wahrheit', 'falsch'];
     const ok = (ch.options || []).filter((x) => !x.disabled).map((x) => x.id);
     return prefs.find((x) => ok.includes(x)) || ok[0] || (ch.options[0] && ch.options[0].id);
@@ -2450,6 +2452,7 @@ class GenericAgent extends KeshAgent {
       this.buehneAway(S, p, step, M); return;
     }
     if (S.space.enemies.length && !S.players.some((o) => o.zone === 'away')) { this.combatGeneric(S, p); return; }
+    if (this.ablegenPhase(S, step)) { if (this.ablegenDran(S)) this.ablegen(S, p); else this.idleStations(S, p); return; }   // W1 AP4: nach dem Ausbruch vom Dock weg, nicht wieder hinunter
     const tasks = this.buehneTasks(S, step, M);
     const need = this.objOpen(S).length > 0;
     // Versteck: erst aus dem Orbit markieren (Weitscan mit gewähltem Landepunkt)
@@ -2504,7 +2507,10 @@ class GenericAgent extends KeshAgent {
   // Unten auf der gebauten Karte
   buehneAway(S, p, step, M) {
     if (p.downed) { this.ix = null; if (this.actDown) this.act(false); this.input(0, 0); const f = this.enemiesInSight(S, p)[0]; if (f) this.fire(S, p, f); return; }
-    if (this.combatAway(S, p, null)) return;
+    if (this.gefangenLogik(S, p)) return;   // W1 AP4: Zellentür, Ausrüstung
+    const schleich = this.schleicht(S, step, M);   // W1 AP4: ruhig bleiben, solange kein Alarm
+    this.ducken(S, p, schleich);
+    if (!schleich && this.combatAway(S, p, null)) return;
     const sm = this.sm;
     const npc = S.away.npc;
     if (npc && npc.present && !npc.rescued && npc.following === this.pid) { this.buehneHoch(S, p, npc); return; }   // Person folgt: hoch
@@ -2532,7 +2538,7 @@ class GenericAgent extends KeshAgent {
     if (t.kind === 'anker') { this.ankerHalten(S, p, M, t.a, t.z); return; }
     if (t.kind === 'person') { this.personHolen(S, p, npc); return; }
     if (t.kind === 'hin') { this.gotoNear(S, p, t.a.x, t.a.y, 1); return; }
-    if (t.kind === 'bereich') { this.inBereich(S, p, M, t.bereich); return; }
+    if (t.kind === 'bereich') { if (schleich) this.schleichInBereich(S, p, M, t.bereich); else this.inBereich(S, p, M, t.bereich); return; }
     if (t.kind === 'trupp') { this.jagen(S, p, t.tag); return; }
     this.input(0, 0);
   }
@@ -2587,6 +2593,124 @@ class GenericAgent extends KeshAgent {
       sm.bereichT = { b: bereich, tiles };
     }
     if (!sm.bereichT.tiles.length || this.gotoBuilt(S, sm.bereichT.tiles) === 'fail') this.input(0, 0);
+  }
+  // ---------- W1 AP4 (§5.4 Nr. 12): Gefangenschaft, Schleichen, Ablegen ----------
+  srvMe() { return this.game.playerById(this.pid); }
+  // Gefangen (combat.ausbruch bzw. team_gefangen): Zellentür von innen halten, dann die eigene Ausrüstung an der Truhe
+  // holen (mit der Faust lohnt kein Gefecht). Fehlt einem Kameraden noch die Ausrüstung, sichert der Bot und wartet.
+  // true = Tick verbraucht
+  gefangenLogik(S, p) {
+    const q = this.srvMe(); const g = q && q.gefangen;
+    const bi = this.builtInfo(S); const k = bi && bi.karte;
+    if (!k) return false;
+    const st = this.game.simStats.gefangen || (this.game.simStats.gefangen = { tuer: 0, ausruestung: 0 });
+    if (g && !g.offen) {
+      const z = k.anker.find((a) => a.id === g.zelle);
+      if (!z) return false;
+      const r = this.interactBuilt(S, z.x, z.y, { hold: true, max: 14, floor: true, until: () => { const x = this.srvMe().gefangen; return !x || x.offen; } });
+      if (r === 'fail') this.waitT = 0.3;
+      if (this.srvMe().gefangen && this.srvMe().gefangen.offen) st.tuer++;
+      return true;
+    }
+    if (g && q.waffeVorher && g.beute) {
+      const b = k.anker.find((a) => a.id === g.beute);
+      if (!b) return false;
+      const r = this.interactBuilt(S, b.x, b.y, { hold: true, max: 6, floor: true, until: () => !this.srvMe().waffeVorher });
+      if (r === 'fail') this.waitT = 0.3;
+      if (!this.srvMe().waffeVorher) st.ausruestung++;
+      return true;
+    }
+    const wartet = this.game.players.some((o) => o.id !== this.pid && o.connected && o.zone === 'away' && o.gefangen && o.waffeVorher);
+    if (wartet) { if (!this.combatAway(S, p, null)) { if (this.actDown) this.act(false); this.ix = null; this.input(0, 0); } return true; }
+    return false;
+  }
+  // Ein Schritt „schleicht“, solange er auf Alarm prüft (Prüfung alarm, z. B. unbemerkt_hineinkommen) und der Landepunkt
+  // ruhig ist: nicht schießen (Lärm alarmiert), in der Nähe ruhiger Gegner geduckt, Weg um deren Sicht herum.
+  // Umgebung BOT_SCHLEICHEN=aus: wie bisher (kämpfen, direkter Weg) – Vergleich „mit Alarm“.
+  schleicht(S, step, M) {
+    if (process.env.BOT_SCHLEICHEN === 'aus') return false;   // Vergleichslauf: laut hinein (Alarm)
+    if (!this.stepChecks(step).some((c) => c.name === 'alarm' && c.map === M)) return false;
+    const R = require('../server/mission/registry.js').get('alarm');
+    let alarm = false; try { alarm = !!R.test({ game: this.game }, { map: M }); } catch (e) { alarm = false; }
+    // entdeckt (ein Gegner sieht gerade jemanden) bzw. Alarm: wehren statt schleichen
+    return !alarm && !this.game.away.drones.some((e) => e.alive && (e.sees || []).length);
+  }
+  ducken(S, p, schleich) {
+    const nah = schleich && this.game.away.drones.some((e) => e.alive && !e.asleep && dist(e.x, e.y, p.x, p.y) <= 12 * TILE);
+    const q = this.srvMe();
+    if (!!(q && q.crouch) !== nah && (this.memo.duckAt || 0) <= S.time) { this.memo.duckAt = S.time + 0.5; this.cmd('crouch', { on: nah }); this.game.simStats.ducken = (this.game.simStats.ducken || 0) + (nah ? 1 : 0); }
+  }
+  // Kacheln, die ein wacher Gegner sehen kann (≤ sightTiles + 1, Sichtlinie wie squad.perceive), alle 0,5 s neu
+  sichtGefahr(S) {
+    const sm = this.sm;
+    if (sm.gefahr && sm.gefahrAt > S.time) return sm.gefahr;
+    const C = require('../server/sim/combat.js'); const E = C.env(this.game); const map = E.map;
+    const R = (CONFIG.awayCombat.sightTiles || 10) + 1;
+    const set = new Set();
+    for (const e of this.game.away.drones) {
+      if (!e.alive || e.asleep) continue;
+      const et = this.tile(e);
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (dx * dx + dy * dy > R * R) continue;
+        const x = et.x + dx, y = et.y + dy;
+        if (x < 0 || y < 0 || x >= map.w || y >= map.h || E.solid(x, y) || set.has(y * map.w + x)) continue;
+        const c = Physics.tileCenter(x, y);
+        if (C.losBetween(E, e, { x: c.x, y: c.y, crouch: false })) set.add(y * map.w + x);
+      }
+    }
+    sm.gefahr = set; sm.gefahrAt = S.time + 0.5;
+    return set;
+  }
+  // In den Bereich, ohne gesehen zu werden: Weg nur über Kacheln außer Sicht; steht der Bot selbst in Sicht, zur nächsten
+  // sicheren Kachel. Kein sicherer Weg: bis 25 s warten (Patrouillen ziehen weiter), dann der normale Weg.
+  schleichInBereich(S, p, M, bereich) {
+    const sm = this.sm;
+    const bi = this.builtInfo(S); const map = bi.map;
+    if (!sm.bereichT || sm.bereichT.b !== bereich) {
+      const tiles = [];
+      for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) if (!map.solid(x, y) && Objects().inArea(this.game, M, bereich, x * TILE + 16, y * TILE + 16)) tiles.push({ x, y });
+      sm.bereichT = { b: bereich, tiles };
+    }
+    const gefahr = this.sichtGefahr(S);
+    const walk = this.walkable(S, 'away');
+    const sicher = (x, y) => walk(x, y) && !gefahr.has(y * map.w + x);
+    const st = this.tile(p);
+    const ziel = new Set(sm.bereichT.tiles.map((t) => t.y * map.w + t.x));
+    const stats = this.game.simStats.schleichen || (this.game.simStats.schleichen = { sicher: 0, warten: 0, offen: 0 });
+    let path = bfs(sicher, st, (x, y) => ziel.has(y * map.w + x), map.w, map.h, null, this.pathLinks(S, 'away'));
+    if (!path && gefahr.has(st.y * map.w + st.x)) path = bfs(walk, st, (x, y) => sicher(x, y), map.w, map.h, null, this.pathLinks(S, 'away'));   // raus aus der Sicht
+    if (path) {
+      sm.schleichWarten = 0; stats.sicher++;
+      if (!path.length) { this.input(0, 0); return; }
+      const n = path[0];
+      if (n.via) { this.gotoBuilt(S, [sm.bereichT.tiles[0]]); return; }
+      this.gotoBuilt(S, [{ x: n.x, y: n.y }]);
+      return;
+    }
+    sm.schleichWarten = (sm.schleichWarten || 0) + DT;
+    if (sm.schleichWarten < 25) { stats.warten++; this.input(0, 0); return; }
+    stats.offen++;
+    this.inBereich(S, p, M, bereich);
+  }
+  // Nach dem Ausbruch (Schritt mit Ziel docked:false, sonst alles erledigt außer „hoch“): niemand beamt wieder hinunter;
+  // abgelegt wird, sobald alle an Bord sind
+  ablegenPhase(S, step) {
+    const ids = new Set((step.objectives || []).filter((o) => o.done && o.done.docked === false).map((o) => o.id));
+    if (!ids.size) return false;
+    const open = this.objOpen(S);
+    return open.length > 0 && open.every((o) => ids.has(o.id));
+  }
+  ablegenDran(S) { return S.ship.docked && !S.players.some((o) => o.zone === 'away'); }
+  ablegen(S, p) {
+    if (this.is('helm')) { if (this.enter(S, 'helm')) this.helmS(S, 0, QUARTER); return; }
+    this.idleStations(S, p);
+  }
+  // Andockkontrolle (verhandeln/andockkontrolle_eskaliert): andocken (wie Ladung liefern), dann Funk; die Antwort wählt
+  // decide (BOT_WAHL), die Zelle spielt buehneScene (allowBeam auf den Landepunkt)
+  umsetzung_verhandeln_andockkontrolle_eskaliert(S, p, step) {
+    if (p.zone === 'away') { this.padsUp(S, p); return; }
+    if (/_kontrolle$/.test(step.id)) { this.idleStations(S, p); return; }
+    this.umsetzung_ladung_liefern_im_hafen_abgeben(S, p, step);
   }
   // Trupp räumen: zum nächsten noch kampffähigen Gegner (die Sicht und das Feuer übernimmt combatAway)
   jagen(S, p, tag) {

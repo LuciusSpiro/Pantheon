@@ -529,6 +529,13 @@ class Mission {
     if (step.enter && !this.dormant) this.run(step.enter);
     this.refreshObjectives();
   }
+  // W1 AP4 (§5.4 Nr. 4, CONTRACT-B2 §4): Darf ein verlorener Bodenkampf in diesem Schritt in den Ausbruch kippen?
+  // Schrittfeld ausbruch_erlaubt, Standard true; im Tutorial (m1–m3) immer false. Liest combat.ausbruchMoeglich.
+  ausbruchErlaubt() {
+    const inf = this.activeId ? this.info(this.activeId) : null;
+    if (inf && inf.tutorial) return false;
+    return !(this.step && this.step.ausbruch_erlaubt === false);
+  }
   // QA-Abnahme S1: Auch ein ruhender Schritt darf weitergehen, wenn sein `next` schon gilt – sonst hängt z. B. m1 `return`
   // (nach dem Laden bei Vaelen, Schritt-Ort b7) beim Heimflug fest, und m2 `sonde` (geladen im Hafen) beim Flug in den Nebel.
   // Enter/Timer/Regeln laufen weiterhin erst am Ort. Ein Ziel-Schritt mit fremdem Ort ruht seinerseits.

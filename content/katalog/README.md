@@ -66,6 +66,25 @@ Szene = Szenentyp + Ort + 1–2 Moleküle (je eine Umsetzung) + Besetzung + Wend
 Neue Felder je Umsetzung (S2): `liefert_flags` (für Verzweigungen; bei Schützlingen setzt die Engine `<tag>_heil|_beschaedigt|_verloren`,
 Tag = Szenen-ID), `rueckfall.params` (Rohfassung ohne LLM), `dauer_quelle`, `dauer_je_crew`. Archiv-Missionen: `content/spielleiter/archiv/`.
 
+**W1 AP4 (2026-10-10, Spielleiter Boden II):** 38 Umsetzungen, alle verfügbar. Mechaniken `gefangenschaft` und
+`stealth_aussen` (Lärmradius, Alarm je Trupp, Patrouillen, Sicht 10, kein Sichtkegel, E18) sind verfügbar.
+
+| Molekül | Umsetzung | Neu bzw. geändert |
+|---|---|---|
+| Ausbruch | Aus der Zelle, Ausrüstung holen, raus (C8) | Start in der Zelle über `team_gefangen` im `enter`, Wärter `besetzen` (ruhig), Flag `_frei` |
+| Unbemerkt hineinkommen | Leise bis ins Ziel (C4) | prüferfest (Flags `_unbemerkt`/`_entdeckt` gelesen), Test an `b7.aussenstelle` (nicht umkämpft) |
+| Verhandeln | Andockkontrolle durch das Kontor, eskaliert (A3/D1) | neu: Andocken an Vaelen, Kontrolle als Funkduell; Antwort b eskaliert: Abblende, `team_gefangen`, Ausbruch, Haltung Kontor −1, danach ablegen |
+
+- **Aktion `team_gefangen { landepunkt }`** (Typ map): Crew kommt in der Zelle zu sich (ohne Waffen, Ausrüstung am
+  `beute`-Anker, Zellentür von innen, laut). Nur im `enter` eines Schritts oder als Funkduell-Folge (`choices.*.on`).
+  Prüfer: `GEFANGEN-OHNE-DOCK` (Folge an einem Ort ohne Liegeplatz), `GEFANGEN-HEIMATHAFEN` (Landepunkt am Hafen),
+  `GEFANGEN-STELLE` (anderswo), `BUEHNE-ANKER` (Landepunkt ohne `zelle`/`beute`).
+- **Aktion `fraktion_haltung { fraktion, delta }`**: Haltung einer Fraktion (−3 … +3), Fakt `haltung_<fraktion>`.
+- **Schrittfeld `ausbruch_erlaubt`** (Standard `true`, im Tutorial `false`): `false` heißt, ein verlorener Bodenkampf
+  endet in der Notrückholung statt im Ausbruch.
+- **Grobplan-Katalog** (`--spielleiter kurz`): eine Zeile je Umsetzung (ID, Name, Karte, Dauer, Pflicht-Parameter,
+  „nur an“, „erst nach“). Messung: `node tools/katalog.js --tokens [kurz|voll] [--json]` (Tokens ≈ Zeichen / 3,5).
+
 ## Etwas hinzufügen
 - **Neue Umsetzung für ein bestehendes Molekül:** in `molekuele/<id>.json` unter `umsetzungen` ergänzen. Pflicht:
   `beschreibung` (für den Spielleiter), `braucht`, `params`, `vorlage` (Regiebuch-Fragment) und `test.params`.

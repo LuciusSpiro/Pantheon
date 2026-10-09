@@ -675,6 +675,42 @@
       },
       {
         "ansaetze": [
+          "gewalt",
+          "heimlich"
+        ],
+        "id": "ausbruch",
+        "kern": "Aus der Gefangenschaft freikommen und die Ausrüstung zurückholen",
+        "name": "Ausbruch",
+        "szenentypen": [
+          "C8"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Die Szene beginnt in der Zelle: Die Crew kommt ohne Waffen zu sich (team_gefangen beim Szenenstart). Zellentür von innen öffnen (E halten, laut, alarmiert die Wachen), Ausrüstung an der Truhe holen (E halten), dann zum Abholpunkt. Nicht am Heimathafen. Als eigene Szene oder als Folge einer Gefangennahme.",
+            "braucht_anker": {
+              "anker": [
+                "zelle",
+                "beute",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten",
+                "station",
+                "schiff"
+              ]
+            },
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "zelle_und_kammer",
+            "name": "Aus der Zelle, Ausrüstung holen, raus",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "technik"
         ],
         "id": "ausschlachten",
@@ -1541,6 +1577,40 @@
       },
       {
         "ansaetze": [
+          "heimlich",
+          "technik"
+        ],
+        "id": "unbemerkt_hineinkommen",
+        "kern": "Einen Punkt erreichen, ohne Alarm auszulösen",
+        "name": "Unbemerkt hineinkommen",
+        "szenentypen": [
+          "C4"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Die Besetzung ist ruhig und läuft Patrouillen. Über den leisen Eingang ins Ziel, ohne dass ein Trupp Alarm schlägt. Schlägt einer Alarm, kippt die Szene in einen Durchbruch (Flag _entdeckt).",
+            "braucht_anker": {
+              "anker": [
+                "eingang",
+                "patrouille"
+              ],
+              "kartenarten": [
+                "aussenposten",
+                "station"
+              ]
+            },
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "leise_bis_ziel",
+            "name": "Leise bis ins Ziel",
+            "schauplatz": "aussen"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "reden"
         ],
         "id": "verhandeln",
@@ -1552,6 +1622,30 @@
           "D1"
         ],
         "umsetzungen": [
+          {
+            "beschreibung": "Die Lerche dockt an Vaelen an, die Kontor-Wache kontrolliert per Funk. Der Captain lässt die Kontrolle zu, weist sie ab oder schweigt. Abweisen eskaliert: Abblende, die Crew kommt in der Zelle des Kontor-Schiffs zu sich und muss ausbrechen (Zellentür, Ausrüstung, Abholpunkt), danach ablegen. Die Haltung des Kontors sinkt. Nur an Vaelen.",
+            "braucht_anker": {
+              "anker": [
+                "zelle",
+                "beute",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "schiff",
+                "station"
+              ]
+            },
+            "dauer_min": [
+              5,
+              9
+            ],
+            "id": "andockkontrolle_eskaliert",
+            "name": "Andockkontrolle durch das Kontor, eskaliert",
+            "nur_an": [
+              "vaelen"
+            ],
+            "schauplatz": "weltraum"
+          },
           {
             "beschreibung": "Ein NSC funkt und will eine Antwort. Der Captain wählt zwischen zwei Antworten oder schweigt. Wer zu lange schweigt, hat geschwiegen. Die Folgen jeder Antwort legt der Spielleiter fest (Flags, Belohnung, Gegner, Haltung). Die Crew bespricht sich – das ist der Kern.",
             "dauer_min": [
@@ -1699,7 +1793,6 @@
     ],
     "noch_nicht_spielbar": {
       "molekuele": [
-        "ausbruch",
         "befragen",
         "beobachten",
         "gefahrgut",
@@ -1709,19 +1802,16 @@
         "schlichten",
         "schmuggeln",
         "unbemerkt_durchfliegen",
-        "unbemerkt_hineinkommen",
         "versorgen",
         "wettflug"
       ],
       "szenentypen": [
         "andocken_und_entern",
-        "ausbruch",
         "enterabwehr",
         "gast_an_bord",
         "gesellschaft",
         "halten",
         "hyperraumflug",
-        "infiltration",
         "krise_an_bord",
         "schlacht",
         "schleichfahrt",
@@ -1761,6 +1851,24 @@
           "vermessen"
         ],
         "name": "Annäherung & Erkundung",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "ausbruch",
+        "kennung": "C8",
+        "kern": "Crew ist gefangen, beginnt ohne Ausrüstung",
+        "kippt_zu": [
+          "gefecht",
+          "rueckzug"
+        ],
+        "molekuele": [
+          "ausbruch"
+        ],
+        "name": "Ausbruch",
         "plaetze": [
           1,
           2
@@ -1945,6 +2053,29 @@
         "name": "Hafen",
         "plaetze": [
           0,
+          2
+        ]
+      },
+      {
+        "bereich": "aussen",
+        "id": "infiltration",
+        "kennung": "C4",
+        "kern": "Unentdeckt bleiben: Patrouillen, Lärm, Alarm je Trupp (kein Sichtkegel)",
+        "kippt_zu": [
+          "gefecht",
+          "rueckzug"
+        ],
+        "molekuele": [
+          "daten_stehlen",
+          "datenkern_bergen",
+          "geiseln_befreien",
+          "sabotieren",
+          "unbemerkt_hineinkommen",
+          "ziel_markieren"
+        ],
+        "name": "Infiltration",
+        "plaetze": [
+          1,
           2
         ]
       },

@@ -971,10 +971,12 @@ async function f1f6() {
     const gerufen = {}; const sah = {}; const orig = {};
     for (const id of ids) {
       const e = Registry.get(id); orig[id] = e.run;
-      e.run = (m, a) => { gerufen[id] = (gerufen[id] || 0) + 1; sah[id] = !!(g.aways[a.map] && W.AWAY_MAPS[a.map]); };
+      // W1 AP4: Kartenparameter heißt nicht immer map (team_gefangen { landepunkt }, Typ map)
+      e.run = (m, a) => { const k = a.map || a.landepunkt; gerufen[id] = (gerufen[id] || 0) + 1; sah[id] = !!(g.aways[k] && W.AWAY_MAPS[k]); };
     }
     try {
-      for (const id of ids) { g.mission.act({ do: id, map: lp, tag: 't', person: 'p' }); g.mission.act({ do: id, map: lp, tag: 't', person: 'p' }); }
+      const mitKarte = (id) => Object.assign({ do: id, tag: 't', person: 'p' }, ...Object.entries(Registry.get(id).params).filter(([, q]) => q.typ === 'map').map(([n]) => ({ [n]: lp })));
+      for (const id of ids) { g.mission.act(mitKarte(id)); g.mission.act(mitKarte(id)); }
       ok(ids.length >= 10 && ids.every((id) => !gerufen[id]), `${ids.length} Aktionen mit Karte: nicht im Aufruf (Karte nicht gebaut, nie im Tick bauen)`);
       await tick(6);
       const falsch = ids.filter((id) => gerufen[id] !== 1 || !sah[id]);

@@ -26,9 +26,9 @@
     "enterer_an_bord":   { "status": "geplant", "beschreibung": "Gegner im eigenen Schiff" },
     "passagiere":        { "status": "geplant", "beschreibung": "Personen an Bord als Zustand" },
     "halten_aussen":     { "status": "geplant", "beschreibung": "Punkt halten mit Fortschrittsanzeige" },
-    "stealth_aussen":    { "status": "geplant", "beschreibung": "Sichtkegel, Alarmstufen" },
+    "stealth_aussen":    { "status": "verfuegbar", "beschreibung": "Lärmradius, Alarm je Trupp, Patrouillen, Sicht 10, kein Sichtkegel (E18)" },
     "gesellschaft_orte": { "status": "geplant", "beschreibung": "Siedlung, Markt, Gespräche mit NSC vor Ort" },
-    "gefangenschaft":    { "status": "geplant", "beschreibung": "Crew gefangen, ohne Ausrüstung" },
+    "gefangenschaft":    { "status": "verfuegbar", "beschreibung": "Crew gefangen, ohne Ausrüstung: Start in der Zelle (team_gefangen) bzw. Ausbruch nach verlorenem Bodenkampf, Zellentür von innen, Ausrüstung am beute-Anker" },
     "sprengladung":      { "status": "verfuegbar", "beschreibung": "Ladung setzen, Countdown, Explosion" },
     "hacken":            { "status": "verfuegbar", "beschreibung": "Terminal-Minispiel" },
     "ladung_transfer":   { "status": "geplant", "beschreibung": "Ladung und Personen per Transfer an Bord holen oder abgeben" }

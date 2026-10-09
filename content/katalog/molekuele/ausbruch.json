@@ -16,7 +16,7 @@
       "id": "zelle_und_kammer",
       "name": "Aus der Zelle, Ausrüstung holen, raus",
       "schauplatz": "aussen",
-      "beschreibung": "Das Team kommt in der Zelle zu sich, ohne Waffen. Zelle von innen öffnen (laut, alarmiert), Ausrüstung an der Truhe holen (E halten), dann zum Abholpunkt. Nur als Folge von teamGefangen oder als Szene mit Startbedingung.",
+      "beschreibung": "Die Szene beginnt in der Zelle: Die Crew kommt ohne Waffen zu sich (team_gefangen beim Szenenstart). Zellentür von innen öffnen (E halten, laut, alarmiert die Wachen), Ausrüstung an der Truhe holen (E halten), dann zum Abholpunkt. Nicht am Heimathafen. Als eigene Szene oder als Folge einer Gefangennahme.",
       "braucht": [
         "transfer",
         "gefangenschaft",
@@ -70,6 +70,27 @@
           "typ": "map",
           "pflicht": true,
           "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "rostmeute",
+          "werte": [
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Wärter (Fraktion = Besitz-ID); sie sind ruhig, bis die Zellentür knallt"
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "klein",
+          "werte": [
+            "klein",
+            "mittel",
+            "gross"
+          ]
         }
       },
       "vorlage": {
@@ -88,7 +109,30 @@
             "allowBeam": [
               "{{map}}"
             ],
-            "enter": [],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen",
+                "map": "{{map}}",
+                "fraktion": "{{fraktion}}",
+                "staerke": "{{staerke}}",
+                "haltung": "ruhig",
+                "tag": "{{id}}_wache"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              },
+              {
+                "do": "team_gefangen",
+                "landepunkt": "{{map}}"
+              }
+            ],
             "timers": [
               {
                 "at": 2,
@@ -98,7 +142,7 @@
                 "at": 45,
                 "if": {
                   "not": {
-                    "v": "{{id}}_ende"
+                    "flag": "{{id}}_frei"
                   }
                 },
                 "oda": "@{{id}}.hinweis",
@@ -119,17 +163,12 @@
                     },
                     {
                       "not": {
-                        "v": "{{id}}_ende"
+                        "flag": "{{id}}_frei"
                       }
                     }
                   ]
                 },
                 "do": [
-                  {
-                    "set": {
-                      "{{id}}_ende": true
-                    }
-                  },
                   {
                     "setFlag": {
                       "{{id}}_frei": true
@@ -142,30 +181,6 @@
               }
             ],
             "objectives": [
-              {
-                "id": "runter",
-                "text": "@{{id}}.ziel_runter",
-                "done": {
-                  "any": [
-                    {
-                      "check": {
-                        "name": "away_active",
-                        "map": "{{map}}"
-                      }
-                    },
-                    {
-                      "v": "{{id}}_ende"
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "ziel",
-                "text": "@{{id}}.ziel",
-                "done": {
-                  "v": "{{id}}_ende"
-                }
-              },
               {
                 "id": "zelle",
                 "text": "@{{id}}.ziel_zelle",
@@ -180,16 +195,23 @@
                       }
                     },
                     {
-                      "v": "{{id}}_ende"
+                      "flag": "{{id}}_frei"
                     }
                   ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "flag": "{{id}}_frei"
                 }
               },
               {
                 "id": "hoch",
                 "text": "@{{id}}.ziel_hoch",
                 "show": {
-                  "v": "{{id}}_ende"
+                  "flag": "{{id}}_frei"
                 },
                 "done": {
                   "not": {
@@ -206,7 +228,7 @@
                 "if": {
                   "all": [
                     {
-                      "v": "{{id}}_ende"
+                      "flag": "{{id}}_frei"
                     },
                     {
                       "not": {
@@ -235,11 +257,6 @@
                 "zustand": "leer"
               },
               {
-                "set": {
-                  "{{id}}_ende": true
-                }
-              },
-              {
                 "setFlag": {
                   "{{id}}_frei": true
                 }
@@ -252,10 +269,9 @@
           }
         ],
         "texte": {
-          "{{id}}.ziel_runter": "Außenteam runterbeamen",
-          "{{id}}.ziel_hoch": "Zurück an Bord beamen",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen (Abholpunkt)",
           "{{id}}.start": "Ihr kommt {{lex.zelle:im}} zu euch. Die Waffen sind weg – sie liegen irgendwo in {{lex.beute:einem}}.",
-          "{{id}}.hinweis": "Captain: {{lex.beute:der}} mit eurer Ausrüstung ist auf der Außenteam-Karte markiert.",
+          "{{id}}.hinweis": "Die Tür gibt nach, wenn ihr dranbleibt. Eure Ausrüstung liegt in {{lex.beute:dem}} – auf der Karte markiert.",
           "{{id}}.geschafft": "Ausrüstung zurück! Jetzt zum Abholpunkt.",
           "{{id}}.ziel_zelle": "{{lex.zelle:den}} von innen öffnen (E halten, laut)",
           "{{id}}.ziel": "Ausrüstung holen (E halten)"
@@ -266,11 +282,12 @@
       },
       "test": {
         "params": {
-          "loc": "hafen",
-          "map": "hafen.kontor"
+          "loc": "splitter",
+          "map": "splitter.schuerflager",
+          "fraktion": "rostmeute"
         }
       }
     }
   ],
-  "quelle": "CONTRACT-B2 §4/§7, INHALT §9.2"
+  "quelle": "CONTRACT-B2 §4/§7, INHALT §9.2, CONTRACT-W1 §5.4 Nr. 5"
 }

@@ -237,7 +237,525 @@
           ]
         }
       }
+    },
+    {
+      "id": "andockkontrolle_eskaliert",
+      "name": "Andockkontrolle durch das Kontor, eskaliert",
+      "schauplatz": "weltraum",
+      "beschreibung": "Die Lerche dockt an Vaelen an, die Kontor-Wache kontrolliert per Funk. Der Captain lässt die Kontrolle zu, weist sie ab oder schweigt. Abweisen eskaliert: Abblende, die Crew kommt in der Zelle des Kontor-Schiffs zu sich und muss ausbrechen (Zellentür, Ausrüstung, Abholpunkt), danach ablegen. Die Haltung des Kontors sinkt. Nur an Vaelen.",
+      "braucht": [
+        "andocken",
+        "funk_entscheidung",
+        "transfer",
+        "gefangenschaft",
+        "aussen_kampf"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "schiff",
+          "station"
+        ],
+        "anker": [
+          "zelle",
+          "beute",
+          "abholpunkt"
+        ]
+      },
+      "dauer_min": [
+        5,
+        9
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          6,
+          10
+        ],
+        "2": [
+          5,
+          9
+        ],
+        "3": [
+          5,
+          8
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_eskaliert",
+        "{{id}}_frei"
+      ],
+      "ereignisse": [
+        "docked",
+        "choice",
+        "teamGefangen",
+        "gefangen",
+        "alarm"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "werte": [
+            "vaelen"
+          ],
+          "beschreibung": "Andock-Ort (nicht der Heimathafen)"
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt mit Zelle (setzt der Szenenbau nach buehne_braucht, nie das LLM)"
+        },
+        "eroeffnung": {
+          "typ": "text",
+          "default": "Lerche, hier Kontor-Wache, Liegeplatz drei. Routinekontrolle: Luken auf, Frachtliste her, Waffen bleiben im Spind.",
+          "beschreibung": "Funkspruch der Kontor-Wache nach dem Andocken"
+        },
+        "frage": {
+          "typ": "text",
+          "default": "Die Kontor-Wache will an Bord. Was antwortet ihr?"
+        },
+        "antwort_a": {
+          "typ": "text",
+          "default": "Luken auf. Wir haben nichts zu verbergen."
+        },
+        "antwort_b": {
+          "typ": "text",
+          "default": "Kein Kontorstiefel betritt die Lerche.",
+          "beschreibung": "Diese Antwort eskaliert (Gefangennahme)"
+        },
+        "folgen_a": {
+          "typ": "aktionen",
+          "default": []
+        },
+        "folgen_schweigen": {
+          "typ": "aktionen",
+          "default": []
+        },
+        "staerke": {
+          "typ": "text",
+          "default": "klein",
+          "werte": [
+            "klein",
+            "mittel"
+          ],
+          "beschreibung": "Wachen an Bord des Kontor-Schiffs (ruhig, bis die Zellentür knallt)"
+        },
+        "geduld_s": {
+          "typ": "zahl",
+          "default": 75,
+          "min": 30,
+          "max": 180
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "besetzung": {
+          "stimmen": {
+            "kontorwache": {
+              "name": "Kontor-Wache"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "timers": [
+              {
+                "at": 2,
+                "if": {
+                  "not": {
+                    "docked": "{{loc}}"
+                  }
+                },
+                "oda": "@{{id}}.anflug"
+              },
+              {
+                "at": 60,
+                "if": {
+                  "not": {
+                    "docked": "{{loc}}"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "andocken",
+                "text": "@{{id}}.ziel_andocken",
+                "done": {
+                  "docked": "{{loc}}"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "docked": "{{loc}}"
+                },
+                "goto": "{{id}}_kontrolle"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_dock",
+                "loc": "{{loc}}"
+              }
+            ]
+          },
+          {
+            "id": "{{id}}_kontrolle",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "radio": {
+                  "from": "kontorwache",
+                  "text": "@{{id}}.eroeffnung"
+                }
+              },
+              {
+                "choice": "{{id}}_wahl"
+              },
+              {
+                "oda": "@{{id}}.captain"
+              }
+            ],
+            "timers": [
+              {
+                "at": 45,
+                "if": {
+                  "not": {
+                    "choiceMade": "{{id}}_wahl"
+                  }
+                },
+                "oda": "@{{id}}.ungeduldig",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": "{{geduld_s}}"
+                    },
+                    {
+                      "not": {
+                        "choiceMade": "{{id}}_wahl"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "do": "force_choice",
+                    "option": "schweigen"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "choices": {
+              "{{id}}_wahl": {
+                "prompt": "@{{id}}.frage",
+                "options": [
+                  {
+                    "id": "a",
+                    "label": "@{{id}}.a"
+                  },
+                  {
+                    "id": "b",
+                    "label": "@{{id}}.b"
+                  },
+                  {
+                    "id": "schweigen",
+                    "label": "@{{id}}.schweigen"
+                  }
+                ],
+                "on": {
+                  "a": "{{folgen_a}}",
+                  "b": [
+                    {
+                      "radio": {
+                        "from": "kontorwache",
+                        "text": "@{{id}}.zugriff"
+                      }
+                    },
+                    {
+                      "setFlag": {
+                        "{{id}}_eskaliert": true
+                      }
+                    },
+                    {
+                      "do": "fraktion_haltung",
+                      "fraktion": "kontor",
+                      "delta": -1
+                    },
+                    {
+                      "oda": "@{{id}}.abblende"
+                    },
+                    {
+                      "do": "team_gefangen",
+                      "landepunkt": "{{map}}"
+                    }
+                  ],
+                  "schweigen": "{{folgen_schweigen}}"
+                }
+              }
+            },
+            "objectives": [
+              {
+                "id": "antwort",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "choiceMade": "{{id}}_wahl"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "flag": "{{id}}_eskaliert"
+                },
+                "goto": "{{id}}_zelle"
+              },
+              {
+                "if": {
+                  "choiceMade": "{{id}}_wahl"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "force_choice",
+                "option": "schweigen"
+              }
+            ]
+          },
+          {
+            "id": "{{id}}_zelle",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "wiederaufnahme": {
+              "ab": "{{id}}_kontrolle"
+            },
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen",
+                "map": "{{map}}",
+                "fraktion": "kontor",
+                "staerke": "{{staerke}}",
+                "haltung": "ruhig",
+                "tag": "{{id}}_wache"
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 4,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 50,
+                "if": {
+                  "not": {
+                    "flag": "{{id}}_frei"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "beute",
+                        "state": "leer"
+                      }
+                    },
+                    {
+                      "not": {
+                        "flag": "{{id}}_frei"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "setFlag": {
+                      "{{id}}_frei": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.geschafft"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "zelle",
+                "text": "@{{id}}.ziel_zelle",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "zelle",
+                        "state": "offen"
+                      }
+                    },
+                    {
+                      "flag": "{{id}}_frei"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ausruestung",
+                "text": "@{{id}}.ziel_ausruestung",
+                "done": {
+                  "flag": "{{id}}_frei"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "flag": "{{id}}_frei"
+                },
+                "done": {
+                  "not": {
+                    "check": {
+                      "name": "team_down",
+                      "map": "{{map}}"
+                    }
+                  }
+                }
+              },
+              {
+                "id": "ablegen",
+                "text": "@{{id}}.ziel_ablegen",
+                "show": {
+                  "flag": "{{id}}_frei"
+                },
+                "done": {
+                  "docked": false
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "flag": "{{id}}_frei"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    },
+                    {
+                      "docked": false
+                    }
+                  ]
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "zelle",
+                "zustand": "offen"
+              },
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "beute",
+                "zustand": "leer"
+              },
+              {
+                "setFlag": {
+                  "{{id}}_frei": true
+                }
+              },
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}"
+              },
+              {
+                "do": "debug_jump",
+                "loc": "{{loc}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.anflug": "Vaelen voraus. Steuer: langsam an den Liegeplatz, dann andocken.",
+          "{{id}}.tipp": "Andocken an Vaelen: Dock-Ring langsam anfliegen, fast stehen – dann greifen die Klammern.",
+          "{{id}}.ziel_andocken": "An Vaelen andocken",
+          "{{id}}.eroeffnung": "{{eroeffnung}}",
+          "{{id}}.frage": "{{frage}}",
+          "{{id}}.a": "{{antwort_a}}",
+          "{{id}}.b": "{{antwort_b}}",
+          "{{id}}.schweigen": "Funkstille",
+          "{{id}}.captain": "Kontrolle am Dock! Captain: Antwort im Reiter „Funk“ – sprecht euch ab.",
+          "{{id}}.ungeduldig": "Die Kontor-Wache klopft schon an die Schleuse. Schweigen ist auch eine Antwort.",
+          "{{id}}.ziel": "Captain: der Kontor-Wache antworten (Funk)",
+          "{{id}}.zugriff": "Wie ihr wollt. Wache – Zugriff!",
+          "{{id}}.abblende": "Die Schleuse springt auf. Stiefel, Rufe, ein Schlag – dann nichts mehr.",
+          "{{id}}.start": "Kontor-Zelle. Die Lerche liegt noch am Dock – erst die Ausrüstung, dann raus hier.",
+          "{{id}}.hinweis": "Die Zellentür gibt nach, wenn ihr dranbleibt. Eure Ausrüstung liegt in {{lex.beute:dem}} – auf der Karte markiert.",
+          "{{id}}.geschafft": "Ausrüstung zurück! Zum Abholpunkt – und dann nichts wie weg vom Kontor.",
+          "{{id}}.ziel_zelle": "{{lex.zelle:den}} von innen öffnen (E halten, laut)",
+          "{{id}}.ziel_ausruestung": "Ausrüstung holen (E halten)",
+          "{{id}}.ziel_hoch": "Zurück an Bord beamen (Abholpunkt)",
+          "{{id}}.ziel_ablegen": "Ablegen – weg vom Kontor"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "vaelen",
+          "map": "vaelen.handelsschiff"
+        }
+      }
     }
   ],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; CONTRACT-W1 §5.4 Nr. 6 (andockkontrolle_eskaliert)"
 }

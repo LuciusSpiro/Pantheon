@@ -205,6 +205,10 @@ define({ id: 'npc_status', art: 'aktion', beschreibung: 'Status eines NSC setzen
   params: { npc: { typ: 'npc', pflicht: true }, status: { typ: 'string', pflicht: true, werte: ['lebt', 'vermisst', 'verletzt', 'tot', 'unbekannt'] },
     ort: { typ: 'string' } },
   run(m, a) { if (a.ort !== undefined) callWeltstand(m, 'npcStatus', a.npc, a.status, a.ort); else callWeltstand(m, 'npcStatus', a.npc, a.status); } });
+// W1 AP4 (§5.4 Nr. 6): Haltung der Crew gegenüber einer Fraktion (Besitz-ID), −3 … +3, Fakt haltung_<fraktion>
+define({ id: 'fraktion_haltung', art: 'aktion', beschreibung: 'Haltung einer Fraktion zur Crew ändern (−3 … +3, gekappt; z. B. Kontor nach einer eskalierten Kontrolle −1). Steht als Fakt haltung_<fraktion> im Weltstand',
+  params: { fraktion: { typ: 'string', pflicht: true, werte: ['rostmeute', 'kontor', 'raubzug', 'herrenlos', 'kustoden', 'konkordat'] }, delta: { typ: 'number', pflicht: true, min: -3, max: 3 } },
+  run(m, a) { const ctx = m.writeContext(); callWeltstand(m, 'fraktionHaltungAendern', a.fraktion, a.delta, ctx.mission || null); } });
 define({ id: 'welt_fakt', art: 'aktion', beschreibung: 'Fakt im Weltstand setzen (key = value)',
   params: { key: { typ: 'string', pflicht: true }, value: { typ: 'string' }, wert: { typ: 'string' }, quelle: { typ: 'string' },
     faden: { typ: 'bool' } },   // S2: faden = offener Erzählfaden (höchstens 1 je Grobplan; Spielleiter greift ihn später auf)

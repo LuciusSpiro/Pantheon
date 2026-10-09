@@ -209,8 +209,41 @@ function buehneBrauchtText(u) {
   if (u && u.params && u.params.map && Array.isArray(u.params.map.werte)) return `nur Landepunkt ${u.params.map.werte.join('/')}`;
   return '';
 }
-// kurz: für den Grobplan (Namen, Kern, Passung). voll: zusätzlich Umsetzungen mit Parametern (für das Ausarbeiten).
+// W1 AP4 (§5.4 Nr. 9): Kurzfassung für den Grobplan. Je Umsetzung genau eine Zeile: ID, Name, Kartenarten bzw. Raum,
+// Pflicht-Parameter (ohne loc/map – die setzt das Spiel), Dauer; „nur an“ und „erst nach“ bleiben (Regeln im
+// Systemprompt). Keine Beschreibungsprosa, kein „Noch nicht spielbar“ (Ziel −40 % im Katalogteil, Messung:
+// node tools/katalog.js --tokens). Die passenden Landepunkte je Bodenumsetzung stehen ohnehin in <vorgaben>.
+const VOM_SPIEL = ['loc', 'map', 'landepunkt'];
+function kartenText(u) {
+  const b = u && u.buehne_braucht;
+  if (u.params && u.params.map && Array.isArray(u.params.map.werte)) return `nur Landepunkt ${u.params.map.werte.join('/')}`;
+  if (b && typeof b === 'object') return (b.kartenarten || ['alle Kartenarten']).join('/');
+  return u.schauplatz === 'weltraum' ? 'Raum' : u.schauplatz;
+}
+function umsetzungZeile(m, u) {
+  const pflicht = Object.entries(u.params || {}).filter(([n, d]) => d && d.pflicht && !VOM_SPIEL.includes(n) && !VOM_SPIEL.includes(d.typ)).map(([n]) => n);
+  const teile = [kartenText(u), `${u.dauer_min[0]}–${u.dauer_min[1]} min`];
+  if (pflicht.length) teile.push(`Pflicht: ${pflicht.join(', ')}`);
+  if (u.params.loc && u.params.loc.werte) teile.push(`nur an: ${u.params.loc.werte.join('/')}`);
+  if ((u.nach || []).length) teile.push(`erst nach: ${u.nach.join(', ')}`);
+  return `- ${m.id}/${u.id} – ${u.name}; ${teile.join('; ')}`;
+}
+function fuerGrobplanKurz(k) {
+  const L = [];
+  const st = Object.values(k.szenentypen).sort((a, b) => a.kennung.localeCompare(b.kennung, 'de', { numeric: true }));
+  L.push('## Szenentypen (verfügbar)');
+  for (const s of st.filter((x) => x.status === 'verfuegbar')) L.push(`- ${s.kennung} \`${s.id}\` – ${s.name}: ${s.kern}${s.verfuegbare_molekuele.length ? ` Moleküle: ${s.verfuegbare_molekuele.join(', ')}.` : ''}${s.kippt_zu.length ? ` Kippt zu: ${s.kippt_zu.join(', ')}.` : ''}`);
+  L.push('', '## Moleküle (verfügbar): Kern, darunter je Umsetzung `molekül/umsetzung` – Name; Karte; Dauer; Pflicht-Parameter');
+  for (const m of Object.values(k.molekuele).filter((x) => x.status === 'verfuegbar').sort((a, b) => a.id.localeCompare(b.id))) {
+    L.push(`${m.name} (\`${m.id}\`): ${m.kern}`);
+    for (const u of m.umsetzungen.filter((x) => x.status === 'verfuegbar')) L.push(umsetzungZeile(m, u));
+  }
+  return L.join('\n');
+}
+// kurz: für den Grobplan (eine Zeile je Umsetzung, s. o.). voll: Namen, Kern, Beschreibung, Bühne und Parameter (für das
+// Ausarbeiten und Werkzeuge).
 function fuerSpielleiter(k, stufe) {
+  if (stufe !== 'voll') return fuerGrobplanKurz(k);
   const L = [];
   const st = Object.values(k.szenentypen).sort((a, b) => a.kennung.localeCompare(b.kennung, 'de', { numeric: true }));
   L.push('## Szenentypen (verfügbar)');

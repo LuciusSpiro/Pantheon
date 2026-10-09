@@ -72,9 +72,10 @@ function buildEnv(katalog) {
 //        setzt s.landepunkt jeder Bodenszene (gewählt am Ort, geprüft gegen buehne_braucht der gebauten Karte).
 //        Codes: LANDEPUNKT, LANDEPUNKT-GESPERRT, KOORDINATE, BUEHNE-ART, BUEHNE-ANKER (Fehler), BESITZ-REGION (Warnung),
 //        FRAKTION, GEGNER-TYP, BESETZUNG-NEU (Fehler), BESETZUNG-SOLO, BESETZUNG-ENTERER (Warnung)
-//   checkGrobplanB1(g, env, kontext, { boden, langImAngebot }) -> { errors, warnings }
+//   checkGrobplanB1(g, env, kontext, { boden, langImAngebot, landepunkteImAngebot }) -> { errors, warnings }
 //        BODEN-QUOTE (Fehler; mit ohne_boden_grund Warnung), BODEN-LANG (Fehler), LANG-RUNDE (Fehler: schon eine lange
-//        Mission in der Angebotsrunde), KARTE-WIEDERHOLT, DAUER-ABWEICHUNG (Warnung)
+//        Mission in der Angebotsrunde), KARTE-WIEDERHOLT (Warnung: letzte Missionen bzw. W1 auch ein anderes Angebot der
+//        Runde, landepunkteImAngebot = [{ titel, landepunkte }]), DAUER-ABWEICHUNG (Warnung)
 //   bodenInfo(g, env)                             -> { boden, lang, landepunkte, dauer_ziel_min, dauer_plan_min }
 // Meldungen beginnen mit dem Code („BODEN-QUOTE: …“), wie SPRECHER/ERINNERUNG-WIDERSPRUCH.
 // =================================================================================================================
@@ -99,6 +100,10 @@ function sceneUmsetzungen(s, env) { return ((s && s.molekuele) || []).map((m) =>
 // kein Landepunkt im Grobplan, keine Auflösung; die Szene zählt trotzdem als Bodenszene (schauplatz aussen)
 const laufzeitKarte = (u) => !!(u && isObj(u.buehne_braucht) && u.buehne_braucht.landepunkt === 'laufzeit');
 const brauchtKarte = (u) => !laufzeitKarte(u) && !!(u && (isObj(u.buehne_braucht) || (u.params && (u.params.map || Object.values(u.params).some((d) => d && d.typ === 'landepunkt')))));
+// W1 AP4: Umsetzungen mit Gefangennahme (team_gefangen) spielen nie am Heimathafen (Prüfer GEFANGEN-HEIMATHAFEN) –
+// Vorgaben und Szenenauflösung bieten dort keinen Landepunkt an
+const nimmtGefangen = (u) => !!(u && u.vorlage && JSON.stringify(u.vorlage).includes('"do":"team_gefangen"'));
+const HEIMATHAFEN = 'hafen';
 // Bodenszene = eine Umsetzung spielt draußen (Team auf einer Außenkarte)
 function istBodenszene(s, env) { return sceneUmsetzungen(s, env).some((u) => u.schauplatz === 'aussen'); }
 // Dauer wie checkGrobplan: alle Szenen (auch Zweige) + Sprünge auf dem ersten weiter
@@ -203,6 +208,7 @@ function aufloesen(g, env, kontext, opts) {
       } else if ((typeof s.landepunkt === 'string' && s.landepunkt) || b) warnings.push(`${p}: Landepunkt/Bühne angegeben, aber keine Umsetzung der Szene spielt auf einer Außenkarte`);
       continue;
     }
+    if (s.ort === HEIMATHAFEN && us.some(nimmtGefangen)) { errors.push(`GEFANGEN-HEIMATHAFEN: ${p}: ${us.filter(nimmtGefangen).map((u) => u.id).join('+')} nimmt die Crew gefangen – nie am Heimathafen '${HEIMATHAFEN}', anderen Ort wählen`); continue; }
     if (!lp) continue;   // ohne Landepunkte (BUEHNE fehlt): Altverhalten
     if (b && b.kartenart && !KARTEN_ARTEN.includes(b.kartenart)) { errors.push(`BUEHNE-ART: ${p}: Kartenart '${b.kartenart}' gibt es nicht (${KARTEN_ARTEN.join(', ')})`); continue; }
     const check = (id, karte) => {
@@ -322,6 +328,11 @@ function checkGrobplanB1(g, env, kontext, opts) {
     let seed = null; try { const e = lp && lp.eintrag(id); seed = e && Number.isFinite(e.seed) ? e.seed : null; } catch (e) { seed = null; }
     warnings.push(`KARTE-WIEDERHOLT: Landepunkt '${id}'${seed != null ? ` (Seed ${seed})` : ''} lief in den letzten ${C.wiederholtFenster || 3} Missionen (${wo.map((x) => `„${shortText(x.titel, 40)}“`).join(', ')}) – neuer Seed (buehne: { kartenart, neu: true }) oder Wiederkehr begründen`);
   }
+  // W1 AP4 (§5.4 Nr. 10): über die ganze Angebotsrunde (Muster LANG-RUNDE) – derselbe Landepunkt in einem anderen Angebot
+  for (const id of info.landepunkte) {
+    const wo = (Array.isArray(o.landepunkteImAngebot) ? o.landepunkteImAngebot : []).filter((x) => x && (x.landepunkte || []).includes(id));
+    if (wo.length) warnings.push(`KARTE-WIEDERHOLT: Landepunkt '${id}' ist in dieser Angebotsrunde schon im Angebot (${wo.map((x) => `„${shortText(x.titel, 40)}“`).join(', ')}) – anderen Landepunkt bzw. neuen Seed (buehne: { kartenart, neu: true }) wählen`);
+  }
   return { errors, warnings };
 }
 
@@ -350,6 +361,7 @@ function fitKarte(d, k, lp) {
 }
 function passtAuf(u, d, ort, karte) {
   if (u.params.loc && Array.isArray(u.params.loc.werte) && !u.params.loc.werte.includes(ort)) return false;
+  if (ort === HEIMATHAFEN && nimmtGefangen(u)) return false;
   if (u.params.map && Array.isArray(u.params.map.werte)) return u.params.map.werte.includes(d.id);
   const bb = isObj(u.buehne_braucht) ? u.buehne_braucht : null;
   if (!bb) return true;

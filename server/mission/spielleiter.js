@@ -214,6 +214,12 @@ class Spielleiter {
     const p = this.plansBy((x) => x !== ausser && x.grobplan && ['offered', 'checking'].includes(x.state)).find((x) => this.planBoden(x).lang);
     return p ? (p.grobplan.titel || p.id) : null;
   }
+  // W1 AP4 (§5.4 Nr. 10): Landepunkte der übrigen Angebote dieser Runde (Muster langImAngebot) -> [{ titel, landepunkte }]
+  landepunkteImAngebot(ausser) {
+    return this.plansBy((x) => x !== ausser && x.grobplan && ['offered', 'checking'].includes(x.state))
+      .map((x) => ({ titel: x.grobplan.titel || x.id, landepunkte: (this.planBoden(x).landepunkte || []).slice() }))
+      .filter((x) => x.landepunkte.length);
+  }
   planBoden(plan) {
     if (!plan || !plan.grobplan) return { boden: false, lang: false, landepunkte: [], dauer_ziel_min: null };
     if (!plan.bodenInfo) { try { plan.bodenInfo = Szenenbau.bodenInfo(plan.grobplan, this.env2(), this.bodenC()); } catch (e) { this.countError('boden', e); plan.bodenInfo = { boden: false, lang: false, landepunkte: [], dauer_ziel_min: null }; } }
@@ -374,6 +380,14 @@ class Spielleiter {
       if (m && typeof m.radio === 'function') { try { m.radio(Loader.npcName('tesk'), TEASER_TEXT, false); } catch (e) { this.countError('teaser', e); } }
     }
   }
+  // W1 AP4 (§5.4 Nr. 11): Planungsrunde zum Kampagnenstart ohne Neuversuch. Das Archiv-Angebot liegt dort schon seit
+  // onCampaignStart; ein ungültiger Grobplan geht direkt in den Rückfall (Archiv/Mock) statt in einen zweiten Aufruf mit
+  // vollem Kontext. Normale Runden behalten retries (der Neuversuch bekommt nur die Prüferfehler, fehlerKurz).
+  startRundeKampagnenstart(anlass) {
+    const vorher = new Set(Object.keys(this.plans));
+    this.startRound(anlass);
+    for (const [key, p] of Object.entries(this.plans)) if (!vorher.has(key) && p.slot === 'sl') p.ohneNeuversuch = true;
+  }
   ensureArchivOffer(anlass) {
     const have = this.plansBy((p) => p.slot === 'archiv' && ['offered'].includes(p.state)).length;
     for (let i = have; i < this.C.archivOffers; i++) {
@@ -527,7 +541,7 @@ class Spielleiter {
       const auf = Array.isArray(g.szenen) ? this.aufloesen(plan, g) : { errors: [], warnings: [], neu: [] };
       errs.push(...Szenenbau.checkGrobplan(g, this.env2()));
       const s2 = Szenenbau.checkGrobplanS2(g, this.env2(), plan.kontext, { origin: 'sl', minMinutes: this.C.minPlanMinutes, maxThreads: this.C.maxOpenThreads, crew: this.crew() });
-      const b1 = Szenenbau.checkGrobplanB1(g, this.env2(), plan.kontext, { boden: this.bodenC(), langImAngebot: this.langImAngebot(plan) });
+      const b1 = Szenenbau.checkGrobplanB1(g, this.env2(), plan.kontext, { boden: this.bodenC(), langImAngebot: this.langImAngebot(plan), landepunkteImAngebot: this.landepunkteImAngebot(plan) });
       errs.push(...auf.errors, ...s2.errors, ...b1.errors); warns = auf.warnings.concat(s2.warnings, b1.warnings, repairs.map((x) => 'repariert: ' + x));
       if (!errs.length) {
         plan.state = 'checking';
@@ -546,13 +560,13 @@ class Spielleiter {
     if (g && Array.isArray(g.wuensche) && this.regie) for (const w of g.wuensche.slice(0, 5)) this.regie.wish(w, { mission: built && built.book ? built.book.id : plan.key, quelle });
     if (errs.length) {
       plan.fehler = errs;
-      if (plan.versuche <= this.C.retries) {
+      if (!plan.ohneNeuversuch && plan.versuche <= this.C.retries) {
         plan.state = 'retry';
         // B1-FIX (F3 d): beim Neuversuch nur die Prüferfehler, knapp und ohne Dubletten
         this.enqueue({ type: 'grobplan', plan, retry: { antwort: String(r.text).slice(0, 12000), fehler: fehlerKurz(errs) } });
         return;
       }
-      this.fallbackPlan(plan, `Grobplan ${plan.versuche}× ungültig`);
+      this.fallbackPlan(plan, `Grobplan ${plan.versuche}× ungültig${plan.ohneNeuversuch ? ' (Kampagnenstart: kein Neuversuch, Archiv liegt bereit)' : ''}`);
       return;
     }
     plan.grobplan = g; plan.quelle = quelle; plan.bodenInfo = null;
@@ -912,7 +926,7 @@ class Spielleiter {
       this.pollStep();
       this.drainInbox();
       this.checkJobTimeout();
-      if (this.pendingStartAt != null && this.time >= this.pendingStartAt) { this.pendingStartAt = null; this.startRound({ art: 'kampagnenstart', tutorial: false }); }
+      if (this.pendingStartAt != null && this.time >= this.pendingStartAt) { this.pendingStartAt = null; this.startRundeKampagnenstart({ art: 'kampagnenstart', tutorial: false }); }
       // Sicherheitsnetz: nach dem Tutorial immer mindestens ein Angebot, solange keine Mission läuft
       const m = this.mission();
       if (m && !m.activeId && this.pendingStartAt == null && this.time >= this.safetyAt && !this.plansBy((p) => ['planning', 'checking', 'retry', 'offered', 'fallback'].includes(p.state)).length

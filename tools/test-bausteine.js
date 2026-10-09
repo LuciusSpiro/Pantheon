@@ -484,7 +484,116 @@ function main() {
     }
   }
 
+  w1Gefangenschaft();
+
   console.log(`\n${n - fails}/${n} ok${fails ? ', ' + fails + ' FEHLER' : ''}`);
   process.exit(fails ? 1 : 0);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// W1 AP4 (CONTRACT-W1 §5.4 Nr. 1–6): team_gefangen (Laufzeit und Prüfer), ausbruch_erlaubt, fraktion_haltung
+function w1Gefangenschaft() {
+  const Combat = require('../server/sim/combat.js');
+  const L = require('../server/sim/landepunkte.js');
+  const Checker = require('../server/mission/checker.js');
+  const K = require('../server/mission/katalog.js');
+  const LP = 'vaelen.handelsschiff';
+  section('W1 AP4: Gefangennahme ohne Kampf (team_gefangen, combat.teamGefangenNehmen)');
+  ok(Registry.get('team_gefangen') && Registry.get('team_gefangen').params.landepunkt.typ === 'map' && Registry.get('fraktion_haltung'), 'Bausteine registriert: team_gefangen { landepunkt* (map) }, fraktion_haltung');
+  const t = setup(2);
+  t.g.debugGoto('vaelen', true);
+  t.run(0.2);
+  ok(t.g.ship.docked && t.g.ship.dockedAt === 'vaelen', 'Lerche liegt an Vaelen');
+  L.get(t.g, LP);
+  t.g.players.forEach((p) => { p.waffe = 'blaster'; });
+  act('team_gefangen', t.g, { landepunkt: LP });
+  const aw = t.g.aways[LP];
+  const ps = t.g.players;
+  const zellen = Objects.resolveAnker(t.g, LP, 'zelle');
+  ok(t.g.away === aw && ps.every((p) => p.zone === 'away'), 'ganze Crew unten auf dem Landepunkt (Transfer, executeBeam)');
+  ok(ps.every((p) => p.gefangen && !p.gefangen.offen && p.waffe === 'faust' && p.waffeVorher === 'blaster' && p.zustand === 'ok'), 'gefangen: Faust, Ausrüstung weg (waffeVorher), Zustand ok');
+  const z = zellen.find((a) => a.id === ps[0].gefangen.zelle);
+  ok(!!z && ps.every((p) => { const tt = Physics.toTile(p.x, p.y); return Math.abs(tt.x - z.x) <= 1 && Math.abs(tt.y - z.y) <= 1; }), 'alle an der Zelle');
+  ok(aw.ausbruchGehabt === true && t.ev('teamGefangen').length === 1 && t.oda().some((x) => /in einer Zelle zu euch/.test(x)), 'Ereignis teamGefangen, ODA, ausbruchGehabt (zweites Mal -> Notrückholung)');
+  ok(Objects.ankerState(t.g, LP, z) === 'zu', 'Zelle zu');
+  const ia = interior.interactionsAt(t.g, ps[0], z.x, z.y, false).filter((x) => !x.blocked);
+  ok(ia[0] && ia[0].kind === 'zellentuer' && Combat.holdDurationB2(t.g, ps[0], 'zellentuer') === 8, `an der Zelle zuerst die Zellentür (8 s), nicht anker:zelle (${ia.map((x) => x.kind).join(', ')})`);
+  Combat.completeHoldB2(t.g, ps[0], { kind: 'zellentuer' });
+  ok(Objects.ankerState(t.g, LP, z) === 'offen' && ps.every((p) => p.gefangen.offen) && t.ev('zelleOffen').length === 1 && (aw.laerm || []).length > 0, 'Zellentür von innen: offen für alle, laut (Lärm), Ereignis zelleOffen');
+  const b = Objects.resolveAnker(t.g, LP, 'beute').find((a) => a.id === ps[0].gefangen.beute);
+  const ib = interior.interactionsAt(t.g, ps[0], b.x, b.y, false).filter((x) => !x.blocked);
+  ok(ib[0] && ib[0].kind === 'ausruestung', `an der Truhe zuerst die eigene Ausrüstung, nicht anker:beute (${ib.map((x) => x.kind).join(', ')})`);
+  Combat.completeHoldB2(t.g, ps[0], { kind: 'ausruestung' });
+  const halb = Objects.ankerState(t.g, LP, b);
+  Combat.completeHoldB2(t.g, ps[1], { kind: 'ausruestung' });
+  ok(halb === 'voll' && Objects.ankerState(t.g, LP, b) === 'leer' && ps.every((p) => p.waffe === 'blaster' && !p.waffeVorher), 'Truhe leer erst, wenn alle ihre Ausrüstung haben (Vorlage: anker_state beute leer)');
+  Combat.update(t.g, 1 / 30);   // Testspiel steht in der Lobby: Kampf-Tick direkt (updateGefangen)
+  ok(ps.every((p) => !p.gefangen), 'nach Tür und Ausrüstung: nicht mehr gefangen');
+  const t2 = setup(1);
+  t2.g.debugGoto('kesh', false);
+  const err = Combat.teamGefangenNehmen(t2.g, 'kesh');
+  ok(typeof err === 'string' && /zelle/.test(err) && t2.g.players[0].zone === 'ship', `Landepunkt ohne zelle/beute: Fehlertext, niemand wird verschoben (${err})`);
+
+  section('W1 AP4: Schrittfeld ausbruch_erlaubt (Standard true, Tutorial false)');
+  const t3 = setup(1);
+  const m = t3.g.mission;
+  m.step = { id: 'x' }; m.activeId = null;
+  const std = m.ausbruchErlaubt();
+  m.step = { id: 'x', ausbruch_erlaubt: false };
+  const aus = m.ausbruchErlaubt();
+  m.step = { id: 'x', ausbruch_erlaubt: true }; m.activeId = 'm3';
+  const tut = m.ausbruchErlaubt();
+  ok(std === true && aus === false && tut === false, `mission.ausbruchErlaubt(): Standard ${std}, Feld false ${aus}, Tutorial m3 ${tut}`);
+  // combat.ausbruchMoeglich liest das Feld: Team liegt gefesselt auf einer Karte mit zelle und beute
+  m.activeId = null; m.step = { id: 'x' };
+  L.get(t3.g, LP); t3.g.setAwayMap(LP);
+  const p3 = t3.g.players[0];
+  interior.placeOnAwayPad(t3.g, p3, 0); t3.g.aways[LP].active = true;
+  p3.downed = true; p3.zustand = 'gefesselt';
+  const ja = Combat.ausbruchMoeglich(t3.g, [p3]);
+  m.step = { id: 'x', ausbruch_erlaubt: false };
+  const nein = Combat.ausbruchMoeglich(t3.g, [p3]);
+  ok(ja === true && nein === false, `combat.ausbruchMoeglich: Standard ${ja}, ausbruch_erlaubt false -> ${nein} (Notrückholung)`);
+  const SCH = require('../content/regiebuch/regiebuch.schema.json');
+  const feld = (v) => Checker.validate({ id: 's', objectives: [], ausbruch_erlaubt: v }, SCH.$defs.schritt, '$', [], SCH).filter(([p]) => /ausbruch_erlaubt/.test(p));
+  ok(!feld(false).length && feld('nein').length === 1, `Schema: ausbruch_erlaubt ist ein Schrittfeld (bool) – ${feld('nein').map((x) => x.join(' ')).join(' | ')}`);
+
+  section('W1 AP4: Prüfer GEFANGEN-OHNE-DOCK, GEFANGEN-HEIMATHAFEN, Anker zelle/beute');
+  const kat = K.load();
+  const uA = kat.molekuele.verhandeln.umsetzungen.find((u) => u.id === 'andockkontrolle_eskaliert');
+  const uZ = kat.molekuele.ausbruch.umsetzungen.find((u) => u.id === 'zelle_und_kammer');
+  const buch = (u, params, molId) => { const { frag } = K.instantiate(u, params, 's1', 'test_ende'); return K.testRegiebuch(frag, molId, u); };
+  const codes = (r) => r.errors.map((e) => e.code);
+  const gut = Checker.check(buch(uA, uA.test.params, 'verhandeln'));
+  ok(gut.ok && !gut.warnings.length && uA.status === 'verfuegbar', 'andockkontrolle_eskaliert (Vaelen) besteht den Prüfer ohne Warnung');
+  // Funkduell-Folge an einem Ort ohne Liegeplatz (Nebel, nebel.havarist ist ein Schiff mit Zelle)
+  const ohneDock = buch(uA, uA.test.params, 'verhandeln');
+  const umziehen = (node) => {   // Ort vaelen -> nebel, Landepunkt vaelen.handelsschiff -> nebel.havarist (überall im Buch)
+    if (Array.isArray(node)) { node.forEach((x, i) => { if (x === 'vaelen') node[i] = 'nebel'; else if (x === LP) node[i] = 'nebel.havarist'; else umziehen(x); }); return; }
+    if (!node || typeof node !== 'object') return;
+    for (const [k, v] of Object.entries(node)) { if (v === 'vaelen') node[k] = 'nebel'; else if (v === LP) node[k] = 'nebel.havarist'; else umziehen(v); }
+  };
+  umziehen(ohneDock);
+  const r1 = Checker.check(ohneDock);
+  ok(codes(r1).includes('GEFANGEN-OHNE-DOCK'), `Funkduell-Folge ohne Andock-Ort: GEFANGEN-OHNE-DOCK (${codes(r1).join(', ')})`);
+  const heim = buch(uZ, { loc: 'hafen', map: 'hafen.kontor' }, 'ausbruch');
+  const r2 = Checker.check(heim);
+  ok(codes(r2).includes('GEFANGEN-HEIMATHAFEN'), `Landepunkt am Heimathafen: GEFANGEN-HEIMATHAFEN (${codes(r2).join(', ')})`);
+  const hand = buch(uZ, { loc: 'kesh', map: 'kesh' }, 'ausbruch');
+  const r3 = Checker.check(hand);
+  ok(r3.errors.some((e) => e.code === 'BUEHNE-ANKER' && /team_gefangen/.test(e.msg)), `Landepunkt ohne zelle/beute: BUEHNE-ANKER (${codes(r3).join(', ')})`);
+  const stelle = buch(uZ, uZ.test.params, 'ausbruch');
+  stelle.steps[0].rules.push({ if: { elapsed: 5 }, do: [{ do: 'team_gefangen', landepunkt: uZ.test.params.map }] });
+  const r4 = Checker.check(stelle);
+  ok(codes(r4).includes('GEFANGEN-STELLE') && Checker.check(buch(uZ, uZ.test.params, 'ausbruch')).ok, `team_gefangen nur im enter oder als Funkduell-Folge: GEFANGEN-STELLE in rules (${codes(r4).join(', ')})`);
+
+  section('W1 AP4: fraktion_haltung (Weltstand, Fakt haltung_<fraktion>)');
+  const Weltstand = require('../server/weltstand.js');
+  const t5 = setup(1);
+  t5.g.weltstand = Weltstand.create(t5.g, { persistent: false, tutorial: false });
+  act('fraktion_haltung', t5.g, { fraktion: 'kontor', delta: -1 });
+  act('fraktion_haltung', t5.g, { fraktion: 'kontor', delta: -5 });
+  const ws = t5.g.weltstand;
+  ok(ws.fraktionHaltung('kontor') === -3 && ws.data.fakten.haltung_kontor === -3 && ws.fraktionHaltung('rostmeute') === 0, `Haltung Kontor −1, dann −5 gekappt auf −3 (Fakt ${ws.data.fakten.haltung_kontor}), andere Fraktion 0`);
 }
 main();

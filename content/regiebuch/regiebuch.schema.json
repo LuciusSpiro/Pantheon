@@ -309,6 +309,7 @@
         "umsetzung": { "type": "string", "pattern": "^[a-z0-9_]+/[a-z0-9_]+$", "description": "S2: '<molekuel>/<umsetzung>' aus dem Katalog (Bots, Logbuch). Wechsel auf einen Schritt mit neuer umsetzung ruft spielleiter.onSceneEnter." },
         "szene": { "$ref": "#/$defs/kennung", "description": "S2: Szenen-Kennung des Spielleiters (Standard: Schritt-ID)" },
         "liefert_flags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9_]*$" }, "description": "S2: Flags, die die Umsetzung zur Laufzeit setzt (z. B. konvoi_heil/_beschaedigt/_verloren) – für Verzweigungen erlaubt" },
+        "ausbruch_erlaubt": {"type":"boolean"},
         "wiederaufnahme": {
           "type": "object", "additionalProperties": false, "required": ["ab"],
           "description": "Schritt ist nicht neustartfest: Laden setzt bei 'ab' fort; prep läuft nach setStep und dem Überlagern von v/Ereignissen",
