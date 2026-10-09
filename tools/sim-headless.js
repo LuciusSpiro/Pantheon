@@ -14,6 +14,7 @@ const CONFIG = require('../shared/config.js');
 // Gilt auch für golden-trace.js (lädt diese Datei ohne Hauptteil). Snapshot-Leser: alive fehlt = true, asleep/cr fehlen = false.
 CONFIG.debug.snapKiRolle = true;
 const Locations = require('../shared/locations.js');
+const Drift = require('../shared/drift.js');   // W2 AP3b: bewegte Brocken
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
@@ -356,7 +357,8 @@ class Agent {
     const gd = Math.hypot(tx - sh.x, ty - sh.y) || 1;
     if (S.space.asteroids) this.memo.asteroids = S.space.asteroids;
     if (this.memo.astScene !== sh.scene && S.space.asteroids) this.memo.astScene = sh.scene;
-    const rocks = this.memo.astScene === sh.scene ? (this.memo.asteroids || []) : [];
+    // W2 AP3b: bewegte Brocken (Wellen All) mit derselben Drift-Funktion wie Server und Client; still: unverändert
+    const rocks = this.memo.astScene === sh.scene ? Drift.jetzt(this.memo.asteroids || [], S.time) : [];
     const goalA = Math.atan2(ty - sh.y, tx - sh.x);
     const clear = (a, len) => {
       const cx = Math.cos(a), cy = Math.sin(a);
@@ -1654,7 +1656,7 @@ class ArenaAgent extends Agent {
     if (this.role === 'weapons' || this.role === 'solo') { if (this.repairDuty(S, p, { damaged: true, cooldown: 1 })) return; }
     if (this.role === 'weapons') { this.enter(S, 'weapons'); return; }
     if (!this.enter(S, 'helm')) return;
-    const home = CONFIG.arena.shipPos; const sh = S.ship;
+    const home = (this.opts && this.opts.home) || CONFIG.arena.shipPos; const sh = S.ship;   // W2: Wellen All – Startpunkt der Szene
     if (dist(sh.x, sh.y, home.x, home.y) > 300) this.steer(S, home.x, home.y, 120, 100); else this.brake(S);
   }
 }
@@ -1749,7 +1751,96 @@ async function runArena(opts) {
   };
 }
 
+// ---------- W2 AP3b: Wellen All (Lobby-Start arena_space mit Szene) ----------
+//   node tools/sim-headless.js arena --szene frei|nebel|asteroiden|asteroiden_bewegt|alle [--seeds 3] [--players 1|3]
+//     [--max 900] [--pilot nose|maneuver]
+// Ein Lauf endet mit dem Ergebnis der Runde (Notfallprotokoll) oder nach --max s. Tabelle: Welle, Zeit, Abschüsse,
+// Treffer durch Brocken (Lerche/Gegner/Geschosse/Strahlen), Fehler, Snapshot max.
+async function runWellenAll(opts) {
+  const seed = opts.seed;
+  simRng = makeRng(seed * 7919 + 211);
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
+  const Z = (CONFIG.arena.szenen || []).find((z) => z.id === opts.szene);
+  const loc = Locations.get(Z.ort);
+  const home = Z.start || loc.scene.arrive;
+  const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
+  const agents = roles.map((r, i) => new ArenaAgent(game, i, r, { pilot: opts.pilot, home }));
+  game.simAgents = agents;
+  let ergebnis = null;
+  const watcher = { send: (o) => { if (o.t === 'event' && o.kind === 'wellenEnde') ergebnis = o; if (VERBOSE && o.t === 'event' && o.kind === 'oda') log(`  [ODA ${game.time.toFixed(1)}] ${o.text}`); } };
+  game.addConnection(watcher); watcher.observer = true;
+  game.lobbyOpts.startMission = 'arena_space';
+  game.lobbyOpts.szene = opts.szene;
+  for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+  let S = game.snapshot();
+  let snapMax = 0, lastN = 0, lastProgress = 0, softlock = false, ticks = 0, brocken = null, kills = 0, n = 0, hpVor = null;
+  while (game.time < opts.maxSec && !ergebnis) {
+    game.step(); ticks++;
+    if (game.wantsSnapshot()) { S = game.snapshot(); snapMax = Math.max(snapMax, Buffer.byteLength(JSON.stringify(S))); }
+    for (const a of agents) a.update(S);
+    const W8 = game.arena && game.arena.wellen;
+    if (W8) {
+      n = W8.n; kills = W8.abschuesse;
+      // Fortschritt: neue Welle, Pause oder Schaden an Gegnern (lange Gefechte im Nebel sind kein Softlock)
+      const hp = game.space.enemies.reduce((s, e) => s + e.hp + (e.shields || []).reduce((a, b) => a + b, 0), 0);
+      if (W8.n !== lastN || W8.ph === 'pause' || (hpVor != null && hp < hpVor - 0.01)) { lastN = W8.n; lastProgress = game.time; }
+      hpVor = hp;
+    }
+    if (game.stats.brocken) brocken = Object.assign({}, game.stats.brocken);
+    if (VERBOSE && ticks % 300 === 0 && W8) {
+      const sh = game.ship;
+      log(`  [t ${game.time.toFixed(0)} W${W8.n} ${W8.ph}] Hülle ${Math.round(sh.hull)} v${Math.round(sh.speed)} Gegner ${game.space.enemies.map((e) => e.kind + ' ' + Math.round(e.hp) + (e.pstate ? ' ' + e.pstate : '') + ' @' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Spieler ${S.players.map((q) => q.console || '-').join(' ')}`);
+    }
+    if (game.time - lastProgress > 300) { softlock = true; break; }
+    if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
+  }
+  const b = Object.assign({ lerche: 0, gegner: 0, schuesse: 0, strahlen: 0 }, (ergebnis && ergebnis.brocken) || brocken || {});
+  return {
+    szene: opts.szene, seed, players: opts.players, welle: ergebnis ? ergebnis.welle : n, zeit: ergebnis ? ergebnis.zeit : Math.round(game.time),
+    ende: !!ergebnis, abschuesse: ergebnis ? ergebnis.kills.reduce((s, k) => s + k[2], 0) : kills, abschuesseGesamt: kills, brocken: b,
+    softlock, errors: game.errors, snapMax,
+  };
+}
+async function arenaSzenenMain() {
+  const arg = argVal('--szene', 'alle');
+  const ids = arg === 'alle' ? (CONFIG.arena.szenen || []).map((z) => z.id) : [arg];
+  const nSeeds = Number(argVal('--seeds', 3));
+  const players = argVal('--players', null);
+  const crews = players ? [Number(players)] : [1, 3];
+  const maxSec = Number(argVal('--max', 900));
+  const base = seedArg != null ? seedArg : 1;
+  const pilot = PILOT && PILOT !== 'both' ? PILOT : 'maneuver';
+  let ok = true;
+  const rows = [];
+  log(`\n=== Wellen All – Szenen ${ids.join(', ')}, Crew ${crews.join('/')}, ${nSeeds} Seeds, höchstens ${maxSec} s je Lauf, Steuer „${pilot}“ ===`);
+  for (const id of ids) {
+    if (!(CONFIG.arena.szenen || []).some((z) => z.id === id)) { log(`Unbekannte Szene ${id}`); ok = false; continue; }
+    for (const crew of crews) {
+      for (let i = 0; i < nSeeds; i++) {
+        const r = await runWellenAll({ szene: id, seed: base + i, players: crew, maxSec, pilot });
+        rows.push(r);
+        if (r.errors > 0 || r.softlock) ok = false;
+        if (VERBOSE) log(`  ${id} Crew ${crew} Seed ${r.seed}: Welle ${r.welle}, ${r.zeit} s, Abschüsse ${r.abschuesseGesamt}, Brocken ${JSON.stringify(r.brocken)}, Fehler ${r.errors}, Snapshot ${r.snapMax} B${r.softlock ? ', SOFTLOCK' : ''}`);
+      }
+    }
+  }
+  const med = (xs) => { const s = xs.slice().sort((a, b) => a - b); return s.length ? s[Math.floor((s.length - 1) / 2)] : 0; };
+  log('\n| Szene | Crew | Läufe | Welle (je Seed) | Zeit s Median | Abschüsse je Lauf | Brocken: Lerche / Gegner / Geschosse / Strahlen (Summe) | Ende erreicht | Fehler | Softlock | Snapshot max B |');
+  log('|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const id of ids) for (const crew of crews) {
+    const xs = rows.filter((r) => r.szene === id && r.players === crew);
+    if (!xs.length) continue;
+    const sum = (f) => xs.reduce((s, r) => s + f(r), 0);
+    log(`| ${id} | ${crew} | ${xs.length} | ${xs.map((r) => r.welle).join(' / ')} | ${med(xs.map((r) => r.zeit))} | ${Math.round(sum((r) => r.abschuesseGesamt) / xs.length * 10) / 10} | ` +
+      `${sum((r) => r.brocken.lerche)} / ${sum((r) => r.brocken.gegner)} / ${sum((r) => r.brocken.schuesse)} / ${sum((r) => r.brocken.strahlen)} | ${xs.filter((r) => r.ende).length}/${xs.length} | ${sum((r) => r.errors)} | ${xs.filter((r) => r.softlock).length} | ${Math.max(...xs.map((r) => r.snapMax))} |`);
+  }
+  log(ok ? '\nSIM WELLEN ALL OK' : '\nSIM WELLEN ALL FEHLGESCHLAGEN');
+  process.exit(ok ? 0 : 1);
+}
+
 async function arenaMain() {
+  if (argVal('--szene', null)) return arenaSzenenMain();   // W2 AP3b: Wellen All
   const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
   const nSeeds = Number(argVal('--seeds', 10));
   const players = Number(argVal('--players', 3));
