@@ -1,0 +1,57 @@
+{
+  "format": "molekuel/1",
+  "id": "vernichten",
+  "erweitert": true,
+  "name": "Vernichten",
+  "familie": "kampf",
+  "kern": "Fixture für tools/test-labor.js: eine Test-Umsetzung, die ohne Codeänderung in laborListe erscheinen muss.",
+  "ansaetze": ["gewalt"],
+  "szenentypen": ["A5"],
+  "umsetzungen": [
+    {
+      "id": "labor_fixture_pylonen",
+      "name": "Labor-Fixture: Pylonen am Relais",
+      "beschreibung": "Testeintrag des Szenario-Labors (Kopie der Pylonen-Prüfung aus dem Mod-Beispiel). Nie im Spiel.",
+      "schauplatz": "weltraum",
+      "braucht": ["raumkampf"],
+      "dauer_min": [3, 5],
+      "ereignisse": ["enemyKilled", "enemyScanned"],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true },
+        "pylonen": { "typ": "zahl", "default": 2, "min": 2, "max": 4 },
+        "waechter_nach": { "typ": "zahl", "default": 30, "min": 15, "max": 90 }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}", "loc": "{{loc}}", "restartOnReturn": true,
+            "enter": [{ "spawn": { "kind": "pylon", "tag": "{{id}}_pylon", "face": "out", "n": "{{pylonen}}",
+              "atStation": [{ "dx": -300, "dy": -240 }, { "dx": 340, "dy": -40 }, { "dx": -230, "dy": 290 }, { "dx": 200, "dy": 260 }] } }],
+            "timers": [
+              { "at": 1, "oda": "@{{id}}.lage" },
+              { "at": 30, "if": { "not": { "event": "enemyScanned" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              { "if": { "all": [{ "atLocation": "{{loc}}" }, { "not": { "v": "{{id}}_waechter" } }, { "any": [{ "elapsed": "{{waechter_nach}}" }, { "killed": { "kind": "pylon", "min": 1 } }] }] },
+                "do": [{ "wendung": "{{id}}_waechter", "ankuendigung": { "oda": "@{{id}}.waechter", "art": "gleichzeitig", "grund": "Der Wächter lädt seine EMP-Schüsse sichtbar." },
+                  "wirkung": [{ "set": { "{{id}}_waechter": true } }, { "spawn": { "kind": "sentinel", "tag": "{{id}}_waechter", "atStation": [{ "dx": 160, "dy": 120 }] } }] }] }
+            ],
+            "objectives": [
+              { "id": "pylonen", "text": "@{{id}}.ziel", "done": { "all": [{ "elapsed": 0.5 }, { "enemiesLeft": { "tag": "{{id}}_pylon", "max": 0 } }] } }
+            ],
+            "next": [{ "if": { "all": [{ "v": "{{id}}_waechter" }, { "enemiesLeft": { "max": 0 } }] }, "goto": "{{weiter}}" }],
+            "skip": [{ "do": "debug_clear_enemies" }, { "set": { "{{id}}_waechter": true } }]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "Labor-Fixture: Pylonen mit Frontschild. Von der Seite anfliegen.",
+          "{{id}}.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist.",
+          "{{id}}.waechter": "Ein Kustoden-Wächter erwacht! Schilde oben halten.",
+          "{{id}}.ziel": "Pylonen ausschalten ({killed:{{id}}_pylon}/{{pylonen}})"
+        }
+      },
+      "test": { "params": { "loc": "relais" } }
+    }
+  ]
+}

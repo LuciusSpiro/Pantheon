@@ -308,6 +308,13 @@
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
     },
 
+    // Lobby (CONTRACT-W2 §1, AP3a)
+    lobby: {
+      // Szenario-Labor in der Lobby (Taste M, server/mission/labor.js). Aus: Modus erscheint nicht, der Server lehnt den Start ab.
+      // MERKER: vor dem Weitergeben des Spiels ausschalten oder hinter Debug legen.
+      labor: true,
+    },
+
     // Bodenkampf: Wellen (Lobby-Start 'arena_away' mit Kartenwahl, server/sim/wellen.js). Alle Zahlen per `tune wellen.<pfad>`.
     // Eskalation nur über Zahl, Rollen, Waffen, Rang und Trupps – für Gegner gelten dieselben Regeln wie für Spieler.
     // Je Welle höchstens eine Neuheit (Einführungsregel): Waffen in ungeraden, Rollen in geraden Wellen, dann Rang, dann gemischte Trupps.
@@ -317,7 +324,9 @@
       maxLebend: 12,           // höchstens so viele Gegner gleichzeitig stehend (Snapshot-Budget 13 KB)
       maxKoerper: 3,           // endgültig liegende Gegner (aus/gefesselt), die zusätzlich im Snapshot bleiben (ältere verschwinden)
       koerperZeit: 10,         // s: Liegende, die noch aufstehen könnten, zählen zum Budget; wartet Nachschub, verschwinden sie danach
-      anzahl: { basis: 1, jeWelle: 1, jeSpielerWelle: 0.5, max: 40 },   // Gesamt = basis + jeWelle·n + jeSpielerWelle·(Spieler−1)·n
+      // AP3a (Abnahme Wellen Boden): basis 1 -> 0. Welle 1 solo = 1 Karl (vorher 2: Bot solo 18/24 Läufe in Welle 1 am Boden,
+      // Mensch im Browser nach 10 s) – gleiche Waffen, ein Gegen-einen ist offen; zu dritt Welle 1 = 2 statt 3.
+      anzahl: { basis: 0, jeWelle: 1, jeSpielerWelle: 0.5, max: 40 },   // Gesamt = basis + jeWelle·n + jeSpielerWelle·(Spieler−1)·n
       truppGroesse: 3,         // Gegner je Trupp (ein Trupp erscheint gemeinsam an einem Eingang)
       nachschubTakt: 2,        // s zwischen zwei Nachschub-Trupps
       spawnAbstand: 10,        // Kacheln Mindestabstand zu jedem Spieler (außer Sicht)

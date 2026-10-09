@@ -12,6 +12,7 @@ const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslog
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const arena = require('./sim/arena.js');
+const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
 const onboard = require('./sim/onboard.js');
 const { Explore } = require('./sim/explore.js');
@@ -128,7 +129,8 @@ class Game {
     this.idCounter = 0;
     this.runCounter = 0;
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
-    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null };   // wellen: Kartenwahl Bodenkampf: Wellen
+    this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
+      labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
     this.reset();
   }
 
@@ -332,6 +334,7 @@ class Game {
     this.seed = this.fixedSeed != null ? this.fixedSeed : (Date.now() & 0x7fffffff);
     this.rng = makeRng(this.seed);
     this.god = false;
+    this.labor = null;   // AP3a: laufendes Szenario-Labor (server/mission/labor.js)
     this.flags = {};
     this.odaSeen = new Set();
     this.scans = new Set();
@@ -497,9 +500,16 @@ class Game {
             this.log(`${p.name}: Hafen-Übung ${msg.skipDrill ? 'überspringen' : 'spielen'}.`);
           }
           // M2: Direktstart der Planetenmission (CONTRACT-M2 §3.3)
-          if (this.phase === 'lobby' && Protocol.START_MISSIONS.includes(msg.startMission) && msg.startMission !== this.lobbyOpts.startMission) {
+          if (this.phase === 'lobby' && this.startModi().includes(msg.startMission) && msg.startMission !== this.lobbyOpts.startMission) {
             this.lobbyOpts.startMission = msg.startMission;
             this.log(`${p.name}: Start ${(Protocol.START_LABELS && Protocol.START_LABELS[msg.startMission]) || msg.startMission}.`);
+          } else if (this.phase === 'lobby' && msg.startMission === 'labor' && !Labor.an(this.C)) this.notice(p, 'Das Szenario-Labor ist auf diesem Server aus.');
+          // AP3a: Szenario-Labor – Auswahl und Parameter (Felder werden zusammengeführt; jeder darf umschalten)
+          if (this.phase === 'lobby' && msg.labor && typeof msg.labor === 'object') this.setLaborOpts(p, msg.labor);
+          // AP3a: Waffe je Spieler für Wellen Boden und Labor (gesetzt beim Start, vor dem Beamen); null = gespeicherte Wahl
+          if (this.phase === 'lobby' && 'waffe' in msg) {
+            const wf = msg.waffe == null ? null : String(msg.waffe);
+            if (wf === null || (Protocol.WAFFEN_WAHL || []).includes(wf)) p.lobbyWaffe = wf;
           }
           // B1 §4: Direktstart Testgelände mit Kartenparametern { arena: { art, schablone?, seed, bauweise, besitz, zustand, fraktion?, staerke?, haltung? } }
           if (this.phase === 'lobby' && 'arena' in msg) this.lobbyOpts.arena = Game.arenaParams(msg.arena);
@@ -731,6 +741,64 @@ class Game {
     for (let c = 0; c < 3; c++) if (!taken.has(c)) { p.color = c; return; }
   }
 
+  // AP3a: gültige Lobby-Modi (Taste M); 'labor' nur mit CONFIG.lobby.labor
+  startModi() {
+    const l = Protocol.LOBBY_MODI || Protocol.START_MISSIONS;
+    return Labor.an(this.C) ? l : l.filter((m) => m !== 'labor');
+  }
+  // AP3a: Labor-Liste für die Lobby (aus dem Katalog, einmal je Prozess berechnet)
+  laborListe() {
+    if (!Game.laborCache) { try { Game.laborCache = Labor.laborListe(); } catch (e) { this.countError('labor-liste', e); return []; } }
+    return Game.laborCache;
+  }
+  setLaborOpts(p, o) {
+    const L = this.lobbyOpts.labor;
+    if ('id' in o) {
+      const id = o.id == null ? null : String(o.id);
+      if (id === null || this.laborListe().some((e) => e.id === id)) { if (id !== L.id && id) this.log(`${p.name}: Labor ${id}.`); L.id = id; }
+    }
+    if ('seed' in o) { const s = Number(o.seed); L.seed = o.seed == null || !Number.isFinite(s) ? null : Math.max(1, Math.min(999999, Math.round(s))); }
+    if ('staerke' in o) L.staerke = o.staerke == null ? null : Labor.STAERKEN.includes(o.staerke) ? o.staerke : L.staerke;
+    if ('god' in o) L.god = !!o.god;
+  }
+  // AP3a: Lobby-Snapshot (nur in der Lobby): laborAn, labor, laborListe (nur im Modus labor), waffen { pid: waffe }
+  lobbyLaborSnap() {
+    const o = { laborAn: Labor.an(this.C) };
+    const L = this.lobbyOpts.labor;
+    if (o.laborAn) {
+      const liste = this.laborListe();
+      o.labor = { id: L.id || (liste[0] || {}).id || null, seed: L.seed, staerke: L.staerke, god: !!L.god };
+      if (this.lobbyOpts.startMission === 'labor') {
+        o.laborListe = liste.map((e) => ({ id: e.id, name: e.name, schauplatz: e.schauplatz, kartenarten: e.kartenarten, landepunkt: e.landepunkt, ort: e.ort, staerke: e.staerke, ...(e.startzustand ? { startzustand: e.startzustand } : {}) }));
+      }
+    }
+    const wf = {};
+    for (const p of this.players) if (p.lobbyWaffe) wf[p.id] = p.lobbyWaffe;
+    if (Object.keys(wf).length) o.waffen = wf;
+    return o;
+  }
+  // AP3a: Lobby-Waffe beim Start setzen (Wellen Boden, Labor), bevor jemand hinunterbeamt
+  lobbyWaffenSetzen() {
+    const fn = fnOf(waffenMod(), 'waffeSetzen');
+    if (!fn) return;
+    for (const p of this.players) {
+      if (!p.lobbyWaffe) continue;
+      try { const err = fn(this, p, p.lobbyWaffe); if (err) this.countError('lobby-waffe', new Error(`${p.lobbyWaffe}: ${err}`)); } catch (e) { this.countError('lobby-waffe', e); }
+    }
+  }
+  startLabor() {
+    const L = this.lobbyOpts.labor;
+    const id = L.id || (this.laborListe()[0] || {}).id;
+    const r = Labor.laborStart(this, id, { seed: L.seed, staerke: L.staerke, god: L.god });
+    if (!r.ok) {
+      this.countError('labor-start', new Error(r.fehler));
+      this.endSession(null, { grund: 'labor' });
+      for (const p of this.players) this.notice(p, 'Labor-Start fehlgeschlagen: ' + r.fehler);
+      return false;
+    }
+    return true;
+  }
+
   checkLobbyStart() {
     if (this.phase !== 'lobby') return;
     const con = this.players.filter((p) => p.connected);
@@ -743,6 +811,7 @@ class Game {
     if (this.lobbyOpts.world && this.worldsEnabled) return this.continueWorld(this.lobbyOpts.world);
     // Weltstand nur für die Kampagne (m1 = mit Tutorial, free = ohne); m3 und Testgelände nie (Kai)
     const campaign = CAMPAIGN_STARTS.includes(sm);
+    if (sm === 'labor' && !Labor.an(this.C)) return this.refuseStart('Das Szenario-Labor ist auf diesem Server aus.');   // AP3a
     if (campaign && this.worldsEnabled) {
       this.refreshWorldList();
       if (this.worldList.length >= this.worldMax()) return this.refuseStart('Erst einen Weltstand löschen.');
@@ -765,8 +834,10 @@ class Game {
       const wr = fnOf(waffenMod(), 'restore');
       if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
     }
-    if (!arena.isArena(sm)) this.explore.arrive(Locations.START);   // Testgelände: keine Hafen-Erstbesuchsansage
-    if (sm === 'm3') this.mission.startDirect('m3');
+    if (sm === 'arena_away' || sm === 'labor') this.lobbyWaffenSetzen();   // AP3a: Waffe aus der Lobby vor dem Beamen
+    if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Locations.START);   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
+    if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
+    else if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte)
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
@@ -1305,6 +1376,7 @@ class Game {
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
       this.safe('mission', () => this.mission.update(dt));
       if (this.arena) this.safe('arena', () => arena.update(this, dt));
+      if (this.labor) this.safe('labor', () => Labor.update(this));   // AP3a: Ende der Labor-Mission melden
       this.safe('alert', () => this.updateAlert());
       if (this.phase === 'play') this.stats.elapsed = this.time - this.stats.playTimeStart;
       // Ohne Außenteam folgt der Transfer der Außenkarte des aktuellen Orts
@@ -1597,7 +1669,8 @@ class Game {
         ? { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission,   // S1 §6: Weltstände nur in der Lobby
           worlds: this.worldList, world: this.lobbyOpts.world || null, worldsFull: this.worldsEnabled && this.worldList.length >= this.worldMax(),
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
-          ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}) }   // Bodenkampf: Wellen – Kartenwahl
+          ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl
+          ...this.lobbyLaborSnap() }   // AP3a: Labor, Lobby-Waffen
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)

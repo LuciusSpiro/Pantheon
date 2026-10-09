@@ -417,17 +417,57 @@
       audio.play('ui_click');
     },
     // M2: Start „Kampagne“ (m1), „Direkt zur Planetenmission“ (m3) oder Testgelände (arena_space/arena_away) –
-    // jeder darf umschalten, M schaltet reihum weiter
+    // jeder darf umschalten, M schaltet reihum weiter (AP3a: Reihenfolge Protocol.LOBBY_MODI, Labor nur mit lobby.laborAn)
     toggleStartMission() {
       const st = Client.state;
       const cur = (st && st.lobby && st.lobby.startMission) || 'm1';
       if (st && st.lobby && st.lobby.world != null && H.lobbyWorld(st)) { H.pushNotice('Startauswahl entfällt beim Fortsetzen (F: „Neue Kampagne“ wählen)', R.PAL.warn); audio.play('error'); return; }
-      const list = H.startList();   // S1: inkl. 'free' (Kampagne ohne Tutorial)
+      const list = H.startList(st);   // S1: inkl. 'free' (Kampagne ohne Tutorial); AP3a: LOBBY_MODI
       const next = list[(list.indexOf(cur) + 1) % list.length];
       const msg = { t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next };
       // Bodenkampf: Wellen – die Kartenwahl geht immer mit (ohne sie startet der Server den Altweg Kesh/m3)
       if (next === 'arena_away') msg.wellen = (st && st.lobby && st.lobby.wellen) || (P.WELLEN_KARTEN || ['aussenposten'])[0];
       send(msg);
+      audio.play('ui_click');
+    },
+    // AP3a: Szenario-Labor – Auswahl (↑/↓) und Parameter (R Seed, ←/→ Stärke, G god); jeder darf umschalten
+    laborWahl(dir) {
+      const lob = Client.state && Client.state.lobby;
+      if (!lob || lob.startMission !== 'labor' || !Array.isArray(lob.laborListe) || !lob.laborListe.length) return;
+      const l = lob.laborListe, cur = lob.labor && lob.labor.id;
+      const i = Math.max(0, l.findIndex(e => e.id === cur));
+      const next = l[(i + dir + l.length) % l.length];
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', labor: { id: next.id } });
+      audio.play('ui_click');
+    },
+    laborSeed() {
+      const lob = Client.state && Client.state.lobby;
+      if (!lob || lob.startMission !== 'labor') return;
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', labor: { seed: 1 + Math.floor(Math.random() * 99999) } });
+      audio.play('ui_click');
+    },
+    laborStaerke(dir) {
+      const lob = Client.state && Client.state.lobby;
+      if (!lob || lob.startMission !== 'labor') return;
+      const list = [null].concat(P.LABOR_STAERKEN || ['klein', 'mittel', 'gross']);   // null = Testwert der Umsetzung
+      const cur = list.indexOf((lob.labor && lob.labor.staerke) || null);
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', labor: { staerke: list[(Math.max(0, cur) + dir + list.length) % list.length] } });
+      audio.play('ui_click');
+    },
+    laborGod() {
+      const lob = Client.state && Client.state.lobby;
+      if (!lob || lob.startMission !== 'labor') return;
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', labor: { god: !(lob.labor && lob.labor.god) } });
+      audio.play('ui_click');
+    },
+    // AP3a: eigene Waffe für Wellen Boden und Labor (Taste W) – gesetzt beim Start, vor dem Beamen
+    lobbyWaffe() {
+      const st = Client.state, lob = st && st.lobby, m = me();
+      if (!lob || !m || (lob.startMission !== 'arena_away' && lob.startMission !== 'labor')) return;
+      const list = P.WAFFEN_WAHL || ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'];
+      const cur = lob.waffen && lob.waffen[m.id];
+      const next = cur ? list[(list.indexOf(cur) + 1) % list.length] : list[0];
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', waffe: next });
       audio.play('ui_click');
     },
     // Bodenkampf: Wellen – nach der Ergebnisanzeige sofort zurück in die Lobby (wie „Partie beenden“)
@@ -1755,6 +1795,15 @@
       if (code === 'KeyU' && m) actions.toggleSkipDrill();
       if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
       if (code === 'KeyK' && m && !e.repeat) actions.toggleWellenKarte();   // Bodenkampf: Wellen – Karte
+      if (code === 'KeyW' && m && !e.repeat) actions.lobbyWaffe();   // AP3a: Waffe für Wellen Boden / Labor
+      if (m && st && st.lobby && st.lobby.startMission === 'labor') {   // AP3a: Szenario-Labor
+        if (code === 'ArrowUp') actions.laborWahl(-1);
+        if (code === 'ArrowDown') actions.laborWahl(1);
+        if (code === 'ArrowLeft' && !e.repeat) actions.laborStaerke(-1);
+        if (code === 'ArrowRight' && !e.repeat) actions.laborStaerke(1);
+        if (code === 'KeyR' && !e.repeat) actions.laborSeed();
+        if (code === 'KeyG' && !e.repeat) actions.laborGod();
+      }
       if (code === 'KeyL' && m && Net.serverRoomCode) actions.copyInvite();
       const d = /^Digit([1-3])$/.exec(code);
       if (d) actions.setColor(+d[1] - 1);

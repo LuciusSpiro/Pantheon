@@ -258,6 +258,30 @@
       R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
     },
 
+    // AP3a: Lobby-Block Szenario-Labor (rechte Spalte, y 106–200): Liste (↑/↓), Ort und Kartenarten, Seed (R), Stärke (←/→), god (G)
+    LABOR_ZEILEN: 5,
+    drawLobbyLabor(ctx, view, rx, rw, me) {
+      const lob = (view.state && view.state.lobby) || {};
+      const liste = Array.isArray(lob.laborListe) ? lob.laborListe : [];
+      const L = lob.labor || {};
+      const i = Math.max(0, liste.findIndex(e => e.id === L.id));
+      R.text(ctx, 'SZENARIO-LABOR', rx, 106, { color: PAL.brass });
+      R.text(ctx, liste.length ? (i + 1) + '/' + liste.length + ' · ↑/↓' : 'leer', rx + rw, 106, { color: PAL.panelLight, align: 'right' });
+      const n = this.LABOR_ZEILEN;
+      const start = Math.max(0, Math.min(liste.length - n, i - Math.floor(n / 2)));
+      for (let k = 0; k < n && start + k < liste.length; k++) {
+        const e = liste[start + k], y = 117 + k * 10, sel = start + k === i;
+        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.18)'; ctx.fillRect(rx - 2, y - 1, rw + 4, 10); }
+        R.text(ctx, this.fit((e.schauplatz === 'aussen' ? 'B ' : 'R ') + e.name, rw, 1), rx, y, { color: sel ? PAL.amber : PAL.star });
+      }
+      const e = liste[i];
+      const ort = e ? (e.schauplatz === 'aussen' ? 'Boden' : 'Raum') + (e.kartenarten && e.kartenarten.length ? ' · ' + e.kartenarten.join('/') : '') + (e.landepunkt ? ' · ' + e.landepunkt : e.ort ? ' · ' + this.locLabel(e.ort) : '') : '';
+      R.text(ctx, this.fit(ort, rw, 1), rx, 168, { color: PAL.panelLight });
+      const st8 = e && !e.staerke ? '–' : (L.staerke || 'Standard');
+      R.text(ctx, this.fit('R Seed ' + (L.seed != null ? L.seed : 'zufällig') + ' · ←/→ Stärke ' + st8, rw, 1), rx, 179, { color: PAL.mint });
+      R.text(ctx, this.fit('G god ' + (L.god ? 'AN' : 'aus') + (e && e.startzustand ? ' · Start: ' + e.startzustand : ''), rw, 1), rx, 190, { color: L.god ? PAL.amber : PAL.mint });
+    },
+
     drawObjectives(ctx, view) {
       const st = view.state;
       const alert = (st.ship && st.ship.alert) || 'normal';
@@ -937,12 +961,17 @@
         });
         R.shape(ctx, R.SHAPES[c], bx + 44, by + 9, 8, isTaken ? '#4A5260' : PAL.players[c], PAL.space);
       }
-      R.text(ctx, 'An Bord', lx, 164, { color: PAL.panelLight });
+      // AP3a: Wellen Boden und Labor – Waffe je Spieler (W wählt die eigene; ohne Wahl gilt die gespeicherte bzw. der Blaster)
+      const lobSm = st.lobby && st.lobby.startMission;
+      const mitWaffe = (lobSm === 'arena_away' || lobSm === 'labor') && !(st.lobby.world && this.lobbyWorld(st));
+      const lwf = (st.lobby && st.lobby.waffen) || {};
+      R.text(ctx, mitWaffe ? 'An Bord · W: eigene Waffe' : 'An Bord', lx, 164, { color: mitWaffe ? PAL.amber : PAL.panelLight });
       let y = 175;
       for (const p of players.slice(0, 3)) {
         const col = PAL.players[p.color || 0];
         R.shape(ctx, R.SHAPES[p.color || 0], lx + 6, y + 4, 8, col);
         R.text(ctx, String(p.name || '?').slice(0, 12) + (p.id === view.pid ? ' (du)' : ''), lx + 16, y, { color: col });
+        if (mitWaffe) R.text(ctx, lwf[p.id] ? (WAFFE_NAME[lwf[p.id]] || lwf[p.id]) : 'Standard', lx + 150, y, { color: lwf[p.id] ? PAL.amber : PAL.panelLight, align: 'right' });
         R.text(ctx, p.connected === false ? 'getrennt' : p.ready ? 'BEREIT' : 'wartet', lx + 196, y, { color: p.ready ? PAL.mint : PAL.panelLight, align: 'right' });
         y += 11;
       }
@@ -954,8 +983,12 @@
       const rx = 350, rw = 160;
       ctx.fillStyle = 'rgba(43,29,26,0.35)'; ctx.fillRect(rx - 10, 88, 1, 150);
       const code = Net.serverRoomCode;
-      R.text(ctx, 'RAUMCODE', rx, 94, { color: PAL.brass });
-      if (code) {
+      const laborSeite = !!(st.lobby && st.lobby.startMission === 'labor' && !(st.lobby.world && this.lobbyWorld(st)));
+      if (laborSeite) {   // AP3a: Labor braucht die Spalte – Raumcode als eine Zeile (L kopiert den Link weiter)
+        R.text(ctx, 'RAUMCODE', rx, 94, { color: PAL.brass });
+        R.text(ctx, code ? code + ' · L: Link' : 'aus', rx + rw, 94, { color: code ? PAL.amber : PAL.panelLight, align: 'right' });
+      } else R.text(ctx, 'RAUMCODE', rx, 94, { color: PAL.brass });
+      if (laborSeite) { /* Labor-Block zeichnet drawLobbyLabor */ } else if (code) {
         R.backdrop(ctx, rx, 105, rw, 22, 0.75);
         ctx.strokeStyle = PAL.brass; ctx.strokeRect(rx + 0.5, 105.5, rw - 1, 21);
         R.text(ctx, code.split('').join(' '), rx + rw / 2, 109, { color: PAL.amber, scale: 2, align: 'center' });
@@ -976,11 +1009,12 @@
       const direct = startId !== 'm1' || resume;
       const isArena = startId === 'arena_space' || startId === 'arena_away';
       const P = window.Shared_Protocol || {};
-      const starts = this.startList();
+      const starts = this.startList(st);
       const startLabel = (P.START_LABELS && P.START_LABELS[startId]) || { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission' }[startId] || startId;
       const startHint = (P.START_HINTS && P.START_HINTS[startId]) || { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
       const skip = !!(st.lobby && st.lobby.skipDrill);
       if (startId === 'arena_away' && !resume) this.drawLobbyWellen(ctx, view, rx, rw, me);   // Bodenkampf: Wellen – Kartenwahl statt Übung
+      else if (startId === 'labor' && !resume) this.drawLobbyLabor(ctx, view, rx, rw, me);   // AP3a: Szenario-Labor
       else {
         R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });
         R.button(ctx, rx, 174, rw, 16, direct ? '[–] Übung entfällt' : skip ? '[x] Übung überspringen' : '[ ] Übung überspringen', {
@@ -1016,11 +1050,14 @@
     MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' },
     WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
     // Startauswahl (Taste M): aus dem Protokoll; ab VERSION 5 ist 'free' Pflicht – fehlt es, ergänzt der Client es hinter m1
-    startList() {
+    // AP3a: Reihenfolge LOBBY_MODI (Kampagne, ohne Tutorial, m3, Wellen Boden, Wellen All, Labor); Labor nur mit lobby.laborAn
+    startList(st) {
       const P = window.Shared_Protocol || {};
-      const list = (P.START_MISSIONS && P.START_MISSIONS.length) ? P.START_MISSIONS.slice() : ['m1', 'm3'];
+      const src = (P.LOBBY_MODI && P.LOBBY_MODI.length) ? P.LOBBY_MODI : P.START_MISSIONS;
+      const list = (src && src.length) ? src.slice() : ['m1', 'm3'];
       if ((+P.VERSION || 0) >= 5 && list.indexOf('free') < 0) list.splice(Math.max(0, list.indexOf('m1')) + 1, 0, 'free');
-      return list;
+      const lob = st && st.lobby;
+      return lob && lob.laborAn ? list : list.filter(m => m !== 'labor');
     },
     lobbyWorlds(st) { const l = st && st.lobby; return l && Array.isArray(l.worlds) ? l.worlds.filter(w => w && w.id != null) : []; },
     lobbyWorld(st) { const id = st && st.lobby && st.lobby.world; return id == null ? null : this.lobbyWorlds(st).find(w => w.id === id) || null; },

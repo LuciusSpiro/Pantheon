@@ -241,8 +241,18 @@
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
     // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Testgelände: Raumkampf', arena_away: 'Bodenkampf: Wellen' },
-    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K' },
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
+    // ---- AP3a Lobby (CONTRACT-W2 §1): Reihenfolge der Taste M. START_MISSIONS bleibt die alte Liste (Tests, Weltstand);
+    // gültig als startMission ist jeder Eintrag aus LOBBY_MODI. 'labor' nur bei CONFIG.lobby.labor (Snapshot lobby.laborAn).
+    LOBBY_MODI: ['m1', 'free', 'm3', 'arena_away', 'arena_space', 'labor'],
+    // lobbyOpt { labor: { id?, seed?, staerke?, god? } } – Szenario-Labor (server/mission/labor.js), Felder werden zusammengeführt;
+    //   id = 'molekuel/umsetzung' aus lobby.laborListe, seed = Partie-Seed, staerke = LABOR_STAERKEN, god = bool.
+    //   Snapshot (nur Lobby): lobby.laborAn, lobby.labor { id, seed, staerke, god }, lobby.laborListe [{ id, name, schauplatz,
+    //   kartenarten, landepunkt, staerke, startzustand }] (nur im Modus labor).
+    // lobbyOpt { waffe: WAFFEN_WAHL | null } – Waffe je Spieler für Wellen Boden und Labor, gesetzt beim Start (vor dem Beamen).
+    //   Snapshot (nur Lobby): lobby.waffen { [pid]: waffe } (nur gewählte).
+    LABOR_STAERKEN: ['klein', 'mittel', 'gross'],
     // ---- Bodenkampf: Wellen (server/sim/wellen.js, CONFIG.wellen) ----
     // lobbyOpt { startMission: 'arena_away', wellen: WELLEN_KARTEN[i] } – Kartenwahl; jeder darf umschalten, Snapshot lobby.wellen.
     //   Ohne `wellen` bleibt arena_away der Altweg (Kesh/m3-Hof bzw. statische Karte aus `arena`, für Tests/Karten-QA).
