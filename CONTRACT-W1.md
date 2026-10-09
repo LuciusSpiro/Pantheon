@@ -258,3 +258,50 @@ Prüfungen), `tools/fixtures/context/**` (nur per `--update`, einmal am Ende), `
   - Andocken an Vaelen → Eskalation → Zelle → Ausbruch
   Wenn der Browserlauf zu aufwendig wird, reicht für das Schleichen ein Bot-Lauf mit Zustandsprotokoll. Der Bericht
   nennt das dann.
+---
+
+## 6. AP5 Abnahme und Doku (Team DOKU)
+
+Studioleitung: AP1, AP2, AP4 und AP7 sind abgenommen (`84e0a19`, `b364306`, `fd952fc`, `12bedec`). Welle 2 läuft in
+anderen Bäumen und wird später zusammengeführt. Den Doku-Teil zu Welle 2 bekommst du danach als Nachtrag.
+
+### 6.1 Dateien
+`concept/buehnen/ABNAHME-B2.md` (neu), `README.md`, `content/spielleiter/erzeugt/README.md`, `content/katalog/README.md`,
+`concept/buehnen/INHALT.md` (nur Namen und Zahlen), `concept/buehnen/OFFEN-STUDIO.md`, `tools/sim-headless.js` (nur die
+Kommentare/Texte mit „vier Archiv-Missionen“). **Kein Code.** Für die Abnahme Tests und Bots laufen lassen ist erlaubt
+(Port 3395–3396, eigene Daten-Verzeichnisse).
+
+### 6.2 Lieferung
+1. **`ABNAHME-B2.md`** nach dem Muster von `ABNAHME-B1.md` und `ABNAHME-B3.md`: Prüfe die Vertragspunkte §11 Nr. 1, 2, 4, 5 und 6
+   aus `CONTRACT-B2.md` am heutigen Stand, mit Belegen (Tests, Bot-Läufe, Messwerte). Nr. 3 (Rollen-Lesbarkeit) bleibt
+   ausdrücklich „offen bis Spieleabend“. Was B2 versprochen hat und erst W1 geliefert hat (C8 Ausbruch, `ausbruch_erlaubt`),
+   steht mit Commit drin.
+2. **README:**
+   - Der Kopf zeigt den Stand nach Welle 1, nicht mehr S2b. Ordnername `Pantheon`.
+   - Neu ist der Abschnitt „Neu in B2 – Bodenkampf“: Waffen und Hitze, Wunden, Gegnerrollen, Alarm und Schleichen,
+     Ausbruch, Waffenwahl, Wellen-Modus mit Kartenwahl, Debug-Befehle.
+   - Neu ist der Abschnitt „Neu in Welle 1“: Netzbudget mit `snap:mess`, Bojenanflug im Tutorial, Spielleiter Boden II
+     (Gefangenschaft, Andock-Eskalation, Schleichen, Katalog-Kürzung), Ladezeit mit `mess:kaltbau`.
+   - Die Abschnitte stehen in sinnvoller Reihenfolge, das Neueste zuerst. Die B-Abschnitte stehen nicht mehr hinter der
+     Claude-Bridge.
+   - „Die sieben Orte“ korrigieren: 8 spielbare Hexe plus Leerraum, nachgezählt im Code.
+3. **Zahlen und Namen korrigieren:**
+   - `erzeugt/README.md`: 6 Archiv-Missionen plus 7 erzeugte, nachgezählt.
+   - `katalog/README.md`: Zahlen laut `npm run katalog`.
+   - `INHALT.md:~766`: `aus_der_zelle` → `zelle_und_kammer`.
+   - Die Texte in `sim-headless.js`, die noch „vier“ sagen.
+4. **`OFFEN-STUDIO.md`** auf den Stand bringen. Erledigt sind:
+   - rom-Waffen, Hexwerte, Engstellen-Vermerk erst nach AP6
+   - Snapshot-Spielraum (AP1)
+   - `KARTE-WIEDERHOLT` (AP4)
+   - Prefetch (AP7)
+   Neu offen sind:
+   - Voxelwerk: Gold-Rolle und Fahnenheiligtum, Props, Tierzeichen
+   - Sofortstart der Ladezeit (gebündelte Rezepte)
+   - Schleichen mit Alarm solo im Browser
+   - Die Dauerschätzungen im Katalog liegen 5- bis 10-mal über der Bot-Zeit
+5. Stichprobe: Jede Zahl, die du in die Doku schreibst, hast du im Code oder per Werkzeug nachgeprüft. Keine toten Verweise
+   (prüfe die Links und Pfade in den geänderten Dateien).
+
+### 6.3 Abnahme
+Dokumente vorhanden, Zahlen stimmen (die Stichproben stehen im Bericht), keine toten Verweise, `npm run check` grün.
