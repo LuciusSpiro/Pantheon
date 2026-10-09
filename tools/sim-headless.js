@@ -1772,6 +1772,7 @@ function printResult(r) {
 // Die Tutorial-Bots (Agent, KeshAgent) bleiben unverändert – GenericAgent ist eine eigene Unterklasse.
 //
 //   node tools/sim-headless.js archiv --seeds 5 [--crew 1|3]     Kampagne ohne Tutorial, 4 Archiv-Missionen nacheinander
+//   node tools/sim-headless.js archiv --alle --seeds 1 --crew 3  dito, ganzer Vorrat (Archiv + angenommene erzeugte)
 //   node tools/sim-headless.js escort --seeds 10 [--crew 1|3]    Geleit (+ Havarist) aus einem Testbuch, Anteil heil
 //   node tools/sim-headless.js umsetzung --seeds 3 [--crew 1|3] [--only mol/ums]   alle Umsetzungen einzeln (Testbücher)
 //   node tools/sim-headless.js dauer --seeds 5                    umsetzung + archiv, Median je Crew -> tools/fixtures/dauer-s2.json
@@ -2055,9 +2056,13 @@ class GenericAgent extends KeshAgent {
     const w = S.space.w || 2400, hh = S.space.h || 1400;
     const WPS = [{ x: w * 0.5, y: hh * 0.5 }, { x: w * 0.25, y: hh * 0.3 }, { x: w * 0.75, y: hh * 0.3 }, { x: w * 0.75, y: hh * 0.72 }, { x: w * 0.25, y: hh * 0.72 }];
     sm.wp = sm.wp || 0;
-    const wp = target ? { x: clamp(target.x - 350, 150, w - 150), y: clamp(target.y + 150, 150, hh - 150) } : WPS[sm.wp % WPS.length];
-    const atWp = dist(sh.x, sh.y, wp.x, wp.y) < 120;
+    // Versteck (cache): nicht scannen, sondern drüberfliegen
+    const wp = target ? (target.kind === 'cache' ? { x: target.x, y: target.y } : { x: clamp(target.x - 350, 150, w - 150), y: clamp(target.y + 150, 150, hh - 150) }) : WPS[sm.wp % WPS.length];
+    const cache = !!(target && target.kind === 'cache');
+    const atWp = dist(sh.x, sh.y, wp.x, wp.y) < (cache ? 40 : 120);
+    const fly = () => (cache ? this.steer(S, wp.x, wp.y, 0, 60) : this.steer(S, wp.x, wp.y, 60, 120));
     const tac = () => {
+      if (target && target.kind === 'cache') return 'wait';
       if (!target) { if (sh.widescan.cd === 0 && atWp && sm.scannedWp !== sm.wp) { this.cmd('weapons.widescan'); sm.scannedWp = sm.wp; this.game.simStats.widescans++; return 'scanned'; } return 'wait'; }
       if (sh.target !== target.id) { this.cmd('weapons.target', { id: target.id }); return 'busy'; }
       if (dist(sh.x, sh.y, target.x, target.y) <= 790) { this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); } return 'busy'; }
@@ -2065,13 +2070,13 @@ class GenericAgent extends KeshAgent {
     };
     const syncWp = (n) => { for (const a of this.game.simAgents) a.sm.wp = n; };
     if (this.role === 'solo') {
-      if (!atWp || sh.speed > 12) { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+      if (!atWp || sh.speed > 12) { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) fly(); else this.brake(S); } return; }
       if (!this.enter(S, 'weapons')) return;
       const r = tac();
       if (r === 'scanned' || (r === 'wait' && !target && sm.scannedWp === sm.wp)) sm.wp++;
       return;
     }
-    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) this.steer(S, wp.x, wp.y, 60, 120); else this.brake(S); } return; }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) { if (sh.docked) { this.helmS(S, 0, QUARTER); return; } if (!atWp) fly(); else this.brake(S); } return; }
     if (this.role === 'weapons') {
       if (!this.enter(S, 'weapons')) return;
       tac();
@@ -2499,19 +2504,22 @@ function printGenericRun(r, label) {
 async function archivMain() {
   const nSeeds = Number(argVal('--seeds', 5)); const base = seedArg != null ? seedArg : 1;
   const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
-  const all = await runArchivSet(nSeeds, base, crews, true);
+  // --alle: ganzer Vorrat (Archiv + angenommene erzeugte Missionen) statt der 4 festen Archiv-Missionen
+  const alle = args.includes('--alle') ? require('../server/mission/archiv.js').load().entries.map((e) => e.name) : null;
+  const all = await runArchivSet(nSeeds, base, crews, true, alle);
   printArchivTable(all);
   const ok = all.every((r) => !r.aborted && r.errors === 0 && r.missions.every((m) => m.success && !m.softlock));
   log(ok ? '\nSIM ARCHIV OK' : '\nSIM ARCHIV: Auffälligkeiten (siehe oben)');
   return all;
 }
 const ARCHIV_ORDER = ['zollfeuer', 'karawane_im_nebel', 'abschrift_b7', 'treibgut_zaunkoenig'];
-async function runArchivSet(nSeeds, base, crews, print) {
+async function runArchivSet(nSeeds, base, crews, print, names) {
   const all = [];
+  const order = names || ARCHIV_ORDER;
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
     const seed = base + i;
     // Entscheidungen streuen: ungerade Seeds lehnen ab (Gefecht/harter Weg), gerade zahlen/geben nach
-    const r = await runGeneric({ seed, crew, mode: 'archiv', count: 4, order: ARCHIV_ORDER, funk: seed % 2 ? 'b' : 'a', pilot: 'maneuver', maxSec: 9000 });
+    const r = await runGeneric({ seed, crew, mode: 'archiv', count: order.length, order, funk: seed % 2 ? 'b' : 'a', pilot: 'maneuver', maxSec: 9000 * Math.max(1, order.length / 4) });
     all.push(r);
     if (print) printGenericRun(r, 'Archiv');
   }

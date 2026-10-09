@@ -1,5 +1,5 @@
 ---
-status: offen
+status: angenommen
 quelle: llm
 erstellt: 2026-10-08T09:44:19.015Z
 auftraggeber: grauzahn

@@ -7,7 +7,7 @@
   "modell": "sonnet",
   "tokens": 60862,
   "erstellt": "2026-10-08T11:23:08.118Z",
-  "aktualisiert": "2026-10-08T11:42:22.165Z",
+  "aktualisiert": "2026-10-08T18:00:00.000Z",
   "meta": {
     "mission_id": "sl_1_m4_rueckforderung",
     "welt": "w-test",
@@ -33,11 +33,10 @@
       "warnungen": [
         "FLAG-UNGELESEN flags: Flag 's3_begegnung_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen",
         "FLAG-UNGELESEN flags: Flag 's3_begegnung_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen",
-        "FLAG-UNGELESEN flags: Flag 's5_teil_geliefert' wird gesetzt, aber in diesem Buch nie gelesen",
-        "Grobplan: GEGNER-AUFTRAGGEBER Szene 's5_gefecht': vertreiben/bis_zur_flucht – der Auftraggeber 'grauzahn' funkt als Anführer der Angreifer; Gegner bekommen eine eigene Stimme (neu:Name)"
+        "FLAG-UNGELESEN flags: Flag 's5_teil_geliefert' wird gesetzt, aber in diesem Buch nie gelesen"
       ]
     },
-    "aktualisierungen": 6
+    "aktualisierungen": 7
   },
   "erinnerung_varianten": [
     {
@@ -64,7 +63,8 @@
     "belohnung_marken": 160,
     "besetzung": [
       "grauzahn",
-      "neu:Skart"
+      "neu:Skart",
+      "neu:Rask"
     ],
     "szenen": [
       {
@@ -165,8 +165,8 @@
             "umsetzung": "bis_zur_flucht"
           }
         ],
-        "stimme": "grauzahn",
-        "sachverhalt": "Die Rostmeute-Jäger greifen offen an – entweder auf Befehl Grauzahns oder weil sie die halbgeborgene Ladung selbst wollen. Die Crew muss sie vertreiben, um danach die restliche Ladung zu sichern oder abzuhauen.",
+        "stimme": "neu:Rask",
+        "sachverhalt": "Die Rostmeute-Jäger unter ihrem Rottenführer Rask greifen offen an – entweder auf Befehl Grauzahns oder weil sie die halbgeborgene Ladung selbst wollen. Die Crew muss sie vertreiben, um danach die restliche Ladung zu sichern oder abzuhauen.",
         "wendung": null,
         "dauer_min": 3,
         "weiter": [
@@ -530,8 +530,8 @@
         "neu_skart": {
           "name": "Skart"
         },
-        "neu_unbekannte_stimme": {
-          "name": "Unbekannte Stimme"
+        "neu_rask": {
+          "name": "Rask"
         }
       }
     },
@@ -1184,7 +1184,7 @@
               "do": [
                 {
                   "radio": {
-                    "from": "neu_unbekannte_stimme",
+                    "from": "neu_rask",
                     "text": "@s5_gefecht.funk_start"
                   }
                 }
@@ -1243,7 +1243,7 @@
               },
               {
                 "radio": {
-                  "from": "neu_unbekannte_stimme",
+                  "from": "neu_rask",
                   "text": "@s5_gefecht.funk_abzug"
                 }
               }
