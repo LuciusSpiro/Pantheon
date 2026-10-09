@@ -1,4 +1,4 @@
-# Pantheon – Stand nach Welle 1 (B1–B3 „Bühnen, Bodenkampf, Sektorkarte“ + Welle 1)
+# Pantheon – Stand nach Welle 2 (B1–B3 „Bühnen, Bodenkampf, Sektorkarte“ + Wellen 1 und 2)
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
@@ -9,10 +9,50 @@ M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ �
 Weltstand“ (`CONTRACT-S1.md`) · S2 „Spielleiter an der Missionsgrenze“ (`CONTRACT-S2.md`) · S2b „Spielleiter live
 tauglich + Kampf nach Kais Runde“ (`CONTRACT-S2B.md`) · B1 „Bühnen“, B2 „Bodenkampf“, B3 „Sektorkarte“
 (`CONTRACT-B1.md`, `CONTRACT-B2.md`, `CONTRACT-B3.md`, von Kai abgenommen am 2026-10-09) · **Welle 1** (Netzbudget,
-Ladezeit, Sprung im Tutorial, Spielleiter Boden II; `CONTRACT-W1.md`).
+Ladezeit, Sprung im Tutorial, Spielleiter Boden II; `CONTRACT-W1.md`) · **Welle 2** (Szenario-Labor, Wellen Boden und
+All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
-`ABNAHME-B2.md`, `ABNAHME-B3.md`.
+`ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
+
+## Neu in Welle 2 – Szenario-Labor, Wellenkampf Boden und All, Bodenkampf-Feinschliff
+
+**Lobby:** Mit **M** wechselt man zwischen Kampagne, Kampagne ohne Tutorial, m3, **Wellen Boden**, **Wellen All** und
+**Labor**. Mit **W** wählt man die eigene Waffe für Wellen und Labor, sie wird vor dem Beamen gesetzt.
+
+**Szenario-Labor** (`server/mission/labor.js`):
+- Die Liste kommt aus dem Katalog. Jede verfügbare Umsetzung mit `test.params` erscheint ohne Codeänderung (heute 38).
+- Bedienung: **↑/↓** wählt, **R** würfelt den Seed, **←/→** stellt die Stärke, **G** schaltet `god`.
+- Einträge mit Startzustand erscheinen als eigener Eintrag, z. B. „(Start: gefangen)“.
+- Schalter `CONFIG.lobby.labor`. **Vor dem Weitergeben des Spiels ausschalten oder hinter Debug legen.**
+- Bots:
+  - `node tools/sim-headless.js labor <id>|alle|ketten [--seeds N] [--crew 1|3]`
+  - `BOT_WAFFE=rotation|<waffe>` für alle Bots
+  - `ketten` spielt mehrere Szenen nacheinander auf einem Landepunkt (b7, wrack, kesh)
+
+**Wellen Boden** ist abgenommen (`ABNAHME-WELLEN.md`). Die Lobby-Waffe gilt dort, Welle 1 ist solo überlebbar, und
+Gegner bleiben nicht mehr hinter Ecken stecken.
+
+**Wellen All:** Mit **K** wählt man die Szene: `frei`, `nebel`, `asteroiden` oder `asteroiden_bewegt`. Boden und All
+nutzen denselben Wellenablauf, ausgewertet werden Welle, Zeit und Abschüsse. Kein Game Over: Die Runde endet beim
+Notfallprotokoll.
+- **Nebel** (vorerst nur in Wellen All, `sensors.nebelServer: 'wellen'`): Aufschalten und Zielerfassung halbiert, für
+  Lerche und Gegner gleich.
+- **Brocken treffen alle**, auch in der Kampagne: Gegner, Schützlinge, Geschosse und Strahlen. Gegner weichen aus
+  (`pilot.js`).
+- **Bewegte Brocken** driften deterministisch (`shared/drift.js`). Gesendet werden nur die Bahnparameter.
+- Bots: `node tools/sim-headless.js arena --szene <id>|alle`.
+
+**Bodenkampf:**
+- Bis zu **3 Personen** gleichzeitig je gebauter Karte (`aw.npcs[]`, `CONFIG.personen.maxGleichzeitig`), mit
+  Personenliste im HUD, beim Captain und an der Transfer-Konsole, dazu ein Randpfeil.
+- **Enterer** sammeln sich vor Türen und Schotts (2 Enterer oder 4 s), stürmen dann gemeinsam und flankieren über einen
+  zweiten Weg. Das gilt nur auf gebauten Karten.
+- Wach gestartete Trupps melden jetzt Alarm.
+- Das Rückzug-Limit (`retreatHoldMax`) wirkt.
+
+**Golden:** neue Basis `tools/fixtures/golden/base-w2`. Die Abweichungen gegenüber `base-w1` stehen in `allow-w2.json`
+(Kampfrauschen durch Brocken für alle und das Rückzug-Limit).
 
 ## Neu in Welle 1 – Netzbudget, Ladezeit, Sprung im Tutorial, Spielleiter Boden II
 

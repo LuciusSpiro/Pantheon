@@ -42,6 +42,20 @@ Bauzeit `verfallen` Median ≤ 12 ms (Max. 90 ms bei Außenposten-Neuversuch →
   8,8-mal, `unbemerkt_hineinkommen/leise_bis_ziel` 2,6- bis 5-mal. Bots sind schneller als Menschen; Abgleich nach dem
   Spieleabend.
 
+## Neu offen nach Welle 2
+- **Server-Nebel in der Kampagne:** wirkt vorerst nur in Wellen All (`sensors.nebelServer: 'wellen'`). Mit `'immer'`
+  blieben alle 40 m2-Golden-Läufe am Kustoden-Relais hängen. Vorher m2-Relais und Bots prüfen.
+- **Gegner-Bewegung im Nebel** kennt keine Sensorgrenze: Gegner finden die Lerche immer, nur Feuern und Aufschalten sind
+  begrenzt. Gleiche Regel für die Suche fehlt (`escort.js`: Nebelregel auch für Angriffe auf Schützlinge).
+- **Bots:**
+  - Steuer-Bot rammt Brocken (Asteroiden zu dritt nur Welle 1–2).
+  - Kette `kesh` solo 0/3: Der Bot erreicht die Hofwache nicht, vermutlich hinter einer Tür.
+  - Die Wrack-Kette läuft auf `vaelen.handelsschiff`, weil der Bot auf `wrack.langschiff` den Deckwechsel nicht schafft.
+- **Personen:** Ein Screenshot aus einer echten Partie fehlt (nur Dev-Mock).
+- **Messung:** `snap-mess.js` hat noch keinen Aufbau „Wellen All“ (Team ALL maß max 11 465 B mit bewegten Brocken).
+  Außerdem soll `golden-trace.js` mehrere `--allow` annehmen (`allow-w2.json` enthält deshalb `allow-w1.json`).
+- **Labor:** vor dem Weitergeben des Spiels `CONFIG.lobby.labor` aus oder hinter Debug.
+
 ## ENGINE (Nachzug)
 - `server/sim/landepunkte.js` beim Serverstart laden; bei Ankunft am Ort `landepunkte.vorbauenOrt(game, ort)`.
 - `katalog.fuerSpielleiter` zeigt `buehne_braucht` (SPIELLEITER).
@@ -70,9 +84,9 @@ Bauzeit `verfallen` Median ≤ 12 ms (Max. 90 ms bei Außenposten-Neuversuch →
 - KERN: Landeplatz-Variante mit `.` für Zwei Höfe.
 
 ## Bodenkampf / Balancing
-- BODENKAMPF: Enterer an Engstellen (nicht umgesetzt; kein Abnahme-Blocker). Vermerk erst nach W2 AP6
-  (Bodenkampf-Feinschliff, `CONTRACT-W2.md`).
-- BODENKAMPF: mehrere gleichzeitige Personen je Karte (`aw.npcs[]`); heute rücken sie nacheinander nach. Kein Blocker.
+- ~~Enterer an Engstellen~~ und ~~mehrere gleichzeitige Personen je Karte~~: erledigt in W2 AP6 (`aw.npcs[]`, max 3;
+  Enterer sammeln/stürmen/flankieren auf gebauten Karten). Enterer kommen in den Bot-Läufen (Wellen) kaum vor, das
+  Sammeln ist nur im Browser auf Station Seed 5 beobachtet.
 - Entscheidung offen (Studioleitung): Kachelart „flacher Schutt“ (Optik ohne Deckung) – vorerst nein, Optik über
   Kit-Parameter `zustand`.
 
