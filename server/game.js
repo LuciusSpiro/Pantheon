@@ -531,6 +531,7 @@ class Game {
           p.input.mx = Number.isFinite(mx) ? clamp(mx, -1, 1) : 0;
           p.input.my = Number.isFinite(my) ? clamp(my, -1, 1) : 0;
           if (Number.isFinite(msg.seq)) p.lastSeq = msg.seq;
+          away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
         }
         case C.ACT: if (this.phase !== 'lobby') interior.onAct(this, p, !!msg.down); break;

@@ -400,6 +400,13 @@ function shoot(game, p, angle, opts) {
   game.emit('sfx', { name: 'blaster', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
 }
 
+// FIX-ZIELEN: Blickrichtung der Spielerfigur = Zielwinkel (Mauszeiger, ganze Grad) aus der Eingabe. Fehlt er
+// (Tastatur/kein Zeiger), gilt wieder die Laufrichtung (dir). Gesendet als players[].fa (Grad), nur außen.
+function setAim(game, p, aim) {
+  const a = aim == null ? NaN : Number(aim);
+  p.facing = p.zone === 'away' && Number.isFinite(a) ? Physics.normAngle(Math.round(a) * Math.PI / 180) : null;
+}
+
 // ---------- Sonde ----------
 function sondeInput(game, p, color) {
   const C = game.C; const s = game.away.sonde;
@@ -695,5 +702,5 @@ module.exports = {
   resetMap, spawnPerson, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
   baseAway, makeLandepunkt, tutorialLaeuft, kampfPruefen,
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
-  setMarker, shoot, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
+  setMarker, shoot, setAim, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
 };

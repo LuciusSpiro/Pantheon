@@ -1562,6 +1562,8 @@ function playerSnap(game, p) {
     medkit: p.medkit ? 1 : 0,
     bleed: v2 && p.downed && p.bleed != null ? r1(p.bleed) : null,
     cr: v2 && !!p.crouch && !p.downed,   // §15
+    // FIX-ZIELEN: Blickrichtung zur Maus (ganze Grad); fehlt = Laufrichtung dir (Budget: nur außen und nur beim Zielen)
+    ...(p.zone === 'away' && Number.isFinite(p.facing) ? { fa: Math.round(p.facing * 180 / Math.PI) } : {}),
     ...(v2 ? b2SnapSpieler(game, p) : {}),
   };
 }

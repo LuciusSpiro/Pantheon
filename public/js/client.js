@@ -1574,6 +1574,16 @@
     const k = Math.max(lo, Math.min(hi, d));
     return { x: sx + Math.cos(a) * k * TILE, y: sy + Math.sin(a) * k * TILE, r: (+WD.radius || 1.5) * TILE, geklemmt: Math.abs(k - d) > 0.05, kach: k };
   }
+  // FIX-ZIELEN: Zielwinkel zum Mauszeiger in Grad (wie shoot: Schulterhöhe 14 px) – die Figur schaut immer zur Maus.
+  // null ohne Zeiger, an Bord, an Konsolen, verwundet oder bei offenem Menü (dann gilt die Laufrichtung).
+  function zielGrad(m) {
+    if (!m || m.zone !== 'away' || m.console || m.downed || Client.mouse.x < 0 || uiTop()) return null;
+    const w = mouseWorld();
+    if (!w || !Number.isFinite(w.x) || !Number.isFinite(w.y)) return null;
+    const dx = w.x - Client.self.x, dy = w.y - (Client.self.y - 14);
+    if (dx * dx + dy * dy < 16) return null;
+    return Math.atan2(dy, dx) * 180 / Math.PI;
+  }
   function shoot() {
     const m = me();
     // M2: Verwundete schießen auf v2-Karten mit der Pistole (players[].sh gesetzt)
@@ -1854,10 +1864,13 @@
     const nonzero = mx !== 0 || my !== 0;
     Client.sendAcc += dt;
     const changed = mx !== Client.lastSent.mx || my !== Client.lastSent.my;
-    if (changed || (nonzero && Client.sendAcc >= 1 / 30)) {
+    // FIX-ZIELEN: Zielwinkel mit der Eingabe (ganze Grad); sparsam: erst ab 4° Änderung, höchstens 20×/s
+    const zg = zielGrad(m), aim = zg == null ? null : Math.round(zg), la = Client.lastSent.aim;
+    const aimChanged = (aim == null) !== (la == null) || (aim != null && Math.abs(Phys.normAngle((aim - la) * Math.PI / 180)) >= 4 * Math.PI / 180);
+    if (changed || (nonzero && Client.sendAcc >= 1 / 30) || (aimChanged && Client.sendAcc >= 1 / 20)) {
       Client.seq++;
-      send({ t: P.C.INPUT || 'input', seq: Client.seq, mx, my });
-      Client.lastSent = { mx, my };
+      send(aim == null ? { t: P.C.INPUT || 'input', seq: Client.seq, mx, my } : { t: P.C.INPUT || 'input', seq: Client.seq, mx, my, aim });
+      Client.lastSent = { mx, my, aim };
       Client.sendAcc = 0;
     }
     if (canMove && nonzero) {
@@ -1911,6 +1924,7 @@
       const mine = Object.assign({}, m, { x: v.self.x, y: v.self.y, zone: self.zone });
       if (!m.console && !m.downed) { mine.dir = self.dir; mine.moving = self.moving; }
       mine.cr = canCrouchHere(m, st) && crouchActive(m);   // §15: sofort geduckt zeichnen (Vorhersage)
+      mine.fa = zielGrad(m);   // FIX-ZIELEN: eigene Figur sofort zur Maus (ohne auf den Snapshot zu warten); null = Laufrichtung
       v.players.push(mine);
     } else v.players = st.players;
     v.bots = lerpList(A.bots, B.bots, f);

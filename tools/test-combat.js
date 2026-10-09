@@ -368,6 +368,20 @@ console.log('\n[Gegner-KI: nie zielen ohne Sicht / außerhalb engageBox, Rollen,
   }
 }
 
+console.log('\n[FIX-ZIELEN: Blickrichtung zur Maus]');
+{
+  const { g, P, send, run, place } = setup(1);
+  const p = P(0);
+  place(0, 10, 8);
+  send(0, { t: 'input', seq: 1, mx: -1, my: 0, aim: 3 }); run(0.3);
+  const sp = g.snapshot().players[0];
+  ok(p.dir === 'left' && sp.fa === 3 && Math.abs(p.facing - 3 * Math.PI / 180) < 1e-9, 'nach links laufen, nach rechts zielen: dir left, players[].fa 3 (Grad)');
+  send(0, { t: 'input', seq: 2, mx: 0, my: 0, aim: 'x' }); run(0.05);
+  ok(p.facing === null && !('fa' in g.snapshot().players[0]), 'ohne gültiges aim: keine Blickrichtung, fa fehlt (Budget), dir gilt');
+  send(0, { t: 'input', seq: 3, mx: 0, my: 0, aim: -179.6 });
+  ok(g.snapshot().players[0].fa === 180 || g.snapshot().players[0].fa === -180, 'aim gerundet und normiert (±180)');
+}
+
 console.log('\n[Ducken (CONTRACT-M2 §15)]');
 {
   const it = require('../server/sim/interior.js');

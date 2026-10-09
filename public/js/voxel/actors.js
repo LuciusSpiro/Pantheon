@@ -547,6 +547,7 @@ function locomote(a, wx, wz, dt, wantYaw, moving) {
     else if (d > 0.004 && moving !== false) {
       const y = Math.atan2(dx, dz);
       wantYaw = Math.round(y / (Math.PI / 4)) * (Math.PI / 4);
+      a.laufYaw = wantYaw; a.laufFrame = L.frame;   // FIX-ZIELEN: Laufrichtung für die Beine beim Zielen
     }
   }
   a.lastPos = { x: wx, z: wz };
@@ -732,6 +733,28 @@ function applyCarried(a, carrier, dt, t) {
   a.setItem(null, null);
 }
 
+// FIX-ZIELEN: Figur schaut zur Maus (players[].fa, Grad). Beim Laufen folgen die Beine der Laufrichtung (vorwärts oder
+// rückwärts, mit Hysterese), der Oberkörper samt Waffe dreht sich um den Rest (≤ 90°) zum Ziel; ohne Rumpfgelenk
+// (Ersatzfigur) oder im Stand dreht die ganze Figur. Zweiter Schritt nach pose(): dreht nur den Rumpf nach.
+const TWIST_MAX = Math.PI / 2;
+function zielKoerper(a, zielYaw, walkW, dt) {
+  const torso = a.fig && a.fig.joints && a.fig.joints.torso;
+  let body = zielYaw;
+  if (torso && walkW > 0.2 && a.laufYaw != null && L.frame - (a.laufFrame || 0) < 3) {
+    const d = Math.abs(angDiff(a.laufYaw, zielYaw));
+    if (a.rueck ? d < Math.PI * 0.44 : d > Math.PI * 0.56) a.rueck = !a.rueck;
+    body = a.rueck ? a.laufYaw + Math.PI : a.laufYaw;
+  } else a.rueck = false;
+  a.yaw = a.yaw == null ? body : a.yaw + angDiff(a.yaw, body) * (1 - Math.exp(-dt * 14));
+  a.container.rotation.y = a.yaw;
+}
+function zielRumpf(a, zielYaw) {
+  const torso = a.fig && a.fig.joints && a.fig.joints.torso;
+  if (!torso) return;
+  const tw = Math.max(-TWIST_MAX, Math.min(TWIST_MAX, angDiff(a.yaw || 0, zielYaw)));
+  torso.rotation.y += tw;
+}
+
 function updatePlayer(p, view, st, dt, t) {
   const zone = zoneOfCtx();
   const inShip = zone === 'ship';
@@ -794,6 +817,11 @@ function updatePlayer(p, view, st, dt, t) {
   walkW = busy ? 0 : locomote(a, pos.x, pos.z, dt, wantYaw, moving);
   if (ks && ks.ziel && !ks.lie && wantYaw == null) { /* Ausrichtung kommt aus der Laufrichtung bzw. dir */ }
   if (busy) locomote(a, pos.x, pos.z, dt, wantYaw, false);
+  // FIX-ZIELEN: Blick zur Maus, solange die Figur frei steht/läuft oder die Waffe führt (nicht liegend, an Konsole, Leiter, Aktion)
+  const fa = p.fa != null && isFinite(+p.fa) ? +p.fa * Math.PI / 180 : null;
+  const zielYaw = fa != null && !inShip && !(ks && ks.lie) && !p.downed && !p.lift && !p.ladder && !p.console &&
+    !(p.action && p.action.kind !== 'beam') ? yawOf(Math.cos(fa), Math.sin(fa)) : null;
+  if (zielYaw != null) zielKoerper(a, zielYaw, walkW, dt);
   a.container.position.y += yOff;
 
   // Oberkörper: Tragen, Zielen (Schuss in den letzten 0,6 s), Kampfhaltung mit Waffe
@@ -808,6 +836,7 @@ function updatePlayer(p, view, st, dt, t) {
   if (ks && ks.upper && !busy) upper = ks.upper;
   else if (ks && !ks.base && !busy && !upper) { const rp = ruhePose(a, p.wf, null); if (rp) upper = rp; }   // Ruhe mit Lanze: rest_upright
   pose(a, { base, upper, walk: walkW, phase: a.phase, t, special }, dt);
+  if (zielYaw != null) zielRumpf(a, zielYaw);
   if (b2) {
     // B2: Waffe der Crew (Bauweise rom), Hitze 0–3, Fessel; Getragenes und Halteaktionen gehen vor
     const busyHand = p.carry || (p.action && p.action.kind !== 'beam');

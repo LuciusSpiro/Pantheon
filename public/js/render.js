@@ -1648,7 +1648,13 @@
     if (p.action && p.action.kind === 'beam') beam = Math.max(0, Math.min(1, p.action.progress || 0)) * 0.6;
     const bf = view.beamFx && view.beamFx[p.id];
     if (bf != null) beam = bf;
-    return { color: p.color || 0, dir: p.dir || 'down', moving: !!p.moving, time: view.time, action, carry: p.carry || null, downed: !!p.downed, beam, flash: !!p.flash };
+    // FIX-ZIELEN: Blick zur Maus (players[].fa, Grad) statt Laufrichtung, solange frei (keine Konsole/Aktion/verwundet)
+    let dir = p.dir || 'down';
+    if (p.fa != null && isFinite(+p.fa) && !action && !p.downed && !p.carry) {
+      const a = +p.fa * Math.PI / 180, cx = Math.cos(a), cy = Math.sin(a);
+      dir = Math.abs(cx) >= Math.abs(cy) ? (cx > 0 ? 'right' : 'left') : (cy > 0 ? 'down' : 'up');
+    }
+    return { color: p.color || 0, dir, moving: !!p.moving, time: view.time, action, carry: p.carry || null, downed: !!p.downed, beam, flash: !!p.flash };
   }
 
   function drawWorld(ctx, view) {

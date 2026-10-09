@@ -72,6 +72,9 @@
     //   Kacheln); Treffer-Ereignisse (shieldHit, enemyShieldHit …) tragen zusätzlich waffe (WAFFEN bzw. Gegnerwaffe).
     //   FX liest: players[] ch wu zs bt ht ov wf; away.drones[] ch wu zs bt wf gr facing; away.projectiles[] kind 'granate' tx ty t flug.
     // Debug: tune waffen.<waffe>.<wert> | waffe <id> | gegner <rolle> [fraktion] | alarm on|off | fang.
+    // FIX-ZIELEN: input { seq, mx, my, aim? } – aim = Zielwinkel zum Mauszeiger in ganzen Grad (atan2, x rechts, y unten),
+    //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.
+    //   Snapshot players[].fa = Blickrichtung in ganzen Grad (nur Außenzone, nur solange aim gesetzt ist; fehlt = dir).
     CMD_LOADOUT_WAFFE: 'loadout.waffe',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
