@@ -8,7 +8,7 @@ später Modding. Der Spielleiter hat Zugriff auf alle registrierten, verfügbare
 
 | Ebene | Was | Wer | Wo |
 |---|---|---|---|
-| **Bausteine** | Aktionen und Prüfungen der Engine (`spawn_squad`, `object_state` …) | Studio (Code) | `concept/regiebuch/bausteine.json` → in S1 `server/mission/registry.js` |
+| **Bausteine** | Aktionen und Prüfungen der Engine (`spawn_squad`, `object_state` …) | Studio (Code) | `content/regiebuch/bausteine.json` → in S1 `server/mission/registry.js` |
 | **Mechaniken** | was die Engine kann (`raumkampf`, `transfer` …) bzw. noch nicht kann (`schleichfahrt` …) | Studio (Code) | `mechaniken.json` |
 | **Moleküle** | Spielziele (Vault: Ziel-Moleküle) mit **Umsetzungen** = Regiebuch-Vorlagen mit Parametern | Studio, Modder (Daten) | `molekuele/*.json` |
 | **Szenentypen** | Rahmen einer Szene (Vault: Szenentypen A1–D1) | Studio, Modder (Daten) | `szenentypen/*.json` |
@@ -25,7 +25,15 @@ Szene = Szenentyp + Ort + 1–2 Moleküle (je eine Umsetzung) + Besetzung + Wend
   „noch nicht spielbar“.
 
 ## Stand
-`node tools/katalog.js`:
+**Heute (2026-10-10, nach Welle 1)**, `npm run katalog`:
+- **27 Szenentypen**, davon 16 verfügbar, 11 geplant
+- **44 Moleküle**, davon 33 verfügbar, 11 geplant
+- **38 Umsetzungen**, alle verfügbar (0 geplant, 0 fehlerhaft)
+- Grobplan-Katalog (`node tools/katalog.js --tokens`): 9 904 Zeichen ≈ 2 830 Tokens
+
+Die Abschnitte darunter halten fest, was in welcher Stufe dazukam.
+
+**Erster Stand (2026-10-07)**, `node tools/katalog.js`:
 - **27 Szenentypen** (aus dem Vault), davon 11 verfügbar
 - **43 Moleküle** (aus dem Vault), davon 10 verfügbar
 - **11 Umsetzungen** aus dem Tutorial (m1–m3), alle verfügbar und vom Prüfer bestätigt

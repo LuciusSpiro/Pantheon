@@ -1,13 +1,205 @@
-# Pantheon – Ausbaustufe S2b „Spielleiter live tauglich + Kampf nach Kais Runde“
+# Pantheon – Stand nach Welle 1 (B1–B3 „Bühnen, Bodenkampf, Sektorkarte“ + Welle 1)
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
 
-Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt weiter `sternenschicht/`. Bisherige
+Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt jetzt `Pantheon/`. Bisherige
 Ausbaustufen: M1 „Die stumme Boje“ / „Echo im Nebel“ · M2 „Schildwall“ (Planetenmission „Die Tafel von Kesh“) ·
 M3a „Breitseite & Schaden“ · M3b Schritt A „Ein Flugmodell für alle“ · M4 „Voxel & Lerche Rom“ · S1 „Regiebuch &
-Weltstand“ (`CONTRACT-S1.md`) · S2 „Spielleiter an der Missionsgrenze“ (`CONTRACT-S2.md`) · **S2b „Spielleiter live
-tauglich + Kampf nach Kais Runde“** (Vertrag `CONTRACT-S2B.md`).
+Weltstand“ (`CONTRACT-S1.md`) · S2 „Spielleiter an der Missionsgrenze“ (`CONTRACT-S2.md`) · S2b „Spielleiter live
+tauglich + Kampf nach Kais Runde“ (`CONTRACT-S2B.md`) · B1 „Bühnen“, B2 „Bodenkampf“, B3 „Sektorkarte“
+(`CONTRACT-B1.md`, `CONTRACT-B2.md`, `CONTRACT-B3.md`, von Kai abgenommen am 2026-10-09) · **Welle 1** (Netzbudget,
+Ladezeit, Sprung im Tutorial, Spielleiter Boden II; `CONTRACT-W1.md`).
+
+Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
+`ABNAHME-B2.md`, `ABNAHME-B3.md`.
+
+## Neu in Welle 1 – Netzbudget, Ladezeit, Sprung im Tutorial, Spielleiter Boden II
+
+- **Netzbudget (AP1):** Der Snapshot lässt Standardwerte weg. Bei Gegnern fehlen `asleep`, `cr`, `ghost`, `aim` und
+  `alive`, solange sie den Standard haben, bei Spielern `bleed`, `cr`, `zs`, `ov`, `bt` und `fl`. Leser behandeln „Feld
+  fehlt“ wie den Standard (`server/sim/snapform.js`, Doku in `shared/protocol.js`). `squad` ist gestrichen. Die
+  KI-Rolle `role` kommt nur mit `CONFIG.debug.snapKiRolle` (Bots, Debug-Overlay). Die Grenze steht an einer Stelle:
+  `CONFIG.net.snapMax` = 13 312 B, Reserve `snapLuft` = 1 536 B.
+  - **Messen:** `npm run snap:mess` (Worst Case: Außenposten, 3 Spieler, 12 Gegner, Granaten, 5 Seeds × 20 s; dazu ein
+    Wellenlauf; `--json` für Berichte).
+  - **Werte:** Worst Case max 11 246 B, Wellenlauf max 10 592 B (Ziel ≤ 11 776 B). Vorher laut AP1 12 666 B bzw.
+    12 367 B.
+- **Sprung im Tutorial (AP2, Entscheidung 29):** „Boje anfliegen, um zu springen“ gilt jetzt überall, auch in m1–m3.
+  - Ziele wählt man im Tutorial weiter über die Ort-Links (`zielwahlUeberOrtLinks`). So wird kein Ort unerreichbar,
+    weil seine Boje noch unbekannt ist.
+  - m1 erklärt den Anflug beim ersten Sprung, m2 (Vaelen) und m3 (Abflug nach Kesh) mit je einem Satz.
+  - Die Bots fliegen die Bojen an.
+  - Golden-Basis ist jetzt `tools/fixtures/golden/base-w1` (erlaubte Abweichungen gegenüber `base`:
+    `allow-w1.json`). Bot-Zeit m1 solo 441 → 570 s (+29 %), zu dritt 433 → 533 s (+23 %).
+- **Spielleiter Boden II (AP4):**
+  - **Gefangenschaft ohne Kampf:** Aktion `team_gefangen { landepunkt }`, gültig im `enter` eines Schritts (Szene
+    beginnt in der Zelle) oder als Folge im Funkduell, solange das Schiff angedockt ist. Prüfer:
+    `GEFANGEN-OHNE-DOCK`, `GEFANGEN-HEIMATHAFEN`, `GEFANGEN-STELLE`.
+  - **Andock-Eskalation:** neue Umsetzung `verhandeln/andockkontrolle_eskaliert`. Andocken an Vaelen, das Kontor
+    kontrolliert per Funk. Eine Antwort eskaliert: Abblende, Zelle, Ausbruch, die Haltung zum Kontor sinkt
+    (`fraktion_haltung`). Danach kann die Lerche ablegen.
+  - **Schleichen:** Die Mechaniken `stealth_aussen` und `gefangenschaft` sind verfügbar,
+    `unbemerkt_hineinkommen/leise_bis_ziel` und `ausbruch/zelle_und_kammer` sind prüferfest. `npm run katalog`: 38/38
+    Umsetzungen verfügbar.
+  - **Katalog-Kürzung:** Der Grobplan bekommt je Umsetzung nur noch eine Zeile (ID, Karte, Dauer, Pflicht-Parameter).
+    Heute 9 904 Zeichen ≈ 2 830 Tokens (`node tools/katalog.js --tokens`), vorher laut AP4 5 648 Tokens.
+  - **Kampagnenstart** (`startRundeKampagnenstart`): kein zweiter Versuch mit vollem Kontext mehr, bei einem
+    ungültigen Plan gleich das Archiv-Angebot.
+  - `KARTE-WIEDERHOLT` warnt jetzt auch, wenn ein anderes Angebot derselben Runde den Landepunkt schon nutzt.
+  - Bots wählen im Funkduell nach `BOT_WAHL=a|b|schweigen`.
+- **Ladezeit (AP7):** `npm run mess:kaltbau` misst den kalten Kartenbau mit frischem Server und Browser je Lauf
+  (Playwright; `--arten`, `--modi direkt,transfer`, `--seeds`, `--warte`, `--port`).
+  - Der **Prefetch** in `public/js/voxel/kit.js` lädt im Leerlauf Bau-Daten, Paletten, Stimmungen, Figuren und
+    Waffen-Gerüste. Der Bau hat Vorrang.
+  - Schiff kalt (QA-Methode, Median aus 3 Seeds): 353 ms im Direktstart, 276 ms über die Transferkammer (vorher laut
+    AP7 1 096 ms).
+  - **Offen:** Der Sofortstart ohne Wartezeit (`--warte 0`) bleibt langsam, 3 653 ms im Direktstart.
+  - Dazu: zweite Variante `station.schachtabzweig.b`, und `npm run check:assets` prüft die `streu`-Listen der
+    Besitz-Paletten.
+- **Messwerte (DOKU 2026-10-10):** `npm test` grün (2 617 Prüfungen), `npm run check` grün, Golden m1–m3 gegen
+  `base-w1` 120/120 byte-identisch.
+
+## Neu in B3 – Sektorkarte (Hexfeld)
+
+Die Sternkarte ist jetzt die **Karte Limes**: 10×8 Hexe, ein Hex = ein Sektor = eine Raumszene (Koordinate `SSZZ`,
+z. B. `0206` Lichtkordon). Die Daten liegen in `content/welt/limes.json`.
+
+- **Ansicht:** Captain-Reiter 2 zeigt den **Saumraum** (die 8 spielbaren Hexe und einen Ring). **M** schaltet auf die
+  ganze Karte Limes. Unerkundete Hexe zeigen nur Umriss und Name, gesperrte sind schraffiert und nennen beim Überfahren
+  den Grund (z. B. „Grenzposten Statio Limitis: Durchflug gesperrt“). Rostnest (0107) bleibt „?“ und ist nicht
+  anfliegbar.
+- **Springen:** nur ins Nachbarhex über eine **offene Kante mit bekannter Boje** (gelb = offen, rot gestrichelt =
+  gesperrt, blau = temporär). Sektor anklicken, Enter, am Steuer F.
+- **Anflug:** Überall (seit Welle 1 auch im Tutorial) muss die Lerche die **Boje anfliegen** (≤ 250 m),
+  sonst steht am Steuer „Sprungpunkt <Ziel> anfliegen (<m> m)“. Ankunft am Sprungpunkt der Gegenseite, Blick in
+  Flugrichtung.
+- **Tutorial (m1–m3):** Seit Welle 1 gilt der Anflug auch hier (Boje anfliegen, Ankunft an der Gegenboje; ≥ 300 m von
+  der Station bleibt). Ziele wählt man im Tutorial weiter über die Ort-Links, auch wenn die Boje noch unbekannt ist.
+- **Bojen finden:** Bojen zwischen bekannten Orten sind bekannt. Weitere findet der **Weitscan** der Taktik (Umkreis
+  1400 m, Meldung „Boje gefunden …“).
+- **Leerraum** (leere Hexe) ist eine Barriere: kein regulärer Sprung hinein oder heraus, nur über temporäre Sprungpunkte
+  (Missionen) oder den Notfallsprung.
+- **Notfallsprung** (Steuer **N**, dann **J**): zufällige Kante, bevorzugt in Flugrichtung, nur in spielbare Hexe
+  (auch Leerraum). Danach ist der Reaktor aus (Neustart an Schalter A und B im Maschinenraum) und die Hülle verliert 15.
+  Nach dem Neustart führt ein zweiter Notfallsprung immer wieder heraus.
+- **Wrack „Zaunkönig“:** Die Kante Wrack–Graue Weite gibt es nicht mehr. Dafür gibt es Wrack–B-7.
+- **Erkundung** (erkundete Hexe, gefundene Bojen, temporäre Kanten) steht im Weltstand (`welt.sektoren`) und überlebt
+  Speichern und Laden. Alte Weltstände übernehmen den Stand aus den besuchten Orten.
+- Liegt die Ziel-Boje außerhalb des Bildes, zeigt ein **Randpfeil** (Steuer und Taktik) Richtung und Abstand.
+- **Debug** (`npm run debug`): `hex <SSZZ>`, `boje <kante>`, `notsprung`, `erkunde alle`, `sprungpunkt auf/zu <hex|ort|kante>`.
+- **Messwerte (QA 2026-10-09):** `welcome` mit Sektorkarte 8,1 KB, Snapshot im Raum max 8,9 KB (Browser, solo). Golden
+  m1–m3 mit `WAFFEN=aus` 120/120 identisch.
+
+## Neu in B2 – Bodenkampf
+
+Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRACT-B2.md`). Alle Zahlen stehen in
+`shared/config.js` unter `awayCombat` und lassen sich mit `tune` live ändern.
+
+- **Waffen und Hitze:** sechs wählbare Waffen, dazu die Faust in der Zelle. Es gibt kein Nachladen. Jeder Schuss heizt
+  die Waffe auf, nach einer kurzen Pause kühlt sie ab. Bei 100 % ist sie überhitzt und gesperrt (Blaster 2,5 s). Ein
+  normaler Rhythmus (ein Schuss je 0,6 s) überhitzt den Blaster nicht.
+
+  | Waffe | Wirkung |
+  |---|---|
+  | Blaster | 1 Segment, Reichweite 13 Kacheln |
+  | Sturmgewehr | ½ Segment je Treffer; jeder Treffer setzt das Schildladen des Ziels zurück; Streuung 6° kalt bis 14° heiß |
+  | Granatwerfer | Bogen 4–12 Kacheln bis zum Mauszeiger, fliegt über Deckung. Der Zielkreis ist für alle sichtbar. Fläche 1,5 Kacheln: 1 Segment und 1,5 s Betäubung für **jeden** darin, auch eigene Leute |
+  | Lanze | stehen bleiben und laden: Stufe 1 nach 1 s, Stufe 2 nach 2 s. Leuchten und Zielstrahl sind am Ziel zu sehen. Durchschlägt Frontschilde, Reichweite 22. Bewegen oder ein Treffer bricht ab |
+  | Nahkampf | 0,5 s Ausholen, dann eine Wunde ohne Rücksicht auf den Schild. Ein Frontschild lenkt den Schlag von vorn ab |
+  | Betäuber | auf den Schild wie der Blaster; ohne Schild bewusstlos statt verwundet |
+
+  Direkte Schüsse und Schläge treffen nur die Gegenseite, Flächenwirkung trifft alle. Gezielt wird bis 10 Kacheln mit
+  Sichtlinie. Weiter geht es nur vom `aussicht`-Anker oder mit geteilter Sicht (Captain-Markierung, bei Gegnern
+  Trupp-Funk).
+- **Wunden:** Unter den Schildsegmenten liegen Wunden. Spieler und normale Gegner haben 1, Berserker 2, Wächter
+  4 Segmente und 2 Wunden. Gefallene Gegner bleiben liegen. Ein Kamerad richtet sie in 4 s auf, sonst sind sie nach
+  45 s aus dem Gefecht. Bewusstlose wachen nach 30 s mit 1 Segment auf. Die Gegenseite kann sie fesseln (E halten,
+  3 s), Kameraden befreien sie (3 s). Gefesselte Gegner zählen als ausgeschaltet.
+- **Gegnerrollen** (Germanen; Namen und Funk in `content/katalog/gegner/`, Rezepte je Fraktion in
+  `content/katalog/fraktionen/`):
+
+  | Rolle | Name | Waffe | Erkennbar an |
+  |---|---|---|---|
+  | `grundtyp` | Karl (Rostmeute: Plünderer) | Blaster | duckt sich, zieht sich bei schwachem Schild zurück |
+  | `niederhalter` | Bolzer | Sturmgewehr | bleibt stehen, lange Stöße auf eine Deckung |
+  | `grenadier` | Donnerwerfer | Granatwerfer | hält Abstand, wirft auf Ziele in Deckung |
+  | `schuetze` | Jäger | Lanze | sucht die Aussicht, steht still und lädt, weicht unter 5 Kacheln zurück |
+  | `enterer` | Berserker | Nahkampf | läuft ohne Deckung direkt heran, holt aus |
+  | `haescher` | Wergeld-Fänger | Betäuber | folgt dem Bolzer, betäubt und fesselt Liegende |
+  | `waechter` | Kastell-Automat bzw. Wächter | Wächterwaffe (2 Segmente je Schuss) | langsam, Frontschild |
+
+  Fraktionen: Rostmeute, Kontor-Clan, Raubzug, Herrenlos (Kastell-Automat), Kustoden (Wächter). Je Gefecht kommt
+  höchstens eine Rolle dazu, die die Crew noch nicht gesehen hat (`crew.rollen_gesehen`). Solo gibt es keinen
+  Wergeld-Fänger. Rollensymbole über den Köpfen gibt es nicht.
+- **Alarm und Schleichen:** Trupps sind ruhig oder wach. Ruhig stehen Wachen an den `wache`-Ankern, die übrigen laufen
+  Patrouille. Alarm gibt es bei Sicht (bis 10 Kacheln, kein Sichtkegel), Lärm, einem Treffer oder einem gefundenen
+  Liegenden. Nach 4 s funkt der Trupp alle Trupps im Umkreis von 20 Kacheln an. Ohne neuen Kontakt ist er nach 60 s
+  wieder ruhig, der Landepunkt bleibt bis zum Szenenende im Alarm. Lärmradien: laut 18 Kacheln (Sturmgewehr,
+  Granatwerfer), mittel 10 (Blaster), leise 4 (Lanze, Betäuber), Nahkampf 3.
+- **Ausbruch:** Liegt das ganze Außenteam und ist mindestens einer gefesselt, und hat die Karte `zelle` und `beute`,
+  folgt ein Schnitt. Alle wachen in der Zelle auf, mit voller Gesundheit und nur der Faust. Die Zellentür öffnet sich
+  von innen (E halten, 8 s, laut). Die Ausrüstung liegt am `beute`-Anker, danach geht es zum Abholpunkt. Beim zweiten
+  Mal in derselben Szene oder bei `ausbruch_erlaubt: false` (Tutorial) folgt wie bisher die Notrückholung. Seit
+  Welle 1 kann eine Szene auch in der Zelle beginnen (`team_gefangen`).
+- **Waffenwahl:** an der Transfer-Konsole mit **Q/E** oder per Klick, je Spieler. Der Weltstand speichert sie unter einem
+  Hash der Browser-Kennung (`crew.waffen`), nie unter dem Namen. Neue Spieler starten mit dem Blaster.
+- **Wellen-Modus mit Kartenwahl:** In der Lobby schaltet **M** auf „Bodenkampf: Wellen“, **K** wählt die Karte
+  (Außenposten, Station, Ruine, Schiff, Kesh-Hof). Jeder Start bekommt einen neuen Seed.
+  - Ablauf: 10 s Countdown, dann Wellen. Dazwischen 15 s Pause zum Aufrichten, Befreien und Auffüllen.
+  - Die Rollen kommen nacheinander dazu: Karl ab Welle 1, Jäger ab 2, Bolzer ab 4, Donnerwerfer ab 6, Berserker ab 8,
+    Wergeld-Fänger ab 10. Häuptlinge kommen ab Welle 11.
+  - Höchstens 12 Gegner stehen gleichzeitig, der Rest rückt als Nachschub nach.
+  - Die Runde endet, wenn die ganze Crew kampfunfähig ist. Den Rekord je Karte merkt sich der Browser.
+  - Werte stehen unter `CONFIG.wellen`.
+  - `?arena=away&art=…&seed=…` spielt Wellen auf genau dieser Karte. Mit `&fraktion=…` oder `&wellen=0` startet die
+    statische Karte (Karten-QA).
+- **Debug** (`npm run debug`): `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (neben die eigene Figur),
+  `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `tune waffen.<waffe>.<wert>`.
+  `WAFFEN=aus` schaltet das Waffenmodul ab (alter Kampf, für Golden-Vergleiche).
+- **Messwerte (DOKU 2026-10-10, Details in `concept/buehnen/ABNAHME-B2.md`):** `test-waffen` 132/132, `test-combat`
+  352/352, `test-wellen` 54/54. Snapshot im Worst Case max 11 246 B. Bots schleichen in
+  `unbemerkt_hineinkommen/leise_bis_ziel` 6/6 ohne Alarm ins Ziel, `ausbruch/zelle_und_kammer` 6/6 erledigt.
+  Rollen-Lesbarkeit prüft der Spieleabend.
+
+## Neu in B1 – Bühnen (modulare Außenkarten)
+
+Bodenszenen spielen jetzt auf **gebauten Karten**: Module (8×8-Zellen, ASCII + Anker) werden nach einer Schablone
+zusammengesetzt, eine **Bauweise** malt sie an (Germanen, Rom), **Besitz** (z. B. Friedlose, Kontor) und **Zustand**
+(intakt/verfallen/umkämpft) überziehen sie. Vier Kartenarten: **Außenposten** (Germanen), **Raumstation** (Germanen),
+**Ruine** (Rom, altes Grenzkastell), **Schiff** mit zwei Decks (Germanen). Jede Karte hat **Leitstücke** (Krähenwacht,
+Schmiedeherd, Hochsitz, Drachenkopf, Fahnenheiligtum …) – sie stehen auf festem Block, man läuft nicht hindurch.
+
+- **Landepunkte:** Jeder Ort hat mehrere (z. B. Kesh: Kustoden-Archiv, Verfallenes Grenzkastell, Grabungslager). An der
+  **Transfer-Konsole** mit **7–0** wählen, Schiff in Reichweite und langsam, dann aufs Pad und E halten. Hinunter geht es
+  zur Ankunft, hinauf von **jedem** Abholpunkt (E halten auf den Pad-Feldern).
+- **Türen, Schotts, Luken, Tore:** E halten öffnet. Technische Eingänge: Schott hacken (6 s) bzw. Luke öffnen. Rätseltore
+  sind verriegelt und öffnen nur über das **Rätselpaar**: zu zweit beide Schlösser gleichzeitig; **solo nacheinander**
+  in einem Zeitfenster, das aus dem Laufweg zwischen den Schlössern berechnet wird. Schiffe: Leiter (E halten) und Lift
+  (E; wer auf dem Lift steht, fährt – auch mit Blick auf ein Terminal).
+- **Objekte:** Terminal (Download, Treffer unterbricht), Kiste, Fund, Zelle, Ziel, Sprengpunkt (Ladung nötig).
+- **Weltstand:** Je Landepunkt bleiben Seed und Zustände (geöffnete Türen, leere Kisten) – beim zweiten Besuch ist es
+  dieselbe Karte im selben Zustand. „Partie beenden“ setzt alles zurück.
+- **Spielleiter:** plant Bodenszenen über Landepunkt oder `buehne: { kartenart, besitz, neu: true }` (neuer Seed, nie
+  Koordinaten). Mindestens jede zweite und jede lange Mission hat eine Bodenszene (Prüfer). Gegner und Objekte einer
+  Szene werden gesetzt, sobald die Karte gebaut ist – auch wenn noch niemand den Landepunkt gewählt hat.
+- **Texte je Bauweise:** Platzhalter `{{lex.x}}` mit Formen (`{{lex.fund:den}}`, `:zum`, `:pl` …) werden je Bauweise
+  aufgelöst („die Legionskasse“, „der Runenstein“). Ein Normalisierer korrigiert eindeutige Altformen vor dem Prüfer.
+- **Prisen und Wracks:** Ein kampfunfähiges Feindschiff treibt als Landepunkt `<ort>.prise`; treibende Wracks (z. B.
+  „Treibendes Langschiff“ am Wrack) sind feste Landepunkte. Rostnest bleibt gesperrt.
+- **Testgelände:** `?arena=away&art=ruine&seed=3&bauweise=rom&besitz=herrenlos&zustand=verfallen`
+  (optional `&schablone=…&fraktion=rostmeute&staerke=klein&haltung=ruhig`). Startet immer frisch, nie im Weltstand.
+  Ohne `fraktion` und ohne `&wellen=0` laufen auf der Karte Wellen (siehe B2).
+- **Werkzeuge:** `npm run buehne -- alle` (Bestehensquoten), `npm run buehne -- bauen <schablone> <seed>`,
+  `npm run werkstatt`, dann `/werkstatt.html` (Module/Schablonen zeichnen, Live-Prüfung, Speichern) und
+  `/galerie.html?art=station&seeds=1-24` (Vorschau, Kennzahlen, Fehlbauten rot). Lesen geht immer, **Speichern nur mit
+  `WERKSTATT=1`** bzw. `npm run werkstatt`. Gespeicherte Module sind ohne Neustart im Spiel; Module mit Prüffehlern
+  werden nie verbaut.
+- **Debug** (`npm run debug`): `buehne <art> <seed> [bauweise besitz zustand]`, `lp list`, `lp neu <ort> <art>`,
+  `anker <id> <zustand>`, `ladung [anker] [sek]`, `prise [kind]`.
+- **Messwerte (QA 2026-10-09):** `buehne alle` 11 Schablonen × 50 Seeds 100 %; Snapshot Außenposten (3 Spieler,
+  12 Gegner) max 12,8 KB von 13 KB; awayMap max 8,6 KB von 10 KB; Bau „verfallen“ Median 3–10 ms, nie im Tick;
+  Golden m1–m3 120/120 identisch.
 
 ## Neu in S2b – zähere Gegner, Sperrfeuer, Spielleiter günstiger
 
@@ -165,7 +357,7 @@ Spielerisch ändert sich nichts. Neu ist: Die Kampagne lässt sich **beenden und
 - **M** schaltet den Start reihum (jeder darf, alle sehen es): **Kampagne** (mit Tutorial, Hafen-Übung) → **Kampagne ohne
   Tutorial** (frei ab Hafen Lichtkordon, m1–m3 gelten als erledigt, Tesk funkt nach ein paar Sekunden das Gerücht über die
   Tafel; Startmarken = `CONFIG.campaign.skipTutorialMarks`, zurzeit 150) → **Direkt zur Planetenmission** → **Testgelände:
-  Raumkampf** → **Testgelände: Außenteam**. Dann alle **Enter** = bereit.
+  Raumkampf** → **Bodenkampf: Wellen** (bis B1 „Testgelände: Außenteam“). Dann alle **Enter** = bereit.
 - Block **WELTSTAND** links: „Neu: Kampagne“ oder „Fortsetzen: Lerche · 08.10.“ mit Spielzeit, Ort und Mission darunter.
   **F** öffnet die Liste: je Stand Name, wann gespeichert, Ort, Mission/Schritt, Crew, Spielzeit. **W/S** wählen, **Enter**
   übernehmen („+ Neue Kampagne“ steht oben), **Entf 1 s halten** löscht (kurz tippen löscht nicht). Ist ein Stand gewählt,
@@ -206,7 +398,7 @@ Spielleiter-Tests (Details unten unter „Für Entwickler – S1“).
 
 ## Spieleabend – Kurzanleitung (Planetenmission zu dritt)
 
-1. `cd sternenschicht` · `npm start` (oder `npm run debug`, wenn ihr live nachjustieren wollt – siehe `tune` unten).
+1. `cd Pantheon` · `npm start` (oder `npm run debug`, wenn ihr live nachjustieren wollt – siehe `tune` unten).
    Die Konsole zeigt **Raumcode** und Link.
 2. Übers Internet: zweites Fenster `cloudflared tunnel --url http://localhost:3300`, die `trycloudflare.com`-Adresse
    mit `?code=XXXX` teilen (Details unter „Übers Internet spielen“).
@@ -227,7 +419,7 @@ Erwartete Dauer zu dritt: siehe „Messwerte M2“ unten.
 Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen – geht solo und zu dritt, auch ohne `--debug`.
 
 1. `npm start`, Link öffnen. In der Lobby schaltet **M** reihum: „Kampagne“ → „Kampagne ohne Tutorial“ → „Direkt zur
-   Planetenmission“ → **„Testgelände: Raumkampf“** → **„Testgelände: Außenteam“** (Anzeige „START (n/5)“). Dann **Enter** =
+   Planetenmission“ → **„Testgelände: Raumkampf“** → **„Bodenkampf: Wellen“** (Anzeige „START (n/5)“). Dann **Enter** =
    bereit. Testgelände legen keinen Weltstand an.
 2. **Raumkampf:** Start sofort an Boje B-7 (keine Brocken), abgelegt, Schiff unbeschädigt, alle auf der Brücke (solo
    neben dem Steuer, zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen (M3b): **Kanonenboot +
@@ -236,9 +428,8 @@ Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen �
    Kanonenboot hält die Breitseite, Jäger fliegen Überflüge); die nächste Welle kommt 12 s nach der Räumung (ODA sagt an). Schaden, Bots, Notfallprotokoll,
    Schildsektoren, Breitseite und Lanze (M3a, siehe unten), Scan/Weitscan und Reaktor überladen wie im Spiel.
    Solo: am Steuer fliegen, mit Esc + E zur Taktik wechseln (Taktik liegt oben links auf der Brücke). Kein Ende-Bildschirm.
-3. **Außenteam:** Start sofort auf Mond Kesh, Mission „Die Tafel von Kesh“ ab dem Hof (Trupp 1), **alle** Spieler auf
-   den Pads mit vollem Schild und Medipack (wenn im Lager). Das Schiff steht in Transferreichweite – wer Captain
-   spielen will, beamt hoch (Pad, E halten). Danach läuft die Mission normal weiter bis zum Ende-Bildschirm.
+3. **Bodenkampf: Wellen** (seit B2, ersetzt „Testgelände: Außenteam“): **K** wählt die Karte, dann Wellen bis die Crew
+   unten liegt – siehe „Neu in B2 – Bodenkampf“.
 4. Tipp: Mit `npm run debug` und `?debug=1` (F7) gehen zusätzlich `tune …` (Werte live), `spawn <art>`, `skip`
    (Raumkampf: Welle räumen / nächste sofort), `squad 1|2|rear`, `wake`, `shield <n>`, `wound`.
    Wellen und Szene stehen in `shared/config.js` unter `arena`.
@@ -246,7 +437,7 @@ Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen �
 ## Start
 
 ```
-cd sternenschicht
+cd Pantheon
 npm install        # einmalig (einzige Abhängigkeit: ws)
 npm start          # Server auf Port 3300
 ```
@@ -313,27 +504,33 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 | Minispiel (R an einer Station) | **Leertaste**, wenn der Zeiger im grünen Feld steht – 3 Treffer, Fehlgriff = 1 s Sperre, scheitern unmöglich · Esc bricht ab |
 | Planungstisch (Brücke, `Y`) | E am Tisch setzen (bis zu 3 gleichzeitig) · **1–5** Pin-Art (Ziel, Gefahr, Landeplatz, Treffpunkt, Frage) · **Klick** Pin setzen – auf der Sternkarte (auf einem Ort: **Shift+Klick**), auf jeder Detailkarte und jedem Decksplan · Rechtsklick eigenen Pin entfernen · ←/→ Ort · **Enter** Detailkarte · **D** Decksplan (B-7/Wrack/Kesh) · **Backspace** zurück zur Sternkarte · **M Missionsbuch**: aktive / angebotene / erledigte Aufträge mit Auftraggeber, Briefing, Belohnung, Zielen und Logbuch – **W/S** wählen, **Enter** als aktiv markieren (das HUD zeigt dann deren Ziele), **A** annehmen · Esc aufstehen |
 | Quartier (E an der eigenen Koje) | ↑/↓ Reihe (Boden, Wand, Licht, Plätze) · ←/→ wählen · **Q/E** Deko blättern · Enter Deko setzen |
-| Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) |
-| Außenmission | Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · Sonde: 1–6 Farbe |
+| Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) · **Q/E** Waffe wählen (B2) · 7–0 Landepunkt (B1) |
+| Außenmission | Leertaste/Linksklick feuert die gewählte Waffe (zielt auf die Maus; Lanze: halten lädt, loslassen feuert) · Q Markierung für Hilfe von oben · Sonde: 1–6 Farbe |
 | Außenmission Kesh (Kampf v2) | **C** ducken / aufstehen · siehe „Kampf auf Kesh“ unten · Captain-Reiter 6: **Q/W/E/R/F/G** Befehl wählen, Klick auf die Karte setzt ihn, X löschen, **S** Sensor, **K** Kuppel |
 | Reaktor offline | beide Schalter im Maschinenraum (A oben, B unten) **gleichzeitig E halten**, 3 s. Allein: einen halten, nach 3 s kommt ein Schrauber an den anderen. |
 
 Jede Konsole zeigt ihre Tasten unten in einer Zeile. Ton startet mit der ersten Taste/dem ersten Klick.
 
-## Die sieben Orte
+## Die Orte: 8 spielbare Hexe und der Leerraum
 
-| Ort | Was dort ist |
-|---|---|
-| **Hafen Lichtkordon** | Heimathafen, Liegeplatz, Hafenterminal (Shop), Tesks Funkturm. Ein Versteck im Hafenschrott. |
-| **Splittergürtel** | Asteroiden (Schild kostet's), Bergungskisten, Grauzahns Wegezoll. 2 Verstecke. |
-| **Boje B-7** | die stumme Boje mit Plattform (Außenmission), Rostmeute. Wartungskiste und ein Kustoden-Splitter (Scan). |
-| **Vaelen-Karawane** | fahrende Händler: Kristalllampe, Bolzenwerfer günstiger, andocken erlaubt. Sela braucht Hilfe; Teepaket und ihre Messsonde treiben in der Nähe. |
-| **Wrack „Zaunkönig“** | Außenmission im dunklen Frachter: 4 Container, Logbuch-Terminal, Plünderer, ein Hohlraum (nur per Weitscan aus dem Orbit). Draußen eine Rettungskapsel. |
-| **Graue Weite** | Nebel: Sicht und Sensoren halbiert. Hinterhalt, Leitbake (Weitscan!), eine alte Lore-Bake. |
-| **Kustoden-Relais** | erst nach der Leitbake erreichbar. Pylonen mit Frontschild, Kustoden-Wächter (EMP), Relaiskern. |
+Die Karte Limes hat 10×8 = 80 Hexe (`content/welt/limes.json`). **8 davon sind spielbare Orte**, 42 sind Leerraum, die
+übrigen 30 sind Systeme ohne Raumszene (gesperrt oder nur Kulisse, z. B. Rom und Rostnest).
 
-Unbekannte Nachbarn stehen als „Unbekanntes Signal ?“ auf der Sternkarte – hinfliegen erlaubt. Insgesamt gibt es
-**12 Entdeckungen** (Captain-Logbuch und Planungstisch zeigen „Funde x/y“ je Ort).
+| Ort | Hex | Was dort ist |
+|---|---|---|
+| **Hafen Lichtkordon** | 0206 | Heimathafen, Liegeplatz, Hafenterminal (Shop), Tesks Funkturm. Ein Versteck im Hafenschrott. |
+| **Splittergürtel** | 0306 | Asteroiden (Schild kostet's), Bergungskisten, Grauzahns Wegezoll. 2 Verstecke. |
+| **Boje B-7** | 0406 | die stumme Boje mit Plattform (Außenmission), Rostmeute. Wartungskiste und ein Kustoden-Splitter (Scan). |
+| **Vaelen-Karawane** | 0207 | fahrende Händler: Kristalllampe, Bolzenwerfer günstiger, andocken erlaubt. Sela braucht Hilfe; Teepaket und ihre Messsonde treiben in der Nähe. |
+| **Wrack „Zaunkönig“** | 0405 | Außenmission im dunklen Frachter: 4 Container, Logbuch-Terminal, Plünderer, ein Hohlraum (nur per Weitscan aus dem Orbit). Draußen eine Rettungskapsel. |
+| **Graue Weite** | 0307 | Nebel: Sicht und Sensoren halbiert. Hinterhalt, Leitbake (Weitscan!), eine alte Lore-Bake. |
+| **Kustoden-Relais** | 0308 | erst nach der Leitbake erreichbar. Pylonen mit Frontschild, Kustoden-Wächter (EMP), Relaiskern. |
+| **Mond Kesh** | 0205 | Mond mit Kustoden-Ruine, Plünderer graben dort. Planetenmission m3 „Die Tafel von Kesh“. Landepunkte Kustoden-Archiv, Verfallenes Grenzkastell und Grabungslager (B1). |
+| **Leerraum** | 42 Hexe | leere Szene ohne Bojen. Hinein und hinaus nur über temporäre Sprungpunkte oder den Notfallsprung (B3). |
+
+Unerkundete Hexe zeigen auf der Sternkarte nur Umriss und Name. Springen geht nur über eine Kante mit bekannter Boje
+(siehe „Neu in B3“). Insgesamt gibt es **12 Entdeckungen** (Captain-Logbuch und Planungstisch zeigen „Funde x/y“ je
+Ort).
 
 ## Erkunden – Tipps
 
@@ -669,78 +866,9 @@ Token-Deckel: höchstens 500 000 Token pro Serverlauf (`CLAUDE_TOKEN_BUDGET`), d
 Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag. **Seit S2 abgelöst:** Nach m3 übernimmt der Spielleiter
 (siehe „Neu in S2“); die Bridge wird für die Kampagne nicht mehr gebraucht.
 
-## Neu in B3 – Sektorkarte (Hexfeld)
-
-Die Sternkarte ist jetzt die **Karte Limes**: 10×8 Hexe, ein Hex = ein Sektor = eine Raumszene (Koordinate `SSZZ`,
-z. B. `0206` Lichtkordon). Die Daten liegen in `content/welt/limes.json`.
-
-- **Ansicht:** Captain-Reiter 2 zeigt den **Saumraum** (die 8 spielbaren Hexe und einen Ring). **M** schaltet auf die
-  ganze Karte Limes. Unerkundete Hexe zeigen nur Umriss und Name, gesperrte sind schraffiert und nennen beim Überfahren
-  den Grund (z. B. „Grenzposten Statio Limitis: Durchflug gesperrt“). Rostnest (0107) bleibt „?“ und ist nicht
-  anfliegbar.
-- **Springen:** nur ins Nachbarhex über eine **offene Kante mit bekannter Boje** (gelb = offen, rot gestrichelt =
-  gesperrt, blau = temporär). Sektor anklicken, Enter, am Steuer F.
-- **Anflug:** Überall (seit Welle 1 auch im Tutorial) muss die Lerche die **Boje anfliegen** (≤ 250 m),
-  sonst steht am Steuer „Sprungpunkt <Ziel> anfliegen (<m> m)“. Ankunft am Sprungpunkt der Gegenseite, Blick in
-  Flugrichtung.
-- **Tutorial (m1–m3):** Seit Welle 1 gilt der Anflug auch hier (Boje anfliegen, Ankunft an der Gegenboje; ≥ 300 m von
-  der Station bleibt). Ziele wählt man im Tutorial weiter über die Ort-Links, auch wenn die Boje noch unbekannt ist.
-- **Bojen finden:** Bojen zwischen bekannten Orten sind bekannt. Weitere findet der **Weitscan** der Taktik (Umkreis
-  1400 m, Meldung „Boje gefunden …“).
-- **Leerraum** (leere Hexe) ist eine Barriere: kein regulärer Sprung hinein oder heraus, nur über temporäre Sprungpunkte
-  (Missionen) oder den Notfallsprung.
-- **Notfallsprung** (Steuer **N**, dann **J**): zufällige Kante, bevorzugt in Flugrichtung, nur in spielbare Hexe
-  (auch Leerraum). Danach ist der Reaktor aus (Neustart an Schalter A und B im Maschinenraum) und die Hülle verliert 15.
-  Nach dem Neustart führt ein zweiter Notfallsprung immer wieder heraus.
-- **Wrack „Zaunkönig“:** Die Kante Wrack–Graue Weite gibt es nicht mehr. Dafür gibt es Wrack–B-7.
-- **Erkundung** (erkundete Hexe, gefundene Bojen, temporäre Kanten) steht im Weltstand (`welt.sektoren`) und überlebt
-  Speichern und Laden. Alte Weltstände übernehmen den Stand aus den besuchten Orten.
-- Liegt die Ziel-Boje außerhalb des Bildes, zeigt ein **Randpfeil** (Steuer und Taktik) Richtung und Abstand.
-- **Debug** (`npm run debug`): `hex <SSZZ>`, `boje <kante>`, `notsprung`, `erkunde alle`, `sprungpunkt auf/zu <hex|ort|kante>`.
-- **Messwerte (QA 2026-10-09):** `welcome` mit Sektorkarte 8,1 KB, Snapshot im Raum max 8,9 KB (Browser, solo). Golden
-  m1–m3 mit `WAFFEN=aus` 120/120 identisch.
-
-## Neu in B1 – Bühnen (modulare Außenkarten)
-
-Bodenszenen spielen jetzt auf **gebauten Karten**: Module (8×8-Zellen, ASCII + Anker) werden nach einer Schablone
-zusammengesetzt, eine **Bauweise** malt sie an (Germanen, Rom), **Besitz** (z. B. Friedlose, Kontor) und **Zustand**
-(intakt/verfallen/umkämpft) überziehen sie. Vier Kartenarten: **Außenposten** (Germanen), **Raumstation** (Germanen),
-**Ruine** (Rom, altes Grenzkastell), **Schiff** mit zwei Decks (Germanen). Jede Karte hat **Leitstücke** (Krähenwacht,
-Schmiedeherd, Hochsitz, Drachenkopf, Fahnenheiligtum …) – sie stehen auf festem Block, man läuft nicht hindurch.
-
-- **Landepunkte:** Jeder Ort hat mehrere (z. B. Kesh: Kustoden-Archiv, Verfallenes Grenzkastell, Grabungslager). An der
-  **Transfer-Konsole** mit **7–0** wählen, Schiff in Reichweite und langsam, dann aufs Pad und E halten. Hinunter geht es
-  zur Ankunft, hinauf von **jedem** Abholpunkt (E halten auf den Pad-Feldern).
-- **Türen, Schotts, Luken, Tore:** E halten öffnet. Technische Eingänge: Schott hacken (6 s) bzw. Luke öffnen. Rätseltore
-  sind verriegelt und öffnen nur über das **Rätselpaar**: zu zweit beide Schlösser gleichzeitig; **solo nacheinander**
-  in einem Zeitfenster, das aus dem Laufweg zwischen den Schlössern berechnet wird. Schiffe: Leiter (E halten) und Lift
-  (E; wer auf dem Lift steht, fährt – auch mit Blick auf ein Terminal).
-- **Objekte:** Terminal (Download, Treffer unterbricht), Kiste, Fund, Zelle, Ziel, Sprengpunkt (Ladung nötig).
-- **Weltstand:** Je Landepunkt bleiben Seed und Zustände (geöffnete Türen, leere Kisten) – beim zweiten Besuch ist es
-  dieselbe Karte im selben Zustand. „Partie beenden“ setzt alles zurück.
-- **Spielleiter:** plant Bodenszenen über Landepunkt oder `buehne: { kartenart, besitz, neu: true }` (neuer Seed, nie
-  Koordinaten). Mindestens jede zweite und jede lange Mission hat eine Bodenszene (Prüfer). Gegner und Objekte einer
-  Szene werden gesetzt, sobald die Karte gebaut ist – auch wenn noch niemand den Landepunkt gewählt hat.
-- **Texte je Bauweise:** Platzhalter `{{lex.x}}` mit Formen (`{{lex.fund:den}}`, `:zum`, `:pl` …) werden je Bauweise
-  aufgelöst („die Legionskasse“, „der Runenstein“). Ein Normalisierer korrigiert eindeutige Altformen vor dem Prüfer.
-- **Prisen und Wracks:** Ein kampfunfähiges Feindschiff treibt als Landepunkt `<ort>.prise`; treibende Wracks (z. B.
-  „Treibendes Langschiff“ am Wrack) sind feste Landepunkte. Rostnest bleibt gesperrt.
-- **Testgelände:** `?arena=away&art=ruine&seed=3&bauweise=rom&besitz=herrenlos&zustand=verfallen`
-  (optional `&schablone=…&fraktion=rostmeute&staerke=klein&haltung=ruhig`). Startet immer frisch, nie im Weltstand.
-- **Werkzeuge:** `npm run buehne -- alle` (Bestehensquoten), `npm run buehne -- bauen <schablone> <seed>`,
-  `npm run werkstatt`, dann `/werkstatt.html` (Module/Schablonen zeichnen, Live-Prüfung, Speichern) und
-  `/galerie.html?art=station&seeds=1-24` (Vorschau, Kennzahlen, Fehlbauten rot). Lesen geht immer, **Speichern nur mit
-  `WERKSTATT=1`** bzw. `npm run werkstatt`. Gespeicherte Module sind ohne Neustart im Spiel; Module mit Prüffehlern
-  werden nie verbaut.
-- **Debug** (`npm run debug`): `buehne <art> <seed> [bauweise besitz zustand]`, `lp list`, `lp neu <ort> <art>`,
-  `anker <id> <zustand>`, `ladung [anker] [sek]`, `prise [kind]`.
-- **Messwerte (QA 2026-10-09):** `buehne alle` 11 Schablonen × 50 Seeds 100 %; Snapshot Außenposten (3 Spieler,
-  12 Gegner) max 12,8 KB von 13 KB; awayMap max 8,6 KB von 10 KB; Bau „verfallen“ Median 3–10 ms, nie im Tick;
-  Golden m1–m3 120/120 identisch.
-
 ## Bekannte Grenzen
 
-- Umfang: drei Tutorial-Missionen und sieben Orte. Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
+- Umfang: drei Tutorial-Missionen und acht Orte. Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
   nicht unterwegs und nicht im Kampf.
 - **Kämpfe solo sind hart:** Wer allein zwischen Steuer und Taktik pendelt, verliert im Kampf an B-7 schnell Hülle
   (im Test bis 15 %). Untergehen kann man nicht – das Notfallprotokoll hält das Schiff bei 30 % (kostet 50 Marken).

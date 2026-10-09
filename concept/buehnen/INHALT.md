@@ -763,7 +763,7 @@ Mechaniken (in `mechaniken.json` auf `verfuegbar` zu stellen):
 | `probe_nehmen/am_fund` | ruine | `fund` oder `beute` | aussen_objekte | 2–3 | Probe aus dem Gewölbe |
 | `suchen/weitscan_versteck` | ruine, schiff | `beute`, optional `versteck` | weitscan, aussen_objekte | 3–4 | Captain-Weitscan markiert, das Team birgt |
 | `ziel_markieren/von_der_aussicht` | aussenposten, ruine | `aussicht`, `sprengpunkt` | aussen_objekte | 2–3 | Vom Plateau markieren, Orbitalschlag auf den Sprengpunkt |
-| Szenentyp **Ausbruch** (`ausbruch/aus_der_zelle`) | alle mit `zelle` + `beute` | `zelle`, `beute`, `abholpunkt` | gefangenschaft | 4–6 | Start in der Zelle, Waffen an der `beute`-Truhe, dann zum Pad |
+| Szenentyp **Ausbruch** (`ausbruch/zelle_und_kammer`) | alle mit `zelle` + `beute` | `zelle`, `beute`, `abholpunkt` | gefangenschaft | 4–6 | Start in der Zelle, Waffen an der `beute`-Truhe, dann zum Pad |
 
 **Abdeckung:**
 | Kartenart | Umsetzungen |

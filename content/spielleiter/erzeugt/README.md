@@ -20,8 +20,12 @@ Anmerkungen gehören unter `## Notizen` am Ende der `mission.md`. Der Status und
 Datei neu geschrieben wird, etwa nach einer ersetzten Szene oder nach dem Spielen. Alles andere wird aus der `mission.json`
 neu erzeugt (`npm run missionen -- md <ordner|--alle>`).
 
-Die Textfassung der vier Archiv-Missionen liegt neben ihren JSON-Dateien in `content/spielleiter/archiv/<name>.md`
+Die Textfassung der sechs Archiv-Missionen liegt neben ihren JSON-Dateien in `content/spielleiter/archiv/<name>.md`
 (neu erzeugen: `npm run missionen -- md --archiv`).
+
+**Stand 2026-10-10** (`npm run missionen`): 6 Archiv-Missionen (`abschrift_b7`, `castellum_kesh`, `frachtlisten`,
+`karawane_im_nebel`, `treibgut_zaunkoenig`, `zollfeuer`) und 7 erzeugte Missionen hier, alle 7 `offen` (keine
+angenommen oder abgelehnt), 3 davon einmal gespielt.
 
 ## Wann wird abgelegt?
 

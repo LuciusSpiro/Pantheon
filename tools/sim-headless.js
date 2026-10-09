@@ -1895,7 +1895,7 @@ function printResult(r) {
 // allgemein. Unbekannte Umsetzung: kämpfen/warten; der Lauf skippt nach Zeitlimit und zählt sie als „nicht gespielt“.
 // Die Tutorial-Bots (Agent, KeshAgent) bleiben unverändert – GenericAgent ist eine eigene Unterklasse.
 //
-//   node tools/sim-headless.js archiv --seeds 5 [--crew 1|3]     Kampagne ohne Tutorial, 4 Archiv-Missionen nacheinander
+//   node tools/sim-headless.js archiv --seeds 5 [--crew 1|3]     Kampagne ohne Tutorial, 4 der 6 Archiv-Missionen nacheinander (ARCHIV_ORDER zuerst)
 //   node tools/sim-headless.js escort --seeds 10 [--crew 1|3]    Geleit (+ Havarist) aus einem Testbuch, Anteil heil
 //   node tools/sim-headless.js umsetzung --seeds 3 [--crew 1|3] [--only mol/ums]   alle Umsetzungen einzeln (Testbücher)
 //   node tools/sim-headless.js dauer --seeds 5                    umsetzung + archiv, Median je Crew -> tools/fixtures/dauer-s2.json
@@ -3273,7 +3273,7 @@ async function dauerMain() {
   printUmsetzungTable(all, crews);
   const out = { format: 'dauer-messung/1', erzeugt: new Date().toISOString().slice(0, 10), werkzeug: 'node tools/sim-headless.js dauer --seeds ' + nSeeds,
     hinweis: 'Bot-Spieler (sim-headless GenericAgent), Spielzeit der Szene ohne Anflug-Sprung, Median in Minuten. Menschen brauchen länger. Crew 2 nicht gemessen. '
-      + 'Quellen: Testbücher je Umsetzung (Test-/Rückfallparameter) und die 4 Archiv-Missionen.',
+      + 'Quellen: Testbücher je Umsetzung (Test-/Rückfallparameter) und 4 der 6 Archiv-Missionen (ARCHIV_ORDER).',
     umsetzungen: {} };
   for (const k of [...new Set(all.map((s) => s.ums))].sort()) {
     const e = {};
