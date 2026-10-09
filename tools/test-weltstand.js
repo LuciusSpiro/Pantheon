@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const { Game } = require('../server/game.js');
 const Weltstand = require('../server/weltstand.js');
 const Protocol = require('../shared/protocol.js');
+const SNAP_MAX = require('../shared/config.js').net.snapMax;   // W1 AP1: Snapshot-Grenze (Bytes)
 
 let fails = 0, n = 0, skipped = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -515,12 +516,12 @@ function main() {
       }
       for (const sm of ['m3']) { t.g.mission.forceStep(sm, null); }
       for (let k = 0; k < 30 * 20; k++) { t.g.step(); if (t.g.wantsSnapshot()) max = Math.max(max, Buffer.byteLength(JSON.stringify(t.g.snapshot()))); }
-      ok(max < 13 * 1024, `Snapshot im Spiel max ${(max / 1024).toFixed(2)} KB (inkl. 10 Chronik-Einträge im Log-Slot)`);
+      ok(max < SNAP_MAX, `Snapshot im Spiel max ${(max / 1024).toFixed(2)} KB (inkl. 10 Chronik-Einträge im Log-Slot)`);
       t.send(0, { t: 'menu', op: 'end' });
       for (let i = 0; i < 4; i++) makeCampaign(dir, 'm1');
       const l = setup(dir, 3, null);
       maxLobby = Buffer.byteLength(JSON.stringify(l.g.snapshot()));
-      ok(maxLobby < 13 * 1024, `Lobby-Snapshot mit 5 Ständen ${(maxLobby / 1024).toFixed(2)} KB`);
+      ok(maxLobby < SNAP_MAX, `Lobby-Snapshot mit 5 Ständen ${(maxLobby / 1024).toFixed(2)} KB`);
       console.log('  info Snapshot-Größe: Spiel ' + max + ' B, Lobby ' + maxLobby + ' B');
     }
   });

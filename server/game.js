@@ -1660,7 +1660,9 @@ class Game {
       space: spaceOut,
       away: {
         map: aw.map, active: aw.active,
-        drones: aw.drones.map((d) => { const o = { id: d.id, kind: d.kind, x: r1(d.x), y: r1(d.y), hp: d.hp, dir: d.dir, revealed: d.revealed, alive: d.alive }; return v2 ? combat.droneSnap(this, d, o) : o; }),
+        // W1 AP1: Kampf v2 ohne revealed (Leser: time < away.sensorUntil) und alive (droneSnap sendet nur alive:false)
+        drones: aw.drones.map((d) => (v2 ? combat.droneSnap(this, d, { id: d.id, kind: d.kind, x: r1(d.x), y: r1(d.y), hp: d.hp, dir: d.dir })
+          : { id: d.id, kind: d.kind, x: r1(d.x), y: r1(d.y), hp: d.hp, dir: d.dir, revealed: d.revealed, alive: d.alive })),
         // B2 §8: Granaten zusätzlich tx, ty (Ziel, px), t (s seit dem Wurf, 0…flug), flug (Flugzeit in s)
         projectiles: aw.projectiles.map((q) => (q.kind === 'granate'
           ? { id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle), tx: r1(q.tx), ty: r1(q.ty), t: r2(q.t || 0), flug: r2(q.flug || 0.8) }

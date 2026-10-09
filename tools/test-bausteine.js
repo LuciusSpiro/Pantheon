@@ -4,6 +4,7 @@
 // map_reset je Außenkarte nach Tutorial-Endzustand (über Objekt-Abfragen aus objects.js geprüft), Ereignis bought,
 // spawn_person/person_rescued (Person retten auf Wrack und Kesh), ship_near/ship_hold_position, Anker.
 const { Game } = require('../server/game.js');
+const SNAP_MAX = require('../shared/config.js').net.snapMax;   // W1 AP1: Snapshot-Grenze (Bytes)
 const Registry = require('../server/mission/registry.js');
 const Objects = require('../server/mission/objects.js');
 const Welt = require('../server/mission/bausteine/welt.js');
@@ -290,7 +291,7 @@ function main() {
     ok(!chk('notgesprungen', g, {}), 'notgesprungen: false ohne Notfallsprung');
     const s = g.snapshot();
     ok(s.ship.jump && 'blockedReason' in s.ship.jump, 'ship.jump im Snapshot (jp/d, sobald sprung.js sie setzt)');
-    ok(Buffer.byteLength(JSON.stringify(s)) < 13 * 1024, `Snapshot im Raum ${Buffer.byteLength(JSON.stringify(s))} B < 13 KB`);
+    ok(Buffer.byteLength(JSON.stringify(s)) < SNAP_MAX, `Snapshot im Raum ${Buffer.byteLength(JSON.stringify(s))} B < ${SNAP_MAX} B`);
     // Prüfer
     const Checker = require('../server/mission/checker.js');
     const book = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'content', 'regiebuecher', 'm3.regiebuch.json'), 'utf8'));
@@ -420,7 +421,7 @@ function main() {
       // Snapshot transfer
       const st0 = g.snapshot();
       ok(!st0.transfer || Array.isArray(st0.transfer.lp), 'Snapshot transfer (falls Landepunkte am Ort)');
-      ok(Buffer.byteLength(JSON.stringify(st0)) < 13 * 1024, `Snapshot auf gebauter Karte ${Buffer.byteLength(JSON.stringify(st0))} B < 13 KB`);
+      ok(Buffer.byteLength(JSON.stringify(st0)) < SNAP_MAX, `Snapshot auf gebauter Karte ${Buffer.byteLength(JSON.stringify(st0))} B < ${SNAP_MAX} B`);
     }
     {   // download_fertig mit Kern-Terminal (Mock-Karte über world.register)
       const Wd = require('../server/world.js');

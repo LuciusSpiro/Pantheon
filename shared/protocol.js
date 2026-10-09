@@ -71,6 +71,16 @@
     //   Ergänzungen (SCHNITTSTELLEN-NACHTRAG FX, verbindlich): ausholen { id, winkel? }; granateEinschlag { x, y, radius } (Radius in
     //   Kacheln); Treffer-Ereignisse (shieldHit, enemyShieldHit …) tragen zusätzlich waffe (WAFFEN bzw. Gegnerwaffe).
     //   FX liest: players[] ch wu zs bt ht ov wf; away.drones[] ch wu zs bt wf gr facing; away.projectiles[] kind 'granate' tx ty t flug.
+    // W1 AP1 (Netzbudget, server/sim/snapform.js): „fehlt = Standard“ – Leser behandeln ein fehlendes Feld wie den Standardwert
+    //   (Vergleiche wie `x === false` gegen ein fehlendes Feld sind falsch; `!x`, `x !== false`, `x != null` verwenden).
+    //   players[] (combat.playerSnap): fl fehlt = false, cr fehlt = false, bleed fehlt = null, ov fehlt = 0, bt fehlt = 0,
+    //     zs fehlt = 'ok' (gilt, sobald die B2-Felder da sind – ht ist dann immer gesetzt).
+    //   away.drones[] auf v2-Karten (combat.droneSnap): alive fehlt = true (nur alive:false wird gesendet: liegt bzw. aus),
+    //     asleep fehlt = false, cr fehlt = false, ghost fehlt = null, aim fehlt = null, zs fehlt = 'ok'.
+    //     revealed entfällt (aufgedeckt = snap.time < away.sensorUntil, wie es der Server für alle Gegner setzt); squad entfällt
+    //     (Client: kit bzw. ID-Präfix). role (KI-Rolle pin/flank/retreat/aufrichten …, ≠ ro) nur mit CONFIG.debug.snapKiRolle
+    //     (Bots, Debug-Overlay per `tune debug.snapKiRolle on`). Nicht-v2-Karten (Plattform, Wrack): revealed und alive wie bisher.
+    //   Grenze: CONFIG.net.snapMax (13 312 B), Worst Case ≤ snapMax − snapLuft (tools/snap-mess.js, npm run snap:mess).
     // Debug: tune waffen.<waffe>.<wert> | waffe <id> | gegner <rolle> [fraktion] | alarm on|off | fang.
     // FIX-ZIELEN: input { seq, mx, my, aim? } – aim = Zielwinkel zum Mauszeiger in ganzen Grad (atan2, x rechts, y unten),
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.

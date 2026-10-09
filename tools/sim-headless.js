@@ -10,6 +10,9 @@
 const Maps = require('../shared/maps.js');
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
+// W1 AP1: Bots lesen die KI-Rolle der Gegner (d.role === 'aufrichten'); der Snapshot sendet sie nur mit diesem Schalter.
+// Gilt auch für golden-trace.js (lädt diese Datei ohne Hauptteil). Snapshot-Leser: alive fehlt = true, asleep/cr fehlen = false.
+CONFIG.debug.snapKiRolle = true;
 const Locations = require('../shared/locations.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
@@ -797,7 +800,7 @@ class Agent {
     const giveUp = m.droneGiveUp || (m.droneGiveUp = {});
     let best = null, bd = 190;
     for (const d of S.away.drones) {
-      if (!d.alive || (giveUp[d.id] || 0) > S.time) continue;
+      if (d.alive === false || (giveUp[d.id] || 0) > S.time) continue;
       const dd = dist(p.x, p.y, d.x, d.y);
       if (dd < bd && losPx(walkSolid, p.x, p.y - 10, d.x, d.y - 8)) { bd = dd; best = d; }
     }
@@ -1289,7 +1292,7 @@ class KeshAgent extends Agent {
     const away = S.players.filter((o) => o.zone === 'away');
     if (!away.length) return;
     const m = this.memo; const t = S.time;
-    const foes = S.away.drones.filter((d) => d.alive && !d.asleep);
+    const foes = S.away.drones.filter((d) => d.alive !== false && !d.asleep);
     if (foes.length && S.support.sensor === 0 && (m.sensorAt || 0) < t) { m.sensorAt = t + 5; this.cmd('captain.support', { kind: 'sensor' }); }
     if (S.support.kuppel === 0 && away.some((o) => o.sh && o.sh[0] <= 1) && (m.kuppelAt || 0) < t) { m.kuppelAt = t + 5; this.cmd('captain.support', { kind: 'kuppel' }); }
     if ((m.orderAt || 0) < t) {
@@ -1332,7 +1335,7 @@ class KeshAgent extends Agent {
     // §15: geduckte Gegner (cr) hinter niedriger Deckung sind von hier aus nicht zu sehen – nicht blind draufhalten
     const sight = (d) => d.cr ? Los.crouchSight(this.awayMap(S), solid, blocked, [d]) : blocked;
     // B2: liegende/bewusstlose/gefesselte Gegner (zs ≠ ok) nehmen keine Treffer – nicht draufhalten
-    return S.away.drones.filter((d) => d.alive && !d.asleep && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= 9 * TILE && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
+    return S.away.drones.filter((d) => d.alive !== false && !d.asleep && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= 9 * TILE && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
       .filter((d) => d.kind !== 'warden' || p.wf === 'lanze' || Math.abs(norm(Math.atan2(p.y - d.y, p.x - d.x) - (d.facing || 0))) > 1.1)   // Wächter nur von der Seite (die Lanze schlägt durch den Frontschild)
       .sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
   }
@@ -1554,7 +1557,7 @@ async function runKesh(opts) {
     for (const a of agents) a.update(S);
     const pinfo = (p) => p.name + ':' + p.zone + (p.zone === 'away' ? '@' + Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32) + ' sh' + (p.sh ? p.sh[0] : '-') + (p.downed ? ' DOWN' : '') : ':' + (p.console || '-'));
     if (VERBOSE && ticks % 300 === 0) log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}] ` + S.players.map(pinfo).join(' ') +
-      ' | Gegner ' + S.away.drones.filter((d) => d.alive).map((d) => `${d.id}:${d.role}:${d.sh ? d.sh[0] : ''}@${Math.floor(d.x / 32)},${Math.floor(d.y / 32)}`).join(' '));
+      ' | Gegner ' + S.away.drones.filter((d) => d.alive !== false).map((d) => `${d.id}:${d.role}:${d.sh ? d.sh[0] : ''}@${Math.floor(d.x / 32)},${Math.floor(d.y / 32)}`).join(' '));
     const key = S.mission.stage || 'free';
     if (key !== stage) { stage = key; stageStart = game.time; }
     if (game.time - stageStart > SOFTLOCK_SEC) { softlock = stage; break; }
@@ -2825,7 +2828,7 @@ async function runGeneric(opts) {
       const sh = game.ship;
       log(`  [t ${game.time.toFixed(0)} ${m.state.stage || '-'}@${sh.scene}] v${Math.round(Math.hypot(sh.vx, sh.vy))} Hülle ${Math.round(sh.hull)} Gegner ${game.space.enemies.map((e) => e.kind + ':' + Math.round(e.hp) + '@' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + (e.targetId ? '>' + e.targetId : '') + (e.tele ? 'T' : '')).join(' ')}`
         + ` Schützling ${(game.space.escorts || []).map((q) => `${q.tag}:${q.state}:${Math.round(q.hp)}@${Math.round(dist(q.x, q.y, sh.x, sh.y))}`).join(' ')} Spieler ${S.players.map((q) => q.zone + ':' + (q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32))).join(' ')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'}`
-        + (S.away.active ? ` | unten ${S.away.map}: Salvage ${(S.away.salvage || []).map((q) => `${q.x},${q.y}${q.done ? '✓' : ''}${q.hidden ? 'h' : ''}`).join(' ')} Gegner ${(S.away.drones || []).filter((d) => d.alive).length} Aktion ${S.players.map((q) => q.action ? q.action.kind : '-').join('/')}` : ''));
+        + (S.away.active ? ` | unten ${S.away.map}: Salvage ${(S.away.salvage || []).map((q) => `${q.x},${q.y}${q.done ? '✓' : ''}${q.hidden ? 'h' : ''}`).join(' ')} Gegner ${(S.away.drones || []).filter((d) => d.alive !== false).length} Aktion ${S.players.map((q) => q.action ? q.action.kind : '-').join('/')}` : ''));
     }
     // Missionsende (Ereignis)
     while (doneEvents.length) { const ev = doneEvents.shift(); if (cur && ev.id === cur.id) finishMission(ev); }
@@ -3167,7 +3170,7 @@ class WellenAgent extends GenericAgent {
     const solid = this.keshSolid(S); const blocked = Los.sightFn(this.awayMap(S), solid);
     const sight = (d) => d.cr ? Los.crouchSight(this.awayMap(S), solid, blocked, [d]) : blocked;
     const R = (CONFIG.awayCombat.sightTiles || 10) * TILE;
-    return S.away.drones.filter((d) => d.alive && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= R && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
+    return S.away.drones.filter((d) => d.alive !== false && d.vis && (!d.zs || d.zs === 'ok') && dist(d.x, d.y, p.x, p.y) <= R && Los.lineOfSight(sight(d), p.x, p.y, d.x, d.y))
       .sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y));
   }
   update(S) {
@@ -3188,7 +3191,7 @@ class WellenAgent extends GenericAgent {
     }
     if (this.combatAway(S, p, null)) return;
     // kein Gegner in Sicht: Richtung nächster stehender Gegner (bis ~6 Kacheln), sonst stehen bleiben
-    const foes = S.away.drones.filter((d) => d.alive && (!d.zs || d.zs === 'ok'));
+    const foes = S.away.drones.filter((d) => d.alive !== false && (!d.zs || d.zs === 'ok'));
     const f = foes.sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y))[0];
     if (f && dist(f.x, f.y, p.x, p.y) > 6 * TILE) { if (this.goto(S, [this.tile(f)]) === 'fail') this.input(0, 0); return; }
     this.input(0, 0);
@@ -3252,7 +3255,7 @@ async function wellenMain() {
   log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 13 KB ===`);
   for (const karte of karten) for (const np of crews) {
     const r = await runWellen({ karte, players: np, seed: base, maxSec });
-    const bad = r.errors > 0 || r.softlock || r.snapMax >= 13 * 1024 || r.maxStehend > CONFIG.wellen.maxLebend;
+    const bad = r.errors > 0 || r.softlock || r.snapMax >= CONFIG.net.snapMax || r.maxStehend > CONFIG.wellen.maxLebend;
     if (bad) ok = false;
     log(`${karte.padEnd(12)} ${np === 1 ? 'solo ' : 'zu 3 '} Welle ${String(r.welle).padStart(2)} ${r.ende ? 'erreicht (Crew unten)' : 'bei Zeitende'} nach ${r.zeit} s · ` +
       `Abschüsse ${r.kills} (gefallen ${r.abschuesse}, Schildtreffer ${r.treffer}) · stehend max ${r.maxStehend} · Snapshot max ${r.snapMax} B (Welle ${r.snapWelle}) · Fehler ${r.errors}` +
@@ -3277,7 +3280,7 @@ async function wellenMain() {
     const r = await runKesh({ seed: seedArg != null ? seedArg : 31 });
     printKesh(r);
     // E16: nur Treffer ohne geteilte Sicht/Aussicht zählen (offBoxHits); Snapshot-Budget B2: 13 KB
-    if (!r.success || r.errors > 0 || r.combat.offBoxHits > 0 || r.combat.maxStuck > 8 || r.snapMax >= 13 * 1024) ok = false;
+    if (!r.success || r.errors > 0 || r.combat.offBoxHits > 0 || r.combat.maxStuck > 8 || r.snapMax >= CONFIG.net.snapMax) ok = false;
   }
   for (const run of runs) {
     const skip = run === 'skip';
@@ -3289,7 +3292,7 @@ async function wellenMain() {
     base.pilot = PILOT && PILOT !== 'both' ? PILOT : 'maneuver';
     const r = await runScenario(n, base);
     printResult(r);
-    if (!r.success || r.errors > 0 || r.snapshot.maxBytesFull >= 13 * 1024) ok = false;
+    if (!r.success || r.errors > 0 || r.snapshot.maxBytesFull >= CONFIG.net.snapMax) ok = false;
     if (r.wreck && !r.sim.wreckDone) ok = false;
   }
   log(ok ? '\nSIM OK' : '\nSIM FEHLGESCHLAGEN');

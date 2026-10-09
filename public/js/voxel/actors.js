@@ -631,7 +631,8 @@ function deckOfPlayer(p) {
 // B2: Körperzustand (zs), Waffenaktion (ch/wu/bt) und Waffe – gleiche Regeln für Spieler und Gegner (CONTRACT-B2 §8, §10)
 /** → { base, upper, lie, waffe: 'hand'|'boden'|'keine', fessel, ziel } */
 function kampfZustand(a, e, t, aiming, isPlayer) {
-  const zs = e.zs || (e.downed ? 'verwundet' : e.alive === false ? 'aus' : 'ok');
+  // W1 AP1: zs fehlt = 'ok', sobald die B2-Felder da sind (Spieler: ht kommt immer mit); sonst wie bisher abgeleitet
+  const zs = e.zs || (isPlayer && e.ht != null ? 'ok' : e.downed ? 'verwundet' : e.alive === false ? 'aus' : 'ok');
   const o = { base: null, upper: null, lie: false, waffe: 'hand', fessel: false, ziel: false, zs };
   // Ausholen → Schlag: Ende des Ausholens (wu fällt auf 0) zeigt STRIKE_T s die Schlagpose
   const wu = +e.wu || 0;
@@ -782,7 +783,7 @@ function updatePlayer(p, view, st, dt, t) {
   const beam = beamAmount(p, view);
   const moving = !!p.moving;
   // B2: Körperzustand und Waffenaktion (nur außen und nur, wenn der Server die B2-Felder liefert)
-  const b2 = !inShip && (p.zs != null || p.wf != null);
+  const b2 = !inShip && (p.zs != null || p.wf != null || p.ht != null);   // W1 AP1: zs:'ok' fehlt jetzt, ht ist immer da
   const shot0 = L.shotAt[p.id] != null && performance.now() / 1000 - L.shotAt[p.id] < 0.6;
   const ks = b2 ? kampfZustand(a, p, t, shot0, true) : null;
   if (ks && ks.base) { base = ks.base; if (ks.lie) wantYaw = lieYaw(a, base); }
@@ -1026,7 +1027,9 @@ function updateEnemy(e, view, st, dt, t) {
   if (e.ro && ROLLEN[e.ro]) { updateGermane(a, e, view, dt, t, hitAge); return; }
   if (kind === 'scavenger' && e.zs && e.zs !== 'ok') {
     // B2: Plünderer liegen/knien nach denselben Zuständen (Gewehr steckt in der Figur)
-    a.setFigure('lerche/scavenger', { params: { role: a.role != null ? a.role : (a.role = scavRole(e)) } }, 'scav');
+    // W1 AP1: squad fehlt im Snapshot – zuerst das feste kit des Servers, sonst Notbehelf scavRole (ID-Präfix)
+    if (a.role == null) a.role = e.kit != null && +e.kit >= 0 && +e.kit <= 2 ? +e.kit : scavRole(e);
+    a.setFigure('lerche/scavenger', { params: { role: a.role } }, 'scav');
     const pos = place(a, e.x, e.y, 0);
     const ks = kampfZustand(a, e, t, false, false);
     const lie = ks.lie ? lieYaw(a, ks.base) : null;

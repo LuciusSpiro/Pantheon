@@ -137,7 +137,9 @@ function client(port, hello, noHello) {
   a.ws.send(JSON.stringify({ t: 'cmd', c: 'captain.burst', sector: 1 }));
   await sleep(200);
   ok(a.snaps[a.snaps.length - 1].ship.shields.burst == null, 'M3b: captain.burst bewirkt nichts');
-  ok(Math.max(maxR, maxC, maxM) < 12 * 1024, 'Snapshot < 12 KB');
+  // W1 AP1: bewusst strenger als snapMax (früher fest 12 KB): über das Netz gemessene Szenen halten die Luft snapLuft ein
+  const NET = require('../shared/config.js').net;
+  ok(Math.max(maxR, maxC, maxM) <= NET.snapMax - NET.snapLuft, 'Snapshot ≤ snapMax − snapLuft (max ' + Math.max(maxR, maxC, maxM) + ' B)');
 
   // Reconnect: A trennt, verbindet mit gleicher clientId neu
   const pidA = a.welcome.pid;

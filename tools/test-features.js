@@ -508,7 +508,9 @@ console.log('\n[Missions-Engine, Mission 2, Ende M1, Snapshot]');
   ok(g.space.enemies.filter((e) => e.kind === 'pylon').length === 3, '3 Pylonen');
   const s = g.snapshot();
   const sz = Buffer.byteLength(JSON.stringify(s));
-  ok(sz < 12 * 1024, 'Snapshot im Kampf < 12 KB (' + sz + ' B)');
+  // W1 AP1: bewusst strenger als snapMax (früher fest 12 KB): Raumkampf ohne Worst-Case-Last hält die Luft snapLuft ein
+  const NET = require('../shared/config.js').net;
+  ok(sz <= NET.snapMax - NET.snapLuft, 'Snapshot im Kampf ≤ snapMax − snapLuft = ' + (NET.snapMax - NET.snapLuft) + ' B (' + sz + ' B)');
   for (const k of ['world', 'quarters', 'deco', 'plan', 'shopContext']) ok(k in s, 'Snapshot-Feld ' + k);
   for (const k of ['dockedAt', 'reactor', 'markers', 'tscan', 'widescan', 'mounts', 'npcs']) ok(k in s.ship, 'Snapshot ship.' + k);
   ok(['state', 'output', 'used', 'overloadLeft', 'switches', 'restartProgress'].every((k) => k in s.ship.reactor), 'ship.reactor laut §6');

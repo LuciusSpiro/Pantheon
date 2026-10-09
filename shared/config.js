@@ -114,7 +114,13 @@
     ],
 
     // ---- Ergänzungen Team SERVER (nur hinzugefügt, nichts umbenannt) ----
-    net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90, bookBudget: 3000 },   // §21.2 bookBudget: max. Bytes mission.book // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
+    net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90, bookBudget: 3000,   // §21.2 bookBudget: max. Bytes mission.book // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
+      // W1 AP1: Snapshot-Grenze (Bytes JSON) für Budget-Prüfungen in Tests, Bots und tools/snap-mess.js; snapLuft = Reserve,
+      // die der Worst Case (Außenposten, 3 Spieler, 12 Gegner) unter snapMax bleiben muss -> Ziel ≤ snapMax − snapLuft.
+      snapMax: 13 * 1024, snapLuft: 1536 },
+    // W1 AP1: Debug-Schalter. snapKiRolle: away.drones[].role (KI-Rolle pin/flank/…) im Snapshot mitsenden. Aus = Feld fehlt
+    // (Netzbudget). Bots (sim-headless, golden-trace) und das Debug-Overlay (?debug=1 am Debug-Server, per `tune`) schalten ihn ein.
+    debug: { snapKiRolle: false },
     flight: {
       lateralDrag: 2.2,        // Dämpfung der Querbewegung pro s (Vorwärtstempo bleibt erhalten = "ODA hält Kurs")
       reverseFactor: 0.3,      // Rückwärts max. 30 % von maxSpeed

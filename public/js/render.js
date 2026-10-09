@@ -1039,6 +1039,12 @@
     return typeof o === 'number' && isFinite(o) ? o : d;
   }
   function isV2(st) { const a = st && st.away; return !!(a && a.combat === 'v2'); }
+  // W1 AP1: Kampf v2 sendet kein drones[].revealed mehr – der Server setzt es für alle Gegner aus time < away.sensorUntil
+  function aufgedeckt(e, st) {
+    if (e.revealed != null) return !!e.revealed;
+    const a = st && st.away;
+    return !!(a && a.sensorUntil && st.time < a.sensorUntil);
+  }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : (+v || 0); }
 
   // Aktueller Kollisionszustand einer Außenkarte (Kesh: Tor offen = begehbar; low-Kacheln bleiben solid)
@@ -1879,7 +1885,7 @@
           const esh = v2 && Array.isArray(e.sh) ? e.sh : null;
           if (dk === 'warden') {
             // M2: Wächter („Lamassu“) mit Frontbogen und Blickrichtung
-            const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: !!e.revealed, shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
+            const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: aufgedeckt(e, st), shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
             if (e.alive !== false) {
               if (esh) drawShieldRing(ctx, ex, ey + 2, esh[0], esh[1], 0, t, 30);
               // Frontbogen: art.js zeichnet beim wachen Wächter selbst Hex-Platten – dann nur dezent am Boden
@@ -1893,7 +1899,7 @@
             if (e.aim) { const tp = (view.players || []).find(q => q.id === e.aim.target); if (tp) aimAngle = Math.atan2(tp.y - e.y, tp.x - e.x); }
             const ecr = v2 && !!e.cr && e.alive !== false;   // §15: geduckter Plünderer
             const drawE = () => {
-              if (!hidden && !art('drawDrone', null, [ctx, ex, ey, { time: t, alive: e.alive !== false, revealed: !!e.revealed, hit: v2 ? hitAge < 0.15 : !!e.hit, kind: dk, role: e.role || null, aiming: !!e.aim, aimAngle, shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null, crouch: ecr }])) {
+              if (!hidden && !art('drawDrone', null, [ctx, ex, ey, { time: t, alive: e.alive !== false, revealed: aufgedeckt(e, st), hit: v2 ? hitAge < 0.15 : !!e.hit, kind: dk, role: e.role || null, aiming: !!e.aim, aimAngle, shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null, crouch: ecr }])) {
                 shape(ctx, 'diamond', ex, ey - 14, 14, e.alive === false ? PAL.grey : dk === 'scavenger' ? PAL.rust : PAL.red, PAL.space);
               }
             };
@@ -3993,7 +3999,7 @@
       const sensorOn = away.sensorUntil && st.time < away.sensorUntil;
       const v2m = isV2(st);
       for (const d of view.drones || []) {
-        if (d.alive === false || !(sensorOn || d.revealed || opts.showDrones || (v2m && d.vis))) continue;
+        if (d.alive === false || !(sensorOn || aufgedeckt(d, st) || opts.showDrones || (v2m && d.vis))) continue;
         ctx.fillStyle = d.kind === 'warden' ? KESH_VIOLET : PAL.red; ctx.fillRect(x + Math.floor(d.x / TILE) * c, y + Math.floor(d.y / TILE) * c, c, c);
       }
       if (v2m) for (const o of activeOrders(st)) {

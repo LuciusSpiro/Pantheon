@@ -14,6 +14,7 @@ const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
 const W = require('../world.js');
 const squad = require('./squad.js');
+const SF = require('./snapform.js');
 const { dist, makeRng, r1, r2, clamp } = require('../util.js');
 
 const TILE = Physics.TILE;
@@ -1552,9 +1553,11 @@ function tune(game, path, value) {
 }
 
 // ---------- Snapshot-Teile (CONTRACT-M2 §7) ----------
+// W1 AP1 (Netzbudget, snapform.js): Standardwerte fehlen – fl/cr fehlen = false, bleed fehlt = null, zs fehlt = 'ok',
+// ov/bt fehlen = 0. zs fehlt = 'ok' gilt nur mit B2-Feldern (ht ist dann immer da); ohne sie gab es zs nie.
 function playerSnap(game, p) {
   const v2 = p.zone === 'away' && isV2(game);
-  return {
+  return SF.ohneStandard({
     sh: v2 && p.shield ? [p.shield.seg, p.shield.max] : null,
     shR: v2 ? r2(shieldProgress(game, p)) : 0,
     cv: v2 ? (p.cv || 0) : 0,
@@ -1565,19 +1568,23 @@ function playerSnap(game, p) {
     // FIX-ZIELEN: Blickrichtung zur Maus (ganze Grad); fehlt = Laufrichtung dir (Budget: nur außen und nur beim Zielen)
     ...(p.zone === 'away' && Number.isFinite(p.facing) ? { fa: Math.round(p.facing * 180 / Math.PI) } : {}),
     ...(v2 ? b2SnapSpieler(game, p) : {}),
-  };
+  }, SF.SPIELER);
 }
+// W1 AP1 (Netzbudget, snapform.js): Standardwerte fehlen im Snapshot – alive fehlt = true (nur false wird gesendet),
+// asleep/cr fehlen = false, ghost/aim fehlen = null. revealed fehlt ganz (Leser: st.time < away.sensorUntil, so setzt es
+// away.js für alle Gegner), squad fehlt ganz (Client: kit bzw. ID-Präfix). role (KI-Rolle) nur mit CONFIG.debug.snapKiRolle.
 function droneSnap(game, e, base) {
-  const C = cfg(game);
+  const dbg = game.C && game.C.debug;
+  base.alive = e.alive !== false;
   base.sh = [e.seg, e.max];
-  base.role = e.role || 'idle';
+  if (dbg && dbg.snapKiRolle) base.role = e.role || 'idle';
   base.vis = !!e.vis;
   base.ghost = e.ghost || null;
   base.aim = e.aim ? { target: e.aim.target, p: r2(Math.min(1, (game.time - e.aim.t0) / Math.max(0.01, e.aim.dur))) } : null;
   if (e.kind === 'warden') base.facing = Math.round(e.facing * 1000) / 1000;
   base.asleep = !!e.asleep;
   base.cr = !!e.crouch && e.alive !== false;   // §15
-  if (C) base.squad = e.squad || null;
+  SF.ohneStandard(base, SF.GEGNER);
   b2SnapGegner(game, e, base);
   // M4 (Wunsch ACTORS): festes Ausrüstungs-Kit je Plünderer 0 Schütze / 1 Flanker / 2 Funker – einmal vergeben
   // (Reihenfolge im Trupp), bleibt stabil, unabhängig von der wechselnden Rolle (role).

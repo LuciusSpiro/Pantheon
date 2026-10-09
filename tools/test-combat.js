@@ -16,6 +16,10 @@ WAFFEN_MOD.aktiv = false;
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const AC = require('../shared/config.js').awayCombat;
+// W1 AP1: Snapshot-Grenze. SNAP_ZIEL (snapMax − snapLuft) ist bewusst strenger: Worst Case Außenposten und die Szenen ohne
+// Worst-Case-Last (Kesh, Raumkampf; früher fest 12 KB) müssen die Luft unter snapMax einhalten.
+const NET = require('../shared/config.js').net;
+const SNAP_MAX = NET.snapMax, SNAP_ZIEL = NET.snapMax - NET.snapLuft;
 const ORIG = JSON.parse(JSON.stringify(AC));
 function restoreConfig() {
   const copy = (dst, src) => { for (const k of Object.keys(src)) { if (src[k] && typeof src[k] === 'object' && !Array.isArray(src[k])) copy(dst[k], src[k]); else dst[k] = src[k]; } };
@@ -63,15 +67,27 @@ console.log('\n[Aufbau, Kesh, Snapshot]');
   ok(P(0).medkit === 1 && P(1).medkit === 1 && P(2).medkit === 0 && g.inventory.medipack === 0, 'Medipacks aus dem Lager (2 vorhanden)');
   const s = g.snapshot();
   const sp = s.players[0];
-  ok(JSON.stringify(sp.sh) === '[3,3]' && 'shR' in sp && 'cv' in sp && 'fl' in sp && sp.medkit === 1 && sp.bleed === null, 'Snapshot players: sh, shR, cv, fl, medkit, bleed');
+  // W1 AP1: Standardwerte fehlen (fl false, bleed null, cr false, zs 'ok', ov/bt 0)
+  ok(JSON.stringify(sp.sh) === '[3,3]' && 'shR' in sp && 'cv' in sp && sp.medkit === 1 && ['fl', 'bleed', 'cr', 'zs', 'ov', 'bt'].every((k) => !(k in sp)),
+    'Snapshot players: sh, shR, cv, medkit; fl/bleed/cr/zs/ov/bt fehlen als Standard');
   ok(s.away.combat === 'v2' && s.away.scanQuality === AC.scanQualityJammed && s.away.vault.open === false && s.away.jammers.length === 2 && s.away.keys.length === 2 && s.away.tablet && Array.isArray(s.away.orders), 'Snapshot away: combat, scanQuality, vault, jammers, keys, tablet, orders');
   const d = s.away.drones.find((q) => q.kind === 'scavenger');
-  ok(d && JSON.stringify(d.sh) === JSON.stringify([AC.enemy.scavenger.segments, AC.enemy.scavenger.segments]) && 'role' in d && 'vis' in d && 'ghost' in d && 'aim' in d && 'asleep' in d && 'hp' in d && 'revealed' in d, 'Snapshot drones: sh, role, vis, ghost, aim, asleep (+ alte Felder)');
+  // W1 AP1: Standardwerte fehlen (alive true, asleep/cr false, ghost/aim null); revealed, squad ganz weg; role nur mit Schalter
+  ok(d && JSON.stringify(d.sh) === JSON.stringify([AC.enemy.scavenger.segments, AC.enemy.scavenger.segments]) && 'vis' in d && 'hp' in d && 'kit' in d &&
+    ['role', 'ghost', 'aim', 'asleep', 'cr', 'alive', 'revealed', 'squad'].every((k) => !(k in d)), 'Snapshot drones: sh, vis, hp, kit; role/ghost/aim/asleep/cr/alive/revealed/squad fehlen');
+  {
+    const SW = require('../shared/config.js').debug;
+    const vorher = SW.snapKiRolle;
+    SW.snapKiRolle = true;
+    const d2 = g.snapshot().away.drones.find((q) => q.id === d.id);
+    SW.snapKiRolle = vorher;
+    ok(d2 && typeof d2.role === 'string' && !('role' in g.snapshot().away.drones.find((q) => q.id === d.id)), 'CONFIG.debug.snapKiRolle: role (KI-Rolle) nur mit Schalter');
+  }
   const w = s.away.drones.find((q) => q.kind === 'warden');
   ok(w && typeof w.facing === 'number' && w.asleep === true, 'Wächter mit facing/asleep');
   ok(s.lobby.startMission === 'm1' && s.inventory.tafel === 0, 'lobby.startMission, inventory.tafel');
   const sz = Buffer.byteLength(JSON.stringify(s));
-  ok(sz < 12 * 1024, 'Snapshot auf Kesh < 12 KB (' + sz + ' B)');
+  ok(sz <= SNAP_ZIEL, 'Snapshot auf Kesh ≤ ' + SNAP_ZIEL + ' B (' + sz + ' B)');
 }
 
 console.log('\n[Schild: Segmente, Laden, verwundet]');
@@ -401,7 +417,7 @@ console.log('\n[Ducken (CONTRACT-M2 §15)]');
     ok(p.crouch && g.snapshot().players[0].cr === true, 'cmd crouch on -> p.crouch, Snapshot players[].cr');
     ok(dStand > 30 && Math.abs(dCrouch / dStand - CC.speedFactor) < 0.08, `Tempo geduckt ${(dCrouch / dStand * 100).toFixed(0)} % (Soll ${CC.speedFactor * 100} %)`);
     send(0, { t: 'cmd', c: 'crouch', on: false });
-    ok(!p.crouch && g.snapshot().players[0].cr === false, 'cmd crouch off -> aufgestanden');
+    ok(!p.crouch && !('cr' in g.snapshot().players[0]), 'cmd crouch off -> aufgestanden (cr fehlt = false)');
     // Interaktion (E halten) bleibt geduckt möglich: Störrelais
     place(0, 31, 3, 'up'); send(0, { t: 'cmd', c: 'crouch', on: true });
     send(0, { t: 'act', down: true }); run(AC.jammerTime + 0.2); send(0, { t: 'act', down: false });
@@ -419,7 +435,7 @@ console.log('\n[Ducken (CONTRACT-M2 §15)]');
     ok(!p.crouch, 'Konsole beendet das Ducken');
     p.console = null; send(0, { t: 'cmd', c: 'crouch', on: true });
     it.placeOnShipPad(g, p);
-    ok(!p.crouch && g.snapshot().players[0].cr === false, 'Hochbeamen beendet das Ducken');
+    ok(!p.crouch && !('cr' in g.snapshot().players[0]), 'Hochbeamen beendet das Ducken (cr fehlt = false)');
     send(0, { t: 'cmd', c: 'crouch', on: true });
     ok(!p.crouch && notices(0).some((t) => /nur im Außeneinsatz/.test(t)), 'an Bord: kein Ducken (Hinweis)');
     ok(g.errors === 0, 'keine Fehler');
@@ -647,7 +663,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(g.ship.hull > 0 && g.stats.emergencies === 1 && g.phase === 'play', 'Notfallprotokoll wie im Spiel, kein Ende');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'spawn', kind: 'raider' });
     ok(cs[0].inbox.some((m) => m.kind === 'notice' && /deaktiviert/.test(m.text)), 'ohne --debug keine Debug-Befehle');
-    ok(Buffer.byteLength(JSON.stringify(g.snapshot())) < 12 * 1024 && g.errors === 0, 'Snapshot < 12 KB, keine Fehler');
+    { const sz = Buffer.byteLength(JSON.stringify(g.snapshot())); ok(sz <= SNAP_ZIEL && g.errors === 0, 'Snapshot ≤ ' + SNAP_ZIEL + ' B (' + sz + ' B), keine Fehler'); }
   }
   // Raumkampf zu dritt + Debug
   {
@@ -902,7 +918,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       if (tk % 15 === 0) maxSz = Math.max(maxSz, Buffer.byteLength(JSON.stringify(g.snapshot())));
     });
     ok(maxSperr <= SF.maxProjectiles, `Obergrenze: höchstens ${maxSperr} Sperrfeuer-Geschosse gleichzeitig (maxProjectiles ${SF.maxProjectiles})`);
-    ok(maxSz < 13 * 1024, `Snapshot mit 3 Kanonenbooten + 3 Jägern < 13 KB (max ${maxSz} B)`);
+    ok(maxSz < SNAP_MAX, `Snapshot mit 3 Kanonenbooten + 3 Jägern < ${SNAP_MAX} B (max ${maxSz} B)`);
     ok(g.errors === 0, 'keine Server-Fehler');
   }
 
@@ -1186,7 +1202,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(aw().drones.length === 12, '12 Gegner');
     let max = 0;
     run(4, () => { max = Math.max(max, Buffer.byteLength(JSON.stringify(g.snapshot()))); for (const p of g.players) { if (p.shield) p.shield.seg = 3; } });
-    ok(max < 13 * 1024, 'Snapshot < 13 KB (max ' + max + ' B)');
+    ok(max < SNAP_MAX, 'Snapshot < ' + SNAP_MAX + ' B (max ' + max + ' B)');
     ok(g.errors === 0, 'keine Server-Fehler');
   }
   delete W.AWAY_MAPS[LP];
@@ -1285,7 +1301,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(w.rolle === 'waechter' && w.max === 4 && w.wunden.max === 2 && w.frontArc === 120, 'Wächter: 4 Segmente + 2 Wunden, Frontbogen');
     const s = g.snapshot();
     const sp = s.players[0];
-    ok(sp.wf === 'blaster' && sp.zs === 'ok' && 'ht' in sp, 'Snapshot players: wf, ht, zs');
+    ok(sp.wf === 'blaster' && !('zs' in sp) && 'ht' in sp, 'Snapshot players: wf, ht; zs fehlt = ok');
     gegner('niederhalter', 20, 6);
     const d = g.snapshot().away.drones.find((q) => q.ro === 'niederhalter');
     ok(d && d.wf === 'sturmgewehr' && d.zs === undefined && d.wn === undefined && d.wm === undefined, 'Snapshot drones: ro, wf; Standardwerte (zs ok, Wunden 1/1) entfallen');
@@ -1615,7 +1631,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
             max = Math.max(max, Buffer.byteLength(JSON.stringify(g.snapshot())));
           }
         }
-        ok(max < 13 * 1024, 'Snapshot < 13 KB (max ' + max + ' B, ' + lp + ')');
+        ok(max <= SNAP_ZIEL, 'Snapshot Worst Case ≤ snapMax − snapLuft = ' + SNAP_ZIEL + ' B (max ' + max + ' B, ' + lp + ')');
         ok(g.errors === 0, 'keine Server-Fehler');
       }
     } catch (e) { console.log('  info Außenposten nicht baubar: ' + e.message); }

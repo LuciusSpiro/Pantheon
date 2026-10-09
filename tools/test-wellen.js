@@ -15,7 +15,7 @@ const { makeRng } = require('../server/util.js');
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const C = CONFIG.wellen;
 const TILE = Physics.TILE;
-const SNAP_MAX = 13 * 1024;
+const SNAP_MAX = CONFIG.net.snapMax;   // W1 AP1: zentrale Snapshot-Grenze
 let n = 0, fails = 0;
 function ok(c, msg) { n++; if (!c) { fails++; console.log('  FEHLER ' + msg); } else console.log('  ok ' + msg); }
 function section(name, fn) {

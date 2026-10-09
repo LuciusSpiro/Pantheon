@@ -158,7 +158,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
   ok(CONFIG.shop.find((x) => x.id === 'seitenturm').name === 'Zusatzrohre' && CONFIG.shop.find((x) => x.id === 'seitenturm').price === 300, 'Shop: Zusatzrohre 300');
   // M4 (Studioleitung): Budget 12 → 13 KB, weil deck/lift/kit/loreRead dazukamen (gemessen 12.311 B mit Missionsbuch)
-  ok(Buffer.byteLength(JSON.stringify(s)) < 13 * 1024, 'Snapshot < 13 KB');
+  ok(Buffer.byteLength(JSON.stringify(s)) < CONFIG.net.snapMax, 'Snapshot < CONFIG.net.snapMax');
   const g3 = arena(3).g;
   ok(g3.snapshot().ship.botAuto === false, 'ship.botAuto zu dritt aus');
 });
@@ -1576,8 +1576,8 @@ section('Missionsbuch: Log-Zuordnung, Hinweise, Versionierung, Größe (§21.2)'
     const sn = g.snapshot(); const nb = Buffer.byteLength(JSON.stringify(sn)); maxSnap = Math.max(maxSnap, nb);
     if (sn.mission.book) { maxWithBook = Math.max(maxWithBook, nb); maxBook = Math.max(maxBook, Buffer.byteLength(JSON.stringify(sn.mission.book))); }
   }
-  ok(maxBook > 0 && maxBook <= CONFIG.net.bookBudget + 200 && maxWithBook < 13 * 1024 && maxSnap < 13 * 1024,
-    `Buch ${maxBook} B (Budget ${CONFIG.net.bookBudget}), Snapshot mit Buch ${maxWithBook} B, Snapshot max ${maxSnap} B < 13 KB`);
+  ok(maxBook > 0 && maxBook <= CONFIG.net.bookBudget + 200 && maxWithBook < CONFIG.net.snapMax && maxSnap < CONFIG.net.snapMax,
+    `Buch ${maxBook} B (Budget ${CONFIG.net.bookBudget}), Snapshot mit Buch ${maxWithBook} B, Snapshot max ${maxSnap} B < ${CONFIG.net.snapMax} B`);
   ok(g.errors === 0, 'keine abgefangenen Fehler');
 });
 

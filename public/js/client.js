@@ -498,6 +498,9 @@
       case 'welcome':
         Client.pid = msg.pid; G.pid = msg.pid;
         Client.serverDebug = !!msg.debug;
+        // W1 AP1: Das Debug-Overlay zeigt die KI-Rolle (away.drones[].role). Der Server sendet sie nur mit
+        // CONFIG.debug.snapKiRolle – mit ?debug=1 am Debug-Server schaltet der Client ihn ein (gilt für den Serverprozess).
+        if (DEBUG && Client.serverDebug) send({ t: 'debug', cmd: 'tune', path: 'debug.snapKiRolle', value: 'on' });
         Client.self.init = false;
         Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
         Client.arenaSent = false; Client.awayMapAsk = {};
