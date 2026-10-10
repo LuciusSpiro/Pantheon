@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prototyp: erzeugte Karte in 3D</title>
+<script type="importmap">{"imports": {"three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/"}}</script>
+<!-- PROTOTYP (Brücke, Gespräch mit Kai 2026-10-10): zeigt eine mit tools/gen-karte.js erzeugte Karte im Kit-Renderer.
+     /proto-karte.html?f=station-8-8   (Datei public/proto/<f>.json)   ziehen = verschieben, Rad = Zoom -->
+<style>
+  :root { --bg: #0d1018; --panel: #161b27; --line: #2a3242; --text: #d8dde8; --dim: #8791a5; --ok: #7FE0C2; --warn: #F2C94C; --bad: #E0473C; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+  header { padding: 8px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 16px; flex-wrap: wrap; align-items: baseline; }
+  header b { font-size: 15px; } .dim { color: var(--dim); } .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  main { display: grid; grid-template-columns: 1fr 280px; min-height: calc(100vh - 42px); }
+  canvas { width: 100%; height: calc(100vh - 42px); display: block; background: #05060a; }
+  aside { border-left: 1px solid var(--line); padding: 10px 12px; overflow: auto; max-height: calc(100vh - 42px); background: var(--panel); }
+  aside h3 { margin: 10px 0 4px; font-size: 13px; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+  aside div { font-size: 13px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } aside { border-left: 0; border-top: 1px solid var(--line); max-height: none; } canvas { height: 60vh; } }
+</style>
+</head>
+<body>
+<header><b>Prototyp: erzeugte Karte</b><span id="info" class="dim">lade …</span><span id="pr"></span></header>
+<main><canvas id="cv"></canvas><aside id="seite"></aside></main>
+<script type="module">
+const q = new URLSearchParams(location.search);
+const f = q.get('f') || 'station-8-8';
+const info = document.getElementById('info'), pr = document.getElementById('pr'), seite = document.getElementById('seite');
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+try {
+  const res = await fetch(`/proto/${encodeURIComponent(f)}.json`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`/proto/${f}.json nicht gefunden (node tools/gen-karte.js --seed … --raeume …)`);
+  const d = await res.json(), k = d.karte;
+  info.textContent = `${f} · ${k.w}×${k.h} Kacheln · ${Object.keys(k.plaetze).length} Plätze · ${k.anker.length} Anker · Bauweise ${k.bauweise}`;
+  const p = d.pruefung;
+  pr.className = p.ok ? 'ok' : 'bad';
+  pr.textContent = p.ok ? `Prüfer: bestanden (${(p.warnungen || []).length} Warnungen)` : `Prüfer: ${p.fehler.length} Fehler`;
+  seite.append(el('h3', '', 'Prüfer'));
+  for (const x of p.fehler || []) seite.append(el('div', 'bad', `${x.code} ${x.msg}`));
+  for (const x of p.warnungen || []) seite.append(el('div', 'warn', `${x.code} ${x.msg}`));
+  if (p.ok && !(p.warnungen || []).length) seite.append(el('div', 'ok', 'keine Fehler, keine Warnungen'));
+  seite.append(el('h3', '', 'Räume'));
+  const titel = (k.meta && k.meta.titel) || {};
+  for (const id of Object.keys(k.plaetze).sort()) if (titel[id]) seite.append(el('div', '', `${id}: ${titel[id]}`));
+  seite.append(el('h3', '', 'Anker'));
+  const anz = {}; for (const a of k.anker) anz[a.rolle] = (anz[a.rolle] || 0) + 1;
+  seite.append(el('div', '', Object.keys(anz).sort().map((r) => `${r} ${anz[r]}`).join(' · ')));
+  seite.append(el('h3', '', 'Türen'));
+  const tz = {}; for (const id of Object.keys(k.kanten)) tz[k.kanten[id].typ] = (tz[k.kanten[id].typ] || 0) + 1;
+  seite.append(el('div', '', Object.keys(tz).map((t) => `${t} ${tz[t]}`).join(' · ')));
+  const VK = await import('/js/voxel/kit.js');
+  if (typeof VK.prefetch === 'function') await VK.prefetch();
+  const v = await VK.viewer(document.getElementById('cv'), k, {});
+  window.__proto = { karte: k, viewer: v };
+  window.addEventListener('resize', () => v.render());
+  document.title = `Prototyp ${f} – bereit`;
+  document.body.dataset.bereit = '1';
+} catch (e) {
+  info.textContent = ''; pr.className = 'bad'; pr.textContent = String(e && e.message || e);
+  document.body.dataset.fehler = String(e && e.message || e);
+  console.error(e);
+}
+</script>
+</body>
+</html>

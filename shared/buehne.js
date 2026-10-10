@@ -1184,6 +1184,31 @@
     err.fehler = letzte ? letzte.fehler : [];
     throw err;
   }
+  // ausRaster(roh, opts?) -> { karte, pruefung, fehler }: Karte eines fremden Erzeugers (z. B. shared/gen-station.js: rows, plaetze,
+  // anker, bereiche, meta.pflicht) mit denselben Schritten fertigstellen wie bauRohIntern: ganze Kit-Legende, Türkanten,
+  // Patrouillen, Deckungsplätze, Prüfung (Fehler) und – außerhalb des Spiels – Kennzahlen und Warnungen.
+  // meta.schottStart: 'offen' | 'zu' setzt den Startzustand aller Schotts (Engstellen, die dauerhaft offen stehen sollen).
+  function ausRaster(roh, opts) {
+    opts = opts || {};
+    const D = opts.daten ? normalisiere(opts.daten) : daten();
+    const cfg = cfgVon(opts);
+    const k = JSON.parse(JSON.stringify(roh));
+    k.legende = {};
+    for (const ch of Object.keys(D.kacheln.zeichen).sort()) k.legende[ch] = D.kacheln.zeichen[ch];
+    k.kanten = {}; k.zustaende = k.zustaende || {}; k.meta = k.meta || {};
+    kompiliereKanten(D, k);
+    torKantenStart(D, k);
+    if (k.meta.schottStart) for (const id of Object.keys(k.kanten)) if (k.kanten[id].typ === 'schott' && !k.kanten[id].tor) k.kanten[id].zustand = k.meta.schottStart;
+    k.patrouillen = kompilierePatrouillen(k);
+    k.coverSpots = kompiliereCover(k);
+    let pr = pruefenIntern(D, k, cfg, { nurFehler: true });
+    if (!opts.spiel) {
+      k.meta.kennzahlen = K.kennzahlen(k, cfg);
+      const w = pruefenIntern(D, k, cfg, { nurWarnungen: true });
+      pr = { ok: pr.ok, fehler: pr.fehler, warnungen: w.warnungen };
+    }
+    return { karte: k, pruefung: pr, fehler: pr.fehler };
+  }
   // Zustände (Weltstand) anwenden: { <ankerId|kantenId>: zustand }; Unbekanntes wird verworfen (Rückgabe: verworfen[])
   function zustaendeAnwenden(karte, z) {
     const verworfen = [];
@@ -1675,7 +1700,7 @@
   return {
     rng, hash, fnv, bauversion, setDaten, daten, ladeVerzeichnis, schablonen, module,
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
-    bauen, bauRoh, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
+    bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
     TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
