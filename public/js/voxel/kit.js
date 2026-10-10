@@ -189,6 +189,7 @@ export function normKarte(src, D) {
     id: m.id || 'karte', art: m.art || 'aussenposten', bauweise: m.bauweise || null, besitz: m.besitz || null, zustand: m.zustand || 'intakt',
     seed, kv: m.kv || m.bauversion || null, w, h, rows, at, info, kindAt, anker, kanten, plaetze, decks, stride, deckN,
     zustaende: m.zustaende || {},
+    huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks,   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
     deckOf: (ty) => (decks ? Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) : 0),
     localY: (ty) => (decks ? ty - Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) * stride : ty),
   };
@@ -727,7 +728,7 @@ async function bauKarte(parent, karteIn, opts) {
   const noteFb = (kind) => { if (TERRAIN_FB[kind]) { stats.terrain = (stats.terrain || 0) + 1; return; } stats.platzhalter[kind] = (stats.platzhalter[kind] || 0) + 1; };
   /** Kit-Teil statisch setzen: erstes vorhandenes Asset aus der Kandidatenliste, sonst Platzhalter */
   const placeKit = (kind, params, m, d, tx, ty, opt = {}) => {
-    const b = bucketAt(d, tx, k.localY(ty));
+    const b = opt.bucket || bucketAt(d, tx, k.localY(ty));
     const ids = opt.ids || kandidaten(KIT_KIND(kind));
     for (const id of ids) {
       const g = assetGeo(id, params);
@@ -777,6 +778,21 @@ async function bauKarte(parent, karteIn, opts) {
   };
   const hoeheOf = (kind) => { const e = kitId(kind); return e && e.hoehe != null ? +e.hoehe : BODEN_HOEHE[kind] || 0; };
   const dyn = [];
+  // Hüllen (Kai 2026-10-10): In Karten mit `huelle` entstehen Wände nicht im gebackenen Chunk, sondern je Gruppe in zwei Höhen
+  // (hoch 3 m / niedrig 1,25 m). huelleUpdate schaltet eine Gruppe auf niedrig, wenn sie eine Sichtlinie von der Kamera zu einer
+  // sichtbaren Figur kreuzt. Gruppe = Gebäude (Platztyp kulisse/lagerhalle) oder 4×4-Kacheln.
+  const huelle = !!k.huelle;
+  const HUELL_TYPEN = { kulisse: 1, lagerhalle: 1 };
+  const huellZellen = new Map();
+  const huellZelle = (tx, ty) => {
+    let key = null;
+    for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ] && tx >= pl.x && tx < pl.x + pl.w && ty >= pl.y && ty < pl.y + pl.h) { key = 'p:' + pl.id; break; }
+    if (!key) key = 'c:' + (tx >> 2) + ',' + (ty >> 2);
+    let c = huellZellen.get(key);
+    if (!c) { c = { key, hoch: new Bucket(), niedrig: new Bucket(), x0: tx, x1: tx, z0: ty, z1: ty }; huellZellen.set(key, c); }
+    c.x0 = Math.min(c.x0, tx); c.x1 = Math.max(c.x1, tx); c.z0 = Math.min(c.z0, ty); c.z1 = Math.max(c.z1, ty);
+    return c;
+  };
   // Gelände/Fels als Terrain (wie Kesh): Felshöhe nach Hash, niedrig, wenn südlich Begehbares (Kamera schaut von Süden)
   const felsHoehe = (x, y) => {
     const southWalk = (n) => { for (let i = 1; i <= n; i++) { const kd = k.kindAt(x, y + i); if (kd && !AUSSEN[kd] && kd !== 'fels') return i; } return 0; };
@@ -878,6 +894,12 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         // Wand, Zaun, Gitter, Fenster, Kante: Gerüst auf lokalen Achsen, conn/cut tragen die Nachbarschaft
+        if (huelle && kind === 'wand') {
+          const hz = huellZelle(tx, ty);
+          placeKit(kind, kitParams(kind, base, { conn, cut: 0 }), m, d, tx, ty, { bucket: hz.hoch });
+          placeKit(kind, kitParams(kind, base, { conn, cut: 1 }), m, d, tx, ty, { bucket: hz.niedrig });
+          continue;
+        }
         placeKit(kind, kitParams(kind, base, { conn, cut }), m, d, tx, ty);
       } catch (e) { countErr('kit.tile:' + kind, e); }
     }
@@ -989,6 +1011,22 @@ async function bauKarte(parent, karteIn, opts) {
     deckGroups[d].add(mesh); geos.push(g);
     stats.tris += g.index.count / 3; stats.chunks++;
   }
+  const huellObjs = [];
+  for (const c of huellZellen.values()) {
+    const gh = c.hoch.toGeometry(), gn = c.niedrig.toGeometry();
+    if (!gh) continue;
+    const mk = (g, nm) => {
+      if (!g) return null;
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.name = 'kit:huelle:' + c.key + ':' + nm; mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; mesh.updateMatrix();
+      deckGroups[0].add(mesh); geos.push(g); stats.tris += g.index.count / 3;
+      return mesh;
+    };
+    const o = { key: c.key, hoch: mk(gh, 'hoch'), niedrig: mk(gn, 'niedrig'), x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, tief: false, seit: 0 };
+    if (o.niedrig) o.niedrig.visible = false;
+    huellObjs.push(o);
+  }
+  stats.huelle = huellObjs.length;
   stats.bakeMs = Math.round(now() - tb);
   // Sterne unter Station/Schiff (Weltraum hinter '~'/'_')
   if ((k.art === 'station' || k.art === 'schiff') && opts.sterne !== false) {
@@ -1148,6 +1186,27 @@ async function bauKarte(parent, karteIn, opts) {
     setDeck,
     /** Mitte der Karte (Welt) und Ausdehnung – für Kameras der Galerie */
     center() { return { x: k.w / 2, z: (k.decks ? k.stride : k.h) / 2, w: k.w, h: k.decks ? Math.min(k.h, k.stride) : k.h }; },
+    /** Hüllen: Gruppen, die eine Sichtlinie Kamera → Ziel kreuzen, schalten auf niedrig (hart, 250 ms Nachlauf gegen Flackern).
+     *  ziele = [{ x, y?, z }] in Kachelkoordinaten (Meter), camera = THREE.Camera. → Anzahl niedriger Gruppen */
+    huelleUpdate(camera, ziele, jetztMs) {
+      if (!huellObjs.length || !camera) return 0;
+      const t = jetztMs != null ? jetztMs : now();
+      const R = 0.3, YT = 1.25, YH = 3.0;
+      const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+      let n = 0;
+      for (const o of huellObjs) {
+        let im = false;
+        for (const z of ziele || []) {
+          if (segmentBox(cx, cy, cz, z.x, z.y == null ? 0.9 : z.y, z.z, o.x0 - R, YT, o.z0 - R, o.x1 + R, YH, o.z1 + R)) { im = true; break; }
+        }
+        if (im) o.seit = t;
+        const tief = im || (o.tief && t - o.seit < 250);
+        if (tief !== o.tief) { o.tief = tief; if (o.hoch) o.hoch.visible = !tief; if (o.niedrig) o.niedrig.visible = tief; }
+        if (o.tief) n++;
+      }
+      return n;
+    },
+    huelleAnzahl() { return huellObjs.length; },
     /** Kacheltür-/Prop-Zustand zum Testen: liste aller dynamischen Objekte */
     dynList() { return dynObjs.map((o) => ({ name: o.group && o.group.name, key: o.key })); },
     dispose() {
@@ -1159,6 +1218,21 @@ async function bauKarte(parent, karteIn, opts) {
     },
   };
   return handle;
+}
+
+// Strecke (x0,y0,z0)→(x1,y1,z1) gegen Quader (Slab-Verfahren); true, wenn sie ihn schneidet
+function segmentBox(x0, y0, z0, x1, y1, z1, bx0, by0, bz0, bx1, by1, bz1) {
+  let tmin = 0, tmax = 1;
+  const d = [x1 - x0, y1 - y0, z1 - z0], o = [x0, y0, z0], lo = [bx0, by0, bz0], hi = [bx1, by1, bz1];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
+    let a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
+    if (a > b) { const t = a; a = b; b = t; }
+    if (a > tmin) tmin = a;
+    if (b < tmax) tmax = b;
+    if (tmin > tmax) return false;
+  }
+  return true;
 }
 
 function sterne(k) {
@@ -1339,6 +1413,19 @@ export const layer = {
     LZ.h.update({ ao: aw.ao || [], ko: aw.ko || [] });
     LZ.h.setDeck(ctx.deck || 0);
     teamFog(LZ.h, view, ctx, dt);
+    if (LZ.h.huelleAnzahl && LZ.h.huelleAnzahl() && ctx.camera) {
+      // Ziele: alle Spieler im Außeneinsatz plus Gegner und Personen, die das Team nach der Sichtlogik sieht (keine versteckten)
+      const st = (view && view.state) || {};
+      const R = G.Render;
+      let set = null; try { set = R && typeof R.teamVision === 'function' ? R.teamVision(view, ctx.map, st) : null; } catch (e) { set = null; }
+      const ziele = [];
+      const add = (px, py) => { const x = px / TILE, z = py / TILE; for (const [dx, dz] of [[0, 0], [-1.3, 0], [1.3, 0], [0, -1.8]]) ziele.push({ x: x + dx, y: 0.9, z: z + dz }); };
+      const sicht = (px, py) => !set || set.has(Math.floor(px / TILE) + ',' + Math.floor(py / TILE));
+      for (const p of (view && view.players) || []) if (p && p.zone === 'away' && p.connected !== false) add(p.x, p.y);
+      for (const d of (st.away && st.away.drones) || []) if (d && d.alive !== false && sicht(d.x, d.y)) add(d.x, d.y);
+      for (const n of (view && view.npcs) || []) if (n && sicht(n.x, n.y)) add(n.x, n.y);
+      LZ.h.huelleUpdate(ctx.camera, ziele);
+    }
   },
   dispose() { if (LZ.h) { try { LZ.h.dispose(); } catch (e) { /* egal */ } } LZ.h = null; LZ.building = false; LZ.mapRef = null; },
   stats() { return LZ.h ? Object.assign({ id: LZ.h.karte.id, art: LZ.h.karte.art }, LZ.h.stats) : null; },

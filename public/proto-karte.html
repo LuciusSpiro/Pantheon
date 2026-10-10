@@ -55,6 +55,35 @@ try {
   const v = await VK.viewer(document.getElementById('cv'), k, {});
   window.__proto = { karte: k, viewer: v };
   window.addEventListener('resize', () => v.render());
+  // Hüllen: ein Ziel (Mauszeiger auf dem Boden, oder ?zielanker=<ankerId>, oder ?ziel=x,z) – Wände zwischen Kamera und Ziel gehen herunter
+  if (v.handle.huelleAnzahl && v.handle.huelleAnzahl()) {
+    const THREE = await import('three');
+    const cv = document.getElementById('cv');
+    const info2 = el('span', 'dim', ''); document.querySelector('header').append(info2);
+    const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.8, 12), new THREE.MeshBasicMaterial({ color: 0x57e389 }));
+    v.scene.add(marker);
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit = new THREE.Vector3();
+    const setZiel = (wx, wz) => {
+      const ziele = [[0, 0], [-1.3, 0], [1.3, 0], [0, -1.8]].map(([dx, dz]) => ({ x: wx + dx, y: 0.9, z: wz + dz }));
+      v.camera.updateMatrixWorld(true);
+      const n = v.handle.huelleUpdate(v.camera, ziele, 1e9 + Math.random());
+      marker.position.set(wx, 0.9, wz); v.render();
+      info2.textContent = ` · Hüllen: ${n} von ${v.handle.huelleAnzahl()} niedrig`;
+      return n;
+    };
+    window.__proto.setZiel = setZiel;
+    cv.addEventListener('pointermove', (e) => {
+      if (e.buttons) return;
+      const r = cv.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
+      ray.setFromCamera(ndc, v.camera);
+      if (ray.ray.intersectPlane(plane, hit)) setZiel(hit.x, hit.z);
+    });
+    const za = q.get('zielanker'), zz = q.get('ziel');
+    if (za) { const a = k.anker.find((x) => x.id === za); if (a) setZiel(a.x + 0.5, a.y + 0.5); }
+    else if (zz) { const [zx, zy] = zz.split(',').map(Number); setZiel(zx + 0.5, zy + 0.5); }
+    else info2.textContent = ` · Hüllen: ${v.handle.huelleAnzahl()} Gruppen – Maus bewegen`;
+  }
   document.title = `Prototyp ${f} – bereit`;
   document.body.dataset.bereit = '1';
 } catch (e) {

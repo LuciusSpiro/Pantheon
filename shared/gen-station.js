@@ -321,7 +321,7 @@
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, schottStart: 'offen', raeumeZiel: ziel, raeume: raeumeS.length, titel },
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, schottStart: 'offen', huelle: true, raeumeZiel: ziel, raeume: raeumeS.length, titel },
       };
     }
     return { bauen, zeichnen, kennzahlen, karteRoh, cheb };

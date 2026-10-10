@@ -670,7 +670,7 @@ class Game {
       return [id, kk.tiles || [], i >= 0 ? i : 0];
     });
     return { id: k.id, erzeuger: k.erzeuger, art: k.art, bauweise: k.bauweise, besitz: k.besitz, zustand: k.zustand,
-      w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k) };
+      w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k), huelle: k.meta && k.meta.huelle ? true : undefined };
   }
   // an einen Spieler senden (cmd awayMap.get bzw. syncAwayMaps). -> Fehlertext | null
   sendAwayMap(p, id) {
