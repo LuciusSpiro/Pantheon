@@ -31,7 +31,7 @@ const info = document.getElementById('info'), pr = document.getElementById('pr')
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 try {
   const res = await fetch(`/proto/${encodeURIComponent(f)}.json`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`/proto/${f}.json nicht gefunden (node tools/gen-karte.js --seed … --raeume …)`);
+  if (!res.ok) throw new Error(`${location.origin}/proto/${f}.json: HTTP ${res.status}. Die Seite muss über den Spielserver laufen (Wurzel = Ordner public/, z. B. http://localhost:3300/proto-karte.html?f=${f}); ein anderer Server (z. B. Live Server mit dem Repo als Wurzel) findet /proto/ und /vendor/ nicht. Fehlt die Datei, erzeugen: node tools/gen-karte.js --seed … --raeume …`);
   const d = await res.json(), k = d.karte;
   info.textContent = `${f} · ${k.w}×${k.h} Kacheln · ${Object.keys(k.plaetze).length} Plätze · ${k.anker.length} Anker · Bauweise ${k.bauweise}`;
   const p = d.pruefung;
