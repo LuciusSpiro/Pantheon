@@ -1199,6 +1199,7 @@
     kompiliereKanten(D, k);
     torKantenStart(D, k);
     if (k.meta.schottStart) for (const id of Object.keys(k.kanten)) if (k.kanten[id].typ === 'schott' && !k.kanten[id].tor) k.kanten[id].zustand = k.meta.schottStart;
+    if (k.meta.torStart) for (const id of Object.keys(k.kanten)) if (k.kanten[id].typ === 'tor' && !k.kanten[id].tor) k.kanten[id].zustand = k.meta.torStart;
     k.patrouillen = kompilierePatrouillen(k);
     k.coverSpots = kompiliereCover(k);
     let pr = pruefenIntern(D, k, cfg, { nurFehler: true });
