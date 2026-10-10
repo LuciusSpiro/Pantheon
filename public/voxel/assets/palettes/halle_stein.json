@@ -1,0 +1,37 @@
+{
+  "id": "halle_stein",
+  "name": "Station Germanen: grauer Stein, dunkler Steinboden, grüner Akzent, warmes Licht (Kai, 2026-10-10)",
+  "extends": "nord",
+  "roles": {
+    "metal_dark": "#74736E",
+    "metal": "#8D8C86",
+    "metal_light": "#B2B0A7",
+    "dark": "#3C3A37",
+    "stone": "#8A8984",
+    "stone_dark": "#5F5E5A",
+    "stone_light": "#B4B2AA",
+    "ember": {
+      "color": "#3FA064",
+      "emit": 0.8
+    },
+    "glow2": {
+      "color": "#7FDC9A",
+      "emit": 1.1
+    },
+    "glow": {
+      "color": "#CFEFD8",
+      "emit": 1
+    },
+    "rune": {
+      "color": "#8FE8AA",
+      "emit": 1
+    },
+    "primary": "#5B5955",
+    "secondary": "#4A4845",
+    "trim": "#6E6B66",
+    "copper": "#8F8D87",
+    "copper_dark": "#6B6A65",
+    "ember_dark": "#3A6A4A"
+  },
+  "notes": "Wände: copper/copper_dark (Schmiedeklinker) und metal_* grau; Akzent Grün über ember/glow2/rune; Boden über primary/secondary/trim, dark = Fugenkontrast. Von Kai am 2026-10-10 abgenommen."
+}

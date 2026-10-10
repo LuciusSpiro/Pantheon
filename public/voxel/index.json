@@ -469,6 +469,8 @@
   "germanen_kraehenwacht",
   "germanen_kraehenwacht_umkaempft",
   "germanen_kraehenwacht_verfallen",
+  "halle_holz",
+  "halle_stein",
   "himmelsreich",
   "kontor",
   "kontor_umkaempft",
@@ -513,6 +515,7 @@
  ],
  "moods": [
   "hall_forge",
+  "hall_warm",
   "kesh_dusk",
   "outpost_frost",
   "planet_day",

@@ -1,0 +1,35 @@
+{
+  "id": "hall_warm",
+  "name": "Germanen-Station: warmes, ruhiges Licht (Kai, 2026-10-10)",
+  "background": "#1C1815",
+  "fog": {
+    "color": "#26201B",
+    "near": 2.4,
+    "far": 6
+  },
+  "hemi": {
+    "sky": "#D6CCBC",
+    "ground": "#8A7860",
+    "intensity": 1.35
+  },
+  "ambient": {
+    "color": "#5E5448",
+    "intensity": 0.65
+  },
+  "sun": {
+    "color": "#FFE0B0",
+    "intensity": 1.8,
+    "dir": [
+      -0.25,
+      1,
+      0.35
+    ],
+    "softness": 4
+  },
+  "exposure": 1.35,
+  "bloom": {
+    "strength": 0.6,
+    "radius": 0.5,
+    "threshold": 0.8
+  }
+}
