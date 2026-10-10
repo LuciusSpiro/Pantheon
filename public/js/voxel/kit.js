@@ -756,7 +756,9 @@ async function bauKarte(parent, karteIn, opts) {
     return (same(x, y - 1) ? 1 : 0) | (same(x + 1, y) ? 2 : 0) | (same(x, y + 1) ? 4 : 0) | (same(x - 1, y) ? 8 : 0);
   };
   const cutOf = (x, y) => (inner(x, y - 1) && k.deckOf(y - 1) === k.deckOf(y) ? 1 : 0);
-  const seedOf = (x, y) => (fnv(x + ',' + y, k.seed) & 3);
+  // Bauweise.muster (Kai 2026-10-10): kleinstes Muster in Kacheln; 2 = die Variante wechselt nur je 2×2-Block (ruhigerer Boden), Standard 1
+  const muster = Math.max(1, ((BW && BW.muster) | 0) || 1);
+  const seedOf = (x, y) => (fnv(Math.floor(x / muster) + ',' + Math.floor(y / muster), k.seed) & 3);
   const walk = (x, y) => { const kd = k.kindAt(x, y); return !!(kd && (BODEN_KINDS[kd] || kd === 'gelaende')); };
   const sameDeck = (x, y, x2, y2) => k.deckOf(y) === k.deckOf(y2);
   const facing = (x, y) => {

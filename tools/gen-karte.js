@@ -11,7 +11,7 @@ const Gen = require('../shared/gen-station.js');
 const args = process.argv.slice(2);
 const val = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const seed = +val('--seed', 8), raeume = +val('--raeume', 8);
-const opts = { bauweise: val('--bauweise', 'germanen'), besitz: val('--besitz', null), zustand: val('--zustand', 'intakt'), id: `station-${seed}-${raeume}` + (val('--besitz', null) ? '-' + val('--besitz', null) : '') };
+const opts = { bauweise: val('--bauweise', 'germanen'), besitz: val('--besitz', null), zustand: val('--zustand', 'intakt'), id: `station-${seed}-${raeume}` + (val('--name', null) ? '-' + val('--name', null) : val('--besitz', null) ? '-' + val('--besitz', null) : '') };
 const roh = Gen.erzeuger(+val('--w', 96), +val('--h', 56)).karteRoh(seed, raeume, opts);
 const r = Buehne.ausRaster(roh);
 const dir = path.join(__dirname, '..', 'public', 'proto');
