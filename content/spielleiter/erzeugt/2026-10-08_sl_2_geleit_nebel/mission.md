@@ -1,5 +1,5 @@
 ---
-status: offen
+status: angenommen
 quelle: llm
 erstellt: 2026-10-08T14:12:01.233Z
 auftraggeber: sela

@@ -24,8 +24,8 @@ Die Textfassung der sechs Archiv-Missionen liegt neben ihren JSON-Dateien in `co
 (neu erzeugen: `npm run missionen -- md --archiv`).
 
 **Stand 2026-10-10** (`npm run missionen`): 6 Archiv-Missionen (`abschrift_b7`, `castellum_kesh`, `frachtlisten`,
-`karawane_im_nebel`, `treibgut_zaunkoenig`, `zollfeuer`) und 7 erzeugte Missionen hier, alle 7 `offen` (keine
-angenommen oder abgelehnt), 3 davon einmal gespielt.
+`karawane_im_nebel`, `treibgut_zaunkoenig`, `zollfeuer`) und 7 erzeugte Missionen hier, alle 7 `angenommen` (Kai,
+S2b-Abschluss `a6dabeb`) – Vorrat damit 13 Missionen, 3 der erzeugten einmal gespielt.
 
 ## Wann wird abgelegt?
 

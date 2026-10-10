@@ -1,5 +1,5 @@
 ---
-status: offen
+status: angenommen
 quelle: llm
 erstellt: 2026-10-08T13:51:14.565Z
 auftraggeber: tesk

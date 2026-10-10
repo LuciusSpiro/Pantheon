@@ -139,12 +139,14 @@ define({ id: 'activate_away_group', art: 'aktion', effekt: 'gegner',
 define({ id: 'reveal_find', art: 'aktion', beschreibung: 'Versteckten Fund aufdecken (wie Weitscan)',
   params: { id: { typ: 'hidden', pflicht: true } },
   run(m, a) { const ex = g_(m).explore; const h = ex.findHidden(a.id); if (h && !ex.isRevealed(h.id)) ex.revealHidden(h, true); } });
-define({ id: 'complete_find', art: 'aktion', beschreibung: 'Fund als gescannt werten (Garantie bei Stillstand)',
+define({ id: 'complete_find', art: 'aktion', beschreibung: 'Fund als gescannt/eingesammelt werten (Garantie bei Stillstand)',
   params: { id: { typ: 'hidden', pflicht: true } },
   run(m, a) {
     const g = g_(m); const ex = g.explore; const h = ex.findHidden(a.id);
     if (!h) return;
     if (!ex.isRevealed(h.id)) ex.revealHidden(h, true);
+    // Versteck (cache) wird nicht gescannt, sondern eingesammelt – Scan allein setzt 'found' nie (sonst Softlock)
+    if (h.kind === 'cache') { ex.collectCache(h); return; }
     g.scans.add(h.id);
     ex.onHiddenScanned(h);
   } });

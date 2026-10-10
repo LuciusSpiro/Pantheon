@@ -133,6 +133,18 @@ class Explore {
     }
     g.missionEvent('hiddenRevealed', { id: h.id, kind: h.kind });
   }
+  // Versteck einsammeln (drüberfliegen oder Garantie complete_find): gilt danach als gefunden
+  collectCache(h) {
+    const g = this.game;
+    if (h.kind !== 'cache' || this.isFound(h.id)) return;
+    if (!this.isRevealed(h.id)) this.hidden[h.id] = { revealed: true, found: false };
+    this.hidden[h.id].found = true; this.version++;
+    const txt = this.reward(h.reward);
+    this.addLog(h.text + ` (${txt})`, this.locationOf(h.id), bookIdOf(h));
+    g.emit('sfx', { name: 'salvage' });
+    g.oda(`Eingesammelt: ${h.name} – ${txt}.`, null);
+    g.missionEvent('hiddenFound', { id: h.id, kind: h.kind });
+  }
   locationOf(hid) { const l = Locations.LOCATIONS.find((o) => o.hidden.some((h) => h.id === hid)); return l ? l.id : null; }
   findHidden(hid) { for (const l of Locations.LOCATIONS) { const h = l.hidden.find((o) => o.id === hid); if (h) return h; } return null; }
 
@@ -192,12 +204,7 @@ class Explore {
     for (const h of this.hiddenHere()) {
       if (h.kind !== 'cache' || !this.isRevealed(h.id) || this.isFound(h.id)) continue;
       if (dist(ship.x, ship.y, h.x, h.y) > g.C.discovery.cachePickupDist) continue;
-      this.hidden[h.id].found = true; this.version++;
-      const txt = this.reward(h.reward);
-      this.addLog(h.text + ` (${txt})`, this.location, bookIdOf(h));
-      g.emit('sfx', { name: 'salvage' });
-      g.oda(`Eingesammelt: ${h.name} – ${txt}.`, null);
-      g.missionEvent('hiddenFound', { id: h.id, kind: h.kind });
+      this.collectCache(h);
     }
     // Selas Notruf (Mission 1, optional): bei der Karawane andocken -> Dank + Messinglampe
     const f = g.mission.flags;

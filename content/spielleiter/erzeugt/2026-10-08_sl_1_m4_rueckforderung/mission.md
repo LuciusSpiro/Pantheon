@@ -1,5 +1,5 @@
 ---
-status: offen
+status: angenommen
 quelle: llm
 erstellt: 2026-10-08T11:23:08.118Z
 auftraggeber: grauzahn
@@ -128,7 +128,7 @@ Ohne passende Erinnerung: „Grauzahn (Rostmeute) hat wieder Arbeit für die Ler
 ### 5. s5_gefecht – Splittergürtel
 
 - **Szenentyp:** raumgefecht · **Baustein:** `vertreiben/bis_zur_flucht` · **Fassung:** rohfassung · **Plan:** 3 min
-- **Sachverhalt:** Die Rostmeute-Jäger greifen offen an – entweder auf Befehl Grauzahns oder weil sie die halbgeborgene Ladung selbst wollen. Die Crew muss sie vertreiben, um danach die restliche Ladung zu sichern oder abzuhauen.
+- **Sachverhalt:** Die Rostmeute-Jäger unter ihrem Rottenführer Rask greifen offen an – entweder auf Befehl Grauzahns oder weil sie die halbgeborgene Ladung selbst wollen. Die Crew muss sie vertreiben, um danach die restliche Ladung zu sichern oder abzuhauen.
 - **Weiter:** Jäger fliehen, Ladung teilweise an Bord → `s5_uebergabe`; Crew flieht ohne Ladung → Ausgang `abbruch`
 
 **Ziele**
@@ -138,9 +138,9 @@ Ohne passende Erinnerung: „Grauzahn (Rostmeute) hat wieder Arbeit für die Ler
 **Texte in Reihenfolge**
 
 - *(nach 0.5 s)* **ODA:** „Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.“
-- *(nach 3 s)* **Funk – Unbekannte Stimme:** „Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer.“
+- *(nach 3 s)* **Funk – Rask:** „Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer.“
 - *(nach 60 s, Hinweis, falls nötig)* **ODA:** „Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.“
-- *(sobald erfüllt)* **Funk – Unbekannte Stimme:** „Das ist es nicht wert. Rückzug! Wir sehen uns wieder.“
+- *(sobald erfüllt)* **Funk – Rask:** „Das ist es nicht wert. Rückzug! Wir sehen uns wieder.“
 - *(Autolösung)* **ODA:** „Die Angreifer geben auf und drehen ab. Gut so.“
 
 ### 6. s5_uebergabe – Wrack „Zaunkönig“
@@ -206,7 +206,6 @@ Ohne passende Erinnerung: „Grauzahn (Rostmeute) hat wieder Arbeit für die Ler
 - Warnung: FLAG-UNGELESEN flags: Flag 's3_begegnung_geglueckt' wird gesetzt, aber in diesem Buch nie gelesen
 - Warnung: FLAG-UNGELESEN flags: Flag 's3_begegnung_durchschaut' wird gesetzt, aber in diesem Buch nie gelesen
 - Warnung: FLAG-UNGELESEN flags: Flag 's5_teil_geliefert' wird gesetzt, aber in diesem Buch nie gelesen
-- Warnung: Grobplan: GEGNER-AUFTRAGGEBER Szene 's5_gefecht': vertreiben/bis_zur_flucht – der Auftraggeber 'grauzahn' funkt als Anführer der Angreifer; Gegner bekommen eine eigene Stimme (neu:Name)
 
 ## Gespielt
 
