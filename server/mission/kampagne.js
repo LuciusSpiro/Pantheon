@@ -257,7 +257,13 @@ class Kette {
     const g = this.g; const e = this.doc.ende;
     this.fakt('kampagne_ende', true);
     g.log(`Kampagne ${this.id} beendet: ${e.titel}.`);
-    g.endGame({ title: e.titel, text: e.text, abspann: { titel: this.doc.titel, text: e.text, bloecke: e.abspann } });
+    g.endGame({ title: e.titel, text: e.text, abspann: { titel: this.doc.titel, text: e.text, bloecke: this.abspannBloecke(e.abspann) } });
+  }
+
+  // Abspann aus Daten: Blöcke und Zeilen dürfen eine Bedingung `wenn` tragen (Flags der Orbitschlacht: verlorene Schiffe, Haltung des Legaten)
+  abspannBloecke(bloecke) {
+    const gilt = (x) => x.wenn === undefined || this.m.cond(x.wenn);
+    return (bloecke || []).filter(gilt).map((b) => ({ kopf: b.kopf, zeilen: (b.zeilen || []).filter((z) => typeof z === 'string' || gilt(z)).map((z) => (typeof z === 'string' ? z : z.text)) }));
   }
 
   // Nach dem Laden (mission.restore): läuft ein Buch, übernimmt die Engine; sonst aus den Fakten und dem Buch-Ausgang ableiten

@@ -306,7 +306,7 @@ class Mission {
   // Neue Gegner-KI (flightV2) für erzeugte Missionen (kopf.art generiert|archiv); Tutorial unverändert (pilot.js fragt)
   flightV2() {
     const a = this.def && this.def.kopf && this.def.kopf.art;
-    return a === 'generiert' || a === 'archiv';
+    return a === 'generiert' || a === 'archiv' || a === 'kapitel';   // EK8/EK4: auch die festen Kapitelbücher der Kette (Breitseiten-KI der Fregatte); das Tutorial (m1–m3, art mission) bleibt unverändert
   }
   // §3.1: Buch zur Laufzeit registrieren. -> { ok, errors?, warnings? }. Prüft (Checker) und bereitet vor (Loader.prepare).
   registerBook(book, opts) {
@@ -477,7 +477,7 @@ class Mission {
     this.applyExpected(def);
     this.openStageRoutes(id, def);
     // QA-INTEGRATION S2: Schützlinge einer früheren Mission gehören nicht in die neue (Tags wiederholen sich)
-    if ((def.art === 'generiert' || def.art === 'archiv') && this.game.space) { this.game.space.escorts = []; this.game.space.escortsGone = []; }
+    if ((def.art === 'generiert' || def.art === 'archiv' || def.art === 'kapitel') && this.game.space) { this.game.space.escorts = []; this.game.space.escortsGone = []; }
     this.missions[id] = { id, title: def.title, state: 'active' };
     this.activeId = id; this.def = def;
     delete this.funde[id];

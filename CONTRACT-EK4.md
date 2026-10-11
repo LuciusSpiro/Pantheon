@@ -84,3 +84,22 @@ Schnitt nach E5: **EK4a** (Befehle, Legat, Funk, Hilferufe, Verlust; Verbündete
 - Die feste Kampagnenkette (Orbitschlacht Eisenwald in drei Teilen) baut EK8 aus diesen Bausteinen; `mission.js` setzt `space.escorts` bei erzeugten Büchern (`kopf.art generiert|archiv`) zurück, nicht bei festen Büchern.
 - Gegner-KI `flightV2` gilt in der Kampagne nur für `kopf.art generiert|archiv` (S2); Verbündete fliegen unabhängig davon über `Pilot.update`, die Gegner der festen Kette brauchen `flightV2` für Breitseiten (EK8 prüfen).
 - Nicht mit Menschen gespielt: Lesbarkeit der Zeilen BEFEHL/VERBÜNDET im Gefecht, Schwierigkeit der Verbündeten (Bots: Labor-Szenen zu leicht, Härte in `flotte.crewDamage`, Hüllen und `flotte.ki.dmg`).
+
+## 7. VERK-ORBIT – Orbitschlacht Eisenwald als echte Szene (Kapitel 6 der Kette)
+Branch `ek4-verk-orbit` (Basis `ek1` mit EK1–EK8). Das Kapitelbuch `content/regiebuecher/k6_orbit.regiebuch.json` baut die Szene aus den Bausteinen dieses Vertrags (Details und Flags: CONTRACT-EK8.md Abschnitt 4, Kapitel 6; Test: `tools/test-orbit.js`).
+| Teil | Inhalt |
+|---|---|
+| Ablauf | `flotte_aufstellen` Fulminata und Audax (`auftauchen`) › Befehl **durchbrechen** (2 Wegpunkte) › **entlastung** (bedrängtes Schiff hält Stellung, Verlust ersetzt den Befehl) › **ausschalten** (Boss-Fregatte). Fortschritt nur durch erreichte Ziele |
+| Scheitern | Muster im Buch: Flags `<x>_r1/_r2/_r3`, nach 7 s `flotte_neustart` und `goto` auf den eigenen Schritt (v, Regeln und Zeiten beginnen frisch, der Befehl wird im `enter` neu erteilt); ab dem 3. Scheitern „Rom übernimmt“: weniger Gegner, `frist: 0`, `ueberdruck: false`. Der Katalog-Ausgang „aufgegeben, weiter“ gilt hier **nicht** (Freibrief) |
+| Neu: `flotte_beenden` | `Flotte.beenden(game)`: Wellen, wartender Nachschub, Befehl und `space.retreatRule` weg; Verbündete bleiben, Gegner bleiben (vorher `enemies_retreat`). Sonst läuft die Schlacht am selben Ort ins nächste Kapitel weiter und `enemies_retreat` lässt auch spätere Gegner fliehen |
+| `mission.js` | `flightV2()` und der Reset von `space.escorts`/`escortsGone` beim Missionsstart gelten auch für `kopf.art: kapitel` (zwei Zeilen). Das Tutorial (art `mission`) bleibt unberührt |
+| Bausteine im Buch | `flotte_aufstellen`, `flotte_modus` (`halten` in Befehl 2, `folgen` in Befehl 3, nur wenn ein Verbündeter lebt – sonst zählt der Baustein einen Fehler), `flotte_wellen`, `flotte_befehl`, `flotte_neustart`, `flotte_beenden`, Prüfungen `befehl_erfuellt`, `befehl_gescheitert`, `schiff_verloren`, `rueckzug` |
+
+**Erkenntnisse beim Verdrahten (für die Szenenbauer):**
+- Wellen werden mit der Crew skaliert (1 Spieler 0,67, 2 Spieler 0,85): Die Zahl der nötigen Abschüsse (`n`) muss **kleiner** sein als das, was die Wellen solo liefern, sonst ist der Befehl unlösbar (erste Fassung: `n: 3` bei 2+2 Jägern solo).
+- Entlastung zählt nur Abschüsse im Radius um das Schiff. Ein Verbündeter mit eigener KI (begleiter) fliegt den Gegnern entgegen, die Abschüsse geschehen dann fern vom Schiff und zählen nicht: das bedrängte Schiff mit `flotte_modus halten` Stellung halten lassen (es feuert weiter, `kiFeuer` ist vom Flugmodus unabhängig).
+- `flotte_befehl` mit `schiff` scheitert, wenn das Schiff fällt, und ein verlorenes Schiff kommt nicht zurück: jede Szene braucht einen Ersatzbefehl (Audax, sonst Ziel ohne Schiff), sonst Softlock.
+- Regeln eines Schritts feuern **einmal**; eine Wiederholung braucht ein `goto` auf den eigenen Schritt (setzt v, Regeln, Zeiten zurück) und Zähler in Flags.
+- Beim Abschluss die Flags auflösen (eine `legat_*`-Flag): Die Engine setzt `legat_befolgt` je erfülltem Befehl und `legat_eigenmaechtig` bzw. `legat_im_stich` je Ereignis, nebeneinander.
+
+**Messung (VERK-ORBIT):** `node tools/snap-mess.js` Aufbau „orbit“ (Kette, Kapitel 6, Befehl 3, 3 Spieler, Fulminata und Audax mit KI, Gegner bis zur Grenze von 12 Schiffen, Nachschub, alle gescannt): **max 13842 B, p95 12826 B** (Ziel ≤ 18 944 B). Aufbau 1–4 unverändert.

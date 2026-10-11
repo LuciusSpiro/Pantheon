@@ -53,9 +53,9 @@ Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. F
 | 3 | `k3_nebelheim` | auftrag › k3_anflug › nebelheim (A13) | erfolg, rueckzug | Fakt `nebelheim` | `methalle_gesprengt` |
 | 4 | `k4_methalle` | auftrag › k4_anflug › methalle (echt, 4a) › meldung | erfolg, rueckzug | Flag `methalle_gesprengt`, Sperrriegel offen, Fakten `methalle=zerstoert`, `sprengstoff=verbraucht` | `methalle_gesprengt` |
 | 5 | `k5_legat` | auftrag › k5_anflug › hafen | erfolg | Fakt `legat_bekannt`, Legat-Gedächtnis `erster_funkspruch` | – |
-| 6 | `k6_orbit` | auftrag › k6_anflug › ankunft › **befehl1_durchbrechen*** › **befehl2_entlastung*** › **befehl3_ausschalten*** | erfolg, rueckzug | Flags `fregatte_zerstoert`, `legat_gerettet`, `legat_befolgt`; Fakt `orbit_eisenwald`; Gedächtnis `orbitschlacht` | – |
+| 6 | `k6_orbit` | auftrag › k6_anflug › ankunft › befehl1_durchbrechen › befehl2_entlastung › befehl3_ausschalten (**echt**, VERK-ORBIT) | erfolg, rueckzug | Flags `fregatte_zerstoert`, `legat_gerettet`, genau eine von `legat_befolgt` / `legat_eigenmaechtig` / `legat_im_stich_gelassen`, `fulminata_verloren`, `audax_verloren`; Fakten `orbit_eisenwald`, `schiffe_verloren`; Gedächtnis `orbitschlacht` u. a. | – |
 | 7 | `k7_siedlung` | landung › siedlung › siedlung_kampf (echt, 4a) | erfolg, rueckzug | Flags `flagge_gehisst`, `boss_besiegt`; Fakt `eisenwald=roemisch` | – |
-| 8 | `k8_sieg` | sieg | erfolg → Ende | Fakt `feldzug_eisenwald`; Gedächtnis `sieg` | `legat_befolgt`, `legat_eigenmaechtig`, `legat_im_stich_gelassen`, `audax_verloren`, `fulminata_verloren` |
+| 8 | `k8_sieg` | sieg (**reagiert** auf Haltung und Verluste) | erfolg → Ende | Fakt `feldzug_eisenwald`; Gedächtnis `sieg` | `legat_befolgt`, `legat_eigenmaechtig`, `legat_im_stich_gelassen`, `audax_verloren`, `fulminata_verloren` |
 
 ### Kapitel 2, Platzhalter `konvoi` (Team KONVOI, Konvoi-Szene EK3 Teil B)
 **Stand: ersetzt durch die echte Szene (VERK-BODEN, Abschnitt 4a). Der folgende Text ist die ursprüngliche Schnittstelle.**
@@ -83,15 +83,21 @@ Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. F
 ### Kapitel 5, Castra Martis (kein Platzhalter)
 - Hafenbriefing im Missionsbuch, Mars als Symbol (Funkbild `mars`), Legat zum ersten Mal mit Porträt (`legat`), Annahme am Captain (wie bei m2 und m3). Legat als **NSC** (`legat`, Kette-Datei) mit Gedächtnis im Weltstand.
 
-### Kapitel 6, Platzhalter `befehl1_durchbrechen`, `befehl2_entlastung`, `befehl3_ausschalten` (Team FLOTTE, EK4)
-- **Platzhalter** (ohne Verbündete, daher weniger Gegner): Befehl 1: 1 Jäger, 1 Korvette; Befehl 2: 2 Jäger; Befehl 3: 1 Fregatte (Boss) mit 1 Jäger. Der Legat funkt die Befehle (Funktexte Kapitel 6), jeder Teil endet, wenn die Gegner
-  tot sind bzw. die Fregatte zerstört ist. Er setzt `legat_befolgt`, damit Kapitel 8 etwas zu sagen hat.
-- **Die echte Szene ersetzt die drei Schritte** (Ort `eisenwald`, `restartOnReturn`) und die Schritt `ankunft` (Verbündete erscheinen). **Schnittstelle:** Am Ende (Fregatte zerstört) die Flag **`fregatte_zerstoert`** setzen;
-  `legat_gerettet` (Legat lebt, auch wenn die Fulminata fällt, Rettungskapsel; immer `true`) ; je nach Verlauf **genau eine** der Flags `legat_befolgt`, `legat_eigenmaechtig`, `legat_im_stich_gelassen`;
-  `fulminata_verloren` und `audax_verloren`, wenn die Schiffe zerstört wurden; Weltstand: Fakt `schiffe_verloren` (Text, z. B. `audax,fulminata`, ohne Eintrag = keine Verluste), Legat-Gedächtnis
-  über `npc_gedaechtnis { npc: legat, ereignis: befehle_befolgt | eigenmaechtig | im_stich_gelassen | audax_verloren | fulminata_verloren }`, Status des Legaten bei Verlust der Fulminata bleibt `lebt`.
-  Das Kapitel endet mit `complete: erfolg`, sobald `fregatte_zerstoert` gilt (die echte Szene sagt es per `next`); bei Notfallsprung `complete: rueckzug` (Szene von vorn, Verbündete erscheinen neu).
-  Hilferufe und Verlustsprüche (Funktexte): Sprecher `fulminata` (Legat, Porträt) und `audax` (Optio Livia Rufa, ohne Bild), Flags/Prüfungen je Schiff nur einmal.
+### Kapitel 6, Orbitschlacht Eisenwald (echte Umsetzung, VERK-ORBIT, Branch `ek4-verk-orbit`) – Stand: fertig
+Der Platzhalter ist ersetzt (kein `platzhalter`-Feld mehr, `npm run check:kette` listet k6 nicht). Schritte unverändert benannt, `umsetzung` der drei Befehle: `flottenbefehl/durchbrechen|entlastung|ausschalten` (die Bots fliegen sie über `flottenBot`).
+- **Ankunft** (`ankunft`, Ort `eisenwald`): `flotte_aufstellen` Fulminata und Audax (`besetzung.schiffe`, Korvetten, eigene KI-Rolle begleiter) mit `auftauchen: true` (Sprungblitz, 2,5 s unverwundbar, Funk „Da seid ihr!“ aus `content/flotte/funktexte.json`).
+  Ein im Feldzug verlorenes Schiff kommt nicht zurück (`flotte_aufstellen` verweigert); fehlt die Fulminata, spricht der Legat aus der Kapsel. Die Verbündeten folgen der Lerche bei jedem Sprung (auch Notfallsprung am selben Ort).
+- **Befehl 1 Durchbrechen:** Wegpunkte `1000,900; 1450,1180` (Radius 230), Frist 200 s, Wellen `raider:3 | raider:2,korvette:1` (Takt 40 s, Überdruck). Fortschritt **nur** durch das Erreichen der Punkte (getestet: Zeit und tote Gegner allein bringen nichts).
+- **Befehl 2 Entlastung:** Das bedrängte Schiff **hält Stellung** (`flotte_modus halten`), Wellen `raider:4 | raider:4` greifen die Verbündeten an (`ziel: verbuendet`), 3 Abschüsse nahe am Schiff (Radius 420), Frist 240 s. Fulminata lebt: Entlastung der Fulminata; sonst der Audax; sind beide verloren: `ausschalten raider` (n 3), damit die Szene lösbar bleibt.
+- **Befehl 3 Ausschalten:** Boss-Fregatte (Tag `fregatte`, Breitseiten-KI) mit Jägerwellen (`raider:2 | raider:2`), Frist 260 s, Verbündete folgen wieder. Beim Abschuss (`befehl_erfuellt ausschalten`) laufen die Schnittstellen-Aktionen unten, `enemies_retreat` und `flotte_beenden`; nach 6 s `complete: erfolg`.
+- **Scheitern (Frist, Schiff verloren, Notfallprotokoll) – nie ein Freibrief:** Leiter je Befehl über Flags `k6_b1|b2|b3_r1|r2|r3`: 1. und 2. Scheitern: nach 7 s `flotte_neustart` (Gegner weg, lebende Verbündete repariert, Lerche ≥ 60 % Hülle) und der Schritt beginnt von vorn;
+  3. Scheitern: **„Rom übernimmt“** (Mars-Funk): weniger Gegner, **keine Frist, kein Überdruck** – weiter nur durch das erreichte Ziel; scheitert auch das (Notfallprotokoll, Schiff verloren), beginnt die Szene erneut (die Leiter bleibt auf der Rom-Stufe). Die Rom-Stufe bleibt nach einem Rückzug erhalten (die Flags überleben den Neustart des Kapitels).
+- **Rückzug** (Notfallsprung aus `eisenwald`): `complete: rueckzug`, Kette wiederholt Kapitel 6; `mission.js` setzt `space.escorts` für Kapitelbücher zurück, die Verbündeten tauchen beim nächsten Eintreffen neu auf, **verlorene bleiben verloren** (Weltstand-Fakt `flotte_<tag>`).
+- **Schnittstelle (unverändert, jetzt echt gesetzt)**, beim Abschuss der Fregatte: `fregatte_zerstoert`, `legat_gerettet` (immer `true`); **genau eine** der Flags `legat_befolgt` | `legat_eigenmaechtig` | `legat_im_stich_gelassen` (Vorrang: im Stich gelassen vor eigenmächtig vor befolgt;
+  die Engine setzt unterwegs `legat_befolgt` je erfülltem Befehl, `legat_eigenmaechtig` und die interne `legat_im_stich`; die Auflösung nimmt die überholten zurück); `fulminata_verloren`, `audax_verloren` (setzt `escort.syncFlags` beim Verlust, der Abschluss sichert sie);
+  Fakt `schiffe_verloren` (Text `audax`, `fulminata` oder `audax,fulminata`, ohne Eintrag = keine Verluste); Gedächtnis des Legaten über `npc_gedaechtnis`: `befehle_befolgt` | `eigenmaechtig` | `im_stich_gelassen`, `audax_verloren`, `fulminata_verloren`, zusätzlich die Einträge der Engine (`befehl_befolgt`, `schiff_verloren`, `eigenmaechtig`, `im_stich`) und `orbitschlacht`. Status des Legaten bleibt `lebt`.
+- Hilferuf (40 % / 15 %), Verlustsprüche (Fulminata: Legat mit Porträt, Audax: Optio Livia Rufa), Rettungskapsel, Banner „VERLOREN“ kommen aus der Flotte (EK4), Texte aus den Funktexten.
+- **flightV2:** `Mission.flightV2()` gilt jetzt auch für `kopf.art: kapitel` (Gegner-KI mit Breitseiten für Korvette und Fregatte in allen Kapitelbüchern); das Tutorial (m1–m3, art `mission`) bleibt auf der alten KI.
 
 ### Kapitel 7, Platzhalter `siedlung` (Team BODEN, EK6)
 **Stand: ersetzt durch die echte Szene (VERK-BODEN, Abschnitt 4a). Der folgende Text ist die ursprüngliche Schnittstelle.**
@@ -101,7 +107,8 @@ Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. F
   Fällt die Crew: Nottransport, Siedlung zurücksetzen, `complete: rueckzug` (Szene beginnt von vorn).
 
 ### Kapitel 8, Sieg
-- Der Legat spricht je nach Gedächtnis-Flag (`legat_befolgt`, `legat_eigenmaechtig`, `legat_im_stich_gelassen`), dann Mars; nach 30 s endet das Buch mit `erfolg`, die Kette zeigt den Abspann.
+- Der Legat spricht je nach Gedächtnis-Flag (`legat_befolgt`, `legat_eigenmaechtig`, `legat_im_stich_gelassen`; bei im Stich gelassen mit der Audax oder, sonst, der Fulminata im Text), nennt verlorene Schiffe (`fulminata_verloren`, `audax_verloren`; Texte Entwurf, Kai passt an), dann Mars; nach 30 s endet das Buch mit `erfolg`, die Kette zeigt den Abspann.
+- **Abspann aus Daten:** Blöcke und Zeilen in `eisenwald.json` dürfen `wenn` tragen (Bedingung wie im Regiebuch, Flags der Orbitschlacht); der Block „ROM“ zeigt Fulminata/Audax heimgekehrt oder verloren und die Haltung des Legaten. `Kette.abspannBloecke()` wertet beim Ende (auch nach dem Laden) aus; Schema: Zeilen als Text oder `{ text, wenn }`.
 
 ## 4a. Verdrahtung Boden: Kapitel 2, 4 und 7 mit den echten Szenen (Team VERK-BODEN, Branch `ek4-verk-boden`)
 Die Platzhalter der Kapitel 2, 4 und 7 sind ersetzt (`platzhalter`-Felder in Büchern und Kette weg, `npm run check:kette` listet nur noch die drei Schritte von Kapitel 6, Team VERK-ORBIT).
@@ -208,6 +215,14 @@ Gespeichert und geladen wird weiter an jedem Kapitelübergang (`tools/test-kette
 | D15 | Platzhalter-Gegner sind weniger als im Briefing (ohne Verbündete): Orbit 2 / 2 / Fregatte + 1 Jäger, Siedlung Anführer + 2 Jäger | Bots (und Menschen) haben ohne Flottenhilfe sonst Mühe; Balance ist EK9 |
 | D16 | `tools/sim-headless.js`: nur abgegrenzte Blöcke (Handler `kette/*`, `travel()` mit Weitscan-Suche in `GenericAgent`, Modus `kette`) | Konfliktpunkt; die Bojen-Suche gilt nur, wenn die Boje unbekannt ist (Tutorial, Labor, Golden unverändert) |
 
+| D17 | (VERK-ORBIT) Scheitern der Orbitschlacht: zweimal von vorn, dann „Rom übernimmt“ als **Erleichterung** (weniger Gegner, keine Frist, kein Überdruck), nie als Freibrief; Zähler in Flags, die Schleife im Buch (`goto` auf den eigenen Schritt) | Leitplanke „Fortschritt nur durch erreichte Ziele“ gegen „der Feldzug scheitert nie“; der Katalog-Ausgang „Rom übernimmt = aufgegeben, weiter“ wäre ein Freibrief |
+| D18 | Der bedrängte Verbündete hält Stellung (`flotte_modus halten`) in Befehl 2 | Mit der KI (begleiter) flog die Fulminata den Gegnern entgegen und die Abschüsse geschahen fern vom Befehlsradius; Entlastung hieße sonst nie erfüllt (Bots: 3 von 3 Zeitüberschreitungen) |
+| D19 | Entlastung wechselt bei Verlust des Schiffs auf die Audax, dann auf „Jäger ausschalten“ | ein toter Schützling würde den Befehl endlos scheitern lassen (Softlock) |
+| D20 | Flag-Auflösung am Ende (Vorrang im Stich gelassen > eigenmächtig > befolgt) im Buch, nicht in der Engine | Vertrag „genau eine Flag“; die Engine zählt weiter pro Ereignis (Gedächtnis), Flags bleiben Daten |
+| D21 | Neuer Baustein `flotte_beenden` (Wellen, Nachschub, Befehl, Abdreh-Regel abräumen); Verbündete bleiben | ohne ihn läuft die letzte Welle und das `enemies_retreat` ins Kapitel 7 am selben Ort (Befund: Bot blieb im Siedlungs-Platzhalter hängen) |
+| D22 | `flightV2` und Reset von `space.escorts` für alle `kopf.art: kapitel` | Hinweis EK4; Tutorial (art `mission`) bleibt unberührt, Golden nicht betroffen |
+| D23 | Abspann mit `wenn`-Bedingungen (Daten), keine Sonderlogik im Code | „Texte als Daten“, Kai kann sie ändern |
+
 ## 7. Bedienung und Werkzeuge
 - Spielen: Lobby, Taste M, „Kampagne Eisenwald“ (Weltstand wie jede Kampagne, Fortsetzen mit F). Debug (`npm run debug`): `kapitel <id>` (`k1_anwerbung` … `k8_sieg`), der Zustand davor wird hergestellt.
 - `npm run check:kette` (Kette + 8 Bücher, `--selftest`), `npm run test:kette`, `node tools/sim-headless.js kette [--kapitel alle|<id>] [--crew 1|3] [--seeds N] [--seed S] [--von <kapitel>] [--tutorial]`.
@@ -223,6 +238,10 @@ Siehe Abschnitt 9 (Messwerte). **Offen:**
 - Dauer: Die Bot-Durchläufe zeigen Spielzeiten von **ca. 32 bis 80 Minuten** (ohne Tutorial), vor allem Flüge zwischen den Hexen und die Platzhalter-Kämpfe; Menschen zu zweit/dritt: EK9.
 - Mehrspieler: Der Abspann-Knopf beendet die Partie für **alle** (wie „Partie beenden“); ein Spieler kann also den Abspann der anderen abbrechen.
 
+## 8b. Stand VERK-ORBIT (Kapitel 6, 5, 8)
+- Offen: Balance (Bots zu zweit und allein finden die Szene leicht, die Fregatte fällt in rund 85–120 s solo bzw. 190–290 s zu dritt (mit einem Scheitern davor) s; Verbündete verloren in keinem Bot-Lauf – die Verlustpfade sind nur im Test belegt), EK9; Voxel-Ansicht kennt die Flottenanzeige nicht (EK4 Abschnitt 6); Texte (Entwurf): Klagen in Kapitel 8, Abspannzeilen; Lesbarkeit der Zeilen BEFEHL/VERBÜNDET mit Menschen.
+- Kapitel 5 blieb unverändert (Legat und Mars waren schon echt, Funktext wie im Vault); die Verbündeten erscheinen erst in Kapitel 6.
+
 ## 9. Messwerte (2026-10-11)
 - `npm test` grün (inkl. `tools/test-kette.js` 115/115), `npm run check` grün (Kette + 8 Bücher, 13/13 Selbsttests), `npm run snap:mess` grün: Worst Case **11 444 B**, Wellen 10 558 B, Raum-Alarm 11 384 B (Ziel ≤ 18 944 B); Abspann 762 B (nur Phase `end`); Bot-Läufe der Kette Snapshot-Maximum 12 414 B.
 - **Golden m1–m3** (20 Seeds, `--all --jobs 4`) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch (die übrigen 40 sind die bekannten EK1a-Abweichungen m1/m2 solo). Ordner gelöscht.
@@ -230,3 +249,11 @@ Siehe Abschnitt 9 (Messwerte). **Offen:**
 - **Bots, Labor-Einstieg je Kapitel** (8 Kapitel × 3 Seeds × Crew 1 und 3): **48/48 ok**, 0 Fehler, keine Skips.
 - Ein erster Lauf mit stärkeren Platzhalter-Gegnern (Orbit 2/3/Fregatte+2, Siedlung +3) brauchte bei Crew 3 teils 25–60 min je Orbitschritt (Bots, Zeitlimit-Skips) – danach reduziert (D15).
 - **Browser** (Playwright, Chromium, 2D, Port 3396): Lobby-Modi, Kapitelkarte „Neues Kapitel“, Funk mit Mars-Symbol und Legat-Porträt, Abspann (Anfang, Lauf, Ende) per Screenshot geprüft (`shots/kette/*.png`, lokal), keine Konsolenfehler. Nicht mit Menschen, Voxel nicht geprüft.
+
+### Messwerte VERK-ORBIT (2026-10-11, Kapitel 6 echt)
+- `npm test` grün (neu `tools/test-orbit.js` 69 Prüfungen, `test-kette` 115, Platzhalter jetzt 3), `npm run check` grün (Kette: 0 Fehler, 0 Warnungen, nur noch konvoi, methalle, siedlung als Platzhalter), `npm run snap:mess` grün: neuer Aufbau „orbit“ **max 13 842 B, p95 12 826 B** (Ziel ≤ 18 944 B), übrige Aufbauten unverändert (Worst 11 444, Flotte 11 851).
+- **Bots, ganze Kette** (ab Lichtkordon bis zum Abspann, 4 Seeds × Crew 1 und 3): **8/8 ok**, 0 Fehler, keine Skips, Spielzeit 28–42 min (Kapitel 6: 7,6–16,8 min inkl. ca. 3,7 min Anflug).
+- **Bots, Labor-Einstieg** (4 Seeds × Crew 1 und 3): k5 8/8 (4,3–4,7 min), k6 8/8 (solo 7,9–8,6 min, zu dritt 9,0–11,2 min), k8 8/8 (0,5 min), 0 Fehler, keine Skips.
+- **Ehrlich:** Die Bots finden die Szene leicht. Solo kein Scheitern in 12 Läufen; zu dritt scheitert Befehl 3 beim ersten Anlauf (Notfallprotokoll, danach von vorn, dann erfüllt). Die Fregatte fällt in 85–120 s (solo) bzw. 190–290 s. Kein Bot-Lauf verlor ein Verbündetes Schiff – Verlust, Ersatzbefehl, Rom-Stufe und Flags sind nur im Test (`test-orbit`) belegt. Balance gehört zu EK9.
+- Ein erster Bot-Lauf zeigte, dass ohne `flotte_beenden` das `enemies_retreat` in Kapitel 7 am selben Ort weiterwirkt (Siedlungs-Platzhalter 1500 s Zeitlimit); behoben (D21).
+- Golden m1–m3 nicht gelaufen: Tutorial- und Raumpfade nicht berührt (`flightV2` und Escort-Reset nur für `kopf.art: kapitel`).

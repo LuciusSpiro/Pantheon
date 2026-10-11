@@ -60,7 +60,11 @@
             "type": "object", "additionalProperties": false, "required": ["kopf", "zeilen"],
             "properties": {
               "kopf": { "type": "string", "maxLength": 60 },
-              "zeilen": { "type": "array", "maxItems": 12, "items": { "type": "string", "maxLength": 90 } }
+              "wenn": { "type": "object", "description": "Bedingung (wie im Regiebuch, z. B. { \"flag\": \"audax_verloren\" }); ohne Angabe immer" },
+              "zeilen": { "type": "array", "maxItems": 12, "items": { "oneOf": [
+                { "type": "string", "maxLength": 90 },
+                { "type": "object", "additionalProperties": false, "required": ["text"], "properties": { "text": { "type": "string", "maxLength": 90 }, "wenn": { "type": "object" } } }
+              ] } }
             }
           }
         }

@@ -67,7 +67,7 @@ function main() {
   const selftest = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'check-kette.js'), '--selftest'], { encoding: 'utf8' });
   ok(selftest.status === 0 && /13\/13 bestanden/.test(selftest.stdout), 'Prüfer-Selbsttest: 13 kaputte Ketten werden mit dem erwarteten Code abgelehnt');
   const ph = Kampagne.platzhalter(doc, books);
-  ok(ph.length === 3 && ph.every((p) => p.kapitel === 'k6_orbit' && p.echt), `nur noch die 3 Platzhalter-Schritte von Kapitel 6 (Orbit, Team VERK-ORBIT) markiert (${ph.map((p) => p.schritt).join(', ')})`);
+  ok(ph.length === 0, `keine Platzhalter-Schritte mehr: Kapitel 2, 4, 6 und 7 sind echt umgesetzt (${ph.map((p) => p.schritt).join(', ') || '–'})`);
   ok(doc.kapitel.every((c) => Object.keys(c.ausgaenge).includes('erfolg') && c.einstieg && c.einstieg.ort), 'jedes Kapitel: Ausgang erfolg und Labor-Einstieg');
   ok(doc.kapitel.every((c) => Object.entries(c.ausgaenge).every(([a, f]) => a === 'erfolg' ? [].concat(f).every((x) => x.weiter) : [].concat(f).every((x) => x.wiederholen))), 'Fortschritt nur aus erfolg, jeder andere Ausgang wiederholt die Szene');
 
@@ -276,7 +276,7 @@ function main() {
     const Locations = require('../shared/locations.js');
     const rollen = (g) => { g.weltstand.data.rollen_gesehen = ['niederhalter', 'grenadier', 'schuetze', 'enterer']; };
     for (const id of ['k2_konvoi', 'k4_methalle', 'k7_siedlung']) ok(!books[id].steps.some((s) => s.platzhalter), `${id}: kein Platzhalter-Schritt mehr`);
-    ok(doc.kapitel.filter((c) => (c.platzhalter || []).length).map((c) => c.id).join() === 'k6_orbit', 'Kette: nur Kapitel 6 (Orbit, Team VERK-ORBIT) hat noch Platzhalter');
+    ok(doc.kapitel.filter((c) => (c.platzhalter || []).length).length === 0, 'Kette: kein Kapitel hat mehr Platzhalter');
     for (const [ort, lp] of [['methalle', 'methalle.siedlung'], ['eisenwald', 'eisenwald.siedlung']]) {
       const l = Locations.get(ort);
       ok(l.scene.beam && l.scene.beam.map === lp && l.scene.station, `${ort}: scene.beam.map = ${lp}`);

@@ -583,6 +583,16 @@ function neustart(game) {
   return true;
 }
 
+// ---------- Ende der Flottenszene (Kapitel Orbit): Wellen, Nachschub und Befehl abräumen, die Verbündeten bleiben ----------
+// Gegner im Raum bleiben (das Regiebuch lässt sie vorher mit enemies_retreat abdrehen, die Abdreh-Regel endet hier, sonst fliehen auch spätere Gegner am Ort);
+// ohne diesen Aufruf liefe die letzte Welle im Folgekapitel weiter.
+function beenden(game) {
+  const st = game.flotte; if (!st) return false;
+  st.welle = null; st.nachschub.length = 0; st.befehl = null;
+  if (game.space) delete game.space.retreatRule;   // ein vorher gesetztes enemies_retreat gilt für die Gegner der Schlacht, nicht für spätere Szenen am selben Ort
+  return true;
+}
+
 // ---------- Tick (aus game.step, nur mit Flottenzustand) ----------
 function update(game, dt) {
   const st = game.flotte; if (!st) return;
@@ -653,7 +663,7 @@ function debug(game, args) {
 module.exports = {
   ARTEN, WEGPUNKT_ARTEN, MODI, ART_NAMEN, texte, state, neu,
   aufstellen, modus, slotWinkel, goalFor, allyHit, allyLost, kiFlug, mineSchaden, schiffe, platz, spawnOderNachschub, ROLLEN,
-  befehl, onEnemyKilled, wellenStart, wellenFertig, neustart, update,
+  befehl, onEnemyKilled, wellenStart, wellenFertig, neustart, beenden, update,
   befehlStatus, erfuellt, gescheitert, laeuft, snapshot, erinnerung, erinnerungText, verloren, allies, alliesActive,
   funk, legatSprecher, debug, fmt,
 };
