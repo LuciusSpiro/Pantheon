@@ -63,6 +63,17 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 - **Nicht zurückholbar** (Kai, I3): Die Crew kann ihn nicht wieder aufnehmen. **Der Spielleiter darf ihn als NPC in Missionen auftreten lassen**, auch an dem Ort, wo er abgegeben wurde; deshalb gehört seine Abgabe als **Fakt in den Weltstand**, den Spielleiter-Prompt und `generator.js:71` lesen („Ivo: abgegeben bei <Ort>“ statt „gerettet“).
 - Die vorhandene Abliefern-Mechanik der Fracht (`weapons.abliefern`, Taktik, Halteprozess, Beamen) bleibt für leblose Ladung; Ivo läuft frei und geht nicht über diesen Weg.
 
+### 3b. Voraussetzung: Ansprechen friedlicher NSC überall (Kai, 2026-10-11)
+Das Gespräch mit Ivo ist nur der erste Fall einer **allgemeinen Fähigkeit**: Friedliche NSC müssen **überall ansprechbar** sein – an Bord, in Stationen, in Siedlungen (und auf jeder Außenkarte).
+- **Befund:** Ansprechen gibt es heute nur auf Außenkarten (`interior.js` `npcInteraction`, `kind: 'npc'`): E schaltet „folgen“ und löst einen Funkspruch aus, kein Gespräch, **eine Person je Karte** (`away.personAn`). Ivo an Bord (`onboard.js`) ist nicht ansprechbar. Stationen und Häfen sind heute **Raumobjekte** (Andocken öffnet das Terminal `shop`, Tesk spricht per Funk), keine begehbaren Orte; die Siedlung Eisenwald (EK6/K7) ist eine Kampfkarte ohne friedliche Personen. Eine begehbare friedliche Station oder Siedlung gibt es noch nicht.
+- **Folgerung:** Das ist **ein eigenes Paket** (Arbeitstitel **CONTRACT-NSC**), nicht Teil von R0–R2. Dieser Contract hängt für 3a (Abgeben) davon ab. Rohform, im eigenen Contract auszuarbeiten:
+  - eine Interaktion `npcTalk` in **allen Zonen** (`ship`, `away`), unabhängig von der Kartenart, nach den Regeln des Aktionsrasters (`PRIORITY`, Besetzung, nicht in Konsole);
+  - Gesprächsdaten **aus Daten** (`content/npc.json`, je NSC Gesprächsknoten mit Text, Auswahl, Bedingungen auf Flags/Fakten/Haltung, Aktionen = bestehende Missionsbaustein-Aktionen), damit Spielleiter und Regiebücher Gespräche liefern können („Systeme statt Handarbeit“);
+  - Gesprächsfenster im HUD (Server sendet `gespraech { npc, text, optionen }`, Antwort `npc.wahl`), ein Sprecher je NSC gleichzeitig, Mitspieler sehen es mit;
+  - NSC-Gedächtnis (Haltung, Status, Ort) im Weltstand wie heute; **mehrere Personen je Karte** (heute eine);
+  - begehbare **Stationen/Häfen und Siedlungen** als Kartenarten der Bühnen (B1) mit NSC-Ankern – eigener Kartenbau, nicht hier.
+- **Bis dahin** (Notlösung, falls R1 vorher fertig ist): Ivo bekommt ein eigenes kleines Gespräch nur an Bord (Fenster mit zwei Auswahlen „Plaudern“ / „Hier lassen“ nur angedockt). Das wird beim CONTRACT-NSC durch die allgemeine Fassung ersetzt.
+
 ## 4. R1 – Technik-Station
 ### 4.1 Konsole und Ort
 - Neue Konsole `technik` in `Protocol.CONSOLES`; Legendenzeichen `console_technik` (freies Zeichen wählen) im **Maschinenraum mittschiffs** (Raum x 11–15, neben Reaktor `R`, Schilde `G`, Lebenserhaltung `O`).
