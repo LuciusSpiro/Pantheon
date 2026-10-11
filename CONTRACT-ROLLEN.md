@@ -10,7 +10,7 @@ Mit „(Kai)“ markierte Punkte sind entschieden, mit „(Vorschlag)“ nur vor
 2. **Hitze** (Vault: Hitze-Modell) wird in diesem Contract mitgeplant, als eigene Stufe R2.
 3. **Keine Zuteilung durch das Spiel.** Die Spieler regeln die Besetzung selbst; die Zusammenlege-Regeln aus `Brückenrollen` sind Absprache, kein Code.
 4. **Automatik nur für die Waffen, nur bei 1 oder 2 Spielern.** Bei 3 oder 4 Spielern gibt es keine Waffenautomatik.
-5. Die Konsole-Inhalte der Technik werden mit Kai geklärt (Abschnitt 4.3, OFFEN).
+5. Konsole-Inhalt der Technik nach 4.3 bestätigt; Tab schaltet nur das Interface, der Spieler bleibt stehen (4.4).
 
 ## 1. Befund (Stand `ek1`, 4ebe750)
 | Punkt | Stand |
@@ -45,7 +45,7 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 | Teil | Änderung |
 |---|---|
 | Limit | `maxPlayers: 4`; Text „Server voll“ (`hud.js:1844`) und Lobby-Text „Koop für 1–4 Spieler“ (`hud.js:1046`), README, CONTRACT.md (Zeilen „vierter Spieler“) |
-| Spielerfarbe | **OFFEN (A1):** 4. Spielerfarbe. Farbe 3 ist heute der Gast. Vorschlag: Spielerfarben 0–3, **Gast bekommt Farbe 4** (5. Einzelquartier oder Gast ohne eigenes Quartier). Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879`, `BEDS`, Quartier-Konsole, HUD-Farben |
+| Spielerfarbe | **OFFEN (A1, einzige offene Frage):** 4. Spielerfarbe. Farbe 3 ist heute der Gast. Vorschlag: Spielerfarben 0–3, **Gast bekommt Farbe 4** (5. Einzelquartier oder Gast ohne eigenes Quartier). Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879`, `BEDS`, Quartier-Konsole, HUD-Farben |
 | Spawns | `SHIP_SPAWNS` auf 4 Einträge (freie Kachel in der Brücke), `BOT_SPAWNS` bleibt |
 | Truppstärke | `squadScale: { …, 4: 1.25 }` (aufgerundet) – Wert Vorschlag, im Spiel prüfen |
 | Plan-Tisch | `C.plan.maxSeated` prüfen (4 Personen am Tisch?) |
@@ -75,7 +75,7 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 - **Bleibt beim Captain:** `captain.accept|choice|selectDest|scan|support|listen|marker|order|escort`, Notfallsprung (Pilot oder Captain), Transporter (`transfer`-Konsole).
 - Reaktor-Neustart (zwei Schalter im Maschinenraum) bleibt ein Weg zu Fuß.
 
-### 4.3 Inhalt der Technik-Konsole (OFFEN – mit Kai klären, Vorschlag)
+### 4.3 Inhalt der Technik-Konsole (Kai, 2026-10-11: so richtig)
 Die Reiter „Energie & Schilde“ und „Schadensplan“ ziehen **unverändert** aus der Captain-Konsole um; die Technik hat damit sofort Inhalt. Vorschlag:
 | Reiter | Inhalt |
 |---|---|
@@ -86,19 +86,23 @@ Die Reiter „Energie & Schilde“ und „Schadensplan“ ziehen **unverändert*
 Die **Captain-Konsole** behält 4 Reiter: Funk, Sternkarte, Lage, Außenteam. Der Captain sieht den Schiffszustand weiter **zum Ansehen** (Kai, 2026-10-07; Decksplan, Schilde klein im `shieldStrip`) – nur Schreibzugriff wandert.
 Offen bleibt, ob die Technik einen **eigenen Maschinenraum-Look** bekommt (Schema, Rohre) oder dieselbe Konsolenoptik wie die Captain-Konsole (Vorschlag: zuerst dieselbe Optik, Art später).
 
-### 4.4 Tab-Wechsel (Vault: „Tab wechselt nur zwischen Konsolen“, bestätigt Kai 2026-10-09)
-- Heute schaltet Tab die Reiter der Captain-Konsole. Mit nur 4 Reitern reichen die Zifferntasten 1–4; **Tab wird frei** für den Konsolenwechsel.
-- **Tab** (Shift+Tab rückwärts) wechselt zur nächsten **freien** Station in der Reihenfolge Navigation → Taktik → Captain → Technik (nicht besetzt, `helm`, `weapons`, `captain`, `technik`). Der Spieler wird dabei an die Konsolenkachel gesetzt (**OFFEN (A3):** Teleport oder aus der Ferne bedienen; Vorschlag Teleport, damit „Konsole = Ort“ gilt).
-- Bei Konsolenwechsel gilt, wie heute, die Regel „Erst die Konsole verlassen“ nicht; Außenzone und Reparaturen sind ausgenommen (Tab nur in Zone `ship`, nicht `downed`, nicht `beamLock`).
-- Sind alle Stationen besetzt, tut Tab nichts (Hinweis).
-- Kein Zwang zur Zuteilung: Wer wo sitzt, entscheiden die Spieler (Entscheidung 3).
+### 4.4 Tab-Wechsel: Interface-Wechsel, der Spieler bleibt stehen (Kai, 2026-10-11)
+- Heute schaltet Tab die Reiter der Captain-Konsole. Mit nur 4 Reitern reichen die Zifferntasten 1–4; **Tab wird frei** für den Stationswechsel.
+- **Tab** (Shift+Tab rückwärts) schaltet das **Interface** auf die nächste **freie** Station in der Reihenfolge Navigation → Taktik → Captain → Technik (`helm`, `weapons`, `captain`, `technik`; frei = nicht von einem anderen Spieler gehalten). **Der Spieler bleibt physisch an seiner Konsole stehen**, es ändert sich nur, was er bedient. Wer allein ist, kann von jeder Konsole alles tun.
+- **Zwei Größen im Server:** `p.console` bleibt der **Ort** (physische Konsole; Exklusivität, Verlassen mit Taste, Kollision), neu `p.station` = **aktives Interface** (`null` = wie `p.console`). Die Rechteprüfung in `onCmd` (`CMD_CONSOLE`, `game.js:~928`) prüft gegen `p.station || p.console`, nicht mehr nur `p.console`. Snapshot trägt `players[].station` nur, wenn es von `console` abweicht (Budget).
+- **Besetzt** ist eine Station, wenn ein verbundener Spieler sie als `station` aktiv hat (sein Ort allein zählt nicht, wenn er auf eine andere umgeschaltet hat). Wer von Taktik auf Technik umschaltet, **verlässt die Taktik**: sie ist dann unbesetzt, und die Waffenautomatik greift, sofern ≤ 2 Spieler (4.5). Das ist dieselbe Regel wie „verlassene Station fällt auf Automatik“ aus dem Vault.
+- Eine freie Station, die ein Spieler per Tab belegt, ist für andere gesperrt (Hinweis „Taktik: durch <Name> besetzt“), bis er sie verlässt (Tab weg, Konsole verlassen, Trennen, Niederschlag).
+- Der physische Ort bestimmt weiterhin **Reparieren zu Fuß** (Kai, 2026-10-09): Wer losläuft, verlässt Ort und Station.
+- Tab nur in Zone `ship`, nicht `downed`, nicht `beamLock`; ohne freie Station tut Tab nichts (Hinweis).
+- Kein Zwang zur Zuteilung: Wer welche Station hält, entscheiden die Spieler (Entscheidung 3).
+- Konsolen mit eigener Bedienlogik am Ort (`transfer`, `shop`, `quartier`, `sonde`, `plan`) gehören **nicht** zum Tab-Kreis.
 
 ### 4.5 Waffenautomatik nur bei 1 oder 2 Spielern (Kai)
-- Neue Prüfung `space.waffenAutomatikAktiv(game)` = verbundene Spieler ≤ 2 **und** Taktik unbesetzt. **Nicht** mehr nur `!weaponsManned`.
+- Neue Prüfung `space.waffenAutomatikAktiv(game)` = verbundene Spieler ≤ 2 **und** Taktik unbesetzt (Station, siehe 4.4). **Nicht** mehr nur `!weaponsManned`.
   Sie steuert: Lanzen-Automatik (`space.js:936–950`), automatische Ladepunkt-Verteilung (836–845), halbe Feuerrate (`autoFactor`, 870).
-- Bei **3 oder 4 Spielern** und unbesetzter Taktik: kein Feuer, keine Lanzenladung; die zuletzt gesetzte Ladepunkt-Verteilung bleibt stehen (nachprüfen, wo sie liegt). Wer den Ruf „Taktik ist leer“ überhört, merkt das am Gegner – gewollt.
+- Bei **3 oder 4 Spielern** und unbesetzter Taktik: kein Feuer, keine Lanzenladung; die zuletzt gesetzte Ladepunkt-Verteilung bleibt stehen (nachprüfen, wo sie liegt). Wenn niemand schießen will, schießt niemand; man muss es von Hand tun (Kai, A7) – gewollt.
 - Der Wechsel zwischen 2 und 3 Spielern mitten im Kampf schaltet die Automatik sofort um; ODA sagt es an (Vorschlag: „Taktik unbesetzt, Automatik aus.“ bzw. „… Automatik an.“).
-- Die vom Vault beschlossene schwache Automatik für **Navigation** (Kurs halten) und **Captain** (ODA) gilt unverändert („Kurs hält“ ist die Physik, ODA gibt es). **Technik:** Bot-Automatik – **OFFEN (A4):** Standard heute „bei genau 1 Spieler“; Vorschlag „bei 1 oder 2“, passend zur Waffenautomatik.
+- Die vom Vault beschlossene schwache Automatik für **Navigation** (Kurs halten) und **Captain** (ODA) gilt unverändert („Kurs hält“ ist die Physik, ODA gibt es). **Technik:** Bot-Automatik – **bei genau 1 oder 2 verbundenen Spielern** an (Kai, A4; heute nur bei 1), `bots.updateBotAuto`; die Wahl per `technik.botAuto` gilt danach weiter.
 
 ### 4.6 Texte, Tutorial, Inhalte
 - `m1`/`m2`/`m3`/`k1`/`k5` (`content/regiebuecher/*`): Texte mit „Captain verteilt Schilde“, „Captain setzt im Reiter Schäden Prioritäten“, „Captain: Energie auf Schilde und Waffen“ (`m1` Zeilen 582, 595, 599, 601, 656 u. a.) auf **Technik** umstellen. Ereignis `shieldsChanged` bleibt, Prüfung `console_manned: captain` bleibt für den Funkspruch.
@@ -106,21 +110,21 @@ Offen bleibt, ob die Technik einen **eigenen Maschinenraum-Look** bekommt (Schem
 - Hinweise im HUD und in der Hilfe (`hud.js`, Reiter-Beschriftungen, `dev-mock.js` Szenen).
 
 ### 4.7 Tests, Bots (R1)
-- `tools/sim-headless.js` (Bots), `test-m3`, `test-combat`, `test-features`: Aufrufe `captain.power|…` auf `technik.*` und die Bots an die Technik-Konsole setzen (ein Bot-Spieler muss zwischen Konsolen wechseln können; Tab-Befehl als Bot-Aktion).
-- Neu: `tools/test-rollen.js` (in `npm test`): Konsole Technik betreten/exklusiv, alte Befehle weisen ab, Rechteprüfung (`technik.power` ohne Konsole abgelehnt), Tab-Reihenfolge und -Sperre, Waffenautomatik bei 1/2/3/4 Spielern (Lanze schießt automatisch nur bis 2).
+- `tools/sim-headless.js` (Bots), `test-m3`, `test-combat`, `test-features`: Aufrufe `captain.power|…` auf `technik.*` und die Bots an die Technik-Konsole setzen (ein Bot-Spieler schaltet per Tab-Befehl zwischen Stationen, ohne den Ort zu wechseln).
+- Neu: `tools/test-rollen.js` (in `npm test`): Konsole Technik betreten/exklusiv, alte Befehle weisen ab, Rechteprüfung (`technik.power` ohne Konsole abgelehnt), Tab-Reihenfolge, Sperre belegter Stationen, Rechteprüfung gegen `station`, Taktik unbesetzt nach Umschalten, Waffenautomatik bei 1/2/3/4 Spielern (Lanze schießt automatisch nur bis 2).
 - Golden-Tests m1–m3: Verhalten gleich bis auf Konsole (Messwerte im Contract-Anhang nach Lauf eintragen).
 
 ## 5. R2 – Hitze (Vault: Hitze-Modell, Kai 2026-10-09; Zahlen = Startwerte, Balancing im Spiel)
 - **Ein Hitzewert je Hauptsystem** (`engines`, `shields`, `weapons`); `life` behält die heutige Stufe-4-Hitze, bis der Energie-Umbau kommt.
 - **Quellen:** Stufe 4 (+8/s, besteht); **Feuern mit Energiewaffen** (`phase_l`, `phase_r`, `seitenturm`: + je Schuss 12 auf `weapons`); **Ausweichen** (+30 auf `engines`). **Keine** Zusatzhitze für die Lanze (Aufladen = Strafe genug) und keine für den Bolzenwerfer (kostet Munition).
 - **Ausweichen** (Vault „Ausweichen nach hinten, mit Hitze“): Abklingzeit 7 s → 2 s (nur gegen Dauerdrücken), **Hitze wird zur Grenze**. Die neue Richtung „nach hinten“ (Abstoppen) ist Teil des Vault-Entwurfs, aber **nicht Teil dieses Contracts** – wer das baut, entscheidet Kai (Raumkampf-Paket).
-- **Kühlung:** passiv −4/s unter Stufe 4 (besteht); aktiv durch die Technik (`technik.vent { sys }`, Konsole `technik`, Reiter Hitze): **Ventil-Minispiel 2–3 s**, Erfolg −60, Fehlschlag −15. Das Minispiel nutzt die vorhandene Aktionsanzeige (`players[].action`, `game.js:1480`) oder die bestehenden Reparatur-Minispiele als Vorlage (**OFFEN (A5):** Bedienung, z. B. Zeiger in Zone stoppen).
+- **Kühlung:** passiv −4/s unter Stufe 4 (besteht); aktiv durch die Technik (`technik.vent { sys }`, Konsole `technik`, Reiter Hitze): **Ventil-Minispiel 2–3 s**, Erfolg −60, Fehlschlag −15. Das Minispiel nutzt die vorhandene Aktionsanzeige (`players[].action`, `game.js:1480`) oder die bestehenden Reparatur-Minispiele als Vorlage (Bedienung nach Kai, A5: **Zeiger in einer Zone anhalten**).
 - **Folgen:**
   - ab 70: Warnung (ODA, einmalig je Anstieg; Balken rot, wie heute `consoles.js:1012`) – der **Ruf an die Technik** („Antrieb heiß!“) ist gewollt.
   - ab 80: **Waffen:** Ladegeschwindigkeit halbiert („Feuer wird langsamer“, Vault); **Antrieb:** Ausweichen gesperrt; **Schilde:** Regeneration halbiert.
   - bei 100: wie heute `heatDamage` (Hitze → 0, System beschädigt).
 - **Sichtbarkeit:** Hitzebalken zusätzlich klein an der Steuer- und der Taktik-Konsole (nur Anzeige), damit Navigation und Taktik wissen, wann sie die Technik anrufen müssen. Snapshot trägt `ship.heat` schon (`game.js:1766`).
-- Bei Konsolenwechsel (Tab) läuft ein begonnenes Ventil-Minispiel nicht weiter (Abbruch ohne Wirkung).
+- Beim Umschalten der Station (Tab) läuft ein begonnenes Ventil-Minispiel nicht weiter (Abbruch ohne Wirkung).
 - Tests: `test-hitze` (Quellen, Kühlung, Schwellen, Ventil Erfolg/Fehlschlag, Ausweichsperre bei 80, Lanze ohne Zusatzhitze), Golden-Läufe unverändert, wenn keine Hitze entsteht (Stufe ≤ 3, keine Energiewaffen im Einsatz) – sonst Messwerte nachziehen.
 
 ## 6. Außerhalb dieses Contracts (Schnittstellen vorgemerkt)
@@ -135,16 +139,16 @@ Offen bleibt, ob die Technik einen **eigenen Maschinenraum-Look** bekommt (Schem
 2. **R1** Technik-Station (Hauptteil: Konsole, Umzug, Tab, Automatik, Texte, Tests). Vault schätzt „Rollen“ mit 1–2 Einheiten; wegen 8 bis 11 betroffener Dateien je Worktree eher oberes Ende.
 3. **R2** Hitze (eigene Stufe; Balancing braucht Spielabende).
 
-## 8. Offene Fragen an Kai
-| # | Frage | Vorschlag |
+## 8. Entscheidungen und offene Fragen
+| # | Frage | Entscheidung |
 |---|---|---|
-| **A1** | Spielerfarbe 4 / Gästequartier: Gast bekommt Farbe 4 mit 5. Quartier, oder Gast ohne Quartier? | Farbe 4, 5. Quartier |
-| **A2** | Technik-Konsole: Inhalt wie in 4.3 (Umzug der zwei Reiter + später Hitze)? | ja |
-| **A3** | Tab-Wechsel: Teleport zur Konsole oder aus der Ferne bedienen? | Teleport |
-| **A4** | Bot-Automatik: bei 1 oder 2 Spielern statt nur bei 1? | 1 oder 2 |
-| **A5** | Ventil-Minispiel: Bedienung (Zeiger anhalten, Haltetaste, Tastenfolge)? | Zeiger in Zone anhalten |
-| **A6** | Ab wie viel Hitze greifen Folgen (70/80/100) und wie stark? | Werte aus Abschnitt 5, im Spiel einstellen |
-| **A7** | Soll bei 3–4 Spielern eine verwaiste Taktik wirklich gar nichts tun (auch keine Ladepunkte)? | ja, wie Entscheidung 4 |
+| **A1** | Spielerfarbe 4 / Gast Ivo (Gästequartier = Farbe 3, geretteter Techniker von B-7, `technikerRescued`) | **OFFEN** – Vorschlag Farbe 4, 5. Quartier |
+| **A2** | Technik-Konsole: Inhalt nach 4.3 | **ja** (Kai) |
+| **A3** | Tab-Wechsel | **nur Interface, Spieler bleibt stehen** (Kai), siehe 4.4 |
+| **A4** | Bot-Automatik | **bei genau 1 oder 2 Spielern** (Kai) |
+| **A5** | Ventil-Minispiel | **Zeiger in Zone anhalten** (Kai folgt Vorschlag) |
+| **A6** | Hitze-Schwellen 70/80/100 mit Folgen aus Abschnitt 5 | **ja** (Kai), im Spiel einstellen |
+| **A7** | Verwaiste Taktik bei 3–4 Spielern | **schießt nicht**, nur manuell (Kai) |
 
 ## 9. Zusammenführen mit den EK-Branches
 - Alle 11 EK-Worktrees ändern dieselben Dateien (`game.js`, `bots.js`, `consoles.js`, `dev-mock.js`, `sim-headless.js`, Tests). R1 benennt Befehle um und schiebt Reiter; das **kollidiert** mit jedem offenen EK-Branch, der `captain.power|…` neu nutzt.
