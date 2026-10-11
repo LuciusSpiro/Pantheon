@@ -68,23 +68,31 @@ function bauOpts(lpId, e) {
   return { spiel: true, id: lpId, art: e.art, schablone: e.schablone || undefined, seed: e.seed | 0, bauweise: e.bauweise || undefined,
     besitz: e.besitz || null, zustand: e.zustand || 'intakt' };
 }
-// Generatoren (shared/gen-siedlung.js, gen-station.js): Außenposten = Siedlung, Station = Stationsgrammatik. Opt-in je Landepunkt
-// (landepunkte.json: "erzeuger": "gen") oder für alle Außenposten/Stationen mit PANTHEON_GEN=1 (Test im Spiel). Schiff, Ruine und
-// Handkarten bleiben bei den Modulen. Gleicher Seed = gleiche Karte; bauversion 'gen1' kommt vom Generator.
+// Generatoren (shared/gen-siedlung.js, gen-station.js, Kai 2026-10-11): Außenposten = Siedlung, Station = Stationsgrammatik. Standard für alle
+// Landepunkte dieser beiden Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Schiff, Ruine und Handkarten bleiben bei
+// den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
+// Gleicher Seed = gleiche Karte; die Karten erfüllen den Pflichtsatz der Kartenart (Missionsplanung nimmt ihn an).
 const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 } };
 function nutztGenerator(lpId, e) {
-  const d = defs().byId[lpId] || {};   // Opt-in/-out steht in der Definition, nicht im (gespeicherten) Eintrag
-  return !!GEN_GROESSE[e.art] && (d.erzeuger === 'gen' || (process.env.PANTHEON_GEN === '1' && d.erzeuger !== 'modul'));
+  if (!GEN_GROESSE[e.art] || process.env.PANTHEON_GEN === '0' || (e.schablone && !/^gen-/.test(e.schablone))) return false;   // gen-… = vom Generator gesetzt (uebernehmen)
+  const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
+  return d.erzeuger !== 'modul';
 }
 function genBauen(lpId, e) {
   const o = { bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
-  const seed = e.seed | 0;
-  const roh = e.art === 'aussenposten'
-    ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, GEN_GROESSE.aussenposten.n, Object.assign({ typ: e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel' }, o))
-    : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, o);
-  const r = Buehne.ausRaster(roh, { spiel: true });
-  if (!r.pruefung.ok) { const err = new Error(`Generator ${lpId} (Seed ${seed}): ${r.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')}`); err.fehler = r.fehler; throw err; }
-  return r.karte;
+  const typ = e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel';
+  let letzte = null;
+  for (let i = 0; i < 6; i++) {   // wie Buehne.bauen: scheitert der Prüfer, Seed + 1
+    const seed = (e.seed | 0) + i;
+    const roh = e.art === 'aussenposten'
+      ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, GEN_GROESSE.aussenposten.n, Object.assign({ typ }, o))
+      : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, o);
+    const r = Buehne.ausRaster(roh, { spiel: true });
+    if (r.pruefung.ok) { r.karte.meta.versuche = i + 1; r.karte.meta.seedStart = e.seed | 0; return r.karte; }
+    letzte = r;
+  }
+  const err = new Error(`Generator ${lpId} ab Seed ${e.seed | 0}: 6 Versuche gescheitert (${letzte.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')})`);
+  err.fehler = letzte.fehler; throw err;
 }
 function rohBauen(lpId, e) { return nutztGenerator(lpId, e) ? genBauen(lpId, e) : Buehne.bauen(bauOpts(lpId, e)); }
 // Wirksame Bauwerte der (Roh-)Karte in den Eintrag
@@ -258,7 +266,7 @@ const CACHE_MAX = 64;
 // Frischer Eintrag (bauversion null): die aktuelle Modul-Bauversion der Kartenart steht im Schlüssel, damit neu geladene
 // Module/Schablonen nicht die alte Karte treffen (F9b); cacheLeeren(art) ist zusätzlich die Absicherung der Werkstatt.
 function aktBauversion(art) { if (!art || art === 'hand') return 'hand'; try { return '~' + Buehne.bauversion(art); } catch (x) { return '~'; } }
-function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art)].join('|'); }
+function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].join('|'); }
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
   let n = 0;

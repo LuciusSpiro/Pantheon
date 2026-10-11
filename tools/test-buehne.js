@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+// Dieser Test prüft die Modulkarten (Schablonen). Generatorkarten (Standard für Station/Außenposten im Spiel) deckt tools/test-generatoren.js ab.
+process.env.PANTHEON_GEN = '0';
 // Tests Team BUEHNE (CONTRACT-B1 §2–§6): Determinismus (Node und UMD-Browserpfad), Kantenableitung inkl. W13/W14,
 // Prüfcodes an Testmodulen, Zusammenbau, Überzug, Handkarten, Landepunkte, Anker-Laufzeit.
 // Testdaten: tools/fixtures/buehne (nie content/buehnen/<art>/).

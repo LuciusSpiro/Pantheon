@@ -1,6 +1,6 @@
 'use strict';
 // Bodenkampf: Wellen (server/sim/wellen.js, CONFIG.wellen): Plan eskaliert laut Tabelle, nie mehr als maxLebend stehend,
-// Nachschub, Spawns außer Sicht/mit Abstand, Aufrichten/Befreien in der Pause, Ende bei Crew unten -> Lobby, Snapshot < 13 KB.
+// Nachschub, Spawns außer Sicht/mit Abstand, Aufrichten/Befreien in der Pause, Ende bei Crew unten -> Lobby, Snapshot < 20 KB.
 //   node tools/test-wellen.js            -> alle Abschnitte
 //   node tools/test-wellen.js plan       -> nur Abschnitte, deren Name einen der Begriffe enthält
 const CONFIG = require('../shared/config.js');
@@ -153,7 +153,7 @@ section('kampf: nie mehr als maxLebend stehend, Nachschub, Spawns außer Sicht, 
       if (i % 6 === 0) maxSnap = Math.max(maxSnap, Buffer.byteLength(JSON.stringify(g.snapshot())));
       // alle 2 s fällt ein Gegner (Nachschub muss nachrücken)
       // (endgültig: 'aus' wie nach dem Ausbluten, sonst richten Kameraden ihn wieder auf)
-      if (i % 60 === 30) { const e = stehend(g)[0]; if (e) { erledigen(g, e, g.players[i % 3].id); e.zustand = 'aus'; } }
+      if (i % 60 === 30) { const e = stehend(g)[0]; if (e) { const sch = g.players[i % 3]; e.x = sch.x + 24; e.y = sch.y; erledigen(g, e, sch.id); e.zustand = 'aus'; } }   // neben den Schützen: Zuordnung ohne Projektil braucht Sichtlinie ≤ 16 Kacheln (große Karten)
     }
     ok(maxSt <= C.maxLebend, `${karte}: höchstens ${C.maxLebend} stehend (max ${maxSt})`);
     const soll = Wellen.anzahl(C, S.n, g.players.length);   // aus der Tabelle, nicht fest verdrahtet
