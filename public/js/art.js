@@ -3024,20 +3024,96 @@
     if (kind === 'raider') return cached('raider|' + b, 48, 48, function (g, c) { buildRaider(g, c, b / ROT_STEPS * Math.PI * 2); });
     return cached('korvette|' + b, 100, 100, function (g, c) { buildKorvette(g, c, b / ROT_STEPS * Math.PI * 2); });
   }
+  // ---------------------------------------------------------------------------------------------
+  // EK1b: Drehsprites aus dem Voxelwerk (public/voxel/sprites/, erzeugt mit `npm run sprites` im Voxelwerk, kopiert von `npm run assets`).
+  // Sheet je Klasse x Farbthema: ROT_STEPS-Stufen (Stufe b = b/64*2PI, Bug bei 0 nach +x), cols Spalten. Fehlt Manifest, Sheet oder Eintrag,
+  // gilt die prozedurale Zeichnung (buildRaider/buildKorvette) weiter. Die Lerche ist nicht betroffen.
+  // ---------------------------------------------------------------------------------------------
+  var SPR_BASE = 'voxel/sprites/';
+  var SPR = { manifest: null, state: 'idle', sheets: {}, waiters: [] };
+  var SPR_KLASSE = { raider: 'jaeger', korvette: 'korvette', fregatte: 'fregatte', kreuzer: 'kreuzer' };
+  // Fraktion -> Farbthema des Sprites; ohne Angabe gilt der Standard der Klasse (wie FRAKTION_STANDARD in server/sim/entern.js)
+  var SPR_FRAKTION_SET = { rostmeute: 'rostmeute', raubzug: 'rostmeute', germanen: 'nord', nord: 'nord', rom: 'rom', aegypten: 'aegypten', babylon: 'babylon', himmelsreich: 'himmelsreich' };
+  var SPR_STANDARD_SET = { raider: 'rostmeute', korvette: 'rostmeute', fregatte: 'nord', kreuzer: 'nord' };
+  // Fallback-Groesse (relativ zur prozeduralen Korvette), solange fuer Fregatte/Kreuzer kein Sprite da ist
+  var SPR_FALLBACK = { fregatte: 1.3, kreuzer: 1.6 };
+  function sprLoadManifest() {
+    if (SPR.state !== 'idle') return;
+    if (!hasDom || typeof fetch !== 'function' || typeof Image === 'undefined') { SPR.state = 'off'; return; }
+    SPR.state = 'loading';
+    fetch(SPR_BASE + 'manifest.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (m) { SPR.manifest = m && m.sprites ? m : null; SPR.state = SPR.manifest ? 'ready' : 'off'; sprNotify(); })
+      .catch(function () { SPR.state = 'off'; sprNotify(); });   // kein Manifest -> Rueckfall, kein Fehler
+  }
+  function sprNotify() { var w = SPR.waiters; SPR.waiters = []; w.forEach(function (fn) { try { fn(); } catch (e) { warn('sprites', e); } }); }
+  function sprSheet(info) {
+    var s = SPR.sheets[info.file];
+    if (!s) {
+      s = SPR.sheets[info.file] = { img: new Image(), ready: false, failed: false };
+      s.img.onload = function () { s.ready = true; sprNotify(); };
+      s.img.onerror = function () { s.failed = true; sprNotify(); };
+      s.img.src = SPR_BASE + info.file;
+    }
+    return s.ready ? s.img : null;
+  }
+  function sprInfo(klasse, set) {
+    sprLoadManifest();
+    return SPR.manifest ? SPR.manifest.sprites[klasse + '/' + set] || null : null;
+  }
+  // Sprite zu Gegner-Art und Fraktion: { info, img } oder null (noch nicht geladen / nicht vorhanden)
+  function enemySprInfo(kind, fraktion) {
+    var klasse = SPR_KLASSE[kind]; if (!klasse) return null;
+    var set = SPR_FRAKTION_SET[fraktion] || SPR_STANDARD_SET[kind] || 'nord';
+    var info = sprInfo(klasse, set) || (set !== 'nord' ? sprInfo(klasse, 'nord') : null);
+    if (!info) return null;
+    var img = sprSheet(info);
+    return img ? { info: info, img: img } : null;
+  }
+  function sprFrame(sp, b) {
+    var F = sp.info.frame[0], H = sp.info.frame[1];
+    return cached('spr|' + sp.info.set + '|' + sp.info.klasse + '|' + b, F, H, function (g) {
+      var step = Math.round(b * sp.info.steps / ROT_STEPS) % sp.info.steps;
+      g.drawImage(sp.img, (step % sp.info.cols) * F, Math.floor(step / sp.info.cols) * H, F, H, 0, 0, F, H);
+    });
+  }
+  // Schiffskoerper aus dem Sprite samt Triebwerksgluehen, Trefferblitz, Rauch und Feuer
+  function drawEnemySprite(ctx, kind, sp, x, y, angle, o) {
+    var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2, info = sp.info;
+    var co = Math.cos(bang), si = Math.sin(bang);
+    function W(lx, ly) { return [x + lx * co - ly * si, y + lx * si + ly * co]; }
+    var spr = sprFrame(sp, b), ax = info.anchor[0], ay = info.anchor[1];
+    var e = W(info.heck[0], info.heck[1]);
+    glow(ctx, e[0], e[1], PAL.warngelb, Math.max(4, info.widthPx * 0.22), 0.5 + 0.25 * Math.sin(t * 20 + x));
+    var dx = Math.round(x - ax), dy = Math.round(y - ay);
+    ctx.drawImage(spr, dx, dy);
+    if (o.hitT != null && o.hitT >= 0 && o.hitT < 0.18) {
+      var sk = 'spr|sil|' + info.set + '|' + info.klasse + '|' + b, sil = cache.get(sk);
+      if (!sil) { sil = silhouette(spr, '#FFFFFF'); cache.set(sk, sil); }
+      var ga = ctx.globalAlpha; ctx.globalAlpha = ga * (1 - o.hitT / 0.18) * 0.85; ctx.drawImage(sil, dx, dy); ctx.globalAlpha = ga;
+    }
+    var hp = o.hpFrac == null ? 1 : o.hpFrac, L = info.lengthPx;
+    if (hp < 0.6) { var sp1 = W(-L * 0.18, -info.widthPx * 0.12); drawFx(ctx, 'smoke', sp1[0], sp1[1], t + x * 0.01, { small: true }); }
+    if (hp < 0.3) { var fp = W(L * 0.1, info.widthPx * 0.12); drawFx(ctx, 'fire', fp[0], fp[1], t, { small: true }); }
+  }
+  // Oeffentlich (Vorschau, Werkzeuge): Sprite einer Klasse/eines Farbthemas direkt zeichnen; false, wenn nicht geladen
+  function drawShipSprite(ctx, klasse, set, x, y, angle, opts) {
+    var info = sprInfo(klasse, set); if (!info) return false;
+    var img = sprSheet(info); if (!img) return false;
+    drawEnemySprite(ctx, klasse, { info: info, img: img }, x, y, angle, opts || {});
+    return true;
+  }
   function drawEnemy(ctx, kind, x, y, angle, opts) {
     var o = opts || {};
     if (o.tele && typeof o.tele === 'object') {   // M3a: Ladeglühen (Alternative: Art.drawTele selbst aufrufen)
       drawTele(ctx, x, y, { left: o.tele.left, dur: o.tele.dur, kind: o.tele.kind, r: TELE_R[kind] || 20, time: o.time });
     }
     if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }   // M1
-    // EK1b: Fregatte und Kreuzer zeichnen vorläufig das Korvetten-Sprite größer (Platzhalter bis zu den Drehsprites des Teams SPRITES)
-    if (kind === 'fregatte' || kind === 'kreuzer') {
-      var sk = kind === 'fregatte' ? 1.4 : 1.8;
-      ctx.save(); ctx.translate(x, y); ctx.scale(sk, sk);
-      drawEnemy(ctx, 'korvette', 0, 0, angle, Object.assign({}, o, { tele: null }));
-      ctx.restore();
-      teleGlowOver(ctx, kind, x, y, o);
-      return;
+    var sprEnemy = enemySprInfo(kind, o.fraktion);
+    if (sprEnemy) { drawEnemySprite(ctx, kind, sprEnemy, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }
+    if (SPR_FALLBACK[kind]) {   // Fregatte/Kreuzer ohne Sprite: vergroesserte prozedurale Korvette
+      ctx.save(); ctx.translate(x, y); ctx.scale(SPR_FALLBACK[kind], SPR_FALLBACK[kind]); ctx.translate(-x, -y);
+      drawEnemy(ctx, 'korvette', x, y, angle, { hpFrac: o.hpFrac, hitT: o.hitT, time: o.time });
+      ctx.restore(); teleGlowOver(ctx, kind, x, y, o); return;
     }
     if (kind !== 'raider' && kind !== 'korvette') { missing(ctx, Math.round(x - 14), Math.round(y - 14), 28, 28); return; }
     var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2;
@@ -6389,6 +6465,7 @@
       for (var ch in GLYPHS) parseGlyph(ch);
       nebulaLayer(); starLayer(0, 0); starLayer(1, 0); starLayer(2, 0);
       for (var c = 0; c < 3; c++) humanSprite(CREW[c], 'c' + c, 'down', 'idle', 0, false);
+      sprLoadManifest();
       inited = true;
       return true;
     } catch (e) { warn('init', e); return false; }
@@ -6409,6 +6486,25 @@
   Art.drawFx = safe('drawFx', drawFx);
   Art.drawShip = safe('drawShip', drawShip);
   Art.drawEnemy = safe('drawEnemy', drawEnemy);
+  // EK1b
+  Art.drawShipSprite = safe('drawShipSprite', drawShipSprite, false);
+  Art.spriteManifest = function () { sprLoadManifest(); return SPR.manifest; };
+  Art.hasEnemySprite = function (kind, fraktion) { return !!enemySprInfo(kind, fraktion); };
+  // Ruft fn auf, sobald Manifest da ist und alle Sheets geladen (oder gescheitert) sind (Vorschau/Tests); das Spiel laedt Sheets lazy
+  Art.spritesLoaded = function (fn) {
+    function check() {
+      sprLoadManifest();
+      if (SPR.state === 'loading') { SPR.waiters.push(check); return; }
+      var pending = false;
+      if (SPR.manifest) Object.keys(SPR.manifest.sprites).forEach(function (k) {
+        var s = SPR.sheets[SPR.manifest.sprites[k].file];
+        if (!s) { sprSheet(SPR.manifest.sprites[k]); pending = true; } else if (!s.ready && !s.failed) pending = true;
+      });
+      if (pending) { SPR.waiters.push(check); return; }
+      fn(SPR.manifest);
+    }
+    check();
+  };
   Art.drawAsteroid = safe('drawAsteroid', drawAsteroid);
   Art.drawStation = safe('drawStation', drawStation);
   Art.drawProjectile = safe('drawProjectile', drawProjectile);

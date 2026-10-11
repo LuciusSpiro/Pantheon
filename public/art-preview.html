@@ -64,6 +64,9 @@
 <section><h2>Figuren, Bots, Techniker, Drohne</h2><div class="scroll"><canvas id="cChar"></canvas></div></section>
 <section><h2>Gegenstände, Icons, Effekte</h2><div class="scroll"><canvas id="cFx"></canvas></div></section>
 <section><h2>Raum / Taktik</h2><div class="scroll"><canvas id="cSpace"></canvas></div></section>
+<section id="secSprites"><h2>EK1b · Drehsprites aus dem Voxelwerk – Klassen × Farbthema in Spielgröße (Bug nach rechts, ein Beispiel gedreht)</h2><div class="scroll"><canvas id="cSprites"></canvas></div>
+<p class="note" id="sprNote">lade Sprites …</p></section>
+<section id="secSpritesScale"><h2>EK1b · Lesbarkeit: alle Klassen bei 30 / 50 / 80 px Länge (aus dem Spiel-Sheet verkleinert; echte Renderings bei dieser Größe: shots/art/ek1b/vergleich_*.png)</h2><div class="scroll"><canvas id="cSpritesScale"></canvas></div></section>
 <section><h2>UI: Pixelfont, Panels, Lichtstimmung</h2><div class="scroll"><canvas id="cUi"></canvas></div></section>
 
 <script src="../shared/maps.js"></script>
@@ -1197,10 +1200,56 @@
     });
   }
 
+  // EK1b: Drehsprites (Art.drawShipSprite). Matrix Farbthema x Klasse in Spielgroesse, darunter die Lesbarkeitsleiter 30/50/80 px.
+  var SPR_CLASSES = ['jaeger', 'spaeher', 'korvette', 'frachter', 'fregatte', 'kreuzer', 'linienschiff'];
+  var SPR_SETS = ['nord', 'rostmeute', 'rom', 'aegypten', 'babylon', 'himmelsreich'];
+  function drawSpritesSection(man) {
+    var note = document.getElementById('sprNote');
+    if (!man) { note.textContent = 'Kein Sprite-Manifest (npm run assets) – das Spiel zeichnet dann die prozeduralen Schiffe.'; return; }
+    var CW = 150, CH = 150, g = cv('cSprites', 70 + CW * SPR_CLASSES.length, 22 + CH * SPR_SETS.length);
+    g.fillStyle = '#0B0E1A'; g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+    var miss = 0;
+    SPR_CLASSES.forEach(function (k, c) { Art.drawText(g, k.toUpperCase(), 70 + c * CW + CW / 2, 8, { color: '#8EA3B5', align: 'center' }); });
+    SPR_SETS.forEach(function (s, r) {
+      Art.drawText(g, s.toUpperCase(), 4, 22 + r * CH + CH / 2 - 3, { color: '#C9974A' });
+      SPR_CLASSES.forEach(function (k, c) {
+        var cx = 70 + c * CW + CW / 2, cy = 22 + r * CH + CH / 2;
+        if (!Art.drawShipSprite(g, k, s, cx - (k === 'jaeger' || k === 'spaeher' ? 30 : 0), cy, 0, { time: 0 })) { miss++; return; }
+        if (k === 'jaeger' || k === 'spaeher') Art.drawShipSprite(g, k, s, cx + 34, cy, 0.9, { time: 0 });
+      });
+    });
+    var sizes = [30, 50, 80], sets2 = ['nord', 'rom'], CW2 = 100, CH2 = 100;
+    var g2 = cv('cSpritesScale', 80 + sets2.length * sizes.length * 2 * CW2, 20 + SPR_CLASSES.length * CH2);
+    g2.fillStyle = '#0B0E1A'; g2.fillRect(0, 0, g2.canvas.width, g2.canvas.height);
+    SPR_CLASSES.forEach(function (k, r) { Art.drawText(g2, k.toUpperCase(), 4, 20 + r * CH2 + CH2 / 2 - 3, { color: '#8EA3B5' }); });
+    var col = 0;
+    sets2.forEach(function (s) {
+      sizes.forEach(function (len) {
+        [0, 0.61].forEach(function (ang) {
+          var x0 = 80 + col * CW2; col++;
+          if (!ang) Art.drawText(g2, s.toUpperCase() + ' ' + len, x0 + CW2 / 2, 6, { color: '#C9974A', align: 'center' });
+          SPR_CLASSES.forEach(function (k, r) {
+            var info = man.sprites[k + '/' + s]; if (!info) return;
+            // Sprite in eigener Offscreen-Leinwand zeichnen, dann auf die Ziellaenge herunterskalieren (geglaettet)
+            var F = info.frame[0], tmp = document.createElement('canvas'); tmp.width = F; tmp.height = F;
+            var tg = tmp.getContext('2d'); Art.drawShipSprite(tg, k, s, F / 2, F / 2, ang, { time: 0 });
+            var sc = len / info.lengthPx, sz = Math.round(F * sc);
+            g2.imageSmoothingEnabled = true; g2.imageSmoothingQuality = 'high';
+            g2.drawImage(tmp, Math.round(x0 + CW2 / 2 - sz / 2), Math.round(20 + r * CH2 + CH2 / 2 - sz / 2), sz, sz);
+            g2.imageSmoothingEnabled = false;
+          });
+        });
+      });
+    });
+    note.textContent = 'Sprites: ' + Object.keys(man.sprites).length + ', fehlende Zeichnungen: ' + miss + ' · Spielgrößen: ' + SPR_CLASSES.map(function (k) { return k + ' ' + man.sprites[k + '/nord'].lengthPx; }).join(', ') + ' px';
+    window.__artPreview.sprites = { count: Object.keys(man.sprites).length, missing: miss };
+  }
+
   window.__artPreview = { ok: ok, frameErrors: 0 };
   if (!ok || !M) { status.innerHTML = '<span class="bad">Art.init() fehlgeschlagen oder maps.js fehlt</span>'; return; }
   setup();
   drawSealSection();
+  Art.spritesLoaded(drawSpritesSection);
   var rt = runtimeTest();
   var perf = perfTest();
   window.__artPreview.test = rt;

@@ -226,6 +226,15 @@ async function syncOnce() {
   counts.vox = lib.vox.size;
   for (const file of lib.vox.keys()) await w.copy(path.join(VW, 'assets', file), path.join(OUT, 'assets', file));
 
+  // 3b) Drehsprites (EK1b): Voxelwerk assets/sprites/ (npm run sprites dort) → public/voxel/sprites/ (manifest.json + PNG-Sheets)
+  let spriteCount = 0;
+  const spriteBase = path.join(VW, 'assets', 'sprites');
+  for (const f of await listFiles(spriteBase, (f) => f.endsWith('.png') || f.endsWith('.json'))) {
+    await w.copy(f, path.join(OUT, 'sprites', path.relative(spriteBase, f)));
+    if (f.endsWith('.png')) spriteCount++;
+  }
+  counts.sprites = spriteCount;
+
   // 4) manifest.json + VERSION.json
   const gitDirty = await gitStatus;
   const git = { commit: readCommit(), dirty: gitDirty ?? (await mtimeDirty()), dirtySource: gitDirty === null ? 'mtime' : 'git' };

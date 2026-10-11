@@ -282,6 +282,48 @@ function steps(range) {
   return [a, b];
 }
 
+// ---------------------------------------------------------------------------------------------
+// Drehsprites (EK1b): Manifest <-> PNG-Sheets (Voxelwerk assets/sprites, im Spiel public/voxel/sprites)
+// ---------------------------------------------------------------------------------------------
+const SPRITE_KLASSEN = ['jaeger', 'spaeher', 'korvette', 'frachter', 'fregatte', 'kreuzer', 'linienschiff'];
+const SPRITE_PFLICHT_SETS = ['rom', 'nord', 'rostmeute'];   // das Spiel waehlt je Fraktion eines davon
+const SPRITE_STEPS = 64;                                       // = ROT_STEPS in public/js/art.js
+export async function checkSprites(dir) {
+  const out = [];
+  const err = (m) => out.push({ lvl: 'err', msg: m }), info = (m) => out.push({ lvl: 'info', msg: m });
+  let man;
+  try { man = JSON.parse(await fsp.readFile(path.join(dir, 'manifest.json'), 'utf8')); }
+  catch (e) { err(`${path.relative(ROOT, dir)}/manifest.json fehlt oder ist kein JSON (npm run sprites im Voxelwerk, dann npm run assets)`); return out; }
+  if (man.steps !== SPRITE_STEPS) err(`manifest.steps ${man.steps} != ${SPRITE_STEPS} (ROT_STEPS in art.js)`);
+  const entries = Object.entries(man.sprites || {});
+  const seen = new Set();
+  for (const [key, s] of entries) {
+    const where = `sprite ${key}`;
+    if (key !== `${s.klasse}/${s.set}`) err(`${where}: Schluessel passt nicht zu klasse/set (${s.klasse}/${s.set})`);
+    if (!SPRITE_KLASSEN.includes(s.klasse)) err(`${where}: unbekannte Klasse ${s.klasse}`);
+    if (!s.volk) err(`${where}: volk fehlt`);
+    if (s.steps !== SPRITE_STEPS) err(`${where}: steps ${s.steps} != ${SPRITE_STEPS}`);
+    if (!Array.isArray(s.frame) || s.frame.length !== 2 || !(s.frame[0] > 0) || !(s.frame[1] > 0)) { err(`${where}: frame ungueltig`); continue; }
+    if (!Array.isArray(s.anchor) || s.anchor[0] !== s.frame[0] / 2 || s.anchor[1] !== s.frame[1] / 2) err(`${where}: anchor ${JSON.stringify(s.anchor)} != Rahmenmitte`);
+    if (s.cols * s.rows < s.steps) err(`${where}: cols x rows (${s.cols}x${s.rows}) fasst ${s.steps} Stufen nicht`);
+    if (!(s.lengthPx > 0) || s.lengthPx > s.frame[0]) err(`${where}: lengthPx ${s.lengthPx} passt nicht in den Rahmen ${s.frame[0]}`);
+    if (!Array.isArray(s.heck) || s.heck.length !== 2) err(`${where}: heck fehlt`);
+    seen.add(s.file);
+    const buf = await fsp.readFile(path.join(dir, s.file)).catch(() => null);
+    if (!buf) { err(`${where}: Datei ${s.file} fehlt`); continue; }
+    if (buf.length < 33 || buf.readUInt32BE(0) !== 0x89504e47 || buf.toString('latin1', 12, 16) !== 'IHDR') { err(`${where}: ${s.file} ist kein PNG`); continue; }
+    const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20);
+    if (w !== s.frame[0] * s.cols || h !== s.frame[1] * s.rows) err(`${where}: PNG ${w}x${h} != ${s.frame[0] * s.cols}x${s.frame[1] * s.rows} (frame x cols/rows)`);
+  }
+  for (const k of SPRITE_KLASSEN) for (const set of SPRITE_PFLICHT_SETS) if (!(man.sprites || {})[`${k}/${set}`]) err(`Pflicht-Sprite ${k}/${set} fehlt im Manifest`);
+  const pngs = [];
+  const walk = async (d) => { for (const e of await fsp.readdir(d, { withFileTypes: true }).catch(() => [])) { const f = path.join(d, e.name); if (e.isDirectory()) await walk(f); else if (e.name.endsWith('.png')) pngs.push(path.relative(dir, f).replace(/\\/g, '/')); } };
+  await walk(dir);
+  for (const p of pngs) if (!seen.has(p)) err(`${p}: PNG ohne Manifest-Eintrag`);
+  info(`${entries.length} Sprites, ${pngs.length} PNG, ${SPRITE_STEPS} Stufen`);
+  return out;
+}
+
 async function main() {
   const t0 = performance.now();
   if (!fs.existsSync(path.join(SRC, 'core', 'library.js'))) {
@@ -508,6 +550,15 @@ async function main() {
       console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' streu');
       for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
     }
+  }
+
+  if (!TEAM && !FILTER) {
+    const sl = await checkSprites(USE_VW ? path.join(SRC, 'assets', 'sprites') : path.join(SRC, 'sprites'));
+    const e = sl.filter((l) => l.lvl === 'err').length;
+    errors += e;
+    console.log(`\n== Drehsprites (EK1b: Manifest und PNG-Sheets)`);
+    console.log(' ' + (e ? '✗' : '✓') + ' sprites');
+    for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : '· ') + l.msg);
   }
 
   if (SHOW_MISSING) {

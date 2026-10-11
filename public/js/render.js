@@ -3536,7 +3536,7 @@
       if (e.st === 'treibt') {   // B1 §7: kampfunfähig – ohne Waffen, Ziel, Anflug, Ladung; nur gedimmt mit Hinweis
         if (!inB(s, size)) continue;
         ctx.save(); ctx.globalAlpha = 0.55;
-        if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac: 0, hitT: 99, time: t, tele: null })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, 99);
+        if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac: 0, hitT: 99, time: t, tele: null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, 99);
         ctx.restore();
         if (!front) block(s.x - size, s.y - size, size * 2, size * 2);
         lab('TREIBT · ENTERN', s.x, s.y + size + 6, { color: PAL.amber, align: 'center' }, 2);
@@ -3553,7 +3553,7 @@
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
-      else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
+      else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
       if (clicks && !front) clicks.push({ id: e.id, x: s.x - size - 4, y: s.y - size - 4, w: size * 2 + 8, h: size * 2 + 8 });
