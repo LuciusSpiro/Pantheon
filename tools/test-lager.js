@@ -81,10 +81,10 @@ section('Grundriss: Frachtraum auf Deck II ersetzt Bad und Aussicht', () => {
     ok(Maps.ship.at(b.access.x, b.access.y) === '.' && !Maps.ship.solid(b.access.x, b.access.y), `Bucht ${b.id}: Zugangskachel begehbar`);
     ok(Maps.roomAt(b.x, b.y) && Maps.roomAt(b.x, b.y).id === 'frachtraum', `Bucht ${b.id} liegt im Frachtraum`);
   }
-  ok(Maps.cargoBayAt(23, 27) && !Maps.cargoBayAt(24, 27), 'cargoBayAt');
+  ok(Maps.cargoBayAt(23, 25) && !Maps.cargoBayAt(24, 25), 'cargoBayAt');
   // keine alten Kacheln mehr
   const rows = Maps.SHIP_ROWS.join('');
-  ok(!rows.includes('%') && ![...Maps.SHIP_ROWS.slice(25, 28).join('')].some((ch) => 'os:'.includes(ch)), 'Bad (o), Aussichtsbank (s), Mosaik und Panoramafenster (%) im Frachtraum entfallen');
+  ok(!rows.includes('%') && ![...Maps.SHIP_ROWS.slice(25, 28).map((r) => r.slice(22, 29)).join('')].some((ch) => 'os:'.includes(ch)), 'Bad (o), Aussichtsbank (s), Mosaik und Panoramafenster (%) im Frachtraum entfallen');
   // Wege: jede begehbare Kachel auf Deck II ist von der Liftplattform aus erreichbar (BFS, 4er-Nachbarschaft, Türen begehbar)
   const seen = new Set(); const q = [[26, 18]];
   seen.add('26,18');

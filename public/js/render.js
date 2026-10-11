@@ -1852,6 +1852,7 @@
           if (d.ch === 'L' && zone === 'away') { kind = 'door_locked'; opts.open = doorOpen; }
           else if (kind === 'shelf') { opts.item = shelfItemAt(d.tx, d.ty); opts.count = shelfStock(inv, opts.item); opts.empty = opts.count <= 0; opts.fill = shelfFill(inv, opts.item); }
           if (kind === 'bed') { const bed = bedAt(d.tx, d.ty); opts.color = bed ? bed.color : 0; }
+          if (kind === 'cargo_bay') { const bi = (Maps.CARGO_BAYS || []).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten
           // Mehrkachel-Objekte: Lage explizit übergeben (Art kennt die Nachbarn sonst nicht,
@@ -3445,6 +3446,34 @@
       const ik = sv.kind === 'marks' ? 'ersatzteil' : sv.kind;
       if (!artItem(ctx, ik, s.x, s.y, { time: t })) itemFallback(ctx, sv.kind, s.x, s.y);
       lab('BERGUNG', s.x, s.y + pr + 2, { color: PAL.mint, align: 'center' }, 1);
+    }
+
+    // EK3 Teil A: Fracht im Raum (die Taktik beamt sie an Bord, 3 s halten); beim Halten Strahl und Fortschrittsring an der Fracht
+    {
+      const fr = st.fracht || {};
+      const beamR = ((window.Shared_Config && window.Shared_Config.fracht) || {}).beamRange || 320;
+      for (const f of fr.draussen || []) {
+        if (!visible(f.x, f.y)) continue;
+        const s = toS(f.x, f.y);
+        const txt = f.art === 'sprengstoff' ? 'SPRENGSTOFF' : 'FRACHT';
+        if (!inB(s, -6)) { if (!front || cfg.navArrows !== false) arrow(f.x, f.y, PAL.amber, txt); continue; }
+        const inR = Math.hypot(f.x - ship.x, f.y - ship.y) <= beamR;
+        const holding = fr.halt && fr.halt.kind === 'an' && fr.halt.id === f.id;
+        const pr = 12 + Math.round(1.5 * Math.sin(t * 3));
+        ctx.strokeStyle = inR ? PAL.amber : 'rgba(255,198,107,0.45)'; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+        ctx.beginPath(); ctx.arc(s.x, s.y, pr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = f.art === 'sprengstoff' ? '#9E3B2E' : '#8A6A3A'; ctx.fillRect(s.x - 5, s.y - 4, 10, 8);
+        ctx.fillStyle = '#F2C94C'; ctx.fillRect(s.x - 5, s.y - 1, 10, 2);
+        ctx.fillStyle = '#26313F'; ctx.fillRect(s.x - 5, s.y - 4, 10, 1);
+        if (holding) {
+          const sp = toS(ship.x, ship.y);
+          ctx.strokeStyle = 'rgba(127,224,194,' + (0.5 + 0.3 * Math.sin(t * 14)) + ')'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(sp.x, sp.y); ctx.lineTo(s.x, s.y); ctx.stroke();
+          ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(s.x, s.y, pr + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, fr.halt.p || 0)); ctx.stroke();
+        }
+        lab(txt + (inR ? '' : ' ' + Math.round(Math.hypot(f.x - ship.x, f.y - ship.y))), s.x, s.y + pr + 2, { color: PAL.amber, align: 'center' }, 1);
+      }
     }
 
     // Aufgedeckte versteckte Objekte (Weitscan)

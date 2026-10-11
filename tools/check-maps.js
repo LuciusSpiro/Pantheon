@@ -131,6 +131,22 @@ for (const s of systems) for (const t of stationsOf(s)) {
   }
 }
 
+// ---------- EK3 Teil A: Frachtraum (Deck II) ----------
+{
+  const bays = Maps.CARGO_BAYS || [];
+  const gTiles = []; for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) if (ship.at(x, y) === 'g') gTiles.push(`${x},${y}`);
+  check(bays.length === Maps.CARGO_CAPACITY && bays.length === 2, 'Frachtraum: Kapazität = Anzahl der Buchten (2)');
+  check(gTiles.length === bays.length && bays.every((b) => gTiles.includes(`${b.x},${b.y}`)), 'Frachtraum: Kachel g nur an den Buchten (CARGO_BAYS)');
+  const fr = Maps.SHIP_ROOMS.find((r) => r.id === 'frachtraum');
+  check(!!fr && fr.deck === 1 && fr.sector === -1 && !Maps.SHIP_ROOMS.some((r) => r.id === 'bad' || r.id === 'aussicht'), 'Frachtraum: Raum auf Deck II ohne Sektor, Bad und Aussicht entfallen');
+  for (const b of bays) {
+    const r = Maps.roomAt(b.x, b.y);
+    check(!!r && r.id === 'frachtraum' && ship.solid(b.x, b.y), `Bucht ${b.id} liegt im Frachtraum und ist solide`);
+    check(!ship.solid(b.access.x, b.access.y) && Math.abs(b.access.x - b.x) + Math.abs(b.access.y - b.y) === 1 && Maps.roomAt(b.access.x, b.access.y).id === 'frachtraum', `Bucht ${b.id}: Zugangskachel begehbar und angrenzend`);
+    check(hasAccess(ship, shipSet, b), `Bucht ${b.id} erreichbar (Spieler und Schrauber)`);
+  }
+}
+
 // ---------- M1: Schiff ----------
 check(Maps.SHIP_ROWS.every((r) => r.length === ship.w) && ship.h === Maps.SHIP_ROWS.length, `Schiff ${ship.w}×${ship.h} (aus SHIP_ROWS)`);
 check(Maps.BEDS.length === 4 && Maps.BEDS.map((b) => b.color).sort().join() === '0,1,2,3', '4 Quartiere (Farben 0–3, 3 = Gästequartier)');

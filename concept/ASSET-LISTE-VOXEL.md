@@ -114,8 +114,9 @@ Noch **nicht freigegeben** – Grundlage für `CONTRACT-M4.md` nach Kais Go.
 | C25 | Wandleuchte warm (Variante B31) | 16 | – | licht | anp. `rom/laterne.json` | P1 | S |
 | C26 | Lichtschacht mit Glasboden über dem Reaktor | 4 | Glühen folgt Reaktorzustand | – | neu | P2 | S |
 | C27 | Panoramafenster Steuerbord (zeigt aktuellen Ort) | 4 | – | – | neu | P2 | M |
-| C28 | Becken (Bad) | 16 | – | – | neu | P3 | S |
-| C29 | Aussichtsbank | 16 | – | sitz | neu | P3 | S |
+| C28 | Becken (Bad) | 16 | – | – | entfällt (EK3) | P3 | S |
+| C29 | Aussichtsbank | 16 | – | sitz | entfällt (EK3) | P3 | S |
+| C30 | Frachtbucht (EK3 Teil A, `lerche/furn/cargo_bay`: leer, Sprengstoff, Fracht, ungesichert) | 16 | Ladung aus `snapshot.fracht.lager` | – | fertig | P1 | S |
 
 ## D. Lift und Deckübergänge (6)
 | # | Asset | Stufe | Zustände/Varianten | Anker | Status | Prio | Aufw. |

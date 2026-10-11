@@ -895,10 +895,16 @@ Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
 
 ### Zwei Decks, Lift und Leiter
 - **Deck I – Systemdeck:** Antrieb (links), Lager und Vorraum mit Notleiter, Transferraum mit Pads, Maschinenraum mit Reaktor, Batterien Backbord/Steuerbord, Gang, Brücke (rechts) mit Planungstisch und Lift. Feuer, Lecks und Schäden gibt es nur hier.
-- **Deck II – Privatdeck:** vier Quartiere, Messe mit Shop-Terminal, Lararium, Liftvorraum, großes Atrium, Krankenstation (Kulisse), Bad und Aussichtsraum. Im Gefecht ist man hier sicher.
+- **Deck II – Privatdeck:** vier Quartiere, Messe mit Shop-Terminal, Lararium, Liftvorraum, großes Atrium, Krankenstation (Kulisse) und der **Frachtraum** (EK3, ersetzt Bad und Aussichtsraum). Im Gefecht ist man hier sicher.
 - **Lift** (Brücke ↔ Liftvorraum): Auf die Plattform stellen und **E** tippen. Die Fahrt dauert 1,5 s (bei Notstrom 3 s), bis zu drei Personen fahren mit. In 3D fährt die Kamera senkrecht mit, eine Lichtband-Blende verdeckt den Deckwechsel.
 - **Notleiter** (Vorraum ↔ Atrium, links): **E halten**, 2 s.
 - Es ist immer nur das eigene Deck zu sehen. Mitspieler auf dem anderen Deck erscheinen als Randmarke ↑/↓.
+
+### Frachtraum und Fracht (EK3 Teil A)
+- **Frachtraum** (Deck II, Süd-Ost): zwei Frachtbuchten, jede fasst **eine Ladung** und zeigt sie an (2D und Voxel). Er ist **kein Schiffssystem**: keine Energie, keine Wirkung bei Treffern. Das Regallager (Ersatzteile) bleibt auf Deck I.
+- **Fracht beamen** (Taktik): Fracht im Raum liegt, wo sie fällt (ein zerstörter Transporter, `fracht_abwerfen`), bis die Lerche das System verlässt. Taktik **F** halten lassen: **3 s** (6 s bei beschädigtem Transfer), Reichweite **320** wie das Beamen zu Außenkarten. Ein **Systemtreffer** bricht ab, ein Schildtreffer nicht. Voller Frachtraum (2/2) lehnt eine dritte Ladung ab.
+- **Abliefern** (Taktik **G**, derselbe Halteprozess): beim Auftraggeber (`fracht_abnehmer`), sonst an jeder Station (Hafen, Karawane, Stationen der Sektoren) im Umkreis von 320.
+- Die mitgeführte Ladung steht im **Weltstand** (`schiff.fracht`). Debug: `fracht abwerfen [art] [dx dy]`, `fracht an [art]`, `fracht leer`, `fracht gesichert an|aus`, `fracht abnehmer [ort]`. Details: `CONTRACT-EK3.md`.
 
 ### Außenmissionen in Voxel
 Mit `?render=voxel` erscheinen auch die Plattform B-7, das Wrack „Zaunkönig“ und der Mond Kesh in 3D. Die Plattform schwebt mit Rumpfschürze und Positionslichtern über dem Sternenhimmel. Das Wrack ist dunkel, rostig und nur von flackerndem Notlicht erhellt. Kesh zeigt warmen Sand, mauvefarbene Felsen und schieferblaue Kustoden-Ruinen mit violettem Neon. Deckung ist auf einen Blick lesbar: Halbe Deckung ist niedrig mit heller Oberkante, volle Deckung (Pfeiler) hoch mit dunkler Krone. Bereiche, die das Team gerade nicht sieht, sind abgedunkelt (Nebel des Krieges). Innenwände sind wie im Schiff auf Hüfthöhe geschnitten, damit niemand hinter einer Mauer verschwindet. Tür, Sonde, Bojenkern, Container, dünne Wand, Störrelais, Archivschlüssel, Tor und Tafel zeigen ihren Zustand direkt am Modell.

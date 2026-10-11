@@ -1485,6 +1485,45 @@
       if (d > SCAN_RANGE) return 'Zu weit (' + Math.round(d) + '/' + SCAN_RANGE + ')';
       return null;
     },
+    // EK3 Teil A: Fracht-Leiste oben links in der Taktik-Karte (nur sichtbar, wenn Fracht in der Szene, an Bord oder ein Vorgang läuft).
+    // F beamt die nächste Fracht in Reichweite an Bord (3 s halten, Systemtreffer bricht ab) bzw. bricht ab, G liefert ab.
+    fracht(st) {
+      const ship = st.ship || {}, fr = st.fracht || {};
+      const cap = (window.Shared_Maps && window.Shared_Maps.CARGO_CAPACITY) || 2;
+      const beamR = (CFG.fracht && CFG.fracht.beamRange) || 320;
+      const lager = fr.lager || [], draus = fr.draussen || [], halt = fr.halt || null;
+      const near = draus.filter(f => Math.hypot(f.x - n(ship.x), f.y - n(ship.y)) <= beamR);
+      let beam = null;
+      if (sysDown(ship, 'transfer')) beam = 'Transfer ausgefallen – reparieren';
+      else if (lager.length >= cap) beam = 'Frachtraum voll (' + lager.length + '/' + cap + ') – erst abliefern';
+      else if (!draus.length) beam = 'Keine Fracht in diesem Gebiet';
+      else if (!near.length) beam = 'Keine Fracht in Reichweite (' + beamR + ')';
+      let ab = null;
+      if (sysDown(ship, 'transfer')) ab = 'Transfer ausgefallen – reparieren';
+      else if (!lager.length) ab = 'Keine Fracht an Bord';
+      else if (!fr.ab) ab = fr.abn ? 'Abnehmer: ' + fr.abn + ' – nicht in Reichweite' : 'Hier nimmt keine Station Fracht an';
+      return { fr, cap, lager, draus, halt, beam, ab, show: !!(draus.length || lager.length || halt) };
+    },
+    drawFracht(ctx, view, rect) {
+      const f = this.fracht(view.state);
+      if (!f.show) return;
+      const x = rect.x + 4, y = rect.y + 3, w = 266, h = f.halt ? 40 : 28;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : 'Fracht'));
+      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
+      if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
+      else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
+      const by = y + 13;
+      if (f.halt) {
+        R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
+        R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
+        R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
+      } else {
+        R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
+        R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
+      }
+    },
     drawWeapons(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
@@ -1495,6 +1534,7 @@
         R.drawMiniPlan(ctx, view, rect.x + 4, rect.y + rect.h - amap.h * 3 - 4, { zone: 'away', cell: 3 });
       }
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
+      this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
       const rx = 420, rw = 206;
       let y = 28;
       // ---- Ziel
@@ -2429,6 +2469,8 @@
         }
         case 'weapons':
           if (code === 'KeyT') return press(() => this.cycleTarget(view));
+          if (code === 'KeyF' && this.fracht(view.state).show) return press(() => this.tryButton(/^(Fracht beamen|Beamen abbrechen)/));   // EK3 Teil A
+          if (code === 'KeyG' && this.fracht(view.state).show) return press(() => this.tryButton('Abliefern'));
           if (this.isM3(view)) {
             // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1 Lanze halten, 2/3 Bb/Stb, 4 Bolzen, Leer Batterien
             if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }

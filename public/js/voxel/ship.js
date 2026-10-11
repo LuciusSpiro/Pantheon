@@ -35,6 +35,7 @@ const FURN_ID = {
   barrel: 'lerche/furn/barrel', crate: 'lerche/furn/crate', bed: 'lerche/furn/bed', table: 'lerche/furn/mess_table',
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
   bath: 'lerche/furn/bath', bench: 'lerche/furn/bench', light_shaft: 'lerche/kit/light_shaft', plant: 'lerche/deco/pflanze',
+  cargo_bay: 'lerche/furn/cargo_bay',   // EK3 Teil A: Frachtbucht im Frachtraum (Deck II), Ladung aus snapshot.fracht.lager
 };
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
 const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte: einmal in die Blockmitte
@@ -414,6 +415,10 @@ function buildDynamic(ctx, S) {
       } else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
       else if (kind === 'light_shaft') { const w = (x, y) => A.map.at(x, y) === ch; const conn = (w(o.tx, o.ty - 1) ? 1 : 0) | (w(o.tx + 1, o.ty) ? 2 : 0) | (w(o.tx, o.ty + 1) ? 4 : 0) | (w(o.tx - 1, o.ty) ? 8 : 0); fn = (st) => { const p = reactorPower(st); return { glow: p === 2 ? 0 : p === 3 ? 1 : 2, conn }; }; }
       else if (kind === 'bath') { const first = A.map.at(o.tx - 1, o.ty) !== ch && A.map.at(o.tx, o.ty - 1) !== ch ? 1 : 0; fn = () => ({ spout: first }); }   // ART-D: nur ein Löwenkopf
+      else if (kind === 'cargo_bay') {   // EK3 Teil A: art 0 leer, 1 Sprengstoff, 2 sonstige Fracht; gesichert 0 = ungesichert (AP9)
+        const bi = (M.CARGO_BAYS || []).findIndex((b) => b.x === o.tx && b.y === o.ty);
+        fn = (st) => { const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; return { art: c ? (c === 'sprengstoff' ? 1 : 2) : 0, gesichert: f.g === false ? 0 : 1 }; };
+      }
       else if (kind === 'trophy_niche') fn = (st) => ({ filled: (st.inventory && (+st.inventory.tafel || 0) > 0) || ((st.mission && st.mission.discoveries) || []).length > 0 ? 1 : 0 });
       add(o, id, kind === 'light_shaft' ? '#A9D6E5' : PH_COL.furn, fn);
       continue;

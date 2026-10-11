@@ -231,6 +231,31 @@
       "tags": ["lerche", "furn", "storage"]
     },
     {
+      "id": "lerche/furn/cargo_bay",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [1, 1],
+      "height": 1.2,
+      "facing": "+z",
+      "params": {
+        "art": [0, 2],
+        "gesichert": [0, 1]
+      },
+      "states": {
+        "leer": { "art": 0 },
+        "sprengstoff": { "art": 1 },
+        "fracht": { "art": 2 },
+        "ungesichert": { "art": 1, "gesichert": 0 }
+      },
+      "sockets": {
+        "use": [0, 0, 0.55]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": ["lerche", "furn", "storage", "fracht"]
+    },
+    {
       "id": "lerche/furn/workbench",
       "kind": "model",
       "tier": "detail",

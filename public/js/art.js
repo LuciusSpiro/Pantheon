@@ -2016,6 +2016,25 @@
       case 'bench': spr = cached('m4|bench', 32, 32, function (g) {
         R(g, 3, 12, 26, 9, '#8A5A36'); R(g, 3, 12, 26, 2, '#B07A4C'); R(g, 5, 21, 3, 6, '#5A3824'); R(g, 24, 21, 3, 6, '#5A3824');
       }); break;
+      case 'cargo_bay': {   // EK3 Teil A: Frachtbucht im Frachtraum – Ladeplattform mit Warnrand, darauf die Ladung (o.cargo = { art } | null), Sicherungslicht
+        var ca = o.cargo ? (o.cargo.art === 'sprengstoff' ? 1 : 2) : 0, sec = o.secure === false ? 0 : 1;
+        spr = cached('m4|cargo|' + ca + '|' + sec, 32, 32, function (g) {
+          R(g, 1, 1, 30, 30, '#2C333F'); R(g, 2, 2, 28, 28, '#3A4352');
+          for (var i = 0; i < 28; i += 4) { R(g, 2 + i, 2, 2, 2, '#F2C94C'); R(g, 4 + i, 2, 2, 2, '#1A1E26'); R(g, 2 + i, 28, 2, 2, '#F2C94C'); R(g, 4 + i, 28, 2, 2, '#1A1E26'); }
+          R(g, 1, 1, 30, 1, '#6A7488'); R(g, 1, 1, 1, 30, '#6A7488'); R(g, 30, 1, 1, 30, '#1A1E26'); R(g, 1, 30, 30, 1, '#1A1E26');
+          R(g, 3, 3, 2, 2, '#8A93A6'); R(g, 27, 3, 2, 2, '#8A93A6'); R(g, 3, 27, 2, 2, '#8A93A6'); R(g, 27, 27, 2, 2, '#8A93A6');   // Zurrpfosten
+          if (ca === 1) {   // Sprengstoff: rote Kisten mit Warnband und Flamme
+            R(g, 5, 8, 10, 15, '#9E3B2E'); R(g, 17, 8, 10, 15, '#9E3B2E'); R(g, 5, 8, 10, 2, '#C95A48'); R(g, 17, 8, 10, 2, '#C95A48');
+            R(g, 5, 14, 10, 3, '#F2C94C'); R(g, 17, 14, 10, 3, '#F2C94C'); R(g, 8, 18, 4, 3, '#1A1E26'); R(g, 20, 18, 4, 3, '#1A1E26');
+            R(g, 9, 5, 14, 8, '#B04A38'); R(g, 9, 5, 14, 2, '#D96C58'); R(g, 9, 9, 14, 2, '#F2C94C'); R(g, 15, 6, 2, 1, '#1A1E26');
+          } else if (ca === 2) {   // sonstige Fracht: graubraune Kiste mit Spanngurt
+            R(g, 6, 7, 20, 18, '#8A6A3A'); R(g, 6, 7, 20, 3, '#B08A52'); R(g, 6, 22, 20, 3, '#5A4426'); R(g, 14, 7, 4, 18, '#C9A25A');
+            R(g, 20, 4, 8, 6, '#6B7F96'); R(g, 20, 4, 8, 2, '#92A6BC');
+          }
+          R(g, 14, 29, 4, 2, sec ? '#7FE0C2' : '#E15B4B');   // Sicherungslicht (grün gesichert, rot ungesichert)
+        });
+        break;
+      }
       case 'sideboard': spr = cached('m4|sideboard', 32, 32, function (g) {
         R(g, 2, 6, 28, 22, '#6A4228'); R(g, 2, 6, 28, 3, '#E6DCC6'); R(g, 4, 12, 11, 14, '#7E5232'); R(g, 17, 12, 11, 14, '#7E5232');
         R(g, 13, 18, 2, 2, '#D9A441'); R(g, 17, 18, 2, 2, '#D9A441'); ell(g, 9, 4, 3, 2, '#9E4A36');   // Amphore

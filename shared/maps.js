@@ -42,9 +42,9 @@
     '    #::::::::ww::::::::::::::#       ', // 22
     '    #::::::::::::::::::::::::#       ', // 23
     '    ##D###D####DD#####D###D###       ', // 24
-    '    #,,,#,,,#........#.......#       ', // 25
+    '    #,,,#,,,#........#.g...g.#       ', // 25
     '    #,,,#,,,#........#.......#       ', // 26
-    '    #B,,#B,,#.v.v.v..#.g...g.#       ', // 27
+    '    #B,,#B,,#.v.v.v..#.......#       ', // 27
     '    ##########################       ', // 28
   ];
 
@@ -343,7 +343,7 @@
   ];
   // EK3 Teil A: Frachtbuchten im Frachtraum (Deck II). Kapazität = Anzahl der Buchten; Reihenfolge = Belegungsreihenfolge.
   // Eine Bucht fasst genau eine Ladung. Kein Schiffssystem (keine Energie, keine Treffer-Wirkung).
-  const CARGO_BAYS = [{ id: 'bay0', x: 23, y: 27, access: { x: 23, y: 26 } }, { id: 'bay1', x: 27, y: 27, access: { x: 27, y: 26 } }];
+  const CARGO_BAYS = [{ id: 'bay0', x: 23, y: 25, access: { x: 23, y: 26 } }, { id: 'bay1', x: 27, y: 25, access: { x: 27, y: 26 } }];
   const CARGO_CAPACITY = CARGO_BAYS.length;
   function cargoBayAt(tx, ty) { return CARGO_BAYS.find((b) => b.x === tx && b.y === ty) || null; }
   // Raum einer Kachel (oder null außerhalb aller Räume).

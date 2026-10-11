@@ -1,0 +1,34 @@
+{
+  "id": "lerche/furn/cargo_bay",
+  "name": "Frachtbucht (Lerche, Frachtraum; leer oder mit Ladung)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "ladung"],
+  "footprint": [1, 1],
+  "params": {
+    "art": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Ladung (0 leer, 1 Sprengstoff, 2 sonstige Fracht)" },
+    "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung (1 gesichert, 0 ungesichert, Schnittstelle für AP9)" }
+  },
+  "variants": {
+    "leer": { "art": 0 },
+    "sprengstoff": { "art": 1 },
+    "fracht": { "art": 2 },
+    "ungesichert": { "art": 1, "gesichert": 0 }
+  },
+  "ops": [
+    { "op": "box", "name": "Ladeplattform", "at": [1, 0, 1], "size": [14, 1, 14], "color": { "frame": "metal_light", "fill": "metal_dark", "axes": "xz" } },
+    { "op": "box", "name": "Randmarkierung vorn", "at": [1, 0, 13], "size": [14, 1, 2], "color": { "checker": ["warning", "black"] }, "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Randmarkierung hinten", "at": [1, 0, 1], "size": [14, 1, 1], "color": "warning", "mode": "paint", "jitter": false },
+    { "op": "box", "name": "Zurrpfosten", "at": [1, 1, 1], "size": [1, 5, 1], "color": "metal", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Zurrkopf", "at": [1, 6, 1], "size": [1, 1, 1], "color": "metal_light", "mirror": "xz", "mirrorAt": { "x": 8, "z": 8 } },
+    { "op": "box", "name": "Sicherungslicht", "if": "gesichert", "at": [7, 1, 14], "size": [2, 1, 1], "color": "glow", "jitter": false },
+    { "op": "box", "name": "Sicherungslicht aus", "if": "!gesichert", "at": [7, 1, 14], "size": [2, 1, 1], "color": "warning", "jitter": false },
+    { "op": "use", "name": "Sprengstoff unten links", "if": "art == 1", "model": "rom/kiste", "params": { "w": 6, "h": 7, "d": 12, "lid": 2, "ammo": 1, "light": 0 }, "at": [5, 1, 8] },
+    { "op": "use", "name": "Sprengstoff unten rechts", "if": "art == 1", "model": "rom/kiste", "params": { "w": 6, "h": 7, "d": 12, "lid": 2, "ammo": 1, "light": 0 }, "at": [11, 1, 8] },
+    { "op": "use", "name": "Sprengstoff oben", "if": "art == 1", "model": "rom/kiste", "params": { "w": 10, "h": 5, "d": 9, "lid": 2, "ammo": 1, "light": 1 }, "at": [8, 9, 8] },
+    { "op": "use", "name": "Fracht gross", "if": "art == 2", "model": "rom/kiste", "params": { "w": 12, "h": 10, "d": 11, "lid": 1 }, "at": [8, 1, 8] },
+    { "op": "use", "name": "Fracht klein", "if": "art == 2", "model": "rom/kiste", "params": { "w": 6, "h": 5, "d": 6, "lid": 0, "light": 0 }, "at": [11, 12, 10] },
+    { "op": "box", "name": "Spanngurt", "if": "art > 0", "at": [2, 1, 7], "size": [12, 1, 1], "color": "trim", "mode": "paint", "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

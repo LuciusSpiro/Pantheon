@@ -145,6 +145,13 @@
     PLANNING_STAGES: [0, 1, 2],
     OFFER_FIELDS: ['von', 'ziel', 'dauer_min', 'belohnung', 'erinnerung'],
     OFFER_ORIGINS: ['sl', 'archiv'],
+    // EK3 Teil A (CONTRACT-EK3 §4): Fracht. cmd { c: 'weapons.fracht', id? } startet das Beamen an Bord (3 s Halteprozess), { off: true } bricht ab;
+    // cmd { c: 'weapons.abliefern' } gibt die Ladung beim Abnehmer / an einer Station ab (nur an der Taktik-Konsole).
+    // Ereignis frachtBeamen { phase: 'start'|'abbruch'|'fertig', was: 'an'|'ab', grund?, art?, n? }; frachtAbgeworfen { id, x, y, art }.
+    // Snapshot fracht (nur wenn etwas da ist): { lager: [art], draussen: [{ id, x, y, art }], halt: { kind: 'an'|'ab', id?, p }, ab: 1, abn: Name, g: false }.
+    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern'],
+    FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
+    FRACHT_ARTEN: ['sprengstoff', 'fracht'],
     S2_EVENTS: ['offerIn', 'sceneWait', 'chapter', 'escortHit', 'escortDistress', 'escortDisabled', 'escortArrived', 'escortSaved', 'escortOrder'],
     SL_DEBUG: ['status', 'plan', 'fail', 'archiv'],
     // ---- S1 (CONTRACT-S1 §6): Weltstand, Spielmenü ----
