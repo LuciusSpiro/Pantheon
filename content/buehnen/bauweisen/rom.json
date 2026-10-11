@@ -182,5 +182,10 @@
         "prop/germanen/gemein/werkzeug"
       ]
     }
+  },
+  "weg_boden": {
+    "hinweis": "Außenposten-Siedlung: Wege, Platz und Landefeld (Geländeboden im Sandton)",
+    "top": "sand",
+    "f": 0.92
   }
 }

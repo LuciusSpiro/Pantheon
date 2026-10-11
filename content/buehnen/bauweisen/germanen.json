@@ -332,5 +332,10 @@
         "prop/germanen/gemein/werkzeug"
       ]
     }
+  },
+  "weg_boden": {
+    "hinweis": "Außenposten-Siedlung: Wege, Platz und Landefeld (Geländeboden im Sandton; 'rock' wirkt unter dem warmen Licht wie Sand, 'sand' wird zu gelb)",
+    "top": "rock",
+    "f": 1.15
   }
 }

@@ -868,6 +868,12 @@ async function bauKarte(parent, karteIn, opts) {
   } catch (e) { countErr('kit.leit', e); }
   // Hüllen-Karten (Siedlung): Boden außerhalb der Gebäude wie das Gelände draußen (leichte Abstufungen), Straßen etwas dunkler (Kai 2026-10-11)
   const inBau = new Set();
+  // Wege, Platz und Landefeld (Plätze hof, dorfplatz, landeplatz): Sandton, gleiche Unebenheit wie das übrige Gelände (Kai 2026-10-11)
+  const WEG_TYPEN = { hof: 1, dorfplatz: 1, landeplatz: 1 };
+  const wegSet = new Set();
+  if (huelle) for (const pl of k.plaetze || []) if (WEG_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) wegSet.add(x + ',' + y);
+  const wegBoden = Object.assign({ top: 'sand', f: 0.92 }, BW.weg_boden || {});   // Bauweise.weg_boden: { top: Palettenrolle, f: Helligkeit }
+  const bodenFarbe = (tx, ty) => (wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   for (let ty = 0; ty < k.h; ty++) {
     const d = k.deckOf(ty);
@@ -881,7 +887,7 @@ async function bauKarte(parent, karteIn, opts) {
       try {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
-          placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, f: kind === 'boden2' ? 0.9 : 1, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' });
+          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
         if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
@@ -891,7 +897,7 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
-        if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
+        if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
         else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
