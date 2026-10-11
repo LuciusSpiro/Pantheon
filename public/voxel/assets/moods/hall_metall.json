@@ -1,0 +1,35 @@
+{
+  "id": "hall_metall",
+  "name": "Station metallisch: neutrales, fast weißes Licht, kein Blau- und kein Braunstich (Kai 2026-10-11)",
+  "background": "#1A1A1C",
+  "fog": {
+    "color": "#222326",
+    "near": 2.4,
+    "far": 6
+  },
+  "hemi": {
+    "sky": "#DADAD8",
+    "ground": "#7C7C7E",
+    "intensity": 1.35
+  },
+  "ambient": {
+    "color": "#56565A",
+    "intensity": 0.65
+  },
+  "sun": {
+    "color": "#FFF6EA",
+    "intensity": 1.8,
+    "dir": [
+      -0.25,
+      1,
+      0.35
+    ],
+    "softness": 4
+  },
+  "exposure": 1.35,
+  "bloom": {
+    "strength": 0.6,
+    "radius": 0.5,
+    "threshold": 0.8
+  }
+}

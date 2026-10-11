@@ -360,11 +360,13 @@ const FB = {
   gelaende(pen, p, F) {
     // Außenboden als Terrain (Frost, Schlamm, Sand): Farbe der Bauweisen-Tabelle (top/fill), leichte Streuung, ab und zu ein Stein
     const x = p.x | 0, y = p.y | 0, r = hash2(x, y, 52);
-    const top = mul(F.get(p.top || 'soil'), (0.94 + r * 0.1) * (p.f || 1));
+    const vr = p.var != null ? p.var : 0.1;
+    const top = mul(F.get(p.top || 'soil'), (1 - vr * 0.6 + r * vr) * (p.f || 1));
     const nb = p.nb || [-99, -99, -99, -99], skip = [];
     if (nb[0] >= 0) skip.push('z-'); if (nb[1] >= 0) skip.push('x+'); if (nb[2] >= 0) skip.push('z+'); if (nb[3] >= 0) skip.push('x-');
-    pen.box(-0.5, -1.6, -0.5, 0.5, r < 0.2 ? -0.03 : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
-    if (r > 0.9) {
+    const stufe = p.stufe || [0.2, 0.03];
+    pen.box(-0.5, -(p.dick || 1.6), -0.5, 0.5, r < stufe[0] ? -stufe[1] : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
+    if (r > 0.9 && p.stein !== false) {
       const sx = (hash2(x, y, 54) - 0.5) * 0.5, sz = (hash2(x, y, 55) - 0.5) * 0.5, w = 0.06 + hash2(x, y, 56) * 0.1;
       pen.box(sx - w, 0, sz - w, sx + w, 0.04 + w * 0.6, sz + w, F.get(p.fill || 'soil_dark', 1.25), F.get(p.fill || 'soil_dark'));
     }
@@ -604,6 +606,7 @@ async function bauKarte(parent, karteIn, opts) {
   // Palette: Besitz × Bauweise × Zustand → ID; sonst Bauweisen-Basis (+ _<zustand>, falls vorhanden)
   let paletteId = null;
   try { const jb = D.besitz && D.besitz.je_bauweise && D.besitz.je_bauweise[bw]; if (jb) paletteId = jb[k.zustand] || jb.intakt || null; } catch (e) { /* egal */ }
+  try { const pa = BW.paletten && BW.paletten.art && BW.paletten.art[k.art]; if (pa) paletteId = pa; } catch (e) { /* egal */ }   // Palette je Kartenart schlägt die Besitz-Palette (Station: metallisch, ohne Handelsblau)
   const basis = (BW.paletten && ((BW.paletten.zustand && BW.paletten.zustand[k.zustand]) || BW.paletten.basis)) || null;   // ohne Besitz: Bauweise × Zustand
   // 2) Assets vorladen (mit Zeitlimit; was fehlt, wird Platzhalter)
   const ta = now();
@@ -868,6 +871,9 @@ async function bauKarte(parent, karteIn, opts) {
   } catch (e) { countErr('kit.leit', e); }
   // Hüllen-Karten (Siedlung): Boden außerhalb der Gebäude wie das Gelände draußen (leichte Abstufungen), Straßen etwas dunkler (Kai 2026-10-11)
   const inBau = new Set();
+  // Station: Boden als Fliesen mit leichtem Höhenversatz und Helligkeitsstreuung (wie das Gelände im Dorf, aber Metall), einfarbig je Belag (Kai 2026-10-11)
+  const stationBoden = k.art === 'station' && !k.decks;
+  const stationFliese = (kind, tx, ty) => ({ x: tx, y: ty, top: 'metal', fill: 'metal_dark', f: kind === 'boden2' ? 0.72 : 0.9, dick: 0.3, stein: false, var: 0.16, stufe: [0.38, 0.035], nb: nachbarn(tx, ty) });
   // Wege, Platz und Landefeld (Plätze hof, dorfplatz, landeplatz): Sandton, gleiche Unebenheit wie das übrige Gelände (Kai 2026-10-11)
   const WEG_TYPEN = { hof: 1, dorfplatz: 1, landeplatz: 1 };
   const wegSet = new Set();
@@ -886,6 +892,7 @@ async function bauKarte(parent, karteIn, opts) {
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
           placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
@@ -897,7 +904,8 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
-        if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
+        if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+        else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
         else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }

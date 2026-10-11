@@ -27,7 +27,12 @@
     },
     "pad": {
       "id": "kit/germanen/boden",
-      "belag": 3
+      "belag": 3,
+      "je_art": {
+        "station": {
+          "zustand": 0
+        }
+      }
     },
     "plateau": {
       "id": "kit/germanen/boden",
@@ -45,6 +50,9 @@
         "aussenposten": {
           "id": "prop/germanen/aussenposten/plateau_kante",
           "zustand": 0
+        },
+        "station": {
+          "zustand": 0
         }
       }
     },
@@ -52,6 +60,9 @@
       "id": "kit/germanen/wand",
       "je_art": {
         "aussenposten": {
+          "zustand": 0
+        },
+        "station": {
           "zustand": 0
         }
       }
@@ -61,6 +72,9 @@
       "je_art": {
         "aussenposten": {
           "zustand": 0
+        },
+        "station": {
+          "zustand": 0
         }
       }
     },
@@ -68,6 +82,9 @@
       "id": "kit/germanen/zaun",
       "je_art": {
         "aussenposten": {
+          "zustand": 0
+        },
+        "station": {
           "zustand": 0
         }
       }
@@ -77,6 +94,9 @@
       "je_art": {
         "aussenposten": {
           "zustand": 0
+        },
+        "station": {
+          "zustand": 0
         }
       }
     },
@@ -84,6 +104,9 @@
       "id": "kit/germanen/fenster",
       "je_art": {
         "aussenposten": {
+          "zustand": 0
+        },
+        "station": {
           "zustand": 0
         }
       }
@@ -93,17 +116,28 @@
       "je_art": {
         "aussenposten": {
           "zustand": 0
+        },
+        "station": {
+          "zustand": 0
         }
       }
     },
     "schott": {
-      "id": "kit/germanen/schott"
+      "id": "kit/germanen/schott",
+      "je_art": {
+        "station": {
+          "zustand": 0
+        }
+      }
     },
     "tor": {
       "id": "kit/germanen/tor",
       "breite": 2,
       "je_art": {
         "aussenposten": {
+          "zustand": 0
+        },
+        "station": {
           "zustand": 0
         }
       }
@@ -113,19 +147,35 @@
       "je_art": {
         "aussenposten": {
           "zustand": 0
+        },
+        "station": {
+          "zustand": 0
         }
       }
     },
     "deckung_halb": {
-      "id": "kit/germanen/deckung_halb"
+      "id": "kit/germanen/deckung_halb",
+      "je_art": {
+        "station": {
+          "zustand": 0
+        }
+      }
     },
     "deckung_voll": {
-      "id": "kit/germanen/deckung_voll"
+      "id": "kit/germanen/deckung_voll",
+      "je_art": {
+        "station": {
+          "zustand": 0
+        }
+      }
     },
     "pfeiler": {
       "id": "kit/germanen/pfeiler",
       "je_art": {
         "aussenposten": {
+          "zustand": 0
+        },
+        "station": {
           "zustand": 0
         }
       }
@@ -290,11 +340,14 @@
       "intakt": "nord",
       "verfallen": "nord_verfallen",
       "umkaempft": "nord_umkaempft"
+    },
+    "art": {
+      "station": "station_metall"
     }
   },
   "stimmung": {
     "aussenposten": "outpost_frost",
-    "station": "hall_forge",
+    "station": "hall_metall",
     "schiff": "ship_nord",
     "ruine": "outpost_frost"
   },

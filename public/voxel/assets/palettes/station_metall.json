@@ -1,0 +1,25 @@
+{
+  "id": "station_metall",
+  "name": "Station Germanen metallisch: neutrale Stahltöne ohne Blau und Kupfer, warmweißes Licht, Glut-Schlitze bleiben amber (Kai 2026-10-11)",
+  "extends": "nord",
+  "roles": {
+    "primary": "#8A8F94",
+    "secondary": "#55595D",
+    "trim": "#CFCFC8",
+    "metal": "#80858A",
+    "metal_dark": "#565A5F",
+    "metal_light": "#B7BBBE",
+    "copper": "#8E9296",
+    "copper_dark": "#62666A",
+    "cloth": "#6A6F74",
+    "cloth2": "#D9D9D2",
+    "paving": "#7C7F82",
+    "paving_dark": "#5B5E61",
+    "stone": "#86898B",
+    "stone_dark": "#5C5F61",
+    "stone_light": "#B2B4B5",
+    "dark": "#1B1D20",
+    "glow": { "color": "#E6E2D6", "emit": 1.0 },
+    "rune": { "color": "#E6E2D6", "emit": 1.0 }
+  }
+}

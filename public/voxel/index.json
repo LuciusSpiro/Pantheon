@@ -505,6 +505,7 @@
   "rom_kastell_verfallen",
   "rom_schiff",
   "rostmeute",
+  "station_metall",
   "wrack"
  ],
  "rigs": [
@@ -531,6 +532,7 @@
  ],
  "moods": [
   "hall_forge",
+  "hall_metall",
   "hall_warm",
   "kesh_dusk",
   "outpost_frost",
