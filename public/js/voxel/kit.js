@@ -659,6 +659,9 @@ async function bauKarte(parent, karteIn, opts) {
   const dachEintrag = k.huelle ? kitId('dach') : null;   // Dach nur in Hüllen-Karten und nur, wenn die Bauweise ein Dach-Teil nennt
   if (dachEintrag && dachEintrag.id && inManifest(dachEintrag.id)) want.add(dachEintrag.id);
   for (const a of k.anker) { const id = propId(a.rolle, a.platz); if (id && inManifest(id)) want.add(id); }
+  // Deckung als Props (Bauweise.deckung_props[art][kind] = [Prop-IDs], Kai 2026-10-11): statt der Kit-Teile, Auswahl je Kachel nach Hash
+  const deckProps = (BW.deckung_props && BW.deckung_props[k.art]) || null;
+  if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) if (inManifest(id)) want.add(id);
   if (BW.leit) for (const t of Object.keys(BW.leit)) { const v = BW.leit[t] && (BW.leit[t][k.art] || BW.leit[t]['*']); if (typeof v === 'string' && inManifest(v)) want.add(v); }
   const dekoRegeln = opts.deko === false ? null : D.deko;
   const dekoExtra = D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : [];
@@ -886,6 +889,16 @@ async function bauKarte(parent, karteIn, opts) {
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
         if (leitDeckt.has(tx + ',' + ty)) continue;   // Leitstück steht hier und trägt die Optik
         const conn = connOf(tx, ty), cut = cutOf(tx, ty);
+        if (deckProps && deckProps[kind] && deckProps[kind].length) {
+          const ids = deckProps[kind], id = ids[Math.floor(hash2(tx, ty, 17) * ids.length) % ids.length];
+          const g = assetGeo(id, { seed: hash2(tx, ty, 5) * 4 | 0, zustand: 0, art: k.art });
+          if (g) {
+            const mm = tileMatrix(tx, ty, Math.floor(hash2(tx, ty, 9) * 4) * Math.PI / 2, 0, 0, BODEN_HOEHE[kind] || 0);
+            tmpN.getNormalMatrix(mm);
+            bucketAt(d, tx, k.localY(ty)).addGeo(g, mm, tmpN);
+            continue;
+          }
+        }
         if (kind === 'deckung_halb' || kind === 'deckung_voll' || kind === 'pfeiler') {
           const vertical = (conn & 5) && !(conn & 10);
           placeKit(kind, kitParams(kind, base, { conn, cut: 0 }), tileMatrix(tx, ty, vertical ? Math.PI / 2 : 0), d, tx, ty);

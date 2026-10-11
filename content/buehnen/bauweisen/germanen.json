@@ -43,37 +43,78 @@
       "id": "kit/germanen/kante",
       "je_art": {
         "aussenposten": {
-          "id": "prop/germanen/aussenposten/plateau_kante"
+          "id": "prop/germanen/aussenposten/plateau_kante",
+          "zustand": 0
         }
       }
     },
     "wand": {
-      "id": "kit/germanen/wand"
+      "id": "kit/germanen/wand",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "wand_schwach": {
-      "id": "kit/germanen/wand_schwach"
+      "id": "kit/germanen/wand_schwach",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "zaun": {
-      "id": "kit/germanen/zaun"
+      "id": "kit/germanen/zaun",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "gitter": {
-      "id": "kit/germanen/gitter"
+      "id": "kit/germanen/gitter",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "fenster": {
-      "id": "kit/germanen/fenster"
+      "id": "kit/germanen/fenster",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "tuer": {
-      "id": "kit/germanen/tuer"
+      "id": "kit/germanen/tuer",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "schott": {
       "id": "kit/germanen/schott"
     },
     "tor": {
       "id": "kit/germanen/tor",
-      "breite": 2
+      "breite": 2,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "luke": {
-      "id": "kit/germanen/luke"
+      "id": "kit/germanen/luke",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "deckung_halb": {
       "id": "kit/germanen/deckung_halb"
@@ -82,7 +123,12 @@
       "id": "kit/germanen/deckung_voll"
     },
     "pfeiler": {
-      "id": "kit/germanen/pfeiler"
+      "id": "kit/germanen/pfeiler",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "dach": {
       "id": "kit/germanen/dach"
@@ -213,12 +259,30 @@
     }
   },
   "leit_fuss": {
-    "leit/germanen/aussenposten/kraehenwacht_turm": [2, 2],
-    "leit/germanen/aussenposten/statue_platz": [3, 3],
-    "leit/germanen/station/schmiedeherd": [3, 2],
-    "leit/germanen/station/hochsitz_halle": [3, 2],
-    "leit/germanen/schiff/drachenkopf_bug": [2, 2],
-    "leit/germanen/schiff/ruderbank": [2, 2]
+    "leit/germanen/aussenposten/kraehenwacht_turm": [
+      2,
+      2
+    ],
+    "leit/germanen/aussenposten/statue_platz": [
+      3,
+      3
+    ],
+    "leit/germanen/station/schmiedeherd": [
+      3,
+      2
+    ],
+    "leit/germanen/station/hochsitz_halle": [
+      3,
+      2
+    ],
+    "leit/germanen/schiff/drachenkopf_bug": [
+      2,
+      2
+    ],
+    "leit/germanen/schiff/ruderbank": [
+      2,
+      2
+    ]
   },
   "paletten": {
     "basis": "nord",
@@ -253,5 +317,20 @@
       "licht": "ship_nord"
     }
   },
-  "leit_hinweis": "leit: Platztyp → art → Leitstück (Ankerrolle leit, sonst Platzmitte). Platztypen geprüft gegen die Schablonen: herzstueck (Außenposten alle 3, Station nur kreuz), kontrollraum (Station alle 3), bruecke/batteriedeck (Schiff, leit-Anker gesetzt). thing_stein erscheint über anker.ziel (Außenposten). Alternative für den Platztyp wachturm: kraehenwacht_turm."
+  "leit_hinweis": "leit: Platztyp → art → Leitstück (Ankerrolle leit, sonst Platzmitte). Platztypen geprüft gegen die Schablonen: herzstueck (Außenposten alle 3, Station nur kreuz), kontrollraum (Station alle 3), bruecke/batteriedeck (Schiff, leit-Anker gesetzt). thing_stein erscheint über anker.ziel (Außenposten). Alternative für den Platztyp wachturm: kraehenwacht_turm.",
+  "deckung_props": {
+    "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
+    "aussenposten": {
+      "deckung_halb": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/fass"
+      ],
+      "deckung_voll": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ]
+    }
+  }
 }

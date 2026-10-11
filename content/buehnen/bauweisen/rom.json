@@ -33,17 +33,80 @@
       "id": "kit/rom/boden",
       "belag": 1
     },
-    "kante": "kit/rom/kante",
-    "wand": "kit/rom/wand",
-    "wand_schwach": "kit/rom/wand_schwach",
-    "zaun": "kit/rom/zaun",
-    "gitter": "kit/rom/gitter",
-    "tuer": "kit/rom/tuer",
-    "tor": "kit/rom/tor",
-    "luke": "kit/rom/luke",
+    "kante": {
+      "id": "kit/rom/kante",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "wand": {
+      "id": "kit/rom/wand",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "wand_schwach": {
+      "id": "kit/rom/wand_schwach",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "zaun": {
+      "id": "kit/rom/zaun",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "gitter": {
+      "id": "kit/rom/gitter",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "tuer": {
+      "id": "kit/rom/tuer",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "tor": {
+      "id": "kit/rom/tor",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "luke": {
+      "id": "kit/rom/luke",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
     "deckung_halb": "kit/rom/deckung_halb",
     "deckung_voll": "kit/rom/deckung_voll",
-    "pfeiler": "kit/rom/pfeiler",
+    "pfeiler": {
+      "id": "kit/rom/pfeiler",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
     "dach": "kit/rom/dach",
     "truemmer": "kit/rom/truemmer",
     "schutt": {
@@ -90,13 +153,34 @@
     }
   },
   "leit_fuss": {
-    "leit/rom/ruine/fahnenheiligtum": [2, 2],
-    "leit/rom/aussenposten/statue_platz": [3, 3]
+    "leit/rom/ruine/fahnenheiligtum": [
+      2,
+      2
+    ],
+    "leit/rom/aussenposten/statue_platz": [
+      3,
+      3
+    ]
   },
   "paletten": {
     "basis": "rom_kastell"
   },
   "stimmung": {
     "ruine": "ruin_rom"
+  },
+  "deckung_props": {
+    "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
+    "aussenposten": {
+      "deckung_halb": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/fass"
+      ],
+      "deckung_voll": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ]
+    }
   }
 }
