@@ -242,12 +242,12 @@ function main() {
     g.debugGoto('castra_martis', true);
     t.run(1);
     const r1 = t.events('radio').filter((e) => /Wolfstor ist offen/.test(e.text)).pop();
-    ok(r1 && r1.from === 'Mars' && r1.bild === 'mars', 'Funk: Mars mit Symbol (bild mars)');
+    ok(r1 && r1.from === 'Mars' && r1.pid === 'mars', 'Funk: Mars mit Symbol (pid mars)');
     t.run(9);
     const r2 = t.events('radio').filter((e) => /Streich bei der Methalle/.test(e.text)).pop();
-    ok(r2 && /Legat Marcus Severus/.test(r2.from) && r2.bild === 'legat', 'Funk: Legat mit Porträt (bild legat), erster Funkspruch');
+    ok(r2 && /Legat Marcus Severus/.test(r2.from) && r2.pid === 'legat', 'Funk: Legat mit Porträt (pid legat), erster Funkspruch');
     const snap = g.snapshot();
-    ok(snap.mission.radio && snap.mission.radio.bild === 'legat' && snap.mission.radio.needsAccept === true, 'Snapshot mission.radio trägt bild und needsAccept (Annahme am Captain)');
+    ok(snap.mission.radio && snap.mission.radio.pid === 'legat' && snap.mission.radio.needsAccept === true, 'Snapshot mission.radio trägt pid und needsAccept (Annahme am Captain)');
     m.accept(); t.run(0.2);
     ok(aktiv(g) === 'k6_orbit' && g.weltstand.data.npc.legat.gedaechtnis.length === 1, 'Annahme des Legaten: Kapitel 6, Gedächtnis-Eintrag erster_funkspruch');
     // Briefings im Missionsbuch (Statio Limitis und Castra Martis)
