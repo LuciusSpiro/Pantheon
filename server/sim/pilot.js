@@ -1,7 +1,7 @@
 'use strict';
 // Gegner-KI als Pilot (CONTRACT-M3B §3). Pilot.update erzeugt nur die Eingabe { stage, rudder } – die Bewegung macht
 // Flight.stepBody (shared/flight.js), dieselbe Physik wie bei der Lerche. Deterministisch, Zufall nur über game.rng.
-//  - Korvette: Stationshalten querab der Lerche (Bezugssystem der Lerche, mit Vorhalt), Seitenwechsel auf ¾
+//  - Korvette, Fregatte, Kreuzer (EK1b, Klassenparameter pilotKlasse): Stationshalten querab der Lerche (Bezugssystem der Lerche, mit Vorhalt), Seitenwechsel auf ¾
 //  - Jäger: approach (Voll, Vorhaltepunkt + seitlicher Versatz) -> overshoot (Ruder 0) -> turn (Wende langsam) -> …
 //  - Pylon: Turm (maxSpeed 0). Relais und Wächter bleiben kinematisch (space.js, alte Logik).
 //  - Alle: Randvermeidung, Mindestabstand, Stuck-Timer, Rückzug auf Voll.
@@ -9,10 +9,14 @@
 const Flight = require('../../shared/flight.js');
 const Physics = require('../../shared/physics.js');
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage (Freigabe Studioleitung: nur avoid/keepApart)
+const Schilde = require('../../shared/schilde.js');   // EK1b: Segment, das der Lerche zugewandt ist
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-const FLYING = ['korvette', 'raider', 'pylon'];   // Relais und Wächter: kinematisch (Schritt A)
+// EK1b: Breitseiten-Schiffe fahren dieselbe KI (breitseite) mit Klassenparametern (spaceM3b.pilotKlasse), keine Funktion je Klasse
+const BREITSEITE = ['korvette', 'fregatte', 'kreuzer'];
+const isBreitseite = (kind) => BREITSEITE.includes(kind);
+const FLYING = [...BREITSEITE, 'raider', 'pylon'];   // Relais und Wächter: kinematisch (Schritt A)
 const EDGE_MARGIN = 140;   // px: so weit vom Rand soll die Vorausschau bleiben
 const EDGE_STRIP = 100;    // px: Randstreifen für den Stuck-Timer (vgl. test-flight)
 
@@ -20,6 +24,10 @@ function M3B(game) { return game.C.spaceM3b || {}; }
 function P(game) {
   return Object.assign({ kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
     raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 }, M3B(game).pilot || {});
+}
+// Klassenparameter der Breitseiten-KI: range (Soll-Abstand, Vorgabe pilot.korvetteRange), switchCd (s zwischen Seitenwechseln)
+function klasse(game, kind) {
+  return Object.assign({ range: P(game).korvetteRange, switchCd: 12 }, (M3B(game).pilotKlasse || {})[kind]);
 }
 function shipClass(game, kind) { const SC = game.C.shipClasses; return SC ? SC[kind] || null : null; }
 
@@ -78,9 +86,9 @@ function ensure(game, e) {
   if (e.vy == null) e.vy = 0;
   if (e.turnVel == null) e.turnVel = 0;
   if (e.stage == null) e.stage = c ? Flight.stopStage(c) : 0;
-  e.pstate = e.pstate || (e.kind === 'raider' ? 'approach' : e.kind === 'korvette' ? 'station' : null);
+  e.pstate = e.pstate || (e.kind === 'raider' ? 'approach' : isBreitseite(e.kind) ? 'station' : null);
   e.pT = 0; e.stuckT = 0; e.edgeT = 0;
-  if (e.kind === 'korvette' && !e.side) e.side = game.rng.chance(0.5) ? 1 : -1;
+  if (isBreitseite(e.kind) && !e.side) e.side = game.rng.chance(0.5) ? 1 : -1;
 }
 
 // Anfangstempo beim Spawn (§7): Korvette auf ½, Jäger auf Voll, Blick wie gespawnt
@@ -89,7 +97,7 @@ function initSpawn(game, e) {
   if (!c) return;
   ensure(game, e);
   let stage = Flight.stopStage(c);
-  if (e.kind === 'korvette') stage = Flight.agileStage(c);
+  if (isBreitseite(e.kind)) stage = Flight.agileStage(c);
   else if (e.kind === 'raider') stage = c.stages.length - 1;
   e.stage = stage;
   const v = Math.max(c.minSpeed || 0, Flight.stageSpeed(c, stage));
@@ -99,7 +107,7 @@ function initSpawn(game, e) {
     if (mayApproach(game, e)) startApproach(game, e);
     else { setState(e, 'turn'); newPass(game, e); }
   }
-  if (e.kind === 'korvette') {
+  if (isBreitseite(e.kind)) {
     const L = targetOf(game, e);
     const rel = norm(Math.atan2(e.y - L.y, e.x - L.x) - L.angle);
     e.side = rel >= 0 ? 1 : -1;
@@ -144,12 +152,14 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
   return { x: ox + nx / nd * (clear + 60), y: oy + ny / nd * (clear + 60) };
 }
 
-// ---------- Korvette: Stationshalten im Bezugssystem der Lerche ----------
-function korvette(game, e, c, dt) {
-  const p = P(game); const L = targetOf(game, e);
+// EK1b: Bestückungs-Art einer Seite (1 Steuerbord, 3 Backbord): 'bolzen', wenn nur Bolzen-Plätze dort sitzen, sonst 'stark' (Lanze oder Batterie),
+// null ohne Bestückung. Plätze nach Vorzeichen des Bogens (facing > 0 = Steuerbord).
+// ---------- Breitseite (Korvette, Fregatte, Kreuzer): Stationshalten im Bezugssystem der Lerche ----------
+function breitseite(game, e, c, dt) {
+  const p = P(game); const L = targetOf(game, e); const K = klasse(game, e.kind);
   // W2 AP3b (Freigabe Studioleitung): Abstand höchstens wirksame Breitseitenreichweite − 40 (im Nebel kürzer, wie bei der Lerche)
-  const bs = Math.max(0, ...((game.C.enemyWeapons && game.C.enemyWeapons.korvette) || []).map((w) => w.range || 0));
-  const R = bs > 0 && typeof game.waffenReichweite === 'function' ? Math.min(p.korvetteRange, game.waffenReichweite(bs) - 40) : p.korvetteRange;
+  const bs = Math.max(0, ...((game.C.enemyWeapons && game.C.enemyWeapons[e.kind]) || []).map((w) => w.range || 0));
+  const R = bs > 0 && typeof game.waffenReichweite === 'function' ? Math.min(K.range, game.waffenReichweite(bs) - 40) : K.range;
   const lead = p.lead;
   const tv = Math.hypot(L.vx, L.vy);
   const base = tv > 15 ? Math.atan2(L.vy, L.vx) : L.angle;   // Bezugsrichtung: Fahrtrichtung, sonst Bug
@@ -162,7 +172,12 @@ function korvette(game, e, c, dt) {
     // Seitenwechsel 1: der Breitseitensektor zur Lerche ist schwach (≤ 1), die andere Seite deutlich stärker
     const sec = Physics.sectorOf(e.x, e.y, e.angle, L.x, L.y);
     const other = sec === 1 ? 3 : sec === 3 ? 1 : null;
-    const weak = other != null && e.shields && e.shields[sec] <= 1 && e.shields[other] >= e.shields[sec] + 2;
+    // EK1b: verglichen wird das Segment, das der Lerche zugewandt ist, mit dem stärksten Segment der Gegenseite (Korvette: ein Segment je Seite)
+    const lay = Schilde.layout(game.C, e.kind);
+    const segI = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, L.x, L.y) : sec;
+    const mine = e.shields ? e.shields[segI] : 0;
+    const theirs = e.shields && other != null ? (lay ? Schilde.seitenMax(lay, e.shields, other) : e.shields[other]) : 0;
+    const weak = other != null && e.shields && mine <= 1 && theirs >= mine + 2;
     // Seitenwechsel 2: die Lerche liegt lange vor dem Bug oder hinter dem Heck (keine Breitseite möglich)
     // (nur in der Nähe des Sollpunkts – auf dem Weg dorthin liegt die Lerche natürlich oft vorn)
     const sa = base + e.side * Math.PI / 2;
@@ -172,7 +187,7 @@ function korvette(game, e, c, dt) {
     if (e.switchCd <= 0 && ((weak && nearSt) || e.offBeamT > 6)) {
       // vor oder hinter der Lerche herum – je nachdem, wohin der Bug der Korvette zeigt (keine Wende über die Lerche)
       e.crossFront = Math.cos(norm(e.angle - base)) >= 0;
-      e.side = -e.side; e.offBeamT = 0; e.switchCd = 12;
+      e.side = -e.side; e.offBeamT = 0; e.switchCd = K.switchCd;
       setState(e, 'cross');
     }
   }
@@ -211,7 +226,7 @@ function korvette(game, e, c, dt) {
   // Lerche (fast) im Stand, Boot nah am Sollpunkt: quer liegen bleiben (Bug parallel oder antiparallel – beides ist
   // Breitseite) und nur mit ¼ / Stopp / Rückwärts nachrücken, statt Kreise zu fahren
   // (W2: nur, solange die Lerche in Reichweite der Breitseite liegt – sonst nachrücken statt außer Reichweite liegen bleiben)
-  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= p.korvetteRange || d <= R + 40)) {
+  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= K.range || d <= R + 40)) {
     const hd = Math.cos(norm(base - e.angle)) >= 0 ? base : norm(base + Math.PI);
     const along = ex * Math.cos(e.angle) + ey * Math.sin(e.angle);
     const stage = along > 40 ? stageNear(c, 0.25) : along < -40 ? 0 : Flight.stopStage(c);
@@ -399,7 +414,7 @@ function update(game, e, dt) {
     cmd = { stage: c.stages.length - 1, head: Math.atan2(e.y - L.y, e.x - L.x) };
   } else {
     if (e.pstate === 'retreat') setState(e, e.preRetreat === 'station' || e.preRetreat === 'cross' ? 'station' : 'turn');
-    cmd = e.kind === 'korvette' ? korvette(game, e, c, dt) : raider(game, e, c);
+    cmd = isBreitseite(e.kind) ? breitseite(game, e, c, dt) : raider(game, e, c);
   }
   // Stuck-Timer: zu lange im Randstreifen -> einige Sekunden hart zur Mitte
   const inStrip = e.x < EDGE_STRIP || e.y < EDGE_STRIP || e.x > sp.w - EDGE_STRIP || e.y > sp.h - EDGE_STRIP;
@@ -470,5 +485,5 @@ function snapState(e) {
   return e.pstate === 'cross' ? 'station' : e.pstate;
 }
 
-module.exports = { update, fly, flies, active, ensure, initSpawn, snapState, rudderFor, FLYING,
+module.exports = { update, fly, flies, active, ensure, initSpawn, snapState, rudderFor, FLYING, BREITSEITE, isBreitseite,
   targetOf, escort, avoid, stageFor };   // S2 §5 (SCHUETZLING)

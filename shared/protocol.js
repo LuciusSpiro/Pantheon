@@ -81,6 +81,8 @@
     //     (Client: kit bzw. ID-Präfix). role (KI-Rolle pin/flank/retreat/aufrichten …, ≠ ro) nur mit CONFIG.debug.snapKiRolle
     //     (Bots, Debug-Overlay per `tune debug.snapKiRolle on`). Nicht-v2-Karten (Plattform, Wrack): revealed und alive wie bisher.
     //   Grenze: CONFIG.net.snapMax (20 480 B, bis 2026-10-10 13 312 B), Worst Case ≤ snapMax − snapLuft (tools/snap-mess.js, npm run snap:mess).
+    // EK1b (Raumgegner, CONTRACT-EK1 §5): space.enemies[].shieldsMax entfällt, shields fehlt bei vollen Schilden (Leser: Shared_Schilde.fuellen); shields ist flach
+    //   über die Schildsegmente (Bug, Steuerbord vorn→hinten, Heck, Backbord vorn→hinten); weapons[] trägt bei Klassen mit Waffenplätzen nur { platz, typ }.
     // W2 AP6 (E6): away.npcs[] ersetzt away.npc. Je Person auf der aktiven Außenkarte (auf der Karte oder gerettet):
     //   { id, name, x, y, dir?, following?, injured?, rescued? } – id = Kennung aus spawn_person bzw. 'ivo' (Name 'Ivo');
     //   dir fehlt = 'down', following fehlt = null (sonst Spieler-ID), injured/rescued fehlen = false. Gerettete stehen nicht
@@ -216,7 +218,7 @@
     BOOK_KINDS: ['mission', 'nebenauftrag', 'hinweis'],
     BOOK_STATES: ['angeboten', 'aktiv', 'erledigt'],
     // M3a §20.2: teleMiss { id, dodged: true } – Ladung endete ≤ spaceM3.dodgeWindow s nach einem Ausweichen
-    ENEMY_KINDS: ['raider', 'korvette', 'relay', 'sentinel', 'pylon'],
+    ENEMY_KINDS: ['raider', 'korvette', 'relay', 'sentinel', 'pylon', 'fregatte', 'kreuzer'],   // EK1b: Fregatte, Kreuzer hinten angehängt (Reihenfolge ist Protokoll)
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound

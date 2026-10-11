@@ -11,6 +11,7 @@ const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlin
 const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähiges Feindschiff; Stub -> wie bisher
 const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
+const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -32,7 +33,7 @@ const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thruster_port', 'thruster_stbd',
   'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
 const SECTOR_LABEL = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
-const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
 
 function M3(game) { return game.C.spaceM3; }
@@ -1314,6 +1315,8 @@ function onTargetScanned(game, t) {
   if (t.type === 'enemy') {
     t.obj.scanned = true;
     const n = { raider: 'Jäger: Bug stark, Heck ungeschützt, eine Kanone vorn.', korvette: 'Korvette: Seiten stark, Bug schwach, Heck ungeschützt – von hinten angreifen. Waffen je Platz im Bogen sichtbar.',
+      fregatte: 'Fregatte: zwei Schildsegmente je Seite, Bug 2, Heck schwach – ein Segment aufbrechen, dort treffen. Je Seitenbereich eine Waffe.',
+      kreuzer: 'Kreuzer: drei Schildsegmente je Seite, Bug 2, Heck schwach – von hinten angreifen. Je Seitenbereich eine Waffe, zwei vorn.',
       sentinel: 'Kustoden-Wächter: rundum geschützt, EMP-Schüsse. Schilde oben halten!', pylon: 'Pylon: nur die Front ist geschützt – Pilot, an die Seite!', relay: 'Störrelais: keine Schilde, keine Waffen.' }[t.obj.kind];
     game.oda('Scan: ' + (n || 'Daten erfasst.'), 'scan_' + t.obj.kind);
     game.missionEvent('enemyScanned', { enemy: t.obj });
@@ -1370,12 +1373,13 @@ function spawnEnemy(game, kind, opts) {
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;
   x = clamp(x, 60, sp.w - 60); y = clamp(y, 60, sp.h - 60);
   if (sp.asteroids.length) { const f = freiVonBrocken(game, x, y, (C.combat.hitRadius && C.combat.hitRadius[kind]) || 18); x = f.x; y = f.y; }   // W2: nicht im Brocken
-  const shields = (C.enemyShields[kind] || [0, 0, 0, 0]).slice();
+  const lay = Schilde.layout(C, kind);   // EK1b: Segmente je Seite (Korvette: ein Segment je Seite = [Bug, Steuerbord, Heck, Backbord])
+  const shields = lay ? lay.max.slice() : [0, 0, 0, 0];
   const e = { id: game.nextId('e'), kind, x, y, angle: o.facing != null ? o.facing : Math.atan2(ship.y - y, ship.x - x), hp, hpMax: hp,
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
-  if (kind === 'korvette') e.waffen = korvetteBestueckung(game, o.waffen);
+  if (hatPlaetze(game, kind)) e.waffen = bestueckung(game, kind, o.waffen);   // EK1: Korvette, EK1b: Fregatte, Kreuzer
   // S2 §5: Spawn-Parameter ziel (lerche | schuetzling | auto | Tag eines Schützlings) -> e.targetId (null = Lerche)
   if (o.ziel != null && o.ziel !== 'lerche') {
     try { e.targetId = Escort.pickTarget(game, o.ziel); } catch (err) { e.targetId = null; if (game.countError) game.countError('escort-ziel', err); }
@@ -1406,12 +1410,15 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   }
   let rest = dmg;
   if (srcX != null && e.shields) {
-    const sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
+    // EK1b: Segment des Treffers (Seite aus dem Winkel, Seitenbereich aus der Längslage – shared/schilde.js); Klassen ohne Segmente: Sektor wie bisher
+    const lay = Schilde.layout(game.C, e.kind);
+    let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
+    if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
     const pierce = (opts && opts.pierce) || 0;
     const absorb = Math.min(Math.max(0, e.shields[sec] - pierce), rest);
     // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Taktik verloren sonst Schaden);
     // gerundet wird nur im Snapshot. EPS fängt Gleitkomma-Reste ab.
-    if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }
+    if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }   // sec = Index des Segments in e.shields (bei 4 Sektoren der Sektor)
     if (rest <= EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
   }
   e.hp -= rest;
@@ -1424,7 +1431,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   game.inventory.marks += C.enemies[e.kind].salvage;
   game.stats.kills++;
   game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
-  game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.kind === 'korvette' || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });
+  game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.waffen || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });
   if (game.ship.target === e.id) game.ship.target = null;
   game.missionEvent('enemyKilled', { enemy: e });
 }
@@ -1434,18 +1441,24 @@ function stationPoint(game) {
   return loc.scene.station || { x: game.space.w / 2, y: game.space.h / 2 };
 }
 
-// EK1: Waffenplätze eines Gegners. Ohne Waffenart (typ) alle, mit typ nur die Plätze mit dieser Bestückung (nur die Korvette
-// hat eine Bestückung je Platz, bei allen anderen Klassen gilt jeder Platz für jede Art).
+// EK1: Waffenplätze eines Gegners. Ohne Waffenart (typ) alle, mit typ nur die Plätze mit dieser Bestückung (nur Klassen mit Plätzen
+// (Korvette, Fregatte, Kreuzer: enemyWeapons[kind][].platz) haben eine Bestückung je Platz, bei allen anderen gilt jeder Platz für jede Art).
 function waffenPlaetze(game, e, typ) {
   const W = game.C.enemyWeapons[e.kind] || [];
   if (!typ || !e.waffen) return W;
   return W.filter((w) => e.waffen[w.platz] === typ);
 }
 function hatWaffe(game, e, typ) { return !e.waffen || waffenPlaetze(game, e, typ).length > 0; }
-function korvetteBestueckung(game, vorgabe) {
+// EK1b: Klasse mit benannten Waffenplätzen (Breitseiten-Schiff: Korvette, Fregatte, Kreuzer)? Eine Regel für alle Klassen, keine Liste im Code.
+function hatPlaetze(game, kind) { const W = game.C.enemyWeapons && game.C.enemyWeapons[kind]; return !!(W && W.length && W[0].platz); }
+// Plätze, deren Bogen die Lerche (oder ein anderes Ziel) trifft, und zwar mit Bestückung typ
+function plaetzeImBogen(game, e, T, typ, range) {
+  return waffenPlaetze(game, e, typ).filter((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, waffenReichweite(game, range != null ? range : w.range), T.x, T.y));
+}
+function bestueckung(game, kind, vorgabe) {
   const arten = game.C.korvetteWaffen || ['lanze', 'batterie', 'bolzen'];
   const w = {};
-  for (const w0 of game.C.enemyWeapons.korvette || []) {
+  for (const w0 of game.C.enemyWeapons[kind] || []) {
     const v = vorgabe && vorgabe[w0.platz];
     w[w0.platz] = arten.includes(v) ? v : arten[game.rng.int(arten.length)];
   }
@@ -1462,7 +1475,7 @@ function updateEnemies(game, dt) {
     const cfg = C.enemies[e.kind];
     // Schild-Regeneration je Sektor
     e.regenT += dt;
-    if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < 4; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
+    if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
     const retreating = e.retreatUntil > game.time;
     if (Pilot.flies(game, e)) {
       // M3b §3: Pilot + gemeinsames Flugmodell
@@ -1472,8 +1485,8 @@ function updateEnemies(game, dt) {
     // W2 AP3b (E4): Brocken gelten für Gegner wie für die Lerche (hinausschieben, Treffer)
     gegnerBrocken(game, e);
     if (!(e.hp > 0) || !sp.enemies.includes(e)) continue;   // am Brocken zerschellt
-    // S2b §2: Sperrfeuer der Korvette (eigener Takt, ruht während einer Ladung)
-    if (e.kind === 'korvette') {
+    // S2b §2: Sperrfeuer der Breitseiten-Schiffe (eigener Takt, ruht während einer Ladung)
+    if (e.waffen) {
       try { updateSperrfeuer(game, e, retreating, dt); }
       catch (err) { if (game.countError) game.countError('sperrfeuer', err); }
     }
@@ -1492,8 +1505,8 @@ function updateEnemies(game, dt) {
     const toShip = Math.atan2(ship.y - e.y, ship.x - e.x);
     // M3a §7.1: Korvette, Pylon, Wächter kündigen an (tele) und treffen am Ende sofort
     const T = M3(game).tele;
-    if (T && T[e.kind] && hatWaffe(game, e, 'lanze')) { updateTele(game, e, d, retreating, dt); if (e.kind !== 'korvette') continue; }
-    if (e.kind === 'korvette') { updateBolzen(game, e, d, toShip, retreating, dt); continue; }   // EK1: Bolzen-Plätze der Korvette
+    if (T && T[e.kind] && hatWaffe(game, e, 'lanze')) { updateTele(game, e, d, retreating, dt); if (!e.waffen) continue; }
+    if (e.waffen) { updateBolzen(game, e, d, toShip, retreating, dt); continue; }   // EK1: Bolzen-Plätze (Korvette, Fregatte, Kreuzer)
     // Schießen (nur wenn das Schiff in einem Feuerbogen liegt)
     e.fireT += dt;
     // QA M3b: im neuen Flugmodell eigenes Feuerintervall und Vorhalt (spaceM3b.pilotFire) – sonst trafen Jäger im kurzen
@@ -1521,8 +1534,14 @@ function updateBolzen(game, e, d, toShip, retreating, dt) {
   if (e.tele || retreating || ship.docked || holdingFire(game)) return;
   if (e.boltT < cfg.fireInterval * crewScale(game).enemyFireInterval || d > waffenReichweite(game, cfg.range) || !enemyCanHit(game, e, null, 'bolzen')) return;
   e.boltT = 0;
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'enemy', x: e.x, y: e.y, angle: toShip, speed: C.combat.enemyShotSpeed,
-    ttl: C.combat.enemyShotTtl, dmg: cfg.damage, owner: e.id });
+  // EK1b: je Bolzen-Platz im Bogen ein Schuss aus der Mündung des Platzes (Plätze ohne Lage pos: aus der Schiffsmitte wie bisher)
+  const W = plaetzeImBogen(game, e, ship, 'bolzen');
+  const quellen = W.length ? W : [null];
+  for (const w of quellen) {
+    const o = w && w.pos != null ? platzPunkt(game, e, w) : { x: e.x, y: e.y };
+    game.space.projectiles.push({ id: game.nextId('pr'), kind: 'enemy', x: o.x, y: o.y, angle: w && w.pos != null ? Math.atan2(ship.y - o.y, ship.x - o.x) : toShip, speed: C.combat.enemyShotSpeed,
+      ttl: C.combat.enemyShotTtl, dmg: cfg.damage, owner: e.id });
+  }
   game.emit('sfx', { name: 'blaster' });
 }
 
@@ -1538,6 +1557,16 @@ function sperrInterval(game, S) {
 }
 function sperrStats(game) {
   return game.stats.sperrfeuer || (game.stats.sperrfeuer = { bursts: 0, shots: 0, hits: 0, hull: 0, shielded: 0, escortHits: 0 });
+}
+// EK1b: Mündung eines Platzes mit Lage (pos entlang der Schiffslänge, quer seitlich versetzt) – Anteil des Klassenradius; Seitenplätze sitzen
+// außen am Rumpf. Plätze ohne pos (Korvette) nutzen weiter sperrMuzzle / die Schiffsmitte.
+function platzPunkt(game, e, w) {
+  const SC = game.C.shipClasses && game.C.shipClasses[e.kind]; const R = (SC && SC.radius) || 32;
+  const c = Math.cos(e.angle), s = Math.sin(e.angle);
+  const f = (w.pos || 0) * R, q = (w.quer || 0) * R;
+  const fa = e.angle + (w.facing || 0) * Math.PI / 180;
+  const ab = Math.abs(w.facing || 0) >= 45 ? Math.max(22, R * 0.62) : 0;
+  return { x: e.x + c * f - s * q + Math.cos(fa) * ab, y: e.y + s * f + c * q + Math.sin(fa) * ab };
 }
 function sperrMuzzle(e, T, W) {
   // Mündung am Batterie-Platz, der zum Ziel zeigt (Winkelabstand zur Platzrichtung am kleinsten); ohne Plätze die Breitseite
@@ -1578,27 +1607,33 @@ function updateSperrfeuer(game, e, retreating, dt) {
   const range = waffenReichweite(game, S.range || cfg.range);   // W2: Nebel
   const W = waffenPlaetze(game, e, 'batterie');   // EK1: nur Plätze mit Batterie
   if (!W.length) return;
-  const inArc = W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, range, T.x, T.y));
+  const imBogen = W.filter((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, range, T.x, T.y));
+  const inArc = imBogen.length > 0;
+  // EK1b: Plätze mit Lage schießen je Platz im Bogen; ohne Lage (Korvette) ein Strom aus sperrMuzzle wie bisher
+  const lage = imBogen.some((w) => w.pos != null);
+  const mund = (w) => (lage ? platzPunkt(game, e, w) : sperrMuzzle(e, T, W));
   if (sf.left > 0) {
     sf.gapT -= dt;
     while (sf.left > 0 && sf.gapT <= 0) {
       sf.gapT += S.burstGap || 0.25;
       const i = sf.n++; sf.left--;
       if (!inArc) continue;   // Ziel aus dem Bogen gedreht: Geschoss entfällt
-      const o = sperrMuzzle(e, T, W);
-      // Kurs-Vorhersage: gezielt wird dorthin, wo das Ziel ist, wenn es Kurs und Tempo hält (Abfangpunkt, höchstens
-      // maxLead s voraus). Ungelenkt und langsam: Kurswechsel, Tempowechsel oder Ausweichen bringen den Stoß vorbei.
-      const ang = sperrAim(o, T, S) + game.rng.range(-(S.spread || 0) / 2, (S.spread || 0) / 2);
-      const p = { id: game.nextId('pr'), kind: 'sperrfeuer', x: o.x, y: o.y, angle: ang, speed: S.speed, ttl: S.ttl, dmg: S.damage, owner: e.id };
-      if (T !== ship) p.tgt = T.id;
-      // Obergrenze (Snapshot-Budget): das älteste Sperrfeuer-Geschoss fällt weg
-      const max = S.maxProjectiles || 0;
-      if (max > 0) {
-        let n = 0; for (const q of sp.projectiles) if (q.kind === 'sperrfeuer') n++;
-        if (n >= max) { const k = sp.projectiles.findIndex((q) => q.kind === 'sperrfeuer'); if (k >= 0) sp.projectiles.splice(k, 1); }
+      for (const w of (lage ? imBogen : [null])) {
+        const o = w ? mund(w) : sperrMuzzle(e, T, W);
+        // Kurs-Vorhersage: gezielt wird dorthin, wo das Ziel ist, wenn es Kurs und Tempo hält (Abfangpunkt, höchstens
+        // maxLead s voraus). Ungelenkt und langsam: Kurswechsel, Tempowechsel oder Ausweichen bringen den Stoß vorbei.
+        const ang = sperrAim(o, T, S) + game.rng.range(-(S.spread || 0) / 2, (S.spread || 0) / 2);
+        const p = { id: game.nextId('pr'), kind: 'sperrfeuer', x: o.x, y: o.y, angle: ang, speed: S.speed, ttl: S.ttl, dmg: S.damage, owner: e.id };
+        if (T !== ship) p.tgt = T.id;
+        // Obergrenze (Snapshot-Budget): das älteste Sperrfeuer-Geschoss fällt weg
+        const max = S.maxProjectiles || 0;
+        if (max > 0) {
+          let n = 0; for (const q of sp.projectiles) if (q.kind === 'sperrfeuer') n++;
+          if (n >= max) { const k = sp.projectiles.findIndex((q) => q.kind === 'sperrfeuer'); if (k >= 0) sp.projectiles.splice(k, 1); }
+        }
+        sp.projectiles.push(p);
+        sperrStats(game).shots++;
       }
-      sp.projectiles.push(p);
-      sperrStats(game).shots++;
     }
     if (sf.left <= 0) { sf.left = 0; sf.t = 0; }
     return;
@@ -1612,7 +1647,7 @@ function updateSperrfeuer(game, e, retreating, dt) {
   if (M3(game).tele && M3(game).tele[e.kind] && hatWaffe(game, e, 'lanze') && e.fireT + burstDur + 0.5 >= teleIv && dist(e.x, e.y, T.x, T.y) <= waffenReichweite(game, cfg.range)) return;
   sf.left = S.burst; sf.n = 0; sf.gapT = 0; sf.t = 0;
   sperrStats(game).bursts++;
-  const o = sperrMuzzle(e, T, W);
+  const o = lage ? platzPunkt(game, e, imBogen[0]) : sperrMuzzle(e, T, W);
   game.emit('sfx', { name: 'sperrfeuer', enemy: e.kind, x: Math.round(o.x), y: Math.round(o.y) });
   game.missionEvent('sperrfeuer', { enemy: e });
 }
@@ -1745,7 +1780,10 @@ function updateTele(game, e, d, retreating, dt) {
       game.space.beams.push({ x1: e.x, y1: e.y, x2: ship.x, y2: ship.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
       game.emit('sfx', { name: 'heavy_hit', enemy: e.kind });
       game.stats.heavyHits = (game.stats.heavyHits || 0) + 1;
-      shipHit(game, sector, t.damage != null ? t.damage : cfg.damage, { heavy: true, emp });
+      // EK1b: weitere Lanze-Plätze im Bogen verstärken die Ladung (waffenMehr.lanzeJeWeitere je Platz); Korvette: nie mehr als einer im Bogen
+      const nL = e.waffen ? Math.max(1, plaetzeImBogen(game, e, ship, 'lanze').length) : 1;
+      const mehr = 1 + ((C.waffenMehr && C.waffenMehr.lanzeJeWeitere) || 0) * (nL - 1);
+      shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, { heavy: true, emp });
     } else {
       game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
       game.emit('teleMiss', { id: e.id });
@@ -1894,6 +1932,7 @@ module.exports = {
   helmThrottle, helmSnapshot, enemySnapExtra, engineSpeedFactor, lercheClass,
   leadAngle,   // QA M3b: Vorhalt der Jäger-Schüsse (spaceM3b.pilotFire)
   crewScale, holdingFire, enemyCanHit, waffenPlaetze,   // S2 §5 (escort.js)
+  updateEnemies, hatPlaetze, plaetzeImBogen,   // EK1b (Tests)
   // W2 AP3b: Nebel und Brocken (gleiche Regeln für Lerche und Gegner)
   nebelFaktor, sensorReichweite, erfassung, waffenReichweite, brocken, brockenStoss, brockenImWeg, brockenStats, makeDriftAsteroids,
 };

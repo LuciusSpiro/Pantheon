@@ -58,9 +58,16 @@
       hidden: [{ id: 'h_relore', kind: 'lore', x: 2300, y: 2100 }] },
     kesh: { w: 2400, h: 1800, start: { x: 1300, y: 900, angle: 0 }, markers: [{ kind: 'moon', x: 1500, y: 900, r: 180, beamRange: 360 }] },
   };
+  function mockWaffen(kind) {
+    const arten = ['lanze', 'batterie', 'bolzen'];
+    return ((CFG.enemyWeapons && CFG.enemyWeapons[kind]) || []).map((w, i) => Object.assign({}, w, { typ: arten[i % 3] }));
+  }
   const ENEMY_DATA = {
     raider: { hp: 12, shields: [2, 1, 0, 1], weapons: [{ facing: 0, arc: 40, range: 400 }] },
     korvette: { hp: 40, shields: [1, 2, 0, 2], weapons: [{ platz: 'bug', typ: 'bolzen', facing: 0, arc: 40, range: 400 }, { platz: 'bb', typ: 'batterie', facing: -90, arc: 90, range: 500 }, { platz: 'stbd', typ: 'lanze', facing: 90, arc: 90, range: 500 }] },
+    // EK1b: Schilde aus der Config (Shared_Schilde.layout), Waffenplätze mit Bestückung reihum (lanze, batterie, bolzen)
+    fregatte: { hp: 90, shields: (CFG.enemySchildSegmente && CFG.enemySchildSegmente.fregatte) ? Shared_Schilde.layout(CFG, 'fregatte').max : [2, 2, 2, 1, 2, 2], weapons: mockWaffen('fregatte') },
+    kreuzer: { hp: 150, shields: (CFG.enemySchildSegmente && CFG.enemySchildSegmente.kreuzer) ? Shared_Schilde.layout(CFG, 'kreuzer').max : [2, 3, 3, 3, 1, 3, 3, 3], weapons: mockWaffen('kreuzer') },
     sentinel: { hp: 30, shields: [3, 3, 3, 3], weapons: [{ facing: 0, arc: 360, range: 260 }] },
     pylon: { hp: 16, shields: [4, 0, 0, 0], weapons: [{ facing: 0, arc: 60, range: 450 }] },
   };
@@ -669,7 +676,8 @@
   // ---------------------------------------------------------------- Befehle
   function targetObj(id) { return W.space.enemies.find(e => e.id === id) || W._hidden.find(h => h.id === id && h.revealed) || null; }
   function damageEnemy(e, dmg, fromX, fromY) {
-    const sec = Phys.sectorOf(e.x, e.y, e.angle, fromX, fromY);
+    const lay = Shared_Schilde.layout(CFG, e.kind);
+    const sec = lay ? Shared_Schilde.segmentOf(lay, e.x, e.y, e.angle, fromX, fromY) : Phys.sectorOf(e.x, e.y, e.angle, fromX, fromY);   // EK1b: Segment
     if (e.shields[sec] > 0) { const take = Math.min(e.shields[sec], dmg); e.shields[sec] -= take; dmg -= take; }
     if (dmg <= 0) return;
     e.hp -= dmg;
@@ -1260,7 +1268,7 @@
     // Gegner
     for (const e of sp.enemies) {
       e._regen += dt;
-      if (e._regen >= 5) { e._regen = 0; for (let i = 0; i < 4; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i]++; }
+      if (e._regen >= 5) { e._regen = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i]++; }
       if (e.kind === 'pylon') { e.vx = 0; e.vy = 0; continue; }
       // M3b §3 (grob): Jäger fliegen Anflug -> Überflug -> Wende mit dem gemeinsamen Flugmodell
       if (e.kind === 'raider' && FLIGHT) {
@@ -1289,7 +1297,7 @@
         continue;
       }
       const ox = e.x, oy = e.y;
-      e.state = e.kind === 'korvette' ? 'station' : undefined;
+      e.state = (e.kind === 'korvette' || e.kind === 'fregatte' || e.kind === 'kreuzer') ? 'station' : undefined;
       if (e.kind === 'sentinel') { const dx = s.x - e.x, dy = s.y - e.y, d = Math.hypot(dx, dy); if (d > 200) { e.x += dx / d * 20 * dt; e.y += dy / d * 20 * dt; } e.angle = Math.atan2(dy, dx); e.vx = (e.x - ox) / dt; e.vy = (e.y - oy) / dt; continue; }
       e._a += dt * 0.3;
       const tx = s.x + Math.cos(e._a) * 260, ty = s.y + Math.sin(e._a) * 260;

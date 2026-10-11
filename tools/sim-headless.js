@@ -732,7 +732,7 @@ class Agent {
     const sh = S.ship;
     const tele = S.space.enemies.filter((e) => e.tele).sort((a, b) => a.tele.left - b.tele.left)[0];
     if (tele) return tele.tele.sector;
-    const danger = (e) => (e.kind === 'korvette' || e.kind === 'pylon' || e.kind === 'sentinel' ? 0 : 250) + dist(e.x, e.y, sh.x, sh.y);
+    const danger = (e) => (['korvette', 'fregatte', 'kreuzer', 'pylon', 'sentinel'].includes(e.kind) ? 0 : 250) + dist(e.x, e.y, sh.x, sh.y);
     const e = S.space.enemies.filter((o) => o.kind !== 'relay').sort((a, b) => danger(a) - danger(b))[0] || this.nearestEnemy(S);
     return e ? Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y) : null;
   }
@@ -1710,7 +1710,7 @@ async function runArena(opts) {
   let S = game.snapshot();
   const waves = []; let cur = null;
   let prevHull = game.ship.hull, hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
-  const gbArcs = CONFIG.enemyWeapons.korvette || [];
+  const gbArcs = (kind) => CONFIG.enemyWeapons[kind] || [];   // EK1b: Breitseiten-Schiffe (Korvette, Fregatte, Kreuzer)
   const bs = { gbTicks: 0, gbBroadside: 0 };
   while (game.time < opts.maxSec) {
     game.step(); ticks++;
@@ -1722,9 +1722,9 @@ async function runArena(opts) {
     const sh = game.ship;
     for (const e of game.space.enemies) {
       kindById[e.id] = e.kind;
-      if (e.kind !== 'korvette') continue;
+      if (!['korvette', 'fregatte', 'kreuzer'].includes(e.kind)) continue;
       bs.gbTicks++;
-      if (gbArcs.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, sh.x, sh.y))) bs.gbBroadside++;
+      if (gbArcs(e.kind).some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, sh.x, sh.y))) bs.gbBroadside++;
     }
     const A = game.arena;
     if (!A) break;
@@ -1849,6 +1849,8 @@ async function arenaMain() {
   const pilots = !PILOT || PILOT === 'both' ? ['nose', 'maneuver'] : [PILOT];
   const nSeeds = Number(argVal('--seeds', 10));
   const players = Number(argVal('--players', 3));
+  // EK1b: --wellen-def "fregatte;korvette,raider" ersetzt CONFIG.arena.waves (Wellen mit ; trennen, Arten mit ,)
+  if (argVal('--wellen-def', null)) CONFIG.arena.waves = argVal('--wellen-def').split(';').map((w) => w.split(',').map((k) => k.trim()).filter(Boolean));
   const nWaves = Number(argVal('--waves', CONFIG.arena.waves.length));
   const maxSec = Number(argVal('--max', 1500));
   const waveLimit = Number(argVal('--wave-limit', 180));

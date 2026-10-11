@@ -943,7 +943,12 @@
     shieldText(e) {
       const s = e.shields || [], m = e.shieldsMax || [];
       const nm = ['Bug', 'Stb', 'Heck', 'Bb'];
-      return 'Schild ' + nm.map((x, i) => x + ' ' + n(s[i]) + (n(m[i]) && n(m[i]) !== n(s[i]) ? '/' + n(m[i]) : '')).join(' ');
+      const val = (i) => n(s[i]) + (n(m[i]) && n(m[i]) !== n(s[i]) ? '/' + n(m[i]) : '');
+      // EK1b: Seiten mit mehreren Segmenten (Fregatte, Kreuzer): aktuelle Werte von vorn nach hinten, mit Punkt getrennt (Stb 2·1); ohne Höchstwerte
+      // und ohne Beschriftung „Schild“, damit es in eine Zeile passt (Höchstwert je Seite steht in der Klassentabelle)
+      const lay = window.Shared_Schilde && window.Shared_Schilde.layout(CFG, e.kind);
+      if (lay && lay.n > 4) return nm.map((x, side) => x + ' ' + lay.seiten[side].map((i) => n(s[i])).join('·')).join(' ');
+      return 'Schild ' + nm.map((x, i) => x + ' ' + val(i)).join(' ');
     },
     setScan(view, on) {
       if (this.scanOn === on) return;
