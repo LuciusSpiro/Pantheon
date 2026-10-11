@@ -728,7 +728,7 @@ async function w1Tests(T) {
     const verf = Object.values(katalog.molekuele).flatMap((m) => m.umsetzungen.filter((u) => u.status === 'verfuegbar').map((u) => ({ key: `${m.id}/${u.id}`, u })));
     const zeilen = verf.map((x) => (kurz.match(new RegExp(`^- ${x.key.replace('/', '\\/')} – `, 'gm')) || []).length);
     const prosa = verf.filter((x) => x.u.beschreibung && kurz.includes(x.u.beschreibung.slice(0, 40))).map((x) => x.key);
-    const res = { jeEineZeile: zeilen.every((n) => n === 1), ohneProsa: !prosa.length, ohneGeplant: !/Noch nicht spielbar/.test(kurz), minus40: kurz.length <= Math.floor(19768 * 0.6),
+    const res = { jeEineZeile: zeilen.every((n) => n === 1), ohneProsa: !prosa.length, ohneGeplant: !/Noch nicht spielbar/.test(kurz), minus40: kurz.length <= Math.floor(K.fuerSpielleiter(katalog, 'voll').length * 0.6),   // EK: gegen die volle Fassung des aktuellen Katalogs (er wächst mit jeder Umsetzung)
       vollUnveraendert: /Noch nicht spielbar/.test(K.fuerSpielleiter(katalog, 'voll')) };
     check(T15, 'Katalog-Kurzfassung: eine Zeile je Umsetzung, ohne Prosa, −40 %', Object.values(res).every(Boolean), `${JSON.stringify(res)}; ${kurz.length} Zeichen; Prosa: ${prosa.join(', ') || '–'}`);
   });
