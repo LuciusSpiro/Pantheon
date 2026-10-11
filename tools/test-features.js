@@ -9,6 +9,8 @@ const { Game } = require('../server/game.js');
 const generator = require('../server/mission/generator.js');
 const Schema = require('../shared/schema.js');
 const interior = require('../server/sim/interior.js');
+const Schilde = require('../shared/schilde.js');
+const CONFIG_F = require('../shared/config.js');
 
 const W = require('../server/world.js');
 
@@ -233,7 +235,8 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   ok(ids.slice(0, 3).join() === 'bow,port,stbd' && !ids.includes('bolzen') && !ids.some((x) => /^phase_/.test(x)), 'Start: Lanze + 2 Batterien (bow/port/stbd), kein Bolzenwerfer – ' + ids.join());
   ok(snap0.ship.mounts[1].facing === -90 && snap0.ship.mounts[1].arc === 70 && snap0.ship.mounts[0].arc === 16, 'Bögen: Bb −90°/70°, Lanze 16°');
   const se = snap0.space.enemies[0];
-  ok(se.shields.join() === '1,2,0,2' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot, Waffen erst nach Scan');
+  // EK1b: Snapshot kompakt – volle Schilde fehlen (= Standard), shieldsMax kommt aus der Config (Leser: Schilde.fuellen)
+  ok(!('shields' in se) && !('shieldsMax' in se) && Schilde.fuellen(Object.assign({}, se), CONFIG_F).shields.join() === '1,2,0,2' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot (voll = fehlt, Standard aus der Config), Waffen erst nach Scan');
   enter(0, 'weapons');
   cmd(0, 'weapons.target', { id: e.id });
   // §20.4: kein hold mehr – Batterien feuern nur auf Befehl; stbd leer, damit 'both' nur Bb feuert
@@ -517,7 +520,7 @@ console.log('\n[Missions-Engine, Mission 2, Ende M1, Snapshot]');
   for (const k of ['dockedAt', 'reactor', 'markers', 'tscan', 'widescan', 'mounts', 'npcs']) ok(k in s.ship, 'Snapshot ship.' + k);
   ok(['state', 'output', 'used', 'overloadLeft', 'switches', 'restartProgress'].every((k) => k in s.ship.reactor), 'ship.reactor laut §6');
   ok(['active', 'list', 'discoveries'].every((k) => k in s.mission) && s.mission.active.id === 'm2', 'mission.active/list/discoveries');
-  ok(s.space.enemies[0].shieldsMax.length === 4 && 'hidden' in s.space, 'space.enemies.shieldsMax, space.hidden');
+  ok(Schilde.fuellen(Object.assign({}, s.space.enemies[0]), CONFIG_F).shieldsMax.length === 4 && 'hidden' in s.space, 'space.enemies.shieldsMax (Standard aus der Config), space.hidden');
   ok(['map', 'salvage', 'hollow'].every((k) => k in s.away), 'away.map/salvage/hollow');
   enter(0, 'captain');
   cmd(0, 'captain.scan', { on: true });

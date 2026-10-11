@@ -17,7 +17,7 @@ const away = require('./away.js');
 
 const TAG = 'arena';
 const KINDS = ['arena_space', 'arena_away'];
-const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 
 function isArena(kind) { return KINDS.includes(kind); }
 function cfg(game) { return game.C.arena; }

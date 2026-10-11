@@ -3030,6 +3030,15 @@
       drawTele(ctx, x, y, { left: o.tele.left, dur: o.tele.dur, kind: o.tele.kind, r: TELE_R[kind] || 20, time: o.time });
     }
     if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }   // M1
+    // EK1b: Fregatte und Kreuzer zeichnen vorläufig das Korvetten-Sprite größer (Platzhalter bis zu den Drehsprites des Teams SPRITES)
+    if (kind === 'fregatte' || kind === 'kreuzer') {
+      var sk = kind === 'fregatte' ? 1.4 : 1.8;
+      ctx.save(); ctx.translate(x, y); ctx.scale(sk, sk);
+      drawEnemy(ctx, 'korvette', 0, 0, angle, Object.assign({}, o, { tele: null }));
+      ctx.restore();
+      teleGlowOver(ctx, kind, x, y, o);
+      return;
+    }
     if (kind !== 'raider' && kind !== 'korvette') { missing(ctx, Math.round(x - 14), Math.round(y - 14), 28, 28); return; }
     var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2;
     var co = Math.cos(bang), si = Math.sin(bang);
@@ -6166,7 +6175,7 @@
   // --- Ladeglühen an Gegnern (tele): pulsierend, rot gestrichelt, Fortschrittsbogen ---------------
   // drawTele(ctx, x, y, opts): opts.left, opts.dur (Restzeit/Gesamtdauer der Ladung), opts.kind ('shot'|'emp'),
   // opts.r (Radius, Standard 20), opts.time, optional opts.toX/opts.toY (gestrichelte Linie zum Ziel), opts.lineLen (max. Länge)
-  var TELE_R = { raider: 14, korvette: 26, sentinel: 24, pylon: 20 };
+  var TELE_R = { raider: 14, korvette: 26, fregatte: 36, kreuzer: 46, sentinel: 24, pylon: 20 };
   // rotes Glühen ÜBER dem Gegnersprite (der Gegner selbst „lädt sich auf“)
   function teleGlowOver(ctx, kind, x, y, o) {
     var te = o && o.tele;

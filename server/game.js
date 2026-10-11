@@ -1614,7 +1614,10 @@ class Game {
       w: sp.w, h: sp.h,
       enemies: sp.enemies.concat(this.treibendeSnapList()).map((e) => {
         const o = { id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
-          shields: (e.shields || []).map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? space.waffenPlaetze(this, e, null).map((w) => (e.waffen ? Object.assign({}, w, { typ: e.waffen[w.platz] }) : w)) : null };
+          scanned: !!e.scanned, weapons: e.scanned ? space.waffenPlaetze(this, e, null).map((w) => (e.waffen ? { platz: w.platz, typ: e.waffen[w.platz] } : w)) : null };
+        // EK1b (Snapshot kompakt, „fehlt = Standard“): shieldsMax entfällt (Aufbau der Klasse aus CONFIG.enemySchildSegmente/enemyShields, Leser: Shared_Schilde.fuellen),
+        // shields entfällt bei vollen Schilden. Waffenplätze mit Namen tragen nur platz und typ (facing/arc/range aus CONFIG.enemyWeapons[kind]).
+        if (e.shields && e.shields.some((v, i) => v < e.shieldsMax[i])) o.shields = e.shields.map(r1);
         // M3a §7.1: angekündigter Angriff (nur solange er lädt)
         const tele = hasFn('enemyTeleSnap') ? space.enemyTeleSnap(e) : (e.tele ? { kind: e.tele.kind, left: r2(e.tele.left), dur: e.tele.dur, sector: e.tele.sector } : null);
         if (tele) o.tele = tele;

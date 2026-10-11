@@ -444,7 +444,7 @@ const BODEN = {
 };
 
 // ---------------------------------------------------------------- Bühne All (Raum)
-const TYP_NAME = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const TYP_NAME = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 const cfgAll = (game) => (game.C.wellen && game.C.wellen.all) || {};
 function spaceMod() { return require('./space.js'); }
 function allGegner(game) { return game.space.enemies.filter((e) => e.tag === TAG); }

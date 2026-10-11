@@ -2447,8 +2447,8 @@
   function currentLoc(st) { return locById(st, worldOf(st).location); }
   function inFog(st) { const l = currentLoc(st); return !!(l && (l.fog || l.kind === 'nebula')); }
 
-  const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer' };
-  const ENEMY_SIZE = { raider: 16, korvette: 34, relay: 10, sentinel: 22, pylon: 18 };
+  const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer' };
+  const ENEMY_SIZE = { raider: 16, korvette: 34, fregatte: 46, kreuzer: 58, relay: 10, sentinel: 22, pylon: 18 };
   const MARKER_COL = { captain: PAL.mint, tactical: PAL.amber };
   const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'TAKTIK' };
   const HIDDEN_NAMES = { cache: 'VERSTECK', beacon: 'LEITBAKE', lore: 'LORE-BAKE', hollow: 'HOHLRAUM' };
@@ -2537,7 +2537,7 @@
       ctx.fillStyle = 'rgba(169,214,229,' + (0.6 + 0.3 * Math.sin(t * 5)) + ')'; ctx.fillRect(11, -13, 3, 26);   // Schildfront am Bug
     } else {
       const size = ENEMY_SIZE[kind] || 16;
-      ctx.fillStyle = flash ? '#FFFFFF' : kind === 'korvette' ? PAL.rust : PAL.red;
+      ctx.fillStyle = flash ? '#FFFFFF' : (kind === 'korvette' || kind === 'fregatte' || kind === 'kreuzer') ? PAL.rust : PAL.red;
       ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(-size * 0.7, -size * 0.6); ctx.lineTo(-size * 0.4, 0); ctx.lineTo(-size * 0.7, size * 0.6); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
@@ -2592,8 +2592,17 @@
     const sh = e.shields, mx = e.shieldsMax;
     if (Array.isArray(sh)) {
       const rr = Math.round(Math.max(12, (ENEMY_SIZE[e.kind] || 16) * Math.max(0.7, zoom * 1.6)) + 4);
-      for (let i = 0; i < 4; i++) {
-        const mid = base + i * Math.PI / 2, a0 = mid - Math.PI / 4 + 0.14, a1 = mid + Math.PI / 4 - 0.14;
+      // EK1b: Segmente (shared/schilde.js): Bug und Heck je ein Bogen, Seiten je Seitenbereich ein Bogen an der Längslage des Segments (Grenzen wie die Trefferzuordnung)
+      const SC = window.Shared_Schilde; const lay = SC && SC.layout(CFG, e.kind);
+      const segs = lay && lay.n === sh.length ? lay.segs : [0, 1, 2, 3].map((q) => ({ seite: q, i: 0, n: 1, von: 0, bis: 1 }));
+      for (let i = 0; i < segs.length; i++) {
+        const g = segs[i];
+        let lo, hi;
+        if (g.seite === 0 || g.seite === 2) { lo = g.seite * Math.PI / 2 - Math.PI / 4; hi = g.seite * Math.PI / 2 + Math.PI / 4; }
+        else if (SC) { const w0 = SC.winkelBei(g.seite, g.von), w1 = SC.winkelBei(g.seite, g.bis); lo = Math.min(w0, w1); hi = Math.max(w0, w1); }
+        else { lo = g.seite * Math.PI / 2 - Math.PI / 4; hi = g.seite * Math.PI / 2 + Math.PI / 4; }
+        const gap = g.n > 1 ? 0.05 : 0.14;
+        const a0 = base + lo + gap, a1 = base + hi - gap;
         const cur = +sh[i] || 0, max = mx ? (+mx[i] || 0) : Math.max(cur, 1);
         if (max <= 0) {
           ctx.strokeStyle = 'rgba(224,71,60,0.9)'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
@@ -3683,7 +3692,7 @@
 
     // Randpfeile für Gegner außerhalb (nur Karten; der Pilot verlässt sich auf die Taktik)
     if (!front) for (const o of offscreen) {
-      const e = arrow(o.e.x, o.e.y, o.e.kind === 'korvette' ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
+      const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
       if (clicks) clicks.push({ id: o.e.id, x: e.x - 10, y: e.y - 10, w: 20, h: 20 });
     }
 

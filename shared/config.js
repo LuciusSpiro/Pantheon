@@ -57,6 +57,10 @@
       raider: { hp: 44, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
       // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Korvetten-Welle bis 60 Hülle)
       korvette: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
+      // EK1b: Fregatte (`X==>`) und Kreuzer (`X===>`): mehr Hülle, langsamer; Schaden/Takt wie die Korvette (jeder Seitenbereich
+      // trägt eine eigene Waffe, die Breitseite wächst über die Plätze – siehe waffenMehr)
+      fregatte: { hp: 90, speed: 40, fireInterval: 4, damage: 2, range: 500, salvage: 140 },
+      kreuzer: { hp: 150, speed: 32, fireInterval: 4, damage: 2, range: 520, salvage: 240 },
       relay: { hp: 2, speed: 30, fireInterval: 999, damage: 0, range: 0, salvage: 5 },   // Störrelais der Boje (schießt nicht)
       // M1: Kustoden-Wächter (EMP) und Pylonen (Frontschild, dreht langsam)
       sentinel: { hp: 18, speed: 35, fireInterval: 3.2, damage: 1, range: 330, salvage: 80, emp: true },
@@ -136,7 +140,7 @@
       enemyShotSpeed: 210, enemyShotTtl: 4,
       // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
       // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)
-      raiderOrbit: 320, korvetteDist: 380, hitRadius: { raider: 16, korvette: 32, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
+      raiderOrbit: 320, korvetteDist: 380, hitRadius: { raider: 16, korvette: 32, fregatte: 42, kreuzer: 52, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
       retreatTime: 30, retreatDist: 750, spawnDist: 900,
       korvetteBroadside: 10, korvetteCrossing: 40,  // s: Breitseite halten, dann quer vor dem Bug auf die andere Seite wechseln (max. s)
     },
@@ -187,12 +191,31 @@
     enemyShieldRegen: 5,   // s je Punkt und Sektor
     // EK1: Waffenarten einer Korvette. lanze = angekündigter schwerer Treffer (tele), batterie = Sperrfeuer-Salve, bolzen = einzelner Schuss
     korvetteWaffen: ['lanze', 'batterie', 'bolzen'],
+    // EK1b: Schildsegmente je Seite für Klassen mit mehreren Seitenbereichen (shared/schilde.js). Je Seite eine Liste von Schildpunkten,
+    // von VORN nach HINTEN (Index 0 = vorderster Seitenbereich). Gleich lange Längsintervalle. Klassen ohne Eintrag (Jäger, Korvette, Wächter,
+    // Pylon, Relais) haben je Seite ein Segment aus enemyShields [Bug, Steuerbord, Heck, Backbord]. Die Lerche behält ihre vier Sektoren.
+    enemySchildSegmente: {
+      fregatte: { bug: [2], stbd: [2, 2], heck: [1], bb: [2, 2] },
+      kreuzer: { bug: [2], stbd: [3, 3, 3], heck: [1], bb: [3, 3, 3] },
+    },
+    // EK1b: mehrere Plätze gleicher Art im Bogen der Lerche (Breitseite): die Lanze schlägt je weiteren Platz um lanzeJeWeitere mal ihren
+    // Schaden stärker zu (eine Ladung, ein Treffer); Batterie und Bolzen feuern je Platz einen eigenen Schuss.
+    waffenMehr: { lanzeJeWeitere: 0.5 },
     enemyWeapons: {
       raider: [{ facing: 0, arc: 40, range: 400 }],
       // EK1 Korvetten-Regeln (Kai, 2026-10-11): je ein Waffenplatz vorn und an Steuerbord/Backbord (`X=>`), Schilde nach der Tabelle
       // [vorn 1, Steuerbord 2, hinten 0, Backbord 2]. Die Art der Waffe je Platz (lanze | batterie | bolzen) wird beim Spawn gewürfelt
       // (korvetteWaffen) oder über spawnEnemy(..., { waffen: { bug, stbd, bb } }) vorgegeben.
       korvette: [{ platz: 'bug', facing: 0, arc: 40, range: 400 }, { platz: 'stbd', facing: 90, arc: 90, range: 500 }, { platz: 'bb', facing: -90, arc: 90, range: 500 }],
+      // EK1b: Fregatte `X==>` (Front 1, je Seite 2 Seitenbereiche) und Kreuzer `X===>` (Front 2, je Seite 3). Jeder Seitenbereich trägt eine
+      // Waffe. pos = Lage entlang der Schiffslänge (+1 Bug … −1 Heck, Anteil des Klassenradius) – bestimmt nur die Mündung (Sperrfeuer, Schüsse).
+      // Platz-Namen: bug, bug2 | stbd1…n und bb1…n (von vorn nach hinten, gleiche Reihenfolge wie die Schildsegmente).
+      fregatte: [{ platz: 'bug', facing: 0, arc: 40, range: 400, pos: 1 },
+        { platz: 'stbd1', facing: 90, arc: 90, range: 500, pos: 0.45 }, { platz: 'stbd2', facing: 90, arc: 90, range: 500, pos: -0.45 },
+        { platz: 'bb1', facing: -90, arc: 90, range: 500, pos: 0.45 }, { platz: 'bb2', facing: -90, arc: 90, range: 500, pos: -0.45 }],
+      kreuzer: [{ platz: 'bug', facing: 0, arc: 40, range: 400, pos: 1, quer: -0.25 }, { platz: 'bug2', facing: 0, arc: 40, range: 400, pos: 1, quer: 0.25 },
+        { platz: 'stbd1', facing: 90, arc: 90, range: 520, pos: 0.6 }, { platz: 'stbd2', facing: 90, arc: 90, range: 520, pos: 0 }, { platz: 'stbd3', facing: 90, arc: 90, range: 520, pos: -0.6 },
+        { platz: 'bb1', facing: -90, arc: 90, range: 520, pos: 0.6 }, { platz: 'bb2', facing: -90, arc: 90, range: 520, pos: 0 }, { platz: 'bb3', facing: -90, arc: 90, range: 520, pos: -0.6 }],
       sentinel: [{ facing: 0, arc: 360, range: 330 }],
       pylon: [{ facing: 0, arc: 60, range: 460 }],
       relay: [],
@@ -392,7 +415,7 @@
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,
       // QA M3a: korvette.damage 4 -> 3 (ein voller Treffer kostete 20 Hülle, jetzt 15)
       // S2b (Kai: mehr Feuerkraft): korvette.damage 3 -> 4
-      tele: { korvette: { dur: 3, damage: 4 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
+      tele: { korvette: { dur: 3, damage: 4 }, fregatte: { dur: 3.5, damage: 4 }, kreuzer: { dur: 4, damage: 4 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
         delayPerHit: 1, delayMax: 2, captainSeesLast: 1.2, odaCooldown: 4 },
       burst: { duration: 1.5, perfect: 0.5, absorb: 5, absorbDamaged: 2, cooldown: 8 },
       repair: { flickTime: 1.5, partTime: 3, minigameMinTime: 2.5, queueMax: 3, odaCooldown: 3 },
@@ -415,6 +438,11 @@
         dodge: { impulse: 350, cooldown: 7, turnPenalty: 0.5, turnPenaltyTime: 1 }, radius: 36 },
       korvette: { maxSpeed: 110, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
         turnRate: 0.6, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.8, lateralDrag: 2.2, radius: 32 },
+      // EK1b: langsamer und träger als die Korvette (Höchstfahrt, Beschleunigung, Drehrate, Drehbeschleunigung), größerer Radius
+      fregatte: { maxSpeed: 90, minSpeed: 0, accel: 16, decel: 24, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+        turnRate: 0.45, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.6, lateralDrag: 2.2, radius: 44 },
+      kreuzer: { maxSpeed: 75, minSpeed: 0, accel: 12, decel: 20, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+        turnRate: 0.34, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.5, lateralDrag: 2.2, radius: 56 },
       raider: { maxSpeed: 200, minSpeed: 120, accel: 60, decel: 40, brakeFactor: 1, stages: [0.6, 0.8, 1],
         turnRate: 1.1, turnCurve: [[0, 1], [1, 1]], turnAccel: 2.5, lateralDrag: 0.8, radius: 16 },
       sentinel: { maxSpeed: 40, minSpeed: 0, accel: 15, decel: 20, brakeFactor: 1, stages: [0, 0.5, 1],
@@ -470,6 +498,9 @@
       flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
       pilot: { kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
         raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 },
+      // EK1b: Breitseiten-KI (pilot.breitseite) mit Klassenparametern statt einer Funktion je Klasse: range = Soll-Abstand zur Lerche (px, Vorgabe pilot.korvetteRange, höchstens
+      // Waffenreichweite − 40), switchCd = Mindestabstand zwischen zwei Seitenwechseln (s). Schwere Schiffe wechseln die Seite seltener.
+      pilotKlasse: { korvette: { switchCd: 12 }, fregatte: { range: 420, switchCd: 16 }, kreuzer: { range: 440, switchCd: 20 } },
       // Schild-Durchlass je Stärke vor dem Treffer (Kai: 1 -> 20 %, 2 -> 5 %)
       shieldLeak: {
         0: { chance: 0.45, maxState: 'broken', centre: true, breakFragile: true },

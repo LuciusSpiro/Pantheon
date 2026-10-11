@@ -31,7 +31,7 @@ const BEFEHLE = ['halten', 'folgen', 'volle_kraft', 'andocken'];
 const STATES = ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'];
 const POINTS = ['west', 'ost', 'nord', 'sued', 'mitte', 'station', 'dock', 'lerche', 'vorn', 'achtern', 'rand'];
 const KIND_LABEL = { frachter: 'Frachter', karawane: 'Karawane', bergungsboot: 'Bergungsboot' };
-const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
+const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 const BEFEHL_LABEL = { halten: 'Position halten', folgen: 'uns folgen', volle_kraft: 'volle Kraft voraus', andocken: 'Andocken' };
 
 const DEFAULTS = {

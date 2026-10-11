@@ -581,6 +581,8 @@
     const prev = Client.state;
     if (s.space && !s.space.asteroids) s.space.asteroids = (prev && prev.space && prev.space.asteroids) || [];
     s._empfangen = performance.now();   // W2 AP3b: Brocken-Drift zwischen zwei Snapshots weiterrechnen (render.js)
+    // EK1b: Gegner-Schilde „fehlt = Standard“ (shieldsMax aus der Config, shields voll) und Waffenplätze mit Geometrie auffüllen
+    if (s.space && s.space.enemies && window.Shared_Schilde) for (const e of s.space.enemies) window.Shared_Schilde.fuellen(e, CFG);
     if (!s.players) s.players = [];
     // M1: statische Ortsdaten kommen nur alle 15 Snapshots (oder bei Änderung) – letzte Liste behalten
     if (prev && prev.world) {
