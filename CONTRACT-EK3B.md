@@ -65,11 +65,11 @@ Siehe §5. Nicht Teil dieser Abnahme: Balancing mit Menschen (EK9), Voxel-Modell
 Bot-Solo (siehe §6).
 
 ## 5. Messwerte
-- **`npm test`** (inkl. `tools/test-konvoi.js`, 116 Prüfungen), **`npm run check`**, **`npm run snap:mess`** grün (Stand siehe Bericht, 2026-10-11).
+- **`npm test`** (inkl. `tools/test-konvoi.js`, 116 Prüfungen), **`npm run check`**, **`npm run snap:mess`** grün (2026-10-11).
 - **Bots** (`node tools/sim-headless.js labor konvoi_abfangen/<umsetzung> --seeds 3 --crew 3`): Aufhalten **3/3** (Median 4,5 min inkl. Wiederholungen), Plündern **3/3** (Median 2,2 min).
   Crew 1: 0/3 und 0/4, siehe §6.
 - **Snapshot:** Worst Case unverändert 11 444 B, Konvoi 8258 B, Ziel ≤ 18 944 B.
-- **Golden m1–m3** (`--all --seeds 20 --jobs 4`) gegen `base-w2` mit `allow-ek1.json`: siehe Bericht.
+- **Golden m1–m3** (`--all --seeds 20 --jobs 4`, 120 Traces) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch, die 40 anderen sind die bekannten Crew-1-Läufe von m1/m2 (EK1a-Korvette, Mediane m1/1 −6,7 %, m2/1 +2,1 %, wie in `allow-ek1.json`). Der Ordner `ek3b-check` ist gelöscht.
 
 ## 6. Offene Punkte
 - **Solo-Bot** schafft die Szene nicht (0/4): Der Solo-Bot wechselt zwischen Steuer und Taktik, das kostet gegen einen fahrenden Konvoi zu viel Zeit; Waffen unbesetzt feuern mit 50 %. Mehrspieler ist der Maßstab, die Szene ist
