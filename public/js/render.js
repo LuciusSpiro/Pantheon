@@ -426,7 +426,7 @@
     legend['#'] = legend['#'] || { kind: 'wand', solid: true, cover: 2, sperrtSicht: true };
     const m = Maps.makeMap(ev.id, ev.rows, legend);
     const karte = {};
-    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv']) if (ev[k] !== undefined) karte[k] = ev[k];
+    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle']) if (ev[k] !== undefined) karte[k] = ev[k];
     Object.assign(m, karte, { karte, buehne: true, legende: legend });
     m.w = ev.rows[0].length; m.h = ev.rows.length;
     // Kachel -> Kantenindex (Zustand aus ko), Kachel -> Ankerindex (tor/eingang/versteck steuern Kacheln)

@@ -9,6 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 const Buehne = require('../../shared/buehne.js');
+const GenSiedlung = require('../../shared/gen-siedlung.js');
+const GenStation = require('../../shared/gen-station.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 
@@ -66,6 +68,25 @@ function bauOpts(lpId, e) {
   return { spiel: true, id: lpId, art: e.art, schablone: e.schablone || undefined, seed: e.seed | 0, bauweise: e.bauweise || undefined,
     besitz: e.besitz || null, zustand: e.zustand || 'intakt' };
 }
+// Generatoren (shared/gen-siedlung.js, gen-station.js): Außenposten = Siedlung, Station = Stationsgrammatik. Opt-in je Landepunkt
+// (landepunkte.json: "erzeuger": "gen") oder für alle Außenposten/Stationen mit PANTHEON_GEN=1 (Test im Spiel). Schiff, Ruine und
+// Handkarten bleiben bei den Modulen. Gleicher Seed = gleiche Karte; bauversion 'gen1' kommt vom Generator.
+const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 } };
+function nutztGenerator(lpId, e) {
+  const d = defs().byId[lpId] || {};   // Opt-in/-out steht in der Definition, nicht im (gespeicherten) Eintrag
+  return !!GEN_GROESSE[e.art] && (d.erzeuger === 'gen' || (process.env.PANTHEON_GEN === '1' && d.erzeuger !== 'modul'));
+}
+function genBauen(lpId, e) {
+  const o = { bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
+  const seed = e.seed | 0;
+  const roh = e.art === 'aussenposten'
+    ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, GEN_GROESSE.aussenposten.n, Object.assign({ typ: e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel' }, o))
+    : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, o);
+  const r = Buehne.ausRaster(roh, { spiel: true });
+  if (!r.pruefung.ok) { const err = new Error(`Generator ${lpId} (Seed ${seed}): ${r.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')}`); err.fehler = r.fehler; throw err; }
+  return r.karte;
+}
+function rohBauen(lpId, e) { return nutztGenerator(lpId, e) ? genBauen(lpId, e) : Buehne.bauen(bauOpts(lpId, e)); }
 // Wirksame Bauwerte der (Roh-)Karte in den Eintrag
 function uebernehmen(e, roh) {
   e.seed = roh.seed; e.schablone = roh.schablone; e.bauversion = roh.bauversion;
@@ -89,7 +110,7 @@ function bauen(game, lpId) {
   if (!e) throw new Error(`Landepunkt ${lpId} unbekannt`);
   if (e.art === 'hand') return Buehne.hand(lpId);
   const alt = e.bauversion;
-  const roh = Buehne.bauen(bauOpts(lpId, e));
+  const roh = rohBauen(lpId, e);
   uebernehmen(e, roh);
   return mitZustaenden(game, lpId, e, roh, alt);
 }
@@ -257,7 +278,7 @@ function gebauteKarte(game, lpId, nurLesen) {
   let alt = null;
   if (!roh) {
     alt = e.bauversion;
-    roh = e.art === 'hand' ? Buehne.hand(lpId) : Buehne.bauen(bauOpts(lpId, e));
+    roh = e.art === 'hand' ? Buehne.hand(lpId) : rohBauen(lpId, e);
     uebernehmen(e, roh);
     const key2 = cacheKey(lpId, e);   // nach dem Bau mit wirksamem Seed/bauversion
     cacheSetzen(key2, roh);
