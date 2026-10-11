@@ -152,8 +152,6 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
   return { x: ox + nx / nd * (clear + 60), y: oy + ny / nd * (clear + 60) };
 }
 
-// EK1b: Bestückungs-Art einer Seite (1 Steuerbord, 3 Backbord): 'bolzen', wenn nur Bolzen-Plätze dort sitzen, sonst 'stark' (Lanze oder Batterie),
-// null ohne Bestückung. Plätze nach Vorzeichen des Bogens (facing > 0 = Steuerbord).
 // ---------- Breitseite (Korvette, Fregatte, Kreuzer): Stationshalten im Bezugssystem der Lerche ----------
 function breitseite(game, e, c, dt) {
   const p = P(game); const L = targetOf(game, e); const K = klasse(game, e.kind);
