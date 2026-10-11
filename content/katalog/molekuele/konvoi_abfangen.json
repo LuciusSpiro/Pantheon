@@ -1,0 +1,350 @@
+{
+  "format": "molekuel/1",
+  "id": "konvoi_abfangen",
+  "name": "Konvoi abfangen",
+  "familie": "kampf",
+  "kern": "Einen fahrenden Konvoi mit Eskorte abfangen: Transporter vor dem Sprung zerstören (aufhalten) oder ihre Fracht erbeuten (plündern)",
+  "ansaetze": [
+    "gewalt",
+    "technik"
+  ],
+  "szenentypen": [
+    "A15"
+  ],
+  "umsetzungen": [
+    {
+      "id": "pluendern",
+      "name": "Konvoi plündern",
+      "schauplatz": "weltraum",
+      "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Taktik beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
+      "braucht": [
+        "konvoi",
+        "raumkampf",
+        "ladung_transfer"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          4
+        ]
+      },
+      "ereignisse": [
+        "konvoiKontakt",
+        "konvoiTransporterZerstoert",
+        "konvoiSprung",
+        "konvoiAlarm",
+        "konvoiAusgang",
+        "enemyKilled",
+        "frachtAbgeworfen",
+        "frachtAnBord"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Raumort mit Platz für die Route (Splittergürtel, Rabenpass)"
+        },
+        "transporter": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 3,
+          "beschreibung": "Zahl der Transporter (Klasse frachter, unbewaffnet)"
+        },
+        "eskorte": {
+          "typ": "text",
+          "default": "voll",
+          "werte": [
+            "voll",
+            "jaeger",
+            "korvette",
+            "keine"
+          ],
+          "beschreibung": "Eskorte: voll (ein Jäger und eine Korvette), nur Jäger, nur Korvette oder keine"
+        },
+        "ladung": {
+          "typ": "text",
+          "default": "sprengstoff",
+          "werte": [
+            "sprengstoff",
+            "fracht"
+          ],
+          "beschreibung": "Ladungsart der Beute (Kampagne: sprengstoff)"
+        },
+        "beute_min": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 2,
+          "beschreibung": "Ladungen, die an Bord sein müssen (höchstens Zahl der Transporter und Frachtraum-Kapazität)"
+        },
+        "wiederholung": {
+          "typ": "bool",
+          "default": true,
+          "beschreibung": "Entkommt der Konvoi, kommt nach 8 s ein neuer (Szene wiederholt sich); aus: Ausgang entkommen bleibt stehen"
+        },
+        "lage": {
+          "typ": "text",
+          "default": "Konvoi aus Erzklamm voraus. Transporter zerstören, Fracht beamen – bevor sie springen."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "konvoi_an",
+                "n": "{{transporter}}",
+                "eskorte": "{{eskorte}}",
+                "sieg": "pluendern",
+                "ladung": "{{ladung}}",
+                "beute_min": "{{beute_min}}",
+                "wiederholung": "{{wiederholung}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 25,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "konvoi_erfolg"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "konvoi",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "check": {
+                    "name": "konvoi_erfolg"
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "konvoi_erfolg"
+                  }
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "konvoi_ende"
+              },
+              {
+                "do": "debug_clear_enemies"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.tipp": "Transporter zerstören, dann Fracht beamen: Taktik, Taste F, 3 s ruhig halten. Am Routenende springen sie.",
+          "{{id}}.ziel": "Transporter zerstören und die Fracht an Bord beamen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "rabenpass",
+          "transporter": 2,
+          "eskorte": "voll"
+        }
+      }
+    },
+    {
+      "id": "aufhalten",
+      "name": "Konvoi aufhalten",
+      "schauplatz": "weltraum",
+      "beschreibung": "Konvoi aus unbewaffneten Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Geschafft, wenn alle Transporter zerstört sind, bevor sie springen; entkommt einer, scheitert die Szene und ein neuer Konvoi rollt an. Die Eskorte fährt mit und greift an, sobald die Lerche nah kommt oder ein Konvoi-Schiff getroffen wird.",
+      "braucht": [
+        "konvoi",
+        "raumkampf"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          4
+        ]
+      },
+      "ereignisse": [
+        "konvoiKontakt",
+        "konvoiTransporterZerstoert",
+        "konvoiSprung",
+        "konvoiAlarm",
+        "konvoiAusgang",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Raumort mit Platz für die Route (Splittergürtel, Rabenpass)"
+        },
+        "transporter": {
+          "typ": "zahl",
+          "default": 2,
+          "min": 1,
+          "max": 3,
+          "beschreibung": "Zahl der Transporter (Klasse frachter, unbewaffnet)"
+        },
+        "eskorte": {
+          "typ": "text",
+          "default": "voll",
+          "werte": [
+            "voll",
+            "jaeger",
+            "korvette",
+            "keine"
+          ],
+          "beschreibung": "Eskorte: voll (ein Jäger und eine Korvette), nur Jäger, nur Korvette oder keine"
+        },
+        "wiederholung": {
+          "typ": "bool",
+          "default": true,
+          "beschreibung": "Entkommt der Konvoi, kommt nach 8 s ein neuer (Szene wiederholt sich); aus: Ausgang entkommen bleibt stehen"
+        },
+        "lage": {
+          "typ": "text",
+          "default": "Konvoi voraus. Alle Transporter zerstören, bevor sie springen."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "konvoi_an",
+                "n": "{{transporter}}",
+                "eskorte": "{{eskorte}}",
+                "sieg": "aufhalten",
+                "wiederholung": "{{wiederholung}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 25,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "konvoi_erfolg"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "konvoi",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "check": {
+                    "name": "konvoi_erfolg"
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "konvoi_erfolg"
+                  }
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "konvoi_ende"
+              },
+              {
+                "do": "debug_clear_enemies"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.tipp": "Transporter zuerst, die Eskorte kann warten. Am Routenende springt der Konvoi.",
+          "{{id}}.ziel": "Alle Transporter zerstören, bevor sie springen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "rabenpass",
+          "transporter": 2,
+          "eskorte": "voll"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Briefing Eisenwald-Kampagne (EK3 Konvoi-Szene); Umsetzung EK3 Teil B (CONTRACT-EK3B)"
+}

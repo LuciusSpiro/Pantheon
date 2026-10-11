@@ -2347,6 +2347,53 @@ class GenericAgent extends KeshAgent {
     const hh = S.space.h || 1600;
     this.schleichNav(S, p, { x: Math.min((S.space.w || 3000) - 200, 1800), y: clamp(S.ship.y, 250, hh - 250) }, { schilde: false, tempo: 45 });
   }
+  // EK3 Teil B: Konvoi. Fokus auf die Transporter (die Eskorte zählt nicht, solange einer fährt), Verfolgung mit dem Tempo des Konvois, Beute:
+  // Steuer fliegt zur Fracht und hält, Taktik beamt (3 s, ein Systemtreffer bricht ab: dann neu ansetzen).
+  konvoiBot(S0, p, beute) {
+    const tr = S0.space.enemies.filter((e) => e.kind === 'frachter');
+    const S = tr.length ? Object.assign({}, S0, { space: Object.assign({}, S0.space, { enemies: tr }) }) : S0;
+    const sh = S.ship; const fr = S.fracht || {};
+    const sim = this.game.simStats;
+    const lagerFrei = 2 - (fr.lager ? fr.lager.length : 0);
+    const halten = !!fr.halt;
+    if (halten) sim.konvoiHalt = (sim.konvoiHalt || 0) + DT;
+    const pod = beute && lagerFrei > 0 ? (fr.draussen || []).slice().sort((a, b) => dist(sh.x, sh.y, a.x, a.y) - dist(sh.x, sh.y, b.x, b.y))[0] : null;
+    const dPod = pod ? dist(sh.x, sh.y, pod.x, pod.y) : Infinity;
+    const feind = S0.space.enemies.filter((e) => e.kind !== 'frachter').length;
+    const hin = !!pod && dPod > 180 && (!feind || dPod < 700);   // zur Fracht fliegen
+    const beamen = !!pod && dPod <= 280 && !halten;
+    const t0 = tr.slice().sort((a, b) => dist(sh.x, sh.y, a.x, a.y) - dist(sh.x, sh.y, b.x, b.y))[0];
+    const dT = t0 ? dist(sh.x, sh.y, t0.x, t0.y) : 0;
+    const jagen = !pod && !!t0 && (dT > 330 || (this.role === 'helm' && !halten) || (this.role === 'solo' && !halten && S.time % 10 < 3));   // solo: 3 s Steuer, 7 s Taktik   // Steuer bleibt dran: Bug auf den Transporter, Tempo des Konvois
+    const tak = () => { if ((this.memo.fracAt || 0) < S.time) { this.memo.fracAt = S.time + 1; this.cmd('weapons.fracht'); sim.konvoiBeamen = (sim.konvoiBeamen || 0) + 1; } };
+    if (jagen && (this.role === 'solo' || this.role === 'helm')) {
+      if (this.enter(S, 'helm')) {
+        const v = Math.hypot(t0.vx || 0, t0.vy || 0); const f = Math.min(6, dT / 130);
+        if (dT > 450) this.steer(S, t0.x + (t0.vx || 0) * f, t0.y + (t0.vy || 0) * f, 0, 130);
+        else {   // Parallelflug querab (Batterien!): Abstand 230 auf der Seite, auf der wir schon sind, Tempo des Konvois
+          const h = Math.atan2(t0.vy || 0, t0.vx || 1);
+          const side = Math.sign((sh.x - t0.x) * -Math.sin(h) + (sh.y - t0.y) * Math.cos(h)) || 1;
+          const gx = t0.x + (t0.vx || 0) * 1.5 - Math.sin(h) * 230 * side, gy = t0.y + (t0.vy || 0) * 1.5 + Math.cos(h) * 230 * side;
+          this.steer(S, gx, gy, 0, Math.min(130, Math.max(20, v * 1.05 + dist(sh.x, sh.y, gx, gy) * 0.6)));
+        }
+      }
+      return;
+    }
+    if (this.role === 'solo') {
+      if (halten) { this.enter(S, 'weapons'); return; }
+      if (beamen) { if (this.enter(S, 'weapons')) tak(); return; }
+      if (hin) { if (this.enter(S, 'helm')) this.steer(S, pod.x, pod.y, 100, 90); return; }
+    } else if (this.role === 'helm') {
+      if (halten) { if (this.enter(S, 'helm')) this.brake(S); return; }
+      if (hin) { if (this.enter(S, 'helm')) this.steer(S, pod.x, pod.y, 100, 90); return; }
+    } else if (this.role === 'weapons') {
+      if (halten) { this.enter(S, 'weapons'); return; }
+      if (beamen) { if (this.enter(S, 'weapons')) tak(); return; }
+    }
+    this.fightOrHold(S, p);
+  }
+  umsetzung_konvoi_abfangen_pluendern(S, p) { this.konvoiBot(S, p, true); }
+  umsetzung_konvoi_abfangen_aufhalten(S, p) { this.konvoiBot(S, p, false); }
   // Bergungskisten im All einsammeln (überfliegen), wie m1 „route“
   umsetzung_ladung_bergen_bergungskisten(S, p) {
     if (S.space.enemies.length) { this.combatGeneric(S, p); return; }

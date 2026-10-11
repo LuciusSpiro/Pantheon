@@ -65,6 +65,8 @@
       // M1: Kustoden-Wächter (EMP) und Pylonen (Frontschild, dreht langsam)
       sentinel: { hp: 18, speed: 35, fireInterval: 3.2, damage: 1, range: 330, salvage: 80, emp: true },
       pylon: { hp: 8, speed: 0, fireInterval: 3.5, damage: 1, range: 460, salvage: 25, turnRate: 0.15 },
+      // EK3 Teil B: Transporter des Konvois (Klasse frachter, unbewaffnet: kein Feuer, kein Waffenplatz). Hülle wie die Korvette, Fahrt über shipClasses.frachter
+      frachter: { hp: 40, speed: 45, fireInterval: 999, damage: 0, range: 0, salvage: 40 },
     },
     asteroid: { count: 38, damage: 1 },
     // Bergungsgut im Asteroidenfeld (Stage route): Schiff fliegt drüber -> einsammeln. Pflicht, bis giveUpAfter s in der Stage.
@@ -73,6 +75,12 @@
     // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
     // Transfer ship.beamTimeDamaged). Kapazität kommt aus der Karte (Maps.CARGO_CAPACITY = Frachtbuchten).
     fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht'], artDefault: 'sprengstoff', maxDraussen: 6 },
+    // EK3 Teil B: Konvoi-Szene (server/sim/konvoi.js, CONTRACT-EK3B). Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus
+    // Wegpunkten (Anteile der Szene, Länge × Breite) und springen am Ende. Eskorte (Jäger, Korvette) fährt mit, bis die Lerche näher als wachRadius
+    // kommt oder ein Konvoi-Schiff getroffen wird (dann Klassen-KI wie jeder Gegner). tempo = Anteil der Höchstfahrt (die nächste Stufe wird gewählt),
+    // eilig = Stufen schneller nach Alarm. springDauer s Sprungaufladung (bleibt abschießbar). ansagen = Sekunden vor dem Sprung. neuNach s bis zur Wiederholung.
+    konvoi: { n: 2, nMax: 3, tempo: 0.45, eilig: 1, wachRadius: 520, springDauer: 4, abstand: 130, wpRadius: 90, orbitR: 250, flankAbstand: 170,
+      ansagen: [30, 10], neuNach: 8, springSpaetestens: 180, route: [[0.42, 0.8], [0.58, 0.22], [0.74, 0.78], [0.95, 0.45]], rand: 250 },
 
     away: {
       blaster: { damage: 2, speed: 360, cooldown: 0.35 },
@@ -144,7 +152,7 @@
       enemyShotSpeed: 210, enemyShotTtl: 4,
       // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
       // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)
-      raiderOrbit: 320, korvetteDist: 380, hitRadius: { raider: 16, korvette: 32, fregatte: 42, kreuzer: 52, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
+      raiderOrbit: 320, korvetteDist: 380, hitRadius: { raider: 16, korvette: 32, fregatte: 42, kreuzer: 52, relay: 14, sentinel: 26, pylon: 20, frachter: 34 }, relayOrbit: 170, relayCount: 3,
       retreatTime: 30, retreatDist: 750, spawnDist: 900,
       korvetteBroadside: 10, korvetteCrossing: 40,  // s: Breitseite halten, dann quer vor dem Bug auf die andere Seite wechseln (max. s)
     },
@@ -191,7 +199,7 @@
 
     // ================= M1 (Team SERVER) =================
     // Gegner-Schildsektoren [bug, steuerbord, heck, backbord] und Waffen (Feuerbögen relativ zum Gegner-Bug, Grad)
-    enemyShields: { raider: [2, 1, 0, 1], korvette: [1, 2, 0, 2], sentinel: [3, 3, 3, 3], pylon: [4, 0, 0, 0], relay: [0, 0, 0, 0] },
+    enemyShields: { raider: [2, 1, 0, 1], korvette: [1, 2, 0, 2], sentinel: [3, 3, 3, 3], pylon: [4, 0, 0, 0], relay: [0, 0, 0, 0], frachter: [1, 1, 1, 1] },
     enemyShieldRegen: 5,   // s je Punkt und Sektor
     // EK1: Waffenarten einer Korvette. lanze = angekündigter schwerer Treffer (tele), batterie = Sperrfeuer-Salve, bolzen = einzelner Schuss
     korvetteWaffen: ['lanze', 'batterie', 'bolzen'],
@@ -223,6 +231,7 @@
       sentinel: [{ facing: 0, arc: 360, range: 330 }],
       pylon: [{ facing: 0, arc: 60, range: 460 }],
       relay: [],
+      frachter: [],   // EK3 Teil B: Transporter sind unbewaffnet
     },
     // W2 AP3b: Nebel wirkt auf dem Server (space.js nebelFaktor): Sensor- und Zielerfassungs-Reichweite × fogFactor, für die
     // Lerche und die Gegner gleich. nebelServer: 'wellen' = nur in Wellen All; 'immer' = auch in der Kampagne. Die Kampagne

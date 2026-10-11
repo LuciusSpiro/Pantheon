@@ -144,14 +144,40 @@ function raumAlarm(S, seed) {
   return { fehler: g.errors };
 }
 
+// ---------- Aufbau 4 (EK3 Teil B): Konvoi – 3 Spieler, Rabenpass, 3 Transporter mit Eskorte (alle gescannt), 2 Transporter zerstört (Fracht liegt),
+// einer lädt den Sprung, Beamen läuft, eine Ladung schon an Bord ----------
+function konvoi(S, seed) {
+  const space = require('../server/sim/space.js');
+  const Konvoi = require('../server/sim/konvoi.js');
+  const Fracht = require('../server/sim/fracht.js');
+  const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
+  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); }
+  g.reset(); g.phase = 'play';
+  space.enterScene(g, 'rabenpass', {});
+  g.space.enemies = [];
+  Konvoi.an(g, { n: 3, sieg: 'pluendern', eskorte: 'voll' });
+  for (const e of g.space.enemies) e.scanned = true;
+  g.players[0].console = 'weapons';
+  Fracht.anBordLegen(g, 'sprengstoff');
+  for (let k = 0; k < TICKS; k++) {
+    if (k === 30) { const T = Konvoi.transporter(g); space.damageEnemy(g, T[0], 9999, T[0].x - 30, T[0].y); space.damageEnemy(g, T[1], 9999, T[1].x - 30, T[1].y); }
+    if (k === 60) { const T = Konvoi.transporter(g)[0]; if (T) { T.sprung = 1; T.sprungDauer = 8; } const d = Fracht.draussen(g)[0]; if (d) { g.ship.x = d.x - 100; g.ship.y = d.y; Fracht.beamStart(g, g.players[0], null); } }
+    g.ship.hull = 100;
+    g.step();
+    messen(S, g.snapshot());
+  }
+  return { fehler: g.errors };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm');
-const laeufe = { worst: [], wellen: [], raum: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), KV = sammler('konvoi');
+const laeufe = { worst: [], wellen: [], raum: [], konvoi: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, konvoi(KV, 60 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), konvoi: auswerten(KV), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -169,5 +195,8 @@ zeigen(res.wellen);
 console.log('  Läufe: ' + laeufe.wellen.map((l) => `${l.karte}/s${l.seed} stehend max ${l.maxStehend}${l.maxLebendAbTick >= 0 ? ' (maxLebend ab Tick ' + l.maxLebendAbTick + ')' : ' (maxLebend NICHT erreicht)'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.raum);
 console.log('  Läufe: ' + laeufe.raum.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-console.log(`\n${res.worst.ok && res.wellen.ok && res.raum.ok ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
-process.exit(res.worst.ok && res.wellen.ok && res.raum.ok ? 0 : 1);
+zeigen(res.konvoi);
+console.log('  Läufe: ' + laeufe.konvoi.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+const alleOk = res.worst.ok && res.wellen.ok && res.raum.ok && res.konvoi.ok;
+console.log(`\n${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Konvoi max ${res.konvoi.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+process.exit(alleOk ? 0 : 1);

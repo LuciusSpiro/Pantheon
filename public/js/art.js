@@ -3127,6 +3127,7 @@
       drawTele(ctx, x, y, { left: o.tele.left, dur: o.tele.dur, kind: o.tele.kind, r: TELE_R[kind] || 20, time: o.time });
     }
     if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }   // M1
+    if (kind === 'frachter') { drawEscort(ctx, 'frachter', x, y, angle, { hpFrac: o.hpFrac, hitT: o.hitT, time: o.time, state: 'ok', ohneRing: true }); return; }   // EK3 Teil B: Transporter des Konvois (Gegnerseite, ohne Schutzring)
     var sprEnemy = enemySprInfo(kind, o.fraktion);
     if (sprEnemy) { drawEnemySprite(ctx, kind, sprEnemy, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }
     if (SPR_FALLBACK[kind]) {   // Fregatte/Kreuzer ohne Sprite: vergroesserte prozedurale Korvette
@@ -3352,7 +3353,9 @@
     var hp = o.hpFrac == null ? 1 : Math.max(0, Math.min(1, +o.hpFrac || 0));
     // Schutzring: dezent eisblau; bei Notruf pulsierend Eisblau -> Bernstein
     if (!wreck) {
-      if (o.distress) {
+      if (o.ohneRing) {
+        // Gegner-Transporter (EK3 Teil B): kein Schutzring
+      } else if (o.distress) {
         var p = 0.5 + 0.5 * Math.sin(t * 6);
         var col = mix(PAL.eisblau, PAL.bernstein, p);
         escortRing(ctx, x, y, def.ring + 2 * p, col, 0.55 + 0.4 * p, t * 2);
