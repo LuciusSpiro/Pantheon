@@ -1,0 +1,36 @@
+{
+  "id": "kit/rom/dach",
+  "name": "Rom – Satteldach (Terrakotta-Ziegelreihen, dunkler First, Traufe mit Überstand); deckt ein Gebäuderechteck, nicht eine Kachel",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": ["kit", "rom", "dach"],
+  "footprint": [12, 12],
+  "jitter": 0,
+  "variants": {
+    "klein": {"w": 3, "d": 3},
+    "lang": {"w": 7, "d": 4},
+    "tief": {"w": 4, "d": 7}
+  },
+  "params": {
+    "w": {"default": 5, "min": 2, "max": 12, "step": 1, "label": "Breite (Kacheln, Ost-West)"},
+    "d": {"default": 4, "min": 2, "max": 12, "step": 1, "label": "Tiefe (Kacheln, Nord-Süd)"},
+    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"}
+  },
+  "let": {
+    "W": "w * 4 + 2",
+    "D": "d * 4 + 2",
+    "lang": "w >= d",
+    "S": "lang ? D : W",
+    "h": "min(8, max(3, round(S * 0.3)))"
+  },
+  "ops": [
+    {"name": "Dach, First entlang Ost-West (Giebel an Ost und West)", "op": "wedge", "if": "lang", "at": [0, 12, 0], "size": ["W", "h", "D"], "gable": "z",
+     "color": {"stripes": ["dach", {"shade": "dach", "f": 0.84}], "axis": "x", "period": 2}},
+    {"name": "Dach, First entlang Nord-Süd (Giebel an Nord und Süd)", "op": "wedge", "if": "!lang", "at": [0, 12, 0], "size": ["W", "h", "D"], "gable": "x",
+     "color": {"stripes": ["dach", {"shade": "dach", "f": 0.84}], "axis": "z", "period": 2}},
+    {"name": "Firstziegel Ost-West", "op": "box", "if": "lang", "at": [0, "12 + h - 1", "floor(D / 2) - 1"], "size": ["W", 1, 2], "color": {"shade": "dach", "f": 0.62}},
+    {"name": "Firstziegel Nord-Süd", "op": "box", "if": "!lang", "at": ["floor(W / 2) - 1", "12 + h - 1", 0], "size": [2, 1, "D"], "color": {"shade": "dach", "f": 0.62}},
+    {"name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand == 1 ? 0.12 : 0.25", "depth": "zustand", "at": [0, 12, 0], "size": ["W", "h", "D"]}
+  ],
+  "anchor": [1, 0, 1]
+}

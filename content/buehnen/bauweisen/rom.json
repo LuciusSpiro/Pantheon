@@ -34,6 +34,7 @@
     "deckung_halb": "kit/rom/deckung_halb",
     "deckung_voll": "kit/rom/deckung_voll",
     "pfeiler": "kit/rom/pfeiler",
+    "dach": "kit/rom/dach",
     "truemmer": "kit/rom/truemmer",
     "schutt": {
       "id": "kit/rom/deckung_voll",

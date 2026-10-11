@@ -85,12 +85,14 @@ function ownerOf(id) {
   return 'studio';
 }
 const isStation = (id) => /^lerche\/(station|console)\/[^/]+$/.test(id) && !/\/parts_/.test(id);
+// Dach (Hüllen, Kai 2026-10-11): deckt ein ganzes Gebäuderechteck (w×d Kacheln, Parameter), Pivot = Ecke des Rechtecks – kein 1×1-Kit-Teil
+const isDach = (id) => /^kit\/[^/]+\/dach$/.test(id);
 const isLight = (id, e) => id === 'lerche/kit/light' || (e.tags || []).includes('light');
 // Wandmontiert (Pivot an der Wand, nicht mittig): Wandleuchte, Fenster, Plakette
-const footprintExempt = (id) => /^lerche\/kit\/(light|window|plaque)$/.test(id);
+const footprintExempt = (id) => /^lerche\/kit\/(light|window|plaque)$/.test(id) || isDach(id);
 // Handgehaltene Gegenstände (Pivot = Griff, Anker handR): keine Boden-/Grundflächen-/Höhenprüfung
 const isHeld = (id, e) => /^lerche\/item\//.test(id) || (e.tags || []).includes('held');
-const heightExempt = (id, e) => /(^|\/)(wall\w*|window|door|shaft|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
+const heightExempt = (id, e) => isDach(id) || /(^|\/)(wall\w*|window|door|shaft|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
 // Wand-/Türklasse der Bühnen (M4 §5 „außer Wände, Türen, Fenster, Säulen“, deutsche Kit-Namen aus CONTRACT-B1 §10.1):
 // statt 2,2 m gilt die Wandhöhe 3 m.
 const WALL_H = 3.0;
@@ -107,6 +109,7 @@ function contractBudget(id, e, tier) {
   if ((e.tags || []).includes('terrain')) return { n: 8000, what: 'Geländeblock' };
   if (/(^|\/)(floor|grate|floor_ruin|quarter_floor)$/.test(id)) return { n: 150, what: 'Bodenkachel' };
   if (/(^|\/)wall(_\w+)?$/.test(id)) return { n: 600, what: 'Wandkachel' };
+  if (isDach(id)) return { n: 3200, what: 'Dach über einem Gebäude (bis 12×12 Kacheln)' };
   if (isStation(id)) return { n: 6000, what: 'Station/Konsole' };
   if (tier === 'architecture' || tier === 'terrain') return { n: 3000, what: 'Architekturmodul' };
   // Detail-Prop: 2.500 je belegter Kachel (2×2-Möbel wie Messetisch = 10.000) – Auslegung PIPELINE, siehe Bericht
@@ -227,7 +230,7 @@ async function checkBauweisen(manifestIds) {
     const unknown = refs.filter(([, id]) => !manifestIds.has(id));
     if (unknown.length) gap(`${unknown.length} Verweis(e) ohne Manifest-Eintrag: ${unknown.map(([w, id]) => `${w} → ${id}`).join(', ')}`);
     for (const r of Object.keys(ank)) if (!rollen[r]) lines.push({ lvl: 'warn', msg: `anker.${r}: Rolle nicht in anker.json` });
-    for (const k of Object.keys(kits)) if (!Object.values(charKind).includes(k)) lines.push({ lvl: 'warn', msg: `kits.${k}: Kachelart nicht in kacheln.json` });
+    for (const k of Object.keys(kits)) if (k !== 'dach' && !Object.values(charKind).includes(k)) lines.push({ lvl: 'warn', msg: `kits.${k}: Kachelart nicht in kacheln.json` });
     lines.push({ lvl: 'info', msg: `belegt: ${Object.keys(kits).length} Kit-Teile, ${Object.keys(ank).length} Rollen, ${refs.length} Verweise` });
   }
   return { out, generalInfo };

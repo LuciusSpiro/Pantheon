@@ -656,6 +656,8 @@ async function bauKarte(parent, karteIn, opts) {
   };
   const inManifest = (id) => { try { return !!(loader.manifest && loader.manifest(id)); } catch (e) { return false; } };
   for (const kd of kindsDa) for (const id of kandidaten(kd)) if (inManifest(id)) want.add(id);
+  const dachEintrag = k.huelle ? kitId('dach') : null;   // Dach nur in Hüllen-Karten und nur, wenn die Bauweise ein Dach-Teil nennt
+  if (dachEintrag && dachEintrag.id && inManifest(dachEintrag.id)) want.add(dachEintrag.id);
   for (const a of k.anker) { const id = propId(a.rolle, a.platz); if (id && inManifest(id)) want.add(id); }
   if (BW.leit) for (const t of Object.keys(BW.leit)) { const v = BW.leit[t] && (BW.leit[t][k.art] || BW.leit[t]['*']); if (typeof v === 'string' && inManifest(v)) want.add(v); }
   const dekoRegeln = opts.deko === false ? null : D.deko;
@@ -904,6 +906,16 @@ async function bauKarte(parent, karteIn, opts) {
       } catch (e) { countErr('kit.tile:' + kind, e); }
     }
   }
+  // Dächer (Kai 2026-10-11): je Gebäude-Gruppe ein Satteldach über dem Platzrechteck, nur in der hohen Variante (fällt mit der Wand)
+  if (huelle && dachEintrag && dachEintrag.id && inManifest(dachEintrag.id)) {
+    for (const pl of k.plaetze || []) {
+      if (!HUELL_TYPEN[pl.typ]) continue;
+      const c = huellZellen.get('p:' + pl.id);
+      if (!c) continue;
+      const m = new THREE.Matrix4().makeTranslation(pl.x, 0, k.localY(pl.y));
+      placeKit('dach', kitParams('dach', {}, { w: pl.w, d: pl.h }), m, 0, pl.x, pl.y, { bucket: c.hoch, ids: [dachEintrag.id] });
+    }
+  }
   // Rand: Gelände/Fels über die Kartenkante hinaus (6 Kacheln) – nur draußen (Außenposten, Ruine); Station/Schiff hängen im All
   if (!k.decks && draussen) {
     const B = 6;
@@ -1022,7 +1034,8 @@ async function bauKarte(parent, karteIn, opts) {
       deckGroups[0].add(mesh); geos.push(g); stats.tris += g.index.count / 3;
       return mesh;
     };
-    const o = { key: c.key, hoch: mk(gh, 'hoch'), niedrig: mk(gn, 'niedrig'), x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, tief: false, seit: 0 };
+    gh.computeBoundingBox();
+    const o = { key: c.key, hoch: mk(gh, 'hoch'), niedrig: mk(gn, 'niedrig'), x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, yh: Math.max(3.0, gh.boundingBox.max.y), tief: false, seit: 0 };
     if (o.niedrig) o.niedrig.visible = false;
     huellObjs.push(o);
   }
@@ -1191,13 +1204,13 @@ async function bauKarte(parent, karteIn, opts) {
     huelleUpdate(camera, ziele, jetztMs) {
       if (!huellObjs.length || !camera) return 0;
       const t = jetztMs != null ? jetztMs : now();
-      const R = 0.3, YT = 1.25, YH = 3.0;
+      const R = 0.3, YT = 1.25;
       const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
       let n = 0;
       for (const o of huellObjs) {
         let im = false;
         for (const z of ziele || []) {
-          if (segmentBox(cx, cy, cz, z.x, z.y == null ? 0.9 : z.y, z.z, o.x0 - R, YT, o.z0 - R, o.x1 + R, YH, o.z1 + R)) { im = true; break; }
+          if (segmentBox(cx, cy, cz, z.x, z.y == null ? 0.9 : z.y, z.z, o.x0 - R, YT, o.z0 - R, o.x1 + R, o.yh, o.z1 + R)) { im = true; break; }
         }
         if (im) o.seit = t;
         const tief = im || (o.tief && t - o.seit < 250);

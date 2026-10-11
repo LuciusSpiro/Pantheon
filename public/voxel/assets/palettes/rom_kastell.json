@@ -3,6 +3,7 @@
   "name": "Römisches Grenzkastell (Ruine): verblichenes Rot (Wände), heller Travertin (Deckung), kühle graue Bodenplatten, olivgrauer Grund, Grünspan",
   "extends": "rom",
   "roles": {
+    "dach": "#B5583A",
     "primary": "#A65A4E",
     "secondary": "#D8CCB2",
     "trim": "#B8B49A",

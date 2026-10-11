@@ -3,6 +3,7 @@
   "name": "Rom (Sci-Fi): Rot · Gold · Marmorweiß, kaltweißes Energielicht",
   "extends": "base",
   "roles": {
+    "dach": "#BA5430",
     "primary": "#9E1F27",
     "secondary": "#E9E3D3",
     "trim": "#D4A23A",
