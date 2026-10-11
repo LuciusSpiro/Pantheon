@@ -299,7 +299,7 @@
     CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne'],   // Weltstand gibt es für diese Modi
     // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.
     //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }] } nur in Phase end der Kette (kein freies Spiel danach); Ereignis ending { abspann: true };
-    //   Funkspruch radio { from, text, bild? } mit bild 'mars' (Symbol) | 'legat' (Porträt), Snapshot mission.radio.bild.
+    //   Funkspruch radio { from, text, pid? } mit pid 'mars' (Symbol) | 'legat' (Porträt), Snapshot mission.radio.pid.
     CAMPAIGN_KETTEN: { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } },
     ORDER_KINDS: ['sammeln', 'halten', 'flanke', 'rueckzug', 'fokus', 'gefahr'],   // cmd captain.order { kind, x, y, target?, clear? }
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr
