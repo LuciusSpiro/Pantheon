@@ -45,13 +45,19 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 | Teil | Änderung |
 |---|---|
 | Limit | `maxPlayers: 4`; Text „Server voll“ (`hud.js:1844`) und Lobby-Text „Koop für 1–4 Spieler“ (`hud.js:1046`), README, CONTRACT.md (Zeilen „vierter Spieler“) |
-| Spielerfarbe | **OFFEN (A1, einzige offene Frage):** 4. Spielerfarbe. Farbe 3 ist heute der Gast. Vorschlag: Spielerfarben 0–3, **Gast bekommt Farbe 4** (5. Einzelquartier oder Gast ohne eigenes Quartier). Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879`, `BEDS`, Quartier-Konsole, HUD-Farben |
+| Spielerfarbe, Gast Ivo | **Ivo zieht ins Lager** (Kai, 2026-10-11): das Gästequartier entfällt, **Bett/Farbe 3 wird das Quartier des 4. Spielers**; Spielerfarben 0–3. Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879` (Sonderfall Farbe 3 = Gast streichen), `interior.js:552` (Gästetext), `BEDS`-Kommentar, `onboard.js` `deriveIvoSpots` (Startpunkt Lager statt Gästequartier), HUD-Farben. Ivo siehe 3a |
 | Spawns | `SHIP_SPAWNS` auf 4 Einträge (freie Kachel in der Brücke), `BOT_SPAWNS` bleibt |
 | Truppstärke | `squadScale: { …, 4: 1.25 }` (aufgerundet) – Wert Vorschlag, im Spiel prüfen |
 | Plan-Tisch | `C.plan.maxSeated` prüfen (4 Personen am Tisch?) |
 | Außeneinsatz | Spawn-Kacheln und Pads der Außenkarten (`PLATFORM_PADS` 3 Einträge, Anker/Startpunkte der Karten) für 4 Personen prüfen |
 | Snapshot | Worst Case auf 4 Spieler umstellen (`tools/snap-mess.js`, `QA-INTEGRATION`, Kommentar `config.js:136`); `snapMax` 20 KB bleibt, `snapLuft` prüfen |
 | Tests | Fixture „3 Spieler“ in `test-combat`, `test-features`, `test-wellen`, `test-konvoi`, `test-escort`, `sim-headless`; neuer Test: 4. Spieler tritt bei, eigene Farbe, eigener Spawn, 5. wird abgewiesen |
+
+### 3a. Ivo im Lager (Kai, 2026-10-11)
+- **Wohnort:** Ivo lebt im Lager (Raum mit den Regalen `L`, Systemdeck x 5–9, y 1–3; **OFFEN (I1):** nicht der Frachtraum `g`). `deriveIvoSpots` nimmt das Lager als ersten und letzten Punkt; seine Runde (Messe, Plan-Tisch, Gang, Maschinenraum) bleibt. ODA-Text „Ivo ist ins Gästequartier gezogen“ (`onboard.js:~84`) und die Koje-Beschreibung (`interior.js:552`) werden angepasst.
+- **Darstellung:** Das Lager bekommt Ivos Schlafecke (Pritsche, Werkzeugwand, Schraubenschlüssel-Deko; die Zeile aus `interior.js:552` zieht dorthin). Erst nach `technikerRescued` sichtbar, vorher nur Regale. Neue Kulisse-Legendenzeichen in `maps.js`, Sprites in `art.js`; Regale und Zugriff (Ersatzteil, Flickblech, Medipack …) bleiben nutzbar, die Pritsche darf keinen Regalplatz verstellen.
+- **Abgeben:** Ivo kann **bei einer Station abgegeben** werden (**OFFEN (I2)**, Vorschlag: nur **angedockt** an einer Station/einem Hafen, Interaktion „Ivo hier lassen“ am NSC an Bord, keine Haltezeit, danach geht er zum Andockpunkt und ist weg). Wirkung: Flag `ivoAbgegeben` + Ort im Weltstand; `technikerRescued` bleibt `true` (Missionsbuch, Kette lesen es), `game.ivo = null`, Lager ohne Pritsche. **OFFEN (I3):** kann man ihn dort später wieder abholen? Vorschlag: nein (Entscheidung zählt).
+- Die vorhandene Abliefern-Mechanik der Fracht (`weapons.abliefern`, Taktik, Halteprozess, Beamen) ist für leblose Ladung gebaut; Ivo läuft frei und gehört dort nicht hinein.
 
 ## 4. R1 – Technik-Station
 ### 4.1 Konsole und Ort
@@ -142,7 +148,10 @@ Offen bleibt, ob die Technik einen **eigenen Maschinenraum-Look** bekommt (Schem
 ## 8. Entscheidungen und offene Fragen
 | # | Frage | Entscheidung |
 |---|---|---|
-| **A1** | Spielerfarbe 4 / Gast Ivo (Gästequartier = Farbe 3, geretteter Techniker von B-7, `technikerRescued`) | **OFFEN** – Vorschlag Farbe 4, 5. Quartier |
+| **A1** | Spielerfarbe 4 / Gast Ivo | **erledigt:** Ivo zieht ins Lager (Kai), Farbe 3 = 4. Spieler, kein 5. Quartier (3a) |
+| **I1** | Ivos Lager = Regalraum (Systemdeck), nicht der Frachtraum? | **OFFEN** – Vorschlag Regalraum |
+| **I2** | Abgeben: nur angedockt, Interaktion „Ivo hier lassen“? | **OFFEN** – Vorschlag ja |
+| **I3** | Später wieder abholbar? | **OFFEN** – Vorschlag nein |
 | **A2** | Technik-Konsole: Inhalt nach 4.3 | **ja** (Kai) |
 | **A3** | Tab-Wechsel | **nur Interface, Spieler bleibt stehen** (Kai), siehe 4.4 |
 | **A4** | Bot-Automatik | **bei genau 1 oder 2 Spielern** (Kai) |
