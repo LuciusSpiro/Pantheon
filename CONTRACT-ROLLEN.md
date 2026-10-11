@@ -45,7 +45,7 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 | Teil | Änderung |
 |---|---|
 | Limit | `maxPlayers: 4`; Text „Server voll“ (`hud.js:1844`) und Lobby-Text „Koop für 1–4 Spieler“ (`hud.js:1046`), README, CONTRACT.md (Zeilen „vierter Spieler“) |
-| Spielerfarbe, Gast Ivo | **Ivo zieht ins Lager** (Kai, 2026-10-11): das Gästequartier entfällt, **Bett/Farbe 3 wird das Quartier des 4. Spielers**; Spielerfarben 0–3. Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879` (Sonderfall Farbe 3 = Gast streichen), `interior.js:552` (Gästetext), `BEDS`-Kommentar, `onboard.js` `deriveIvoSpots` (Startpunkt Lager statt Gästequartier), HUD-Farben. Ivo siehe 3a |
+| Spielerfarbe, Gast Ivo | **Ivo zieht in den Frachtraum** (Kai, 2026-10-11): das Gästequartier entfällt, **Bett/Farbe 3 wird das Quartier des 4. Spielers**; Spielerfarben 0–3. Betrifft `applyColorWish` (`c < 3` → `c < C.maxPlayers`), `art.js:1879` (Sonderfall Farbe 3 = Gast streichen), `interior.js:552` (Gästetext), `BEDS`-Kommentar, `onboard.js` `deriveIvoSpots` (Startpunkt Lager statt Gästequartier), HUD-Farben. Ivo siehe 3a |
 | Spawns | `SHIP_SPAWNS` auf 4 Einträge (freie Kachel in der Brücke), `BOT_SPAWNS` bleibt |
 | Truppstärke | `squadScale: { …, 4: 1.25 }` (aufgerundet) – Wert Vorschlag, im Spiel prüfen |
 | Plan-Tisch | `C.plan.maxSeated` prüfen (4 Personen am Tisch?) |
@@ -53,11 +53,15 @@ R0 und R1 sind unabhängig baubar; R2 braucht die Technik-Konsole als Ort des Ab
 | Snapshot | Worst Case auf 4 Spieler umstellen (`tools/snap-mess.js`, `QA-INTEGRATION`, Kommentar `config.js:136`); `snapMax` 20 KB bleibt, `snapLuft` prüfen |
 | Tests | Fixture „3 Spieler“ in `test-combat`, `test-features`, `test-wellen`, `test-konvoi`, `test-escort`, `sim-headless`; neuer Test: 4. Spieler tritt bei, eigene Farbe, eigener Spawn, 5. wird abgewiesen |
 
-### 3a. Ivo im Lager (Kai, 2026-10-11)
-- **Wohnort:** Ivo lebt im Lager (Raum mit den Regalen `L`, Systemdeck x 5–9, y 1–3; **OFFEN (I1):** nicht der Frachtraum `g`). `deriveIvoSpots` nimmt das Lager als ersten und letzten Punkt; seine Runde (Messe, Plan-Tisch, Gang, Maschinenraum) bleibt. ODA-Text „Ivo ist ins Gästequartier gezogen“ (`onboard.js:~84`) und die Koje-Beschreibung (`interior.js:552`) werden angepasst.
-- **Darstellung:** Das Lager bekommt Ivos Schlafecke (Pritsche, Werkzeugwand, Schraubenschlüssel-Deko; die Zeile aus `interior.js:552` zieht dorthin). Erst nach `technikerRescued` sichtbar, vorher nur Regale. Neue Kulisse-Legendenzeichen in `maps.js`, Sprites in `art.js`; Regale und Zugriff (Ersatzteil, Flickblech, Medipack …) bleiben nutzbar, die Pritsche darf keinen Regalplatz verstellen.
-- **Abgeben:** Ivo kann **bei einer Station abgegeben** werden (**OFFEN (I2)**, Vorschlag: nur **angedockt** an einer Station/einem Hafen, Interaktion „Ivo hier lassen“ am NSC an Bord, keine Haltezeit, danach geht er zum Andockpunkt und ist weg). Wirkung: Flag `ivoAbgegeben` + Ort im Weltstand; `technikerRescued` bleibt `true` (Missionsbuch, Kette lesen es), `game.ivo = null`, Lager ohne Pritsche. **OFFEN (I3):** kann man ihn dort später wieder abholen? Vorschlag: nein (Entscheidung zählt).
-- Die vorhandene Abliefern-Mechanik der Fracht (`weapons.abliefern`, Taktik, Halteprozess, Beamen) ist für leblose Ladung gebaut; Ivo läuft frei und gehört dort nicht hinein.
+### 3a. Ivo im Frachtraum (Kai, 2026-10-11)
+- **Der Frachtraum ist ein Mehrzweckraum:** für Waren **und Personentransport**; jeder Frachtraum kann als Lager, Quartier für Personen oder Gefängnis dienen. Das Schiff wird **später modular umbaubar** (eigenes Paket, nicht hier). Dieser Contract bereitet nur vor: Der Frachtraum bekommt in den Karten-Daten ein Feld `nutzung` (heute `['waren', 'quartier']`; `gefaengnis` später), damit Darstellung und Regeln daran hängen und nicht an Ivo.
+- **Wohnort:** Ivo lebt im **Frachtraum** (Privatdeck, Buchten `CARGO_BAYS`, `maps.js:346`), nicht im Regalraum. `deriveIvoSpots` (`onboard.js`) nimmt den Frachtraum als ersten und letzten Punkt (Zugang `bay.access` beachten, die Buchten dürfen nicht zugestellt werden); seine Runde (Messe, Plan-Tisch, Gang, Maschinenraum) bleibt. ODA-Text „Ivo ist ins Gästequartier gezogen“ (`onboard.js:~84`) und der Koje-Hinweistext (`interior.js:552`) werden angepasst.
+- **Darstellung:** Der Frachtraum zeigt **abhängig von der Nutzung** Ivos Schlafecke (Pritsche, Werkzeugwand, Schraubenschlüssel-Deko; Text von `interior.js:552` zieht dorthin), erst nach `technikerRescued` und solange Ivo an Bord ist. Die zwei Frachtbuchten, Beamen und Abliefern der Fracht (EK3) bleiben unberührt; Pritsche und Ivo dürfen weder Buchten noch deren Zugangskacheln belegen. Neue Kulisse-Legendenzeichen in `maps.js`, Sprites in `art.js`.
+- **Abgeben:** Ivo kann **nur im angedockten Zustand** (`ship.dockedAt`, Hafen oder Station) abgegeben werden (Kai, I2). Weg: **Gespräch mit Ivo** an Bord (Kai gefällt die Kommunikation): Ansprechen (Interaktion `npc` an Bord, heute gibt es sie nur auf Außenkarten, `interior.js:620–748`) öffnet ein kurzes Gespräch mit Auswahl, darunter **„Ivo hier lassen“**, sichtbar nur angedockt (sonst Text „Hier kann ich nicht aussteigen“). Keine Haltezeit; danach läuft Ivo zum Andockpunkt und verschwindet (`game.ivo = null`, Pritsche weg).
+  Gesprächsmechanik: vorhandene Auswahl-/Dialog-Mittel der Missionsbücher prüfen und wiederverwenden (NSC-Gedächtnis aus `content/npc.json`); nur wenn nichts passt, ein kleines Dialogfenster in `hud.js`.
+- **Wirkung der Abgabe:** `technikerRescued` bleibt `true` (Missionsbuch, Kette und Generator lesen es, `generator.js:71`). Neu im Weltstand: Fakt/Flag `ivoAbgegeben` mit Ort (z. B. `welt.fakten.ivo = { status: 'abgegeben', ort }`), im NSC-Gedächtnis von `ivo` gesetzt.
+- **Nicht zurückholbar** (Kai, I3): Die Crew kann ihn nicht wieder aufnehmen. **Der Spielleiter darf ihn als NPC in Missionen auftreten lassen**, auch an dem Ort, wo er abgegeben wurde; deshalb gehört seine Abgabe als **Fakt in den Weltstand**, den Spielleiter-Prompt und `generator.js:71` lesen („Ivo: abgegeben bei <Ort>“ statt „gerettet“).
+- Die vorhandene Abliefern-Mechanik der Fracht (`weapons.abliefern`, Taktik, Halteprozess, Beamen) bleibt für leblose Ladung; Ivo läuft frei und geht nicht über diesen Weg.
 
 ## 4. R1 – Technik-Station
 ### 4.1 Konsole und Ort
@@ -148,10 +152,10 @@ Offen bleibt, ob die Technik einen **eigenen Maschinenraum-Look** bekommt (Schem
 ## 8. Entscheidungen und offene Fragen
 | # | Frage | Entscheidung |
 |---|---|---|
-| **A1** | Spielerfarbe 4 / Gast Ivo | **erledigt:** Ivo zieht ins Lager (Kai), Farbe 3 = 4. Spieler, kein 5. Quartier (3a) |
-| **I1** | Ivos Lager = Regalraum (Systemdeck), nicht der Frachtraum? | **OFFEN** – Vorschlag Regalraum |
-| **I2** | Abgeben: nur angedockt, Interaktion „Ivo hier lassen“? | **OFFEN** – Vorschlag ja |
-| **I3** | Später wieder abholbar? | **OFFEN** – Vorschlag nein |
+| **A1** | Spielerfarbe 4 / Gast Ivo | **erledigt:** Ivo zieht in den Frachtraum (Kai), Farbe 3 = 4. Spieler, kein 5. Quartier (3a) |
+| **I1** | Ivos Wohnort | **Frachtraum** (Kai): Mehrzweckraum für Waren, Personen, später Gefängnis; Schiff später modular (3a) |
+| **I2** | Abgeben | **nur angedockt**, über Gespräch mit Ivo (Kai) |
+| **I3** | Wieder abholbar? | **nein**; der Spielleiter darf Ivo als NPC einsetzen (Kai) |
 | **A2** | Technik-Konsole: Inhalt nach 4.3 | **ja** (Kai) |
 | **A3** | Tab-Wechsel | **nur Interface, Spieler bleibt stehen** (Kai), siehe 4.4 |
 | **A4** | Bot-Automatik | **bei genau 1 oder 2 Spielern** (Kai) |
