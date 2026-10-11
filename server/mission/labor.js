@@ -88,7 +88,7 @@ function testBuch(katalog, szenen, id) {
     for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && params[pn] === undefined) params[pn] = 'tesk';
     const sid = id + 's' + (i + 1);
     const szene = { id: sid, szenentyp: 'test', ort: loc, karte: params.map, molekuele: [{ id: mid, umsetzung: uid }], weiter: [{ nach: i < szenen.length - 1 ? id + 's' + (i + 2) : 'ausgang:erfolg' }] };
-    if (JSON.stringify(u.vorlage).includes('{{rueckzug}}')) { szene.rueckzug = 'ausgang:rueckzug'; mitRueckzug = true; }
+    if (JSON.stringify(u.vorlage).includes('{{rueckzug}}') && sc.rueckzug !== false) { szene.rueckzug = 'ausgang:rueckzug'; mitRueckzug = true; }
     // Besetzung setzt der Szenenbau aus dem Grobplan (Fraktion sonst = Besitz des Landepunkts, Stärke mittel): Überschreibungen
     // für fraktion/staerke/haltung gehen daher als Szenen-Besetzung mit (wie beim Spielleiter)
     const ov = sc.override || {};

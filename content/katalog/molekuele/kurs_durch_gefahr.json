@@ -137,6 +137,7 @@
           {
             "id": "{{id}}",
             "loc": "{{loc}}",
+            "restartOnReturn": true,
             "enter": [
               { "do": "raum_alarm_an", "einsprung": "{{einsprung}}" },
               { "do": "minenfeld", "n": "{{minen}}", "x": 1700, "y": 800, "radius": 650, "ohne_strom": "{{ohne_strom}}", "tag": "{{id}}_minen" }

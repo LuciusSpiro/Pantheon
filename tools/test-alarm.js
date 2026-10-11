@@ -38,7 +38,6 @@ function raum(loc, seed, np) {
 const ticks = (g, sek, each) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) { if (each) each(i * DT); g.step(); } };
 const heil = (g) => { const sh = g.ship; sh.hull = 100; for (const k of interior.SYSTEM_ORDER) sh.systems[k] = 'ok'; sh.fireList.length = 0; sh.breachList.length = 0; };
 const punkte = (g) => interior.SYSTEM_ORDER.reduce((a, k) => a + ({ ok: 0, damaged: 1, broken: 2, offline: 1 }[g.ship.systems[k]] || 0), 0);
-const odas = (g, from) => g.events ? [] : [];
 // Lerche auf einen Punkt setzen, ruhig
 function platz(g, x, y, ang) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; if (ang != null) s.angle = ang; }
 // Schuss mit der Lanze in Bugrichtung (Aufladen übersprungen)
@@ -167,10 +166,9 @@ section('Einsprung: ohne Patrouille springen nach 5 s zwei Jäger ein (mit Ansag
   const r3 = raum(); const m = r3.g; Alarm.an(m, { jaeger: 3 }); Alarm.ausloeser(m, 'mine'); ticks(m, 6);
   ok(m.space.enemies.length === 3, 'jaeger: 3 – drei Jäger');
   // Patrouille vorhanden, aber schon tot: Einsprung
-  const r4 = raum(); const q = r4.g; const pp = Alarm.patrouilleSetzen(q, { n: 1, x: 1500, y: 800 });
+  const r4 = raum(); const q = r4.g; Alarm.patrouilleSetzen(q, { n: 1, x: 1500, y: 800 });
   q.space.enemies = []; Alarm.ausloeser(q, 'mine');
   ok(q.space.alarm.einsprungAt != null, 'keine lebende Patrouille mehr (verloren): Einsprung');
-  void pp;
 });
 
 section('Minen: zünden (ignoriert Schilde, 6 Punkte Systemschaden, Alarm)', () => {
@@ -281,10 +279,8 @@ section('Minen: zünden nicht bei ihrem Besitzer, ohne Strom', () => {
   ok(q.space.minen.length === 2 && punkte(q) === 0 && Alarm.stufe(q) === 0, 'Mine ohne Strom zündet nicht bei Annäherung');
   platz(q, 1500 - 300, 800, 0); q.ship.angle = 0;
   lanze(q);
-  ok(q.space.minen.length === 1 && !q.space.minen.includes(m3) || q.space.minen.length === 1, 'abgeschossen: verschwindet');
+  ok(q.space.minen.length === 1 && !q.space.minen.includes(m3), 'abgeschossen: die Mine verschwindet');
   ok(punkte(q) === 0 && Alarm.stufe(q) < 2 && q.space.alarm.grund !== 'mine', 'Blindgänger: kein Schaden, kein Minen-Alarm (der Schuss selbst ist Lärm: höchstens misstrauisch)');
-  const info = q.snapshot().space.mines;
-  void info;
 });
 
 section('Weitscan zeigt Minen und Patrouillen; Ping verrät die Lerche', () => {
@@ -309,9 +305,6 @@ section('Weitscan zeigt Minen und Patrouillen; Ping verrät die Lerche', () => {
   // nahe Mine ohne Weitscan sichtbar
   platz(g, 2800 - A.mine.sicht + 20, 1400 - 200, 0); g.ship.y = 1400 - 60; g.ship.x = 2800 - A.mine.sicht + 30;
   ok(g.snapshot().space.mines.some((m) => m.x === 2800), 'sehr nahe Mine auch ohne Weitscan sichtbar');
-  // Weitscan ohne Funde
-  const r2 = raum(); const k = r2.g; k.ship.widescan.cd = 0; space.weaponsWidescan(k);
-  ok(true, 'Weitscan ohne Minen läuft (nichts Neues)');
 });
 
 section('Signatur: Tempo, Schilde, Asteroiden, Ping, Nebel-Schalter', () => {
@@ -325,7 +318,6 @@ section('Signatur: Tempo, Schilde, Asteroiden, Ping, Nebel-Schalter', () => {
   let nahe = null;
   for (const a of brocken) { const x = a.x + a.r + 40, y = a.y; if (brocken.every((b) => Math.hypot(b.x - x, b.y - y) - b.r > 0) ) { nahe = { x, y }; break; } }
   platz(g, frei.x, frei.y, 0);
-  const sig = () => { g.ship.vx = g.vx0 || 0; return Alarm.signatur(g); };
   g.ship.vx = 0; g.ship.vy = 0;
   const s0 = Alarm.signatur(g);
   ok(Math.abs(s0 - K.ruhe) < 1e-6, `Stand: Signatur = ruhe (${s0})`);
@@ -529,6 +521,12 @@ section('Rückzug: Notfallsprung beendet die Schleichfahrt mit Ausgang Rückzug'
   ok(JSON.stringify(u.vorlage).includes('{{rueckzug}}'), 'Vorlage kennt den Ausgang {{rueckzug}}');
   const buch = g.mission.rawBook ? g.mission.rawBook(g.labor.buch) : null;
   ok(buch && buch.ausgaenge && buch.ausgaenge.rueckzug && buch.ausgaenge.erfolg, 'Testbuch hat die Ausgänge erfolg und rueckzug');
+  // ohne Rückzug-Ziel im Grobplan entfällt die Kante
+  const buch0 = Labor.testBuch(kat, [{ key: SCHLEICH, rueckzug: false }], 'x0');
+  const nexts0 = JSON.stringify(buch0.steps.map((s) => s.next));
+  ok(!/"rueckzug"/.test(nexts0) && !buch0.ausgaenge.rueckzug, 'Szene ohne rueckzug im Grobplan: keine Rückzug-Kante, kein Ausgang');
+  const nexts1 = JSON.stringify(buch.steps.map((s) => s.next));
+  ok(/"complete":"rueckzug"/.test(nexts1) && /"name":"rueckzug"/.test(nexts1), 'Szene mit rueckzug: Kante „Prüfung rueckzug → complete rueckzug“');
   ticks(g, 2);
   ok(mission(g).state !== 'done', 'Mission läuft');
   // Notfallsprung (Pilot am Steuer)
@@ -542,7 +540,6 @@ section('Rückzug: Notfallsprung beendet die Schleichfahrt mit Ausgang Rückzug'
   ok(ms.state === 'done' && ms.ausgang === 'rueckzug', `Mission beendet mit Ausgang rueckzug (${ms.state}/${ms.ausgang})`);
   const flags = g.mission.v || {};
   ok(!Object.keys(flags).some((k) => /_ziel$/.test(k) && flags[k]), 'Ziel nicht als erreicht gewertet');
-  ok(g.ship.scene !== 'splitter' || true, 'Lerche in anderem Sektor bzw. an anderer Stelle');
   ok(g.errors === 0, 'keine Server-Fehler');
   // Prüfung rueckzug kennt die Zeit: ein früherer Notfallsprung zählt nicht für einen späteren Schritt
   const r3 = laborRaum(SCHLEICH, { loc: 'splitter', seed: 8 }); const q = r3.g;
@@ -561,16 +558,12 @@ section('Minenfeld im Labor: zünden bzw. abschießen, Einsprung', () => {
   ok(punkte(g) === 6 && g.space.minen.length === 5 && Alarm.stufe(g) === 2, 'Mine gezündet: 6 Punkte, Alarm');
   ticks(g, 6);
   ok(g.space.enemies.filter((e) => e.tag === 'einsprung').length === 2, 'Alarm ohne Patrouille: zwei Jäger sind eingesprungen');
-  ok(cs[0].inbox.some((e) => e.kind === 'mineExploded' || true), 'Ereignisse ausgeliefert');
   // zweite Partie: Mine abschießen
   const r2 = laborRaum(MINEN, { loc: 'splitter', seed: 6 }); const k = r2.g; heil(k);
   const mi = k.space.minen[0];
   platz(k, mi.x - 500, mi.y, 0);
   lanze(k);
   ok(k.space.minen.length === 5 && punkte(k) === 0 && Alarm.stufe(k) === 2, 'Mine abgeschossen: kein Schaden, Alarm');
-  // ohne_strom
-  const r3 = laborRaum(MINEN, { loc: 'splitter', seed: 6 }); r3.g.space.minen.forEach(() => {});
-  ok(true, 'Parameter ohne_strom siehe Abschnitt Besitzer');
   // Durchflug (Zone) beendet die Mission
   const r4 = laborRaum(MINEN, { loc: 'splitter', seed: 7 }); const q = r4.g;
   q.space.minen = [];
