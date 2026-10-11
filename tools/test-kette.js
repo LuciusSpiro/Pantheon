@@ -67,7 +67,7 @@ function main() {
   const selftest = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'check-kette.js'), '--selftest'], { encoding: 'utf8' });
   ok(selftest.status === 0 && /13\/13 bestanden/.test(selftest.stdout), 'Prüfer-Selbsttest: 13 kaputte Ketten werden mit dem erwarteten Code abgelehnt');
   const ph = Kampagne.platzhalter(doc, books);
-  ok(ph.length === 6 && ph.every((p) => p.echt), `6 Platzhalter-Schritte markiert (${ph.map((p) => p.schritt).join(', ')})`);
+  ok(ph.length === 3 && ph.every((p) => p.kapitel === 'k6_orbit' && p.echt), `nur noch die 3 Platzhalter-Schritte von Kapitel 6 (Orbit, Team VERK-ORBIT) markiert (${ph.map((p) => p.schritt).join(', ')})`);
   ok(doc.kapitel.every((c) => Object.keys(c.ausgaenge).includes('erfolg') && c.einstieg && c.einstieg.ort), 'jedes Kapitel: Ausgang erfolg und Labor-Einstieg');
   ok(doc.kapitel.every((c) => Object.entries(c.ausgaenge).every(([a, f]) => a === 'erfolg' ? [].concat(f).every((x) => x.weiter) : [].concat(f).every((x) => x.wiederholen))), 'Fortschritt nur aus erfolg, jeder andere Ausgang wiederholt die Szene');
 
@@ -263,6 +263,156 @@ function main() {
     ok(Fracht.anBord(g, 'sprengstoff') === 1, 'Ersatz nur, wenn keine Ladung an Bord ist');
     ok(Kampagne.platzhalter().every((p) => /Team (KONVOI|BODEN|FLOTTE)/.test(p.echt)), 'jeder Platzhalter nennt das zuständige Team');
     g.releaseWorldLock();
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  section('Verdrahtung Boden: echte Szenen in Kapitel 2, 4 und 7 (VERK-BODEN)');
+  {
+    const Konvoi = require('../server/sim/konvoi.js');
+    const Landepunkte = require('../server/sim/landepunkte.js');
+    const Away = require('../server/sim/away.js');
+    const Anker = require('../server/sim/anker.js');
+    const W = require('../server/world.js');
+    const Locations = require('../shared/locations.js');
+    const rollen = (g) => { g.weltstand.data.rollen_gesehen = ['niederhalter', 'grenadier', 'schuetze', 'enterer']; };
+    for (const id of ['k2_konvoi', 'k4_methalle', 'k7_siedlung']) ok(!books[id].steps.some((s) => s.platzhalter), `${id}: kein Platzhalter-Schritt mehr`);
+    ok(doc.kapitel.filter((c) => (c.platzhalter || []).length).map((c) => c.id).join() === 'k6_orbit', 'Kette: nur Kapitel 6 (Orbit, Team VERK-ORBIT) hat noch Platzhalter');
+    for (const [ort, lp] of [['methalle', 'methalle.siedlung'], ['eisenwald', 'eisenwald.siedlung']]) {
+      const l = Locations.get(ort);
+      ok(l.scene.beam && l.scene.beam.map === lp && l.scene.station, `${ort}: scene.beam.map = ${lp}`);
+    }
+
+    // ---- Kapitel 2: Konvoi, Mehrspieler und Solo
+    for (const crew of [3, 1]) {
+      const t = setup(freshDir(), crew, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      m.kette.einstieg('k2_konvoi'); t.run(5);
+      g.debugGoto('rabenpass', false); t.run(1);
+      ok(m.state.stage === 'konvoi' && Konvoi.aktiv(g), `Crew ${crew}: Konvoi-Szene läuft am Rabenpass (${m.state.stage})`);
+      const tr = g.space.enemies.filter((e) => e.kind === 'frachter').length;
+      const esk = g.space.enemies.filter((e) => e.kind !== 'frachter').map((e) => e.kind).sort().join('+');
+      ok(tr === 2, `Crew ${crew}: 2 Transporter`);
+      ok(crew === 1 ? esk === 'raider' : esk === 'korvette+raider', `Crew ${crew}: Eskorte ${esk} (solo nur der Jäger, sonst Jäger und Korvette)`);
+      ok(!m.flags.konvoi_gepluendert, `Crew ${crew}: die Szene setzt selbst keine Flag`);
+      Konvoi.erzwingen(g); t.run(0.3);
+      ok(m.state.stage === 'rueck_anflug' && m.flags.konvoi_gepluendert === true, `Crew ${crew}: Ausgang gepluendert -> Flag konvoi_gepluendert, weiter zur Abgabe (${m.state.stage})`);
+      g.releaseWorldLock();
+    }
+    {   // Notfallsprung ist der Rückzug: Kapitel von vorn
+      const t = setup(freshDir(), 1, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      m.kette.einstieg('k2_konvoi'); t.run(5);
+      g.debugGoto('rabenpass', false); t.run(1);
+      m.completeMission('rueckzug'); t.run(0.3);
+      ok(aktiv(g) === 'k2_konvoi' && m.state.stage === 'auftrag', 'Rückzug vom Rabenpass: Kapitel 2 beginnt von vorn');
+      g.releaseWorldLock();
+    }
+
+    // ---- Kapitel 4: Methalle
+    {
+      const t = setup(freshDir(), 1, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      m.kette.einstieg('k4_methalle'); t.run(5);
+      ok(Fracht.anBord(g, 'sprengstoff') === 1 && !(g.inventory.ladung > 0), 'Einstieg k4: Sprengstoff im Frachtraum, nicht im Gepäck');
+      g.debugGoto('methalle', false); t.run(3);
+      ok(m.state.stage === 'methalle', 'Schritt methalle am Ort Methalle (' + m.state.stage + ')');
+      ok(g.inventory.ladung === 1 && Fracht.anBord(g, 'sprengstoff') === 0, 'Sprengstoff aus dem Frachtraum ins Gepäck umgeladen (Inventar ladung 1, Fracht 0)');
+      const lp = Landepunkte.liste(g, 'methalle').find((r) => r.id === 'methalle.siedlung');
+      ok(lp && lp.frei && lp.art === 'aussenposten' && lp.beam && lp.beam.range === 360, 'Landepunkt methalle.siedlung ist frei (Kampagne, ohne Labor)');
+      Landepunkte.get(g, 'methalle.siedlung'); t.run(1);   // der Bau läuft im Spiel außerhalb des Ticks (setImmediate), hier von Hand
+      ok(W.AWAY_MAPS['methalle.siedlung'] && W.AWAY_MAPS['methalle.siedlung'].karte && g.aways['methalle.siedlung'].drones.length >= 6, 'Karte der Methalle gebaut und besetzt (Welle 1: 3 Zweiergruppen)');
+      // Sprengstoff liegt, Team an Bord: die Szene setzt die Flag; Folgen (Meldung, Sperrriegel) liegen im Schritt meldung
+      const K = W.AWAY_MAPS['methalle.siedlung'].karte; const sp = K.anker.find((a) => a.rolle === 'sprengpunkt');
+      ok(!m.flags.methalle_gesprengt && !g.explore.sperrriegelOffen(), 'vor dem Setzen: keine Flag, Sperrriegel zu');
+      Anker.setzen(g, 'methalle.siedlung', sp.id, 'platziert'); t.run(0.5);
+      ok(m.state.stage === 'meldung' && m.flags.methalle_gesprengt === true, 'Sprengstoff liegt und niemand unten: Flag methalle_gesprengt, Schritt meldung (' + m.state.stage + ')');
+      ok(g.explore.sperrriegelOffen(), 'Schritt meldung öffnet den Sperrriegel (die Szene ruft das nicht selbst)');
+      t.run(10);
+      ok(aktiv(g) === 'k5_legat' && fakt(g, 'methalle') === 'zerstoert' && fakt(g, 'sprengstoff') === 'verbraucht', 'Kapitel 4 erfolg: Kapitel 5, Fakten methalle und sprengstoff');
+      g.releaseWorldLock();
+    }
+    {   // Team gefallen (Notrückholung): Karte zurück, Kapitel wiederholt
+      const t = setup(freshDir(), 1, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      m.kette.einstieg('k4_methalle'); t.run(5);
+      g.debugGoto('methalle', false); t.run(3);
+      const resets0 = (g.landepunkte.eintraege['methalle.siedlung'] || {}).resets || 0;
+      g.missionEvent('squadRecall', { pids: [] }); t.run(0.5);
+      ok(aktiv(g) === 'k4_methalle' && m.state.stage !== 'meldung' && !m.flags.methalle_gesprengt, 'Notrückholung: kein Fortschritt, Kapitel 4 beginnt von vorn (' + m.state.stage + ')');
+      ok(((g.landepunkte.eintraege['methalle.siedlung'] || {}).resets || 0) === resets0 + 1, 'Notrückholung: Karte zurückgesetzt (map_reset)');
+      t.run(6); g.debugGoto('methalle', false); t.run(3);
+      ok(m.state.stage === 'methalle' && g.inventory.ladung === 1, 'Wiederholung: Sprengstoff im Gepäck (ersetzt, falls verbraucht)');
+      // gekaufter Sprengstoff genügt: kein Ersatz im Hafen, solange einer im Gepäck liegt
+      Fracht.restore(g, []);
+      g.debugGoto('statio_limitis', true); g.missionEvent('docked', { loc: 'statio_limitis' }); t.run(0.1);
+      ok(Fracht.anBord(g, 'sprengstoff') === 0, 'Hafen: kein Ersatz in den Frachtraum, solange Sprengstoff im Gepäck liegt (gekauft oder umgeladen)');
+      g.releaseWorldLock();
+    }
+
+    {   // Speichern und Laden mitten in der Methalle: der umgeladene Sprengstoff (Gepäck) und der Schritt bleiben
+      const dir = freshDir();
+      const t = setup(dir, 1, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const id = t.g.weltstand.id; const m = t.g.mission;
+      m.kette.einstieg('k4_methalle'); t.run(5);
+      t.g.debugGoto('methalle', false); t.run(3);
+      ok(m.state.stage === 'methalle' && t.g.inventory.ladung === 1, 'Speichern in der Methalle: Sprengstoff im Gepäck');
+      t.g.saveWorld('test', { sync: true });
+      const u = weiterspielen(t, dir, id);
+      ok(aktiv(u.g) === 'k4_methalle' && u.g.mission.state.stage === 'methalle' && u.g.inventory.ladung === 1, 'geladen: Kapitel 4, Schritt methalle, Sprengstoff im Gepäck (' + u.g.mission.state.stage + ', ' + u.g.inventory.ladung + ')');
+      u.g.releaseWorldLock();
+    }
+
+    // ---- Kapitel 7: Siedlung, Mehrspieler und Solo
+    const LP7 = 'eisenwald.siedlung';
+    const landen7 = (t, g, m) => {
+      rollen(g);
+      m.kette.einstieg('k7_siedlung'); t.run(0.5);
+      g.debugGoto('eisenwald', false); t.run(8);
+      Landepunkte.get(g, LP7);
+      g.transferZiel = { lp: LP7, scene: g.ship.scene }; g.setAwayMap(LP7);
+      Away.executeBeam(g, g.players.map((p) => p.id), 'down'); t.run(1);
+    };
+    for (const crew of [3, 1]) {
+      const t = setup(freshDir(), crew, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      landen7(t, g, m);
+      ok(m.state.stage === 'siedlung' || m.state.stage === 'siedlung_kampf', `Crew ${crew}: Szene am Eisenwald (${m.state.stage})`);
+      if (crew === 1) {
+        t.run(12);   // Solo: ein Legionär hisst mit (10 s nach dem Runterbeamen)
+        ok(m.state.stage === 'siedlung_kampf' && m.flags.flagge_gehisst === true, `Crew 1: Legionär hisst mit, Flag flagge_gehisst, Angriff beginnt (${m.state.stage})`);
+      } else {
+        t.run(12);
+        ok(m.state.stage === 'siedlung' && !m.flags.flagge_gehisst, 'Crew 3: ohne zwei Halter bleibt das Feldzeichen unten (kein Legionär, Hissen zu zweit)');
+        Anker.setzen(g, LP7, 'platz.flagge', 'gehisst'); t.run(0.5);
+        ok(m.state.stage === 'siedlung_kampf' && m.flags.flagge_gehisst === true, 'Crew 3: gehisst -> Flag flagge_gehisst, Angriff (' + m.state.stage + ')');
+      }
+      const aw = g.aways[LP7]; const gegner = aw.drones.filter((d) => d.alive).length;
+      ok(crew === 1 ? gegner === 6 : gegner === 11, `Crew ${crew}: ${gegner} Gegner (Anführer eingerechnet; solo 5 + 1, sonst 10 + 1)`);
+      ok(!m.flags.boss_besiegt, `Crew ${crew}: boss_besiegt noch nicht`);
+      // Anführer fällt: Gegner beamen raus, boss_besiegt erst wenn das Team wieder an Bord ist
+      aw.drones.find((d) => d.id === aw.endkampf.boss).alive = false; t.run(0.5);
+      ok(aw.drones.length === 0 && !m.flags.boss_besiegt && m.state.stage === 'siedlung_kampf', `Crew ${crew}: Anführer gefallen, Gegner abgezogen, boss_besiegt wartet auf das Hochbeamen`);
+      Away.executeBeam(g, g.players.map((p) => p.id), 'up'); t.run(1);
+      ok(aktiv(g) === 'k8_sieg' && fakt(g, 'eisenwald') === 'roemisch', `Crew ${crew}: Team an Bord -> boss_besiegt, Kapitel 7 erfolg, Kapitel 8 (${aktiv(g)})`);
+      g.releaseWorldLock();
+    }
+    {   // Crew fällt im Angriff: Siedlung zurück, Flags weg, Kapitel 7 von vorn
+      const t = setup(freshDir(), 3, { startMission: 'eisenwald_ohne' });
+      t.ready(); t.run(0.5);
+      const g = t.g; const m = g.mission;
+      landen7(t, g, m);
+      Anker.setzen(g, LP7, 'platz.flagge', 'gehisst'); t.run(0.5);
+      g.aways[LP7].endkampf.verloren = true; t.run(0.5);
+      ok(aktiv(g) === 'k7_siedlung' && !m.flags.flagge_gehisst && !m.flags.boss_besiegt, 'Crew gefallen: Flags gelöscht, kein Fortschritt (' + m.state.stage + ')');
+      ok(Anker.zustand(g, LP7, 'platz.flagge') === 'unten' && !g.aways[LP7].endkampf, 'Siedlung zurückgesetzt: Feldzeichen unten, kein Angriff mehr');
+      g.releaseWorldLock();
+    }
   }
 
   // ---------------------------------------------------------------------------------------------------------------

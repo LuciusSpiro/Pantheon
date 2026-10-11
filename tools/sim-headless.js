@@ -2792,7 +2792,7 @@ class GenericAgent extends KeshAgent {
       const gibt = awM && (Away().personMit(awM, c.person) || (awM.personen || []).some((q) => q.person === c.person));
       if (c.name === 'person_rescued' && gibt && !Away().personRescued(this.game, M, c.person)) tasks.push({ kind: 'person', person: c.person });
       if (c.name === 'trupp_geraeumt' && !this.truppFrei(c)) tasks.push({ kind: 'trupp', tag: c.tag });
-      if (c.name === 'boss_besiegt' && this.game.aways[M] && this.game.aways[M].endkampf && !require('../server/sim/endkampf.js').bossBesiegt(this.game, M, c.tag || null)) tasks.push({ kind: 'trupp', tag: c.tag || null });   // EK6: zum Anführer
+      if (c.name === 'boss_besiegt' && this.game.aways[M] && this.game.aways[M].endkampf && this.game.aways[M].endkampf.phase === 'angriff' && !require('../server/sim/endkampf.js').bossBesiegt(this.game, M, c.tag || null)) tasks.push({ kind: 'trupp', tag: c.tag || null });   // EK6: zum Anführer (nur im Angriff; nach dem Abzug der Gegner, phase sieg, ist nichts mehr zu jagen: VERK-BODEN, das Team muss dann hoch)
       if (c.name === 'team_im_bereich' && !this.imBereich(S, M, c.bereich)) tasks.push({ kind: 'bereich', bereich: c.bereich });
     }
     if (near) { const ref = near.anker || near.object; const a = k.anker.find((q) => q.rolle === ref || q.id === ref); if (a) tasks.push({ kind: 'hin', a }); }
