@@ -3,6 +3,9 @@
   "version": 1,
 
   "aktionen": {
+    "fracht_abwerfen":   { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "beschreibung": "Fracht (Ladung) im Raum ablegen, die die Taktik an Bord beamen kann. Ohne x/y 160 px vor der Lerche; bleibt bis zum Systemwechsel liegen", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "x": { "typ": "number" }, "y": { "typ": "number" } } },
+    "fracht_abnehmer":   { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "beschreibung": "Auftraggeber der Ablieferung festlegen (nur dort liefert die Taktik ab); ohne ort nimmt jede Station an", "params": { "ort": { "typ": "loc" }, "name": { "typ": "text" } } },
+    "fracht_abliefern":  { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "beschreibung": "Ladung aus dem Frachtraum sofort übergeben (Skript statt Taktik-Beamen)", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "n": { "typ": "number", "min": 1, "max": 4 } } },
     "ship_incident":      { "einordnung": "generisch", "beschreibung": "Bordschäden setzen (Feuer, Lecks, System) – z. B. Hafen-Übung", "params": { "fires": { "typ": "number" }, "breaches": { "typ": "number" }, "system": { "typ": "system" }, "state": { "typ": "string", "werte": ["damaged", "broken"] } }, "effekt": "schaden" },
     "ship_fire":          { "einordnung": "generisch", "beschreibung": "Feuer an Bord in einer Region", "params": { "region": { "typ": "region" }, "text": { "typ": "text" } }, "effekt": "schaden" },
     "ship_breach":        { "einordnung": "generisch", "beschreibung": "Hüllenbruch in einer Region", "params": { "region": { "typ": "region" }, "text": { "typ": "text" } }, "effekt": "schaden" },
@@ -60,6 +63,8 @@
   },
 
   "pruefungen": {
+    "fracht_an_bord":    { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "min": { "typ": "number", "min": 1, "max": 4 } } },
+    "fracht_abgeliefert": { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "min": { "typ": "number", "min": 1, "max": 99 } } },
     "no_fires":         { "einordnung": "generisch", "params": {} },
     "no_breaches":      { "einordnung": "generisch", "params": {} },
     "system_ok":        { "einordnung": "generisch", "params": { "system": { "typ": "system", "pflicht": true } } },

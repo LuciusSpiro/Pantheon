@@ -11,6 +11,7 @@ const bots = require('./sim/bots.js');
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
+const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
@@ -380,6 +381,7 @@ class Game {
     };
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
+    this.fracht = Fracht.neu();   // EK3 Teil A: { lager, draussen, halt, gesichert, abnehmer, … }
     this.notsprungIn = null;
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
     this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
@@ -981,6 +983,10 @@ class Game {
       }
       case 'weapons.reload': err = space.weaponsReload(this); break;
       case 'weapons.strike': err = away.weaponsStrike(this); break;
+      case 'weapons.fracht':   // EK3 Teil A: { id? } nächste Fracht in Reichweite an Bord beamen (3 s halten), { off: true } abbrechen
+        if (msg.off) Fracht.beamStop(this, 'abgebrochen'); else err = Fracht.beamStart(this, p, msg.id == null ? null : String(msg.id));
+        break;
+      case 'weapons.abliefern': err = Fracht.abliefernStart(this, p); break;   // EK3 Teil A: beim Abnehmer bzw. an einer Station
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
       case 'weapons.widescan': {   // B1 §3.3 (W5): Weitscan deckt Verstecke der gebauten Karte am Ort auf (anker.markieren)
         err = space.weaponsWidescan(this);
@@ -1125,6 +1131,7 @@ class Game {
       case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
+      case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
       default: err = 'Unbekannter Debug-Befehl.';
@@ -1376,6 +1383,7 @@ class Game {
       this.safe('players', () => interior.updatePlayers(this, dt));
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
+      this.safe('fracht', () => Fracht.update(this, dt));   // EK3 Teil A: Halteprozess, Szenenwechsel
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart
@@ -1750,6 +1758,7 @@ class Game {
       },
       ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)
       space: spaceOut,
+      ...((fr) => (fr ? { fracht: fr } : {}))(Fracht.snapshot(this)),   // EK3 Teil A: nur wenn etwas da ist (Snapshot kompakt)
       away: {
         map: aw.map, active: aw.active,
         // W1 AP1: Kampf v2 ohne revealed (Leser: time < away.sensorUntil) und alive (droneSnap sendet nur alive:false)

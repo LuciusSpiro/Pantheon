@@ -679,7 +679,7 @@ class Mission {
       case 'killed': return (this.kills[v.tag || v.kind] || 0) >= (v.min || 1);
       case 'enemyHpBelow': return g.space.enemies.some((e) => (!v.tag || e.tag === v.tag) && (!v.kind || e.kind === v.kind) && e.hp <= e.hpMax * v.frac);
       case 'scanDone': return g.scans.has(v);
-      case 'itemAboard': return v === 'datenkern' ? this.datenkernAboard() : (g.inventory[v] || 0) > 0;
+      case 'itemAboard': return v === 'datenkern' ? this.datenkernAboard() : ((g.inventory[v] || 0) > 0 || (!!g.fracht && g.fracht.lager.some((l) => l.art === v)));   // EK3 Teil A: Fracht im Frachtraum (sprengstoff) zählt
       case 'choiceMade': return this.choicesMade.has(v);
       case 'event': return this.events.has(v);
       case 'known': return ex.isKnown(v);

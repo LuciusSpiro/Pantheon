@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
+const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 
 const ROOT = path.join(__dirname, '..');
 const VERSION = 3;   // B1–B3: welt.landepunkte, welt.wracks, welt.sektoren, crew (v2 -> v3 per MIGRATIONS[2]); S2: spielleiter (v1 -> v2)
@@ -708,6 +709,8 @@ function capture(game) {
     spielleiter: spielleiterSave(game),   // S2 §3.2
   };
   if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
+  // EK3 Teil A: mitgeführte Ladung (nur wenn vorhanden; Ladung im Raum und Abnehmer sind Laufzeit und verfallen mit dem System)
+  { const fr = Fracht.toSave(game); if (fr.length) data.schiff.fracht = fr; }
   // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
   data.welt.landepunkte = blockSave(game, 'landepunkte');
   data.welt.wracks = blockSave(game, 'wracks');
@@ -742,6 +745,7 @@ function apply(game, data) {
   game.inventory.marks = Math.max(0, Math.round(Number(s.marken) || 0));
   for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) game.inventory[k] = v;
   game.inventory.deko = Array.isArray(s.deko) ? s.deko.slice() : [];
+  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
   for (const k of s.ausbauten || []) game.upgrades[k] = true;
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;

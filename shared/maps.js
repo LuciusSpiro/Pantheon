@@ -13,7 +13,7 @@
   // Maschinenraum MITTSCHIFFS x11–15 (Reaktor R, Lebenserhaltung O, Schildgenerator G, Schalter y A oben / B unten) –
   // Batteriedecks Bb (oben) und Stb (unten) x17–24 – Brücke x25–36 mit Lift ^, Bug-Waffe K und Bug-Emitter I.
   // Deck II: vier Quartiere, Messe mit Hafenterminal S, Trophäennische, Liftvorraum, Atrium mit Lichtschacht, Krankenstation,
-  // Bad, Aussicht mit Panoramafenster. Kein System auf Deck II.
+  // Frachtraum (EK3 Teil A: ersetzt Bad und Aussicht, zwei Frachtbuchten g). Kein System auf Deck II.
   //           0         1         2         3
   //           0123456789012345678901234567890123456
   const SHIP_ROWS = [
@@ -42,10 +42,10 @@
     '    #::::::::ww::::::::::::::#       ', // 22
     '    #::::::::::::::::::::::::#       ', // 23
     '    ##D###D####DD#####D###D###       ', // 24
-    '    #,,,#,,,#........#:::#:::#       ', // 25
-    '    #,,,#,,,#........#:o:#:s:#       ', // 26
-    '    #B,,#B,,#.v.v.v..#:o:#:::#       ', // 27
-    '    ######################%%%#       ', // 28
+    '    #,,,#,,,#........#.......#       ', // 25
+    '    #,,,#,,,#........#.......#       ', // 26
+    '    #B,,#B,,#.v.v.v..#.g...g.#       ', // 27
+    '    ##########################       ', // 28
   ];
 
   // Bojenplattform B-7 (Außenmission), 32 x 18 Kacheln.
@@ -238,6 +238,8 @@
     'o': { kind: 'bath', solid: true },                   // Becken (Kulisse)
     's': { kind: 'bench', solid: true },                  // Aussichtsbank (Kulisse)
     'j': { kind: 'sideboard', solid: true },              // Anrichte/Kombüse in der Messe
+    // ---- EK3 Teil A: Frachtraum (kein aktives Schiffssystem: keine Energie, keine Treffer-Wirkung; CONTRACT-EK3 §3) ----
+    'g': { kind: 'cargo_bay', solid: true },              // Frachtbucht (1 Ladung; Zustand aus snapshot.fracht)
   });
 
   // Regale im Lager: x-Kachel -> Gegenstand (Zeile 1). Altname; maßgeblich ist SHELF_TILES.
@@ -335,10 +337,15 @@
     { id: 'lararium', name: 'Trophäennische', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 17, x1: 24, y1: 19 },
     { id: 'liftvorraum', name: 'Liftvorraum', kind: 'room', sector: -1, deck: 1, x0: 26, y0: 17, x1: 28, y1: 20 },
     { id: 'krankenstation', name: 'Krankenstation', kind: 'room', sector: -1, deck: 1, x0: 13, y0: 25, x1: 20, y1: 27 },
-    { id: 'bad', name: 'Bad', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 25, x1: 24, y1: 27 },
-    { id: 'aussicht', name: 'Aussicht', kind: 'room', sector: -1, deck: 1, x0: 26, y0: 25, x1: 28, y1: 27 },
+    // EK3 Teil A: ersetzt die kleinen Räume Bad (22–24) und Aussicht (26–28) samt Trennwand x = 25
+    { id: 'frachtraum', name: 'Frachtraum', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 25, x1: 28, y1: 27 },
     { id: 'atrium', name: 'Atrium', kind: 'room', sector: -1, deck: 1, x0: 5, y0: 20, x1: 28, y1: 24 },
   ];
+  // EK3 Teil A: Frachtbuchten im Frachtraum (Deck II). Kapazität = Anzahl der Buchten; Reihenfolge = Belegungsreihenfolge.
+  // Eine Bucht fasst genau eine Ladung. Kein Schiffssystem (keine Energie, keine Treffer-Wirkung).
+  const CARGO_BAYS = [{ id: 'bay0', x: 23, y: 27, access: { x: 23, y: 26 } }, { id: 'bay1', x: 27, y: 27, access: { x: 27, y: 26 } }];
+  const CARGO_CAPACITY = CARGO_BAYS.length;
+  function cargoBayAt(tx, ty) { return CARGO_BAYS.find((b) => b.x === tx && b.y === ty) || null; }
   // Raum einer Kachel (oder null außerhalb aller Räume).
   function roomAt(tx, ty) {
     for (const r of SHIP_ROOMS) if (tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1) return r;
@@ -491,7 +498,7 @@
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
     SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
-    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, shelfAt,
+    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
     SHIP_LEGEND, IVO_SPOTS, SECTOR_NAMES,
     // M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.3)

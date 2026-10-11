@@ -227,7 +227,8 @@
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
-      'sprungpunkt', 'ladung', 'prise'],   // QA-Nachzug (QA_DEBUG)
+      'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
+      'fracht'],   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
     // ---- M3b Schritt A (CONTRACT-M3B) ----
     // §2 Temporegler: cmd { c: 'helm.throttle', delta: ±1 } oder { set: index }. Snapshot ship.helm.stage (Index),
     // ship.helm.stages (px/s je Stufe), ship.helm.autoStop. helm.input.thrust ist Altname (> 0,5 / < −0,5 = einmal ±1 Stufe).

@@ -69,6 +69,10 @@
     asteroid: { count: 38, damage: 1 },
     // Bergungsgut im Asteroidenfeld (Stage route): Schiff fliegt drüber -> einsammeln. Pflicht, bis giveUpAfter s in der Stage.
     salvage: { count: 3, pickupDist: 60, giveUpAfter: 150, rewards: ['ersatzteil', 'flickblech', 'marks'], marks: 40 },
+    // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Taktik), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
+    // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
+    // Transfer ship.beamTimeDamaged). Kapazität kommt aus der Karte (Maps.CARGO_CAPACITY = Frachtbuchten).
+    fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht'], artDefault: 'sprengstoff', maxDraussen: 6 },
 
     away: {
       blaster: { damage: 2, speed: 360, cooldown: 0.35 },

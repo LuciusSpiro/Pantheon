@@ -31,6 +31,6 @@
     "gefangenschaft":    { "status": "verfuegbar", "beschreibung": "Crew gefangen, ohne Ausrüstung: Start in der Zelle (team_gefangen) bzw. Ausbruch nach verlorenem Bodenkampf, Zellentür von innen, Ausrüstung am beute-Anker" },
     "sprengladung":      { "status": "verfuegbar", "beschreibung": "Ladung setzen, Countdown, Explosion" },
     "hacken":            { "status": "verfuegbar", "beschreibung": "Terminal-Minispiel" },
-    "ladung_transfer":   { "status": "geplant", "beschreibung": "Ladung und Personen per Transfer an Bord holen oder abgeben" }
+    "ladung_transfer":   { "status": "verfuegbar", "beschreibung": "EK3 Teil A: Fracht (Ladung) im Raum per Taktik an Bord beamen (3 s halten, Systemtreffer bricht ab), Frachtraum der Lerche (2 Ladungen, im Weltstand), Abliefern beim Abnehmer oder an jeder Station. Personen per Transfer bleiben geplant" }
   }
 }

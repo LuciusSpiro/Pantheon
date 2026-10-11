@@ -70,7 +70,8 @@
         "systeme": { "type": "object", "description": "System -> ok|damaged|broken (offline wird ok, geflickt wird damaged)", "additionalProperties": { "enum": ["ok", "damaged", "broken"] } },
         "huelle": { "type": "number", "minimum": 0 },
         "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
-        "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } }
+        "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } },
+        "fracht": { "type": "array", "description": "EK3 Teil A: mitgeführte Ladung im Frachtraum (Art je Bucht, höchstens Maps.CARGO_CAPACITY)", "maxItems": 4, "items": { "type": "string", "enum": ["sprengstoff", "fracht"] } }
       }
     },
 

@@ -5,6 +5,7 @@ const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
+const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
 
 const TILE = Physics.TILE;
 let combatMod = null;   // M2: Kampf v2 (lazy, wegen Zirkelbezug combat -> interior)
@@ -928,6 +929,7 @@ function damageSystem(game, sys, toState, opts) {
   if (s[sys] === before) return;
   game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
   if (s[sys] !== 'ok') {
+    Fracht.systemTreffer(game, sys);   // EK3 Teil A: ein Systemtreffer bricht das Fracht-Beamen ab (Schildtreffer erreichen diese Stelle nie)
     game.emit('systemHit', { system: sys, state: s[sys] });
     if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
   }
