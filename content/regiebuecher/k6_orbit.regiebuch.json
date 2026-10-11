@@ -359,8 +359,8 @@
               "value": "audax,fulminata",
               "quelle": "Orbitschlacht"
             },
-            {"do":"flotte_beenden"},
             {"do":"enemies_retreat","unter_pct":100},
+            {"do":"flotte_beenden"},
             {"oda":"@befehl3.geschafft"},
             {"after":{"sec":6,"do":[{"set":{"fertig":true}}]}}
           ]

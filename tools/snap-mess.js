@@ -246,10 +246,43 @@ function flotte(S, seed) {
   return { fehler: g.errors, schiffeMax: max };
 }
 
+// ---------- Aufbau 8 (VERK-ORBIT): Orbitschlacht Eisenwald – Kapitel 6 der Kette, Befehl 3 (Fregatte als Boss), 3 Spieler, Fulminata und Audax mit KI,
+// Gegner bis zur Grenze von 12 Schiffen (Fregatte, Korvetten, Jäger, alle gescannt) plus Nachschub, Befehl mit Frist, Welle, Verbündetenfeuer ----------
+function orbit(S, seed) {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const space = require('../server/sim/space.js');
+  const Flotte = require('../server/sim/flotte.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-orbit-mess-'));
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(dir, 'regie') }, log });
+  const cs = [];
+  for (let i = 0; i < 3; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'O' + i, name: 'O' + i, color: i }); cs.push(c); }
+  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'eisenwald_ohne' });
+  for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 15; k++) g.step();
+  g.mission.kette.einstieg('k6_orbit'); for (let k = 0; k < 9; k++) g.step();
+  space.enterScene(g, 'eisenwald', {}); g.god = true;
+  for (let k = 0; k < 30 * 14; k++) g.step();   // Kette: Anflug, Ankunft (Verbündete tauchen auf)
+  g.mission.setStep('befehl3_ausschalten');
+  for (let k = 0; k < 30; k++) g.step();
+  Flotte.wellenStart(g, { wellen: 'korvette:3,raider:6|korvette:2,raider:6', ziel: 'auto', richtung: 'alle', takt: 0, ueberdruck: true });
+  let max = 0;
+  for (let k = 0; k < TICKS; k++) {
+    g.ship.hull = 100;
+    g.step();
+    for (const e of g.space.enemies) e.scanned = true;
+    if (k % 90 === 60) { const e = g.space.enemies.find((x) => x.kind !== 'fregatte'); if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }
+    max = Math.max(max, Flotte.schiffe(g));
+    messen(S, g.snapshot());
+  }
+  const fehler = g.errors;
+  g.releaseWorldLock && g.releaseWorldLock();
+  return { fehler, schiffeMax: max, fregatte: g.space.enemies.some((e) => e.kind === 'fregatte') };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
@@ -257,7 +290,8 @@ for (let s = 1; s <= SEEDS; s++) laeufe.methalle.push(Object.assign({ seed: s },
 for (let s = 1; s <= SEEDS; s++) laeufe.endkampf.push(Object.assign({ seed: s }, endkampfLauf(WE, 40 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, konvoi(KV, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, flotte(FL, 60 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.orbit.push(Object.assign({ seed: s }, orbit(OB, 70 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -283,7 +317,9 @@ zeigen(res.konvoi);
 console.log('  Läufe: ' + laeufe.konvoi.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.flotte);
 console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-const alleOk = res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+zeigen(res.orbit);
+console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+const alleOk = res.orbit.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

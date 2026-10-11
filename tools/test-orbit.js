@@ -191,6 +191,7 @@ section('Verlust: Hilferuf, Ersatzbefehl, Flags, Weltstand (Gedächtnis des Lega
   run(g, 8);
   ok(aktiv(g) === 'k7_siedlung', 'Kapitel 6 endet mit erfolg, Kapitel 7 läuft (' + aktiv(g) + ')');
   ok(g.weltstand.data.fakten.orbit_eisenwald === 'befreit', 'Fakt orbit_eisenwald');
+  ok(!g.space.retreatRule, 'die Abdreh-Regel der Schlacht gilt nicht für spätere Gegner am Ort (Kapitel 7)');
   g.releaseWorldLock();
 });
 
