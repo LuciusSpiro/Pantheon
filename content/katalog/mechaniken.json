@@ -24,6 +24,7 @@
     "schleichfahrt":     { "status": "verfuegbar", "beschreibung": "Signatur (Tempo, Asteroiden, Schilde unten), Sensorkreise der Patrouillen, Weitscan verrät die Lerche kurz, Schilde hoch/runter an der Taktik, Ausgänge Ziel und Rückzug (EK2: server/sim/alarm.js)" },
     "minen":             { "status": "verfuegbar", "beschreibung": "Minenfeld: Weitscan zeigt die Minen, Annäherung zündet (ignoriert Schilde, 6 Punkte Systemschaden, Alarm), abschießbar, nicht bei ihrem Besitzer (EK2)" },
     "raum_alarm":        { "status": "verfuegbar", "beschreibung": "Alarmstufen je Raumszene (ruhig, misstrauisch, alarmiert): Lärm, Entdeckung, Minen; Patrouillen greifen an, ohne Patrouille springen nach 5 s zwei Jäger ein (EK2)" },
+    "konvoi":            { "status": "verfuegbar", "beschreibung": "Konvoi auf der Gegnerseite: 1–3 unbewaffnete Transporter mit Eskorte (Jäger, Korvette) fahren eine Route und springen am Ende; Siegbedingungen aufhalten (alle zerstören) und plündern (Fracht per Taktik an Bord beamen), Ausgänge gepluendert, aufgehalten, entkommen mit Wiederholung (EK3 Teil B: server/sim/konvoi.js)" },
     "wettflug_kurs":     { "status": "geplant", "beschreibung": "Kurs mit Toren und Zeitmessung" },
     "enterer_an_bord":   { "status": "geplant", "beschreibung": "Gegner im eigenen Schiff" },
     "passagiere":        { "status": "geplant", "beschreibung": "Personen an Bord als Zustand" },

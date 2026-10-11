@@ -1061,6 +1061,50 @@
       },
       {
         "ansaetze": [
+          "gewalt",
+          "technik"
+        ],
+        "id": "konvoi_abfangen",
+        "kern": "Einen fahrenden Konvoi mit Eskorte abfangen: Transporter vor dem Sprung zerstören (aufhalten) oder ihre Fracht erbeuten (plündern)",
+        "name": "Konvoi abfangen",
+        "szenentypen": [
+          "A15"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Konvoi aus unbewaffneten Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Geschafft, wenn alle Transporter zerstört sind, bevor sie springen; entkommt einer, scheitert die Szene und ein neuer Konvoi rollt an. Die Eskorte fährt mit und greift an, sobald die Lerche nah kommt oder ein Konvoi-Schiff getroffen wird.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "aufhalten",
+            "name": "Konvoi aufhalten",
+            "nur_an": [
+              "rabenpass",
+              "b7",
+              "relais"
+            ],
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Taktik beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "pluendern",
+            "name": "Konvoi plündern",
+            "nur_an": [
+              "rabenpass",
+              "b7",
+              "relais"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "technik"
         ],
         "id": "krise_eindaemmen",
@@ -2161,6 +2205,24 @@
         "plaetze": [
           1,
           2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "konvoi",
+        "kennung": "A15",
+        "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord)",
+        "kippt_zu": [
+          "raumgefecht",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "konvoi_abfangen"
+        ],
+        "name": "Konvoi",
+        "plaetze": [
+          1,
+          1
         ]
       },
       {

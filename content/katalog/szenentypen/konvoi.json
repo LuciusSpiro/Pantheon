@@ -1,0 +1,20 @@
+{
+  "format": "szenentyp/1",
+  "id": "konvoi",
+  "kennung": "A15",
+  "name": "Konvoi",
+  "bereich": "weltraum",
+  "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord)",
+  "kippt_zu": [
+    "raumgefecht",
+    "verfolgung"
+  ],
+  "braucht": [
+    "konvoi"
+  ],
+  "molekuele_plaetze": {
+    "min": 1,
+    "max": 1
+  },
+  "quelle": "vault: Briefing Eisenwald-Kampagne (EK3); Szenentyp EK3 Teil B"
+}

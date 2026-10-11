@@ -152,6 +152,10 @@
     CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
     FRACHT_ARTEN: ['sprengstoff', 'fracht'],
+    // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
+    // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
+    KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],
+    KONVOI_AUSGAENGE: ['gepluendert', 'aufgehalten', 'entkommen'],
     S2_EVENTS: ['offerIn', 'sceneWait', 'chapter', 'escortHit', 'escortDistress', 'escortDisabled', 'escortArrived', 'escortSaved', 'escortOrder'],
     SL_DEBUG: ['status', 'plan', 'fail', 'archiv'],
     // ---- S1 (CONTRACT-S1 §6): Weltstand, Spielmenü ----

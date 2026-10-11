@@ -15,6 +15,20 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu in EK3 Teil B – Konvoi-Szene mit Plünderung
+
+- **Konvoi (Szenentyp A15):** 1–3 **Transporter** (Klasse `frachter`, jetzt auf der **Gegnerseite**, **unbewaffnet**) fahren eine **Route aus Wegpunkten** und
+  **springen am Ende** (4 s Sprungaufladung, im Snapshot `sj`, Fortschrittsring in der Karte; bleibt abschießbar). Dazu **Eskorte** (ein Jäger, eine Korvette): sie fährt
+  mit dem Konvoi und schießt nicht, bis die Lerche näher als 520 an einen Transporter kommt oder ein Konvoi-Schiff getroffen wird, dann gilt die Klassen-KI wie bei jedem Gegner.
+  Hülle und Schilde der Transporter stehen in `CONFIG.enemies/enemyShields.frachter` (Mehrspieler-Skalierung wie bei jedem Gegner).
+- **Zwei Siegbedingungen:** **Aufhalten** (alle Transporter zerstören, bevor sie springen) und **Plündern** (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord,
+  siehe EK3 Teil A; Beute `sprengstoff`). Parameter: Zahl der Transporter, Eskorte (`voll|jaeger|korvette|keine`), Siegbedingung, Ladungsart.
+  **Die Kampagne nutzt Plündern mit 2 Transportern.**
+- **Ausgänge:** `gepluendert`, `aufgehalten`, `entkommen`. Die Szene darf scheitern: bei `entkommen` rollt nach 8 s ein neuer Konvoi an (Wiederholung; schon erbeutete Fracht bleibt an Bord,
+  der Konvoi ist dann kleiner). Der Feldzug scheitert nie.
+- Im Labor: `konvoi_abfangen/pluendern` und `konvoi_abfangen/aufhalten` (Ort Rabenpass). Debug: `konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]`.
+  Tests: `node tools/test-konvoi.js`, Bots: `node tools/sim-headless.js labor konvoi_abfangen/pluendern --crew 3`. Details und Entscheidungen: `CONTRACT-EK3B.md`.
+
 ## Neu in EK2 – Raum-Alarm: Minen und Schleichfahrt
 
 - **Alarmstufe je Raumszene:** ruhig, misstrauisch, alarmiert. Auslöser: **Lärm** (Waffenfeuer der Lerche, Antrieb auf Energie 4,

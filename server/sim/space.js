@@ -12,6 +12,7 @@ const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähige
 const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
+const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
@@ -1509,6 +1510,7 @@ function updateEnemies(game, dt) {
     e.regenT += dt;
     if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
     const retreating = e.retreatUntil > game.time;
+    if (Konvoi.faehrt(e)) { Konvoi.fahre(game, e, dt); continue; }   // EK3 Teil B: Transporter und wachende Eskorte fahren die Route, kein Feuer
     if (e.pat) { Alarm.patrouille(game, e, dt); continue; }   // EK2: ruhige Patrouille: Strecke (Brocken ignoriert), kein Feuer
     if (Pilot.flies(game, e)) {
       // M3b §3: Pilot + gemeinsames Flugmodell
@@ -1762,6 +1764,8 @@ function enemySnapExtra(e) {
   const o = { vx: r1(e.vx || 0), vy: r1(e.vy || 0) };
   const st = Pilot.snapState(e);
   if (st) o.state = st;
+  const kx = Konvoi.snapExtra(e);   // EK3 Teil B: sj = Sprungaufladung des Transporters
+  if (kx) Object.assign(o, kx);
   return o;
 }
 
@@ -1905,6 +1909,7 @@ function update(game, dt) {
   updateWeapons(game, dt);
   updateTargetScan(game, dt);
   updateEnemies(game, dt);
+  Konvoi.update(game, dt);   // EK3 Teil B: Zerstörte/Gesprungene, Alarm der Eskorte, Ausgang (ohne Konvoi sofort zurück)
   Alarm.update(game, dt);   // EK2: Lärm, Entdeckung, Einsprung, Minen
   // S2 §5: Schützlinge und Rückzugsregel (nur wenn vorhanden – sonst unverändert)
   const sp = game.space;

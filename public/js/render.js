@@ -2448,8 +2448,8 @@
   function currentLoc(st) { return locById(st, worldOf(st).location); }
   function inFog(st) { const l = currentLoc(st); return !!(l && (l.fog || l.kind === 'nebula')); }
 
-  const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer' };
-  const ENEMY_SIZE = { raider: 16, korvette: 34, fregatte: 46, kreuzer: 58, relay: 10, sentinel: 22, pylon: 18 };
+  const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer', frachter: 'Transporter' };
+  const ENEMY_SIZE = { raider: 16, korvette: 34, fregatte: 46, kreuzer: 58, relay: 10, sentinel: 22, pylon: 18, frachter: 36 };
   const MARKER_COL = { captain: PAL.mint, tactical: PAL.amber };
   const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'TAKTIK' };
   const HIDDEN_NAMES = { cache: 'VERSTECK', beacon: 'LEITBAKE', lore: 'LORE-BAKE', hollow: 'HOHLRAUM' };
@@ -3609,6 +3609,10 @@
       }
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
+      if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
+        ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
+        lab('SPRUNG', s.x, s.y - size - 22, { color: PAL.mint, align: 'center' }, 3);
+      }
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
       if (clicks && !front) clicks.push({ id: e.id, x: s.x - size - 4, y: s.y - size - 4, w: size * 2 + 8, h: size * 2 + 8 });
