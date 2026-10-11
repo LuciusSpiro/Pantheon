@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const Schema = require('../../shared/schema.js');
 const LLM = require('./llm.js');
+const Locations = require('../../shared/locations.js');
 
 const FALLBACK = JSON.parse(fs.readFileSync(path.join(__dirname, 'fallback.json'), 'utf8')).missions;
 const TIMEOUT_MS = 90000;
@@ -58,7 +59,17 @@ function pickFallback(flags) {
   return { source: 'archiv', title: best.title, from: best.from, briefing: best.briefing, reward: best.reward, hook: best.hook };
 }
 
-function buildPrompt(flags) {
+// R0: Ivo-Zeile des Prompts. `fakten` = Weltstand-Fakten (welt.fakten); Ivo, den die Crew abgegeben hat, ist nicht mehr an Bord.
+function ivoZeile(flags, fakten) {
+  const f = fakten || {};
+  if (f.ivo === 'abgegeben') {
+    const loc = Locations.get(f.ivo_ort);
+    return `- Techniker Ivo von der Boje: gerettet, von der Crew abgegeben bei ${(loc && loc.name) || f.ivo_ort || 'unbekanntem Ort'} (nicht mehr an Bord).`;
+  }
+  return `- Techniker Ivo von der Boje: ${flags.technikerRescued ? 'gerettet' : 'nicht gerettet (bisher)'}.`;
+}
+
+function buildPrompt(flags, fakten) {
   const lines = [
     'Du schreibst für das gemütliche Koop-Raumschiffspiel „Sternenschicht“ einen kurzen Auftrags-Funkspruch (Teaser) auf Deutsch.',
     'Setting: der Saumraum, ein dünn besiedelter Grenzraum. Das Konkordat der Häfen (Handelsbund, bürokratisch, meist fair).',
@@ -68,7 +79,7 @@ function buildPrompt(flags) {
     'Die Crew hat gerade die Mission „Die stumme Boje“ (Boje B-7, Datenkern geborgen) beendet. Was passiert ist:',
     `- Grauzahn: ${flags.bribed === true ? 'die Crew hat Wegezoll gezahlt (bestochen)' : flags.bribed === false ? 'die Crew hat gekämpft und gewonnen' : 'unbekannt'}.`,
     `- Datenkern: ${flags.decision === 'deliver' ? 'ans Konkordat abgeliefert' : flags.decision === 'decode' ? 'selbst entschlüsselt (Spur zu den Kustoden)' : 'Entscheidung steht noch aus – der Auftrag soll zu beiden Varianten passen'}.`,
-    `- Techniker Ivo von der Boje: ${flags.technikerRescued ? 'gerettet' : 'nicht gerettet (bisher)'}.`,
+    ivoZeile(flags, fakten),
     'Bitte schlage EINE Folgemission vor, die an diese Ereignisse anknüpft. Felder: title (≤ 60 Zeichen), from (Absender, ≤ 40),',
     'briefing (≤ 500 Zeichen, 2–4 Sätze, als Funkspruch an die Crew), reward (ganze Zahl 50–500 Marken), hook (≤ 200, ein neugierig machender Satz).',
     'Keine Namen echter Personen, keine bekannten Marken oder fremden Spielwelten. Antworte nur mit dem JSON-Objekt.',
@@ -91,7 +102,7 @@ function parseBridgeResponse(body) {
   return res.value;
 }
 
-async function callBridge(flags, cfg, log) {
+async function callBridge(flags, cfg, log, fakten) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS + 5000);
   try {
@@ -101,7 +112,7 @@ async function callBridge(flags, cfg, log) {
       body: JSON.stringify({
         args: ['-p', '--output-format', 'json', '--json-schema', JSON.stringify(Schema.MISSION_SCHEMA), '--model', 'sonnet',
           '--no-session-persistence', '--max-budget-usd', cfg.budget],
-        prompt: buildPrompt(flags),
+        prompt: buildPrompt(flags, fakten),
         timeoutMs: TIMEOUT_MS,
       }),
       signal: ctl.signal,
@@ -114,7 +125,7 @@ async function callBridge(flags, cfg, log) {
   } finally { clearTimeout(timer); }
 }
 
-// Liefert immer ein Ergebnis (nie reject). opts: { env, log, bridgeImpl }
+// Liefert immer ein Ergebnis (nie reject). opts: { env, log, bridgeImpl, fakten (Weltstand-Fakten, R0) }
 function generate(flags, opts) {
   const o = opts || {};
   const log = o.log || (() => {});
@@ -129,7 +140,7 @@ function generate(flags, opts) {
     return Promise.resolve(pickFallback(flags));
   }
   const impl = o.bridgeImpl || callBridge;
-  inFlight = impl(flags, cfg, log)
+  inFlight = impl(flags, cfg, log, o.fakten)
     .catch((err) => { log('Teaser: Bridge fehlgeschlagen (' + (err && err.name === 'AbortError' ? 'Timeout' : (err && err.message)) + ') – nutze Archiv.'); return pickFallback(flags); })
     .finally(() => { inFlight = null; });
   return inFlight;

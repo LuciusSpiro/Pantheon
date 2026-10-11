@@ -143,7 +143,7 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   placeAt(1, bedSpot(0)); tap(1);
   ok(P(1).console === null && notices(1).some((t) => /Nicht deine Koje/.test(t)), 'fremde Koje abgelehnt');
   placeAt(1, bedSpot(3)); tap(1);
-  ok(P(1).console === null && notices(1).some((t) => /Gästequartier/.test(t)), 'Gästequartier (Koje 4) nicht nutzbar');
+  ok(P(1).console === null && notices(1).some((t) => /Nicht deine Koje/.test(t)), 'fremde Koje 4 (Farbe 3) abgelehnt');
   send(0, { t: 'leave' });
   enter(0, 'shop');
   ok(P(0).console === 'shop', 'Hafenterminal (angedockt)');

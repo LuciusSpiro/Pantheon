@@ -5,6 +5,7 @@ const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
+const onboard = require('./onboard.js');   // R0: Ivo abgeben (onboard lädt interior nicht)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
 
 const TILE = Physics.TILE;
@@ -459,7 +460,7 @@ function prio(kind) {
   if (typeof kind === 'string' && kind.startsWith('anker:')) return kind === 'anker:tuer' ? 5 : 4;
   return 6;
 }
-const PRIORITY = { fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
+const PRIORITY = { ivoAbgeben: 8, fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
 
 function candidateTiles(p, game) {
   const t = Physics.toTile(p.x, p.y);
@@ -549,8 +550,12 @@ function interactionsAt(game, p, tx, ty, own) {
     if (info.interact === 'bed') {
       const bed = W.Maps.BEDS.find((b) => b.x === tx && b.y === ty);
       if (bed && bed.color === p.color) list.push({ kind: 'bed' });
-      else if (bed && bed.color === 3) list.push({ kind: 'bed', blocked: game.mission.flags.technikerRescued ? 'Ivos Koje. Er hat sie schon mit Schraubenschlüsseln dekoriert.' : 'Gästequartier – noch frei.' });
       else if (bed) list.push({ kind: 'bed', blocked: 'Nicht deine Koje.' });
+    }
+    // R0: Ivo an Bord abgeben (E an Ivo; nur angedockt, kein Gespräch)
+    if (game.ivo && !game.ivo.abschied) {
+      const ivoT = Physics.toTile(game.ivo.x, game.ivo.y);
+      if (ivoT.x === tx && ivoT.y === ty) { const sperre = onboard.ivoAbgebenSperre(game); list.push(sperre ? { kind: 'ivoAbgeben', blocked: sperre } : { kind: 'ivoAbgeben' }); }
     }
     for (const it of game.ship.groundItems) {
       const it2 = Physics.toTile(it.x, it.y);
@@ -720,6 +725,7 @@ function performInteraction(game, p, it) {
       return;
     }
     case 'pickup': return pickupItem(game, p, it.item, it.where);
+    case 'ivoAbgeben': return onboard.ivoAbgeben(game);
     case 'npcHeal': {
       const npc = it.npc;   // W2 AP6: Person aus npcInteraction (away.personAn)
       if (npc.person) {   // S2: Person aus spawn_person (Medipack getragen oder eingesteckt)

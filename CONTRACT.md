@@ -15,7 +15,7 @@ https://claude.ai/artifact/3jhuz4JKQkigjLfBJcKWXX
 
 ## 1. Was die Demo ist
 
-Online-Koop für 1–3 Spieler, jeder im eigenen Browser. Ein Node-Server ist maßgeblich
+Online-Koop für 1–4 Spieler, jeder im eigenen Browser. Ein Node-Server ist maßgeblich
 (autoritativ). 2D top-down Pixel-Art (32-px-Kacheln, interne Auflösung 640×360). Die Crew läuft
 im Schiffsinneren herum; an Konsolen öffnen sich eigene Ansichten. Zwei Schrauber-Bots helfen
 bei Reparatur. Eine Außenmission läuft **gleichzeitig** zum Schiff.
@@ -106,7 +106,7 @@ Kachel = 32 px. Pixelkoordinate einer Figur = **Füße** (Mittelpunkt der Hitbox
 | `S` | Hafenterminal (Shop, nur angedockt) | ja | E: Konsole `shop` |
 | `L` (Schiff) | Lagerregal, Gegenstand nach x: 8 ersatzteil, 9 loeschgel, 10 flickblech, 11 bolzen, 12 medipack | ja | E: nehmen / zurücklegen |
 | `L` (Plattform) | verriegelte Tür, offen nach Sonde | ja→nein | – |
-| `B` | Koje (Farbe 0,1,2 laut `BEDS`) | ja | E (nur Besitzer): Konsole `quartier` |
+| `B` | Koje (Farbe 0–3 laut `BEDS`) | ja | E (nur Besitzer): Konsole `quartier` |
 | `R E G K X O` | Systempunkt Reaktor / Antrieb / Schildgenerator / Waffenbank / Transfer / Lebenserhaltung | ja | E halten: reparieren |
 | `m p c x b` | Tisch / Pflanze / Kiste / Kiste / Bojenkern | ja | – |
 | `N Q d` | Spawn Techniker / Datenkern / Drohne (Boden) | nein | – |
@@ -191,7 +191,7 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
 
 ### 5.3 Server → Client
 - `welcome { pid, serverVersion, debug: bool }`
-- `full { text }` – Server voll (3 Spieler).
+- `full { text }` – Server voll (4 Spieler).
 - `pong { ts }`
 - `event { kind, ... }` mit `kind`:
   `oda {text}` (Bordintelligenz, Tutorial/Hinweise) · `radio {from, text}` · `notice {pid, text}` ·
@@ -512,5 +512,5 @@ Warnsymbol. Konsolen blinken immer leicht; besetzt = heller.
 3. Keine Softlocks (z. B. Ersatzteile alle verbraucht → Shop/Bots/Stage muss weiter möglich sein;
    Transfer kaputt und niemand an Bord → Selbst-Transfer nach Reparatur durch Bots möglich).
 4. Ohne `art.js`/`audio.js` läuft das Spiel (Fallback). Ohne Bridge: Archiv-Teaser.
-5. Reconnect funktioniert; vierter Spieler bekommt „Server voll“.
+5. Reconnect funktioniert; fünfter Spieler bekommt „Server voll“.
 6. Fehlerzähler Client/Server nach einem Durchlauf = 0 (oder erklärt).

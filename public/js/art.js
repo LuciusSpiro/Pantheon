@@ -17,11 +17,11 @@
     funke: '#FFF1B8', rauch: '#5A5560', tiefraum: '#0B0E1A', nebel: '#2A2350', sternweiss: '#F4EEDC',
     moos: '#5E8C4A', rostsand: '#C2703D', eisblau: '#A9D6E5',
     haut0: '#F1C7A0', haut1: '#C68A5E', haut2: '#7A4A2E',
-    spieler0: '#56B4E9', spieler1: '#E69F00', spieler2: '#CC79A7',
+    spieler0: '#56B4E9', spieler1: '#E69F00', spieler2: '#CC79A7', spieler3: '#7FE0C2',
     outline: '#1B2230', outlineWarm: '#2B1D1A', outlineRust: '#1E1612',
   };
-  var PLAYER = ['#56B4E9', '#E69F00', '#CC79A7'];
-  var PLAYER_SHAPES = ['circle', 'triangle', 'diamond'];
+  var PLAYER = ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'];   // R0: vier Spielerfarben (0–3)
+  var PLAYER_SHAPES = ['circle', 'triangle', 'diamond', 'square'];
 
   // ---------------------------------------------------------------------------------------------
   // Farb-Helfer
@@ -1486,11 +1486,12 @@
       circle: ['.###.', '#####', '#####', '#####', '.###.'],
       triangle: ['..#..', '.###.', '.###.', '#####', '#####'],
       diamond: ['..#..', '.###.', '#####', '.###.', '..#..'],
+      square: ['#####', '#####', '#####', '#####', '#####'],
     }[shape] || [];
     grid(g, x, y, m, { '#': col });
   }
   function buildBed(g, c, color) {
-    var pc = color === 3 ? PAL.moos : (PLAYER[color] || PLAYER[0]), pL = shade(pc, 0.3), pD = shade(pc, -0.3);   // 3 = Gästequartier
+    var pc = PLAYER[color] || PLAYER[0], pL = shade(pc, 0.3), pD = shade(pc, -0.3);
     var wood = '#7A4E33', woodL = '#9A6844', woodD = '#5A3824';
     // Kopfteil
     R(g, 3, 6, 26, 12, wood); R(g, 3, 6, 26, 1, woodL); R(g, 3, 6, 1, 12, woodL); R(g, 28, 6, 1, 12, woodD);
@@ -1506,8 +1507,7 @@
     R(g, 4, 27, 24, 3, pL); R(g, 4, 30, 24, 1, pD);
     R(g, 4, 31, 2, 13, pD); R(g, 26, 31, 2, 13, pD);
     for (var q = 33; q < 44; q += 4) R(g, 7, q, 18, 1, shade(pc, -0.12));
-    if (color === 3) { R(g, 13, 35, 7, 3, '#E8DCC0'); R(g, 14, 36, 5, 1, PAL.messing); }   // Gast: gefaltete Decke mit Messingband
-    else symbolPix(g, PLAYER_SHAPES[color] || 'circle', 14, 34, PAL.sternweiss);
+    symbolPix(g, PLAYER_SHAPES[color] || 'circle', 14, 34, PAL.sternweiss);
     // Fußteil
     R(g, 3, 43, 26, 4, wood); R(g, 3, 43, 26, 1, woodL);
     finish(c, PAL.outlineWarm, null);
@@ -1876,7 +1876,7 @@
         ctx.drawImage(spr, px, py - OH); return;
       }
       case 'bed': {
-        var col = (o.color | 0) === 3 ? 3 : (((o.color | 0) % 3) + 3) % 3;
+        var col = (((o.color | 0) % 4) + 4) % 4;
         spr = cached('obj|bed|' + col, 32, 48, function (g, c) { buildBed(g, c, col); });
         ctx.drawImage(spr, px, py - OH); return;
       }
@@ -1951,7 +1951,7 @@
   // ---------------------------------------------------------------------------------------------
   // M4 Stufe 1 „Zwei Decks“ (Team DECKS): schlichte 2D-Zeichnung der neuen Kachelarten für ?render=2d.
   // Bodenkacheln (drawTile): '^' Liftplattform, '!' Notleiter, ':' Mosaikboden. Objekte (drawObject): light_shaft, window,
-  // trophy_niche, shrine, med_bed, bath, bench, sideboard. Alles in der Kachel (32×32), gecacht.
+  // trophy_niche, shrine, med_bed, bath, bench, sideboard, R0: cargo_cot, tool_wall. Alles in der Kachel (32×32), gecacht.
   function drawDeckTileM4(ctx, ch, px, py, env, plat) {
     var time = env.time || 0;
     if (ch === ':') {   // Mosaik: karierter heller Boden mit feinem Rand
@@ -2035,6 +2035,21 @@
         });
         break;
       }
+      case 'cargo_cot': spr = cached('m4|cargocot', 32, 32, function (g) {   // R0: Pritsche in Ivos Schlafecke (Frachtraum) – schmaler Rahmen, Matratze, grüne Decke
+        R(g, 3, 2, 26, 28, '#5A3824'); R(g, 3, 2, 26, 1, '#9A6844');
+        R(g, 5, 4, 22, 24, '#E8DCC0'); R(g, 7, 5, 18, 6, '#F4EEDC'); R(g, 7, 10, 18, 1, '#C8BCA0');   // Matratze mit Kissen
+        R(g, 5, 13, 22, 15, PAL.moos); R(g, 5, 13, 22, 2, '#7FAE66'); R(g, 5, 15, 22, 1, '#3F6532');   // Decke
+        R(g, 5, 13, 2, 15, '#3F6532'); R(g, 25, 13, 2, 15, '#3F6532'); R(g, 13, 20, 7, 3, '#E8DCC0'); R(g, 14, 21, 5, 1, PAL.messing);   // Decke mit Messingband
+        R(g, 3, 28, 26, 2, '#7A4E33');
+      }); break;
+      case 'tool_wall': spr = cached('m4|toolwall', 32, 32, function (g) {   // R0: Werkzeugwand – Lochplatte mit Schraubenschlüsseln, Zange, Hammer
+        R(g, 2, 2, 28, 28, '#3A3F4C'); R(g, 3, 3, 26, 26, '#4F6178'); R(g, 3, 3, 26, 1, '#8EA3B5');
+        for (var ty = 6; ty < 28; ty += 4) for (var tx = 5; tx < 28; tx += 4) P(g, tx, ty, '#2B3442');   // Lochraster
+        R(g, 6, 5, 2, 14, '#A9BACB'); R(g, 5, 4, 4, 3, '#C8D6E2'); R(g, 6, 18, 2, 2, '#6C7F96');   // Schraubenschlüssel
+        R(g, 13, 6, 2, 12, '#8A5A36'); R(g, 11, 5, 6, 4, '#6C7F96');   // Hammer
+        R(g, 20, 5, 2, 9, '#C9974A'); R(g, 23, 5, 2, 9, '#C9974A'); R(g, 20, 14, 5, 2, '#8A5A36'); R(g, 21, 16, 3, 8, '#8A5A36');   // Zange
+        R(g, 7, 24, 18, 2, '#2E3A4A'); R(g, 7, 24, 18, 1, '#6C7F96');   // Ablage
+      }); break;
       case 'sideboard': spr = cached('m4|sideboard', 32, 32, function (g) {
         R(g, 2, 6, 28, 22, '#6A4228'); R(g, 2, 6, 28, 3, '#E6DCC6'); R(g, 4, 12, 11, 14, '#7E5232'); R(g, 17, 12, 11, 14, '#7E5232');
         R(g, 13, 18, 2, 2, '#D9A441'); R(g, 17, 18, 2, 2, '#D9A441'); ell(g, 9, 4, 3, 2, '#9E4A36');   // Amphore
@@ -2052,11 +2067,12 @@
     { skin: '#F1C7A0', hair: '#6B3F26', hairL: '#9A6340', shirt: '#56B4E9', shirtL: '#8FD0F2', shirtD: '#2F7FB0', style: 'short', shape: 'circle' },
     { skin: '#9C6440', hair: '#2E2233', hairL: '#4A3A50', shirt: '#E69F00', shirtL: '#F5BE45', shirtD: '#A86F00', style: 'band', shape: 'triangle' },
     { skin: '#F8DCC4', hair: '#B4573E', hairL: '#E07A50', shirt: '#CC79A7', shirtL: '#E6A3C8', shirtD: '#94507A', style: 'long', shape: 'diamond' },
+    { skin: '#7A4A2E', hair: '#1F1A24', hairL: '#3A3040', shirt: '#7FE0C2', shirtL: '#A9F0DA', shirtD: '#4E9F88', style: 'short', shape: 'square' },   // R0: 4. Spieler
   ];
   var TECH = { skin: '#C68A5E', hair: '#9A9AA4', hairL: '#C8C8D0', shirt: '#5E8C4A', shirtL: '#7FAE66', shirtD: '#3F6532', style: 'cap', shape: null, beard: true };
   var PANTS = '#2E3A4A', PANTS_D = '#1F2833', BOOTS = '#4A2E22', BELT = '#C9974A';
   function sym3(g, shape, x, y, col) {
-    var m = { circle: ['.#.', '###', '.#.'], triangle: ['.#.', '###', '###'], diamond: ['.#.', '#.#', '.#.'] }[shape];
+    var m = { circle: ['.#.', '###', '.#.'], triangle: ['.#.', '###', '###'], diamond: ['.#.', '#.#', '.#.'], square: ['###', '###', '###'] }[shape];
     if (m) grid(g, x, y, m, { '#': col });
   }
   function wrench(g, x, y, ang) {   // kleiner Schraubenschlüssel ab (x,y) in Richtung ang
@@ -2349,7 +2365,7 @@
   }
   function drawCharacter(ctx, x, y, opts) {
     var o = opts || {};
-    var c = ((o.color | 0) % 3 + 3) % 3;
+    var c = ((o.color | 0) % 4 + 4) % 4;
     if (o.shieldRing && o.shieldMax > 0 && !o.downed) drawShieldRingPix(ctx, Math.round(x), Math.round(y), o.shieldSeg, o.shieldMax);   // M2, optional
     drawHumanoid(ctx, CREW[c], 'c' + c, x, y, o);
     if (o.shieldHitT != null && o.shieldHitT >= 0 && o.shieldHitT < 0.35 && !o.downed) drawShieldBubble(ctx, Math.round(x), Math.round(y) - (o.crouch ? 12 : 17), +o.shieldHitT, 1);   // M2: Hex-Flackern

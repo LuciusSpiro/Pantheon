@@ -1,6 +1,6 @@
 # Pantheon – Stand nach EK8 (Eisenwald-Kampagne EK1–EK8, B1–B3 „Bühnen, Bodenkampf, Sektorkarte“, Wellen 1 und 2)
 
-Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
+Gemütliches Online-Koop-Raumschiff für 1–4 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
 
 Das Spiel hieß bis S1 „Sternenschicht“ (Arbeitstitel); der Repo-Ordner heißt jetzt `Pantheon/`. Bisherige
@@ -683,10 +683,10 @@ npm start          # Server auf Port 3300
   `Raumcode: K7QM   Link: http://localhost:3300/?code=K7QM`. Selbst spielen: diesen Link öffnen.
 - Mitspieler im selben Netz: `http://<IP-des-Rechners>:3300/?code=K7QM` (IP z. B. per `ipconfig`; ggf.
   Windows-Firewall für Port 3300 freigeben). Anderer Port: `PORT=3400 npm start` bzw. in `.env`.
-- Lobby: Name eintippen, Farbe mit 1–3, **Enter = bereit**. Es geht los, sobald alle Verbundenen bereit sind.
+- Lobby: Name eintippen, Farbe mit 1–4, **Enter = bereit**. Es geht los, sobald alle Verbundenen bereit sind.
   Rechts stehen der Raumcode und **„Einladungslink kopieren“** (L). Der Schalter **„Übung überspringen“** (U)
   lässt die Hafen-Übung weg – jeder darf ihn umschalten, alle sehen den Zustand.
-  Später Beitretende landen direkt im Spiel. Ein vierter Spieler bekommt „Server voll“.
+  Später Beitretende landen direkt im Spiel. Ein fünfter Spieler bekommt „Server voll“.
 - Verbindung weg? Der Client verbindet sich selbst neu und bekommt seine Figur zurück (der Code ist im Browser gemerkt).
 
 ## Raumcode
@@ -712,7 +712,7 @@ Am einfachsten über einen Cloudflare-Quick-Tunnel (kostenlos, kein Konto, keine
 
 Hinweise:
 - Den PC wach halten (Energiesparen aus) – schläft er ein, ist die Runde weg.
-- Höchstens 3 Spieler, ein Gerät (oder Browser) pro Spieler.
+- Höchstens 4 Spieler, ein Gerät (oder Browser) pro Spieler.
 - Die Tunnel-Adresse ändert sich bei jedem Start von cloudflared; der Raumcode bei jedem Serverstart
   (außer mit festem `ROOM_CODE`).
 - Fremde mit der Adresse, aber ohne Code, sehen nur das Code-Feld.

@@ -8,7 +8,7 @@
   'use strict';
   return {
     port: 3300,
-    maxPlayers: 3,
+    maxPlayers: 4,
     tickHz: 30,          // Server-Simulation
     snapHz: 15,          // Snapshots an Clients
     view: { w: 640, h: 360 }, // interne Auflösung
@@ -133,7 +133,7 @@
     // ---- Ergänzungen Team SERVER (nur hinzugefügt, nichts umbenannt) ----
     net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90, bookBudget: 3000,   // §21.2 bookBudget: max. Bytes mission.book // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
       // W1 AP1: Snapshot-Grenze (Bytes JSON) für Budget-Prüfungen in Tests, Bots und tools/snap-mess.js; snapLuft = Reserve,
-      // die der Worst Case (Außenposten, 3 Spieler, 12 Gegner) unter snapMax bleiben muss -> Ziel ≤ snapMax − snapLuft.
+      // die der Worst Case (Außenposten, 4 Spieler, 12 Gegner) unter snapMax bleiben muss -> Ziel ≤ snapMax − snapLuft.
       snapMax: 20 * 1024, snapLuft: 1536 },   // 2026-10-11 (Kai): 13 → 20 KB, damit Generatorkarten, Personen und Wellen Platz haben
     // W1 AP1: Debug-Schalter. snapKiRolle: away.drones[].role (KI-Rolle pin/flank/…) im Snapshot mitsenden. Aus = Feld fehlt
     // (Netzbudget). Bots (sim-headless, golden-trace) und das Debug-Overlay (?debug=1 am Debug-Server, per `tune`) schalten ihn ein.
@@ -294,7 +294,7 @@
         q2: { floor: 'teppich_blau', wall: 'tapete_creme', light: 'warm' }, q3: { floor: 'teppich_rot', wall: 'tapete_gruen', light: 'bernstein' } },
     },
     deko: ['pflanze', 'poster', 'lampe', 'teppich', 'buecherregal', 'aquarium', 'sessel', 'sternkarte', 'trophaee_boje', 'kristalllampe', 'lamassu_figur'],   // M2: lamassu_figur (Wächter-Belohnung)
-    plan: { maxSeated: 3, maxPins: 5, labels: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'] },
+    plan: { maxSeated: 4, maxPins: 5, labels: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'] },
     travel: { jumpMinStationDist: 300, dockDist: 80, dockSpeed: 28 },
     discovery: { firstVisitMarks: 20, cachePickupDist: 70 },
     // Wrack-Außenmission
@@ -323,7 +323,7 @@
       scanQualityJammed: 0.35,            // Captain-Scan, solange ein Störrelais an ist
       jammerTime: 2.5, archkeyTime: 3, archkeyWindow: 1.5, tabletTime: 3,
       archkeySoloWindow: 15,              // QA M2: nur 1 Spieler verbunden -> so lange bleibt der erste Schlüssel gedreht
-      squadScale: { 1: 0.5, 2: 0.75, 3: 1 },   // Anteil der Spawns je Anzahl verbundener Spieler (aufgerundet, min. 1)
+      squadScale: { 1: 0.5, 2: 0.75, 3: 1, 4: 1.25 },   // Anteil der Spawns je Anzahl verbundener Spieler (aufgerundet, min. 1)
       orders: { max: 3, ttl: 30, focusTime: 8 },
       rewards: { complete: 120, warden: 60, jammer: 10 },
       // M2 §15 Ducken (Taste C): Tempo-Faktor, Ausweichchance je Treffer, Plünderer ducken sich im Rückzug (tune crouch.enemyCrouch on|off)

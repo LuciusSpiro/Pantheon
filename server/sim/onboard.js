@@ -1,5 +1,5 @@
 'use strict';
-// Leben an Bord (M1): Planungstisch mit Pins (§8) und Techniker Ivo im Gästequartier (§1 Studio, §7).
+// Leben an Bord (M1): Planungstisch mit Pins (§8) und Techniker Ivo im Frachtraum (§1 Studio, §7; R0: vorher Gästequartier).
 const Physics = require('../../shared/physics.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
@@ -44,8 +44,8 @@ function unpin(game, p, id) {
 }
 
 // ---------- Ivo an Bord ----------
-// Wegpunkte: Gästequartier, Messe, Planungstisch, Gang, Maschinenraum (er schraubt gern).
-// M3a: aus dem Schiffslayout abgeleitet (Maps.IVO_SPOTS, falls die Karte sie vorgibt; sonst aus SHIP_ROOMS/BEDS/Konsolen).
+// Wegpunkte: Frachtraum (Schlafecke), Messe, Planungstisch, Gang, Maschinenraum (er schraubt gern).
+// M3a: aus dem Schiffslayout abgeleitet (Maps.IVO_SPOTS, falls die Karte sie vorgibt; sonst aus SHIP_ROOMS/Konsolen).
 function roomFloor(match, nth) {
   const rooms = (W.Maps.SHIP_ROOMS || []).filter(match);
   const out = [];
@@ -63,35 +63,27 @@ function roomFloor(match, nth) {
 }
 function deriveIvoSpots() {
   if (Array.isArray(W.Maps.IVO_SPOTS) && W.Maps.IVO_SPOTS.length) return W.Maps.IVO_SPOTS.map((s) => ({ x: s.x, y: s.y }));
-  const guestBed = (W.Maps.BEDS || []).find((b) => b.color === 3);
-  const guestId = guestBed && guestBed.room ? guestBed.room.id : null;
-  const guest = roomFloor((r) => r.id === guestId, 0);
-  const guest2 = roomFloor((r) => r.id === guestId, 1);
+  // R0: Wohnort ist der Frachtraum (Raum mit nutzung 'quartier'); Buchten und ihre Zugangskacheln bleiben frei
+  const frei = (t) => t && !(W.Maps.CARGO_BAYS || []).some((b) => (b.x === t.x && b.y === t.y) || (b.access && b.access.x === t.x && b.access.y === t.y));
+  const heim = (nth) => { const r = (W.Maps.SHIP_ROOMS || []).find((q) => (q.nutzung || []).includes('quartier')); return r ? roomFloor((q) => q === r, nth) : null; };
+  const heimat = [0, 1, 2, 3, 4, 5].map(heim).find(frei) || null;
   const plan = (W.CONSOLE_TILES.plan || [])[0];
   const planAccess = plan ? W.accessTiles(W.ship, W.shipWalkable, plan.x, plan.y)[0] : null;
-  const list = [guest, guest2, roomFloor((r) => r.id === 'messe', 3), planAccess, roomFloor((r) => r.id === 'gang', 0),
-    roomFloor((r) => r.kind === 'engine', 0), guest].filter(Boolean);
+  const list = [heimat, roomFloor((r) => r.id === 'messe', 3), planAccess, roomFloor((r) => r.id === 'gang', 0),
+    roomFloor((r) => r.kind === 'engine', 0), heimat].filter(Boolean);
   if (!list.length) list.push(W.Maps.SHIP_SPAWNS[0]);
   return list;
 }
 const IVO_SPOTS = deriveIvoSpots();
 
-function updateIvo(game, dt) {
-  if (!game.mission.flags.technikerRescued) { game.ivo = null; return; }
-  if (!game.ivo) {
-    const c = W.tileCenter(IVO_SPOTS[0].x, IVO_SPOTS[0].y);
-    game.ivo = { id: 'ivo', x: c.x, y: c.y, dir: 'down', moving: false, path: null, waitT: 3, spot: 0 };
-    game.oda('Ivo ist ins Gästequartier gezogen. Er sagt, das Bett ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
-  }
-  const v = game.ivo;
-  v.moving = false;
-  if (v.waitT > 0) { v.waitT -= dt; return; }
-  if (!v.path) {
-    v.spot = (v.spot + 1) % IVO_SPOTS.length;
-    const goal = IVO_SPOTS[v.spot];
-    v.path = bfs(W.shipWalkable, Physics.toTile(v.x, v.y), (x, y) => x === goal.x && y === goal.y, W.ship.w, W.ship.h) || [];
-  }
-  if (!v.path.length) { v.path = null; v.waitT = 4 + game.rng.range(0, 5); return; }
+// R0: Hat die Crew Ivo an einer Station abgegeben? Der Weltstand-Fakt `ivo` ist die Quelle (überlebt Speichern und Laden).
+function istAbgegeben(game) {
+  const f = game.weltstand && game.weltstand.data && game.weltstand.data.fakten;
+  return !!f && f.ivo === 'abgegeben';
+}
+
+// Schritt von Ivo entlang seines Pfads (Tempo wie beim Schlendern); setzt dir und moving.
+function ivoLaufen(v, dt) {
   let budget = 55 * dt;
   while (budget > 0 && v.path.length) {
     const n = v.path[0]; const c = W.tileCenter(n.x, n.y);
@@ -102,9 +94,68 @@ function updateIvo(game, dt) {
   v.moving = true;
 }
 
-function npcsSnapshot(game) {
+function updateIvo(game, dt) {
+  if (!game.mission.flags.technikerRescued || istAbgegeben(game)) { game.ivo = null; return; }
+  if (!game.ivo) {
+    const c = W.tileCenter(IVO_SPOTS[0].x, IVO_SPOTS[0].y);
+    game.ivo = { id: 'ivo', x: c.x, y: c.y, dir: 'down', moving: false, path: null, waitT: 3, spot: 0 };
+    game.oda('Ivo ist in den Frachtraum gezogen. Er sagt, die Pritsche ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
+  }
   const v = game.ivo;
-  return v ? [{ id: 'ivo', x: Math.round(v.x * 10) / 10, y: Math.round(v.y * 10) / 10, dir: v.dir, moving: v.moving }] : [];
+  v.moving = false;
+  if (v.abschied) return ivoAbschiedGehen(game, v, dt);
+  if (v.waitT > 0) { v.waitT -= dt; return; }
+  if (!v.path) {
+    v.spot = (v.spot + 1) % IVO_SPOTS.length;
+    const goal = IVO_SPOTS[v.spot];
+    v.path = bfs(W.shipWalkable, Physics.toTile(v.x, v.y), (x, y) => x === goal.x && y === goal.y, W.ship.w, W.ship.h) || [];
+  }
+  if (!v.path.length) { v.path = null; v.waitT = 4 + game.rng.range(0, 5); return; }
+  ivoLaufen(v, dt);
 }
 
-module.exports = { seated, pin, unpin, updateIvo, npcsSnapshot, dist };
+// ---------- Ivo abgeben (R0, CONTRACT-ROLLEN 3a) ----------
+// Nur angedockt (Hafen oder Station). Kein Gespräch, keine Haltezeit: E an Ivo. Das Gespräch kommt mit CONTRACT-NSC.
+// -> Sperrtext (Ivo kann gerade nicht abgegeben werden) | null
+function ivoAbgebenSperre(game) {
+  const s = game.ship;
+  return s.docked && s.dockedAt ? null : 'Hier kann ich nicht aussteigen.';
+}
+
+// Abgabe: Fakt im Weltstand, NSC-Gedächtnis, Funkzeile; Ivo geht zum Ausstieg und verschwindet (ivoAbschiedGehen).
+// `technikerRescued` bleibt true. Nicht zurückholbar: updateIvo erzeugt ihn nach dem Fakt nie wieder (auch nicht nach dem Laden).
+function ivoAbgeben(game) {
+  const v = game.ivo;
+  if (!v || v.abschied || ivoAbgebenSperre(game)) return;
+  const ort = game.ship.dockedAt;
+  const loc = Locations.get(ort);
+  const ortName = (loc && loc.name) || ort;
+  const ws = game.weltstand;
+  // Fakten sind nur Zahl/Text/Wahrheitswert: Status und Ort getrennt
+  ws.fact('ivo', 'abgegeben', 'Ivo an Bord abgegeben');
+  ws.fact('ivo_ort', ort, 'Ivo an Bord abgegeben');
+  ws.npcStatus('ivo', 'lebt', ort);
+  ws.npcMemory('ivo', { ereignis: 'abgegeben', text: `Die Crew hat mich bei ${ortName} abgesetzt.`, gewicht: 3 });
+  ws.chronicle(`Ivo ist bei ${ortName} von Bord gegangen.`);
+  game.markSaveDue('ivo');
+  v.abschied = true; v.path = null; v.waitT = 0;
+  game.emit('radio', { from: 'Techniker Ivo', text: `Hier steige ich aus. Danke fürs Mitnehmen – und passt mir auf die Lerche auf!` });
+}
+
+// Ivo läuft zum Ausstieg (Kachel unter dem Hafenterminal) und geht von Bord.
+function ivoAbschiedGehen(game, v, dt) {
+  if (!v.path) {
+    const ziel = W.Maps.IVO_AUSSTIEG || IVO_SPOTS[0];
+    v.path = bfs(W.shipWalkable, Physics.toTile(v.x, v.y), (x, y) => x === ziel.x && y === ziel.y, W.ship.w, W.ship.h) || [];
+  }
+  if (!v.path.length) { game.ivo = null; return; }
+  ivoLaufen(v, dt);
+}
+
+function npcsSnapshot(game) {
+  const v = game.ivo;
+  // ab: 1 nur beim Abschied (R0) – die Schlafecke im Frachtraum verschwindet sofort, Ivo läuft noch zum Ausstieg
+  return v ? [Object.assign({ id: 'ivo', x: Math.round(v.x * 10) / 10, y: Math.round(v.y * 10) / 10, dir: v.dir, moving: v.moving }, v.abschied ? { ab: 1 } : {})] : [];
+}
+
+module.exports = { seated, pin, unpin, updateIvo, ivoAbgeben, ivoAbgebenSperre, istAbgegeben, npcsSnapshot, dist };

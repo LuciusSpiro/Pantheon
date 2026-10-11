@@ -36,6 +36,7 @@ const FURN_ID = {
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
   bath: 'lerche/furn/bath', bench: 'lerche/furn/bench', light_shaft: 'lerche/kit/light_shaft', plant: 'lerche/deco/pflanze',
   cargo_bay: 'lerche/furn/cargo_bay',   // EK3 Teil A: Frachtbucht im Frachtraum (Deck II), Ladung aus snapshot.fracht.lager
+  cargo_cot: 'lerche/furn/bed', tool_wall: 'lerche/furn/workbench',   // R0: Ivos Schlafecke (Pritsche = Bett in Farbe 3), ohne Bewohner Stauware (crate)
 };
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
 const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte: einmal in die Blockmitte
@@ -413,6 +414,11 @@ function buildDynamic(ctx, S) {
         const color = bed ? bed.color : 0;
         fn = () => ({ color });
       } else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
+      else if (kind === 'cargo_cot' || kind === 'tool_wall') {   // R0: Schlafecke nur mit Bewohner (Ivo an Bord, nicht beim Abschied), sonst Stauware
+        const nook = (st) => ((M.nutzungAt && M.nutzungAt(o.tx, o.ty)) || []).includes('quartier') && ((st.ship && st.ship.npcs) || []).some((n) => n.id === 'ivo' && !n.ab) ? 1 : 0;
+        add(o, id, PH_COL.furn, (st) => ({ bewohnt: nook(st), color: 3 }), { nook: kind });
+        continue;
+      }
       else if (kind === 'light_shaft') { const w = (x, y) => A.map.at(x, y) === ch; const conn = (w(o.tx, o.ty - 1) ? 1 : 0) | (w(o.tx + 1, o.ty) ? 2 : 0) | (w(o.tx, o.ty + 1) ? 4 : 0) | (w(o.tx - 1, o.ty) ? 8 : 0); fn = (st) => { const p = reactorPower(st); return { glow: p === 2 ? 0 : p === 3 ? 1 : 2, conn }; }; }
       else if (kind === 'bath') { const first = A.map.at(o.tx - 1, o.ty) !== ch && A.map.at(o.tx, o.ty - 1) !== ch ? 1 : 0; fn = () => ({ spout: first }); }   // ART-D: nur ein Löwenkopf
       else if (kind === 'cargo_bay') {   // EK3 Teil A: art 0 leer, 1 Sprengstoff, 2 sonstige Fracht; gesichert 0 = ungesichert (AP9)
@@ -456,6 +462,10 @@ function placeObj(ctx, S, e, params) {
   if (!d) return;
   if (e.obj) { d.group.remove(e.obj); e.obj = null; }
   let id = e.id;
+  if (e.nook) {   // R0: Schlafecke (Pritsche/Werkzeugwand) oder Stauware
+    if (params.bewohnt) params = e.nook === 'cargo_cot' ? { color: params.color } : {};
+    else { id = 'lerche/furn/crate'; params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) }; }
+  }
   if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = { on: 1 }; }   // lampe: on (andere ignorieren den Parameter)
   const obj = ctx.loader.object(id, params, { color: e.color });
   obj.position.set(e.o.cx, 0, e.o.cz);

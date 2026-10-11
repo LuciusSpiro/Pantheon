@@ -309,7 +309,7 @@
     CODE_SYMBOLS: ['kreis', 'dreieck', 'raute', 'stern', 'welle', 'kreuz'],
     CODE_COLORS: ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'],
     CODE_COLOR_HEX: { mint: '#7FE0C2', bernstein: '#FFC66B', rot: '#E0473C', blau: '#56B4E9', pink: '#CC79A7', weiss: '#F4EEDC' },
-    PLAYER_COLORS: ['#56B4E9', '#E69F00', '#CC79A7'],
-    PLAYER_SHAPES: ['circle', 'triangle', 'diamond'],
+    PLAYER_COLORS: ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'],   // R0: vier Spieler
+    PLAYER_SHAPES: ['circle', 'triangle', 'diamond', 'square'],
   };
 });

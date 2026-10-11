@@ -13,7 +13,7 @@
   // Maschinenraum MITTSCHIFFS x11–15 (Reaktor R, Lebenserhaltung O, Schildgenerator G, Schalter y A oben / B unten) –
   // Batteriedecks Bb (oben) und Stb (unten) x17–24 – Brücke x25–36 mit Lift ^, Bug-Waffe K und Bug-Emitter I.
   // Deck II: vier Quartiere, Messe mit Hafenterminal S, Trophäennische, Liftvorraum, Atrium mit Lichtschacht, Krankenstation,
-  // Frachtraum (EK3 Teil A: ersetzt Bad und Aussicht, zwei Frachtbuchten g). Kein System auf Deck II.
+  // Frachtraum (EK3 Teil A: ersetzt Bad und Aussicht, zwei Frachtbuchten g; R0: Mehrzweckraum, Ecke e/z = Ivos Schlafecke). Kein System auf Deck II.
   //           0         1         2         3
   //           0123456789012345678901234567890123456
   const SHIP_ROWS = [
@@ -43,8 +43,8 @@
     '    #::::::::::::::::::::::::#       ', // 23
     '    ##D###D####DD#####D###D###       ', // 24
     '    #,,,#,,,#........#.g...g.#       ', // 25
-    '    #,,,#,,,#........#.......#       ', // 26
-    '    #B,,#B,,#.v.v.v..#.......#       ', // 27
+    '    #,,,#,,,#........#......z#       ', // 26
+    '    #B,,#B,,#.v.v.v..#......e#       ', // 27
     '    ##########################       ', // 28
   ];
 
@@ -240,6 +240,10 @@
     'j': { kind: 'sideboard', solid: true },              // Anrichte/Kombüse in der Messe
     // ---- EK3 Teil A: Frachtraum (kein aktives Schiffssystem: keine Energie, keine Treffer-Wirkung; CONTRACT-EK3 §3) ----
     'g': { kind: 'cargo_bay', solid: true },              // Frachtbucht (1 Ladung; Zustand aus snapshot.fracht)
+    // R0: Schlafecke im Frachtraum (nutzung 'quartier', siehe SHIP_ROOMS). Immer solide; ohne Bewohner zeigt die Darstellung Stauware
+    // statt Pritsche und Werkzeugwand, damit die Kachel nie unsichtbar blockiert. Bucht- und Zugangskacheln bleiben frei.
+    'e': { kind: 'cargo_cot', solid: true },              // Pritsche (Kulisse)
+    'z': { kind: 'tool_wall', solid: true },              // Werkzeugwand (Kulisse)
   });
 
   // Regale im Lager: x-Kachel -> Gegenstand (Zeile 1). Altname; maßgeblich ist SHELF_TILES.
@@ -293,7 +297,7 @@
     return out;
   }
 
-  // 4 Einzelquartiere (3×3) auf dem Privatdeck. color 0–2 = Spielerfarbe, color 3 = Gästequartier (Ivo). Deko-Slots sind Bodenkacheln.
+  // 4 Einzelquartiere (3×3) auf dem Privatdeck. color 0–3 = Spielerfarbe (R0: Farbe 3 = Quartier des 4. Spielers; Ivo wohnt im Frachtraum). Deko-Slots sind Bodenkacheln.
   const BEDS = [
     { color: 0, x: 5, y: 17, room: { id: 'q0', x0: 5, y0: 17, x1: 7, y1: 19 },
       slots: [{ id: 'q0a', x: 6, y: 17 }, { id: 'q0b', x: 7, y: 17 }, { id: 'q0c', x: 7, y: 19 }, { id: 'q0d', x: 5, y: 19 }] },
@@ -307,11 +311,14 @@
   // Reaktor-Neustartschalter im Maschinenraum mittschiffs: A oben links (11,1), B unten rechts (15,11).
   const REACTOR_SWITCHES = [{ id: 'A', x: 11, y: 1 }, { id: 'B', x: 15, y: 11 }];
 
-  const SHIP_SPAWNS = [{ x: 18, y: 6 }, { x: 20, y: 6 }, { x: 22, y: 6 }];
+  const SHIP_SPAWNS = [{ x: 18, y: 6 }, { x: 20, y: 6 }, { x: 22, y: 6 }, { x: 24, y: 6 }];   // R0: 4 Spieler, Gang auf Deck I
   const BOT_SPAWNS = [{ x: 13, y: 6 }, { x: 7, y: 6 }, { x: 20, y: 7 }];
   const PLATFORM_PADS = [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 4, y: 4 }];
-  // Ivo (Gast an Bord) schlendert zwischen diesen Bodenkacheln – alle auf Deck II, er benutzt weder Lift noch Leiter.
-  const IVO_SPOTS = [{ x: 10, y: 26 }, { x: 15, y: 18 }, { x: 9, y: 22 }, { x: 20, y: 22 }, { x: 14, y: 25 }, { x: 26, y: 26 }, { x: 24, y: 23 }, { x: 10, y: 26 }];
+  // Ivo (Techniker an Bord) schlendert zwischen diesen Bodenkacheln – alle auf Deck II, er benutzt weder Lift noch Leiter.
+  // Erster und letzter Punkt = sein Platz neben der Pritsche im Frachtraum (R0; keine Bucht, keine Zugangskachel).
+  const IVO_SPOTS = [{ x: 27, y: 27 }, { x: 15, y: 18 }, { x: 9, y: 22 }, { x: 20, y: 22 }, { x: 14, y: 25 }, { x: 26, y: 26 }, { x: 24, y: 23 }, { x: 27, y: 27 }];
+  // R0: Hier verlässt Ivo das Schiff, wenn die Crew ihn an einer Station abgibt: Kachel unter dem Hafenterminal (Messe, Deck II).
+  const IVO_AUSSTIEG = { x: 13, y: 18 };
 
   // Räume in Prüfreihenfolge (erster Treffer gilt). kind 'engine' = Maschinen-/Antriebsraum, 'quarter' = Quartier.
   // sector: Schildsektor 0–3 des Raums, -1 = mittschiffs (kein Sektor). deck: 0 Systemdeck, 1 Privatdeck.
@@ -332,13 +339,14 @@
     { id: 'q0', name: 'Quartier 1', kind: 'quarter', sector: -1, deck: 1, x0: 5, y0: 17, x1: 7, y1: 19 },
     { id: 'q1', name: 'Quartier 2', kind: 'quarter', sector: -1, deck: 1, x0: 9, y0: 17, x1: 11, y1: 19 },
     { id: 'q2', name: 'Quartier 3', kind: 'quarter', sector: -1, deck: 1, x0: 5, y0: 25, x1: 7, y1: 27 },
-    { id: 'q3', name: 'Gästequartier', kind: 'quarter', sector: -1, deck: 1, x0: 9, y0: 25, x1: 11, y1: 27 },
+    { id: 'q3', name: 'Quartier 4', kind: 'quarter', sector: -1, deck: 1, x0: 9, y0: 25, x1: 11, y1: 27 },
     { id: 'messe', name: 'Messe', kind: 'room', sector: -1, deck: 1, x0: 13, y0: 17, x1: 20, y1: 19 },
     { id: 'lararium', name: 'Trophäennische', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 17, x1: 24, y1: 19 },
     { id: 'liftvorraum', name: 'Liftvorraum', kind: 'room', sector: -1, deck: 1, x0: 26, y0: 17, x1: 28, y1: 20 },
     { id: 'krankenstation', name: 'Krankenstation', kind: 'room', sector: -1, deck: 1, x0: 13, y0: 25, x1: 20, y1: 27 },
     // EK3 Teil A: ersetzt die kleinen Räume Bad (22–24) und Aussicht (26–28) samt Trennwand x = 25
-    { id: 'frachtraum', name: 'Frachtraum', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 25, x1: 28, y1: 27 },
+    // R0: Mehrzweckraum – nutzung: wofür der Raum dient (Darstellung und Regeln hängen daran, nicht an Ivo); später auch 'gefaengnis'
+    { id: 'frachtraum', name: 'Frachtraum', kind: 'room', sector: -1, deck: 1, x0: 22, y0: 25, x1: 28, y1: 27, nutzung: ['waren', 'quartier'] },
     { id: 'atrium', name: 'Atrium', kind: 'room', sector: -1, deck: 1, x0: 5, y0: 20, x1: 28, y1: 24 },
   ];
   // EK3 Teil A: Frachtbuchten im Frachtraum (Deck II). Kapazität = Anzahl der Buchten; Reihenfolge = Belegungsreihenfolge.
@@ -351,6 +359,8 @@
     for (const r of SHIP_ROOMS) if (tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1) return r;
     return null;
   }
+  // R0: Nutzung des Raums an dieser Kachel (Frachtraum: ['waren', 'quartier']); leer, wenn der Raum keine Nutzung vorgibt.
+  function nutzungAt(tx, ty) { const r = roomAt(tx, ty); return (r && r.nutzung) || []; }
 
   // Schiffsbereiche je Schildsektor (Treffer -> Feuer, Hüllenbruch; systems = Stationen des Sektors).
   // Sektor-Index: 0 = Bug (vorn), 1 = Steuerbord (rechts/unten), 2 = Heck, 3 = Backbord (links/oben). Mittschiffs gehört zu keinem.
@@ -498,9 +508,9 @@
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
     SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
-    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt,
+    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
-    SHIP_LEGEND, IVO_SPOTS, SECTOR_NAMES,
+    SHIP_LEGEND, IVO_SPOTS, IVO_AUSSTIEG, SECTOR_NAMES,
     // M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.3)
     DECK_STRIDE, SHIP_DECKS, SHIP_LIFTS, SHIP_LADDERS, deckOf, deckOfPx, deckLocalY, otherDeckTile, liftAt, ladderPartner, deckLinks, hazardAllowed,
     ship: makeMap('ship', SHIP_ROWS, SHIP_LEGEND),

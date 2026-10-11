@@ -616,7 +616,7 @@ class Game {
     }
     if (this.players.length >= C.maxPlayers) {
       const free = this.players.find((o) => !o.connected);
-      if (!free) { this.sendTo(conn, { t: 'full', text: 'Server voll – es sind schon 3 Crewmitglieder an Bord.' }); try { conn.close && conn.close(); } catch (e) { /* egal */ } return; }
+      if (!free) { this.sendTo(conn, { t: 'full', text: 'Server voll – es sind schon 4 Crewmitglieder an Bord.' }); try { conn.close && conn.close(); } catch (e) { /* egal */ } return; }
       free.clientId = clientId; free.conn = conn; free.connected = true; conn.player = free;
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
@@ -755,10 +755,10 @@ class Game {
 
   applyColorWish(p, wish) {
     const taken = new Set(this.players.filter((o) => o !== p && o.color != null).map((o) => o.color));
-    const w = Number.isInteger(wish) && wish >= 0 && wish <= 2 ? wish : null;
+    const w = Number.isInteger(wish) && wish >= 0 && wish < this.C.maxPlayers ? wish : null;
     if (w != null && !taken.has(w)) { p.color = w; return; }
     if (p.color != null && !taken.has(p.color)) return;
-    for (let c = 0; c < 3; c++) if (!taken.has(c)) { p.color = c; return; }
+    for (let c = 0; c < this.C.maxPlayers; c++) if (!taken.has(c)) { p.color = c; return; }
   }
 
   // AP3a: gültige Lobby-Modi (Taste M); 'labor' nur mit CONFIG.lobby.labor

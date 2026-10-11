@@ -1519,6 +1519,11 @@
       if ((st.ship.fires || []).some(f => f[0] === tx && f[1] === ty)) return carry === 'loeschgel' ? { label: 'Halten: Feuer löschen', ok: true } : { label: 'Löschgel nötig (Lager)', ok: false };
       if ((st.ship.breaches || []).some(b => b.tx === tx && b.ty === ty)) return carry === 'flickblech' ? { label: 'Halten: Leck flicken', ok: true } : { label: 'Flickblech nötig (Lager)', ok: false };
     }
+    // R0: Ivo an Bord abgeben (nur angedockt; ohne Gespräch)
+    if (zone === 'ship' && st.ship) {
+      const ivo = (st.ship.npcs || []).find(n => n.id === 'ivo' && !n.ab && Math.floor(n.x / TILE) === tx && Math.floor(n.y / TILE) === ty);
+      if (ivo) return st.ship.docked && st.ship.dockedAt ? { label: 'E: Ivo hier aussteigen lassen (Abschied)', ok: true } : { label: 'Ivo: Hier kann ich nicht aussteigen.', ok: false };
+    }
     // M4 (DECKS): Lift nur von der eigenen Kachel, Notleiter auch von der Nachbarkachel
     const shipInteract = zone === 'ship' && map.legend && map.legend[ch] ? map.legend[ch].interact : null;
     if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift zum ' + (Maps.deckOf && Maps.deckOf(ty) ? 'Systemdeck' : 'Privatdeck'), ok: true };
@@ -1567,7 +1572,7 @@
     }
     if (shipKind === 'plan_table') {
       const seated = (st.players || []).filter(p => p.console === 'plan').length;
-      return seated >= 3 ? { label: 'Planungstisch: voll', ok: false } : { label: 'Planungstisch: Platz nehmen' + (seated ? ' (' + seated + ' sitzen)' : ''), ok: true };
+      return seated >= ((CFG.plan && CFG.plan.maxSeated) || 4) ? { label: 'Planungstisch: voll', ok: false } : { label: 'Planungstisch: Platz nehmen' + (seated ? ' (' + seated + ' sitzen)' : ''), ok: true };
     }
     const sys = R.sysOf ? R.sysOf(map, ch) : R.SYS_BY_CHAR[ch];
     if (sys && zone === 'ship') {
@@ -1874,7 +1879,7 @@
         if (code === 'KeyG' && !e.repeat) actions.laborGod();
       }
       if (code === 'KeyL' && m && Net.serverRoomCode) actions.copyInvite();
-      const d = /^Digit([1-3])$/.exec(code);
+      const d = /^Digit([1-4])$/.exec(code);
       if (d) actions.setColor(+d[1] - 1);
       return;
     }

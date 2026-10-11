@@ -149,7 +149,7 @@ for (const s of systems) for (const t of stationsOf(s)) {
 
 // ---------- M1: Schiff ----------
 check(Maps.SHIP_ROWS.every((r) => r.length === ship.w) && ship.h === Maps.SHIP_ROWS.length, `Schiff ${ship.w}×${ship.h} (aus SHIP_ROWS)`);
-check(Maps.BEDS.length === 4 && Maps.BEDS.map((b) => b.color).sort().join() === '0,1,2,3', '4 Quartiere (Farben 0–3, 3 = Gästequartier)');
+check(Maps.BEDS.length === 4 && Maps.BEDS.map((b) => b.color).sort().join() === '0,1,2,3', '4 Quartiere (Farben 0–3, 3 = Quartier des 4. Spielers)');
 for (const b of Maps.BEDS) {
   check(b.slots.length === 4, `Quartier ${b.room.id}: 4 Deko-Slots`);
   for (const sl of b.slots) check(sl.x >= b.room.x0 && sl.x <= b.room.x1 && sl.y >= b.room.y0 && sl.y <= b.room.y1, `Slot ${sl.id} liegt im Raum ${b.room.id}`);

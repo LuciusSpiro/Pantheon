@@ -30,12 +30,12 @@
     panelLight: '#8EA3B5', mint: '#7FE0C2', amber: '#FFC66B', warn: '#F2C94C', red: '#E0473C',
     spark: '#FFF1B8', smoke: '#5A5560', space: '#0B0E1A', indigo: '#2A2350', star: '#F4EEDC',
     moss: '#5E8C4A', rust: '#C2703D', ice: '#A9D6E5',
-    skin: ['#F1C7A0', '#C68A5E', '#7A4A2E'],
-    players: PROTO.PLAYER_COLORS || ['#56B4E9', '#E69F00', '#CC79A7'],
+    skin: ['#F1C7A0', '#C68A5E', '#7A4A2E', '#7A4A2E'],
+    players: PROTO.PLAYER_COLORS || ['#56B4E9', '#E69F00', '#CC79A7', '#7FE0C2'],
     dark: '#151B2B', grey: '#6B7380',
     seal: '#9E1F27',   // S1: Siegel (Lerche-Rot) für „Weltstand gesichert“
   };
-  const SHAPES = PROTO.PLAYER_SHAPES || ['circle', 'triangle', 'diamond'];
+  const SHAPES = PROTO.PLAYER_SHAPES || ['circle', 'triangle', 'diamond', 'square'];
 
   function report(label, e) { if (window.Net) Net.reportError(label, e); else console.warn(label, e); }
 
@@ -703,6 +703,11 @@
     return out;
   }
 
+  // R0: Schlafecke im Raum mit nutzung 'quartier' zeigen, solange Ivo an Bord wohnt (nicht beim Abschied)
+  function ivoWohntImFrachtraum(st, tx, ty) {
+    if (!(Maps.nutzungAt && Maps.nutzungAt(tx, ty).includes('quartier'))) return false;
+    return ((st.ship && st.ship.npcs) || []).some(n => n.id === 'ivo' && !n.ab);
+  }
   function bedAt(tx, ty) { return (Maps.BEDS || []).find(b => b.x === tx && b.y === ty); }
 
   function sysState(st, sys) { return (st && st.ship && st.ship.systems && st.ship.systems[sys]) || 'ok'; }
@@ -973,7 +978,7 @@
     ctx.globalAlpha = o.beam != null ? Math.max(0.15, 1 - o.beam) : 1;
     ctx.fillStyle = '#2E3A4A'; ctx.fillRect(x - 5, y - 8, 4, 8); ctx.fillRect(x + 1, y - 8, 4, 8);
     ctx.fillStyle = col; ctx.fillRect(x - 7, y - 24 + bob, 14, 17);
-    ctx.fillStyle = PAL.skin[(o.color || 0) % 3]; ctx.fillRect(x - 5, y - 34 + bob, 10, 10);
+    ctx.fillStyle = PAL.skin[(o.color || 0) % 4]; ctx.fillRect(x - 5, y - 34 + bob, 10, 10);
     ctx.fillStyle = PAL.space;
     if (o.dir === 'left') ctx.fillRect(x - 4, y - 31 + bob, 2, 2);
     else if (o.dir === 'right') ctx.fillRect(x + 2, y - 31 + bob, 2, 2);
@@ -1766,7 +1771,7 @@
       for (const b of st.ship.breaches || []) drawables.push({ key: b.ty * TILE + 2, type: 'fx', kind: 'breach', x: b.tx * TILE + 16, y: b.ty * TILE + 16 });
       for (const it of st.ship.groundItems || []) drawables.push({ key: it.y - 4, type: 'item', kind: it.kind, x: it.x, y: it.y });
       for (const b of view.bots || []) drawables.push({ key: b.y, type: 'bot', e: b });
-      // M1: NPCs an Bord (Techniker Ivo wohnt nach der Rettung im Gästequartier)
+      // M1: NPCs an Bord (Techniker Ivo wohnt nach der Rettung im Frachtraum)
       for (const n of view.shipNpcs || st.ship.npcs || []) drawables.push({ key: n.y, type: 'npc', e: Object.assign({ shipNpc: true }, n) });
     }
     // M2: Teamsicht (Fog of War) nur auf v2-Karten
@@ -1852,6 +1857,7 @@
           if (d.ch === 'L' && zone === 'away') { kind = 'door_locked'; opts.open = doorOpen; }
           else if (kind === 'shelf') { opts.item = shelfItemAt(d.tx, d.ty); opts.count = shelfStock(inv, opts.item); opts.empty = opts.count <= 0; opts.fill = shelfFill(inv, opts.item); }
           if (kind === 'bed') { const bed = bedAt(d.tx, d.ty); opts.color = bed ? bed.color : 0; }
+          if ((kind === 'cargo_cot' || kind === 'tool_wall') && !ivoWohntImFrachtraum(st, d.tx, d.ty)) kind = 'crate';   // R0: ohne Bewohner Stauware statt Schlafecke
           if (kind === 'cargo_bay') { const bi = (Maps.CARGO_BAYS || []).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten

@@ -53,7 +53,7 @@ function isAlert(game, e) {
   return !!(s && s.alert);
 }
 
-function crewSize(game) { return Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length)); }
+function crewSize(game) { return Math.max(1, Math.min(game.C.maxPlayers, game.players.filter((p) => p.connected).length)); }
 
 // Trupp erscheinen lassen (Missionsereignis/Debug). Anzahl = Anteil squadScale je Crewgröße (aufgerundet, min. 1).
 // B1 §6.4/B2 §5: opts { map, bereich?, besetzung?: [{ typ, anzahl }], alert?, force? } -> Spawns an `wache`-Ankern der

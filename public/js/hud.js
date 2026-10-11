@@ -1043,7 +1043,7 @@
       if (!R.art('drawStarfield', null, [ctx, t * 20, 0, VW, VH, t])) { ctx.fillStyle = PAL.space; ctx.fillRect(0, 0, VW, VH); }
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
       R.text(ctx, 'PANTHEON', VW / 2, 30, { color: PAL.amber, scale: 2, align: 'center' });
-      R.text(ctx, 'Eine Crew, ein Schiff · Koop für 1–3 Spieler', VW / 2, 54, { color: PAL.mint, align: 'center' });
+      R.text(ctx, 'Eine Crew, ein Schiff · Koop für 1–4 Spieler', VW / 2, 54, { color: PAL.mint, align: 'center' });
       const players = st.players || [];
       const me = players.find(p => p.id === view.pid);
       if (Net.badCode && !me) { this.drawCodeEntry(ctx, view); this.drawNotices(ctx, view, 4); return; }
@@ -1053,9 +1053,9 @@
       R.text(ctx, 'Name', lx, 94, { color: PAL.panelLight });
       const nr = this.LOBBY_NAME_RECT;
       ctx.strokeStyle = PAL.brass; ctx.strokeRect(nr.x - 0.5, nr.y - 0.5, nr.w + 1, nr.h + 1);
-      R.text(ctx, 'Farbe (1–3)', lx, 128, { color: PAL.panelLight });
+      R.text(ctx, 'Farbe (1–4)', lx, 128, { color: PAL.panelLight });
       const taken = players.filter(p => p.id !== view.pid && p.connected !== false).map(p => p.color);
-      for (let c = 0; c < 3; c++) {
+      for (let c = 0; c < 4; c++) {
         const isTaken = taken.indexOf(c) >= 0;
         const mine = me ? me.color === c : lob.color === c;
         const bx = lx + c * 58, by = 139;
@@ -1841,7 +1841,7 @@
       let msg = null, sub = '';
       if (s === 'lost') { msg = 'Verbindung verloren – verbinde neu …'; sub = 'Versuch ' + Math.max(1, Net.attempts); }
       else if (s === 'connecting' && !view.state) { msg = 'Verbinde mit dem Schiff …'; sub = Net.attempts > 1 ? 'Versuch ' + Net.attempts : ''; }
-      else if (s === 'full') { msg = 'Server voll'; sub = Net.fullText || 'Es sind bereits 3 Spieler an Bord.'; }
+      else if (s === 'full') { msg = 'Server voll'; sub = Net.fullText || 'Es sind bereits 4 Spieler an Bord.'; }
       else if (s === 'nofile') { msg = 'Bitte über den Server öffnen'; sub = 'npm start, dann http://localhost:3300 (oder ?mock=1 zum Testen)'; }
       if (!msg) return;
       ctx.fillStyle = 'rgba(11,14,26,0.78)'; ctx.fillRect(0, 0, VW, VH);

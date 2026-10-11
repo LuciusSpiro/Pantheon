@@ -108,7 +108,7 @@
     return best || Maps.SHIP_SPAWNS[0];
   }
   function shipRoom(id) { return (Maps.SHIP_ROOMS || []).find(r => r.id === id) || null; }
-  function guestQuarter() { const b = (Maps.BEDS || []).find(q => q.color === 3); return b && b.room ? (shipRoom(b.room.id) || b.room) : null; }
+  function ivoHome() { const r = (Maps.SHIP_ROOMS || []).find(q => (q.nutzung || []).includes('quartier')); return r || null; }   // R0: Frachtraum (nutzung 'quartier')
   function shipPad(i) { const pads = shipTiles(info => info.kind === 'pad'); return pads[Math.min(i || 0, pads.length - 1)] || Maps.SHIP_SPAWNS[0]; }
   function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -1199,9 +1199,9 @@
       p3.console = c3; Object.assign(p3, tc(sp.x, sp.y)); p3.dir = sp.dir;
     }
     W.plan.seated = W.players.filter(q => q.console === 'plan').map(q => q.id);
-    // Ivo im Gästequartier
+    // Ivo im Frachtraum
     if (params.get('ivo') === '1' || W.mission.flags.technikerRescued) {
-      const home = roomCenter(guestQuarter());   // M3a: Gästequartier aus BEDS/SHIP_ROOMS
+      const home = Maps.IVO_SPOTS && Maps.IVO_SPOTS[0] ? Maps.IVO_SPOTS[0] : roomCenter(ivoHome());   // R0: Platz neben der Pritsche
       if (!s.npcs.length) s.npcs.push({ id: 'ivo', ...tc(home.x, home.y), dir: 'down', moving: false });
       const n = s.npcs[0];
       const gx = home.x * 32 + 16 + Math.sin(W._crewT * 0.3) * 40, gy = home.y * 32 + 16 + Math.cos(W._crewT * 0.21) * 24;
