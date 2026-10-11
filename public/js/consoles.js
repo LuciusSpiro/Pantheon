@@ -29,9 +29,12 @@
   const WALLS = [['holz', 'Holz'], ['paneel', 'Paneel'], ['tapete_gruen', 'Tapete grün'], ['tapete_creme', 'Tapete creme']];
   const LIGHTS = [['warm', 'Warm'], ['mint', 'Mint'], ['bernstein', 'Bernstein'], ['aus', 'Aus']];
   const STYLE_ROWS = [['floor', 'BODEN', FLOORS], ['wall', 'WAND', WALLS], ['light', 'LICHT', LIGHTS]];
-  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Energie & Schilde', 'Schadensplan', 'Außenteam'];
-  const TAB_AWAY = 5;
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'TAKTIK', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
+  // R1: Captain-Konsole 4 Reiter, Technik-Konsole 2 (Energie & Schilde und Schadensplan zogen aus dem Captain um); Hitze folgt in R2
+  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam'];
+  const TAB_AWAY = 3;
+  const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
+  const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'TAKTIK', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // M3a: Lanze (Bug) + Batterien Bb/Stb; phase_* nur noch als Altnamen
   const M3_MOUNTS = ['bow', 'port', 'stbd'];
@@ -92,7 +95,8 @@
 
   const Consoles = {
     current: null,
-    tab: 0,
+    tab: 0,            // Reiter der Captain-Konsole
+    ttab: 0,           // Reiter der Technik-Konsole
     sel: { power: 0, damage: 0, shop: 0, deco: 0, slot: 0, qrow: 0, loc: 0, mount: 0 },
     lanceOn: null,     // §20.3: Lanze wird gerade aufgeladen ('key' | 'mouse')
     keys: {},
@@ -133,14 +137,20 @@
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
     },
+    // R1 §4.4: aktives Interface des Spielers (p.station, solange es vom Ort abweicht; sonst die Konsole selbst)
+    stationOf(me) { return me && me.console ? (me.station || me.console) : null; },
     onClose(view) {
-      if (this.current === 'helm' && view && this.helmSent.turn) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
-      if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
-      if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
+      this.stationAbbau(view);
       this.current = null;
       this.keys = {};
       this.mouseHold = null;
       this.lanceOn = null;   // Server lässt das Aufladen beim Verlassen verpuffen (§20.3)
+    },
+    // laufende Eingaben des bisherigen Interfaces beenden (Konsole verlassen oder per Tab auf eine andere Station geschaltet)
+    stationAbbau(view) {
+      if (this.current === 'helm' && view && this.helmSent.turn) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
+      if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
+      if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
     },
     denied(text) { R.uiDenied = { text, t: performance.now() }; if (this.view) this.view.actions.sfx('error'); },
 
@@ -180,8 +190,8 @@
     // ---------------------------------------------------------------- Zeichnen
     draw(ctx, view) {
       this.view = view;
-      const c = view.me.console;
-      if (c !== this.current) this.onOpen(c);
+      const c = this.stationOf(view.me);
+      if (c !== this.current) { if (this.current) this.stationAbbau(view); this.onOpen(c); }
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
       R.panel(ctx, 4, 6, VW - 8, VH - 10, { style: 'screen', title: TITLES[c] || String(c).toUpperCase() });
       { const lab = c === 'plan' ? 'Aufstehen' : 'Verlassen'; const bw = R.measure(lab, 1) + R.measure('Esc', 1) + 18; R.button(ctx, VW - 8 - bw, 10, bw, 13, lab, { hotkey: 'Esc', onClick: () => view.actions.leave() }); }
@@ -190,6 +200,7 @@
         switch (c) {
           case 'helm': controls = this.drawHelm(ctx, view); break;
           case 'captain': controls = this.drawCaptain(ctx, view); break;
+          case 'technik': controls = this.drawTechnik(ctx, view); break;
           case 'weapons': controls = this.drawWeapons(ctx, view); break;
           case 'transfer': controls = this.drawTransfer(ctx, view); break;
           case 'shop': controls = this.drawShop(ctx, view); break;
@@ -214,7 +225,7 @@
         });
       }
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(8, VH - 17, VW - 16, 11);
-      R.text(ctx, (controls ? controls + ' · ' : '') + (c === 'plan' ? 'Esc aufstehen' : 'Esc verlassen'), VW / 2, VH - 15, { color: PAL.amber, align: 'center', shadow: false });
+      R.text(ctx, (controls ? controls + ' · ' : '') + (STATION_KREIS.includes(c) ? 'Tab Station · ' : '') + (c === 'plan' ? 'Esc aufstehen' : 'Esc verlassen'), VW / 2, VH - 15, { color: PAL.amber, align: 'center', shadow: false });
       R.drawTooltip(ctx);
     },
 
@@ -601,18 +612,28 @@
       if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'Funk wartet! (Reiter 1)', VW - 14, 41, { color: PAL.amber, align: 'right' });
       // S2: Notruf eines Schützlings – Hinweis auf den Lage-Reiter
       else if (this.tab !== 2 && this.escortList(view).some(e => e.distress && e.state !== 'kampfunfaehig') && Math.floor(view.time * 2) % 2 === 0) R.text(ctx, 'NOTRUF Schützling! (Reiter 3)', VW - 14, 41, { color: PAL.amber, align: 'right' });
-      // M3b: Schildstoß entfällt – oben rechts nur noch eine Schild-Übersicht mit Ladungs-Warnung (keine Knöpfe)
-      if (this.tab !== 3) { try { this.shieldStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.shieldStrip', e); } }
+      // M3b: Schildstoß entfällt – oben rechts nur noch eine Schild-Übersicht mit Ladungs-Warnung (keine Knöpfe); R1: verteilt die Technik
+      try { this.shieldStrip(ctx, view, x + 2, 26); } catch (e) { Net.reportError('Consoles.shieldStrip', e); }
       const area = { x: 12, y: 48, w: 616, h: 274 };
       switch (this.tab) {
         case 0: return this.capRadio(ctx, view, area);
         case 1: return this.capStar(ctx, view, area);
         case 2: return this.capLage(ctx, view, area);
-        case 3: return this.capPower(ctx, view, area);
-        case 4: return this.capDamage(ctx, view, area);
-        case 5: return this.capAway(ctx, view, area);
+        case 3: return this.capAway(ctx, view, area);
       }
       return '';
+    },
+
+    // ================================================================= Technik (R1: Reiter aus der Captain-Konsole umgezogen, unverändert)
+    drawTechnik(ctx, view) {
+      let x = 12;
+      TABS_TECHNIK.forEach((name, i) => {
+        const w = R.measure(name, 1) + 22;
+        R.button(ctx, x, 26, w, 15, name, { hotkey: String(i + 1), active: this.ttab === i, onClick: () => { this.ttab = i; } });
+        x += w + 3;
+      });
+      const area = { x: 12, y: 48, w: 616, h: 274 };
+      return this.ttab === 0 ? this.capPower(ctx, view, area) : this.capDamage(ctx, view, area);
     },
 
     // ---- Ladungen (erst in den letzten captainSeesLast s sichtbar). M3b: Schildstoß entfällt (Kai, §0.4).
@@ -626,7 +647,7 @@
       }
       return out;
     },
-    // kompakte Schild-Übersicht (alle Reiter außer „Energie & Schilde“): Füllstand + Durchlass-Farbe, Ladung rot. Keine Knöpfe.
+    // kompakte Schild-Übersicht (Captain-Konsole, nur zum Ansehen): Füllstand + Durchlass-Farbe, Ladung rot. Keine Knöpfe.
     shieldStrip(ctx, view, x, y) {
       const ship = view.state.ship || {}, sh = ship.shields || {};
       if (!sh.current) return;
@@ -653,7 +674,7 @@
           R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
         } else { ctx.strokeStyle = PAL.panel; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); }
         const mo = R.ui.mouse || {};
-        if (mo.x >= bx && mo.y >= y && mo.x < bx + bw && mo.y < y + 15) R.ui.tooltip = { text: H.SECTOR_NAMES[i] + ' ' + n(cur[i]) + ': ' + lk.long + ' (verteilen: Reiter 4)', x: mo.x, y: mo.y };
+        if (mo.x >= bx && mo.y >= y && mo.x < bx + bw && mo.y < y + 15) R.ui.tooltip = { text: H.SECTOR_NAMES[i] + ' ' + n(cur[i]) + ': ' + lk.long + ' (verteilt die Technik)', x: mo.x, y: mo.y };
       }
     },
 
@@ -750,7 +771,7 @@
         lines.forEach((l, i) => { R.text(ctx, l, rx, ry, { color: i === 0 && head ? PAL.ice : PAL.star }); ry += 10; });
         ry += 2;
       }
-      return 'Enter annehmen · Q/W/E Entscheidung · L abhören · 1–6 / Tab Reiter';
+      return 'Enter annehmen · Q/W/E Entscheidung · L abhören · 1–4 Reiter';
     },
 
     // ---- Sternkarte
@@ -837,11 +858,11 @@
           R.text(ctx, 'Sprungpunkt (Boje) im Sektor.', rx, y, { color: PAL.panelLight }); y += 10;
         } else { R.text(ctx, 'blau temporär.', rx, y, { color: PAL.panelLight }); y += 10; }
         R.text(ctx, 'M: ' + (window.StarMap.ansicht === 'limes' ? 'Saumraum zeigen' : 'ganze Karte Limes'), rx, y, { color: PAL.amber });
-        return 'Klick Sektor · ←→ Ort · Enter Sprungziel · M Ansicht · 1–6 / Tab Reiter';
+        return 'Klick Sektor · ←→ Ort · Enter Sprungziel · M Ansicht · 1–4 Reiter';
       }
       R.text(ctx, 'Legende: Linie = Route,', rx, y, { color: PAL.panelLight }); y += 10;
       R.text(ctx, 'gestrichelt = unerforscht, ? = Signal', rx, y, { color: PAL.panelLight });
-      return 'Klick/←→ Ort wählen · Enter Sprungziel · 1–6 / Tab Reiter';
+      return 'Klick/←→ Ort wählen · Enter Sprungziel · 1–4 Reiter';
     },
     cycleStar(st, dir) {
       const locs = this.visibleLocs(st);
@@ -897,7 +918,7 @@
           R.text(ctx, this.shieldText(e), rx + 4, y, { color: PAL.ice }); y += 11;
         }
       }
-      return 'Klick Marker · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–6 Reiter';
+      return 'Klick Marker · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–4 Reiter';
     },
     // ---- S2: Schützling-Befehle (Captain, Reiter Lage)
     ESCORT_KEYS: { halten: 'H', folgen: 'F', volle_kraft: 'V', andocken: 'D' },
@@ -1004,9 +1025,9 @@
         if (state !== 'ok') R.text(ctx, H.STATE_NAMES[state] || state, a.x + 16, y + 12, { color: H.STATE_COL[state] || PAL.red });
         const minusR = v <= 0 ? 'Minimum erreicht' : null;
         const plusR = v >= 4 ? 'Maximum (4)' : used >= output ? 'Reaktor ausgelastet – erst anderswo abziehen' : null;
-        R.button(ctx, a.x + 110, y, 16, 16, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = i; this.cmd(view, 'captain.power', { sys, delta: -1 }); } });
+        R.button(ctx, a.x + 110, y, 16, 16, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: -1 }); } });
         for (let k = 0; k < 4; k++) { ctx.fillStyle = k < v ? (k === 3 ? PAL.amber : PAL.mint) : '#26313F'; ctx.fillRect(a.x + 130 + k * 22, y + 2, 20, 12); }
-        R.button(ctx, a.x + 220, y, 16, 16, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = i; this.cmd(view, 'captain.power', { sys, delta: 1 }); } });
+        R.button(ctx, a.x + 220, y, 16, 16, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: 1 }); } });
         R.text(ctx, 'Hitze', a.x + 130, y + 17, { color: PAL.panelLight });
         const hv = n(heat[sys]);
         R.bar(ctx, a.x + 160, y + 18, 76, 4, hv / ((CFG.power && CFG.power.heatLimit) || 100), hv > 70 ? PAL.red : PAL.rust);
@@ -1035,7 +1056,7 @@
         } else {
           R.text(ctx, 'Wirklich überladen? Danach fällt der', a.x + 6, y, { color: PAL.amber }); y += 10;
           R.text(ctx, 'Reaktor aus (Notstrom 2)!', a.x + 6, y, { color: PAL.amber }); y += 12;
-          R.button(ctx, a.x + 6, y, 140, 16, 'Ja, überladen', { hotkey: 'J', active: true, onClick: () => { this.overloadAsk = -1e9; this.cmd(view, 'captain.overload'); } });
+          R.button(ctx, a.x + 6, y, 140, 16, 'Ja, überladen', { hotkey: 'J', active: true, onClick: () => { this.overloadAsk = -1e9; this.cmd(view, 'technik.overload'); } });
           R.button(ctx, a.x + 152, y, 100, 16, 'Abbrechen', { hotkey: 'N', onClick: () => { this.overloadAsk = -1e9; } });
         }
       } else if (rs === 'overload') {
@@ -1111,13 +1132,13 @@
         if (cap <= 0) R.text(ctx, 'AUS', px, by + 13, { color: PAL.red, align: 'center', scale: 1 });
         const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
         const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
-        R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: -1 }); } });
-        R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'captain.shield', { sector: i, delta: 1 }); } });
+        R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
+        R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
         // Durchlass bei aktueller Stärke
         const lk = leakText(n(cur[i]));
         R.text(ctx, n(cur[i]) + ': ' + lk.short, px, by + bh + 2, { color: lk.col, align: 'center' });
       }
-      return '↑/↓ wählen · ←/→ verteilen · U überladen · Tab Reiter';
+      return '↑/↓ wählen · ←/→ verteilen · U überladen · 1–2 Reiter';
     },
 
     damageRows(st) {
@@ -1168,7 +1189,7 @@
       const max = m3('repair.queueMax', 3);
       if (mode && !q && (ship.repairQueue || []).length >= max) { this.denied('Reparaturliste voll (' + max + ') – erst einen Eintrag entfernen'); return; }
       if (!mode && !q) return;
-      this.cmd(view, 'captain.repair', { system: sys, mode: mode || null });
+      this.cmd(view, 'technik.repair', { system: sys, mode: mode || null });
     },
     capDamage(ctx, view, a) {
       const st0 = view.state, ship0 = st0.ship || {};
@@ -1186,7 +1207,7 @@
       R.text(ctx, 'SCHADENSPLAN', a.x, y, { color: PAL.brass });
       R.text(ctx, 'Bot-Liste ' + queue.length + '/' + max, a.x + 84, y, { color: queue.length >= max ? PAL.amber : PAL.panelLight });
       const auto = !!ship.botAuto;
-      R.button(ctx, a.x + 170, y - 3, 148, 13, 'Bots automatisch: ' + (auto ? 'AN' : 'AUS'), { hotkey: 'A', active: auto, onClick: () => this.cmd(view, 'captain.botAuto', { on: !auto }) });
+      R.button(ctx, a.x + 170, y - 3, 148, 13, 'Bots automatisch: ' + (auto ? 'AN' : 'AUS'), { hotkey: 'A', active: auto, onClick: () => this.cmd(view, 'technik.botAuto', { on: !auto }) });
       y += 12;
       R.text(ctx, 'ORT', a.x, y, { color: PAL.panelLight }); R.text(ctx, 'SYSTEM', a.x + 34, y, { color: PAL.panelLight });
       R.text(ctx, 'ZUSTAND', a.x + 128, y, { color: PAL.panelLight }); R.text(ctx, 'WEG', a.x + 196, y, { color: PAL.panelLight, align: 'right' });
@@ -1231,7 +1252,7 @@
           if (ship.priority === r.target) R.text(ctx, '1.', a.x + 310, y + 1, { color: PAL.amber });
         } else {
           const active = (ship.priority || null) === r.target;
-          R.button(ctx, a.x, y - 1, 196, 12, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'captain.priority', { target: r.target }); } });
+          R.button(ctx, a.x, y - 1, 196, 12, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'technik.priority', { target: r.target }); } });
           if (active) R.text(ctx, 'PRIO', a.x + 202, y + 1, { color: PAL.amber });
         }
         y += rh;
@@ -1264,7 +1285,7 @@
       R.text(ctx, 'Ersatzteile ' + stock('ersatzteil') + ' · Flickbleche ' + stock('flickblech') + ' · Löschgel ' + stock('loeschgel'), px, ly, { color: stock('ersatzteil') ? PAL.panelLight : PAL.warn }); ly += 11;
       R.text(ctx, 'Flicken = schnell, fragil · Teil = heil', px, ly, { color: PAL.panelLight }); ly += 10;
       R.text(ctx, 'Minispiel (vor Ort, R) = dauerhaft', px, ly, { color: PAL.panelLight });
-      return 'W/S wählen · F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · Tab Reiter';
+      return 'W/S wählen · F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · 1–2 Reiter';
     },
     capDamageOld(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
@@ -1275,7 +1296,7 @@
       rows.forEach((r, i) => {
         const active = (ship.priority || null) === r.target;
         const sel = this.sel.damage === i;
-        const b = R.button(ctx, a.x, y, 250, 16, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'captain.priority', { target: r.target }); } });
+        const b = R.button(ctx, a.x, y, 250, 16, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'technik.priority', { target: r.target }); } });
         if (sel) { ctx.strokeStyle = PAL.amber; ctx.strokeRect(b.x - 1.5, b.y - 1.5, b.w + 3, b.h + 3); }
         if (r.target && SYSTEMS.indexOf(r.target) >= 0) R.text(ctx, H.STATE_NAMES[r.state] || r.state, a.x + 245, y + 4, { color: H.STATE_COL[r.state] || PAL.red, align: 'right' });
         if (active) R.text(ctx, 'PRIO', a.x + 256, y + 4, { color: PAL.amber });
@@ -1300,7 +1321,7 @@
       const empty = R.emptyShelves ? R.emptyShelves(inv) : [];
       if (empty.length) R.text(ctx, 'Lager leer: ' + empty.map(it => (R.SHELF_LABEL && R.SHELF_LABEL[it]) || it).join(', '), px, ly, { color: PAL.red });
       else R.text(ctx, 'Lager: alle Regale bestückt', px, ly, { color: PAL.moss });
-      return '↑/↓ wählen · Enter Priorität setzen · 1–6 / Tab Reiter';
+      return '↑/↓ wählen · Enter Priorität setzen · 1–2 Reiter';
     },
 
     // ---- M2: Außenteam auf v2-Karten (Kesh) – Kommandokarte, Befehle, Team-Schilde (CONTRACT-M2 §6, §9)
@@ -1375,7 +1396,7 @@
       if (q < 1) lines.push(['Störrelais verrauschen den Scan – Außenteam: E halten am Relais (Nord- und Südkorridor).', PAL.panelLight]);
       lines.push(['Gewählt: ' + R.ORDER_NAMES[this.order.kind] + (this.order.kind === 'fokus' ? ' – Gegner anklicken (8 s für alle sichtbar)' : ' – Klick auf die Karte setzt die Lichtsäule'), R.ORDER_COL[this.order.kind]]);
       for (const [txt, col] of lines) for (const l of R.wrap(txt, rect.w - 4, 1).slice(0, 2)) { R.text(ctx, l, rect.x, ly, { color: col }); ly += 10; }
-      return 'Q/W/E/R/F/G Befehl wählen · Klick setzen · X löschen · S Sensor · K Kuppel · 1–6 / Tab Reiter';
+      return 'Q/W/E/R/F/G Befehl wählen · Klick setzen · X löschen · S Sensor · K Kuppel · 1–4 Reiter';
     },
     sendOrder(view, fields) {
       this.cmd(view, 'captain.order', fields);
@@ -1446,7 +1467,7 @@
       R.text(ctx, wreck ? 'WRACK' : 'PLATTFORM', a.x + 320, a.y + 4, { color: PAL.brass });
       const cell = Math.max(3, Math.min(9, Math.floor(Math.min(290 / map.w, 240 / map.h))));
       R.drawMiniPlan(ctx, view, a.x + 320, a.y + 18, { zone: 'away', cell });
-      return 'S Sensor · K Kuppel · 1–6 / Tab Reiter';
+      return 'S Sensor · K Kuppel · 1–4 Reiter';
     },
 
     // ================================================================= Taktik (Konsole 'weapons')
@@ -2421,12 +2442,14 @@
 
     // ================================================================= Eingabe
     keyDown(e, view) {
-      const c = view.me && view.me.console;
+      const c = this.stationOf(view.me);
       if (!c) return false;
       const code = e.code;
       this.keys[code] = true;
       if (code === 'Escape') { view.actions.leave(); return true; }
       if (e.repeat && code !== 'ArrowUp' && code !== 'ArrowDown' && code !== 'ArrowLeft' && code !== 'ArrowRight') return true;
+      // R1 §4.4: Tab/Shift+Tab schaltet das Interface auf die nächste freie Station (der Spieler bleibt stehen)
+      if (code === 'Tab' && STATION_KREIS.includes(view.me.console)) { view.send({ t: 'cmd', c: PROTO.CMD_STATION_TAB || 'station.tab', dir: e.shiftKey ? -1 : 1 }); return true; }
       const digit = /^Digit([1-9])$/.exec(code) || /^Numpad([1-9])$/.exec(code);
       const d = digit ? +digit[1] : 0;
       const st = view.state;
@@ -2447,8 +2470,7 @@
         case 'captain': {
           const awayOn = this.awayActive(st);
           // M3b: Schildstoß (B+1–4, Shift+Pfeil) entfällt
-          if (code === 'Tab') { const max = awayOn ? 6 : 5; this.tab = (this.tab + (e.shiftKey ? max - 1 : 1)) % max; return true; }
-          if (d >= 1 && d <= 6) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
+          if (d >= 1 && d <= 4) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
           const tab = this.tab;
           if (tab === 0) {
             if (code === 'Enter') return press(() => this.tryButton('Funkspruch annehmen'));
@@ -2470,6 +2492,19 @@
             if (escKey && this.escortList(view).length) return press(() => this.tryButton(R.ESCORT_ORDER_NAMES[escKey]));
             if (code === 'KeyN' && this.escortList(view).length) return press(() => this.tryButton('Wechseln'));
           } else if (tab === 3) {
+            if (code === 'KeyS') return press(() => this.tryButton(/^Sensor/));
+            if (code === 'KeyK') return press(() => this.tryButton(/^(Schildkuppel|Kuppel)/));
+            // M2: Befehlsart wählen / löschen (v2-Karten)
+            const ok = { KeyQ: 'sammeln', KeyW: 'halten', KeyE: 'flanke', KeyR: 'rueckzug', KeyF: 'fokus', KeyG: 'gefahr' }[code];
+            if (ok && this.isAwayV2(st)) { this.order.kind = ok; view.actions.sfx('ui_click'); return true; }
+            if (code === 'KeyX' && this.isAwayV2(st)) return press(() => this.tryButton('Befehl löschen'));
+          }
+          return true;
+        }
+        case 'technik': {
+          if (d >= 1 && d <= 2) { this.ttab = d - 1; return true; }
+          const tab = this.ttab;
+          if (tab === 0) {
             if (code === 'KeyU') return press(() => this.tryButton('Reaktor überladen …'));
             if (code === 'KeyJ' || (code === 'Enter' && performance.now() - this.overloadAsk < 6000)) return press(() => this.tryButton('Ja, überladen'));
             if (code === 'KeyN') { this.overloadAsk = -1e9; return true; }
@@ -2478,11 +2513,11 @@
             if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD' || code === 'Minus' || code === 'NumpadSubtract' || code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') {
               const delta = (code === 'ArrowLeft' || code === 'KeyA' || code === 'Minus' || code === 'NumpadSubtract') ? -1 : 1;
               const i = this.sel.power;
-              if (i < 4) this.cmd(view, 'captain.power', { sys: POWER_SYS[i], delta });
-              else this.cmd(view, 'captain.shield', { sector: i - 4, delta });
+              if (i < 4) this.cmd(view, 'technik.power', { sys: POWER_SYS[i], delta });
+              else this.cmd(view, 'technik.shield', { sector: i - 4, delta });
               return true;
             }
-          } else if (tab === 4) {
+          } else if (tab === 1) {
             const rows = this.damageRows(st);
             if (code === 'ArrowUp' || code === 'KeyW') { this.sel.damage = (this.sel.damage + rows.length - 1) % rows.length; return true; }
             if (code === 'ArrowDown' || code === 'KeyS') { this.sel.damage = (this.sel.damage + 1) % rows.length; return true; }
@@ -2492,18 +2527,11 @@
               if (code === 'Enter' || code === 'KeyF') return press(() => this.setRepair(view, row.target, 'flick'));
               if (code === 'KeyT') return press(() => this.setRepair(view, row.target, 'part'));
               if (code === 'Delete' || code === 'Backspace' || code === 'Digit0') return press(() => this.setRepair(view, row.target, null));
-              if (code === 'KeyP') return press(() => this.cmd(view, 'captain.priority', { target: row.target }));
+              if (code === 'KeyP') return press(() => this.cmd(view, 'technik.priority', { target: row.target }));
             }
             if (code === 'KeyA') return press(() => this.tryButton(/^Bots automatisch/));
-            if (code === 'Enter') return press(() => this.cmd(view, 'captain.priority', { target: rows[this.sel.damage].target }));
-            if (code === 'Backspace' || code === 'Digit0') return press(() => this.cmd(view, 'captain.priority', { target: null }));
-          } else if (tab === 5) {
-            if (code === 'KeyS') return press(() => this.tryButton(/^Sensor/));
-            if (code === 'KeyK') return press(() => this.tryButton(/^(Schildkuppel|Kuppel)/));
-            // M2: Befehlsart wählen / löschen (v2-Karten)
-            const ok = { KeyQ: 'sammeln', KeyW: 'halten', KeyE: 'flanke', KeyR: 'rueckzug', KeyF: 'fokus', KeyG: 'gefahr' }[code];
-            if (ok && this.isAwayV2(st)) { this.order.kind = ok; view.actions.sfx('ui_click'); return true; }
-            if (code === 'KeyX' && this.isAwayV2(st)) return press(() => this.tryButton('Befehl löschen'));
+            if (code === 'Enter') return press(() => this.cmd(view, 'technik.priority', { target: rows[this.sel.damage].target }));
+            if (code === 'Backspace' || code === 'Digit0') return press(() => this.cmd(view, 'technik.priority', { target: null }));
           }
           return true;
         }
@@ -2645,7 +2673,7 @@
     inRect(x, y, r) { return x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h; },
     // button: 0 = links, 2 = rechts
     mouseDown(x, y, view, button) {
-      const c = view.me && view.me.console;
+      const c = this.stationOf(view.me);
       button = button || 0;
       if (c === 'weapons') {
         const mp = this.maps.weapons;
@@ -2668,7 +2696,7 @@
         view.actions.sfx('marker_set');
         return true;
       }
-      if (c === 'captain' && this.tab === 5 && this.isAwayV2(view.state)) return this.awayMapClick(view, x, y, button);
+      if (c === 'captain' && this.tab === TAB_AWAY && this.isAwayV2(view.state)) return this.awayMapClick(view, x, y, button);
       if (c === 'captain' && this.tab === 1 && button === 0) {
         // B3 (Welle 0): zuerst StarMap.hit (Team KARTE, Hexkarte); der Stub liefert null -> bisherige Trefferliste
         const hitLoc = (window.StarMap && typeof window.StarMap.hit === 'function' && window.StarMap.hit(x, y, this.starRects)) || this.starRects.find(r => this.inRect(x, y, r));
@@ -2694,7 +2722,7 @@
 
     // Laufende Eingaben (Steuer 10 Hz, Scans halten)
     update(dt, view) {
-      const c = view.me && view.me.console;
+      const c = this.stationOf(view.me);
       // Halte-Scans: Der Server bricht ab, wenn er länger nichts hört – solange gehalten wird, alle 0,3 s erneuern.
       if (this.scanOn && c === 'captain') {
         this.scanRefreshT += dt;

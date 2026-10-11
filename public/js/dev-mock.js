@@ -1,8 +1,8 @@
 // Entwicklungs-Mock (CONTRACT.md §9, CONTRACT-M1 §10): nur mit ?mock=1 aktiv. Ersetzt den WebSocket durch
 // einen lokalen Fake-Server, der Snapshots im Format §5.3 + M1 §10 erzeugt und grob auf Befehle reagiert.
 // URL-Parameter (alle optional):
-//   loc=hafen|splitter|b7|vaelen|wrack|nebel|relais   Start-Ort        console=helm|captain|weapons|plan|quartier|shop|transfer
-//   tab=0..5 (Captain-Reiter)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
+//   loc=hafen|splitter|b7|vaelen|wrack|nebel|relais   Start-Ort        console=helm|captain|weapons|technik|plan|quartier|shop|transfer
+//   tab=0..3 (Captain-Reiter; bei console=technik 0..1)  station=technik (Interface weicht vom Ort ab)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
 //   markers=1 (Captain-/Taktik-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
 //   pos=x,y (eigene Kachel)   phase=lobby   personen=1 (W2 AP6: drei Personen auf der Außenkarte, mit zone=away)
 //   M3a/§20: korvette=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
@@ -311,7 +311,7 @@
   }
 
   // ---------------------------------------------------------------- M2: Mond Kesh, Kampf v2 (CONTRACT-M2 §4–§7)
-  // URL: ?mock=1&loc=kesh&zone=away&scene=hof|halle|down   (console=captain&tab=5: du bist Captain, zwei unten)
+  // URL: ?mock=1&loc=kesh&zone=away&scene=hof|halle|down   (console=captain&tab=3: du bist Captain, zwei unten)
   const Los = window.Shared_Los;
   const AC = CFG.awayCombat || {};
   const acNum = (path, d) => { let o = AC; for (const k of path.split('.')) { if (!o || typeof o !== 'object') return d; o = o[k]; } return typeof o === 'number' ? o : d; };
@@ -834,7 +834,7 @@
         // §20.3: Aufladen power 0 -> 1 in chargeTime (beschädigt × 1,5); Konsole verlassen / System aus = verpufft
         if (params.get('charging') === '1') { mt.charge = 1; mt.charging = true; mt.power = 0.5 + 0.5 * Math.sin(W.time * 0.8); mt.power = Math.max(0, Math.min(1, mt.power * 1.2)); continue; }
         if (mt.charging) {
-          const manned = W.players.some(q => q.console === 'weapons');
+          const manned = W.players.some(q => (q.console ? (q.station || q.console) : null) === 'weapons');
           if (!manned || mt.state === 'broken') { mt.charging = false; mt.power = 0; ev('lance', { state: 'fizzle', power: 0, hit: null, why: manned ? 'system' : 'console' }); continue; }
           const ct = m3n('lance.chargeTime', 3) * (mt.state === 'damaged' ? m3n('lance.damagedTimeFactor', 1.5) : 1);
           mt.power = Math.min(1, mt.power + dt / ct);
@@ -921,6 +921,19 @@
         return true;
       }
       case 'captain.burst': notice('Den Schildstoß gibt es nicht mehr.'); return true;   // M3b §4
+      case 'captain.power': case 'captain.shield': case 'captain.priority': case 'captain.repair': case 'captain.botAuto': case 'captain.overload': notice('Das macht jetzt die Technik.'); return true;   // R1
+      case 'station.tab': {   // R1 §4.4: Interface wechseln, Ort bleibt (Mock: keine anderen Spieler an Stationen)
+        const kreis = (window.Shared_Protocol && Shared_Protocol.STATION_KREIS) || ['helm', 'weapons', 'captain', 'technik'];
+        if (!kreis.includes(p.console)) { notice('Stationswechsel geht nur an Steuer, Taktik, Captain- oder Technik-Konsole.'); return true; }
+        const cur = p.station || p.console;
+        const nx = kreis[(kreis.indexOf(cur) + (+m.dir < 0 ? kreis.length - 1 : 1)) % kreis.length];
+        if (cur === 'weapons') W._tscanOn = false;
+        if (cur === 'captain') W._scanOn = false;
+        if (cur === 'helm') W.ship.helm.turn = W.ship.helm.thrust = 0;
+        p.station = nx === p.console ? null : nx;
+        notice('Station: ' + ({ helm: 'Navigation', weapons: 'Taktik', captain: 'Captain', technik: 'Technik' })[nx]);
+        return true;
+      }
       case 'helm.throttle': {   // M3b §2
         const n = LERCHE.stages.length, h = s.helm;
         let want = m.set != null ? Math.round(+m.set) : h.stage + (+m.delta > 0 ? 1 : -1);
@@ -929,13 +942,13 @@
         if (s.dockedAt && LERCHE.stages[h.stage] > 0) { s.docked = false; s.dockedAt = null; W.shopContext = null; }
         return true;
       }
-      case 'captain.repair': {
+      case 'technik.repair': {
         const q = s.repairQueue.find(x => x.system === m.system);
         if (!m.mode) { s.repairQueue = s.repairQueue.filter(x => x !== q); return true; }
         if (q) q.mode = m.mode; else if (s.repairQueue.length < 3) s.repairQueue.push({ system: m.system, mode: m.mode, bot: null }); else notice('Liste voll');
         return true;
       }
-      case 'captain.botAuto': s.botAuto = !!m.on; return true;
+      case 'technik.botAuto': s.botAuto = !!m.on; return true;
       case 'repair.start': {
         const st = s.systems[m.system];
         if (!st || (st === 'ok' && !isFr(m.system)) || st === 'offline') { notice('Nichts zu reparieren'); return true; }
@@ -999,10 +1012,10 @@
         s.jump.dest = m.dest; s.jump.charge = 0; break;
       }
       case 'captain.marker': s.markers.captain = m.clear ? null : { x: Math.round(m.x), y: Math.round(m.y) }; break;
-      case 'captain.overload':
+      case 'technik.overload':
         if (s.reactor.state !== 'online') return notice('Reaktor nicht online');
         s.reactor.state = 'overload'; s.reactor.overloadLeft = +(params.get('overloadTime') || 180); s.reactor.output = 12; break;
-      case 'captain.power': {
+      case 'technik.power': {
         const used = Object.values(s.power).reduce((x, y) => x + y, 0);
         const v = s.power[m.sys] + m.delta;
         if (v < 0 || v > 4) return notice('Grenze erreicht');
@@ -1010,13 +1023,13 @@
         s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 3) +(W.upgrades.schildpool ? 2 : 0);
         break;
       }
-      case 'captain.shield': {
+      case 'technik.shield': {
         const sum = s.shields.alloc.reduce((x, y) => x + y, 0);
         const v = s.shields.alloc[m.sector] + m.delta;
         if (v < 0 || v > 4 || (m.delta > 0 && sum >= s.shields.pool)) return notice('Schildpool erschöpft');
         s.shields.alloc[m.sector] = v; break;
       }
-      case 'captain.priority': s.priority = m.target; break;
+      case 'technik.priority': s.priority = m.target; break;
       case 'captain.scan': W._scanOn = !!m.on; W._scanT = 0; break;
       case 'captain.support':
         if (W.support[m.kind] > 0) return notice('Abklingzeit');
@@ -1122,7 +1135,7 @@
       case 'input': W._in = { mx: +msg.mx || 0, my: +msg.my || 0 }; p.lastSeq = msg.seq; break;
       case 'act': if (msg.down) { W._act = true; if (!p.console) act(p); } else { W._act = false; if (p.action && p.action.kind !== 'beam') p.action = null; } break;
       case 'drop': if (p.carry) { (p.zone === 'away' ? W.away.items : W.ship.groundItems).push({ id: nid('g'), kind: p.carry, x: p.x, y: p.y }); p.carry = null; } break;
-      case 'leave': p.console = null; W._scanOn = false; W._tscanOn = false; W.ship.helm.turn = W.ship.helm.thrust = 0; break;
+      case 'leave': p.console = null; p.station = null; W._scanOn = false; W._tscanOn = false; W.ship.helm.turn = W.ship.helm.thrust = 0; break;
       case 'shoot':
         if (p.downed && !p.sh) break;
         W.away.projectiles.push({ id: nid('bl'), kind: p.downed ? 'pistol' : 'blaster', x: p.x, y: p.y, angle: msg.angle, _life: 1.1, _sx: p.x, _sy: p.y });
@@ -1209,7 +1222,7 @@
     }
     // Schiff
     const h = s.helm;
-    h.manned = W.players.some(q => q.console === 'helm');
+    h.manned = W.players.some(q => (q.console ? (q.station || q.console) : null) === 'helm');
     // M3b: Temporegler + Ruder über Flight.stepBody (Fallback: grobe Annäherung)
     const capOf2 = (x) => ({ ok: 1, damaged: 0.5, broken: 0.15, offline: 0.15 })[s.systems[x]] || 1;
     const sf = ([0, 0.5, 0.8, 1, 1.15][s.power.engines] || 0) * (s.systems.engines === 'broken' ? 0 : s.systems.engines === 'damaged' ? 0.5 : 1);
@@ -1535,7 +1548,9 @@
       if (c === 'quartier') { const b = (Maps.BEDS || []).find(q => q.color === p.color) || (Maps.BEDS || [])[0]; if (b) at = standNear(b); }
       else if (shipTiles(i => i.console === c).length) at = consoleSpot(c, 0);
       if (at && p.zone === 'ship') Object.assign(p, tc(at.x, at.y));
-      if (c === 'captain' && window.Consoles) Consoles.tab = Math.max(0, Math.min(5, +params.get('tab') || 0));
+      if (c === 'captain' && window.Consoles) Consoles.tab = Math.max(0, Math.min(3, +params.get('tab') || 0));
+      if (c === 'technik' && window.Consoles) Consoles.ttab = Math.max(0, Math.min(1, +params.get('tab') || 0));
+      if (params.get('station') && window.Consoles) p.station = params.get('station');   // R1: ?station=technik – Interface weicht vom Ort ab
     }
   }
 

@@ -1056,6 +1056,7 @@
     console_helm: { body: '#4F6178', scr: PAL.mint },
     console_captain: { body: '#4F6178', scr: PAL.bernstein },
     console_weapons: { body: '#4F6178', scr: '#FF8A5C' },
+    console_technik: { body: '#4F6178', scr: '#6FB8F0' },   // R1: Technik (Maschinenraum), kühles Blau neben Mint/Bernstein/Orange
     console_transfer: { body: '#4F6178', scr: PAL.mint },
     terminal_shop: { body: '#8A4A35', scr: PAL.bernstein },
     terminal_spare: { body: '#4A5260', scr: '#3A4250' },   // Brückenumbau: freies Terminal, ausgeschaltet
@@ -1107,6 +1108,16 @@
       // Hebel mit roten Knäufen
       R(g, 8, 23 - (f % 4 === 0 ? 1 : 0), 1, 5, '#8EA3B5'); R(g, 7, 22 - (f % 4 === 0 ? 1 : 0), 3, 2, PAL.alarmrot);
       R(g, 23, 23, 1, 5, '#8EA3B5'); R(g, 22, 22, 3, 2, PAL.alarmrot);
+    } else if (kind === 'console_technik') {
+      // Energiebalken (vier Systeme, laufen leicht auf und ab) + Hitzestrich; am Pult drei Schieberegler
+      for (var tb = 0; tb < 4; tb++) {
+        var th = 3 + ((tb * 3 + f) % 5) + (tb === 2 ? 2 : 0);
+        R(g, sx + 1 + tb * 3, sy + sh - 2 - th, 2, th, tb === 3 ? PAL.warngelb : sc);
+      }
+      R(g, sx + 1, sy + 2, sw - 2, 1, scD); P(g, sx + 2 + (f % 3) * 4, sy + 2, PAL.alarmrot);
+      ell(g, 20, 17, 2, 2, scD);
+      R(g, 8, 27, 16, 1, '#2E3946');
+      R(g, 9 + (f % 2), 26, 2, 3, PAL.messing); R(g, 14, 26, 2, 3, PAL.messing); R(g, 19 - (f % 2), 26, 2, 3, PAL.messing);
     } else if (kind === 'console_transfer') {
       var rr = (f % 4) + 1;
       ell(g, 16, 15, rr + 2, rr + 1, sc); ell(g, 16, 15, rr + 1, rr, active ? '#10261F' : '#0C1A18');
@@ -1842,7 +1853,7 @@
     px = Math.round(px); py = Math.round(py);
     var t = o.time || 0, spr, memo;
     switch (kind) {
-      case 'console_helm': case 'console_captain': case 'console_weapons': case 'console_transfer': case 'terminal_shop':
+      case 'console_helm': case 'console_captain': case 'console_weapons': case 'console_technik': case 'console_transfer': case 'terminal_shop':
         drawConsole(ctx, kind, px, py, o); return;
       case 'terminal_spare': {   // ausgeschaltet: kein Leuchten
         var tf = frameOf(o.time, 1, 8);

@@ -35,7 +35,7 @@
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
-  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Taktik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
+  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Taktik', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
@@ -240,7 +240,7 @@
       // Banner Mitte oben: Countdown/Pause dauerhaft, Wellenbeginn kurz
       let big = null, sub = null, bc = PAL.amber;
       const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
-      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Taktik, Captain auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
+      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Taktik, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
       else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
       if (big && w.ph !== 'ende') {
@@ -1002,7 +1002,7 @@
         const col = PAL.players[p.color || 0];
         R.shape(ctx, R.SHAPES[p.color || 0], x + 14, ly + 4, 8, col);
         let where = p.zone === 'away' ? 'Außenteam' : roomOf(Math.floor(p.x / TILE), Math.floor(p.y / TILE));
-        if (p.console) where = 'an ' + (CONSOLE_NAMES[p.console] || p.console);
+        if (p.console) where = 'an ' + (CONSOLE_NAMES[p.console] || p.console) + (p.station && p.station !== p.console ? ' (' + (CONSOLE_NAMES[p.station] || p.station) + ')' : '');   // R1: per Tab auf andere Station geschaltet
         R.text(ctx, String(p.name || '?').slice(0, 12), x + 24, ly, { color: col });
         R.text(ctx, where, x + 120, ly, { color: PAL.star });
         if (Array.isArray(p.sh) && !p.downed) R.drawShieldPips(ctx, x + 260, ly + 1, p.sh[0], p.sh[1], +p.shR || 0, 7, 2);
@@ -1342,7 +1342,9 @@
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
       ['Taktik', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
-      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Energie & Schilde · Schadensplan · Außenteam'],
+      ['Captain', '1–4 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Außenteam'],
+      ['Technik', 'Konsole im Maschinenraum · 1–2 Reiter: Energie & Schilde (↑/↓ wählen, ←/→ verteilen, U überladen) · Schadensplan (Reparaturliste, Bots automatisch)'],
+      ['Station', 'Tab / Shift+Tab an Steuer, Taktik, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Taktik schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
       ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],

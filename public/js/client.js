@@ -718,7 +718,7 @@
   function onEventM3(ev) {
     const PAL = R.PAL;
     const m = me();
-    const con = m && m.console;
+    const con = K.stationOf(m);   // R1: aktives Interface
     const name = (s) => H.SYS_NAMES[s] || s;
     // tele: Der Server schickt { kind:'tele', id, sector, dur, tkind|enemy }. Liegt das Feld kind fälschlich auf 'shot'/'emp',
     // erkennen wir das Ereignis an id + sector + dur.
@@ -1174,7 +1174,7 @@
     if (!prev || !cur || cur.phase === 'lobby') return;
     const pm = prev.players.find(p => p.id === Client.pid), cm = cur.players.find(p => p.id === Client.pid);
     if (pm && cm) {
-      if (!pm.console && cm.console) { audio.play('console_on'); K.onOpen(cm.console); }
+      if (!pm.console && cm.console) { audio.play('console_on'); K.onOpen(K.stationOf(cm)); }
       if (pm.console && !cm.console) { audio.play('console_off'); K.onClose(Client.view); }
       if (!pm.carry && cm.carry) audio.play('pickup');
       if (pm.carry && !cm.carry) audio.play('drop');
@@ -1255,7 +1255,7 @@
     const pmk = ps.markers || {}, cmk = cs.markers || {};
     for (const k of ['captain', 'tactical']) {
       const a = pmk[k], b = cmk[k];
-      if (b && (!a || a.x !== b.x || a.y !== b.y)) audio.play('marker_set', { volume: cm && (cm.console === 'helm') ? 1 : 0.5 });
+      if (b && (!a || a.x !== b.x || a.y !== b.y)) audio.play('marker_set', { volume: cm && (K.stationOf(cm) === 'helm') ? 1 : 0.5 });
     }
     // Ziel-Scan
     const pts = ps.tscan || {}, cts = cs.tscan || {};
@@ -1594,7 +1594,7 @@
     const con = R.consoleOf ? R.consoleOf(map, ch) : R.CONSOLE_BY_CHAR[ch];
     if (con && zone === 'ship') {
       if (con === 'shop' && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
-      const taken = players.find(p => p.console === con && p.id !== m.id);
+      const taken = players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
       if (taken) return { label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false };
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }

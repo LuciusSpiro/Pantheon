@@ -272,7 +272,7 @@
 
   // ------------------------------------------------------------------ Karten-Hilfen
   const OBJ = {
-    H: 'console_helm', C: 'console_captain', W: 'console_weapons', T: 'console_transfer', S: 'terminal_shop',
+    H: 'console_helm', C: 'console_captain', W: 'console_weapons', i: 'console_technik', T: 'console_transfer', S: 'terminal_shop',
     L: 'shelf', B: 'bed', R: 'sys_reactor', E: 'sys_engines', G: 'sys_shields', K: 'sys_weapons', X: 'sys_transfer',
     O: 'sys_life', m: 'table', p: 'plant', c: 'crate', x: 'crate', b: 'buoy_core', Z: 'sonde',
     u: 'pipes', k: 'workbench', n: 'control_desk', f: 'barrel',   // M0: Maschinenraum
