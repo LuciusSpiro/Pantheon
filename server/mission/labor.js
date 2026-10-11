@@ -77,6 +77,7 @@ function testBuch(katalog, szenen, id) {
   const env = Szenenbau.buildEnv(k);
   const sz = [{ id: 'th', szenentyp: 'hafen', ort: 'hafen', molekuele: [], weiter: [{ nach: id + 's1' }] }];
   const answers = {};
+  let mitRueckzug = false;   // EK2: Umsetzung mit Ausgang „Rückzug“ (Platzhalter {{rueckzug}}): Testbuch bekommt den Ausgang
   szenen.forEach((sc, i) => {
     const [mid, uid] = sc.key.split('/');
     const u = sc.u || umsetzungVon(k, sc.key);
@@ -87,6 +88,7 @@ function testBuch(katalog, szenen, id) {
     for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && params[pn] === undefined) params[pn] = 'tesk';
     const sid = id + 's' + (i + 1);
     const szene = { id: sid, szenentyp: 'test', ort: loc, karte: params.map, molekuele: [{ id: mid, umsetzung: uid }], weiter: [{ nach: i < szenen.length - 1 ? id + 's' + (i + 2) : 'ausgang:erfolg' }] };
+    if (JSON.stringify(u.vorlage).includes('{{rueckzug}}') && sc.rueckzug !== false) { szene.rueckzug = 'ausgang:rueckzug'; mitRueckzug = true; }
     // Besetzung setzt der Szenenbau aus dem Grobplan (Fraktion sonst = Besitz des Landepunkts, Stärke mittel): Überschreibungen
     // für fraktion/staerke/haltung gehen daher als Szenen-Besetzung mit (wie beim Spielleiter)
     const ov = sc.override || {};
@@ -99,7 +101,8 @@ function testBuch(katalog, szenen, id) {
   const namen = szenen.map((s) => { const u = s.u || umsetzungVon(k, s.key); return (u && u.name) || s.key; });
   const g = { format: 'grobplan/1', id, titel: ('Labor: ' + namen.join(' + ')).slice(0, 60), auftraggeber: 'tesk', zielspieldauer_min: 15,
     aufhaenger: 'Testbuch für das Szenario-Labor (Lobby und Bots).', szenen: sz, entscheidungen: [],
-    ausgaenge: { erfolg: { wann: 'Test durch', folgen: ['chronik: Labor-Test durch', 'npc_gedaechtnis tesk: Labor-Test'] } } };
+    ausgaenge: Object.assign({ erfolg: { wann: 'Test durch', folgen: ['chronik: Labor-Test durch', 'npc_gedaechtnis tesk: Labor-Test'] } },
+      mitRueckzug ? { rueckzug: { wann: 'Rückzug per Notfallsprung', folgen: ['chronik: Labor-Test: Rückzug'] } } : {}) };
   const built = Szenenbau.buildBook(g, answers, env, { id: 'bot_' + id, art: 'archiv', marks: 0 });
   if (built.errors.length) throw new Error(`Testbuch ${id} (${szenen.map((s) => s.key).join(', ')}): ` + built.errors.slice(0, 4).map((e) => (e.code ? `${e.code} ${e.p}: ${e.msg}` : e)).join(' | '));
   for (const [sid, x] of Object.entries(built.szenen)) if (x.fehler.length) throw new Error(`Testbuch ${id} Szene ${sid}: ${x.fehler.slice(0, 3).join(' | ')}`);

@@ -12,6 +12,7 @@ const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähige
 const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
+const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -120,6 +121,7 @@ function enterScene(game, locId, opts) {
   sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc) : makeAsteroids(game, loc);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
   sp.salvage = [];
   sp.markers = [];
+  Alarm.szeneBetreten(game);   // EK2: Alarm und Minen gelten je Szene
   if (sc.station) sp.markers.push({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r });
   if (sc.dock) sp.markers.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: C.travel.dockDist });
   ship.asteroidImmune = {};
@@ -436,6 +438,7 @@ function captainOverload(game) {
   if (rc.state === 'offline') return 'Reaktor ist abgeschaltet – erst neu starten (Maschinenraum, beide Schalter).';
   if (isDown(ship.systems.reactor)) return 'Reaktor zerstört oder offline – erst reparieren.';
   rc.state = 'overload'; rc.overloadLeft = R.overloadTime; rc.warned = false;
+  Alarm.laerm(game, 'reaktor');   // EK2: Überladen ist laut
   game.emit('sfx', { name: 'overload_start' });
   game.oda(`Reaktor überladen: +${R.overloadBonus} Energie für ${Math.round(R.overloadTime / 60)} Minuten. Danach ist erst mal Pause.`, null);
   game.missionEvent('overload', {});
@@ -720,7 +723,7 @@ function damageApi(game) {
 }
 function shipHit(game, sector, dmg, opts) {
   const ship = game.ship; const sh = ship.shields;
-  opts = opts || {};
+  opts = Alarm.trefferOpts(game, opts || {});   // EK2: Schilde unten (Schleichfahrt) = Treffer ohne Schildabzug
   ensureM3(game);
   game.stats.hits++;
   const D = damageApi(game);
@@ -895,6 +898,7 @@ function nearestInArc(game, mount) {
   let best = null, bd = Infinity;
   for (const e of game.space.enemies) {
     if (!inMountArc(game, mount, e.x, e.y)) continue;
+    if (e.pat) continue;   // EK2: eine ruhige Patrouille ist kein Ziel der Automatik
     const d = dist(ship.x, ship.y, e.x, e.y);
     if (d < bd) { bd = d; best = e; }
   }
@@ -937,7 +941,9 @@ function updateWeapons(game, dt) {
       const tgt = nearestInArc(game, k);
       if (tgt) startSalvo(game, k, tgt, 1);
     }
-    if (m.bow.charge >= 1 && !m.bow.charging && !isDown(mountState(game, 'bow')) && lanceTrace(game).hit) {
+    // EK2: die Automatik schießt nicht auf ruhige Patrouillen und nicht auf Minen (sonst verriete sie die Lerche)
+    const autoHit = m.bow.charge >= 1 && !m.bow.charging && !isDown(mountState(game, 'bow')) ? lanceTrace(game).hit : null;
+    if (autoHit && !autoHit.pat) {
       fireLance(game, M3(game).lance.autoPower, true);
     }
   }
@@ -983,6 +989,9 @@ function lanceTrace(game) {
     if (t > stop) continue;
     if (t < ht) { ht = t; hit = e; }
   }
+  // EK2: Minen im Strahl (nah vor dem ersten Gegner und vor einem Brocken) werden getroffen
+  const mn = Alarm.mineImStrahl(game, o.x, o.y, dx, dy, Math.min(range, stop));
+  if (mn && (!hit || mn.t < ht)) return { o, dx, dy, range, hit: null, mine: mn.m, t: mn.t, rock: null };
   return { o, dx, dy, range, hit, t: hit ? Math.max(0, ht) : Math.min(range, stop), rock: !hit && rock ? rock : null };
 }
 function lanceFizzle(game, why) {
@@ -1031,7 +1040,8 @@ function fireLance(game, power, auto) {
   bow.charging = false; bow.power = 0; bow.charge = 0;
   const x2 = tr.o.x + tr.dx * tr.t, y2 = tr.o.y + tr.dy * tr.t;
   const beam = { x1: tr.o.x, y1: tr.o.y, x2, y2, ttl: game.C.combat.beamTtl * 2, ttlMax: game.C.combat.beamTtl * 2, kind: 'lance', mount: 'bow', power: r2(p) };
-  if (!tr.hit) beam.miss = true;
+  if (!tr.hit && !tr.mine) beam.miss = true;
+  Alarm.laerm(game, 'waffen');   // EK2: Waffenfeuer ist laut
   if (tr.rock) brockenStats(game).strahlen++;   // W2: Brocken hat den Strahl geschluckt
   game.space.beams.push(beam);
   // S2 §5: kein Eigenbeschuss – die Lanze geht durch Schützlinge hindurch, nur ein Funk-Rüffel
@@ -1044,12 +1054,14 @@ function fireLance(game, power, auto) {
     game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
     damageEnemy(game, tr.hit, lanceDamage(game, p), tr.o.x, tr.o.y, { pierce: cfg.pierce });
   }
+  if (tr.mine) Alarm.abschuss(game, tr.mine);   // EK2: Mine abgeschossen
   game.missionEvent('lanceFire', { power: p, hit: tr.hit ? tr.hit.id : null, auto: !!auto });
 }
 
 // §5.4/§20.4 Batterie-Salven: N Treffer, gestaffelt im Abstand salvoGap. target darf null sein (Schuss ins Leere).
 function startSalvo(game, k, target, factor) {
   const b = game.ship.mount[k];
+  Alarm.laerm(game, 'waffen');   // EK2
   b.charge = 0;
   b.salvo = batteryTubes(game, k);
   b.salvoMax = b.salvo;
@@ -1082,6 +1094,14 @@ function updateSalvos(game, dt) {
       const idx = (b.salvoMax || b.salvo) - b.salvo;
       b.salvo--;
       let e = b.salvoTarget != null ? game.space.enemies.find((q) => q.id === b.salvoTarget) : null;
+      // EK2: Ziel ist eine Mine (Taktik hat sie angewählt): Salve geht auf die Mine, Explosion auf Distanz
+      const mn = !e && b.salvoTarget != null ? Alarm.mineById(game, b.salvoTarget) : null;
+      if (mn && inMountArc(game, k, mn.x, mn.y)) {
+        const o2 = mountOrigin(game, k); const ttl2 = batteryBeamTtl(game);
+        game.space.beams.push({ x1: o2.x, y1: o2.y, x2: mn.x, y2: mn.y, ttl: ttl2, ttlMax: ttl2, kind: 'battery', mount: k });
+        Alarm.abschuss(game, mn); b.salvo = 0; b.salvoTarget = null;
+        break;
+      }
       if (!e || !inMountArc(game, k, e.x, e.y)) { e = nearestInArc(game, k); b.salvoTarget = e ? e.id : null; }
       const o = mountOrigin(game, k);
       const ttl = batteryBeamTtl(game);
@@ -1119,7 +1139,8 @@ function fireOne(game, k) {
   if (m.charge < 1) return `${names[k]} lädt noch.`;
   // Ziel nicht nötig: gewähltes Ziel im Bogen, sonst nächster Gegner im Bogen, sonst ins Leere
   const sel = selectedEnemy(game);
-  const tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : nearestInArc(game, k);
+  const mineSel = !sel ? Alarm.mineById(game, game.ship.target) : null;   // EK2: angewählte Mine
+  const tgt = sel && inMountArc(game, k, sel.x, sel.y) ? sel : (mineSel && inMountArc(game, k, mineSel.x, mineSel.y) ? mineSel : nearestInArc(game, k));
   startSalvo(game, k, tgt, 1);
   return null;
 }
@@ -1135,6 +1156,7 @@ function fireBolzen(game) {
   if (b.loaded <= 0) return 'Magazin leer – R: nachladen.';
   if (b.shotT > 0) return 'Bolzenwerfer kühlt noch.';
   b.loaded--; b.shotT = C.combat.bolzenShotDelay;
+  Alarm.laerm(game, 'waffen');   // EK2
   const a = Math.atan2(target.y - ship.y, target.x - ship.x);
   game.space.projectiles.push({ id: game.nextId('pr'), kind: 'bolzen', x: ship.x - Math.cos(ship.angle) * 30, y: ship.y - Math.sin(ship.angle) * 30,
     angle: a, speed: cfg.speed, ttl: C.combat.bolzenTtl, dmg: cfg.damage, target: target.id });
@@ -1255,6 +1277,8 @@ function resolveTarget(game, id) {
   if (id == null) return null;
   const e = game.space.enemies.find((o) => o.id === id);
   if (e) return { type: 'enemy', id, x: e.x, y: e.y, obj: e };
+  const mine = Alarm.mineById(game, id);   // EK2: gesehene Minen sind anwählbar (abschießen, scannen)
+  if (mine && Alarm.mineSichtbar(game, mine)) return { type: 'mine', id, x: mine.x, y: mine.y, obj: mine };
   if (id === 'station') {
     const loc = Locations.get(game.ship.scene);
     if (loc.scene.station) return { type: 'station', id, x: loc.scene.station.x, y: loc.scene.station.y, loc: loc.id };
@@ -1269,7 +1293,7 @@ function weaponsTarget(game, id) {
   const rt = resolveTarget(game, id);
   if (!rt) return 'Ziel nicht gefunden.';
   // W2: Gegner nur innerhalb der Sensorreichweite aufschalten (im Nebel × fogFactor; der Client zeigt dieselbe Grenze)
-  if (rt.type === 'enemy' && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game)) return 'Ziel außerhalb der Sensoren.';
+  if ((rt.type === 'enemy' || rt.type === 'mine') && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game)) return 'Ziel außerhalb der Sensoren.';
   if (game.ship.target !== id) game.ship.tscan.progress = 0;
   game.ship.target = id;
   return null;
@@ -1306,12 +1330,18 @@ function updateTargetScan(game, dt) {
   }
 }
 function alreadyScanned(game, t) {
+  if (t.type === 'mine') return !!t.obj.gescannt;
   if (t.type === 'enemy') return !!t.obj.scanned;
   if (t.type === 'station') return game.scans.has('station:' + t.loc);
   if (t.type === 'hidden') return game.scans.has(t.id);
   return false;
 }
 function onTargetScanned(game, t) {
+  if (t.type === 'mine') {
+    t.obj.gescannt = true;
+    game.oda(t.obj.ohneStrom ? 'Scan: Mine ohne Strom – ein Blindgänger.' : 'Scan: Mine. Zündet bei Annäherung, ignoriert Schilde, 6 Punkte Systemschaden. Aus der Ferne abschießen – das macht aber Alarm.', 'scan_mine');
+    return;
+  }
   if (t.type === 'enemy') {
     t.obj.scanned = true;
     const n = { raider: 'Jäger: Bug stark, Heck ungeschützt, eine Kanone vorn.', korvette: 'Korvette: Seiten stark, Bug schwach, Heck ungeschützt – von hinten angreifen. Waffen je Platz im Bogen sichtbar.',
@@ -1342,7 +1372,8 @@ function weaponsWidescan(game) {
   game.emit('sfx', { name: 'widescan' });
   game.emit('widescan', { x: Math.round(ship.x), y: Math.round(ship.y), r: C.widescan.radius });
   const n = game.explore.widescanAt(ship.x, ship.y, C.widescan.radius);
-  if (!n) game.oda('Weitscan: nichts Neues in Reichweite. Woanders nochmal probieren.', null);
+  const extra = Alarm.onWidescan(game, C.widescan.radius);   // EK2: Minen und Patrouillen, Signatur-Ping
+  if (!n && !extra) game.oda('Weitscan: nichts Neues in Reichweite. Woanders nochmal probieren.', null);
   game.missionEvent('widescan', { found: n });
   return null;
 }
@@ -1401,6 +1432,7 @@ function crewScale(game) {
 // opts.pierce: der Schildsektor zählt bei diesem Treffer so viele Punkte weniger (Lanze, §5.1).
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hitT = game.time;
+  if (e.pat) Alarm.ausloeser(game, 'entdeckt');   // EK2: ein Treffer auf eine Patrouille verrät uns
   if (e.targetId != null) Escort.onLercheHit(game, e);   // S2 §5: Treffer der Lerche ziehen den Gegner 10 s auf sie
   // M3a §7.1: Treffer verlängern eine laufende Ladung (je Treffer delayPerHit, insgesamt höchstens delayMax)
   if (e.tele) {
@@ -1477,6 +1509,7 @@ function updateEnemies(game, dt) {
     e.regenT += dt;
     if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
     const retreating = e.retreatUntil > game.time;
+    if (e.pat) { Alarm.patrouille(game, e, dt); continue; }   // EK2: ruhige Patrouille: Strecke (Brocken ignoriert), kein Feuer
     if (Pilot.flies(game, e)) {
       // M3b §3: Pilot + gemeinsames Flugmodell
       try { Pilot.fly(game, e, dt); }
@@ -1851,6 +1884,10 @@ function updateProjectiles(game, dt) {
       for (const e of sp.enemies) {
         if (dist(p.x, p.y, e.x, e.y) < (C.combat.hitRadius[e.kind] || 18)) { hit = true; damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20); break; }
       }
+      if (!hit && sp.minen && sp.minen.length) {   // EK2: Geschosse der Lerche treffen Minen
+        const mn = Alarm.mineAt(game, p.x, p.y);
+        if (mn) { hit = true; Alarm.abschuss(game, mn); }
+      }
     }
     if (!hit && p.ttl > 0 && p.x > -50 && p.y > -50 && p.x < sp.w + 50 && p.y < sp.h + 50) keep.push(p);
   }
@@ -1868,6 +1905,7 @@ function update(game, dt) {
   updateWeapons(game, dt);
   updateTargetScan(game, dt);
   updateEnemies(game, dt);
+  Alarm.update(game, dt);   // EK2: Lärm, Entdeckung, Einsprung, Minen
   // S2 §5: Schützlinge und Rückzugsregel (nur wenn vorhanden – sonst unverändert)
   const sp = game.space;
   if ((sp.escorts && sp.escorts.length) || sp.retreatRule || sp.enemies.some((e) => e.leaving)) {

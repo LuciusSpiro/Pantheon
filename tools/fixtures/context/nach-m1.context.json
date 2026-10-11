@@ -1107,6 +1107,20 @@
         ],
         "umsetzungen": [
           {
+            "beschreibung": "Die Lerche muss ein Minenfeld durchqueren. Der Weitscan zeigt die Minen; zu nahe kommen zündet sie (ignoriert Schilde, 6 Punkte Systemschaden, Alarm), man kann sie auch abschießen (Explosion auf Distanz, macht trotzdem Alarm). Bei Alarm springen nach 5 s Jäger ein (Ansage). Optional stromlose Minen (Blindgänger).",
+            "dauer_min": [
+              1,
+              3
+            ],
+            "id": "minenfeld",
+            "name": "Minenfeld durchqueren",
+            "nur_an": [
+              "splitter",
+              "nebel"
+            ],
+            "schauplatz": "weltraum"
+          },
+          {
             "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Taktik deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
             "dauer_min": [
               2,
@@ -1580,6 +1594,34 @@
           "heimlich",
           "technik"
         ],
+        "id": "unbemerkt_durchfliegen",
+        "kern": "Bewachten Raum mit dem Schiff durchqueren: langsam, auf Abstand, Patrouillen per Weitscan erpingen",
+        "name": "Unbemerkt durchfliegen",
+        "szenentypen": [
+          "A13"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Die Lerche muss den bewachten Raum bis zum Zielkreis durchqueren. Patrouillen mit Sensorkreisen, optional Minen. Die Signatur wächst mit dem Tempo, Asteroiden und Schilde unten dämpfen sie; der Weitscan verrät die Lerche kurz. Wer entdeckt wird oder Lärm macht, löst Alarm aus: Patrouillen greifen an (ohne Patrouille springen nach 5 s zwei Jäger ein). Kein Zeitlimit; Ausgänge: Ziel erreicht oder Rückzug per Notfallsprung.",
+            "dauer_min": [
+              2,
+              5
+            ],
+            "id": "patrouillen_schleichfahrt",
+            "name": "Schleichfahrt an Patrouillen vorbei",
+            "nur_an": [
+              "splitter",
+              "nebel"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "heimlich",
+          "technik"
+        ],
         "id": "unbemerkt_hineinkommen",
         "kern": "Einen Punkt erreichen, ohne Alarm auszulösen",
         "name": "Unbemerkt hineinkommen",
@@ -1801,7 +1843,6 @@
         "passagiere_befoerdern",
         "schlichten",
         "schmuggeln",
-        "unbemerkt_durchfliegen",
         "versorgen",
         "wettflug"
       ],
@@ -1814,7 +1855,6 @@
         "hyperraumflug",
         "krise_an_bord",
         "schlacht",
-        "schleichfahrt",
         "verfolgung",
         "wettflug"
       ]
@@ -2127,6 +2167,24 @@
           "entkommen"
         ],
         "name": "Rückzug",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "schleichfahrt",
+        "kennung": "A13",
+        "kern": "Unbemerkt durch bewachten Raum: langsam fliegen, Abstand halten, mit dem Weitscan Positionen der Patrouillen erpingen, durchschlüpfen",
+        "kippt_zu": [
+          "raumgefecht",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "unbemerkt_durchfliegen"
+        ],
+        "name": "Schleichfahrt",
         "plaetze": [
           1,
           2

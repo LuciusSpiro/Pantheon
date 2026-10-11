@@ -230,6 +230,27 @@
     sensors: { range: 1400, fogFactor: 0.5, nebelServer: 'wellen' },
     tscan: { range: 800, time: 2, holdTimeout: 0.5 },          // Ziel-Scan der Taktik (S halten)
     widescan: { cooldown: 20, radius: 1000 },                  // Weitscan (W)
+    // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,
+    // spawn_patrouille, minenfeld, schleichfahrt_an) – ohne das bleibt jede Szene wie bisher (Golden m1–m3 unverändert).
+    alarm: {
+      // Alarmstufen: 0 ruhig, 1 misstrauisch, 2 alarmiert. Lärm sind Punkte (waffen 1 je Schuss/Salve, antrieb 1 je Takt, reaktor 2),
+      // gezählt über die letzten misstrauenDauer s: ab 1 Punkt misstrauisch, ab alarmAb Punkten alarmiert (mit „Gegner wissen von der
+      // Lerche“ schon ab 1); ohne neuen Lärm beruhigt sich die Szene wieder. takt = Mindestabstand zweier Lärm-Ereignisse (sonst eines).
+      laerm: { gewicht: { waffen: 1, antrieb: 1, reaktor: 2 }, alarmAb: 2, misstrauenDauer: 30, takt: 1, antriebEnergie: 4, antriebTakt: 4 },
+      // Patrouillen: Sensorkreis = sensor × Signatur (× Zuschläge). Wer zeit s im Kreis bleibt, ist entdeckt. Sichtbar (Snapshot) sind
+      // Patrouillen nur nah (sichtNah) oder pingSicht s nach einem Weitscan; nach dem Alarm immer.
+      patrouille: { tempo: 45, sensor: 420, zeit: 1.2, misstrauenBonus: 0.35, wissenBonus: 0.5, sichtNah: 260, pingSicht: 8, kind: 'raider' },
+      // Einsprung nach dem Alarm, wenn die Szene keine (lebende) Patrouille hat: n Jäger am nächstgelegenen Sprungpunkt nach verzoegerung s (Ansage sofort)
+      einsprung: { verzoegerung: 5, n: 2, kind: 'raider', versatz: 45 },
+      // Minen: zünd = Annäherung der Lerche (nicht bei ihrem Besitzer), spreng = Reichweite der Explosion (Lerche und Schiffe darin),
+      // treffer = Trefferradius für Strahl und Geschosse, sicht = Mine ist in dieser Nähe auch ohne Weitscan zu sehen.
+      // punkte = Systemschaden (je Schritt ein Zustand tiefer: ok → beschädigt = 1, → zerstört = 2), gegner = Schaden an Schiffen im Radius (ohne Schilde).
+      mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, punkte: 6, gegner: 20, abstand: 90 },
+      // Signatur 0..1: ruhe + (1 − ruhe) × (Tempo/tempoRef)^exponent, × schildeUnten, × asteroid.faktor (Brocken näher als asteroid.abstand),
+      // × nebel.faktor (nur mit nebel.schalter; E4: in der Kampagne aus), Weitscan setzt pingDauer s lang auf pingSig.
+      signatur: { ruhe: 0.15, tempoRef: 130, exponent: 1, schildeUnten: 0.5, min: 0.04, asteroid: { abstand: 110, faktor: 0.6 },
+        nebel: { schalter: false, faktor: 0.6 }, pingDauer: 4, pingSig: 1, schildeHoch: 3 },
+    },
     emp: { offlineTime: 12 },                                  // EMP-Treffer durch die Schilde: System offline
     reactorM1: { overloadBonus: 4, overloadTime: 180, warnAt: 30, offlineOutput: 2, restartTime: 3, botAssistAfter: 3, autoRestartAfter: 240 },
     quarters: {

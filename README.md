@@ -15,6 +15,26 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu in EK2 – Raum-Alarm: Minen und Schleichfahrt
+
+- **Alarmstufe je Raumszene:** ruhig, misstrauisch, alarmiert. Auslöser: **Lärm** (Waffenfeuer der Lerche, Antrieb auf Energie 4,
+  Reaktor überladen), **Entdeckung** durch Patrouillen, **Minen**. Gilt nur in Szenen, die es einschalten (Baustein `raum_alarm_an`
+  u. a.): Tutorial, Wellen und alle bisherigen Szenen laufen unverändert. Alarmiert bleibt bis zum Verlassen der Szene.
+- Folge „alarmiert“: **alle Patrouillen greifen an.** Gibt es keine, **springen nach 5 s zwei Jäger** am nächsten Sprungpunkt ein
+  (ODA-Ansage sofort). Szenenparameter `wissen` („Gegner wissen von der Lerche“): Start misstrauisch, größere Sensorkreise,
+  ein einziger Schuss alarmiert.
+- **Minen:** der **Weitscan zeigt sie** (für den Rest der Szene; ganz nah sieht man sie auch so). Zu nahe = Explosion, **ignoriert
+  Schilde**, **6 Punkte Systemschaden** (ok → beschädigt = 1, → zerstört = 2, zufällig verteilt), Alarm. **Abschießbar** (Lanze, Bolzen,
+  Batterie auf die angewählte Mine): Explosion auf Distanz, macht trotzdem Alarm; steht die Lerche im Sprengradius (160 px), trifft es sie.
+  Zünden nicht bei ihrem Besitzer. `ohne_strom` = Blindgänger.
+- **Schleichfahrt (Szenentyp A13):** Die **Signatur** der Lerche wächst mit dem Tempo, **Asteroiden** und **Schilde unten** dämpfen sie
+  (Nebel nur als Schalter `CONFIG.alarm.signatur.nebel.schalter`, in der Kampagne aus). Patrouillen haben **Sensorkreise** (Taktikkarte:
+  gestrichelt, sie schrumpfen und wachsen mit der Signatur) und sind nur nah oder nach dem **Weitscan** zu sehen; der Weitscan verrät auch die
+  Lerche 4 s lang. Taktik: Knopf **„Schilde runter/hoch“ (H)** und Signaturanzeige. **Kein Zeitlimit**, Ausgänge **Ziel erreicht** und **Rückzug**
+  (Notfallsprung, Ziel zählt nicht).
+- Im Labor: `unbemerkt_durchfliegen/patrouillen_schleichfahrt` und `kurs_durch_gefahr/minenfeld`. Tests: `node tools/test-alarm.js`.
+  Details und Entscheidungen: `CONTRACT-EK2.md`.
+
 ## Neu in EK1a – Korvette statt Kanonenboot
 
 - Das **Kanonenboot gibt es nicht mehr**, die Klasse heißt `korvette` (Config, Missionen, Katalog, Tests, Anzeige).
