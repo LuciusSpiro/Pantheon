@@ -151,6 +151,11 @@ async function runOne(kind, crew, seed, stopAfter) {
     while (doneThisTick.length) tr(doneThisTick.shift()).end_ = endState();
     const key = (game.mission && game.mission.state && game.mission.state.stage) || 'free';
     if (key !== stage) { stage = key; stageStart = game.time; }
+    // Diagnose: GOLDEN_DEBUG=<Sekunden> schreibt alle n Spielsekunden den Zustand nach stderr
+    if (process.env.GOLDEN_DEBUG && ticks % (20 * Number(process.env.GOLDEN_DEBUG)) === 0 && S.ship) {
+      const sh = S.ship;
+      console.error(`[dbg ${game.time.toFixed(0)}] ${stage} sys=${JSON.stringify(sh.systems)} q=${JSON.stringify(sh.repairQueue)} auto=${sh.botAuto} en=${S.space.enemies.map((e) => e.kind + ':' + Math.round(e.hp != null ? e.hp : -1)).join(',')} mounts=${JSON.stringify(sh.mounts)} pl=${S.players.map((q) => q.console + '/' + q.zone + '/' + (q.station || '')).join(',')} fires=${(sh.fires || []).length} pwr=${sh.chargePoints}`);
+    }
     if (game.time - stageStart > SOFTLOCK_SEC) { softlock = (cur || '-') + '/' + stage; break; }
     if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
   }

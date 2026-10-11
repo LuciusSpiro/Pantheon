@@ -838,6 +838,10 @@ class Agent {
       return;
     }
     if (this.role === 'helm') {
+      // Gelähmte Steuerung (Triebwerke/Antrieb zerstört): ein Mensch kann am Ruder nichts tun und repariert selbst
+      const sys = S.ship.systems;
+      const gelaehmt = sys.engines === 'broken' || (sys.thruster_port === 'broken' && sys.thruster_stbd === 'broken');
+      if (this.memo.job || (gelaehmt && !S.space.enemies.some((e) => e.tele && e.tele.left < 1.5))) { if (this.repairDuty(S, p, { cooldown: 4 })) return; }
       if (!this.enter(S, 'helm')) return;
       this.helmFight(S, this.helmFocus(S));
       return;
