@@ -39,6 +39,16 @@
         "gen": { "variante": "eisenwald", "typ": "handel", "haeuser": 12 },
         "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Siedlung Eisenwald (Labor-Gelände)", "frei": "labor", "gesperrt": false }
     ],
+    "methalle": [
+      { "id": "methalle.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 5101, "schablone": null,
+        "gen": { "variante": "methalle", "typ": "militaer", "haeuser": 10 },
+        "beam": { "x": 1349, "y": 928, "range": 360 }, "name": "Methalle (Militärlager)", "frei": "immer", "gesperrt": false }
+    ],
+    "eisenwald": [
+      { "id": "eisenwald.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 6101, "schablone": null,
+        "gen": { "variante": "eisenwald", "typ": "handel", "haeuser": 12 },
+        "beam": { "x": 1756, "y": 1087, "range": 360 }, "name": "Siedlung Eisenwald", "frei": "immer", "gesperrt": false }
+    ],
     "vaelen": [
       { "id": "vaelen.handelsschiff", "art": "schiff", "bauweise": "germanen", "besitz": "kontor", "zustand": "intakt", "seed": 207, "schablone": null,
         "beam": { "x": 1500, "y": 1000, "range": 360 }, "name": "Germanisches Handelsschiff", "frei": "nach_tutorial", "gesperrt": false }

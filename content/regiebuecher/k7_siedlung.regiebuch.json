@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. PLATZHALTER: Schritt 'siedlung' vertritt die Bodenmission von Team BODEN (EK6: Siedlung aus dem Generator, zwei Personen hissen die Flagge gemeinsam, danach 10 Gegner und ein Boss, Sieg oder Nottransport mit Reset). Der Platzhalter spielt Hissen als Position halten (Lerche) und den Anführer als Korvette mit zwei Jägern. Die echte Szene liefert zwei Flags: flagge_gehisst (Hissen abgeschlossen, der Angriff beginnt) und boss_besiegt (Anführer gefallen, die übrigen Gegner beamen raus). Schnittstelle: CONTRACT-EK8.md, Kapitel 7.",
+  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. Die Schritte siedlung (Hissen) und siedlung_kampf sind die echte Bodenmission (EK6, CONTRACT-EK5-6, Molekül stellung_nehmen/flagge_hissen): Landepunkt eisenwald.siedlung, Feldzeichen auf dem Dorfplatz (zwei hissen gemeinsam), danach 10 Gegner und ein Anführer von allen Seiten. flagge_gehisst gilt, sobald das Feldzeichen oben ist (Angriff beginnt); boss_besiegt gilt, wenn der Anführer gefallen ist und das Team wieder an Bord ist; beide Flags zusammen beenden das Kapitel (erfolg). Fällt die Crew (Notrückholung): Siedlung zurücksetzen, beide Flags löschen, Ausgang rueckzug (die Szene beginnt von vorn). SOLO: Hissen braucht zwei lebende Spieler und geht allein nicht; die Kette darf nicht blockieren, darum hisst bei höchstens einem verbundenen Spieler ein Legionär mit (10 s nach dem Runterbeamen), und der Angriff ist kleiner (5 statt 10 Gegner plus Anführer). Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
   "format": "regiebuch/1",
   "id": "k7_siedlung",
 
@@ -19,7 +19,7 @@
     "belohnung": "@buch.belohnung"
   },
 
-  "buehne": { "orte": ["eisenwald"] },
+  "buehne": { "orte": ["eisenwald"], "aussenkarten": ["eisenwald.siedlung"] },
 
   "besetzung": {
     "stimmen": { "legat": { "name": "Legat Marcus Severus", "bild": "legat" } }
@@ -35,42 +35,83 @@
     },
 
     {
-      "id": "siedlung", "loc": "eisenwald", "restartOnReturn": true,
-      "umsetzung": "halten/position_halten",
-      "platzhalter": "Siedlung Eisenwald, Bodenmission mit Flagge und Boss (Team BODEN)",
-      "enter": [{ "oda": "@siedlung.lage" }],
+      "id": "siedlung", "loc": "eisenwald",
+      "umsetzung": "stellung_nehmen/flagge_hissen",
+      "allowBeam": ["eisenwald.siedlung"],
+      "timers": [
+        { "at": 2, "oda": "@siedlung.start" },
+        { "at": 90, "if": { "not": { "check": { "name": "anker_state", "map": "eisenwald.siedlung", "anker": "flagge", "state": "gehisst", "min": 1 } } }, "oda": "@siedlung.hinweis", "garantie": "hinweis" }
+      ],
       "rules": [
-        { "if": { "all": [{ "check": { "name": "ship_hold_position", "dist": 300, "sec": 12, "loc": "eisenwald" } }, { "not": { "flag": "flagge_gehisst" } }] },
+        { "if": { "all": [{ "check": { "name": "crew_max", "max": 1 } }, { "check": { "name": "away_active", "map": "eisenwald.siedlung" } }, { "not": { "v": "allein" } }] },
           "do": [
-            { "setFlag": { "flagge_gehisst": true } },
-            { "wendung": "angriff_beginnt",
-              "ankuendigung": { "oda": "@siedlung.angriff", "art": "gleichzeitig", "grund": "Die Verteidiger greifen erst nach dem Hissen an, mit Ansage." },
-              "wirkung": [
-                { "spawn": { "kind": "korvette", "n": 1, "tag": "anfuehrer" } },
-                { "spawn": { "kind": "raider", "n": 2, "tag": "verteidiger" } }
-              ] },
-            { "radio": { "from": "legat", "text": "@siedlung.boss" } }
-          ] },
-        { "if": { "all": [{ "flag": "flagge_gehisst" }, { "killed": { "tag": "anfuehrer" } }, { "not": { "flag": "boss_besiegt" } }] },
-          "do": [
-            { "setFlag": { "boss_besiegt": true } },
-            { "do": "enemies_retreat" },
-            { "oda": "@siedlung.besiegt" }
+            { "set": { "allein": true } },
+            { "radio": { "from": "legat", "text": "@siedlung.allein" } },
+            { "after": { "sec": 10, "do": [{ "do": "anker_zustand", "map": "eisenwald.siedlung", "anker": "flagge", "zustand": "gehisst" }] } }
           ] }
       ],
+      "objectives": [
+        { "id": "runter", "text": "@ziel.runter", "sticky": false, "done": { "check": { "name": "away_active", "map": "eisenwald.siedlung" } } },
+        { "id": "hissen", "text": "@ziel.hissen", "sticky": false, "done": { "check": { "name": "anker_state", "map": "eisenwald.siedlung", "anker": "flagge", "state": "gehisst", "min": 1 } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "anker_state", "map": "eisenwald.siedlung", "anker": "flagge", "state": "gehisst", "min": 1 } },
+          "do": [{ "setFlag": { "flagge_gehisst": true } }], "goto": "siedlung_kampf" },
+        { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "anker_zustand", "map": "eisenwald.siedlung", "anker": "flagge", "zustand": "gehisst" }]
+    },
+
+    {
+      "id": "siedlung_kampf", "loc": "eisenwald",
+      "umsetzung": "stellung_nehmen/flagge_hissen",
+      "allowBeam": ["eisenwald.siedlung"],
+      "enter": [
+        { "if": { "all": [{ "not": { "v": "angriff" } }, { "check": { "name": "crew_max", "max": 1 } }] },
+          "do": "angriff_starten", "map": "eisenwald.siedlung", "fraktion": "raubzug", "tag": "siedlung_a", "gegner": 5 },
+        { "if": { "all": [{ "not": { "v": "angriff" } }, { "not": { "check": { "name": "crew_max", "max": 1 } } }] },
+          "do": "angriff_starten", "map": "eisenwald.siedlung", "fraktion": "raubzug", "tag": "siedlung_a" },
+        { "set": { "angriff": true } },
+        { "oda": "@siedlung.angriff" },
+        { "after": { "sec": 3, "do": [{ "radio": { "from": "legat", "text": "@siedlung.boss" } }] } }
+      ],
       "timers": [
-        { "at": 100, "if": { "not": { "flag": "flagge_gehisst" } }, "oda": "@siedlung.tipp_hissen", "garantie": "hinweis" },
-        { "at": 220, "if": { "all": [{ "flag": "flagge_gehisst" }, { "not": { "flag": "boss_besiegt" } }] }, "oda": "@siedlung.tipp_boss", "garantie": "hinweis" }
+        { "at": 120, "if": { "not": { "v": "sieg" } }, "oda": "@siedlung.tipp_boss", "garantie": "hinweis" },
+        { "at": 60, "if": { "all": [{ "v": "sieg" }, { "not": { "v": "ende" } }] }, "oda": "@siedlung.tipp_hoch", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "check": { "name": "boss_besiegt", "map": "eisenwald.siedlung" } }, { "not": { "v": "sieg" } }] },
+          "do": [
+            { "set": { "sieg": true } },
+            { "wendung": "gegner_abziehen",
+              "ankuendigung": { "oda": "@siedlung.besiegt", "art": "gleichzeitig", "grund": "Der Abzug der Gegner wird mit dem Funkspruch gemeldet." },
+              "wirkung": [{ "do": "gegner_abziehen", "map": "eisenwald.siedlung" }] }
+          ] },
+        { "if": { "all": [{ "v": "sieg" }, { "not": { "check": { "name": "team_down", "map": "eisenwald.siedlung" } } }, { "not": { "v": "ende" } }] },
+          "do": [{ "set": { "ende": true } }, { "setFlag": { "boss_besiegt": true } }] },
+        { "if": { "all": [{ "check": { "name": "crew_gefallen", "map": "eisenwald.siedlung" } }, { "not": { "v": "sieg" } }, { "not": { "v": "zurueck" } }] },
+          "do": [
+            { "set": { "zurueck": true } },
+            { "setFlag": { "flagge_gehisst": false, "boss_besiegt": false } },
+            { "do": "map_reset", "map": "eisenwald.siedlung", "grund": "@siedlung.nottransport" }
+          ] }
       ],
       "objectives": [
-        { "id": "hissen", "text": "@ziel.hissen", "done": { "flag": "flagge_gehisst" } },
-        { "id": "boss", "text": "@ziel.boss", "show": { "flag": "flagge_gehisst" }, "done": { "flag": "boss_besiegt" } }
+        { "id": "runter", "text": "@ziel.runter", "sticky": false, "done": { "check": { "name": "away_active", "map": "eisenwald.siedlung" } } },
+        { "id": "boss", "text": "@ziel.boss", "sticky": false, "done": { "v": "sieg" } },
+        { "id": "hoch", "text": "@ziel.hoch", "show": { "v": "sieg" }, "sticky": false, "done": { "v": "ende" } }
       ],
       "next": [
         { "if": { "all": [{ "flag": "flagge_gehisst" }, { "flag": "boss_besiegt" }] }, "complete": "erfolg" },
+        { "if": { "v": "zurueck" }, "complete": "rueckzug" },
         { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
       ],
-      "skip": [{ "do": "debug_clear_enemies" }, { "setFlag": { "flagge_gehisst": true, "boss_besiegt": true } }]
+      "skip": [
+        { "do": "gegner_abziehen", "map": "eisenwald.siedlung" },
+        { "set": { "sieg": true, "ende": true } },
+        { "setFlag": { "flagge_gehisst": true, "boss_besiegt": true } },
+        { "do": "debug_recall_all", "map": "eisenwald.siedlung" }
+      ]
     }
   ],
 
@@ -90,23 +131,30 @@
   },
 
   "texte": {
-    "buch.briefing": "Das Feldzeichen steht in der Mitte der Siedlung auf dem Platz. Zwei von euch hissen es gemeinsam, die anderen decken. Dann kommen die Verteidiger: zehn Mann und ihr Anführer, von allen Seiten. Fällt der Anführer, fällt der Rest. Fällt die Crew, beginnt die Siedlung von vorn.",
+    "buch.briefing": "Das Feldzeichen steht in der Mitte der Siedlung auf dem Platz. Zwei von euch hissen es gemeinsam, die anderen decken. Dann kommen die Verteidiger: zehn Mann und ihr Anführer, von allen Seiten. Fällt der Anführer, fällt der Rest. Fällt die Crew, beginnt die Siedlung von vorn. Allein hisst ein Legionär mit, und es kommen weniger Gegner.",
     "buch.belohnung": "Eisenwald",
 
     "landung.lage": "Eisenwald, die Siedlung unter uns. Das Feldzeichen steht in der Mitte.",
     "landung.legat": "Das Feldzeichen steht in der Mitte. Zwei von euch hissen, die anderen decken.",
 
-    "siedlung.lage": "Platzhalter für die Bodenmission: Flagge hissen heißt hier, die Position an der Station halten.",
-    "siedlung.tipp_hissen": "Platzhalter: Mit der Lerche nah an der Station stehen bleiben, etwa 12 Sekunden.",
-    "siedlung.angriff": "Sie haben es gesehen! Gegner von allen Seiten!",
-    "siedlung.boss": "Der große dort, das ist ihr Anführer. Fällt er, fällt der Rest.",
-    "siedlung.tipp_boss": "Den Anführer zuerst: die größere Korvette. Taktik: Ziel mit T.",
-    "siedlung.besiegt": "Sie flüchten! Eisenwald ist unser.",
 
     "rueckzug.ansage": "Notrückholung eingeleitet. Wir kommen wieder.",
 
-    "ziel.hissen": "Die Flagge hissen",
+    "siedlung.start": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei von euch hissen, die anderen decken.",
+    "siedlung.hinweis": "Captain: Zwei Mann zum Feldzeichen, gemeinsam E halten. Danach kommen sie von allen Seiten.",
+    "siedlung.allein": "Allein ist das Feldzeichen nicht zu hissen. Ein Legionär beamt mit hinunter und fasst mit an. Haltet ihn und euch am Leben.",
+    "siedlung.angriff": "Sie haben es gesehen! Gegner von allen Seiten!",
+    "siedlung.boss": "Der große dort, das ist ihr Anführer. Fällt er, fällt der Rest.",
+    "siedlung.tipp_boss": "Captain: Den Großen ausschalten, dann ist Schluss. Deckung nutzen, zusammen vorrücken.",
+    "siedlung.besiegt": "Sie flüchten! Zurück zum Teleportpunkt, wir holen euch hoch.",
+    "siedlung.tipp_hoch": "Captain: Zum Teleportpunkt und hochbeamen, dann ist Eisenwald unser.",
+    "siedlung.nottransport": "Notrückholung eingeleitet. Wir kommen wieder, die Siedlung beginnt von vorn.",
+
+
+    "ziel.runter": "Außenteam runterbeamen (Transfer, Landepunkt Siedlung Eisenwald)",
+    "ziel.hissen": "Das Feldzeichen zu zweit hissen",
     "ziel.boss": "Den Anführer besiegen",
+    "ziel.hoch": "Zurück zum Teleportpunkt und hochbeamen",
 
     "chronik.erfolg": "Das Feldzeichen Roms weht über der Siedlung von Eisenwald. Der Anführer ist gefallen."
   }

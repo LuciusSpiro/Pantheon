@@ -26,7 +26,6 @@
       "id": "k2_konvoi", "nr": 2, "titel": "Rabenpass: Konvoi", "ort": "rabenpass",
       "karte": { "titel": "Kapitel 2: Der Konvoi", "text": "Mars schickt die Lerche auf den Rabenpass. Dort fährt ein Konvoi aus Erzklamm mit Nachschub für die Festungen im Norden." },
       "ausgaenge": { "erfolg": { "weiter": "k3_nebelheim" }, "rueckzug": { "wiederholen": true } },
-      "platzhalter": ["konvoi"],
       "einstieg": { "ort": "statio_limitis", "angedockt": true, "fakten": { "rom_angeworben": "ja" } }
     },
     {
@@ -39,7 +38,6 @@
       "id": "k4_methalle", "nr": 4, "titel": "Methalle: Sprengstoff platzieren", "ort": "methalle",
       "karte": { "titel": "Kapitel 4: Die Methalle", "text": "Ein Militärlager hinter einer Mauer, ein Rohr im Hang. Wenn die Methalle fällt, steht Wolfstor offen." },
       "ausgaenge": { "erfolg": { "weiter": "k5_legat" }, "rueckzug": { "wiederholen": true } },
-      "platzhalter": ["methalle"],
       "einstieg": { "ort": "nebelheim", "angedockt": false, "flags": { "konvoi_gepluendert": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "erbeutet", "nebelheim": "durchquert" }, "fracht": ["sprengstoff"] }
     },
     {
@@ -59,7 +57,6 @@
       "id": "k7_siedlung", "nr": 7, "titel": "Eisenwald: die Siedlung", "ort": "eisenwald",
       "karte": { "titel": "Kapitel 7: Die Siedlung", "text": "Unter dem Orbit liegt die Siedlung. In der Mitte steht das Feldzeichen, das noch niemand gehisst hat." },
       "ausgaenge": { "erfolg": { "weiter": "k8_sieg" }, "rueckzug": { "wiederholen": true } },
-      "platzhalter": ["siedlung"],
       "einstieg": { "ort": "eisenwald", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true, "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja", "orbit_eisenwald": "befreit" }, "oeffnet": ["sperrriegel"] }
     },
     {

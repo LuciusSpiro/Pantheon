@@ -82,7 +82,7 @@
     "mineExploded": [{ "oda": "@ereignis.mine", "once": "nebelheim_mine" }],
     "entdeckt": [{ "oda": "@ereignis.entdeckt", "once": "nebelheim_entdeckt" }],
     "docked": [
-      { "if": { "all": [{ "any": [{ "docked": "statio_limitis" }, { "docked": "castra_martis" }] }, { "not": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } }, { "not": { "flag": "methalle_gesprengt" } }] },
+      { "if": { "all": [{ "any": [{ "docked": "statio_limitis" }, { "docked": "castra_martis" }] }, { "not": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } }, { "not": { "check": { "name": "item_count", "item": "ladung", "min": 1 } } }, { "not": { "flag": "methalle_gesprengt" } }] },
         "wirkung": [{ "do": "fracht_zuteilen", "art": "sprengstoff", "n": 1 }, { "radio": { "from": "mars", "text": "@ereignis.ersatz" } }] }
     ]
   },
