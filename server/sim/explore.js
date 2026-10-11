@@ -15,6 +15,7 @@ const DEKO_NAMES = { pflanze: 'Topfpflanze', poster: 'Sternkarten-Poster', lampe
 const bookIdOf = (h) => (h.kind === 'beacon' ? undefined : h.kind === 'hollow' ? 'zaunkoenig' : 'h:' + h.id);
 // Orte, deren Log-Einträge (neu auf der Karte, Erstbesuch) zu einem Nebenauftrag gehören
 const LOC_BOOK = { wrack: 'zaunkoenig' };
+const SPERRRIEGEL = 'sperrriegel';   // Weltstand-Schlüssel (EK7), Name fest
 
 class Explore {
   constructor(game) {
@@ -56,6 +57,26 @@ class Explore {
     return true;
   }
   openLink(key) { if (!this.linksOpen.has(key)) { this.linksOpen.add(key); this.version++; } }
+  // EK7: Weltstand-Schlüssel `sperrriegel` (limes.json: locked-Kanten 0504–0604, 0604–0605, 0604–0705). Schlüssel sind die
+  // Einträge von `verbindungen_offen` (linksOpen): gespeichert im Weltstand, gelesen von kanteOffen(). Die Methalle-Sprengung
+  // (Team BODEN) ruft sperrriegelOeffnen(), Baustein `sperrriegel_oeffnen`. Zusätzlich steht der Fakt `sperrriegel` in welt.fakten
+  // (für den Spielleiter). sperrriegelOeffnen() -> true, wenn er jetzt erst fällt.
+  // Ein Schlüssel gilt auch dann, wenn er als Weltstand-Fakt true gesetzt ist (Baustein welt_fakt { key: 'sperrriegel' }, Spielleiter).
+  schluesselFakt(key) {
+    const ws = this.game && this.game.weltstand; const f = ws && ws.data && ws.data.fakten ? ws.data.fakten[key] : undefined;
+    return f === true || f === 'true';
+  }
+  sperrriegelOffen() { return this.linksOpen.has(SPERRRIEGEL) || this.schluesselFakt(SPERRRIEGEL); }
+  sperrriegelOeffnen() {
+    if (this.linksOpen.has(SPERRRIEGEL)) return false;   // (der Fakt allein öffnet die Kanten, macht aber die Bojen nicht bekannt)
+    this.openLink(SPERRRIEGEL);
+    for (const e of (Sektoren.KARTE && Sektoren.KARTE.kanten) || []) if (e.art === 'locked' && e.key === SPERRRIEGEL) this.markBoje(Sektoren.kanteId(e.a, e.b));   // Bojen der Kanten sind der Crew bekannt
+    const ws = this.game.weltstand;
+    if (ws && typeof ws.fact === 'function') ws.fact(SPERRRIEGEL, true, 'Methalle');
+    this.sektorVersion++;
+    this.game.emit('sperrriegelOffen', {});
+    return true;
+  }
   // S2 (QA-INTEGRATION): Ort still bekannt machen (ohne ODA/Logbuch, nicht besucht)
   knowSilently(id) { if (!Locations.get(id) || this.known.has(id)) return false; this.known.add(id); this.version++; return true; }
   // S2: Route vom Hafen zu `target` herstellen – Orte auf dem kürzesten Weg (über alle, auch gesperrte Verbindungen)
@@ -240,7 +261,7 @@ class Explore {
     const e = Sektoren.kante(id);
     if (!e) return false;
     if (e.art === 'open') return true;
-    if (e.art === 'locked') return this.offenExtra.has(id) || (!!e.key && this.linksOpen.has(e.key));
+    if (e.art === 'locked') return this.offenExtra.has(id) || (!!e.key && (this.linksOpen.has(e.key) || this.schluesselFakt(e.key)));
     return false;   // hidden/far: in B3 nie
   }
   // Boje bekannt: temporär geöffnet, gefunden, oder open/locked zwischen zwei bekannten Hexen (= heutige Sichtbarkeit der Links)

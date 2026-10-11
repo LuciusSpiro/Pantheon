@@ -146,6 +146,31 @@ function main() {
   }
 
   // ------------------------------------------------------------------------------------------------------------
+  section('EK7: Weltstand-Schlüssel sperrriegel überlebt Speichern, Neustart und Laden');
+  {
+    const SK = ['0504-0604', '0604-0605', '0604-0705'];
+    const dir = freshDir();
+    const t = setup(dir, 1, { startMission: 'free' });
+    t.ready(); t.run(0.3);
+    const ws = t.g.weltstand; const ex = t.g.explore;
+    ok(ws.persistent && !ex.sperrriegelOffen() && SK.every((k) => !ex.kanteOffen(k)), 'Kampagne ohne Tutorial: Sperrriegel zu');
+    ok(ex.sperrriegelOeffnen() === true && ws.data.fakten.sperrriegel === true, 'sperrriegelOeffnen(): Schlüssel + Weltstand-Fakt');
+    t.g.missionEvent('docked', { loc: 'hafen' }); t.g.step();
+    const saved = Weltstand.load(dir, ws.id).data;
+    ok(saved.welt.verbindungen_offen.includes('sperrriegel') && saved.welt.fakten.sperrriegel === true && SK.every((k) => saved.welt.sektoren.offen.includes(k)),
+      'Datei: verbindungen_offen, fakten.sperrriegel, sektoren.offen (3 Kanten)');
+    t.send(0, { t: 'menu', op: 'end' });
+    const t2 = setup(dir, 1, { world: ws.id }); t2.ready(); t2.run(0.2);
+    ok(t2.g.phase === 'play' && t2.g.explore.sperrriegelOffen() && SK.every((k) => t2.g.explore.kanteOffen(k)), 'nach Neustart und Fortsetzen: Kanten offen, kein erneutes Öffnen nötig');
+    ok(t2.g.explore.sperrriegelOeffnen() === false, 'Öffnen ist idempotent');
+    t2.send(0, { t: 'menu', op: 'end' });
+    // Stand ohne den Schlüssel (alter Weltstand): Kanten zu
+    const dir2 = freshDir(); const t3 = setup(dir2, 1, { startMission: 'free' }); t3.ready(); t3.run(0.3);
+    ok(SK.every((k) => !t3.g.explore.kanteOffen(k)) && t3.g.weltstand.data.fakten.sperrriegel === undefined, 'frischer Stand: Kanten zu, Fakt fehlt');
+    t3.send(0, { t: 'menu', op: 'end' });
+  }
+
+  // -----------------------------------------------------------------------------------------------
   section('Rundlauf: capture -> save -> Neustart -> fortsetzen (§10.4)');
   {
     const dir = freshDir();

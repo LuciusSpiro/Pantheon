@@ -213,8 +213,11 @@ function check(doc, ctxIn) {
   const ctx = Object.assign(defaultCtx(), ctxIn || {});
   const Reg = ctx.registry; const Obj = ctx.objects; const L = ctx.locations;
   const isHandM = (m) => (typeof Obj.isHand === 'function' ? Obj.isHand(m) : !!Obj.AWAY_LEGENDS[m]);
-  const LOC_IDS = new Set(L.LOCATIONS.map((l) => l.id));
-  const PORT_IDS = new Set(L.LOCATIONS.filter((l) => l.kind === 'port' || l.kind === 'trader').map((l) => l.id));
+  // EK7: Orte aus Daten (Hexe mit gen: true, shared/gen-sektor.js) gelten als Orte, stehen aber nicht in LOCATIONS
+  const GEN_ORTE = (() => { try { return typeof L.get === 'function' ? require('../../shared/sektoren.js').datenOrte().map((id) => L.get(id)).filter(Boolean) : []; } catch (e) { return []; } })();
+  const ALLE_ORTE = L.LOCATIONS.concat(GEN_ORTE);
+  const LOC_IDS = new Set(ALLE_ORTE.map((l) => l.id));
+  const PORT_IDS = new Set(ALLE_ORTE.filter((l) => l.kind === 'port' || l.kind === 'trader').map((l) => l.id));
   const HIDDEN_IDS = new Set(L.LOCATIONS.flatMap((l) => (l.hidden || []).map((h) => h.id)));
   const cfgValue = (ref) => Loader.cfgValue(ref, ctx.config);
 

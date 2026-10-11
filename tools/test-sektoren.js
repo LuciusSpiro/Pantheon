@@ -111,7 +111,7 @@ function main() {
     ok(dist(g.ship.x, g.ship.y, back.x, back.y) <= g.C.sektoren.sprungpunktRadius && Math.abs(g.ship.angle - Sektoren.winkel(Sektoren.richtung('0206', '0306'))) < 1e-9,
       'Ankunft am Sprungpunkt der Gegenkante, Blick in Flugrichtung');
     ok(Sprung.selectDest(g, 'relais') === 'Kein Sprungpunkt dorthin.', 'kein Nachbar -> abgelehnt');
-    ok(/^Sektor gesperrt – Grenzposten Statio Limitis/.test(Sprung.selectDest(g, '0305') || ''), 'Statio Limitis: „Sektor gesperrt“ mit sperrtext der Region');
+    ok(/Boje suchen/.test(Sprung.selectDest(g, '0305') || ''), 'Splittergürtel -> Statio Limitis (EK7: spielbar): Boje unbekannt, erst suchen');
     ex.linksOpen.delete('kesh'); ex.version++;
     ok(Sprung.selectDest(g, 'kesh') === 'Sprungpunkt gesperrt.', 'gesperrte Kante (kesh zu) -> „Sprungpunkt gesperrt.“');
     ex.linksOpen.add('kesh');
@@ -127,6 +127,10 @@ function main() {
     const nord = jpOf(g, '0305'); place(g, nord.x, nord.y + 200);
     ex.widescanAt(g.ship.x, g.ship.y, g.C.widescan.radius);
     ok(ex.bojeBekannt('0305-0306'), 'Weitscan findet auch die Boje nach Statio Limitis (gesperrte Kante)');
+    ok(Sprung.selectDest(g, '0305') === 'Imperium: Durchflug gesperrt.', 'bekannte Boje, Kante tutorial-ende zu: Sperrtext der Region');
+    ex.openLink('tutorial-ende');
+    ok(Sprung.selectDest(g, '0305') === null && g.ship.jump.dest === 'statio_limitis', 'tutorial-ende offen: Splittergürtel -> Statio Limitis wählbar (Ort-ID statio_limitis)');
+    ex.linksOpen.delete('tutorial-ende'); g.ship.jump.dest = null;
     const jp = Sprung.jpSnapshot(g);
     ok(jp.length >= 3 && jp.length <= 6 && jp.every((b) => b.k && Number.isFinite(b.x) && b.n && ['aktiv', 'gesperrt', 'temporaer', 'ohne_strom'].includes(b.z)), `space.jp: ${jp.length} bekannte Bojen`);
     ok(jp.find((b) => b.n === '0305').z === 'gesperrt' && jp.find((b) => b.n === '0406').z === 'aktiv', 'Bojen-Zustand: Statio gesperrt, B-7 aktiv');
@@ -230,6 +234,115 @@ function main() {
       gezeigt = true;
     }
     ok(gezeigt, 'Kette Hafen -> Leerraum -> hinaus gezeigt');
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
+  section('EK7: Szenen aus Daten (gen), Tutorial unverändert');
+  {
+    const t = setup('m1'); const g = t.g;
+    ok(Locations.LOCATIONS.length === 8 && Locations.get('statio_limitis') && !Locations.LOCATIONS.some((l) => l.gen), 'LOCATIONS bleibt bei 8 Orten, Szenen aus Daten stehen nicht darin');
+    ok(Locations.get('statio_limitis') === Locations.get('statio_limitis') && Locations.get('statio_limitis').hex === '0305' && Sektoren.hexVonOrt('statio_limitis') === '0305' && Sektoren.ortVonHex('0305') === 'statio_limitis', 'Ort statio_limitis = Hex 0305');
+    ok(Locations.LOCATIONS.map((l) => l.id + ':' + l.links.join('+')).join(' ') === 'hafen:splitter+vaelen+kesh splitter:hafen+b7+wrack+kesh b7:splitter+wrack+nebel vaelen:hafen+nebel wrack:splitter+b7 nebel:b7+vaelen+relais relais:nebel kesh:hafen+splitter', 'Ort-Links der Saumraum-Orte unverändert (wie vor EK7)');
+    ok(!Locations.get('splitter').links.includes('statio_limitis') && Locations.get('statio_limitis').links.length === 0, 'Ort-Links: Statio Limitis kommt in keinem Ort-Link vor (Tutorial-Schutz)');
+    ok(g.explore.locationsSnapshot().length <= 8 && g.explore.locationsSnapshot().every((l) => !Locations.get(l.id).gen), 'Snapshot world.locations: nur Saumraum-Orte');
+    // Notfallsprung aus dem Splittergürtel (Nachbar Statio Limitis): im Tutorial nie dorthin, im freien Spiel manchmal
+    let imTutorial = 0, frei = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const a = setup('m1', { seed }); clearEnemies(a.g); space.enterScene(a.g, 'splitter', {}); a.g.explore.arrive('splitter'); place(a.g, 1500, 800);
+      Sprung.notsprung(a.g); if (Sektoren.hexVonOrt(a.g.ship.scene) === '0305') imTutorial++;
+      const b = setup('free', { seed }); clearEnemies(b.g); space.enterScene(b.g, 'splitter', {}); b.g.explore.arrive('splitter'); place(b.g, 1500, 800);
+      Sprung.notsprung(b.g); if (Sektoren.hexVonOrt(b.g.ship.scene) === '0305') frei++;
+    }
+    ok(imTutorial === 0, `60 Seeds im Tutorial: Notfallsprung aus dem Splittergürtel nie nach Statio Limitis (${imTutorial})`);
+    ok(frei > 0, `freies Spiel: Notfallsprung aus dem Splittergürtel erreicht Statio Limitis (${frei}/60)`);
+    // Ankunft in einer Szene aus Daten: Erstbesuch, bekannt/besucht, Weltstand merkt den Ort
+    const f = setup('free'); const gf = f.g; clearEnemies(gf);
+    Sprung.debugErkundeAlle(gf); Sprung.debugHex(gf, '0304');
+    ok(gf.ship.scene === 'ferraria' && gf.space.asteroids.length === 24 && gf.space.w === 3000 && gf.explore.visited.has('ferraria') && gf.explore.erkundet.has('0304'), 'Ferraria: Szene aus Daten (24 Brocken, 3000 × 2200), besucht, erkundet');
+    const data = Weltstand.capture(gf);
+    ok(data.welt.orte.besucht.includes('ferraria'), 'Weltstand: besuchter Ort ferraria gespeichert');
+    const f2 = setup(null); Weltstand.apply(f2.g, JSON.parse(JSON.stringify(data)));
+    ok(f2.g.explore.visited.has('ferraria') && f2.g.explore.known.has('ferraria'), 'Weltstand laden: ferraria bleibt besucht (Ort-ID gültig)');
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
+  section('EK7: sperrriegel (Weltstand-Schlüssel) öffnet 0504–0604, 0604–0605, 0604–0705');
+  {
+    const SK = ['0504-0604', '0604-0605', '0604-0705'];
+    const t = setup('free'); const g = t.g; const ex = g.explore; clearEnemies(g);
+    Sprung.debugErkundeAlle(g); Sprung.debugHex(g, '0504');
+    ok(SK.every((k) => !ex.kanteOffen(k)) && !ex.sperrriegelOffen(), 'zu Beginn alle drei Kanten zu');
+    ok(Sprung.selectDest(g, '0604') === 'Germanisches Gebiet: Sperrflotten an allen Sprungpunkten.', 'Vorfeld -> Wolfstor: Sperrtext der Region');
+    ok(ex.kanteOffen('0604-0704') && ex.kanteOffen('0504-0505') && ex.kanteOffen('0505-0605') && ex.kanteOffen('0605-0705'), 'Vorfeld–Dunkelriff–Nebelheim–Methalle sind offen, Wolfstor–Eisenwald auch (nur über Wolfstor erreichbar)');
+    t.c.inbox.length = 0;
+    const snap0 = g.snapshot().world.sektoren;
+    ok(ex.sperrriegelOeffnen() === true && ex.sperrriegelOffen() && ex.linksOpen.has('sperrriegel'), 'sperrriegelOeffnen(): Schlüssel gesetzt');
+    ok(ex.sperrriegelOeffnen() === false, 'zweiter Aufruf: nichts mehr zu tun');
+    ok(SK.every((k) => ex.kanteOffen(k)) && !ex.kanteOffen('0305-0306'), 'genau die drei Kanten offen, tutorial-ende bleibt zu');
+    ok(g.weltstand.data.fakten.sperrriegel === true && g.weltstand.data.faktenQuelle.sperrriegel === 'Methalle', 'Weltstand-Fakt sperrriegel = true (Quelle Methalle)');
+    ok(t.events('sperrriegelOffen').length === 1 && SK.every((k) => ex.bojeBekannt(k)), 'Ereignis sperrriegelOffen, Bojen der drei Kanten bekannt');
+    const snap1 = g.snapshot().world.sektoren;
+    ok(snap1 && SK.every((k) => snap1.o.includes(k)) && (!snap0 || snap1.v !== snap0.v), 'Snapshot world.sektoren.o enthält die Kanten, Version ändert sich');
+    ok(Sprung.selectDest(g, '0604') === null && g.ship.jump.dest === 'wolfstor', 'Vorfeld -> Wolfstor jetzt wählbar');
+    g.ship.jump.dest = null;
+    // Speichern und Laden
+    const data = Weltstand.capture(g);
+    ok(SK.every((k) => data.welt.sektoren.offen.includes(k)) && data.welt.verbindungen_offen.includes('sperrriegel') && data.welt.fakten.sperrriegel === true, 'capture: verbindungen_offen, sektoren.offen und fakten tragen sperrriegel');
+    const t2 = setup(null); Weltstand.apply(t2.g, JSON.parse(JSON.stringify(data)));
+    ok(SK.every((k) => t2.g.explore.kanteOffen(k)) && t2.g.explore.sperrriegelOffen(), 'nach Laden: Kanten offen');
+    // Der Fakt allein (Baustein welt_fakt / Spielleiter) öffnet die Kanten ebenfalls
+    const t3 = setup('free'); t3.g.weltstand.fact('sperrriegel', true, 'test');
+    ok(SK.every((k) => t3.g.explore.kanteOffen(k)) && !t3.g.explore.linksOpen.has('sperrriegel'), 'welt_fakt sperrriegel = true öffnet die Kanten (ohne verbindungen_offen)');
+    ok(t3.g.explore.sperrriegelOeffnen() === true && SK.every((k) => t3.g.explore.bojeBekannt(k)), 'Fakt zuerst, dann sperrriegelOeffnen(): setzt trotzdem Schlüssel und macht die Bojen bekannt');
+    const t4 = setup('free'); t4.g.weltstand.fact('sperrriegel', false, 'test');
+    ok(SK.every((k) => !t4.g.explore.kanteOffen(k)), 'Fakt false: Kanten bleiben zu');
+    // Baustein
+    const Registry = require('../server/mission/registry.js');
+    const e = Registry.get('sperrriegel_oeffnen');
+    ok(e && e.art === 'aktion' && !Object.keys(e.params).length, 'Baustein sperrriegel_oeffnen {} registriert');
+    const t5 = setup('free'); e.run({ game: t5.g }, {});
+    ok(SK.every((k) => t5.g.explore.kanteOffen(k)), 'Baustein sperrriegel_oeffnen öffnet die Kanten');
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
+  section('EK7: Häfen Castra Martis und Statio Limitis (Einkauf, Marken, ohne Ruf)');
+  {
+    const shop = require('../server/sim/shop.js');
+    for (const [ort, hex] of [['castra_martis', '0202'], ['statio_limitis', '0305']]) {
+      const t = setup('free'); const g = t.g; clearEnemies(g);
+      Sprung.debugErkundeAlle(g); Sprung.debugHex(g, hex);
+      const sc = Locations.get(ort).scene;
+      ok(!g.ship.docked && sc.dock && shop.shopContext(g) === null, `${ort}: Liegeplatz vorhanden, frei fliegend, kein Hafenterminal`);
+      place(g, sc.dock.x + 30, sc.dock.y); g.ship.dockArmed = true; g.step();
+      ok(g.ship.docked && g.ship.dockedAt === ort && g.snapshot().shopContext === 'hafen', `${ort}: Dock-Ring langsam angeflogen -> angedockt, shopContext hafen`);
+      const marks = g.inventory.marks; const p = g.players[0];
+      ok(shop.buy(g, p, 'ersatzteil') === null && g.inventory.marks === marks - 40, `${ort}: Ersatzteil gekauft (−40 Marken)`);
+      g.inventory.marks += 500;
+      ok(shop.buy(g, p, 'schildpool') === null && g.upgrades.schildpool === true, `${ort}: Hafensortiment (Schildpool) wie Lichtkordon`);
+      ok(shop.buy(g, p, 'kristalllampe') !== null, `${ort}: Vaelen-Sortiment bleibt bei der Karawane`);
+      ok(g.weltstand.fraktionHaltung('kontor') === 0 && !Object.keys(g.weltstand.data.fakten).some((k) => /^haltung_/.test(k)), `${ort}: kein Ruf (keine Haltung gesetzt oder verlangt)`);
+      // Weltstand fortsetzen: angedockt im Hafen
+      const data = Weltstand.capture(g);
+      const t2 = setup(null); Weltstand.apply(t2.g, JSON.parse(JSON.stringify(data)));
+      ok(t2.g.ship.scene === ort && t2.g.ship.docked && t2.g.ship.dockedAt === ort, `${ort}: Weltstand laden setzt die Lerche wieder an den Liegeplatz`);
+    }
+    ok(!Locations.get('kreuzweg').scene.dock && !Locations.get('methalle').scene.dock && !Locations.get('eisenwald').scene.dock, 'andere Hexe mit Hafenklasse haben (noch) keinen Liegeplatz');
+    const h = setup('free'); h.g.step();
+    ok(h.g.ship.docked && h.g.ship.dockedAt === 'hafen' && shop.shopContext(h.g) === 'hafen', 'Lichtkordon unverändert: shopContext hafen');
+  }
+
+  // ------------------------------------------------------------------------------------------------------------
+  section('EK7: Sprungkette Statio Limitis -> Eisenwald per Bot (tools/sprungkette.js)');
+  {
+    const Kette = require('./sprungkette.js');
+    const R = Kette.fahreKette();
+    const ok15 = R.zeilen.filter((z) => z.ok);
+    ok(!R.abbruch && ok15.length === 15 && !R.zeilen.some((z) => z.ok === false), `Bot fliegt ${ok15.length} Sprünge ohne Fehler (Flugzeit ${Math.round(ok15.reduce((s, z) => s + z.t, 0))} s)`);
+    const besucht = new Set(R.szenen.map((s) => s.hex));
+    ok(['0305', '0304', '0303', '0202', '0203', '0403', '0402', '0502', '0503', '0504', '0505', '0605', '0705', '0604', '0704'].every((h) => besucht.has(h)), 'alle 15 Hexe der Kette besucht');
+    ok(R.szenen.every((s) => s.snap < 20 * 1024), `Snapshot in jeder Szene unter 20 KB (max ${Math.max(...R.szenen.map((s) => s.snap))} B)`);
+    ok(R.gesperrt.length === 5 && R.gesperrt.every((s) => s.grund !== 'WÄHLBAR'), 'gesperrte Ziele bleiben gesperrt (Wolfstor vor der Sprengung, Kernland, Krähenwacht, Vigilia, tutorial-ende)');
+    ok(R.gesperrt[0].von === '0705' && R.gesperrt[0].ziel === '0604', 'Methalle -> Wolfstor erst nach der Sprengung');
   }
 
   // ------------------------------------------------------------------------------------------------------------

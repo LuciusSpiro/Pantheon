@@ -1874,7 +1874,8 @@
       const sc = this.shopContext(st);
       this.sel.shop = clamp(this.sel.shop, 0, Math.max(0, rows.length - 1));
       R.text(ctx, 'Marken: ' + n(inv.marks), 16, 30, { color: PAL.brass });
-      R.text(ctx, sc === 'vaelen' ? 'Vaelen-Karawane · Händlerin Sela' : sc === 'hafen' ? 'Hafen Lichtkordon · angedockt' : 'Nicht angedockt', 120, 30, { color: sc === 'vaelen' ? PAL.moss : PAL.panelLight });
+      const dockLoc = window.Shared_Locations && window.Shared_Locations.get ? window.Shared_Locations.get((st.ship || {}).dockedAt) : null;   // EK7: Häfen aus Daten tragen ihren Namen
+      R.text(ctx, sc === 'vaelen' ? 'Vaelen-Karawane · Händlerin Sela' : sc === 'hafen' ? ((dockLoc && dockLoc.name) || 'Hafen Lichtkordon') + ' · angedockt' : 'Nicht angedockt', 120, 30, { color: sc === 'vaelen' ? PAL.moss : PAL.panelLight });
       const kindNames = { upgrade: 'Umbau', gear: 'Ausrüstung', item: 'Vorrat', deko: 'Deko' };
       let y = 44;
       const rowH = rows.length > 15 ? 15 : 17;

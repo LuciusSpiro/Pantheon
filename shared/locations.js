@@ -2,7 +2,8 @@
 // Reine Daten: Sternkarte, Szenen (Welt-px der Raumszene), versteckte Objekte (nur per Weitscan).
 // B3 (CONTRACT-B3 §0.1): Die Verbindungen (`links`, `LOCKED_LINKS`) werden aus content/welt/limes.json abgeleitet
 // (shared/sektoren.js): open/locked-Kanten zwischen zwei Hexen mit Ort. API und Feldnamen bleiben.
-// `get('leer-<hex>')` liefert die leere Leerraum-Szene (Sektoren.leerraumOrt).
+// `get('leer-<hex>')` liefert die leere Leerraum-Szene (Sektoren.leerraumOrt). `get(<ort>)` für Hexe mit `gen: true` liefert
+// die Szene aus Daten (EK7, shared/gen-sektor.js); diese Orte stehen bewusst nicht in LOCATIONS.
 // Der Server ist maßgeblich (bekannt/besucht/gefunden stehen im Snapshot unter world.locations).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./sektoren.js'));
@@ -146,6 +147,8 @@
   function get(id) {
     if (byId[id]) return byId[id];
     if (Sektoren && Sektoren.istLeerId && Sektoren.istLeerId(id)) return Sektoren.leerraumOrt(Sektoren.hexVonOrt(id) || '') || null;
+    // EK7: Szenen aus Daten (Hexe mit gen: true in limes.json), nicht in LOCATIONS (Sternkarten-Orte und Snapshot bleiben)
+    if (Sektoren && Sektoren.datenOrt) return Sektoren.datenOrt(id);
     return null;
   }
   function linkKey(a, b) { return [a, b].sort().join('-'); }
