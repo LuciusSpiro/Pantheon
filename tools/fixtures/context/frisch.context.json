@@ -1030,6 +1030,11 @@
             ],
             "id": "aufhalten",
             "name": "Konvoi aufhalten",
+            "nur_an": [
+              "rabenpass",
+              "b7",
+              "relais"
+            ],
             "schauplatz": "weltraum"
           },
           {
@@ -1040,6 +1045,11 @@
             ],
             "id": "pluendern",
             "name": "Konvoi plündern",
+            "nur_an": [
+              "rabenpass",
+              "b7",
+              "relais"
+            ],
             "schauplatz": "weltraum"
           }
         ]

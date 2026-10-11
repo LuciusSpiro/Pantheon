@@ -55,7 +55,12 @@
         "loc": {
           "typ": "loc",
           "pflicht": true,
-          "beschreibung": "Raumort mit Platz für die Route (Splittergürtel, Rabenpass)"
+          "beschreibung": "Offener Raumort ohne Brockenfeld (Rabenpass, Boje B-7, Relais): der Konvoi fährt eine Route aus Wegpunkten",
+          "werte": [
+            "rabenpass",
+            "b7",
+            "relais"
+          ]
         },
         "transporter": {
           "typ": "zahl",
@@ -229,7 +234,12 @@
         "loc": {
           "typ": "loc",
           "pflicht": true,
-          "beschreibung": "Raumort mit Platz für die Route (Splittergürtel, Rabenpass)"
+          "beschreibung": "Offener Raumort ohne Brockenfeld (Rabenpass, Boje B-7, Relais): der Konvoi fährt eine Route aus Wegpunkten",
+          "werte": [
+            "rabenpass",
+            "b7",
+            "relais"
+          ]
         },
         "transporter": {
           "typ": "zahl",
