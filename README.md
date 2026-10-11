@@ -889,13 +889,13 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
  (Triebwerk,  | Messe (Terminal,  | (Reaktor oben,| (Bb-Düse, Bb-   | (Taktik oben links,
   Heck-       |  Esstisch,        |  Schildgen.   |  Batterie, Bb-  |  Planungstisch links,
   Emitter)    |  Lebenserhaltung) |  unten,       |  Emitter)       |  Captain Mitte, Steuer
-              | Transfer / Quart. |  Schalter A/B)| Batteriedeck Stb|  vorn, freies Terminal
+              | Transfer / Quart. |  Schalter A/B)| Batteriedeck Stb|  vorn
               |                   |               | (Stb-Düse, -Bat.|  unten links; Lanze +
               |                   |               |                 |  Bug-Emitter am Bug)
 ```
 
 - **Brücke** ganz vorn: Taktik (oben links), **Planungstisch** (links, aus der Messe hierher verlegt), Captain (Mitte),
-  Steuer (vorn), ein **freies Terminal** unten links (noch ohne Funktion). Direkt daneben am Bug: **Lanze** und **Bug-Emitter**
+  Steuer (vorn). Direkt daneben am Bug: **Lanze** und **Bug-Emitter**
   (1,3 s Laufweg).
 - **Batteriedecks** oben (Backbord) und unten (Steuerbord): je **Düse, Batterie, Emitter** (5–6 s von der Brücke).
 - **Maschinenraum** mittschiffs: **Reaktor** (oben), **Schildgenerator** (unten), Reaktorschalter A oben links und B unten rechts (7 s).

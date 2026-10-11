@@ -628,7 +628,6 @@
           if (W.ship.reactor.state !== 'offline') { notice('Schalter nur nach Abschaltung'); return; }
           p.action = { kind: 'switch', progress: 0, dur: 999, sw: sw.id }; return;
         }
-        if (info.interact === 'spare') { notice('Freies Terminal – noch ohne Funktion.'); return; }
         if (info.interact === 'console') {
           if (info.console === 'shop' && !W.ship.dockedAt) { notice('Terminal nur angedockt'); return; }
           if (info.console !== 'plan' && W.players.some(q => q !== p && q.console === info.console)) { notice('Konsole besetzt'); return; }

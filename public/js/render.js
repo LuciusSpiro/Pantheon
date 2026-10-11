@@ -856,17 +856,6 @@
         if (!qx && qy) { ctx.fillStyle = PAL.mint; ctx.fillRect(px + 18, py + 8, 2, 2); ctx.fillRect(px + 22, py + 12, 2, 2); }
         return true;
       }
-      case 'terminal_spare': {
-        // Brückenumbau: freies Terminal, ausgeschaltet (dunkler Bildschirm, rotes Standby-Lämpchen)
-        ctx.fillStyle = 'rgba(11,14,26,0.5)'; ctx.fillRect(px + 3, py + 24, 26, 6);
-        ctx.fillStyle = '#3A4250'; ctx.fillRect(px + 5, py + 8, 22, 18);
-        ctx.fillStyle = '#26313F'; ctx.fillRect(px + 6, py - 6, 20, 16);
-        ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(px + 6.5, py - 5.5, 19, 15);
-        ctx.fillStyle = '#0B0E14'; ctx.fillRect(px + 9, py - 3, 14, 10);
-        ctx.fillStyle = 'rgba(142,163,181,0.18)'; ctx.fillRect(px + 10, py - 2, 4, 1);
-        ctx.fillStyle = Math.floor(t * 0.8) % 2 ? '#7A2420' : '#3A1410'; ctx.fillRect(px + 22, py + 12, 2, 2);
-        return true;
-      }
       case 'salvage':
         ctx.fillStyle = 'rgba(11,14,26,0.5)'; ctx.fillRect(px + 3, py + 24, 26, 6);
         ctx.fillStyle = opts.done ? '#4A4F57' : PAL.rust; ctx.fillRect(px + 4, py + 4, 24, 22);
@@ -1867,8 +1856,7 @@
           if (kind === 'table') { opts.left = map.at(d.tx - 1, d.ty) === d.ch; opts.right = map.at(d.tx + 1, d.ty) === d.ch; }
           if (kind === 'door_locked') { const wv = (c) => c === '#'; opts.orient = wv(map.at(d.tx, d.ty - 1)) && wv(map.at(d.tx, d.ty + 1)) ? 'v' : 'h'; }
           if (kind === 'door_locked' && doorOpen) { /* offen: nur Boden + offene Tür */ }
-          if (kind === 'terminal_spare') { if (!artObject(ctx, kind, px, py, opts)) fbObject(ctx, kind, px, py, opts); }   // neu: nur mit Art-Probe
-          else if (!art('drawObject', 'drawObject:' + kind, [ctx, kind, px, py, opts])) fbObject(ctx, kind, px, py, opts);
+          if (!art('drawObject', 'drawObject:' + kind, [ctx, kind, px, py, opts])) fbObject(ctx, kind, px, py, opts);
         } else if (d.type === 'deco') {
           const px = d.tx * TILE - camX, py = d.ty * TILE - camY;
           if (!artObject(ctx, d.kind, px, py, { time: t })) fbObject(ctx, d.kind, px, py, { time: t });

@@ -461,7 +461,7 @@ function prio(kind) {
   if (typeof kind === 'string' && kind.startsWith('anker:')) return kind === 'anker:tuer' ? 5 : 4;
   return 6;
 }
-const PRIORITY = { ivoAbgeben: 8, fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9, spare: 9 };
+const PRIORITY = { ivoAbgeben: 8, fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9 };
 
 function candidateTiles(p, game) {
   const t = Physics.toTile(p.x, p.y);
@@ -547,8 +547,6 @@ function interactionsAt(game, p, tx, ty, own) {
         else list.push({ kind: 'shelf', blocked: `Regal leer: kein ${itemName(item)} mehr. Nachschub gibt es im Hafen.` });
       }
     }
-    // Brückenumbau (Kai): freies Terminal 'q' – noch ohne Funktion
-    if (info.interact === 'spare') list.push({ kind: 'spare', blocked: 'Freies Terminal – noch ohne Funktion.' });
     if (info.interact === 'bed') {
       const bed = W.Maps.BEDS.find((b) => b.x === tx && b.y === ty);
       if (bed && bed.color === p.color) list.push({ kind: 'bed' });

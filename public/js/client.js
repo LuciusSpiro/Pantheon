@@ -1528,8 +1528,6 @@
     const shipInteract = zone === 'ship' && map.legend && map.legend[ch] ? map.legend[ch].interact : null;
     if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift zum ' + (Maps.deckOf && Maps.deckOf(ty) ? 'Systemdeck' : 'Privatdeck'), ok: true };
     if (shipInteract === 'ladder' && !(m && m.ladder)) return { label: 'Halten: Notleiter (2 s)', ok: true };
-    // Brückenumbau: freies Terminal (Legende interact 'spare') – noch ohne Funktion
-    if (!ownTile && zone === 'ship' && map.legend && map.legend[ch] && map.legend[ch].interact === 'spare') return { label: 'Freies Terminal – noch ohne Funktion.', ok: false };
     if (ownTile) {
       const items = zone === 'away' ? ((st.away && st.away.items) || []) : ((st.ship && st.ship.groundItems) || []);
       const it = items.find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);

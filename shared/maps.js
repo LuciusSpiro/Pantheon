@@ -26,7 +26,7 @@
     '#E==D.....D=====D........D.YY.C..H..#', //  6
     '#===#.....#i====#........#.........I#', //  7  (R1: Technik-Konsole i an der Westwand des Maschinenraums, neben der Tür)
     '#===###D###=====##D##D###.........## ', //  8
-    '#===#.....#O=G==#========#....q...#  ', //  9
+    '#===#.....#O=G==#========#........#  ', //  9
     '#===#.P.P.#=====#========#......##   ', // 10
     '#==f#X.P.T#u===y#=Z==J==V#######     ', // 11
     '##########################           ', // 12
@@ -225,8 +225,6 @@
     'Z': station('sys_thruster', 'thruster_stbd', 1, 'stbd'),
     'J': station('sys_battery', 'battery_stbd', 1, 'stbd'),
     'V': station('sys_emitter', 'emitter_stbd', 1, 'stbd'),
-    // Brückenumbau (Kai): freies Terminal unten links, noch ohne Funktion
-    'q': { kind: 'terminal_spare', solid: true, interact: 'spare' },
     // ---- M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.2) ----
     '^': { kind: 'lift', interact: 'lift' },              // Liftplattform (2×2): E tippen -> anderes Deck
     '!': { kind: 'ladder', interact: 'ladder' },          // Notleiter: E halten -> anderes Deck

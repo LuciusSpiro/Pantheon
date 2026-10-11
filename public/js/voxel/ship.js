@@ -31,7 +31,7 @@ const CONSOLE_ID = {
   plan: 'lerche/console/plan_table', shop: 'lerche/console/shop',
 };
 const FURN_ID = {
-  terminal_spare: 'lerche/console/spare', reactor_switch: 'lerche/station/reactor_switch',
+  reactor_switch: 'lerche/station/reactor_switch',
   shelf: 'lerche/furn/shelf', pipes: 'lerche/furn/pipes', workbench: 'lerche/furn/workbench', control_desk: 'lerche/furn/control_desk',
   barrel: 'lerche/furn/barrel', crate: 'lerche/furn/crate', bed: 'lerche/furn/bed', table: 'lerche/furn/mess_table',
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
