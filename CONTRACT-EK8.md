@@ -64,7 +64,7 @@ Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. F
   `Fracht.fracht_abwerfen(game, x, y, 'sprengstoff')` eine Ladung hinterlassen lassen; (3) den Schritt per `next` verlassen, sobald `fracht_an_bord { art: sprengstoff, min: 2 }` gilt
   (das Kapitelbuch setzt dann `konvoi_gepluendert` und geht zu `rueck_anflug`; **die Szene selbst setzt kein Flag**); (4) bei Notfallsprung `complete: rueckzug` (Prüfung `rueckzug { loc: rabenpass }` bleibt);
   (5) Entkommt der Konvoi (alle springen, nicht beide Ladungen geborgen) und es gibt nichts mehr zu holen, `complete: rueckzug` (die Szene beginnt von vorn).
-  Der Konvoi darf **nicht** den Jäger-Faltsprung-Block umgehen (`JAMMERS`): sind Jäger oder Korvette tot, sind die Transporter allein da.
+  Hinweis zur Störsender-Regel: Transporter (`frachter`) zählen nicht zu `JAMMERS`; Eskorte (raider, korvette) blockiert den Sprung, solange sie lebt.
 
 ### Kapitel 3, Nebelheim (echte Umsetzung EK2)
 - Schritt `nebelheim` nutzt `schleichfahrt_an` (3 Patrouillen, 8 Minen, Zielkreis (2700, 440) r 220 am Sprungpunkt zur Methalle). Ausgänge `erfolg` (Ziel erreicht, egal wie) und `rueckzug`.
@@ -144,3 +144,11 @@ Siehe Abschnitt 9 (Messwerte). **Offen:**
 - **Lesbarkeit** von Funkbild, Kapitelkarte und Abspann: nur per Screenshot (Playwright, 2D) geprüft, nicht mit Menschen (EK9). Voxel-Ansicht nicht geprüft (die Teile liegen in der 2D-HUD-Schicht und gelten für beide).
 - Dauer: Die Bot-Durchläufe zeigen Spielzeiten von **ca. 32 bis 80 Minuten** (ohne Tutorial), vor allem Flüge zwischen den Hexen und die Platzhalter-Kämpfe; Menschen zu zweit/dritt: EK9.
 - Mehrspieler: Der Abspann-Knopf beendet die Partie für **alle** (wie „Partie beenden“); ein Spieler kann also den Abspann der anderen abbrechen.
+
+## 9. Messwerte (2026-10-11)
+- `npm test` grün (inkl. `tools/test-kette.js` 115/115), `npm run check` grün (Kette + 8 Bücher, 13/13 Selbsttests), `npm run snap:mess` grün: Worst Case **11 444 B**, Wellen 10 558 B, Raum-Alarm 11 384 B (Ziel ≤ 18 944 B); Abspann 762 B (nur Phase `end`); Bot-Läufe der Kette Snapshot-Maximum 12 414 B.
+- **Golden m1–m3** (20 Seeds, `--all --jobs 4`) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch (die übrigen 40 sind die bekannten EK1a-Abweichungen m1/m2 solo). Ordner gelöscht.
+- **Bots, ganze Kette** (`sim-headless kette`, ohne Tutorial, 4 Seeds × Crew 1 und 3): **8/8 bis zum Abspann**, 0 Fehler, keine Skips, Spielzeit **28–41 min** (Median ~31).
+- **Bots, Labor-Einstieg je Kapitel** (8 Kapitel × 3 Seeds × Crew 1 und 3): **48/48 ok**, 0 Fehler, keine Skips.
+- Ein erster Lauf mit stärkeren Platzhalter-Gegnern (Orbit 2/3/Fregatte+2, Siedlung +3) brauchte bei Crew 3 teils 25–60 min je Orbitschritt (Bots, Zeitlimit-Skips) – danach reduziert (D15).
+- **Browser** (Playwright, Chromium, 2D, Port 3396): Lobby-Modi, Kapitelkarte „Neues Kapitel“, Funk mit Mars-Symbol und Legat-Porträt, Abspann (Anfang, Lauf, Ende) per Screenshot geprüft (`shots/kette/*.png`, lokal), keine Konsolenfehler. Nicht mit Menschen, Voxel nicht geprüft.
