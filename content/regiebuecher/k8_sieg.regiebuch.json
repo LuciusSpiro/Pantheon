@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 8 „Sieg“. Der Legat erinnert sich (Flags legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen aus der Orbitschlacht), Mars schließt ab. Das Buch endet mit erfolg; die Kette zeigt danach den Abspann (kein freies Spiel).",
+  "_kommentar": "EK8 Kapitel 8 „Sieg“. Der Legat erinnert sich (Flags legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen aus der Orbitschlacht) und nennt die verlorenen Schiffe (fulminata_verloren, audax_verloren), Mars schließt ab. Das Buch endet mit erfolg; die Kette zeigt danach den Abspann (kein freies Spiel).",
   "format": "regiebuch/1",
   "id": "k8_sieg",
 
@@ -33,13 +33,19 @@
   "steps": [
     {
       "id": "sieg",
-      "enter": [{ "oda": "@sieg.lage" }],
+      "enter": [
+        { "if": { "not": { "flag": "fulminata_verloren" } }, "oda": "@sieg.lage" },
+        { "if": { "flag": "fulminata_verloren" }, "oda": "@sieg.lage_kapsel" }
+      ],
       "timers": [
-        { "at": 3, "if": { "flag": "legat_befolgt" }, "radio": { "from": "legat", "text": "@sieg.befolgt" } },
-        { "at": 3, "if": { "flag": "legat_eigenmaechtig" }, "radio": { "from": "legat", "text": "@sieg.eigenmaechtig" } },
-        { "at": 3, "if": { "flag": "legat_im_stich_gelassen" }, "radio": { "from": "legat", "text": "@sieg.im_stich" } },
-        { "at": 11, "radio": { "from": "legat", "text": "@sieg.legat" } },
-        { "at": 21, "radio": { "from": "mars", "text": "@sieg.mars" } }
+        { "at": 2, "if": { "flag": "legat_befolgt" }, "radio": { "from": "legat", "text": "@sieg.befolgt" } },
+        { "at": 2, "if": { "flag": "legat_eigenmaechtig" }, "radio": { "from": "legat", "text": "@sieg.eigenmaechtig" } },
+        { "at": 2, "if": { "all": [{ "flag": "legat_im_stich_gelassen" }, { "flag": "audax_verloren" }] }, "radio": { "from": "legat", "text": "@sieg.im_stich" } },
+        { "at": 2, "if": { "all": [{ "flag": "legat_im_stich_gelassen" }, { "not": { "flag": "audax_verloren" } }] }, "radio": { "from": "legat", "text": "@sieg.im_stich_fulminata" } },
+        { "at": 6, "if": { "flag": "fulminata_verloren" }, "radio": { "from": "legat", "text": "@sieg.fulminata_verloren" } },
+        { "at": 10, "if": { "flag": "audax_verloren" }, "radio": { "from": "legat", "text": "@sieg.audax_verloren" } },
+        { "at": 14, "radio": { "from": "legat", "text": "@sieg.legat" } },
+        { "at": 23, "radio": { "from": "mars", "text": "@sieg.mars" } }
       ],
       "objectives": [
         { "id": "feier", "text": "@ziel.feier", "done": { "elapsed": 30 } }
@@ -68,6 +74,10 @@
     "sieg.befolgt": "Ihr habt getan, was ich verlangte. Ich vergesse das nicht.",
     "sieg.eigenmaechtig": "Ich hatte einen Befehl gegeben, Lerche. Wir sprechen später darüber.",
     "sieg.im_stich": "Die Audax ist tot. Ihr habt es gesehen. Ich auch.",
+    "sieg.im_stich_fulminata": "Die Fulminata ist gefallen, und ihr wart nicht da. Ihr habt es gesehen. Ich auch.",
+    "sieg.lage_kapsel": "Eisenwald gehört Rom. Funkverkehr aus der Rettungskapsel des Legaten.",
+    "sieg.fulminata_verloren": "Meine Fulminata liegt in Trümmern über Eisenwald. Aber das Feldzeichen steht, und dafür ist sie gefahren.",
+    "sieg.audax_verloren": "Die Audax ist gesunken. Ich nenne dem Senat ihren Namen, den der Optio Livia Rufa und ihrer Besatzung.",
     "sieg.legat": "Das Feldzeichen Roms weht über Eisenwald. Das war ein Meisterstück, Lerche. Der Senat wird davon hören.",
     "sieg.mars": "Eisenwald ist römisch. Der Riegel ist gebrochen. Mars hat gesprochen. Ruht.",
 

@@ -67,7 +67,7 @@ function main() {
   const selftest = require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'check-kette.js'), '--selftest'], { encoding: 'utf8' });
   ok(selftest.status === 0 && /13\/13 bestanden/.test(selftest.stdout), 'Prüfer-Selbsttest: 13 kaputte Ketten werden mit dem erwarteten Code abgelehnt');
   const ph = Kampagne.platzhalter(doc, books);
-  ok(ph.length === 6 && ph.every((p) => p.echt), `6 Platzhalter-Schritte markiert (${ph.map((p) => p.schritt).join(', ')})`);
+  ok(ph.length === 3 && ph.every((p) => p.echt), `3 Platzhalter-Schritte markiert (k6 ist echt umgesetzt) (${ph.map((p) => p.schritt).join(', ')})`);
   ok(doc.kapitel.every((c) => Object.keys(c.ausgaenge).includes('erfolg') && c.einstieg && c.einstieg.ort), 'jedes Kapitel: Ausgang erfolg und Labor-Einstieg');
   ok(doc.kapitel.every((c) => Object.entries(c.ausgaenge).every(([a, f]) => a === 'erfolg' ? [].concat(f).every((x) => x.weiter) : [].concat(f).every((x) => x.wiederholen))), 'Fortschritt nur aus erfolg, jeder andere Ausgang wiederholt die Szene');
 

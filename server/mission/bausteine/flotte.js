@@ -5,6 +5,7 @@
 //   flotte_befehl     { art*, schiff?, ziel?, n?, punkte?, radius?, frist?, sprecher?, text? }   Befehl des Legaten als Szenenziel (fünf Arten) + Funkspruch
 //   flotte_wellen     { wellen*, takt?, rest?, ziel?, richtung?, ueberdruck?, tag? }   Welle um Welle (Gruppen „kind:n,kind:n|…“); nach abgelaufener Frist Überdruck
 //   flotte_neustart   {}                                                              Szene von vorn: Gegner weg, Wellen und Befehl neu, lebende Verbündete repariert
+//   flotte_beenden    {}                                                              Flottenszene abräumen (Wellen, Nachschub, Befehl), Verbündete bleiben
 //   flotte_erinnerung { sprecher? }                                                   Der Legat erinnert sich (befolgt | eigenmächtig | im Stich gelassen) per Funk
 //   befehl_erfuellt { art? } · befehl_gescheitert { grund? } · befehl_laeuft { art? }   Prüfungen zum Befehl
 //   wellen_fertig · schiff_verloren { tag } · legat_erinnert { art } · flotte_ziel_erreicht { tag }
@@ -61,6 +62,10 @@ module.exports = (Registry) => {
     beschreibung: 'Szene von vorn: alle Gegner weg, Wellen und Befehl beginnen neu, lebende Verbündete werden repariert, die Lerche hat mindestens 60 % Hülle. Zerstörte Schiffe bleiben verloren.',
     params: {},
     run(m) { if (atLoc(m)) flotte().neustart(m.game); } });
+  Registry.define({ id: 'flotte_beenden', art: 'aktion', ereignisse: [],
+    beschreibung: 'Flottenszene abräumen: Wellen, wartender Nachschub und Befehl enden (die Verbündeten bleiben, Gegner bleiben bis enemies_retreat). Am Ende einer Schlacht, damit eine Welle nicht in das nächste Kapitel weiterläuft.',
+    params: {},
+    run(m) { if (atLoc(m)) flotte().beenden(m.game); } });
   Registry.define({ id: 'flotte_erinnerung', art: 'aktion', ereignisse: [],
     beschreibung: 'Der Legat erinnert sich per Funk an die Crew: Befehle befolgt, eigenmächtig gehandelt oder einen Verbündeten im Stich gelassen (Texte aus content/flotte/funktexte.json; ohne Eintrag im Gedächtnis kommt nichts).',
     params: { sprecher: { typ: 'npc' } },

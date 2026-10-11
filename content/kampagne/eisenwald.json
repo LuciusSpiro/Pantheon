@@ -7,7 +7,7 @@
 
   "tutorial": { "nach": "m3", "oeffnet": ["tutorial-ende"] },
 
-  "schnittstelle": { "flags": ["legat_eigenmaechtig", "legat_im_stich_gelassen", "audax_verloren", "fulminata_verloren"], "_kommentar": "Setzt Team FLOTTE mit der echten Orbitschlacht (Kapitel 6); der Platzhalter setzt nur fregatte_zerstoert, legat_gerettet, legat_befolgt." },
+  "schnittstelle": { "flags": ["legat_eigenmaechtig", "legat_im_stich_gelassen", "audax_verloren", "fulminata_verloren"], "_kommentar": "Setzt die Orbitschlacht (Kapitel 6, k6_orbit): genau eine der Flags legat_befolgt, legat_eigenmaechtig, legat_im_stich_gelassen, dazu fregatte_zerstoert, legat_gerettet, audax_verloren, fulminata_verloren." },
 
   "start": "k1_anwerbung",
 
@@ -52,7 +52,6 @@
       "id": "k6_orbit", "nr": 6, "titel": "Eisenwald: Orbitschlacht", "ort": "eisenwald",
       "karte": { "titel": "Kapitel 6: Orbitschlacht", "text": "Eisenwald. Die Sperrflotte steht im Orbit, die Fulminata und die Audax stoßen dazu." },
       "ausgaenge": { "erfolg": { "weiter": "k7_siedlung" }, "rueckzug": { "wiederholen": true } },
-      "platzhalter": ["befehl1_durchbrechen", "befehl2_entlastung", "befehl3_ausschalten"],
       "einstieg": { "ort": "castra_martis", "angedockt": true, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja" }, "oeffnet": ["sperrriegel"] }
     },
     {
@@ -66,7 +65,7 @@
       "id": "k8_sieg", "nr": 8, "titel": "Sieg", "ort": "eisenwald",
       "karte": { "titel": "Kapitel 8: Sieg", "text": "Das Feldzeichen Roms weht. Es bleibt, den Sieg zu melden." },
       "ausgaenge": { "erfolg": { "weiter": "ende" } },
-      "einstieg": { "ort": "eisenwald", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true, "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true, "flagge_gehisst": true, "boss_besiegt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja", "orbit_eisenwald": "befreit", "eisenwald": "roemisch" }, "oeffnet": ["sperrriegel"] }
+      "einstieg": { "ort": "eisenwald", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true, "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true, "legat_eigenmaechtig": false, "legat_im_stich_gelassen": false, "audax_verloren": false, "fulminata_verloren": false, "flagge_gehisst": true, "boss_besiegt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja", "orbit_eisenwald": "befreit", "eisenwald": "roemisch" }, "oeffnet": ["sperrriegel"] }
     }
   ],
 
@@ -77,7 +76,17 @@
       { "kopf": "FELDZUG EISENWALD", "zeilen": ["Eine Koop-Kampagne in der Welt von Pantheon"] },
       { "kopf": "DIE KETTE", "zeilen": ["1  Statio Limitis: Anwerbung", "2  Rabenpass: der Konvoi", "3  Nebelheim: Schleichfahrt", "4  Methalle: der Sprengstoff", "5  Castra Martis: der Legat", "6  Eisenwald: Orbitschlacht", "7  Eisenwald: die Siedlung", "8  Der Sieg"] },
       { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Steuer, Taktik:", "ihr, an Bord."] },
-      { "kopf": "ROM", "zeilen": ["Legat Marcus Severus, Fulminata und Audax", "Mars hat gesprochen."] },
+      { "kopf": "ROM", "zeilen": [
+        "Legat Marcus Severus",
+        { "text": "Fulminata: heimgekehrt", "wenn": { "not": { "flag": "fulminata_verloren" } } },
+        { "text": "Fulminata: verloren über Eisenwald, der Legat überlebte", "wenn": { "flag": "fulminata_verloren" } },
+        { "text": "Audax: heimgekehrt", "wenn": { "not": { "flag": "audax_verloren" } } },
+        { "text": "Audax: gesunken über Eisenwald, ihr Name bleibt", "wenn": { "flag": "audax_verloren" } },
+        { "text": "Der Legat erinnert sich an euch.", "wenn": { "flag": "legat_befolgt" } },
+        { "text": "Der Legat erinnert sich: eigenmächtig.", "wenn": { "flag": "legat_eigenmaechtig" } },
+        { "text": "Der Legat vergisst nicht, wer sein Schiff im Stich ließ.", "wenn": { "flag": "legat_im_stich_gelassen" } },
+        "Mars hat gesprochen."
+      ] },
       { "kopf": "PANTHEON", "zeilen": ["Danke fürs Spielen."] }
     ]
   }
