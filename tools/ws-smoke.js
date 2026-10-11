@@ -65,16 +65,18 @@ function client(port, hello, noHello) {
   const b = await client(port, { clientId: 'B', name: 'Bo', color: 0 });
   const c = await client(port, { clientId: 'C', name: 'Cem', color: null });
   await sleep(300);
-  ok(a.welcome && b.welcome && c.welcome, 'drei welcome erhalten');
+  const d = await client(port, { clientId: 'D', name: 'Dora', color: 3 });
+  await sleep(300);
+  ok(a.welcome && b.welcome && c.welcome && d.welcome, 'vier welcome erhalten (R0: 4 Spieler)');
   const s0 = a.snaps[a.snaps.length - 1];
   ok(s0 && s0.phase === 'lobby', 'Lobby-Snapshot');
   const colors = s0.players.map((p) => p.color).sort();
-  ok(JSON.stringify(colors) === '[0,1,2]', 'Farben eindeutig vergeben ' + JSON.stringify(colors));
-  const d = await client(port, { clientId: 'D', name: 'Dora', color: 1 });
+  ok(JSON.stringify(colors) === '[0,1,2,3]', 'Farben eindeutig vergeben ' + JSON.stringify(colors));
+  const e5 = await client(port, { clientId: 'E', name: 'Emil', color: 1 });
   await sleep(200);
-  ok(!!d.full, '4. Spieler bekommt "full": ' + (d.full && d.full.text));
+  ok(!!e5.full, '5. Spieler bekommt "full": ' + (e5.full && e5.full.text));
 
-  for (const x of [a, b, c]) x.ws.send(JSON.stringify({ t: 'ready', ready: true }));
+  for (const x of [a, b, c, d]) x.ws.send(JSON.stringify({ t: 'ready', ready: true }));
   await sleep(500);
   ok(a.snaps[a.snaps.length - 1].phase === 'play', 'Spiel gestartet');
   // Snapshot-Rate messen

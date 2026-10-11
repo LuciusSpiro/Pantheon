@@ -1058,12 +1058,12 @@
       for (let c = 0; c < 4; c++) {
         const isTaken = taken.indexOf(c) >= 0;
         const mine = me ? me.color === c : lob.color === c;
-        const bx = lx + c * 58, by = 139;
-        R.button(ctx, bx, by, 52, 18, isTaken ? 'belegt' : 'S' + (c + 1), {
+        const bx = lx + c * 52, by = 139;
+        R.button(ctx, bx, by, 48, 18, 'S' + (c + 1), {
           disabled: isTaken, reason: 'Farbe bereits vergeben', active: mine,
           onClick: () => view.actions.setColor(c),
         });
-        R.shape(ctx, R.SHAPES[c], bx + 44, by + 9, 8, isTaken ? '#4A5260' : PAL.players[c], PAL.space);
+        R.shape(ctx, R.SHAPES[c], bx + 40, by + 9, 8, isTaken ? '#4A5260' : PAL.players[c], PAL.space);
       }
       // AP3a: Wellen Boden und Labor – Waffe je Spieler (W wählt die eigene; ohne Wahl gilt die gespeicherte bzw. der Blaster)
       const lobSm = st.lobby && st.lobby.startMission;

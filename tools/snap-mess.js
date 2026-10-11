@@ -5,13 +5,13 @@
 //   node tools/snap-mess.js --seeds 5 --sek 20
 //
 // Aufbauten:
-//   worst   wie test-combat.js „B2: Snapshot Außenposten, 3 Spieler, 12 Gegner“: Außenposten, 3 Spieler, 12 Gegner,
+//   worst   wie test-combat.js „B2: Snapshot Außenposten, 4 Spieler, 12 Gegner“: Außenposten, 4 Spieler, 12 Gegner,
 //           alle 15 Ticks zwei Granaten. Je Seed `--sek` Sekunden.
 //   wellen  Bodenkampf: Wellen zu dritt (Außenposten und Kesh), Debug `welle 11`, bis CONFIG.wellen.maxLebend Gegner
 //           stehen und darüber hinaus (`--sek`), alle 2 s fällt ein Gegner (Nachschub rückt nach).
-//   methalle  EK5 Methalle: Labor-Umsetzung sabotieren/sprengstoff_platzieren, 3 Spieler, 6 + 2 Wachen (Obergrenze 8) auf Patrouille.
-//   endkampf  EK6 Siedlung Eisenwald: Labor-Umsetzung stellung_nehmen/flagge_hissen, 3 Spieler, Feldzeichen gehisst -> 10 Gegner und der
-//           Anführer (Modifikator, Bit gs) greifen von allen Seiten an, alle Spieler bleiben stehen (Worst Case: 3 Spieler + 11 Gegner).
+//   methalle  EK5 Methalle: Labor-Umsetzung sabotieren/sprengstoff_platzieren, 4 Spieler, 6 + 2 Wachen (Obergrenze 8) auf Patrouille.
+//   endkampf  EK6 Siedlung Eisenwald: Labor-Umsetzung stellung_nehmen/flagge_hissen, 4 Spieler, Feldzeichen gehisst -> 10 Gegner und der
+//           Anführer (Modifikator, Bit gs) greifen von allen Seiten an, alle Spieler bleiben stehen (Worst Case: 4 Spieler + 11 Gegner).
 // Ausgabe je Aufbau: Max, p95, Mittel; Bytes je Top-Level-Schlüssel (Mittel und im Max-Snapshot); Bytes je Gegner
 // (Mittel) und je Gegnerfeld bzw. Spielerfeld (Mittel, Anteil am Gegner bzw. Spieler).
 // Gemessen wird wie im Vertrag: Buffer.byteLength(JSON.stringify(g.snapshot())). Grenze: CONFIG.net.snapMax − snapLuft.
@@ -78,7 +78,7 @@ function auswerten(S) {
 function worstCase(S, seed) {
   const L = require('../server/sim/landepunkte.js');
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
   const lp = Object.values(L.defs().byId || {}).filter((x) => x.art === 'aussenposten' && !x.gesperrt).map((x) => x.id).find((id) => { try { L.get(g, id); return true; } catch (e) { return false; } });
   if (!lp) throw new Error('kein baubarer Außenposten');
   g.setAwayMap(lp);
@@ -103,7 +103,7 @@ function worstCase(S, seed) {
 function wellenlauf(S, seed, karte) {
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
   const cs = [];
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'W' + i, name: 'W' + i, color: i }); cs.push(c); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'W' + i, name: 'W' + i, color: i }); cs.push(c); }
   g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'arena_away', wellen: karte });
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   g.handleMessage(cs[0], { t: 'debug', cmd: 'welle', args: [11] });
@@ -117,7 +117,7 @@ function wellenlauf(S, seed, karte) {
     maxSt = Math.max(maxSt, st);
     if (erreicht < 0 && st >= CONFIG.wellen.maxLebend) erreicht = k;
     messen(S, g.snapshot());
-    if (k % 60 === 30) { const e = stehend()[0]; if (e) { for (let j = 0; j < 10 && e.alive; j++) combat.hitEnemy(g, e, 1, { pid: g.players[k % 3].id, wirkung: { schaden: 9, wunde: true } }); e.zustand = 'aus'; } }
+    if (k % 60 === 30) { const e = stehend()[0]; if (e) { for (let j = 0; j < 10 && e.alive; j++) combat.hitEnemy(g, e, 1, { pid: g.players[k % 4].id, wirkung: { schaden: 9, wunde: true } }); e.zustand = 'aus'; } }
   }
   return { karte, maxStehend: maxSt, maxLebendAbTick: erreicht, fehler: g.errors };
 }
@@ -127,7 +127,7 @@ function raumAlarm(S, seed) {
   const space = require('../server/sim/space.js');
   const Alarm = require('../server/sim/alarm.js');
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'R' + i, name: 'R' + i, color: i }); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'R' + i, name: 'R' + i, color: i }); }
   g.reset(); g.phase = 'play';
   space.enterScene(g, 'splitter', {});
   g.space.enemies = [];
@@ -147,11 +147,11 @@ function raumAlarm(S, seed) {
   return { fehler: g.errors };
 }
 
-// ---------- Aufbau 3/4: EK5 Methalle und EK6 Endkampf (Labor-Umsetzungen, 3 Spieler) ----------
+// ---------- Aufbau 3/4: EK5 Methalle und EK6 Endkampf (Labor-Umsetzungen, 4 Spieler) ----------
 function laborSpiel(id, seed) {
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log });
   const cs = [];
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'E' + i, name: 'E' + i, color: i }); cs.push(c); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'E' + i, name: 'E' + i, color: i }); cs.push(c); }
   g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'labor', labor: { id, seed } });
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   for (let k = 0; k < 10; k++) g.step();
@@ -194,14 +194,14 @@ function endkampfLauf(S, seed) {
   return { lp, gegner: max, boss, fehler: g.errors };
 }
 
-// ---------- Aufbau 4 (EK3 Teil B): Konvoi – 3 Spieler, Rabenpass, 3 Transporter mit Eskorte (alle gescannt), 2 Transporter zerstört (Fracht liegt),
+// ---------- Aufbau 4 (EK3 Teil B): Konvoi – 4 Spieler, Rabenpass, 3 Transporter mit Eskorte (alle gescannt), 2 Transporter zerstört (Fracht liegt),
 // einer lädt den Sprung, Beamen läuft, eine Ladung schon an Bord ----------
 function konvoi(S, seed) {
   const space = require('../server/sim/space.js');
   const Konvoi = require('../server/sim/konvoi.js');
   const Fracht = require('../server/sim/fracht.js');
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K' + i, name: 'K' + i, color: i }); }
   g.reset(); g.phase = 'play';
   space.enterScene(g, 'rabenpass', {});
   g.space.enemies = [];
@@ -219,13 +219,13 @@ function konvoi(S, seed) {
   return { fehler: g.errors };
 }
 
-// ---------- Aufbau 4 (EK4): Flotte – Worst Case: Lerche (3 Spieler), 2 Verbündete mit KI, Gegner bis zur Grenze von 12 Schiffen (alle gescannt,
+// ---------- Aufbau 4 (EK4): Flotte – Worst Case: Lerche (4 Spieler), 2 Verbündete mit KI, Gegner bis zur Grenze von 12 Schiffen (alle gescannt,
 // Korvetten/Fregatten/Kreuzer mit Waffenlisten), Befehl mit Wegpunkten und Frist, Welle mit Nachschub, Sperrfeuer und Verbündetenfeuer ----------
 function flotte(S, seed) {
   const space = require('../server/sim/space.js');
   const Flotte = require('../server/sim/flotte.js');
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
-  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'F' + i, name: 'F' + i, color: i }); }
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'F' + i, name: 'F' + i, color: i }); }
   g.reset(); g.phase = 'play';
   space.enterScene(g, 'splitter', {});
   g.space.enemies = [];
@@ -246,7 +246,7 @@ function flotte(S, seed) {
   return { fehler: g.errors, schiffeMax: max };
 }
 
-// ---------- Aufbau 8 (VERK-ORBIT): Orbitschlacht Eisenwald – Kapitel 6 der Kette, Befehl 3 (Fregatte als Boss), 3 Spieler, Fulminata und Audax mit KI,
+// ---------- Aufbau 8 (VERK-ORBIT): Orbitschlacht Eisenwald – Kapitel 6 der Kette, Befehl 3 (Fregatte als Boss), 4 Spieler, Fulminata und Audax mit KI,
 // Gegner bis zur Grenze von 12 Schiffen (Fregatte, Korvetten, Jäger, alle gescannt) plus Nachschub, Befehl mit Frist, Welle, Verbündetenfeuer ----------
 function orbit(S, seed) {
   const fs = require('fs'), os = require('os'), path = require('path');
@@ -255,7 +255,7 @@ function orbit(S, seed) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-orbit-mess-'));
   const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(dir, 'regie') }, log });
   const cs = [];
-  for (let i = 0; i < 3; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'O' + i, name: 'O' + i, color: i }); cs.push(c); }
+  for (let i = 0; i < 4; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'O' + i, name: 'O' + i, color: i }); cs.push(c); }
   g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'eisenwald_ohne' });
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   for (let k = 0; k < 15; k++) g.step();
@@ -321,5 +321,5 @@ zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const alleOk = res.orbit.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

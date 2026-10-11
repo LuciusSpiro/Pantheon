@@ -1664,7 +1664,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     try {
       const L = require('../server/sim/landepunkte.js');
       const g = new Game({ noStore: true, seed: 4, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
-      for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
+      for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
       const lp = Object.values(L.defs().byId || {}).filter((x) => x.art === 'aussenposten' && !x.gesperrt).map((x) => x.id).find((id) => { try { L.get(g, id); return true; } catch (e) { return false; } });
       if (lp) {
         karteOk = true;

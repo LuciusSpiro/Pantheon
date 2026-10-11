@@ -258,10 +258,12 @@ Notfallprotokoll.
   fehlt“ wie den Standard (`server/sim/snapform.js`, Doku in `shared/protocol.js`). `squad` ist gestrichen. Die
   KI-Rolle `role` kommt nur mit `CONFIG.debug.snapKiRolle` (Bots, Debug-Overlay). Die Grenze steht an einer Stelle:
   `CONFIG.net.snapMax` = 20 480 B (20 KB, seit 2026-10-11; vorher 13 312 B), Reserve `snapLuft` = 1 536 B.
-  - **Messen:** `npm run snap:mess` (Worst Case: Außenposten, 3 Spieler, 12 Gegner, Granaten, 5 Seeds × 20 s; dazu ein
+  - **Messen:** `npm run snap:mess` (Worst Case: Außenposten, 4 Spieler, 12 Gegner, Granaten, 5 Seeds × 20 s; dazu ein
     Wellenlauf; `--json` für Berichte).
   - **Werte:** Worst Case max 11 246 B, Wellenlauf max 10 592 B (Ziel ≤ 11 776 B). Vorher laut AP1 12 666 B bzw.
     12 367 B.
+  - **R0 (4 Spieler, 2026-10-11):** alle Aufbauten von `snap:mess` laufen mit 4 Spielern. Worst Case max 11 802 B, Wellenlauf
+    10 857 B, größter Aufbau Orbitschlacht 14 146 B (Grenze `snapMax` − `snapLuft` = 18 944 B).
 - **Sprung im Tutorial (AP2, Entscheidung 29):** „Boje anfliegen, um zu springen“ gilt jetzt überall, auch in m1–m3.
   - Ziele wählt man im Tutorial weiter über die Ort-Links (`zielwahlUeberOrtLinks`). So wird kein Ort unerreichbar,
     weil seine Boje noch unbekannt ist.

@@ -95,8 +95,9 @@ function ivoLaufen(v, dt) {
 }
 
 function updateIvo(game, dt) {
-  if (!game.mission.flags.technikerRescued || istAbgegeben(game)) { game.ivo = null; return; }
+  if (!game.mission.flags.technikerRescued) { game.ivo = null; return; }
   if (!game.ivo) {
+    if (istAbgegeben(game)) return;   // R0: abgegeben (auch nach dem Laden) – nie wieder neu erzeugen
     const c = W.tileCenter(IVO_SPOTS[0].x, IVO_SPOTS[0].y);
     game.ivo = { id: 'ivo', x: c.x, y: c.y, dir: 'down', moving: false, path: null, waitT: 3, spot: 0 };
     game.oda('Ivo ist in den Frachtraum gezogen. Er sagt, die Pritsche ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
