@@ -1,0 +1,106 @@
+{
+  "id": "kit/rom/aussenposten/boden_fuge",
+  "name": "Rom Außenposten – boden_fuge: keine Fugen (einfarbiger Boden); malt nur dieselbe Farbe",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "boden"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "belag": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "0 Hof/Platz · 2 Weg/Innenraum (beide einfarbig)"
+    },
+    "art": {
+      "default": "aussenposten",
+      "options": [
+        "aussenposten",
+        "station",
+        "ruine",
+        "schiff"
+      ],
+      "label": "Kartenart"
+    }
+  },
+  "ops": [
+    {
+      "name": "keine Fuge (Weg)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "role": "paving"
+      },
+      "jitter": false,
+      "if": "belag == 2"
+    },
+    {
+      "name": "keine Fuge (Hof)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "stone",
+        "f": 0.9
+      },
+      "jitter": false,
+      "if": "belag != 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

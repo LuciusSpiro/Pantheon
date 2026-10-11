@@ -181,7 +181,7 @@
       // Zeichnen
       for (const s of strassen) fill(s.rect, '=');
       fill(platz, '+');
-      fill({ x0: cx - 1, x1: cx + 1, y0: cy - 1, y1: cy + 1 }, 'm');
+      fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
       for (const l of leit) fill(l.rect, l.c);
       fill(LF, ',');
       grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P';
@@ -289,7 +289,7 @@
       const plaetze = {}, zaehl = {};
       const nummer = (n) => { zaehl[n] = (zaehl[n] || 0) + 1; return zaehl[n]; };
       plaetze.landefeld = { typ: 'landeplatz', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.LF), bereich: 'andock', richtung: 'O', kern: true };
-      plaetze.platz = { typ: 'herzstueck', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.platz), bereich: 'strassen', kern: true };
+      plaetze.platz = { typ: 'dorfplatz', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.platz), bereich: 'strassen', kern: true };
       B.strassen.forEach((s) => { plaetze['strasse_' + nummer('strasse')] = { typ: 'hof', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(s.rect), bereich: 'strassen', gefecht: true }; });
       if (B.mauer) plaetze.tor = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: 'W' }, rect: [S.x0 + ox, B.cy - 2 + oy, 1, 4], bereich: 'strassen', richtung: 'W' };
       const geb = [];
@@ -536,7 +536,7 @@
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
-        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen2', schablone: 'gen-siedlung', spiegel: null, w, h, rows, legende: null, anker,
+        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen4', schablone: 'gen-siedlung', spiegel: null, w, h, rows: rows.map((r) => r.replace(/P/g, '.')), legende: null, anker,
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,

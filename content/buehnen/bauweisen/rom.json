@@ -5,11 +5,21 @@
   "kits": {
     "boden": {
       "id": "kit/rom/boden",
-      "belag": 0
+      "belag": 0,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "boden2": {
       "id": "kit/rom/boden",
-      "belag": 2
+      "belag": 2,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
     },
     "plateau": {
       "id": "kit/rom/boden",
@@ -74,10 +84,14 @@
   "leit": {
     "innerstes": {
       "ruine": "leit/rom/ruine/fahnenheiligtum"
+    },
+    "dorfplatz": {
+      "aussenposten": "leit/rom/aussenposten/statue_platz"
     }
   },
   "leit_fuss": {
-    "leit/rom/ruine/fahnenheiligtum": [2, 2]
+    "leit/rom/ruine/fahnenheiligtum": [2, 2],
+    "leit/rom/aussenposten/statue_platz": [3, 3]
   },
   "paletten": {
     "basis": "rom_kastell"

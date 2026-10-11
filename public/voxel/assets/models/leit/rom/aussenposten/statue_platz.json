@@ -1,0 +1,45 @@
+{
+  "id": "leit/rom/aussenposten/statue_platz",
+  "name": "Statue auf dem Dorfplatz (Leitstück Siedlung, Rom)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": [
+    "leit",
+    "rom",
+    "aussenposten",
+    "wahrzeichen",
+    "statue",
+    "platz"
+  ],
+  "notes": "Platzmitte 3×3 Kacheln (48×48 Voxel, 16 Voxel je Meter), Pivot Mitte unten, Vorderseite +z. Zwei Stufen aus hellem Marmor, Pfeiler mit Goldband und rotem Tuchfeld je Seite, darauf stehende Marmorfigur in Toga mit erhobenem rechten Arm (Silhouette), Lorbeerreif und Plinthe in Gold (trim), rotes Schultertuch (cloth). Gesamthöhe ≈ 3,0 m.",
+  "footprint": [
+    3,
+    3
+  ],
+  "jitter": 0,
+  "budgetTris": 10000,
+  "ops": [
+    {"op":"box","name":"Stufe 1","at":[-18,0,-18],"size":[36,2,36],"color":"stone_light"},
+    {"op":"box","name":"Stufe 1 Kante","at":[-18,1,-18],"size":[36,1,36],"mode":"paint","color":{"frame":"stone","fill":"stone_light","axes":"xz","width":1}},
+    {"op":"box","name":"Stufe 2","at":[-13,2,-13],"size":[26,2,26],"color":"stone_light"},
+    {"op":"box","name":"Stufe 2 Kante","at":[-13,3,-13],"size":[26,1,26],"mode":"paint","color":{"frame":"stone","fill":"stone_light","axes":"xz","width":1}},
+    {"op":"box","name":"Pfeiler","at":[-7,4,-7],"size":[14,10,14],"color":"stone"},
+    {"op":"box","name":"Goldband","at":[-8,11,-8],"size":[16,1,16],"color":"trim"},
+    {"op":"box","name":"Pfeilerkopf","at":[-8,14,-8],"size":[16,2,16],"color":"stone_light"},
+    {"op":"group","name":"Tuchfeld je Seite","repeat":{"count":4,"step":[0,0,0],"var":"i"},"rot":"i*90","pivot":[0,0],"ops": [{"op":"box","name":"Feld","at":[-4,5,6],"size":[8,5,1],"mode":"paint","color":{"frame":"trim","fill":"cloth","axes":"xy","width":1},"jitter":false}]},
+    {"op":"box","name":"Plinthe","at":[-7,16,-6],"size":[14,1,12],"color":"trim"},
+    {"op":"cyl","name":"Toga Rock","at":[0,17,0],"r":6,"h":13,"color":"stone_light"},
+    {"op":"box","name":"Toga Saum","at":[-5,17,4],"size":[10,1,2],"mode":"paint","color":"trim","jitter":false},
+    {"op":"box","name":"Tuchbahn vorn","at":[-1,18,5],"size":[4,12,1],"color":"cloth","jitter":false},
+    {"op":"box","name":"Rumpf","at":[-5,30,-4],"size":[10,11,7],"color":"stone_light"},
+    {"op":"box","name":"Schultertuch","at":[-6,38,-4],"size":[12,3,7],"color":"cloth","jitter":false},
+    {"op":"box","name":"Hals","at":[-2,41,-2],"size":[4,1,4],"color":"stone_light"},
+    {"op":"ellipsoid","name":"Kopf","at":[0,45,0],"r":[3.8,4.2,3.8],"color":"stone_light"},
+    {"op":"cyl","name":"Lorbeerreif","at":[0,46,0],"r":4.3,"h":1,"hollow":1,"color":"trim","jitter":false},
+    {"op":"line","name":"Arm erhoben","from":[-5,39,0],"to":[-10,46,0],"r":1.7,"color":"stone_light"},
+    {"op":"ellipsoid","name":"Hand erhoben","at":[-10,47.5,0],"r":2.1,"color":"stone_light"},
+    {"op":"box","name":"Arm gesenkt","at":[5,30,-2],"size":[3,10,4],"color":"stone_light"},
+    {"op":"box","name":"Schriftrolle","at":[5,29,-3],"size":[3,2,6],"color":"trim","jitter":false}
+  ],
+  "anchor": [0, 0, 0]
+}

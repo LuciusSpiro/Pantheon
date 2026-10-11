@@ -7,6 +7,11 @@
     "boden": {
       "id": "kit/germanen/boden",
       "belag": 0,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      },
       "hinweis": "Außenposten: Hof (.) = Frostkies (belag 0 wird je art zu kit/germanen/gemein/teil/grund_aussenposten); Station/Schiff: Platte"
     },
     "boden2": {
@@ -14,7 +19,8 @@
       "belag": 1,
       "je_art": {
         "aussenposten": {
-          "belag": 2
+          "belag": 2,
+          "zustand": 0
         }
       },
       "hinweis": "Außenposten: innen in Gebäuden und Bohlenwege (,) = Eichenbohlen; Station/Schiff: Gitterrost"
@@ -189,6 +195,9 @@
     }
   },
   "leit": {
+    "dorfplatz": {
+      "aussenposten": "leit/germanen/aussenposten/statue_platz"
+    },
     "herzstueck": {
       "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
       "station": "leit/germanen/station/schmiedeherd"
@@ -205,6 +214,7 @@
   },
   "leit_fuss": {
     "leit/germanen/aussenposten/kraehenwacht_turm": [2, 2],
+    "leit/germanen/aussenposten/statue_platz": [3, 3],
     "leit/germanen/station/schmiedeherd": [3, 2],
     "leit/germanen/station/hochsitz_halle": [3, 2],
     "leit/germanen/schiff/drachenkopf_bug": [2, 2],

@@ -588,6 +588,82 @@
         "light"
       ],
       "notes": "Thingstein im Steinkreis (Überarbeitung nach SICHTUNG-ART): 2×2, heller Frost-Kreisplatz mit sechs Kreissteinen, Monolith 2,69 m, zwei Feuerschalen (ember) vorn. Ornamentband aus Isa und Kaunan (eingelegt metal_light, aktiviert Rolle rune emit 1,0, pulsiert nie). 1 genommen = Feuer aus, Speer mit Wimpel (cloth)."
+    },
+    {
+      "id": "leit/rom/aussenposten/statue_platz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        3,
+        3
+      ],
+      "height": 3.1,
+      "facing": "+z",
+      "params": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1.2
+        ],
+        "label": [
+          0,
+          3.3000000000000003,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "rom",
+        "aussenposten",
+        "leit",
+        "wahrzeichen",
+        "statue",
+        "platz"
+      ],
+      "notes": "Statue für die Platzmitte der Siedlung (3×3, ≈3,06 m): zwei Marmorstufen, Pfeiler mit Goldband und rotem Tuchfeld je Seite, Marmorfigur in Toga mit erhobenem Arm, Lorbeerreif und Plinthe Gold (trim), Schultertuch rot (cloth). Höhe > 2,2 m: Leitstück-Ausnahme."
+    },
+    {
+      "id": "leit/germanen/aussenposten/statue_platz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        3,
+        3
+      ],
+      "height": 3.2,
+      "facing": "+z",
+      "params": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1.0
+        ],
+        "label": [
+          0,
+          3.4000000000000004,
+          0
+        ]
+      },
+      "tint": [
+        "cloth"
+      ],
+      "budgetTris": 10000,
+      "tags": [
+        "germanen",
+        "aussenposten",
+        "leit",
+        "wahrzeichen",
+        "statue",
+        "platz"
+      ],
+      "notes": "Statue für die Platzmitte der Siedlung (3×3, ≈3,19 m): Steinsockel (stone/stone_dark) mit Waidblau-Band (cloth), Krieger mit Rundschild (Holz, Eisenrand und -buckel) und Speer (Holz, Eisenspitze). Höhe > 2,2 m: Leitstück-Ausnahme."
     }
   ]
 }

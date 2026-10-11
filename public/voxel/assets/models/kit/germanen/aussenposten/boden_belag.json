@@ -1,0 +1,107 @@
+{
+  "id": "kit/germanen/aussenposten/boden_belag",
+  "name": "Germanen Außenposten – boden_belag: einfarbig und ruhig (Hof/Platz hell, Weg/Innenraum dunkler), ohne Fugen und Rauschen (Kai 2026-10-11)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "boden"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "belag": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "0 Hof/Platz · 2 Weg/Innenraum (beide einfarbig)"
+    },
+    "art": {
+      "default": "aussenposten",
+      "options": [
+        "aussenposten",
+        "station",
+        "ruine",
+        "schiff"
+      ],
+      "label": "Kartenart"
+    }
+  },
+  "ops": [
+    {
+      "name": "Weg und Innenraum (belag 2)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "paving",
+        "f": 1.0
+      },
+      "jitter": false,
+      "if": "belag == 2"
+    },
+    {
+      "name": "Hof und Platz (sonst)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "stone_light",
+        "f": 0.88
+      },
+      "jitter": false,
+      "if": "belag != 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}
