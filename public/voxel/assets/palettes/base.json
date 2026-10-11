@@ -2,6 +2,7 @@
   "id": "base",
   "name": "Basis (neutral) – definiert alle Standardrollen",
   "roles": {
+    "dach_rand": "#D8CBAE",
     "dach": "#A8553A",
     "primary": "#4F6178",
     "secondary": "#D3DAE2",

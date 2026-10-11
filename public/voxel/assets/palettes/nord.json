@@ -4,6 +4,8 @@
   "extends": "base",
   "notes": "B1 (ART-PALETTEN): Eisen aufgehellt (frontal in planet_day lesbar), cloth Waidblau statt Blutrot (kein Schwarz-Weiß-Rot), Runen kalt-weiß gedämpft (rune, glow = rune; weg von Eisblau/Telegraf-Blau), Feuerschein eigene Rolle ember (Gold-Amber, weg von Zustands-Orange/Glut), emit ≤ 1,2, warning ohne Zustandsfarbe, Rollen für Bau/Figur/Kupfer ergänzt. alarm (Rot-Alarm/Lampen/Augen) dunkles Signalrot, deutlich unter AUS-Rot; frost für Raureif/Schnee.",
   "roles": {
+    "dach": "#4A423B",
+    "dach_rand": "#D6C7A1",
     "primary": "#8E959D",
     "secondary": "#3C4A58",
     "trim": "#E4DCC8",

@@ -54,7 +54,7 @@
     {
       "team": "art-gkb",
       "file": "art-gkb.json",
-      "count": 15
+      "count": 16
     },
     {
       "team": "art-gkp",
@@ -2641,6 +2641,57 @@
         "boden"
       ],
       "source": "kit/germanen/boden",
+      "team": "art-gkb"
+    },
+    "kit/germanen/dach": {
+      "id": "kit/germanen/dach",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        12,
+        12
+      ],
+      "height": 5,
+      "facing": "+z",
+      "params": {
+        "w": [
+          2,
+          12
+        ],
+        "d": [
+          2,
+          12
+        ],
+        "zustand": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "klein": {
+          "w": 3,
+          "d": 3
+        },
+        "lang": {
+          "w": 7,
+          "d": 4
+        },
+        "tief": {
+          "w": 4,
+          "d": 7
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3200,
+      "tags": [
+        "germanen",
+        "kit",
+        "dach",
+        "roof"
+      ],
+      "source": "kit/germanen/dach",
       "team": "art-gkb"
     },
     "kit/germanen/deckung_halb": {

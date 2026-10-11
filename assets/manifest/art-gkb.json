@@ -833,6 +833,55 @@
    ]
   },
   {
+   "id": "kit/germanen/dach",
+   "kind": "model",
+   "tier": "architecture",
+   "palette": "nord",
+   "footprint": [
+    12,
+    12
+   ],
+   "height": 5,
+   "facing": "+z",
+   "params": {
+    "w": [
+     2,
+     12
+    ],
+    "d": [
+     2,
+     12
+    ],
+    "zustand": [
+     0,
+     2
+    ]
+   },
+   "states": {
+    "klein": {
+     "w": 3,
+     "d": 3
+    },
+    "lang": {
+     "w": 7,
+     "d": 4
+    },
+    "tief": {
+     "w": 4,
+     "d": 7
+    }
+   },
+   "sockets": {},
+   "tint": [],
+   "budgetTris": 3200,
+   "tags": [
+    "germanen",
+    "kit",
+    "dach",
+    "roof"
+   ]
+  },
+  {
    "id": "kit/germanen/kante",
    "kind": "model",
    "tier": "architecture",

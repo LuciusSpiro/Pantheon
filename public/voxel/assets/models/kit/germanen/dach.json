@@ -1,0 +1,244 @@
+{
+  "id": "kit/germanen/dach",
+  "name": "Germanen – Satteldach (dunkle Schindelreihen, helles Giebelbrett am Ortgang, dunkler First, Traufe mit Überstand); deckt ein Gebäuderechteck, nicht eine Kachel",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "kit",
+    "dach"
+  ],
+  "footprint": [
+    12,
+    12
+  ],
+  "jitter": 0,
+  "variants": {
+    "klein": {
+      "w": 3,
+      "d": 3
+    },
+    "lang": {
+      "w": 7,
+      "d": 4
+    },
+    "tief": {
+      "w": 4,
+      "d": 7
+    }
+  },
+  "params": {
+    "w": {
+      "default": 5,
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "label": "Breite (Kacheln, Ost-West)"
+    },
+    "d": {
+      "default": 4,
+      "min": 2,
+      "max": 12,
+      "step": 1,
+      "label": "Tiefe (Kacheln, Nord-Süd)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "W": "w * 4 + 2",
+    "D": "d * 4 + 2",
+    "lang": "w >= d",
+    "S": "lang ? D : W",
+    "h": "min(9, max(3, round(S * 0.36)))"
+  },
+  "ops": [
+    {
+      "name": "Dach, First entlang Ost-West",
+      "op": "wedge",
+      "if": "lang",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        "h",
+        "D"
+      ],
+      "gable": "z",
+      "color": {
+        "stripes": [
+          "dach",
+          {
+            "shade": "dach",
+            "f": 0.8
+          }
+        ],
+        "axis": "z",
+        "period": 1
+      }
+    },
+    {
+      "name": "Dach, First entlang Nord-Süd",
+      "op": "wedge",
+      "if": "!lang",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        "h",
+        "D"
+      ],
+      "gable": "x",
+      "color": {
+        "stripes": [
+          "dach",
+          {
+            "shade": "dach",
+            "f": 0.8
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Firstbalken Ost-West",
+      "op": "box",
+      "if": "lang",
+      "at": [
+        0,
+        "12 + h - 1",
+        "floor(D / 2) - 1"
+      ],
+      "size": [
+        "W",
+        1,
+        2
+      ],
+      "color": {
+        "shade": "dach",
+        "f": 0.55
+      }
+    },
+    {
+      "name": "Firstbalken Nord-Süd",
+      "op": "box",
+      "if": "!lang",
+      "at": [
+        "floor(W / 2) - 1",
+        "12 + h - 1",
+        0
+      ],
+      "size": [
+        2,
+        1,
+        "D"
+      ],
+      "color": {
+        "shade": "dach",
+        "f": 0.55
+      }
+    },
+    {
+      "name": "Giebelbrett West/Ost",
+      "op": "box",
+      "if": "lang",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "D"
+      ],
+      "mode": "paint",
+      "color": "dach_rand"
+    },
+    {
+      "name": "Giebelbrett Ost",
+      "op": "box",
+      "if": "lang",
+      "at": [
+        "W - 1",
+        12,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "D"
+      ],
+      "mode": "paint",
+      "color": "dach_rand"
+    },
+    {
+      "name": "Giebelbrett Nord",
+      "op": "box",
+      "if": "!lang",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": "dach_rand"
+    },
+    {
+      "name": "Giebelbrett Süd",
+      "op": "box",
+      "if": "!lang",
+      "at": [
+        0,
+        12,
+        "D - 1"
+      ],
+      "size": [
+        "W",
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": "dach_rand"
+    },
+    {
+      "name": "Verfall",
+      "op": "erode",
+      "if": "zustand > 0",
+      "density": "zustand == 1 ? 0.12 : 0.25",
+      "depth": "zustand",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        "h",
+        "D"
+      ]
+    }
+  ],
+  "anchor": [
+    1,
+    0,
+    1
+  ]
+}

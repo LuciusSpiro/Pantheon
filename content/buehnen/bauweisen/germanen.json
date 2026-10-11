@@ -78,6 +78,9 @@
     "pfeiler": {
       "id": "kit/germanen/pfeiler"
     },
+    "dach": {
+      "id": "kit/germanen/dach"
+    },
     "truemmer": {
       "id": "kit/germanen/truemmer"
     },
