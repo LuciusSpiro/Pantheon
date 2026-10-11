@@ -251,6 +251,8 @@ function wallStyle(A, st, tx, ty, deckIndex) {
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(1, 1, 1), UP = new THREE.Vector3(0, 1, 0);
 function mat(x, z, rot, y) { Q.setFromAxisAngle(UP, rot || 0); V.set(x, y || 0, z); return new THREE.Matrix4().compose(V, Q, SC); }
 
+// Fliesen: gut ein Drittel der Bodenkacheln liegt 3,5 cm tiefer (leichtes Relief, wie Gelände und Station)
+const stufeY = (tx, ty) => (hash(tx, ty, 21) < 0.38 ? -0.035 : 0);
 function rebake(ctx, S, d, st, withSolids) {
   const A = S.A, L = ctx.loader, dk = d.dk;
   const floors = [], solids = [];
@@ -282,21 +284,16 @@ function rebake(ctx, S, d, st, withSolids) {
       const style = Math.max(0, QUARTER_FLOORS.indexOf(fl));
       const g = L.geometries(ID.qfloor, { style, seed: Math.floor(hash(tx, ty, 2) * 8) });
       const g2 = g || L.geometries(ID.floor, { kind: 2, wear: 0, seed: Math.floor(hash(tx, ty, 2) * 8) });
-      floors.push({ geo: g2 ? g2.geo : phGeo(1, 0.06, 1, PH_COL.floor_wood, -0.06), matrix: mat(lx, lz, 0) });
+      floors.push({ geo: g2 ? g2.geo : phGeo(1, 0.06, 1, PH_COL.floor_wood, -0.06), matrix: mat(lx, lz, 0, stufeY(tx, ty)) });
     } else {
       const fc = floorChar(A, tx, ty);
       let kind = FLOOR_CH[fc];
       if (kind === 0) { const r = A.roomOf(tx, ty); if (r && r.id === 'bruecke') kind = 4; else if (r && r.id === 'krankenstation') kind = 5; }
       const wear = S.fireTiles.has(tx + ',' + ty) ? 2 : 0;
-      // QA: Mosaik nur als Mäanderrand an Wänden (seed ≥ 8, Band zur Wand gedreht), im Feld ruhiger Travertin
-      let seed = Math.floor(hash(tx, ty, 3) * 8), frot = 0;
-      if (kind === 3 && !wear) {
-        const wallAt = (dx, dy) => A.map.at(tx + dx, ty + dy) === '#' || A.map.at(tx + dx, ty + dy) === '%';
-        const wr = wallAt(0, -1) ? 0 : wallAt(0, 1) ? Math.PI : wallAt(-1, 0) ? Math.PI / 2 : wallAt(1, 0) ? -Math.PI / 2 : null;
-        if (wr != null) { seed = 8; frot = wr; }
-      }
+      // Kai 2026-10-11: Böden einfarbig, seed = Helligkeitsstufe (kein Mäanderrand mehr), dazu leichter Höhenversatz je Kachel (stufeY)
+      const seed = Math.floor(hash(tx, ty, 3) * 8), frot = 0;
       const g = L.geometries(ID.floor, { kind, wear, seed });
-      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, frot) });
+      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, frot, stufeY(tx, ty)) });
     }
     // Bodenkleinkram (nur Systemdeck, stabil per Hash, nicht vor Stationen, nicht auf Türen/Lift/Leiter/Pads)
     if (withSolids && dk.index === 0 && (ch === '.' || ch === '=' || ch === '_') && !frontOfStation.has(tx + ',' + ty) && hash(tx, ty, 7) < 0.1) {
