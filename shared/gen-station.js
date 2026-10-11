@@ -157,6 +157,15 @@
       const raeume = st.filter((s) => s.kind === 'raum').sort((a, b) => b.tiefe - a.tiefe || (b.rect.x1 - b.rect.x0) * (b.rect.y1 - b.rect.y0) - (a.rect.x1 - a.rect.x0) * (a.rect.y1 - a.rect.y0));
       const pool = R.shuffle(['M', 'L', 'Q', 'Q', 'H', 'W', 'Z', 'Q', 'L', 'M', 'Q', 'W']);
       raeume.forEach((r, i) => { r.typ = i === 0 ? 'K' : i === 1 ? 'R' : i === 2 ? 'L' : pool[(i - 3) % pool.length]; });
+      // Pflichtsatz: mindestens ein Zellenraum (Arrest im Sicherheits-/Quartierbereich). Fehlt Z, wird deterministisch (ohne RNG)
+      // ein Quartier/Krankenstation, sonst Messe/Werkstatt, sonst das flachste Nicht-Kern-Lager zur Zelle.
+      if (raeume.length > 3 && !raeume.some((r) => r.typ === 'Z')) {
+        const fl = (r) => (r.rect.x1 - r.rect.x0 + 1) * (r.rect.y1 - r.rect.y0 + 1);
+        for (const typen of [['Q', 'H'], ['M', 'W'], ['L', 'Q', 'H', 'M', 'W']]) {
+          const c = raeume.filter((r, i) => i > 2 && typen.includes(r.typ)).sort((a, b) => a.tiefe - b.tiefe || fl(a) - fl(b) || a.id - b.id);
+          if (c.length) { c[0].typ = 'Z'; break; }
+        }
+      }
       return { st, tueren, schott, raeume, T, ziel, R };
     }
 
@@ -246,8 +255,31 @@
         for (let dy = -1; dy <= 1 && !nah; dy++) for (let dx = -1; dx <= 1; dx++) { const r = (kopie[y + dy] || [])[x + dx]; if (r !== undefined && bodenZ(r)) { nah = true; break; } }
         if (nah) grid[y][x] = '#';
       }
-      const rows = grid.map((r) => r.join(''));
+      const R2 = rng(seed * 7919 + 13);
       const at = (x, y) => (grid[y] || [])[x];
+      // Versteck: schwache Wand 'w' in einer Raumwand, hinter der der Kriechgang liegt (Wandnische); bevorzugt Lager/Werkstatt.
+      // Der Anker steht auf der Raumkachel davor (Prüfer: versteck braucht w daneben).
+      let versteckPlan = null;
+      {
+        const nahT = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = at(x + dx, y + dy); if (c === 'D' || c === 'L' || c === 'S') return true; } return false; };
+        const lw = (r) => (r.typ === 'L' || r.typ === 'W') ? 1 : 0;
+        const ordnung = S.raeume.filter((r) => r.typ !== 'K' && r.typ !== 'R' && r.typ !== 'Z').sort((a, b) => (lw(b) - lw(a)) || b.tiefe - a.tiefe || a.id - b.id);
+        for (const rm of ordnung) {
+          const r = rm.rect, c = [];
+          const x0 = r.x0 + ox, x1 = r.x1 + ox, y0 = r.y0 + oy, y1 = r.y1 + oy;
+          for (let x = x0 + 1; x <= x1 - 1; x++) {
+            if (at(x, y0 - 1) === '#' && at(x, y0 - 2) === '.' && at(x, y0) === '.' && !nahT(x, y0 - 1)) c.push({ wx: x, wy: y0 - 1, ax: x, ay: y0 });
+            if (at(x, y1 + 1) === '#' && at(x, y1 + 2) === '.' && at(x, y1) === '.' && !nahT(x, y1 + 1)) c.push({ wx: x, wy: y1 + 1, ax: x, ay: y1 });
+          }
+          for (let y = y0 + 1; y <= y1 - 1; y++) {
+            if (at(x0 - 1, y) === '#' && at(x0 - 2, y) === '.' && at(x0, y) === '.' && !nahT(x0 - 1, y)) c.push({ wx: x0 - 1, wy: y, ax: x0, ay: y });
+            if (at(x1 + 1, y) === '#' && at(x1 + 2, y) === '.' && at(x1, y) === '.' && !nahT(x1 + 1, y)) c.push({ wx: x1 + 1, wy: y, ax: x1, ay: y });
+          }
+          if (c.length) { versteckPlan = Object.assign({ raum: rm }, c[R2.int(c.length)]); break; }
+        }
+        if (versteckPlan) grid[versteckPlan.wy][versteckPlan.wx] = 'w';
+      }
+      const rows = grid.map((r) => r.join(''));
       const rect = (r) => [r.x0 + ox, r.y0 + oy, r.x1 - r.x0 + 1, r.y1 - r.y0 + 1];
       // Plätze
       const plaetze = {}, zaehl = {};
@@ -269,7 +301,6 @@
       };
       for (const id of Object.keys(plaetze).sort()) bereiche[plaetze[id].bereich].rects.push(plaetze[id].rect);
       // Anker: je Raumtyp, auf freien Bodenkacheln abseits der Türen
-      const R2 = rng(seed * 7919 + 13);
       const roh = [];
       const belegt = new Set();
       const nahTuer = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = at(x + dx, y + dy); if (c === 'D' || c === 'L' || c === 'S') return true; } return false; };
@@ -288,6 +319,8 @@
       const tp = plaetze.transporter;
       if (tp) { const m = mitte(tp.rect); belegt.add(m.join(',')); ank('transporter', 'abholpunkt', m, { ankunft: true }); }
       const raeumeS = S.st.filter((s) => s.kind === 'raum');
+      const anz = (rolle) => roh.filter((q) => q.rolle === rolle).length;
+      // Je Raumtyp die klassischen Anker (Kommando: ziel+terminal, Reaktor: sprengpunkt, Lager: beute, Quartier: nsc, Zellen: zelle)
       for (const s of raeumeS) {
         const id = ids.get(s), r = plaetze[id].rect;
         if (s.typ === 'K') { const m = mitte(r); belegt.add(m.join(',')); ank(id, 'ziel', m); ank(id, 'terminal', kachelIn(r, 'rand', '.')); }
@@ -296,28 +329,85 @@
         if (s.typ === 'Q' || s.typ === 'H') ank(id, 'nsc', kachelIn(r, 'innen', '.'));
         if (s.typ === 'Z') { ank(id, 'zelle', kachelIn(r, 'rand', '.')); ank(id, 'zelle', kachelIn(r, 'rand', '.')); }
       }
-      // Eingänge: Tür des Transporters (laut) und eine Luke am tiefsten Raum (technisch)
+      // Auffüllen auf den Pflichtsatz: Räume in Vorzugsreihenfolge (Typen), reihum, höchstens max je Raum
+      const tiefeAb = raeumeS.slice().sort((a, b) => b.tiefe - a.tiefe || a.id - b.id);
+      const raumIds = (typen) => typen.flatMap((t) => tiefeAb.filter((s) => s.typ === t)).concat(tiefeAb.filter((s) => !typen.includes(s.typ))).map((s) => ids.get(s));
+      function fuellen(rolle, soll, plaetzeIds, wohin, boden, max, attr) {
+        const je = {}; for (const a of roh) if (a.rolle === rolle) je[a.platz] = (je[a.platz] || 0) + 1;
+        for (let runde = 0; runde < max && anz(rolle) < soll; runde++) {
+          for (const id of plaetzeIds) {
+            if (anz(rolle) >= soll) break;
+            if ((je[id] || 0) > runde) continue;
+            const p = kachelIn(plaetze[id].rect, wohin, boden); if (!p) continue;
+            ank(id, rolle, p, attr); je[id] = (je[id] || 0) + 1;
+          }
+        }
+      }
+      fuellen('zelle', 2, raumIds(['Z']), 'rand', '.', 3);
+      fuellen('sprengpunkt', 1, raumIds(['R']), 'rand', '.', 2);
+      fuellen('ziel', 3, raumIds(['K', 'R', 'M', 'W', 'L']), 'innen', '.', 2);
+      fuellen('terminal', 2, raumIds(['W', 'M', 'R', 'K']), 'rand', '.', 2);
+      fuellen('beute', 3, raumIds(['L', 'W', 'M']), 'rand', '.', 3);
+      fuellen('nsc', 2, raumIds(['Q', 'H', 'M']).filter((id) => plaetze[id].typ !== 'zellen'), 'innen', '.', 2);
+      // zweites Pad (L-Form aus 3 freien Kacheln) in einem Raum außer Kommando/Reaktor/Zellen
+      {
+        const frei = (x, y) => at(x, y) === '.' && !belegt.has(x + ',' + y) && !nahTuer(x, y);
+        const pad = (x, y) => [[1, 1], [-1, 1], [1, -1], [-1, -1]].some(([dx, dy]) => frei(x + dx, y) && frei(x, y + dy));
+        const kand = raeumeS.filter((s) => !['K', 'R', 'Z'].includes(s.typ)).sort((a, b) => a.tiefe - b.tiefe || a.id - b.id).map((s) => ids.get(s));
+        for (const id of kand) {
+          if (anz('abholpunkt') >= 2) break;
+          const r = plaetze[id].rect, c = [];
+          for (let y = r[1] + 1; y < r[1] + r[3] - 1; y++) for (let x = r[0] + 1; x < r[0] + r[2] - 1; x++) if (frei(x, y) && pad(x, y)) c.push([x, y]);
+          if (c.length) { const m = c[R2.int(c.length)]; belegt.add(m.join(',')); ank(id, 'abholpunkt', m); }
+        }
+      }
+      // Eingänge: Tür des Transporters (laut) und eine Luke an einem tiefen Raum (technisch)
       const tuer0 = S.tueren[0] && at(S.tueren[0][0] + ox, S.tueren[0][1] + oy) === 'D' ? [S.tueren[0][0] + ox, S.tueren[0][1] + oy] : null;
       if (tuer0 && tp) ank('transporter', 'eingang', tuer0, { art: 'laut' });
-      const tief = raeumeS.slice().sort((a, b) => b.tiefe - a.tiefe)[0];
-      if (tief) {
-        const r = plaetze[ids.get(tief)].rect; let luke = null;
+      for (const s of tiefeAb) {
+        if (anz('eingang') >= 2) break;
+        const r = plaetze[ids.get(s)].rect; let luke = null;
         for (let y = r[1] - 1; y <= r[1] + r[3] && !luke; y++) for (let x = r[0] - 1; x <= r[0] + r[2]; x++) if (at(x, y) === 'L') { luke = [x, y]; break; }
-        if (luke) ank(ids.get(tief), 'eingang', luke, { art: 'technisch' });
+        if (luke) ank(ids.get(s), 'eingang', luke, { art: 'technisch' });
       }
-      // Wachen und Patrouille in den Gängen
-      const gaenge = S.st.filter((s) => s.kind === 'gang');
-      gaenge.slice(0, 3).forEach((g) => { const id = ids.get(g), r = plaetze[id].rect; ank(id, 'wache', kachelIn(r, 'innen', ',')); ank(id, 'patrouille', kachelIn(r, 'innen', ','), { kette: 'a' }); });
+      // Versteck vor der Wandnische
+      if (versteckPlan) { belegt.add(versteckPlan.ax + ',' + versteckPlan.ay); ank(ids.get(versteckPlan.raum), 'versteck', [versteckPlan.ax, versteckPlan.ay]); }
+      // Tor: verschließbares Schott zwischen Sektionen; bevorzugt ein Zweig ohne Kommando/Reaktor, möglichst klein
+      {
+        const unter = (sc) => { const wurzel = sc.ende === 'start' ? sc.G : sc.E; return raeumeS.filter((rm) => { for (let q = rm; q; q = q.parent) if (q === wurzel) return true; return false; }); };
+        const opt = S.schott.map((sc) => {
+          const r = sc.G.rect, dd = sc.G.dir, h = horiz(dd);
+          const pos = sc.ende === 'start' ? (dd === 'E' ? r.x0 : dd === 'W' ? r.x1 : dd === 'S' ? r.y0 : r.y1) : (dd === 'E' ? r.x1 : dd === 'W' ? r.x0 : dd === 'S' ? r.y1 : r.y0);
+          const t = [1, 2].map((i) => [(h ? pos : r.x0 + i) + ox, (h ? r.y0 + i : pos) + oy]).filter((q) => at(q[0], q[1]) === 'S');
+          const u = unter(sc);
+          return { t, kern: u.some((rm) => rm.typ === 'K' || rm.typ === 'R') ? 1 : 0, n: u.length, G: sc.G };
+        }).filter((o) => o.t.length).sort((a, b) => (a.kern - b.kern) || ((b.n > 0 ? 1 : 0) - (a.n > 0 ? 1 : 0)) || a.n - b.n || a.G.id - b.G.id);
+        const o = opt[0];
+        if (o) ank(ids.get(o.G), 'tor', o.t[0]);
+      }
+      // Wachen und Patrouille: reihum in Gängen und Kreuzungen (je Platz höchstens 2), Zellen/Kommando als Reserve
+      const wege = S.st.filter((s) => s.kind === 'gang' || s.kind === 'kreuz').map((s) => ids.get(s));
+      const reserve = raeumeS.filter((s) => s.typ === 'Z' || s.typ === 'K').map((s) => ids.get(s));
+      const posten = (rolle, attr) => {
+        const je = {};
+        for (let runde = 0; runde < 3 && anz(rolle) < 4; runde++) for (const id of wege.concat(runde ? reserve : [])) {
+          if (anz(rolle) >= 4) break;
+          if ((je[id] || 0) > runde) continue;
+          const p = kachelIn(plaetze[id].rect, 'innen', plaetze[id].bereich === 'kern' ? '.' : ','); if (!p) continue;
+          ank(id, rolle, p, attr); je[id] = (je[id] || 0) + 1;
+        }
+      };
+      posten('wache'); posten('patrouille', { kette: 'a' });
       // IDs wie im Zusammenbau: <platz>.<rolle>[.<n>]
       roh.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
       for (const a of roh) { const k = a.platz + '.' + a.rolle; lauf[k] = (lauf[k] || 0) + 1; anker.push(Object.assign({ id: zz[k] > 1 ? k + '.' + lauf[k] : k }, a)); }
-      const pflicht = { eingang: 2, abholpunkt: 1, ziel: 1, terminal: 1, sprengpunkt: 1, beute: 2 };
+      const pflicht = { eingang: 2, abholpunkt: 2, terminal: 2, sprengpunkt: 1, ziel: 3, zelle: 2, nsc: 2, beute: 3, tor: 1, wache: 4, patrouille: 4, versteck: 1 };
       const titel = {}; for (const s of raeumeS) titel[ids.get(s)] = RAUMTITEL[s.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-station/1', art: 'station', bauweise: opts.bauweise || 'germanen', besitz: opts.besitz || null,
-        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen1', schablone: 'gen-station', spiegel: null, w, h, rows, legende: null, anker,
+        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen2', schablone: 'gen-station', spiegel: null, w, h, rows, legende: null, anker,
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,

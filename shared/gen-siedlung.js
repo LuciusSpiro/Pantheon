@@ -262,6 +262,8 @@
 
 
     // ---------------------------------------------------------------- echtes Kartenformat
+    // Pflichtsatz der Kartenart aussenposten (der Missionsplaner nimmt an, jede Karte hat mindestens das; aus den Modul-Schablonen)
+    const PFLICHT_AUSSENPOSTEN = { eingang: 3, abholpunkt: 2, sprengpunkt: 2, aussicht: 1, terminal: 1, zelle: 2, beute: 4, ziel: 1, wache: 6, patrouille: 4 };
     const GEB_NAME = { K: 'kommando', L: 'lager', W: 'werkstatt', Q: 'quartier', C: 'kantine', H: 'krankenstation' };
     const GEB_TITEL = { K: 'Kommandogebäude', L: 'Lager', W: 'Werkstatt', Q: 'Quartiere', C: 'Kantine', H: 'Krankenstation' };
     // karteRoh(seed, haeuser, opts) -> Karte im Format von Buehne.bauen (Legende/Kanten/Prüfung: Buehne.ausRaster)
@@ -306,54 +308,235 @@
       };
       for (const id of Object.keys(plaetze).sort()) bereiche[plaetze[id].bereich].rects.push(plaetze[id].rect);
       for (const k of Object.keys(bereiche)) if (!bereiche[k].rects.length) delete bereiche[k];
-      // Anker
+      // Anker (Pflichtsatz der Kartenart aussenposten: Rollen siehe PFLICHT_AUSSENPOSTEN)
       const R2 = rng(seed * 6271 + 5);
       const roh = [], belegt = new Set();
+      const setT = (x, y, c) => { rows[y] = rows[y].slice(0, x) + c + rows[y].slice(x + 1); };
       const nahTuer = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (at(x + dx, y + dy) === 'D') return true; return false; };
-      const kachelIn = (r, wohin) => {
+      // objekte: Kacheln, die zur Laufzeit fest werden (Kisten, Terminal, Ziel, Sprengziel, Zellenlücke); sie dürfen ein Gebäude nicht zerschneiden
+      const objekte = new Set(), kammern = new Set();
+      // jedes Objekt im Rechteck braucht mindestens einen begehbaren Nachbarn, der kein Objekt und keine Zellenkammer ist
+      const objekteOk = (r) => {
+        for (const key of objekte) {
+          const [x, y] = key.split(',').map(Number);
+          if (x < r[0] || y < r[1] || x >= r[0] + r[2] || y >= r[1] + r[3]) continue;
+          if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const c = at(x + dx, y + dy), k = (x + dx) + ',' + (y + dy); return (c === ',' && !objekte.has(k) && !kammern.has(k)); })) return false;
+        }
+        return true;
+      };
+      const kachelIn = (r, wohin, objekt) => {
         const [rx, ry, rw, rh] = r, kand = [];
         for (let y = ry + 1; y < ry + rh - 1; y++) for (let x = rx + 1; x < rx + rw - 1; x++) {
           if (at(x, y) !== ',' || belegt.has(x + ',' + y) || nahTuer(x, y)) continue;
           const rand = x === rx + 1 || y === ry + 1 || x === rx + rw - 2 || y === ry + rh - 2;
           if (wohin === 'rand' ? rand : !rand) kand.push([x, y]);
         }
-        if (!kand.length) return null;
-        const k = kand[R2.int(kand.length)]; belegt.add(k[0] + ',' + k[1]); return k;
+        R2.shuffle(kand);
+        for (const k of kand) {
+          const key = k[0] + ',' + k[1];
+          if (objekt !== false) {
+            objekte.add(key);
+            if (!objekteOk(r) || !innenZusammen(r)) { objekte.delete(key); continue; }
+          }
+          belegt.add(key); return k;
+        }
+        return null;
       };
       const ank = (platz, rolle, p, attr) => { if (p) roh.push(Object.assign({ rolle, x: p[0], y: p[1], platz, bereich: plaetze[platz].bereich }, attr || {})); };
       const mitte = (r) => [r[0] + Math.floor(r[2] / 2), r[1] + Math.floor(r[3] / 2)];
+      const dm = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
       const lm = mitte(plaetze.landefeld.rect); belegt.add(lm.join(','));
       ank('landefeld', 'abholpunkt', lm, { ankunft: true });
-      for (const { b, id } of geb) {
-        const r = plaetze[id].rect;
-        if (b.typ === 'K') { const m = mitte(r); belegt.add(m.join(',')); ank(id, 'ziel', m); ank(id, 'terminal', kachelIn(r, 'rand')); }
-        if (b.typ === 'L') { ank(id, 'beute', kachelIn(r, 'rand')); ank(id, 'beute', kachelIn(r, 'rand')); }
-        if (b.typ === 'Q') ank(id, 'nsc', kachelIn(r, 'innen'));
+      const funk = geb.filter((q) => q.b.typ !== 'k');
+      // Kommando: Ziel in der Mitte, Platz dafür vormerken, bevor Kerker und Kisten Fläche belegen
+      const kom = funk.find((q) => q.b.typ === 'K');
+      if (kom) { const k0 = mitte(plaetze[kom.id].rect).join(','); belegt.add(k0); objekte.add(k0); }
+      // Kerker (Rolle zelle): 2×2-Kammer in der Ecke eines Funktionsgebäudes, Wände aus Gebäudewand und '#', Gitter 'z' mit Lücke davor;
+      // der Anker steht in der Lücke (Objekt, zur Laufzeit zu/offen). Gebäude müssen danach zusammenhängend begehbar bleiben.
+      const drehe = (t) => t[0].split('').map((_, x) => t.map((row) => row[x]).reverse().join(''));
+      const pmid = mitte(plaetze.platz.rect);
+      const strBegehbar = (x, y) => at(x, y) === ',' || at(x, y) === 'P';
+      const ZELLE = [[0, 0, ','], [1, 0, ','], [2, 0, '#'], [0, 1, ','], [1, 1, ','], [2, 1, '#'], [0, 2, 'z'], [1, 2, ','], [2, 2, '#'], [1, 3, ',']];
+      const innenZusammen = (r, ohne) => {
+        ohne = ohne || new Set();
+        const [rx, ry, rw, rh] = r, frei = [];
+        for (let y = ry + 1; y < ry + rh - 1; y++) for (let x = rx + 1; x < rx + rw - 1; x++) if (at(x, y) === ',' && !kammern.has(x + ',' + y) && !objekte.has(x + ',' + y) && !ohne.has(x + ',' + y)) frei.push([x, y]);
+        const tuer = []; for (let y = ry; y < ry + rh; y++) for (let x = rx; x < rx + rw; x++) if (at(x, y) === 'D') tuer.push([x, y]);
+        if (!tuer.length || !frei.length) return false;
+        const seen = new Set(), st = [];
+        const key = (x, y) => x + ',' + y, fs = new Set(frei.map((p) => key(p[0], p[1])));
+        for (const [x, y] of tuer) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (fs.has(key(x + dx, y + dy))) { seen.add(key(x + dx, y + dy)); st.push([x + dx, y + dy]); }
+        while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = key(x + dx, y + dy); if (fs.has(k) && !seen.has(k)) { seen.add(k); st.push([x + dx, y + dy]); } } }
+        return seen.size === fs.size;
+      };
+      const zelleIn = (id) => {
+        const r = plaetze[id].rect, [rx, ry, rw, rh] = r;
+        const ix0 = rx + 1, iy0 = ry + 1, ix1 = rx + rw - 2, iy1 = ry + rh - 2;
+        for (const [ci, tr] of R2.shuffle([0, 1, 2, 3].flatMap((c) => [[c, 0], [c, 1]]))) {
+          const pos = ZELLE.map(([u, v, c]) => { const a = tr ? v : u, b = tr ? u : v; return [(ci & 1) ? ix1 - a : ix0 + a, (ci & 2) ? iy1 - b : iy0 + b, c]; });
+          if (!pos.every(([x, y]) => x >= ix0 && x <= ix1 && y >= iy0 && y <= iy1 && at(x, y) === ',' && !belegt.has(x + ',' + y) && !nahTuer(x, y))) continue;
+          const alt = pos.map(([x, y]) => [x, y, at(x, y)]);
+          for (const [x, y, c] of pos.slice(0, 9)) setT(x, y, c);
+          const kam = pos.filter((p) => p[2] === ',').slice(0, 4).map((p) => p[0] + ',' + p[1]);
+          const gap = pos[7];
+          if (!innenZusammen(r, new Set(kam.concat([gap[0] + ',' + gap[1]])))) { for (const [x, y, c] of alt) setT(x, y, c); continue; }
+          kam.forEach((k) => kammern.add(k));
+          for (const p of pos) for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) belegt.add((p[0] + dx) + ',' + (p[1] + dy));
+          objekte.add(gap[0] + ',' + gap[1]);
+          return [gap[0], gap[1]];
+        }
+        return null;
+      };
+      // Rückfall, wenn kein Funktionsgebäude Platz hat: freistehender Käfig (4×4 mit Wand, Gitter und Lücke) auf freiem Gelände am Straßenrand
+      const kaefige = [];
+      const kaefigFrei = () => {
+        let t = ['####', '#,,#', '#,,#', '#zZ#'], best = null;
+        for (let rot = 0; rot < 4; rot++, t = drehe(t)) {
+          let gp = null; for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) if (t[y][x] === 'Z') gp = [x, y];
+          const aus = gp[1] === 3 ? [0, 1] : gp[1] === 0 ? [0, -1] : gp[0] === 3 ? [1, 0] : [-1, 0];
+          for (let y0 = 1; y0 < h - 5; y0++) for (let x0 = 1; x0 < w - 5; x0++) {
+            let ok = true;
+            for (let y = -1; y <= 4 && ok; y++) for (let x = -1; x <= 4 && ok; x++) { const c = at(x0 + x, y0 + y), im = x >= 0 && x < 4 && y >= 0 && y < 4; if (im ? c !== '.' || belegt.has((x0 + x) + ',' + (y0 + y)) : (c === 'D' || c === undefined)) ok = false; }
+            if (!ok) continue;
+            const oxx = x0 + gp[0] + aus[0], oyy = y0 + gp[1] + aus[1];
+            if (!strBegehbar(oxx, oyy)) continue;
+            const sc = Math.abs(x0 + 2 - pmid[0]) + Math.abs(y0 + 2 - pmid[1]) + R2.range(0, 10);
+            if (!best || sc < best.sc) best = { sc, x0, y0, t, gp };
+          }
+        }
+        if (!best) return null;
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) setT(best.x0 + y * 0 + x, best.y0 + y, best.t[y][x] === 'Z' ? ',' : best.t[y][x]);
+        for (let y = -1; y <= 4; y++) for (let x = -1; x <= 4; x++) belegt.add((best.x0 + x) + ',' + (best.y0 + y));
+        const id = 'kaefig_' + (kaefige.length + 1); kaefige.push(id);
+        plaetze[id] = { typ: 'zellenblock', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: [best.x0, best.y0, 4, 4], bereich: 'kulisse' };
+        bereiche.kulisse = bereiche.kulisse || { name: 'Kulissenhäuser', rects: [] };
+        bereiche.kulisse.rects.push(plaetze[id].rect);
+        return { id, p: [best.x0 + best.gp[0], best.y0 + best.gp[1]] };
+      };
+      const kerker = [];
+      for (const q of (kom ? [kom] : []).concat(R2.shuffle(funk.filter((z) => z !== kom)))) { for (let n = 0; n < 2 && kerker.length < 2; n++) { const p = zelleIn(q.id); if (p) { kerker.push(p); ank(q.id, 'zelle', p); } else break; } }
+      while (kerker.length < 2) { const k = kaefigFrei(); if (!k) break; kerker.push(k.p); ank(k.id, 'zelle', k.p); }
+      // Wachturm (Rolle aussicht): 5×5-Plateau (Brüstung k, Fläche ^, Rampe /) am Rand einer Straße oder des Platzes, Rampe zur Straße
+      const TURM = ['kkkkk', 'k^^^k', 'k^^^k', 'k^^^k', 'kk/kk'];
+      let turm = null;
+      { let t = TURM;
+        for (let rot = 0; rot < 4; rot++, t = drehe(t)) {
+          const ramp = (() => { for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) if (t[y][x] === '/') return [x, y]; })();
+          const aus = ramp[1] === 4 ? [0, 1] : ramp[1] === 0 ? [0, -1] : ramp[0] === 4 ? [1, 0] : [-1, 0];
+          for (let y0 = 1; y0 < h - 5; y0++) for (let x0 = 1; x0 < w - 5; x0++) {
+            let ok = true;
+            for (let y = -1; y <= 5 && ok; y++) for (let x = -1; x <= 5 && ok; x++) {
+              const c = at(x0 + x, y0 + y);
+              if (x >= 0 && x < 5 && y >= 0 && y < 5) { if (c !== '.') ok = false; } else if (c === 'D' || c === undefined) ok = false;
+            }
+            if (!ok) continue;
+            if (!strBegehbar(x0 + ramp[0] + aus[0], y0 + ramp[1] + aus[1])) continue;
+            const sc = Math.abs(x0 + 2 - pmid[0]) + Math.abs(y0 + 2 - pmid[1]) + R2.range(0, 10);
+            if (!turm || sc < turm.sc) turm = { sc, x0, y0, t, aus, ramp };
+          }
+        }
       }
-      // Eingänge: Tor bzw. westliches Straßenende (laut) und das fernste Straßenende (leise)
+      if (turm) {
+        for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) setT(turm.x0 + x, turm.y0 + y, turm.t[y][x]);
+        for (let y = -1; y <= 5; y++) for (let x = -1; x <= 5; x++) belegt.add((turm.x0 + x) + ',' + (turm.y0 + y));
+        plaetze.wachturm = { typ: 'wachturm', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: [turm.x0, turm.y0, 5, 5], bereich: 'kulisse' };
+        bereiche.kulisse = bereiche.kulisse || { name: 'Kulissenhäuser', rects: [] };
+        bereiche.kulisse.rects.push(plaetze.wachturm.rect);
+        ank('wachturm', 'aussicht', [turm.x0 + 2, turm.y0 + 2]);
+      }
+      // Gebäudefunktionen: Ziel und Terminal im Kommando, Beute (4) im Lager/Kantine/…, Sprengpunkte (2) in Depots (Lager, Werkstatt)
+      if (kom) ank(kom.id, 'ziel', mitte(plaetze[kom.id].rect));
+      for (const q of funk.filter((z) => z.b.typ === 'Q')) ank(q.id, 'nsc', kachelIn(plaetze[q.id].rect, 'innen', false));
+      const verteile = (rolle, soll, typFolge) => {
+        const folge = typFolge.flatMap((t) => funk.filter((q) => q.b.typ === t));
+        let n = 0;
+        for (let pass = 0; pass < 4 && n < soll && folge.length; pass++) for (const q of folge) {
+          if (n >= soll) break;
+          const r = plaetze[q.id].rect, p = kachelIn(r, 'rand') || kachelIn(r, 'innen');
+          if (p) { ank(q.id, rolle, p); n++; }
+        }
+      };
+      verteile('terminal', 1, ['K', 'W', 'C', 'H', 'Q', 'L']);
+      verteile('beute', 4, ['L', 'C', 'Q', 'H', 'W', 'K']);
+      verteile('sprengpunkt', 2, ['W', 'L', 'H', 'C', 'Q', 'K']);
+      // Rückfall: fehlen Sprengpunkte (Gebäude zu eng), entsteht ein freistehendes Tankdepot (2×2 Tank 'O', Sprengziel daneben) auf freiem Gelände
+      for (let n = 0; roh.filter((a) => a.rolle === 'sprengpunkt').length < 2 && n < 2; n++) {
+        let best = null;
+        for (let y0 = 2; y0 < h - 4; y0++) for (let x0 = 2; x0 < w - 5; x0++) {
+          let ok = true;
+          for (let y = -1; y <= 2 && ok; y++) for (let x = -1; x <= 3 && ok; x++) {
+            const c = at(x0 + x, y0 + y), im = x >= 0 && y >= 0 && y <= 1 && x <= 2;
+            if (im ? c !== '.' || belegt.has((x0 + x) + ',' + (y0 + y)) : !'.,P'.includes(c || '#')) ok = false;
+          }
+          if (!ok) continue;
+          const sc = dm([x0, y0], pmid) + R2.range(0, 10);
+          if (!best || sc < best.sc) best = { sc, x0, y0 };
+        }
+        if (!best) break;
+        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setT(best.x0 + dx, best.y0 + dy, 'O');
+        for (let y = -1; y <= 2; y++) for (let x = -1; x <= 3; x++) belegt.add((best.x0 + x) + ',' + (best.y0 + y));
+        const id = 'depot_' + (n + 1);
+        plaetze[id] = { typ: 'treibstofflager', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: [best.x0, best.y0, 3, 2], bereich: 'kulisse' };
+        bereiche.kulisse = bereiche.kulisse || { name: 'Kulissenhäuser', rects: [] };
+        bereiche.kulisse.rects.push(plaetze[id].rect);
+        ank(id, 'sprengpunkt', [best.x0 + 2, best.y0]);
+      }
+      // Eingänge: Tor bzw. westliches Straßenende (laut), das fernste Straßenende und ein drittes, von beiden entferntes (leise)
       const hs = B.strassen[0].rect;
       const ein1 = B.mauer ? [S.x0 + ox, B.cy + oy] : [hs.x0 + ox, B.cy + oy];
       ank(B.mauer ? 'tor' : 'strasse_1', 'eingang', ein1, { art: 'laut' });
-      let best = null;
+      const enden = [];
       B.strassen.forEach((s, i) => {
-        const q = s.rect, cand = [[Math.floor((q.x0 + q.x1) / 2), q.y0], [Math.floor((q.x0 + q.x1) / 2), q.y1], [q.x0, Math.floor((q.y0 + q.y1) / 2)], [q.x1, Math.floor((q.y0 + q.y1) / 2)]];
-        for (const [cx, cy] of cand) { const px = cx + ox, py = cy + oy; if (at(px, py) !== ',') continue; const d = Math.abs(px - ein1[0]) + Math.abs(py - ein1[1]); if (!best || d > best.d) best = { d, p: [px, py], id: 'strasse_' + (i + 1) }; }
+        const q = s.rect, cm = [Math.floor((q.x0 + q.x1) / 2), Math.floor((q.y0 + q.y1) / 2)];
+        for (const [cx, cy] of [[cm[0], q.y0], [cm[0], q.y1], [q.x0, cm[1]], [q.x1, cm[1]]]) { const px = cx + ox, py = cy + oy; if (at(px, py) === ',' && !belegt.has(px + ',' + py)) enden.push({ p: [px, py], id: 'strasse_' + (i + 1) }); }
       });
-      if (best) ank(best.id, 'eingang', best.p, { art: 'leise' });
-      // Wachen und Patrouille an der Hauptstraße
-      const hsR = plaetze.strasse_1.rect;
-      const gehen = [];
-      for (let x = hsR[0] + 3; x < hsR[0] + hsR[2] - 3; x += 7) gehen.push([x, hsR[1] + 1], [x + 3, hsR[1] + hsR[3] - 2]);
-      gehen.filter((p) => at(p[0], p[1]) === ',').slice(0, 6).forEach((p, i) => { ank('strasse_1', i % 2 ? 'patrouille' : 'wache', p, i % 2 ? { kette: 'a' } : {}); });
+      const eingaenge = [ein1];
+      for (let n = 0; n < 2; n++) {
+        let best = null;
+        for (const e of enden) { const d = Math.min(...eingaenge.map((q) => dm(q, e.p))); if (!best || d > best.d) best = { d, e }; }
+        if (!best) break;
+        eingaenge.push(best.e.p); belegt.add(best.e.p.join(',')); ank(best.e.id, 'eingang', best.e.p, { art: 'leise' });
+      }
+      // Straßen- und Platzpunkte für Pad, Wachen und Patrouille
+      const kand = [];
+      B.strassen.forEach((s, i) => {
+        const id = 'strasse_' + (i + 1), q = plaetze[id].rect, hz = q[2] > q[3], len = hz ? q[2] : q[3], breit = hz ? q[3] : q[2];
+        for (let t = 2; t < len - 2; t += 3) for (const sd of [1, breit - 2]) { const p = hz ? [q[0] + t, q[1] + sd] : [q[0] + sd, q[1] + t]; if (at(p[0], p[1]) === ',') kand.push({ platz: id, p }); }
+      });
+      { const q = plaetze.platz.rect; for (const p of [[q[0] + 1, q[1] + 1], [q[0] + q[2] - 2, q[1] + 1], [q[0] + 1, q[1] + q[3] - 2], [q[0] + q[2] - 2, q[1] + q[3] - 2]]) if (at(p[0], p[1]) === 'P') kand.push({ platz: 'platz', p }); }
+      R2.shuffle(kand);
+      const freiP = (p) => (at(p[0], p[1]) === ',' || at(p[0], p[1]) === 'P') && !belegt.has(p.join(','));
+      // zweites Pad: 3 freie Kacheln in L-Form, fern vom Landefeld und den Eingängen (ankunft nur am ersten)
+      { let best = null;
+        for (const c of kand) {
+          if (!freiP(c.p)) continue;
+          const l = [[1, 1], [-1, 1], [1, -1], [-1, -1]].find(([dx, dy]) => freiP([c.p[0] + dx, c.p[1]]) && freiP([c.p[0], c.p[1] + dy]));
+          if (!l) continue;
+          const d = Math.min(dm(c.p, lm) * 0.5, ...eingaenge.map((q) => dm(c.p, q)));
+          if (!best || d > best.d) best = { d, c, l };
+        }
+        if (best) { const [x, y] = best.c.p; for (const q of [[x, y], [x + best.l[0], y], [x, y + best.l[1]]]) belegt.add(q.join(',')); ank(best.c.platz, 'abholpunkt', best.c.p); }
+      }
+      // Wachen (6) und Patrouille (4) auf Straßen und Platz, nach x gereiht abwechselnd; Patrouille als Kette 'a'
+      { let pick = [];
+        for (const abst of [6, 5, 4, 3, 2, 1]) {
+          pick = [];
+          for (const c of kand) if (freiP(c.p) && pick.every((q) => Math.max(Math.abs(q.p[0] - c.p[0]), Math.abs(q.p[1] - c.p[1])) >= abst)) pick.push(c);
+          if (pick.length >= 10) break;
+        }
+        pick = pick.slice(0, 10).sort((a, b) => a.p[0] - b.p[0] || a.p[1] - b.p[1]);
+        const folge = ['wache', 'patrouille', 'wache', 'patrouille', 'wache', 'wache', 'patrouille', 'wache', 'patrouille', 'wache'];
+        pick.forEach((c, i) => { belegt.add(c.p.join(',')); ank(c.platz, folge[i], c.p, folge[i] === 'patrouille' ? { kette: 'a' } : {}); });
+      }
       roh.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
       for (const a of roh) { const k = a.platz + '.' + a.rolle; lauf[k] = (lauf[k] || 0) + 1; anker.push(Object.assign({ id: zz[k] > 1 ? k + '.' + lauf[k] : k }, a)); }
-      const pflicht = { eingang: 2, abholpunkt: 1, ziel: 1, terminal: 1, beute: 2 };
+      const pflicht = Object.assign({}, PFLICHT_AUSSENPOSTEN);
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
-        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen1', schablone: 'gen-siedlung', spiegel: null, w, h, rows, legende: null, anker,
+        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen2', schablone: 'gen-siedlung', spiegel: null, w, h, rows, legende: null, anker,
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
