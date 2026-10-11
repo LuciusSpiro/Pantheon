@@ -132,4 +132,13 @@ Branch `ek1b-raum` (Basis `ek1`). Neue Datei `shared/schilde.js` (Schildmodell, 
 - Nicht berührt: `server/sim/away.js`, `shared/gen-siedlung.js`, `content/buehnen/`, `content/welt/`, `shared/sektoren.js`, `shared/locations.js`, Voxelwerk.
 
 ## 8. Abnahme EK1b Server
-(wird beim Abschluss eingetragen)
+- `npm test`: Features 213/213, Kampf 387/387, **Klassen 59/59**, M3 380/380, Flug 80/80; dahinter Bausteine … Wellen All grün (einzeln gelaufen, siehe unten).
+  **Rot, nicht von EK1b:** `tools/test-escort.js` „Balancing headless: deckt: mindestens die Hälfte heil (4/10)“ – identisch auf `ek1` (ab4584b) ohne EK1b gemessen. Da `npm test`
+  mit `&&` verkettet ist, bricht es dort ab; alle Tests dahinter wurden einzeln ausgeführt (grün). Ursache offen (Balancing Geleit mit der Korvetten-Bestückung aus EK1a, Sache von EK4/EK9).
+- `npm run check` grün (199/199, Sektoren OK).
+- `npm run snap:mess`: Worst Case max 11 444 B, Wellen 10 558 B (Ziel ≤ 18 944 B), unverändert zu EK1a. `test-klassen.js`: 2 Kreuzer + 3 Fregatten + 7 weitere Gegner, alle gescannt, 12 235 B;
+  eine ungescannte Fregatte mit vollen Schilden 146 B im Snapshot.
+- Bot-Arena `sim arena --pilot both --seeds 4` (Standardwellen): grün (Fehler 0, Softlocks 0). Mit `--wellen-def "fregatte;kreuzer;fregatte,raider" --wave-limit 240`: nose 2,8 von 3 Wellen
+  (Fregatte allein 4/4 Seeds geschlagen, 44–79 s), maneuver 2,5 von 3 (Kreuzer in 2 von 4 Seeds über 240 s: der Bot feuert die Lanze kaum); Fehler 0, Softlocks 0.
+- Golden m1–m3, 20 Seeds, gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch, die übrigen 40 (m1/m2 solo) sind die bekannten Abweichungen aus EK1a.
+  Kontrolle: m1 und m2, Crew 1, Seed 1 auf `ek1` (ab4584b) und auf `ek1b-raum` sind **byte-identisch** – EK1b fügt keine neue Golden-Abweichung hinzu, kein `allow-ek1b.json` nötig.
