@@ -156,8 +156,9 @@
     // Snapshot flotte (fehlt ohne Flotte): { b?: { a: Befehlsart, st: 0 läuft|1 erfüllt|2 gescheitert|3 abgebrochen, r?: Rest-Frist s, k?, n? (Abschüsse), i?, w?: [[x, y, ok]], rad?, s?: Schiff-ID, g?: Grund },
     // wl?: [Welle, von, druck?] }. Funkspruch (Ereignis radio und mission.radio) trägt pid: 'legat' | 'mars' (Porträt bzw. Symbol).
     // Ereignisse: flotteBefehl { id, art, st, grund?, frist? }, flotteWegpunkt { id, i, n }, flotteWelle { n, von }, flotteDruck { n }, flotteNeustart {},
-    // flotteGedaechtnis { art }, flotteFehlt { tag }, allyDistress { id, tag, kritisch? }, allyLost { id, tag, name, x, y, kapsel }.
-    EK4_EVENTS: ['flotteBefehl', 'flotteWegpunkt', 'flotteWelle', 'flotteDruck', 'flotteNeustart', 'flotteGedaechtnis', 'flotteFehlt', 'allyDistress', 'allyLost'],
+    // flotteGedaechtnis { art }, flotteFehlt { tag }, flotteNachschub { art, rest }, allyDistress { id, tag, kritisch? }, allyLost { id, tag, name, x, y, kapsel },
+    // allyEintritt { id, tag, name, x, y, dauer } (Sprungblitz). Snapshot flotte.nq = wartender Nachschub; Verbündete im Snapshot: state/befehl/distress fehlen = ok/null/false, ein: 1 beim Einblenden.
+    EK4_EVENTS: ['flotteBefehl', 'flotteWegpunkt', 'flotteWelle', 'flotteDruck', 'flotteNeustart', 'flotteGedaechtnis', 'flotteFehlt', 'flotteNachschub', 'allyDistress', 'allyLost', 'allyEintritt'],
     FLOTTE_ARTEN: ['ausschalten', 'eskortieren', 'durchbrechen', 'zurueckfallen', 'entlastung'],
     ALLY_KINDS: ['korvette', 'fregatte', 'kreuzer', 'raider'],
     FUNK_PORTRAETS: ['legat', 'mars'],

@@ -378,6 +378,7 @@ function explodiere(game, m, grund) {
   for (const e of sp.enemies.slice()) {
     if (dist(m.x, m.y, e.x, e.y) <= R) space().damageEnemy(game, e, M.gegner != null ? M.gegner : 20, m.x, m.y, { pierce: 99 });
   }
+  if (game.flotte && m.besitzer !== 'lerche') { try { require('./flotte.js').mineSchaden(game, m, R); } catch (err) { if (game.countError) game.countError('flotte-mine', err); } }   // EK4b: Verbündete im Sprengradius
   if (game.ship.target === m.id) game.ship.target = null;
   ausloeser(game, 'mine');
   game.missionEvent(grund === 'abschuss' ? 'mineAbgeschossen' : 'mineGezuendet', { id: m.id, getroffen, systeme: liste.length });

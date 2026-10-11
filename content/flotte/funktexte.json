@@ -10,6 +10,7 @@
         { "unter": 0.4, "text": "Schwere Treffer an der Backbordseite! Lerche, wo bleibt ihr?" },
         { "unter": 0.15, "text": "Das Ende naht! Bei Mars, ich habe das Feldzeichen nie sinken lassen!" }
       ],
+      "auftauchen": "Da seid ihr! Rom fährt die Sperrflotte nieder. Haltet euch an die Befehle, und keiner stirbt umsonst.",
       "zerstoert": "Rettungskapsel ausgestoßen. Ich lebe, Lerche. Aber mein Schiff ... mein Schiff!"
     },
     "audax": {
@@ -28,7 +29,8 @@
       { "unter": 0.15, "text": "{name}: Hülle bricht! Noch ein Treffer und wir sind erledigt!" }
     ],
     "zerstoert": "{name} geht unter! Rettungskapseln raus ... Funk bricht ab.",
-    "kapsel": "Rettungskapsel von {name} ausgestoßen."
+    "kapsel": "Rettungskapsel von {name} ausgestoßen.",
+    "auftauchen": "{name} springt ins Gefecht!"
   },
   "erinnerung": {
     "befolgt": "Ihr habt getan, was ich verlangte. Ich vergesse das nicht.",

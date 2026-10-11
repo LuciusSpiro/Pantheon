@@ -2487,7 +2487,7 @@ class GenericAgent extends KeshAgent {
     const sh = S.ship; const fl = S.flotte && S.flotte.b;
     if (p.zone !== 'ship') { this.idleStations(S, p); return; }
     const en = S.space.enemies.filter((e) => e.kind !== 'relay' && e.kind !== 'pylon');
-    const ally = (S.space.escorts || []).find((e) => e.al && (e.state === 'ok' || e.state === 'beschaedigt'));
+    const ally = (S.space.escorts || []).find((e) => e.al && (!e.state || e.state === 'ok' || e.state === 'beschaedigt'));   // Verbündete: state fehlt = ok (Snapshot kompakt)
     let goal = null;
     if (fl && fl.st === 0) {
       if (fl.w && fl.i < fl.w.length) {

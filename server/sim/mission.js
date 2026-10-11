@@ -786,7 +786,8 @@ class Mission {
         if (s.face === 'out') opts.facing = Math.atan2(p.dy, p.dx);
         else if (s.face === 'in') opts.facing = Math.atan2(-p.dy, -p.dx);   // QA M1: Front zum Relaiskern
       }
-      space.spawnEnemy(g, s.kind, opts);
+      if (g.flotte) require('./flotte.js').spawnOderNachschub(g, s.kind, opts);   // EK4b: höchstens CONFIG.flotte.max Schiffe je Szene, mehr kommt als Nachschub
+      else space.spawnEnemy(g, s.kind, opts);
     }
   }
 

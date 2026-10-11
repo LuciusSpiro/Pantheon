@@ -3156,6 +3156,7 @@
   function escortBarCol(e, frac) { return escortDown(e) ? ESCORT_COL.wreck : frac < 0.3 ? '#E0473C' : frac < 0.6 ? ESCORT_COL.amber : (e.al ? ESCORT_COL.ally : ESCORT_COL.ice); }
   function drawEscortSprite(ctx, e, sx, sy, angle, t, hitT) {
     const o = { hpFrac: escortHpFrac(e), hitT: hitT != null ? hitT : 99, time: t, distress: !!e.distress, state: e.state || 'ok' };
+    if (e.al && e.ein) ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 14);   // EK4b: Einblenden (unverwundbar)
     if (e.al) {   // EK4: Verbündete sind Kriegsschiffe: Sprite der Klasse im Rom-Farbthema (fehlt es, die prozedurale Klasse)
       o.fraktion = 'rom';
       if (!artEnemy(ctx, e.kind, sx, sy, angle, o)) fbEnemy(ctx, e.kind, sx, sy, angle, t, hitT != null ? hitT : 99);   // Sprite noch nicht geladen: Strichform der Klasse
@@ -3243,6 +3244,13 @@
   // EK4: Rettungskapseln zerstörter Verbündeter, Wegpunkte und Radius des Befehls (nur Karten): Punkt 1 hell, die nächsten gedimmt, erreichte mit Haken
   function drawBefehlMarken(ctx, view, env) {
     const { toS, inB, lab, front, t, zoom, cx, cy, B } = env;
+    for (const k of view.eintritte || []) {   // EK4b: Sprungblitz auftauchender Verbündeter (wächst und verblasst)
+      const s = toS(k.x, k.y); const f = Math.min(1, k.age / (k.dauer / 1000)); const r = 8 + 46 * f;
+      if (!inB(s, r)) continue;
+      ctx.save(); ctx.globalAlpha = 1 - f; ctx.strokeStyle = ESCORT_COL.ally; ctx.lineWidth = 3 - 2 * f;
+      ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#FFF1B8'; ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(2, 14 * (1 - f)), 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
     for (const k of view.kapseln || []) {   // Anzeige für kapsel s: kleine Kapsel mit Spur, driftet nach achtern weg
       const drift = k.age * 14; const s = toS(k.x - drift * 0.6, k.y + drift * 0.8);
       if (!inB(s, 6)) continue;

@@ -1012,7 +1012,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Der Legat befiehlt, ein markiertes Schiff (Korvette) auszuschalten, während Wellen Jäger anrollen; ein verbündetes Schiff fliegt mit (es feuert in dieser Stufe nicht). Ziel zerstört = Befehl erfüllt. Läuft die Frist ab, wird die Crew überrannt (Überdruck) und muss von vorn anfangen (zweimal), danach übernimmt Rom.",
+            "beschreibung": "Der Legat befiehlt, ein markiertes Schiff (Korvette) auszuschalten, während Wellen Jäger anrollen; ein verbündetes Schiff (eigene KI) kämpft mit. Ziel zerstört = Befehl erfüllt. Läuft die Frist ab, wird die Crew überrannt (Überdruck) und muss von vorn anfangen (zweimal), danach übernimmt Rom.",
             "dauer_min": [
               3,
               5
@@ -1984,7 +1984,6 @@
         "halten",
         "hyperraumflug",
         "krise_an_bord",
-        "schlacht",
         "verfolgung",
         "wettflug"
       ]
@@ -2297,6 +2296,25 @@
           "entkommen"
         ],
         "name": "Rückzug",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "schlacht",
+        "kennung": "A10",
+        "kern": "Großes Gefecht, die Crew hat einen Teilauftrag (Flanke halten, Träger ausschalten, Verwundete bergen) (Feldzüge)",
+        "kippt_zu": [
+          "andocken_und_entern",
+          "verfolgung"
+        ],
+        "molekuele": [
+          "flottenbefehl",
+          "vernichten"
+        ],
+        "name": "Schlacht",
         "plaetze": [
           1,
           2

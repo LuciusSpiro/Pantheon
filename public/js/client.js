@@ -49,7 +49,7 @@
     minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
     shootCd: 0, stepT: 0, repairTickT: 0, fireHeld: { mouse: false, key: false },
     // S2: neue Angebote (id -> Zeitpunkt offerIn), Schützling-Treffer (id -> performance.now()), letzte Befehlsrückmeldung, Kapitelkarte
-    newOffers: {}, escortHit: {}, escortOrder: null, chapter: null, kapseln: [],   // EK4: kapseln = Rettungskapseln zerstörter Verbündeter ({ x, y, t0, dauer, name })
+    newOffers: {}, escortHit: {}, escortOrder: null, chapter: null, kapseln: [], eintritte: [], verlust: null,   // EK4: eintritte = Sprungblitze auftauchender Verbündeter ({ x, y, t0, dauer }), verlust = Banner „<Schiff> VERLOREN“; kapseln = Rettungskapseln zerstörter Verbündeter ({ x, y, t0, dauer, name })
     view: null,
   };
 
@@ -837,9 +837,16 @@
       case 'flotteWelle': H.pushNotice('Welle ' + ev.n + ' von ' + ev.von, PAL.amber, 3); return true;
       case 'flotteDruck': H.pushNotice('ÜBERDRUCK – Verstärkung!', PAL.red, 3); return true;
       case 'flotteNeustart': H.pushNotice('Von vorn!', PAL.amber, 3); return true;
+      case 'flotteNachschub': H.pushNotice('Nachschub! Noch ' + (+ev.rest + 1) + ' Gegner im Anflug', PAL.amber, 3); return true;
+      case 'allyEintritt':
+        Client.eintritte.push({ x: +ev.x || 0, y: +ev.y || 0, t0: performance.now(), dauer: (+ev.dauer || 2.5) * 1000 });
+        while (Client.eintritte.length > 8) Client.eintritte.shift();
+        H.pushNotice((ev.name || 'Schiff') + ' springt ins Gefecht', R.ESCORT_COL.ally, 4);
+        return true;
       case 'flotteGedaechtnis': case 'flotteFehlt': case 'allyDistress': return true;   // Funkspruch und NOTRUF kommen als radio bzw. escortDistress
       case 'allyLost': {
         H.pushNotice((ev.name || 'Schiff') + ' ZERSTÖRT – Rettungskapsel!', PAL.red, 6);
+        Client.verlust = { name: ev.name || 'Schiff', t0: performance.now() };
         Client.kapseln.push({ x: +ev.x || 0, y: +ev.y || 0, t0: performance.now(), dauer: (+ev.kapsel || 14) * 1000, name: ev.name || '' });
         while (Client.kapseln.length > 6) Client.kapseln.shift();
         return true;
@@ -2039,6 +2046,8 @@
     const aa = A.away || {}, ba = B.away || {};
     // S2: Schützlinge (≤ 2) interpoliert wie Projektile; Trefferblitz und Befehlsrückmeldung
     v.escorts = lerpList(as.escorts, bs.escorts, f);
+    v.eintritte = Client.eintritte.filter(k => nowMs - k.t0 < k.dauer).map(k => Object.assign({ age: (nowMs - k.t0) / 1000 }, k));   // EK4b
+    v.verlust = Client.verlust && nowMs - Client.verlust.t0 < 5000 ? Object.assign({ age: (nowMs - Client.verlust.t0) / 1000 }, Client.verlust) : null;
     v.kapseln = Client.kapseln.filter(k => nowMs - k.t0 < k.dauer).map(k => Object.assign({ age: (nowMs - k.t0) / 1000 }, k));   // EK4
     v.escortHit = {};
     for (const id in Client.escortHit) { const s = (nowMs - Client.escortHit[id]) / 1000; if (s > 2) delete Client.escortHit[id]; else v.escortHit[id] = s; }

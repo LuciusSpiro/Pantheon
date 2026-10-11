@@ -13,11 +13,18 @@
 //   nach abgelaufener Frist kommt Überdruck – die Szene darf scheitern, der Feldzug nie (das Regiebuch verzweigt: fliehen oder neustart).
 //   Gedächtnis des Legaten (Weltstand, npc.legat): befolgt | eigenmaechtig | im_stich (+ Fakt flotte_<tag> = verloren).
 //   Alle Funktexte kommen aus content/flotte/funktexte.json.
+//   EK4b: Verbündete mit eigener KI (rolle begleiter | angreifer; skript = EK4a, nur Regiebuch): Flug über die Klassen-KI der Gegner (pilot.js, Ziel =
+//   ein Gegner), Feuer aus den Waffenplätzen der Klasse (Geschoss kind 'ally', trifft nur Gegner – kein Eigenbeschuss), Gegner dürfen sie anvisieren,
+//   höchstens CONFIG.flotte.max Schiffe je Szene (mehr kommt als Nachschub), Einblenden mit Sprungblitz, Sprung der Flotte (auch Notfallsprung), Minen.
 const fs = require('fs');
 const path = require('path');
+const Physics = require('../../shared/physics.js');
 
 let escortMod = null; const escort = () => escortMod || (escortMod = require('./escort.js'));
 let spaceMod = null; const space = () => spaceMod || (spaceMod = require('./space.js'));
+let pilotMod = null; const pilot = () => pilotMod || (pilotMod = require('./pilot.js'));
+let alarmMod = null; const alarm = () => alarmMod || (alarmMod = require('./alarm.js'));
+const ROLLEN = ['begleiter', 'angreifer', 'skript'];
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'funktexte.json');
 const ARTEN = ['ausschalten', 'eskortieren', 'durchbrechen', 'zurueckfallen', 'entlastung'];
@@ -44,7 +51,7 @@ function texte() {
 function fmt(t, vars) { return String(t == null ? '' : t).replace(/\{(\w+)\}/g, (m, k) => (vars && vars[k] != null ? vars[k] : m)); }
 
 // ---------- Zustand ----------
-function neu() { return { befehl: null, hist: [], welle: null, stats: { befehle: 0, erfuellt: 0, gescheitert: 0, verloren: 0, hilferufe: 0, wellen: 0 } }; }
+function neu() { return { befehl: null, hist: [], welle: null, nachschub: [], stats: { befehle: 0, erfuellt: 0, gescheitert: 0, verloren: 0, hilferufe: 0, wellen: 0, nachschub: 0, schuesse: 0, treffer: 0, hoechst: 0 } }; }
 function state(game) { return game.flotte || (game.flotte = neu()); }
 function lerche(game) { return game.ship; }
 const allies = (game) => ((game.space && game.space.escorts) || []).filter((q) => q.ally);
@@ -120,9 +127,11 @@ function erinnerungText(game, art) {
 }
 
 // ---------- Verbündete ----------
-// opts: { tag, kind?, name?, npc?, von?, huelle?, modus?, ersatz? } -> Schiff | null (verloren und kein Ersatz)
+// opts: { tag, kind?, name?, npc?, von?, huelle?, modus?, ersatz?, rolle?, auftauchen? } -> Schiff | null (verloren und kein Ersatz)
+// rolle: begleiter (Standard) | angreifer | skript (EK4a: keine KI, kein Feuer). auftauchen: Sprungblitz, Einblenden (unverwundbar CONFIG.flotte.einblenden.dauer s)
 function aufstellen(game, opts) {
   const o = opts || {};
+  state(game);
   const tag = String(o.tag || 'verbuendeter');
   const d = (texte().schiffe || {})[tag] || {};
   if (verloren(game, tag) && !o.ersatz) {
@@ -133,6 +142,13 @@ function aufstellen(game, opts) {
   const es = escort().spawn(game, { tag, kind: o.kind || 'korvette', name: o.name || d.name, npc: o.npc || d.npc || null, von: o.von != null ? o.von : 'lerche', huelle: o.huelle, ally: true });
   if (!es) return null;
   es.slot = allies(game).length - 1;
+  es.rolle = ROLLEN.includes(o.rolle) ? o.rolle : (kcfg(game).rolle || 'begleiter');
+  if (o.auftauchen) {
+    es.einBis = game.time + (Number((cfg(game).einblenden || {}).dauer) || 2.5);
+    game.emit('allyEintritt', { id: es.id, tag: es.tag, name: es.name, x: Math.round(es.x), y: Math.round(es.y), dauer: Number((cfg(game).einblenden || {}).dauer) || 2.5 });
+    game.emit('sfx', { name: 'jump' });
+    funk(game, sprecherVon(game, es), fmt(((texte().schiffe || {})[es.tag] || {}).auftauchen || (texte().allgemein || {}).auftauchen, { name: es.name }));
+  }
   const T = cfg(game).hilferuf || {};
   for (const lim of [Number(T.schwer) || 0.4, Number(T.kritisch) || 0.15]) if (es.hp / es.hpMax < lim && !es.warned.includes(lim)) es.warned.push(lim);
   if (o.ersatz) fakt(game, 'flotte_' + tag, 'ersatz');
@@ -372,7 +388,7 @@ function wellenStart(game, spec) {
   return st.welle;
 }
 function spawnGruppe(game, w, group, label) {
-  const S = space(); const Lr = lerche(game);
+  const Lr = lerche(game);
   const scale = ((cfg(game).wellen || {}).crew || { 1: 0.67, 2: 0.85, 3: 1 })[crewN(game)] || 1;
   const items = [];
   for (const it of group) { const n = Math.max(1, Math.round(it.n * scale)); for (let j = 0; j < n; j++) items.push(it.kind); }
@@ -382,8 +398,7 @@ function spawnGruppe(game, w, group, label) {
     if (w.richtung === 'alle') a = (j / items.length) * Math.PI * 2 + game.rng.range(-0.3, 0.3) + w.n;
     else a = base + (j - (items.length - 1) / 2) * 0.55;
     if (!game.C.enemies[kind]) return;
-    const e = S.spawnEnemy(game, kind, { angle: a, tag: w.tag, ziel: w.ziel });
-    if (e) { e.wv = w.id; e.wvN = label; }
+    spawnOderNachschub(game, kind, { angle: a, tag: w.tag, ziel: w.ziel }, { wv: w.id, wvN: label });
   });
 }
 function lebendeWelle(game, w, nr) { return game.space.enemies.filter((e) => e.wv === w.id && (nr == null || e.wvN === nr)).length; }
@@ -411,14 +426,150 @@ function tickWelle(game, w, dt) {   // eslint-disable-line no-unused-vars
 }
 function wellenFertig(game) { const w = game.flotte && game.flotte.welle; return !!(w && w.fertig); }
 
+// ---------- Höchstens CONFIG.flotte.max Schiffe je Szene, mehr kommt als Nachschub ----------
+// Gezählt werden alle Gegner und alle Verbündeten/Schützlinge der Szene (nicht die Lerche, nicht entkommene). Plätze frei = Nachschub rückt nach.
+function schiffe(game) { return game.space.enemies.length + ((game.space.escorts) || []).filter((q) => q.state !== 'entkommen').length; }
+function platz(game) { return Math.max(0, (Number(cfg(game).max) || 12) - schiffe(game)); }
+// meta: { wv, wvN } wird dem Gegner angehängt (Wellen-Zugehörigkeit). -> Gegner | null (wartet als Nachschub)
+function spawnOderNachschub(game, kind, opts, meta) {
+  const st = state(game);
+  st.stats.hoechst = Math.max(st.stats.hoechst, schiffe(game) + 1);
+  if (platz(game) > 0 && !st.nachschub.length) {
+    const e = space().spawnEnemy(game, kind, opts || {});
+    if (e && meta) Object.assign(e, meta);
+    return e;
+  }
+  if (st.nachschub.length < 60) st.nachschub.push({ kind, opts: Object.assign({}, opts || {}), meta: meta || null, scene: game.ship.scene });
+  return null;
+}
+function nachschubTick(game) {
+  const st = game.flotte; if (!st || !st.nachschub.length) return;
+  if (st.nachschub[0].scene !== game.ship.scene) { st.nachschub.length = 0; return; }
+  if (platz(game) <= 0 || game.time - (st.nachschubT || -99) < (Number((cfg(game).nachschub || {}).takt) || 1.2)) return;
+  const q = st.nachschub.shift(); st.nachschubT = game.time;
+  const e = space().spawnEnemy(game, q.kind, q.opts);
+  if (e && q.meta) Object.assign(e, q.meta);
+  st.stats.nachschub++;
+  game.emit('flotteNachschub', { art: q.kind, rest: st.nachschub.length });
+  game.oda('Nachschub trifft ein: weitere Gegner im Anflug.', 'nachschub_' + game.ship.scene);
+  game.missionEvent('nachschub', { art: q.kind });
+}
+
+// ---------- Eigene KI der Verbündeten (EK4b) ----------
+function kcfg(game) {
+  return Object.assign({ rolle: 'begleiter', leine: 1100, zielReichweite: 1500, zielTakt: 0.5, intervall: {}, dmg: {}, schussTempo: 260, minenAbstand: 110, minenSchaden: 20 }, cfg(game).ki || {});
+}
+const kiAn = (es) => !!es && es.ally && es.rolle !== 'skript' && escort().active(es);
+function kiGueltig(game, es, e, K) {
+  if (!e || !(e.hp > 0) || e.kind === 'relay' || e.kind === 'pylon' || e.pat || e.leaving) return false;
+  if (es.rolle !== 'angreifer') { const Lr = lerche(game); if (hyp(e.x - Lr.x, e.y - Lr.y) > K.leine + 300) return false; }
+  return true;
+}
+// Zielwahl: behält das Ziel, solange es gültig und in Reichweite ist; sonst der nächste Gegner (wer das Schiff anvisiert, zählt doppelt)
+function kiZielWaehlen(game, es) {
+  const K = kcfg(game); const en = game.space.enemies;
+  const cur = es.kiZielObj && en.includes(es.kiZielObj) ? es.kiZielObj : null;
+  if (cur && kiGueltig(game, es, cur, K) && hyp(cur.x - es.x, cur.y - es.y) < K.zielReichweite) return cur;
+  let best = null, bs = Infinity;
+  for (const e of en) {
+    if (!kiGueltig(game, es, e, K)) continue;
+    const d = hyp(e.x - es.x, e.y - es.y);
+    if (d > K.zielReichweite) continue;
+    let s = d;
+    if (e.targetId === es.id) s *= 0.5; else if (e.targetId == null && es.rolle === 'begleiter') s *= 0.8;
+    if (s < bs) { bs = s; best = e; }
+  }
+  return best;
+}
+// Flugbefehl aus der Klassen-KI (pilot.js) oder null (Regiebuch führt / kein Ziel / zu weit von der Lerche: Formation)
+function kiFlug(game, es, dt) {
+  if (!kiAn(es)) return null;
+  const k = es.skript || {};
+  if (k.modus && k.modus !== 'folgen') return null;
+  const T = es.kiZielObj;
+  if (!T || !game.space.enemies.includes(T)) return null;
+  const K = kcfg(game);
+  if (es.rolle !== 'angreifer' && hyp(es.x - lerche(game).x, es.y - lerche(game).y) > K.leine) { es.kiZielObj = null; return null; }
+  return pilot().update(game, es, dt);
+}
+// Feuer: je Waffenplatz der Klasse ein Geschoss in Takt, wenn das Ziel im Bogen und in Reichweite liegt. Nur Gegner nehmen Schaden.
+function kiFeuer(game, es, dt) {
+  const K = kcfg(game); const st = state(game);
+  es.kiT = (es.kiT || 0) - dt;
+  if (es.kiT <= 0) { es.kiT = K.zielTakt; es.kiZielObj = kiZielWaehlen(game, es); }
+  const T = es.kiZielObj;
+  if (!T || !game.space.enemies.includes(T) || es.empT > 0 || (es.einBis > game.time)) return;
+  const W = game.C.enemyWeapons[es.kind] || [];
+  const iv = Number(K.intervall[es.kind]) || 3.4; const dmg = Number(K.dmg[es.kind]) || 1.5;
+  const speed = game.C.combat.enemyShotSpeed * (K.schussTempo / 210);
+  es.wT = es.wT || [];
+  W.forEach((w, i) => {
+    if (es.wT[i] == null) es.wT[i] = game.rng.range(0, iv);
+    es.wT[i] -= dt;
+    if (es.wT[i] > 0) return;
+    if (!Physics.inArc(es.x, es.y, es.angle, w.facing, w.arc, w.range, T.x, T.y)) { es.wT[i] = 0; return; }
+    es.wT[i] = iv * game.rng.range(0.85, 1.15);
+    const ang = space().leadAngle(es.x, es.y, T, speed, 1);
+    game.space.projectiles.push({ id: game.nextId('pr'), kind: 'ally', x: es.x, y: es.y, angle: ang, speed, ttl: game.C.combat.enemyShotTtl, dmg, owner: es.id });
+    st.stats.schuesse++;
+    game.emit('sfx', { name: 'blaster', volume: 0.35 });
+  });
+}
+// Minen: Schiffe der Lerche-Seite zünden Minen der Gegner wie die Lerche (nicht Minen der Lerche); die Explosion trifft sie (alarm.explodiere ruft mineSchaden)
+function minenPruefen(game) {
+  const sp = game.space; if (!sp.minen || !sp.minen.length) return;
+  const A = (game.C.alarm || {}).mine || {}; const zuend = A.zuend != null ? A.zuend : 70;
+  for (const es of alliesActive(game)) for (const m of sp.minen.slice()) {
+    if (m.besitzer === 'lerche' || m.ohneStrom) continue;
+    if (hyp(m.x - es.x, m.y - es.y) <= zuend) alarm().explodiere(game, m, 'zuendung');
+  }
+}
+function mineSchaden(game, m, R) {
+  if (m.besitzer === 'lerche') return;
+  const dmg = kcfg(game).minenSchaden;
+  for (const es of alliesActive(game)) if (hyp(m.x - es.x, m.y - es.y) <= R) { escort().hit(game, es, dmg, { mine: true }); }
+}
+// Sprung innerhalb der Szene (Notfallsprung am selben Ort): die Flotte springt mit und steht wieder hinter der Lerche
+function sprungFolgen(game) {
+  if (!(game.notsprungT >= 0) || game.notsprungT === (game.flotte && game.flotte.notT)) return;
+  game.flotte.notT = game.notsprungT;
+  if (game.time - game.notsprungT > 1) return;
+  const sp = game.space; const Lr = lerche(game); let i = 0;
+  for (const es of alliesActive(game)) {
+    const back = Lr.angle + Math.PI + slotWinkel(i++);
+    es.x = clamp(Lr.x + Math.cos(back) * 220, 60, sp.w - 60); es.y = clamp(Lr.y + Math.sin(back) * 220, 60, sp.h - 60);
+    es.vx = 0; es.vy = 0; es.turnVel = 0; es.angle = Lr.angle; es.kiZielObj = null;
+    game.emit('allyEintritt', { id: es.id, tag: es.tag, name: es.name, x: Math.round(es.x), y: Math.round(es.y), dauer: 1.2 });
+  }
+}
+// Abstand zu Gegnern und anderen Verbündeten (hinausschieben, wie keepApart der Gegner; die Lerche übernimmt escort.stepEscort)
+function trennen(game, es) {
+  const c = game.C.shipClasses[es.kind] || {}; const myR = c.radius || 30;
+  const list = [];
+  for (const q of game.space.enemies) list.push({ x: q.x, y: q.y, r: (game.C.shipClasses[q.kind] || {}).radius || 20 });
+  for (const q of game.space.escorts || []) if (q !== es && q.state !== 'entkommen') list.push({ x: q.x, y: q.y, r: (game.C.shipClasses[q.kind] || {}).radius || 30 });
+  for (const o of list) {
+    const min = Math.max(60, myR + o.r);
+    let dx = es.x - o.x, dy = es.y - o.y; let d = hyp(dx, dy);
+    if (d >= min) continue;
+    if (d < 0.01) { dx = Math.cos(es.angle); dy = Math.sin(es.angle); d = 1; }
+    const nx = dx / d, ny = dy / d;
+    es.x = o.x + nx * min; es.y = o.y + ny * min;
+    const vn = es.vx * nx + es.vy * ny;
+    if (vn < 0) { es.vx -= vn * nx; es.vy -= vn * ny; }
+  }
+}
+
 // ---------- Neustart der Szene („von vorn anfangen“) ----------
 // Gegner weg, Wellen und Befehl von vorn, lebende Verbündete repariert, Lerche auf mindestens 60 % Hülle. Zerstörte Schiffe bleiben verloren.
 function neustart(game) {
   const st = state(game); const sp = game.space; const Lr = lerche(game);
   for (const e of sp.enemies) if (game.ship.target === e.id) game.ship.target = null;
-  sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp' && p.kind !== 'sperrfeuer');
+  sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp' && p.kind !== 'sperrfeuer' && p.kind !== 'ally');
+  st.nachschub.length = 0;
   for (const es of allies(game)) {
     if (!escort().active(es)) continue;
+    es.kiZielObj = null;
     es.hp = es.hpMax; es.state = 'ok'; es.distress = false; es.warned = []; es.skript = { modus: 'folgen' };
     escort().syncFlags(game, es);
   }
@@ -437,6 +588,12 @@ function update(game, dt) {
   const st = game.flotte; if (!st) return;
   if (st.befehl && st.befehl.st === 0) tickBefehl(game, st.befehl, dt);
   if (st.welle) tickWelle(game, st.welle, dt);
+  nachschubTick(game);
+  const A = alliesActive(game);
+  if (A.length) {
+    for (const es of A) { if (kiAn(es)) { try { kiFeuer(game, es, dt); } catch (err) { if (game.countError) game.countError('flotte-feuer', err); } } trennen(game, es); }
+    minenPruefen(game); sprungFolgen(game);
+  }
 }
 
 // ---------- Abfragen ----------
@@ -466,6 +623,7 @@ function snapshot(game) {
     if (b.st === 2 && b.grund) o.g = b.grund;
     out.b = o;
   }
+  if (st.nachschub && st.nachschub.length) out.nq = st.nachschub.length;
   const w = st.welle;
   if (w && w.scene === game.ship.scene && !w.fertig) out.wl = w.druck ? [w.liste.length, w.liste.length, 1] : [Math.max(0, w.i + 1), w.liste.length];
   return Object.keys(out).length ? out : null;
@@ -494,7 +652,7 @@ function debug(game, args) {
 
 module.exports = {
   ARTEN, WEGPUNKT_ARTEN, MODI, ART_NAMEN, texte, state, neu,
-  aufstellen, modus, slotWinkel, goalFor, allyHit, allyLost,
+  aufstellen, modus, slotWinkel, goalFor, allyHit, allyLost, kiFlug, mineSchaden, schiffe, platz, spawnOderNachschub, ROLLEN,
   befehl, onEnemyKilled, wellenStart, wellenFertig, neustart, update,
   befehlStatus, erfuellt, gescheitert, laeuft, snapshot, erinnerung, erinnerungText, verloren, allies, alliesActive,
   funk, legatSprecher, debug, fmt,

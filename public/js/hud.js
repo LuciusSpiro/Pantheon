@@ -207,6 +207,7 @@
       this.drawNotices(ctx, view);
       if (this.showCrew && !inConsole) this.drawCrew(ctx, view);
       if (st.wellen) Net.guard('Hud.wellen', () => this.drawWellen(ctx, view, inConsole));   // Bodenkampf: Wellen
+      if (view.verlust) Net.guard('Hud.verlust', () => this.drawVerlust(ctx, view.verlust));   // EK4b: Verlust eines Verbündeten (soll wehtun)
     },
 
     // ---------------------------------------------------------------- Bodenkampf: Wellen
@@ -1498,11 +1499,23 @@
       if (more) R.text(ctx, more, x + 6, y0 + 3, { color: PAL.panelLight, shadow: false });
       return y0 + 14;
     },
+    // EK4b: großes Banner „<Schiff> VERLOREN“ (5 s, rot, pulsierend) – der Verlust soll wehtun
+    drawVerlust(ctx, v) {
+      const a = Math.max(0, Math.min(1, v.age < 0.4 ? v.age / 0.4 : v.age > 4 ? 5 - v.age : 1));
+      const text = String(v.name).toUpperCase() + ' VERLOREN';
+      const w = Math.max(210, R.measure(text, 2) + 40), x = Math.round(VW / 2 - w / 2), y = 70;
+      ctx.save(); ctx.globalAlpha = a;
+      ctx.fillStyle = 'rgba(40,10,12,0.88)'; ctx.fillRect(x, y, w, 34);
+      ctx.strokeStyle = Math.floor(v.age * 3) % 2 ? PAL.red : '#7A2420'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, 32);
+      R.text(ctx, text, VW / 2, y + 5, { color: PAL.red, align: 'center', scale: 2 });
+      R.text(ctx, 'Die Besatzung ist in Kapseln entkommen.', VW / 2, y + 23, { color: PAL.star, align: 'center', shadow: false });
+      ctx.restore();
+    },
     // „BEFEHL · Durchbrechen 1/2 · 2:30“ (Zeile unter dem Funk bzw. im Titelbalken der Konsolen); y0 = Oberkante, liefert die Unterkante
     flotteBefehl(view) { const f = view.state && view.state.flotte; return f && f.b ? f.b : null; },
     drawBefehlStrip(ctx, view, y0, opts) {
       const b = this.flotteBefehl(view); const f = view.state.flotte;
-      if (!b && !(f && f.wl)) return opts && opts.measure ? 0 : y0;
+      if (!b && !(f && (f.wl || f.nq))) return opts && opts.measure ? 0 : y0;
       const t = view.time;
       let text = '', col = PAL.amber;
       if (b) {
@@ -1517,6 +1530,7 @@
         }
       }
       if (f && f.wl) text += (text ? ' · ' : '') + (f.wl[2] ? 'ÜBERDRUCK' : 'Welle ' + f.wl[0] + '/' + f.wl[1]);
+      if (f && f.nq) text += ' · Nachschub ' + f.nq;
       const head = 'BEFEHL · ';
       const w = Math.min(300, 8 + R.measure(head, 1) + R.measure(text, 1) + 6);
       if (opts && opts.measure) return w;

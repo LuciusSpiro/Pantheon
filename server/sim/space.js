@@ -1433,7 +1433,7 @@ function crewScale(game) {
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hitT = game.time;
   if (e.pat) Alarm.ausloeser(game, 'entdeckt');   // EK2: ein Treffer auf eine Patrouille verrät uns
-  if (e.targetId != null) Escort.onLercheHit(game, e);   // S2 §5: Treffer der Lerche ziehen den Gegner 10 s auf sie
+  if (e.targetId != null && !(opts && opts.ally)) Escort.onLercheHit(game, e);   // S2 §5: Treffer der Lerche ziehen den Gegner 10 s auf sie (EK4b: nicht Treffer der Verbündeten)
   // M3a §7.1: Treffer verlängern eine laufende Ladung (je Treffer delayPerHit, insgesamt höchstens delayMax)
   if (e.tele) {
     const T = M3(game).tele;
@@ -1882,7 +1882,7 @@ function updateProjectiles(game, dt) {
       }
     } else {
       for (const e of sp.enemies) {
-        if (dist(p.x, p.y, e.x, e.y) < (C.combat.hitRadius[e.kind] || 18)) { hit = true; damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20); break; }
+        if (dist(p.x, p.y, e.x, e.y) < (C.combat.hitRadius[e.kind] || 18)) { hit = true; damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true } : undefined); break; }
       }
       if (!hit && sp.minen && sp.minen.length) {   // EK2: Geschosse der Lerche treffen Minen
         const mn = Alarm.mineAt(game, p.x, p.y);

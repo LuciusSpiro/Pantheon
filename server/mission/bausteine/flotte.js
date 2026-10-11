@@ -16,14 +16,15 @@ const ALLY_KINDS = ['korvette', 'fregatte', 'kreuzer', 'raider'];
 
 module.exports = (Registry) => {
   Registry.define({ id: 'flotte_aufstellen', art: 'aktion', effekt: 'gegner', ereignisse: ['escortSpawn', 'allySpawn'],
-    beschreibung: 'Verbündeten (NSC-Schiff Roms) im Raum erscheinen lassen. In EK4a bewegt ihn das Regiebuch (flotte_modus), er feuert nicht; Gegner dürfen ihn anvisieren (ziel: verbuendet|auto), er fällt wie jedes Schiff (Hilferuf, Funkspruch, Kapsel, Verlust im Weltstand). Ein im Feldzug verlorenes Schiff kommt nicht zurück, außer mit ersatz: true (Ersatz nur über eine Aufgabe).',
+    beschreibung: 'Verbündeten (NSC-Schiff Roms) im Raum erscheinen lassen. rolle begleiter (Standard: eigene KI, bleibt bei der Lerche, kämpft), angreifer (jagt den nächsten Gegner) oder skript (nur Regiebuch, feuert nicht); flotte_modus ziel/halten übersteuert die Bewegung. auftauchen: Sprungblitz, 2,5 s unverwundbar. Gegner dürfen ihn anvisieren (ziel: verbuendet|auto), er fällt wie jedes Schiff (Hilferuf, Funkspruch, Kapsel, Verlust im Weltstand); er springt mit der Lerche (auch Notfallsprung); höchstens 12 Schiffe je Szene. Ein im Feldzug verlorenes Schiff kommt nicht zurück, außer mit ersatz: true (Ersatz nur über eine Aufgabe).',
     params: { tag: { typ: 'ship', pflicht: true }, kind: { typ: 'string', werte: ALLY_KINDS }, name: { typ: 'string' }, npc: { typ: 'npc' }, von: { typ: 'string' },
-      huelle: { typ: 'number', min: 1, max: 100 }, modus: { typ: 'string', werte: ['halten', 'folgen'] }, ersatz: { typ: 'bool' } },
+      huelle: { typ: 'number', min: 1, max: 100 }, modus: { typ: 'string', werte: ['halten', 'folgen'] }, ersatz: { typ: 'bool' },
+      rolle: { typ: 'string', werte: ['begleiter', 'angreifer', 'skript'] }, auftauchen: { typ: 'bool' } },
     run(m, a) {
       if (!atLoc(m)) return;
       const g = m.game; const d = (m.def && m.def.besetzung && m.def.besetzung.schiffe && m.def.besetzung.schiffe[a.tag]) || {};
       const es = flotte().aufstellen(g, { tag: a.tag, kind: a.kind || d.kind, name: a.name != null ? m.tpl(a.name) : (d.name != null ? m.tpl(d.name) : undefined),
-        npc: a.npc || d.npc || null, von: a.von, huelle: a.huelle, modus: a.modus, ersatz: !!a.ersatz });
+        npc: a.npc || d.npc || null, von: a.von, huelle: a.huelle, modus: a.modus, ersatz: !!a.ersatz, rolle: a.rolle, auftauchen: !!a.auftauchen });
       if (!es && !flotte().verloren(g, a.tag)) g.countError('mission-hook', new Error(`flotte_aufstellen: ${a.tag} nicht angelegt`));
     } });
   Registry.define({ id: 'flotte_modus', art: 'aktion', ereignisse: [],
@@ -75,6 +76,8 @@ module.exports = (Registry) => {
     params: { grund: { typ: 'string', werte: ['zeit', 'schiff', 'notfall'] } }, test: (m, a) => flotte().gescheitert(m.game, a.grund) });
   Registry.define({ id: 'befehl_laeuft', art: 'pruefung', beschreibung: 'Ein Befehl (optional dieser art) läuft noch',
     params: { art: { typ: 'string', werte: ARTEN } }, test: (m, a) => flotte().laeuft(m.game, a.art) });
+  Registry.define({ id: 'nachschub_wartet', art: 'pruefung', beschreibung: 'Es wartet Nachschub (mehr als max, Standard 0): wegen der Grenze von 12 Schiffen je Szene noch nicht erschienene Gegner',
+    params: { max: { typ: 'number', min: 0 } }, test: (m, a) => ((m.game.flotte && m.game.flotte.nachschub) || []).length > (a.max || 0) });
   Registry.define({ id: 'wellen_fertig', art: 'pruefung', beschreibung: 'Alle Gruppen von flotte_wellen sind gekommen und erledigt (ohne Überdruck)',
     params: {}, test: (m) => flotte().wellenFertig(m.game) });
   Registry.define({ id: 'schiff_verloren', art: 'pruefung', beschreibung: 'Der Verbündete ist in dieser Szene zerstört worden bzw. gilt im Feldzug als verloren (Weltstand-Fakt flotte_<tag>)',

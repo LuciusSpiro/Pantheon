@@ -35,6 +35,7 @@ function shipClass(game, kind) { const SC = game.C.shipClasses; return SC ? SC[k
 // mit dieser ID, solange er kampffähig ist; Treffer der Lerche (e.aggroUntil) ziehen den Gegner auf die Lerche.
 // Ist der Schützling ausgefallen/entkommen, nimmt der Gegner einen anderen aktiven Schützling oder wieder die Lerche.
 function targetOf(game, e) {
+  if (e.ally) return e.kiZielObj || game.ship;   // EK4b: Verbündeter – sein Ziel ist ein Gegner (flotte.js setzt kiZielObj)
   if (e.targetId == null) return game.ship;
   if (e.aggroUntil != null && e.aggroUntil > game.time) return game.ship;
   const L = game.space.escorts || [];
@@ -375,6 +376,8 @@ function avoid(game, e, c, head) {
       others.push({ id: a.id, x: a.x, y: a.y, vx: a.vx || 0, vy: a.vy || 0, r: a.r });
     }
   }
+  // EK4b: Verbündete meiden Minen der Gegner (sie zünden bei ihnen wie bei der Lerche)
+  if (e.ally && sp.minen) for (const m of sp.minen) if (m.besitzer !== 'lerche' && !m.ohneStrom) others.push({ id: m.id, x: m.x, y: m.y, vx: 0, vy: 0, r: ((game.C.flotte || {}).ki || {}).minenAbstand || 110 });
   for (const o of others) {
     const thr = Math.max(p.minSeparation, myR + o.r) + 40;
     const look = clamp(1.2 / (c.turnRate || 1), 0.6, 2);   // träge Schiffe schauen weiter voraus

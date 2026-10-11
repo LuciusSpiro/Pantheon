@@ -393,6 +393,7 @@ function updateAttack(game, e, es, d, retreating, dt) {
 // opts: { heavy, emp, enemy }
 function hit(game, es, dmg, opts) {
   if (!active(es)) return null;
+  if (es.einBis > game.time) return null;   // EK4b: Einblenden – unverwundbar
   const o = opts || {}; const C = cfg(game);
   const st = stats(game);
   if (!o.light) es.hitT = game.time;   // S2b: leichte Treffer (Sperrfeuer) lösen kein Anhalten aus
@@ -582,8 +583,10 @@ function stepEscort(game, es, dt) {
   let g = null;
   if (es.state === 'kampfunfaehig' || es.state === 'entkommen') input = { stage: Flight.stopStage(c), rudder: 0, brake: es.state === 'entkommen' };
   else {
-    g = goalFor(game, es, c);
-    if (g && g.drift) input = { stage: Flight.stopStage(c), rudder: 0, brake: false };
+    const ki = es.ally ? flotte().kiFlug(game, es, dt) : null;   // EK4b: eigene KI (Klassen-KI der Gegner mit einem Gegner als Ziel)
+    g = ki ? null : goalFor(game, es, c);
+    if (ki) input = ki;
+    else if (g && g.drift) input = { stage: Flight.stopStage(c), rudder: 0, brake: false };
     else {
       const md = mode(es);
       if (g && !es.ally && underFire(game, es) && md !== 'volle_kraft' && md !== 'flieht') g = null;   // unter Beschuss: anhalten
@@ -729,7 +732,7 @@ function snapshot(game) {
   return sel.map((es) => {
     const o = { id: es.id, tag: es.tag, kind: es.kind, name: es.name, x: Math.round(es.x), y: Math.round(es.y), angle: r2(es.angle),
       hp: Math.ceil(es.hp), hpMax: es.hpMax, state: es.state, befehl: es.befehl, distress: !!es.distress };
-    if (es.ally) o.al = 1;
+    if (es.ally) { o.al = 1; delete o.befehl; if (!es.distress) delete o.distress; if (es.state === 'ok') delete o.state; if (es.einBis > game.time) o.ein = 1; }   // kompakt (fehlt = Standard)
     if (es.pending) o.pending = es.pending.befehl;
     if (es.verhalten === 'treibt' && !es.repaired && es.reparatur_s > 0) o.repair = r2(1 - es.repairLeft / es.reparatur_s);
     return o;

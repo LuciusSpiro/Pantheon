@@ -231,7 +231,7 @@ section('Scheitern: Frist, Schiff verloren, Notfallprotokoll; eigenmächtig und 
   ok(g.space.enemies.length > n0 && t.ev('flotteDruck').length >= 2, `Welle um Welle: nach der Frist Überdruck, Verstärkung kommt (${n0} -> ${g.space.enemies.length} Gegner)`);
   // Neustart: Gegner weg, Befehl von vorn, Wellen von vorn; lebende Verbündete repariert, tote bleiben tot
   const al = Flotte.aufstellen(g, { tag: 'audax' });
-  Escort.hit(g, al, 4 * 20, {}); const hp0 = al.hp;
+  Escort.hit(g, al, 4 * 8, {}); const hp0 = al.hp;
   Flotte.neustart(g);
   ok(g.space.enemies.filter((e) => e.kind !== 'relay').length === 0 || g.space.enemies.every((e) => e.wv), 'Neustart: alte Gegner entfernt');
   ok(Flotte.befehlStatus(g).st === 0 && Flotte.befehlStatus(g).idx === 0 && al.hp === al.hpMax && hp0 < al.hpMax, 'Neustart: Befehl läuft von vorn, lebender Verbündeter repariert');
@@ -363,6 +363,125 @@ section('Snapshot', () => {
   const s = g.snapshot().flotte;
   ok(s && s.b.a === 'durchbrechen' && s.b.w.length === 2 && s.b.r > 100 && s.wl[0] === 1 && s.wl[1] === 2, 'flotte: Befehl (Art, Punkte, Rest-Frist) und Welle');
   ok(Buffer.byteLength(JSON.stringify(g.snapshot().flotte)) < 200, `flotte klein (${Buffer.byteLength(JSON.stringify(s))} B)`);
+});
+
+// ================================================================ EK4b
+function gegnerNah(g, kind, x, y, extra) { const e = space.spawnEnemy(g, kind, Object.assign({ x, y }, extra || {})); return e; }
+
+section('EK4b: eigene KI – Flug und Feuer, kein Eigenbeschuss', () => {
+  const t = raum(); const { g } = t; platz(g, 800, 800);
+  const a = Flotte.aufstellen(g, { tag: 'fulminata', von: { x: 900, y: 900 } });
+  ok(a.rolle === 'begleiter', 'Standardrolle begleiter');
+  const e = gegnerNah(g, 'raider', 1500, 800, { ziel: 'lerche' });
+  const hp0 = e.hp;
+  ticks(g, 30);
+  const st = Flotte.state(g).stats;
+  ok(st.schuesse > 0 && (e.hp < hp0 || !g.space.enemies.includes(e)), `die Korvette feuert auf den Gegner (${st.schuesse} Schüsse, Gegner-Hülle ${Math.round(hp0)} -> ${g.space.enemies.includes(e) ? Math.round(e.hp) : 'zerstört'})`);
+  // Geschosse der Verbündeten treffen weder Lerche noch Verbündete
+  const t2 = raum(); const g2 = t2.g; platz(g2, 1500, 800);
+  const a2 = Flotte.aufstellen(g2, { tag: 'fulminata', von: { x: 1700, y: 800 }, rolle: 'skript' }); const b2 = Flotte.aufstellen(g2, { tag: 'audax', von: { x: 1500, y: 1000 }, rolle: 'skript' });
+  Flotte.modus(g2, null, 'halten');
+  g2.ship.hull = 100; const hpA = b2.hp;
+  for (const [tx, ty] of [[g2.ship.x, g2.ship.y], [b2.x, b2.y]]) g2.space.projectiles.push({ id: g2.nextId('pr'), kind: 'ally', x: tx - 30, y: ty, angle: 0, speed: 100, ttl: 3, dmg: 50, owner: a2.id });
+  ticks(g2, 1);
+  ok(g2.ship.hull === 100 && b2.hp === hpA && g2.space.projectiles.length >= 1, 'kein Eigenbeschuss: Geschoss der Verbündeten trifft weder die Lerche noch einen Verbündeten');
+  // Lanze der Lerche durch ein Schiff: Rüffel, kein Schaden
+  const hpB = a2.hp; g2.ship.angle = 0; g2.ship.mount.bow.charge = 1; space.weaponsFire(g2, 'bow'); ticks(g2, 0.3);
+  ok(a2.hp === hpB, 'Lanze der Lerche verletzt Verbündete nicht');
+  // Treffer der Verbündeten ziehen den Gegner nicht auf die Lerche (Aggro)
+  const t3 = raum(); const g3 = t3.g; platz(g3, 300, 800);
+  const a3 = Flotte.aufstellen(g3, { tag: 'fulminata', von: { x: 1500, y: 800 }, modus: 'halten' });
+  const r3 = space.spawnEnemy(g3, 'raider', { x: 1800, y: 800, ziel: 'verbuendet' });
+  space.damageEnemy(g3, r3, 1, 1700, 800, { ally: true });
+  ok(r3.aggroUntil == null && r3.targetId === a3.id, 'Treffer eines Verbündeten ändert das Ziel des Gegners nicht');
+  space.damageEnemy(g3, r3, 1, 1700, 800);
+  ok(r3.aggroUntil > g3.time, 'Treffer der Lerche zieht ihn weiter auf sie (S2 unverändert)');
+  ok([g, g2, g3].every((x) => x.errors === 0), 'keine Server-Fehler');
+});
+
+section('EK4b: Rollen und Klassen-KI (Fregatte: Breitseite und Abstand)', () => {
+  const t = raum(); const { g } = t; platz(g, 600, 800);
+  const f = Flotte.aufstellen(g, { tag: 'frg', kind: 'fregatte', von: { x: 700, y: 900 } });
+  const z = gegnerNah(g, 'korvette', 1700, 800, { ziel: 'verbuendet' });
+  z.retreatUntil = 0;
+  ticks(g, 45);
+  ok(f.kind === 'fregatte' && (f.pstate === 'station' || f.pstate === 'cross'), `Fregatte fliegt die Breitseiten-KI (pstate ${f.pstate})`);
+  const ds = []; const z2 = gegnerNah(g, 'korvette', 1700, 800, { ziel: 'verbuendet' }); z2.hp = z2.hpMax = 4000;
+  ticks(g, 30, (tt) => { if (Math.round(tt * 10) % 10 === 0 && g.space.enemies.includes(z2) && f.kiZielObj === z2) ds.push(dist(f, z2)); });
+  ds.sort((a, b) => a - b); const d = ds.length ? ds[Math.floor(ds.length / 2)] : null;
+  ok(d != null && d > 150 && d < 700, `Fregatte hält Abstand zum Ziel (Breitseite, Median ${d == null ? '–' : Math.round(d)} px)`);
+  // Begleiter bleibt in der Leine, Angreifer jagt
+  const t2 = raum(); const g2 = t2.g; platz(g2, 400, 800);
+  const bg = Flotte.aufstellen(g2, { tag: 'a', von: { x: 500, y: 900 } }); const an = Flotte.aufstellen(g2, { tag: 'b', von: { x: 500, y: 700 }, rolle: 'angreifer' });
+  const r = space.spawnEnemy(g2, 'raider', { x: 1900, y: 800, ziel: 'lerche' }); r.hp = r.hpMax = 5000;
+  ticks(g2, 40, () => { r.x = 1900; r.y = 800; r.vx = 0; r.vy = 0; });
+  ok(dist(bg, g2.ship) < CONFIG.flotte.ki.leine + 200 && dist(an, { x: 1900, y: 800 }) < dist(bg, { x: 1900, y: 800 }), `Begleiter bleibt in der Leine (${Math.round(dist(bg, g2.ship))} px von der Lerche), Angreifer jagt (${Math.round(dist(an, { x: 1900, y: 800 }))} px vom Ziel)`);
+  const t3 = raum(); const g3 = t3.g;
+  const sk = Flotte.aufstellen(g3, { tag: 'sk', von: { x: 1700, y: 800 }, rolle: 'skript' });
+  const e3 = gegnerNah(g3, 'raider', 1900, 800); ticks(g3, 20);
+  ok(Flotte.state(g3).stats.schuesse === 0 && sk.kiZielObj == null, 'Rolle skript (EK4a): keine KI, kein Feuer');
+  ok([g, g2, g3].every((x) => x.errors === 0), 'keine Server-Fehler');
+});
+
+section('EK4b: höchstens 12 Schiffe je Szene, mehr kommt als Nachschub', () => {
+  const t = raum(); const { g } = t; platz(g, 600, 800);
+  Flotte.aufstellen(g, { tag: 'fulminata', rolle: 'skript' }); Flotte.aufstellen(g, { tag: 'audax', rolle: 'skript' });
+  Flotte.wellenStart(g, { wellen: 'raider:10,korvette:6|raider:6', ziel: 'lerche', richtung: 'alle', takt: 0 });
+  let max = 0;
+  ticks(g, 20, () => { max = Math.max(max, Flotte.schiffe(g)); });
+  const nq = g.snapshot().flotte && g.snapshot().flotte.nq;
+  ok(max <= 12 && Flotte.schiffe(g) === 12, `nie mehr als 12 Schiffe (Höchstwert ${max}: 2 Verbündete + ${g.space.enemies.length} Gegner)`);
+  ok(nq > 0 && Registry.get('nachschub_wartet').test(g.mission, {}), `Rest wartet als Nachschub (Snapshot flotte.nq = ${nq})`);
+  const n0 = g.space.enemies.length;
+  const sterben = g.space.enemies.slice(0, 3);
+  for (const e of sterben) toeten(g, e);
+  ticks(g, 6);
+  ok(t.ev('flotteNachschub').length >= 1 && g.space.enemies.length >= n0 - 3 + 1 && Flotte.schiffe(g) <= 12, `Nachschub rückt nach, wenn Schiffe zerstört wurden (${t.ev('flotteNachschub').length} Nachzügler, Gegner ${n0} -> ${g.space.enemies.length})`);
+  // die Grenze gilt auch für das Spawn-Skript der Missionen
+  const t2 = raum(); const g2 = t2.g; Flotte.state(g2);
+  g2.mission.spawn({ kind: 'raider', n: 15 });
+  ok(g2.space.enemies.length === 12 && Flotte.state(g2).nachschub.length === 3, 'Regiebuch-Spawn: 12 erscheinen, 3 warten');
+  ok([g, g2].every((x) => x.errors === 0), 'keine Server-Fehler');
+});
+
+section('EK4b: Einblenden, Sprung der Flotte (auch Notfallsprung), Minen', () => {
+  const t = raum(); const { g } = t;
+  const a = Flotte.aufstellen(g, { tag: 'fulminata', auftauchen: true });
+  ok(t.ev('allyEintritt').length === 1 && g.snapshot().space.escorts[0].ein === 1 && t.radios().some((r) => /Rom fährt die Sperrflotte nieder/.test(r.text)), 'Auftauchen: Sprungblitz (allyEintritt), Snapshot ein, Funk des Legaten');
+  const hp0 = a.hp; Escort.hit(g, a, 500, {});
+  ok(a.hp === hp0, 'beim Einblenden unverwundbar');
+  ticks(g, CONFIG.flotte.einblenden.dauer + 0.5); Escort.hit(g, a, 5, {});
+  ok(a.hp < hp0 && !('ein' in g.snapshot().space.escorts[0]), 'danach verwundbar, Anzeige endet');
+  // Notfallsprung am selben Ort: die Flotte springt mit
+  const t2 = raum(); const g2 = t2.g;
+  const a2 = Flotte.aufstellen(g2, { tag: 'fulminata' }); const b2 = Flotte.aufstellen(g2, { tag: 'audax' });
+  platz(g2, 400, 400); a2.x = 2600; a2.y = 1400; b2.x = 2700; b2.y = 1300;
+  const Sprung = require('../server/sim/sprung.js');
+  Sprung.notsprung(g2); ticks(g2, 0.2);
+  ok(dist(a2, g2.ship) < 500 && dist(b2, g2.ship) < 500, `Notfallsprung: beide Verbündete stehen wieder bei der Lerche (${Math.round(dist(a2, g2.ship))}, ${Math.round(dist(b2, g2.ship))} px)`);
+  // Minen der Gegner treffen Verbündete, Minen der Lerche nicht
+  const Alarm = require('../server/sim/alarm.js');
+  const t3 = raum(); const g3 = t3.g; platz(g3, 300, 300);
+  const a3 = Flotte.aufstellen(g3, { tag: 'fulminata', von: { x: 1500, y: 800 }, modus: 'halten', rolle: 'skript' });
+  Alarm.an(g3, {});
+  Alarm.minenSetzen(g3, { n: 1, x: 1530, y: 800, radius: 1, besitzer: 'lerche' });
+  ticks(g3, 1);
+  ok(a3.hp === a3.hpMax && g3.space.minen.length === 1, 'Mine der Lerche: zündet nicht beim Verbündeten, trifft ihn nicht');
+  const mine = g3.space.minen[0]; Alarm.explodiere(g3, mine, 'abschuss'); ticks(g3, 0.1);
+  ok(a3.hp === a3.hpMax, 'Explosion einer Mine der Lerche verletzt Verbündete nicht');
+  Alarm.minenSetzen(g3, { n: 1, x: 1520, y: 800, radius: 1, besitzer: 'gegner' });
+  ticks(g3, 0.3);
+  ok(a3.hp < a3.hpMax && g3.space.minen.length === 0, `Mine der Gegner zündet beim Verbündeten und trifft ihn (Hülle ${a3.hpMax} -> ${Math.round(a3.hp)}) – gleiche Regeln wie für die Lerche`);
+  ok([g, g2, g3].every((x) => x.errors === 0), 'keine Server-Fehler');
+});
+
+section('EK4b: Snapshot kompakt (Worst Case Verbündete)', () => {
+  const t = raum(); const { g } = t;
+  for (let i = 0; i < 4; i++) Flotte.aufstellen(g, { tag: 'v' + i, kind: i % 2 ? 'fregatte' : 'korvette', name: 'Schiff ' + i });
+  ticks(g, 1);
+  const es = g.snapshot().space.escorts;
+  const b = Buffer.byteLength(JSON.stringify(es[0]));
+  ok(es.length === 4 && b < 130 && !('befehl' in es[0]) && !('state' in es[0]) && !('distress' in es[0]), `Verbündeter im Snapshot kompakt (${b} B, state/befehl/distress fehlen = Standard)`);
 });
 
 console.log(`\n${n - fails}/${n} ok`);
