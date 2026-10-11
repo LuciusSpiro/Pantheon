@@ -1001,7 +1001,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Captain verteilt Schilde. Nur an Orten mit Hauptobjekt.",
+            "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Technik verteilt Schilde. Nur an Orten mit Hauptobjekt.",
             "dauer_min": [
               3,
               4

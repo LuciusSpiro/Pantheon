@@ -244,7 +244,7 @@
         "texte": {
           "{{id}}.funk_start": "{{funk_start}}",
           "{{id}}.funk_verstaerkung": "{{funk_verstaerkung}}",
-          "{{id}}.lage": "Feindkontakt! Taktik besetzen, Captain verteilt Schilde auf die bedrohte Seite.",
+          "{{id}}.lage": "Feindkontakt! Taktik besetzen, Technik verteilt Schilde auf die bedrohte Seite.",
           "{{id}}.tipp": "Pilot: Breitseite zum Gegner. Taktik: Ziel mit T, Batterien 2/3. Schäden: E halten oder Bots.",
           "{{id}}.ankuendigung": "Ortung: Verstärkung im Anflug! Schilde hoch, Pilot – Breitseite bereithalten.",
           "{{id}}.ziel": "Angriff abwehren"

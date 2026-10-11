@@ -233,6 +233,7 @@
       "objectives": [
         { "id": "repel", "text": "@ziel.rostmeute_abwehren", "done": false },
         { "id": "hintScan", "text": "@ziel.tipp_scan", "optional": true, "done": { "event": "enemyScanned" } },
+        { "id": "hintTechnik", "text": "@ziel.technik_konsole", "optional": true, "done": { "check": { "name": "console_manned", "console": "technik" } } },
         { "id": "hintShields", "text": "@ziel.tipp_schilde", "optional": true, "done": { "event": "shieldsChanged" } },
         { "id": "hintRepair", "text": "@ziel.tipp_reparatur", "optional": true, "done": { "event": "repaired" } }
       ],
@@ -579,7 +580,7 @@
     "route.treiben_lassen": "Den Rest vom Bergungsgut lassen wir treiben. Vielleicht findet es jemand Bedürftigeres.",
     "route.bestechen_tipp": "Bestechen kostet 100 Marken. Kämpfen kostet Nerven. Beides ist legitim, sagt mein Handbuch.",
     "route.bezahlt": "Bezahlt. Ob die Rostmeute Wort hält? Ich wette nicht. Weiter nach B-7.",
-    "route.kampf": "Kampf also! Captain: Energie auf Schilde und Waffen. Dann Kurs B-7.",
+    "route.kampf": "Kampf also! Technik: Energie auf Schilde und Waffen – Konsole im Maschinenraum, Westwand. Dann Kurs B-7.",
 
     "wahl.grauzahn.frage": "Grauzahn verlangt Wegezoll. Antwort?",
     "wahl.grauzahn.bestechen": "Bestechen (100 Marken)",
@@ -592,13 +593,13 @@
     "sprung.grauzahn": "Captain: erst auf Grauzahn antworten.",
     "sprung.ortung": "Ortung läuft … Sprungantrieb wartet.",
 
-    "combat.rostmeute": "Rostmeute auf dem Schirm! Taktik besetzen, Captain verteilt Schilde auf die bedrohte Seite.",
+    "combat.rostmeute": "Rostmeute auf dem Schirm! Taktik besetzen, Technik verteilt Schilde auf die bedrohte Seite.",
     "combat.breitseite": "Die Lerche feuert über die Seiten: Batterien backbord und steuerbord, vorn nur die Lanze. Pilot: Breitseite zum Gegner!",
     "combat.scan": "Taktik: Gegner anvisieren und S halten – der Scan zeigt Schilde und Feuerbögen.",
     "combat.unbesetzt": "Unbesetzte Taktik? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.",
-    "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Captain setzt im Reiter „Schäden“ Prioritäten.",
+    "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Technik setzt im Reiter „Schadensplan“ Prioritäten.",
     "combat.streifschuss": "Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!",
-    "combat.korvette_laedt": "Die Korvette lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
+    "combat.korvette_laedt": "Die Korvette lädt die Breitseite. Technik: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
     "combat.erste_salve": "Korvette! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
     "combat.huellenbruch": "Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.",
     "combat.durchschlag": "Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.",
@@ -653,7 +654,8 @@
     "ziel.ziel_b7": "Captain: Ziel Boje B-7 wählen",
     "ziel.rostmeute_abwehren": "Rostmeute abwehren",
     "ziel.tipp_scan": "Tipp: Taktik – Gegner scannen (S halten)",
-    "ziel.tipp_schilde": "Tipp: Captain – Schilde zur bedrohten Seite",
+    "ziel.tipp_schilde": "Tipp: Technik – Schilde zur bedrohten Seite",
+    "ziel.technik_konsole": "Maschinenraum: Technik-Konsole betreten (E)",
     "ziel.tipp_reparatur": "Tipp: Schäden reparieren (E halten) oder Bots machen lassen",
     "ziel.zur_boje": "Zur Boje fliegen",
     "ziel.relais": "Taktik: Störrelais abschießen ({killed:relay}/3)",

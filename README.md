@@ -648,7 +648,7 @@ Spielleiter-Tests (Details unten unter „Für Entwickler – S1“).
    **X (Allstopp)** – unter 30 beamt es sich. **Vor dem Verlassen der Steuer immer STOPP:** Die unbesetzte Steuer behält
    ihre Stufe, das Schiff fährt weiter und ist nach 20 s einen Kilometer weg (ODA: „Schiff zu schnell für den Transfer“).
 5. Die zwei vom Außenteam gehen in die Transferkammer (unten links an Bord), stellen sich auf die Pads und halten **E**.
-   Der Captain bleibt oben, wechselt auf **Reiter 6 „Außenteam“** und führt von dort.
+   Der Captain bleibt oben, wechselt auf **Reiter 4 „Außenteam“** und führt von dort.
 6. Ende: Ende-Bildschirm „Die Tafel ist sicher“ mit Spielzeit. Danach könnt ihr frei weiterfliegen.
 
 Erwartete Dauer zu dritt: siehe „Messwerte M2“ unten.
@@ -725,9 +725,10 @@ Hinweise:
 |---|---|---|
 | **Pilot** | Steuer (ganz vorn, `H`) | sieht **nur die Frontsicht** (Bug oben, ca. 700 px nach vorn, im Nebel die Hälfte). Fliegt nach Sicht und nach den **Markern**: Mint = Captain, Bernstein = Taktik (Raute im Raum, am Rand Pfeil mit Entfernung). |
 | **Taktik** | Taktik (`W`, früher „Waffen“) | weite Taktikkarte, **alle Waffen** (Lanze am Bug, Batterien an beiden Flanken, Ladepunkte verteilen), **Ziel-Scan** (Schilde und Feuerbögen der Gegner), **Weitscan** (versteckte Dinge), Marker für den Pilot. Sieht Ladungen der Gegner zuerst und sagt sie an. |
-| **Captain** | Captain (`C`) | Funk und Entscheidungen, Sternkarte/Sprungziele, Lage-Karte mit Captain-Marker, Energie & Schilde (auch **Reaktor überladen**; Schildpool 6 bei Schild-Energie 2), **Schadensplan** (Reparaturliste der Schrauber), Außenteam-Hilfe. |
+| **Captain** | Captain (`C`) | Funk und Entscheidungen, Sternkarte/Sprungziele, Lage-Karte mit Captain-Marker, Außenteam-Hilfe; den Schiffszustand (Schilde klein oben) sieht er nur an. |
+| **Technik** | Technik (Maschinenraum, `i`, R1) | Reiter **Energie & Schilde** (auch **Reaktor überladen**; Schildpool 6 bei Schild-Energie 2) und **Schadensplan** (Reparaturliste der Schrauber, „Bots automatisch“). Ersetzt `captain.power/shield/priority/repair/botAuto/overload` – die alten Befehle antworten nur „Das macht jetzt die Technik.“ |
 
-Allein geht alles auch: zwischen den Konsolen hin- und herlaufen. Unbesetzte Taktik feuert mit halber Kraft automatisch,
+Allein geht alles auch: **Tab / Shift+Tab** schaltet an Steuer, Taktik, Captain- oder Technik-Konsole das Interface auf die nächste freie Station (Navigation → Taktik → Captain → Technik), ohne dass man aufsteht; eine per Tab gehaltene Station ist für andere gesperrt. Unbesetzte Taktik feuert mit halber Kraft automatisch – **nur bei 1–2 verbundenen Spielern** (ab 3 schießt niemand von selbst; ODA meldet den Wechsel) –
 unbesetzte Steuer behält die eingestellte Fahrtstufe, das Ruder geht auf 0 – das Schiff fährt geradeaus weiter (ab M3b,
 vor dem Verlassen also auf STOPP stellen). Die **Schrauber** löschen Feuer und dichten Lecks selbst ab;
 Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, wenn nur einer spielt.
@@ -739,13 +740,15 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 | Laufen | WASD / Pfeile · **E** interagieren (Löschen, Lecks, Beamen, Container, Schalter: **E halten**) · an einer Station: **E halten** = flicken (mit Ersatzteil in der Hand: Teil einbauen), **R** = Minispiel · **G** ablegen · **Tab** Crew-Status · **Esc** Konsole verlassen |
 | Steuer (Frontsicht) | **W/S Temporegler**: eine Stufe je Tastendruck (Halten schaltet nicht weiter) – R · STOPP · 1/4 · 1/2 · 3/4 · VOLL; links die senkrechte Stufenleiste (eingestellte Stufe hell, Pfeil = Ist-Tempo, Stufe auch per Mausklick, rechts „Stufe +/−“) · A/D Ruder (das Schiff ist träge: Drehung baut sich auf und läuft nach; **bei 1/2 am wendigsten**, „wendig“ an der Leiste, „DREHEN x %“ = aktueller Drehfaktor, hell im Drehbalken = bei diesem Tempo erreichbar) · **X Allstopp** (Stufe auf STOPP, stärker bremsen bis Stillstand) · Shift+A/D Ausweichrolle (7 s Abklingzeit) – lädt ein Gegner, steht oben **„AUSWEICHEN!“** mit Seite und Countdown; wird die Anzeige **grün** (letzte 0,8 s), jetzt ausweichen → der schwere Treffer geht vorbei („Ausgewichen!“) · F Faltsprung (wenn der Captain ein Ziel gewählt hat) · **keine Feuertaste** – lädt die Taktik die Lanze („LANZE LÄDT – Bug aufs Ziel!“), zeigt die Frontsicht eine Visierlinie: Bug auf den Gegner drehen |
 | Taktik | T nächstes Ziel (oder anklicken) · **Q/E** Waffe wählen · **A/D** Ladepunkte −/+ · **1 halten** Lanze aufladen (3 → 12 Schaden in 3 s, Visierlinie am Bug), **loslassen** feuert in Bugrichtung – auch per Maus: Knopf „Lanze“ gedrückt halten; kein Ziel nötig · **2/3** Batterie Bb / Stb · **Leertaste** beide Batterien (feuern nur auf Befehl, auch ohne Ziel: Ziel im Bogen, sonst nächster Gegner, sonst ins Leere) · 4 Bolzen (nach Kauf) · **S halten** Ziel-Scan · **W** Weitscan · **M** Marker aufs Ziel · **Rechtsklick** Marker setzen · **X** Marker löschen · **Z**/+/− Zoom · **O** Orbitalschlag (Außenmission) |
-| Captain | **1–6** Reiter: 1 Funk (Enter annehmen, Q/W/E Antwort) · 2 Sternkarte (←/→ Ort, Enter Sprungziel) · 3 Lage (Linksklick Captain-Marker, X löschen, **Leertaste halten = Scan**) · 4 Energie & Schilde (↑/↓ Zeile, ←/→ verteilen, **U → J Reaktor überladen**, N abbrechen) · 5 Schadensplan (W/S wählen, F/Enter Flicken, T Teil, Entf entfernen, P an die Spitze, A Bots automatisch) · 6 Außenteam (Codetabelle, S Sensor, K Schildkuppel) · oben rechts auf jedem Reiter die Schild-Übersicht (Füllstand, Durchlass-Farbe, rote Ladungs-Countdowns) – **kein Schildstoß mehr** (M3b) |
+| Captain | **1–4** Reiter: 1 Funk (Enter annehmen, Q/W/E Antwort) · 2 Sternkarte (←/→ Ort, Enter Sprungziel) · 3 Lage (Linksklick Captain-Marker, X löschen, **Leertaste halten = Scan**) · 4 Außenteam (Codetabelle, S Sensor, K Schildkuppel) · oben rechts auf jedem Reiter die Schild-Übersicht (Füllstand, Durchlass-Farbe, rote Ladungs-Countdowns) – **kein Schildstoß mehr** (M3b) |
+| Technik | **1–2** Reiter: 1 Energie & Schilde (↑/↓ Zeile, ←/→ verteilen, **U → J Reaktor überladen**, N abbrechen) · 2 Schadensplan (W/S wählen, F/Enter Flicken, T Teil, Entf entfernen, P an die Spitze, A Bots automatisch) |
+| Station | **Tab / Shift+Tab** an einer der vier Konsolen: Interface wechseln, du bleibst stehen (nicht an Transfer, Terminal, Quartier, Sonde, Planungstisch) |
 | Minispiel (R an einer Station) | **Leertaste**, wenn der Zeiger im grünen Feld steht – 3 Treffer, Fehlgriff = 1 s Sperre, scheitern unmöglich · Esc bricht ab |
 | Planungstisch (Brücke, `Y`) | E am Tisch setzen (bis zu 3 gleichzeitig) · **1–5** Pin-Art (Ziel, Gefahr, Landeplatz, Treffpunkt, Frage) · **Klick** Pin setzen – auf der Sternkarte (auf einem Ort: **Shift+Klick**), auf jeder Detailkarte und jedem Decksplan · Rechtsklick eigenen Pin entfernen · ←/→ Ort · **Enter** Detailkarte · **D** Decksplan (B-7/Wrack/Kesh) · **Backspace** zurück zur Sternkarte · **M Missionsbuch**: aktive / angebotene / erledigte Aufträge mit Auftraggeber, Briefing, Belohnung, Zielen und Logbuch – **W/S** wählen, **Enter** als aktiv markieren (das HUD zeigt dann deren Ziele), **A** annehmen · Esc aufstehen |
 | Quartier (E an der eigenen Koje) | ↑/↓ Reihe (Boden, Wand, Licht, Plätze) · ←/→ wählen · **Q/E** Deko blättern · Enter Deko setzen |
 | Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) · **Q/E** Waffe wählen (B2) · 7–0 Landepunkt (B1) |
 | Außenmission | Leertaste/Linksklick feuert die gewählte Waffe (zielt auf die Maus; Lanze: halten lädt, loslassen feuert) · Q Markierung für Hilfe von oben · Sonde: 1–6 Farbe |
-| Außenmission Kesh (Kampf v2) | **C** ducken / aufstehen · siehe „Kampf auf Kesh“ unten · Captain-Reiter 6: **Q/W/E/R/F/G** Befehl wählen, Klick auf die Karte setzt ihn, X löschen, **S** Sensor, **K** Kuppel |
+| Außenmission Kesh (Kampf v2) | **C** ducken / aufstehen · siehe „Kampf auf Kesh“ unten · Captain-Reiter 4: **Q/W/E/R/F/G** Befehl wählen, Klick auf die Karte setzt ihn, X löschen, **S** Sensor, **K** Kuppel |
 | Reaktor offline | beide Schalter im Maschinenraum (A oben, B unten) **gleichzeitig E halten**, 3 s. Allein: einen halten, nach 3 s kommt ein Schrauber an den anderen. |
 
 Jede Konsole zeigt ihre Tasten unten in einer Zeile. Ton startet mit der ersten Taste/dem ersten Klick.
@@ -841,7 +844,7 @@ Gilt nur auf Kesh; Plattform B-7 und Wrack spielen sich wie bisher mit Lebenspun
   der andere geht rum.
 - **Nebel:** Unten seht ihr nur, was eure Figuren sehen. Blasse Gitter-Silhouetten = zuletzt gesehen.
 
-**Captain an Bord (Reiter 6 „Außenteam“):** Karte mit allen Gegnern (verrauscht, solange ein Störrelais läuft).
+**Captain an Bord (Reiter 4 „Außenteam“):** Karte mit allen Gegnern (verrauscht, solange ein Störrelais läuft).
 Befehl wählen mit **Q** Sammeln · **W** Halten · **E** Flanke · **R** Rückzug · **F** Fokus · **G** Gefahr, dann auf die
 Karte klicken – unten erscheint eine Lichtsäule mit Beschriftung (30 s, höchstens 3). **Fokus** auf einen Gegner klicken:
 Er ist 8 s für das Außenteam sichtbar, auch durch Wände. **S** Sensorimpuls (10 s alle Gegner sichtbar), **K** Schildkuppel
@@ -907,8 +910,9 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
 |---|---|
 | **Pilot** (Steuer) | steuert und weicht aus. Keine Feuertaste. Hält Gegner in der **Breitseite** (Ziel bei ±90°), dreht bei einer Ansage weg (aus dem Bogen des Gegners) oder **weicht im grünen Fenster aus** (dann verfehlt der schwere Treffer) und dreht beim **Laden der Lanze** den Bug aufs Ziel (Visierlinie). Das Schiff ist träge (Drehung läuft nach) – früh gegenlenken. Ab M3b fährt es mit dem **Temporegler** (W/S je eine Stufe): bei **1/2** am wendigsten (90° ≈ 2,6 s), bei VOLL schnell, aber weiter Bogen (90° ≈ 4,4 s); Stopp → Voll ≈ 6 s. |
 | **Taktik** | verteilt die **Ladepunkte** (4 bei Waffenenergie 2) auf Lanze und Batterien und **feuert alles**: Lanze (1 halten = aufladen, loslassen = Schuss in Bugrichtung, 3–12 Schaden je Ladedauer, durchschlagend 2), Batterien (breite Fächer an den Flanken, Salve 4 × 1,5, nur auf Taste 2/3/Leertaste). Unbesetzt feuert die Taktik automatisch mit halbem Tempo. Sieht **Ladungen** der Gegner ab Beginn (roter Fächer mit Countdown) und sagt sie an. |
-| **Captain** | Schilde in den bedrohten Sektor (ab 3 dicht, siehe Durchlass-Tabelle), läuft als Erster los, **Schadensplan**: Schrauber auf Systeme ansetzen (Flicken / Teil), „Bots automatisch“. Sieht Ladungen erst in den letzten 1,2 s – hört also auf die Taktik. |
-| **Wer läuft** | repariert: meist die Taktik oder der Captain (unbesetzte Taktik feuert mit halber Kraft weiter). |
+| **Captain** | Funk, Sternkarte, Lage; läuft als Erster los. Sieht Ladungen erst in den letzten 1,2 s – hört also auf die Taktik. |
+| **Technik** | Schilde in den bedrohten Sektor (ab 3 dicht, siehe Durchlass-Tabelle), **Schadensplan**: Schrauber auf Systeme ansetzen (Flicken / Teil), „Bots automatisch“, Energie, Reaktor überladen. Konsole im Maschinenraum. |
+| **Wer läuft** | repariert: meist die Taktik oder der Captain (unbesetzte Taktik feuert nur bei 1–2 Spielern mit halber Kraft weiter). |
 
 ### Ansagen und Schilde
 - Korvette (3 s), Pylon (2 s) und Kustoden-Wächter (2,5 s, EMP) **laden** sichtbar, bevor sie schwer treffen. Ist das
@@ -920,7 +924,7 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
 - **Ein Schildpunkt schluckt einen Schadenspunkt**, der Rest geht auf die Hülle (5 Hülle je Punkt). Bei Schild ≥ 3 wird ein
   schwerer Treffer zusätzlich um 1 gemindert.
 - **Durchlass** – Chance je Treffer auf Systemschaden, nach der Schildstärke des Sektors **vor** dem Treffer (gilt auch, wenn der
-  Schild alles gefangen hat). Steht im Captain-Reiter 4 unter jedem Sektor:
+  Schild alles gefangen hat). Steht in der Technik-Konsole (Reiter 1) unter jedem Sektor:
 
   | Schild | Anzeige | Systemschaden |
   |---|---|---|
@@ -940,8 +944,8 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
   - **R = Minispiel** (3–5 s): eine Stufe hoch, dauerhaft.
   - **Ersatzteil holen (Lager) + E halten = Austausch** (3 s): sofort OK.
 - **Schrauber (Bots)** löschen Feuer und dichten Lecks selbst. Systeme reparieren sie **nur aus der Reparaturliste** des
-  Captains (höchstens 3 Einträge, „Flicken“ oder „Teil“). „Bots automatisch“ füllt die Liste selbst – Standard nur, wenn
-  genau einer spielt. Notreparatur durch ODA nach 45 s bleibt (nichts bleibt dauerhaft kaputt).
+  der Technik (höchstens 3 Einträge, „Flicken“ oder „Teil“). „Bots automatisch“ füllt die Liste selbst – Standard bei
+  genau einem oder zwei Spielern. Notreparatur durch ODA nach 45 s bleibt (nichts bleibt dauerhaft kaputt).
 - **Eskalation (M3b):** Bleibt im Gefecht ein System **20 s** beschädigt/zerstört, ohne dass jemand daran arbeitet, fängt der
   Boden neben der Station **Feuer**. Countdown im Schadensplan (Flamme + „14s“ statt Laufweg, darunter „Stb-Düse brennt in
   14 s“) und über der Station im Schiff („brennt in 14 s“, ab 5 s blinkend). Danach Hinweis „FEUER an …“.
@@ -949,7 +953,7 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
   Teil, Minispiel, Schrauber). Am Balken über dem Kopf erscheint das verlorene Stück rot mit „RÜCKSCHLAG −50 %“, oben die
   Meldung; Schrauber zeigen „−50 %“. Also zwischen den Salven schrauben.
 - **Reaktor-Autostart (M3b):** Ein im Gefecht reparierter Reaktor startet nach 3 s selbst („Reaktor startet in 3 s von
-  selbst“ im Captain-Reiter 4); der Neustart zu zweit bleibt für ruhige Momente.
+  selbst“ in der Technik-Konsole); der Neustart zu zweit bleibt für ruhige Momente.
 - `stats.bridgeLeaves` zählt, wie oft jemand die Brücke verlässt, während Gegner da sind.
 
 ### Testgelände-Wellen
@@ -968,7 +972,7 @@ Schilde 2/2/0/2 (Bug/Stb/Heck/Bb, ganzer Pool 6).
   die Anfluglinie gestrichelt („ANFLUG“) – Lanze früh halten, loslassen, wenn er die Bug-Linie quert.
 - **Schilde:** Pool 6, kein Schildstoß. Durchlass 45/20/5/0 % (Tabelle oben). **Eskalation** nach 20 s liegengelassenem
   Schaden im Kampf, **Rückschlag** −50 % bei Hüllentreffer im Sektor der Reparatur.
-- **Captain:** einmal „Bots automatisch“ (Reiter 5, A) lohnt sich zu dritt – die Schrauber reparieren dann mit, die Crew
+- **Technik:** einmal „Bots automatisch“ (Reiter 2, A) lohnt sich zu dritt – die Schrauber reparieren dann mit, die Crew
   kümmert sich um Zerstörtes und Eskalationen.
 
 ### Wichtige `tune`-Pfade (M3a, nur mit `npm run debug`)
@@ -1178,7 +1182,7 @@ drei zusätzliche Entdeckungen (Kustoden-Splitter an B-7, Selas Sonde, Rettungsk
 
 **Gemessen:** Wanduhr von „alle bereit“ in der Lobby bis zum Ende-Bildschirm, im echten Browser (drei Seiten:
 1280×720, 1920×1080, 1366×768), nur Tastatur/Maus, ohne Debug-Befehle und ohne God-Mode. Gespielt hat ein QA-Skript:
-Captain an Bord (nimmt an, wählt Kesh, führt über Reiter 6 mit Sammeln/Fokus, Sensor, Kuppel), Pilot fliegt nach
+Captain an Bord (nimmt an, wählt Kesh, führt über Reiter 4 mit Sammeln/Fokus, Sensor, Kuppel), Pilot fliegt nach
 Frontsicht und beamt dann mit runter, zwei Spieler unten mit 250–400 ms Reaktionszeit, Zielstreuung (σ ≈ 7 px + 4 %
 der Entfernung), Feuerstellungen hinter Deckung, Rückzug bei leerem Schild (verzögert, manchmal zu spät), Lesepausen.
 
