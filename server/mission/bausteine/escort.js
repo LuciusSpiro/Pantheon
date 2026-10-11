@@ -17,7 +17,7 @@ const escort = () => escortMod || (escortMod = require('../../sim/escort.js'));
 const KINDS = ['frachter', 'karawane', 'bergungsboot'];
 const VERHALTEN = ['treibt', 'folgt_kurs', 'flieht'];
 const BEFEHLE = ['halten', 'folgen', 'volle_kraft', 'andocken'];
-const STATES = ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'];
+const STATES = ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen', 'zerstoert'];   // EK4: zerstoert = Verbündeter zerstört
 
 function shipDef(m, tag) {
   const s = m && m.def && m.def.besetzung && m.def.besetzung.schiffe;

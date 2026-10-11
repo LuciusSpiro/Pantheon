@@ -139,7 +139,7 @@
     CMD_PLAN_DECLINE: 'plan.decline',
     CMD_CAPTAIN_ESCORT: 'captain.escort',
     ESCORT_ORDERS: ['halten', 'folgen', 'volle_kraft', 'andocken'],
-    ESCORT_STATES: ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'],
+    ESCORT_STATES: ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'],   // EK4: 'zerstoert' (Verbündeter) steht nur in escortsGone/Prüfungen, nie im Snapshot
     ESCORT_KINDS: ['frachter', 'karawane', 'bergungsboot'],
     ESCORT_FIELDS: ['id', 'tag', 'kind', 'name', 'x', 'y', 'angle', 'hp', 'hpMax', 'state', 'befehl', 'distress'],
     PLANNING_STAGES: [0, 1, 2],
@@ -156,6 +156,16 @@
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
     KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],
     KONVOI_AUSGAENGE: ['gepluendert', 'aufgehalten', 'entkommen'],
+    // ---- EK4 (CONTRACT-EK4): Flotte. Snapshot space.escorts[] enthält zusätzlich Verbündete (al: 1, kind korvette|fregatte|kreuzer|raider, bis CONFIG.flotte.max);
+    // Snapshot flotte (fehlt ohne Flotte): { b?: { a: Befehlsart, st: 0 läuft|1 erfüllt|2 gescheitert|3 abgebrochen, r?: Rest-Frist s, k?, n? (Abschüsse), i?, w?: [[x, y, ok]], rad?, s?: Schiff-ID, g?: Grund },
+    // wl?: [Welle, von, druck?] }. Funkspruch (Ereignis radio und mission.radio) trägt pid: 'legat' | 'mars' (Porträt bzw. Symbol).
+    // Ereignisse: flotteBefehl { id, art, st, grund?, frist? }, flotteWegpunkt { id, i, n }, flotteWelle { n, von }, flotteDruck { n }, flotteNeustart {},
+    // flotteGedaechtnis { art }, flotteFehlt { tag }, flotteNachschub { art, rest }, allyDistress { id, tag, kritisch? }, allyLost { id, tag, name, x, y, kapsel },
+    // allyEintritt { id, tag, name, x, y, dauer } (Sprungblitz). Snapshot flotte.nq = wartender Nachschub; Verbündete im Snapshot: state/befehl/distress fehlen = ok/null/false, ein: 1 beim Einblenden.
+    EK4_EVENTS: ['flotteBefehl', 'flotteWegpunkt', 'flotteWelle', 'flotteDruck', 'flotteNeustart', 'flotteGedaechtnis', 'flotteFehlt', 'flotteNachschub', 'allyDistress', 'allyLost', 'allyEintritt'],
+    FLOTTE_ARTEN: ['ausschalten', 'eskortieren', 'durchbrechen', 'zurueckfallen', 'entlastung'],
+    ALLY_KINDS: ['korvette', 'fregatte', 'kreuzer', 'raider'],
+    FUNK_PORTRAETS: ['legat', 'mars'],
     S2_EVENTS: ['offerIn', 'sceneWait', 'chapter', 'escortHit', 'escortDistress', 'escortDisabled', 'escortArrived', 'escortSaved', 'escortOrder'],
     SL_DEBUG: ['status', 'plan', 'fail', 'archiv'],
     // ---- S1 (CONTRACT-S1 §6): Weltstand, Spielmenü ----
@@ -234,7 +244,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

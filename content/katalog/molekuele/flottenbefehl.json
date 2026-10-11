@@ -1,0 +1,2224 @@
+{
+  "format": "molekuel/1",
+  "id": "flottenbefehl",
+  "name": "Flottenbefehl",
+  "familie": "kampf",
+  "kern": "Einen Befehl des Legaten erfüllen: Ziel ausschalten, Schiff eskortieren, durchbrechen, zurückfallen oder ein Schiff entlasten – Fortschritt nur durch erreichte Ziele",
+  "ansaetze": [
+    "gewalt",
+    "technik"
+  ],
+  "szenentypen": [
+    "A10"
+  ],
+  "umsetzungen": [
+    {
+      "id": "ausschalten",
+      "name": "Befehl: Ausschalten",
+      "schauplatz": "weltraum",
+      "beschreibung": "Der Legat befiehlt, ein markiertes Schiff (Korvette) auszuschalten, während Wellen Jäger anrollen; ein verbündetes Schiff (eigene KI) kämpft mit. Ziel zerstört = Befehl erfüllt. Läuft die Frist ab, wird die Crew überrannt (Überdruck) und muss von vorn anfangen (zweimal), danach übernimmt Rom.",
+      "braucht": [
+        "raumkampf",
+        "flottenbefehle",
+        "verbuendete"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          6
+        ],
+        "2": [
+          3,
+          5
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_erfuellt",
+        "{{id}}_gescheitert",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "befehlErteilt",
+        "befehlErfuellt",
+        "befehlGescheitert",
+        "welleKommt",
+        "escortDistress",
+        "allyLost",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene (Raum)"
+        },
+        "funk_npc": {
+          "typ": "npc",
+          "default": "legat",
+          "beschreibung": "Wer den Befehl gibt (Funkporträt für legat)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Fulminata",
+          "beschreibung": "Name des verbündeten Schiffs (höchstens 24 Zeichen)"
+        },
+        "wellen": {
+          "typ": "text",
+          "default": "raider:2",
+          "beschreibung": "Gruppen kind:n,kind:n mit | getrennt"
+        },
+        "takt": {
+          "typ": "zahl",
+          "default": 40,
+          "min": 15,
+          "max": 120
+        },
+        "frist": {
+          "typ": "zahl",
+          "default": 180,
+          "min": 60,
+          "max": 400,
+          "beschreibung": "Sekunden bis zum Überdruck"
+        },
+        "befehl": {
+          "typ": "text",
+          "default": "Dort, die Korvette! Das ist das Ziel. Vernichtet sie, ihr habt drei Minuten!"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ],
+          "schiffe": {
+            "{{id}}": {
+              "kind": "korvette",
+              "name": "{{name}}",
+              "npc": "{{funk_npc}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "flotte_aufstellen",
+                "tag": "{{id}}",
+                "kind": "korvette",
+                "name": "{{name}}",
+                "von": "lerche",
+                "modus": "folgen"
+              },
+              {
+                "spawn": {
+                  "kind": "korvette",
+                  "tag": "{{id}}_ziel",
+                  "angles": [
+                    0.25
+                  ],
+                  "ziel": "lerche"
+                }
+              },
+              {
+                "do": "flotte_wellen",
+                "wellen": "{{wellen}}",
+                "takt": "{{takt}}",
+                "ziel": "auto",
+                "richtung": "vorn"
+              },
+              {
+                "do": "flotte_befehl",
+                "art": "ausschalten",
+                "sprecher": "{{funk_npc}}",
+                "text": "@{{id}}.befehl",
+                "frist": "{{frist}}",
+                "ziel": "{{id}}_ziel"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 75,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_erfuellt",
+                        "art": "ausschalten"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_erfuellt": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.erfuellt"
+                  }
+                ]
+              },
+              {
+                "_kommentar": "Verlust des Schiffs beendet die Szene hier nicht (nur Hinweis)",
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "schiff_verloren",
+                        "tag": "{{id}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_klage"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_klage": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_verloren": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.verlust"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f1"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f1": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r1": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r1"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f2"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f2": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r2": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r2"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 900
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "befehl",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.befehl": "{{befehl}}",
+          "{{id}}.erfuellt": "Befehl ausgeführt. Die Angreifer ziehen sich zurück.",
+          "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
+          "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
+          "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
+          "{{id}}.lage": "Befehl: Ausschalten. Ziel ist die markierte Korvette – Taktik: aufschalten, Pilot: Breitseite.",
+          "{{id}}.tipp": "Das Ziel hat Schilde. Seite mit dem schwächsten Segment suchen, dann die Lanze.",
+          "{{id}}.ziel": "Befehl: das Ziel ausschalten"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    },
+    {
+      "id": "eskortieren",
+      "name": "Befehl: Eskortieren",
+      "schauplatz": "weltraum",
+      "beschreibung": "Der Legat befiehlt, sein Schiff zu eskortieren: Es fliegt die Wegpunkte ab und wartet, wenn die Lerche zurückfällt (Leine). Jäger-Wellen greifen es an (angekündigt, die Lerche kann abfangen). Alle Wegpunkte erreicht = erfüllt; fällt das Schiff, ist der Befehl hinfällig. Frist -> Überdruck, von vorn.",
+      "braucht": [
+        "raumkampf",
+        "flottenbefehle",
+        "verbuendete"
+      ],
+      "dauer_min": [
+        4,
+        6
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          5,
+          7
+        ],
+        "2": [
+          4,
+          6
+        ],
+        "3": [
+          4,
+          6
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_erfuellt",
+        "{{id}}_gescheitert",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "befehlErteilt",
+        "befehlErfuellt",
+        "befehlGescheitert",
+        "welleKommt",
+        "escortDistress",
+        "allyLost",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene (Raum)"
+        },
+        "funk_npc": {
+          "typ": "npc",
+          "default": "legat",
+          "beschreibung": "Wer den Befehl gibt (Funkporträt für legat)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Fulminata",
+          "beschreibung": "Name des verbündeten Schiffs (höchstens 24 Zeichen)"
+        },
+        "punkte": {
+          "typ": "text",
+          "default": "mitte;ost",
+          "beschreibung": "Wegpunkte (west|ost|nord|sued|mitte|x,y) mit ; getrennt"
+        },
+        "wellen": {
+          "typ": "text",
+          "default": "raider:2|raider:2|raider:2,korvette:1"
+        },
+        "takt": {
+          "typ": "zahl",
+          "default": 45,
+          "min": 15,
+          "max": 120
+        },
+        "frist": {
+          "typ": "zahl",
+          "default": 240,
+          "min": 90,
+          "max": 500
+        },
+        "befehl": {
+          "typ": "text",
+          "default": "Gebt der Fulminata Geleit, bis sie die Punkte erreicht hat! Bleibt dicht dran, sonst wartet sie."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ],
+          "schiffe": {
+            "{{id}}": {
+              "kind": "korvette",
+              "name": "{{name}}",
+              "npc": "{{funk_npc}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "flotte_aufstellen",
+                "tag": "{{id}}",
+                "kind": "korvette",
+                "name": "{{name}}",
+                "von": "lerche",
+                "modus": "halten"
+              },
+              {
+                "do": "flotte_wellen",
+                "wellen": "{{wellen}}",
+                "takt": "{{takt}}",
+                "ziel": "verbuendet",
+                "richtung": "vorn"
+              },
+              {
+                "do": "flotte_befehl",
+                "art": "eskortieren",
+                "sprecher": "{{funk_npc}}",
+                "text": "@{{id}}.befehl",
+                "frist": "{{frist}}",
+                "schiff": "{{id}}",
+                "punkte": "{{punkte}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 75,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_erfuellt",
+                        "art": "eskortieren"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_erfuellt": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.erfuellt"
+                  }
+                ]
+              },
+              {
+                "_kommentar": "Das Schiff des Befehls ist verloren: der Befehl ist hinfällig, die Szene endet (kein Neustart ohne Schiff, es kommt nicht zurück)",
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "schiff_verloren",
+                        "tag": "{{id}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true,
+                      "{{id}}_verloren": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.verlust"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f1"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f1": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r1": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r1"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f2"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f2": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r2": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r2"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 900
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "befehl",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.befehl": "{{befehl}}",
+          "{{id}}.erfuellt": "Befehl ausgeführt. Die Angreifer ziehen sich zurück.",
+          "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
+          "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
+          "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
+          "{{id}}.lage": "Befehl: Eskortieren. {{name}} fliegt die Punkte ab und wartet, wenn die Lerche zu weit zurückfällt.",
+          "{{id}}.tipp": "Bleibt in der Nähe des Schiffs. Jäger, die auf {{name}} laden, abfangen: Breitseite dazwischen.",
+          "{{id}}.ziel": "Befehl: {{name}} zu den Punkten eskortieren"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    },
+    {
+      "id": "durchbrechen",
+      "name": "Befehl: Durchbrechen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Der Legat befiehlt den Durchbruch: Die Lerche erreicht nacheinander die markierten Punkte, während Wellen von vorn anrollen; das verbündete Schiff folgt in Formation. Alle Punkte erreicht = erfüllt. Frist -> Überdruck, von vorn.",
+      "braucht": [
+        "raumkampf",
+        "flottenbefehle",
+        "verbuendete"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          6
+        ],
+        "2": [
+          3,
+          5
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_erfuellt",
+        "{{id}}_gescheitert",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "befehlErteilt",
+        "befehlErfuellt",
+        "befehlGescheitert",
+        "welleKommt",
+        "escortDistress",
+        "allyLost",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene (Raum)"
+        },
+        "funk_npc": {
+          "typ": "npc",
+          "default": "legat",
+          "beschreibung": "Wer den Befehl gibt (Funkporträt für legat)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Fulminata",
+          "beschreibung": "Name des verbündeten Schiffs (höchstens 24 Zeichen)"
+        },
+        "punkte": {
+          "typ": "text",
+          "default": "mitte;ost",
+          "beschreibung": "Wegpunkte (west|ost|nord|sued|mitte|x,y) mit ; getrennt"
+        },
+        "wellen": {
+          "typ": "text",
+          "default": "raider:2|raider:2,korvette:1"
+        },
+        "takt": {
+          "typ": "zahl",
+          "default": 40,
+          "min": 15,
+          "max": 120
+        },
+        "frist": {
+          "typ": "zahl",
+          "default": 180,
+          "min": 60,
+          "max": 400
+        },
+        "befehl": {
+          "typ": "text",
+          "default": "Brecht durch! Kurs auf die markierten Punkte, wir folgen!"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ],
+          "schiffe": {
+            "{{id}}": {
+              "kind": "korvette",
+              "name": "{{name}}",
+              "npc": "{{funk_npc}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "flotte_aufstellen",
+                "tag": "{{id}}",
+                "kind": "korvette",
+                "name": "{{name}}",
+                "von": "lerche",
+                "modus": "folgen"
+              },
+              {
+                "do": "flotte_wellen",
+                "wellen": "{{wellen}}",
+                "takt": "{{takt}}",
+                "ziel": "auto",
+                "richtung": "vorn"
+              },
+              {
+                "do": "flotte_befehl",
+                "art": "durchbrechen",
+                "sprecher": "{{funk_npc}}",
+                "text": "@{{id}}.befehl",
+                "frist": "{{frist}}",
+                "punkte": "{{punkte}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 75,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_erfuellt",
+                        "art": "durchbrechen"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_erfuellt": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.erfuellt"
+                  }
+                ]
+              },
+              {
+                "_kommentar": "Verlust des Schiffs beendet die Szene hier nicht (nur Hinweis)",
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "schiff_verloren",
+                        "tag": "{{id}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_klage"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_klage": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_verloren": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.verlust"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f1"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f1": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r1": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r1"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f2"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f2": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r2": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r2"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 900
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "befehl",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.befehl": "{{befehl}}",
+          "{{id}}.erfuellt": "Befehl ausgeführt. Die Angreifer ziehen sich zurück.",
+          "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
+          "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
+          "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
+          "{{id}}.lage": "Befehl: Durchbrechen. Pilot: Kurs auf die markierten Punkte, Taktik hält die Jäger klein.",
+          "{{id}}.tipp": "Nicht jeden Jäger jagen – die Punkte zählen. Captain: Kurs ansagen.",
+          "{{id}}.ziel": "Befehl: Durchbrechen – alle Punkte erreichen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    },
+    {
+      "id": "zurueckfallen",
+      "name": "Befehl: Zurückfallen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Der Legat befiehlt den geordneten Rückzug auf die markierten Punkte hinter der Linie, während Wellen von achtern nachsetzen (Verfolgung); das verbündete Schiff hält die Stellung. Alle Punkte erreicht = erfüllt. Frist -> Überdruck, von vorn.",
+      "braucht": [
+        "raumkampf",
+        "flottenbefehle",
+        "verbuendete"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          4
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_erfuellt",
+        "{{id}}_gescheitert",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "befehlErteilt",
+        "befehlErfuellt",
+        "befehlGescheitert",
+        "welleKommt",
+        "escortDistress",
+        "allyLost",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene (Raum)"
+        },
+        "funk_npc": {
+          "typ": "npc",
+          "default": "legat",
+          "beschreibung": "Wer den Befehl gibt (Funkporträt für legat)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Fulminata",
+          "beschreibung": "Name des verbündeten Schiffs (höchstens 24 Zeichen)"
+        },
+        "punkte": {
+          "typ": "text",
+          "default": "mitte;ost",
+          "beschreibung": "Wegpunkte hinter der Linie (west|ost|nord|sued|mitte|x,y) mit ; getrennt"
+        },
+        "wellen": {
+          "typ": "text",
+          "default": "raider:2|raider:2"
+        },
+        "takt": {
+          "typ": "zahl",
+          "default": 35,
+          "min": 15,
+          "max": 120
+        },
+        "frist": {
+          "typ": "zahl",
+          "default": 150,
+          "min": 60,
+          "max": 400
+        },
+        "befehl": {
+          "typ": "text",
+          "default": "Fallt zurück auf die markierten Punkte, hinter unsere Linie! Wir halten hier die Stellung."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ],
+          "schiffe": {
+            "{{id}}": {
+              "kind": "korvette",
+              "name": "{{name}}",
+              "npc": "{{funk_npc}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "flotte_aufstellen",
+                "tag": "{{id}}",
+                "kind": "korvette",
+                "name": "{{name}}",
+                "von": "lerche",
+                "modus": "halten"
+              },
+              {
+                "do": "flotte_wellen",
+                "wellen": "{{wellen}}",
+                "takt": "{{takt}}",
+                "ziel": "auto",
+                "richtung": "achtern"
+              },
+              {
+                "do": "flotte_befehl",
+                "art": "zurueckfallen",
+                "sprecher": "{{funk_npc}}",
+                "text": "@{{id}}.befehl",
+                "frist": "{{frist}}",
+                "punkte": "{{punkte}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 75,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_erfuellt",
+                        "art": "zurueckfallen"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_erfuellt": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.erfuellt"
+                  }
+                ]
+              },
+              {
+                "_kommentar": "Verlust des Schiffs beendet die Szene hier nicht (nur Hinweis)",
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "schiff_verloren",
+                        "tag": "{{id}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_klage"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_klage": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_verloren": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.verlust"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f1"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f1": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r1": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r1"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f2"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f2": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r2": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r2"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 900
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "befehl",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.befehl": "{{befehl}}",
+          "{{id}}.erfuellt": "Befehl ausgeführt. Die Angreifer ziehen sich zurück.",
+          "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
+          "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
+          "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
+          "{{id}}.lage": "Befehl: Zurückfallen. Die Jäger setzen von achtern nach – Schild zum Heck, Kurs auf die Punkte hinter unserer Linie.",
+          "{{id}}.tipp": "Heck zeigt zum Feind: Schild nach hinten. Die Punkte erreichen, nicht kämpfen.",
+          "{{id}}.ziel": "Befehl: auf die Punkte zurückfallen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    },
+    {
+      "id": "entlastung",
+      "name": "Befehl: Entlastung",
+      "schauplatz": "weltraum",
+      "beschreibung": "Der Legat ruft: Sein Schiff steht unter Beschuss. Die Lerche bleibt in der Nähe (Radius) und schießt n Angreifer ab; Abschüsse weit weg zählen nicht. Hält das Schiff nicht durch, ist der Befehl hinfällig. Frist -> Überdruck, von vorn.",
+      "braucht": [
+        "raumkampf",
+        "flottenbefehle",
+        "verbuendete"
+      ],
+      "dauer_min": [
+        3,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          4,
+          6
+        ],
+        "2": [
+          3,
+          5
+        ],
+        "3": [
+          3,
+          5
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_erfuellt",
+        "{{id}}_gescheitert",
+        "{{id}}_verloren"
+      ],
+      "ereignisse": [
+        "befehlErteilt",
+        "befehlErfuellt",
+        "befehlGescheitert",
+        "welleKommt",
+        "escortDistress",
+        "allyLost",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Ort der Szene (Raum)"
+        },
+        "funk_npc": {
+          "typ": "npc",
+          "default": "legat",
+          "beschreibung": "Wer den Befehl gibt (Funkporträt für legat)"
+        },
+        "name": {
+          "typ": "text",
+          "default": "Fulminata",
+          "beschreibung": "Name des verbündeten Schiffs (höchstens 24 Zeichen)"
+        },
+        "abschuesse": {
+          "typ": "zahl",
+          "default": 4,
+          "min": 2,
+          "max": 10
+        },
+        "radius": {
+          "typ": "zahl",
+          "default": 420,
+          "min": 200,
+          "max": 800
+        },
+        "wellen": {
+          "typ": "text",
+          "default": "raider:3|raider:2,korvette:1"
+        },
+        "takt": {
+          "typ": "zahl",
+          "default": 45,
+          "min": 15,
+          "max": 120
+        },
+        "frist": {
+          "typ": "zahl",
+          "default": 240,
+          "min": 90,
+          "max": 500
+        },
+        "befehl": {
+          "typ": "text",
+          "default": "Die Fulminata steht unter Beschuss! Haltet die Jäger von mir fern, bleibt in meiner Nähe!"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "besetzung": {
+          "npc": [
+            "{{funk_npc}}"
+          ],
+          "schiffe": {
+            "{{id}}": {
+              "kind": "korvette",
+              "name": "{{name}}",
+              "npc": "{{funk_npc}}"
+            }
+          }
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "flotte_aufstellen",
+                "tag": "{{id}}",
+                "kind": "korvette",
+                "name": "{{name}}",
+                "von": "lerche",
+                "modus": "halten"
+              },
+              {
+                "do": "flotte_wellen",
+                "wellen": "{{wellen}}",
+                "takt": "{{takt}}",
+                "ziel": "verbuendet",
+                "richtung": "alle"
+              },
+              {
+                "do": "flotte_befehl",
+                "art": "entlastung",
+                "sprecher": "{{funk_npc}}",
+                "text": "@{{id}}.befehl",
+                "frist": "{{frist}}",
+                "schiff": "{{id}}",
+                "n": "{{abschuesse}}",
+                "radius": "{{radius}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 75,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_erfuellt",
+                        "art": "entlastung"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_erfuellt": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.erfuellt"
+                  }
+                ]
+              },
+              {
+                "_kommentar": "Das Schiff des Befehls ist verloren: der Befehl ist hinfällig, die Szene endet (kein Neustart ohne Schiff, es kommt nicht zurück)",
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "schiff_verloren",
+                        "tag": "{{id}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true,
+                      "{{id}}_verloren": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.verlust"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f1"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f1": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r1": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r1"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_f2"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_f2": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gescheitert"
+                  },
+                  {
+                    "after": {
+                      "sec": 7,
+                      "do": [
+                        {
+                          "do": "flotte_neustart"
+                        },
+                        {
+                          "set": {
+                            "{{id}}_r2": true
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "befehl_gescheitert"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_r2"
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "elapsed": 900
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gescheitert": true
+                    }
+                  },
+                  {
+                    "do": "enemies_retreat",
+                    "unter_pct": 100
+                  },
+                  {
+                    "oda": "@{{id}}.aufgegeben"
+                  }
+                ],
+                "garantie": "autoloesung"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "befehl",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "debug_clear_enemies"
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.befehl": "{{befehl}}",
+          "{{id}}.erfuellt": "Befehl ausgeführt. Die Angreifer ziehen sich zurück.",
+          "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
+          "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
+          "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
+          "{{id}}.lage": "Befehl: Entlastung. {{name}} hält die Stellung; Abschüsse zählen nur in ihrer Nähe.",
+          "{{id}}.tipp": "Dicht bei {{name}} bleiben. Wer auf sie lädt, wird zuerst beschossen.",
+          "{{id}}.ziel": "Befehl: {{name}} entlasten – Angreifer in ihrer Nähe abschießen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Briefing Eisenwald-Kampagne (EK4), Arbeitspaket Raum-Alarm und K4 (K4: Befehlskatalog); Umsetzung EK4a (CONTRACT-EK4)"
+}

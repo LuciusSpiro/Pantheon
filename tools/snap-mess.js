@@ -219,17 +219,45 @@ function konvoi(S, seed) {
   return { fehler: g.errors };
 }
 
+// ---------- Aufbau 4 (EK4): Flotte – Worst Case: Lerche (3 Spieler), 2 Verbündete mit KI, Gegner bis zur Grenze von 12 Schiffen (alle gescannt,
+// Korvetten/Fregatten/Kreuzer mit Waffenlisten), Befehl mit Wegpunkten und Frist, Welle mit Nachschub, Sperrfeuer und Verbündetenfeuer ----------
+function flotte(S, seed) {
+  const space = require('../server/sim/space.js');
+  const Flotte = require('../server/sim/flotte.js');
+  const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
+  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'F' + i, name: 'F' + i, color: i }); }
+  g.reset(); g.phase = 'play';
+  space.enterScene(g, 'splitter', {});
+  g.space.enemies = [];
+  g.god = true;
+  Flotte.aufstellen(g, { tag: 'fulminata', kind: 'korvette' });
+  Flotte.aufstellen(g, { tag: 'audax', kind: 'fregatte' });
+  Flotte.befehl(g, { art: 'durchbrechen', punkte: 'mitte;ost;nord', frist: 400 });
+  Flotte.wellenStart(g, { wellen: 'korvette:3,fregatte:2,kreuzer:1,raider:6|kreuzer:2,raider:6', ziel: 'auto', richtung: 'alle', takt: 0, ueberdruck: true });
+  let max = 0;
+  for (let k = 0; k < TICKS; k++) {
+    g.ship.hull = 100;
+    g.step();
+    for (const e of g.space.enemies) e.scanned = true;
+    if (k % 90 === 60) { const e = g.space.enemies[0]; if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }   // alle 3 s fällt einer: Nachschub rückt nach
+    max = Math.max(max, Flotte.schiffe(g));
+    messen(S, g.snapshot());
+  }
+  return { fehler: g.errors, schiffeMax: max };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.methalle.push(Object.assign({ seed: s }, methalleLauf(WM, 30 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.endkampf.push(Object.assign({ seed: s }, endkampfLauf(WE, 40 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, konvoi(KV, 60 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, flotte(FL, 60 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -253,7 +281,9 @@ zeigen(res.endkampf);
 console.log('  Läufe: ' + laeufe.endkampf.map((l) => `s${l.seed} ${l.lp} ${l.gegner} Gegner im Snapshot, Anführer ${l.boss ? 'ja' : 'NEIN'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.konvoi);
 console.log('  Läufe: ' + laeufe.konvoi.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-const alleOk = res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+zeigen(res.flotte);
+console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+const alleOk = res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

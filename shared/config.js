@@ -261,6 +261,29 @@
       signatur: { ruhe: 0.15, tempoRef: 130, exponent: 1, schildeUnten: 0.5, min: 0.04, asteroid: { abstand: 110, faktor: 0.6 },
         nebel: { schalter: false, faktor: 0.6 }, pingDauer: 4, pingSig: 1, schildeHoch: 3 },
     },
+    // EK4 Flotte (server/sim/flotte.js, CONTRACT-EK4): Verbündete (scripted in EK4a, eigene KI in EK4b), Befehle des Legaten, Wellen.
+    // hull = Hülle je Klasse (wie escorts.hull, Schaden × escorts.hullPerDamage × crewDamage); hilferuf = Hüllenanteile für Hilferuf und
+    // kritischen Ruf (je Schiff einmal); befehl.* = Standardwerte der fünf Befehlsarten (Radius px, Frist s, Leine px).
+    flotte: {
+      max: 12, hull: { korvette: 220, fregatte: 380, kreuzer: 520, raider: 90 },
+      hilferuf: { schwer: 0.4, kritisch: 0.15 },
+      crewDamage: { 1: 0.7, 2: 0.9, 3: 1.0 },   // Schaden auf Verbündete je Crewgröße (Faktor auf escorts.hullPerDamage); Schützlinge: escorts.crewDamage
+      befehl: {
+        radius: 170, leine: 450, abweichDist: 950, abweichSek: 25, imStichDist: 700,
+        entlastung: { radius: 420, abschuesse: 4 },
+        frist: { ausschalten: 150, eskortieren: 240, durchbrechen: 180, zurueckfallen: 150, entlastung: 240 },
+      },
+      wellen: { takt: 45, rest: 0, druckTakt: 9, druckMax: 4 },   // Überdruck nach abgelaufener Frist: alle druckTakt s eine weitere Gruppe
+      // EK4b: eigene KI der Verbündeten. Flug = Klassen-KI der Gegner (pilot.js: Breitseite für Korvette/Fregatte/Kreuzer, Anflug für Jäger) mit dem Gegner
+      // als Ziel; Rolle begleiter (bleibt in leine px um die Lerche, bekämpft, was sie oder ihn anvisiert), angreifer (jagt den nächsten Gegner), skript
+      // (EK4a: nur Regiebuch, feuert nicht). Feuer: Waffenplätze/Bögen aus enemyWeapons der Klasse, je Platz alle intervall s ein Geschoss (kind 'ally':
+      // trifft nur Gegner, nie die Lerche oder Verbündete – kein Eigenbeschuss), dmg je Treffer.
+      ki: { rolle: 'begleiter', leine: 1100, zielReichweite: 1500, zielTakt: 0.5, intervall: { raider: 1.6, korvette: 3.4, fregatte: 3.2, kreuzer: 3.0 },
+        dmg: { raider: 2.2, korvette: 3, fregatte: 3, kreuzer: 3.4 }, schussTempo: 260, minenAbstand: 110, minenSchaden: 20 },
+      einblenden: { dauer: 2.5 },                                 // s: Verbündete tauchen mit einem Sprungblitz auf, in dieser Zeit unverwundbar
+      nachschub: { takt: 1.2 },                                   // s zwischen zwei Nachschub-Schiffen, wenn Plätze frei sind (höchstens CONFIG.flotte.max Schiffe je Szene)
+      kapsel: { dauer: 14 },                                      // s, die die Rettungskapsel im Snapshot-Ereignis „läuft“ (Anzeige)
+    },
     emp: { offlineTime: 12 },                                  // EMP-Treffer durch die Schilde: System offline
     reactorM1: { overloadBonus: 4, overloadTime: 180, warnAt: 30, offlineOutput: 2, restartTime: 3, botAssistAfter: 3, autoRestartAfter: 240 },
     quarters: {

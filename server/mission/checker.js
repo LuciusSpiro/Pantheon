@@ -420,7 +420,7 @@ function check(doc, ctxIn) {
         const name = typeof v === 'string' ? v : v && v.name;
         const args = typeof v === 'string' ? {} : Object.fromEntries(Object.entries(v || {}).filter(([x]) => x !== 'name'));
         paramCheck('pruefung', name, args, ap, cctx);
-        if (name === 'escort_state' && args.state === 'kampfunfaehig') lossPaths.add(args.tag || '*');
+        if ((name === 'escort_state' && (args.state === 'kampfunfaehig' || args.state === 'zerstoert')) || name === 'schiff_verloren') lossPaths.add(args.tag || '*');   // EK4: Verbündete: zerstoert
       }
       if (k === 'atLocation' || k === 'dest' || (k === 'docked' && typeof v === 'string')) {
         if (!LOC_IDS.has(v)) E('REF-ORT', ap, `Ort '${v}' gibt es nicht`);

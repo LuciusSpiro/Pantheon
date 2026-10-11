@@ -13,6 +13,7 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
+const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Legaten, Wellen (game.flotte, Snapshot flotte)
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
@@ -383,6 +384,7 @@ class Game {
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
     this.fracht = Fracht.neu();   // EK3 Teil A: { lager, draussen, halt, gesichert, abnehmer, … }
+    this.flotte = null;           // EK4: { befehl, welle, hist, stats } – entsteht erst mit dem ersten Flottenbaustein
     this.notsprungIn = null;
     this.notsprungVon = null; this.notsprungT = -1;   // EK2: Ort und Zeit des letzten Notfallsprungs (Prüfung rueckzug)
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
@@ -445,6 +447,7 @@ class Game {
   missionEvent(name, data) {
     if (name === 'docked') this.markSaveDue('docked');
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
+    if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     try { this.mission.onEvent(name, data || {}); } catch (e) { this.countError('mission-event', e); }
   }
   log(...a) { this.logFn(...a); }
@@ -1140,6 +1143,7 @@ class Game {
       case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
+      case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
@@ -1394,6 +1398,7 @@ class Game {
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
       this.safe('fracht', () => Fracht.update(this, dt));   // EK3 Teil A: Halteprozess, Szenenwechsel
+      if (this.flotte) this.safe('flotte', () => Flotte.update(this, dt));   // EK4: Befehle (Ziele erreicht, Frist), Wellen
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart
@@ -1672,7 +1677,7 @@ class Game {
       if (E && typeof E.snapshot === 'function') { try { list = E.snapshot(this); } catch (e) { this.countError('escort-snapshot', e); } }
       if (!Array.isArray(list)) list = sp.escorts.slice(0, 2).map((x) => ({ id: x.id, tag: x.tag, kind: x.kind, name: x.name, x: r1(x.x), y: r1(x.y), angle: r3(x.angle || 0),
         hp: r1(x.hp), hpMax: x.hpMax, state: x.state, befehl: x.befehl || null, distress: !!x.distress }));
-      if (list.length) spaceOut.escorts = list.slice(0, 2);
+      if (list.length) spaceOut.escorts = list.slice(0, 2 + (Number(this.C.flotte && this.C.flotte.max) || 12));   // EK4: dazu Verbündete (al: 1)
     }
     const scanT = this.mission.scanTarget();
     const world = { location: ship.scene };
@@ -1773,6 +1778,7 @@ class Game {
       ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)
       space: spaceOut,
       ...((fr) => (fr ? { fracht: fr } : {}))(Fracht.snapshot(this)),   // EK3 Teil A: nur wenn etwas da ist (Snapshot kompakt)
+      ...((fl) => (fl ? { flotte: fl } : {}))(this.flotte ? Flotte.snapshot(this) : null),   // EK4: Befehl und Welle (fehlt ohne Flotte)
       away: {
         map: aw.map, active: aw.active,
         // W1 AP1: Kampf v2 ohne revealed (Leser: time < away.sensorUntil) und alive (droneSnap sendet nur alive:false)
