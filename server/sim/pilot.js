@@ -162,10 +162,7 @@ function korvette(game, e, c, dt) {
     // Seitenwechsel 1: der Breitseitensektor zur Lerche ist schwach (≤ 1), die andere Seite deutlich stärker
     const sec = Physics.sectorOf(e.x, e.y, e.angle, L.x, L.y);
     const other = sec === 1 ? 3 : sec === 3 ? 1 : null;
-    // EK1: auch die Bestückung zählt – zeigt ein Bolzen zur Lerche, die andere Seite aber Lanze oder Batterie, wird gewechselt
-    const platzArt = (s) => (e.waffen ? e.waffen[s === 1 ? 'stbd' : 'bb'] : null);
-    const schwacheWaffe = other != null && platzArt(sec) === 'bolzen' && !!platzArt(other) && platzArt(other) !== 'bolzen';
-    const weak = other != null && ((e.shields && e.shields[sec] <= 1 && e.shields[other] >= e.shields[sec] + 2) || schwacheWaffe);
+    const weak = other != null && e.shields && e.shields[sec] <= 1 && e.shields[other] >= e.shields[sec] + 2;
     // Seitenwechsel 2: die Lerche liegt lange vor dem Bug oder hinter dem Heck (keine Breitseite möglich)
     // (nur in der Nähe des Sollpunkts – auf dem Weg dorthin liegt die Lerche natürlich oft vorn)
     const sa = base + e.side * Math.PI / 2;
