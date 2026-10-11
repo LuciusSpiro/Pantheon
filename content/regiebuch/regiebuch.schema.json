@@ -19,7 +19,7 @@
       "properties": {
         "_kommentar": { "$ref": "#/$defs/kommentar" },
         "titel": { "type": "string", "maxLength": 60 },
-        "art": { "enum": ["mission", "nebenauftrag", "intern", "generiert", "archiv"], "description": "mission = Kampagnenmission; nebenauftrag = nur Bucheintrag (buch + Ziele des ersten Schritts, kein Ablauf); intern = Testgelände/Debug (interne Bausteine erlaubt); generiert/archiv (S2) = vom Spielleiter zur Laufzeit angeboten (mission.registerBook), außerhalb der Angebotsreihenfolge, neue Gegner-KI (flightV2)" },
+        "art": { "enum": ["mission", "nebenauftrag", "intern", "generiert", "archiv", "kapitel"], "description": "kapitel (EK8) = Kapitel einer festen Kampagnenkette (content/kampagne/*.json): läuft wie eine Mission, steht aber nicht in der Angebotsreihenfolge, die Kette startet es; mission = Kampagnenmission; nebenauftrag = nur Bucheintrag (buch + Ziele des ersten Schritts, kein Ablauf); intern = Testgelände/Debug (interne Bausteine erlaubt); generiert/archiv (S2) = vom Spielleiter zur Laufzeit angeboten (mission.registerBook), außerhalb der Angebotsreihenfolge, neue Gegner-KI (flightV2)" },
         "auftraggeber": { "$ref": "#/$defs/kennung", "description": "NSC-Kennung (content/npc.json) oder Stimme aus besetzung.stimmen" },
         "zielspieldauer_min": { "type": "number", "minimum": 1, "maximum": 120 },
         "crew": {
@@ -105,7 +105,7 @@
           "type": "object", "description": "Sprecher ohne NSC-Datensatz (Kustoden-Relais, Logbuch …): Kennung -> { name }",
           "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
           "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["name"],
-            "properties": { "name": { "type": "string", "maxLength": 40 } } }
+            "properties": { "name": { "type": "string", "maxLength": 40 }, "bild": { "enum": ["mars", "legat"], "description": "EK8: Funkbild neben dem Funkspruch (mars = Symbol, legat = Porträt); Client: Art.drawFunkBild" } } }
         },
         "gruppen": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
         "einheiten": { "type": "object", "additionalProperties": { "$ref": "#/$defs/gruppe" } },
@@ -308,6 +308,7 @@
         "drill": { "type": "boolean", "description": "Hafen-Übungsschritt (isDrillStep); gilt als neustartfest" },
         "umsetzung": { "type": "string", "pattern": "^[a-z0-9_]+/[a-z0-9_]+$", "description": "S2: '<molekuel>/<umsetzung>' aus dem Katalog (Bots, Logbuch). Wechsel auf einen Schritt mit neuer umsetzung ruft spielleiter.onSceneEnter." },
         "szene": { "$ref": "#/$defs/kennung", "description": "S2: Szenen-Kennung des Spielleiters (Standard: Schritt-ID)" },
+        "platzhalter": { "type": "string", "maxLength": 80, "description": "EK8: Stand-in-Szene, die eine noch fehlende echte Umsetzung vertritt (Name der echten Szene). Der Prüfer meldet sie als Warnung PLATZHALTER, tools/check-kette.js listet sie." },
         "liefert_flags": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9_]*$" }, "description": "S2: Flags, die die Umsetzung zur Laufzeit setzt (z. B. konvoi_heil/_beschaedigt/_verloren) – für Verzweigungen erlaubt" },
         "ausbruch_erlaubt": {"type":"boolean"},
         "wiederaufnahme": {

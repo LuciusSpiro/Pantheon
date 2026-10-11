@@ -18,6 +18,7 @@ const Checker = require('../mission/checker.js');
 const Objects = require('../mission/objects.js');
 const Lexikon = require('../mission/lexikon.js');
 const PORTRAITS = new Set(['legat', 'mars']);   // EK4: Sprecher mit Funkporträt (Client: Hud.drawFunkBild); Mars erscheint als Symbol
+const Kampagne = require('../mission/kampagne.js');   // EK8: feste Kampagnenkette
 
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
@@ -109,7 +110,9 @@ function catalog() {
   }
   missions.sort((a, b) => a.id.localeCompare(b.id)).forEach(add);
   const sides = Object.values(info).filter((x) => x.art === 'nebenauftrag').map((x) => x.id).sort();
-  CATALOG = { books, invalid, warnings, jsModules, info, order, sides, ms: Date.now() - t0 };
+  // EK8: Kapitelbücher der Kampagnenkette (kopf.art 'kapitel'): nicht in der Angebotsreihenfolge, die Kette startet sie; im Missionsbuch hinter dem Tutorial
+  const kapitel = Object.values(info).filter((x) => x.art === 'kapitel').map((x) => x.id).sort();
+  CATALOG = { books, invalid, warnings, jsModules, info, order, sides, kapitel, ms: Date.now() - t0 };
   return CATALOG;
 }
 // Für Tests: Katalog neu laden (z. B. nach dem Schreiben eines Buchs)
@@ -190,6 +193,7 @@ class Mission {
     this.funde = {};             // B1 F2: missionId -> Fund der Mission (Aktion fund, Textbaustein {fund}), Nominativ mit Artikel
     this.entered = new Set();    // 'missionId:schrittId' – betretene Schritte (updateBook ändert nur unbetretene)
     this.seenOffers = new Set(); this.offerCheckT = 0;
+    this.kette = null;           // EK8: Kampagnenkette (server/mission/kampagne.js), nur im Modus „Kampagne Eisenwald“
     const cat = catalog();
     // Entscheidung 14: ungültiges Regiebuch mit --debug -> Abbruch, sonst laut loggen und nicht anbieten
     const fatal = cat.invalid;
@@ -213,7 +217,7 @@ class Mission {
   // Rohes Regiebuch (statischer Katalog oder zur Laufzeit registriert)
   rawBook(id) { return this.extra[id] ? this.extra[id].book : (catalog().books[id] || null); }
   // Alle Missionskennungen: Angebotsreihenfolge, danach die Spielleiter-Bücher (in Registrierungsreihenfolge)
-  allIds() { const o = this.order; return o.concat(Object.keys(this.extra).filter((id) => !o.includes(id))); }
+  allIds() { const o = this.order.concat(catalog().kapitel || []); return o.concat(Object.keys(this.extra).filter((id) => !o.includes(id))); }
   // Frische Laufzeit-Def (Bücher: cfg mit game.C aufgelöst)
   loadDef(id) {
     const cat = catalog();
@@ -238,12 +242,33 @@ class Mission {
     const g = this.game; const C = g.C;
     const tutorial = !(opts && opts.tutorial === false);
     this.mode = 'campaign';
+    // EK8: feste Kampagnenkette (content/kampagne/<id>.json) – ohne Spielleiter; nach dem Tutorial (bzw. sofort) startet das erste Kapitel
+    if (opts && opts.kampagne) {
+      const doc = Kampagne.laden(opts.kampagne);
+      if (!doc) g.countError('kette-laden', new Error(`Kampagne '${opts.kampagne}' nicht geladen`));
+      else { this.kette = new Kampagne.Kette(this, doc); this.kette.anlegen(); }
+    }
     if (tutorial) {
       const first = this.order.find((id) => this.info(id).angebot.start) || this.order[0];
       if (first) this.startMission(first);
       this.sl('onCampaignStart', { tutorial: true });   // S2 §2.1
       return;
     }
+    this.tutorialUeberspringen();
+    if (this.kette) { this.refreshObjectives(); this.kette.tutorialEnde(); return; }
+    const camp = C.campaign || {};
+    const kamp = (Loader.npcData().kampagne || {}).ohne_tutorial || {};
+    const funk = kamp.funk && kamp.funk.text ? kamp.funk : FREE_RADIO_FALLBACK;
+    this.pending.push({ at: g.time + (camp.teskRumorAt != null ? camp.teskRumorAt : 8), actions: [{ radio: { from: funk.from || 'tesk', text: funk.text } }] });
+    this.refreshObjectives();
+    this.checkOffers();
+    this.sl('onCampaignStart', { tutorial: false });   // S2 §2.1: Planung nach dem Tesk-Funk (Spielleiter plant selbst)
+  }
+
+  // Kampagne ohne Tutorial bzw. Einstieg mitten in die Kette: m1–m3 gelten als erledigt (Ausgang 'uebersprungen'), Karte wie nach
+  // dem Tutorial. opts.still: ohne Marken und Fakten (Einstieg der Kette setzt den Zustand selbst).
+  tutorialUeberspringen(opts) {
+    const g = this.game; const C = g.C;
     for (const id of this.order) {
       const inf = this.info(id);
       if (!inf.tutorial || this.missions[id]) continue;
@@ -257,6 +282,7 @@ class Mission {
     // S2 (QA-INTEGRATION): Kartenstand wie nach dem Tutorial – alle Orte bekannt (nicht besucht), gesperrte Verbindungen
     // (nebel–relais, kesh), die m2/m3 öffnen, offen. Still: kein ODA, kein Logbuch.
     this.openTutorialMap();
+    if (opts && opts.still) return;
     const camp = C.campaign || {};
     g.inventory.marks = camp.skipTutorialMarks != null ? camp.skipTutorialMarks : C.economy.startMarks;
     const kamp = (Loader.npcData().kampagne || {}).ohne_tutorial || {};
@@ -265,11 +291,6 @@ class Mission {
       const quelle = isObj(v) && v.quelle ? v.quelle : 'ohne_tutorial';
       this.callWeltstand('fact', k, value, quelle);
     }
-    const funk = kamp.funk && kamp.funk.text ? kamp.funk : FREE_RADIO_FALLBACK;
-    this.pending.push({ at: g.time + (camp.teskRumorAt != null ? camp.teskRumorAt : 8), actions: [{ radio: { from: funk.from || 'tesk', text: funk.text } }] });
-    this.refreshObjectives();
-    this.checkOffers();
-    this.sl('onCampaignStart', { tutorial: false });   // S2 §2.1: Planung nach dem Tesk-Funk (Spielleiter plant selbst)
   }
 
   // ---------- S2: Spielleiter-Nähte ----------
@@ -393,6 +414,7 @@ class Mission {
   }
   // Ereignis chapter (Kapitelkarte): Kampagne läuft weiter
   chapter(a) {
+    if (this.kette) return;   // EK8: die Kampagnenkette zeigt ihre eigenen Kapitelkarten
     const g = this.game;
     const title = this.tpl(a.title) || 'Kapitel abgeschlossen';
     const text = a.text != null ? this.tpl(a.text) : null;
@@ -459,6 +481,9 @@ class Mission {
     this.missions[id] = { id, title: def.title, state: 'active' };
     this.activeId = id; this.def = def;
     delete this.funde[id];
+    // EK8: eine wiederholte Szene (Kette: Rückzug, Scheitern) beginnt mit frischen Zielen – abgehakte Ziele der letzten Runde fallen weg
+    for (const k of [...this.done]) if (k.startsWith(id + ':')) this.done.delete(k);
+    this.doneLog[id] = [];
     // S2 (Bericht SPIELLEITER): Entscheidungen gelten je Mission – sonst überspringt ein wiederholtes Archiv-Buch mit
     // gleicher Entscheidungs-ID die Wahl. restore() überlagert danach wie bisher.
     this.choicesMade = new Set();
@@ -494,6 +519,17 @@ class Mission {
     if (ag && ag.danach) this.withContext(def, { mission: id, ausgang }, () => this.run(ag.danach));
     if (this.mode !== 'direct' && this.mode !== 'arena') this.checkOffers();
     this.sl('onMissionDone', { id, ausgang });   // S2 §3.1: für jede Mission, der Spielleiter filtert
+    if (this.kette) { try { this.kette.onMissionDone({ id, ausgang }); } catch (e) { this.game.countError('kette-onMissionDone', e); } }   // EK8: nächstes Kapitel / Wiederholung / Ende
+  }
+  // EK8: laufende Mission verwerfen (Kette: Wiederholung, Labor-Einstieg). Kein Ausgang, keine Folgen.
+  abbrechen() {
+    const id = this.activeId;
+    if (!id) return;
+    this.collectStepEnd();
+    delete this.missions[id];
+    this.activeId = null; this.def = null; this.step = null; this.state.stage = null; this.state.choice = null;
+    this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set(); this.v = {}; this.events = new Set(); this.dormant = false;
+    this.refreshObjectives();
   }
 
   // Angebote: nächste Mission starten, deren angebot.nach gilt (sofort aktiv wie bisher)
@@ -636,7 +672,19 @@ class Mission {
       if (resume && resume.prep) this.run(resume.prep);
       this.refreshObjectives();
     } else this.refreshObjectives();
+    this.ketteLaden();
     return true;
+  }
+  // EK8: Weltstand einer Kampagne mit Kette (Fakt kampagne): Kette wieder anschließen und fortsetzen
+  ketteLaden() {
+    const ws = this.game.weltstand; const fk = ws && ws.data && ws.data.fakten;
+    const id = fk && typeof fk.kampagne === 'string' ? fk.kampagne : null;
+    if (!id || this.kette) return;
+    const doc = Kampagne.laden(id);
+    if (!doc) { this.game.countError('kette-laden', new Error(`Kampagne '${id}' nicht geladen`)); return; }
+    this.kette = new Kampagne.Kette(this, doc);
+    this.kette.npcEinfuegen();
+    try { this.kette.fortsetzen(); } catch (e) { this.game.countError('kette-fortsetzen', e); }
   }
 
   // ---------- Kontext für Texte und Weltstand ----------
@@ -722,7 +770,7 @@ class Mission {
   act(a) {
     const g = this.game;
     if (a.oda) g.oda(this.tpl(a.oda), a.once || null);
-    if (a.radio) this.radio(this.npcName(a.radio.from), this.tpl(a.radio.text), !!a.radio.accept, a.radio.from);   // EK4: from-Kennung steuert das Funkporträt (legat, mars)
+    if (a.radio) this.radio(this.npcName(a.radio.from), this.tpl(a.radio.text), !!a.radio.accept, this.funkKennung(a.radio.from));   // EK4/EK8: from-Kennung steuert das Funkporträt (legat, mars)
     if (a.sfx) g.emit('sfx', { name: a.sfx });
     if (a.set) Object.assign(this.v, a.set);
     if (a.setFlag) Object.assign(this.flags, a.setFlag);
@@ -755,7 +803,7 @@ class Mission {
     const announce = () => {
       if (!an) return;
       if (an.oda) this.game.oda(this.tpl(an.oda), null);
-      if (an.radio && an.radio.text) this.radio(this.npcName(an.radio.from), this.tpl(an.radio.text), false);
+      if (an.radio && an.radio.text) this.radio(this.npcName(an.radio.from), this.tpl(an.radio.text), false, this.funkKennung(an.radio.from));
     };
     if (an && an.art === 'vorher') {
       announce();
@@ -793,6 +841,13 @@ class Mission {
 
   later(sec, actions) { this.timers.push({ at: this.stepTime + sec, actions: [].concat(actions) }); }
 
+  // EK8: Kennung für das Funkbild: bekannte Sprecher (legat, mars) direkt, sonst besetzung.stimmen.<id>.bild
+  funkKennung(id) {
+    if (PORTRAITS.has(id)) return id;
+    const def = this.textDef || this.def;
+    const st = def && def.besetzung && def.besetzung.stimmen && def.besetzung.stimmen[id];
+    return st && PORTRAITS.has(st.bild) ? st.bild : null;
+  }
   // EK4: pid = Kennung des Sprechers für das Funkporträt (nur bekannte; fehlt sonst im Snapshot und im Ereignis)
   radio(from, text, needsAccept, pid) {
     const px = pid && PORTRAITS.has(pid) ? pid : null;

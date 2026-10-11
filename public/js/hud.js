@@ -934,7 +934,7 @@
       for (const l of lines) { R.text(ctx, l, x + 6 + pw, y, { color: PAL.star }); y += 10; }
       if (radio && radio.needsAccept) {
         const blink = Math.floor(view.time * 2) % 2 === 0;
-        R.text(ctx, '> Captain-Konsole: annehmen', x + 6, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
+        R.text(ctx, '> Captain-Konsole: annehmen', tx, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
       return 6 + h;   // S2: Unterkante (Schützling-Zeile darunter)
     },
@@ -1110,7 +1110,7 @@
       // Testgelände (arena_space/arena_away): wie Direktstart ohne Übung, Anzeige in Bernstein
       const startId = (st.lobby && st.lobby.startMission) || 'm1';
       const resume = !!(st.lobby && st.lobby.world && this.lobbyWorld(st));   // S1: Weltstand gewählt -> Startauswahl entfällt
-      const direct = startId !== 'm1' || resume;
+      const direct = (startId !== 'm1' && startId !== 'eisenwald') || resume;
       const isArena = startId === 'arena_space' || startId === 'arena_away';
       const P = window.Shared_Protocol || {};
       const starts = this.startList(st);
@@ -1124,10 +1124,10 @@
         R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });
         R.button(ctx, rx, 174, rw, 16, direct ? '[–] Übung entfällt' : skip ? '[x] Übung überspringen' : '[ ] Übung überspringen', {
           hotkey: 'U', active: skip && !direct, disabled: !me || direct,
-          reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : startId === 'free' ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
+          reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : (startId === 'free' || startId === 'eisenwald_ohne') ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
           onClick: () => view.actions.toggleSkipDrill(),
         });
-        R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : startId === 'free' ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
+        R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : (startId === 'free' || startId === 'eisenwald_ohne') ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
       }
       const idx = Math.max(0, starts.indexOf(startId)) + 1;
       R.text(ctx, 'START (' + idx + '/' + starts.length + ', Taste M)', rx, 207, { color: resume ? '#6B7380' : isArena ? PAL.amber : PAL.brass });
@@ -1152,7 +1152,10 @@
 
     // ================================================================ S1: Weltstand, Hauptmenü, Spielmenü
     LOBBY_HINT: 'F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
-    MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' },
+    MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh',
+      // EK8: Kapitel der Kampagne Eisenwald (ohne Schrittnamen, die sind intern)
+      k1_anwerbung: 'Eisenwald 1: Anwerbung', k2_konvoi: 'Eisenwald 2: Konvoi', k3_nebelheim: 'Eisenwald 3: Nebelheim', k4_methalle: 'Eisenwald 4: Methalle',
+      k5_legat: 'Eisenwald 5: Castra Martis', k6_orbit: 'Eisenwald 6: Orbitschlacht', k7_siedlung: 'Eisenwald 7: Siedlung', k8_sieg: 'Eisenwald 8: Sieg' },
     WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
     // Startauswahl (Taste M): aus dem Protokoll; ab VERSION 5 ist 'free' Pflicht – fehlt es, ergänzt der Client es hinter m1
     // AP3a: Reihenfolge LOBBY_MODI (Kampagne, ohne Tutorial, m3, Wellen Boden, Wellen All, Labor); Labor nur mit lobby.laborAn
@@ -1176,7 +1179,7 @@
     missionLabel(mission, step) {
       if (!mission) return 'freier Flug';
       const t = this.MISSION_TITLES[mission] || String(mission);
-      return t + (step ? ' · Schritt ' + step : '');
+      return t + (step && !/^kd_/.test(String(mission)) ? ' · Schritt ' + step : '');
     },
     relDate(v) {
       let t = typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : Date.parse(v);
@@ -1217,14 +1220,14 @@
       const worlds = this.lobbyWorlds(st);
       const chosen = this.lobbyWorld(st);
       const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const campaign = startId === 'm1' || startId === 'free';
+      const campaign = startId === 'm1' || startId === 'free' || startId === 'eisenwald' || startId === 'eisenwald_ohne';
       const full = !!(st.lobby && st.lobby.worldsFull);
       R.text(ctx, 'WELTSTAND', x, y, { color: PAL.brass });
       R.text(ctx, worlds.length + '/' + this.worldsMax(), x + w, y, { color: full ? PAL.warn : PAL.panelLight, align: 'right' });
       let label;
       if (chosen) label = 'Fortsetzen: ' + chosen.name;
       else if (!campaign) label = 'Kein Weltstand (Testlauf)';
-      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : 'Neu: Kampagne';
+      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : startId === 'eisenwald' ? 'Neu: Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? 'Neu: Eisenwald ohne Tutorial' : 'Neu: Kampagne';
       R.button(ctx, x, y + 10, w, 16, this.fit(label, w - 24, 1), {
         hotkey: 'F', active: !!chosen, disabled: !me, reason: 'Noch nicht verbunden',
         onClick: () => view.actions.openWorlds && view.actions.openWorlds('list'),
@@ -1385,7 +1388,7 @@
         if (chosen) R.shape(ctx, 'diamond', rx + 8, yy + 8, 7, PAL.mint);
         if (r.neu) {
           const startId = lob.startMission || 'm1';
-          const lab = startId === 'free' ? '+ Neue Kampagne (ohne Tutorial)' : startId === 'm1' ? '+ Neue Kampagne' : '+ Ohne Weltstand starten (' + ((window.Shared_Protocol && Shared_Protocol.START_LABELS && Shared_Protocol.START_LABELS[startId]) || startId) + ')';
+          const lab = startId === 'free' ? '+ Neue Kampagne (ohne Tutorial)' : startId === 'eisenwald' ? '+ Neue Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? '+ Neu: Eisenwald ohne Tutorial' : startId === 'm1' ? '+ Neue Kampagne' : '+ Ohne Weltstand starten (' + ((window.Shared_Protocol && Shared_Protocol.START_LABELS && Shared_Protocol.START_LABELS[startId]) || startId) + ')';
           R.text(ctx, lab, rx + 18, yy + 4, { color: on ? PAL.amber : PAL.star });
           if (chosen) R.text(ctx, 'GEWÄHLT', rx + rw - 8, yy + 4, { color: PAL.mint, align: 'right' });
           yy += rh + 4;
@@ -1618,7 +1621,7 @@
       const y = Math.round(VH / 2 - h / 2);
       R.panel(ctx, x, y, w, h, { style: 'brass' });
       Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, VW / 2, y + 22, 24, 'ok', { stage: 2 }));
-      R.text(ctx, 'KAPITEL ABGESCHLOSSEN', VW / 2, y + 40, { color: PAL.brass, align: 'center' });
+      R.text(ctx, String(ch.kopf || 'KAPITEL ABGESCHLOSSEN').toUpperCase(), VW / 2, y + 40, { color: PAL.brass, align: 'center' });   // EK8: Kette sagt „Neues Kapitel“
       let ly = y + 54;
       for (const l of titleLines) { R.text(ctx, l, VW / 2, ly, { color: PAL.amber, scale: 2, align: 'center' }); ly += 17; }
       ly += 4;
@@ -1717,8 +1720,54 @@
     },
 
     // ---------------------------------------------------------------- Ende
+    // EK8: Abspann der Kampagnenkette (Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen }] }, nur in Phase end). Die Zeilen
+    // laufen von unten durch das Bild und bleiben stehen, sobald der Anfang oben angekommen ist. Kein freies Spiel danach: Enter
+    // führt über das Hauptmenü zurück in die Lobby (beendet die Partie für alle).
+    drawAbspann(ctx, view) {
+      const st = view.state, ab = st.abspann, s = st.stats || {};
+      const key = (ab.titel || '') + '|' + (ab.text || '');
+      if (this.abspannKey !== key) { this.abspannKey = key; this.abspannT0 = view.time; }
+      const cx = VW / 2, colW = 400, top = 30, bottom = 306;
+      ctx.fillStyle = 'rgba(8,10,20,0.95)'; ctx.fillRect(0, 0, VW, VH);
+      // Inhalt als Liste (Art, Text, Höhe)
+      const items = [];
+      items.push({ k: 'titel', t: String(ab.titel || 'Abspann').toUpperCase(), h: 26 });
+      if (this.endTitle) items.push({ k: 'sub', t: String(this.endTitle), h: 14 });
+      for (const l of R.wrap(String(ab.text || this.endText || ''), colW, 1).slice(0, 4)) items.push({ k: 'text', t: l, h: 11 });
+      items.push({ k: 'luft', t: '', h: 12 });
+      for (const b of ab.bloecke || []) {
+        items.push({ k: 'kopf', t: String(b.kopf || ''), h: 14 });
+        for (const z of b.zeilen || []) items.push({ k: 'zeile', t: String(z), h: 11 });
+        items.push({ k: 'luft', t: '', h: 12 });
+      }
+      items.push({ k: 'kopf', t: 'BILANZ', h: 14 });
+      items.push({ k: 'zeile', t: 'Spielzeit  ' + fmtTime(s.elapsed != null ? s.elapsed : st.time), h: 11 });
+      items.push({ k: 'zeile', t: 'Abschüsse  ' + (s.kills || 0) + '   Reparaturen  ' + (s.repairs || 0), h: 11 });
+      const total = items.reduce((a, i) => a + i.h, 0);
+      const t = Math.max(0, view.time - this.abspannT0);
+      const runY = bottom - t * 18;                 // Anfang der Liste: startet unten, steigt
+      const stopY = Math.min(top + 8, bottom - total);   // oben angekommen (oder: passt ganz ins Bild)
+      let y = Math.max(stopY, runY);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, top - 6, VW, bottom - top + 12); ctx.clip();
+      for (const i of items) {
+        if (y + i.h >= top - 6 && y <= bottom + 6) {
+          if (i.k === 'titel') R.text(ctx, i.t, cx, y, { color: PAL.amber, scale: 2, align: 'center' });
+          else if (i.k === 'sub') R.text(ctx, i.t, cx, y, { color: PAL.mint, align: 'center' });
+          else if (i.k === 'text') R.text(ctx, i.t, cx, y, { color: PAL.star, align: 'center' });
+          else if (i.k === 'kopf') R.text(ctx, i.t, cx, y + 2, { color: PAL.brass, align: 'center' });
+          else if (i.k === 'zeile') R.text(ctx, i.t, cx, y, { color: PAL.panelLight, align: 'center' });
+        }
+        y += i.h;
+      }
+      ctx.restore();
+      ctx.fillStyle = PAL.brass; ctx.fillRect(cx - colW / 2, top - 8, colW, 1); ctx.fillRect(cx - colW / 2, bottom + 8, colW, 1);
+      R.button(ctx, cx - 100, 322, 200, 18, 'Zum Hauptmenü', { hotkey: 'Enter', onClick: () => view.actions.abspannEnde() });
+      R.text(ctx, 'Beendet die Partie für alle. Der Weltstand bleibt gespeichert.', cx, 345, { color: PAL.panelLight, align: 'center' });
+    },
     drawEnd(ctx, view) {
       const st = view.state;
+      if (st.abspann) return this.drawAbspann(ctx, view);   // EK8
       const s = st.stats || {};
       const x = 130, y = 40, w = 380, h = 280;
       ctx.fillStyle = 'rgba(11,14,26,0.6)'; ctx.fillRect(0, 0, VW, VH);

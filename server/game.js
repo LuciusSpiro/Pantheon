@@ -26,6 +26,8 @@ const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
+// EK8: Lobby-Modi mit fester Kampagnenkette (content/kampagne): { kampagne, tutorial }. Ohne Spielleiter.
+const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
@@ -221,10 +223,10 @@ class Game {
   }
 
   // Kampagne starten (ENGINE: mission.startCampaign). Fehlt sie: mit Tutorial das alte start(), ohne Tutorial ein Ersatz.
-  startCampaignMission(tutorial) {
+  startCampaignMission(tutorial, kampagne) {
     const m = this.mission;
     if (typeof m.startCampaign === 'function') {
-      try { m.startCampaign({ tutorial }); return; } catch (e) { this.countError('weltstand-startCampaign', e); }
+      try { m.startCampaign(kampagne ? { tutorial, kampagne } : { tutorial }); return; } catch (e) { this.countError('weltstand-startCampaign', e); }
     }
     if (tutorial) { m.start(); return; }
     this.countError('weltstand-startCampaign', new Error('mission.startCampaign fehlt – Ersatzstart ohne Tutorial'));
@@ -340,6 +342,7 @@ class Game {
     this.god = false;
     this.labor = null;   // AP3a: laufendes Szenario-Labor (server/mission/labor.js)
     this.flags = {};
+    this.abspann = null;
     this.odaSeen = new Set();
     this.scans = new Set();
     this.inventory = Object.assign({ loeschgelCharges: 0, marks: C.economy.startMarks, deko: [], tafel: 0 }, JSON.parse(JSON.stringify(C.economy.startInventory)));
@@ -842,14 +845,14 @@ class Game {
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
     if (campaign) {
-      this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1', persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });
+      this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1' || (!!CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].tutorial), persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });
       this.weltstand.lastDockedAt = Locations.START;
       if (this.worldsEnabled) {
         const lk = Weltstand.lock(this.worldDir, this.weltstand.id, { port: this.port });
         if (lk.ok) this.worldLock = { dir: this.worldDir, id: this.weltstand.id }; else this.countError('weltstand-lock', new Error(lk.error));
       }
     }
-    if (campaign) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart)
+    if (campaign && !CAMPAIGN_KETTEN[sm]) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart); die feste Kette (EK8) braucht keinen Spielleiter
     if (campaign) {   // B2 (Wunsch WAFFEN): neue Kampagne -> leerer Block crew.waffen
       const wr = fnOf(waffenMod(), 'restore');
       if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
@@ -859,6 +862,7 @@ class Game {
     if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
     else if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
+    else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
@@ -871,7 +875,8 @@ class Game {
     if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.saveWorld('endGame');   // §5.3
     this.phase = 'end';
     this.stats.elapsed = this.time - this.stats.playTimeStart;
-    this.emit('ending', { title: o.title || 'Fortsetzung folgt', text: o.text || null, missions: this.stats.missions });
+    this.abspann = o.abspann || null;   // EK8: Sieg und Abspann der Kampagnenkette – kein freies Spiel danach (Client: nur Hauptmenü)
+    this.emit('ending', { title: o.title || 'Fortsetzung folgt', text: o.text || null, missions: this.stats.missions, ...(this.abspann ? { abspann: true } : {}) });
     this.logRun(true);
   }
 
@@ -1144,6 +1149,13 @@ class Game {
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
+      case 'kapitel': {   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
+        if (this.phase === 'lobby') { this.lobbyOpts.startMission = 'eisenwald_ohne'; this.startGame(); }
+        const id = msg.id != null ? String(msg.id) : (argList(msg)[0] || '');
+        const k = this.mission.kette;
+        err = k ? (id ? k.einstieg(id) : 'kapitel <id>: ' + [...k.kap.keys()].join(', ')) : 'Keine Kampagnenkette aktiv (Lobby-Modus Kampagne Eisenwald).';
+        break;
+      }
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
@@ -1718,6 +1730,7 @@ class Game {
           ...this.lobbyLaborSnap() }   // AP3a: Labor, Lobby-Waffen
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,
+      ...(this.phase === 'end' && this.abspann ? { abspann: this.abspann } : {}),   // EK8: Abspann (Titel, Text, Blöcke), nur in Phase end
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,

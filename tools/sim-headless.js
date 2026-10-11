@@ -2085,6 +2085,39 @@ class GenericAgent extends KeshAgent {
     return n;
   }
 
+  // EK8: Hex-Regel der Sternkarte – ist die Boje der nächsten Kante unbekannt (neue Hexe der Kette), fliegt der Bot in Scanreichweite
+  // und löst per Taktik den Weitscan aus, wie ein Spieler („Boje suchen“). Sonst wie Agent.travel (Tutorial und Labor unverändert).
+  travel(S, p, goal) {
+    const sh = S.ship;
+    const hop = sh.scene === goal ? null : this.nextHop(S, goal);
+    if (hop) {
+      const Sek = require('../shared/sektoren.js');
+      const von = Sek.hexVonOrt(sh.scene), nach = Sek.hexVonOrt(hop);
+      if (von && nach && !this.game.explore.bojeBekannt(Sek.kanteId(von, nach))) { this.bojeSuchen(S, p, von, nach); return false; }
+    }
+    return super.travel(S, p, goal);
+  }
+  bojeSuchen(S, p, von, nach) {
+    const Sek = require('../shared/sektoren.js'); const sh = S.ship; const loc = Locations.get(sh.scene);
+    const P = Sek.sprungpunktLage(loc.scene.w, loc.scene.h, Sek.richtung(von, nach), (CONFIG.sektoren || {}).randAbstand);
+    const dP = dist(sh.x, sh.y, P.x, P.y);
+    const reichw = ((CONFIG.sektoren || {}).weitscanBoje || 1400) - 200;
+    const nah = dP <= reichw;
+    const steuern = this.role === 'helm' || (this.role === 'solo' && (!nah || sh.docked || sh.speed > 10));
+    if (steuern) {
+      if (!this.enter(S, 'helm')) return;
+      if (sh.docked) { this.helmS(S, 0, QUARTER); return; }
+      if (!nah) { const k = (reichw * 0.85) / (dP || 1); this.steer(S, clamp(P.x + (sh.x - P.x) * k, 150, loc.scene.w - 150), clamp(P.y + (sh.y - P.y) * k, 150, loc.scene.h - 150), 80, 110); } else this.brake(S);
+      return;
+    }
+    if (this.is('weapons') && nah) {
+      if (!this.enter(S, 'weapons')) return;
+      if (sh.widescan.cd === 0 && (this.memo.bsAt || 0) < S.time) { this.memo.bsAt = S.time + 3; this.cmd('weapons.widescan'); this.game.simStats.widescans++; }
+      return;
+    }
+    this.idleStations(S, p);
+  }
+
   // B3 §4: Bojenanflug (Sprungpunkt der Kante zum Ziel) erbt GenericAgent seit W1 AP2 von Agent.flyClear.
   // ---------- zwischen den Missionen: Angebot annehmen (Captain/solo am Planungstisch) ----------
   betweenMissions(S, p) {
@@ -2414,6 +2447,59 @@ class GenericAgent extends KeshAgent {
     if (this.is('helm')) { if (p.zone === 'away') { this.padsUp(S, p); return; } this.dock(S, p, loc); return; }
     this.idleStations(S, p);
   }
+  // ---------- EK8: Kampagnenkette (Kapitelbücher k1–k8, CONTRACT-EK8) ----------
+  umsetzung_kette_wartet(S, p) { this.fightOrHold(S, p); }
+  // Hafen-Schritte (Statio Limitis, Castra Martis): andocken, der Captain nimmt den Funkspruch an (genericStep)
+  umsetzung_kette_andocken(S, p, step) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const loc = step.loc || S.ship.scene;
+    if (S.ship.docked && S.ship.dockedAt === loc) { this.idleStations(S, p); return; }
+    if (this.is('helm')) { if (p.zone === 'away') { this.padsUp(S, p); return; } this.dock(S, p, loc); return; }
+    this.idleStations(S, p);
+  }
+  // Fracht beamen (was 'an': liegende Fracht, Taktik F) bzw. abliefern (was 'ab': an der Station, Taktik G). Steuer fliegt hin, Taktik hält.
+  // Solo wechselt: erst steuern und anhalten, dann an der Taktik halten. -> true, wenn etwas zu tun war
+  frachtArbeit(S, p, was) {
+    const sh = S.ship; const fr = S.fracht || {};
+    let tg = null;
+    if (was === 'an') {
+      const out = (fr.draussen || []).slice().sort((a, b) => dist(a.x, a.y, sh.x, sh.y) - dist(b.x, b.y, sh.x, sh.y));
+      tg = out[0] || null;
+      if (!tg || (fr.lager || []).length >= 2) return false;
+    } else {
+      const st = this.station(S);
+      if (!st || !(fr.lager || []).length) return false;
+      tg = { x: st.x - 150, y: st.y };
+    }
+    const d = dist(sh.x, sh.y, tg.x, tg.y);
+    const nah = d <= 170;
+    const halt = !!fr.halt;
+    const steuern = (this.role === 'helm') || (this.role === 'solo' && !halt && (!nah || sh.speed > 10));
+    if (steuern) {
+      if (!this.enter(S, 'helm')) return true;
+      if (!nah) this.steer(S, tg.x, tg.y, 60, 90); else this.brake(S);
+      return true;
+    }
+    if (this.role === 'weapons' || this.role === 'solo') {
+      if (!(nah || d <= 280)) { this.idleStations(S, p); return true; }
+      if (!this.enter(S, 'weapons')) return true;
+      if (!halt && (this.memo.frachtAt || 0) < S.time) { this.memo.frachtAt = S.time + 2; this.cmd(was === 'an' ? 'weapons.fracht' : 'weapons.abliefern'); }
+      return true;
+    }
+    this.idleStations(S, p);
+    return true;
+  }
+  // Konvoi-Platzhalter (k2): Eskorte ausschalten, dann beide Ladungen beamen
+  umsetzung_kette_konvoi_platzhalter(S, p) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    if (!this.frachtArbeit(S, p, 'an')) this.calm(S, p);
+  }
+  // Abgabe in der Statio Limitis (k2): nah an die Station, Taktik G
+  umsetzung_kette_abgabe(S, p) {
+    if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    if (!this.frachtArbeit(S, p, 'ab')) this.idleStations(S, p);
+  }
+
   // Weitscan-Peilung: Wegpunkte abfliegen, Weitscan, dann den Fund anvisieren und scannen (wie m2 „beacon“)
   umsetzung_signal_orten_weitscan_peilung(S, p, step) {
     if (S.space.enemies.length) { this.combatGeneric(S, p); return; }
@@ -3282,8 +3368,13 @@ async function runGeneric(opts) {
     for (const a of agents) a.send({ t: 'ready', ready: true });
     if (game.phase !== 'play' || !game.labor) res.aborted = `Labor-Start ${opts.labor} abgelehnt (${JSON.stringify(errList.slice(0, 2))})`;
   } else {
-    game.lobbyOpts.startMission = 'free';
+    game.lobbyOpts.startMission = opts.start || 'free';   // EK8: eisenwald | eisenwald_ohne (Kette)
     for (const a of agents) { game.addConnection(a.conn); a.hello(); }
+    if (opts.einstieg) {   // EK8: Labor-Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
+      const k = game.mission.kette;
+      const e = k ? k.einstieg(opts.einstieg) : 'keine Kampagnenkette aktiv';
+      if (e) res.aborted = 'Einstieg ' + opts.einstieg + ': ' + e;
+    }
   }
   let S = game.snapshot();
   const maxSec = opts.maxSec || 7200;
@@ -3326,6 +3417,10 @@ async function runGeneric(opts) {
     }
     // Missionsende (Ereignis)
     while (doneEvents.length) { const ev = doneEvents.shift(); if (cur && ev.id === cur.id) finishMission(ev); }
+    if (opts.mode === 'kette') {   // EK8: Abspann erreicht bzw. das gewünschte Kapitel erfolgreich beendet
+      if (game.phase === 'end') { res.ende = true; break; }
+      if (opts.stopNach && res.missions.some((x) => x.id === opts.stopNach && x.ausgang === 'erfolg')) { res.stopNach = opts.stopNach; break; }
+    }
     // Missionsstart
     if (m.activeId && (!cur || cur.id !== m.activeId)) {
       if (cur) { closeStep(); cur.success = false; cur.ausgang = null; cur.dur = r1(game.time - cur.t0); res.missions.push(cur); }
@@ -3353,7 +3448,8 @@ async function runGeneric(opts) {
         const ums = st.umsetzung || null;
         const fnName = ums ? 'umsetzung_' + ums.replace('/', '_') : null;
         const known = !!(fnName && typeof GenericAgent.prototype[fnName] === 'function');
-        const limit = kind === SceneKind.HAFEN ? 60 : kind === SceneKind.ANFLUG ? 300 : (known ? 600 : 90);
+        const kette = opts.mode === 'kette';   // EK8: längere Flüge (Weitscan-Suche) und Kämpfe der Platzhalter
+        const limit = kind === SceneKind.HAFEN ? 60 : kind === SceneKind.ANFLUG ? (kette ? 900 : 300) : (known ? (kette ? 1500 : 600) : (kette ? 300 : 90));
         curStep = { id, ums, kind, scene: sceneOfStepId(m.def, id), t0: game.time, limitAt: game.time + limit, skips: 0, known };
       } else if (game.time > curStep.limitAt) {
         curStep.skips++;
@@ -3378,6 +3474,8 @@ async function runGeneric(opts) {
         game.simWant = named.length ? named[0].o.id : null;
         if (!named.length && game.time - idleSince > 180) { res.aborted = `kein ungespieltes Archiv-Angebot nach ${Math.round(game.time - idleSince)} s (Angebote: ${offers.map((o) => o.titel).join(', ') || '–'})`; break; }
         if (named.length && game.time - idleSince > 240) { res.aborted = `Angebot ${named[0].o.id} nach 240 s nicht angenommen`; break; }
+      } else if (opts.mode === 'kette') {
+        if (game.time - idleSince > 120) { res.aborted = 'Kette: seit 120 s läuft keine Mission (Kapitel ' + (game.weltstand && game.weltstand.data.fakten.kapitel) + ')'; break; }
       } else if (opts.mode === 'labor') {
         if (res.missions.length >= 1) break;
         if (game.time - idleSince > 10) { res.aborted = `Labor-Mission ${opts.labor} läuft nicht`; break; }
@@ -3613,6 +3711,35 @@ async function umsetzungMain() {
   }
   if (args[0] === 'labor' && laborIds.alle) await kettenMain(nSeeds, base, crews);   // `labor alle` spielt auch die Ketten
   return samples;
+}
+// EK8: die feste Kampagnenkette per Bot. Ganze Kette ab Lichtkordon (ohne Tutorial) oder Labor-Einstiege je Kapitel.
+//   node tools/sim-headless.js kette [--seeds N] [--crew 1|3] [--seed S] [--kapitel k4_methalle|alle] [--von k4_methalle] [--tutorial]
+async function ketteMain() {
+  const Kampagne = require('../server/mission/kampagne.js');
+  const doc = Kampagne.laden('eisenwald');
+  const nSeeds = Number(argVal('--seeds', 1)); const base = seedArg != null ? seedArg : 1;
+  const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
+  const kap = argVal('--kapitel', null); const von = argVal('--von', null);
+  const rows = []; let bad = 0;
+  const jobs = [];
+  if (kap) for (const c of doc.kapitel) { if (kap === 'alle' || kap === c.id) jobs.push({ label: 'Einstieg ' + c.id, einstieg: c.id, stopNach: Kampagne.buecherVon(c).slice(-1)[0] }); }
+  else jobs.push({ label: von ? 'Kette ab ' + von : 'Kette komplett', einstieg: von || null, stopNach: null });
+  for (const crew of crews) for (let i = 0; i < nSeeds; i++) for (const j of jobs) {
+    const seed = base + i;
+    const r = await runGeneric({ seed, crew, mode: 'kette', start: args.includes('--tutorial') ? 'eisenwald' : 'eisenwald_ohne', einstieg: j.einstieg, stopNach: j.stopNach, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 14000, missionMax: 3600, funk: seed % 2 ? 'b' : 'a' });
+    const gut = !r.aborted && !r.errors && (j.stopNach ? (r.stopNach === j.stopNach || r.ende) : r.ende);
+    if (!gut) bad++;
+    rows.push({ j, crew, seed, r, gut });
+    if (VERBOSE || !gut || r.missions.some((m) => m.skips)) printGenericRun(r, j.label + ' Crew ' + crew + ' Seed ' + seed);
+  }
+  log('\n| Lauf | Crew | Seed | Ergebnis | Spielzeit (min) | Kapitel (Dauer min, Ausgang, Skips) | Fehler | Snapshot max (B) |');
+  log('|---|---|---|---|---|---|---|---|');
+  for (const x of rows) {
+    const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ');
+    log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} |`);
+  }
+  log(bad ? '\nSIM KETTE FEHLGESCHLAGEN (' + bad + ')' : '\nSIM KETTE OK');
+  return bad;
 }
 // Nachauftrag AP3a: Ketten (server/mission/labor.js KETTEN) – mehrere Umsetzungen nacheinander auf demselben Landepunkt.
 //   node tools/sim-headless.js labor ketten [--seeds 3] [--crew 1|3]
@@ -3878,6 +4005,7 @@ async function wellenMain() {
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }
   if (args.includes('flotte')) { await flotteMain(); process.exit(0); }   // EK4
+  if (args[0] === 'kette') { const bad = await ketteMain(); process.exit(bad ? 1 : 0); }   // EK8: feste Kampagnenkette
   if (args[0] === 'labor' && args[1] === 'ketten') {   // Nachauftrag AP3a: nur die Ketten
     await kettenMain(Number(argVal('--seeds', 3)), seedArg != null ? seedArg : 1, argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3]);
     process.exit(0);
