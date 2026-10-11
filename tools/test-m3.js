@@ -1,4 +1,5 @@
 'use strict';
+const VOLL_BESTUECKT = { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' };   // EK1: Korvette mit allen drei Waffenarten (Tests brauchen Ladung und Sperrfeuer)
 // M3a „Breitseite & Schaden“ (CONTRACT-M3 §14): Systeme, Reparaturwege, Schildstoß, Ladungen, Zielphase, Ladepunkte,
 // Bots auf Befehl, Trefferauswahl, Altnamen, Snapshot. Direkt gegen die Game-Klasse, ohne Netz.
 // Aufbau per Debug-Befehl bzw. direktem Zustand (nur Testvorbereitung), geprüft wird über echte Befehle und die
@@ -101,7 +102,7 @@ function arena(players, opts) {
 // Gegner fest an einer Stelle (Position/Ausrichtung je Tick zurückgesetzt), ohne eigene Schüsse
 function pinnedEnemy(g, kind, x, y, angle, opts) {
   const o = opts || {};
-  const e = S.spawnEnemy(g, kind, { x, y, facing: angle != null ? angle : Math.atan2(g.ship.y - y, g.ship.x - x) });
+  const e = S.spawnEnemy(g, kind, { x, y, facing: angle != null ? angle : Math.atan2(g.ship.y - y, g.ship.x - x), waffen: o.waffen || VOLL_BESTUECKT });
   if (o.hp) { e.hp = e.hpMax = o.hp; }
   if (o.noShields !== false) e.shields = [0, 0, 0, 0];
   e.pin = { x, y, angle: e.angle };
@@ -724,19 +725,19 @@ section('Ladung / tele (§7.1)', () => {
   const { g, run, events, dbg, clearInbox } = arena(1);
   const tick = () => { pin(g); noFire(g); };
   const sh = g.ship;
-  // Kanonenboot oberhalb (Backbord), Breitseite (facing +90°) zeigt aufs Schiff
-  const gb = pinnedEnemy(g, 'gunboat', sh.x, sh.y - 380, 0, { hp: 999 });
+  // Korvette oberhalb (Backbord), Breitseite (facing +90°) zeigt aufs Schiff
+  const gb = pinnedEnemy(g, 'korvette', sh.x, sh.y - 380, 0, { hp: 999 });
   gb.keepFire = true;
   run(0.1, () => { pin(g); noFire(g); gb.fireT = -999; });
   ok(!gb.tele, 'ohne Ladung kein tele');
   dbg(0, { cmd: 'tele', id: gb.id });
-  ok(gb.tele && gb.tele.kind === 'shot' && near(gb.tele.dur, M3.tele.gunboat.dur, 0.01) && gb.tele.sector === 3, 'debug tele: Ladung { kind shot, dur 3, sector 3 (Backbord) }');
+  ok(gb.tele && gb.tele.kind === 'shot' && near(gb.tele.dur, M3.tele.korvette.dur, 0.01) && gb.tele.sector === 3, 'debug tele: Ladung { kind shot, dur 3, sector 3 (Backbord) }');
   const ts = g.snapshot().space.enemies.find((e) => e.id === gb.id).tele;
   ok(ts && ts.kind === 'shot' && near(ts.left, 3, 0.1) && ts.dur === 3 && ts.sector === 3, 'Snapshot enemies[].tele { kind, left, dur, sector }');
   ok(JSON.stringify(S.enemyTeleSnap(gb)) === JSON.stringify(ts) || (S.enemyTeleSnap(gb).sector === 3), 'enemyTeleSnap');
   // Abweichung SERVER-COMBAT: Art im Ereignis als tkind (kind ist schon der Ereignisname)
   ok(events('tele').some((e) => e.id === gb.id && (e.tkind || e.kind) === 'shot' && e.sector === 3 && e.dur === 3), 'Ereignis tele { id, tkind, sector, dur }');
-  ok(events('oda').some((e) => /Kanonenboot/.test(e.text) && /lädt/.test(e.text) && /Backbord/i.test(e.text)), 'solo: ODA „Kanonenboot lädt – Backbord!“');
+  ok(events('oda').some((e) => /Korvette/.test(e.text) && /lädt/.test(e.text) && /Backbord/i.test(e.text)), 'solo: ODA „Korvette lädt – Backbord!“');
   // Sektor wird jeden Tick neu berechnet: Schiff um 180° drehen -> Steuerbord
   run(0.5, tick);
   sh.angle = Math.PI; run(0.1, tick);
@@ -753,8 +754,8 @@ section('Ladung / tele (§7.1)', () => {
   const hull0 = sh.hull;
   let sawHeavy = false;
   run(5.5, () => { tick(); if (g.space.beams.some((b) => b.kind === 'enemy_heavy')) sawHeavy = true; });
-  // QA M3a: Schaden aus der Konfig (spaceM3.tele.gunboat.damage, 4 -> 3)
-  const gbDmg = CONFIG.spaceM3.tele.gunboat.damage;
+  // QA M3a: Schaden aus der Konfig (spaceM3.tele.korvette.damage, 4 -> 3)
+  const gbDmg = CONFIG.spaceM3.tele.korvette.damage;
   ok(!gb.tele && hull0 - sh.hull >= gbDmg * 5 - 0.01, `Ende der Ladung: Treffer ${gbDmg} Schaden (Hülle ${hull0} -> ${sh.hull})`);
   ok(sawHeavy, 'Strahl kind enemy_heavy');
   // Fehlschuss nach dem Wegdrehen/Wegfliegen
@@ -775,12 +776,12 @@ section('Ladung / tele (§7.1)', () => {
   ok(se.tele && near(se.tele.dur, 2.5, 0.01) && se.tele.kind === 'emp', 'Wächter: Ladung 2,5 s, kind emp');
   g.space.enemies = [];
   // Natürliche Ladung: Feuerintervall abgelaufen + Schiff in Bogen und Reichweite -> tele statt Projektil
-  const gb2 = pinnedEnemy(g, 'gunboat', sh.x, sh.y + 380, 0, { hp: 999 });
+  const gb2 = pinnedEnemy(g, 'korvette', sh.x, sh.y + 380, 0, { hp: 999, waffen: { bug: 'lanze', stbd: 'lanze', bb: 'lanze' } });
   gb2.keepFire = true; gb2.fireT = 0;
   let teleSeen = false, proj = 0;
   // S2b: Sperrfeuer ist eine eigene Projektilwaffe und zählt hier nicht (geprüft wird nur der Ladeschuss)
   run(12, () => { proj += g.space.projectiles.filter((q) => q.owner === gb2.id && q.kind !== 'sperrfeuer').length; pin(g); noFire(g); if (gb2.tele) teleSeen = true; });
-  ok(teleSeen && proj === 0, 'Kanonenboot schießt nicht sofort: Ladung statt Projektil');
+  ok(teleSeen && proj === 0, 'Korvette schießt nicht sofort: Ladung statt Projektil');
   // Jäger schießen in M3a weiter wie bisher (kein tele)
   g.space.enemies = [];
   const r = pinnedEnemy(g, 'raider', sh.x + 300, sh.y, Math.PI, { hp: 999 });
@@ -799,7 +800,7 @@ section('Ladung / tele (§7.1)', () => {
 section('Captain sieht Ladung erst spät (§7.1, Konfig)', () => {
   ok(M3.tele.captainSeesLast === 1.2 && M3.tele.odaCooldown === 4, 'captainSeesLast 1,2 s, ODA-Abklingzeit 4 s (Filter im Client)');
   const { g, run, dbg, events, clearInbox } = arena(1);
-  const gb = pinnedEnemy(g, 'gunboat', g.ship.x, g.ship.y - 380, 0, { hp: 999 });
+  const gb = pinnedEnemy(g, 'korvette', g.ship.x, g.ship.y - 380, 0, { hp: 999 });
   dbg(0, { cmd: 'tele', id: gb.id });
   const first = events('oda').filter((e) => /lädt/.test(e.text)).length;
   run(2.5, () => { pin(g); noFire(g); });
@@ -808,7 +809,7 @@ section('Captain sieht Ladung erst spät (§7.1, Konfig)', () => {
   const second = events('oda').filter((e) => /lädt/.test(e.text)).length;
   ok(first === 1 && second === 0, 'ODA-Ansage je Gegner höchstens alle 4 s');
   const g3 = arena(3);
-  const gb3 = pinnedEnemy(g3.g, 'gunboat', g3.g.ship.x, g3.g.ship.y - 380, 0, { hp: 999 });
+  const gb3 = pinnedEnemy(g3.g, 'korvette', g3.g.ship.x, g3.g.ship.y - 380, 0, { hp: 999 });
   g3.dbg(0, { cmd: 'tele', id: gb3.id });
   ok(!g3.events('oda').some((e) => /lädt/.test(e.text)), 'zu dritt: keine ODA-Ansage');
 });
@@ -939,7 +940,7 @@ section('Ausweich-Fenster (§20.2)', () => {
   const sh = g.ship;
   const tick = () => { pin(g); noFire(g); };
   sh.shields.current = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];
-  const gb = pinnedEnemy(g, 'gunboat', sh.x, sh.y - 380, 0, { hp: 999 });
+  const gb = pinnedEnemy(g, 'korvette', sh.x, sh.y - 380, 0, { hp: 999 });
   ok(enter(0, 'helm'), 'Steuer');
   // Versatz messen: Ausweichen aus dem Stand, Querversatz nach 0,8 s und nach 3 s
   const y0 = sh.y, x0 = sh.x;
@@ -1173,9 +1174,9 @@ section('Flugmodell (§6, M3b §2)', () => {
   cmd(0, 'helm.dodge', { dir: 1 });
   ok(near(sh.dodgeCd, LERCHE.dodge.cooldown, 0.05) && LERCHE.dodge.cooldown === 7, 'Ausweichrolle: Abklingzeit 7 s (§20.2)');
   // Gegner-HP × 0,8
-  const e = S.spawnEnemy(g, 'gunboat', {});
+  const e = S.spawnEnemy(g, 'korvette', {});
   const r = S.spawnEnemy(g, 'relay', {});
-  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.gunboat.hp * CONFIG.crewScaling[1].enemyHp * M3.enemyHpFactor)) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-HP × 0,8 (Kanonenboot solo ${e.hpMax}), Relais unverändert`);
+  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.korvette.hp * CONFIG.crewScaling[1].enemyHp * M3.enemyHpFactor)) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-HP × 0,8 (Korvette solo ${e.hpMax}), Relais unverändert`);
 });
 
 // ======================================================================
@@ -1370,8 +1371,8 @@ section('bridgeLeaves (§8.3)', () => {
 section('Testgelände Wellen (§15, M3b §7)', () => {
   const A = CONFIG.arena;
   const key = (w) => w.slice().sort().join();
-  ok(key(A.waves[0]) === 'gunboat,raider,raider', 'M3b: Welle 1 = Kanonenboot + 2 Jäger');
-  ok(A.waves.slice(1).some((w) => key(w) === 'gunboat,raider') && A.waves.slice(1).some((w) => key(w) === 'gunboat,pylon'), 'alte Wellen danach (u. a. Kanonenboot+Jäger, Pylon+Kanonenboot)');
+  ok(key(A.waves[0]) === 'korvette,raider,raider', 'M3b: Welle 1 = Korvette + 2 Jäger');
+  ok(A.waves.slice(1).some((w) => key(w) === 'korvette,raider') && A.waves.slice(1).some((w) => key(w) === 'korvette,pylon'), 'alte Wellen danach (u. a. Korvette+Jäger, Pylon+Korvette)');
   const { g } = arena(1);
   ok(SYS14.every((s) => g.ship.systems[s] === 'ok') && g.ship.hull === g.ship.hullMax, 'Start im Testgelände: Schiff unbeschädigt');
 });
@@ -1380,16 +1381,16 @@ section('Testgelände Wellen (§15, M3b §7)', () => {
 section('QA: tune spaceM3.<pfad> (§10, §17)', () => {
   const combat = require('../server/sim/combat.js');
   const { g } = arena(1);
-  const old = CONFIG.spaceM3.tele.gunboat.dur, oldOrbit = CONFIG.combat.raiderOrbit, oldShield = CONFIG.awayCombat.shield.regenDelay;
+  const old = CONFIG.spaceM3.tele.korvette.dur, oldOrbit = CONFIG.combat.raiderOrbit, oldShield = CONFIG.awayCombat.shield.regenDelay;
   try {
-    const r1 = combat.tune(g, 'spaceM3.tele.gunboat.dur', '4');
-    ok(r1.ok && CONFIG.spaceM3.tele.gunboat.dur === 4, `tune spaceM3.tele.gunboat.dur 4 (${r1.text})`);
+    const r1 = combat.tune(g, 'spaceM3.tele.korvette.dur', '4');
+    ok(r1.ok && CONFIG.spaceM3.tele.korvette.dur === 4, `tune spaceM3.tele.korvette.dur 4 (${r1.text})`);
     const r2 = combat.tune(g, 'combat.raiderOrbit', 300);
     ok(r2.ok && CONFIG.combat.raiderOrbit === 300, 'tune combat.raiderOrbit 300');
     const r3 = combat.tune(g, 'shield.regenDelay', 5);
     ok(r3.ok && CONFIG.awayCombat.shield.regenDelay === 5, 'awayCombat-Pfade gehen weiter ohne Präfix');
     ok(!combat.tune(g, 'spaceM3.tele', 3).ok && !combat.tune(g, 'gibtsnicht.x', 1).ok, 'Objekte und unbekannte Pfade abgelehnt');
-  } finally { CONFIG.spaceM3.tele.gunboat.dur = old; CONFIG.combat.raiderOrbit = oldOrbit; CONFIG.awayCombat.shield.regenDelay = oldShield; }
+  } finally { CONFIG.spaceM3.tele.korvette.dur = old; CONFIG.combat.raiderOrbit = oldOrbit; CONFIG.awayCombat.shield.regenDelay = oldShield; }
 });
 
 // ======================================================================

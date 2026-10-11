@@ -43,7 +43,7 @@
   <p class="note">Dreifach codiert: Farbe (Mint / Gelb #F2C94C / Rot / Orange #F08A3C / Eisblau) · Muster (Haken / Schraffur / X / Klebeband / Punkte) · Kürzel. Rechts: Stationsplaketten mit und ohne Zustandsquadrat, Zustandsmarken.</p></section>
 <section><h2>M3a · Maschinenräume und Geschützdeck (Ausschnitte ×1)</h2><div class="scroll"><canvas id="cM3Rooms"></canvas></div></section>
 <section><h2>M3a · Raumkampf: Lanze, Batterie-Salve, schwerer Treffer, Ladeglühen, Schildstoß, Schäden außen</h2><div class="scroll"><canvas id="cM3Space"></canvas></div>
-  <p class="note">Oben: Lerche heil / mit Schäden (Rauch nach achtern, Funken) / Stoß normal / Stoß perfekt mit Ring. Mitte: Ladung bei 10 % · 50 % · 90 % (Kanonenboot, Pylon, Wächter-EMP) mit Ziellinie. Unten: Strahlen im Zeitverlauf (lance · battery · enemy_heavy · bolzen).</p></section>
+  <p class="note">Oben: Lerche heil / mit Schäden (Rauch nach achtern, Funken) / Stoß normal / Stoß perfekt mit Ring. Mitte: Ladung bei 10 % · 50 % · 90 % (Korvette, Pylon, Wächter-EMP) mit Ziellinie. Unten: Strahlen im Zeitverlauf (lance · battery · enemy_heavy · bolzen).</p></section>
 <section><h2>M1 · Objekte, Deko, Sitzen</h2><div class="scroll"><canvas id="cM1Obj"></canvas></div></section>
 <section><h2>M1 · Quartier-Stile (5 Böden × 4 Wände, Lichtfarben)</h2><div class="scroll"><canvas id="cQuarters"></canvas></div></section>
 <section><h2>M1 · Wrack „Zaunkönig“ – Beispielkarte (Team ART)</h2><div class="scroll"><canvas id="cWreck"></canvas></div>
@@ -435,14 +435,14 @@
     Art.drawShip(g, 580, 60, -Math.PI / 4, { thrust: 0, time: t });
     Art.drawEnemy(g, 'raider', 300, 250, -ang * 1.3, { time: t, hpFrac: 1, hitT: (t % 1.5) });
     Art.drawEnemy(g, 'raider', 360, 250, 0, { time: t, hpFrac: 0.2 });
-    Art.drawEnemy(g, 'gunboat', 470, 250, ang * 0.6, { time: t, hpFrac: 0.5 });
-    Art.drawEnemy(g, 'gunboat', 600, 170, Math.PI, { time: t, hpFrac: 1 });
+    Art.drawEnemy(g, 'korvette', 470, 250, ang * 0.6, { time: t, hpFrac: 0.5 });
+    Art.drawEnemy(g, 'korvette', 600, 170, Math.PI, { time: t, hpFrac: 1 });
     for (var i = 0; i < 7; i++) Art.drawAsteroid(g, 40 + i * 50, 320 + (i % 2) * 20, 8 + i * 4, i * 7 + 3);
     Art.drawProjectile(g, 'enemy', 300 + (t * 80 % 120), 300, 0, t);
     Art.drawProjectile(g, 'bolzen', 300 + (t * 100 % 120), 315, 0.2, t);
     Art.drawProjectile(g, 'blaster', 300 + (t * 120 % 120), 330, 0, t);
     Art.drawProjectile(g, 'drone', 300 + (t * 60 % 120), 345, 0, t);
-    // S2b: Sperrfeuer des Kanonenboots – langsamer Stoß aus drei Bolzen (aus der Breitseite des Boots bei 470/250)
+    // S2b: Sperrfeuer der Korvette – langsamer Stoß aus drei Bolzen (aus der Breitseite des Boots bei 470/250)
     for (var sk = 0; sk < 3; sk++) Art.drawProjectile(g, 'sperrfeuer', 470 + 30 + ((t * 40 + sk * 14) % 110), 268 + sk * 12, 0.25, t);
     Art.drawBeam(g, 400, 140, 470, 240, 'lanze', 0.25 - (t % 0.5) / 2 + 0.1);
     Art.drawBeam(g, 380, 110, 300, 250, 'seitenturm', 0.2);
@@ -875,7 +875,7 @@
     // Badge-Beispiele über dem Schiff (Raumansicht, nur Doku)
     Art.drawStationBadge(g, 'port', 760, 40, 'damaged'); Art.drawStationBadge(g, 'stbd', 760, 56, 'broken'); Art.drawStationBadge(g, 'bow', 760, 72, 'ok', { fragile: true });
     // Reihe 2: Ladeglühen
-    var kinds = [['gunboat', 3, 'shot'], ['pylon', 2, 'shot'], ['sentinel', 2.5, 'emp']];
+    var kinds = [['korvette', 3, 'shot'], ['pylon', 2, 'shot'], ['sentinel', 2.5, 'emp']];
     [0.1, 0.5, 0.92].forEach(function (p, i) {
       kinds.forEach(function (k, j) {
         var x = 70 + (j * 3 + i) * 100, y = 240;
@@ -952,7 +952,7 @@
     });
     [0, 1, 2, 3, undefined].forEach(function (hs) { call(function () { Art.drawShip(g, 100, 100, 1.1, { thrust: 1, shields: [1, 0, 1, 0], shieldMax: 4, hitSector: hs, hitT: 0.1, time: 2 }); }); });
     call(function () { Art.drawShip(g, 100, 100); });
-    ['raider', 'gunboat', 'x'].forEach(function (k) { call(function () { Art.drawEnemy(g, k, 100, 100, -2, { hpFrac: 0.1, hitT: 0.05, time: 1 }); }); call(function () { Art.drawEnemy(g, k, 100, 100); }); });
+    ['raider', 'korvette', 'x'].forEach(function (k) { call(function () { Art.drawEnemy(g, k, 100, 100, -2, { hpFrac: 0.1, hitT: 0.05, time: 1 }); }); call(function () { Art.drawEnemy(g, k, 100, 100); }); });
     call(function () { Art.drawAsteroid(g, 100, 100, 30, 5); }); call(function () { Art.drawAsteroid(g, 100, 100); });
     ['port', 'buoy', 'x'].forEach(function (k) { call(function () { Art.drawStation(g, k, 100, 100, { time: 1 }); }); call(function () { Art.drawStation(g, k, 100, 100); }); });
     ['enemy', 'bolzen', 'blaster', 'drone', 'sperrfeuer', 'x'].forEach(function (k) { call(function () { Art.drawProjectile(g, k, 50, 50, 1, 2); }); call(function () { Art.drawProjectile(g, k, 50, 50); }); });
@@ -1061,7 +1061,7 @@
     [[0, 1], [0.5, 1], [2, 2.5], [-1, 3], [null, null], ['x', 0]].forEach(function (q) {
       ['shot', 'emp', undefined].forEach(function (k) {
         call(function () { Art.drawTele(g, 50, 50, { left: q[0], dur: q[1], kind: k, time: 1.3, r: 999, toX: 150, toY: 20, lineLen: 40 }); });
-        ['gunboat', 'raider', 'pylon', 'sentinel', 'x'].forEach(function (e) { call(function () { Art.drawEnemy(g, e, 50, 50, 0.4, { time: 1, tele: { left: q[0], dur: q[1], kind: k } }); }); });
+        ['korvette', 'raider', 'pylon', 'sentinel', 'x'].forEach(function (e) { call(function () { Art.drawEnemy(g, e, 50, 50, 0.4, { time: 1, tele: { left: q[0], dur: q[1], kind: k } }); }); });
       });
     });
     call(function () { Art.drawTele(g, 50, 50); });

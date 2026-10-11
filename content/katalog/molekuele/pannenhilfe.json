@@ -47,7 +47,7 @@
         "angriff_nach": { "typ": "zahl", "default": 20, "min": 10, "max": 120 },
         "angriff2_nach": { "typ": "zahl", "default": 40, "min": 20, "max": 180, "beschreibung": "s bis zum Ersatz-Angreifer (nur solange die Reparatur läuft und die erste Welle erledigt ist)" },
         "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 2 },
-        "angreifer": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Schwerer Angreifer auf den Havaristen (lädt angekündigt)" },
+        "angreifer": { "typ": "kind", "default": "korvette", "werte": ["korvette", "raider"], "beschreibung": "Schwerer Angreifer auf den Havaristen (lädt angekündigt)" },
         "funk_start": { "typ": "text", "default": "Lerche? Unser Antrieb ist tot, wir treiben. Kommt längsseits – wir brauchen eure Schrauber." },
         "funk_dank": { "typ": "text", "default": "Er läuft! Hört ihr das? Wir schulden euch was, Lerche." }
       },
@@ -81,7 +81,7 @@
                 ]
               },
               {
-                "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Kanonenboote gleichzeitig)",
+                "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Korvetten gleichzeitig)",
                 "if": { "all": [ "{{mit_angriff}}", { "elapsed": "{{angriff2_nach}}" }, { "enemiesLeft": { "max": 0 } }, { "not": { "v": "{{id}}_ende" } } ] },
                 "do": [
                   {
@@ -107,7 +107,7 @@
                 "garantie": "zeitlimit"
               },
               {
-                "_kommentar": "QA-Abnahme S2b: Havarist geflickt, später doch kampfunfähig – dann setzte keine Regel mehr den Rückzug und ein Kanonenboot konnte die Szene festhalten",
+                "_kommentar": "QA-Abnahme S2b: Havarist geflickt, später doch kampfunfähig – dann setzte keine Regel mehr den Rückzug und eine Korvette konnte die Szene festhalten",
                 "if": { "all": [ { "v": "{{id}}_ende" }, { "elapsed": 300 } ] },
                 "do": [ { "do": "enemies_retreat", "unter_pct": 100 } ],
                 "garantie": "autoloesung"

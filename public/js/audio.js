@@ -40,7 +40,7 @@
     'save_seal', 'world_load', 'save_delete',
     // S2 „Spielleiter & Schützling“
     'gm_static', 'offer_in', 'distress', 'escort_hit', 'escort_lost', 'escort_saved',
-    // S2b „Sperrfeuer“ (Kanonenboot)
+    // S2b „Sperrfeuer“ (Korvette)
     'sperrfeuer'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
@@ -494,7 +494,7 @@
       tone({ f: 123.47, t: t + 0.08, dur: 1.1, a: 0.1, hold: 0.3, vol: 0.06, out: o });
       return 1.2;
     },
-    // S2b: Sperrfeuer des Kanonenboots – drei dumpfe, kurze Wummer (ein Feuerstoß), tief und gefiltert, mit leisem
+    // S2b: Sperrfeuer der Korvette – drei dumpfe, kurze Wummer (ein Feuerstoß), tief und gefiltert, mit leisem
     // Ploppen der Treibladung. Lesbar als „langsam, kommt auf uns zu“, nicht als Treffer: kein Metall, kein Knall,
     // Spitzenpegel deutlich unter hull_hit (Rausch 0,3 statt 0,85, Ton 0,3 statt 0,6; LEVEL 0,8 statt 1,3).
     sperrfeuer: function (t, o) {
@@ -1119,13 +1119,13 @@
       return n * gap + 0.12;
     },
     tele_charge: function (t, o, prm) {
-      // angekündigter Angriff lädt: steigender Ton, je Gegnerart anders (prm.kind gunboat|pylon|sentinel),
+      // angekündigter Angriff lädt: steigender Ton, je Gegnerart anders (prm.kind korvette|pylon|sentinel),
       // Dauer prm.dur (Standard 3 / 2 / 2,5 s). Pips beschleunigen gegen Ende. Vorzeitig: GameAudio.stop('tele_charge', { key }).
-      var kind = prm && prm.kind, base = { gunboat: 3, pylon: 2, sentinel: 2.5 };
-      if (!base[kind]) kind = 'gunboat';
+      var kind = prm && prm.kind, base = { korvette: 3, pylon: 2, sentinel: 2.5 };
+      if (!base[kind]) kind = 'korvette';
       var d = prm && prm.dur != null ? clamp(prm.dur, 0.5, 5) : base[kind];
       var at = 0, gap, k = 0;
-      if (kind === 'gunboat') {
+      if (kind === 'korvette') {
         // schwer und tief: Grollen mit öffnendem Filter, tiefe Pulse
         tone({ type: 'sawtooth', f: 65, f2: 260, t: t, dur: d, a: 0.2, hold: d - 0.3, vol: 0.13, out: o,
           filter: 'lowpass', ff: 200, ff2: 2400, q: 8 });
@@ -1811,7 +1811,7 @@
   //   dist     – 0..1 Entfernung zum Hörer (dumpfer, leiser), für alle Sounds, gedacht v. a. für enemy_aim.
   // M3a-Zusätze, alle optional:
   //   count    – battery_salvo: Zahl der Schläge 1..8 (Standard 4).
-  //   kind     – tele_charge: 'gunboat' (Standard) | 'pylon' | 'sentinel'.
+  //   kind     – tele_charge: 'korvette' (Standard) | 'pylon' | 'sentinel'.
   //   dur      – tele_charge: Ladedauer s (Standard 3 / 2 / 2,5 je kind); lance_aim: Zielphase s (Standard 1,5).
   //   n        – minigame_hit: wievielter Treffer 1..3 (Tonhöhe steigt).
   //   key      – lance_aim/lance_charge/tele_charge: Kennung für GameAudio.stop(name, { key }).

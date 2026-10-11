@@ -313,7 +313,7 @@
             "loc": "nebel",
             "npc": "neu:Jägerpilot",
             "jaeger": 2,
-            "mit_kanonenboot": false,
+            "mit_korvette": false,
             "flucht_unter": 35,
             "funk_start": "Das Relais gehört uns heute. Verschwindet, oder wir machen Schrott aus euch.",
             "funk_abzug": "Nicht schlecht, Lerche. Aber wir merken uns das."
@@ -865,7 +865,7 @@
           {
             "if": false,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s3_relais_gefecht_w1"
             }
           },

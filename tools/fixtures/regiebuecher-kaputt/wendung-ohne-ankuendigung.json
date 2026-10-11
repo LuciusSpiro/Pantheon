@@ -1006,20 +1006,20 @@
           "do": [
             {
               "set": {
-                "gunboat": true
+                "korvette": true
               }
             },
             {
-              "wendung": "kanonenboot",
+              "wendung": "korvette",
               "ankuendigung": {
                 "art": "sichtbar",
-                "grund": "Das Kanonenboot erscheint auf dem Schirm; Grauzahn kündigt es im selben Moment per Funk an."
+                "grund": "Die Korvette erscheint auf dem Schirm; Grauzahn kündigt es im selben Moment per Funk an."
               },
               "wirkung": [
                 {
                   "spawn": {
-                    "kind": "gunboat",
-                    "tag": "gunboat"
+                    "kind": "korvette",
+                    "tag": "korvette"
                   }
                 }
               ]
@@ -1027,7 +1027,7 @@
             {
               "radio": {
                 "from": "grauzahn",
-                "text": "@funk.grauzahn_kanonenboot"
+                "text": "@funk.grauzahn_korvette"
               }
             },
             {
@@ -1035,7 +1035,7 @@
                 "sec": 4,
                 "do": [
                   {
-                    "oda": "@combat.kanonenboot_laedt"
+                    "oda": "@combat.korvette_laedt"
                   }
                 ]
               }
@@ -1044,7 +1044,7 @@
               "wendung": "erste_salve",
               "ankuendigung": {
                 "art": "sichtbar",
-                "grund": "Gehört zum Kanonenboot-Auftritt; der Baustein meldet den Schaden per ODA."
+                "grund": "Gehört zum Korvetten-Auftritt; der Baustein meldet den Schaden per ODA."
               },
               "wirkung": [
                 {
@@ -1061,7 +1061,7 @@
         {
           "if": {
             "enemyHpBelow": {
-              "tag": "gunboat",
+              "tag": "korvette",
               "frac": 0.5
             }
           },
@@ -1070,7 +1070,7 @@
               "wendung": "breitseite_backbord",
               "ankuendigung": {
                 "art": "sichtbar",
-                "grund": "Das Kanonenboot lädt seine Breitseite sichtbar (Ladeanzeige)."
+                "grund": "Die Korvette lädt seine Breitseite sichtbar (Ladeanzeige)."
               },
               "wirkung": [
                 {
@@ -1171,7 +1171,7 @@
           "if": {
             "all": [
               {
-                "v": "gunboat"
+                "v": "korvette"
               },
               {
                 "enemiesLeft": {
@@ -1237,7 +1237,7 @@
         },
         {
           "set": {
-            "gunboat": true
+            "korvette": true
           }
         }
       ]
@@ -2642,7 +2642,7 @@
     "funk.grauzahn_mutig": "Mutig. Dann treffen wir uns an der Boje.",
     "funk.grauzahn_nicht_ankommen": "Bezahlt hast du für die Durchfahrt, Kleine. Nicht fürs Ankommen.",
     "funk.grauzahn_da_seid_ihr": "Da seid ihr ja. Mal sehen, wie lange eure Schilde halten.",
-    "funk.grauzahn_kanonenboot": "Genug gespielt. Das Kanonenboot übernimmt.",
+    "funk.grauzahn_korvette": "Genug gespielt. Die Korvette übernimmt.",
     "funk.grauzahn_nicht_geplant": "Das… war nicht geplant. Wir sehen uns, Lerche!",
     "funk.grauzahn_rueckfahrt": "Wegezoll galt für die Hinfahrt, Kleine. Die Rückfahrt kostet extra.",
     "funk.grauzahn_blamiert": "Ihr habt meine Jungs blamiert. Die Nachhut verabschiedet euch persönlich.",
@@ -2687,8 +2687,8 @@
     "combat.unbesetzt": "Unbesetzte Taktik? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.",
     "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Captain setzt im Reiter „Schäden“ Prioritäten.",
     "combat.streifschuss": "Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!",
-    "combat.kanonenboot_laedt": "Das Kanonenboot lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
-    "combat.erste_salve": "Kanonenboot! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
+    "combat.korvette_laedt": "Die Korvette lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
+    "combat.erste_salve": "Korvette! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
     "combat.huellenbruch": "Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.",
     "combat.durchschlag": "Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.",
     "scan.ruhe": "Ruhe am Himmel. Gut gemacht! Jetzt zur Boje – die Markierung mitten in der Szene.",

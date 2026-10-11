@@ -50,7 +50,7 @@ Der Captain führt die Crew; gib ihm Stoff zum Führen: Entscheidungen und Infor
 - 1–2 Entscheidungen, jede Option mit spürbar anderer Folge. Keine Scheinwahl.
 - 2–3 Ausgänge, kein Game Over. **Jeder Ausgang muss von einer Szene erreicht werden**, und die Bedingungen müssen
   sich logisch erfüllen lassen. Prüfe deinen Plan einmal auf Widersprüche, bevor du ihn ausgibst.
-- Gegner passen zum Kanon: Die Rostmeute fliegt Jäger und Kanonenboote; Pylonen und Wächter sind Kustoden-Technik.
+- Gegner passen zum Kanon: Die Rostmeute fliegt Jäger und Korvetten; Pylonen und Wächter sind Kustoden-Technik.
 - Greife eine konkrete Erinnerung eines NSC auf. Kanon: Kustoden = abtrünniger Agent der Apkallu; Konkordat der Häfen
   = Bund ohne Pantheon (Rat der Hafenmeister); die Tafel von Kesh liegt im Konkordat-Archiv bei Melk; Rostmeute =
   Piraten unter Grauzahn; Vaelen = fahrende Händler. Löse das Kustoden-Rätsel nicht auf.

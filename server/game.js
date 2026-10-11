@@ -1614,7 +1614,7 @@ class Game {
       w: sp.w, h: sp.h,
       enemies: sp.enemies.concat(this.treibendeSnapList()).map((e) => {
         const o = { id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
-          shields: (e.shields || []).map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? (C.enemyWeapons[e.kind] || []) : null };
+          shields: (e.shields || []).map(r1), shieldsMax: e.shieldsMax, scanned: !!e.scanned, weapons: e.scanned ? space.waffenPlaetze(this, e, null).map((w) => (e.waffen ? Object.assign({}, w, { typ: e.waffen[w.platz] }) : w)) : null };
         // M3a §7.1: angekündigter Angriff (nur solange er lädt)
         const tele = hasFn('enemyTeleSnap') ? space.enemyTeleSnap(e) : (e.tele ? { kind: e.tele.kind, left: r2(e.tele.left), dur: e.tele.dur, sector: e.tele.sector } : null);
         if (tele) o.tele = tele;

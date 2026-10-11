@@ -2982,9 +2982,9 @@
     S.dot(46, 6, PAL.alarmrot);
     outline(c, PAL.outlineRust);
   }
-  // Kanonenboot (eigener Entwurf, Bug +x, ≈ 64 px)
+  // Korvette (eigener Entwurf, Bug +x, ≈ 64 px)
   function idMap(X, Y) { return [X, Y]; }
-  function buildGunboat(g, c, ang) {
+  function buildKorvette(g, c, ang) {
     var S = Rot(g, 50, 50, ang, idMap);
     var rust = PAL.rostsand, rustL = '#E0915A', rustD = '#7A3E22', dark = '#3A2E28';
     // Triebwerke
@@ -3022,7 +3022,7 @@
   }
   function enemySprite(kind, b) {
     if (kind === 'raider') return cached('raider|' + b, 48, 48, function (g, c) { buildRaider(g, c, b / ROT_STEPS * Math.PI * 2); });
-    return cached('gunboat|' + b, 100, 100, function (g, c) { buildGunboat(g, c, b / ROT_STEPS * Math.PI * 2); });
+    return cached('korvette|' + b, 100, 100, function (g, c) { buildKorvette(g, c, b / ROT_STEPS * Math.PI * 2); });
   }
   function drawEnemy(ctx, kind, x, y, angle, opts) {
     var o = opts || {};
@@ -3030,7 +3030,7 @@
       drawTele(ctx, x, y, { left: o.tele.left, dur: o.tele.dur, kind: o.tele.kind, r: TELE_R[kind] || 20, time: o.time });
     }
     if (kind === 'sentinel' || kind === 'pylon') { drawEnemyM1(ctx, kind, x, y, angle, o); teleGlowOver(ctx, kind, x, y, o); return; }   // M1
-    if (kind !== 'raider' && kind !== 'gunboat') { missing(ctx, Math.round(x - 14), Math.round(y - 14), 28, 28); return; }
+    if (kind !== 'raider' && kind !== 'korvette') { missing(ctx, Math.round(x - 14), Math.round(y - 14), 28, 28); return; }
     var t = o.time || 0, b = rotBucket(angle), bang = b / ROT_STEPS * Math.PI * 2;
     var co = Math.cos(bang), si = Math.sin(bang);
     function W(lx, ly) { return [x + lx * co - ly * si, y + lx * si + ly * co]; }
@@ -3426,7 +3426,7 @@
     });
   }
   var PROJ_GLOW = { enemy: PAL.alarmrot, bolzen: PAL.bernstein, blaster: PAL.mint, drone: PAL.alarmrot };
-  // S2b: Sperrfeuer des Kanonenboots – dicker, glühender Bernstein-Bolzen (Bug +x) mit kurzer, ausfransender Spur.
+  // S2b: Sperrfeuer der Korvette – dicker, glühender Bernstein-Bolzen (Bug +x) mit kurzer, ausfransender Spur.
   // Absichtlich größer und runder als Jäger-Schuss (rot, klein) und eigener Bolzen (Messing, schlank, rote Spitze):
   // liest sich als „schwer und langsam – ausweichen“. 2 Glutphasen, feste Schlüssel → Cache wächst nicht.
   function sperrSprite(f) {
@@ -6166,7 +6166,7 @@
   // --- Ladeglühen an Gegnern (tele): pulsierend, rot gestrichelt, Fortschrittsbogen ---------------
   // drawTele(ctx, x, y, opts): opts.left, opts.dur (Restzeit/Gesamtdauer der Ladung), opts.kind ('shot'|'emp'),
   // opts.r (Radius, Standard 20), opts.time, optional opts.toX/opts.toY (gestrichelte Linie zum Ziel), opts.lineLen (max. Länge)
-  var TELE_R = { raider: 14, gunboat: 26, sentinel: 24, pylon: 20 };
+  var TELE_R = { raider: 14, korvette: 26, sentinel: 24, pylon: 20 };
   // rotes Glühen ÜBER dem Gegnersprite (der Gegner selbst „lädt sich auf“)
   function teleGlowOver(ctx, kind, x, y, o) {
     var te = o && o.tele;

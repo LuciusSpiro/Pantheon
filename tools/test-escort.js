@@ -134,7 +134,7 @@ section('Zielwahl der Gegner: ziel, Aggro, Rückfall (§5)', () => {
   const es = Escort.spawn(g, { tag: 'konvoi', kind: 'frachter', verhalten: 'folgt_kurs', von: { x: 1200, y: 1500 }, nach: { x: 2600, y: 1500 } });
   const a = space.spawnEnemy(g, 'raider', { ziel: 'lerche', x: 2400, y: 900 });
   const b = space.spawnEnemy(g, 'raider', { ziel: 'schuetzling', x: 2400, y: 1000 });
-  const c = space.spawnEnemy(g, 'gunboat', { ziel: 'konvoi', x: 2400, y: 2100 });
+  const c = space.spawnEnemy(g, 'korvette', { ziel: 'konvoi', x: 2400, y: 2100 });
   const d0 = space.spawnEnemy(g, 'raider', { x: 2400, y: 1100 });
   ok(a.targetId == null && !('targetId' in d0), 'ziel lerche bzw. ohne ziel: kein targetId (Feld fehlt ohne ziel)');
   ok(b.targetId === es.id && c.targetId === es.id, `ziel schuetzling / Tag: targetId ${b.targetId}, ${c.targetId}`);
@@ -160,7 +160,7 @@ section('Ankündigung: jeder Angriff auf den Schützling ist angesagt (§5)', ()
   const es = Escort.spawn(g, { tag: 'konvoi', kind: 'karawane', verhalten: 'folgt_kurs', von: { x: 1000, y: 1500 }, nach: { x: 2700, y: 1500 } });
   Escort.order(g, 'konvoi', 'halten');
   g.ship.x = 400; g.ship.y = 400;   // Lerche weit weg: keine Breitseite
-  const foes = [space.spawnEnemy(g, 'raider', { ziel: 'konvoi', x: 1600, y: 1100 }), space.spawnEnemy(g, 'gunboat', { ziel: 'konvoi', x: 1600, y: 1900 }),
+  const foes = [space.spawnEnemy(g, 'raider', { ziel: 'konvoi', x: 1600, y: 1100 }), space.spawnEnemy(g, 'korvette', { ziel: 'konvoi', x: 1600, y: 1900 }),
     space.spawnEnemy(g, 'raider', { ziel: 'konvoi', x: 600, y: 1900 })];
   // Zählung: Angriff = tele mit tgt; Treffer am Schützling müssen jeweils nach einer Ankündigung desselben Gegners kommen
   const hp0 = es.hp;
@@ -197,7 +197,7 @@ section('Breitseite als Schild + Schaden/Zustände (§5)', () => {
   const { g, ev } = arena(3); calm(g);
   const sh = g.ship;
   const es = Escort.spawn(g, { tag: 'konvoi', kind: 'frachter', verhalten: 'folgt_kurs', von: { x: 1500, y: 1500 } });
-  const gb = space.spawnEnemy(g, 'gunboat', { ziel: 'konvoi', x: 1500, y: 1000 });
+  const gb = space.spawnEnemy(g, 'korvette', { ziel: 'konvoi', x: 1500, y: 1000 });
   gb.angle = 0;   // Breitseite (±90°) zeigt nach unten auf den Frachter
   const resolve = () => {
     gb.tele = { kind: 'shot', left: 0.001, dur: 3, sector: 0, delayed: 0, tgt: es.id };
@@ -365,8 +365,8 @@ function balanceRun(seed, mode, crew) {
   const sh = g.ship;
   const es = Escort.spawn(g, { tag: 'konvoi', kind: 'frachter', verhalten: 'folgt_kurs', von: { x: 400, y: 1500 }, nach: { x: 2700, y: 1500 } });
   sh.x = 400; sh.y = 1330;
-  const waves = [{ at: 8, list: [['gunboat', 'schuetzling'], ['raider', 'schuetzling'], ['raider', 'lerche']] },
-    { at: 55, list: [['raider', 'schuetzling'], ['raider', 'schuetzling'], ['gunboat', 'auto']] }];
+  const waves = [{ at: 8, list: [['korvette', 'schuetzling'], ['raider', 'schuetzling'], ['raider', 'lerche']] },
+    { at: 55, list: [['raider', 'schuetzling'], ['raider', 'schuetzling'], ['korvette', 'auto']] }];
   let wi = 0; let t = 0;
   const vmax = CONFIG.shipClasses.lerche.maxSpeed;
   while (t < 300 && es.state !== 'entkommen' && es.state !== 'kampfunfaehig') {

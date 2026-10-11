@@ -47,7 +47,7 @@
     for (let k = 1; k < st.length; k++) if (Math.abs(st[k]) < Math.abs(st[best])) best = k;
     return best;
   }
-  // Index der wendigsten Vorwärtsstufe (höchster Drehfaktor) – „½“ bei Lerche und Kanonenboot
+  // Index der wendigsten Vorwärtsstufe (höchster Drehfaktor) – „½“ bei Lerche und Korvette
   function agileStage(cls) {
     const st = cls.stages || [0];
     let best = 0, bf = -1;

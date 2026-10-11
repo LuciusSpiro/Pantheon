@@ -62,7 +62,7 @@ Ohne passende Erinnerung: „Die Vaelen fragen nicht jeden um Hilfe. Dass Sela d
 **Entscheidung:** Zahlt die Lerche Grauzahn vierzig Marken für einen ruhigeren Nebel?
 
 - Vierzig Marken zahlen → Nur einzelne Jäger im Nebel; Grauzahn wird umgänglicher, Sela sieht, dass die Lerche für sie zahlt.
-- Ablehnen (oder schweigen) → Jäger und Kanonenboot greifen die Kapseln an; Grauzahn wird gereizt.
+- Ablehnen (oder schweigen) → Jäger und Korvette greifen die Kapseln an; Grauzahn wird gereizt.
 
 **Ziele**
 
@@ -116,7 +116,7 @@ Ohne passende Erinnerung: „Die Vaelen fragen nicht jeden um Hilfe. Dass Sela d
 ### 4. kn_geleit_hart – Graue Weite
 
 - **Szenentyp:** geleit · **Baustein:** `schuetzen/geleit_durch_angriff` · **Fassung:** archiv · **Plan:** 6 min
-- **Sachverhalt:** Grauzahn macht ernst: Jäger gehen auf die Kapseln, dann kommt ein Kanonenboot. Die Lerche muss sich dazwischenstellen.
+- **Sachverhalt:** Grauzahn macht ernst: Jäger gehen auf die Kapseln, dann kommt eine Korvette. Die Lerche muss sich dazwischenstellen.
 - **Weiter:** Karawane durch → `kn_ankunft`; Karawane kampfunfähig → Ausgang `schwer_beschaedigt`
 
 **Ziele**

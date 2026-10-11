@@ -317,7 +317,7 @@
           "default": "raider",
           "werte": [
             "raider",
-            "gunboat"
+            "korvette"
           ],
           "beschreibung": "Das Schiff, das gekapert wird"
         },

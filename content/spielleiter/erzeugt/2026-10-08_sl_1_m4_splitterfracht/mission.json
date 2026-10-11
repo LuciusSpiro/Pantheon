@@ -376,7 +376,7 @@
             "loc": "splitter",
             "npc": "neu:Vrann",
             "jaeger": 2,
-            "mit_kanonenboot": false,
+            "mit_korvette": false,
             "flucht_unter": 35,
             "funk_start": "Ihr habt die falsche Wahl getroffen, Lerche. Diese Container gehören jetzt uns.",
             "funk_abzug": "Schießt euch nicht in den Schlaf. Wir holen uns die Ware anderswo."
@@ -951,7 +951,7 @@
           {
             "if": false,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s4_gefecht_meute_w1"
             }
           },

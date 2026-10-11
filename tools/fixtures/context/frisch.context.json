@@ -1354,7 +1354,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Kanonenboot + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
+            "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Korvette + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
             "dauer_min": [
               4,
               6
@@ -1656,7 +1656,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
+            "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Korvette oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
             "dauer_min": [
               3,
               5
@@ -1697,7 +1697,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein Trupp (Jäger, optional ein Kanonenboot) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
+            "beschreibung": "Ein Trupp (Jäger, optional eine Korvette) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
             "dauer_min": [
               2,
               4

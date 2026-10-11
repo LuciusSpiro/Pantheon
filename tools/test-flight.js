@@ -3,7 +3,7 @@
 //  - Teil 1: reine Funktionen aus shared/flight.js (Stufen, Beschleunigen/Bremsen, Wendekreis, Mindesttempo, Düsen-Kappung)
 //  - Teil 2: Lerche im Spiel (helm.throttle, Altname thrust, Allstopp, unbesetzte Steuer, Snapshot)
 //  - Teil 3: Gegner im Testgelände (flightV2.arena): Überflüge der Jäger, Mindestabstand, Randstreifen,
-//    Breitseite des Kanonenboots gegen eine geradeaus fahrende Lerche, Snapshot vx/vy/state
+//    Breitseite der Korvette gegen eine geradeaus fahrende Lerche, Snapshot vx/vy/state
 // Gemessene Werte stehen als „info“-Zeilen in der Ausgabe (für den Bericht).
 //   node tools/test-flight.js            -> alle Abschnitte
 //   node tools/test-flight.js jäger rand -> nur Abschnitte, deren Name einen der Begriffe enthält
@@ -125,10 +125,10 @@ section('Flugmodell: Drehen und Wendekreis (§2, §6)', () => {
   const bd = makeBody(L, 3, 65, 0); bd.dodgeT = 1; stepN(bd, { stage: 3, rudder: 1 }, L, 0.5);
   const bn = makeBody(L, 3, 65, 0); stepN(bn, { stage: 3, rudder: 1 }, L, 0.5);
   ok(bd.angle < bn.angle, `Ausweichen: 1 s Drehen × ${L.dodge.turnPenalty} (${f2(bd.angle)} statt ${f2(bn.angle)} rad nach 0,5 s)`);
-  // Kanonenboot: gleiche Kurve, eigenes Tempo
-  const G = CLS.gunboat; const gh = turnTest(G, 3, 1), gf = turnTest(G, 5, 1);
-  info(`Kanonenboot Wendekreis: ½ ${f1(gh.radius)} px · Voll ${f1(gf.radius)} px; 90° bei ½ ${f2(gh.t90)} s`);
-  ok(gf.radius >= 3 * gh.radius, `Kanonenboot: Wendekreis Voll ≥ 3 × ½ (${f2(gf.radius / gh.radius)} ×)`);
+  // Korvette: gleiche Kurve, eigenes Tempo
+  const G = CLS.korvette; const gh = turnTest(G, 3, 1), gf = turnTest(G, 5, 1);
+  info(`Korvette Wendekreis: ½ ${f1(gh.radius)} px · Voll ${f1(gf.radius)} px; 90° bei ½ ${f2(gh.t90)} s`);
+  ok(gf.radius >= 3 * gh.radius, `Korvette: Wendekreis Voll ≥ 3 × ½ (${f2(gf.radius / gh.radius)} ×)`);
   const R = CLS.raider; const rf = turnTest(R, R.stages.length - 1, 1);
   info(`Jäger: Wendekreis bei Voll ${f1(rf.radius)} px, 90° in ${f2(rf.t90)} s`);
 });
@@ -296,7 +296,7 @@ section('Lerche: Allstopp und Ausweichen (§2)', () => {
 section('Gegner: Snapshot vx/vy/state und Anfangstempo (§3, §7)', () => {
   ok(flightV2On(), 'CONFIG.spaceM3b.flightV2.arena = true');
   const { g, run } = arena(1);
-  const kinds = ['raider', 'gunboat'];
+  const kinds = ['raider', 'korvette'];
   const es = kinds.map((k, i) => spawn(g, k, i * 2, 800));
   g.step();
   const s = g.snapshot();
@@ -304,9 +304,9 @@ section('Gegner: Snapshot vx/vy/state und Anfangstempo (§3, §7)', () => {
   ok(se.length === 2 && se.every((e) => typeof e.vx === 'number' && typeof e.vy === 'number' && typeof e.state === 'string' && e.state.length <= 10), `enemies[]: vx, vy, state (${se.map((e) => e.kind + ':' + e.state).join(', ')})`);
   const sp = es.map((e) => Math.hypot(e.vx || 0, e.vy || 0));
   info(`Tempo direkt nach dem Spawn: ${kinds.map((k, i) => k + ' ' + f1(sp[i])).join(', ')} px/s`);
-  // Testgelände-Welle 1 laut §7: Kanonenboot + 2 Jäger, mit Anfangstempo
+  // Testgelände-Welle 1 laut §7: Korvette + 2 Jäger, mit Anfangstempo
   const w1 = (CONFIG.arena.waves[0] || []).slice().sort().join();
-  ok(w1 === 'gunboat,raider,raider', `Testgelände Welle 1 = Kanonenboot + 2 Jäger (${w1})`);
+  ok(w1 === 'korvette,raider,raider', `Testgelände Welle 1 = Korvette + 2 Jäger (${w1})`);
   const t = arena(1); t.g.arena.nextAt = t.g.time; t.g.step();
   const first = t.g.space.enemies.map((e) => e.kind + ' ' + f1(Math.hypot(e.vx || 0, e.vy || 0)));
   ok(t.g.space.enemies.length > 0 && t.g.space.enemies.filter((e) => e.kind !== 'pylon').every((e) => Math.hypot(e.vx || 0, e.vy || 0) > 10), `Welle startet mit Anfangstempo (${first.join(', ')})`);
@@ -379,14 +379,14 @@ section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
 });
 
 section('Abstand und Randstreifen (§3, §6)', () => {
-  // Welle 1 (Kanonenboot + 2 Jäger) gegen geradeaus fahrende, stehende und kreisende Lerche
-  const a = raidRun({ seed: 31, kinds: ['gunboat', 'raider', 'raider'], stage: 3, sec: 150 });
-  const b = raidRun({ seed: 32, kinds: ['gunboat', 'raider', 'raider'], stage: 1, sec: 150 });
+  // Welle 1 (Korvette + 2 Jäger) gegen geradeaus fahrende, stehende und kreisende Lerche
+  const a = raidRun({ seed: 31, kinds: ['korvette', 'raider', 'raider'], stage: 3, sec: 150 });
+  const b = raidRun({ seed: 32, kinds: ['korvette', 'raider', 'raider'], stage: 1, sec: 150 });
   // Lerche nahe am Rand geparkt (450 px): Gegner dürfen nicht im Randstreifen hängen bleiben
   const c = (() => {
     const t = arena(1, { seed: 33 });
     t.g.ship.x = 450; t.g.ship.y = 450;
-    const es = ['gunboat', 'raider', 'raider'].map((k, i) => spawn(t.g, k, 0.3 + i * 0.5, 700));
+    const es = ['korvette', 'raider', 'raider'].map((k, i) => spawn(t.g, k, 0.3 + i * 0.5, 700));
     const edgeT = {}; let edgeMax = 0, who = ''; let minSep = Infinity; const S2 = 100;
     t.run(150, () => {
       keepShip(t.g);
@@ -409,13 +409,13 @@ section('Abstand und Randstreifen (§3, §6)', () => {
   ok(rows.every(([, r]) => r.g.errors === 0), 'keine Server-Fehler');
 });
 
-section('Kanonenboot: Breitseite gegen geradeaus fahrende Lerche (§3, §6)', () => {
-  const arcs = CONFIG.enemyWeapons.gunboat;
+section('Korvette: Breitseite gegen geradeaus fahrende Lerche (§3, §6)', () => {
+  const arcs = CONFIG.enemyWeapons.korvette;
   const res = [];
   for (const [seed, stage] of [[41, 3], [42, 4], [43, 3], [44, 2]]) {
     const { g, run, enter, cmd } = arena(1, { seed });
     enter(0, 'helm'); cmd(0, 'helm.throttle', { set: stage });
-    const gb = spawn(g, 'gunboat', 0.8 + seed * 0.7, 700);
+    const gb = spawn(g, 'korvette', 0.8 + seed * 0.7, 700);
     const st = stateReader(g);
     let tot = 0, inArc = 0, settled = null; const states = {};
     run(120, (t) => {
@@ -424,7 +424,7 @@ section('Kanonenboot: Breitseite gegen geradeaus fahrende Lerche (§3, §6)', ()
       const sh = g.ship;
       const s = st(gb); states[s] = (states[s] || 0) + 1;
       const d = dist(gb.x, gb.y, sh.x, sh.y);
-      if (settled == null && d < (CONFIG.spaceM3b.pilot.gunboatRange || 400) + 150) settled = t;
+      if (settled == null && d < (CONFIG.spaceM3b.pilot.korvetteRange || 400) + 150) settled = t;
       if (settled == null || t < settled + 5) return;
       tot++;
       if (arcs.some((w) => Physics.inArc(gb.x, gb.y, gb.angle, w.facing, w.arc, w.range, sh.x, sh.y))) inArc++;
@@ -433,7 +433,7 @@ section('Kanonenboot: Breitseite gegen geradeaus fahrende Lerche (§3, §6)', ()
   }
   for (const r of res) info(`Seed ${r.seed}, Lerche Stufe ${r.stage}: Breitseite ${f1(r.share * 100)} % (ab ${f1(r.settled)} s + 5 s) · Zustände ${Object.entries(r.states).map(([k, v]) => k + ' ' + v).join(', ')}`);
   const avg = res.reduce((a, r) => a + r.share, 0) / res.length;
-  ok(avg >= 0.6, `Kanonenboot hält die Breitseite im Mittel ${f1(avg * 100)} % der Zeit (Soll ≥ 60 %)`);
+  ok(avg >= 0.6, `Korvette hält die Breitseite im Mittel ${f1(avg * 100)} % der Zeit (Soll ≥ 60 %)`);
   ok(res.every((r) => r.share >= 0.45), `jeder Lauf ≥ 45 % (${res.map((r) => f1(r.share * 100)).join(' / ')} %)`);
   ok(res.every((r) => r.errors === 0), 'keine Server-Fehler');
 });

@@ -127,7 +127,7 @@ Ohne passende Erinnerung: „Grauzahn bietet selten Arbeit an. Wer annimmt, soll
 ### 5. tz_abwehr – Wrack „Zaunkönig“
 
 - **Szenentyp:** raumgefecht · **Baustein:** `vertreiben/bis_zur_flucht` · **Fassung:** archiv · **Plan:** 3 min
-- **Sachverhalt:** Die Rostmeute greift an, will aber keine Verluste: Wer genug abbekommt, dreht ab. Ein Kanonenboot gibt Rückendeckung.
+- **Sachverhalt:** Die Rostmeute greift an, will aber keine Verluste: Wer genug abbekommt, dreht ab. Eine Korvette gibt Rückendeckung.
 - **Weiter:** Angreifer vertrieben → Ausgang `vertrieben`
 
 **Ziele**

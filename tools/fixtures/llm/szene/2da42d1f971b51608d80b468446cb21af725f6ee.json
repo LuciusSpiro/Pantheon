@@ -1,7 +1,7 @@
 {
   "format": "llm-aufzeichnung/1",
   "kind": "szene",
-  "key": "3905d9eb9827d25a861cb526ac331c1672f23907",
+  "key": "2da42d1f971b51608d80b468446cb21af725f6ee",
   "name": "grauzahn-rache.s3_funkduell.sonnet.1",
   "modell": "sonnet",
   "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.sonnet.1.json",
@@ -111,7 +111,7 @@
               "umsetzung": "angriffswelle"
             }
           ],
-          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, die Korvette bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
           "wendung": null,
           "dauer_min": 4,
           "weiter": [

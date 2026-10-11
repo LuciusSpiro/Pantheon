@@ -82,7 +82,7 @@ Ohne passende Erinnerung: „Tesk kennt die Rostmeute seit Jahren: Wo Frachter a
 **Entscheidung:** Zahlt die Lerche Grauzahns Wegezoll?
 
 - Sechzig Marken zahlen → Kein Gefecht, die Route ist offen – zu Grauzahns Preis. Tesk ist enttäuscht, Grauzahn zufrieden.
-- Ablehnen (oder schweigen) → Gefecht mit Jägern und Kanonenboot. Tesk ist dankbar, Grauzahn gereizt.
+- Ablehnen (oder schweigen) → Gefecht mit Jägern und Korvette. Tesk ist dankbar, Grauzahn gereizt.
 
 **Ziele**
 
@@ -105,7 +105,7 @@ Ohne passende Erinnerung: „Tesk kennt die Rostmeute seit Jahren: Wo Frachter a
 ### 4. zf_gefecht – Mond Kesh
 
 - **Szenentyp:** raumgefecht · **Baustein:** `vernichten/angriffswelle` · **Fassung:** archiv · **Plan:** 4 min
-- **Sachverhalt:** Grauzahns Jäger gehen auf die Lerche los, ein Kanonenboot folgt als Verstärkung.
+- **Sachverhalt:** Grauzahns Jäger gehen auf die Lerche los, eine Korvette folgt als Verstärkung.
 - **Weiter:** Angriff abgewehrt → `zf_bericht`
 
 **Ziele**
@@ -118,7 +118,7 @@ Ohne passende Erinnerung: „Tesk kennt die Rostmeute seit Jahren: Wo Frachter a
 - *(nach 3 s)* **Funk – Grauzahn (Rostmeute):** „Ihr wolltet es so. Jäger, zeigt der Lerche, was Zoll kostet.“
 - *(nach 60 s, Hinweis, falls nötig)* **ODA:** „Pilot: Breitseite zum Gegner. Taktik: Ziel mit T, Batterien 2/3. Schäden: E halten oder Bots.“
 - *(sobald erfüllt)* **Wendung** `zf_gefecht_verstaerkung` – Ankündigung (vorher, 4 s Vorlauf): ODA „Ortung: Verstärkung im Anflug! Schilde hoch, Pilot – Breitseite bereithalten.“
-  - **Funk – Grauzahn (Rostmeute):** „Kanonenboot, nach vorn. Ich will ihre Schilde glühen sehen.“
+  - **Funk – Grauzahn (Rostmeute):** „Korvette, nach vorn. Ich will ihre Schilde glühen sehen.“
 
 ### 5. zf_bericht – Hafen Lichtkordon
 

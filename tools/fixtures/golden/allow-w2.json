@@ -25,7 +25,7 @@
     "Feuer an Bord!",
     "^Dauerbrand!",
     "^Schildsektor leer",
-    "(Kanonenboot|Wächter) lädt – ",
+    "(Korvette|Wächter) lädt – ",
     " ist (verwundet|k\\.o\\.|bewusstlos)!",
     " ist wieder auf den Beinen",
     "^Notrückholung",

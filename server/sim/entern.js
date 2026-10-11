@@ -24,8 +24,8 @@ const path = require('path');
 
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const ZUSTAND_TREIBT = 'treibt';
-// Fraktion je Raumgegner, wenn weder Gegner noch Markierung eine nennen (Raider/Kanonenboot = Rostmeute, §19)
-const FRAKTION_STANDARD = { raider: 'rostmeute', gunboat: 'rostmeute', sentinel: 'kustoden', pylon: 'kustoden', relay: 'rostmeute' };
+// Fraktion je Raumgegner, wenn weder Gegner noch Markierung eine nennen (Raider/Korvette = Rostmeute, §19)
+const FRAKTION_STANDARD = { raider: 'rostmeute', korvette: 'rostmeute', sentinel: 'kustoden', pylon: 'kustoden', relay: 'rostmeute' };
 const DEFAULTS = { aktiv: true, transferRange: 300, driftMax: 6, driftDaempfung: 0.15, drehMin: 0.04, drehMax: 0.12 };
 
 function hashStr(s) { let h = 2166136261; s = String(s); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }

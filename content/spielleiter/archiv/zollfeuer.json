@@ -65,7 +65,7 @@
         "ort": "kesh",
         "karte": null,
         "molekuele": [ { "id": "vernichten", "umsetzung": "angriffswelle" } ],
-        "sachverhalt": "Grauzahns Jäger gehen auf die Lerche los, ein Kanonenboot folgt als Verstärkung.",
+        "sachverhalt": "Grauzahns Jäger gehen auf die Lerche los, eine Korvette folgt als Verstärkung.",
         "wendung": null,
         "dauer_min": 4,
         "weiter": [ { "wenn": "Angriff abgewehrt", "nach": "zf_bericht" } ]
@@ -88,7 +88,7 @@
         "frage": "Zahlt die Lerche Grauzahns Wegezoll?",
         "optionen": [
           { "id": "zahlen", "text": "Sechzig Marken zahlen", "folge": "Kein Gefecht, die Route ist offen – zu Grauzahns Preis. Tesk ist enttäuscht, Grauzahn zufrieden." },
-          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Gefecht mit Jägern und Kanonenboot. Tesk ist dankbar, Grauzahn gereizt." }
+          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Gefecht mit Jägern und Korvette. Tesk ist dankbar, Grauzahn gereizt." }
         ]
       }
     ],
@@ -178,10 +178,10 @@
             "loc": "kesh",
             "npc": "grauzahn",
             "jaeger": 2,
-            "verstaerkung": "gunboat",
+            "verstaerkung": "korvette",
             "verstaerkung_nach": 55,
             "funk_start": "Ihr wolltet es so. Jäger, zeigt der Lerche, was Zoll kostet.",
-            "funk_verstaerkung": "Kanonenboot, nach vorn. Ich will ihre Schilde glühen sehen."
+            "funk_verstaerkung": "Korvette, nach vorn. Ich will ihre Schilde glühen sehen."
           }
         }
       ],

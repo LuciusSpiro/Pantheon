@@ -1,14 +1,13 @@
 {
   "format": "llm-aufzeichnung/1",
   "kind": "szene",
-  "key": "8888a329edf669212b827c3cf51dd43acefbb537",
-  "name": "grauzahn-rache.s2_splitter_annaeherung.haiku.final",
-  "modell": "haiku",
-  "quelle": "concept/regiebuch/trockenversuch/out/grauzahn-rache.s2_splitter_annaeherung.haiku.antwort.json",
-  "hinweis": "1 Text(e) aus grauzahn-rache.s2_splitter_annaeherung.haiku.regiebuch.json zurückgeholt (szene.js hatte die Antwort beim Auslagern verändert)",
+  "key": "f74e8428de598d66f069f6d8a833d23450d7d9d5",
+  "name": "grauzahn-rache.s3_funkduell.sonnet.3",
+  "modell": "sonnet",
+  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.sonnet.3.json",
   "input": {
     "quelle": "trockenversuch/stufe2",
-    "modell": "haiku",
+    "modell": "sonnet",
     "grobplan": {
       "format": "grobplan/2",
       "id": "grauzahn_zahlt_heim",
@@ -112,7 +111,7 @@
               "umsetzung": "angriffswelle"
             }
           ],
-          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, die Korvette bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
           "wendung": null,
           "dauer_min": 4,
           "weiter": [
@@ -179,14 +178,14 @@
         }
       }
     },
-    "szene": "s2_splitter_annaeherung",
-    "variante": "final"
+    "szene": "s3_funkduell",
+    "variante": "3"
   },
   "response": {
-    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"signal_orten\",\n      \"umsetzung\": \"weitscan_peilung\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"fund\": \"splitter_cache1\",\n        \"fund_name\": \"mehrere widersprüchliche Signale\",\n        \"hinweis_nach\": 45,\n        \"aufdecken_nach\": 85,\n        \"scannen_nach\": 180\n      }\n    }\n  ],\n  \"verzweigung\": [],\n  \"wendung\": {\n    \"kennung\": \"grauzahn_funkt\",\n    \"nach_s\": 50,\n    \"ankuendigung\": \"Weitscan zeigt Anomalien – vier Rostmeute-Jäger, versteckt hinter Trümmern. Das ist eine Falle.\",\n    \"wirkung\": [\n      {\n        \"radio\": {\n          \"from\": \"grauzahn\",\n          \"text\": \"Lerche, ich sehe dich auch. Bevor meine Jäger schießen – lass uns reden. Komm auf Kanal sieben.\"\n        }\n      }\n    ]\n  }\n}",
+    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche. Schön, dass ihr gekommen seid. Ihr habt mir im Nebel einen Trick gespielt – das hat mich Treibstoff und Zeit gekostet. Zweihundert Marken, und ich vergesse es. Die Händlerin auch.\",\n        \"frage\": \"Zahlt ihr, oder soll ich mir das Geld anderswo holen?\",\n        \"antwort_a\": \"Wir zahlen. Zweihundert Marken.\",\n        \"antwort_b\": \"Kein Kredit für Erpressung, Grauzahn.\",\n        \"folgen_a\": [\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 200\n          },\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Klug. Meine Jäger wollen trotzdem sehen, was ihr könnt.\"\n            }\n          },\n          {\n            \"log\": \"200 Marken an Grauzahn gezahlt. Waffenstillstand – vorerst.\"\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"setFlag\": {\n              \"s3_abgelehnt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Dann lernt ihr es auf die harte Tour.\"\n            }\n          },\n          {\n            \"log\": \"Grauzahns Angebot abgelehnt. Er schickt alles los.\"\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"setFlag\": {\n              \"s3_abgelehnt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Schweigen ist auch eine Antwort. Die falsche.\"\n            }\n          },\n          {\n            \"log\": \"Keine Antwort an Grauzahn. Er wertet es als Ablehnung.\"\n          }\n        ],\n        \"geduld_s\": 45\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\",\n      \"if\": {\n        \"flag\": \"s3_abgelehnt\"\n      }\n    }\n  ]\n}",
     "usage": {
-      "input": 5965,
-      "output": 313
+      "input": null,
+      "output": null
     },
     "sec": null,
     "modelId": null

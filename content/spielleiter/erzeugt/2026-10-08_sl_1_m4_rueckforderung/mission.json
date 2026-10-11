@@ -1169,7 +1169,7 @@
           {
             "if": true,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s5_gefecht_w1"
             }
           },

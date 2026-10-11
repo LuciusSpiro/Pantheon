@@ -125,7 +125,7 @@
             "umsetzung": "bluff_funk"
           }
         ],
-        "sachverhalt": "Ein Rostmeute-Kanonenboot taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'",
+        "sachverhalt": "Eine Rostmeute-Korvette taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'",
         "wendung": null,
         "dauer_min": 2,
         "weiter": [
@@ -150,7 +150,7 @@
             "umsetzung": "andocken_und_flicken"
           }
         ],
-        "sachverhalt": "Das Kanonenboot zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.",
+        "sachverhalt": "Die Korvette zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.",
         "wendung": null,
         "dauer_min": 3,
         "weiter": [
@@ -159,7 +159,7 @@
             "nach": "ausgang:begleitet"
           },
           {
-            "wenn": "Kanonenboot greift während der Arbeit an",
+            "wenn": "Korvette greift während der Arbeit an",
             "nach": "s5b_gefecht"
           }
         ]
@@ -175,7 +175,7 @@
             "umsetzung": "bis_zur_flucht"
           }
         ],
-        "sachverhalt": "Das Kanonenboot und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht das Kanonenboot knurrend ab.",
+        "sachverhalt": "Die Korvette und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht die Korvette knurrend ab.",
         "wendung": null,
         "dauer_min": 3,
         "weiter": [
@@ -193,17 +193,17 @@
     "entscheidungen": [
       {
         "szene": "s4_entscheidung_auftritt",
-        "frage": "Wie antwortet der Captain dem Rostmeute-Kanonenboot?",
+        "frage": "Wie antwortet der Captain der Rostmeute-Korvette?",
         "optionen": [
           {
             "id": "bluff_schrotthaendler",
             "text": "Wir sind Schrotthändler, suchen Treibgut",
-            "folge": "Kanonenboot glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig"
+            "folge": "Korvette glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig"
           },
           {
             "id": "wahrheit_konkordat",
             "text": "Wir suchen die Goldkehle im Auftrag der Karawane",
-            "folge": "Kanonenboot fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe"
+            "folge": "Korvette fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe"
           }
         ]
       },
@@ -255,7 +255,7 @@
       }
     },
     "wuensche": [
-      "Szenentyp 'verfolgung' wäre hier passend gewesen – Kanonenboot, das die Lerche durch den Nebel jagt, nach einem gescheiterten Bluff."
+      "Szenentyp 'verfolgung' wäre hier passend gewesen – Korvette, das die Lerche durch den Nebel jagt, nach einem gescheiterten Bluff."
     ]
   },
   "szenen": {},
@@ -985,7 +985,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s5_pannenhilfe_w1",
                       "ziel": "schuetzling",
                       "angles": [
@@ -1015,7 +1015,7 @@
             ]
           },
           {
-            "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Kanonenboote gleichzeitig)",
+            "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Korvetten gleichzeitig)",
             "if": {
               "all": [
                 true,
@@ -1050,7 +1050,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s5_pannenhilfe_w2",
                       "ziel": "schuetzling",
                       "angles": [
@@ -1235,7 +1235,7 @@
           {
             "if": true,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s5b_gefecht_w1"
             }
           },

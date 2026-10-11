@@ -77,7 +77,7 @@
         "ort": "wrack",
         "karte": null,
         "molekuele": [ { "id": "vertreiben", "umsetzung": "bis_zur_flucht" } ],
-        "sachverhalt": "Die Rostmeute greift an, will aber keine Verluste: Wer genug abbekommt, dreht ab. Ein Kanonenboot gibt Rückendeckung.",
+        "sachverhalt": "Die Rostmeute greift an, will aber keine Verluste: Wer genug abbekommt, dreht ab. Eine Korvette gibt Rückendeckung.",
         "wendung": null,
         "dauer_min": 3,
         "weiter": [ { "wenn": "Angreifer vertrieben", "nach": "ausgang:vertrieben" } ]
@@ -197,7 +197,7 @@
             "loc": "wrack",
             "npc": "grauzahn",
             "jaeger": 2,
-            "mit_kanonenboot": true,
+            "mit_korvette": true,
             "flucht_unter": 40,
             "funk_start": "Letzte Chance, Lerche. Kisten raus, oder wir schneiden sie euch aus dem Rumpf.",
             "funk_abzug": "Genug! Rückzug. Das war nicht das letzte Wort am Zaunkönig."

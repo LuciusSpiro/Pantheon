@@ -71,7 +71,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
 <div class="grid" id="variantsS2"></div>
 
 <h2>S2b – Sperrfeuer</h2>
-<p class="hint">sperrfeuer (ein Ton je Feuerstoß des Kanonenboots: drei dumpfe Wummer, nicht lauter als hull_hit, Rate-Limit 600 ms).</p>
+<p class="hint">sperrfeuer (ein Ton je Feuerstoß der Korvette: drei dumpfe Wummer, nicht lauter als hull_hit, Rate-Limit 600 ms).</p>
 <div class="grid" id="variantsS2b"></div>
 
 <h2>Master</h2>
@@ -171,7 +171,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     ['battery_salvo count 2', 'battery_salvo', { count: 2 }],
     ['battery_salvo count 4', 'battery_salvo', { count: 4 }],
     ['battery_salvo count 5', 'battery_salvo', { count: 5 }],
-    ['tele_charge gunboat', 'tele_charge', { kind: 'gunboat' }],
+    ['tele_charge korvette', 'tele_charge', { kind: 'korvette' }],
     ['tele_charge pylon', 'tele_charge', { kind: 'pylon' }],
     ['tele_charge sentinel', 'tele_charge', { kind: 'sentinel' }],
     ['minigame_hit n 1', 'minigame_hit', { n: 1 }],
@@ -191,7 +191,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     at(700, function () { A.play('aim_abort', base()); });   // stoppt lance_aim automatisch
   }, 'm3');
   make($('variantsM3'), 'Ablauf: Ladung verfehlt (stop)', function () {
-    A.play('tele_charge', withP({ kind: 'gunboat', key: 'e3' }));
+    A.play('tele_charge', withP({ kind: 'korvette', key: 'e3' }));
     at(1500, function () { A.stop('tele_charge', { key: 'e3' }); });
   }, 'm3');
   make($('variantsM3'), 'Ablauf: Ladung trifft schwer', function () {
@@ -200,12 +200,12 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     at(2300, function () { A.play('system_break', base()); });
   }, 'm3 loud');
   make($('variantsM3'), 'Ablauf: Ladung – ausgewichen (§20.2)', function () {
-    A.play('tele_charge', withP({ kind: 'gunboat', key: 'e7' }));
+    A.play('tele_charge', withP({ kind: 'korvette', key: 'e7' }));
     at(2300, function () { A.play('dodge', base()); });
     at(3000, function () { A.stop('tele_charge', { key: 'e7' }); A.play('dodge_evade', base()); });
   }, 'm3');
   make($('variantsM3'), 'Ablauf: Schildstoß perfekt', function () {
-    A.play('tele_charge', withP({ kind: 'gunboat', dur: 1.5 }));
+    A.play('tele_charge', withP({ kind: 'korvette', dur: 1.5 }));
     at(1350, function () { A.play('burst_perfect', base()); });
   }, 'm3');
   make($('variantsM3'), 'Ablauf: Minispiel', function () {
@@ -256,7 +256,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     at(2700, function () { A.play('escort_lost', base()); });
   }, 's2 loud');
 
-  // S2b: Sperrfeuer – Lautheit gegen hull_hit, Ablauf eines Gefechts mit Kanonenboot
+  // S2b: Sperrfeuer – Lautheit gegen hull_hit, Ablauf eines Gefechts mit Korvette
   make($('variantsS2b'), 'Vergleich: sperrfeuer · hull_hit', function () {
     A.play('sperrfeuer', base());
     at(900, function () { A.play('hull_hit', base()); });
@@ -270,7 +270,7 @@ hull_hit), escort_lost, escort_saved (verwandt mit save_seal).</p>
     A.play('sperrfeuer', withP({ pan: -0.4 }));
     at(3000, function () { A.play('sperrfeuer', withP({ pan: -0.4 })); });
     at(4200, function () { A.play('shield_hit', withP({ seg: 1 })); });
-    at(5000, function () { A.play('tele_charge', withP({ kind: 'gunboat' })); });
+    at(5000, function () { A.play('tele_charge', withP({ kind: 'korvette' })); });
     at(7000, function () { A.play('dodge', base()); });
     at(7600, function () { A.play('dodge_evade', base()); });
     at(9000, function () { A.play('sperrfeuer', withP({ pan: -0.4 })); });

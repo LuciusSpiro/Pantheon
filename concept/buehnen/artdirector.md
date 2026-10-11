@@ -83,7 +83,7 @@ geschnittenen Wänden wie an Bord)
 | **Summe Ruine Apkallu** | | | **≈ 23** |
 | *Option: Akhu-Ruine* (Grabkammer, Tierkopf-Statue, Obelisk, Spiegel, eigene Palette) | ~8 | VW | *+18* |
 
-**Kit Schiff innen** (fremdes Schiff = Rostmeute-Kanonenboot). Die Rostmeute baut lore-gerecht im **Mischbau**. Darum
+**Kit Schiff innen** (fremdes Schiff = Rostmeute-Korvette). Die Rostmeute baut lore-gerecht im **Mischbau**. Darum
 dürfen die römischen Stationsformen der Lerche mit Palette `rostmeute` und Flickblechen wiederkommen. Das spart viel und
 passt zur Lore.
 

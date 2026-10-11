@@ -89,7 +89,7 @@ function client(port, hello, noHello) {
   const maxR = Math.max(...a.sizes), avgR = Math.round(a.sizes.reduce((s, v) => s + v, 0) / a.sizes.length);
   console.log(`  Route: Snapshot max ${maxR} B, Ø ${avgR} B`);
   a.ws.send(JSON.stringify({ t: 'debug', cmd: 'stage', stage: 'combat' }));
-  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'gunboat' }));
+  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'korvette' }));
   a.ws.send(JSON.stringify({ t: 'debug', cmd: 'fire' })); a.ws.send(JSON.stringify({ t: 'debug', cmd: 'fire' })); a.ws.send(JSON.stringify({ t: 'debug', cmd: 'breach' }));
   await sleep(300);
   a.sizes = [];
@@ -120,9 +120,9 @@ function client(port, hello, noHello) {
   const bow3 = sh3.mounts.find((m) => m.id === 'bow'), port3 = sh3.mounts.find((m) => m.id === 'port');
   ok(bow3 && 'power' in bow3 && 'charging' in bow3 && !('aim' in bow3) && port3 && !('hold' in port3), '§20: mounts[bow].power/charging über das Netz, kein aim/hold');
   // M3a: Ladung im Netz (Debug tele) und Schildstoß
-  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'gunboat' }));
+  a.ws.send(JSON.stringify({ t: 'debug', cmd: 'spawn', kind: 'korvette' }));
   await sleep(200);
-  const gbId = a.snaps[a.snaps.length - 1].space.enemies.filter((e) => e.kind === 'gunboat').map((e) => e.id).pop();
+  const gbId = a.snaps[a.snaps.length - 1].space.enemies.filter((e) => e.kind === 'korvette').map((e) => e.id).pop();
   a.ws.send(JSON.stringify({ t: 'debug', cmd: 'tele', id: gbId }));
   await sleep(300);
   const sTele = a.snaps[a.snaps.length - 1];

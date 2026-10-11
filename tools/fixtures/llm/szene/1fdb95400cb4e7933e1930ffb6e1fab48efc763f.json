@@ -1,13 +1,13 @@
 {
   "format": "llm-aufzeichnung/1",
   "kind": "szene",
-  "key": "1cc991fe46124ad03f5437cd82eee623d3e1e8e6",
-  "name": "grauzahn-rache.s3_funkduell.sonnet.2",
-  "modell": "sonnet",
-  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.sonnet.2.json",
+  "key": "1fdb95400cb4e7933e1930ffb6e1fab48efc763f",
+  "name": "grauzahn-rache.s3_funkduell.haiku.1",
+  "modell": "haiku",
+  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.haiku.1.json",
   "input": {
     "quelle": "trockenversuch/stufe2",
-    "modell": "sonnet",
+    "modell": "haiku",
     "grobplan": {
       "format": "grobplan/2",
       "id": "grauzahn_zahlt_heim",
@@ -111,7 +111,7 @@
               "umsetzung": "angriffswelle"
             }
           ],
-          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, die Korvette bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
           "wendung": null,
           "dauer_min": 4,
           "weiter": [
@@ -179,10 +179,10 @@
       }
     },
     "szene": "s3_funkduell",
-    "variante": "2"
+    "variante": "1"
   },
   "response": {
-    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche. Ich weiß, ihr seid da. Im Nebel habt ihr mir eine Patrouille verkauft, die es nicht gab. Clever. Kostet euch heute 200 Marken – oder ich schicke eure Händlerin als Wrack nach Hause.\",\n        \"frage\": \"Zahlt ihr, oder wollen wir es anders klären?\",\n        \"antwort_a\": \"Wir zahlen. 200 Marken, kein Krieg.\",\n        \"antwort_b\": \"Kein Kredit für Drohungen. Versuch dein Glück.\",\n        \"folgen_a\": [\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 200\n          },\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Klug. Jäger, zurück – wir sind fertig hier.\"\n            }\n          },\n          {\n            \"log\": \"Grauzahn kassiert 200 Marken. Die Jäger ziehen sich zurück – vorerst.\"\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"setFlag\": {\n              \"s3_abgelehnt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Dann lernt ihr es auf die harte Tour.\"\n            }\n          },\n          {\n            \"log\": \"Grauzahn bricht die Verhandlung ab. Alle Jäger springen an.\"\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"setFlag\": {\n              \"s3_abgelehnt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Schweigen. Interessant. Los, Jungs.\"\n            }\n          },\n          {\n            \"log\": \"Keine Antwort. Grauzahn wertet es als Ablehnung.\"\n          }\n        ],\n        \"geduld_s\": 60\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\",\n      \"if\": {\n        \"flag\": \"s3_abgelehnt\"\n      }\n    }\n  ]\n}",
+    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche, hier Grauzahn. Eure Karawane ist sicher – sobald ihr mir zurückgebt, was ihr mir im Nebel gestohlen habt. Fünfzig Marken, oder die Händlerin treibt.\",\n        \"frage\": \"Zahlt ihr, oder lehnt ihr ab?\",\n        \"antwort_a\": \"Abgemacht. Fünfzig Marken für Sela.\",\n        \"antwort_b\": \"Wir zahlen nicht. Sela kommt frei.\",\n        \"folgen_a\": [\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 50\n          },\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Klug. Die Jäger ziehen ab. Bis zum nächsten Mal, Lerche.\"\n            }\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Mutig. Dann seht zu, wie gut ihr kämpft.\"\n            }\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Schweigen ist auch eine Antwort. Feuer frei!\"\n            }\n          }\n        ],\n        \"geduld_s\": 60\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\",\n      \"if\": {\n        \"not\": {\n          \"flag\": \"s3_gezahlt\"\n        }\n      }\n    }\n  ]\n}",
     "usage": {
       "input": null,
       "output": null

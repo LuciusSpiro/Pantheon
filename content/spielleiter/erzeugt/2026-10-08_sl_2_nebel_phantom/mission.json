@@ -290,7 +290,7 @@
             "loc": "nebel",
             "npc": "neu:Stimme der Bake",
             "jaeger": 2,
-            "mit_kanonenboot": false,
+            "mit_korvette": false,
             "flucht_unter": 35,
             "funk_start": "Unbefugtes Schiff, ihr seid zu nah. Verlasst die Zone oder wir sorgen dafür.",
             "funk_abzug": "Genug. Rückzug – die Bake ist nicht schützbar, wenn wir fallen."
@@ -1109,7 +1109,7 @@
           {
             "if": false,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s4_gefecht_w1"
             }
           },

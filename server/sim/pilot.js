@@ -1,7 +1,7 @@
 'use strict';
 // Gegner-KI als Pilot (CONTRACT-M3B §3). Pilot.update erzeugt nur die Eingabe { stage, rudder } – die Bewegung macht
 // Flight.stepBody (shared/flight.js), dieselbe Physik wie bei der Lerche. Deterministisch, Zufall nur über game.rng.
-//  - Kanonenboot: Stationshalten querab der Lerche (Bezugssystem der Lerche, mit Vorhalt), Seitenwechsel auf ¾
+//  - Korvette: Stationshalten querab der Lerche (Bezugssystem der Lerche, mit Vorhalt), Seitenwechsel auf ¾
 //  - Jäger: approach (Voll, Vorhaltepunkt + seitlicher Versatz) -> overshoot (Ruder 0) -> turn (Wende langsam) -> …
 //  - Pylon: Turm (maxSpeed 0). Relais und Wächter bleiben kinematisch (space.js, alte Logik).
 //  - Alle: Randvermeidung, Mindestabstand, Stuck-Timer, Rückzug auf Voll.
@@ -12,13 +12,13 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage (Frei
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
-const FLYING = ['gunboat', 'raider', 'pylon'];   // Relais und Wächter: kinematisch (Schritt A)
+const FLYING = ['korvette', 'raider', 'pylon'];   // Relais und Wächter: kinematisch (Schritt A)
 const EDGE_MARGIN = 140;   // px: so weit vom Rand soll die Vorausschau bleiben
 const EDGE_STRIP = 100;    // px: Randstreifen für den Stuck-Timer (vgl. test-flight)
 
 function M3B(game) { return game.C.spaceM3b || {}; }
 function P(game) {
-  return Object.assign({ kP: 2.5, kD: 1.2, gunboatRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
+  return Object.assign({ kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
     raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 }, M3B(game).pilot || {});
 }
 function shipClass(game, kind) { const SC = game.C.shipClasses; return SC ? SC[kind] || null : null; }
@@ -78,18 +78,18 @@ function ensure(game, e) {
   if (e.vy == null) e.vy = 0;
   if (e.turnVel == null) e.turnVel = 0;
   if (e.stage == null) e.stage = c ? Flight.stopStage(c) : 0;
-  e.pstate = e.pstate || (e.kind === 'raider' ? 'approach' : e.kind === 'gunboat' ? 'station' : null);
+  e.pstate = e.pstate || (e.kind === 'raider' ? 'approach' : e.kind === 'korvette' ? 'station' : null);
   e.pT = 0; e.stuckT = 0; e.edgeT = 0;
-  if (e.kind === 'gunboat' && !e.side) e.side = game.rng.chance(0.5) ? 1 : -1;
+  if (e.kind === 'korvette' && !e.side) e.side = game.rng.chance(0.5) ? 1 : -1;
 }
 
-// Anfangstempo beim Spawn (§7): Kanonenboot auf ½, Jäger auf Voll, Blick wie gespawnt
+// Anfangstempo beim Spawn (§7): Korvette auf ½, Jäger auf Voll, Blick wie gespawnt
 function initSpawn(game, e) {
   const c = shipClass(game, e.kind);
   if (!c) return;
   ensure(game, e);
   let stage = Flight.stopStage(c);
-  if (e.kind === 'gunboat') stage = Flight.agileStage(c);
+  if (e.kind === 'korvette') stage = Flight.agileStage(c);
   else if (e.kind === 'raider') stage = c.stages.length - 1;
   e.stage = stage;
   const v = Math.max(c.minSpeed || 0, Flight.stageSpeed(c, stage));
@@ -99,7 +99,7 @@ function initSpawn(game, e) {
     if (mayApproach(game, e)) startApproach(game, e);
     else { setState(e, 'turn'); newPass(game, e); }
   }
-  if (e.kind === 'gunboat') {
+  if (e.kind === 'korvette') {
     const L = targetOf(game, e);
     const rel = norm(Math.atan2(e.y - L.y, e.x - L.x) - L.angle);
     e.side = rel >= 0 ? 1 : -1;
@@ -144,25 +144,28 @@ function detour(ax, ay, bx, by, ox, oy, clear) {
   return { x: ox + nx / nd * (clear + 60), y: oy + ny / nd * (clear + 60) };
 }
 
-// ---------- Kanonenboot: Stationshalten im Bezugssystem der Lerche ----------
-function gunboat(game, e, c, dt) {
+// ---------- Korvette: Stationshalten im Bezugssystem der Lerche ----------
+function korvette(game, e, c, dt) {
   const p = P(game); const L = targetOf(game, e);
   // W2 AP3b (Freigabe Studioleitung): Abstand höchstens wirksame Breitseitenreichweite − 40 (im Nebel kürzer, wie bei der Lerche)
-  const bs = Math.max(0, ...((game.C.enemyWeapons && game.C.enemyWeapons.gunboat) || []).map((w) => w.range || 0));
-  const R = bs > 0 && typeof game.waffenReichweite === 'function' ? Math.min(p.gunboatRange, game.waffenReichweite(bs) - 40) : p.gunboatRange;
+  const bs = Math.max(0, ...((game.C.enemyWeapons && game.C.enemyWeapons.korvette) || []).map((w) => w.range || 0));
+  const R = bs > 0 && typeof game.waffenReichweite === 'function' ? Math.min(p.korvetteRange, game.waffenReichweite(bs) - 40) : p.korvetteRange;
   const lead = p.lead;
   const tv = Math.hypot(L.vx, L.vy);
   const base = tv > 15 ? Math.atan2(L.vy, L.vx) : L.angle;   // Bezugsrichtung: Fahrtrichtung, sonst Bug
   const dx = L.x - e.x, dy = L.y - e.y; const d = Math.hypot(dx, dy) || 1;
   const bearing = Math.atan2(dy, dx);
-  const relL = norm(bearing - e.angle);          // wo liegt die Lerche, vom Kanonenboot aus
+  const relL = norm(bearing - e.angle);          // wo liegt die Lerche, von der Korvette aus
   e.switchCd = Math.max(0, (e.switchCd || 0) - dt);
 
   if (e.pstate === 'station') {
     // Seitenwechsel 1: der Breitseitensektor zur Lerche ist schwach (≤ 1), die andere Seite deutlich stärker
     const sec = Physics.sectorOf(e.x, e.y, e.angle, L.x, L.y);
     const other = sec === 1 ? 3 : sec === 3 ? 1 : null;
-    const weak = other != null && e.shields && e.shields[sec] <= 1 && e.shields[other] >= e.shields[sec] + 2;
+    // EK1: auch die Bestückung zählt – zeigt ein Bolzen zur Lerche, die andere Seite aber Lanze oder Batterie, wird gewechselt
+    const platzArt = (s) => (e.waffen ? e.waffen[s === 1 ? 'stbd' : 'bb'] : null);
+    const schwacheWaffe = other != null && platzArt(sec) === 'bolzen' && !!platzArt(other) && platzArt(other) !== 'bolzen';
+    const weak = other != null && ((e.shields && e.shields[sec] <= 1 && e.shields[other] >= e.shields[sec] + 2) || schwacheWaffe);
     // Seitenwechsel 2: die Lerche liegt lange vor dem Bug oder hinter dem Heck (keine Breitseite möglich)
     // (nur in der Nähe des Sollpunkts – auf dem Weg dorthin liegt die Lerche natürlich oft vorn)
     const sa = base + e.side * Math.PI / 2;
@@ -170,7 +173,7 @@ function gunboat(game, e, c, dt) {
     const offBeam = nearSt && Math.abs(Math.abs(relL) - Math.PI / 2) > Math.PI / 4;
     e.offBeamT = offBeam ? (e.offBeamT || 0) + dt : Math.max(0, (e.offBeamT || 0) - dt);
     if (e.switchCd <= 0 && ((weak && nearSt) || e.offBeamT > 6)) {
-      // vor oder hinter der Lerche herum – je nachdem, wohin der Bug des Kanonenboots zeigt (keine Wende über die Lerche)
+      // vor oder hinter der Lerche herum – je nachdem, wohin der Bug der Korvette zeigt (keine Wende über die Lerche)
       e.crossFront = Math.cos(norm(e.angle - base)) >= 0;
       e.side = -e.side; e.offBeamT = 0; e.switchCd = 12;
       setState(e, 'cross');
@@ -211,7 +214,7 @@ function gunboat(game, e, c, dt) {
   // Lerche (fast) im Stand, Boot nah am Sollpunkt: quer liegen bleiben (Bug parallel oder antiparallel – beides ist
   // Breitseite) und nur mit ¼ / Stopp / Rückwärts nachrücken, statt Kreise zu fahren
   // (W2: nur, solange die Lerche in Reichweite der Breitseite liegt – sonst nachrücken statt außer Reichweite liegen bleiben)
-  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= p.gunboatRange || d <= R + 40)) {
+  if (e.pstate === 'station' && tv < 15 && err < 150 && d >= 190 && (R >= p.korvetteRange || d <= R + 40)) {
     const hd = Math.cos(norm(base - e.angle)) >= 0 ? base : norm(base + Math.PI);
     const along = ex * Math.cos(e.angle) + ey * Math.sin(e.angle);
     const stage = along > 40 ? stageNear(c, 0.25) : along < -40 ? 0 : Flight.stopStage(c);
@@ -399,7 +402,7 @@ function update(game, e, dt) {
     cmd = { stage: c.stages.length - 1, head: Math.atan2(e.y - L.y, e.x - L.x) };
   } else {
     if (e.pstate === 'retreat') setState(e, e.preRetreat === 'station' || e.preRetreat === 'cross' ? 'station' : 'turn');
-    cmd = e.kind === 'gunboat' ? gunboat(game, e, c, dt) : raider(game, e, c);
+    cmd = e.kind === 'korvette' ? korvette(game, e, c, dt) : raider(game, e, c);
   }
   // Stuck-Timer: zu lange im Randstreifen -> einige Sekunden hart zur Mitte
   const inStrip = e.x < EDGE_STRIP || e.y < EDGE_STRIP || e.x > sp.w - EDGE_STRIP || e.y > sp.h - EDGE_STRIP;

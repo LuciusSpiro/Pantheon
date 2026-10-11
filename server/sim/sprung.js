@@ -12,7 +12,7 @@ const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const { dist } = require('../util.js');
 
-const JAMMERS = ['raider', 'gunboat'];   // Rostmeute: Störsender blockieren den Faltsprung
+const JAMMERS = ['raider', 'korvette'];   // Rostmeute: Störsender blockieren den Faltsprung
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const isDown = (st) => st === 'broken' || st === 'offline';
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> sprung

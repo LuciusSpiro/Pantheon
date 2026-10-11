@@ -1,4 +1,5 @@
 'use strict';
+const VOLL_BESTUECKT = { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' };   // EK1: Korvette mit allen drei Waffenarten (Tests brauchen Ladung und Sperrfeuer)
 // Wellen All (CONTRACT-W2 §3, AP3b): Drift-Funktion (shared/drift.js), Nebel-Faktor auf dem Server (Lerche und Gegner gleich),
 // Brocken für alle (Gegner prallen ab und nehmen Schaden, Geschosse und Strahlen schlagen ein), Szenenwahl in der Lobby,
 // gemeinsamer Wellen-Ablauf (Welle, Zeit, Abschüsse, Ende beim Notfallprotokoll), Snapshot-Budget mit bewegten Brocken.
@@ -98,10 +99,10 @@ section('nebel: Faktor auf dem Server, gleich für Lerche und Gegner', () => {
   ok(CONFIG.sensors.nebelServer === 'wellen' && space.nebelFaktor(k) === 1, 'Kampagne im Nebel: Faktor 1 (nebelServer „wellen“)');
   k.C = JSON.parse(JSON.stringify(k.C)); k.C.sensors.nebelServer = 'immer';
   ok(space.nebelFaktor(k) === f, 'nebelServer „immer“: Faktor auch in der Kampagne');
-  // Symmetrie: Lerche (Batterie Bb, Reichweite 520) und Gegner (Kanonenboot 500) – im Nebel beide auf 400 begrenzt
+  // Symmetrie: Lerche (Batterie Bb, Reichweite 520) und Gegner (Korvette 500) – im Nebel beide auf 400 begrenzt
   ruhe(g); g.space.enemies = []; g.space.asteroids = [];
   const sh = g.ship; sh.angle = 0;
-  const gb = space.spawnEnemy(g, 'gunboat', { x: sh.x, y: sh.y - 450, facing: 0 });   // Backbord der Lerche, Breitseite zur Lerche
+  const gb = space.spawnEnemy(g, 'korvette', { waffen: VOLL_BESTUECKT, x: sh.x, y: sh.y - 450, facing: 0 });   // Backbord der Lerche, Breitseite zur Lerche
   ok(!space.inMountArc(g, 'port', gb.x, gb.y), 'Lerche: Gegner auf 450 px im Nebel außerhalb der Batterie (520 × Erfassung 400)');
   ok(!space.enemyCanHit(g, gb), 'Gegner: Lerche auf 450 px im Nebel außerhalb der Breitseite (500 × Erfassung 400)');
   gb.y = sh.y - 380;
@@ -115,10 +116,10 @@ section('nebel: Faktor auf dem Server, gleich für Lerche und Gegner', () => {
   const fr = allSpiel(1, 'frei').g;
   ruhe(fr); fr.space.enemies = [];
   const s2 = fr.ship; s2.angle = 0;
-  const gb2 = space.spawnEnemy(fr, 'gunboat', { x: s2.x, y: s2.y - 450, facing: 0 });
+  const gb2 = space.spawnEnemy(fr, 'korvette', { waffen: VOLL_BESTUECKT, x: s2.x, y: s2.y - 450, facing: 0 });
   ok(space.nebelFaktor(fr) === 1 && space.inMountArc(fr, 'port', gb2.x, gb2.y) && space.enemyCanHit(fr, gb2), 'Szene frei: 450 px in Reichweite für beide');
   // Ladung des Gegners: im Nebel auf 450 px keine, auf 380 px ja
-  const T = CONFIG.spaceM3.tele.gunboat;
+  const T = CONFIG.spaceM3.tele.korvette;
   gb.y = sh.y - 450; gb.fireT = 999; gb.angle = 0; gb.retreatUntil = 0;
   g.ship.holdFireUntil = null;
   g.C = JSON.parse(JSON.stringify(g.C)); g.C.spaceM3b.flightV2.arena = false;   // kinematisch, damit die Lage steht
@@ -127,7 +128,7 @@ section('nebel: Faktor auf dem Server, gleich für Lerche und Gegner', () => {
   const tele450 = !!gb.tele;
   gb.tele = null; gb.fireT = 999; gb.x = sh.x; gb.y = sh.y - 380; gb.angle = 0;
   space.update(g, 1 / 30);
-  ok(T && !tele450 && !!gb.tele, 'Kanonenboot lädt im Nebel erst innerhalb der Zielerfassung (450 nein, 380 ja)');
+  ok(T && !tele450 && !!gb.tele, 'Korvette lädt im Nebel erst innerhalb der Zielerfassung (450 nein, 380 ja)');
 });
 
 section('brocken: Gegner prallen ab und nehmen Schaden, Geschosse und Strahlen schlagen ein', () => {

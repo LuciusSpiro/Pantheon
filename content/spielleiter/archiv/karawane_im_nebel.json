@@ -68,7 +68,7 @@
         "ort": "nebel",
         "karte": null,
         "molekuele": [ { "id": "schuetzen", "umsetzung": "geleit_durch_angriff" } ],
-        "sachverhalt": "Grauzahn macht ernst: Jäger gehen auf die Kapseln, dann kommt ein Kanonenboot. Die Lerche muss sich dazwischenstellen.",
+        "sachverhalt": "Grauzahn macht ernst: Jäger gehen auf die Kapseln, dann kommt eine Korvette. Die Lerche muss sich dazwischenstellen.",
         "wendung": null,
         "dauer_min": 6,
         "weiter": [
@@ -94,7 +94,7 @@
         "frage": "Zahlt die Lerche Grauzahn vierzig Marken für einen ruhigeren Nebel?",
         "optionen": [
           { "id": "zahlen", "text": "Vierzig Marken zahlen", "folge": "Nur einzelne Jäger im Nebel; Grauzahn wird umgänglicher, Sela sieht, dass die Lerche für sie zahlt." },
-          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Jäger und Kanonenboot greifen die Kapseln an; Grauzahn wird gereizt." }
+          { "id": "ablehnen", "text": "Ablehnen (oder schweigen)", "folge": "Jäger und Korvette greifen die Kapseln an; Grauzahn wird gereizt." }
         ]
       }
     ],
@@ -195,7 +195,7 @@
             "nach": "ost",
             "jaeger": 1,
             "angriff_nach": 20,
-            "verstaerkung": "gunboat",
+            "verstaerkung": "korvette",
             "wellen_pause": 15,
             "funk_start": "Lerche, wir sehen euch! Kapseln koppeln an. Grauzahn ist hier irgendwo – bleibt dicht bei uns.",
             "funk_notruf": "Die Kapseln halten das nicht aus! Lerche, Breitseite – bitte!"

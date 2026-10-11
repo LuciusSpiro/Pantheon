@@ -5,7 +5,7 @@
 //   tab=0..5 (Captain-Reiter)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
 //   markers=1 (Captain-/Taktik-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
 //   pos=x,y (eigene Kachel)   phase=lobby   personen=1 (W2 AP6: drei Personen auf der Außenkarte, mit zone=away)
-//   M3a/§20: gunboat=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
+//   M3a/§20: korvette=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
 //   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
 //        setback=1 (alle 3 s Rückschlag an der eigenen Reparatur / am Schrauber)  repair=1 (eigene Figur flickt die Stb-Batterie)
 //   S1: worlds=0..5 (Weltstände in der Lobby, inkl. kaputt/neuer/belegt)  world=<id>|first (gewählt)  start=m1|free|m3|…
@@ -60,7 +60,7 @@
   };
   const ENEMY_DATA = {
     raider: { hp: 12, shields: [2, 1, 0, 1], weapons: [{ facing: 0, arc: 40, range: 400 }] },
-    gunboat: { hp: 40, shields: [2, 4, 1, 4], weapons: [{ facing: -90, arc: 90, range: 500 }, { facing: 90, arc: 90, range: 500 }] },
+    korvette: { hp: 40, shields: [1, 2, 0, 2], weapons: [{ platz: 'bug', typ: 'bolzen', facing: 0, arc: 40, range: 400 }, { platz: 'bb', typ: 'batterie', facing: -90, arc: 90, range: 500 }, { platz: 'stbd', typ: 'lanze', facing: 90, arc: 90, range: 500 }] },
     sentinel: { hp: 30, shields: [3, 3, 3, 3], weapons: [{ facing: 0, arc: 360, range: 260 }] },
     pylon: { hp: 16, shields: [4, 0, 0, 0], weapons: [{ facing: 0, arc: 60, range: 450 }] },
   };
@@ -949,7 +949,7 @@
       s.fragile = ['battery_port', 'thruster_stbd'];
       s.repairQueue = [{ system: 'emitter_stbd', mode: 'part', bot: 'b0' }, { system: 'thruster_port', mode: 'flick', bot: null }];
     }
-    if (params.get('gunboat') === '1') spawnEnemy('gunboat', s.x + 330, s.y - 220);
+    if (params.get('korvette') === '1') spawnEnemy('korvette', s.x + 330, s.y - 220);
     if (params.get('stage') != null && isFinite(+params.get('stage'))) s.helm.stage = Math.max(0, Math.min(LERCHE.stages.length - 1, Math.round(+params.get('stage'))));
     if (params.get('raiders') === '1') { spawnEnemy('raider', s.x + 1000, s.y - 450); spawnEnemy('raider', s.x - 700, s.y + 900); }
     if (params.get('esc') === '1') { Object.assign(sy, { battery_port: 'damaged', thruster_stbd: 'broken', emitter_stbd: 'damaged', emitter_bow: 'damaged' }); }
@@ -1289,7 +1289,7 @@
         continue;
       }
       const ox = e.x, oy = e.y;
-      e.state = e.kind === 'gunboat' ? 'station' : undefined;
+      e.state = e.kind === 'korvette' ? 'station' : undefined;
       if (e.kind === 'sentinel') { const dx = s.x - e.x, dy = s.y - e.y, d = Math.hypot(dx, dy); if (d > 200) { e.x += dx / d * 20 * dt; e.y += dy / d * 20 * dt; } e.angle = Math.atan2(dy, dx); e.vx = (e.x - ox) / dt; e.vy = (e.y - oy) / dt; continue; }
       e._a += dt * 0.3;
       const tx = s.x + Math.cos(e._a) * 260, ty = s.y + Math.sin(e._a) * 260;
@@ -1418,10 +1418,10 @@
         W.space.escorts.push(e);
       });
       if (!W.space.enemies.length && params.get('noenemies') !== '1') {
-        spawnEnemy('gunboat', s.x + 380, s.y + 260);
+        spawnEnemy('korvette', s.x + 380, s.y + 260);
         spawnEnemy('raider', s.x + 520, s.y - 200);
       }
-      const ge = W.space.enemies.find(e => e.kind === 'gunboat') || W.space.enemies[0];
+      const ge = W.space.enemies.find(e => e.kind === 'korvette') || W.space.enemies[0];
       if (ge) ge.tgt = W.space.escorts[0].id;
     }
     if (params.get('chapter') === '1') s2Later(1, 'chapter', { title: 'Kapitel I – Die Tafel von Kesh', text: 'Die Vertragstafel ist in Sicherheit. Im Hafen spricht man über die Lerche – und darüber, wer als Nächstes Arbeit für sie hat. Die Hafenmeisterei hört sich um.' });

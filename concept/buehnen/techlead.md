@@ -485,7 +485,7 @@ der Schützlinge (`escort.js`: treibt, Wrackoptik, wird nie gelöscht) und die T
 
 | Variante | Aufwand | Wirkung auf den Raumkampf |
 |---|---|---|
-| **A: kampfunfähiges Feindschiff betreten** (Kanonenboot/Wächter bei hp ≤ 25 % → treibt, feuert nicht, Rauch; Beamziel = Schiff im Radius; Landepunkt `schiff` mit Seed aus der Gegner-ID und Besitz aus der Fraktion; bleibt bis zum Verlassen der Szene, danach als Wrack-Landepunkt am Ort im Weltstand) | 4–6 h Server + Darstellung des treibenden Kanonenboots | keine im Tutorial (nur außerhalb von m1–m3 aktiv), sonst nur ein neuer Endzustand |
+| **A: kampfunfähiges Feindschiff betreten** (Korvette/Wächter bei hp ≤ 25 % → treibt, feuert nicht, Rauch; Beamziel = Schiff im Radius; Landepunkt `schiff` mit Seed aus der Gegner-ID und Besitz aus der Fraktion; bleibt bis zum Verlassen der Szene, danach als Wrack-Landepunkt am Ort im Weltstand) | 4–6 h Server + Darstellung des treibenden Korvette | keine im Tutorial (nur außerhalb von m1–m3 aktiv), sonst nur ein neuer Endzustand |
 | **B: gezielte Systemtreffer + volle Enterregel** (Systemmodell je Gegner, Zielen auf Systeme mit Lanze/Batterien, Beamen bei Ausfall des Schildgenerators **während** des Gefechts) | 20–30 h, dazu Designfragen: Wer fliegt die Lerche, während das Außenteam drüben ist? Was macht der Gegner weiter? | **verändert den Raumkampf** (§6: bleibt unverändert) und gehört eigentlich mit der Enterabwehr zusammen (§5: nicht in diesem Paket) |
 
 **Empfehlung:** Variante A in B1, dazu Wrack-Landepunkte an Orten (z. B. `wrack.b`). Variante B als eigene Stufe zusammen

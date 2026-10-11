@@ -222,8 +222,8 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   const sh = g.ship; sh.x = 1000; sh.y = 1500; sh.angle = 0; sh.vx = 0; sh.vy = 0;
   const space = require('../server/sim/space.js');
   const M3 = g.C.spaceM3;
-  // Kanonenboot oben (Backbord des Schiffs), Blick nach Osten: seine Steuerbord-Seite (Sektor 1, Schild 4) zeigt zum Schiff
-  const e = space.spawnEnemy(g, 'gunboat', { x: 1000, y: 1150, facing: 0 });
+  // Korvette oben (Backbord des Schiffs), Blick nach Osten: seine Steuerbord-Seite (Sektor 1, Schild 2) zeigt zum Schiff
+  const e = space.spawnEnemy(g, 'korvette', { x: 1000, y: 1150, facing: 0 });
   e.hp = e.hpMax = 40;
   const hold = (en, x, y, a) => () => { en.x = x; en.y = y; en.angle = a; en.fireT = -999; en.tele = null; g.space.projectiles = []; };
   const runPinned = (sec, f) => { for (let k = 0; k < Math.round(sec * 30); k++) { f(); g.step(); } };
@@ -233,7 +233,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   ok(ids.slice(0, 3).join() === 'bow,port,stbd' && !ids.includes('bolzen') && !ids.some((x) => /^phase_/.test(x)), 'Start: Lanze + 2 Batterien (bow/port/stbd), kein Bolzenwerfer – ' + ids.join());
   ok(snap0.ship.mounts[1].facing === -90 && snap0.ship.mounts[1].arc === 70 && snap0.ship.mounts[0].arc === 16, 'Bögen: Bb −90°/70°, Lanze 16°');
   const se = snap0.space.enemies[0];
-  ok(se.shields.join() === '2,4,1,4' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot, Waffen erst nach Scan');
+  ok(se.shields.join() === '1,2,0,2' && se.weapons === null && se.scanned === false, 'Gegner-Schilde im Snapshot, Waffen erst nach Scan');
   enter(0, 'weapons');
   cmd(0, 'weapons.target', { id: e.id });
   // §20.4: kein hold mehr – Batterien feuern nur auf Befehl; stbd leer, damit 'both' nur Bb feuert
@@ -241,7 +241,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
   let batteryBeams = 0;
   runPinned(1.2, () => { pinE(); batteryBeams += g.space.beams.filter((b) => b.kind === 'battery' && !b.seen).map((b) => (b.seen = true)).length; });
-  ok(e.shields[1] === 0 && e.shields[3] === 4 && e.hp === 40 - (4 * M3.mounts.port.damage - 4), `Altname both: Bb-Salve 4×1,5 auf den Schild zum Schiff (4 -> 0), Rest auf die Hülle (hp ${e.hp})`);
+  ok(e.shields[1] === 0 && e.shields[3] === 2 && e.hp === 40 - (4 * M3.mounts.port.damage - 2), `Altname both: Bb-Salve 4×1,5 auf den Schild zum Schiff (2 -> 0), Rest auf die Hülle (hp ${e.hp})`);
   ok(batteryBeams === 4, 'vier Batterie-Strahlen (Beam-Kind battery): ' + batteryBeams);
   e.shields = [0, 0, 0, 0]; e.hp = 40;
   sh.mount.port.charge = 1;
@@ -263,7 +263,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   // Ziel-Scan
   e.x = 1500; e.y = 1500;
   for (let k = 0; k < 8; k++) { cmd(0, 'weapons.scan', { on: true }); run(0.3); }
-  ok(e.scanned && g.snapshot().space.enemies[0].weapons.length === 2, 'Ziel-Scan 2 s -> scanned, Feuerbögen im Snapshot');
+  ok(e.scanned && g.snapshot().space.enemies[0].weapons.length === 3, 'Ziel-Scan 2 s -> scanned, Feuerbögen im Snapshot (Korvette: Bug + 2 Seiten)');
   ok(g.snapshot().ship.tscan.targetId === e.id, 'Snapshot ship.tscan');
   e.x = 2000; e.scanned = false; cmd(0, 'weapons.scan', { on: true });
   ok(notices(0).some((t) => /zu weit/.test(t)), 'Scan-Reichweite 800');

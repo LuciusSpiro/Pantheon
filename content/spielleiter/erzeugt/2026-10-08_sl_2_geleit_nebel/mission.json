@@ -136,7 +136,7 @@
         ],
         "stimme": "sela",
         "ziel_name": "Karawane der Vaelen",
-        "sachverhalt": "Keld schickt Jäger und ein Kanonenboot auf die Karawane. Die Lerche muss sie abschirmen, bis die Karawane das Nebel-Ende erreicht.",
+        "sachverhalt": "Keld schickt Jäger und eine Korvette auf die Karawane. Die Lerche muss sie abschirmen, bis die Karawane das Nebel-Ende erreicht.",
         "wendung": "Ankündigung: Sela meldet Triebwerksschaden an der Karawane – sie wird langsamer.",
         "dauer_min": 5,
         "weiter": [
@@ -187,7 +187,7 @@
           {
             "id": "bluff_leer",
             "text": "Die Karawane transportiert nur Ballast, lohnt nicht.",
-            "folge": "Keld glaubt es nicht und schickt sofort Kanonenboot und Jäger ohne Vorwarnung."
+            "folge": "Keld glaubt es nicht und schickt sofort Korvette und Jäger ohne Vorwarnung."
           }
         ]
       }
@@ -327,7 +327,7 @@
             "nach": "ost",
             "jaeger": 3,
             "angriff_nach": 8,
-            "verstaerkung": "gunboat",
+            "verstaerkung": "korvette",
             "wellen_pause": 10,
             "funk_start": "Lerche, wir nehmen Kurs. Bleibt dicht bei uns – der Nebel schützt uns nicht lange.",
             "funk_notruf": "Treffer am Rumpf! Wir können das Tempo nicht halten!"
@@ -1058,7 +1058,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s4_geleit_kampf_w2",
                       "ziel": "schuetzling"
                     }
@@ -1179,7 +1179,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s4_geleit_kampf_w4",
                       "ziel": "schuetzling"
                     }

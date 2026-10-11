@@ -130,9 +130,9 @@
     // Ereignisse: offerIn { id, title, from }, sceneWait { sec }, chapter { title, text }, escortHit { id, hpFrac },
     //   escortDistress { id, hpFrac }, escortDisabled { id }, escortArrived { id }, escortSaved { id }, escortOrder { id, befehl, ok }.
     // Debug: sl status | sl plan | sl fail grobplan|szene | sl archiv; escort <kind>  (Text in msg.args).
-    // ---- S2b (CONTRACT-S2B §2): Sperrfeuer des Kanonenboots ----
+    // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette ----
     // Snapshot space.projectiles[] { id, kind, x, y, angle } – kind 'sperrfeuer' (langsames Geschoss, ungelenkt, aus der
-    // Breitseite). Ereignis sfx { name: 'sperrfeuer', enemy: 'gunboat', x, y } einmal je Feuerstoß (nicht je Geschoss).
+    // Breitseite). Ereignis sfx { name: 'sperrfeuer', enemy: 'korvette', x, y } einmal je Feuerstoß (nicht je Geschoss).
     SPACE_PROJECTILES: ['bolzen', 'enemy', 'emp', 'sperrfeuer'],
     CMD_PLAN_DECLINE: 'plan.decline',
     CMD_CAPTAIN_ESCORT: 'captain.escort',
@@ -216,7 +216,7 @@
     BOOK_KINDS: ['mission', 'nebenauftrag', 'hinweis'],
     BOOK_STATES: ['angeboten', 'aktiv', 'erledigt'],
     // M3a §20.2: teleMiss { id, dodged: true } – Ladung endete ≤ spaceM3.dodgeWindow s nach einem Ausweichen
-    ENEMY_KINDS: ['raider', 'gunboat', 'relay', 'sentinel', 'pylon'],
+    ENEMY_KINDS: ['raider', 'korvette', 'relay', 'sentinel', 'pylon'],
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound

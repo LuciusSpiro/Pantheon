@@ -131,7 +131,7 @@ Noch **nicht freigegeben** – Grundlage für `CONTRACT-M4.md` nach Kais Go.
 | # | Asset | Stufe | Zustände/Varianten | Anker | Status | Prio | Aufw. |
 |---|---|---|---|---|---|---|---|
 | E1 | Rostmeute-Jäger | 4 | intakt/Rauch/Brand/Trefferblitz/Zerfall | duese×3, muendung×2 | anp. `schiff/rostmeute_jaeger.json` | P1 | S |
-| E2 | Rostmeute-Kanonenboot | 4 | dito + Breitseitenladung | duese×3, muendung_bb/stb, ladung | anp. `schiff/rostmeute_kanonenboot.json` (Rumpf ggf. nordisch, siehe Frage an Kai) | P1 | M |
+| E2 | Rostmeute-Korvette | 4 | dito + Breitseitenladung | duese×3, muendung_bb/stb, ladung | anp. `schiff/rostmeute_korvette.json` (Rumpf ggf. nordisch, siehe Frage an Kai) | P1 | M |
 | E3 | Kustoden-Wächter (EMP) | 4 | dito + EMP-Ladung | ladung | neu | P2 | M |
 | E4 | Kustoden-Pylon (Frontschild) | 4 | Front an/Ladung/zerstört | front, ladung | neu | P2 | M |
 | E5 | Störrelais im All | 4 | aktiv/zerstört | – | neu | P2 | S |

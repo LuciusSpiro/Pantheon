@@ -2447,8 +2447,8 @@
   function currentLoc(st) { return locById(st, worldOf(st).location); }
   function inFog(st) { const l = currentLoc(st); return !!(l && (l.fog || l.kind === 'nebula')); }
 
-  const ENEMY_NAMES = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer' };
-  const ENEMY_SIZE = { raider: 16, gunboat: 34, relay: 10, sentinel: 22, pylon: 18 };
+  const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer' };
+  const ENEMY_SIZE = { raider: 16, korvette: 34, relay: 10, sentinel: 22, pylon: 18 };
   const MARKER_COL = { captain: PAL.mint, tactical: PAL.amber };
   const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'TAKTIK' };
   const HIDDEN_NAMES = { cache: 'VERSTECK', beacon: 'LEITBAKE', lore: 'LORE-BAKE', hollow: 'HOHLRAUM' };
@@ -2456,7 +2456,7 @@
   const STATION_LABEL = { station: 'HAFEN', buoy: 'BOJE B-7', vaelen: 'VAELEN-KARAWANE', wreck: 'WRACK', relay: 'KUSTODEN-RELAIS', moon: 'MOND KESH' };
   // Kurzformen für Randpfeile und Kartenlabels (QA M1: weniger Überlappung)
   const STATION_SHORT = { station: 'HAFEN', buoy: 'B-7', vaelen: 'VAELEN', wreck: 'WRACK', relay: 'RELAIS', moon: 'KESH' };
-  const ENEMY_SHORT = { sentinel: 'WÄCHTER', gunboat: 'KANONENBOOT' };
+  const ENEMY_SHORT = { sentinel: 'WÄCHTER', korvette: 'KORVETTE' };
   const MOUNT_LABEL = { phase_l: 'PHASE L', phase_r: 'PHASE R', lanze: 'LANZE', bolzen: 'BOLZEN', seitenturm: 'TURM', bow: 'LANZE', port: 'BATTERIE BB', stbd: 'BATTERIE STB' };
   // M3a: Halterung -> System (Zustand), Sektor-Kürzel
   const MOUNT_SYS = { bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' };
@@ -2537,7 +2537,7 @@
       ctx.fillStyle = 'rgba(169,214,229,' + (0.6 + 0.3 * Math.sin(t * 5)) + ')'; ctx.fillRect(11, -13, 3, 26);   // Schildfront am Bug
     } else {
       const size = ENEMY_SIZE[kind] || 16;
-      ctx.fillStyle = flash ? '#FFFFFF' : kind === 'gunboat' ? PAL.rust : PAL.red;
+      ctx.fillStyle = flash ? '#FFFFFF' : kind === 'korvette' ? PAL.rust : PAL.red;
       ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(-size * 0.7, -size * 0.6); ctx.lineTo(-size * 0.4, 0); ctx.lineTo(-size * 0.7, size * 0.6); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
@@ -2689,7 +2689,7 @@
   }
   function resetBeamFx() { beamFx.length = 0; muzzleFx.length = 0; for (const k in salvoSeen) delete salvoSeen[k]; sperrSeen = null; sperrMuzzle.length = 0; }
 
-  // ------------------------------------------------------------------ S2b: Sperrfeuer des Kanonenboots (CONTRACT-S2B §3)
+  // ------------------------------------------------------------------ S2b: Sperrfeuer der Korvette (CONTRACT-S2B §3)
   // Langsame Bernstein-Bolzen { id, kind: 'sperrfeuer', x, y, angle }. Lesbarkeit „langsam, ausweichen!“:
   // Frontsicht/Taktik = Art-Sprite (Glut + kurze Spur) und eine kurze Bahnvorschau; liegt die Lerche auf Kollisionskurs,
   // wird die Vorschau rot-orange und endet in einem Kreuz am Treffpunkt. Captain-Lage = kleine Punkte mit Mini-Spur.
@@ -3568,7 +3568,7 @@
         lab('ZIEL', s.x, s.y + size + 8, { color: PAL.amber, align: 'center' }, 4);
       }
     }
-    // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt das Kanonenboot den Abschuss)
+    // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt die Korvette den Abschuss)
     for (const o of sperrList) { try { drawSperrfeuerShot(ctx, o.pr, o.s, ship, toS, rot, t, cfg.mode); } catch (e) { report('Render.sperrfeuer', e); } }
     try { drawSperrMuzzles(ctx, toS, cfg.mode); } catch (e) { report('Render.sperrMuzzle', e); }
     // S2: Bedrohungslinien gescannter Gegner auf Schützlinge
@@ -3683,7 +3683,7 @@
 
     // Randpfeile für Gegner außerhalb (nur Karten; der Pilot verlässt sich auf die Taktik)
     if (!front) for (const o of offscreen) {
-      const e = arrow(o.e.x, o.e.y, o.e.kind === 'gunboat' ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
+      const e = arrow(o.e.x, o.e.y, o.e.kind === 'korvette' ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
       if (clicks) clicks.push({ id: o.e.id, x: e.x - 10, y: e.y - 10, w: 20, h: 20 });
     }
 

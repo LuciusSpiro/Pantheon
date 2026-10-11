@@ -1,4 +1,5 @@
 'use strict';
+const VOLL_BESTUECKT = { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' };   // EK1: Korvette mit allen drei Waffenarten (Tests brauchen Ladung und Sperrfeuer)
 // Kampf v2 (CONTRACT-M2 §12): deterministische Tests ohne Netz direkt gegen die Game-Klasse.
 //   node tools/test-combat.js
 const Physics = require('../shared/physics.js');
@@ -638,11 +639,11 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(p.console === 'helm', 'E setzt den Spieler ans Steuer');
     ok(arenaEnemies(g).length === 0, 'vor Welle 1: keine Gegner');
     run(A.firstWaveAt + 0.5);
-    // M3b §7: Welle 1 = Kanonenboot + 2 Jäger, danach die alten Wellen (M3a §15); Prüfung gegen CONFIG.arena.waves
+    // M3b §7: Welle 1 = Korvette + 2 Jäger, danach die alten Wellen (M3a §15); Prüfung gegen CONFIG.arena.waves
     const key = (list) => list.slice().sort().join();
-    const NAMES = { raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Wächter', pylon: 'Pylon' };
+    const NAMES = { raider: 'Jäger', korvette: 'Korvette', sentinel: 'Wächter', pylon: 'Pylon' };
     const label = (w) => A.waves[w - 1].map((k) => NAMES[k] || k).join(' + ');
-    ok(key(A.waves[0]) === 'gunboat,raider,raider', 'M3b: Konfig Welle 1 = Kanonenboot + 2 Jäger');
+    ok(key(A.waves[0]) === 'korvette,raider,raider', 'M3b: Konfig Welle 1 = Korvette + 2 Jäger');
     ok(key(arenaEnemies(g).map((e) => e.kind)) === key(A.waves[0]), 'Welle 1: ' + label(1));
     const n1 = A.waves[0].length;
     ok(new RegExp('Welle 1: Gegner ausschalten \\(' + n1 + ' übrig\\)').test(g.mission.state.objectives[0].text), `Ziel zeigt „Welle 1 … (${n1} übrig)“`);
@@ -656,7 +657,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       g.space.enemies = []; run(A.nextWaveDelay + 0.5);
       ok(g.arena.wave === w && key(arenaEnemies(g).map((e) => e.kind)) === key(A.waves[w - 1]), `Welle ${w}: ${label(w)}`);
     }
-    ok(A.waves.slice(1).some((w) => key(w) === 'gunboat,raider') && A.waves.slice(1).some((w) => key(w) === 'gunboat,pylon'), 'M3a-Wellen Kanonenboot + Jäger und Pylon + Kanonenboot bleiben');
+    ok(A.waves.slice(1).some((w) => key(w) === 'korvette,raider') && A.waves.slice(1).some((w) => key(w) === 'korvette,pylon'), 'M3a-Wellen Korvette + Jäger und Pylon + Korvette bleiben');
     g.space.enemies = []; run(A.nextWaveDelay + 0.5);
     ok(g.arena.wave === A.waves.length + 1 && arenaEnemies(g).length === A.waves[0].length && g.arena.round === 2, `Welle ${A.waves.length + 1}: zyklisch von vorn (Runde 2)`);
     g.ship.hull = 0; run(0.1);
@@ -712,7 +713,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
 }
 
 // ======================================================================
-// S2b (CONTRACT-S2B §2): zähere Jäger, Ladeschuss, Sperrfeuer des Kanonenboots
+// S2b (CONTRACT-S2B §2): zähere Jäger, Ladeschuss, Sperrfeuer der Korvette
 // ======================================================================
 {
   const CONFIG = require('../shared/config.js');
@@ -776,9 +777,9 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     }
   }
 
-  console.log('\n[S2b: Ladeschuss des Kanonenboots]');
+  console.log('\n[S2b: Ladeschuss der Korvette]');
   {
-    ok(CONFIG.spaceM3.tele.gunboat.damage >= 4 && CONFIG.spaceM3.tele.gunboat.dur === 3, `tele.gunboat: Schaden ${CONFIG.spaceM3.tele.gunboat.damage} (vorher 3), Ladung ${CONFIG.spaceM3.tele.gunboat.dur} s`);
+    ok(CONFIG.spaceM3.tele.korvette.damage >= 4 && CONFIG.spaceM3.tele.korvette.dur === 3, `tele.korvette: Schaden ${CONFIG.spaceM3.tele.korvette.damage} (vorher 3), Ladung ${CONFIG.spaceM3.tele.korvette.dur} s`);
   }
 
   console.log('\n[S2b: Sperrfeuer – Stöße, Geschosse, sfx, Ruhe während der Ladung]');
@@ -786,7 +787,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     const { g, run, ev } = spaceArena(3, 7);
     const sh = g.ship;
     space.helmThrottle(g, { set: 1 });
-    const gb = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + 280, y: sh.y - 280 });
+    const gb = space.spawnEnemy(g, 'korvette', { waffen: { bug: 'bolzen', stbd: 'batterie', bb: 'batterie' }, tag: 'arena', x: sh.x + 280, y: sh.y - 280 });
     gb.hp = gb.hpMax = 9999;
     let duringTele = 0, maxSperr = 0, firstSeen = null, maxAge = 0;
     const born = new Map();
@@ -806,16 +807,70 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     });
     const S = g.stats.sperrfeuer || {};
     const sfx = ev('sfx').filter((m) => m.name === 'sperrfeuer');
-    ok(S.bursts >= 6 && S.shots >= S.bursts * 2, `Kanonenboot feuert Sperrfeuer: ${S.bursts} Stöße, ${S.shots} Geschosse in 60 s (Soll ≥ 6 Stöße)`);
+    ok(S.bursts >= 6 && S.shots >= S.bursts * 2, `Korvette feuert Sperrfeuer: ${S.bursts} Stöße, ${S.shots} Geschosse in 60 s (Soll ≥ 6 Stöße)`);
     ok(sfx.length === S.bursts, `sfx sperrfeuer einmal je Stoß (${sfx.length}/${S.bursts})`);
-    ok(!!firstSeen && firstSeen.p.speed === SF.speed && firstSeen.p.owner === gb.id, `Geschoss: kind sperrfeuer, Tempo ${firstSeen && firstSeen.p.speed} px/s = CONFIG (${SF.speed}), Besitzer Kanonenboot`);
+    ok(!!firstSeen && firstSeen.p.speed === SF.speed && firstSeen.p.owner === gb.id, `Geschoss: kind sperrfeuer, Tempo ${firstSeen && firstSeen.p.speed} px/s = CONFIG (${SF.speed}), Besitzer Korvette`);
     ok(!!firstSeen && firstSeen.d <= 30, `Spawn an der Breitseite (${firstSeen && Math.round(firstSeen.d)} px von der Bootsmitte)`);
     ok(SF.speed < CONFIG.shipClasses.lerche.maxSpeed, `langsamer als die Lerche (${SF.speed} < ${CONFIG.shipClasses.lerche.maxSpeed} px/s)`);
     ok(maxAge <= SF.ttl + 0.1, `begrenzte Lebensdauer (ältestes Geschoss ${f2(maxAge)} s ≤ ${SF.ttl} s)`);
-    ok(duringTele === 0 && ev('tele').length >= 2, `kein Sperrfeuer während der Ladung (${ev('tele').length} Ladungen, ${duringTele} Geschosse während einer Ladung)`);
+    ok(duringTele === 0 && ev('tele').length === 0, `ohne Lanze keine Ladung (${ev('tele').length} Ladungen)`);
     const snap = g.snapshot();
     const sp = (snap.space.projectiles || []).find((p) => p.kind === 'sperrfeuer');
     ok(!sp || ['id', 'kind', 'x', 'y', 'angle'].every((k) => k in sp), 'Snapshot: Projektil { id, kind, x, y, angle }');
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[EK1: Korvetten-Regeln – Schilde, Waffenplätze, zufällige Bestückung, Bolzen]');
+  {
+    const { g, run, ev } = spaceArena(3, 11);
+    const sh = g.ship;
+    const korv = g.C.enemyShields.korvette;
+    ok(korv.join() === '1,2,0,2', 'Schilde der Korvette [vorn, Steuerbord, hinten, Backbord] = 1,2,0,2 (Tabelle EK1)');
+    ok(g.C.enemyWeapons.korvette.map((w) => w.platz).join() === 'bug,stbd,bb', 'ein Waffenplatz vorn und an jeder Seite');
+    ok(!('gunboat' in g.C.enemyShields) && !('gunboat' in g.C.enemies) && !('gunboat' in g.C.shipClasses), 'gunboat gibt es nicht mehr');
+    // Bestückung: Vorgabe wird übernommen, ungültige Werte werden gewürfelt, ohne Vorgabe sind es gültige Arten
+    const e1 = space.spawnEnemy(g, 'korvette', { waffen: { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' }, x: sh.x + 900, y: sh.y });
+    ok(e1.waffen.bug === 'bolzen' && e1.waffen.stbd === 'lanze' && e1.waffen.bb === 'batterie', 'Bestückung per Vorgabe');
+    const arten = new Set(); const e2 = [];
+    for (let k = 0; k < 40; k++) { const e = space.spawnEnemy(g, 'korvette', { x: sh.x + 900, y: sh.y + 10 * k }); e2.push(e); for (const v of Object.values(e.waffen)) arten.add(v); }
+    ok([...arten].sort().join() === 'batterie,bolzen,lanze' && e2.every((e) => Object.keys(e.waffen).sort().join() === 'bb,bug,stbd'), 'zufällige Bestückung: alle drei Arten kommen vor, jeder Platz belegt');
+    ok(space.waffenPlaetze(g, e1, 'lanze').length === 1 && space.waffenPlaetze(g, e1, 'lanze')[0].platz === 'stbd', 'Plätze nach Art gefiltert');
+    ok(space.waffenPlaetze(g, space.spawnEnemy(g, 'raider', { x: sh.x + 900, y: sh.y }), 'lanze').length === 1, 'Jäger: Filter nach Art ändert nichts (keine Bestückung)');
+    // Snapshot: Feuerbögen nach dem Scan mit Waffenart
+    e1.scanned = true; const se = g.snapshot().space.enemies.find((x) => x.id === e1.id);
+    ok(se.weapons.length === 3 && se.weapons.find((w) => w.platz === 'stbd').typ === 'lanze' && se.weapons.find((w) => w.platz === 'bug').typ === 'bolzen', 'Snapshot nach Scan: Feuerbögen mit Platz und Art');
+    g.space.enemies = []; g.space.projectiles = [];
+    // Bolzen: ein reiner Bolzen-Träger schießt Einzelschüsse (kind enemy), keine Ladung, kein Sperrfeuer
+    const b = space.spawnEnemy(g, 'korvette', { waffen: { bug: 'bolzen', stbd: 'bolzen', bb: 'bolzen' }, x: sh.x + 280, y: sh.y - 280 });
+    b.hp = b.hpMax = 9999; let shots = 0; const seen = new Set();
+    run(40, () => { keep(g); for (const p of g.space.projectiles) if (p.owner === b.id && p.kind === 'enemy' && !seen.has(p.id)) { seen.add(p.id); shots++; } });
+    ok(shots >= 3 && ev('tele').length === 0 && !(g.stats.sperrfeuer && g.stats.sperrfeuer.bursts), `Bolzen-Korvette: ${shots} Einzelschüsse, keine Ladung, kein Sperrfeuer`);
+    // ohne Bolzen keine Einzelschüsse
+    g.space.enemies = []; g.space.projectiles = [];
+    const l = space.spawnEnemy(g, 'korvette', { waffen: { bug: 'lanze', stbd: 'lanze', bb: 'lanze' }, x: sh.x + 280, y: sh.y - 280 });
+    l.hp = l.hpMax = 9999; let single = 0; const seen2 = new Set();
+    run(40, () => { keep(g); for (const p of g.space.projectiles) if (p.owner === l.id && p.kind === 'enemy' && !seen2.has(p.id)) { seen2.add(p.id); single++; } });
+    ok(single === 0 && ev('tele').length >= 2, `Lanzen-Korvette: keine Einzelschüsse, ${ev('tele').length} Ladungen`);
+    ok(g.errors === 0, 'keine Server-Fehler');
+  }
+
+  console.log('\n[EK1: Korvette mit Lanze an einer und Batterie an der anderen Seite – kein Sperrfeuer während der Ladung]');
+  {
+    const { g, run, ev } = spaceArena(3, 7);
+    const sh = g.ship;
+    space.helmThrottle(g, { set: 1 });
+    const gb = space.spawnEnemy(g, 'korvette', { waffen: { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' }, tag: 'arena', x: sh.x + 280, y: sh.y - 280 });
+    gb.hp = gb.hpMax = 9999;
+    let duringTele = 0, flipT = 0; const seen = new Set();
+    run(90, () => {
+      keep(g);
+      // Lanze und Batterie sitzen an verschiedenen Seiten: die Korvette wechselt alle 10 s die Seite, damit beide zum Zug kommen
+      if (g.time - flipT >= 10) { flipT = g.time; gb.side = -gb.side; }
+      for (const p of g.space.projectiles) if (p.kind === 'sperrfeuer' && !seen.has(p.id)) { seen.add(p.id); if (gb.tele) duringTele++; }
+    });
+    const S = g.stats.sperrfeuer || {};
+    ok(ev('tele').length >= 1 && (S.bursts || 0) >= 1, `beide Waffen kommen zum Zug (${ev('tele').length} Ladungen, ${S.bursts || 0} Sperrfeuer-Stöße)`);
+    ok(duringTele === 0, `kein Sperrfeuer während der Ladung (${duringTele} Geschosse)`);
     ok(g.errors === 0, 'keine Server-Fehler');
   }
 
@@ -829,7 +884,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
         const sh = g.ship;
         g.players[0].console = 'helm';   // Steuer besetzt (Ruder wirkt nur dann)
         space.helmThrottle(g, { set: how === 'steht' ? 1 : 3 });
-        const gb = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + 300, y: sh.y - 300 });
+        const gb = space.spawnEnemy(g, 'korvette', { waffen: VOLL_BESTUECKT, tag: 'arena', x: sh.x + 300, y: sh.y - 300 });
         gb.hp = gb.hpMax = 9999;
         let shield0 = null;
         run(90, (t) => {
@@ -907,7 +962,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     const { g, run } = spaceArena(3, 13);
     const sh = g.ship;
     space.helmThrottle(g, { set: 1 });
-    const boats = [[300, -300], [-300, 300], [350, 250]].map(([dx, dy]) => { const e = space.spawnEnemy(g, 'gunboat', { tag: 'arena', x: sh.x + dx, y: sh.y + dy }); e.hp = e.hpMax = 9999; return e; });
+    const boats = [[300, -300], [-300, 300], [350, 250]].map(([dx, dy]) => { const e = space.spawnEnemy(g, 'korvette', { waffen: VOLL_BESTUECKT, tag: 'arena', x: sh.x + dx, y: sh.y + dy }); e.hp = e.hpMax = 9999; return e; });
     for (let i = 0; i < 3; i++) { const e = space.spawnEnemy(g, 'raider', { tag: 'arena' }); e.hp = e.hpMax = 9999; }
     let maxSz = 0, maxSperr = 0, tk = 0;
     run(60, () => {
@@ -918,7 +973,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       if (tk % 15 === 0) maxSz = Math.max(maxSz, Buffer.byteLength(JSON.stringify(g.snapshot())));
     });
     ok(maxSperr <= SF.maxProjectiles, `Obergrenze: höchstens ${maxSperr} Sperrfeuer-Geschosse gleichzeitig (maxProjectiles ${SF.maxProjectiles})`);
-    ok(maxSz < SNAP_MAX, `Snapshot mit 3 Kanonenbooten + 3 Jägern < ${SNAP_MAX} B (max ${maxSz} B)`);
+    ok(maxSz < SNAP_MAX, `Snapshot mit 3 Korvetten + 3 Jägern < ${SNAP_MAX} B (max ${maxSz} B)`);
     ok(g.errors === 0, 'keine Server-Fehler');
   }
 

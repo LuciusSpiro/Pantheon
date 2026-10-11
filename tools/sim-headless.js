@@ -628,7 +628,7 @@ class Agent {
 
   // ---------- Steuer im Kampf (M3a §14, M3b §6): nose = Bug aufs Ziel bei ½–¾, maneuver = Breitseite, Stufe nach Lage ----------
   pilot() { return this.opts.pilot || 'nose'; }
-  // Bezugsgegner der Steuer: gefährliche Schiffe (Kanonenboot, Pylon, Wächter) vor Jägern, jeweils der nächste
+  // Bezugsgegner der Steuer: gefährliche Schiffe (Korvette, Pylon, Wächter) vor Jägern, jeweils der nächste
   helmFocus(S) {
     const sh = S.ship; const heavy = S.space.enemies.filter((o) => o.kind !== 'raider' && o.kind !== 'relay');
     const pool = heavy.length ? heavy : S.space.enemies;
@@ -725,14 +725,14 @@ class Agent {
   nearestEnemy(S) { const sh = S.ship; let e = null, ed = Infinity; for (const o of S.space.enemies) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } } return e; }
 
   // ---------- Captain (M3b §6: kein Schildstoß mehr; Schildverteilung zur Bedrohung, Reparaturliste) ----------
-  // Bedrohung = Sektor einer laufenden Ladung, sonst der Sektor des gefährlichsten nahen Gegners (Kanonenboot/Pylon/Wächter
+  // Bedrohung = Sektor einer laufenden Ladung, sonst der Sektor des gefährlichsten nahen Gegners (Korvette/Pylon/Wächter
   // vor Jägern). Ab Stärke 3 lässt ein Sektor nichts mehr durch (spaceM3b.shieldLeak) – dorthin wandern die Punkte,
   // zuerst aus dem Sektor gegenüber. Ein Punkt je Sekunde (wie ein Mensch am Regler).
   threatSector(S) {
     const sh = S.ship;
     const tele = S.space.enemies.filter((e) => e.tele).sort((a, b) => a.tele.left - b.tele.left)[0];
     if (tele) return tele.tele.sector;
-    const danger = (e) => (e.kind === 'gunboat' || e.kind === 'pylon' || e.kind === 'sentinel' ? 0 : 250) + dist(e.x, e.y, sh.x, sh.y);
+    const danger = (e) => (e.kind === 'korvette' || e.kind === 'pylon' || e.kind === 'sentinel' ? 0 : 250) + dist(e.x, e.y, sh.x, sh.y);
     const e = S.space.enemies.filter((o) => o.kind !== 'relay').sort((a, b) => danger(a) - danger(b))[0] || this.nearestEnemy(S);
     return e ? Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y) : null;
   }
@@ -1668,7 +1668,7 @@ class ArenaAgent extends Agent {
 
 const ArenaMod = require('../server/sim/arena.js');
 // M3b §6: Messung im Testgelände. Zusätzlich zu M3a: Schild-/Schadenszähler (leakHits, escalations, repairSetbacks,
-// overflowHull), Breitseiten-Anteil der Kanonenboote (Lerche im Feuerbogen einer Breitseite) und die Lanzen-Trefferquote
+// overflowHull), Breitseiten-Anteil der Korvetten (Lerche im Feuerbogen einer Breitseite) und die Lanzen-Trefferquote
 // gegen Jäger (Schüsse, die einem Jäger galten bzw. einen trafen).
 async function runArena(opts) {
   const seed = opts.seed;
@@ -1710,7 +1710,7 @@ async function runArena(opts) {
   let S = game.snapshot();
   const waves = []; let cur = null;
   let prevHull = game.ship.hull, hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
-  const gbArcs = CONFIG.enemyWeapons.gunboat || [];
+  const gbArcs = CONFIG.enemyWeapons.korvette || [];
   const bs = { gbTicks: 0, gbBroadside: 0 };
   while (game.time < opts.maxSec) {
     game.step(); ticks++;
@@ -1722,7 +1722,7 @@ async function runArena(opts) {
     const sh = game.ship;
     for (const e of game.space.enemies) {
       kindById[e.id] = e.kind;
-      if (e.kind !== 'gunboat') continue;
+      if (e.kind !== 'korvette') continue;
       bs.gbTicks++;
       if (gbArcs.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, sh.x, sh.y))) bs.gbBroadside++;
     }
@@ -1906,10 +1906,10 @@ async function arenaMain() {
     row('hullLoss', 'Hüllenverlust (Summe)'); row('hullPerMin', 'Hüllenverlust je min'); row('hullPerWave', 'Hüllenverlust je geschaffte Welle'); row('overflowHull', 'davon Überlauf durch Schild');
     row('time', 'Dauer (s)'); row('cleared', 'Wellen geschafft'); row('failedWaves', 'Wellen über Zeitlimit (Summe)'); row('wavesPer10', 'Wellen je 10 min'); row('emergencies', 'Notfallprotokolle');
     row('leakHits', 'leakHits (Systemschaden trotz Schild)'); row('escalations', 'Eskalationen'); row('repairSetbacks', 'Reparatur-Rückschläge'); row('bridgeLeaves', 'bridgeLeaves');
-    row('broadside', 'Breitseiten-Anteil Kanonenboot', pct); row('lanceRaider', 'Lanzen-Trefferquote gegen Jäger', pct); row('lanceRaiderShots', 'Lanzenschüsse gegen Jäger je Lauf');
+    row('broadside', 'Breitseiten-Anteil Korvette', pct); row('lanceRaider', 'Lanzen-Trefferquote gegen Jäger', pct); row('lanceRaiderShots', 'Lanzenschüsse gegen Jäger je Lauf');
     row('flicks', 'Flicken'); row('minigames', 'Minispiele'); row('swaps', 'Austausche');
     log(`Faktor Hüllenverlust nose/maneuver: ${fac.toFixed(2)} (je Minute ${facMin.toFixed(2)}) – „Nase drauf verliert messbar“ (M3a §16: ≥ 1,3): ${fac >= 1.3 ? 'ERREICHT' : 'NICHT erreicht'}`);
-    log(`Breitseiten-Anteil Kanonenboot nose ${pct(a.broadside)} > maneuver ${pct(b.broadside)} (§8): ${a.broadside != null && b.broadside != null && a.broadside > b.broadside ? 'ERREICHT' : 'NICHT erreicht'}`);
+    log(`Breitseiten-Anteil Korvette nose ${pct(a.broadside)} > maneuver ${pct(b.broadside)} (§8): ${a.broadside != null && b.broadside != null && a.broadside > b.broadside ? 'ERREICHT' : 'NICHT erreicht'}`);
   }
   log(ok ? '\nSIM ARENA OK' : '\nSIM ARENA FEHLGESCHLAGEN');
   process.exit(ok ? 0 : 1);
@@ -3226,7 +3226,7 @@ function escortBooks() {
   const kat = require('../server/mission/spielleiter.js').katalog();
   const books = [
     Labor().testBuch(kat, [{ key: 'schuetzen/geleit_durch_angriff', loc: 'nebel', override: { funk_npc: 'sela', name: 'Frachter Ilka' } }], 'geleit'),
-    Labor().testBuch(kat, [{ key: 'schuetzen/geleit_durch_angriff', loc: 'nebel', override: { funk_npc: 'sela', kind: 'karawane', name: 'Selas Karawane', jaeger: 2, angriff_nach: 20, verstaerkung: 'gunboat' } }], 'karawane'),
+    Labor().testBuch(kat, [{ key: 'schuetzen/geleit_durch_angriff', loc: 'nebel', override: { funk_npc: 'sela', kind: 'karawane', name: 'Selas Karawane', jaeger: 2, angriff_nach: 20, verstaerkung: 'korvette' } }], 'karawane'),
     Labor().testBuch(kat, [{ key: 'schuetzen/notruf_verteidigen', loc: 'wrack', override: { funk_npc: 'tesk' } }], 'havarist'),
     Labor().testBuch(kat, [{ key: 'pannenhilfe/andocken_und_flicken', loc: 'splitter', override: { funk_npc: 'sela', mit_angriff: true } }], 'panne'),
   ];
@@ -3310,7 +3310,7 @@ async function escortMain() {
     if (VERBOSE || r.aborted || r.errors) printGenericRun(r, 'Schützling');
     for (const s of umsetzungSamples(r)) rows.push({ crew, seed: base + i, ums: s.ums, book: s.mission.replace(/^bot_/, ''), out: s.skipped ? 'nicht gespielt' : (s.escort || '?'), hp: s.escortHp, sec: s.sec, errors: r.errors, aborted: r.aborted });
   }
-  log(`\n=== Schützling (Testbücher: geleit = Frachter, Nebel, 2 Jäger + Kanonenboot, Angriff nach 25 s · karawane = wie „Karawane im Nebel“ hart · havarist = Notruf am Wrack · panne = Pannenhilfe mit Angriff), ${nSeeds} Seeds ===`);
+  log(`\n=== Schützling (Testbücher: geleit = Frachter, Nebel, 2 Jäger + Korvette, Angriff nach 25 s · karawane = wie „Karawane im Nebel“ hart · havarist = Notruf am Wrack · panne = Pannenhilfe mit Angriff), ${nSeeds} Seeds ===`);
   log('| Testbuch (Umsetzung) | Crew | heil | beschädigt | verloren/schwer | nicht gespielt | Hülle Median % | Dauer Median (min) |');
   log('|---|---|---|---|---|---|---|---|');
   // Eine Quelle für Tabelle und Zielauswertung: Kennzahlen je Testbuch × Crew

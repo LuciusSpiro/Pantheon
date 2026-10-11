@@ -835,7 +835,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s4_pannenhilfe_w1",
                       "ziel": "schuetzling",
                       "angles": [
@@ -865,7 +865,7 @@
             ]
           },
           {
-            "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Kanonenboote gleichzeitig)",
+            "_kommentar": "Ersatz-Angreifer auf den Havaristen, falls die Reparatur noch läuft und die erste Welle schon erledigt ist (nie zwei Korvetten gleichzeitig)",
             "if": {
               "all": [
                 true,
@@ -900,7 +900,7 @@
                       }
                     },
                     "spawn": {
-                      "kind": "gunboat",
+                      "kind": "korvette",
                       "tag": "s4_pannenhilfe_w2",
                       "ziel": "schuetzling",
                       "angles": [
@@ -1085,7 +1085,7 @@
           {
             "if": true,
             "spawn": {
-              "kind": "gunboat",
+              "kind": "korvette",
               "tag": "s5_abwehr_w1"
             }
           },

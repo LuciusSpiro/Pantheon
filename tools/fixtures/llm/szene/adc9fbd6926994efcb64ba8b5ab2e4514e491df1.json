@@ -1,10 +1,11 @@
 {
   "format": "llm-aufzeichnung/1",
   "kind": "szene",
-  "key": "9272de9c0dd7480cc1f6bad1b0dcfbc9507f32b8",
-  "name": "grauzahn-rache.s3_funkduell.sonnet.w",
+  "key": "adc9fbd6926994efcb64ba8b5ab2e4514e491df1",
+  "name": "grauzahn-rache.s2_splitter_annaeherung.sonnet.final",
   "modell": "sonnet",
-  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.sonnet.w.json",
+  "quelle": "concept/regiebuch/trockenversuch/out/grauzahn-rache.s2_splitter_annaeherung.sonnet.antwort.json",
+  "hinweis": "1 Text(e) aus grauzahn-rache.s2_splitter_annaeherung.sonnet.regiebuch.json zurückgeholt (szene.js hatte die Antwort beim Auslagern verändert)",
   "input": {
     "quelle": "trockenversuch/stufe2",
     "modell": "sonnet",
@@ -111,7 +112,7 @@
               "umsetzung": "angriffswelle"
             }
           ],
-          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, die Korvette bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
           "wendung": null,
           "dauer_min": 4,
           "weiter": [
@@ -178,14 +179,14 @@
         }
       }
     },
-    "szene": "s3_funkduell",
-    "variante": "w"
+    "szene": "s2_splitter_annaeherung",
+    "variante": "final"
   },
   "response": {
-    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche. Kein Bluff diesmal – ich hab euren Scan gesehen. Ihr wisst, was hier steht. Im Nebel habt ihr mich 150 Marken gekostet. Ich will sie zurück. Sela bleibt heil, meine Jäger gehen heim. Einfaches Geschäft.\",\n        \"frage\": \"Was antwortet der Captain?\",\n        \"antwort_a\": \"Abgemacht. Wir zahlen die 150.\",\n        \"antwort_b\": \"Kein Kredit für Hinterhalte. Versuch dein Glück.\",\n        \"folgen_a\": [\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 150\n          },\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Vernünftig. Meine Jäger laufen trotzdem noch eine Runde – zur Unterhaltung.\"\n            }\n          },\n          {\n            \"log\": \"Crew hat Grauzahns Forderung akzeptiert: 150 Marken überwiesen.\"\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Dann lernt ihr es eben so.\"\n            }\n          },\n          {\n            \"log\": \"Crew hat Grauzahns Angebot abgelehnt. Alle Jäger auf Angriffskurs.\"\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"oda\": \"Keine Antwort gesendet. Grauzahn wertet Schweigen als Ablehnung.\"\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Stille kostet mehr als Worte. Los.\"\n            }\n          },\n          {\n            \"log\": \"Crew schwieg. Grauzahn hat voll eskaliert.\"\n          }\n        ],\n        \"geduld_s\": 60\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\"\n    }\n  ],\n  \"wendung\": null\n}",
+    "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"signal_orten\",\n      \"umsetzung\": \"weitscan_peilung\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"fund\": \"splitter_cache1\",\n        \"fund_name\": \"das Störsignal\",\n        \"hinweis_nach\": 40,\n        \"aufdecken_nach\": 90,\n        \"scannen_nach\": 150\n      }\n    }\n  ],\n  \"verzweigung\": [],\n  \"wendung\": {\n    \"kennung\": \"grauzahn_meldet_sich\",\n    \"nach_s\": 55,\n    \"ankuendigung\": \"Eingehender Funk – Kennung unbekannt, aber das Muster kenne ich: Rostmeute.\",\n    \"wirkung\": [\n      {\n        \"radio\": {\n          \"from\": \"grauzahn\",\n          \"text\": \"Lerche. Ich weiß, ihr seht mich. Kein Grund zur Eile – ich will reden, bevor es laut wird.\"\n        }\n      }\n    ]\n  }\n}",
     "usage": {
-      "input": null,
-      "output": null
+      "input": 5966,
+      "output": 291
     },
     "sec": null,
     "modelId": null

@@ -226,7 +226,7 @@
             "loc": "kesh",
             "npc": "grauzahn",
             "jaeger": 2,
-            "mit_kanonenboot": false,
+            "mit_korvette": false,
             "funk_start": "Lerche? Das Kastell gehört der Rostmeute. Dreht ab, dann bleibt euer Rumpf heil.",
             "funk_abzug": "Zu heiß hier. Abdrehen – die Gräber sollen selbst sehen."
           }

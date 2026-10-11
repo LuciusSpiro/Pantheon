@@ -44,7 +44,7 @@ function katalog() {
   L.push('\n## Gegner im Weltraum (Atom `spawn`)');
   L.push('`{ "spawn": { "kind": K, "tag": "frei", "n": 1–3 | "angles": [rad…] | "atStation": [{ "dx", "dy" }…] | "behind": true | "crew": { "1": n, "2": n, "3": n }, "face": "out"|"in" } }`');
   L.push('- `raider` Jäger: schnell, Anflüge über das Schiff');
-  L.push('- `gunboat` Kanonenboot: träge, lädt schwere Breitseiten sichtbar (Pilot dreht weg, Taktik antwortet)');
+  L.push('- `korvette` Korvette: träge, lädt schwere Breitseiten sichtbar (Pilot dreht weg, Taktik antwortet)');
   L.push('- `relay` Störrelais: kreist um ein Objekt, blockiert einen Scan, schießt nicht');
   L.push('- `pylon` Pylon (Kustoden): fest, Frontschild – nur von der Seite verwundbar');
   L.push('- `sentinel` Kustoden-Wächter: langsam, EMP legt Systeme lahm');

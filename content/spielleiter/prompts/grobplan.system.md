@@ -115,7 +115,7 @@ Welche Tutorial-Begriffe ohne Fakt tabu sind, steht in `<vorgaben>`.
 - Höchstens **ein** offener Erzählfaden für spätere Missionen: `welt_fakt key (faden): …`.
 - **Keine Gefechte an Andock-Orten** (Hafen `hafen`, Händler `vaelen`): Umsetzungen, die Gegner erscheinen lassen
   (vertreiben, vernichten, schuetzen, halten …), spielen an Orten ohne Andocken.
-- Gegner passen zum Kanon: Die Rostmeute fliegt Jäger und Kanonenboote; Pylonen und Wächter sind Kustoden-Technik.
+- Gegner passen zum Kanon: Die Rostmeute fliegt Jäger und Korvetten; Pylonen und Wächter sind Kustoden-Technik.
 - Kanon: Kustoden = abtrünniger Agent der Apkallu; Konkordat der Häfen = Bund ohne Pantheon (Rat der Hafenmeister);
   die Tafel von Kesh liegt im Konkordat-Archiv bei Melk; Rostmeute = Piraten unter Grauzahn; Vaelen = fahrende Händler.
   Löse das Kustoden-Rätsel nicht auf. Benannte NSC sterben nicht.

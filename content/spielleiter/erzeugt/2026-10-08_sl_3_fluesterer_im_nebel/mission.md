@@ -93,13 +93,13 @@ Ohne passende Erinnerung: „Sela (Vaelen-Händlerin) hat wieder Arbeit für die
 ### 4. s4_entscheidung_auftritt – Graue Weite
 
 - **Szenentyp:** begegnung · **Baustein:** `taeuschen/bluff_funk` · **Fassung:** rohfassung · **Plan:** 2 min
-- **Sachverhalt:** Ein Rostmeute-Kanonenboot taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'
+- **Sachverhalt:** Eine Rostmeute-Korvette taucht aus dem Nebel auf – es hat die 'Goldkehle' schon durchsucht und verlangt nun, dass die Lerche abdrehe. Der Anführer funkt: 'Hier ist nichts für euch.'
 - **Weiter:** Bluff gelingt oder Crew weicht aus → `s5_pannenhilfe`; Bluff scheitert oder Crew greift an → `s5b_gefecht`
 
-**Entscheidung:** Wie antwortet der Captain dem Rostmeute-Kanonenboot?
+**Entscheidung:** Wie antwortet der Captain der Rostmeute-Korvette?
 
-- Wir sind Schrotthändler, suchen Treibgut → Kanonenboot glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig
-- Wir suchen die Goldkehle im Auftrag der Karawane → Kanonenboot fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe
+- Wir sind Schrotthändler, suchen Treibgut → Korvette glaubt es bei passendem Scan-Hinweis und zieht ab; Pannenhilfe-Szene ruhig
+- Wir suchen die Goldkehle im Auftrag der Karawane → Korvette fühlt sich bedroht, greift sofort an; Gefecht beginnt ohne Pannenhilfe
 
 **Ziele**
 
@@ -121,8 +121,8 @@ Ohne passende Erinnerung: „Sela (Vaelen-Händlerin) hat wieder Arbeit für die
 ### 5. s5_pannenhilfe – Graue Weite
 
 - **Szenentyp:** begegnung · **Baustein:** `pannenhilfe/andocken_und_flicken` · **Fassung:** rohfassung · **Plan:** 3 min
-- **Sachverhalt:** Das Kanonenboot zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.
-- **Weiter:** Antrieb geflickt, Goldkehle fährt selbst → Ausgang `begleitet`; Kanonenboot greift während der Arbeit an → `s5b_gefecht`
+- **Sachverhalt:** Die Korvette zieht ab oder hält Abstand. Die Lerche nähert sich der 'Goldkehle', flickt den Antrieb von außen und erfährt vom Kapitän, was die Rostmeute gesucht hat: eine Kustoden-Sonde, die die Goldkehle unwissentlich geladen hatte.
+- **Weiter:** Antrieb geflickt, Goldkehle fährt selbst → Ausgang `begleitet`; Korvette greift während der Arbeit an → `s5b_gefecht`
 
 **Entscheidung:** Was macht die Crew mit dem Wissen über die Kustoden-Sonde an Bord der Goldkehle?
 
@@ -147,7 +147,7 @@ Ohne passende Erinnerung: „Sela (Vaelen-Händlerin) hat wieder Arbeit für die
 ### 6. s5b_gefecht – Graue Weite
 
 - **Szenentyp:** raumgefecht · **Baustein:** `vertreiben/bis_zur_flucht` · **Fassung:** rohfassung · **Plan:** 3 min
-- **Sachverhalt:** Das Kanonenboot und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht das Kanonenboot knurrend ab.
+- **Sachverhalt:** Die Korvette und zwei Jäger wollen die Goldkehle nicht freigeben. Die Lerche muss sie vertreiben – erst fliehen die Jäger, dann dreht die Korvette knurrend ab.
 - **Weiter:** Rostmeute flieht, Goldkehle gerettet → Ausgang `befreit`; Lerche zu schwer beschädigt, Rückzug → Ausgang `rueckzug`
 
 **Ziele**

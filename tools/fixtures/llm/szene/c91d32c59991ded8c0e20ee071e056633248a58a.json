@@ -1,10 +1,10 @@
 {
   "format": "llm-aufzeichnung/1",
   "kind": "szene",
-  "key": "d10a06fc5d75b441cfb12c9e46cfdae59a061c31",
-  "name": "grauzahn-rache.s3_funkduell.haiku.final",
+  "key": "c91d32c59991ded8c0e20ee071e056633248a58a",
+  "name": "grauzahn-rache.s3_funkduell.haiku.w",
   "modell": "haiku",
-  "quelle": "concept/regiebuch/trockenversuch/out/grauzahn-rache.s3_funkduell.haiku.antwort.json",
+  "quelle": "concept/regiebuch/trockenversuch/out/stufe2/s3.haiku.w.json",
   "input": {
     "quelle": "trockenversuch/stufe2",
     "modell": "haiku",
@@ -111,7 +111,7 @@
               "umsetzung": "angriffswelle"
             }
           ],
-          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, das Kanonenboot bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
+          "sachverhalt": "Grauzahn schickt alle Jäger auf einmal, die Korvette bleibt im Hintergrund und schießt auf Sela. Die Crew muss beides gleichzeitig im Blick behalten.",
           "wendung": null,
           "dauer_min": 4,
           "weiter": [
@@ -179,13 +179,13 @@
       }
     },
     "szene": "s3_funkduell",
-    "variante": "final"
+    "variante": "w"
   },
   "response": {
     "text": "{\n  \"molekuele\": [\n    {\n      \"id\": \"verhandeln\",\n      \"umsetzung\": \"funkduell\",\n      \"params\": {\n        \"loc\": \"splitter\",\n        \"npc\": \"grauzahn\",\n        \"eroeffnung\": \"Lerche, hier Grauzahn. Deine Karawane sitzt fest – ich lasse sie laufen für die Marken, die du mir im Nebel gestohlen hast. Sonst wird es teuer für Sela.\",\n        \"frage\": \"Zahlt ihr oder kämpft ihr?\",\n        \"antwort_a\": \"Wir zahlen. Wie viele Marken?\",\n        \"antwort_b\": \"Die waren verdient. Komm vorbei, wenn du Mut hast.\",\n        \"folgen_a\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": true\n            }\n          },\n          {\n            \"do\": \"pay_marks\",\n            \"marks\": 80\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Verständig. Das Schiff hat Geschmack. Jäger, zieht euch zurück.\"\n            }\n          }\n        ],\n        \"folgen_b\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Falsch gespielt. Dann sehen wir, was die Lerche wirklich wert ist.\"\n            }\n          }\n        ],\n        \"folgen_schweigen\": [\n          {\n            \"setFlag\": {\n              \"s3_gezahlt\": false\n            }\n          },\n          {\n            \"radio\": {\n              \"from\": \"grauzahn\",\n              \"text\": \"Keine Antwort? Dann nehme ich mir, was mir zusteht.\"\n            }\n          }\n        ],\n        \"geduld_s\": 60\n      }\n    }\n  ],\n  \"verzweigung\": [\n    {\n      \"nach\": \"s4_gefecht_leicht\",\n      \"if\": {\n        \"flag\": \"s3_gezahlt\"\n      }\n    },\n    {\n      \"nach\": \"s4_gefecht_schwer\",\n      \"if\": {\n        \"not\": {\n          \"flag\": \"s3_gezahlt\"\n        }\n      }\n    }\n  ],\n  \"wendung\": null\n}",
     "usage": {
-      "input": 5954,
-      "output": 651
+      "input": null,
+      "output": null
     },
     "sec": null,
     "modelId": null

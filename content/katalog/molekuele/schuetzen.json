@@ -17,7 +17,7 @@
       "id": "geleit_durch_angriff",
       "name": "Geleit durch einen Angriff",
       "schauplatz": "weltraum",
-      "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Kanonenboot + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
+      "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Korvette + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
       "braucht": [
         "raumkampf",
         "schuetzling"
@@ -49,7 +49,7 @@
         "nach": { "typ": "text", "default": "ost", "werte": ["west", "ost", "nord", "sued", "station"] },
         "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
         "angriff_nach": { "typ": "zahl", "default": 5, "min": 3, "max": 60, "beschreibung": "s bis zur Ankündigung der ersten Welle (sie kommt 5 s später)" },
-        "verstaerkung": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Anführer jeder weiteren Welle (dazu ein Jäger)" },
+        "verstaerkung": { "typ": "kind", "default": "korvette", "werte": ["korvette", "raider"], "beschreibung": "Anführer jeder weiteren Welle (dazu ein Jäger)" },
         "wellen_pause": { "typ": "zahl", "default": 8, "min": 5, "max": 30, "beschreibung": "s Ankündigung vor jeder weiteren Welle; Wellen kommen bis zur Ankunft" },
         "funk_start": { "typ": "text", "default": "Lerche, wir nehmen Kurs. Bleibt in unserer Nähe – allein kommen wir hier nicht durch." },
         "funk_notruf": { "typ": "text", "default": "Wir werden getroffen! Die Hülle hält das nicht mehr lange aus!" }
@@ -229,7 +229,7 @@
         "name": { "typ": "text", "default": "Bergungsboot" },
         "huelle": { "typ": "zahl", "default": 100, "min": 30, "max": 100, "beschreibung": "Hülle des Havaristen zu Beginn in %" },
         "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 3 },
-        "angreifer": { "typ": "kind", "default": "gunboat", "werte": ["gunboat", "raider"], "beschreibung": "Schwerer Angreifer zusätzlich zu den Jägern (lädt auf den Havaristen)" },
+        "angreifer": { "typ": "kind", "default": "korvette", "werte": ["korvette", "raider"], "beschreibung": "Schwerer Angreifer zusätzlich zu den Jägern (lädt auf den Havaristen)" },
         "angreifer_nach": { "typ": "zahl", "default": 45, "min": 10, "max": 90, "beschreibung": "s bis der schwere Angreifer kommt (5 s vorher angekündigt)" },
         "funk_notruf": { "typ": "text", "default": "Notruf an alle! Antrieb tot, Jäger kreisen um uns. Wer das hört: Bitte kommt schnell!" },
         "funk_dank": { "typ": "text", "default": "Sie drehen ab … Lerche, das war knapp. Danke." }

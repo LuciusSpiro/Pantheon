@@ -17,7 +17,7 @@
       "id": "bis_zur_flucht",
       "name": "Angreifer bis zur Flucht zurückschlagen",
       "schauplatz": "weltraum",
-      "beschreibung": "Ein Trupp (Jäger, optional ein Kanonenboot) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
+      "beschreibung": "Ein Trupp (Jäger, optional eine Korvette) greift an, will aber nicht sterben: Fällt die Hülle eines Gegners unter die Schwelle, dreht er ab und verschwindet. Kürzer und gnädiger als Vernichten, passt zu Piraten, die nur Beute wollen, und zu Warnschüssen. Ein Funkspruch des Anführers zum Abzug rundet ab.",
       "braucht": [
         "raumkampf",
         "bordschaeden"
@@ -40,7 +40,7 @@
         "loc": { "typ": "loc", "pflicht": true, "beschreibung": "Ort der Szene" },
         "npc": { "typ": "npc", "pflicht": true, "beschreibung": "Anführer der Angreifer (funkt)" },
         "jaeger": { "typ": "zahl", "default": 2, "min": 1, "max": 3 },
-        "mit_kanonenboot": { "typ": "bool", "default": false },
+        "mit_korvette": { "typ": "bool", "default": false },
         "flucht_unter": { "typ": "zahl", "default": 40, "min": 10, "max": 80, "beschreibung": "Hülle in %, unter der ein Gegner abdreht" },
         "funk_start": { "typ": "text", "default": "Letzte Warnung, Lerche. Dreht ab, sonst wird es teuer." },
         "funk_abzug": { "typ": "text", "default": "Das ist es nicht wert. Rückzug! Wir sehen uns wieder." }
@@ -54,7 +54,7 @@
             "loc": "{{loc}}",
             "enter": [
               { "spawn": { "kind": "raider", "tag": "{{id}}_w1", "n": "{{jaeger}}", "angles": [0.3, -0.7, 1.2] } },
-              { "if": "{{mit_kanonenboot}}", "spawn": { "kind": "gunboat", "tag": "{{id}}_w1" } },
+              { "if": "{{mit_korvette}}", "spawn": { "kind": "korvette", "tag": "{{id}}_w1" } },
               { "do": "enemies_retreat", "tag": "{{id}}_w1", "unter_pct": "{{flucht_unter}}" },
               { "after": { "sec": 3, "do": [ { "radio": { "from": "{{npc}}", "text": "@{{id}}.funk_start" } } ] } }
             ],
@@ -105,7 +105,7 @@
         "params": {
           "loc": "wrack",
           "npc": "grauzahn",
-          "mit_kanonenboot": true
+          "mit_korvette": true
         }
       }
     }

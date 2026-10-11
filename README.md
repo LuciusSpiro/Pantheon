@@ -15,6 +15,15 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu in EK1a – Korvette statt Kanonenboot
+
+- Das **Kanonenboot gibt es nicht mehr**, die Klasse heißt `korvette` (Config, Missionen, Katalog, Tests, Anzeige).
+- **Schilde** der Korvette: vorn 1, Steuerbord 2, hinten 0, Backbord 2. **Waffenplätze:** vorn und je Seite einer.
+- **Bestückung zufällig** je Platz: Lanze (angekündigter schwerer Treffer), Batterie (Sperrfeuer) oder Bolzen (Einzelschuss).
+  Ohne Lanze lädt die Korvette nie, ohne Batterie gibt es kein Sperrfeuer. Der Ziel-Scan zeigt die Plätze mit ihrer Art.
+- Vorgabe zum Testen: `spawnEnemy(game, 'korvette', { waffen: { bug: 'bolzen', stbd: 'lanze', bb: 'batterie' } })`.
+- Details und Entscheidungen: `CONTRACT-EK1.md`.
+
 ## Neu (2026-10-11) – Generatorkarten, Hüllen und Dächer
 
 Außenposten und Stationen entstehen jetzt aus **Grammatiken statt aus Modulen**. Das gilt überall: Bodenkampf-Auswahl
@@ -272,7 +281,7 @@ benutzen.
 - **Jäger 3× zäher:** 36 statt 12 Hülle (Crew-Skalierung wie bisher: zu dritt/zu zweit × 0,7, solo × 0,5). Eine volle Salve
   (Lanze voll + beide Batterien) zerstört einen Jäger zu zweit/zu dritt nicht mehr, spätestens die dritte schon (Test). Der
   Lebensbalken über dem Gegner ist in Segmente geteilt, damit man den Fortschritt sieht.
-- **Kanonenboot:** Der angekündigte Ladeschuss bleibt (Schaden 3 → 4). Neu ist das **Sperrfeuer**: Feuerstöße aus der
+- **Korvette:** Der angekündigte Ladeschuss bleibt (Schaden 3 → 4). Neu ist das **Sperrfeuer**: Feuerstöße aus der
   Breitseite (3 bernsteinfarbene Bolzen, etwa alle 3 s), **langsam** (110 px/s, die Lerche ist schneller) und **ausweichbar** –
   es zielt dorthin, wo die Lerche bei gehaltenem Kurs sein wird. Wer stehen bleibt oder stur geradeaus fliegt, wird getroffen;
   ein Kurs- oder Tempowechsel bzw. die Ausweichrolle in den ~3 s Flugzeit bringt den Stoß vorbei. Während ein Ladeschuss lädt,
@@ -301,9 +310,9 @@ benutzen.
 - Debug: `sl plan [npc] [Vorgabe …]` fordert einen Grobplan mit vorgegebenem Auftraggeber an (nur `--debug`).
 
 ### Messwerte S2b (QA-Abnahme 2026-10-08) – ehrlich, Bots ≠ Menschen
-- **Sperrfeuer ausweichen** (headless, nur ein Kanonenboot ohne Ladeschuss, zu dritt, 3 × 60 s je Fahrweise): Lerche steht –
+- **Sperrfeuer ausweichen** (headless, nur eine Korvette ohne Ladeschuss, zu dritt, 3 × 60 s je Fahrweise): Lerche steht –
   93 % getroffen, ≈ 43 Hülle/min; hält Kurs (½) – 89 % getroffen, ≈ 16 Hülle/min; weicht aus (Kurswechsel/Ausweichrolle bei
-  anfliegendem Stoß) – 35 % getroffen, < 1 Hülle/min. Im Browser (solo, Welle Kanonenboot + 2 Jäger, je 30 s): stehen −51 Hülle,
+  anfliegendem Stoß) – 35 % getroffen, < 1 Hülle/min. Im Browser (solo, Welle Korvette + 2 Jäger, je 30 s): stehen −51 Hülle,
   ausweichen −19 Hülle (inkl. Jäger und Ladeschüssen).
 - **Arena (Bots, 10 Seeds):** „Nase drauf“ verliert 1,83× so viel Hülle wie „Manöver“ (Ziel ≥ 1,4).
 - **Schützling (Bot-Sim, 30 Seeds je Fall):** Geleit zu dritt 83 % heil, solo 50 % heil; Havarist zu dritt 23 % verloren,
@@ -360,7 +369,7 @@ ein, wenn etwas schiefgeht. Das Spiel wartet nie auf das LLM.
 - **Captain-Befehle** (Captain-Konsole, Reiter Lage **3**): **H** Halten · **F** Folgen · **V** Volle Kraft · **D** Andocken.
   Ob und wie schnell der Schützling gehorcht, hängt von der Haltung des NSC zur Lerche ab (gut: sofort, neutral: nach 2 s,
   schlecht: nach 4 s mit Murren). Die Rückmeldung steht in der Captain-Konsole.
-- **Jeder Angriff auf den Schützling wird angekündigt** („Kanonenboot lädt auf …“). Auf der Captain-Karte zeigen rot
+- **Jeder Angriff auf den Schützling wird angekündigt** („Korvette lädt auf …“). Auf der Captain-Karte zeigen rot
   gestrichelte Linien „ZIELT AUF …“, welcher gescannte Gegner wen anvisiert.
 - **Breitseite als Schild:** Stellt sich die Lerche zwischen den Ladenden und den Schützling und hat auf der Seite Schild
   (≥ 1), fängt sie die Ladung ab („Abgefangen! Die Lerche deckt …“).
@@ -484,10 +493,10 @@ Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen �
    Planetenmission“ → **„Testgelände: Raumkampf“** → **„Bodenkampf: Wellen“** (Anzeige „START (n/5)“). Dann **Enter** =
    bereit. Testgelände legen keinen Weltstand an.
 2. **Raumkampf:** Start sofort an Boje B-7 (keine Brocken), abgelegt, Schiff unbeschädigt, alle auf der Brücke (solo
-   neben dem Steuer, zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen (M3b): **Kanonenboot +
-   2 Jäger** → 2 Jäger → Jäger + Kanonenboot → Kustoden-Wächter + 2 Jäger → Kanonenboot + Jäger → Pylon (fest im
-   Backbord-Bogen) + Kanonenboot, danach wieder von vorn; Gegner fliegen im Testgelände mit dem neuen Flugmodell (Temporegler,
-   Kanonenboot hält die Breitseite, Jäger fliegen Überflüge); die nächste Welle kommt 12 s nach der Räumung (ODA sagt an). Schaden, Bots, Notfallprotokoll,
+   neben dem Steuer, zu dritt neben Steuer / Taktik / Captain). Zielanzeige „Welle n“. Wellen (M3b): **Korvette +
+   2 Jäger** → 2 Jäger → Jäger + Korvette → Kustoden-Wächter + 2 Jäger → Korvette + Jäger → Pylon (fest im
+   Backbord-Bogen) + Korvette, danach wieder von vorn; Gegner fliegen im Testgelände mit dem neuen Flugmodell (Temporegler,
+   Korvette hält die Breitseite, Jäger fliegen Überflüge); die nächste Welle kommt 12 s nach der Räumung (ODA sagt an). Schaden, Bots, Notfallprotokoll,
    Schildsektoren, Breitseite und Lanze (M3a, siehe unten), Scan/Weitscan und Reaktor überladen wie im Spiel.
    Solo: am Steuer fliegen, mit Esc + E zur Taktik wechseln (Taktik liegt oben links auf der Brücke). Kein Ende-Bildschirm.
 3. **Bodenkampf: Wellen** (seit B2, ersetzt „Testgelände: Außenteam“): **K** wählt die Karte, dann Wellen bis die Crew
@@ -610,7 +619,7 @@ Ort).
 ## Ablauf
 
 **Mission 1 „Die stumme Boje“:** Hafen-Übung (Brand, Leck, Transfer; überspringbar) → Funk annehmen → Splittergürtel:
-Bergungsgut, Grauzahn antworten (bestechen oder kämpfen) → B-7: Rostmeute und Kanonenboot, Störrelais abschießen,
+Bergungsgut, Grauzahn antworten (bestechen oder kämpfen) → B-7: Rostmeute und Korvette, Störrelais abschießen,
 Boje scannen → Außenmission (Sonde mit Farbcode vom Captain, Bojenkern, Datenkern, Ivo mit Medipack retten) →
 Entscheidung über den Datenkern → Nachhut → Selas Notruf (optional: bei Vaelen andocken) → Hafen, andocken, Bojen-Trophäe.
 
@@ -728,10 +737,10 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
 | **Wer läuft** | repariert: meist die Taktik oder der Captain (unbesetzte Taktik feuert mit halber Kraft weiter). |
 
 ### Ansagen und Schilde
-- Kanonenboot (3 s), Pylon (2 s) und Kustoden-Wächter (2,5 s, EMP) **laden** sichtbar, bevor sie schwer treffen. Ist das
-  Schiff am Ende noch in Bogen und Reichweite, trifft es (Kanonenboot 3 Schaden = 15 Hülle ohne Schild), sonst verfehlt es.
+- Korvette (3 s), Pylon (2 s) und Kustoden-Wächter (2,5 s, EMP) **laden** sichtbar, bevor sie schwer treffen. Ist das
+  Schiff am Ende noch in Bogen und Reichweite, trifft es (Korvette 3 Schaden = 15 Hülle ohne Schild), sonst verfehlt es.
   Treffer der Taktik auf einen ladenden Gegner verzögern die Ladung (je 1 s, höchstens 2 s). Jäger schießen weiter normal.
-- Solo sagt ODA jede Ladung an („Kanonenboot lädt – Backbord!“).
+- Solo sagt ODA jede Ladung an („Korvette lädt – Backbord!“).
 - **Der Schildstoß ist weg (M3b).** Dafür ist der Schildpool größer: **6 Punkte** bei Schild-Energie 2 (3 je Energie),
   höchstens 4 je Sektor.
 - **Ein Schildpunkt schluckt einen Schadenspunkt**, der Rest geht auf die Hülle (5 Hülle je Punkt). Bei Schild ≥ 3 wird ein
@@ -770,8 +779,8 @@ Station für Station – irgendwer muss die Brücke verlassen. Ausprobieren am b
 - `stats.bridgeLeaves` zählt, wie oft jemand die Brücke verlässt, während Gegner da sind.
 
 ### Testgelände-Wellen
-1. **Kanonenboot + 2 Jäger** (M3b) · 2. 2 Jäger · 3. Jäger + Kanonenboot · 4. Kustoden-Wächter + 2 Jäger · 5. Kanonenboot +
-Jäger · 6. Pylon (fest) + Kanonenboot, danach von vorn. 12 s Pause zwischen den Wellen. Start: Schiff unbeschädigt,
+1. **Korvette + 2 Jäger** (M3b) · 2. 2 Jäger · 3. Jäger + Korvette · 4. Kustoden-Wächter + 2 Jäger · 5. Korvette +
+Jäger · 6. Pylon (fest) + Korvette, danach von vorn. 12 s Pause zwischen den Wellen. Start: Schiff unbeschädigt,
 Schilde 2/2/0/2 (Bug/Stb/Heck/Bb, ganzer Pool 6).
 
 ### Raumkampf M3b – Ein Flugmodell für alle (Kurzfassung)
@@ -779,7 +788,7 @@ Schilde 2/2/0/2 (Bug/Stb/Heck/Bb, ganzer Pool 6).
   Lerche kaum (Drehfaktor 25 %) – zum Ausrichten an der Boje also kurz auf ¼/½. **X = Allstopp.**
 - **Unbesetzte Steuer:** Stufe bleibt, Ruder 0, das Schiff fährt weiter – vor dem Aufstehen STOPP stellen (besonders vor dem
   Beamen; sonst „Zu weit vom Ziel … das Schiff fährt weiter“ bzw. „Schiff zu schnell für den Transfer“ + ODA-Hinweis).
-- **Kanonenboot** fährt wie die Lerche und hält sich querab (Breitseite). Manövrieren bricht das: Bug oder Heck zum Boot
+- **Korvette** fährt wie die Lerche und hält sich querab (Breitseite). Manövrieren bricht das: Bug oder Heck zum Boot
   drehen, wenn es lädt, Ausweichen bleibt (Shift+A/D im grünen Fenster).
 - **Jäger** fliegen Überflüge (Anflug → vorbei → Wende). Im Anflug schießen sie **mit Vorhalt** (QA M3b); die Taktik sieht
   die Anfluglinie gestrichelt („ANFLUG“) – Lanze früh halten, loslassen, wenn er die Bug-Linie quert.
@@ -792,8 +801,8 @@ Schilde 2/2/0/2 (Bug/Stb/Heck/Bb, ganzer Pool 6).
 
 | Befehl (Standardwert) | Wirkung |
 |---|---|
-| `tune spaceM3.tele.gunboat.damage 2` (3) | schwerer Treffer des Kanonenboots schwächer → leichter |
-| `tune spaceM3.tele.gunboat.dur 4` (3) | längere Ankündigung → mehr Zeit zum Wegdrehen → leichter |
+| `tune spaceM3.tele.korvette.damage 2` (3) | schwerer Treffer der Korvette schwächer → leichter |
+| `tune spaceM3.tele.korvette.dur 4` (3) | längere Ankündigung → mehr Zeit zum Wegdrehen → leichter |
 | `tune spaceM3.lance.chargeTime 2` (3) | Lanze schneller voll aufgeladen |
 | `tune spaceM3.lance.width 16` (10) | Lanzenstrahl breiter → trifft leichter |
 | `tune spaceM3.dodgeWindow 1.2` (0,8) | größeres Ausweich-Fenster |
@@ -817,14 +826,14 @@ sicherer als Menschen.** Zeiten = Spielzeit aus dem Server.
 | Endwerte, Lauf B | 0:20 | 2:51 | 1:01 | 1:30 | 0 | 3 | 14 (5) | 1 / 1 / 1 |
 | Zwischenstände (6 Läufe) | 0:22–0:42 | 1:23–2:27 | 0:57–3:00 | 0:49–3:07 | 0–5 je Lauf | 1–6 | 11–24 (2–13) | bis 3 / 3 / 3 |
 
-- Endwerte: im Mittel etwa **1:10 je Welle**, keine Notfallprotokolle. Teuer sind die Kanonenboot-Wellen (2 und 4): ein
+- Endwerte: im Mittel etwa **1:10 je Welle**, keine Notfallprotokolle. Teuer sind die Korvetten-Wellen (2 und 4): ein
   schwerer Treffer auf einen leeren Schildsektor kostet 15 Hülle. Davor (Zwischenstände) lösten 2–5 Notfallprotokolle je Lauf
   eine Kaskade aus, weil die Hülle in 12 s Pause kaum über 30 kam – deshalb flicken die Schrauber die Außenhaut jetzt schneller.
 - Wer die Brücke verlässt, ist **5–31 s** weg: flicken 6–15 s, Minispiel 5–22 s, Austausch (Teil aus dem Lager holen) 20–31 s,
   je nach Weg.
 - **Solo im Browser** (Endwerte, Skript pendelt zwischen Steuer und Taktik, Schrauber automatisch): Welle 1 0:58, Welle 2 3:42
-  (das Kanonenboot zeigt die Breitseite mit 4er-Schilden; das Skript nutzt die Lanze kaum), Welle 3 2:07; 0 Notfallprotokolle.
-- **Mission 1 an B-7 zu dritt** (Weg dorthin per Debug übersprungen, Kampf ohne Debug): Kanonenboot kündigt jede Ladung an,
+  (die Korvette zeigt die Breitseite mit 4er-Schilden; das Skript nutzt die Lanze kaum), Welle 3 2:07; 0 Notfallprotokolle.
+- **Mission 1 an B-7 zu dritt** (Weg dorthin per Debug übersprungen, Kampf ohne Debug): Korvette kündigt jede Ladung an,
   Kampf bis zum Boje-Scan 1:37, 9 Ladungen, 6 Schildstöße (5 perfekt), 0 Notfallprotokolle.
 
 **Bot-Simulation** (`npm run sim:arena`, 10 Seeds je Strategie, zu dritt, 5 Wellen; Bots spielen fehlerfrei):
@@ -838,18 +847,18 @@ sicherer als Menschen.** Zeiten = Spielzeit aus dem Server.
 | Notfallprotokolle | 1,8 | 0 |
 
 Breitseite lohnt sich klar (Faktor 8 gesamt, 4 je Minute). Solo ist der Bot-Vergleich nicht aussagekräftig (der Solo-Bot
-mit „nose“ bleibt am Kanonenboot hängen). Die Bots sind deutlich besser als Menschen – beim Spieleabend zuerst auf die
+mit „nose“ bleibt am Korvette hängen). Die Bots sind deutlich besser als Menschen – beim Spieleabend zuerst auf die
 Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
 
 ### Messwerte M3b Schritt A (QA 2026-10-07, Details CONTRACT-M3B §9)
 
 - **Bot-Simulation** (`npm run sim:arena`, 10 Seeds, zu dritt, 6 Wellen): „Nase drauf“ 60,7 Hülle (12/min), Breitseite 43
-  (6,2/min) – Faktor 1,41 (je Minute 1,93). Kanonenboot hält gegen „Nase drauf“ 73 % Breitseite, gegen Manövrieren 42 %.
+  (6,2/min) – Faktor 1,41 (je Minute 1,93). Korvette hält gegen „Nase drauf“ 73 % Breitseite, gegen Manövrieren 42 %.
   0–0,1 Notfälle, ~2 Reparaturgänge je Lauf (Bots verteilen Schilde fehlerfrei).
-- **Browser** (QA-Skript mit Menschen-Tempo: Captain reagiert nach 1–3 s, Ausweichen ~65 %): Kanonenboot + 2 Jäger
-  **3:44–3:49, 100 Hülle, 2 Notfälle**; 2 Jäger 0:23–0:48 ohne Schaden; Jäger + Kanonenboot 2:11–2:16, 50–55 Hülle; Wächter
-  + 2 Jäger 1:33. Kanonenboot-Wellen sind für Menschen eher zu hart als zu ruhig. Wenn es beim Probeflug kippt:
-  `tune spaceM3.tele.gunboat.damage 2`, `tune crewScaling.3.enemyFireInterval 2.2`, `tune spaceM3b.escalation.after 30`.
+- **Browser** (QA-Skript mit Menschen-Tempo: Captain reagiert nach 1–3 s, Ausweichen ~65 %): Korvette + 2 Jäger
+  **3:44–3:49, 100 Hülle, 2 Notfälle**; 2 Jäger 0:23–0:48 ohne Schaden; Jäger + Korvette 2:11–2:16, 50–55 Hülle; Wächter
+  + 2 Jäger 1:33. Korvetten-Wellen sind für Menschen eher zu hart als zu ruhig. Wenn es beim Probeflug kippt:
+  `tune spaceM3.tele.korvette.damage 2`, `tune crewScaling.3.enemyFireInterval 2.2`, `tune spaceM3b.escalation.after 30`.
 - **Mission 1** an B-7 zu dritt (Gegner noch im alten Modell): Kampf 3:49 mit 3 Notfällen. **Beamen:** wer die Steuer auf ½
   stehen lässt, ist nach ~30 s rund 1 km von der Boje weg – erst STOPP, dann beamen.
 - Lanze gegen Jäger mit Menschen-Timing ~18 % (Anfluglinie gestrichelt, Jäger quert die Bug-Linie in 1,5–3 s).

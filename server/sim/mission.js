@@ -1083,7 +1083,7 @@ class Mission {
         break;
       case 'fireOut': if (data.by === 'bot') g.oda('Feuer gelöscht – von einem Bot mit eingebautem Löscher. Fleißig!', 'botFire'); break;
       case 'enemyKilled':
-        if (data.enemy.kind === 'raider' || data.enemy.kind === 'gunboat') g.oda(data.enemy.kind === 'gunboat' ? 'Kanonenboot zerlegt! Das gibt ordentlich Bergungsmarken.' : 'Jäger erledigt! +20 Marken Bergegut.', 'kill_' + data.enemy.kind);
+        if (data.enemy.kind === 'raider' || data.enemy.kind === 'korvette') g.oda(data.enemy.kind === 'korvette' ? 'Korvette zerlegt! Das gibt ordentlich Bergungsmarken.' : 'Jäger erledigt! +20 Marken Bergegut.', 'kill_' + data.enemy.kind);
         if (data.enemy.kind === 'pylon') g.oda('Pylon fällt! Seitlich anfliegen wirkt also. Notiert.', 'kill_pylon');
         break;
       case 'enemyShieldHit': if (data.enemy.kind === 'pylon') g.oda('Treffer auf den Frontschild des Pylons – verpufft. Pilot: an die Seite!', 'pylonFront'); break;

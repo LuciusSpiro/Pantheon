@@ -206,20 +206,20 @@
           ] },
         { "if": { "all": [{ "not": { "flag": { "bribed": true } } }, { "any": [{ "enemiesLeft": { "max": 0 } }, { "elapsed": 50 }] }] },
           "do": [
-            { "set": { "gunboat": true } },
-            { "wendung": "kanonenboot",
-              "ankuendigung": { "art": "sichtbar", "grund": "Das Kanonenboot erscheint auf dem Schirm; Grauzahn kündigt es im selben Moment per Funk an." },
-              "wirkung": [{ "spawn": { "kind": "gunboat", "tag": "gunboat" } }] },
-            { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_kanonenboot" } },
-            { "after": { "sec": 4, "do": [{ "oda": "@combat.kanonenboot_laedt" }] } },
+            { "set": { "korvette": true } },
+            { "wendung": "korvette",
+              "ankuendigung": { "art": "sichtbar", "grund": "Die Korvette erscheint auf dem Schirm; Grauzahn kündigt es im selben Moment per Funk an." },
+              "wirkung": [{ "spawn": { "kind": "korvette", "tag": "korvette" } }] },
+            { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_korvette" } },
+            { "after": { "sec": 4, "do": [{ "oda": "@combat.korvette_laedt" }] } },
             { "wendung": "erste_salve",
-              "ankuendigung": { "art": "sichtbar", "grund": "Gehört zum Kanonenboot-Auftritt; der Baustein meldet den Schaden per ODA." },
+              "ankuendigung": { "art": "sichtbar", "grund": "Gehört zum Korvetten-Auftritt; der Baustein meldet den Schaden per ODA." },
               "wirkung": [{ "do": "damage_system", "system": "shields", "state": "broken", "hitSector": 1, "text": "@combat.erste_salve" }] }
           ] },
-        { "if": { "enemyHpBelow": { "tag": "gunboat", "frac": 0.5 } },
+        { "if": { "enemyHpBelow": { "tag": "korvette", "frac": 0.5 } },
           "do": [
             { "wendung": "breitseite_backbord",
-              "ankuendigung": { "art": "sichtbar", "grund": "Das Kanonenboot lädt seine Breitseite sichtbar (Ladeanzeige)." },
+              "ankuendigung": { "art": "sichtbar", "grund": "Die Korvette lädt seine Breitseite sichtbar (Ladeanzeige)." },
               "wirkung": [{ "do": "ship_breach", "region": 3, "text": "@combat.huellenbruch" }] }
           ] },
         { "if": { "all": [{ "flag": { "bribed": true } }, { "any": [{ "elapsed": 25 }, { "enemyHpBelow": { "kind": "raider", "frac": 0.5 } }, { "enemiesLeft": { "max": 0 } }] }] },
@@ -237,7 +237,7 @@
         { "id": "hintRepair", "text": "@ziel.tipp_reparatur", "optional": true, "done": { "event": "repaired" } }
       ],
       "next": [
-        { "if": { "all": [{ "v": "gunboat" }, { "enemiesLeft": { "max": 0 } }] },
+        { "if": { "all": [{ "v": "korvette" }, { "enemiesLeft": { "max": 0 } }] },
           "do": [
             { "radio": { "from": "grauzahn", "text": "@funk.grauzahn_nicht_geplant" } },
             { "do": "npc_gedaechtnis", "npc": "grauzahn", "ereignis": "b7_zurueckgeschlagen", "text": "@gedaechtnis.grauzahn_b7" }
@@ -250,7 +250,7 @@
           ],
           "goto": "scan" }
       ],
-      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "gunboat": true } }]
+      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "korvette": true } }]
     },
 
     {
@@ -547,7 +547,7 @@
     "funk.grauzahn_mutig": "Mutig. Dann treffen wir uns an der Boje.",
     "funk.grauzahn_nicht_ankommen": "Bezahlt hast du für die Durchfahrt, Kleine. Nicht fürs Ankommen.",
     "funk.grauzahn_da_seid_ihr": "Da seid ihr ja. Mal sehen, wie lange eure Schilde halten.",
-    "funk.grauzahn_kanonenboot": "Genug gespielt. Das Kanonenboot übernimmt.",
+    "funk.grauzahn_korvette": "Genug gespielt. Die Korvette übernimmt.",
     "funk.grauzahn_nicht_geplant": "Das… war nicht geplant. Wir sehen uns, Lerche!",
     "funk.grauzahn_rueckfahrt": "Wegezoll galt für die Hinfahrt, Kleine. Die Rückfahrt kostet extra.",
     "funk.grauzahn_blamiert": "Ihr habt meine Jungs blamiert. Die Nachhut verabschiedet euch persönlich.",
@@ -598,8 +598,8 @@
     "combat.unbesetzt": "Unbesetzte Taktik? Dann feuern die Waffen allein – mit halber Kraft. Besser als nichts.",
     "combat.schaeden": "Schäden? Die Schrauber reparieren selbst. Captain setzt im Reiter „Schäden“ Prioritäten.",
     "combat.streifschuss": "Ein Streifschuss hat einen Kabelbaum entzündet. Feuer an Bord!",
-    "combat.kanonenboot_laedt": "Das Kanonenboot lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
-    "combat.erste_salve": "Kanonenboot! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
+    "combat.korvette_laedt": "Die Korvette lädt die Breitseite. Captain: Schilde auf die bedrohte Seite – Pilot: wegdrehen oder ausweichen!",
+    "combat.erste_salve": "Korvette! Seine erste Salve hat den Schildgenerator zerlegt – Ersatzteil, schnell!",
     "combat.huellenbruch": "Breitseite backbord – Hüllenbruch! Flickblech aus dem Lager, E halten.",
     "combat.durchschlag": "Ein Treffer schlägt durch – Schildgenerator hinüber! Maschinenraum: E flickt, Ersatzteil repariert voll.",
 

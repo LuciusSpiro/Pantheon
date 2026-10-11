@@ -55,8 +55,8 @@
       // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
       // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
       raider: { hp: 44, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
-      // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Kanonenboot-Welle bis 60 Hülle)
-      gunboat: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
+      // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Korvetten-Welle bis 60 Hülle)
+      korvette: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
       relay: { hp: 2, speed: 30, fireInterval: 999, damage: 0, range: 0, salvage: 5 },   // Störrelais der Boje (schießt nicht)
       // M1: Kustoden-Wächter (EMP) und Pylonen (Frontschild, dreht langsam)
       sentinel: { hp: 18, speed: 35, fireInterval: 3.2, damage: 1, range: 330, salvage: 80, emp: true },
@@ -136,15 +136,15 @@
       enemyShotSpeed: 210, enemyShotTtl: 4,
       // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
       // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)
-      raiderOrbit: 320, gunboatDist: 380, hitRadius: { raider: 16, gunboat: 32, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
+      raiderOrbit: 320, korvetteDist: 380, hitRadius: { raider: 16, korvette: 32, relay: 14, sentinel: 26, pylon: 20 }, relayOrbit: 170, relayCount: 3,
       retreatTime: 30, retreatDist: 750, spawnDist: 900,
-      gunboatBroadside: 10, gunboatCrossing: 40,  // s: Breitseite halten, dann quer vor dem Bug auf die andere Seite wechseln (max. s)
+      korvetteBroadside: 10, korvetteCrossing: 40,  // s: Breitseite halten, dann quer vor dem Bug auf die andere Seite wechseln (max. s)
     },
     // Skalierung nach Crewgröße (verbundene Spieler): Feuerintervall-Faktor und Gegner-HP-Faktor
     // QA: zu dritt gab es mit 1/1 fünf Notfallprotokolle pro Durchlauf – entschärft
     // M1: mit Gegner-Schildsektoren solo milder (QA-Ziel: höchstens 1–2 Notfallprotokolle pro Abend)
     // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
-    // Notfallprotokolle je Lauf; im Browser dauerten Kanonenboot-Wellen 80–150 s)
+    // Notfallprotokolle je Lauf; im Browser dauerten Korvetten-Wellen 80–150 s)
     crewScaling: { 1: { enemyFireInterval: 2.2, enemyHp: 0.5 }, 2: { enemyFireInterval: 1.7, enemyHp: 0.7 }, 3: { enemyFireInterval: 1.7, enemyHp: 0.7 } },
     emergency: { hull: 30, marksCost: 50 },
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
@@ -154,7 +154,7 @@
     // (fire.max), der Geflicktes immer wieder bricht – Golden m1/3 Seed 8: Triebwerk 5 Min. kaputt, kein Sprung, Softlock.
     emergencyRepair: { brokenDelay: 45, breachDelay: 30, fireMin: 4, fireDelay: 45 },
     mission: {
-      combatFireBy: 40, gunboatAfter: 50, bribeShieldBreakAt: 25, gunboatBreachAt: 0.5,
+      combatFireBy: 40, korvetteAfter: 50, bribeShieldBreakAt: 25, korvetteBreachAt: 0.5,
       grauzahnRadioX: 1500, scanHoldTimeout: 0.4, softlockWarn: 240,
       rearguardAfter: 6, rearguardCount: { 1: 1, 2: 2, 3: 2 },
       // Notruf auf dem Rückweg (optional): Vaelen-Händlerin längsseits anfliegen
@@ -183,11 +183,16 @@
 
     // ================= M1 (Team SERVER) =================
     // Gegner-Schildsektoren [bug, steuerbord, heck, backbord] und Waffen (Feuerbögen relativ zum Gegner-Bug, Grad)
-    enemyShields: { raider: [2, 1, 0, 1], gunboat: [2, 4, 1, 4], sentinel: [3, 3, 3, 3], pylon: [4, 0, 0, 0], relay: [0, 0, 0, 0] },
+    enemyShields: { raider: [2, 1, 0, 1], korvette: [1, 2, 0, 2], sentinel: [3, 3, 3, 3], pylon: [4, 0, 0, 0], relay: [0, 0, 0, 0] },
     enemyShieldRegen: 5,   // s je Punkt und Sektor
+    // EK1: Waffenarten einer Korvette. lanze = angekündigter schwerer Treffer (tele), batterie = Sperrfeuer-Salve, bolzen = einzelner Schuss
+    korvetteWaffen: ['lanze', 'batterie', 'bolzen'],
     enemyWeapons: {
       raider: [{ facing: 0, arc: 40, range: 400 }],
-      gunboat: [{ facing: 90, arc: 90, range: 500 }, { facing: -90, arc: 90, range: 500 }],
+      // EK1 Korvetten-Regeln (Kai, 2026-10-11): je ein Waffenplatz vorn und an Steuerbord/Backbord (`X=>`), Schilde nach der Tabelle
+      // [vorn 1, Steuerbord 2, hinten 0, Backbord 2]. Die Art der Waffe je Platz (lanze | batterie | bolzen) wird beim Spawn gewürfelt
+      // (korvetteWaffen) oder über spawnEnemy(..., { waffen: { bug, stbd, bb } }) vorgegeben.
+      korvette: [{ platz: 'bug', facing: 0, arc: 40, range: 400 }, { platz: 'stbd', facing: 90, arc: 90, range: 500 }, { platz: 'bb', facing: -90, arc: 90, range: 500 }],
       sentinel: [{ facing: 0, arc: 360, range: 330 }],
       pylon: [{ facing: 0, arc: 60, range: 460 }],
       relay: [],
@@ -309,9 +314,9 @@
       firstWaveAt: 6,          // s nach Start bis Welle 1
       nextWaveDelay: 12,       // s nach Räumung bis zur nächsten Welle
       spawnSpread: 0.7,        // rad zwischen den Gegnern einer Welle (Anflug von vorn)
-      // M3b §7: neue Welle 1 „Kanonenboot + 2 Jäger“, die alten Wellen danach
-      waves: [['gunboat', 'raider', 'raider'], ['raider', 'raider'], ['raider', 'gunboat'], ['sentinel', 'raider', 'raider'],
-        ['gunboat', 'raider'], ['pylon', 'gunboat']],   // M3a §15: Wellen 4 und 5 (jetzt 5 und 6)
+      // M3b §7: neue Welle 1 „Korvette + 2 Jäger“, die alten Wellen danach
+      waves: [['korvette', 'raider', 'raider'], ['raider', 'raider'], ['raider', 'korvette'], ['sentinel', 'raider', 'raider'],
+        ['korvette', 'raider'], ['pylon', 'korvette']],   // M3a §15: Wellen 4 und 5 (jetzt 5 und 6)
       pylonAt: { dx: 120, dy: -430 },   // M3a: Pylon fest relativ zu shipPos (im Backbord-Bogen der Startlage)
       keshShipOffset: 260,     // Kesh: Abstand des Schiffs vom Mond (Transferreichweite 360)
       // W2 AP3b „Wellen All“: Szenenwahl mit K (lobbyOpt { startMission: 'arena_space', szene }). Ohne Szene bleibt arena_space
@@ -364,7 +369,7 @@
       // Ende der Runde: Notfallprotokoll (Hülle 0) – kein Game Over, Ergebnis und zurück in die Lobby.
       all: {
         anzahl: { basis: 1, jeWelle: 0.5, jeSpielerWelle: 0.25, max: 12 },
-        typenAb: { raider: 1, gunboat: 2, sentinel: 4, pylon: 6 },
+        typenAb: { raider: 1, korvette: 2, sentinel: 4, pylon: 6 },
         jaegerAnteil: 0.5,     // Mindestanteil Jäger je Welle
         maxLebend: 6,          // höchstens so viele gleichzeitig (Rest rückt nach)
         truppGroesse: 2,       // Gegner je Nachschub
@@ -385,9 +390,9 @@
       },
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,
-      // QA M3a: gunboat.damage 4 -> 3 (ein voller Treffer kostete 20 Hülle, jetzt 15)
-      // S2b (Kai: mehr Feuerkraft): gunboat.damage 3 -> 4
-      tele: { gunboat: { dur: 3, damage: 4 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
+      // QA M3a: korvette.damage 4 -> 3 (ein voller Treffer kostete 20 Hülle, jetzt 15)
+      // S2b (Kai: mehr Feuerkraft): korvette.damage 3 -> 4
+      tele: { korvette: { dur: 3, damage: 4 }, pylon: { dur: 2, damage: 3 }, sentinel: { dur: 2.5, emp: true },
         delayPerHit: 1, delayMax: 2, captainSeesLast: 1.2, odaCooldown: 4 },
       burst: { duration: 1.5, perfect: 0.5, absorb: 5, absorbDamaged: 2, cooldown: 8 },
       repair: { flickTime: 1.5, partTime: 3, minigameMinTime: 2.5, queueMax: 3, odaCooldown: 3 },
@@ -408,7 +413,7 @@
       lerche: { maxSpeed: 130, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1], stageNames: ['R', 'STOPP', '¼', '½', '¾', 'VOLL'],
         turnRate: 0.6, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.8, lateralDrag: 2.2,
         dodge: { impulse: 350, cooldown: 7, turnPenalty: 0.5, turnPenaltyTime: 1 }, radius: 36 },
-      gunboat: { maxSpeed: 110, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
+      korvette: { maxSpeed: 110, minSpeed: 0, accel: 22, decel: 30, brakeFactor: 1.4, stages: [-0.23, 0, 0.27, 0.5, 0.75, 1],
         turnRate: 0.6, turnCurve: [[-0.3, 0.35], [0, 0.25], [0.25, 0.7], [0.5, 1], [0.75, 0.85], [1, 0.6]], turnAccel: 0.8, lateralDrag: 2.2, radius: 32 },
       raider: { maxSpeed: 200, minSpeed: 120, accel: 60, decel: 40, brakeFactor: 1, stages: [0.6, 0.8, 1],
         turnRate: 1.1, turnCurve: [[0, 1], [1, 1]], turnAccel: 2.5, lateralDrag: 0.8, radius: 16 },
@@ -430,7 +435,7 @@
       minPlanMinutes: 10, targetMinutes: 15, maxOpenThreads: 1,
       // B1 (CONTRACT-B1 §11, Welle 0): Bodenquote und lange Missionen (SPIELLEITER/ENGINE lesen)
       boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 } },
-    // ---- S2b (CONTRACT-S2B §2): Sperrfeuer des Kanonenboots – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
+    // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
     // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
     // escortFactor = Schaden auf Schützlinge (× escorts.hullPerDamage × crewDamage). interval gilt für eine Dreier-Crew,
     // kleinere Crews × crewScaling-Verhältnis (solo ~3,9 s).
@@ -447,7 +452,7 @@
     escorts: { max: 2, hull: { frachter: 120, karawane: 100, bergungsboot: 70 }, obeyDelay: { pos: 0, neutral: 2, neg: 4 },
       warnAt: [0.75, 0.5, 0.25], aggroOnHit: 10, rebukeCooldown: 30, distressBelow: 0.5, distressFastBelow: 0.3,
       // ---- Ergänzung SCHUETZLING (server/sim/escort.js) ----
-      hullPerDamage: 5,          // Hülle je Schadenspunkt (wie die Lerche: Kanonenboot-Ladung 3 -> 15 Hülle)
+      hullPerDamage: 5,          // Hülle je Schadenspunkt (wie die Lerche: Korvetten-Ladung 3 -> 15 Hülle)
       tele: { dur: 2 },          // Ankündigung für Gegner ohne eigene Ladung (Jäger): s bis zur Salve auf den Schützling
       empStall: 6,               // s Antrieb aus nach EMP-Treffer (kein Hüllenschaden)
       underFireHold: 4,          // s nach einem Treffer bzw. solange eine Ladung auf ihn läuft: hält an (außer volle_kraft/flieht)
@@ -463,7 +468,7 @@
       crewDamage: { 1: 0.18, 2: 0.9, 3: 1.25 } },   // QA S2b: solo 0.4 -> 0.18 (Jäger 3× zäher: Geleit solo 0/10 -> 5/10 heil)
     spaceM3b: {
       flightV2: { arena: true, missions: false },   // neues Gegner-Flugmodell; die Lerche fliegt überall mit Stufen
-      pilot: { kP: 2.5, kD: 1.2, gunboatRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
+      pilot: { kP: 2.5, kD: 1.2, korvetteRange: 400, lead: 1.5, approachOffset: 60, overshootDist: 380, overshootTime: 3,
         raiderStagger: 2, edgeLook: 2, minSeparation: 60, stuckTime: 4 },
       // Schild-Durchlass je Stärke vor dem Treffer (Kai: 1 -> 20 %, 2 -> 5 %)
       shieldLeak: {
@@ -481,7 +486,7 @@
       // Jäger: lead 0 -> 1 (Vorhalt). Vorher zielten sie auf die alte Position und trafen ein fahrendes Schiff kaum
       // (Arena-Bots: 6–16 Gegnerschüsse je 6-Wellen-Lauf, ~1 von 10 traf). fireInterval bleibt 2,5 (= enemies.raider):
       // kürzere Intervalle (0,6/1,5 getestet) machten „Nase drauf“ und „Breitseite“ gleich teuer, und im Browser kippten
-      // Kanonenboot-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
+      // Korvetten-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
       pilotFire: { raider: { fireInterval: 2.5, lead: 1 } },
     },
     // Raumszenen (px im Taktik-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js

@@ -83,7 +83,7 @@ Ohne passende Erinnerung: „Sela (Vaelen-Händlerin) hat wieder Arbeit für die
 **Entscheidung:** Keld fordert die Ladung – wie antwortet der Captain?
 
 - Wir sind Konkordat-Eskorte, greift ab. → Keld zögert kurz, schickt aber trotzdem Jäger – die Lerche hat jedoch einen Moment Vorsprung im Gefecht.
-- Die Karawane transportiert nur Ballast, lohnt nicht. → Keld glaubt es nicht und schickt sofort Kanonenboot und Jäger ohne Vorwarnung.
+- Die Karawane transportiert nur Ballast, lohnt nicht. → Keld glaubt es nicht und schickt sofort Korvette und Jäger ohne Vorwarnung.
 
 **Ziele**
 
@@ -105,7 +105,7 @@ Ohne passende Erinnerung: „Sela (Vaelen-Händlerin) hat wieder Arbeit für die
 ### 4. s4_geleit_kampf – Graue Weite
 
 - **Szenentyp:** geleit · **Baustein:** `schuetzen/geleit_durch_angriff` · **Fassung:** llm · **Plan:** 5 min
-- **Sachverhalt:** Keld schickt Jäger und ein Kanonenboot auf die Karawane. Die Lerche muss sie abschirmen, bis die Karawane das Nebel-Ende erreicht.
+- **Sachverhalt:** Keld schickt Jäger und eine Korvette auf die Karawane. Die Lerche muss sie abschirmen, bis die Karawane das Nebel-Ende erreicht.
 - **Wendung (Plan):** Ankündigung: Sela meldet Triebwerksschaden an der Karawane – sie wird langsamer.
 - **Weiter:** Karawane heil durchgebracht → Ausgang `erfolg`; Karawane schwer beschädigt → `s5_notbergung`
 

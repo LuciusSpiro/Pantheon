@@ -18,7 +18,7 @@
       "id": "angriffswelle",
       "name": "Angriffswelle mit Verstärkung",
       "schauplatz": "weltraum",
-      "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Kanonenboot oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
+      "beschreibung": "Erst greifen Jäger an. Sind sie erledigt oder dauert es zu lange, kündigt ein NSC per Funk Verstärkung an (Korvette oder weitere Jäger). Breitseiten, Ausweichen, Schilde, Reparaturen. Passt für Piraten, Patrouillen, Hinterhalte. Mit ziel = schuetzling/auto gehen die Gegner auf einen Schützling derselben Szene.",
       "braucht": [
         "raumkampf",
         "bordschaeden"
@@ -52,9 +52,9 @@
         },
         "verstaerkung": {
           "typ": "kind",
-          "default": "gunboat",
+          "default": "korvette",
           "werte": [
-            "gunboat",
+            "korvette",
             "raider"
           ]
         },

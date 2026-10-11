@@ -947,7 +947,7 @@
         const neu = ev.neu || {};
         const teile = [];
         if (neu.waffe) teile.push('Karl trägt jetzt ' + (H.WAFFE_NAME[neu.waffe] || neu.waffe));
-        if (neu.typ) teile.push('neu: ' + ({ raider: 'Jäger', gunboat: 'Kanonenboot', sentinel: 'Kustoden-Wächter', pylon: 'Pylon' }[neu.typ] || neu.typ));   // W2: Wellen All
+        if (neu.typ) teile.push('neu: ' + ({ raider: 'Jäger', korvette: 'Korvette', sentinel: 'Kustoden-Wächter', pylon: 'Pylon' }[neu.typ] || neu.typ));   // W2: Wellen All
         if (neu.rang) teile.push('Häuptlinge führen die Trupps');
         if (neu.gemischt) teile.push('gemischte Trupps');
         H.wellenBanner = { text: 'WELLE ' + ev.n, sub: ev.gesamt + ' Gegner' + (teile.length ? ' · ' + teile.join(' · ') : ''), t0: performance.now() };
