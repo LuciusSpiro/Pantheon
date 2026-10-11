@@ -1,0 +1,149 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 4 „Methalle“. PLATZHALTER: Schritt 'methalle' vertritt die Bodenmission von Team BODEN (EK5: Militärsiedlung mit Mauer, Schleichweg, Sprengstoff platzieren, zwei Wellen Wachen). Der Platzhalter verlangt den Sprengstoff an Bord und das Halten der Position an der Station (Lerche, ohne Boden); dann gilt die Ladung als gesetzt. Die echte Szene muss nur die Flag methalle_gesprengt setzen (Ladung gesetzt UND Team wieder an Bord). Schritt 'meldung' (Meldung von Mars, Sperrriegel öffnen) bleibt unverändert. Schnittstelle: CONTRACT-EK8.md, Kapitel 4.",
+  "format": "regiebuch/1",
+  "id": "k4_methalle",
+
+  "kopf": {
+    "titel": "Methalle: Sprengstoff platzieren",
+    "art": "kapitel",
+    "auftraggeber": "mars",
+    "zielspieldauer_min": 15,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "erwartet": { "methalle_gesprengt": false },
+
+  "buch": {
+    "von": [{ "npc": "mars" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["methalle", "statio_limitis", "castra_martis"] },
+
+  "besetzung": {
+    "stimmen": { "mars": { "name": "Mars", "bild": "mars" } }
+  },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "reveal_location", "loc": "methalle", "text": "@auftrag.aufgedeckt" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 4 }, "goto": "k4_anflug" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "k4_anflug",
+      "timers": [
+        { "at": 120, "if": { "not": { "atLocation": "methalle" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.zur_methalle", "done": { "atLocation": "methalle" } }
+      ],
+      "next": [{ "if": { "atLocation": "methalle" }, "goto": "methalle" }],
+      "skip": [{ "do": "debug_jump", "loc": "methalle" }]
+    },
+
+    {
+      "id": "methalle", "loc": "methalle",
+      "umsetzung": "halten/position_halten",
+      "platzhalter": "Methalle, Bodenmission (Team BODEN)",
+      "enter": [{ "oda": "@methalle.lage" }],
+      "rules": [
+        { "if": { "all": [{ "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } }, { "check": { "name": "ship_hold_position", "dist": 300, "sec": 12, "loc": "methalle" } }, { "not": { "flag": "methalle_gesprengt" } }] },
+          "do": [
+            { "do": "fracht_abliefern", "art": "sprengstoff", "n": 1 },
+            { "setFlag": { "methalle_gesprengt": true } },
+            { "oda": "@methalle.gesetzt" }
+          ] }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } }, "oda": "@methalle.tipp_ladung", "garantie": "hinweis" },
+        { "at": 100, "if": { "not": { "flag": "methalle_gesprengt" } }, "oda": "@methalle.tipp_halten", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "ladung", "text": "@ziel.ladung", "done": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } },
+        { "id": "setzen", "text": "@ziel.setzen", "done": { "flag": "methalle_gesprengt" } }
+      ],
+      "next": [
+        { "if": { "flag": "methalle_gesprengt" }, "goto": "meldung" },
+        { "if": { "check": { "name": "rueckzug", "loc": "methalle" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "setFlag": { "methalle_gesprengt": true } }]
+    },
+
+    {
+      "id": "meldung",
+      "umsetzung": "kette/wartet",
+      "enter": [
+        { "oda": "@meldung.zerstoert" },
+        { "do": "sperrriegel_oeffnen" },
+        { "after": { "sec": 4, "do": [{ "radio": { "from": "mars", "text": "@meldung.mars" } }] } }
+      ],
+      "objectives": [
+        { "id": "meldung", "text": "@ziel.meldung", "done": { "elapsed": 9 } }
+      ],
+      "next": [{ "if": { "elapsed": 9 }, "complete": "erfolg", "garantie": "zeitlimit" }],
+      "skip": [{ "set": { "weiter": true } }]
+    }
+  ],
+
+  "on": {
+    "docked": [
+      { "if": { "all": [{ "any": [{ "docked": "statio_limitis" }, { "docked": "castra_martis" }] }, { "not": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } }, { "not": { "flag": "methalle_gesprengt" } }] },
+        "wirkung": [{ "do": "fracht_zuteilen", "art": "sprengstoff", "n": 1 }, { "radio": { "from": "mars", "text": "@ereignis.ersatz" } }] }
+    ]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Sprengladung gesetzt, Team an Bord, Methalle zerstört gemeldet, Sperrriegel um Wolfstor offen.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "methalle", "value": "zerstoert", "quelle": "Sprengstoff" },
+        { "do": "welt_fakt", "key": "sprengstoff", "value": "verbraucht", "quelle": "Methalle" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "rueckzug": {
+      "beschreibung": "Notfallsprung von der Methalle: Die Szene wird wiederholt, der Feldzug geht weiter.",
+      "folgen": [],
+      "danach": [{ "oda": "@rueckzug.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Die Methalle ist ein Militärlager hinter einer Mauer. Ein einziger Teleportpunkt liegt außerhalb. Ein Rohr im Hang führt unter der Mauer hindurch. Ihr braucht eine Sprengladung, auf Stationen zu kaufen. Keine Explosion, kein Zeitdruck: Wer entdeckt wird, bekommt Alarm.",
+    "buch.belohnung": "Der Sperrriegel um Wolfstor öffnet sich",
+
+    "auftrag.aufgedeckt": "Die Methalle ist auf der Sternkarte, hinter Nebelheim.",
+    "auftrag.hinweis": "Methalle: Militärlager hinter einer Mauer. Ihr braucht eine Sprengladung im Frachtraum.",
+
+    "anflug.tipp": "Die Methalle liegt hinter Nebelheim. Sternkarte: Sprungpunkt dorthin anfliegen.",
+
+    "methalle.lage": "Methalle in Sicht. Platzhalter für die Bodenmission: Position halten, dann gilt die Ladung als gesetzt.",
+    "methalle.gesetzt": "Sprengstoff liegt. Jetzt unauffällig weg, ohne Alarm.",
+    "methalle.tipp_ladung": "Keine Sprengladung an Bord. Ersatz gibt es im Hafen: Statio Limitis oder Castra Martis.",
+    "methalle.tipp_halten": "Platzhalter: Mit der Lerche nah an der Station stehen bleiben, etwa 12 Sekunden.",
+
+    "meldung.zerstoert": "Meldung von Mars: Außenposten Methalle zerstört.",
+    "meldung.mars": "Die Methalle ist gefallen. Wolfstor steht ohne Nachschub. Kommt heim nach Castra Martis.",
+
+    "ereignis.ersatz": "Die Sprengladung ist weg? Der Quartiermeister legt euch eine Ersatzladung in den Frachtraum. Mars hat gesprochen.",
+
+    "rueckzug.ansage": "Rückzug von der Methalle. Die Wachen suchen noch, ihr versucht es noch einmal.",
+
+    "ziel.zur_methalle": "Zur Methalle fliegen",
+    "ziel.ladung": "Sprengladung im Frachtraum haben",
+    "ziel.setzen": "Die Sprengladung setzen und unbemerkt zurück an Bord",
+    "ziel.meldung": "Die Meldung abwarten",
+
+    "chronik.erfolg": "Die Methalle fällt: Die Crew setzt den Sprengstoff, Mars meldet den Außenposten zerstört. Der Sperrriegel um Wolfstor ist offen."
+  }
+}

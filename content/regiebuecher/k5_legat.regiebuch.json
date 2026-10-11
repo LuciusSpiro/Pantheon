@@ -1,0 +1,110 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 5 „Castra Martis, der Legat“. Briefing im Hafen, der Legat funkt zum ersten Mal (Porträt), Mars als Symbol. Das Buch endet mit der Annahme des Befehls für Eisenwald. Der Legat bekommt ein Gedächtnis (npc legat, Team FLOTTE schreibt später Befolgt/Eigenmächtig/Im-Stich-Einträge).",
+  "format": "regiebuch/1",
+  "id": "k5_legat",
+
+  "kopf": {
+    "titel": "Castra Martis: der Legat",
+    "art": "kapitel",
+    "auftraggeber": "legat",
+    "zielspieldauer_min": 8,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "buch": {
+    "von": [{ "npc": "legat" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["castra_martis", "wolfstor", "eisenwald"] },
+
+  "besetzung": {
+    "stimmen": {
+      "mars": { "name": "Mars", "bild": "mars" },
+      "legat": { "name": "Legat Marcus Severus", "bild": "legat" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "reveal_location", "loc": "castra_martis", "text": "@auftrag.aufgedeckt" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 4 }, "goto": "k5_anflug" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "k5_anflug",
+      "timers": [
+        { "at": 150, "if": { "not": { "atLocation": "castra_martis" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_castra", "done": { "atLocation": "castra_martis" } }
+      ],
+      "next": [{ "if": { "atLocation": "castra_martis" }, "goto": "hafen" }],
+      "skip": [{ "do": "debug_jump", "loc": "castra_martis" }]
+    },
+
+    {
+      "id": "hafen", "loc": "castra_martis",
+      "umsetzung": "kette/andocken",
+      "rules": [
+        { "if": { "docked": "castra_martis" },
+          "do": [
+            { "radio": { "from": "mars", "text": "@hafen.mars" } },
+            { "after": { "sec": 8, "do": [{ "set": { "offer": true } }, { "radio": { "from": "legat", "text": "@hafen.legat", "accept": true } }] } }
+          ] }
+      ],
+      "timers": [
+        { "at": 90, "if": { "not": { "docked": "castra_martis" } }, "oda": "@hafen.tipp", "garantie": "hinweis" },
+        { "at": 60, "if": { "all": [{ "docked": "castra_martis" }, { "not": { "event": "accepted" } }] }, "oda": "@hafen.erinnerung", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "andocken", "text": "@ziel.andocken", "done": { "docked": "castra_martis" } },
+        { "id": "annehmen", "text": "@ziel.annehmen", "show": { "v": "offer" }, "done": { "event": "accepted" } }
+      ],
+      "onAccept": [{ "complete": "erfolg" }],
+      "skip": [{ "do": "debug_dock", "loc": "castra_martis" }, { "do": "debug_accept" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Legat und Mars haben gesprochen, der Befehl für Eisenwald ist angenommen.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "legat_bekannt", "value": "ja", "quelle": "Castra Martis" },
+        { "do": "npc_gedaechtnis", "npc": "legat", "ereignis": "erster_funkspruch", "text": "@gedaechtnis.erster_funkspruch" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Wolfstor ist offen, der Weg nach Eisenwald ist frei. In Castra Martis wartet ein Legat. Seine Fulminata und die Audax folgen der Lerche und erscheinen bei Eisenwald, wenn es soweit ist. Den Weg dorthin sucht ihr euch selbst.",
+    "buch.belohnung": "Der Befehl für Eisenwald, zwei verbündete Korvetten",
+
+    "auftrag.aufgedeckt": "Castra Martis ist auf der Sternkarte: Dort wartet der Legat.",
+    "auftrag.hinweis": "Zurück nach Castra Martis. Der Sperrriegel ist gefallen, Wolfstor ist offen.",
+
+    "anflug.tipp": "Castra Martis liegt tief im römischen Raum. Sternkarte: Sprungpunkte der Reihe nach, über Wolfstor zurück.",
+
+    "hafen.tipp": "Castra Martis: Liegeplatz ansteuern, langsam heran und andocken.",
+    "hafen.erinnerung": "Der Legat wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",
+    "hafen.mars": "Wolfstor ist offen. Der Weg nach Eisenwald ist frei. Ein Legat wartet auf euch.",
+    "hafen.legat": "Ich habe von eurem Streich bei der Methalle gehört, Lerche. Rom belohnt Taten. Meine Fulminata und die Audax sind gefechtsbereit. Ihr fliegt nach Eisenwald, wir folgen und erscheinen, wenn es soweit ist. Nehmt den Weg, den ihr für richtig haltet. Aber kommt an.",
+
+    "ziel.nach_castra": "Nach Castra Martis zurückkehren",
+    "ziel.andocken": "In Castra Martis andocken",
+    "ziel.annehmen": "Captain: Funkspruch des Legaten annehmen",
+
+    "gedaechtnis.erster_funkspruch": "Die Lerche hat die Methalle gesprengt. Ich habe ihr den Befehl für Eisenwald gegeben.",
+    "chronik.erfolg": "In Castra Martis gibt der Legat Marcus Severus der Lerche den Befehl für Eisenwald. Fulminata und Audax folgen."
+  }
+}

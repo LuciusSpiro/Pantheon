@@ -6464,6 +6464,70 @@
   }
 
   // ---------------------------------------------------------------------------------------------
+  // EK8 Funkbilder: drawFunkBild(ctx, kind, x, y, size) – x/y = linke obere Ecke, size 16..64. kind 'mars' = Symbol (der Gott
+  // spricht ohne Gesicht: Kriegsgott-Zeichen, Kreis mit Pfeil, in Rot auf Nachtblau), 'legat' = Porträt (römischer Legat mit
+  // Helm und rotem Federbusch). Prozedural, 24×24, ganzzahlig skaliert, je (kind, size) gecacht.
+  // ---------------------------------------------------------------------------------------------
+  var funkBildCache = new SmallCache(8);
+  function buildFunkMars(g) {
+    var red = '#C23B30', redHi = '#E0675A', brass = PAL.messing, navy = '#141B2C', navy2 = '#1E2840';
+    R(g, 0, 0, 24, 24, navy);
+    R(g, 1, 1, 22, 22, navy2);
+    // Strahlenkranz hinter dem Zeichen
+    for (var a = 0; a < 8; a++) { var ang = a * Math.PI / 4 + 0.39; poly(g, thick(12 + Math.cos(ang) * 9, 12 + Math.sin(ang) * 9, 12 + Math.cos(ang) * 11, 12 + Math.sin(ang) * 11, 1.4), brass); }
+    // Ring (Kreis) links unten, Pfeil nach rechts oben
+    for (var y = 0; y < 24; y++) for (var x = 0; x < 24; x++) {
+      var dx = x + 0.5 - 10, dy = y + 0.5 - 14, d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= 5.6 && d >= 3.3) P(g, x, y, (dx + dy) < 0 ? redHi : red);
+    }
+    poly(g, thick(13.5, 10.5, 19.2, 4.8, 2.1), red);
+    poly(g, [21, 3, 21, 9.2, 19.2, 7.4, 16.8, 5.2, 14.8, 3], red);   // Pfeilspitze
+    R(g, 15, 7, 1, 1, redHi);
+    // Messingrand
+    R(g, 0, 0, 24, 1, brass); R(g, 0, 23, 24, 1, brass); R(g, 0, 0, 1, 24, brass); R(g, 23, 0, 1, 24, brass);
+  }
+  function buildFunkLegat(g) {
+    var skin = '#D9A877', skinLo = '#B88455', skinHi = '#EBC293', brass = PAL.messing, brassLo = '#8C6527', brassHi = '#E7BE7A';
+    var red = '#9E1F27', redHi = '#C23B30', navy = '#141B2C', navy2 = '#1E2840', dark = '#241A14';
+    R(g, 0, 0, 24, 24, navy); R(g, 1, 1, 22, 22, navy2);
+    // roter Umhang / Schultern
+    poly(g, [1, 24, 3, 19, 8, 17.5, 16, 17.5, 21, 19, 23, 24], red);
+    poly(g, [8, 17.5, 16, 17.5, 15, 20, 12, 22, 9, 20], redHi);
+    R(g, 11, 17, 2, 3, skinLo);   // Hals
+    // Gesicht
+    poly(g, [6.5, 9, 17.5, 9, 18, 13, 16.5, 17, 12, 19, 7.5, 17, 6, 13], skin);
+    R(g, 8, 9, 3, 1, skinHi);
+    // Helm: Kalotte, Stirnband, Wangenklappen
+    poly(g, [5.5, 11, 5, 7, 7, 4, 12, 3, 17, 4, 19, 7, 18.5, 11, 17.5, 9, 6.5, 9], brass);
+    R(g, 6, 8, 12, 1, brassLo);
+    R(g, 8, 4, 4, 1, brassHi);
+    poly(g, [5.5, 11, 7, 9.5, 7.5, 16, 6.5, 16], brassLo); poly(g, [18.5, 11, 17, 9.5, 16.5, 16, 17.5, 16], brassLo);
+    // Federbusch (rot, quer über den Helm)
+    poly(g, [5, 5, 9, 2, 15, 2, 19, 5, 17, 5.5, 12, 3.8, 7, 5.5], red);
+    poly(g, [8, 2.4, 15.5, 2.4, 17, 3.6, 7, 3.6], redHi);
+    // Augen, Brauen, Nase, Mund
+    R(g, 8, 11, 3, 1, dark); R(g, 13, 11, 3, 1, dark);
+    R(g, 9, 12, 1, 1, '#1B1410'); R(g, 14, 12, 1, 1, '#1B1410');
+    R(g, 11, 13, 2, 2, skinLo);
+    R(g, 10, 16, 4, 1, '#8A5A47');
+    // Rand
+    R(g, 0, 0, 24, 1, brass); R(g, 0, 23, 24, 1, brass); R(g, 0, 0, 1, 24, brass); R(g, 23, 0, 1, 24, brass);
+  }
+  function drawFunkBild(ctx, kind, x, y, size) {
+    var k = kind === 'mars' ? 'mars' : kind === 'legat' ? 'legat' : null;
+    if (!k) return;
+    var f = Math.max(1, Math.min(3, Math.round((+size || 24) / 24))), s = 24 * f;
+    var key = k + '|' + f, c = funkBildCache.get(key);
+    if (!c) {
+      var base = mk(24, 24);
+      try { if (k === 'mars') buildFunkMars(base.g); else buildFunkLegat(base.g); } catch (e) { warn('build funkbild ' + key, e); missing(base.g, 0, 0, 24, 24); }
+      c = mk(s, s); c.g.imageSmoothingEnabled = false; c.g.drawImage(base, 0, 0, s, s);
+      funkBildCache.set(key, c);
+    }
+    ctx.drawImage(c, Math.round(x), Math.round(y));
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // API (alle Aufrufe abgesichert: nie werfen, Fehler zählen)
   // ---------------------------------------------------------------------------------------------
   function safe(name, fn, fallback) {
@@ -6545,6 +6609,7 @@
   Art.stateColor = function (state, fragile) { return STATE_COL[stateCode(state, fragile)]; };
   // S1
   Art.drawSeal = safe('drawSeal', drawSeal);
+  Art.drawFunkBild = safe('drawFunkBild', drawFunkBild);   // EK8: Funkbild mars (Symbol) / legat (Porträt)
   // S2
   Art.drawEscort = safe('drawEscort', drawEscort);
   Art.ESCORT_KINDS = ['frachter', 'karawane', 'bergungsboot'];
@@ -6554,7 +6619,7 @@
   if (!hasDom) {   // ohne DOM (z. B. Node): alle Zeichenfunktionen No-op
     ['drawTile', 'drawObject', 'drawCharacter', 'drawBot', 'drawNpc', 'drawDrone', 'drawItem', 'drawFx', 'drawShip', 'drawEnemy',
       'drawAsteroid', 'drawStation', 'drawProjectile', 'drawBeam', 'drawStarfield', 'drawText', 'drawPanel', 'drawIcon', 'drawOverlay',
-      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst', 'drawSeal', 'drawEscort']
+      'drawStationBadge', 'drawStateTag', 'drawTele', 'drawBurst', 'drawSeal', 'drawFunkBild', 'drawEscort']
       .forEach(function (k) { Art[k] = function () { return 0; }; });
   }
   root.Art = Art;

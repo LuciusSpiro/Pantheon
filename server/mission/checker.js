@@ -522,6 +522,7 @@ function check(doc, ctxIn) {
     if (s.scan) { textRef(s.scan.label, `${sp}.scan.label`); if (s.scan.blocked) textRef(s.scan.blocked, `${sp}.scan.blocked`); }
     for (const b of (s.jumpBlock || []).concat(s.destBlock || [])) textRef(b.reason, `${sp}.jumpBlock.reason`);
     if (isSide) return;
+    if (s.platzhalter) W('PLATZHALTER', sp, `Stand-in-Szene für '${s.platzhalter}' (EK8) – wird durch die echte Umsetzung ersetzt`);
     // Garantien
     const mandatory = (s.objectives || []).filter((o) => !o.optional && o.done !== false);
     const marked = [].concat(s.timers || [], s.rules || [], s.next || []).some((x) => x.garantie)

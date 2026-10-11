@@ -1,0 +1,84 @@
+{
+  "$schema": "kampagne.schema.json",
+  "_kommentar": "EK8: die feste Kette der Kampagne Eisenwald, ohne Spielleiter (Briefing Eisenwald-Kampagne EK1–EK9). Reihenfolge fest, der Spieler findet seinen Weg selbst (keine Schnellroute), nach dem Sieg kein freies Spiel. Kapitelkarten und Abspann sind Entwurf (Claude), Kai passt an; die Funktexte stehen in den Regiebüchern (content/regiebuecher/k*.regiebuch.json). Fortschritt nur durch Ausgänge, also erreichte Missionsziele: 'erfolg' führt weiter, jeder andere Ausgang wiederholt die Szene (der Feldzug scheitert nie, jede Szene hat einen Ausgang).",
+  "format": "kampagne/1",
+  "id": "eisenwald",
+  "titel": "Feldzug Eisenwald",
+
+  "tutorial": { "nach": "m3", "oeffnet": ["tutorial-ende"] },
+
+  "schnittstelle": { "flags": ["legat_eigenmaechtig", "legat_im_stich_gelassen", "audax_verloren", "fulminata_verloren"], "_kommentar": "Setzt Team FLOTTE mit der echten Orbitschlacht (Kapitel 6); der Platzhalter setzt nur fregatte_zerstoert, legat_gerettet, legat_befolgt." },
+
+  "start": "k1_anwerbung",
+
+  "npc": {
+    "legat": { "name": "Marcus Severus", "titel": "Legat", "fraktion": "rom", "rolle": "befehlshaber", "status": "lebt", "haltung": 0 }
+  },
+
+  "kapitel": [
+    {
+      "id": "k1_anwerbung", "nr": 1, "titel": "Statio Limitis: Anwerbung", "ort": "statio_limitis",
+      "karte": { "titel": "Kapitel 1: Anwerbung", "text": "Das Tutorial ist vorbei. Hinter dem Splittergürtel hat sich ein Weg zur Statio Limitis geöffnet. Rom sucht ein Schiff ohne Flagge." },
+      "ausgaenge": { "erfolg": { "weiter": "k2_konvoi" } },
+      "einstieg": { "ort": "hafen", "angedockt": true }
+    },
+    {
+      "id": "k2_konvoi", "nr": 2, "titel": "Rabenpass: Konvoi", "ort": "rabenpass",
+      "karte": { "titel": "Kapitel 2: Der Konvoi", "text": "Mars schickt die Lerche auf den Rabenpass. Dort fährt ein Konvoi aus Erzklamm mit Nachschub für die Festungen im Norden." },
+      "ausgaenge": { "erfolg": { "weiter": "k3_nebelheim" }, "rueckzug": { "wiederholen": true } },
+      "platzhalter": ["konvoi"],
+      "einstieg": { "ort": "statio_limitis", "angedockt": true, "fakten": { "rom_angeworben": "ja" } }
+    },
+    {
+      "id": "k3_nebelheim", "nr": 3, "titel": "Nebelheim: Schleichfahrt", "ort": "nebelheim",
+      "karte": { "titel": "Kapitel 3: Nebelheim", "text": "Der Sprengstoff ist an Bord. Die Methalle liegt hinter Nebelheim, im Nebel, bewacht und vermint." },
+      "ausgaenge": { "erfolg": { "weiter": "k4_methalle" }, "rueckzug": { "wiederholen": true } },
+      "einstieg": { "ort": "statio_limitis", "angedockt": true, "flags": { "konvoi_gepluendert": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "erbeutet" }, "fracht": ["sprengstoff"] }
+    },
+    {
+      "id": "k4_methalle", "nr": 4, "titel": "Methalle: Sprengstoff platzieren", "ort": "methalle",
+      "karte": { "titel": "Kapitel 4: Die Methalle", "text": "Ein Militärlager hinter einer Mauer, ein Rohr im Hang. Wenn die Methalle fällt, steht Wolfstor offen." },
+      "ausgaenge": { "erfolg": { "weiter": "k5_legat" }, "rueckzug": { "wiederholen": true } },
+      "platzhalter": ["methalle"],
+      "einstieg": { "ort": "nebelheim", "angedockt": false, "flags": { "konvoi_gepluendert": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "erbeutet", "nebelheim": "durchquert" }, "fracht": ["sprengstoff"] }
+    },
+    {
+      "id": "k5_legat", "nr": 5, "titel": "Castra Martis: der Legat", "ort": "castra_martis",
+      "karte": { "titel": "Kapitel 5: Castra Martis", "text": "Die Methalle ist gefallen. In Castra Martis wartet ein Legat, und mit ihm zwei Schiffe Roms." },
+      "ausgaenge": { "erfolg": { "weiter": "k6_orbit" } },
+      "einstieg": { "ort": "methalle", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert" }, "oeffnet": ["sperrriegel"] }
+    },
+    {
+      "id": "k6_orbit", "nr": 6, "titel": "Eisenwald: Orbitschlacht", "ort": "eisenwald",
+      "karte": { "titel": "Kapitel 6: Orbitschlacht", "text": "Eisenwald. Die Sperrflotte steht im Orbit, die Fulminata und die Audax stoßen dazu." },
+      "ausgaenge": { "erfolg": { "weiter": "k7_siedlung" }, "rueckzug": { "wiederholen": true } },
+      "platzhalter": ["befehl1_durchbrechen", "befehl2_entlastung", "befehl3_ausschalten"],
+      "einstieg": { "ort": "castra_martis", "angedockt": true, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja" }, "oeffnet": ["sperrriegel"] }
+    },
+    {
+      "id": "k7_siedlung", "nr": 7, "titel": "Eisenwald: die Siedlung", "ort": "eisenwald",
+      "karte": { "titel": "Kapitel 7: Die Siedlung", "text": "Unter dem Orbit liegt die Siedlung. In der Mitte steht das Feldzeichen, das noch niemand gehisst hat." },
+      "ausgaenge": { "erfolg": { "weiter": "k8_sieg" }, "rueckzug": { "wiederholen": true } },
+      "platzhalter": ["siedlung"],
+      "einstieg": { "ort": "eisenwald", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true, "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja", "orbit_eisenwald": "befreit" }, "oeffnet": ["sperrriegel"] }
+    },
+    {
+      "id": "k8_sieg", "nr": 8, "titel": "Sieg", "ort": "eisenwald",
+      "karte": { "titel": "Kapitel 8: Sieg", "text": "Das Feldzeichen Roms weht. Es bleibt, den Sieg zu melden." },
+      "ausgaenge": { "erfolg": { "weiter": "ende" } },
+      "einstieg": { "ort": "eisenwald", "angedockt": false, "flags": { "konvoi_gepluendert": true, "methalle_gesprengt": true, "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true, "flagge_gehisst": true, "boss_besiegt": true }, "fakten": { "rom_angeworben": "ja", "sprengstoff": "verbraucht", "nebelheim": "durchquert", "methalle": "zerstoert", "legat_bekannt": "ja", "orbit_eisenwald": "befreit", "eisenwald": "roemisch" }, "oeffnet": ["sperrriegel"] }
+    }
+  ],
+
+  "ende": {
+    "titel": "Eisenwald ist römisch",
+    "text": "Der Riegel der Germanen ist gebrochen. Die Lerche hat die Methalle gesprengt, die Sperrflotte geschlagen und das Feldzeichen Roms gehisst.",
+    "abspann": [
+      { "kopf": "FELDZUG EISENWALD", "zeilen": ["Eine Koop-Kampagne in der Welt von Pantheon"] },
+      { "kopf": "DIE KETTE", "zeilen": ["1  Statio Limitis: Anwerbung", "2  Rabenpass: der Konvoi", "3  Nebelheim: Schleichfahrt", "4  Methalle: der Sprengstoff", "5  Castra Martis: der Legat", "6  Eisenwald: Orbitschlacht", "7  Eisenwald: die Siedlung", "8  Der Sieg"] },
+      { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Steuer, Taktik:", "ihr, an Bord."] },
+      { "kopf": "ROM", "zeilen": ["Legat Marcus Severus, Fulminata und Audax", "Mars hat gesprochen."] },
+      { "kopf": "PANTHEON", "zeilen": ["Danke fürs Spielen."] }
+    ]
+  }
+}

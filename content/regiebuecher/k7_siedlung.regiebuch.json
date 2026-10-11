@@ -1,0 +1,113 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. PLATZHALTER: Schritt 'siedlung' vertritt die Bodenmission von Team BODEN (EK6: Siedlung aus dem Generator, zwei Personen hissen die Flagge gemeinsam, danach 10 Gegner und ein Boss, Sieg oder Nottransport mit Reset). Der Platzhalter spielt Hissen als Position halten (Lerche) und den Anführer als Korvette mit drei Jägern. Die echte Szene liefert zwei Flags: flagge_gehisst (Hissen abgeschlossen, der Angriff beginnt) und boss_besiegt (Anführer gefallen, die übrigen Gegner beamen raus). Schnittstelle: CONTRACT-EK8.md, Kapitel 7.",
+  "format": "regiebuch/1",
+  "id": "k7_siedlung",
+
+  "kopf": {
+    "titel": "Eisenwald: die Siedlung",
+    "art": "kapitel",
+    "auftraggeber": "legat",
+    "zielspieldauer_min": 15,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "buch": {
+    "von": [{ "npc": "legat" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["eisenwald"] },
+
+  "besetzung": {
+    "stimmen": { "legat": { "name": "Legat Marcus Severus", "bild": "legat" } }
+  },
+
+  "steps": [
+    {
+      "id": "landung",
+      "enter": [{ "oda": "@landung.lage" }, { "radio": { "from": "legat", "text": "@landung.legat" } }],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 6 }, "goto": "siedlung" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "siedlung", "loc": "eisenwald", "restartOnReturn": true,
+      "umsetzung": "halten/position_halten",
+      "platzhalter": "Siedlung Eisenwald, Bodenmission mit Flagge und Boss (Team BODEN)",
+      "enter": [{ "oda": "@siedlung.lage" }],
+      "rules": [
+        { "if": { "all": [{ "check": { "name": "ship_hold_position", "dist": 300, "sec": 12, "loc": "eisenwald" } }, { "not": { "flag": "flagge_gehisst" } }] },
+          "do": [
+            { "setFlag": { "flagge_gehisst": true } },
+            { "wendung": "angriff_beginnt",
+              "ankuendigung": { "oda": "@siedlung.angriff", "art": "gleichzeitig", "grund": "Die Verteidiger greifen erst nach dem Hissen an, mit Ansage." },
+              "wirkung": [
+                { "spawn": { "kind": "korvette", "n": 1, "tag": "anfuehrer" } },
+                { "spawn": { "kind": "raider", "n": 3, "tag": "verteidiger" } }
+              ] },
+            { "radio": { "from": "legat", "text": "@siedlung.boss" } }
+          ] },
+        { "if": { "all": [{ "flag": "flagge_gehisst" }, { "killed": { "tag": "anfuehrer" } }, { "not": { "flag": "boss_besiegt" } }] },
+          "do": [
+            { "setFlag": { "boss_besiegt": true } },
+            { "do": "enemies_retreat" },
+            { "oda": "@siedlung.besiegt" }
+          ] }
+      ],
+      "timers": [
+        { "at": 100, "if": { "not": { "flag": "flagge_gehisst" } }, "oda": "@siedlung.tipp_hissen", "garantie": "hinweis" },
+        { "at": 220, "if": { "all": [{ "flag": "flagge_gehisst" }, { "not": { "flag": "boss_besiegt" } }] }, "oda": "@siedlung.tipp_boss", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hissen", "text": "@ziel.hissen", "done": { "flag": "flagge_gehisst" } },
+        { "id": "boss", "text": "@ziel.boss", "show": { "flag": "flagge_gehisst" }, "done": { "flag": "boss_besiegt" } }
+      ],
+      "next": [
+        { "if": { "all": [{ "flag": "flagge_gehisst" }, { "flag": "boss_besiegt" }] }, "complete": "erfolg" },
+        { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }, { "setFlag": { "flagge_gehisst": true, "boss_besiegt": true } }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Flagge gehisst, Anführer besiegt, Eisenwald gehört Rom.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "eisenwald", "value": "roemisch", "quelle": "Siedlung" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "rueckzug": {
+      "beschreibung": "Nottransport bzw. Notfallsprung: Die Siedlung wird zurückgesetzt, die Szene beginnt von vorn.",
+      "folgen": [],
+      "danach": [{ "oda": "@rueckzug.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Das Feldzeichen steht in der Mitte der Siedlung auf dem Platz. Zwei von euch hissen es gemeinsam, die anderen decken. Dann kommen die Verteidiger: zehn Mann und ihr Anführer, von allen Seiten. Fällt der Anführer, fällt der Rest. Fällt die Crew, beginnt die Siedlung von vorn.",
+    "buch.belohnung": "Eisenwald",
+
+    "landung.lage": "Eisenwald, die Siedlung unter uns. Das Feldzeichen steht in der Mitte.",
+    "landung.legat": "Das Feldzeichen steht in der Mitte. Zwei von euch hissen, die anderen decken.",
+
+    "siedlung.lage": "Platzhalter für die Bodenmission: Flagge hissen heißt hier, die Position an der Station halten.",
+    "siedlung.tipp_hissen": "Platzhalter: Mit der Lerche nah an der Station stehen bleiben, etwa 12 Sekunden.",
+    "siedlung.angriff": "Sie haben es gesehen! Gegner von allen Seiten!",
+    "siedlung.boss": "Der große dort, das ist ihr Anführer. Fällt er, fällt der Rest.",
+    "siedlung.tipp_boss": "Den Anführer zuerst: die größere Korvette. Taktik: Ziel mit T.",
+    "siedlung.besiegt": "Sie flüchten! Eisenwald ist unser.",
+
+    "rueckzug.ansage": "Notrückholung eingeleitet. Wir kommen wieder.",
+
+    "ziel.hissen": "Die Flagge hissen",
+    "ziel.boss": "Den Anführer besiegen",
+
+    "chronik.erfolg": "Das Feldzeichen Roms weht über der Siedlung von Eisenwald. Der Anführer ist gefallen."
+  }
+}

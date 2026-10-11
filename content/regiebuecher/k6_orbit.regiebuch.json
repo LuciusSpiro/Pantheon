@@ -1,0 +1,179 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 6 „Orbitschlacht Eisenwald“. PLATZHALTER: Die Schritte 'befehl1_durchbrechen', 'befehl2_entlastung' und 'befehl3_ausschalten' vertreten die Flottenbefehle von Team FLOTTE (EK4: Verbündete Fulminata und Audax, Hilferufe, Verluste, Legat-Gedächtnis). Der Platzhalter spielt dieselbe Reihenfolge mit nackten Gegnerwellen (ohne Verbündete): Wellen ausschalten, am Ende die Fregatte. Die echte Szene liefert dieselben Flags (CONTRACT-EK8.md, Kapitel 6): fregatte_zerstoert, legat_gerettet, legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen, fulminata_verloren, audax_verloren.",
+  "format": "regiebuch/1",
+  "id": "k6_orbit",
+
+  "kopf": {
+    "titel": "Eisenwald: Orbitschlacht",
+    "art": "kapitel",
+    "auftraggeber": "legat",
+    "zielspieldauer_min": 15,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "buch": {
+    "von": [{ "npc": "legat" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["eisenwald", "wolfstor"] },
+
+  "besetzung": {
+    "stimmen": { "legat": { "name": "Legat Marcus Severus", "bild": "legat" } }
+  },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "reveal_location", "loc": "eisenwald", "text": "@auftrag.aufgedeckt" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 4 }, "goto": "k6_anflug" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "k6_anflug",
+      "timers": [
+        { "at": 150, "if": { "not": { "atLocation": "eisenwald" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_eisenwald", "done": { "atLocation": "eisenwald" } }
+      ],
+      "next": [{ "if": { "atLocation": "eisenwald" }, "goto": "ankunft" }],
+      "skip": [{ "do": "debug_jump", "loc": "eisenwald" }]
+    },
+
+    {
+      "id": "ankunft", "loc": "eisenwald",
+      "umsetzung": "kette/wartet",
+      "enter": [{ "oda": "@ankunft.lage" }, { "radio": { "from": "legat", "text": "@ankunft.legat" } }],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 6 }, "goto": "befehl1_durchbrechen" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "befehl1_durchbrechen", "loc": "eisenwald", "restartOnReturn": true,
+      "umsetzung": "vernichten/angriffswelle",
+      "platzhalter": "Flottenbefehl Durchbrechen (Team FLOTTE)",
+      "enter": [
+        { "radio": { "from": "legat", "text": "@befehl1.legat" } },
+        { "spawn": { "kind": "raider", "n": 2, "tag": "sperre" } },
+        { "spawn": { "kind": "korvette", "n": 1, "tag": "sperre" } }
+      ],
+      "timers": [
+        { "at": 120, "if": { "not": { "enemiesCleared": true } }, "oda": "@befehl1.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "sperre", "text": "@ziel.durchbrechen", "done": { "enemiesCleared": true } }
+      ],
+      "next": [
+        { "if": { "enemiesCleared": true }, "do": [{ "oda": "@befehl1.geschafft" }], "goto": "befehl2_entlastung" },
+        { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }]
+    },
+
+    {
+      "id": "befehl2_entlastung", "loc": "eisenwald", "restartOnReturn": true,
+      "umsetzung": "vernichten/angriffswelle",
+      "platzhalter": "Flottenbefehl Entlastung (Team FLOTTE)",
+      "enter": [
+        { "radio": { "from": "legat", "text": "@befehl2.legat" } },
+        { "spawn": { "kind": "raider", "n": 3, "tag": "angreifer" } }
+      ],
+      "timers": [
+        { "at": 120, "if": { "not": { "enemiesCleared": true } }, "oda": "@befehl2.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "entlastung", "text": "@ziel.entlasten", "done": { "enemiesCleared": true } }
+      ],
+      "next": [
+        { "if": { "enemiesCleared": true }, "do": [{ "oda": "@befehl2.geschafft" }], "goto": "befehl3_ausschalten" },
+        { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }]
+    },
+
+    {
+      "id": "befehl3_ausschalten", "loc": "eisenwald", "restartOnReturn": true,
+      "umsetzung": "vernichten/angriffswelle",
+      "platzhalter": "Flottenbefehl Ausschalten, Boss-Fregatte (Team FLOTTE)",
+      "enter": [
+        { "radio": { "from": "legat", "text": "@befehl3.legat" } },
+        { "spawn": { "kind": "fregatte", "n": 1, "tag": "fregatte" } },
+        { "spawn": { "kind": "raider", "n": 2, "tag": "geleit" } }
+      ],
+      "timers": [
+        { "at": 150, "if": { "not": { "flag": "fregatte_zerstoert" } }, "oda": "@befehl3.tipp", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "killed": { "kind": "fregatte" } }, { "not": { "flag": "fregatte_zerstoert" } }] },
+          "do": [{ "setFlag": { "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true } }, { "oda": "@befehl3.geschafft" }] }
+      ],
+      "objectives": [
+        { "id": "fregatte", "text": "@ziel.fregatte", "done": { "flag": "fregatte_zerstoert" } }
+      ],
+      "next": [
+        { "if": { "flag": "fregatte_zerstoert" }, "complete": "erfolg" },
+        { "if": { "check": { "name": "rueckzug", "loc": "eisenwald" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }, { "setFlag": { "fregatte_zerstoert": true, "legat_gerettet": true, "legat_befolgt": true } }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Fregatte zerstört, die Orbitalabwehr von Eisenwald ist gebrochen, der Legat lebt.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "orbit_eisenwald", "value": "befreit", "quelle": "Orbitschlacht" },
+        { "do": "npc_gedaechtnis", "npc": "legat", "ereignis": "orbitschlacht", "text": "@gedaechtnis.orbitschlacht" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "rueckzug": {
+      "beschreibung": "Notfallsprung aus dem Orbit: Die Szene beginnt von vorn, der Feldzug geht weiter.",
+      "folgen": [],
+      "danach": [{ "oda": "@rueckzug.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Über Eisenwald steht die abgezogene Sperrflotte. Der Legat führt die Schlacht in drei Teilen: durchbrechen, die Fulminata entlasten, die Fregatte ausschalten, ihr Flaggschiff. Fulminata und Audax erscheinen bei Eisenwald. Haltet euch an die Befehle, und keiner stirbt umsonst.",
+    "buch.belohnung": "Der Orbit von Eisenwald, der Weg zur Siedlung",
+
+    "auftrag.aufgedeckt": "Eisenwald ist auf der Sternkarte. Wolfstor führt hin.",
+    "auftrag.hinweis": "Ziel: Eisenwald, über Wolfstor. Der Legat folgt mit der Fulminata und der Audax.",
+
+    "anflug.tipp": "Eisenwald liegt hinter Wolfstor. Sternkarte: Sprungpunkte der Reihe nach, der Sperrriegel ist offen.",
+
+    "ankunft.lage": "Eisenwald. Die Sperrflotte steht im Orbit. Der Legat meldet sich.",
+    "ankunft.legat": "Da seid ihr! Rom fährt die Sperrflotte nieder. Haltet euch an die Befehle, und keiner stirbt umsonst.",
+
+    "befehl1.legat": "Lerche, brecht durch die Orbitalabwehr, Kurs auf die Landezone.",
+    "befehl1.tipp": "Platzhalter für den Flottenbefehl: Die Gegner ausschalten, dann kommt der nächste Befehl.",
+    "befehl1.geschafft": "Durchgebrochen. Der Legat gibt den nächsten Befehl.",
+    "befehl2.legat": "Die Fulminata steht unter Beschuss! Haltet die Jäger von mir fern!",
+    "befehl2.tipp": "Platzhalter für den Flottenbefehl: Die Jäger ausschalten.",
+    "befehl2.geschafft": "Die Fulminata ist frei. Weiter zum Flaggschiff der Sperrflotte.",
+    "befehl3.legat": "Dort, die Fregatte! Das ist ihr Flaggschiff. Vernichtet sie!",
+    "befehl3.tipp": "Die Fregatte ist der Boss: Schilde in Segmenten, die Seiten sind die Schwäche. Taktik: Ziel mit T.",
+    "befehl3.geschafft": "Die Fregatte zerbricht. Die Orbitalabwehr ist gebrochen.",
+
+    "rueckzug.ansage": "Rückzug aus dem Orbit. Die Sperrflotte formiert sich neu, ihr beginnt von vorn.",
+
+    "ziel.nach_eisenwald": "Nach Eisenwald fliegen",
+    "ziel.durchbrechen": "Befehl: Orbitalabwehr durchbrechen",
+    "ziel.entlasten": "Befehl: Entlastung der Fulminata, Jäger ausschalten",
+    "ziel.fregatte": "Befehl: Die Fregatte vernichten",
+
+    "gedaechtnis.orbitschlacht": "Die Lerche hat die Sperrflotte über Eisenwald mit mir niedergekämpft.",
+    "chronik.erfolg": "Über Eisenwald bricht die Lerche mit dem Legaten die Sperrflotte und vernichtet die Fregatte."
+  }
+}

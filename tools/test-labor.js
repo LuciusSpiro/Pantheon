@@ -38,7 +38,7 @@ function lobbySpiel(np, seed) {
 const ticks = (g, sek) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) g.step(); };
 
 section('Protokoll und Schalter', () => {
-  ok(JSON.stringify(Protocol.LOBBY_MODI) === JSON.stringify(['m1', 'free', 'm3', 'arena_away', 'arena_space', 'labor']), 'LOBBY_MODI: Kampagne, ohne Tutorial, m3, Wellen Boden, Wellen All, Labor');
+  ok(JSON.stringify(Protocol.LOBBY_MODI) === JSON.stringify(['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'm3', 'arena_away', 'arena_space', 'labor']), 'LOBBY_MODI: Kampagne, ohne Tutorial, Eisenwald (EK8, mit/ohne Tutorial), m3, Wellen Boden, Wellen All, Labor');
   ok(Protocol.START_LABELS.arena_away === 'Wellen Boden' && Protocol.START_LABELS.arena_space === 'Wellen All' && Protocol.START_LABELS.labor === 'Szenario-Labor', 'Labels Wellen Boden / Wellen All / Szenario-Labor');
   ok(CONFIG.lobby && CONFIG.lobby.labor === true, 'CONFIG.lobby.labor Standard an');
   ok(Labor.an(CONFIG) && !Labor.an({ lobby: { labor: false } }), 'Labor.an folgt dem Schalter');

@@ -1,0 +1,131 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 3 „Nebelheim, Schleichfahrt“. Echte Umsetzung (EK2): unbemerkt_durchfliegen/patrouillen_schleichfahrt mit Patrouillen und Minen, Zielkreis am Sprungpunkt zur Methalle (Hex 0705). Ausgänge: erfolg (Ziel erreicht, egal wie), rueckzug (Notfallsprung). Ersatz für eine verlorene Sprengladung: an den Häfen Statio Limitis und Castra Martis, bis es den Kauf auf Stationen gibt (EK5).",
+  "format": "regiebuch/1",
+  "id": "k3_nebelheim",
+
+  "kopf": {
+    "titel": "Nebelheim: Schleichfahrt",
+    "art": "kapitel",
+    "auftraggeber": "mars",
+    "zielspieldauer_min": 10,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "erwartet": { "methalle_gesprengt": false },
+
+  "buch": {
+    "von": [{ "npc": "mars" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["nebelheim", "statio_limitis", "castra_martis"] },
+
+  "besetzung": {
+    "stimmen": { "mars": { "name": "Mars", "bild": "mars" } }
+  },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "reveal_location", "loc": "nebelheim", "text": "@auftrag.aufgedeckt" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 4 }, "goto": "k3_anflug" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "k3_anflug",
+      "timers": [
+        { "at": 150, "if": { "not": { "atLocation": "nebelheim" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_nebelheim", "done": { "atLocation": "nebelheim" } }
+      ],
+      "next": [{ "if": { "atLocation": "nebelheim" }, "goto": "nebelheim" }],
+      "skip": [{ "do": "debug_jump", "loc": "nebelheim" }]
+    },
+
+    {
+      "id": "nebelheim", "loc": "nebelheim", "restartOnReturn": true,
+      "umsetzung": "unbemerkt_durchfliegen/patrouillen_schleichfahrt",
+      "enter": [
+        { "do": "schleichfahrt_an", "ziel_x": 2700, "ziel_y": 440, "ziel_r": 220, "patrouillen": 3, "minen": 8, "wissen": false, "einsprung": true },
+        { "oda": "@nebelheim.einflug" }
+      ],
+      "timers": [
+        { "at": 10, "oda": "@nebelheim.captain" },
+        { "at": 90, "if": { "not": { "v": "nebelheim_ziel" } }, "oda": "@nebelheim.tipp", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "check": { "name": "schiff_bei", "x": 2700, "y": 440, "r": 220 } }, { "not": { "v": "nebelheim_ziel" } }] },
+          "do": [{ "set": { "nebelheim_ziel": true } }, { "oda": "@nebelheim.ziel_da" }] }
+      ],
+      "objectives": [
+        { "id": "ziel", "text": "@ziel.durchqueren", "done": { "v": "nebelheim_ziel" } }
+      ],
+      "next": [
+        { "if": { "v": "nebelheim_ziel" }, "complete": "erfolg" },
+        { "if": { "check": { "name": "rueckzug", "loc": "nebelheim" } }, "complete": "rueckzug" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "nebelheim_ziel": true } }]
+    }
+  ],
+
+  "on": {
+    "widescan": [{ "oda": "@ereignis.weitscan", "once": "nebelheim_weitscan" }],
+    "mineExploded": [{ "oda": "@ereignis.mine", "once": "nebelheim_mine" }],
+    "entdeckt": [{ "oda": "@ereignis.entdeckt", "once": "nebelheim_entdeckt" }],
+    "docked": [
+      { "if": { "all": [{ "any": [{ "docked": "statio_limitis" }, { "docked": "castra_martis" }] }, { "not": { "check": { "name": "fracht_an_bord", "art": "sprengstoff", "min": 1 } } }, { "not": { "flag": "methalle_gesprengt" } }] },
+        "wirkung": [{ "do": "fracht_zuteilen", "art": "sprengstoff", "n": 1 }, { "radio": { "from": "mars", "text": "@ereignis.ersatz" } }] }
+    ]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Nebelheim durchquert, Kurs auf die Methalle liegt an.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "nebelheim", "value": "durchquert", "quelle": "Schleichfahrt" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "rueckzug": {
+      "beschreibung": "Notfallsprung aus Nebelheim: Die Szene wird wiederholt, der Feldzug geht weiter.",
+      "folgen": [],
+      "danach": [{ "oda": "@rueckzug.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Hinter dem Dunkelriff liegt Nebelheim, dicht und vermint, mit Patrouillen. Dahinter wartet die Methalle. Schilde runter senkt die Signatur, der Weitscan zeigt die Minen, verrät aber auch die Lerche. Kein Zeitlimit: Wer sich durchschlägt, kommt ebenfalls an.",
+    "buch.belohnung": "Der Weg zur Methalle",
+
+    "auftrag.aufgedeckt": "Nebelheim ist auf der Sternkarte. Die Methalle liegt dahinter.",
+    "auftrag.hinweis": "Ziel: die Methalle, im Nebel. Der Sprengstoff bleibt im Frachtraum, nicht abgeben.",
+
+    "anflug.tipp": "Nebelheim liegt hinter dem Dunkelriff. Sternkarte: Sprungpunkte der Reihe nach anfliegen.",
+
+    "nebelheim.einflug": "Nebel dicht. Patrouillen in den Sektoren. Schilde runter senkt unsere Signatur.",
+    "nebelheim.captain": "Captain: Taktik pingt nur auf dein Kommando, der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
+    "nebelheim.tipp": "Langsam fliegen, Schilde runter (Taktik), an Asteroiden entlang. Der Zielkreis liegt am Sprungpunkt zur Methalle.",
+    "nebelheim.ziel_da": "Kurs auf die Methalle liegt an. Nebelheim liegt hinter uns.",
+
+    "ereignis.weitscan": "Wir haben gesendet. Sie wissen jetzt ungefähr, wo wir sind. Minen auf dem Scan, Abstand halten.",
+    "ereignis.mine": "Treffer! Mehrere Systeme beschädigt. Sie wissen, dass wir hier sind.",
+    "ereignis.entdeckt": "Patrouille hat uns! Sie rufen die anderen!",
+    "ereignis.ersatz": "Die Sprengladung ist weg? Der Quartiermeister legt euch eine Ersatzladung in den Frachtraum. Mars hat gesprochen.",
+
+    "rueckzug.ansage": "Rückzug aus Nebelheim. Die Patrouillen sammeln sich, aber ihr könnt es noch einmal versuchen.",
+
+    "ziel.nach_nebelheim": "Nach Nebelheim fliegen",
+    "ziel.durchqueren": "Den Zielkreis am Sprungpunkt zur Methalle erreichen, möglichst unbemerkt",
+
+    "chronik.erfolg": "Die Lerche durchquert das vermintete Nebelheim und hält Kurs auf die Methalle."
+  }
+}

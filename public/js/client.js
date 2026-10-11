@@ -297,7 +297,7 @@
     const lob = Client.lastLobby || {};
     const start = lob.startMission || 'm1';
     // QA-Abnahme S1: Server-Feld `campaign` (im Spiel immer da) hat Vorrang – Spät-Beitretende kennen die Lobby-Wahl nicht
-    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free');
+    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne');
     const ship = st.ship || {};
     return { campaign, docked: !!(ship.dockedAt || ship.docked) };
   }
@@ -385,7 +385,7 @@
       // S1: Neue Kampagne bei vollen Weltständen -> Löschdialog (ältester vorausgewählt)
       const lob = (Client.state && Client.state.lobby) || {};
       const start = lob.startMission || 'm1';
-      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free')) {
+      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne')) {
         H.pushNotice('Erst einen Weltstand löschen (höchstens ' + H.worldsMax() + ')', R.PAL.warn, 4);
         openWorlds('full');
         audio.play('error');
@@ -408,6 +408,7 @@
     },
     holdDelete(id) { startDelete(id, true); },
     dismissEnd() { Client.endDismissed = true; audio.play('ui_back'); },
+    abspannEnde() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'end' }); audio.play('ui_click'); },   // EK8: Abspann -> Hauptmenü (Partie für alle beenden)
     closeChapter() { if (Client.chapter) { Client.chapter = null; audio.play('ui_back'); } },   // S2: Kapitelkarte schließen
     // M0: Hafen-Übung überspringen (jeder darf umschalten, Server hält den Zustand)
     toggleSkipDrill() {
@@ -1015,7 +1016,7 @@
     if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
-      case 'radio': H.onRadio(ev.from, ev.text); audio.play('radio'); break;
+      case 'radio': H.onRadio(ev.from, ev.text, ev.bild); audio.play('radio'); break;
       case 'notice':
         if (!ev.pid || ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); }
         break;
@@ -1845,6 +1846,7 @@
     Client.keys[code] = true;
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
+    if (st.phase === 'end' && st.abspann && (code === 'Enter' || code === 'Escape')) { actions.abspannEnde(); return; }   // EK8: Abspann der Kette – kein freies Spiel danach
     if ((st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed && (code === 'Enter' || code === 'Escape')) { actions.dismissEnd(); return; }
     if (st.wellen && st.wellen.ph === 'ende' && code === 'Enter') { actions.wellenLobby(); return; }   // Bodenkampf: Wellen – Ergebnis -> Lobby
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }

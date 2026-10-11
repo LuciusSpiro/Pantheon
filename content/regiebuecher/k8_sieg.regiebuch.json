@@ -1,0 +1,79 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "EK8 Kapitel 8 „Sieg“. Der Legat erinnert sich (Flags legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen aus der Orbitschlacht), Mars schließt ab. Das Buch endet mit erfolg; die Kette zeigt danach den Abspann (kein freies Spiel).",
+  "format": "regiebuch/1",
+  "id": "k8_sieg",
+
+  "kopf": {
+    "titel": "Sieg",
+    "art": "kapitel",
+    "auftraggeber": "legat",
+    "zielspieldauer_min": 2,
+    "crew": { "min": 1, "max": 3, "empfohlen": 3 },
+    "feldzug": "eisenwald"
+  },
+
+  "erwartet": { "legat_befolgt": false, "legat_eigenmaechtig": false, "legat_im_stich_gelassen": false, "audax_verloren": false, "fulminata_verloren": false },
+
+  "buch": {
+    "von": [{ "npc": "legat" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["eisenwald"] },
+
+  "besetzung": {
+    "stimmen": {
+      "mars": { "name": "Mars", "bild": "mars" },
+      "legat": { "name": "Legat Marcus Severus", "bild": "legat" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "sieg",
+      "enter": [{ "oda": "@sieg.lage" }],
+      "timers": [
+        { "at": 3, "if": { "flag": "legat_befolgt" }, "radio": { "from": "legat", "text": "@sieg.befolgt" } },
+        { "at": 3, "if": { "flag": "legat_eigenmaechtig" }, "radio": { "from": "legat", "text": "@sieg.eigenmaechtig" } },
+        { "at": 3, "if": { "flag": "legat_im_stich_gelassen" }, "radio": { "from": "legat", "text": "@sieg.im_stich" } },
+        { "at": 11, "radio": { "from": "legat", "text": "@sieg.legat" } },
+        { "at": 21, "radio": { "from": "mars", "text": "@sieg.mars" } }
+      ],
+      "objectives": [
+        { "id": "feier", "text": "@ziel.feier", "done": { "elapsed": 30 } }
+      ],
+      "next": [{ "if": { "elapsed": 30 }, "complete": "erfolg", "garantie": "zeitlimit" }],
+      "skip": [{ "set": { "weiter": true } }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Der Sieg ist gemeldet; die Kette zeigt den Abspann.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "feldzug_eisenwald", "value": "gewonnen", "quelle": "Sieg" },
+        { "do": "npc_gedaechtnis", "npc": "legat", "ereignis": "sieg", "text": "@gedaechtnis.sieg" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Das Feldzeichen Roms weht über Eisenwald. Der Legat und Mars melden den Sieg.",
+    "buch.belohnung": "Der Sieg und der Dank Roms",
+
+    "sieg.lage": "Eisenwald gehört Rom. Funkverkehr von der Fulminata.",
+    "sieg.befolgt": "Ihr habt getan, was ich verlangte. Ich vergesse das nicht.",
+    "sieg.eigenmaechtig": "Ich hatte einen Befehl gegeben, Lerche. Wir sprechen später darüber.",
+    "sieg.im_stich": "Die Audax ist tot. Ihr habt es gesehen. Ich auch.",
+    "sieg.legat": "Das Feldzeichen Roms weht über Eisenwald. Das war ein Meisterstück, Lerche. Der Senat wird davon hören.",
+    "sieg.mars": "Eisenwald ist römisch. Der Riegel ist gebrochen. Mars hat gesprochen. Ruht.",
+
+    "ziel.feier": "Der Sieg wird gemeldet",
+
+    "gedaechtnis.sieg": "Mit der Lerche habe ich Eisenwald genommen. Das Feldzeichen Roms steht.",
+    "chronik.erfolg": "Eisenwald ist römisch. Der Legat und Mars melden den Sieg, der Riegel der Germanen ist gebrochen."
+  }
+}

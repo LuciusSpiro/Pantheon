@@ -235,7 +235,8 @@
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
-      'fracht'],   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
+      'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
+      'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')
     // ---- M3b Schritt A (CONTRACT-M3B) ----
     // §2 Temporegler: cmd { c: 'helm.throttle', delta: ±1 } oder { set: index }. Snapshot ship.helm.stage (Index),
     // ship.helm.stages (px/s je Stufe), ship.helm.autoStop. helm.input.thrust ist Altname (> 0,5 / < −0,5 = einmal ±1 Stufe).
@@ -255,11 +256,11 @@
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
     // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
-    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette bis zum Abspann', eisenwald_ohne: 'Ab Lichtkordon direkt in die Kette (Statio Limitis)', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
     // ---- AP3a Lobby (CONTRACT-W2 §1): Reihenfolge der Taste M. START_MISSIONS bleibt die alte Liste (Tests, Weltstand);
     // gültig als startMission ist jeder Eintrag aus LOBBY_MODI. 'labor' nur bei CONFIG.lobby.labor (Snapshot lobby.laborAn).
-    LOBBY_MODI: ['m1', 'free', 'm3', 'arena_away', 'arena_space', 'labor'],
+    LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'm3', 'arena_away', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial
     // lobbyOpt { labor: { id?, seed?, staerke?, god? } } – Szenario-Labor (server/mission/labor.js), Felder werden zusammengeführt;
     //   id = 'molekuel/umsetzung' aus lobby.laborListe, seed = Partie-Seed, staerke = LABOR_STAERKEN, god = bool.
     //   Snapshot (nur Lobby): lobby.laborAn, lobby.labor { id, seed, staerke, god }, lobby.laborListe [{ id, name, schauplatz,
@@ -281,7 +282,11 @@
     WELLEN_KARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'],
     WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)' },
     WELLEN_PHASEN: ['countdown', 'kampf', 'pause', 'ende'],
-    CAMPAIGN_STARTS: ['m1', 'free'],
+    CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne'],   // Weltstand gibt es für diese Modi
+    // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.
+    //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }] } nur in Phase end der Kette (kein freies Spiel danach); Ereignis ending { abspann: true };
+    //   Funkspruch radio { from, text, bild? } mit bild 'mars' (Symbol) | 'legat' (Porträt), Snapshot mission.radio.bild.
+    CAMPAIGN_KETTEN: { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } },
     ORDER_KINDS: ['sammeln', 'halten', 'flanke', 'rueckzug', 'fokus', 'gefahr'],   // cmd captain.order { kind, x, y, target?, clear? }
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr
     AWAY_ENEMY_KINDS: ['drone', 'scavenger', 'warden'],
