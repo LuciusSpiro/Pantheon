@@ -127,8 +127,9 @@ function interactionsAt(game, p, tx, ty, list) {
         else block('Das Terminal ist gesperrt.');
         break;
       case 'sprengpunkt':
-        if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(); else block('Keine Sprengladung dabei.'); }
+        if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(a.modus === 'platzieren' ? { modus: 'platzieren' } : undefined); else block(a.modus === 'platzieren' ? 'Kein Sprengstoff dabei.' : 'Keine Sprengladung dabei.'); }
         else if (z === 'scharf') block(`Scharf! Noch ${Math.ceil((L.ladung[a.id] && L.ladung[a.id].t) || 0)} s – weg da!`);
+        else if (z === 'platziert') block('Der Sprengstoff liegt. Jetzt unauffällig zurück zum Teleportpunkt.');
         else block('Hier ist nichts mehr zu sprengen.');
         break;
       case 'zelle': if (z === 'zu') it(); else block('Die Zelle steht offen.'); break;
@@ -191,6 +192,7 @@ function holdDuration(game, p, kind, it) {
     return Math.max(0.2, (H.terminal || 6) - done);
   }
   if (rolle === 'eingang') return it && it.op === 'luke' ? TUER_ZEIT.luke : (H.schott_hacken || 6);
+  if (rolle === 'sprengpunkt' && it && it.modus === 'platzieren') return H.platzieren || H.sprengpunkt || 4;   // EK5: Sprengstoff legen
   return H[rolle] || 1;
 }
 function holdValid(game, p, h) {
@@ -239,7 +241,8 @@ function completeHold(game, p, h) {
       const inv = inventar(game);
       if ((inv.ladung || 0) <= 0) return;
       inv.ladung -= 1;
-      ladungScharf(game, map, a.id, null, p.id);
+      if (a.modus === 'platzieren') ladungPlatzieren(game, map, a.id, p.id);   // EK5: legen statt zünden
+      else ladungScharf(game, map, a.id, null, p.id);
       return;
     }
     case 'zelle': setzen(game, map, a.id, 'offen', p.id); return;
@@ -275,6 +278,25 @@ function ladungScharf(game, map, id, t, pid) {
   setzen(game, map, id, 'scharf', pid || null);
   game.emit('ladungScharf', { anker: id, t: sek, map });
   game.missionEvent('ladungScharf', { map, anker: id, pid: pid || null, t: sek });
+  return null;
+}
+
+// EK5 (Methalle): Sprengstoff am Anker platzieren – keine Explosion, kein Countdown, kein Alarm, keine Wirkung vor Ort.
+// ladungPlatzieren(game, map, id, pid?) -> Fehlertext | null. Verbraucht kein Inventar (das macht completeHold). Der Zustand 'platziert'
+// bleibt; die Folge (Meldung nach dem Hochbeamen, Weltstand-Fakt sperrriegel, zweite Welle) hängt am Regiebuch, nicht hier.
+function ladungPlatzieren(game, map, id, pid) {
+  const k = karteVon(map);
+  if (!k) return `Karte ${map} ist keine gebaute Karte.`;
+  const aw = awVon(game, map);
+  if (!aw) return `Karte ${map} ist nicht geladen.`;
+  const a = ankerById(k, id);
+  if (!a || a.rolle !== 'sprengpunkt') return `${id} ist kein Sprengpunkt auf ${map}.`;
+  if (zustandIn(aw, k, id) !== 'intakt') return `${id} ist nicht intakt (${zustandIn(aw, k, id)}).`;
+  setzen(game, map, id, 'platziert', pid || null);
+  const c = mitte(a);
+  game.emit('ladungPlatziert', { anker: id, map });
+  game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
+  game.missionEvent('ladungPlatziert', { map, anker: id, pid: pid || null });
   return null;
 }
 
@@ -369,7 +391,8 @@ function onTreffer(game, pid) {
     if (game.notice) game.notice(p, 'Getroffen – Download unterbrochen. Der Fortschritt bleibt.');
   } else if (h.kind === 'anker:sprengpunkt') {
     p.hold = null;   // Ladung zurück: nichts verbraucht, Zustand bleibt intakt
-    if (game.notice) game.notice(p, 'Getroffen – die Ladung ist nicht scharf.');
+    const platz = k && (ankerById(k, h.anker) || {}).modus === 'platzieren';
+    if (game.notice) game.notice(p, platz ? 'Getroffen – der Sprengstoff liegt noch nicht.' : 'Getroffen – die Ladung ist nicht scharf.');
   }
 }
 
@@ -417,5 +440,5 @@ function awaySnap(game, aw) {
 
 module.exports = {
   istAnkerHold, interactionsAt, holdDuration, holdValid, holdStart, completeHold, update, onTreffer,
-  setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, paarFenster,
+  setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, ladungPlatzieren, paarFenster,
 };

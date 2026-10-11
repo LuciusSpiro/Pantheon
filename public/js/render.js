@@ -384,7 +384,7 @@
   for (const [ch, a] of Object.entries(KACHELN_FB)) KACHELN[ch] = { kind: a[0], solid: a[1] || false, cover: a[2] || 0, low: !!a[3], sperrtSicht: !!a[4], zustaende: a[5], begehbarIn: a[6], kante: a[7] };
   // Ankerrollen: Zustände (erster = Start) aus content/buehnen/anker.json (gleiche Werte als Auszug)
   let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
-    sprengpunkt: ['intakt', 'scharf', 'zerstoert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
+    sprengpunkt: ['intakt', 'scharf', 'zerstoert', 'platziert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
     fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'] };
   function ladeBuehnenDaten() {
     if (typeof fetch !== 'function') return;
@@ -510,7 +510,7 @@
   const BUEHNE_FARBE = { boden: '#3A4250', boden2: '#465060', gelaende: '#4A4436', plateau: '#5E6448', rampe: '#565A40', pad: '#2F5E58',
     kante: '#8A8262', wand: '#1C222D', zaun: '#3E3224', gitter: '#5C6472', fenster: '#5E8AA6', fels: '#2A2622', leere: '#0B0E1A',
     deckung_halb: '#7A6340', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
-    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530' };
+    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530', rohr: '#2B3340' };
   function buehneKachelFarbe(map, st, tx, ty) {
     const info = map.info(tx, ty);
     if (info.kind === 'abgrund') return null;

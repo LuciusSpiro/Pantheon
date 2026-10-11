@@ -644,7 +644,7 @@ class Game {
   // kv = Kartenversion (Seed + bauversion): ändert sich, wenn die Karte neu gebaut wird
   static kartenVersion(k) { return k ? `${k.seed != null ? k.seed : 0}.${k.bauversion || 'x'}` : null; }
   awayMapPayload(k) {
-    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
+    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern', 'modus'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
     const anker = (k.anker || []).map((a) => {
       const row = [a.id, a.rolle, a.x, a.y];
       const attr = {};
@@ -1771,6 +1771,7 @@ class Game {
       inventory: {
         ersatzteil: this.inventory.ersatzteil, loeschgel: this.inventory.loeschgel, loeschgelCharges: this.inventory.loeschgelCharges,
         flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
+        ...(this.inventory.ladung ? { ladung: this.inventory.ladung } : {}),   // EK5: Sprengstoff (Gegenstand, nur wenn vorhanden; Budget)
       },
       upgrades: this.upgrades,
       deco: this.deco,

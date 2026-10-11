@@ -101,6 +101,7 @@
       { id: 'flickblech', name: 'Flickblech', price: 30, kind: 'item' },
       { id: 'bolzen', name: 'Bolzen', price: 10, kind: 'item' },
       { id: 'medipack', name: 'Medipack', price: 30, kind: 'item' },
+      { id: 'ladung', name: 'Sprengstoff', price: 150, kind: 'item', where: ['hafen'] },   // EK5: Gegenstand für die Methalle (Inventar ladung), nur an Stationen
       { id: 'pflanze', name: 'Topfpflanze', price: 20, kind: 'deko' },
       { id: 'poster', name: 'Sternkarten-Poster', price: 25, kind: 'deko' },
       { id: 'lampe', name: 'Messinglampe', price: 30, kind: 'deko' },

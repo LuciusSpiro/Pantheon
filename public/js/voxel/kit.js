@@ -46,7 +46,7 @@ const KACHELN_FB = {
 };
 const ANKER_FB = {
   eingang: [null, ['offen', 'verschlossen']], abholpunkt: ['bake', ['bereit', 'gestoert']], wache: [null, []], patrouille: [null, []],
-  deckung: [null, []], terminal: ['terminal', ['bereit', 'laedt', 'geladen', 'gesperrt']], sprengpunkt: ['sprengziel', ['intakt', 'scharf', 'zerstoert']],
+  deckung: [null, []], terminal: ['terminal', ['bereit', 'laedt', 'geladen', 'gesperrt']], sprengpunkt: ['sprengziel', ['intakt', 'scharf', 'zerstoert', 'platziert']],
   zelle: ['zelle', ['zu', 'offen']], beute: ['kiste', ['voll', 'leer']], ziel: ['ziel', ['frei', 'genommen', 'aktiviert']], fund: ['sockel', ['da', 'genommen']],
   tor: [null, ['zu', 'offen', 'verschlossen', 'gesprengt']], raetsel: ['schloss', ['ruhe', 'gehalten', 'geloest']], aussicht: [null, []], nsc: [null, []],
   versteck: [null, ['zu', 'offen']], lift: ['lift', []], leiter: ['leiter', []],
@@ -160,7 +160,7 @@ export function normKarte(src, D) {
     return i;
   };
   const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? null : rows[y][x]);
-  const kindAt = (x, y) => { const c = at(x, y); return c == null ? null : info(c).kind; };
+  const kindAt = (x, y) => { const c = at(x, y); if (c == null) return null; const kd = info(c).kind; return kd === 'rohr' ? 'wand' : kd; };   // EK5: Rohr (Schleichweg) steht optisch als Mauerstück, die Figur verschwindet darin
   // Anker: Objekte oder [id, rolle, x, y, attr?]; Reihenfolge = ankerIdx für ao
   const anker = (m.anker || []).map((a, i) => {
     if (Array.isArray(a)) return Object.assign({ id: a[0], rolle: a[1], x: a[2], y: a[3], i }, a[4] && typeof a[4] === 'object' ? a[4] : {});
@@ -519,6 +519,12 @@ const PROP_FB = {
   sprengpunkt(pen, p, F) {
     const st = p.state | 0;
     if (st === 2) { pen.box(-0.4, 0, -0.4, 0.4, 0.35, 0.4, F.get('dark'), F.get('stone_dark')); return; }
+    if (st === 3) {   // EK5: Sprengstoff liegt (Fässchen am Sockel), keine Explosion
+      pen.box(-0.35, 0, -0.35, 0.35, 0.3, 0.35, F.get('metal_dark'), F.get('metal_dark'));
+      pen.box(-0.3, 0.3, -0.2, 0.3, 0.75, 0.2, F.get('wood'), F.get('wood_dark'));
+      pen.box(-0.08, 0.75, -0.08, 0.08, 0.95, 0.08, F.get('alarm_dark', 1.0), null);
+      return;
+    }
     pen.box(-0.35, 0, -0.35, 0.35, 0.3, 0.35, F.get('metal_dark'), F.get('metal_dark'));
     pen.box(-0.14, 0.3, -0.14, 0.14, 2.2, 0.14, F.get('metal'), F.get('metal_dark'));
     pen.box(-0.2, 1.1, -0.2, 0.2, 1.3, 0.2, F.get(st === 1 ? 'ember' : 'alarm_dark', st === 1 ? 1.6 : 1.0), null, { emit: st === 1 });
@@ -884,7 +890,7 @@ async function bauKarte(parent, karteIn, opts) {
   for (let ty = 0; ty < k.h; ty++) {
     const d = k.deckOf(ty);
     for (let tx = 0; tx < k.w; tx++) {
-      const ch = k.at(tx, ty), inf = k.info(ch), kind = inf.kind;
+      const ch = k.at(tx, ty), inf = k.info(ch), kind = inf.kind === 'rohr' ? 'wand' : inf.kind;   // EK5: Rohr als Mauerstück
       if (kind === 'leere') continue;
       if (kind === 'abgrund') { if (draussen) { pen.to(bucketAt(d, tx, k.localY(ty)), tileMatrix(tx, ty)); FB.tiefe(pen, {}, F); } continue; }
       const m = tileMatrix(tx, ty);

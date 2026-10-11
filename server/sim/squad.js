@@ -134,6 +134,7 @@ function spawnAnKarte(game, name, o) {
   // Handkarte mit Legenden-Spawns unter diesem Namen und ohne Besetzung/Bereich: Legenden-Spawns
   if (!o.besetzung && !o.bereich && info.spawns && info.spawns[name]) return spawnLegende(game, aw, info, name, o);
   const P = spawnPlaetze(game, info, o.bereich || null);
+  if (Array.isArray(o.plaetze) && o.plaetze.length) { P.normal = o.plaetze; P.schwer = []; P.frei = o.plaetze.slice(); }   // EK5: feste Erscheinungspunkte (Baracken, Patrouillenstart); sonst nirgends
   let bes = Array.isArray(o.besetzung) && o.besetzung.length ? o.besetzung
     : [{ typ: 'scavenger', anzahl: P.normal.length || 3 }].concat(P.schwer.length ? [{ typ: 'warden', anzahl: P.schwer.length }] : []);
   bes = bes.filter((q) => q && q.typ && !(q.anzahl <= 0));
@@ -151,7 +152,7 @@ function spawnAnKarte(game, name, o) {
   for (const q of bes) {
     const kind = kindVon(game, q.typ);
     const want = Math.max(1, Math.floor(q.anzahl == null ? 1 : q.anzahl));
-    const n = kind === 'warden' ? want : Math.max(1, Math.ceil(want * scale));   // Wächter werden nicht skaliert
+    const n = kind === 'warden' || o.festeZahl ? want : Math.max(1, Math.ceil(want * scale));   // Wächter werden nicht skaliert; festeZahl (EK5): genau so viele, unabhängig von der Crewgröße
     for (let i = 0; i < n; i++) {
       const t = kind === 'warden' ? (take(P.schwer) || take(P.normal) || takeFrei()) : (take(P.normal) || takeFrei() || take(P.schwer));
       if (!t) break;

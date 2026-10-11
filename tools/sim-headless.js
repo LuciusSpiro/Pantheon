@@ -2548,7 +2548,10 @@ class GenericAgent extends KeshAgent {
       const done = as.length - open.length;
       if (!as.length || (w.min ? done >= w.min : w.all ? !open.length : done >= 1)) continue;
       if (w.ref === 'tor') { const rs = k.anker.filter((a) => a.rolle === 'raetsel'); if (rs.length) { tasks.push({ kind: 'raetsel', rs }); continue; } }
-      for (const a of open) if (this.ankerZ(M, a.id) !== 'scharf') tasks.push({ kind: 'anker', a, z: w.z });
+      // EK5: Sprengstoff platzieren genügt einmal – alle gehen zum nächsten Sprengziel (kein zweiter Bot auf Wanderschaft über das Gelände)
+      const bp = w.z === 'platziert' ? this.tile(this.me(S)) : null;
+      const offen = bp ? open.slice().sort((a, b) => Math.abs(a.x - bp.x) + Math.abs(a.y - bp.y) - Math.abs(b.x - bp.x) - Math.abs(b.y - bp.y)).slice(0, 1) : open;
+      for (const a of offen) if (this.ankerZ(M, a.id) !== 'scharf') tasks.push({ kind: 'anker', a, z: w.z });
     }
     for (const c of checks) {
       if (c.map !== M) continue;
@@ -2654,6 +2657,7 @@ class GenericAgent extends KeshAgent {
     if (!tasks.length) {
       // nichts mehr zu tun: kurz warten (Regel feuert im nächsten Tick), dann zum Abholpunkt
       if (this.objOpen(S).length && (sm.idleT = (sm.idleT || 0) + DT) < 5) { this.input(0, 0); return; }
+      if (schleich && this.schleichZuPads(S, p, M)) return;   // EK5: unbemerkt zurück zum Teleportpunkt
       this.buehneHoch(S, p); return;
     }
     sm.idleT = 0;
@@ -2668,7 +2672,10 @@ class GenericAgent extends KeshAgent {
     if (rt) { this.raetselPaar(S, p, M, rt.rs, mates, rank); return; }
     const t = tasks[Math.min(rank, tasks.length - 1)];
     sm.task = t.kind + ':' + (t.a ? t.a.id : t.person || t.bereich || '');
-    if (t.kind === 'anker') { this.ankerHalten(S, p, M, t.a, t.z); return; }
+    if (t.kind === 'anker') {
+      if (schleich && this.schleichZuAnker(S, p, M, t.a)) return;   // EK5: erst unbemerkt hin (Sicht der Wachen meiden), dann halten
+      this.ankerHalten(S, p, M, t.a, t.z); return;
+    }
     if (t.kind === 'person') { this.personHolen(S, p, frei.find((n) => n.id === t.person) || frei[0] || null, M); return; }
     if (t.kind === 'hin') { this.gotoNear(S, p, t.a.x, t.a.y, 1); return; }
     if (t.kind === 'bereich') { if (schleich) this.schleichInBereich(S, p, M, t.bereich); else this.inBereich(S, p, M, t.bereich); return; }
@@ -2769,30 +2776,75 @@ class GenericAgent extends KeshAgent {
     return !alarm && !this.game.away.drones.some((e) => e.alive && (e.sees || []).length);
   }
   ducken(S, p, schleich) {
-    const nah = schleich && this.game.away.drones.some((e) => e.alive && !e.asleep && dist(e.x, e.y, p.x, p.y) <= 12 * TILE);
+    const nah = schleich && !(this.sm.schleichLaufT > S.time) && this.game.away.drones.some((e) => e.alive && !e.asleep && dist(e.x, e.y, p.x, p.y) <= 12 * TILE);
     const q = this.srvMe();
     if (!!(q && q.crouch) !== nah && (this.memo.duckAt || 0) <= S.time) { this.memo.duckAt = S.time + 0.5; this.cmd('crouch', { on: nah }); this.game.simStats.ducken = (this.game.simStats.ducken || 0) + (nah ? 1 : 0); }
   }
   // Kacheln, die ein wacher Gegner sehen kann (≤ sightTiles + 1, Sichtlinie wie squad.perceive), alle 0,5 s neu
-  sichtGefahr(S) {
-    const sm = this.sm;
-    if (sm.gefahr && sm.gefahrAt > S.time) return sm.gefahr;
+  // vorraus (EK5, Sekunden): zusätzlich die Sicht von dort, wo die Gegner nach so langer Zeit auf ihrem Weg stehen (Patrouillen laufen weiter)
+  sichtGefahr(S, vorraus) {
+    const sm = this.sm; const key = vorraus ? 'gefahrV' : 'gefahr';
+    if (sm[key] && sm[key + 'At'] > S.time) return sm[key];
     const C = require('../server/sim/combat.js'); const E = C.env(this.game); const map = E.map;
     const R = (CONFIG.awayCombat.sightTiles || 10) + 1;
     const set = new Set();
     for (const e of this.game.away.drones) {
       if (!e.alive || e.asleep) continue;
-      const et = this.tile(e);
-      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
-        if (dx * dx + dy * dy > R * R) continue;
-        const x = et.x + dx, y = et.y + dy;
-        if (x < 0 || y < 0 || x >= map.w || y >= map.h || E.solid(x, y) || set.has(y * map.w + x)) continue;
-        const c = Physics.tileCenter(x, y);
-        if (C.losBetween(E, e, { x: c.x, y: c.y, crouch: false })) set.add(y * map.w + x);
+      const orte = [{ t: this.tile(e), q: e }];
+      if (vorraus && e.path && e.path.length) { const n = e.path[Math.min(e.path.length - 1, Math.round(vorraus * 1.6))]; if (n && !n.via) { const c = Physics.tileCenter(n.x, n.y); orte.push({ t: { x: n.x, y: n.y }, q: { x: c.x, y: c.y, crouch: false } }); } }
+      for (const { t: et, q } of orte) {
+        for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+          if (dx * dx + dy * dy > R * R) continue;
+          const x = et.x + dx, y = et.y + dy;
+          if (x < 0 || y < 0 || x >= map.w || y >= map.h || E.solid(x, y) || set.has(y * map.w + x)) continue;
+          const c = Physics.tileCenter(x, y);
+          if (C.losBetween(E, q, { x: c.x, y: c.y, crouch: false })) set.add(y * map.w + x);
+        }
       }
     }
-    sm.gefahr = set; sm.gefahrAt = S.time + 0.5;
+    sm[key] = set; sm[key + 'At'] = S.time + 0.5;
     return set;
+  }
+  // ---------- EK5 (Methalle): unbemerkt zu Zielkacheln ----------
+  // Weg nur über Kacheln außer Sicht der wachen Gegner (sichtGefahr, wie schleichInBereich); steht der Bot selbst in Sicht, zur nächsten
+  // sicheren Kachel. Kein sicherer Weg: je Ziel bis 25 s warten (Patrouillen ziehen weiter), danach der normale Weg (kann Alarm auslösen).
+  // -> 'da' (steht auf einem Ziel) | 'laeuft' | 'offen' (nicht schleichen: normaler Weg)
+  schleichGehen(S, p, goals, schluessel, warteMax) {
+    const sm = this.sm; const bi = this.builtInfo(S); const map = bi.map;
+    // Sicht jetzt, in 3 s und in 6 s (Patrouillen laufen weiter): ein Weg gilt nur, wenn er in diesem Fenster außer Sicht bleibt
+    const g0 = this.sichtGefahr(S), g3 = this.sichtGefahr(S, 3), g6 = this.sichtGefahr(S, 6); const walk = this.walkable(S, 'away');
+    const gefahr = { has: (k) => g0.has(k) || g3.has(k) || g6.has(k) };
+    const sicher = (x, y) => walk(x, y) && !gefahr.has(y * map.w + x);
+    const st = this.tile(p);
+    const ziel = new Set(goals.map((g) => g.y * map.w + g.x));
+    if (ziel.has(st.y * map.w + st.x)) { sm.schleichWarten = 0; return 'da'; }
+    if (sm.schleichZiel !== schluessel) { sm.schleichZiel = schluessel; sm.schleichGesamt = 0; }
+    const stats = this.game.simStats.schleichen || (this.game.simStats.schleichen = { sicher: 0, warten: 0, offen: 0 });
+    let path = bfs(sicher, st, (x, y) => ziel.has(y * map.w + x), map.w, map.h, null, this.pathLinks(S, 'away'));
+    if (!path && gefahr.has(st.y * map.w + st.x)) path = bfs(walk, st, (x, y) => sicher(x, y), map.w, map.h, null, this.pathLinks(S, 'away'));
+    if (path && path.length) { stats.sicher++; sm.schleichLaufT = S.time + 0.6; const n = path[0]; this.gotoBuilt(S, [{ x: n.x, y: n.y }]); return 'laeuft'; }   // laufen, nicht ducken: Ducken halbiert das Tempo
+    if (path) return 'da';
+    sm.schleichGesamt = (sm.schleichGesamt || 0) + DT;
+    if (sm.schleichGesamt < (warteMax || 25)) { stats.warten++; this.input(0, 0); return 'laeuft'; }
+    stats.offen++;
+    return 'offen';
+  }
+  // Anker: Kacheln daneben (bzw. er selbst, wenn begehbar), true = Tick verbraucht (noch unterwegs bzw. wartet)
+  schleichZuAnker(S, p, M, a) {
+    const walk = this.walkable(S, 'away'); const solid = Interior().awaySolid(this.game);
+    const goals = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => ({ x: a.x + dx, y: a.y + dy })).filter((g) => walk(g.x, g.y) && !solid(g.x, g.y));
+    if (!solid(a.x, a.y)) goals.push({ x: a.x, y: a.y });
+    if (!goals.length) return false;
+    if (this.ix && this.ix.phase !== 'go' && this.ix.tx === a.x && this.ix.ty === a.y) return false;   // Halten läuft schon
+    const r = this.schleichGehen(S, p, goals, 'anker:' + a.id, 120);
+    return r === 'laeuft';
+  }
+  schleichZuPads(S, p, M) {
+    const bi = this.builtInfo(S); const solid = Interior().awaySolid(this.game);
+    const pads = bi.pads.filter((q) => !solid(q.x, q.y));
+    if (!pads.length) return false;
+    const r = this.schleichGehen(S, p, pads, 'pads', 120);
+    return r === 'laeuft';
   }
   // In den Bereich, ohne gesehen zu werden: Weg nur über Kacheln außer Sicht; steht der Bot selbst in Sicht, zur nächsten
   // sicheren Kachel. Kein sicherer Weg: bis 25 s warten (Patrouillen ziehen weiter), dann der normale Weg.

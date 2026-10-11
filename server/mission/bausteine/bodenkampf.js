@@ -4,6 +4,8 @@
 //                                    oder entfernt (Wunsch KATALOG, genehmigt)
 //   trupp_ruhig    { map*, tag* }   Prüfung: der Trupp mit diesem Tag ist in Haltung 'ruhig' (Schleichen)
 //   team_gefangen  { landepunkt* }  Aktion (W1 AP4): Crew gefangen, Start in der Zelle (combat.teamGefangenNehmen)
+//   besetzen_paare   { map*, fraktion*, tag*, gruppen*, groesse?, max? }  Aktion (EK5): Zweiergruppen auf Patrouille (combat.besetzenPatrouillen), höchstens max (8) Gegner gleichzeitig
+//   nachschub_baracken { map*, fraktion*, tag*, gruppen*, groesse?, max? } Aktion (EK5): Nachschub aus den Baracken ohne Alarm (combat.nachschubBaracken), gleiche Obergrenze
 // Datenquelle (bevorzugt): combat.truppStatus(game, map, tag) -> { gesetzt: bool, gesamt, aktiv, haltung: 'ruhig'|'wach' }.
 // Ersatz, solange es fehlt: Gegner in game.aways[map].drones mit d.tag === tag (Zustand d.zs bzw. alive).
 // Fehlt beides, ist die Prüfung false und zählt einmal je Prozess einen Fehler (game.countError).
@@ -40,6 +42,20 @@ module.exports = (Registry) => {
       const err = C.teamGefangenNehmen(m.game, a.landepunkt);
       if (err) m.game.countError('mission-bodenkampf', new Error('team_gefangen: ' + err));
     } });
+  // EK5 (Methalle): Zweiergruppen. Die Obergrenze zählt alle Gegner der Karte, nicht nur die dieses tag.
+  const paarParams = { map: { typ: 'map', pflicht: true }, fraktion: { typ: 'string', pflicht: true }, tag: { typ: 'string', pflicht: true },
+    gruppen: { typ: 'number', pflicht: true, min: 1, max: 4 }, groesse: { typ: 'number', min: 1, max: 3 }, max: { typ: 'number', min: 2, max: 8 } };
+  const paarLauf = (fn) => (m, a) => {
+    const C = combat();
+    if (!C || typeof C[fn] !== 'function') { m.game.countError('mission-bodenkampf', new Error('combat.' + fn + ' fehlt')); return; }
+    C[fn](m.game, { map: a.map, fraktion: a.fraktion, tag: a.tag, gruppen: a.gruppen, groesse: a.groesse || 2, max: a.max || 8 });
+  };
+  Registry.define({ id: 'besetzen_paare', art: 'aktion', effekt: 'gegner', ereignisse: ['squadSpawn'],
+    beschreibung: 'Außenkarte mit Zweiergruppen auf Patrouille besetzen (Anfang eines Patrouillenwegs je Gruppe, ruhig). Höchstens max (8) Gegner gleichzeitig auf der Karte',
+    params: paarParams, run: paarLauf('besetzenPatrouillen') });
+  Registry.define({ id: 'nachschub_baracken', art: 'aktion', effekt: 'gegner', ereignisse: ['squadSpawn'],
+    beschreibung: 'Nachschub in Zweiergruppen an den Baracken (baracke-Anker), ruhig und ohne Alarm, danach auf Patrouille. Füllt nur bis zur Obergrenze (max, 8) auf',
+    params: paarParams, run: paarLauf('nachschubBaracken') });
   Registry.define({ id: 'trupp_geraeumt', art: 'pruefung',
     beschreibung: 'Alle Gegner, die besetzen mit diesem tag gesetzt hat, sind aus dem Gefecht (aus, bewusstlos, gefesselt oder entfernt)',
     params: { map: { typ: 'map', pflicht: true }, tag: { typ: 'string', pflicht: true } },

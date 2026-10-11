@@ -1386,6 +1386,31 @@
             "id": "ladung_am_sprengpunkt",
             "name": "Ladung am Sprengpunkt",
             "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Militärsiedlung hinter einer Mauer, Teleportpunkt außerhalb, das Rohr unter der Mauer ist der einzige Weg hinein. Die Crew legt mitgebrachten Sprengstoff am Sprengziel (E halten, Treffer bricht ab): keine Explosion, kein Zeitdruck. Wachen in Zweiergruppen, Alarm nur bei Entdeckung oder Lärm; nach dem Platzieren kommt eine ruhige zweite Welle aus den Baracken. Nach dem Hochbeamen meldet Mars den zerstörten Außenposten (Fakt sperrriegel). Ohne Schuss abschließbar.",
+            "braucht_anker": {
+              "anker": [
+                "sprengpunkt",
+                "patrouille",
+                "baracke",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten"
+              ],
+              "min": {
+                "baracke": 4,
+                "patrouille": 6
+              }
+            },
+            "dauer_min": [
+              6,
+              10
+            ],
+            "id": "sprengstoff_platzieren",
+            "name": "Sprengstoff platzieren",
+            "schauplatz": "aussen"
           }
         ]
       },
