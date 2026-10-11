@@ -6,6 +6,7 @@ const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const onboard = require('./onboard.js');   // R0: Ivo abgeben (onboard lädt interior nicht)
+const Station = require('./station.js');   // R1 §4.4: aktive Station (lädt nichts aus interior)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
 
 const TILE = Physics.TILE;
@@ -485,7 +486,8 @@ function candidateTiles(p, game) {
 
 function consoleOccupant(game, p, kind) {
   if (kind === 'plan') return null;   // Planungstisch: nicht exklusiv (bis zu 3)
-  return game.players.find((o) => o !== p && o.console === kind && o.connected) || null;
+  // R1 §4.4: belegt ist der Ort (Konsole selbst) und das Interface (ein anderer hält die Station per Tab)
+  return game.players.find((o) => o !== p && o.connected && (o.console === kind || Station.stationOf(o) === kind)) || null;
 }
 
 function interactionsAt(game, p, tx, ty, own) {
@@ -778,18 +780,16 @@ function pickupItem(game, p, item, where) {
 }
 
 function enterConsole(game, p, kind) {
-  p.console = kind; p.hold = null; p.input.mx = 0; p.input.my = 0; p.moving = false; p.crouch = false;
+  p.console = kind; p.station = null; p.hold = null; p.input.mx = 0; p.input.my = 0; p.moving = false; p.crouch = false;
   game.emit('sfx', { name: kind === 'plan' ? 'table_sit' : 'console_on', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   game.missionEvent('consoleEnter', { p, kind });
 }
 
 function leaveConsole(game, p) {
   if (!p.console) return;
-  const kind = p.console;
-  p.console = null;
-  if (kind === 'helm') { game.ship.helm.turn = 0; game.ship.helm.thrust = 0; }
-  if (kind === 'captain') game.ship.scanning = false;
-  if (kind === 'weapons') game.ship.tscan.on = false;
+  const aktiv = Station.stationOf(p);   // R1 §4.4: freigegeben wird das aktive Interface, nicht zwingend der Ort
+  p.console = null; p.station = null;
+  Station.stationFreigeben(game, aktiv, p);
   game.emit('sfx', { name: 'console_off', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
 }
 

@@ -17,6 +17,7 @@
 //  - Schnittstelle gesichert/ungesichert für AP9 „Lager ohne Strom“: gesichert(game) / setGesichert(game, bool). Das Lager ist kein
 //    Schiffssystem; heute hat die Flagge keine Wirkung, sie steht nur im Snapshot (fracht.g = false) bereit.
 const W = require('../world.js');
+const Station = require('./station.js');   // R1 §4.4
 const Locations = require('../../shared/locations.js');
 const { dist } = require('../util.js');
 
@@ -44,7 +45,7 @@ function abgeliefert(game, art) { const a = state(game).abgeliefert; return art 
 const isDown = (st) => st === 'broken' || st === 'offline';   // wie interior.isDown (kein require: interior ruft systemTreffer auf)
 const transferDown = (game) => isDown(game.ship.systems.transfer);
 const haltDauer = (game) => (game.ship.systems.transfer === 'damaged' ? game.C.ship.beamTimeDamaged : game.C.ship.beamTime);
-const taktikBesetzt = (game) => game.players.some((p) => p.connected && p.console === 'weapons' && !p.downed);
+const taktikBesetzt = (game) => game.players.some((p) => p.connected && Station.stationOf(p) === 'weapons' && !p.downed);   // R1: aktive Station
 
 // ---------- Fracht im Raum ----------
 // Schnittstelle (Konvoi-Szene, Teil B): Fracht an Weltposition (x, y) der aktuellen Szene ablegen. Gibt das Objekt oder null zurück.

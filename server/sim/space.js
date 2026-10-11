@@ -6,6 +6,7 @@ const Protocol = require('../../shared/protocol.js');
 const Locations = require('../../shared/locations.js');
 const Flight = require('../../shared/flight.js');
 const interior = require('./interior.js');
+const Station = require('./station.js');   // R1 §4.4: aktive Station statt Ort (Besetzt-Prüfungen, Waffenautomatik)
 const Pilot = require('./pilot.js');
 const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlinge/Gegnerziel kein Einfluss auf den Ablauf)
 const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähiges Feindschiff; Stub -> wie bisher
@@ -433,7 +434,7 @@ function reactorOnline(game, text) {
   game.missionEvent('reactorOnline', {});
 }
 
-function captainOverload(game) {
+function technikOverload(game) {
   const R = game.C.reactorM1; const ship = game.ship; const rc = ship.reactorCtl;
   if (rc.state === 'overload') return 'Der Reaktor ist bereits überladen.';
   if (rc.state === 'offline') return 'Reaktor ist abgeschaltet – erst neu starten (Maschinenraum, beide Schalter).';
@@ -552,7 +553,7 @@ function updateFlight(game, dt) {
   ensureHelmStage(game);
   const h = ship.helm;
   ship.dodgeCd = Math.max(0, ship.dodgeCd - dt);
-  h.manned = game.players.some((p) => p.console === 'helm' && p.connected);
+  h.manned = Station.stationBesetzt(game, 'helm');
   // M3b §0.8: unbesetzte Steuer – Stufe bleibt, Ruder 0, keine Sonderbremse (das Stationshalten aus M1 entfällt)
   if (!h.manned) { h.turn = 0; h.thrust = 0; }
   const caps = turnCaps(game);
@@ -820,7 +821,23 @@ function mountIds(game) {
   return out;
 }
 function mountState(game, k) { return sysState(game, MOUNT_SYSTEM[k]); }
-function weaponsManned(game) { return game.players.some((p) => p.console === 'weapons' && p.connected); }
+function weaponsManned(game) { return Station.stationBesetzt(game, 'weapons'); }
+// R1 §4.5: Waffenautomatik (Lanze, Ladepunkt-Verteilung, autoFactor) nur bei ≤ 2 verbundenen Spielern und unbesetzter Taktik
+function waffenAutomatikAktiv(game) { return Station.waffenAutomatikAktiv(game); }
+
+// R1 §4.5: ODA sagt den Wechsel der Waffenautomatik an (nur bei unbesetzter Taktik; die Besetzung selbst ist still, der erste Stand auch).
+function meldeWaffenAutomatik(game, manned) {
+  const ship = game.ship;
+  const stand = manned ? 'besetzt' : (waffenAutomatikAktiv(game) ? 'an' : 'aus');
+  const alt = ship.waffenAutoStand;
+  ship.waffenAutoStand = stand;
+  if (alt === undefined || alt === stand || stand === 'besetzt') return;
+  // „an“ nur einmal je Partie (wer allein fliegt, wechselt ständig zwischen Stationen), „aus“ höchstens alle 30 s (Warnung, dass niemand schießt)
+  if (stand === 'an') return game.oda('Taktik unbesetzt, Automatik an.', 'waffenAutoAn');
+  if (ship.waffenAutoAusAt != null && game.time - ship.waffenAutoAusAt < 30) return;
+  ship.waffenAutoAusAt = game.time;
+  game.oda('Taktik unbesetzt, Automatik aus – ohne Taktik schießt niemand.', null);
+}
 
 // §5.2 Ladepunkte
 function chargePoints(game) {
@@ -828,12 +845,13 @@ function chargePoints(game) {
   return pw > 0 ? pw + 2 : 0;
 }
 // Effektive Verteilung: besetzt = Wunsch der Taktik, gekürzt bei der Halterung mit den meisten Punkten
-// (Gleichstand: zuerst die Batterien); unbesetzt = gleichmäßig reihum ab bow (§5.5).
+// (Gleichstand: zuerst die Batterien); unbesetzt mit Automatik (≤ 2 Spieler) = gleichmäßig reihum ab bow (§5.5);
+// unbesetzt ohne Automatik (3–4 Spieler, R1 §4.5) = die zuletzt gesetzte Verteilung bleibt stehen.
 function computeAlloc(game) {
   const S = M3(game); const ship = game.ship;
   const cp = chargePoints(game);
   const out = { bow: 0, port: 0, stbd: 0 };
-  if (!weaponsManned(game)) {
+  if (waffenAutomatikAktiv(game)) {
     let left = cp, guard = 0;
     while (left > 0 && guard++ < 50) {
       let placed = false;
@@ -867,7 +885,7 @@ function chargeTime(game, k) {
   if (st === 'damaged' && cfg.damagedFactor) t *= cfg.damagedFactor;
   // §5.5 unbesetzte Taktik: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer).
   // Abweichung vom Wortlaut: Mit halbem Schaden je Treffer käme eine Salve (4 × 0,75) nie durch Schild 3 (Wächter) – Softlock solo.
-  if (!weaponsManned(game)) t /= (M3(game).autoFactor || 1);
+  if (waffenAutomatikAktiv(game)) t /= (M3(game).autoFactor || 1);
   return t;
 }
 // Bolzenwerfer (Upgrade): Energie-Faktor wie bisher, fällt bei zerstörtem Triebwerk aus (§5.6)
@@ -931,11 +949,12 @@ function updateWeapons(game, dt) {
   }
   if (ship.target && !resolveTarget(game, ship.target)) ship.target = null;
   const manned = weaponsManned(game);
+  meldeWaffenAutomatik(game, manned);
   updateLanceCharge(game, dt, manned);
   updateSalvos(game, dt);
-  // §20.4: Automatikfeuer nur bei unbesetzter Taktik (halbe Ladegeschwindigkeit über chargeTime/autoFactor).
+  // §20.4: Automatikfeuer nur bei unbesetzter Taktik und höchstens 2 Spielern (R1 §4.5; halbe Ladegeschwindigkeit über chargeTime/autoFactor).
   // Besetzt feuert nichts von selbst – die Taktik drückt weapons.fire bzw. lädt die Lanze mit weapons.charge.
-  if (!ship.docked && !manned) {
+  if (!ship.docked && waffenAutomatikAktiv(game)) {
     for (const k of BATTERIES) {
       const b = m[k];
       if (b.charge < 1 || b.salvo > 0 || isDown(mountState(game, k))) continue;
@@ -1313,7 +1332,7 @@ function weaponsScan(game, on) {
 }
 function updateTargetScan(game, dt) {
   const C = game.C; const ship = game.ship; const ts = ship.tscan;
-  const manned = game.players.some((p) => p.console === 'weapons' && p.connected);
+  const manned = weaponsManned(game);
   if (!manned || game.time - ts.at > C.tscan.holdTimeout) ts.on = false;
   const t = resolveTarget(game, ship.target);
   if (!t) { ts.targetId = null; ts.progress = 0; return; }
@@ -1935,7 +1954,7 @@ function update(game, dt) {
 }
 
 // ---------- Konsolenbefehle ----------
-function captainPower(game, sys, delta) {
+function technikPower(game, sys, delta) {
   const C = game.C; const pw = game.ship.power;
   if (!POWER_SYSTEMS.includes(sys)) return 'Unbekanntes System.';
   const d = delta > 0 ? 1 : -1;
@@ -1947,7 +1966,7 @@ function captainPower(game, sys, delta) {
   enforceShields(game);
   return null;
 }
-function captainShield(game, sector, delta) {
+function technikShield(game, sector, delta) {
   const C = game.C; const sh = game.ship.shields;
   if (!(sector >= 0 && sector <= 3)) return 'Unbekannter Sektor.';
   const d = delta > 0 ? 1 : -1;
@@ -1963,8 +1982,8 @@ function captainShield(game, sector, delta) {
 
 module.exports = {
   enterScene, update, shipHit, spawnEnemy, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
-  weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, captainOverload, reactorOnline,
-  captainPower, captainShield, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
+  weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, technikOverload, reactorOnline,
+  technikPower, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,
   // M3a §9.4 (SERVER-COMBAT) – Aufrufer: game.js (Befehle, Snapshot)
   weaponsAlloc, weaponsHold, weaponsCharge, lanceTrace, lanceDamage, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,

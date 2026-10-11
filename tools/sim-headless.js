@@ -19,6 +19,7 @@ const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
+const Station = require('../server/sim/station.js');   // R1: aktive Station der Bots (Tab-Wechsel)
 let simRng = makeRng(1);
 // M3b §2/§6: Temporegler in Stufen. Die Bots stellen Stufen ein (helm.throttle) und geben nur noch das Ruder.
 let Flight = null;
@@ -250,6 +251,21 @@ class Agent {
     return false;
   }
   leave(S) { const p = this.me(S); if (p.console) this.send({ t: 'leave' }); }
+  // R1 §4.4: Interface per Tab-Befehl wechseln, ohne den Ort zu verlassen (Tab-Kreis; belegte Stationen überspringt der Server)
+  // (S ist nur der Snapshot-Stand der Bots; die Station liest der Bot aus dem Spielzustand selbst, sonst sieht er seinen eigenen Tab nicht)
+  stationTab(S, kind) {
+    const p = this.game.players.find((q) => q.id === this.pid);
+    for (let i = 0; i < Protocol.STATION_KREIS.length && Station.stationOf(p) !== kind; i++) this.send({ t: 'cmd', c: Protocol.CMD_STATION_TAB, dir: 1 });
+    return Station.stationOf(p) === kind;
+  }
+  // Technik-Befehl des Bots am Captain-Platz: kurz auf die Technik schalten, Befehl senden, zurück auf die vorige Station
+  technikCmd(S, c, extra) {
+    const p = this.game.players.find((q) => q.id === this.pid); const back = Station.stationOf(p);
+    if (!this.stationTab(S, 'technik')) return false;
+    this.cmd(c, extra);
+    this.stationTab(S, back);
+    return true;
+  }
 
   // Reparatur an einer Station (M3a §8.1). how: 'swap' (Ersatzteil holen, E halten 3 s -> ok), 'flick' (E halten 1,5 s, eine Stufe,
   // fragil) oder 'minigame' (R: repair.start, nach 3,5 s repair.done – simuliertes Minispiel). Ohne how: zerstört -> swap, sonst flick.
@@ -748,8 +764,8 @@ class Agent {
         const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => (b === opp ? 1 : 0) - (a === opp ? 1 : 0) || al[b] - al[a])[0];
         const pool = sh.shields.pool != null ? sh.shields.pool : 6;
         const used = al.reduce((a, b) => a + b, 0);
-        if (used < pool) this.cmd('captain.shield', { sector: sec, delta: 1 });
-        else if (donor != null) { this.cmd('captain.shield', { sector: donor, delta: -1 }); this.cmd('captain.shield', { sector: sec, delta: 1 }); }
+        if (used < pool) this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 });
+        else if (donor != null) { this.technikCmd(S, 'technik.shield', { sector: donor, delta: -1 }); this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 }); }
         this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1;
       }
     }
@@ -760,14 +776,14 @@ class Agent {
     const sh = S.ship; const m = this.memo;
     if (this.opts.queue !== false && (m.queueAt || 0) < S.time) {
       m.queueAt = S.time + 1.5;
-      if (sh.botAuto) { this.cmd('captain.botAuto', { on: false }); return; }
+      if (sh.botAuto) { this.technikCmd(S, 'technik.botAuto', { on: false }); return; }
       // QA S2b: Die Schrauber nehmen die Reparaturliste vor Feuer. Brennt es nach einem harten Gefecht an mehreren Stellen,
       // bricht das Feuer frisch Geflicktes sofort wieder (Golden m1/3 Seed 8: Triebwerk 5 Min. im Kreis geflickt, kein
       // Sprung). Wie ein Mensch: Captain stellt „Feuer zuerst“, solange es brennt und kein Gegner mehr da ist (oder ≥ 3 Brände).
       const fires = (sh.fires || []).length;
       const wantFire = fires > 0 && (!S.space.enemies.some((e) => e.kind !== 'relay') || fires >= 3);
-      if (wantFire && !m.firePrio) { m.firePrio = true; this.cmd('captain.priority', { target: 'fire' }); return; }
-      if (!wantFire && m.firePrio) { m.firePrio = false; this.cmd('captain.priority', { target: null }); }
+      if (wantFire && !m.firePrio) { m.firePrio = true; this.technikCmd(S, 'technik.priority', { target: 'fire' }); return; }
+      if (!wantFire && m.firePrio) { m.firePrio = false; this.technikCmd(S, 'technik.priority', { target: null }); }
       const q = sh.repairQueue || [];
       const busyPlayer = (s) => (this.game.simAgents || []).some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
       const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))
@@ -776,7 +792,7 @@ class Agent {
         if (q.length >= (M3.repair ? M3.repair.queueMax : 3)) break;
         if (q.some((x) => x.system === s)) continue;
         const mode = sh.systems[s] === 'broken' && S.inventory.ersatzteil > 0 ? 'part' : 'flick';
-        this.cmd('captain.repair', { system: s, mode });
+        this.technikCmd(S, 'technik.repair', { system: s, mode });
         if (VERBOSE) log(`  [Captain ${S.time}] Reparaturliste: ${s} ${mode} -> ${JSON.stringify(this.game.ship.repairQueue)} ${this.notices.slice(-1)}`);
         this.game.simStats.queued = (this.game.simStats.queued || 0) + 1;
         break;
@@ -812,8 +828,12 @@ class Agent {
       return;
     }
     if (this.role === 'weapons') {
-      // Zu dritt verlässt die Taktik die Brücke für Reparaturen (die Waffen feuern unbesetzt mit 50 % weiter)
-      if (this.repairDuty(S, p, { damaged: true, cooldown: 6 })) return;
+      // Zu dritt verlässt die Taktik die Brücke für Reparaturen (die Waffen feuern unbesetzt mit 50 % weiter).
+      // R1 §4.5: Ab 3 Spielern gibt es keine Waffenautomatik – die Taktik bleibt im Gefecht an der Konsole, solange eine Waffe feuern kann;
+      // sind alle drei Waffen zerstört, geht sie reparieren (wie ein Mensch, der an der Konsole nichts mehr tun kann).
+      const ohneAutomatik = Station.verbunden(this.game) > this.game.C.waffenAutomatikMaxSpieler;
+      const feuerbereit = ['weapon_bow', 'battery_port', 'battery_stbd'].some((w) => S.ship.systems[w] !== 'broken');
+      if (!(ohneAutomatik && feuerbereit) && this.repairDuty(S, p, { damaged: true, cooldown: 6 })) return;
       if (this.enter(S, 'weapons')) this.fight(S, { scan: true });
       return;
     }
@@ -1178,7 +1198,7 @@ class Agent {
     if (S.space.enemies.length) { this.combat(S, p); return; }
     if (this.is('helm')) { if (this.enter(S, 'helm')) this.brake(S); }
     else if (this.role === 'captain') this.enter(S, 'captain'); else this.enter(S, 'weapons');
-    if (this.role === 'captain' && !this.memo.overloaded && S.ship.reactor.state === 'online') { if (this.enter(S, 'captain')) { this.cmd('captain.overload'); this.memo.overloaded = true; } }
+    if (this.role === 'captain' && !this.memo.overloaded && S.ship.reactor.state === 'online') { if (this.enter(S, 'captain')) { this.technikCmd(S, 'technik.overload'); this.memo.overloaded = true; } }
   }
   stage_beacon(S, p) {
     const sh = S.ship;

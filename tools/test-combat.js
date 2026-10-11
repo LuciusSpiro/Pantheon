@@ -679,7 +679,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'skip' }); run(0.2);
     ok(g.arena.wave === 2 && arenaEnemies(g).length === A.waves[1].length, 'Debug skip ruft die nächste Welle sofort');
     g.handleMessage(cs[2], { t: 'act', down: true }); run(0.2); g.handleMessage(cs[2], { t: 'act', down: false });
-    g.handleMessage(cs[2], { t: 'cmd', c: 'captain.overload' }); run(0.2);
+    g.handleMessage(cs[2], { t: 'cmd', c: 'station.tab', dir: 1 });   // R1: Captain schaltet per Tab auf die Technik, bleibt an der Captain-Konsole
+    g.handleMessage(cs[2], { t: 'cmd', c: 'technik.overload' }); run(0.2);
     ok(g.ship.reactorCtl.state === 'overload', 'Reaktor überladen nutzbar');
     ok(g.errors === 0, 'keine Fehler');
   }
@@ -880,7 +881,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     for (const how of ['steht', 'kurs', 'weicht']) {
       let shots = 0, hits = 0, hull = 0, absorbed = 0;
       for (let seed = 1; seed <= 6; seed++) {
-        const { g, run } = spaceArena(3, 100 + seed);
+        const { g, run } = spaceArena(2, 100 + seed);   // R1: zu zweit, damit die Waffenautomatik (nur ≤ 2 Spieler) wie im Messwert feuert
         const sh = g.ship;
         g.players[0].console = 'helm';   // Steuer besetzt (Ruder wirkt nur dann)
         space.helmThrottle(g, { set: how === 'steht' ? 1 : 3 });

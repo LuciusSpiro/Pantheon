@@ -24,7 +24,7 @@
     '#===###D###=====##D##D###.........## ', //  4
     '#===#!....#=====#........#.YY......K#', //  5
     '#E==D.....D=====D........D.YY.C..H..#', //  6
-    '#===#.....#=====#........#.........I#', //  7
+    '#===#.....#i====#........#.........I#', //  7  (R1: Technik-Konsole i an der Westwand des Maschinenraums, neben der Tür)
     '#===###D###=====##D##D###.........## ', //  8
     '#===#.....#O=G==#========#....q...#  ', //  9
     '#===#.P.P.#=====#========#......##   ', // 10
@@ -111,6 +111,7 @@
     'H': { kind: 'console_helm', solid: true, interact: 'console', console: 'helm' },
     'C': { kind: 'console_captain', solid: true, interact: 'console', console: 'captain' },
     'W': { kind: 'console_weapons', solid: true, interact: 'console', console: 'weapons' },
+    'i': { kind: 'console_technik', solid: true, interact: 'console', console: 'technik' },   // R1: Technik (Maschinenraum)
     'T': { kind: 'console_transfer', solid: true, interact: 'console', console: 'transfer' },
     'S': { kind: 'terminal_shop', solid: true, interact: 'console', console: 'shop' },
     'L': { kind: 'shelf', solid: true, interact: 'shelf' },          // nur Schiff; auf der Plattform: siehe PLATFORM_LEGEND

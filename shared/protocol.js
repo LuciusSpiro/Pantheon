@@ -210,7 +210,13 @@
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
     // 'quartier' öffnet sich an der eigenen Koje, 'sonde' an der Kustoden-Sonde (Außenmission).
-    CONSOLES: ['helm', 'captain', 'weapons', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „TAKTIK“)
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „TAKTIK“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Taktik, Captain, Technik
+    STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
+    CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
+    // R1 §4.2: Technik-Befehle (Konsole 'technik'); die alten captain.* antworten nur mit einem Hinweis
+    CMD_TECHNIK: ['technik.power', 'technik.shield', 'technik.priority', 'technik.repair', 'technik.botAuto', 'technik.overload'],
+    CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
     SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer',
       'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],

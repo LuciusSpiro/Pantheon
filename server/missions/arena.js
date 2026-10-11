@@ -15,7 +15,7 @@ module.exports = {
       ],
       objectives: [
         { id: 'wave', text: '{arena}' },
-        { id: 'hint', text: 'Captain: Schilde, Energie, Reaktor überladen ausprobieren', optional: true },
+        { id: 'hint', text: 'Technik: Schilde, Energie, Reaktor überladen ausprobieren', optional: true },
       ],
       skip: [{ do: 'debug_arena_skip' }],
     },

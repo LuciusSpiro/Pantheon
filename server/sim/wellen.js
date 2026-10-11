@@ -17,6 +17,7 @@
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
+const Station = require('./station.js');   // R1 §4.4
 const { makeRng } = require('../util.js');
 
 const TILE = Physics.TILE;
@@ -485,7 +486,7 @@ function allZaehle(game, S) {
     if (da.has(id)) continue;
     S.lebt.delete(id);
     S.abschuesse++;
-    const p = game.players.find((q) => q.connected && q.console === 'weapons') || game.players.find((q) => q.connected && q.console === 'helm');
+    const p = game.players.find((q) => q.connected && Station.stationOf(q) === 'weapons') || game.players.find((q) => q.connected && Station.stationOf(q) === 'helm');
     if (p) S.kills[p.id] = (S.kills[p.id] || 0) + 1;
   }
 }

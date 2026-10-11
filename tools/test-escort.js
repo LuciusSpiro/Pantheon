@@ -362,6 +362,7 @@ section('Wiederholung: gleicher Tag ersetzt entkommene/kampfunfähige Schützlin
 // ---------------------------------------------------------------------------------------------------
 function balanceRun(seed, mode, crew) {
   const { g, ev } = arena(crew, { seed }); calm(g);
+  const autoAlt = g.C.waffenAutomatikMaxSpieler; g.C.waffenAutomatikMaxSpieler = crew;   // R1: Messfixture – die Auto-Waffen stehen hier für das Handfeuer einer besetzten Taktik (reale Automatik nur ≤ 2 Spieler)
   const sh = g.ship;
   const es = Escort.spawn(g, { tag: 'konvoi', kind: 'frachter', verhalten: 'folgt_kurs', von: { x: 400, y: 1500 }, nach: { x: 2700, y: 1500 } });
   sh.x = 400; sh.y = 1330;
@@ -397,6 +398,7 @@ function balanceRun(seed, mode, crew) {
     if (near) { const a = Math.atan2(near.y - sh.y, near.x - sh.x); sh.angle = Physics.normAngle(a - Math.PI / 2); sh.turnVel = 0; }
     t += DT;
   }
+  g.C.waffenAutomatikMaxSpieler = autoAlt;
   return { seed, mode, state: es.state, hp: Math.round(es.hp / es.hpMax * 100), t: Math.round(t), heil: es.state === 'entkommen' && es.hp >= es.hpMax * CONFIG.escorts.warnAt[0],
     shielded: (g.stats.escort || {}).shielded || 0, attacks: (g.stats.escort || {}).attacks || 0, hits: ev('escortHit').length, kills: g.stats.kills };
 }

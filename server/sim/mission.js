@@ -10,6 +10,7 @@
 const path = require('path');
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
+const Station = require('./station.js');   // R1 §4.4
 const space = require('./space.js');
 const { dist } = require('../util.js');
 const Registry = require('../mission/registry.js');
@@ -155,7 +156,8 @@ function rewardText(r) {
 
 const CONSOLE_HELP = {
   helm: 'Steuer: W/S Tempostufe (½ = wendig), A/D Ruder, X Allstopp, Shift+A/D ausweichen, F Faltsprung. Lanze: Bug drauf!',
-  captain: 'Captain: Funk, Karte, Lage, Energie & Schilde (ab 3 dicht, 1–2 lassen Kratzer durch), Schäden, Außenteam.',
+  captain: 'Captain: Funk, Sternkarte, Lage, Außenteam. Energie, Schilde und Schäden macht die Technik (Maschinenraum).',
+  technik: 'Technik: Energie & Schilde (ab 3 dicht), Schadensplan, Reaktor überladen. Tab wechselt die Station, du bleibst stehen.',
   weapons: 'Taktik: 1 halten = Lanze laden, loslassen = Feuer. 2/3/Leertaste Batterien. T Ziel, Q/E+A/D Punkte, S/W Scan.',
   transfer: 'Transfer: Leute auf die Pads, dann Runter/Hoch. Nachschub und Notrückholung gibt\'s hier auch.',
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
@@ -1076,7 +1078,7 @@ class Mission {
   updateScan(dt) {
     const g = this.game; const ship = g.ship; const t = this.scanTarget();
     if (!t) return;
-    const captain = g.players.some((p) => p.console === 'captain' && p.connected);
+    const captain = Station.stationBesetzt(g, 'captain');   // R1: aktive Station
     if (ship.scanning && (!captain || g.time - ship.scanAt > g.C.mission.scanHoldTimeout + 1)) ship.scanning = false;
     if (g.scans.has(t.id)) { ship.scan.done = true; ship.scan.progress = 1; return; }
     const ok = (!t.requires || this.cond(t.requires)) && dist(ship.x, ship.y, t.x, t.y) <= t.range;
@@ -1136,7 +1138,7 @@ class Mission {
         if (data.state === 'broken') g.oda(`${cap(interior.sysNameNom(data.system))} ist zerstört! E halten: flicken (hält nicht) · R: reparieren · mit Ersatzteil: voll.`, 'firstBroken');
         else g.oda('Ein System ist beschädigt – E halten: flicken (schnell, hält nicht) · R: reparieren · mit Ersatzteil: voll.', 'firstDamaged');
         break;
-      case 'shieldDown': g.oda('Schildsektor leer! Captain: Punkte umverteilen oder mehr Energie auf Schilde.', 'shieldDown'); break;
+      case 'shieldDown': g.oda('Schildsektor leer! Technik: Punkte umverteilen oder mehr Energie auf Schilde.', 'shieldDown'); break;
       case 'repaired':
         if (this.isDrillStep() && data.system === g.C.drill.system && g.ship.systems[data.system] === 'damaged') g.oda('Teil sitzt! Jetzt ist er nur noch beschädigt – noch einmal E halten, dann läuft er wieder.', 'drillHalf');
         if (data.by === 'bot') g.oda('Ein Schrauber hat repariert. Ich bin stolz auf die Kleinen.', 'botRepair');

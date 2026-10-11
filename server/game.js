@@ -8,6 +8,7 @@ const W = require('./world.js');
 const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
 const bots = require('./sim/bots.js');
+const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
 const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfahrt (Snapshot: space.mines, space.al, enemies[].pat, ship.sf)
 const away = require('./sim/away.js');
@@ -30,7 +31,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -912,7 +913,8 @@ class Game {
     if (Protocol.CMD_REPAIR.includes(c)) { const e = interior.repairCmd(this, p, c, msg); if (e) this.notice(p, e); return; }
     // B3 §4/§6: Notfallsprung – Pilot (helm) oder Captain
     if (c === Protocol.CMD_HELM_NOTSPRUNG) {
-      if (p.console !== 'helm' && p.console !== 'captain') return this.notice(p, 'Dafür musst du am Steuer oder an der Captain-Konsole sein.');
+      const st = Station.stationOf(p);
+      if (st !== 'helm' && st !== 'captain') return this.notice(p, 'Dafür musst du am Steuer oder an der Captain-Konsole sein.');
       if (p.downed) return;
       const fn = fnOf(sprungMod(), 'notsprung');
       let e = fn ? null : 'Notfallsprung noch nicht verfügbar.';
@@ -922,10 +924,13 @@ class Game {
     }
     // B1 §9: Karte nachfordern (ohne Konsole; Client fehlt die Karte oder kv passt nicht)
     if (c === Protocol.CMD_AWAY_MAP_GET) { const e = this.sendAwayMap(p, msg.id == null ? null : String(msg.id)); if (e) this.notice(p, e); return; }
+    // R1 §4.4: Tab/Shift+Tab schaltet das Interface (Station), ohne den Ort zu wechseln
+    if (c === Protocol.CMD_STATION_TAB) { const e = Station.tab(this, p, Number(msg.dir) < 0 ? -1 : 1); if (e) this.notice(p, e); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
-    if (p.console !== need) return this.notice(p, 'Dafür musst du an der passenden Konsole sein.');
+    // R1 §4.4: Rechteprüfung gegen die aktive Station (Ort, solange nicht umgeschaltet) – die einzige Stelle
+    if (Station.stationOf(p) !== need) return this.notice(p, 'Dafür musst du an der passenden Konsole sein.');
     if (p.downed) return;
     let err = null;
     const ship = this.ship;
@@ -946,9 +951,12 @@ class Game {
         err = space.selectDest(this, dest);
         break;
       }
-      case 'captain.power': err = space.captainPower(this, String(msg.sys), Number(msg.delta)); break;
-      case 'captain.shield': err = space.captainShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
-      case 'captain.priority': {
+      // R1 §4.2: Energie, Schilde, Reparaturliste, Bot-Automatik und Überladen gehören der Technik; die alten Namen weisen nur ab
+      case 'captain.power': case 'captain.shield': case 'captain.priority': case 'captain.repair': case 'captain.botAuto': case 'captain.overload':
+        err = 'Das macht jetzt die Technik.'; break;
+      case 'technik.power': err = space.technikPower(this, String(msg.sys), Number(msg.delta)); break;
+      case 'technik.shield': err = space.technikShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
+      case 'technik.priority': {
         const t = msg.target;
         if (t === null || t === undefined || t === 'fire' || t === 'breach') ship.priority = t == null ? null : t;
         else if (Protocol.SYSTEMS.includes(t)) {   // M3a §8.2: System-ID -> flick-Eintrag an die Spitze der Reparaturliste
@@ -957,8 +965,8 @@ class Game {
         } else err = 'Unbekannte Priorität.';
         break;
       }
-      case 'captain.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
-      case 'captain.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
+      case 'technik.repair': err = bots.queueRepair(this, msg.system, msg.mode == null ? null : String(msg.mode)); break;
+      case 'technik.botAuto': err = bots.setBotAuto(this, !!msg.on); break;
       case 'captain.burst': err = 'Den Schildstoß gibt es nicht mehr.'; break;   // M3b §0.4: entfallen (Altname)
       case 'weapons.alloc': {
         const mount = MOUNT_ALIAS[msg.mount] || String(msg.mount);
@@ -974,7 +982,7 @@ class Game {
       case 'captain.support': err = away.captainSupport(this, String(msg.kind)); break;
       case 'captain.listen': err = this.mission.listen(); break;
       case 'captain.marker': err = space.setMarker(this, 'captain', Number(msg.x), Number(msg.y), !!msg.clear); break;
-      case 'captain.overload': err = space.captainOverload(this); break;
+      case 'technik.overload': err = space.technikOverload(this); break;
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
       case 'weapons.charge': {   // §20.3: Lanze aufladen (on: true) / feuern (on: false)
         const mount = msg.mount == null ? 'bow' : (MOUNT_ALIAS[msg.mount] || String(msg.mount));
@@ -1077,7 +1085,7 @@ class Game {
         const st = String(msg.state);
         const rc = this.ship.reactorCtl;
         if (st === 'online') space.reactorOnline(this, 'Debug: Reaktor online.');
-        else if (st === 'overload') { rc.state = 'online'; err = space.captainOverload(this); if (Number.isFinite(msg.left)) rc.overloadLeft = Number(msg.left); }
+        else if (st === 'overload') { rc.state = 'online'; err = space.technikOverload(this); if (Number.isFinite(msg.left)) rc.overloadLeft = Number(msg.left); }
         else if (st === 'offline') { rc.state = 'overload'; rc.overloadLeft = 0; rc.warned = true; }
         else err = 'Zustand: online | overload | offline.';
         break;
@@ -1734,7 +1742,7 @@ class Game {
       campaign: !!(this.weltstand && this.weltstand.persistent),   // S1: Kampagne mit Weltstand (Hinweis beim Beenden)
       players: this.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,
-        zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, carry: p.carry,
+        zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, ...Station.snapFelder(p), carry: p.carry,
         hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor),
         action: p.hold ? this.holdSnap(p.hold)
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),

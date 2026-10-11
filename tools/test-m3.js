@@ -478,14 +478,14 @@ section('M3b: Schildstoß entfernt (§4)', () => {
 
 section('M3b: Schildpool 6 (§4)', () => {
   const { g, run, enter, cmd } = arena(1);
-  enter(0, 'captain');
+  enter(0, 'technik');
   run(0.1, () => { pin(g); noFire(g); });
   const pool = g.snapshot().ship.shields.pool;
   ok(pool === 6, `Pool bei Energie 2: ${pool} (Soll 6)`);
   // alles auf Sektor 0: höchstens maxPerSector 4, Rest verteilt sich
   // (QA M3b: Startverteilung nutzt jetzt den ganzen Pool [2,2,0,2] – erst leeren, sonst ist nichts frei)
   g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.alloc = [0, 0, 0, 0];
-  for (let i = 0; i < 6; i++) cmd(0, 'captain.shield', { sector: 0, delta: 1 });
+  for (let i = 0; i < 6; i++) cmd(0, 'technik.shield', { sector: 0, delta: 1 });
   run(0.1, () => { pin(g); noFire(g); });
   const al = g.ship.shields.alloc;
   ok(al[0] === 4 && al.reduce((a, b) => a + b, 0) <= 6, `Sektor 0 höchstens 4 (alloc ${al.join('/')}, Summe ≤ 6)`);
@@ -686,8 +686,8 @@ section('M3b: Rückschlag 50 % bei Hüllentreffer im Sektor (§4)', () => {
   send(0, { t: 'cmd', c: 'repair.done', system: 'emitter_port', errors: 0 }); run(0.1, tick);
   // Bot-Arbeit (Reparaturliste, Captain) – Rückschlag am Bot-Fortschritt
   resetSystems(g); g.ship.systems.engines = 'damaged';
-  const cap = 2; place(cap, conSpot('captain')); send(cap, { t: 'act', down: true }); send(cap, { t: 'act', down: false });
-  send(cap, { t: 'cmd', c: 'captain.repair', system: 'engines', mode: 'flick' });
+  const cap = 2; place(cap, conSpot('technik')); send(cap, { t: 'act', down: true }); send(cap, { t: 'act', down: false });
+  send(cap, { t: 'cmd', c: 'technik.repair', system: 'engines', mode: 'flick' });
   let bot = null;
   for (let k = 0; k < 30 * 40 && !bot; k++) { tick(); g.step(); bot = g.bots.find((b) => b.task && b.task.kind === 'repair' && b.task.system === 'engines' && b.task.phase === 'work' && b.progress > 0.2); }
   if (bot) {
@@ -1191,21 +1191,21 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
     run(40, tick);
     ok(g.ship.systems.battery_port === 'damaged' && g.ship.systems.engines === 'broken' && g.ship.repairQueue.length === 0, 'ohne Liste: Bots fassen kein System an (40 s)');
     ok(!g.ship.fireList.some((f) => f.tx === ft.x && f.ty === ft.y), 'Feuer löschen Bots weiter selbst');
-    ok(enter(2, 'captain'), 'Captain');
-    cmd(2, 'captain.repair', { system: 'battery_port', mode: 'flick' });
+    ok(enter(2, 'technik'), 'Technik');
+    cmd(2, 'technik.repair', { system: 'battery_port', mode: 'flick' });
     const q = g.snapshot().ship.repairQueue;
-    ok(q.length === 1 && q[0].system === 'battery_port' && q[0].mode === 'flick' && 'bot' in q[0], 'captain.repair: Eintrag { system, mode flick, bot }');
-    cmd(2, 'captain.repair', { system: 'battery_port', mode: 'part' });
+    ok(q.length === 1 && q[0].system === 'battery_port' && q[0].mode === 'flick' && 'bot' in q[0], 'technik.repair: Eintrag { system, mode flick, bot }');
+    cmd(2, 'technik.repair', { system: 'battery_port', mode: 'part' });
     ok(g.ship.repairQueue.length === 1 && g.ship.repairQueue[0].mode === 'part', 'gleiches System: nur mode ersetzt');
-    cmd(2, 'captain.repair', { system: 'battery_port', mode: null });
+    cmd(2, 'technik.repair', { system: 'battery_port', mode: null });
     ok(g.ship.repairQueue.length === 0, 'mode null entfernt den Eintrag');
-    cmd(2, 'captain.repair', { system: 'battery_port', mode: 'flick' });
+    cmd(2, 'technik.repair', { system: 'battery_port', mode: 'flick' });
     let assigned = false;
     run(45, () => { tick(); if (g.ship.repairQueue.some((x) => x.bot)) assigned = true; });
     ok(assigned && g.ship.systems.battery_port === 'ok', 'flick: Bot übernimmt (bot gesetzt) und flickt -> ' + g.ship.systems.battery_port);
     ok(g.ship.systems.engines === 'broken', 'anderes System bleibt unberührt');
     const parts = g.inventory.ersatzteil;
-    cmd(2, 'captain.repair', { system: 'engines', mode: 'part' });
+    cmd(2, 'technik.repair', { system: 'engines', mode: 'part' });
     run(70, tick);
     ok(g.ship.systems.engines === 'ok' && !I.isFragile(g, 'engines') && g.inventory.ersatzteil === parts - 1, 'part: Bot holt Ersatzteil, tauscht aus -> ok, nicht fragil');
     ok(!g.ship.repairQueue.some((x) => x.system === 'engines'), 'Eintrag fällt weg, sobald ok und nicht fragil');
@@ -1213,29 +1213,29 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
     // höchstens 3 Einträge
     for (const s of ['emitter_bow', 'emitter_port', 'emitter_aft', 'emitter_stbd']) g.ship.systems[s] = 'damaged';
     const nn = notices(2).length;
-    for (const s of ['emitter_bow', 'emitter_port', 'emitter_aft', 'emitter_stbd']) cmd(2, 'captain.repair', { system: s, mode: 'flick' });
+    for (const s of ['emitter_bow', 'emitter_port', 'emitter_aft', 'emitter_stbd']) cmd(2, 'technik.repair', { system: s, mode: 'flick' });
     ok(g.ship.repairQueue.length <= M3.repair.queueMax && notices(2).length > nn, `höchstens ${M3.repair.queueMax} Einträge (4. abgelehnt)`);
-    // captain.priority <System> stellt flick an die Spitze
-    cmd(2, 'captain.priority', { target: 'emitter_stbd' });
-    ok(g.ship.repairQueue[0] && g.ship.repairQueue[0].system === 'emitter_stbd' && g.ship.repairQueue[0].mode === 'flick', 'captain.priority <System>: flick-Eintrag an der Spitze');
+    // technik.priority <System> stellt flick an die Spitze
+    cmd(2, 'technik.priority', { target: 'emitter_stbd' });
+    ok(g.ship.repairQueue[0] && g.ship.repairQueue[0].system === 'emitter_stbd' && g.ship.repairQueue[0].mode === 'flick', 'technik.priority <System>: flick-Eintrag an der Spitze');
     // part ohne Ersatzteil -> Meldung, wird flick
-    for (const s of ['emitter_bow', 'emitter_port', 'emitter_aft', 'emitter_stbd']) cmd(2, 'captain.repair', { system: s, mode: null });
+    for (const s of ['emitter_bow', 'emitter_port', 'emitter_aft', 'emitter_stbd']) cmd(2, 'technik.repair', { system: s, mode: null });
     g.inventory.ersatzteil = 0; g.ship.systems.thruster_stbd = 'broken';
     const oda0 = events('oda').length;
-    cmd(2, 'captain.repair', { system: 'thruster_stbd', mode: 'part' });
+    cmd(2, 'technik.repair', { system: 'thruster_stbd', mode: 'part' });
     run(6, tick);
     const e2 = g.ship.repairQueue.find((x) => x.system === 'thruster_stbd');
     ok((!e2 || e2.mode === 'flick') && events('oda').slice(oda0).some((e) => /Ersatzteil/.test(e.text)), 'part ohne Teil im Lager: Meldung, Eintrag wird flick');
     // Automatik zu dritt einschalten
     g.inventory.ersatzteil = 3;
-    cmd(2, 'captain.botAuto', { on: true });
-    ok(g.ship.botAuto === true && g.snapshot().ship.botAuto === true, 'captain.botAuto on');
+    cmd(2, 'technik.botAuto', { on: true });
+    ok(g.ship.botAuto === true && g.snapshot().ship.botAuto === true, 'technik.botAuto on');
     g.ship.repairQueue.length = 0;
     g.ship.systems.weapon_bow = 'broken';
     run(1, tick);
     ok(g.ship.repairQueue.some((x) => x.system === 'weapon_bow' && x.mode === 'part'), 'Automatik: zerstört -> part (Teil im Lager)');
-    cmd(2, 'captain.botAuto', { on: false });
-    ok(g.ship.botAuto === false, 'captain.botAuto off');
+    cmd(2, 'technik.botAuto', { on: false });
+    ok(g.ship.botAuto === false, 'technik.botAuto off');
     ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
   }
   // solo: Automatik an

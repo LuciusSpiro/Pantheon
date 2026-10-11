@@ -15,6 +15,9 @@
     tile: 32,
 
     player: { speed: 96, hp: 100, reviveTime: 3, autoReviveTime: 15, hitbox: { w: 18, h: 12 }, revivedHp: 50, carrySpeedFactor: 0.85 },
+    // R1 §4.5: Automatik nur bei wenigen verbundenen Spielern: Waffenautomatik der unbesetzten Taktik, Bot-Automatik der Technik (Standard)
+    waffenAutomatikMaxSpieler: 2,
+    botAutomatikMaxSpieler: 2,
     bot: { count: 2, speedFactor: 0.6, repairFactor: 1.75, extinguishTime: 2.5 },
 
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },

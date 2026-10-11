@@ -5,6 +5,7 @@ const Protocol = require('../../shared/protocol.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Station = require('./station.js');   // R1 §4.4
 const combat = require('./combat.js');
 const squad = require('./squad.js');
 const { bfs, lineOfSight, dist, makeRng } = require('../util.js');
@@ -192,7 +193,7 @@ function canBeam(game, dir) {
 function tooFastHint(game) {
   if (game.ship.tooFastOdaAt != null && game.time - game.ship.tooFastOdaAt < 20) return;
   game.ship.tooFastOdaAt = game.time;
-  const helmManned = game.players.some((q) => q.connected && q.console === 'helm');
+  const helmManned = game.players.some((q) => q.connected && Station.stationOf(q) === 'helm');
   game.oda(helmManned ? 'Schiff zu schnell für den Transfer – Steuer auf Stopp, bitte!'
     : 'Schiff zu schnell für den Transfer – niemand an der Steuer, wir fahren weiter. Steuer auf Stopp (X), dann beamen.', null);
 }

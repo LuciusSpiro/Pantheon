@@ -90,7 +90,7 @@ section('Alarmstufen: Lärm (Waffenfeuer, Antrieb Energie 4, Reaktor überladen)
   ok(Alarm.stufe(a3) === 2, 'Antrieb bleibt auf Energie 4: nach dem nächsten Takt alarmiert');
   // Reaktor überladen: gewichtet 2 = sofort alarmiert
   const r4 = raum(); const a4 = r4.g; Alarm.an(a4, {}); heil(a4);
-  const err = space.captainOverload(a4);
+  const err = space.technikOverload(a4);
   ok(!err && Alarm.stufe(a4) === 2, 'Reaktor überladen: sofort alarmiert');
   // Gegner wissen von der Lerche
   const r5 = raum(); const a5 = r5.g; Alarm.an(a5, { wissen: true });

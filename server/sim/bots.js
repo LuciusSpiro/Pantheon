@@ -5,6 +5,7 @@
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Station = require('./station.js');   // R1: Bot-Automatik nach Spielerzahl
 const { bfs } = require('../util.js');
 
 const REEVAL_INTERVAL = 1;
@@ -36,7 +37,7 @@ function entryDone(game, e) {
   return e.mode === 'flick' || !interior.isFragile(game, e.system);
 }
 
-// captain.repair { system, mode: 'flick'|'part'|null }
+// technik.repair { system, mode: 'flick'|'part'|null }
 function queueRepair(game, sys, mode) {
   sys = resolveSys(game, String(sys));
   if (!interior.SYSTEM_ORDER.includes(sys)) return 'Unbekanntes System.';
@@ -51,7 +52,7 @@ function queueRepair(game, sys, mode) {
   q.push({ system: sys, mode, bot: null });
   return null;
 }
-// captain.priority mit System-ID: flick-Eintrag an die Spitze (§8.2)
+// technik.priority mit System-ID: flick-Eintrag an die Spitze (§8.2)
 function queueFront(game, sys) {
   sys = resolveSys(game, String(sys));
   if (!interior.SYSTEM_ORDER.includes(sys)) return 'Unbekanntes System.';
@@ -63,7 +64,7 @@ function queueFront(game, sys) {
   while (q.length > queueMax(game)) q.pop();
   return null;
 }
-// captain.botAuto { on } – danach gilt die Wahl des Captains bis zum Ende der Partie
+// technik.botAuto { on } – danach gilt die Wahl der Technik bis zum Ende der Partie
 function setBotAuto(game, on) {
   game.ship.botAuto = !!on;
   game.ship.botAutoChosen = true;
@@ -71,7 +72,7 @@ function setBotAuto(game, on) {
 }
 function updateBotAuto(game) {
   const ship = game.ship;
-  if (!ship.botAutoChosen) ship.botAuto = game.players.filter((p) => p.connected).length === 1;
+  if (!ship.botAutoChosen) ship.botAuto = Station.botAutomatikStandard(game);   // R1 §4.5: genau 1 oder 2 verbundene Spieler
   const q = queueOf(game);
   // erledigte Einträge fallen weg
   for (let i = q.length - 1; i >= 0; i--) if (entryDone(game, q[i]) || !interior.SYSTEM_ORDER.includes(q[i].system)) q.splice(i, 1);
@@ -89,7 +90,7 @@ function updateBotAuto(game) {
 }
 
 // ---------- Aufgaben ----------
-// Kandidaten in Prioritätsreihenfolge: Captain-Priorität Feuer/Leck > Reparaturliste (Reihenfolge) > Feuer > Leck.
+// Kandidaten in Prioritätsreihenfolge: Priorität Feuer/Leck (Technik) > Reparaturliste (Reihenfolge) > Feuer > Leck.
 function candidates(game) {
   const ship = game.ship;
   const list = [];
