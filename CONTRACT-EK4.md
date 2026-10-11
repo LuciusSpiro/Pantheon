@@ -31,7 +31,7 @@ Schnitt nach E5: **EK4a** (Befehle, Legat, Funk, Hilferufe, Verlust; Verbündete
 1. **Verbündete leben in `space.escorts`** statt in einer zweiten Liste: Zielwahl der Gegner, Treffer, Ankündigung, Sprung, Snapshot, Sperrfeuer-Abfangen laufen ohne Doppelcode. Schützlinge bleiben auf 2 begrenzt, Verbündete zählen extra.
 2. **Zerstört statt kampfunfähig:** Verbündete verschwinden mit Explosion und Kapsel. Wrack-Logik wäre sonst Sonderfall; „kommt nicht von selbst zurück“ ist ein Weltstand-Fakt.
 3. **Gedächtnis über Weltstand-Funktionen** (`npcMemory`, `fact`, `chronicle`), **kein neues Schemafeld**; Flags für Verzweigungen.
-4. **Eigene Härte für Verbündete** (`flotte.crewDamage` 0,4/0,55/0,6, Hüllen 220/380/520): mit der Schützling-Tafel (0,18 solo) wären sie solo unverwundbar; mit 1,25 zu dritt starben sie in jedem Bot-Lauf.
+4. **Eigene Härte für Verbündete** (`flotte.crewDamage` 0,7/0,9/1,0 (Stand im Code; im ersten Entwurf 0,4/0,55/0,6), Hüllen siehe `CONFIG.flotte.hull`): mit der Schützling-Tafel (0,18 solo) wären sie solo unverwundbar; mit 1,25 zu dritt starben sie in jedem Bot-Lauf.
 5. **Frist statt Zeitdruck allgemein:** Nur Befehle mit `frist` scheitern an der Zeit; Standardfristen in `CONFIG.flotte.befehl.frist`.
 6. **Funktexte als Daten**, Porträt über Kennung (`pid`), nicht über Spielzustand; unbekannte Sprecher unverändert (Snapshot bleibt byte-gleich).
 7. **Mars als `stimmen`-Kennung** statt NSC: kein Gedächtnis, kein Auftraggeber für den Spielleiter.
