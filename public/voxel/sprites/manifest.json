@@ -1,0 +1,1142 @@
+{
+  "format": 1,
+  "note": "generiert von tools/sprites.mjs (npm run sprites) – nicht von Hand ändern. Stufe b: Schiff um b/steps·2π gedreht (Canvas, y nach unten), Bug bei 0 nach +x.",
+  "steps": 64,
+  "cols": 8,
+  "sprites": {
+    "frachter/aegypten": {
+      "klasse": "frachter",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/frachter/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/frachter/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        84,
+        84
+      ],
+      "anchor": [
+        42,
+        42
+      ],
+      "lengthPx": 76,
+      "widthPx": 10,
+      "lengthM": 101.25,
+      "pxPerMeter": 0.7506,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "frachter/babylon": {
+      "klasse": "frachter",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/frachter/babylon",
+      "palette": "babylon",
+      "file": "schiff/frachter/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        84,
+        84
+      ],
+      "anchor": [
+        42,
+        42
+      ],
+      "lengthPx": 76,
+      "widthPx": 10,
+      "lengthM": 101.5,
+      "pxPerMeter": 0.7488,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "frachter/himmelsreich": {
+      "klasse": "frachter",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/frachter/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/frachter/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        84,
+        84
+      ],
+      "anchor": [
+        42,
+        42
+      ],
+      "lengthPx": 76,
+      "widthPx": 10,
+      "lengthM": 104.25,
+      "pxPerMeter": 0.729,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "frachter/nord": {
+      "klasse": "frachter",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/frachter/nord",
+      "palette": "nord",
+      "file": "schiff/frachter/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        86,
+        86
+      ],
+      "anchor": [
+        43,
+        43
+      ],
+      "lengthPx": 76,
+      "widthPx": 25,
+      "lengthM": 108.25,
+      "pxPerMeter": 0.7021,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "frachter/rom": {
+      "klasse": "frachter",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/frachter/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/frachter/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        84,
+        84
+      ],
+      "anchor": [
+        42,
+        42
+      ],
+      "lengthPx": 76,
+      "widthPx": 10,
+      "lengthM": 103,
+      "pxPerMeter": 0.7379,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "frachter/rostmeute": {
+      "klasse": "frachter",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/frachter/nord",
+      "palette": "rostmeute",
+      "file": "schiff/frachter/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        86,
+        86
+      ],
+      "anchor": [
+        43,
+        43
+      ],
+      "lengthPx": 76,
+      "widthPx": 25,
+      "lengthM": 108.25,
+      "pxPerMeter": 0.7021,
+      "heck": [
+        -38,
+        0
+      ]
+    },
+    "fregatte/aegypten": {
+      "klasse": "fregatte",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/fregatte/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/fregatte/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        96,
+        96
+      ],
+      "anchor": [
+        48,
+        48
+      ],
+      "lengthPx": 88,
+      "widthPx": 14,
+      "lengthM": 118.75,
+      "pxPerMeter": 0.7411,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "fregatte/babylon": {
+      "klasse": "fregatte",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/fregatte/babylon",
+      "palette": "babylon",
+      "file": "schiff/fregatte/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        96,
+        96
+      ],
+      "anchor": [
+        48,
+        48
+      ],
+      "lengthPx": 88,
+      "widthPx": 13,
+      "lengthM": 107.75,
+      "pxPerMeter": 0.8167,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "fregatte/himmelsreich": {
+      "klasse": "fregatte",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/fregatte/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/fregatte/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        96,
+        96
+      ],
+      "anchor": [
+        48,
+        48
+      ],
+      "lengthPx": 88,
+      "widthPx": 13,
+      "lengthM": 131.75,
+      "pxPerMeter": 0.6679,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "fregatte/nord": {
+      "klasse": "fregatte",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/fregatte/nord",
+      "palette": "nord",
+      "file": "schiff/fregatte/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        106,
+        106
+      ],
+      "anchor": [
+        53,
+        53
+      ],
+      "lengthPx": 88,
+      "widthPx": 44,
+      "lengthM": 116,
+      "pxPerMeter": 0.7586,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "fregatte/rom": {
+      "klasse": "fregatte",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/fregatte/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/fregatte/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        96,
+        96
+      ],
+      "anchor": [
+        48,
+        48
+      ],
+      "lengthPx": 88,
+      "widthPx": 13,
+      "lengthM": 134.5,
+      "pxPerMeter": 0.6543,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "fregatte/rostmeute": {
+      "klasse": "fregatte",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/fregatte/nord",
+      "palette": "rostmeute",
+      "file": "schiff/fregatte/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        106,
+        106
+      ],
+      "anchor": [
+        53,
+        53
+      ],
+      "lengthPx": 88,
+      "widthPx": 44,
+      "lengthM": 116,
+      "pxPerMeter": 0.7586,
+      "heck": [
+        -44,
+        0
+      ]
+    },
+    "jaeger/aegypten": {
+      "klasse": "jaeger",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/jaeger/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/jaeger/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        44,
+        44
+      ],
+      "anchor": [
+        22,
+        22
+      ],
+      "lengthPx": 32,
+      "widthPx": 18,
+      "lengthM": 17.5,
+      "pxPerMeter": 1.8286,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "jaeger/babylon": {
+      "klasse": "jaeger",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/jaeger/babylon",
+      "palette": "babylon",
+      "file": "schiff/jaeger/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        46,
+        46
+      ],
+      "anchor": [
+        23,
+        23
+      ],
+      "lengthPx": 32,
+      "widthPx": 22,
+      "lengthM": 17.75,
+      "pxPerMeter": 1.8028,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "jaeger/himmelsreich": {
+      "klasse": "jaeger",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/jaeger/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/jaeger/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        42,
+        42
+      ],
+      "anchor": [
+        21,
+        21
+      ],
+      "lengthPx": 32,
+      "widthPx": 13,
+      "lengthM": 19,
+      "pxPerMeter": 1.6842,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "jaeger/nord": {
+      "klasse": "jaeger",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/jaeger/nord",
+      "palette": "nord",
+      "file": "schiff/jaeger/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        44,
+        44
+      ],
+      "anchor": [
+        22,
+        22
+      ],
+      "lengthPx": 32,
+      "widthPx": 19,
+      "lengthM": 19.5,
+      "pxPerMeter": 1.641,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "jaeger/rom": {
+      "klasse": "jaeger",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/jaeger/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/jaeger/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        46,
+        46
+      ],
+      "anchor": [
+        23,
+        23
+      ],
+      "lengthPx": 32,
+      "widthPx": 23,
+      "lengthM": 18,
+      "pxPerMeter": 1.7778,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "jaeger/rostmeute": {
+      "klasse": "jaeger",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/jaeger/nord",
+      "palette": "rostmeute",
+      "file": "schiff/jaeger/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        44,
+        44
+      ],
+      "anchor": [
+        22,
+        22
+      ],
+      "lengthPx": 32,
+      "widthPx": 19,
+      "lengthM": 19.5,
+      "pxPerMeter": 1.641,
+      "heck": [
+        -16,
+        0
+      ]
+    },
+    "korvette/aegypten": {
+      "klasse": "korvette",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/korvette/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/korvette/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        76,
+        76
+      ],
+      "anchor": [
+        38,
+        38
+      ],
+      "lengthPx": 68,
+      "widthPx": 12,
+      "lengthM": 66,
+      "pxPerMeter": 1.0303,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "korvette/babylon": {
+      "klasse": "korvette",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/korvette/babylon",
+      "palette": "babylon",
+      "file": "schiff/korvette/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        76,
+        76
+      ],
+      "anchor": [
+        38,
+        38
+      ],
+      "lengthPx": 68,
+      "widthPx": 9,
+      "lengthM": 64.5,
+      "pxPerMeter": 1.0543,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "korvette/himmelsreich": {
+      "klasse": "korvette",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/korvette/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/korvette/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        76,
+        76
+      ],
+      "anchor": [
+        38,
+        38
+      ],
+      "lengthPx": 68,
+      "widthPx": 10,
+      "lengthM": 70.75,
+      "pxPerMeter": 0.9611,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "korvette/nord": {
+      "klasse": "korvette",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/korvette/nord",
+      "palette": "nord",
+      "file": "schiff/korvette/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        80,
+        80
+      ],
+      "anchor": [
+        40,
+        40
+      ],
+      "lengthPx": 68,
+      "widthPx": 27,
+      "lengthM": 67.75,
+      "pxPerMeter": 1.0037,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "korvette/rom": {
+      "klasse": "korvette",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/korvette/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/korvette/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        76,
+        76
+      ],
+      "anchor": [
+        38,
+        38
+      ],
+      "lengthPx": 68,
+      "widthPx": 12,
+      "lengthM": 68.25,
+      "pxPerMeter": 0.9963,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "korvette/rostmeute": {
+      "klasse": "korvette",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/korvette/nord",
+      "palette": "rostmeute",
+      "file": "schiff/korvette/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        80,
+        80
+      ],
+      "anchor": [
+        40,
+        40
+      ],
+      "lengthPx": 68,
+      "widthPx": 27,
+      "lengthM": 67.75,
+      "pxPerMeter": 1.0037,
+      "heck": [
+        -34,
+        0
+      ]
+    },
+    "kreuzer/aegypten": {
+      "klasse": "kreuzer",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/kreuzer/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/kreuzer/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        112,
+        112
+      ],
+      "anchor": [
+        56,
+        56
+      ],
+      "lengthPx": 104,
+      "widthPx": 14,
+      "lengthM": 183.5,
+      "pxPerMeter": 0.5668,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "kreuzer/babylon": {
+      "klasse": "kreuzer",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/kreuzer/babylon",
+      "palette": "babylon",
+      "file": "schiff/kreuzer/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        112,
+        112
+      ],
+      "anchor": [
+        56,
+        56
+      ],
+      "lengthPx": 104,
+      "widthPx": 12,
+      "lengthM": 188.5,
+      "pxPerMeter": 0.5517,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "kreuzer/himmelsreich": {
+      "klasse": "kreuzer",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/kreuzer/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/kreuzer/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        112,
+        112
+      ],
+      "anchor": [
+        56,
+        56
+      ],
+      "lengthPx": 104,
+      "widthPx": 12,
+      "lengthM": 208.5,
+      "pxPerMeter": 0.4988,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "kreuzer/nord": {
+      "klasse": "kreuzer",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/kreuzer/nord",
+      "palette": "nord",
+      "file": "schiff/kreuzer/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        116,
+        116
+      ],
+      "anchor": [
+        58,
+        58
+      ],
+      "lengthPx": 104,
+      "widthPx": 33,
+      "lengthM": 203,
+      "pxPerMeter": 0.5123,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "kreuzer/rom": {
+      "klasse": "kreuzer",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/kreuzer/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/kreuzer/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        112,
+        112
+      ],
+      "anchor": [
+        56,
+        56
+      ],
+      "lengthPx": 104,
+      "widthPx": 14,
+      "lengthM": 201.5,
+      "pxPerMeter": 0.5161,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "kreuzer/rostmeute": {
+      "klasse": "kreuzer",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/kreuzer/nord",
+      "palette": "rostmeute",
+      "file": "schiff/kreuzer/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        116,
+        116
+      ],
+      "anchor": [
+        58,
+        58
+      ],
+      "lengthPx": 104,
+      "widthPx": 33,
+      "lengthM": 203,
+      "pxPerMeter": 0.5123,
+      "heck": [
+        -52,
+        0
+      ]
+    },
+    "linienschiff/aegypten": {
+      "klasse": "linienschiff",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/linienschiff/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/linienschiff/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        136,
+        136
+      ],
+      "anchor": [
+        68,
+        68
+      ],
+      "lengthPx": 128,
+      "widthPx": 19,
+      "lengthM": 302.5,
+      "pxPerMeter": 0.4231,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "linienschiff/babylon": {
+      "klasse": "linienschiff",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/linienschiff/babylon",
+      "palette": "babylon",
+      "file": "schiff/linienschiff/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        136,
+        136
+      ],
+      "anchor": [
+        68,
+        68
+      ],
+      "lengthPx": 128,
+      "widthPx": 16,
+      "lengthM": 303.5,
+      "pxPerMeter": 0.4217,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "linienschiff/himmelsreich": {
+      "klasse": "linienschiff",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/linienschiff/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/linienschiff/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        136,
+        136
+      ],
+      "anchor": [
+        68,
+        68
+      ],
+      "lengthPx": 128,
+      "widthPx": 15,
+      "lengthM": 336,
+      "pxPerMeter": 0.381,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "linienschiff/nord": {
+      "klasse": "linienschiff",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/linienschiff/nord",
+      "palette": "nord",
+      "file": "schiff/linienschiff/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        142,
+        142
+      ],
+      "anchor": [
+        71,
+        71
+      ],
+      "lengthPx": 128,
+      "widthPx": 42,
+      "lengthM": 333,
+      "pxPerMeter": 0.3844,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "linienschiff/rom": {
+      "klasse": "linienschiff",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/linienschiff/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/linienschiff/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        136,
+        136
+      ],
+      "anchor": [
+        68,
+        68
+      ],
+      "lengthPx": 128,
+      "widthPx": 18,
+      "lengthM": 326.5,
+      "pxPerMeter": 0.392,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "linienschiff/rostmeute": {
+      "klasse": "linienschiff",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/linienschiff/nord",
+      "palette": "rostmeute",
+      "file": "schiff/linienschiff/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        142,
+        142
+      ],
+      "anchor": [
+        71,
+        71
+      ],
+      "lengthPx": 128,
+      "widthPx": 42,
+      "lengthM": 333,
+      "pxPerMeter": 0.3844,
+      "heck": [
+        -64,
+        0
+      ]
+    },
+    "spaeher/aegypten": {
+      "klasse": "spaeher",
+      "volk": "aegypten",
+      "set": "aegypten",
+      "model": "schiff/spaeher/aegypten",
+      "palette": "aegypten",
+      "file": "schiff/spaeher/aegypten.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        52,
+        52
+      ],
+      "anchor": [
+        26,
+        26
+      ],
+      "lengthPx": 44,
+      "widthPx": 6,
+      "lengthM": 38.75,
+      "pxPerMeter": 1.1355,
+      "heck": [
+        -22,
+        0
+      ]
+    },
+    "spaeher/babylon": {
+      "klasse": "spaeher",
+      "volk": "babylon",
+      "set": "babylon",
+      "model": "schiff/spaeher/babylon",
+      "palette": "babylon",
+      "file": "schiff/spaeher/babylon.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        52,
+        52
+      ],
+      "anchor": [
+        26,
+        26
+      ],
+      "lengthPx": 44,
+      "widthPx": 6,
+      "lengthM": 32,
+      "pxPerMeter": 1.375,
+      "heck": [
+        -22,
+        0
+      ]
+    },
+    "spaeher/himmelsreich": {
+      "klasse": "spaeher",
+      "volk": "himmelsreich",
+      "set": "himmelsreich",
+      "model": "schiff/spaeher/himmelsreich",
+      "palette": "himmelsreich",
+      "file": "schiff/spaeher/himmelsreich.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        52,
+        52
+      ],
+      "anchor": [
+        26,
+        26
+      ],
+      "lengthPx": 44,
+      "widthPx": 7,
+      "lengthM": 32.25,
+      "pxPerMeter": 1.3643,
+      "heck": [
+        -22,
+        0
+      ]
+    },
+    "spaeher/nord": {
+      "klasse": "spaeher",
+      "volk": "germanen",
+      "set": "nord",
+      "model": "schiff/spaeher/nord",
+      "palette": "nord",
+      "file": "schiff/spaeher/nord.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        54,
+        54
+      ],
+      "anchor": [
+        27,
+        27
+      ],
+      "lengthPx": 44,
+      "widthPx": 18,
+      "lengthM": 36.5,
+      "pxPerMeter": 1.2055,
+      "heck": [
+        -22,
+        0
+      ]
+    },
+    "spaeher/rom": {
+      "klasse": "spaeher",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/spaeher/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/spaeher/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        52,
+        52
+      ],
+      "anchor": [
+        26,
+        26
+      ],
+      "lengthPx": 44,
+      "widthPx": 6,
+      "lengthM": 37.25,
+      "pxPerMeter": 1.1812,
+      "heck": [
+        -22,
+        0
+      ]
+    },
+    "spaeher/rostmeute": {
+      "klasse": "spaeher",
+      "volk": "rostmeute",
+      "set": "rostmeute",
+      "model": "schiff/spaeher/nord",
+      "palette": "rostmeute",
+      "file": "schiff/spaeher/rostmeute.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        54,
+        54
+      ],
+      "anchor": [
+        27,
+        27
+      ],
+      "lengthPx": 44,
+      "widthPx": 18,
+      "lengthM": 36.5,
+      "pxPerMeter": 1.2055,
+      "heck": [
+        -22,
+        0
+      ]
+    }
+  }
+}
