@@ -11,6 +11,107 @@
   "szenentypen": [
     "A13"
   ],
-  "umsetzungen": [],
-  "quelle": "vault: Bausteine/Ziel-Moleküle.md"
+  "umsetzungen": [
+    {
+      "id": "patrouillen_schleichfahrt",
+      "name": "Schleichfahrt an Patrouillen vorbei",
+      "schauplatz": "weltraum",
+      "beschreibung": "Die Lerche muss den bewachten Raum bis zum Zielkreis durchqueren. Patrouillen mit Sensorkreisen, optional Minen. Die Signatur wächst mit dem Tempo, Asteroiden und Schilde unten dämpfen sie; der Weitscan verrät die Lerche kurz. Wer entdeckt wird oder Lärm macht, löst Alarm aus: Patrouillen greifen an (ohne Patrouille springen nach 5 s zwei Jäger ein). Kein Zeitlimit; Ausgänge: Ziel erreicht oder Rückzug per Notfallsprung.",
+      "braucht": [
+        "schleichfahrt",
+        "minen",
+        "raum_alarm",
+        "weitscan",
+        "gelaende"
+      ],
+      "dauer_min": [
+        2,
+        5
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [2, 5], "2": [2, 5], "3": [2, 5] },
+      "ereignisse": [
+        "widescan",
+        "entdeckt",
+        "raumAlarm",
+        "mineExploded",
+        "einsprung",
+        "notsprung"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["splitter", "nebel"], "beschreibung": "Raumort mit Platz zum Schleichen (Splittergürtel, Graue Weite)" },
+        "ziel_x": { "typ": "zahl", "default": 2750, "min": 600, "max": 3000, "beschreibung": "Zielkreis, x" },
+        "ziel_y": { "typ": "zahl", "default": 800, "min": 200, "max": 1500, "beschreibung": "Zielkreis, y" },
+        "ziel_r": { "typ": "zahl", "default": 150, "min": 60, "max": 400, "beschreibung": "Zielkreis, Radius" },
+        "patrouillen": { "typ": "zahl", "default": 2, "min": 1, "max": 4, "beschreibung": "Anzahl Patrouillen (quer zur Strecke)" },
+        "minen": { "typ": "zahl", "default": 0, "min": 0, "max": 12, "beschreibung": "Minen im Korridor (Weitscan zeigt sie)" },
+        "ohne_strom": { "typ": "bool", "default": false, "beschreibung": "Minen ohne Strom: Blindgänger (zünden nicht, kein Alarm)" },
+        "wissen": { "typ": "bool", "default": false, "beschreibung": "Gegner wissen von der Lerche (misstrauischer Start, größere Sensorkreise, Lärm alarmiert sofort)" },
+        "einsprung": { "typ": "bool", "default": true, "beschreibung": "Ohne Patrouille springen nach dem Alarm Jäger ein" },
+        "lage": { "typ": "text", "default": "Bewachter Raum. Langsam, Schilde runter, Asteroiden als Deckung. Ziel: Captain-Marker." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              {
+                "do": "schleichfahrt_an",
+                "ziel_x": "{{ziel_x}}",
+                "ziel_y": "{{ziel_y}}",
+                "ziel_r": "{{ziel_r}}",
+                "patrouillen": "{{patrouillen}}",
+                "minen": "{{minen}}",
+                "ohne_strom": "{{ohne_strom}}",
+                "wissen": "{{wissen}}",
+                "einsprung": "{{einsprung}}"
+              }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              { "at": 10, "oda": "@{{id}}.captain" },
+              { "at": 90, "if": { "not": { "v": "{{id}}_ziel" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "check": { "name": "schiff_bei", "x": "{{ziel_x}}", "y": "{{ziel_y}}", "r": "{{ziel_r}}" } }, { "not": { "v": "{{id}}_ziel" } } ] },
+                "do": [ { "set": { "{{id}}_ziel": true } }, { "oda": "@{{id}}.ziel_da" } ]
+              }
+            ],
+            "objectives": [
+              { "id": "ziel", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_ziel" } }
+            ],
+            "next": [
+              { "if": { "v": "{{id}}_ziel" }, "goto": "{{weiter}}" },
+              { "if": { "check": { "name": "rueckzug", "loc": "{{loc}}" } }, "goto": "{{rueckzug}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_ziel": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.captain": "Captain: Taktik pingt nur auf dein Kommando – der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
+          "{{id}}.tipp": "Langsam fliegen, Schilde runter (Taktik), an Asteroiden entlang. Wer Lärm macht oder gesehen wird, löst Alarm aus.",
+          "{{id}}.ziel_da": "Zielkreis erreicht – wir sind durch!",
+          "{{id}}.ziel": "Den Zielkreis erreichen, möglichst unbemerkt"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "patrouillen": 2,
+          "minen": 3
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung EK2 (CONTRACT-EK2)"
 }

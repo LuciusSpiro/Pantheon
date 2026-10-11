@@ -100,6 +100,87 @@
           "mit_hinterhalt": true
         }
       }
+    },
+    {
+      "id": "minenfeld",
+      "name": "Minenfeld durchqueren",
+      "schauplatz": "weltraum",
+      "beschreibung": "Die Lerche muss ein Minenfeld durchqueren. Der Weitscan zeigt die Minen; zu nahe kommen zündet sie (ignoriert Schilde, 6 Punkte Systemschaden, Alarm), man kann sie auch abschießen (Explosion auf Distanz, macht trotzdem Alarm). Bei Alarm springen nach 5 s Jäger ein (Ansage). Optional stromlose Minen (Blindgänger).",
+      "braucht": [
+        "gelaende",
+        "weitscan",
+        "minen",
+        "raum_alarm"
+      ],
+      "dauer_min": [
+        1,
+        3
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": { "1": [1, 3], "2": [1, 3], "3": [1, 3] },
+      "ereignisse": [
+        "widescan",
+        "mineExploded",
+        "raumAlarm",
+        "einsprung"
+      ],
+      "params": {
+        "loc": { "typ": "loc", "pflicht": true, "werte": ["splitter", "nebel"], "beschreibung": "Ort mit durchquerbarem Feld (Zone 'durchquert')" },
+        "minen": { "typ": "zahl", "default": 6, "min": 1, "max": 14, "beschreibung": "Anzahl Minen" },
+        "ohne_strom": { "typ": "bool", "default": false, "beschreibung": "Minen ohne Strom (Blindgänger, zünden nicht, kein Alarm)" },
+        "einsprung": { "typ": "bool", "default": true, "beschreibung": "Nach dem Alarm springen zwei Jäger ein" },
+        "lage": { "typ": "text", "default": "Minenfeld voraus. Taktik: Weitscan zeigt die Minen – Pilot: Abstand halten, oder aus der Ferne abschießen (macht Alarm)." }
+      },
+      "vorlage": {
+        "buehne": { "orte": ["{{loc}}"] },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "enter": [
+              { "do": "raum_alarm_an", "einsprung": "{{einsprung}}" },
+              { "do": "minenfeld", "n": "{{minen}}", "x": 1700, "y": 800, "radius": 650, "ohne_strom": "{{ohne_strom}}", "tag": "{{id}}_minen" }
+            ],
+            "timers": [
+              { "at": 0.5, "oda": "@{{id}}.lage" },
+              { "at": 10, "oda": "@{{id}}.captain" },
+              { "at": 60, "if": { "not": { "v": "{{id}}_durch" } }, "oda": "@{{id}}.tipp", "garantie": "hinweis" }
+            ],
+            "rules": [
+              {
+                "if": { "all": [ { "check": { "name": "ship_in_zone", "loc": "{{loc}}", "zone": "durchquert" } }, { "not": { "v": "{{id}}_durch" } } ] },
+                "do": [ { "set": { "{{id}}_durch": true } }, { "oda": "@{{id}}.durch" } ]
+              }
+            ],
+            "objectives": [
+              { "id": "durch", "text": "@{{id}}.ziel", "done": { "v": "{{id}}_durch" } }
+            ],
+            "next": [
+              { "if": { "v": "{{id}}_durch" }, "goto": "{{weiter}}" }
+            ],
+            "skip": [
+              { "do": "debug_clear_enemies" },
+              { "set": { "{{id}}_durch": true } }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.captain": "Captain: Taktik pingt – dann den Kurs durch die Lücken ansagen. Jede Mine wird beim Weitscan sichtbar.",
+          "{{id}}.tipp": "Langsam, mit Abstand zu den Minen. Eine Mine nahe der Route? Lanze drauf, aber dann ist Alarm.",
+          "{{id}}.durch": "Wir sind durch das Minenfeld!",
+          "{{id}}.ziel": "Das Minenfeld durchqueren (zweite Hälfte der Szene erreichen)"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "minen": 6
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md; Umsetzung S2 (CONTRACT-S2 §6)"

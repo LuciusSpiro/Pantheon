@@ -9,6 +9,7 @@ const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
 const bots = require('./sim/bots.js');
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
+const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfahrt (Snapshot: space.mines, space.al, enemies[].pat, ship.sf)
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const arena = require('./sim/arena.js');
@@ -381,6 +382,7 @@ class Game {
     this.space = { w: 0, h: 0, enemies: [], projectiles: [], beams: [], asteroids: [], markers: [], salvage: [] };
     this.salvaged = 0;
     this.notsprungIn = null;
+    this.notsprungVon = null; this.notsprungT = -1;   // EK2: Ort und Zeit des letzten Notfallsprungs (Prüfung rueckzug)
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
     this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
     this.vorbauOrt = null;      // B1: Ort, dessen Landepunkte zuletzt vorgebaut wurden (vorbauBeiAnkunft)
@@ -989,6 +991,7 @@ class Game {
         if (mk && lp && !['platform', 'wreck', 'kesh'].includes(lp)) { try { mk(this, lp); } catch (e) { this.countError('anker-markieren', e); } }
         break;
       }
+      case 'weapons.schilde': err = Alarm.schildeSchalten(this, !!msg.unten); break;   // EK2: Schilde hoch/runter (nur Schleichfahrt)
       case 'weapons.marker':
         if (msg.onTarget) err = space.markerOnTarget(this);
         else err = space.setMarker(this, 'tactical', Number(msg.x), Number(msg.y), !!msg.clear);
@@ -1612,7 +1615,7 @@ class Game {
     const rc = ship.reactorCtl;
     const spaceOut = {
       w: sp.w, h: sp.h,
-      enemies: sp.enemies.concat(this.treibendeSnapList()).map((e) => {
+      enemies: sp.enemies.filter((e) => Alarm.sichtbar(this, e)).concat(this.treibendeSnapList()).map((e) => {
         const o = { id: e.id, kind: e.kind, x: r1(e.x), y: r1(e.y), angle: r3(e.angle), hp: r1(e.hp), hpMax: e.hpMax,
           scanned: !!e.scanned, weapons: e.scanned ? space.waffenPlaetze(this, e, null).map((w) => (e.waffen ? { platz: w.platz, typ: e.waffen[w.platz] } : w)) : null };
         // EK1b (Snapshot kompakt, „fehlt = Standard“): shieldsMax entfällt (Aufbau der Klasse aus CONFIG.enemySchildSegmente/enemyShields, Leser: Shared_Schilde.fuellen),
@@ -1625,6 +1628,7 @@ class Game {
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
         if (e.st) o.st = e.st;   // B1 §7/§9: 'treibt' = kampfunfähiges Feindschiff (entern.js, liegt in space.treibend)
         if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)
+        if (e.pat) { const pr = Alarm.patrouillenSnap(this, e); if (pr != null) o.pat = pr; }   // EK2: Patrouille, Wert = wirksamer Sensorkreis (px)
         return o;
       }),
       projectiles: sp.projectiles.map((q) => ({ id: q.id, kind: q.kind, x: r1(q.x), y: r1(q.y), angle: r3(q.angle) })),
@@ -1641,6 +1645,8 @@ class Game {
       salvage: (sp.salvage || []).map((s) => ({ id: s.id, x: s.x, y: s.y, kind: s.kind })),
       hidden: this.explore.hiddenSnapshot(),
     };
+    // EK2 (kompakt, „fehlt = Standard“): Minen nur gesehene/nahe, Alarmstufe nur > 0
+    { const mi = Alarm.minenSnap(this); if (mi) spaceOut.mines = mi; const al = Alarm.stufe(this); if (al > 0) spaceOut.al = al; }
     // W2 AP3b: bewegte Brocken (Feld b) nur mit Bahnparametern, ohne id (Netzbudget; der Client braucht sie nicht).
     // Stille Brocken (Kampagne) unverändert.
     if (includeAsteroids) spaceOut.asteroids = sp.asteroids.length && sp.asteroids[0].b ? sp.asteroids.map((a) => ({ x: a.x, y: a.y, r: a.r, seed: a.seed, b: a.b })) : sp.asteroids;
@@ -1746,6 +1752,7 @@ class Game {
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
+        ...(Alarm.schleichSnap(this) ? { sf: Alarm.schleichSnap(this) } : {}),   // EK2: Schleichfahrt: Signatur, Schilde unten, Ping
         npcs: onboard.npcsSnapshot(this),
       },
       ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)

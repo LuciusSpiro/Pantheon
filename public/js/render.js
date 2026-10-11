@@ -3447,6 +3447,28 @@
       lab('BERGUNG', s.x, s.y + pr + 2, { color: PAL.mint, align: 'center' }, 1);
     }
 
+    // EK2: Minen (Weitscan zeigt sie; nur gesehene/nahe stehen im Snapshot) und Zielkreis der Schleichfahrt
+    for (const m of space.mines || []) {
+      const s = toS(m.x, m.y);
+      if (!inB(s, 8)) { if (!front) arrow(m.x, m.y, PAL.red, 'MINE'); continue; }
+      const dead = m.s === 0; const col = dead ? PAL.panelLight : PAL.red;
+      const pr = Math.max(5, Math.round(10 * zoom * 2)) + (dead ? 0 : Math.round(1.5 * Math.sin(t * 5)));
+      ctx.strokeStyle = col; ctx.fillStyle = dead ? '#26313F' : 'rgba(224,71,60,0.25)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, pr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + t * 0.3; ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * pr, s.y + Math.sin(a) * pr); ctx.lineTo(s.x + Math.cos(a) * (pr + 4), s.y + Math.sin(a) * (pr + 4)); ctx.stroke(); }
+      if (sship.target === m.id) { ctx.strokeStyle = PAL.amber; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, pr + 8, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      lab(dead ? 'MINE (ohne Strom)' : 'MINE', s.x, s.y + pr + 6, { color: col, align: 'center' }, 3);
+      if (clicks && !front) clicks.push({ id: m.id, x: s.x - pr - 4, y: s.y - pr - 4, w: pr * 2 + 8, h: pr * 2 + 8 });
+    }
+    if (sship.sf && sship.sf.z) {
+      const z = sship.sf.z; const s = toS(z[0], z[1]); const zr = Math.max(10, z[2] * zoom);
+      if (inB(s, zr)) {
+        ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.arc(s.x, s.y, zr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        lab('ZIEL', s.x, s.y - zr - 8, { color: PAL.mint, align: 'center' }, 4);
+      } else if (!front) arrow(z[0], z[1], PAL.mint, 'ZIEL');
+    }
+    if (space.al) lab(space.al >= 2 ? 'ALARM – ALLE GEGNER GREIFEN AN' : 'ALARMSTUFE: MISSTRAUISCH', B.x + B.w / 2, B.y + 12, { color: space.al >= 2 ? PAL.red : PAL.amber, align: 'center' }, 9);
+
     // Aufgedeckte versteckte Objekte (Weitscan)
     const target = (view.enemies || []).find(e => e.id === sship.target) || (space.hidden || []).find(h => h.id === sship.target) || (sship.target === 'station' ? stationOf(space) : null);
     if (target && target.station && !front) {
@@ -3552,6 +3574,11 @@
       if (!inB(s, 0)) { offscreen.push({ e, s }); continue; }
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
+      if (e.pat) {   // EK2: Patrouille – wirksamer Sensorkreis (wächst mit der Signatur der Lerche)
+        ctx.strokeStyle = 'rgba(255,198,107,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, e.pat * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        lab('PATROUILLE', s.x, s.y - size - 16, { color: PAL.amber, align: 'center' }, 3);
+      }
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);

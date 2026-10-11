@@ -119,13 +119,39 @@ function wellenlauf(S, seed, karte) {
   return { karte, maxStehend: maxSt, maxLebendAbTick: erreicht, fehler: g.errors };
 }
 
+// ---------- Aufbau 3 (EK2): Raum-Alarm – Schleichfahrt mit 12 Minen (Weitscan), 4 Patrouillen, 8 gescannte Gegner, Alarm ----------
+function raumAlarm(S, seed) {
+  const space = require('../server/sim/space.js');
+  const Alarm = require('../server/sim/alarm.js');
+  const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
+  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'R' + i, name: 'R' + i, color: i }); }
+  g.reset(); g.phase = 'play';
+  space.enterScene(g, 'splitter', {});
+  g.space.enemies = [];
+  for (let i = 0; i < 4; i++) Alarm.patrouilleSetzen(g, { n: 1, x: 600 + i * 500, y: 300, x2: 600 + i * 500, y2: 1300, kind: 'korvette' });
+  Alarm.an(g, { schleichfahrt: true });
+  Alarm.zielSetzen(g, 2750, 800, 150);
+  Alarm.minenSetzen(g, { n: 12, x: 1500, y: 800, radius: 1000 });
+  g.ship.widescan.cd = 0; space.weaponsWidescan(g);
+  for (let i = 0; i < 8; i++) { const e = space.spawnEnemy(g, i % 2 ? 'raider' : 'korvette', { x: 400 + i * 120, y: 1450 }); e.scanned = true; }
+  Alarm.ausloeser(g, 'mine');
+  for (let k = 0; k < TICKS; k++) {
+    for (const p of g.players) { p.console = p.console || null; }
+    g.ship.hull = 100;
+    g.step();
+    messen(S, g.snapshot());
+  }
+  return { fehler: g.errors };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen');
-const laeufe = { worst: [], wellen: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm');
+const laeufe = { worst: [], wellen: [], raum: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -141,5 +167,7 @@ zeigen(res.worst);
 console.log('  Läufe: ' + laeufe.worst.map((l) => `s${l.seed} ${l.lp}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.wellen);
 console.log('  Läufe: ' + laeufe.wellen.map((l) => `${l.karte}/s${l.seed} stehend max ${l.maxStehend}${l.maxLebendAbTick >= 0 ? ' (maxLebend ab Tick ' + l.maxLebendAbTick + ')' : ' (maxLebend NICHT erreicht)'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-console.log(`\n${res.worst.ok && res.wellen.ok ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
-process.exit(0);
+zeigen(res.raum);
+console.log('  Läufe: ' + laeufe.raum.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log(`\n${res.worst.ok && res.wellen.ok && res.raum.ok ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+process.exit(res.worst.ok && res.wellen.ok && res.raum.ok ? 0 : 1);

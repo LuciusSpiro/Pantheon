@@ -882,6 +882,10 @@ function checkGrobplan(g, env) {
       const n = String(w.nach || '');
       if (n.startsWith('ausgang:')) { if (!aus.has(n.slice(8))) E.push(`${p}: Ausgang '${n.slice(8)}' fehlt`); } else if (!ids.has(n)) E.push(`${p}: Folgeszene '${n}' gibt es nicht`); else seen.add(n);
     }
+    if (s.rueckzug) {   // EK2: Ausgang „Rückzug“ einer Szene (Notfallsprung), eigenes Ziel neben 'weiter'
+      const n = String(s.rueckzug);
+      if (n.startsWith('ausgang:')) { if (!aus.has(n.slice(8))) E.push(`${p}: Rückzug-Ausgang '${n.slice(8)}' fehlt`); } else if (!ids.has(n)) E.push(`${p}: Rückzug-Szene '${n}' gibt es nicht`); else seen.add(n);
+    }
     if (!(s.weiter || []).length) E.push(`${p}: kein 'weiter'`);
   }
   for (const s of g.szenen) if (!seen.has(s.id)) E.push(`Szene '${s.id}' ist nicht erreichbar`);
@@ -895,7 +899,7 @@ function checkGrobplan(g, env) {
   }
   const z = Number(g.zielspieldauer_min) || 0; const gesamt = summe + sprungMin;
   if (z && (gesamt < z * 0.75 || gesamt > z * 1.25)) E.push(`Dauer ${gesamt} min (Szenen ${summe} + Sprünge ${sprungMin}) passt nicht zu Ziel ${z} min (±25 %)`);
-  const reachedOut = new Set(g.szenen.flatMap((s) => (s.weiter || []).map((w) => String(w.nach || '')).filter((n) => n.startsWith('ausgang:')).map((n) => n.slice(8))));
+  const reachedOut = new Set(g.szenen.flatMap((s) => (s.weiter || []).map((w) => String(w.nach || '')).concat(s.rueckzug ? [String(s.rueckzug)] : []).filter((n) => n.startsWith('ausgang:')).map((n) => n.slice(8))));
   for (const k of Object.keys(g.ausgaenge || {})) if (!reachedOut.has(k)) E.push(`Ausgang '${k}' wird von keiner Szene erreicht`);
   for (const m of JSON.stringify(g).matchAll(/npc_(?:haltung|gedaechtnis):? ([a-z_]+)/g)) if (!NPC.includes(m[1])) E.push(`Folge für unbekannten NSC '${m[1]}' (neue NSC nur als neu:<name>, Folgen als welt_fakt)`);
   for (const e of g.entscheidungen || []) {
@@ -1045,7 +1049,7 @@ function assembleScene(g, s, answer, env, opts) {
     const params = Object.assign({}, m.params || {});
     if (o.book) buehnenParams(u, params, s, env);   // B1: map/Besetzung setzt der Szenenbau, nie das LLM
     if (o.book) for (const [pn, d] of Object.entries(u.params)) if (d.typ === 'npc' && isNeu(params[pn])) params[pn] = fixVoice(params[pn]);
-    const { frag, errs } = Katalog.instantiate(u, params, id, weiter);
+    const { frag, errs } = Katalog.instantiate(u, params, id, weiter, '__rueckzug__');
     if (o.book && frag.besetzung && Array.isArray(frag.besetzung.npc)) frag.besetzung.npc = frag.besetzung.npc.filter((n) => !stimmen[n]);
     E.push(...errs.map((e) => `${m.id}/${m.umsetzung}: ${e}`));
     const lf = Array.isArray(u.liefert_flags) ? Katalog.expand(u.liefert_flags, { id }).filter((x) => typeof x === 'string') : [];
@@ -1110,6 +1114,8 @@ function assembleScene(g, s, answer, env, opts) {
   for (const st of steps) {
     if (!st.next) continue;
     st.next = st.next.flatMap((n) => {
+      // EK2: Ausgang „Rückzug“ (Notfallsprung): Ziel aus s.rueckzug (Szene oder ausgang:<key>); ohne Angabe fällt der Weg weg
+      if (n.goto === '__rueckzug__') { if (!s.rueckzug) return []; const { goto, ...rest } = n; return [Object.assign({}, rest, target(String(s.rueckzug)))]; }
       if (n.goto !== '__weiter__') return [n];
       const { goto, ...rest } = n;
       return zweige.map((z, i) => Object.assign({}, rest, { if: i < zweige.length - 1 && z.if ? { all: [n.if, z.if] } : n.if }, target(z.nach)));
@@ -1121,7 +1127,7 @@ function assembleScene(g, s, answer, env, opts) {
 // Testbuch um eine Szene (Replay-Prüfung, aus dem Trockenversuch)
 function sceneTestBook(g, s, sz) {
   const vorher = { id: 'start', objectives: [], next: [{ if: true, goto: sz.steps[0] ? sz.steps[0].id : s.id }], skip: [] };
-  const ziele = [...new Set(s.weiter.map((w) => w.nach))];
+  const ziele = [...new Set(s.weiter.map((w) => w.nach).concat(s.rueckzug ? [String(s.rueckzug)] : []))];   // EK2: auch das Ziel des Rückzug-Ausgangs
   const platzhalter = ziele.filter((n) => !n.startsWith('ausgang:')).map((n) => ({ id: n, objectives: [], next: [{ if: true, complete: 'platzhalter' }], skip: [] }));
   const ausgaenge = { platzhalter: { beschreibung: 'Rest der Mission (noch nicht ausgearbeitet)', folgen: [{ chronik: '@test.text' }] } };
   for (const n of ziele.filter((x) => x.startsWith('ausgang:'))) ausgaenge[n.slice(8)] = { beschreibung: (g.ausgaenge[n.slice(8)] || {}).wann || n, folgen: [{ chronik: '@test.text' }] };

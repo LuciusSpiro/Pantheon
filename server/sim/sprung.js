@@ -245,6 +245,7 @@ function notsprung(game) {
   ship.y = Math.round(sc.h / 3 + rng() * sc.h / 3);
   if (nachHex && vonHex) ship.angle = Sektoren.winkel(Sektoren.richtung(vonHex, nachHex));
   freiVonBrocken(game);
+  game.notsprungVon = vonOrt; game.notsprungT = game.time;   // EK2: Baustein rueckzug (Ausgang „Rückzug“ einer Schleichfahrt)
   const evt = { von: vonHex, nach: nachHex || vonHex };
   game.emit('notsprung', evt);
   if (nachOrt !== vonOrt) game.explore.arrive(nachOrt);

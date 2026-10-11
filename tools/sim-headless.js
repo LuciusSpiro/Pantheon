@@ -2287,6 +2287,66 @@ class GenericAgent extends KeshAgent {
     const w = S.space.w || 2400, h = S.space.h || 1400;
     this.calm(S, p, { x: Math.min(w - 200, 1800), y: clamp(sh.y, 200, h - 200), r: 80, v: 120 });
   }
+  // EK2: Schleichfahrt und Minenfeld. Taktik: Schilde runter, Weitscan nur wenn keine (zuletzt gesehene) Patrouille nah ist (der Ping
+  // verrät uns), Pilot: ¼ Fahrt, Minen (Weitscan) und gesehene Patrouillen umgehen, im Zweifel stehen und warten. Bei Alarm: kämpfen wie sonst.
+  schleichNav(S, p, goal, o) {
+    const sh = S.ship; const sm = this.sm;
+    if ((S.space.al || 0) >= 2 && !sm.alarmGezaehlt) { sm.alarmGezaehlt = true; this.game.simStats.alarme = (this.game.simStats.alarme || 0) + 1; }
+    if ((S.space.al || 0) >= 2 && S.space.enemies.length) { this.combatGeneric(S, p); return; }
+    const pats = (S.space.enemies || []).filter((e) => e.pat);
+    sm.pats = sm.pats || {};
+    for (const e of pats) {   // Geschwindigkeit aus zwei Sichtungen schätzen (Patrouillen laufen auf einer Strecke hin und her)
+      const q = sm.pats[e.id]; let vx = q ? q.vx : 0, vy = q ? q.vy : 0;
+      if (q && S.time - q.t > 0.4 && S.time - q.t < 3) { vx = (e.x - q.x) / (S.time - q.t); vy = (e.y - q.y) / (S.time - q.t); }
+      if (!q || S.time - q.t > 0.4) sm.pats[e.id] = { x: e.x, y: e.y, t: S.time, vx, vy, v: !!q };
+    }
+    for (const [id, q] of Object.entries(sm.pats)) if (S.time - q.t > 60) delete sm.pats[id];
+    const bekannt = Object.values(sm.pats);
+    const pingDue = sh.widescan.cd === 0 && !bekannt.some((q) => dist(q.x, q.y, sh.x, sh.y) < 900) && (!sm.pingAt || dist(sm.pingAt.x, sm.pingAt.y, sh.x, sh.y) > 600);
+    const schildeDue = !!(o.schilde && sh.sf && !sh.sf.d && !sh.sf.h);
+    const tac = () => {
+      if (schildeDue) { this.cmd('weapons.schilde', { unten: true }); return; }
+      if (pingDue) { this.cmd('weapons.widescan'); sm.pingAt = { x: sh.x, y: sh.y }; this.game.simStats.widescans++; }
+    };
+    const nav = () => {
+      const hind = [];
+      for (const mi of S.space.mines || []) if (mi.s !== 0) hind.push({ x: mi.x, y: mi.y, r: 125 });
+      for (const q of bekannt) {
+        if (S.time - q.t >= 12) continue;
+        const dt0 = S.time - q.t;
+        if (!q.v) { hind.push({ x: q.x, y: q.y, r: 230 }); continue; }
+        for (const tau of [0, 3, 6, 9]) hind.push({ x: q.x + q.vx * (dt0 + tau), y: q.y + q.vy * (dt0 + tau), r: 150 });   // vorausgeschätzte Lage
+      }
+      const sicher = (a, len) => hind.every((ob) => { const rx = ob.x - sh.x, ry = ob.y - sh.y; const al = rx * Math.cos(a) + ry * Math.sin(a); if (al < -20 || al > len + ob.r) return true; return Math.abs(-rx * Math.sin(a) + ry * Math.cos(a)) > ob.r; });
+      const goalA = Math.atan2(goal.y - sh.y, goal.x - sh.x);
+      let best = null; let bd = Infinity;
+      for (let k = 0; k <= 16; k++) for (const a of k === 0 ? [goalA] : [goalA + k * 0.15, goalA - k * 0.15]) {
+        if (!sicher(a, 240)) continue;
+        const d = dist(sh.x + Math.cos(a) * 200, sh.y + Math.sin(a) * 200, goal.x, goal.y) + Math.abs(norm(a - sh.angle)) * 40;
+        if (d < bd) { bd = d; best = a; }
+      }
+      if (best == null) { this.brake(S); return; }
+      this.steer(S, sh.x + Math.cos(best) * 300, sh.y + Math.sin(best) * 300, 0, o.tempo || 35);
+    };
+    if (this.role === 'solo') {
+      if (schildeDue || pingDue) { if (this.enter(S, 'weapons')) tac(); return; }
+      if (this.enter(S, 'helm')) nav();
+      return;
+    }
+    if (this.role === 'helm') { if (this.enter(S, 'helm')) nav(); return; }
+    if (this.role === 'weapons') { if (this.enter(S, 'weapons')) tac(); return; }
+    this.idleStations(S, p);
+  }
+  umsetzung_unbemerkt_durchfliegen_patrouillen_schleichfahrt(S, p) {
+    const z = S.ship.sf && S.ship.sf.z;
+    if (this.objDone(S, 'ziel') || !z) { this.calm(S, p); return; }
+    this.schleichNav(S, p, { x: z[0], y: z[1] }, { schilde: true, tempo: 35 });
+  }
+  umsetzung_kurs_durch_gefahr_minenfeld(S, p) {
+    if (this.objDone(S, 'durch')) { this.calm(S, p); return; }
+    const hh = S.space.h || 1600;
+    this.schleichNav(S, p, { x: Math.min((S.space.w || 3000) - 200, 1800), y: clamp(S.ship.y, 250, hh - 250) }, { schilde: false, tempo: 45 });
+  }
   // Bergungskisten im All einsammeln (überfliegen), wie m1 „route“
   umsetzung_ladung_bergen_bergungskisten(S, p) {
     if (S.space.enemies.length) { this.combatGeneric(S, p); return; }

@@ -69,9 +69,10 @@ function resolveParams(u, given) {
   return { vars, errs };
 }
 // Umsetzung -> Regiebuch-Fragment (für eine Szene). id = Instanz-Präfix, weiter = Folgeschritt.
-function instantiate(u, given, id, weiter) {
+// EK2: rueckzug = Ziel des Ausgangs „Rückzug“ (Notfallsprung, Platzhalter {{rueckzug}}); ohne Angabe wie weiter.
+function instantiate(u, given, id, weiter, rueckzug) {
   const { vars, errs } = resolveParams(u, given);
-  const frag = expand(u.vorlage, Object.assign({}, vars, { id, weiter }));
+  const frag = expand(u.vorlage, Object.assign({}, vars, { id, weiter, rueckzug: rueckzug !== undefined ? rueckzug : weiter }));
   return { frag, errs };
 }
 // Testregiebuch um ein Fragment herum (für die Prüfung beim Laden)

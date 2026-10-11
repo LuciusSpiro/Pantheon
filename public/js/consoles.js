@@ -1556,6 +1556,18 @@
       const wsMax = WIDESCAN_CD;
       R.bar(ctx, rx + 124, y + 4, rw - 124, 6, 1 - clamp(n(ws.cd) / wsMax, 0, 1), wsR ? PAL.amber : PAL.mint);
       y += 19;
+      // EK2 Schleichfahrt: Signatur und Knopf „Schilde hoch/runter“ (nur in einer Schleichfahrt, ship.sf)
+      if (ship.sf) {
+        const sf = ship.sf; const sig = clamp(n(sf.sig) / 100, 0, 1);
+        R.text(ctx, 'SIGNATUR', rx, y, { color: PAL.brass });
+        R.bar(ctx, rx + 60, y + 2, rw - 60, 6, sig, sig > 0.6 ? PAL.red : sig > 0.3 ? PAL.amber : PAL.mint);
+        y += 11;
+        const unten = !!sf.d && !n(sf.h);
+        R.button(ctx, rx, y, rw, 14, unten ? 'Schilde hoch' : n(sf.h) ? 'Schilde fahren hoch … ' + n(sf.h) + ' s' : 'Schilde runter (leiser)', { hotkey: 'H', active: !!sf.d, disabled: !!n(sf.h), reason: 'Schilde fahren gerade hoch', onClick: () => this.cmd(view, 'weapons.schilde', { unten: !unten }) });
+        y += 15;
+        if (n(sf.p) > 0) { R.text(ctx, 'Weitscan verrät uns noch ' + n(sf.p) + ' s', rx, y, { color: PAL.red }); y += 11; }
+        y += 4;
+      }
       // ---- Marker
       const mk = R.markersOf(st).tactical;
       R.text(ctx, 'MARKER', rx, y, { color: PAL.brass });
@@ -2452,6 +2464,7 @@
           if (code === 'Space') return press(() => this.tryButton('beide Phasen'));
           if (code === 'KeyS') { this.setTscan(view, true); return true; }
           if (code === 'KeyW') return press(() => this.tryButton(/^Weitscan/));
+          if (code === 'KeyH') return press(() => this.tryButton(/^Schilde (hoch|runter)/));   // EK2: Schleichfahrt
           if (code === 'KeyM') return press(() => this.markerOnTarget(view));
           if (code === 'KeyX') return press(() => this.tryButton('Löschen'));
           if (code === 'KeyR') return press(() => this.tryButton('Nachladen'));
