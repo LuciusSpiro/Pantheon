@@ -217,6 +217,42 @@
         }
       }
       setze(LF.x0 + 1, LF.y0, 2); setze(LF.x1 - 2, LF.y1, 2);
+      // Streuobjekte sind Deckung (Kai 2026-10-11): was groß genug für Deckung ist, ist Deckung und steht zugleich als Deko herum.
+      // Fässer, Werkzeug und Feuerschalen (Kit: Bauweise.deckung_props) stehen an Hauswänden, am Platzring und an Straßenrändern,
+      // nie nahe Türen, nie dicht beieinander (Abstand 2), selten als hohe Deckung 'O'.
+      {
+        const tuerNah = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'D' || c === 'x' || c === 'g') return true; } return false; };
+        const nahDeck = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'o' || c === 'O' || c === 'm') return true; } return false; };
+        const wand8 = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (grid[y + dy] && grid[y + dy][x + dx] === '#') return true; return false; };
+        const randStr = (x, y) => strassen.some((st) => { const q = st.rect; return x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1 && (x === q.x0 || x === q.x1 || y === q.y0 || y === q.y1); });
+        const ring = (x, y) => x >= platz.x0 && x <= platz.x1 && y >= platz.y0 && y <= platz.y1 && (x <= platz.x0 + 1 || x >= platz.x1 - 1 || y <= platz.y0 + 1 || y >= platz.y1 - 1);
+        // Eingänge sitzen an Straßenenden und -mitten (siehe karteRoh): dort 4 Kacheln frei halten
+        const schutz = [];
+        for (const st of strassen) { const q = st.rect, mx = Math.floor((q.x0 + q.x1) / 2), my = Math.floor((q.y0 + q.y1) / 2); schutz.push([mx, q.y0], [mx, q.y1], [q.x0, my], [q.x1, my]); }
+        schutz.push([S.x0, cy], [strassen[0].rect.x0, cy]);
+        const imSchutz = (x, y) => schutz.some(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) <= 4);
+        const fest = (x, y) => { const c = grid[y] && grid[y][x]; return c === undefined || '#oOmzMTk^x'.includes(c); };
+        const engpass = (x, y) => (fest(x - 1, y) && fest(x + 1, y)) || (fest(x, y - 1) && fest(x, y + 1));   // verschließt keine schmale Gasse
+        const kand = [];
+        for (let y = S.y0 + 2; y <= S.y1 - 2; y++) for (let x = S.x0 + 2; x <= S.x1 - 2; x++) {
+          if (imSchutz(x, y)) continue;
+          const c = grid[y][x];
+          if ((c === '.' && wand8(x, y)) || (c === '=' && randStr(x, y)) || (c === '+' && ring(x, y)) || (c === ',' && (x === LF.x0 || y === LF.y0 || y === LF.y1))) kand.push([x, y]);
+        }
+        R.shuffle(kand);
+        const ziel = Math.round(N * 3.2);
+        let n = 0;
+        for (const [x, y] of kand) {
+          if (n >= ziel) break;
+          if (tuerNah(x, y) || nahDeck(x, y) || engpass(x, y)) continue;
+          const c = R.f() < 0.78 ? 'o' : 'O';
+          grid[y][x] = c; n++;
+          // knapp die Hälfte als Paar (Gruppe statt Einzelblock, K-DECKUNG-DICHT)
+          const nx = x + 1;
+          if (R.f() < 0.5 && '.=+,'.includes(grid[y][nx]) && !imSchutz(nx, y) && !tuerNah(nx, y) && !engpass(nx, y)) { grid[y][nx] = c; n++; }
+        }
+        deck += n;
+      }
       return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy] };
     }
 
@@ -528,6 +564,11 @@
         const folge = ['wache', 'patrouille', 'wache', 'patrouille', 'wache', 'wache', 'patrouille', 'wache', 'patrouille', 'wache'];
         pick.forEach((c, i) => { belegt.add(c.p.join(',')); ank(c.platz, folge[i], c.p, folge[i] === 'patrouille' ? { kette: 'a' } : {}); });
       }
+      // Lager und Werkstatt: ein, zwei Fässer/Werkzeug an der Wand als Deckung (statt reiner Deko); Gebäude bleiben zusammenhängend begehbar
+      for (const { b, id } of geb) {
+        if (b.typ !== 'L' && b.typ !== 'W') continue;
+        for (let i = 0; i < 2; i++) { const t = kachelIn(plaetze[id].rect, 'rand'); if (t) setT(t[0], t[1], 'o'); }
+      }
       roh.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
@@ -536,7 +577,7 @@
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
-        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen4', schablone: 'gen-siedlung', spiegel: null, w, h, rows: rows.map((r) => r.replace(/P/g, '.')), legende: null, anker,
+        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen5', schablone: 'gen-siedlung', spiegel: null, w, h, rows: rows.map((r) => r.replace(/P/g, '.')), legende: null, anker,
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,

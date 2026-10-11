@@ -360,7 +360,7 @@ const FB = {
   gelaende(pen, p, F) {
     // Außenboden als Terrain (Frost, Schlamm, Sand): Farbe der Bauweisen-Tabelle (top/fill), leichte Streuung, ab und zu ein Stein
     const x = p.x | 0, y = p.y | 0, r = hash2(x, y, 52);
-    const top = mul(F.get(p.top || 'soil'), 0.94 + r * 0.1);
+    const top = mul(F.get(p.top || 'soil'), (0.94 + r * 0.1) * (p.f || 1));
     const nb = p.nb || [-99, -99, -99, -99], skip = [];
     if (nb[0] >= 0) skip.push('z-'); if (nb[1] >= 0) skip.push('x+'); if (nb[2] >= 0) skip.push('z+'); if (nb[3] >= 0) skip.push('x-');
     pen.box(-0.5, -1.6, -0.5, 0.5, r < 0.2 ? -0.03 : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
@@ -866,6 +866,9 @@ async function bauKarte(parent, karteIn, opts) {
       leitPlan.push({ p, v, a, mx, my, tx, ty, rot, rect, quelle });
     }
   } catch (e) { countErr('kit.leit', e); }
+  // Hüllen-Karten (Siedlung): Boden außerhalb der Gebäude wie das Gelände draußen (leichte Abstufungen), Straßen etwas dunkler (Kai 2026-10-11)
+  const inBau = new Set();
+  if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   for (let ty = 0; ty < k.h; ty++) {
     const d = k.deckOf(ty);
     for (let tx = 0; tx < k.w; tx++) {
@@ -877,6 +880,10 @@ async function bauKarte(parent, karteIn, opts) {
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
+          placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, f: kind === 'boden2' ? 0.9 : 1, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' });
+          continue;
+        }
         if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad') {
           placeKit(kind, kitParams(kind, base), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
@@ -884,7 +891,8 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
-        placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
+        if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
+        else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
         if (leitDeckt.has(tx + ',' + ty)) continue;   // Leitstück steht hier und trägt die Optik
@@ -948,7 +956,14 @@ async function bauKarte(parent, karteIn, opts) {
   // Deko (deterministisch, nur Optik)
   try {
     if (dekoRegeln || dekoExtra.length) {
-      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, dekoRegeln, { extra: dekoExtra });
+      // Was als Deckung dient (deckung_props), steht nicht zusätzlich als reine Deko herum: Deckungsobjekte sind zugleich die Streuobjekte
+      const deckIds = new Set(); if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) deckIds.add(id);
+      let regeln = dekoRegeln;
+      if (deckIds.size && dekoRegeln && dekoRegeln.regeln) {
+        regeln = Object.assign({}, dekoRegeln, { regeln: {} });
+        for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
+      }
+      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln, { extra: dekoExtra });
       for (const dd of liste) {
         const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)
