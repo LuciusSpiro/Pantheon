@@ -34,6 +34,23 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
   (Notfallsprung, Ziel zählt nicht).
 - Im Labor: `unbemerkt_durchfliegen/patrouillen_schleichfahrt` und `kurs_durch_gefahr/minenfeld`. Tests: `node tools/test-alarm.js`.
   Details und Entscheidungen: `CONTRACT-EK2.md`.
+## Neu in EK5 und EK6 – Methalle und Siedlung Eisenwald (Team BODEN, Branch `ek1b-boden`)
+**EK5 Methalle** (Militärsiedlung, ohne Schuss abschließbar):
+- Generator-Variante `methalle` (`shared/gen-siedlung.js`): Mauer ohne Tor, **Landefeld mit dem einzigen Abholpunkt außerhalb**,
+  **Rohr** (Kachel `r`, 3 Kacheln, sperrt Sicht und Schuss) unter der Mauer als einziger Weg hinein. Prüfer `K-ROHR` und `K-MAUER-DICHT`.
+- **Sprengstoff platzieren** statt zünden: Sprengziel mit `modus: platzieren` (`anker.ladungPlatzieren`): keine Explosion, kein Alarm.
+  Der Sprengstoff ist ein Gegenstand (`inventory.ladung`, im Snapshot, im Hafen kaufbar). Nach dem **Hochbeamen** meldet Mars
+  „Außenposten zerstört“, der Weltstand setzt den Fakt **`sperrriegel`**.
+- **Wachen:** drei Zweiergruppen auf Patrouille, nach dem Platzieren Nachschub aus den Baracken (ruhig, ohne Alarm), nie mehr als 8 gleichzeitig.
+- Labor: `sabotieren/sprengstoff_platzieren` (Landepunkt-Platzhalter `splitter.methalle`). Bots schleichen über Kacheln außer Sicht.
+**EK6 Siedlung Eisenwald** (Flagge hissen, Endkampf):
+- Generator-Variante `eisenwald`: **Feldzeichen** (Rolle `flagge`) in der Mitte des Dorfplatzes. **Zwei hissen gemeinsam** (E halten, der
+  Fortschritt bleibt; lebt nur einer, geht es nicht). Dann greifen **10 Gegner und ein Anführer** von allen Seiten an, sonst kein Spawn.
+- **Anführer** = normaler Sturmgewehr-Gegner (Rolle `niederhalter`, „Bolzer“) mit dem Gegner-Modifikator `anfuehrer`
+  (`CONFIG.awayCombat.modifikatoren`): +50 % Leben, +50 % Schaden, 25 % größer (Snapshot: ein Bit `gs`). Keine Sonderfigur.
+- **Sieg:** Anführer liegt, die übrigen beamen raus. **Niederlage:** Notrückholung, die Siedlung beginnt von vorn (`map_reset`), Freischaltung bleibt.
+- Labor: `stellung_nehmen/flagge_hissen` (Platzhalter `splitter.eisenwald`). Tests: `node tools/test-methalle.js`, `node tools/test-eisenwald.js`.
+- Details, Messwerte und Entscheidungen: `CONTRACT-EK5-6.md`.
 
 ## Neu in EK1a – Korvette statt Kanonenboot
 

@@ -1371,6 +1371,22 @@
       startDist.set(s.id, dist);
       for (const z of ziele) if (!erreicht(dist, z)) F('K-ERREICHBAR', `${z.id} von ${s.id} nicht erreichbar`, z.x, z.y);
     }
+    // K-MAUER-DICHT / K-ROHR (EK5, Methalle): Schleichweg = Kacheln der Art rohr. Ohne sie darf von der Ankunft aus kein Ziel erreichbar
+    // sein (die Mauer ist dicht, das Rohr der einzige Weg); mit ihnen erreichbar prüft K-ERREICHBAR oben. Der Weg gilt nur für die,
+    // die ihn kennen: Gegner haben ihn nicht in ihren Wegen (Besetzung, Patrouillen starten innerhalb der Mauer).
+    if (!hand && ank.length) {
+      const rohrTile = (x, y) => { const i = r.info(x, y); return !!i && i.kind === 'rohr'; };
+      let nRohr = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (rohrTile(x, y)) nRohr++;
+      if (nRohr || (karte.meta && karte.meta.schleichweg)) {
+        if (nRohr < 3) F('K-ROHR', `Schleichweg: ${nRohr} Rohrkacheln (min. 3: Mund, Mauer, Mund)`);
+        const ohne = K.bfs(W, H, (x, y) => pass(x, y) && !rohrTile(x, y), [[ank[0].x, ank[0].y]], links);
+        for (const z of ziele) {
+          if (z.rolle === 'abholpunkt' || z.rolle === 'eingang') continue;
+          if (erreicht(ohne, z)) F('K-MAUER-DICHT', `${z.id} ist von der Ankunft ohne das Rohr erreichbar (Mauer undicht)`, z.x, z.y);
+        }
+      }
+    }
     // K-INSEL: begehbare Flächen ohne Zugang (schwache Wände gelten als offen)
     if (ank.length && !hand) {
       const r2 = K.raster(karte, { wSchwachOffen: true });

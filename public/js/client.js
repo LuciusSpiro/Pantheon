@@ -1001,7 +1001,7 @@
     'terminal:geladen': 'Download abgeschlossen', 'terminal:laedt': 'Download läuft – E halten, Deckung!', 'beute:leer': 'Kiste geborgen',
     'fund:genommen': 'Fund geborgen', 'zelle:offen': 'Zelle geöffnet', 'raetsel:geloest': 'Schloss gelöst', 'tor:offen': 'Durchgang offen',
     'tor:gesprengt': 'Durchgang gesprengt', 'versteck:offen': 'Versteck geöffnet', 'ziel:genommen': 'Ziel genommen', 'ziel:aktiviert': 'Ziel aktiviert',
-    'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört',
+    'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört', 'sprengpunkt:platziert': 'Sprengstoff platziert', 'flagge:gehisst': 'Feldzeichen gehisst – Gegner von allen Seiten!',
   };
   function playerName(id) { const p = ((Client.state && Client.state.players) || []).find(q => q.id === id); return p ? p.name : null; }
   function ankerRolle(mapId, id) { const m = Maps[mapId]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? a[1] : ''; }
@@ -1393,10 +1393,19 @@
           if (z === 'bereit' || z === 'laedt') return { label: 'E halten: Daten herunterladen (' + sec('terminal') + ', Treffer unterbricht)', ok: true };
           if (z === 'geladen') return { label: 'E halten: Logbuch lesen (' + sec('lesen') + ')', ok: true };
           return { label: 'Terminal gesperrt', ok: false };
-        case 'sprengpunkt':
-          if (z === 'intakt') return (inv.ladung || 0) > 0 ? { label: 'E halten: Ladung scharf machen (' + sec('sprengpunkt') + ')', ok: true } : { label: 'Sprengpunkt – keine Ladung dabei', ok: false };
+        case 'sprengpunkt': {
+          const platz = !!(a[4] && a[4].modus === 'platzieren');   // EK5: Sprengstoff legen (keine Explosion)
+          if (z === 'intakt') return (inv.ladung || 0) > 0 ? { label: platz ? 'E halten: Sprengstoff platzieren (' + sec('sprengpunkt') + ', Treffer unterbricht)' : 'E halten: Ladung scharf machen (' + sec('sprengpunkt') + ')', ok: true } : { label: platz ? 'Sprengziel – kein Sprengstoff dabei' : 'Sprengpunkt – keine Ladung dabei', ok: false };
+          if (z === 'platziert') return { label: 'Sprengstoff liegt', ok: false };
           if (z === 'scharf') return { label: 'SCHARF – weg da!', ok: false };
           return { label: 'Gesprengt', ok: false };
+        }
+        case 'flagge':   // EK6: nur gemeinsam (zwei halten gleichzeitig), der Fortschritt bleibt
+          if (z === 'unten') {
+            const lebend = (st.players || []).filter(q => q.zone === 'away' && !q.downed).length;
+            return lebend >= 2 ? { label: 'E halten: Feldzeichen hissen (' + sec('flagge') + ', zwei gleichzeitig)', ok: true } : { label: 'Feldzeichen – hissen geht nur zu zweit', ok: false };
+          }
+          return { label: 'Das Feldzeichen steht', ok: false };
         case 'zelle': {
           // W1 AP4: Gefangene brechen die Zellentür von innen auf (Server: koerper.ausbruchTuer, laut)
           if (z === 'zu' && m && m.zs === 'gefangen') {

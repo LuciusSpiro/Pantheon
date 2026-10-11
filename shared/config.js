@@ -109,6 +109,7 @@
       { id: 'flickblech', name: 'Flickblech', price: 30, kind: 'item' },
       { id: 'bolzen', name: 'Bolzen', price: 10, kind: 'item' },
       { id: 'medipack', name: 'Medipack', price: 30, kind: 'item' },
+      { id: 'ladung', name: 'Sprengstoff', price: 150, kind: 'item', where: ['hafen'] },   // EK5: Gegenstand für die Methalle (Inventar ladung), nur an Stationen
       { id: 'pflanze', name: 'Topfpflanze', price: 20, kind: 'deko' },
       { id: 'poster', name: 'Sternkarten-Poster', price: 25, kind: 'deko' },
       { id: 'lampe', name: 'Messinglampe', price: 30, kind: 'deko' },
@@ -343,6 +344,11 @@
         waechter: { seg: 4, wunden: 2, waffe: 'waechter', speed: 32, aim: 1.4, hitRadius: 22, rhythmus: 2.6, schussSeg: 2, frontArc: 120, regenDelay: 6, regenStep: 2 },
       },
       alarm: { ruheNach: 60, funk: 20, funkVerzoegerung: 4 },
+      // EK6: Gegner-Modifikatoren (Baukasten, keine Sonderfigur). leben: Faktor auf Schildsegmente + Wunden (der Zuschlag geht in den Schild),
+      // schaden: Faktor auf die Wirkung jeder Waffe des Trägers, groesse: Darstellung (Snapshot: ein Bit gs).
+      modifikatoren: { anfuehrer: { leben: 1.5, schaden: 1.5, groesse: 1.25 } },
+      // EK6: Endkampf der Siedlung (server/sim/endkampf.js): Angreifer erscheinen einmal verteilt um den Platz (Abstand in Kacheln)
+      endkampf: { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter' },
       ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)
@@ -565,7 +571,8 @@
     // Anker-Interaktionen (s, E halten; Werte aus INHALT §1.4). countdown = Ladung bis zur Explosion.
     // Rätselpaar (Abnahme F4, Studioleitung): solo Fenster = max(paarSoloFenster, Laufweg A->B / Spielertempo × paarLaufFaktor
     // + halten.raetsel + paarPuffer) (shared/buehne.js raetselFenster); ab 2 Spielern das enge paarFenster (beide gleichzeitig).
-    anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6 },
+    anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6, flagge: 6 },
+      flagge: { min: 2 },   // EK6: Feldzeichen hissen: mindestens 2 lebende Spieler halten gleichzeitig (Fortschritt bleibt, wenn einer loslässt)
       countdown: 60, paarFenster: 1.5, paarSoloFenster: 15, paarLaufFaktor: 1.3, paarPuffer: 2 },
     // Kampfunfähiges Feindschiff betreten (ENTERN): Transfer frei bis zu dieser Entfernung (px)
     entern: { aktiv: true, transferRange: 300 },

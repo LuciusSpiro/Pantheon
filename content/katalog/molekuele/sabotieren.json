@@ -262,6 +262,362 @@
           "map": "splitter.schuerflager"
         }
       }
+    },
+    {
+      "id": "sprengstoff_platzieren",
+      "name": "Sprengstoff platzieren",
+      "schauplatz": "aussen",
+      "beschreibung": "Militärsiedlung hinter einer Mauer, Teleportpunkt außerhalb, das Rohr unter der Mauer ist der einzige Weg hinein. Die Crew legt mitgebrachten Sprengstoff am Sprengziel (E halten, Treffer bricht ab): keine Explosion, kein Zeitdruck. Wachen in Zweiergruppen, Alarm nur bei Entdeckung oder Lärm; nach dem Platzieren kommt eine ruhige zweite Welle aus den Baracken. Nach dem Hochbeamen meldet Mars den zerstörten Außenposten (Fakt sperrriegel). Ohne Schuss abschließbar.",
+      "braucht": [
+        "transfer",
+        "sprengladung",
+        "stealth_aussen"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten"
+        ],
+        "anker": [
+          "sprengpunkt",
+          "patrouille",
+          "baracke",
+          "abholpunkt"
+        ],
+        "min": {
+          "patrouille": 6,
+          "baracke": 4
+        }
+      },
+      "dauer_min": [
+        6,
+        10
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          8,
+          12
+        ],
+        "2": [
+          7,
+          10
+        ],
+        "3": [
+          6,
+          9
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_zerstoert",
+        "{{id}}_entdeckt"
+      ],
+      "ereignisse": [
+        "ladungPlatziert",
+        "truppAlarm",
+        "squadSpawn"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM): Siedlung mit Mauer und Rohr (Generator-Variante methalle)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "raubzug",
+          "werte": [
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer der Wachen (Fraktion = Besitz-ID); es kommen immer Grundtypen in Zweiergruppen"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "item_count",
+                      "item": "ladung",
+                      "min": 1
+                    }
+                  }
+                },
+                "do": "ladung_geben",
+                "anzahl": 1
+              },
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_besetzt"
+                  }
+                },
+                "do": "besetzen_paare",
+                "map": "{{map}}",
+                "fraktion": "{{fraktion}}",
+                "tag": "{{id}}_w1",
+                "gruppen": 3
+              },
+              {
+                "set": {
+                  "{{id}}_besetzt": true
+                }
+              }
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 90,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_ende"
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "anker_state",
+                        "map": "{{map}}",
+                        "anker": "sprengpunkt",
+                        "state": "platziert",
+                        "min": 1
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_gelegt"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_gelegt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gelegt"
+                  },
+                  {
+                    "do": "nachschub_baracken",
+                    "map": "{{map}}",
+                    "fraktion": "{{fraktion}}",
+                    "tag": "{{id}}_w2",
+                    "gruppen": 2
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "alarm",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_alarm"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_alarm": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_entdeckt": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.alarm"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "v": "{{id}}_gelegt"
+                    },
+                    {
+                      "not": {
+                        "check": {
+                          "name": "team_down",
+                          "map": "{{map}}"
+                        }
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_ende"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_ende": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_zerstoert": true
+                    }
+                  },
+                  {
+                    "do": "welt_fakt",
+                    "key": "sperrriegel"
+                  },
+                  {
+                    "oda": "@{{id}}.meldung"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "done": {
+                  "any": [
+                    {
+                      "check": {
+                        "name": "away_active",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "v": "{{id}}_ende"
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "ziel",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "v": "{{id}}_gelegt"
+                }
+              },
+              {
+                "id": "hoch",
+                "text": "@{{id}}.ziel_hoch",
+                "show": {
+                  "v": "{{id}}_gelegt"
+                },
+                "done": {
+                  "v": "{{id}}_ende"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_ende"
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "sprengpunkt",
+                "zustand": "platziert"
+              },
+              {
+                "set": {
+                  "{{id}}_gelegt": true
+                }
+              },
+              {
+                "set": {
+                  "{{id}}_ende": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_zerstoert": true
+                }
+              },
+              {
+                "do": "welt_fakt",
+                "key": "sperrriegel"
+              },
+              {
+                "do": "debug_recall_all",
+                "map": "{{map}}"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.start": "Militärlager hinter einer Mauer. Wachen in Zweiergruppen. Das Rohr im Hang führt hinein – leise.",
+          "{{id}}.hinweis": "Captain: Patrouillen beobachten, Lücken ansagen. Der Sprengstoff gehört ans Sprengziel im Depot.",
+          "{{id}}.gelegt": "Sprengstoff liegt. Neue Patrouillen auf dem Gelände – sie wissen nichts von uns. Zurück zum Teleportpunkt.",
+          "{{id}}.alarm": "Alarm! Wachen sammeln sich. Weiter, wenn es geht – oder zurück durchs Rohr.",
+          "{{id}}.meldung": "Meldung von Mars: Außenposten zerstört. Der Weg ist frei.",
+          "{{id}}.ziel": "Sprengstoff am Sprengziel platzieren",
+          "{{id}}.ziel_hoch": "Zurück zum Teleportpunkt und hochbeamen"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "map": "splitter.methalle",
+          "fraktion": "raubzug"
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"

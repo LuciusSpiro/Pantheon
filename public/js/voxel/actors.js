@@ -981,7 +981,7 @@ function updateGermane(a, e, view, dt, t, hitAge) {
   const opts = { attach: { handR: null } };   // Waffe setzt das Spiel selbst (Fraktion, Hitze, Ablage am Boden)
   const pa = palReady(e.pa);
   if (pa) opts.palette = pa;
-  if (e.rk != null) opts.params = { rank: +e.rk ? 1 : 0 };
+  if (e.rk != null || e.gs != null) opts.params = { rank: (+e.rk || +e.gs) ? 1 : 0 };   // EK6: gs (Anführer-Modifikator) zeigt auch den Häuptling-Look
   a.setFigure('fig/germanen/' + e.ro, opts, 'scav');
   const carrier = carrierOf(e.id);
   if (carrier) { applyCarried(a, carrier, dt, t); return; }
@@ -1010,7 +1010,8 @@ function updateGermane(a, e, view, dt, t, hitAge) {
   pose(a, { base, upper, walk: still ? 0 : w, phase: a.phase, t }, dt);
   // Ersatzfigur (noch nicht geladen): Rollengröße selbst anwenden; die echte Figur bringt fig.scale mit
   const s = a.fig && a.fig.fallback ? ROLLE_SCALE[e.ro] || 1 : 1;
-  a.body.scale.set(s, s, s);
+  const gs = e.gs ? 1.25 : 1;   // EK6: Modifikator groesse (Anführer 25 % größer)
+  a.body.scale.set(s * gs, s * gs, s * gs);
   applyWaffe(a, e.wf || figWaffe(a), WAFFE_BW[e.fr] || 'germanen', 0, pa, ks);
   applyFessel(a, !!ks.fessel);
 }

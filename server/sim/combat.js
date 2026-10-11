@@ -566,6 +566,7 @@ function squadRecall(game) {
   const map = aw.map;
   list.forEach((p, i) => { it.placeOnShipPad(game, p, i); p.beamLock = false; revive(game, p, null, { quiet: true }); });
   aw.recallT = 0;
+  if (aw.endkampf && aw.endkampf.phase === 'angriff') aw.endkampf.verloren = true;   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
@@ -1177,6 +1178,7 @@ function b2SnapGegner(game, e, base) {
   if (ro) base.ro = ro;
   if (e.fraktion) base.fr = e.fraktion;
   if (e.rank) base.rk = 1;   // Häuptling-Look (actors.js liest rk); Standard 0 wird nicht gesendet
+  if (e.mod && e.mod.groesse > 1) base.gs = 1;   // EK6: Modifikator mit größerer Darstellung (Anführer: 25 %, dazu der Häuptling-Look); ein Bit, Standard fehlt
   if (e.palette) { const fk = (katalogDaten(game).fraktionen || {})[e.fraktion]; if (!fk || fk.palette !== e.palette) base.pa = e.palette; }
   if (e.wunden && (e.wunden.max > 1 || e.wunden.n < e.wunden.max)) { base.wn = e.wunden.n; base.wm = e.wunden.max; }
   if (e.granatZiel && game.time - e.granatZiel.t < 2) base.gr = { x: Math.round(e.granatZiel.x), y: Math.round(e.granatZiel.y), t: r2(e.granatZiel.t) };
@@ -1498,6 +1500,82 @@ function truppStatus(game, map, tag) {
   return { gesetzt: !!((aw.besetzt && aw.besetzt[tag]) || list.length), gesamt: list.length, aktiv, haltung: wach ? 'wach' : 'ruhig' };
 }
 
+// ---------- EK6: Gegner-Modifikatoren (Baukasten) ----------
+// modifikatorSetzen(game, e, name): Faktoren aus CONFIG.awayCombat.modifikatoren[name] auf einen Gegner. Keine Sonderfigur, die Rolle bleibt.
+//   leben    Faktor auf (Schildsegmente + Wunden), der Zuschlag geht in den Schild (3 Segmente + 1 Wunde = 4 -> 6: Schild 5)
+//   schaden  Faktor auf die Wirkung jeder Waffe des Gegners (waffen.js wirkungAus, e.modSchaden)
+//   groesse  Darstellung; im Snapshot ein Bit (gs), die Größe selbst liegt im Client (actors.js)
+// -> true | false (unbekannter Name)
+function modifikatorSetzen(game, e, name) {
+  const m = ((cfg(game).modifikatoren || {})[name]);
+  if (!m || !e) return false;
+  kaempfer(game, e);
+  const f = Number(m.leben) || 1;
+  if (f !== 1) {
+    const wunden = (e.wunden && e.wunden.max) || 1;
+    const zusatz = Math.round(((e.max || 0) + wunden) * (f - 1) * 100) / 100;
+    e.max = Math.round(((e.max || 0) + zusatz) * 100) / 100; e.seg = e.max; e.hp = e.seg;
+  }
+  if (Number(m.schaden) && Number(m.schaden) !== 1) e.modSchaden = Number(m.schaden);
+  e.mod = { name, groesse: Number(m.groesse) || 1 };
+  return true;
+}
+
+// ---------- EK5 (Methalle): Zweiergruppen auf Patrouille und Nachschub aus den Baracken ----------
+// Beide Wege setzen Trupps aus Zweiergruppen (Grundtyp, ruhig, Schleich-Besetzung: Alarm nur durch Entdeckung oder Lärm) und halten
+// die Obergrenze: höchstens `max` Gegner gleichzeitig (stehend oder verwundet liegend, die ein Kamerad wieder aufrichten kann).
+// besetzenPatrouillen: Erscheinen am Anfang eines Patrouillenwegs (karte.patrouillen), jede Gruppe auf einem eigenen Weg.
+// nachschubBaracken:   Erscheinen an den baracke-Ankern (ohne Alarm, auch wenn der Landepunkt im Alarm ist), dann auf einen Patrouillenweg.
+// opts { map, fraktion, tag, gruppen, groesse? (2), max? (8) } -> Zahl der gesetzten Gegner
+function aktiveGegner(aw) { return (aw.drones || []).filter((e) => e.alive || (e.liegt && e.zustand === 'verwundet')).length; }
+function paareSetzen(game, opts, quelle) {
+  const map = opts.map; let aw = game.aways && game.aways[map];
+  if ((!aw || !W.AWAY_MAPS[map]) && map) {
+    try { const L = require('./landepunkte.js'); if (L && typeof L.bereit === 'function' && L.bereit(game, map)) aw = game.aways[map]; } catch (e) { /* ohne Landepunkte */ }
+  }
+  if (!aw || !W.AWAY_MAPS[map]) { if (game.countError) game.countError('paareSetzen', new Error('Karte ' + map + ' unbekannt')); return 0; }
+  ensureV2(game, aw, map);
+  const f = ((katalogDaten(game).fraktionen || {})[opts.fraktion]);
+  if (!f) { if (game.countError) game.countError('paareSetzen', new Error('Fraktion ' + opts.fraktion + ' unbekannt')); return 0; }
+  const info = interior().awayInfoOf(map);
+  const karte = info.karte; if (!karte) return 0;
+  const groesse = Math.max(1, Number(opts.groesse) || 2), max = Math.max(groesse, Number(opts.max) || 8);
+  const n = Math.min(Math.max(0, Number(opts.gruppen) || 0), Math.floor(Math.max(0, max - aktiveGegner(aw)) / groesse));
+  if (n <= 0) return 0;
+  const tag = String(opts.tag || 'paare');
+  const ankerPos = {}; for (const a of karte.anker || []) ankerPos[a.id] = a;
+  const wege = (karte.patrouillen || []).map((w) => w.map((id) => ankerPos[id]).filter(Boolean).map((a) => ({ x: a.x, y: a.y }))).filter((w) => w.length);
+  if (!wege.length) { if (game.countError) game.countError('paareSetzen', new Error('Karte ' + map + ' hat keine Patrouillenwege')); return 0; }
+  const baracken = quelle === 'baracke' ? (karte.anker || []).filter((a) => a.rolle === 'baracke').sort((p, q) => (p.id < q.id ? -1 : 1)) : [];
+  if (quelle === 'baracke' && !baracken.length) { if (game.countError) game.countError('paareSetzen', new Error('Karte ' + map + ' hat keine Baracken')); return 0; }
+  // Kachel und freie Nachbarn (8er-Nachbarschaft, begehbar, nicht fest)
+  const solid = (x, y) => info.map.solid(x, y);
+  const mitNachbarn = (t) => { const out = [{ x: t.x, y: t.y }]; for (let r = 1; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r && !solid(t.x + dx, t.y + dy)) out.push({ x: t.x + dx, y: t.y + dy }); return out; };
+  const belegtWeg = new Set(Object.values(aw.squads || {}).filter((s) => s && s.weg && (aw.drones || []).some((e) => e.alive && e.squad === s.name)).map((s) => JSON.stringify(s.weg)));
+  let gesamt = 0;
+  for (let i = 0; i < n; i++) {
+    // Weg: zuerst ein Weg ohne lebende Gruppe, sonst reihum
+    const frei = wege.filter((w) => !belegtWeg.has(JSON.stringify(w)));
+    const weg = frei.length ? frei[0] : wege[(aw.paarLauf || 0) % wege.length];
+    belegtWeg.add(JSON.stringify(weg));
+    aw.paarLauf = (aw.paarLauf || 0) + 1;
+    const start = quelle === 'baracke' ? baracken.flatMap((b) => mitNachbarn(b)) : mitNachbarn(weg[0]);
+    const name = tag + '.' + aw.paarLauf;
+    const m = squad.spawnSquad(game, name, { map, besetzung: [{ typ: 'grundtyp', anzahl: groesse }], force: true, alert: false, plaetze: start, festeZahl: true });
+    gesamt += m;
+    const s = aw.squads[name];
+    if (!s) continue;
+    s.schleich = true; s.tag = tag; s.fraktion = f.id; s.posten = false; s.weg = weg.map((t) => ({ x: t.x, y: t.y }));
+    for (const e of aw.drones) if (e.squad === name) { e.tag = tag; e.fraktion = f.id; if (f.palette) e.palette = f.palette; kaempfer(game, e); }
+  }
+  if (!aw.besetzt) aw.besetzt = {};
+  aw.besetzt[tag] = { fraktion: f.id, staerke: null, haltung: 'ruhig', ersetzt: [], rezepte: [quelle === 'baracke' ? 'nachschub' : 'patrouille'] };
+  game.missionEvent('squadSpawn', { map, tag, n: gesamt });
+  return gesamt;
+}
+function besetzenPatrouillen(game, opts) { return paareSetzen(game, opts || {}, 'patrouille'); }
+function nachschubBaracken(game, opts) { return paareSetzen(game, opts || {}, 'baracke'); }
+
 // ---------- Debug B2 (CONTRACT-B2 §8): gegner <rolle> [fraktion] · alarm on|off · fang ----------
 function debugB2(game, cmd, args, p, msg) {
   const aw = game.away; const a = args || []; const m = msg || {};
@@ -1677,7 +1755,7 @@ module.exports = {
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,
   // B2 Welle 2
-  rolleVon, besetzen, truppStatus, debugB2, istB2Hold, reviveSperre, interactionsB2, holdDurationB2, holdValidB2, completeHoldB2,
+  rolleVon, besetzen, besetzenPatrouillen, nachschubBaracken, aktiveGegner, modifikatorSetzen, truppStatus, debugB2, istB2Hold, reviveSperre, interactionsB2, holdDurationB2, holdValidB2, completeHoldB2,
   ausbruch, ausbruchMoeglich, folgenAbgleich, _setzeKatalog, katalogDaten,
   // W1 AP4
   teamGefangenNehmen,

@@ -109,6 +109,10 @@ function setzen(game, map, id, z, pid, opts) {
 function istAnkerHold(kind) { return typeof kind === 'string' && kind.startsWith('anker:'); }
 function ankerAt(k, tx, ty) { return k.anker.filter((a) => a.x === tx && a.y === ty); }
 function inventar(game) { return game.inventory || {}; }
+// EK6 (Feldzeichen): lebende Spieler im Außenteam (nicht verwundet/bewusstlos/gefangen) – Hissen braucht mindestens flagge.min (2) davon
+function flaggeCfg(game) { return (game.C && game.C.anker && game.C.anker.flagge) || { min: 2 }; }
+function flaggeCrew(game) { return game.players.filter((p) => p.zone === 'away' && p.connected !== false && !p.downed); }
+function flaggeZeit(game) { return Number((kfg(game).halten || {}).flagge) || 6; }
 
 function interactionsAt(game, p, tx, ty, list) {
   const aw = game.away; if (!aw || p.zone !== 'away') return;
@@ -127,9 +131,16 @@ function interactionsAt(game, p, tx, ty, list) {
         else block('Das Terminal ist gesperrt.');
         break;
       case 'sprengpunkt':
-        if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(); else block('Keine Sprengladung dabei.'); }
+        if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(a.modus === 'platzieren' ? { modus: 'platzieren' } : undefined); else block(a.modus === 'platzieren' ? 'Kein Sprengstoff dabei.' : 'Keine Sprengladung dabei.'); }
         else if (z === 'scharf') block(`Scharf! Noch ${Math.ceil((L.ladung[a.id] && L.ladung[a.id].t) || 0)} s – weg da!`);
+        else if (z === 'platziert') block('Der Sprengstoff liegt. Jetzt unauffällig zurück zum Teleportpunkt.');
         else block('Hier ist nichts mehr zu sprengen.');
+        break;
+      case 'flagge':
+        if (z === 'unten') {
+          if (flaggeCrew(game).length < flaggeCfg(game).min) block('Das Feldzeichen hissen zwei gemeinsam – allein geht es nicht.');
+          else it({ op: 'hissen' });
+        } else block('Das Feldzeichen steht.');
         break;
       case 'zelle': if (z === 'zu') it(); else block('Die Zelle steht offen.'); break;
       case 'beute': if (z === 'voll') it(); else block('Leer geräumt.'); break;
@@ -191,6 +202,8 @@ function holdDuration(game, p, kind, it) {
     return Math.max(0.2, (H.terminal || 6) - done);
   }
   if (rolle === 'eingang') return it && it.op === 'luke' ? TUER_ZEIT.luke : (H.schott_hacken || 6);
+  if (rolle === 'sprengpunkt' && it && it.modus === 'platzieren') return H.platzieren || H.sprengpunkt || 4;   // EK5: Sprengstoff legen
+  if (rolle === 'flagge') return flaggeZeit(game) + 0.2;   // EK6: gemeinsamer Fortschritt (update); die eigene Zeit des Halters erreicht das nie vor update
   return H[rolle] || 1;
 }
 function holdValid(game, p, h) {
@@ -203,6 +216,7 @@ function holdValid(game, p, h) {
   switch (a.rolle) {
     case 'terminal': return h.op === 'lesen' ? z === 'geladen' : (z === 'bereit' || z === 'laedt');
     case 'sprengpunkt': return z === 'intakt' && (inventar(game).ladung || 0) > 0;
+    case 'flagge': return z === 'unten' && flaggeCrew(game).length >= flaggeCfg(game).min;   // lebt nur noch einer: Hissen nicht möglich
     case 'zelle': return z === 'zu';
     case 'beute': return z === 'voll';
     case 'ziel': return z === 'frei';
@@ -239,9 +253,11 @@ function completeHold(game, p, h) {
       const inv = inventar(game);
       if ((inv.ladung || 0) <= 0) return;
       inv.ladung -= 1;
-      ladungScharf(game, map, a.id, null, p.id);
+      if (a.modus === 'platzieren') ladungPlatzieren(game, map, a.id, p.id);   // EK5: legen statt zünden
+      else ladungScharf(game, map, a.id, null, p.id);
       return;
     }
+    case 'flagge': return;   // wird in update() vollendet (gemeinsamer Fortschritt zweier Halter)
     case 'zelle': setzen(game, map, a.id, 'offen', p.id); return;
     case 'beute': setzen(game, map, a.id, 'leer', p.id); game.missionEvent('beuteGeborgen', { map, anker: a.id, pid: p.id }); return;
     case 'ziel': setzen(game, map, a.id, 'aktiviert', p.id); return;
@@ -275,6 +291,25 @@ function ladungScharf(game, map, id, t, pid) {
   setzen(game, map, id, 'scharf', pid || null);
   game.emit('ladungScharf', { anker: id, t: sek, map });
   game.missionEvent('ladungScharf', { map, anker: id, pid: pid || null, t: sek });
+  return null;
+}
+
+// EK5 (Methalle): Sprengstoff am Anker platzieren – keine Explosion, kein Countdown, kein Alarm, keine Wirkung vor Ort.
+// ladungPlatzieren(game, map, id, pid?) -> Fehlertext | null. Verbraucht kein Inventar (das macht completeHold). Der Zustand 'platziert'
+// bleibt; die Folge (Meldung nach dem Hochbeamen, Weltstand-Fakt sperrriegel, zweite Welle) hängt am Regiebuch, nicht hier.
+function ladungPlatzieren(game, map, id, pid) {
+  const k = karteVon(map);
+  if (!k) return `Karte ${map} ist keine gebaute Karte.`;
+  const aw = awVon(game, map);
+  if (!aw) return `Karte ${map} ist nicht geladen.`;
+  const a = ankerById(k, id);
+  if (!a || a.rolle !== 'sprengpunkt') return `${id} ist kein Sprengpunkt auf ${map}.`;
+  if (zustandIn(aw, k, id) !== 'intakt') return `${id} ist nicht intakt (${zustandIn(aw, k, id)}).`;
+  setzen(game, map, id, 'platziert', pid || null);
+  const c = mitte(a);
+  game.emit('ladungPlatziert', { anker: id, map });
+  game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
+  game.missionEvent('ladungPlatziert', { map, anker: id, pid: pid || null });
   return null;
 }
 
@@ -320,6 +355,25 @@ function update(game, dt) {
     if (zustandIn(aw, k, h.anker) === 'bereit') setzen(game, aw.map, h.anker, 'laedt', p.id);
   }
   for (const a of k.anker) if (a.rolle === 'terminal' && !haelt.has(a.id) && zustandIn(aw, k, a.id) === 'laedt') setzen(game, aw.map, a.id, 'bereit', null);
+  // Feldzeichen (EK6): Fortschritt läuft nur, solange mindestens flagge.min lebende Spieler gleichzeitig halten; er bleibt, wenn einer loslässt
+  for (const a of k.anker) {
+    if (a.rolle !== 'flagge' || zustandIn(aw, k, a.id) !== 'unten') continue;
+    const F = L.flagge || (L.flagge = {});
+    const f = F[a.id] || (F[a.id] = { t: 0 });
+    const T = flaggeZeit(game);
+    const halter = game.players.filter((p) => p.zone === 'away' && !p.downed && p.hold && p.hold.kind === 'anker:flagge' && p.hold.anker === a.id);
+    if (halter.length >= flaggeCfg(game).min && flaggeCrew(game).length >= flaggeCfg(game).min) f.t = Math.min(T, f.t + dt);
+    for (const p of halter) { p.hold.t = Math.min(f.t, T); p.hold.dur = T + 0.2; }   // Fortschrittsbalken der Halter = gemeinsamer Fortschritt
+    if (f.t >= T - 1e-9) {
+      delete F[a.id];
+      for (const p of halter) p.hold = null;
+      setzen(game, aw.map, a.id, 'gehisst', halter[0] ? halter[0].id : null);
+      const c = mitte(a);
+      game.emit('flaggeGehisst', { anker: a.id, map: aw.map });
+      game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
+      game.missionEvent('flaggeGehisst', { map: aw.map, anker: a.id, pids: halter.map((p) => p.id) });
+    }
+  }
   // Ladung: Countdown -> Explosion
   for (const id of Object.keys(L.ladung).sort()) {
     const l = L.ladung[id];
@@ -367,9 +421,13 @@ function onTreffer(game, pid) {
     if (k && zustandIn(aw, k, h.anker) === 'laedt') setzen(game, aw.map, h.anker, 'bereit', pid);
     game.emit('downloadAbbruch', { anker: h.anker, map: aw && aw.map });
     if (game.notice) game.notice(p, 'Getroffen – Download unterbrochen. Der Fortschritt bleibt.');
+  } else if (h.kind === 'anker:flagge') {
+    p.hold = null;   // der Fortschritt bleibt (gemeinsamer Zähler in ankerLauf.flagge)
+    if (game.notice) game.notice(p, 'Getroffen – das Hissen ist unterbrochen. Der Fortschritt bleibt.');
   } else if (h.kind === 'anker:sprengpunkt') {
     p.hold = null;   // Ladung zurück: nichts verbraucht, Zustand bleibt intakt
-    if (game.notice) game.notice(p, 'Getroffen – die Ladung ist nicht scharf.');
+    const platz = k && (ankerById(k, h.anker) || {}).modus === 'platzieren';
+    if (game.notice) game.notice(p, platz ? 'Getroffen – der Sprengstoff liegt noch nicht.' : 'Getroffen – die Ladung ist nicht scharf.');
   }
 }
 
@@ -417,5 +475,5 @@ function awaySnap(game, aw) {
 
 module.exports = {
   istAnkerHold, interactionsAt, holdDuration, holdValid, holdStart, completeHold, update, onTreffer,
-  setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, paarFenster,
+  setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, ladungPlatzieren, paarFenster,
 };

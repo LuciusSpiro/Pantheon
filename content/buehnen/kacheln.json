@@ -268,6 +268,15 @@
       "sperrtSicht": false,
       "kante": "begehbar",
       "hinweis": "optional: Pad-Optik am abholpunkt"
+    },
+    "r": {
+      "kind": "rohr",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "begehbar",
+      "hinweis": "Schleichweg (EK5): Rohr unter der Mauer, begehbar, sperrt Sicht und Schuss; der Prüfer behandelt es als einzigen Weg über die Mauer (K-MAUER-DICHT, K-ROHR)"
     }
   }
 }

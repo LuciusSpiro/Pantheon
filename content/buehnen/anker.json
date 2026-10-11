@@ -50,6 +50,23 @@
       },
       "regel": "Wegpunkt; Ketten benachbarter Plätze verbindet der Zusammenbau (karte.patrouillen)"
     },
+    "flagge": {
+      "objekt": "flagge",
+      "zustaende": [
+        "unten",
+        "gehisst"
+      ],
+      "halten": "flagge",
+      "attribute": {},
+      "regel": "EK6: Feldzeichen in der Platzmitte (Platz dorfplatz). Hissen (E halten) geht nur gemeinsam: mindestens 2 lebende Spieler halten gleichzeitig, der Fortschritt bleibt, wenn einer loslässt. Lebt nur einer, ist Hissen nicht möglich. Folge hängt am Regiebuch (Angriff)"
+    },
+    "baracke": {
+      "objekt": null,
+      "zustaende": [],
+      "halten": null,
+      "attribute": {},
+      "regel": "EK5: Erscheinungspunkt für Nachschub (zweite Welle) in einem Quartier (Baracke); steht im Gebäude, ohne Alarm. Nur Methalle"
+    },
     "deckung": {
       "objekt": null,
       "zustaende": [],
@@ -76,11 +93,16 @@
       "zustaende": [
         "intakt",
         "scharf",
-        "zerstoert"
+        "zerstoert",
+        "platziert"
       ],
       "halten": "sprengpunkt",
-      "attribute": {},
-      "regel": "Ladung scharf machen (Abbruch bei Treffer setzt zurück), danach CONFIG.anker.countdown s -> zerstoert, Explosion Fläche r 2; braucht Inventar ladung"
+      "attribute": {
+        "modus": [
+          "platzieren"
+        ]
+      },
+      "regel": "Ladung scharf machen (Abbruch bei Treffer setzt zurück), danach CONFIG.anker.countdown s -> zerstoert, Explosion Fläche r 2; braucht Inventar ladung. modus platzieren (EK5, Methalle): Ladung nur legen -> platziert, keine Explosion, kein Alarm, keine Wirkung vor Ort (die Meldung kommt nach dem Hochbeamen)"
     },
     "zelle": {
       "objekt": "zelle",

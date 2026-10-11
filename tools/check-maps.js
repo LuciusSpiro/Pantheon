@@ -519,7 +519,7 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
   check(kach.format === 'kacheln/1' && Object.keys(kach.zeichen).length >= 20, `kacheln.json (${Object.keys(kach.zeichen).length} Zeichen)`);
   check(Object.values(kach.zeichen).every((z) => ['begehbar', 'fest', 'tuer'].includes(z.kante)), 'jede Kachelart hat kante begehbar|fest|tuer');
   check(Object.values(kach.zeichen).every((z) => z.solid !== 'zustand' || (z.zustaende && z.begehbarIn && z.begehbarIn.every((q) => z.zustaende.includes(q)))), 'Zustandskacheln: begehbarIn ⊆ zustaende');
-  check(ank.format === 'anker/1' && Object.keys(ank.rollen).length === 19, `anker.json (${Object.keys(ank.rollen).length} Rollen)`);
+  check(ank.format === 'anker/1' && Object.keys(ank.rollen).length === 21, `anker.json (${Object.keys(ank.rollen).length} Rollen)`);
   check(Object.values(ank.rollen).every((r) => !r.halten || (C.anker.halten[r.halten] != null)), 'jede Halte-Interaktion hat CONFIG.anker.halten');
   check(zust.format === 'zustaende/1' && Object.keys(achsen.zustaende).every((z) => zust.zustaende[z]), 'zustaende.json deckt alle Zustände aus achsen.json');
   console.log('\n[B1 Handkarten-Anker]');
@@ -541,7 +541,7 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
     const okArt = e.art === 'hand' ? !!Maps[e.id] : !!achsen.kartenarten[e.art];
     const okAchsen = e.art === 'hand' || (achsen.bauweisen[e.bauweise] && achsen.besitz[e.besitz] && achsen.zustaende[e.zustand]);
     const okOrt = !!Locations.get(e.ort) || e.gesperrt;
-    check(okArt && okAchsen && okOrt && ['immer', 'nach_tutorial', 'nach_raumgefecht'].includes(e.frei) && e.beam && e.beam.range > 0 &&
+    check(okArt && okAchsen && okOrt && ['immer', 'nach_tutorial', 'nach_raumgefecht', 'labor'].includes(e.frei) && e.beam && e.beam.range > 0 &&
       (e.art === 'hand' || (Number.isInteger(e.seed) && e.id.startsWith(e.ort + '.'))), `${e.id}: Art/Achsen/Ort/frei/beam gültig`);
   }
   check(alle.filter((e) => e.ort === 'rostnest').length >= 1 && alle.filter((e) => e.ort === 'rostnest').every((e) => e.gesperrt), 'Rostnest: alle Landepunkte gesperrt (E33)');

@@ -186,7 +186,7 @@
   // M3a: Fortschrittsbalken über dem Kopf (Flicken / Teil einbauen / Minispiel)
   const ACTION_LABEL = { flick: 'FLICKEN', swap: 'TEIL EINBAUEN', minigame: 'MINISPIEL',
     // B1: Anker-Interaktionen (Kinds anker:<rolle>), B2: Halte-Interaktionen
-    'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
+    'anker:terminal': 'DOWNLOAD', 'anker:sprengpunkt': 'LADUNG', 'anker:flagge': 'HISSEN', 'anker:zelle': 'ZELLE', 'anker:beute': 'BERGEN', 'anker:ziel': 'HALTEN',
     'anker:fund': 'BERGEN', 'anker:raetsel': 'SCHLOSS', 'anker:versteck': 'AUFBRECHEN', 'anker:eingang': 'HACKEN', 'anker:tuer': 'ÖFFNEN',
     'anker:leiter': 'LEITER', fesseln: 'FESSELN', befreien: 'BEFREIEN', aufrichten: 'AUFRICHTEN', ausruestung: 'AUSRÜSTUNG', zellentuer: 'ZELLENTÜR' };
   // setbackAge: M3b §4 – Sekunden seit einem Rückschlag (repairSetback) oder null. Dann: verlorenes Stück rot, verblassend,
@@ -384,8 +384,8 @@
   for (const [ch, a] of Object.entries(KACHELN_FB)) KACHELN[ch] = { kind: a[0], solid: a[1] || false, cover: a[2] || 0, low: !!a[3], sperrtSicht: !!a[4], zustaende: a[5], begehbarIn: a[6], kante: a[7] };
   // Ankerrollen: Zustände (erster = Start) aus content/buehnen/anker.json (gleiche Werte als Auszug)
   let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
-    sprengpunkt: ['intakt', 'scharf', 'zerstoert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
-    fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'] };
+    sprengpunkt: ['intakt', 'scharf', 'zerstoert', 'platziert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
+    fund: ['da', 'genommen'], tor: ['zu', 'offen', 'verschlossen', 'gesprengt'], raetsel: ['ruhe', 'gehalten', 'geloest'], versteck: ['zu', 'offen'], flagge: ['unten', 'gehisst'] };
   function ladeBuehnenDaten() {
     if (typeof fetch !== 'function') return;
     fetch('/content/buehnen/kacheln.json').then(r => r.ok ? r.json() : null).then(j => {
@@ -510,7 +510,7 @@
   const BUEHNE_FARBE = { boden: '#3A4250', boden2: '#465060', gelaende: '#4A4436', plateau: '#5E6448', rampe: '#565A40', pad: '#2F5E58',
     kante: '#8A8262', wand: '#1C222D', zaun: '#3E3224', gitter: '#5C6472', fenster: '#5E8AA6', fels: '#2A2622', leere: '#0B0E1A',
     deckung_halb: '#7A6340', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
-    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530' };
+    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530', rohr: '#2B3340' };
   function buehneKachelFarbe(map, st, tx, ty) {
     const info = map.info(tx, ty);
     if (info.kind === 'abgrund') return null;
@@ -522,12 +522,12 @@
     return BUEHNE_FARBE[info.kind] || '#3B4658';
   }
   const ANKER_FARBE = { terminal: '#7FE0C2', sprengpunkt: '#FF6A4C', zelle: '#C9974A', beute: '#D9A441', ziel: '#FFC66B', fund: '#E8D27A',
-    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5' };
+    raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A' };
   const ANKER_NAME = { terminal: 'Terminal', sprengpunkt: 'Sprengpunkt', zelle: 'Zelle', beute: 'Kiste', ziel: 'Ziel', fund: 'Fund',
-    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang' };
+    raetsel: 'Schloss', abholpunkt: 'Abholpunkt', versteck: 'Versteck', tor: 'Tor', lift: 'Lift', leiter: 'Leiter', eingang: 'Eingang', flagge: 'Feldzeichen' };
   const ANKER_ZUSTAND_NAME = { bereit: 'bereit', laedt: 'lädt', geladen: 'geladen', gesperrt: 'gesperrt', intakt: 'intakt', scharf: 'SCHARF',
     zerstoert: 'zerstört', zu: 'zu', offen: 'offen', voll: 'voll', leer: 'leer', frei: 'frei', genommen: 'genommen', aktiviert: 'aktiviert',
-    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt' };
+    da: 'da', ruhe: 'Ruhe', gehalten: 'gehalten', geloest: 'gelöst', verschlossen: 'verschlossen', gestoert: 'gestört', gesprengt: 'gesprengt', platziert: 'platziert', unten: 'unten', gehisst: 'gehisst' };
   // Anker als einfache Marken (2D-Rückfall und Minikarte). Nur Rollen mit Objekt.
   function drawBuehneAnker(ctx, map, st, camX, camY, t) {
     const cd = st && st.away && st.away.map === map.id ? st.away.cd : null;
@@ -537,7 +537,7 @@
       const px = a[2] * TILE - camX, py = a[3] * TILE - camY;
       if (px < -TILE || py < -TILE || px > VW + TILE || py > VH + TILE) return;
       const z = ankerZustand(map, st, i);
-      const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
+      const aus = ['leer', 'genommen', 'zerstoert', 'offen', 'geloest', 'gesperrt', 'gehisst'].indexOf(z) >= 0 && a[1] !== 'abholpunkt';
       ctx.save();
       ctx.globalAlpha = aus ? 0.45 : 1;
       ctx.strokeStyle = col; ctx.lineWidth = 2;

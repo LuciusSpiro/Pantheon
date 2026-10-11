@@ -17,9 +17,13 @@
     const cheb = (a, b) => Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-    function bauenEinmal(seed, N, bauweise, typ, skala) {
+    // variante 'methalle' (EK5): Militärsiedlung mit geschlossener Mauer (kein Tor), Landefeld mit dem einzigen Abholpunkt AUSSERHALB der
+    // Mauer und ein Schleichweg (Rohr, Zeichen 'r') unter der Mauer; Baracken (mindestens zwei Quartiere) für den Nachschub.
+    function bauenEinmal(seed, N, bauweise, typ, skala, variante) {
       const R = rng(seed);
-      const mauer = typ === 'militaer';
+      const methalle = variante === 'methalle';
+      const eisenwald = variante === 'eisenwald';   // EK6: Feldzeichen (Flaggenpunkt) in der Platzmitte statt der Statue
+      const mauer = typ === 'militaer' || methalle;
       const A = (N * 170 + 500) * skala;
       const sw = clamp(Math.round(Math.sqrt(A * 1.8)), 50, FW - 8), sh = clamp(Math.round(sw / 1.8), 34, FH - 8);
       const S = { x0: Math.floor((FW - sw) / 2), y0: Math.floor((FH - sh) / 2) };
@@ -30,7 +34,7 @@
       const grid = Array.from({ length: FH }, () => Array(FW).fill(':'));
       const fill = (r, c) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (grid[y] && grid[y][x] !== undefined) grid[y][x] = c; };
       const hindernis = [];   // alles, was Gebäude meiden
-      const LF = { x0: I.x1 - 14, x1: I.x1, y0: cy - 5, y1: cy + 4 };
+      let LF = { x0: I.x1 - 14, x1: I.x1, y0: cy - 5, y1: cy + 4 };
       const Smax = LF.x0 - 2;
       hindernis.push({ rect: LF, art: 'landefeld' });
       const strassen = [];
@@ -159,7 +163,7 @@
       }
       // endgültige Fläche: Umriss aller Inhalte plus Rand (Mauer: 4, sonst 3)
       {
-        const teile = strassen.map((q) => q.rect).concat([platz, LF], leit.map((l) => l.rect), gebaeude.map((g) => g.rect), gassen);
+        const teile = strassen.map((q) => q.rect).concat(methalle ? [platz] : [platz, LF], leit.map((l) => l.rect), gebaeude.map((g) => g.rect), gassen);   // Methalle: Landefeld liegt außerhalb der Mauer
         const mg = mauer ? 4 : 3;
         S.x0 = Math.max(1, Math.min(...teile.map((q) => q.x0)) - mg); S.y0 = Math.max(1, Math.min(...teile.map((q) => q.y0)) - mg);
         S.x1 = Math.min(FW - 2, Math.max(...teile.map((q) => q.x1)) + mg); S.y1 = Math.min(FH - 2, Math.max(...teile.map((q) => q.y1)) + mg);
@@ -170,21 +174,21 @@
       const pm = { x: (platz.x0 + platz.x1) / 2, y: (platz.y0 + platz.y1) / 2 };
       const mitte = (g) => ({ x: (g.rect.x0 + g.rect.x1) / 2, y: (g.rect.y0 + g.rect.y1) / 2 });
       const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-      const F = Math.min(gebaeude.length, Math.max(3, Math.round(N * 0.35)));
+      const F = Math.min(gebaeude.length, Math.max(methalle ? 5 : 3, Math.round(N * (methalle ? 0.5 : 0.35))));
       const frei2 = gebaeude.slice();
       const nimm = (cmp, typBuch) => { if (!frei2.length) return; frei2.sort(cmp); const g = frei2.shift(); g.typ = typBuch; };
       const lfm = { x: (LF.x0 + LF.x1) / 2, y: (LF.y0 + LF.y1) / 2 };
       nimm((a, b) => dist(mitte(a), pm) - dist(mitte(b), pm), 'K');
       nimm((a, b) => dist(mitte(a), lfm) - dist(mitte(b), lfm), 'L');
-      const rest = R.shuffle(['W', 'Q', 'Q', 'C', 'H', 'L']);
+      // Methalle: Baracken (Q) garantiert mindestens zwei, dazu Werkstatt und Kantine (die Reihenfolge ist fest, nur die Gebäude wechseln)
+      const rest = methalle ? ['Q', 'Q', 'W', 'C', 'H', 'Q', 'L'] : R.shuffle(['W', 'Q', 'Q', 'C', 'H', 'L']);
       for (let i = 2; i < F; i++) nimm(() => R.f() - 0.5, rest[(i - 2) % rest.length]);
       // Zeichnen
       for (const s of strassen) fill(s.rect, '=');
       fill(platz, '+');
-      fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
+      if (!eisenwald) fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
       for (const l of leit) fill(l.rect, l.c);
-      fill(LF, ',');
-      grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P';
+      if (!methalle) { fill(LF, ','); grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }
       for (const g of gebaeude) {
         const r = g.rect;
         fill(r, '#');
@@ -199,8 +203,42 @@
       if (mauer) {
         for (let x = S.x0; x <= S.x1; x++) { grid[S.y0][x] = 'M'; grid[S.y1][x] = 'M'; }
         for (let y = S.y0; y <= S.y1; y++) { grid[y][S.x0] = 'M'; grid[y][S.x1] = 'M'; }
-        for (let y = cy - 2; y <= cy + 1; y++) grid[y][S.x0] = 'g';
+        if (!methalle) for (let y = cy - 2; y <= cy + 1; y++) grid[y][S.x0] = 'g';
         for (const [ex, ey] of [[S.x0, S.y0], [S.x1 - 2, S.y0], [S.x0, S.y1 - 2], [S.x1 - 2, S.y1 - 2]]) fill({ x0: ex, y0: ey, x1: ex + 2, y1: ey + 2 }, 'T');
+      }
+      // Methalle: Rohr unter der Mauer und Landefeld davor. Das Rohr (drei 'r': Mund außen, Mauerkachel, Mund innen) liegt an einer
+      // Mauerseite, auf der das Landefeld Platz hat (Seite und Lage aus dem Seed); der innere Mund steht auf freiem Boden am Mauerstreifen.
+      let rohr = null;
+      if (methalle) {
+        const bem = (x, y) => grid[y] && grid[y][x];
+        const seiten = R.shuffle([{ k: 'O', d: [1, 0] }, { k: 'W', d: [-1, 0] }, { k: 'S', d: [0, 1] }, { k: 'N', d: [0, -1] }]);
+        for (const sd of seiten) {
+          const hz = sd.d[0] !== 0;   // Mauer senkrecht (O/W): Rohr liegt waagerecht
+          const lo = (hz ? S.y0 : S.x0) + 6, hi = (hz ? S.y1 : S.x1) - 6;
+          const pos = []; for (let t = lo; t <= hi; t++) pos.push(t);
+          R.shuffle(pos);
+          for (const t of pos) {
+            const wx = hz ? (sd.d[0] > 0 ? S.x1 : S.x0) : t, wy = hz ? t : (sd.d[1] > 0 ? S.y1 : S.y0);
+            const ix = wx - sd.d[0], iy = wy - sd.d[1], ox = wx + sd.d[0], oy = wy + sd.d[1];
+            // innerer Mund und seine Nachbarn entlang der Mauer frei, Außenmund auf Außenboden
+            const nb = hz ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
+            if (bem(ix, iy) !== '.' || nb.some(([dx, dy]) => bem(ix + dx, iy + dy) !== '.') || bem(ox, oy) !== ':') continue;
+            // Landefeld 15×10 an der Außenseite, 3 Kacheln hinter dem Außenmund, mittig zur Rohrachse
+            const lw = hz ? 15 : 10, lh = hz ? 10 : 15;
+            const l = hz ? { x0: sd.d[0] > 0 ? S.x1 + 4 : S.x0 - 4 - 14, y0: wy - 4, x1: 0, y1: 0 } : { x0: wx - 4, y0: sd.d[1] > 0 ? S.y1 + 4 : S.y0 - 4 - 14, x1: 0, y1: 0 };
+            l.x1 = l.x0 + lw - 1; l.y1 = l.y0 + lh - 1;
+            if (l.x0 < 2 || l.y0 < 2 || l.x1 > FW - 3 || l.y1 > FH - 3) continue;
+            rohr = { side: sd.k, d: sd.d, kacheln: [[ox, oy], [wx, wy], [ix, iy]], aussen: [ox, oy], innen: [ix, iy] };
+            LF = l;
+            break;
+          }
+          if (rohr) break;
+        }
+        if (!rohr) throw new Error('methalle: kein Platz für Landefeld und Rohr');
+        for (const [x, y] of rohr.kacheln) grid[y][x] = 'r';
+        fill(LF, ',');
+        const lmx = Math.floor((LF.x0 + LF.x1) / 2), lmy = Math.floor((LF.y0 + LF.y1) / 2);
+        grid[lmy][lmx] = 'P';
       }
       // Deckung: weltliche Objekte, Platz-Ring, Straßenränder (selten), Landefeld
       const setze = (x, y, w) => { for (let i = 0; i < w; i++) if (grid[y] && (grid[y][x + i] === '=' || grid[y][x + i] === '+' || grid[y][x + i] === ',')) grid[y][x + i] = 'o'; };
@@ -253,14 +291,14 @@
         }
         deck += n;
       }
-      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy] };
+      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy], methalle, rohr, eisenwald };
     }
 
     // wächst, bis die Zielzahl an Gebäuden steht (oder das Feld voll ist)
-    function bauen(seed, N, bauweise, typ) {
+    function bauen(seed, N, bauweise, typ, variante) {
       let best = null;
       for (let skala = 0.8; skala <= 3.6; skala *= 1.06) {
-        let B; try { B = bauenEinmal(seed, N, bauweise, typ, skala); } catch (e) { break; }
+        let B; try { B = bauenEinmal(seed, N, bauweise, typ, skala, variante); } catch (e) { if (variante === 'methalle' && /^methalle:/.test(String(e.message))) continue; break; }   // Methalle: kein Platz für Landefeld/Rohr -> größere Skala (mehr Feld) bzw. nächster Versuch
         if (!best || B.gebaeude.length > best.gebaeude.length) best = B;
         if (B.gebaeude.length >= N) return B;
         if (B.sw >= FW - 8 && B.sh >= FH - 8) break;
@@ -270,9 +308,9 @@
 
     function kennzahlen(B) {
       const { grid, S, gebaeude } = B;
-      const passier = (c) => '.=+g,PDKLWQCH-'.includes(c);
-      // Erreichbarkeit vom Tor (Militär) bzw. westlichem Straßenanfang (Handel)
-      const start = B.mauer ? [S.x0, B.cy] : B.start;
+      const passier = (c) => '.=+g,PDKLWQCH-r'.includes(c);
+      // Erreichbarkeit vom Tor (Militär) bzw. westlichem Straßenanfang (Handel, Methalle: kein Tor)
+      const start = B.mauer && !B.methalle ? [S.x0, B.cy] : B.start;
       const seen = new Set(); const st = [start];
       const key = (x, y) => y * FW + x;
       while (st.length) {
@@ -300,6 +338,8 @@
     // ---------------------------------------------------------------- echtes Kartenformat
     // Pflichtsatz der Kartenart aussenposten (der Missionsplaner nimmt an, jede Karte hat mindestens das; aus den Modul-Schablonen)
     const PFLICHT_AUSSENPOSTEN = { eingang: 3, abholpunkt: 2, sprengpunkt: 2, aussicht: 1, terminal: 1, zelle: 2, beute: 4, ziel: 1, wache: 6, patrouille: 4 };
+    // Methalle (EK5): ein Abholpunkt, zwei Rohrmünder, ein Sprengziel zum Platzieren, vier Patrouillenwege (≥ 6 Punkte), Baracken-Spawns (≥ 4), keine festen Wachposten
+    const PFLICHT_METHALLE = { eingang: 2, abholpunkt: 1, sprengpunkt: 1, aussicht: 1, patrouille: 6, baracke: 4 };
     const GEB_NAME = { K: 'kommando', L: 'lager', W: 'werkstatt', Q: 'quartier', C: 'kantine', H: 'krankenstation' };
     const GEB_TITEL = { K: 'Kommandogebäude', L: 'Lager', W: 'Werkstatt', Q: 'Quartiere', C: 'Kantine', H: 'Krankenstation' };
     // karteRoh(seed, haeuser, opts) -> Karte im Format von Buehne.bauen (Legende/Kanten/Prüfung: Buehne.ausRaster)
@@ -307,12 +347,15 @@
     function karteRoh(seed, N, opts) {
       opts = opts || {};
       const bauweise = opts.bauweise || 'germanen', typ = opts.typ || 'handel';
-      const B = bauen(seed, N, bauweise, typ), g = B.grid, S = B.S;
+      const B = bauen(seed, N, bauweise, typ, opts.variante), g = B.grid, S = B.S;
+      const methalle = !!B.methalle, eisenwald = !!B.eisenwald;
       const PAD = 3;
-      const x0 = Math.max(0, S.x0 - PAD), y0 = Math.max(0, S.y0 - PAD), x1 = Math.min(FW - 1, S.x1 + PAD), y1 = Math.min(FH - 1, S.y1 + PAD);
+      // Methalle: Ausschnitt reicht bis über das Landefeld außerhalb der Mauer
+      const cr = methalle ? { x0: Math.min(S.x0, B.LF.x0), y0: Math.min(S.y0, B.LF.y0), x1: Math.max(S.x1, B.LF.x1), y1: Math.max(S.y1, B.LF.y1) } : S;
+      const x0 = Math.max(0, cr.x0 - PAD), y0 = Math.max(0, cr.y0 - PAD), x1 = Math.min(FW - 1, cr.x1 + PAD), y1 = Math.min(FH - 1, cr.y1 + PAD);
       const w = x1 - x0 + 1, h = y1 - y0 + 1, ox = -x0, oy = -y0;
       // Zeichenabbildung: Straße = Bohlen/Belag 2 (boden2), Platz und Landefeld = pad, Gebäudeinneres = Bohlen, Leitstück-Platzhalter = volle Deckung
-      const MAP = { ':': ':', '.': '.', '=': ',', '+': 'P', ',': 'P', P: 'P', '#': '#', x: '#', M: '#', T: '#', g: 'G', D: 'D', o: 'o', '-': ',', m: 'O', Y: 'O', A: 'O' };
+      const MAP = { ':': ':', '.': '.', '=': ',', '+': 'P', ',': 'P', P: 'P', '#': '#', x: '#', M: '#', T: '#', g: 'G', D: 'D', o: 'o', '-': ',', m: 'O', Y: 'O', A: 'O', r: 'r' };
       const rows = [];
       for (let y = y0; y <= y1; y++) {
         let r = '';
@@ -325,9 +368,13 @@
       const plaetze = {}, zaehl = {};
       const nummer = (n) => { zaehl[n] = (zaehl[n] || 0) + 1; return zaehl[n]; };
       plaetze.landefeld = { typ: 'landeplatz', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.LF), bereich: 'andock', richtung: 'O', kern: true };
+      if (methalle) {   // Rohr: Mund außen, Mauerkachel, Mund innen (ein Platz, Zeichen 'r')
+        const rx = B.rohr.kacheln.map((k) => k[0]), ry = B.rohr.kacheln.map((k) => k[1]);
+        plaetze.rohr = { typ: 'rohr', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: [Math.min(...rx) + ox, Math.min(...ry) + oy, Math.max(...rx) - Math.min(...rx) + 1, Math.max(...ry) - Math.min(...ry) + 1], bereich: 'schleichweg', kern: false };
+      }
       plaetze.platz = { typ: 'dorfplatz', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.platz), bereich: 'strassen', kern: true };
       B.strassen.forEach((s) => { plaetze['strasse_' + nummer('strasse')] = { typ: 'hof', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(s.rect), bereich: 'strassen', gefecht: true }; });
-      if (B.mauer) plaetze.tor = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: 'W' }, rect: [S.x0 + ox, B.cy - 2 + oy, 1, 4], bereich: 'strassen', richtung: 'W' };
+      if (B.mauer && !methalle) plaetze.tor = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: 'W' }, rect: [S.x0 + ox, B.cy - 2 + oy, 1, 4], bereich: 'strassen', richtung: 'W' };
       const geb = [];
       for (const b of B.gebaeude) {
         let id, tp;
@@ -342,6 +389,7 @@
         gebaeude: { name: 'Gebäude', rects: [], rolle: 'ziel' },
         kulisse: { name: 'Kulissenhäuser', rects: [] },
       };
+      if (methalle) bereiche.schleichweg = { name: 'Schleichweg (Rohr)', rects: [] };
       for (const id of Object.keys(plaetze).sort()) bereiche[plaetze[id].bereich].rects.push(plaetze[id].rect);
       for (const k of Object.keys(bereiche)) if (!bereiche[k].rects.length) delete bereiche[k];
       // Anker (Pflichtsatz der Kartenart aussenposten: Rollen siehe PFLICHT_AUSSENPOSTEN)
@@ -383,6 +431,8 @@
       const dm = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
       const lm = mitte(plaetze.landefeld.rect); belegt.add(lm.join(','));
       ank('landefeld', 'abholpunkt', lm, { ankunft: true });
+      // Eisenwald (EK6): Flaggenpunkt in der Mitte des Dorfplatzes (Platztyp dorfplatz); Statue und Sockel entfallen, kein Deckungsobjekt dort
+      if (eisenwald) { const fm = mitte(plaetze.platz.rect); belegt.add(fm.join(',')); ank('platz', 'flagge', fm); }
       const funk = geb.filter((q) => q.b.typ !== 'k');
       // Kommando: Ziel in der Mitte, Platz dafür vormerken, bevor Kerker und Kisten Fläche belegen
       const kom = funk.find((q) => q.b.typ === 'K');
@@ -483,20 +533,25 @@
       // Gebäudefunktionen: Ziel und Terminal im Kommando, Beute (4) im Lager/Kantine/…, Sprengpunkte (2) in Depots (Lager, Werkstatt)
       if (kom) ank(kom.id, 'ziel', mitte(plaetze[kom.id].rect));
       for (const q of funk.filter((z) => z.b.typ === 'Q')) ank(q.id, 'nsc', kachelIn(plaetze[q.id].rect, 'innen', false));
-      const verteile = (rolle, soll, typFolge) => {
-        const folge = typFolge.flatMap((t) => funk.filter((q) => q.b.typ === t));
+      const verteile = (rolle, soll, typFolge, attr, nahe) => {
+        let folge = typFolge.flatMap((t) => funk.filter((q) => q.b.typ === t));
+        if (nahe) folge = folge.slice().sort((p, q) => dm(mitte(plaetze[p.id].rect), nahe) - dm(mitte(plaetze[q.id].rect), nahe));   // die Gebäude nächst dem Rohr zuerst
         let n = 0;
         for (let pass = 0; pass < 4 && n < soll && folge.length; pass++) for (const q of folge) {
           if (n >= soll) break;
           const r = plaetze[q.id].rect, p = kachelIn(r, 'rand') || kachelIn(r, 'innen');
-          if (p) { ank(q.id, rolle, p); n++; }
+          if (p) { ank(q.id, rolle, p, attr); n++; }
         }
       };
       verteile('terminal', 1, ['K', 'W', 'C', 'H', 'Q', 'L']);
       verteile('beute', 4, ['L', 'C', 'Q', 'H', 'W', 'K']);
-      verteile('sprengpunkt', 2, ['W', 'L', 'H', 'C', 'Q', 'K']);
+      // Methalle: Sprengstoff legen statt zünden (anker.js ladungPlatzieren); die Depots nächst dem inneren Rohrende zuerst: das Schleichen lohnt, der Weg ist kurz
+      if (methalle) verteile('sprengpunkt', 2, ['W', 'L', 'H', 'C'], { modus: 'platzieren' }, [B.rohr.innen[0] + ox, B.rohr.innen[1] + oy]);
+      else verteile('sprengpunkt', 2, ['W', 'L', 'H', 'C', 'Q', 'K']);
+      // Methalle: Erscheinungspunkte des Nachschubs in den Baracken (Quartiere), je Baracke bis zu 4, ohne Alarm
+      if (methalle) for (const q of funk.filter((z) => z.b.typ === 'Q')) for (let i = 0; i < 4; i++) ank(q.id, 'baracke', kachelIn(plaetze[q.id].rect, 'innen', false) || kachelIn(plaetze[q.id].rect, 'rand', false));
       // Rückfall: fehlen Sprengpunkte (Gebäude zu eng), entsteht ein freistehendes Tankdepot (2×2 Tank 'O', Sprengziel daneben) auf freiem Gelände
-      for (let n = 0; roh.filter((a) => a.rolle === 'sprengpunkt').length < 2 && n < 2; n++) {
+      for (let n = 0; !methalle && roh.filter((a) => a.rolle === 'sprengpunkt').length < 2 && n < 2; n++) {
         let best = null;
         for (let y0 = 2; y0 < h - 4; y0++) for (let x0 = 2; x0 < w - 5; x0++) {
           let ok = true;
@@ -519,15 +574,16 @@
       }
       // Eingänge: Tor bzw. westliches Straßenende (laut), das fernste Straßenende und ein drittes, von beiden entferntes (leise)
       const hs = B.strassen[0].rect;
-      const ein1 = B.mauer ? [S.x0 + ox, B.cy + oy] : [hs.x0 + ox, B.cy + oy];
-      ank(B.mauer ? 'tor' : 'strasse_1', 'eingang', ein1, { art: 'laut' });
+      const ein1 = methalle ? [B.rohr.aussen[0] + ox, B.rohr.aussen[1] + oy] : B.mauer ? [S.x0 + ox, B.cy + oy] : [hs.x0 + ox, B.cy + oy];
+      if (methalle) { ank('rohr', 'eingang', ein1, { art: 'leise' }); ank('rohr', 'eingang', [B.rohr.innen[0] + ox, B.rohr.innen[1] + oy], { art: 'leise' }); }   // Methalle: beide Rohrmünder, kein Tor
+      else ank(B.mauer ? 'tor' : 'strasse_1', 'eingang', ein1, { art: 'laut' });
       const enden = [];
       B.strassen.forEach((s, i) => {
         const q = s.rect, cm = [Math.floor((q.x0 + q.x1) / 2), Math.floor((q.y0 + q.y1) / 2)];
         for (const [cx, cy] of [[cm[0], q.y0], [cm[0], q.y1], [q.x0, cm[1]], [q.x1, cm[1]]]) { const px = cx + ox, py = cy + oy; if (at(px, py) === ',' && !belegt.has(px + ',' + py)) enden.push({ p: [px, py], id: 'strasse_' + (i + 1) }); }
       });
       const eingaenge = [ein1];
-      for (let n = 0; n < 2; n++) {
+      for (let n = 0; !methalle && n < 2; n++) {
         let best = null;
         for (const e of enden) { const d = Math.min(...eingaenge.map((q) => dm(q, e.p))); if (!best || d > best.d) best = { d, e }; }
         if (!best) break;
@@ -543,7 +599,7 @@
       R2.shuffle(kand);
       const freiP = (p) => (at(p[0], p[1]) === ',' || at(p[0], p[1]) === 'P') && !belegt.has(p.join(','));
       // zweites Pad: 3 freie Kacheln in L-Form, fern vom Landefeld und den Eingängen (ankunft nur am ersten)
-      { let best = null;
+      if (!methalle) { let best = null;   // Methalle: genau ein Abholpunkt (einziger Teleportpunkt, außerhalb der Mauer)
         for (const c of kand) {
           if (!freiP(c.p)) continue;
           const l = [[1, 1], [-1, 1], [1, -1], [-1, -1]].find(([dx, dy]) => freiP([c.p[0] + dx, c.p[1]]) && freiP([c.p[0], c.p[1] + dy]));
@@ -554,7 +610,54 @@
         if (best) { const [x, y] = best.c.p; for (const q of [[x, y], [x + best.l[0], y], [x, y + best.l[1]]]) belegt.add(q.join(',')); ank(best.c.platz, 'abholpunkt', best.c.p); }
       }
       // Wachen (6) und Patrouille (4) auf Straßen und Platz, nach x gereiht abwechselnd; Patrouille als Kette 'a'
-      { let pick = [];
+      if (methalle) {
+        // Methalle: vier Patrouillenwege (Ketten a–d) für vier Zweiergruppen; Startpunkte weit auseinander, je Weg bis zu 3 Punkte auf demselben Platz.
+        // Schleichkorridor: der kürzeste Weg vom inneren Rohrende zum nächsten Sprengziel. Drei Wege halten Abstand zum Korridor (außerhalb der
+        // Sichtweite), einer (die Querwache, Kette d) streift ihn: ohne Beobachten und Warten kommt niemand unbemerkt durch, mit Geduld schon.
+        const rohrEnde = [B.rohr.innen[0] + ox, B.rohr.innen[1] + oy];
+        const spr = roh.filter((a) => a.rolle === 'sprengpunkt').sort((a, b) => dm([a.x, a.y], rohrEnde) - dm([b.x, b.y], rohrEnde))[0];
+        let korridor = [];
+        if (spr) {
+          const geh = (x, y) => '.,PrD'.includes(at(x, y) || '#');
+          const prev = new Map([[rohrEnde.join(','), null]]); const qu = [rohrEnde]; let ziel = null;
+          while (qu.length && !ziel) {
+            const [x, y] = qu.shift();
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+              const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+              if (prev.has(k)) continue;
+              if (Math.abs(nx - spr.x) + Math.abs(ny - spr.y) <= 1 && geh(nx, ny)) { prev.set(k, x + ',' + y); ziel = [nx, ny]; break; }
+              if (geh(nx, ny)) { prev.set(k, x + ',' + y); qu.push([nx, ny]); }
+            }
+          }
+          for (let k = ziel ? ziel.join(',') : null; k; k = prev.get(k)) korridor.push(k.split(',').map(Number));
+        }
+        const SICHT_ABSTAND = 11;
+        const abKorr = (c) => korridor.length ? Math.min(...korridor.map((q) => Math.max(Math.abs(q[0] - c.p[0]), Math.abs(q[1] - c.p[1])))) : 99;
+        const pool0 = kand.filter((c) => freiP(c.p));
+        let pool = pool0.filter((c) => abKorr(c) >= SICHT_ABSTAND);
+        if (pool.length < 6) pool = pool0.filter((c) => abKorr(c) >= 7);   // sehr kleine Karte: weniger Abstand
+        if (pool.length < 6) pool = pool0;
+        const seeds = [];
+        if (pool.length) seeds.push(pool[0]);
+        while (seeds.length < 3 && seeds.length < pool.length) {
+          let best = null;
+          for (const c of pool) { if (seeds.includes(c)) continue; const d = Math.min(...seeds.map((q) => dm(q.p, c.p))); if (!best || d > best.d) best = { d, c }; }
+          if (!best) break;
+          seeds.push(best.c);
+        }
+        // Querwache: der Punkt, der dem Korridor am nächsten liegt (sonst weiter entfernt von den anderen)
+        { const rest = pool0.filter((c) => !seeds.includes(c) && seeds.every((q) => dm(q.p, c.p) >= 6)).sort((a, b) => abKorr(a) - abKorr(b)); if (rest.length) seeds.push(rest[0]); }
+        seeds.forEach((sd, i) => {
+          const quelle = i === 3 ? pool0 : pool;
+          const eigene = quelle.filter((c) => c.platz === sd.platz && freiP(c.p)).sort((a, b) => dm(a.p, sd.p) - dm(b.p, sd.p));
+          const gewaehlt = [];
+          // Querwache: lange Beine (Startpunkt am Korridor, Gegenpunkt am weitesten entfernten Punkt desselben Platzes), damit sie den Korridor nur
+          // zeitweise einsieht und Lücken von einer Wegzeit entstehen
+          if (i === 3 && eigene.length > 1) { gewaehlt.push(eigene[0]); gewaehlt.push(eigene[eigene.length - 1]); }
+          else for (const c of eigene) { if (gewaehlt.length >= 3) break; if (gewaehlt.every((q) => Math.max(Math.abs(q.p[0] - c.p[0]), Math.abs(q.p[1] - c.p[1])) >= 4)) gewaehlt.push(c); }
+          for (const c of gewaehlt) { belegt.add(c.p.join(',')); ank(c.platz, 'patrouille', c.p, { kette: String.fromCharCode(97 + i) }); }
+        });
+      } else { let pick = [];
         for (const abst of [6, 5, 4, 3, 2, 1]) {
           pick = [];
           for (const c of kand) if (freiP(c.p) && pick.every((q) => Math.max(Math.abs(q.p[0] - c.p[0]), Math.abs(q.p[1] - c.p[1])) >= abst)) pick.push(c);
@@ -573,7 +676,7 @@
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
       for (const a of roh) { const k = a.platz + '.' + a.rolle; lauf[k] = (lauf[k] || 0) + 1; anker.push(Object.assign({ id: zz[k] > 1 ? k + '.' + lauf[k] : k }, a)); }
-      const pflicht = Object.assign({}, PFLICHT_AUSSENPOSTEN);
+      const pflicht = Object.assign({}, methalle ? PFLICHT_METHALLE : PFLICHT_AUSSENPOSTEN, eisenwald ? { flagge: 1 } : {});
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
@@ -581,7 +684,7 @@
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel },
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel, ...(methalle ? { variante: 'methalle', schleichweg: true } : eisenwald ? { variante: 'eisenwald' } : {}) },
       };
     }
     return { bauen, kennzahlen, karteRoh, cheb };

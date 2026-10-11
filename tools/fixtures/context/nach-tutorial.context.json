@@ -1466,6 +1466,31 @@
             "id": "ladung_am_sprengpunkt",
             "name": "Ladung am Sprengpunkt",
             "schauplatz": "aussen"
+          },
+          {
+            "beschreibung": "Militärsiedlung hinter einer Mauer, Teleportpunkt außerhalb, das Rohr unter der Mauer ist der einzige Weg hinein. Die Crew legt mitgebrachten Sprengstoff am Sprengziel (E halten, Treffer bricht ab): keine Explosion, kein Zeitdruck. Wachen in Zweiergruppen, Alarm nur bei Entdeckung oder Lärm; nach dem Platzieren kommt eine ruhige zweite Welle aus den Baracken. Nach dem Hochbeamen meldet Mars den zerstörten Außenposten (Fakt sperrriegel). Ohne Schuss abschließbar.",
+            "braucht_anker": {
+              "anker": [
+                "sprengpunkt",
+                "patrouille",
+                "baracke",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten"
+              ],
+              "min": {
+                "baracke": 4,
+                "patrouille": 6
+              }
+            },
+            "dauer_min": [
+              6,
+              10
+            ],
+            "id": "sprengstoff_platzieren",
+            "name": "Sprengstoff platzieren",
+            "schauplatz": "aussen"
           }
         ]
       },
@@ -1540,6 +1565,25 @@
           "C2"
         ],
         "umsetzungen": [
+          {
+            "beschreibung": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei Personen hissen es gemeinsam (E halten, der Fortschritt bleibt; lebt nur einer, geht es nicht). Dann greifen 10 Gegner und ein Anführer von allen Seiten an, danach erscheint niemand mehr. Fällt der Anführer, beamen die übrigen raus: Sieg. Fällt die Crew, bringt die Notrückholung sie an Bord, die Siedlung beginnt von vorn (Zerstörtes, Alarm, Feldzeichen unten) und die Szene geht zurück zum Hissen.",
+            "braucht_anker": {
+              "anker": [
+                "flagge",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten"
+              ]
+            },
+            "dauer_min": [
+              8,
+              15
+            ],
+            "id": "flagge_hissen",
+            "name": "Flagge hissen und Siedlung halten",
+            "schauplatz": "aussen"
+          },
           {
             "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
             "braucht_anker": {

@@ -648,7 +648,7 @@ class Game {
   // kv = Kartenversion (Seed + bauversion): ändert sich, wenn die Karte neu gebaut wird
   static kartenVersion(k) { return k ? `${k.seed != null ? k.seed : 0}.${k.bauversion || 'x'}` : null; }
   awayMapPayload(k) {
-    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
+    const attrKeys = ['art', 'paar', 'kette', 'schwer', 'ankunft', 'deck', 'kern', 'modus'];   // platz = Präfix der ID; bereich über plaetze/bereiche (Budget 8 KB)
     const anker = (k.anker || []).map((a) => {
       const row = [a.id, a.rolle, a.x, a.y];
       const attr = {};
@@ -1128,6 +1128,12 @@ class Game {
       case 'hull': this.ship.hull = clamp(Number(msg.n) || 0, 0, this.ship.hullMax); break;
       case 'skip': if (this.phase === 'lobby') this.startGame(); err = this.mission.skip(); break;
       case 'god': this.god = !!msg.on; break;
+      case 'tp': {   // QA (EK5/EK6): tp <kachelX> <kachelY> – Spieler auf der Außenkarte an eine Kachel setzen (Karten ansehen, Methalle/Feldzeichen erreichen)
+        const a = argList(msg); const x = Number(a[0]), y = Number(a[1]);
+        if (p.zone !== 'away' || !Number.isFinite(x) || !Number.isFinite(y)) { err = 'tp <x> <y>: nur im Außeneinsatz, Kachelkoordinaten.'; break; }
+        p.x = Math.round(x) * 32 + 16; p.y = Math.round(y) * 32 + 16;
+        break;
+      }
       case 'tune': case 'kesh': case 'squad': case 'wake': case 'shield': case 'wound': err = this.onDebugM2(p, cmd, msg); break;
       case 'sl': err = this.onDebugSl(p, msg); break;           // S2 §4: an game.spielleiter
       case 'escort': err = this.onDebugEscort(p, msg); break;   // S2 §4: an escort.js
@@ -1191,7 +1197,7 @@ class Game {
       default: return 'Unbekannter Debug-Befehl.';
     }
   }
-  // B1 §9: buehne <art> <seed> [bauweise besitz zustand] | anker <id> <zustand> | lp list | lp neu <ort> <art>
+  // B1 §9: buehne <art> <seed> [bauweise besitz zustand [methalle|eisenwald]] | anker <id> <zustand> | lp list | lp neu <ort> <art>
   // Ausführung in landepunkte.js (debug(game, cmd, args, p) -> Text | null), anker über anker.js setzen(game, map, id, zustand).
   onDebugB1(p, cmd, msg) {
     if (this.phase === 'lobby' && cmd !== 'buehne') return 'Erst das Spiel starten.';
@@ -1790,6 +1796,7 @@ class Game {
       inventory: {
         ersatzteil: this.inventory.ersatzteil, loeschgel: this.inventory.loeschgel, loeschgelCharges: this.inventory.loeschgelCharges,
         flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
+        ...(this.inventory.ladung ? { ladung: this.inventory.ladung } : {}),   // EK5: Sprengstoff (Gegenstand, nur wenn vorhanden; Budget)
       },
       upgrades: this.upgrades,
       deco: this.deco,
