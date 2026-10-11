@@ -20,9 +20,9 @@ Das **Quartierdeck** ist Deck II (Privatdeck, Atlas-Zeilen 16–28, in der Karte
 - **Neu: `frachtraum` (Frachtraum), 22–28 × 25–27**, Sektor −1 (kein Feuer, kein Leck, `hazardAllowed` bleibt falsch). Beide Türen zum
   Atrium (22,24) und (26,24) bleiben. Zwei Frachtbuchten `g` (Legende `cargo_bay`, solide) an der Nordwand: `bay0` (23,25), `bay1` (27,25),
   Zugangskacheln (23,26) und (27,26). Bodenart `floor_metal`.
-- Raumzahl Deck II 11, gesamt 20 → 19 (zwei Räume weg, einer neu). Der Name ist **Frachtraum**, nicht „Lager“: Das **Lager** (Regale mit Ersatzteilen) ist der
+- Räume auf Deck II 11 → 10, gesamt 20 → 19 (zwei Räume weg, einer neu). Der Name ist **Frachtraum**, nicht „Lager“: Das **Lager** (Regale mit Ersatzteilen) ist der
   Raum `lager` auf Deck I und bleibt, die Verwechslung wäre in Ansagen und Hinweisen („Lager an Bord“) real. Das Briefing nennt beides „Lagerraum“.
-- **Kollision:** zwei neue solide Kacheln, vier alte (Becken ×2, Bank, Wand-Segment) weniger. Mosaikboden `:` im Bad/Aussicht ist Metallboden.
+- **Kollision:** zwei neue solide Kacheln (die Buchten); weg sind Becken ×2, Bank und die Trennwand (3 Kacheln). Das Fenster der Südwand ist Wand. Der Mosaikboden `:` im Bad und in der Aussicht ist Metallboden. Das Atrium behält sein Mosaik.
 - **Wege:** Deck II bleibt vom Lift (und über Atrium) vollständig erreichbar (Test BFS), Ivo-Plätze unverändert begehbar (der Platz (26,26) liegt jetzt im Frachtraum).
 - **Reparaturpunkte:** keine betroffen. Deck II hat **keine Stationen** (Systeme stehen auf Deck I), und der Frachtraum ist kein Schiffssystem.
 - **Regal-Zuordnung:** keine betroffen. Die fünf Regale (`SHELF_TILES`) stehen im Raum `lager` auf Deck I.
@@ -94,4 +94,25 @@ voll, keine Fracht in Reichweite, kein Abnehmer hier). In der Karte (und in der 
 Siehe §7 (Messwerte). Bewusst **nicht** Teil dieser Abnahme: Konvoi-Szene (Teil B), Bots für Fracht, Balancing der Ladung.
 
 ## 7. Messwerte und Golden
-_wird bei der Abnahme ergänzt_
+- **`npm test`** (inkl. neuer `tools/test-lager.js`, 115 Prüfungen), **`npm run check`** (`check-maps` 582/582 mit neuem Abschnitt „Frachtraum“, Sektoren) und
+  **`npm run snap:mess`** grün (2026-10-11).
+- **Snapshot:** Worst Case unverändert **11 444 B** (Wellenlauf 10 558 B), Ziel ≤ 18 944 B. Das neue Feld `fracht` fehlt ohne Fracht; Maximum (2 Ladungen, 6 draußen, Halt,
+  Abnehmer, ungesichert) **456 B** → 11,9 KB.
+- **Golden m1–m3** (`--all --seeds 20 --jobs 4`, 120 Traces) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**. 80/120 Traces byte-identisch, die 40 anderen sind genau
+  die Crew-1-Läufe von m1/m2, deren Abweichung schon EK1a verursacht (Korvette; Mediane m1/1 −6,7 %, m2/1 +2,1 % wie in `allow-ek1.json`).
+  **Beleg, dass der neue Grundriss nichts verschiebt:** m1 und m2 Crew 1, Seeds 1–4, auf `ek1` (c8d742f) neu gespielt: alle acht Traces **byte-identisch** zu den Läufen mit Frachtraum.
+  Deck II wird in m1–m3 nicht betreten (Bots nutzen keinen Lift, Ivo-Wege ändern die Simulation nicht). **Abweichungsliste des Grundrisses: leer, kein `allow-ek3a.json` nötig.**
+  Der Ordner `tools/fixtures/golden/ek3a-check` ist gelöscht.
+- **Browser (Playwright, Chromium, SwiftShader)**, Server Port 3393, Ansichten geprüft: Frachtraum in **Voxel** (voll, leer, ungesichert) und **2D** (voll), Taktik-Konsole
+  (Leiste bereit, Halten 54 %, Abbruch durch Systemtreffer, an Bord). Keine Client- oder Konsolenfehler. Screenshots lokal in `shots/` (nicht versioniert):
+  `frachtraum-voxel-{voll,leer,ungesichert}.png`, `frachtraum-2d-{voll,leer,ungesichert}.png`, `taktik-fracht-{bereit,halten,abbruch,an-bord}.png`. Nicht mit Menschen gespielt (Lesbarkeit der Leiste
+  beim Spieleabend offen).
+- Voxelwerk: `npm run check` für `lerche/furn/cargo_bay` (5 Varianten) ohne Fehler; Commit auf Branch `ek2-lager` des Voxelwerk-Repos (Worktree `..oxelwerk-lager`, kein Push).
+  `npm run assets` mit `VOXELWERK_PATH=../voxelwerk-lager` hat `public/voxel/**` neu erzeugt (`VERSION.json.voxelwerkCommit` von Hand nachgetragen, der Worktree wird dort nicht erkannt).
+
+## 8. Offene Punkte
+- **Teil B** (Konvoi-Szene, `space.js`): offen, Schnittstelle `fracht_abwerfen` steht.
+- Fracht-Beamen hat **keine Tempogrenze** (D6): Soll es wie das Runterbeamen `beamMaxSpeed` verlangen, ist das eine Zeile in `beamGrund`.
+- Der Spielleiter hat noch keinen Szenentyp, der Fracht nutzt (kommt mit Teil B). `ladung_transfer` ist verfügbar, aber kein Szenentyp setzt es voraus.
+- Taktik-Leiste und Frachtbuchten sind nur von der Entwicklung gesehen; Lesbarkeit bei hohem Gefechtstempo (Leiste liegt über den Bogenanzeigen) sollte der Spieleabend prüfen.
+- `bath`/`bench`-Modelle und `o`/`s` in der Legende bleiben unbenutzt im Code (Aufräumen später).
