@@ -2,8 +2,11 @@
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK8), `Planung Eisenwald-Kampagne (EK1-EK9)` (EK8), `Arbeitspaket Raum-Alarm und K4` (Abschnitt 7),
 `Feldzug Eisenwald`, `Funktexte Feldzug Eisenwald` (Entwurf, Kai passt an), `Weltstand`, `Karte Limes` im Vault (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`).
-Team KETTE, Branch `ek3-kette` (Basis `ek1` mit EK1a/b, EK2, EK3a, EK7). Nicht gemergt zur Basis: Konvoi-Szene (Team KONVOI), Flottenbefehle, Legat, Verbündete
-(Team FLOTTE), Methalle und Siedlung Eisenwald (Team BODEN). Dafür stehen **Platzhalter** (Abschnitt 4), die diese Teams ersetzen.
+Team KETTE.
+
+**Stand:** fertig, gemergt in `ek1`. Alle acht Kapitel sind **echte Szenen** (Kapitel 2, 4, 7 durch VERK-BODEN, Abschnitt 4a; Kapitel 6 durch VERK-ORBIT, Abschnitt 8b; `npm run check:kette`: 0 Platzhalter-Schritte). Die Platzhalter-Texte in den Abschnitten 3, 4 und 8 sind der **Verlauf** (ursprüngliche Schnittstelle).
+Testskripte: `npm run check:kette`, `npm run test:kette` (`tools/test-kette.js`), `npm run test:orbit`, Bots `npm run sim:kette` (alle in `npm test` bzw. `npm run check`). Offene Punkte: Abschnitt 10.
+Entscheidungen: D1–D16 (Kette, Abschnitt 6), D17–D23 (VERK-ORBIT, Abschnitt 6), **D24–D32 (VERK-BODEN, Abschnitt 4a; früher D17–D25, wegen Doppelvergabe neu nummeriert)**.
 
 ## 1. Befund (vor EK8)
 | Punkt | Stand |
@@ -44,7 +47,7 @@ Statio Limitis (Anwerbung) → Rabenpass (Konvoi, Abgabe) → Nebelheim (Schleic
   `menu end` (Lobby). Ein gespeicherter Stand nach dem Sieg zeigt beim Laden wieder den Abspann (kein freies Spiel).
 
 ## 4. Kapitel, Platzhalter und Schnittstellen der fehlenden Szenen
-Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. Flags liegen in `mission.flags` (Weltstand-Block `flags`), Fakten in `welt.fakten`.
+Stand: alle Platzhalter ersetzt (4a, 8b). Namen der Flags sind **Vertrag**: Die späteren Teams setzen sie unverändert. Flags liegen in `mission.flags` (Weltstand-Block `flags`), Fakten in `welt.fakten`.
 
 | Kap. | Buch | Schritte (* = Platzhalter) | Ausgänge | Setzt | Liest (`erwartet`) |
 |---|---|---|---|---|---|
@@ -111,7 +114,7 @@ Der Platzhalter ist ersetzt (kein `platzhalter`-Feld mehr, `npm run check:kette`
 - **Abspann aus Daten:** Blöcke und Zeilen in `eisenwald.json` dürfen `wenn` tragen (Bedingung wie im Regiebuch, Flags der Orbitschlacht); der Block „ROM“ zeigt Fulminata/Audax heimgekehrt oder verloren und die Haltung des Legaten. `Kette.abspannBloecke()` wertet beim Ende (auch nach dem Laden) aus; Schema: Zeilen als Text oder `{ text, wenn }`.
 
 ## 4a. Verdrahtung Boden: Kapitel 2, 4 und 7 mit den echten Szenen (Team VERK-BODEN, Branch `ek4-verk-boden`)
-Die Platzhalter der Kapitel 2, 4 und 7 sind ersetzt (`platzhalter`-Felder in Büchern und Kette weg, `npm run check:kette` listet nur noch die drei Schritte von Kapitel 6, Team VERK-ORBIT).
+Die Platzhalter der Kapitel 2, 4 und 7 sind ersetzt (`platzhalter`-Felder in Büchern und Kette weg; `npm run check:kette` listete danach nur noch die drei Schritte von Kapitel 6, seit VERK-ORBIT meldet es 0 Platzhalter-Schritte).
 Die Flag-Namen des Vertrags bleiben, die Folgen (Sperrriegel, Meldung, Fakten, Kapitelwechsel) liegen weiter im Kapitelbuch (D7).
 
 | Kap. | Schritte | Echte Szene (Molekül / Umsetzung) | Setzt | Ausgänge |
@@ -145,18 +148,18 @@ Kapitel endet, wenn beide Flags gelten). Fällt die Crew (`crew_gefallen`): beid
   zwei Halter sind der Kern der Szene; (c) Kapitel überspringen: würde die Kette entwerten.
 - Mit zwei Spielern, von denen einer fällt, gilt weiter die EK6-Regel (Hissen erst, wenn der zweite wieder steht). Das ist gewollt (Briefing: „Zwei Spieler sind hart“).
 
-### Entscheidungen
+### Entscheidungen (VERK-BODEN, D24–D32)
 | # | Entscheidung | Grund |
 |---|---|---|
-| D17 | Szenen als Schritte im Kapitelbuch (Kopie der Molekül-Vorlagen mit festen Parametern), `umsetzung` trägt den Molekülnamen | die Kette ist Datei und Buch (D1); Bots, Prüfer und Missionsbuch kennen die Umsetzung; kein Szenenbau-Aufruf zur Laufzeit |
-| D18 | Konvoi-Fortschritt über `konvoi_erfolg`, Eskorte dreht nach dem Erfolg ab | siehe oben (Störsender-Regel, „bei Beute ohne Eskorte-Kill“) |
-| D19 | Solo-Konvoi: nur der Jäger als Eskorte (`crew_max 1`) | der Solo-Bot schaffte die volle Eskorte 0 von 4 (CONTRACT-EK3B §6), mit Jäger allein 14 von 14 im Labor-Einstieg; Mehrspieler unverändert voll |
-| D20 | Sprengstoff-Ersatz bleibt kostenlos, Kauf (150 Marken) und Beute führen in dasselbe Gepäckfeld `ladung` | „der Feldzug scheitert nie“ (D13); der Kauf ist damit ein zweiter, gleichwertiger Weg, ohne dass die Szene ihn kennen muss |
-| D21 | `methalle_gesprengt` und `boss_besiegt` erst, wenn das Team wieder an Bord ist | Vertrag (4); „nach dem Hochbeamen“ (Briefing EK5) |
-| D22 | Notrückholung = Ausgang `rueckzug` samt Kartenreset in k4 und k7 | Vertrag (4); die Kette wiederholt; die Flags des Kapitels 7 werden dabei gelöscht, sonst bliebe `flagge_gehisst` stehen |
-| D23 | Solo-Siedlung: Legionär hisst mit, 5 + 1 Gegner | siehe oben |
-| D24 | `scene.beam` an den Hexen 0704 und 0705 plus Landepunkte `*.siedlung` mit `frei: immer`; die Labor-Platzhalter `splitter.methalle` und `splitter.eisenwald` bleiben | Vorgabe EK5/EK6/EK7; das Labor und seine Bots bleiben unverändert |
-| D25 | `tools/sim-headless.js`: eine Zeile in `buehneTasks` (Aufgabe „Anführer jagen“ nur in der Phase `angriff`) | nach dem Abzug der Gegner liefert `boss_besiegt` false, der Bot jagte ewig; das Kapitelbuch wartet hier (anders als die Vorlage) auf das Hochbeamen |
+| D24 | Szenen als Schritte im Kapitelbuch (Kopie der Molekül-Vorlagen mit festen Parametern), `umsetzung` trägt den Molekülnamen | die Kette ist Datei und Buch (D1); Bots, Prüfer und Missionsbuch kennen die Umsetzung; kein Szenenbau-Aufruf zur Laufzeit |
+| D25 | Konvoi-Fortschritt über `konvoi_erfolg`, Eskorte dreht nach dem Erfolg ab | siehe oben (Störsender-Regel, „bei Beute ohne Eskorte-Kill“) |
+| D26 | Solo-Konvoi: nur der Jäger als Eskorte (`crew_max 1`) | der Solo-Bot schaffte die volle Eskorte 0 von 4 (CONTRACT-EK3B §6), mit Jäger allein 14 von 14 im Labor-Einstieg; Mehrspieler unverändert voll |
+| D27 | Sprengstoff-Ersatz bleibt kostenlos, Kauf (150 Marken) und Beute führen in dasselbe Gepäckfeld `ladung` | „der Feldzug scheitert nie“ (D13); der Kauf ist damit ein zweiter, gleichwertiger Weg, ohne dass die Szene ihn kennen muss |
+| D28 | `methalle_gesprengt` und `boss_besiegt` erst, wenn das Team wieder an Bord ist | Vertrag (4); „nach dem Hochbeamen“ (Briefing EK5) |
+| D29 | Notrückholung = Ausgang `rueckzug` samt Kartenreset in k4 und k7 | Vertrag (4); die Kette wiederholt; die Flags des Kapitels 7 werden dabei gelöscht, sonst bliebe `flagge_gehisst` stehen |
+| D30 | Solo-Siedlung: Legionär hisst mit, 5 + 1 Gegner | siehe oben |
+| D31 | `scene.beam` an den Hexen 0704 und 0705 plus Landepunkte `*.siedlung` mit `frei: immer`; die Labor-Platzhalter `splitter.methalle` und `splitter.eisenwald` bleiben | Vorgabe EK5/EK6/EK7; das Labor und seine Bots bleiben unverändert |
+| D32 | `tools/sim-headless.js`: eine Zeile in `buehneTasks` (Aufgabe „Anführer jagen“ nur in der Phase `angriff`) | nach dem Abzug der Gegner liefert `boss_besiegt` false, der Bot jagte ewig; das Kapitelbuch wartet hier (anders als die Vorlage) auf das Hochbeamen |
 
 ### Messwerte (Bot, 2026-10-11)
 Bots über `node tools/sim-headless.js kette …` (ohne Tutorial; „ok“ ohne Zusatz = ohne Skip, 0 Fehler). Die Spielzeit enthält Wiederholungen. k7: Versuche = Niederlagen + 1 (Reset und Wiederholung nach `rueckzug`).
@@ -182,8 +185,8 @@ Gespeichert und geladen wird weiter an jedem Kapitelübergang (`tools/test-kette
 ### Offene Punkte (Boden)
 - Balance der Siedlung und des Solo-Konvois (EK9, Menschen); Zahl der Gegner solo (5 + 1) und der Legionär (nur Funk, keine Figur) sind Vorschläge.
 - Der Legionär beim Solo-Hissen ist nur ein Funkspruch plus Zeitfenster, kein sichtbarer NSC.
-- k6 (Orbit) bleibt Platzhalter (Team VERK-ORBIT); `legat_befolgt` & Co. setzt dort der Platzhalter.
-- Berührt außerhalb des Kerns: `content/welt/{limes,landepunkte}.json` (Landepunkte, `scene.beam`), `content/regiebuecher/k3_nebelheim` (eine Bedingung im Ersatz), `tools/sim-headless.js` (eine Zeile, D25), `tools/test-kette.js`.
+- ~~k6 (Orbit) bleibt Platzhalter~~ **erledigt** (8b, VERK-ORBIT).
+- Berührt außerhalb des Kerns: `content/welt/{limes,landepunkte}.json` (Landepunkte, `scene.beam`), `content/regiebuecher/k3_nebelheim` (eine Bedingung im Ersatz), `tools/sim-headless.js` (eine Zeile, D32), `tools/test-kette.js`.
 
 ## 5. Weltstand (kein neues Schema)
 - **Fakten** (`welt.fakten`, Quelle `kette`): `kampagne` (`eisenwald`), `kapitel` (Kapitel-ID), `kapitel_nr`, `kapitel_buch`, `kampagne_ende` (true nach dem Sieg). Aus den Büchern: `rom_angeworben`, `sprengstoff`
@@ -203,18 +206,17 @@ Gespeichert und geladen wird weiter an jedem Kapitelübergang (`tools/test-kette
 | D3 | Fortschritt nur aus `erfolg`, jeder andere Ausgang wiederholt (Prüfer erzwingt es) | Leitplanke „Feldzug scheitert nie, jede Szene hat einen Ausgang“ |
 | D4 | Kein Spielleiter in den Kettenmodi (`createSpielleiter` entfällt) | Briefing; S3 ist nicht Teil; die Kette ändert den Spielleiter-Modus nicht |
 | D5 | Zwei Lobby-Modi: `eisenwald` (mit Tutorial) und `eisenwald_ohne` (Test/Wiederspielen) | Briefing „Modus nach Tutorial“; der Bot-Durchlauf und Tester brauchen den Einstieg ohne 25 Minuten Tutorial |
-| D6 | Platzhalter sind **echte, spielbare Stand-ins** auf dem Raumkampf (Eskorte und Fracht, Position halten, Wellen), im Text als „Platzhalter“ erkennbar, im Buch als `platzhalter` markiert (Prüfwarnung) und in der Kette gelistet | Briefing; so läuft die Kette durchgehend und die Bots können sie spielen |
+| D6 | (Verlauf, inzwischen alle ersetzt) Platzhalter sind **echte, spielbare Stand-ins** auf dem Raumkampf (Eskorte und Fracht, Position halten, Wellen), im Text als „Platzhalter“ erkennbar, im Buch als `platzhalter` markiert (Prüfwarnung) und in der Kette gelistet | Briefing; so läuft die Kette durchgehend und die Bots können sie spielen |
 | D7 | Flag-Namen als Vertrag (4); die Szene setzt nur ihr Ergebnis, **die Folgen** (Sperrriegel öffnen, Meldung, Sprengstoff-Fakt, Kapitelwechsel) **liegen im Kapitelbuch** | Die späteren Teams brauchen keine Kenntnis der Kette; nur eine Flag je Ergebnis |
 | D8 | Labor-Einstieg je Kapitel in der Kette-Datei (`einstieg`: Ort, Flags, Fakten, Fracht, Schlüssel) und im Debug-Befehl `kapitel <id>` | Briefing „Labor-Einstiege je Kapitel“; der Zustand davor ist Daten, nicht Code |
-| D9 | Funkbild als Stimmenfeld (`besetzung.stimmen.<id>.bild`: `mars`, `legat`), im Funk als Ereignisfeld `bild` und Snapshot `mission.radio.bild` | kleinste Erweiterung; ohne Feld bleibt alles wie vorher |
+| D9 | Funkbild als Stimmenfeld (`besetzung.stimmen.<id>.bild`: `mars`, `legat`), im Funk als Ereignisfeld **`pid`** und Snapshot **`mission.radio.pid`** (ursprünglich `bild`, im Code mit EK4 vereinheitlicht auf `pid`, `server/sim/mission.js` `radio`/`funkKennung`) | kleinste Erweiterung; ohne Feld bleibt alles wie vorher |
 | D10 | **Abspann** als Snapshot-Feld in Phase `end` (Titel, Text, Blöcke aus der Kette-Datei), Client scrollt, Enter = `menu end` | „Kein freies Spiel“; Daten statt Code; Text von Kai änderbar |
 | D11 | Der Name im Funk lautet „Mars“ (kein Sonderzeichen ⚔), das Symbol zeigt das Funkbild | die Pixelschrift hat das Zeichen nicht |
 | D12 | `Frachtraum` statt „Lagerraum“ in den Texten (EK3a-Entscheidung D1) | Verwechslung mit dem Regal-Lager vermeiden |
 | D13 | Ersatz einer verlorenen Sprengladung im Hafen **kostenlos** bis zum Kauf auf Stationen (EK5) | sonst Softlock; „der Feldzug scheitert nie“ |
 | D14 | Patrouillen drehen bei Erreichen des Ziels in Nebelheim ab (`enemies_retreat`) | Störsender-Regel blockiert sonst den Sprung nach der Schleichfahrt (Befund) |
-| D15 | Platzhalter-Gegner sind weniger als im Briefing (ohne Verbündete): Orbit 2 / 2 / Fregatte + 1 Jäger, Siedlung Anführer + 2 Jäger | Bots (und Menschen) haben ohne Flottenhilfe sonst Mühe; Balance ist EK9 |
+| D15 | (Verlauf, ersetzt durch die echten Szenen) Platzhalter-Gegner sind weniger als im Briefing (ohne Verbündete): Orbit 2 / 2 / Fregatte + 1 Jäger, Siedlung Anführer + 2 Jäger | Bots (und Menschen) haben ohne Flottenhilfe sonst Mühe; Balance ist EK9 |
 | D16 | `tools/sim-headless.js`: nur abgegrenzte Blöcke (Handler `kette/*`, `travel()` mit Weitscan-Suche in `GenericAgent`, Modus `kette`) | Konfliktpunkt; die Bojen-Suche gilt nur, wenn die Boje unbekannt ist (Tutorial, Labor, Golden unverändert) |
-
 | D17 | (VERK-ORBIT) Scheitern der Orbitschlacht: zweimal von vorn, dann „Rom übernimmt“ als **Erleichterung** (weniger Gegner, keine Frist, kein Überdruck), nie als Freibrief; Zähler in Flags, die Schleife im Buch (`goto` auf den eigenen Schritt) | Leitplanke „Fortschritt nur durch erreichte Ziele“ gegen „der Feldzug scheitert nie“; der Katalog-Ausgang „Rom übernimmt = aufgegeben, weiter“ wäre ein Freibrief |
 | D18 | Der bedrängte Verbündete hält Stellung (`flotte_modus halten`) in Befehl 2 | Mit der KI (begleiter) flog die Fulminata den Gegnern entgegen und die Abschüsse geschahen fern vom Befehlsradius; Entlastung hieße sonst nie erfüllt (Bots: 3 von 3 Zeitüberschreitungen) |
 | D19 | Entlastung wechselt bei Verlust des Schiffs auf die Audax, dann auf „Jäger ausschalten“ | ein toter Schützling würde den Befehl endlos scheitern lassen (Softlock) |
@@ -228,22 +230,22 @@ Gespeichert und geladen wird weiter an jedem Kapitelübergang (`tools/test-kette
 - `npm run check:kette` (Kette + 8 Bücher, `--selftest`), `npm run test:kette`, `node tools/sim-headless.js kette [--kapitel alle|<id>] [--crew 1|3] [--seeds N] [--seed S] [--von <kapitel>] [--tutorial]`.
 - Testserver: Port 3396 (3395 war belegt), `WORLD_DIR=data/worlds-kette`.
 
-## 8. Abnahme (Stand dieses Commits)
+## 8. Abnahme (Stand der Kette mit Platzhaltern; spätere Stände: 4a und 8b)
 Siehe Abschnitt 9 (Messwerte). **Offen:**
 - **Störsender-Regel** (`sprung.js`): ruhende Patrouillen dürfen den Sprung nicht blockieren. Die Kette umgeht es nur im Kapitel 3; für Szenen anderer Teams (Konvoi: Eskorte tot, Jäger-Einsprung) gilt die Regel unverändert.
-- Platzhalter: Konvoi, Methalle, Siedlung sind ersetzt (Abschnitt 4a, VERK-BODEN); offen bleibt nur Kapitel 6 (Team VERK-ORBIT, FLOTTE). `npm run check:kette` listet den Rest.
-- **Kauf von Sprengstoff auf Stationen** (EK5, Shop `ladung`, 150 Marken) führt seit 4a in dasselbe Gepäckfeld wie das Umladen der Beute; der kostenlose Ersatz im Hafen bleibt als Softlock-Schutz (D20).
+- Platzhalter: **erledigt** (Konvoi, Methalle, Siedlung in 4a, Orbit in 8b); `npm run check:kette` meldet 0 Platzhalter-Schritte.
+- **Kauf von Sprengstoff auf Stationen** (EK5, Shop `ladung`, 150 Marken) führt seit 4a in dasselbe Gepäckfeld wie das Umladen der Beute; der kostenlose Ersatz im Hafen bleibt als Softlock-Schutz (D27). (Erledigt.)
 - Texte (Kapitelkarten, Abspann, Hinweise, Funk) sind Entwurf; Kai passt sie in `content/kampagne/eisenwald.json` und den Büchern an.
 - **Lesbarkeit** von Funkbild, Kapitelkarte und Abspann: nur per Screenshot (Playwright, 2D) geprüft, nicht mit Menschen (EK9). Voxel-Ansicht nicht geprüft (die Teile liegen in der 2D-HUD-Schicht und gelten für beide).
-- Dauer: Die Bot-Durchläufe zeigen Spielzeiten von **ca. 32 bis 80 Minuten** (ohne Tutorial), vor allem Flüge zwischen den Hexen und die Platzhalter-Kämpfe; Menschen zu zweit/dritt: EK9.
+- Dauer: Die Bot-Durchläufe zeigen Spielzeiten von **ca. 32 bis 80 Minuten** (ohne Tutorial; Stand mit Platzhaltern, mit allen echten Szenen 28–42 Minuten, siehe 9), vor allem Flüge zwischen den Hexen und die Kämpfe; Menschen zu zweit/dritt: EK9.
 - Mehrspieler: Der Abspann-Knopf beendet die Partie für **alle** (wie „Partie beenden“); ein Spieler kann also den Abspann der anderen abbrechen.
 
 ## 8b. Stand VERK-ORBIT (Kapitel 6, 5, 8)
-- Offen: Balance (Bots zu zweit und allein finden die Szene leicht, die Fregatte fällt in rund 85–120 s solo bzw. 190–290 s zu dritt (mit einem Scheitern davor) s; Verbündete verloren in keinem Bot-Lauf – die Verlustpfade sind nur im Test belegt), EK9; Voxel-Ansicht kennt die Flottenanzeige nicht (EK4 Abschnitt 6); Texte (Entwurf): Klagen in Kapitel 8, Abspannzeilen; Lesbarkeit der Zeilen BEFEHL/VERBÜNDET mit Menschen.
+- Offen: Balance (Bots zu zweit und allein finden die Szene leicht, die Fregatte fällt in rund 85–120 s solo bzw. 190–290 s zu dritt (mit einem Scheitern davor) s; Verbündete verloren in keinem Bot-Lauf – die Verlustpfade sind nur im Test belegt), EK9; Voxel-Ansicht kennt die Flottenanzeige nicht (EK4 Abschnitt 7); Texte (Entwurf): Klagen in Kapitel 8, Abspannzeilen; Lesbarkeit der Zeilen BEFEHL/VERBÜNDET mit Menschen.
 - Kapitel 5 blieb unverändert (Legat und Mars waren schon echt, Funktext wie im Vault); die Verbündeten erscheinen erst in Kapitel 6.
 
 ## 9. Messwerte (2026-10-11)
-- `npm test` grün (inkl. `tools/test-kette.js` 115/115), `npm run check` grün (Kette + 8 Bücher, 13/13 Selbsttests), `npm run snap:mess` grün: Worst Case **11 444 B**, Wellen 10 558 B, Raum-Alarm 11 384 B (Ziel ≤ 18 944 B); Abspann 762 B (nur Phase `end`); Bot-Läufe der Kette Snapshot-Maximum 12 414 B.
+- `npm test` grün (inkl. `tools/test-kette.js` 115/115; nach VERK-BODEN 162), `npm run check` grün (Kette + 8 Bücher, 13/13 Selbsttests), `npm run snap:mess` grün: Worst Case **11 444 B**, Wellen 10 558 B, Raum-Alarm 11 384 B (Ziel ≤ 18 944 B); Abspann 762 B (nur Phase `end`); Bot-Läufe der Kette Snapshot-Maximum 12 414 B.
 - **Golden m1–m3** (20 Seeds, `--all --jobs 4`) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch (die übrigen 40 sind die bekannten EK1a-Abweichungen m1/m2 solo). Ordner gelöscht.
 - **Bots, ganze Kette** (`sim-headless kette`, ohne Tutorial, 4 Seeds × Crew 1 und 3): **8/8 bis zum Abspann**, 0 Fehler, keine Skips, Spielzeit **28–41 min** (Median ~31).
 - **Bots, Labor-Einstieg je Kapitel** (8 Kapitel × 3 Seeds × Crew 1 und 3): **48/48 ok**, 0 Fehler, keine Skips.
@@ -257,3 +259,12 @@ Siehe Abschnitt 9 (Messwerte). **Offen:**
 - **Ehrlich:** Die Bots finden die Szene leicht. Solo kein Scheitern in 12 Läufen; zu dritt scheitert Befehl 3 beim ersten Anlauf (Notfallprotokoll, danach von vorn, dann erfüllt). Die Fregatte fällt in 85–120 s (solo) bzw. 190–290 s. Kein Bot-Lauf verlor ein Verbündetes Schiff – Verlust, Ersatzbefehl, Rom-Stufe und Flags sind nur im Test (`test-orbit`) belegt. Balance gehört zu EK9.
 - Ein erster Bot-Lauf zeigte, dass ohne `flotte_beenden` das `enemies_retreat` in Kapitel 7 am selben Ort weiterwirkt (Siedlungs-Platzhalter 1500 s Zeitlimit); behoben (D21).
 - Golden m1–m3 nicht gelaufen: Tutorial- und Raumpfade nicht berührt (`flightV2` und Escort-Reset nur für `kopf.art: kapitel`).
+
+## 10. Offen
+- **Störsender-Regel** (`JAMMERS` in `server/sim/sprung.js`: `raider`, `korvette`, `fregatte`, `kreuzer`): jeder lebende Gegner blockiert den Faltsprung, auch ruhende Patrouillen. Die Kette umgeht es in Kapitel 2 (Eskorte dreht nach dem Erfolg ab) und 3 (Patrouillen drehen ab, D14); eine allgemeine Regel (ruhende Patrouillen zählen nicht) gehört dem Raumkampf-Team.
+- **Texte sind Entwurf** (Kapitelkarten, Abspann, Hinweise, Funk; Klagen in Kapitel 8, Abspannzeilen); Kai passt sie in `content/kampagne/eisenwald.json`, den Büchern und `content/flotte/funktexte.json` an.
+- **Menschentests (EK9):** Lesbarkeit von Funkbild, Kapitelkarte, Abspann, Zeilen BEFEHL/VERBÜNDET; Spieldauer (Bots 28–42 min, Menschen offen); Voxel-Ansicht nicht geprüft.
+- **Balance:** Solo-Konvoi nur mit Jäger-Eskorte (D26) und für Menschen trotzdem Mühe; Solo-Siedlung mit Legionär (nur Funk, keine Figur) und 5 + 1 Gegnern (D30); Siedlung ist für Bots hart (sie verlieren oft gegen 11 Gegner, Wiederholungen greifen); Orbit ist für Bots zu leicht, **kein Bot verlor je ein Verbündetes Schiff** (Verlustpfade nur in `tools/test-orbit.js` belegt, 8b).
+- **Abspann-Knopf:** Enter im Abspann sendet `menu end` und beendet die Partie für **alle** Spieler (Abschnitt 8).
+- **Reparatur im Hafen** fehlt (CONTRACT-EK7, Abschnitt 4a); **Nebel in der Kampagne** bleibt aus (`CONFIG.sensors.nebelServer: 'wellen'`, CONTRACT-EK2).
+- **Voxel-Ansicht** kennt Verbündete, Sprungblitz, Kapsel und die Flottenanzeige nicht (CONTRACT-EK4, Abschnitt 7).

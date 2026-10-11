@@ -2,7 +2,9 @@
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK2), `Planung Eisenwald-Kampagne (EK1-EK9)` (EK2, E4), `Arbeitspaket Raum-Alarm und K4`, Szenentypen
 (Schleichfahrt: Regeln, Kai 2026-10-07), Sektor-Einflüsse, Bodenkampf (Stand B2) und Planung Welle 1+2 (D31–D33) im Vault
-(`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Kai am 2026-10-11 (Details im Briefing). Team RAUM2, Branch `ek2-raum2` (Basis `ek1`).
+(`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Kai am 2026-10-11 (Details im Briefing). Team RAUM2.
+
+**Stand:** fertig, gemergt in `ek1`. Testskript: `npm run test:alarm` (`tools/test-alarm.js`, in `npm test`). Offene Punkte: Abschnitt 8. Die Verweise „D31–D33“ in Abschnitt 1 und 3 meinen die Entscheidungen der Planung Welle 1+2 im Vault, nicht die Entscheidungen D1–D16 dieses Vertrags (Abschnitt 4).
 
 ## 1. Befund (vor EK2)
 | Punkt | Stand |
@@ -89,7 +91,9 @@ Nicht berührt: `server/sim/interior.js` (nur die bestehende `damageSystem`-API)
 
 ## 8. Offen
 - Lesbarkeit und Balance (Patrouillentempo 45, Sensor 420, Sprengradius 160, Einsprung) beim Spieleabend; Balance EK9.
-- `ohne_strom` (D9) und Nebel-Schalter (E4, D33) warten auf Kais Entscheidung/Folgepaket.
-- Client nur per Syntaxprüfung und Code-Durchsicht geprüft, nicht im Browser. `dev-mock.js` kennt Minen/Alarm nicht.
+- `ohne_strom`: **entschieden** (Studioleitung), Bedeutung **Blindgänger** (D9 bleibt, Code `server/sim/alarm.js`); die Kampagne nutzt den Parameter nicht.
+- Nebel in der Kampagne: `CONFIG.sensors.nebelServer` bleibt `'wellen'` (E4); der Schalter `CONFIG.alarm.signatur.nebel.schalter` ist aus. Gegner im Nebel finden die Lerche weiter immer (Planung D33). Mit `'immer'` hängen die m2-Golden-Läufe am Kustoden-Relais (`OFFEN-STUDIO.md`).
+- **Störsender-Regel:** `JAMMERS` (`server/sim/sprung.js`) zählt auch ruhende Patrouillen: Wer Nebelheim unbemerkt durchquert, kann nicht abspringen, bis die Patrouillen tot sind. Die Kette umgeht es im Kapitel 3 (`enemies_retreat`, CONTRACT-EK8 D14); eine allgemeine Lösung fehlt.
+- Client bei der Abnahme nur per Syntaxprüfung und Code-Durchsicht geprüft; Lesbarkeit mit Menschen steht aus. `public/js/dev-mock.js` kennt Minen und Alarm nicht.
 - Grobplan-Prompts des Spielleiters (LLM) nennen das Feld `rueckzug` nicht; die Kampagne nutzt feste Regiebücher.
-- Kampagnen-Regiebuch Nebelheim (Minen um die Methalle) kommt mit EK8; Bausteine `spawn_patrouille`/`minenfeld` sind dafür da.
+- ~~Kampagnen-Regiebuch Nebelheim kommt mit EK8~~ **erledigt:** `content/regiebuecher/k3_nebelheim.regiebuch.json` nutzt `schleichfahrt_an` (CONTRACT-EK8, Kapitel 3).

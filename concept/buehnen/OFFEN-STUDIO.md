@@ -1,7 +1,7 @@
 # Offene Kleinaufträge B1–B3 (Studioleitung, laufend)
 
-**Stand nach Welle 1 (2026-10-10, Branch `welle1`, Team DOKU).** Welle 2 (AP3a, AP6, AP3b) läuft in eigenen Bäumen und
-ist hier noch nicht eingetragen.
+**Stand nach Welle 1 (2026-10-10, Team DOKU).** Welle 2 ist unten unter „Neu offen nach Welle 2“ eingetragen, die Eisenwald-Kampagne
+(EK1–EK8, 2026-10-11) unter „Neu offen nach EK1–EK8“.
 
 Stand nach Welle 2 der B-Produktion (BODENKAMPF, CLIENT, BUEHNE fertig). Erledigt: itemOffset/Ruheposen, `shoot { los }` (ENGINE-Durchreichung
 hat die Studioleitung in `game.js` gesetzt, protocol.js dokumentiert), CLIENT B1–B3, Verfall-Überzug ≤ +0,04 je Platz,
@@ -55,6 +55,45 @@ Bauzeit `verfallen` Median ≤ 12 ms (Max. 90 ms bei Außenposten-Neuversuch →
 - **Messung:** `snap-mess.js` hat noch keinen Aufbau „Wellen All“ (Team ALL maß max 11 465 B mit bewegten Brocken).
   Außerdem soll `golden-trace.js` mehrere `--allow` annehmen (`allow-w2.json` enthält deshalb `allow-w1.json`).
 - **Labor:** vor dem Weitergeben des Spiels `CONFIG.lobby.labor` aus oder hinter Debug.
+
+## Neu offen nach EK1–EK8 (Stand 2026-10-11, Quellen: `CONTRACT-EK*.md`, `CONTRACT-EK.md`, Berichte der Teams)
+Geprüft gegen den Code am 2026-10-11 (Datei in Klammern). Eintrag „(Vertrag)“ = aus dem Vertrag übernommen, nicht neu gemessen.
+
+**Balance und Menschentests (EK9)**
+- **Kein Bot verlor je ein Schiff:** In keinem Bot-Lauf ging ein Verbündetes Schiff verloren; Verlust, Ersatzbefehl, Rom-Stufe und Flags der Orbitschlacht sind nur in `tools/test-orbit.js` belegt (CONTRACT-EK8, 8b).
+- **Siedlung für Bots hart, Orbit zu leicht:** Die Bots verlieren oft gegen die 10 + 1 Gegner der Siedlung (Wiederholung greift, bis zu 30 Versuche solo); die Orbitschlacht finden sie leicht (Fregatte fällt solo in 85–120 s, zu dritt in 190–290 s). Menschentest nötig (CONTRACT-EK8, 4a und 8b).
+- **Solo-Konvoi nur mit Jäger-Eskorte:** Bei höchstens einem verbundenen Spieler hat der Konvoi nur den Jäger als Eskorte (EK8 D26); die volle Eskorte schafft kein Solo-Bot, und für Menschen bleibt es Mühe (CONTRACT-EK3B, 6).
+- **Solo-Siedlung: Legionär:** Solo hisst nach 10 s ein Legionär mit (nur Funkspruch, keine Figur), der Angriff ist 5 + 1 statt 10 + 1 (EK8 D30). Gegnerzahl und Legionär sind Vorschläge, keine Entsprechung zum Zwei-Spieler-Hissen.
+- **Lesbarkeit mit Menschen:** Anführer (Bit `gs`, Häuptling-Look), Zeilen BEFEHL/VERBÜNDET, Funkbild, Kapitelkarte, Abspann, Fracht-Leiste der Taktik, Signaturanzeige und Minenringe (alles Vertrag, nur von Entwicklern und Bots gesehen).
+- **Schwierigkeit zu zweit:** Hissen mit einem gefallenen Partner erst, wenn der zweite wieder steht (gewollt, EK6); Endkampf im Labor nur zu dritt.
+
+**Optik**
+- **Voxel-Ansicht kennt Verbündete, Sprungblitz und Rettungskapsel nicht** (auch nicht die Flottenanzeige); sie erscheinen in der 2D-Karte und Frontsicht (CONTRACT-EK4, 7).
+- **Silhouetten bei 30 px:** Lesbarkeit der Drehsprites (Jäger, Korvette, Fregatte, Kreuzer) bei kleiner Darstellung; Vorschau 30/50/80 px in `public/art-preview.html`. Der 30-px-Befund stammt aus dem Bericht des Sprite-Teams, in keinem Vertrag belegt.
+- **Rohr-Optik:** Das Rohr der Methalle ist optisch ein Mauerstück, kein eigenes Kit-Teil (CONTRACT-EK5-6, 13; `public/js/voxel/kit.js`).
+- **Planeten, Sterne und Bojen der Datenorte werden nicht gezeichnet:** `shared/gen-sektor.js` legt `scene.stern`, `scene.planeten`, `scene.bojen` an, aber weder `server/sim/space.js` noch `public/js/render.js` oder `art.js` lesen sie (CONTRACT-EK7, 2 und 7).
+- **`public/voxel/VERSION.json`:** nennt Voxelwerk-Commit `1f1f112` (`dirty: false`, 2026-10-11) und stimmt heute mit `../voxelwerk` (main) überein. Bei jedem neuen Voxelwerk-Commit `npm run assets` neu fahren, sonst gilt der Stand nicht mehr; EK3 musste den Eintrag einmal von Hand nachtragen (Worktree wurde nicht erkannt).
+
+**Regeln und Systeme**
+- **`JAMMERS`-Regel** (`server/sim/sprung.js`, `JAMMERS = ['raider', 'korvette', 'fregatte', 'kreuzer']`): jeder lebende Gegner dieser Klassen blockiert den Faltsprung, auch ruhende Patrouillen. Die Kette umgeht es in Kapitel 2 (Eskorte dreht nach dem Erfolg ab) und 3 (Patrouillen drehen ab). Allgemeine Lösung („ruhende Patrouillen zählen nicht“) gehört dem Raumkampf-Team.
+- **Nebel in der Kampagne:** `CONFIG.sensors.nebelServer` ist `'wellen'` (`shared/config.js`); der Signatur-Schalter `CONFIG.alarm.signatur.nebel.schalter` ist aus. Entscheidung E4 und Planung D31/D33; Details im Eintrag „Server-Nebel in der Kampagne“ unter „Neu offen nach Welle 2“.
+- **Reparatur im Hafen fehlt:** Castra Martis und Statio Limitis verkaufen nur Vorräte gegen Marken; ein Dienst `kind: 'service'` gibt es in `server/sim/shop.js` nicht (CONTRACT-EK7, 4).
+- **Spielleiter-Szenenbau kennt Datenorte nicht:** `server/mission/szenenbau.js` baut `LOC` aus `Locations.LOCATIONS`; die 15 Orte der Kette sind dort nicht enthalten (kein Problem der Kampagne, die ohne Spielleiter läuft).
+- **Abspann-Knopf beendet die Partie für alle:** Enter im Abspann sendet `menu end`; ein Spieler kann den Abspann der anderen abbrechen (CONTRACT-EK8, 8). Der Weltstand bleibt.
+- **Lager ohne Strom (AP9):** `Fracht.setGesichert` hat keine Wirkung, das Ausbrechen der Ladung ist nicht gebaut (CONTRACT-EK3, 8).
+
+**Werkzeuge und Inhalte**
+- **`public/js/dev-mock.js` kennt Minen und Alarm nicht** (kein Treffer für Minen/Alarm in der Datei; CONTRACT-EK2, 8).
+- **Texte sind Entwurf:** Funktexte (Vault *Funktexte Feldzug Eisenwald*), Kapitelkarten, Abspann, Hinweise; Kai passt sie in `content/kampagne/eisenwald.json`, den Kapitelbüchern und `content/flotte/funktexte.json` an.
+- **Grobplan-Prompts** des Spielleiters (LLM) nennen das Feld `rueckzug` nicht; die Kampagne nutzt feste Regiebücher (CONTRACT-EK2, 8).
+- **Verbündete** feuern gleichförmig (keine Lanze, keine Rollen Schild/Wache/Rudel); Fregatte und Kreuzer sind nicht in den Wellen (CONTRACT-EK4, 7; CONTRACT-EK1, D14).
+- **Bot-Zeiten:** Spielzeit der Kette 28–42 Minuten (Bots, ohne Tutorial); Menschenzeiten offen. Vorfeld von EK9.
+
+**Als erledigt markiert (im Code belegt)**
+- ~~`test-escort` rot auf `ek1`~~ erledigt: `npm test` Exit 0, `test-escort` 84/84 (Lauf 2026-10-11, CONTRACT-EK1 D16).
+- ~~Platzhalter in Kapitel 2, 4, 6, 7 der Kette~~ erledigt: `node tools/check-kette.js` meldet 0 Platzhalter-Schritte.
+- ~~Landepunkte `methalle.siedlung`, `eisenwald.siedlung`~~ erledigt (`content/welt/landepunkte.json`, `scene.beam` an den Hexen 0704 und 0705 in `content/welt/limes.json`).
+- ~~`golden-trace.js` soll mehrere `--allow` annehmen~~ **nicht** erledigt (nimmt weiter genau eine Datei, `tools/golden-trace.js` Zeile 326); bleibt oben unter „Neu offen nach Welle 2“.
 
 ## ENGINE (Nachzug)
 - `server/sim/landepunkte.js` beim Serverstart laden; bei Ankunft am Ort `landepunkte.vorbauenOrt(game, ort)`.

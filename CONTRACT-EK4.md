@@ -1,7 +1,9 @@
 # CONTRACT-EK4 – Verbündete und Flottenbefehle (K4)
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK4), `Planung Eisenwald-Kampagne (EK1-EK9)` (EK4, E5), `Arbeitspaket Raum-Alarm und K4`,
-`Welt/Funktexte Feldzug Eisenwald` im Vault (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Branch `ek3-flotte` (Basis `ek1`).
+`Welt/Funktexte Feldzug Eisenwald` im Vault (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`).
+
+**Stand:** fertig, gemergt in `ek1` (EK4a, EK4b, Kapitel 6 „Orbitschlacht“ als Abschnitt 6). Testskripte: `npm run test:flotte` (`tools/test-flotte.js`), `npm run test:orbit` (`tools/test-orbit.js`), beide in `npm test`; Bots `node tools/sim-headless.js flotte`. Offene Punkte: Abschnitt 7.
 Schnitt nach E5: **EK4a** (Befehle, Legat, Funk, Hilferufe, Verlust; Verbündete scripted) vor **EK4b** (eigene KI, Teamlogik, 12-Schiffe-Grenze, Sprung der Flotte).
 
 ## 1. Befund
@@ -34,7 +36,7 @@ Schnitt nach E5: **EK4a** (Befehle, Legat, Funk, Hilferufe, Verlust; Verbündete
 6. **Funktexte als Daten**, Porträt über Kennung (`pid`), nicht über Spielzustand; unbekannte Sprecher unverändert (Snapshot bleibt byte-gleich).
 7. **Mars als `stimmen`-Kennung** statt NSC: kein Gedächtnis, kein Auftraggeber für den Spielleiter.
 
-## 2b. EK4b – gebaut
+## 3a. EK4b – gebaut
 | Teil | Inhalt |
 |---|---|
 | Eigene KI | Rolle je Verbündetem: **begleiter** (Standard; bleibt in `flotte.ki.leine` 1100 px um die Lerche, bekämpft den nächsten Gegner, wer das Schiff anvisiert zählt doppelt), **angreifer** (jagt den nächsten Gegner), **skript** (EK4a: nur Regiebuch, kein Feuer). Flug = die **Klassen-KI der Gegner** (`pilot.js`: Breitseite mit Abstand für Korvette/Fregatte/Kreuzer, Anflug für Jäger) mit einem Gegner als Ziel (`Pilot.targetOf` kennt `e.ally`), keine zweite KI. Ohne Ziel oder außerhalb der Leine: Formation hinter der Lerche. `flotte_modus ziel/halten` übersteuert die Bewegung, das Feuer bleibt |
@@ -78,15 +80,8 @@ Schnitt nach E5: **EK4a** (Befehle, Legat, Funk, Hilferufe, Verlust; Verbündete
 | Golden m1–m3 (20 Seeds, 120 Traces) gegen `base-w2` mit `allow-ek1.json` | **GOLDEN GRÜN**: 80/120 Traces byte-identisch, die 40 anderen sind die Crew-1-Läufe von m1/m2 mit der bekannten Abweichung aus EK1a (Mediane m1/1 −6,7 %, m2/1 +2,1 %, `allow-ek1.json`); m3 und Crew 3 unverändert. Ordner `ek4-check` gelöscht |
 | Browser (Chromium, Playwright, Port 3393) | EK4a-Ansichten geprüft (HUD-Zeilen, Funkporträt, Mars-Symbol, Captain-Reiter, Verlust mit Kapsel, Taktik mit Verbündetem), 0 Client-Fehler |
 
-## 6. Offen
-- Die Voxel-Ansicht kennt keine Verbündeten-Sprites, Sprungblitz und Kapsel (sie erscheinen in der 2D-Karte und Frontsicht).
-- Verbündete feuern gleichförmig (keine schweren Ladungen, keine Lanze); Rollen Schild/Wache/Rudel fehlen.
-- Die feste Kampagnenkette (Orbitschlacht Eisenwald in drei Teilen) baut EK8 aus diesen Bausteinen; `mission.js` setzt `space.escorts` bei erzeugten Büchern (`kopf.art generiert|archiv`) zurück, nicht bei festen Büchern.
-- Gegner-KI `flightV2` gilt in der Kampagne nur für `kopf.art generiert|archiv` (S2); Verbündete fliegen unabhängig davon über `Pilot.update`, die Gegner der festen Kette brauchen `flightV2` für Breitseiten (EK8 prüfen).
-- Nicht mit Menschen gespielt: Lesbarkeit der Zeilen BEFEHL/VERBÜNDET im Gefecht, Schwierigkeit der Verbündeten (Bots: Labor-Szenen zu leicht, Härte in `flotte.crewDamage`, Hüllen und `flotte.ki.dmg`).
-
-## 7. VERK-ORBIT – Orbitschlacht Eisenwald als echte Szene (Kapitel 6 der Kette)
-Branch `ek4-verk-orbit` (Basis `ek1` mit EK1–EK8). Das Kapitelbuch `content/regiebuecher/k6_orbit.regiebuch.json` baut die Szene aus den Bausteinen dieses Vertrags (Details und Flags: CONTRACT-EK8.md Abschnitt 4, Kapitel 6; Test: `tools/test-orbit.js`).
+## 6. VERK-ORBIT – Orbitschlacht Eisenwald als echte Szene (Kapitel 6 der Kette)
+Stand: fertig, gemergt in `ek1`. Das Kapitelbuch `content/regiebuecher/k6_orbit.regiebuch.json` baut die Szene aus den Bausteinen dieses Vertrags (Details und Flags: CONTRACT-EK8.md Abschnitt 4, Kapitel 6; Test: `tools/test-orbit.js`).
 | Teil | Inhalt |
 |---|---|
 | Ablauf | `flotte_aufstellen` Fulminata und Audax (`auftauchen`) › Befehl **durchbrechen** (2 Wegpunkte) › **entlastung** (bedrängtes Schiff hält Stellung, Verlust ersetzt den Befehl) › **ausschalten** (Boss-Fregatte). Fortschritt nur durch erreichte Ziele |
@@ -103,3 +98,11 @@ Branch `ek4-verk-orbit` (Basis `ek1` mit EK1–EK8). Das Kapitelbuch `content/re
 - Beim Abschluss die Flags auflösen (eine `legat_*`-Flag): Die Engine setzt `legat_befolgt` je erfülltem Befehl und `legat_eigenmaechtig` bzw. `legat_im_stich` je Ereignis, nebeneinander.
 
 **Messung (VERK-ORBIT):** `node tools/snap-mess.js` Aufbau „orbit“ (Kette, Kapitel 6, Befehl 3, 3 Spieler, Fulminata und Audax mit KI, Gegner bis zur Grenze von 12 Schiffen, Nachschub, alle gescannt): **max 13842 B, p95 12826 B** (Ziel ≤ 18 944 B). Aufbau 1–4 unverändert.
+
+## 7. Offen
+- Die Voxel-Ansicht kennt keine Verbündeten-Sprites, Sprungblitz und Kapsel (sie erscheinen in der 2D-Karte und Frontsicht); auch die Flottenanzeige (BEFEHL/VERBÜNDET) fehlt dort.
+- Verbündete feuern gleichförmig (keine schweren Ladungen, keine Lanze); Rollen Schild/Wache/Rudel fehlen.
+- ~~Die feste Kampagnenkette (Orbitschlacht Eisenwald) baut EK8~~ **erledigt** (Abschnitt 6, `k6_orbit`).
+- ~~`flightV2` gilt in der Kampagne nur für `kopf.art generiert|archiv`~~ **erledigt:** `Mission.flightV2()` und der Reset von `space.escorts` gelten auch für `kopf.art: kapitel` (Abschnitt 6, CONTRACT-EK8 D22); das Tutorial (art `mission`) bleibt auf der alten KI.
+- **Kein Bot-Lauf verlor je ein Verbündetes Schiff:** Verlust, Ersatzbefehl, Rom-Stufe und Flags der Orbitschlacht sind nur in `tools/test-orbit.js` belegt (CONTRACT-EK8, 8b). Verbündete und Orbit sind für Bots zu leicht (Fregatte fällt solo in 85–120 s, zu dritt in 190–290 s); Balance EK9.
+- Nicht mit Menschen gespielt: Lesbarkeit der Zeilen BEFEHL/VERBÜNDET im Gefecht, Schwierigkeit der Verbündeten (Härte in `flotte.crewDamage`, Hüllen und `flotte.ki.dmg`).

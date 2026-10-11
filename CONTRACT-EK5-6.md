@@ -1,10 +1,10 @@
 # CONTRACT-EK5-6 – EK5 Methalle und EK6 Siedlung Eisenwald (Team BODEN)
 
-Arbeitsbaum `C:\Users\Luciu\projects\Pantheon-ek-boden`, Branch `ek1b-boden` (Basis `ek1`), Port 3393, `WORLD_DIR=data/worlds-boden`.
-Grundlage: Briefing und Planung Eisenwald-Kampagne (Vault `Coop-Spiel`), Entscheidungen Kai 2026-10-11. Keine Pushes, kein Merge.
-Stand dieses Dokuments: EK5 (Abschnitte 1–6) und EK6 (7–10) gebaut, Abnahme und Messwerte in 11.
+Grundlage: Briefing und Planung Eisenwald-Kampagne (Vault `Coop-Spiel`), Entscheidungen Kai 2026-10-11.
 
-## 1. Befund (gegen den Code geprüft)
+**Stand:** fertig, gemergt in `ek1`; EK5 (Abschnitte 1–6) und EK6 (7–10) gebaut, Abnahme und Messwerte in 11, berührte Dateien in 12, offene Punkte in 13. In der Kampagne echt verdrahtet (CONTRACT-EK8, Abschnitt 4a). Testskripte: `npm run test:methalle`, `npm run test:eisenwald` (in `npm test`).
+
+## 1. Befund (gegen den Code geprüft, Stand vor EK5/EK6)
 
 | Thema | Briefing/Planung | Befund |
 |---|---|---|
@@ -14,8 +14,8 @@ Stand dieses Dokuments: EK5 (Abschnitte 1–6) und EK6 (7–10) gebaut, Abnahme 
 | Sprengstoff | „Inventar und Sprengpunkt ohne Explosion“ | `inventory.ladung` (Zahl) und der Anker `sprengpunkt` (halten, scharf, 60 s, Explosion) gab es. Die Ladung stand aber **nicht im Snapshot-Inventar** (der Client zeigte „keine Ladung dabei“ immer). Behoben (nur wenn vorhanden). Kaufen konnte man sie nicht. |
 | Wellen ohne Alarm | „Anker für Spawns an den Baracken, Sichtprüfung“ | `besetzen` erzeugt Trupps an `wache`-Ankern nach Rezept, mit Skalierung nach Crewgröße und ohne Obergrenze. Neu: eigener Weg (siehe 4). Alarm kommt weiter nur aus Sicht/Lärm/Funk (`squad.alarmiere`). |
 | Weltstand-Fakt | „Name fest `sperrriegel`“ | `welt_fakt { key }` setzt `weltstand.fact(key, true)`. Kein neuer Code im Weltstand nötig. |
-| Ort Methalle | – | Es gibt den Ort `methalle` in `shared/locations.js` noch nicht (Team KARTE/EK7). Darum liegt der Labor-Landepunkt als Platzhalter `splitter.methalle` im Splittergürtel (nur im Labor sichtbar, siehe 5). |
-| Baseline | – | `node tools/test-escort.js` ist auf Basis `ek1` rot (1 Prüfung „deckt: mindestens die Hälfte heil (4/10)“, Folge von EK1a), nicht von diesem Paket. |
+| Ort Methalle | – | Damals gab es den Ort `methalle` noch nicht (Team KARTE/EK7); darum liegt der Labor-Landepunkt als Platzhalter `splitter.methalle` im Splittergürtel (nur im Labor sichtbar, siehe 5). **Seit EK7/EK8 gibt es den Ort** (Hex 0705) und den Kampagnen-Landepunkt `methalle.siedlung`; der Labor-Landepunkt bleibt. |
+| Baseline | – | `node tools/test-escort.js` war auf Basis `ek1` rot (1 Prüfung „deckt: mindestens die Hälfte heil (4/10)“, Folge von EK1a), nicht von diesem Paket. **Erledigt** (CONTRACT-EK1, D16): heute grün. |
 
 ## 2. EK5 Generator, Mauer, Rohr (`shared/gen-siedlung.js`, `shared/buehne.js`, `content/buehnen/`)
 
@@ -112,23 +112,22 @@ Umsetzung **`stellung_nehmen/flagge_hissen`** (zwei Schritte: `<id>` Hissen, `<i
 
 ## 11. Abnahme und Messwerte
 
-- `npm test`: alle Tests grün **außer `test-escort` (Basis `ek1` schon rot, 1 Prüfung, nicht aus diesem Paket)**. Neu und in `npm test`: `tools/test-methalle.js` (57 Prüfungen), `tools/test-eisenwald.js` (58 Prüfungen). Die Kette bricht am ersten roten Test ab; alle übrigen Tests liefen einzeln grün.
+- `npm test`: alle Tests grün **außer `test-escort` (damals auf Basis `ek1` rot, 1 Prüfung, nicht aus diesem Paket; inzwischen grün, siehe CONTRACT-EK1 D16)**. Neu und in `npm test`: `tools/test-methalle.js` (57 Prüfungen), `tools/test-eisenwald.js` (58 Prüfungen). Die Kette bricht am ersten roten Test ab; alle übrigen Tests liefen einzeln grün.
 - `npm run check`: 199/199 (21 Anker-Rollen).
 - `npm run snap:mess` (Ziel ≤ 18 944 B): Worst Case 11 444 B, Wellenlauf 10 558 B, **Methalle 10 526 B**, **Endkampf (10 Gegner + Anführer, 3 Spieler) 11 361 B**.
 - Golden `--all --seeds 5` gegen `base-w2` mit `allow-ek1.json`: GRÜN (20 von 30 Traces byte-gleich, 10 nur mit den erlaubten Abweichungen der Korvette; m3 byte-gleich). Ordner wieder gelöscht.
 - Bots: `node tools/sim-headless.js labor sabotieren/sprengstoff_platzieren --crew 1|3`: 16 von 16 Läufen ohne Alarm und ohne Schuss, 0,9–1,8 min; ebenso über 6 weitere Kartenseeds (je 2 Läufe). `labor stellung_nehmen/flagge_hissen --crew 3`: 5 von 6 Läufen gewonnen, 2 davon im ersten Anlauf (1,4 min), die anderen nach mehreren Niederlagen mit Reset; ein Lauf nach 45 min Abbruch (Zeitgrenze der Bots, keine Fehler). Die Bots sind schwach gegen 11 Gegner auf einmal; für Menschen entscheidet EK9.
 - Browser-Smoke (Playwright, Port 3393): Methalle und Eisenwald laden ohne Seitenfehler, Feldzeichen und Rohr sind sichtbar.
 
-## 12. Offene Punkte
-
-- **Menschentests (EK9):** Lesbarkeit des Anführers, Schwierigkeit des Endkampfs zu zweit, Schleichen an der Methalle, Rohr-Optik (heute ein Mauerstück, kein eigenes Kit-Teil).
-- **Orte `methalle` und `eisenwald`** (EK7): Landepunkte `methalle.siedlung`, `eisenwald.siedlung` anlegen (Platzhalter `splitter.*` kopieren, `frei`, `beam`).
-- **EK3/EK8:** Sprengstoff aus der Konvoi-Beute als Inventar `ladung` ankommen lassen; die Szene legt sonst selbst einen hinein (kein Softlock). Briefing-Hinweis „Sprengladung nötig“.
-- **Solo:** Das Feldzeichen ist solo nicht hissbar (gewollt); die Kampagnenkette braucht dafür später eine Antwort (EK8).
-- **Bot-Abdeckung:** Methalle ohne Pfadvorgabe, kein Plan B nötig. Endkampf nur zu dritt.
-- `test-escort` (Basis `ek1`) ist rot und gehört dem Raum-Team.
-
-## 13. Berührte Dateien außerhalb des Kerns (Boden)
+## 12. Berührte Dateien außerhalb des Kerns (Boden)
 
 `shared/config.js` (neue Schlüssel: `shop.ladung`, `awayCombat.modifikatoren`, `awayCombat.endkampf`, `anker.halten.flagge`, `anker.flagge`), `shared/buehne.js` (Prüfer), `content/buehnen/{kacheln,anker}.json`, `content/welt/landepunkte.json`, `content/katalog/molekuele/{sabotieren,stellung_nehmen}.json`, `content/regiebuch/bausteine.json`, `tools/sim-headless.js` (abgegrenzte Blöcke „EK5“/„EK6“: Schleichweg, Aufgabe Anführer, Crew-Filter), `tools/snap-mess.js`, `tools/check-maps.js`, `public/js/{client,render,consoles}.js`, `public/js/voxel/{kit,actors}.js`, `server/game.js` (awayMap-Attribut `modus`, Snapshot `inventory.ladung`, Debug `tp` und `buehne`), Test-Fixtures `tools/fixtures/context/*` (neuer Katalogeintrag).
 Nicht berührt: `server/sim/{space,pilot,escort}.js`, Schiffsteile in `art.js`, `content/welt/limes.json`, `shared/{sektoren,locations}.js`.
+
+## 13. Offen
+- **Menschentests (EK9):** Lesbarkeit des Anführers, Schwierigkeit des Endkampfs zu zweit, Schleichen an der Methalle, **Rohr-Optik** (heute ein Mauerstück, kein eigenes Kit-Teil).
+- ~~Orte `methalle` und `eisenwald` (EK7): Landepunkte `methalle.siedlung`, `eisenwald.siedlung` anlegen~~ **erledigt** (CONTRACT-EK8 D31; `content/welt/landepunkte.json`, `scene.beam` an den Hexen 0704 und 0705).
+- ~~EK3/EK8: Sprengstoff aus der Konvoi-Beute als Inventar `ladung` ankommen lassen~~ **erledigt** (CONTRACT-EK8, Kapitel 4: Umladen aus dem Frachtraum, Kauf im Hafen, kostenloser Ersatz als Softlock-Schutz, D27).
+- ~~Solo: Das Feldzeichen ist solo nicht hissbar~~ **entschieden** (CONTRACT-EK8 D30): bei höchstens einem verbundenen Spieler hisst nach 10 s ein Legionär mit (nur Funk), 5 + 1 statt 10 + 1 Gegner. Der Legionär ist kein sichtbarer NSC; die Zahlen sind Vorschläge. Das reine Szenario-Labor bleibt bei „solo nicht vorgesehen“ (`dauer_je_crew` nur 2 und 3).
+- **Bot-Abdeckung:** Methalle ohne Pfadvorgabe, kein Plan B nötig. Endkampf im Labor nur zu dritt. Siedlung für Bots hart (sie verlieren oft gegen 11 Gegner, die Wiederholung greift).
+- ~~`test-escort` rot~~ **erledigt** (CONTRACT-EK1 D16).

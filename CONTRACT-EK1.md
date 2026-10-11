@@ -1,18 +1,21 @@
-# CONTRACT-EK1 – Schiffsklassen (EK1a: Korvette, EK1b Server: Fregatte, Kreuzer)
+# CONTRACT-EK1 – Schiffsklassen (Teil A EK1a: Korvette · Teil B EK1b: Fregatte, Kreuzer, Drehsprites)
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` und `Planung Eisenwald-Kampagne (EK1-EK9)` im Vault
 (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Kai am 2026-10-11: `gunboat` vollständig umbenennen und durch die
-Korvetten-Regeln ersetzen. Branch `ek1`.
+Korvetten-Regeln ersetzen.
+
+**Stand:** fertig, gemergt in `ek1` (EK1a, EK1b Server, EK1b Sprites). Testskripte: `node tools/test-combat.js` (EK1a), `npm run test:klassen` (EK1b), beide in `npm test`.
+Aufbau: **Teil A (EK1a)** = Abschnitte 2–4, **Teil B (EK1b)** = Abschnitte 5–8, offene Punkte in Abschnitt 9. Entscheidungen D1–D7 (EK1a), D8–D16 (EK1b).
 
 ## 1. Stand
 | Schritt | Inhalt | Stand |
 |---|---|---|
 | EK1a-1 | `gunboat` → `korvette` (Kennung, Config-Schlüssel, Tests, Regiebücher, Katalog, Archiv, Fixtures), Anzeige „Kanonenboot“ → „Korvette“ | fertig |
 | EK1a-2 | Korvetten-Regeln: Schilde, Waffenplätze, zufällige Bestückung | fertig |
-| EK1b Server | Fregatte, Kreuzer, variable Schildsegmente, Waffenplätze, Breitseiten-KI, Snapshot, Anzeige, Tests (Branch ek1b-raum) | fertig (Abnahme §8) |
-| EK1b Sprites | Drehsprites (Team SPRITES) | offen, Platzhalter in art.js (§7) |
+| EK1b Server | Fregatte, Kreuzer, variable Schildsegmente, Waffenplätze, Breitseiten-KI, Snapshot, Anzeige, Tests | fertig (Abnahme §8) |
+| EK1b Sprites | Drehsprites für Jäger, Korvette, Fregatte, Kreuzer aus Voxelwerk-Sheets (`public/voxel/sprites/`, `public/js/art.js`), Rückfall auf die prozedurale Zeichnung, Vorschau `public/art-preview.html`; kein eigener Vertrag | fertig, gemergt (§7, D15 überholt) |
 
-## 2. Korvetten-Regeln (Aufbau `X=>`)
+## 2. Teil A (EK1a) – Korvetten-Regeln (Aufbau `X=>`)
 - **Schilde** `[vorn, Steuerbord, hinten, Backbord] = [1, 2, 0, 2]` (`CONFIG.enemyShields.korvette`). Vorher `[2, 4, 1, 4]`.
 - **Waffenplätze** `CONFIG.enemyWeapons.korvette`: `bug` (0°, Bogen 40°, 400 px), `stbd` (90°, 90°, 500 px), `bb` (−90°, 90°, 500 px).
 - **Bestückung** je Platz aus `CONFIG.korvetteWaffen` = `lanze | batterie | bolzen`, beim Spawn gewürfelt (`game.rng`), oder per
@@ -22,7 +25,7 @@ Korvetten-Regeln ersetzen. Branch `ek1`.
   - **bolzen** = einzelner gezielter Schuss (Projektil `enemy`, eigener Takt `e.boltT`, Grundwerte der Korvette).
   - Eine Korvette ohne Lanze lädt nie, ohne Batterie gibt es kein Sperrfeuer, ohne Bolzen keine Einzelschüsse.
 - **Snapshot:** `weapons` (nach dem Scan) trägt je Platz `platz` und `typ`. Kein neues Feld je Gegner.
-- **Pilot:** Seitenwechsel auch dann, wenn ein Bolzen zur Lerche zeigt und die andere Seite Lanze oder Batterie hat.
+- **Pilot:** Seitenwechsel nur nach Schildstand und Lage (`pilot.breitseite`, siehe 5.5). Die in EK1a gebaute Regel „Wechsel, wenn ein Bolzen zur Lerche zeigt und die andere Seite Lanze oder Batterie hat“ ist **entfernt** (D16).
 - **Scan-Text** nennt Seiten stark, Bug schwach, Heck ungeschützt.
 
 ## 3. Entscheidungen der Studioleitung
@@ -42,8 +45,8 @@ Korvetten-Regeln ersetzen. Branch `ek1`.
 - Bot-Arena (`sim arena --pilot both`): Korvetten werden geschlagen.
 - Golden m1–m3 gegen `base-w2`: Abweichungen siehe `allow-ek1.json`.
 
-## 5. EK1b Server – Fregatte und Kreuzer
-Branch `ek1b-raum` (Basis `ek1`). Neue Datei `shared/schilde.js` (Schildmodell, Server und Client), Tests `tools/test-klassen.js` (in `npm test`).
+## 5. Teil B (EK1b Server) – Fregatte und Kreuzer
+Neue Datei `shared/schilde.js` (Schildmodell, Server und Client), Tests `tools/test-klassen.js` (in `npm test`).
 
 ### 5.1 Klassen (Config)
 | | Korvette `X=>` | Fregatte `X==>` | Kreuzer `X===>` |
@@ -83,7 +86,7 @@ Branch `ek1b-raum` (Basis `ek1`). Neue Datei `shared/schilde.js` (Schildmodell, 
 | | `damageEnemy` | Segment statt `Physics.sectorOf` (Rückfall Sektor, wenn keine Layout-Zuordnung) |
 | | `updateEnemies` | Regeneration über alle Segmente; Sperrfeuer/Bolzen/Lanze für jede Klasse mit `e.waffen` |
 | | `onTargetScanned` | Scan-Texte Fregatte, Kreuzer |
-| `server/sim/pilot.js` | `breitseite` (vorher `korvette`) | Seitenwechsel: Segment zur Lerche gegen stärkstes Segment der Gegenseite (`Schilde.seitenMax`), Bestückung je Seite (`seitenArt`) |
+| `server/sim/pilot.js` | `breitseite` (vorher `korvette`) | Seitenwechsel: Segment zur Lerche gegen stärkstes Segment der Gegenseite (`Schilde.seitenMax`); der Wechsel nach Waffenart (`seitenArt`) ist entfernt (D16) |
 | `server/sim/entern.js` | Zeile 139 | `map(() => 0)` – längenunabhängig, unverändert |
 | `server/game.js` | Snapshot `space.enemies` | `shieldsMax` entfällt, `shields` entfällt bei vollen Schilden, Waffenplätze nur `{platz, typ}` |
 | `public/js/client.js` | `onSnap` | `Shared_Schilde.fuellen` ergänzt Standardwerte und Bogen-Geometrie |
@@ -123,18 +126,19 @@ Branch `ek1b-raum` (Basis `ek1`). Neue Datei `shared/schilde.js` (Schildmodell, 
 | D12 | Pilot-KI nur parametrisiert (`pilotKlasse`), `korvette()` → `breitseite()` | Baukasten statt Funktion je Klasse |
 | D13 | Snapshot: `shieldsMax` ganz weg, `shields` nur bei Beschädigung, Waffenplätze ohne Geometrie | Ziel ≤ 18 944 B, Standardwerte aus der Config (Leser `Shared_Schilde.fuellen`) |
 | D14 | Fregatte/Kreuzer nicht in `arena.waves`/`typenAb` | keine Änderung an Wellen und Wellen All ohne Freigabe |
-| D15 | Platzhalter-Sprite in `art.js` (Korvette größer skaliert) bis die Drehsprites vom Team SPRITES kommen | Anzeige darf nicht „missing“ sein |
+| D15 | Platzhalter-Sprite in `art.js` (Korvette größer skaliert) bis die Drehsprites vom Team SPRITES kommen | Anzeige darf nicht „missing“ sein. **Überholt:** Die Drehsprites sind gemergt, die skalierte Korvette (`SPR_FALLBACK`) ist nur noch Rückfall |
+| D16 | Seitenwechsel der Breitseiten-KI nur nach Schildstand und Lage, **nicht nach Waffenart** (EK1a-Regel entfernt) | Entscheidung der Studioleitung: `test-escort` (Balancing Geleit) fiel mit der Regel |
 
 ## 7. Berührungen außerhalb des Raum-Kerns
-- `public/js/art.js`: in `drawEnemy` ein Zweig für `fregatte`/`kreuzer` (skaliert das Korvetten-Sprite 1,4× bzw. 1,8×) und `TELE_R`. **Team SPRITES** ersetzt das später durch Drehsprites.
+- `public/js/art.js`: ursprünglich ein Zweig in `drawEnemy` für `fregatte`/`kreuzer` (skaliertes Korvetten-Sprite) und `TELE_R`. Seit dem Merge von EK1b Sprites zeichnen Drehsprites (`SPR_KLASSE`, `public/voxel/sprites/`); die skalierte Zeichnung (`SPR_FALLBACK`) gilt nur, wenn Manifest, Sheet oder Eintrag fehlen.
 - `public/js/render.js`: `ENEMY_NAMES`, `ENEMY_SIZE`, Farbe in `fbEnemy`/Randpfeil, `drawEnemyIntel` (Schildbögen je Segment).
 - `public/index.html`: `<script src="/shared/schilde.js">`.
 - Nicht berührt: `server/sim/away.js`, `shared/gen-siedlung.js`, `content/buehnen/`, `content/welt/`, `shared/sektoren.js`, `shared/locations.js`, Voxelwerk.
 
 ## 8. Abnahme EK1b Server
 - `npm test`: Features 213/213, Kampf 387/387, **Klassen 59/59**, M3 380/380, Flug 80/80; dahinter Bausteine … Wellen All grün (einzeln gelaufen, siehe unten).
-  **Rot, nicht von EK1b:** `tools/test-escort.js` „Balancing headless: deckt: mindestens die Hälfte heil (4/10)“ – identisch auf `ek1` (ab4584b) ohne EK1b gemessen. Da `npm test`
-  mit `&&` verkettet ist, bricht es dort ab; alle Tests dahinter wurden einzeln ausgeführt (grün). Ursache offen (Balancing Geleit mit der Korvetten-Bestückung aus EK1a, Sache von EK4/EK9).
+  **Damals rot, nicht von EK1b:** `tools/test-escort.js` „Balancing headless: deckt: mindestens die Hälfte heil (4/10)“ – identisch auf `ek1` ohne EK1b gemessen. Da `npm test`
+  mit `&&` verkettet ist, brach es dort ab; alle Tests dahinter wurden einzeln ausgeführt (grün). **Erledigt:** Nach D16 ist `test-escort` grün (Lauf 2026-10-11: 84/84, „deckt“ heil 5/10) und `npm test` läuft mit Exit 0 durch.
 - `npm run check` grün (199/199, Sektoren OK).
 - `npm run snap:mess`: Worst Case max 11 444 B, Wellen 10 558 B (Ziel ≤ 18 944 B), unverändert zu EK1a. `test-klassen.js`: 2 Kreuzer + 3 Fregatten + 7 weitere Gegner, alle gescannt, 12 235 B;
   eine ungescannte Fregatte mit vollen Schilden 146 B im Snapshot.
@@ -142,3 +146,10 @@ Branch `ek1b-raum` (Basis `ek1`). Neue Datei `shared/schilde.js` (Schildmodell, 
   (Fregatte allein 4/4 Seeds geschlagen, 44–79 s), maneuver 2,5 von 3 (Kreuzer in 2 von 4 Seeds über 240 s: der Bot feuert die Lanze kaum); Fehler 0, Softlocks 0.
 - Golden m1–m3, 20 Seeds, gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch, die übrigen 40 (m1/m2 solo) sind die bekannten Abweichungen aus EK1a.
   Kontrolle: m1 und m2, Crew 1, Seed 1 auf `ek1` (ab4584b) und auf `ek1b-raum` sind **byte-identisch** – EK1b fügt keine neue Golden-Abweichung hinzu, kein `allow-ek1b.json` nötig.
+
+## 9. Offen
+- **Balance Breitseite** (EK9): schwere Schiffe liegen seltener in der Breitseite (Fregatte 34 %, Kreuzer 51 %, Korvette 54–81 %), Kreuzer-Lanze wird vom Bot kaum gefeuert (5.5, 8).
+- **Sprites:** Lesbarkeit der Silhouetten bei kleiner Darstellung (Vorschau 30/50/80 px in `public/art-preview.html`; der 30-px-Befund steht nicht in einem Vertrag, nur im Bericht des Sprite-Teams).
+- **Störsender-Regel:** `JAMMERS` in `server/sim/sprung.js` enthält `raider`, `korvette`, `fregatte`, `kreuzer`; jeder lebende Gegner dieser Klassen blockiert den Faltsprung (Folge siehe CONTRACT-EK8, Abschnitt 1).
+- **Wellen:** Fregatte und Kreuzer sind nicht in `arena.waves`/`wellen.typenAb` (D14); Aufnahme braucht Freigabe der Studioleitung.
+- **Altstände (D2, D4):** Die Voxelwerk-Datei `rostmeute_kanonenboot.json` (anderes Repository) und ältere Golden-Basen mit `gunboat` bleiben unverändert.

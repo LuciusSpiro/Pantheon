@@ -2,7 +2,9 @@
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK3 „Konvoi-Szene“, Leitplanken), `Planung Eisenwald-Kampagne (EK1-EK9)`, `Welt/Feldzug Eisenwald`
 und `Welt/Funktexte Feldzug Eisenwald` (Kapitel 2, Rabenpass) im Vault (`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`), `CONTRACT-EK3.md` (Teil A: Frachtraum,
-Fracht, Beamen). Branch `ek3-konvoi` (Basis `ek1` mit EK1a/b, EK2, EK3a, EK7), Team KONVOI.
+Fracht, Beamen). Team KONVOI.
+
+**Stand:** fertig, gemergt in `ek1`; in der Kampagne echt verdrahtet (CONTRACT-EK8, Abschnitt 4a). Testskript: `npm run test:konvoi` (`tools/test-konvoi.js`, in `npm test`). Offene Punkte: Abschnitt 6.
 
 ## 1. Stand
 | Schritt | Inhalt | Stand |
@@ -72,8 +74,7 @@ Bot-Solo (siehe §6).
 - **Golden m1–m3** (`--all --seeds 20 --jobs 4`, 120 Traces) gegen `base-w2` mit `allow-ek1.json`: **GOLDEN GRÜN**, 80/120 Traces byte-identisch, die 40 anderen sind die bekannten Crew-1-Läufe von m1/m2 (EK1a-Korvette, Mediane m1/1 −6,7 %, m2/1 +2,1 %, wie in `allow-ek1.json`). Der Ordner `ek3b-check` ist gelöscht.
 
 ## 6. Offene Punkte
-- **Solo-Bot** schafft die Szene nicht (0/4): Der Solo-Bot wechselt zwischen Steuer und Taktik, das kostet gegen einen fahrenden Konvoi zu viel Zeit; Waffen unbesetzt feuern mit 50 %. Mehrspieler ist der Maßstab, die Szene ist
-  trotzdem für einen Menschen allein nur mit Mühe zu gewinnen (Balancing im Spieleabend: `tempo`, Hülle, `wachRadius`).
+- **Solo-Bot** schafft die volle Eskorte nicht (0/4): Der Solo-Bot wechselt zwischen Steuer und Taktik, das kostet gegen einen fahrenden Konvoi zu viel Zeit; Waffen unbesetzt feuern mit 50 %. Mehrspieler ist der Maßstab. Die Kampagne hat dafür eine **Solo-Regel** (CONTRACT-EK8, D26: bei höchstens einem Spieler nur der Jäger als Eskorte, im Labor-Einstieg 14/14); der Solo-Konvoi bleibt für Menschen Mühe (Balancing im Spieleabend: `tempo`, Hülle, `wachRadius`).
 - Die Route ist für **offene Szenen** gedacht (Rabenpass: keine Brocken). In dichten Brockenfeldern (Splittergürtel) weicht der Konvoi aus und kommt kaum voran; die Notbremse (180 s) fängt das ab.
 - Kein eigenes Voxel-Modell für den Transporter im Frontbild; Eskorte und Transporter haben keine Funktexte je Schiff (Funk steht auf dem Szenen-ODA).
 - Der Szenenbau kennt keinen eigenen Ausgang „entkommen“ (D10); EK8 kann `konvoi_ausgang` im Regiebuch prüfen.

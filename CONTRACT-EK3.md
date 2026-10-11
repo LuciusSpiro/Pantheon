@@ -1,8 +1,10 @@
 # CONTRACT-EK3 – Lagerraum, Ladung, Beamen, Weltstand (EK3 Teil A)
 
 Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK3) und `Planung Eisenwald-Kampagne (EK1-EK9)` (EK3, E6) im Vault
-(`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Branch `ek2-lager` (Basis `ek1`), Voxelwerk-Branch `ek2-lager` (Worktree `..\voxelwerk-lager`).
-**Teil B (Konvoi-Szene)** berührt `space.js` und folgt, wenn EK2 gemerged ist. Er ist hier **nicht** gebaut.
+(`C:\Users\Luciu\projects\brain\vault\Coop-Spiel\`). Voxelwerk-Modell `lerche/furn/cargo_bay` liegt im Repository Voxelwerk.
+**Teil B (Konvoi-Szene)** ist gebaut und steht in `CONTRACT-EK3B.md`; dieser Vertrag beschreibt Teil A.
+
+**Stand:** fertig, gemergt in `ek1` (Teil A). Testskript: `npm run test:lager` (`tools/test-lager.js`, in `npm test`). Offene Punkte: Abschnitt 8.
 
 ## 1. Stand
 | Schritt | Inhalt | Stand |
@@ -11,7 +13,7 @@ Grundlage: `Briefing Eisenwald-Kampagne (EK1-EK9)` (EK3) und `Planung Eisenwald-
 | A2 | `server/sim/fracht.js`: Fracht im Raum, Beamen (Halteprozess), Abliefern, Szenenwechsel, Snapshot, Weltstand | fertig |
 | A3 | Taktik-Anzeige (Leiste, Balken, Strahl), Frachtraum in 2D und Voxel, Voxel-Modell `lerche/furn/cargo_bay` | fertig |
 | A4 | Regiebuch-Bausteine, Katalog (`ladung_transfer` verfügbar), Prüfer, Protokoll, Debug | fertig |
-| B | Konvoi-Szene (1 Jäger, 1 Korvette, 1–3 Transporter als Gegner, Route, Sprung), Siegbedingungen Aufhalten/Plündern | **offen (nach EK2)** |
+| B | Konvoi-Szene (1 Jäger, 1 Korvette, 1–3 Transporter als Gegner, Route, Sprung), Siegbedingungen Aufhalten/Plündern | fertig, eigener Vertrag `CONTRACT-EK3B.md` |
 
 ## 2. Befund Grundriss (Antwort auf „Welche Räume entfallen?“)
 Das **Quartierdeck** ist Deck II (Privatdeck, Atlas-Zeilen 16–28, in der Karte oben im Schiff, `level 1`). Es hatte 13 Räume.
@@ -107,12 +109,13 @@ Siehe §7 (Messwerte). Bewusst **nicht** Teil dieser Abnahme: Konvoi-Szene (Teil
   (Leiste bereit, Halten 54 %, Abbruch durch Systemtreffer, an Bord). Keine Client- oder Konsolenfehler. Screenshots lokal in `shots/` (nicht versioniert):
   `frachtraum-voxel-{voll,leer,ungesichert}.png`, `frachtraum-2d-{voll,leer,ungesichert}.png`, `taktik-fracht-{bereit,halten,abbruch,an-bord}.png`. Nicht mit Menschen gespielt (Lesbarkeit der Leiste
   beim Spieleabend offen).
-- Voxelwerk: `npm run check` für `lerche/furn/cargo_bay` (5 Varianten) ohne Fehler; Commit auf Branch `ek2-lager` des Voxelwerk-Repos (Worktree `..oxelwerk-lager`, kein Push).
+- Voxelwerk: `npm run check` für `lerche/furn/cargo_bay` (5 Varianten) ohne Fehler; Commit im Voxelwerk-Repository (Worktree `..\voxelwerk-lager`, kein Push).
   `npm run assets` mit `VOXELWERK_PATH=../voxelwerk-lager` hat `public/voxel/**` neu erzeugt (`VERSION.json.voxelwerkCommit` von Hand nachgetragen, der Worktree wird dort nicht erkannt).
 
 ## 8. Offene Punkte
-- **Teil B** (Konvoi-Szene, `space.js`): offen, Schnittstelle `fracht_abwerfen` steht.
+- ~~Teil B (Konvoi-Szene)~~ **erledigt** (`CONTRACT-EK3B.md`, nutzt `fracht_abwerfen`).
 - Fracht-Beamen hat **keine Tempogrenze** (D6): Soll es wie das Runterbeamen `beamMaxSpeed` verlangen, ist das eine Zeile in `beamGrund`.
-- Der Spielleiter hat noch keinen Szenentyp, der Fracht nutzt (kommt mit Teil B). `ladung_transfer` ist verfügbar, aber kein Szenentyp setzt es voraus.
+- Seit Teil B nutzt der Szenentyp A15 (Konvoi) Fracht; `ladung_transfer` ist verfügbar, aber kein Szenentyp setzt es voraus.
+- **AP9 „Lager ohne Strom“:** `Fracht.gesichert`/`setGesichert` haben weiter keine Wirkung (nur Snapshot `g`, Anzeige, Voxel-Parameter); das Ausbrechen der Ladung ist nicht gebaut.
 - Taktik-Leiste und Frachtbuchten sind nur von der Entwicklung gesehen; Lesbarkeit bei hohem Gefechtstempo (Leiste liegt über den Bogenanzeigen) sollte der Spieleabend prüfen.
 - `bath`/`bench`-Modelle und `o`/`s` in der Legende bleiben unbenutzt im Code (Aufräumen später).

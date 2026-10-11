@@ -1,4 +1,4 @@
-# Pantheon – Stand nach Welle 2 (B1–B3 „Bühnen, Bodenkampf, Sektorkarte“ + Wellen 1 und 2)
+# Pantheon – Stand nach EK8 (Eisenwald-Kampagne EK1–EK8, B1–B3 „Bühnen, Bodenkampf, Sektorkarte“, Wellen 1 und 2)
 
 Gemütliches Online-Koop-Raumschiff für 1–3 Spieler im Browser. Ein kleiner Node-Server führt die
 Partie, jeder spielt im eigenen Browserfenster. Kein Game Over – man scheitert mit Würde.
@@ -10,10 +10,128 @@ Weltstand“ (`CONTRACT-S1.md`) · S2 „Spielleiter an der Missionsgrenze“ (`
 tauglich + Kampf nach Kais Runde“ (`CONTRACT-S2B.md`) · B1 „Bühnen“, B2 „Bodenkampf“, B3 „Sektorkarte“
 (`CONTRACT-B1.md`, `CONTRACT-B2.md`, `CONTRACT-B3.md`, von Kai abgenommen am 2026-10-09) · **Welle 1** (Netzbudget,
 Ladezeit, Sprung im Tutorial, Spielleiter Boden II; `CONTRACT-W1.md`) · **Welle 2** (Szenario-Labor, Wellen Boden und
-All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
+All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampagne, Übersicht und Index:
+`CONTRACT-EK.md`).
 
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
-`ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
+`ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
+
+## Neu in der Eisenwald-Kampagne (EK1–EK8)
+
+Eine feste Kampagne ohne Spielleiter: Statio Limitis → Rabenpass → Nebelheim → Methalle → Castra Martis → Eisenwald
+(Orbit, dann Siedlung) → Abspann. Alle acht Kapitel sind echte Szenen (keine Platzhalter mehr). Detailabschnitte stehen darunter,
+Verträge, Stand und bekannte Abweichungen im Index `CONTRACT-EK.md`.
+
+| Paket | Kern | Vertrag | Testbefehl |
+|---|---|---|---|
+| EK1a | Korvette statt Kanonenboot: Schilde 1/2/0/2, Waffenplätze, zufällige Bestückung (Lanze, Batterie, Bolzen) | `CONTRACT-EK1.md` | `node tools/test-combat.js` (Teil von `npm test`) |
+| EK1b | Fregatte und Kreuzer, Schildsegmente je Seite (`shared/schilde.js`), Breitseiten-KI mit Klassenparametern, Drehsprites | `CONTRACT-EK1.md` | `npm run test:klassen` |
+| EK2 | Raum-Alarm: Alarmstufen, Minen, Patrouillen, Schleichfahrt (A13), Ausgang „Rückzug“ | `CONTRACT-EK2.md` | `npm run test:alarm` |
+| EK3 A | Frachtraum, Fracht beamen und abliefern, Ladung im Weltstand | `CONTRACT-EK3.md` | `npm run test:lager` |
+| EK3 B | Konvoi-Szene (A15): Transporter, Eskorte, Plündern oder Aufhalten | `CONTRACT-EK3B.md` | `npm run test:konvoi` |
+| EK4 | Verbündete, Flottenbefehle, Legat mit Gedächtnis, Funkporträt; Orbitschlacht Eisenwald (Kapitel 6) | `CONTRACT-EK4.md` (Abschnitt 6: Orbit) | `npm run test:flotte`, `npm run test:orbit` |
+| EK5 | Methalle: Generator-Variante mit Rohr, Sprengstoff platzieren, Wachen und Nachschub | `CONTRACT-EK5-6.md` | `npm run test:methalle` |
+| EK6 | Siedlung Eisenwald: Feldzeichen hissen (zwei gemeinsam), 10 Gegner und Anführer | `CONTRACT-EK5-6.md` | `npm run test:eisenwald` |
+| EK7 | Karte: 15 Hexe der Kette aus Daten, Schlüssel `sperrriegel`, Häfen Castra Martis und Statio Limitis | `CONTRACT-EK7.md` | `npm run check` (darin `tools/check-sektoren.js`), `npm run test:sektoren`, `node tools/sprungkette.js` |
+| EK8 | Kapitelsteuerung: feste Kette als Datei, Lobby-Modi, Abspann, Funkbild, Labor-Einstiege, Bot-Modus `kette` | `CONTRACT-EK8.md` | `npm run check:kette`, `npm run test:kette`, `npm run sim:kette` |
+
+### Kampagne Eisenwald starten und testen
+
+**Server:**
+- `npm install` (einmalig), dann `npm start` (`node --env-file-if-exists=.env server/index.js`, Port 3300, zeigt Raumcode und Link).
+- `npm run debug` startet mit `--debug`: Debug-Befehle (`__game.send({ t: 'debug', cmd: … })` in der Browserkonsole) und `?debug=1` im Client.
+  `npm run werkstatt` ist `--debug --werkstatt` (Modulbestand neu laden mit F9, `server/index.js`).
+
+**Lobby-Modi** (Taste **M** schaltet durch, `Shared_Protocol.LOBBY_MODI`):
+- **„Kampagne Eisenwald“** (`eisenwald`): erst das Tutorial (m1–m3), danach die feste Kette ab Statio Limitis. Kein Spielleiter.
+- **„Eisenwald ohne Tutorial“** (`eisenwald_ohne`): Kapitel 1 sofort, das Tutorial gilt als übersprungen. Der richtige Modus zum Testen und Wiederspielen.
+- Beide haben Weltstand wie jede Kampagne (Taste **F** öffnet die Weltstand-Liste, Fortsetzen: Kapitel beginnt am gespeicherten Schritt neu).
+- **„Szenario-Labor“** (`labor`): jede verfügbare Katalog-Umsetzung einzeln starten (↑/↓ wählt), z. B. `konvoi_abfangen/pluendern`,
+  `unbemerkt_durchfliegen/patrouillen_schleichfahrt`, `kurs_durch_gefahr/minenfeld`, `flottenbefehl/*`, `sabotieren/sprengstoff_platzieren`,
+  `stellung_nehmen/flagge_hissen`. Nur mit `CONFIG.lobby.labor` (heute `true`).
+
+**Einstieg in ein Kapitel (Debug):** `kapitel <id>` mit `k1_anwerbung` … `k8_sieg` (z. B. `k4_methalle`). Der Zustand davor (Ort, Flags, Fakten,
+Fracht, Schlüssel; Daten im Feld `einstieg` von `content/kampagne/eisenwald.json`) wird hergestellt. Aus der Lobby startet der Befehl selbst
+`eisenwald_ohne`; ohne Kette meldet er „Keine Kampagnenkette aktiv“. Ohne `<id>` listet er die Kapitel.
+Weitere Debug-Befehle der Pakete: `konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]`, `flotte aufstellen|befehl|welle|neustart|status`,
+`fracht abwerfen|an|leer|gesichert|abnehmer|status`, `tp <x> <y>`, `buehne … <methalle|eisenwald>`.
+
+**Bots** (`tools/sim-headless.js`, Modus je erstes Argument):
+- `node tools/sim-headless.js kette [--kapitel alle|<id>] [--von <id>] [--crew 1|3] [--seeds N] [--seed S] [--tutorial]`: ohne `--kapitel` die ganze Kette bis zum
+  Abspann, mit `--kapitel alle` der Labor-Einstieg je Kapitel. Kurzform `npm run sim:kette` (Argumente nach `--`).
+- `node tools/sim-headless.js flotte [--seeds N]`: die fünf Flottenbefehle, solo und zu dritt.
+- `node tools/sim-headless.js labor <molekül/umsetzung> [--crew 1|3] [--seeds N]` (Alias `umsetzung`), `labor ketten` (nur die Ketten), `labor alle`.
+- Weiter: `wellen`, `arena`, `escort`, `archiv`, `dauer` (siehe Kopf von `sim-headless.js`).
+
+**Prüfer und Messwerkzeuge:**
+- `npm run check:kette` (Kette und Kapitelbücher, `-- --selftest`), Teil von `npm run check` (= `check-maps`, `check-sektoren`, `check-kette`).
+- `npm run snap:mess` (`tools/snap-mess.js`): Snapshot-Größe je Aufbau (worst, wellen, raum-alarm, methalle, endkampf, konvoi, flotte, orbit), Ziel ≤ 18 944 B
+  (Grenze `CONFIG.net.snapMax` 20 480 B minus `snapLuft` 1 536 B).
+- Golden Trace (Tutorial m1–m3 darf sich nicht verändern):
+  `node tools/golden-trace.js --all --seeds 20 --jobs 4 --dir <neuer Ordner>`, dann
+  `node tools/golden-trace.js --compare tools/fixtures/golden/base-w2 <neuer Ordner> --allow tools/fixtures/golden/allow-ek1.json`.
+  `golden-trace.js` nimmt nur **eine** `--allow`-Datei; `allow-ek1.json` enthält deshalb die Einträge von `allow-w2.json` mit. Immer `--dir` angeben: ohne `--dir` schreibt `--all` in die eingecheckte Basis `tools/fixtures/golden/base`. Den Ordner danach löschen.
+
+**`npm test`** (verkettet mit `&&`, bricht am ersten roten Test ab) führt nacheinander aus: `test-features`, `test-combat`, `test-klassen`, `test-m3`, `test-flight`,
+`test-escort`, `test-bausteine`, `test-regiebuch`, `test-weltstand`, `test-spielleiter --strict`, `test-ablage`, `test-buehne`, `test-generatoren`, `test-waffen`,
+`test-sektoren`, `test-entern`, `test-wellen`, `test-labor`, `test-wellen-all`, `test-alarm`, `test-lager`, `test-methalle`, `test-eisenwald`, `test-konvoi`,
+`test-flotte`, `test-kette`, `test-orbit` (alle in `tools/`). Lauf vom 2026-10-11 auf `ek1`: Exit 0; Prüfungen u. a. Features 213, Kampf 387, Klassen 59, M3 380,
+Flug 80, Escort 84, Bausteine 174, Regiebuch 186, Weltstand 170, Ablage 23, Bühne 470, Generatoren 15, Waffen 132, Sektoren 132, Entern 66, Wellen 54, Labor 41,
+Wellen All 68, Alarm 145, Lager 115, Methalle 57, Eisenwald 58, Konvoi 116, Flotte 119, Kette 162, Orbit 69. `npm run check`: Karten 586/586, Sektoren 303/303, Kette OK.
+
+## Neu in EK8 – Kampagne Eisenwald: die feste Kette
+
+- **Lobby-Modus „Kampagne Eisenwald“** (Taste M; mit Tutorial) und **„Eisenwald ohne Tutorial“** (direkt ab Lichtkordon): Wie jede Kampagne mit
+  Weltstand (Speichern, Fortsetzen), aber **ohne Spielleiter**. Die Reihenfolge ist fest: Statio Limitis (Anwerbung, Funk von Mars) → Rabenpass
+  (Konvoi plündern, Fracht beamen, in der Statio abgeben) → Nebelheim (Schleichfahrt mit Patrouillen und Minen) → Methalle (Sprengstoff) →
+  Castra Martis (Legat, Briefing) → Eisenwald (Orbitschlacht, dann Siedlung mit Flagge) → Sieg und **Abspann**. Danach gibt es **kein freies Spiel**:
+  Enter im Abspann führt ins Hauptmenü (beendet die Partie für alle, der Weltstand bleibt).
+- **Kein Spielleiter, keine Schnellroute:** Den Weg findet man selbst (Sternkarte, **Weitscan** zeigt Bojen). Fortschritt gibt es nur durch erreichte
+  Missionsziele. **Der Feldzug scheitert nie:** Scheitert eine Szene (Rückzug per Notfallsprung, Notrückholung am Boden), beginnt sie von vorn; jede Szene hat einen Ausgang.
+- **Gespeichert** wird an jedem Kapitelübergang und beim Andocken (Weltstand: Kapitel als Fakten `kampagne`, `kapitel`, Flags, Ladung im Frachtraum,
+  Legat mit Gedächtnis). Mitte aufhören und weitermachen geht: Das Kapitel beginnt am gespeicherten Schritt neu, die Lerche liegt im letzten Hafen.
+- **Alle acht Kapitel sind echte Szenen** (`npm run check:kette` meldet 0 Platzhalter-Schritte): Kapitel 2 Konvoi (EK3 B), 3 Schleichfahrt (EK2), 4 Methalle (EK5),
+  6 Orbitschlacht (EK4, drei Flottenbefehle, Boss-Fregatte), 7 Siedlung mit Flagge und Anführer (EK6). Liste, Schnittstellen und Flags: `CONTRACT-EK8.md`.
+- **Solo-Regeln** (nur bei höchstens einem verbundenen Spieler, Mehrspieler unverändert): Der Konvoi hat nur den Jäger als Eskorte; in der Siedlung hisst ein Legionär
+  nach 10 s mit (nur Funk, keine Figur) und der Angriff ist kleiner (5 Gegner plus Anführer statt 10 plus Anführer).
+- Funk mit **Funkbild**: Mars als Symbol, der Legat als Porträt. Kapitelkarte bei jedem neuen Kapitel. Texte sind **Entwurf** (Vault: *Funktexte Feldzug Eisenwald*).
+- Werkzeuge: siehe „Kampagne Eisenwald starten und testen“ oben.
+
+## Neu in EK7 – Karte: 15 Hexe der Eisenwald-Kette
+
+- 15 spielbare Hexe (Statio Limitis bis Eisenwald) mit **Raumsektoren aus Daten** (`shared/gen-sektor.js`), Schlüssel `sperrriegel` (Baustein `sperrriegel_oeffnen`),
+  Häfen mit Liegeplatz in Castra Martis und Statio Limitis. Kurzfassung und Hexliste im Abschnitt „Die Orte“, Details: `CONTRACT-EK7.md`.
+- Grenzen heute: Stern, Planeten und Navigationsbojen der Datenorte stehen nur als Daten in der Szene und werden nicht gezeichnet; es gibt keine Reparatur im Hafen
+  (nur Vorräte gegen Marken). Siehe `concept/buehnen/OFFEN-STUDIO.md`.
+- Prüfung: `npm run check` (Block `[kette]` in `tools/check-sektoren.js`), `npm run test:sektoren`, `node tools/sprungkette.js [--json]` (Bot fliegt die Kette ab).
+
+## Neu in EK5 und EK6 – Methalle und Siedlung Eisenwald
+
+**EK5 Methalle** (Militärsiedlung, ohne Schuss abschließbar):
+- Generator-Variante `methalle` (`shared/gen-siedlung.js`): Mauer ohne Tor, **Landefeld mit dem einzigen Abholpunkt außerhalb**,
+  **Rohr** (Kachel `r`, 3 Kacheln, sperrt Sicht und Schuss) unter der Mauer als einziger Weg hinein. Prüfer `K-ROHR` und `K-MAUER-DICHT`.
+- **Sprengstoff platzieren** statt zünden: Sprengziel mit `modus: platzieren` (`anker.ladungPlatzieren`): keine Explosion, kein Alarm.
+  Der Sprengstoff ist ein Gegenstand (`inventory.ladung`, im Snapshot, im Hafen für 150 Marken kaufbar). Nach dem **Hochbeamen** meldet Mars
+  „Außenposten zerstört“, der Weltstand setzt den Fakt **`sperrriegel`**.
+- **Wachen:** drei Zweiergruppen auf Patrouille, nach dem Platzieren Nachschub aus den Baracken (ruhig, ohne Alarm), nie mehr als 8 gleichzeitig.
+- Labor: `sabotieren/sprengstoff_platzieren` (Labor-Landepunkt `splitter.methalle`, nur im Labor sichtbar); in der Kampagne `methalle.siedlung`. Bots schleichen über Kacheln außer Sicht.
+
+**EK6 Siedlung Eisenwald** (Flagge hissen, Endkampf):
+- Generator-Variante `eisenwald`: **Feldzeichen** (Rolle `flagge`) in der Mitte des Dorfplatzes. **Zwei hissen gemeinsam** (E halten, der
+  Fortschritt bleibt; lebt nur einer, geht es nicht; in der Kampagne gilt solo die Legionär-Regel, siehe EK8). Dann greifen **10 Gegner und ein Anführer** von allen Seiten an, sonst kein Spawn.
+- **Anführer** = normaler Sturmgewehr-Gegner (Rolle `niederhalter`, „Bolzer“) mit dem Gegner-Modifikator `anfuehrer`
+  (`CONFIG.awayCombat.modifikatoren`): +50 % Leben, +50 % Schaden, 25 % größer (Snapshot: ein Bit `gs`). Keine Sonderfigur.
+- **Sieg:** Anführer liegt, die übrigen beamen raus. **Niederlage:** Notrückholung, die Siedlung beginnt von vorn (`map_reset`), Freischaltung bleibt.
+- Labor: `stellung_nehmen/flagge_hissen` (Labor-Landepunkt `splitter.eisenwald`; Kampagne: `eisenwald.siedlung`). Tests: `node tools/test-methalle.js`, `node tools/test-eisenwald.js`.
+- Details, Messwerte und Entscheidungen: `CONTRACT-EK5-6.md`.
+
+## Neu in EK4 – Verbündete und Flottenbefehle
+
+- **Befehle des Legaten** (Marcus Severus, Funkporträt; Mars als Symbol) sind **Szenenziele**: *Ausschalten*, *Eskortieren*, *Durchbrechen*, *Zurückfallen*, *Entlastung*. Fortschritt nur durch erreichte Ziele; **Welle um Welle** mit Frist, danach Überdruck – die Szene darf scheitern (zweimal von vorn, dann „Rom übernimmt“), der Feldzug nie.
+- **Verbündete** (Korvetten Roms) rufen bei großem Schaden um Hilfe, bei Zerstörung kommt ein **theatralischer Funkspruch** (Texte: `content/flotte/funktexte.json`) und eine Rettungskapsel. Das Schiff kommt nicht von selbst zurück, der Legat überlebt, sein **Gedächtnis** (befolgt / eigenmächtig / im Stich gelassen) steht im Weltstand.
+- **EK4b:** Verbündete haben eine **eigene KI** (Rollen begleiter, angreifer; Flug über die Klassen-KI der Gegner, Feuer aus den Waffenplätzen der Klasse), **kein Eigenbeschuss** (auch Lanze und Minen), Gegner dürfen sie anvisieren, sie **springen mit** (auch Notfallsprung) und **tauchen** mit Sprungblitz **auf**. **Höchstens 12 Schiffe je Szene**, mehr kommt als **Nachschub**. Verlust: Banner, Funkspruch, Kapsel, Weltstand.
+- **Orbitschlacht Eisenwald (Kapitel 6, VERK-ORBIT):** Fulminata und Audax tauchen auf, drei Befehle (Durchbrechen, Entlastung, Ausschalten der Boss-Fregatte). Scheitern: zweimal von vorn, dann „Rom übernimmt“ als Erleichterung, nie als Freibrief. Neuer Baustein `flotte_beenden`. Test: `node tools/test-orbit.js`.
+- Anzeige: HUD-Zeile BEFEHL/VERBÜNDET, Captain-Reiter Funk, Wegpunkte auf den Karten. Labor: `flottenbefehl/*`. Debug: `flotte aufstellen|befehl|welle|neustart|status`. Tests: `node tools/test-flotte.js`, `node tools/sim-headless.js flotte`. Details: `CONTRACT-EK4.md`.
 
 ## Neu in EK3 Teil B – Konvoi-Szene mit Plünderung
 
@@ -23,32 +141,16 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
   Hülle und Schilde der Transporter stehen in `CONFIG.enemies/enemyShields.frachter` (Mehrspieler-Skalierung wie bei jedem Gegner).
 - **Zwei Siegbedingungen:** **Aufhalten** (alle Transporter zerstören, bevor sie springen) und **Plündern** (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord,
   siehe EK3 Teil A; Beute `sprengstoff`). Parameter: Zahl der Transporter, Eskorte (`voll|jaeger|korvette|keine`), Siegbedingung, Ladungsart.
-  **Die Kampagne nutzt Plündern mit 2 Transportern.**
+  **Die Kampagne nutzt Plündern mit 2 Transportern** (solo nur mit Jäger-Eskorte).
 - **Ausgänge:** `gepluendert`, `aufgehalten`, `entkommen`. Die Szene darf scheitern: bei `entkommen` rollt nach 8 s ein neuer Konvoi an (Wiederholung; schon erbeutete Fracht bleibt an Bord,
   der Konvoi ist dann kleiner). Der Feldzug scheitert nie.
 - Im Labor: `konvoi_abfangen/pluendern` und `konvoi_abfangen/aufhalten` (Ort Rabenpass). Debug: `konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]`.
   Tests: `node tools/test-konvoi.js`, Bots: `node tools/sim-headless.js labor konvoi_abfangen/pluendern --crew 3`. Details und Entscheidungen: `CONTRACT-EK3B.md`.
-## Neu in EK4 – Verbündete und Flottenbefehle
-- **Befehle des Legaten** (Marcus Severus, Funkporträt; Mars als Symbol) sind **Szenenziele**: *Ausschalten*, *Eskortieren*, *Durchbrechen*, *Zurückfallen*, *Entlastung*. Fortschritt nur durch erreichte Ziele; **Welle um Welle** mit Frist, danach Überdruck – die Szene darf scheitern (zweimal von vorn, dann „Rom übernimmt“), der Feldzug nie.
-- **Verbündete** (Korvetten Roms) rufen bei großem Schaden um Hilfe, bei Zerstörung kommt ein **theatralischer Funkspruch** (Texte: `content/flotte/funktexte.json`) und eine Rettungskapsel. Das Schiff kommt nicht von selbst zurück, der Legat überlebt, sein **Gedächtnis** (befolgt / eigenmächtig / im Stich gelassen) steht im Weltstand.
-- **EK4b:** Verbündete haben eine **eigene KI** (Rollen begleiter, angreifer; Flug über die Klassen-KI der Gegner, Feuer aus den Waffenplätzen der Klasse), **kein Eigenbeschuss** (auch Lanze und Minen), Gegner dürfen sie anvisieren, sie **springen mit** (auch Notfallsprung) und **tauchen** mit Sprungblitz **auf**. **Höchstens 12 Schiffe je Szene**, mehr kommt als **Nachschub**. Verlust: Banner, Funkspruch, Kapsel, Weltstand.
-- Anzeige: HUD-Zeile BEFEHL/VERBÜNDET, Captain-Reiter Funk, Wegpunkte auf den Karten. Labor: `flottenbefehl/*`. Debug: `flotte aufstellen|befehl|welle|neustart|status`. Tests: `node tools/test-flotte.js`, `node tools/sim-headless.js flotte`. Details: `CONTRACT-EK4.md`.
 
-## Neu in EK8 – Kampagne Eisenwald: die feste Kette
-- **Lobby-Modus „Kampagne Eisenwald“** (Taste M; mit Tutorial) und **„Eisenwald ohne Tutorial“** (direkt ab Lichtkordon): Wie jede Kampagne mit
-  Weltstand (Speichern, Fortsetzen), aber **ohne Spielleiter**. Die Reihenfolge ist fest: Statio Limitis (Anwerbung, Funk von Mars) → Rabenpass
-  (Konvoi plündern, Fracht beamen, in der Statio abgeben) → Nebelheim (Schleichfahrt mit Patrouillen und Minen) → Methalle (Sprengstoff) →
-  Castra Martis (Legat, Briefing) → Eisenwald (Orbitschlacht, dann Siedlung mit Flagge) → Sieg und **Abspann**. Danach gibt es **kein freies Spiel**:
-  Enter im Abspann führt ins Hauptmenü (beendet die Partie für alle, der Weltstand bleibt).
-- **Kein Spielleiter, keine Schnellroute:** Den Weg findet man selbst (Sternkarte, **Weitscan** zeigt Bojen). Fortschritt gibt es nur durch erreichte
-  Missionsziele. **Der Feldzug scheitert nie:** Scheitert eine Szene (Rückzug per Notfallsprung), beginnt sie von vorn; jede Szene hat einen Ausgang.
-- **Gespeichert** wird an jedem Kapitelübergang und beim Andocken (Weltstand: Kapitel als Fakten `kampagne`, `kapitel`, Flags, Ladung im Frachtraum,
-  Legat mit Gedächtnis). Mitte aufhören und weitermachen geht: Das Kapitel beginnt am gespeicherten Schritt neu, die Lerche liegt im letzten Hafen.
-- **Noch Platzhalter** (kurze Stand-in-Szenen, mit „Platzhalter“ im Text, bis die echten Szenen gemergt sind): Konvoi-Szene (Rabenpass), Methalle am
-  Boden, Flottenbefehle der Orbitschlacht, Siedlung mit Flagge und Boss. Liste, Schnittstellen und Flags: `CONTRACT-EK8.md`.
-- Funk mit **Funkbild**: Mars als Symbol, der Legat als Porträt. Kapitelkarte bei jedem neuen Kapitel. Texte sind **Entwurf** (Vault: *Funktexte Feldzug Eisenwald*).
-- Werkzeuge: `npm run check:kette` (Prüfer für Kette und Kapitelbücher, `--selftest`), `npm run test:kette`, Bots `npm run sim:kette -- --kapitel alle`
-  (Labor-Einstieg je Kapitel) bzw. ohne Argument die ganze Kette; Debug `kapitel <id>` (z. B. `k4_methalle`) springt mit hergestelltem Zustand in ein Kapitel.
+## Neu in EK3 Teil A – Frachtraum und Fracht
+
+- Der **Frachtraum** (Deck II, ersetzt Bad und Aussicht) fasst zwei Ladungen; **Fracht beamen** (Taktik F) und **Abliefern** (Taktik G) sind Halteprozesse; die mitgeführte Ladung steht im Weltstand
+  (`schiff.fracht`). Bedienung und Regeln: Abschnitt „Frachtraum und Fracht (EK3 Teil A)“ bei der Voxel-Ansicht. Test: `node tools/test-lager.js`. Details: `CONTRACT-EK3.md`.
 
 ## Neu in EK2 – Raum-Alarm: Minen und Schleichfahrt
 
@@ -61,7 +163,7 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
 - **Minen:** der **Weitscan zeigt sie** (für den Rest der Szene; ganz nah sieht man sie auch so). Zu nahe = Explosion, **ignoriert
   Schilde**, **6 Punkte Systemschaden** (ok → beschädigt = 1, → zerstört = 2, zufällig verteilt), Alarm. **Abschießbar** (Lanze, Bolzen,
   Batterie auf die angewählte Mine): Explosion auf Distanz, macht trotzdem Alarm; steht die Lerche im Sprengradius (160 px), trifft es sie.
-  Zünden nicht bei ihrem Besitzer. `ohne_strom` = Blindgänger.
+  Zünden nicht bei ihrem Besitzer. `ohne_strom` = Blindgänger (Entscheidung der Studioleitung; die Kampagne nutzt den Parameter nicht).
 - **Schleichfahrt (Szenentyp A13):** Die **Signatur** der Lerche wächst mit dem Tempo, **Asteroiden** und **Schilde unten** dämpfen sie
   (Nebel nur als Schalter `CONFIG.alarm.signatur.nebel.schalter`, in der Kampagne aus). Patrouillen haben **Sensorkreise** (Taktikkarte:
   gestrichelt, sie schrumpfen und wachsen mit der Signatur) und sind nur nah oder nach dem **Weitscan** zu sehen; der Weitscan verrät auch die
@@ -69,27 +171,19 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
   (Notfallsprung, Ziel zählt nicht).
 - Im Labor: `unbemerkt_durchfliegen/patrouillen_schleichfahrt` und `kurs_durch_gefahr/minenfeld`. Tests: `node tools/test-alarm.js`.
   Details und Entscheidungen: `CONTRACT-EK2.md`.
-## Neu in EK5 und EK6 – Methalle und Siedlung Eisenwald (Team BODEN, Branch `ek1b-boden`)
-**EK5 Methalle** (Militärsiedlung, ohne Schuss abschließbar):
-- Generator-Variante `methalle` (`shared/gen-siedlung.js`): Mauer ohne Tor, **Landefeld mit dem einzigen Abholpunkt außerhalb**,
-  **Rohr** (Kachel `r`, 3 Kacheln, sperrt Sicht und Schuss) unter der Mauer als einziger Weg hinein. Prüfer `K-ROHR` und `K-MAUER-DICHT`.
-- **Sprengstoff platzieren** statt zünden: Sprengziel mit `modus: platzieren` (`anker.ladungPlatzieren`): keine Explosion, kein Alarm.
-  Der Sprengstoff ist ein Gegenstand (`inventory.ladung`, im Snapshot, im Hafen kaufbar). Nach dem **Hochbeamen** meldet Mars
-  „Außenposten zerstört“, der Weltstand setzt den Fakt **`sperrriegel`**.
-- **Wachen:** drei Zweiergruppen auf Patrouille, nach dem Platzieren Nachschub aus den Baracken (ruhig, ohne Alarm), nie mehr als 8 gleichzeitig.
-- Labor: `sabotieren/sprengstoff_platzieren` (Landepunkt-Platzhalter `splitter.methalle`). Bots schleichen über Kacheln außer Sicht.
-**EK6 Siedlung Eisenwald** (Flagge hissen, Endkampf):
-- Generator-Variante `eisenwald`: **Feldzeichen** (Rolle `flagge`) in der Mitte des Dorfplatzes. **Zwei hissen gemeinsam** (E halten, der
-  Fortschritt bleibt; lebt nur einer, geht es nicht). Dann greifen **10 Gegner und ein Anführer** von allen Seiten an, sonst kein Spawn.
-- **Anführer** = normaler Sturmgewehr-Gegner (Rolle `niederhalter`, „Bolzer“) mit dem Gegner-Modifikator `anfuehrer`
-  (`CONFIG.awayCombat.modifikatoren`): +50 % Leben, +50 % Schaden, 25 % größer (Snapshot: ein Bit `gs`). Keine Sonderfigur.
-- **Sieg:** Anführer liegt, die übrigen beamen raus. **Niederlage:** Notrückholung, die Siedlung beginnt von vorn (`map_reset`), Freischaltung bleibt.
-- Labor: `stellung_nehmen/flagge_hissen` (Platzhalter `splitter.eisenwald`). Tests: `node tools/test-methalle.js`, `node tools/test-eisenwald.js`.
-- Details, Messwerte und Entscheidungen: `CONTRACT-EK5-6.md`.
+
+## Neu in EK1b – Fregatte, Kreuzer, Schildsegmente
+
+- Zwei neue Gegnerklassen: **Fregatte** (`X==>`, 2 Seitenbereiche je Seite) und **Kreuzer** (`X===>`, 3 Seitenbereiche je Seite). Schilde sind **Segmente je Seite** (`shared/schilde.js`);
+  ein Treffer geht in das Segment an der Längslage, der Ziel-Scan der Taktik zeigt Bug, Seitenbereiche (vorn → hinten) und Heck.
+- Mehrere Waffenplätze gleicher Art im Bogen der Lerche verstärken die Breitseite (Lanze +50 % je weiteren Platz). Eine Breitseiten-KI (`pilot.breitseite`) für Korvette, Fregatte und Kreuzer, Klassenparameter `spaceM3b.pilotKlasse`.
+- Fregatte und Kreuzer sind **nicht** in den Wellen (`arena.waves`, `wellen.typenAb`); sie kommen über `spawnEnemy`, Debug `spawn fregatte|kreuzer`, Regiebücher und die Flotte (Verbündete, Boss-Fregatte).
+- **Drehsprites** im Raum (Jäger, Korvette, Fregatte, Kreuzer) aus den Sheets in `public/voxel/sprites/`, mit Rückfall auf die prozedurale Zeichnung (`public/js/art.js`, Vorschau `public/art-preview.html`).
+- Tests: `node tools/test-klassen.js`. Details: `CONTRACT-EK1.md` (Abschnitte 5–8).
 
 ## Neu in EK1a – Korvette statt Kanonenboot
 
-- Das **Kanonenboot gibt es nicht mehr**, die Klasse heißt `korvette` (Config, Missionen, Katalog, Tests, Anzeige).
+- Das **Kanonenboot gibt es nicht mehr**, die Klasse heißt `korvette` (Config, Missionen, Katalog, Tests, Anzeige), ohne Alias.
 - **Schilde** der Korvette: vorn 1, Steuerbord 2, hinten 0, Backbord 2. **Waffenplätze:** vorn und je Seite einer.
 - **Bestückung zufällig** je Platz: Lanze (angekündigter schwerer Treffer), Batterie (Sperrfeuer) oder Bolzen (Einzelschuss).
   Ohne Lanze lädt die Korvette nie, ohne Batterie gibt es kein Sperrfeuer. Der Ziel-Scan zeigt die Plätze mit ihrer Art.
@@ -654,9 +748,9 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 
 Jede Konsole zeigt ihre Tasten unten in einer Zeile. Ton startet mit der ersten Taste/dem ersten Klick.
 
-## Die Orte: 8 spielbare Hexe und der Leerraum
+## Die Orte: 8 Hexe des Saumraums, 15 der Eisenwald-Kette und der Leerraum
 
-Die Karte Limes hat 10×8 = 80 Hexe (`content/welt/limes.json`). **8 davon sind spielbare Orte**, 42 sind Leerraum, die
+Die Karte Limes hat 10×8 = 80 Hexe (`content/welt/limes.json`). **8 davon sind spielbare Orte des Saumraums** (Tutorial, Lichtkordon bis Kesh; dazu die 15 Hexe der Eisenwald-Kette, siehe unten), 42 sind Leerraum, die
 übrigen 30 sind Systeme ohne Raumszene (gesperrt oder nur Kulisse, z. B. Rom und Rostnest).
 
 | Ort | Hex | Was dort ist |
@@ -705,7 +799,7 @@ Entscheidung über den Datenkern → Nachhut → Selas Notruf (optional: bei Vae
 (60 Marken) oder bittet, ihre Messsonde per Weitscan zu suchen → Graue Weite: Hinterhalt → **Funkduell** mit Grauzahn
 (bluffen, teilen oder schweigen – mit Folgen) → Leitbake per Weitscan finden und scannen → Kustoden-Relais: 3 Pylonen
 von der Seite, Wächter, dann die **Prüfung** (2 Pylonen, Front zum Kern – von außen angreifen) → Captain scannt den Kern
-→ Ende-Screen „Fortsetzung folgt“. Danach könnt ihr frei weiter erkunden (Wrack, restliche Funde).
+→ Ende-Screen „Fortsetzung folgt“ (die Kampagne Eisenwald zeigt stattdessen den Abspann). Danach könnt ihr frei weiter erkunden (Wrack, restliche Funde).
 
 **Mission 3 „Die Tafel von Kesh“ (Planetenmission, M2):** In der Kampagne bietet Tesk sie nach Mission 2 an; für den
 Spieleabend gibt es den Lobby-Direktstart (**M**, „Direkt zur Planetenmission“: keine Hafen-Übung, Schiff im Hafen,
@@ -1023,7 +1117,7 @@ Der Teaser ist in der Demo nur Text, kein spielbarer Auftrag. **Seit S2 abgelös
 
 ## Bekannte Grenzen
 
-- Umfang: drei Tutorial-Missionen und acht Orte. Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
+- Umfang: drei Tutorial-Missionen und acht Orte im Saumraum, dazu die Eisenwald-Kampagne (EK1–EK8, 15 Hexe). Gespeichert wird nur angedockt bzw. beim Missionsabschluss (S1) –
   nicht unterwegs und nicht im Kampf.
 - **Kämpfe solo sind hart:** Wer allein zwischen Steuer und Taktik pendelt, verliert im Kampf an B-7 schnell Hülle
   (im Test bis 15 %). Untergehen kann man nicht – das Notfallprotokoll hält das Schiff bei 30 % (kostet 50 Marken).
@@ -1213,5 +1307,5 @@ gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewSca
 | `npm run regie -- <weltId>` | (S2) Regie-Logbuch als Markdown-Bericht |
 | `npm run test:escort` | (S2) Schützling: Bewegung, Befehle, Schaden, Breitseite, Ausgänge |
 
-`npm test` = test-features, test-combat, test-m3, test-flight, test-regiebuch, test-weltstand, test-spielleiter (`--strict`).
+`npm test` führt seit EK8 27 Testskripte nacheinander aus; die vollständige Liste steht oben im Abschnitt „Kampagne Eisenwald starten und testen“ (Quelle: `package.json`, Skript `test`).
 Golden-Vergleich wie in der Abnahme: `node tools/golden-trace.js --compare tools/fixtures/golden/base tools/fixtures/golden/s1 --allow tools/fixtures/golden/allow-s1.json`.

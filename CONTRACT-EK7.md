@@ -1,6 +1,10 @@
 # CONTRACT-EK7 – Karte: 15 Hexe (Raumsektoren aus Daten, `sperrriegel`, Häfen)
 
-Team KARTE, Branch `ek1b-karte` (Basis `ek1`). Berührt: `content/welt/limes.json`, `shared/sektoren.js`, `shared/gen-sektor.js` (neu),
+Team KARTE.
+
+**Stand:** fertig, gemergt in `ek1`. Testskripte: `npm run check` (darin `tools/check-sektoren.js`), `npm run test:sektoren`, `npm run test:weltstand`; Bot-Flug `node tools/sprungkette.js`. Offene Punkte: Abschnitt 7.
+
+Berührt: `content/welt/limes.json`, `shared/sektoren.js`, `shared/gen-sektor.js` (neu),
 `shared/locations.js`, `server/sim/{sprung,explore,shop}.js`. Das Tutorial (m1–m3) und die 8 Saumraum-Orte bleiben unverändert.
 
 ## 1. Die 15 Hexe der Kette
@@ -38,10 +42,10 @@ Generator (`GEN.erzeuge(hex, daten, cfg)`), alles aus dem Hex-Eintrag:
 | Sprungpunkte | nicht Teil der Szene: `sprung.js` legt sie aus den Kanten an den Rand (`sprungpunktLage`); `check-sektoren` prüft, dass Brockenfeld, Station, Liegeplatz und Bojen alle sechs Sprungpunkte freihalten |
 
 Rabenpass ist ein **leerer Raumsektor** (nur Doppelstern, `einfluss: gezeiten` entfällt). Wolfstor: heute leer (Minenfeld ist EK2).
-Boden-Landepunkte (Methalle, Eisenwald): `szene.beam` je Hex ergänzbar (BODEN), nicht gebaut.
+Boden-Landepunkte (Methalle, Eisenwald): `szene.beam` je Hex ist **in EK8 ergänzt** (Hexe 0704 und 0705, Landepunkte `methalle.siedlung`, `eisenwald.siedlung`; CONTRACT-EK8 D31).
 
 **Grenzen (heute):** `space.js` legt nur `scene.station` (und `dock`) als Marker; Stern, Planeten und Bojen stehen als Daten bereit,
-werden aber nicht gezeichnet (`art.js`/`space.js` gehören anderen Teams). Gleiches gilt für Minen, Eruption, Trümmerstrom (Einfluss-Mechaniken).
+werden aber nicht gezeichnet (`art.js`/`space.js` gehören anderen Teams; Stand 2026-10-11: weder `server/sim/space.js` noch `public/js/render.js` oder `art.js` lesen `scene.stern`, `scene.planeten`, `scene.bojen`). Gleiches gilt für Minen, Eruption, Trümmerstrom (Einfluss-Mechaniken).
 
 ## 3. Weltstand-Schlüssel `sperrriegel`
 
@@ -58,7 +62,7 @@ und der Hinweis an die Crew (Bojen, Meldung). Nachgezogen:
 - Persistenz: `verbindungen_offen`, `fakten`, `sektoren.offen` (test-weltstand: Speichern, Neustart, Laden).
 - Kanten (`key: "sperrriegel"`): 0504–0604, 0604–0605, 0604–0705. Wolfstor–Eisenwald (0604–0704) ist offen, Eisenwald damit **nur über
   Wolfstor** erreichbar, Wolfstor nur mit Schlüssel (`check-sektoren`: ohne Schlüssel sind Wolfstor und Eisenwald auch über die Methalle unerreichbar).
-- `tutorial-ende` (0305–0306) bleibt unverändert: der Schlüssel muss in EK8 gesetzt werden (`openLink('tutorial-ende')`).
+- `tutorial-ende` (0305–0306) bleibt unverändert; der Schlüssel wird seit EK8 von der Kette gesetzt (`content/kampagne/eisenwald.json`, `tutorial.oeffnet`).
 
 ## 4. Häfen Castra Martis und Statio Limitis
 
@@ -94,3 +98,10 @@ Spiel ist Statio Limitis Kandidat (9 von 60 Seeds, Test).
   (für alle anderen Wege unverändert).
 - Regiebuch-Prüfer: Orte aus Daten gelten als Orte (`REF-ORT`), Häfen als `PORT_IDS`. Nicht erweitert: Spielleiter-Szenenbau
   (`szenenbau.js`: `LOC` aus `LOCATIONS`), Fahrzeit-Schätzung dort.
+
+## 7. Offen
+- **Stern, Planeten und Navigationsbojen** der Datenorte stehen nur als Daten in der Szene und werden nicht gezeichnet; gleiches gilt für Minen/Eruption/Trümmerstrom als Einfluss-Mechaniken (Abschnitt 2, Grenzen).
+- **Reparatur im Hafen** fehlt (Abschnitt 4a): Castra Martis und Statio Limitis verkaufen nur Vorräte gegen Marken; eine Hüllen-/Systemreparatur wäre ein neuer Shop-Eintrag `kind: 'service'` (in `server/sim/shop.js` gibt es keinen).
+- **Spielleiter-Szenenbau** kennt die Datenorte nicht (`server/mission/szenenbau.js`: `LOC` aus `Locations.LOCATIONS`, Fahrzeit-Schätzung ebenso); die Kampagne braucht ihn nicht (kein Spielleiter), das freie Spiel plant dort nicht über die Kette.
+- **Abweichung vom Briefing:** nachgerechnet sind es 16 Hexe auf dem Weg, nicht 15; Vigilia (0302) bleibt unspielbar (Abschnitt 1).
+- Wolfstor ist heute ein leerer Sektor (Abschnitt 2).
