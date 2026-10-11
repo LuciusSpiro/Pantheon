@@ -995,7 +995,7 @@
     'terminal:geladen': 'Download abgeschlossen', 'terminal:laedt': 'Download läuft – E halten, Deckung!', 'beute:leer': 'Kiste geborgen',
     'fund:genommen': 'Fund geborgen', 'zelle:offen': 'Zelle geöffnet', 'raetsel:geloest': 'Schloss gelöst', 'tor:offen': 'Durchgang offen',
     'tor:gesprengt': 'Durchgang gesprengt', 'versteck:offen': 'Versteck geöffnet', 'ziel:genommen': 'Ziel genommen', 'ziel:aktiviert': 'Ziel aktiviert',
-    'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört', 'sprengpunkt:platziert': 'Sprengstoff platziert',
+    'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört', 'sprengpunkt:platziert': 'Sprengstoff platziert', 'flagge:gehisst': 'Feldzeichen gehisst – Gegner von allen Seiten!',
   };
   function playerName(id) { const p = ((Client.state && Client.state.players) || []).find(q => q.id === id); return p ? p.name : null; }
   function ankerRolle(mapId, id) { const m = Maps[mapId]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? a[1] : ''; }
@@ -1394,6 +1394,12 @@
           if (z === 'scharf') return { label: 'SCHARF – weg da!', ok: false };
           return { label: 'Gesprengt', ok: false };
         }
+        case 'flagge':   // EK6: nur gemeinsam (zwei halten gleichzeitig), der Fortschritt bleibt
+          if (z === 'unten') {
+            const lebend = (st.players || []).filter(q => q.zone === 'away' && !q.downed).length;
+            return lebend >= 2 ? { label: 'E halten: Feldzeichen hissen (' + sec('flagge') + ', zwei gleichzeitig)', ok: true } : { label: 'Feldzeichen – hissen geht nur zu zweit', ok: false };
+          }
+          return { label: 'Das Feldzeichen steht', ok: false };
         case 'zelle': {
           // W1 AP4: Gefangene brechen die Zellentür von innen auf (Server: koerper.ausbruchTuer, laut)
           if (z === 'zu' && m && m.zs === 'gefangen') {

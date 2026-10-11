@@ -213,9 +213,12 @@ function projektil(game, o) {
   if (game.away) { if (!Array.isArray(game.away.projectiles)) game.away.projectiles = []; game.away.projectiles.push(q); }
   return q;
 }
-function wirkungAus(waffe, d, extra) {
-  return Object.assign({ waffe, schaden: Number(d.schaden) || 1, schildReset: !!d.schildReset, nichttoedlich: !!d.nichttoedlich,
+// k (optional): Schütze; sein Schadensmodifikator (k.modSchaden, EK6 Anführer: ×1,5) gilt für alle Wirkungen dieser Waffe
+function wirkungAus(waffe, d, extra, k) {
+  const w = Object.assign({ waffe, schaden: Number(d.schaden) || 1, schildReset: !!d.schildReset, nichttoedlich: !!d.nichttoedlich,
     wunde: !!d.wunde, flaeche: !!d.flaeche, durchschlagFront: !!d.durchschlagFront }, extra || {});
+  if (k && k.modSchaden && k.modSchaden !== 1) w.schaden = Math.round(w.schaden * k.modSchaden * 1000) / 1000;
+  return w;
 }
 
 function geschoss(game, k, d, ziel) {
@@ -225,8 +228,8 @@ function geschoss(game, k, d, ziel) {
   const angle = Math.atan2(p.y - k.y, p.x - k.x) + s * (rng(game)() * 2 - 1);
   const tempo = Number(d.tempo) || 380;
   const q = projektil(game, { kind: k.waffe, waffe: k.waffe, x: k.x, y: k.y, angle, speed: tempo,
-    ttl: (Number(d.reichweite) || 13) * TILE / tempo, dmg: Number(d.schaden) || 1, owner: k.id,
-    team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team, crouch: !!k.crouch, wirkung: wirkungAus(k.waffe, d) });
+    ttl: (Number(d.reichweite) || 13) * TILE / tempo, dmg: (Number(d.schaden) || 1) * (k.modSchaden || 1), owner: k.id,
+    team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team, crouch: !!k.crouch, wirkung: wirkungAus(k.waffe, d, null, k) });
   k.bereitAt = t + (Number(d.kadenz) || 0);
   heizen(game, k, d);
   laerm(game, k.x, k.y, d.laerm);
@@ -248,7 +251,7 @@ function granateWerfen(game, k, d, ziel) {
   const flug = Number(d.flug) || 0.8;
   projektil(game, { kind: 'granate', waffe: k.waffe, x: k.x, y: k.y, tx, ty, flug, t: 0, angle: Math.atan2(dy, dx), speed: 0,
     ttl: flug + 1, dmg: Number(d.schaden) || 1, owner: k.id, team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team,
-    wirkung: wirkungAus(k.waffe, d, { betaeubt: Number(d.betaeubt) || 0, radius: Number(d.radius) || 1 }) });
+    wirkung: wirkungAus(k.waffe, d, { betaeubt: Number(d.betaeubt) || 0, radius: Number(d.radius) || 1 }, k) });
   k.bereitAt = t + (Number(d.kadenz) || 0);
   heizen(game, k, d);
   emit(game, 'granate', { id: k.id, x: r(k.x), y: r(k.y), tx: r(tx), ty: r(ty), flug });
@@ -313,7 +316,7 @@ function loslassen(game, k) {
   emit(game, 'lanzeSchuss', { id: k.id, x: r(k.x), y: r(k.y), tx: r(tx), ty: r(ty), stufe: L.stufe });
   heizen(game, k, d, L.stufe / d.laden.length);
   laerm(game, k.x, k.y, d.laerm);
-  if (getroffen) wirken(game, getroffen, wirkungAus(k.waffe, d, { schaden }), { id: k.id, team: k.team, x: k.x, y: k.y });
+  if (getroffen) wirken(game, getroffen, wirkungAus(k.waffe, d, { schaden }, k), { id: k.id, team: k.team, x: k.x, y: k.y });
   return null;
 }
 
@@ -341,7 +344,7 @@ function schlag(game, k, d) {
     const dist = Math.hypot(z.x - k.x, z.y - k.y);
     if (dist > reich + hitR(z)) continue;
     if (dist > EPS && Math.abs(normAngle(Math.atan2(z.y - k.y, z.x - k.x) - A.winkel)) > Math.PI / 4 + EPS) continue;
-    out.push({ id: z.id, ergebnis: wirken(game, z, wirkungAus(k.waffe, d, { nahkampf: true }), { id: k.id, team: k.team, x: k.x, y: k.y }) });
+    out.push({ id: z.id, ergebnis: wirken(game, z, wirkungAus(k.waffe, d, { nahkampf: true }, k), { id: k.id, team: k.team, x: k.x, y: k.y }) });
   }
   return out;
 }

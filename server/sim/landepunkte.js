@@ -57,6 +57,7 @@ function eintrag(game, lpId) {
     zustand: d.zustand || 'intakt', zustaende: {}, alarm: false, besuche: 0, letzte_mission: null, neu: !!d.neu, gesperrt: !!d.gesperrt };
   if (d.ort && !defs().byId[lpId]) e.ort = d.ort;
   if (d.frei_gesetzt) e.frei = true;
+  if (d.gen) e.gen = d.gen;   // Generator-Vorgaben (nur Laufzeit, nicht im Weltstand)
   S.eintraege[lpId] = e;
   return e;
 }
@@ -80,7 +81,7 @@ function nutztGenerator(lpId, e) {
 }
 function genBauen(lpId, e) {
   const o = { bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
-  const gv = (defs().byId[lpId] || {}).gen || {};   // EK5: Vorgaben der Definition (variante methalle, typ, haeuser)
+  const gv = e.gen || (defs().byId[lpId] || {}).gen || {};   // EK5/EK6: Vorgaben der Definition bzw. des Debug-Landepunkts (variante methalle/eisenwald, typ, haeuser)
   const typ = gv.typ || (e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel');
   let letzte = null;
   for (let i = 0; i < 6; i++) {   // wie Buehne.bauen: scheitert der Prüfer, Seed + 1
@@ -425,7 +426,7 @@ function neu(game, ort, o) {
   const zs = o.zustand || ((ach.kartenarten[o.art] || {}).zustand) || 'intakt';
   const basis = defs().orte[ort] && defs().orte[ort][0];
   S.dyn[id] = { id, ort, art: o.art, bauweise: bw, besitz: o.besitz || 'herrenlos', zustand: zs, seed, schablone: o.schablone || null,
-    beam: (basis && basis.beam) || ortBeam(ort), name: o.name || null, frei: 'immer', gesperrt: false, neu: true };
+    beam: (basis && basis.beam) || ortBeam(ort), name: o.name || null, frei: 'immer', gesperrt: false, neu: true, ...(o.gen ? { gen: o.gen } : {}) };
   const e = eintrag(game, id);
   e.neu = true; e.ort = ort;
   return id;
@@ -562,7 +563,10 @@ function debug(game, cmd, args, p) {
     const art = args[0] || 'ruine';
     const seed = Number(args[1] || 1) | 0;
     const ort = (game.ship && game.ship.scene) || 'kesh';
-    const id = testgelaende(game, { ort, art, seed, bauweise: args[2], besitz: args[3], zustand: args[4] });
+    // 6. Wert (EK5/EK6): Generator-Variante methalle | eisenwald (Methalle: Militärsiedlung mit Rohr; Eisenwald: Siedlung mit Feldzeichen)
+    const variante = ['methalle', 'eisenwald'].includes(args[5]) ? args[5] : null;
+    const gen = variante ? { variante, typ: variante === 'methalle' ? 'militaer' : 'handel', haeuser: variante === 'methalle' ? 10 : 12 } : undefined;
+    const id = testgelaende(game, { ort, art, seed, bauweise: args[2], besitz: args[3], zustand: args[4], gen });
     try { get(game, id); } catch (x) { countError(game, 'debug-buehne', x); return 'buehne: ' + x.message; }
     game.transferZiel = { lp: id, scene: ort };
     if (game.setAwayMap) game.setAwayMap(id);

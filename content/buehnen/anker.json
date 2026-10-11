@@ -50,6 +50,16 @@
       },
       "regel": "Wegpunkt; Ketten benachbarter Plätze verbindet der Zusammenbau (karte.patrouillen)"
     },
+    "flagge": {
+      "objekt": "flagge",
+      "zustaende": [
+        "unten",
+        "gehisst"
+      ],
+      "halten": "flagge",
+      "attribute": {},
+      "regel": "EK6: Feldzeichen in der Platzmitte (Platz dorfplatz). Hissen (E halten) geht nur gemeinsam: mindestens 2 lebende Spieler halten gleichzeitig, der Fortschritt bleibt, wenn einer loslässt. Lebt nur einer, ist Hissen nicht möglich. Folge hängt am Regiebuch (Angriff)"
+    },
     "baracke": {
       "objekt": null,
       "zustaende": [],

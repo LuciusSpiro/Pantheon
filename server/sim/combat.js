@@ -566,6 +566,7 @@ function squadRecall(game) {
   const map = aw.map;
   list.forEach((p, i) => { it.placeOnShipPad(game, p, i); p.beamLock = false; revive(game, p, null, { quiet: true }); });
   aw.recallT = 0;
+  if (aw.endkampf && aw.endkampf.phase === 'angriff') aw.endkampf.verloren = true;   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
@@ -1177,6 +1178,7 @@ function b2SnapGegner(game, e, base) {
   if (ro) base.ro = ro;
   if (e.fraktion) base.fr = e.fraktion;
   if (e.rank) base.rk = 1;   // Häuptling-Look (actors.js liest rk); Standard 0 wird nicht gesendet
+  if (e.mod && e.mod.groesse > 1) base.gs = 1;   // EK6: Modifikator mit größerer Darstellung (Anführer: 25 %, dazu der Häuptling-Look); ein Bit, Standard fehlt
   if (e.palette) { const fk = (katalogDaten(game).fraktionen || {})[e.fraktion]; if (!fk || fk.palette !== e.palette) base.pa = e.palette; }
   if (e.wunden && (e.wunden.max > 1 || e.wunden.n < e.wunden.max)) { base.wn = e.wunden.n; base.wm = e.wunden.max; }
   if (e.granatZiel && game.time - e.granatZiel.t < 2) base.gr = { x: Math.round(e.granatZiel.x), y: Math.round(e.granatZiel.y), t: r2(e.granatZiel.t) };
@@ -1498,6 +1500,27 @@ function truppStatus(game, map, tag) {
   return { gesetzt: !!((aw.besetzt && aw.besetzt[tag]) || list.length), gesamt: list.length, aktiv, haltung: wach ? 'wach' : 'ruhig' };
 }
 
+// ---------- EK6: Gegner-Modifikatoren (Baukasten) ----------
+// modifikatorSetzen(game, e, name): Faktoren aus CONFIG.awayCombat.modifikatoren[name] auf einen Gegner. Keine Sonderfigur, die Rolle bleibt.
+//   leben    Faktor auf (Schildsegmente + Wunden), der Zuschlag geht in den Schild (3 Segmente + 1 Wunde = 4 -> 6: Schild 5)
+//   schaden  Faktor auf die Wirkung jeder Waffe des Gegners (waffen.js wirkungAus, e.modSchaden)
+//   groesse  Darstellung; im Snapshot ein Bit (gs), die Größe selbst liegt im Client (actors.js)
+// -> true | false (unbekannter Name)
+function modifikatorSetzen(game, e, name) {
+  const m = ((cfg(game).modifikatoren || {})[name]);
+  if (!m || !e) return false;
+  kaempfer(game, e);
+  const f = Number(m.leben) || 1;
+  if (f !== 1) {
+    const wunden = (e.wunden && e.wunden.max) || 1;
+    const zusatz = Math.round(((e.max || 0) + wunden) * (f - 1) * 100) / 100;
+    e.max = Math.round(((e.max || 0) + zusatz) * 100) / 100; e.seg = e.max; e.hp = e.seg;
+  }
+  if (Number(m.schaden) && Number(m.schaden) !== 1) e.modSchaden = Number(m.schaden);
+  e.mod = { name, groesse: Number(m.groesse) || 1 };
+  return true;
+}
+
 // ---------- EK5 (Methalle): Zweiergruppen auf Patrouille und Nachschub aus den Baracken ----------
 // Beide Wege setzen Trupps aus Zweiergruppen (Grundtyp, ruhig, Schleich-Besetzung: Alarm nur durch Entdeckung oder Lärm) und halten
 // die Obergrenze: höchstens `max` Gegner gleichzeitig (stehend oder verwundet liegend, die ein Kamerad wieder aufrichten kann).
@@ -1732,7 +1755,7 @@ module.exports = {
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,
   // B2 Welle 2
-  rolleVon, besetzen, besetzenPatrouillen, nachschubBaracken, aktiveGegner, truppStatus, debugB2, istB2Hold, reviveSperre, interactionsB2, holdDurationB2, holdValidB2, completeHoldB2,
+  rolleVon, besetzen, besetzenPatrouillen, nachschubBaracken, aktiveGegner, modifikatorSetzen, truppStatus, debugB2, istB2Hold, reviveSperre, interactionsB2, holdDurationB2, holdValidB2, completeHoldB2,
   ausbruch, ausbruchMoeglich, folgenAbgleich, _setzeKatalog, katalogDaten,
   // W1 AP4
   teamGefangenNehmen,

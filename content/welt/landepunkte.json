@@ -1,7 +1,7 @@
 {
   "format": "landepunkte/1",
   "quelle": "CONTRACT-B1.md §6.1, INHALT §6 (Team BUEHNE)",
-  "hinweis": "Je Ort (shared/locations.js-ID) die Landepunkte. Handkarten behalten ihre IDs platform/wreck/kesh (art 'hand', CONTRACT-B1 §3.4). seed = Startwert, der wirksame Seed steht im Weltstand. beam: Transferpunkt in der Raumszene (px) + Reichweite. frei: immer | nach_tutorial | nach_raumgefecht. gesperrt: nicht anfliegbar (LANDEPUNKT-GESPERRT, E33). <ort>.prise wird zur Laufzeit angelegt (§7). frei labor: nur im Szenario-Labor wählbar und sichtbar (Platzhalter splitter.methalle, bis es den Ort methalle mit Landepunkt methalle.siedlung gibt). gen: optionale Vorgaben für den Siedlungsgenerator (variante methalle = Mauer, Rohr, Landefeld außerhalb; typ; haeuser), EK5/EK6.",
+  "hinweis": "Je Ort (shared/locations.js-ID) die Landepunkte. Handkarten behalten ihre IDs platform/wreck/kesh (art 'hand', CONTRACT-B1 §3.4). seed = Startwert, der wirksame Seed steht im Weltstand. beam: Transferpunkt in der Raumszene (px) + Reichweite. frei: immer | nach_tutorial | nach_raumgefecht. gesperrt: nicht anfliegbar (LANDEPUNKT-GESPERRT, E33). <ort>.prise wird zur Laufzeit angelegt (§7). frei labor: nur im Szenario-Labor wählbar und sichtbar (Platzhalter splitter.methalle und splitter.eisenwald, bis es die Orte methalle und eisenwald mit den Landepunkten methalle.siedlung und eisenwald.siedlung gibt). gen: optionale Vorgaben für den Siedlungsgenerator (variante methalle = Mauer, Rohr, Landefeld außerhalb; variante eisenwald = Feldzeichen in der Platzmitte; typ; haeuser), EK5/EK6.",
   "orte": {
     "b7": [
       { "id": "platform", "art": "hand", "bauweise": null, "besitz": "konkordat", "zustand": "intakt", "seed": null, "schablone": null,
@@ -34,7 +34,10 @@
         "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Treibgut", "frei": "nach_raumgefecht", "gesperrt": false },
       { "id": "splitter.methalle", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 5101, "schablone": null,
         "gen": { "variante": "methalle", "typ": "militaer", "haeuser": 10 },
-        "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Methalle (Labor-Gelände)", "frei": "labor", "gesperrt": false }
+        "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Methalle (Labor-Gelände)", "frei": "labor", "gesperrt": false },
+      { "id": "splitter.eisenwald", "art": "aussenposten", "bauweise": "germanen", "besitz": "raubzug", "zustand": "intakt", "seed": 6101, "schablone": null,
+        "gen": { "variante": "eisenwald", "typ": "handel", "haeuser": 12 },
+        "beam": { "x": 1500, "y": 1100, "range": 360 }, "name": "Siedlung Eisenwald (Labor-Gelände)", "frei": "labor", "gesperrt": false }
     ],
     "vaelen": [
       { "id": "vaelen.handelsschiff", "art": "schiff", "bauweise": "germanen", "besitz": "kontor", "zustand": "intakt", "seed": 207, "schablone": null,

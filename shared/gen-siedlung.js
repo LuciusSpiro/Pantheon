@@ -22,6 +22,7 @@
     function bauenEinmal(seed, N, bauweise, typ, skala, variante) {
       const R = rng(seed);
       const methalle = variante === 'methalle';
+      const eisenwald = variante === 'eisenwald';   // EK6: Feldzeichen (Flaggenpunkt) in der Platzmitte statt der Statue
       const mauer = typ === 'militaer' || methalle;
       const A = (N * 170 + 500) * skala;
       const sw = clamp(Math.round(Math.sqrt(A * 1.8)), 50, FW - 8), sh = clamp(Math.round(sw / 1.8), 34, FH - 8);
@@ -185,7 +186,7 @@
       // Zeichnen
       for (const s of strassen) fill(s.rect, '=');
       fill(platz, '+');
-      fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
+      if (!eisenwald) fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
       for (const l of leit) fill(l.rect, l.c);
       if (!methalle) { fill(LF, ','); grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }
       for (const g of gebaeude) {
@@ -290,7 +291,7 @@
         }
         deck += n;
       }
-      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy], methalle, rohr };
+      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy], methalle, rohr, eisenwald };
     }
 
     // wächst, bis die Zielzahl an Gebäuden steht (oder das Feld voll ist)
@@ -347,7 +348,7 @@
       opts = opts || {};
       const bauweise = opts.bauweise || 'germanen', typ = opts.typ || 'handel';
       const B = bauen(seed, N, bauweise, typ, opts.variante), g = B.grid, S = B.S;
-      const methalle = !!B.methalle;
+      const methalle = !!B.methalle, eisenwald = !!B.eisenwald;
       const PAD = 3;
       // Methalle: Ausschnitt reicht bis über das Landefeld außerhalb der Mauer
       const cr = methalle ? { x0: Math.min(S.x0, B.LF.x0), y0: Math.min(S.y0, B.LF.y0), x1: Math.max(S.x1, B.LF.x1), y1: Math.max(S.y1, B.LF.y1) } : S;
@@ -430,6 +431,8 @@
       const dm = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
       const lm = mitte(plaetze.landefeld.rect); belegt.add(lm.join(','));
       ank('landefeld', 'abholpunkt', lm, { ankunft: true });
+      // Eisenwald (EK6): Flaggenpunkt in der Mitte des Dorfplatzes (Platztyp dorfplatz); Statue und Sockel entfallen, kein Deckungsobjekt dort
+      if (eisenwald) { const fm = mitte(plaetze.platz.rect); belegt.add(fm.join(',')); ank('platz', 'flagge', fm); }
       const funk = geb.filter((q) => q.b.typ !== 'k');
       // Kommando: Ziel in der Mitte, Platz dafür vormerken, bevor Kerker und Kisten Fläche belegen
       const kom = funk.find((q) => q.b.typ === 'K');
@@ -673,7 +676,7 @@
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
       for (const a of roh) { const k = a.platz + '.' + a.rolle; lauf[k] = (lauf[k] || 0) + 1; anker.push(Object.assign({ id: zz[k] > 1 ? k + '.' + lauf[k] : k }, a)); }
-      const pflicht = Object.assign({}, methalle ? PFLICHT_METHALLE : PFLICHT_AUSSENPOSTEN);
+      const pflicht = Object.assign({}, methalle ? PFLICHT_METHALLE : PFLICHT_AUSSENPOSTEN, eisenwald ? { flagge: 1 } : {});
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
@@ -681,7 +684,7 @@
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel, ...(methalle ? { variante: 'methalle', schleichweg: true } : {}) },
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel, ...(methalle ? { variante: 'methalle', schleichweg: true } : eisenwald ? { variante: 'eisenwald' } : {}) },
       };
     }
     return { bauen, kennzahlen, karteRoh, cheb };

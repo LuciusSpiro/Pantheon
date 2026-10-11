@@ -50,6 +50,7 @@ const ANKER_FB = {
   zelle: ['zelle', ['zu', 'offen']], beute: ['kiste', ['voll', 'leer']], ziel: ['ziel', ['frei', 'genommen', 'aktiviert']], fund: ['sockel', ['da', 'genommen']],
   tor: [null, ['zu', 'offen', 'verschlossen', 'gesprengt']], raetsel: ['schloss', ['ruhe', 'gehalten', 'geloest']], aussicht: [null, []], nsc: [null, []],
   versteck: [null, ['zu', 'offen']], lift: ['lift', []], leiter: ['leiter', []],
+  flagge: ['flagge', ['unten', 'gehisst']],   // EK6: Feldzeichen in der Platzmitte
 };
 const ZUSTAND_KIT = { intakt: 0, verfallen: 1, umkaempft: 2 };
 const TUER_KINDS = { tuer: 1, schott: 1, tor: 1, luke: 1, wand_schwach: 1 };
@@ -547,6 +548,15 @@ const PROP_FB = {
     if (!leer) pen.box(-0.44, 0.55, -0.32, 0.44, 0.68, 0.32, F.get('wood', 1.1), F.get('wood_dark'));
     pen.box(-0.06, 0.25, 0.3, 0.06, 0.4, 0.33, leer ? F.get('dark') : F.get('ember', 1.2), null, { emit: !leer });
   },
+  // EK6: Feldzeichen auf dem Dorfplatz – Mast mit Tuch; unten auf halber Höhe, gehisst oben (Rom: rot)
+  flagge(pen, p, F) {
+    const oben = (p.state | 0) === 1;
+    pen.box(-0.45, 0, -0.45, 0.45, 0.25, 0.45, F.get('stone'), F.get('stone_dark'));
+    pen.box(-0.06, 0.25, -0.06, 0.06, 3.6, 0.06, F.get('wood_dark'), F.get('wood_dark'));
+    const y0 = oben ? 2.45 : 0.75;
+    pen.box(0.06, y0, -0.03, 1.0, y0 + 0.9, 0.03, oben ? F.get('alarm', 1.2) : F.get('alarm_dark', 0.9), F.get('cloth', 0.8), { emit: oben });
+    pen.box(-0.1, 3.6, -0.1, 0.1, 3.75, 0.1, F.get('metal_light'), F.get('metal'));
+  },
   ziel(pen, p, F) {
     const st = p.state | 0;
     pen.box(-0.3, 0, -0.3, 0.3, 0.2, 0.3, F.get('stone'), F.get('stone_dark'));
@@ -847,6 +857,7 @@ async function bauKarte(parent, karteIn, opts) {
     for (const a of k.anker) if (a.rolle === 'leit' && a.platz && !leitAnker.has(a.platz)) leitAnker.set(a.platz, a);
     const LF = D.leitFuss;
     for (const p of k.plaetze || []) {
+      if (k.anker.some((q) => q.rolle === 'flagge' && q.platz === p.id)) continue;   // EK6: das Feldzeichen steht an Stelle der Statue in der Platzmitte
       const a = leitAnker.get(p.id);
       let v = BW.leit && BW.leit[p.typ] && (BW.leit[p.typ][k.art] || BW.leit[p.typ]['*']);
       if (v && typeof v === 'object') v = v[p.typ] || v['*'] || null;

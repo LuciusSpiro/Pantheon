@@ -503,7 +503,7 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
   check(kach.format === 'kacheln/1' && Object.keys(kach.zeichen).length >= 20, `kacheln.json (${Object.keys(kach.zeichen).length} Zeichen)`);
   check(Object.values(kach.zeichen).every((z) => ['begehbar', 'fest', 'tuer'].includes(z.kante)), 'jede Kachelart hat kante begehbar|fest|tuer');
   check(Object.values(kach.zeichen).every((z) => z.solid !== 'zustand' || (z.zustaende && z.begehbarIn && z.begehbarIn.every((q) => z.zustaende.includes(q)))), 'Zustandskacheln: begehbarIn ⊆ zustaende');
-  check(ank.format === 'anker/1' && Object.keys(ank.rollen).length === 20, `anker.json (${Object.keys(ank.rollen).length} Rollen)`);
+  check(ank.format === 'anker/1' && Object.keys(ank.rollen).length === 21, `anker.json (${Object.keys(ank.rollen).length} Rollen)`);
   check(Object.values(ank.rollen).every((r) => !r.halten || (C.anker.halten[r.halten] != null)), 'jede Halte-Interaktion hat CONFIG.anker.halten');
   check(zust.format === 'zustaende/1' && Object.keys(achsen.zustaende).every((z) => zust.zustaende[z]), 'zustaende.json deckt alle Zustände aus achsen.json');
   console.log('\n[B1 Handkarten-Anker]');

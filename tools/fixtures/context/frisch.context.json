@@ -1437,6 +1437,25 @@
         ],
         "umsetzungen": [
           {
+            "beschreibung": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei Personen hissen es gemeinsam (E halten, der Fortschritt bleibt; lebt nur einer, geht es nicht). Dann greifen 10 Gegner und ein Anführer von allen Seiten an, danach erscheint niemand mehr. Fällt der Anführer, beamen die übrigen raus: Sieg. Fällt die Crew, bringt die Notrückholung sie an Bord, die Siedlung beginnt von vorn (Zerstörtes, Alarm, Feldzeichen unten) und die Szene geht zurück zum Hissen.",
+            "braucht_anker": {
+              "anker": [
+                "flagge",
+                "abholpunkt"
+              ],
+              "kartenarten": [
+                "aussenposten"
+              ]
+            },
+            "dauer_min": [
+              8,
+              15
+            ],
+            "id": "flagge_hissen",
+            "name": "Flagge hissen und Siedlung halten",
+            "schauplatz": "aussen"
+          },
+          {
             "beschreibung": "Die Fraktion besetzt den Gefechtsbereich (Trupps aus ihren Rezepten an den Wachposten). Deckung suchen, Schilde laden lassen, zusammen vorrücken; der Captain gibt von oben Befehle und sieht Gegner. Erledigt, wenn jemand in den Zielbereich durchbricht.",
             "braucht_anker": {
               "anker": [

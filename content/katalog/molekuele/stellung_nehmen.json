@@ -286,6 +286,350 @@
           "map": "splitter.schuerflager"
         }
       }
+    },
+    {
+      "id": "flagge_hissen",
+      "name": "Flagge hissen und Siedlung halten",
+      "schauplatz": "aussen",
+      "beschreibung": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei Personen hissen es gemeinsam (E halten, der Fortschritt bleibt; lebt nur einer, geht es nicht). Dann greifen 10 Gegner und ein Anführer von allen Seiten an, danach erscheint niemand mehr. Fällt der Anführer, beamen die übrigen raus: Sieg. Fällt die Crew, bringt die Notrückholung sie an Bord, die Siedlung beginnt von vorn (Zerstörtes, Alarm, Feldzeichen unten) und die Szene geht zurück zum Hissen.",
+      "braucht": [
+        "transfer",
+        "aussen_kampf",
+        "aussen_objekte"
+      ],
+      "buehne_braucht": {
+        "kartenarten": [
+          "aussenposten"
+        ],
+        "anker": [
+          "flagge",
+          "abholpunkt"
+        ]
+      },
+      "dauer_min": [
+        8,
+        15
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "2": [
+          9,
+          15
+        ],
+        "3": [
+          8,
+          13
+        ]
+      },
+      "liefert_flags": [
+        "{{id}}_gesiegt",
+        "{{id}}_gefallen"
+      ],
+      "ereignisse": [
+        "flaggeGehisst",
+        "endkampfAngriff",
+        "gegnerAbgezogen",
+        "squadRecall"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true
+        },
+        "map": {
+          "typ": "map",
+          "pflicht": true,
+          "beschreibung": "Landepunkt (setzt der Szenenbau nach buehne_braucht, nie das LLM): Siedlung mit Feldzeichen in der Platzmitte (Generator-Variante eisenwald)"
+        },
+        "fraktion": {
+          "typ": "text",
+          "default": "raubzug",
+          "werte": [
+            "rostmeute",
+            "kontor",
+            "raubzug",
+            "herrenlos",
+            "kustoden"
+          ],
+          "beschreibung": "Besitzer bzw. Gegner (Fraktion = Besitz-ID)"
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ],
+          "aussenkarten": [
+            "{{map}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "timers": [
+              {
+                "at": 2,
+                "oda": "@{{id}}.start"
+              },
+              {
+                "at": 90,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "anker_state",
+                      "map": "{{map}}",
+                      "anker": "flagge",
+                      "state": "gehisst",
+                      "min": 1
+                    }
+                  }
+                },
+                "oda": "@{{id}}.hinweis",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "sticky": false,
+                "done": {
+                  "check": {
+                    "name": "away_active",
+                    "map": "{{map}}"
+                  }
+                }
+              },
+              {
+                "id": "hissen",
+                "text": "@{{id}}.ziel_hissen",
+                "sticky": false,
+                "done": {
+                  "check": {
+                    "name": "anker_state",
+                    "map": "{{map}}",
+                    "anker": "flagge",
+                    "state": "gehisst",
+                    "min": 1
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "anker_state",
+                    "map": "{{map}}",
+                    "anker": "flagge",
+                    "state": "gehisst",
+                    "min": 1
+                  }
+                },
+                "goto": "{{id}}_kampf"
+              }
+            ],
+            "skip": [
+              {
+                "do": "anker_zustand",
+                "map": "{{map}}",
+                "anker": "flagge",
+                "zustand": "gehisst"
+              }
+            ]
+          },
+          {
+            "id": "{{id}}_kampf",
+            "loc": "{{loc}}",
+            "allowBeam": [
+              "{{map}}"
+            ],
+            "enter": [
+              {
+                "if": {
+                  "not": {
+                    "v": "{{id}}_a"
+                  }
+                },
+                "do": "angriff_starten",
+                "map": "{{map}}",
+                "fraktion": "{{fraktion}}",
+                "tag": "{{id}}_a"
+              },
+              {
+                "set": {
+                  "{{id}}_a": true
+                }
+              },
+              {
+                "oda": "@{{id}}.angriff"
+              }
+            ],
+            "timers": [
+              {
+                "at": 120,
+                "if": {
+                  "not": {
+                    "v": "{{id}}_sieg"
+                  }
+                },
+                "oda": "@{{id}}.hinweis_kampf",
+                "garantie": "hinweis"
+              }
+            ],
+            "rules": [
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "boss_besiegt",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_sieg"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_sieg": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gesiegt": true
+                    }
+                  },
+                  {
+                    "do": "gegner_abziehen",
+                    "map": "{{map}}"
+                  },
+                  {
+                    "oda": "@{{id}}.sieg"
+                  }
+                ]
+              },
+              {
+                "if": {
+                  "all": [
+                    {
+                      "check": {
+                        "name": "crew_gefallen",
+                        "map": "{{map}}"
+                      }
+                    },
+                    {
+                      "not": {
+                        "v": "{{id}}_sieg"
+                      }
+                    }
+                  ]
+                },
+                "do": [
+                  {
+                    "set": {
+                      "{{id}}_zurueck": true
+                    }
+                  },
+                  {
+                    "setFlag": {
+                      "{{id}}_gefallen": true
+                    }
+                  },
+                  {
+                    "oda": "@{{id}}.gefallen"
+                  },
+                  {
+                    "do": "map_reset",
+                    "map": "{{map}}"
+                  }
+                ]
+              }
+            ],
+            "objectives": [
+              {
+                "id": "runter",
+                "text": "@{{id}}.ziel_runter",
+                "sticky": false,
+                "done": {
+                  "check": {
+                    "name": "away_active",
+                    "map": "{{map}}"
+                  }
+                }
+              },
+              {
+                "id": "boss",
+                "text": "@{{id}}.ziel_boss",
+                "sticky": false,
+                "done": {
+                  "v": "{{id}}_sieg"
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "v": "{{id}}_sieg"
+                },
+                "goto": "{{weiter}}"
+              },
+              {
+                "if": {
+                  "v": "{{id}}_zurueck"
+                },
+                "goto": "{{id}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "gegner_abziehen",
+                "map": "{{map}}"
+              },
+              {
+                "set": {
+                  "{{id}}_sieg": true
+                }
+              },
+              {
+                "setFlag": {
+                  "{{id}}_gesiegt": true
+                }
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.ziel_runter": "Außenteam runterbeamen",
+          "{{id}}.start": "Das Feldzeichen steht in der Mitte des Dorfplatzes. Zwei von euch hissen, die anderen decken.",
+          "{{id}}.hinweis": "Captain: Zwei Mann zum Feldzeichen, gemeinsam E halten. Danach kommen sie von allen Seiten.",
+          "{{id}}.angriff": "Sie haben es gesehen! Gegner von allen Seiten. Der große dort ist ihr Anführer – fällt er, fällt der Rest.",
+          "{{id}}.sieg": "Sie flüchten! Das Feldzeichen weht – die Siedlung gehört euch.",
+          "{{id}}.gefallen": "Notrückholung eingeleitet. Wir kommen wieder – die Siedlung beginnt von vorn.",
+          "{{id}}.ziel_hissen": "Feldzeichen zu zweit hissen",
+          "{{id}}.ziel_boss": "Den Anführer besiegen",
+          "{{id}}.hinweis_kampf": "Captain: Den Großen ausschalten, dann ist Schluss. Deckung nutzen, zusammen vorrücken."
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "splitter",
+          "map": "splitter.eisenwald",
+          "fraktion": "raubzug"
+        }
+      }
     }
   ],
   "quelle": "vault: Bausteine/Ziel-Moleküle.md"

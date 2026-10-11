@@ -2561,6 +2561,7 @@ class GenericAgent extends KeshAgent {
       const gibt = awM && (Away().personMit(awM, c.person) || (awM.personen || []).some((q) => q.person === c.person));
       if (c.name === 'person_rescued' && gibt && !Away().personRescued(this.game, M, c.person)) tasks.push({ kind: 'person', person: c.person });
       if (c.name === 'trupp_geraeumt' && !this.truppFrei(c)) tasks.push({ kind: 'trupp', tag: c.tag });
+      if (c.name === 'boss_besiegt' && this.game.aways[M] && this.game.aways[M].endkampf && !require('../server/sim/endkampf.js').bossBesiegt(this.game, M, c.tag || null)) tasks.push({ kind: 'trupp', tag: c.tag || null });   // EK6: zum Anführer
       if (c.name === 'team_im_bereich' && !this.imBereich(S, M, c.bereich)) tasks.push({ kind: 'bereich', bereich: c.bereich });
     }
     if (near) { const ref = near.anker || near.object; const a = k.anker.find((q) => q.rolle === ref || q.id === ref); if (a) tasks.push({ kind: 'hin', a }); }
@@ -3410,8 +3411,12 @@ async function umsetzungMain() {
   const ids = laborIds();
   const staerke = argVal('--staerke', null);
   const samples = []; const runs = [];
+  // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Feldzeichen hissen: mindestens 2, Bots: zu dritt)
+  const katalog = require('../server/mission/katalog.js').load({});
+  const crewOk = (id, crew) => { const u = katalog.molekuele[id.split('/')[0]].umsetzungen.find((x) => x.id === id.split('/')[1]); return !u || !u.dauer_je_crew || !!u.dauer_je_crew[crew]; };
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
     for (const id of ids) {
+      if (!crewOk(id, crew)) continue;
       const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, staerke, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
       runs.push({ id, crew, seed: base + i, r });
       if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Labor ' + id);

@@ -2,7 +2,7 @@
 
 Arbeitsbaum `C:\Users\Luciu\projects\Pantheon-ek-boden`, Branch `ek1b-boden` (Basis `ek1`), Port 3393, `WORLD_DIR=data/worlds-boden`.
 Grundlage: Briefing und Planung Eisenwald-Kampagne (Vault `Coop-Spiel`), Entscheidungen Kai 2026-10-11. Keine Pushes, kein Merge.
-Stand dieses Dokuments: Teil EK5 fertig, Teil EK6 siehe Abschnitt 7 ff.
+Stand dieses Dokuments: EK5 (Abschnitte 1–6) und EK6 (7–10) gebaut, Abnahme und Messwerte in 11.
 
 ## 1. Befund (gegen den Code geprüft)
 
@@ -66,4 +66,69 @@ Stand dieses Dokuments: Teil EK5 fertig, Teil EK6 siehe Abschnitt 7 ff.
 
 ## 6. Abnahme EK5
 
-Siehe Abschnitt 11 (Messwerte am Ende des Dokuments).
+Siehe Abschnitt 11 (Messwerte).
+
+## 7. EK6 Befund (gegen den Code geprüft)
+
+| Thema | Briefing/Planung | Befund |
+|---|---|---|
+| Welche der sechs Rollen trägt das Sturmgewehr? | Frage an das Studio | **Der Niederhalter** (Rolle `niederhalter`, Germanen „Bolzer“, Funk „Ich halt sie fest!“): `CONFIG.awayCombat.gegner.niederhalter = { seg 3, wunden 1, waffe 'sturmgewehr', speed 60, hitRadius 14, stoss 8 }`, `content/katalog/gegner/niederhalter.json`. Das Sturmgewehr (`waffen.sturmgewehr`: 12 Schuss bis Überhitzung, Schaden 0,5 Segment, laut) tragen sonst nur Spieler, die es wählen. Der Anführer ist also ein Niederhalter. |
+| Flaggenpunkt | „Platztyp dorfplatz existiert“ | Ja (`plaetze.platz`, Typ `dorfplatz`). Dort stand ein Statuensockel (`m`) und clientseitig das Leitstück `statue_platz` (kit.js). Die Anker-Rolle `ziel` (Halteziel) gab es, aber ohne Gemeinschaftsregel, und sie hängt im Kommandogebäude. Neu: eigene Rolle `flagge`. |
+| Halten | „Schalter-Halten wie `space.js:383`“ | Am Boden halten Spieler einzeln (`interior.updateHold`, `h.t`/`h.dur`). Gemeinsames Halten (zwei gleichzeitig, Fortschritt bleibt) gab es nicht: nur das Rätselpaar (Zeitfenster) und den Download (ein Halter, Fortschritt bleibt). Neu in `anker.update`: gemeinsamer Zähler `ankerLauf.flagge`. |
+| Notrückholung | „Nottransport“ | Ist die vorhandene Team-Rückholung (`combat.squadRecall`, 5 s nach dem letzten Fall, Transfer danach 20 s gesperrt). Neu nur das Merken im Endkampf (`aw.endkampf.verloren`). |
+| Vollreset | „Zerstörtes, Alarm“ | Der Baustein `map_reset` setzt gebaute Karten schon zurück (Zustände, Alarm, neue `aw`, keine Gegner). Reicht. |
+| Mission-Engine | – | **Regeln feuern je Schritt nur einmal** (`firedRules`), Schrittflags (`v`) gelten je Schritt, abgehakte Ziele bleiben abgehakt (außer `sticky: false`). Eine Szene, die nach der Niederlage von vorn beginnt, braucht darum zwei Schritte (Hissen, Kampf, zurück per `goto`) und nicht klebende Ziele. |
+
+## 8. EK6 Bau
+
+**Generator** (`variante: 'eisenwald'`, `typ: 'handel'`, 12 Gebäude, `content/welt/landepunkte.json` Schlüssel `gen`): **Feldzeichen** (Anker `flagge`, Zustände `unten`/`gehisst`, Halten `flagge` 6 s) in der **Mitte des Dorfplatzes**, der Statuensockel entfällt (der Client zeichnet dann auch nicht die Statue: `kit.js`). `meta.pflicht.flagge: 1`. Alles andere unverändert („so, wie der Generator sie liefert“). awayMap bis 8,9 KB.
+
+**Hissen** (`server/sim/anker.js`): Die Interaktion gibt es nur, wenn mindestens `CONFIG.anker.flagge.min` (2) Spieler **leben** (nicht verwundet, bewusstlos, gefangen), sonst Hinweis „Das Feldzeichen hissen zwei gemeinsam – allein geht es nicht.“ (Vorschlag des Briefings). Der **Fortschritt läuft nur, solange mindestens 2 gleichzeitig halten**, er bleibt stehen, wenn einer loslässt oder getroffen wird (ein Treffer unterbricht den Halter, nicht den Fortschritt), und der Balken zeigt allen Haltern den gemeinsamen Stand. Fällt mitten im Halten einer, bricht es ab (Fortschritt bleibt). Mit drei Spielern genügen zwei beliebige.
+
+**Endkampf** (`server/sim/endkampf.js`, Bausteine `angriff_starten`, `gegner_abziehen`, `boss_besiegt`, `crew_gefallen`):
+- `angriffStarten`: einmalig **10 Gegner und ein Anführer**, auf 11 Winkelsektoren um das Feldzeichen verteilt (Abstand 12–32 Kacheln, nur Kacheln, von denen aus man das Feldzeichen zu Fuß erreicht, mindestens 8 Kacheln von jedem Spieler), alle wach (**Angriff von allen Seiten**). **Sonst kein Spawn.** Rollen: Grundtyp, dazu je eine Rolle, die die Crew schon gesehen hat (Einführungsregel); der Anführer ist die einzige „neue“ Rolle. Config `CONFIG.awayCombat.endkampf`.
+- **Anführer** = Niederhalter + **Gegner-Modifikator** `anfuehrer` (`CONFIG.awayCombat.modifikatoren`, `combat.modifikatorSetzen`, Baukasten, keine Sonderfigur): **+50 % Leben** (Schildsegmente + Wunden zusammen, 3 + 1 = 4 → 6: Schild 5; Treffer bis zum Fall 4 → 6), **+50 % Schaden** (jede Wirkung der Waffe in `waffen.wirkungAus`: Sturmgewehr 0,5 → 0,75 Segment), **25 % größer** (`groesse 1.25`). **Snapshot: genau ein Bit `gs`** (nur beim Anführer, sonst fehlt das Feld; gemessen: ein Feld, +0,6 B je Gegner im Mittel). Client: `gs` skaliert die Figur auf 125 % und zeigt den Häuptling-Look (Parameter `rank`), damit er sofort als Anführer erkennbar ist (Menschentest in EK9 offen).
+- **Sieg:** `boss_besiegt` (der Anführer steht nicht mehr: liegt, bewusstlos, gefesselt, entfernt) → `gegner_abziehen`: alle Gegner beamen raus (Ton, Ereignis `gegnerBeamt`, aus der Karte entfernt), ODA, Szene endet.
+- **Niederlage:** Fällt die ganze Crew, kommt die **Notrückholung**; `aw.endkampf.verloren` → Regel `crew_gefallen` → `map_reset`: **die Siedlung ist komplett zurückgesetzt** (neue Karte, Zerstörtes und Alarm weg, Feldzeichen unten, keine Gegner), die Szene springt zurück zum Hissen. **Die Freischaltung bleibt** (Landepunkt-Eintrag bleibt, nichts gesperrt). **Alarm gilt je Karte** (`aw.alarm`).
+
+## 9. EK6 Szene und Labor
+
+Umsetzung **`stellung_nehmen/flagge_hissen`** (zwei Schritte: `<id>` Hissen, `<id>_kampf`; die Ziele `runter`, `hissen`, `boss` kleben nicht), Landepunkt-Platzhalter **`splitter.eisenwald`** (`frei: labor`, Seed 6101, wie bei der Methalle; der Kampagnen-Landepunkt `eisenwald.siedlung` kommt mit dem Ort `eisenwald` aus EK7). `dauer_je_crew` nennt nur 2 und 3: **solo ist nicht vorgesehen** (zwei hissen gemeinsam). `sim-headless` überspringt Crewgrößen, die `dauer_je_crew` nicht nennt, die Bots spielen sie also nur zu dritt (Crew 2 spielt der Labor-Bot nie).
+
+## 10. Entscheidungen mit Begründung
+
+| # | Entscheidung | Begründung |
+|---|---|---|
+| 1 | Das Rohr ist eine **echte Kachelart** (`r`), begehbar für alle, blockt Sicht und Schuss; der Prüfer macht sie zur einzigen Mauerkante | gleiche Regeln für Spieler und Gegner; keine Sonderkante in Physik und KI; die Gegner patrouillieren innen und folgen bei Alarm über das Rohr wie die Spieler |
+| 2 | **Kein Tor** in der Mauer der Methalle | ein verschlossenes Tor wäre per E öffnbar (`anker.interactionsAt`) und machte das Rohr überflüssig |
+| 3 | Sprengziel als **Modus am bestehenden `sprengpunkt`** (`ladungPlatzieren`) statt neuer Rolle | der Client kennt Rolle, Prop, Hold, Marker und Zählung (HUD) schon; der Umbau am Client bleibt klein (ein Zustand, ein Label) |
+| 4 | Welle 1 = 3 Gruppen, Welle 2 = bis 2 Gruppen, Deckel 8 | siehe 4: die zweite Welle ist so immer sichtbar |
+| 5 | **Platzhalter-Landepunkte** `splitter.methalle`/`splitter.eisenwald` mit `frei: labor` | die Orte gibt es noch nicht (`locations.js` gehört KARTE); das Labor braucht eine Karte, die Transfer-Liste der Kampagne darf sie nicht zeigen |
+| 6 | Das Feldzeichen ersetzt die **Statue** in der Platzmitte | Kai: Flaggenpunkt in der Mitte; eine zweite Figur in derselben Mitte kollidierte (Sockel, Leitstück) |
+| 7 | Leben des Anführers über **Schild und Wunden zusammen** | Wunden zählen nur ganz (1 → 1,5 geht nicht); so sind es genau +50 % Treffer bis zum Fall |
+| 8 | Hissen: Interaktion erst ab zwei lebenden Spielern, Fortschritt nur bei zwei gleichzeitigen Haltern | Vorschlag des Briefings („Hissen nicht möglich, bis ein zweiter da ist“); der Fortschritt bleibt wie beim Download |
+| 9 | Zwei Schritte (Hissen, Kampf) und `sticky: false` | Regeln feuern in der Engine nur einmal je Schritt; sonst gäbe es nach der Niederlage keinen zweiten Angriff |
+| 10 | Debug `tp <x> <y>` und `buehne … <methalle|eisenwald>` | QA: die Karten ansehen und erreichen (Browser-Smoke) |
+
+## 11. Abnahme und Messwerte
+
+- `npm test`: alle Tests grün **außer `test-escort` (Basis `ek1` schon rot, 1 Prüfung, nicht aus diesem Paket)**. Neu und in `npm test`: `tools/test-methalle.js` (57 Prüfungen), `tools/test-eisenwald.js` (58 Prüfungen). Die Kette bricht am ersten roten Test ab; alle übrigen Tests liefen einzeln grün.
+- `npm run check`: 199/199 (21 Anker-Rollen).
+- `npm run snap:mess` (Ziel ≤ 18 944 B): Worst Case 11 444 B, Wellenlauf 10 558 B, **Methalle 10 526 B**, **Endkampf (10 Gegner + Anführer, 3 Spieler) 11 361 B**.
+- Golden `--all --seeds 5` gegen `base-w2` mit `allow-ek1.json`: GRÜN (20 von 30 Traces byte-gleich, 10 nur mit den erlaubten Abweichungen der Korvette; m3 byte-gleich). Ordner wieder gelöscht.
+- Bots: `node tools/sim-headless.js labor sabotieren/sprengstoff_platzieren --crew 1|3`: 16 von 16 Läufen ohne Alarm und ohne Schuss, 0,9–1,8 min; ebenso über 6 weitere Kartenseeds (je 2 Läufe). `labor stellung_nehmen/flagge_hissen --crew 3`: 5 von 6 Läufen gewonnen, 2 davon im ersten Anlauf (1,4 min), die anderen nach mehreren Niederlagen mit Reset; ein Lauf nach 45 min Abbruch (Zeitgrenze der Bots, keine Fehler). Die Bots sind schwach gegen 11 Gegner auf einmal; für Menschen entscheidet EK9.
+- Browser-Smoke (Playwright, Port 3393): Methalle und Eisenwald laden ohne Seitenfehler, Feldzeichen und Rohr sind sichtbar.
+
+## 12. Offene Punkte
+
+- **Menschentests (EK9):** Lesbarkeit des Anführers, Schwierigkeit des Endkampfs zu zweit, Schleichen an der Methalle, Rohr-Optik (heute ein Mauerstück, kein eigenes Kit-Teil).
+- **Orte `methalle` und `eisenwald`** (EK7): Landepunkte `methalle.siedlung`, `eisenwald.siedlung` anlegen (Platzhalter `splitter.*` kopieren, `frei`, `beam`).
+- **EK3/EK8:** Sprengstoff aus der Konvoi-Beute als Inventar `ladung` ankommen lassen; die Szene legt sonst selbst einen hinein (kein Softlock). Briefing-Hinweis „Sprengladung nötig“.
+- **Solo:** Das Feldzeichen ist solo nicht hissbar (gewollt); die Kampagnenkette braucht dafür später eine Antwort (EK8).
+- **Bot-Abdeckung:** Methalle ohne Pfadvorgabe, kein Plan B nötig. Endkampf nur zu dritt.
+- `test-escort` (Basis `ek1`) ist rot und gehört dem Raum-Team.
+
+## 13. Berührte Dateien außerhalb des Kerns (Boden)
+
+`shared/config.js` (neue Schlüssel: `shop.ladung`, `awayCombat.modifikatoren`, `awayCombat.endkampf`, `anker.halten.flagge`, `anker.flagge`), `shared/buehne.js` (Prüfer), `content/buehnen/{kacheln,anker}.json`, `content/welt/landepunkte.json`, `content/katalog/molekuele/{sabotieren,stellung_nehmen}.json`, `content/regiebuch/bausteine.json`, `tools/sim-headless.js` (abgegrenzte Blöcke „EK5“/„EK6“: Schleichweg, Aufgabe Anführer, Crew-Filter), `tools/snap-mess.js`, `tools/check-maps.js`, `public/js/{client,render,consoles}.js`, `public/js/voxel/{kit,actors}.js`, `server/game.js` (awayMap-Attribut `modus`, Snapshot `inventory.ladung`, Debug `tp` und `buehne`), Test-Fixtures `tools/fixtures/context/*` (neuer Katalogeintrag).
+Nicht berührt: `server/sim/{space,pilot,escort}.js`, Schiffsteile in `art.js`, `content/welt/limes.json`, `shared/{sektoren,locations}.js`.

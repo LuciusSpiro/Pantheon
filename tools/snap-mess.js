@@ -9,6 +9,9 @@
 //           alle 15 Ticks zwei Granaten. Je Seed `--sek` Sekunden.
 //   wellen  Bodenkampf: Wellen zu dritt (Außenposten und Kesh), Debug `welle 11`, bis CONFIG.wellen.maxLebend Gegner
 //           stehen und darüber hinaus (`--sek`), alle 2 s fällt ein Gegner (Nachschub rückt nach).
+//   methalle  EK5 Methalle: Labor-Umsetzung sabotieren/sprengstoff_platzieren, 3 Spieler, 6 + 2 Wachen (Obergrenze 8) auf Patrouille.
+//   endkampf  EK6 Siedlung Eisenwald: Labor-Umsetzung stellung_nehmen/flagge_hissen, 3 Spieler, Feldzeichen gehisst -> 10 Gegner und der
+//           Anführer (Modifikator, Bit gs) greifen von allen Seiten an, alle Spieler bleiben stehen (Worst Case: 3 Spieler + 11 Gegner).
 // Ausgabe je Aufbau: Max, p95, Mittel; Bytes je Top-Level-Schlüssel (Mittel und im Max-Snapshot); Bytes je Gegner
 // (Mittel) und je Gegnerfeld bzw. Spielerfeld (Mittel, Anteil am Gegner bzw. Spieler).
 // Gemessen wird wie im Vertrag: Buffer.byteLength(JSON.stringify(g.snapshot())). Grenze: CONFIG.net.snapMax − snapLuft.
@@ -119,13 +122,62 @@ function wellenlauf(S, seed, karte) {
   return { karte, maxStehend: maxSt, maxLebendAbTick: erreicht, fehler: g.errors };
 }
 
+// ---------- Aufbau 3/4: EK5 Methalle und EK6 Endkampf (Labor-Umsetzungen, 3 Spieler) ----------
+function laborSpiel(id, seed) {
+  const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log });
+  const cs = [];
+  for (let i = 0; i < 3; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'E' + i, name: 'E' + i, color: i }); cs.push(c); }
+  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'labor', labor: { id, seed } });
+  for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 10; k++) g.step();
+  return g;
+}
+function untenAuf(g, lp) {
+  require('../server/sim/landepunkte.js').get(g, lp);
+  g.transferZiel = { lp, scene: g.ship.scene }; g.setAwayMap(lp);
+  away.executeBeam(g, g.players.map((p) => p.id), 'down');
+}
+const ankerVon = (lp, rolle) => require('../server/world.js').AWAY_MAPS[lp].karte.anker.find((x) => x.rolle === rolle);
+function methalleLauf(S, seed) {
+  const lp = 'splitter.methalle';
+  const g = laborSpiel('sabotieren/sprengstoff_platzieren', seed);
+  untenAuf(g, lp);
+  const Anker = require('../server/sim/anker.js');
+  let platziert = false;
+  for (let k = 0; k < TICKS; k++) {
+    g.step();
+    for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
+    if (!platziert && k > TICKS / 4) { platziert = true; Anker.completeHold(g, g.players[0], { kind: 'anker:sprengpunkt', anker: ankerVon(lp, 'sprengpunkt').id }); }   // Platzieren löst Welle 2 aus
+    messen(S, g.snapshot());
+  }
+  return { lp, wachen: g.aways[lp].drones.filter((e) => e.alive).length, fehler: g.errors };
+}
+function endkampfLauf(S, seed) {
+  const lp = 'splitter.eisenwald';
+  const g = laborSpiel('stellung_nehmen/flagge_hissen', seed);
+  untenAuf(g, lp);
+  g.weltstand.data.rollen_gesehen = ['niederhalter', 'grenadier', 'schuetze', 'enterer'];
+  require('../server/sim/anker.js').setzen(g, lp, ankerVon(lp, 'flagge').id, 'gehisst', g.players[0].id);   // die Szene startet daraufhin den Angriff
+  let max = 0, boss = 0;
+  for (let k = 0; k < TICKS; k++) {
+    g.step();
+    for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
+    const sn = g.snapshot(); messen(S, sn);
+    const ds = (sn.away && sn.away.drones) || [];
+    max = Math.max(max, ds.length); if (ds.some((d) => d.gs)) boss = 1;
+  }
+  return { lp, gegner: max, boss, fehler: g.errors };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen');
-const laeufe = { worst: [], wellen: [] };
+const W = sammler('worst'), WL = sammler('wellen'), WM = sammler('methalle'), WE = sammler('endkampf');
+const laeufe = { worst: [], wellen: [], methalle: [], endkampf: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.methalle.push(Object.assign({ seed: s }, methalleLauf(WM, 30 + s)));
+for (let s = 1; s <= SEEDS; s++) laeufe.endkampf.push(Object.assign({ seed: s }, endkampfLauf(WE, 40 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), methalle: auswerten(WM), endkampf: auswerten(WE), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -141,5 +193,10 @@ zeigen(res.worst);
 console.log('  Läufe: ' + laeufe.worst.map((l) => `s${l.seed} ${l.lp}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.wellen);
 console.log('  Läufe: ' + laeufe.wellen.map((l) => `${l.karte}/s${l.seed} stehend max ${l.maxStehend}${l.maxLebendAbTick >= 0 ? ' (maxLebend ab Tick ' + l.maxLebendAbTick + ')' : ' (maxLebend NICHT erreicht)'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-console.log(`\n${res.worst.ok && res.wellen.ok ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+zeigen(res.methalle);
+console.log('  Läufe: ' + laeufe.methalle.map((l) => `s${l.seed} ${l.lp} ${l.wachen} Wachen${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.endkampf);
+console.log('  Läufe: ' + laeufe.endkampf.map((l) => `s${l.seed} ${l.lp} ${l.gegner} Gegner im Snapshot, Anführer ${l.boss ? 'ja' : 'NEIN'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+const alleOk = res.worst.ok && res.wellen.ok && res.methalle.ok && res.endkampf.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+console.log(`\n${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 3 Spieler) max ${res.endkampf.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(0);
