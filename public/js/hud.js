@@ -1120,7 +1120,10 @@
 
     // ================================================================ S1: Weltstand, Hauptmenü, Spielmenü
     LOBBY_HINT: 'F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
-    MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' },
+    MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh',
+      // EK8: Kapitel der Kampagne Eisenwald (ohne Schrittnamen, die sind intern)
+      k1_anwerbung: 'Eisenwald 1: Anwerbung', k2_konvoi: 'Eisenwald 2: Konvoi', k3_nebelheim: 'Eisenwald 3: Nebelheim', k4_methalle: 'Eisenwald 4: Methalle',
+      k5_legat: 'Eisenwald 5: Castra Martis', k6_orbit: 'Eisenwald 6: Orbitschlacht', k7_siedlung: 'Eisenwald 7: Siedlung', k8_sieg: 'Eisenwald 8: Sieg' },
     WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
     // Startauswahl (Taste M): aus dem Protokoll; ab VERSION 5 ist 'free' Pflicht – fehlt es, ergänzt der Client es hinter m1
     // AP3a: Reihenfolge LOBBY_MODI (Kampagne, ohne Tutorial, m3, Wellen Boden, Wellen All, Labor); Labor nur mit lobby.laborAn
@@ -1144,7 +1147,7 @@
     missionLabel(mission, step) {
       if (!mission) return 'freier Flug';
       const t = this.MISSION_TITLES[mission] || String(mission);
-      return t + (step ? ' · Schritt ' + step : '');
+      return t + (step && !/^kd_/.test(String(mission)) ? ' · Schritt ' + step : '');
     },
     relDate(v) {
       let t = typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : Date.parse(v);
@@ -1505,7 +1508,7 @@
       const y = Math.round(VH / 2 - h / 2);
       R.panel(ctx, x, y, w, h, { style: 'brass' });
       Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, VW / 2, y + 22, 24, 'ok', { stage: 2 }));
-      R.text(ctx, 'KAPITEL ABGESCHLOSSEN', VW / 2, y + 40, { color: PAL.brass, align: 'center' });
+      R.text(ctx, String(ch.kopf || 'KAPITEL ABGESCHLOSSEN').toUpperCase(), VW / 2, y + 40, { color: PAL.brass, align: 'center' });   // EK8: Kette sagt „Neues Kapitel“
       let ly = y + 54;
       for (const l of titleLines) { R.text(ctx, l, VW / 2, ly, { color: PAL.amber, scale: 2, align: 'center' }); ly += 17; }
       ly += 4;
@@ -1612,7 +1615,7 @@
       const key = (ab.titel || '') + '|' + (ab.text || '');
       if (this.abspannKey !== key) { this.abspannKey = key; this.abspannT0 = view.time; }
       const cx = VW / 2, colW = 400, top = 30, bottom = 306;
-      ctx.fillStyle = 'rgba(8,10,20,0.86)'; ctx.fillRect(0, 0, VW, VH);
+      ctx.fillStyle = 'rgba(8,10,20,0.95)'; ctx.fillRect(0, 0, VW, VH);
       // Inhalt als Liste (Art, Text, Höhe)
       const items = [];
       items.push({ k: 'titel', t: String(ab.titel || 'Abspann').toUpperCase(), h: 26 });

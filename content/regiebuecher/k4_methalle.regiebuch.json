@@ -42,7 +42,7 @@
     {
       "id": "k4_anflug",
       "timers": [
-        { "at": 120, "if": { "not": { "atLocation": "methalle" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "methalle" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.zur_methalle", "done": { "atLocation": "methalle" } }
@@ -125,7 +125,7 @@
     "auftrag.aufgedeckt": "Die Methalle ist auf der Sternkarte, hinter Nebelheim.",
     "auftrag.hinweis": "Methalle: Militärlager hinter einer Mauer. Ihr braucht eine Sprengladung im Frachtraum.",
 
-    "anflug.tipp": "Die Methalle liegt hinter Nebelheim. Sternkarte: Sprungpunkt dorthin anfliegen.",
+    "anflug.tipp": "Methalle: Sprungpunkt unbekannt? Weitscan (Taktik, S) zeigt Bojen. Ziel wählen, anfliegen, springen.",
 
     "methalle.lage": "Methalle in Sicht. Platzhalter für die Bodenmission: Position halten, dann gilt die Ladung als gesetzt.",
     "methalle.gesetzt": "Sprengstoff liegt. Jetzt unauffällig weg, ohne Alarm.",

@@ -2441,7 +2441,14 @@
     if (!id) return '—';
     if (typeof id === 'string' && /^leer-\d{4}$/.test(id)) return 'Leerraum ' + id.slice(5);   // B3: Leerraum-Hex
     const l = locById(st, id);
-    if (!l) { const f = LOC_FALLBACK.find(x => x.id === id); return f ? f.name : String(id); }
+    if (!l) {
+      const f = LOC_FALLBACK.find(x => x.id === id);
+      if (f) return f.name;
+      // EK8: Orte aus Daten (Sektorkarte, z. B. castra_martis) stehen nicht in world.locations – Name aus der Hex-Karte
+      const SS = window.Shared_Sektoren;
+      try { const hx = SS && SS.hexVonOrt && SS.hexVonOrt(id); if (hx) return SS.hexName(hx); } catch (e) { /* Name bleibt die Kennung */ }
+      return String(id);
+    }
     if (!l.known) return 'Unbekanntes Signal';
     return l.name || id;
   }

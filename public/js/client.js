@@ -809,7 +809,7 @@
         H.pushOda('Kurs wird berechnet …' + (ev.sec > 0 ? ' (höchstens ' + Math.ceil(+ev.sec) + ' s)' : ''));
         return true;
       case 'chapter':
-        Client.chapter = { title: String(ev.title || 'Kapitel abgeschlossen'), text: String(ev.text || ''), t0: performance.now() };
+        Client.chapter = { title: String(ev.title || 'Kapitel abgeschlossen'), text: String(ev.text || ''), kopf: ev.kopf ? String(ev.kopf) : null, t0: performance.now() };
         return true;
       case 'escortHit':
         Client.escortHit[ev.id] = performance.now();

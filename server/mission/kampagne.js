@@ -219,7 +219,7 @@ class Kette {
     const idx = opt.idx || 0; const buch = buecherVon(c)[idx];
     this.fakt('kampagne', this.id); this.fakt('kapitel', c.id); this.fakt('kapitel_nr', c.nr); this.fakt('kapitel_buch', buch);
     if (m.activeId) m.abbrechen();
-    if (!opt.wiederholung && idx === 0 && c.karte && !opt.stumm) { g.emit('chapter', { title: c.karte.titel, text: c.karte.text }); g.log(`Kapitelkarte: ${c.karte.titel}`); }
+    if (!opt.wiederholung && idx === 0 && c.karte && !opt.stumm) { g.emit('chapter', { title: c.karte.titel, text: c.karte.text, kopf: 'Neues Kapitel' }); g.log(`Kapitelkarte: ${c.karte.titel}`); }
     if (opt.wiederholung) g.log(`Kapitel ${c.nr} (${c.id}): noch einmal${opt.grund ? ' (' + opt.grund + ')' : ''}.`);
     else g.log(`Kapitel ${c.nr}: ${c.titel} (${buch}).`);
     m.startMission(buch);

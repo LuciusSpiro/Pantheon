@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 3 „Nebelheim, Schleichfahrt“. Echte Umsetzung (EK2): unbemerkt_durchfliegen/patrouillen_schleichfahrt mit Patrouillen und Minen, Zielkreis am Sprungpunkt zur Methalle (Hex 0705). Ausgänge: erfolg (Ziel erreicht, egal wie), rueckzug (Notfallsprung). Ersatz für eine verlorene Sprengladung: an den Häfen Statio Limitis und Castra Martis, bis es den Kauf auf Stationen gibt (EK5).",
+  "_kommentar": "EK8 Kapitel 3 (Patrouillen und Einsprung-Jäger drehen ab, sobald das Ziel erreicht ist: sonst blockieren sie den Faltsprung, Störsender-Regel in sprung.js) „Nebelheim, Schleichfahrt“. Echte Umsetzung (EK2): unbemerkt_durchfliegen/patrouillen_schleichfahrt mit Patrouillen und Minen, Zielkreis am Sprungpunkt zur Methalle (Hex 0705). Ausgänge: erfolg (Ziel erreicht, egal wie), rueckzug (Notfallsprung). Ersatz für eine verlorene Sprengladung: an den Häfen Statio Limitis und Castra Martis, bis es den Kauf auf Stationen gibt (EK5).",
   "format": "regiebuch/1",
   "id": "k3_nebelheim",
 
@@ -42,7 +42,7 @@
     {
       "id": "k3_anflug",
       "timers": [
-        { "at": 150, "if": { "not": { "atLocation": "nebelheim" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "nebelheim" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.nach_nebelheim", "done": { "atLocation": "nebelheim" } }
@@ -64,7 +64,7 @@
       ],
       "rules": [
         { "if": { "all": [{ "check": { "name": "schiff_bei", "x": 2700, "y": 440, "r": 220 } }, { "not": { "v": "nebelheim_ziel" } }] },
-          "do": [{ "set": { "nebelheim_ziel": true } }, { "oda": "@nebelheim.ziel_da" }] }
+          "do": [{ "set": { "nebelheim_ziel": true } }, { "oda": "@nebelheim.ziel_da" }, { "do": "enemies_retreat" }] }
       ],
       "objectives": [
         { "id": "ziel", "text": "@ziel.durchqueren", "done": { "v": "nebelheim_ziel" } }
@@ -109,12 +109,12 @@
     "auftrag.aufgedeckt": "Nebelheim ist auf der Sternkarte. Die Methalle liegt dahinter.",
     "auftrag.hinweis": "Ziel: die Methalle, im Nebel. Der Sprengstoff bleibt im Frachtraum, nicht abgeben.",
 
-    "anflug.tipp": "Nebelheim liegt hinter dem Dunkelriff. Sternkarte: Sprungpunkte der Reihe nach anfliegen.",
+    "anflug.tipp": "Nebelheim: Kein Sprungpunkt auf der Sternkarte? Weitscan (Taktik, S) zeigt die Bojen, Hexe für Hexe.",
 
     "nebelheim.einflug": "Nebel dicht. Patrouillen in den Sektoren. Schilde runter senkt unsere Signatur.",
     "nebelheim.captain": "Captain: Taktik pingt nur auf dein Kommando, der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
     "nebelheim.tipp": "Langsam fliegen, Schilde runter (Taktik), an Asteroiden entlang. Der Zielkreis liegt am Sprungpunkt zur Methalle.",
-    "nebelheim.ziel_da": "Kurs auf die Methalle liegt an. Nebelheim liegt hinter uns.",
+    "nebelheim.ziel_da": "Kurs auf die Methalle liegt an. Nebelheim liegt hinter uns, die Patrouillen drehen ab.",
 
     "ereignis.weitscan": "Wir haben gesendet. Sie wissen jetzt ungefähr, wo wir sind. Minen auf dem Scan, Abstand halten.",
     "ereignis.mine": "Treffer! Mehrere Systeme beschädigt. Sie wissen, dass wir hier sind.",

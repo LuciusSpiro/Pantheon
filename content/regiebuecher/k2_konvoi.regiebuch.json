@@ -40,7 +40,7 @@
     {
       "id": "k2_anflug",
       "timers": [
-        { "at": 120, "if": { "not": { "atLocation": "rabenpass" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "rabenpass" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.zum_rabenpass", "done": { "atLocation": "rabenpass" } }
@@ -86,7 +86,7 @@
       "id": "rueck_anflug",
       "enter": [{ "do": "fracht_abnehmer", "ort": "statio_limitis", "name": "@abgabe.abnehmer" }],
       "timers": [
-        { "at": 120, "if": { "not": { "atLocation": "statio_limitis" } }, "oda": "@rueck_anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "statio_limitis" } }, "oda": "@rueck_anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.zur_statio", "done": { "atLocation": "statio_limitis" } }
@@ -139,7 +139,7 @@
     "auftrag.aufgedeckt": "Rabenpass ist auf der Sternkarte: Hier fährt der Konvoi.",
     "auftrag.hinweis": "Ziel: der Konvoi auf dem Rabenpass. Frachtraum frei halten, er fasst zwei Ladungen.",
 
-    "anflug.tipp": "Rabenpass: Captain wählt auf der Sternkarte die Sprungpunkte, die Boje zeigt die offenen Wege.",
+    "anflug.tipp": "Rabenpass: Kein Sprungpunkt auf der Sternkarte? Weitscan (Taktik, S) zeigt die Bojen, Hexe für Hexe.",
 
     "konvoi.kontakt": "Konvoi voraus: ein Jäger, eine Korvette, zwei Transporter.",
     "konvoi.fracht": "Fracht in Reichweite. Taktik, beamen.",
@@ -147,7 +147,7 @@
     "konvoi.tipp_beamen": "Taktik: F beamt die Fracht an Bord (3 s halten, ein Systemtreffer bricht ab).",
     "konvoi.fertig": "Das war's. Zurück zur Statio, bevor die Eskorte Verstärkung ruft.",
 
-    "rueck_anflug.tipp": "Zurück zur Statio Limitis: Sternkarte, Ziel wählen, Sprungpunkte der Reihe nach.",
+    "rueck_anflug.tipp": "Zurück zur Statio Limitis: Weitscan (Taktik, S) zeigt Bojen, Ziel wählen, Sprung für Sprung.",
 
     "abgabe.abnehmer": "Statio Limitis",
     "abgabe.lage": "Statio Limitis: Fracht abgeben. Taktik: G halten, die Station nimmt alles an.",

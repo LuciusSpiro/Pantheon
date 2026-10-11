@@ -15,6 +15,23 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu in EK8 – Kampagne Eisenwald: die feste Kette
+
+- **Lobby-Modus „Kampagne Eisenwald“** (Taste M; mit Tutorial) und **„Eisenwald ohne Tutorial“** (direkt ab Lichtkordon): Wie jede Kampagne mit
+  Weltstand (Speichern, Fortsetzen), aber **ohne Spielleiter**. Die Reihenfolge ist fest: Statio Limitis (Anwerbung, Funk von Mars) → Rabenpass
+  (Konvoi plündern, Fracht beamen, in der Statio abgeben) → Nebelheim (Schleichfahrt mit Patrouillen und Minen) → Methalle (Sprengstoff) →
+  Castra Martis (Legat, Briefing) → Eisenwald (Orbitschlacht, dann Siedlung mit Flagge) → Sieg und **Abspann**. Danach gibt es **kein freies Spiel**:
+  Enter im Abspann führt ins Hauptmenü (beendet die Partie für alle, der Weltstand bleibt).
+- **Kein Spielleiter, keine Schnellroute:** Den Weg findet man selbst (Sternkarte, **Weitscan** zeigt Bojen). Fortschritt gibt es nur durch erreichte
+  Missionsziele. **Der Feldzug scheitert nie:** Scheitert eine Szene (Rückzug per Notfallsprung), beginnt sie von vorn; jede Szene hat einen Ausgang.
+- **Gespeichert** wird an jedem Kapitelübergang und beim Andocken (Weltstand: Kapitel als Fakten `kampagne`, `kapitel`, Flags, Ladung im Frachtraum,
+  Legat mit Gedächtnis). Mitte aufhören und weitermachen geht: Das Kapitel beginnt am gespeicherten Schritt neu, die Lerche liegt im letzten Hafen.
+- **Noch Platzhalter** (kurze Stand-in-Szenen, mit „Platzhalter“ im Text, bis die echten Szenen gemergt sind): Konvoi-Szene (Rabenpass), Methalle am
+  Boden, Flottenbefehle der Orbitschlacht, Siedlung mit Flagge und Boss. Liste, Schnittstellen und Flags: `CONTRACT-EK8.md`.
+- Funk mit **Funkbild**: Mars als Symbol, der Legat als Porträt. Kapitelkarte bei jedem neuen Kapitel. Texte sind **Entwurf** (Vault: *Funktexte Feldzug Eisenwald*).
+- Werkzeuge: `npm run check:kette` (Prüfer für Kette und Kapitelbücher, `--selftest`), `npm run test:kette`, Bots `npm run sim:kette -- --kapitel alle`
+  (Labor-Einstieg je Kapitel) bzw. ohne Argument die ganze Kette; Debug `kapitel <id>` (z. B. `k4_methalle`) springt mit hergestelltem Zustand in ein Kapitel.
+
 ## Neu in EK2 – Raum-Alarm: Minen und Schleichfahrt
 
 - **Alarmstufe je Raumszene:** ruhig, misstrauisch, alarmiert. Auslöser: **Lärm** (Waffenfeuer der Lerche, Antrieb auf Energie 4,

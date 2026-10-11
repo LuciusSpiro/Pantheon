@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. PLATZHALTER: Schritt 'siedlung' vertritt die Bodenmission von Team BODEN (EK6: Siedlung aus dem Generator, zwei Personen hissen die Flagge gemeinsam, danach 10 Gegner und ein Boss, Sieg oder Nottransport mit Reset). Der Platzhalter spielt Hissen als Position halten (Lerche) und den Anführer als Korvette mit drei Jägern. Die echte Szene liefert zwei Flags: flagge_gehisst (Hissen abgeschlossen, der Angriff beginnt) und boss_besiegt (Anführer gefallen, die übrigen Gegner beamen raus). Schnittstelle: CONTRACT-EK8.md, Kapitel 7.",
+  "_kommentar": "EK8 Kapitel 7 „Siedlung, Flagge“. PLATZHALTER: Schritt 'siedlung' vertritt die Bodenmission von Team BODEN (EK6: Siedlung aus dem Generator, zwei Personen hissen die Flagge gemeinsam, danach 10 Gegner und ein Boss, Sieg oder Nottransport mit Reset). Der Platzhalter spielt Hissen als Position halten (Lerche) und den Anführer als Korvette mit zwei Jägern. Die echte Szene liefert zwei Flags: flagge_gehisst (Hissen abgeschlossen, der Angriff beginnt) und boss_besiegt (Anführer gefallen, die übrigen Gegner beamen raus). Schnittstelle: CONTRACT-EK8.md, Kapitel 7.",
   "format": "regiebuch/1",
   "id": "k7_siedlung",
 
@@ -47,7 +47,7 @@
               "ankuendigung": { "oda": "@siedlung.angriff", "art": "gleichzeitig", "grund": "Die Verteidiger greifen erst nach dem Hissen an, mit Ansage." },
               "wirkung": [
                 { "spawn": { "kind": "korvette", "n": 1, "tag": "anfuehrer" } },
-                { "spawn": { "kind": "raider", "n": 3, "tag": "verteidiger" } }
+                { "spawn": { "kind": "raider", "n": 2, "tag": "verteidiger" } }
               ] },
             { "radio": { "from": "legat", "text": "@siedlung.boss" } }
           ] },

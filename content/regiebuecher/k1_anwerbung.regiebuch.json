@@ -43,7 +43,7 @@
     {
       "id": "k1_anflug",
       "timers": [
-        { "at": 100, "if": { "not": { "atLocation": "statio_limitis" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "statio_limitis" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.zur_statio", "done": { "atLocation": "statio_limitis" } }
@@ -92,7 +92,7 @@
     "auftrag.aufgedeckt": "Statio Limitis ist auf der Sternkarte: Rom wirbt dort an.",
     "auftrag.hinweis": "Rom sucht die Lerche. Ein Kurier wartet in der Statio Limitis, hinter dem Splittergürtel.",
 
-    "anflug.tipp": "Statio Limitis: Captain wählt das Ziel auf der Sternkarte, Steuer fliegt den Sprungpunkt im Splittergürtel an.",
+    "anflug.tipp": "Statio Limitis: Sprungpunkt unbekannt? Weitscan (Taktik, S) zeigt Bojen. Ziel wählen, anfliegen, springen.",
 
     "hafen.tipp": "Statio Limitis: Liegeplatz ansteuern, langsam heran und andocken.",
     "hafen.erinnerung": "Mars wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",

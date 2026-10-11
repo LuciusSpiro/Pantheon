@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 6 „Orbitschlacht Eisenwald“. PLATZHALTER: Die Schritte 'befehl1_durchbrechen', 'befehl2_entlastung' und 'befehl3_ausschalten' vertreten die Flottenbefehle von Team FLOTTE (EK4: Verbündete Fulminata und Audax, Hilferufe, Verluste, Legat-Gedächtnis). Der Platzhalter spielt dieselbe Reihenfolge mit nackten Gegnerwellen (ohne Verbündete): Wellen ausschalten, am Ende die Fregatte. Die echte Szene liefert dieselben Flags (CONTRACT-EK8.md, Kapitel 6): fregatte_zerstoert, legat_gerettet, legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen, fulminata_verloren, audax_verloren.",
+  "_kommentar": "EK8 Kapitel 6 „Orbitschlacht Eisenwald“. PLATZHALTER: Die Schritte 'befehl1_durchbrechen', 'befehl2_entlastung' und 'befehl3_ausschalten' vertreten die Flottenbefehle von Team FLOTTE (EK4: Verbündete Fulminata und Audax, Hilferufe, Verluste, Legat-Gedächtnis). Der Platzhalter spielt dieselbe Reihenfolge mit nackten Gegnerwellen (ohne Verbündete, daher weniger Gegner als im Briefing: 2, 2, Fregatte mit 1 Jäger): Wellen ausschalten, am Ende die Fregatte. Die echte Szene liefert dieselben Flags (CONTRACT-EK8.md, Kapitel 6): fregatte_zerstoert, legat_gerettet, legat_befolgt / legat_eigenmaechtig / legat_im_stich_gelassen, fulminata_verloren, audax_verloren.",
   "format": "regiebuch/1",
   "id": "k6_orbit",
 
@@ -40,7 +40,7 @@
     {
       "id": "k6_anflug",
       "timers": [
-        { "at": 150, "if": { "not": { "atLocation": "eisenwald" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+        { "at": 60, "if": { "not": { "atLocation": "eisenwald" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
         { "id": "hin", "text": "@ziel.nach_eisenwald", "done": { "atLocation": "eisenwald" } }
@@ -64,7 +64,7 @@
       "platzhalter": "Flottenbefehl Durchbrechen (Team FLOTTE)",
       "enter": [
         { "radio": { "from": "legat", "text": "@befehl1.legat" } },
-        { "spawn": { "kind": "raider", "n": 2, "tag": "sperre" } },
+        { "spawn": { "kind": "raider", "n": 1, "tag": "sperre" } },
         { "spawn": { "kind": "korvette", "n": 1, "tag": "sperre" } }
       ],
       "timers": [
@@ -86,7 +86,7 @@
       "platzhalter": "Flottenbefehl Entlastung (Team FLOTTE)",
       "enter": [
         { "radio": { "from": "legat", "text": "@befehl2.legat" } },
-        { "spawn": { "kind": "raider", "n": 3, "tag": "angreifer" } }
+        { "spawn": { "kind": "raider", "n": 2, "tag": "angreifer" } }
       ],
       "timers": [
         { "at": 120, "if": { "not": { "enemiesCleared": true } }, "oda": "@befehl2.tipp", "garantie": "hinweis" }
@@ -108,7 +108,7 @@
       "enter": [
         { "radio": { "from": "legat", "text": "@befehl3.legat" } },
         { "spawn": { "kind": "fregatte", "n": 1, "tag": "fregatte" } },
-        { "spawn": { "kind": "raider", "n": 2, "tag": "geleit" } }
+        { "spawn": { "kind": "raider", "n": 1, "tag": "geleit" } }
       ],
       "timers": [
         { "at": 150, "if": { "not": { "flag": "fregatte_zerstoert" } }, "oda": "@befehl3.tipp", "garantie": "hinweis" }
@@ -151,7 +151,7 @@
     "auftrag.aufgedeckt": "Eisenwald ist auf der Sternkarte. Wolfstor führt hin.",
     "auftrag.hinweis": "Ziel: Eisenwald, über Wolfstor. Der Legat folgt mit der Fulminata und der Audax.",
 
-    "anflug.tipp": "Eisenwald liegt hinter Wolfstor. Sternkarte: Sprungpunkte der Reihe nach, der Sperrriegel ist offen.",
+    "anflug.tipp": "Eisenwald: Kein Sprungpunkt bekannt? Weitscan (Taktik, S) zeigt die Bojen. Über Wolfstor, der Riegel ist offen.",
 
     "ankunft.lage": "Eisenwald. Die Sperrflotte steht im Orbit. Der Legat meldet sich.",
     "ankunft.legat": "Da seid ihr! Rom fährt die Sperrflotte nieder. Haltet euch an die Befehle, und keiner stirbt umsonst.",
