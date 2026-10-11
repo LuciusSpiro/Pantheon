@@ -200,7 +200,19 @@
         }
       } catch (e) { Net.reportError('Consoles.draw:' + c, e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 20, 60, { color: PAL.red }); }
       // S2: Schützling-Zeile oben mittig (im Titelbalken) an den Raumkampf-Konsolen
-      if (c === 'helm' || c === 'weapons' || c === 'captain') Net.guard('Hud.escortStrip', () => H.drawEscortStrip(ctx, view, 9, { row: true }));
+      if (c === 'helm' || c === 'weapons' || c === 'captain') {
+        let sy = 9;
+        Net.guard('Hud.escortStrip', () => { sy = H.drawEscortStrip(ctx, view, sy, { row: true }); });
+        // EK4: Verbündete und Befehl des Legaten – nebeneinander in einer Zeile, wenn sie passen (sonst übereinander)
+        Net.guard('Hud.flotteStrips', () => {
+          const wA = H.drawAlliesStrip(ctx, view, sy, { row: true, measure: true }), wB = H.drawBefehlStrip(ctx, view, sy, { measure: true });
+          if (wA && wB && sy === 9 && wA + wB + 6 <= 470) {
+            const x0 = VW / 2 - (wA + wB + 6) / 2;
+            H.drawAlliesStrip(ctx, view, sy, { row: true, x: x0 }); H.drawBefehlStrip(ctx, view, sy, { x: x0 + wA + 6 });
+            sy += 14;
+          } else { sy = H.drawAlliesStrip(ctx, view, sy, { row: true }); sy = H.drawBefehlStrip(ctx, view, sy); }
+        });
+      }
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(8, VH - 17, VW - 16, 11);
       R.text(ctx, (controls ? controls + ' · ' : '') + (c === 'plan' ? 'Esc aufstehen' : 'Esc verlassen'), VW / 2, VH - 15, { color: PAL.amber, align: 'center', shadow: false });
       R.drawTooltip(ctx);
@@ -653,12 +665,14 @@
       let shown = false;
       if (m.radio) {
         shown = true;
-        const rl = R.wrap(m.radio.text || '', lw - 20, 1).slice(0, 8);
-        const ph = 26 + rl.length * 10;
+        const pw = m.radio.pid ? 40 : 0;   // EK4: Funkporträt (legat) bzw. Symbol (mars)
+        const rl = R.wrap(m.radio.text || '', lw - 20 - pw, 1).slice(0, 8);
+        const ph = Math.max(pw ? 26 + 36 : 0, 26 + rl.length * 10);
         R.panel(ctx, a.x, y, lw, ph, { style: 'brass' });
         R.text(ctx, 'FUNKSPRUCH · ' + (m.radio.from || '?'), a.x + 10, y + 6, { color: PAL.amber });
+        if (pw) H.drawFunkBild(ctx, m.radio.pid, a.x + 10, y + 18, 32);
         let ly = y + 18;
-        for (const l of rl) { R.text(ctx, l, a.x + 10, ly, { color: PAL.star }); ly += 10; }
+        for (const l of rl) { R.text(ctx, l, a.x + 10 + pw, ly, { color: PAL.star }); ly += 10; }
         y += ph + 6;
         if (m.radio.needsAccept) { R.button(ctx, a.x, y, 160, 17, 'Funkspruch annehmen', { hotkey: 'Enter', onClick: () => this.cmd(view, 'captain.accept') }); y += 22; }
       }
@@ -690,6 +704,19 @@
       // rechts: Missionen, Logbuch
       const rx = a.x + lw + 14, rw = a.w - lw - 14;
       let ry = a.y + 4;
+      const fb = H.flotteBefehl(view);
+      if (fb) {   // EK4: Befehl des Legaten (Art, Fortschritt, Frist)
+        R.text(ctx, 'BEFEHL DES LEGATEN', rx, ry, { color: PAL.brass }); ry += 11;
+        const art = R.FLOTTE_ART_NAMEN[fb.a] || fb.a;
+        const state = fb.st === 1 ? ' – erfüllt' : fb.st === 2 ? ' – gescheitert' : '';
+        R.text(ctx, art + state, rx, ry, { color: fb.st === 1 ? PAL.mint : fb.st === 2 ? PAL.red : PAL.amber }); ry += 10;
+        if (fb.st === 0) {
+          const prog = fb.w ? 'Punkte ' + Math.min(fb.i, fb.w.length) + '/' + fb.w.length : fb.n ? 'Abschüsse ' + fb.k + '/' + fb.n : '';
+          const rest = fb.r != null ? 'Frist ' + Math.floor(fb.r / 60) + ':' + (fb.r % 60 < 10 ? '0' : '') + (fb.r % 60) : '';
+          R.text(ctx, [prog, rest].filter(Boolean).join(' · '), rx, ry, { color: PAL.star }); ry += 10;
+        }
+        ry += 6;
+      }
       R.text(ctx, 'MISSION', rx, ry, { color: PAL.brass });
       const disc = m.discoveries || {};
       R.text(ctx, 'Entdeckungen ' + n(disc.found) + '/' + n(disc.total), rx + rw, ry, { color: PAL.mint, align: 'right' }); ry += 11;

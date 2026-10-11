@@ -19,6 +19,8 @@ const Pilot = require('./pilot.js');
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> escort)
 const space = () => spaceMod || (spaceMod = require('./space.js'));
+let flotteMod = null;  // EK4: Verbündete (flotte.js) – lazy (Zirkelbezug flotte -> escort)
+const flotte = () => flotteMod || (flotteMod = require('./flotte.js'));
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -26,9 +28,10 @@ const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
 
 const KINDS = ['frachter', 'karawane', 'bergungsboot'];
+const ALLY_KINDS = ['korvette', 'fregatte', 'kreuzer', 'raider'];   // EK4: Verbündete (Klassen der Gegner-Schiffe), nur mit opts.ally
 const VERHALTEN = ['treibt', 'folgt_kurs', 'flieht'];
 const BEFEHLE = ['halten', 'folgen', 'volle_kraft', 'andocken'];
-const STATES = ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'];
+const STATES = ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen', 'zerstoert'];
 const POINTS = ['west', 'ost', 'nord', 'sued', 'mitte', 'station', 'dock', 'lerche', 'vorn', 'achtern', 'rand'];
 const KIND_LABEL = { frachter: 'Frachter', karawane: 'Karawane', bergungsboot: 'Bergungsboot' };
 const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
@@ -49,9 +52,12 @@ function list(game) { return (game.space && game.space.escorts) || []; }
 function ensureList(game) { if (!game.space.escorts) game.space.escorts = []; return game.space.escorts; }
 const active = (es) => !!es && (es.state === 'ok' || es.state === 'beschaedigt');
 function find(game, tag) {
-  const L = list(game);
-  if (tag == null || tag === '') return L.length === 1 ? L[0] : (L.find(active) || L[0] || null);
-  return L.find((q) => q.tag === tag || q.id === tag) || null;
+  const L0 = list(game);
+  if (tag == null || tag === '') {
+    const L = L0.filter((q) => !q.ally);   // EK4: Verbündete gehorchen nicht dem Captain-Befehl an „den“ Schützling
+    return L.length === 1 ? L[0] : (L.find(active) || L[0] || null);
+  }
+  return L0.find((q) => q.tag === tag || q.id === tag) || null;
 }
 function findGone(game, tag) {
   const G = (game.space && game.space.escortsGone) || [];
@@ -64,6 +70,8 @@ function stats(game) {
   return s.escort;
 }
 const hpFrac = (es) => (es.hpMax > 0 ? Math.max(0, es.hp) / es.hpMax : 0);
+// EK4: Verbündete rufen bei CONFIG.flotte.hilferuf.schwer (Standard 0,4) um Hilfe, Schützlinge ab escorts.distressBelow
+function distressLimit(game, es) { return es && es.ally ? Number(((game.C.flotte || {}).hilferuf || {}).schwer) || 0.4 : cfg(game).distressBelow; }
 const crewN = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
 
 // ---------- Funk ohne Missionszustand (mission.radio würde einen offenen Funkspruch überschreiben) ----------
@@ -129,7 +137,7 @@ function edgeAway(game, es) {
 function syncFlags(game, es) {
   const f = game.mission && game.mission.flags;
   if (!f || !es || !es.tag) return;
-  const lost = es.state === 'kampfunfaehig';
+  const lost = es.state === 'kampfunfaehig' || es.state === 'zerstoert';
   const heil = !lost && es.hp >= es.hpMax * cfg(game).warnAt[0];
   f[es.tag + '_heil'] = heil;
   f[es.tag + '_beschaedigt'] = !lost && !heil;
@@ -148,16 +156,17 @@ function spawn(game, opts) {
   // QA-INTEGRATION S2: entkommene/kampfunfähige Einträge mit gleichem Tag ersetzen (wiederholte Szene/Mission am selben Ort)
   if (old) L.splice(L.indexOf(old), 1);
   if (game.space.escortsGone) game.space.escortsGone = game.space.escortsGone.filter((g) => g.tag !== tag);
-  if (L.filter((q) => q.state !== 'entkommen').length >= C.max) {
+  const ally = !!o.ally;   // EK4: Verbündete zählen nicht zu den höchstens 2 Schützlingen (eigene Grenze: CONFIG.flotte.max)
+  if (!ally && L.filter((q) => !q.ally && q.state !== 'entkommen').length >= C.max) {
     if (game.countError) game.countError('escort-spawn', new Error(`Höchstens ${C.max} Schützlinge – ${tag} nicht angelegt`));
     return null;
   }
-  const kind = KINDS.includes(o.kind) ? o.kind : 'frachter';
+  const kind = ally ? (ALLY_KINDS.includes(o.kind) ? o.kind : 'korvette') : (KINDS.includes(o.kind) ? o.kind : 'frachter');
   const c = cls(game, kind);
-  const verhalten = VERHALTEN.includes(o.verhalten) ? o.verhalten : 'folgt_kurs';
+  const verhalten = ally ? 'scripted' : (VERHALTEN.includes(o.verhalten) ? o.verhalten : 'folgt_kurs');
   const npcRec = npcRecord(game, o.npc);
-  const name = String(o.name || (npcRec && npcRec.name) || KIND_LABEL[kind]);
-  const hpMax = Math.max(1, Math.round(Number((C.hull || {})[kind]) || 100));
+  const name = String(o.name || (npcRec && npcRec.name) || KIND_LABEL[kind] || ENEMY_LABEL[kind] || kind);
+  const hpMax = Math.max(1, Math.round(Number((ally ? (game.C.flotte || {}).hull : C.hull || {})[kind]) || 100));
   const pct = Number(o.huelle);
   const hp = Number.isFinite(pct) && pct > 0 ? Math.max(1, Math.round(hpMax * Math.min(100, pct) / 100)) : hpMax;
   const from = point(game, o.von != null ? o.von : 'lerche');
@@ -173,15 +182,16 @@ function spawn(game, opts) {
     repaired: false, hitT: -99, empT: 0, distress: false, pending: null, rebukeAt: -99, warned: [], arrived: false, saved: false,
     docked: false, spawnT: game.time, ausgang: null,
   };
+  if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
   // Startfahrt: Geleit fährt schon (¼), Havarist treibt langsam
-  if (verhalten === 'folgt_kurs' || verhalten === 'flieht') {
+  if (verhalten === 'folgt_kurs' || verhalten === 'flieht' || verhalten === 'scripted') {
     const v = Flight.stageSpeed(c, stageNear(c, 0.25));
     es.vx = Math.cos(angle) * v; es.vy = Math.sin(angle) * v;
   } else if (verhalten === 'treibt') {
     es.vx = Math.cos(angle) * 6; es.vy = Math.sin(angle) * 6;
   }
   for (const w of C.warnAt) if (hp / hpMax < w) es.warned.push(w);
-  es.distress = hpFrac(es) < C.distressBelow;
+  es.distress = hpFrac(es) < distressLimit(game, es);
   L.push(es);
   syncFlags(game, es);
   game.missionEvent('escortSpawn', { escort: es });
@@ -266,14 +276,16 @@ function applyOrder(game, es) {
 // ziel: 'lerche' | 'schuetzling' | 'auto' | <tag eines Schützlings>  -> Escort-ID oder null (= Lerche)
 function pickTarget(game, ziel) {
   if (ziel == null || ziel === '' || ziel === 'lerche') return null;
-  const act = list(game).filter(active);
+  // EK4: 'verbuendet' = Verbündete, 'schuetzling' = nur Schützlinge, 'auto' = beide; ein Tag trifft jedes
+  const all = list(game).filter(active);
+  const act = ziel === 'verbuendet' ? all.filter((q) => q.ally) : ziel === 'schuetzling' ? all.filter((q) => !q.ally) : all;
   if (!act.length) return null;
   const byTag = act.find((q) => q.tag === ziel || q.id === ziel);
   if (byTag) return byTag.id;
   // am wenigsten anvisierter Schützling
   const load = (q) => game.space.enemies.filter((e) => e.targetId === q.id).length;
   const least = act.slice().sort((a, b) => load(a) - load(b))[0];
-  if (ziel === 'schuetzling') return least.id;
+  if (ziel === 'schuetzling' || ziel === 'verbuendet') return least.id;
   if (ziel === 'auto') {
     const sp = game.space;
     sp.escortAutoN = (sp.escortAutoN || 0) + 1;
@@ -390,7 +402,7 @@ function hit(game, es, dmg, opts) {
     es.empT = C.empStall;
     game.emit('sfx', { name: 'emp' });
   } else {
-    const cd = (C.crewDamage || {})[crewN(game)];   // QA-INTEGRATION S2: Härte skaliert mit der Crewgröße
+    const cd = ((es.ally ? (game.C.flotte || {}).crewDamage : null) || C.crewDamage || {})[crewN(game)];   // QA-INTEGRATION S2: Härte skaliert mit der Crewgröße (EK4: Verbündete eigene Tafel)
     hull = r1((Number(dmg) || 0) * C.hullPerDamage * (Number(cd) > 0 ? Number(cd) : 1));
     es.hp = Math.max(0, r1(es.hp - hull));
   }
@@ -401,7 +413,8 @@ function hit(game, es, dmg, opts) {
   game.emit('sfx', { name: 'escort_hit' });
   game.missionEvent('escortHit', { escort: es });
   if (es.hp <= 0) { disable(game, es); return { hull }; }
-  for (const w of C.warnAt) {
+  if (es.ally) { try { flotte().allyHit(game, es, f0, f1); } catch (err) { if (game.countError) game.countError('flotte-hilferuf', err); } }   // EK4: Hilferuf aus Daten statt der Standard-Warnungen
+  else for (const w of C.warnAt) {
     if (f0 >= w && f1 < w && !es.warned.includes(w)) {
       es.warned.push(w);
       game.emit('escortDistress', { id: es.id, hpFrac: r2(f1) });
@@ -412,10 +425,11 @@ function hit(game, es, dmg, opts) {
     }
   }
   if (f1 < C.warnAt[0] && es.state === 'ok') es.state = 'beschaedigt';
-  es.distress = f1 < C.distressBelow;
+  es.distress = f1 < distressLimit(game, es);
   return { hull };
 }
 function disable(game, es) {
+  if (es.ally) { es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht
   es.hp = 0; es.state = 'kampfunfaehig'; es.distress = false; es.befehl = null; es.pending = null; es.docked = false;
   es.ausgang = es.npc ? 'schwer_beschaedigt' : 'verloren';
   syncFlags(game, es);
@@ -518,6 +532,7 @@ function mode(es) {
 }
 // Wunschpunkt + Wunschtempo (px/s) je Modus; null = halten (bremsen)
 function goalFor(game, es, c) {
+  if (es.ally) return flotte().goalFor(game, es, c);   // EK4: Verbündete: scripted (Regiebuch bewegt sie)
   const C = cfg(game); const L = game.ship;
   const Lv = Math.hypot(L.vx || 0, L.vy || 0);
   const max = c.maxSpeed;
@@ -571,7 +586,7 @@ function stepEscort(game, es, dt) {
     if (g && g.drift) input = { stage: Flight.stopStage(c), rudder: 0, brake: false };
     else {
       const md = mode(es);
-      if (g && underFire(game, es) && md !== 'volle_kraft' && md !== 'flieht') g = null;   // unter Beschuss: anhalten
+      if (g && !es.ally && underFire(game, es) && md !== 'volle_kraft' && md !== 'flieht') g = null;   // unter Beschuss: anhalten
       input = Pilot.escort(game, es, c, g);
     }
   }
@@ -625,7 +640,7 @@ function stepEscort(game, es, dt) {
     }
     if (arrived) arrive(game, es);
   }
-  es.distress = active(es) && hpFrac(es) < C.distressBelow;
+  es.distress = active(es) && hpFrac(es) < distressLimit(game, es);
 }
 function arrive(game, es) {
   if (es.arrived) return;
@@ -648,6 +663,13 @@ function update(game, dt) {
   for (const es of list(game)) {
     try { stepEscort(game, es, dt); } catch (err) { if (game.countError) game.countError('escort', err); }
   }
+  // EK4: zerstörte Verbündete verlassen die Liste (Erinnerung in escortsGone bleibt für Prüfungen und Ausgang)
+  if (sp.escorts && sp.escorts.some((q) => q.weg)) {
+    const gone = sp.escortsGone || (sp.escortsGone = []);
+    for (const es of sp.escorts) if (es.weg) gone.push(memo(es));
+    sp.escorts = sp.escorts.filter((q) => !q.weg);
+    while (gone.length > 8) gone.shift();
+  }
 }
 
 // ---------- Szenenwechsel (aus space.enterScene) ----------
@@ -657,11 +679,12 @@ function onSceneChange(game, fromScene) {
   const sp = game.space; const L = list(game);
   if (!L.length) return;
   const keep = []; const gone = sp.escortsGone || (sp.escortsGone = []);
+  let ai = 0;
   L.forEach((es, i) => {
-    const comes = active(es) && mode(es) !== 'treibt' && es.befehl !== 'halten';
+    const comes = es.ally ? active(es) : (active(es) && mode(es) !== 'treibt' && es.befehl !== 'halten');   // EK4: Verbündete springen mit (in allen Belangen)
     if (!comes) { gone.push(memo(es)); return; }
-    const back = game.ship.angle + Math.PI + (i ? 0.5 : -0.5);
-    es.x = clamp(game.ship.x + Math.cos(back) * 220, 60, sp.w - 60); es.y = clamp(game.ship.y + Math.sin(back) * 220, 60, sp.h - 60);
+    const back = game.ship.angle + Math.PI + (es.ally ? flotte().slotWinkel(ai++) : (i ? 0.5 : -0.5));
+    es.x = clamp(game.ship.x + Math.cos(back) * (es.ally ? 220 + 60 * Math.floor((ai - 1) / 2) : 220), 60, sp.w - 60); es.y = clamp(game.ship.y + Math.sin(back) * (es.ally ? 220 + 60 * Math.floor((ai - 1) / 2) : 220), 60, sp.h - 60);
     es.vx = 0; es.vy = 0; es.turnVel = 0; es.angle = game.ship.angle; es.docked = false;
     // Ziel im alten Ort gilt nicht mehr; Ziel-Ort erreicht -> angekommen
     if (es.zielLoc && es.zielLoc === game.ship.scene) { keep.push(es); arrive(game, es); return; }
@@ -679,6 +702,7 @@ function memo(es) {
 }
 function outcomeOf(es) {
   if (!es) return null;
+  if (es.state === 'zerstoert') return 'verloren';   // EK4: Verbündeter zerstört (der Legat überlebt, das Schiff nicht)
   if (es.state === 'kampfunfaehig') return es.npc ? 'schwer_beschaedigt' : 'verloren';
   return es.hp >= es.hpMax * (DEFAULTS.warnAt[0]) ? 'heil' : 'beschaedigt';
 }
@@ -699,9 +723,13 @@ function arrived(game, tag) { const r = record(game, tag); return !!(r && r.arri
 
 // ---------- Snapshot space.escorts[] (≈ 110 B je Schützling) ----------
 function snapshot(game) {
-  return list(game).slice(0, 2).map((es) => {
+  // EK4: erst die Schützlinge (≤ 2), dann die Verbündeten (≤ CONFIG.flotte.max); Verbündete tragen al: 1 (Client: Verbündeten-Anzeige)
+  const L = list(game); const cap = Number((game.C.flotte || {}).max) || 12;
+  const sel = L.filter((q) => !q.ally).slice(0, 2).concat(L.filter((q) => q.ally).slice(0, cap));
+  return sel.map((es) => {
     const o = { id: es.id, tag: es.tag, kind: es.kind, name: es.name, x: Math.round(es.x), y: Math.round(es.y), angle: r2(es.angle),
       hp: Math.ceil(es.hp), hpMax: es.hpMax, state: es.state, befehl: es.befehl, distress: !!es.distress };
+    if (es.ally) o.al = 1;
     if (es.pending) o.pending = es.pending.befehl;
     if (es.verhalten === 'treibt' && !es.repaired && es.reparatur_s > 0) o.repair = r2(1 - es.repairLeft / es.reparatur_s);
     return o;
@@ -734,6 +762,6 @@ function debugSpawn(game, kind, extra) {
 
 module.exports = {
   spawn, command, order, setOrder, setBehaviour, update, hit, disable, snapshot, enemyTgt, pickTarget, onLercheHit, updateAttack, interposed, lanceCrossed,
-  projectileHit, retreat, onSceneChange, hpPct, outcome, stateOf, arrived, find, list, debug, debugSpawn, point,
+  projectileHit, retreat, onSceneChange, hpPct, outcome, stateOf, arrived, find, list, debug, debugSpawn, point, active, memo, syncFlags,
   targetOf: Pilot.targetOf, KINDS, VERHALTEN, BEFEHLE, STATES, POINTS,
 };

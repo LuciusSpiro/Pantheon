@@ -113,7 +113,7 @@
           "type": "object", "description": "S2: NSC-Schiffe/Schützlinge, Tag -> { kind, name, npc? }. Ein Buch mit Schützling braucht einen Weg für 'kampfunfaehig' (Prüfer: SCHUETZLING-OHNE-VERLUST).",
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
           "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["kind", "name"],
-            "properties": { "_kommentar": { "$ref": "#/$defs/kommentar" }, "kind": { "enum": ["frachter", "karawane", "bergungsboot"] },
+            "properties": { "_kommentar": { "$ref": "#/$defs/kommentar" }, "kind": { "enum": ["frachter", "karawane", "bergungsboot", "korvette", "fregatte", "kreuzer", "raider"] },
               "name": { "type": "string", "maxLength": 40 }, "npc": { "$ref": "#/$defs/kennung" } } }
         }
       }

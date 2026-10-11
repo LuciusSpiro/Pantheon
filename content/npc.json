@@ -20,6 +20,10 @@
     "grauzahn": {
       "name": "Grauzahn", "titel": "Anführer der Rostmeute", "fraktion": "rostmeute", "rolle": "gegenspieler",
       "status": "lebt", "haltung": 0
+    },
+    "legat": {
+      "name": "Marcus Severus", "titel": "Legat", "fraktion": "rom", "rolle": "befehlshaber",
+      "status": "lebt", "haltung": 0
     }
   },
   "kampagne": {

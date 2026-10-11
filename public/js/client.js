@@ -49,7 +49,7 @@
     minigame: null,                // M3a §8.1: Reparatur-Minispiel (lokal)
     shootCd: 0, stepT: 0, repairTickT: 0, fireHeld: { mouse: false, key: false },
     // S2: neue Angebote (id -> Zeitpunkt offerIn), Schützling-Treffer (id -> performance.now()), letzte Befehlsrückmeldung, Kapitelkarte
-    newOffers: {}, escortHit: {}, escortOrder: null, chapter: null,
+    newOffers: {}, escortHit: {}, escortOrder: null, chapter: null, kapseln: [],   // EK4: kapseln = Rettungskapseln zerstörter Verbündeter ({ x, y, t0, dauer, name })
     view: null,
   };
 
@@ -825,6 +825,25 @@
       case 'escortSaved':
         H.pushNotice(escortLabel(ev.id) + ' ist in Sicherheit', PAL.mint, 4);
         return true;
+      // EK4: Flotte – Befehle des Legaten, Wellen, Verlust eines Verbündeten (Töne schickt der Server per sfx)
+      case 'flotteBefehl': {
+        const art = R.FLOTTE_ART_NAMEN[ev.art] || ev.art;
+        if (ev.st === 0) H.pushNotice('BEFEHL: ' + art + (ev.frist ? ' – ' + Math.round(ev.frist) + ' s' : ''), PAL.amber, 5);
+        else if (ev.st === 1) H.pushNotice('Befehl ausgeführt: ' + art, PAL.mint, 4);
+        else if (ev.st === 2) H.pushNotice('Befehl gescheitert: ' + art + (ev.grund === 'zeit' ? ' (zu langsam)' : ev.grund === 'schiff' ? ' (Schiff verloren)' : ev.grund === 'notfall' ? ' (Notfallprotokoll)' : ''), PAL.red, 5);
+        return true;
+      }
+      case 'flotteWegpunkt': H.pushNotice('Punkt erreicht (' + ev.i + '/' + ev.n + ')', PAL.mint, 3); return true;
+      case 'flotteWelle': H.pushNotice('Welle ' + ev.n + ' von ' + ev.von, PAL.amber, 3); return true;
+      case 'flotteDruck': H.pushNotice('ÜBERDRUCK – Verstärkung!', PAL.red, 3); return true;
+      case 'flotteNeustart': H.pushNotice('Von vorn!', PAL.amber, 3); return true;
+      case 'flotteGedaechtnis': case 'flotteFehlt': case 'allyDistress': return true;   // Funkspruch und NOTRUF kommen als radio bzw. escortDistress
+      case 'allyLost': {
+        H.pushNotice((ev.name || 'Schiff') + ' ZERSTÖRT – Rettungskapsel!', PAL.red, 6);
+        Client.kapseln.push({ x: +ev.x || 0, y: +ev.y || 0, t0: performance.now(), dauer: (+ev.kapsel || 14) * 1000, name: ev.name || '' });
+        while (Client.kapseln.length > 6) Client.kapseln.shift();
+        return true;
+      }
       case 'escortOrder':
         // ok:false = verweigert (Funktext kommt vom Server), ok:true + delay = gehorcht nach delay s
         Client.escortOrder = { id: ev.id, befehl: ev.befehl, ok: ev.ok !== false, delay: +ev.delay || 0, t0: performance.now() };
@@ -1015,7 +1034,7 @@
     if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
-      case 'radio': H.onRadio(ev.from, ev.text); audio.play('radio'); break;
+      case 'radio': H.onRadio(ev.from, ev.text, ev.pid); audio.play('radio'); break;   // EK4: pid = Porträt (legat) bzw. Symbol (mars)
       case 'notice':
         if (!ev.pid || ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); }
         break;
@@ -2020,6 +2039,7 @@
     const aa = A.away || {}, ba = B.away || {};
     // S2: Schützlinge (≤ 2) interpoliert wie Projektile; Trefferblitz und Befehlsrückmeldung
     v.escorts = lerpList(as.escorts, bs.escorts, f);
+    v.kapseln = Client.kapseln.filter(k => nowMs - k.t0 < k.dauer).map(k => Object.assign({ age: (nowMs - k.t0) / 1000 }, k));   // EK4
     v.escortHit = {};
     for (const id in Client.escortHit) { const s = (nowMs - Client.escortHit[id]) / 1000; if (s > 2) delete Client.escortHit[id]; else v.escortHit[id] = s; }
     if (Client.escortOrder && nowMs - Client.escortOrder.t0 < 6000) v.escortOrder = Object.assign({ age: (nowMs - Client.escortOrder.t0) / 1000 }, Client.escortOrder);

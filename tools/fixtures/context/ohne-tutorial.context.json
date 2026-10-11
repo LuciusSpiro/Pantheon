@@ -892,6 +892,70 @@
       {
         "ansaetze": [
           "gewalt",
+          "technik"
+        ],
+        "id": "flottenbefehl",
+        "kern": "Einen Befehl des Legaten erfüllen: Ziel ausschalten, Schiff eskortieren, durchbrechen, zurückfallen oder ein Schiff entlasten – Fortschritt nur durch erreichte Ziele",
+        "name": "Flottenbefehl",
+        "szenentypen": [
+          "A10"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Der Legat befiehlt, ein markiertes Schiff (Korvette) auszuschalten, während Wellen Jäger anrollen; ein verbündetes Schiff fliegt mit (es feuert in dieser Stufe nicht). Ziel zerstört = Befehl erfüllt. Läuft die Frist ab, wird die Crew überrannt (Überdruck) und muss von vorn anfangen (zweimal), danach übernimmt Rom.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "ausschalten",
+            "name": "Befehl: Ausschalten",
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Der Legat befiehlt den Durchbruch: Die Lerche erreicht nacheinander die markierten Punkte, während Wellen von vorn anrollen; das verbündete Schiff folgt in Formation. Alle Punkte erreicht = erfüllt. Frist -> Überdruck, von vorn.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "durchbrechen",
+            "name": "Befehl: Durchbrechen",
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Der Legat ruft: Sein Schiff steht unter Beschuss. Die Lerche bleibt in der Nähe (Radius) und schießt n Angreifer ab; Abschüsse weit weg zählen nicht. Hält das Schiff nicht durch, ist der Befehl hinfällig. Frist -> Überdruck, von vorn.",
+            "dauer_min": [
+              3,
+              5
+            ],
+            "id": "entlastung",
+            "name": "Befehl: Entlastung",
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Der Legat befiehlt, sein Schiff zu eskortieren: Es fliegt die Wegpunkte ab und wartet, wenn die Lerche zurückfällt (Leine). Jäger-Wellen greifen es an (angekündigt, die Lerche kann abfangen). Alle Wegpunkte erreicht = erfüllt; fällt das Schiff, ist der Befehl hinfällig. Frist -> Überdruck, von vorn.",
+            "dauer_min": [
+              4,
+              6
+            ],
+            "id": "eskortieren",
+            "name": "Befehl: Eskortieren",
+            "schauplatz": "weltraum"
+          },
+          {
+            "beschreibung": "Der Legat befiehlt den geordneten Rückzug auf die markierten Punkte hinter der Linie, während Wellen von achtern nachsetzen (Verfolgung); das verbündete Schiff hält die Stellung. Alle Punkte erreicht = erfüllt. Frist -> Überdruck, von vorn.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "zurueckfallen",
+            "name": "Befehl: Zurückfallen",
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
+          "gewalt",
           "heimlich",
           "reden"
         ],

@@ -3091,8 +3091,9 @@
   // ------------------------------------------------------------------ S2: Schützling (CONTRACT-S2 §5/§7)
   // Eisblau + Messing, runde Silhouette, gestrichelter Schutzring, Segmentbalken 32×4 über dem Sprite.
   // Lesbarkeit nie nur über Farbe: Notruf = pulsierender Ring + Wort NOTRUF, kampfunfähig = Kreuz + Wort.
-  const ESCORT_COL = { ice: '#A9D6E5', brass: '#C9974A', amber: '#FFC66B', wreck: '#6B7380' };
-  const ESCORT_R = { frachter: 42, karawane: 32, bergungsboot: 26 };   // Radius des Schutzrings (Sprite-Pixel)
+  const ESCORT_COL = { ice: '#A9D6E5', brass: '#C9974A', amber: '#FFC66B', wreck: '#6B7380', ally: '#E8C25A' };   // EK4: ally = Verbündete Roms (Gold)
+  const ESCORT_R = { frachter: 42, karawane: 32, bergungsboot: 26, korvette: 40, fregatte: 54, kreuzer: 66, raider: 28 };   // Radius des Schutzrings (Sprite-Pixel)
+  const FLOTTE_ART_NAMEN = { ausschalten: 'Ausschalten', eskortieren: 'Eskortieren', durchbrechen: 'Durchbrechen', zurueckfallen: 'Zurückfallen', entlastung: 'Entlastung' };
   const ESCORT_KIND_NAMES = { frachter: 'Frachter', karawane: 'Karawane', bergungsboot: 'Bergungsboot' };
   const ESCORT_STATE_NAMES = { ok: 'heil', beschaedigt: 'beschädigt', kampfunfaehig: 'KAMPFUNFÄHIG', entkommen: 'IN SICHERHEIT' };
   const ESCORT_ORDER_NAMES = { halten: 'Halten', folgen: 'Folgen', volle_kraft: 'Volle Kraft', andocken: 'Andocken' };
@@ -3103,9 +3104,9 @@
   // Ringfarbe: Notruf pulsiert Eisblau -> Bernstein (Mischung), sonst Eisblau, Wrack grau
   function escortRingCol(e, t) {
     if (escortDown(e)) return ESCORT_COL.wreck;
-    if (!e.distress) return ESCORT_COL.ice;
+    if (!e.distress) return e.al ? ESCORT_COL.ally : ESCORT_COL.ice;
     const k = 0.5 + 0.5 * Math.sin(t * 6);
-    const a = [0xA9, 0xD6, 0xE5], b = [0xFF, 0xC6, 0x6B];
+    const a = e.al ? [0xE8, 0xC2, 0x5A] : [0xA9, 0xD6, 0xE5], b = e.al ? [0xE0, 0x47, 0x3C] : [0xFF, 0xC6, 0x6B];
     return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(',') + ')';
   }
   // Segmentbalken (32×4, 4 Segmente) – Segmente leer = dunkel umrandet, damit „wie viel fehlt“ ohne Farbe lesbar ist
@@ -3151,8 +3152,15 @@
       ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke();
     }
   }
+  // EK4: Balkenfarbe (Verbündete Gold, Schützlinge Eisblau; wenig Hülle Bernstein/Rot)
+  function escortBarCol(e, frac) { return escortDown(e) ? ESCORT_COL.wreck : frac < 0.3 ? '#E0473C' : frac < 0.6 ? ESCORT_COL.amber : (e.al ? ESCORT_COL.ally : ESCORT_COL.ice); }
   function drawEscortSprite(ctx, e, sx, sy, angle, t, hitT) {
     const o = { hpFrac: escortHpFrac(e), hitT: hitT != null ? hitT : 99, time: t, distress: !!e.distress, state: e.state || 'ok' };
+    if (e.al) {   // EK4: Verbündete sind Kriegsschiffe: Sprite der Klasse im Rom-Farbthema (fehlt es, die prozedurale Klasse)
+      o.fraktion = 'rom';
+      if (!artEnemy(ctx, e.kind, sx, sy, angle, o)) fbEnemy(ctx, e.kind, sx, sy, angle, t, hitT != null ? hitT : 99);   // Sprite noch nicht geladen: Strichform der Klasse
+      return;
+    }
     if (!art('drawEscort', 'drawEscort:' + e.kind, [ctx, e.kind, sx, sy, angle, o])) fbEscort(ctx, e.kind, sx, sy, angle, o);
   }
   // Schutzring (gestrichelt); Notruf: pulsiert in Farbe UND Radius
@@ -3226,10 +3234,50 @@
       drawEscortRing(ctx, e, s.x, s.y, r, t);
       drawEscortSprite(ctx, e, s.x, s.y, (+e.angle || 0) + (env.rot || 0), t, hitT);
       const frac = escortHpFrac(e);
-      escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, escortDown(e) ? ESCORT_COL.wreck : frac < 0.3 ? '#E0473C' : frac < 0.6 ? ESCORT_COL.amber : ESCORT_COL.ice);
+      escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, escortBarCol(e, frac));
       block(s.x - r, s.y - r - 10, r * 2, r * 2 + 10);
       const stTxt = escortDown(e) ? ' · KAMPFUNFÄHIG' : e.distress ? ' · NOTRUF' : (e.repair != null && e.repair < 1) ? ' · REPARATUR ' + Math.round(e.repair * 100) + ' %' : '';
-      lab(name + stTxt, s.x, s.y + r + 3, { color: escortDown(e) ? ESCORT_COL.wreck : e.distress ? ESCORT_COL.amber : ESCORT_COL.ice, align: 'center' }, 5);
+      lab(name + stTxt, s.x, s.y + r + 3, { color: escortDown(e) ? ESCORT_COL.wreck : e.distress ? ESCORT_COL.amber : (e.al ? ESCORT_COL.ally : ESCORT_COL.ice), align: 'center' }, 5);
+    }
+  }
+  // EK4: Rettungskapseln zerstörter Verbündeter, Wegpunkte und Radius des Befehls (nur Karten): Punkt 1 hell, die nächsten gedimmt, erreichte mit Haken
+  function drawBefehlMarken(ctx, view, env) {
+    const { toS, inB, lab, front, t, zoom, cx, cy, B } = env;
+    for (const k of view.kapseln || []) {   // Anzeige für kapsel s: kleine Kapsel mit Spur, driftet nach achtern weg
+      const drift = k.age * 14; const s = toS(k.x - drift * 0.6, k.y + drift * 0.8);
+      if (!inB(s, 6)) continue;
+      const a = Math.max(0, 1 - k.age / (k.dauer / 1000));
+      ctx.save(); ctx.globalAlpha = 0.35 + 0.65 * a;
+      ctx.fillStyle = '#FFC66B'; ctx.beginPath(); ctx.arc(s.x, s.y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = ESCORT_COL.ally; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(s.x, s.y, 6 + (Math.floor(t * 2) % 2), 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      lab('KAPSEL ' + String(k.name || '').toUpperCase(), s.x, s.y + 10, { color: ESCORT_COL.ally, align: 'center' }, 6);
+    }
+    const f = view.state && view.state.flotte; const b = f && f.b;
+    if (!b || b.st !== 0) return;
+    (b.w || []).forEach((p, i) => {
+      const done = p[2] === 1; const cur = i === b.i;
+      const s = toS(p[0], p[1]); const zr = Math.max(10, (b.rad || 170) * (zoom || 1));
+      const col = done ? '#6E8A6A' : cur ? PAL.amber : '#8A7A52';
+      if (inB(s, zr)) {
+        ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = cur ? 2 : 1; ctx.setLineDash(cur ? [6, 4] : [2, 4]);
+        if (cur) ctx.lineDashOffset = -t * 8;
+        ctx.beginPath(); ctx.arc(s.x, s.y, zr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        lab(done ? 'PUNKT ' + (i + 1) + ' ✓' : 'PUNKT ' + (i + 1), s.x, s.y - zr - 8, { color: col, align: 'center' }, 4);
+      } else if (cur && !front) {
+        const ang = Math.atan2(s.y - cy, s.x - cx);
+        const p2 = rayToRect(B, cx, cy, ang, 14);
+        ctx.fillStyle = col; ctx.save(); ctx.translate(p2.x, p2.y); ctx.rotate(ang);
+        ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, -5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.restore();
+        lab('PUNKT ' + (i + 1), Math.max(B.x + 30, Math.min(B.x + B.w - 30, p2.x - Math.cos(ang) * 30)), Math.max(B.y + 4, Math.min(B.y + B.h - 12, p2.y - Math.sin(ang) * 14)), { color: col, align: 'center' }, 4);
+      }
+    });
+    if (b.a === 'entlastung' && b.s) {   // Radius um das Schiff
+      const es = (view.escorts || (view.state.space && view.state.space.escorts) || []).find((q) => q && q.id === b.s);
+      if (es) {
+        const s = toS(+es.x, +es.y); const zr = Math.max(14, (b.rad || 420) * (zoom || 1));
+        if (inB(s, zr)) { ctx.save(); ctx.strokeStyle = 'rgba(232,194,90,0.5)'; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(s.x, s.y, zr, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      }
     }
   }
   // Rot gestrichelte Bedrohungslinie von gescannten Gegnern mit tgt (nur Karten). Pfeilspitze am Schützling.
@@ -3550,8 +3598,9 @@
     }
 
     // S2: Schützlinge (unter Projektilen und Gegnern, über Asteroiden)
-    const escEnv = { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space, rot, mode: cfg.mode };
+    const escEnv = { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space, rot, zoom, mode: cfg.mode };
     try { drawEscortsInSpace(ctx, view, escEnv); } catch (e) { report('Render.escorts', e); }
+    try { drawBefehlMarken(ctx, view, escEnv); } catch (e) { report('Render.befehl', e); }   // EK4
 
     // Strahlen: §20.1 aus dem lokalen Speicher, gezeichnet erst nach Gegnern und Schiff (z-Order); hier nur Projektile
     if (st !== lastIngested) { lastIngested = st; try { ingestSnap(st); } catch (e) { report('Render.ingestSnap', e); } }
@@ -4159,7 +4208,7 @@
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
     // S2: Schützling
-    ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, fbEscort, drawEscortSprite,
+    ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, escortBarCol, FLOTTE_ART_NAMEN, fbEscort, drawEscortSprite,
     // M3a
     SIDE_SHORT, STATE_SHORT, FRAGILE_COL, OFFLINE_COL, BURST_COL, MOUNT_SYS, SECTOR_SHORT,
     fragileOf, stateCode, stateColor, stateBadge, stationPlate, hatch, crossX, tape, shipStations, stationOfSystem, actionBar, cfgM3, fmt1, wedge,

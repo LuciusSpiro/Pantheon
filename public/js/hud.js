@@ -81,7 +81,37 @@
       this.notices.push({ text: String(text), color: color || PAL.warn, t: performance.now() / 1000, d: dur > 0 ? +dur : 3 });   // S1: dur optional (s)
       if (this.notices.length > 3) this.notices.shift();
     },
-    onRadio(from, text) { this.radioFlash = { from: from || 'Funk', text: text || '', t: performance.now() / 1000 }; },
+    onRadio(from, text, pid) { this.radioFlash = { from: from || 'Funk', text: text || '', t: performance.now() / 1000, pid: pid || null }; },
+    // EK4: Funkporträt (legat) bzw. Symbol (mars, kein Gesicht) in einem Feld w×w bei (x, y); ohne Kennung nichts (false)
+    drawFunkBild(ctx, pid, x, y, w) {
+      if (pid !== 'legat' && pid !== 'mars') return false;
+      const u = w / 24;   // Rastereinheit
+      ctx.save(); ctx.translate(Math.round(x), Math.round(y));
+      ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(0, 0, w, w);
+      if (pid === 'legat') {
+        const r = (a, b, c, d, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(a * u), Math.round(b * u), Math.max(1, Math.round(c * u)), Math.max(1, Math.round(d * u))); };
+        r(5, 20, 14, 4, '#7A2420');                 // Schulterumhang (Rom-Rot)
+        r(8, 17, 8, 4, '#E8C9A0');                  // Hals
+        r(7, 7, 10, 11, '#E8C9A0');                 // Gesicht
+        r(6, 4, 12, 5, '#C9974A');                  // Helm (Messing)
+        r(5, 8, 2, 8, '#C9974A'); r(17, 8, 2, 8, '#C9974A');   // Wangenklappen
+        r(10, 0, 4, 5, '#B4322B');                  // Helmbusch
+        r(9, 11, 2, 2, '#26313F'); r(13, 11, 2, 2, '#26313F');   // Augen
+        r(10, 15, 4, 1, '#8A5A44');                 // Mund
+        ctx.strokeStyle = '#C9974A'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, w - 1, w - 1);
+      } else {
+        // Mars: Symbol (Schild und Speer), kein Porträt
+        const cx = w / 2, cy = w / 2;
+        ctx.strokeStyle = '#E0473C'; ctx.lineWidth = Math.max(1, Math.round(u * 1.5));
+        ctx.beginPath(); ctx.arc(cx, cy + u, 7 * u, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, 1 * u); ctx.lineTo(cx, 22 * u); ctx.stroke();
+        ctx.fillStyle = '#E0473C'; ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx - 2.5 * u, 4 * u); ctx.lineTo(cx + 2.5 * u, 4 * u); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx - 5 * u, cy + u); ctx.lineTo(cx + 5 * u, cy + u); ctx.stroke();
+        ctx.strokeStyle = '#7A2420'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, w - 1, w - 1);
+      }
+      ctx.restore();
+      return true;
+    },
     // M2: Funkzeile (Untertitel 3 s) für Plünderer-Funksprüche und Captain-Befehle
     barks: [],
     pushBark(text, from) {
@@ -163,7 +193,10 @@
         this.drawInteraction(ctx, view);
         this.drawCarry(ctx, view);
         const radioBottom = this.drawRadio(ctx, view, false);
-        Net.guard('Hud.escortStrip', () => this.drawEscortStrip(ctx, view, radioBottom ? radioBottom + 3 : 6));   // S2
+        let ey = radioBottom ? radioBottom + 3 : 6;
+        Net.guard('Hud.escortStrip', () => { ey = this.drawEscortStrip(ctx, view, ey); });   // S2
+        Net.guard('Hud.alliesStrip', () => { ey = this.drawAlliesStrip(ctx, view, ey); });   // EK4
+        Net.guard('Hud.befehlStrip', () => { ey = this.drawBefehlStrip(ctx, view, ey); });   // EK4
       } else {
         this.drawRadio(ctx, view, true);
       }
@@ -890,12 +923,14 @@
         return;
       }
       const x = 204, w = 228;
-      const lines = R.wrap(r.text || '', w - 12, 1).slice(0, 4);
-      const h = 16 + lines.length * 10 + (radio && radio.needsAccept ? 11 : 2);
+      const pw = r.pid ? 28 : 0;   // EK4: Funkporträt / Symbol
+      const lines = R.wrap(r.text || '', w - 12 - pw, 1).slice(0, 4);
+      const h = Math.max(pw ? 16 + 24 : 0, 16 + lines.length * 10 + (radio && radio.needsAccept ? 11 : 2));
       R.panel(ctx, x, 6, w, h, { style: 'brass' });
       R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, 10, { color: PAL.amber });
+      if (pw) this.drawFunkBild(ctx, r.pid, x + 6, 20, 24);
       let y = 21;
-      for (const l of lines) { R.text(ctx, l, x + 6, y, { color: PAL.star }); y += 10; }
+      for (const l of lines) { R.text(ctx, l, x + 6 + pw, y, { color: PAL.star }); y += 10; }
       if (radio && radio.needsAccept) {
         const blink = Math.floor(view.time * 2) % 2 === 0;
         R.text(ctx, '> Captain-Konsole: annehmen', x + 6, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
@@ -1422,7 +1457,75 @@
     },
     escortsOf(view) {
       const l = view.escorts || (view.state && view.state.space && view.state.space.escorts) || [];
-      return Array.isArray(l) ? l.filter(e => e && e.id != null).slice(0, 2) : [];
+      return Array.isArray(l) ? l.filter(e => e && e.id != null && !e.al).slice(0, 2) : [];
+    },
+    // EK4: Verbündete (al: 1) und Befehl des Legaten
+    alliesOf(view) {
+      const l = view.escorts || (view.state && view.state.space && view.state.space.escorts) || [];
+      return Array.isArray(l) ? l.filter(e => e && e.id != null && e.al) : [];
+    },
+    // „VERBÜNDET · Fulminata ▮▮▮▮ · Audax ▮▮▯▯“; mehr als 3: „+N“. y0 = Oberkante, liefert die Unterkante
+    // opts.measure: nur die Breite liefern (0 = nichts zu zeigen); opts.x: linke Kante statt mittig (zwei Zeilen nebeneinander)
+    drawAlliesStrip(ctx, view, y0, opts) {
+      const list = this.alliesOf(view);
+      if (!list.length) return opts && opts.measure ? 0 : y0;
+      const t = view.time; const shown = list.slice(0, 3);
+      const head = 'VERBÜNDET';
+      const parts = shown.map(e => {
+        const down = e.state === 'kampfunfaehig';
+        const nm = this.fit(R.escortName(e), opts && opts.row ? 64 : 80, 1);
+        return { e, nm, down, w: R.measure(nm, 1) + 6 + 32 + (e.distress && !down ? R.measure('NOTRUF', 1) + 6 : 0) };
+      });
+      const more = list.length > shown.length ? '+' + (list.length - shown.length) : '';
+      const wHead = R.measure(head, 1);
+      const w = 8 + wHead + parts.reduce((s, p) => s + 10 + p.w, 0) + (more ? R.measure(more, 1) + 6 : 0) + 6;
+      if (opts && opts.measure) return w;
+      let x = opts && opts.x != null ? Math.round(opts.x) : Math.round(VW / 2 - w / 2);
+      R.backdrop(ctx, x, y0, w, 13, 0.82);
+      const anyDistress = parts.some(p => p.e.distress && !p.down);
+      ctx.strokeStyle = R.ESCORT_COL.ally; ctx.lineWidth = 1;
+      if (anyDistress) { ctx.setLineDash([3, 2]); ctx.strokeRect(x + 0.5, y0 + 0.5, w - 1, 12); ctx.setLineDash([]); } else { ctx.fillStyle = R.ESCORT_COL.ally; ctx.fillRect(x, y0, 2, 13); }
+      R.text(ctx, head, x + 6, y0 + 3, { color: PAL.brass, shadow: false });
+      x += 6 + wHead;
+      for (const p of parts) {
+        x += 10;
+        R.text(ctx, p.nm, x, y0 + 3, { color: R.ESCORT_COL.ally, shadow: false });
+        const bx = x + R.measure(p.nm, 1) + 6, frac = R.escortHpFrac(p.e);
+        R.escortSegBar(ctx, bx, y0 + 4, frac, 32, 5, R.escortBarCol(p.e, frac));
+        if (p.e.distress && !p.down) { const blink = Math.floor(t * 3) % 2 === 0; R.text(ctx, 'NOTRUF', bx + 38, y0 + 3, { color: blink ? PAL.star : PAL.amber, shadow: false }); }
+        x += p.w;
+      }
+      if (more) R.text(ctx, more, x + 6, y0 + 3, { color: PAL.panelLight, shadow: false });
+      return y0 + 14;
+    },
+    // „BEFEHL · Durchbrechen 1/2 · 2:30“ (Zeile unter dem Funk bzw. im Titelbalken der Konsolen); y0 = Oberkante, liefert die Unterkante
+    flotteBefehl(view) { const f = view.state && view.state.flotte; return f && f.b ? f.b : null; },
+    drawBefehlStrip(ctx, view, y0, opts) {
+      const b = this.flotteBefehl(view); const f = view.state.flotte;
+      if (!b && !(f && f.wl)) return opts && opts.measure ? 0 : y0;
+      const t = view.time;
+      let text = '', col = PAL.amber;
+      if (b) {
+        const art = R.FLOTTE_ART_NAMEN[b.a] || b.a;
+        if (b.st === 1) { text = art + ' – erfüllt'; col = PAL.mint; }
+        else if (b.st === 2) { text = art + ' – gescheitert' + (b.g === 'zeit' ? ' (zu langsam)' : b.g === 'schiff' ? ' (Schiff verloren)' : ''); col = PAL.red; }
+        else {
+          text = art;
+          if (b.w) text += ' ' + Math.min(b.i, b.w.length) + '/' + b.w.length;
+          else if (b.n) text += ' ' + b.k + '/' + b.n;
+          if (b.r != null) { const m = Math.floor(b.r / 60), s = b.r % 60; text += ' · ' + m + ':' + (s < 10 ? '0' : '') + s; if (b.r <= 20 && Math.floor(t * 3) % 2 === 0) col = PAL.red; }
+        }
+      }
+      if (f && f.wl) text += (text ? ' · ' : '') + (f.wl[2] ? 'ÜBERDRUCK' : 'Welle ' + f.wl[0] + '/' + f.wl[1]);
+      const head = 'BEFEHL · ';
+      const w = Math.min(300, 8 + R.measure(head, 1) + R.measure(text, 1) + 6);
+      if (opts && opts.measure) return w;
+      const x = opts && opts.x != null ? Math.round(opts.x) : Math.round(VW / 2 - w / 2);
+      R.backdrop(ctx, x, y0, w, 13, 0.82);
+      ctx.fillStyle = col; ctx.fillRect(x, y0, 2, 13);
+      R.text(ctx, head, x + 6, y0 + 3, { color: PAL.brass, shadow: false });
+      R.text(ctx, text, x + 6 + R.measure(head, 1), y0 + 3, { color: col, shadow: false });
+      return y0 + 14;
     },
     // „SCHÜTZLING · Name ▮▮▮▯“ oben mittig. y0 = Oberkante; liefert die Unterkante
     drawEscortStrip(ctx, view, y0, opts) {

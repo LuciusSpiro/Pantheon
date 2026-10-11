@@ -1,0 +1,54 @@
+{
+  "format": "funktexte/1",
+  "_kommentar": "EK4: Funksprüche der Flotte als Daten (Quelle: vault Welt/Funktexte Feldzug Eisenwald.md, Entwurf, Kai passt an). Schlüssel schiffe.<tag> = Tag aus besetzung.schiffe; sprecher.id steuert das Funkporträt (legat = Porträt, mars = Symbol, sonst Namensplakette). unter = Hüllenanteil, ab dem der Ruf kommt (je Schiff einmal). Platzhalter {name} = Schiffsname, {schiff} = Name des verlorenen Schiffs. Fehlt ein Schiff, gilt allgemein.",
+  "schiffe": {
+    "fulminata": {
+      "name": "Fulminata",
+      "sprecher": { "id": "legat", "name": "Legat Marcus Severus" },
+      "npc": "legat",
+      "hilferuf": [
+        { "unter": 0.4, "text": "Schwere Treffer an der Backbordseite! Lerche, wo bleibt ihr?" },
+        { "unter": 0.15, "text": "Das Ende naht! Bei Mars, ich habe das Feldzeichen nie sinken lassen!" }
+      ],
+      "zerstoert": "Rettungskapsel ausgestoßen. Ich lebe, Lerche. Aber mein Schiff ... mein Schiff!"
+    },
+    "audax": {
+      "name": "Audax",
+      "sprecher": { "id": "livia", "name": "Optio Livia Rufa" },
+      "hilferuf": [
+        { "unter": 0.4, "text": "Schilde gebrochen! Wir brauchen Entlastung, sofort!" },
+        { "unter": 0.15, "text": "Hülle bricht ... Rom, vergib uns. Sagt meiner Mutter, ich habe bis zuletzt gekämpft!" }
+      ],
+      "zerstoert": "Wir gehen unter. Für Rom ... Für alle!"
+    }
+  },
+  "allgemein": {
+    "hilferuf": [
+      { "unter": 0.4, "text": "{name}: Schilde gebrochen! Wir brauchen Entlastung, sofort!" },
+      { "unter": 0.15, "text": "{name}: Hülle bricht! Noch ein Treffer und wir sind erledigt!" }
+    ],
+    "zerstoert": "{name} geht unter! Rettungskapseln raus ... Funk bricht ab.",
+    "kapsel": "Rettungskapsel von {name} ausgestoßen."
+  },
+  "erinnerung": {
+    "befolgt": "Ihr habt getan, was ich verlangte. Ich vergesse das nicht.",
+    "eigenmaechtig": "Ich hatte einen Befehl gegeben, Lerche. Wir sprechen später darüber.",
+    "im_stich": "Die {schiff} ist tot. Ihr habt es gesehen. Ich auch."
+  },
+  "befehle": {
+    "ausschalten": "Dort, das Ziel! Vernichtet es!",
+    "eskortieren": "Gebt dem Schiff Geleit, bis es die Punkte erreicht hat.",
+    "durchbrechen": "Brecht durch, Kurs auf die markierten Punkte!",
+    "zurueckfallen": "Fallt zurück auf die markierten Punkte, wir decken euch!",
+    "entlastung": "Das Schiff steht unter Beschuss! Haltet die Angreifer von ihm fern!"
+  },
+  "meldungen": {
+    "erfuellt": "Befehl ausgeführt.",
+    "gescheitert_zeit": "Zu langsam! Die Lage kippt, alle Schiffe zurück oder von vorn!",
+    "gescheitert_schiff": "Das Schiff ist verloren, der Befehl hinfällig!",
+    "gescheitert_notfall": "Die Lerche ist angeschlagen, Befehl abgebrochen!",
+    "abgewichen": "Lerche, ihr weicht vom Befehl ab! Zurück auf Kurs!",
+    "welle": "Ortung: Welle {n} von {von} im Anflug.",
+    "ueberdruck": "Verstärkung! Sie überrennen uns, wenn wir nicht bald fertig werden."
+  }
+}

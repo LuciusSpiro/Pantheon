@@ -2476,6 +2476,40 @@ class GenericAgent extends KeshAgent {
     this.steer(S, gx, gy, arrive, maxSpd);
   }
 
+  // ---------- EK4: Flottenbefehle (Befehl des Legaten als Szenenziel) ----------
+  // Steuer (solo: wenn nichts in 520 px) fliegt zum Befehlsziel (Wegpunkt; Eskort: dicht vor das Schiff; Entlastung: neben das Schiff), Taktik kämpft.
+  umsetzung_flottenbefehl_ausschalten(S, p) { this.flottenBot(S, p, 'ausschalten'); }
+  umsetzung_flottenbefehl_eskortieren(S, p) { this.flottenBot(S, p, 'eskortieren'); }
+  umsetzung_flottenbefehl_durchbrechen(S, p) { this.flottenBot(S, p, 'durchbrechen'); }
+  umsetzung_flottenbefehl_zurueckfallen(S, p) { this.flottenBot(S, p, 'zurueckfallen'); }
+  umsetzung_flottenbefehl_entlastung(S, p) { this.flottenBot(S, p, 'entlastung'); }
+  flottenBot(S, p, art) {
+    const sh = S.ship; const fl = S.flotte && S.flotte.b;
+    if (p.zone !== 'ship') { this.idleStations(S, p); return; }
+    const en = S.space.enemies.filter((e) => e.kind !== 'relay' && e.kind !== 'pylon');
+    const ally = (S.space.escorts || []).find((e) => e.al && (e.state === 'ok' || e.state === 'beschaedigt'));
+    let goal = null;
+    if (fl && fl.st === 0) {
+      if (fl.w && fl.i < fl.w.length) {
+        const w = fl.w[fl.i];
+        if (art === 'eskortieren' && ally) { const a = Math.atan2(w[1] - ally.y, w[0] - ally.x); goal = { x: ally.x + Math.cos(a) * 140, y: ally.y + Math.sin(a) * 140, r: 60, v: 80 }; }
+        else goal = { x: w[0], y: w[1], r: 50, v: 110 };
+      } else if (art === 'entlastung' && ally) goal = { x: ally.x + 120, y: ally.y, r: 70, v: 90 };
+      else if (art === 'ausschalten') { const t = this.nearestEnemy(S); if (t && dist(sh.x, sh.y, t.x, t.y) > 420) goal = { x: t.x, y: t.y, r: 300, v: 100 }; }
+    }
+    const near = en.some((e) => dist(e.x, e.y, sh.x, sh.y) < 520);
+    const fern = art === 'entlastung' && ally && dist(sh.x, sh.y, ally.x, ally.y) > 330;   // Entlastung zählt nur nah am Schiff: zurück zu ihm
+    if (this.role === 'helm') {
+      if (en.length && (art === 'ausschalten' || art === 'entlastung') && (near || !goal) && !fern) { this.combat(S, p); return; }   // Steuer richtet den Bug wie im Gefecht aus
+      if (!this.enter(S, 'helm')) return;
+      if (goal && dist(sh.x, sh.y, goal.x, goal.y) > goal.r) this.steer(S, goal.x, goal.y, goal.r * 0.5, goal.v); else this.brake(S);
+      return;
+    }
+    if (this.role !== 'solo') { if (en.length) this.combat(S, p); else this.idleStations(S, p); return; }
+    if (en.length && (near || !goal) && !fern) { this.combat(S, p); return; }
+    this.calm(S, p, goal);
+  }
+
   // ---------- B1: gebaute Landepunkte (BOTS W3, Nachauftrag) ----------
   // Ein Schritt mit allowBeam auf eine gebaute Karte: an der Transfer-Konsole den Landepunkt wählen (transfer.ziel), Schiff in
   // die Transferreichweite, runterbeamen; unten aus Regeln/Zielen/skip des Schritts die Aufgaben ableiten (Anker halten,
@@ -3162,6 +3196,7 @@ async function runGeneric(opts) {
     const dur = r1(game.time - curStep.t0);
     const e = { step: curStep.id, scene: curStep.scene, ums: curStep.ums, kind: curStep.kind, dur, skipped: curStep.skips > 0 };
     if (curStep.kind === SceneKind.SZENE && ESCORT_UMS.includes(curStep.ums)) { try { e.escort = Escort.outcome(game, curStep.id); e.escortHp = Escort.hpPct(game, curStep.id); } catch (err) { e.escort = null; } }
+    if (curStep.kind === SceneKind.SZENE && String(curStep.ums || '').startsWith('flottenbefehl/')) e.flotte = flotteAusgang(game, curStep.id);   // EK4
     cur.steps.push(e);
     curStep = null;
   };
@@ -3400,6 +3435,38 @@ async function escortMain() {
   }
   const errs = rows.filter((x) => x.errors).length; const ab = rows.filter((x) => x.aborted).length;
   log(errs || ab ? `\nSIM ESCORT: ${errs} Läufe mit Server-Fehlern, ${ab} abgebrochen` : '\nSIM ESCORT OK');
+  return rows;
+}
+
+// ---------- EK4: Flottenbefehle (Labor-Umsetzungen flottenbefehl/*) ----------
+//   node tools/sim-headless.js flotte [--seeds 5] [--crew 1|3]
+// Ausgang je Szene aus den Flags des Katalogs (<id>_erfuellt | _gescheitert | _verloren) und den Zählern game.flotte.stats.
+function flotteAusgang(game, id) {
+  const f = (game.mission && game.mission.flags) || {}; const st = (game.flotte && game.flotte.stats) || {};
+  return { erfuellt: !!f[id + '_erfuellt'], gescheitert: !!f[id + '_gescheitert'], verloren: !!f[id + '_verloren'], neustarts: Math.max(0, (st.befehle || 1) - 1), hilferufe: st.hilferufe || 0, wellen: st.wellen || 0 };
+}
+async function flotteMain() {
+  const nSeeds = Number(argVal('--seeds', 5)); const base = seedArg != null ? seedArg : 1;
+  const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [3, 1];
+  const ids = Labor().laborListe().map((e) => e.id).filter((id) => id.startsWith('flottenbefehl/'));
+  const rows = [];
+  for (const crew of crews) for (let i = 0; i < nSeeds; i++) for (const id of ids) {
+    const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
+    if (VERBOSE || r.aborted || r.errors) printGenericRun(r, 'Flotte ' + id);
+    const sz = umsetzungSamples(r);
+    const stp = r.missions[0] && r.missions[0].steps.find((s) => s.flotte);
+    rows.push({ id, crew, seed: base + i, f: stp ? stp.flotte : null, sec: sz[0] ? sz[0].sec : null, errors: r.errors, aborted: r.aborted });
+  }
+  log(`\n=== Flottenbefehle (Labor, Bot-Spieler), ${nSeeds} Seeds ===`);
+  log('| Umsetzung | Crew | erfüllt (1. Versuch) | erfüllt nach Neustart | Rom übernimmt | Schiff verloren | Dauer Median (min) | Hilferufe Σ |');
+  log('|---|---|---|---|---|---|---|---|');
+  for (const id of ids) for (const crew of crews) {
+    const xs = rows.filter((x) => x.id === id && x.crew === crew); if (!xs.length) continue;
+    const c = (fn) => xs.filter((x) => x.f && fn(x.f)).length;
+    log(`| ${id} | ${crew} | ${c((f) => f.erfuellt && !f.neustarts)}/${xs.length} | ${c((f) => f.erfuellt && f.neustarts)} | ${c((f) => f.gescheitert && !f.verloren)} | ${c((f) => f.verloren)} | ${fmtMin(median(xs.map((x) => x.sec)))} | ${xs.reduce((s, x) => s + ((x.f && x.f.hilferufe) || 0), 0)} |`);
+  }
+  const errs = rows.filter((x) => x.errors).length; const ab = rows.filter((x) => x.aborted).length;
+  log(errs || ab ? `\nSIM FLOTTE: ${errs} Läufe mit Server-Fehlern, ${ab} abgebrochen` : '\nSIM FLOTTE OK');
   return rows;
 }
 
@@ -3706,6 +3773,7 @@ async function wellenMain() {
   if (args.includes('arena')) { await arenaMain(); return; }
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }
+  if (args.includes('flotte')) { await flotteMain(); process.exit(0); }   // EK4
   if (args[0] === 'labor' && args[1] === 'ketten') {   // Nachauftrag AP3a: nur die Ketten
     await kettenMain(Number(argVal('--seeds', 3)), seedArg != null ? seedArg : 1, argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3]);
     process.exit(0);

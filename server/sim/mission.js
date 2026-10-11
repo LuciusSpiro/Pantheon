@@ -17,6 +17,7 @@ const Loader = require('../mission/loader.js');
 const Checker = require('../mission/checker.js');
 const Objects = require('../mission/objects.js');
 const Lexikon = require('../mission/lexikon.js');
+const PORTRAITS = new Set(['legat', 'mars']);   // EK4: Sprecher mit Funkporträt (Client: Hud.drawFunkBild); Mars erscheint als Symbol
 
 let arenaMod = null;
 const arena = () => arenaMod || (arenaMod = require('./arena.js'));
@@ -721,7 +722,7 @@ class Mission {
   act(a) {
     const g = this.game;
     if (a.oda) g.oda(this.tpl(a.oda), a.once || null);
-    if (a.radio) this.radio(this.npcName(a.radio.from), this.tpl(a.radio.text), !!a.radio.accept);
+    if (a.radio) this.radio(this.npcName(a.radio.from), this.tpl(a.radio.text), !!a.radio.accept, a.radio.from);   // EK4: from-Kennung steuert das Funkporträt (legat, mars)
     if (a.sfx) g.emit('sfx', { name: a.sfx });
     if (a.set) Object.assign(this.v, a.set);
     if (a.setFlag) Object.assign(this.flags, a.setFlag);
@@ -791,9 +792,12 @@ class Mission {
 
   later(sec, actions) { this.timers.push({ at: this.stepTime + sec, actions: [].concat(actions) }); }
 
-  radio(from, text, needsAccept) {
+  // EK4: pid = Kennung des Sprechers für das Funkporträt (nur bekannte; fehlt sonst im Snapshot und im Ereignis)
+  radio(from, text, needsAccept, pid) {
+    const px = pid && PORTRAITS.has(pid) ? pid : null;
     this.state.radio = { from, text, needsAccept: !!needsAccept };
-    this.game.emit('radio', { from, text });
+    if (px) this.state.radio.pid = px;
+    this.game.emit('radio', px ? { from, text, pid: px } : { from, text });
     this.game.emit('sfx', { name: 'radio' });
   }
 

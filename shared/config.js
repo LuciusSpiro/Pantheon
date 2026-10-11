@@ -251,6 +251,21 @@
       signatur: { ruhe: 0.15, tempoRef: 130, exponent: 1, schildeUnten: 0.5, min: 0.04, asteroid: { abstand: 110, faktor: 0.6 },
         nebel: { schalter: false, faktor: 0.6 }, pingDauer: 4, pingSig: 1, schildeHoch: 3 },
     },
+    // EK4 Flotte (server/sim/flotte.js, CONTRACT-EK4): Verbündete (scripted in EK4a, eigene KI in EK4b), Befehle des Legaten, Wellen.
+    // hull = Hülle je Klasse (wie escorts.hull, Schaden × escorts.hullPerDamage × crewDamage); hilferuf = Hüllenanteile für Hilferuf und
+    // kritischen Ruf (je Schiff einmal); befehl.* = Standardwerte der fünf Befehlsarten (Radius px, Frist s, Leine px).
+    flotte: {
+      max: 12, hull: { korvette: 220, fregatte: 380, kreuzer: 520, raider: 90 },
+      hilferuf: { schwer: 0.4, kritisch: 0.15 },
+      crewDamage: { 1: 0.4, 2: 0.55, 3: 0.6 },   // Schaden auf Verbündete je Crewgröße (Faktor auf escorts.hullPerDamage); Schützlinge: escorts.crewDamage
+      befehl: {
+        radius: 170, leine: 450, abweichDist: 950, abweichSek: 25, imStichDist: 700,
+        entlastung: { radius: 420, abschuesse: 4 },
+        frist: { ausschalten: 150, eskortieren: 240, durchbrechen: 180, zurueckfallen: 150, entlastung: 240 },
+      },
+      wellen: { takt: 45, rest: 0, druckTakt: 9, druckMax: 4 },   // Überdruck nach abgelaufener Frist: alle druckTakt s eine weitere Gruppe
+      kapsel: { dauer: 14 },                                      // s, die die Rettungskapsel im Snapshot-Ereignis „läuft“ (Anzeige)
+    },
     emp: { offlineTime: 12 },                                  // EMP-Treffer durch die Schilde: System offline
     reactorM1: { overloadBonus: 4, overloadTime: 180, warnAt: 30, offlineOutput: 2, restartTime: 3, botAssistAfter: 3, autoRestartAfter: 240 },
     quarters: {

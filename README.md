@@ -15,6 +15,12 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu in EK4 – Verbündete und Flottenbefehle
+
+- **Befehle des Legaten** (Marcus Severus, Funkporträt; Mars als Symbol) sind **Szenenziele**: *Ausschalten*, *Eskortieren*, *Durchbrechen*, *Zurückfallen*, *Entlastung*. Fortschritt nur durch erreichte Ziele; **Welle um Welle** mit Frist, danach Überdruck – die Szene darf scheitern (zweimal von vorn, dann „Rom übernimmt“), der Feldzug nie.
+- **Verbündete** (Korvetten Roms) rufen bei großem Schaden um Hilfe, bei Zerstörung kommt ein **theatralischer Funkspruch** (Texte: `content/flotte/funktexte.json`) und eine Rettungskapsel. Das Schiff kommt nicht von selbst zurück, der Legat überlebt, sein **Gedächtnis** (befolgt / eigenmächtig / im Stich gelassen) steht im Weltstand.
+- Anzeige: HUD-Zeile BEFEHL/VERBÜNDET, Captain-Reiter Funk, Wegpunkte auf den Karten. Labor: `flottenbefehl/*`. Debug: `flotte aufstellen|befehl|welle|neustart|status`. Tests: `node tools/test-flotte.js`, `node tools/sim-headless.js flotte`. Details: `CONTRACT-EK4.md`.
+
 ## Neu in EK2 – Raum-Alarm: Minen und Schleichfahrt
 
 - **Alarmstufe je Raumszene:** ruhig, misstrauisch, alarmiert. Auslöser: **Lärm** (Waffenfeuer der Lerche, Antrieb auf Energie 4,
