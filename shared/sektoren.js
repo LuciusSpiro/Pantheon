@@ -7,12 +7,13 @@
 // 4 = SW, 5 = NW). Szenenwinkel wie physics.js: 0 = +x (Bug rechts), im Uhrzeigersinn, y nach unten.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    let karte = null, cfg = null;
+    let karte = null, cfg = null, gen = null;
     try { karte = require('../content/welt/limes.json'); } catch (e) { karte = null; }
     try { cfg = require('./config.js'); } catch (e) { cfg = null; }
-    module.exports = factory(karte, cfg);
-  } else root.Shared_Sektoren = factory(null, root.Shared_Config || null);
-})(typeof self !== 'undefined' ? self : this, function (startKarte, CONFIG) {
+    try { gen = require('./gen-sektor.js'); } catch (e) { gen = null; }
+    module.exports = factory(karte, cfg, gen);
+  } else root.Shared_Sektoren = factory(null, root.Shared_Config || null, root.Shared_GenSektor || null);
+})(typeof self !== 'undefined' ? self : this, function (startKarte, CONFIG, GEN) {
   'use strict';
 
   const SQ3 = Math.sqrt(3);
@@ -22,6 +23,7 @@
   let vonIdx = {};        // hex -> [Kante]
   let ortIdx = {};        // ortId -> hex
   let leerCache = {};     // hex -> Orts-Objekt (Leerraum)
+  let genCache = {};      // hex -> Orts-Objekt (Szene aus Daten, EK7)
   const hooks = [];       // Rückrufe bei neuer Karte (locations.js leitet links neu ab)
 
   const pad2 = (n) => (n < 10 ? '0' : '') + n;
@@ -38,7 +40,7 @@
 
   function setzeKarte(k) {
     api.KARTE = k && typeof k === 'object' ? k : null;
-    kantenIdx = {}; vonIdx = {}; ortIdx = {}; leerCache = {};
+    kantenIdx = {}; vonIdx = {}; ortIdx = {}; leerCache = {}; genCache = {};
     const K = api.KARTE;
     if (K) {
       for (const e of K.kanten || []) {
@@ -156,6 +158,24 @@
     return o;
   }
 
+  // EK7: Szene aus Daten. Hexe mit `gen: true` (und `ort`) haben keine fest codierte Szene in locations.js; der Generator
+  // (shared/gen-sektor.js) baut sie deterministisch aus dem Hex-Eintrag. Argument: Ort-ID. Sonst null.
+  function datenOrt(id) {
+    const hex = ortIdx[id]; const h = hex ? hexDaten(hex) : null;
+    if (!h || !h.gen || !GEN) return null;
+    if (genCache[hex]) return genCache[hex];
+    const p = hexZuPixel(hex, 1);
+    const o = GEN.erzeuge(hex, h, CONFIG && CONFIG.sektoren && CONFIG.sektoren.datenSzene);
+    o.x = Math.round(p.x * 100); o.y = Math.round(p.y * 100);
+    genCache[hex] = o;
+    return o;
+  }
+  // Orts-IDs aller Hexe mit Szene aus Daten (nach Hex sortiert)
+  function datenOrte() {
+    const K = api.KARTE; if (!K) return [];
+    return Object.keys(K.hexe).filter((hx) => K.hexe[hx].gen && K.hexe[hx].ort).sort().map((hx) => K.hexe[hx].ort);
+  }
+
   // Inhalt für den Client (`welcome.sektorkarte`): limes.json ohne praesenz/quelle
   function fuerClient() {
     const K = api.KARTE; if (!K) return null;
@@ -167,7 +187,7 @@
   Object.assign(api, {
     LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, kanteId, kanteAusId, kante, kantenVon, anderes,
     hexZuPixel, pixelZuHex, richtung, winkel, sprungpunktLage, imRaster, hexDaten, istLeerraum, spielbar, region, sperrtext,
-    hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, fuerClient,
+    hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient,
   });
   if (startKarte) setzeKarte(startKarte);
   return api;

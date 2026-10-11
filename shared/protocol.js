@@ -120,7 +120,7 @@
     JP_STATES: ['aktiv', 'gesperrt', 'temporaer', 'ohne_strom'],
     SHIP_JUMP_B3: ['jp', 'd', 'anflug'],
     CMD_HELM_NOTSPRUNG: 'helm.notsprung',
-    B3_EVENTS: ['notsprung', 'bojeGefunden', 'hexErkundet', 'sprungpunktOffen', 'sprungpunktZu'],
+    B3_EVENTS: ['notsprung', 'bojeGefunden', 'hexErkundet', 'sprungpunktOffen', 'sprungpunktZu', 'sperrriegelOffen'],
     B3_DEBUG: ['hex', 'boje', 'notsprung', 'erkunde'],
     // ---- S2 (CONTRACT-S2 §4): Spielleiter-Angebote, Schützling, Kapitelkarte ----
     // cmd { c: 'plan.decline', id } – Angebot im Missionsbuch ablehnen (wie plan.accept; ohne Malus).

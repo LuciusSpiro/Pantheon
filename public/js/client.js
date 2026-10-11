@@ -884,6 +884,10 @@
         H.pushNotice((ev.temp ? 'Temporärer Sprungpunkt offen: ' : 'Sprungpunkt offen: ') + kantenName(ev.kante), PAL.mint, 4);
         audio.play('discovery', { volume: 0.5 });
         return true;
+      case 'sperrriegelOffen':   // EK7: Methalle-Sprengung, Sperrriegel um Wolfstor gefallen
+        H.pushNotice('Sperrriegel um Wolfstor offen: Sprungpunkte frei', PAL.mint, 5);
+        audio.play('discovery', { volume: 0.5 });
+        return true;
       case 'sprungpunktZu':
         H.pushNotice('Sprungpunkt geschlossen: ' + kantenName(ev.kante), PAL.warn, 4);
         return true;

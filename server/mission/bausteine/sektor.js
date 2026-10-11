@@ -3,6 +3,7 @@
 //   sprungpunkt_oeffnen    { von*, nach*, temp?, bis? }   Sprungpunkt öffnen (temp: temporäre Kante; bis mission|immer)
 //   sprungpunkt_schliessen { kante* }                    geöffneten Sprungpunkt schließen
 //   boje_aufdecken         { kante* }                    Boje (Kante) bekannt machen (hidden nie)
+//   sperrriegel_oeffnen    {}                            EK7: Sperrriegel um Wolfstor öffnen (Weltstand-Schlüssel)
 //   im_hex                 { hex* }                      Prüfung: Lerche im Hex
 //   sprungpunkt_erreicht   { kante* }                    Prüfung: Lerche im Radius des Sprungpunkts dieser Kante
 //   notgesprungen          {}                            Prüfung: in der laufenden Mission gab es einen Notfallsprung
@@ -29,6 +30,11 @@ module.exports = (Registry) => {
     beschreibung: 'Boje (Sprungpunkt einer Kante) für die Crew aufdecken; verborgene Kanten nie',
     params: { kante: { typ: 'kante', pflicht: true } },
     run(m, a) { run(m, 'bojeAufdecken', a.kante); } });
+  // EK7: Methalle-Sprengung (Team BODEN) lässt den Sperrriegel um Wolfstor fallen: Weltstand-Schlüssel `sperrriegel` + Fakt
+  Registry.define({ id: 'sperrriegel_oeffnen', art: 'aktion', ereignisse: ['sperrriegelOffen'],
+    beschreibung: 'Sperrriegel um Wolfstor öffnen: setzt den Weltstand-Schlüssel sperrriegel (Kanten 0504–0604, 0604–0605, 0604–0705) und den Fakt sperrriegel',
+    params: {},
+    run(m) { try { m.game.explore.sperrriegelOeffnen(); } catch (e) { m.game.countError('mission-sektor', e); } } });
   Registry.define({ id: 'im_hex', art: 'pruefung', beschreibung: 'Die Lerche ist im Hex (SSZZ)',
     params: { hex: { typ: 'hex', pflicht: true } },
     test: (m, a) => { const S = sek(); return !!(S && typeof S.hexVonOrt === 'function' && S.hexVonOrt(m.game.ship.scene) === a.hex); } });

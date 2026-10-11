@@ -50,14 +50,18 @@ function check(cond, text) {
   check(hexe.every((h) => K.regionen[K.hexe[h].region]), 'jedes System hat eine bekannte Region');
   check(hexe.every((h) => typeof K.hexe[h].spielbar === 'boolean'), 'jedes System hat spielbar (bool)');
   // spielbar laut Vertrag §2
-  const SPIELBAR = ['0205', '0206', '0207', '0306', '0307', '0308', '0405', '0406'];
-  check(hexe.filter((h) => K.hexe[h].spielbar).sort().join() === SPIELBAR.join(), 'spielbar genau der Saumraum (0205–0308, 0405, 0406)');
+  // EK7: Saumraum (8) + Kette der 15 Hexe (Statio Limitis bis Eisenwald)
+  const SAUM = ['0205', '0206', '0207', '0306', '0307', '0308', '0405', '0406'];
+  const KETTE = ['0202', '0203', '0303', '0304', '0305', '0402', '0403', '0502', '0503', '0504', '0505', '0604', '0605', '0704', '0705'];
+  check(hexe.filter((h) => K.hexe[h].spielbar).sort().join() === SAUM.concat(KETTE).sort().join(), 'spielbar genau Saumraum (8) + Kette (15, EK7)');
+  check(KETTE.every((h) => K.hexe[h].gen === true && K.hexe[h].ort) && SAUM.every((h) => !K.hexe[h].gen), 'Kette: Szene aus Daten (gen + ort), Saumraum: fest codiert');
   check(K.hexe['0107'] && K.hexe['0107'].spielbar === false && K.hexe['0107'].verborgen === true, 'Rostnest 0107: nicht spielbar, verborgen (E33)');
-  check(S.spielbar('0105') && S.istLeerraum('0105') && !S.spielbar('0305'), 'Leerraum spielbar, Statio Limitis nicht');
+  check(S.spielbar('0105') && S.istLeerraum('0105') && S.spielbar('0305') && !S.spielbar('0302') && !S.spielbar('0602'), 'Leerraum und Statio Limitis spielbar, Vigilia und Krähenwacht nicht');
   // Orte <-> Hexe
   const ORT = { hafen: '0206', splitter: '0306', b7: '0406', vaelen: '0207', wrack: '0405', nebel: '0307', relais: '0308', kesh: '0205' };
   for (const [ort, hex] of Object.entries(ORT)) check(S.hexVonOrt(ort) === hex && S.ortVonHex(hex) === ort && L.get(ort).hex === hex, `Ort ${ort} = Hex ${hex}`);
-  check(hexe.filter((h) => K.hexe[h].ort).length === 8, 'genau 8 Hexe mit Ort');
+  check(hexe.filter((h) => K.hexe[h].ort).length === 8 + KETTE.length, 'genau 8 + 15 Hexe mit Ort');
+  check(hexe.filter((h) => K.hexe[h].ort && !K.hexe[h].gen).length === 8 && new Set(hexe.map((h) => K.hexe[h].ort).filter(Boolean)).size === 23, 'Orts-IDs eindeutig, 8 fest codiert');
   // Kanten (check() aus karte_limes.py)
   const ids = K.kanten.map((e) => S.kanteId(e.a, e.b));
   check(new Set(ids).size === ids.length, `Kanten eindeutig (${ids.length})`);
@@ -102,6 +106,58 @@ function check(cond, text) {
   check(hexe.every((h) => { const p = S.hexZuPixel(h, 40); return S.pixelZuHex(p.x, p.y, 40) === h; }), 'pixelZuHex(hexZuPixel(h)) = h');
   const fc = JSON.stringify(S.fuerClient());
   check(!fc.includes('praesenz') && fc.length < 10000, `welcome.sektorkarte ohne praesenz, ${fc.length} B`);
+  // ---------- EK7: Kette, Szenen aus Daten, Sperrriegel, Häfen ----------
+  console.log('\n[kette]');
+  const GEN = require('../shared/gen-sektor.js');
+  {
+    const open = (e) => e.art === 'open';
+    const ohneKern = ['0801', '0802', '0803', '0804', '0805', '0903', '1003', '0702', '0602', '0601'];
+    // Liste nachgerechnet: Hexe auf einem einfachen Weg Statio Limitis -> Eisenwald (ohne germanisches Kernland und Krähenwacht)
+    const adj = {};
+    for (const e of K.kanten) if (e.art === 'open' || e.art === 'locked') { (adj[e.a] = adj[e.a] || []).push(e.b); (adj[e.b] = adj[e.b] || []).push(e.a); }
+    const auf = new Set();
+    (function dfs(n, pfad, seen) {
+      if (n === '0704') { pfad.forEach((x) => auf.add(x)); return; }
+      for (const m of adj[n] || []) { if (seen.has(m) || ohneKern.includes(m)) continue; seen.add(m); pfad.push(m); dfs(m, pfad, seen); pfad.pop(); seen.delete(m); }
+    })('0305', ['0305'], new Set(['0305']));
+    const extra = [...auf].filter((h) => !KETTE.includes(h)), fehlt = KETTE.filter((h) => !auf.has(h));
+    check(!fehlt.length && extra.join() === '0302', 'Kette aus den Sprungkanten nachgerechnet: alle 15 liegen auf Wegen, einzige Abweichung Vigilia (0302) ' + JSON.stringify({ fehlt, extra }));
+    // Erreichbarkeit der Kette von Statio Limitis
+    const ohneKey = reach('0305', open, ohneKern);
+    const mitKey = reach('0305', (e) => open(e) || (e.art === 'locked' && e.key === 'sperrriegel'), ohneKern);
+    check(['0304', '0303', '0202', '0203', '0403', '0402', '0502', '0503', '0504', '0505', '0605', '0705'].every((h) => ohneKey.has(h)), 'ohne Sperrriegel erreichbar: Imperium, Grenzmark, Nebelheim, Methalle');
+    check(!ohneKey.has('0604') && !ohneKey.has('0704'), 'ohne Sperrriegel: Wolfstor und Eisenwald unerreichbar (auch nicht über Methalle)');
+    check(KETTE.every((h) => mitKey.has(h)), 'mit Sperrriegel: alle 15 Hexe von Statio Limitis erreichbar');
+    const sk = K.kanten.filter((e) => e.key === 'sperrriegel').map((e) => S.kanteId(e.a, e.b)).sort();
+    check(sk.join() === '0504-0604,0604-0605,0604-0705', 'Sperrriegel: genau die Kanten 0504–0604, 0604–0605, 0604–0705');
+    check(reach('0206', (e) => e.art === 'open' || e.key === 'tutorial-ende' || e.key === 'kesh').has('0305'), 'tutorial-ende: Splittergürtel -> Statio Limitis (mit Schlüssel)');
+    // Szenen aus Daten
+    const orte = S.datenOrte();
+    check(orte.length === 15 && orte.every((id) => L.get(id) && L.get(id).gen && !L.LOCATIONS.some((l) => l.id === id)), '15 Szenen aus Daten, nicht in LOCATIONS');
+    const jpR = 250;
+    for (const id of orte) {
+      const o = L.get(id); const sc = o.scene; const hx = S.hexVonOrt(id);
+      const inS = (p, r) => p.x - (r || 0) > 0 && p.y - (r || 0) > 0 && p.x + (r || 0) < sc.w && p.y + (r || 0) < sc.h;
+      check(o.hex === hx && S.ortVonHex(hx) === id && o.name === K.hexe[hx].name, id + ': Ort <-> Hex ' + hx);
+      check(inS(sc.arrive) && (!sc.station || inS(sc.station, sc.station.r)) && (!sc.dock || inS(sc.dock)), id + ': Ankunft, Station, Liegeplatz in der Szene');
+      check(sc.stern.length >= 1 && sc.planeten.every((p) => inS(p, p.r)) && sc.bojen.every((b) => inS(b)), id + ': Stern ' + sc.stern.length + ', Planeten ' + sc.planeten.length + ', Bojen ' + sc.bojen.length);
+      // Sprungpunkte aller sechs Richtungen bleiben frei von Brockenfeld, Station, Liegeplatz, Bojen
+      const jps = S.nachbarn(hx).map((n) => S.sprungpunktLage(sc.w, sc.h, S.richtung(hx, n), 180));
+      const f = sc.field;
+      const feldAbstand = (p) => { const dx = Math.max(f.x0 - p.x, 0, p.x - f.x1), dy = Math.max(f.y0 - p.y, 0, p.y - f.y1); return Math.hypot(dx, dy); };
+      check(!sc.asteroids || jps.every((p) => feldAbstand(p) > jpR + 44), id + ': Brockenfeld hält Abstand zu allen Sprungpunkten');
+      check(jps.every((p) => [sc.station, sc.dock, ...sc.bojen].filter(Boolean).every((q) => Math.hypot(p.x - q.x, p.y - q.y) > jpR + (q.r || 0))), id + ': Station, Liegeplatz, Bojen frei von Sprungpunkten');
+      check(JSON.stringify(GEN.erzeuge(hx, K.hexe[hx]).scene) === JSON.stringify(sc), id + ': deterministisch (Seed nur aus der Hex-Kennung)');
+    }
+    check(!L.get('rabenpass').scene.station && !L.get('rabenpass').scene.planeten.length && !L.get('rabenpass').scene.asteroids && !K.hexe['0502'].einfluss, 'Rabenpass: leerer Raumsektor (nur Doppelstern, kein Einfluss Gezeiten)');
+    check(L.get('rabenpass').scene.stern.length === 2 && L.get('nebelheim').fog === true && L.get('ferraria').scene.asteroids > 0 && L.get('tiberis').scene.planeten[0].art === 'gasriese', 'Doppelstern, Nebel, Asteroiden, Gasriese nach Hex-Daten');
+    // Häfen: Castra Martis und Statio Limitis mit Liegeplatz, ohne Ruf, Hafensortiment
+    const dockHexe = hexe.filter((h) => K.hexe[h].andocken).sort();
+    check(dockHexe.join() === '0202,0305', 'Häfen zum Andocken: Castra Martis und Statio Limitis');
+    check(dockHexe.every((h) => { const o = L.get(K.hexe[h].ort); return o.kind === 'port' && o.scene.dock && o.shop === 'hafen' && o.scene.hafen.ruf === false && !o.besitz; }), 'beide Häfen: Liegeplatz, Hafensortiment (shop hafen), ohne Ruf');
+    check(orte.filter((id) => L.get(id).scene.dock).length === 2, 'sonst kein Ort mit Liegeplatz');
+  }
+
   // SVG-Ausgabe
   const i = process.argv.indexOf('--svg');
   if (i > 0 && process.argv[i + 1]) { require('fs').writeFileSync(process.argv[i + 1], svg(S, K), 'utf8'); console.log('  SVG: ' + process.argv[i + 1]); }

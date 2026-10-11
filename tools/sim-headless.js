@@ -2038,7 +2038,7 @@ const ESCORT_UMS = ['schuetzen/geleit_durch_angriff', 'schuetzen/notruf_verteidi
 
 // Server-Module für die gebauten Karten (lesend; wie der Client sie aus awayMap/Snapshot kennt), lazy
 const lazy = (f) => { let m; return () => m || (m = require(f)); };
-const LP = lazy('../server/sim/landepunkte.js'); const Interior = lazy('../server/sim/interior.js'); const Anker = lazy('../server/sim/anker.js');
+const Sprung = lazy('../server/sim/sprung.js'); const LP = lazy('../server/sim/landepunkte.js'); const Interior = lazy('../server/sim/interior.js'); const Anker = lazy('../server/sim/anker.js');
 const Away = lazy('../server/sim/away.js'); const Entern = lazy('../server/sim/entern.js'); const Objects = lazy('../server/mission/objects.js'); const Buehne = lazy('../shared/buehne.js');
 class GenericAgent extends KeshAgent {
   constructor(game, idx, role, opts) { super(game, idx, role, opts); this.curKey = null; this.sm = {}; }
@@ -2076,7 +2076,9 @@ class GenericAgent extends KeshAgent {
       const c = q.shift();
       if (c === goal) break;
       const l = Locations.get(c);
-      for (const n of (l ? l.links : [])) if (!(n in prev) && ex.isLinkOpen(c, n)) { prev[n] = c; q.push(n); }
+      // EK7: Orte aus Daten (gen) haben keine Ort-Links: dorthin und von dort über die offenen Kanten der Karte
+      const nb = (l ? l.links.filter((n) => ex.isLinkOpen(c, n)) : []).concat(Sprung().nachbarOrte(this.game, c).filter((n) => (l && l.gen) || (Locations.get(n) || {}).gen));
+      for (const n of nb) if (!(n in prev)) { prev[n] = c; q.push(n); }
     }
     if (!(goal in prev)) { this.game.simStats.noRoute = { loc: goal, from: here, t: this.game.time }; return null; }
     let n = goal; while (prev[n] !== here) n = prev[n];

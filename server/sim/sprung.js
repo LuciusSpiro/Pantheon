@@ -63,6 +63,15 @@ function amSprungpunkt(game, kanteId) {
   return d != null && d <= (SK(game).sprungpunktRadius || 250);
 }
 
+// EK7: Nachbarorte eines Ortes über offene Kanten der Karte (spielbare Hexe mit Ort, kein Leerraum). Für die Routenplanung der
+// Bots über Orte aus Daten (deren `links` bleiben leer, damit LOCATIONS, Snapshot und Tutorial unverändert sind).
+function nachbarOrte(game, ort) {
+  const here = Sektoren.hexVonOrt(ort);
+  if (!here) return [];
+  return Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && !Sektoren.istLeerraum(h) && Sektoren.ortVonHex(h)
+    && game.explore.kanteOffen(Sektoren.kanteId(here, h))).map((h) => Sektoren.ortVonHex(h));
+}
+
 // Hex-Regel für ein Ziel (B3 §4 „Ziel wählen“): null = erlaubt, sonst Begründung
 function hexGrund(game, here, ziel) {
   const ex = game.explore;
@@ -192,6 +201,8 @@ function notsprungKandidaten(game) {
   const here = hexHier(game);
   if (!here) return [];
   let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.ortVonHex(h));
+  // EK7: Solange das Tutorial läuft, führt der Notfallsprung nie aus dem Saumraum hinaus (Statio Limitis grenzt an den Splittergürtel)
+  if (tutorialLaeuft(game)) c = c.filter((h) => { const d = Sektoren.hexDaten(h); return !d || d.region === 'saumraum'; });
   if (Sektoren.istLeerraum(here)) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
   return c;
 }
@@ -342,7 +353,7 @@ function debugErkundeAlle(game) {
 
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
-  tutorialLaeuft, anflugPflicht, zielwahlUeberOrtLinks, zielId, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
+  tutorialLaeuft, anflugPflicht, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
   notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };

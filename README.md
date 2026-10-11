@@ -599,6 +599,12 @@ Die Karte Limes hat 10×8 = 80 Hexe (`content/welt/limes.json`). **8 davon sind 
 | **Mond Kesh** | 0205 | Mond mit Kustoden-Ruine, Plünderer graben dort. Planetenmission m3 „Die Tafel von Kesh“. Landepunkte Kustoden-Archiv, Verfallenes Grenzkastell und Grabungslager (B1). |
 | **Leerraum** | 42 Hexe | leere Szene ohne Bojen. Hinein und hinaus nur über temporäre Sprungpunkte oder den Notfallsprung (B3). |
 
+**EK7 (Karte, `CONTRACT-EK7.md`):** Dazu kommen **15 spielbare Hexe der Eisenwald-Kette** mit **Raumsektoren aus Daten**
+(Statio Limitis bis Eisenwald; `gen: true` in `limes.json`, Szene aus `shared/gen-sektor.js`: Stern, Planeten, Station, Bojen,
+Brocken nach Einfluss, Seed nach Hex-Kennung). Häfen mit Liegeplatz und Hafenterminal: **Castra Martis** und **Statio Limitis**
+(ohne Ruf). Die Kanten um Wolfstor öffnet der Weltstand-Schlüssel `sperrriegel` (Baustein `sperrriegel_oeffnen`).
+`node tools/sprungkette.js` fliegt die Kette als Bot ab.
+
 Unerkundete Hexe zeigen auf der Sternkarte nur Umriss und Name. Springen geht nur über eine Kante mit bekannter Boje
 (siehe „Neu in B3“). Insgesamt gibt es **12 Entdeckungen** (Captain-Logbuch und Planungstisch zeigen „Funde x/y“ je
 Ort).

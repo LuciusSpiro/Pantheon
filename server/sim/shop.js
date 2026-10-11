@@ -1,8 +1,15 @@
 'use strict';
 // Wirtschaft: Hafenterminal (Shop, Kontext Hafen/Vaelen), Deko und Stile im Quartier (§6, M1 §7, §9.2).
 const W = require('../world.js');
+const Locations = require('../../shared/locations.js');
 
-function shopContext(game) { return game.ship.docked ? game.ship.dockedAt : null; }
+// Sortiment-Kontext: die Orts-ID (hafen, vaelen) – oder, wenn der Ort es vorgibt (`shop`, EK7: Häfen aus Daten wie
+// Castra Martis und Statio Limitis), dieser Kontext. Häfen ohne Ruf: es gilt nur der Kontext, keine Haltung.
+function shopContext(game) {
+  if (!game.ship.docked) return null;
+  const loc = Locations.get(game.ship.dockedAt);
+  return (loc && loc.shop) || game.ship.dockedAt;
+}
 
 function entryAvailable(entry, ctx) { return !entry.where || entry.where.includes(ctx); }
 function priceFor(entry, ctx) { return ctx === 'vaelen' && entry.priceVaelen != null ? entry.priceVaelen : entry.price; }
