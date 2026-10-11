@@ -502,7 +502,7 @@ function main() {
     }
 
     // ----------------------------------------------------------------------------------------------------------
-    section('Snapshot-Größe im Spiel (< 13 KB)');
+    section('Snapshot-Größe im Spiel (< 20 KB)');
     {
       const dir = freshDir();
       const t = setup(dir, 3, { startMission: 'm1' });

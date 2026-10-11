@@ -117,7 +117,7 @@
     net: { snapEvery: 2, asteroidSnapEvery: 15, emptyResetAfter: 90, bookBudget: 3000,   // §21.2 bookBudget: max. Bytes mission.book // Ticks je Snapshot; Asteroiden jeder 15. Snapshot; Reset ohne Spieler (s)
       // W1 AP1: Snapshot-Grenze (Bytes JSON) für Budget-Prüfungen in Tests, Bots und tools/snap-mess.js; snapLuft = Reserve,
       // die der Worst Case (Außenposten, 3 Spieler, 12 Gegner) unter snapMax bleiben muss -> Ziel ≤ snapMax − snapLuft.
-      snapMax: 13 * 1024, snapLuft: 1536 },
+      snapMax: 20 * 1024, snapLuft: 1536 },   // 2026-10-11 (Kai): 13 → 20 KB, damit Generatorkarten, Personen und Wellen Platz haben
     // W1 AP1: Debug-Schalter. snapKiRolle: away.drones[].role (KI-Rolle pin/flank/…) im Snapshot mitsenden. Aus = Feld fehlt
     // (Netzbudget). Bots (sim-headless, golden-trace) und das Debug-Overlay (?debug=1 am Debug-Server, per `tune`) schalten ihn ein.
     debug: { snapKiRolle: false },
@@ -340,7 +340,7 @@
     wellen: {
       countdown: 10,           // s vor Welle 1
       pause: 15,               // s zwischen den Wellen (Aufrichten/Befreien/Auffüllen am Wellenende)
-      maxLebend: 12,           // höchstens so viele Gegner gleichzeitig stehend (Snapshot-Budget 13 KB)
+      maxLebend: 12,           // höchstens so viele Gegner gleichzeitig stehend (Snapshot-Budget 20 KB)
       maxKoerper: 3,           // endgültig liegende Gegner (aus/gefesselt), die zusätzlich im Snapshot bleiben (ältere verschwinden)
       koerperZeit: 10,         // s: Liegende, die noch aufstehen könnten, zählen zum Budget; wartet Nachschub, verschwinden sie danach
       // AP3a (Abnahme Wellen Boden): basis 1 -> 0. Welle 1 solo = 1 Karl (vorher 2: Bot solo 18/24 Läufe in Welle 1 am Boden,

@@ -14,7 +14,7 @@ Bauzeit `verfallen` Median ≤ 12 ms (Max. 90 ms bei Außenposten-Neuversuch →
   `frost` stehen in `public/voxel/assets/palettes/base.json`.
 - **Snapshot-Spielraum (AP1, `84e0a19`):** Standardwerte fallen weg (`server/sim/snapform.js`), Grenze
   `CONFIG.net.snapMax` mit Luft `snapLuft`. `npm run snap:mess` heute: Worst Case max 11 246 B, Wellenlauf max
-  10 592 B (Ziel ≤ 11 776 B, Grenze 13 312 B).
+  10 592 B (Ziel ≤ 11 776 B, Grenze 13 312 B). **Seit 2026-10-11 (Kai): Grenze 20 480 B**, Ziel ≤ snapMax − snapLuft = 18 944 B; die Zahlen in dieser Datei sind der Stand davor.
 - **`KARTE-WIEDERHOLT` über die ganze Runde (AP4, `fd952fc`):** prüft jetzt auch die anderen Angebote der Runde
   (`szenenbau.js:334`). Damit ist „`wreck` zweimal in derselben Angebotsrunde“ erledigt.
 - **Kürzere Spielleiter-Fassung des Katalogs (AP4, `fd952fc`):** Grobplan-Katalog heute 9 904 Zeichen ≈ 2 830 Tokens

@@ -3472,7 +3472,7 @@ async function dauerMain() {
 // ---------- Bodenkampf: Wellen (Lobby-Start arena_away mit Kartenwahl, server/sim/wellen.js) ----------
 //   node tools/sim-headless.js wellen [--karte aussenposten|…|alle] [--players 1|3|beide] [--seed n] [--max 900]
 // Bot-Spieler kämpfen ohne Debug-Befehle (Deckung, Ziel, Aufhelfen; ohne Sicht zum nächsten Gegner). Ausgabe je Lauf:
-// erreichte Welle, Zeit, Abschüsse je Spieler, Fehler, Snapshot-Max (Budget 13 KB), höchstens stehende Gegner.
+// erreichte Welle, Zeit, Abschüsse je Spieler, Fehler, Snapshot-Max (Budget 20 KB), höchstens stehende Gegner.
 class WellenAgent extends GenericAgent {
   // AP3a: Waffe nur per BOT_WAFFE=rotation|<waffe> (gewählt in der Lobby wie ein Mensch); ohne Umgebung bleibt der Blaster
   pickWeapon() { return process.env.BOT_WAFFE ? super.pickWeapon() : null; }
@@ -3609,7 +3609,7 @@ async function wellenMain() {
   let ok = true;
   const nSeeds = Number(argVal('--seeds', 1));
   const waffenRows = [];
-  log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 13 KB${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''} ===`);
+  log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 20 KB${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''} ===`);
   for (const karte of karten) for (const np of crews) for (let si = 0; si < nSeeds; si++) {
     const r = await runWellen({ karte, players: np, seed: base + si, maxSec });
     for (const w of r.waffen || []) waffenRows.push(Object.assign({ karte, crew: np, seed: base + si, welle: r.welle }, w));
@@ -3654,7 +3654,7 @@ async function wellenMain() {
   if (onlyM3 || !counts.length) {
     const r = await runKesh({ seed: seedArg != null ? seedArg : 31 });
     printKesh(r);
-    // E16: nur Treffer ohne geteilte Sicht/Aussicht zählen (offBoxHits); Snapshot-Budget B2: 13 KB
+    // E16: nur Treffer ohne geteilte Sicht/Aussicht zählen (offBoxHits); Snapshot-Budget B2: 20 KB
     if (!r.success || r.errors > 0 || r.combat.offBoxHits > 0 || r.combat.maxStuck > 8 || r.snapMax >= CONFIG.net.snapMax) ok = false;
   }
   for (const run of runs) {

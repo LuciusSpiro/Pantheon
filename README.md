@@ -15,6 +15,28 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`).
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`.
 
+## Neu (2026-10-11) – Generatorkarten, Hüllen und Dächer
+
+Außenposten und Stationen entstehen jetzt aus **Grammatiken statt aus Modulen**. Das gilt überall: Bodenkampf-Auswahl
+(Wellen), Testgelände, Szenenbau und die festen Orte (`kesh.grabung`, `hafen.kontor` …).
+- **Außenposten = Siedlung** (`shared/gen-siedlung.js`: Straßen, Platz, Parzellen, Funktionsgebäude, Wachturm; Mauer nur beim
+  Militärlager; Rom: Raster, Germanen: Hauptachse). **Station** = `shared/gen-station.js`. Schiff, Ruine und Handkarten bleiben bei den Modulen.
+- **Pflichtsatz:** Beide Generatoren erfüllen den Ankersatz der Kartenart (Außenposten: eingang 3, abholpunkt 2, sprengpunkt 2,
+  aussicht, terminal, zelle 2, beute 4, ziel, wache 6, patrouille 4; Station: u. a. zelle 2, versteck, tor, ziel 3, nsc 2).
+  Die Missionsplanung nimmt ihn für jede Karte der Art an. Der Prüfer erzwingt ihn über `meta.pflicht`.
+- **Schalter:** `landepunkte.json` `"erzeuger": "modul"` (ein Ort), `PANTHEON_GEN=0` (alles), eine ausdrücklich gesetzte Schablone
+  bleibt Modulkarte. Bauversion `gen2`; bei Änderungen an den Grammatiken hochzählen (Weltstände bauen dann neu).
+- **Hüllen und Dächer** (`public/js/voxel/kit.js`): In Generatorkarten (`meta.huelle`) werden Wände nicht gebacken, sondern als
+  Gruppen in zwei Höhen (3 m / 1,25 m) gebaut. Eine Gruppe wird niedrig, wenn sie die Sicht der Kamera auf eine sichtbare Figur
+  verdeckt (Spieler, per Team-Sicht gesehene Gegner und Personen; harter Wechsel, 250 ms Nachlauf). Gebäude haben ein Satteldach
+  (`kit/rom/dach` Terrakotta, `kit/germanen/dach` dunkle Schindeln mit hellem Giebelbrett), das mit der Wand verschwindet.
+  Die Station hat keine Dächer. Funktionsgebäude (Lager, Krankenstation) sind überdacht; wer drinsteht, sieht das Dach nicht.
+- **Snapshot-Grenze:** `CONFIG.net.snapMax` jetzt **20 KB** (20 480 B, vorher 13 312 B), Reserve `snapLuft` 1 536 B.
+- **Tests:** `node tools/test-generatoren.js` (Pflichtsatz, Determinismus, Landepunkte, awayMap-Größe). `test-buehne.js` prüft
+  weiter die Modulkarten (setzt `PANTHEON_GEN=0`). Bot-Läufe: `node tools/sim-headless.js wellen --karte aussenposten,station`.
+- **Werkzeug:** `node tools/gen-karte.js --art siedlung --seed 2 --haeuser 10 --bauweise rom --typ militaer` bzw. `--seed 8 --raeume 8`
+  schreibt nach `public/proto/`; Ansehen unter `/proto-karte.html?f=<id>` (Maus bewegt ein Ziel, `?zielanker=<id>`).
+
 ## Neu in Welle 2 – Szenario-Labor, Wellenkampf Boden und All, Bodenkampf-Feinschliff
 
 **Lobby:** Mit **M** wechselt man zwischen Kampagne, Kampagne ohne Tutorial, m3, **Wellen Boden**, **Wellen All** und
@@ -60,7 +82,7 @@ Notfallprotokoll.
   `alive`, solange sie den Standard haben, bei Spielern `bleed`, `cr`, `zs`, `ov`, `bt` und `fl`. Leser behandeln „Feld
   fehlt“ wie den Standard (`server/sim/snapform.js`, Doku in `shared/protocol.js`). `squad` ist gestrichen. Die
   KI-Rolle `role` kommt nur mit `CONFIG.debug.snapKiRolle` (Bots, Debug-Overlay). Die Grenze steht an einer Stelle:
-  `CONFIG.net.snapMax` = 13 312 B, Reserve `snapLuft` = 1 536 B.
+  `CONFIG.net.snapMax` = 20 480 B (20 KB, seit 2026-10-11; vorher 13 312 B), Reserve `snapLuft` = 1 536 B.
   - **Messen:** `npm run snap:mess` (Worst Case: Außenposten, 3 Spieler, 12 Gegner, Granaten, 5 Seeds × 20 s; dazu ein
     Wellenlauf; `--json` für Berichte).
   - **Werte:** Worst Case max 11 246 B, Wellenlauf max 10 592 B (Ziel ≤ 11 776 B). Vorher laut AP1 12 666 B bzw.

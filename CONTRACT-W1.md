@@ -42,7 +42,7 @@ Worst Case **mindestens 1,5 KB unter der Grenze**: Snapshot ≤ `13 312 − 1 53
 - **`role` (KI-Rolle) ≠ `ro` (Gegnerrolle).** `ro` bleibt unverändert.
 
 ### 2.3 Lieferung
-1. **Konstanten:** `CONFIG.net.snapMax = 13 * 1024`, `CONFIG.net.snapLuft = 1536`. Alle Budget-Stellen lesen sie. Die
+1. **Konstanten:** `CONFIG.net.snapMax = 13 * 1024` (seit 2026-10-11 auf Kais Anweisung `20 * 1024`, siehe README §2.2), `CONFIG.net.snapLuft = 1536`. Alle Budget-Stellen lesen sie. Die
    `12 * 1024`-Stellen einzeln prüfen: Entweder sie werden zu `snapMax`, oder sie bleiben bewusst strenger als
    benannte Konstante mit Grund im Kommentar. Am Ende gibt es keine Zahl `13 * 1024` und keine Zahl `12 * 1024` mehr in
    `tools/`.

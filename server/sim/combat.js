@@ -1165,7 +1165,7 @@ function b2SnapGegner(game, e, base) {
   if (!Wf || typeof Wf.snapFelder !== 'function') return;
   kaempfer(game, e);
   const f = Wf.snapFelder(game, e);
-  // Budget (B2 §8, < 13 KB): Standardwerte fallen weg – zs fehlt = 'ok', wn/wm fehlen = 1/1, pa fehlt = Palette der
+  // Budget (B2 §8, < 20 KB seit 2026-10-11, vorher 13 KB): Standardwerte fallen weg – zs fehlt = 'ok', wn/wm fehlen = 1/1, pa fehlt = Palette der
   // Fraktion (Katalog fraktionen/<fr>.json), ro/fr nur, wenn gesetzt.
   base.wf = f.wf;
   const zs = e.zustand || (e.alive ? 'ok' : 'aus');

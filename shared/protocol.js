@@ -80,7 +80,7 @@
     //     revealed entfällt (aufgedeckt = snap.time < away.sensorUntil, wie es der Server für alle Gegner setzt); squad entfällt
     //     (Client: kit bzw. ID-Präfix). role (KI-Rolle pin/flank/retreat/aufrichten …, ≠ ro) nur mit CONFIG.debug.snapKiRolle
     //     (Bots, Debug-Overlay per `tune debug.snapKiRolle on`). Nicht-v2-Karten (Plattform, Wrack): revealed und alive wie bisher.
-    //   Grenze: CONFIG.net.snapMax (13 312 B), Worst Case ≤ snapMax − snapLuft (tools/snap-mess.js, npm run snap:mess).
+    //   Grenze: CONFIG.net.snapMax (20 480 B, bis 2026-10-10 13 312 B), Worst Case ≤ snapMax − snapLuft (tools/snap-mess.js, npm run snap:mess).
     // W2 AP6 (E6): away.npcs[] ersetzt away.npc. Je Person auf der aktiven Außenkarte (auf der Karte oder gerettet):
     //   { id, name, x, y, dir?, following?, injured?, rescued? } – id = Kennung aus spawn_person bzw. 'ivo' (Name 'Ivo');
     //   dir fehlt = 'down', following fehlt = null (sonst Spieler-ID), injured/rescued fehlen = false. Gerettete stehen nicht
