@@ -10,7 +10,8 @@ const Station = require('./station.js');   // R1 §4.4: aktive Station statt Ort
 const Pilot = require('./pilot.js');
 const Escort = require('./escort.js');   // S2 §5 Schützlinge (ohne Schützlinge/Gegnerziel kein Einfluss auf den Ablauf)
 const Entern = require('./entern.js');   // B1 §7 (Team ENTERN): kampfunfähiges Feindschiff; Stub -> wie bisher
-const Sprung = require('./sprung.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
+const Sprung = require('./sprung.js');
+const Reise = require('./reise.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
@@ -1926,6 +1927,7 @@ function update(game, dt) {
   updateSystems(game, dt);
   updateFlight(game, dt);
   updateJump(game, dt);
+  Reise.update(game, dt);   // Schnellsprung: Hop für Hop
   updateWeapons(game, dt);
   updateTargetScan(game, dt);
   updateEnemies(game, dt);

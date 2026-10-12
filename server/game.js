@@ -7,6 +7,7 @@ const Locations = require('../shared/locations.js');
 const W = require('./world.js');
 const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
+const Reise = require('./sim/reise.js');   // Spieltest: Schnellsprung
 const bots = require('./sim/bots.js');
 const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
@@ -327,6 +328,7 @@ class Game {
 
   // ---------- Zustand ----------
   reset() {
+    Reise.reset(this);
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
     // B1 F6: Landepunkte (Registrierungen, Laufzeitzustand, ausstehende Schritt-Aktionen) gehören zur Partie – vollständig leeren
@@ -945,6 +947,7 @@ class Game {
         break;
       case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
       case 'helm.jump': err = space.doJump(this); break;
+      case 'helm.schnellsprung': err = Reise.befehl(this); break;   // Spieltest: alle Hops der gewählten Route; während der Reise = abbrechen
       case 'captain.accept': err = this.mission.accept(); break;
       case 'captain.choice': err = this.mission.choice(String(msg.option)); break;
       case 'captain.selectDest': {   // B3 §6: zusätzlich { hex } erlaubt (sprung.js löst SSZZ auf)
@@ -1538,6 +1541,8 @@ class Game {
     const j = this.ship.jump;
     const o = { dest: j.dest, charge: f2(j.charge), ready: j.ready, blockedReason: j.blockedReason };
     if (j.jp != null) o.jp = j.jp;
+    if (this.reisePlan && this.reisePlan.hops.length) o.rt = this.reisePlan.hops.slice();   // Schnellsprung-Route (Hexe ab dem ersten Hop)
+    const rs = Reise.snap(this); if (rs) o.reise = rs;
     if (Number.isFinite(j.d)) o.d = Math.round(j.d);
     // B3-NACH: anflug = gilt die Anflugpflicht (sprung.anflugPflicht – dieselbe Regel wie die Sprunglogik)
     const af = fnOf(sprungMod(), 'anflugPflicht');

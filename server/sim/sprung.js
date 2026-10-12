@@ -17,6 +17,8 @@ const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const isDown = (st) => st === 'broken' || st === 'offline';
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> sprung
 const space = () => spaceMod || (spaceMod = require('./space.js'));
+let reiseMod = null;
+const Reise = () => reiseMod || (reiseMod = require('./reise.js'));
 const SK = (game) => (game.C && game.C.sektoren) || {};
 
 // ---------- Tutorial (CONTRACT-B3 §0.1, CONTRACT-W1 §4) ----------
@@ -163,9 +165,16 @@ function updateJump(game, dt) {
 
 function doJump(game) {
   const j = game.ship.jump;
+  if (game.reise) return 'Schnellsprung läuft – Steuer: G bricht ab.';
   if (!j.ready) return j.blockedReason || 'Sprungantrieb lädt noch.';
   const dest = j.dest;
   if (!Locations.get(dest)) return 'Kein gültiges Sprungziel.';
+  springeNach(game, dest);
+  Reise().nachSprung(game, Sektoren.hexVonOrt(dest));   // eine gewählte Route rückt um einen Hop vor
+  return null;
+}
+// Der Sprung selbst (ein Hop): auch der Schnellsprung (reise.js) springt Hop für Hop darüber – dieselben Ereignisse wie ein natürlicher Sprung
+function springeNach(game, dest) {
   const from = game.ship.scene;
   const vonHex = Sektoren.hexVonOrt(from), nachHex = Sektoren.hexVonOrt(dest);
   const pflicht = anflugPflicht(game);
@@ -179,7 +188,6 @@ function doJump(game) {
   game.explore.arrive(dest);
   if (vonHex && nachHex) game.explore.markBoje(Sektoren.kanteId(vonHex, nachHex));   // durchflogen
   game.missionEvent('jumped', { scene: dest, loc: dest, from });
-  return null;
 }
 function ankunftAmSprungpunkt(game, vonHex, nachHex) {
   const p = sprungpunkt(game, vonHex, game.ship.scene);
@@ -208,6 +216,8 @@ function selectDest(game, dest) {
     return 'Unbekanntes Ziel.';
   }
   if (id === game.ship.scene) return 'Da sind wir doch schon.';
+  if (game.reise) return 'Schnellsprung läuft – Steuer: G bricht ab.';
+  let routeDest = null;
   const here = hexHier(game); const ziel = Sektoren.hexVonOrt(id);
   if (zielwahlUeberOrtLinks(game)) {
     // Tutorial (E29): Ort-Links wie heute (Boje muss nicht bekannt sein); Leerraum/temporäre Kanten nach der Hex-Regel
@@ -219,11 +229,16 @@ function selectDest(game, dest) {
     }
   } else {
     const why = hexGrund(game, here, ziel);
-    if (why) return why;
+    if (why) {   // nicht nebenan: Schnellsprung-Route über erkundete Sektoren (reise.js), erster Hop wird das Sprungziel
+      const hops = Sektoren.istLeerId(id) ? null : Reise().planen(game, here, ziel);
+      if (!hops || hops.length < 2) return why;
+      game.reisePlan = { ziel: id, hops }; routeDest = Sektoren.ortVonHex(hops[0]);
+    } else game.reisePlan = null;
   }
-  const why = game.mission.destBlocked(id);
+  const why = game.mission.destBlocked(routeDest || id);
   if (why) return why;
-  game.ship.jump.dest = id; game._jumpAuto = false;
+  if (zielwahlUeberOrtLinks(game)) game.reisePlan = null;
+  game.ship.jump.dest = routeDest || id; game._jumpAuto = false;
   game.emit('sfx', { name: 'jump_charge' });
   game.missionEvent('destSelected', { dest: id });
   return null;
@@ -390,7 +405,7 @@ function debugErkundeAlle(game) {
 
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
-  tutorialLaeuft, anflugPflicht, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
+  tutorialLaeuft, anflugPflicht, springeNach, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
   notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };

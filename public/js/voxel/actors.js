@@ -756,10 +756,10 @@ function zielRumpf(a, zielYaw) {
   torso.rotation.y += tw;
 }
 
-// Schubs: Betäubte wackeln, drei kleine gelbe Enten kreisen um den Kopf (nur Darstellung, Zustand kommt vom Server: players[].stun)
+// Schubs: Betäubte taumeln (Pose stagger), drei kleine gelbe Enten kreisen um den Kopf (nur Darstellung, Zustand kommt vom Server: players[].stun)
 function stunFx(a, on, t) {
   const T = L.THREE;
-  if (!on) { if (a.stunDucks) a.stunDucks.visible = false; if (a.stunTilt) { a.body.rotation.z = 0; a.stunTilt = false; } return; }
+  if (!on) { if (a.stunDucks) a.stunDucks.visible = false; return; }
   if (!a.stunDucks) {
     const g = new T.Group(); g.name = 'stunDucks';
     const yel = new T.MeshStandardMaterial({ color: 0xF2C230, roughness: 0.8 }), org = new T.MeshStandardMaterial({ color: 0xE8731A, roughness: 0.8 });
@@ -772,14 +772,26 @@ function stunFx(a, on, t) {
     }
     a.container.add(g); a.stunDucks = g;
   }
-  a.stunDucks.visible = true; a.stunTilt = true;
+  a.stunDucks.visible = true;
   a.stunDucks.position.y = 33 * VX;   // über dem Kopf
   a.stunDucks.children.forEach((d, i) => {
     const ang = t * 5 + i * (Math.PI * 2 / 3);
     d.position.set(Math.cos(ang) * 7 * VX, Math.sin(t * 9 + i) * 0.8 * VX, Math.sin(ang) * 7 * VX);
     d.rotation.y = -ang;   // Schnabel in Flugrichtung
   });
-  a.body.rotation.z = Math.sin(t * 14) * 0.1;   // Wackeln
+}
+// Schubs: Baseballschläger (nur während des Schlags) an der rechten Hand
+function schlaegerFx(a, on) {
+  const hand = a.fig && a.fig.joints && a.fig.joints.handR;
+  if (!on || !hand) { if (a.schlaeger) a.schlaeger.visible = false; return; }
+  if (!a.schlaeger || a.schlaeger.parent !== hand) {
+    const T = L.THREE; const g = new T.Group(); g.name = 'schlaeger';
+    const holz = new T.MeshStandardMaterial({ color: 0xB9854A, roughness: 0.85 }), griff = new T.MeshStandardMaterial({ color: 0x3A2A1C, roughness: 0.9 });
+    const stiel = new T.Mesh(new T.BoxGeometry(1.4 * VX, 8 * VX, 1.4 * VX), griff); stiel.position.y = -4 * VX;
+    const kopf = new T.Mesh(new T.BoxGeometry(2.6 * VX, 9 * VX, 2.6 * VX), holz); kopf.position.y = -12.5 * VX;
+    g.add(stiel, kopf); hand.add(g); a.schlaeger = g;
+  }
+  a.schlaeger.visible = true;
 }
 function updatePlayer(p, view, st, dt, t) {
   const zone = zoneOfCtx();
@@ -831,6 +843,12 @@ function updatePlayer(p, view, st, dt, t) {
     base = ACTION_POSES[p.action.kind] || 'hold'; special = base;
     wantYaw = targetYaw(p, st);
   } else if (p.cr) base = 'crouch';
+  // Schubs: der Schubser holt aus (windup) und schlägt zu (strike) – mit Schläger in der Hand; der Getroffene taumelt (stagger)
+  const schubsAlter = window.PantheonSchubsAt && window.PantheonSchubsAt[p.id] != null ? performance.now() / 1000 - window.PantheonSchubsAt[p.id] : 99;
+  const schlag = inShip && !p.console && !p.downed && !p.lift && schubsAlter < 0.55;
+  if (inShip && p.stun && !p.downed) { base = 'stagger'; special = null; }
+  else if (schlag) { base = schubsAlter < 0.2 ? 'windup' : 'strike'; special = null; }
+  schlaegerFx(a, schlag);
   if (a.arrive) {
     a.arrive.t += dt;
     const q = clamp01(a.arrive.t / a.arrive.T);

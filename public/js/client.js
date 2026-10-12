@@ -1046,6 +1046,7 @@
       case 'notice':
         if (!ev.pid || ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); }
         break;
+      case 'schubs': (window.PantheonSchubsAt = window.PantheonSchubsAt || {})[ev.from] = performance.now() / 1000; break;   // Schubs: Ausholen/Zuschlagen der Figur (voxel/actors.js)
       case 'sfx': {
         const vol = ev.zone && ev.zone !== Client.self.zone ? 0.35 : 1;
         // M2 (AUDIO): Parameter des Servers durchreichen; dist = Abstand Hörer–Quelle / 300 (nur mit Position)

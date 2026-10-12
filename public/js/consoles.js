@@ -357,7 +357,11 @@
       for (const l of R.wrap('Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins (Captain)'), lw, 1).slice(0, 1)) { R.text(ctx, l, lx, y, { color: jump.dest ? PAL.star : PAL.panelLight }); y += 10; }
       let jumpReason = null;
       if (!jump.ready) jumpReason = jump.blockedReason || (!jump.dest ? 'Kein Ziel gewählt (Captain-Konsole)' : 'Sprungantrieb lädt (' + Math.round(n(jump.charge) * 100) + ' %)');
-      R.button(ctx, lx, y, lw, 14, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready, reason: jumpReason, active: !!jump.ready, onClick: () => this.cmd(view, 'helm.jump') }); y += 16;
+      R.button(ctx, lx, y, lw, 14, 'Faltsprung', { hotkey: 'F', disabled: !jump.ready || !!jump.reise, reason: jump.reise ? 'Schnellsprung läuft' : jumpReason, active: !!jump.ready && !jump.reise, onClick: () => this.cmd(view, 'helm.jump') }); y += 16;
+      // Spieltest: Schnellsprung über die vom Captain gewählte Route (nur erkundete Sektoren); während der Reise bricht dieselbe Taste ab
+      const rt = jump.rt || null;
+      const schnellGrund = jump.reise ? null : !rt ? 'Keine Route – der Captain wählt einen erkundeten Sektor' : !jump.ready ? jumpReason : null;
+      R.button(ctx, lx, y, lw, 14, jump.reise ? 'Schnellsprung abbrechen' : 'Schnellsprung' + (rt ? ' (' + rt.length + ')' : ''), { hotkey: 'G', disabled: !jump.reise && (!rt || !jump.ready), reason: schnellGrund, active: !!jump.reise || (!!rt && !!jump.ready), onClick: () => this.cmd(view, 'helm.schnellsprung') }); y += 16;
       // B3: Abstand zum Sprungpunkt (ship.jump.d) – im freien Spiel lädt der Antrieb nur am Sprungpunkt
       const anflug = !!(jumpReason && /^Sprungpunkt/.test(jumpReason));
       if (jump.dest && jump.d != null && anflug) { R.text(ctx, 'Sprungpunkt anfliegen: ' + jump.d + ' m', lx, y, { color: PAL.amber }); y += 10; }
@@ -2458,6 +2462,7 @@
           if ((code === 'KeyW' || code === 'ArrowUp') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, 1)); return true; }
           if ((code === 'KeyS' || code === 'ArrowDown') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, -1)); return true; }
           if (code === 'KeyF') return press(() => this.tryButton('Faltsprung'));
+          if (code === 'KeyG') return press(() => this.tryButton(/^Schnellsprung/));
           if (code === 'KeyX') return press(() => this.tryButton(/^Allstopp/));   // §21.1
           // B3: Notfallsprung – N fragt nach (bzw. bricht die Nachfrage ab), J/Enter bestätigt
           if (code === 'KeyN') return press(() => { if (performance.now() - this.notsprungAsk < 6000) this.notsprungAsk = -1e9; else this.tryButton('Notsprung …'); });

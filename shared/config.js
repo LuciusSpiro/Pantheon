@@ -44,6 +44,9 @@
     },
     power: { reactor: 8, reactorDamaged: 6, reactorBroken: 3, maxPerSystem: 4, heatAt4: 8, heatCool: 4, heatLimit: 100,
       default: { engines: 2, shields: 2, weapons: 2, life: 2 } },
+    // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
+    reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
+      fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
     shields: { pointsPerPower: 3,   /* M3b: 2 -> 3 (Pool 6 bei Energie 2, Kai) */ maxPerSector: 4, regenInterval: 4, default: [2, 2, 0, 2] },   // QA M3b: default [2,1,0,1] -> [2,2,0,2] (Pool 6 war zu Spielbeginn nur zu 4 verteilt, 2 Punkte lagen brach)
 
     weapons: {

@@ -481,7 +481,16 @@
     drawJumpLine(ctx, view, y) {
       const st = view.state, j = (st.ship && st.ship.jump) || {};
       this.jumpLineH = 0;
-      if (!j.dest || st.phase === 'lobby') return 0;
+      if (st.phase === 'lobby') return 0;
+      if (j.reise) {   // Schnellsprung unterwegs
+        const txt = 'SCHNELLSPRUNG ' + (j.reise.i + 1) + '/' + j.reise.n + ' · ' + Math.round((j.reise.p || 0) * 100) + ' % · Steuer: G bricht ab';
+        const w = R.measure(txt, 1) + 8;
+        R.backdrop(ctx, VW - 2 - w, y - 1, w, 11, 0.62);
+        R.text(ctx, txt, VW - 6, y, { color: PAL.mint, align: 'right' });
+        this.jumpLineH = 12;
+        return 12;
+      }
+      if (!j.dest) return 0;
       const r = (CFG.sektoren && CFG.sektoren.sprungpunktRadius) || 250;
       let txt, col;
       if (j.ready) { txt = 'SPRUNG BEREIT → ' + R.locName(st, j.dest); col = PAL.mint; }

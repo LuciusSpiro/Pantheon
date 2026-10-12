@@ -482,6 +482,22 @@
       ctx.restore();
     }
 
+    // 3b) Schnellsprung: gewählte Route (Gelb, durchgezogen) und das Schiff unterwegs (Server: ship.jump.rt, ship.jump.reise)
+    const rt = L.jump && L.jump.rt, rs = L.jump && L.jump.reise;
+    if (rt && rt.length && L.hier) {
+      ctx.save(); ctx.strokeStyle = COL.ziel || '#F2C230'; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+      ctx.beginPath(); [L.hier].concat(rt).forEach((h, i) => { const p = mitte(h); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }); ctx.stroke();
+      ctx.restore();
+    }
+    if (rs && rs.von && rs.nach) {
+      const a0 = mitte(rs.von), b0 = mitte(rs.nach), q = Math.max(0, Math.min(1, rs.p || 0));
+      const x = a0.x + (b0.x - a0.x) * q, y = a0.y + (b0.y - a0.y) * q, ang = Math.atan2(b0.y - a0.y, b0.x - a0.x);
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      ctx.fillStyle = 'rgba(127,224,194,0.25)'; ctx.beginPath(); ctx.arc(0, 0, Math.max(6, s * 0.28), 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COL.text; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-4, -4); ctx.lineTo(-2, 0); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
     // 4) Inhalte je Hex: Koordinate oben, Symbol Mitte, Einfluss rechts, Hafenklasse rechts oben, Name unten
     const HS = IB.HEXSTATUS || {};
     for (const h of alle) {
