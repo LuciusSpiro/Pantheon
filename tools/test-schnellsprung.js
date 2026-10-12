@@ -59,6 +59,15 @@ console.log('Route und Start');
   ok(g.ship.scene === 'b7' && !g.reise && !g.reisePlan, 'Hop 2: Ziel erreicht, Reise und Route beendet');
 }
 
+console.log('Zielwahl über mehrere Sprünge (unerkundete Zwischensektoren)');
+{
+  const t = setup(); const g = t.g; const ziel = Sektoren.ortVonHex('0307');   // Graue Weite: vom Hafen aus nicht nebenan offen
+  const e = Sprung.selectDest(g, ziel);
+  ok(e === null && g.ship.jump.dest && g.ship.jump.dest !== ziel, 'entfernter Sektor: kein Fehler, der nächste Sprung wird das Ziel (' + g.ship.jump.dest + ')');
+  ok(!g.reisePlan, 'unerkundet: keine Schnellsprung-Route');
+  ok(Sprung.selectDest(g, 'leer-0106') !== null, 'unerreichbares Ziel meldet weiter einen Grund');
+}
+
 console.log('Abbruch');
 {
   const t = setup(); const g = t.g; const ziel = vorbereiten(t);

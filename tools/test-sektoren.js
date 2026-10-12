@@ -124,7 +124,8 @@ function main() {
     const back = Sprung.sprungpunkt(g, '0206');
     ok(dist(g.ship.x, g.ship.y, back.x, back.y) <= g.C.sektoren.sprungpunktRadius && Math.abs(g.ship.angle - Sektoren.winkel(Sektoren.richtung('0206', '0306'))) < 1e-9,
       'Ankunft am Sprungpunkt der Gegenkante, Blick in Flugrichtung');
-    ok(Sprung.selectDest(g, 'relais') === 'Kein Sprungpunkt dorthin.', 'kein Nachbar -> abgelehnt');
+    ok(Sprung.selectDest(g, 'relais') === null && ['nebel', 'b7'].includes(g.ship.jump.dest), 'kein Nachbar, aber Weg über bekannte Sprungpunkte: der nächste Sprung wird das Ziel (' + g.ship.jump.dest + ')');
+    ok(Sprung.selectDest(g, 'leer-0106') === 'Leerraum – kein Sprungpunkt dorthin.' || Sprung.selectDest(g, 'leer-0106') === 'Kein Sprungpunkt dorthin.', 'ohne Weg -> abgelehnt');
     ok(/Boje suchen/.test(Sprung.selectDest(g, '0305') || ''), 'Splittergürtel -> Statio Limitis (EK7: spielbar): Boje unbekannt, erst suchen');
     ex.linksOpen.delete('kesh'); ex.version++;
     ok(Sprung.selectDest(g, 'kesh') === 'Sprungpunkt gesperrt.', 'gesperrte Kante (kesh zu) -> „Sprungpunkt gesperrt.“');

@@ -45,6 +45,30 @@ function planen(game, vonHex, zielHex) {
   return out;
 }
 
+// Weiche Route (nur für die Zielwahl, kein Schnellsprung): kürzester Weg über bekannte, offene Kanten – Zwischensektoren dürfen noch
+// unerkundet sein. Im Tutorial gelten die Ort-Links (Boje muss nicht bekannt sein). -> [Hex …] ab dem ersten Hop | null
+function weich(game, vonHex, zielHex, ortLinks) {
+  const ex = game.explore;
+  if (!vonHex || !zielHex || vonHex === zielHex) return null;
+  const prev = { [vonHex]: null }; const q = [vonHex];
+  while (q.length) {
+    const h = q.shift();
+    if (h === zielHex) break;
+    for (const n of Sektoren.nachbarn(h)) {
+      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n)) continue;
+      const a = Sektoren.ortVonHex(h), b = Sektoren.ortVonHex(n); if (!a || !b) continue;
+      const id = Sektoren.kanteId(h, n);
+      const frei = ortLinks ? (ex.isLinked(a, b) && ex.known.has(b)) : (ex.bojeBekannt(id) && ex.kanteOffen(id));   // Tutorial: nur über bekannte Orte (nicht über „Unbekanntes Signal“)
+      if (!frei) continue;
+      prev[n] = h; q.push(n);
+    }
+  }
+  if (!(zielHex in prev)) return null;
+  const out = [];
+  for (let h = zielHex; h && h !== vonHex; h = prev[h]) out.unshift(h);
+  return out;
+}
+
 // Nach einem normalen Sprung: die Route rückt nach, wenn die Lerche genau den nächsten Hop gesprungen ist, sonst verfällt sie
 function nachSprung(game, nachHex) {
   const p = game.reisePlan;
@@ -133,4 +157,4 @@ function snap(game) {
 }
 function reset(game) { game.reisePlan = null; game.reise = null; game._reiseOhne = 0; }
 
-module.exports = { planen, nachSprung, planGueltig, befehl, update, snap, reset, abfangen, fraktionArt };
+module.exports = { planen, weich, nachSprung, planGueltig, befehl, update, snap, reset, abfangen, fraktionArt };

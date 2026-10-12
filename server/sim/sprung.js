@@ -217,22 +217,33 @@ function selectDest(game, dest) {
   }
   if (id === game.ship.scene) return 'Da sind wir doch schon.';
   if (game.reise) return 'Schnellsprung läuft – Steuer: G bricht ab.';
-  let routeDest = null;
+  let routeDest = null; let routeN = 0;
   const here = hexHier(game); const ziel = Sektoren.hexVonOrt(id);
   if (zielwahlUeberOrtLinks(game)) {
     // Tutorial (E29): Ort-Links wie heute (Boje muss nicht bekannt sein); Leerraum/temporäre Kanten nach der Hex-Regel
     const beideOrte = !Sektoren.istLeerId(id) && !Sektoren.istLeerId(game.ship.scene);
     if (!ex.isLinked(game.ship.scene, id)) {
-      if (beideOrte && !ex.tempKante(Sektoren.kanteId(here, ziel))) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
-      const why = hexGrund(game, here, ziel);
-      if (why) return why;
+      if (beideOrte && !ex.tempKante(Sektoren.kanteId(here, ziel))) {
+        // nicht nebenan: der erste Hop der Route wird das Sprungziel („erst über einen Nachbarort“), kein Fehlerton
+        const hops = Reise().weich(game, here, ziel, true);
+        if (!hops || hops.length < 2) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
+        routeDest = Sektoren.ortVonHex(hops[0]); routeN = hops.length;
+      } else {
+        const why = hexGrund(game, here, ziel);
+        if (why) return why;
+      }
     }
   } else {
     const why = hexGrund(game, here, ziel);
     if (why) {   // nicht nebenan: Schnellsprung-Route über erkundete Sektoren (reise.js), erster Hop wird das Sprungziel
-      const hops = Sektoren.istLeerId(id) ? null : Reise().planen(game, here, ziel);
-      if (!hops || hops.length < 2) return why;
-      game.reisePlan = { ziel: id, hops }; routeDest = Sektoren.ortVonHex(hops[0]);
+      const leer = Sektoren.istLeerId(id);
+      const hops = leer ? null : Reise().planen(game, here, ziel);
+      if (hops && hops.length >= 2) { game.reisePlan = { ziel: id, hops }; routeDest = Sektoren.ortVonHex(hops[0]); }
+      else {   // Ziel oder Zwischensektor noch unerkundet: kein Schnellsprung, aber der nächste Sprung Richtung Ziel wird das Sprungziel
+        const weich = leer ? null : Reise().weich(game, here, ziel, false);
+        if (!weich || weich.length < 2) return why;
+        game.reisePlan = null; routeDest = Sektoren.ortVonHex(weich[0]); routeN = weich.length;
+      }
     } else game.reisePlan = null;
   }
   const why = game.mission.destBlocked(routeDest || id);
@@ -240,7 +251,8 @@ function selectDest(game, dest) {
   if (zielwahlUeberOrtLinks(game)) game.reisePlan = null;
   game.ship.jump.dest = routeDest || id; game._jumpAuto = false;
   game.emit('sfx', { name: 'jump_charge' });
-  game.missionEvent('destSelected', { dest: id });
+  game.missionEvent('destSelected', { dest: routeDest || id });
+  if (routeN) game.oda(`Nächster Sprung: ${Locations.get(routeDest).name} (Weg nach ${Locations.get(id).name}: ${routeN} Sprünge).`, null);
   return null;
 }
 
