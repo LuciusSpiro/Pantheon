@@ -27,13 +27,13 @@ function fraktionArt(game, hex) {
 // Route über erkundete Hexe und bekannte, offene Kanten (Breitensuche). -> [Hex …] ab dem ersten Hop bis zum Ziel | null
 function planen(game, vonHex, zielHex) {
   const ex = game.explore;
-  if (!vonHex || !zielHex || vonHex === zielHex || !ex.erkundet.has(zielHex)) return null;
+  if (!vonHex || !zielHex || vonHex === zielHex || !ex.hexErkundet(zielHex)) return null;
   const prev = { [vonHex]: null }; const q = [vonHex];
   while (q.length) {
     const h = q.shift();
     if (h === zielHex) break;
     for (const n of Sektoren.nachbarn(h)) {
-      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n) || !ex.erkundet.has(n) || !Sektoren.ortVonHex(n)) continue;
+      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n) || !ex.hexErkundet(n) || !Sektoren.ortVonHex(n)) continue;
       const id = Sektoren.kanteId(h, n);
       if (!ex.bojeBekannt(id) || !ex.kanteOffen(id)) continue;
       prev[n] = h; q.push(n);

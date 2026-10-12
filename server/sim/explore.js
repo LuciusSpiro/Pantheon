@@ -248,6 +248,16 @@ class Explore {
     if (ort && !Sektoren.istLeerId(ort) && this.known.has(ort)) return true;
     return this.erkundet.has(hex);
   }
+  // Nach dem Tutorial (gespielt oder übersprungen) gilt der Saumraum der Tutorial-Karte als erkundet (Schnellsprung, Sektorkarte); Weltstände
+  // ohne diese Hexe in welt.sektoren.erkundet profitieren ohne Migration.
+  tutKarte() { return this._tutKarte || (this._tutKarte = new Set(Locations.LOCATIONS.map((l) => Sektoren.hexVonOrt(l.id)).filter(Boolean))); }
+  hexErkundet(hex) {
+    if (this.erkundet.has(hex)) return true;
+    if (!this.tutKarte().has(hex)) return false;
+    const sp = require('./sprung.js');
+    const ws = this.game.weltstand;
+    return !!(ws && ws.persistent && !sp.tutorialLaeuft(this.game));
+  }
   erkunde(hex) {
     if (!hex || this.erkundet.has(hex)) return false;
     this.erkundet.add(hex); this.sektorVersion++;
@@ -348,7 +358,8 @@ class Explore {
   // Snapshot `world.sektoren` (CONTRACT-B3 §6): { e, b, t, o, v }; v ändert sich mit jeder Änderung an Hexen, Bojen und Orten
   sektorenVersion() { return this.sektorVersion + this.version; }
   sektorenSnapshot() {
-    return { e: [...this.erkundet], b: this.bojenBekannt().filter((id) => !this.tempKante(id)), t: this.temp.map((t) => t.id),
+    const e = new Set(this.erkundet); for (const h of this.tutKarte()) if (this.hexErkundet(h)) e.add(h);
+    return { e: [...e], b: this.bojenBekannt().filter((id) => !this.tempKante(id)), t: this.temp.map((t) => t.id),
       o: this.kantenOffen(), v: this.sektorenVersion() };
   }
 

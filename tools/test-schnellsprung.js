@@ -40,9 +40,9 @@ console.log('Route und Start');
 {
   const t = setup(); const g = t.g; const ziel = vorbereiten(t);
   ok(Reise.planen(g, '0206', '0406') && Reise.planen(g, '0206', '0406').join() === '0306,0406', 'Route über den erkundeten Splittergürtel');
-  g.explore.erkundet.delete('0406');
+  g.explore.erkundet.delete('0406'); g.explore._tutKarte = new Set();   // Tutorial-Karte aus: nur echte Besuche zählen
   ok(Reise.planen(g, '0206', '0406') === null, 'unerkundetes Ziel: keine Route');
-  g.explore.erkunde('0406');
+  g.explore.erkunde('0406'); g.explore._tutKarte = undefined;
   ok(Sprung.selectDest(g, ziel) === null && g.reisePlan && g.reisePlan.hops.join() === '0306,0406', 'selectDest auf einen entfernten, erkundeten Sektor legt die Route an');
   ok(g.ship.jump.dest === 'splitter', 'erster Hop ist das Sprungziel');
   t.run(40);
@@ -62,10 +62,23 @@ console.log('Route und Start');
 console.log('Zielwahl über mehrere Sprünge (unerkundete Zwischensektoren)');
 {
   const t = setup(); const g = t.g; const ziel = Sektoren.ortVonHex('0307');   // Graue Weite: vom Hafen aus nicht nebenan offen
+  g.explore._tutKarte = new Set();   // nichts erkundet außer dem Hafen
   const e = Sprung.selectDest(g, ziel);
   ok(e === null && g.ship.jump.dest && g.ship.jump.dest !== ziel, 'entfernter Sektor: kein Fehler, der nächste Sprung wird das Ziel (' + g.ship.jump.dest + ')');
   ok(!g.reisePlan, 'unerkundet: keine Schnellsprung-Route');
   ok(Sprung.selectDest(g, 'leer-0106') !== null, 'unerreichbares Ziel meldet weiter einen Grund');
+}
+
+console.log('Kampagne ohne Tutorial: Saumraum der Tutorial-Karte gilt als erkundet');
+{
+  const t = setup(); const g = t.g;
+  ok(g.explore.hexErkundet('0307') && g.explore.hexErkundet('0207'), 'Graue Weite und Vaelen erkundet (ohne Besuch)');
+  ok(g.explore.sektorenSnapshot().e.includes('0307'), 'Snapshot meldet sie als erkundet');
+  ok(Reise.planen(g, '0206', '0307') && Reise.planen(g, '0206', '0307').length === 2, 'Route Hafen -> Graue Weite: 2 Sprünge');
+  const p = Sprung.sprungpunkt(g, '0207'); place(g, p.x - 80, p.y); t.run(0.5);
+  ok(Sprung.selectDest(g, Sektoren.ortVonHex('0307')) === null && g.reisePlan && g.reisePlan.hops.join() === '0207,0307', 'Schnellsprung-Route angelegt (statt nur nächster Sprung)');
+  t.run(40); ok(Reise.befehl(g) === null, 'Schnellsprung startet');
+  t.run(8.5); ok(g.ship.scene === 'nebel' && !g.reise, 'Graue Weite in 2 × 4 s erreicht');
 }
 
 console.log('Abbruch');
