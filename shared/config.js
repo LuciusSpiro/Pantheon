@@ -57,17 +57,17 @@
       // (solo 0,5 / zu zweit, zu dritt 0,7) und spaceM3.enemyHpFactor 0,8 multipliziert – mit 36 hatte ein Jäger zu dritt
       // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
       // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
-      raider: { hp: 44, speed: 120, fireInterval: 2.5, damage: 1, range: 400, salvage: 20 },
+      raider: { hp: 44, speed: 120, fireInterval: 1.9, damage: 1, range: 400, salvage: 20 },
       // QA M3a: fireInterval 3 -> 4 (Ladung beginnt seltener; im Browser zu dritt kostete eine Korvetten-Welle bis 60 Hülle)
-      korvette: { hp: 40, speed: 50, fireInterval: 4, damage: 2, range: 500, salvage: 60 },
+      korvette: { hp: 40, speed: 50, fireInterval: 3.1, damage: 2, range: 500, salvage: 60 },
       // EK1b: Fregatte (`X==>`) und Kreuzer (`X===>`): mehr Hülle, langsamer; Schaden/Takt wie die Korvette (jeder Seitenbereich
       // trägt eine eigene Waffe, die Breitseite wächst über die Plätze – siehe waffenMehr)
-      fregatte: { hp: 90, speed: 40, fireInterval: 4, damage: 2, range: 500, salvage: 140 },
-      kreuzer: { hp: 150, speed: 32, fireInterval: 4, damage: 2, range: 520, salvage: 240 },
+      fregatte: { hp: 90, speed: 40, fireInterval: 3.1, damage: 2, range: 500, salvage: 140 },
+      kreuzer: { hp: 150, speed: 32, fireInterval: 3.1, damage: 2, range: 520, salvage: 240 },
       relay: { hp: 2, speed: 30, fireInterval: 999, damage: 0, range: 0, salvage: 5 },   // Störrelais der Boje (schießt nicht)
       // M1: Kustoden-Wächter (EMP) und Pylonen (Frontschild, dreht langsam)
-      sentinel: { hp: 18, speed: 35, fireInterval: 3.2, damage: 1, range: 330, salvage: 80, emp: true },
-      pylon: { hp: 8, speed: 0, fireInterval: 3.5, damage: 1, range: 460, salvage: 25, turnRate: 0.15 },
+      sentinel: { hp: 18, speed: 35, fireInterval: 2.5, damage: 1, range: 330, salvage: 80, emp: true },
+      pylon: { hp: 8, speed: 0, fireInterval: 2.7, damage: 1, range: 460, salvage: 25, turnRate: 0.15 },
       // EK3 Teil B: Transporter des Konvois (Klasse frachter, unbewaffnet: kein Feuer, kein Waffenplatz). Hülle wie die Korvette, Fahrt über shipClasses.frachter
       frachter: { hp: 40, speed: 45, fireInterval: 999, damage: 0, range: 0, salvage: 40 },
     },
@@ -473,9 +473,9 @@
       enemyHpFactor: 0.8, reactorBrokenOutput: 2, centreChance: 0.15, sectorWeight: 3, neighbourWeight: 1,
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
-        bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 24, damagedFactor: 1.5 },
-        port: { facing: -90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 16, salvoGap: 0.15 },
-        stbd: { facing: 90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 16, salvoGap: 0.15 },
+        bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
+        port: { facing: -90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
+        stbd: { facing: 90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
       },
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,
@@ -490,7 +490,7 @@
       // ---- §20 Nachrunde (Kais Test) ----
       dodgeWindow: 0.8,   // s: endet eine Ladung so kurz nach einem Ausweichen, verfehlt der schwere Treffer
       // Lanze als Ladewaffe (ersetzt Zielphase; mounts.bow.damage und aim* sind nur noch Altnamen)
-      lance: { chargeTime: 3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
+      lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
       batteryBeamTtl: 0.4,   // s: Lebensdauer eines Batterie-Strahls (vorher beamTtl × 0,6 = 0,15 s – im Client unsichtbar, §20.1)
       // ---- §21.1 Allstopp (cmd helm.stop): Bremsleistung in px/s², Standard = ship.accel (50). Kein Wert -> ship.accel.
       fullStop: { brake: 50 },
@@ -584,7 +584,7 @@
       // (Arena-Bots: 6–16 Gegnerschüsse je 6-Wellen-Lauf, ~1 von 10 traf). fireInterval bleibt 2,5 (= enemies.raider):
       // kürzere Intervalle (0,6/1,5 getestet) machten „Nase drauf“ und „Breitseite“ gleich teuer, und im Browser kippten
       // Korvetten-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
-      pilotFire: { raider: { fireInterval: 2.5, lead: 1 } },
+      pilotFire: { raider: { fireInterval: 1.9, lead: 1 } },
     },
     // Raumszenen (px im Taktik-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {

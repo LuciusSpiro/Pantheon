@@ -95,11 +95,25 @@ function main() {
   }
 
   // ------------------------------------------------------------------------------------------------------------
+  section('Sprungpunkt-Automatik (Kampagne ohne Tutorial): kein Zielwahl-Zwang');
+  {
+    const t = setup('free'); const g = t.g; const j = g.ship.jump;
+    place(g, 1200, 700); clearEnemies(g); g.step();
+    ok(j.dest === null && !!j.blockedReason, 'weit weg vom Sprungpunkt: kein Ziel');
+    const p = jpOf(g, '0306'); place(g, p.x - 100, p.y); g.step();
+    ok(j.dest === 'splitter', 'im Radius: Sprungpunkt wird von selbst Ziel (ohne selectDest)');
+    ok(g.explore.bojeBekannt('0206-0306'), 'Boje gilt als gefunden');
+    for (let i = 0; i < 30 * 40 && !j.ready; i++) g.step();
+    ok(j.ready && Sprung.doJump(g) === null && g.ship.scene === 'splitter', 'Leiste voll: Sprung möglich');
+    for (let i = 0; i < 60; i++) g.step();
+    ok(j.dest === null && !j.ready, 'Ankunft am Gegen-Sprungpunkt: kein Rücksprung-Ziel, bis die Lerche ihn verlassen hat');
+  }
+
   section('Freies Spiel (Kampagne ohne Tutorial): offene Kanten, Anflug, Ankunft am Sprungpunkt');
   {
     const t = setup('free'); const g = t.g; const ex = g.explore;
     ok(g.weltstand.data.tutorial === 'uebersprungen' && Sprung.anflugPflicht(g), 'Kampagne ohne Tutorial: Anflugpflicht');
-    place(g, 1200, 300); clearEnemies(g);
+    place(g, 1200, 700); clearEnemies(g);
     ok(Sprung.selectDest(g, 'splitter') === null, 'Hafen -> Splittergürtel (bekannte, offene Kante)');
     g.step();
     ok(/^Sprungpunkt Splittergürtel anfliegen \(\d+ m\)$/.test(g.ship.jump.blockedReason || ''), `Grund: „${g.ship.jump.blockedReason}“`);

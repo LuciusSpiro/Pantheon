@@ -2454,10 +2454,10 @@
   const MARKER_COL = { captain: PAL.mint, tactical: PAL.amber };
   const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'TAKTIK' };
   const HIDDEN_NAMES = { cache: 'VERSTECK', beacon: 'LEITBAKE', lore: 'LORE-BAKE', hollow: 'HOHLRAUM' };
-  const STATION_ART = { station: 'port', buoy: 'buoy', vaelen: 'vaelen', wreck: 'wreck', relay: 'relay', moon: 'moon' };
-  const STATION_LABEL = { station: 'HAFEN', buoy: 'BOJE B-7', vaelen: 'VAELEN-KARAWANE', wreck: 'WRACK', relay: 'KUSTODEN-RELAIS', moon: 'MOND KESH' };
+  const STATION_ART = { station: 'port', buoy: 'buoy', vaelen: 'vaelen', wreck: 'wreck', relay: 'relay', moon: 'moon', planet: 'planet' };
+  const STATION_LABEL = { station: 'HAFEN', buoy: 'BOJE B-7', vaelen: 'VAELEN-KARAWANE', wreck: 'WRACK', relay: 'KUSTODEN-RELAIS', moon: 'MOND KESH', planet: 'PLANET' };
   // Kurzformen für Randpfeile und Kartenlabels (QA M1: weniger Überlappung)
-  const STATION_SHORT = { station: 'HAFEN', buoy: 'B-7', vaelen: 'VAELEN', wreck: 'WRACK', relay: 'RELAIS', moon: 'KESH' };
+  const STATION_SHORT = { station: 'HAFEN', buoy: 'B-7', vaelen: 'VAELEN', wreck: 'WRACK', relay: 'RELAIS', moon: 'KESH', planet: 'PLANET' };
   const ENEMY_SHORT = { sentinel: 'WÄCHTER', korvette: 'KORVETTE' };
   const MOUNT_LABEL = { phase_l: 'PHASE L', phase_r: 'PHASE R', lanze: 'LANZE', bolzen: 'BOLZEN', seitenturm: 'TURM', bow: 'LANZE', port: 'BATTERIE BB', stbd: 'BATTERIE STB' };
   // M3a: Halterung -> System (Zustand), Sektor-Kürzel
@@ -2481,7 +2481,7 @@
   // Hauptobjekt der Szene als Ziel (Server: weapons.target 'station'; Scan an B-7/Wrack legt den Decksplan auf den Tisch)
   function stationOf(space) {
     const m = ((space && space.markers) || []).find(q => q.kind !== 'dock' && STATION_ART[q.kind]);
-    return m ? { id: 'station', kind: m.kind, x: m.x, y: m.y, station: true, name: STATION_LABEL[m.kind] } : null;
+    return m ? { id: 'station', kind: m.kind, x: m.x, y: m.y, station: true, name: m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind] } : null;
   }
   function markersOf(st) { const m = (st && st.ship && st.ship.markers) || {}; return { captain: m.captain || null, tactical: m.tactical || null }; }
   function pinColor(st, pin) {
@@ -2544,7 +2544,16 @@
     }
     ctx.restore();
   }
-  function fbStation(ctx, kind, t) {
+  function fbStation(ctx, kind, t, m) {
+    if (kind === 'planet') {   // Planet mit Bodenstation (Methalle, Eisenwald): Kugel mit Atmosphäre, Farbe nach Namen
+      const r = (m && m.r) || 170; const warm = !!(m && /eisen/i.test(m.name || ''));
+      const g = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r);
+      g.addColorStop(0, warm ? '#9C7A4E' : '#7C8F7A'); g.addColorStop(0.65, warm ? '#6B4E33' : '#4E5E55'); g.addColorStop(1, warm ? '#2E2218' : '#222B2B');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = warm ? 'rgba(214,170,110,0.35)' : 'rgba(160,200,190,0.35)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, r + 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)'; for (const [cx, cy, cr] of [[-40, 30, 36], [50, -40, 26], [20, 70, 20], [-70, -50, 18]]) { ctx.beginPath(); ctx.arc(cx * r / 170, cy * r / 170, cr * r / 170, 0, Math.PI * 2); ctx.fill(); }
+      return;
+    }
     if (kind === 'vaelen') {
       ctx.fillStyle = '#5E8C4A'; ctx.beginPath(); ctx.moveTo(70, 0); ctx.lineTo(-50, -34); ctx.lineTo(-30, 0); ctx.lineTo(-50, 34); ctx.closePath(); ctx.fill();
       ctx.fillStyle = PAL.brass; ctx.fillRect(-20, -8, 40, 16);
@@ -3473,10 +3482,10 @@
         const k = STATION_ART[m.kind];
         const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE : 1);
         ctx.save(); ctx.translate(s.x, s.y); ctx.scale(stScale, stScale);
-        if (!artStation(ctx, k, 0, 0, { time: t })) fbStation(ctx, m.kind, t);
+        if (!artStation(ctx, k, 0, 0, { time: t })) fbStation(ctx, m.kind, t, m);
         ctx.restore();
-        const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : 70) * stScale) + 2;
-        mLab(STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
+        const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : (m.kind === 'moon' || m.kind === 'planet') ? (m.r || 170) : 70) * stScale) + 2;
+        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
           const sc = (CFG.scenes && CFG.scenes.buoy) || {};

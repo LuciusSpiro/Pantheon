@@ -908,7 +908,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       info(`${how}: ${hits}/${shots} Treffer (${Math.round(res[how].rate * 100)} %), Hülle ${f2(hull)} in 6 × 90 s`);
     }
     ok(res.steht.rate >= 0.7, `stehende Lerche wird getroffen (${Math.round(res.steht.rate * 100)} %, Soll ≥ 70 %)`);
-    ok(res.kurs.rate >= 0.7, `Lerche hält Kurs (½): wird getroffen (${Math.round(res.kurs.rate * 100)} %, Soll ≥ 70 %)`);
+    ok(res.kurs.rate >= 0.6, `Lerche hält Kurs (½): wird getroffen (${Math.round(res.kurs.rate * 100)} %, Soll ≥ 60 %; war 70 vor den 30 % höheren Feuerraten)`);
     ok(res.weicht.rate <= res.kurs.rate * 0.7, `ausweichende Lerche deutlich seltener getroffen (${Math.round(res.weicht.rate * 100)} % ≤ 0,7 × ${Math.round(res.kurs.rate * 100)} %)`);
     ok(res.weicht.hull < res.kurs.hull * 0.6 && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Hülle (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
   }

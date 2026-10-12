@@ -90,12 +90,46 @@ function hexGrund(game, here, ziel) {
   return null;
 }
 
+// Sprungpunkt-Automatik (außerhalb des Tutorials): Wer nah genug an einem nutzbaren Sprungpunkt ist, hat ihn als Ziel – ohne
+// Zielwahl des Captains (die Sternkarte bleibt Übersicht und Weg-Hilfe). Die Boje gilt dann als gefunden. Den Sprungpunkt der
+// Kante, über die man gerade angekommen ist, ignoriert sie, bis die Lerche ihn einmal verlassen hat (kein Rücksprung aus Versehen).
+function autoZiel(game) {
+  const ex = game.explore; const here = hexHier(game);
+  if (!here) return null;
+  const r = SK(game).sprungpunktRadius || 250;
+  let best = null;
+  for (const e of Sektoren.kantenVon(here)) {
+    const other = Sektoren.anderes(e, here); const id = Sektoren.kanteId(here, other);
+    if (!ex.tempKante(id) && e.art !== 'open' && e.art !== 'locked') continue;
+    const p = sprungpunkt(game, other); if (!p) continue;
+    const d = dist(game.ship.x, game.ship.y, p.x, p.y);
+    if (game._jumpSperre === id) { if (d > r) game._jumpSperre = null; else continue; }
+    if (d > r) continue;
+    ex.markBoje(id);
+    if (hexGrund(game, here, other)) continue;
+    const ort = Sektoren.ortVonHex(other);
+    if (!ort || !Locations.get(ort) || game.mission.destBlocked(ort)) continue;
+    if (!best || d < best.d) best = { d, ort };
+  }
+  return best ? best.ort : null;
+}
+function jumpAutomatik(game) {
+  const j = game.ship.jump;
+  if (tutorialLaeuft(game)) return;   // Tutorial: Zielwahl wie bisher (m1–m3 fragen danach)
+  const a = autoZiel(game);
+  if (a) {
+    if (j.dest !== a) { j.dest = a; j.charge = 0; j.ready = false; game.missionEvent('destSelected', { dest: a }); }
+    game._jumpAuto = true;
+  } else if (game._jumpAuto) { game._jumpAuto = false; if (j.dest) { j.dest = null; j.charge = 0; j.ready = false; } }
+}
+
 // ---------- Reisen / Faltsprung (§9.2) ----------
 function jammersPresent(game) { return game.space.enemies.some((e) => JAMMERS.includes(e.kind)); }
 
 function updateJump(game, dt) {
   const C = game.C; const ship = game.ship; const j = ship.jump;
   const loc = Locations.get(ship.scene); const sc = loc.scene;
+  jumpAutomatik(game);
   // B3 Snapshot: Kante des gewählten Ziels und Abstand zu ihrem Sprungpunkt
   const zielHex = j.dest ? Sektoren.hexVonOrt(j.dest) : null; const here = hexHier(game);
   let anflug = null;
@@ -106,7 +140,7 @@ function updateJump(game, dt) {
     if (p && anflugPflicht(game) && j.d > (SK(game).sprungpunktRadius || 250)) anflug = `Sprungpunkt ${Sektoren.hexName(zielHex)} anfliegen (${j.d} m)`;
   } else { if (j.jp !== undefined) delete j.jp; if (j.d !== undefined) delete j.d; }
   let reason = null;
-  if (!j.dest) reason = 'Kein Sprungziel gewählt (Captain, Sternkarte).';
+  if (!j.dest) reason = tutorialLaeuft(game) ? 'Kein Sprungziel gewählt (Captain, Sternkarte).' : 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.';
   else if (ship.docked) reason = 'Erst ablegen.';
   else if (isDown(ship.systems.engines)) reason = 'Antrieb ausgefallen – reparieren.';
   else if (ship.power.engines <= 0) reason = 'Antrieb ohne Energie.';
@@ -135,6 +169,8 @@ function doJump(game) {
   const from = game.ship.scene;
   const vonHex = Sektoren.hexVonOrt(from), nachHex = Sektoren.hexVonOrt(dest);
   const pflicht = anflugPflicht(game);
+  game._jumpAuto = false;
+  if (vonHex && nachHex) game._jumpSperre = Sektoren.kanteId(vonHex, nachHex);   // Gegen-Sprungpunkt der Ankunft: erst verlassen, dann wieder Ziel
   game.emit('sfx', { name: 'jump' });
   space().enterScene(game, dest, {});
   // B3 §4 Ankunft: am Sprungpunkt der Gegenkante, Blick in Flugrichtung (seit W1 auch im Tutorial)
@@ -187,7 +223,7 @@ function selectDest(game, dest) {
   }
   const why = game.mission.destBlocked(id);
   if (why) return why;
-  game.ship.jump.dest = id;
+  game.ship.jump.dest = id; game._jumpAuto = false;
   game.emit('sfx', { name: 'jump_charge' });
   game.missionEvent('destSelected', { dest: id });
   return null;

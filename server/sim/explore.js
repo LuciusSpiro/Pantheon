@@ -404,6 +404,13 @@ class Explore {
       if (known) e.found = l.hidden.filter((h) => this.isRevealed(h.id)).map((h) => ({ id: h.id, kind: h.kind, name: h.name, done: this.isFound(h.id) }));
       out.push(e);
     }
+    // EK7: bekannte Orte aus Daten (gen-Hexe, nicht in LOCATIONS) – ohne sie kann der Captain Statio Limitis & Co. nicht als Sprungziel wählen
+    for (const id of Sektoren.datenOrte()) {
+      if (!this.known.has(id)) continue;
+      const l = Locations.get(id); if (!l) continue;
+      out.push({ id, name: l.name, kind: l.kind, x: l.x, y: l.y, known: true, visited: this.visited.has(id), links: [], unknown: false, fog: !!l.fog,
+        desc: l.desc, discoveries: { found: 0, total: 0 } });
+    }
     return out;
   }
   hiddenSnapshot() {

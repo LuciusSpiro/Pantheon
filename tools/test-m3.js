@@ -156,7 +156,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(port && ['salvo', 'salvoMax', 'state', 'charge'].every((k) => k in port) && !('hold' in port) && port.salvoMax === 4 && port.salvo === 0, 'Batterien: salvo 0, salvoMax 4, kein hold (§20.4)');
   ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves', 'dodges', 'dodgeEvades'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves, dodges, dodgeEvades = 0');
   ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 7 && CONFIG.ship.dodgeImpulse === 350 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10/§20.2 (Ausweichen 350/7)');
-  ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
+  ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 2.3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
   ok(CONFIG.shop.find((x) => x.id === 'seitenturm').name === 'Zusatzrohre' && CONFIG.shop.find((x) => x.id === 'seitenturm').price === 300, 'Shop: Zusatzrohre 300');
   // M4 (Studioleitung): Budget 12 → 13 KB, weil deck/lift/kit/loreRead dazukamen (gemessen 12.311 B mit Missionsbuch)
   ok(Buffer.byteLength(JSON.stringify(s)) < CONFIG.net.snapMax, 'Snapshot < CONFIG.net.snapMax');

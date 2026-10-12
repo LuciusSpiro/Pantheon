@@ -113,6 +113,7 @@ function enterScene(game, locId, opts) {
   ship.lastDodgeT = -99;
   for (const k of BATTERIES) { ship.mount[k].salvo = 0; ship.mount[k].salvoTarget = null; }
   ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false;
+  game._jumpAuto = false;
   ship.target = null;
   ship.markers = { captain: null, tactical: null };
   ship.tscan = { targetId: null, progress: 0, on: false, at: 0 };
@@ -124,7 +125,7 @@ function enterScene(game, locId, opts) {
   sp.salvage = [];
   sp.markers = [];
   Alarm.szeneBetreten(game);   // EK2: Alarm und Minen gelten je Szene
-  if (sc.station) sp.markers.push({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r });
+  if (sc.station) sp.markers.push(Object.assign({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r }, sc.station.name ? { name: sc.station.name } : {}));   // name: Planeten-Stationen (Methalle, Eisenwald) tragen ihren Namen
   if (sc.dock) sp.markers.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: C.travel.dockDist });
   ship.asteroidImmune = {};
   game.asteroidsDirty = true;

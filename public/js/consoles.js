@@ -175,7 +175,7 @@
         return null;
       }
       const space = st.space || {};
-      const target = (space.markers || []).find(m => m.kind === 'buoy' || m.kind === 'wreck' || m.kind === 'moon');
+      const target = (space.markers || []).find(m => m.kind === 'buoy' || m.kind === 'wreck' || m.kind === 'moon' || m.kind === 'planet');
       const sc = (CFG.scenes && CFG.scenes.buoy) || {};
       if (!target) return 'Kein Landeziel in der Nähe (Boje B-7, Wrack oder Mond Kesh)';
       const SL = window.Shared_Locations;
@@ -1576,11 +1576,7 @@
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
       this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
-      const away = st.away || {};
-      if (away.active) {
-        const amap = R.mapFor('away', st);
-        R.drawMiniPlan(ctx, view, rect.x + 4, rect.y + rect.h - amap.h * 3 - 4, { zone: 'away', cell: 3 });
-      }
+      const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Taktik)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
       const rx = 420, rw = 206;
