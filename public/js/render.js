@@ -3836,10 +3836,63 @@
     return { toS, toW, zoom, cx, cy, markersLayer };
   }
 
+  // Schnellsprung unterwegs (Server: ship.jump.reise { i, n, p, ziel }): statt des Sektors läuft eine Hyperraum-Animation, in der Mitte
+  // stehen die Zahl der noch zu springenden Sektoren und die Zeit bis zur Ankunft. Gilt für Steuer (Frontsicht), Taktik und Captain-Lage.
+  function hyperraum(ctx, view, rect) {
+    const st = view.state, j = (st.ship && st.ship.jump) || {}, rs = j.reise;
+    if (!rs) return false;
+    const t = view.time || 0;
+    const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, R0 = Math.hypot(rect.w, rect.h) / 2;
+    ctx.save(); ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
+    const bg = ctx.createRadialGradient(cx, cy, 4, cx, cy, R0);
+    bg.addColorStop(0, '#26224d'); bg.addColorStop(0.45, '#12142e'); bg.addColorStop(1, '#070914');
+    ctx.fillStyle = bg; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    // Tunnelringe: laufen von innen nach außen, pro Sektor etwas schneller wirkend
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 6; k++) {
+      const q = ((t * 0.55 + k / 6) % 1), r = Math.pow(q, 2.1) * R0;
+      ctx.strokeStyle = 'rgba(127,224,194,' + (0.05 + 0.3 * q * (1 - q)).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    // Sternstreifen: radial aus der Mitte, nach außen länger und heller
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 90; k++) {
+      const h1 = Math.sin(k * 127.1 + 1.7) * 43758.5453, h2 = Math.sin(k * 311.7 + 9.2) * 24634.6345;
+      const ang = (h1 - Math.floor(h1)) * Math.PI * 2, ph = h2 - Math.floor(h2), sp = 0.9 + ph * 0.9;
+      const q = ((t * 0.9 * sp + ph) % 1);
+      const r1 = Math.pow(q, 2.4) * R0, r2 = Math.pow(Math.min(1, q + 0.06 + q * 0.12), 2.4) * R0;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      ctx.strokeStyle = (k % 5 === 0 ? 'rgba(255,198,107,' : k % 3 === 0 ? 'rgba(160,140,255,' : 'rgba(215,240,255,') + (0.15 + 0.8 * q).toFixed(3) + ')';
+      ctx.lineWidth = 0.6 + q * 1.8;
+      ctx.beginPath(); ctx.moveTo(cx + c * r1, cy + s * r1 * 0.78); ctx.lineTo(cx + c * r2, cy + s * r2 * 0.78); ctx.stroke();
+    }
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(rect.w, rect.h) * 0.35);
+    glow.addColorStop(0, 'rgba(180,200,255,0.30)'); glow.addColorStop(1, 'rgba(180,200,255,0)');
+    ctx.fillStyle = glow; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.restore();
+    // Anzeige in der Mitte
+    const hop = (CFG.reise && CFG.reise.hopZeit) || 4;
+    const rest = Math.max(1, (rs.n || 1) - (rs.i || 0));   // Sektoren, die noch zu springen sind (der laufende zählt mit)
+    const eta = Math.max(0, Math.ceil(((rs.n || 1) - (rs.i || 0) - (rs.p || 0)) * hop));
+    const SS = window.Shared_Sektoren;
+    const zielName = SS && SS.hexName && rs.ziel ? SS.hexName(rs.ziel) : (rs.ziel || '');
+    const bw = Math.min(rect.w - 20, 230), bh = 74, bx = Math.round(cx - bw / 2), by = Math.round(cy - bh / 2);
+    ctx.fillStyle = 'rgba(8,10,24,0.72)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    text(ctx, 'SCHNELLSPRUNG', cx, by + 5, { color: PAL.mint, align: 'center' });
+    text(ctx, rest + (rest === 1 ? ' SEKTOR' : ' SEKTOREN'), cx, by + 17, { color: PAL.star, align: 'center', scale: 2 });
+    text(ctx, 'Ankunft in ' + eta + ' s', cx, by + 38, { color: PAL.amber, align: 'center' });
+    text(ctx, 'Ziel: ' + zielName, cx, by + 49, { color: PAL.panelLight, align: 'center' });
+    ctx.fillStyle = 'rgba(244,238,220,0.15)'; ctx.fillRect(bx + 10, by + bh - 12, bw - 20, 4);
+    ctx.fillStyle = PAL.mint; ctx.fillRect(bx + 10, by + bh - 12, Math.round((bw - 20) * Math.min(1, (((rs.i || 0) + (rs.p || 0)) / Math.max(1, rs.n || 1)))), 4);
+    return true;
+  }
+
   // Taktik/Lage: Karte mit Schiff in der Mitte, Norden oben. opts = { zoom, arcs, intel, enemyRects, showRanges }
   function drawTactical(ctx, view, rect, opts) {
     opts = opts || {};
     const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35, rot: 0 }, opts));
+    hyperraum(ctx, view, rect);   // Schnellsprung: statt der Sektorkarte die Hyperraum-Animation
     ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     return res;
   }
@@ -3866,6 +3919,7 @@
       text(ctx, 'NEBEL – SICHT HALBIERT', cx, win.y + 4, { color: PAL.ice, align: 'center' });
     }
     res.markersLayer();
+    hyperraum(ctx, view, win);   // Schnellsprung: Hyperraum im Cockpitfenster
     // Cockpitfenster: Messingrahmen, abgeschrägte Ecken, Streben
     ctx.fillStyle = '#121822';
     ctx.beginPath(); ctx.moveTo(win.x, win.y); ctx.lineTo(win.x + 18, win.y); ctx.lineTo(win.x, win.y + 18); ctx.closePath(); ctx.fill();
@@ -4225,7 +4279,7 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    drawSpace, drawFrontView, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    drawSpace, drawFrontView, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
