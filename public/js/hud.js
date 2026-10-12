@@ -1032,7 +1032,7 @@
       });
       ly += 52;
       R.text(ctx, (st.world ? 'Ort: ' + R.locName(st, R.worldOf(st).location) : 'Abschnitt: ' + ((st.mission && st.mission.stage) || '-')) + '   Spielzeit: ' + fmtTime(st.stats && st.stats.elapsed != null ? st.stats.elapsed : st.time), x + 10, ly, { color: PAL.panelLight });
-      R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
+      R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
 
     // ---------------------------------------------------------------- Lobby (Canvas; Name per DOM-Input)
@@ -1338,7 +1338,7 @@
       R.text(ctx, o.saved === false ? 'Speichern im Browser nicht möglich – gilt bis zum Neuladen.' : 'Wird in diesem Browser gespeichert (Vollbild nicht).', VW / 2, y + h - 13, { color: o.saved === false ? PAL.warn : PAL.panelLight, align: 'center' });
     },
     CONTROLS: [
-      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · R Minispiel an einer Station · Tab Crew · Esc Menü'],
+      ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
       ['Taktik', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],

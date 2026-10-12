@@ -756,6 +756,31 @@ function zielRumpf(a, zielYaw) {
   torso.rotation.y += tw;
 }
 
+// Schubs: Betäubte wackeln, drei kleine gelbe Enten kreisen um den Kopf (nur Darstellung, Zustand kommt vom Server: players[].stun)
+function stunFx(a, on, t) {
+  const T = L.THREE;
+  if (!on) { if (a.stunDucks) a.stunDucks.visible = false; if (a.stunTilt) { a.body.rotation.z = 0; a.stunTilt = false; } return; }
+  if (!a.stunDucks) {
+    const g = new T.Group(); g.name = 'stunDucks';
+    const yel = new T.MeshStandardMaterial({ color: 0xF2C230, roughness: 0.8 }), org = new T.MeshStandardMaterial({ color: 0xE8731A, roughness: 0.8 });
+    for (let i = 0; i < 3; i++) {
+      const d = new T.Group();
+      const body = new T.Mesh(new T.BoxGeometry(4 * VX, 3 * VX, 3 * VX), yel); const head = new T.Mesh(new T.BoxGeometry(2 * VX, 2 * VX, 2 * VX), yel);
+      const beak = new T.Mesh(new T.BoxGeometry(1.5 * VX, 0.8 * VX, 1.4 * VX), org);
+      head.position.set(2 * VX, 2.2 * VX, 0); beak.position.set(3.6 * VX, 2 * VX, 0);
+      d.add(body, head, beak); g.add(d);
+    }
+    a.container.add(g); a.stunDucks = g;
+  }
+  a.stunDucks.visible = true; a.stunTilt = true;
+  a.stunDucks.position.y = 33 * VX;   // über dem Kopf
+  a.stunDucks.children.forEach((d, i) => {
+    const ang = t * 5 + i * (Math.PI * 2 / 3);
+    d.position.set(Math.cos(ang) * 7 * VX, Math.sin(t * 9 + i) * 0.8 * VX, Math.sin(ang) * 7 * VX);
+    d.rotation.y = -ang;   // Schnabel in Flugrichtung
+  });
+  a.body.rotation.z = Math.sin(t * 14) * 0.1;   // Wackeln
+}
 function updatePlayer(p, view, st, dt, t) {
   const zone = zoneOfCtx();
   const inShip = zone === 'ship';
@@ -838,6 +863,7 @@ function updatePlayer(p, view, st, dt, t) {
   else if (ks && !ks.base && !busy && !upper) { const rp = ruhePose(a, p.wf, null); if (rp) upper = rp; }   // Ruhe mit Lanze: rest_upright
   pose(a, { base, upper, walk: walkW, phase: a.phase, t, special }, dt);
   if (zielYaw != null) zielRumpf(a, zielYaw);
+  stunFx(a, !!p.stun, t);
   if (b2) {
     // B2: Waffe der Crew (Bauweise rom), Hitze 0–3, Fessel; Getragenes und Halteaktionen gehen vor
     const busyHand = p.carry || (p.action && p.action.kind !== 'beam');

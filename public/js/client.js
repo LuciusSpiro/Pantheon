@@ -689,7 +689,7 @@
     const m = me();
     const self = Client.self;
     if (!m) return;
-    if (!self.init || m.zone !== self.zone || m.console || m.downed || m.lift || s.phase === 'lobby' || !isFinite(m.x)) {   // M4: während der Liftfahrt keine Vorhersage
+    if (!self.init || m.zone !== self.zone || m.console || m.downed || m.lift || m.stun || s.phase === 'lobby' || !isFinite(m.x)) {   // M4: während der Liftfahrt keine Vorhersage
       const jump = !self.init || m.zone !== self.zone;
       self.x = +m.x || 0; self.y = +m.y || 0; self.zone = m.zone || 'ship';
       if (!Client.lastSent.mx && !Client.lastSent.my) self.dir = m.dir || self.dir;
@@ -1900,6 +1900,7 @@
       }
       case 'KeyE': if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); } break;
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
+      case 'KeyV': if (m.zone === 'ship' && !m.downed && !m.stun) send({ t: P.C.SCHUBS || 'schubs' }); break;   // Schubs: Mitspieler betäuben bzw. von der Konsole holen
       case 'Space': shoot(); Client.fireHeld.key = true; break;
       case 'KeyC': toggleCrouch(); break;   // M2 §15: ducken (nur Außenzone auf v2-Karten)
       case 'KeyQ':
@@ -1982,7 +1983,7 @@
     if (Client.view && m.console) Net.guard('Consoles.update', () => K.update(dt, Client.view));
 
     Net.guard('Client.minigame', () => updateMinigame(dt));
-    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused && !Client.chapter;
+    const canMove = st.phase !== 'lobby' && !m.console && !m.downed && !m.lift && !m.stun && Net.isOpen() && self.init && !Client.minigame && !uiTop() && !st.paused && !Client.chapter;
     let { mx, my } = canMove ? moveAxes() : { mx: 0, my: 0 };
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }

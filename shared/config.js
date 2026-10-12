@@ -14,7 +14,9 @@
     view: { w: 640, h: 360 }, // interne Auflösung
     tile: 32,
 
-    player: { speed: 96, hp: 100, reviveTime: 3, autoReviveTime: 15, hitbox: { w: 18, h: 12 }, revivedHp: 50, carrySpeedFactor: 0.85 },
+    player: { speed: 96, hp: 100, reviveTime: 3, autoReviveTime: 15, hitbox: { w: 18, h: 12 }, revivedHp: 50, carrySpeedFactor: 0.85,
+      // Schubs (Spieltest 2026-10-12): Spaß-Mechanik an Bord – kein Schaden. Betäubung und Abklingzeit in s, Reichweite in Kacheln, Rückstoß in Kacheln
+      schubs: { reichweite: 1.6, betaeubung: 1.0, abklingzeit: 3, rueckstoss: 0.5 } },
     // R1 §4.5: Automatik nur bei wenigen verbundenen Spielern: Waffenautomatik der unbesetzten Taktik, Bot-Automatik der Technik (Standard)
     waffenAutomatikMaxSpieler: 2,
     botAutomatikMaxSpieler: 2,

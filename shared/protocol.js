@@ -200,7 +200,7 @@
     //   [min, max] der Waffe; ohne dist volle Weite wie bisher. Direkte Waffen nutzen nur den Winkel.)
     C: {
       HELLO: 'hello', READY: 'ready', INPUT: 'input', ACT: 'act', SHOOT: 'shoot', MARK: 'mark',
-      DROP: 'drop', LEAVE: 'leave', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
+      DROP: 'drop', LEAVE: 'leave', SCHUBS: 'schubs', CMD: 'cmd', PING: 'ping', DEBUG: 'debug',
       LOBBY_OPT: 'lobbyOpt',   // M0: { skipDrill: bool } – nur in der Lobby, jeder darf umschalten; M2: { startMission: START_MISSIONS }; S1: { world }
       WORLD: 'world',          // S1: { op: 'delete', id }
       MENU: 'menu',            // S1: { op: 'end' } | { op: 'pause', on }

@@ -177,7 +177,7 @@ function updatePlayers(game, dt) {
     if (p.downed) { if (p.wound) combat().updateWounded(game, p, dt); else updateDowned(game, p, dt); continue; }
     if (p.crouch) combat().checkCrouch(game, p);   // M2 §15: Konsole/Beamen/Zonenwechsel beenden das Ducken
     let mx = p.input.mx, my = p.input.my;
-    if (p.console || p.beamLock) { mx = 0; my = 0; }
+    if (p.console || p.beamLock || betaeubt(game, p)) { mx = 0; my = 0; }
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
     p.moving = len > 0.05;
@@ -640,7 +640,7 @@ function onAct(game, p, down) {
   // M3a: das Minispiel läuft ohne E (Client sendet E dann nicht); ein verirrtes E bricht es nicht ab
   if (p.hold && p.hold.kind === 'minigame') return;
   if (!down) { if (p.hold) { p.hold = null; } return; }
-  if (p.downed || p.console || p.beamLock || p.lift) return;
+  if (p.downed || p.console || p.beamLock || p.lift || betaeubt(game, p)) return;
   const own = Physics.toTile(p.x, p.y);
   let blocked = null;
   for (const t of candidateTiles(p, game)) {
@@ -781,6 +781,33 @@ function enterConsole(game, p, kind) {
   p.console = kind; p.station = null; p.hold = null; p.input.mx = 0; p.input.my = 0; p.moving = false; p.crouch = false;
   game.emit('sfx', { name: kind === 'plan' ? 'table_sit' : 'console_on', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   game.missionEvent('consoleEnter', { p, kind });
+}
+
+// ---------- Schubs (Spieltest): kein Schaden, nur Betäubung und von der Konsole holen ----------
+function betaeubt(game, p) { return game.time < (p.stunBis || 0); }
+// Jeder an Bord darf schubsen (egal ob angedockt, im Gefecht oder in der Mission), solange er läuft: nicht an einer Konsole, nicht liegend,
+// nicht selbst betäubt. Trifft den nächsten Mitspieler an Bord in Reichweite: Konsole frei, Halteaktion weg, kurz betäubt, kleiner Rückstoß.
+// -> Hinweistext (Abklingzeit) | null
+function schubs(game, p) {
+  const S = game.C.player.schubs;
+  if (!S || p.zone !== 'ship' || p.downed || p.console || p.beamLock || p.lift || betaeubt(game, p)) return null;
+  if (game.time < (p.schubsBereit || 0)) return 'Schubs lädt noch (' + Math.ceil(p.schubsBereit - game.time) + ' s).';
+  p.schubsBereit = game.time + S.abklingzeit;
+  let best = null; let bd = Infinity;
+  for (const o of game.players) {
+    if (o === p || o.zone !== 'ship' || o.downed || o.lift || !o.connected) continue;
+    const d = Math.hypot(o.x - p.x, o.y - p.y) / TILE;
+    if (d <= S.reichweite && d < bd) { best = o; bd = d; }
+  }
+  game.emit('sfx', { name: 'strike', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
+  game.emit('schubs', { from: p.id, to: best ? best.id : null });
+  if (!best) return null;
+  if (best.console) leaveConsole(game, best);
+  best.hold = null; best.stunBis = game.time + S.betaeubung;
+  const dx = best.x - p.x, dy = best.y - p.y; const len = Math.hypot(dx, dy) || 1;
+  const res = Physics.moveWithCollision(solidFor(game, 'ship'), best.x, best.y, dx / len * S.rueckstoss * TILE, dy / len * S.rueckstoss * TILE, game.C.player.hitbox);
+  best.x = res.x; best.y = res.y;
+  return null;
 }
 
 function leaveConsole(game, p) {
@@ -1275,6 +1302,7 @@ function sysNameNom(sys) { const n = SYS_NAMES[sys]; return n ? `${n[0]} ${n[2]}
 function sysName(sys) { const n = SYS_NAMES[sys]; return n ? `${n[1]} ${n[2]}` : sys; }
 
 module.exports = {
+  schubs, betaeubt,
   platformSolid, awaySolid, awayInfo, solidFor,
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,

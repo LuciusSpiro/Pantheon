@@ -419,7 +419,7 @@ class Game {
     Object.assign(p, { zone: 'ship', x: c.x, y: c.y, dir: 'down', moving: false, console: null, carry: null, carryCharges: 0,
       hp: this.C.player.hp, downed: false, downedFor: 0, hold: null, beamLock: false, actDown: false,
       gear: { werkzeuggurt: false }, input: { mx: 0, my: 0 }, shootReadyAt: 0,
-      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null });
+      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null, stunBis: 0, schubsBereit: 0 });
   }
 
   nextId(prefix) { return prefix + (++this.idCounter); }
@@ -573,6 +573,7 @@ class Game {
         case C.MARK: if (this.phase !== 'lobby') away.setMarker(this, p, Number(msg.x), Number(msg.y)); break;
         case C.DROP: if (this.phase !== 'lobby') interior.onDrop(this, p); break;
         case C.LEAVE: interior.leaveConsole(this, p); break;
+        case C.SCHUBS: if (this.phase !== 'lobby') { const why = interior.schubs(this, p); if (why) this.notice(p, why); } break;   // Spieltest: Schubs an Bord
         case C.CMD: if (this.phase !== 'lobby') this.onCmd(p, msg); break;
         case C.DEBUG: this.onDebug(p, msg); break;
         case 'clientError': {   // B1 (F7): gedrosselte Client-Fehlermeldung; nur Log, kein countError („Fehler Server“ bleibt sauber)
@@ -1743,7 +1744,7 @@ class Game {
       players: this.players.map((p) => ({
         id: p.id, name: p.name, color: p.color, ready: p.ready, connected: p.connected,
         zone: p.zone, x: r1(p.x), y: r1(p.y), dir: p.dir, moving: p.moving, console: p.console, ...Station.snapFelder(p), carry: p.carry,
-        hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor),
+        hp: Math.round(p.hp), downed: p.downed, downedFor: r1(p.downedFor), ...(this.time < (p.stunBis || 0) ? { stun: 1 } : {}),
         action: p.hold ? this.holdSnap(p.hold)
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
