@@ -1,5 +1,5 @@
 // UI-Sitz (Prototyp E2, Kai 2026-10-14): An Steuer, Ops und Captain sitzt man in der Voxel-Brücke in Egoperspektive.
-// Drei feste Blicke: VORN (Hauptschirm am Bug zeigt das Stationsbild), PULT (Blick aufs Pult, dann die Konsole flach und bedienbar),
+// Drei feste Blicke: VORN (Hauptschirm am Bug zeigt für alle die Frontsicht des Piloten), PULT (Blick aufs Pult, dann die Konsole flach und bedienbar),
 // CREW (Blick zu den Mitspielern). Wechsel: Mausrad oder Maus an den Bildrand. Die Tastatur der Konsole wirkt in allen Blicken.
 // Technik und alle anderen Konsolen bleiben flach (nur Pult). Aus: ?sitz=0 oder ohne Voxel-Ansicht (F8).
 // Globales `Sitz`. Der Voxel-Layer voxel/sitz.js holt sich das Schirmbild über Sitz.schirm.
@@ -13,15 +13,22 @@
   // Sitzplätze: Blick zum Bug (+x). crew = Blickrichtung zu den Mitspielern (Versatz zum Auge in m)
   // auge: Versatz zur Konsolenkachel (x, Höhe, z); Steuer und Ops sitzen davor, der Captain im Stuhl
   const SITZE = {
-    helm: { auge: [-0.55, 1.42, 0.5], crew: [-3.35, -0.45, -2.0], titel: 'STEUER' },
-    weapons: { auge: [-0.55, 1.42, 0.5], crew: [3.65, -0.45, 3.5], titel: 'OPS' },
-    captain: { auge: [0.55, 1.98, 0.5], crew: [1.15, -0.9, -3.5], titel: 'CAPTAIN' },   // Kommandopodest: über die Köpfe von Steuer hinweg
+    // Brücke seit 2026-10-14: Steuer vorn mittig, Ops (Bb) und Captain (Stb) flankieren dahinter
+    helm: { auge: [-0.55, 1.42, 0.5], crew: [-3.0, -0.45, 0], crewFov: 80, titel: 'STEUER' },
+    weapons: { auge: [-0.55, 1.42, 0.5], crew: [1.8, -0.45, 3.0], titel: 'OPS' },
+    captain: { auge: [0.55, 1.55, 0.5], crew: [1.2, -0.5, -3.2], titel: 'CAPTAIN' },
   };
   const BLICKE = ['vorn', 'pult', 'crew'];
   const FOV = { vorn: 56, pult: 52, crew: 62 };
   const RAND = 6, RAND_ZEIT = 0.35;   // px vom Bildrand, s Verweilzeit
   const SW = 512, SH = 288;           // Hauptschirm-Textur
-  const SCHIRM = { x: 35.94, y: 2.15, z: 6.5, w: 2.9, h: 1.63 };   // Hauptschirm an der Bugwand (Deck I, Reihe 6), Maße in m
+  // Hauptschirm aus den Kartendaten (Shared_Maps.HAUPTSCHIRM: Wandkacheln an der Bugwand), Maße in m, 16:9
+  const SCHIRM = (function () {
+    const HS = (window.Shared_Maps || {}).HAUPTSCHIRM || { x: 36, y0: 4, y1: 8 };
+    const w = HS.y1 - HS.y0 + 1 - 0.6, h = w * 9 / 16;
+    return { x: HS.x - 0.06, y: 0.5 + h / 2, z: (HS.y0 + HS.y1 + 1) / 2, w, h };
+  })();
+  const SCHIRM_TAKT = 0.1;   // s zwischen zwei Schirmbildern, wenn man nur auf der Brücke steht
 
   function el(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
   const pultCanvas = el(VW, VH), pultCtx = pultCanvas.getContext('2d');
@@ -42,7 +49,7 @@
     auge: [0, 0, 0], ziel: [0, 0, 0], fov: 60,      // aktuelle (geglättete) Kamera
     maus: { x: -1, y: -1 }, rand: null, randT: 0,
     pultSicht: 0,                                  // 0..1 Einblendung der flachen Konsole im Blick PULT
-    schirmVersion: 0, versteckt: null,
+    schirmVersion: 0, schirmLive: false, schirmT: 0, versteckt: null,
   };
 
   function voxelBereit() { const VR = window.VoxelRender; return !!(VR && VR.ready && VR.mode === 'voxel' && VR.renderer && VR.renderer.setSeat); }
@@ -60,14 +67,14 @@
     let d;
     if (blick === 'pult') d = [1.1, -0.9, 0];
     else if (blick === 'crew') d = SITZE[station].crew;
-    else d = [SCHIRM.x - auge[0], SCHIRM.y - 0.15 - auge[1], SCHIRM.z - auge[2]];   // VORN blickt auf den Hauptschirm
+    else d = [SCHIRM.x - auge[0], SCHIRM.y - 0.1 - auge[1], SCHIRM.z - auge[2]];   // VORN blickt auf den Hauptschirm
     // leichtes Umblicken mit der Maus (nur VORN und CREW)
     let yaw = 0, pitch = 0;
     if (blick !== 'pult' && S.maus.x >= 0) { yaw = (S.maus.x / VW - 0.5) * -0.22; pitch = (S.maus.y / VH - 0.5) * -0.12; }
     const c = Math.cos(yaw), s = Math.sin(yaw);
     const dx = d[0] * c - d[2] * s, dz = d[0] * s + d[2] * c;
     const len = Math.hypot(dx, dz);
-    return { auge, ziel: [auge[0] + dx, auge[1] + d[1] + pitch * len, auge[2] + dz], fov: FOV[blick] };
+    return { auge, ziel: [auge[0] + dx, auge[1] + d[1] + pitch * len, auge[2] + dz], fov: blick === 'crew' && SITZE[station].crewFov ? SITZE[station].crewFov : FOV[blick] };
   }
 
   function setBlick(b) {
@@ -78,12 +85,22 @@
   }
 
   // ---------------------------------------------------------------- Frame
+  function aufBruecke(view) {
+    const M = window.Shared_Maps, self = view && view.self;
+    if (!M || !M.roomAt || !self || self.zone !== 'ship') return false;
+    const r = M.roomAt(Math.floor(self.x / TILE), Math.floor(self.y / TILE));
+    return !!(r && r.id === 'bruecke');
+  }
   function update(view, dt) {
     const VR = window.VoxelRender;
     if (!aktiv(view)) {
       if (S.station) { S.station = null; S.versteckt = null; if (voxelBereit()) VR.renderer.setSeat(null); }
+      // Wer nur auf der Brücke steht, sieht den Schirm auch (seltener neu gezeichnet)
+      S.schirmLive = !AUS && voxelBereit() && !!(view && view.state && view.state.ship) && aufBruecke(view);
+      if (S.schirmLive) { S.schirmT -= dt; if (S.schirmT <= 0) { S.schirmT = SCHIRM_TAKT; zeichneSchirm(view); } }
       return false;
     }
+    S.schirmLive = true;
     const st = view.me.console;
     if (st !== S.station) { if (!S.station) { S.blick = 'vorn'; S.frisch = true; } S.station = st; S.pultSicht = 0; }
     S.versteckt = window.Client ? String(Client.pid) : null;
@@ -109,21 +126,15 @@
     return true;
   }
 
-  // Hauptschirm-Bild der Station (Steuer: Frontsicht, Ops: Taktik, Captain: Lage)
+  // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)
   function zeichneSchirm(view) {
-    const c = schirmCtx, st = S.station;
+    const c = schirmCtx;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = PAL.space; c.fillRect(0, 0, SW, SH);
     const nb = R.ui.buttons.length;
     try {
-      if (st === 'helm') {
-        const zoom = (SW / 2) / R.FRONT.side, h = (R.FRONT.fwd + R.FRONT.back) * zoom;
-        R.drawFrontView(c, view, { x: 0, y: SH - 34 - R.FRONT.fwd * zoom, w: SW, h });
-      } else if (st === 'weapons') {
-        R.drawTactical(c, view, { x: 0, y: 0, w: SW, h: SH }, { zoom: (Consoles.zoom && Consoles.zoom.weapons) || 0.35, arcs: true, intel: true, mode: 'tactical', enemyRects: [] });
-      } else {
-        R.drawTactical(c, view, { x: 0, y: 0, w: SW, h: SH }, { zoom: (Consoles.zoom && Consoles.zoom.lage) || 0.35, arcs: false, intel: true, mode: 'lage', enemyRects: [], showRanges: true });
-      }
+      const zoom = (SW / 2) / R.FRONT.side, h = (R.FRONT.fwd + R.FRONT.back) * zoom;
+      R.drawFrontView(c, view, { x: 0, y: SH - 34 - R.FRONT.fwd * zoom, w: SW, h });
     } catch (e) { Net.reportError('Sitz.schirm', e); }
     R.ui.buttons.length = nb;
     S.schirmVersion++;
@@ -195,6 +206,6 @@
   window.Sitz = {
     aktiv, update, draw, rad, klickErlaubt, setBlick,
     get blick() { return S.blick; }, get station() { return S.station; }, get versteckt() { return S.versteckt; },
-    schirm: { mass: SCHIRM, canvas: schirmCanvas, get version() { return S.schirmVersion; }, get aktiv() { return !!S.station; } },
+    schirm: { mass: SCHIRM, canvas: schirmCanvas, get version() { return S.schirmVersion; }, get aktiv() { return S.schirmLive; } },
   };
 })();

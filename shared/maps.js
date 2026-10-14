@@ -11,24 +11,24 @@
   // Deck I (Systemdeck) Zeilen 0–12, Deck II (Privatdeck) Zeilen 16–28, Zeilen 13–15 leer (void). Deck II = Deck-I-Zeile + 16.
   // Deck I: Antriebsraum am Heck x1–3 (Triebwerk E, Heck-Emitter A) – Lager (Regale) / Vorraum (Notleiter !) / Transferkammer –
   // Maschinenraum MITTSCHIFFS x11–15 (Reaktor R, Lebenserhaltung O, Schildgenerator G, Schalter y A oben / B unten) –
-  // Batteriedecks Bb (oben) und Stb (unten) x17–24 – Brücke x25–36 mit Lift ^, Bug-Waffe K und Bug-Emitter I.
+  // Batteriedecks Bb (oben) und Stb (unten) x17–24 – Brücke x25–36 mit Lift ^, Bug-Waffe K und Bug-Emitter I, Hauptschirm an der geraden Bugwand.
   // Deck II: vier Quartiere, Messe mit Hafenterminal S, Trophäennische, Liftvorraum, Atrium mit Lichtschacht, Krankenstation,
   // Frachtraum (EK3 Teil A: ersetzt Bad und Aussicht, zwei Frachtbuchten g; R0: Mehrzweckraum, Ecke e/z = Ivos Schlafecke). Kein System auf Deck II.
   //           0         1         2         3
   //           0123456789012345678901234567890123456
   const SHIP_ROWS = [
     '##########################           ', //  0
-    '#===#LLLLL#y===u#=F==M==U#######     ', //  1
-    '#A==#.....#=====#========#^^....##   ', //  2
-    '#===#.....#==R==#========#^^..W...#  ', //  3  (Kai 2026-10-07: Ops, Captain, Terminal in einer Spalte x=30)
-    '#===###D###=====##D##D###.........## ', //  4
-    '#===#!....#=====#........#.........K#', //  5
-    '#E==D.....D=====D........D....C..H..#', //  6
-    '#===#.....#i====#........#.........I#', //  7  (R1: Technik-Konsole i an der Westwand des Maschinenraums, neben der Tür)
-    '#===###D###=====##D##D###..YY.....## ', //  8  (Planungstisch nach unten: der Weg von der Westtür zu den Konsolen bleibt frei)
-    '#===#.....#O=G==#========#..YY....#  ', //  9
-    '#===#.P.P.#=====#========#......##   ', // 10
-    '#==f#X.P.T#u===y#=Z==J==V#######     ', // 11
+    '#===#LLLLL#y===u#=F==M==U############', //  1
+    '#A==#.....#=====#========#^^......K##', //  2  (Bug-Waffe K an der Nordwand)
+    '#===#.....#==R==#========#^^........#', //  3
+    '#===###D###=====##D##D####....W.....#', //  4
+    '#===#!....#=====#........#..........#', //  5
+    '#E==D.....D=====D........D......H...#', //  6  (Kai 2026-10-14: Brücke neu – Nase gerade für den Hauptschirm, Steuer H vorn mittig, Ops W und Captain C flankieren dahinter)
+    '#===#.....#i====#........#..........#', //  7  (R1: Technik-Konsole i an der Westwand des Maschinenraums, neben der Tür)
+    '#===###D###=====##D##D####..YYC.....#', //  8  (Planungstisch nach unten: der Weg von der Westtür zu den Konsolen bleibt frei)
+    '#===#.....#O=G==#========#..YY......#', //  9
+    '#===#.P.P.#=====#========#.......I.##', // 10  (Bug-Emitter I an der Südwand)
+    '#==f#X.P.T#u===y#=Z==J==V############', // 11
     '##########################           ', // 12
     '                                     ', // 13
     '                                     ', // 14
@@ -312,6 +312,11 @@
   // Reaktor-Neustartschalter im Maschinenraum mittschiffs: A oben links (11,1), B unten rechts (15,11).
   const REACTOR_SWITCHES = [{ id: 'A', x: 11, y: 1 }, { id: 'B', x: 15, y: 11 }];
 
+  // UI-Sitz (Kai 2026-10-14): Hauptschirm an der Bugwand der Brücke. Wandkacheln x, Reihen y0–y1 (Deck I); dort hängen keine Wandleuchten.
+  const HAUPTSCHIRM = { deck: 0, x: 36, y0: 4, y1: 8 };
+  // Feste Ausrichtung je Konsolenart (Vorderseite des Modells: 'w' | 'o' | 'n' | 's'); sonst zeigt sie zur ersten freien Seite.
+  // Brückenpulte: Bediener steht westlich und blickt zum Schirm; der Captainstuhl blickt mit der Sitzfläche zum Schirm.
+  const KONSOLEN_FRONT = { helm: 'w', weapons: 'w', captain: 'o' };
   const SHIP_SPAWNS = [{ x: 18, y: 6 }, { x: 20, y: 6 }, { x: 22, y: 6 }, { x: 24, y: 6 }];   // R0: 4 Spieler, Gang auf Deck I
   const BOT_SPAWNS = [{ x: 13, y: 6 }, { x: 7, y: 6 }, { x: 20, y: 7 }];
   const PLATFORM_PADS = [{ x: 3, y: 3 }, { x: 5, y: 3 }, { x: 4, y: 4 }];
@@ -510,7 +515,7 @@
   return {
     TILE: 32,
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
-    SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, PLATFORM_PADS, SECTOR_REGIONS,
+    SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, HAUPTSCHIRM, KONSOLEN_FRONT, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
     SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt, CARGO_BEDS, cargoBedAt,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen

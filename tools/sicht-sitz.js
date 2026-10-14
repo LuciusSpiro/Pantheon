@@ -71,6 +71,10 @@ async function main() {
       await A.screenshot({ path: path.join(SHOTS, key + '-zurueck.png') });
       await A.evaluate(() => __game.send({ t: 'leave' })); await sleep(400);
     }
+    // Draufsicht auf die neue Brücke: A steht an der Steuer auf, B und C sitzen
+    await sitz(B2, 'weapons'); await sitz(C3, 'captain'); await sitz(A, 'helm'); await sleep(400);
+    await A.evaluate(() => __game.send({ t: 'leave' })); await mitte(); await sleep(1500);
+    await A.screenshot({ path: path.join(SHOTS, 'bruecke-draufsicht.png') }); console.log('Bild bruecke-draufsicht');
     console.log('Voxel', JSON.stringify(await A.evaluate(() => { const i = VoxelRender.info(); return { fps: i.fps, zone: i.zone, deck: i.deck, errors: i.errors, layers: i.layers }; })));
   } finally {
     await b.close();

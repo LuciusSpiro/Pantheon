@@ -341,7 +341,8 @@ function buildDynamic(ctx, S) {
   };
   for (const o of A.objects) {
     const ch = o.ch, inf = A.info(ch) || {}, kind = inf.kind;
-    o.rot = MULTI[ch] ? 0 : A.faceRot(o.tx, o.ty);
+    const front = inf.console && (Maps().KONSOLEN_FRONT || {})[inf.console];   // UI-Sitz: Brückenpulte zum Hauptschirm
+    o.rot = MULTI[ch] ? 0 : front ? { s: 0, n: Math.PI, w: -Math.PI / 2, o: Math.PI / 2 }[front] : A.faceRot(o.tx, o.ty);
     const [fx, fz] = A.faceDir(o.rot);
     if (inf.system || inf.console) S.frontTiles.add((o.tx + fx) + ',' + (o.ty + fz));
     if (ch === 'D') {
@@ -517,8 +518,10 @@ function buildLamps(ctx, S) {
   const A = S.A;
   for (const d of S.decks) {
     const dk = d.dk, cand = [];
+    const HS = Maps().HAUPTSCHIRM;
     for (const { tx, ty, ch } of dk.tiles) {
       if (ch !== '#') continue;
+      if (HS && HS.deck === dk.index && tx === HS.x && ty - dk.y0 >= HS.y0 - 1 && ty - dk.y0 <= HS.y1 + 1) continue;   // UI-Sitz: keine Leuchte vor dem Hauptschirm
       const lz = ty - dk.y0;
       // Innenraum südlich (+z): Leuchte an der sichtbaren Wandseite
       const y = A.interior(tx, ty - 1) ? 0.35 : 1.6;

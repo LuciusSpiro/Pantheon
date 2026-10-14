@@ -1,8 +1,8 @@
 // UI-Sitz (Prototyp E2): Layer „sitz“ – Hauptschirm an der Bugwand der Brücke. Zeigt das Stationsbild aus Sitz.schirm
-// (public/js/sitz.js), solange man an Steuer, Ops oder Captain sitzt; sonst ein ruhendes Sternenbild.
+// (public/js/sitz.js): die Frontsicht des Piloten, solange jemand vom eigenen Client auf der Brücke ist; sonst ein ruhendes Sternenbild.
 import * as THREE from 'three';
 
-const SCHIRM = (window.Sitz && Sitz.schirm && Sitz.schirm.mass) || { x: 35.94, y: 2.05, z: 6.5, w: 2.9, h: 1.63 };   // Maße aus public/js/sitz.js
+const SCHIRM = (window.Sitz && Sitz.schirm && Sitz.schirm.mass) || { x: 35.94, y: 1.74, z: 6.5, w: 4.4, h: 2.475 };   // Maße aus public/js/sitz.js (Shared_Maps.HAUPTSCHIRM)
 
 function ruhebild() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 144;

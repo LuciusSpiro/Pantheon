@@ -382,9 +382,11 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
   const bed0 = Maps.BEDS[0];
   // SL0 (2026-10-14): Verträge neu gemessen. Kais Brückenumbau (Planungstisch nach unten, Spieltest-Nachzug e7590a9) verschiebt den Captain-Platz auf (29,6);
   // die Werte davor (4,7 / 5,7 / 6,7 / 9,7 / 10,0 / 11,0 / 10,7 + Lift) galten für den Platz davor. Lanze unverändert.
-  const TARGETS = [['Lanze', nearSys('weapon_bow'), 2.0], ['Batterie Bb', nearSys('battery_port'), 4.0], ['Düse Stb', nearSys('thruster_stbd'), 5.0],
-    ['Reaktor', nearSys('reactor'), 6.0], ['Triebwerk', nearSys('engines'), 9.0], ['Regal 1', (x, y) => x === shelf1.access.x && y === shelf1.access.y, 9.3],
-    ['Heck-Emitter', nearSys('emitter_aft'), 10.3], ['Quartier 1', (x, y) => shipWalk(x, y) && Math.abs(x - bed0.x) + Math.abs(y - bed0.y) === 1, 8.5 + CONFIG.lift.rideTime]];
+  // UI-Sitz (2026-10-14): Brücke neu (Nase gerade, Captain C flankiert die Steuer auf (30,8), Lanze K an der Nordwand) – Captain-Platz jetzt (30,7),
+  // alle Wege 0,7 s länger. Werte davor: 2,0 / 4,0 / 5,0 / 6,0 / 9,0 / 9,3 / 10,3 / 8,5 + Lift.
+  const TARGETS = [['Lanze', nearSys('weapon_bow'), 2.7], ['Batterie Bb', nearSys('battery_port'), 4.7], ['Düse Stb', nearSys('thruster_stbd'), 5.7],
+    ['Reaktor', nearSys('reactor'), 6.7], ['Triebwerk', nearSys('engines'), 9.7], ['Regal 1', (x, y) => x === shelf1.access.x && y === shelf1.access.y, 10.0],
+    ['Heck-Emitter', nearSys('emitter_aft'), 11.0], ['Quartier 1', (x, y) => shipWalk(x, y) && Math.abs(x - bed0.x) + Math.abs(y - bed0.y) === 1, 9.2 + CONFIG.lift.rideTime]];
   const parts = [];
   for (const [name, fn, want] of TARGETS) {
     const r = timeTo(fn);
