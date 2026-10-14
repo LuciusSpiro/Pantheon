@@ -158,7 +158,7 @@ section('Buch: Prüfer, Kante, Gravimetrie, Station, Finale, Concordia', () => {
     ok(m.step === null || m.missions[buch.id].state === 'done', 'in Concordia angedockt: Buch fertig');
     const ms = m.missions[buch.id];
     ok(ms && ms.state === 'done' && ms.ausgang === 'erfolg', 'Ausgang erfolg');
-    ok(g.inventory.marks >= m0 + 120 && m.state.flags && m.state.flags.forschungFertig === true, 'Lohn (120 Marken) gutgeschrieben, Flag forschungFertig');
+    ok(g.inventory.marks >= m0 + 220 && m.state.flags && m.state.flags.forschungFertig === true, 'Lohn (220 Marken) gutgeschrieben, Flag forschungFertig');
   } finally { Welt.waehle(g, 'limes'); }
 });
 

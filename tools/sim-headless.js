@@ -3441,7 +3441,7 @@ async function runGeneric(opts) {
   const seed = opts.seed, crew = opts.crew;
   simRng = makeRng(seed * 7919 + 500 + crew);
   const env = { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') };
-  const game = new Game({ noStore: true, seed, env, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game(Object.assign({ noStore: true, seed, env, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }, opts.gameOpts || {}));   // SL11: gameOpts (Weltstand-Ordner für Speichern/Laden)
   const errList = [];
   const origCount = game.countError.bind(game);
   game.countError = (where, err) => { if (errList.length < 40) errList.push(`${where}: ${err && err.message ? err.message : err}`); origCount(where, err); };
@@ -3512,6 +3512,7 @@ async function runGeneric(opts) {
   while (game.time < maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) { S = game.snapshot(); if (ticks % 30 === 0) res.snapMax = Math.max(res.snapMax, Buffer.byteLength(JSON.stringify(S))); }
+    if (opts.tickHook) opts.tickHook(game, res);   // SL11: Speichern/Laden an Kapitelübergängen (tools/sim-sund.js)
     // W2 AP6: Beobachtung Personen (gleichzeitig offen) und Enterer an Engstellen (aw.engStats)
     if (S.away && S.away.npcs) res.personenMax = Math.max(res.personenMax || 0, S.away.npcs.filter((n) => !n.rescued).length);
     for (const a of agents) a.update(S);

@@ -71,7 +71,8 @@
         "huelle": { "type": "number", "minimum": 0 },
         "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
         "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } },
-        "fracht": { "type": "array", "description": "EK3 Teil A: mitgeführte Ladung im Frachtraum (Art je Bucht, höchstens Maps.CARGO_CAPACITY)", "maxItems": 4, "items": { "oneOf": [ { "type": "string", "enum": ["sprengstoff", "fracht", "deuterium"] }, { "type": "object", "description": "SL0: Person im Frachtraum (p Kennung, n Name, b Bett)", "required": ["p"], "properties": { "p": { "type": "string" }, "n": { "type": "string" }, "b": { "type": "integer", "minimum": 0 } }, "additionalProperties": false } ] } }
+        "fracht": { "type": "array", "description": "EK3 Teil A: mitgeführte Ladung im Frachtraum (Art je Bucht, höchstens Maps.CARGO_CAPACITY)", "maxItems": 4, "items": { "oneOf": [ { "type": "string", "enum": ["sprengstoff", "fracht", "deuterium"] }, { "type": "object", "description": "SL0: Person im Frachtraum (p Kennung, n Name, b Bett)", "required": ["p"], "properties": { "p": { "type": "string" }, "n": { "type": "string" }, "b": { "type": "integer", "minimum": 0 } }, "additionalProperties": false } ] } },
+        "zonen": { "type": "object", "description": "SL6: erkundete Zonen und Zähler (Zonen.toSave; sim-sund fand: ohne dieses Feld lehnt jedes Speichern nach dem Gasfeld ab)", "properties": { "bekannt": { "type": "array", "items": { "type": "string" } }, "zaehler": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": false }
       }
     },
 

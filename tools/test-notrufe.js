@@ -63,7 +63,9 @@ try {
     ok(['sl_klar', 'sl_echt', 'sl_falle'].every((i) => Marken.da(g, 'notruf:' + i)), 'Marken auf der Hexkarte (marken.js, ein Mechanismus)');
     const m = Marken.snapshot(g).filter((x) => x.t === 'notruf');
     ok(m.length === 3 && m.every((x) => x.b > 0), 'Marken tragen die Restzeit (Ablaufring)');
-    ok(g.explore.kanteOffen(Sektoren.kanteId('0605', '0706')) && g.explore.kanteOffen(Sektoren.kanteId('0503', '0502')), 'temporäre Sprungpunkte für die Leerraum-Rufe offen');
+    ok(g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')) && g.explore.kanteOffen(Sektoren.kanteId('0503', '0502')), 'temporäre Sprungpunkte für die Leerraum-Rufe offen');
+    ok(g.errors === undefined || !JSON.stringify(g.errors).includes('notruf-tor'), 'kein notruf-tor-Fehler beim Freischalten');
+    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0706')), 'Bojenfeld-Kante bleibt zu (Hex 0706 gehört der Boje, nicht dem Notruf)');
     const nr = g.snapshot().nr;
     ok(nr.length === 3 && nr.find((r) => r.i === 'sl_klar').k === 'k' && nr.find((r) => r.i === 'sl_echt').k === 'v', 'Snapshot nr: Art klar/verschlüsselt');
     ok(nr.every((r) => r.f === undefined), 'ohne Fokus keine Details im Snapshot');
@@ -91,7 +93,7 @@ try {
     t.run(2);
     ok(Notrufe.finde(g, 'sl_klar').z === Notrufe.Z.VOR_ORT && g.snapshot().space.nro.p > 0.3, 'Bergung läuft (Fortschritt)');
     t.run(3);
-    ok(Notrufe.erledigt(g, 'sl_klar') && g.inventory.marks === marks0 + 80, 'geborgen: Lohn 80 Marken über geld.js (' + (g.inventory.marks - marks0) + ')');
+    ok(Notrufe.erledigt(g, 'sl_klar') && g.inventory.marks === marks0 + 100, 'geborgen: Lohn 100 Marken über geld.js (' + (g.inventory.marks - marks0) + ')');
     ok(!Marken.da(g, 'notruf:sl_klar') && g.snapshot().nr === undefined, 'Marke weg, Ruf aus dem Snapshot');
   }
 
@@ -107,17 +109,17 @@ try {
     ok(snap(g, 'sl_echt').f.b && /Hüllenbruch/.test(snap(g, 'sl_echt').f.b), 'Fokus zeigt jetzt die Behauptung');
     ok(Notrufe.befragen(g, 'sl_echt', 1) === null, 'Befragen jetzt möglich');
     // Sonde misst
-    g.inventory.sonde = 3; g.explore.markBoje(Sektoren.kanteId('0605', '0706'));
-    ok(Sonden.starteDurchSprungpunkt(g, t.p, '0706') === null, 'Sonde durch den temporären Sprungpunkt (Leerraum)');
+    g.inventory.sonde = 3; g.explore.markBoje(Sektoren.kanteId('0605', '0705'));
+    ok(Sonden.starteDurchSprungpunkt(g, t.p, '0705') === null, 'Sonde durch den temporären Sprungpunkt (Leerraum)');
     t.run(10 + g.C.sonden.sprungZeit);
     ok(Notrufe.finde(g, 'sl_echt').sonde && /misst den Notruf/.test(t.odas().join(' ')), 'Sonde liefert die echten Messwerte');
     ok(snap(g, 'sl_echt').f.s && /Meldung stimmt/.test(snap(g, 'sl_echt').f.s), 'Messwerte im Fokus');
     ok(Notrufe.hinfliegen(g, 'sl_echt') === null, 'hinfliegen');
-    t.flieg('0706');
+    t.flieg('0705');
     g.ship.x = 1500; g.ship.y = 1100; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0;
     const marks0 = g.inventory.marks; t.run(5);
-    ok(Notrufe.erledigt(g, 'sl_echt') && g.inventory.marks === marks0 + 120, 'geborgen: 120 Marken');
-    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0706')), 'temporärer Sprungpunkt wieder zu');
+    ok(Notrufe.erledigt(g, 'sl_echt') && g.inventory.marks === marks0 + 150, 'geborgen: 150 Marken');
+    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'temporärer Sprungpunkt wieder zu');
   }
 
   console.log('Falle: Hinterhalt');
@@ -135,7 +137,7 @@ try {
     t.run(2, true);
     ok(!Notrufe.erledigt(g, 'sl_falle'), 'solange die Jäger leben: nicht erledigt');
     g.space.enemies = []; t.run(0.2, true);
-    ok(Notrufe.erledigt(g, 'sl_falle') && g.inventory.marks === marks0 + 40, 'Hinterhalt abgewehrt: Beute 40 Marken');
+    ok(Notrufe.erledigt(g, 'sl_falle') && g.inventory.marks === marks0 + 60, 'Hinterhalt abgewehrt: Beute 60 Marken');
   }
 
   console.log('Ignorieren kostet nichts, Ablauf in Spielzeit, Szene verlassen');
@@ -144,7 +146,7 @@ try {
     const marks0 = g.inventory.marks, hull0 = g.ship.hull;
     ok(Notrufe.ablehnen(g, 'sl_echt') === null && Notrufe.finde(g, 'sl_echt').z === Notrufe.Z.ABGELEHNT, 'ablehnen');
     ok(g.inventory.marks === marks0 && g.ship.hull === hull0 && !Marken.da(g, 'notruf:sl_echt'), 'Ignorieren kostet nichts (Marken, Hülle), Marke weg');
-    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0706')), 'Tor des abgelehnten Rufs zu');
+    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'Tor des abgelehnten Rufs zu');
     t.run(g.C.notrufe.dauer - 5);
     ok(Notrufe.finde(g, 'sl_klar').z === Notrufe.Z.OFFEN, 'nach dem Großteil der Zeit noch offen');
     t.run(8);
@@ -177,7 +179,7 @@ try {
     const save = Notrufe.toSave(g);
     ok(save.sl_klar && save.sl_klar.rest > 500 && save.sl_klar.rest < 600 && save.sl_klar.befragt.length === 2, 'toSave: Restzeit und gestellte Fragen');
     const t2 = setup('pulverhorn'); const g2 = t2.g; Notrufe.restore(g2, JSON.parse(JSON.stringify(save)));
-    ok(g2.notrufe.liste.length === 3 && Marken.da(g2, 'notruf:sl_klar') && g2.explore.kanteOffen(Sektoren.kanteId('0605', '0706')), 'restore: Rufe, Marken und Tore wieder da');
+    ok(g2.notrufe.liste.length === 3 && Marken.da(g2, 'notruf:sl_klar') && g2.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'restore: Rufe, Marken und Tore wieder da');
     const rest = Marken.snapshot(g2).find((x) => x.id === 'notruf:sl_klar').b;
     ok(rest > 500 && rest <= 600, 'Marke trägt die gespeicherte Restzeit (' + rest + ' s)');
     const data = Weltstand.capture(g);
@@ -212,7 +214,7 @@ try {
     const marks0 = g.inventory.marks; let S = g.snapshot(); let k = 0;
     for (; k < 30 * 900 && !Notrufe.erledigt(g, 'sl_klar'); k++) { g.space.enemies = []; g.step(); if (k % 2 === 0) S = g.snapshot(); a.update(S); }
     ok(Notrufe.erledigt(g, 'sl_klar'), `Bot hat den klaren Ruf geborgen (${Math.round(k / 30)} s Spielzeit)`);
-    ok(g.inventory.marks >= marks0 + 80, 'Lohn 80 Marken gutgeschrieben (Stand ' + (g.inventory.marks - marks0) + ' inkl. Erstbesuch-Marken)');
+    ok(g.inventory.marks >= marks0 + 100, 'Lohn 100 Marken gutgeschrieben (Stand ' + (g.inventory.marks - marks0) + ' inkl. Erstbesuch-Marken)');
     ok(Notrufe.finde(g, 'sl_echt').z === Notrufe.Z.ABGELEHNT && Notrufe.finde(g, 'sl_falle').z === Notrufe.Z.ABGELEHNT, 'Leerraum-Rufe ignoriert: kostet nichts');
   }
 } finally { Welt.waehle(null, 'limes'); }

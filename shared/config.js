@@ -419,6 +419,20 @@
     campaign: { skipTutorialMarks: 150, teskRumorAt: 8,
       // SL11 Die Schuld der Lerche (Entwurf, das Studio stellt die Zahlen nach Spieleabend 3 nach): Forderung der Piraten = ursprüngliches
       // Lösegeld; Söldner kosten so viel; Lösegeld mit Aufschlag (Briefing SL9: +30 %). geldziel = Marken beim Eintritt in Kapitel 8
+      // GELDRECHNUNG Sund (T7, 2026-10-14; Studiowerte, nach Spieleabend nachstellen). Es zählt, was Kap. 7 mindestens bringt:
+      //   Start Kap. 7 (Labor-Einstieg k7 = skipTutorialMarks)                    150
+      //   + 7a Gasfeld: mindestens eine Einheit Deuterium (fracht.preise 40;
+      //       voller Frachtraum = 2 Einheiten = 80)                                 40   (bis 80)
+      //   + 7b Forschungsstation: Lohn in sl_forschung.regiebuch.json             220
+      //   = Pflicht                                                                410  (bis 450)  >= geldziel/soeldner 400
+      //   Notrufe (je Ruf einmalig, content/notrufe): sl_klar 100, sl_echt 150, sl_falle 60 (Hinterhalt-Beute) = 310
+      //   Pflicht + Notrufe                                                        720 (mind. 560 ohne sl_falle) >= loesegeld 520
+      //   Pflicht + nur sl_echt                                                    560 >= 520; Pflicht + sl_klar + sl_falle = 570 >= 520
+      //   Pflicht + nur sl_klar                                                    510 < 520  (knapp: dann Gasfeld einmal wiederholen)
+      //   Gasfeld endlos wiederholbar (Kai): je volle Fahrt 80 Marken (2 Einheiten); 2 Fahrten decken die Lücke zu 520
+      //   (410 + 160 = 570). Ohne Notrufe also Söldner direkt nach Kap. 7, Lösegeld nur mit Notrufen oder 2 Zusatzfahrten.
+      // Nach Kap. 7 führt der ODA-Hinweis in Kap. 8 und 9A/9B ('nachverdienen') auf Gasfeld wiederholen und Notrufe;
+      // Kap. 8 springt erst zur Wahl zurück, wenn das Lösegeld bezahlbar ist (kein sofortiger Rücksprung).
       sund: { forderung: 400, geldziel: 400, soeldner: 400, loesegeld: 520 } },
     // Weltstand: höchstens 5 Stände, angedockt höchstens alle 10 s speichern (nur bei Änderung), NSC-Gedächtnis je 12 Einträge
     weltstand: { max: 5, dockedSaveEvery: 10, npcMemoryMax: 12, logKeep: 60, attitudeMin: -3, attitudeMax: 3 },

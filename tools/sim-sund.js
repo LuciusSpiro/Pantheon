@@ -4,6 +4,7 @@
 // Läufe: ganze Kette ab Kapitel 1 (Lobby-Modus schuld_der_lerche) bzw. Labor-Einstieg je Kapitel (--kapitel alle, stoppt nach dem Kapitel).
 const Sim = require('./sim-headless.js');
 const Kampagne = require('../server/mission/kampagne.js');
+const fs = require('fs'), os = require('os'), path = require('path');
 const args = process.argv.slice(2);
 const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
 const log = (...a) => console.log(...a);
@@ -13,11 +14,12 @@ const stepHook = (a, S, p, info) => {
   const fn = HOOKS[info.m.activeId + '/' + info.step.id];
   return fn ? fn(a, S, p, info) : fallback(a, S, p, info);
 };
-const BEKANNT = /^notruf-tor: Verborgene Kante/;
+const BEKANNT = /^$a/;   // keine bekannten Befunde mehr (notruf-tor/0706 behoben, T7)
 const Away = require('../server/sim/away.js');
 const Lpscan = require('../server/sim/lpscan.js');
 const Locations = require('../shared/locations.js');
 const Fracht = require('../server/sim/fracht.js');
+const CONFIG = require('../shared/config.js');
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 const tileOf = (v) => Math.floor(v / 32);
 
@@ -25,9 +27,13 @@ const tileOf = (v) => Math.floor(v / 32);
 // läuft über die allgemeinen Bot-Pfade (Anflug, Kampf, Ops-Pfade entschlBot/spurBot/personenBot ...).
 const HOOKS = {
   // Kap. 1: am Boden mit Evert sprechen, "annehmen"
-  'k1_kantenstein/aussenposten'(a, S, p) {
-    if (p.zone !== 'away') return false;
-    if (!a.is('captain')) { a.input(0, 0); return true; }
+  'k1_kantenstein/aussenposten'(a, S, p, info) {
+    const unten = (a.game.simAgents || []).filter((x) => { const q = x.me(S); return q && q.zone === 'away'; });
+    if (!unten.length) {   // Labor-Einstieg: Gruppe an Bord im Orbit -> hinunterbeamen (wie ein Spieler, ohne Scan)
+      a.buehneScene(S, p, Object.assign({}, info.step, { allowBeam: ['kantenstein.siedlung'] })); return true;
+    }
+    if (p.zone !== 'away') { a.idleStations(S, p); return true; }
+    if (unten[0] !== a) { a.input(0, 0); return true; }   // einer spricht
     return a.sundGespraech(S, p, 'evert', 'annehmen');
   },
   'k1_kantenstein/aufbruch'(a, S, p) { a.input(0, 0); return true; },
@@ -85,6 +91,15 @@ const HOOKS = {
     if (!a.is('helm') || nah) a.idleStations(S, p);
     return true;
   },
+  // Kap. 4 Finden: kein Weg nach Concordia (Notfallsprung hat in den Leerraum/Bojenfeld geführt, E30) -> zweiter Notfallsprung (Helm), wie im Spiel vorgesehen
+  'k4_gestrandet/finden'(a, S, p, info) {
+    if (S.ship.scene === 'concordia' || p.zone !== 'ship' || S.ship.docked) return fallback(a, S, p, info);
+    if (S.ship.scene === 'bojenfeld' || (a.game.simStats.noRoute && a.game.simStats.noRoute.from === S.ship.scene)) {
+      if (a.is('helm') && a.enter(S, 'helm')) { (a.game.simStats.befunde = a.game.simStats.befunde || {}).k4Leerraum = S.ship.scene; a.cmd('helm.notsprung'); }
+      return true;
+    }
+    return fallback(a, S, p, info);
+  },
   // Kap. 8: nach Concordia und andocken (die Wahl kommt im Schritt "entscheidung")
   'k8_entscheidung/anflug'(a, S, p) { return anDocken(a, S, p, 'concordia'); },
   // Kap. 8: Wahl nach opts.weg; ist die Option gesperrt (zu wenig Marken), "nachverdienen" – ehrlich, kein Ersatzweg
@@ -105,6 +120,26 @@ const HOOKS = {
   'k9b_soeldner/kontakt'(a, S, p) { return S.mission.choice ? false : anDocken(a, S, p, 'concordia'); },
   // Kap. 9B Lager: Ops scannt das Lager, Team beamt hinunter, holt Evert (folgt), zurück zu den Pads. Gebaute Karte wie die Labor-Szenen (buehneScene).
   'k9b_soeldner/lager'(a, S, p, info) { return lagerEinsatz(a, S, p, info, 'schrottkante.lager'); },
+  // ABKÜRZUNGEN (benannt, im Bericht gezählt): Szenen, die ein eigener Bot (tools/sl-bots.js, T4) einzeln spielt, in der Kette per forceStep
+  'sl_forschung/gravimetrie'(a, S, p) { return abkuerzung(a, 'sl_forschung', 'gravimetrie', 'station'); },
+  'sl_forschung/station'(a, S, p) { return abkuerzung(a, 'sl_forschung', 'station', 'rueckbeamen'); },
+  'sl_forschung/finale'(a, S, p) { return abkuerzung(a, 'sl_forschung', 'finale', 'abliefern_anflug'); },
+  // Boje: Buch-Skip (Zähler 100 = Energie voll), Adresse/Feld bleiben echte Spielzustände; Schiff steht im Feld, danach läuft die Boje von selbst
+  'k10_boje/boje'(a, S, p) {
+    if (!a.opts.abkuerzungen) return false;
+    const g = a.game; const sc = Locations.get('bojenfeld').scene;
+    if (a.idx !== 0) return true;
+    const ab = g.simStats.abkuerzungen || (g.simStats.abkuerzungen = []);
+    if (!ab.includes('k10_boje/boje')) ab.push('k10_boje/boje (Skip: Energiezähler; Adresse und Feld nicht gespielt)');
+    if (sc.bojeFeld && dist(g.ship.x, g.ship.y, sc.bojeFeld.x, sc.bojeFeld.y) > 120) { g.ship.x = sc.bojeFeld.x + 30; g.ship.y = sc.bojeFeld.y; g.ship.vx = 0; g.ship.vy = 0; }
+    if ((a.memo.bskip || 0) < g.time) { a.memo.bskip = g.time + 2; g.mission.skip(); }
+    return true;
+  },
+  // Nachverdienen (T7): kein Skip mehr. Wie der ODA-Hinweis sagt, wiederholt der Bot das Gasfeld (freies Farmen, ohne Buch) und verkauft in Concordia,
+  // bis die Marken für den gewählten Weg reichen; danach laufen die normalen Pfade (Rückflug nach Schrottkante bzw. Concordia).
+  'k8_entscheidung/nachverdienen'(a, S, p) { return farmGeld(a, S, p, a.opts.weg === 'soeldner' ? 'soeldner' : 'loesegeld'); },
+  'k9a_uebergabe/nachverdienen'(a, S, p) { return farmGeld(a, S, p, 'loesegeld'); },
+  'k9b_soeldner/nachverdienen'(a, S, p) { return farmGeld(a, S, p, 'soeldner'); },
   // Kap. 7: Hub. Erst Gasfeld, dann Forschungsstation, sonst "frei" (Geld per Notruf/Warten)
   'k7_geld/wahl'(a, S, p) {
     const ch = S.mission.choice;
@@ -121,6 +156,29 @@ const HOOKS = {
     return true;
   },
 };
+// Benannte Abkürzung: Schritt per forceStep überspringen (nur, wenn kein echter Bot-Handler in sim-headless dafür existiert)
+function abkuerzung(a, buch, von, nach) {
+  const g = a.game; const ab = g.simStats.abkuerzungen || (g.simStats.abkuerzungen = []);
+  if (!a.opts.abkuerzungen) return false;
+  if (a.idx !== 0) return true;
+  if (!ab.includes(buch + '/' + von)) { ab.push(buch + '/' + von); g.mission.forceStep(buch, nach); }
+  return true;
+}
+// Freies Gasfeld-Farmen (kein Buch): eine Einheit schöpfen (wie der Bot in 7a), in Concordia verkaufen, wiederholen, bis Marken >= posten.
+// -> true (beschäftigt) | false (Geld reicht, allgemeine Pfade übernehmen)
+function farmGeld(a, S, p, posten) {
+  const g = a.game; const need = Number(CONFIG.campaign.sund[posten]);
+  if (g.inventory.marks >= need) return false;
+  if (p.zone === 'away') { a.padsUp(S, p); return true; }
+  if (S.space.enemies.length) { a.combatGeneric(S, p); return true; }
+  const n = Fracht.anBord(g, 'deuterium');
+  if (n >= 1 && S.ship.scene !== 'gasfeld') {
+    if (S.ship.scene !== 'concordia') { a.travel(S, p, 'concordia'); return true; }
+    return HOOKS['sl_gasriese/verkauf'](a, S, p);
+  }
+  if (S.ship.scene !== 'gasfeld') { a.travel(S, p, 'gasfeld'); return true; }
+  return HOOKS['sl_gasriese/schoepfen'](a, S, p);
+}
 // Hinfliegen und andocken (Helm); die übrigen halten Station. false, wenn schon angedockt (der allgemeine Pfad nimmt Funk/Wahl an)
 function anDocken(a, S, p, loc) {
   if (S.mission.choice || (S.mission.radio && S.mission.radio.needsAccept)) return false;
@@ -139,6 +197,8 @@ function lagerEinsatz(a, S, p, info, lp) {
     if (a.enter(S, 'weapons') && !g.lpscan && Lpscan.ziele(g).length) a.cmd('weapons.landescan');
     return true;
   }
+  // Die Ops bleibt an Bord: sie beamt Evert vom Landepunkt hoch (personenBot, Fracht), wie in Kap. 2
+  if (p.zone === 'ship' && a.role === 'weapons' && Lpscan.gescannt(g, lp)) { a.enter(S, 'weapons'); return true; }
   const step = Object.assign({}, info.step, { allowBeam: [lp], objectives: [{ id: 'evert', done: { check: { name: 'person_rescued', map: lp, person: 'evert' } } }] });
   a.buehneScene(S, p, step);
   return true;
@@ -180,6 +240,53 @@ function installHelpers(GA) {
   };
 }
 
+// Speichern und Laden an jedem Kapitelübergang: beim Wechsel des Kapitels (Fakt kapitel) kurz warten, Weltstand speichern, in einem zweiten Game aus
+// demselben Ordner fortsetzen und prüfen (Karte, Kapitel, laufende Mission, Flags). Der Bot spielt im ersten Game weiter.
+function ladePruefung(dir) {
+  const { Game } = require('../server/game.js');
+  const Welt = require('../server/sim/welt.js');
+  const os = require('os');
+  const st = { last: null, due: null, bad: 0 };
+  return (g, res) => {
+    const k = g.weltstand && g.weltstand.data && g.weltstand.data.fakten.kapitel;
+    const list = res.saveLoad || (res.saveLoad = []);
+    if (k && k !== st.last) { st.last = k; st.due = g.time + 0.7; }
+    if (st.due == null || g.time < st.due) return;
+    st.due = null;
+    const eintrag = { kap: k, ok: false, info: '' };
+    list.push(eintrag);
+    try {
+      const r = g.saveWorld('sim-sund', { sync: true });
+      if (!r || !r.ok) { eintrag.info = 'Speichern abgelehnt ' + JSON.stringify(r && r.error || r); return; }
+      const id = g.weltstand.id; const flags0 = JSON.stringify(g.mission.flags || {});
+      const mission0 = g.mission.activeId;
+      g.releaseWorldLock();
+      Welt.waehle(null, 'limes');
+      const h = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') }, log: () => {} });
+      const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
+      h.addConnection(c); h.handleMessage(c, { t: 'hello', clientId: 'L0', name: 'Lade', color: 0 });
+      h.handleMessage(c, Object.assign({ t: 'lobbyOpt' }, { world: id }));
+      h.handleMessage(c, { t: 'ready', ready: true });
+      for (let i = 0; i < 60; i++) h.step();
+      const k2 = h.weltstand && h.weltstand.data.fakten.kapitel;
+      const mission1 = h.mission.activeId;
+      const flags1 = JSON.stringify(h.mission.flags || {});
+      eintrag.ok = h.phase === 'play' && h.weltId === 'sund' && k2 === k && (!mission0 || mission1 === mission0 || !!mission1) && !Object.keys(h.errorLog || {}).length;
+      eintrag.info = `phase ${h.phase} welt ${h.weltId} kapitel ${k2} mission ${mission0}->${mission1}${flags0 === flags1 ? '' : ' flags abweichend'}`;
+      h.releaseWorldLock();
+      Welt.waehle(null, 'sund');
+    } catch (e) { eintrag.info = 'Ausnahme ' + e.message; }
+    if (!eintrag.ok) st.bad++;
+  };
+}
+
+// Optionen für Speichern/Laden (Weltstand-Ordner je Lauf); --ohne-laden schaltet es ab
+function laden() {
+  if (args.includes('--ohne-laden')) return {};
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sund-'));
+  return { gameOpts: { worlds: true, worldSaveSync: true, worldDir: dir, debug: true }, tickHook: ladePruefung(dir) };
+}
+
 async function main() {
   installHelpers(Sim.GenericAgent);
   const doc = Kampagne.laden('schuld-der-lerche');
@@ -193,13 +300,16 @@ async function main() {
   const rows = []; let bad = 0;
   for (const crew of crews) for (const j of jobs) {
     const t0 = Date.now();
-    const r = await Sim.runGeneric({ seed, crew, mode: 'kette', start: 'schuld_der_lerche', einstieg: j.einstieg, stopNach: j.stopNach, weg: j.weg, stepHook, stepLimit: () => 1500, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 30000, missionMax: 4000, funk: 'a', notrufeBot: null });
-    // Bekannter Befund (nicht verstecken, aber nicht dieser Lauf): Notruf sl_echt öffnet die verborgene Kante boje-fundort (erst Kap. 10)
+    const r = await Sim.runGeneric({ seed, crew, mode: 'kette', start: 'schuld_der_lerche', einstieg: j.einstieg, stopNach: j.stopNach, weg: j.weg, abkuerzungen: !args.includes('--ohne-abkuerzung'), stepHook, stepLimit: () => 1500, pilot: 'maneuver', maxSec: j.stopNach ? 5000 : 30000, missionMax: 4000, funk: 'a', notrufeBot: null, ...laden(j) });
     r.befunde = r.errList.filter((e) => BEKANNT.test(e)); r.errors -= r.befunde.length;
     const gut = !r.aborted && !r.errors && (j.stopNach ? (r.stopNach === j.stopNach || r.ende) : r.ende);
     if (!gut) bad++;
     rows.push({ j, crew, r, gut, wall: Date.now() - t0 });
     Sim.printGenericRun(r, j.label + ' Crew ' + crew);
+    if (r.sim.abkuerzungen && r.sim.abkuerzungen.length) log('  ABKÜRZUNGEN (forceStep): ' + r.sim.abkuerzungen.join(', '));
+    for (const s of r.saveLoad || []) { if (!s.ok) bad++; if (!s.ok || args.includes('--verbose')) log(`  Speichern/Laden ${s.kap}: ${s.ok ? 'ok' : 'FEHL'} ${s.info}`); }
+    if (r.saveLoad && r.saveLoad.length) log(`  Speichern/Laden an ${r.saveLoad.length} Kapitelübergängen, ${r.saveLoad.filter((s) => s.ok).length} ok`);
+    if (r.befunde.length) log('  BEFUND (bekannt): ' + [...new Set(r.befunde)].join(' | '));
   }
   log('\n| Lauf | Crew | Ergebnis | Spielzeit (min) | Wand (s) | Kapitel |');
   log('|---|---|---|---|---|---|');

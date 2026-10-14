@@ -191,8 +191,8 @@
     "wahl.heuern.zahlen": "Anheuern ({geld:soeldner} Marken)",
     "wahl.heuern.spaeter": "Noch nicht (Geld besorgen)",
     "funk.kontakt_spaeter": "Kommt wieder, wenn der Beutel schwer ist. Altrost wartet.",
-    "nachverdienen.hinweis": "Zurück zu den Aufträgen: Deuterium, Forschungsstation, Notrufe. Dann wieder zu Ragna in Concordia.",
-    "nachverdienen.tipp": "Marken gibt es für Deuterium (Concordia), für die Datenbergung in Helix und für Notrufe.",
+    "nachverdienen.hinweis": "Mehr Marken: Gasfeld wiederholen (Deuterium schöpfen, in Concordia verkaufen) und Notrufe. Dann zu Ragna.",
+    "nachverdienen.tipp": "Marken: Deuterium aus dem Gasfeld (zwei Ladungen je Fahrt, beliebig oft) in Concordia verkaufen, dazu Notrufe.",
     "ziel.zurueck": "Zurück nach Concordia",
 
     "funk.soeldner_zusage": "Brandt hier. Rostfaust und Kettenhund warten bei Schrottkante. Ihr ruft, wir kommen.",

@@ -62,7 +62,11 @@ section('Karte Sund: Notfallsprung aus Pulverhorn (zufällig, aber nie Schrottka
   info('Landungen in 40 Läufen: ' + JSON.stringify(landung));
   const orte = Object.keys(landung);
   ok(orte.every((o) => o !== 'schrottkante' && o !== 'helix' && o !== 'pulverhorn'), 'Landungen nur Concordia oder Leerraum-Ort: ' + orte.join(', '));
-  ok(!orte.includes('schrottkante') && !orte.includes('helix'), 'nie Schrottkante oder Helix');
+  ok(!orte.includes('schrottkante') && !orte.includes('helix') && !orte.includes('bojenfeld'), 'nie Schrottkante, Helix oder Bojenfeld');
+  { const T0 = setup(2); T0.g.debugGoto('pulverhorn', false); T0.run(0.2);
+    const k0 = Sprung.notsprungKandidaten(T0.g);
+    ok(k0.slice().sort().join() === '0505,0604,0705', 'Notfallziele aus Pulverhorn: Concordia plus Leerraum 0505/0705, nicht 0706 (' + k0.join(',') + ')');
+    ok(!k0.includes('0706') && !k0.includes('0506') && !k0.includes('0606'), 'weder Bojenfeld noch Helix noch Schrottkante als Kandidat'); }
   ok(orte.length >= 2, 'mehr als ein Ziel (zufällig)');
   const T = setup(3);
   ok(Sprung.notsprungKandidaten ? true : true, 'Kandidaten abrufbar');
@@ -200,7 +204,7 @@ section('Kapitel 4 Gestrandet: Reaktor, Concordia', () => {
   const L = setup(14);
   L.g.debugGoto(ort, false); L.run(0.3);
   L.g.ship.reactorCtl.state = 'online';
-  ok(Sprung.notsprung(L.g) === null && L.ort() === 'pulverhorn', 'zweiter Notfallsprung aus ' + ort + ' -> ' + L.ort());
+  ok(Sprung.notsprung(L.g) === null && ['pulverhorn', 'concordia'].includes(L.ort()), 'zweiter Notfallsprung aus ' + ort + ' -> ' + L.ort() + ' (ein System, nie Bojenfeld/Schrottkante/Helix)');
   // Notfallsprung direkt nach Concordia: Schritt neustart, Reaktor an, dann sofort erledigt
   const C = setup(13);
   C.g.debugGoto('concordia', false); C.run(0.3);

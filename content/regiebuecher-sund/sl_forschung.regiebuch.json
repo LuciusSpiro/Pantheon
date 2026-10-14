@@ -144,7 +144,7 @@
       ],
       "next": [
         { "if": { "docked": "concordia" },
-          "do": [{ "do": "credit_marks", "marks": 120, "grund": "forschung" }, { "setFlag": { "forschungFertig": true } }, { "oda": "@abliefern.fertig" }], "complete": "erfolg" }
+          "do": [{ "do": "credit_marks", "marks": 220, "grund": "forschung" }, { "setFlag": { "forschungFertig": true } }, { "oda": "@abliefern.fertig" }], "complete": "erfolg" }
       ],
       "skip": [{ "do": "debug_dock", "loc": "concordia" }]
     }

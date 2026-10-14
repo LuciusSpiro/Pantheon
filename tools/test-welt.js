@@ -45,7 +45,8 @@ ok(Welt.ids().join() === 'limes,sund', 'Welt.ids: limes, sund');
 Welt.waehle(null, 'sund');
 {
   const hexe = Object.keys(K.hexe);
-  ok(hexe.length >= 27 && K.kanten.length >= 38, `mindestens die 27 Systeme und 38 Kanten des Entwurfs (dazu Orte der Kampagne wie Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
+  // T7: Brachland (0505) und Saatfeld (0705) sind bewusst Leerraum (Notfallsprung-Ziel bzw. Notruf sl_echt), samt ihrer 6 Kanten: 27-2+Helix/Boje -> 26 Systeme, 32 Kanten
+  ok(hexe.length >= 26 && K.kanten.length >= 32 && !K.hexe['0505'] && !K.hexe['0705'], `mindestens 26 Systeme und 32 Kanten (Entwurf abzüglich Brachland/Saatfeld = Leerraum, dazu Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
   ok(['0204', '0603', '0604', '0605', '0606', '0602', '0503', '1004'].every((h) => K.hexe[h]) && K.spalten * K.zeilen - hexe.length >= 40, 'Systeme des Entwurfs vorhanden, genug Leerraum');
   ok(hexe.every((h) => Sektoren.imRaster(h) && K.regionen[K.hexe[h].region] && typeof K.hexe[h].spielbar === 'boolean'), 'alle Systeme im Raster, mit Region und spielbar');
   const ids = K.kanten.map((e) => Sektoren.kanteId(e.a, e.b));
@@ -126,7 +127,7 @@ let dirSund, weltId;
   ok(typeof Sprung.bojeAufdecken(g, lager) === 'string', 'bojeAufdecken auf eine verborgene Kante wird abgelehnt');
   ok(!Sprung.notsprungKandidaten(g).includes('0606'), 'Notfallsprung führt nie in ein verborgenes Hex');
   ok(!ex.sektorenSnapshot().o.includes(lager) && !ex.sektorenSnapshot().b.includes(lager), 'Snapshot zeigt die Kante nicht');
-  ok(typeof Sprung.kanteEnthuellen(g, 'unsinn') === 'string' && typeof Sprung.kanteEnthuellen(g, '0605-0705') === 'string', 'kanteEnthuellen auf unbekannte oder offene Kante: Begründung');
+  ok(typeof Sprung.kanteEnthuellen(g, 'unsinn') === 'string' && typeof Sprung.kanteEnthuellen(g, '0604-0605') === 'string', 'kanteEnthuellen auf unbekannte oder offene Kante: Begründung');
   const ev = [];
   const orig = g.emit.bind(g); g.emit = (k, d) => { ev.push(k); return orig(k, d); };
   ok(Sprung.kanteEnthuellen(g, 'lager-schrottkante') === null, 'kanteEnthuellen (Schlüssel) -> null');

@@ -1,8 +1,8 @@
 {
   "id": "sl_echt",
-  "_kommentar": "Entwurf SL8. Verschlüsselt, echt. Leerraum 0706 über einen temporären Sprungpunkt von Pulverhorn.",
-  "hex": "0706",
-  "tor": { "von": "0605", "nach": "0706" },
+  "_kommentar": "Entwurf SL8. Verschlüsselt, echt. Leerraum 0705 (ehemals Saatfeld) über einen temporären Sprungpunkt von Pulverhorn. 0706 ist das Bojenfeld (T7: nie als Notruf-Hex).",
+  "hex": "0705",
+  "tor": { "von": "0605", "nach": "0705" },
   "art": "verschluesselt",
   "wahrheit": "echt",
   "absender": "Frachter Möwe",
@@ -19,5 +19,5 @@
   ],
   "pos": { "x": 1500, "y": 1100 },
   "dauer": 600,
-  "lohn": 120
+  "lohn": 150
 }

@@ -87,12 +87,13 @@
     {
       "id": "nachverdienen", "loc": "concordia",
       "timers": [
-        { "at": 120, "if": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.soeldner" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" }
+        { "at": 120, "if": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.loesegeld" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" },
+        { "at": 600, "if": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.loesegeld" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" }
       ],
       "objectives": [
-        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.soeldner" } } } }
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.loesegeld" } } } }
       ],
-      "next": [{ "if": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.soeldner" } } }, "do": [{ "oda": "@nachverdienen.genug" }], "goto": "entscheidung" }],
+      "next": [{ "if": { "all": [{ "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.loesegeld" } } }, { "elapsed": 5 }] }, "do": [{ "oda": "@nachverdienen.genug" }], "goto": "entscheidung" }],
       "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }]
     }
   ],
@@ -123,14 +124,14 @@
     "wahl.nachverdienen": "Erst mehr Marken verdienen",
     "wahl.loesegeld_funk": "Gut. Fliegt nach Schrottkante. Die Piraten sollen merken, dass ihr es ernst meint. Und redet nicht über die Koordinaten.",
     "wahl.soeldner_funk": "Altrost liegt hinter dem Nebel von Kantenstein. Sagt, Concordia schickt euch. Sie kommen, wenn die Marken stimmen. Ich habe nichts gesagt.",
-    "wahl.nachverdienen_hinweis": "Mehr Marken: Deuterium im Gasfeld, Notrufe auf der Sternkarte. Danach wieder nach Concordia.",
+    "wahl.nachverdienen_hinweis": "Mehr Marken: Gasfeld wiederholen (Deuterium schöpfen, in Concordia verkaufen) und Notrufe. Dann kommt die Wahl zurück.",
 
-    "nachverdienen.tipp": "Marken: Gasfeld (Deuterium schöpfen, in Concordia verkaufen) und Notrufe. Kein Zeitdruck.",
+    "nachverdienen.tipp": "Gasfeld wiederholen (Deuterium schöpfen, in Concordia verkaufen, beliebig oft) und Notrufe. Kein Zeitdruck.",
     "nachverdienen.genug": "Genug Marken. Zurück zur Entscheidung.",
 
     "ziel.nach_concordia": "Nach Concordia fliegen",
     "ziel.waehlen": "Captain: entscheiden (Funk, Wahl)",
-    "ziel.geld": "Marken verdienen (Gasfeld, Notrufe)",
+    "ziel.geld": "Marken verdienen für das Lösegeld ({geld:loesegeld}): Gasfeld wiederholen, Notrufe",
 
     "chronik.loesegeld": "Die Crew entscheidet sich für das Lösegeld: Die Piraten bekommen ihr Geld und behalten die Koordinaten.",
     "chronik.soeldner": "Die Crew heuert Söldner aus Altrost an, statt zu zahlen."
