@@ -244,8 +244,8 @@
         "texte": {
           "{{id}}.funk_start": "{{funk_start}}",
           "{{id}}.funk_verstaerkung": "{{funk_verstaerkung}}",
-          "{{id}}.lage": "Feindkontakt! Taktik besetzen, Technik verteilt Schilde auf die bedrohte Seite.",
-          "{{id}}.tipp": "Pilot: Breitseite zum Gegner. Taktik: Ziel mit T, Batterien 2/3. Schäden: E halten oder Bots.",
+          "{{id}}.lage": "Feindkontakt! Ops besetzen, Technik verteilt Schilde auf die bedrohte Seite.",
+          "{{id}}.tipp": "Pilot: Breitseite zum Gegner. Ops: Ziel mit T, Batterien 2/3. Schäden: E halten oder Bots.",
           "{{id}}.ankuendigung": "Ortung: Verstärkung im Anflug! Schilde hoch, Pilot – Breitseite bereithalten.",
           "{{id}}.ziel": "Angriff abwehren"
         }
@@ -261,7 +261,7 @@
       "id": "pylonen_pruefung",
       "name": "Pylonen mit Frontschild um ein Objekt",
       "schauplatz": "weltraum",
-      "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
+      "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Ops scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
       "braucht": [
         "raumkampf"
       ],
@@ -409,7 +409,7 @@
           }
         ],
         "texte": {
-          "{{id}}.lage": "Pylonen mit Frontschild. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+          "{{id}}.lage": "Pylonen mit Frontschild. Ops: scannen und den Piloten an die Seite lotsen – Marker helfen!",
           "{{id}}.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
           "{{id}}.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
           "{{id}}.ziel": "Pylonen ausschalten ({killed:{{id}}_pylon}/{{pylonen}}) – von der Seite!"

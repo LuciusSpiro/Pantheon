@@ -14,30 +14,9 @@
   'use strict';
 
   // ------------------------------------------------------------------ Stil (artdirector §4, hex.svg)
-  const COL = {
-    tisch: '#0B0E1A', leer: '#0B0E1A', leerRand: '#2E3A4A', leerText: '#3C4A5E',
-    unerkundet: '#141A2A', umriss: '#9AA6B8', text: '#F4EEDC', grau: '#9AA6B8',
-    aktiv: '#FFC66B', gesperrt: '#FF8A4C', temporaer: '#A9D6E5', ohneStrom: '#9AA6B8', fern: '#7FD6C8',
-    hier: '#7FE0C2', ziel: '#FFC66B', wahl: '#F4EEDC', route: '#FFC66B', messing: '#C9974A', warn: '#F2C94C',
-  };
-  // Fraktionsflächen gedeckt (helle Schrift ≥ 5,4:1). saum/rom/vorl aus hex.svg, die übrigen im selben Helligkeitsband.
-  const FRAKTION = {
-    saum: { farbe: '#4A4466', name: 'Konkordat' }, rom: { farbe: '#6B2E2E', name: 'Imperium Rom' },
-    ger: { farbe: '#3F4A28', name: 'Germanen' }, pirat: { farbe: '#5C3A1E', name: 'Piraten' },
-    frei: { farbe: '#33404F', name: 'herrenlos' }, neutral: { farbe: '#5A4A22', name: 'neutral' },
-    vorl: { farbe: '#1F5555', name: 'Vorläufer' }, offen: { farbe: '#202734', name: 'unbekannt' },
-  };
-  const EINFLUSS = { gas: 'Gas', asteroiden: 'Asteroiden', nebel: 'Nebel', eruption: 'Eruption', gezeiten: 'Gezeiten',
-    truemmerstrom: 'Trümmerstrom', daempfung: 'Dämpfung', minen: 'Minen' };
-  // Symbol-Vokabular aus karte_limes.py bzw. limes.json -> IconsB.hex-ID
-  const SYMBOL_ICON = { home: 'heimat', heimat: 'heimat', pantheon: 'schrein', schrein: 'schrein', ruin: 'ruine', ruine: 'ruine',
-    pirate: 'piraten', piraten: 'piraten', fort: 'festung', festung: 'festung', wrack: 'wrack', boje: 'boje', hafen: 'hafen',
-    gasriese: 'gasriese', asteroiden: 'asteroiden', nebel: 'nebel' };
-  const SYMBOL_NAME = { home: 'Heimathafen', heimat: 'Heimathafen', pantheon: 'Schrein', schrein: 'Schrein', ruin: 'Ruine',
-    ruine: 'Ruine', pirate: 'Piraten', piraten: 'Piraten', fort: 'Festung', festung: 'Festung', ally: 'Verbündete',
-    target: 'Ziel', bomb: 'Sprengziel', wrack: 'Wrack', boje: 'Boje' };
-  const ZUSTAND_NAME = { aktiv: 'aktiv', gesperrt: 'gesperrt', temporaer: 'temporär', ohne_strom: 'ohne Strom' };
-  const ZUSTAND_FARBE = { aktiv: COL.aktiv, gesperrt: COL.gesperrt, temporaer: COL.temporaer, ohne_strom: COL.ohneStrom };
+  // SL1B: Farben, Symbol-Vokabular und Zeichenfunktionen liegen in js/kartenzeichen.js (gemeinsam mit dem Sektorplan, SL4)
+  const KZ = window.Kartenzeichen;
+  const { COL, FRAKTION, EINFLUSS, SYMBOL_ICON, SYMBOL_NAME, ZUSTAND_NAME, ZUSTAND_FARBE } = KZ;
   const SQ3 = Math.sqrt(3);
   const MAX_FEHLER = 3;
 
@@ -47,10 +26,14 @@
   function mess(s) { return R().measure(s, 1); }
 
   // ------------------------------------------------------------------ Datenhaltung
-  const store = { karte: null, kartePrep: null, sektoren: null, fehler: 0, aus: false, layouts: [], pick: null, pickSel: undefined, ansicht: 'saumraum' };
+  const store = { karte: null, kartePrep: null, sektoren: null, fehler: 0, aus: false, layouts: [], pick: null, pickSel: undefined, ansicht: 'fokus', marken: [] };
+  // Ansichten (SL1B, karteneutral): 'fokus' = spielbare Hexe + ein Ring Nachbarn (Standard, groß), 'gesamt' = ganze Karte. Die alten Namen
+  // 'saumraum' und 'limes' gelten weiter.
+  const normAnsicht = (a) => (a === 'gesamt' || a === 'limes' ? 'gesamt' : 'fokus');
 
   function setKarte(k) {
     if (!k || typeof k !== 'object' || !k.hexe) return false;
+    if (store.karte && store.karte.id !== k.id) { store.sektoren = null; store.marken = []; }   // andere Karte (Limes <-> Sund): alter Stand gilt nicht
     store.karte = k; store.kartePrep = null;
     return true;
   }
@@ -72,7 +55,10 @@
         try { SS.setzeKarte(msg.sektorkarte); } catch (e) { report('StarMap.setzeKarte', e); }
       }
     }
-    else if (msg.t === 'snap' && msg.world && msg.world.sektoren) store.sektoren = msg.world.sektoren;
+    else if (msg.t === 'snap' && msg.world) {
+      if (msg.world.sektoren) store.sektoren = msg.world.sektoren;
+      if (Array.isArray(msg.world.marken)) store.marken = msg.world.marken;   // SL1B: Marken (Ziele, Notrufe, Spuren, Funde, Kontakte), nur bei Änderung
+    }
   }
   (function haken() {
     const N = window.Net;
@@ -217,107 +203,13 @@
   }
 
   // ------------------------------------------------------------------ Icons (IconsB oder Ersatz)
-  const maskCache = {};
-  function maskSprite(mask, farbe) {
-    const key = mask.join('|') + farbe;
-    if (maskCache[key]) return maskCache[key];
-    const n = mask.length, m = Math.max(...mask.map(r => r.length));
-    const c = document.createElement('canvas'); c.width = m + 2; c.height = n + 2;
-    const g = c.getContext('2d');
-    const dunkel = 'rgba(11,14,26,0.9)';
-    const pal = { '#': farbe, '+': '#FFFFFF', 'o': dunkel, 'w': '#FFFFFF' };
-    for (let y = 0; y < n; y++) for (let x = 0; x < mask[y].length; x++) {
-      const ch = mask[y][x];
-      if (!pal[ch]) continue;
-      g.fillStyle = pal[ch]; g.fillRect(x + 1, y + 1, 1, 1);
-    }
-    return (maskCache[key] = c);
-  }
-  // Ruft ein IconsB-Icon; true, wenn gezeichnet. Formate: Masken-Array (wie ICONS), Funktion(ctx, x, y, opts),
-  // Objekt { mask, color } oder IconsB.draw(ctx, gruppe, id, x, y, opts).
-  function iconsB(ctx, gruppe, id, x, y, farbe) {
-    const IB = window.IconsB;
-    if (!IB) return false;
-    try {
-      // UI-ART (Stilblatt §5): IconsB.draw(ctx, gruppe, id, x, y, opts) -> bool, Standardfarben und Aliase dort
-      if (typeof IB.draw === 'function' && typeof IB.has === 'function') return IB.has(gruppe, id) ? IB.draw(ctx, gruppe, id, x, y, {}) !== false : false;
-      const g = IB[gruppe], src = g && g[id];
-      if (Array.isArray(src)) { const sp = maskSprite(src, farbe); ctx.drawImage(sp, Math.round(x - sp.width / 2), Math.round(y - sp.height / 2)); return true; }
-      if (typeof src === 'function') { src(ctx, x, y, { color: farbe, size: 12 }); return true; }
-      if (src && Array.isArray(src.mask)) { const sp = maskSprite(src.mask, src.color || farbe); ctx.drawImage(sp, Math.round(x - sp.width / 2), Math.round(y - sp.height / 2)); return true; }
-      if (typeof IB.draw === 'function' && src) { IB.draw(ctx, gruppe, id, x, y, { color: farbe }); return true; }
-    } catch (e) { report('IconsB.' + gruppe + '.' + id, e); }
-    return false;
-  }
-  // Einfacher Ersatz (Formen aus hex.svg, auf 12 px)
-  function ersatzHex(ctx, id, x, y, farbe) {
-    ctx.save();
-    ctx.translate(Math.round(x) + 0.5, Math.round(y) + 0.5);
-    ctx.strokeStyle = farbe; ctx.fillStyle = farbe; ctx.lineWidth = 1.5;
-    const line = (pts, close) => { ctx.beginPath(); pts.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); if (close) ctx.closePath(); ctx.stroke(); };
-    switch (id) {
-      case 'heimat': ctx.strokeRect(-5, -5, 10, 10); ctx.fillStyle = COL.aktiv; ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, 7); ctx.fill(); break;
-      case 'hafen': ctx.strokeRect(-4, -4, 8, 8); ctx.beginPath(); ctx.arc(0, 0, 1.5, 0, 7); ctx.fill(); break;
-      case 'asteroiden': ctx.fillStyle = COL.grau; [[-3, 2, 3], [3, -2, 2.5], [3, 4, 1.8]].forEach(([a, b, r]) => { ctx.beginPath(); ctx.arc(a, b, r, 0, 7); ctx.fill(); }); break;
-      case 'nebel': ctx.strokeStyle = COL.temporaer; line([[-6, -2], [-3, -4], [0, -2], [3, -4], [6, -2]]); line([[-6, 3], [-3, 1], [0, 3], [3, 1], [6, 3]]); break;
-      case 'boje': ctx.strokeStyle = COL.aktiv; ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, 7); ctx.stroke(); line([[0, -6], [0, 6]]); break;
-      case 'wrack': ctx.strokeStyle = COL.messing; line([[-5, 4], [-1, -4], [1, 0], [6, -3], [3, 5]], true); break;
-      case 'ruine': case 'schrein': ctx.strokeStyle = '#B79CE0'; line([[0, -6], [6, 0], [0, 6], [-6, 0]], true); ctx.fillStyle = '#B79CE0'; ctx.fillRect(-1, -1, 3, 3); break;
-      case 'piraten': ctx.strokeStyle = COL.gesperrt; line([[-4, -4], [4, 4]]); line([[4, -4], [-4, 4]]); ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, 7); ctx.stroke(); break;
-      case 'festung': line([[-5, -5], [5, -5], [5, 1], [0, 6], [-5, 1]], true); break;
-      case 'gasriese': ctx.beginPath(); ctx.arc(0, 0, 4, 0, 7); ctx.stroke(); line([[-7, 2], [7, -2]]); break;
-      // ohne UI-ART-Icon (Stilblatt §5): Verbündete, Ziel, Sprengziel
-      case 'ally': ctx.fillStyle = '#A9D6E5'; ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(5, 4); ctx.lineTo(-5, 4); ctx.closePath(); ctx.fill(); break;
-      case 'target': ctx.strokeStyle = COL.aktiv; line([[-3, 6], [-3, -6]]); ctx.fillStyle = COL.aktiv; ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(5, -3); ctx.lineTo(-3, 0); ctx.closePath(); ctx.fill(); break;
-      case 'bomb': ctx.strokeStyle = COL.gesperrt; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; line([[Math.cos(a) * 2, Math.sin(a) * 2], [Math.cos(a) * 6, Math.sin(a) * 6]]); } break;
-      default: ctx.fillStyle = farbe; ctx.beginPath(); ctx.arc(0, 0, 3, 0, 7); ctx.fill();
-    }
-    ctx.restore();
-  }
-  function fraktionFarbe(fr) { const IB = window.IconsB; const f = IB && IB.FRAKTION && IB.FRAKTION[fr]; return (f && f.flaeche) || (FRAKTION[fr] || FRAKTION.offen).farbe; }
-  function zeichneHexIcon(ctx, id, x, y, farbe) { if (!iconsB(ctx, 'hex', id, x, y, farbe)) ersatzHex(ctx, id, x, y, farbe); }
-  function zeichneEinfluss(ctx, id, x, y) {
-    if (iconsB(ctx, 'einfluss', id, x, y, COL.temporaer)) return;
-    const k = { gas: 'G', asteroiden: 'A', nebel: 'N', eruption: 'E', gezeiten: 'Z', truemmerstrom: 'T', daempfung: 'D', minen: 'M' }[id] || '·';
-    txt(ctx, k, x, y - 3, { color: COL.temporaer, align: 'center' });
-  }
-  // Bojen-Perle auf der Karte: IconsB.perle(ctx, art, x, y, skala) oder Ersatz nach hex.svg (s = Durchmesser px)
-  function zeichneBoje(ctx, zustand, x, y, s) {
-    const IB = window.IconsB;
-    if (IB && typeof IB.perle === 'function' && IB.perle(ctx, zustand, x, y, s / 16) !== false) return;
-    zeichneBojeErsatz(ctx, zustand, x, y, s);
-  }
-  function zeichneBojeErsatz(ctx, zustand, x, y, s) {
-    const r = Math.max(2.5, s / 2);
-    ctx.save();
-    ctx.lineWidth = Math.max(1, r / 3);
-    const f = ZUSTAND_FARBE[zustand] || COL.aktiv;
-    if (zustand === 'gesperrt' || zustand === 'ohne_strom') {
-      ctx.fillStyle = COL.tisch; ctx.strokeStyle = f;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      if (zustand === 'gesperrt') {
-        const q = r * 0.5;
-        ctx.beginPath(); ctx.moveTo(x - q, y - q); ctx.lineTo(x + q, y + q); ctx.moveTo(x + q, y - q); ctx.lineTo(x - q, y + q); ctx.stroke();
-      }
-    } else {
-      ctx.fillStyle = f; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = COL.tisch; ctx.lineWidth = 1; ctx.stroke();
-    }
-    ctx.restore();
-  }
-  function hauptIcon(s) {
-    for (const sym of s.symbole || []) if (SYMBOL_ICON[sym] === 'heimat') return 'heimat';
-    const art = String(s.art || '').toLowerCase();
-    if (/wrack/.test(art)) return 'wrack';
-    if (/boje/.test(art)) return 'boje';
-    if (/gasriese/.test(art)) return 'gasriese';
-    if (/nebel/.test(art) || s.einfluss === 'nebel') return 'nebel';
-    if (/asteroid|trümmer/.test(art)) return 'asteroiden';
-    for (const sym of s.symbole || []) if (SYMBOL_ICON[sym]) return SYMBOL_ICON[sym];
-    if (/ruine|relais|sternwarte/.test(art)) return 'ruine';
-    if (s.hafen) return 'hafen';
-    return 'system';
-  }
+  // Zeichenfunktionen aus js/kartenzeichen.js (SL1B); die Namen bleiben, damit der Rest der Datei unverändert läuft
+  const fraktionFarbe = KZ.fraktionFarbe;
+  const zeichneHexIcon = (ctx, id, x, y, farbe) => KZ.symbol(ctx, id, x, y, { farbe });
+  const zeichneEinfluss = KZ.einfluss;
+  const zeichneBoje = KZ.boje;
+  const zeichneBojeErsatz = KZ.bojeErsatz;
+  const hauptIcon = KZ.hauptIcon;
 
   // ------------------------------------------------------------------ Zeichnen der Karte
   function hexPfad(ctx, x, y, s) {
@@ -343,15 +235,17 @@
     const L = lage(st, P);
     const C = P.spalten, Z = P.zeilen;
     const breiteF = 2 + 1.5 * (C - 1), hoeheF = SQ3 * (Z + 0.5);
-    // Ansicht: „saumraum“ (Standard, spielbare Hexe + ein Ring Nachbarn, groß) oder „limes“ (ganze Karte).
-    // Der HUD-Ausschnitt (opts.kompakt) zeigt immer den Saumraum.
-    const ansicht = opts.kompakt ? 'saumraum' : (opts.ansicht || store.ansicht);
+    // Ansicht: „fokus“ (Standard, spielbare Hexe + ein Ring Nachbarn, groß; Hexe mit Marken kommen dazu) oder „gesamt“ (ganze Karte).
+    // Der HUD-Ausschnitt (opts.kompakt) zeigt immer den Fokus.
+    const marken = (store.marken || []).filter((mk) => mk && /^\d{4}$/.test(mk.h) && P.K.hexe !== undefined);   // SL1B: Ziele, Notrufe, Spuren, Funde, Kontakte
+    const ansicht = opts.kompakt ? 'fokus' : normAnsicht(opts.ansicht || store.ansicht);
     const alle = [];
     for (let c = 1; c <= C; c++) for (let r = 1; r <= Z; r++) alle.push(code(c, r));
     const ux = (c) => 1 + 1.5 * (c - 1), uy = (c, r) => SQ3 / 2 + SQ3 * (r - 1) + (c % 2 === 0 ? SQ3 / 2 : 0);
     let fokusSet = null;
-    if (ansicht === 'saumraum') {
+    if (ansicht === 'fokus') {
       fokusSet = new Set();
+      for (const mk of marken) { fokusSet.add(mk.h); for (const n of nachbarn(mk.h, P)) fokusSet.add(n); }   // Marken liegen immer im Bild
       for (const h in K.hexe) { const q = K.hexe[h]; if (q && (q.spielbar !== false || q.region === 'saumraum')) { fokusSet.add(h); for (const n of nachbarn(h, P)) fokusSet.add(n); } }
       if (L.hier) fokusSet.add(L.hier);
       if (!fokusSet.size) fokusSet = null;
@@ -557,12 +451,34 @@
     if (store.pick && store.pick !== selHex) ring(store.pick, COL.gesperrt, 1, [2, 2], 5);
     if (hover && hover !== selHex) ring(hover, 'rgba(244,238,220,0.6)', 1, null, 5);
 
-    // Saumraum-Ansicht: Hexe außerhalb des Fokus blass (dahinter geht die Karte Limes weiter)
-    if (fokusSet) {
-      ctx.fillStyle = 'rgba(11,14,26,0.6)';
-      for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
-      if (!kompakt) txt(ctx, 'SAUMRAUM', gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
-    } else if (!kompakt) txt(ctx, 'KARTE LIMES', gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
+    // SL1B: Marken (Missionsziele, Notrufe, Spuren, Funde, Kontakte). Ziel: gestrichelter Doppelring + Fähnchen, die übrigen: Plakette an der
+    // oberen rechten Ecke des Hexes; mehrere Marken im selben Hex stehen nebeneinander. Notrufe zeigen ihre Restzeit als Bogen.
+    {
+      const nr = {};
+      const pr = Math.max(5, Math.min(9, s * 0.2));
+      for (const mk of marken) {
+        const M = KZ.MARKEN[mk.t] || KZ.MARKEN.fund;
+        const p = mitte(mk.h);
+        if (mk.t === 'ziel' && mk.h !== L.hier) {
+          const pul = 0.55 + 0.45 * Math.abs(Math.sin(t * 2.4));
+          ctx.save(); ctx.globalAlpha = pul; ctx.strokeStyle = M.farbe; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+          hexPfad(ctx, p.x, p.y, s - 3.5); ctx.stroke(); ctx.restore();
+        }
+        const k = nr[mk.h] = (nr[mk.h] || 0) + 1;
+        const px = p.x + s * 0.5 - (k - 1) * (pr * 2 + 1), py = p.y - h3 / 2 + pr + 2;
+        KZ.marke(ctx, mk.t, px, py, t, { r: pr, hier: mk.h === L.hier, rest: mk.b, gesamt: mk.g || 0 });
+      }
+    }
+
+    // Fokus-Ansicht: Hexe außerhalb des Ausschnitts blass (dahinter geht die Karte weiter)
+    {
+      const kn = String((K && K.name) || 'Karte').toUpperCase();
+      if (fokusSet) {
+        ctx.fillStyle = 'rgba(11,14,26,0.6)';
+        for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
+        if (!kompakt) txt(ctx, kn + ' · AUSSCHNITT', gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
+      } else if (!kompakt) txt(ctx, kn, gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
+    }
 
     // Plan-Pins (Planungstisch)
     if (opts.pins !== false) for (const pin of (st.plan && st.plan.pins) || []) {
@@ -575,7 +491,7 @@
     if (seite) { ctx.strokeStyle = 'rgba(201,151,74,0.5)'; ctx.beginPath(); ctx.moveTo(gArea.x + gArea.w + 0.5, rect.y + 2); ctx.lineTo(gArea.x + gArea.w + 0.5, rect.y + rect.h - 2); ctx.stroke(); }
 
     // 6) Details: Seitenleiste oder Schild
-    const zeilen = details(P, L, fokus, weg && weg[weg.length - 1] === fokus ? weg : route(P, L, L.hier, fokus));
+    const zeilen = details(P, L, fokus, weg && weg[weg.length - 1] === fokus ? weg : route(P, L, L.hier, fokus), marken);
     if (seite) {
       const sx = gArea.x + gArea.w + 5, sw = rect.x + rect.w - sx - 4;
       let y = rect.y + 4;
@@ -603,11 +519,27 @@
   }
 
   // Textzeilen zum Fokus-Hex
-  function details(P, L, h, weg) {
+  function markenZeilen(P, L, marken, nurHex) {
     const out = [];
-    if (!h) { out.push({ t: 'KARTE LIMES', c: COL.messing, gap: 2 }, { t: 'Hex überfahren oder anklicken.', c: COL.grau }); return out; }
+    for (const mk of marken) {
+      if (nurHex && mk.h !== nurHex) continue;
+      const M = KZ.MARKEN[mk.t] || KZ.MARKEN.fund;
+      const rest = mk.b != null ? ' · noch ' + Math.ceil(mk.b / 60) + ' min' : '';
+      out.push({ t: KZ.markeText(mk.t, nurHex ? '' : hexName(P, L, mk.h, false) + ' ' + mk.h) + rest, c: M.farbe, max: 2 });
+    }
+    return out;
+  }
+  function details(P, L, h, weg, marken) {
+    const out = [];
+    if (!h) {
+      out.push({ t: String((P.K && P.K.name) || 'Karte').toUpperCase(), c: COL.messing, gap: 2 }, { t: 'Hex überfahren oder anklicken.', c: COL.grau, gap: 3 });
+      const ml = markenZeilen(P, L, marken || [], null);
+      if (ml.length) { out.push({ t: 'MARKEN', c: COL.messing }); for (const z of ml) out.push(z); }
+      return out;
+    }
     const hs = hexStatus(P, L, h), s = hs.s;
     out.push({ t: 'SEKTOR ' + h, c: COL.messing });
+    for (const z of markenZeilen(P, L, marken || [], h)) out.push(z);
     out.push({ t: hexName(P, L, h, true), c: hs.art === 'erkundet' ? COL.aktiv : COL.text, max: 2 });
     if (hs.art === 'leer') {
       out.push({ t: 'Leerraum – Barriere. Nur über temporäre Sprungpunkte oder Notfallsprung.', c: COL.grau, max: 4, gap: 2 });   // QA-B3 F5: 4 Zeilen, sonst fehlt „Notfallsprung“
@@ -771,10 +703,14 @@
     setKarte,
     // optional für Tests/Client: Erkundungsstand { e, b, t, o, v } setzen
     setSektoren(s) { store.sektoren = s || null; },
-    // Ansicht der Sternkarte: 'saumraum' (Standard, groß) | 'limes' (ganze Karte). Taste bindet CLIENT (consoles.js).
-    setAnsicht(a) { if (a === 'saumraum' || a === 'limes') store.ansicht = a; return store.ansicht; },
-    toggleAnsicht() { store.ansicht = store.ansicht === 'limes' ? 'saumraum' : 'limes'; return store.ansicht; },
+    // Ansicht der Sternkarte: 'fokus' (Standard, groß) | 'gesamt' (ganze Karte); alte Namen 'saumraum' und 'limes' werden übersetzt.
+    // Taste bindet CLIENT (consoles.js).
+    setAnsicht(a) { store.ansicht = normAnsicht(a); return store.ansicht; },
+    toggleAnsicht() { store.ansicht = store.ansicht === 'gesamt' ? 'fokus' : 'gesamt'; return store.ansicht; },
     get ansicht() { return store.ansicht; },
+    // SL1B: Marken aus dem Snapshot (world.marken) [{ h, t, id?, s?, b?, g? }]; für Konsolen und den Sektorplan (SL4)
+    get marken() { return (store.marken || []).slice(); },
+    setMarken(m) { store.marken = Array.isArray(m) ? m : []; },
     get karte() { return karte(); },
     get aktiv() { return !store.aus && !!karte(); },
     // QA-B3 F4: (state) -> true, wenn die Sprungpunkt-Boje angeflogen werden muss (freies Spiel); Tutorial: false

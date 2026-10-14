@@ -1,15 +1,15 @@
 'use strict';
-// EK3 Teil A (CONTRACT-EK3): Fracht (Ladung) im Raum, Beamen an Bord und Abliefern von der Taktik, Frachtraum der Lerche.
+// EK3 Teil A (CONTRACT-EK3): Fracht (Ladung) im Raum, Beamen an Bord und Abliefern von der Ops, Frachtraum der Lerche.
 //
 //   fracht_abwerfen(game, x, y, art)   Schnittstelle für die Konvoi-Szene (Teil B): ein zerstörter Transporter lässt Fracht fallen.
-//   weapons.fracht { id? } / { off }   Taktik: Halteprozess starten (nächste Fracht in Reichweite) bzw. abbrechen
-//   weapons.abliefern                  Taktik: Fracht beim Abnehmer abgeben (derselbe Halteprozess, Beamen nach draußen)
+//   weapons.fracht { id? } / { off }   Ops: Halteprozess starten (nächste Fracht in Reichweite) bzw. abbrechen
+//   weapons.abliefern                  Ops: Fracht beim Abnehmer abgeben (derselbe Halteprozess, Beamen nach draußen)
 //
 // Regeln (Briefing EK3, Planung E6):
 //  - Der Frachtraum hat Maps.CARGO_CAPACITY (2) Buchten. Eine dritte Ladung wird abgelehnt.
 //  - Beamen: Haltezeit ship.beamTime (3 s; bei beschädigtem Transfer ship.beamTimeDamaged), Reichweite fracht.beamRange (320, wie scene.beam.range
 //    der Außenkarten). Ein Systemtreffer (interior.damageSystem) bricht ab, ein Schildtreffer nicht. Auch Transfer ausgefallen, Fracht
-//    außer Reichweite oder niemand mehr an der Taktik bricht ab. Der Halteprozess belegt nicht ship.beaming (Schilde bleiben oben).
+//    außer Reichweite oder niemand mehr an der Ops bricht ab. Der Halteprozess belegt nicht ship.beaming (Schilde bleiben oben).
 //  - Eine Ladung im Raum bleibt, wo sie ist, bis die Lerche die Szene (das System) verlässt. Dann ist sie weg.
 //  - Abliefern: beim Abnehmer (game.fracht.abnehmer.ort, vom Regiebuch gesetzt), sonst bei jeder Station (scene.station.kind in
 //    fracht.stationKinds) im Umkreis fracht.stationRange.
@@ -31,7 +31,7 @@ function neu() {
 function state(game) { return game.fracht || (game.fracht = neu()); }
 
 const artOk = (game, art) => cfg(game).arten.includes(art);
-const artName = (art) => (art === 'sprengstoff' ? 'Sprengstoff' : art === 'fracht' ? 'Fracht' : String(art));
+const artName = (art) => (art === 'sprengstoff' ? 'Sprengstoff' : art === 'fracht' ? 'Fracht' : art === 'deuterium' ? 'Deuterium' : String(art));
 
 // ---------- Abfragen ----------
 function anBord(game, art) { const s = state(game); return art ? s.lager.filter((l) => l.art === art).length : s.lager.length; }
@@ -74,7 +74,7 @@ function naechste(game) {
   for (const d of draussen(game)) { const k = dist(sh.x, sh.y, d.x, d.y); if (k <= R && k < bd) { best = d; bd = k; } }
   return best;
 }
-// Taktik: Halteprozess „an Bord beamen“ starten. id: bestimmte Fracht, sonst die nächste in Reichweite. Rückgabe: Fehlertext | null.
+// Ops: Halteprozess „an Bord beamen“ starten. id: bestimmte Fracht, sonst die nächste in Reichweite. Rückgabe: Fehlertext | null.
 function beamStart(game, p, id) {
   const s = state(game);
   if (s.halt) return 'Transfer läuft bereits.';
@@ -135,6 +135,8 @@ function beamFertig(game) {
     game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
     game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity()}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
+  } else if (h.kind === 'verk') {   // SL6: Verkaufen an einen Händler (server/sim/ladung.js)
+    require('./ladung.js').verkaufFertig(game);
   } else {
     const o = ablieferOrt(game);
     if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'ab', grund: 'ort' }); return; }
@@ -164,7 +166,8 @@ function update(game, dt) {
     const pod = s.draussen.find((d) => d.id === h.id);
     if (!pod) return void beamStop(game, 'weg');
     if (dist(game.ship.x, game.ship.y, pod.x, pod.y) > cfg(game).beamRange) return void beamStop(game, 'reichweite', 'Fracht außer Reichweite – Beamen abgebrochen.');
-  } else if (!ablieferOrt(game).ok) return void beamStop(game, 'ort');
+  } else if (h.kind === 'verk') { if (!require('./ladung.js').verkaufWeiter(game)) return void beamStop(game, 'ort'); }
+  else if (!ablieferOrt(game).ok) return void beamStop(game, 'ort');
   h.t += dt;
   if (h.t >= h.dur) beamFertig(game);
 }
@@ -182,6 +185,8 @@ function snapshot(game) {
   if (s.halt) { out.halt = { kind: s.halt.kind, p: Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
   if (s.gesichert === false) out.g = false;
+  { const fu = require('./ladung.js').fuellStand(game); if (fu) out.fuell = fu; }   // SL6: Füllstand der nächsten Deuterium-Einheit
+  { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; }   // SL6: Händler in Reichweite (Verkaufen möglich)
   return Object.keys(out).length ? out : null;
 }
 function toSave(game) { return state(game).lager.map((l) => l.art); }
@@ -237,5 +242,5 @@ module.exports = {
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt,
   anBord, frei, capacity, gesichert, setGesichert, lagerArten, draussen, abgeliefert,
-  setAbnehmer, skriptAbliefern, anBordLegen,
+  setAbnehmer, skriptAbliefern, anBordLegen, artOk,
 };

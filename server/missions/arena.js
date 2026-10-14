@@ -11,7 +11,7 @@ module.exports = {
     {
       id: 'waves',
       timers: [
-        { at: 2, oda: 'Allein? Steuer fliegt, Taktik schießt (T Ziel, 1/2 Feuer). Konsolen wechseln mit Esc und E.' },
+        { at: 2, oda: 'Allein? Steuer fliegt, Ops schießt (T Ziel, 1/2 Feuer). Konsolen wechseln mit Esc und E.' },
       ],
       objectives: [
         { id: 'wave', text: '{arena}' },

@@ -82,7 +82,7 @@ function hexGrund(game, here, ziel) {
   const e = Sektoren.kante(here, ziel); const temp = ex.tempKante(id);
   if (!Sektoren.spielbar(ziel)) { const t = Sektoren.sperrtext(ziel); return 'Sektor gesperrt' + (t ? ' – ' + t : '.'); }
   if (temp) return null;
-  if (!e || e.art === 'hidden' || !Sektoren.sindNachbarn(here, ziel)) {
+  if (!e || (e.art === 'hidden' && !ex.kanteEnthuellt(e)) || !Sektoren.sindNachbarn(here, ziel)) {
     if (e && e.art === 'far') return 'Fernsprungpunkt gesperrt.';
     return Sektoren.istLeerraum(ziel) ? 'Leerraum – kein Sprungpunkt dorthin.' : 'Kein Sprungpunkt dorthin.';
   }
@@ -263,7 +263,8 @@ function selectDest(game, dest) {
 function notsprungKandidaten(game) {
   const here = hexHier(game);
   if (!here) return [];
-  let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.ortVonHex(h));
+  let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.ortVonHex(h)
+    && (!Sektoren.istVerborgen(h) || game.explore.kanteOffen(Sektoren.kanteId(here, h))));   // SL1: verborgene Hexe nur über enthüllte Kante
   // EK7: Solange das Tutorial läuft, führt der Notfallsprung nie aus dem Saumraum hinaus (Statio Limitis grenzt an den Splittergürtel)
   if (tutorialLaeuft(game)) c = c.filter((h) => { const d = Sektoren.hexDaten(h); return !d || d.region === 'saumraum'; });
   if (Sektoren.istLeerraum(here)) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
@@ -329,7 +330,7 @@ function oeffnen(game, opts) {
   if (!a || !b || !Sektoren.sindNachbarn(a, b)) return 'Kante gibt es nicht (keine Nachbarn).';
   if (!Sektoren.spielbar(a) || !Sektoren.spielbar(b)) return 'Sektor nicht spielbar.';
   const id = Sektoren.kanteId(a, b); const e = Sektoren.kante(id);
-  if (e && e.art === 'hidden') return 'Verborgene Kante – in B3 nicht zu öffnen.';
+  if (e && e.art === 'hidden' && !ex.kanteEnthuellt(e)) return 'Verborgene Kante – erst enthüllen (kanteEnthuellen).';
   if (o.temp) {
     if (e && ex.kanteOffen(id)) { ex.markBoje(id); return null; }
     if (ex.tempKante(id)) return null;
@@ -365,9 +366,36 @@ function missionEnde(game) {
 function bojeAufdecken(game, kanteId) {
   const e = Sektoren.kante(kanteId);
   if (!e) return 'Kante gibt es nicht.';
-  if (e.art === 'hidden') return 'Verborgene Kante – in B3 nicht aufzudecken.';
+  if (e.art === 'hidden' && !game.explore.kanteEnthuellt(e)) return 'Verborgene Kante – erst enthüllen (kanteEnthuellen).';
   if (e.art === 'far') return 'Fernsprungpunkt – in B3 gesperrt.';
   game.explore.markBoje(kanteId);
+  return null;
+}
+// SL1: verborgene Kante enthüllen: ihr Weltstand-Schlüssel wird offen, die Boje gilt als gefunden, die Kante ist befahrbar.
+// ref: Kanten-ID ('0603-0602'), Schlüssel der Kante ('altrost-weg') oder { von, nach } (Hexe oder Orte).
+// Gespeichert über verbindungen_offen (Weltstand), wirkt auch nach dem Laden. -> null | Begründung
+function kanteEnthuellen(game, ref) {
+  const ex = game.explore;
+  let id = null;
+  if (ref && typeof ref === 'object') {
+    const a = /^\d{4}$/.test(String(ref.von)) ? ref.von : Sektoren.hexVonOrt(ref.von);
+    const b = /^\d{4}$/.test(String(ref.nach)) ? ref.nach : Sektoren.hexVonOrt(ref.nach);
+    id = a && b ? Sektoren.kanteId(a, b) : null;
+  } else if (typeof ref === 'string') id = ref;
+  const alle = ((Sektoren.KARTE && Sektoren.KARTE.kanten) || []).filter((e) => e.art === 'hidden' && (e.key === id || Sektoren.kanteId(e.a, e.b) === id));
+  if (!alle.length) return 'Keine verborgene Kante dazu.';
+  let neu = false;
+  for (const e of alle) {
+    if (!e.key) return 'Verborgene Kante ohne Schlüssel (Karte).';
+    if (!ex.linksOpen.has(e.key)) { ex.openLink(e.key); neu = true; }
+    ex.markBoje(Sektoren.kanteId(e.a, e.b));
+    for (const hex of [e.a, e.b]) { const ort = Sektoren.ortVonHex(hex); if (ort && !Sektoren.istLeerId(ort) && Locations.get(ort)) ex.knowSilently(ort); }
+  }
+  if (!neu) return null;
+  ex.sektorVersion++;
+  const k = Sektoren.kanteId(alle[0].a, alle[0].b);
+  game.emit('kanteEnthuellt', { kante: k, key: alle[0].key });
+  game.missionEvent('kanteEnthuellt', { kante: k, key: alle[0].key });
   return null;
 }
 
@@ -418,6 +446,6 @@ function debugErkundeAlle(game) {
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
   tutorialLaeuft, anflugPflicht, springeNach, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
-  notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, jpSnapshot,
+  notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, kanteEnthuellen, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };

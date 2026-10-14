@@ -17,7 +17,7 @@
       "id": "position_halten",
       "name": "Position am Objekt halten, bis der Uplink steht",
       "schauplatz": "weltraum",
-      "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Technik verteilt Schilde. Nur an Orten mit Hauptobjekt.",
+      "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Ops hält frei, Technik verteilt Schilde. Nur an Orten mit Hauptobjekt.",
       "braucht": [
         "raumkampf",
         "bordschaeden"

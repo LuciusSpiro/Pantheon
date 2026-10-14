@@ -146,12 +146,14 @@
     OFFER_FIELDS: ['von', 'ziel', 'dauer_min', 'belohnung', 'erinnerung'],
     OFFER_ORIGINS: ['sl', 'archiv'],
     // EK3 Teil A (CONTRACT-EK3 §4): Fracht. cmd { c: 'weapons.fracht', id? } startet das Beamen an Bord (3 s Halteprozess), { off: true } bricht ab;
-    // cmd { c: 'weapons.abliefern' } gibt die Ladung beim Abnehmer / an einer Station ab (nur an der Taktik-Konsole).
+    // cmd { c: 'weapons.abliefern' } gibt die Ladung beim Abnehmer / an einer Station ab (nur an der Ops-Konsole).
     // Ereignis frachtBeamen { phase: 'start'|'abbruch'|'fertig', was: 'an'|'ab', grund?, art?, n? }; frachtAbgeworfen { id, x, y, art }.
     // Snapshot fracht (nur wenn etwas da ist): { lager: [art], draussen: [{ id, x, y, art }], halt: { kind: 'an'|'ab', id?, p }, ab: 1, abn: Name, g: false }.
-    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern'],
+    // SL6: cmd { c: 'weapons.abwerfen', art? } wirft eine Einheit Ware ab, cmd { c: 'weapons.verkaufen' } verkauft an einen Händler (Halteprozess kind 'verk').
+    // Snapshot fracht + { fuell: 0..1 (Schöpf-Füllstand), vk: 1 (Händler in Reichweite) }; Snapshot zonen (nur in Szenen mit Zonen): { in: [id], bk: [id], z?: { id: Zähler } }.
+    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
-    FRACHT_ARTEN: ['sprengstoff', 'fracht'],
+    FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
     KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],
@@ -210,8 +212,8 @@
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
     // 'quartier' öffnet sich an der eigenen Koje, 'sonde' an der Kustoden-Sonde (Außenmission).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „TAKTIK“); R1: 'technik' = vierte Rolle (Maschinenraum)
-    // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Taktik, Captain, Technik
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
     // R1 §4.2: Technik-Befehle (Konsole 'technik'); die alten captain.* antworten nur mit einem Hinweis
@@ -229,7 +231,7 @@
     BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
     SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
     CMD_REPAIR: ['repair.start', 'repair.done', 'repair.cancel'],   // M3a: ohne Konsole, nur Zone ship
-    // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Taktik) – on:true lädt auf,
+    // M3a §20.3: Lanze als Ladewaffe. cmd { c: 'weapons.charge', mount: 'bow', on: bool } (Ops) – on:true lädt auf,
     // on:false feuert sofort mit der aktuellen power. Snapshot mounts[bow].power (0..1), .charging (bool).
     CMD_LANCE_CHARGE: 'weapons.charge',
     // Ereignis lance { state, power, hit }: 'charge' (Aufladen beginnt), 'fire' (Schuss, hit = Gegner-ID oder null),
@@ -255,6 +257,7 @@
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
+      'entschl',   // SL5: entschl [id] startet ein Testsignal mit vier Schichten (Qualität 0..3, Schicht 3 versteckt)
       'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')
     // ---- M3b Schritt A (CONTRACT-M3B) ----
@@ -276,11 +279,11 @@
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
     // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
-    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', schuld_der_lerche: 'Die Schuld der Lerche', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', schuld_der_lerche: 'Karte Sund, Start am Boden von Kantenstein', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
     // ---- AP3a Lobby (CONTRACT-W2 §1): Reihenfolge der Taste M. START_MISSIONS bleibt die alte Liste (Tests, Weltstand);
     // gültig als startMission ist jeder Eintrag aus LOBBY_MODI. 'labor' nur bei CONFIG.lobby.labor (Snapshot lobby.laborAn).
-    LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'm3', 'arena_away', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial
+    LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'm3', 'arena_away', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial
     // lobbyOpt { labor: { id?, seed?, staerke?, god? } } – Szenario-Labor (server/mission/labor.js), Felder werden zusammengeführt;
     //   id = 'molekuel/umsetzung' aus lobby.laborListe, seed = Partie-Seed, staerke = LABOR_STAERKEN, god = bool.
     //   Snapshot (nur Lobby): lobby.laborAn, lobby.labor { id, seed, staerke, god }, lobby.laborListe [{ id, name, schauplatz,
@@ -302,11 +305,13 @@
     WELLEN_KARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'],
     WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)' },
     WELLEN_PHASEN: ['countdown', 'kampf', 'pause', 'ende'],
-    CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne'],   // Weltstand gibt es für diese Modi
+    CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche'],   // Weltstand gibt es für diese Modi
     // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.
     //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }] } nur in Phase end der Kette (kein freies Spiel danach); Ereignis ending { abspann: true };
     //   Funkspruch radio { from, text, pid? } mit pid 'mars' (Symbol) | 'legat' (Porträt), Snapshot mission.radio.pid.
-    CAMPAIGN_KETTEN: { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } },
+    //   SL1: `welt` = Sektorkarte der Partie (content/welt/<welt>.json, server/sim/welt.js); ohne Angabe Limes.
+    CAMPAIGN_KETTEN: { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false },
+      schuld_der_lerche: { kampagne: 'schuld-der-lerche', tutorial: false, welt: 'sund' } },
     ORDER_KINDS: ['sammeln', 'halten', 'flanke', 'rueckzug', 'fokus', 'gefahr'],   // cmd captain.order { kind, x, y, target?, clear? }
     CMD_CROUCH: 'crouch',   // M2 §15: cmd { c: 'crouch', on: bool } – ohne Konsole, nur Außenzone auf v2-Karten; Snapshot players[].cr, away.drones[].cr
     AWAY_ENEMY_KINDS: ['drone', 'scavenger', 'warden'],

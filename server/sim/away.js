@@ -284,7 +284,7 @@ function executeBeam(game, pids, dir) {
     game.emit('sfx', { name: 'beam' });
     game.missionEvent('beamedUp', { players, map: away.map });
     // QA M1: Wrack-Außenmission endet, sobald niemand mehr unten ist (sonst bleiben Außenteam-Reiter und
-    // Orbit-Einblendung der Taktik dauerhaft an). Erneutes Beamen startet sie wieder.
+    // Orbit-Einblendung der Ops dauerhaft an). Erneutes Beamen startet sie wieder.
     if (away.map === 'wreck' && !game.players.some((p) => p.zone === 'away')) away.active = false;
   }
 }

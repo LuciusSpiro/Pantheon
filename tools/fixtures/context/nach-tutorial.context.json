@@ -1116,7 +1116,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Taktik hält frei, Technik verteilt Schilde. Nur an Orten mit Hauptobjekt.",
+            "beschreibung": "Ein Uplink, eine Abschrift oder ein Andockvorgang braucht Zeit: Die Lerche muss am Hauptobjekt des Orts im Kreis bleiben, die Uhr läuft nur dort weiter (fliegt sie heraus, beginnt der Abschnitt neu). Angekündigte Jäger versuchen, sie wegzudrängen. Pilot hält Position, Ops hält frei, Technik verteilt Schilde. Nur an Orten mit Hauptobjekt.",
             "dauer_min": [
               3,
               4
@@ -1217,7 +1217,7 @@
             "schauplatz": "weltraum"
           },
           {
-            "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Taktik beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
+            "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Ops beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
             "dauer_min": [
               2,
               4
@@ -1295,7 +1295,7 @@
             "schauplatz": "weltraum"
           },
           {
-            "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Taktik deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
+            "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Ops deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
             "dauer_min": [
               2,
               4
@@ -1324,7 +1324,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Treibende Kisten im Feld, auf der Taktikkarte grün. Der Pilot sieht nur nach vorn, die Taktik lotst mit Markern, drüberfliegen sammelt ein. Im Asteroidenfeld kostet jeder Rempler Schild. Garantie: Nach einer Weile lässt man den Rest treiben.",
+            "beschreibung": "Treibende Kisten im Feld, auf der Ops-Karte grün. Der Pilot sieht nur nach vorn, die Ops lotst mit Markern, drüberfliegen sammelt ein. Im Asteroidenfeld kostet jeder Rempler Schild. Garantie: Nach einer Weile lässt man den Rest treiben.",
             "dauer_min": [
               2,
               4
@@ -1650,7 +1650,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Taktik pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
+            "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Ops pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
             "dauer_min": [
               2,
               5
@@ -1764,7 +1764,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Taktik schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
+            "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Ops schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
             "dauer_min": [
               3,
               5
@@ -1932,7 +1932,7 @@
         ],
         "umsetzungen": [
           {
-            "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Taktik schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
+            "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Ops schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
             "dauer_min": [
               2,
               4
@@ -1975,7 +1975,7 @@
             "schauplatz": "weltraum"
           },
           {
-            "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
+            "beschreibung": "Kustoden-Pylonen stehen um das Hauptobjekt des Orts, ihr Frontschild schluckt alles von vorn. Die Ops scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem ersten Abschuss (oder nach einer Weile) erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen und Belagerungen. Nur an Orten mit Hauptobjekt.",
             "dauer_min": [
               3,
               5
@@ -2340,7 +2340,7 @@
         "bereich": "weltraum",
         "id": "konvoi",
         "kennung": "A15",
-        "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord)",
+        "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Ops beamt sie an Bord)",
         "kippt_zu": [
           "raumgefecht",
           "verfolgung"

@@ -293,7 +293,8 @@
         "show": { "$ref": "#/$defs/bedingung" },
         "done": { "$ref": "#/$defs/bedingung" },
         "optional": { "type": "boolean" },
-        "sticky": { "type": "boolean" }
+        "sticky": { "type": "boolean" },
+        "hex": { "type": "string", "pattern": "^(\\d{4}|[a-z][a-z0-9_]*|leer-\\d{4})$", "description": "SL1B: Hex (SSZZ) oder Ort-ID, den die Hexkarte als Ziel markiert, solange das Ziel offen ist" }
       }
     },
 

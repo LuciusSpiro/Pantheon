@@ -3,7 +3,7 @@
 //   fracht_zuteilen { art, n? }   Aktion: n Ladungen (Standard 1) der Art direkt in den Frachtraum legen, soweit Platz ist
 //                                 (Belohnung „Behaltet einen Teil“, Ersatz einer verlorenen Sprengladung). Ereignis frachtAnBord.
 // Die übrigen Wege der Kette laufen über vorhandene Bausteine (fracht_*, sperrriegel_oeffnen, welt_fakt, npc_gedaechtnis, chronik).
-const ARTEN = ['sprengstoff', 'fracht'];
+const ARTEN = ['sprengstoff', 'fracht', 'deuterium'];   // SL6: Deuterium
 const fracht = () => require('../../sim/fracht.js');
 
 module.exports = (Registry) => {

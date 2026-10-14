@@ -16,7 +16,7 @@
       "id": "pluendern",
       "name": "Konvoi plündern",
       "schauplatz": "weltraum",
-      "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Taktik beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
+      "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Ops beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
       "braucht": [
         "konvoi",
         "raumkampf",
@@ -179,7 +179,7 @@
         ],
         "texte": {
           "{{id}}.lage": "{{lage}}",
-          "{{id}}.tipp": "Transporter zerstören, dann Fracht beamen: Taktik, Taste F, 3 s ruhig halten. Am Routenende springen sie.",
+          "{{id}}.tipp": "Transporter zerstören, dann Fracht beamen: Ops, Taste F, 3 s ruhig halten. Am Routenende springen sie.",
           "{{id}}.ziel": "Transporter zerstören und die Fracht an Bord beamen"
         }
       },

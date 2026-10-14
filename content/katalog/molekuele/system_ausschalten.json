@@ -16,7 +16,7 @@
       "id": "stoerrelais",
       "name": "Störrelais blockieren den Faltsprung",
       "schauplatz": "weltraum",
-      "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Taktik schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
+      "beschreibung": "Jemand hat Störrelais um das Hauptobjekt des Orts gesetzt: Solange eines sendet, lässt sich kein Faltsprung berechnen. Die Ops schießt sie ab, der Pilot fliegt sie an; Wachjäger und ein Funkspruch des Verursachers machen Druck. Passt für Wegezoll, Blockaden, Fallen. Nur an Orten mit Hauptobjekt.",
       "braucht": [
         "raumkampf",
         "sternkarte_sprung"
@@ -77,9 +77,9 @@
         ],
         "texte": {
           "{{id}}.funk": "{{funk}}",
-          "{{id}}.lage": "Störrelais am Hauptobjekt! Solange eins sendet, gibt es keinen Faltsprung. Taktik: abschießen!",
+          "{{id}}.lage": "Störrelais am Hauptobjekt! Solange eins sendet, gibt es keinen Faltsprung. Ops: abschießen!",
           "{{id}}.blockiert": "Störrelais senden – der Sprungrechner findet keinen Kurs. Erst die Relais abschießen.",
-          "{{id}}.tipp": "Die Relais kreisen nah am Hauptobjekt. Taktik: T schaltet durch, Pilot: Bug drauf, Batterien frei.",
+          "{{id}}.tipp": "Die Relais kreisen nah am Hauptobjekt. Ops: T schaltet durch, Pilot: Bug drauf, Batterien frei.",
           "{{id}}.frei": "Letztes Relais verstummt – der Sprungrechner hat wieder Sterne.",
           "{{id}}.ziel": "Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})"
         }

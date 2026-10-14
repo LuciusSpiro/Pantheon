@@ -109,11 +109,11 @@
     "auftrag.aufgedeckt": "Nebelheim ist auf der Sternkarte. Die Methalle liegt dahinter.",
     "auftrag.hinweis": "Ziel: die Methalle, im Nebel. Der Sprengstoff bleibt im Frachtraum, nicht abgeben.",
 
-    "anflug.tipp": "Nebelheim: Kein Sprungpunkt auf der Sternkarte? Weitscan (Taktik, S) zeigt die Bojen, Hexe für Hexe.",
+    "anflug.tipp": "Nebelheim: Kein Sprungpunkt auf der Sternkarte? Weitscan (Ops, S) zeigt die Bojen, Hexe für Hexe.",
 
     "nebelheim.einflug": "Nebel dicht. Patrouillen in den Sektoren. Schilde runter senkt unsere Signatur.",
-    "nebelheim.captain": "Captain: Taktik pingt nur auf dein Kommando, der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
-    "nebelheim.tipp": "Langsam fliegen, Schilde runter (Taktik), an Asteroiden entlang. Der Zielkreis liegt am Sprungpunkt zur Methalle.",
+    "nebelheim.captain": "Captain: Ops pingt nur auf dein Kommando, der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
+    "nebelheim.tipp": "Langsam fliegen, Schilde runter (Ops), an Asteroiden entlang. Der Zielkreis liegt am Sprungpunkt zur Methalle.",
     "nebelheim.ziel_da": "Kurs auf die Methalle liegt an. Nebelheim liegt hinter uns, die Patrouillen drehen ab.",
 
     "ereignis.weitscan": "Wir haben gesendet. Sie wissen jetzt ungefähr, wo wir sind. Minen auf dem Scan, Abstand halten.",

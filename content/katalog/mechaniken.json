@@ -4,7 +4,7 @@
   "mechaniken": {
     "sternkarte_sprung": { "status": "verfuegbar", "beschreibung": "Sternkarte, Sprungziel wählen, Faltsprung zwischen verbundenen Orten" },
     "raumkampf":         { "status": "verfuegbar", "beschreibung": "Breitseiten, Lanze, angekündigte schwere Angriffe, Jäger-Anflüge, Schildsektoren (M3a/M3b)" },
-    "weitscan":          { "status": "verfuegbar", "beschreibung": "Taktik deckt versteckte Funde in der Szene auf" },
+    "weitscan":          { "status": "verfuegbar", "beschreibung": "Ops deckt versteckte Funde in der Szene auf" },
     "captain_scan":      { "status": "verfuegbar", "beschreibung": "Captain scannt das Hauptobjekt der Szene (Reichweite, Haltedauer, blockierbar)" },
     "bergungskisten":    { "status": "verfuegbar", "beschreibung": "Bergungsgut im Feld, drüberfliegen sammelt ein" },
     "gelaende":          { "status": "verfuegbar", "beschreibung": "Asteroidenfelder und Nebel (Sicht und Sensoren eingeschränkt)" },
@@ -23,10 +23,10 @@
     "verbuendete":       { "status": "verfuegbar", "beschreibung": "Verbündete NSC-Schiffe mit eigener KI (Flug und Feuer über die Klassen-KI, Rollen begleiter/angreifer), kein Eigenbeschuss, höchstens 12 Schiffe je Szene mit Nachschub, Sprung der Flotte, Einblenden (EK4b: server/sim/flotte.js)" },
     "verbuendete_skript": { "status": "verfuegbar", "beschreibung": "Verbündete NSC-Schiffe Roms, vom Regiebuch bewegt (halten, folgen, Ziel), ohne eigene KI: Hilferuf, theatralischer Funkspruch, Zerstörung mit Rettungskapsel, Verlust im Weltstand (EK4a: server/sim/flotte.js)" },
     "flottenbefehle":    { "status": "verfuegbar", "beschreibung": "Befehle des Legaten als Szenenziele (ausschalten, eskortieren, durchbrechen, zurückfallen, entlastung), Welle um Welle mit Frist und Überdruck, Gedächtnis des Legaten im Weltstand (EK4a: server/sim/flotte.js)" },
-    "schleichfahrt":     { "status": "verfuegbar", "beschreibung": "Signatur (Tempo, Asteroiden, Schilde unten), Sensorkreise der Patrouillen, Weitscan verrät die Lerche kurz, Schilde hoch/runter an der Taktik, Ausgänge Ziel und Rückzug (EK2: server/sim/alarm.js)" },
+    "schleichfahrt":     { "status": "verfuegbar", "beschreibung": "Signatur (Tempo, Asteroiden, Schilde unten), Sensorkreise der Patrouillen, Weitscan verrät die Lerche kurz, Schilde hoch/runter an der Ops, Ausgänge Ziel und Rückzug (EK2: server/sim/alarm.js)" },
     "minen":             { "status": "verfuegbar", "beschreibung": "Minenfeld: Weitscan zeigt die Minen, Annäherung zündet (ignoriert Schilde, 6 Punkte Systemschaden, Alarm), abschießbar, nicht bei ihrem Besitzer (EK2)" },
     "raum_alarm":        { "status": "verfuegbar", "beschreibung": "Alarmstufen je Raumszene (ruhig, misstrauisch, alarmiert): Lärm, Entdeckung, Minen; Patrouillen greifen an, ohne Patrouille springen nach 5 s zwei Jäger ein (EK2)" },
-    "konvoi":            { "status": "verfuegbar", "beschreibung": "Konvoi auf der Gegnerseite: 1–3 unbewaffnete Transporter mit Eskorte (Jäger, Korvette) fahren eine Route und springen am Ende; Siegbedingungen aufhalten (alle zerstören) und plündern (Fracht per Taktik an Bord beamen), Ausgänge gepluendert, aufgehalten, entkommen mit Wiederholung (EK3 Teil B: server/sim/konvoi.js)" },
+    "konvoi":            { "status": "verfuegbar", "beschreibung": "Konvoi auf der Gegnerseite: 1–3 unbewaffnete Transporter mit Eskorte (Jäger, Korvette) fahren eine Route und springen am Ende; Siegbedingungen aufhalten (alle zerstören) und plündern (Fracht per Ops an Bord beamen), Ausgänge gepluendert, aufgehalten, entkommen mit Wiederholung (EK3 Teil B: server/sim/konvoi.js)" },
     "wettflug_kurs":     { "status": "geplant", "beschreibung": "Kurs mit Toren und Zeitmessung" },
     "enterer_an_bord":   { "status": "geplant", "beschreibung": "Gegner im eigenen Schiff" },
     "passagiere":        { "status": "geplant", "beschreibung": "Personen an Bord als Zustand" },
@@ -36,6 +36,6 @@
     "gefangenschaft":    { "status": "verfuegbar", "beschreibung": "Crew gefangen, ohne Ausrüstung: Start in der Zelle (team_gefangen) bzw. Ausbruch nach verlorenem Bodenkampf, Zellentür von innen, Ausrüstung am beute-Anker" },
     "sprengladung":      { "status": "verfuegbar", "beschreibung": "Ladung setzen, Countdown, Explosion" },
     "hacken":            { "status": "verfuegbar", "beschreibung": "Terminal-Minispiel" },
-    "ladung_transfer":   { "status": "verfuegbar", "beschreibung": "EK3 Teil A: Fracht (Ladung) im Raum per Taktik an Bord beamen (3 s halten, Systemtreffer bricht ab), Frachtraum der Lerche (2 Ladungen, im Weltstand), Abliefern beim Abnehmer oder an jeder Station. Personen per Transfer bleiben geplant" }
+    "ladung_transfer":   { "status": "verfuegbar", "beschreibung": "EK3 Teil A: Fracht (Ladung) im Raum per Ops an Bord beamen (3 s halten, Systemtreffer bricht ab), Frachtraum der Lerche (2 Ladungen, im Weltstand), Abliefern beim Abnehmer oder an jeder Station. Personen per Transfer bleiben geplant" }
   }
 }

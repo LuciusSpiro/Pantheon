@@ -30,6 +30,19 @@ module.exports = (Registry) => {
     beschreibung: 'Boje (Sprungpunkt einer Kante) für die Crew aufdecken; verborgene Kanten nie',
     params: { kante: { typ: 'kante', pflicht: true } },
     run(m, a) { run(m, 'bojeAufdecken', a.kante); } });
+  // SL1: verborgene Kante enthüllen (Weltstand-Schlüssel der Kante, gespeichert über verbindungen_offen)
+  Registry.define({ id: 'kante_enthuellen', art: 'aktion', ereignisse: ['kanteEnthuellt'],
+    beschreibung: 'Verborgene Kante enthüllen: Schlüssel der Kante (z. B. lager-schrottkante) oder Kanten-ID SSZZ-SSZZ; danach ist sie bekannt und befahrbar, auch nach dem Laden',
+    params: { kante: { typ: 'string', pflicht: true } },
+    run(m, a) { run(m, 'kanteEnthuellen', a.kante); } });
+  Registry.define({ id: 'kante_offen', art: 'pruefung', beschreibung: 'Die Kante (ID SSZZ-SSZZ oder Schlüssel) ist befahrbar bzw. enthüllt',
+    params: { kante: { typ: 'string', pflicht: true } },
+    test: (m, a) => {
+      const S = sek(); const ex = m.game.explore;
+      if (!S || !S.KARTE) return false;
+      const e = (S.KARTE.kanten || []).find((k) => k.key === a.kante || S.kanteId(k.a, k.b) === a.kante);
+      return !!(e && ex.kanteOffen(S.kanteId(e.a, e.b)));
+    } });
   // EK7: Methalle-Sprengung (Team BODEN) lässt den Sperrriegel um Wolfstor fallen: Weltstand-Schlüssel `sperrriegel` + Fakt
   Registry.define({ id: 'sperrriegel_oeffnen', art: 'aktion', ereignisse: ['sperrriegelOffen'],
     beschreibung: 'Sperrriegel um Wolfstor öffnen: setzt den Weltstand-Schlüssel sperrriegel (Kanten 0504–0604, 0604–0605, 0604–0705) und den Fakt sperrriegel',

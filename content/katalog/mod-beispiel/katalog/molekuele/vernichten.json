@@ -11,7 +11,7 @@
     {
       "id": "pylonen_mod_beispiel",
       "name": "Pylonen mit Frontschild um ein Objekt",
-      "beschreibung": "Pylonen der Kustoden stehen um das Hauptobjekt, ihr Frontschild schluckt alles von vorn. Die Taktik scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem Abschuss erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen.",
+      "beschreibung": "Pylonen der Kustoden stehen um das Hauptobjekt, ihr Frontschild schluckt alles von vorn. Die Ops scannt, wo der Schild ist, der Pilot fliegt die Flanke an. Nach dem Abschuss erwacht ein Wächter mit EMP. Passt zu Kustoden-Anlagen.",
       "schauplatz": "weltraum",
       "braucht": ["raumkampf"],
       "dauer_min": [3, 5],
@@ -45,7 +45,7 @@
           }
         ],
         "texte": {
-          "{{id}}.lage": "Pylonen mit Frontschild. Taktik: scannen und den Piloten an die Seite lotsen – Marker helfen!",
+          "{{id}}.lage": "Pylonen mit Frontschild. Ops: scannen und den Piloten an die Seite lotsen – Marker helfen!",
           "{{id}}.tipp": "Tipp: Pylon anvisieren, S halten – dann seht ihr, wo sein Schild ist. Von der Seite geht es schneller.",
           "{{id}}.waechter": "Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten.",
           "{{id}}.ziel": "Pylonen ausschalten ({killed:{{id}}_pylon}/{{pylonen}}) – von der Seite!"

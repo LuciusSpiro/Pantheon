@@ -15,6 +15,11 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
+const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
+const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
+const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
+const Sonden = require('./sim/sonden.js');   // SL4: Sonden der Ops (game.sonden, Snapshot space.so)
+const Entschl = require('./sim/entschluesseln.js');   // SL5: Signal entschlüsseln (Ops-Minispiel, Snapshot en)
 const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Legaten, Wellen (game.flotte, Snapshot flotte)
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
@@ -24,6 +29,8 @@ const { Explore } = require('./sim/explore.js');
 const { Mission } = require('./sim/mission.js');
 const store = require('./store.js');
 const Weltstand = require('./weltstand.js');   // S1 §5: Speicherstand der Kampagne
+const Welt = require('./sim/welt.js');   // SL1: Kartenwahl je Partie, Startort, Boden-Start
+const Marken = require('./sim/marken.js');   // SL1B: Hex-Marken auf der Sternkarte (Snapshot world.marken)
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
@@ -83,15 +90,15 @@ const enternMod = () => optional('entern', './sim/entern.js');            // ENT
 const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
 const fnOf = (mod, name) => (mod && !mod.stub && typeof mod[name] === 'function' ? mod[name] : null);
 // B3 §6: Sektorkarte für welcome (limes.json ohne praesenz), einmal je Prozess
-let sektorkarteCache;
+let sektorkarteCache;   // { quelle: S.KARTE, karte } – SL1: gilt für die aktive Karte (wechselt beim Spielstart)
 function sektorkarte() {
-  if (sektorkarteCache !== undefined) return sektorkarteCache;
   const S = sektorenMod();
   if (!S || !S.KARTE) return null;   // noch nicht geladen: beim nächsten welcome erneut versuchen
+  if (sektorkarteCache && sektorkarteCache.quelle === S.KARTE) return sektorkarteCache.karte;
   let k = null;
   if (typeof S.fuerClient === 'function') { try { k = S.fuerClient(); } catch (e) { k = null; } }
   if (!k) { k = Object.assign({}, S.KARTE); delete k.praesenz; }
-  sektorkarteCache = k;
+  sektorkarteCache = { quelle: S.KARTE, karte: k };
   return k;
 }
 // B1 §3.1: Zustände je Kachelart (kind) aus content/buehnen/kacheln.json (für awayMap.kanten startZustandIdx)
@@ -260,6 +267,7 @@ class Game {
     };
     const r = Weltstand.load(dir, id, this);
     if (!r.ok) return fail(r.error);
+    Welt.waehle(this, Welt.kartenIdAusStand(r.data));   // SL1: Karte des Standes vor reset() (Startort, Wissen, Orte)
     // reset() spielt den Erstbesuch im Hafen ab (ODA, Logbuch, +20 Marken) – beim Fortsetzen ist das kein Erstbesuch
     this.muteEvents = true;
     try { this.reset(); } finally { this.muteEvents = false; }
@@ -274,6 +282,7 @@ class Game {
       Weltstand.apply(this, r.data);
     } catch (e) {
       this.countError('weltstand-apply', e);
+      Welt.waehle(this, Welt.STANDARD);
       this.reset();
       return fail('Der Weltstand ließ sich nicht übernehmen (' + e.message + ').');
     }
@@ -295,6 +304,7 @@ class Game {
     if (this.phase !== 'end') { this.stats.elapsed = this.time - this.stats.playTimeStart; this.logRun(true); }
     const prevWorld = ws && ws.persistent && this.worldsEnabled ? ws.id : null;
     this.muteEvents = true;   // kein „Erstbesuch Hafen“ aus reset() in die Lobby
+    Welt.waehle(this, Welt.STANDARD);   // SL1: Lobby und Nicht-Ketten-Modi laufen auf Limes
     try { this.reset(); } finally { this.muteEvents = false; }
     // QA-Abnahme S1: den gerade gespielten Stand in der Lobby vorauswählen (statt „Neu: Kampagne“), sofern er in der Liste ok ist
     this.lobbyOpts.world = prevWorld && this.worldList.some((w) => w.id === prevWorld && w.state === 'ok') ? prevWorld : null;
@@ -329,6 +339,9 @@ class Game {
   // ---------- Zustand ----------
   reset() {
     Reise.reset(this);
+    Entschl.reset(this);
+    Sonden.reset(this);
+    Sektorplan.reset(this);
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
     // B1 F6: Landepunkte (Registrierungen, Laufzeitzustand, ausstehende Schritt-Aktionen) gehören zur Partie – vollständig leeren
@@ -362,7 +375,7 @@ class Game {
       // M3b §4 (bursts/burstsPerfect bleiben eine Version als Altnamen, zählen nicht mehr)
       leakHits: 0, escalations: 0, repairSetbacks: 0, overflowHull: 0, reactorAutoStarts: 0 };
     this.ship = {
-      scene: Locations.START, docked: true, dockedAt: Locations.START, dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
+      scene: Welt.startOrt(), docked: true, dockedAt: Welt.startOrt(), dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
       hull: C.ship.hull, hullMax: C.ship.hull, o2: C.o2.max, alert: 'normal',
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
@@ -392,6 +405,7 @@ class Game {
     this.fracht = Fracht.neu();   // EK3 Teil A: { lager, draussen, halt, gesichert, abnehmer, … }
     this.flotte = null;           // EK4: { befehl, welle, hist, stats } – entsteht erst mit dem ersten Flottenbaustein
     this.notsprungIn = null;
+    Marken.zuruecksetzen(this);   // SL1B: Hex-Marken (Notrufe, Spuren, Funde, Kontakte)
     this.notsprungVon = null; this.notsprungT = -1;   // EK2: Ort und Zeit des letzten Notfallsprungs (Prüfung rueckzug)
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
     this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
@@ -403,7 +417,7 @@ class Game {
     // S1 §5.4: Laufzeit-Weltstand existiert in jeder Partie; Kampagne ersetzt ihn beim Start (persistent)
     this.weltstand = Weltstand.create(this, { tutorial: false, persistent: false, dir: this.worldDir });
     this.mission = new Mission(this);
-    space.enterScene(this, Locations.START, { docked: true });
+    space.enterScene(this, Welt.startOrt(), { docked: true });
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
@@ -843,6 +857,8 @@ class Game {
       this.refreshWorldList();
       if (this.worldList.length >= this.worldMax()) return this.refuseStart('Erst einen Weltstand löschen.');
     }
+    // SL1: Karte der Partie wählen (Limes, Sund), bevor reset() Startort und Wissen daraus ableitet; nur die Ketten-Modi wählen eine eigene
+    Welt.waehle(this, (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
@@ -850,7 +866,8 @@ class Game {
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
     if (campaign) {
       this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1' || (!!CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].tutorial), persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });
-      this.weltstand.lastDockedAt = Locations.START;
+      this.weltstand.lastDockedAt = Welt.startOrt();
+      if (Welt.kartenId() !== Welt.STANDARD) this.weltstand.fact('welt_karte', Welt.kartenId(), 'start');   // SL1: Weltstand merkt eine andere Karte als Limes, Fortsetzen wählt sie vor reset()
       if (this.worldsEnabled) {
         const lk = Weltstand.lock(this.worldDir, this.weltstand.id, { port: this.port });
         if (lk.ok) this.worldLock = { dir: this.worldDir, id: this.weltstand.id }; else this.countError('weltstand-lock', new Error(lk.error));
@@ -862,7 +879,8 @@ class Game {
       if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
     }
     if (sm === 'arena_away' || sm === 'labor') this.lobbyWaffenSetzen();   // AP3a: Waffe aus der Lobby vor dem Beamen
-    if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Locations.START);   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
+    if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Welt.startOrt());   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
+    if (campaign && Welt.bodenStart()) Welt.bodenStarten(this);   // SL1: Gruppe startet auf dem Planeten, Lerche im Orbit (vor dem ersten Kapitel)
     if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
     else if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
@@ -985,6 +1003,8 @@ class Game {
       case 'captain.scan': err = this.mission.scan(p, !!msg.on); break;
       case 'captain.support': err = away.captainSupport(this, String(msg.kind)); break;
       case 'captain.listen': err = this.mission.listen(); break;
+      case 'captain.sektorplan.marke': err = Sektorplan.markeSetzen(this, String(msg.hex), Number(msg.x), Number(msg.y), msg.art); break;   // SL4: Marke im Sektorplan
+      case 'captain.sektorplan.entfernen': err = Sektorplan.markeEntfernen(this, String(msg.id)); break;
       case 'captain.marker': err = space.setMarker(this, 'captain', Number(msg.x), Number(msg.y), !!msg.clear); break;
       case 'technik.overload': err = space.technikOverload(this); break;
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
@@ -1009,7 +1029,14 @@ class Game {
         if (msg.off) Fracht.beamStop(this, 'abgebrochen'); else err = Fracht.beamStart(this, p, msg.id == null ? null : String(msg.id));
         break;
       case 'weapons.abliefern': err = Fracht.abliefernStart(this, p); break;   // EK3 Teil A: beim Abnehmer bzw. an einer Station
+      case 'weapons.abwerfen': err = Ladung.abwerfen(this, msg.art == null ? null : String(msg.art)); break;   // SL6: eine Einheit Ware ins All (Ops)
+      case 'weapons.verkaufen': err = Ladung.verkaufStart(this, p); break;   // SL6: Ware an einen Händler in Reichweite verkaufen (Halteprozess)
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
+      case 'weapons.sonde.start': err = Sonden.starteInSzene(this, p, msg.x != null && Number.isFinite(Number(msg.x)) ? { x: Number(msg.x), y: Number(msg.y) } : null); break;   // SL4: Sonde zur Marke (oder x/y)
+      case 'weapons.sonde.sprung': err = Sonden.starteDurchSprungpunkt(this, p, String(msg.nach)); break;   // SL4: Sonde durch den Sprungpunkt in den Nachbarsektor
+      case 'weapons.entschl.start': err = Entschl.anlauf(this, p); break;   // SL5: Ops öffnet die Abstimmung
+      case 'weapons.entschl.stimme': err = Entschl.stimme(this, p, Number(msg.dir)); break;   // SL5: Frequenz −1 | 0 | 1 (gehalten)
+      case 'weapons.entschl.stopp': err = Entschl.abbrechen(this, p); break;   // SL5: abbrechen, Qualität aus dem Verlauf
       case 'weapons.widescan': {   // B1 §3.3 (W5): Weitscan deckt Verstecke der gebauten Karte am Ort auf (anker.markieren)
         err = space.weaponsWidescan(this);
         const mk = !err && fnOf(ankerMod(), 'markieren');
@@ -1155,6 +1182,7 @@ class Game {
         break;
       }
       case 'tune': case 'kesh': case 'squad': case 'wake': case 'shield': case 'wound': err = this.onDebugM2(p, cmd, msg); break;
+      case 'entschl': err = Entschl.starten(this, Entschl.testSignal(msg.id != null ? String(msg.id) : (typeof msg.args === 'string' && msg.args.trim() ? msg.args.trim() : 'test'))); break;   // SL5: Labor-Einstieg
       case 'sl': err = this.onDebugSl(p, msg); break;           // S2 §4: an game.spielleiter
       case 'escort': err = this.onDebugEscort(p, msg); break;   // S2 §4: an escort.js
       case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
@@ -1414,6 +1442,7 @@ class Game {
           this.log('Alle weg – Partie zurückgesetzt.');
           if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.safe('weltstand', () => this.saveWorld('empty'));
           this.players = [];
+          Welt.waehle(this, Welt.STANDARD);
           this.reset();
           return;
         }
@@ -1422,6 +1451,8 @@ class Game {
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
       this.safe('fracht', () => Fracht.update(this, dt));   // EK3 Teil A: Halteprozess, Szenenwechsel
+      this.safe('sonden', () => Sonden.update(this, dt));   // SL4: Flug, Senden, Beschuss
+      if (this.entschl) this.safe('entschl', () => Entschl.update(this, dt));   // SL5: Abstimmung, Drift, Fortschritt
       if (this.flotte) this.safe('flotte', () => Flotte.update(this, dt));   // EK4: Befehle (Ziele erreicht, Frist), Wellen
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
@@ -1692,6 +1723,7 @@ class Game {
       hidden: this.explore.hiddenSnapshot(),
     };
     // EK2 (kompakt, „fehlt = Standard“): Minen nur gesehene/nahe, Alarmstufe nur > 0
+    { const so = Sonden.snapshot(this); if (so) spaceOut.so = so; }   // SL4: Sonden (≤ 3)
     { const mi = Alarm.minenSnap(this); if (mi) spaceOut.mines = mi; const al = Alarm.stufe(this); if (al > 0) spaceOut.al = al; }
     // W2 AP3b: bewegte Brocken (Feld b) nur mit Bahnparametern, ohne id (Netzbudget; der Client braucht sie nicht).
     // Stille Brocken (Kampagne) unverändert.
@@ -1712,8 +1744,13 @@ class Game {
     const ex = this.explore;
     if (ex && typeof ex.sektorenSnapshot === 'function') {
       const sv = typeof ex.sektorenVersion === 'function' ? ex.sektorenVersion() : null;
-      if (sv !== this.sentSektorenVersion) { try { world.sektoren = ex.sektorenSnapshot(); this.sentSektorenVersion = sv; } catch (e) { this.countError('snapshot-sektoren', e); } }
+      if (sv !== this.sentSektorenVersion) { try { world.sektoren = Object.assign(ex.sektorenSnapshot(), Sektorplan.snapshotTeil(this)); this.sentSektorenVersion = sv; } catch (e) { this.countError('snapshot-sektoren', e); } }
     }
+    // SL1B: world.marken (≤ 8) bei Änderung und immer zusammen mit world.sektoren (Neuverbindung sendet beides neu)
+    try {
+      const mk = Marken.key(this);
+      if (world.sektoren !== undefined || mk !== this.sentMarkenKey) { world.marken = Marken.snapshot(this); this.sentMarkenKey = mk; }
+    } catch (e) { this.countError('snapshot-marken', e); }
     // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
     const jpFn = fnOf(sprungMod(), 'jpSnapshot');
     if (jpFn) { try { const jp = jpFn(this); if (Array.isArray(jp) && jp.length) spaceOut.jp = jp.slice(0, 6); } catch (e) { this.countError('snapshot-jp', e); } }
@@ -1805,6 +1842,8 @@ class Game {
       ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)
       space: spaceOut,
       ...((fr) => (fr ? { fracht: fr } : {}))(Fracht.snapshot(this)),   // EK3 Teil A: nur wenn etwas da ist (Snapshot kompakt)
+      ...((zo) => (zo ? { zonen: zo } : {}))(Zonen.snapshot(this)),   // SL6: nur in Szenen mit Zonen
+      ...((en) => (en ? { en } : {}))(Entschl.snapshot(this)),   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
       ...((fl) => (fl ? { flotte: fl } : {}))(this.flotte ? Flotte.snapshot(this) : null),   // EK4: Befehl und Welle (fehlt ohne Flotte)
       away: {
         map: aw.map, active: aw.active,
@@ -1829,7 +1868,7 @@ class Game {
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },
       inventory: {
         ersatzteil: this.inventory.ersatzteil, loeschgel: this.inventory.loeschgel, loeschgelCharges: this.inventory.loeschgelCharges,
-        flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
+        flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, ...(this.inventory.sonde ? { sonde: this.inventory.sonde } : {}), marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
         ...(this.inventory.ladung ? { ladung: this.inventory.ladung } : {}),   // EK5: Sprengstoff (Gegenstand, nur wenn vorhanden; Budget)
       },
       upgrades: this.upgrades,

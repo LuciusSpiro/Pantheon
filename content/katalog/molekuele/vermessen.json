@@ -17,7 +17,7 @@
       "id": "stoerrelais_scan",
       "name": "Objekt unter Störung scannen",
       "schauplatz": "weltraum",
-      "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Taktik schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
+      "beschreibung": "Störrelais kreisen um das Hauptobjekt des Orts und blockieren den Captain-Scan. Ops schießt sie ab, der Pilot bringt das Schiff in Reichweite, der Captain scannt. Passt für Bojen, Relais, Wracks, Stationen.",
       "braucht": [
         "raumkampf",
         "captain_scan"
@@ -217,13 +217,13 @@
         ],
         "texte": {
           "{{id}}.anflug": "Ruhe am Himmel. Jetzt anfliegen: {{objekt_name}}, die Markierung mitten in der Szene.",
-          "{{id}}.stoerung": "Störrelais kreisen dort und blockieren den Scan. Taktik: abschießen! Steuer: Bug drauf.",
+          "{{id}}.stoerung": "Störrelais kreisen dort und blockieren den Scan. Ops: abschießen! Steuer: Bug drauf.",
           "{{id}}.frei": "Relais erledigt, der Weg ist frei! Captain: in Reichweite die Leertaste halten – Scan.",
-          "{{id}}.hinweis": "Captain: nah ran und Leertaste halten – Ziel: {{objekt_name}}. Störrelais vorher abschießen (Taktik).",
+          "{{id}}.hinweis": "Captain: nah ran und Leertaste halten – Ziel: {{objekt_name}}. Störrelais vorher abschießen (Ops).",
           "{{id}}.label": "Scan: {{objekt_name}}",
-          "{{id}}.blockiert": "Störrelais stören den Scan – erst abschießen (Taktik).",
+          "{{id}}.blockiert": "Störrelais stören den Scan – erst abschießen (Ops).",
           "{{id}}.ziel_anflug": "Anfliegen: {{objekt_name}}",
-          "{{id}}.ziel_relais": "Taktik: Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})",
+          "{{id}}.ziel_relais": "Ops: Störrelais abschießen ({killed:{{id}}_relay}/{{relais}})",
           "{{id}}.ziel_scan": "Captain: {{objekt_name}} scannen (Leertaste halten)"
         }
       },

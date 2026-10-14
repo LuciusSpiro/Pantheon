@@ -95,7 +95,7 @@ function startSpace(game) {
   placeOnBridge(game);
   game.arena = { kind: 'arena_space', wave: 0, round: 1, active: false, nextAt: game.time + A.firstWaveAt, cleared: 0 };
   game.mission.startMission('arena_space');
-  game.oda('Testgelände Raumkampf! Kein Auftrag, nur Gegner. Steuer, Taktik und Captain stehen bereit.', null);
+  game.oda('Testgelände Raumkampf! Kein Auftrag, nur Gegner. Steuer, Ops und Captain stehen bereit.', null);
   game.log('Testgelände Raumkampf gestartet.');
 }
 

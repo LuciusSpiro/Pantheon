@@ -535,12 +535,15 @@ for (const ch of ['h', 'g', 'V', 'x']) check(!!Maps.WRECK_LEGEND[ch] && Maps.WRE
   const lp = json(path.join(__dirname, '..', 'content', 'welt', 'landepunkte.json'));
   check(lp.format === 'landepunkte/1', 'landepunkte.json Format');
   const alle = []; for (const ort of Object.keys(lp.orte)) for (const e of lp.orte[ort]) alle.push(Object.assign({ ort }, e));
+  const orteAllerKarten = new Set();
+  { const Welt = require('../server/sim/welt.js'); for (const id of Welt.ids()) for (const h of Object.values(Welt.karte(id).hexe)) if (h.ort) orteAllerKarten.add(h.ort); }
   check(new Set(alle.map((e) => e.id)).size === alle.length, `${alle.length} Landepunkte, IDs eindeutig`);
   for (const h of ['platform', 'wreck', 'kesh']) check(alle.some((e) => e.id === h && e.art === 'hand'), `Handkarte ${h} als Landepunkt (art hand)`);
   for (const e of alle) {
     const okArt = e.art === 'hand' ? !!Maps[e.id] : !!achsen.kartenarten[e.art];
     const okAchsen = e.art === 'hand' || (achsen.bauweisen[e.bauweise] && achsen.besitz[e.besitz] && achsen.zustaende[e.zustand]);
-    const okOrt = !!Locations.get(e.ort) || e.gesperrt;
+    // SL1: Orte weiterer Karten (content/welt/<karte>.json, z. B. kantenstein auf Sund) zählen, auch wenn Limes aktiv ist
+    const okOrt = !!Locations.get(e.ort) || e.gesperrt || orteAllerKarten.has(e.ort);
     check(okArt && okAchsen && okOrt && ['immer', 'nach_tutorial', 'nach_raumgefecht', 'labor'].includes(e.frei) && e.beam && e.beam.range > 0 &&
       (e.art === 'hand' || (Number.isInteger(e.seed) && e.id.startsWith(e.ort + '.'))), `${e.id}: Art/Achsen/Ort/frei/beam gültig`);
   }

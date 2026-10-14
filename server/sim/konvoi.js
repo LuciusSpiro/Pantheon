@@ -1,7 +1,7 @@
 'use strict';
 // EK3 Teil B (CONTRACT-EK3B): Konvoi-Szene. 1–3 Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus Wegpunkten und springen
 // am Ende; Eskorte aus Jäger und Korvette fährt mit. Zwei Siegbedingungen: aufhalten (alle Transporter zerstören, bevor sie springen) und
-// pluendern (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord, siehe fracht.js).
+// pluendern (zerstörte Transporter lassen Fracht fallen, die Ops beamt sie an Bord, siehe fracht.js).
 //
 // Zustand (nur im Raum, je Szene neu): game.space.konvoi = null | { sieg, art, nWunsch, beuteMin, wiederholung, route [{x,y}], ids [Transporter-ID],
 //   fertig { id: 'zerstoert'|'gesprungen' }, pos { id: {x,y} } (letzte Lage), pods [Fracht-ID], alarm, ausgang, neuAt, versuch, szene, ansagt [s] }.
@@ -265,7 +265,7 @@ function verloren(game, k, id) {
   const pod = Fracht.fracht_abwerfen(game, p.x, p.y, k.art);
   if (pod) {
     k.pods.push(pod.id);
-    if (k.sieg === 'pluendern') game.oda('Fracht in Reichweite. Taktik, beamen!', null);
+    if (k.sieg === 'pluendern') game.oda('Fracht in Reichweite. Ops, beamen!', null);
   }
   game.missionEvent('konvoiTransporterZerstoert', { id, art: k.art, x: p.x, y: p.y, pod: pod ? pod.id : null });
 }

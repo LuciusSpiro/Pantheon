@@ -1,0 +1,131 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL6 Kapitel 7a „Gasriese“ (CONCEPT-SL6): Deuterium schöpfen (Zonen mit Wirkung im Gasfeld, server/sim/zonen.js + ladung.js) und in Concordia verkaufen (scene.kauft). Eigenständiges Buch für Labor und Bots; die Kette (SL11) bindet die Schritte in k7_geld ein oder startet es als Szene. Setzt den Fakt gasVerkauft (Weltstand) und das Flag gasVerkauft. Kein Rückzug-Ausgang: scheitern darf die Szene nicht an einem Rückzug, wer das Schiff verliert, beginnt am Gasfeld neu (restartOnReturn).",
+  "format": "regiebuch/1",
+  "id": "sl_gasriese",
+
+  "kopf": {
+    "titel": "Gasfeld: Deuterium schöpfen",
+    "art": "kapitel",
+    "auftraggeber": "sela",
+    "zielspieldauer_min": 15,
+    "crew": { "min": 1, "max": 4, "empfohlen": 4 },
+    "feldzug": "schuld"
+  },
+
+  "buch": {
+    "von": [{ "npc": "sela" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["gasfeld", "concordia"] },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 3 }, "goto": "anflug_gas" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "anflug_gas",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "gasfeld" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.zum_gasfeld", "done": { "atLocation": "gasfeld" } }
+      ],
+      "next": [{ "if": { "atLocation": "gasfeld" }, "goto": "schoepfen" }],
+      "skip": [{ "do": "debug_jump", "loc": "gasfeld" }]
+    },
+
+    {
+      "id": "schoepfen", "loc": "gasfeld", "restartOnReturn": true,
+      "umsetzung": "gasriese/schoepfen",
+      "enter": [{ "oda": "@schoepfen.lage" }],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "zone_bekannt", "zone": "gas0503_ring1" } } }, "oda": "@schoepfen.tipp_eintauchen", "garantie": "hinweis" },
+        { "at": 120, "if": { "not": { "check": { "name": "fracht_an_bord", "art": "deuterium", "min": 1 } } }, "oda": "@schoepfen.tipp_schoepfen", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "schoepfen", "text": "@ziel.schoepfen", "done": { "check": { "name": "fracht_an_bord", "art": "deuterium", "min": 1 } } },
+        { "id": "auftauchen", "text": "@ziel.auftauchen", "done": { "all": [{ "check": { "name": "fracht_an_bord", "art": "deuterium", "min": 1 } }, { "not": { "atLocation": "gasfeld" } }] } }
+      ],
+      "next": [
+        { "if": { "all": [{ "check": { "name": "fracht_an_bord", "art": "deuterium", "min": 1 } }, { "not": { "atLocation": "gasfeld" } }] },
+          "do": [{ "oda": "@schoepfen.fertig" }], "goto": "verkauf_anflug" }
+      ],
+      "skip": [{ "do": "fracht_zuteilen", "art": "deuterium", "n": 2 }, { "do": "debug_jump", "loc": "concordia" }]
+    },
+
+    {
+      "id": "verkauf_anflug",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "concordia" } }, "oda": "@anflug_concordia.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_concordia", "done": { "atLocation": "concordia" } }
+      ],
+      "next": [{ "if": { "atLocation": "concordia" }, "goto": "verkauf" }],
+      "skip": [{ "do": "debug_jump", "loc": "concordia" }]
+    },
+
+    {
+      "id": "verkauf", "loc": "concordia",
+      "umsetzung": "kette/abgabe",
+      "enter": [{ "oda": "@verkauf.lage" }],
+      "timers": [
+        { "at": 60, "if": { "not": { "check": { "name": "fracht_verkauft", "art": "deuterium", "min": 1 } } }, "oda": "@verkauf.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "verkaufen", "text": "@ziel.verkaufen", "done": { "check": { "name": "fracht_verkauft", "art": "deuterium", "min": 1 } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "fracht_verkauft", "art": "deuterium", "min": 1 } },
+          "do": [{ "setFlag": { "gasVerkauft": true } }, { "oda": "@verkauf.fertig" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "credit_marks", "marks": 40, "grund": "skip" }, { "do": "fracht_abliefern", "art": "deuterium" }, { "setFlag": { "gasVerkauft": true } }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Deuterium geschöpft und in Concordia verkauft; Marken stehen auf dem Konto, Fakt gasVerkauft gesetzt. Beliebig oft wiederholbar (Endlos-Farmen ist gewollt).",
+      "folgen": [
+        { "do": "welt_fakt", "key": "gasVerkauft", "value": "ja", "quelle": "Gasfeld" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Treibstoff ist Geld. Im Gasfeld lässt sich Deuterium aus der Atmosphäre schöpfen, Concordia kauft es. Der Frachtraum fasst zwei Ladungen, je tiefer ihr taucht, desto schneller füllt er sich und desto härter drückt die Atmosphäre.",
+    "buch.belohnung": "Marken je Ladung Deuterium",
+
+    "auftrag.hinweis": "Deuterium im Gasfeld schöpfen, in Concordia verkaufen. Schilde hoch, Hitze im Blick.",
+
+    "anflug.tipp": "Gasfeld: Sternkarte, Ziel wählen, Sprung für Sprung. Weitscan (Ops, S) zeigt die Bojen.",
+    "schoepfen.lage": "Gasfeld: Je näher der Mitte, desto heißer und dichter. Geschöpft wird in der Schöpfschicht.",
+    "schoepfen.tipp_eintauchen": "Tiefer hinein: Ring für Ring wird es heißer, die Sicht sinkt. Schilde zur Planetenmitte.",
+    "schoepfen.tipp_schoepfen": "Im Schöpfring füllt sich das Lager von selbst. Ops X wirft Ladung ab, Technik gibt Stufe 4.",
+    "schoepfen.fertig": "Raus aus der Atmosphäre, Ladung an Bord. Weiter nach Concordia.",
+
+    "anflug_concordia.tipp": "Concordia: Sternkarte, Ziel wählen, Sprung für Sprung. Der Händler kauft im Hafen.",
+    "verkauf.lage": "Concordia. Ops: V verkauft das Deuterium, dafür nah an die Station und ruhig halten.",
+    "verkauf.tipp": "Ops: V startet den Verkauf (3 s ruhig halten). Näher an die Station, falls es nicht startet.",
+    "verkauf.fertig": "Verkauft, Marken gutgeschrieben. Wer mehr will, fliegt wieder hinaus.",
+
+    "ziel.zum_gasfeld": "Zum Gasfeld fliegen",
+    "ziel.schoepfen": "Deuterium schöpfen (in der Schöpfschicht bleiben)",
+    "ziel.auftauchen": "Aus der Atmosphäre aufsteigen",
+    "ziel.nach_concordia": "Nach Concordia fliegen",
+    "ziel.verkaufen": "Das Deuterium verkaufen (Ops, V)",
+
+    "chronik.erfolg": "Die Crew schöpft Deuterium im Gasfeld und verkauft es in Concordia."
+  }
+}

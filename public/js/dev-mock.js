@@ -3,7 +3,7 @@
 // URL-Parameter (alle optional):
 //   loc=hafen|splitter|b7|vaelen|wrack|nebel|relais   Start-Ort        console=helm|captain|weapons|technik|plan|quartier|shop|transfer
 //   tab=0..3 (Captain-Reiter; bei console=technik 0..1)  station=technik (Interface weicht vom Ort ab)   zone=away   reactor=overload|offline   scanned=1 (Gegner gescannt)   reveal=1 (Verstecke aufgedeckt)
-//   markers=1 (Captain-/Taktik-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
+//   markers=1 (Captain-/Ops-Marker)   pins=1 (Plan-Pins)   ivo=1 (Ivo an Bord)   m1end=1 (Ende-Screen)   mockcrew=0 (solo)
 //   pos=x,y (eigene Kachel)   phase=lobby   personen=1 (W2 AP6: drei Personen auf der Außenkarte, mit zone=away)
 //   M3a/§20: korvette=1  tele=1 (Ladung endlos)  charging=1 (Lanze lädt endlos)  salvo=1 (Batterien feuern laufend)  fastcharge=1  dmg=1  mg=1
 //   M3b: stage=0..5 (Startstufe)  raiders=1 (Jäger fliegen Anflug/Überflug/Wende)  esc=1 (Eskalations-Zähler laufen)
@@ -197,7 +197,7 @@
         stage: 'm2', objectives: [], radio: null, choice: null, teaser: null, flags: { technikerRescued: true },
         active: { id: 'm2', title: 'Echo im Nebel', objectives: [
           { id: 'o1', text: 'Graue Weite anfliegen (Captain: Sternkarte)', done: true },
-          { id: 'o2', text: 'Taktik: per Weitscan (W) die Leitbake finden', done: false },
+          { id: 'o2', text: 'Ops: per Weitscan (W) die Leitbake finden', done: false },
           { id: 'o3', text: 'Leitbake scannen (S halten)', done: false },
           { id: 'o4', text: 'Wrack „Zaunkönig“ erkunden', done: false, optional: true },
         ] },
@@ -214,7 +214,7 @@
             briefing: 'Im Nebel der Grauen Weite sendet eine Leitbake ein Kustoden-Echo. Sela will wissen, wer da ruft – und zahlt gut für die Koordinaten.',
             reward: '150 Marken · Nebelkarte', objectives: [
               { text: 'Graue Weite anfliegen (Captain: Sternkarte)', done: true },
-              { text: 'Taktik: per Weitscan (W) die Leitbake finden', done: false },
+              { text: 'Ops: per Weitscan (W) die Leitbake finden', done: false },
               { text: 'Leitbake scannen (S halten)', done: false }],
             log: [{ t: 812, loc: 'vaelen', text: 'Sela von der Vaelen-Karawane gerettet. Handel möglich.' }, { t: 1104, loc: 'nebel', text: 'Graue Weite erreicht. Sicht halbiert.' }] },
           { id: 'side_grauzahn', title: 'Grauzahns Kopfgeld', from: 'Hafenmeisterin Oda', kind: 'nebenauftrag', state: 'aktiv',
@@ -923,14 +923,14 @@
       case 'captain.power': case 'captain.shield': case 'captain.priority': case 'captain.repair': case 'captain.botAuto': case 'captain.overload': notice('Das macht jetzt die Technik.'); return true;   // R1
       case 'station.tab': {   // R1 §4.4: Interface wechseln, Ort bleibt (Mock: keine anderen Spieler an Stationen)
         const kreis = (window.Shared_Protocol && Shared_Protocol.STATION_KREIS) || ['helm', 'weapons', 'captain', 'technik'];
-        if (!kreis.includes(p.console)) { notice('Stationswechsel geht nur an Steuer, Taktik, Captain- oder Technik-Konsole.'); return true; }
+        if (!kreis.includes(p.console)) { notice('Stationswechsel geht nur an Steuer, Ops, Captain- oder Technik-Konsole.'); return true; }
         const cur = p.station || p.console;
         const nx = kreis[(kreis.indexOf(cur) + (+m.dir < 0 ? kreis.length - 1 : 1)) % kreis.length];
         if (cur === 'weapons') W._tscanOn = false;
         if (cur === 'captain') W._scanOn = false;
         if (cur === 'helm') W.ship.helm.turn = W.ship.helm.thrust = 0;
         p.station = nx === p.console ? null : nx;
-        notice('Station: ' + ({ helm: 'Navigation', weapons: 'Taktik', captain: 'Captain', technik: 'Technik' })[nx]);
+        notice('Station: ' + ({ helm: 'Navigation', weapons: 'Ops', captain: 'Captain', technik: 'Technik' })[nx]);
         return true;
       }
       case 'helm.throttle': {   // M3b §2

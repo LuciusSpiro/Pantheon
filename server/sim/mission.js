@@ -132,7 +132,7 @@ function fitBook(entries, budget) {
     () => { for (const e of entries) if (e.state === 'erledigt') e.objectives = []; },
   ];
   for (const s of steps) { if (jsonBytes(entries) <= budget) break; s(); }
-  // Notfalls Hinweise (Entdeckungen) von hinten weglassen – sie stehen auch auf der Taktik-Karte
+  // Notfalls Hinweise (Entdeckungen) von hinten weglassen – sie stehen auch auf der Ops-Karte
   while (jsonBytes(entries) > budget) {
     let i = -1;
     for (let k = entries.length - 1; k >= 0; k--) if (entries[k].id.startsWith('h:')) { i = k; break; }
@@ -158,7 +158,7 @@ const CONSOLE_HELP = {
   helm: 'Steuer: W/S Tempostufe (½ = wendig), A/D Ruder, X Allstopp, Shift+A/D ausweichen, F Faltsprung. Lanze: Bug drauf!',
   captain: 'Captain: Funk, Sternkarte, Lage, Außenteam. Energie, Schilde und Schäden macht die Technik (Maschinenraum).',
   technik: 'Technik: Energie & Schilde (ab 3 dicht), Schadensplan, Reaktor überladen. Tab wechselt die Station, du bleibst stehen.',
-  weapons: 'Taktik: 1 halten = Lanze laden, loslassen = Feuer. 2/3/Leertaste Batterien. T Ziel, Q/E+A/D Punkte, S/W Scan.',
+  weapons: 'Ops: 1 halten = Lanze laden, loslassen = Feuer. 2/3/Leertaste Batterien. T Ziel, Q/E+A/D Punkte, S/W Scan.',
   transfer: 'Transfer: Leute auf die Pads, dann Runter/Hoch. Nachschub und Notrückholung gibt\'s hier auch.',
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
@@ -256,6 +256,10 @@ class Mission {
       this.sl('onCampaignStart', { tutorial: true });   // S2 §2.1
       return;
     }
+    // SL1: Kette ohne Tutorial-Block (Sund) bzw. Karte ohne Tutorial: nichts überspringen (m1–m3 und openTutorialMap gehören zu Limes),
+    // das erste Kapitel beginnt sofort. Fehlt die Kette noch (Welle 0), bleibt die Partie ohne Auftrag.
+    const ohneTutorialBlock = this.kette ? !this.kette.doc.tutorial : (!!(opts && opts.kampagne) && !!g.weltId && g.weltId !== 'limes');
+    if (ohneTutorialBlock) { this.refreshObjectives(); if (this.kette) this.kette.starten(); return; }
     this.tutorialUeberspringen();
     if (this.kette) { this.refreshObjectives(); this.kette.tutorialEnde(); return; }
     const camp = C.campaign || {};
@@ -1054,7 +1058,7 @@ class Mission {
     if (ship.o2 < 50) g.oda('Sauerstoff unter 50 %! Lebenserhaltung prüfen und Lecks flicken.', 'o2low');
     if (ship.hull < 40) g.oda('Hülle unter 40 %. Ich will nicht drängeln, aber… doch, ich dränge.', 'hulllow');
     if (g.space.enemies.some((e) => e.kind === 'raider' && ['bow', 'port', 'stbd'].some((k) => space.inMountArc(g, k, e.x, e.y)))) {
-      g.oda('Jäger im Feuerbogen! Taktik: Ziel mit T, 1 Lanze, 2/3 Batterien, Leertaste alles.', 'raiderInArc');
+      g.oda('Jäger im Feuerbogen! Ops: Ziel mit T, 1 Lanze, 2/3 Batterien, Leertaste alles.', 'raiderInArc');
     }
   }
 
@@ -1354,7 +1358,7 @@ class Mission {
     for (const l of Locations.LOCATIONS) {
       for (const h of l.hidden) {
         if (h.kind === 'beacon' || h.kind === 'hollow' || !ex.isRevealed(h.id) || ex.isFound(h.id)) continue;
-        const how = h.kind === 'cache' ? 'Einsammeln (drüberfliegen)' : 'Scannen (Taktik: T, S halten)';
+        const how = h.kind === 'cache' ? 'Einsammeln (drüberfliegen)' : 'Scannen (Ops: T, S halten)';
         out.push({ id: 'h:' + h.id, title: h.name, from: 'Weitscan', kind: 'hinweis', state: 'aktiv',
           briefing: `Entdeckt bei ${l.name}.`, reward: rewardText(h.reward), objectives: [objOut(how, false)], log: [], loc: l.id });
       }

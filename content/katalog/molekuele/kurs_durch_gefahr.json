@@ -15,7 +15,7 @@
       "id": "nebelflug",
       "name": "Blindflug durch Feld oder Nebel",
       "schauplatz": "weltraum",
-      "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Taktik deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
+      "beschreibung": "Die Lerche muss das Feld des Orts ganz durchqueren. Der Pilot sieht nur nach vorn, Brocken kosten Schild; die Ops deckt per Weitscan auf und setzt Marker, der Captain plant den Kurs. Optional lauern Jäger im Feld (angekündigte Wendung). Heute im Splittergürtel; im Nebel, sobald die Zone dort registriert ist.",
       "braucht": [
         "gelaende",
         "weitscan"
@@ -35,7 +35,7 @@
         "mit_hinterhalt": { "typ": "bool", "default": false, "beschreibung": "Jäger lauern im Feld (Wendung)" },
         "hinterhalt_nach": { "typ": "zahl", "default": 45, "min": 20, "max": 120 },
         "jaeger": { "typ": "zahl", "default": 1, "min": 1, "max": 2 },
-        "lage": { "typ": "text", "default": "Dichtes Feld voraus. Pilot sieht nur nach vorn – Taktik: Weitscan, Marker setzen!" }
+        "lage": { "typ": "text", "default": "Dichtes Feld voraus. Pilot sieht nur nach vorn – Ops: Weitscan, Marker setzen!" }
       },
       "vorlage": {
         "buehne": { "orte": ["{{loc}}"] },
@@ -83,7 +83,7 @@
         ],
         "texte": {
           "{{id}}.lage": "{{lage}}",
-          "{{id}}.captain": "Captain: Sternkarte und Taktikkarte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
+          "{{id}}.captain": "Captain: Sternkarte und Ops-Karte zeigen den Ausgang auf der anderen Seite. Kurs ansagen!",
           "{{id}}.tipp": "Ziel ist die andere Seite des Felds. Langsam ist sicherer – jeder Brocken kostet Schild.",
           "{{id}}.hinterhalt": "Jäger kommen aus dem Feld! Breitseite, und die Brocken als Deckung nutzen.",
           "{{id}}.durch": "Wir sind durch! Freie Sicht voraus.",
@@ -129,7 +129,7 @@
         "minen": { "typ": "zahl", "default": 6, "min": 1, "max": 14, "beschreibung": "Anzahl Minen" },
         "ohne_strom": { "typ": "bool", "default": false, "beschreibung": "Minen ohne Strom (Blindgänger, zünden nicht, kein Alarm)" },
         "einsprung": { "typ": "bool", "default": true, "beschreibung": "Nach dem Alarm springen zwei Jäger ein" },
-        "lage": { "typ": "text", "default": "Minenfeld voraus. Taktik: Weitscan zeigt die Minen – Pilot: Abstand halten, oder aus der Ferne abschießen (macht Alarm)." }
+        "lage": { "typ": "text", "default": "Minenfeld voraus. Ops: Weitscan zeigt die Minen – Pilot: Abstand halten, oder aus der Ferne abschießen (macht Alarm)." }
       },
       "vorlage": {
         "buehne": { "orte": ["{{loc}}"] },
@@ -167,7 +167,7 @@
         ],
         "texte": {
           "{{id}}.lage": "{{lage}}",
-          "{{id}}.captain": "Captain: Taktik pingt – dann den Kurs durch die Lücken ansagen. Jede Mine wird beim Weitscan sichtbar.",
+          "{{id}}.captain": "Captain: Ops pingt – dann den Kurs durch die Lücken ansagen. Jede Mine wird beim Weitscan sichtbar.",
           "{{id}}.tipp": "Langsam, mit Abstand zu den Minen. Eine Mine nahe der Route? Lanze drauf, aber dann ist Alarm.",
           "{{id}}.durch": "Wir sind durch das Minenfeld!",
           "{{id}}.ziel": "Das Minenfeld durchqueren (zweite Hälfte der Szene erreichen)"

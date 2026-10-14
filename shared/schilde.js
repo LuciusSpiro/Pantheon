@@ -1,5 +1,5 @@
 // EK1b: Schildmodell der Gegner mit variablen Segmenten (UMD: window.Shared_Schilde / require). Server (Trefferzuordnung, Regeneration,
-// Pilot-KI) und Client (Ziel-Scan, Taktik-Anzeige) benutzen dieselbe Zuordnung.
+// Pilot-KI) und Client (Ziel-Scan, Ops-Anzeige) benutzen dieselbe Zuordnung.
 //
 // Modell: Ein Gegner hat vier SEITEN (Bug 0, Steuerbord 1, Heck 2, Backbord 3 – wie Physics.sectorOf und die Sektoren der Lerche). Jede Seite
 // besteht aus einem oder mehreren SEGMENTEN, die der Länge nach hintereinander liegen (Index 0 = vorderster Seitenbereich). Die Schildwerte aller

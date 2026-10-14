@@ -207,7 +207,7 @@ class Kette {
   starten() { this.begin(this.doc.start, {}); }
   tutorialEnde() {
     const g = this.g;
-    for (const key of (this.doc.tutorial.oeffnet || [])) { try { g.explore.openLink(key); } catch (e) { g.countError('kette-tutorial', e); } }
+    for (const key of ((this.doc.tutorial || {}).oeffnet || [])) { try { g.explore.openLink(key); } catch (e) { g.countError('kette-tutorial', e); } }
     this.starten();
   }
 
@@ -230,7 +230,7 @@ class Kette {
   onMissionDone(ev) {
     const m = this.m;
     if (!ev || !ev.id) return;
-    if (ev.id === this.doc.tutorial.nach && !this.faktLesen('kapitel')) { this.tutorialEnde(); return; }
+    if (this.doc.tutorial && ev.id === this.doc.tutorial.nach && !this.faktLesen('kapitel')) { this.tutorialEnde(); return; }
     const hit = this.buchKap.get(ev.id);
     if (!hit) return;
     const { c, i } = hit; const ausgang = ev.ausgang || 'erfolg';
@@ -296,7 +296,7 @@ class Kette {
     const c = this.chapter(id);
     if (!c) return `Unbekanntes Kapitel '${id}'. Gültig: ${[...this.kap.keys()].join(', ')}.`;
     if (m.activeId) m.abbrechen();
-    if (typeof m.tutorialUeberspringen === 'function') m.tutorialUeberspringen({ still: true, marken: false });
+    if (this.doc.tutorial && typeof m.tutorialUeberspringen === 'function') m.tutorialUeberspringen({ still: true, marken: false });   // SL1: Ketten ohne Tutorial (Sund) haben nichts zu überspringen
     const ei = c.einstieg || {};
     // frühere Kapitel gelten als erledigt (nur die Bücher; ihre Folgen schreibt der Einstieg selbst)
     for (const k of this.doc.kapitel) {
@@ -318,7 +318,7 @@ class Kette {
     for (const key of ei.oeffnet || []) {
       try { if (key === 'sperrriegel') g.explore.sperrriegelOeffnen(); else g.explore.openLink(key); } catch (e) { g.countError('kette-einstieg', e); }
     }
-    for (const k of this.doc.tutorial.oeffnet || []) { try { g.explore.openLink(k); } catch (e) { g.countError('kette-einstieg', e); } }
+    for (const k of (this.doc.tutorial || {}).oeffnet || []) { try { g.explore.openLink(k); } catch (e) { g.countError('kette-einstieg', e); } }
     this.fakt('kampagne', this.id);
     if (o.ort !== false) {
       const loc = require('../../shared/locations.js').get(ei.ort);

@@ -480,7 +480,7 @@ function fly(game, e, dt) {
   }
 }
 
-// Snapshot-Kürzel des Zustands (für die Taktik: Anfluglinie bei 'approach')
+// Snapshot-Kürzel des Zustands (für die Ops: Anfluglinie bei 'approach')
 function snapState(e) {
   if (!e._pilot || !e.pstate) return null;
   return e.pstate === 'cross' ? 'station' : e.pstate;

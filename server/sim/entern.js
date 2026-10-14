@@ -6,7 +6,7 @@
 //     wird bei Hülle 0 nicht gelöscht: onEnemyZero -> true. Er bekommt st = 'treibt' und wandert aus space.enemies in
 //     space.treibend. Grund: In space.enemies würde er weiter feuern/fliegen und alle Zählstellen des Raumkampfs
 //     verfälschen (enemiesCleared, Störsender-Sprungsperre, Alarmstufe Rot, Hüllen-Regeneration, Auto-Zielwahl der
-//     Taktik, Geschosskollision). So bleibt der Raumkampf unverändert; der Snapshot hängt treibende Schiffe mit
+//     Ops, Geschosskollision). So bleibt der Raumkampf unverändert; der Snapshot hängt treibende Schiffe mit
 //     st: 'treibt' an space.enemies an (ENGINE: sp.enemies.concat(Entern.treibende(game)), dazu o.st = e.st).
 //   - Buchhaltung wie ein Abschuss (Marken, stats.kills, enemyKilled), damit Bücher und Belohnung gleich bleiben.
 //   - Prise: Landepunkt <ort>.prise (Schiff, germanen, Besitz = Fraktion des Gegners, Seed aus der Gegner-ID, umkaempft),

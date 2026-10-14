@@ -62,6 +62,11 @@
         "beam": { "x": 1400, "y": 900, "range": 360 }, "name": "Kastell im Rostnest", "frei": "nach_tutorial", "gesperrt": true },
       { "id": "rostnest.lager", "art": "aussenposten", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "intakt", "seed": 1071, "schablone": null,
         "beam": { "x": 1700, "y": 1100, "range": 360 }, "name": "Lager im Rostnest", "frei": "nach_tutorial", "gesperrt": true }
+    ],
+    "kantenstein": [
+      { "id": "kantenstein.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7301, "schablone": null,
+        "gen": { "typ": "handel", "haeuser": 8 },
+        "beam": { "x": 1450, "y": 1108, "range": 360 }, "name": "Außenposten Kantenstein", "frei": "immer", "gesperrt": false }
     ]
   }
 }

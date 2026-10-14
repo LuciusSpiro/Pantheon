@@ -6,7 +6,7 @@
 const Protocol = require('../../shared/protocol.js');
 
 const KREIS = Protocol.STATION_KREIS;
-const NAME = { helm: 'Navigation', weapons: 'Taktik', captain: 'Captain', technik: 'Technik' };
+const NAME = { helm: 'Navigation', weapons: 'Ops', captain: 'Captain', technik: 'Technik' };
 
 // Aktives Interface des Spielers; ohne Konsole null (ein veraltetes p.station zählt nie).
 function stationOf(p) {
@@ -34,7 +34,7 @@ function stationFreigeben(game, kind, p) {
 // Tab (dir 1) / Shift+Tab (dir -1): nächste freie Station im Kreis. Rückgabe: Fehlertext oder null.
 function tab(game, p, dir) {
   if (p.zone !== 'ship' || p.downed || p.beamLock) return 'Hier lässt sich nichts umschalten.';
-  if (!p.console || !KREIS.includes(p.console)) return 'Stationswechsel geht nur an Steuer, Taktik, Captain- oder Technik-Konsole.';
+  if (!p.console || !KREIS.includes(p.console)) return 'Stationswechsel geht nur an Steuer, Ops, Captain- oder Technik-Konsole.';
   const von = stationOf(p);
   const i0 = KREIS.indexOf(von);
   const d = dir < 0 ? -1 : 1;
@@ -56,7 +56,7 @@ function snapFelder(p) {
   return p.console && p.station && p.station !== p.console ? { station: p.station } : {};
 }
 
-// Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Taktik.
+// Waffenautomatik (§4.5): nur bei 1 oder 2 verbundenen Spielern UND unbesetzter Ops.
 function waffenAutomatikAktiv(game) {
   return verbunden(game) <= game.C.waffenAutomatikMaxSpieler && !stationBesetzt(game, 'weapons');
 }

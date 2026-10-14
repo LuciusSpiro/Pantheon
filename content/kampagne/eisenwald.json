@@ -72,7 +72,7 @@
     "abspann": [
       { "kopf": "FELDZUG EISENWALD", "zeilen": ["Eine Koop-Kampagne in der Welt von Pantheon"] },
       { "kopf": "DIE KETTE", "zeilen": ["1  Statio Limitis: Anwerbung", "2  Rabenpass: der Konvoi", "3  Nebelheim: Schleichfahrt", "4  Methalle: der Sprengstoff", "5  Castra Martis: der Legat", "6  Eisenwald: Orbitschlacht", "7  Eisenwald: die Siedlung", "8  Der Sieg"] },
-      { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Steuer, Taktik:", "ihr, an Bord."] },
+      { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Steuer, Ops:", "ihr, an Bord."] },
       { "kopf": "ROM", "zeilen": [
         "Legat Marcus Severus",
         { "text": "Fulminata: heimgekehrt", "wenn": { "not": { "flag": "fulminata_verloren" } } },

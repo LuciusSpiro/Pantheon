@@ -29,7 +29,7 @@ module.exports = (Registry) => {
       besitzer: { typ: 'string', werte: ['gegner', 'lerche'] }, ohne_strom: { typ: 'bool' }, tag: { typ: 'string' } },
     run(m, a) { if (atLoc(m)) alarm().minenSetzen(m.game, { n: a.n, x: a.x, y: a.y, radius: a.radius, besitzer: a.besitzer, ohneStrom: a.ohne_strom, tag: a.tag }); } });
   Registry.define({ id: 'schleichfahrt_an', art: 'aktion', effekt: 'gegner', ereignisse: ['entdeckt', 'raumAlarm', 'mineExploded', 'einsprung'],
-    beschreibung: 'Schleichfahrt (A13) einrichten: Raum-Alarm mit Signatur (Tempo, Schilde unten, Asteroiden dämpfen; Weitscan verrät die Lerche 4 s), Zielkreis (Captain-Marker), patrouillen Patrouillen quer zur Strecke, minen Minen im Korridor. Schilde hoch/runter an der Taktik. Kein Zeitlimit',
+    beschreibung: 'Schleichfahrt (A13) einrichten: Raum-Alarm mit Signatur (Tempo, Schilde unten, Asteroiden dämpfen; Weitscan verrät die Lerche 4 s), Zielkreis (Captain-Marker), patrouillen Patrouillen quer zur Strecke, minen Minen im Korridor. Schilde hoch/runter an der Ops. Kein Zeitlimit',
     params: { ziel_x: { typ: 'number', pflicht: true, min: 0 }, ziel_y: { typ: 'number', pflicht: true, min: 0 }, ziel_r: { typ: 'number', min: 40, max: 600 },
       patrouillen: { typ: 'number', min: 0, max: 6 }, minen: { typ: 'number', min: 0, max: 24 }, ohne_strom: { typ: 'bool' },
       wissen: { typ: 'bool' }, einsprung: { typ: 'bool' }, jaeger: { typ: 'number', min: 1, max: 4 }, kind: { typ: 'string', werte: ['raider', 'korvette'] } },

@@ -35,7 +35,7 @@
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
-  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Taktik', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
+  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
@@ -240,7 +240,7 @@
       // Banner Mitte oben: Countdown/Pause dauerhaft, Wellenbeginn kurz
       let big = null, sub = null, bc = PAL.amber;
       const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
-      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Taktik, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
+      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Ops, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
       else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
       if (big && w.ph !== 'ende') {
@@ -1133,10 +1133,10 @@
         R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });
         R.button(ctx, rx, 174, rw, 16, direct ? '[–] Übung entfällt' : skip ? '[x] Übung überspringen' : '[ ] Übung überspringen', {
           hotkey: 'U', active: skip && !direct, disabled: !me || direct,
-          reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : (startId === 'free' || startId === 'eisenwald_ohne') ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
+          reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : (startId === 'free' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche') ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
           onClick: () => view.actions.toggleSkipDrill(),
         });
-        R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : (startId === 'free' || startId === 'eisenwald_ohne') ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
+        R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : (startId === 'free' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche') ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
       }
       const idx = Math.max(0, starts.indexOf(startId)) + 1;
       R.text(ctx, 'START (' + idx + '/' + starts.length + ', Taste M)', rx, 207, { color: resume ? '#6B7380' : isArena ? PAL.amber : PAL.brass });
@@ -1229,14 +1229,14 @@
       const worlds = this.lobbyWorlds(st);
       const chosen = this.lobbyWorld(st);
       const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const campaign = startId === 'm1' || startId === 'free' || startId === 'eisenwald' || startId === 'eisenwald_ohne';
+      const campaign = startId === 'm1' || startId === 'free' || startId === 'eisenwald' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche';
       const full = !!(st.lobby && st.lobby.worldsFull);
       R.text(ctx, 'WELTSTAND', x, y, { color: PAL.brass });
       R.text(ctx, worlds.length + '/' + this.worldsMax(), x + w, y, { color: full ? PAL.warn : PAL.panelLight, align: 'right' });
       let label;
       if (chosen) label = 'Fortsetzen: ' + chosen.name;
       else if (!campaign) label = 'Kein Weltstand (Testlauf)';
-      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : startId === 'eisenwald' ? 'Neu: Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? 'Neu: Eisenwald ohne Tutorial' : 'Neu: Kampagne';
+      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : startId === 'eisenwald' ? 'Neu: Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? 'Neu: Eisenwald ohne Tutorial' : startId === 'schuld_der_lerche' ? 'Neu: Die Schuld der Lerche' : 'Neu: Kampagne';
       R.button(ctx, x, y + 10, w, 16, this.fit(label, w - 24, 1), {
         hotkey: 'F', active: !!chosen, disabled: !me, reason: 'Noch nicht verbunden',
         onClick: () => view.actions.openWorlds && view.actions.openWorlds('list'),
@@ -1350,10 +1350,10 @@
       ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
-      ['Taktik', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
+      ['Ops', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
       ['Captain', '1–4 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Außenteam'],
       ['Technik', 'Konsole im Maschinenraum · 1–2 Reiter: Energie & Schilde (↑/↓ wählen, ←/→ verteilen, U überladen) · Schadensplan (Reparaturliste, Bots automatisch)'],
-      ['Station', 'Tab / Shift+Tab an Steuer, Taktik, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Taktik schießt die Automatik nur bei 1–2 Spielern'],
+      ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
       ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],
@@ -1399,7 +1399,7 @@
         if (chosen) R.shape(ctx, 'diamond', rx + 8, yy + 8, 7, PAL.mint);
         if (r.neu) {
           const startId = lob.startMission || 'm1';
-          const lab = startId === 'free' ? '+ Neue Kampagne (ohne Tutorial)' : startId === 'eisenwald' ? '+ Neue Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? '+ Neu: Eisenwald ohne Tutorial' : startId === 'm1' ? '+ Neue Kampagne' : '+ Ohne Weltstand starten (' + ((window.Shared_Protocol && Shared_Protocol.START_LABELS && Shared_Protocol.START_LABELS[startId]) || startId) + ')';
+          const lab = startId === 'free' ? '+ Neue Kampagne (ohne Tutorial)' : startId === 'eisenwald' ? '+ Neue Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? '+ Neu: Eisenwald ohne Tutorial' : startId === 'schuld_der_lerche' ? '+ Neu: Die Schuld der Lerche' : startId === 'm1' ? '+ Neue Kampagne' : '+ Ohne Weltstand starten (' + ((window.Shared_Protocol && Shared_Protocol.START_LABELS && Shared_Protocol.START_LABELS[startId]) || startId) + ')';
           R.text(ctx, lab, rx + 18, yy + 4, { color: on ? PAL.amber : PAL.star });
           if (chosen) R.text(ctx, 'GEWÄHLT', rx + rw - 8, yy + 4, { color: PAL.mint, align: 'right' });
           yy += rh + 4;

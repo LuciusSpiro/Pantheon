@@ -441,7 +441,7 @@
           "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
           "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
           "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
-          "{{id}}.lage": "Befehl: Ausschalten. Ziel ist die markierte Korvette – Taktik: aufschalten, Pilot: Breitseite.",
+          "{{id}}.lage": "Befehl: Ausschalten. Ziel ist die markierte Korvette – Ops: aufschalten, Pilot: Breitseite.",
           "{{id}}.tipp": "Das Ziel hat Schilde. Seite mit dem schwächsten Segment suchen, dann die Lanze.",
           "{{id}}.ziel": "Befehl: das Ziel ausschalten"
         }
@@ -1319,7 +1319,7 @@
           "{{id}}.gescheitert": "Befehl nicht erfüllt! Alles zurück auf Anfang – diesmal schneller.",
           "{{id}}.aufgegeben": "Rom übernimmt den Rest. Ihr habt getan, was ihr konntet.",
           "{{id}}.verlust": "{{name}} ist verloren. Der Befehl ist hinfällig.",
-          "{{id}}.lage": "Befehl: Durchbrechen. Pilot: Kurs auf die markierten Punkte, Taktik hält die Jäger klein.",
+          "{{id}}.lage": "Befehl: Durchbrechen. Pilot: Kurs auf die markierten Punkte, Ops hält die Jäger klein.",
           "{{id}}.tipp": "Nicht jeden Jäger jagen – die Punkte zählen. Captain: Kurs ansagen.",
           "{{id}}.ziel": "Befehl: Durchbrechen – alle Punkte erreichen"
         }

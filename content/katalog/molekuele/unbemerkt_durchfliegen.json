@@ -96,8 +96,8 @@
         ],
         "texte": {
           "{{id}}.lage": "{{lage}}",
-          "{{id}}.captain": "Captain: Taktik pingt nur auf dein Kommando – der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
-          "{{id}}.tipp": "Langsam fliegen, Schilde runter (Taktik), an Asteroiden entlang. Wer Lärm macht oder gesehen wird, löst Alarm aus.",
+          "{{id}}.captain": "Captain: Ops pingt nur auf dein Kommando – der Weitscan verrät auch uns. Notfalls: Notfallsprung.",
+          "{{id}}.tipp": "Langsam fliegen, Schilde runter (Ops), an Asteroiden entlang. Wer Lärm macht oder gesehen wird, löst Alarm aus.",
           "{{id}}.ziel_da": "Zielkreis erreicht – wir sind durch!",
           "{{id}}.ziel": "Den Zielkreis erreichen, möglichst unbemerkt"
         }

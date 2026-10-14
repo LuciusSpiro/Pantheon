@@ -20,10 +20,10 @@
     '##########################           ', //  0
     '#===#LLLLL#y===u#=F==M==U#######     ', //  1
     '#A==#.....#=====#========#^^....##   ', //  2
-    '#===#.....#==R==#========#^^..W...#  ', //  3  (Kai 2026-10-07: Taktik, Captain, Terminal in einer Spalte x=30)
+    '#===#.....#==R==#========#^^..W...#  ', //  3  (Kai 2026-10-07: Ops, Captain, Terminal in einer Spalte x=30)
     '#===###D###=====##D##D###.........## ', //  4
-    '#===#!....#=====#........#........K#', //  5
-    '#E==D.....D=====D........D...C..H..#', //  6
+    '#===#!....#=====#........#.........K#', //  5
+    '#E==D.....D=====D........D....C..H..#', //  6
     '#===#.....#i====#........#.........I#', //  7  (R1: Technik-Konsole i an der Westwand des Maschinenraums, neben der Tür)
     '#===###D###=====##D##D###..YY.....## ', //  8  (Planungstisch nach unten: der Weg von der Westtür zu den Konsolen bleibt frei)
     '#===#.....#O=G==#========#..YY....#  ', //  9
@@ -44,7 +44,7 @@
     '    ##D###D####DD#####D###D###       ', // 24
     '    #,,,#,,,#........#.g...gz#       ', // 25
     '    #,,,#,,,#........#.......#       ', // 26
-    '    #B,,#B,,#.v.v.v..#......e#       ', // 27
+    '    #B,,#B,,#.v.v.v..#.l.l..e#       ', // 27  (SL0: l = Frachtbett, zwei Betten an der Südwand des Frachtraums, Personen an Bord liegen darauf)
     '    ##########################       ', // 28
   ];
 
@@ -243,6 +243,8 @@
     // statt Pritsche und Werkzeugwand, damit die Kachel nie unsichtbar blockiert. Bucht- und Zugangskacheln bleiben frei.
     'e': { kind: 'cargo_cot', solid: true },              // Pritsche (Kulisse)
     'z': { kind: 'tool_wall', solid: true },              // Werkzeugwand (Kulisse)
+    // SL0: Betten für Personen an Bord (CARGO_BEDS); Zustand aus snapshot.fracht.pers, ohne Person leeres Bett
+    'l': { kind: 'cargo_bed', solid: true },              // Frachtbett (Kulisse, zeigt die liegende Person)
   });
 
   // Regale im Lager: x-Kachel -> Gegenstand (Zeile 1). Altname; maßgeblich ist SHELF_TILES.
@@ -353,6 +355,9 @@
   const CARGO_BAYS = [{ id: 'bay0', x: 23, y: 25, access: { x: 23, y: 26 } }, { id: 'bay1', x: 27, y: 25, access: { x: 27, y: 26 } }];
   const CARGO_CAPACITY = CARGO_BAYS.length;
   function cargoBayAt(tx, ty) { return CARGO_BAYS.find((b) => b.x === tx && b.y === ty) || null; }
+  // SL0: Betten im Frachtraum. Eine Person an Bord belegt einen Frachtplatz (CARGO_CAPACITY, gemeinsam mit den Buchten) und liegt auf Bett 0, dann Bett 1.
+  const CARGO_BEDS = [{ id: 'bett0', x: 23, y: 27, access: { x: 23, y: 26 } }, { id: 'bett1', x: 25, y: 27, access: { x: 25, y: 26 } }];
+  function cargoBedAt(tx, ty) { return CARGO_BEDS.find((b) => b.x === tx && b.y === ty) || null; }
   // Raum einer Kachel (oder null außerhalb aller Räume).
   function roomAt(tx, ty) {
     for (const r of SHIP_ROOMS) if (tx >= r.x0 && tx <= r.x1 && ty >= r.y0 && ty <= r.y1) return r;
@@ -507,7 +512,7 @@
     SHIP_ROWS, PLATFORM_ROWS, LEGEND, PLATFORM_LEGEND,
     SHELVES, BEDS, REACTOR_SWITCHES, SHIP_SPAWNS, BOT_SPAWNS, PLATFORM_PADS, SECTOR_REGIONS,
     // M3a Schritt 0: Schiffslayout als Daten (CONTRACT-M3 §3)
-    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt,
+    SHIP_ROOMS, SHELF_TILES, SHIP_DRILL, roomAt, nutzungAt, shelfAt, CARGO_BAYS, CARGO_CAPACITY, cargoBayAt, CARGO_BEDS, cargoBedAt,
     // M3a: Schiffslegende mit Stationen, Ivo-Wegpunkte, Sektornamen
     SHIP_LEGEND, IVO_SPOTS, IVO_AUSSTIEG, SECTOR_NAMES,
     // M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.3)

@@ -5,17 +5,18 @@
   "description": "EK8 Kapitelsteuerung: eine feste Kette aus Kapiteln, jedes Kapitel führt ein oder mehrere Regiebücher (kopf.art 'kapitel') aus. Der Fortschritt hängt nur an erreichten Missionszielen: ein Buch endet mit einem Ausgang, die Kette sagt je Ausgang, was folgt (weiter zu einem Kapitel bzw. 'ende', oder dieselbe Szene wiederholen). Strukturprüfung hier; Referenzen (Bücher, Ausgänge, Orte, Flags, Erreichbarkeit) prüft server/mission/kampagne.js (tools/check-kette.js). '_kommentar' ist das einzige freie Feld.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["format", "id", "titel", "tutorial", "start", "kapitel", "ende"],
+  "required": ["format", "id", "titel", "start", "kapitel", "ende"],
   "properties": {
     "$schema": { "type": "string" },
     "_kommentar": { "$ref": "#/$defs/kommentar" },
     "format": { "const": "kampagne/1" },
-    "id": { "$ref": "#/$defs/kennung" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$", "description": "Kennung = Dateiname (SL1: Bindestrich erlaubt, z. B. schuld-der-lerche)" },
     "titel": { "type": "string", "maxLength": 60 },
+    "welt": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "SL1: Sektorkarte der Kampagne (content/welt/<welt>.json); ohne Angabe Limes" },
 
     "tutorial": {
       "type": "object", "additionalProperties": false, "required": ["nach"],
-      "description": "Wie die Kette an das Tutorial (m1–m3) anschließt. Das Tutorial selbst bleibt unverändert.",
+      "description": "Wie die Kette an das Tutorial (m1–m3) anschließt. Das Tutorial selbst bleibt unverändert. SL1: optional; Ketten ohne Block (Sund) haben kein Tutorial, das erste Kapitel beginnt sofort.",
       "properties": {
         "_kommentar": { "$ref": "#/$defs/kommentar" },
         "nach": { "$ref": "#/$defs/kennung", "description": "Mission des Tutorials, nach deren Ende die Kette beginnt (m3)" },

@@ -15,6 +15,7 @@ const combat = lazy('combat', '../sim/combat.js');
 const interior = lazy('interior', '../sim/interior.js');
 const arena = lazy('arena', '../sim/arena.js');
 const world = lazy('world', '../world.js');
+const lazyMarken = lazy('geld', '../sim/geld.js');
 
 const ENTRIES = new Map();
 const PARAM_TYPES = ['map', 'loc', 'squad', 'unit', 'object', 'area', 'item', 'npc', 'text', 'system', 'number', 'bool', 'string',
@@ -111,6 +112,10 @@ define({ id: 'damage_system', art: 'aktion', effekt: 'schaden', ereignisse: ['sy
 define({ id: 'pay_marks', art: 'aktion', beschreibung: 'Marken abziehen (Bestechung, Kauf)',
   params: { marks: { typ: 'number', pflicht: true, min: 0 } },
   run(m, a) { const inv = g_(m).inventory; inv.marks = Math.max(0, inv.marks - a.marks); } });
+define({ id: 'credit_marks', art: 'aktion', ereignisse: ['marksCredited'],
+  beschreibung: 'Marken gutschreiben (Verkauf, Lohn; sonst reward) – server/sim/geld.js',
+  params: { marks: { typ: 'number', pflicht: true, min: 0 }, grund: { typ: 'string' } },
+  run(m, a) { lazyMarken().gutschreiben(g_(m), a.marks, a.grund || 'skript'); } });
 define({ id: 'end_away', art: 'aktion', beschreibung: 'Außenmission auf einer Karte beenden',
   params: { map: { typ: 'map', pflicht: true } },
   run(m, a) { const aw = g_(m).aways[a.map]; if (aw) aw.active = false; } });
@@ -337,6 +342,8 @@ define({ id: 'ship_x', art: 'pruefung', beschreibung: 'Schiff liegt in x jenseit
   test: (m, a) => (a.gt == null || g_(m).ship.x > a.gt) && (a.lt == null || g_(m).ship.x < a.lt) });
 define({ id: 'marks_below', art: 'pruefung', beschreibung: 'Weniger als n Marken', params: { n: { typ: 'number', pflicht: true, min: 0 } },
   test: (m, a) => g_(m).inventory.marks < a.n });
+define({ id: 'marks_at_least', art: 'pruefung', beschreibung: 'Mindestens n Marken (Geldziel, Wahl in Kapitel 8)', params: { n: { typ: 'number', pflicht: true, min: 0 } },
+  test: (m, a) => lazyMarken().mindestens(g_(m), a.n) });
 define({ id: 'team_down', art: 'pruefung', beschreibung: 'Jemand ist unten (auf der Karte bzw. irgendwo)', params: { map: { typ: 'map' } },
   test: (m, a) => awayTeam(m, a.map || null).length > 0 });
 define({ id: 'away_active', art: 'pruefung', beschreibung: 'Außenmission auf der Karte läuft (einmal gebeamt)', params: { map: { typ: 'map', pflicht: true } },

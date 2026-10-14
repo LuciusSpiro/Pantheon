@@ -6,6 +6,9 @@ const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
+const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
+const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung (schiff.zonen)
+const Welt = require('./sim/welt.js');   // SL1: Startort der aktiven Karte
 
 const ROOT = path.join(__dirname, '..');
 const VERSION = 3;   // B1–B3: welt.landepunkte, welt.wracks, welt.sektoren, crew (v2 -> v3 per MIGRATIONS[2]); S2: spielleiter (v1 -> v2)
@@ -672,7 +675,7 @@ function capture(game) {
     if (st === 'ok' && ship.fragile && ship.fragile[k]) st = 'damaged';
     systeme[k] = ['ok', 'damaged', 'broken'].includes(st) ? st : 'ok';
   }
-  const loc = ship.docked && ship.dockedAt ? ship.dockedAt : (ws.lastDockedAt || Locations.START);
+  const loc = ship.docked && ship.dockedAt ? ship.dockedAt : (ws.lastDockedAt || Welt.startOrt());
   const wreck = game.aways && game.aways.wreck;
   const now = new Date().toISOString();
   const data = {
@@ -711,7 +714,9 @@ function capture(game) {
   if (Array.isArray(ws.data.faeden) && ws.data.faeden.length) data.welt.faeden = ws.data.faeden.slice();
   // EK3 Teil A: mitgeführte Ladung (nur wenn vorhanden; Ladung im Raum und Abnehmer sind Laufzeit und verfallen mit dem System)
   { const fr = Fracht.toSave(game); if (fr.length) data.schiff.fracht = fr; }
+  { const zo = Zonen.toSave(game); if (zo) data.schiff.zonen = zo; }   // SL6: erkundete Zonen und Zähler (nur wenn vorhanden)
   // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
+  { const sp = Sektorplan.toSave(game); if (sp) data.welt.sektorplan = sp; }   // SL4: nur wenn etwas gesichtet/markiert ist
   data.welt.landepunkte = blockSave(game, 'landepunkte');
   data.welt.wracks = blockSave(game, 'wracks');
   let sek = data.welt.sektoren;
@@ -746,6 +751,7 @@ function apply(game, data) {
   for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) game.inventory[k] = v;
   game.inventory.deko = Array.isArray(s.deko) ? s.deko.slice() : [];
   Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
+  Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
   for (const k of s.ausbauten || []) game.upgrades[k] = true;
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
@@ -768,6 +774,7 @@ function apply(game, data) {
   // B1 §8 Reihenfolge: sektoren -> landepunkte -> spielleiter.restore -> mission.restore -> away.applyWorldFacts
   // sektoren: explore.restore(w) bekommt den ganzen Block welt und stellt welt.sektoren selbst her (SEKTOR, sektorenRestore)
   if (game.explore.restore) game.explore.restore(w);
+  Sektorplan.restore(game, w.sektorplan);   // SL4: fehlt im Altstand = leer
   blockRestore(game, 'landepunkte', ws.data.bloecke.landepunkte);
   blockRestore(game, 'wracks', ws.data.bloecke.wracks);
   blockRestore(game, 'waffen', ws.data.bloecke.waffen);
@@ -780,7 +787,7 @@ function apply(game, data) {
     if (w.wrack.hollow && wreck.hollow) { wreck.hollow.marked = !!w.wrack.hollow.marked; wreck.hollow.open = !!w.wrack.hollow.open; }
   }
   // Schiff angedockt an den gespeicherten Ort
-  const loc = Locations.get(ws.lastDockedAt) ? ws.lastDockedAt : Locations.START;
+  const loc = Locations.get(ws.lastDockedAt) ? ws.lastDockedAt : Welt.startOrt();
   const space = require('./sim/space.js');
   space.enterScene(game, loc, { docked: true });
   game.explore.location = loc;

@@ -2084,9 +2084,37 @@ class GenericAgent extends KeshAgent {
       this.input(0, 0); this.act(false); this.ix = null; return;
     }
     if (this.reactorDuty(S, p)) return;
+    if (S.en && this.entschlBot(S, p)) return;   // SL5: Signal entschlüsseln (Ops)
+    if (this.opts && this.opts.sondeZiel && this.sondeBot(S, p)) return;   // SL4: Sonde zu einem Zielpunkt (opts.sondeZiel = { x, y })
     if (this.role === 'captain' && p.console === 'captain') this.queueRepairs(S);
     if (!info) { this.betweenMissions(S, p); return; }
     this.genericStep(S, p, info);
+  }
+  // SL5: Ops-Bot stimmt ab: Bergsteigen auf der Signalstärke s (Richtung halten, solange s steigt, sonst umkehren; am Rand umkehren).
+  // opts.entschlAbw (Standard 0) = Versatz in Frequenzeinheiten, bei dem der Bot zufrieden ist (größer = ungenauer = niedrigere Qualität).
+  // -> true, wenn der Bot diesen Tick damit beschäftigt ist
+  entschlBot(S, p) {
+    const e = S.en;
+    if (!this.is('weapons') || p.zone !== 'ship' || e.z === 2) return false;
+    if (!this.enter(S, 'weapons')) return true;
+    if (e.z === 0) { this.cmd('weapons.entschl.start'); return true; }
+    const m = this.memo; const s = e.s || 0;
+    if (!m.enDir) m.enDir = 1;
+    const unzufrieden = s < 1 - ((this.opts && this.opts.entschlAbw) || 0) / 0.22 - 0.02;
+    if (m.enS != null && s < m.enS - 0.004) m.enDir = -m.enDir;
+    else if (s === 0 && ((e.f <= 0.02 && m.enDir < 0) || (e.f >= 0.98 && m.enDir > 0))) m.enDir = -m.enDir;
+    m.enS = s;
+    this.cmd('weapons.entschl.stimme', { dir: unzufrieden ? m.enDir : 0 });
+    return true;
+  }
+  // SL4: Ops-Bot schickt eine Sonde zu opts.sondeZiel (Marke setzen, Sonde starten); einmal je Partie (memo.sondeGestartet)
+  sondeBot(S, p) {
+    if (!this.is('weapons') || p.zone !== 'ship' || this.memo.sondeGestartet || !(S.inventory && S.inventory.sonde > 0)) return false;
+    if (!this.enter(S, 'weapons')) return true;
+    const z = this.opts.sondeZiel;
+    if (!S.ship.markers.tactical) { this.cmd('weapons.marker', { x: z.x, y: z.y }); return true; }
+    this.cmd('weapons.sonde.start'); this.memo.sondeGestartet = true;
+    return true;
   }
   objDone(S, id) { const o = (S.mission.objectives || []).find((x) => x.id === id); return !!(o && o.done); }
   // Route über die ganze Sternkarte (nicht nur die angezeigten Orte): die Crew kennt die Wege; gesperrte Verbindungen

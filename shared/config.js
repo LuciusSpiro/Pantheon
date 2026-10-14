@@ -17,7 +17,7 @@
     player: { speed: 96, hp: 100, reviveTime: 3, autoReviveTime: 15, hitbox: { w: 18, h: 12 }, revivedHp: 50, carrySpeedFactor: 0.85,
       // Schubs (Spieltest 2026-10-12): Spaß-Mechanik an Bord – kein Schaden. Betäubung und Abklingzeit in s, Reichweite in Kacheln, Rückstoß in Kacheln
       schubs: { reichweite: 1.6, betaeubung: 1.0, abklingzeit: 3, rueckstoss: 0.5 } },
-    // R1 §4.5: Automatik nur bei wenigen verbundenen Spielern: Waffenautomatik der unbesetzten Taktik, Bot-Automatik der Technik (Standard)
+    // R1 §4.5: Automatik nur bei wenigen verbundenen Spielern: Waffenautomatik der unbesetzten Ops, Bot-Automatik der Technik (Standard)
     waffenAutomatikMaxSpieler: 2,
     botAutomatikMaxSpieler: 2,
     bot: { count: 2, speedFactor: 0.6, repairFactor: 1.75, extinguishTime: 2.5 },
@@ -79,10 +79,16 @@
     asteroid: { count: 38, damage: 1 },
     // Bergungsgut im Asteroidenfeld (Stage route): Schiff fliegt drüber -> einsammeln. Pflicht, bis giveUpAfter s in der Stage.
     salvage: { count: 3, pickupDist: 60, giveUpAfter: 150, rewards: ['ersatzteil', 'flickblech', 'marks'], marks: 40 },
-    // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Taktik), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
+    // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Ops), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
     // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
     // Transfer ship.beamTimeDamaged). Kapazität kommt aus der Karte (Maps.CARGO_CAPACITY = Frachtbuchten).
-    fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht'], artDefault: 'sprengstoff', maxDraussen: 6 },
+    fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht', 'deuterium'], artDefault: 'sprengstoff', maxDraussen: 6,
+      // SL6: Deuterium (Gasriese schöpfen). preise = Marken je Einheit bei Händlern (scene.kauft überschreibt je Szene; Studiowerte, nach dem Spieleabend
+      // nachgestellt), gewicht = Abzug auf die Triebwerksleistung je Einheit an Bord (nur für diese Arten, Sprengstoff/Fracht unverändert).
+      preise: { deuterium: 40 }, gewicht: { deuterium: 0.15 }, abwurfAbstand: 70 },
+    // SL6: Zonen mit Wirkung (shared/zonen.js, server/sim/zonen.js). takt = Sekunden, nach denen angesammelter Zonenschaden als Treffer ankommt
+    // (ganze Punkte, kein Dauerfeuer von Treffer-Ereignissen). hitzeSysteme = Energiesysteme, die die Zonenhitze aufnehmen (nur ab hitzeMinEnergie).
+    zonen: { takt: 1, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
     // EK3 Teil B: Konvoi-Szene (server/sim/konvoi.js, CONTRACT-EK3B). Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus
     // Wegpunkten (Anteile der Szene, Länge × Breite) und springen am Ende. Eskorte (Jäger, Korvette) fährt mit, bis die Lerche näher als wachRadius
     // kommt oder ein Konvoi-Schiff getroffen wird (dann Klassen-KI wie jeder Gegner). tempo = Anteil der Höchstfahrt (die nächste Stufe wird gewählt),
@@ -106,7 +112,7 @@
 
     economy: {
       startMarks: 150, bribe: 100, rewardDeliver: 200, rewardDecode: 80,
-      startInventory: { ersatzteil: 4, loeschgel: 2, flickblech: 3, bolzen: 6, medipack: 2 },
+      startInventory: { ersatzteil: 4, loeschgel: 2, flickblech: 3, bolzen: 6, medipack: 2, sonde: 3 },   // SL4: 3 Sonden zum Start
     },
     // M0: Regal-Kapazität für die Füllstandsanzeige (Bestand darf darüber liegen, Anzeige klemmt auf voll)
     shelfCapacity: { ersatzteil: 6, loeschgel: 4, flickblech: 4, bolzen: 12, medipack: 4 },
@@ -125,6 +131,7 @@
       { id: 'flickblech', name: 'Flickblech', price: 30, kind: 'item' },
       { id: 'bolzen', name: 'Bolzen', price: 10, kind: 'item' },
       { id: 'medipack', name: 'Medipack', price: 30, kind: 'item' },
+      { id: 'sonde', name: 'Sonde', price: 60, kind: 'item' },   // SL4: Ops-Sonde (Vorrat inventory.sonde)
       { id: 'ladung', name: 'Sprengstoff', price: 150, kind: 'item', where: ['hafen'] },   // EK5: Gegenstand für die Methalle (Inventar ladung), nur an Stationen
       { id: 'pflanze', name: 'Topfpflanze', price: 20, kind: 'deko' },
       { id: 'poster', name: 'Sternkarten-Poster', price: 25, kind: 'deko' },
@@ -246,8 +253,17 @@
     // Lerche und die Gegner gleich. nebelServer: 'wellen' = nur in Wellen All; 'immer' = auch in der Kampagne. Die Kampagne
     // bleibt vorerst aus: mit 'immer' blieben im Golden alle 20 m2-solo- und 20 m2-zu-dritt-Läufe am Kustoden-Relais hängen.
     sensors: { range: 1400, fogFactor: 0.5, nebelServer: 'wellen' },
-    tscan: { range: 800, time: 2, holdTimeout: 0.5 },          // Ziel-Scan der Taktik (S halten)
+    tscan: { range: 800, time: 2, holdTimeout: 0.5 },          // Ziel-Scan der Ops (S halten)
     widescan: { cooldown: 20, radius: 1000 },                  // Weitscan (W)
+    // SL5 Entschlüsseln (server/sim/entschluesseln.js): dauer = Sekunden bei voller Signalstärke; rate = Frequenz je s bei gehaltener Taste;
+    // weitBand = Abstand, bei dem die Signalstärke 0 ist; driftV = größte Zielband-Geschwindigkeit je s; driftNebel = Faktor in Nebelsystemen;
+    // qSchwellen = dauer/Laufzeit für Qualität 1/2/3; minLauf = Abbruch davor ergibt Qualität 0; anzeigeDauer = Ergebnis bleibt so lange stehen (s)
+    // SL4 Sonden (server/sim/sonden.js): max gleichzeitig; tempo px/s; reichweite = Senderadius (Weitscan-Puls, Ziele aufschalten); leben = Sekunden
+    // bis zum Erlöschen; hp/gegnerSicht/gegnerDps = Beschuss durch Gegner (Schaden je Sekunde und Gegner im Umkreis); sprungZeit = Sekunden bis die
+    // Meldung aus dem Nachbarsektor kommt (Teil 2); preis siehe shop (id 'sonde'); Start-Vorrat economy.startInventory.sonde
+    sonden: { max: 3, tempo: 320, reichweite: 700, leben: 300, hp: 20, gegnerSicht: 650, gegnerDps: 7, sprungZeit: 20 },
+    entschl: { dauer: 25, rate: 0.3, weitBand: 0.22, driftV: 0.05, driftNebel: 2, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
+      qSchwellen: [0.4, 0.65, 0.9], minLauf: 3, anzeigeDauer: 12 },
     // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,
     // spawn_patrouille, minenfeld, schleichfahrt_an) – ohne das bleibt jede Szene wie bisher (Golden m1–m3 unverändert).
     alarm: {
@@ -591,7 +607,7 @@
       // Korvetten-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
       pilotFire: { raider: { fireInterval: 1.9, lead: 1 } },
     },
-    // Raumszenen (px im Taktik-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
+    // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {
       port: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, station: { x: 520, y: 700 }, arrival: { x: 1650, y: 860, angle: 3.3 } },
       route: { w: 3000, h: 1600, start: { x: 150, y: 800, angle: 0 }, exit: { x: 2850, y: 800, r: 140 } },

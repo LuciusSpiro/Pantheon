@@ -58,7 +58,7 @@ function arena(players, opts) {
 const stationsOf = (g) => g.players.map((p) => Station.stationOf(p));
 
 section('Technik-Konsole: Karte, Legende, Betreten, Exklusivität', () => {
-  ok(Protocol.CONSOLES.includes('technik') && Protocol.STATION_KREIS.join() === 'helm,weapons,captain,technik', 'Protocol: Konsole technik, Stationskreis Navigation → Taktik → Captain → Technik');
+  ok(Protocol.CONSOLES.includes('technik') && Protocol.STATION_KREIS.join() === 'helm,weapons,captain,technik', 'Protocol: Konsole technik, Stationskreis Navigation → Ops → Captain → Technik');
   const tiles = W.CONSOLE_TILES.technik || [];
   ok(tiles.length === 1, 'genau eine Technik-Konsole auf dem Schiff');
   const t = tiles[0];
@@ -134,7 +134,7 @@ section('Befehle: technik.* wirken, captain.* weisen ab, Rechteprüfung gegen di
 
 section('Tab: Reihenfolge, Ort bleibt, Grenzen', () => {
   const { g, P, enter, tab, notices, run, send, cmd, leave } = arena(1);
-  // Reihenfolge vorwärts ab Steuer: Taktik, Captain, Technik, Steuer
+  // Reihenfolge vorwärts ab Steuer: Ops, Captain, Technik, Steuer
   enter(0, 'helm');
   const seq = [];
   for (let i = 0; i < 4; i++) { tab(0, 1); seq.push(Station.stationOf(P(0))); }
@@ -146,7 +146,7 @@ section('Tab: Reihenfolge, Ort bleibt, Grenzen', () => {
   tab(0, 1);
   const sn = g.snapshot().players[0];
   ok(sn.console === 'helm' && sn.station === 'weapons', 'Snapshot: players[].station = weapons, console = helm (nur bei Abweichung)');
-  // Interface weg vom Steuer: das Ruder fällt (unbesetzte Steuer), neues Interface darf Taktik-Befehle
+  // Interface weg vom Steuer: das Ruder fällt (unbesetzte Steuer), neues Interface darf Ops-Befehle
   leave(0); enter(0, 'helm');
   cmd(0, 'helm.input', { turn: 1, thrust: 0 });
   ok(g.ship.helm.turn === 1, 'Steuer: Ruder gesetzt');
@@ -154,7 +154,7 @@ section('Tab: Reihenfolge, Ort bleibt, Grenzen', () => {
   ok(g.ship.helm.turn === 0, 'Tab weg von der Steuer: Ruder zurück auf 0');
   const n0 = notices(0).length;
   cmd(0, 'weapons.target', { id: null });
-  ok(!notices(0).slice(n0).some((t) => /passenden Konsole/.test(t)), 'Taktik-Befehle am Steuer-Ort mit Station weapons: angenommen');
+  ok(!notices(0).slice(n0).some((t) => /passenden Konsole/.test(t)), 'Ops-Befehle am Steuer-Ort mit Station weapons: angenommen');
   cmd(0, 'helm.stop');
   ok(notices(0).slice(n0).some((t) => /passenden Konsole/.test(t)), 'Steuer-Befehle mit Station weapons: abgelehnt');
   // Verlassen räumt die Station
@@ -187,18 +187,18 @@ section('Tab: Reihenfolge, Ort bleibt, Grenzen', () => {
 section('Sperre belegter Stationen (zu dritt)', () => {
   const { g, P, enter, tab, notices, place, tap } = arena(3);
   enter(0, 'helm'); enter(1, 'captain');
-  tab(0, 1);   // Steuer-Ort → Taktik (frei)
-  ok(Station.stationOf(P(0)) === 'weapons' && P(0).console === 'helm', 'Spieler 0: Ort Steuer, Interface Taktik');
-  ok(Station.stationBesetzt(g, 'weapons') && !Station.stationBesetzt(g, 'helm'), 'besetzt = aktives Interface: Taktik ja, Steuer (Ort, aber umgeschaltet) nein');
-  // Spieler 2 versucht die Taktik-Konsole zu betreten: Konsole selbst frei, das Interface hält Spieler 0
+  tab(0, 1);   // Steuer-Ort → Ops (frei)
+  ok(Station.stationOf(P(0)) === 'weapons' && P(0).console === 'helm', 'Spieler 0: Ort Steuer, Interface Ops');
+  ok(Station.stationBesetzt(g, 'weapons') && !Station.stationBesetzt(g, 'helm'), 'besetzt = aktives Interface: Ops ja, Steuer (Ort, aber umgeschaltet) nein');
+  // Spieler 2 versucht die Ops-Konsole zu betreten: Konsole selbst frei, das Interface hält Spieler 0
   place(2, conSpot('weapons')); tap(2);
-  ok(P(2).console == null, 'Taktik-Konsole nicht betretbar, solange Spieler 0 die Taktik per Tab hält');
-  // Spieler 1 schaltet rückwärts: Taktik ist gesperrt (P0), Steuer frei -> Steuer
+  ok(P(2).console == null, 'Ops-Konsole nicht betretbar, solange Spieler 0 die Ops per Tab hält');
+  // Spieler 1 schaltet rückwärts: Ops ist gesperrt (P0), Steuer frei -> Steuer
   tab(1, -1);
-  ok(Station.stationOf(P(1)) === 'helm' && P(1).console === 'captain', 'Spieler 1 (Captain-Ort) Shift+Tab: Taktik gesperrt, springt auf die freie Steuer-Station');
-  // Spieler 0 schaltet zurück auf den Kreis: Taktik wird frei
+  ok(Station.stationOf(P(1)) === 'helm' && P(1).console === 'captain', 'Spieler 1 (Captain-Ort) Shift+Tab: Ops gesperrt, springt auf die freie Steuer-Station');
+  // Spieler 0 schaltet zurück auf den Kreis: Ops wird frei
   tab(0, 1);
-  ok(Station.stationOf(P(0)) !== 'weapons' && !Station.stationBesetzt(g, 'weapons'), 'Spieler 0 verlässt die Taktik: unbesetzt');
+  ok(Station.stationOf(P(0)) !== 'weapons' && !Station.stationBesetzt(g, 'weapons'), 'Spieler 0 verlässt die Ops: unbesetzt');
   // Hinweistext, wenn alles gesperrt ist: vier Spieler ohne Server
   const mk = (name, console, station) => ({ name, connected: true, zone: 'ship', downed: false, beamLock: false, console, station: station || null });
   const a = mk('Ada', 'helm', 'weapons'), b = mk('Bo', 'captain', 'helm'), c = mk('Cem', 'weapons', 'technik'), d = mk('Dan', 'technik', 'captain');
@@ -208,17 +208,17 @@ section('Sperre belegter Stationen (zu dritt)', () => {
   ok(a.station === 'weapons', 'bei vollständiger Sperre bleibt das Interface unverändert');
 });
 
-section('Waffenautomatik nur bei 1–2 verbundenen Spielern, Taktik unbesetzt', () => {
+section('Waffenautomatik nur bei 1–2 verbundenen Spielern, Ops unbesetzt', () => {
   const fake = (n, conn) => ({ players: Array.from({ length: n }, (_, i) => ({ connected: conn ? conn[i] !== false : true, console: null, station: null })), C: CONFIG });
-  ok(Station.waffenAutomatikAktiv(fake(1)) && Station.waffenAutomatikAktiv(fake(2)), 'Funktion: 1 und 2 Spieler, Taktik unbesetzt: Automatik aktiv');
+  ok(Station.waffenAutomatikAktiv(fake(1)) && Station.waffenAutomatikAktiv(fake(2)), 'Funktion: 1 und 2 Spieler, Ops unbesetzt: Automatik aktiv');
   ok(!Station.waffenAutomatikAktiv(fake(3)) && !Station.waffenAutomatikAktiv(fake(4)), 'Funktion: 3 und 4 Spieler: keine Automatik');
   ok(Station.waffenAutomatikAktiv(fake(3, [true, true, false])), 'nur verbundene Spieler zählen (3 Spieler, einer getrennt: Automatik)');
   const man = fake(2); man.players[0].console = 'weapons';
-  ok(!Station.waffenAutomatikAktiv(man), 'Taktik besetzt: keine Automatik');
+  ok(!Station.waffenAutomatikAktiv(man), 'Ops besetzt: keine Automatik');
   man.players[0].console = 'helm'; man.players[0].station = 'weapons';
-  ok(!Station.waffenAutomatikAktiv(man), 'Taktik per Tab besetzt (Ort Steuer): keine Automatik');
+  ok(!Station.waffenAutomatikAktiv(man), 'Ops per Tab besetzt (Ort Steuer): keine Automatik');
   man.players[0].station = 'technik'; man.players[0].console = 'weapons';
-  ok(Station.waffenAutomatikAktiv(man), 'Ort Taktik, Interface Technik: Taktik unbesetzt, Automatik aktiv');
+  ok(Station.waffenAutomatikAktiv(man), 'Ort Ops, Interface Technik: Ops unbesetzt, Automatik aktiv');
   ok(Station.botAutomatikStandard(fake(1)) && Station.botAutomatikStandard(fake(2)) && !Station.botAutomatikStandard(fake(3)) && !Station.botAutomatikStandard(fake(4)), 'Bot-Automatik-Standard: genau 1 oder 2 Spieler');
   ok(CONFIG.waffenAutomatikMaxSpieler === 2 && CONFIG.botAutomatikMaxSpieler === 2, 'Konfiguration: waffenAutomatikMaxSpieler / botAutomatikMaxSpieler = 2');
   ok(typeof space.waffenAutomatikAktiv === 'function', 'space.waffenAutomatikAktiv(game) vorhanden');
@@ -236,17 +236,17 @@ section('Waffenautomatik nur bei 1–2 verbundenen Spielern, Taktik unbesetzt', 
     run(2.5, () => { e.x = pin.x; e.y = pin.y; e.angle = pin.a; e.fireT = -999; e.shields = [0, 0, 0, 0]; g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'bolzen'); });
     return { dmg: 999 - e.hp, g, f };
   };
-  for (const n of [1, 2]) { const r = lanceDmg(n); ok(r.dmg > 0, `${n} Spieler, Taktik unbesetzt: Lanze schießt automatisch (${r.dmg.toFixed(1)} Schaden)`); }
+  for (const n of [1, 2]) { const r = lanceDmg(n); ok(r.dmg > 0, `${n} Spieler, Ops unbesetzt: Lanze schießt automatisch (${r.dmg.toFixed(1)} Schaden)`); }
   const r3 = lanceDmg(3);
-  ok(r3.dmg === 0 && r3.g.ship.mount.bow.charge >= 1, '3 Spieler, Taktik unbesetzt: kein Automatikschuss, Lanze bleibt geladen');
+  ok(r3.dmg === 0 && r3.g.ship.mount.bow.charge >= 1, '3 Spieler, Ops unbesetzt: kein Automatikschuss, Lanze bleibt geladen');
   const rb = r3.g.ship.mount;
   ok(['port', 'stbd'].every((k) => !rb[k].salvo), '3 Spieler: auch keine Batteriesalve');
-  // Taktik besetzt: wie bisher kein Automatikfeuer (2 Spieler)
+  // Ops besetzt: wie bisher kein Automatikfeuer (2 Spieler)
   const rm = lanceDmg(2, (f) => f.enter(0, 'weapons'));
-  ok(rm.dmg === 0, '2 Spieler, Taktik besetzt: kein Automatikfeuer');
-  // Taktik-Ort, Interface per Tab auf Technik: Taktik unbesetzt -> Automatik greift wieder (2 Spieler)
+  ok(rm.dmg === 0, '2 Spieler, Ops besetzt: kein Automatikfeuer');
+  // Ops-Ort, Interface per Tab auf Technik: Ops unbesetzt -> Automatik greift wieder (2 Spieler)
   const rt = lanceDmg(2, (f) => { f.enter(0, 'weapons'); f.tab(0, 1); f.tab(0, 1); });   // weapons → captain → technik
-  ok(rt.f.P(0).console === 'weapons' && Station.stationOf(rt.f.P(0)) === 'technik' && rt.dmg > 0, `2 Spieler, Taktik-Ort aber Interface Technik: Automatik schießt (${rt.dmg.toFixed(1)})`);
+  ok(rt.f.P(0).console === 'weapons' && Station.stationOf(rt.f.P(0)) === 'technik' && rt.dmg > 0, `2 Spieler, Ops-Ort aber Interface Technik: Automatik schießt (${rt.dmg.toFixed(1)})`);
   // Ladepunkte: unbesetzt+Automatik = gleichmäßig reihum; ohne Automatik (3 Spieler) bleibt die zuletzt gesetzte Verteilung stehen
   {
     const f = arena(2); f.run(0.2);
@@ -264,12 +264,12 @@ section('ODA bei Wechsel der Waffenautomatik', () => {
   const f = arena(2); const { g, run, enter, leave, odas } = f;
   enter(0, 'weapons'); run(0.5);
   leave(0); run(0.5);
-  ok(odas().some((t) => /Taktik unbesetzt, Automatik an/.test(t)), 'Taktik verlassen (2 Spieler): „Taktik unbesetzt, Automatik an.“');
+  ok(odas().some((t) => /Ops unbesetzt, Automatik an/.test(t)), 'Ops verlassen (2 Spieler): „Ops unbesetzt, Automatik an.“');
   const f3 = arena(3);
   f3.run(0.5);
   f3.enter(0, 'weapons'); f3.run(0.5);
   f3.leave(0); f3.run(0.5);
-  ok(f3.odas().some((t) => /Taktik unbesetzt, Automatik aus/.test(t)), 'Taktik verlassen (3 Spieler): „Taktik unbesetzt, Automatik aus …“');
+  ok(f3.odas().some((t) => /Ops unbesetzt, Automatik aus/.test(t)), 'Ops verlassen (3 Spieler): „Ops unbesetzt, Automatik aus …“');
   ok(g.errors === 0 && f3.g.errors === 0, 'keine Server-Fehler');
 });
 

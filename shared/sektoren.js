@@ -176,6 +176,15 @@
     return Object.keys(K.hexe).filter((hx) => K.hexe[hx].gen && K.hexe[hx].ort).sort().map((hx) => K.hexe[hx].ort);
   }
 
+  // SL1: Start der Partie laut Karte. Feld `start` der Karte: { ort, bekannt?: [Orte], boden?: bool }. Ohne Feld (Limes): Hafen Lichtkordon.
+  function startDaten() { const K = api.KARTE; return K && K.start && typeof K.start === 'object' ? K.start : null; }
+  function startOrt() { const s = startDaten(); return (s && s.ort) || 'hafen'; }
+  function bekanntBeiStart() { const s = startDaten(); return s && Array.isArray(s.bekannt) ? s.bekannt.slice() : ['hafen', 'splitter']; }
+  function bodenStart() { const s = startDaten(); return !!(s && s.boden); }
+  // Verborgene Hexe (`verborgen: true`): kein Notfallsprung und keine Zielwahl dorthin, solange keine Kante dorthin enthüllt ist
+  function istVerborgen(hex) { const h = hexDaten(hex); return !!(h && h.verborgen); }
+  function kartenId() { const K = api.KARTE; return (K && K.id) || 'limes'; }
+
   // Inhalt für den Client (`welcome.sektorkarte`): limes.json ohne praesenz/quelle
   function fuerClient() {
     const K = api.KARTE; if (!K) return null;
@@ -188,6 +197,7 @@
     LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, kanteId, kanteAusId, kante, kantenVon, anderes,
     hexZuPixel, pixelZuHex, richtung, winkel, sprungpunktLage, imRaster, hexDaten, istLeerraum, spielbar, region, sperrtext,
     hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient,
+    startOrt, bekanntBeiStart, bodenStart, istVerborgen, kartenId,
   });
   if (startKarte) setzeKarte(startKarte);
   return api;

@@ -202,7 +202,7 @@ function sensorRadius(game, e) {
   return r;
 }
 
-// Schilde hoch/runter (Taktik, nur Schleichfahrt): runter = Signatur ×schildeUnten, Treffer gehen ohne Schildabzug durch;
+// Schilde hoch/runter (Ops, nur Schleichfahrt): runter = Signatur ×schildeUnten, Treffer gehen ohne Schildabzug durch;
 // hoch = nach signatur.schildeHoch s wieder geschützt
 function schildeSchalten(game, unten) {
   const s = st(game); const K = C(game).signatur || {};
@@ -420,7 +420,7 @@ function onWidescan(game, radius) {
     s.pingBis = game.time + (K.pingDauer != null ? K.pingDauer : 4);
     if (pat) game.oda('Weitscan: Patrouillen erfasst – aber auch wir sind für einen Moment zu sehen!', null);
   }
-  if (minen) game.oda(`Weitscan: ${minen} Mine${minen > 1 ? 'n' : ''} im Umkreis. Auf der Taktikkarte markiert.`, null);
+  if (minen) game.oda(`Weitscan: ${minen} Mine${minen > 1 ? 'n' : ''} im Umkreis. Auf der Ops-Karte markiert.`, null);
   return minen + pat;
 }
 

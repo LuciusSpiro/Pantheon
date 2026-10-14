@@ -13,6 +13,12 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // Zonen-Baustein (SL6): Node per require, Browser über window.Shared_Zonen (Skript vor diesem)
+  function zonenModul() {
+    if (typeof module === 'object' && module.exports) { try { return require('./zonen.js'); } catch (e) { return null; } }
+    return (typeof self !== 'undefined' && self.Shared_Zonen) || null;
+  }
+
   const STANDARD = {
     w: 3000, h: 2200,
     randStreifen: 520,                    // px frei vom Szenenrand für Asteroiden (Sprungpunkte liegen 180 px vor dem Rand)
@@ -105,6 +111,13 @@
     if (dock) scene.dock = dock;
     if (d.hafen) scene.hafen = { klasse: d.hafen, andocken: !!dock, ruf: false };   // Hafen ohne Ruf: Marken und Einkauf, keine Haltung
     for (const [k, v] of Object.entries(ov)) if (!['station', 'planeten', 'bojen', 'sterne', 'asteroids', 'w', 'h'].includes(k)) scene[k] = v;
+    // SL6: `szene.zonen: "gasriese"` baut die Atmosphären-Zonen des ersten Gasriesen (shared/zonen.js); Listen von Zonen gehen unverändert durch.
+    // Ohne diese Angabe bekommt kein Hex Zonen (Limes/Eisenwald unverändert).
+    if (ov.zonen === 'gasriese') {
+      const Z = zonenModul();
+      const gp = planeten.find((p) => p.art === 'gasriese');
+      scene.zonen = Z && gp ? Z.gasriese(gp, null, 'gas' + hex) : [];
+    }
 
     const id = d.ort || ortId(d.name || hex);
     const kind = dock ? 'port' : einfl === 'nebel' ? 'nebula' : einfl === 'asteroiden' || einfl === 'truemmerstrom' ? 'asteroids' : einfl === 'gas' ? 'gasgiant' : station ? 'outpost' : 'void';

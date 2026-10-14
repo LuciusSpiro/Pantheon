@@ -148,8 +148,8 @@ class Explore {
       if (!quiet) g.oda('Weitscan: Hohlraum im Laderaum des Wracks! Unten markiert – dort E halten (4 s).', null);
     } else if (!quiet) {
       const t = { cache: `Weitscan: ${h.name}! Steuer: einfach drüberfliegen, dann ist es unseres.`,
-        lore: `Weitscan: ${h.name}. Taktik: anvisieren (T) und scannen (S halten).`,
-        beacon: `Weitscan: ${h.name}! Taktik: anvisieren (T) und scannen (S halten).` }[h.kind];
+        lore: `Weitscan: ${h.name}. Ops: anvisieren (T) und scannen (S halten).`,
+        beacon: `Weitscan: ${h.name}! Ops: anvisieren (T) und scannen (S halten).` }[h.kind];
       g.oda(t || 'Weitscan: etwas Verstecktes!', null);
     }
     g.missionEvent('hiddenRevealed', { id: h.id, kind: h.kind });
@@ -272,15 +272,19 @@ class Explore {
     if (!e) return false;
     if (e.art === 'open') return true;
     if (e.art === 'locked') return this.offenExtra.has(id) || (!!e.key && (this.linksOpen.has(e.key) || this.schluesselFakt(e.key)));
-    return false;   // hidden/far: in B3 nie
+    if (e.art === 'hidden') return this.kanteEnthuellt(e);   // SL1: verborgene Kante, deren Schlüssel enthüllt ist
+    return false;   // far: in B3 nie
   }
+  // SL1: verborgene Kante (art 'hidden' mit Schlüssel) ist enthüllt, wenn ihr Weltstand-Schlüssel offen ist (sprung.kanteEnthuellen).
+  // Enthüllt = Boje bekannt und befahrbar (ein Zustand, gespeichert über verbindungen_offen).
+  kanteEnthuellt(e) { return !!(e && e.art === 'hidden' && e.key && (this.linksOpen.has(e.key) || this.schluesselFakt(e.key))); }
   // Boje bekannt: temporär geöffnet, gefunden, oder open/locked zwischen zwei bekannten Hexen (= heutige Sichtbarkeit der Links)
   bojeBekannt(id) {
     if (this.tempKante(id)) return true;
     const e = Sektoren.kante(id);
     if (!e || e.art === 'far') return false;
     if (this.bojenGefunden.has(id)) return true;
-    if (e.art === 'hidden') return false;
+    if (e.art === 'hidden') return this.kanteEnthuellt(e);
     return this.hexBekannt(e.a) && this.hexBekannt(e.b);
   }
   bojenBekannt() {
@@ -292,6 +296,7 @@ class Explore {
   markBoje(id) {
     const e = Sektoren.kante(id);
     if (!e || e.art === 'far' || this.bojenGefunden.has(id)) return false;
+    if (e.art === 'hidden' && !this.kanteEnthuellt(e)) return false;   // SL1: verborgene Kante erst nach dem Enthüllen
     const neu = !this.bojeBekannt(id);
     this.bojenGefunden.add(id); this.sektorVersion++;
     if (neu) this.game.emit('bojeGefunden', { kante: id });
@@ -318,7 +323,7 @@ class Explore {
   kantenOffen() {
     const out = [];
     for (const e of (Sektoren.KARTE && Sektoren.KARTE.kanten) || []) {
-      if (e.art !== 'locked') continue;
+      if (e.art !== 'locked' && e.art !== 'hidden') continue;   // hidden: nur enthüllte (SL1)
       const id = Sektoren.kanteId(e.a, e.b);
       if (this.kanteOffen(id)) out.push(id);
     }

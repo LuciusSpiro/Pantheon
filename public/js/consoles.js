@@ -1,5 +1,5 @@
 // Konsolen-Overlays (CONTRACT.md §5.2, §9; CONTRACT-M1 §4, §7, §8, §10). Globales `Consoles`.
-// Steuer (Frontsicht), Captain (Tabs), Taktik (intern 'weapons'), Transfer, Shop, Quartier, Sonde,
+// Steuer (Frontsicht), Captain (Tabs), Ops (intern 'weapons'), Transfer, Shop, Quartier, Sonde,
 // Planungstisch ('plan'). Tastatur UND Maus. Gesperrte Aktionen werden grau mit Grund angezeigt
 // (Grund lokal abgeleitet; der Server entscheidet trotzdem und meldet Ablehnungen per `event notice`).
 (function () {
@@ -34,7 +34,7 @@
   const TAB_AWAY = 3;
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'TAKTIK', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // M3a: Lanze (Bug) + Batterien Bb/Stb; phase_* nur noch als Altnamen
   const M3_MOUNTS = ['bow', 'port', 'stbd'];
@@ -372,7 +372,7 @@
       }
       // B3: Notfallsprung (cmd helm.notsprung) mit Bestätigung: N, dann J
       y = this.helmNotsprung(ctx, view, lx, y, lw);
-      // M3a/§20.3: Lanze (Taktik lädt auf und feuert) – der Pilot sieht, wann er den Bug aufs Ziel halten muss
+      // M3a/§20.3: Lanze (Ops lädt auf und feuert) – der Pilot sieht, wann er den Bug aufs Ziel halten muss
       const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
       if (bow && y < 254) {
         R.text(ctx, 'LANZE', lx, y, { color: PAL.brass });
@@ -418,9 +418,9 @@
           const d = Math.round(Math.hypot(m.x - n(ship.x), m.y - n(ship.y)));
           const rel = Phys.normAngle(Math.atan2(m.y - n(ship.y), m.x - n(ship.x)) - n(ship.angle)) * 180 / Math.PI;
           const side = Math.abs(rel) < 8 ? 'voraus' : (rel > 0 ? 'Stb ' : 'Bb ') + Math.round(Math.abs(rel)) + '°';
-          R.text(ctx, (who === 'captain' ? 'Captain ' : 'Taktik ') + d, rx + 12, y, { color: col });
+          R.text(ctx, (who === 'captain' ? 'Captain ' : 'Ops ') + d, rx + 12, y, { color: col });
           R.text(ctx, side, rx + rw, y, { color: col, align: 'right' });
-        } else R.text(ctx, (who === 'captain' ? 'Captain' : 'Taktik') + ': –', rx + 12, y, { color: PAL.panelLight });
+        } else R.text(ctx, (who === 'captain' ? 'Captain' : 'Ops') + ': –', rx + 12, y, { color: PAL.panelLight });
         y += 11;
       }
       y += 4;
@@ -432,7 +432,7 @@
         R.text(ctx, 'DOCK-RING ' + d, rx, y, { color: PAL.mint }); y += 10;
         R.text(ctx, 'langsam (≤ ' + maxSp + ') hinein', rx, y, { color: sp <= maxSp ? PAL.mint : PAL.warn }); y += 12;
       }
-      if (R.inFog(st)) { R.text(ctx, 'Nebel: Sicht halbiert –', rx, y, { color: PAL.ice }); y += 10; R.text(ctx, 'Taktik lotst!', rx, y, { color: PAL.ice }); y += 12; }
+      if (R.inFog(st)) { R.text(ctx, 'Nebel: Sicht halbiert –', rx, y, { color: PAL.ice }); y += 10; R.text(ctx, 'Ops lotst!', rx, y, { color: PAL.ice }); y += 12; }
       // Maussteuerung: Stufe +/− je Klick (oder Stufe in der Leiste anklicken), Ruder halten
       const by = 270;
       R.text(ctx, 'Maus: Stufe / Ruder halten', rx, by - 10, { color: PAL.panelLight });
@@ -512,7 +512,7 @@
       }
     },
     // §20.2: Ausweich-Anzeige – laufende Ladung mit Seite und Countdown, grün im Ausweich-Fenster (left ≤ dodgeWindow);
-    // §20.3: Hinweis, dass die Taktik die Lanze auflädt (Visierlinie zeichnet Render in der Frontsicht)
+    // §20.3: Hinweis, dass die Ops die Lanze auflädt (Visierlinie zeichnet Render in der Frontsicht)
     // B3 §4: Notfallsprung (cmd helm.notsprung). N fragt nach, J (oder Enter) bestätigt binnen 6 s, N bricht ab.
     notsprungReason(st) {
       const ship = st.ship || {};
@@ -581,7 +581,7 @@
         R.text(ctx, hint, fv.cx, y, { color: engDown || cd > left ? PAL.red : cd > 0 ? PAL.warn : PAL.amber, align: 'center' });
         y += 12;
       }
-      // Lanze lädt (Taktik hält Taste 1)
+      // Lanze lädt (Ops hält Taste 1)
       const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
       if (bow && bow.charging) {
         const w = 220, h = 26, x = Math.round(fv.cx - w / 2);
@@ -861,7 +861,7 @@
           R.text(ctx, 'blau temporär. Sprung nur am', rx, y, { color: PAL.panelLight }); y += 10;
           R.text(ctx, 'Sprungpunkt (Boje) im Sektor.', rx, y, { color: PAL.panelLight }); y += 10;
         } else { R.text(ctx, 'blau temporär.', rx, y, { color: PAL.panelLight }); y += 10; }
-        R.text(ctx, 'M: ' + (window.StarMap.ansicht === 'limes' ? 'Saumraum zeigen' : 'ganze Karte Limes'), rx, y, { color: PAL.amber });
+        R.text(ctx, 'M: ' + (window.StarMap.ansicht === 'gesamt' ? 'Ausschnitt zeigen' : 'ganze Karte'), rx, y, { color: PAL.amber });
         return 'Klick Sektor · ←→ Ort · Enter Sprungziel · M Ansicht · 1–4 Reiter';
       }
       R.text(ctx, 'Legende: Linie = Route,', rx, y, { color: PAL.panelLight }); y += 10;
@@ -914,7 +914,7 @@
       const scanned = (view.enemies || []).filter(e => e.scanned && e.st !== 'treibt');   // B1: Wrack ohne Waffen
       if (y < a.y + a.h - 22) {
         R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
-        if (!scanned.length) { for (const l of R.wrap('Keine – die Taktik scannt Gegner (S halten).', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
+        if (!scanned.length) { for (const l of R.wrap('Keine – die Ops scannt Gegner (S halten).', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
         for (const e of scanned.slice(0, 4)) {
           if (y > a.y + a.h - 20) break;
           const tg = e.tgt != null ? this.escortList(view).find(q => q.id === e.tgt) : null;
@@ -1434,7 +1434,7 @@
         const sal = away.salvage || [];
         R.text(ctx, 'Bergungscontainer: ' + sal.filter(s => s.done).length + '/' + sal.length + ' geborgen', a.x, y, { color: PAL.star }); y += 11;
         const hv = away.hollow;
-        R.text(ctx, 'Hohlraum: ' + (!hv ? 'unbekannt' : hv.open ? 'geöffnet' : hv.marked ? 'markiert (E halten 4 s)' : 'nicht gefunden – Taktik: Weitscan'), a.x, y, { color: hv && hv.marked ? PAL.amber : PAL.panelLight }); y += 16;
+        R.text(ctx, 'Hohlraum: ' + (!hv ? 'unbekannt' : hv.open ? 'geöffnet' : hv.marked ? 'markiert (E halten 4 s)' : 'nicht gefunden – Ops: Weitscan'), a.x, y, { color: hv && hv.marked ? PAL.amber : PAL.panelLight }); y += 16;
       } else {
         R.text(ctx, 'CODETABELLE DER SONDE', a.x, y, { color: PAL.brass }); y += 14;
         const table = away.codeTable || {};
@@ -1474,7 +1474,7 @@
       return 'S Sensor · K Kuppel · 1–4 Reiter';
     },
 
-    // ================================================================= Taktik (Konsole 'weapons')
+    // ================================================================= Ops (Konsole 'weapons')
     targetOf(view) {
       const st = view.state, ship = st.ship || {};
       if (!ship.target) return null;
@@ -1537,7 +1537,7 @@
       if (d > SCAN_RANGE) return 'Zu weit (' + Math.round(d) + '/' + SCAN_RANGE + ')';
       return null;
     },
-    // EK3 Teil A: Fracht-Leiste oben links in der Taktik-Karte (nur sichtbar, wenn Fracht in der Szene, an Bord oder ein Vorgang läuft).
+    // EK3 Teil A: Fracht-Leiste oben links in der Ops-Karte (nur sichtbar, wenn Fracht in der Szene, an Bord oder ein Vorgang läuft).
     // F beamt die nächste Fracht in Reichweite an Bord (3 s halten, Systemtreffer bricht ab) bzw. bricht ab, G liefert ab.
     fracht(st) {
       const ship = st.ship || {}, fr = st.fracht || {};
@@ -1554,35 +1554,42 @@
       if (sysDown(ship, 'transfer')) ab = 'Transfer ausgefallen – reparieren';
       else if (!lager.length) ab = 'Keine Fracht an Bord';
       else if (!fr.ab) ab = fr.abn ? 'Abnehmer: ' + fr.abn + ' – nicht in Reichweite' : 'Hier nimmt keine Station Fracht an';
-      return { fr, cap, lager, draus, halt, beam, ab, show: !!(draus.length || lager.length || halt) };
+      return { fr, cap, lager, draus, halt, beam, ab, show: !!(draus.length || lager.length || halt || fr.fuell) };
     },
     drawFracht(ctx, view, rect) {
       const f = this.fracht(view.state);
       if (!f.show) return;
-      const x = rect.x + 4, y = rect.y + 3, w = 266, h = f.halt ? 40 : 28;
+      const ware = f.lager.filter(a => a === 'deuterium' || a === 'sprengstoff' || a === 'fracht').length > 0;   // SL6: Verkaufen/Abwerfen nur mit Ware
+      const x = rect.x + 4, y = rect.y + 3, w = 266, h = f.halt ? 40 : (ware ? 42 : 28);
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : 'Fracht'));
-      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
+      const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
+      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? ' · schöpft ' + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
       const by = y + 13;
       if (f.halt) {
         R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
-        R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
+        R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
+        if (ware) {   // SL6: Deuterium verkaufen (Händler in Reichweite) / eine Einheit abwerfen (schneller steigen)
+          R.button(ctx, x + 4, by + 14, 126, 12, 'Verkaufen', { hotkey: 'V', disabled: !f.fr.vk, reason: !f.fr.vk ? 'Kein Händler in Reichweite' : null, onClick: () => this.cmd(view, 'weapons.verkaufen') });
+          R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', onClick: () => this.cmd(view, 'weapons.abwerfen') });
+        }
       }
     },
     drawWeapons(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
       this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
-      const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Taktik)
+      const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
+      if (window.SondenView) SondenView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL4: Sonde zur Marke
+      if (window.Entschluesseln) Entschluesseln.draw(ctx, view, rect);   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
       const rx = 420, rw = 206;
       let y = 28;
       // ---- Ziel
@@ -1676,7 +1683,7 @@
       if (this.isM3(view)) return '1 halten: Lanze, los: Feuer · 2/3/Leer Batterien · Q/E A/D Punkte · T Ziel · S Scan · W Weitscan';
       return 'T/Klick Ziel · 1/2 Phase · Leer beide · S halten Scan · W Weitscan · Rechtsklick/M Marker · X löschen · Z Zoom';
     },
-    // M3a: Waffenblock der Taktik – Lanze + Batterien mit Ladepunkten (Q/E wählen, A/D −/+); §20: Lanze 1 halten, Batterien nur auf Befehl
+    // M3a: Waffenblock der Ops – Lanze + Batterien mit Ladepunkten (Q/E wählen, A/D −/+); §20: Lanze 1 halten, Batterien nur auf Befehl
     weaponsM3(ctx, view, rx, rw, y) {
       const ship = view.state.ship || {};
       const cp = n(ship.chargePoints);
@@ -2537,9 +2544,13 @@
           return true;
         }
         case 'weapons':
+          if (window.Entschluesseln && Entschluesseln.aktiv(view.state) && Entschluesseln.key(code, true, view)) return true;   // SL5: Signal entschlüsseln hat Vorrang
           if (code === 'KeyT') return press(() => this.cycleTarget(view));
+          if (code === 'KeyP') return press(() => this.tryButton(/^Sonde zur Marke/));   // SL4
           if (code === 'KeyF' && this.fracht(view.state).show) return press(() => this.tryButton(/^(Fracht beamen|Beamen abbrechen)/));   // EK3 Teil A
           if (code === 'KeyG' && this.fracht(view.state).show) return press(() => this.tryButton('Abliefern'));
+          if (code === 'KeyV' && this.fracht(view.state).show) return press(() => this.tryButton('Verkaufen'));   // SL6
+          if (code === 'KeyX' && this.fracht(view.state).show) return press(() => this.tryButton('Ladung abwerfen'));   // SL6
           if (this.isM3(view)) {
             // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1 Lanze halten, 2/3 Bb/Stb, 4 Bolzen, Leer Batterien
             if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }
@@ -2649,6 +2660,7 @@
     },
     keyUp(e, view) {
       delete this.keys[e.code];
+      if (window.Entschluesseln && Entschluesseln.key(e.code, false, view)) return true;   // SL5: Richtung loslassen
       if ((e.code === 'Digit1' || e.code === 'Numpad1') && this.lanceOn === 'key') this.lanceCharge(view, false);
       if (e.code === 'Space' && this.scanOn) this.setScan(view, false);
       if (e.code === 'KeyS' && this.tscanOn) this.setTscan(view, false);
@@ -2657,6 +2669,7 @@
     releaseAll(view) {
       this.keys = {};
       this.mouseHold = null;
+      if (window.Entschluesseln) Entschluesseln.loslassen(view);   // SL5: Richtung loslassen
       if (this.lanceOn) this.lanceCharge(view, false);   // Fenster verliert den Fokus = loslassen (feuert)
       if (this.scanOn) this.setScan(view, false);
       if (this.tscanOn) this.setTscan(view, false);

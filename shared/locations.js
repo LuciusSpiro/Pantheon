@@ -84,7 +84,7 @@
     {
       id: 'nebel', name: 'Graue Weite', kind: 'nebula', x: 570, y: 280, fog: true,
       desc: 'Ein Nebel, der Sensoren schluckt. Wer hier etwas finden will, braucht Weitscan und Geduld.',
-      first: 'Die Graue Weite. Sicht und Sensoren halbiert. Taktik: Weitscan (W) – hier versteckt sich gern etwas.',
+      first: 'Die Graue Weite. Sicht und Sensoren halbiert. Ops: Weitscan (W) – hier versteckt sich gern etwas.',
       scene: { w: 3200, h: 2400, arrive: { x: 300, y: 1200, angle: 0 }, asteroids: 10, field: { x0: 700, x1: 3000, y0: 150, y1: 2250 } },
       hidden: [
         { id: 'nebel_beacon', kind: 'beacon', x: 2350, y: 650, name: 'Kustoden-Leitbake',
@@ -96,7 +96,7 @@
     {
       id: 'relais', name: 'Kustoden-Relais', kind: 'relay', x: 730, y: 230, fog: true,
       desc: 'Ein Relais der Kustoden, bewacht von Pylonen. Hier endet das Echo – oder es beginnt.',
-      first: 'Das Kustoden-Relais. Pylonen mit Frontschild – Taktik: scannen und den Piloten an die Seite lotsen.',
+      first: 'Das Kustoden-Relais. Pylonen mit Frontschild – Ops: scannen und den Piloten an die Seite lotsen.',
       scene: { w: 2600, h: 2000, arrive: { x: 300, y: 1000, angle: 0 }, station: { kind: 'relay', x: 1700, y: 1000, r: 70 }, asteroids: 0 },
       hidden: [
         { id: 'relais_lore', kind: 'lore', x: 2380, y: 260, name: 'Kustoden-Inschrift',
@@ -158,5 +158,9 @@
   }
   function totalHidden() { return LOCATIONS.reduce((s, l) => s + l.hidden.length, 0); }
 
-  return { LOCATIONS, LOCKED_LINKS, get, linkKey, lockedKey, totalHidden, START: 'hafen', KNOWN_AT_START: ['hafen', 'splitter'] };
+  // SL1: Start und Anfangswissen kommen aus der aktiven Karte (Feld `start`; Limes: hafen, splitter). Dynamisch, weil die Karte
+  // beim Spielstart wechseln kann (server/sim/welt.js). Server-Code fragt über welt.startOrt(game).
+  return { LOCATIONS, LOCKED_LINKS, get, linkKey, lockedKey, totalHidden,
+    get START() { return Sektoren && Sektoren.startOrt ? Sektoren.startOrt() : 'hafen'; },
+    get KNOWN_AT_START() { return Sektoren && Sektoren.bekanntBeiStart ? Sektoren.bekanntBeiStart() : ['hafen', 'splitter']; } };
 });

@@ -16,6 +16,8 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als r
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
+const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
+const Ladung = require('./ladung.js');   // SL6: Gewicht schwerer Ladung (Deuterium) senkt die Triebwerksleistung
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -210,7 +212,8 @@ function nebelAktiv(game) {
 function nebelFaktor(game) {
   const loc = Locations.get(game.ship.scene);
   const S = game.C.sensors || {};
-  return loc && loc.fog && nebelAktiv(game) ? (S.fogFactor != null ? Number(S.fogFactor) : 0.5) : 1;
+  const nebel = loc && loc.fog && nebelAktiv(game) ? (S.fogFactor != null ? Number(S.fogFactor) : 0.5) : 1;
+  return nebel * Zonen.sichtFaktor(game);   // SL6: Sichtgrenze der Zone, in der die Lerche liegt (ohne Zonen exakt 1)
 }
 function sensorReichweite(game) { return ((game.C.sensors && game.C.sensors.range) || 1400) * nebelFaktor(game); }
 function erfassung(game) { return ((game.C.tscan && game.C.tscan.range) || 800) * nebelFaktor(game); }
@@ -529,7 +532,7 @@ function engineSpeedFactor(game) {
   const st = ship.systems.engines === 'offline' ? 'broken' : ship.systems.engines;
   const sf = C.stateFactor.engines[st];
   const pf = C.enginePowerFactor[ship.power.engines];
-  return (pf != null ? pf : 1) * (sf != null ? sf : 1);
+  return (pf != null ? pf : 1) * (sf != null ? sf : 1) * Ladung.gewichtFaktor(game);   // SL6: ohne schwere Ladung exakt 1
 }
 function maxSpeed(game) {
   return lercheClass(game).maxSpeed * engineSpeedFactor(game);
@@ -824,10 +827,10 @@ function mountIds(game) {
 }
 function mountState(game, k) { return sysState(game, MOUNT_SYSTEM[k]); }
 function weaponsManned(game) { return Station.stationBesetzt(game, 'weapons'); }
-// R1 §4.5: Waffenautomatik (Lanze, Ladepunkt-Verteilung, autoFactor) nur bei ≤ 2 verbundenen Spielern und unbesetzter Taktik
+// R1 §4.5: Waffenautomatik (Lanze, Ladepunkt-Verteilung, autoFactor) nur bei ≤ 2 verbundenen Spielern und unbesetzter Ops
 function waffenAutomatikAktiv(game) { return Station.waffenAutomatikAktiv(game); }
 
-// R1 §4.5: ODA sagt den Wechsel der Waffenautomatik an (nur bei unbesetzter Taktik; die Besetzung selbst ist still, der erste Stand auch).
+// R1 §4.5: ODA sagt den Wechsel der Waffenautomatik an (nur bei unbesetzter Ops; die Besetzung selbst ist still, der erste Stand auch).
 function meldeWaffenAutomatik(game, manned) {
   const ship = game.ship;
   const stand = manned ? 'besetzt' : (waffenAutomatikAktiv(game) ? 'an' : 'aus');
@@ -835,10 +838,10 @@ function meldeWaffenAutomatik(game, manned) {
   ship.waffenAutoStand = stand;
   if (alt === undefined || alt === stand || stand === 'besetzt') return;
   // „an“ nur einmal je Partie (wer allein fliegt, wechselt ständig zwischen Stationen), „aus“ höchstens alle 30 s (Warnung, dass niemand schießt)
-  if (stand === 'an') return game.oda('Taktik unbesetzt, Automatik an.', 'waffenAutoAn');
+  if (stand === 'an') return game.oda('Ops unbesetzt, Automatik an.', 'waffenAutoAn');
   if (ship.waffenAutoAusAt != null && game.time - ship.waffenAutoAusAt < 30) return;
   ship.waffenAutoAusAt = game.time;
-  game.oda('Taktik unbesetzt, Automatik aus – ohne Taktik schießt niemand.', null);
+  game.oda('Ops unbesetzt, Automatik aus – ohne Ops schießt niemand.', null);
 }
 
 // §5.2 Ladepunkte
@@ -846,7 +849,7 @@ function chargePoints(game) {
   const pw = game.ship.power.weapons;
   return pw > 0 ? pw + 2 : 0;
 }
-// Effektive Verteilung: besetzt = Wunsch der Taktik, gekürzt bei der Halterung mit den meisten Punkten
+// Effektive Verteilung: besetzt = Wunsch der Ops, gekürzt bei der Halterung mit den meisten Punkten
 // (Gleichstand: zuerst die Batterien); unbesetzt mit Automatik (≤ 2 Spieler) = gleichmäßig reihum ab bow (§5.5);
 // unbesetzt ohne Automatik (3–4 Spieler, R1 §4.5) = die zuletzt gesetzte Verteilung bleibt stehen.
 function computeAlloc(game) {
@@ -885,7 +888,7 @@ function chargeTime(game, k) {
   if (isDown(st) || !(m.alloc > 0)) return null;
   let t = cfg.secPerPoint / m.alloc;
   if (st === 'damaged' && cfg.damagedFactor) t *= cfg.damagedFactor;
-  // §5.5 unbesetzte Taktik: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer).
+  // §5.5 unbesetzte Ops: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer).
   // Abweichung vom Wortlaut: Mit halbem Schaden je Treffer käme eine Salve (4 × 0,75) nie durch Schild 3 (Wächter) – Softlock solo.
   if (waffenAutomatikAktiv(game)) t /= (M3(game).autoFactor || 1);
   return t;
@@ -954,8 +957,8 @@ function updateWeapons(game, dt) {
   meldeWaffenAutomatik(game, manned);
   updateLanceCharge(game, dt, manned);
   updateSalvos(game, dt);
-  // §20.4: Automatikfeuer nur bei unbesetzter Taktik und höchstens 2 Spielern (R1 §4.5; halbe Ladegeschwindigkeit über chargeTime/autoFactor).
-  // Besetzt feuert nichts von selbst – die Taktik drückt weapons.fire bzw. lädt die Lanze mit weapons.charge.
+  // §20.4: Automatikfeuer nur bei unbesetzter Ops und höchstens 2 Spielern (R1 §4.5; halbe Ladegeschwindigkeit über chargeTime/autoFactor).
+  // Besetzt feuert nichts von selbst – die Ops drückt weapons.fire bzw. lädt die Lanze mit weapons.charge.
   if (!ship.docked && waffenAutomatikAktiv(game)) {
     for (const k of BATTERIES) {
       const b = m[k];
@@ -1116,7 +1119,7 @@ function updateSalvos(game, dt) {
       const idx = (b.salvoMax || b.salvo) - b.salvo;
       b.salvo--;
       let e = b.salvoTarget != null ? game.space.enemies.find((q) => q.id === b.salvoTarget) : null;
-      // EK2: Ziel ist eine Mine (Taktik hat sie angewählt): Salve geht auf die Mine, Explosion auf Distanz
+      // EK2: Ziel ist eine Mine (Ops hat sie angewählt): Salve geht auf die Mine, Explosion auf Distanz
       const mn = !e && b.salvoTarget != null ? Alarm.mineById(game, b.salvoTarget) : null;
       if (mn && inMountArc(game, k, mn.x, mn.y)) {
         const o2 = mountOrigin(game, k); const ttl2 = batteryBeamTtl(game);
@@ -1215,7 +1218,7 @@ function weaponsAlloc(game, mount, delta) {
   const d = delta > 0 ? 1 : delta < 0 ? -1 : 0;
   if (!d) return null;
   const cur = computeAlloc(game);
-  if (!weaponsManned(game)) Object.assign(cur, ship.wAllocIntent);   // ohne Taktik: Wunsch weiterpflegen
+  if (!weaponsManned(game)) Object.assign(cur, ship.wAllocIntent);   // ohne Ops: Wunsch weiterpflegen
   const nv = cur[k] + d;
   if (nv < 0 || nv > S.allocMax) return 'Grenze erreicht.';
   if (d > 0 && cur.bow + cur.port + cur.stbd + 1 > chargePoints(game)) return 'Keine Ladepunkte frei – erst woanders abziehen oder mehr Energie auf Waffen.';
@@ -1315,7 +1318,7 @@ function weaponsTarget(game, id) {
   const rt = resolveTarget(game, id);
   if (!rt) return 'Ziel nicht gefunden.';
   // W2: Gegner nur innerhalb der Sensorreichweite aufschalten (im Nebel × fogFactor; der Client zeigt dieselbe Grenze)
-  if ((rt.type === 'enemy' || rt.type === 'mine') && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game)) return 'Ziel außerhalb der Sensoren.';
+  if ((rt.type === 'enemy' || rt.type === 'mine') && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game) && !require('./sonden.js').sieht(game, rt.x, rt.y)) return 'Ziel außerhalb der Sensoren.';   // SL4: eine Sonde erweitert die Sicht
   if (game.ship.target !== id) game.ship.tscan.progress = 0;
   game.ship.target = id;
   return null;
@@ -1470,7 +1473,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
     const pierce = (opts && opts.pierce) || 0;
     const absorb = Math.min(Math.max(0, e.shields[sec] - pierce), rest);
-    // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Taktik verloren sonst Schaden);
+    // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Ops verloren sonst Schaden);
     // gerundet wird nur im Snapshot. EPS fängt Gleitkomma-Reste ab.
     if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }   // sec = Index des Segments in e.shields (bei 4 Sektoren der Sektor)
     if (rest <= EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
@@ -1933,6 +1936,7 @@ function update(game, dt) {
   updateEnemies(game, dt);
   Konvoi.update(game, dt);   // EK3 Teil B: Zerstörte/Gesprungene, Alarm der Eskorte, Ausgang (ohne Konvoi sofort zurück)
   Alarm.update(game, dt);   // EK2: Lärm, Entdeckung, Einsprung, Minen
+  Zonen.update(game, dt);   // SL6: Zonen wirken auf Lerche, Gegner und Schützlinge (nach den Flügen, vor den Geschossen)
   // S2 §5: Schützlinge und Rückzugsregel (nur wenn vorhanden – sonst unverändert)
   const sp = game.space;
   if ((sp.escorts && sp.escorts.length) || sp.retreatRule || sp.enemies.some((e) => e.leaving)) {

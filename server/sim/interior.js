@@ -587,7 +587,7 @@ function interactionsAt(game, p, tx, ty, own) {
       if (ch === 'V' && aw.hollow && !aw.hollow.open) {
         if (aw.hollow.marked) list.push({ kind: 'hollow' });
         // QA M1: Hinweis statt Funkstille, wenn noch niemand aus dem Orbit gescannt hat
-        else list.push({ kind: 'hollow', blocked: 'Die Wand klingt hohl … Ein Weitscan aus dem Orbit (Taktik, W) zeigt, was dahinter ist.' });
+        else list.push({ kind: 'hollow', blocked: 'Die Wand klingt hohl … Ein Weitscan aus dem Orbit (Ops, W) zeigt, was dahinter ist.' });
       }
     } else if (aw.map === 'kesh') {
       combat().interactionsAt(game, p, tx, ty, ch, list);   // M2: Störrelais, Archivschlüssel, Tafel

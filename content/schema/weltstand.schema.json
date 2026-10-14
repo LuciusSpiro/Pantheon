@@ -124,6 +124,15 @@
             "offen": { "type": "array", "items": { "type": "string" }, "description": "geöffnete gesperrte Kanten" }
           }
         },
+        "sektorplan": {
+          "type": "object", "description": "SL4 (CONCEPT-SL4): Sektorplan des Captains. Inhaber server/sim/sektorplan.js. gesichtet: Hex -> { q: sonde|karte, alter (s) }; marken: Einträge im Szenen-Koordinatensystem; schiffe: Momentaufnahmen mit Alter (s).",
+          "properties": {
+            "gesichtet": { "type": "object", "additionalProperties": { "type": "object", "properties": { "q": { "enum": ["sonde", "karte"] }, "alter": { "type": "number", "minimum": 0 } } } },
+            "marken": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "h": { "type": "string" }, "x": { "type": "number" }, "y": { "type": "number" }, "k": { "type": "string" } } } },
+            "schiffe": { "type": "array", "items": { "type": "object", "properties": { "h": { "type": "string" }, "art": { "type": "string" }, "x": { "type": "number" }, "y": { "type": "number" }, "alter": { "type": "number", "minimum": 0 } } } },
+            "seq": { "type": "integer", "minimum": 0 }
+          }
+        },
         "karten": { "type": "array", "items": { "type": "string" }, "description": "kartierte Außenkarten (platform, wreck, kesh)" },
         "flags": { "type": "object", "description": "Weltweite Flags (bribed, decision, technikerRescued …)", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
         "fakten": { "type": "object", "description": "Kanon aus Folgen, z. B. tafel_von_kesh: konkordat_archiv. Der Server schreibt den Wert direkt (Quelle in faktenQuelle); die Form { value, quelle } (wie content/npc.json) wird ebenfalls gelesen.",

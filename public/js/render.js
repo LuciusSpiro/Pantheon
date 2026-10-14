@@ -1,5 +1,5 @@
 // Renderer (CONTRACT.md §9, §10, §12). Globales `Render`.
-// Innenraum/Plattform, Taktikansicht, Mini-Schiffsplan, UI-Helfer (Text, Panel, Icon, Buttons).
+// Innenraum/Plattform, Ops-Ansicht, Mini-Schiffsplan, UI-Helfer (Text, Panel, Icon, Buttons).
 // Jeder Art-Aufruf läuft über Render.art(): Fehler werden gezählt, nach wiederholtem Fehlschlag
 // wird für diese Funktion/Art dauerhaft der Fallback-Renderer benutzt.
 (function () {
@@ -2452,7 +2452,7 @@
   const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais', scavenger: 'Plünderer', frachter: 'Transporter' };
   const ENEMY_SIZE = { raider: 16, korvette: 34, fregatte: 46, kreuzer: 58, relay: 10, sentinel: 22, pylon: 18, frachter: 36 };
   const MARKER_COL = { captain: PAL.mint, tactical: PAL.amber };
-  const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'TAKTIK' };
+  const MARKER_NAMES = { captain: 'CAPTAIN', tactical: 'OPS' };
   const HIDDEN_NAMES = { cache: 'VERSTECK', beacon: 'LEITBAKE', lore: 'LORE-BAKE', hollow: 'HOHLRAUM' };
   const STATION_ART = { station: 'port', buoy: 'buoy', vaelen: 'vaelen', wreck: 'wreck', relay: 'relay', moon: 'moon', planet: 'planet' };
   const STATION_LABEL = { station: 'HAFEN', buoy: 'BOJE B-7', vaelen: 'VAELEN-KARAWANE', wreck: 'WRACK', relay: 'KUSTODEN-RELAIS', moon: 'MOND KESH', planet: 'PLANET' };
@@ -2600,6 +2600,13 @@
       else { ctx.moveTo(sx, sy); ctx.arc(sx, sy, r, f - a / 2, f + a / 2); ctx.closePath(); }
       ctx.fill(); ctx.stroke();
     }
+    drawEnemyShields(ctx, e, sx, sy, zoom, rot);
+  }
+
+  // SL0: Schildsegmente eines Gegners (Bögen je Segment). Die Ops sieht sie in Sensorreichweite auch ohne Ziel-Scan;
+  // drawEnemyIntel (Scan) ruft dieselbe Funktion und ergänzt Waffenbögen.
+  function drawEnemyShields(ctx, e, sx, sy, zoom, rot) {
+    const base = (e.angle || 0) + (rot || 0);
     const sh = e.shields, mx = e.shieldsMax;
     if (Array.isArray(sh)) {
       const rr = Math.round(Math.max(12, (ENEMY_SIZE[e.kind] || 16) * Math.max(0.7, zoom * 1.6)) + 4);
@@ -2628,7 +2635,25 @@
     }
   }
 
-  // ------------------------------------------------------------------ Raumszene (Taktik, Lage, Frontsicht)
+  // SL0: Treffer-Effekte am Gegner (wie bei der Lerche): Schildtreffer = blauer Ring, Hüllentreffer = Funken. Alter in s aus der Ansicht.
+  function drawEnemyHitFx(ctx, e, sx, sy, size, view) {
+    const sa = view.enemyShield && view.enemyShield[e.id], ha = view.enemyHull && view.enemyHull[e.id];
+    if (sa != null && sa < 0.35) {
+      const k = sa / 0.35;
+      ctx.strokeStyle = 'rgba(120,200,255,' + (0.85 * (1 - k)).toFixed(2) + ')'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sx, sy, size + 4 + k * 6, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (ha != null && ha < 0.3) {
+      const k = ha / 0.3;
+      ctx.strokeStyle = 'rgba(255,190,90,' + (1 - k).toFixed(2) + ')'; ctx.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        const a = i * 1.047 + (e.id ? String(e.id).length : 0) * 0.7, r0 = size * 0.4 + k * size * 0.5, r1 = r0 + 3 + 3 * (1 - k);
+        ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * r0, sy + Math.sin(a) * r0); ctx.lineTo(sx + Math.cos(a) * r1, sy + Math.sin(a) * r1); ctx.stroke();
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ Raumszene (Ops, Lage, Frontsicht)
   // Maßstab der Sprites in Weltkoordinaten: Die Lerche ist 72 px lang (Radius 36 wie auf dem Server).
   // Der Andockarm des Hafen-Sprites endet 110 px vor der Nabe; skaliert so, dass das Heck der
   // angedockten Lerche (Liegeplatz CONFIG.scenes.port.start) genau am Armende sitzt.
@@ -2711,7 +2736,7 @@
 
   // ------------------------------------------------------------------ S2b: Sperrfeuer der Korvette (CONTRACT-S2B §3)
   // Langsame Bernstein-Bolzen { id, kind: 'sperrfeuer', x, y, angle }. Lesbarkeit „langsam, ausweichen!“:
-  // Frontsicht/Taktik = Art-Sprite (Glut + kurze Spur) und eine kurze Bahnvorschau; liegt die Lerche auf Kollisionskurs,
+  // Frontsicht/Ops = Art-Sprite (Glut + kurze Spur) und eine kurze Bahnvorschau; liegt die Lerche auf Kollisionskurs,
   // wird die Vorschau rot-orange und endet in einem Kreuz am Treffpunkt. Captain-Lage = kleine Punkte mit Mini-Spur.
   // Neue IDs erzeugen einen Mündungsblitz am Startpunkt (Breitseite des Boots). Alle Listen begrenzt.
   let sperrSeen = null;        // Set der zuletzt gesehenen Sperrfeuer-IDs (null = noch kein Snapshot → kein Blitz-Schwall)
@@ -2810,7 +2835,7 @@
     const max = +e.hpMax || 0;
     const frac = max > 0 ? clamp01((+e.hp || 0) / max) : 1;
     const n = max > 0 ? Math.max(1, Math.min(12, Math.round(max / 6))) : 1;
-    if (n <= 2) { bar(ctx, Math.round(cx - 12), y, 24, 3, frac, PAL.red); return; }
+    if (n <= 2) { bar(ctx, Math.round(cx - 12), y, 24, 3, frac, PAL.red); enemyShieldStripe(ctx, e, Math.round(cx - 12), y + 4, 24); return; }
     let g = e.id != null ? hpGhost.get(e.id) : null;
     if (!g) { g = { shown: frac, frac, hitAt: -9, seen: now }; if (e.id != null) hpGhost.set(e.id, g); }
     if (frac < g.frac - 1e-6) { g.hitAt = now; if (g.shown < g.frac) g.shown = g.frac; }
@@ -2833,6 +2858,17 @@
       if (fillW > 0) { ctx.fillStyle = PAL.red; ctx.fillRect(sx, y, fillW, h); ctx.fillStyle = 'rgba(255,138,122,0.9)'; ctx.fillRect(sx, y, fillW, 1); }
     }
     if (flash) { ctx.strokeStyle = PAL.star; ctx.lineWidth = 1; ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
+    enemyShieldStripe(ctx, e, x, y + h + 2, w);
+  }
+  // SL0: schmaler Schildstreifen unter dem Lebensbalken (Summe aller Segmente, nur wenn der Gegner Schilde hat); der Balken selbst zeigt nur die Hülle
+  function enemyShieldStripe(ctx, e, x, y, w) {
+    const sh = e.shields, mx = e.shieldsMax;
+    if (!Array.isArray(sh) || !Array.isArray(mx)) return;
+    let cur = 0, max = 0;
+    for (let i = 0; i < mx.length; i++) { max += +mx[i] || 0; cur += Math.min(+sh[i] || 0, +mx[i] || 0); }
+    if (max <= 0) return;
+    ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(x, y, w, 2);
+    ctx.fillStyle = 'rgba(120,200,255,0.9)'; ctx.fillRect(x, y, Math.round(w * clamp01(cur / max)), 2);
   }
   // Lanzenschaden aus power (§20.3): min + (max − min) × power; beschädigt max × 0,75
   function lanceDamage(m, power) {
@@ -2944,7 +2980,7 @@
       if (age > 0.08) { ctx.fillStyle = 'rgba(142,163,181,' + (0.35 * k).toFixed(3) + ')'; const d = 6 + age * 30; ctx.fillRect(Math.round(s.x + nx * d) - 1, Math.round(s.y + ny * d) - 1, 3, 3); }
     }
   }
-  // §20.3: Visierlinie der Lanze in Bugrichtung, solange aufgeladen wird (Steuer, Taktik, Lage)
+  // §20.3: Visierlinie der Lanze in Bugrichtung, solange aufgeladen wird (Steuer, Ops, Lage)
   function drawLanceSight(ctx, view, ship, sship, toS, zoom, t, lab, front) {
     const bow = (sship.mounts || []).find(m => m.id === 'bow');
     if (!bow || !bow.charging) return;
@@ -3321,6 +3357,54 @@
     }
   }
 
+  // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
+  // Erkunden, 'karte' erst nach dem Erkunden), Zustand st.zonen = { in, bk }. Farben: Hitze/Druck orange, Sicht violett, Ertrag grün, Drift Pfeile.
+  function drawZonen(ctx, st, toS, zoom, t, ops) {
+    const Z = window.Shared_Zonen, SL = window.Shared_Locations;
+    if (!Z || !SL || !st || !st.ship) return;
+    const loc = SL.get && SL.get(st.ship.scene);
+    const zs = loc && loc.scene && loc.scene.zonen;
+    if (!Array.isArray(zs) || !zs.length) return;
+    const zst = st.zonen || { in: [], bk: [] };
+    const bekannt = new Set(zst.bk || []);
+    const vis = { ops, bekannt };
+    // Gasriese als Scheibe unter den Ringen
+    for (const p of (loc.scene.planeten || [])) {
+      if (p.art !== 'gasriese') continue;
+      const c = toS(p.x, p.y), r = p.r * zoom;
+      const g = ctx.createRadialGradient(c.x, c.y, r * 0.1, c.x, c.y, r);
+      g.addColorStop(0, '#b8793a'); g.addColorStop(0.5, '#8f5d34'); g.addColorStop(1, '#4b3a52');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(240,200,140,0.18)'; ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) { ctx.beginPath(); ctx.arc(c.x, c.y, r * (0.2 + i * 0.17), 0.3 * i, 2.4 + 0.3 * i); ctx.stroke(); }
+    }
+    const inside = new Set(zst.in || []);
+    for (const z of zs) {
+      if (!Z.sichtbar(z, vis)) continue;
+      const c = toS(z.x, z.y);
+      const heiss = (z.hitze || 0) + (z.schaden || 0) * 3;
+      const col = z.ertrag ? '98,216,150' : heiss > 4 ? '240,110,60' : heiss > 0 ? '230,170,80' : z.sicht != null && z.sicht < 1 ? '150,130,220' : '120,170,230';
+      const a = inside.has(z.id) ? 0.22 : 0.11;
+      ctx.fillStyle = 'rgba(' + col + ',' + a + ')'; ctx.strokeStyle = 'rgba(' + col + ',0.6)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (z.form === 'rechteck') {
+        const w = z.w * zoom, h = z.h * zoom; ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
+      } else if (z.form === 'ring') {
+        ctx.arc(c.x, c.y, z.r1 * zoom, 0, Math.PI * 2); ctx.moveTo(c.x + z.r0 * zoom, c.y); ctx.arc(c.x, c.y, z.r0 * zoom, 0, Math.PI * 2, true);
+      } else ctx.arc(c.x, c.y, z.r * zoom, 0, Math.PI * 2);
+      ctx.fill('evenodd'); ctx.stroke();
+      // Driftpfeil (nur Zellen und Felder mit fester Richtung; Strömung um den Planeten als Pfeil am Ring)
+      if (z.drift && z.drift.staerke) {
+        const ang = z.drift.winkel || 0, L = Math.min(40, 10 + z.drift.staerke * 0.6);
+        const ex = c.x + Math.cos(ang) * L, ey = c.y + Math.sin(ang) * L;
+        ctx.strokeStyle = 'rgba(' + col + ',0.95)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(c.x - Math.cos(ang) * L, c.y - Math.sin(ang) * L); ctx.lineTo(ex, ey);
+        ctx.lineTo(ex - Math.cos(ang - 0.5) * 7, ey - Math.sin(ang - 0.5) * 7); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang + 0.5) * 7, ey - Math.sin(ang + 0.5) * 7); ctx.stroke();
+      }
+      if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -4), { color: 'rgba(' + col + ',0.85)', align: 'center' });
+    }
+  }
+
   function drawSpace(ctx, view, rect, cfg) {
     const st = view.state;
     const ship = view.ship || st.ship || {};
@@ -3448,6 +3532,10 @@
       text(ctx, 'SENSOR ' + Math.round(sensorRange(st)) + (fog ? ' (NEBEL)' : ''), cx, cy - sr - 10, { color: 'rgba(127,224,194,0.8)', align: 'center' });
     }
 
+    // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
+    drawZonen(ctx, st, toS, zoom, t, cfg.mode === 'tactical');
+    if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
+
     // Szenenrand
     if (space.w && space.h) {
       const c = [toS(0, 0), toS(space.w, 0), toS(space.w, space.h), toS(0, space.h)];
@@ -3514,7 +3602,7 @@
       lab('BERGUNG', s.x, s.y + pr + 2, { color: PAL.mint, align: 'center' }, 1);
     }
 
-    // EK3 Teil A: Fracht im Raum (die Taktik beamt sie an Bord, 3 s halten); beim Halten Strahl und Fortschrittsring an der Fracht
+    // EK3 Teil A: Fracht im Raum (die Ops beamt sie an Bord, 3 s halten); beim Halten Strahl und Fortschrittsring an der Fracht
     {
       const fr = st.fracht || {};
       const beamR = ((window.Shared_Config && window.Shared_Config.fracht) || {}).beamRange || 320;
@@ -3638,7 +3726,7 @@
     const offscreen = [];
     const tscan = sship.tscan || {};
     const sensR = sensorRange(st);
-    // M3a: Ladungen (tele) – Taktik sieht sie ab Beginn, Captain/Steuer erst in den letzten captainSeesLast s
+    // M3a: Ladungen (tele) – Ops sieht sie ab Beginn, Captain/Steuer erst in den letzten captainSeesLast s
     const teleLate = cfgM3('tele.captainSeesLast', 1.2);
     const teleMode = cfg.teleVis || (cfg.mode === 'tactical' ? 'all' : 'late');
     const teleShown = (e) => !!(e && e.tele && teleMode !== 'none' && (teleMode === 'all' || (+e.tele.left || 0) <= teleLate));
@@ -3661,7 +3749,7 @@
       }
       const tShown = teleShown(e);
       if (tShown) teleList.push({ e, s, on: inB(s, 0) });
-      // M3b §5: Jäger im Anflug – gestrichelte Anfluglinie bis knapp hinter den nächsten Punkt zum Schiff (Taktik/Captain),
+      // M3b §5: Jäger im Anflug – gestrichelte Anfluglinie bis knapp hinter den nächsten Punkt zum Schiff (Ops/Captain),
       // auch wenn der Jäger noch außerhalb der Karte ist (die Linie ragt ins Bild)
       if (!front && (e.state === 'approach' || e.state === 'app') && isFinite(e.vx) && isFinite(e.vy)) {
         try { drawApproachLine(ctx, e, ship, toS, t, lab); } catch (err) { report('Render.approach', err); }
@@ -3669,6 +3757,8 @@
       if (!inB(s, 0)) { offscreen.push({ e, s }); continue; }
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
+      else if (cfg.intel && cfg.mode === 'tactical') drawEnemyShields(ctx, e, s.x, s.y, zoom, rot);   // SL0: Ops sieht Schildsegmente ohne Ziel-Scan
+      drawEnemyHitFx(ctx, e, s.x, s.y, ENEMY_SIZE[e.kind] || 16, view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (für alle Stationen)
       if (e.pat) {   // EK2: Patrouille – wirksamer Sensorkreis (wächst mit der Signatur der Lerche)
         ctx.strokeStyle = 'rgba(255,198,107,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, e.pat * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -3716,7 +3806,7 @@
         else if (i < 3) arrow(o.e.x, o.e.y, '#FF5A4A', (o.e.tele.sector != null ? SECTOR_SHORT[o.e.tele.sector] + ' ' : '') + fmt1(o.e.tele.left));
       } catch (e) { report('Render.tele', e); }
     });
-    // Ziel-Scan-Fortschritt (Taktik)
+    // Ziel-Scan-Fortschritt (Ops)
     if (!front && tscan.targetId && (tscan.progress || 0) > 0) {
       const tg = (view.enemies || []).find(e => e.id === tscan.targetId) || (space.hidden || []).find(h => h.id === tscan.targetId) || (tscan.targetId === 'station' ? stationOf(space) : null);
       if (tg) {
@@ -3802,7 +3892,7 @@
       }
     }
 
-    // Marker für den Piloten (Captain Mint, Taktik Bernstein) – immer sichtbar (auch im Nebel)
+    // Marker für den Piloten (Captain Mint, Ops Bernstein) – immer sichtbar (auch im Nebel)
     const drawMarkers = () => {
       const mk = markersOf(st);
       for (const who of ['captain', 'tactical']) {
@@ -3816,7 +3906,7 @@
     };
     if (!cfg.markersLater) drawMarkers();
 
-    // Randpfeile für Gegner außerhalb (nur Karten; der Pilot verlässt sich auf die Taktik)
+    // Randpfeile für Gegner außerhalb (nur Karten; der Pilot verlässt sich auf die Ops)
     if (!front) for (const o of offscreen) {
       const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
       if (clicks) clicks.push({ id: o.e.id, x: e.x - 10, y: e.y - 10, w: 20, h: 20 });
@@ -3837,7 +3927,7 @@
   }
 
   // Schnellsprung unterwegs (Server: ship.jump.reise { i, n, p, ziel }): statt des Sektors läuft eine Hyperraum-Animation, in der Mitte
-  // stehen die Zahl der noch zu springenden Sektoren und die Zeit bis zur Ankunft. Gilt für Steuer (Frontsicht), Taktik und Captain-Lage.
+  // stehen die Zahl der noch zu springenden Sektoren und die Zeit bis zur Ankunft. Gilt für Steuer (Frontsicht), Ops und Captain-Lage.
   function hyperraum(ctx, view, rect) {
     const st = view.state, j = (st.ship && st.ship.jump) || {}, rs = j.reise;
     if (!rs) return false;
@@ -3888,7 +3978,7 @@
     return true;
   }
 
-  // Taktik/Lage: Karte mit Schiff in der Mitte, Norden oben. opts = { zoom, arcs, intel, enemyRects, showRanges }
+  // Ops/Lage: Karte mit Schiff in der Mitte, Norden oben. opts = { zoom, arcs, intel, enemyRects, showRanges }
   function drawTactical(ctx, view, rect, opts) {
     opts = opts || {};
     const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35, rot: 0 }, opts));

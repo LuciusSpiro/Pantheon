@@ -42,7 +42,7 @@
     audioOn: false,
     lobby: { name: lsGet('sternenschicht.name', 'Crew-' + Math.floor(100 + Math.random() * 900)).slice(0, 12), color: storedColor == null || storedColor === '' ? null : +storedColor },
     endDismissed: false,
-    beamFx: {}, enemyHit: {}, shipHit: null, flashT: -9,
+    beamFx: {}, enemyHit: {}, enemyShield: {}, enemyHull: {}, shipHit: null, flashT: -9,   // SL0: enemyShield/enemyHull = Zeit des letzten Schild- bzw. Hüllentreffers je Gegner
     shieldHit: {},   // M2: pid -> performance.now() des letzten Schildtreffers
     teleSeen: {},   // M3a
     setbacks: [],   // M3b §4: repairSetback-Ereignisse { system, pid, bot, t0 } für den Rückschritt im Fortschrittsbalken
@@ -297,7 +297,7 @@
     const lob = Client.lastLobby || {};
     const start = lob.startMission || 'm1';
     // QA-Abnahme S1: Server-Feld `campaign` (im Spiel immer da) hat Vorrang – Spät-Beitretende kennen die Lobby-Wahl nicht
-    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne');
+    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche');
     const ship = st.ship || {};
     return { campaign, docked: !!(ship.dockedAt || ship.docked) };
   }
@@ -385,7 +385,7 @@
       // S1: Neue Kampagne bei vollen Weltständen -> Löschdialog (ältester vorausgewählt)
       const lob = (Client.state && Client.state.lobby) || {};
       const start = lob.startMission || 'm1';
-      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne')) {
+      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche')) {
         H.pushNotice('Erst einen Weltstand löschen (höchstens ' + H.worldsMax() + ')', R.PAL.warn, 4);
         openWorlds('full');
         audio.play('error');
@@ -556,6 +556,7 @@
         Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
         Client.arenaSent = false; Client.awayMapAsk = {};
         break;
+      case 'sektorkarte': Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte)); break;   // SL1: Karte wechselt beim Spielstart (Limes, Sund)
       case 'snap': onSnap(msg); break;
       case 'event': onEvent(msg); break;
       case 'error':
@@ -1148,7 +1149,7 @@
         break;
       case 'revived': fxAt('revive', 0, 0.8); H.pushNotice(nameOf(ev.pid) + ' steht wieder', PAL.mint); break;
       case 'squadRecall': H.pushNotice('NOTRÜCKHOLUNG – das ganze Außenteam ist an Bord', PAL.red); break;
-      case 'enemyShieldHit': Client.enemyHit[ev.id] = performance.now(); fxAt('shield_hit', -14, 0.3, { seg: ev.seg, enemy: true }); break;
+      case 'enemyShieldHit': Client.enemyHit[ev.id] = performance.now(); Client.enemyShield[ev.id] = performance.now();fxAt('shield_hit', -14, 0.3, { seg: ev.seg, enemy: true }); break;
       case 'enemyDown': fxAt('shield_break', -14, 0.6); break;
       case 'enemyAim': break;
       case 'bark': H.pushBark(ev.text, ev.from || 'Plünderer'); break;
@@ -1203,7 +1204,7 @@
     // Gegnertreffer (für Blinken)
     const pe = {};
     for (const e of (prev.space && prev.space.enemies) || []) pe[e.id] = e;
-    for (const e of (cur.space && cur.space.enemies) || []) if (pe[e.id] && e.hp < pe[e.id].hp) Client.enemyHit[e.id] = performance.now();
+    for (const e of (cur.space && cur.space.enemies) || []) if (pe[e.id] && e.hp < pe[e.id].hp) { Client.enemyHit[e.id] = performance.now(); Client.enemyHull[e.id] = performance.now(); }
     // Plattform
     if (Client.self.zone === 'away') {
       const pap = new Set((pa.projectiles || []).map(p => p.id));
@@ -1947,7 +1948,7 @@
     if (codeInput && document.activeElement === codeInput) codeInput.blur();
     canvas.focus();
     if (e.button === 2) {
-      // M1: Rechtsklick in Konsolen (Taktik-Marker, Pin entfernen)
+      // M1: Rechtsklick in Konsolen (Ops-Marker, Pin entfernen)
       const m2 = me();
       if (m2 && m2.console) Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view, 2));
       return;
@@ -2086,6 +2087,9 @@
       const s = (nowMs - Client.enemyHit[id]) / 1000;
       if (s > 2) delete Client.enemyHit[id]; else v.enemyHit[id] = s;
     }
+    v.enemyShield = {}; v.enemyHull = {};   // SL0: Alter des letzten Schild-/Hüllentreffers (nur kurz relevant)
+    for (const id in Client.enemyShield) { const s = (nowMs - Client.enemyShield[id]) / 1000; if (s > 1) delete Client.enemyShield[id]; else v.enemyShield[id] = s; }
+    for (const id in Client.enemyHull) { const s = (nowMs - Client.enemyHull[id]) / 1000; if (s > 1) delete Client.enemyHull[id]; else v.enemyHull[id] = s; }
     v.shieldHit = {};
     for (const pid in Client.shieldHit) {
       const s = (nowMs - Client.shieldHit[pid]) / 1000;

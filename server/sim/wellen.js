@@ -478,7 +478,7 @@ function allSpawn(game, S, k) {
   }
   return n;
 }
-// Abschüsse: Gegner der Welle, der aus space.enemies verschwand (zerstört oder treibt). Schütze = Spieler an der Taktik,
+// Abschüsse: Gegner der Welle, der aus space.enemies verschwand (zerstört oder treibt). Schütze = Spieler an der Ops,
 // sonst an der Steuer (Bolzen/Rammen); unbesetzt (Automatik) zählt für niemanden.
 function allZaehle(game, S) {
   const da = new Set(allGegner(game).map((e) => e.id));
@@ -549,7 +549,7 @@ function startAll(game, o) {
     em0: game.stats.emergencies || 0,
   };
   game.arena.wellen = S;
-  game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Taktik, Captain auf Station.`, null);
+  game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Ops, Captain auf Station.`, null);
   game.log(`Wellen All gestartet: ${o.szene} Seed ${o.seed}.`);
   return S;
 }

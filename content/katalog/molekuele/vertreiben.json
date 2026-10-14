@@ -90,7 +90,7 @@
           "{{id}}.funk_start": "{{funk_start}}",
           "{{id}}.funk_abzug": "{{funk_abzug}}",
           "{{id}}.lage": "Angreifer! Die wollen Beute, keinen Heldentod – genug Treffer, und sie drehen ab.",
-          "{{id}}.tipp": "Angeschlagene Gegner fliehen. Taktik: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
+          "{{id}}.tipp": "Angeschlagene Gegner fliehen. Ops: Feuer bündeln, einen nach dem anderen. Pilot: Breitseite.",
           "{{id}}.abgedreht": "Die Angreifer geben auf und drehen ab. Gut so.",
           "{{id}}.ziel": "Angreifer vertreiben ({left:{{id}}_w1} übrig)"
         }

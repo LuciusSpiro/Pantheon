@@ -86,13 +86,13 @@
   },
 
   "texte": {
-    "buch.briefing": "Rom hat Verwendung für die Lerche. Ein Kurier wartet in der Statio Limitis, hinter dem Splittergürtel. Der erste Auftrag: ein Konvoi auf dem Rabenpass. Ihr braucht einen Frachtraum mit Platz für zwei Ladungen. Zerstörte Transporter hinterlassen Fracht, die die Taktik an Bord beamt.",
+    "buch.briefing": "Rom hat Verwendung für die Lerche. Ein Kurier wartet in der Statio Limitis, hinter dem Splittergürtel. Der erste Auftrag: ein Konvoi auf dem Rabenpass. Ihr braucht einen Frachtraum mit Platz für zwei Ladungen. Zerstörte Transporter hinterlassen Fracht, die die Ops an Bord beamt.",
     "buch.belohnung": "Dienst unter Rom, Bezahlung in Marken",
 
     "auftrag.aufgedeckt": "Statio Limitis ist auf der Sternkarte: Rom wirbt dort an.",
     "auftrag.hinweis": "Rom sucht die Lerche. Ein Kurier wartet in der Statio Limitis, hinter dem Splittergürtel.",
 
-    "anflug.tipp": "Statio Limitis: Sprungpunkt unbekannt? Weitscan (Taktik, S) zeigt Bojen. Ziel wählen, anfliegen, springen.",
+    "anflug.tipp": "Statio Limitis: Sprungpunkt unbekannt? Weitscan (Ops, S) zeigt Bojen. Ziel wählen, anfliegen, springen.",
 
     "hafen.tipp": "Statio Limitis: Liegeplatz ansteuern, langsam heran und andocken.",
     "hafen.erinnerung": "Mars wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",

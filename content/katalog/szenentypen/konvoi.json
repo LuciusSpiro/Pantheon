@@ -4,7 +4,7 @@
   "kennung": "A15",
   "name": "Konvoi",
   "bereich": "weltraum",
-  "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Taktik beamt sie an Bord)",
+  "kern": "Ein Konvoi aus Transportern und Eskorte fährt eine Route und springt an ihrem Ende: aufhalten (alle Transporter zerstören) oder plündern (zerstörte Transporter lassen Fracht fallen, die Ops beamt sie an Bord)",
   "kippt_zu": [
     "raumgefecht",
     "verfolgung"

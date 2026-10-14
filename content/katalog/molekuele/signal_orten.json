@@ -16,7 +16,7 @@
       "id": "weitscan_peilung",
       "name": "Signal per Weitscan finden",
       "schauplatz": "weltraum",
-      "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Taktik pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
+      "beschreibung": "Ein versteckter Fund (Bake, Sonde, Kapsel) liegt irgendwo in der Szene. Die Ops pingt mit dem Weitscan an verschiedenen Stellen, der Pilot fliegt die Richtung ab, dann wird der Fund angevisiert und gescannt. Stark im Nebel. Garantie: ODA peilt die Richtung, später deckt sie den Fund auf.",
       "braucht": [
         "weitscan",
         "gelaende"
@@ -212,12 +212,12 @@
           }
         ],
         "texte": {
-          "{{id}}.start": "Irgendwo hier ist {{fund_name}}. Taktik: Weitscan (W) – Marker für den Piloten!",
-          "{{id}}.tipp": "Taktik: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
+          "{{id}}.start": "Irgendwo hier ist {{fund_name}}. Ops: Weitscan (W) – Marker für den Piloten!",
+          "{{id}}.tipp": "Ops: W drückt den Weitscan – Reichweite 1000. Mehrmals und an verschiedenen Stellen probieren.",
           "{{id}}.richtung": "{{fund_name}} kommt von {dir} von uns. Hinfliegen und nochmal Weitscan (W)!",
           "{{id}}.aufgedeckt": "Ich habe {{fund_name}} angepeilt und markiert. Anvisieren (T) und scannen (S)!",
-          "{{id}}.ziel_finden": "Taktik: Weitscan (W) – {{fund_name}} suchen",
-          "{{id}}.ziel_scannen": "Taktik: anvisieren (T) und scannen (S halten)"
+          "{{id}}.ziel_finden": "Ops: Weitscan (W) – {{fund_name}} suchen",
+          "{{id}}.ziel_scannen": "Ops: anvisieren (T) und scannen (S halten)"
         }
       },
       "test": {

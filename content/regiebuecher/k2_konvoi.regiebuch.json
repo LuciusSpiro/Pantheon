@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "EK8 Kapitel 2 „Rabenpass, Konvoi“. Schritt 'konvoi' ist die echte Konvoi-Szene (EK3 Teil B, CONTRACT-EK3B, Molekül konvoi_abfangen/pluendern): 2 Transporter mit Eskorte (Jäger, Korvette), zerstörte Transporter lassen Sprengstoff fallen, die Taktik beamt ihn an Bord; Ausgang der Szene gepluendert = Fortschritt, entkommt der Konvoi, rollt ein neuer an (Fracht an Bord bleibt). Solo (höchstens ein verbundener Spieler): nur der Jäger als Eskorte, Mehrspieler ist der Maßstab. Die Eskorte dreht nach dem Erfolg ab (Störsender-Regel: sonst blockiert sie den Sprung zur Statio). Beamen und Abliefern sind die echten Mechaniken aus EK3 Teil A. Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
+  "_kommentar": "EK8 Kapitel 2 „Rabenpass, Konvoi“. Schritt 'konvoi' ist die echte Konvoi-Szene (EK3 Teil B, CONTRACT-EK3B, Molekül konvoi_abfangen/pluendern): 2 Transporter mit Eskorte (Jäger, Korvette), zerstörte Transporter lassen Sprengstoff fallen, die Ops beamt ihn an Bord; Ausgang der Szene gepluendert = Fortschritt, entkommt der Konvoi, rollt ein neuer an (Fracht an Bord bleibt). Solo (höchstens ein verbundener Spieler): nur der Jäger als Eskorte, Mehrspieler ist der Maßstab. Die Eskorte dreht nach dem Erfolg ab (Störsender-Regel: sonst blockiert sie den Sprung zur Statio). Beamen und Abliefern sind die echten Mechaniken aus EK3 Teil A. Verdrahtung Boden: CONTRACT-EK8.md, Abschnitt 4a.",
   "format": "regiebuch/1",
   "id": "k2_konvoi",
 
@@ -121,30 +121,30 @@
   },
 
   "texte": {
-    "buch.briefing": "Ein Konvoi aus Erzklamm bringt Nachschub nach Norden. Auf dem Rabenpass nehmt ihr ihn euch: Transporter zerstören, bevor der Konvoi am Routenende springt (die Eskorte wehrt sich), die abgeworfene Fracht an Bord beamen (Taktik) und in der Statio Limitis abgeben. Der Sprengstoff wird später gebraucht.",
+    "buch.briefing": "Ein Konvoi aus Erzklamm bringt Nachschub nach Norden. Auf dem Rabenpass nehmt ihr ihn euch: Transporter zerstören, bevor der Konvoi am Routenende springt (die Eskorte wehrt sich), die abgeworfene Fracht an Bord beamen (Ops) und in der Statio Limitis abgeben. Der Sprengstoff wird später gebraucht.",
     "buch.belohnung": "Marken von Rom, Sprengstoff für die Methalle",
 
     "auftrag.aufgedeckt": "Rabenpass ist auf der Sternkarte: Hier fährt der Konvoi.",
     "auftrag.hinweis": "Ziel: der Konvoi auf dem Rabenpass. Frachtraum frei halten, er fasst zwei Ladungen.",
 
-    "anflug.tipp": "Rabenpass: Kein Sprungpunkt auf der Sternkarte? Weitscan (Taktik, S) zeigt die Bojen, Hexe für Hexe.",
+    "anflug.tipp": "Rabenpass: Kein Sprungpunkt auf der Sternkarte? Weitscan (Ops, S) zeigt die Bojen, Hexe für Hexe.",
 
-    "konvoi.tipp": "Konvoi: erst die Transporter zerstören, dann Fracht beamen (Taktik, F, 3 s ruhig halten). Am Routenende springen sie.",
+    "konvoi.tipp": "Konvoi: erst die Transporter zerstören, dann Fracht beamen (Ops, F, 3 s ruhig halten). Am Routenende springen sie.",
     "konvoi.fertig": "Das war's. Zurück zur Statio, bevor die Eskorte Verstärkung ruft.",
 
-    "rueck_anflug.tipp": "Zurück zur Statio Limitis: Weitscan (Taktik, S) zeigt Bojen, Ziel wählen, Sprung für Sprung.",
+    "rueck_anflug.tipp": "Zurück zur Statio Limitis: Weitscan (Ops, S) zeigt Bojen, Ziel wählen, Sprung für Sprung.",
 
     "abgabe.abnehmer": "Statio Limitis",
-    "abgabe.lage": "Statio Limitis: Fracht abgeben. Taktik: G halten, die Station nimmt alles an.",
-    "abgabe.tipp": "Taktik: G beamt die Fracht zur Station. Dafür nah genug heran, Schilde oben, Systemtreffer vermeiden.",
+    "abgabe.lage": "Statio Limitis: Fracht abgeben. Ops: G halten, die Station nimmt alles an.",
+    "abgabe.tipp": "Ops: G beamt die Fracht zur Station. Dafür nah genug heran, Schilde oben, Systemtreffer vermeiden.",
     "abgabe.mars": "Germanischer Sprengstoff. Gut. Behaltet einen Teil, ihr werdet ihn brauchen. Eine Versorgungsstation im Nebel, die Methalle. Wenn sie fällt, steht Wolfstor offen. Findet sie.",
 
     "rueckzug.ansage": "Rückzug. Die Eskorte ruft Verstärkung. Ihr versucht es noch einmal.",
 
     "ziel.zum_rabenpass": "Zum Rabenpass fliegen",
-    "ziel.konvoi": "Den Konvoi plündern: Transporter zerstören, beide Ladungen an Bord beamen (Taktik, F)",
+    "ziel.konvoi": "Den Konvoi plündern: Transporter zerstören, beide Ladungen an Bord beamen (Ops, F)",
     "ziel.zur_statio": "Zurück zur Statio Limitis",
-    "ziel.abgeben": "Die Beute abgeben (Taktik, G)",
+    "ziel.abgeben": "Die Beute abgeben (Ops, G)",
 
     "chronik.erfolg": "Auf dem Rabenpass plündert die Crew einen Konvoi aus Erzklamm. Mars behält den Nachschub und lässt der Lerche den Sprengstoff für die Methalle."
   }
