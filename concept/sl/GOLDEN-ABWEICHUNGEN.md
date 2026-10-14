@@ -19,3 +19,11 @@ Nur anhängen, nie überschreiben.
   `sondeDisabled` und Kartenzeichen `Z` bleiben (Regiebuch-Verträge m1).
 - Test `tools/test-rollen.js`: erwartet jetzt „Ops unbesetzt …“.
 - Nicht umbenannt: Code-Kommentare in `tools/sim-headless.js` und Tests, Spielleiter-Archive (`content/spielleiter/**`), Voxel-Asset `tactical.json`, Docs (`README`, alte `CONTRACT-*`).
+- **Team TC, Kai-Feedback: ein Bot als Standard, Reaktor-Neustart solo.** `CONFIG.bot.count` 2 -> 1 (`maxCount` 2), Shop-Ware `bot2` (100 Marken, ersetzt `schrauber3` für 200),
+  Schalter rasten ein (`reactorM1.latchHold/latchWindow`), freier Schrauber fährt bei kaltem Reaktor von selbst an einen Schalter (`botIdleDuty`).
+  Messung gegen HEAD-Baseline (`git archive HEAD`): `golden-trace.js` läuft unabhängig davon nicht (sim-headless-Hauptteil heißt jetzt `else (async () => {`, Tool sucht `\n(async () => {`) -> Messung mit `sim-headless`:
+  `m3` Crew 1/3 ok wie vorher (Marken 310); `sim:arena` (2 Piloten × 10 Seeds) volle 6 Wellen 13/20 -> 10/20; `sim:sund`/`sim:kette`/`sim:sund:alle` (Crew 1 und 3) weiter ok; `test-sl9` Schlacht mit passiver Lerche: Seed 1 geht jetzt unter (vorher 22 % Hülle), Seed 4/6 halten (Seed 4 knapp).
+  Betroffen: Texte „Dritter Schrauber“ -> „Zweiter Schrauber“, ODA-Texte zum Reaktor-Neustart; Altstände mit `schrauber3` laden als `bot2`.
+- **Team TA, Kai-Feedback: Taverne, Siedlungsausstattung, Bodenton, Planet.** Keine Abweichung der Golden m1–m3 (Lauf `golden-trace` ok, `sim:sund`, `sim:kette` ok). Generator opt-in (`opts.ausstattung`, `opts.boden`): ohne Wunsch ist die Siedlungskarte
+  byte-gleich (bauversion `gen5`, Eisenwald/Methalle ignorieren es; Test in `test-generatoren`). Nur Kantenstein (Landepunkt `gen.ausstattung/boden`, Welt Sund `siedlung`) ändert sich: Kantine ohne Zellen, Möbel als Deckungskacheln `o`/`O`,
+  Anker `kantine_1.wirt|evert|gast1|gast2` und `platz.marktfrau|haendler` (Regiebücher k1/k2 nutzen sie statt "46,30" bzw. `kantine_1.zelle.1`), bauversion `gen5a`.

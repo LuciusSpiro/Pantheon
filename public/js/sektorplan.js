@@ -82,10 +82,16 @@
     const g = P.groesse(hex) || { w: 3000, h: 2200 };
     const listW = 150;
     const mx = area.x, my = area.y + 20, mw = area.w - listW - 6, mh = area.h - 22;
-    const sc = Math.min(mw / g.w, mh / g.h);
-    const ox = mx + Math.round((mw - g.w * sc) / 2), oy = my + Math.round((mh - g.h * sc) / 2);
+    const sc0 = Math.min(mw / g.w, mh / g.h);
+    const ox0 = mx + Math.round((mw - g.w * sc0) / 2), oy0 = my + Math.round((mh - g.h * sc0) / 2);
+    // TB1: Zoom/Pan (kartenansicht.js, nur Client-Ansicht); je Sektor eigener Schlüssel
+    const KA = window.KartenAnsicht, mapRect = { x: mx, y: my, w: mw, h: mh };
+    const ab = KA ? KA.anwenden('sektorplan:' + hex, mapRect, { x: ox0, y: oy0, w: g.w * sc0, h: g.h * sc0 }) : null;
+    const sc = ab ? sc0 * ab.z : sc0;
+    const ox = ab ? Math.round(ab.x(ox0)) : ox0, oy = ab ? Math.round(ab.y(oy0)) : oy0;
+    ctx.save(); ctx.beginPath(); ctx.rect(mx, my, mw, mh); ctx.clip();
     const toS = (x, y) => ({ x: Math.round(ox + x * sc), y: Math.round(oy + y * sc) });
-    V.map = { hex, sc, ox, oy, g };
+    V.map = { hex, sc, ox, oy, g, mx, my, mw, mh };
     ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(ox, oy, Math.round(g.w * sc), Math.round(g.h * sc));
     ctx.strokeStyle = 'rgba(127,224,194,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(ox + 0.5, oy + 0.5, Math.round(g.w * sc), Math.round(g.h * sc));
     // ortsfeste Objekte
@@ -94,10 +100,11 @@
     for (const o of objs) {
       const p = toS(o.x, o.y);
       sprites(ctx, o, p.x, p.y, num(o.r) * sc, t);
-      if (o.sym === 'hafen' || o.sym === 'station' || o.sym === 'gasriese' || o.sym === 'sprungpunkt') {
+      if (o.sym === 'hafen' || o.sym === 'station' || o.sym === 'gasriese' || o.sym === 'sprungpunkt' || (o.sym === 'planet' && o.id === 'sta')) {   // Planet mit Bodenstation (Kantenstein) trägt seinen Namen
         const txt = (o.name || '').replace('Sprungpunkt ', '→ ');
         const w = R.measure ? R.measure(txt, 1) : txt.length * 6;
-        if (p.x + 8 + w > mx + mw) R.text(ctx, txt, p.x - 8, p.y - 4, { color: PAL.panelLight, align: 'right' });   // am rechten Rand nach links
+        if (o.sym === 'planet') R.text(ctx, txt, p.x, p.y + Math.max(3, num(o.r) * sc) + 4, { color: PAL.panelLight, align: 'center' });   // unter der Kugel (links daneben liegt die Lerche)
+        else if (p.x + 8 + w > mx + mw) R.text(ctx, txt, p.x - 8, p.y - 4, { color: PAL.panelLight, align: 'right' });   // am rechten Rand nach links
         else R.text(ctx, txt, p.x + 8, p.y - 4, { color: PAL.panelLight });
       }
     }
@@ -122,7 +129,7 @@
     // Hex-Marken (Missionsziel, Notruf, Spur … aus server/sim/marken.js, derselbe Mechanismus wie auf der Hexkarte): Plaketten am Sektor
     const hm = (window.StarMap ? window.StarMap.marken : ((st.world && st.world.marken) || [])).filter((q) => q.h === hex);   // StarMap hält die Marken (kommen nur bei Änderung)
     hm.forEach((q, i) => {
-      const px = ox + 10 + i * 18, py = oy + 10;
+      const px = ox0 + 10 + i * 18, py = oy0 + 10;   // am Bildschirm fest (nicht mit Zoom/Pan wandernd)
       if (kz) kz.marke(ctx, q.t, px, py, t, { r: 6, rest: q.b, gesamt: q.g });
     });
     // eigenes Schiff
@@ -131,6 +138,8 @@
       ctx.fillStyle = PAL.mint; ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, 7); ctx.fill();
       R.text(ctx, 'Lerche', p.x + 6, p.y - 4, { color: PAL.mint });
     }
+    if (ab) KA.knopf(ctx, R, 'sektorplan:' + hex, mapRect);
+    ctx.restore();   // Kartenausschnitt (Clip)
     // Symbolliste
     const lx = area.x + area.w - listW;
     R.text(ctx, 'SYMBOLE', lx, my, { color: PAL.brass });
@@ -148,12 +157,13 @@
     y += 3;
     R.text(ctx, 'Linksklick: Marke', lx, Math.min(y, area.y + area.h - 22), { color: PAL.panelLight });
     R.text(ctx, 'Rechtsklick: entfernen', lx, Math.min(y + 10, area.y + area.h - 11), { color: PAL.panelLight });
-    return 'A/D Sektor · H hier · Klick: Marke setzen / entfernen';
+    return 'A/D Sektor · H hier · Rad Zoom · Ziehen · 0 zurück · Klick: Marke';
   }
 
   // Mausklick im Plan -> true, wenn verbraucht. x, y in Bildschirmkoordinaten des Konsolenbilds
   function click(view, x, y, button, cmd) {
     const m = V.map; if (!m) return false;
+    if (x < m.mx || y < m.my || x >= m.mx + m.mw || y >= m.my + m.mh) return false;   // TB1: nur im Kartenausschnitt (gezoomt ragt die Karte darüber hinaus)
     const wx = (x - m.ox) / m.sc, wy = (y - m.oy) / m.sc;
     if (wx < 0 || wy < 0 || wx > m.g.w || wy > m.g.h) return false;
     if (button === 2) {

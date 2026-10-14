@@ -1115,7 +1115,7 @@ function reactorNeedsRestart(game) {
   const fight = game.space && game.space.enemies && game.space.enemies.some((e) => e.kind !== 'relay');
   rc.autoRestartAt = fight && auto > 0 ? game.time + auto : null;
   if (rc.autoRestartAt != null) game.oda(`Reaktor wieder ganz, aber kalt. Gefechtsstart in ${Math.round(auto)} s – festhalten!`, null);
-  else game.oda('Reaktor wieder ganz, aber kalt. Neustart: Schalter A und B im Maschinenraum gleichzeitig halten (E).', null);
+  else game.oda('Reaktor wieder ganz, aber kalt. Neustart: Schalter A und B im Maschinenraum halten (E) – gleichzeitig oder nacheinander, der erste rastet ein.', null);
   game.missionEvent('reactorOffline', { afterRepair: true });
 }
 // Reparaturliste: Eintrag fällt weg, sobald das System heil und nicht fragil ist (§8.2)

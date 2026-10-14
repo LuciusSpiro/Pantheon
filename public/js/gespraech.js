@@ -25,7 +25,7 @@
   function kulisse(st, zeit) {
     const K = window.Shared_Kulisse; const m = karteVon(st);
     if (!K || !m || !m.ku) return [];
-    try { return K.figuren(m.ku, { seed: m.seed, plaetze: m.plaetze }, zeit); } catch (e) { if (window.Net) Net.reportError('Gespraech.kulisse', e); return []; }
+    try { return K.figuren(m.ku, { seed: m.seed, plaetze: m.plaetze, anker: m.anker }, zeit); } catch (e) { if (window.Net) Net.reportError('Gespraech.kulisse', e); return []; }
   }
   function schilder(st) {
     const m = karteVon(st);

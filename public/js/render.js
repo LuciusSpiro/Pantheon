@@ -426,7 +426,7 @@
     legend['#'] = legend['#'] || { kind: 'wand', solid: true, cover: 2, sperrtSicht: true };
     const m = Maps.makeMap(ev.id, ev.rows, legend);
     const karte = {};
-    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle', 'ku']) if (ev[k] !== undefined) karte[k] = ev[k];   // ku: Passanten und Schilder (SL2, shared/kulisse.js)
+    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle', 'ku', 'moebel', 'boden']) if (ev[k] !== undefined) karte[k] = ev[k];   // ku: Passanten und Schilder (SL2, shared/kulisse.js); moebel/boden: Siedlungsausstattung und Bodenton (TA, voxel/kit.js)
     Object.assign(m, karte, { karte, buehne: true, legende: legend });
     m.w = ev.rows[0].length; m.h = ev.rows.length;
     // Kachel -> Kantenindex (Zustand aus ko), Kachel -> Ankerindex (tor/eingang/versteck steuern Kacheln)
@@ -2623,7 +2623,7 @@
   }
 
   // Waffenbögen / Schildsektoren eines gescannten Gegners (Bildschirmkoordinaten; rot = Bildschirmdrehung)
-  function drawEnemyIntel(ctx, e, sx, sy, zoom, rot, strong, teleShown) {
+  function drawEnemyIntel(ctx, e, sx, sy, zoom, rot, strong, teleShown, view) {
     const base = (e.angle || 0) + (rot || 0);
     // M3a: Feindbögen nur, solange der Gegner (für diese Konsole sichtbar) lädt – sonst nur die Schildsektoren
     const arcsNow = !CFG.spaceM3 || (teleShown == null ? !!e.tele : !!teleShown);
@@ -2635,16 +2635,23 @@
       else { ctx.moveTo(sx, sy); ctx.arc(sx, sy, r, f - a / 2, f + a / 2); ctx.closePath(); }
       ctx.fill(); ctx.stroke();
     }
-    drawEnemyShields(ctx, e, sx, sy, zoom, rot);
+    drawEnemyShields(ctx, e, sx, sy, zoom, rot, view);
   }
 
   // SL0: Schildsegmente eines Gegners (Bögen je Segment). Die Ops sieht sie in Sensorreichweite auch ohne Ziel-Scan;
   // drawEnemyIntel (Scan) ruft dieselbe Funktion und ergänzt Waffenbögen.
-  function drawEnemyShields(ctx, e, sx, sy, zoom, rot) {
+  // TB2: Schildbögen um jeden Gegner im Weltbild (Steuer, Captain, Ops) wie bei der Lerche: je Segment ein Bogen, dreht mit dem Schiff,
+  // Radius folgt der Schiffsgröße. Volle Segmente zart, Treffer (view.enemyShield) lässt alle Bögen kurz aufleuchten, leeres Segment = rot angedeutet.
+  // Dichte Szenen (> 6 Gegner im Bild): nur ein Bogen je Segment statt gestapelter Lagen.
+  let shieldDense = false;
+  function drawEnemyShields(ctx, e, sx, sy, zoom, rot, view) {
     const base = (e.angle || 0) + (rot || 0);
     const sh = e.shields, mx = e.shieldsMax;
     if (Array.isArray(sh)) {
-      const rr = Math.round(Math.max(12, (ENEMY_SIZE[e.kind] || 16) * Math.max(0.7, zoom * 1.6)) + 4);
+      const rr = Math.round((ENEMY_SIZE[e.kind] || 16) + 5);
+      const ha = view && view.enemyShield ? view.enemyShield[e.id] : null;
+      const glow = ha != null && ha < 0.4 ? 1 - ha / 0.4 : 0;
+      const stackMax = shieldDense || rr < 16 ? 1 : 4;
       // EK1b: Segmente (shared/schilde.js): Bug und Heck je ein Bogen, Seiten je Seitenbereich ein Bogen an der Längslage des Segments (Grenzen wie die Trefferzuordnung)
       const SC = window.Shared_Schilde; const lay = SC && SC.layout(CFG, e.kind);
       const segs = lay && lay.n === sh.length ? lay.segs : [0, 1, 2, 3].map((q) => ({ seite: q, i: 0, n: 1, von: 0, bis: 1 }));
@@ -2657,15 +2664,19 @@
         const gap = g.n > 1 ? 0.05 : 0.14;
         const a0 = base + lo + gap, a1 = base + hi - gap;
         const cur = +sh[i] || 0, max = mx ? (+mx[i] || 0) : Math.max(cur, 1);
-        if (max <= 0) {
-          ctx.strokeStyle = 'rgba(224,71,60,0.9)'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
+        if (max <= 0 || !(a1 > a0)) continue;
+        if (cur <= 0) {   // Segment leer: roter, gestrichelter Hauch
+          ctx.strokeStyle = 'rgba(224,71,60,' + (0.45 + 0.4 * glow).toFixed(2) + ')'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
           ctx.beginPath(); ctx.arc(sx, sy, rr, a0, a1); ctx.stroke(); ctx.setLineDash([]);
           continue;
         }
-        for (let k = 0; k < max; k++) {
-          ctx.strokeStyle = k < cur ? 'rgba(169,214,229,' + (0.65 + 0.08 * k) + ')' : 'rgba(142,163,181,0.22)';
-          ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(sx, sy, rr + k * 3, a0, a1); ctx.stroke();
-        }
+        const frac = clamp01(cur / max), layers = Math.min(stackMax, Math.max(1, Math.ceil(cur)));
+        const full = cur >= max - 1e-6;
+        // voll = zart (0,28), angeschlagen = deutlicher (bis 0,75), Treffer = hell aufleuchtend
+        const al = Math.min(1, (full ? 0.28 : 0.45 + 0.3 * (1 - frac)) + 0.55 * glow);
+        ctx.strokeStyle = glow > 0.05 ? 'rgba(190,235,255,' + al.toFixed(2) + ')' : 'rgba(169,214,229,' + al.toFixed(2) + ')';
+        ctx.lineWidth = stackMax > 1 ? 2 : (full ? 1.5 : 2.5);
+        for (let k = 0; k < layers; k++) { ctx.beginPath(); ctx.arc(sx, sy, rr + k * 3, a0, a1); ctx.stroke(); }
       }
     }
   }
@@ -2870,7 +2881,7 @@
     const max = +e.hpMax || 0;
     const frac = max > 0 ? clamp01((+e.hp || 0) / max) : 1;
     const n = max > 0 ? Math.max(1, Math.min(12, Math.round(max / 6))) : 1;
-    if (n <= 2) { bar(ctx, Math.round(cx - 12), y, 24, 3, frac, PAL.red); enemyShieldStripe(ctx, e, Math.round(cx - 12), y + 4, 24); return; }
+    if (n <= 2) { bar(ctx, Math.round(cx - 12), y, 24, 3, frac, PAL.red); return; }
     let g = e.id != null ? hpGhost.get(e.id) : null;
     if (!g) { g = { shown: frac, frac, hitAt: -9, seen: now }; if (e.id != null) hpGhost.set(e.id, g); }
     if (frac < g.frac - 1e-6) { g.hitAt = now; if (g.shown < g.frac) g.shown = g.frac; }
@@ -2893,18 +2904,7 @@
       if (fillW > 0) { ctx.fillStyle = PAL.red; ctx.fillRect(sx, y, fillW, h); ctx.fillStyle = 'rgba(255,138,122,0.9)'; ctx.fillRect(sx, y, fillW, 1); }
     }
     if (flash) { ctx.strokeStyle = PAL.star; ctx.lineWidth = 1; ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3); }
-    enemyShieldStripe(ctx, e, x, y + h + 2, w);
-  }
-  // SL0: schmaler Schildstreifen unter dem Lebensbalken (Summe aller Segmente, nur wenn der Gegner Schilde hat); der Balken selbst zeigt nur die Hülle
-  function enemyShieldStripe(ctx, e, x, y, w) {
-    const sh = e.shields, mx = e.shieldsMax;
-    if (!Array.isArray(sh) || !Array.isArray(mx)) return;
-    let cur = 0, max = 0;
-    for (let i = 0; i < mx.length; i++) { max += +mx[i] || 0; cur += Math.min(+sh[i] || 0, +mx[i] || 0); }
-    if (max <= 0) return;
-    ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(x, y, w, 2);
-    ctx.fillStyle = 'rgba(120,200,255,0.9)'; ctx.fillRect(x, y, Math.round(w * clamp01(cur / max)), 2);
-  }
+  }   // TB2: der Balken zeigt nur die Hülle; Schilde als Segmentbögen um das Schiff (drawEnemyShields)
   // Lanzenschaden aus power (§20.3): min + (max − min) × power; beschädigt max × 0,75
   function lanceDamage(m, power) {
     if (power == null && m && typeof m.dmg === 'number' && isFinite(m.dmg)) return Math.round(m.dmg * 10) / 10;   // Server liefert dmg
@@ -3629,11 +3629,11 @@
         mLab('SPRUNGPUNKT', s.x, s.y - 4, { color: PAL.mint, align: 'center' }, 1);
       } else if (STATION_ART[m.kind]) {
         const k = STATION_ART[m.kind];
-        const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE : 1);
+        const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE : m.kind === 'planet' ? (m.r || 170) / 170 : 1);   // Planet: Sprite hat Radius 170
         ctx.save(); ctx.translate(s.x, s.y); ctx.scale(stScale, stScale);
-        if (!artStation(ctx, k, 0, 0, { time: t })) fbStation(ctx, m.kind, t, m);
+        if (!artStation(ctx, k, 0, 0, { time: t, name: m.name })) fbStation(ctx, m.kind, t, m);
         ctx.restore();
-        const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : (m.kind === 'moon' || m.kind === 'planet') ? (m.r || 170) : 70) * stScale) + 2;
+        const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
         mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
@@ -3793,6 +3793,7 @@
     const teleShown = (e) => !!(e && e.tele && teleMode !== 'none' && (teleMode === 'all' || (+e.tele.left || 0) <= teleLate));
     const teleList = [];
     const now0 = performance.now() / 1000;
+    { let nOn = 0; for (const e of view.enemies || []) if (e && e.shields && inB(toS(e.x, e.y), 0)) nOn++; shieldDense = nOn > 6; }   // TB2: dichte Szenen = je Segment nur ein Bogen
     for (const e of view.enemies || []) {
       if (!visible(e.x, e.y)) continue;
       if (!front && Math.hypot(e.x - ship.x, e.y - ship.y) > sensR) continue;   // Sensorreichweite filtert der Client
@@ -3817,8 +3818,8 @@
       }
       if (!inB(s, 0)) { offscreen.push({ e, s }); continue; }
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
-      if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
-      else if (cfg.intel && cfg.mode === 'tactical') drawEnemyShields(ctx, e, s.x, s.y, zoom, rot);   // SL0: Ops sieht Schildsegmente ohne Ziel-Scan
+      if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown, view);
+      else drawEnemyShields(ctx, e, s.x, s.y, zoom, rot, view);   // TB2: Schildbögen für alle Konsolen im Weltbild, ohne Ziel-Scan
       if (e.pat) {   // EK2: Patrouille – wirksamer Sensorkreis (wächst mit der Signatur der Lerche)
         ctx.strokeStyle = 'rgba(255,198,107,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, e.pat * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -4179,6 +4180,7 @@
     opts = opts || {};
     const st = view.state;
     const t = view.time;
+    const KA = window.KartenAnsicht; let zkey = null;
     ctx.save();
     ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
     ctx.fillStyle = '#070B14'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -4187,8 +4189,12 @@
     const keshLoc = mapId === 'kesh' ? locById(st, 'kesh') : null;
     const tmap = keshLoc && keshLoc.map !== 'kesh' ? null : mapById(mapId);
     if (tmap && mapId !== 'ship') {
-      const c = Math.max(2, Math.floor(Math.min((rect.w - 8) / tmap.w, (rect.h - 8) / tmap.h)));
-      const ox = rect.x + Math.floor((rect.w - tmap.w * c) / 2), oy = rect.y + Math.floor((rect.h - tmap.h * c) / 2);
+      const cB = Math.max(2, Math.floor(Math.min((rect.w - 8) / tmap.w, (rect.h - 8) / tmap.h)));
+      const oxB = rect.x + Math.floor((rect.w - tmap.w * cB) / 2), oyB = rect.y + Math.floor((rect.h - tmap.h * cB) / 2);
+      // TB1: Zoom/Pan (kartenansicht.js, nur Client-Ansicht)
+      const ab = KA ? KA.anwenden(zkey = 'plan-' + mapId, rect, { x: oxB, y: oyB, w: tmap.w * cB, h: tmap.h * cB }) : null;
+      const c = ab ? cB * ab.z : cB;
+      const ox = ab ? ab.x(oxB) : oxB, oy = ab ? ab.y(oyB) : oyB;
       const obj = mapId === 'wreck' ? OBJ_WRECK : OBJ;
       for (let ty = 0; ty < tmap.h; ty++) for (let tx = 0; tx < tmap.w; tx++) {
         const ch = tmap.at(tx, ty);
@@ -4204,7 +4210,9 @@
         else if (ch === 'Z') col = PAL.amber;
         else if (ch === 'b') col = PAL.indigo;
         else if (obj[ch]) col = '#3B4658';
-        ctx.fillStyle = col; ctx.fillRect(ox + tx * c, oy + ty * c, c, c);
+        const x0 = Math.round(ox + tx * c), y0 = Math.round(oy + ty * c), x1 = Math.round(ox + (tx + 1) * c), y1 = Math.round(oy + (ty + 1) * c);
+        if (x1 < rect.x || y1 < rect.y || x0 > rect.x + rect.w || y0 > rect.y + rect.h) continue;
+        ctx.fillStyle = col; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
       }
       toS = (x, y) => ({ x: Math.round(ox + x / TILE * c), y: Math.round(oy + y / TILE * c) });
       toW = (sx, sy) => ({ x: Math.round((sx - ox) / c * TILE), y: Math.round((sy - oy) / c * TILE) });
@@ -4222,8 +4230,12 @@
       // Szenengröße wie der Server (shared/locations.js), damit Pins auf fremden Detailkarten am richtigen Fleck landen
       const SLx = window.Shared_Locations, scn = SLx && SLx.get ? ((SLx.get(mapId) || {}).scene || {}) : {};
       const sw = (here && space.w) || scn.w || loc.w || 3000, sh = (here && space.h) || scn.h || loc.h || 2000;
-      const s0 = Math.min((rect.w - 8) / sw, (rect.h - 8) / sh);
-      const ox = rect.x + (rect.w - sw * s0) / 2, oy = rect.y + (rect.h - sh * s0) / 2;
+      const s0B = Math.min((rect.w - 8) / sw, (rect.h - 8) / sh);
+      const oxB = rect.x + (rect.w - sw * s0B) / 2, oyB = rect.y + (rect.h - sh * s0B) / 2;
+      // TB1: Zoom/Pan (kartenansicht.js, nur Client-Ansicht)
+      const ab = KA ? KA.anwenden(zkey = 'plan-' + mapId, rect, { x: oxB, y: oyB, w: sw * s0B, h: sh * s0B }) : null;
+      const s0 = ab ? s0B * ab.z : s0B;
+      const ox = ab ? ab.x(oxB) : oxB, oy = ab ? ab.y(oyB) : oyB;
       toS = (x, y) => ({ x: Math.round(ox + x * s0), y: Math.round(oy + y * s0) });
       toW = (sx, sy) => ({ x: Math.round((sx - ox) / s0), y: Math.round((sy - oy) / s0) });
       ctx.fillStyle = (loc.fog || loc.kind === 'nebula') ? '#141028' : '#0A111C'; ctx.fillRect(Math.round(ox), Math.round(oy), Math.round(sw * s0), Math.round(sh * s0));
@@ -4254,6 +4266,7 @@
       const s = toS(pin.x, pin.y);
       drawPin(ctx, pin, s.x, s.y, st, { highlight: opts.highlightPin === pin.id });
     }
+    if (zkey) KA.knopf(ctx, { button }, zkey, rect);   // TB1: Ansicht zurücksetzen (nur wenn gezoomt/verschoben)
     ctx.restore();
     ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     return { toS, toW };

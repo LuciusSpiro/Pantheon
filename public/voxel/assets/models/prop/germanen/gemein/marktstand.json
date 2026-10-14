@@ -1,0 +1,53 @@
+{
+  "id": "prop/germanen/gemein/marktstand",
+  "name": "Marktstand (Germanen): Verkaufstisch mit Tuchfront, halbem Sonnensegel und Ware",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deko","markt","stand"],
+  "footprint": [2,1],
+  "params": {
+    "ware": {"default":0,"min":0,"max":2,"step":1,"label":"Ware (0 Obst, 1 Käse und Brot, 2 Werkzeug)"}
+  },
+  "variants": {
+    "kaese": {"ware":1},
+    "werkzeug": {"ware":2}
+  },
+  "sockets": {},
+  "ops": [
+    {"op":"box","name":"Korpus","at":[-15,0,-1],"size":[30,10,8],"color":"wood_dark"},
+    {"op":"box","name":"Tuchfront","at":[-15,1,7],"size":[30,8,1],"color":{"stripes":["cloth","secondary"],"axis":"x","period":3}},
+    {"op":"box","name":"Tuchsaum","at":[-15,1,7],"size":[30,1,1],"color":"trim","mode":"paint"},
+    {"op":"box","name":"Platte","at":[-16,10,-2],"size":[32,1,10],"color":{"stripes":["wood",{"shade":"wood","f":0.9}],"axis":"z","period":4}},
+    {"op":"box","name":"Pfosten hinten","at":[-16,0,-8],"size":[2,26,2],"color":"wood_dark","mirror":"x","mirrorAt":0},
+    {"op":"box","name":"Dachträger","at":[-16,24,-8],"size":[32,2,2],"color":"wood_dark"},
+    {"op":"box","name":"Segel","at":[-17,25,-9],"size":[34,1,13],"color":{"stripes":["cloth","secondary"],"axis":"x","period":4}},
+    {"op":"box","name":"Segelsaum","at":[-17,25,3],"size":[34,1,1],"color":"trim","mode":"paint"},
+    {"op":"box","name":"Rückwand","at":[-15,10,-8],"size":[30,12,1],"color":{"shade":"cloth","f":0.7}},
+    {"op":"group","name":"Obst","if":"ware == 0","ops":[
+      {"op":"cyl","name":"Schale","at":[-9,11,3],"r":4.5,"r2":5.5,"h":3,"color":"copper"},
+      {"op":"ellipsoid","name":"Äpfel","at":[-9,14,3],"r":[3.6,1.6,3.6],"color":{"noise":["alarm","ember","trim"],"weights":[4,2,1]}},
+      {"op":"cyl","name":"Schale 2","at":[0,11,3],"r":4.5,"r2":5.5,"h":3,"color":"copper"},
+      {"op":"ellipsoid","name":"Rüben","at":[0,14,3],"r":[3.6,1.6,3.6],"color":{"noise":["leather","frost","cloth2"],"weights":[4,1,2]}},
+      {"op":"box","name":"Kiste","at":[6,11,0],"size":[8,3,6],"color":"wood"},
+      {"op":"box","name":"Kisteninhalt","at":[7,14,1],"size":[6,1,4],"color":{"noise":["ember","trim"],"weights":[2,1]}}
+    ]},
+    {"op":"group","name":"Käse und Brot","if":"ware == 1","ops":[
+      {"op":"cyl","name":"Käse 1","at":[-9,11,2],"r":3.6,"h":3,"color":"trim"},
+      {"op":"cyl","name":"Käse 2","at":[-9,14,2],"r":3,"h":2,"color":{"shade":"trim","f":1.08}},
+      {"op":"wedge","name":"Anschnitt","at":[-5,11,-1],"size":[5,3,5],"slope":"+x","color":"trim"},
+      {"op":"ellipsoid","name":"Brot 1","at":[2,12.5,2],"r":[4.5,2,2.4],"color":{"noise":["leather","copper"],"weights":[3,1]}},
+      {"op":"ellipsoid","name":"Brot 2","at":[9,12.5,3],"r":[4,2,2.2],"color":{"noise":["leather","copper"],"weights":[3,1]}},
+      {"op":"ellipsoid","name":"Brot 3","at":[5,12.5,-1],"r":[4,2,2.2],"color":{"noise":["leather","copper"],"weights":[3,1]}}
+    ]},
+    {"op":"group","name":"Werkzeug","if":"ware == 2","ops":[
+      {"op":"box","name":"Hammerstiel","at":[-12,11,1],"size":[8,1,1],"color":"wood"},
+      {"op":"box","name":"Hammerkopf","at":[-5,11,0],"size":[3,3,3],"color":"metal"},
+      {"op":"box","name":"Zange","at":[-1,11,3],"size":[9,1,1],"color":"metal_dark"},
+      {"op":"box","name":"Zange 2","at":[-1,11,4],"size":[9,1,1],"color":"metal_dark"},
+      {"op":"cyl","name":"Nagelkübel","at":[10,11,2],"r":3,"h":4,"color":"wood_dark"},
+      {"op":"cyl","name":"Nägel","at":[10,15,2],"r":2.4,"h":1,"color":"metal_light"},
+      {"op":"box","name":"Säge","at":[2,11,-1],"size":[9,1,2],"color":"metal_light"}
+    ]}
+  ],
+  "anchor": [0,0,0]
+}

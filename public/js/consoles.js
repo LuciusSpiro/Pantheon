@@ -797,7 +797,7 @@
       const leerSel = isLeerId(this.starSel);
       if (!this.starSel || (!leerSel && !locs.some(l => l.id === this.starSel))) { this.starSel = (ship.jump && ship.jump.dest) || w.location; this.starHex = null; }
       const mapRect = { x: a.x, y: a.y, w: 410, h: a.h - 2 };
-      this.maps.star = R.drawStarMap(ctx, view, mapRect, { selected: this.starSel, mouse: view.mouse, rects: this.starRects });
+      this.maps.star = R.drawStarMap(ctx, view, mapRect, { selected: this.starSel, mouse: view.mouse, rects: this.starRects, ansichtKey: 'captain-stern' });
       const rx = a.x + 420, rw = a.w - 420;
       let y = a.y + 2;
       if (isLeerId(this.starSel)) return this.capStarLeer(ctx, view, rx, y, rw);
@@ -871,7 +871,7 @@
           R.text(ctx, 'Sprungpunkt (Boje) im Sektor.', rx, y, { color: PAL.panelLight }); y += 10;
         } else { R.text(ctx, 'blau temporär.', rx, y, { color: PAL.panelLight }); y += 10; }
         R.text(ctx, 'M: ' + (window.StarMap.ansicht === 'gesamt' ? 'Ausschnitt zeigen' : 'ganze Karte'), rx, y, { color: PAL.amber });
-        return 'Klick Sektor · ←→ Ort · Enter Sprungziel · M Ansicht · 1–6 Reiter';
+        return 'Klick Sektor · Rad Zoom · Ziehen · 0 zurück · Enter Sprungziel · M Ansicht · 1–6 Reiter';
       }
       R.text(ctx, 'Legende: Linie = Route,', rx, y, { color: PAL.panelLight }); y += 10;
       R.text(ctx, 'gestrichelt = unerforscht, ? = Signal', rx, y, { color: PAL.panelLight });
@@ -2075,7 +2075,7 @@
       if (r) {
         const desc = {
           seitenturm: 'Schneller Turm an Steuerbord (Feuerbogen 120°).', schildpool: 'Zwei zusätzliche Schildpunkte zum Verteilen.',
-          schrauber3: 'Ein dritter Reparatur-Bot.', werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
+          bot2: 'Ein zweiter Reparatur-Bot (der erste ist immer an Bord).', werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
           bolzenwerfer: 'Bolzenwerfer am Heck (Taste 3), zielsuchend, Magazin 2.', bolzen_werfer: 'Bolzenwerfer am Heck (Taste 3), zielsuchend, Magazin 2.',
           ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt einen Hüllenbruch.',
           bolzen: 'Munition für den Bolzenwerfer.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
@@ -2205,7 +2205,7 @@
       if (P.mapId !== 'star') R.text(ctx, '> ' + (P.mapId === 'platform' ? 'Plattform B-7 (Decksplan)' : P.mapId === 'wreck' ? 'Wrack (Decksplan)' : P.mapId === 'kesh' ? 'Mond Kesh (Archivplan)' : R.locName(st, P.mapId)), 106, 28, { color: PAL.amber });
       if (P.mapId === 'star') {
         if (!P.selected) P.selected = R.worldOf(st).location;
-        this.maps.plan = R.drawStarMap(ctx, view, rect, { selected: P.selected, mouse: view.mouse, rects: this.planRects });
+        this.maps.plan = R.drawStarMap(ctx, view, rect, { selected: P.selected, mouse: view.mouse, rects: this.planRects, ansichtKey: 'plan-stern' });
       } else {
         this.planRects.length = 0;
         this.maps.plan = R.drawLocalMap(ctx, view, rect, P.mapId, {});
@@ -2267,7 +2267,7 @@
         if (own) R.button(ctx, rx + rw - 16, y - 2, 16, 12, 'x', { onClick: () => this.cmd(view, 'plan.unpin', { id: pin.id }) });
         y += 13;
       }
-      return (P.mapId === 'star' ? 'Klick Ort wählen · Enter Detail · D Decksplan · ' : 'Backspace Sternkarte · ') + '1–5 Pin-Art · Klick Pin';
+      return (P.mapId === 'star' ? 'Klick Ort wählen · Enter Detail · D Decksplan · ' : 'Backspace Sternkarte · ') + '1–5 Pin-Art · Rad Zoom · Ziehen · 0 zurück';
     },
     // ---- S1 (Kann): Chronik der Kampagne – Einträge als Text oder { text, spielzeit_s?, t?, mission?, ort? }
     chronikEntries(st) {
@@ -2527,6 +2527,13 @@
       const code = e.code;
       this.keys[code] = true;
       if (code === 'Escape') { view.actions.leave(); return true; }
+      // TB1: Kartenansicht (Sternkarte, Detailkarten, Sektorplan): 0/Pos1 zurücksetzen, +/− zoomen – nur wenn gerade eine Karte sichtbar ist
+      const KA = window.KartenAnsicht;
+      if (KA && (c === 'plan' || c === 'captain')) {
+        if ((code === 'Digit0' || code === 'Numpad0' || code === 'Home') && KA.zuruecksetzenAktiv()) { view.actions.sfx('ui_click'); return true; }
+        if ((code === 'Equal' || code === 'NumpadAdd') && KA.zoomTaste(1)) return true;
+        if ((code === 'Minus' || code === 'NumpadSubtract') && KA.zoomTaste(-1)) return true;
+      }
       if (e.repeat && code !== 'ArrowUp' && code !== 'ArrowDown' && code !== 'ArrowLeft' && code !== 'ArrowRight') return true;
       // R1 §4.4: Tab/Shift+Tab schaltet das Interface auf die nächste freie Station (der Spieler bleibt stehen)
       if (code === 'Tab' && STATION_KREIS.includes(view.me.console)) { view.send({ t: 'cmd', c: PROTO.CMD_STATION_TAB || 'station.tab', dir: e.shiftKey ? -1 : 1 }); return true; }

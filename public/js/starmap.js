@@ -262,11 +262,17 @@
     }
     const seite = seiteW > 0;
     const availW = rect.w - 8 - seiteW;
-    let s = Math.max(6, Math.min(availW / bbW, (rect.h - 8) / bbH));
+    const s0 = Math.max(6, Math.min(availW / bbW, (rect.h - 8) / bbH));
+    const gArea = { x: rect.x + 2, y: rect.y + 2, w: availW + 4, h: rect.h - 4 };
+    const ox0 = rect.x + 4 + (availW - bbW * s0) / 2 - bx0 * s0, oy0 = rect.y + (rect.h - bbH * s0) / 2 - by0 * s0;
+    // TB1: Zoom/Pan (kartenansicht.js, reine Client-Ansicht; nicht im HUD-Ausschnitt). Schlüssel je Konsole und Ansicht.
+    const KA = window.KartenAnsicht;
+    const ansichtKey = !opts.kompakt && KA ? (opts.ansichtKey || 'stern') + ':' + ansicht : null;
+    const ab = ansichtKey ? KA.anwenden(ansichtKey, gArea, { x: ox0 + bx0 * s0, y: oy0 + by0 * s0, w: bbW * s0, h: bbH * s0 }) : null;
+    const s = ab ? s0 * ab.z : s0;
+    const ox = ab ? ab.x(ox0) : ox0, oy = ab ? ab.y(oy0) : oy0;
     const kompakt = !!opts.kompakt || s < 14;
     const dicht = !kompakt && s < 24;
-    const gArea = { x: rect.x + 2, y: rect.y + 2, w: availW + 4, h: rect.h - 4 };
-    const ox = rect.x + 4 + (availW - bbW * s) / 2 - bx0 * s, oy = rect.y + (rect.h - bbH * s) / 2 - by0 * s;
     const gx = ox, gy = oy, gw = breiteF * s, gh = hoeheF * s;   // ganze Karte Limes (für Pins)
     const h3 = SQ3 * s;
     const mitte = (hex) => { const { c, r } = cr(hex); return { x: ox + s * ux(c), y: oy + s * uy(c, r) }; };
@@ -512,10 +518,11 @@
       ctx.strokeStyle = COL.messing; ctx.strokeRect(bx + 0.5, by + 0.5, sw - 1, bh - 1);
       ls.forEach((z, i) => txt(ctx, z.l, bx + 4, by + 3 + i * 10, { color: z.c }));
     }
+    if (ab) KA.knopf(ctx, R(), ansichtKey, gArea);   // TB1: Ansicht zurücksetzen (nur wenn gezoomt/verschoben)
     ctx.restore();
     ctx.strokeStyle = COL.messing; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     if (opts.rects) opts.rects.length = 0;   // Treffer laufen über StarMap.hit
-    return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht } };
+    return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht, area: gArea } };
   }
 
   // Textzeilen zum Fokus-Hex
@@ -682,6 +689,8 @@
     let lay = null;
     for (const l of store.layouts) if ((!rects || l.rects === rects) && x >= l.rect.x && y >= l.rect.y && x < l.rect.x + l.rect.w && y < l.rect.y + l.rect.h) { lay = l; break; }
     if (!lay || !lay.hex) return null;
+    // TB1: nur Klicks im Kartenbereich (gezoomt ragen Hexe unter die Seitenleiste; dort gilt kein Treffer)
+    if (lay.area && (x < lay.area.x || y < lay.area.y || x >= lay.area.x + lay.area.w || y >= lay.area.y + lay.area.h)) return null;
     let best = null, bd = lay.s * 0.92;
     for (const h of lay.alle) { const p = lay.mitte(h); const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = h; } }
     if (!best) return null;
@@ -757,7 +766,7 @@
     const key = rects || null;
     let l = store.layouts.find(q => q.rects === key);
     if (!l) { l = { rects: key }; store.layouts.push(l); if (store.layouts.length > 6) store.layouts.shift(); }
-    Object.assign(l, { rect, hex: true, s: layout.s, alle: layout.alle, mitte: layout.mitte, state });
+    Object.assign(l, { rect, hex: true, s: layout.s, alle: layout.alle, mitte: layout.mitte, state, area: layout.area });
   }
   function markAlt(rects) {
     const l = store.layouts.find(q => q.rects === (rects || null));

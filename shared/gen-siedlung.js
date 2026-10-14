@@ -500,7 +500,9 @@
         return { id, p: [best.x0 + best.gp[0], best.y0 + best.gp[1]] };
       };
       const kerker = [];
-      for (const q of (kom ? [kom] : []).concat(R2.shuffle(funk.filter((z) => z !== kom)))) { for (let n = 0; n < 2 && kerker.length < 2; n++) { const p = zelleIn(q.id); if (p) { kerker.push(p); ank(q.id, 'zelle', p); } else break; } }
+      // TA: mit Ausstattung ist die Kantine eine Taverne und bekommt nie Zellen (Kai 2026-10-14: „sieht aus wie ein Gefängnis“)
+      const aus = !!opts.ausstattung && !methalle && !eisenwald;
+      for (const q of (kom ? [kom] : []).concat(R2.shuffle(funk.filter((z) => z !== kom && !(aus && z.b.typ === 'C'))))) { for (let n = 0; n < 2 && kerker.length < 2; n++) { const p = zelleIn(q.id); if (p) { kerker.push(p); ank(q.id, 'zelle', p); } else break; } }
       while (kerker.length < 2) { const k = kaefigFrei(); if (!k) break; kerker.push(k.p); ank(k.id, 'zelle', k.p); }
       // Wachturm (Rolle aussicht): 5×5-Plateau (Brüstung k, Fläche ^, Rampe /) am Rand einer Straße oder des Platzes, Rampe zur Straße
       const TURM = ['kkkkk', 'k^^^k', 'k^^^k', 'k^^^k', 'kk/kk'];
@@ -529,6 +531,133 @@
         bereiche.kulisse = bereiche.kulisse || { name: 'Kulissenhäuser', rects: [] };
         bereiche.kulisse.rects.push(plaetze.wachturm.rect);
         ank('wachturm', 'aussicht', [turm.x0 + 2, turm.y0 + 2]);
+      }
+      // ---- TA (Kai 2026-10-14): Siedlungsausstattung (opts.ausstattung) und Bodenton (opts.boden) -------------------------------------
+      // Taverne: Tresen, Tische, Hocker, Fässer und Feuerstelle in der Kantine. Marktstände am Platz, Laternen an den Türen, Bänke und Fässer vor
+      // Kulissenhäusern. Möbel sind Deckungskacheln ('o'; Feuerstelle 'O'): sie blockieren, dürfen aber nie ein Gebäude zerschneiden (objekteOk/
+      // innenZusammen) und draußen nie einen Durchgang schließen (lokalOK). Sie stehen zusätzlich als meta.moebel = [[x, y, w, h, schlüssel, drehung]]
+      // (Schlüssel → Bauweise.moebel, Drehung 0 S, 1 O, 2 N, 3 W = Blickrichtung der Vorderseite) für den Renderer.
+      // Personen der Kulisse und der Kapitel stehen an Möbel-nahen Ankern mit festen IDs (<platz>.wirt|evert|gast1|gast2, platz.marktfrau|haendler).
+      const moebel = [];
+      const BODEN_TOENE = ['sand', 'gras', 'wald'];
+      const boden = opts.boden === 'auto' ? BODEN_TOENE[(Math.imul((seed >>> 0) ^ 0x9E3779B9, 2654435761) >>> 0) % BODEN_TOENE.length] : (BODEN_TOENE.includes(opts.boden) ? opts.boden : null);
+      if (aus) {
+        const DIRS4 = [[0, 1], [1, 0], [0, -1], [-1, 0]];   // = Drehung 0 S, 1 O, 2 N, 3 W
+        const geh = (c) => c === '.' || c === ',' || c === 'P' || c === 'D' || c === 'G';
+        const ringOffs = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
+        // Steht ein Objekt auf (x, y): bleibt die Umgebung zusammenhängend begehbar? (ein einziger zusammenhängender Kranz begehbarer Nachbarkacheln)
+        const lokalOK = (x, y) => {
+          const w = ringOffs.map(([dx, dy]) => geh(at(x + dx, y + dy)));
+          let laeufe = 0; for (let i = 0; i < 8; i++) if (w[i] && !w[(i + 7) % 8]) laeufe++;
+          return laeufe <= 1;
+        };
+        const nahDeckung = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = at(x + dx, y + dy); if (c === 'o' || c === 'O') return true; } return false; };
+        // Innenraum: Möbelstück auf eine freie Bodenkachel stellen (zeichen o/O, Schlüssel für den Renderer)
+        const nahTuer1 = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx, y + dy) === 'D') return true; return false; };   // Möbel lassen nur den Eingang selbst frei (nahTuer: 2 Kacheln)
+        const stelleInnen = (r, x, y, ch, key, rot) => {
+          if (at(x, y) !== ',' || belegt.has(x + ',' + y) || nahTuer1(x, y)) return false;
+          const k = x + ',' + y;
+          objekte.add(k);
+          if (!objekteOk(r) || !innenZusammen(r)) { objekte.delete(k); return false; }
+          belegt.add(k); setT(x, y, ch); moebel.push([x, y, 1, 1, key, rot]);
+          return true;
+        };
+        // Außen: Rechteck w×h freistellen (alle Kacheln frei, unbelegt, nicht an Deckung, Umgebung bleibt zusammenhängend)
+        const stelleAussen = (x, y, w, h, key, rot, erlaubt) => {
+          const ok = erlaubt || ((c) => c === '.' || c === ',' || c === 'P');
+          const kach = []; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) kach.push([x + i, y + j]);
+          if (!kach.every(([px, py]) => ok(at(px, py)) && !belegt.has(px + ',' + py) && !nahDeckung(px, py))) return false;
+          const alt = kach.map(([px, py]) => at(px, py));
+          for (const [px, py] of kach) setT(px, py, 'o');
+          if (!kach.every(([px, py]) => lokalOK(px, py))) { kach.forEach(([px, py], i) => setT(px, py, alt[i])); return false; }
+          for (const [px, py] of kach) belegt.add(px + ',' + py);
+          moebel.push([x, y, w, h, key, rot]);
+          return true;
+        };
+        // 1) Taverne in der Kantine. Lokales Raster: u quer (0 … W-1), v von der Rückwand (0) bis zur Türwand (D-1); die Tür liegt in Richtung dir.
+        for (const q of funk.filter((z) => z.b.typ === 'C')) {
+          const r = plaetze[q.id].rect, [rx, ry, rw, rh] = r;
+          const ix0 = rx + 1, iy0 = ry + 1, ix1 = rx + rw - 2, iy1 = ry + rh - 2;
+          const dirI = { n: 0, s: 2, w: 1, e: 3 }[q.b.side];   // Gebäude liegt nördlich der Straße (side n) → Tür an der Südwand = Richtung S
+          const horiz = dirI === 0 || dirI === 2;
+          const W = horiz ? ix1 - ix0 + 1 : iy1 - iy0 + 1, Dp = horiz ? iy1 - iy0 + 1 : ix1 - ix0 + 1;
+          if (W < 4 || Dp < 4) continue;
+          const T = (u, v) => (dirI === 0 ? [ix0 + u, iy0 + v] : dirI === 2 ? [ix1 - u, iy1 - v] : dirI === 1 ? [ix0 + v, iy0 + u] : [ix1 - v, iy1 - u]);
+          const [ddx, ddy] = DIRS4[dirI];
+          const tuerU = []; for (let u = 0; u < W; u++) { const [tx, ty] = T(u, Dp - 1); if (at(tx + ddx, ty + ddy) === 'D') tuerU.push(u); }
+          const amEingang = (u, v) => v >= Dp - 2 && tuerU.some((e) => Math.abs(e - u) <= 1);
+          const P = (u, v, ch, key) => { if (u < 0 || v < 0 || u >= W || v >= Dp) return false; const [tx, ty] = T(u, v); return stelleInnen(r, tx, ty, ch, key, dirI); };
+          // Rückwand: Fass links, Feuerstelle rechts
+          P(0, 0, 'o', 'fass'); if (W >= 8) P(1, 0, 'o', 'fass');
+          P(W - 1, 0, 'O', 'feuerschale');
+          // Tresen davor (Reihe 1), links und rechts bleibt ein Durchgang zur Rückwand
+          const n = Math.max(2, Math.min(5, W - 5)), tr = [];
+          for (let i = 0; i < n; i++) { const u = 2 + i; if (P(u, 1, 'o', i === 1 ? 'tresen_krug' : i === 2 ? 'tresen_flasche' : 'tresen')) tr.push(u); }
+          // Tische mit Hockern daneben (Reihe vt), Gänge zur Tür bleiben frei
+          const vt = Dp >= 6 ? 3 : Dp - 3;   // flache Räume: Tischreihe eine Reihe vor dem Tresen, damit die Reihe vor der Tür frei bleibt
+          const tische = [], wunsch = W >= 8 ? 2 : 1;
+          // bevorzugte Spalten zuerst; flache Räume (Tischreihe unmittelbar vor der Tür) meiden die Türspalten
+          for (const u of (W >= 8 ? [2, W - 3, 1, W - 2] : W >= 6 ? [W - 3, 2, 1, W - 2] : [W - 2, 1, 2])) {
+            if (tische.length >= wunsch) break;
+            if (tische.some((t) => Math.abs(t - u) < 3) || amEingang(u, vt)) continue;
+            if (P(u, vt, 'o', tische.length === 0 ? 'tisch' : 'tisch_gedeckt')) { tische.push(u); if (!amEingang(u - 1, vt)) P(u - 1, vt, 'o', 'hocker'); if (!amEingang(u + 1, vt)) P(u + 1, vt, 'o', 'hocker'); }
+          }
+          // Personen: Wirt hinter dem Tresen, Evert und Gäste an den Tischen (freie Kachel neben dem Tisch Richtung Tür, sonst Richtung Tresen)
+          const freiTile = (u, v) => { if (u < 0 || v < 0 || u >= W || v >= Dp) return null; const [tx, ty] = T(u, v); return at(tx, ty) === ',' && !belegt.has(tx + ',' + ty) && !objekte.has(tx + ',' + ty) && !amEingang(u, v) ? [tx, ty] : null; };
+          // Kandidaten zuerst, sonst die nächste freie Kachel (kleine Räume): jeder der vier Anker entsteht, solange noch Platz ist
+          const person = (name, kandidaten) => {
+            const nahe = kandidaten[0];
+            const alle = []; for (let u = 0; u < W; u++) for (let v = 0; v < Dp; v++) alle.push([u, v]);
+            alle.sort((a, b) => (Math.abs(a[0] - nahe[0]) + Math.abs(a[1] - nahe[1])) - (Math.abs(b[0] - nahe[0]) + Math.abs(b[1] - nahe[1])));
+            for (const [u, v] of kandidaten.concat(alle)) { const p = freiTile(u, v); if (p) { belegt.add(p.join(',')); ank(q.id, 'nsc', p, { id: q.id + '.' + name }); return true; } }
+            return false;
+          };
+          const mw = tr.length ? tr[Math.floor(tr.length / 2)] : 3;
+          person('wirt', [[mw, 0], [mw + 1, 0], [mw - 1, 0], [1, 0]]);
+          const t1 = tische.length ? tische[0] : Math.floor(W / 2), t2 = tische.length > 1 ? tische[1] : t1;
+          person('evert', [[t1, vt + 1], [t1, vt - 1], [t1 + 1, vt + 1], [t1 - 1, vt + 1], [t1 + 2, vt], [t1 - 2, vt]]);
+          person('gast1', [[t2, vt - 1], [t2, vt + 1], [t2 + 1, vt - 1], [t2 - 1, vt - 1], [t2 + 2, vt], [t2 - 2, vt]]);
+          person('gast2', [[W - 2, vt + 1], [W - 2, vt - 1], [W - 3, vt + 1], [t1 - 1, vt - 1], [1, vt + 1], [1, vt]]);
+        }
+        // 2) Laternen an den Türen der Funktionsgebäude (Kantine und Kommando beidseitig, sonst links der Tür)
+        for (const { b } of geb) {
+          if (b.typ === 'k' || !b.tueren) continue;
+          const out = DIRS4[{ n: 0, s: 2, w: 1, e: 3 }[b.side]];
+          const along = out[0] === 0 ? [1, 0] : [0, 1];
+          const t0 = b.tueren[0], t1 = b.tueren[1];
+          stelleAussen(t0[0] + ox + out[0] - along[0], t0[1] + oy + out[1] - along[1], 1, 1, 'laterne', 0);
+          if (b.typ === 'C' || b.typ === 'K') stelleAussen(t1[0] + ox + out[0] + along[0], t1[1] + oy + out[1] + along[1], 1, 1, 'laterne', 0);
+        }
+        // 3) Marktstände am Platz (Vorderseite nach Süden, Händler dahinter) und Laternen an den Platzecken
+        {
+          const pr = plaetze.platz.rect, [px, py, pw] = pr;
+          const stands = [['marktstand', 'marktfrau', px + 3], ['marktstand_kaese', 'haendler', px + pw - 5]];
+          for (const [key, wer, sx] of stands) {
+            let ok = false;
+            for (const dy of [4, 5, 3, 6]) { for (const dx of [0, 1, -1, 2]) {
+              const x = sx + dx, y = py + dy;
+              if (!stelleAussen(x, y, 2, 1, key, 0)) continue;
+              const v = [[x, y - 1], [x + 1, y - 1]].find(([vx, vy]) => (at(vx, vy) === 'P' || at(vx, vy) === ',') && !belegt.has(vx + ',' + vy));
+              if (v) { belegt.add(v.join(',')); ank('platz', 'nsc', v, { id: 'platz.' + wer }); }
+              ok = true; break;
+            } if (ok) break; }
+          }
+          for (const [lx, ly] of [[px + 1, py + 1], [px + pw - 2, py + 1], [px + 1, py + pr[3] - 2], [px + pw - 2, py + pr[3] - 2]]) stelleAussen(lx, ly, 1, 1, 'laterne', 0);
+        }
+        // 4) Bänke und Fässer vor Kulissenhäusern (höchstens 4, nach Zufall)
+        {
+          let n = 0;
+          for (const { b } of R2.shuffle(geb.filter((z) => z.b.typ === 'k' && !z.b.hinterhaus && z.b.tueren))) {
+            if (n >= 4) break;
+            const dI = { n: 0, s: 2, w: 1, e: 3 }[b.side], out = DIRS4[dI];
+            const hz = out[0] === 0, along = hz ? [1, 0] : [0, 1];
+            const t0 = b.tueren[0], t1 = b.tueren[1];
+            const bx = t1[0] + ox + out[0] + along[0], by = t1[1] + oy + out[1] + along[1];
+            const okB = stelleAussen(hz ? bx : bx, hz ? by : by, hz ? 2 : 1, hz ? 1 : 2, 'bank', hz ? 0 : 1);
+            const okF = stelleAussen(t0[0] + ox + out[0] - along[0], t0[1] + oy + out[1] - along[1], 1, 1, 'fass', 0);
+            if (okB || okF) n++;
+          }
+        }
       }
       // Gebäudefunktionen: Ziel und Terminal im Kommando, Beute (4) im Lager/Kantine/…, Sprengpunkte (2) in Depots (Lager, Werkstatt)
       if (kom) ank(kom.id, 'ziel', mitte(plaetze[kom.id].rect));
@@ -680,11 +809,11 @@
       const titel = {}; for (const { b, id } of geb) if (b.typ !== 'k') titel[id] = GEB_TITEL[b.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-siedlung/1', art: 'aussenposten', bauweise, besitz: opts.besitz || null,
-        zustand: opts.zustand || 'intakt', seed, bauversion: 'gen5', schablone: 'gen-siedlung', spiegel: null, w, h, rows: rows.map((r) => r.replace(/P/g, '.')), legende: null, anker,
+        zustand: opts.zustand || 'intakt', seed, bauversion: aus ? 'gen5a' : 'gen5', schablone: 'gen-siedlung', spiegel: null, w, h, rows: rows.map((r) => r.replace(/P/g, '.')), legende: null, anker,
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel, ...(methalle ? { variante: 'methalle', schleichweg: true } : eisenwald ? { variante: 'eisenwald' } : {}) },
+        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, haeuserZiel: N, haeuser: B.gebaeude.length, typ, titel, ...(methalle ? { variante: 'methalle', schleichweg: true } : eisenwald ? { variante: 'eisenwald' } : {}), ...(aus ? { moebel } : {}), ...(boden ? { boden } : {}) },
       };
     }
     return { bauen, kennzahlen, karteRoh, cheb };

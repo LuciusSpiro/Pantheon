@@ -6,6 +6,7 @@
   "zeilen": 7,
   "quelle": "Konvertiert aus Vault Coop-Spiel/Welt/karte_sund.py (Entwurf 2026-10-11, 27 Systeme, 38 Kanten). Ab jetzt ist diese Datei die Quelle (SL1). Spielbar ist nur der Ausschnitt der Kampagne Die Schuld der Lerche (Kantenstein, Concordia, Pulverhorn, Gasfeld, Schrottkante); alle übrigen Systeme sind bis zum freien Spiel gesperrt. Brachland (0505) und Saatfeld (0705) sind in der Kampagne bewusst Leerraum (T7): 0505 ist unverfängliches Notfallsprung-Ziel aus Pulverhorn, 0705 trägt den Notruf sl_echt (temporärer Sprungpunkt von Pulverhorn); das Bojenfeld 0706 ist nie Notfallziel (notsprung:false) und bis Kap. 10 verborgen. Altrost ist in der Kampagne nur ein Textkontakt in Concordia. Verborgene Kanten tragen einen Weltstand-Schlüssel und werden mit kante_enthuellen befahrbar.",
   "start": { "ort": "kantenstein", "bekannt": ["kantenstein", "concordia", "pulverhorn", "gasfeld"], "boden": true },
+  "siedlung": { "boden": "auto", "ausstattung": true, "hinweis": "TA (Kai 2026-10-14): Siedlungen dieser Welt: Bodenton sand | gras | wald nach Seed des Landepunkts (gen.boden setzt ihn fest), zivile Siedlungen mit Taverne, Marktständen und Laternen (shared/gen-siedlung.js, opts.ausstattung). Fehlt der Eintrag (Limes), bleibt alles wie bisher." },
   "hexe": {
     "0204": {"name":"Palatina","fraktion":"rom","art":"Hauptwelt, Schrein","hafen":"A","symbole":["pantheon"],"region":"imperium","spielbar":false},
     "0203": {"name":"Campania","fraktion":"rom","art":"Kolonie","hafen":"C","region":"imperium","spielbar":false},

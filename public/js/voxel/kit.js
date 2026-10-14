@@ -190,6 +190,10 @@ export function normKarte(src, D) {
     id: m.id || 'karte', art: m.art || 'aussenposten', bauweise: m.bauweise || null, besitz: m.besitz || null, zustand: m.zustand || 'intakt',
     seed, kv: m.kv || m.bauversion || null, w, h, rows, at, info, kindAt, anker, kanten, plaetze, decks, stride, deckN,
     zustaende: m.zustaende || {},
+    // TA: Siedlungsausstattung. moebel = [[x, y, w, h, schlüssel, drehung]] (Schlüssel → Bauweise.moebel, Drehung 0 S, 1 O, 2 N, 3 W = Blickrichtung der Vorderseite),
+    // boden = Bodenton der Siedlung ('sand' | 'gras' | 'wald', Bauweise.boden_varianten); beides nur, wenn der Generator es setzt
+    moebel: Array.isArray(m.moebel) ? m.moebel : (m.meta && Array.isArray(m.meta.moebel) ? m.meta.moebel : []),
+    boden: m.boden || (m.meta && m.meta.boden) || null,
     huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks,   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
     deckOf: (ty) => (decks ? Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) : 0),
     localY: (ty) => (decks ? ty - Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) * stride : ty),
@@ -333,6 +337,8 @@ const FARB_FB = {
   wood_dark: '#4F3A28', soil: '#5F4C3A', soil_dark: '#43362A', metal: '#7A8088', metal_dark: '#52575E', metal_light: '#B4BAC0',
   trim: '#E4DCC8', warning: '#C08A2E', glow: '#8FD8FF', glow2: '#FFAE52', dark: '#1C1F23', cloth: '#4A6A86', primary: '#8E959D',
   glass: '#9FC4D8',
+  // Bodentöne der Siedlungen (TA, Bauweise.boden_varianten): Wiese wie grass in base, Wald dunkler und kühler (eigene Namen, damit sand/rock anderer Karten unberührt bleiben)
+  sandton: '#A8987A', sandton_hell: '#BEAE8E', wiese: '#6E9A3E', wiese_hell: '#8DB352', wald: '#3F6B34', wald_hell: '#5A8446',
   // Leuchtrollen aus base (ART-PALETTEN B1): rune (Runenlicht), ember (Glut), alarm (Rot-Alarm), frost (Reif), leit (Leitstück/Ziel)
   rune: '#D4DEE6', rune_dim: '#9AA6AE', ember: '#FFCC7A', ember_dark: '#8A4A26', alarm: '#A82A2A', alarm_dark: '#6A2020',
   frost: '#DCE4E8', frost_dark: '#A8B4BC', leit: '#B48CFF',
@@ -678,6 +684,9 @@ async function bauKarte(parent, karteIn, opts) {
   const dachEintrag = k.huelle ? kitId('dach') : null;   // Dach nur in Hüllen-Karten und nur, wenn die Bauweise ein Dach-Teil nennt
   if (dachEintrag && dachEintrag.id && inManifest(dachEintrag.id)) want.add(dachEintrag.id);
   for (const a of k.anker) { const id = propId(a.rolle, a.platz); if (id && inManifest(id)) want.add(id); }
+  // TA: Möbel der Siedlung (Bauweise.moebel: Schlüssel → Prop-ID oder { id, <feste Parameter> })
+  const moebelEintrag = (key) => { const e = BW.moebel && BW.moebel[key]; if (!e) return null; if (typeof e === 'string') return { id: e, params: {} }; const p = {}; for (const kk of Object.keys(e)) if (kk !== 'id' && kk !== 'hinweis') p[kk] = e[kk]; return { id: e.id, params: p }; };
+  for (const mb of k.moebel) { const e = moebelEintrag(mb[4]); if (e && e.id && inManifest(e.id)) want.add(e.id); }
   // Deckung als Props (Bauweise.deckung_props[art][kind] = [Prop-IDs], Kai 2026-10-11): statt der Kit-Teile, Auswahl je Kachel nach Hash
   const deckProps = (BW.deckung_props && BW.deckung_props[k.art]) || null;
   if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) if (inManifest(id)) want.add(id);
@@ -825,7 +834,9 @@ async function bauKarte(parent, karteIn, opts) {
     if (s === 1) h = 1; else if (s === 2) h = Math.min(h, 2);
     return h;
   };
-  const gel = kitId('gelaende') || {};
+  // TA: Bodenton der Siedlung (Karte.boden, vom Generator je Welt/Planet gewählt): Bauweise.boden_varianten[ton] = { gelaende: { top, fill }, weg: { top, f } }
+  const bodenTon = (k.boden && BW.boden_varianten && BW.boden_varianten[k.boden]) || null;
+  const gel = Object.assign({}, kitId('gelaende') || {}, (bodenTon && bodenTon.gelaende) || {});
   const draussen = k.art !== 'station' && k.art !== 'schiff';   // Außenposten, Ruine: Gelände; Station, Schiff: All
   const felsHell = k.art === 'aussenposten' ? 'frost' : 'stone_light';   // Außenposten liegen im Frost (Stimmung outpost_frost)
   const RAND = 6;
@@ -895,7 +906,14 @@ async function bauKarte(parent, karteIn, opts) {
   const WEG_TYPEN = { hof: 1, dorfplatz: 1, landeplatz: 1 };
   const wegSet = new Set();
   if (huelle) for (const pl of k.plaetze || []) if (WEG_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) wegSet.add(x + ',' + y);
-  const wegBoden = Object.assign({ top: 'sand', f: 0.92 }, BW.weg_boden || {});   // Bauweise.weg_boden: { top: Palettenrolle, f: Helligkeit }
+  const wegBoden = Object.assign({ top: 'sand', f: 0.92 }, BW.weg_boden || {}, (bodenTon && bodenTon.weg) || {});   // Bauweise.weg_boden: { top: Palettenrolle, f: Helligkeit }
+  // TA: Möbel: Deckungskacheln, auf denen ein Möbelstück steht, tragen dessen Optik (statt der Deckungs-Props)
+  const moebelDeckt = new Set();
+  for (const mb of k.moebel) {
+    const e = moebelEintrag(mb[4]);
+    if (!e || !e.id || !inManifest(e.id)) continue;   // Asset fehlt: die Kachel behält die übliche Deckungsoptik
+    for (let j = 0; j < (mb[3] | 0); j++) for (let i = 0; i < (mb[2] | 0); i++) moebelDeckt.add((mb[0] + i) + ',' + (mb[1] + j));
+  }
   const bodenFarbe = (tx, ty) => (wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   for (let ty = 0; ty < k.h; ty++) {
@@ -927,6 +945,7 @@ async function bauKarte(parent, karteIn, opts) {
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
         if (leitDeckt.has(tx + ',' + ty)) continue;   // Leitstück steht hier und trägt die Optik
+        if (moebelDeckt.has(tx + ',' + ty)) continue;   // TA: Möbelstück steht hier (wird unten gesetzt)
         const conn = connOf(tx, ty), cut = cutOf(tx, ty);
         if (deckProps && deckProps[kind] && deckProps[kind].length) {
           const ids = deckProps[kind], id = ids[Math.floor(hash2(tx, ty, 17) * ids.length) % ids.length];
@@ -1006,6 +1025,20 @@ async function bauKarte(parent, karteIn, opts) {
       }
     }
   } catch (e) { countErr('kit.deko', e); }
+  // TA: Möbel setzen (statisch, gebacken): Mitte des Rechtecks, Vorderseite nach 'drehung' (0 S, 1 O, 2 N, 3 W)
+  try {
+    stats.moebel = 0;
+    for (const mb of k.moebel) {
+      if (!moebelDeckt.has(mb[0] + ',' + mb[1])) continue;
+      const e = moebelEintrag(mb[4]);
+      const g = assetGeo(e.id, Object.assign({ seed: hash2(mb[0], mb[1], 5) * 4 | 0, zustand: 0, art: k.art }, e.params));
+      if (!g) continue;
+      const mm = tileMatrix(mb[0], mb[1], (mb[5] | 0) * Math.PI / 2, ((mb[2] | 0) - 1) / 2, ((mb[3] | 0) - 1) / 2, BODEN_HOEHE[k.kindAt(mb[0], mb[1])] || 0);
+      tmpN.getNormalMatrix(mm);
+      bucketAt(k.deckOf(mb[1]), mb[0], k.localY(mb[1])).addGeo(g, mm, tmpN);
+      stats.moebel++;
+    }
+  } catch (x) { countErr('kit.moebel', x); }
   // Leitstücke setzen (geplant vor den Kacheln, statisch). Ausrichtung nach der Lage des Moduls (Grundlage N: Vorderseite +z
   // zeigt ins Innere); ohne Lage zur freien Seite.
   stats.leit = [];

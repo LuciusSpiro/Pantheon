@@ -82,6 +82,11 @@
       "count": 9
     },
     {
+      "team": "art-ta",
+      "file": "art-ta.json",
+      "count": 5
+    },
+    {
       "team": "art-waffe",
       "file": "art-waffe.json",
       "count": 9
@@ -10308,6 +10313,38 @@
       "source": "prop/germanen/gemein/feuerschale",
       "team": "art-gkp"
     },
+    "prop/germanen/gemein/hocker": {
+      "id": "prop/germanen/gemein/hocker",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        0.6,
+        0.6
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {},
+      "sockets": {
+        "seat": [
+          0,
+          0.44,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "hocker",
+        "seat",
+        "taverne"
+      ],
+      "source": "prop/germanen/gemein/hocker",
+      "team": "art-ta"
+    },
     "prop/germanen/gemein/kaefig_zelle": {
       "id": "prop/germanen/gemein/kaefig_zelle",
       "kind": "model",
@@ -10445,6 +10482,84 @@
       "source": "prop/germanen/gemein/kiste_stapel",
       "team": "art-gkp"
     },
+    "prop/germanen/gemein/laterne": {
+      "id": "prop/germanen/gemein/laterne",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        0.5,
+        0.5
+      ],
+      "height": 2.13,
+      "facing": "+z",
+      "params": {
+        "an": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "an": 1
+        },
+        "aus": {
+          "an": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "laterne"
+      ],
+      "source": "prop/germanen/gemein/laterne",
+      "team": "art-ta"
+    },
+    "prop/germanen/gemein/marktstand": {
+      "id": "prop/germanen/gemein/marktstand",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {
+        "ware": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "obst": {
+          "ware": 0
+        },
+        "kaese": {
+          "ware": 1
+        },
+        "werkzeug": {
+          "ware": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 8000,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "markt",
+        "stand"
+      ],
+      "source": "prop/germanen/gemein/marktstand",
+      "team": "art-ta"
+    },
     "prop/germanen/gemein/runenstein_terminal": {
       "id": "prop/germanen/gemein/runenstein_terminal",
       "kind": "model",
@@ -10531,6 +10646,88 @@
       ],
       "source": "prop/germanen/gemein/runenstein_terminal",
       "team": "art-gkp"
+    },
+    "prop/germanen/gemein/tisch": {
+      "id": "prop/germanen/gemein/tisch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "kruege": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "standard": {
+          "kruege": 2
+        },
+        "leer": {
+          "kruege": 0
+        },
+        "gedeckt": {
+          "kruege": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "tisch",
+        "taverne"
+      ],
+      "source": "prop/germanen/gemein/tisch",
+      "team": "art-ta"
+    },
+    "prop/germanen/gemein/tresen": {
+      "id": "prop/germanen/gemein/tresen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {
+        "deko": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "leer": {
+          "deko": 0
+        },
+        "krug": {
+          "deko": 1
+        },
+        "flasche": {
+          "deko": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "prop",
+        "deko",
+        "tresen",
+        "taverne"
+      ],
+      "source": "prop/germanen/gemein/tresen",
+      "team": "art-ta"
     },
     "prop/germanen/gemein/truhe": {
       "id": "prop/germanen/gemein/truhe",

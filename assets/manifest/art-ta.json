@@ -1,0 +1,45 @@
+{
+  "team": "art-ta",
+  "notes": "SL TA (Kai 2026-10-14): Siedlungsausstattung Kantenstein (Taverne, Marktplatz, Laternen). Props Germanen, Palette nord, Stufe detail, Pivot Mitte unten, Vorderseite +z. Tresen reiht sich Kante an Kante; Tisch/Hocker/Tresen/Marktstand sind Deckungs-Möbel (Kachel 'o'), Laterne steht an Türen und Platzrand.",
+  "assets": [
+    {
+      "id": "prop/germanen/gemein/tisch", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.0, "facing": "+z",
+      "params": { "kruege": [0, 3] },
+      "states": { "standard": { "kruege": 2 }, "leer": { "kruege": 0 }, "gedeckt": { "kruege": 3 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "tisch", "taverne"]
+    },
+    {
+      "id": "prop/germanen/gemein/hocker", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [0.6, 0.6], "height": 0.44, "facing": "+z",
+      "params": {},
+      "sockets": { "seat": [0, 0.44, 0] },
+      "tint": [], "budgetTris": 1500, "tags": ["germanen", "prop", "deko", "hocker", "seat", "taverne"]
+    },
+    {
+      "id": "prop/germanen/gemein/tresen", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [1, 1], "height": 1.31, "facing": "+z",
+      "params": { "deko": [0, 2] },
+      "states": { "leer": { "deko": 0 }, "krug": { "deko": 1 }, "flasche": { "deko": 2 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "tresen", "taverne"]
+    },
+    {
+      "id": "prop/germanen/gemein/marktstand", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [2, 1], "height": 1.63, "facing": "+z",
+      "params": { "ware": [0, 2] },
+      "states": { "obst": { "ware": 0 }, "kaese": { "ware": 1 }, "werkzeug": { "ware": 2 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 8000, "tags": ["germanen", "prop", "deko", "markt", "stand"]
+    },
+    {
+      "id": "prop/germanen/gemein/laterne", "kind": "model", "tier": "detail", "palette": "nord",
+      "footprint": [0.5, 0.5], "height": 2.13, "facing": "+z",
+      "params": { "an": [0, 1] },
+      "states": { "an": { "an": 1 }, "aus": { "an": 0 } },
+      "sockets": {},
+      "tint": [], "budgetTris": 2500, "tags": ["germanen", "prop", "deko", "laterne"]
+    }
+  ]
+}

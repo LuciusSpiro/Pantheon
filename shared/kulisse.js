@@ -30,12 +30,20 @@
   }
   const mitte = (x, y) => ({ x: x * TILE + TILE / 2, y: y * TILE + TILE / 2 });
 
+  // Kachel eines Ankers (TA): Liste der awayMap-Nachricht [[id, rolle, x, y, attr]] oder Karten-Anker [{ id, x, y }]
+  function ankerKachel(anker, id) {
+    if (!Array.isArray(anker) || !id) return null;
+    const a = anker.find((q) => q && (Array.isArray(q) ? q[0] === id : q.id === id));
+    return a ? (Array.isArray(a) ? [a[2], a[3]] : [a.x, a.y]) : null;
+  }
   // Wegpunkte einer Figur in Kacheln; geschlossen = Rundlauf (sonst Hin und Zurück)
-  function figurPunkte(f, plaetze) {
+  function figurPunkte(f, plaetze, anker) {
     const r = rectVon(plaetze, f.platz);
     if (!r) return null;
     const [x, y, w, h] = r;
     const art = f.art || 'achse';
+    // TA: 'steht' mit anker steht auf der Kachel dieses Ankers (Möbel-nah, Gäste und Händler); fehlt der Anker, gelten fx/fy
+    if (art === 'steht' && f.anker) { const k = ankerKachel(anker, f.anker); if (k) return { punkte: [k], geschlossen: false }; }
     if (art === 'steht') return { punkte: [[x + Math.min(w - 1, Math.max(0, Math.round((w - 1) * (f.fx != null ? f.fx : 0.5)))), y + Math.min(h - 1, Math.max(0, Math.round((h - 1) * (f.fy != null ? f.fy : 0.5))))]], geschlossen: false };
     if (art === 'rund') {
       const inset = f.rand != null ? f.rand : 1;   // Abstand zum Platzrand in Kacheln
@@ -104,7 +112,7 @@
     if (!ku || !Array.isArray(ku.figuren) || !karte) return out;
     const seed = karte.seed != null ? karte.seed : 0;
     for (const f of ku.figuren) {
-      const weg = figurPunkte(f, karte.plaetze);
+      const weg = figurPunkte(f, karte.plaetze, karte.anker);
       if (!weg) continue;
       const o = ort(f, weg, seed, zeit || 0);
       const b = blase(f, seed, zeit || 0);
@@ -115,7 +123,7 @@
     return out;
   }
 
-  function pruefen(ku, plaetze) {
+  function pruefen(ku, plaetze, anker) {
     const fehler = [];
     if (!ku || !Array.isArray(ku.figuren)) return ['kulisse: figuren fehlt'];
     const ids = new Set();
@@ -125,7 +133,8 @@
       if (!['achse', 'rund', 'steht', undefined].includes(f.art)) fehler.push(`Figur ${f.id}: Art '${f.art}' gibt es nicht`);
       const r = rectVon(plaetze, f.platz);
       if (!r) { fehler.push(`Figur ${f.id}: Platz '${f.platz}' gibt es nicht`); continue; }
-      const w = figurPunkte(f, plaetze);
+      if (f.anker && anker && !ankerKachel(anker, f.anker)) fehler.push(`Figur ${f.id}: Anker '${f.anker}' gibt es nicht`);
+      const w = figurPunkte(f, plaetze, anker);
       for (const p of w.punkte) if (p[0] < r[0] || p[1] < r[1] || p[0] >= r[0] + r[2] || p[1] >= r[1] + r[3]) fehler.push(`Figur ${f.id}: Wegpunkt ${p} liegt außerhalb von ${f.platz}`);
       for (const z of f.blase || []) if (String(z).length > 60) fehler.push(`Figur ${f.id}: Sprechblase länger als 60 Zeichen`);
     }

@@ -188,7 +188,7 @@
       },
       support: { sensor: 0, strike: 0, supply: 0, recall: 0, kuppel: 0 },
       inventory: Object.assign({ loeschgelCharges: 5, marks: 320, deko: ['pflanze', 'lampe', 'buecherregal', 'sternkarte'] }, CFG.economy.startInventory),
-      upgrades: { seitenturm: false, schildpool: false, schrauber3: false },
+      upgrades: { seitenturm: false, schildpool: false, bot2: false },
       quarters: { q0: { floor: 'teppich_blau', wall: 'paneel', light: 'warm' }, q1: { floor: 'holz_dunkel', wall: 'tapete_creme', light: 'bernstein' }, q2: { floor: 'teppich_rot', wall: 'holz', light: 'mint' }, q3: { floor: 'holz_hell', wall: 'holz', light: 'warm' } },
       deco,
       plan: { seated: [], pins: [] },

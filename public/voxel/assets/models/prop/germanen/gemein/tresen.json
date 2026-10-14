@@ -1,0 +1,31 @@
+{
+  "id": "prop/germanen/gemein/tresen",
+  "name": "Tresen (Germanen): Schanktisch aus Bohlen mit Messingstange, Stücke reihen sich Kante an Kante",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deko","tresen","taverne"],
+  "footprint": [1,1],
+  "params": {
+    "deko": {"default":0,"min":0,"max":2,"step":1,"label":"Aufsatz (0 leer, 1 Krug, 2 Flasche und Becher)"}
+  },
+  "variants": {
+    "krug": {"deko":1},
+    "flasche": {"deko":2}
+  },
+  "sockets": {},
+  "ops": [
+    {"op":"box","name":"Korpus","at":[-8,0,-5],"size":[16,13,10],"color":{"stripes":["wood_dark",{"shade":"wood_dark","f":0.82}],"axis":"x","period":2}},
+    {"op":"box","name":"Sockel","at":[-8,0,5],"size":[16,2,1],"color":"dark"},
+    {"op":"box","name":"Füllung","at":[-8,3,5],"size":[16,8,1],"color":{"shade":"wood","f":0.8}},
+    {"op":"box","name":"Füllung Rahmen","at":[-8,3,5],"size":[16,1,1],"color":"wood_dark","mode":"paint","repeat":{"count":2,"step":[0,7,0]}},
+    {"op":"box","name":"Platte","at":[-8,13,-6],"size":[16,2,12],"color":{"stripes":["wood",{"shade":"wood","f":1.1}],"axis":"z","period":4}},
+    {"op":"box","name":"Plattenkante","at":[-8,13,5],"size":[16,1,1],"color":"wood_dark","mode":"paint"},
+    {"op":"line","name":"Fußstange","from":[-8,3,6.2],"to":[8,3,6.2],"r":0.6,"color":"copper"},
+    {"op":"cyl","name":"Krug","if":"deko == 1","at":[-2,15,0],"r":1.8,"h":3,"color":"metal_light"},
+    {"op":"cyl","name":"Schaum","if":"deko == 1","at":[-2,18,0],"r":1.6,"h":1,"color":"white","jitter":false},
+    {"op":"cyl","name":"Flasche","if":"deko == 2","at":[-3,15,-2],"r":1.2,"h":4,"color":"glass"},
+    {"op":"cyl","name":"Flaschenhals","if":"deko == 2","at":[-3,19,-2],"r":0.7,"h":2,"color":"glass"},
+    {"op":"cyl","name":"Becher","if":"deko == 2","at":[3,15,1],"r":1.5,"h":2,"color":"copper"}
+  ],
+  "anchor": [0,0,0]
+}

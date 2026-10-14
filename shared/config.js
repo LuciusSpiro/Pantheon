@@ -20,7 +20,7 @@
     // R1 §4.5: Automatik nur bei wenigen verbundenen Spielern: Waffenautomatik der unbesetzten Ops, Bot-Automatik der Technik (Standard)
     waffenAutomatikMaxSpieler: 2,
     botAutomatikMaxSpieler: 2,
-    bot: { count: 2, speedFactor: 0.6, repairFactor: 1.75, extinguishTime: 2.5 },
+    bot: { count: 1, maxCount: 2, speedFactor: 0.6, repairFactor: 1.75, extinguishTime: 2.5 },
 
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
@@ -123,7 +123,7 @@
     shop: [
       { id: 'seitenturm', name: 'Zusatzrohre', price: 300, kind: 'upgrade', where: ['hafen'] },
       { id: 'schildpool', name: 'Schildpool +2', price: 250, kind: 'upgrade', where: ['hafen'] },
-      { id: 'schrauber3', name: 'Dritter Schrauber', price: 200, kind: 'upgrade', where: ['hafen'] },
+      { id: 'bot2', name: 'Zweiter Schrauber', price: 100, kind: 'upgrade' },   // Kai: nur EIN Bot als Standard (bot.count), der zweite ist kaufbar (Maximum bot.maxCount = 2)
       { id: 'bolzenwerfer', name: 'Bolzenwerfer (Heck)', price: 220, priceVaelen: 160, kind: 'upgrade' },   // M1: kein Start-Mount mehr
       { id: 'werkzeuggurt', name: 'Werkzeuggürtel', price: 120, kind: 'gear', where: ['hafen'] },
       { id: 'ersatzteil', name: 'Ersatzteil', price: 40, kind: 'item' },
@@ -314,7 +314,7 @@
       kapsel: { dauer: 14 },                                      // s, die die Rettungskapsel im Snapshot-Ereignis „läuft“ (Anzeige)
     },
     emp: { offlineTime: 12 },                                  // EMP-Treffer durch die Schilde: System offline
-    reactorM1: { overloadBonus: 4, overloadTime: 180, warnAt: 30, offlineOutput: 2, restartTime: 3, botAssistAfter: 3, autoRestartAfter: 240 },
+    reactorM1: { overloadBonus: 4, overloadTime: 180, warnAt: 30, offlineOutput: 2, restartTime: 3, botAssistAfter: 3, autoRestartAfter: 240, latchHold: 1.5, latchWindow: 20, botIdleDuty: true },
     quarters: {
       floors: ['holz_hell', 'holz_dunkel', 'teppich_rot', 'teppich_blau', 'fliesen'],
       walls: ['holz', 'paneel', 'tapete_gruen', 'tapete_creme'],

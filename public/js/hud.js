@@ -1028,7 +1028,7 @@
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });
       const up = st.upgrades || {};
-      const ups = [up.seitenturm && (CFG.spaceM3 ? 'Zusatzrohre' : 'Seitenturm'), up.schildpool && 'Schildpool +2', up.schrauber3 && 'Dritter Schrauber'].filter(Boolean);
+      const ups = [up.seitenturm && (CFG.spaceM3 ? 'Zusatzrohre' : 'Seitenturm'), up.schildpool && 'Schildpool +2', up.bot2 && 'Zweiter Schrauber'].filter(Boolean);
       R.text(ctx, 'Upgrades: ' + (ups.join(', ') || 'keine'), x + 140, ly, { color: PAL.star });
       ly += 14;
       const sys = (st.ship && st.ship.systems) || {};

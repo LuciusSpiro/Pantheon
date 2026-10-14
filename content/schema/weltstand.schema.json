@@ -63,7 +63,7 @@
         "name": { "type": "string" },
         "marken": { "type": "integer", "minimum": 0 },
         "lager": { "type": "object", "description": "Gegenstand -> Anzahl (ersatzteil, flickblech, loeschgel, loeschgelCharges, medipack, bolzen, tafel …)", "additionalProperties": { "type": "integer", "minimum": 0 } },
-        "ausbauten": { "type": "array", "items": { "type": "string" }, "description": "gekaufte Upgrades (seitenturm, schildpool, schrauber3, bolzenwerfer)" },
+        "ausbauten": { "type": "array", "items": { "type": "string" }, "description": "gekaufte Upgrades (seitenturm, schildpool, bot2 (früher schrauber3), bolzenwerfer)" },
         "deko": { "type": "array", "items": { "type": "string" }, "description": "Deko im Besitz" },
         "dekoPlaetze": { "type": "object", "description": "Deko-Platz -> Deko-Kennung oder null", "additionalProperties": { "type": ["string", "null"] } },
         "quartiere": { "type": "object", "description": "Quartier -> Einrichtung (floor, wall, light)" },

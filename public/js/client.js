@@ -1965,9 +1965,30 @@
     if (r === 'denied') { audio.play('error'); return; }
     if (uiTop() || Client.chapter) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter (S2: Kapitelkarte ebenso)
     const m = me();
-    if (m && m.console) { Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return; }
+    if (m && m.console) {
+      // TB1: auf einer Karte (Sternkarte, Detailkarte, Sektorplan) zieht die linke Maustaste die Ansicht; der Klick läuft erst beim Loslassen, wenn nicht gezogen wurde
+      const KA = window.KartenAnsicht;
+      if (KA && KA.druecken(p.x, p.y, () => Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)))) return;
+      Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return;
+    }
     if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') { shoot(); Client.fireHeld.mouse = true; }
   });
+  // TB1: Kartenansicht – Ziehen (Pan) auch außerhalb des Canvas, Mausrad = Zoom um den Mauszeiger, Fokusverlust bricht ab
+  window.addEventListener('mousemove', (e) => {
+    const KA = window.KartenAnsicht;
+    if (!KA || !KA.druecken) return;
+    const p = toCanvas(e);
+    if (KA.bewegen(p.x, p.y)) Client.mouse.x = p.x, Client.mouse.y = p.y;
+    canvas.style.cursor = KA.zieht ? 'grabbing' : '';
+  });
+  window.addEventListener('mouseup', (e) => { const KA = window.KartenAnsicht; if (KA && e.button === 0) { KA.loslassen(); canvas.style.cursor = ''; } });
+  window.addEventListener('blur', () => { if (window.KartenAnsicht) KartenAnsicht.abbrechen(); });
+  canvas.addEventListener('wheel', (e) => {
+    const KA = window.KartenAnsicht;
+    if (!KA || uiTop() || Client.chapter) return;
+    const p = toCanvas(e);
+    if (KA.rad(p.x, p.y, e.deltaY * (e.deltaMode === 1 ? 33 : 1))) e.preventDefault();
+  }, { passive: false });
   window.addEventListener('mouseup', (e) => { if (e.button === 0 && Client.fireHeld.mouse) { Client.fireHeld.mouse = false; feuerLos(); } });
   window.addEventListener('mouseup', () => {
     const h = Client.ui.hold;

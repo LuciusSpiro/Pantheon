@@ -2572,7 +2572,7 @@
       case 'schildpool':
         grid(g, 3, 2, ICONS.shields, { '#': PAL.eisblau, '+': '#E8F8FF' });
         break;
-      case 'schrauber3':
+      case 'bot2':
         R(g, 3, 4, 10, 8, PAL.messing); R(g, 4, 6, 8, 3, '#1B2230'); R(g, 5, 7, 2, 1, PAL.mint); R(g, 9, 7, 2, 1, PAL.mint); R(g, 2, 12, 12, 3, '#4F6178'); R(g, 7, 1, 1, 3, '#2B1D1A');
         break;
       default:
@@ -2581,7 +2581,7 @@
     outline(c, PAL.outlineWarm);
     return true;
   }
-  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1, schildpool: 1, schrauber3: 1,
+  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1, schildpool: 1, bot2: 1,
     // M1: neue Deko (Inventar-Icons), versteckte Objekte im Raum
     buecherregal: 1, aquarium: 1, sessel: 1, sternkarte: 1, trophaee_boje: 1, kristalllampe: 1, cache: 1, beacon: 1, lore: 1, bolzenwerfer: 1 };
   function drawItem(ctx, kind, x, y, opts) {
@@ -3532,6 +3532,8 @@
       drawStationM1(ctx, kind, x, y, t, o);
     } else if (kind === 'moon') {   // M2: Mond Kesh
       drawMoon(ctx, x, y, t);
+    } else if (kind === 'planet') {   // Planet mit Bodenstation (Kantenstein, Eisenwald, Methalle); opts.name wählt die Variante
+      drawPlanet(ctx, x, y, t, o);
     } else {
       missing(ctx, x - 16, y - 16, 32, 32);
     }
@@ -5574,6 +5576,57 @@
       ctx.fillStyle = rgba(VIO_L, 1 - ph / 0.4);
       ctx.fillRect(Math.round(rx - 10 + hash2(i, Math.floor(t * 0.8 + i * 0.25), 5) * 20), Math.round(ry - 8 + hash2(i, Math.floor(t * 0.8 + i * 0.25), 6) * 16), 1, 1);
     }
+  }
+
+  // --- Planet mit Bodenstation (TA, Kai 2026-10-14: Kantenstein war eine lila Box = fehlende Kunst) -----------------
+  // Kugel wie der Mond (gedithert, Licht von links oben), dazu Wasser und Land als Rauschfeld und ein Atmosphärenrand. Die Variante
+  // folgt dem Namen: 'rost' (Eisenwald, Methalle: warmes Braun), sonst 'gras' (Grün und Blau, passt zum Bodenton der Siedlung).
+  var PLANET_RAMPEN = {
+    gras: { wasser: ['#07131F', '#0C2336', '#123651', '#1B4C6C', '#28648A'], land: ['#12261A', '#1D3C25', '#2B5430', '#3E6E3A', '#5A8745', '#86A65A', '#B4C07C'], rand: 'rgba(150,215,200,0.40)' },
+    rost: { wasser: ['#1A0F0A', '#2A1A10', '#3C2616', '#50331D', '#664225'], land: ['#241810', '#3A271A', '#523724', '#6E4B2F', '#8C6540', '#AE8656', '#D2AE7A'], rand: 'rgba(214,170,110,0.40)' },
+  };
+  function planetVariante(name) { return /eisen|meth|rost/i.test(name || '') ? 'rost' : 'gras'; }
+  function pnoise(x, y, s) {   // Wertrauschen (bilinear, glatt) auf einem groben Gitter
+    var xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+    var a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  }
+  function buildPlanet(g, variante) {   // 400×400, Radius MOON_R
+    var W = 400, cx = 200, cy = 200, Rr = MOON_R, P = PLANET_RAMPEN[variante] || PLANET_RAMPEN.gras;
+    var ws = P.wasser.map(hex2rgb), ld = P.land.map(hex2rgb);
+    var L = [-0.62, -0.42, 0.66], bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    var seed = variante === 'rost' ? 91 : 17;
+    var id = g.createImageData(W, W), D = id.data;
+    for (var y = 0; y < W; y++) for (var x = 0; x < W; x++) {
+      var nx = (x + 0.5 - cx) / Rr, ny = (y + 0.5 - cy) / Rr, q = nx * nx + ny * ny;
+      if (q > 1) continue;
+      var nz = Math.sqrt(1 - q);
+      var lam = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+      var b = 0.07 + lam * 0.93;
+      // Kontinente: Rauschen auf der Kugelfläche (nx, ny gestaucht zum Rand hin)
+      var u = nx / (0.35 + nz * 0.65) * 3.1 + 7, v = ny / (0.35 + nz * 0.65) * 3.1 + 3;
+      var h = pnoise(u, v, seed) * 0.55 + pnoise(u * 2.1, v * 2.1, seed + 1) * 0.3 + pnoise(u * 4.3, v * 4.3, seed + 2) * 0.15;
+      var land = h > 0.5;
+      var ramp = land ? ld : ws;
+      var bb = b * (0.9 + 0.1 * (land ? (h - 0.5) * 3 : 1));
+      bb *= q > 0.94 ? 0.85 : 1;
+      var lv = bb * (ramp.length - 1) + (bayer[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 0.9;
+      lv = Math.max(0, Math.min(ramp.length - 1, Math.round(lv)));
+      var col = ramp[lv], o4 = (y * W + x) * 4;
+      D[o4] = col[0]; D[o4 + 1] = col[1]; D[o4 + 2] = col[2]; D[o4 + 3] = 255;
+    }
+    g.putImageData(id, 0, 0);
+  }
+  function drawPlanet(ctx, x, y, t, o) {
+    var variante = planetVariante(o && o.name);
+    var spr = cached('station|planet|' + variante, 400, 400, function (g) { buildPlanet(g, variante); });
+    x = Math.round(x); y = Math.round(y);
+    var P = PLANET_RAMPEN[variante];
+    ctx.save();
+    ctx.strokeStyle = P.rand; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, MOON_R + 3, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    ctx.drawImage(spr, x - 200, y - 200);
   }
 
   // --- Icons + Gegenstände M2 ---------------------------------------------------------------------

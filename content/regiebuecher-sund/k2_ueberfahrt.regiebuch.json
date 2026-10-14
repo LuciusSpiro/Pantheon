@@ -43,7 +43,7 @@
               { "check": { "name": "person_state", "map": "kantenstein.siedlung", "person": "evert", "state": "rescued" } }
             ] } }
           ] },
-          "do": [{ "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "name": "@evert.name", "anker": "kantine_1.zelle.1" }] },
+          "do": [{ "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "name": "@evert.name", "anker": "kantine_1.evert" }] },
         { "at": 90, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "not": { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } } }] }, "oda": "@einladen.tipp_scan", "garantie": "hinweis" },
         { "at": 150, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } }] }, "oda": "@einladen.tipp", "garantie": "hinweis" },
         { "at": 240, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "not": { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } } }] },

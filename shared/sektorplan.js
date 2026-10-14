@@ -25,7 +25,7 @@
     const sc = z.scene; const out = [];
     (sc.stern || []).forEach((s, i) => out.push({ id: 'st' + i, sym: 'stern', x: s.x, y: s.y, r: s.r, name: 'Stern' + (s.klasse ? ' (' + s.klasse + ')' : '') }));
     (sc.planeten || []).forEach((p, i) => out.push({ id: 'pl' + i, sym: p.art === 'gasriese' || p.art === 'gas' ? 'gasriese' : 'planet', x: p.x, y: p.y, r: p.r, name: p.name || (p.art === 'gasriese' || p.art === 'gas' ? 'Gasriese' : 'Planet') }));
-    if (sc.station) out.push({ id: 'sta', sym: sc.dock ? 'hafen' : 'station', x: sc.station.x, y: sc.station.y, r: sc.station.r, name: sc.station.name || z.loc.name || 'Station' });
+    if (sc.station) out.push({ id: 'sta', sym: sc.station.kind === 'planet' ? 'planet' : sc.dock ? 'hafen' : 'station', x: sc.station.x, y: sc.station.y, r: sc.station.r, name: sc.station.name || z.loc.name || 'Station' });
     (sc.bojen || []).forEach((b, i) => out.push({ id: 'bj' + i, sym: 'boje', x: b.x, y: b.y, name: 'Boje' }));
     (sc.zonen || []).forEach((q, i) => out.push({ id: 'zo' + i, sym: 'zone', x: num(q.x), y: num(q.y), r: num(q.r || q.rMax || q.rad), name: q.name || 'Zone' }));
     // Sprungpunkte: je Kante des Hexes am Szenenrand (wie sprung.js)

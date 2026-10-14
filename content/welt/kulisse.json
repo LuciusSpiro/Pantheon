@@ -1,15 +1,15 @@
 {
   "format": "kulisse/1",
-  "_kommentar": "SL2: Kulisse belebter Außenposten (shared/kulisse.js). Figuren laufen ohne Kollision auf festen Wegen in einem Platz der Karte (Platz-IDs der gebauten Karte, z. B. strasse_1, platz, kantine_1); Position und Sprechblase folgen aus Seed und Spielzeit, nichts davon steht im Snapshot. Der Server legt den Eintrag der Karte als `ku` in die awayMap-Nachricht. art: achse = hin und zurück entlang des Platzes (spur = Versatz quer), rund = Rundlauf am Rand, steht = steht an Stelle (fx, fy) in 0..1. blase: Sprüche (höchstens 60 Zeichen), die über dem Kopf erscheinen. orte: Schilder über Gebäuden (Taverne).",
+  "_kommentar": "SL2: Kulisse belebter Außenposten (shared/kulisse.js). Figuren laufen ohne Kollision auf festen Wegen in einem Platz der Karte (Platz-IDs der gebauten Karte, z. B. strasse_1, platz, kantine_1); Position und Sprechblase folgen aus Seed und Spielzeit, nichts davon steht im Snapshot. Der Server legt den Eintrag der Karte als `ku` in die awayMap-Nachricht. art: achse = hin und zurück entlang des Platzes (spur = Versatz quer), rund = Rundlauf am Rand, steht = steht an Stelle (fx, fy) in 0..1 oder, mit `anker`, auf der Kachel dieses Ankers (TA: Gäste und Händler stehen an Möbeln; fx/fy gelten nur, wenn die Karte den Anker nicht hat). blase: Sprüche (höchstens 60 Zeichen), die über dem Kopf erscheinen. orte: Schilder über Gebäuden (Taverne).",
   "karten": {
     "kantenstein.siedlung": {
       "orte": [
         { "platz": "kantine_1", "name": "TAVERNE", "hoehe": 78 }
       ],
       "figuren": [
-        { "id": "marktfrau", "name": "Marktfrau", "platz": "platz", "art": "steht", "fx": 0.1, "fy": 0.9, "blick": "right",
+        { "id": "marktfrau", "name": "Marktfrau", "platz": "platz", "art": "steht", "anker": "platz.marktfrau", "fx": 0.1, "fy": 0.9, "blick": "down",
           "blase": ["Frische Erbsen! Fast frisch!", "Marken nehme ich auch.", "Heute alles etwas teurer."] },
-        { "id": "haendler", "name": "Händler", "platz": "platz", "art": "steht", "fx": 0.9, "fy": 0.1, "blick": "left",
+        { "id": "haendler", "name": "Händler", "platz": "platz", "art": "steht", "anker": "platz.haendler", "fx": 0.9, "fy": 0.1, "blick": "down",
           "blase": ["Ersatzteile, günstig!", "Pulverhorn hat dichtgemacht? Pah.", "Concordia zahlt schlecht."] },
         { "id": "kind", "name": "Kind", "platz": "platz", "art": "rund", "rand": 0, "tempo": 34, "pause": 1,
           "blase": ["Fang mich!", "Sind das Piraten?", "Darf ich mal fliegen?"] },
@@ -25,9 +25,9 @@
           "blase": ["Kantenstein? Nur Durchflug.", "Wer fliegt hier eigentlich?"] },
         { "id": "wache", "name": "Wachposten", "platz": "landefeld", "art": "steht", "fx": 0.05, "fy": 0.5, "blick": "right",
           "blase": ["Landen nur mit Anmeldung.", "Ruhig heute."] },
-        { "id": "gast1", "name": "Gast", "platz": "kantine_1", "art": "steht", "fx": 0.15, "fy": 0.8, "blick": "down",
+        { "id": "gast1", "name": "Gast", "platz": "kantine_1", "art": "steht", "anker": "kantine_1.gast1", "fx": 0.15, "fy": 0.8, "blick": "left",
           "blase": ["Noch ein Krug!", "Der Eintopf hat Zukunft."] },
-        { "id": "gast2", "name": "Gast", "platz": "kantine_1", "art": "steht", "fx": 0.3, "fy": 0.4, "blick": "left",
+        { "id": "gast2", "name": "Gast", "platz": "kantine_1", "art": "steht", "anker": "kantine_1.gast2", "fx": 0.3, "fy": 0.4, "blick": "down",
           "blase": ["Wer war der Händler mit der Karte?", "Die Lerche? Nie gehört."] }
       ]
     }

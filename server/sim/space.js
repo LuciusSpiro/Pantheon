@@ -407,23 +407,41 @@ function updateReactor(game, dt) {
     if (rc.overloadLeft <= 0) {
       rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0;
       game.emit('sfx', { name: 'reactor_down' });
-      game.oda('Reaktor abgeschaltet – nur Notstrom. Neustart: Schalter A (oben) und B (unten) gleichzeitig halten (E).', null);
+      game.oda('Reaktor abgeschaltet – nur Notstrom. Neustart: Schalter A (oben) und B (unten) halten (E) – gleichzeitig oder nacheinander, der erste rastet ein.', null);
       game.missionEvent('reactorOffline', {});
     }
   }
   const { held, byPlayer } = switchHolders(game);
-  rc.switches = held;
-  if (rc.state !== 'offline') { rc.restartProgress = 0; rc.needBot = null; rc.aloneT = 0; return; }
+  if (rc.state !== 'offline') { rc.switches = held; rc.latch = { A: 0, B: 0 }; rc.holdT = { A: 0, B: 0 }; rc.restartProgress = 0; rc.needBot = null; rc.aloneT = 0; return; }
   rc.offlineT += dt;
-  // Allein am Schalter: nach botAssistAfter s schickt der Server einen freien Schrauber zum anderen Schalter
-  const onlyOne = (byPlayer.A !== byPlayer.B);
+  // Sequentielles Ziehen (solo): ein Schalter, den ein Spieler latchHold s gehalten hat, rastet latchWindow s lang ein und zählt als gehalten
+  rc.latch = rc.latch || { A: 0, B: 0 }; rc.holdT = rc.holdT || { A: 0, B: 0 };
+  for (const sw of ['A', 'B']) {
+    if (byPlayer[sw]) {
+      rc.holdT[sw] += dt;
+      if (rc.holdT[sw] >= R.latchHold && rc.latch[sw] <= 0) {
+        rc.latch[sw] = R.latchWindow;
+        const other = sw === 'A' ? 'B' : 'A';
+        if (!held[other] && !(rc.latch[other] > 0)) game.oda(`Schalter ${sw} ist eingerastet – ${R.latchWindow} s für Schalter ${other}.`, null);
+      }
+    } else { rc.holdT[sw] = 0; if (rc.latch[sw] > 0) rc.latch[sw] = Math.max(0, rc.latch[sw] - dt); }
+    if (rc.latch[sw] > 0 && byPlayer[sw]) rc.latch[sw] = R.latchWindow;   // solange gehalten, läuft das Fenster nicht ab
+    if (rc.latch[sw] > 0) held[sw] = true;
+  }
+  rc.switches = held;
+  // Ein Schalter ist gezogen (gehalten/eingerastet/Schrauber), der andere nicht: nach botAssistAfter s kommt ein freier Schrauber zum anderen
+  const spieler = { A: byPlayer.A || rc.latch.A > 0, B: byPlayer.B || rc.latch.B > 0 };
+  const onlyOne = (spieler.A !== spieler.B);
   if (onlyOne) {
     rc.aloneT += dt;
     if (rc.aloneT >= R.botAssistAfter && !rc.needBot) {
-      rc.needBot = byPlayer.A ? 'B' : 'A';
+      rc.needBot = spieler.A ? 'B' : 'A';
       game.oda(`Halt ihn fest – ich schicke einen Schrauber an Schalter ${rc.needBot}.`, null);
     }
-  } else if (!byPlayer.A && !byPlayer.B) { rc.aloneT = 0; rc.needBot = null; }
+  } else if (!spieler.A && !spieler.B) {
+    rc.aloneT = 0;
+    if (!game.bots.some((b) => b.task && b.task.kind === 'switch')) rc.needBot = null;   // ein vorsorglich geschickter Schrauber (bots.js) bleibt am Schalter
+  }
   if (held.A && held.B) {
     rc.restartProgress += dt;
     if (rc.restartProgress >= R.restartTime) reactorOnline(game, 'Reaktor läuft wieder! Saubere Teamarbeit am Schalter.');
@@ -433,6 +451,7 @@ function updateReactor(game, dt) {
 function reactorOnline(game, text) {
   const rc = game.ship.reactorCtl;
   rc.state = 'online'; rc.restartProgress = 0; rc.needBot = null; rc.aloneT = 0; rc.offlineT = 0; rc.overloadLeft = 0; rc.warned = false;
+  rc.latch = { A: 0, B: 0 }; rc.holdT = { A: 0, B: 0 };
   for (const p of game.players) if (p.hold && p.hold.kind === 'switch') p.hold = null;
   game.emit('sfx', { name: 'reactor_up' });
   game.oda(text, null);
@@ -473,7 +492,7 @@ function updateSystems(game, dt) {
   enforcePower(game);
   const rc = ship.reactorCtl;
   ship.reactor = { state: rc.state, output: reactorOutput(game), used: powerUsed(game), overloadLeft: Math.ceil(rc.overloadLeft),
-    switches: { A: !!rc.switches.A, B: !!rc.switches.B }, restartProgress: Math.round(Math.min(1, rc.restartProgress / C.reactorM1.restartTime) * 100) / 100 };
+    switches: { A: !!rc.switches.A, B: !!rc.switches.B }, latch: { A: Math.ceil((rc.latch && rc.latch.A) || 0), B: Math.ceil((rc.latch && rc.latch.B) || 0) }, restartProgress: Math.round(Math.min(1, rc.restartProgress / C.reactorM1.restartTime) * 100) / 100 };
   // Hitze
   for (const k of POWER_SYSTEMS) {
     if (ship.power[k] >= C.power.maxPerSystem) ship.heat[k] += C.power.heatAt4 * dt;

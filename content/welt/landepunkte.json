@@ -65,7 +65,7 @@
     ],
     "kantenstein": [
       { "id": "kantenstein.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7311, "schablone": null,
-        "gen": { "typ": "handel", "haeuser": 11 },
+        "gen": { "typ": "handel", "haeuser": 11, "boden": "gras", "ausstattung": true },
         "beam": { "x": 1450, "y": 1108, "range": 360 }, "name": "Außenposten Kantenstein", "frei": "immer", "gesperrt": false }
     ],
     "schrottkante": [

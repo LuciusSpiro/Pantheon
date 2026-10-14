@@ -1,0 +1,20 @@
+{
+  "id": "prop/germanen/gemein/hocker",
+  "name": "Hocker (Germanen): runder Dreibeinhocker aus Holz",
+  "tier": "detail",
+  "palette": "nord",
+  "tags": ["prop","germanen","deko","hocker","sitz","taverne"],
+  "footprint": [0.6,0.6],
+  "params": {},
+  "variants": {},
+  "sockets": {"seat":[0,0.44,0]},
+  "ops": [
+    {"op":"cyl","name":"Sitz","at":[0,5,0],"r":4.5,"h":2,"color":{"stripes":["wood",{"shade":"wood","f":0.88}],"axis":"x","period":2}},
+    {"op":"cyl","name":"Sitzrand","at":[0,5,0],"r":4.6,"hollow":0.8,"h":1,"color":"wood_dark","mode":"paint"},
+    {"op":"line","name":"Bein vorn","from":[0,0.5,3],"to":[0,5.5,2],"r":0.7,"color":"wood_dark"},
+    {"op":"line","name":"Bein links","from":[-2.8,0.5,-1.5],"to":[-2,5.5,-1],"r":0.7,"color":"wood_dark"},
+    {"op":"line","name":"Bein rechts","from":[2.8,0.5,-1.5],"to":[2,5.5,-1],"r":0.7,"color":"wood_dark"},
+    {"op":"cyl","name":"Ring","at":[0,2,0],"r":2.6,"hollow":0.7,"h":1,"color":"wood_dark"}
+  ],
+  "anchor": [0,0,0]
+}

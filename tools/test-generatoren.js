@@ -73,5 +73,47 @@ abschnitt('Landepunkte: Generator ist Standard');
   delete process.env.PANTHEON_GEN;
 }
 
+// TA (Kai 2026-10-14): Siedlungsausstattung (Taverne statt Zellen) und Bodenton, beides nur auf Wunsch (opts.ausstattung / opts.boden)
+abschnitt('Siedlungsausstattung: Taverne, Möbel, Bodenton (opt-in)');
+{
+  const bau = (seed, extra) => Buehne.ausRaster(GenSiedlung.erzeuger(130, 90).karteRoh(seed, 11, Object.assign({ bauweise: 'germanen', typ: 'handel', besitz: 'konkordat', zustand: 'intakt', id: 'ta' }, extra || {})), { spiel: true });
+  let gut = 0, ges = 0, schlecht = [], toene = new Set(), ohneZelle = 0, mitMoebel = 0, persOk = 0, schlechtOben = [];
+  for (let seed = 1; seed <= 40; seed++) {
+    ges++;
+    const r = bau(seed, { ausstattung: true, boden: 'auto' });
+    if (!r.pruefung.ok) { schlecht.push(`${seed}: ${r.fehler.slice(0, 2).map((x) => x.code + ' ' + x.msg).join(',')}`); continue; }
+    gut++;
+    const k = r.karte, kant = Object.keys(k.plaetze).filter((id) => /^kantine_/.test(id));
+    toene.add(k.meta.boden);
+    if (!k.anker.some((a) => a.rolle === 'zelle' && kant.includes(a.platz))) ohneZelle++;
+    const m = k.meta.moebel || [];
+    const kr = kant.length ? k.plaetze[kant[0]].rect : null, klein = kr && (kr[2] - 2 < 5 || kr[3] - 2 < 5);   // winzige Kantinen (Innenraum 4 breit/tief) bekommen nur Tresen, Fässer und Feuerstelle
+    if (!kant.length || (klein ? ['tresen', 'fass', 'feuerschale'] : ['tresen', 'tisch', 'hocker', 'fass', 'feuerschale']).every((s) => m.some((q) => q[4].startsWith(s)))) mitMoebel++;
+    if (!kant.length || ['wirt', 'evert', 'gast1', 'gast2'].every((nm) => k.anker.some((a) => a.id === kant[0] + '.' + nm))) persOk++;
+    if (!(k.meta.pflicht && Object.keys(k.meta.pflicht).every((rl) => k.anker.filter((a) => a.rolle === rl).length >= k.meta.pflicht[rl]))) schlechtOben.push(seed);
+    if (!m.every((q) => k.rows[q[1]][q[0]] === 'o' || k.rows[q[1]][q[0]] === 'O')) schlecht.push(`${seed}: Möbel nicht auf Deckungskachel`);
+  }
+  ok(schlecht.length === 0 && gut === ges, `Prüfer (inkl. Erreichbarkeit) ok mit Ausstattung: ${gut}/${ges}${schlecht.length ? ' ' + schlecht.slice(0, 3).join(' | ') : ''}`);
+  ok(ohneZelle === gut, `Taverne ohne Zellen (${ohneZelle}/${gut})`);
+  ok(mitMoebel === gut, `Taverne möbliert: Tresen, Tisch, Hocker, Fass, Feuerschale (${mitMoebel}/${gut})`);
+  ok(persOk === gut, `Anker wirt/evert/gast1/gast2 in der Taverne (${persOk}/${gut})`);
+  ok(schlechtOben.length === 0, 'Pflichtsatz der Kartenart bleibt erfüllt (Zellen, Beute, Terminal …)');
+  ok(['sand', 'gras', 'wald'].every((t) => toene.has(t)), 'Bodenton auto: alle drei Töne kommen über die Seeds vor (' + [...toene].join(',') + ')');
+  const f1 = bau(7311, { ausstattung: true, boden: 'gras' }).karte, f2 = bau(7311, { ausstattung: true, boden: 'gras' }).karte;
+  ok(JSON.stringify(f1) === JSON.stringify(f2) && f1.meta.boden === 'gras', 'gleicher Seed, gleiche Karte; fester Bodenton gras');
+  // ohne Wunsch: unverändert (Eisenwald/Limes-Karten und alle bisherigen Siedlungen)
+  const plain = GenSiedlung.erzeuger(130, 90).karteRoh(9, 11, { bauweise: 'germanen', typ: 'handel', id: 'x' });
+  const falsch = GenSiedlung.erzeuger(130, 90).karteRoh(9, 11, { bauweise: 'germanen', typ: 'handel', id: 'x', ausstattung: false, boden: null });
+  ok(JSON.stringify(plain) === JSON.stringify(falsch) && plain.bauversion === 'gen5' && !plain.meta.moebel && !plain.meta.boden, 'ohne Ausstattung/Boden: Karte unverändert (bauversion gen5, kein meta.moebel/boden)');
+  const ew = GenSiedlung.erzeuger(130, 90).karteRoh(3, 12, { bauweise: 'germanen', typ: 'handel', variante: 'eisenwald', id: 'x', ausstattung: true, boden: 'gras' });
+  ok(ew.bauversion === 'gen5' && !ew.meta.moebel, 'Eisenwald/Methalle ignorieren die Ausstattung');
+  // Landepunkt Kantenstein (Sund): fester Bodenton gras, Taverne ohne Käfig, awayMap trägt moebel und boden und bleibt im Budget
+  const g = fakeGame(); const k = LP.karte(g, 'kantenstein.siedlung');
+  const p = Game.prototype.awayMapPayload.call({}, k), bytes = Buffer.byteLength(JSON.stringify(p));
+  ok(k && k.meta.boden === 'gras' && Array.isArray(p.moebel) && p.moebel.length >= 15 && p.boden === 'gras', `Kantenstein: gras, ${p.moebel && p.moebel.length} Möbel in der awayMap`);
+  ok(bytes <= Protocol.AWAY_MAP_MAX_BYTES, `awayMap Kantenstein ${bytes} B ≤ ${Protocol.AWAY_MAP_MAX_BYTES} B`);
+  ok(!k.anker.some((a) => a.rolle === 'zelle' && a.platz === 'kantine_1'), 'Kantenstein: keine Zelle in kantine_1');
+}
+
 console.log(`\ntest-generatoren: ${n - fehler}/${n} Prüfungen bestanden.`);
 process.exit(fehler ? 1 : 0);

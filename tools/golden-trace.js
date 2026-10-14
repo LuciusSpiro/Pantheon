@@ -51,7 +51,9 @@ const r1 = (x) => Math.round(x * 10) / 10;
 function loadSim() {
   const file = path.join(__dirname, 'sim-headless.js');
   let src = fs.readFileSync(file, 'utf8');
-  const cut = src.lastIndexOf('\n(async () => {');
+  // Hauptteil beginnt entweder mit '(async () => {' oder (seit SL11, Bibliotheksexport) mit der require.main-Zeile davor
+  let cut = src.lastIndexOf('\nif (require.main !== module) module.exports');
+  if (cut < 0) cut = src.lastIndexOf('\n(async () => {');
   if (cut < 0) throw new Error('sim-headless.js: Hauptteil „(async () => {“ nicht gefunden');
   src = src.slice(0, cut) + '\n;module.exports = { Agent, KeshAgent, setSimRng: (r) => { simRng = r; },\n' +
     '  DT, TILE, KESH: typeof KESH !== "undefined" ? KESH : null, KESH_GOALS: typeof KESH_GOALS !== "undefined" ? KESH_GOALS : null,\n' +

@@ -183,6 +183,7 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
 {
   const { g, P, send, run, placeAt, notices, cmd, enter, events } = setup(2);
   send(0, { t: 'debug', cmd: 'skip' });
+  g.C.reactorM1.botIdleDuty = false;   // dieser Block prüft die reine Spielerregel; der Schrauber-Dienst hat unten seinen Test
   enter(0, 'technik');
   cmd(0, 'technik.overload');
   run(0.1);
@@ -198,12 +199,13 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   placeAt(0, switchSpot('A')); placeAt(1, switchSpot('B'));
   send(0, { t: 'act', down: true }); run(1);
   ok(g.ship.reactor.switches.A && !g.ship.reactor.switches.B, 'Schalter A gehalten');
-  send(1, { t: 'act', down: true }); run(1.5);
+  send(1, { t: 'act', down: true }); run(1.0);   // unter latchHold (1,5 s): kein Einrasten
   send(1, { t: 'act', down: false }); run(0.2);
   ok(g.ship.reactor.state === 'offline' && g.ship.reactorCtl.restartProgress === 0, 'Loslassen -> Fortschritt verfällt');
   send(1, { t: 'act', down: true }); run(3.3);
   ok(g.ship.reactor.state === 'online' && !P(0).hold && !P(1).hold, 'beide 3 s gemeinsam -> online');
   send(0, { t: 'act', down: false }); send(1, { t: 'act', down: false });
+  g.C.reactorM1.botIdleDuty = true;
   // Allein: Schrauber hilft
   g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
   placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true });
@@ -214,6 +216,55 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
   run(g.C.reactorM1.autoRestartAfter + 1);
   ok(g.ship.reactor.state === 'online', 'Softlock-Schutz: Notstart nach ' + g.C.reactorM1.autoRestartAfter + ' s ohne Crew');
+}
+
+console.log('\n[Kai: ein Bot als Standard, zweiter im Shop; Reaktor-Neustart solo]');
+{
+  const Bots = require('../server/sim/bots.js');
+  const { g, P, send, run, placeAt, events } = setup(1);
+  send(0, { t: 'debug', cmd: 'skip' });
+  ok(g.C.bot.count === 1 && g.bots.length === 1 && Bots.botAnzahl(g) === 1, 'Standard: genau 1 Bot (' + g.bots.length + ')');
+  const e = g.C.shop.find((s) => s.id === 'bot2');
+  ok(e && e.price === 100 && e.kind === 'upgrade' && !g.C.shop.some((s) => s.id === 'schrauber3'), 'Shop-Ware bot2 (100 Marken), kein dritter Schrauber');
+  g.upgrades.bot2 = true; Bots.ensureBotCount(g);
+  ok(g.bots.length === 2, 'mit bot2: 2 Bots');
+  g.upgrades.schrauber3 = true; g.upgrades.bot2 = true; Bots.ensureBotCount(g);
+  ok(g.bots.length === 2 && Bots.botAnzahl(g) === 2, 'Maximum 2 Bots');
+  // Neustart nacheinander, ohne Bot
+  g.bots.length = 0; g.C.bot.count = 0; g.upgrades.bot2 = false; g.upgrades.schrauber3 = false;
+  g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
+  placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true }); run(2);
+  ok(g.ship.reactor.latch.A > 0 && g.ship.reactor.switches.A, 'Schalter A rastet nach latchHold ein');
+  send(0, { t: 'act', down: false }); run(0.3);
+  placeAt(0, switchSpot('B')); send(0, { t: 'act', down: true }); run(0.3);
+  ok(g.ship.reactor.state === 'offline' && g.ship.reactor.switches.A && g.ship.reactor.switches.B, 'solo ohne Bot: A eingerastet, B gehalten (Fortschritt sichtbar)');
+  run(3.5);
+  ok(g.ship.reactor.state === 'online', 'solo ohne Bot: nacheinander gezogen -> online (' + g.ship.reactor.state + ')');
+  send(0, { t: 'act', down: false });
+  // Fenster verfällt
+  g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
+  placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true }); run(2); send(0, { t: 'act', down: false });
+  run(g.C.reactorM1.latchWindow + 1);
+  ok(!g.ship.reactor.switches.A && g.ship.reactor.state === 'offline', 'Fenster ' + g.C.reactorM1.latchWindow + ' s verfällt');
+  g.ship.reactorCtl.state = 'online'; run(0.2);
+  // 1 Spieler + 1 Bot, der Bot fährt von selbst (Energie spielt keine Rolle) an einen Schalter
+  g.C.bot.count = 1; Bots.ensureBotCount(g);
+  ok(g.bots.length === 1, 'ein Bot da');
+  g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
+  g.ship.fireList.length = 0; g.ship.breachList.length = 0;
+  run(40);
+  const bt = g.bots[0].task;
+  ok(bt && bt.kind === 'switch' && bt.phase === 'work' && g.ship.reactor.switches[bt.sw], 'Bot fährt von selbst zum Schalter ' + (bt && bt.sw) + ' und hält ihn');
+  const other = bt && bt.sw === 'A' ? 'B' : 'A';
+  placeAt(0, switchSpot(other)); send(0, { t: 'act', down: true }); run(4);
+  ok(g.ship.reactor.state === 'online', 'Spieler + Bot: Reaktor online (' + g.ship.reactor.state + ')');
+  send(0, { t: 'act', down: false });
+  // Spieler rastet A ein und geht weg: der Bot kommt zu B
+  g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0; run(0.2);
+  g.bots[0].task = null; g.bots[0].path = null;
+  placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true }); run(2); send(0, { t: 'act', down: false });
+  run(15);
+  ok(g.ship.reactor.state === 'online', 'Spieler rastet A ein, Bot hält B -> online (' + g.ship.reactor.state + ')');
 }
 
 console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Ziel-Scan, Marker, EMP]');

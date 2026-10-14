@@ -79,17 +79,25 @@ function nutztGenerator(lpId, e) {
   const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
   return d.erzeuger !== 'modul';
 }
+// TA (Kai 2026-10-14): Siedlungsvorgaben der aktiven Welt (content/welt/<karte>.json "siedlung": { boden: 'sand'|'gras'|'wald'|'auto', ausstattung: true }).
+// Ohne diesen Eintrag (Limes/Eisenwald) bleibt jede Siedlung wie bisher; ein Landepunkt kann mit gen.boden / gen.ausstattung abweichen.
+function siedlungWelt() {
+  try { const W = require('./welt.js'); const k = W.karte(W.kartenId()); return (k && k.siedlung) || null; } catch (x) { return null; }
+}
 function genBauen(lpId, e) {
   const o = { bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
   const gv = e.gen || (defs().byId[lpId] || {}).gen || {};   // EK5/EK6: Vorgaben der Definition bzw. des Debug-Landepunkts (variante methalle/eisenwald, typ, haeuser)
   const typ = gv.typ || (e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel');
+  const sw = e.art === 'aussenposten' ? siedlungWelt() : null;
+  const ausstattung = gv.ausstattung != null ? !!gv.ausstattung : !!(sw && sw.ausstattung && typ === 'handel' && !gv.variante);
+  const boden = gv.boden || (sw && sw.boden) || null;
   let letzte = null;
   for (let i = 0; i < 6; i++) {   // wie Buehne.bauen: scheitert der Prüfer, Seed + 1
     const seed = (e.seed | 0) + i;
     let roh;
     try {
       roh = e.art === 'aussenposten'
-        ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, gv.haeuser || GEN_GROESSE.aussenposten.n, Object.assign({ typ, variante: gv.variante || null }, o))
+        ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, gv.haeuser || GEN_GROESSE.aussenposten.n, Object.assign({ typ, variante: gv.variante || null, ausstattung, boden }, o))
         : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, gv.monster ? Object.assign({ monster: true }, o) : o);   // SL7c: gen.monster = Monster-Station (4 Pulte, meta.monster)
     } catch (x) {
       if (gv.variante && i < 5) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Variante ohne Platz: nächster Seed

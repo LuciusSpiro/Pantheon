@@ -317,8 +317,8 @@ function notsprung(game) {
   game.emit('notsprung', evt);
   if (nachOrt !== vonOrt) game.explore.arrive(nachOrt);
   game.oda(nachOrt !== vonOrt
-    ? `Notfallsprung! Wir sind in ${Sektoren.hexName(nachHex)} (${nachHex}). Reaktor überladen und offline – Neustart: Schalter A und B gleichzeitig halten.`
-    : 'Notfallsprung ins Leere – wir sind noch im selben Sektor, nur woanders. Reaktor offline: Schalter A und B gleichzeitig halten.', null);
+    ? `Notfallsprung! Wir sind in ${Sektoren.hexName(nachHex)} (${nachHex}). Reaktor überladen und offline – Neustart: Schalter A und B halten – gleichzeitig oder nacheinander (der erste rastet ein).`
+    : 'Notfallsprung ins Leere – wir sind noch im selben Sektor, nur woanders. Reaktor offline: Schalter A und B halten – gleichzeitig oder nacheinander (der erste rastet ein).', null);
   game.missionEvent('reactorOffline', {});
   game.missionEvent('notsprung', { von: evt.von, nach: evt.nach, scene: ship.scene });
   return null;

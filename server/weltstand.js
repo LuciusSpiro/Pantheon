@@ -757,7 +757,9 @@ function apply(game, data) {
   Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
   Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
-  for (const k of s.ausbauten || []) game.upgrades[k] = true;
+  // Alt-Stand: 'schrauber3' (dritter Bot) heißt jetzt 'bot2' (zweiter Bot); ohne Feld = 1 Bot (Standard)
+  for (const k of s.ausbauten || []) game.upgrades[k === 'schrauber3' ? 'bot2' : k] = true;
+  require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
   if (s.quartiere) for (const [k, v] of Object.entries(s.quartiere)) game.quarters[k] = Object.assign({}, game.quarters[k] || {}, v);
   if (s.support) for (const [k, v] of Object.entries(s.support)) if (k in game.support && Number.isFinite(v)) game.support[k] = v;

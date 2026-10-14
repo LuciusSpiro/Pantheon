@@ -32,8 +32,8 @@
       "id": "aussenposten", "loc": "kantenstein",
       "liefert_flags": ["gespraech_evert_anheuern"],
       "enter": [
-        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "46,30", "gespraech": "evert_anheuern" },
-        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "wirt", "anker": "48,30", "gespraech": "wirt_plausch" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "kantine_1.evert", "gespraech": "evert_anheuern" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "wirt", "anker": "kantine_1.wirt", "gespraech": "wirt_plausch" },
         { "oda": "@ort.hinweis" }
       ],
       "timers": [
@@ -50,7 +50,7 @@
     {
       "id": "aufbruch", "loc": "kantenstein",
       "enter": [
-        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "46,30" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "kantine_1.evert" },
         { "do": "welt_fakt", "key": "evert", "value": "angeheuert", "quelle": "Kantenstein" },
         { "do": "chronik", "text": "@chronik.erfolg" },
         { "oda": "@aufbruch.hinweis" }

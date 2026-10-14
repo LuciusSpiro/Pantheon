@@ -17,8 +17,14 @@ function makeBot(game, i) {
     spawn: { x: sp.x, y: sp.y }, task: null, path: null, progress: 0, reevalT: i * 0.3 };
 }
 
+// Regel: Standard bot.count (1), der Shop-Ausbau 'bot2' fügt einen zweiten hinzu, Maximum bot.maxCount (2).
+function botAnzahl(game) {
+  const max = game.C.bot.maxCount || 2;
+  return Math.min(max, game.C.bot.count + (game.upgrades.bot2 ? 1 : 0));
+}
+
 function ensureBotCount(game) {
-  const want = game.C.bot.count + (game.upgrades.schrauber3 ? 1 : 0);
+  const want = botAnzahl(game);
   while (game.bots.length < want) game.bots.push(makeBot(game, game.bots.length));
 }
 
@@ -250,6 +256,24 @@ function syncQueueBots(game) {
   }
 }
 
+// Reaktor offline, ein Schrauber ist frei (Reparaturliste, Feuer, Lecks erledigt): er fährt von selbst an einen Schalter und hält ihn
+// (Spieler zieht den anderen). Auch ohne Energie, Schrauber brauchen keinen Strom. Hält der Spieler schon einen, geht der Schrauber an den anderen.
+function schalterDienst(game) {
+  const rc = game.ship.reactorCtl;
+  const R = game.C.reactorM1;
+  if (!R.botIdleDuty || rc.state !== 'offline' || rc.needBot || game.bots.some((b) => b.task && b.task.kind === 'switch')) return;
+  const free = game.bots.filter((b) => !b.lift && (!b.task || b.task.kind === 'home') && !chooseTask(game, b));
+  if (!free.length) return;
+  const sw = ((rc.switches && rc.switches.B) || (rc.latch && rc.latch.B > 0)) ? 'A' : 'B';
+  const task = switchTask(game, sw);
+  const pick = free.map((b) => ({ b, path: pathTo(b, goalTilesFor(task)) })).filter((o) => o.path)
+    .sort((a, b) => a.path.length - b.path.length)[0];
+  if (!pick) return;
+  rc.needBot = sw;
+  game.oda(`Reaktor kalt – ich schicke einen Schrauber an Schalter ${sw}. Den anderen hältst du.`, null);
+  pick.b.task = task; task.phase = 'goto'; pick.b.path = pick.path; pick.b.progress = 0; pick.b.reevalT = 1;
+}
+
 function update(game, dt) {
   ensureBotCount(game);
   resetNoPartReports(game);
@@ -265,6 +289,7 @@ function update(game, dt) {
       .sort((a, b) => a.path.length - b.path.length)[0];
     if (pick) { pick.b.task = task; task.phase = 'goto'; pick.b.path = pick.path; pick.b.progress = 0; pick.b.reevalT = 1; }
   }
+  schalterDienst(game);
   for (const bot of game.bots) {
     // M4: Liftfahrt (gleiche Zeit wie für Spieler). Währenddessen keine Neuwahl; danach geht es auf dem Restpfad weiter.
     if (bot.lift) {
@@ -354,4 +379,4 @@ function update(game, dt) {
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-module.exports = { update, ensureBotCount, makeBot, candidates, reportNoPart, queueRepair, queueFront, setBotAuto, updateBotAuto };
+module.exports = { update, ensureBotCount, botAnzahl, makeBot, candidates, reportNoPart, queueRepair, queueFront, setBotAuto, updateBotAuto };
