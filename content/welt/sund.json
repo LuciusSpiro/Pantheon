@@ -26,7 +26,7 @@
     "0803": {"name":"Ulfsvakt","fraktion":"ger","art":"Nordtor, Wachposten","hafen":"D","symbole":["fort"],"region":"germanen","spielbar":false},
     "0805": {"name":"Sudrvik","fraktion":"ger","art":"Südtor, Handelshafen","hafen":"C","region":"germanen","spielbar":false},
 
-    "0503": {"name":"Gasfeld","fraktion":"frei","art":"Gasriese (Treibstoff)","einfluss":"gas","region":"route","spielbar":true,"ort":"gasfeld","gen":true,"szene":{"planeten":1,"zonen":"gasriese"}},
+    "0503": {"name":"Gasfeld","fraktion":"frei","art":"Gasriese (Treibstoff)","einfluss":"gas","region":"route","spielbar":true,"ort":"gasfeld","gen":true,"szene":{"planeten":1,"zonen":"gasriese","w":5000,"h":3800}},
     "0603": {"name":"Kantenstein","fraktion":"frei","art":"Grenzpass, Außenposten","hafen":"D","region":"route","spielbar":true,"ort":"kantenstein","gen":true,"szene":{"planeten":0,"station":{"kind":"planet","r":170,"name":"Kantenstein"},"beam":{"map":"kantenstein.siedlung","range":360}}},
     "0703": {"name":"Eisfeld","fraktion":"frei","art":"Eis (Asteroiden)","einfluss":"asteroiden","region":"gesperrt","spielbar":false},
     "0605": {"name":"Pulverhorn","fraktion":"frei","art":"Munitionsfabrik, Handelsposten","hafen":"C","region":"route","spielbar":true,"ort":"pulverhorn","gen":true,"schiffe":[{"art":"kreuzer","x":1900,"y":1250},{"art":"korvette","x":1750,"y":1500},{"art":"korvette","x":2050,"y":1000}]},

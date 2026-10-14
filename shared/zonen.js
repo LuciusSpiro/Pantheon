@@ -6,6 +6,8 @@
 //         drift?: { winkel, staerke },   Positionsversatz in px/s (Winkel in Radiant, 0 = +x, y nach unten)
 //         tang?: px/s,                   Versatz um den Mittelpunkt (positiv = im Uhrzeigersinn, Strömung um einen Gasriesen)
 //         radial?: px/s,                 Versatz vom Mittelpunkt weg (positiv) bzw. hin zu ihm (negativ): Sog, Haltefeld
+//         zug?: px/s,                    Gravitation: Versatz zur Mitte hin (je Ring gestaffelt, Gasriese). Wer die Höhe halten will, muss mit dem Antrieb
+//                                        mindestens so schnell nach außen fliegen (Nettotempo = Schiff − Zug); wirkung().zug summiert die Beträge (Anzeige)
 //         rueck?: { x, y },              Rücksetzpunkt: wer hineinfliegt, wird dorthin zurückgeworfen (Szenenregel, Ereignis zoneRuecksetzen)
 //         gruppe?: string,               Schaltgruppe (zone_schalten / zone_sichtbar im Regiebuch)
 //         hitze?, schaden?,              Hitze je Sekunde (auf die Systeme), Hüllenschaden je Sekunde
@@ -39,7 +41,7 @@
   // Summe der Wirkung an einem Punkt -> { vx, vy, hitze, schaden, sicht, ertrag: [{ id, ziel, rate }], ids, mx, my }
   // (mx, my = Mittelpunkt der Zone mit dem größten Schaden, für die Treffer-Richtung)
   function wirkung(zonen, x, y) {
-    const w = { vx: 0, vy: 0, hitze: 0, schaden: 0, sicht: 1, ertrag: [], ids: [], mx: null, my: null, rueck: null };
+    const w = { vx: 0, vy: 0, hitze: 0, schaden: 0, sicht: 1, zug: 0, ertrag: [], ids: [], mx: null, my: null, rueck: null };
     let best = -1;
     for (const z of an(zonen, x, y)) {
       w.ids.push(z.id);
@@ -51,6 +53,10 @@
       if (z.radial) {
         const dx = x - z.x, dy = y - z.y, d = Math.hypot(dx, dy) || 1;
         w.vx += (dx / d) * z.radial; w.vy += (dy / d) * z.radial;
+      }
+      if (z.zug) {   // Gravitation zur Mitte (stärker je tiefer: Staffelung steht in den Ringen)
+        const dx = x - z.x, dy = y - z.y, d = Math.hypot(dx, dy) || 1;
+        w.vx -= (dx / d) * z.zug; w.vy -= (dy / d) * z.zug; w.zug += +z.zug;
       }
       if (z.rueck && !w.rueck) w.rueck = { x: +z.rueck.x, y: +z.rueck.y, id: z.id };
       w.hitze += +z.hitze || 0;
@@ -85,14 +91,19 @@
 
   // Standard-Atmosphäre eines Gasriesen (Faktoren auf den Planetenradius, von außen nach innen). Werte sind Startwerte (tune zonen.gasriese).
   //   rand: sichtbar für alle; die inneren Ringe zeigt erst Erkundung oder Sonde ('karte').
+  // U2 (Kai, Spieltest): doppelt so groß (Planetenradius 480–640, siehe gen-sektor), Gravitation zur Mitte, Dauerdruck spürbar, Schöpfen nur per Ops-Aktion.
+  //   zug (px/s) ist auf CONFIG abgestimmt (maxSpeed 130 × enginePowerFactor [0, 0.5, 0.8, 1, 1.15], Stufe VOLL): Antrieb 1 = 65, 2 = 104, 3 = 130, 4 = 149,5 px/s.
+  //   Förderschicht 72: Energie 1 sinkt langsam ein (−7), Energie 2 hält nur mit ¾/VOLL (halbe Maximalleistung des Antriebs), 3/4 halten leicht, heizen aber (ab Energie 3).
+  //   Tiefe 140: nur Energie 4 auf VOLL hält (149,5), mit Hitze 18 – jede Ladung (−15 %) nimmt auch das. Kern 240: kein Antrieb reicht, der Druck tötet.
   const GAS = {
     ringe: [
-      { name: 'Hochatmosphäre', von: 1.9, bis: 1.45, sicht: 0.85, hitze: 2, schaden: 0, tang: 4, sichtbarFuer: 'alle' },
-      { name: 'Wolkendecke', von: 1.45, bis: 1.05, sicht: 0.65, hitze: 4, schaden: 0.1, tang: 8, sichtbarFuer: 'karte' },
-      { name: 'Schöpfschicht', von: 1.05, bis: 0.6, sicht: 0.45, hitze: 7, schaden: 0.25, tang: 11, sichtbarFuer: 'karte', rate: 0.08 },
-      { name: 'Tiefe', von: 0.6, bis: 0, sicht: 0.25, hitze: 12, schaden: 1.0, tang: 14, sichtbarFuer: 'karte', rate: 0.16 },
+      { name: 'Hochatmosphäre', von: 1.9, bis: 1.45, sicht: 0.85, hitze: 3, schaden: 0, tang: 6, zug: 10, sichtbarFuer: 'alle' },
+      { name: 'Wolkendecke', von: 1.45, bis: 1.05, sicht: 0.65, hitze: 6, schaden: 0.5, tang: 12, zug: 30, sichtbarFuer: 'karte' },
+      { name: 'Förderschicht', von: 1.05, bis: 0.6, sicht: 0.45, hitze: 12, schaden: 0.8, tang: 16, zug: 72, sichtbarFuer: 'karte', rate: 0.1 },
+      { name: 'Tiefe', von: 0.6, bis: 0.3, sicht: 0.25, hitze: 18, schaden: 3, tang: 20, zug: 140, sichtbarFuer: 'karte' },
+      { name: 'Kern', von: 0.3, bis: 0, sicht: 0.15, hitze: 25, schaden: 8, tang: 26, zug: 240, sichtbarFuer: 'karte' },
     ],
-    zellen: { n: 3, r: [60, 110], staerke: [22, 34], schaden: 0.3 },
+    zellen: { n: 4, r: [110, 190], staerke: [40, 64], schaden: 0.8 },
     ziel: 'fracht:deuterium',
   };
 
@@ -104,6 +115,7 @@
     G.ringe.forEach((g, i) => {
       const z = { id: pre + '_ring' + i, form: g.bis > 0 ? 'ring' : 'kreis', x: planet.x, y: planet.y, name: g.name,
         sicht: g.sicht, hitze: g.hitze, schaden: g.schaden, tang: g.tang, sichtbarFuer: g.sichtbarFuer || 'karte' };
+      if (g.zug) z.zug = g.zug;
       if (g.bis > 0) { z.r0 = Math.round(planet.r * g.bis); z.r1 = Math.round(planet.r * g.von); } else z.r = Math.round(planet.r * g.von);
       if (g.rate) z.ertrag = { ziel: G.ziel, rate: g.rate };
       out.push(z);
@@ -121,6 +133,14 @@
         sichtbarFuer: 'karte' });
     }
     return out;
+  }
+
+  // Welche Energiestufe (1..n) muss der Antrieb mindestens haben, um gegen den Zug (px/s) auf Stufe VOLL die Höhe zu halten?
+  // speeds = Höchsttempo je Energiestufe [E1, E2, …] in px/s (mit Triebwerkszustand und Ladung eingerechnet). 0 = keine Stufe reicht (verloren).
+  function antriebNoetig(zug, speeds) {
+    if (!(zug > 0)) return 1;
+    for (let i = 0; i < (speeds || []).length; i++) if (speeds[i] >= zug) return i + 1;
+    return 0;
   }
 
   // ---------- Gravimetrische Verzerrungen (CONCEPT-SL7 §7a) ----------
@@ -182,5 +202,5 @@
     return { zonen, boje: pos, arrive };
   }
 
-  return { drin, an, wirkung, sichtbar, gasriese, gravimetrie, boje, GAS, GRAVI, BOJE };
+  return { drin, an, wirkung, sichtbar, antriebNoetig, gasriese, gravimetrie, boje, GAS, GRAVI, BOJE };
 });

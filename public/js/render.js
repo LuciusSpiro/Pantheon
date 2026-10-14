@@ -3456,6 +3456,20 @@
         ctx.beginPath(); ctx.moveTo(c.x - Math.cos(ang) * L, c.y - Math.sin(ang) * L); ctx.lineTo(ex, ey);
         ctx.lineTo(ex - Math.cos(ang - 0.5) * 7, ey - Math.sin(ang - 0.5) * 7); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang + 0.5) * 7, ey - Math.sin(ang + 0.5) * 7); ctx.stroke();
       }
+      // U2: Gravitation – Pfeile zur Mitte im Ring (Länge nach Zug), Zahl nach Ringumfang; die Strömung (tang) bleibt der Ringrand
+      if (z.zug && z.form !== 'rechteck' && zoom > 0.04) {
+        const rm = z.form === 'ring' ? (z.r0 + z.r1) / 2 : (z.r || 0) * 0.55, L = Math.min(30, 6 + z.zug * 0.14);
+        const cnt = Math.max(6, Math.min(26, Math.round(2 * Math.PI * rm * zoom / 70)));
+        ctx.strokeStyle = 'rgba(' + col + ',0.8)'; ctx.lineWidth = 1.5; ctx.beginPath();
+        for (let k = 0; k < cnt; k++) {
+          const a = (k / cnt) * Math.PI * 2 + (z.r0 || 0) * 0.002, ca = Math.cos(a), sa = Math.sin(a);
+          const bx = c.x + ca * rm * zoom, by = c.y + sa * rm * zoom;
+          const sx = bx + ca * L / 2, sy = by + sa * L / 2, ex = bx - ca * L / 2, ey = by - sa * L / 2;   // von außen nach innen
+          ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
+          ctx.moveTo(ex + (ca * 5) - sa * 3, ey + (sa * 5) + ca * 3); ctx.lineTo(ex, ey); ctx.lineTo(ex + (ca * 5) + sa * 3, ey + (sa * 5) - ca * 3);
+        }
+        ctx.stroke();
+      }
       if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center' });
       // Ops-Ansage: Stärke und Richtung der Verzerrung (nur wer sie sehen darf, also die Ops nach dem Scan oder alle nach der Feldkarte)
       if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center' });

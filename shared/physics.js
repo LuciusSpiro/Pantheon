@@ -65,6 +65,15 @@
     return a;
   }
 
+  // Anzeige-Kompass: Weltwinkel (rad, 0 = +x/Osten, y nach unten) -> ganze Grad 0..359, 0 = Norden (oben), 90 = Osten, 180 = Süden.
+  // Nur Anzeige/Eingabe-Umrechnung, die Simulationswinkel bleiben unverändert.
+  function kompassGrad(rad) {
+    const g = Math.round(rad * 180 / Math.PI + 90);
+    return ((g % 360) + 360) % 360;
+  }
+  // Rückrichtung: Kompass-Grad -> Weltwinkel (rad, (-PI, PI]).
+  function radAusKompass(grad) { return normAngle((grad - 90) * Math.PI / 180); }
+
   // Sektor eines Punktes relativ zum Schiff. Winkel: 0 = +x, im Uhrzeigersinn (y nach unten).
   // 0 = Bug, 1 = Steuerbord, 2 = Heck, 3 = Backbord.
   function sectorOf(shipX, shipY, shipAngle, px, py) {
@@ -88,5 +97,5 @@
   function tileCenter(tx, ty) { return { x: tx * TILE + TILE / 2, y: ty * TILE + TILE / 2 }; }
   function toTile(px, py) { return { x: Math.floor(px / TILE), y: Math.floor(py / TILE) }; }
 
-  return { TILE, boxHits, moveWithCollision, normAngle, sectorOf, inArc, tileCenter, toTile };
+  return { TILE, boxHits, moveWithCollision, normAngle, kompassGrad, radAusKompass, sectorOf, inArc, tileCenter, toTile };
 });

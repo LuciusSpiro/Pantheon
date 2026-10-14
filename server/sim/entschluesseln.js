@@ -12,7 +12,7 @@
 //   snapshot(game)             Feld `en` (kompakt) | null
 //
 // Regeln (Config `entschl`): Die Signalstärke s (0..1) hängt vom Abstand der Frequenz f zum wandernden Zielband z ab. Der Fortschritt wächst mit s
-// (volle Stärke = `dauer` Sekunden). Qualität = dauer / Laufzeit (Anteil sauberer Zeit): ≥ 0,9 → 3, ≥ 0,65 → 2, ≥ 0,4 → 1, sonst 0. Je höher die
+// (volle Stärke = `dauer` Sekunden). Qualität = dauer / Laufzeit (Anteil sauberer Zeit): Schwellen qSchwellen (≥ 0,85 → 3, ≥ 0,55 → 2, ≥ 0,3 → 1, sonst 0; dauer 12,5 s). Je höher die
 // Qualität, desto mehr Schichten (ab ≤ q) werden gesendet; eine versteckte zweite Schicht trägt ab: 3. Abbruch: Qualität aus dem Verlauf, höchstens
 // floor(Fortschritt · 3). Gleiche Regel für jede Quelle (Funk, Notruf, Boje). Zwischenstand wird nicht gespeichert; Ergebnis steht als Fakt entschl_<id>.
 const Station = require('./station.js');

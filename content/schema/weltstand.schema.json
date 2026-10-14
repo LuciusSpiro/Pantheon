@@ -128,7 +128,9 @@
         "notrufe": {
           "type": "object", "description": "SL8 (CONCEPT-SL8): freigeschaltete Notrufe: Id -> Zustand (0 offen, 1 angenommen, 2 vor Ort, 3 erledigt, 4 abgelaufen, 5 abgelehnt), Restzeit in Spielsekunden, gestellte Fragen, Sonde hat gemessen. Inhaber server/sim/notrufe.js.",
           "additionalProperties": { "type": "object", "properties": { "z": { "type": "integer", "minimum": 0, "maximum": 5 }, "rest": { "type": "number", "minimum": 0 },
-            "befragt": { "type": "array", "items": { "type": "integer" } }, "sonde": { "type": "boolean" } } }
+            "befragt": { "type": "array", "items": { "type": "integer" } }, "sonde": { "type": "boolean" },
+            "v": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Index der Variante (0 = Original)" }, "n": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Zahl der bisherigen Wiederkehren" },
+            "w": { "type": "number", "minimum": 0, "description": "Wiederkehr: Sekunden bis der Ruf erneut erscheint" } } }
         },
         "spur": {
           "type": "object", "description": "SL5 (CONCEPT-SL5): laufende Ionenspur. Inhaber server/sim/spur.js; Wegliste steht in content/spuren/<id>.json.",

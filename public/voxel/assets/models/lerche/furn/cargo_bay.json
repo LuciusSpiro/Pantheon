@@ -6,13 +6,14 @@
   "tags": ["lerche", "furn", "lager", "fracht", "ladung"],
   "footprint": [1, 1],
   "params": {
-    "art": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Ladung (0 leer, 1 Sprengstoff, 2 sonstige Fracht)" },
+    "art": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Ladung (0 leer, 1 Sprengstoff, 2 sonstige Fracht, 3 Deuterium)" },
     "gesichert": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sicherung (1 gesichert, 0 ungesichert, Schnittstelle für AP9)" }
   },
   "variants": {
     "leer": { "art": 0 },
     "sprengstoff": { "art": 1 },
     "fracht": { "art": 2 },
+    "deuterium": { "art": 3 },
     "ungesichert": { "art": 1, "gesichert": 0 }
   },
   "ops": [
@@ -28,6 +29,12 @@
     { "op": "use", "name": "Sprengstoff oben", "if": "art == 1", "model": "rom/kiste", "params": { "w": 10, "h": 5, "d": 9, "lid": 2, "ammo": 1, "light": 1 }, "at": [8, 9, 8] },
     { "op": "use", "name": "Fracht gross", "if": "art == 2", "model": "rom/kiste", "params": { "w": 12, "h": 10, "d": 11, "lid": 1 }, "at": [8, 1, 8] },
     { "op": "use", "name": "Fracht klein", "if": "art == 2", "model": "rom/kiste", "params": { "w": 6, "h": 5, "d": 6, "lid": 0, "light": 0 }, "at": [11, 12, 10] },
+    { "op": "cyl", "name": "Deuterium-Tank links", "if": "art == 3", "at": [5, 1, 8], "r": 3, "h": 11, "color": "metal_light" },
+    { "op": "cyl", "name": "Deuterium-Tank rechts", "if": "art == 3", "at": [11, 1, 8], "r": 3, "h": 11, "color": "metal_light" },
+    { "op": "cyl", "name": "Deuterium-Band links", "if": "art == 3", "at": [5, 4, 8], "r": 3.2, "h": 2, "color": "glow", "jitter": false },
+    { "op": "cyl", "name": "Deuterium-Band rechts", "if": "art == 3", "at": [11, 4, 8], "r": 3.2, "h": 2, "color": "glow", "jitter": false },
+    { "op": "cyl", "name": "Deuterium-Kappe links", "if": "art == 3", "at": [5, 12, 8], "r": 2, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Deuterium-Kappe rechts", "if": "art == 3", "at": [11, 12, 8], "r": 2, "h": 1, "color": "metal_dark" },
     { "op": "box", "name": "Spanngurt", "if": "art > 0", "at": [2, 1, 7], "size": [12, 1, 1], "color": "trim", "mode": "paint", "jitter": false }
   ],
   "anchor": [8, 0, 8]

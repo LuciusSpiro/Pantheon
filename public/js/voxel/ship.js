@@ -426,7 +426,7 @@ function buildDynamic(ctx, S) {
       else if (kind === 'bath') { const first = A.map.at(o.tx - 1, o.ty) !== ch && A.map.at(o.tx, o.ty - 1) !== ch ? 1 : 0; fn = () => ({ spout: first }); }   // ART-D: nur ein Löwenkopf
       else if (kind === 'cargo_bay') {   // EK3 Teil A: art 0 leer, 1 Sprengstoff, 2 sonstige Fracht; gesichert 0 = ungesichert (AP9)
         const bi = (M.CARGO_BAYS || []).findIndex((b) => b.x === o.tx && b.y === o.ty);
-        fn = (st) => { const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; return { art: c ? (c === 'sprengstoff' ? 1 : 2) : 0, gesichert: f.g === false ? 0 : 1 }; };
+        fn = (st) => { const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; return { art: c ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0, gesichert: f.g === false ? 0 : 1 }; };
       }
       else if (kind === 'trophy_niche') fn = (st) => ({ filled: (st.inventory && (+st.inventory.tafel || 0) > 0) || ((st.mission && st.mission.discoveries) || []).length > 0 ? 1 : 0 });
       add(o, id, kind === 'light_shaft' ? '#A9D6E5' : PH_COL.furn, fn);
