@@ -110,7 +110,7 @@ function start() {
       const z = +lsGet(LS_ZOOM, '0'); if (z) R.setZoom(1);
       await Promise.race([L.ready, new Promise((r) => setTimeout(r, 5000))]);
       // Layer: eigener Schiffs-Layer + die der Teams ACTORS und AWAY, jeder für sich fehlertolerant
-      await Promise.all(['ship', 'actors', 'fx', 'away', 'kit'].map(importLayer));   // B1: kit = Bühnen (Zone 'buehne')
+      await Promise.all(['ship', 'actors', 'fx', 'away', 'kit', 'sitz'].map(importLayer));   // B1: kit = Bühnen (Zone 'buehne')
       VR.ready = true;
     } catch (e) {
       starting = null;

@@ -345,7 +345,26 @@ function camDist() {
   return w / (2 * Math.tan((S.camera.fov * D2R) / 2) * S.camera.aspect);
 }
 const camOff = new THREE.Vector3();
+// UI-Sitz (Prototyp E2): Sitzkamera statt Draufsicht. seat = { pos: [x,y,z], look: [x,y,z], fov } in Metern (1 Kachel = 1 m), null = Draufsicht
+export function setSeat(seat) {
+  S.seat = seat || null;
+  S.camera.fov = S.seat && S.seat.fov ? S.seat.fov : (S.zone === 'kesh' ? FOV_KESH : FOV);
+  S.camera.updateProjectionMatrix();
+}
+export function getSeat() { return S.seat || null; }
+function updateSeatCamera() {
+  const s = S.seat;
+  S.camera.position.set(s.pos[0], s.pos[1], s.pos[2]);
+  S.camera.lookAt(tmpV.set(s.look[0], s.look[1], s.look[2]));
+  S.camera.updateMatrixWorld(true);
+  S.target.set(s.pos[0], 0, s.pos[2]);
+  const d = S.sunDir || tmpV.set(-0.3, 1, 0.2).normalize();
+  S.sun.target.position.set(S.target.x, 0, S.target.z);
+  S.sun.position.copy(S.sun.target.position).addScaledVector(d, 25);
+  S.sun.target.updateMatrixWorld(); S.sun.updateMatrixWorld();
+}
 function updateCamera(view, dt) {
+  if (S.seat) { updateSeatCamera(); return; }
   const self = view.self || { x: 0, y: 0 };
   const p = toWorldIn(S.zone, self.x, self.y, tmpV);
   // eigene Figur etwas unter der Bildmitte (wie 2D: Kamera 16 px über den Füßen)

@@ -818,6 +818,7 @@ function updatePlayer(p, view, st, dt, t) {
   }
   a.deck = deck; a.lift = p.lift || null; a.ladder = p.ladder || null;
   if (decked && !onVisibleDeck(p.y) && !(p.lift && p.lift.to === L.ctx.deck)) { a.container.visible = false; return; }
+  if (window.Sitz && Sitz.versteckt != null && Sitz.station && String(p.id) === Sitz.versteckt) { a.container.visible = false; return; }   // UI-Sitz (E2): Kamera sitzt im eigenen Kopf
 
   const pos = place(a, p.x, p.y, 0);
   const beam = beamAmount(p, view);

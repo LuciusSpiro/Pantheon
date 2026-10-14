@@ -1956,7 +1956,7 @@
     if (e.button === 2) {
       // M1: Rechtsklick in Konsolen (Ops-Marker, Pin entfernen)
       const m2 = me();
-      if (m2 && m2.console) Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view, 2));
+      if (m2 && m2.console && (!window.Sitz || Sitz.klickErlaubt())) Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view, 2));
       return;
     }
     if (e.button !== 0) return;
@@ -1966,6 +1966,7 @@
     if (uiTop() || Client.chapter) return;   // S1: Menüseite offen – kein Schuss, keine Konsole darunter (S2: Kapitelkarte ebenso)
     const m = me();
     if (m && m.console) {
+      if (window.Sitz && !Sitz.klickErlaubt()) return;   // UI-Sitz (E2): im Blick VORN/CREW keine unsichtbaren Konsolenknöpfe
       // TB1: auf einer Karte (Sternkarte, Detailkarte, Sektorplan) zieht die linke Maustaste die Ansicht; der Klick läuft erst beim Loslassen, wenn nicht gezogen wurde
       const KA = window.KartenAnsicht;
       if (KA && KA.druecken(p.x, p.y, () => Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)))) return;
@@ -1985,9 +1986,14 @@
   window.addEventListener('blur', () => { if (window.KartenAnsicht) KartenAnsicht.abbrechen(); });
   canvas.addEventListener('wheel', (e) => {
     const KA = window.KartenAnsicht;
-    if (!KA || uiTop() || Client.chapter) return;
+    if (uiTop() || Client.chapter) return;
     const p = toCanvas(e);
-    if (KA.rad(p.x, p.y, e.deltaY * (e.deltaMode === 1 ? 33 : 1))) e.preventDefault();
+    const SZ = window.Sitz && Sitz.station ? Sitz : null;   // UI-Sitz (E2): Rad wechselt den Blick
+    if (SZ && SZ.blick !== 'pult') { if (SZ.rad(e.deltaY, false)) e.preventDefault(); return; }
+    if (!KA) return;
+    const used = KA.rad(p.x, p.y, e.deltaY * (e.deltaMode === 1 ? 33 : 1));
+    if (used) e.preventDefault();
+    else if (SZ && SZ.rad(e.deltaY, false)) e.preventDefault();
   }, { passive: false });
   window.addEventListener('mouseup', (e) => { if (e.button === 0 && Client.fireHeld.mouse) { Client.fireHeld.mouse = false; feuerLos(); } });
   window.addEventListener('mouseup', () => {
@@ -2166,7 +2172,8 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       Net.guard('Hud.draw', () => H.draw(ctx, v));
       if (v.me.console) {
-        Net.guard('Consoles.draw', () => K.draw(ctx, v));
+        if (v.voxel && window.Sitz && Sitz.station) Net.guard('Sitz.draw', () => Sitz.draw(ctx, v));   // UI-Sitz (E2)
+        else Net.guard('Consoles.draw', () => K.draw(ctx, v));
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
@@ -2193,7 +2200,8 @@
     if (!VR) return false;
     if (VR.notice) { const n = VR.notice; VR.notice = null; Net.guard('Hud.pushNotice', () => H.pushNotice(n, R.PAL.warn)); }
     let ok = false;
-    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && !v.me.console) {
+    const sitz = !!(window.Sitz && Net.guard('Sitz.update', () => Sitz.update(v, Client.frameDt || STEP), false));   // UI-Sitz (E2): Egoperspektive an Steuer/Ops/Captain
+    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && (!v.me.console || sitz)) {
       const zone = VR.zoneOf(v);
       if (zone && VR.handles(zone)) ok = !!Net.guard('Voxel.frame', () => VR.frame(v, Client.frameDt || STEP), false);
     }

@@ -397,7 +397,7 @@ function buildDynamic(ctx, S) {
       else if (con === 'shop') fn = (st) => ({ docked: st.ship && st.ship.docked ? 1 : 0 });
       else if (con === 'captain') fn = (st) => ({ occupied: consoleBusy(st, con) });
       else fn = (st) => ({ occupied: consoleBusy(st, con), alert: st.ship && st.ship.alert === 'red' ? 1 : 0 });
-      add(o, id, PH_COL.console, fn);
+      add(o, id, PH_COL.console, fn, { con });
       continue;
     }
     if (FURN_ID[kind]) {
@@ -481,6 +481,7 @@ function placeObj(ctx, S, e, params) {
 function updateDynamic(view, ctx, S, st) {
   const ent = entitiesNear(view, S);
   for (const e of S.dyn) {
+    if (e.con && e.obj) e.obj.visible = !(window.Sitz && Sitz.station === e.con && Sitz.blick !== 'pult');   // UI-Sitz (E2): eigenes Pult verdeckt sonst den Hauptschirm
     if (e.deck !== ctx.deck && e.obj) continue;   // unsichtbares Deck nicht nachführen (außer beim ersten Aufbau)
     let params;
     try { params = e.paramsFn(st, ent) || {}; } catch (err) { params = {}; }
