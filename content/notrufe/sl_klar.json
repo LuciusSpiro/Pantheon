@@ -1,11 +1,11 @@
 {
   "id": "sl_klar",
-  "_kommentar": "Entwurf SL8 (Kai passt an, SL11 verdrahtet). Klarer Ruf: ohne Analyse erkennbar, echt. Sund: Gasfeld.",
-  "hex": "0503",
+  "_kommentar": "Entwurf SL8 (Kai passt an, SL11 verdrahtet). Klarer Ruf: ohne Analyse erkennbar, echt. Sund: Concordia (Hex ohne Zonen, kollidiert nicht mit dem Gasriesen).",
+  "hex": "0604",
   "art": "klar",
   "wahrheit": "echt",
   "absender": "Schürferin Anka Brandt",
-  "behauptung": "Tankschiff Brandt, Triebwerksausfall im Gasfeld. Vier Mann an Bord, die Luft hält, der Treibstoff nicht. Wir treiben.",
+  "behauptung": "Tankschiff Brandt, Triebwerksausfall kurz vor Concordia. Vier Mann an Bord, die Luft hält, der Treibstoff nicht. Wir treiben.",
   "indizien": [],
   "messwerte": "Vier Lebenszeichen, Reaktor kalt, keine Waffen. Die Meldung stimmt.",
   "befragung": [

@@ -117,6 +117,16 @@
       const Z = zonenModul();
       const gp = planeten.find((p) => p.art === 'gasriese');
       scene.zonen = Z && gp ? Z.gasriese(gp, null, 'gas' + hex) : [];
+    } else if (ov.zonen === 'boje') {
+      // SL10: Vorläufer-Boje mit Aktivierungsfeld (Navigation hält das Schiff im Feld, drückt und driftet)
+      const Z = zonenModul();
+      const bj = Z ? Z.boje(w, h, hexSeed(hex)) : null;
+      scene.zonen = bj ? bj.zonen : [];
+      if (bj) {
+        scene.bojeFeld = { x: bj.boje.x, y: bj.boje.y };
+        scene.arrive = bj.arrive;
+        scene.station = Object.assign({ kind: 'buoy', r: 48, name: 'Vorläufer-Boje' }, ov.station && typeof ov.station === 'object' ? ov.station : {}, { x: bj.boje.x, y: bj.boje.y });
+      }
     } else if (ov.zonen === 'gravimetrie') {
       // SL7a: Forschungsstation im Gravimetriefeld: Ankunft links, Station rechts, Felder/Kerne dazwischen, Haltefeld (Gruppe halt) anfangs aus
       const Z = zonenModul();

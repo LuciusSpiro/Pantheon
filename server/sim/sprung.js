@@ -264,10 +264,13 @@ function notsprungKandidaten(game) {
   const here = hexHier(game);
   if (!here) return [];
   let c = Sektoren.nachbarn(here).filter((h) => Sektoren.spielbar(h) && Sektoren.ortVonHex(h)
-    && (!Sektoren.istVerborgen(h) || game.explore.kanteOffen(Sektoren.kanteId(here, h))));   // SL1: verborgene Hexe nur über enthüllte Kante
+    && (!Sektoren.istVerborgen(h) || game.explore.kanteOffen(Sektoren.kanteId(here, h)))   // SL1: verborgene Hexe nur über enthüllte Kante
+    && !(Sektoren.hexDaten(h) && Sektoren.hexDaten(h).notsprung === false));   // SL3: Hex mit "notsprung": false ist nie Ziel eines Notfallsprungs (z. B. Helix nur über temporären Sprungpunkt)
   // EK7: Solange das Tutorial läuft, führt der Notfallsprung nie aus dem Saumraum hinaus (Statio Limitis grenzt an den Splittergürtel)
   if (tutorialLaeuft(game)) c = c.filter((h) => { const d = Sektoren.hexDaten(h); return !d || d.region === 'saumraum'; });
-  if (Sektoren.istLeerraum(here)) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
+  // Leerraum oder ein Hex ohne befahrbare Kante (z. B. Bojenfeld vor der Enthüllung): der Notfallsprung führt in ein System (E30), nie tiefer in den Leerraum
+  const ohneKante = !Sektoren.kantenVon(here).some((e) => game.explore.kanteOffen(typeof e === 'string' ? e : Sektoren.kanteId(e.a, e.b)));
+  if (Sektoren.istLeerraum(here) || ohneKante) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
   return c;
 }
 function notsprungGrund(game) {

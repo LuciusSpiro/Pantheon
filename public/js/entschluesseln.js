@@ -64,11 +64,11 @@
     R.text(ctx, 'SIGNAL', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, s, s > 0.65 ? PAL.mint : s > 0.3 ? PAL.amber : PAL.red); yy += 14;
     R.text(ctx, 'ENTSCHL.', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, num(e.h), PAL.mint); yy += 14;
     R.text(ctx, 'Qualität bisher ' + sterne(num(e.q)) + '   ·   A/D oder Pfeile halten', ix, yy, { color: PAL.panelLight }); yy += 14;
-    R.button(ctx, ix, yy, 28, 15, '◄', { onClick: () => { stimme(view, -1); setTimeout(() => stimme(view, 0), 160); } });
-    R.button(ctx, ix + 32, yy, 28, 15, '►', { onClick: () => { stimme(view, 1); setTimeout(() => stimme(view, 0), 160); } });
-    R.button(ctx, ix + iw - 120, yy, 120, 15, 'Abbrechen', { hotkey: '⌫', onClick: () => send(view, 'weapons.entschl.stopp') });
+    R.button(ctx, ix, yy, 28, 15, '<', { onClick: () => { stimme(view, -1); setTimeout(() => stimme(view, 0), 160); } });
+    R.button(ctx, ix + 32, yy, 28, 15, '>', { onClick: () => { stimme(view, 1); setTimeout(() => stimme(view, 0), 160); } });
+    R.button(ctx, ix + iw - 120, yy, 120, 15, 'Abbrechen', { hotkey: 'Rück', onClick: () => send(view, 'weapons.entschl.stopp') });
   }
-  function sterne(q) { return '★'.repeat(Math.max(0, Math.min(3, q))) + '☆'.repeat(3 - Math.max(0, Math.min(3, q))); }
+  function sterne(q) { const k = Math.max(0, Math.min(3, q)); return '[' + '*'.repeat(k) + '-'.repeat(3 - k) + ']'; }   // (die Pixelschrift hat keine Sterne)
 
   // Tastatur: true = verbraucht. Nur aufrufen, wenn aktiv(state) (die Ops hat dann Vorrang vor Zuteilung A/D, Q/E und X).
   function key(code, down, view) {

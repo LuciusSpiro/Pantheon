@@ -32,8 +32,8 @@
       "id": "aussenposten", "loc": "kantenstein",
       "liefert_flags": ["gespraech_evert_anheuern"],
       "enter": [
-        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "kantine_1.zelle.1", "gespraech": "evert_anheuern" },
-        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "wirt", "anker": "kantine_1.zelle.2", "gespraech": "wirt_plausch" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "46,30", "gespraech": "evert_anheuern" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "wirt", "anker": "48,30", "gespraech": "wirt_plausch" },
         { "oda": "@ort.hinweis" }
       ],
       "timers": [
@@ -44,13 +44,13 @@
         { "id": "anheuern", "text": "@ziel.anheuern", "done": { "flag": { "gespraech_evert_anheuern": "annehmen" } }, "hex": "kantenstein" }
       ],
       "next": [{ "if": { "flag": { "gespraech_evert_anheuern": "annehmen" } }, "goto": "aufbruch" }],
-      "skip": [{ "set": { "gespraech_evert_anheuern": "annehmen" } }]
+      "skip": [{ "setFlag": { "gespraech_evert_anheuern": "annehmen" } }]
     },
 
     {
       "id": "aufbruch", "loc": "kantenstein",
       "enter": [
-        { "do": "person_entfernen", "map": "kantenstein.siedlung", "person": "evert" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "46,30" },
         { "do": "welt_fakt", "key": "evert", "value": "angeheuert", "quelle": "Kantenstein" },
         { "do": "chronik", "text": "@chronik.erfolg" },
         { "oda": "@aufbruch.hinweis" }
@@ -63,7 +63,7 @@
 
   "ausgaenge": {
     "erfolg": {
-      "beschreibung": "Evert Kroeger ist angeheuert; sein Gepäck wartet an der Landestelle.",
+      "beschreibung": "Evert Kroeger ist angeheuert und wartet als gewöhnliche Person (ohne Gespräch) in der Taverne; Kapitel 2 holt ihn per Ops-Scan und Beamen an Bord.",
       "folgen": [
         { "do": "welt_fakt", "key": "kapitel1", "value": "erledigt", "quelle": "Kantenstein" }
       ]
@@ -80,7 +80,7 @@
     "ziel.finden": "Evert Kroeger in der Taverne finden",
     "ziel.anheuern": "Evert zuhören und den Auftrag annehmen",
 
-    "aufbruch.hinweis": "Evert lädt sein Gepäck. Zurück an die Landestelle, die Ops beamt hoch.",
+    "aufbruch.hinweis": "Evert wartet in der Taverne. Zurück an Bord: Pads, E halten. Dann Ops: Landepunkt scannen, Evert hochbeamen.",
 
     "chronik.erfolg": "Evert Kroeger, Händler des Konkordats, heuert die Lerche in der Taverne von Kantenstein an: Pulverhorn, dann die Boje."
   }

@@ -1416,6 +1416,12 @@
         else if (n >= 16) F('K-INSEL', `begehbare Insel ohne Zugang (${n} Kacheln)`, x0, y0);
       }
     }
+    // K-MONSTER-PULT / -FLUCHT / -KRIECH (SL7c, shared/monster.js): nur Karten mit meta.monster (Monster-Station): das Monster (2×2) erreicht jedes Pult,
+    // von jedem Pult ist der Kriechgang schnell erreichbar, und der Kriechgang bleibt der Monstermaske verschlossen
+    if (karte.meta && karte.meta.monster && !hand) {
+      const MM = IST_NODE ? require('./monster.js') : (typeof self !== 'undefined' ? self.Shared_Monster : null);
+      if (MM) for (const f of MM.pruefen(karte)) F(f.code, f.msg, f.x, f.y);
+    }
     if (M.nurFehler) return { ok: !fehler.length, fehler, warnungen };
     return warnungenVon(karte, cfg, hand, fehler, warnungen);
   }

@@ -38,14 +38,14 @@
     if (n < 1) reason = 'Keine Sonden im Vorrat (Hafen)';
     else if (!marke) reason = 'Erst Ziel markieren (rechte Maustaste)';
     else if (unterwegs >= max) reason = 'Höchstens ' + max + ' Sonden gleichzeitig';
-    R.button(ctx, x, y, 150, 13, 'Sonde zur Marke (' + n + ')', { hotkey: 'P', disabled: !!reason, reason, onClick: () => cmd('weapons.sonde.start') });
+    R.button(ctx, x, y, 124, 13, 'Sonde zur Marke (' + n + ')', { hotkey: 'P', disabled: !!reason, reason, onClick: () => cmd('weapons.sonde.start') });
     // durch einen bekannten, offenen Sprungpunkt in den Nachbarsektor (J = der erste); Name des Nachbarsektors, sonst Hex
     const S = window.Shared_Sektoren;
     const jps = ((st.space && st.space.jp) || []).filter((j) => j.z === 'aktiv' || j.z === 'temporaer').slice(0, 3);
     const r2 = n < 1 ? 'Keine Sonden im Vorrat (Hafen)' : unterwegs >= max ? 'Höchstens ' + max + ' Sonden gleichzeitig' : null;
     jps.forEach((j, i) => {
       const nm = S && S.hexName ? S.hexName(j.n) : j.n;
-      R.button(ctx, x, y - 15 * (i + 1), 150, 13, 'Sonde → ' + nm, { hotkey: i === 0 ? 'J' : undefined, disabled: !!r2, reason: r2, onClick: () => cmd('weapons.sonde.sprung', { nach: j.n }) });
+      R.button(ctx, x, y - 15 * (i + 1), 124, 13, 'Sonde → ' + nm, { hotkey: i === 0 ? 'J' : undefined, disabled: !!r2, reason: r2, onClick: () => cmd('weapons.sonde.sprung', { nach: j.n }) });
     });
   }
 

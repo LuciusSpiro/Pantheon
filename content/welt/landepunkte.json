@@ -67,6 +67,15 @@
       { "id": "kantenstein.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7311, "schablone": null,
         "gen": { "typ": "handel", "haeuser": 11 },
         "beam": { "x": 1450, "y": 1108, "range": 360 }, "name": "Außenposten Kantenstein", "frei": "immer", "gesperrt": false }
+    ],
+    "schrottkante": [
+      { "id": "schrottkante.lager", "art": "aussenposten", "bauweise": "germanen", "besitz": "rostmeute", "zustand": "intakt", "seed": 7606, "schablone": null,
+        "beam": { "x": 1560, "y": 1100, "range": 360 }, "name": "Lager Schrottkante", "frei": "immer", "gesperrt": false }
+    ],
+    "helix": [
+      { "id": "helix.station", "art": "station", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7007, "schablone": null,
+        "gen": { "monster": true },
+        "beam": { "x": 2160, "y": 1100, "range": 360 }, "name": "Forschungsstation Helix", "frei": "immer", "gesperrt": false }
     ]
   }
 }

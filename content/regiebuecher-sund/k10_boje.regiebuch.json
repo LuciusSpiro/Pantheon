@@ -1,0 +1,122 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL10 Kapitel 10 „Die Boje“ (CONCEPT-SL10): Fundort Bojenfeld (verborgene Kante boje-fundort wird enthüllt), alle vier Stationen: Ops löst die Adresse (Glyphen/Sternkarte, der Captain sieht die Konstellation), Technik fährt Module herunter und hält 4 Reaktorpunkte frei (Lebenserhaltung aus = Uhr), Navigation hält die Lerche im Aktivierungsfeld (drückt und driftet). Nach Weg A (Lösegeld, Fakt lerche_weg = loesegeld) kommen die Piraten in Wellen (Wettlauf), nach Weg B nicht. Bei 100 erwacht die Boje: die locked-Kante in den Vorläufer-Sektor öffnet sich dauerhaft. Danach Sprung in den Vorläufer-Sektor, Ende der Kampagne (Abspann: concept/sl/abspann.ende.json). Orte nur mit aktiver Sund-Karte gültig.",
+  "format": "regiebuch/1",
+  "id": "k10_boje",
+
+  "kopf": {
+    "titel": "Die Boje",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 15,
+    "crew": { "min": 1, "max": 4, "empfohlen": 4 },
+    "feldzug": "schuld"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["pulverhorn", "bojenfeld", "vorlaeufer"] },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "kante_enthuellen", "kante": "boje-fundort" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 3 }, "goto": "anflug_boje" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "anflug_boje",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "bojenfeld" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.zum_fundort", "done": { "atLocation": "bojenfeld" } }
+      ],
+      "next": [{ "if": { "atLocation": "bojenfeld" }, "goto": "boje" }],
+      "skip": [{ "do": "debug_jump", "loc": "bojenfeld" }]
+    },
+
+    {
+      "id": "boje", "loc": "bojenfeld", "restartOnReturn": true,
+      "umsetzung": "boje/wecken",
+      "enter": [
+        { "do": "boje_zuruecksetzen" },
+        { "do": "glyphen_starten", "id": "boje" },
+        { "if": { "check": { "name": "welt_fakt_ist", "key": "lerche_weg", "value": "loesegeld" } }, "do": "boje_wettlauf", "wellen": 3 },
+        { "oda": "@boje.lage" }
+      ],
+      "timers": [
+        { "at": 40, "if": { "not": { "check": { "name": "glyphen_geloest", "id": "boje" } } }, "oda": "@boje.tipp_adresse", "garantie": "hinweis" },
+        { "at": 75, "if": { "not": { "check": { "name": "in_zone", "zone": "boje_feld" } } }, "oda": "@boje.tipp_feld", "garantie": "hinweis" },
+        { "at": 110, "if": { "not": { "check": { "name": "zaehler_mindestens", "id": "boje", "min": 10 } } }, "oda": "@boje.tipp_energie", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "adresse", "text": "@ziel.adresse", "done": { "check": { "name": "glyphen_geloest", "id": "boje" } } },
+        { "id": "feld", "text": "@ziel.feld", "done": { "check": { "name": "in_zone", "zone": "boje_feld" } } },
+        { "id": "wecken", "text": "@ziel.wecken", "done": { "check": { "name": "boje_geweckt" } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "boje_geweckt" } }, "do": [{ "oda": "@boje.erwacht" }], "goto": "sprung" }
+      ],
+      "skip": [{ "do": "zaehler_setzen", "id": "boje", "wert": 100 }]
+    },
+
+    {
+      "id": "sprung", "loc": "bojenfeld",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "vorlaeufer" } }, "oda": "@sprung.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.vorlaeufer", "done": { "atLocation": "vorlaeufer" } }
+      ],
+      "next": [
+        { "if": { "atLocation": "vorlaeufer" }, "do": [{ "setFlag": { "vorlaeufer_erreicht": true } }, { "oda": "@sprung.da" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "debug_jump", "loc": "vorlaeufer" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die Boje ist erwacht, die Crew hat den Vorläufer-Sektor betreten. Ende der Kampagne (Abspann reagiert auf den Weg A/B).",
+      "folgen": [
+        { "do": "welt_fakt", "key": "vorlaeufer_erreicht", "value": "ja", "quelle": "Vorläufer-Boje" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Evert Kroegers Koordinaten führen zu einer schlafenden Vorläufer-Boje. Wer sie weckt, öffnet einen Sprungpunkt in einen Sektor, den noch niemand betreten hat.",
+    "buch.belohnung": "Ein Weg in den Vorläufer-Sektor",
+
+    "auftrag.hinweis": "Evert hat die Koordinaten verraten: Bojenfeld hinter Pulverhorn. Die Kante ist jetzt auf der Sternkarte.",
+    "anflug.tipp": "Bojenfeld: Sternkarte, Ziel wählen, Sprung ab Pulverhorn. Weitscan (Ops, S) zeigt die Boje.",
+
+    "boje.lage": "Die Boje schläft. Ops: Adresse, Captain liest die Konstellation vor. Technik: Module aus. Navigation: im Feld bleiben.",
+    "boje.tipp_adresse": "Captain: Die Konstellation steht auf deinem Schirm, sag der Ops die Sterne an. Ops: Leertaste setzt, Enter sendet.",
+    "boje.tipp_feld": "Navigation: Die Lerche muss im Aktivierungsfeld bleiben. Es drückt und driftet, gegen die Strömung halten.",
+    "boje.tipp_energie": "Technik: Die Boje braucht 4 freie Reaktorpunkte. Waffen und Lebenserhaltung herunterfahren, der O2-Vorrat läuft.",
+    "boje.erwacht": "Die Boje erwacht! Der Sprungpunkt in den Vorläufer-Sektor ist offen. Technik, Module wieder hoch.",
+
+    "sprung.tipp": "Sprungpunkt am Rand des Bojenfelds: Sternkarte, Vorläufer-Sektor wählen, Sprung.",
+    "sprung.da": "Der Vorläufer-Sektor. Still, alt, unberührt. Hier endet eure Reise – und beginnt etwas Neues.",
+
+    "ziel.zum_fundort": "Zum Bojenfeld fliegen",
+    "ziel.adresse": "Die Adresse eingeben (Ops setzt, der Captain sagt an)",
+    "ziel.feld": "Im Aktivierungsfeld der Boje bleiben (Navigation)",
+    "ziel.wecken": "Die Boje wecken (Energie frei halten, Technik)",
+    "ziel.vorlaeufer": "In den Vorläufer-Sektor springen",
+
+    "chronik.erfolg": "Die Crew weckt die Vorläufer-Boje und springt in den Vorläufer-Sektor."
+  }
+}

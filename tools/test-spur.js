@@ -39,13 +39,21 @@ function setup(scene) {
   return { g, c, p, cmd, run, odas, flieg, zumKern };
 }
 const kante = (g) => g.explore.kanteOffen(Sektoren.kanteId('0605', '0606'));
+// Die Dreihex-Prüfungen laufen mit einer eigenen Spur "bote" (registriere überschreibt den Dateiinhalt nur in diesem Test): 0603 -> 0604 -> 0605,
+// Teilung in 0603 (Gasfeld falsch). Die echte content/spuren/bote.json (Kapitel 6: 0604 -> 0605, Teilung in Concordia) prüft der eigene Abschnitt unten.
+const ECHT = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'content', 'spuren', 'bote.json'), 'utf8'));
+Spur.registriere({ id: 'bote', name: 'Spur des Boten (Test, 3 Hexe)', weg: ['0603', '0604', '0605'], alter: [1500, 1260, 900],
+  teilungen: [{ ab: '0603', aeste: [{ nach: '0604', echt: true, indiz: 'Masse 40 t, Kurs hält.' }, { nach: '0503', echt: false, indiz: 'Masse 2 t, flackert: Täuschkörper.' }] }],
+  ende: { kante: 'lager-schrottkante' } });
+Spur.registriere(Object.assign({}, ECHT, { id: 'bote_echt' }));
 
 Welt.waehle(null, 'sund');
 try {
   console.log('Spur: Start, Lesen, Alter, Hex-Marke');
   {
     const t = setup('kantenstein'); const g = t.g;
-    ok(Spur.datei('bote') && Spur.datei('bote').weg.length === 3, 'content/spuren/bote.json lädt (3 Hexe)');
+    ok(Spur.datei('bote') && Spur.datei('bote').weg.length === 3, 'Testspur mit 3 Hexe registriert');
+    ok(ECHT.weg.join() === '0604,0605' && ECHT.teilungen[0].ab === '0604' && ECHT.ende.kante === 'lager-schrottkante', 'content/spuren/bote.json: Kapitel 6 (Concordia -> Pulverhorn, Teilung in Concordia)');
     ok(/gibt es nicht/.test(Spur.starten(g, 'gibt_es_nicht')), 'unbekannte Spur abgelehnt');
     ok(Spur.starten(g, 'bote') === null && g.spur.idx === 0, 'Spur gestartet');
     ok(Marken.da(g, 'spur:bote') && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0603'), 'Hex-Marke "spur" am Start-Hex (marken.js, ein Mechanismus)');
@@ -112,6 +120,29 @@ try {
     const g2 = setup('kantenstein').g; Spur.restore(g2, JSON.parse(JSON.stringify(data.welt.spur)));
     ok(g2.spur && g2.spur.idx === 2 && g2.spur.fertig, 'Laden: Spur steht wieder');
     Spur.restore(g2, undefined); ok(g2.spur === null, 'Altstand ohne welt.spur: keine Spur');
+  }
+
+  console.log('Echte Spur des Boten (content/spuren/bote.json, Kapitel 6: 2 Hexe, Teilung in Concordia)');
+  {
+    const t = setup('concordia'); const g = t.g;
+    ok(Spur.starten(g, 'bote_echt') === null && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0604'), 'Spur beginnt in Concordia');
+    t.zumKern(); t.cmd('weapons.spur.lesen', { on: true }); t.run(g.C.spur.leseZeit + 0.5);
+    ok(g.entschl && g.entschl.id === 'spur_bote_echt_0' && g.spur.wartet, 'Concordia: Teilung öffnet das Entschlüssel-Signal');
+    t.cmd('weapons.entschl.start');
+    for (let k = 0; k < 30 * 120 && g.entschl && g.entschl.z === 1; k++) {
+      const e = g.entschl; const d = Math.abs(e.f - e.ziel) < 0.02 ? 0 : (e.ziel > e.f ? 1 : -1);
+      if (d !== e.dir) t.cmd('weapons.entschl.stimme', { dir: d });
+      g.space.enemies = []; g.step();
+    }
+    t.run(0.2);
+    ok(Entschl.ergebnis(g, 'spur_bote_echt_0') === 3 && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0605'), 'Qualität 3: Marke zeigt Pulverhorn');
+    t.flieg('0603');
+    ok(g.spur.falsch === true && g.spur.idx === 0, 'Kantenstein ist der falsche Ast');
+    t.flieg('0604'); t.flieg('0605');
+    ok(g.spur.idx === 1 && !g.spur.fertig, 'Pulverhorn: letzter Hex');
+    t.zumKern(); t.cmd('weapons.spur.lesen', { on: true }); t.run(g.C.spur.leseZeit + 0.5);
+    ok(g.spur.fertig && kante(g), 'Ende: verborgene Kante nach Schrottkante offen (2 Hexe genügen)');
+    ok(t.odas().some((x) => /vor 15 min/.test(x)), 'Alter laut Datei: vor 15 min (900 s)');
   }
 
   console.log('Baustein und Hexwechsel mitten in der Spur gespeichert');

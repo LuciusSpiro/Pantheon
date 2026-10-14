@@ -1,0 +1,70 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL11 Kapitel 6 „Spur des Boten“ (Kampagne Die Schuld der Lerche). Die Ionenspur des Boten (content/spuren/bote.json, SL5) beginnt in Concordia und führt nach Pulverhorn. Die Navigation fliegt den Spurkern jedes Hexes an, die Ops liest Kante und Alter (K), in Concordia teilt sich die Spur (falscher Ast: Täuschkörper Richtung Kantenstein; die Ops unterscheidet nach den Indizien). Im letzten Hex enthüllt das Lesen die verborgene Kante nach Schrottkante (Schlüssel lager-schrottkante). Eine Sonde (SL4) darf vorausschauen. Die Spur verblasst nicht, es gibt keine Uhr. Texte sind Entwurf des Studios, Kai passt an.",
+  "format": "regiebuch/1",
+  "id": "k6_spur",
+
+  "kopf": {
+    "titel": "Spur des Boten",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 12,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia", "pulverhorn", "schrottkante"] },
+
+  "steps": [
+    {
+      "id": "spur", "loc": "concordia",
+      "enter": [
+        { "do": "spur_starten", "id": "bote" },
+        { "oda": "@spur.lage" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "check": { "name": "spur_gelesen", "id": "bote", "min": 0 } } }, "oda": "@spur.tipp_lesen", "garantie": "hinweis" },
+        { "at": 240, "if": { "not": { "check": { "name": "spur_ende", "id": "bote" } } }, "oda": "@spur.tipp_sonde", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "folgen", "text": "@ziel.folgen", "done": { "check": { "name": "spur_gelesen", "id": "bote", "min": 1 } }, "hex": "pulverhorn" },
+        { "id": "kante", "text": "@ziel.kante", "done": { "check": { "name": "spur_ende", "id": "bote" } }, "hex": "pulverhorn" }
+      ],
+      "next": [
+        { "if": { "check": { "name": "spur_ende", "id": "bote" } }, "do": [{ "oda": "@spur.gefunden" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "debug_spur_ende", "id": "bote" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die verborgene Kante nach Schrottkante ist enthüllt (Schlüssel lager-schrottkante); das Lager der Piraten ist gefunden.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "lager", "value": "gefunden", "quelle": "Spur des Boten" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Der Bote kam nicht aus dem Nichts: Seine Schiffe haben Ionen hinterlassen. Folgt der Spur von Hex zu Hex, bis die verborgene Kante zum Piratenlager auftaucht.",
+    "buch.belohnung": "Der Weg nach Schrottkante",
+
+    "spur.lage": "Ionenspur in Concordia: Navigation fliegt den Spurkern an, Ops liest mit K Kante und Alter.",
+    "spur.tipp_lesen": "Ops: im Radius des Spurkerns K halten und lesen. Die Taktikkarte zeigt die Marke.",
+    "spur.tipp_sonde": "Eine Sonde in das Nachbarhex zeigt, wohin die Spur wirklich führt. Ops: Sonde starten.",
+    "spur.gefunden": "Verborgene Kante gefunden. Hinter ihr liegt Schrottkante.",
+
+    "ziel.folgen": "Der Ionenspur nach Pulverhorn folgen",
+    "ziel.kante": "Die verborgene Kante nach Schrottkante finden (Ops, K)",
+
+    "chronik.erfolg": "Die Crew folgt der Ionenspur des Boten von Concordia nach Pulverhorn und findet die verborgene Kante nach Schrottkante."
+  }
+}

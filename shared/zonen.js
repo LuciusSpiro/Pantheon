@@ -168,5 +168,19 @@
     return { zonen, weg, fluchtweg, start, station };
   }
 
-  return { drin, an, wirkung, sichtbar, gasriese, gravimetrie, GAS, GRAVI };
+  // ---------- Aktivierungsfeld der Vorläufer-Boje (CONCEPT-SL10) ----------
+  // Ein Kreis um die Boje: leichte Drift und Strömung (die Navigation hält das Schiff im Feld), sichtbar für alle. Der Fortschritt der Aktivierung ist KEIN
+  // Zonenertrag, sondern Sache von server/sim/boje.js (nur mit entschlüsselter Adresse, freier Energie und Schiff im Feld).
+  const BOJE = { feldR: 230, drift: 34, tang: 14 };
+  function boje(w, h, seed, cfg) {
+    const B = Object.assign({}, BOJE, cfg || {});
+    const r = mulberry32((seed >>> 0) || 1);
+    const pos = { x: Math.round(w * (0.56 + r() * 0.1)), y: Math.round(h * (0.42 + r() * 0.16)) };
+    const arrive = { x: Math.round(w * 0.2), y: Math.round(h / 2), angle: 0 };
+    const zonen = [{ id: 'boje_feld', form: 'kreis', x: pos.x, y: pos.y, r: B.feldR, name: 'Aktivierungsfeld', drift: { winkel: Math.round(r() * 628) / 100, staerke: B.drift },
+      tang: B.tang, sichtbarFuer: 'alle', gruppe: 'boje' }];
+    return { zonen, boje: pos, arrive };
+  }
+
+  return { drin, an, wirkung, sichtbar, gasriese, gravimetrie, boje, GAS, GRAVI, BOJE };
 });

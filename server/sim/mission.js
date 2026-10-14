@@ -893,6 +893,7 @@ class Mission {
       if (k === 'jammersOff') return String(Objects.countInState(g, 'kesh', 'jammer', 'off'));
       if (k === 'arena') return arena().objectiveText(g);
       if (k === 'reward') return this.lastReward || '';
+      if (k === 'geld') return String(require('./kampagnegeld.js').betrag(g, arg));   // SL9: {geld:loesegeld} = Posten der Kampagne aus CONFIG.campaign.sund
       if (k === 'escortHp') return String(escortHpPct(g, arg));   // S2: Hülle eines Schützlings in % (escort.js)
       return all;
     }));

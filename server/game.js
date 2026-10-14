@@ -19,6 +19,9 @@ const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfe
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
 const Lpscan = require('./sim/lpscan.js');   // SL7b: Landepunkt per Scan (Karte am Planungstisch)
+const Monster = require('./sim/monster.js');
+const Glyphen = require('./sim/glyphen.js');   // SL10: Glyphen/Sternkarte (Adresse der Vorläufer-Boje)
+const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL7c: Monster-Station (Zustandsmaschine, Pult-Reihenfolge)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
@@ -346,6 +349,7 @@ class Game {
   reset() {
     Reise.reset(this);
     Entschl.reset(this);
+    Glyphen.reset(this); this.bojeSim = null;   // SL10
     Sonden.reset(this);
     Spur.reset(this);
     Notrufe.reset(this);
@@ -1060,6 +1064,8 @@ class Game {
         break;
       case 'weapons.person_ab': err = PersonenBord.abgebenStart(this, p, msg.id == null ? null : String(msg.id)); break;   // SL0: Person an Station/Landepunkt abgeben
       case 'weapons.abliefern': err = Fracht.abliefernStart(this, p); break;   // EK3 Teil A: beim Abnehmer bzw. an einer Station
+      case 'weapons.glyphen.waehle': err = Glyphen.waehle(this, p, msg.i); break;   // SL10: Stern im Glyphenfeld setzen/lösen (Ops)
+      case 'weapons.glyphen.senden': err = Glyphen.senden(this, p); break;   // SL10: Auswahl senden (Ops)
       case 'weapons.zonenscan': if (msg.off) Zonen.scanAbbrechen(this); else err = Zonen.scanStarten(this, p); break;   // SL7a: Verzerrungen scannen (Halten, Ops)
       case 'weapons.landescan': if (msg.off) Lpscan.abbrechen(this); else err = Lpscan.starten(this, p); break;   // SL7b: Landepunkt scannen (Halten) bzw. abbrechen
       case 'weapons.abwerfen': err = Ladung.abwerfen(this, msg.art == null ? null : String(msg.art)); break;   // SL6: eine Einheit Ware ins All (Ops)
@@ -1134,6 +1140,28 @@ class Game {
     return null;
   }
 
+  // SL6/7/10 Debug (Sichtprüfung, Labor, Bots): sl pos x y [grad] | glyphen | bekannt | karte [gruppe] | schalten <gruppe> on|off | lp <id> | beam <lpId> | energie | zaehler <id> <wert>
+  onDebugSL(p, a) {
+    const sub = a[0];
+    if (sub === 'pos') { const sh = this.ship; sh.x = Number(a[1]); sh.y = Number(a[2]); if (a[3] != null) sh.angle = Number(a[3]) * Math.PI / 180; sh.vx = 0; sh.vy = 0; return null; }
+    if (sub === 'glyphen') return Glyphen.starten(this, { id: a[1] || 'boje' });
+    if (sub === 'bekannt') { Zonen.bekanntMachen(this, 'alle'); return null; }
+    if (sub === 'karte') { Zonen.sichtbarMachen(this, a[1] || 'alle', true); return null; }
+    if (sub === 'schalten') { Zonen.schalten(this, String(a[1]), a[2] !== 'off'); return null; }
+    if (sub === 'lp') { Lpscan.markieren(this, String(a[1])); return null; }
+    if (sub === 'beam') {
+      Lpscan.markieren(this, String(a[1]));
+      const err = this.chooseLandepunkt(p, String(a[1]));
+      if (err) return err;
+      away.executeBeam(this, [p.id], 'down');   // nur wer den Befehl gibt (die anderen bleiben an Bord, z. B. am Captain)
+      return null;
+    }
+    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; pi.life = 0; this.ship.power.weapons = 0; this.ship.power.life = 0; return null; }
+    if (sub === 'monster') { const M = this.away && this.away.monster; if (!M) return 'Kein Monster auf dieser Karte.'; M.x = p.x + Number(a[1] || 110); M.y = p.y + Number(a[2] || 0); M.pfad = []; M.pause = Number(a[3] || 0); return null; }   // sl monster [dx dy pause_s]: Monster neben den Spieler stellen (Sichtprüfung)
+    if (sub === 'zaehler') { Zonen.zaehlerSetzen(this, String(a[1]), Number(a[2])); return null; }
+    return 'sl: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler';
+  }
+
   onDebug(p, msg) {
     if (!this.debug) return this.notice(p, 'Debug-Befehle sind deaktiviert (Server mit --debug starten).');
     const cmd = msg.cmd;
@@ -1141,6 +1169,9 @@ class Game {
     switch (cmd) {
       case 'stage': if (this.phase === 'lobby') this.startGame(); err = this.mission.forceStage(String(msg.stage)); break;
       case 'mission': if (this.phase === 'lobby') this.startGame(); err = this.mission.forceStep(String(msg.id || 'm1'), msg.step ? String(msg.step) : null); break;
+      case 'karte': if (this.phase === 'lobby') this.startGame(); err = Welt.waehle(this, String(msg.id || 'sund')) === String(msg.id || 'sund') ? null : 'Karte unbekannt.'; break;   // Debug/Sichtprüfung: Sektorkarte wechseln (sund | limes), danach goto
+      case 'sl': err = ['pos', 'glyphen', 'bekannt', 'karte', 'schalten', 'lp', 'beam', 'energie', 'zaehler', 'monster'].includes(String(argList(msg)[0] || '')) ? this.onDebugSL(p, argList(msg)) : this.onDebugSl(p, msg); break;   // Kollision: 'sl' gehört auch dem Spielleiter (S2 §4); Unterbefehle der Sichtprüfung nur mit bekanntem ersten Argument   // SL6/7/10 Labor und Sichtprüfung: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler
+      case 'sitz': if (this.phase === 'lobby') this.startGame(); if (p.zone === 'ship') interior.enterConsole(this, p, String(msg.console || 'weapons')); else err = 'Nur an Bord.'; break;   // Debug/Sichtprüfung: sofort an eine Konsole setzen (helm | captain | technik | weapons | plan | transfer)
       case 'goto': if (this.phase === 'lobby') this.startGame(); err = this.debugGoto(String(msg.loc), !!msg.docked); break;
       case 'reveal': {
         const loc = String(msg.loc);
@@ -1222,7 +1253,9 @@ class Game {
       }
       case 'tune': case 'kesh': case 'squad': case 'wake': case 'shield': case 'wound': err = this.onDebugM2(p, cmd, msg); break;
       case 'entschl': err = Entschl.starten(this, Entschl.testSignal(msg.id != null ? String(msg.id) : (typeof msg.args === 'string' && msg.args.trim() ? msg.args.trim() : 'test'))); break;   // SL5: Labor-Einstieg
-      case 'sl': err = this.onDebugSl(p, msg); break;           // S2 §4: an game.spielleiter
+      case 'notruf': err = Notrufe.freischalten(this, msg.ids != null ? msg.ids : (typeof msg.args === 'string' && msg.args.trim() ? msg.args.trim().replace(/\s+/g, ',') : 'sl_klar,sl_echt,sl_falle')); break;   // SL8: Labor-Einstieg: notruf [ids]
+      case 'spur': err = Spur.starten(this, msg.id != null ? String(msg.id) : (typeof msg.args === 'string' && msg.args.trim() ? msg.args.trim() : 'bote')); break;   // SL5: Labor-Einstieg: spur [id]
+      case 'sl': err = this.onDebugSl(p, msg); break;          // S2 §4: an game.spielleiter
       case 'escort': err = this.onDebugEscort(p, msg); break;   // S2 §4: an escort.js
       case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
@@ -1491,7 +1524,8 @@ class Game {
       this.safe('space', () => space.update(this, dt));
       if (this.gespraech) this.safe('gespraech', () => Gespraech.update(this));   // SL2: Gespräch bricht beim Weggehen ab
       this.safe('fracht', () => Fracht.update(this, dt));   // EK3 Teil A: Halteprozess, Szenenwechsel
-      this.safe('lpscan', () => Lpscan.update(this, dt));   // SL7b: Landepunkt-Scan der Ops (Halteprozess)
+      this.safe('lpscan', () => Lpscan.update(this, dt));
+      this.safe('boje', () => Boje.update(this, dt));   // SL10: Aktivierung der Vorläufer-Boje (nur in der Szene mit Boje)   // SL7b: Landepunkt-Scan der Ops (Halteprozess)
       this.safe('sonden', () => Sonden.update(this, dt));   // SL4: Flug, Senden, Beschuss
       if (this.spur) this.safe('spur', () => Spur.update(this, dt));   // SL5: Hexwechsel, Lesen, Teilung
       if (this.notrufe && this.notrufe.liste.length) this.safe('notrufe', () => Notrufe.update(this, dt));   // SL8: Ablauf, Ankunft, Bergung/Hinterhalt
@@ -1889,7 +1923,9 @@ class Game {
       space: spaceOut,
       ...((fr) => (fr ? { fracht: fr } : {}))(Fracht.snapshot(this)),   // EK3 Teil A: nur wenn etwas da ist (Snapshot kompakt)
       ...((zo) => (zo ? { zonen: zo } : {}))(Zonen.snapshot(this)),   // SL6: nur in Szenen mit Zonen
-      ...((ls) => (ls ? { lpscan: ls } : {}))(Lpscan.snapshot(this)),   // SL7b: { n scannbar, p Fortschritt } nur wenn etwas zu scannen ist
+      ...((ls) => (ls ? { lpscan: ls } : {}))(Lpscan.snapshot(this)),
+      ...((gl) => (gl ? { gl } : {}))(Glyphen.snapshot(this)),   // SL10: Glyphenfeld (nur solange eine Adresse einzugeben ist)
+      ...((bj) => (bj ? { bj } : {}))(Boje.snapshot(this)),   // SL10: Aktivierung der Boje (nur in der Szene mit Boje)   // SL7b: { n scannbar, p Fortschritt } nur wenn etwas zu scannen ist
       ...((gp) => (gp ? { gp } : {}))(this.gespraech ? Gespraech.snapshot(this) : null),   // SL2: laufendes Gespräch (nur währenddessen)
       ...((nr) => (nr ? { nr } : {}))(Notrufe.snapshot(this)),   // SL8: offene Notrufe (Fokus mit Details), nur wenn vorhanden
       ...((en) => (en ? { en } : {}))(Entschl.snapshot(this)),   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
@@ -1912,6 +1948,7 @@ class Game {
         ...(aw.loreRead ? { loreRead: true } : {}),   // M4 (QA-AWAY): Logbuch-Terminal im Wrack als gelesen zeigen (nur wenn gelesen – Snapshot-Budget)
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
+        ...(aw.monster ? { mo: Monster.snap(this), mp: Monster.pulteSnap(this) } : {}),   // SL7c: Monster (x, y, z, f) und Pult-Stand für den Captain (nur auf der Monster-Station)
         ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },

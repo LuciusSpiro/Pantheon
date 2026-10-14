@@ -1639,6 +1639,7 @@ function update(game, dt) {
   game.safe('combat-squadRecall', () => updateSquadRecall(game, dt));
   game.safe('combat-medkit', () => updateMedkitPickup(game));
   game.safe('combat-ai', () => squad.update(game, dt));
+  game.safe('combat-monster', () => require('./monster.js').update(game, dt));   // SL7c: das Monster der Station Helix (ohne meta.monster sofort zurück)
   game.safe('combat-enemyShields', () => updateEnemyShields(game, dt));
   game.safe('combat-projectiles', () => updateProjectiles(game, dt));
   game.safe('combat-keys', () => updateKeys(game));

@@ -1,0 +1,114 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL11 Kapitel 7 „Geld verdienen“ (Kampagne Die Schuld der Lerche): Kapitelbuch (Hub) mit freier Reihenfolge. Pflicht sind 7a Gasfeld (Szene sl_gasriese: Deuterium schöpfen und in Concordia verkaufen, setzt gasVerkauft) und 7b Forschungsstation Helix (Szene sl_forschung, setzt forschungFertig) sowie das Geldziel (campaign.sund.geldziel Marken); 7c Notrufe sind freiwillig (Fakt notrufe_frei, drei feste Rufe, SL8). Die Szenen stehen in kapitel.szenen der Kette: Der Captain wählt, was zuerst drankommt (Baustein buch_starten), am Ende jeder Szene beginnt dieser Hub neu, die Flags bleiben. Das Kapitel endet, sobald beide Pflichtszenen erledigt sind und das Geld reicht (Geldziel als Bedingung für Kapitel 8). Das Gasfeld lässt sich beliebig oft wiederholen (mehr Marken). Texte sind Entwurf des Studios, Kai passt an.",
+  "format": "regiebuch/1",
+  "id": "k7_geld",
+
+  "kopf": {
+    "titel": "Geld verdienen",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 40,
+    "crew": { "min": 1, "max": 4, "empfohlen": 4 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia", "gasfeld", "pulverhorn"] },
+
+  "steps": [
+    {
+      "id": "wahl", "loc": "concordia",
+      "liefert_flags": ["gasVerkauft", "forschungFertig", "k7Init"],
+      "enter": [
+        { "if": { "not": { "flag": "k7Init" } }, "do": "notrufe_freischalten", "ids": "sl_klar,sl_echt,sl_falle" },
+        { "if": { "not": { "flag": "k7Init" } }, "do": "welt_fakt", "key": "notrufe_frei", "value": "ja", "quelle": "Concordia" },
+        { "if": { "not": { "flag": "k7Init" } }, "oda": "@wahl.intro" },
+        { "setFlag": { "k7Init": true } },
+        { "choice": "auftrag" }
+      ],
+      "timers": [{ "at": 120, "if": { "not": { "flag": "gasVerkauft" } }, "oda": "@wahl.tipp", "garantie": "hinweis" }],
+      "choices": {
+        "auftrag": {
+          "prompt": "@wahl.frage",
+          "options": [
+            { "id": "gas", "label": "@wahl.gas" },
+            { "id": "forschung", "label": "@wahl.forschung", "disabledIf": { "flag": "forschungFertig" } },
+            { "id": "frei", "label": "@wahl.frei" }
+          ],
+          "on": {
+            "gas": [{ "do": "buch_starten", "buch": "sl_gasriese" }],
+            "forschung": [{ "do": "buch_starten", "buch": "sl_forschung" }],
+            "frei": [{ "oda": "@wahl.frei_hinweis" }, { "goto": "frei" }]
+          }
+        }
+      },
+      "objectives": [
+        { "id": "gas", "text": "@ziel.gas", "done": { "flag": "gasVerkauft" }, "hex": "gasfeld" },
+        { "id": "forschung", "text": "@ziel.forschung", "done": { "flag": "forschungFertig" }, "hex": "helix" },
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.geldziel" } } } },
+        { "id": "notrufe", "text": "@ziel.notrufe", "optional": true, "done": { "check": { "name": "notrufe_erledigt", "min": 1 } } }
+      ],
+      "next": [
+        { "if": { "all": [{ "flag": "gasVerkauft" }, { "flag": "forschungFertig" }, { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.geldziel" } } }] },
+          "do": [{ "oda": "@geschafft.hinweis" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "setFlag": { "gasVerkauft": true, "forschungFertig": true } }, { "do": "credit_marks", "marks": 400, "grund": "skip" }]
+    },
+
+    {
+      "id": "frei", "loc": "concordia",
+      "timers": [{ "at": 200, "if": { "not": { "flag": "gasVerkauft" } }, "oda": "@wahl.erneut", "garantie": "hinweis" }],
+      "objectives": [
+        { "id": "gas", "text": "@ziel.gas", "done": { "flag": "gasVerkauft" }, "hex": "gasfeld" },
+        { "id": "forschung", "text": "@ziel.forschung", "done": { "flag": "forschungFertig" }, "hex": "helix" },
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.geldziel" } } } },
+        { "id": "notrufe", "text": "@ziel.notrufe", "optional": true, "done": { "check": { "name": "notrufe_erledigt", "min": 1 } } }
+      ],
+      "next": [
+        { "if": { "all": [{ "flag": "gasVerkauft" }, { "flag": "forschungFertig" }, { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.geldziel" } } }] },
+          "do": [{ "oda": "@geschafft.hinweis" }], "complete": "erfolg" },
+        { "if": { "elapsed": 240 }, "do": [{ "oda": "@wahl.erneut" }], "goto": "wahl" }
+      ],
+      "skip": [{ "setFlag": { "gasVerkauft": true, "forschungFertig": true } }, { "do": "credit_marks", "marks": 400, "grund": "skip" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Beide Pflichtaufträge sind erledigt und das Geldziel steht: Die Crew kann in Concordia entscheiden (Lösegeld oder Söldner).",
+      "folgen": [
+        { "do": "welt_fakt", "key": "geldziel", "value": "erreicht", "quelle": "Concordia" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "400 Marken fordern die Piraten, und wer Evert zurückhaben will, braucht mehr: Im Gasfeld lässt sich Deuterium schöpfen, in der Forschungsstation Helix liegen Daten, für die Concordia zahlt. Dazu funken Schiffe in Not. Die Reihenfolge bestimmt ihr.",
+    "buch.belohnung": "Marken: genug für Lösegeld oder Söldner",
+
+    "wahl.intro": "Marken verdienen: Gasfeld und Helix sind Pflicht, Reihenfolge frei. Notrufe auf der Karte sind freiwillig.",
+    "wahl.tipp": "Captain: Auftrag wählen (Reiter Funk), oder frei fliegen. Gasfeld und Helix, dazu das Geldziel.",
+    "wahl.frage": "Womit fangt ihr an?",
+    "wahl.gas": "Gasfeld: Deuterium schöpfen und verkaufen",
+    "wahl.forschung": "Forschungsstation Helix: Daten holen (Monster, Felder)",
+    "wahl.frei": "Selbst entscheiden (Notrufe, Sternkarte)",
+    "wahl.frei_hinweis": "Frei fliegen. Der Captain wählt später wieder, wenn die Crew bereit ist. Notrufe stehen auf der Sternkarte.",
+    "wahl.erneut": "Genug gesucht? Der Captain kann einen der Aufträge wählen.",
+
+    "geschafft.hinweis": "Genug Marken, beide Aufträge erledigt. Zurück nach Concordia: Dort fällt die Entscheidung.",
+
+    "ziel.gas": "Gasfeld: Deuterium schöpfen und in Concordia verkaufen",
+    "ziel.forschung": "Forschungsstation Helix: Daten holen und abliefern",
+    "ziel.geld": "Genug Marken sammeln (Geldziel)",
+    "ziel.notrufe": "Notrufe beantworten (freiwillig, bringen Marken)",
+
+    "chronik.erfolg": "Die Crew verdient in Concordia, am Gasfeld und in Helix das Geld für die Entscheidung."
+  }
+}

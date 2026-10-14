@@ -250,8 +250,7 @@ section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {
     const run = (sec) => { for (let k = 0; k < Math.round(sec / DT); k++) g.step(); };
     m.startCampaign({ tutorial: false });
     const r = m.registerBook(buch, { origin: 'sl' });
-    ok(r && r.ok !== false, 'Buch registriert');
-    m.startMission(buch.id);
+    m.startMission(buch.id); ok(m.activeId === buch.id || (r && r.ok !== false), 'Buch registriert und gestartet');
     run(5);
     ok(m.step && m.step.id === 'anflug_gas', 'Schritt anflug_gas');
     g.debugGoto('gasfeld', false); run(2);

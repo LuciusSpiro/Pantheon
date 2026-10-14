@@ -72,8 +72,8 @@
     const sek = (st.world && st.world.sektoren) || {};
     const stat = status(st, hex);
     const name = S.hexName ? S.hexName(hex) : hex;
-    R.button(ctx, area.x, area.y, 22, 14, '◄', { hotkey: 'A', onClick: () => waehle(st, -1) });
-    R.button(ctx, area.x + 26, area.y, 22, 14, '►', { hotkey: 'D', onClick: () => waehle(st, 1) });
+    R.button(ctx, area.x, area.y, 22, 14, '<', { hotkey: 'A', onClick: () => waehle(st, -1) });
+    R.button(ctx, area.x + 26, area.y, 22, 14, '>', { hotkey: 'D', onClick: () => waehle(st, 1) });
     R.button(ctx, area.x + 52, area.y, 44, 14, 'Hier', { hotkey: 'H', disabled: !hexHier(st), onClick: () => { V.sel = null; } });
     R.text(ctx, hex + ' ' + name, area.x + 102, area.y + 3, { color: PAL.amber });
     R.text(ctx, stat === 'gesichtet' ? 'gesichtet (Sonde/Karte), nicht erkundet' : stat === 'erkundet' ? 'erkundet' : stat === 'hier' ? 'hier (noch nicht erkundet)' : 'unbekannt', area.x + area.w - 140, area.y + 3, { color: PAL.panelLight, align: 'right' });
@@ -94,7 +94,12 @@
     for (const o of objs) {
       const p = toS(o.x, o.y);
       sprites(ctx, o, p.x, p.y, num(o.r) * sc, t);
-      if (o.sym === 'hafen' || o.sym === 'station' || o.sym === 'gasriese' || o.sym === 'sprungpunkt') R.text(ctx, (o.name || '').replace('Sprungpunkt ', '→ '), p.x + 8, p.y - 4, { color: PAL.panelLight });
+      if (o.sym === 'hafen' || o.sym === 'station' || o.sym === 'gasriese' || o.sym === 'sprungpunkt') {
+        const txt = (o.name || '').replace('Sprungpunkt ', '→ ');
+        const w = R.measure ? R.measure(txt, 1) : txt.length * 6;
+        if (p.x + 8 + w > mx + mw) R.text(ctx, txt, p.x - 8, p.y - 4, { color: PAL.panelLight, align: 'right' });   // am rechten Rand nach links
+        else R.text(ctx, txt, p.x + 8, p.y - 4, { color: PAL.panelLight });
+      }
     }
     // Schiffe (Momentaufnahme mit Alter)
     const ps = (sek.p && sek.p.s) || [];
@@ -115,7 +120,7 @@
       else { ctx.fillStyle = PAL.amber; ctx.fillRect(p.x - 3, p.y - 3, 6, 6); }
     }
     // Hex-Marken (Missionsziel, Notruf, Spur … aus server/sim/marken.js, derselbe Mechanismus wie auf der Hexkarte): Plaketten am Sektor
-    const hm = ((st.world && st.world.marken) || []).filter((q) => q.h === hex);
+    const hm = (window.StarMap ? window.StarMap.marken : ((st.world && st.world.marken) || [])).filter((q) => q.h === hex);   // StarMap hält die Marken (kommen nur bei Änderung)
     hm.forEach((q, i) => {
       const px = ox + 10 + i * 18, py = oy + 10;
       if (kz) kz.marke(ctx, q.t, px, py, t, { r: 6, rest: q.b, gesamt: q.g });

@@ -39,25 +39,46 @@ const transferDown = (game) => { const t = game.ship.systems.transfer; return t 
 const haltDauer = (game) => (game.ship.systems.transfer === 'damaged' ? game.C.ship.beamTimeDamaged : game.C.ship.beamTime);
 
 // Landepunkt-Scan (SL7b, server/sim/lpscan.js): Beamen von der Oberfläche braucht den gescannten Landepunkt (auch Handkarten platform/wreck/kesh)
-function landepunktGescannt(game) {
-  const id = (game.transferZiel && game.transferZiel.lp) || (game.away && game.away.map) || null;
+function lpGescannt(game, id) {
   if (!id) return false;
   try { return !!require('./lpscan.js').gescannt(game, id); } catch (e) { if (game.countError) game.countError('personen-scan', e); return false; }
 }
+function landepunktGescannt(game) {
+  return lpGescannt(game, (game.transferZiel && game.transferZiel.lp) || (game.away && game.away.map) || null);
+}
 
-// Transferpunkt des gewählten Landepunkts in Reichweite? -> { ok, reason?, spot? }
+// Aktiver Landepunkt: der an der Transfer-Konsole gewählte, sonst ein gescannter in Transferreichweite (die Ops braucht dafür keine Wahl der Transfer-Konsole),
+// sonst die Handkarte des Orts (away.beamSpot). -> { id, spot, aw } | null
+function lpAktiv(game) {
+  const L = lp();
+  const z = game.transferZiel && game.transferZiel.lp;
+  let id = null; let spot = null;
+  if (z) { spot = away().beamSpot(game); id = spot ? spot.map : null; }
+  if (!id && L && typeof L.liste === 'function') {
+    const c = L.liste(game).find((l) => l.beam && l.frei && l.inReichweite && lpGescannt(game, l.id));
+    if (c) { id = c.id; spot = { x: c.beam.x, y: c.beam.y, range: c.beam.range, map: c.id }; }
+  }
+  if (!id) { spot = away().beamSpot(game); id = spot ? spot.map : null; }
+  if (!id || !spot) return null;
+  let aw = game.aways && game.aways[id];
+  if (!aw && L && typeof L.get === 'function') { try { aw = L.get(game, id); } catch (e) { aw = null; } }
+  return aw ? { id, spot, aw } : null;
+}
+
+// Transferpunkt des aktiven Landepunkts in Reichweite? -> { ok, reason?, spot?, id?, aw? }
 function bodenKontakt(game) {
-  const spot = away().beamSpot(game);
-  if (!spot || !game.away || spot.map !== game.away.map) return { ok: false, reason: 'Hier gibt es keinen Landepunkt, von dem man Personen hochbeamen kann.' };
-  const far = dist(game.ship.x, game.ship.y, spot.x, spot.y);
-  if (far > spot.range) return { ok: false, reason: `Zu weit vom Landepunkt (${Math.round(far)}, max. ${spot.range}).`, spot };
-  if (!landepunktGescannt(game)) return { ok: false, reason: 'Landepunkt noch nicht gescannt – erst die Ops-Scan (Landepunkt), dann beamen.', spot };
-  return { ok: true, spot };
+  const a = lpAktiv(game);
+  if (!a) return { ok: false, reason: 'Hier gibt es keinen Landepunkt, von dem man Personen hochbeamen kann.' };
+  const far = dist(game.ship.x, game.ship.y, a.spot.x, a.spot.y);
+  if (far > a.spot.range) return { ok: false, reason: `Zu weit vom Landepunkt (${Math.round(far)}, max. ${a.spot.range}).`, spot: a.spot };
+  if (!lpGescannt(game, a.id)) return { ok: false, reason: 'Landepunkt noch nicht gescannt – erst die Ops-Scan (Landepunkt), dann beamen.', spot: a.spot };
+  return { ok: true, spot: a.spot, id: a.id, aw: a.aw };
 }
 // Personen am Boden, die die Ops hochbeamen kann (Kennung nötig; Ivo ohne Kennung gehört nicht dazu)
 function aufnehmbare(game) {
-  if (!game.away || !bodenKontakt(game).ok) return [];
-  return away().offenePersonen(game.away).filter((n) => n.person && !n.injured).map((n) => ({ id: n.person, name: n.name || n.person }));
+  const k = bodenKontakt(game);
+  if (!k.ok) return [];
+  return away().offenePersonen(k.aw).filter((n) => n.person && !n.injured).map((n) => ({ id: n.person, name: n.name || n.person }));
 }
 // Verletzte nicht: erst Medipack (eigene Regel der Karte), sonst wäre Beamen ein Umweg um die Rettung
 function aufnehmenGrund(game, id) {
@@ -66,7 +87,7 @@ function aufnehmenGrund(game, id) {
   if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity()}) – erst abgeben.`;
   if (bettFrei(game) < 0) return 'Kein freies Bett im Frachtraum.';
   const k = bodenKontakt(game); if (!k.ok) return k.reason;
-  const offen = away().offenePersonen(game.away).filter((n) => n.person);
+  const offen = away().offenePersonen(k.aw).filter((n) => n.person);
   if (!offen.length) return 'Am Landepunkt wartet niemand.';
   const n = id != null ? offen.find((q) => q.person === String(id)) : offen.find((q) => !q.injured) || offen[0];
   if (!n) return 'Diese Person ist nicht am Landepunkt.';
@@ -77,7 +98,7 @@ function aufnehmenGrund(game, id) {
 // ---------- Beamen (Halteprozess in fracht.js: halt.kind 'person_an' | 'person_ab') ----------
 function aufnehmenStart(game, p, id) {
   const g = aufnehmenGrund(game, id); if (g) return g;
-  const offen = away().offenePersonen(game.away).filter((n) => n.person && !n.injured);
+  const offen = away().offenePersonen(bodenKontakt(game).aw).filter((n) => n.person && !n.injured);
   const n = id != null ? offen.find((q) => q.person === String(id)) : offen[0];
   const s = Fracht.state(game);
   s.halt = { kind: 'person_an', id: n.person, t: 0, dur: haltDauer(game) };
@@ -114,15 +135,16 @@ function aufnehmenGrundLaufend(game, id) {
   // wie aufnehmenGrund, aber ohne „Transfer läuft bereits“ (der Halteprozess ist ja der eigene)
   if (Fracht.frei(game) <= 0 || bettFrei(game) < 0) return 'voll';
   if (!bodenKontakt(game).ok) return 'ort';
-  const n = away().offenePersonen(game.away).find((q) => q.person === String(id));
+  const n = away().offenePersonen(bodenKontakt(game).aw).find((q) => q.person === String(id));
   return n && !n.injured ? null : 'weg';
 }
 // Aus fracht.beamFertig
 function haltFertig(game, h) {
   if (h.kind === 'person_an') {
     if (aufnehmenGrundLaufend(game, h.id)) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'person_an', grund: 'ort' }); return; }
-    const n = away().offenePersonen(game.away).find((q) => q.person === String(h.id));
-    const map = game.away.map;
+    const kb = bodenKontakt(game);
+    const n = away().offenePersonen(kb.aw).find((q) => q.person === String(h.id));
+    const map = kb.id;
     away().setzePersonZustand(n, 'rescued');   // von der Karte weg; Baustein person_rescued/Ereignis npcRescued wie bei der Rettung
     away().markRescued(game, map, n.person);
     game.missionEvent('npcRescued', { person: n.person, name: n.name, map });

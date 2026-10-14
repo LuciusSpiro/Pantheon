@@ -1352,7 +1352,7 @@
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
       ['Ops', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
-      ['Captain', '1–4 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Außenteam'],
+      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Außenteam · Sektorplan (A/D Sektor, Klick: Marke) · Notrufe (W/S wählen, Q/E/R/F fragen, Enter hinfliegen, X ignorieren)'],
       ['Technik', 'Konsole im Maschinenraum · 1–2 Reiter: Energie & Schilde (↑/↓ wählen, ←/→ verteilen, U überladen) · Schadensplan (Reparaturliste, Bots automatisch)'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],

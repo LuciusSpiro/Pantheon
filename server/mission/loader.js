@@ -9,6 +9,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const BOOK_DIR = path.join(ROOT, 'content', 'regiebuecher');
+const BOOK_DIR_SUND = path.join(ROOT, 'content', 'regiebuecher-sund');   // SL11: Bücher der Kampagne Die Schuld der Lerche (Karte Sund)
 const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
 
 // Funknamen wie in den JS-Modulen m1–m3 (damit Funk-Texte im Golden Trace gleich bleiben). content/npc.json kann je NSC
@@ -63,11 +64,17 @@ function normalizeFolge(f) {
 }
 
 // Alle Bücher eines Ordners laden und prüfen
-function loadAll(dir) {
+// SL11: ohne Angabe lädt der Katalog beide Bücherordner: content/regiebuecher (Limes: Tutorial, Eisenwald) und content/regiebuecher-sund
+// (Kampagne Die Schuld der Lerche). Kennungen sind über beide eindeutig; die Prüfung kennt die Orte beider Karten (Welt.alleDatenOrte).
+function loadAll(dirIn) {
+  const out = { books: {}, invalid: [], warnings: {} };
+  for (const dir of (dirIn ? [dirIn] : [BOOK_DIR, BOOK_DIR_SUND])) ladeVerzeichnis(dir, out);
+  return out;
+}
+function ladeVerzeichnis(dir, out) {
   const Checker = require('./checker.js');
-  dir = dir || BOOK_DIR;
-  const books = {}; const invalid = []; const warnings = {};
-  if (!fs.existsSync(dir)) return { books, invalid, warnings };
+  const { books, invalid, warnings } = out;
+  if (!fs.existsSync(dir)) return;
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
   for (const f of files) {
     const file = path.join(dir, f);
@@ -84,7 +91,6 @@ function loadAll(dir) {
     books[id] = doc;
     warnings[id] = r.warnings;
   }
-  return { books, invalid, warnings };
 }
 
 // Laufzeit-Def. Zahlen { cfg, plus } werden mit C (game.C, damit tune wirkt) aufgelöst; fehlende -> def.cfgErrors.
@@ -122,4 +128,4 @@ function text(def, s, onError) {
   return '[' + k + ']';
 }
 
-module.exports = { BOOK_DIR, NPC_FILE, NPC_LEGACY, FOLGE_SHORT, loadAll, prepare, text, normalizeFolge, npcData, npcIds, npcName, cfgValue, isCfgRef };
+module.exports = { BOOK_DIR, BOOK_DIR_SUND, NPC_FILE, NPC_LEGACY, FOLGE_SHORT, loadAll, prepare, text, normalizeFolge, npcData, npcIds, npcName, cfgValue, isCfgRef };

@@ -1,0 +1,90 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL3 Kapitel 3 „Die Falle“ (Kampagne Die Schuld der Lerche). Nach der Abgabe ruft Evert „Eine Falle! Flieht, nehmt das Schiff!“, Piraten greifen an, viel zu stark. KEIN Hinweis auf den Notfallsprung (Kai: Dummheit muss bestraft werden). Erfolg: Notfallsprung (Prüfung rueckzug) ODER Sprungpunkt erreicht (Pulverhorn verlassen). Hülle auf 0 (Ereignis emergency): Ausgang verloren, die Kette wiederholt die Szene (Schritt falle setzt die Lerche zurück). Rückzug ist hier der ERFOLG, darum steht rueckzug im Buch als erfolg, nicht als Wiederholung. Stärke der Piraten: 1 Kreuzer, 2 Korvetten, 3 Jäger (Schritt falle, enter); die Zeit bis zum Verlust ohne Gegenwehr (Ziel 25–40 s) misst tools/test-sl3.js. Der Schritt setzt bei jedem Beginn die Lerche zurück (schiff_zuruecksetzen), damit die Wiederholung von vorn beginnt.",
+  "format": "regiebuch/1",
+  "id": "k3_falle",
+
+  "kopf": {
+    "titel": "Die Falle",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 5,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["pulverhorn"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" },
+      "pirat": { "name": "Piratenfunk" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "falle", "loc": "pulverhorn", "restartOnReturn": true,
+      "enter": [
+        { "do": "schiff_zuruecksetzen", "x": 1440, "y": 1320, "winkel": 3.1416 },
+        { "do": "fracht_abnehmer", "ort": "pulverhorn", "name": "@posten.name" },
+        { "do": "person_abgeben", "person": "evert" },
+        { "radio": { "from": "evert", "text": "@falle.evert" } },
+        { "spawn": { "kind": "kreuzer", "n": 1, "tag": "piraten_kreuzer", "ziel": "lerche" } },
+        { "spawn": { "kind": "korvette", "n": 2, "tag": "piraten_korvette", "ziel": "lerche" } },
+        { "spawn": { "kind": "raider", "n": 3, "tag": "piraten_jaeger", "ziel": "lerche" } }
+      ],
+      "timers": [
+        { "at": 6, "radio": { "from": "pirat", "text": "@falle.pirat" }, "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "weg", "text": "@ziel.weg", "done": { "v": "geflohen" } }
+      ],
+      "next": [
+        { "if": { "v": "lerche_verloren" }, "complete": "verloren" },
+        { "if": { "check": { "name": "rueckzug", "loc": "pulverhorn" } }, "complete": "erfolg" },
+        { "if": { "all": [{ "elapsed": 6 }, { "not": { "atLocation": "pulverhorn" } }] }, "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "debug_clear_enemies" }, { "set": { "geflohen": true } }, { "do": "debug_jump", "loc": "concordia" }]
+    }
+  ],
+
+  "on": {
+    "emergency": [{ "set": { "lerche_verloren": true } }]
+  },
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die Lerche ist aus Pulverhorn entkommen (Notfallsprung oder Sprungpunkt), Evert bleibt zurück.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "evert", "value": "gefangen", "quelle": "Pulverhorn" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "verloren": {
+      "beschreibung": "Die Lerche ist am Ende: Szene von vorn (die Kampagne scheitert nie).",
+      "folgen": [],
+      "danach": [{ "oda": "@verloren.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Evert ist am Handelsposten von Pulverhorn abgegeben. Dann kommt der Funkspruch.",
+    "buch.belohnung": "Ein Schiff und eine Schuld",
+
+    "falle.evert": "Danke, Captain! Und jetzt – nein. Eine Falle! Flieht, nehmt das Schiff!",
+    "falle.pirat": "Das Schiff gehört uns, Lerche. Und der Händler auch.",
+
+    "posten.name": "Handelsposten Pulverhorn",
+    "ziel.weg": "Weg von Pulverhorn",
+
+    "verloren.ansage": "Zu stark. Noch einmal von vorn: Evert ruft, die Piraten kommen.",
+    "chronik.erfolg": "Evert Kroeger geriet in Pulverhorn in eine Falle der Piraten aus Schrottkante. Die Lerche entkam ohne ihn."
+  }
+}

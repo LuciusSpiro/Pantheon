@@ -29,8 +29,10 @@
     "0603": {"name":"Kantenstein","fraktion":"frei","art":"Grenzpass, Außenposten","hafen":"D","region":"route","spielbar":true,"ort":"kantenstein","gen":true,"szene":{"planeten":0,"station":{"kind":"planet","r":170,"name":"Kantenstein"},"beam":{"map":"kantenstein.siedlung","range":360}}},
     "0703": {"name":"Eisfeld","fraktion":"frei","art":"Eis (Asteroiden)","einfluss":"asteroiden","region":"gesperrt","spielbar":false},
     "0505": {"name":"Brachland","fraktion":"frei","art":"Kolonie, Ackerland","region":"gesperrt","spielbar":false},
-    "0605": {"name":"Pulverhorn","fraktion":"frei","art":"Munitionsfabrik, Handelsposten","hafen":"C","region":"route","spielbar":true,"ort":"pulverhorn","gen":true},
-    "0506": {"name":"Forschungsstation Helix","fraktion":"frei","art":"Forschungsstation im Gravimetriefeld (nur über einen temporären Sprungpunkt)","region":"route","spielbar":true,"ort":"helix","gen":true,"szene":{"zonen":"gravimetrie","planeten":0,"asteroids":0,"bojen":2,"beam":{"map":"helix.station","range":360}}},
+    "0605": {"name":"Pulverhorn","fraktion":"frei","art":"Munitionsfabrik, Handelsposten","hafen":"C","region":"route","spielbar":true,"ort":"pulverhorn","gen":true,"schiffe":[{"art":"kreuzer","x":1900,"y":1250},{"art":"korvette","x":1750,"y":1500},{"art":"korvette","x":2050,"y":1000}]},
+    "0706": {"name":"Bojenfeld","fraktion":"vorl","art":"Vorläufer-Boje im Leerraum (schläft; Evert Kroegers Koordinaten)","region":"route","spielbar":true,"ort":"bojenfeld","gen":true,"szene":{"zonen":"boje","planeten":0,"asteroids":0,"bojen":0}},
+    "0806": {"name":"Vorläufer-Sektor","fraktion":"vorl","art":"Ruhender Sektor der Vorläufer (hinter dem Leerraum)","region":"route","spielbar":true,"notsprung":false,"ort":"vorlaeufer","gen":true,"szene":{"planeten":2,"asteroids":0,"bojen":3}},
+    "0506": {"name":"Forschungsstation Helix","fraktion":"frei","art":"Forschungsstation im Gravimetriefeld (nur über einen temporären Sprungpunkt)","region":"route","spielbar":true,"notsprung":false,"ort":"helix","gen":true,"szene":{"zonen":"gravimetrie","planeten":0,"asteroids":0,"bojen":2,"beam":{"map":"helix.station","range":360}}},
     "0705": {"name":"Saatfeld","fraktion":"frei","art":"Kolonie, Ackerland","region":"gesperrt","spielbar":false},
 
     "0504": {"name":"Hammerwerke","fraktion":"saum","art":"Handelsstation, Werkstatt","hafen":"C","region":"konkordat","spielbar":false},
@@ -38,7 +40,7 @@
     "0704": {"name":"Raffinerie Lumen","fraktion":"saum","art":"Handelsstation, Gasriese","hafen":"C","einfluss":"gas","region":"konkordat","spielbar":false},
 
     "0602": {"name":"Altrost","fraktion":"pirat","art":"Piratenlager Nord","einfluss":"nebel","symbole":["pirate"],"region":"piraten","spielbar":false,"verborgen":true},
-    "0606": {"name":"Schrottkante","fraktion":"pirat","art":"Piratenlager Süd","einfluss":"truemmerstrom","symbole":["pirate"],"region":"piraten","spielbar":true,"verborgen":true,"ort":"schrottkante","gen":true}
+    "0606": {"name":"Schrottkante","fraktion":"pirat","art":"Piratenlager Süd","einfluss":"truemmerstrom","symbole":["pirate"],"region":"piraten","spielbar":true,"verborgen":true,"ort":"schrottkante","gen":true,"szene":{"station":{"kind":"station","x":1700,"y":1100,"r":60,"name":"Lager Schrottkante"},"beam":{"map":"schrottkante.lager","range":360}},"schiffe":[{"art":"fregatte","x":1500,"y":1100},{"art":"korvette","x":1250,"y":900},{"art":"korvette","x":1250,"y":1300},{"art":"jaeger","x":1800,"y":950},{"art":"jaeger","x":1800,"y":1250}]}
   },
   "kanten": [
     {"a":"0204","b":"0203","art":"open"},
@@ -78,7 +80,9 @@
     {"a":"0704","b":"0703","art":"open"},
     {"a":"0704","b":"0705","art":"open"},
     {"a":"0602","b":"0603","art":"hidden","key":"altrost-weg"},
-    {"a":"0606","b":"0605","art":"hidden","key":"lager-schrottkante"}
+    {"a":"0606","b":"0605","art":"hidden","key":"lager-schrottkante"},
+    {"a":"0605","b":"0706","art":"hidden","key":"boje-fundort"},
+    {"a":"0706","b":"0806","art":"locked","key":"boje-vorlaeufer"}
   ],
   "regionen": {
     "imperium": {"name":"Imperium","sperrtext":"Imperium: Durchflug auf dieser Fahrt gesperrt."},

@@ -112,6 +112,7 @@ section('Ops beamt eine Person vom Landepunkt (Scan-Stub)', () => {
   Away.spawnPerson(T.g, 'platform', { x: 8, y: 8 }, { person: 'evert', name: 'Evert Kroeger' });
   const sh = T.g.ship;
   const spot0 = Away.beamSpot;
+  T.g.transferZiel = { lp: 'platform', scene: T.g.ship.scene };   // gewählter Landepunkt (die Stub-Position ersetzt away.beamSpot)
   const spX = sh.x + 50, spY = sh.y;
   Away.beamSpot = () => ({ x: spX, y: spY, range: 300, map: 'platform' });
   const LP = require('../server/sim/lpscan.js');

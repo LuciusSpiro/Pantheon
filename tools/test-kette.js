@@ -58,7 +58,7 @@ function main() {
   ok(doc.kapitel.length === 8 && doc.kapitel.map((c) => c.nr).join() === '1,2,3,4,5,6,7,8', '8 Kapitel, fortlaufend nummeriert');
   ok(Kampagne.laden('eisenwald') && Kampagne.laden('eisenwald').id === 'eisenwald', 'Kampagne.laden (geprüft, gecacht)');
   ok(!invalid.length, `alle Regiebücher laden ohne Fehler (${invalid.map((i) => i.id).join(', ')})`);
-  ok(Object.values(books).filter((b) => b.kopf.art === 'kapitel').length === 8, 'acht Kapitelbücher (kopf.art kapitel)');
+  ok(Object.values(books).filter((b) => b.kopf.art === 'kapitel' && b.kopf.feldzug === 'eisenwald').length === 8, 'acht Kapitelbücher des Feldzugs Eisenwald (kopf.art kapitel; SL: weitere Feldzüge zählen nicht mit)');
   for (const c of doc.kapitel) {
     const bl = Kampagne.buecherVon(c);
     const r = bl.map((b) => Checker.check(books[b]));

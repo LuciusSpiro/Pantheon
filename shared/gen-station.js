@@ -346,7 +346,7 @@
       fuellen('zelle', 2, raumIds(['Z']), 'rand', '.', 3);
       fuellen('sprengpunkt', 1, raumIds(['R']), 'rand', '.', 2);
       fuellen('ziel', 3, raumIds(['K', 'R', 'M', 'W', 'L']), 'innen', '.', 2);
-      fuellen('terminal', 2, raumIds(['W', 'M', 'R', 'K']), 'rand', '.', 2);
+      fuellen('terminal', opts.monster ? 4 : 2, raumIds(['W', 'M', 'R', 'K']), 'rand', '.', 2);   // SL7c: Monster-Station = 4 Pulte
       fuellen('beute', 3, raumIds(['L', 'W', 'M']), 'rand', '.', 3);
       fuellen('nsc', 2, raumIds(['Q', 'H', 'M']).filter((id) => plaetze[id].typ !== 'zellen'), 'innen', '.', 2);
       // zweites Pad (L-Form aus 3 freien Kacheln) in einem Raum außer Kommando/Reaktor/Zellen
@@ -403,7 +403,7 @@
       const zz = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zz[k] = (zz[k] || 0) + 1; }
       const lauf = {}; const anker = [];
       for (const a of roh) { const k = a.platz + '.' + a.rolle; lauf[k] = (lauf[k] || 0) + 1; anker.push(Object.assign({ id: zz[k] > 1 ? k + '.' + lauf[k] : k }, a)); }
-      const pflicht = { eingang: 2, abholpunkt: 2, terminal: 2, sprengpunkt: 1, ziel: 3, zelle: 2, nsc: 2, beute: 3, tor: 1, wache: 4, patrouille: 4, versteck: 1 };
+      const pflicht = { eingang: 2, abholpunkt: 2, terminal: opts.monster ? 4 : 2, sprengpunkt: 1, ziel: 3, zelle: 2, nsc: 2, beute: 3, tor: 1, wache: 4, patrouille: 4, versteck: 1 };
       const titel = {}; for (const s of raeumeS) titel[ids.get(s)] = RAUMTITEL[s.typ];
       return {
         id: opts.id || null, erzeuger: 'gen-station/1', art: 'station', bauweise: opts.bauweise || 'germanen', besitz: opts.besitz || null,
@@ -411,7 +411,7 @@
         bereiche, plaetze, eingaenge: anker.filter((a) => a.rolle === 'eingang').map((a) => a.id), abholpunkte: anker.filter((a) => a.rolle === 'abholpunkt').map((a) => a.id),
         ankunft: (anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft) || {}).id || null,
         patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
-        meta: { versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, schottStart: 'offen', huelle: true, raeumeZiel: ziel, raeume: raeumeS.length, titel },
+        meta: { monster: opts.monster ? true : undefined, versuche: 1, kennzahlen: null, linear: false, pflicht, zellen: null, schiffDecks: null, schottStart: 'offen', huelle: true, raeumeZiel: ziel, raeume: raeumeS.length, titel },
       };
     }
     return { bauen, zeichnen, kennzahlen, karteRoh, cheb };

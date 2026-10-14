@@ -1,0 +1,165 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL9 Kapitel 9A „Die Übergabe“ (Kampagne Die Schuld der Lerche, Weg A: Lösegeld). Die Piraten von Schrottkante verlangen CONFIG.campaign.sund.loesegeld (= Forderung + 30 %). Die Crew zahlt (Wahl, grau bis das Geld reicht) und bekommt Evert zurück: er liegt wieder im Frachtraum (Person als Fracht, Evert ist an Bord immer im Frachtraum). Wer nicht genug hat, wählt 'Noch nicht', verdient nach (Kapitel 7, Notrufe) und kommt wieder: kein Zeitdruck, die Spur verblasst nicht. Die Piraten behalten die Koordinaten (Fakt piraten_kennen_boje), Folge in Kapitel 10 (Wettlauf). Frachtraum voll: die Übergabe wartet, Hinweis, nach 40 s wirft das Skript die Ladung ab (Garantie).",
+  "format": "regiebuch/1",
+  "id": "k9a_uebergabe",
+
+  "kopf": {
+    "titel": "Die Übergabe",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 8,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["schrottkante", "concordia"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" },
+      "pirat": { "name": "Piratenfunk" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "anflug",
+      "enter": [
+        { "do": "kante_enthuellen", "kante": "lager-schrottkante" },
+        { "oda": "@anflug.hinweis" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "schrottkante" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.schrottkante", "done": { "atLocation": "schrottkante" }, "hex": "schrottkante" }
+      ],
+      "next": [{ "if": { "atLocation": "schrottkante" }, "goto": "forderung" }],
+      "skip": [{ "do": "debug_jump", "loc": "schrottkante" }]
+    },
+
+    {
+      "id": "forderung", "loc": "schrottkante",
+      "enter": [
+        { "radio": { "from": "pirat", "text": "@forderung.pirat" } },
+        { "choice": "zahlung" }
+      ],
+      "timers": [
+        { "at": 45, "if": { "not": { "choiceMade": "zahlung" } }, "oda": "@forderung.tipp", "garantie": "hinweis" }
+      ],
+      "choices": {
+        "zahlung": {
+          "prompt": "@wahl.zahlung.frage",
+          "options": [
+            { "id": "zahlen", "label": "@wahl.zahlung.zahlen", "disabledIf": { "not": { "check": { "name": "geld_reicht", "posten": "loesegeld" } } } },
+            { "id": "spaeter", "label": "@wahl.zahlung.spaeter" }
+          ],
+          "on": {
+            "zahlen": [
+              { "do": "geld_zahlen", "posten": "loesegeld" },
+              { "do": "welt_fakt", "key": "piraten_kennen_boje", "value": "ja", "quelle": "Übergabe" },
+              { "radio": { "from": "pirat", "text": "@funk.pirat_zahlung" } },
+              { "goto": "uebergabe" }
+            ],
+            "spaeter": [
+              { "radio": { "from": "pirat", "text": "@funk.pirat_spaeter" } },
+              { "goto": "nachverdienen" }
+            ]
+          }
+        }
+      },
+      "objectives": [
+        { "id": "zahlen", "text": "@ziel.zahlen", "done": { "choiceMade": "zahlung" } }
+      ],
+      "next": [],
+      "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }]
+    },
+
+    {
+      "id": "nachverdienen",
+      "enter": [
+        { "oda": "@nachverdienen.hinweis" }
+      ],
+      "timers": [
+        { "at": 120, "if": { "not": { "check": { "name": "geld_reicht", "posten": "loesegeld" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "geld_reicht", "posten": "loesegeld" } } },
+        { "id": "zurueck", "text": "@ziel.zurueck", "show": { "check": { "name": "geld_reicht", "posten": "loesegeld" } }, "done": { "atLocation": "schrottkante" }, "hex": "schrottkante" }
+      ],
+      "next": [{ "if": { "all": [{ "check": { "name": "geld_reicht", "posten": "loesegeld" } }, { "atLocation": "schrottkante" }] }, "goto": "forderung" }],
+      "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }, { "do": "debug_jump", "loc": "schrottkante" }]
+    },
+
+    {
+      "id": "uebergabe", "loc": "schrottkante",
+      "enter": [
+        { "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" },
+        { "radio": { "from": "evert", "text": "@uebergabe.evert" } }
+      ],
+      "timers": [
+        { "at": 8, "if": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, "oda": "@uebergabe.voll", "garantie": "hinweis" },
+        { "at": 40, "if": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } },
+          "do": [{ "do": "fracht_abliefern" }, { "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }, { "oda": "@uebergabe.auto" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "evert", "text": "@ziel.evert", "done": { "check": { "name": "person_an_bord", "person": "evert" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "person_an_bord", "person": "evert" } }, "complete": "erfolg" }],
+      "skip": [{ "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Evert ist zurück an Bord (im Frachtraum). Die Piraten kennen die Koordinaten der Boje.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "lerche_weg", "value": "loesegeld", "quelle": "Übergabe" },
+        { "do": "welt_fakt", "key": "evert", "value": "an_bord", "quelle": "Übergabe" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Schrottkante: Die Piraten verlangen das Lösegeld mit Aufschlag. Wer zahlt, bekommt Evert; die Koordinaten der Boje behalten sie.",
+    "buch.belohnung": "Evert Kroeger, zurück an Bord",
+
+    "evert.name": "Evert Kroeger",
+
+    "anflug.hinweis": "Schrottkante liegt hinter der verborgenen Kante von Pulverhorn. Sternkarte, Ziel wählen, springen.",
+    "anflug.tipp": "Von Pulverhorn aus geht es nach Schrottkante. Der Sprungpunkt ist seit der Spur bekannt.",
+
+    "forderung.pirat": "Lerche. Ihr habt das Geld? Dreißig Prozent mehr als gefordert, wir haben Auslagen. {geld:loesegeld} Marken, dann gehört der Händler wieder euch.",
+    "forderung.tipp": "Die Entscheidung steht im Funk-Reiter: zahlen oder noch nicht. Das Geld kann man nachverdienen.",
+
+    "wahl.zahlung.frage": "Lösegeld: {geld:loesegeld} Marken (30 % Aufschlag). Zahlen und Evert zurückholen?",
+    "wahl.zahlung.zahlen": "Zahlen ({geld:loesegeld} Marken)",
+    "wahl.zahlung.spaeter": "Noch nicht (Geld besorgen)",
+
+    "funk.pirat_zahlung": "Zählt sich schön. Den Händler gibt's zurück. Was er uns erzählt hat, behalten wir.",
+    "funk.pirat_spaeter": "Dann kommt wieder, wenn die Kasse stimmt. Der Händler läuft uns nicht weg.",
+
+    "nachverdienen.hinweis": "Zurück zu den Aufträgen: Deuterium aus dem Gasfeld, die Forschungsstation, Notrufe. Dann wieder nach Schrottkante.",
+    "nachverdienen.tipp": "Marken gibt es für Deuterium (Concordia), für die Datenbergung in Helix und für Notrufe.",
+
+    "uebergabe.evert": "Captain! Danke. Ich lege mich hin, ich war lange genug auf den Beinen. Und die Boje – sie wissen es jetzt.",
+    "uebergabe.voll": "Frachtraum voll – Evert braucht einen Platz. Ops: Ladung abwerfen (X).",
+    "uebergabe.auto": "Die Ladung ging über Bord, damit Evert hineinpasst.",
+
+    "ziel.schrottkante": "Nach Schrottkante springen",
+    "ziel.zahlen": "Das Lösegeld bezahlen (Funk-Reiter)",
+    "ziel.geld": "Genug Marken für das Lösegeld sammeln ({geld:loesegeld})",
+    "ziel.zurueck": "Zurück nach Schrottkante",
+    "ziel.evert": "Evert an Bord nehmen (Frachtraum)",
+
+    "chronik.erfolg": "Die Crew zahlt den Piraten von Schrottkante das Lösegeld mit Aufschlag. Evert Kroeger ist zurück an Bord; die Piraten kennen die Koordinaten der Boje."
+  }
+}

@@ -7,14 +7,14 @@
   "kopf": {
     "titel": "Gasfeld: Deuterium schöpfen",
     "art": "kapitel",
-    "auftraggeber": "sela",
+    "auftraggeber": "evert",
     "zielspieldauer_min": 15,
     "crew": { "min": 1, "max": 4, "empfohlen": 4 },
     "feldzug": "schuld"
   },
 
   "buch": {
-    "von": [{ "npc": "sela" }],
+    "von": [{ "npc": "evert" }],
     "briefing": "@buch.briefing",
     "belohnung": "@buch.belohnung"
   },

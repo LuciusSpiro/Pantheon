@@ -1,0 +1,230 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL9 Kapitel 9B „Söldner und Sturm“ (Kampagne Die Schuld der Lerche, Weg B). Concordia: Ein Kontakt vermittelt Söldner aus Altrost (Altrost ist nur ein Textkontakt, kein Ort) für CONFIG.campaign.sund.soeldner Marken (Wahl, grau bis das Geld reicht). Die Söldner erscheinen bei Schrottkante (flotte_aufstellen, Rolle angreifer) und kämpfen gegen die Verteidiger; die Crew erteilt per Funk den Befehl 'ausschalten' (Flottenbefehl ohne Legat, Sprecher ist der Söldnerführer). Danach: die Ops scannt das Lager (Landepunkt per Scan), das Außenteam geht hinunter (Planungstisch), befreit Evert aus der Zelle, die Ops beamt ihn an Bord (Person als Fracht) und das Team kommt hoch. Verlorene Söldner gehen als Fakt soeldner_verloren in den Abspann. Die Kampagne scheitert nie: Notfallprotokoll heilt, nur die Szene dauert länger.",
+  "format": "regiebuch/1",
+  "id": "k9b_soeldner",
+
+  "kopf": {
+    "titel": "Söldner und Sturm",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 25,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia", "schrottkante"], "aussenkarten": ["schrottkante.lager"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" },
+      "kontakt": { "name": "Händlerin Ragna" },
+      "soeldner": { "name": "Söldnerführer Brandt" }
+    },
+    "schiffe": {
+      "soeldner_a": { "kind": "fregatte", "name": "Rostfaust" },
+      "soeldner_b": { "kind": "korvette", "name": "Kettenhund" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "kontakt", "loc": "concordia",
+      "enter": [
+        { "radio": { "from": "kontakt", "text": "@kontakt.ragna" } },
+        { "choice": "heuern" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "choiceMade": "heuern" } }, "oda": "@kontakt.tipp", "garantie": "hinweis" }
+      ],
+      "choices": {
+        "heuern": {
+          "prompt": "@wahl.heuern.frage",
+          "options": [
+            { "id": "zahlen", "label": "@wahl.heuern.zahlen", "disabledIf": { "not": { "check": { "name": "geld_reicht", "posten": "soeldner" } } } },
+            { "id": "spaeter", "label": "@wahl.heuern.spaeter" }
+          ],
+          "on": {
+            "spaeter": [
+              { "radio": { "from": "kontakt", "text": "@funk.kontakt_spaeter" } },
+              { "goto": "nachverdienen" }
+            ],
+            "zahlen": [
+              { "do": "geld_zahlen", "posten": "soeldner" },
+              { "do": "welt_fakt", "key": "soeldner", "value": "angeheuert", "quelle": "Altrost" },
+              { "radio": { "from": "soeldner", "text": "@funk.soeldner_zusage" } },
+              { "goto": "anflug" }
+            ]
+          }
+        }
+      },
+      "objectives": [
+        { "id": "geld", "text": "@ziel.geld", "show": { "not": { "check": { "name": "geld_reicht", "posten": "soeldner" } } }, "done": { "check": { "name": "geld_reicht", "posten": "soeldner" } } },
+        { "id": "heuern", "text": "@ziel.heuern", "done": { "choiceMade": "heuern" } }
+      ],
+      "next": [],
+      "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }]
+    },
+
+    {
+      "id": "nachverdienen",
+      "enter": [
+        { "oda": "@nachverdienen.hinweis" }
+      ],
+      "timers": [
+        { "at": 120, "if": { "not": { "check": { "name": "geld_reicht", "posten": "soeldner" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "geld_reicht", "posten": "soeldner" } } },
+        { "id": "zurueck", "text": "@ziel.zurueck", "show": { "check": { "name": "geld_reicht", "posten": "soeldner" } }, "done": { "atLocation": "concordia" }, "hex": "concordia" }
+      ],
+      "next": [{ "if": { "all": [{ "check": { "name": "geld_reicht", "posten": "soeldner" } }, { "atLocation": "concordia" }] }, "goto": "kontakt" }],
+      "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }, { "do": "debug_jump", "loc": "concordia" }]
+    },
+
+    {
+      "id": "anflug",
+      "enter": [
+        { "do": "kante_enthuellen", "kante": "lager-schrottkante" },
+        { "oda": "@anflug.hinweis" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "schrottkante" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.schrottkante", "done": { "atLocation": "schrottkante" }, "hex": "schrottkante" }
+      ],
+      "next": [{ "if": { "atLocation": "schrottkante" }, "goto": "schlacht" }],
+      "skip": [{ "do": "debug_jump", "loc": "schrottkante" }]
+    },
+
+    {
+      "id": "schlacht", "loc": "schrottkante", "restartOnReturn": true,
+      "enter": [
+        { "do": "flotte_aufstellen", "tag": "soeldner_a", "rolle": "angreifer", "auftauchen": true },
+        { "do": "flotte_aufstellen", "tag": "soeldner_b", "rolle": "angreifer", "auftauchen": true },
+        { "spawn": { "kind": "fregatte", "n": 1, "tag": "verteidiger", "ziel": "auto" } },
+        { "spawn": { "kind": "korvette", "n": 2, "tag": "verteidiger", "ziel": "auto" } },
+        { "spawn": { "kind": "raider", "n": 2, "tag": "verteidiger", "ziel": "auto" } },
+        { "oda": "@schlacht.lage" },
+        { "do": "flotte_befehl", "art": "ausschalten", "ziel": "verteidiger", "n": 5, "sprecher": "soeldner", "text": "@schlacht.befehl" }
+      ],
+      "timers": [
+        { "at": 90, "if": { "not": { "enemiesCleared": "verteidiger" } }, "oda": "@schlacht.tipp", "garantie": "hinweis" }
+      ],
+      "rules": [
+        { "if": { "all": [{ "check": { "name": "schiff_verloren", "tag": "soeldner_a" } }, { "not": { "v": "verlust_a" } }] }, "do": [{ "set": { "verlust_a": true } }, { "setFlag": { "soeldner_verloren": true } }, { "oda": "@schlacht.verlust" }] },
+        { "if": { "all": [{ "check": { "name": "schiff_verloren", "tag": "soeldner_b" } }, { "not": { "v": "verlust_b" } }] }, "do": [{ "set": { "verlust_b": true } }, { "setFlag": { "soeldner_verloren": true } }, { "oda": "@schlacht.verlust" }] }
+      ],
+      "objectives": [
+        { "id": "verteidiger", "text": "@ziel.verteidiger", "done": { "enemiesCleared": "verteidiger" } }
+      ],
+      "next": [{ "if": { "enemiesCleared": "verteidiger" }, "do": [{ "radio": { "from": "soeldner", "text": "@schlacht.sieg" } }], "goto": "lager" }],
+      "skip": [{ "do": "debug_clear_enemies" }]
+    },
+
+    {
+      "id": "lager", "loc": "schrottkante", "restartOnReturn": true,
+      "enter": [
+        { "do": "spawn_person", "map": "schrottkante.lager", "person": "evert", "name": "@evert.name", "anker": "quartier_1.zelle.1" },
+        { "do": "besetzen_paare", "map": "schrottkante.lager", "fraktion": "raubzug", "tag": "lagerwache", "gruppen": 2 },
+        { "oda": "@lager.lage" }
+      ],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } } }, "oda": "@lager.tipp_scan", "garantie": "hinweis" },
+        { "at": 120, "if": { "all": [{ "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } }, { "not": { "check": { "name": "team_down", "map": "schrottkante.lager" } } }] }, "oda": "@lager.tipp_beamen", "garantie": "hinweis" },
+        { "at": 600, "if": { "not": { "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } } }, "do": [{ "do": "landepunkt_scannen", "lp": "schrottkante.lager" }, { "oda": "@lager.scan_auto" }], "garantie": "autoloesung" },
+        { "at": 900, "if": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, "do": [{ "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }, { "oda": "@lager.auto" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "scan", "text": "@ziel.lager_scannen", "done": { "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } } },
+        { "id": "unten", "text": "@ziel.hinunter", "show": { "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } }, "done": { "check": { "name": "team_down", "map": "schrottkante.lager" } } },
+        { "id": "evert", "text": "@ziel.befreien", "show": { "check": { "name": "landepunkt_gescannt", "lp": "schrottkante.lager" } }, "done": { "check": { "name": "person_an_bord", "person": "evert" } } }
+      ],
+      "next": [{ "if": { "check": { "name": "person_an_bord", "person": "evert" } }, "do": [{ "radio": { "from": "evert", "text": "@lager.evert" } }], "goto": "hoch" }],
+      "skip": [{ "do": "landepunkt_scannen", "lp": "schrottkante.lager" }, { "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }]
+    },
+
+    {
+      "id": "hoch", "loc": "schrottkante",
+      "enter": [
+        { "oda": "@hoch.hinweis" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "check": { "name": "team_down", "map": "schrottkante.lager" } }, "oda": "@hoch.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hoch", "text": "@ziel.hochbeamen", "done": { "not": { "check": { "name": "team_down", "map": "schrottkante.lager" } } } }
+      ],
+      "next": [{ "if": { "not": { "check": { "name": "team_down", "map": "schrottkante.lager" } } }, "complete": "erfolg" }],
+      "skip": [{ "do": "end_away", "map": "schrottkante.lager" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Evert ist befreit und liegt an Bord. Die Piraten kennen die Koordinaten nicht.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "lerche_weg", "value": "soeldner", "quelle": "Sturm" },
+        { "do": "welt_fakt", "key": "evert", "value": "an_bord", "quelle": "Sturm" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Söldner aus Altrost gegen die Verteidiger von Schrottkante, dann das Lager scannen, hinunter, Evert befreien. Die Piraten erfahren die Koordinaten der Boje nicht.",
+    "buch.belohnung": "Evert Kroeger, befreit",
+
+    "evert.name": "Evert Kroeger",
+
+    "kontakt.ragna": "Ihr sucht Männer, die für Marken kämpfen? Altrost liefert. {geld:soeldner} Marken, dann stehen sie bei Schrottkante.",
+    "kontakt.tipp": "Die Wahl steht im Funk-Reiter. Ohne {geld:soeldner} Marken keine Söldner: Aufträge machen.",
+
+    "wahl.heuern.frage": "Söldner aus Altrost anheuern ({geld:soeldner} Marken)?",
+    "wahl.heuern.zahlen": "Anheuern ({geld:soeldner} Marken)",
+    "wahl.heuern.spaeter": "Noch nicht (Geld besorgen)",
+    "funk.kontakt_spaeter": "Kommt wieder, wenn der Beutel schwer ist. Altrost wartet.",
+    "nachverdienen.hinweis": "Zurück zu den Aufträgen: Deuterium, Forschungsstation, Notrufe. Dann wieder zu Ragna in Concordia.",
+    "nachverdienen.tipp": "Marken gibt es für Deuterium (Concordia), für die Datenbergung in Helix und für Notrufe.",
+    "ziel.zurueck": "Zurück nach Concordia",
+
+    "funk.soeldner_zusage": "Brandt hier. Rostfaust und Kettenhund warten bei Schrottkante. Ihr ruft, wir kommen.",
+
+    "anflug.hinweis": "Die Söldner erwarten euch bei Schrottkante. Sternkarte, Ziel wählen, springen.",
+    "anflug.tipp": "Schrottkante liegt hinter Pulverhorn. Der Sprungpunkt ist enthüllt.",
+
+    "schlacht.lage": "Die Verteidiger von Schrottkante stehen. Die Söldner greifen mit euch an.",
+    "schlacht.befehl": "Alle auf die Verteidiger, Lerche! Wir halten ihnen den Rücken frei.",
+    "schlacht.tipp": "Ops: Ziele anvisieren (T), die Söldner helfen. Technik: Schilde zur Gefahrenseite.",
+    "schlacht.verlust": "Ein Söldnerschiff ist verloren.",
+    "schlacht.sieg": "Das Lager ist offen, Lerche. Der Rest ist eure Sache.",
+
+    "lager.lage": "Das Lager von Schrottkante. Evert sitzt in einer Zelle im Quartier. Ops: Landepunkt scannen (L).",
+    "lager.tipp_scan": "Ops: Landepunkt Lager Schrottkante scannen (L halten). Danach liegt die Karte am Planungstisch.",
+    "lager.tipp_beamen": "Planungstisch: Weg zur Zelle ansehen, Transfer-Konsole: Außenteam nach unten.",
+    "lager.scan_auto": "Der Scan ist durch, die Karte liegt am Planungstisch.",
+    "lager.evert": "Danke, dass ihr gekommen seid! Hoch mit mir, bevor sie es sich anders überlegen.",
+    "lager.auto": "Evert klettert selbst auf den Strahl. Danke fürs Warten.",
+
+    "hoch.hinweis": "Evert liegt im Frachtraum. Jetzt das Außenteam hochholen.",
+    "hoch.tipp": "Alle Pads unten, Transfer-Konsole: Hochbeamen.",
+
+    "ziel.geld": "{geld:soeldner} Marken für die Söldner sammeln",
+    "ziel.heuern": "Söldner anheuern (Funk-Reiter)",
+    "ziel.schrottkante": "Nach Schrottkante springen",
+    "ziel.verteidiger": "Die Verteidiger von Schrottkante ausschalten",
+    "ziel.lager_scannen": "Das Lager scannen (Ops, L)",
+    "ziel.hinunter": "Außenteam ins Lager beamen",
+    "ziel.befreien": "Evert befreien und an Bord beamen (Ops: Person beamen)",
+    "ziel.hochbeamen": "Das Außenteam hochbeamen",
+
+    "chronik.erfolg": "Mit Söldnern aus Altrost stürmt die Crew das Lager von Schrottkante und holt Evert Kroeger heraus. Die Piraten wissen nichts von der Boje."
+  }
+}

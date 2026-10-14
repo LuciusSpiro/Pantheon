@@ -10,11 +10,11 @@ const pb = () => mod || (mod = require('../../sim/personen-bord.js'));
 
 module.exports = (Registry) => {
   Registry.define({ id: 'person_aufnehmen', art: 'aktion', ereignisse: ['personAnBord'],
-    beschreibung: 'Person sofort in den Frachtraum der Lerche legen (belegt einen Frachtplatz, liegt auf einem Bett). Für Evert und andere Mitreisende; Frachtraum voll -> Fehler im Protokoll.',
+    beschreibung: 'Person sofort in den Frachtraum der Lerche legen (belegt einen Frachtplatz, liegt auf einem Bett). Für Evert und andere Mitreisende; Frachtraum voll: nichts geschieht (mit person_an_bord prüfen).',
     params: { person: { typ: 'string', pflicht: true }, name: { typ: 'text' } },
     run(m, a) {
       const nm = a.name != null ? m.tpl(a.name) : null;
-      if (!pb().personAnBordLegen(m.game, a.person, nm)) m.game.countError('mission-hook', new Error('person_aufnehmen: Frachtraum voll oder kein Bett frei'));
+      pb().personAnBordLegen(m.game, a.person, nm);   // Frachtraum voll: nichts passiert, das Regiebuch prüft person_an_bord und weist darauf hin
     } });
   Registry.define({ id: 'person_abgeben', art: 'aktion', ereignisse: ['personAbgegeben'],
     beschreibung: 'Person sofort aus dem Frachtraum übergeben (Skript statt Ops-Beamen).',

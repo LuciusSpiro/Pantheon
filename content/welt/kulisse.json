@@ -13,7 +13,7 @@
           "blase": ["Ersatzteile, günstig!", "Pulverhorn hat dichtgemacht? Pah.", "Concordia zahlt schlecht."] },
         { "id": "kind", "name": "Kind", "platz": "platz", "art": "rund", "rand": 0, "tempo": 34, "pause": 1,
           "blase": ["Fang mich!", "Sind das Piraten?", "Darf ich mal fliegen?"] },
-        { "id": "fassroller", "name": "Fassroller", "platz": "strasse_1", "art": "achse", "spur": -2, "tempo": 24, "pause": 6,
+        { "id": "fassroller", "name": "Fassroller", "platz": "strasse_1", "art": "achse", "spur": 0, "von": 0, "bis": 0.28, "tempo": 24, "pause": 6,
           "blase": ["Schwer, das Zeug.", "Platz da!"] },
         { "id": "laeufer", "name": "Läufer", "platz": "strasse_1", "art": "achse", "spur": 2, "tempo": 44, "pause": 3,
           "blase": ["Post für Concordia!", "Keine Zeit, keine Zeit."] },

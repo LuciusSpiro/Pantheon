@@ -1,0 +1,48 @@
+{
+  "_kommentar": "SL10: Entwurf des `ende`-Blocks der Kette „Die Schuld der Lerche“ (Format wie eisenwald.json, Schema kampagne.schema.json). T2 (SL11) übernimmt ihn in content/kampagne/schuld-der-lerche.json. Bedingungen: Prüfung welt_fakt_ist (Fakten lerche_weg = loesegeld|soeldner, piraten_kennen_boje) bzw. Flag vorlaeufer_erreicht. Texte sind Entwürfe, Kai passt an.",
+  "titel": "Die Schuld der Lerche",
+  "text": "Die Boje ist wach. Hinter dem Leerraum liegt ein Sektor, den noch niemand betreten hat.",
+  "abspann": [
+    {
+      "kopf": "Die Boje",
+      "zeilen": [
+        "Evert Kroegers Koordinaten waren echt.",
+        "Die Lerche hat die Vorläufer-Boje geweckt,",
+        "und hinter ihr öffnet sich ein neuer Weg."
+      ]
+    },
+    {
+      "kopf": "Der Preis",
+      "wenn": { "check": { "name": "welt_fakt_ist", "key": "lerche_weg", "value": "loesegeld" } },
+      "zeilen": [
+        "Das Lösegeld hat Evert zurückgebracht.",
+        "Die Piraten behielten die Koordinaten:",
+        "sie waren schon da, als die Boje aufleuchtete."
+      ]
+    },
+    {
+      "kopf": "Die Söldner",
+      "wenn": { "check": { "name": "welt_fakt_ist", "key": "lerche_weg", "value": "soeldner" } },
+      "zeilen": [
+        "Die Söldner aus Altrost stürmten Schrottkante.",
+        "Evert kam frei, und die Piraten blieben ahnungslos.",
+        "Die Boje wurde in Ruhe geweckt."
+      ]
+    },
+    {
+      "kopf": "Die Piraten",
+      "wenn": { "check": { "name": "welt_fakt_ist", "key": "piraten_kennen_boje", "value": "ja" } },
+      "zeilen": [
+        "Wer die Koordinaten kennt, folgt.",
+        "Der Sektor hinter der Boje wird nicht lange leer bleiben."
+      ]
+    },
+    {
+      "kopf": "Der nächste Sprung",
+      "zeilen": [
+        "Die Lerche hat noch Reaktor, Crew und Kurs.",
+        "Was die Vorläufer hinterlassen haben, wird sich zeigen."
+      ]
+    }
+  ]
+}

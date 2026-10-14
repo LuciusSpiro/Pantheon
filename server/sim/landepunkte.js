@@ -90,7 +90,7 @@ function genBauen(lpId, e) {
     try {
       roh = e.art === 'aussenposten'
         ? GenSiedlung.erzeuger(130, 90).karteRoh(seed, gv.haeuser || GEN_GROESSE.aussenposten.n, Object.assign({ typ, variante: gv.variante || null }, o))
-        : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, o);
+        : GenStation.erzeuger(96, 56).karteRoh(seed, GEN_GROESSE.station.n, gv.monster ? Object.assign({ monster: true }, o) : o);   // SL7c: gen.monster = Monster-Station (4 Pulte, meta.monster)
     } catch (x) {
       if (gv.variante && i < 5) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Variante ohne Platz: nächster Seed
       throw x;

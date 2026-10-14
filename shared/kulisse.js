@@ -44,9 +44,12 @@
       return { punkte: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], geschlossen: true };
     }
     const spur = f.spur || 0;
-    if (w >= h) { const yy = Math.max(y, Math.min(y + h - 1, y + Math.floor((h - 1) / 2) + spur)); return { punkte: [[x + 1 > x + w - 1 ? x : x + 1, yy], [Math.max(x, x + w - 2), yy]], geschlossen: false }; }
+    const von = f.von != null ? f.von : 0, bis = f.bis != null ? f.bis : 1;   // Anteil der Achse (0..1), z. B. nur der Westteil einer Straße
+    const teil = (a, b) => { const lo = Math.min(a, b), hi = Math.max(a, b); return [Math.round(lo + (hi - lo) * von), Math.round(lo + (hi - lo) * bis)]; };
+    if (w >= h) { const yy = Math.max(y, Math.min(y + h - 1, y + Math.floor((h - 1) / 2) + spur)); const [a, b] = teil(x + 1 > x + w - 1 ? x : x + 1, Math.max(x, x + w - 2)); return { punkte: [[a, yy], [b, yy]], geschlossen: false }; }
     const xx = Math.max(x, Math.min(x + w - 1, x + Math.floor((w - 1) / 2) + spur));
-    return { punkte: [[xx, y + 1 > y + h - 1 ? y : y + 1], [xx, Math.max(y, y + h - 2)]], geschlossen: false };
+    const [a, b] = teil(y + 1 > y + h - 1 ? y : y + 1, Math.max(y, y + h - 2));
+    return { punkte: [[xx, a], [xx, b]], geschlossen: false };
   }
 
   const dirVon = (dx, dy) => (Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up'));

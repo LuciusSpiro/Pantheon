@@ -84,7 +84,7 @@ try {
     ok(snap(g, 'sl_klar').f.a.length === 1, 'Snapshot Fokus: gestellte Frage mit Antwort');
     const marks0 = g.inventory.marks;
     ok(Notrufe.hinfliegen(g, 'sl_klar') === null && Notrufe.finde(g, 'sl_klar').z === Notrufe.Z.ANGENOMMEN, 'hinfliegen: angenommen');
-    t.flieg('0503');
+    t.flieg('0604');
     ok(Notrufe.finde(g, 'sl_klar').z === Notrufe.Z.VOR_ORT, 'Ankunft im Hex: vor Ort');
     ok(g.snapshot().space.nro && g.snapshot().space.nro.x === 2300, 'space.nro: Ort des Rufs in der Szene');
     g.ship.x = 2300 + 30; g.ship.y = 700; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; g.ship.docked = false; g.ship.dockedAt = null;
@@ -157,7 +157,7 @@ try {
     ok(Notrufe.finde(g2, 'sl_klar').z === Notrufe.Z.ABGELAUFEN, 'Ablauf läuft auch während des Schnellsprungs (Spielzeit)');
     // Szene verlassen vor Bergung
     const t3 = setup('pulverhorn'); const g3 = t3.g; Notrufe.freischalten(g3, 'sl_klar'); Notrufe.hinfliegen(g3, 'sl_klar');
-    t3.flieg('0503'); ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.VOR_ORT, 'vor Ort');
+    t3.flieg('0604'); ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.VOR_ORT, 'vor Ort');
     t3.flieg('0605'); ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.ANGENOMMEN, 'Szene verlassen: Ruf bleibt angenommen, nichts geht verloren');
   }
 
@@ -185,6 +185,35 @@ try {
     const fehler = (Weltstand.validate(data, g) || []).filter((f) => /welt/.test(String(f)));
     ok(fehler.length === 0, 'Weltstand-Schema akzeptiert welt.notrufe' + (fehler.length ? ': ' + JSON.stringify(fehler).slice(0, 200) : ''));
     Notrufe.restore(g2, undefined); ok(g2.notrufe.liste.length === 0, 'Altstand ohne welt.notrufe: keine Rufe');
+  }
+
+  console.log('Bot: klaren Ruf annehmen und bergen, Leerraum-Rufe ignorieren (sim-headless)');
+  {
+    const fs = require('fs'), path = require('path'), Module = require('module');
+    const file = path.join(__dirname, 'sim-headless.js');
+    let src = fs.readFileSync(file, 'utf8');
+    src = src.slice(0, src.lastIndexOf('\n(async () => {')) + '\n;module.exports = { GenericAgent, setSimRng: (r) => { simRng = r; } };\n';
+    const argv = process.argv; process.argv = [argv[0], file];
+    let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
+    const { makeRng } = require('../server/util.js');
+    Sim.setSimRng(makeRng(5));
+    const g = new Game({ noStore: true, seed: 5, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    g.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
+    const a = new Sim.GenericAgent(g, 0, 'solo', { seed: 5, notrufeBot: 'folgen' });
+    g.simAgents = [a];
+    g.addConnection(a.conn); g.handleMessage(a.conn, { t: 'lobbyOpt', startMission: 'arena_space' }); a.hello();
+    if (g.arena) g.arena.nextAt = null;
+    Welt.waehle(g, 'sund');
+    g.weltstand = { persistent: true, data: { tutorial: 'uebersprungen', fakten: {}, chronik: [] } };
+    Space.enterScene(g, 'kantenstein', {}); g.explore.location = 'kantenstein'; g.explore._tutKarte = new Set();
+    for (const o of ['kantenstein', 'gasfeld', 'concordia', 'pulverhorn']) g.explore.knowSilently(o);
+    g.explore.markBoje(Sektoren.kanteId('0603', '0604'));
+    Notrufe.freischalten(g, 'sl_klar,sl_echt,sl_falle');
+    const marks0 = g.inventory.marks; let S = g.snapshot(); let k = 0;
+    for (; k < 30 * 900 && !Notrufe.erledigt(g, 'sl_klar'); k++) { g.space.enemies = []; g.step(); if (k % 2 === 0) S = g.snapshot(); a.update(S); }
+    ok(Notrufe.erledigt(g, 'sl_klar'), `Bot hat den klaren Ruf geborgen (${Math.round(k / 30)} s Spielzeit)`);
+    ok(g.inventory.marks >= marks0 + 80, 'Lohn 80 Marken gutgeschrieben (Stand ' + (g.inventory.marks - marks0) + ' inkl. Erstbesuch-Marken)');
+    ok(Notrufe.finde(g, 'sl_echt').z === Notrufe.Z.ABGELEHNT && Notrufe.finde(g, 'sl_falle').z === Notrufe.Z.ABGELEHNT, 'Leerraum-Rufe ignoriert: kostet nichts');
   }
 } finally { Welt.waehle(null, 'limes'); }
 

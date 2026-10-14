@@ -1,0 +1,110 @@
+{
+  "$schema": "kampagne.schema.json",
+  "_kommentar": "SL11: die feste Kette der Kampagne Die Schuld der Lerche (Karte Sund, ohne Tutorial, ohne Spielleiter). Kapitel 1–10, Verzweigung nach Kapitel 8 (Lösegeld A / Söldner B über das Flag weg_a), Kapitel 7 mit freier Reihenfolge (Szenen Gasfeld und Forschungsstation, Geldziel als Bedingung für das Ende des Kapitels), Notrufe freiwillig (Fakt notrufe_frei ab Kapitel 7), Kapitel 3 endet mit erfolg (Notfallsprung oder Sprungpunkt) oder verloren (von vorn). Die Texte der Kapitelkarten und des Abspanns sind Entwurf des Studios, Kai passt an. Fortschritt nur durch Ausgänge; jede Szene hat einen Ausgang.",
+  "format": "kampagne/1",
+  "id": "schuld-der-lerche",
+  "titel": "Die Schuld der Lerche",
+  "welt": "sund",
+
+  "schnittstelle": {
+    "flags": ["weg_a", "weg_b", "evertVerraet", "soeldner_verloren", "gasVerkauft", "forschungFertig", "vorlaeufer_erreicht"],
+    "_kommentar": "weg_a/weg_b setzt Kapitel 8; evertVerraet Kapitel 5; soeldner_verloren Kapitel 9B; vorlaeufer_erreicht Kapitel 10 (Abspann)."
+  },
+
+  "start": "k1_kantenstein",
+
+  "kapitel": [
+    {
+      "id": "k1_kantenstein", "nr": 1, "titel": "Der Außenposten", "ort": "kantenstein",
+      "karte": { "titel": "Kapitel 1: Der Außenposten", "text": "Kantenstein, ein Außenposten am Grenzpass. In der Taverne sitzt ein Händler namens Evert Kroeger. Er sucht ein Schiff und eine Crew." },
+      "ausgaenge": { "erfolg": { "weiter": "k2_ueberfahrt" } },
+      "einstieg": { "ort": "kantenstein", "angedockt": false }
+    },
+    {
+      "id": "k2_ueberfahrt", "nr": 2, "titel": "Die Überfahrt", "ort": "kantenstein",
+      "karte": { "titel": "Kapitel 2: Die Überfahrt", "text": "Evert reist im Frachtraum. Die Ops scannt den Landepunkt und beamt ihn hoch, dann geht es über Concordia nach Pulverhorn." },
+      "ausgaenge": { "erfolg": { "weiter": "k3_falle" } },
+      "einstieg": { "ort": "kantenstein", "angedockt": false, "flags": { "gespraech_evert_anheuern": "annehmen" }, "fakten": { "evert": "angeheuert" } }
+    },
+    {
+      "id": "k3_falle", "nr": 3, "titel": "Die Falle", "ort": "pulverhorn",
+      "karte": { "titel": "Kapitel 3: Die Falle", "text": "Pulverhorn. Evert geht von Bord, und dann ruft er etwas, das nach Verrat klingt." },
+      "ausgaenge": { "erfolg": { "weiter": "k4_gestrandet" }, "verloren": { "wiederholen": true } },
+      "einstieg": { "ort": "pulverhorn", "angedockt": false, "flags": { "gespraech_evert_anheuern": "annehmen" }, "fakten": { "evert": "pulverhorn" } }
+    },
+    {
+      "id": "k4_gestrandet", "nr": 4, "titel": "Gestrandet", "ort": "pulverhorn",
+      "karte": { "titel": "Kapitel 4: Gestrandet", "text": "Der Reaktor ist aus, der Antrieb tot, kein Hafen in Sicht. Eine Sonde zeigt den Weg zurück nach Concordia." },
+      "ausgaenge": { "erfolg": { "weiter": "k5_forderung" } },
+      "einstieg": { "ort": "pulverhorn", "angedockt": false, "flags": { "gespraech_evert_anheuern": "annehmen" }, "fakten": { "evert": "gefangen" } }
+    },
+    {
+      "id": "k5_forderung", "nr": 5, "titel": "Die Forderung", "ort": "concordia",
+      "karte": { "titel": "Kapitel 5: Die Forderung", "text": "Concordia. Ein Bote bringt eine verschlüsselte Botschaft der Piraten. Die Ops muss sie aus dem Rauschen holen." },
+      "ausgaenge": { "erfolg": { "weiter": "k6_spur" } },
+      "einstieg": { "ort": "concordia", "angedockt": false, "flags": { "gespraech_evert_anheuern": "annehmen" }, "fakten": { "evert": "gefangen" } }
+    },
+    {
+      "id": "k6_spur", "nr": 6, "titel": "Spur des Boten", "ort": "concordia",
+      "karte": { "titel": "Kapitel 6: Spur des Boten", "text": "Der Bote hat Ionen hinterlassen. Die Spur führt von Concordia nach Pulverhorn und weiter zum Lager der Piraten." },
+      "ausgaenge": { "erfolg": { "weiter": "k7_geld" } },
+      "einstieg": { "ort": "concordia", "angedockt": true, "flags": { "gespraech_evert_anheuern": "annehmen", "evertVerraet": true }, "fakten": { "evert": "gefangen", "forderung": 400, "boje": "bekannt" } }
+    },
+    {
+      "id": "k7_geld", "nr": 7, "titel": "Geld verdienen", "ort": "concordia", "buecher": ["k7_geld"],
+      "szenen": ["sl_gasriese", "sl_forschung"],
+      "karte": { "titel": "Kapitel 7: Geld verdienen", "text": "Die Piraten wollen Marken. Gasfeld und Forschungsstation sind Pflicht, die Reihenfolge ist egal. Notrufe sind freiwillig." },
+      "ausgaenge": { "erfolg": { "weiter": "k8_entscheidung" } },
+      "einstieg": { "ort": "concordia", "angedockt": true, "flags": { "evertVerraet": true }, "fakten": { "evert": "gefangen", "forderung": 400, "boje": "bekannt" }, "oeffnet": ["lager-schrottkante"], "marken": 150 }
+    },
+    {
+      "id": "k8_entscheidung", "nr": 8, "titel": "Die Entscheidung", "ort": "concordia",
+      "karte": { "titel": "Kapitel 8: Die Entscheidung", "text": "Das Geld liegt bereit. Lösegeld zahlen, oder Söldner aus Altrost anheuern? Beides führt nach Schrottkante." },
+      "ausgaenge": {
+        "erfolg": [
+          { "weiter": "k9a_uebergabe", "wenn": { "flag": "weg_a" } },
+          { "weiter": "k9b_soeldner" }
+        ]
+      },
+      "einstieg": { "ort": "concordia", "angedockt": true, "flags": { "evertVerraet": true, "gasVerkauft": true, "forschungFertig": true }, "fakten": { "evert": "gefangen", "forderung": 400, "boje": "bekannt", "geldziel": "erreicht" }, "oeffnet": ["lager-schrottkante"], "marken": 600 }
+    },
+    {
+      "id": "k9a_uebergabe", "nr": 9, "titel": "Die Übergabe", "ort": "schrottkante",
+      "karte": { "titel": "Kapitel 9A: Die Übergabe", "text": "Schrottkante. Die Piraten verlangen 30 % mehr als gefordert. Wer zahlt, bekommt Evert. Die Koordinaten behalten sie." },
+      "ausgaenge": { "erfolg": { "weiter": "k10_boje" } },
+      "einstieg": { "ort": "schrottkante", "angedockt": false, "flags": { "weg_a": true, "evertVerraet": true }, "fakten": { "evert": "gefangen", "weg": "loesegeld" }, "oeffnet": ["lager-schrottkante"], "marken": 600 }
+    },
+    {
+      "id": "k9b_soeldner", "nr": 10, "titel": "Söldner und Sturm", "ort": "concordia",
+      "karte": { "titel": "Kapitel 9B: Söldner und Sturm", "text": "Ein Kontakt in Concordia kennt den Weg nach Altrost. Die Söldner stürmen Schrottkante, die Crew holt Evert selbst." },
+      "ausgaenge": { "erfolg": { "weiter": "k10_boje" } },
+      "einstieg": { "ort": "concordia", "angedockt": true, "flags": { "weg_b": true, "evertVerraet": true }, "fakten": { "evert": "gefangen", "weg": "soeldner" }, "oeffnet": ["lager-schrottkante"], "marken": 600 }
+    },
+    {
+      "id": "k10_boje", "nr": 11, "titel": "Die Boje", "ort": "pulverhorn",
+      "karte": { "titel": "Kapitel 10: Die Boje", "text": "Evert führt die Lerche zum Fundort. Die Boje muss geweckt werden: Adresse, Energie, Position. Dahinter liegt ein Sektor der Vorläufer." },
+      "ausgaenge": { "erfolg": { "weiter": "ende" } },
+      "einstieg": { "ort": "pulverhorn", "angedockt": false, "flags": { "weg_b": true, "evertVerraet": true }, "fakten": { "evert": "an_bord", "lerche_weg": "soeldner" }, "oeffnet": ["lager-schrottkante"] }
+    }
+  ],
+
+  "ende": {
+    "titel": "Die Schuld der Lerche",
+    "text": "Die Boje ist wach. Hinter dem Leerraum liegt ein Sektor, den noch niemand betreten hat.",
+    "abspann": [
+      { "kopf": "DIE SCHULD DER LERCHE", "zeilen": ["Eine Koop-Kampagne in der Welt von Pantheon"] },
+      { "kopf": "Die Boje", "zeilen": ["Evert Kroegers Koordinaten waren echt.", "Die Lerche hat die Vorläufer-Boje geweckt,", "und hinter ihr öffnet sich ein neuer Weg."] },
+      { "kopf": "Der Preis", "wenn": { "check": { "name": "welt_fakt_ist", "key": "lerche_weg", "value": "loesegeld" } },
+        "zeilen": ["Das Lösegeld hat Evert zurückgebracht.", "Die Piraten behielten die Koordinaten:", "sie waren schon da, als die Boje aufleuchtete."] },
+      { "kopf": "Die Söldner", "wenn": { "check": { "name": "welt_fakt_ist", "key": "lerche_weg", "value": "soeldner" } },
+        "zeilen": ["Die Söldner aus Altrost stürmten Schrottkante.", "Evert kam frei, und die Piraten blieben ahnungslos.", "Die Boje wurde in Ruhe geweckt."] },
+      { "kopf": "Die Piraten", "wenn": { "check": { "name": "welt_fakt_ist", "key": "piraten_kennen_boje", "value": "ja" } },
+        "zeilen": ["Wer die Koordinaten kennt, folgt.", "Der Sektor hinter der Boje wird nicht lange leer bleiben."] },
+      { "kopf": "Die Notrufe", "wenn": { "check": { "name": "notrufe_erledigt", "min": 1 } },
+        "zeilen": ["Auf dem Weg half die Crew Schiffen in Not.", "Concordia vergisst das nicht."] },
+      { "kopf": "BESATZUNG DER LERCHE", "zeilen": ["Captain, Navigation, Ops, Technik:", "ihr, an Bord."] },
+      { "kopf": "Der nächste Sprung", "zeilen": ["Die Lerche hat noch Reaktor, Crew und Kurs.", "Was die Vorläufer hinterlassen haben, wird sich zeigen."] },
+      { "kopf": "PANTHEON", "zeilen": ["Danke fürs Spielen."] }
+    ]
+  }
+}

@@ -98,6 +98,7 @@
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
           "additionalProperties": { "oneOf": [{ "$ref": "#/$defs/folge" }, { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/folge" } }] }
         },
+        "szenen": { "type": "array", "items": { "$ref": "#/$defs/kennung" }, "description": "SL11: Bücher, die das Kapitelbuch (Hub, letztes in buecher) per Baustein buch_starten in freier Reihenfolge startet (Kapitel 7: Gasfeld, Forschungsstation). Am Ende jeder Szene beginnt der Hub neu; die Flags der Szene entscheiden dort." },
         "platzhalter": { "type": "array", "items": { "type": "string" }, "description": "Schritt-IDs der Bücher, die noch Stand-in-Szenen sind (muss zu steps[].platzhalter passen)" },
         "einstieg": {
           "type": "object", "additionalProperties": false, "required": ["ort"],

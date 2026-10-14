@@ -80,6 +80,8 @@ function pick(mp, info, passable, standable, target, inside) {
 const isHandMap = (map) => MAPS.includes(map);
 // Kachel einer Person auf einer gebauten Karte: Anker (Rolle oder ID) bzw. nsc, dann zelle; n = laufende Nummer (mehrere Personen)
 function personTile(g, map, anker, n) {
+  const xy = /^(\d+),(\d+)$/.exec(String(anker || ''));   // SL2: Kachel direkt ("46,30"), wenn kein Anker passt (Taverne: Zellen-Anker zeichnen einen Käfig)
+  if (xy) return { x: Number(xy[1]), y: Number(xy[2]), anker: null };
   let list = anker ? Objects.resolveAnker(g, map, String(anker)) : [];
   if (!list.length) list = Objects.resolveAnker(g, map, 'nsc').concat(Objects.resolveAnker(g, map, 'zelle'));
   if (!list.length) return null;
@@ -187,7 +189,7 @@ module.exports = (Registry) => {
         if (!pt) { g.countError('mission-hook', new Error(`spawn_person: ${a.map} hat keinen nsc-/zelle-Anker`)); return; }
         aw.personenZahl++;
         const npcRec0 = g.weltstand && g.weltstand.data && g.weltstand.data.npc && g.weltstand.data.npc[a.person];
-        const p0 = { person: a.person, name: a.name || (npcRec0 && npcRec0.name) || a.person, injured: !!a.verletzt, gespraech: a.gespraech || null, tile: { x: pt.x, y: pt.y } };
+        const p0 = { person: a.person, name: (a.name != null ? m.tpl(a.name) : null) || (npcRec0 && npcRec0.name) || a.person, injured: !!a.verletzt, gespraech: a.gespraech || null, tile: { x: pt.x, y: pt.y } };
         // W2 AP6: bis CONFIG.personen.maxGleichzeitig gleichzeitig; ist kein Platz frei, wartet sie in aw.personen
         if ((aw.personen && aw.personen.length) || !away().spawnPersonDazu(g, a.map, p0.tile, p0)) (aw.personen || (aw.personen = [])).push(p0);
         return;
@@ -196,7 +198,7 @@ module.exports = (Registry) => {
       const t = anchorTile(a.map, anker);
       if (!t) { g.countError('mission-hook', new Error(`spawn_person: Anker ${a.map}.${anker} ohne erreichbaren Boden`)); return; }
       const npcRec = g.weltstand && g.weltstand.data && g.weltstand.data.npc && g.weltstand.data.npc[a.person];
-      const name = a.name || (npcRec && npcRec.name) || a.person;
+      const name = (a.name != null ? m.tpl(a.name) : null) || (npcRec && npcRec.name) || a.person;   // @-Textverweis ("@evert.name") auflösen
       away().spawnPerson(g, a.map, t, { person: a.person, name, injured: !!a.verletzt, gespraech: a.gespraech || null });
     } });
 

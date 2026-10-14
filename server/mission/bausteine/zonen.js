@@ -2,6 +2,7 @@
 // SL6 (CONCEPT-SL6): Bausteine für Zonen mit Wirkung und Handelsware (Registry-Plugin, Logik in server/sim/zonen.js und ladung.js).
 //   in_zone          { zone }          Prüfung: die Lerche liegt in der Zone (ID aus scene.zonen, z. B. gas0503_ring2)
 //   zone_bekannt     { zone }          Prüfung: die Zone ist erkundet (Flug, Sonde, Ops-Scan)
+//   zone_an          { gruppe }        Prüfung: Schaltgruppe ist eingeschaltet
 //   zaehler_mindestens { id, min }     Prüfung: Zonen-Zähler (Ertrag 'zaehler:<id>', z. B. Boje) hat min erreicht
 //   fracht_verkauft  { art?, min? }    Prüfung: mindestens min Einheiten (der Art) an Händler verkauft (seit Partiebeginn)
 //   zonen_erkunden   { zone? }         Aktion: eine Zone (ohne Angabe alle der Szene) als erkundet markieren (Sonde, Skript)
@@ -18,6 +19,9 @@ module.exports = (Registry) => {
   Registry.define({ id: 'zone_bekannt', art: 'pruefung', beschreibung: 'Die Zone ist erkundet (Flug hinein, Sonde, Ops-Scan)',
     params: { zone: { typ: 'string', pflicht: true } },
     test: (m, a) => Z().istBekannt(m.game, a.zone) });
+  Registry.define({ id: 'zone_an', art: 'pruefung', beschreibung: 'Die Schaltgruppe ist eingeschaltet (nicht in scene.zonenAus bzw. per zone_schalten an)',
+    params: { gruppe: { typ: 'string', pflicht: true } },
+    test: (m, a) => !Z().istAus(m.game, a.gruppe) });
   Registry.define({ id: 'zaehler_mindestens', art: 'pruefung', beschreibung: 'Zonen-Zähler (Ertrag zaehler:<id>, z. B. Aktivierung der Boje) hat min erreicht',
     params: { id: { typ: 'string', pflicht: true }, min: { typ: 'number', pflicht: true, min: 0 } },
     test: (m, a) => Z().zaehler(m.game, a.id) >= a.min });

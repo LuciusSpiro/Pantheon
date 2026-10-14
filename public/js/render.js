@@ -1604,6 +1604,13 @@
       const s = toS(ex, ey);
       const warden = e.kind === 'warden';
       const sz = warden ? 9 : 6;
+      if (e.kind === 'monster') {   // SL7c: Monster auf der Captain-Karte: großer Punkt, Jagd = rot (nie verrauscht, laut)
+        const mz = e.mo && e.mo.z;
+        ctx.fillStyle = mz === 'j' ? '#FF3B2F' : '#B0602C'; ctx.beginPath(); ctx.arc(s.x, s.y, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = PAL.star; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(s.x, s.y, 9 + 2 * Math.sin(t * 6), 0, Math.PI * 2); ctx.stroke();
+        text(ctx, 'MONSTER', s.x, s.y - 18, { color: '#FF8A5C', align: 'center' });
+        continue;
+      }
       if (noisy) {
         ctx.fillStyle = 'rgba(224,71,60,' + (0.45 + 0.3 * hash(seed + slot)) + ')';
         ctx.beginPath(); ctx.arc(s.x, s.y, sz / 2 + 1, 0, Math.PI * 2); ctx.fill();
@@ -1619,6 +1626,13 @@
       }
       enemyRects.push({ id: e.id, x: s.x - 7, y: s.y - 7, w: 14, h: 14, kind: e.kind });
       if (opts.highlight === e.id) { ctx.strokeStyle = PAL.red; ctx.strokeRect(s.x - 7.5, s.y - 7.5, 15, 15); }
+    }
+    // SL7c: nächstes Pult der Monster-Station (Captain sieht, was als Nächstes dran ist) – Ring mit Zähler
+    if (a.mp && a.mp.x != null) {
+      const ps = toS(a.mp.x * TILE + TILE / 2, a.mp.y * TILE + TILE / 2);
+      const pu = 0.6 + 0.4 * Math.sin(t * 5);
+      ctx.strokeStyle = 'rgba(127,224,194,' + pu + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ps.x, ps.y, 10, 0, Math.PI * 2); ctx.stroke();
+      text(ctx, 'PULT ' + (a.mp.n + 1) + '/' + a.mp.t, ps.x, ps.y - 20, { color: PAL.mint, align: 'center' });
     }
     // Außenteam
     for (const p of view.players || []) {
@@ -1761,7 +1775,7 @@
       for (const it of st.ship.groundItems || []) drawables.push({ key: it.y - 4, type: 'item', kind: it.kind, x: it.x, y: it.y });
       for (const b of view.bots || []) drawables.push({ key: b.y, type: 'bot', e: b });
       // M1: NPCs an Bord (Techniker Ivo wohnt nach der Rettung im Frachtraum)
-      for (const n of view.shipNpcs || st.ship.npcs || []) drawables.push({ key: n.y, type: 'npc', e: Object.assign({ shipNpc: true }, n) });
+      for (const n of view.shipNpcs || st.ship.npcs || []) drawables.push({ key: n.lie ? n.y + 24 : n.y, type: 'npc', e: Object.assign({ shipNpc: true }, n) });   // liegend: über dem Bett (Kachel-Schlüssel y + 31) sortieren
     }
     // M2: Teamsicht (Fog of War) nur auf v2-Karten
     const fogSet = v2 ? teamVision(view, map, st) : null;
@@ -1879,13 +1893,14 @@
           }
         } else if (d.type === 'npc') {
           const n = d.e;
-          if (n.lie) ctx.save(), ctx.translate(n.x - camX, n.y - camY + 6), ctx.rotate(Math.PI / 2), ctx.translate(-(n.x - camX), -(n.y - camY));   // SL0: liegt im Frachtbett
+          if (n.lie) ctx.save(), ctx.translate(n.x - camX, n.y - camY + 2), ctx.rotate(Math.PI / 2), ctx.translate(-(n.x - camX), -(n.y - camY - 20));   // SL0: liegt im Frachtbett (Drehung um die Körpermitte, nicht um die Füße)
           if (!art('drawNpc', null, [ctx, n.x - camX, n.y - camY, { dir: n.dir || 'down', moving: !!n.moving, time: t }])) {
             fbCharacter(ctx, n.x - camX, n.y - camY, { color: 0, dir: n.dir, moving: n.moving, time: t });
             ctx.fillStyle = PAL.ice; ctx.fillRect(n.x - camX - 7, n.y - camY - 24, 14, 17);
           }
           if (n.lie) ctx.restore();
-          if (n.shipNpc) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), n.x - camX, n.y - camY - 48, { color: PAL.ice, align: 'center' });
+          const lblDy = n.lie ? -22 : -48;   // liegende Person: Name dicht über dem Bett
+          if (n.shipNpc) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), n.x - camX, n.y - camY + lblDy, { color: PAL.ice, align: 'center' });
           else if (n.k) { if (n.blase && window.Gespraech) window.Gespraech.blase(ctx, n.blase, n.x - camX, n.y - camY - 52); }   // SL2: Passant, nur Sprechblase
           else text(ctx, personLabel(n), n.x - camX, n.y - camY - 48, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
         } else if (d.type === 'drone') {
@@ -1895,7 +1910,8 @@
           const ex = e.x - camX, ey = e.y - camY;
           const hitAge = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
           const esh = v2 && Array.isArray(e.sh) ? e.sh : null;
-          if (dk === 'warden') {
+          if (dk === 'monster') { drawMonster(ctx, ex, ey, e, t); }
+          else if (dk === 'warden') {
             // M2: Wächter („Lamassu“) mit Frontbogen und Blickrichtung
             const wo = { time: t, alive: e.alive !== false, kind: 'warden', facing: +e.facing || 0, asleep: !!e.asleep, wake: !e.asleep, hit: hitAge < 0.15, revealed: aufgedeckt(e, st), shieldSeg: esh ? esh[0] : null, shieldMax: esh ? esh[1] : null };
             if (e.alive !== false) {
@@ -3336,7 +3352,7 @@
         ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = cur ? 2 : 1; ctx.setLineDash(cur ? [6, 4] : [2, 4]);
         if (cur) ctx.lineDashOffset = -t * 8;
         ctx.beginPath(); ctx.arc(s.x, s.y, zr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-        lab(done ? 'PUNKT ' + (i + 1) + ' ✓' : 'PUNKT ' + (i + 1), s.x, s.y - zr - 8, { color: col, align: 'center' }, 4);
+        lab(done ? 'PUNKT ' + (i + 1) + ' OK' : 'PUNKT ' + (i + 1), s.x, s.y - zr - 8, { color: col, align: 'center' }, 4);
       } else if (cur && !front) {
         const ang = Math.atan2(s.y - cy, s.x - cx);
         const p2 = rayToRect(B, cx, cy, ang, 14);
@@ -3374,6 +3390,22 @@
       ctx.restore();
       lab('ZIELT AUF ' + escortName(e).toUpperCase(), Math.round((a.x + bx) / 2), Math.round((a.y + by) / 2) - 4, { color: '#FF5A4A', align: 'center' }, 2, true);   // QA-Abnahme S2: nach den Gegnernamen setzen (sonst überlappt JÄGER)
     }
+  }
+
+  // SL7c: das Monster der Forschungsstation (Fußabdruck 2×2 Kacheln): dunkler Körper, Augen in Blickrichtung, Farbe nach Zustand (Jagd rot, Lärm orange)
+  function drawMonster(ctx, x, y, e, t) {
+    const z = (e.mo && e.mo.z) || 'p'; const f = (e.mo && e.mo.f) || 0;
+    const wut = z === 'j' ? 1 : z === 'l' ? 0.6 : z === 's' ? 0.35 : 0.15;
+    const pulse = 1 + 0.06 * Math.sin(t * (z === 'j' ? 14 : 4));
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 12, 26, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2A1B22'; ctx.strokeStyle = 'rgba(' + Math.round(120 + 120 * wut) + ',50,40,0.95)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, -4, 26 * pulse, 22 * pulse, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 6; i++) { const a = f + (i - 2.5) * 0.5; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 20, -4 + Math.sin(a) * 18); ctx.lineTo(Math.cos(a) * 31, -4 + Math.sin(a) * 28); ctx.stroke(); }
+    ctx.fillStyle = z === 'j' ? '#FF3B2F' : '#E0A040';
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(Math.cos(f) * 12 - Math.sin(f) * 6 * s, -6 + Math.sin(f) * 12 + Math.cos(f) * 6 * s, 3, 0, Math.PI * 2); ctx.fill(); }
+    if (e.mo && e.mo.r) { ctx.strokeStyle = PAL.amber; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(0, -4, 32, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.restore();
   }
 
   // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
@@ -3424,7 +3456,7 @@
         ctx.beginPath(); ctx.moveTo(c.x - Math.cos(ang) * L, c.y - Math.sin(ang) * L); ctx.lineTo(ex, ey);
         ctx.lineTo(ex - Math.cos(ang - 0.5) * 7, ey - Math.sin(ang - 0.5) * 7); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang + 0.5) * 7, ey - Math.sin(ang + 0.5) * 7); ctx.stroke();
       }
-      if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -4), { color: 'rgba(' + col + ',0.85)', align: 'center' });
+      if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center' });
       // Ops-Ansage: Stärke und Richtung der Verzerrung (nur wer sie sehen darf, also die Ops nach dem Scan oder alle nach der Feldkarte)
       if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center' });
       else if (z.rueck && zoom > 0.12) text(ctx, 'RÜCKSETZER', c.x, c.y + 6, { color: 'rgba(240,110,60,0.95)', align: 'center' });
@@ -3563,6 +3595,7 @@
     drawZonen(ctx, st, toS, zoom, t, ichOps);   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
     if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
+    if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)
 
     // Szenenrand
     if (space.w && space.h) {
@@ -3786,7 +3819,6 @@
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
       if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
       else if (cfg.intel && cfg.mode === 'tactical') drawEnemyShields(ctx, e, s.x, s.y, zoom, rot);   // SL0: Ops sieht Schildsegmente ohne Ziel-Scan
-      drawEnemyHitFx(ctx, e, s.x, s.y, ENEMY_SIZE[e.kind] || 16, view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (für alle Stationen)
       if (e.pat) {   // EK2: Patrouille – wirksamer Sensorkreis (wächst mit der Signatur der Lerche)
         ctx.strokeStyle = 'rgba(255,198,107,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(6, e.pat * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -3794,6 +3826,7 @@
       }
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
+      drawEnemyHitFx(ctx, e, s.x, s.y, ENEMY_SIZE[e.kind] || 16, view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
         ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
         lab('SPRUNG', s.x, s.y - size - 22, { color: PAL.mint, align: 'center' }, 3);

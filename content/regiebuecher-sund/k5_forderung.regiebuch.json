@@ -1,0 +1,117 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL11 Kapitel 5 „Die Forderung“ (Kampagne Die Schuld der Lerche). In Concordia andocken, ein Bote meldet sich per Funk (der Captain nimmt an) und bringt eine verschlüsselte Botschaft der Piraten aus Schrottkante. Die Ops entschlüsselt sie (SL5, Minispiel Frequenz abstimmen, V): Qualität 0–2 gibt die Forderung (400 Marken, Schrottkante), nur bei sauberem Signal (Qualität 3) erscheint die versteckte zweite Schicht: Evert verrät, dass es um die Boje geht. Flag evertVerraet. Abweichung vom Konzept: Der Bote spricht per Funk statt als Figur im Hafen (Concordia hat noch keinen begehbaren Boden); die Boden-Variante bleibt dem Gesprächs-Baustein (SL2) vorbehalten. Texte sind Entwurf des Studios, Kai passt an.",
+  "format": "regiebuch/1",
+  "id": "k5_forderung",
+
+  "kopf": {
+    "titel": "Die Forderung",
+    "art": "kapitel",
+    "auftraggeber": "bote",
+    "zielspieldauer_min": 10,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "bote" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia"] },
+
+  "besetzung": {
+    "stimmen": {
+      "bote": { "name": "Bote des Konkordats" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "hafen", "loc": "concordia",
+      "rules": [
+        { "if": { "docked": "concordia" },
+          "do": [
+            { "radio": { "from": "bote", "text": "@hafen.bote_gruss" } },
+            { "after": { "sec": 6, "do": [{ "set": { "offer": true } }, { "radio": { "from": "bote", "text": "@hafen.bote_botschaft", "accept": true } }] } }
+          ] }
+      ],
+      "timers": [
+        { "at": 90, "if": { "not": { "docked": "concordia" } }, "oda": "@hafen.tipp", "garantie": "hinweis" },
+        { "at": 60, "if": { "all": [{ "docked": "concordia" }, { "not": { "event": "accepted" } }] }, "oda": "@hafen.erinnerung", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "andocken", "text": "@ziel.andocken", "done": { "docked": "concordia" }, "hex": "concordia" },
+        { "id": "annehmen", "text": "@ziel.annehmen", "show": { "v": "offer" }, "done": { "event": "accepted" } }
+      ],
+      "onAccept": [
+        { "do": "entschluesseln_starten", "id": "forderung", "absender": "@signal.absender",
+          "schicht0": "@signal.schicht0", "schicht1": "@signal.schicht1", "schicht2": "@signal.schicht2", "schicht3": "@signal.schicht3" },
+        { "goto": "entschluesseln" }
+      ],
+      "skip": [{ "do": "debug_dock", "loc": "concordia" }, { "do": "debug_accept" }]
+    },
+
+    {
+      "id": "entschluesseln", "loc": "concordia",
+      "liefert_flags": ["evertVerraet"],
+      "enter": [{ "oda": "@entschluesseln.lage" }],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "entschluesselt", "id": "forderung" } } }, "oda": "@entschluesseln.tipp", "garantie": "hinweis" },
+        { "at": 150, "if": { "not": { "check": { "name": "entschluesselt", "id": "forderung" } } }, "oda": "@entschluesseln.tipp2", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "entschluesseln", "text": "@ziel.entschluesseln", "done": { "check": { "name": "entschluesselt", "id": "forderung" } } },
+        { "id": "sauber", "text": "@ziel.sauber", "optional": true, "done": { "check": { "name": "entschluesselt", "id": "forderung", "min": 3 } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "entschluesselt", "id": "forderung", "min": 3 } },
+          "do": [{ "setFlag": { "evertVerraet": true } }, { "oda": "@entschluesseln.verraten" }], "complete": "erfolg" },
+        { "if": { "check": { "name": "entschluesselt", "id": "forderung" } },
+          "do": [{ "oda": "@entschluesseln.forderung" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "debug_entschluesselt", "id": "forderung", "q": 3 }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die Forderung ist gehört (400 Marken in Schrottkante); mit sauberem Signal weiß die Crew auch, dass es um die Boje geht.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "forderung", "value": { "cfg": "campaign.sund.forderung" }, "quelle": "Concordia" },
+        { "if": { "flag": "evertVerraet" }, "do": "welt_fakt", "key": "boje", "value": "bekannt", "quelle": "Evert" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Concordia. Die Piraten aus Schrottkante haben Evert, und sie schicken einen Boten. Die Ops muss die Botschaft aus dem Rauschen holen.",
+    "buch.belohnung": "Wissen, womit die Piraten handeln",
+
+    "hafen.tipp": "Concordia: Sternkarte, Ziel wählen, Sprung für Sprung. Im Hafen andocken.",
+    "hafen.erinnerung": "Der Bote wartet auf Antwort: Captain-Konsole, Reiter „Funk“, Enter.",
+    "hafen.bote_gruss": "Lerche? Man sagte mir, ihr liegt hier. Ich bringe Post, mehr nicht. Fragt mich nichts, ich weiß nichts.",
+    "hafen.bote_botschaft": "Ich habe sie nicht gelesen, ich habe sie nur gespeichert. Sie ist verschlüsselt, schlecht verschlüsselt. Wer sie sauber aus dem Rauschen holt, hört mehr als gesagt wurde.",
+
+    "signal.absender": "Schrottkante",
+    "signal.schicht0": "… Lerche … wir haben euren Händler … Forderung: vierhundert Marken … Übergabe in Schrottkante …",
+    "signal.schicht1": "Er lebt. Er ist uns noch zu teuer zum Verschwinden. Kommt mit Geld, dann bekommt ihr ihn zurück.",
+    "signal.schicht2": "Die Koordinaten, die er trug, behalten wir. Wer sie will, zahlt oder kämpft.",
+    "signal.schicht3": "[unter dem Rauschen, Everts Stimme] Es geht um die Boje. Sie sitzt am Rand des Leerraums. Gebt sie nicht her. Folgt der Spur des Boten.",
+
+    "entschluesseln.lage": "Ops: Das Signal liegt an. V öffnet die Abstimmung, dann Frequenz abstimmen, bis die Stimme aus dem Rauschen tritt.",
+    "entschluesseln.tipp": "Ops: V öffnet die Abstimmung. Je sauberer das Signal, desto mehr Inhalt.",
+    "entschluesseln.tipp2": "Das Rauschen schiebt weg. Wer die Abstimmung ruhig hält, hört unter der Botschaft noch etwas.",
+    "entschluesseln.verraten": "Unter der Botschaft: Evert. Es geht um die Boje. Wir müssen der Spur des Boten folgen.",
+    "entschluesseln.forderung": "Die Forderung: 400 Marken in Schrottkante. Sonst nichts. Hört sich an, als hätten wir etwas überhört.",
+
+    "ziel.andocken": "In Concordia andocken",
+    "ziel.annehmen": "Captain: Botschaft des Boten annehmen",
+    "ziel.entschluesseln": "Die Botschaft entschlüsseln (Ops, V)",
+    "ziel.sauber": "Sauberes Signal: die versteckte Schicht hören",
+
+    "chronik.erfolg": "In Concordia gibt ein Bote der Lerche eine Botschaft der Piraten: Evert lebt, 400 Marken in Schrottkante."
+  }
+}

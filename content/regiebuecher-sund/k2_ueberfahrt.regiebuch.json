@@ -1,0 +1,152 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL3 Kapitel 2 „Die Überfahrt“ (Kampagne Die Schuld der Lerche, Kette folgt mit SL11). Evert Kroeger steht als Person am Landepunkt von Kantenstein; die Ops beamt ihn an Bord (Person als Fracht, SL0: belegt einen Frachtplatz und liegt im Frachtraum auf einem Bett). Dann Sprünge über Concordia nach Pulverhorn, dort gibt die Ops ihn am Handelsposten ab. Garantien: Hinweis nach 90 s, Selbstlösung des Beamens nach 300 s und der Abgabe nach 240 s, damit die Szene nie hängt (Test: Personentransport, Sprünge, Schnellsprung).",
+  "format": "regiebuch/1",
+  "id": "k2_ueberfahrt",
+
+  "kopf": {
+    "titel": "Die Überfahrt",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 5,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["kantenstein", "concordia", "pulverhorn"], "aussenkarten": ["kantenstein.siedlung"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "einladen", "loc": "kantenstein",
+      "enter": [
+        { "oda": "@einladen.hinweis" }
+      ],
+      "timers": [
+        { "at": 1, "if": { "all": [
+            { "not": { "check": { "name": "person_an_bord", "person": "evert" } } },
+            { "not": { "any": [
+              { "check": { "name": "person_state", "map": "kantenstein.siedlung", "person": "evert", "state": "ok" } },
+              { "check": { "name": "person_state", "map": "kantenstein.siedlung", "person": "evert", "state": "following" } },
+              { "check": { "name": "person_state", "map": "kantenstein.siedlung", "person": "evert", "state": "injured" } },
+              { "check": { "name": "person_state", "map": "kantenstein.siedlung", "person": "evert", "state": "rescued" } }
+            ] } }
+          ] },
+          "do": [{ "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "name": "@evert.name", "anker": "kantine_1.zelle.1" }] },
+        { "at": 90, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "not": { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } } }] }, "oda": "@einladen.tipp_scan", "garantie": "hinweis" },
+        { "at": 150, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } }] }, "oda": "@einladen.tipp", "garantie": "hinweis" },
+        { "at": 240, "if": { "all": [{ "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, { "not": { "check": { "name": "landepunkt_gescannt", "lp": "kantenstein.siedlung" } } }] },
+          "do": [{ "do": "landepunkt_scannen", "lp": "kantenstein.siedlung" }, { "oda": "@einladen.scan_auto" }], "garantie": "autoloesung" },
+        { "at": 420, "if": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } },
+          "do": [{ "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }, { "oda": "@einladen.auto" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "beamen", "text": "@ziel.beamen", "done": { "check": { "name": "person_an_bord", "person": "evert" } }, "hex": "kantenstein" }
+      ],
+      "next": [{ "if": { "check": { "name": "person_an_bord", "person": "evert" } }, "goto": "nach_concordia" }],
+      "skip": [{ "do": "person_aufnehmen", "person": "evert", "name": "@evert.name" }]
+    },
+
+    {
+      "id": "nach_concordia",
+      "enter": [
+        { "do": "reveal_location", "loc": "concordia", "text": "@reise.concordia_aufgedeckt" },
+        { "oda": "@reise.concordia_hinweis" }
+      ],
+      "timers": [
+        { "at": 90, "if": { "not": { "atLocation": "concordia" } }, "oda": "@reise.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_concordia", "done": { "atLocation": "concordia" }, "hex": "concordia" }
+      ],
+      "next": [{ "if": { "atLocation": "concordia" }, "goto": "nach_pulverhorn" }],
+      "skip": [{ "do": "debug_jump", "loc": "concordia" }]
+    },
+
+    {
+      "id": "nach_pulverhorn",
+      "enter": [
+        { "do": "reveal_location", "loc": "pulverhorn", "text": "@reise.pulverhorn_aufgedeckt" },
+        { "oda": "@reise.pulverhorn_hinweis" }
+      ],
+      "timers": [
+        { "at": 90, "if": { "not": { "atLocation": "pulverhorn" } }, "oda": "@reise.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_pulverhorn", "done": { "atLocation": "pulverhorn" }, "hex": "pulverhorn" }
+      ],
+      "next": [{ "if": { "atLocation": "pulverhorn" }, "goto": "abgabe" }],
+      "skip": [{ "do": "debug_jump", "loc": "pulverhorn" }]
+    },
+
+    {
+      "id": "abgabe", "loc": "pulverhorn",
+      "enter": [
+        { "do": "fracht_abnehmer", "ort": "pulverhorn", "name": "@posten.name" },
+        { "radio": { "from": "evert", "text": "@abgabe.evert" } }
+      ],
+      "timers": [
+        { "at": 90, "if": { "check": { "name": "person_an_bord", "person": "evert" } }, "oda": "@abgabe.tipp", "garantie": "hinweis" },
+        { "at": 240, "if": { "check": { "name": "person_an_bord", "person": "evert" } },
+          "do": [{ "do": "person_abgeben", "person": "evert" }, { "oda": "@abgabe.auto" }], "garantie": "autoloesung" }
+      ],
+      "objectives": [
+        { "id": "abgeben", "text": "@ziel.abgeben", "done": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, "hex": "pulverhorn" }
+      ],
+      "next": [{ "if": { "not": { "check": { "name": "person_an_bord", "person": "evert" } } }, "complete": "erfolg" }],
+      "skip": [{ "do": "person_abgeben", "person": "evert" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Evert Kroeger ist am Handelsposten von Pulverhorn abgegeben.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "evert", "value": "pulverhorn", "quelle": "Überfahrt" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Evert Kroeger will nach Pulverhorn, über Concordia. Die Ops beamt ihn vom Landepunkt an Bord: Er reist im Frachtraum und belegt einen Frachtplatz. In Pulverhorn gibt die Ops ihn am Handelsposten ab.",
+    "buch.belohnung": "Evert zahlt in Pulverhorn",
+
+    "einladen.hinweis": "Evert wartet unten in Kantenstein. Ops: erst den Landepunkt scannen (L), dann Person beamen (P).",
+    "einladen.tipp_scan": "Ops: Landepunkt Kantenstein scannen (L halten). Erst danach lässt sich jemand von der Oberfläche beamen.",
+    "einladen.tipp": "Ops: Lerche in Reichweite des Landepunkts halten, dann Person beamen (P, 3 s ruhig halten).",
+    "einladen.scan_auto": "Der Landepunkt ist jetzt gescannt (die Sensoren waren schneller). Ops: Person beamen (P).",
+    "einladen.auto": "Evert klettert selbst auf den Strahl. Also gut – er liegt im Frachtraum.",
+
+    "reise.concordia_aufgedeckt": "Concordia liegt auf der Sternkarte. Die Börse wartet.",
+    "reise.concordia_hinweis": "Erst Concordia, dann Pulverhorn. Sternkarte: Ziel wählen, springen.",
+    "reise.pulverhorn_aufgedeckt": "Pulverhorn liegt auf der Sternkarte.",
+    "reise.pulverhorn_hinweis": "Weiter nach Pulverhorn, dort wartet der Handelsposten.",
+    "reise.tipp": "Sternkarte, Ziel wählen, springen. Ein weiter Weg geht auch per Schnellsprung.",
+
+    "abgabe.evert": "Pulverhorn! Perfekt. Setzt mich beim Handelsposten ab, Captain – ich melde mich, sobald ich die Fracht übernommen habe.",
+    "abgabe.tipp": "Ops: nah an den Handelsposten, dann Person abgeben (B).",
+    "abgabe.auto": "Evert springt selbst vom Strahl. Zeit ist Geld.",
+
+    "evert.name": "Evert Kroeger",
+    "posten.name": "Handelsposten Pulverhorn",
+
+    "ziel.beamen": "Evert an Bord beamen (Ops: Person beamen)",
+    "ziel.nach_concordia": "Nach Concordia springen",
+    "ziel.nach_pulverhorn": "Nach Pulverhorn springen",
+    "ziel.abgeben": "Evert am Handelsposten abgeben (Ops: Person abgeben)",
+
+    "chronik.erfolg": "Die Lerche setzt Evert Kroeger am Handelsposten von Pulverhorn ab."
+  }
+}

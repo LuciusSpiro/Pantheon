@@ -259,6 +259,7 @@
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
+      'notruf', 'spur',   // SL8/SL5: Labor-Einstiege (notruf [ids], spur [id])
       'entschl',   // SL5: entschl [id] startet ein Testsignal mit vier Schichten (Qualität 0..3, Schicht 3 versteckt)
       'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')

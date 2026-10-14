@@ -2076,6 +2076,8 @@
     for (const id in Client.escortHit) { const s = (nowMs - Client.escortHit[id]) / 1000; if (s > 2) delete Client.escortHit[id]; else v.escortHit[id] = s; }
     if (Client.escortOrder && nowMs - Client.escortOrder.t0 < 6000) v.escortOrder = Object.assign({ age: (nowMs - Client.escortOrder.t0) / 1000 }, Client.escortOrder);
     v.drones = lerpList(aa.drones, ba.drones, f);
+    // SL7c: das Monster der Station Helix (away.mo) läuft als Pseudo-Gegner mit (nicht verwundbar, immer sichtbar: es ist laut); Zeichnung in render.js
+    if (aa.mo) { const bm = (ba && ba.mo) || aa.mo; v.drones = (v.drones || []).concat([{ id: 'M1', kind: 'monster', alive: true, vis: true, x: lerp(aa.mo.x, bm.x, f), y: lerp(aa.mo.y, bm.y, f), mo: aa.mo }]); }
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
     // W2 AP6: Personen (bis 3 gleichzeitig) interpoliert über die id; nur die auf der Karte (gerettete: HUD-Liste aus st)
     v.npcs = lerpList(aa.npcs, ba.npcs, f).filter(n => !n.rescued);

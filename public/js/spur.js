@@ -28,7 +28,7 @@
     const d = Math.hypot(num(ship.x) - k.x, num(ship.y) - k.y);
     const reason = d > num(k.r, 350) ? 'Zu weit vom Spurkern – Navigation anfliegen (' + Math.round(d) + ')' : null;
     const reading = num(k.p) > 0;
-    R.button(ctx, rect.x + 4, rect.y + rect.h - 32, 150, 13, reading ? 'Lese Spur … ' + Math.round(num(k.p) * 100) + ' %' : 'Spur lesen', { hotkey: 'K', disabled: !!reason && !reading, reason, onClick: () => cmd('weapons.spur.lesen', { on: !reading }) });
+    R.button(ctx, rect.x + rect.w - 154, rect.y + rect.h - 17, 150, 13, reading ? 'Lese Spur … ' + Math.round(num(k.p) * 100) + ' %' : 'Spur lesen', { hotkey: 'K', disabled: !!reason && !reading, reason, onClick: () => cmd('weapons.spur.lesen', { on: !reading }) });
   }
 
   window.SpurView = { draw, drawButton, kern };

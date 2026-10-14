@@ -2085,6 +2085,7 @@ class GenericAgent extends KeshAgent {
     }
     if (this.reactorDuty(S, p)) return;
     if (S.en && this.entschlBot(S, p)) return;   // SL5: Signal entschlüsseln (Ops)
+    if (this.opts && this.opts.notrufeBot && S.nr && this.notrufBot(S, p)) return;   // SL8: Notrufe annehmen/ignorieren (opts.notrufeBot = 'folgen')
     if (this.game.spur && this.spurBot(S, p)) return;   // SL5: Ionenspur folgen (Navigation fliegt, Ops liest)
     if (S.fracht && (S.fracht.pq || S.fracht.pers) && this.personenBot(S, p)) return;   // SL0: Ops beamt Personen vom Landepunkt an Bord
     if (this.opts && (this.opts.sondeZiel || this.opts.sondeNach) && this.sondeBot(S, p)) return;   // SL4: Sonde zu einem Zielpunkt (opts.sondeZiel = { x, y }) bzw. durch den Sprungpunkt (opts.sondeNach = Hex)
@@ -2107,6 +2108,26 @@ class GenericAgent extends KeshAgent {
     else if (s === 0 && ((e.f <= 0.02 && m.enDir < 0) || (e.f >= 0.98 && m.enDir > 0))) m.enDir = -m.enDir;
     m.enS = s;
     this.cmd('weapons.entschl.stimme', { dir: unzufrieden ? m.enDir : 0 });
+    return true;
+  }
+  // SL8: Bot nimmt Notrufe an, deren Hex eine feste Szene hat (klarer Ruf), und ignoriert die übrigen (Leerraum-Rufe: Angebot, kein Zwang).
+  // Annehmen: Captain hinfliegen, reisen, Ruf-Ort anfliegen, bremsen (Bergung läuft im Server). -> true, wenn beschäftigt
+  notrufBot(S, p) {
+    if (p.zone !== 'ship') return false;
+    const Sek = require('../shared/sektoren.js'); const N = require('../server/sim/notrufe.js');
+    const l = S.nr || []; const sh = S.ship;
+    if (!l.length) return false;
+    const r = l.find((x) => { const o = Sek.ortVonHex(x.h); return o && !Sek.istLeerId(o); });
+    const unnoetig = l.find((x) => x !== r);
+    if (unnoetig && unnoetig.z === 0 && this.is('captain')) { if (this.enter(S, 'captain')) this.cmd('captain.notruf.ablehnen', { id: unnoetig.i }); return true; }
+    if (!r) return false;
+    const d = N.datei(r.i); if (!d) return false;
+    if (r.z === 0 && this.is('captain')) { if (this.enter(S, 'captain')) this.cmd('captain.notruf.hinfliegen', { id: r.i }); return true; }
+    const hex = Sek.hexVonOrt(sh.scene);
+    if (hex !== d.hex) { this.travel(S, p, Sek.ortVonHex(d.hex)); return true; }
+    const dd = dist(sh.x, sh.y, d.pos.x, d.pos.y);
+    if (dd > 60) { if (this.enter(S, 'helm')) this.steer(S, d.pos.x, d.pos.y, 40); return true; }
+    if (sh.speed > 20) { if (this.enter(S, 'helm')) this.brake(S); return true; }
     return true;
   }
   // SL5: Bot folgt der Ionenspur (liest die Wegliste direkt: er kennt den echten Ast). Im falschen Hex/zwischen den Hexen: reisen; im Spur-Hex:
@@ -2220,6 +2241,7 @@ class GenericAgent extends KeshAgent {
     const { step, def } = info;
     const ums = step.umsetzung || null;
     const sh = S.ship;
+    if (this.opts && this.opts.stepHook && this.opts.stepHook(this, S, p, info)) return;   // SL11: Schritt-Handler der Sund-Kette (tools/sim-sund.js)
     // Funk zum Annehmen (Hafen-Rahmen) – Captain bzw. solo, wenn keine Gefahr
     if (S.mission.radio && S.mission.radio.needsAccept && this.is('captain') && p.zone === 'ship' && !S.space.enemies.length) {
       if (this.role === 'solo' && p.console === 'helm' && !this.brake(S)) return;
@@ -2255,6 +2277,7 @@ class GenericAgent extends KeshAgent {
     const wahl = ['a', 'b', 'schweigen'].includes(process.env.BOT_WAHL) ? process.env.BOT_WAHL : null;
     if (ums === 'verhandeln/funkduell' || ums === 'verhandeln/andockkontrolle_eskaliert') prefs = [wahl || o.funk || 'a', 'a', 'b', 'schweigen'];
     else if (ums === 'taeuschen/bluff_funk') prefs = [o.bluff || 'passend', 'wahrheit', 'falsch'];
+    else if (o.weg && ch.id === 'wahl') prefs = [o.weg];   // SL11: Sund-Kette, Kapitel 8 (opts.weg = loesegeld | soeldner), siehe tools/sim-sund.js
     const ok = (ch.options || []).filter((x) => !x.disabled).map((x) => x.id);
     return prefs.find((x) => ok.includes(x)) || ok[0] || (ch.options[0] && ch.options[0].id);
   }
@@ -3534,7 +3557,7 @@ async function runGeneric(opts) {
         const known = !!(fnName && typeof GenericAgent.prototype[fnName] === 'function');
         const kette = opts.mode === 'kette';   // EK8: längere Flüge (Weitscan-Suche) und Kämpfe der Platzhalter
         const limit = kind === SceneKind.HAFEN ? 60 : kind === SceneKind.ANFLUG ? (kette ? 900 : 300) : (known ? (kette ? 1500 : 600) : (kette ? 300 : 90));
-        curStep = { id, ums, kind, scene: sceneOfStepId(m.def, id), t0: game.time, limitAt: game.time + limit, skips: 0, known };
+        curStep = { id, ums, kind, scene: sceneOfStepId(m.def, id), t0: game.time, limitAt: game.time + (opts.stepLimit ? opts.stepLimit(m.activeId, id, limit) : limit), skips: 0, known };   // SL11: Sund-Kette setzt eigene Zeitlimits
       } else if (game.time > curStep.limitAt) {
         curStep.skips++;
         if (curStep.skips > 3) { cur.softlock = `${cur.id}/${curStep.id}`; res.aborted = `Softlock in ${cur.id}/${curStep.id} (Skip hilft nicht)`; break; }
@@ -4083,13 +4106,27 @@ async function wellenMain() {
   process.exit(ok ? 0 : 1);
 }
 
-(async () => {
+if (require.main !== module) module.exports = { runGeneric, printGenericRun, fmtMin, GenericAgent };   // SL11: tools/sim-sund.js nutzt den Bot als Bibliothek
+else (async () => {
   if (args.includes('wellen')) { await wellenMain(); return; }
   if (args.includes('arena')) { await arenaMain(); return; }
   if (args.includes('archiv')) { await archivMain(); process.exit(0); }
   if (args.includes('escort')) { await escortMain(); process.exit(0); }
   if (args.includes('flotte')) { await flotteMain(); process.exit(0); }   // EK4
   if (args[0] === 'kette') { const bad = await ketteMain(); process.exit(bad ? 1 : 0); }   // EK8: feste Kampagnenkette
+  if (args[0] === 'sl') {   // SL6/7/10 (T4): Bot-Pfade Gasriese, Forschungsstation (mit/ohne Ablenkung), Boje (Weg A/B) – tools/sl-bots.js
+    //   node tools/sim-headless.js sl [--paket gas|forschung|forschung-ohne|boje-a|boje-b|alle] [--seed S] [--seeds N]
+    const SL = require('./sl-bots.js'); const pk = argVal('--paket', 'alle'); const n = Number(argVal('--seeds', 1)); const s0 = seedArg != null ? seedArg : 21;
+    let bad = 0;
+    for (let i = 0; i < n; i++) {
+      const o = { seed: s0 + i };
+      const L = pk === 'gas' ? [SL.laufGasriese(o)] : pk === 'forschung' ? [SL.laufForschung(Object.assign({ ablenkung: true }, o))] : pk === 'forschung-ohne' ? [SL.laufForschung(Object.assign({ ablenkung: false }, o))]
+        : pk === 'boje-a' ? [SL.laufBoje(Object.assign({ weg: 'A' }, o))] : pk === 'boje-b' ? [SL.laufBoje(Object.assign({ weg: 'B' }, o))] : SL.alle(o);
+      for (const r of L) { console.log(`${r.ok ? 'ok     ' : 'FEHLER '} seed ${o.seed} ${r.name.padEnd(26)} ${String(r.sek).padStart(4)} s  ${r.info}${r.fehler ? '  [' + r.fehler + ']' : ''}`); if (!r.ok) bad++; }
+    }
+    console.log(bad ? `${bad} Lauf/Läufe gescheitert` : 'alle Läufe ok');
+    process.exit(bad ? 1 : 0);
+  }
   if (args[0] === 'labor' && args[1] === 'ketten') {   // Nachauftrag AP3a: nur die Ketten
     await kettenMain(Number(argVal('--seeds', 3)), seedArg != null ? seedArg : 1, argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3]);
     process.exit(0);

@@ -1,0 +1,138 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL11 Kapitel 8 „Die Entscheidung“ (Kampagne Die Schuld der Lerche). In Concordia entscheidet der Captain: A) Lösegeld (campaign.sund.loesegeld = Forderung + 30 %, die Piraten behalten die Koordinaten) oder B) Söldner aus Altrost (campaign.sund.soeldner = so viel wie die ursprüngliche Forderung; Altrost ist nur ein Textkontakt in Concordia). Die Option ist grau, solange das Geld nicht reicht; das Geldziel beim Eintritt (Ende Kapitel 7) deckt die Söldner. Bezahlt wird erst im Kapitel 9A bzw. 9B (dort stehen Betrag und Abbuchung); dieses Buch trifft nur die Wahl. Wer nach Kapitel 7 Geld ausgegeben hat, wählt „Erst mehr verdienen“ und holt es nach (Deuterium im Gasfeld, Notrufe), die Wahl kommt zurück. Das Buch endet immer mit erfolg und setzt weg_a oder weg_b; die Kette verzweigt per wenn (Kapitel 9A/9B). Texte sind Entwurf des Studios, Kai passt an.",
+  "format": "regiebuch/1",
+  "id": "k8_entscheidung",
+
+  "kopf": {
+    "titel": "Die Entscheidung",
+    "art": "kapitel",
+    "auftraggeber": "kontakt",
+    "zielspieldauer_min": 6,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "kontakt" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia"] },
+
+  "besetzung": {
+    "stimmen": {
+      "kontakt": { "name": "Kontakt in Concordia" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "anflug", "loc": "concordia",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "concordia" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_concordia", "done": { "atLocation": "concordia" }, "hex": "concordia" }
+      ],
+      "next": [{ "if": { "docked": "concordia" }, "goto": "entscheidung" }, { "if": { "atLocation": "concordia" }, "do": [{ "oda": "@anflug.andocken" }] }],
+      "skip": [{ "do": "debug_dock", "loc": "concordia" }]
+    },
+
+    {
+      "id": "entscheidung", "loc": "concordia",
+      "liefert_flags": ["weg_a", "weg_b"],
+      "enter": [
+        { "radio": { "from": "kontakt", "text": "@entscheidung.kontakt" } },
+        { "choice": "wahl" }
+      ],
+      "choices": {
+        "wahl": {
+          "prompt": "@wahl.frage",
+          "options": [
+            { "id": "loesegeld", "label": "@wahl.loesegeld", "disabledIf": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.loesegeld" } } } },
+            { "id": "soeldner", "label": "@wahl.soeldner", "disabledIf": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.soeldner" } } } },
+            { "id": "nachverdienen", "label": "@wahl.nachverdienen" }
+          ],
+          "on": {
+            "loesegeld": [
+              { "setFlag": { "weg_a": true } },
+              { "do": "welt_fakt", "key": "weg", "value": "loesegeld", "quelle": "Concordia" },
+              { "radio": { "from": "kontakt", "text": "@wahl.loesegeld_funk" } },
+              { "complete": "erfolg" }
+            ],
+            "soeldner": [
+              { "setFlag": { "weg_b": true } },
+              { "do": "welt_fakt", "key": "weg", "value": "soeldner", "quelle": "Concordia" },
+              { "radio": { "from": "kontakt", "text": "@wahl.soeldner_funk" } },
+              { "complete": "erfolg" }
+            ],
+            "nachverdienen": [
+              { "oda": "@wahl.nachverdienen_hinweis" },
+              { "goto": "nachverdienen" }
+            ]
+          }
+        }
+      },
+      "timers": [
+        { "at": 90, "if": { "all": [{ "not": { "flag": "weg_a" } }, { "not": { "flag": "weg_b" } }] }, "oda": "@entscheidung.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "waehlen", "text": "@ziel.waehlen", "done": { "any": [{ "flag": "weg_a" }, { "flag": "weg_b" }] } }
+      ],
+      "skip": [{ "setFlag": { "weg_b": true } }, { "complete": "erfolg" }]
+    },
+
+    {
+      "id": "nachverdienen", "loc": "concordia",
+      "timers": [
+        { "at": 120, "if": { "check": { "name": "marks_below", "n": { "cfg": "campaign.sund.soeldner" } } }, "oda": "@nachverdienen.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "geld", "text": "@ziel.geld", "done": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.soeldner" } } } }
+      ],
+      "next": [{ "if": { "check": { "name": "marks_at_least", "n": { "cfg": "campaign.sund.soeldner" } } }, "do": [{ "oda": "@nachverdienen.genug" }], "goto": "entscheidung" }],
+      "skip": [{ "do": "credit_marks", "marks": 600, "grund": "skip" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die Entscheidung ist gefallen: weg_a (Lösegeld) oder weg_b (Söldner); Fakt weg gesetzt (bezahlt wird in 9A/9B).",
+      "folgen": [
+        { "if": { "flag": "weg_a" }, "do": "chronik", "text": "@chronik.loesegeld" },
+        { "if": { "flag": "weg_b" }, "do": "chronik", "text": "@chronik.soeldner" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Die Piraten warten, Evert sitzt in Schrottkante. Concordia hat den Weg verraten: zahlen, oder Söldner aus Altrost holen. Wer nicht genug hat, verdient nach.",
+    "buch.belohnung": "Evert zurück an Bord",
+
+    "anflug.tipp": "Concordia: Sternkarte, Ziel wählen, Sprung für Sprung.",
+    "anflug.andocken": "Im Hafen von Concordia andocken: dort fällt die Entscheidung.",
+
+    "entscheidung.kontakt": "Ihr habt das Geld. Zahlen die Piraten aus, bekommt ihr Evert und sie die Koordinaten. Oder ich verrate euch den Weg nach Altrost, dort sitzen Söldner, die für Marken zuschlagen.",
+    "entscheidung.tipp": "Captain: Funk, Wahl treffen (1 Lösegeld, 2 Söldner). Ohne Geld: nachverdienen.",
+
+    "wahl.frage": "Wie holt ihr Evert zurück?",
+    "wahl.loesegeld": "Lösegeld zahlen (Piraten verlangen 30 % mehr, behalten die Koordinaten)",
+    "wahl.soeldner": "Söldner aus Altrost anheuern (Kontakt nennt den Weg, kostet die Forderung)",
+    "wahl.nachverdienen": "Erst mehr Marken verdienen",
+    "wahl.loesegeld_funk": "Gut. Fliegt nach Schrottkante. Die Piraten sollen merken, dass ihr es ernst meint. Und redet nicht über die Koordinaten.",
+    "wahl.soeldner_funk": "Altrost liegt hinter dem Nebel von Kantenstein. Sagt, Concordia schickt euch. Sie kommen, wenn die Marken stimmen. Ich habe nichts gesagt.",
+    "wahl.nachverdienen_hinweis": "Mehr Marken: Deuterium im Gasfeld, Notrufe auf der Sternkarte. Danach wieder nach Concordia.",
+
+    "nachverdienen.tipp": "Marken: Gasfeld (Deuterium schöpfen, in Concordia verkaufen) und Notrufe. Kein Zeitdruck.",
+    "nachverdienen.genug": "Genug Marken. Zurück zur Entscheidung.",
+
+    "ziel.nach_concordia": "Nach Concordia fliegen",
+    "ziel.waehlen": "Captain: entscheiden (Funk, Wahl)",
+    "ziel.geld": "Marken verdienen (Gasfeld, Notrufe)",
+
+    "chronik.loesegeld": "Die Crew entscheidet sich für das Lösegeld: Die Piraten bekommen ihr Geld und behalten die Koordinaten.",
+    "chronik.soeldner": "Die Crew heuert Söldner aus Altrost an, statt zu zahlen."
+  }
+}

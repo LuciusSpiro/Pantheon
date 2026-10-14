@@ -1,0 +1,91 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL3 Kapitel 4 „Gestrandet“ (Kampagne Die Schuld der Lerche). Nach der Flucht aus Pulverhorn: Nach einem Notfallsprung liegt die Lerche in einem zufälligen Nachbarhex (Concordia oder Leerraum, Notfallsprung nie nach Schrottkante/Helix) mit abgeschaltetem Reaktor; zwei Leute starten ihn neu (Schalter A und B gleichzeitig halten). Nach einem normalen Sprung ist der Reaktor an und der Schritt entfällt. Ziel: nach Concordia (Ops: Sonde, Captain: Sektorplan, SL4; ohne Sprungpunkt im Leerraum hilft nur der zweite Notfallsprung, der garantiert in ein System führt). Kein Ort fest: das Kapitel hat keinen Schritt-Ort, die Lerche bleibt, wo der Sprung sie hinwarf.",
+  "format": "regiebuch/1",
+  "id": "k4_gestrandet",
+
+  "kopf": {
+    "titel": "Gestrandet",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 8,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["concordia", "pulverhorn"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "neustart",
+      "enter": [
+        { "oda": "@neustart.hinweis" }
+      ],
+      "timers": [
+        { "at": 45, "if": { "check": { "name": "reaktor_aus" } }, "oda": "@neustart.tipp", "garantie": "hinweis" },
+        { "at": 240, "if": { "check": { "name": "reaktor_aus" } }, "oda": "@neustart.tipp2", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "reaktor", "text": "@ziel.reaktor", "done": { "not": { "check": { "name": "reaktor_aus" } } }, "show": { "check": { "name": "reaktor_aus" } } }
+      ],
+      "next": [{ "if": { "not": { "check": { "name": "reaktor_aus" } } }, "goto": "finden" }],
+      "skip": [{ "do": "debug_clear_incidents" }]
+    },
+
+    {
+      "id": "finden",
+      "enter": [
+        { "oda": "@finden.hinweis" }
+      ],
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "concordia" } }, "oda": "@finden.tipp", "garantie": "hinweis" },
+        { "at": 180, "if": { "not": { "atLocation": "concordia" } }, "oda": "@finden.tipp2", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "concordia", "text": "@ziel.concordia", "done": { "atLocation": "concordia" }, "hex": "concordia" }
+      ],
+      "next": [{ "if": { "atLocation": "concordia" }, "complete": "erfolg" }],
+      "skip": [{ "do": "debug_jump", "loc": "concordia" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Die Lerche ist in Concordia.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "kapitel4", "value": "erledigt", "quelle": "Gestrandet" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Die Lerche liegt nach der Flucht irgendwo im Sund. Reaktor neu starten, Standort bestimmen, nach Concordia kommen.",
+    "buch.belohnung": "Concordia und ein Plan",
+
+    "neustart.hinweis": "Reaktor überladen und offline. Neustart: Maschinenraum, Schalter A und B gleichzeitig halten (zwei Leute).",
+    "neustart.tipp": "Zwei Leute zum Reaktor: je ein Schalter, beide gleichzeitig halten, bis er anspringt.",
+    "neustart.tipp2": "Schalter A und B im Maschinenraum, beide zugleich halten. Allein geht es auch, aber sehr langsam.",
+
+    "finden.hinweis": "Wo sind wir? Sektorplan und Sternkarte prüfen, mit einer Sonde den Weg ansehen. Concordia ist das Ziel.",
+    "finden.tipp": "Ops: Sonde in einen Nachbarsektor schicken, der Captain trägt den Sektorplan nach. Concordia suchen.",
+    "finden.tipp2": "Ohne Sprungpunkt im Leerraum bleibt der Notfallsprung (Hülle −15): er führt aus dem Leerraum in ein System.",
+
+    "ziel.reaktor": "Reaktor neu starten (Maschinenraum, A und B)",
+    "ziel.concordia": "Nach Concordia kommen",
+
+    "chronik.erfolg": "Die Lerche findet nach dem Notfallsprung den Weg nach Concordia."
+  }
+}

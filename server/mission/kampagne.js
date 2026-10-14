@@ -48,6 +48,8 @@ function laden(id, reload) {
 }
 function alleIds() { return dateien().map((f) => f.replace(/\.json$/, '')); }
 function buecherVon(ch) { return Array.isArray(ch.buecher) && ch.buecher.length ? ch.buecher : [ch.id]; }
+// SL11: Bücher des Kapitels einschließlich seiner Szenen (kapitel.szenen)
+function alleBuecher(ch) { return buecherVon(ch).concat(ch.szenen || []); }
 
 // ---------------------------------------------------------------------------------------------------------------
 // Prüfer
@@ -106,6 +108,15 @@ function pruefen(doc, ctxIn) {
       for (const a of aus) if (!(a in c.ausgaenge)) E('KETTE-AUSGANG-FEHLT', `${p}.ausgaenge`, `Ausgang '${a}' von Buch '${b}' hat keine Folge – jede Szene braucht einen Weg weiter`);
       for (const a of Object.keys(c.ausgaenge || {})) if (!aus.includes(a)) E('KETTE-AUSGANG-UNBEKANNT', `${p}.ausgaenge.${a}`, `Buch '${b}' kennt keinen Ausgang '${a}'`);
     });
+    // SL11: Szenen des Kapitels (Hub startet sie): Buch vorhanden, nur einmal in der Kette, mit Ausgang erfolg
+    (c.szenen || []).forEach((b, si) => {
+      if (bookOf.has(b)) E('KETTE-DOPPELT', `${p}.szenen`, `Buch '${b}' steht schon in Kapitel '${bookOf.get(b).id}'`);
+      bookOf.set(b, c);
+      const book = books[b];
+      if (!book) { E('KETTE-BUCH', `${p}.szenen[${si}]`, `Regiebuch '${b}' fehlt oder ist ungültig (content/regiebuecher, content/regiebuecher-sund)`); return; }
+      if (!book.kopf || book.kopf.art !== 'kapitel') E('KETTE-BUCH', `${p}.szenen[${si}]`, `Regiebuch '${b}' braucht kopf.art 'kapitel'`);
+      if (!Object.keys(book.ausgaenge || {}).includes('erfolg')) E('KETTE-ERFOLG', `${p}.szenen[${si}]`, `Szene '${b}' hat keinen Ausgang 'erfolg'`);
+    });
     // Folgen
     for (const [a, f] of Object.entries(c.ausgaenge || {})) {
       const fl = folgenListe(f);
@@ -144,9 +155,9 @@ function pruefen(doc, ctxIn) {
   }
   // Flags: was ein Buch von früheren Kapiteln erwartet, muss ein früheres Kapitel setzen
   const gesetzt = new Map();
-  for (const c of doc.kapitel) { const s = new Set(); for (const b of buecherVon(c)) if (books[b]) for (const f of flagsGesetzt(books[b])) s.add(f); gesetzt.set(c.id, s); }
+  for (const c of doc.kapitel) { const s = new Set(); for (const b of alleBuecher(c)) if (books[b]) for (const f of flagsGesetzt(books[b])) s.add(f); gesetzt.set(c.id, s); }
   doc.kapitel.forEach((c, i) => {
-    for (const b of buecherVon(c)) {
+    for (const b of alleBuecher(c)) {
       const bk = books[b]; if (!bk) continue;
       for (const f of Object.keys(bk.erwartet || {})) {
         const frueher = doc.kapitel.slice(0, i).some((k) => gesetzt.get(k.id).has(f)) || Checker.GLOBAL_FLAGS.includes(f);
@@ -170,7 +181,7 @@ function platzhalter(docIn, booksIn) {
   const books = booksIn || require('./loader.js').loadAll().books;
   const out = [];
   if (!doc) return out;
-  for (const c of doc.kapitel) for (const b of buecherVon(c)) for (const s of (books[b] && books[b].steps) || []) if (s.platzhalter) out.push({ kapitel: c.id, buch: b, schritt: s.id, echt: s.platzhalter });
+  for (const c of doc.kapitel) for (const b of alleBuecher(c)) for (const s of (books[b] && books[b].steps) || []) if (s.platzhalter) out.push({ kapitel: c.id, buch: b, schritt: s.id, echt: s.platzhalter });
   return out;
 }
 
@@ -182,6 +193,9 @@ class Kette {
     this.kap = new Map(doc.kapitel.map((c) => [c.id, c]));
     this.buchKap = new Map();
     for (const c of doc.kapitel) buecherVon(c).forEach((b, i) => this.buchKap.set(b, { c, i }));
+    // SL11: Szenen eines Kapitels (kapitel.szenen): Bücher, die das Kapitelbuch (Hub) per Baustein buch_starten nacheinander in freier
+    // Reihenfolge startet; am Ende jeder Szene beginnt der Hub neu (Flags bleiben), nur der Hub beendet das Kapitel
+    for (const c of doc.kapitel) for (const b of c.szenen || []) this.buchKap.set(b, { c, i: -1, szene: true });
   }
   get g() { return this.m.game; }
   get id() { return this.doc.id; }
@@ -220,10 +234,25 @@ class Kette {
     this.fakt('kampagne', this.id); this.fakt('kapitel', c.id); this.fakt('kapitel_nr', c.nr); this.fakt('kapitel_buch', buch);
     if (m.activeId) m.abbrechen();
     if (!opt.wiederholung && idx === 0 && c.karte && !opt.stumm) { g.emit('chapter', { title: c.karte.titel, text: c.karte.text, kopf: 'Neues Kapitel' }); g.log(`Kapitelkarte: ${c.karte.titel}`); }
-    if (opt.wiederholung) g.log(`Kapitel ${c.nr} (${c.id}): noch einmal${opt.grund ? ' (' + opt.grund + ')' : ''}.`);
+    if (opt.szene) g.log(`Kapitel ${c.nr} (${c.id}): zurück beim Kapitelbuch nach ${opt.szene}.`);
+    else if (opt.wiederholung) g.log(`Kapitel ${c.nr} (${c.id}): noch einmal${opt.grund ? ' (' + opt.grund + ')' : ''}.`);
     else g.log(`Kapitel ${c.nr}: ${c.titel} (${buch}).`);
     m.startMission(buch);
     return !!m.activeId;
+  }
+
+  // SL11: Szene des aktuellen Kapitels starten (Baustein buch_starten). Das Kapitelbuch (Hub) wird abgebrochen, am Ende der Szene beginnt es neu.
+  // -> Fehlertext | null
+  szeneStarten(buch) {
+    const m = this.m;
+    const c = this.aktuell();
+    if (!c || !(c.szenen || []).includes(buch)) return `Szene '${buch}' gehört nicht zum Kapitel ${c ? c.id : '–'}.`;
+    if (!m.info(buch)) return `Regiebuch '${buch}' gibt es nicht.`;
+    this.fakt('kapitel_szene', buch);
+    if (m.activeId) m.abbrechen();
+    this.g.log(`Kapitel ${c.nr} (${c.id}): Szene ${buch}.`);
+    m.startMission(buch);
+    return m.activeId ? null : `Szene '${buch}' ließ sich nicht starten.`;
   }
 
   // Aufruf der Engine bei jedem Missionsende
@@ -234,6 +263,10 @@ class Kette {
     const hit = this.buchKap.get(ev.id);
     if (!hit) return;
     const { c, i } = hit; const ausgang = ev.ausgang || 'erfolg';
+    if (hit.szene) {   // SL11: Szene zu Ende (erfolg oder nicht): zurück zum Kapitelbuch, die Flags der Szene entscheiden dort
+      if (this.faktLesen('kapitel') === c.id) this.begin(c.id, { idx: buecherVon(c).length - 1, stumm: true, szene: ev.id });
+      return;
+    }
     const letzte = i === buecherVon(c).length - 1;
     if (!letzte) {
       if (ausgang === 'erfolg') this.begin(c.id, { idx: i + 1 }); else this.begin(c.id, { idx: i, wiederholung: true, grund: ausgang });
@@ -285,7 +318,7 @@ class Kette {
     const out = new Set();
     for (const c of this.doc.kapitel) {
       for (const k of Object.keys((c.einstieg || {}).flags || {})) out.add(k);
-      for (const b of buecherVon(c)) { const bk = this.m.rawBook(b); if (bk) for (const f of flagsGesetzt(bk)) out.add(f); }
+      for (const b of alleBuecher(c)) { const bk = this.m.rawBook(b); if (bk) for (const f of flagsGesetzt(bk)) out.add(f); }
     }
     return out;
   }
@@ -301,7 +334,7 @@ class Kette {
     // frühere Kapitel gelten als erledigt (nur die Bücher; ihre Folgen schreibt der Einstieg selbst)
     for (const k of this.doc.kapitel) {
       if (k.nr >= c.nr) break;
-      for (const b of buecherVon(k)) {
+      for (const b of alleBuecher(k)) {
         const inf = m.info(b);
         m.missions[b] = { id: b, title: inf ? inf.title : b, state: 'done', ausgang: 'erfolg' };
         g.stats.missions[b] = { start: m.playTime(), end: m.playTime() };

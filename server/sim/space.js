@@ -813,6 +813,7 @@ function checkEmergency(game) {
   game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
   game.stats.emergencies++;
   game.emit('emergency', {});
+  game.missionEvent('emergency', {});   // SL3: Regiebücher (Falle: Lerche am Ende = Szene von vorn)
   game.emit('sfx', { name: 'emergency' });
   game.oda('Notfallprotokoll! Hülle stabilisiert, Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde.', null);
 }

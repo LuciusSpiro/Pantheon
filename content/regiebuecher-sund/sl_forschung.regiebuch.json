@@ -1,0 +1,214 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL7 Kapitel 7b „Forschungsstation“ (CONCEPT-SL7): 7a Gravimetrie (Verzerrungen scannen, Navigation fliegt nach Ansage, Kerne werfen zurück), 7b Landepunkt per Scan (Ops scannt die Station, Karte am Planungstisch, dann hinunterbeamen), 7c Monster-Station (4 Pulte in Reihenfolge, jeder Hack lockt das Monster; Treffer verwunden, alle am Boden = Szene von vorn), Finale (Haltefeld, Feldkarte = gehackte Daten, nur der lange Kanal führt hinaus), Daten in Concordia abliefern (Lohn, Flag forschungFertig). Die Kette (SL11) bindet das Buch als Szene von k7 ein. Orte nur mit aktiver Sund-Karte gültig.",
+  "format": "regiebuch/1",
+  "id": "sl_forschung",
+
+  "kopf": {
+    "titel": "Forschungsstation Helix: Daten holen",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 25,
+    "crew": { "min": 1, "max": 4, "empfohlen": 4 },
+    "feldzug": "schuld"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["pulverhorn", "helix", "concordia"], "aussenkarten": ["helix.station"] },
+
+  "steps": [
+    {
+      "id": "auftrag",
+      "enter": [
+        { "do": "sprungpunkt_oeffnen", "von": "pulverhorn", "nach": "helix", "temp": true, "bis": "mission" },
+        { "oda": "@auftrag.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 3 }, "goto": "anflug_helix" }],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "anflug_helix",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "helix" } }, "oda": "@anflug.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_helix", "done": { "atLocation": "helix" } }
+      ],
+      "next": [{ "if": { "atLocation": "helix" }, "goto": "gravimetrie" }],
+      "skip": [{ "do": "debug_jump", "loc": "helix" }]
+    },
+
+    {
+      "id": "gravimetrie", "loc": "helix", "restartOnReturn": true,
+      "umsetzung": "gravimetrie/anflug",
+      "enter": [{ "oda": "@gravi.lage" }],
+      "timers": [
+        { "at": 40, "if": { "not": { "check": { "name": "zone_bekannt", "zone": "gravi_feld0" } } }, "oda": "@gravi.tipp_scan", "garantie": "hinweis" },
+        { "at": 140, "if": { "not": { "check": { "name": "schiff_bei", "x": 2160, "y": 1100, "r": 420 } } }, "oda": "@gravi.tipp_kurs", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "scan", "text": "@ziel.verzerrungen_scannen", "done": { "check": { "name": "zone_bekannt", "zone": "gravi_feld0" } } },
+        { "id": "stationnah", "text": "@ziel.zur_station", "done": { "check": { "name": "schiff_bei", "x": 2160, "y": 1100, "r": 420 } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "schiff_bei", "x": 2160, "y": 1100, "r": 420 } }, "do": [{ "oda": "@gravi.durch" }], "goto": "station" }
+      ],
+      "skip": [{ "do": "zonen_erkunden" }]
+    },
+
+    {
+      "id": "station", "loc": "helix", "restartOnReturn": true,
+      "umsetzung": "monster_station/pulte",
+      "enter": [
+        { "do": "monster_zuruecksetzen" },
+        { "do": "zone_schalten", "gruppe": "halt", "an": false },
+        { "do": "zone_sichtbar", "alle": false },
+        { "oda": "@station.lage" }
+      ],
+      "timers": [
+        { "at": 45, "if": { "not": { "check": { "name": "landepunkt_gescannt", "lp": "helix.station" } } }, "oda": "@station.tipp_scan", "garantie": "hinweis" },
+        { "at": 120, "if": { "not": { "check": { "name": "team_down", "map": "helix.station" } } }, "oda": "@station.tipp_beamen", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "scan", "text": "@ziel.station_scannen", "done": { "check": { "name": "landepunkt_gescannt", "lp": "helix.station" } } },
+        { "id": "unten", "text": "@ziel.hinunter", "done": { "check": { "name": "team_down", "map": "helix.station" } } },
+        { "id": "pulte", "text": "@ziel.pulte", "done": { "check": { "name": "pulte_gehackt" } } }
+      ],
+      "next": [
+        { "if": { "check": { "name": "pulte_gehackt" } },
+          "do": [{ "do": "zone_schalten", "gruppe": "halt", "an": true }, { "do": "zone_sichtbar", "alle": true }, { "oda": "@station.daten" }], "goto": "rueckbeamen" },
+        { "if": { "check": { "name": "team_alle_verwundet" } }, "do": [{ "oda": "@station.verloren" }], "complete": "verloren" }
+      ],
+      "skip": [{ "do": "landepunkt_scannen", "lp": "helix.station" }]
+    },
+
+    {
+      "id": "rueckbeamen", "loc": "helix",
+      "timers": [
+        { "at": 60, "if": { "check": { "name": "team_down", "map": "helix.station" } }, "oda": "@rueck.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hoch", "text": "@ziel.hochbeamen", "done": { "not": { "check": { "name": "team_down", "map": "helix.station" } } } }
+      ],
+      "next": [
+        { "if": { "not": { "check": { "name": "team_down", "map": "helix.station" } } }, "goto": "finale" }
+      ],
+      "skip": [{ "set": { "weiter": true } }]
+    },
+
+    {
+      "id": "finale", "loc": "helix",
+      "umsetzung": "gravimetrie/finale",
+      "enter": [{ "oda": "@finale.lage" }],
+      "timers": [
+        { "at": 60, "if": { "check": { "name": "in_zone", "zone": "halt_feld" } }, "oda": "@finale.tipp_karte", "garantie": "hinweis" },
+        { "at": 150, "if": { "check": { "name": "in_zone", "zone": "halt_feld" } }, "oda": "@finale.tipp_kanal", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "raus", "text": "@ziel.raus", "done": { "all": [{ "check": { "name": "zone_an", "gruppe": "halt" } }, { "not": { "check": { "name": "in_zone", "zone": "halt_feld" } } }] } }
+      ],
+      "next": [
+        { "if": { "all": [{ "check": { "name": "zone_an", "gruppe": "halt" } }, { "not": { "check": { "name": "in_zone", "zone": "halt_feld" } } }] },
+          "do": [{ "oda": "@finale.frei" }], "goto": "abliefern_anflug" }
+      ],
+      "skip": [{ "do": "zone_schalten", "gruppe": "halt", "an": false }]
+    },
+
+    {
+      "id": "abliefern_anflug",
+      "timers": [
+        { "at": 60, "if": { "not": { "atLocation": "concordia" } }, "oda": "@anflug_concordia.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "hin", "text": "@ziel.nach_concordia", "done": { "atLocation": "concordia" } }
+      ],
+      "next": [{ "if": { "atLocation": "concordia" }, "goto": "abliefern" }],
+      "skip": [{ "do": "debug_jump", "loc": "concordia" }]
+    },
+
+    {
+      "id": "abliefern", "loc": "concordia",
+      "enter": [{ "oda": "@abliefern.lage" }],
+      "timers": [
+        { "at": 60, "if": { "not": { "docked": "concordia" } }, "oda": "@abliefern.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "andocken", "text": "@ziel.andocken", "done": { "docked": "concordia" } }
+      ],
+      "next": [
+        { "if": { "docked": "concordia" },
+          "do": [{ "do": "credit_marks", "marks": 120, "grund": "forschung" }, { "setFlag": { "forschungFertig": true } }, { "oda": "@abliefern.fertig" }], "complete": "erfolg" }
+      ],
+      "skip": [{ "do": "debug_dock", "loc": "concordia" }]
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Daten der Forschungsstation in Concordia abgeliefert, Lohn gutgeschrieben, Fakt forschungFertig gesetzt.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "forschungFertig", "value": "ja", "quelle": "Forschungsstation Helix" },
+        { "do": "chronik", "text": "@chronik.erfolg" }
+      ]
+    },
+    "verloren": {
+      "beschreibung": "Das ganze Außenteam lag am Boden: Die Szene beginnt von vorn (Monster und Pulte zurückgesetzt, die Kette wiederholt).",
+      "folgen": [],
+      "danach": [{ "oda": "@verloren.ansage" }]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Eine Forschungsstation hängt in gravimetrischen Verzerrungen. Wer ihre Daten holt, bekommt in Concordia gutes Geld. Aber die Station ist nicht leer.",
+    "buch.belohnung": "Marken in Concordia",
+
+    "auftrag.hinweis": "Ziel: Forschungsstation Helix hinter Pulverhorn. Der Sprungpunkt ist offen. Ops scannt, Navigation fliegt nach Ansage.",
+
+    "anflug.tipp": "Helix: Sternkarte, Ziel wählen, Sprung ab Pulverhorn. Weitscan (Ops, S) zeigt die Boje.",
+
+    "gravi.lage": "Verzerrungen voraus. Ops: Y scannt sie, Pfeile zeigen Stärke und Richtung. Die Navigation sieht sie nicht.",
+    "gravi.tipp_scan": "Ops: Y halten, drei Sekunden. Danach sagt ihr der Navigation Richtung und Gegenkurs an.",
+    "gravi.tipp_kurs": "Gegen die Drift anhalten. Ein Verzerrungskern wirft euch zum Start zurück. Notfalls Antrieb Stufe 4.",
+    "gravi.durch": "Durch. Die Station liegt vor euch. Ops: Landepunkt scannen (L), dann die Karte am Planungstisch.",
+
+    "station.lage": "Forschungsstation Helix. Erst scannen, dann hinunter: Ops leitet, der Captain sieht Pult und Monster.",
+    "station.tipp_scan": "Ops: L scannt den Landepunkt. Die Karte liegt danach am Planungstisch, Pins setzen.",
+    "station.tipp_beamen": "Transferkammer: Landepunkt Helix wählen, Außenteam hinunterbeamen. Dort wartet ein Monster.",
+    "station.daten": "Alle Pulte gehackt, die Feldkarte ist da! Zurück zum Teleportpunkt, das Monster tobt.",
+    "station.verloren": "Alle liegen am Boden. Die Station wirft euch hinaus – noch einmal von vorn.",
+
+    "rueck.tipp": "Zurück zum Teleportpunkt. Wer unten liegt, wird aufgeholfen, sonst holt ihn die Notrückholung.",
+
+    "finale.lage": "Die Felder halten die Lerche fest. Die Feldkarte zeigt vier Kanäle, nur einer führt hinaus.",
+    "finale.tipp_karte": "Ops: Feldkarte lesen. Der lange Kanal reicht über den Rand des Haltefelds. Navigation, volle Kraft.",
+    "finale.tipp_kanal": "Im Kanal strömt es nach außen. Antrieb auf Stufe 4, Technik kühlt, Captain verteilt die Reparaturen.",
+    "finale.frei": "Raus aus dem Haltefeld! Mit den Daten nach Concordia.",
+
+    "anflug_concordia.tipp": "Concordia: Sternkarte, Ziel wählen, Sprung für Sprung, dann andocken.",
+    "abliefern.lage": "Concordia. Andocken, die Daten gehen an den Auftraggeber.",
+    "abliefern.tipp": "Concordia anfliegen, langsam an den Dock-Ring heran, dann ist angedockt.",
+    "abliefern.fertig": "Daten abgeliefert, Marken gutgeschrieben.",
+
+    "verloren.ansage": "Die Station beginnt von vorn: Pulte zurückgesetzt, das Monster auf Patrouille.",
+
+    "ziel.nach_helix": "Zur Forschungsstation Helix fliegen",
+    "ziel.verzerrungen_scannen": "Verzerrungen scannen (Ops, Y)",
+    "ziel.zur_station": "Nach Ansage zur Station fliegen, Kerne meiden",
+    "ziel.station_scannen": "Landepunkt scannen (Ops, L)",
+    "ziel.hinunter": "Außenteam auf die Station beamen",
+    "ziel.pulte": "Alle vier Pulte hacken, das Monster ablenken",
+    "ziel.hochbeamen": "Zurück auf die Lerche beamen",
+    "ziel.raus": "Auf dem Weg der Feldkarte aus dem Haltefeld fliegen",
+    "ziel.nach_concordia": "Nach Concordia fliegen",
+    "ziel.andocken": "In Concordia andocken und die Daten abliefern",
+
+    "chronik.erfolg": "Die Crew holt die Daten der Forschungsstation Helix durch die Verzerrungen, am Monster vorbei, und liefert sie in Concordia ab."
+  }
+}
