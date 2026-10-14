@@ -37,6 +37,7 @@ const FURN_ID = {
   sideboard: 'lerche/furn/sideboard', trophy_niche: 'lerche/furn/trophy_niche', shrine: 'lerche/furn/shrine', med_bed: 'lerche/furn/med_bed',
   bath: 'lerche/furn/bath', bench: 'lerche/furn/bench', light_shaft: 'lerche/kit/light_shaft', plant: 'lerche/deco/pflanze',
   cargo_bay: 'lerche/furn/cargo_bay',   // EK3 Teil A: Frachtbucht im Frachtraum (Deck II), Ladung aus snapshot.fracht.lager
+  cargo_bed: 'lerche/furn/bed',   // SL0: Frachtbett für Personen an Bord (Figur liegt als ship.npcs-Actor darauf)
   cargo_cot: 'lerche/furn/bed', tool_wall: 'lerche/furn/workbench',   // R0: Ivos Schlafecke (Pritsche = Bett in Farbe 3), ohne Bewohner Stauware (crate)
 };
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
@@ -414,7 +415,8 @@ function buildDynamic(ctx, S) {
         const bed = (M.BEDS || []).find((b) => b.x === o.tx && b.y === o.ty);
         const color = bed ? bed.color : 0;
         fn = () => ({ color });
-      } else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
+      } else if (kind === 'cargo_bed') fn = () => ({ color: 3 });   // SL0
+      else if (kind === 'crate') fn = () => ({ seed: Math.floor(hash(o.tx, o.ty, 5) * 16) });
       else if (kind === 'cargo_cot' || kind === 'tool_wall') {   // R0: Schlafecke nur mit Bewohner (Ivo an Bord, nicht beim Abschied), sonst Stauware
         const nook = (st) => ((M.nutzungAt && M.nutzungAt(o.tx, o.ty)) || []).includes('quartier') && ((st.ship && st.ship.npcs) || []).some((n) => n.id === 'ivo' && !n.ab) ? 1 : 0;
         add(o, id, PH_COL.furn, (st) => ({ bewohnt: nook(st), color: 3 }), { nook: kind });

@@ -94,7 +94,7 @@ function personenNachruecken(g) {
     if (!aw || !Array.isArray(aw.personen) || !aw.personen.length || isHandMap(map)) continue;
     while (aw.personen.length && away().personPlatzFrei(g, aw)) {
       const next = aw.personen.shift();
-      away().spawnPersonDazu(g, map, next.tile, { person: next.person, name: next.name, injured: next.injured });
+      away().spawnPersonDazu(g, map, next.tile, { person: next.person, name: next.name, injured: next.injured, gespraech: next.gespraech });
     }
   }
 }
@@ -176,7 +176,7 @@ module.exports = (Registry) => {
       + 'Optional anker = Bereich, Objekt oder "x,y" (Handkarten) bzw. Ankerrolle/-ID (gebaute Karten: Standard nsc, dann zelle). '
       + 'Handkarten: eine Person je Karte; gebaute Karten: bis zu 3 gleichzeitig (je ein Anker), weitere rücken nach einer Rettung nach. Prüfen mit person_rescued { map, person }.',
     params: { map: { typ: 'map', pflicht: true }, person: { typ: 'string', pflicht: true }, name: { typ: 'string' },
-      verletzt: { typ: 'bool' }, anker: { typ: 'string' } },
+      verletzt: { typ: 'bool' }, anker: { typ: 'string' }, gespraech: { typ: 'string' } },   // SL2: gespraech = Gesprächs-Id (content/welt/gespraeche.json): Person steht, E spricht sie an
     run(m, a) {
       const g = m.game;
       if (!isHandMap(a.map)) {   // B1: gebaute Karte – Position aus dem Anker, nie aus Koordinaten
@@ -187,7 +187,7 @@ module.exports = (Registry) => {
         if (!pt) { g.countError('mission-hook', new Error(`spawn_person: ${a.map} hat keinen nsc-/zelle-Anker`)); return; }
         aw.personenZahl++;
         const npcRec0 = g.weltstand && g.weltstand.data && g.weltstand.data.npc && g.weltstand.data.npc[a.person];
-        const p0 = { person: a.person, name: a.name || (npcRec0 && npcRec0.name) || a.person, injured: !!a.verletzt, tile: { x: pt.x, y: pt.y } };
+        const p0 = { person: a.person, name: a.name || (npcRec0 && npcRec0.name) || a.person, injured: !!a.verletzt, gespraech: a.gespraech || null, tile: { x: pt.x, y: pt.y } };
         // W2 AP6: bis CONFIG.personen.maxGleichzeitig gleichzeitig; ist kein Platz frei, wartet sie in aw.personen
         if ((aw.personen && aw.personen.length) || !away().spawnPersonDazu(g, a.map, p0.tile, p0)) (aw.personen || (aw.personen = [])).push(p0);
         return;
@@ -197,7 +197,7 @@ module.exports = (Registry) => {
       if (!t) { g.countError('mission-hook', new Error(`spawn_person: Anker ${a.map}.${anker} ohne erreichbaren Boden`)); return; }
       const npcRec = g.weltstand && g.weltstand.data && g.weltstand.data.npc && g.weltstand.data.npc[a.person];
       const name = a.name || (npcRec && npcRec.name) || a.person;
-      away().spawnPerson(g, a.map, t, { person: a.person, name, injured: !!a.verletzt });
+      away().spawnPerson(g, a.map, t, { person: a.person, name, injured: !!a.verletzt, gespraech: a.gespraech || null });
     } });
 
   define({ id: 'debug_rescue_person', art: 'aktion', intern: true, beschreibung: 'Person sofort als gerettet werten (skip)',

@@ -30,6 +30,7 @@
     "0703": {"name":"Eisfeld","fraktion":"frei","art":"Eis (Asteroiden)","einfluss":"asteroiden","region":"gesperrt","spielbar":false},
     "0505": {"name":"Brachland","fraktion":"frei","art":"Kolonie, Ackerland","region":"gesperrt","spielbar":false},
     "0605": {"name":"Pulverhorn","fraktion":"frei","art":"Munitionsfabrik, Handelsposten","hafen":"C","region":"route","spielbar":true,"ort":"pulverhorn","gen":true},
+    "0506": {"name":"Forschungsstation Helix","fraktion":"frei","art":"Forschungsstation im Gravimetriefeld (nur über einen temporären Sprungpunkt)","region":"route","spielbar":true,"ort":"helix","gen":true,"szene":{"zonen":"gravimetrie","planeten":0,"asteroids":0,"bojen":2,"beam":{"map":"helix.station","range":360}}},
     "0705": {"name":"Saatfeld","fraktion":"frei","art":"Kolonie, Ackerland","region":"gesperrt","spielbar":false},
 
     "0504": {"name":"Hammerwerke","fraktion":"saum","art":"Handelsstation, Werkstatt","hafen":"C","region":"konkordat","spielbar":false},

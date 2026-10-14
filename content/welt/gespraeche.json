@@ -1,0 +1,30 @@
+{
+  "format": "gespraeche/1",
+  "_kommentar": "SL2: feste Gespräche mit NSC am Boden (server/sim/gespraech.js). Jedes Gespräch hat 3–4 feste Zeilen (höchstens 160 Zeichen) und höchstens eine Wahl. Ergebnis: Flag gespraech_<id> = Id der gewählten Option (Regiebuch: { \"flag\": { \"gespraech_evert_anheuern\": \"annehmen\" } }), Ereignis gespraechBeendet { id, wahl }. Option mit \"offen\": true lässt das Gespräch wiederholen (Flag bleibt, Auftrag nicht erledigt). Texte sind Entwurf (Studio), Kai passt an.",
+  "gespraeche": {
+    "evert_anheuern": {
+      "sprecher": "Evert Kroeger",
+      "zeilen": [
+        "Ihr seid die Crew der Lerche? Gut. Bleibt stehen, es ist eilig.",
+        "Ich bin Evert Kroeger, Händler des Konkordats. Ein Schiff liegt für mich in Pulverhorn – und ich habe niemanden, der es fliegt.",
+        "Ich besitze die Koordinaten einer alten Boje. Wertvoll. Genau deshalb wollen andere sie auch haben.",
+        "Bringt mich nach Pulverhorn. Der Handelsposten kennt mich, ich zahle dort."
+      ],
+      "wahl": {
+        "frage": "Nehmt ihr den Auftrag an?",
+        "optionen": [
+          { "id": "annehmen", "text": "Wir bringen dich hin.", "antwort": "Gut. Mein Gepäck ist schon an der Landestelle. Hinauf mit euch, ich folge." },
+          { "id": "spaeter", "text": "Erst einmal umsehen.", "antwort": "Ich sitze hier. Lange nicht mehr, glaubt mir.", "offen": true }
+        ]
+      }
+    },
+    "wirt_plausch": {
+      "sprecher": "Bram, Wirt",
+      "zeilen": [
+        "Willkommen im Kantenstein. Wir haben Eintopf, Bier und schlechte Laune.",
+        "Der Mann dort hinten? Evert. Sitzt seit Tagen da, schaut auf die Tür und zahlt bar.",
+        "Pulverhorn? Munition und Ärger. Wer dahin will, sollte schnell sein."
+      ]
+    }
+  }
+}

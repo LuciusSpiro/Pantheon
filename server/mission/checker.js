@@ -214,7 +214,8 @@ function check(doc, ctxIn) {
   const Reg = ctx.registry; const Obj = ctx.objects; const L = ctx.locations;
   const isHandM = (m) => (typeof Obj.isHand === 'function' ? Obj.isHand(m) : !!Obj.AWAY_LEGENDS[m]);
   // EK7: Orte aus Daten (Hexe mit gen: true, shared/gen-sektor.js) gelten als Orte, stehen aber nicht in LOCATIONS
-  const GEN_ORTE = (() => { try { return typeof L.get === 'function' ? require('../../shared/sektoren.js').datenOrte().map((id) => L.get(id)).filter(Boolean) : []; } catch (e) { return []; } })();
+  // SL1: auch die Orte der anderen Karten (Sund neben Limes): der Katalog entsteht unter der aktiven Karte, die Bücher gehören zu beiden
+  const GEN_ORTE = (() => { try { return typeof L.get === 'function' ? require('../sim/welt.js').alleDatenOrte() : []; } catch (e) { return []; } })();
   const ALLE_ORTE = L.LOCATIONS.concat(GEN_ORTE);
   const LOC_IDS = new Set(ALLE_ORTE.map((l) => l.id));
   const PORT_IDS = new Set(ALLE_ORTE.filter((l) => l.kind === 'port' || l.kind === 'trader').map((l) => l.id));

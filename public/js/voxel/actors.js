@@ -1237,7 +1237,7 @@ const layer = {
     }
     if (zone === 'ship') {
       for (const b of view.bots || []) { try { updateBot(b, view, dt, t); } catch (e) { err('bot', e); } }
-      for (const n of view.shipNpcs || (st.ship && st.ship.npcs) || []) { try { updateNpc('n:' + n.id, n, dt, t); } catch (e) { err('npc', e); } }
+      for (const n of view.shipNpcs || (st.ship && st.ship.npcs) || []) { try { updateNpc('n:' + n.id, n, dt, t, n.lie ? 'injured' : undefined); }   /* SL0: Person im Frachtbett liegt */ catch (e) { err('npc', e); } }
       for (const it of (st.ship && st.ship.groundItems) || []) { try { updateGroundItem(it, t); } catch (e) { err('item', e); } }
     } else {
       const aw = st.away || {};

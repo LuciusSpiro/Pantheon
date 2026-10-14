@@ -1,0 +1,87 @@
+{
+  "$schema": "../regiebuch/regiebuch.schema.json",
+  "_kommentar": "SL2 Kapitel 1 „Der Außenposten“ (Kampagne Die Schuld der Lerche, Kette folgt mit SL11). Die Gruppe steht auf dem Planeten bei Kantenstein, die Lerche im Orbit. Evert Kroeger sitzt in der Taverne (Kantine des Außenpostens), der Wirt Bram plaudert. Das Buch endet, wenn die Crew Evert angeheuert hat (Gespräch evert_anheuern, Wahl annehmen). Evert reist danach als Fracht (SL0, Kapitel 2). Texte sind Entwurf des Studios, Kai passt an.",
+  "format": "regiebuch/1",
+  "id": "k1_kantenstein",
+
+  "kopf": {
+    "titel": "Der Außenposten",
+    "art": "kapitel",
+    "auftraggeber": "evert",
+    "zielspieldauer_min": 8,
+    "crew": { "min": 1, "max": 4, "empfohlen": 3 },
+    "feldzug": "schuld_der_lerche"
+  },
+
+  "buch": {
+    "von": [{ "npc": "evert" }],
+    "briefing": "@buch.briefing",
+    "belohnung": "@buch.belohnung"
+  },
+
+  "buehne": { "orte": ["kantenstein"], "aussenkarten": ["kantenstein.siedlung"] },
+
+  "besetzung": {
+    "stimmen": {
+      "evert": { "name": "Evert Kroeger" }
+    }
+  },
+
+  "steps": [
+    {
+      "id": "aussenposten", "loc": "kantenstein",
+      "liefert_flags": ["gespraech_evert_anheuern"],
+      "enter": [
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "evert", "anker": "kantine_1.zelle.1", "gespraech": "evert_anheuern" },
+        { "do": "spawn_person", "map": "kantenstein.siedlung", "person": "wirt", "anker": "kantine_1.zelle.2", "gespraech": "wirt_plausch" },
+        { "oda": "@ort.hinweis" }
+      ],
+      "timers": [
+        { "at": 150, "if": { "not": { "event": "gespraechBegonnen" } }, "oda": "@ort.tipp", "garantie": "hinweis" }
+      ],
+      "objectives": [
+        { "id": "finden", "text": "@ziel.finden", "done": { "event": "gespraechBegonnen" }, "hex": "kantenstein" },
+        { "id": "anheuern", "text": "@ziel.anheuern", "done": { "flag": { "gespraech_evert_anheuern": "annehmen" } }, "hex": "kantenstein" }
+      ],
+      "next": [{ "if": { "flag": { "gespraech_evert_anheuern": "annehmen" } }, "goto": "aufbruch" }],
+      "skip": [{ "set": { "gespraech_evert_anheuern": "annehmen" } }]
+    },
+
+    {
+      "id": "aufbruch", "loc": "kantenstein",
+      "enter": [
+        { "do": "person_entfernen", "map": "kantenstein.siedlung", "person": "evert" },
+        { "do": "welt_fakt", "key": "evert", "value": "angeheuert", "quelle": "Kantenstein" },
+        { "do": "chronik", "text": "@chronik.erfolg" },
+        { "oda": "@aufbruch.hinweis" }
+      ],
+      "objectives": [],
+      "next": [{ "if": { "elapsed": 3 }, "complete": "erfolg" }],
+      "skip": []
+    }
+  ],
+
+  "ausgaenge": {
+    "erfolg": {
+      "beschreibung": "Evert Kroeger ist angeheuert; sein Gepäck wartet an der Landestelle.",
+      "folgen": [
+        { "do": "welt_fakt", "key": "kapitel1", "value": "erledigt", "quelle": "Kantenstein" }
+      ]
+    }
+  },
+
+  "texte": {
+    "buch.briefing": "Kantenstein, ein Außenposten am Grenzpass. In der Taverne sitzt ein Händler namens Evert Kroeger und sucht ein Schiff mit Crew. Findet ihn und hört ihn an.",
+    "buch.belohnung": "Bezahlung in Marken, sobald das Ziel erreicht ist",
+
+    "ort.hinweis": "Kantenstein: Marktplatz, Landefeld, die Taverne am Rand. Evert Kroeger soll dort sitzen.",
+    "ort.tipp": "Die Taverne steht am Rand des Platzes. Evert ansprechen: E.",
+
+    "ziel.finden": "Evert Kroeger in der Taverne finden",
+    "ziel.anheuern": "Evert zuhören und den Auftrag annehmen",
+
+    "aufbruch.hinweis": "Evert lädt sein Gepäck. Zurück an die Landestelle, die Ops beamt hoch.",
+
+    "chronik.erfolg": "Evert Kroeger, Händler des Konkordats, heuert die Lerche in der Taverne von Kantenstein an: Pulverhorn, dann die Boje."
+  }
+}

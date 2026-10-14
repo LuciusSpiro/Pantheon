@@ -58,6 +58,27 @@ function kartenIdAusStand(data) {
   return typeof v === 'string' && karte(v) ? v : STANDARD;
 }
 
+// Orte aus Daten (gen: true) ALLER Karten als Orts-Objekte { id, kind, scene, hex, … }. Prüfer (Regiebücher, Ketten) brauchen das, weil der
+// Buchkatalog einmal je Prozess unter der gerade aktiven Karte geladen wird, die Bücher aber zu Limes und zu Sund gehören.
+// Die aktive Karte liefert Locations.get (gleiche Objekte wie zur Laufzeit), die anderen werden aus ihren Karteneinträgen erzeugt.
+function alleDatenOrte() {
+  const out = []; const seen = new Set();
+  for (const id of Sektoren.datenOrte()) { const l = Locations.get(id); if (l && !seen.has(id)) { seen.add(id); out.push(l); } }
+  let GEN = null;
+  try { GEN = require('../../shared/gen-sektor.js'); } catch (e) { GEN = null; }
+  if (!GEN) return out;
+  for (const kid of ids()) {
+    if (kid === Sektoren.kartenId()) continue;
+    const K = karte(kid);
+    for (const [hex, h] of Object.entries(K.hexe || {})) {
+      if (!h || !h.gen || !h.ort || seen.has(h.ort)) continue;
+      seen.add(h.ort);
+      try { out.push(GEN.erzeuge(hex, h)); } catch (e) { /* Eintrag unvollständig: nicht als Ort zählen */ }
+    }
+  }
+  return out;
+}
+
 function startOrt() { return Sektoren.startOrt(); }
 function bekanntBeiStart() { return Sektoren.bekanntBeiStart(); }
 function bodenStart() { return Sektoren.bodenStart(); }
@@ -100,4 +121,4 @@ function bodenStarten(game) {
   return lp;
 }
 
-module.exports = { STANDARD, karte, ids, kartenId, kartenIdAusStand, waehle, startOrt, bekanntBeiStart, bodenStart, heimathafen, startLandepunkt, bodenStarten };
+module.exports = { STANDARD, karte, ids, kartenId, kartenIdAusStand, alleDatenOrte, waehle, startOrt, bekanntBeiStart, bodenStart, heimathafen, startLandepunkt, bodenStarten };

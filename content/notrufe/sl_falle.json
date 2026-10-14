@@ -1,0 +1,24 @@
+{
+  "id": "sl_falle",
+  "_kommentar": "Entwurf SL8. Verschlüsselt, Falle (Hinterhalt). Leerraum 0502 über einen temporären Sprungpunkt vom Gasfeld.",
+  "hex": "0502",
+  "tor": { "von": "0503", "nach": "0502" },
+  "art": "verschluesselt",
+  "wahrheit": "falle",
+  "absender": "Frachter Seeschwalbe",
+  "behauptung": "Hier Seeschwalbe, vierzig Mann an Bord, Leck, wir sinken! Kommt schnell!",
+  "indizien": [
+    "Peilung: Die Quelle liegt im Schatten eines Brockenfelds.",
+    "Zwölf Lebenszeichen, die Meldung sagt vierzig.",
+    "Waffen geladen, Reaktor warm: kein sinkendes Schiff."
+  ],
+  "messwerte": "Zwölf Lebenszeichen, Waffen geladen, Reaktor heiß, drei Schiffe im Brockenschatten. Das ist ein Hinterhalt.",
+  "befragung": [
+    { "frage": "Wie viele seid ihr genau?", "antwort": "Vierzig! Beeilt euch doch!", "hinweis": "Passt nicht zu zwölf Lebenszeichen." },
+    { "frage": "Was habt ihr geladen?", "antwort": "Das … Steuerbord, glaube ich. Kommt einfach!", "hinweis": "Zögern, keine Frachtangabe: verdächtig." }
+  ],
+  "hinterhalt": { "n": 3 },
+  "pos": { "x": 1500, "y": 1100 },
+  "dauer": 600,
+  "lohn": 40
+}

@@ -170,10 +170,71 @@ console.log('Snapshot-Größe');
   const mit = JSON.stringify(g.snapshot().space.so).length;
   ok(mit < 260, `3 Sonden im Snapshot (space.so): ${mit} B`);
   for (const h of ['0207', '0306', '0205', '0307']) Sektorplan.sichten(g, h, 'sonde');
-  for (let i = 0; i < 12; i++) Sektorplan.markeAusCode(g, 'x' + i, '0207', i * 10, i * 10, 'marke');
+  for (let i = 0; i < 12; i++) Sektorplan.markeSetzen(g, '0207', i * 10, i * 10, 'marke');
   g.explore.sektorVersion++;
   const gross = JSON.stringify(g.snapshot().world.sektoren).length;
   ok(gross < 700, `world.sektoren mit 4 gesichteten Hexen und 12 Marken: ${gross} B (nur bei Änderung)`);
+}
+
+console.log('Bot (sim-headless GenericAgent: Sonde zur Marke und durch den Sprungpunkt)');
+{
+  const Module = require('module');
+  const file = path.join(__dirname, 'sim-headless.js');
+  let src = fs.readFileSync(file, 'utf8');
+  src = src.slice(0, src.lastIndexOf('\n(async () => {')) + '\n;module.exports = { GenericAgent, setSimRng: (r) => { simRng = r; } };\n';
+  const argv = process.argv; process.argv = [argv[0], file];
+  let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
+  const { makeRng } = require('../server/util.js');
+  for (const [name, opts] of [['Marke', { sondeZiel: { x: 1500, y: 900 } }], ['Sprungpunkt', { sondeNach: '0207' }]]) {
+    Sim.setSimRng(makeRng(11));
+    const g = new Game({ noStore: true, seed: 13, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    g.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
+    const a = new Sim.GenericAgent(g, 0, 'solo', Object.assign({ seed: 13 }, opts));
+    g.simAgents = [a];
+    g.addConnection(a.conn); g.handleMessage(a.conn, { t: 'lobbyOpt', startMission: 'arena_space' }); a.hello();
+    if (g.arena) g.arena.nextAt = null;
+    g.explore._tutKarte = new Set(); g.explore.markBoje(Sektoren.kanteId('0206', '0207')); g.explore.known.add('hafen');
+    let S = g.snapshot(); let gestartet = false;
+    for (let k = 0; k < 30 * 40; k++) { g.space.enemies = []; g.step(); if (k % 2 === 0) S = g.snapshot(); a.update(S); if (g.sonden.length) gestartet = true; }
+    ok(gestartet && Sonden.vorrat(g) === 2, `Bot (${name}): hat eine Sonde gestartet (Vorrat ${Sonden.vorrat(g)})`);
+    if (opts.sondeNach) { for (let k = 0; k < 30 * 60; k++) { g.space.enemies = []; g.step(); } ok(Sektorplan.gesichtet(g, '0207') || g.sonden.length === 0, 'Bot (Sprungpunkt): Sektor gesichtet'); }
+  }
+}
+
+console.log('Client-Smoke (ohne Browser: Zeichenfunktionen mit Attrappen-Kontext)');
+{
+  const vm = require('vm');
+  const calls = { text: [], button: [], marke: 0 };
+  const ctx = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
+  const Render = { PAL: new Proxy({}, { get: () => '#fff' }), text: (c, s) => calls.text.push(String(s)), button: (c, x, y, w, h, l, o) => calls.button.push({ l, o }), measure: () => 10, bar() {}, panel() {} };
+  const KZ = require('../public/js/kartenzeichen.js');
+  const orig = KZ.marke; KZ.marke = (...a) => { calls.marke++; return orig(...a); };
+  const win = { Render, Shared_Sektoren: Sektoren, Shared_Sektorplan: Plan, Kartenzeichen: KZ, Shared_Config: require('../shared/config.js') };
+  win.window = win;
+  const lade = (f) => vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f), 'utf8'), win, { filename: f });
+  lade('sonden.js'); lade('sektorplan.js');
+  const state = { time: 500, ship: { scene: 'hafen', x: 600, y: 600, markers: { tactical: { x: 1, y: 1 } } }, inventory: { sonde: 2 },
+    space: { so: [{ id: 'so1', x: 800, y: 700, z: 1, hp: 0.5 }, { id: 'so2', x: 900, y: 700, z: 0, hp: 1 }] },
+    world: { sektoren: { e: ['0206', '0306'], g: ['0207'], p: { m: [['m1', '0207', 400, 300, 'marke']], s: [['0207', 'korvette', 800, 700, 440]] } } } };
+  let fehler = null; const sent = [];
+  try {
+    win.SondenView.draw(ctx, state, (x, y) => ({ x: x / 4, y: y / 4 }), 0.25, 1);
+    win.SondenView.drawButton(ctx, { state }, { x: 10, y: 26, w: 404, h: 292 }, (c) => sent.push(c));
+    const r = win.SektorplanView.draw(ctx, { state, time: 2 }, { x: 12, y: 48, w: 616, h: 274 }, () => {});
+    ok(typeof r === 'string' && calls.text.some((s) => /0206/.test(s)), 'Sektorplan zeichnet den Sektor des Schiffs (Kopfzeile)');
+    win.SektorplanView.key('KeyD', { state }); win.SektorplanView.key('KeyD', { state });
+    ok(win.SektorplanView.auswahl(state) !== '0206', 'D wählt den nächsten bekannten Sektor (' + win.SektorplanView.auswahl(state) + ')');
+    calls.text.length = 0; win.SektorplanView.key('KeyH', { state });
+    state.ship.scene = 'vaelen';   // anderer Ort, Auswahl 0207 (gesichtet)
+    win.SektorplanView.key('KeyD', { state });
+    for (let i = 0; i < 4 && win.SektorplanView.auswahl(state) !== '0207'; i++) win.SektorplanView.key('KeyD', { state });
+    win.SektorplanView.draw(ctx, { state, time: 2 }, { x: 12, y: 48, w: 616, h: 274 }, () => {});
+    ok(calls.text.some((s) => /vor 1 min|vor 60 s/.test(s)) && calls.marke >= 1, 'gesichteter Sektor: Schiff mit Alter und Marke gezeichnet');
+    const cmds = []; win.SektorplanView.click({ state }, 100, 100, 0, (c, e) => cmds.push([c, e]));
+    ok(cmds.length === 1 && cmds[0][0] === 'captain.sektorplan.marke' && cmds[0][1].hex === '0207', 'Klick im Plan setzt eine Marke im Sektor');
+    ok(calls.button.some((b) => /Sonde zur Marke \(2\)/.test(b.l) && !b.o.disabled), 'Sonden-Knopf mit Vorrat 2 aktiv');
+  } catch (e) { fehler = e; }
+  ok(!fehler, 'Client-Zeichencode läuft ohne Fehler' + (fehler ? ': ' + fehler.stack : ''));
 }
 
 console.log('Sund: Sonde durch die verborgene Kante (Schrottkante)');

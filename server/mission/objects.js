@@ -80,7 +80,7 @@ function state(game, map, object, index) {
   if (!a) return null;
   const list = (arr, fn) => { const out = (arr || []).map(fn); return index != null ? (out[index] != null ? out[index] : null) : out; };
   switch (map + '.' + object) {
-    case 'platform.sonde': return a.sonde && a.sonde.disabled ? 'off' : 'on';
+    case 'platform.sonde': return a.kustodenpult && a.kustodenpult.disabled ? 'off' : 'on';   // Objekt-ID bleibt (Regiebuch m1), Feld heißt seit SL0 kustodenpult
     case 'platform.core': return a.coreRebooted ? 'rebooted' : 'off';
     case 'platform.ivo': { const ivo = away().hauptPerson(a); return ivo && ivo.rescued ? 'rescued' : ivo && ivo.injured ? 'injured' : 'ok'; }
     case 'platform.datenkern': return (a.items || []).some((i) => i.kind === 'datenkern') ? 'present' : 'taken';
@@ -138,7 +138,7 @@ function setState(game, map, object, z) {
     case 'kesh.tablet=taken': combat().takeTablet(game, null); return true;
     case 'kesh.warden=awake': combat().wakeWarden(game); return true;
     case 'kesh.jammer=off': for (const j of a.jammers || []) j.off = true; return true;
-    case 'platform.sonde=off': if (a.sonde) a.sonde.disabled = true; a.doorOpen = true; return true;
+    case 'platform.sonde=off': if (a.kustodenpult) a.kustodenpult.disabled = true; a.doorOpen = true; return true;
     case 'platform.core=rebooted': a.coreRebooted = true; return true;
     case 'wreck.lore=read': a.loreRead = true; return true;
     // B1 Nachauftrag: Ivo, Wächter, Container über Bausteine setzbar

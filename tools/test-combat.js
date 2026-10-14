@@ -432,7 +432,7 @@ console.log('\n[Ducken (CONTRACT-M2 §15)]');
     send(0, { t: 'cmd', c: 'crouch', on: true });
     ok(p.crouch, 'wieder auf den Beinen: Ducken geht');
     // Konsole beendet das Ducken (Tick-Prüfung), Beamen beendet das Ducken
-    p.console = 'sonde'; run(0.05);
+    p.console = 'kustodenpult'; run(0.05);
     ok(!p.crouch, 'Konsole beendet das Ducken');
     p.console = null; send(0, { t: 'cmd', c: 'crouch', on: true });
     it.placeOnShipPad(g, p);

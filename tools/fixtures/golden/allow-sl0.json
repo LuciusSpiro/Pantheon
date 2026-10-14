@@ -46,9 +46,10 @@
     "^Beide Schlüssel gleichzeitig",
     "^Ein Schlüssel oben an der Hallenwand",
     "Taktik",
-    "\\bOps\\b"
+    "\\bOps\\b",
+    "Sonde|Kustodenpult"
   ],
   "flags": ["wardenKilled", "reliefSpawned"],
-  "inventory": ["marks", "ersatzteil", "flickblech", "medipack", "deko"],
+  "inventory": ["marks", "ersatzteil", "flickblech", "medipack", "deko", "sonde"],
   "duration": ["m1/1", "m1/3"]
 }

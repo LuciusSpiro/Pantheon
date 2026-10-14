@@ -151,7 +151,9 @@
     // Snapshot fracht (nur wenn etwas da ist): { lager: [art], draussen: [{ id, x, y, art }], halt: { kind: 'an'|'ab', id?, p }, ab: 1, abn: Name, g: false }.
     // SL6: cmd { c: 'weapons.abwerfen', art? } wirft eine Einheit Ware ab, cmd { c: 'weapons.verkaufen' } verkauft an einen Händler (Halteprozess kind 'verk').
     // Snapshot fracht + { fuell: 0..1 (Schöpf-Füllstand), vk: 1 (Händler in Reichweite) }; Snapshot zonen (nur in Szenen mit Zonen): { in: [id], bk: [id], z?: { id: Zähler } }.
-    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen'],
+    // SL0: cmd { c: 'weapons.person', id? } beamt eine Person vom gewählten Landepunkt an Bord ({ off: true } bricht ab), { c: 'weapons.person_ab', id? } gibt sie an Abnehmer/Station/Landepunkt ab.
+    // Snapshot fracht + { pers: [{ id, n, b }] (Personen im Frachtraum, b = Bett), pq: [{ id, n }] (Ops kann sie jetzt hochbeamen) }; ship.npcs enthält die liegenden Figuren (lie: 1).
+    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.person', 'weapons.person_ab'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
     FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
@@ -211,8 +213,8 @@
     S: { WELCOME: 'welcome', SNAP: 'snap', EVENT: 'event', PONG: 'pong', FULL: 'full', ERROR: 'error' },
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
-    // 'quartier' öffnet sich an der eigenen Koje, 'sonde' an der Kustoden-Sonde (Außenmission).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'sonde', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    // 'quartier' öffnet sich an der eigenen Koje, 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
     // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab

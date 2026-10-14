@@ -117,6 +117,17 @@
       const Z = zonenModul();
       const gp = planeten.find((p) => p.art === 'gasriese');
       scene.zonen = Z && gp ? Z.gasriese(gp, null, 'gas' + hex) : [];
+    } else if (ov.zonen === 'gravimetrie') {
+      // SL7a: Forschungsstation im Gravimetriefeld: Ankunft links, Station rechts, Felder/Kerne dazwischen, Haltefeld (Gruppe halt) anfangs aus
+      const Z = zonenModul();
+      const gv = Z ? Z.gravimetrie(w, h, hexSeed(hex)) : null;
+      scene.zonen = gv ? gv.zonen : [];
+      if (gv) {
+        scene.zonenAus = ['halt'];
+        scene.gravimetrie = { weg: gv.weg, fluchtweg: gv.fluchtweg, start: gv.start, station: gv.station };
+        scene.arrive = { x: gv.start.x, y: gv.start.y, angle: 0 };
+        scene.station = Object.assign({ kind: 'station', r: C.stationR, name: 'Forschungsstation' }, ov.station && typeof ov.station === 'object' ? ov.station : {}, { x: gv.station.x, y: gv.station.y });
+      }
     }
 
     const id = d.ort || ortId(d.name || hex);

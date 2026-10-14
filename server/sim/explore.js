@@ -28,7 +28,8 @@ class Explore {
     this.log = [];
     this.logSeq = 0;
     this.mapsKnown = { platform: false, wreck: false, kesh: false };
-    this.version = 1;            // ändert sich bei jeder Änderung an Orten (Snapshot sendet dann world.locations)
+    this.lpScan = new Set();     // SL7b: von der Ops gescannte Landepunkte (lpId): ihre Karte liegt auf dem Planungstisch (server/sim/lpscan.js)
+    this.version = 1;           // ändert sich bei jeder Änderung an Orten (Snapshot sendet dann world.locations)
     this.logVersion = 1;         // ändert sich bei neuen Logbuch-Einträgen (Snapshot sendet dann mission.log)
     this.locTime = {};
     // B3 Sektorkarte (CONTRACT-B3 §4/§5): erkundete Hexe, gefundene Bojen (Kanten-IDs), temporäre Kanten, offene Kanten
@@ -378,7 +379,7 @@ class Explore {
         aufgedeckt: ids.filter((id) => this.hidden[id].revealed), gefunden: ids.filter((id) => this.hidden[id].found),
       },
       verbindungen_offen: [...this.linksOpen],
-      karten: Object.keys(this.mapsKnown).filter((k) => this.mapsKnown[k]),
+      karten: Object.keys(this.mapsKnown).filter((k) => this.mapsKnown[k]).concat([...this.lpScan].sort()),   // SL7b: Landepunkt-IDs enthalten einen Punkt (<ort>.<art>-<n>)
       log: this.log.slice(-(logKeep || 60)).map((e) => {
         const o = { id: e.id, text: e.text, loc: e.loc || null, t: e.t || 0 };
         if (e.mission !== undefined) o.mission = e.mission;
@@ -398,6 +399,7 @@ class Explore {
     for (const id of o.aufgedeckt || []) if (this.findHidden(id)) this.hidden[id] = { revealed: true, found: false };
     for (const id of o.gefunden || []) if (this.findHidden(id)) this.hidden[id] = { revealed: true, found: true };
     for (const k of Object.keys(this.mapsKnown)) this.mapsKnown[k] = !!(w && Array.isArray(w.karten) && w.karten.includes(k));
+    this.lpScan = new Set(w && Array.isArray(w.karten) ? w.karten.filter((k) => typeof k === 'string' && k.includes('.') && !(k in this.mapsKnown)) : []);   // SL7b
     this.log = Array.isArray(w && w.log) ? w.log.map((e) => Object.assign({}, e)) : [];
     this.logSeq = this.log.reduce((mx, e) => Math.max(mx, Number(String(e.id || '').replace(/\D/g, '')) || 0), 0);
     this.version++; this.logVersion++;
@@ -418,16 +420,30 @@ class Explore {
         desc: known ? l.desc : 'Ein schwaches Signal. Hinfliegen und nachsehen?', discoveries: disc };
       if (known && l.scene.beam) e.map = this.mapsKnown[l.scene.beam.map] ? l.scene.beam.map : null;
       if (known) e.found = l.hidden.filter((h) => this.isRevealed(h.id)).map((h) => ({ id: h.id, kind: h.kind, name: h.name, done: this.isFound(h.id) }));
+      if (known) { const lp = this.lpScanVon(l.id); if (lp.length) e.lp = lp; }   // SL7b: gescannte Landepunkte (Karten am Planungstisch)
       out.push(e);
     }
     // EK7: bekannte Orte aus Daten (gen-Hexe, nicht in LOCATIONS) – ohne sie kann der Captain Statio Limitis & Co. nicht als Sprungziel wählen
     for (const id of Sektoren.datenOrte()) {
       if (!this.known.has(id)) continue;
       const l = Locations.get(id); if (!l) continue;
-      out.push({ id, name: l.name, kind: l.kind, x: l.x, y: l.y, known: true, visited: this.visited.has(id), links: [], unknown: false, fog: !!l.fog,
-        desc: l.desc, discoveries: { found: 0, total: 0 } });
+      const e = { id, name: l.name, kind: l.kind, x: l.x, y: l.y, known: true, visited: this.visited.has(id), links: [], unknown: false, fog: !!l.fog,
+        desc: l.desc, discoveries: { found: 0, total: 0 } };
+      const lp = this.lpScanVon(id); if (lp.length) e.lp = lp;   // SL7b
+      out.push(e);
     }
     return out;
+  }
+  // SL7b: gescannte Landepunkte eines Orts [{ id, name }] (lpId = <ort>.<art>-<n>); Namen aus server/sim/landepunkte.js
+  lpScanVon(ortId) {
+    const out = [];
+    for (const id of this.lpScan) {
+      if (id.split('.')[0] !== ortId) continue;
+      let name = id;
+      try { const d = require('./landepunkte.js').defs().byId[id] || (this.game.landepunkte && this.game.landepunkte.dyn && this.game.landepunkte.dyn[id]); if (d && d.name) name = d.name; } catch (e) { /* Name = ID */ }
+      out.push({ id, name });
+    }
+    return out.sort((a, b) => (a.id < b.id ? -1 : 1));
   }
   hiddenSnapshot() {
     return this.hiddenHere().filter((h) => this.isRevealed(h.id) && h.kind !== 'hollow').map((h) => ({ id: h.id, kind: h.kind, x: h.x, y: h.y, found: this.isFound(h.id) }))

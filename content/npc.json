@@ -24,6 +24,18 @@
     "legat": {
       "name": "Marcus Severus", "titel": "Legat", "fraktion": "rom", "rolle": "befehlshaber",
       "status": "lebt", "haltung": 0
+    },
+    "evert": {
+      "name": "Evert Kroeger", "titel": "Händler", "fraktion": "konkordat", "rolle": "auftraggeber",
+      "status": "lebt", "haltung": 0, "ort": "kantenstein"
+    },
+    "wirt": {
+      "name": "Bram", "titel": "Wirt", "fraktion": "konkordat", "rolle": "wirt",
+      "status": "lebt", "haltung": 0, "ort": "kantenstein"
+    },
+    "bote": {
+      "name": "Bote", "titel": "Bote des Konkordats", "fraktion": "konkordat", "rolle": "bote",
+      "status": "lebt", "haltung": 0
     }
   },
   "kampagne": {

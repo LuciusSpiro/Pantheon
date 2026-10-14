@@ -1,0 +1,18 @@
+{
+  "id": "sl_klar",
+  "_kommentar": "Entwurf SL8 (Kai passt an, SL11 verdrahtet). Klarer Ruf: ohne Analyse erkennbar, echt. Sund: Gasfeld.",
+  "hex": "0503",
+  "art": "klar",
+  "wahrheit": "echt",
+  "absender": "Schürferin Anka Brandt",
+  "behauptung": "Tankschiff Brandt, Triebwerksausfall im Gasfeld. Vier Mann an Bord, die Luft hält, der Treibstoff nicht. Wir treiben.",
+  "indizien": [],
+  "messwerte": "Vier Lebenszeichen, Reaktor kalt, keine Waffen. Die Meldung stimmt.",
+  "befragung": [
+    { "frage": "Wie viele seid ihr?", "antwort": "Vier. Zwei sind verletzt, aber stabil.", "hinweis": "Vier Lebenszeichen passen." },
+    { "frage": "Hat euch jemand angegriffen?", "antwort": "Niemand. Nur der Reaktor. Er ist hinüber.", "hinweis": "Keine Waffensignatur, das passt." }
+  ],
+  "pos": { "x": 2300, "y": 700 },
+  "dauer": 600,
+  "lohn": 80
+}

@@ -426,7 +426,7 @@
     legend['#'] = legend['#'] || { kind: 'wand', solid: true, cover: 2, sperrtSicht: true };
     const m = Maps.makeMap(ev.id, ev.rows, legend);
     const karte = {};
-    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle']) if (ev[k] !== undefined) karte[k] = ev[k];
+    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle', 'ku']) if (ev[k] !== undefined) karte[k] = ev[k];   // ku: Passanten und Schilder (SL2, shared/kulisse.js)
     Object.assign(m, karte, { karte, buehne: true, legende: legend });
     m.w = ev.rows[0].length; m.h = ev.rows.length;
     // Kachel -> Kantenindex (Zustand aus ko), Kachel -> Ankerindex (tor/eingang/versteck steuern Kacheln)
@@ -1688,7 +1688,7 @@
     const camX = camera.x, camY = camera.y;
     const alert = (st.ship && st.ship.alert) || 'normal';
     const away = st.away || {};
-    const doorOpen = !!(away.doorOpen || (away.sonde && away.sonde.disabled));
+    const doorOpen = !!(away.doorOpen || (away.kustodenpult && away.kustodenpult.disabled));
     const hollow = away.hollow || null;
     const hollowT = hollow ? toTileXY(map, hollow.x, hollow.y) : null;
     const hollowOpen = !!(hollow && hollow.open);
@@ -1782,7 +1782,7 @@
     drawables.sort((a, b) => a.key - b.key);
     const plates = [];   // M3a: Seitenmarken der Stationen (nach den Objekten zeichnen)
     const barRects = [];   // QA M3b: Fortschrittsbalken der Spieler (Eskalations-Label weicht aus)
-    const sondeDisabled = !!(away.sonde && away.sonde.disabled);
+    const sondeDisabled = !!(away.kustodenpult && away.kustodenpult.disabled);
     const inv = st.inventory || {};
     for (const d of drawables) {
       try {
@@ -1847,6 +1847,7 @@
           else if (kind === 'shelf') { opts.item = shelfItemAt(d.tx, d.ty); opts.count = shelfStock(inv, opts.item); opts.empty = opts.count <= 0; opts.fill = shelfFill(inv, opts.item); }
           if (kind === 'bed') { const bed = bedAt(d.tx, d.ty); opts.color = bed ? bed.color : 0; }
           if ((kind === 'cargo_cot' || kind === 'tool_wall') && !ivoWohntImFrachtraum(st, d.tx, d.ty)) kind = 'crate';   // R0: ohne Bewohner Stauware statt Schlafecke
+          if (kind === 'cargo_bed') kind = 'cargo_cot';   // SL0: Frachtbett zeichnet die Pritsche (die liegende Person kommt als ship.npcs-Figur, lie: 1)
           if (kind === 'cargo_bay') { const bi = (Maps.CARGO_BAYS || []).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten
@@ -1878,11 +1879,14 @@
           }
         } else if (d.type === 'npc') {
           const n = d.e;
+          if (n.lie) ctx.save(), ctx.translate(n.x - camX, n.y - camY + 6), ctx.rotate(Math.PI / 2), ctx.translate(-(n.x - camX), -(n.y - camY));   // SL0: liegt im Frachtbett
           if (!art('drawNpc', null, [ctx, n.x - camX, n.y - camY, { dir: n.dir || 'down', moving: !!n.moving, time: t }])) {
             fbCharacter(ctx, n.x - camX, n.y - camY, { color: 0, dir: n.dir, moving: n.moving, time: t });
             ctx.fillStyle = PAL.ice; ctx.fillRect(n.x - camX - 7, n.y - camY - 24, 14, 17);
           }
+          if (n.lie) ctx.restore();
           if (n.shipNpc) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), n.x - camX, n.y - camY - 48, { color: PAL.ice, align: 'center' });
+          else if (n.k) { if (n.blase && window.Gespraech) window.Gespraech.blase(ctx, n.blase, n.x - camX, n.y - camY - 52); }   // SL2: Passant, nur Sprechblase
           else text(ctx, personLabel(n), n.x - camX, n.y - camY - 48, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
         } else if (d.type === 'drone') {
           const e = d.e;
@@ -2190,10 +2194,25 @@
       }
     });
     if (zone === 'away') guard('npc', () => {
+      const GP = window.Gespraech; const gp = st.gp; const me = view.self;
       for (const n of view.npcs || []) {   // W2 AP6: bis 3 Personen
         if (n.rescued) continue;
         const s = P(n.x, n.y, 48);
+        if (n.k) {   // SL2: Passant der Kulisse – Name nur aus der Nähe, Sprechblase nur, wenn ein Spieler nah genug ist
+          const nah = me ? Math.hypot(n.x - me.x, n.y - me.y) : 9999;
+          if (n.blase && GP && nah < 320 && inView(s)) GP.blase(ctx, n.blase, s.x, s.y - 4);
+          else if (nah < 90 && inView(s)) text(ctx, String(n.name || ''), s.x, s.y, { color: PAL.panelLight, align: 'center' });
+          continue;
+        }
         text(ctx, personLabel(n), s.x, s.y, { color: n.injured ? PAL.warn : PAL.ice, align: 'center' });
+        if (GP && n.g && inView(s)) {   // SL2: ansprechbar – „…“ lockt, bei laufendem Gespräch die aktuelle Zeile
+          if (gp && gp.nid === n.id) GP.blase(ctx, gp.t.length > 90 ? gp.t.slice(0, 88) + '…' : gp.t, s.x, s.y - 12, { breite: 150 });
+          else if (!gp && Math.floor(view.time * 1.2) % 2 === 0) GP.blase(ctx, '…', s.x, s.y - 12, { breite: 20 });
+        }
+      }
+      if (window.Gespraech) for (const sc of window.Gespraech.schilder(st)) {   // SL2: Gebäudeschilder (Taverne)
+        const s = P(sc.x, sc.y, sc.hoehe);
+        if (inView(s)) text(ctx, sc.name, s.x, s.y, { color: PAL.amber, align: 'center' });
       }
       for (const e of view.drones || []) {
         if (e.alive === false) continue;
@@ -3367,7 +3386,10 @@
     if (!Array.isArray(zs) || !zs.length) return;
     const zst = st.zonen || { in: [], bk: [] };
     const bekannt = new Set(zst.bk || []);
-    const vis = { ops, bekannt };
+    const vis = { ops, bekannt, alle: new Set(zst.sv || []) };
+    const aus = new Set(zst.au || []);   // abgeschaltete Schaltgruppen (Haltefeld vor dem Finale) werden nicht gezeichnet
+    const KOMPASS = ['OST', 'SÜDOST', 'SÜD', 'SÜDWEST', 'WEST', 'NORDWEST', 'NORD', 'NORDOST'];   // 0 = +x, im Uhrzeigersinn (y nach unten)
+    const kompass = (a) => KOMPASS[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
     // Gasriese als Scheibe unter den Ringen
     for (const p of (loc.scene.planeten || [])) {
       if (p.art !== 'gasriese') continue;
@@ -3380,6 +3402,7 @@
     }
     const inside = new Set(zst.in || []);
     for (const z of zs) {
+      if (z.gruppe && aus.has(z.gruppe)) continue;
       if (!Z.sichtbar(z, vis)) continue;
       const c = toS(z.x, z.y);
       const heiss = (z.hitze || 0) + (z.schaden || 0) * 3;
@@ -3402,6 +3425,9 @@
         ctx.lineTo(ex - Math.cos(ang - 0.5) * 7, ey - Math.sin(ang - 0.5) * 7); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang + 0.5) * 7, ey - Math.sin(ang + 0.5) * 7); ctx.stroke();
       }
       if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -4), { color: 'rgba(' + col + ',0.85)', align: 'center' });
+      // Ops-Ansage: Stärke und Richtung der Verzerrung (nur wer sie sehen darf, also die Ops nach dem Scan oder alle nach der Feldkarte)
+      if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center' });
+      else if (z.rueck && zoom > 0.12) text(ctx, 'RÜCKSETZER', c.x, c.y + 6, { color: 'rgba(240,110,60,0.95)', align: 'center' });
     }
   }
 
@@ -3533,8 +3559,10 @@
     }
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
-    drawZonen(ctx, st, toS, zoom, t, cfg.mode === 'tactical');
+    const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
+    drawZonen(ctx, st, toS, zoom, t, ichOps);   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
     if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
+    if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
 
     // Szenenrand
     if (space.w && space.h) {
@@ -4148,7 +4176,9 @@
       toS = (x, y) => ({ x: Math.round(ox + x / TILE * c), y: Math.round(oy + y / TILE * c) });
       toW = (sx, sy) => ({ x: Math.round((sx - ox) / c * TILE), y: Math.round((sy - oy) / c * TILE) });
       if (mapId === 'wreck') { const hv = st.away && st.away.hollow; if (hv && hv.marked) { const tt = toTileXY(tmap, hv.x, hv.y); ctx.strokeStyle = PAL.amber; ctx.strokeRect(ox + tt.x * c - 0.5, oy + tt.y * c - 0.5, c + 1, c + 1); } }
-      text(ctx, mapId === 'wreck' ? 'WRACK „ZAUNKÖNIG“ – Decksplan' : mapId === 'kesh' ? 'MOND KESH – Kustoden-Archiv' : 'PLATTFORM B-7 – Decksplan', rect.x + 6, rect.y + 4, { color: PAL.brass });
+      // SL7b: gescannte Landepunkte tragen ihren Namen (Locations-Snapshot e.lp = [{ id, name }])
+      const lpName = (() => { for (const l of (worldOf(st).locations || [])) for (const q of (l.lp || [])) if (q.id === mapId) return q.name; return null; })();
+      text(ctx, lpName ? lpName + ' – Landekarte' : mapId === 'wreck' ? 'WRACK „ZAUNKÖNIG“ – Decksplan' : mapId === 'kesh' ? 'MOND KESH – Kustoden-Archiv' : 'PLATTFORM B-7 – Decksplan', rect.x + 6, rect.y + 4, { color: PAL.brass });
       if (tmap.fallback) text(ctx, '(Entwurf – Karte vom Server fehlt)', rect.x + 6, rect.y + 14, { color: PAL.panelLight });
     } else {
       // Szene eines Orts. Aktueller Ort: Sensordaten; sonst schematisch.
@@ -4257,7 +4287,7 @@
     const t = view.time;
     ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.fillRect(x - 2, y - 2, map.w * c + 4, map.h * c + 4);
     const away = st.away || {};
-    const doorOpen = !!(away.doorOpen || (away.sonde && away.sonde.disabled));
+    const doorOpen = !!(away.doorOpen || (away.kustodenpult && away.kustodenpult.disabled));
     const blinkM = Math.floor(t * 3) % 2 === 0;
     const keshMap = map.id === 'kesh';
     const kSolid = keshMap ? solidFn(map, st) : null;

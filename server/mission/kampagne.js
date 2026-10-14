@@ -76,10 +76,10 @@ function pruefen(doc, ctxIn) {
   const books = (ctxIn && ctxIn.books) || Loader.loadAll().books;
   const L = require('../../shared/locations.js');
   let GEN = [];
-  try { GEN = typeof L.get === 'function' ? require('../../shared/sektoren.js').datenOrte().map((id) => L.get(id)).filter(Boolean) : []; } catch (e) { GEN = []; }
+  try { GEN = typeof L.get === 'function' ? require('../sim/welt.js').alleDatenOrte() : []; } catch (e) { GEN = []; }   // SL1: Orte aller Karten (Limes, Sund)
   const ortIds = new Set(L.LOCATIONS.concat(GEN).map((l) => l.id));
   const links = new Set(['sperrriegel'].concat((L.LOCKED_LINKS || []).map((l) => l.key)));
-  try { for (const k of require('../../shared/sektoren.js').KARTE.kanten.map((x) => x.key).filter(Boolean)) links.add(k); } catch (e) { /* ohne Kartendaten */ }
+  try { for (const kid of require('../sim/welt.js').ids()) for (const k of require('../sim/welt.js').karte(kid).kanten.map((x) => x.key).filter(Boolean)) links.add(k); } catch (e) { /* ohne Kartendaten */ }
   const Kap = new Map();
   doc.kapitel.forEach((c, i) => {
     if (Kap.has(c.id)) E('KETTE-DOPPELT', `kapitel[${i}]`, `Kapitel '${c.id}' doppelt`);

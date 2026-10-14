@@ -71,7 +71,7 @@
         "huelle": { "type": "number", "minimum": 0 },
         "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
         "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } },
-        "fracht": { "type": "array", "description": "EK3 Teil A: mitgeführte Ladung im Frachtraum (Art je Bucht, höchstens Maps.CARGO_CAPACITY)", "maxItems": 4, "items": { "type": "string", "enum": ["sprengstoff", "fracht"] } }
+        "fracht": { "type": "array", "description": "EK3 Teil A: mitgeführte Ladung im Frachtraum (Art je Bucht, höchstens Maps.CARGO_CAPACITY)", "maxItems": 4, "items": { "oneOf": [ { "type": "string", "enum": ["sprengstoff", "fracht", "deuterium"] }, { "type": "object", "description": "SL0: Person im Frachtraum (p Kennung, n Name, b Bett)", "required": ["p"], "properties": { "p": { "type": "string" }, "n": { "type": "string" }, "b": { "type": "integer", "minimum": 0 } }, "additionalProperties": false } ] } }
       }
     },
 
@@ -123,6 +123,15 @@
             "temp": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "a": { "type": "string" }, "b": { "type": "string" }, "bis": { "type": "string" } } }, "description": "temporäre Sprungpunkte" },
             "offen": { "type": "array", "items": { "type": "string" }, "description": "geöffnete gesperrte Kanten" }
           }
+        },
+        "notrufe": {
+          "type": "object", "description": "SL8 (CONCEPT-SL8): freigeschaltete Notrufe: Id -> Zustand (0 offen, 1 angenommen, 2 vor Ort, 3 erledigt, 4 abgelaufen, 5 abgelehnt), Restzeit in Spielsekunden, gestellte Fragen, Sonde hat gemessen. Inhaber server/sim/notrufe.js.",
+          "additionalProperties": { "type": "object", "properties": { "z": { "type": "integer", "minimum": 0, "maximum": 5 }, "rest": { "type": "number", "minimum": 0 },
+            "befragt": { "type": "array", "items": { "type": "integer" } }, "sonde": { "type": "boolean" } } }
+        },
+        "spur": {
+          "type": "object", "description": "SL5 (CONCEPT-SL5): laufende Ionenspur. Inhaber server/sim/spur.js; Wegliste steht in content/spuren/<id>.json.",
+          "properties": { "id": { "type": "string" }, "idx": { "type": "integer", "minimum": 0 }, "gelesen": { "type": "boolean" }, "fertig": { "type": "boolean" } }
         },
         "sektorplan": {
           "type": "object", "description": "SL4 (CONCEPT-SL4): Sektorplan des Captains. Inhaber server/sim/sektorplan.js. gesichtet: Hex -> { q: sonde|karte, alter (s) }; marken: Einträge im Szenen-Koordinatensystem; schiffe: Momentaufnahmen mit Alter (s).",

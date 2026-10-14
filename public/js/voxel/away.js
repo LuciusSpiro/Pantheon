@@ -1003,7 +1003,7 @@ function makeLayer(zone) {
     const a = st.away || {};
     const out = { st, a };
     if (zone === 'platform') {
-      const sonde = a.sonde || {};
+      const sonde = a.kustodenpult || {};   // SL0: früher a.sonde
       out.doorOpen = !!(a.doorOpen || sonde.disabled);
       out.sondeOn = !sonde.disabled;
       const ent = sonde.entered || [];

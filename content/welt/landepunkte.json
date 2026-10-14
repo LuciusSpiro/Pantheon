@@ -64,8 +64,8 @@
         "beam": { "x": 1700, "y": 1100, "range": 360 }, "name": "Lager im Rostnest", "frei": "nach_tutorial", "gesperrt": true }
     ],
     "kantenstein": [
-      { "id": "kantenstein.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7301, "schablone": null,
-        "gen": { "typ": "handel", "haeuser": 8 },
+      { "id": "kantenstein.siedlung", "art": "aussenposten", "bauweise": "germanen", "besitz": "konkordat", "zustand": "intakt", "seed": 7311, "schablone": null,
+        "gen": { "typ": "handel", "haeuser": 11 },
         "beam": { "x": 1450, "y": 1108, "range": 360 }, "name": "Außenposten Kantenstein", "frei": "immer", "gesperrt": false }
     ]
   }

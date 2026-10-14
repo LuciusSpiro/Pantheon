@@ -38,11 +38,11 @@ function bettFrei(game) {
 const transferDown = (game) => { const t = game.ship.systems.transfer; return t === 'broken' || t === 'offline'; };
 const haltDauer = (game) => (game.ship.systems.transfer === 'damaged' ? game.C.ship.beamTimeDamaged : game.C.ship.beamTime);
 
-// Landepunkt-Scan (SL7b liefert die Regel): Stub = true
+// Landepunkt-Scan (SL7b, server/sim/lpscan.js): Beamen von der Oberfläche braucht den gescannten Landepunkt (auch Handkarten platform/wreck/kesh)
 function landepunktGescannt(game) {
-  const L = lp();
-  if (L && typeof L.gescannt === 'function') { try { return !!L.gescannt(game); } catch (e) { if (game.countError) game.countError('personen-scan', e); } }
-  return true;
+  const id = (game.transferZiel && game.transferZiel.lp) || (game.away && game.away.map) || null;
+  if (!id) return false;
+  try { return !!require('./lpscan.js').gescannt(game, id); } catch (e) { if (game.countError) game.countError('personen-scan', e); return false; }
 }
 
 // Transferpunkt des gewählten Landepunkts in Reichweite? -> { ok, reason?, spot? }
@@ -86,11 +86,11 @@ function aufnehmenStart(game, p, id) {
 }
 // Abgabeort: Abnehmer/Station (wie Waren) oder der gewählte Landepunkt (Person geht an die Oberfläche)
 function abgabeOrt(game) {
-  const o = Fracht.ablieferOrt(game);
+  const o = Fracht.stationOrt(game);
   if (o.ok) return { ok: true, name: o.name, art: 'station' };
   const k = bodenKontakt(game);
   if (k.ok) return { ok: true, name: 'Landepunkt', art: 'boden' };
-  return { ok: false, reason: o.reason && !/Keine Fracht/.test(o.reason) ? o.reason : k.reason };
+  return { ok: false, reason: o.reason };
 }
 function abgebenStart(game, p, id) {
   if (transferDown(game)) return game.ship.systems.transfer === 'offline' ? 'Transfer offline (EMP) – kurz warten.' : 'Transfer zerstört – erst reparieren.';

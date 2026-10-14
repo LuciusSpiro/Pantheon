@@ -45,8 +45,8 @@ ok(Welt.ids().join() === 'limes,sund', 'Welt.ids: limes, sund');
 Welt.waehle(null, 'sund');
 {
   const hexe = Object.keys(K.hexe);
-  ok(hexe.length === 27 && K.kanten.length === 38, `27 Systeme, 38 Kanten (${hexe.length}/${K.kanten.length}), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
-  ok(K.spalten * K.zeilen - hexe.length === 50, '50 Felder Leerraum');
+  ok(hexe.length >= 27 && K.kanten.length === 38, `mindestens die 27 Systeme des Entwurfs (dazu Orte der Kampagne wie Helix: ${hexe.length}), 38 Kanten (${K.kanten.length}), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
+  ok(['0204', '0603', '0604', '0605', '0606', '0602', '0503', '1004'].every((h) => K.hexe[h]) && K.spalten * K.zeilen - hexe.length >= 49, 'Systeme des Entwurfs vorhanden, mindestens 49 Felder Leerraum');
   ok(hexe.every((h) => Sektoren.imRaster(h) && K.regionen[K.hexe[h].region] && typeof K.hexe[h].spielbar === 'boolean'), 'alle Systeme im Raster, mit Region und spielbar');
   const ids = K.kanten.map((e) => Sektoren.kanteId(e.a, e.b));
   ok(new Set(ids).size === ids.length, 'Kanten eindeutig');
@@ -54,7 +54,7 @@ Welt.waehle(null, 'sund');
   ok(K.kanten.filter((e) => e.art === 'hidden').map((e) => e.key).sort().join() === 'altrost-weg,lager-schrottkante', 'zwei verborgene Kanten mit Schlüssel (Altrost, Schrottkante)');
   ok(K.kanten.every((e) => e.art === 'open' || e.art === 'hidden'), 'keine Fernkanten (Kai 2026-10-13), nur open und hidden');
   const spielbar = hexe.filter((h) => K.hexe[h].spielbar).sort();
-  ok(spielbar.join() === '0503,0603,0604,0605,0606', 'spielbar: Gasfeld, Kantenstein, Concordia, Pulverhorn, Schrottkante');
+  ok(['0503', '0603', '0604', '0605', '0606'].every((h) => spielbar.includes(h)) && !spielbar.includes('0204') && !spielbar.includes('0602') && !spielbar.includes('0703'), 'spielbar: Gasfeld, Kantenstein, Concordia, Pulverhorn, Schrottkante (dazu Orte der Kampagne wie Helix), nicht Rom, Altrost, Eisfeld');
   ok(spielbar.every((h) => K.hexe[h].gen === true && K.hexe[h].ort), 'spielbare Systeme: Szene aus Daten (gen + ort)');
   const reach = (start, hidden) => {
     const seen = new Set([start]); const todo = [start];
@@ -70,7 +70,7 @@ Welt.waehle(null, 'sund');
   ok(['0604', '0605', '0503'].every((h) => reach('0603', false).has(h)), 'Kantenstein -> Concordia -> Pulverhorn und Gasfeld über offene Kanten');
   ok(!reach('0603', false).has('0606') && !reach('0603', false).has('0602'), 'Schrottkante und Altrost nur über verborgene Kanten');
   ok(reach('0603', true).has('0606') && reach('0603', true).has('0602'), 'mit enthüllten Kanten erreichbar');
-  ok(Sektoren.istLeerraum('0506') && Sektoren.spielbar('0506') && Sektoren.ortVonHex('0506') === 'leer-0506', 'Leerraum-Hex 0506 (neben Pulverhorn, Brachland, Schrottkante) ist Ort leer-0506');
+  ok(Sektoren.istLeerraum('0706') && Sektoren.spielbar('0706') && Sektoren.ortVonHex('0706') === 'leer-0706', 'Leerraum-Hex 0706 (neben Pulverhorn) ist Ort leer-0706');
   ok(Sektoren.startOrt() === 'kantenstein' && Sektoren.bodenStart() === true && Sektoren.kartenId() === 'sund', 'Karte Sund: Start Kantenstein, am Boden');
   ok(Locations.START === 'kantenstein' && Locations.KNOWN_AT_START.join() === 'kantenstein,concordia,pulverhorn,gasfeld', 'Locations.START / KNOWN_AT_START folgen der Karte');
   ok(Sektoren.hexVonOrt('kantenstein') === '0603' && Sektoren.ortVonHex('0604') === 'concordia' && !!Locations.get('schrottkante'), 'Orte <-> Hexe, Szenen aus Daten');

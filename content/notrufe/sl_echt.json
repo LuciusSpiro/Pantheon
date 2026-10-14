@@ -1,0 +1,23 @@
+{
+  "id": "sl_echt",
+  "_kommentar": "Entwurf SL8. Verschlüsselt, echt. Leerraum 0706 über einen temporären Sprungpunkt von Pulverhorn.",
+  "hex": "0706",
+  "tor": { "von": "0605", "nach": "0706" },
+  "art": "verschluesselt",
+  "wahrheit": "echt",
+  "absender": "Frachter Möwe",
+  "behauptung": "Hier Frachter Möwe. Hüllenbruch, die Rettungskapsel treibt. Bitte kommt.",
+  "indizien": [
+    "Peilung: eine einzige schwache Quelle, niedrige Energie.",
+    "Drei Lebenszeichen, das passt zur Besatzungsliste der Möwe.",
+    "Reaktor kalt, Waffen aus: ein gestrandetes Schiff, kein Lockvogel."
+  ],
+  "messwerte": "Drei Lebenszeichen, Reaktor kalt, keine Waffen. Die Meldung stimmt.",
+  "befragung": [
+    { "frage": "Wie heißt euer Kapitän?", "antwort": "Hesse. Kapitän Hesse, er liegt hinten in der Kapsel.", "hinweis": "Besatzungsliste der Möwe: Kapitän Hesse. Stimmt." },
+    { "frage": "Was ist passiert?", "antwort": "Ein Brocken hat uns an der Seite gestreift. Dann ging der Druck.", "hinweis": "Ein Streifschaden passt zum Leck." }
+  ],
+  "pos": { "x": 1500, "y": 1100 },
+  "dauer": 600,
+  "lohn": 120
+}

@@ -182,7 +182,7 @@
       away: {
         active: false, map: 'platform', drones: [], projectiles: [], npcs: [{ id: 'ivo', name: 'Ivo', ...tc(26, 2), rescued: true }],   // W2 AP6: away.npcs[]
         items: [], marker: null, strikes: [], salvage: [], hollow: null,
-        sonde: { disabled: true, symbols: ['dreieck', 'welle', 'kreis'], entered: [], lockout: 0 },
+        kustodenpult: { disabled: true, symbols: ['dreieck', 'welle', 'kreis'], entered: [], lockout: 0 },
         codeTable: { kreis: 'mint', dreieck: 'bernstein', raute: 'rot', stern: 'blau', welle: 'pink', kreuz: 'weiss' },
         odaCodeHelp: false, kuppelUntil: 0, sensorUntil: 0, doorOpen: true,
       },
@@ -597,7 +597,7 @@
     const hv = W.away.hollow;
     return (x, y) => {
       const ch = map.at(x, y);
-      if (zone === 'away' && map === Maps.platform && ch === 'L') return !W.away.sonde.disabled;
+      if (zone === 'away' && map === Maps.platform && ch === 'L') return !W.away.kustodenpult.disabled;
       if (ch === 'V' && hv && hv.open && hv.x === x && hv.y === y) return false;
       return map.solid(x, y);
     };

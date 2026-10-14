@@ -162,7 +162,7 @@ const CONSOLE_HELP = {
   transfer: 'Transfer: Leute auf die Pads, dann Runter/Hoch. Nachschub und Notrückholung gibt\'s hier auch.',
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
-  sonde: 'Kustoden-Sonde: Farben 1–6 in der Reihenfolge der Symbole. Die Tabelle hat der Captain oben.',
+  kustodenpult: 'Kustodenpult: Farben 1–6 in der Reihenfolge der Symbole. Die Tabelle hat der Captain oben.',
   plan: 'Planungstisch: Sternkarte und gescannte Karten. Pins setzen und gemeinsam planen. Esc steht auf.',
 };
 // Fallback, solange content/npc.json keinen Funk für „Kampagne ohne Tutorial“ hat
@@ -1163,7 +1163,7 @@ class Mission {
         // B1 (OFFEN-STUDIO): Tutorial-Begrüßung nur auf B-7 selbst, nie auf gebauten Karten (Landepunkte aus awayMap)
         if (data.map && data.map !== 'platform') break;
         g.oda('Willkommen auf B-7! Leertaste/Klick: Blaster. Q: Markierung für Hilfe von oben.', 'beamDown1');
-        g.oda('Die Sonde unten links steuert die Drohnen. Den Code sieht man an der Captain-Konsole.', 'beamDown2');
+        g.oda('Das Kustodenpult unten links steuert die Drohnen. Den Code sieht man an der Captain-Konsole.', 'beamDown2');
         break;
       case 'overload': g.oda('Tipp: Nach der Überladung braucht der Neustart zwei Hände – oder eine Hand und einen Schrauber.', 'overloadTip'); break;
       case 'systemOffline': break;

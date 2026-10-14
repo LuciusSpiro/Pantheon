@@ -101,7 +101,7 @@
     const map = R.mapFor(zone, st);
     if (zone === 'away' && (map.id === 'kesh' || R.isBuehne(map))) return R.solidFn(map, st);   // B1: Türen nach Zustand   // M2: Tor offen = begehbar, low-Kacheln solid
     const away = (st && st.away) || {};
-    const open = !!(away.doorOpen || (away.sonde && away.sonde.disabled));
+    const open = !!(away.doorOpen || (away.kustodenpult && away.kustodenpult.disabled));
     const wreck = map.id === 'wreck';
     const hv = away.hollow;
     const ht = wreck && hv && hv.open ? R.toTileXY(map, hv.x, hv.y) : null;
@@ -1183,7 +1183,7 @@
       if ((cm.hp || 0) - (pm.hp || 0) >= 20) { audio.play('heal'); R.addFx('heal', cm.zone, cm.x, cm.y - 16, 0.8); }
     }
     const pa = prev.away || {}, ca = cur.away || {};
-    const pOpen = !!(pa.doorOpen || (pa.sonde && pa.sonde.disabled)), cOpen = !!(ca.doorOpen || (ca.sonde && ca.sonde.disabled));
+    const pOpen = !!(pa.doorOpen || (pa.kustodenpult && pa.kustodenpult.disabled)), cOpen = !!(ca.doorOpen || (ca.kustodenpult && ca.kustodenpult.disabled));
     if (!pOpen && cOpen) audio.play('door');
     const ps = prev.stats || {}, cs = cur.stats || {};
     if ((cs.firesOut || 0) > (ps.firesOut || 0)) audio.play('extinguish');
@@ -1501,6 +1501,10 @@
       const pl = players.find(p => p.id !== m.id && p.zone === 'away' && p.zs === 'gefesselt' && at(p));
       if (pl) return { label: 'E halten: ' + pl.name + ' befreien (' + fs(K.befreien, 3) + ')', ok: true };
     }
+    if (zone === 'away') {   // SL2: Gesprächs-NSC (Evert, Wirt) vor dem Anker, auf dem sie stehen (Zelle): wie der Server (npcInteraction)
+      const gn = ((st.away && st.away.npcs) || []).find(n => n.g && !n.rescued && Math.floor(n.x / TILE) === tx && Math.floor(n.y / TILE) === ty);
+      if (gn) return { label: String(gn.name || gn.id) + ': ansprechen', ok: !(st.gp && st.gp.nid !== gn.id) };
+    }
     if (zone === 'away' && R.isBuehne(map)) { const b = buehneInteraction(st, m, map, tx, ty); if (b) return b; }   // B1: Anker
     if (map.id === 'kesh' && zone === 'away' && !ownTile) {
       // M2: Kesh-Interaktionen (§4.7)
@@ -1615,10 +1619,10 @@
       return null;
     }
     const platform = map.id === 'platform';
-    if (ch === 'Z' && zone === 'away' && platform) return { label: 'Kustoden-Sonde', ok: true };
+    if (ch === 'Z' && zone === 'away' && platform) return { label: 'Kustodenpult', ok: true };
     if (ch === 'b' && zone === 'away' && platform && !(st.away && st.away.coreRebooted)) {
-      const off = !!(st.away && st.away.sonde && st.away.sonde.disabled);
-      return off ? { label: 'Halten: Bojenkern neu starten', ok: true } : { label: 'Bojenkern gesperrt (erst Sonde)', ok: false };
+      const off = !!(st.away && st.away.kustodenpult && st.away.kustodenpult.disabled);
+      return off ? { label: 'Halten: Bojenkern neu starten', ok: true } : { label: 'Bojenkern gesperrt (erst Kustodenpult)', ok: false };
     }
     if (zone === 'away') {
       // W2 AP6: Personen away.npcs[] (Ivo: id 'ivo'; gerettete stehen nicht mehr auf der Karte)
@@ -1892,6 +1896,8 @@
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }
     // M3a: Minispiel offen -> nur Leertaste/Esc, kein E an den Server, keine Bewegung
     if (Client.minigame) { if (!e.repeat) Net.guard('Client.minigameKey', () => minigameKey(code)); return; }
+    // SL2: Gespräch am Boden – E/Enter/Leertaste weiter, 1–4 Wahl, Esc verlassen; diese Tasten gehen dann nicht ins Spiel (Laufen bleibt möglich)
+    if (st.gp && window.Gespraech && !e.repeat && Gespraech.taste(code, send, st)) { e.preventDefault(); return; }
     if (e.repeat) return;
     switch (code) {
       case 'KeyR': {
@@ -2073,6 +2079,8 @@
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
     // W2 AP6: Personen (bis 3 gleichzeitig) interpoliert über die id; nur die auf der Karte (gerettete: HUD-Liste aus st)
     v.npcs = lerpList(aa.npcs, ba.npcs, f).filter(n => !n.rescued);
+    // SL2: Passanten (Kulisse) – Ort und Spruch aus Kartenseed + Serverzeit, nicht im Snapshot; gelten als Personen (Figuren, Namen, Blasen)
+    if (window.Gespraech && B.away && B.away.map) { const ku = window.Gespraech.kulisse(B, lerp(A.time || 0, B.time || 0, f)); if (ku.length) v.npcs = v.npcs.concat(ku); }
     const sa = A.ship || {}, sb = B.ship || {};
     v.ship = Object.assign({}, sb);
     if (sa.scene === sb.scene && f > 0 && isFinite(sa.x)) { v.ship.x = lerp(sa.x, sb.x, f); v.ship.y = lerp(sa.y, sb.y, f); v.ship.angle = lerpAngle(sa.angle || 0, sb.angle || 0, f); }

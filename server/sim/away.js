@@ -22,7 +22,7 @@ function baseAway(map) {
     map, kampf: 'alt', active: false, drones: [], projectiles: [],
     npcs: [],   // W2 AP6: NSC-Personen dieser Karte (Zugriff nur über die Funktionen unten)
     items: [], marker: null, strikes: [], pendingStrikes: [],
-    sonde: { disabled: true, symbols: [], entered: [], lockout: 0 },
+    kustodenpult: { disabled: true, symbols: [], entered: [], lockout: 0 },   // SL0: früher „sonde“ (Namensfreigabe für die Ops-Sonden, SL4)
     codeTable: {}, odaCodeHelp: false, kuppelUntil: 0, sensorUntil: 0, doorOpen: true,
     kuppelHp: 0, alarmUntil: 0, noHumanT: 0, firstBeamAt: null, coreRebooted: false,
     salvage: [], hollow: null, loreRead: false,
@@ -53,7 +53,7 @@ const PERSON_STANDARD = Object.freeze({ dir: 'down', following: null, injured: f
 function personenSnap(aw) {
   const r1 = (v) => Math.round(v * 10) / 10;
   return personen(aw).filter((n) => n.present || n.rescued).map((n) => ohneStandard({ id: n.person || 'ivo', name: n.name || 'Ivo',
-    x: r1(n.x), y: r1(n.y), dir: n.dir, following: n.following, injured: !!n.injured, rescued: !!n.rescued }, PERSON_STANDARD));
+    x: r1(n.x), y: r1(n.y), dir: n.dir, following: n.following, injured: !!n.injured, rescued: !!n.rescued, ...(n.gespraech ? { g: 1 } : {}) }, PERSON_STANDARD));   // SL2: g = ansprechbar (Gespräch)
 }
 function maxPersonen(game) { return Math.max(1, Number(game && game.C && game.C.personen && game.C.personen.maxGleichzeitig) || 3); }
 // Hat die Karte einen freien Platz für eine weitere offene Person?
@@ -86,7 +86,7 @@ function makeAway(game, opts) {
     }),
     npcs: [{ x: npcC.x, y: npcC.y, dir: 'down', following: null, rescued: false, present: !o.noNpc, injured: !o.noNpc, path: null, pathT: 0, moving: false }],   // Ivo
     items: o.noCore ? [] : [{ id: 'core', kind: 'datenkern', x: qC.x, y: qC.y }],
-    sonde: { disabled: false, symbols, entered: [], lockout: 0 },
+    kustodenpult: { disabled: false, symbols, entered: [], lockout: 0 },
     codeTable, doorOpen: false,
   });
 }
@@ -447,12 +447,12 @@ function setAim(game, p, aim) {
   p.facing = p.zone === 'away' && Number.isFinite(a) ? Physics.normAngle(Math.round(a) * Math.PI / 180) : null;
 }
 
-// ---------- Sonde ----------
-function sondeInput(game, p, color) {
-  const C = game.C; const s = game.away.sonde;
-  if (game.away.map !== 'platform') return 'Hier gibt es keine Sonde.';
-  if (s.disabled) return 'Die Sonde ist bereits abgeschaltet.';
-  if (s.lockout > 0) return `Sonde gesperrt (${Math.ceil(s.lockout)} s).`;
+// ---------- Kustodenpult (früher „Sonde“; SL0: Name frei für die Ops-Sonden) ----------
+function kustodenpultInput(game, p, color) {
+  const C = game.C; const s = game.away.kustodenpult;
+  if (game.away.map !== 'platform') return 'Hier gibt es kein Kustodenpult.';
+  if (s.disabled) return 'Das Kustodenpult ist bereits abgeschaltet.';
+  if (s.lockout > 0) return `Kustodenpult gesperrt (${Math.ceil(s.lockout)} s).`;
   if (!Protocol.CODE_COLORS.includes(color)) return 'Unbekannte Farbe.';
   const expected = game.away.codeTable[s.symbols[s.entered.length]];
   if (color !== expected) {
@@ -460,7 +460,7 @@ function sondeInput(game, p, color) {
     game.away.alarmUntil = game.time + C.awayExtra.alarmTime;
     game.emit('codeResult', { ok: false });
     game.emit('sfx', { name: 'code_fail', zone: 'away' });
-    game.oda('Falsche Farbe – Sonde 10 s gesperrt, und die Drohnen sind jetzt wach. Ups.', null);
+    game.oda('Falsche Farbe – Kustodenpult 10 s gesperrt, und die Drohnen sind jetzt wach. Ups.', null);
     return null;
   }
   s.entered.push(color);
@@ -482,16 +482,16 @@ function update(game, dt) {
   const C = game.C; const away = game.away;
   for (const k of Object.keys(game.support)) game.support[k] = Math.max(0, game.support[k] - dt);
   updateBeaming(game, dt);
-  if (away.sonde && away.sonde.lockout > 0) away.sonde.lockout = Math.max(0, away.sonde.lockout - dt);
+  if (away.kustodenpult && away.kustodenpult.lockout > 0) away.kustodenpult.lockout = Math.max(0, away.kustodenpult.lockout - dt);
   if (game.time >= away.kuppelUntil) away.kuppelHp = 0;
   if (!away.active) return;
   const awayPlayers = game.players.filter((p) => p.zone === 'away' && !p.downed);
   const humansAboard = game.players.some((p) => p.zone === 'ship' && p.connected);
-  if (away.map === 'platform' && !away.sonde.disabled && !away.odaCodeHelp && awayPlayers.length && !humansAboard) {
+  if (away.map === 'platform' && !away.kustodenpult.disabled && !away.odaCodeHelp && awayPlayers.length && !humansAboard) {
     away.noHumanT += dt;
     if (away.noHumanT >= C.away.odaCodeHelpDelay) {
       away.odaCodeHelp = true;
-      game.oda('Niemand an Bord? Ich funke euch die Codetabelle direkt auf die Sonde. Gern geschehen.', null);
+      game.oda('Niemand an Bord? Ich funke euch die Codetabelle direkt aufs Kustodenpult. Gern geschehen.', null);
     }
   }
   const v2 = combat.isV2(game);
@@ -756,7 +756,15 @@ function freiePersonenKachel(aw, map, tile, person) {
 function neuePerson(tile, o) {
   const c = W.tileCenter(tile.x, tile.y);
   return { x: c.x, y: c.y, dir: 'down', following: null, rescued: false, present: true, injured: !!o.injured, path: null, pathT: 0, moving: false,
-    person: String(o.person), name: String(o.name || o.person), met: false };
+    person: String(o.person), name: String(o.name || o.person), met: false, ...(o.gespraech ? { gespraech: String(o.gespraech) } : {}) };   // SL2: Gesprächs-NSC (nicht folgen, nicht verletzt, nicht gerettet)
+}
+// SL2: Person entfernen (Evert verlässt die Taverne, wenn er mitkommt). -> true, wenn sie da war
+function entfernePerson(game, map, person) {
+  const aw = game.aways && game.aways[map];
+  const n = personMit(aw, String(person));
+  if (!n || !n.present) return false;
+  n.present = false; n.following = null;
+  return true;
 }
 function markRescued(game, map, person) {
   game.rescuedPersons = game.rescuedPersons || [];
@@ -787,9 +795,9 @@ function setzePersonZustand(n, z) {
 }
 
 module.exports = {
-  resetMap, spawnPerson, spawnPersonDazu, personPlatzFrei, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
+  resetMap, spawnPerson, spawnPersonDazu, entfernePerson, personPlatzFrei, markRescued, personRescued, personState, applyWorldFacts, applyKeshFacts, tabletGone,
   personen, hauptPerson, offenePersonen, personenSnap, folgendePersonen, personMit, personAn, setzePersonZustand,
   baseAway, makeLandepunkt, tutorialLaeuft, kampfPruefen,
   makeAway, makeWreck, makeKesh, canBeam, isBeaming, consoleBeam, selfBeam, executeBeam, recall, supply, captainSupport, weaponsStrike,
-  setMarker, shoot, setAim, sondeInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
+  setMarker, shoot, setAim, kustodenpultInput, update, anyAway, onPad, spawnGuards, openSalvage, readLore, openHollow, beamSpot, tooFastHint,
 };

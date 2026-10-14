@@ -262,6 +262,11 @@
     // bis zum Erlöschen; hp/gegnerSicht/gegnerDps = Beschuss durch Gegner (Schaden je Sekunde und Gegner im Umkreis); sprungZeit = Sekunden bis die
     // Meldung aus dem Nachbarsektor kommt (Teil 2); preis siehe shop (id 'sonde'); Start-Vorrat economy.startInventory.sonde
     sonden: { max: 3, tempo: 320, reichweite: 700, leben: 300, hp: 20, gegnerSicht: 650, gegnerDps: 7, sprungZeit: 20 },
+    // SL8 Notrufe (server/sim/notrufe.js): dauer = Spielsekunden bis ein Ruf verstummt (auch im Schnellsprung); bergeRadius/bergeTempo/bergeZeit = Bergung
+    // vor Ort (nah, langsam, so lange halten); hinterhaltN = Jäger bei einer Falle ohne eigene Angabe
+    notrufe: { dauer: 600, bergeRadius: 140, bergeTempo: 80, bergeZeit: 4, hinterhaltN: 3 },
+    // SL5 Spur (server/sim/spur.js): leseRadius = Abstand zum Spurkern, in dem die Ops liest; leseZeit = Sekunden Lesefortschritt (bricht beim Verlassen ab)
+    spur: { leseRadius: 350, leseZeit: 5 },
     entschl: { dauer: 25, rate: 0.3, weitBand: 0.22, driftV: 0.05, driftNebel: 2, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
       qSchwellen: [0.4, 0.65, 0.9], minLauf: 3, anzeigeDauer: 12 },
     // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,

@@ -16,8 +16,12 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
+const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
+const Lpscan = require('./sim/lpscan.js');   // SL7b: Landepunkt per Scan (Karte am Planungstisch)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
+const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
+const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
 const Sonden = require('./sim/sonden.js');   // SL4: Sonden der Ops (game.sonden, Snapshot space.so)
 const Entschl = require('./sim/entschluesseln.js');   // SL5: Signal entschlüsseln (Ops-Minispiel, Snapshot en)
 const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Legaten, Wellen (game.flotte, Snapshot flotte)
@@ -31,6 +35,8 @@ const store = require('./store.js');
 const Weltstand = require('./weltstand.js');   // S1 §5: Speicherstand der Kampagne
 const Welt = require('./sim/welt.js');   // SL1: Kartenwahl je Partie, Startort, Boden-Start
 const Marken = require('./sim/marken.js');   // SL1B: Hex-Marken auf der Sternkarte (Snapshot world.marken)
+const Gespraech = require('./sim/gespraech.js');   // SL2: Gespräche mit NSC am Boden (Snapshot gp, Befehle gespraech.*)
+const KULISSE = (() => { try { return require('../content/welt/kulisse.json'); } catch (e) { return { karten: {} }; } })();   // SL2: Passanten je Landepunkt (awayMap `ku`)
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
@@ -39,7 +45,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', sonde: 'sonde', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -341,6 +347,8 @@ class Game {
     Reise.reset(this);
     Entschl.reset(this);
     Sonden.reset(this);
+    Spur.reset(this);
+    Notrufe.reset(this);
     Sektorplan.reset(this);
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
@@ -406,6 +414,7 @@ class Game {
     this.flotte = null;           // EK4: { befehl, welle, hist, stats } – entsteht erst mit dem ersten Flottenbaustein
     this.notsprungIn = null;
     Marken.zuruecksetzen(this);   // SL1B: Hex-Marken (Notrufe, Spuren, Funde, Kontakte)
+    this.gespraech = null;        // SL2: laufendes Gespräch { id, nid, map, pid, z, phase, … }
     this.notsprungVon = null; this.notsprungT = -1;   // EK2: Ort und Zeit des letzten Notfallsprungs (Prüfung rueckzug)
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
     this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
@@ -697,8 +706,10 @@ class Game {
       const i = zs.indexOf(kk.zustand);
       return [id, kk.tiles || [], i >= 0 ? i : 0];
     });
+    const ku = (KULISSE.karten || {})[k.id];   // SL2: Passanten und Gebäudeschilder (shared/kulisse.js); Seed der Karte kommt vom Client aus `kv`
     return { id: k.id, erzeuger: k.erzeuger, art: k.art, bauweise: k.bauweise, besitz: k.besitz, zustand: k.zustand,
-      w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k), huelle: k.meta && k.meta.huelle ? true : undefined };
+      w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k), huelle: k.meta && k.meta.huelle ? true : undefined,
+      ...(ku ? { ku, seed: k.seed != null ? k.seed : 0 } : {}) };
   }
   // an einen Spieler senden (cmd awayMap.get bzw. syncAwayMaps). -> Fehlertext | null
   sendAwayMap(p, id) {
@@ -712,6 +723,20 @@ class Game {
     if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: Protocol.EVT_AWAY_MAP || 'awayMap' }, payload));
     p.awayKv = lp + '@' + payload.kv;
     return null;
+  }
+  // SL7b: gescannte Landepunkte: ihre Karte geht einmal an jeden verbundenen Spieler (Planungstisch), auch wenn niemand dort unten ist.
+  // Handkarten (platform/wreck/kesh) kennt der Client statisch; spätere Kartenversionen schickt syncAwayMaps beim Betreten.
+  syncPlanMaps() {
+    const ex = this.explore; if (!ex || !ex.lpScan.size) return;
+    for (const p of this.players) {
+      if (!p.connected || !p.conn) continue;
+      const sent = p.planSent || (p.planSent = {});
+      for (const lp of ex.lpScan) {
+        if (sent[lp]) continue;
+        const err = this.sendAwayMap(p, lp);
+        if (!err) sent[lp] = true;
+      }
+    }
   }
   // Beim Betreten bzw. sobald der Transfer auf eine gebaute Karte zeigt: jedem verbundenen Spieler einmal je Kartenversion
   syncAwayMaps() {
@@ -944,6 +969,8 @@ class Game {
       return;
     }
     // B1 §9: Karte nachfordern (ohne Konsole; Client fehlt die Karte oder kv passt nicht)
+    // SL2: Gespräche am Boden brauchen keine Konsole (gespraech.next | pick { opt } | end)
+    if (c === 'gespraech.next' || c === 'gespraech.pick' || c === 'gespraech.end') { const e = Gespraech.cmd(this, p, c, msg); if (e) this.notice(p, e); return; }
     if (c === Protocol.CMD_AWAY_MAP_GET) { const e = this.sendAwayMap(p, msg.id == null ? null : String(msg.id)); if (e) this.notice(p, e); return; }
     // R1 §4.4: Tab/Shift+Tab schaltet das Interface (Station), ohne den Ort zu wechseln
     if (c === Protocol.CMD_STATION_TAB) { const e = Station.tab(this, p, Number(msg.dir) < 0 ? -1 : 1); if (e) this.notice(p, e); return; }
@@ -1028,12 +1055,24 @@ class Game {
       case 'weapons.fracht':   // EK3 Teil A: { id? } nächste Fracht in Reichweite an Bord beamen (3 s halten), { off: true } abbrechen
         if (msg.off) Fracht.beamStop(this, 'abgebrochen'); else err = Fracht.beamStart(this, p, msg.id == null ? null : String(msg.id));
         break;
+      case 'weapons.person':   // SL0: { id? } Person vom Landepunkt an Bord beamen (Halteprozess), { off: true } abbrechen
+        if (msg.off) Fracht.beamStop(this, 'abgebrochen'); else err = PersonenBord.aufnehmenStart(this, p, msg.id == null ? null : String(msg.id));
+        break;
+      case 'weapons.person_ab': err = PersonenBord.abgebenStart(this, p, msg.id == null ? null : String(msg.id)); break;   // SL0: Person an Station/Landepunkt abgeben
       case 'weapons.abliefern': err = Fracht.abliefernStart(this, p); break;   // EK3 Teil A: beim Abnehmer bzw. an einer Station
+      case 'weapons.zonenscan': if (msg.off) Zonen.scanAbbrechen(this); else err = Zonen.scanStarten(this, p); break;   // SL7a: Verzerrungen scannen (Halten, Ops)
+      case 'weapons.landescan': if (msg.off) Lpscan.abbrechen(this); else err = Lpscan.starten(this, p); break;   // SL7b: Landepunkt scannen (Halten) bzw. abbrechen
       case 'weapons.abwerfen': err = Ladung.abwerfen(this, msg.art == null ? null : String(msg.art)); break;   // SL6: eine Einheit Ware ins All (Ops)
       case 'weapons.verkaufen': err = Ladung.verkaufStart(this, p); break;   // SL6: Ware an einen Händler in Reichweite verkaufen (Halteprozess)
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
       case 'weapons.sonde.start': err = Sonden.starteInSzene(this, p, msg.x != null && Number.isFinite(Number(msg.x)) ? { x: Number(msg.x), y: Number(msg.y) } : null); break;   // SL4: Sonde zur Marke (oder x/y)
       case 'weapons.sonde.sprung': err = Sonden.starteDurchSprungpunkt(this, p, String(msg.nach)); break;   // SL4: Sonde durch den Sprungpunkt in den Nachbarsektor
+      case 'weapons.notruf.entschluesseln': err = Notrufe.entschluesseln(this, p, String(msg.id)); break;   // SL8: verschlüsselten Ruf öffnen (Ops)
+      case 'captain.notruf.fokus': err = Notrufe.fokus(this, String(msg.id)); break;   // SL8: Captain wählt einen Ruf
+      case 'captain.notruf.befragen': err = Notrufe.befragen(this, String(msg.id), Number(msg.i)); break;
+      case 'captain.notruf.hinfliegen': err = Notrufe.hinfliegen(this, String(msg.id)); break;
+      case 'captain.notruf.ablehnen': err = Notrufe.ablehnen(this, String(msg.id)); break;
+      case 'weapons.spur.lesen': err = Spur.lesen(this, p, msg.on !== false); break;   // SL5: Spur am Spurkern lesen (on:false = abbrechen)
       case 'weapons.entschl.start': err = Entschl.anlauf(this, p); break;   // SL5: Ops öffnet die Abstimmung
       case 'weapons.entschl.stimme': err = Entschl.stimme(this, p, Number(msg.dir)); break;   // SL5: Frequenz −1 | 0 | 1 (gehalten)
       case 'weapons.entschl.stopp': err = Entschl.abbrechen(this, p); break;   // SL5: abbrechen, Qualität aus dem Verlauf
@@ -1079,7 +1118,7 @@ class Game {
         try { err = E.order(this, msg.tag == null ? null : String(msg.tag), befehl, p) || null; } catch (e) { this.countError('escort-order', e); err = null; }
         break;
       }
-      case 'sonde.input': err = away.sondeInput(this, p, String(msg.color)); break;
+      case 'kustodenpult.input': err = away.kustodenpultInput(this, p, String(msg.color)); break;   // SL0: früher sonde.input
       default: err = 'Unbekannter Befehl.';
     }
     if (err) this.notice(p, err);
@@ -1450,8 +1489,12 @@ class Game {
       this.safe('players', () => interior.updatePlayers(this, dt));
       this.safe('bridge', () => this.trackBridgeLeaves());
       this.safe('space', () => space.update(this, dt));
+      if (this.gespraech) this.safe('gespraech', () => Gespraech.update(this));   // SL2: Gespräch bricht beim Weggehen ab
       this.safe('fracht', () => Fracht.update(this, dt));   // EK3 Teil A: Halteprozess, Szenenwechsel
+      this.safe('lpscan', () => Lpscan.update(this, dt));   // SL7b: Landepunkt-Scan der Ops (Halteprozess)
       this.safe('sonden', () => Sonden.update(this, dt));   // SL4: Flug, Senden, Beschuss
+      if (this.spur) this.safe('spur', () => Spur.update(this, dt));   // SL5: Hexwechsel, Lesen, Teilung
+      if (this.notrufe && this.notrufe.liste.length) this.safe('notrufe', () => Notrufe.update(this, dt));   // SL8: Ablauf, Ankunft, Bergung/Hinterhalt
       if (this.entschl) this.safe('entschl', () => Entschl.update(this, dt));   // SL5: Abstimmung, Drift, Fortschritt
       if (this.flotte) this.safe('flotte', () => Flotte.update(this, dt));   // EK4: Befehle (Ziele erreicht, Frist), Wellen
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
@@ -1479,6 +1522,7 @@ class Game {
         else { const spot = away.beamSpot(this); if (spot) this.setAwayMap(spot.map); }
       }
       this.safe('awayMap', () => this.syncAwayMaps());   // B1 §9: gebaute Karte vor dem Betreten an alle
+      this.safe('planMaps', () => this.syncPlanMaps());   // SL7b: Karten gescannter Landepunkte an alle (Planungstisch); einmal je Spieler
       this.safe('vorbau', () => this.vorbauBeiAnkunft());   // B1: Landepunkte des neuen Orts vorbauen (nach dem Tick)
       this.safe('weltstand', () => this.updateWeltstand(dt));   // S1 §5.3: am Ende des Ticks
     }
@@ -1724,6 +1768,8 @@ class Game {
     };
     // EK2 (kompakt, „fehlt = Standard“): Minen nur gesehene/nahe, Alarmstufe nur > 0
     { const so = Sonden.snapshot(this); if (so) spaceOut.so = so; }   // SL4: Sonden (≤ 3)
+    { const no = Notrufe.snapshotOrt(this); if (no) spaceOut.nro = no; }   // SL8: Ruf-Ort in der Szene (neutral)
+    { const sp = Spur.snapshot(this); if (sp) spaceOut.sp = sp; }   // SL5: Spurkern der Szene (nur im Spur-Hex, ungelesen)
     { const mi = Alarm.minenSnap(this); if (mi) spaceOut.mines = mi; const al = Alarm.stufe(this); if (al > 0) spaceOut.al = al; }
     // W2 AP3b: bewegte Brocken (Feld b) nur mit Bahnparametern, ohne id (Netzbudget; der Client braucht sie nicht).
     // Stille Brocken (Kampagne) unverändert.
@@ -1837,12 +1883,15 @@ class Game {
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
         ...(Alarm.schleichSnap(this) ? { sf: Alarm.schleichSnap(this) } : {}),   // EK2: Schleichfahrt: Signatur, Schilde unten, Ping
-        npcs: onboard.npcsSnapshot(this),
+        npcs: onboard.npcsSnapshot(this).concat(PersonenBord.bordNpcs(this)),   // SL0: Personen an Bord liegen auf den Frachtbetten
       },
       ...(this.arena && this.arena.wellen ? { wellen: arena.wellenSnap(this) } : {}),   // Bodenkampf: Wellen (nur im Wellenmodus)
       space: spaceOut,
       ...((fr) => (fr ? { fracht: fr } : {}))(Fracht.snapshot(this)),   // EK3 Teil A: nur wenn etwas da ist (Snapshot kompakt)
       ...((zo) => (zo ? { zonen: zo } : {}))(Zonen.snapshot(this)),   // SL6: nur in Szenen mit Zonen
+      ...((ls) => (ls ? { lpscan: ls } : {}))(Lpscan.snapshot(this)),   // SL7b: { n scannbar, p Fortschritt } nur wenn etwas zu scannen ist
+      ...((gp) => (gp ? { gp } : {}))(this.gespraech ? Gespraech.snapshot(this) : null),   // SL2: laufendes Gespräch (nur währenddessen)
+      ...((nr) => (nr ? { nr } : {}))(Notrufe.snapshot(this)),   // SL8: offene Notrufe (Fokus mit Details), nur wenn vorhanden
       ...((en) => (en ? { en } : {}))(Entschl.snapshot(this)),   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
       ...((fl) => (fl ? { flotte: fl } : {}))(this.flotte ? Flotte.snapshot(this) : null),   // EK4: Befehl und Welle (fehlt ohne Flotte)
       away: {
@@ -1857,7 +1906,7 @@ class Game {
         npcs: away.personenSnap(aw),   // W2 AP6: NSC-Personen [{ id, name, x, y, dir?, following?, injured?, rescued? }]
         items: aw.items.map((i) => ({ id: i.id, kind: i.kind, x: i.x, y: i.y })),
         marker: aw.marker, strikes: aw.strikes.map((s) => ({ x: s.x, y: s.y, t: r2(s.t) })),
-        sonde: { disabled: aw.sonde.disabled, symbols: aw.sonde.symbols, entered: aw.sonde.entered, lockout: r1(aw.sonde.lockout) },
+        kustodenpult: { disabled: aw.kustodenpult.disabled, symbols: aw.kustodenpult.symbols, entered: aw.kustodenpult.entered, lockout: r1(aw.kustodenpult.lockout) },   // SL0: früher away.sonde
         codeTable: aw.codeTable, odaCodeHelp: aw.odaCodeHelp, kuppelUntil: r2(aw.kuppelUntil), sensorUntil: r2(aw.sensorUntil), doorOpen: aw.doorOpen, coreRebooted: aw.coreRebooted,
         salvage: aw.salvage.map((s) => ({ x: s.x, y: s.y, done: s.done })),
         ...(aw.loreRead ? { loreRead: true } : {}),   // M4 (QA-AWAY): Logbuch-Terminal im Wrack als gelesen zeigen (nur wenn gelesen – Snapshot-Budget)

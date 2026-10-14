@@ -133,7 +133,7 @@ function awaySolid(game) {
   }
   return (tx, ty) => {
     const ch = map.at(tx, ty);
-    if (ch === 'L' && aw.map === 'platform') return !aw.sonde.disabled;
+    if (ch === 'L' && aw.map === 'platform') return !aw.kustodenpult.disabled;
     if (ch === 'V' && aw.map === 'wreck') return !(aw.hollow && aw.hollow.open);
     if (ch === 'G' && aw.map === 'kesh') return !(aw.vault && aw.vault.open);
     return map.solid(tx, ty);
@@ -571,10 +571,10 @@ function interactionsAt(game, p, tx, ty, own) {
   } else {
     const aw = game.away;
     if (aw.map === 'platform') {
-      if (ch === 'Z') list.push({ kind: 'console', console: 'sonde' });
+      if (ch === 'Z') list.push({ kind: 'console', console: 'kustodenpult' });
       if (ch === 'b' && !aw.coreRebooted) {
-        if (aw.sonde.disabled) list.push({ kind: 'reboot' });
-        else list.push({ kind: 'reboot', blocked: 'Der Bojenkern ist gesperrt – erst die Kustoden-Sonde abschalten.' });
+        if (aw.kustodenpult.disabled) list.push({ kind: 'reboot' });
+        else list.push({ kind: 'reboot', blocked: 'Der Bojenkern ist gesperrt – erst das Kustodenpult abschalten.' });
       }
       npcInteraction(aw, p, tx, ty, list);
     } else if (aw.map === 'wreck') {
@@ -626,6 +626,7 @@ function interactionsAt(game, p, tx, ty, own) {
 function npcInteraction(aw, p, tx, ty, list) {
   const npc = away().personAn(aw, tx, ty, p.id);   // W2 AP6: Personen nur über die Zugriffsfunktionen in away.js
   if (!npc) return;
+  if (npc.gespraech) { list.unshift({ kind: 'reden', npc }); return; }   // SL2: Gesprächs-NSC (Evert, Wirt): ansprechen statt mitnehmen; vor dem Anker unter ihm (Zelle)
   if (!npc.injured) list.push({ kind: 'npc', npc });
   else if (p.carry === 'medipack' || (npc.name && p.medkit > 0)) list.push({ kind: 'npcHeal', npc });
   else list.push({ kind: 'npc', npc, blocked: `${npc.name || 'Ivo'} ist verletzt – ${npc.name ? 'braucht' : 'er braucht'} ein Medipack (Lager an Bord oder Nachschub per Transfer auf die Markierung).` });
@@ -646,7 +647,7 @@ function onAct(game, p, down) {
   for (const t of candidateTiles(p, game)) {
     const list = interactionsAt(game, p, t.x, t.y, t.x === own.x && t.y === own.y);
     if (!list.length) continue;
-    const ok = list.find((i) => !i.blocked);
+    const ok = list.find((i) => !i.blocked && i.kind === 'reden') || list.find((i) => !i.blocked);   // SL2: ein ansprechbarer NSC geht vor dem Anker unter ihm
     if (ok) return performInteraction(game, p, ok);
     if (!blocked) blocked = list[0].blocked;
     break;
@@ -726,6 +727,11 @@ function performInteraction(game, p, it) {
     }
     case 'pickup': return pickupItem(game, p, it.item, it.where);
     case 'ivoAbgeben': return onboard.ivoAbgeben(game);
+    case 'reden': {   // SL2: Gespräch beginnen (server/sim/gespraech.js); Fehler als Hinweis
+      const err = require('./gespraech.js').beginne(game, p, it.npc);
+      if (err) game.notice(p, err);
+      return;
+    }
     case 'npcHeal': {
       const npc = it.npc;   // W2 AP6: Person aus npcInteraction (away.personAn)
       if (npc.person) {   // S2: Person aus spawn_person (Medipack getragen oder eingesteckt)
@@ -846,7 +852,7 @@ function holdValid(game, p, h) {
     case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system);
     case 'minigame': return repairable(game, h.system);
     case 'beam': return game.transfer.canBeam(game, h.dir).ok;
-    case 'reboot': return p.zone === 'away' && game.away.map === 'platform' && game.away.sonde.disabled && !game.away.coreRebooted;
+    case 'reboot': return p.zone === 'away' && game.away.map === 'platform' && game.away.kustodenpult.disabled && !game.away.coreRebooted;
     case 'switch': return p.zone === 'ship' && game.ship.reactorCtl.state === 'offline';
     case 'salvage': { const s = game.away.salvage && game.away.salvage.find((q) => q.x === h.sx && q.y === h.sy); return p.zone === 'away' && !!s && !s.done; }
     case 'hollow': return p.zone === 'away' && game.away.map === 'wreck' && game.away.hollow.marked && !game.away.hollow.open;

@@ -1,0 +1,14 @@
+{
+  "id": "bote",
+  "name": "Spur des Boten",
+  "_kommentar": "Entwurf SL5 (Kai passt an, SL11 verdrahtet das Kapitel). weg: Hexe der Spur (Sund). alter: Sekunden seit der Spur je Hex (in der Kampagne verblasst sie nicht). Teilung in 0603: Gasfeld ist der falsche Ast. ende.kante: Schlüssel der verborgenen Kante nach Schrottkante.",
+  "weg": ["0603", "0604", "0605"],
+  "alter": [1500, 1260, 900],
+  "teilungen": [
+    { "ab": "0603", "aeste": [
+      { "nach": "0604", "echt": true, "indiz": "Masse 40 t, Antriebssignatur wie ein Frachter mit Schlagseite, der Kurs hält." },
+      { "nach": "0503", "echt": false, "indiz": "Masse 2 t, die Signatur flackert gleichmäßig: ein Täuschkörper." }
+    ] }
+  ],
+  "ende": { "kante": "lager-schrottkante" }
+}

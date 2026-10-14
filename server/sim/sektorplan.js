@@ -10,7 +10,9 @@ const Sektoren = require('../../shared/sektoren.js');
 const Plan = require('../../shared/sektorplan.js');
 
 const MAX_MARKEN = 12, MAX_SCHIFFE = 12;
-const MARKEN_ARTEN = ['marke', 'spur', 'fund', 'notruf', 'ziel'];
+// Marken des Sektorplans sind NOTIZEN des Captains mit Position im Sektor (marke | fund | kontakt). Marken auf HEX-Ebene (Missionsziel, Notruf, Spur)
+// gehören server/sim/marken.js (SL1B, ein Mechanismus: Notrufe/Spur setzen dort; der Sektorplan zeichnet sie am Sektor mit).
+const MARKEN_ARTEN = ['marke', 'fund', 'kontakt'];
 const r1 = (v) => Math.round(v * 10) / 10;
 
 function neu() { return { gesichtet: {}, marken: [], schiffe: [], seq: 0 }; }
@@ -65,14 +67,6 @@ function markeEntfernen(game, id) {
   s.marken.splice(i, 1); bump(game);
   return null;
 }
-// Marke aus dem Code setzen (Spur, Notruf; SL5/SL8) – ersetzt eine Marke gleicher Kennung; ohne Limit-Fehler (älteste fällt weg)
-function markeAusCode(game, id, hex, x, y, art) {
-  const s = st(game);
-  const i = s.marken.findIndex((m) => m.id === id); if (i >= 0) s.marken.splice(i, 1);
-  s.marken.push({ id: String(id), h: hex, x: Math.round(x || 0), y: Math.round(y || 0), k: MARKEN_ARTEN.includes(art) ? art : 'marke' });
-  if (s.marken.length > MAX_MARKEN) s.marken.shift();
-  bump(game);
-}
 
 // Snapshot: Teil von world.sektoren (nur bei Versionsänderung): g = gesichtete, nicht erkundete Hexe; p = { m: Marken, s: Schiffe } (nur wenn vorhanden)
 function snapshotTeil(game) {
@@ -103,4 +97,4 @@ function restore(game, b) {
   bump(game);
 }
 
-module.exports = { MARKEN_ARTEN, reset, bekannt, gesichtet, sichten, schiffeAufnehmen, schiffeVon, markeSetzen, markeEntfernen, markeAusCode, snapshotTeil, toSave, restore };
+module.exports = { MARKEN_ARTEN, reset, bekannt, gesichtet, sichten, schiffeAufnehmen, schiffeVon, markeSetzen, markeEntfernen, snapshotTeil, toSave, restore };

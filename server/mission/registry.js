@@ -266,7 +266,7 @@ define({ id: 'debug_skip_away', art: 'aktion', intern: true, beschreibung: 'Auß
     const g = g_(m); const aw = g.aways[a.map || 'platform'];
     if (!aw) return;
     aw.active = true; aw.firstBeamAt = aw.firstBeamAt || g.time;
-    if ((a.map || 'platform') === 'platform') { aw.coreRebooted = true; aw.sonde.disabled = true; aw.doorOpen = true; }
+    if ((a.map || 'platform') === 'platform') { aw.coreRebooted = true; aw.kustodenpult.disabled = true; aw.doorOpen = true; }
     for (const p of g.players) if (p.zone === 'away') interior().placeOnShipPad(g, p);
     if ((a.map || 'platform') === 'platform') get('debug_item_aboard').run(m, { item: 'datenkern' });
   } });

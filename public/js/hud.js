@@ -35,7 +35,7 @@
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
-  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', sonde: 'Sonde', plan: 'Planungstisch' };
+  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
@@ -204,6 +204,7 @@
       this.drawArrival(ctx);
       if (!inConsole) this.drawBarks(ctx, view);
       this.drawOda(ctx, view, inConsole);
+      if (st.gp && !inConsole && window.Gespraech) Net.guard('Hud.gespraech', () => window.Gespraech.fenster(ctx, st));   // SL2: Gespräch am Boden
       this.drawNotices(ctx, view);
       if (this.showCrew && !inConsole) this.drawCrew(ctx, view);
       if (st.wellen) Net.guard('Hud.wellen', () => this.drawWellen(ctx, view, inConsole));   // Bodenkampf: Wellen

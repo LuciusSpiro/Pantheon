@@ -233,7 +233,7 @@ class Agent {
   }
 
   consoleTile(kind, p) {
-    if (kind === 'sonde') return Maps.platform.find('Z')[0];
+    if (kind === 'kustodenpult') return Maps.platform.find('Z')[0];
     if (kind === 'quartier') { const b = Maps.BEDS.find((q) => q.color === p.color); return { x: b.x, y: b.y }; }
     return consoleTileOf(kind);
   }
@@ -241,7 +241,7 @@ class Agent {
     const p = this.me(S);
     if (p.console === kind) { this.ix = null; return true; }
     if (p.console) { this.send({ t: 'leave' }); return false; }
-    if (p.zone !== 'ship' && kind !== 'sonde') return false;
+    if (p.zone !== 'ship' && kind !== 'kustodenpult') return false;
     if (this.actDown) this.act(false);
     const t = this.consoleTile(kind, p);
     const r = this.interact(S, t.x, t.y, {});
@@ -1005,7 +1005,7 @@ class Agent {
   stage_away(S, p) { this.awayPlatform(S, p); }
   awayPlatform(S, p) {
     const sh = S.ship;
-    if (S.space.enemies.length && p.zone === 'ship' && (this.role === 'weapons' && S.away.sonde.disabled)) { this.combat(S, p); return; }
+    if (S.space.enemies.length && p.zone === 'ship' && (this.role === 'weapons' && S.away.kustodenpult.disabled)) { this.combat(S, p); return; }
     if (this.role === 'captain') {
       if (!this.enter(S, 'captain')) return;
       if (S.away.active && S.players.some((o) => o.zone === 'away')) {
@@ -1016,7 +1016,7 @@ class Agent {
     }
     if (p.zone === 'ship') {
       if (p.carry === 'datenkern') { if (this.actDown) this.act(false); this.input(0, 0); return; }
-      if (S.away.active && this.role === 'weapons' && S.away.sonde.disabled) { this.enter(S, 'weapons'); return; }
+      if (S.away.active && this.role === 'weapons' && S.away.kustodenpult.disabled) { this.enter(S, 'weapons'); return; }
       const drift = (this.role === 'solo' || this.role === 'helm') && (dist(sh.x, sh.y, this.station(S).x, this.station(S).y) > 260 || sh.speed > 8);
       if (p.console && !(drift && p.console === 'helm')) { this.leave(S); return; }
       if (sh.systems.transfer === 'broken' || sh.systems.transfer === 'offline') { this.input(0, 0); return; }
@@ -1058,17 +1058,17 @@ class Agent {
       this.interact(S, Math.floor(npc.x / TILE), Math.floor(npc.y / TILE), { floor: true });
       return;
     }
-    if (doesCore && S.away.sonde.disabled && !S.away.coreRebooted && p.carry !== 'datenkern') {
+    if (doesCore && S.away.kustodenpult.disabled && !S.away.coreRebooted && p.carry !== 'datenkern') {
       if (p.console) { this.leave(S); return; }
       this.interact(S, 14, 7, { hold: true, until: (S2) => S2.away.coreRebooted });
       return;
     }
-    if (doesSonde && !S.away.sonde.disabled) {
-      if (p.console !== 'sonde') { this.enter(S, 'sonde'); return; }
+    if (doesSonde && !S.away.kustodenpult.disabled) {
+      if (p.console !== 'kustodenpult') { this.enter(S, 'kustodenpult'); return; }
       const codeKnown = S.away.odaCodeHelp || this.teamOnShipCaptain(S);
-      if (!codeKnown || S.away.sonde.lockout > 0) { this.input(0, 0); return; }
-      const s = S.away.sonde;
-      if ((this.memo.codeAt || 0) < S.time) { this.memo.codeAt = S.time + 0.4; this.cmd('sonde.input', { color: S.away.codeTable[s.symbols[s.entered.length]] }); }
+      if (!codeKnown || S.away.kustodenpult.lockout > 0) { this.input(0, 0); return; }
+      const s = S.away.kustodenpult;
+      if ((this.memo.codeAt || 0) < S.time) { this.memo.codeAt = S.time + 0.4; this.cmd('kustodenpult.input', { color: S.away.codeTable[s.symbols[s.entered.length]] }); }
       return;
     }
     if (p.console) { this.leave(S); return; }
@@ -2085,7 +2085,9 @@ class GenericAgent extends KeshAgent {
     }
     if (this.reactorDuty(S, p)) return;
     if (S.en && this.entschlBot(S, p)) return;   // SL5: Signal entschlüsseln (Ops)
-    if (this.opts && this.opts.sondeZiel && this.sondeBot(S, p)) return;   // SL4: Sonde zu einem Zielpunkt (opts.sondeZiel = { x, y })
+    if (this.game.spur && this.spurBot(S, p)) return;   // SL5: Ionenspur folgen (Navigation fliegt, Ops liest)
+    if (S.fracht && (S.fracht.pq || S.fracht.pers) && this.personenBot(S, p)) return;   // SL0: Ops beamt Personen vom Landepunkt an Bord
+    if (this.opts && (this.opts.sondeZiel || this.opts.sondeNach) && this.sondeBot(S, p)) return;   // SL4: Sonde zu einem Zielpunkt (opts.sondeZiel = { x, y }) bzw. durch den Sprungpunkt (opts.sondeNach = Hex)
     if (this.role === 'captain' && p.console === 'captain') this.queueRepairs(S);
     if (!info) { this.betweenMissions(S, p); return; }
     this.genericStep(S, p, info);
@@ -2107,11 +2109,41 @@ class GenericAgent extends KeshAgent {
     this.cmd('weapons.entschl.stimme', { dir: unzufrieden ? m.enDir : 0 });
     return true;
   }
+  // SL5: Bot folgt der Ionenspur (liest die Wegliste direkt: er kennt den echten Ast). Im falschen Hex/zwischen den Hexen: reisen; im Spur-Hex:
+  // Spurkern anfliegen, bremsen, Ops liest (Teilung: entschlBot stimmt ab). -> true, wenn beschäftigt
+  spurBot(S, p) {
+    const s = this.game.spur; if (!s || s.fertig || p.zone !== 'ship') return false;
+    const Spur = require('../server/sim/spur.js'); const Sek = require('../shared/sektoren.js');
+    const d = Spur.datei(s.id); if (!d) return false;
+    if (S.en && S.en.z !== 2) return false;   // Entschlüsseln läuft: entschlBot
+    const hex = Sek.hexVonOrt(S.ship.scene);
+    const want = hex !== d.weg[s.idx] ? d.weg[s.idx] : (s.gelesen ? d.weg[s.idx + 1] : null);
+    if (want) { this.travel(S, p, Sek.ortVonHex(want)); return true; }
+    if (s.wartet) return true;
+    const k = Spur.kern(d.id, hex); const dd = dist(S.ship.x, S.ship.y, k.x, k.y);
+    if (dd > CONFIG.spur.leseRadius * 0.6) { if (this.enter(S, 'helm')) this.steer(S, k.x, k.y, 150); return true; }
+    if (S.ship.speed > 12) { if (this.enter(S, 'helm')) this.brake(S); return true; }
+    if (this.enter(S, 'weapons') && !(S.space.sp && S.space.sp.p)) this.cmd('weapons.spur.lesen', { on: true });
+    return true;
+  }
+  // SL0: Ops-Bot beamt eine wartende Person (fracht.pq) an Bord, solange Platz ist; opts.personAbgeben = Person nach Ankunft an der Station wieder abgeben
+  personenBot(S, p) {
+    if (!this.is('weapons') || p.zone !== 'ship' || S.fracht.halt) return false;
+    if ((this.memo.personAt || 0) > S.time) return false;
+    const fr = S.fracht; const cap = (Maps.CARGO_CAPACITY || 2);
+    if (fr.pq && fr.pq.length && ((fr.lager || []).length + (fr.pers || []).length) < cap) {
+      this.memo.personAt = S.time + 2; if (p.console !== 'weapons') { this.enter(S, 'weapons'); return true; }
+      this.cmd('weapons.person'); return true;
+    }
+    if (this.opts && this.opts.personAbgeben && fr.pers && fr.pers.length) { this.memo.personAt = S.time + 2; this.cmd('weapons.person_ab'); return true; }
+    return false;
+  }
   // SL4: Ops-Bot schickt eine Sonde zu opts.sondeZiel (Marke setzen, Sonde starten); einmal je Partie (memo.sondeGestartet)
   sondeBot(S, p) {
     if (!this.is('weapons') || p.zone !== 'ship' || this.memo.sondeGestartet || !(S.inventory && S.inventory.sonde > 0)) return false;
     if (!this.enter(S, 'weapons')) return true;
     const z = this.opts.sondeZiel;
+    if (this.opts.sondeNach) { this.cmd('weapons.sonde.sprung', { nach: this.opts.sondeNach }); this.memo.sondeGestartet = true; return true; }
     if (!S.ship.markers.tactical) { this.cmd('weapons.marker', { x: z.x, y: z.y }); return true; }
     this.cmd('weapons.sonde.start'); this.memo.sondeGestartet = true;
     return true;
@@ -3275,14 +3307,14 @@ class GenericAgent extends KeshAgent {
       this.padsUp(S, p); return;
     }
     // Sonde (eigene Aufgabe oder Voraussetzung für die Kerntür nach einem Zurücksetzen der Karte)
-    if (t.sonde || (t.core && aw.sonde && !aw.sonde.disabled && !(aw.items || []).every((i) => i.kind !== 'datenkern'))) {
+    if (t.sonde || (t.core && aw.kustodenpult && !aw.kustodenpult.disabled && !(aw.items || []).every((i) => i.kind !== 'datenkern'))) {
       const hasWeaponsMate = (this.game.simAgents || []).some((a) => a !== this && a.role === 'weapons' && a.me(S) && a.me(S).zone === 'away');
       if (this.role === 'helm' && hasWeaponsMate) { this.input(0, 0); return; }   // Taktik gibt den Code ein
-      if (p.console !== 'sonde') { this.enter(S, 'sonde'); return; }
-      const s = aw.sonde;
+      if (p.console !== 'kustodenpult') { this.enter(S, 'kustodenpult'); return; }
+      const s = aw.kustodenpult;
       const codeKnown = aw.odaCodeHelp || this.teamOnShipCaptain(S);
       if (!codeKnown || s.lockout > 0) { this.input(0, 0); return; }
-      if ((this.memo.codeAt || 0) < S.time) { this.memo.codeAt = S.time + 0.4; this.cmd('sonde.input', { color: aw.codeTable[s.symbols[s.entered.length]] }); }
+      if ((this.memo.codeAt || 0) < S.time) { this.memo.codeAt = S.time + 0.4; this.cmd('kustodenpult.input', { color: aw.codeTable[s.symbols[s.entered.length]] }); }
       return;
     }
     if (p.console) { this.leave(S); return; }
@@ -3291,7 +3323,7 @@ class GenericAgent extends KeshAgent {
       if (p.carry === 'datenkern') { this.padsUp(S, p); return; }
       const carrier = S.players.some((o) => o.id !== this.pid && o.carry === 'datenkern');
       if (carrier) { this.padsUp(S, p); return; }
-      if (aw.sonde && aw.sonde.disabled && !aw.coreRebooted) { this.interact(S, 14, 7, { hold: true, until: (S2) => S2.away.coreRebooted }); return; }
+      if (aw.kustodenpult && aw.kustodenpult.disabled && !aw.coreRebooted) { this.interact(S, 14, 7, { hold: true, until: (S2) => S2.away.coreRebooted }); return; }
       if (core) {
         if (!aw.doorOpen) { this.input(0, 0); return; }
         if (p.carry && !this.actDown) { this.send({ t: 'drop' }); return; }

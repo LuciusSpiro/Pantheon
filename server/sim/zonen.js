@@ -19,13 +19,26 @@ const escort = () => escortMod || (escortMod = require('./escort.js'));
 const ladung = () => ladungMod || (ladungMod = require('./ladung.js'));
 
 const KEINE = Object.freeze([]);
-function neu() { return { bekannt: new Set(), zaehler: {}, akk: {}, in: [], t: 0, szene: null }; }
+// aus = abgeschaltete Schaltgruppen (zone_schalten; scene.zonenAus gilt beim Betreten der Szene), alle = für alle sichtbar freigegeben (Feldkarte, zone_sichtbar),
+// scanT = laufender Ops-Scan der Verzerrungen, ruT = Sperre für das nächste Rücksetzen (s)
+function neu() { return { bekannt: new Set(), zaehler: {}, akk: {}, in: [], t: 0, szene: null, aus: new Set(), alle: new Set(), scan: null, ruT: 0 }; }
 function state(game) { return game.zonenSim || (game.zonenSim = neu()); }
 
-function szeneZonen(game) {
+function szeneZonenAlle(game) {
   const loc = Locations.get(game.ship.scene);
   const z = loc && loc.scene && loc.scene.zonen;
   return Array.isArray(z) && z.length ? z : KEINE;
+}
+// wirksame Zonen der Szene (abgeschaltete Gruppen fehlen); ohne Abschaltung dieselbe Liste
+let filterCache = { src: null, aus: '', out: null };
+function szeneZonen(game) {
+  const zs = szeneZonenAlle(game);
+  if (zs === KEINE) return zs;
+  const S = game.zonenSim;
+  if (!S || !S.aus.size) return zs;
+  const key = [...S.aus].sort().join(',');
+  if (filterCache.src !== zs || filterCache.aus !== key) filterCache = { src: zs, aus: key, out: zs.filter((z) => !(z.gruppe && S.aus.has(z.gruppe))) };
+  return filterCache.out;
 }
 
 // Sichtfaktor der Lerche (1 ohne Zone)
@@ -34,6 +47,26 @@ function sichtFaktor(game) {
   if (zs === KEINE) return 1;
   return Zonen.wirkung(zs, game.ship.x, game.ship.y).sicht;
 }
+
+// Schaltgruppe ein-/ausschalten (Regiebuch zone_schalten, z. B. Haltefeld der Forschungsstation im Finale)
+function schalten(game, gruppe, an) {
+  const S = state(game); const vorher = S.aus.has(gruppe);
+  if (an) S.aus.delete(gruppe); else S.aus.add(gruppe);
+  if (vorher === !an) return false;
+  game.missionEvent('zonenGeschaltet', { gruppe, an: !!an });
+  return true;
+}
+// Zonen (einer Gruppe, sonst alle der Szene) für alle sichtbar machen bzw. wieder zurücknehmen (Feldkarte)
+function sichtbarMachen(game, gruppe, fuerAlle) {
+  const S = state(game); let n = 0;
+  for (const z of szeneZonenAlle(game)) {
+    if (gruppe && gruppe !== 'alle' && z.gruppe !== gruppe) continue;
+    if (fuerAlle) { if (!S.alle.has(z.id)) { S.alle.add(z.id); n++; } } else if (S.alle.delete(z.id)) n++;
+  }
+  if (n) game.missionEvent('zonenSichtbar', { gruppe: gruppe || 'alle', alle: !!fuerAlle });
+  return n;
+}
+function istAus(game, gruppe) { return state(game).aus.has(gruppe); }
 
 // Zonen als erkundet markieren (Flug hinein, Sonde, Scan). ids: Liste | 'alle'. Gibt die Zahl neu bekannter Zonen zurück.
 function bekanntMachen(game, ids) {
@@ -51,7 +84,7 @@ function istBekannt(game, id) { return state(game).bekannt.has(id); }
 // Ops-Scan (SL7a): alle Zonen der Szene im Umkreis r um die Lerche werden bekannt (Stärke/Richtung für die Taktikkarte)
 function scan(game, r) {
   const S = state(game); const sh = game.ship; let n = 0;
-  for (const z of szeneZonen(game)) {
+  for (const z of szeneZonen(game)) {   // nur wirksame Zonen: ein noch abgeschaltetes Haltefeld verrät der Scan nicht
     if (S.bekannt.has(z.id)) continue;
     const reichweite = Math.hypot(sh.x - z.x, sh.y - z.y) - (z.r1 || z.r || Math.max(z.w || 0, z.h || 0) / 2);
     if (reichweite <= (r || 0)) { S.bekannt.add(z.id); n++; }
@@ -63,6 +96,36 @@ function scan(game, r) {
 function zaehler(game, id) { return state(game).zaehler[id] || 0; }
 function zaehlerSetzen(game, id, v) { state(game).zaehler[id] = Math.max(0, Number(v) || 0); }
 
+// ---- Ops-Scan der Verzerrungen (weapons.zonenscan, Halten): macht Zonen im Umkreis bekannt (Pfeil und Stärke auf der Ops-Karte) ----
+const scanR = (game) => Number(game.C.zonen && game.C.zonen.scanR) || 900;
+const scanZeit = (game) => Number(game.C.zonen && game.C.zonen.scanZeit) || 3;
+function scanNoetig(game) {   // noch unbekannte Zonen in Reichweite?
+  const S = state(game); const sh = game.ship;
+  return szeneZonen(game).some((z) => !S.bekannt.has(z.id) && Math.hypot(sh.x - z.x, sh.y - z.y) - (z.r1 || z.r || Math.max(z.w || 0, z.h || 0) / 2) <= scanR(game));
+}
+function scanStarten(game, p) {
+  const S = state(game);
+  if (S.scan) return 'Zonen-Scan läuft bereits.';
+  if (game.ship.docked) return 'Angedockt – kein Zonen-Scan.';
+  if (szeneZonen(game) === KEINE) return 'Hier gibt es keine Verzerrungen zu scannen.';
+  if (!scanNoetig(game)) return 'Alle Zonen in Reichweite sind schon gescannt.';
+  S.scan = { t: 0, dur: scanZeit(game) };
+  game.emit('zonenScan', { phase: 'start', dur: S.scan.dur });
+  return null;
+}
+function scanAbbrechen(game) { const S = state(game); if (!S.scan) return false; S.scan = null; game.emit('zonenScan', { phase: 'abbruch' }); return true; }
+function scanTick(game, S, dt) {
+  if (!S.scan) return;
+  const Station = require('./station.js');
+  if (!game.players.some((p) => p.connected && Station.stationOf(p) === 'weapons' && !p.downed)) return void scanAbbrechen(game);
+  S.scan.t += dt;
+  if (S.scan.t < S.scan.dur) return;
+  S.scan = null;
+  const n = scan(game, scanR(game));
+  game.emit('zonenScan', { phase: 'fertig', n });
+  if (n) game.oda(`Zonen-Scan: ${n} Verzerrung${n === 1 ? '' : 'en'} erfasst – Stärke und Richtung stehen auf der Ops-Karte.`, null);
+}
+
 function klemmen(body, sp, m) {
   if (body.x < m) body.x = m; if (body.x > sp.w - m) body.x = sp.w - m;
   if (body.y < m) body.y = m; if (body.y > sp.h - m) body.y = sp.h - m;
@@ -71,9 +134,15 @@ function klemmen(body, sp, m) {
 function update(game, dt) {
   const S = state(game);
   const sh = game.ship; const sp = game.space;
-  if (S.szene !== sh.scene) { S.szene = sh.scene; S.akk = {}; S.in = []; }
+  if (S.szene !== sh.scene) {
+    S.szene = sh.scene; S.akk = {}; S.in = []; S.scan = null; S.alle = new Set();
+    const loc0 = Locations.get(sh.scene); const aus = loc0 && loc0.scene && loc0.scene.zonenAus;
+    S.aus = new Set(Array.isArray(aus) ? aus : []);   // scene.zonenAus: Gruppen, die erst ein Regiebuch einschaltet (Haltefeld im Finale)
+  }
+  S.ruT = Math.max(0, S.ruT - dt);
   const zs = szeneZonen(game);
   if (zs === KEINE) { if (S.in.length) S.in = []; return; }
+  scanTick(game, S, dt);
   const C = game.C.zonen || { takt: 1, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 };
   S.t += dt;
   const tackt = S.t >= C.takt;   // Schaden-Takt (alle Körper gleichzeitig)
@@ -84,7 +153,8 @@ function update(game, dt) {
     const w = Zonen.wirkung(zs, sh.x, sh.y);
     if (w.vx || w.vy) { sh.x += w.vx * dt; sh.y += w.vy * dt; klemmen(sh, sp, 40); }
     // Erkunden: wer in eine Zone fliegt, kennt sie ab dann
-    const neuBekannt = w.ids.filter((id) => !S.bekannt.has(id));
+    // (ops_scan-Zonen, die Gravimetrie, kennt nur der Scan der Ops – das Hineinfliegen verrät sie nicht)
+    const neuBekannt = w.ids.filter((id) => !S.bekannt.has(id) && (zs.find((q) => q.id === id) || {}).sichtbarFuer !== 'ops_scan');
     if (neuBekannt.length) {
       for (const id of neuBekannt) S.bekannt.add(id);
       const z = zs.find((q) => q.id === neuBekannt[0]);
@@ -92,6 +162,13 @@ function update(game, dt) {
       if (z && z.name) game.oda(`${z.name}: ${beschreibung(z)}`, 'zone_' + z.id);
     }
     S.in = w.ids;
+    // Rücksetzen (Verzerrungskern): zurück zum Rücksetzpunkt, Fahrt weg, Systeme und Hülle bleiben wie sie sind (kein Tod, Kai)
+    if (w.rueck && S.ruT <= 0) {
+      sh.x = w.rueck.x; sh.y = w.rueck.y; sh.vx = 0; sh.vy = 0; sh.speed = 0; sh.turnVel = 0; S.in = []; S.ruT = 1.5;
+      game.emit('sfx', { name: 'dodge' });
+      game.oda('Verzerrungskern! Das Schiff wird zurückgeworfen – Kurs neu abstimmen.', 'zone_rueck');
+      game.missionEvent('zoneRuecksetzen', { zone: w.rueck.id });
+    }
     if (w.hitze) for (const k of C.hitzeSysteme) if (sh.power[k] >= C.hitzeMinEnergie) sh.heat[k] += w.hitze * dt;
     if (w.schaden) {
       S.akk.L = (S.akk.L || 0) + w.schaden * dt;
@@ -172,6 +249,10 @@ function snapshot(game) {
   if (zs === KEINE) return null;
   const S = state(game);
   const out = { in: S.in.slice(), bk: [...S.bekannt].filter((id) => zs.some((z) => z.id === id)) };
+  if (S.aus.size) out.au = [...S.aus].sort();                  // abgeschaltete Schaltgruppen (Client zeichnet sie nicht)
+  if (S.alle.size) out.sv = [...S.alle].sort();                // für alle sichtbar (Feldkarte)
+  if (S.scan) out.sc = Math.round(Math.min(1, S.scan.t / S.scan.dur) * 100) / 100;   // Fortschritt des Ops-Scans
+  else if (zs.some((z) => z.sichtbarFuer === 'ops_scan') && scanNoetig(game)) out.sn = 1;   // es gibt etwas zu scannen
   const zk = Object.keys(S.zaehler); if (zk.length) { out.z = {}; for (const k of zk) out.z[k] = Math.round(S.zaehler[k] * 10) / 10; }
   return out;
 }
@@ -189,4 +270,4 @@ function restore(game, o) {
   for (const [k, v] of Object.entries(o.zaehler || {})) if (Number.isFinite(v)) S.zaehler[k] = v;
 }
 
-module.exports = { neu, state, update, sichtFaktor, bekanntMachen, istBekannt, scan, zaehler, zaehlerSetzen, snapshot, toSave, restore, szeneZonen };
+module.exports = { neu, state, update, sichtFaktor, bekanntMachen, istBekannt, scan, scanStarten, scanAbbrechen, schalten, sichtbarMachen, istAus, zaehler, zaehlerSetzen, snapshot, toSave, restore, szeneZonen, szeneZonenAlle };

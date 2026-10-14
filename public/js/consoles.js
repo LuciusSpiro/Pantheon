@@ -30,11 +30,12 @@
   const LIGHTS = [['warm', 'Warm'], ['mint', 'Mint'], ['bernstein', 'Bernstein'], ['aus', 'Aus']];
   const STYLE_ROWS = [['floor', 'BODEN', FLOORS], ['wall', 'WAND', WALLS], ['light', 'LICHT', LIGHTS]];
   // R1: Captain-Konsole 4 Reiter, Technik-Konsole 2 (Energie & Schilde und Schadensplan zogen aus dem Captain um); Hitze folgt in R2
-  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam'];
+  const TABS = ['Funk', 'Sternkarte', 'Lage', 'Außenteam', 'Sektorplan'];   // SL4: Reiter 5 = Sektorplan (Sektoransicht mit Positionen)
   const TAB_AWAY = 3;
+  const TAB_PLAN = 4;
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', sonde: 'KUSTODEN-SONDE', plan: 'PLANUNGSTISCH' };
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // M3a: Lanze (Bug) + Batterien Bb/Stb; phase_* nur noch als Altnamen
   const M3_MOUNTS = ['bow', 'port', 'stbd'];
@@ -205,7 +206,7 @@
           case 'transfer': controls = this.drawTransfer(ctx, view); break;
           case 'shop': controls = this.drawShop(ctx, view); break;
           case 'quartier': controls = this.drawQuartier(ctx, view); break;
-          case 'sonde': controls = this.drawSonde(ctx, view); break;
+          case 'kustodenpult': controls = this.drawSonde(ctx, view); break;   // SL0: früher 'sonde'
           case 'plan': controls = this.drawPlan(ctx, view); break;
           default: R.text(ctx, 'Unbekannte Konsole: ' + c, 20, 40, { color: PAL.red });
         }
@@ -624,6 +625,7 @@
         case 1: return this.capStar(ctx, view, area);
         case 2: return this.capLage(ctx, view, area);
         case 3: return this.capAway(ctx, view, area);
+        case TAB_PLAN: return window.SektorplanView ? SektorplanView.draw(ctx, view, area, (c, extra) => this.cmd(view, c, extra)) : '';   // SL4
       }
       return '';
     },
@@ -1450,8 +1452,8 @@
           R.text(ctx, COLOR_NAMES[col] || col, x + 91, yy + 5, { color: CODE_HEX[col] || PAL.star });
         });
         y += Math.ceil(syms.length / 2) * 20 + 8;
-        const sym = (away.sonde && away.sonde.symbols) || [];
-        if (sym.length) { R.text(ctx, 'Sonde zeigt: ' + sym.map(s => SYMBOL_NAMES[s] || s).join(' – '), a.x, y, { color: PAL.amber }); y += 14; }
+        const sym = (away.kustodenpult && away.kustodenpult.symbols) || [];
+        if (sym.length) { R.text(ctx, 'Kustodenpult zeigt: ' + sym.map(s => SYMBOL_NAMES[s] || s).join(' – '), a.x, y, { color: PAL.amber }); y += 14; }
       }
       R.text(ctx, 'ORBIT-UNTERSTÜTZUNG', a.x, y, { color: PAL.brass }); y += 12;
       const sCd = n(sup.sensor), kCd = n(sup.kuppel);
@@ -1547,7 +1549,7 @@
       const near = draus.filter(f => Math.hypot(f.x - n(ship.x), f.y - n(ship.y)) <= beamR);
       let beam = null;
       if (sysDown(ship, 'transfer')) beam = 'Transfer ausgefallen – reparieren';
-      else if (lager.length >= cap) beam = 'Frachtraum voll (' + lager.length + '/' + cap + ') – erst abliefern';
+      else if (lager.length + (fr.pers || []).length >= cap) beam = 'Frachtraum voll (' + (lager.length + (fr.pers || []).length) + '/' + cap + ') – erst abliefern';   // SL0: Personen belegen Plätze
       else if (!draus.length) beam = 'Keine Fracht in diesem Gebiet';
       else if (!near.length) beam = 'Keine Fracht in Reichweite (' + beamR + ')';
       let ab = null;
@@ -1555,6 +1557,53 @@
       else if (!lager.length) ab = 'Keine Fracht an Bord';
       else if (!fr.ab) ab = fr.abn ? 'Abnehmer: ' + fr.abn + ' – nicht in Reichweite' : 'Hier nimmt keine Station Fracht an';
       return { fr, cap, lager, draus, halt, beam, ab, show: !!(draus.length || lager.length || halt || fr.fuell) };
+    },
+    // SL0: Personen-Leiste unten links in der Ops-Karte: Person vom Landepunkt an Bord beamen (P) bzw. abgeben (B). Eine Person belegt einen Frachtplatz.
+    drawPersonen(ctx, view, rect) {
+      const fr = (view.state && view.state.fracht) || {};
+      const pers = fr.pers || [], pq = fr.pq || [], halt = fr.halt && (fr.halt.kind === 'person_an' || fr.halt.kind === 'person_ab') ? fr.halt : null;
+      if (!pers.length && !pq.length && !halt) return;
+      const x = rect.x + 4, w = 266, h = 30, y = rect.y + rect.h - h - 4;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      const an = pers.map(p => p.n + ' (Bett ' + (n(p.b) + 1) + ')').join(', ');
+      R.text(ctx, 'PERSONEN' + (an ? ' · an Bord: ' + an : '') + (pq.length ? ' · am Landepunkt: ' + pq.map(p => p.n).join(', ') : ''), x + 4, y + 3, { color: PAL.star });
+      const by = y + 15;
+      if (halt) {
+        R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'P', onClick: () => this.cmd(view, 'weapons.person', { off: true }) });
+        R.bar(ctx, x + 134, by + 3, w - 138, 6, n(halt.p), PAL.mint);
+      } else {
+        const frei = (view.state.fracht && ((fr.lager || []).length + pers.length) < ((window.Shared_Maps && window.Shared_Maps.CARGO_CAPACITY) || 2));
+        const whyUp = !pq.length ? 'Niemand am Landepunkt in Reichweite (Landepunkt gescannt?)' : !frei ? 'Frachtraum voll – erst abgeben' : null;
+        R.button(ctx, x + 4, by, 126, 12, 'Person beamen', { hotkey: 'P', disabled: !!whyUp, reason: whyUp, onClick: () => this.cmd(view, 'weapons.person', {}) });
+        R.button(ctx, x + 134, by, w - 138, 12, 'Person abgeben', { hotkey: 'B', disabled: !pers.length, reason: 'Keine Person an Bord', onClick: () => this.cmd(view, 'weapons.person_ab') });
+      }
+    },
+    // SL7b: Landepunkt-Scan der Ops. Sichtbar, wenn ein ungescannter Landepunkt in Reichweite ist (Snapshot lpscan { n, p? }); L hält 4 s.
+    drawLpscan(ctx, view, rect) {
+      const ls = view.state.lpscan;
+      if (!ls || !(ls.n || ls.p != null)) return;
+      const w = 266, h = 28, x = rect.x + 4, y = rect.y + rect.h - h - 4;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      R.text(ctx, 'LANDEPUNKT in Scanreichweite: ' + n(ls.n), x + 4, y + 3, { color: PAL.amber });
+      if (ls.p != null) {
+        R.button(ctx, x + 4, y + 13, 126, 12, 'Scan abbrechen', { hotkey: 'L', onClick: () => this.cmd(view, 'weapons.landescan', { off: true }) });
+        R.bar(ctx, x + 134, y + 16, w - 138, 6, n(ls.p), PAL.mint);
+      } else R.button(ctx, x + 4, y + 13, 126, 12, 'Landepunkt scannen', { hotkey: 'L', onClick: () => this.cmd(view, 'weapons.landescan') });
+    },
+    // SL7a: Ops-Scan der Gravimetrie (K halten, 3 s): danach stehen Pfeile mit Stärke und Richtung auf der Ops-Karte, die Navigation fliegt nach Ansage
+    drawZonenscan(ctx, view, rect) {
+      const z = view.state.zonen;
+      if (!z || (!z.sn && z.sc == null)) return;
+      const w = 266, h = 28, x = rect.x + 4, y = rect.y + rect.h - h - 4 - ((view.state.lpscan || {}).n || (view.state.lpscan || {}).p != null ? 32 : 0);
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      R.text(ctx, 'VERZERRUNGEN in Reichweite (nicht gescannt)', x + 4, y + 3, { color: PAL.amber });
+      if (z.sc != null) {
+        R.button(ctx, x + 4, y + 13, 126, 12, 'Zonen-Scan abbrechen', { hotkey: 'K', onClick: () => this.cmd(view, 'weapons.zonenscan', { off: true }) });
+        R.bar(ctx, x + 134, y + 16, w - 138, 6, n(z.sc), PAL.mint);
+      } else R.button(ctx, x + 4, y + 13, 126, 12, 'Zonen scannen', { hotkey: 'K', onClick: () => this.cmd(view, 'weapons.zonenscan') });
     },
     drawFracht(ctx, view, rect) {
       const f = this.fracht(view.state);
@@ -1588,7 +1637,11 @@
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
+      this.drawLpscan(ctx, view, rect);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
+      this.drawZonenscan(ctx, view, rect);   // SL7a: Verzerrungen scannen
+      this.drawPersonen(ctx, view, rect);   // SL0: Personen beamen / abgeben
       if (window.SondenView) SondenView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL4: Sonde zur Marke
+      if (window.SpurView) SpurView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL5: Spur lesen
       if (window.Entschluesseln) Entschluesseln.draw(ctx, view, rect);   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
       const rx = 420, rw = 206;
       let y = 28;
@@ -2171,7 +2224,11 @@
         const can = sl.known || sl.unknown;
         R.button(ctx, rx, y, rw, 14, 'Detailkarte (Szene)', { hotkey: 'Enter', disabled: !can, reason: 'Ort unbekannt', onClick: () => { P.mapId = sl.id; } }); y += 16;
         const am = this.locAwayMap(st, sl);
-        R.button(ctx, rx, y, rw, 14, 'Decksplan', { hotkey: 'D', disabled: !am, reason: 'Kein Decksplan bekannt (erst scannen/besuchen)', onClick: () => { P.mapId = am; } }); y += 18;
+        R.button(ctx, rx, y, rw, 14, 'Decksplan', { hotkey: 'D', disabled: !am, reason: 'Kein Decksplan bekannt (erst scannen/besuchen)', onClick: () => { P.mapId = am; } }); y += 16;
+        // SL7b: Karten gescannter Landepunkte dieses Orts (die Ops scannt vom Orbit: Ops L)
+        const lps = sl.lp || [];
+        const lpOrt = this.lpIndex = (this.lpIndex || 0) % Math.max(1, lps.length);
+        R.button(ctx, rx, y, rw, 14, lps.length ? 'Landekarte: ' + String(lps[lpOrt].name).slice(0, 18) : 'Landekarte', { hotkey: 'L', disabled: !lps.length, reason: 'Kein Landepunkt gescannt (Ops: L)', onClick: () => { P.mapId = lps[lpOrt].id; this.lpIndex = (lpOrt + 1) % lps.length; } }); y += 18;
       } else y += 2;
       // Pins
       R.text(ctx, 'PIN SETZEN', rx, y, { color: PAL.brass });
@@ -2399,11 +2456,11 @@
 
     // ================================================================= Sonde
     drawSonde(ctx, view) {
-      const st = view.state, away = st.away || {}, sonde = away.sonde || {};
+      const st = view.state, away = st.away || {}, sonde = away.kustodenpult || {};
       const symbols = sonde.symbols || [];
       const entered = sonde.entered || [];
       const lock = n(sonde.lockout);
-      R.text(ctx, 'Die Sonde zeigt drei Symbole. Gib die passenden Farben in dieser Reihenfolge ein.', VW / 2, 30, { color: PAL.panelLight, align: 'center' });
+      R.text(ctx, 'Das Kustodenpult zeigt drei Symbole. Gib die passenden Farben in dieser Reihenfolge ein.', VW / 2, 30, { color: PAL.panelLight, align: 'center' });
       for (let i = 0; i < 3; i++) {
         const x = 170 + i * 110, y = 48;
         ctx.fillStyle = '#120E1E'; ctx.fillRect(x, y, 80, 80);
@@ -2420,14 +2477,14 @@
         }
       }
       let y = 160;
-      if (sonde.disabled) R.text(ctx, 'SONDE ABGESCHALTET – Drohnen deaktiviert, Tür offen.', VW / 2, y, { color: PAL.mint, align: 'center' });
+      if (sonde.disabled) R.text(ctx, 'KUSTODENPULT ABGESCHALTET – Drohnen deaktiviert, Tür offen.', VW / 2, y, { color: PAL.mint, align: 'center' });
       else if (lock > 0) R.text(ctx, 'FALSCHE FARBE – gesperrt für ' + Math.ceil(lock) + ' s. Drohnen alarmiert!', VW / 2, y, { color: PAL.red, align: 'center' });
       else R.text(ctx, 'Eingabe ' + (entered.length + 1) + ' von 3', VW / 2, y, { color: PAL.amber, align: 'center' });
       y += 16;
-      const reason = sonde.disabled ? 'Sonde bereits abgeschaltet' : lock > 0 ? 'Gesperrt (' + Math.ceil(lock) + ' s)' : null;
+      const reason = sonde.disabled ? 'Kustodenpult bereits abgeschaltet' : lock > 0 ? 'Gesperrt (' + Math.ceil(lock) + ' s)' : null;
       CODE_COLORS.forEach((c, i) => {
         const x = 38 + (i % 6) * 96;
-        R.button(ctx, x, y, 90, 22, COLOR_NAMES[c] || c, { hotkey: String(i + 1), disabled: !!reason, reason, onClick: () => this.cmd(view, 'sonde.input', { color: c }) });
+        R.button(ctx, x, y, 90, 22, COLOR_NAMES[c] || c, { hotkey: String(i + 1), disabled: !!reason, reason, onClick: () => this.cmd(view, 'kustodenpult.input', { color: c }) });
         ctx.fillStyle = reason ? '#3A4250' : (CODE_HEX[c] || '#888'); ctx.fillRect(x + 74, y + 5, 12, 12);
       });
       y += 34;
@@ -2478,7 +2535,7 @@
         case 'captain': {
           const awayOn = this.awayActive(st);
           // M3b: Schildstoß (B+1–4, Shift+Pfeil) entfällt
-          if (d >= 1 && d <= 4) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
+          if (d >= 1 && d <= 5) { if (d - 1 === TAB_AWAY && !awayOn) { this.denied('Nur während der Außenmission'); return true; } this.tab = d - 1; return true; }
           const tab = this.tab;
           if (tab === 0) {
             if (code === 'Enter') return press(() => this.tryButton('Funkspruch annehmen'));
@@ -2499,6 +2556,8 @@
             const escKey = { KeyH: 'halten', KeyF: 'folgen', KeyV: 'volle_kraft', KeyD: 'andocken' }[code];
             if (escKey && this.escortList(view).length) return press(() => this.tryButton(R.ESCORT_ORDER_NAMES[escKey]));
             if (code === 'KeyN' && this.escortList(view).length) return press(() => this.tryButton('Wechseln'));
+          } else if (tab === TAB_PLAN) {
+            if (window.SektorplanView && SektorplanView.key(code, view)) return true;   // SL4: Sektor wählen, hier
           } else if (tab === 3) {
             if (code === 'KeyS') return press(() => this.tryButton(/^Sensor/));
             if (code === 'KeyK') return press(() => this.tryButton(/^(Schildkuppel|Kuppel)/));
@@ -2547,8 +2606,12 @@
           if (window.Entschluesseln && Entschluesseln.aktiv(view.state) && Entschluesseln.key(code, true, view)) return true;   // SL5: Signal entschlüsseln hat Vorrang
           if (code === 'KeyT') return press(() => this.cycleTarget(view));
           if (code === 'KeyP') return press(() => this.tryButton(/^Sonde zur Marke/));   // SL4
+          if (code === 'KeyK') return press(() => this.tryButton(/^(Spur lesen|Lese Spur)/));   // SL5 (L gehört dem Landepunkt-Scan)
+          if (code === 'KeyJ') return press(() => this.tryButton(/^Sonde → /));   // SL4: Sonde durch den ersten bekannten Sprungpunkt
           if (code === 'KeyF' && this.fracht(view.state).show) return press(() => this.tryButton(/^(Fracht beamen|Beamen abbrechen)/));   // EK3 Teil A
           if (code === 'KeyG' && this.fracht(view.state).show) return press(() => this.tryButton('Abliefern'));
+          if (code === 'KeyK' && ((view.state.zonen || {}).sn || (view.state.zonen || {}).sc != null)) return press(() => this.tryButton(/^Zonen/));   // SL7a
+          if (code === 'KeyL' && (view.state.lpscan || {}).n) return press(() => this.tryButton(/^(Landepunkt scannen|Scan abbrechen)/));   // SL7b
           if (code === 'KeyV' && this.fracht(view.state).show) return press(() => this.tryButton('Verkaufen'));   // SL6
           if (code === 'KeyX' && this.fracht(view.state).show) return press(() => this.tryButton('Ladung abwerfen'));   // SL6
           if (this.isM3(view)) {
@@ -2649,10 +2712,11 @@
             }
             if (code === 'Enter') return press(() => this.tryButton('Detailkarte (Szene)'));
             if (code === 'KeyD') return press(() => this.tryButton('Decksplan'));
+            if (code === 'KeyL') return press(() => this.tryButton(/^Landekarte/));   // SL7b
           }
           return true;
         }
-        case 'sonde':
+        case 'kustodenpult':
           if (d >= 1 && d <= 6) { const b = this.findButton(COLOR_NAMES[CODE_COLORS[d - 1]]); if (b) this.activate(b); return true; }
           return true;
       }
@@ -2710,6 +2774,7 @@
         view.actions.sfx('marker_set');
         return true;
       }
+      if (c === 'captain' && this.tab === TAB_PLAN && window.SektorplanView) return SektorplanView.click(view, x, y, button, (cc, extra) => this.cmd(view, cc, extra));   // SL4: Marke setzen/entfernen
       if (c === 'captain' && this.tab === TAB_AWAY && this.isAwayV2(view.state)) return this.awayMapClick(view, x, y, button);
       if (c === 'captain' && this.tab === 1 && button === 0) {
         // B3 (Welle 0): zuerst StarMap.hit (Team KARTE, Hexkarte); der Stub liefert null -> bisherige Trefferliste

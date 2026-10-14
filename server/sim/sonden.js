@@ -123,6 +123,7 @@ function ankunft(game, s) {
   game.oda(`Sonde meldet aus ${name}: ${neu ? 'Sektor gesichtet' : 'Sektorplan aktualisiert'}${schiffe ? `, ${schiffe} Schiff${schiffe === 1 ? '' : 'e'} geortet` : ', keine Schiffe in Sicht'}. Sie ist verbraucht. Der Sektorplan des Captains ist ergänzt.`, null);
   game.emit('sfx', { name: 'scan_done' });
   game.missionEvent('sondeAnkunft', { id: s.id, hex: s.nach, schiffe });
+  require('./notrufe.js').sondeMeldet(game, s.nach);   // SL8: Messwerte eines Notrufs in diesem Sektor
 }
 
 function sieht(game, x, y) {

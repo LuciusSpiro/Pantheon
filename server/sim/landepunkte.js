@@ -137,7 +137,7 @@ function makeAway(game, lpId, karte, e) {
     map: lpId, active: false, drones: [], projectiles: [],
     npcs: [],   // W2 AP6: Personen (away.js personen()), ersetzt away.npc
     items: [], marker: null, strikes: [], pendingStrikes: [],
-    sonde: { disabled: true, symbols: [], entered: [], lockout: 0 },
+    kustodenpult: { disabled: true, symbols: [], entered: [], lockout: 0 },
     codeTable: {}, odaCodeHelp: false, kuppelUntil: 0, sensorUntil: 0, doorOpen: true,
     kuppelHp: 0, alarmUntil: 0, noHumanT: 0, firstBeamAt: null, coreRebooted: false,
     salvage: [], hollow: null, loreRead: false,

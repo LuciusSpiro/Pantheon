@@ -128,7 +128,7 @@ function main() {
   section('map_reset platform nach m1-Endzustand');
   {
     const t = setup(1); const g = t.g;
-    const code0 = g.aways.platform.sonde.symbols.join(',');
+    const code0 = g.aways.platform.kustodenpult.symbols.join(',');
     Objects.setState(g, 'platform', 'sonde', 'off');
     Objects.setState(g, 'platform', 'core', 'rebooted');
     Away.hauptPerson(g.aways.platform).rescued = true; Away.hauptPerson(g.aways.platform).present = false;
@@ -141,7 +141,7 @@ function main() {
     ok(st(g, 'platform', 'datenkern') === 'present', 'neuer Datenkern liegt bereit');
     ok(st(g, 'platform', 'ivo') === 'rescued' && !Away.hauptPerson(g.aways.platform).present,'Ivo bleibt gerettet (nicht wieder auf der Plattform)');
     ok(g.aways.platform.drones.length === require('../server/world.js').DRONE_SPAWNS.length && g.aways.platform.drones.every((x) => x.alive), 'Drohnen zurück');
-    ok(g.aways.platform.sonde.symbols.length === code0.split(',').length, 'neuer Sondencode gleicher Länge');
+    ok(g.aways.platform.kustodenpult.symbols.length === code0.split(',').length, 'neuer Sondencode gleicher Länge');
     act('map_reset', g, { map: 'platform', grund: 'x', datenkern: false });
     ok(st(g, 'platform', 'datenkern') === 'taken', 'datenkern: false -> kein Kern');
   }

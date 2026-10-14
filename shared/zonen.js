@@ -5,10 +5,14 @@
 // Zone: { id, form: 'kreis'|'ring'|'rechteck', x, y, r | r0, r1 | w, h,
 //         drift?: { winkel, staerke },   Positionsversatz in px/s (Winkel in Radiant, 0 = +x, y nach unten)
 //         tang?: px/s,                   Versatz um den Mittelpunkt (positiv = im Uhrzeigersinn, Strömung um einen Gasriesen)
+//         radial?: px/s,                 Versatz vom Mittelpunkt weg (positiv) bzw. hin zu ihm (negativ): Sog, Haltefeld
+//         rueck?: { x, y },              Rücksetzpunkt: wer hineinfliegt, wird dorthin zurückgeworfen (Szenenregel, Ereignis zoneRuecksetzen)
+//         gruppe?: string,               Schaltgruppe (zone_schalten / zone_sichtbar im Regiebuch)
 //         hitze?, schaden?,              Hitze je Sekunde (auf die Systeme), Hüllenschaden je Sekunde
 //         sicht?: 0..1,                  Faktor auf die Sensorreichweite (mehrere Zonen: Produkt)
 //         ertrag?: { ziel, rate },       ziel 'fracht:<art>' | 'zaehler:<id>', rate = Einheiten je Sekunde
-//         sichtbarFuer?: 'alle'|'ops'|'karte',   'ops' sieht die Ops sofort, alle anderen nach dem Scan/Erkunden; 'karte' erst nach dem Erkunden
+//         sichtbarFuer?: 'alle'|'ops'|'ops_scan'|'karte',   alle = jeder; ops = die Ops sofort, andere nach Scan/Erkunden; ops_scan = NUR die Ops und erst nach dem Scan
+//                        (Gravimetrie: die Navigation sieht nichts und fliegt nach Ansage); karte = jeder, aber erst nach dem Erkunden (Sonde, Flug hinein)
 //         name?, farbe? }
 // Werte mehrerer Zonen an einem Punkt addieren sich (Sicht: Produkt). Es gibt keine Pulse: Zonen stehen still.
 (function (root, factory) {
@@ -35,7 +39,7 @@
   // Summe der Wirkung an einem Punkt -> { vx, vy, hitze, schaden, sicht, ertrag: [{ id, ziel, rate }], ids, mx, my }
   // (mx, my = Mittelpunkt der Zone mit dem größten Schaden, für die Treffer-Richtung)
   function wirkung(zonen, x, y) {
-    const w = { vx: 0, vy: 0, hitze: 0, schaden: 0, sicht: 1, ertrag: [], ids: [], mx: null, my: null };
+    const w = { vx: 0, vy: 0, hitze: 0, schaden: 0, sicht: 1, ertrag: [], ids: [], mx: null, my: null, rueck: null };
     let best = -1;
     for (const z of an(zonen, x, y)) {
       w.ids.push(z.id);
@@ -44,6 +48,11 @@
         const dx = x - z.x, dy = y - z.y, d = Math.hypot(dx, dy) || 1;
         w.vx += (-dy / d) * z.tang; w.vy += (dx / d) * z.tang;   // senkrecht zum Radius, im Uhrzeigersinn (y nach unten)
       }
+      if (z.radial) {
+        const dx = x - z.x, dy = y - z.y, d = Math.hypot(dx, dy) || 1;
+        w.vx += (dx / d) * z.radial; w.vy += (dy / d) * z.radial;
+      }
+      if (z.rueck && !w.rueck) w.rueck = { x: +z.rueck.x, y: +z.rueck.y, id: z.id };
       w.hitze += +z.hitze || 0;
       w.schaden += +z.schaden || 0;
       if (z.sicht != null) w.sicht *= Math.max(0, +z.sicht);
@@ -56,9 +65,11 @@
   // Darf der Betrachter die Zone sehen? ctx = { ops: bool, bekannt: Set|Array der Zonen-IDs }
   function sichtbar(z, ctx) {
     const f = (z && z.sichtbarFuer) || 'alle';
-    if (f === 'alle') return true;
+    const al = ctx && ctx.alle;   // vom Regiebuch für alle freigegeben (Feldkarte)
+    if (f === 'alle' || (al && (typeof al.has === 'function' ? al.has(z.id) : al.indexOf(z.id) >= 0))) return true;
     const b = ctx && ctx.bekannt;
     const kennt = !!b && (typeof b.has === 'function' ? b.has(z.id) : b.indexOf(z.id) >= 0);
+    if (f === 'ops_scan') return !!(ctx && ctx.ops) && kennt;
     if (f === 'ops') return !!(ctx && ctx.ops) || kennt;
     return kennt;
   }
@@ -112,5 +123,50 @@
     return out;
   }
 
-  return { drin, an, wirkung, sichtbar, gasriese, GAS };
+  // ---------- Gravimetrische Verzerrungen (CONCEPT-SL7 §7a) ----------
+  // Szene Forschungsstation: Anflug von links (Start) zur Station. Vier Felder mit seitlicher Drift lenken das Schiff ab; hinter jedem liegt auf der
+  // Seite, in die es treibt, ein Verzerrungskern (wirft zum Start zurück). Wer die Drift nicht ausgleicht, landet im Kern. Die Felder stehen still
+  // (pulsieren nicht) und sind nur für die Ops sichtbar, nach ihrem Scan (ops_scan): die Navigation fliegt nach Ansage.
+  // Finale: Haltefeld (Gruppe 'halt', anfangs aus) saugt zur Station; vier Kanäle strahlen von der Station aus, drei sind Sackgassen.
+  // Die Feldkarte (Regiebuch zone_sichtbar) macht alles für alle sichtbar. weg = Wegpunkte des Anflugs, fluchtweg = Wegpunkte hinaus (Bots, Tests).
+  const GRAVI = { felder: 4, feldR: 130, driftMin: 60, driftMax: 90, kernR: 110, kernSeite: 230, haltR: 800, haltSog: -170, kanalDrift: 230, kanalBreite: 190 };
+  function gravimetrie(w, h, seed, cfg) {
+    const G = Object.assign({}, GRAVI, cfg || {});
+    const r = mulberry32((seed >>> 0) || 1);
+    const start = { x: Math.round(w * 0.2), y: Math.round(h / 2) };
+    const station = { x: Math.round(w * 0.72), y: Math.round(h / 2) };
+    const L = station.x - start.x;
+    const zonen = [], weg = [{ x: start.x, y: start.y }];
+    for (let i = 0; i < G.felder; i++) {
+      const fx = Math.round(start.x + L * (0.26 + i * 0.18));
+      const seite = r() < 0.5 ? -1 : 1;                       // -1 = nach oben (−y), 1 = nach unten
+      const st = Math.round(G.driftMin + r() * (G.driftMax - G.driftMin));
+      const winkel = seite > 0 ? Math.PI / 2 : -Math.PI / 2;
+      zonen.push({ id: 'gravi_feld' + i, form: 'kreis', x: fx, y: start.y, r: G.feldR, drift: { winkel, staerke: st }, name: 'Verzerrung ' + (i + 1),
+        sichtbarFuer: 'ops_scan', gruppe: 'gravi' });
+      zonen.push({ id: 'gravi_kern' + i, form: 'kreis', x: fx + 90, y: start.y + seite * G.kernSeite, r: G.kernR, radial: -50, rueck: { x: start.x, y: start.y },
+        name: 'Verzerrungskern', sichtbarFuer: 'ops_scan', gruppe: 'gravi' });
+      // Wegpunkt: gegen die Drift aufgehalten (Vorhalt), damit das Schiff die Mitte des Felds mittig verlässt
+      weg.push({ x: fx, y: start.y }, { x: fx + G.feldR + 40, y: start.y });
+    }
+    weg.push({ x: station.x - 220, y: station.y });
+    // Finale
+    // Vier Kanäle strahlen von der Station aus (West, Ost, Nord, Süd), drei enden nach 380 px blind, einer (West, Nord oder Süd; Ost passt nicht in die
+    // Szene) reicht über den Rand des Haltefelds hinaus. Der Sog (haltSog) ist stärker als der Antrieb: nur im Kanal kommt das Schiff vom Fleck.
+    zonen.push({ id: 'halt_feld', form: 'kreis', x: station.x, y: station.y, r: G.haltR, radial: G.haltSog, name: 'Haltefeld', sichtbarFuer: 'ops_scan', gruppe: 'halt' });
+    const RICHTUNGEN = [{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }, { dx: 0, dy: -1 }, { dx: 0, dy: 1 }];
+    const lang = [0, 2, 3][Math.floor(r() * 3)];
+    let fluchtweg = [];
+    RICHTUNGEN.forEach((d, i) => {
+      const len = i === lang ? G.haltR + 100 : 380;
+      const horiz = d.dy === 0;
+      zonen.push({ id: i === lang ? 'halt_kanal_lang' : 'halt_kanal_kurz' + i, form: 'rechteck',
+        x: station.x + d.dx * len / 2, y: station.y + d.dy * len / 2, w: horiz ? len : G.kanalBreite, h: horiz ? G.kanalBreite : len,
+        drift: { winkel: Math.atan2(d.dy, d.dx), staerke: G.kanalDrift }, name: 'Kanal', sichtbarFuer: 'ops_scan', gruppe: 'halt' });
+      if (i === lang) fluchtweg = [{ x: station.x + d.dx * 200, y: station.y + d.dy * 200 }, { x: station.x + d.dx * (G.haltR + 60), y: station.y + d.dy * (G.haltR + 60) }];
+    });
+    return { zonen, weg, fluchtweg, start, station };
+  }
+
+  return { drin, an, wirkung, sichtbar, gasriese, gravimetrie, GAS, GRAVI };
 });

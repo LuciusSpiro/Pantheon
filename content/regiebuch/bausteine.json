@@ -3,6 +3,8 @@
   "version": 1,
 
   "aktionen": {
+    "notrufe_freischalten": { "status": "registriert", "liefert": "NOTRUF", "quelle": "CONCEPT-SL8", "einordnung": "generisch", "beschreibung": "Notrufe schalten (ids kommagetrennt, content/notrufe): Marke auf der Hexkarte, Ablauf in Spielsekunden; Angebot, kein Zwang", "params": { "ids": { "typ": "string", "pflicht": true }, "dauer": { "typ": "number", "min": 30, "max": 7200 } } },
+    "spur_starten": { "status": "registriert", "liefert": "SPUR", "quelle": "CONCEPT-SL5", "einordnung": "generisch", "beschreibung": "Ionenspur aufnehmen (content/spuren/<id>.json): Spurkern je Hex anfliegen, Ops liest, im letzten Hex wird die verborgene Kante enthüllt", "params": { "id": { "typ": "string", "pflicht": true } } },
     "entschluesseln_starten": { "status": "registriert", "liefert": "ENTSCHL", "quelle": "CONCEPT-SL5", "einordnung": "generisch", "beschreibung": "Verschlüsseltes Signal an die Ops legen (Minispiel Frequenz abstimmen); schicht0..schicht3 ab Qualität 0..3, schicht3 = versteckte zweite Schicht", "params": { "id": { "typ": "string", "pflicht": true }, "absender": { "typ": "text" }, "schicht0": { "typ": "text", "pflicht": true }, "schicht1": { "typ": "text" }, "schicht2": { "typ": "text" }, "schicht3": { "typ": "text" } } },
     "fracht_abwerfen":   { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "beschreibung": "Fracht (Ladung) im Raum ablegen, die die Ops an Bord beamen kann. Ohne x/y 160 px vor der Lerche; bleibt bis zum Systemwechsel liegen", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "x": { "typ": "number" }, "y": { "typ": "number" } } },
     "fracht_abnehmer":   { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "beschreibung": "Auftraggeber der Ablieferung festlegen (nur dort liefert die Ops ab); ohne ort nimmt jede Station an", "params": { "ort": { "typ": "loc" }, "name": { "typ": "text" } } },
@@ -15,8 +17,11 @@
     "ship_breach":        { "einordnung": "generisch", "beschreibung": "Hüllenbruch in einer Region", "params": { "region": { "typ": "region" }, "text": { "typ": "text" } }, "effekt": "schaden" },
     "damage_system":      { "einordnung": "generisch", "beschreibung": "Schiffssystem beschädigen oder zerstören", "params": { "system": { "typ": "system", "pflicht": true }, "state": { "typ": "string", "werte": ["damaged", "broken"], "pflicht": true }, "hitSector": { "typ": "sector" }, "text": { "typ": "text" } }, "effekt": "schaden" },
     "pay_marks":          { "einordnung": "generisch", "beschreibung": "Marken abziehen (Bestechung, Kauf)", "params": { "marks": { "typ": "number", "pflicht": true } } },
+    "landepunkt_scannen": { "status": "registriert", "liefert": "SL7b", "quelle": "CONCEPT-SL7", "einordnung": "generisch", "beschreibung": "Landepunkt als gescannt markieren (Skript, Labor)", "params": { "lp": { "typ": "landepunkt", "pflicht": true } } },
     "credit_marks":       { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Marken gutschreiben (Verkauf, Lohn; server/sim/geld.js)", "params": { "marks": { "typ": "number", "pflicht": true }, "grund": { "typ": "string" } } },
     "zonen_erkunden":     { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Zonen der Szene als erkundet markieren (eine ID oder alle)", "params": { "zone": { "typ": "string" } } },
+    "zone_schalten":      { "status": "registriert", "liefert": "SL7a", "quelle": "CONCEPT-SL7", "einordnung": "generisch", "beschreibung": "Zonen-Schaltgruppe ein/aus", "params": { "gruppe": { "typ": "string", "pflicht": true }, "an": { "typ": "bool" } } },
+    "zone_sichtbar":      { "status": "registriert", "liefert": "SL7a", "quelle": "CONCEPT-SL7", "einordnung": "generisch", "beschreibung": "Zonen für alle sichtbar machen (Feldkarte)", "params": { "gruppe": { "typ": "string" }, "alle": { "typ": "bool" } } },
     "zaehler_setzen":     { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Zonen-Zähler setzen", "params": { "id": { "typ": "string", "pflicht": true }, "wert": { "typ": "number", "pflicht": true } } },
     "end_away":           { "einordnung": "generisch", "beschreibung": "Außenmission auf einer Karte beenden", "params": { "map": { "typ": "map", "pflicht": true } } },
     "remove_item":        { "einordnung": "generisch", "beschreibung": "Gegenstand aus Schiff/Inventar entfernen (getragen, am Boden an Bord oder im Inventar, z. B. datenkern, tafel)", "params": { "item": { "typ": "item", "pflicht": true }, "n": { "typ": "number" } } },
@@ -88,6 +93,10 @@
   },
 
   "pruefungen": {
+    "notruf_erledigt":   { "status": "registriert", "liefert": "NOTRUF", "quelle": "CONCEPT-SL8", "einordnung": "generisch", "params": { "id": { "typ": "string", "pflicht": true } } },
+    "notrufe_erledigt":  { "status": "registriert", "liefert": "NOTRUF", "quelle": "CONCEPT-SL8", "einordnung": "generisch", "params": { "min": { "typ": "number", "min": 1, "max": 20 } } },
+    "spur_ende":         { "status": "registriert", "liefert": "SPUR", "quelle": "CONCEPT-SL5", "einordnung": "generisch", "params": { "id": { "typ": "string", "pflicht": true } } },
+    "spur_gelesen":      { "status": "registriert", "liefert": "SPUR", "quelle": "CONCEPT-SL5", "einordnung": "generisch", "params": { "id": { "typ": "string", "pflicht": true }, "min": { "typ": "number", "min": 0, "max": 20 } } },
     "entschluesselt":    { "status": "registriert", "liefert": "ENTSCHL", "quelle": "CONCEPT-SL5", "einordnung": "generisch", "params": { "id": { "typ": "string", "pflicht": true }, "min": { "typ": "number", "min": 0, "max": 3 } } },
     "fracht_an_bord":    { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "min": { "typ": "number", "min": 1, "max": 4 } } },
     "fracht_abgeliefert": { "status": "registriert", "liefert": "LAGER", "quelle": "CONTRACT-EK3 §5", "einordnung": "generisch", "params": { "art": { "typ": "string", "werte": ["sprengstoff", "fracht"] }, "min": { "typ": "number", "min": 1, "max": 99 } } },
@@ -100,6 +109,7 @@
     "console_manned":   { "einordnung": "generisch", "params": { "console": { "typ": "console", "pflicht": true } } },
     "salvage_done":     { "einordnung": "generisch", "params": {} },
     "ship_in_zone":     { "einordnung": "generisch", "params": { "loc": { "typ": "loc", "pflicht": true }, "zone": { "typ": "string", "pflicht": true } } },    "marks_below":      { "einordnung": "generisch", "params": { "n": { "typ": "number", "pflicht": true } } },
+    "landepunkt_gescannt": { "status": "registriert", "liefert": "SL7b", "quelle": "CONCEPT-SL7", "einordnung": "generisch", "beschreibung": "Landepunkt von der Ops gescannt (Karte am Planungstisch)", "params": { "lp": { "typ": "landepunkt", "pflicht": true } } },
     "marks_at_least":   { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Mindestens n Marken (Geldziel, Wahl Kapitel 8)", "params": { "n": { "typ": "number", "pflicht": true } } },
     "in_zone":          { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Lerche liegt in der Zone (Zonen-ID)", "params": { "zone": { "typ": "string", "pflicht": true } } },
     "zone_bekannt":     { "status": "registriert", "liefert": "SL6", "quelle": "CONCEPT-SL6", "einordnung": "generisch", "beschreibung": "Zone ist erkundet", "params": { "zone": { "typ": "string", "pflicht": true } } },

@@ -18,17 +18,20 @@ function pin(game, p, msg) {
   const ex = game.explore;
   // 'kesh' ist Orts-ID und Decksplan zugleich: vor dem Scan gilt die Detailkarte (Szene), danach der Archivplan
   const loc = map !== 'star' && !(map in ex.mapsKnown && ex.mapsKnown[map]) ? Locations.get(map) : null;
-  if (map !== 'star' && !(map in ex.mapsKnown) && !(loc && loc.id === map)) return 'Unbekannte Karte.';
+  // SL7b: gebaute Landepunkt-Karte (Ops hat gescannt, server/sim/lpscan.js); ohne Scan bleibt es „Unbekannte Karte.“
+  const lpKarte = !!(ex.lpScan && !(map in ex.mapsKnown) && ex.lpScan.has(map));
+  if (map !== 'star' && !(map in ex.mapsKnown) && !lpKarte && !(loc && loc.id === map)) return 'Unbekannte Karte.';
   if (map in ex.mapsKnown && !ex.mapsKnown[map] && !(loc && loc.id === map)) return 'Diese Karte ist noch nicht gescannt.';
   if (loc && !(ex.shown ? ex.shown(map) : ex.isKnown(map))) return 'Dieser Ort ist noch unbekannt.';
-  if (!loc && map !== 'star' && !ex.mapsKnown[map]) return 'Diese Karte ist noch nicht gescannt.';
+  if (!loc && map !== 'star' && !lpKarte && !ex.mapsKnown[map]) return 'Diese Karte ist noch nicht gescannt.';
   const x = Number(msg.x), y = Number(msg.y);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return 'Ungültige Position.';
   const mine = game.plan.pins.filter((q) => q.owner === p.id);
   if (mine.length >= C.plan.maxPins) return `Maximal ${C.plan.maxPins} Pins – erst einen eigenen entfernen.`;
   const lim = map === 'star' ? { w: 900, h: 600 }
     : loc ? { w: (loc.scene && loc.scene.w) || 3000, h: (loc.scene && loc.scene.h) || 2000 }
-      : { w: W.AWAY_MAPS[map].map.w * 32, h: W.AWAY_MAPS[map].map.h * 32 };
+      : lpKarte ? (() => { const k = game.karteOf(map); return { w: ((k && k.w) || 100) * 32, h: ((k && k.h) || 100) * 32 }; })()
+        : { w: W.AWAY_MAPS[map].map.w * 32, h: W.AWAY_MAPS[map].map.h * 32 };
   game.plan.pins.push({ id: 'pin' + (++game.plan.seq), owner: p.id, color: p.color, map,
     x: Math.round(Math.max(0, Math.min(lim.w, x))), y: Math.round(Math.max(0, Math.min(lim.h, y))), label });
   game.emit('sfx', { name: 'marker_set', zone: 'ship' });

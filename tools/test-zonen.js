@@ -274,6 +274,94 @@ section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {
   } finally { Welt.waehle(g, 'limes'); }
 });
 
+section('SL7a Gravimetrie: Forschungsstation Helix (Sund 0506)', () => {
+  aufraeumen();
+  const Welt = require('../server/sim/welt.js');
+  const g = new Game({ noStore: true, worlds: false, seed: 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const c = { inbox: [], send(m) { if (this.inbox.length < 3000) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } };
+  g.addConnection(c);
+  g.handleMessage(c, { t: 'hello', clientId: 'G0', name: 'Gravi0', color: 0 });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'free' });
+  g.handleMessage(c, { t: 'ready', ready: true });
+  const mev = []; const me0 = g.missionEvent.bind(g); g.missionEvent = (k, d) => { mev.push(Object.assign({ kind: k }, d)); return me0(k, d); };
+  const run = (sec, each) => { for (let k = 0; k < Math.round(sec / DT); k++) { if (each && each(k * DT) === true) return true; g.step(); } return false; };
+  const cmd = (name, f) => { c.inbox.length = 0; g.handleMessage(c, Object.assign({ t: 'cmd', c: name }, f || {})); return c.inbox.filter((m) => m.kind === 'notice').map((m) => m.text); };
+  try {
+    Welt.waehle(g, 'sund');
+    g.god = true;
+    const loc = Locations.get('helix');
+    ok(!!loc && loc.scene.zonen.length === 13 && loc.scene.zonenAus[0] === 'halt' && loc.scene.gravimetrie.weg.length > 5, 'Szene Helix: 13 Zonen (4 Felder, 4 Kerne, Haltefeld, 4 Kanäle), Haltefeld-Gruppe aus');
+    const gv = loc.scene.gravimetrie;
+    space.enterScene(g, 'helix', {});
+    g.players[0].console = 'weapons';
+    g.ship.power.engines = 3; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 3; g.ship.powerIntent.weapons = 1; g.ship.powerIntent.shields = 2; g.ship.powerIntent.life = 2; }
+    run(0.3);
+    const Zs = loc.scene.zonen;
+    const felder = Zs.filter((z) => /^gravi_feld/.test(z.id));
+    ok(ZonenSim.snapshot(g).au[0] === 'halt' && g.snapshot().zonen.sn === 1, 'Snapshot: Haltefeld aus, Scan nötig (sn)');
+    // Hineinfliegen verrät ops_scan-Zonen nicht
+    g.ship.x = felder[0].x; g.ship.y = felder[0].y; run(0.3);
+    ok(g.snapshot().zonen.bk.length === 0, 'Hineinfliegen macht Verzerrungen NICHT bekannt (nur der Ops-Scan)');
+    // Ops-Scan
+    g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; run(0.2);
+    ok(cmd('weapons.zonenscan').length === 0 && g.zonenSim.scan, 'Zonen-Scan startet');
+    run(1.5); ok(g.snapshot().zonen.sc > 0.3, 'Fortschritt im Snapshot');
+    run(2);
+    const bk = g.snapshot().zonen.bk;
+    ok(!g.zonenSim.scan && bk.length >= 4 && bk.includes('gravi_feld0'), 'Scan fertig: ' + bk.length + ' Zonen in Reichweite bekannt, Haltefeld nicht (aus)');
+    ok(!bk.includes('halt_feld') && cmd('weapons.zonenscan').length === 1, 'Haltefeld verrät der Scan nicht; zweiter Scan: nichts Neues in Reichweite');
+    // 1) geradeaus ohne Ausgleich -> Verzerrungskern wirft zurück
+    // Navigation nach Ansage: Wegpunkte der Reihe nach; komp = der Kurs gleicht die Drift 120 px voraus aus (Ops sagt Stärke und Richtung an)
+    const flieg = (ziele, komp, grenzeS, abbruch) => {
+      g.players[0].console = 'helm';   // die Steuerung muss besetzt sein, sonst gilt Ruder 0
+      let i = 0; let prev = { x: g.ship.x, y: g.ship.y };
+      return run(grenzeS, () => {
+        const sh = g.ship; const z = ziele[i];
+        if (!z) return true;
+        const sx = z.x - prev.x, sy = z.y - prev.y, sl = Math.hypot(sx, sy) || 1;
+        if (((sh.x - z.x) * sx + (sh.y - z.y) * sy) / sl >= -30) { prev = z; i++; return false; }   // Wegpunkt passiert (Projektion auf die Strecke)
+        const dd = Math.max(1, Math.hypot(z.x - sh.x, z.y - sh.y)); const ux = (z.x - sh.x) / dd, uy = (z.y - sh.y) / dd;
+        const v = komp ? Zonen.wirkung(ZonenSim.szeneZonen(g), sh.x + ux * 120, sh.y + uy * 120) : { vx: 0, vy: 0 };
+        const e = ((sh.x - prev.x) * -sy + (sh.y - prev.y) * sx) / sl;   // Abstand von der Strecke (Querfehler)
+        const nx = -sy / sl, ny = sx / sl;
+        const want = Math.atan2(uy * 140 - v.vy - ny * e * 0.5, ux * 140 - v.vx - nx * e * 0.5);
+        let d = want - sh.angle; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+        sh.helm.stage = 5; sh.helm.turn = Math.max(-1, Math.min(1, d * 2.5));
+        return abbruch ? abbruch() : false;
+      });
+    };
+    g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0; mev.length = 0;
+    const gerade = [{ x: gv.station.x - 100, y: gv.start.y }];
+    // blind: fester Kurs Ost, volle Fahrt, ohne die Drift auszugleichen (die Navigation ahnt nichts vom Feld)
+    g.players[0].console = 'helm';
+    run(40, () => { g.ship.helm.stage = 5; g.ship.helm.turn = 0; return mev.some((e) => e.kind === 'zoneRuecksetzen'); });
+    ok(mev.some((e) => e.kind === 'zoneRuecksetzen'), 'ungeausgeglichen geradeaus: Verzerrungskern wirft zurück (Rücksetzer)');
+    ok(Math.hypot(g.ship.x - gv.start.x, g.ship.y - gv.start.y) < 60 && g.ship.speed === 0, 'Lerche steht wieder am Start, Fahrt null');
+    ok(g.ship.hull > 0 && g.snapshot().ship && true, 'Kein Tod: Hülle intakt');
+    // 2) nach Ansage (Ausgleich) kommt sie durch
+    g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0; mev.length = 0;
+    flieg(gv.weg.slice(1), true, 80, () => g.ship.x > gv.station.x - 260);
+    ok(g.ship.x > gv.station.x - 330 && !mev.some((e) => e.kind === 'zoneRuecksetzen'), 'mit Ausgleich nach Ansage: Station erreicht ohne Rücksetzer (x ' + Math.round(g.ship.x) + ' von ' + (gv.station.x - 220) + ')');
+    // 3) Finale: Haltefeld an, Feldkarte für alle
+    ZonenSim.schalten(g, 'halt', true);
+    ok(ZonenSim.szeneZonen(g).some((z) => z.id === 'halt_feld') && ZonenSim.sichtbarMachen(g, 'halt', true) === 5, 'zone_schalten halt an, Feldkarte: 5 Zonen für alle sichtbar');
+    const sv = g.snapshot().zonen; ok(sv.sv.length === 5 && !sv.au, 'Snapshot sv (5 sichtbar), au leer');
+    g.ship.x = gv.station.x - 250; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = Math.PI; g.ship.turnVel = 0;
+    g.ship.power.engines = 4; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 4; g.ship.powerIntent.shields = 1; g.ship.powerIntent.weapons = 1; g.ship.powerIntent.life = 2; }
+    run(0.3);
+    // falscher Weg: in einen der drei kurzen Kanäle (Sackgasse) fliegen und weiter geradeaus: das Haltefeld holt das Schiff zurück
+    const kurz = Zs.find((z) => /^halt_kanal_kurz/.test(z.id));
+    const aus0 = () => Math.hypot(g.ship.x - gv.station.x, g.ship.y - gv.station.y) > 850;
+    g.ship.x = gv.station.x; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.turnVel = 0; g.ship.angle = kurz.drift.winkel; g.players[0].console = 'helm';
+    g.ship.helm.stage = 5; run(40, () => { g.ship.helm.turn = 0; return aus0(); });
+    ok(!aus0(), 'falscher Weg: das Haltefeld hält das Schiff fest (Abstand ' + Math.round(Math.hypot(g.ship.x - gv.station.x, g.ship.y - gv.station.y)) + ')');
+    // richtiger Weg: Kanal (Feldkarte)
+    g.ship.x = gv.station.x; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0; run(0.2);
+    flieg(gv.fluchtweg, true, 60, aus0);
+    ok(aus0(), 'richtiger Weg durch den langen Kanal: Haltefeld verlassen (Abstand ' + Math.round(Math.hypot(g.ship.x - gv.station.x, g.ship.y - gv.station.y)) + ')');
+  } finally { Welt.waehle(g, 'limes'); }
+});
+
 aufraeumen();
 console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));
 process.exit(fails ? 1 : 0);

@@ -92,8 +92,12 @@ function beamStart(game, p, id) {
 }
 // Abliefern: Ort prüfen. Rückgabe { ok, reason?, name? }
 function ablieferOrt(game) {
+  if (!state(game).lager.some((l) => l.art !== 'person')) return { ok: false, reason: 'Keine Fracht an Bord.' };   // SL0: Personen sind keine Ware (abgeben: personen-bord.js)
+  return stationOrt(game);
+}
+// SL0: Abnehmer/Station in Reichweite, ohne Rücksicht darauf, was an Bord ist (auch für Personen)
+function stationOrt(game) {
   const s = state(game); const sh = game.ship;
-  if (!s.lager.length) return { ok: false, reason: 'Keine Fracht an Bord.' };
   const loc = Locations.get(sh.scene);
   const st = loc && loc.scene && loc.scene.station;
   if (s.abnehmer && s.abnehmer.ort && s.abnehmer.ort !== sh.scene) return { ok: false, reason: `Abnehmer ist ${s.abnehmer.name || s.abnehmer.ort} – nicht hier.` };
@@ -135,12 +139,15 @@ function beamFertig(game) {
     game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
     game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity()}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
+  } else if (h.kind === 'person_an' || h.kind === 'person_ab') {   // SL0: Person beamen (server/sim/personen-bord.js)
+    require('./personen-bord.js').haltFertig(game, h);
   } else if (h.kind === 'verk') {   // SL6: Verkaufen an einen Händler (server/sim/ladung.js)
     require('./ladung.js').verkaufFertig(game);
   } else {
     const o = ablieferOrt(game);
     if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'ab', grund: 'ort' }); return; }
-    const weg = s.lager.splice(0, s.lager.length);
+    const weg = s.lager.filter((l) => l.art !== 'person');   // SL0: Personen bleiben an Bord (eigener Halteprozess)
+    s.lager = s.lager.filter((l) => l.art === 'person');
     for (const l of weg) s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1;
     game.emit('frachtBeamen', { phase: 'fertig', was: 'ab', n: weg.length });
     game.oda(`Fracht übergeben: ${weg.map((l) => artName(l.art)).join(', ')} – ${o.name}.`, null);
@@ -166,7 +173,8 @@ function update(game, dt) {
     const pod = s.draussen.find((d) => d.id === h.id);
     if (!pod) return void beamStop(game, 'weg');
     if (dist(game.ship.x, game.ship.y, pod.x, pod.y) > cfg(game).beamRange) return void beamStop(game, 'reichweite', 'Fracht außer Reichweite – Beamen abgebrochen.');
-  } else if (h.kind === 'verk') { if (!require('./ladung.js').verkaufWeiter(game)) return void beamStop(game, 'ort'); }
+  } else if (h.kind === 'person_an' || h.kind === 'person_ab') { if (!require('./personen-bord.js').haltWeiter(game, h)) return void beamStop(game, 'ort', 'Person beamen abgebrochen.'); }   // SL0
+  else if (h.kind === 'verk') { if (!require('./ladung.js').verkaufWeiter(game)) return void beamStop(game, 'ort'); }
   else if (!ablieferOrt(game).ok) return void beamStop(game, 'ort');
   h.t += dt;
   if (h.t >= h.dur) beamFertig(game);
@@ -180,7 +188,9 @@ function snapshot(game) {
   if (!s) return null;
   const draus = s.draussen.filter((d) => d.szene === game.ship.scene);
   const out = {};
-  if (s.lager.length) { out.lager = s.lager.map((l) => l.art); if (ablieferOrt(game).ok) out.ab = 1; }
+  const ware = s.lager.filter((l) => l.art !== 'person');   // SL0: lager = nur Ware (Buchten), Personen stehen in pers
+  if (ware.length) { out.lager = ware.map((l) => l.art); if (ablieferOrt(game).ok) out.ab = 1; }
+  Object.assign(out, require('./personen-bord.js').snapshotZusatz(game));   // SL0: pers, pq
   if (draus.length) out.draussen = draus.map((d) => ({ id: d.id, x: d.x, y: d.y, art: d.art }));
   if (s.halt) { out.halt = { kind: s.halt.kind, p: Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
@@ -189,10 +199,12 @@ function snapshot(game) {
   { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; }   // SL6: Händler in Reichweite (Verkaufen möglich)
   return Object.keys(out).length ? out : null;
 }
-function toSave(game) { return state(game).lager.map((l) => l.art); }
+function toSave(game) { const P = require('./personen-bord.js'); return state(game).lager.map((l) => (l.art === 'person' ? P.toSaveEntry(l) : l.art)); }   // SL0: Personen als { p, n, b }
 function restore(game, arten) {
   const s = state(game);
-  s.lager = (Array.isArray(arten) ? arten : []).filter((a) => typeof a === 'string' && artOk(game, a)).slice(0, capacity()).map((art) => ({ art }));
+  const P = require('./personen-bord.js');
+  s.lager = (Array.isArray(arten) ? arten : []).filter((a) => (typeof a === 'string' && artOk(game, a)) || (a && typeof a === 'object' && a.p)).slice(0, capacity())
+    .map((a) => (typeof a === 'string' ? { art: a } : P.restoreEntry(a)));   // SL0: Personen { p, n, b }
   s.halt = null;
 }
 
@@ -204,6 +216,7 @@ function skriptAbliefern(game, art, n) {
   const s = state(game); let k = 0; const lim = n == null ? Infinity : n;
   for (let i = s.lager.length - 1; i >= 0 && k < lim; i--) {
     if (art && s.lager[i].art !== art) continue;
+    if (!art && s.lager[i].art === 'person') continue;   // SL0: Personen nie per Warenabgabe
     const l = s.lager.splice(i, 1)[0]; s.abgeliefert[l.art] = (s.abgeliefert[l.art] || 0) + 1; k++;
   }
   if (k) game.missionEvent('frachtAbgeliefert', { n: k, arten: art ? [art] : [], ort: game.ship.scene, name: null, skript: true });
@@ -229,8 +242,9 @@ function debug(game, args) {
     if (game.ship.docked) return 'Nicht angedockt (Fracht liegt im freien Raum).';
     return fracht_abwerfen(game, sh.x + dx, sh.y + dy, art) ? null : 'Unbekannte Art (sprengstoff | fracht).';
   }
+  if (sub === 'person') return require('./personen-bord.js').personAnBordLegen(game, args[1] || 'evert', args[2] || null) ? null : 'Frachtraum voll.';   // SL0: fracht person [id] [name]
   if (sub === 'an') return anBordLegen(game, args[1]) ? null : 'Frachtraum voll oder unbekannte Art.';
-  if (sub === 'leer') { s.lager = []; s.draussen = []; s.halt = null; return null; }
+  if (sub === 'leer') { s.lager = []; s.draussen = []; s.halt = null; return null; }   // SL0: leert auch Personen
   if (sub === 'gesichert') { setGesichert(game, args[1] !== 'aus'); return null; }
   if (sub === 'abnehmer') { setAbnehmer(game, args[1] || null, args[2] || null); return null; }
   game.log(`Fracht: Lager ${JSON.stringify(lagerArten(game))}, draußen ${draussen(game).length}, Halt ${s.halt ? JSON.stringify(s.halt) : '-'}, gesichert ${gesichert(game)}, Abnehmer ${s.abnehmer ? s.abnehmer.ort : '-'}`);
@@ -240,7 +254,7 @@ function debug(game, args) {
 module.exports = {
   neu, state, update, snapshot, toSave, restore, debug,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
-  beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt,
+  beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
   anBord, frei, capacity, gesichert, setGesichert, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, anBordLegen, artOk,
 };

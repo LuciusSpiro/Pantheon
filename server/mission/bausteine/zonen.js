@@ -28,6 +28,14 @@ module.exports = (Registry) => {
     beschreibung: 'Zonen der Szene als erkundet markieren (zone = eine ID, ohne Angabe alle), z. B. nach einer Sonde',
     params: { zone: { typ: 'string' } },
     run(m, a) { Z().bekanntMachen(m.game, a.zone ? [a.zone] : 'alle'); } });
+  Registry.define({ id: 'zone_schalten', art: 'aktion', ereignisse: ['zonenGeschaltet'],
+    beschreibung: 'Zonen-Schaltgruppe ein- oder ausschalten (z. B. Haltefeld der Forschungsstation im Finale; scene.zonenAus = anfangs aus)',
+    params: { gruppe: { typ: 'string', pflicht: true }, an: { typ: 'bool' } },
+    run(m, a) { Z().schalten(m.game, a.gruppe, a.an !== false); } });
+  Registry.define({ id: 'zone_sichtbar', art: 'aktion', ereignisse: ['zonenSichtbar'],
+    beschreibung: 'Zonen (einer Gruppe, sonst alle) für ALLE sichtbar machen (alle=true: Feldkarte) bzw. zurücknehmen',
+    params: { gruppe: { typ: 'string' }, alle: { typ: 'bool' } },
+    run(m, a) { Z().sichtbarMachen(m.game, a.gruppe || 'alle', a.alle !== false); } });
   Registry.define({ id: 'zaehler_setzen', art: 'aktion', beschreibung: 'Zonen-Zähler auf einen Wert setzen (Rücksetzen, Labor-Einstieg)',
     params: { id: { typ: 'string', pflicht: true }, wert: { typ: 'number', pflicht: true, min: 0 } },
     run(m, a) { Z().zaehlerSetzen(m.game, a.id, a.wert); } });
