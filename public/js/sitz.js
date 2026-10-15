@@ -184,10 +184,10 @@
     zeichneSchirm(view);
     if (S.pultSicht > 0) {
       ctx.save(); ctx.globalAlpha = S.pultSicht; ctx.drawImage(pultCanvas, 0, 0); ctx.restore();
-      if (S.pultSicht < 0.6) R.ui.buttons.length = nb;
+      Consoles.verdeckt = S.pultSicht < 0.6 ? R.ui.buttons.splice(nb) : null;
       R.text(ctx, 'Maus an den oberen Rand oder Rad ▲: Hauptschirm', VW / 2, 1, { color: PAL.panelLight, align: 'center' });
     } else {
-      R.ui.buttons.length = nb;
+      Consoles.verdeckt = R.ui.buttons.splice(nb);   // für Tasten erreichbar, für Klicks nicht
       zeichneKante(ctx, view);
     }
   }

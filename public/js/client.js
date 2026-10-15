@@ -2173,7 +2173,7 @@
       Net.guard('Hud.draw', () => H.draw(ctx, v));
       if (v.me.console) {
         if (v.voxel && window.Sitz && Sitz.station) Net.guard('Sitz.draw', () => Sitz.draw(ctx, v));   // UI-Sitz (E2)
-        else Net.guard('Consoles.draw', () => K.draw(ctx, v));
+        else { K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v)); }
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
