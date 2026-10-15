@@ -184,7 +184,7 @@ function updatePlayers(game, dt) {
     if (p.moving) {
       if (Math.abs(mx) > Math.abs(my)) p.dir = mx > 0 ? 'right' : 'left';
       else p.dir = my > 0 ? 'down' : 'up';
-      const speed = C.player.speed * (p.carry ? C.player.carrySpeedFactor : 1) * (p.crouch ? combat().speedFactor(game, p) : 1);
+      const speed = C.player.speed * (p.carry ? C.player.carrySpeedFactor : 1) * (p.crouch ? combat().speedFactor(game, p) : (p.input && p.input.run ? (C.player.runFactor || 1) : 1));   // Shift = rennen, geduckt nicht
       const res = Physics.moveWithCollision(solidFor(game, p.zone), p.x, p.y, mx * speed * dt, my * speed * dt, C.player.hitbox);
       p.x = res.x; p.y = res.y;
     }

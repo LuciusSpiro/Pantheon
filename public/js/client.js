@@ -15,6 +15,7 @@
   const INTERP_DELAY = 100;     // ms
   const HITBOX = (CFG.player && CFG.player.hitbox) || { w: 18, h: 12 };
   const SPEED = (CFG.player && CFG.player.speed) || 96;
+  const RUN = (CFG.player && CFG.player.runFactor) || 1;   // Shift = rennen
   const params = Net.params;
   const DEBUG = params.get('debug') === '1';
 
@@ -2103,18 +2104,22 @@
     if (len > 1) { mx /= len; my /= len; }
     const nonzero = mx !== 0 || my !== 0;
     Client.sendAcc += dt;
-    const changed = mx !== Client.lastSent.mx || my !== Client.lastSent.my;
+    const run = !!(canMove && (Client.keys.ShiftLeft || Client.keys.ShiftRight)) && !(canCrouchHere(m, st) && crouchActive(m));
+    const changed = mx !== Client.lastSent.mx || my !== Client.lastSent.my || run !== !!Client.lastSent.run;
     // FIX-ZIELEN: Zielwinkel mit der Eingabe (ganze Grad); sparsam: erst ab 4° Änderung, höchstens 20×/s
     const zg = zielGrad(m), aim = zg == null ? null : Math.round(zg), la = Client.lastSent.aim;
     const aimChanged = (aim == null) !== (la == null) || (aim != null && Math.abs(Phys.normAngle((aim - la) * Math.PI / 180)) >= 4 * Math.PI / 180);
     if (changed || (nonzero && Client.sendAcc >= 1 / 30) || (aimChanged && Client.sendAcc >= 1 / 20)) {
       Client.seq++;
-      send(aim == null ? { t: P.C.INPUT || 'input', seq: Client.seq, mx, my } : { t: P.C.INPUT || 'input', seq: Client.seq, mx, my, aim });
-      Client.lastSent = { mx, my, aim };
+      const inp = { t: P.C.INPUT || 'input', seq: Client.seq, mx, my };
+      if (aim != null) inp.aim = aim;
+      if (run) inp.run = 1;
+      send(inp);
+      Client.lastSent = { mx, my, aim, run };
       Client.sendAcc = 0;
     }
     if (canMove && nonzero) {
-      const speed = SPEED * (m.carry ? 0.85 : 1) * (canCrouchHere(m, st) && crouchActive(m) ? crouchFactor() : 1);   // §15: gleicher Faktor wie der Server
+      const speed = SPEED * (m.carry ? 0.85 : 1) * (canCrouchHere(m, st) && crouchActive(m) ? crouchFactor() : run ? RUN : 1);   // §15: gleicher Faktor wie der Server (Shift = rennen)
       const dx = mx * speed * dt, dy = my * speed * dt;
       const r = Phys.moveWithCollision(isSolidFor(self.zone, st), self.x, self.y, dx, dy, HITBOX);
       self.moving = Math.abs(r.x - self.x) + Math.abs(r.y - self.y) > 0.01;

@@ -590,6 +590,7 @@ class Game {
           const mx = Number(msg.mx), my = Number(msg.my);
           p.input.mx = Number.isFinite(mx) ? clamp(mx, -1, 1) : 0;
           p.input.my = Number.isFinite(my) ? clamp(my, -1, 1) : 0;
+          p.input.run = !!msg.run;   // Shift = rennen (C.player.runFactor)
           if (Number.isFinite(msg.seq)) p.lastSeq = msg.seq;
           away.setAim(this, p, msg.aim);   // FIX-ZIELEN: Zielwinkel (Grad) → Blickrichtung; fehlt = Laufrichtung
           break;
