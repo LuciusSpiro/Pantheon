@@ -183,6 +183,10 @@ function spawn(game, opts) {
     docked: false, spawnT: game.time, ausgang: null,
   };
   if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
+  if (ally) {   // Kennung auf den Karten: ausdrücklich (flotte_aufstellen volk), sonst CONFIG.kennung.verbuendet (Rom). Snapshot vk nur abweichend
+    const K = game.C.kennung || {};
+    es.volk = (K.voelker || []).includes(o.volk) ? o.volk : (K.verbuendet || 'rom');
+  }
   // Startfahrt: Geleit fährt schon (¼), Havarist treibt langsam
   if (verhalten === 'folgt_kurs' || verhalten === 'flieht' || verhalten === 'scripted') {
     const v = Flight.stageSpeed(c, stageNear(c, 0.25));
@@ -732,6 +736,7 @@ function snapshot(game) {
   return sel.map((es) => {
     const o = { id: es.id, tag: es.tag, kind: es.kind, name: es.name, x: Math.round(es.x), y: Math.round(es.y), angle: r2(es.angle),
       hp: Math.ceil(es.hp), hpMax: es.hpMax, state: es.state, befehl: es.befehl, distress: !!es.distress };
+    if (es.ally && es.volk && es.volk !== ((game.C.kennung || {}).verbuendet || 'rom')) o.vk = es.volk;   // Kennung: fehlt = CONFIG.kennung.verbuendet
     if (es.ally) { o.al = 1; delete o.befehl; if (!es.distress) delete o.distress; if (es.state === 'ok') delete o.state; if (es.einBis > game.time) o.ein = 1; }   // kompakt (fehlt = Standard)
     if (es.pending) o.pending = es.pending.befehl;
     if (es.verhalten === 'treibt' && !es.repaired && es.reparatur_s > 0) o.repair = r2(1 - es.repairLeft / es.reparatur_s);

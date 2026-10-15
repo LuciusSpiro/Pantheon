@@ -127,7 +127,7 @@ function erinnerungText(game, art) {
 }
 
 // ---------- Verbündete ----------
-// opts: { tag, kind?, name?, npc?, von?, huelle?, modus?, ersatz?, rolle?, auftauchen? } -> Schiff | null (verloren und kein Ersatz)
+// opts: { tag, kind?, name?, npc?, von?, huelle?, modus?, ersatz?, rolle?, auftauchen?, volk? (Kennung, Standard CONFIG.kennung.verbuendet) } -> Schiff | null (verloren und kein Ersatz)
 // rolle: begleiter (Standard) | angreifer | skript (EK4a: keine KI, kein Feuer). auftauchen: Sprungblitz, Einblenden (unverwundbar CONFIG.flotte.einblenden.dauer s)
 function aufstellen(game, opts) {
   const o = opts || {};
@@ -139,7 +139,7 @@ function aufstellen(game, opts) {
     game.emit('flotteFehlt', { tag });
     return null;
   }
-  const es = escort().spawn(game, { tag, kind: o.kind || 'korvette', name: o.name || d.name, npc: o.npc || d.npc || null, von: o.von != null ? o.von : 'lerche', huelle: o.huelle, ally: true });
+  const es = escort().spawn(game, { tag, kind: o.kind || 'korvette', name: o.name || d.name, npc: o.npc || d.npc || null, von: o.von != null ? o.von : 'lerche', huelle: o.huelle, ally: true, volk: o.volk || d.volk });
   if (!es) return null;
   es.slot = allies(game).length - 1;
   es.rolle = ROLLEN.includes(o.rolle) ? o.rolle : (kcfg(game).rolle || 'begleiter');
@@ -373,9 +373,10 @@ function tickBefehl(game, b, dt) {
 }
 
 // ---------- Wellen (Welle um Welle) ----------
-// spec: { wellen: 'raider:3,korvette:1|raider:4' | [[{kind,n}…]…], takt?, rest?, ziel?, richtung?, ueberdruck?, tag? }
+// spec: { wellen: 'raider:3,korvette:1|raider:4' | [[{kind,n,volk?}…]…], takt?, rest?, ziel?, richtung?, ueberdruck?, tag?, volk? }
+// Kennung: je Gruppe 'kind:n:volk' (z. B. 'raider:2:pirat'), sonst spec.volk, sonst space.volkFuer (Fraktion des Sektors)
 function parseWellen(w) {
-  const raw = typeof w === 'string' ? w.split('|').map((g) => g.split(',').map((x) => { const [kind, n] = x.trim().split(':'); return { kind: kind.trim(), n: Math.max(1, Math.round(Number(n) || 1)) }; }).filter((x) => x.kind)) : w;
+  const raw = typeof w === 'string' ? w.split('|').map((g) => g.split(',').map((x) => { const [kind, n, volk] = x.trim().split(':'); const it = { kind: kind.trim(), n: Math.max(1, Math.round(Number(n) || 1)) }; if (volk) it.volk = volk.trim(); return it; }).filter((x) => x.kind)) : w;
   return Array.isArray(raw) ? raw.filter((g) => Array.isArray(g) && g.length) : [];
 }
 function wellenStart(game, spec) {
@@ -384,21 +385,21 @@ function wellenStart(game, spec) {
   if (!liste.length) return null;
   const st = state(game);
   st.welle = { id: game.nextId('wl'), liste, i: -1, takt: s.takt != null ? Number(s.takt) : Number(W.takt) || 0, rest: s.rest != null ? Number(s.rest) : Number(W.rest) || 0,
-    ziel: s.ziel || 'auto', richtung: s.richtung || 'alle', ueberdruck: s.ueberdruck !== false, tag: s.tag || 'welle', t: game.time, druck: false, druckT: 0, fertig: false, n: 0, scene: game.ship.scene, spec: s };
+    ziel: s.ziel || 'auto', richtung: s.richtung || 'alle', ueberdruck: s.ueberdruck !== false, tag: s.tag || 'welle', volk: s.volk || null, t: game.time, druck: false, druckT: 0, fertig: false, n: 0, scene: game.ship.scene, spec: s };
   return st.welle;
 }
 function spawnGruppe(game, w, group, label) {
   const Lr = lerche(game);
   const scale = ((cfg(game).wellen || {}).crew || { 1: 0.67, 2: 0.85, 3: 1 })[crewN(game)] || 1;
   const items = [];
-  for (const it of group) { const n = Math.max(1, Math.round(it.n * scale)); for (let j = 0; j < n; j++) items.push(it.kind); }
+  for (const it of group) { const n = Math.max(1, Math.round(it.n * scale)); for (let j = 0; j < n; j++) items.push({ kind: it.kind, volk: it.volk || w.volk || undefined }); }
   const base = w.richtung === 'achtern' ? Lr.angle + Math.PI : Lr.angle;
-  items.forEach((kind, j) => {
+  items.forEach(({ kind, volk }, j) => {
     let a;
     if (w.richtung === 'alle') a = (j / items.length) * Math.PI * 2 + game.rng.range(-0.3, 0.3) + w.n;
     else a = base + (j - (items.length - 1) / 2) * 0.55;
     if (!game.C.enemies[kind]) return;
-    spawnOderNachschub(game, kind, { angle: a, tag: w.tag, ziel: w.ziel }, { wv: w.id, wvN: label });
+    spawnOderNachschub(game, kind, { angle: a, tag: w.tag, ziel: w.ziel, volk }, { wv: w.id, wvN: label });
   });
 }
 function lebendeWelle(game, w, nr) { return game.space.enemies.filter((e) => e.wv === w.id && (nr == null || e.wvN === nr)).length; }
@@ -417,7 +418,7 @@ function tickWelle(game, w, dt) {   // eslint-disable-line no-unused-vars
   if (w.druck && game.time - w.druckT >= (Number(W.druckTakt) || 9)) {   // Überdruck: die letzte Gruppe kommt wieder, etwas größer
     w.druckT = game.time;
     const maxN = Number(W.druckMax) || 4;
-    const last = w.liste[w.liste.length - 1].map((it) => ({ kind: it.kind, n: Math.min(maxN, it.n + 1) }));
+    const last = w.liste[w.liste.length - 1].map((it) => ({ kind: it.kind, n: Math.min(maxN, it.n + 1), volk: it.volk }));
     w.n++;
     spawnGruppe(game, w, last, w.liste.length + w.n);
     game.emit('flotteDruck', { n: w.n });

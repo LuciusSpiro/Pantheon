@@ -216,6 +216,9 @@
     // ================= M1 (Team SERVER) =================
     // Gegner-Schildsektoren [bug, steuerbord, heck, backbord] und Waffen (Feuerbögen relativ zum Gegner-Bug, Grad)
     enemyShields: { raider: [2, 1, 0, 1], korvette: [1, 2, 0, 2], sentinel: [3, 3, 3, 3], pylon: [4, 0, 0, 0], relay: [0, 0, 0, 0], frachter: [1, 1, 1, 1] },
+    // Kennung auf den Raumkarten (public/js/kennung.js): Volk = Form, Klasse = Größe. Nur diese Klassen tragen ein Volk (Wächter, Pylon, Relais
+    // behalten ihr Bild). Snapshot-Feld vk fehlt beim Standard (Gegner gegner, Verbündete verbuendet); Ableitung in server/sim/space.js volkFuer.
+    kennung: { voelker: ['ger', 'rom', 'pirat'], klassen: ['raider', 'korvette', 'fregatte', 'kreuzer', 'frachter'], gegner: 'ger', verbuendet: 'rom' },
     enemyShieldRegen: 5,   // s je Punkt und Sektor
     // EK1: Waffenarten einer Korvette. lanze = angekündigter schwerer Treffer (tele), batterie = Sperrfeuer-Salve, bolzen = einzelner Schuss
     korvetteWaffen: ['lanze', 'batterie', 'bolzen'],

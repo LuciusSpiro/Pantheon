@@ -194,6 +194,8 @@
       this.view = view;
       const c = this.stationOf(view.me);
       if (c !== this.current) { if (this.current) this.stationAbbau(view); this.onOpen(c); }
+      // Pult-Baukasten (pult.js, pult-stationen.js): Brückenstationen im neuen Aufbau mit Skin je Volk
+      if (window.Pult && this.pultDraw && this.PULT_STATIONEN.includes(c)) return this.pultDraw(ctx, view, c);
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
       R.panel(ctx, 4, 6, VW - 8, VH - 10, { style: 'screen', title: TITLES[c] || String(c).toUpperCase() });
       { const lab = c === 'plan' ? 'Aufstehen' : 'Verlassen'; const bw = R.measure(lab, 1) + R.measure('Esc', 1) + 18; R.button(ctx, VW - 8 - bw, 10, bw, 13, lab, { hotkey: 'Esc', onClick: () => view.actions.leave() }); }
@@ -889,6 +891,7 @@
     capLage(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
       const rect = { x: a.x, y: a.y, w: 440, h: a.h - 2 };
+      if (this.mapRects) this.mapRects.lage = rect;
       this.maps.lage = R.drawTactical(ctx, view, rect, { zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true });
       const rx = a.x + 450, rw = a.w - 450;
       let y = a.y + 2;
@@ -2521,9 +2524,41 @@
     },
 
     // ================================================================= Eingabe
+    // Tastenbelegung (tasten.js, Menü „Steuerung“): Aktionen der Station und ihrer aktiven Bereiche
+    tastenGruppe(c) { return { helm: 'steuer', weapons: 'ops', technik: 'technik', captain: 'captain' }[c] || null; },
+    tastenBereiche(c, view) {
+      const st = view.state || {}, b = new Set();
+      if (c === 'technik') b.add(this.ttab === 1 ? 'technik.schaden' : 'technik.energie');
+      if (c === 'captain') { b.add(['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }
+      if (c === 'weapons') {
+        if (this.fracht && this.fracht(st).show) b.add('ops.fracht');
+        if (window.Entschluesseln && Entschluesseln.aktiv && Entschluesseln.aktiv(st)) b.add('ops.entschl');
+        if (window.Glyphen && Glyphen.aktiv && Glyphen.aktiv(st)) b.add('ops.glyphen');
+      }
+      return b;
+    },
+    // -> Event mit der Standardtaste der getroffenen Aktion, das Original (nicht umbelegt) oder null (Taste wurde wegbelegt)
+    tastenKanon(e, c, view, hoch) {
+      const T = window.Tasten, G = this.tastenGruppe(c);
+      if (!T || !G || !T.ausEvent) return e;
+      const taste = T.ausEvent(e);
+      if (!taste) return e;
+      const ber = this.tastenBereiche(c, view);
+      const passend = T.AKTIONEN.filter((a) => (a.gruppe === G || a.gruppe === 'allgemein') && (!a.bereich || ber.has(a.bereich)));
+      const treffer = passend.filter((a) => (hoch ? T.loslassen(e, a.id) : T.passt(e, a.id)));
+      const roh = hoch ? e.code : taste;
+      const istStd = (a) => a.std.some((s) => (hoch ? s.replace(/^Shift\+/, '') : s) === roh);
+      if (!treffer.length) return passend.some(istStd) ? null : e;
+      if (treffer.some(istStd)) return e;
+      const std = treffer[0].std[0], shift = std.indexOf('Shift+') === 0;
+      return { code: shift ? std.slice(6) : std, shiftKey: shift, repeat: e.repeat, key: e.key, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, preventDefault() { if (e.preventDefault) e.preventDefault(); } };
+    },
     keyDown(e, view) {
       const c = this.stationOf(view.me);
       if (!c) return false;
+      e = this.tastenKanon(e, c, view, false);
+      if (!e) return true;
+      if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && this.PULT_STATIONEN.includes(c)) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
       const code = e.code;
       this.keys[code] = true;
       if (code === 'Escape') { view.actions.leave(); return true; }
@@ -2648,16 +2683,21 @@
             if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }
             if (code === 'KeyE') { this.sel.mount = (this.sel.mount + 1) % 3; view.actions.sfx('ui_click'); return true; }
             if (code === 'KeyA' || code === 'KeyD') {
-              const id = M3_MOUNTS[this.sel.mount];
-              const b = this.findButtons(code === 'KeyA' ? '−' : '+').filter(x => x.y > 60)[this.sel.mount];
-              if (b && b.disabled) { this.denied(b.reason); return true; }
-              return press(() => this.cmd(view, 'weapons.alloc', { mount: id, delta: code === 'KeyA' ? -1 : 1 }));
+              const id = M3_MOUNTS[this.sel.mount], delta = code === 'KeyA' ? -1 : 1;
+              const grund = this.allocGrund ? this.allocGrund(view, this.sel.mount, delta) : null;
+              if (grund) { this.denied(grund); return true; }
+              return press(() => this.cmd(view, 'weapons.alloc', { mount: id, delta }));
             }
-            // §20.3: 1 HALTEN lädt die Lanze auf, Loslassen feuert (keyUp); §20.4: 2/3/Leer feuern Batterien, kein H mehr
-            if (d === 1) { this.sel.mount = 0; return press(() => this.lanceCharge(view, true, 'key')); }
-            if (d >= 2 && d <= 3) { this.sel.mount = d - 1; return press(() => this.tryButton(MOUNT_NAMES[M3_MOUNTS[d - 1]])); }
-            if (d === 4) return press(() => this.tryButton('Bolzen'));
             if (code === 'Space') return press(() => this.tryButton('Batterien'));
+          }
+          // Kai 2026-10-15: Waffen am Ziffernblock-Platz (Ziffernblock oder obere Ziffernreihe). Lanze: halten lädt, loslassen feuert (keyUp)
+          if (d && this.waffeAmPlatz) {
+            const m = this.waffeAmPlatz(view, d);
+            if (!m) { this.denied('Keine Waffe auf Platz ' + d); return true; }
+            const i3 = M3_MOUNTS.indexOf(m.id);
+            if (i3 >= 0) this.sel.mount = i3;
+            if ((m.id === 'bow' || m.id === 'lanze') && this.isM3(view)) { this.lanceKey = code; return press(() => this.lanceCharge(view, true, 'key')); }
+            return press(() => this.tryButton(MOUNT_NAMES[m.id] || m.id));
           }
           if (d === 1) return press(() => this.tryButton(this.findButton('Phase L') ? 'Phase L' : 'Lanze'));
           if (d === 2) return press(() => this.tryButton('Phase R'));
@@ -2752,9 +2792,11 @@
       return true;
     },
     keyUp(e, view) {
+      const c0 = view.me && this.stationOf(view.me);
+      if (c0) { const k = this.tastenKanon(e, c0, view, true); if (k) e = k; }
       delete this.keys[e.code];
       if (window.Entschluesseln && Entschluesseln.key(e.code, false, view)) return true;   // SL5: Richtung loslassen
-      if ((e.code === 'Digit1' || e.code === 'Numpad1') && this.lanceOn === 'key') this.lanceCharge(view, false);
+      if (this.lanceOn === 'key' && e.code === (this.lanceKey || 'Digit1')) { this.lanceKey = null; this.lanceCharge(view, false); }
       if (e.code === 'Space' && this.scanOn) this.setScan(view, false);
       if (e.code === 'KeyS' && this.tscanOn) this.setTscan(view, false);
       return !!(view.me && view.me.console);
@@ -2786,7 +2828,7 @@
       button = button || 0;
       if (c === 'weapons') {
         const mp = this.maps.weapons;
-        if (!mp || !this.inRect(x, y, { x: 10, y: 26, w: 404, h: 292 })) return false;
+        if (!mp || !this.inRect(x, y, (this.mapRects && this.mapRects.weapons) || { x: 10, y: 26, w: 404, h: 292 })) return false;
         if (button === 2) {
           const w = mp.toW(x, y);
           this.cmd(view, 'weapons.marker', { x: Math.round(w.x), y: Math.round(w.y) });
@@ -2798,7 +2840,7 @@
       }
       if (c === 'captain' && this.tab === 2) {
         const mp = this.maps.lage;
-        if (!mp || !this.inRect(x, y, { x: 12, y: 48, w: 440, h: 272 })) return false;
+        if (!mp || !this.inRect(x, y, (this.mapRects && this.mapRects.lage) || { x: 12, y: 48, w: 440, h: 272 })) return false;
         if (button === 2) { this.cmd(view, 'captain.marker', { clear: true }); return true; }
         const w = mp.toW(x, y);
         this.cmd(view, 'captain.marker', { x: Math.round(w.x), y: Math.round(w.y) });

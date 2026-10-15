@@ -17,7 +17,7 @@ module.exports = (Registry) => {
     ereignisse: ['konvoiKontakt', 'konvoiTransporterZerstoert', 'konvoiSprung', 'konvoiAlarm', 'konvoiAusgang', 'enemySpawn', 'frachtAbgeworfen'],
     beschreibung: 'Konvoi-Szene (A15) einrichten: n Transporter (1–3, unbewaffnet, Klasse frachter) mit Eskorte (voll = Jäger und Korvette | jaeger | korvette | keine) fahren eine Route und springen am Ende. sieg: aufhalten (alle Transporter zerstören, bevor sie springen) oder pluendern (zerstörte Transporter lassen Fracht fallen, die Ops beamt sie an Bord; beute_min Ladungen nötig, Standard n bis zur Kapazität des Frachtraums). Entkommt der Konvoi, kommt bei wiederholung (Standard an) nach 8 s ein neuer',
     params: { n: { typ: 'number', min: 1, max: 3 }, eskorte: { typ: 'string', werte: ESKORTEN }, sieg: { typ: 'string', werte: ['aufhalten', 'pluendern'] },
-      ladung: { typ: 'string', werte: ARTEN }, tempo: { typ: 'number', min: 0.25, max: 0.9 }, beute_min: { typ: 'number', min: 1, max: 3 }, wiederholung: { typ: 'bool' } },
+      ladung: { typ: 'string', werte: ARTEN }, tempo: { typ: 'number', min: 0.25, max: 0.9 }, beute_min: { typ: 'number', min: 1, max: 3 }, wiederholung: { typ: 'bool' }, volk: { typ: 'string', werte: ['ger', 'rom', 'pirat'] } },
     run(m, a) { if (atLoc(m)) konvoi().an(m.game, a); } });
   Registry.define({ id: 'konvoi_ende', art: 'aktion', beschreibung: 'Konvoi-Szene als geschafft werten (Überspringen im Regiebuch)', params: {},
     run(m) { if (atLoc(m)) konvoi().erzwingen(m.game); } });

@@ -18,6 +18,7 @@ const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporte
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
 const Ladung = require('./ladung.js');   // SL6: Gewicht schwerer Ladung (Deuterium) senkt die Triebwerksleistung
+const Sektoren = require('../../shared/sektoren.js');   // Kennung: Fraktion des Hexes der Szene (Volk der Gegner)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
 const POWER_SYSTEMS = Protocol.POWER_SYSTEMS;
@@ -1455,6 +1456,8 @@ function spawnEnemy(game, kind, opts) {
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
+  const vk = volkFuer(game, kind, o.volk);   // Kennung auf den Raumkarten (Snapshot vk, fehlt = CONFIG.kennung.gegner)
+  if (vk) e.volk = vk;
   if (hatPlaetze(game, kind)) e.waffen = bestueckung(game, kind, o.waffen);   // EK1: Korvette, EK1b: Fregatte, Kreuzer
   // S2 §5: Spawn-Parameter ziel (lerche | schuetzling | auto | Tag eines Schützlings) -> e.targetId (null = Lerche)
   if (o.ziel != null && o.ziel !== 'lerche') {
@@ -1466,6 +1469,23 @@ function spawnEnemy(game, kind, opts) {
   sp.enemies.push(e);
   game.missionEvent('enemySpawn', { enemy: e });
   return e;
+}
+
+// Kennung (Volk) eines Raumschiffs: 'ger' | 'rom' | 'pirat' oder null (Klasse ohne Kennung: Wächter, Pylon, Relais …). Ableitung:
+//   1. ausdrücklich beim Erzeugen: opts.volk (Regiebuch/Kampagne `spawn.volk`, Patrouille/Einsprung `volk`, Konvoi `volk`, Flotten-Wellen
+//      `kind:n:volk`, Verbündete der Flotte `volk`) – ungültige Werte zählen nicht
+//   2. sonst die Fraktion des Hexes der Szene, aber nur, wenn sie dort feindlich ist (CONFIG.reise.fraktionArt 'feind': ger, pirat). Ein Gegner
+//      im römischen oder neutralen Raum ist ein Eindringling, kein Römer – Römer als Gegner gibt es nur ausdrücklich.
+//   3. sonst der Standard CONFIG.kennung.gegner ('ger', Feldzug Eisenwald). Verbündete: escort.js, Standard CONFIG.kennung.verbuendet ('rom').
+function volkFuer(game, kind, explizit) {
+  const K = game.C.kennung || {};
+  if (!(K.klassen || []).includes(kind)) return null;
+  const V = K.voelker || [];
+  if (V.includes(explizit)) return explizit;
+  const hex = game.ship && Sektoren.hexVonOrt(game.ship.scene);
+  const fr = hex ? (Sektoren.hexDaten(hex) || {}).fraktion : null;
+  if (fr && V.includes(fr) && ((game.C.reise || {}).fraktionArt || {})[fr] === 'feind') return fr;
+  return K.gegner || 'ger';
 }
 
 function crewScale(game) {
@@ -2008,7 +2028,7 @@ function technikShield(game, sector, delta) {
 }
 
 module.exports = {
-  enterScene, update, shipHit, spawnEnemy, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
+  enterScene, update, shipHit, spawnEnemy, volkFuer, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
   weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, technikOverload, reactorOnline,
   technikPower, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,

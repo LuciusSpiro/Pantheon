@@ -63,7 +63,8 @@ function restStrecke(k, e) {
 }
 
 // ---------- Einrichten ----------
-// o: { n (1–3), eskorte ('voll'|'jaeger'|'korvette'|'keine'), sieg ('aufhalten'|'pluendern'), ladung ('sprengstoff'|'fracht'), tempo?, beute_min?, wiederholung? }
+// o: { n (1–3), eskorte ('voll'|'jaeger'|'korvette'|'keine'), sieg ('aufhalten'|'pluendern'), ladung ('sprengstoff'|'fracht'), tempo?, beute_min?, wiederholung?,
+//      volk? (Kennung aller Konvoi-Schiffe; sonst space.volkFuer: Fraktion des Sektors bzw. Standard) }
 function an(game, o) {
   const q = o || {}; const C = cfg(game);
   const nW = clamp(Math.round(Number(q.n != null ? q.n : C.n) || 2), 1, C.nMax || 3);
@@ -73,7 +74,7 @@ function an(game, o) {
   const cap = Fracht.capacity();
   const beuteMin = clamp(Math.round(Number(q.beute_min) || Math.min(nW, cap)), 1, Math.min(nW, cap));
   game.space.konvoi = {
-    sieg, art, nWunsch: nW, beuteMin, eskorte, wiederholung: q.wiederholung !== false, tempo: q.tempo != null ? Number(q.tempo) : null,
+    sieg, art, nWunsch: nW, beuteMin, eskorte, wiederholung: q.wiederholung !== false, volk: q.volk || null, tempo: q.tempo != null ? Number(q.tempo) : null,
     route: routeFuer(game), ids: [], fertig: {}, pos: {}, pods: [], alarm: false, ausgang: null, neuAt: null, versuch: 1, szene: game.ship.scene, ansagt: [],
   };
   spawnen(game);
@@ -91,7 +92,7 @@ function spawnen(game) {
   k.ids = []; k.fertig = {}; k.pos = {}; k.pods = []; k.alarm = false; k.ausgang = null; k.neuAt = null; k.ansagt = []; k.t0 = game.time;
   for (let i = 0; i < nT; i++) {
     const off = i * (C.abstand || 130); const lat = (i % 2 ? 1 : -1) * Math.min(1, i) * 45;
-    const e = S.spawnEnemy(game, 'frachter', { x: a.x - ux * off - uy * lat, y: a.y - uy * off + ux * lat, facing: head, tag: 'konvoi' });
+    const e = S.spawnEnemy(game, 'frachter', { x: a.x - ux * off - uy * lat, y: a.y - uy * off + ux * lat, facing: head, tag: 'konvoi', volk: k.volk || undefined });
     e.kv = 'f'; e.wp = 1; e.sprung = null;
     const c = klasse(game, e.kind);
     const v = c ? Flight.stageSpeed(c, stufeFuer(c, tempoFuer(game, k, c))) : 0;
@@ -105,7 +106,7 @@ function spawnen(game) {
   if (jag) E.push('raider');
   E.forEach((kind, i) => {
     const side = i % 2 ? -1 : 1;
-    const e = S.spawnEnemy(game, kind, { x: sp0.x + (-uy * side) * (C.flankAbstand || 170) - ux * 40, y: sp0.y + (ux * side) * (C.flankAbstand || 170) - uy * 40, facing: head, tag: 'konvoi_eskorte' });
+    const e = S.spawnEnemy(game, kind, { x: sp0.x + (-uy * side) * (C.flankAbstand || 170) - ux * 40, y: sp0.y + (ux * side) * (C.flankAbstand || 170) - uy * 40, facing: head, tag: 'konvoi_eskorte', volk: k.volk || undefined });
     e.kv = 'e'; e.wache = true; e.kvSide = side;
     const c = klasse(game, kind);
     if (c) { e.stage = Flight.agileStage(c); const v = Math.max(c.minSpeed || 0, Flight.stageSpeed(c, e.stage)); e.vx = Math.cos(head) * v; e.vy = Math.sin(head) * v; e.turnVel = 0; }

@@ -23,7 +23,7 @@ function ping() { return new Promise((res) => { const r = http.get({ host: '127.
 const PLAN = {
   helm: [['KeyW', 'helm.throttle'], ['KeyW', 'helm.throttle', 0, 2500], ['Shift+KeyA', 'helm.dodge', 0, 8000], ['Shift+KeyD', 'helm.dodge'], ['KeyS', 'helm.throttle'],
     ['KeyA', 'helm.input', 400], ['KeyD', 'helm.input', 400], ['KeyX', 'helm.stop'], ['KeyG', null], ['KeyF', null], ['KeyN', null]],
-  weapons: [['KeyT', null], ['Digit1', 'weapons.charge', 600], ['Digit2', 'weapons.fire'], ['Digit3', 'weapons.fire'], ['Space', null], ['KeyE', null], ['KeyA', 'weapons.alloc'], ['KeyD', 'weapons.alloc'],
+  weapons: [['KeyT', null], ['Numpad8', 'weapons.charge', 600], ['Digit8', 'weapons.charge', 600], ['Numpad4', 'weapons.fire'], ['Numpad6', 'weapons.fire'], ['Digit4', 'weapons.fire'], ['Numpad1', null], ['Space', null], ['KeyE', null], ['KeyA', 'weapons.alloc'], ['KeyD', 'weapons.alloc'],
     ['KeyS', null], ['KeyW', 'weapons.widescan'], ['KeyZ', null], ['KeyX', null], ['KeyO', null]],
   technik: [['ArrowDown', null], ['ArrowRight', 'technik.'], ['ArrowLeft', 'technik.'], ['KeyA', 'technik.'], ['KeyU', null]],
   captain: [['Digit2', null], ['Digit3', null], ['Digit5', null], ['Digit1', null]],
@@ -71,11 +71,23 @@ async function main() {
           if (mod) await page.keyboard.up(mod);
           await sleep(after);
           const { out, deny } = await page.evaluate(() => ({ out: window.__out.slice(), deny: window.__deny.slice() }));
-          const ok = !want || out.some((c) => String(c).startsWith(want));
+          const ok = !want || out.some((c) => String(c).startsWith(want)) || (deny.length > 0 && !/^Keine Waffe auf Platz/.test(deny[0]));   // Sperrmeldung = Taste kam an, Spiel lehnt begründet ab
           if (!ok) fehlt++;
           console.log(`   ${ok ? (want ? 'ok   ' : 'info ') : 'FEHLT'} ${key.padEnd(11)} → ${out.length ? [...new Set(out)].join(', ') : '(kein Befehl)'}${deny.length ? '  · gesperrt: ' + deny[0] : ''}${want && !ok ? '  · erwartet ' + want : ''}`);
         }
       }
+      // Umbelegung: Allstopp X -> K (Menü „Steuerung“), dann muss K wirken und X nicht mehr
+      await page.evaluate((s) => __game.send({ t: 'debug', cmd: 'sitz', console: s, hin: true }), 'helm'); await sleep(800);
+      await page.evaluate(() => Tasten.setze('steuer.allstopp', 0, 'KeyK'));
+      for (const [key, want] of [['KeyK', 'helm.stop'], ['KeyX', null]]) {
+        await page.evaluate(() => { window.__out.length = 0; window.__deny.length = 0; });
+        await page.keyboard.press(key); await sleep(500);
+        const out = await page.evaluate(() => window.__out.slice());
+        const ok = want ? out.includes(want) : !out.includes('helm.stop');
+        if (!ok) fehlt++;
+        console.log(`   ${ok ? 'ok   ' : 'FEHLT'} umbelegt ${key.padEnd(6)} → ${out.length ? [...new Set(out)].join(', ') : '(kein Befehl)'}${want ? '' : '  · erwartet: kein Allstopp'}`);
+      }
+      await page.evaluate(() => Tasten.zuruecksetzen('steuer.allstopp'));
       await page.evaluate(() => __game.send({ t: 'leave' }));
       if (errs.length) console.log('   Seitenfehler: ' + errs.slice(0, 3).join(' | '));
       await ctx.close();

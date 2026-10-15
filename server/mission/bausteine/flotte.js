@@ -17,15 +17,15 @@ const ALLY_KINDS = ['korvette', 'fregatte', 'kreuzer', 'raider'];
 
 module.exports = (Registry) => {
   Registry.define({ id: 'flotte_aufstellen', art: 'aktion', effekt: 'gegner', ereignisse: ['escortSpawn', 'allySpawn'],
-    beschreibung: 'Verbündeten (NSC-Schiff Roms) im Raum erscheinen lassen. rolle begleiter (Standard: eigene KI, bleibt bei der Lerche, kämpft), angreifer (jagt den nächsten Gegner) oder skript (nur Regiebuch, feuert nicht); flotte_modus ziel/halten übersteuert die Bewegung. auftauchen: Sprungblitz, 2,5 s unverwundbar. Gegner dürfen ihn anvisieren (ziel: verbuendet|auto), er fällt wie jedes Schiff (Hilferuf, Funkspruch, Kapsel, Verlust im Weltstand); er springt mit der Lerche (auch Notfallsprung); höchstens 12 Schiffe je Szene. Ein im Feldzug verlorenes Schiff kommt nicht zurück, außer mit ersatz: true (Ersatz nur über eine Aufgabe).',
+    beschreibung: 'Verbündeten (NSC-Schiff Roms) im Raum erscheinen lassen (volk: Kennung auf den Karten, Standard rom). rolle begleiter (Standard: eigene KI, bleibt bei der Lerche, kämpft), angreifer (jagt den nächsten Gegner) oder skript (nur Regiebuch, feuert nicht); flotte_modus ziel/halten übersteuert die Bewegung. auftauchen: Sprungblitz, 2,5 s unverwundbar. Gegner dürfen ihn anvisieren (ziel: verbuendet|auto), er fällt wie jedes Schiff (Hilferuf, Funkspruch, Kapsel, Verlust im Weltstand); er springt mit der Lerche (auch Notfallsprung); höchstens 12 Schiffe je Szene. Ein im Feldzug verlorenes Schiff kommt nicht zurück, außer mit ersatz: true (Ersatz nur über eine Aufgabe).',
     params: { tag: { typ: 'ship', pflicht: true }, kind: { typ: 'string', werte: ALLY_KINDS }, name: { typ: 'string' }, npc: { typ: 'npc' }, von: { typ: 'string' },
       huelle: { typ: 'number', min: 1, max: 100 }, modus: { typ: 'string', werte: ['halten', 'folgen'] }, ersatz: { typ: 'bool' },
-      rolle: { typ: 'string', werte: ['begleiter', 'angreifer', 'skript'] }, auftauchen: { typ: 'bool' } },
+      rolle: { typ: 'string', werte: ['begleiter', 'angreifer', 'skript'] }, auftauchen: { typ: 'bool' }, volk: { typ: 'string', werte: ['ger', 'rom', 'pirat'] } },
     run(m, a) {
       if (!atLoc(m)) return;
       const g = m.game; const d = (m.def && m.def.besetzung && m.def.besetzung.schiffe && m.def.besetzung.schiffe[a.tag]) || {};
       const es = flotte().aufstellen(g, { tag: a.tag, kind: a.kind || d.kind, name: a.name != null ? m.tpl(a.name) : (d.name != null ? m.tpl(d.name) : undefined),
-        npc: a.npc || d.npc || null, von: a.von, huelle: a.huelle, modus: a.modus, ersatz: !!a.ersatz, rolle: a.rolle, auftauchen: !!a.auftauchen });
+        npc: a.npc || d.npc || null, von: a.von, huelle: a.huelle, modus: a.modus, ersatz: !!a.ersatz, rolle: a.rolle, auftauchen: !!a.auftauchen, volk: a.volk || d.volk });
       if (!es && !flotte().verloren(g, a.tag)) g.countError('mission-hook', new Error(`flotte_aufstellen: ${a.tag} nicht angelegt`));
     } });
   Registry.define({ id: 'flotte_modus', art: 'aktion', ereignisse: [],
@@ -51,12 +51,12 @@ module.exports = (Registry) => {
       if (txt) m.radio(m.npcName(sp), txt, false, sp);
     } });
   Registry.define({ id: 'flotte_wellen', art: 'aktion', effekt: 'gegner', ereignisse: ['enemySpawn', 'welleKommt', 'wellenFertig'],
-    beschreibung: 'Welle um Welle: wellen = Gruppen „kind:n,kind:n“ mit | getrennt (z. B. „raider:3|raider:2,korvette:1“). Die nächste Gruppe kommt, wenn höchstens rest Gegner der vorigen leben oder takt s um sind. Ziel der Gegner: lerche | verbuendet | auto. Läuft die Frist eines Befehls ab, kommt Überdruck (ueberdruck, Standard an): alle paar Sekunden die letzte Gruppe noch einmal – die Szene darf scheitern, der Feldzug nicht.',
+    beschreibung: 'Welle um Welle: wellen = Gruppen „kind:n,kind:n“ mit | getrennt (z. B. „raider:3|raider:2,korvette:1“). Die nächste Gruppe kommt, wenn höchstens rest Gegner der vorigen leben oder takt s um sind. Ziel der Gegner: lerche | verbuendet | auto. volk: Kennung der Gegner (ger | rom | pirat, sonst aus der Fraktion des Sektors; je Gruppe auch „kind:n:volk“). Läuft die Frist eines Befehls ab, kommt Überdruck (ueberdruck, Standard an): alle paar Sekunden die letzte Gruppe noch einmal – die Szene darf scheitern, der Feldzug nicht.',
     params: { wellen: { typ: 'string', pflicht: true }, takt: { typ: 'number', min: 0, max: 300 }, rest: { typ: 'number', min: 0, max: 10 }, ziel: { typ: 'string', werte: ['lerche', 'verbuendet', 'auto', 'schuetzling'] },
-      richtung: { typ: 'string', werte: ['vorn', 'achtern', 'alle'] }, ueberdruck: { typ: 'bool' }, tag: { typ: 'string' } },
+      richtung: { typ: 'string', werte: ['vorn', 'achtern', 'alle'] }, ueberdruck: { typ: 'bool' }, tag: { typ: 'string' }, volk: { typ: 'string', werte: ['ger', 'rom', 'pirat'] } },
     run(m, a) {
       if (!atLoc(m)) return;
-      if (!flotte().wellenStart(m.game, { wellen: a.wellen, takt: a.takt, rest: a.rest, ziel: a.ziel, richtung: a.richtung, ueberdruck: a.ueberdruck, tag: a.tag })) m.game.countError('mission-hook', new Error('flotte_wellen: keine Gruppen'));
+      if (!flotte().wellenStart(m.game, { wellen: a.wellen, takt: a.takt, rest: a.rest, ziel: a.ziel, richtung: a.richtung, ueberdruck: a.ueberdruck, tag: a.tag, volk: a.volk })) m.game.countError('mission-hook', new Error('flotte_wellen: keine Gruppen'));
     } });
   Registry.define({ id: 'flotte_neustart', art: 'aktion', effekt: 'gegner', ereignisse: ['flotteNeustart'],
     beschreibung: 'Szene von vorn: alle Gegner weg, Wellen und Befehl beginnen neu, lebende Verbündete werden repariert, die Lerche hat mindestens 60 % Hülle. Zerstörte Schiffe bleiben verloren.',

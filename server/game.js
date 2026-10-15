@@ -1232,7 +1232,7 @@ class Game {
       case 'spawn': {
         const k = Protocol.ENEMY_KINDS.includes(msg.kind) ? msg.kind : 'raider';
         if (this.ship.docked) { err = 'Nicht angedockt.'; break; }
-        space.spawnEnemy(this, k, {});
+        space.spawnEnemy(this, k, msg.volk ? { volk: String(msg.volk) } : {});   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;
       }
       case 'marks': this.inventory.marks = Math.max(0, Math.round(Number(msg.n) || 0)); break;
@@ -1782,6 +1782,7 @@ class Game {
         if (tele) o.tele = tele;
         // M3b §3: vx, vy, state (SERVER-FLIGHT)
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
+        if (e.volk && e.volk !== ((C.kennung || {}).gegner || 'ger')) o.vk = e.volk;   // Kennung (Volk, space.volkFuer): fehlt = CONFIG.kennung.gegner bzw. Klasse ohne Kennung
         if (e.st) o.st = e.st;   // B1 §7/§9: 'treibt' = kampfunfähiges Feindschiff (entern.js, liegt in space.treibend)
         if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)
         if (e.pat) { const pr = Alarm.patrouillenSnap(this, e); if (pr != null) o.pat = pr; }   // EK2: Patrouille, Wert = wirksamer Sensorkreis (px)

@@ -1278,7 +1278,7 @@
       if (page === 'menu') this.drawMenuMain(ctx, view, sel);
       else if (page === 'confirmEnd') this.drawConfirmEnd(ctx, view, sel);
       else if (page === 'options') this.drawOptions(ctx, view, sel);
-      else if (page === 'controls') this.drawControls(ctx, view);
+      else if (page === 'controls') this.drawControls(ctx, view, ui);
       else if (page === 'worlds') this.drawWorlds(ctx, view, ui);
       this.drawNotices(ctx, view, 2, 1);   // Hinweise bleiben über dem Overlay lesbar
       R.drawTooltip(ctx);
@@ -1347,13 +1347,10 @@
       R.text(ctx, '←/→ ändern · Enter umschalten · Esc zurück', VW / 2, y + h - 24, { color: PAL.panelLight, align: 'center' });
       R.text(ctx, o.saved === false ? 'Speichern im Browser nicht möglich – gilt bis zum Neuladen.' : 'Wird in diesem Browser gespeichert (Vollbild nicht).', VW / 2, y + h - 13, { color: o.saved === false ? PAL.warn : PAL.panelLight, align: 'center' });
     },
+    // Tasten außerhalb der Konsolen (nicht umbelegbar) – Reiter „Sonstiges“ der Steuerungsseite
     CONTROLS: [
       ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
       ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
-      ['Steuer', 'W/S Temporegler · A/D Ruder · X Allstopp · Shift+A/D Ausweichrolle · F Faltsprung'],
-      ['Ops', 'T Ziel · Q/E Waffe · A/D Ladepunkte · 1 halten: Lanze laden, loslassen: Schuss · 2/3 Batterie · Leertaste beide · S halten Scan · W Weitscan · M Marker · O Orbitalschlag'],
-      ['Captain', '1–6 Reiter: Funk · Sternkarte · Lage (Leertaste halten: Scan; Schützling: H halten, F folgen, V volle Kraft, D andocken, N wechseln) · Außenteam · Sektorplan (A/D Sektor, Klick: Marke) · Notrufe (W/S wählen, Q/E/R/F fragen, Enter hinfliegen, X ignorieren)'],
-      ['Technik', 'Konsole im Maschinenraum · 1–2 Reiter: Energie & Schilde (↑/↓ wählen, ←/→ verteilen, U überladen) · Schadensplan (Reparaturliste, Bots automatisch)'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
@@ -1361,19 +1358,124 @@
       ['Ansicht', 'F8 Voxel/2D · +/− oder Mausrad Zoom (Voxel) · Esc: erst Konsole/Minispiel verlassen, dann Menü'],
       ['Hauptmenü', 'Enter bereit · 1–3 Farbe · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
     ],
-    drawControls(ctx, view) {
+    // Reiter der Steuerungsseite: die Gruppen aus Tasten plus „Sonstiges“ (Text oben)
+    tastenReiter() {
+      const T = window.Tasten;
+      return (T ? T.GRUPPEN.map(g => ({ id: g.id, name: g.name })) : []).concat([{ id: 'sonstiges', name: 'Sonstiges' }]);
+    },
+    // Zeilen einer Gruppe: Kopfzeilen je Bereich ({ kopf }) und Aktionen ({ id, a }); wahl = Index unter den Aktionszeilen
+    tastenZeilen(gruppe) {
+      const T = window.Tasten;
+      if (!T || gruppe === 'sonstiges') return [];
+      const akt = T.AKTIONEN.filter(a => a.gruppe === gruppe);
+      const bereiche = [''];
+      for (const a of akt) if (a.bereich && bereiche.indexOf(a.bereich) < 0) bereiche.push(a.bereich);
+      const zeilen = [];
+      let wahl = 0;
+      for (const b of bereiche) {
+        const in_b = akt.filter(a => a.bereich === b);
+        if (!in_b.length) continue;
+        if (b) zeilen.push({ kopf: (T.BEREICHE[b] && T.BEREICHE[b].name) || b });
+        for (const a of in_b) zeilen.push({ id: a.id, a, wahl: wahl++ });
+      }
+      return zeilen;
+    },
+    TASTEN_SLOTS: 5,   // Belegungen je Aktion (die letzte Spalte ist „+ neu“, solange Platz ist)
+    TASTEN_ZEILE: 12,
+    drawControls(ctx, view, ui) {
+      const T = window.Tasten;
+      const st = ui.tasten || (ui.tasten = { g: 0, sel: 0, slot: 0, scroll: 0, fang: false });
       const x = 24, y = 18, w = VW - 48, h = VH - 36;
       R.panel(ctx, x, y, w, h, { style: 'brass', title: 'STEUERUNG' });
-      const tx = x + 104, tw = w - 116;
-      let yy = y + 16;
-      for (const [k, v] of this.CONTROLS) {
-        const lines = R.wrap(v, tw, 1);
-        if (yy + lines.length * 10 > y + h - 30) break;
-        R.text(ctx, k, x + 10, yy, { color: PAL.brass });
-        for (const l of lines) { R.text(ctx, l, tx, yy, { color: PAL.star }); yy += 10; }
-        yy += 5;
+      const reiter = this.tastenReiter();
+      const g = reiter[Math.max(0, Math.min(reiter.length - 1, st.g))] || { id: 'sonstiges' };
+      // Reiter
+      const rw = Math.floor((w - 20) / reiter.length);
+      reiter.forEach((r, i) => {
+        const n = r.id !== 'sonstiges' && T ? T.konflikte(r.id).length : 0;
+        R.button(ctx, x + 10 + i * rw, y + 10, rw - 4, 14, r.name + (n ? ' (!)' : ''), { active: r.id === g.id, color: n && r.id !== g.id ? PAL.red : null, onClick: () => view.actions.tastenReiter(i) });
+      });
+      const unten = y + h - 36;
+      if (g.id === 'sonstiges' || !T) {
+        const tx = x + 104, tw = w - 116;
+        let yy = y + 32;
+        for (const [k, v] of this.CONTROLS) {
+          const lines = R.wrap(v, tw, 1);
+          if (yy + lines.length * 10 > unten) break;
+          R.text(ctx, k, x + 10, yy, { color: PAL.brass });
+          for (const l of lines) { R.text(ctx, l, tx, yy, { color: PAL.star }); yy += 10; }
+          yy += 5;
+        }
+        R.text(ctx, 'Diese Tasten sind fest. Q/E Reiter · Esc zurück', VW / 2, y + h - 34, { color: PAL.panelLight, align: 'center' });
+        R.button(ctx, VW / 2 - 60, y + h - 22, 120, 16, 'Zurück', { hotkey: 'Esc', onClick: () => view.actions.uiActivate('controls', 'back') });
+        return;
       }
-      R.button(ctx, VW / 2 - 60, y + h - 24, 120, 16, 'Zurück', { hotkey: 'Esc', active: true, onClick: () => view.actions.uiActivate('controls', 'back') });
+      // doppelt belegte Tasten dieser Gruppe: id -> { taste: true }
+      const konf = T.konflikte(g.id);
+      const rot = {};
+      for (const k of konf) for (const id of k.ids) (rot[id] = rot[id] || {})[k.taste] = true;
+      const zeilen = this.tastenZeilen(g.id);
+      const nWahl = zeilen.filter(z => z.id).length;
+      const sel = Math.max(0, Math.min(nWahl - 1, st.sel));
+      const zh = this.TASTEN_ZEILE, top = y + 30, sichtbar = Math.floor((unten - 4 - (top + 10)) / zh);
+      // Scroll so, dass die gewählte Zeile (samt ihrer Bereichs-Kopfzeile) sichtbar bleibt
+      const selZeile = zeilen.findIndex(z => z.id && z.wahl === sel);
+      let scroll = Math.max(0, Math.min(Math.max(0, zeilen.length - sichtbar), st.scroll | 0));
+      if (selZeile >= 0) {
+        const vorn = selZeile > 0 && zeilen[selZeile - 1].kopf ? selZeile - 1 : selZeile;
+        if (vorn < scroll) scroll = vorn;
+        if (selZeile >= scroll + sichtbar) scroll = selZeile - sichtbar + 1;
+      }
+      st.scroll = scroll;
+      const nx = x + 10, sx = x + 254, sw = 64, sstep = 66;
+      R.text(ctx, 'Aktion', nx, top - 1, { color: PAL.panelLight });
+      R.text(ctx, 'Tasten', sx + 2, top - 1, { color: PAL.panelLight });
+      for (let i = 0; i < sichtbar && scroll + i < zeilen.length; i++) {
+        const z = zeilen[scroll + i];
+        const ry = top + 10 + i * zh;
+        if (z.kopf) { R.text(ctx, z.kopf, nx, ry + 2, { color: PAL.brass }); ctx.fillStyle = 'rgba(201,151,74,0.35)'; ctx.fillRect(nx + R.measure(z.kopf, 1) + 6, ry + 6, sx + this.TASTEN_SLOTS * sstep - nx - R.measure(z.kopf, 1) - 8, 1); continue; }
+        const on = z.wahl === sel;
+        if (on) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(x + 6, ry - 1, w - 12, zh); }
+        const geaendert = T.geaendert(z.id);
+        const hatRot = !!rot[z.id];
+        R.text(ctx, this.fit((geaendert ? '* ' : '') + z.a.name, sx - nx - 8, 1), nx + (z.a.bereich ? 6 : 0), ry + 1, { color: hatRot ? PAL.red : on ? PAL.amber : geaendert ? PAL.ice : PAL.star });
+        const bel = T.belegung(z.id);
+        const slots = Math.min(this.TASTEN_SLOTS, bel.length + 1);
+        for (let s = 0; s < slots; s++) {
+          const bx = sx + s * sstep, t = bel[s];
+          const aktiv = on && st.slot === s;
+          const fang = aktiv && st.fang;
+          const konfl = t && rot[z.id] && rot[z.id][t];
+          ctx.fillStyle = fang ? '#4A3A1E' : aktiv ? '#3D5A55' : t ? '#26313F' : 'rgba(38,49,63,0.45)';
+          ctx.fillRect(bx, ry - 1, sw, zh - 1);
+          ctx.strokeStyle = konfl ? PAL.red : fang ? PAL.amber : aktiv ? PAL.mint : PAL.panel;
+          ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, ry - 0.5, sw - 1, zh - 2);
+          const lab = fang ? 'Taste …' : t ? T.name(t) : '+ neu';
+          R.text(ctx, this.fit(lab, sw - 6, 1), bx + sw / 2, ry + 1, { color: konfl ? PAL.red : fang ? PAL.amber : t ? (aktiv ? PAL.mint : PAL.star) : PAL.panelLight, align: 'center', shadow: false });
+          R.ui.buttons.push({ x: bx, y: ry - 1, w: sw, h: zh - 1, label: '', disabled: false, onClick: () => view.actions.tastenKlick(z.wahl, s) });
+        }
+        // Klick auf den Namen wählt die Zeile
+        R.ui.buttons.push({ x: x + 6, y: ry - 1, w: sx - x - 10, h: zh, label: '', disabled: false, onClick: () => view.actions.tastenKlick(z.wahl, null) });
+      }
+      // Bildlauf-Leiste
+      if (zeilen.length > sichtbar) {
+        const lh = sichtbar * zh, bh = Math.max(10, Math.round(lh * sichtbar / zeilen.length));
+        const by = top + 9 + Math.round((lh - bh) * scroll / Math.max(1, zeilen.length - sichtbar));
+        ctx.fillStyle = 'rgba(79,97,120,0.5)'; ctx.fillRect(x + w - 6, top + 9, 2, lh);
+        ctx.fillStyle = PAL.brass; ctx.fillRect(x + w - 6, by, 2, bh);
+      }
+      // Fußzeile: Konflikte, Hinweis, Knöpfe
+      let info, col = PAL.panelLight;
+      if (st.fang) { info = 'Neue Taste drücken (Shift erlaubt) · Esc bricht ab'; col = PAL.amber; }
+      else if (konf.length) {
+        const k = konf[0];
+        info = 'Doppelt belegt: ' + T.name(k.taste) + ' – ' + k.ids.map(id => (T.aktion(id) || {}).name || id).join(' / ') + (konf.length > 1 ? ' (+' + (konf.length - 1) + ')' : '');
+        col = PAL.red;
+      } else info = 'W/S Aktion · A/D Taste · Enter neu belegen · Entf entfernen · Q/E Reiter';
+      R.text(ctx, this.fit(info, w - 20, 1), VW / 2, y + h - 34, { color: col, align: 'center' });
+      if (T.gespeichert() === false) R.text(ctx, 'Nicht gespeichert', x + w - 10, y + h - 17, { color: PAL.warn, align: 'right' });
+      R.button(ctx, VW / 2 - 140, y + h - 22, 150, 16, 'Gruppe zurücksetzen', { hotkey: 'R', onClick: () => view.actions.tastenZuruecksetzen() });
+      R.button(ctx, VW / 2 + 20, y + h - 22, 120, 16, 'Zurück', { hotkey: 'Esc', onClick: () => view.actions.uiActivate('controls', 'back') });
     },
     drawWorlds(ctx, view, ui) {
       const st = view.state || {};

@@ -320,7 +320,7 @@
       case 'options':
         if (id === 'back') uiBack(); else uiOption(id, 0);
         break;
-      case 'controls': uiBack(); break;
+      case 'controls': if (Client.ui.tasten) Client.ui.tasten.fang = false; uiBack(); break;
       case 'worlds': {
         if (id === 'back') { uiBack(); break; }
         const row = worldsItems().find(r => r.id === id) || (id == null ? worldsItems().find(r => r.neu) : null);
@@ -349,10 +349,81 @@
       audio.play('ui_click');
     } else if (id === 'fullscreen') { toggleFullscreen(); audio.play('ui_click'); }
   }
+  // Steuerungsseite: Tastenbelegung der Konsolen (window.Tasten) ansehen und umbelegen
+  function tastenStand() { return Client.ui.tasten || (Client.ui.tasten = { g: 0, sel: 0, slot: 0, scroll: 0, fang: false }); }
+  function tastenGruppe() { const r = H.tastenReiter(); const st = tastenStand(); return r[clamp(st.g, 0, Math.max(0, r.length - 1))] || { id: 'sonstiges' }; }
+  function tastenWahlZeilen() { return H.tastenZeilen(tastenGruppe().id).filter(z => z.id); }
+  function tastenSlotMax(id) { return Math.min(H.TASTEN_SLOTS - 1, window.Tasten ? Tasten.belegung(id).length : 0); }
+  function tastenReiter(i) {
+    const st = tastenStand(), n = H.tastenReiter().length;
+    st.g = ((i % n) + n) % n; st.sel = 0; st.slot = 0; st.scroll = 0; st.fang = false;
+    audio.play('ui_click', { volume: 0.5 });
+  }
+  function tastenKey(e) {
+    const T = window.Tasten;
+    const st = tastenStand();
+    const code = e.code;
+    const zeilen = tastenWahlZeilen();
+    st.sel = clamp(st.sel, 0, Math.max(0, zeilen.length - 1));
+    const z = zeilen[st.sel];
+    if (st.fang) {
+      if (code === 'Escape') { if (!e.repeat) { st.fang = false; audio.play('ui_back'); } return; }
+      const t = T && T.ausEvent(e);
+      if (!t || e.repeat) return;   // reine Umschalttaste: auf die eigentliche Taste warten
+      if (z) T.setze(z.id, st.slot, t);
+      st.fang = false;
+      if (z) st.slot = clamp(st.slot, 0, tastenSlotMax(z.id));
+      audio.play('ui_click');
+      return;
+    }
+    if (code === 'Escape') { if (!e.repeat) uiBack(); return; }
+    const n = H.tastenReiter().length;
+    if (code === 'KeyQ' || code === 'KeyE' || code === 'Tab') { if (!e.repeat) tastenReiter(st.g + ((code === 'KeyQ' || (code === 'Tab' && e.shiftKey)) ? -1 : 1) + n); return; }
+    if (!T || !zeilen.length) return;
+    const up = code === 'KeyW' || code === 'ArrowUp', down = code === 'KeyS' || code === 'ArrowDown';
+    const left = code === 'KeyA' || code === 'ArrowLeft', right = code === 'KeyD' || code === 'ArrowRight';
+    if (up || down) {
+      st.sel = (st.sel + (up ? -1 : 1) + zeilen.length) % zeilen.length;
+      st.slot = clamp(st.slot, 0, tastenSlotMax(zeilen[st.sel].id));
+      audio.play('ui_click', { volume: 0.5 });
+      return;
+    }
+    if (left || right) { st.slot = clamp(st.slot + (left ? -1 : 1), 0, tastenSlotMax(z.id)); audio.play('ui_click', { volume: 0.5 }); return; }
+    if (e.repeat) return;
+    if (code === 'Enter' || code === 'NumpadEnter' || code === 'Space') { st.fang = true; audio.play('ui_click'); return; }
+    if (code === 'Delete' || code === 'Backspace') {
+      if (st.slot < T.belegung(z.id).length) { T.setze(z.id, st.slot, null); st.slot = clamp(st.slot, 0, tastenSlotMax(z.id)); audio.play('ui_back'); }
+      return;
+    }
+    if (code === 'KeyR') tastenZuruecksetzen();
+  }
+  function tastenZuruecksetzen() {
+    const g = tastenGruppe();
+    if (!window.Tasten || g.id === 'sonstiges') return;
+    Tasten.zuruecksetzen(g.id);
+    const st = tastenStand(); st.fang = false;
+    const z = tastenWahlZeilen()[st.sel]; if (z) st.slot = clamp(st.slot, 0, tastenSlotMax(z.id));
+    H.pushNotice('Belegung ' + g.name + ' zurückgesetzt', R.PAL.mint);
+    audio.play('ui_click');
+  }
+  // Maus: Klick auf eine Belegung wählt sie, Klick auf die schon gewählte = neu belegen; s == null: nur die Zeile wählen
+  function tastenKlick(wahl, s) {
+    const st = tastenStand();
+    const z = tastenWahlZeilen()[wahl];
+    if (!z) return;
+    const schon = st.sel === wahl && s != null && st.slot === s;
+    st.sel = wahl;
+    if (s == null) { st.fang = false; st.slot = clamp(st.slot, 0, tastenSlotMax(z.id)); return; }
+    st.slot = clamp(s, 0, tastenSlotMax(z.id));
+    st.fang = schon && !st.fang;
+    audio.play('ui_click', { volume: 0.5 });
+  }
+
   function uiKey(e) {
     const page = uiTop();
     const code = e.code;
     const ui = Client.ui;
+    if (page === 'controls') { tastenKey(e); return; }
     if (code === 'Escape') { if (!e.repeat) uiBack(); return; }
     const items = page === 'worlds' ? worldsItems() : H.pageItems(page, Client.view || {});
     const n = items.length;
@@ -400,6 +471,9 @@
     uiActivate(page, id) { uiActivate(page, id); },
     uiSelect(page, i) { Client.ui.sel[page] = i; },
     uiOption(id, dir) { uiOption(id, dir); },
+    tastenReiter(i) { tastenReiter(i); },
+    tastenKlick(wahl, s) { tastenKlick(wahl, s); },
+    tastenZuruecksetzen() { tastenZuruecksetzen(); },
     uiPick(page, i) {
       // Klick auf eine Zeile: wählt sie; zweiter Klick auf dieselbe Zeile = Enter
       const ui = Client.ui;
@@ -1986,6 +2060,11 @@
   window.addEventListener('blur', () => { if (window.KartenAnsicht) KartenAnsicht.abbrechen(); });
   canvas.addEventListener('wheel', (e) => {
     const KA = window.KartenAnsicht;
+    if (uiTop() === 'controls' && !tastenStand().fang) {   // Steuerungsseite: Rad wählt die Aktion
+      const st = tastenStand(), zeilen = tastenWahlZeilen();
+      if (zeilen.length) { st.sel = clamp(st.sel + (e.deltaY > 0 ? 1 : -1), 0, zeilen.length - 1); st.slot = clamp(st.slot, 0, tastenSlotMax(zeilen[st.sel].id)); }
+      e.preventDefault(); return;
+    }
     if (uiTop() || Client.chapter) return;
     const p = toCanvas(e);
     const SZ = window.Sitz && Sitz.station ? Sitz : null;   // UI-Sitz (E2): Rad wechselt den Blick

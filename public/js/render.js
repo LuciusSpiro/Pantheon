@@ -616,6 +616,33 @@
   function artBeam(ctx, x1, y1, x2, y2, kind, ttl, opts) {
     return artK('drawBeam', kind, [ctx, x1, y1, x2, y2, kind, ttl, opts || {}],(g) => window.Art.drawBeam(g, 10, 48, 86, 48, kind, 0.2));
   }
+  // Kennung auf den Raumkarten (public/js/kennung.js, window.Kennung): Volk = Form, Klasse = Größe, Kurs = Drehung, Farbe = Haltung; Schildring um
+  // jeden Gegner. Nur Taktik- und Lagekarte, nie die Frontsicht. Fehlt das Modul oder wirft es (wie der Art-Wrapper: nach ART_MAX_FAILS Fehlern),
+  // zeichnet drawSpace das Sprite wie bisher. Volk aus dem Snapshot (vk), fehlt = CONFIG.kennung.gegner bzw. .verbuendet.
+  const KENN = CFG.kennung || { klassen: ['raider', 'korvette', 'fregatte', 'kreuzer', 'frachter'], gegner: 'ger', verbuendet: 'rom' };
+  function kennungOk(key) { const K = window.Kennung; return !!(K && typeof K.zeichne === 'function') && (artFail[key] || 0) < ART_MAX_FAILS; }
+  function kennungRuf(key, fn) {
+    if (!kennungOk(key)) return false;
+    try { fn(window.Kennung); return true; } catch (e) { artFail[key] = (artFail[key] || 0) + 1; report(key, e); return false; }
+  }
+  // Maßstab der Form je Zoomstufe: ab 30 % doppelt (Jäger 8 → 16 px), darunter 1,5
+  function kennungMassstab(zoom) { return zoom >= 0.3 ? 2 : 1.5; }
+  // -> { volk, s, r (Außenradius der Form in px) } oder null (Frontsicht, Klasse ohne Kennung, Modul fehlt)
+  function kennungVon(e, verbuendet, zoom) {
+    if (!e || !(KENN.klassen || []).includes(e.kind) || !kennungOk('Kennung.zeichne')) return null;
+    const volk = e.vk || (verbuendet ? KENN.verbuendet : KENN.gegner) || 'ger';
+    const s = kennungMassstab(zoom);
+    let r = 8;
+    try { r = Math.ceil(window.Kennung.radius(volk, e.kind, s)); } catch (err) { return null; }
+    return { volk, s, r };
+  }
+  function kennungZeichne(ctx, k, kind, x, y, ang, farbe) { return kennungRuf('Kennung.zeichne', (K) => K.zeichne(ctx, k.volk, kind, x, y, ang, farbe, k.s)); }
+  // Schildring: Werte je Segment (e.shields, Client füllt volle Schilde per Shared_Schilde.fuellen), Aufbau der Klasse aus shared/schilde.js
+  function kennungRing(ctx, e, k, x, y, ang, einfach) {
+    if (!Array.isArray(e.shields) || !e.shields.length) return true;
+    const SC = window.Shared_Schilde; const lay = SC && SC.layout(CFG, e.kind);
+    return kennungRuf('Kennung.schildRing', (K) => K.schildRing(ctx, x, y, k.r + 4, ang, e.shields, lay && lay.n === e.shields.length ? lay : null, { einfach }));
+  }
   let roomStyleSupport = null, roomLightSupport = null;
   function artHasRoomStyle() {
     if (roomStyleSupport != null) return roomStyleSupport;
@@ -2624,6 +2651,11 @@
 
   // Waffenbögen / Schildsektoren eines gescannten Gegners (Bildschirmkoordinaten; rot = Bildschirmdrehung)
   function drawEnemyIntel(ctx, e, sx, sy, zoom, rot, strong, teleShown, view) {
+    drawEnemyArcs(ctx, e, sx, sy, zoom, rot, strong, teleShown);
+    drawEnemyShields(ctx, e, sx, sy, zoom, rot, view);
+  }
+  // Feindbögen eines gescannten Gegners (ohne Schilde; Kennungskarten zeichnen statt der Bögen den Schildring)
+  function drawEnemyArcs(ctx, e, sx, sy, zoom, rot, strong, teleShown) {
     const base = (e.angle || 0) + (rot || 0);
     // M3a: Feindbögen nur, solange der Gegner (für diese Konsole sichtbar) lädt – sonst nur die Schildsektoren
     const arcsNow = !CFG.spaceM3 || (teleShown == null ? !!e.tele : !!teleShown);
@@ -2635,7 +2667,6 @@
       else { ctx.moveTo(sx, sy); ctx.arc(sx, sy, r, f - a / 2, f + a / 2); ctx.closePath(); }
       ctx.fill(); ctx.stroke();
     }
-    drawEnemyShields(ctx, e, sx, sy, zoom, rot, view);
   }
 
   // SL0: Schildsegmente eines Gegners (Bögen je Segment). Die Ops sieht sie in Sensorreichweite auch ohne Ziel-Scan;
@@ -3286,7 +3317,8 @@
       if (!e || !isFinite(+e.x) || !isFinite(+e.y)) continue;
       if (e.state === 'entkommen') continue;   // in Sicherheit: nicht mehr im Raum
       const s = toS(+e.x, +e.y);
-      const r = ESCORT_R[e.kind] || 32;
+      const kenn = !front && e.al ? kennungVon(e, true, env.zoom || 0.35) : null;   // Verbündete auf den Karten: römische Kennung in Mint
+      const r = kenn ? kenn.r + 7 : (ESCORT_R[e.kind] || 32);
       const name = escortName(e).toUpperCase();
       // Route (nur Karten): gepunktete Messing-Linie
       if (!front && !escortDown(e)) {
@@ -3314,7 +3346,15 @@
       }
       const hitT = view.escortHit && view.escortHit[e.id] != null ? view.escortHit[e.id] : 99;
       drawEscortRing(ctx, e, s.x, s.y, r, t);
-      drawEscortSprite(ctx, e, s.x, s.y, (+e.angle || 0) + (env.rot || 0), t, hitT);
+      const eAng = (+e.angle || 0) + (env.rot || 0);
+      let kennOk = false;
+      if (kenn) {
+        ctx.save();
+        if (e.ein) ctx.globalAlpha = 0.45 + 0.25 * Math.sin(t * 14);   // EK4b: Einblenden (unverwundbar)
+        kennOk = kennungZeichne(ctx, kenn, e.kind, s.x, s.y, eAng, hitT < 0.15 ? '#FFFFFF' : escortDown(e) ? ESCORT_COL.wreck : PAL.mint);
+        ctx.restore();
+      }
+      if (!kennOk) drawEscortSprite(ctx, e, s.x, s.y, eAng, t, hitT);
       const frac = escortHpFrac(e);
       escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, escortBarCol(e, frac));
       block(s.x - r, s.y - r - 10, r * 2, r * 2 + 10);
@@ -3799,11 +3839,13 @@
       if (!front && Math.hypot(e.x - ship.x, e.y - ship.y) > sensR) continue;   // Sensorreichweite filtert der Client
       const s = toS(e.x, e.y);
       const hpFrac = e.hpMax ? e.hp / e.hpMax : 1;
-      const size = ENEMY_SIZE[e.kind] || 16;
+      const kenn = front ? null : kennungVon(e, false, zoom);   // Taktik/Lage: Kennung statt Sprite (Größe = Form + Schildring)
+      const size = kenn ? kenn.r + 6 : (ENEMY_SIZE[e.kind] || 16);
       if (e.st === 'treibt') {   // B1 §7: kampfunfähig – ohne Waffen, Ziel, Anflug, Ladung; nur gedimmt mit Hinweis
         if (!inB(s, size)) continue;
         ctx.save(); ctx.globalAlpha = 0.55;
-        if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac: 0, hitT: 99, time: t, tele: null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, 99);
+        if (kenn && kennungZeichne(ctx, kenn, e.kind, s.x, s.y, (e.angle || 0) + rot, PAL.amber)) { /* Kennung in Bernstein */ }
+        else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac: 0, hitT: 99, time: t, tele: null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, 99);
         ctx.restore();
         if (!front) block(s.x - size, s.y - size, size * 2, size * 2);
         lab('TREIBT · ENTERN', s.x, s.y + size + 6, { color: PAL.amber, align: 'center' }, 2);
@@ -3818,7 +3860,11 @@
       }
       if (!inB(s, 0)) { offscreen.push({ e, s }); continue; }
       const hitT = view.enemyHit && view.enemyHit[e.id] != null ? view.enemyHit[e.id] : 99;
-      if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown, view);
+      const eAng = (e.angle || 0) + rot;
+      if (kenn) {   // Kennungskarte: Feindbögen (gescannt) und Schildring je Segment statt der Schildbögen
+        if (cfg.intel && e.scanned) drawEnemyArcs(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown);
+        if (!kennungRing(ctx, e, kenn, s.x, s.y, eAng, shieldDense || zoom < 0.3)) drawEnemyShields(ctx, e, s.x, s.y, zoom, rot, view);
+      } else if (cfg.intel && e.scanned) drawEnemyIntel(ctx, e, s.x, s.y, zoom, rot, !target || target.id === e.id, tShown, view);
       else drawEnemyShields(ctx, e, s.x, s.y, zoom, rot, view);   // TB2: Schildbögen für alle Konsolen im Weltbild, ohne Ziel-Scan
       if (e.pat) {   // EK2: Patrouille – wirksamer Sensorkreis (wächst mit der Signatur der Lerche)
         ctx.strokeStyle = 'rgba(255,198,107,0.7)'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
@@ -3826,8 +3872,9 @@
         lab('PATROUILLE', s.x, s.y - size - 16, { color: PAL.amber, align: 'center' }, 3);
       }
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
+      else if (kenn && kennungZeichne(ctx, kenn, e.kind, s.x, s.y, eAng, hitT < 0.15 ? '#FFFFFF' : PAL.red)) { /* Kennung: rot = feindlich, weiß = Treffer */ }
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
-      drawEnemyHitFx(ctx, e, s.x, s.y, ENEMY_SIZE[e.kind] || 16, view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
+      drawEnemyHitFx(ctx, e, s.x, s.y, kenn ? kenn.r + 4 : (ENEMY_SIZE[e.kind] || 16), view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
         ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
         lab('SPRUNG', s.x, s.y - size - 22, { color: PAL.mint, align: 'center' }, 3);
