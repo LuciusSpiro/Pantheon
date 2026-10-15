@@ -111,11 +111,11 @@ console.log('Bot (sim-headless GenericAgent, Bergsteigen)');
   const argv = process.argv; process.argv = [argv[0], file];
   let Sim; try { const m = new Module(file, module); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file)); m._compile(src, file); Sim = m.exports; } finally { process.argv = argv; }
   const { makeRng } = require('../server/util.js');
-  for (const [name, abw, qmin, qmax] of [['genau', 0, 2, 3], ['ungenau', 0.14, 0, 1]]) {
+  for (const [name, abw, qmin, qmax] of [['genau', 0, 2, 3], ['ungenau', 0.17, 0, 1]]) {   // dauer halbiert (12,5 s): der Bot gibt sich erst bei s >= ~0,2 zufrieden
     Sim.setSimRng(makeRng(11));
-    const g = new Game({ noStore: true, seed: 13, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const g = new Game({ noStore: true, seed: 14, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
     g.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
-    const a = new Sim.GenericAgent(g, 0, 'solo', { seed: 13, entschlAbw: abw });
+    const a = new Sim.GenericAgent(g, 0, 'solo', { seed: 14, entschlAbw: abw });
     g.simAgents = [a];
     g.addConnection(a.conn); g.handleMessage(a.conn, { t: 'lobbyOpt', startMission: 'arena_space' }); a.hello();
     if (g.arena) g.arena.nextAt = null;

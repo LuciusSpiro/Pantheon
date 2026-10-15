@@ -56,3 +56,9 @@ Daten + Server 1 T · Captain-Dialog + Karten-Marker (Anteil SL1B getrennt) 1 T 
 1. Werte (Ablauf 600 s, Lohn 80/120) als Studiowerte okay? Default: ja.
 2. Rest läuft ab Freischaltung oder ab erstem Sichten (Default: ab Freischaltung, einfacher, vorhersagbar).
 3. Soll ein ausgelaufener Ruf in Kapitel 7 neu erscheinen können („endlos farmen“)? Default: nein, einmalig; Geld aus Gasriese (7a) ist der Farmweg.
+   **Entschieden von Kai (Spieltest 2026-10-14): ja.** Abgelaufene oder ignorierte Rufe kommen in Kapitel 7 nach `CONFIG.notrufe.wiederkehr.pause` (180 s Spielzeit, nur solange Kapitel 7 läuft) erneut, abwechselnd als Original und als Variante (`varianten` in der Ruf-Datei: anderer Absender und Wortlaut), höchstens `max`-mal je Ruf. Erledigte Rufe kommen nie wieder; die Falle darf wiederkehren. Weltstand: `welt.notrufe.<id>` trägt zusätzlich `v` (Variante), `n` (Wiederkehren), `w` (Rest der Pause).
+
+## 8. U1 (Spieltest 2026-10-14): sichtbare Schiffe und Erreichbarkeit
+- Jeder Ruf stellt am Ort ein **sichtbares Schiff** in die Szene (Escort-Objekt, Tag `nr_<id>`, Name des Absenders, Notruf-Kennung; Taktikkarte, Captain-Lage, Frontsicht). Bergung zählt am Schiff (es treibt). Die Falle ist eine Attrappe; kommt die Lerche auf `hinterhaltAbstand` heran, verschwindet sie und der Hinterhalt beginnt. Das Schiff verlässt die Szene mit der Bergung.
+- Das Tor (temporärer Sprungpunkt) eines Leerraum-Rufs schließt nie unter der Lerche: es bleibt offen, bis sie den Leerraum-Hex verlassen hat.
+- `tools/check-erreichbar.js` (Teil von `npm run check`) prüft Zeitlinie, Sprungpunkte in beide Richtungen und den Inhalt der Szenen; `tools/test-erreichbar.js` hält die Fehlerbilder fest.

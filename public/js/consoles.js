@@ -233,9 +233,33 @@
           } else { sy = H.drawAlliesStrip(ctx, view, sy, { row: true }); sy = H.drawBefehlStrip(ctx, view, sy); }
         });
       }
+      if (c === 'captain' || c === 'weapons' || c === 'transfer') Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(ctx, view));   // Frachtraum-Liste: immer sichtbar
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(8, VH - 17, VW - 16, 11);
       R.text(ctx, (controls ? controls + ' · ' : '') + (STATION_KREIS.includes(c) ? 'Tab Station · ' : '') + (c === 'plan' ? 'Esc aufstehen' : 'Esc verlassen'), VW / 2, VH - 15, { color: PAL.amber, align: 'center', shadow: false });
       R.drawTooltip(ctx);
+    },
+
+    // Frachtraum-Liste (Ops, Captain, Transfer): eine Zeile über der Hinweisleiste, immer sichtbar; Inhalt aus Shared_Frachtliste (Waren und Personen, freie Plätze).
+    // Nur Anzeige: belegt keine Taste und keine Klickfläche.
+    frachtLeiste(ctx, view, box) {
+      const FL = window.Shared_Frachtliste;
+      if (!FL) return;
+      const cap = (Maps && Maps.CARGO_CAPACITY) || 2;
+      const l = FL.frachtListe(view.state && view.state.fracht, cap);
+      const bx = box ? box.x : 8, bw = box ? box.w : VW - 16, y = box ? box.y : VH - 30, h = 12;   // Pult: Lage aus box (unten in der Anzeige)
+      ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(bx, y, bw, h);
+      ctx.strokeStyle = l.belegt ? PAL.brass : '#3A4250'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, h - 1);
+      R.text(ctx, l.titel, bx + 6, y + 2, { color: PAL.brass, shadow: false });
+      const x0 = bx + 6 + R.measure(l.titel, 1) + 6;
+      if (!l.belegt) { R.text(ctx, 'leer · ' + l.frei + ' frei', x0, y + 2, { color: PAL.panelLight, shadow: false }); return; }
+      let x = x0;
+      for (const e of l.eintraege) {
+        const col = e.art === 'person' ? PAL.mint : e.art === 'sprengstoff' ? PAL.red : e.art === 'deuterium' ? '#4FB6E8' : PAL.amber;
+        ctx.fillStyle = col; ctx.fillRect(x, y + 3, 5, 5);
+        R.text(ctx, e.text, x + 8, y + 2, { color: PAL.star, shadow: false });
+        x += 8 + R.measure(e.text, 1) + 10;
+      }
+      if (l.frei) R.text(ctx, l.frei + ' frei', x, y + 2, { color: PAL.panelLight, shadow: false });
     },
 
     // ================================================================= Steuer (Frontsicht)
@@ -323,7 +347,7 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: 10, y: 26, w: 620, h: 292 };
       const fv = R.drawFrontView(ctx, view, rect);
-      try { this.helmTurnGauge(ctx, view, fv); this.helmAlerts(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
+      try { this.helmTurnGauge(ctx, view, fv); this.helmAlerts(ctx, view, fv); this.helmHoehe(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
       const lx = 14, lw = fv.win.x - lx - 8;
       const rx = fv.win.x + fv.win.w + 8, rw = rect.x + rect.w - rx - 2;
       const w = R.worldOf(st);
@@ -336,7 +360,7 @@
       y += 3;
       const hi = this.helmInfo(ship);
       const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      const deg = Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360);
+      const deg = Phys.kompassGrad(n(ship.angle));   // 0° = Norden (oben), 90° = Osten, 180° = Süden
       R.text(ctx, 'FAHRT', lx, y, { color: PAL.brass });
       R.text(ctx, 'W/S', lx + R.measure('FAHRT', 1) + 5, y, { color: PAL.panelLight }); y += 10;
       const lh = this.helmLadder(ctx, view, lx, y, hi);
@@ -546,6 +570,16 @@
         y += 16;
       }
       return y;
+    },
+    // U2: Gasriese – die Navigation sieht den Sog und den nötigen Antrieb (oben im Fenster, nur in Szenen mit Zug)
+    helmHoehe(ctx, view, fv) {
+      const g = this.gasLage(view.state); const t = this.hoehenText(g);
+      if (!t || !g.zug) return;
+      const w = 236, h = 20, x = Math.round(fv.cx - w / 2), y = fv.win.y + 2;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = t.col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      R.text(ctx, t.txt, fv.cx, y + 2, { color: t.col, align: 'center' });
+      R.text(ctx, t.was, fv.cx, y + 11, { color: PAL.panelLight, align: 'center' });
     },
     helmAlerts(ctx, view, fv) {
       const st = view.state, ship = st.ship || {};
@@ -1550,6 +1584,38 @@
       if (d > SCAN_RANGE) return 'Zu weit (' + Math.round(d) + '/' + SCAN_RANGE + ')';
       return null;
     },
+    // U2: Gasriese – Lage des Schiffs in der Atmosphäre (null ohne Zonen mit Zug). Rechnet mit shared/zonen.js wie der Server:
+    //   zug = Sog nach innen (px/s), noetig = Energiestufe, mit der der Antrieb (VOLL) die Höhe hält (0 = keine reicht), inFoerder = im Ertragsring,
+    //   hinweis = warum man hier nicht schöpfen kann, ertragSzene = die Szene hat eine Förderschicht (Schöpfen-Knopf).
+    gasLage(st) {
+      const Z = window.Shared_Zonen, SL = window.Shared_Locations, ship = st.ship;
+      if (!Z || !SL || !ship) return null;
+      const loc = SL.get && SL.get(ship.scene); const zs = loc && loc.scene && loc.scene.zonen;
+      if (!Array.isArray(zs) || !zs.some(z => z.zug)) return null;
+      const aus = new Set((st.zonen || {}).au || []);
+      const act = zs.filter(z => !(z.gruppe && aus.has(z.gruppe)));
+      const sx = n(ship.x), sy = n(ship.y);
+      const w = Z.wirkung(act, sx, sy);
+      const ertragsz = act.filter(z => z.ertrag && /^fracht:/.test(String(z.ertrag.ziel)));
+      const inFoerder = w.ertrag.some(e => /^fracht:/.test(e.ziel));
+      let hinweis = null;
+      if (!inFoerder && ertragsz.length) { const z = ertragsz[0]; hinweis = 'Nur in der ' + (z.name || 'Förderschicht') + ' (grüner Ring): ' + (Math.hypot(sx - z.x, sy - z.y) >= (z.r1 || z.r || 0) ? 'tiefer hinein' : 'zu tief, höher'); }
+      // Höchsttempo je Energiestufe (px/s, Stufe VOLL): Zustand und Ladung stecken im Faktor, den der Server meldet
+      const pf = CFG.enginePowerFactor || [0, 0.5, 0.8, 1, 1.15];
+      const cur = n((ship.power || {}).engines), sf = n((ship.helm || {}).speedFactor, 1);
+      const base = pf[cur] > 0 ? sf / pf[cur] : 1;
+      const speeds = [1, 2, 3, 4].map(E => LERCHE.maxSpeed * pf[E] * base);
+      const noetig = Z.antriebNoetig(w.zug, speeds);
+      return { zug: w.zug, noetig, cur, inFoerder, hinweis, ertragSzene: ertragsz.length > 0, kraft: speeds[Math.max(0, cur - 1)] || 0 };
+    },
+    // U2: Anzeige „Höhe halten“ (Ops-Karte und Steuerung): Sog nach innen und der Antrieb, der ihn ausgleicht
+    hoehenText(g) {
+      if (!g || !g.zug) return null;
+      const txt = g.noetig === 0 ? 'Höhe halten: kein Antrieb reicht – verloren!' : 'Höhe halten: Antrieb ' + g.noetig + ' erforderlich';
+      const col = g.noetig === 0 ? PAL.red : g.cur >= g.noetig ? PAL.mint : PAL.warn;
+      const was = g.noetig === 0 ? 'Sog ' + Math.round(g.zug) + ' px/s' : 'Sog ' + Math.round(g.zug) + ' px/s' + (g.cur >= g.noetig ? ' · Energie ' + g.cur + ' reicht (Stufe VOLL)' : ' · Energie ' + g.cur + ' reicht nicht: sinkt');
+      return { txt, was, col };
+    },
     // EK3 Teil A: Fracht-Leiste oben links in der Ops-Karte (nur sichtbar, wenn Fracht in der Szene, an Bord oder ein Vorgang läuft).
     // F beamt die nächste Fracht in Reichweite an Bord (3 s halten, Systemtreffer bricht ab) bzw. bricht ab, G liefert ab.
     fracht(st) {
@@ -1568,7 +1634,8 @@
       else if (!lager.length) ab = 'Keine Fracht an Bord';
       else if (!fr.ab) ab = fr.abn ? 'Abnehmer: ' + fr.abn + ' – nicht in Reichweite' : 'Hier nimmt keine Station Fracht an';
       const personHalt = !!(halt && (halt.kind === 'person_an' || halt.kind === 'person_ab'));   // Personentransfer zeigt nur die Personen-Leiste, nicht zusätzlich die Fracht-Leiste
-      return { fr, cap, lager, draus, halt, beam, ab, show: !!(draus.length || lager.length || (halt && !personHalt) || fr.fuell) };
+      const gas = this.gasLage(st);   // U2: im Gasfeld erscheint die Leiste immer (Schöpfen-Knopf)
+      return { fr, cap, lager, draus, halt, beam, ab, gas, show: !!(draus.length || lager.length || (halt && !personHalt) || fr.fuell || (gas && gas.ertragSzene)) };
     },
     // SL0: Personen-Leiste unten links in der Ops-Karte: Person vom Landepunkt an Bord beamen (U) bzw. abgeben (B). Eine Person belegt einen Frachtplatz.
     // (Name drawPersonenBord: drawPersonen ist die Personenliste des Captains, die Namensgleichheit überschrieb sie sonst)
@@ -1621,28 +1688,51 @@
         R.bar(ctx, x + 134, y + 16, w - 138, 6, n(z.sc), PAL.mint);
       } else R.button(ctx, x + 4, y + 13, 126, 12, 'Zonen scannen', { hotkey: 'Y', onClick: () => this.cmd(view, 'weapons.zonenscan') });
     },
+    // U2: Anzeige „Höhe halten“ in der Ops-Karte (gestapelt unter den Leisten); nur im Gasriesen (Zug > 0)
+    drawHoehe(ctx, view, rect) {
+      const t = this.hoehenText(this.gasLage(view.state));
+      if (!t) return;
+      const w = 266, h = 28, x = rect.x + 4, y = rect.y + 3 + (this.stapelH || 0);
+      this.stapelH = (this.stapelH || 0) + h + 3;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = t.col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      R.text(ctx, t.txt, x + 4, y + 3, { color: t.col });
+      R.text(ctx, t.was, x + 4, y + 15, { color: PAL.panelLight });
+    },
     drawFracht(ctx, view, rect) {
       const f = this.fracht(view.state);
       this.stapelH = 0;   // SL7: Platz oben links, den die Leisten (Fracht, Landepunkt-Scan, Zonen-Scan) schon belegen
       if (!f.show) return;
       const ware = f.lager.filter(a => a === 'deuterium' || a === 'sprengstoff' || a === 'fracht').length > 0;   // SL6: Verkaufen/Abwerfen nur mit Ware
-      const x = rect.x + 4, y = rect.y + 3, w = 266, h = f.halt ? 40 : (ware ? 42 : 28);
+      const gas = f.gas && f.gas.ertragSzene ? f.gas : null;   // U2: Gasfeld – Schöpfen ist eine Ops-Aktion (C)
+      const schoepft = !!(f.halt && f.halt.kind === 'schoepf');
+      const x = rect.x + 4, y = rect.y + 3, w = 266, h = schoepft ? 42 : f.halt ? 40 : ((ware || gas) ? 42 : 28);
       this.stapelH = h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
-      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? ' · schöpft ' + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
+      R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
       const by = y + 13;
-      if (f.halt) {
+      if (schoepft) {
+        R.button(ctx, x + 4, by, 126, 12, 'Schöpfen beenden', { hotkey: 'C', onClick: () => this.cmd(view, 'weapons.schoepfen', { off: true }) });
+        R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
+        R.text(ctx, 'Schöpft ' + Math.round(n(f.halt.p) * 100) + ' % · läuft auch ohne Ops weiter', x + 4, by + 17, { color: PAL.mint });
+        R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', disabled: !ware, reason: 'Keine Ware an Bord', onClick: () => this.cmd(view, 'weapons.abwerfen') });
+      } else if (f.halt) {
         R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
         R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
-        if (ware) {   // SL6: Deuterium verkaufen (Händler in Reichweite) / eine Einheit abwerfen (schneller steigen)
+        if (gas) {   // U2: Gasfeld: Schöpfen startet die Ops (nur in der Förderschicht), Abwerfen macht Platz und leichter (+15 % Antrieb je Einheit)
+          const frei = (f.fr.lager || []).length + (f.fr.pers || []).length < f.cap;
+          const why = sysDown(view.state.ship || {}, 'transfer') ? 'Transfer ausgefallen – reparieren' : !frei ? 'Frachtraum voll – abwerfen oder verkaufen' : gas.hinweis;
+          R.button(ctx, x + 4, by + 14, 126, 12, 'Gas schöpfen', { hotkey: 'C', disabled: !!why, reason: why, active: !why, onClick: () => this.cmd(view, 'weapons.schoepfen') });
+          R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', disabled: !ware, reason: 'Keine Ware an Bord', onClick: () => this.cmd(view, 'weapons.abwerfen') });
+        } else if (ware) {   // SL6: Deuterium verkaufen (Händler in Reichweite) / eine Einheit abwerfen (schneller steigen)
           R.button(ctx, x + 4, by + 14, 126, 12, 'Verkaufen', { hotkey: 'V', disabled: !f.fr.vk, reason: !f.fr.vk ? 'Kein Händler in Reichweite' : null, onClick: () => this.cmd(view, 'weapons.verkaufen') });
           R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', onClick: () => this.cmd(view, 'weapons.abwerfen') });
         }
@@ -1657,6 +1747,7 @@
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
       this.drawLpscan(ctx, view, rect);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
       this.drawZonenscan(ctx, view, rect);   // SL7a: Verzerrungen scannen
+      this.drawHoehe(ctx, view, rect);   // U2: Gasriese – Sog und „Höhe halten: Antrieb n erforderlich“
       this.drawPersonenBord(ctx, view, rect);   // SL0: Personen beamen / abgeben
       if (window.SondenView) SondenView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL4: Sonde zur Marke
       if (window.SpurView) SpurView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL5: Spur lesen
@@ -2678,6 +2769,7 @@
           if (code === 'KeyL' && (view.state.lpscan || {}).n) return press(() => this.tryButton(/^(Landepunkt scannen|Scan abbrechen)/));   // SL7b
           if (code === 'KeyV' && this.fracht(view.state).show) return press(() => this.tryButton('Verkaufen'));   // SL6
           if (code === 'KeyX' && this.fracht(view.state).show) return press(() => this.tryButton('Ladung abwerfen'));   // SL6
+          if (code === 'KeyC' && this.fracht(view.state).gas) return press(() => this.tryButton(/^(Gas schöpfen|Schöpfen beenden)/));   // U2: Gas schöpfen (Ops); C ist sonst frei
           if (this.isM3(view)) {
             // M3a: Q/E Waffe wählen, A/D Ladepunkte −/+, 1 Lanze halten, 2/3 Bb/Stb, 4 Bolzen, Leer Batterien
             if (code === 'KeyQ') { this.sel.mount = (this.sel.mount + 2) % 3; view.actions.sfx('ui_click'); return true; }

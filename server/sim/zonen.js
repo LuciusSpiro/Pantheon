@@ -7,16 +7,17 @@
 //   Hitze     Lerche: Zonenhitze je Sekunde auf Antrieb/Schilde (config zonen.hitzeSysteme, ab Energie zonen.hitzeMinEnergie). Gegner haben keine Hitze.
 //   Schaden   sammelt sich je Körper und kommt jede `zonen.takt` s als ganze Punkte an (Lerche: shipHit, Gegner: damageEnemy – Schilde wirken wie bei jedem Treffer).
 //   Sicht     sichtFaktor(game) – space.nebelFaktor multipliziert ihn auf Sensor-/Erfassungsreichweite der Lerche (Gegner sehen wie bisher).
-//   Ertrag    Lerche in einer Ertragszone: 'fracht:<art>' füllt Ladung (server/sim/ladung.js), 'zaehler:<id>' zählt game.zonenSim.zaehler[id] (z. B. Boje).
+//   Zug       Gravitation zur Mitte (zone.zug, px/s) als Positionsversatz wie die Drift: Nettotempo nach außen = Schiffstempo − Zug (Höhe halten, U2).
+//   Ertrag    'zaehler:<id>' zählt game.zonenSim.zaehler[id] (z. B. Boje) von selbst. 'fracht:<art>' (Gasriese) füllt die Ladung NICHT von selbst:
+//             die Ops startet das Schöpfen (weapons.schoepfen, Halteprozess in server/sim/ladung.js); nur dort, in der Ertragszone, läuft es.
 // Szenen ohne `scene.zonen` kosten einen Array-Zugriff, Verhalten bleibt bitgleich (Eisenwald, Golden).
 const Zonen = require('../../shared/zonen.js');
 const Locations = require('../../shared/locations.js');
 const Physics = require('../../shared/physics.js');
 
-let spaceMod = null, escortMod = null, ladungMod = null;
+let spaceMod = null, escortMod = null;
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 const escort = () => escortMod || (escortMod = require('./escort.js'));
-const ladung = () => ladungMod || (ladungMod = require('./ladung.js'));
 
 const KEINE = Object.freeze([]);
 // aus = abgeschaltete Schaltgruppen (zone_schalten; scene.zonenAus gilt beim Betreten der Szene), alle = für alle sichtbar freigegeben (Feldkarte, zone_sichtbar),
@@ -181,8 +182,7 @@ function update(game, dt) {
     }
     for (const e of w.ertrag) {
       const [art, ziel] = [e.ziel.slice(0, e.ziel.indexOf(':')), e.ziel.slice(e.ziel.indexOf(':') + 1)];
-      if (art === 'fracht') ladung().schoepfen(game, ziel, e.rate, dt);
-      else if (art === 'zaehler') S.zaehler[ziel] = (S.zaehler[ziel] || 0) + e.rate * dt;
+      if (art === 'zaehler') S.zaehler[ziel] = (S.zaehler[ziel] || 0) + e.rate * dt;
     }
   } else if (S.in.length) S.in = [];
 
@@ -226,11 +226,30 @@ function druck(game, sector, pts) {
   if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
   const hull = rest > 0 ? 5 * rest : 0;
   if (hull > 0 && !game.god) game.ship.hull = Math.max(0, game.ship.hull - hull);
+  if (hull > 0 && !game.god && game.ship.hull <= 0) auftauchenZwang(game);
   game.stats.hits++;
   game.emit('hit', hull > 0 ? { sector, shield: false, dmg: Math.round(hull / 5 * 10) / 10, heavy: false, absorbed: absorb, hull } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });
   game.emit('sfx', { name: hull > 0 ? 'hull_hit' : 'shield_hit' });
   if (cur > 0 && sh.current[sector] <= 0) game.missionEvent('shieldDown', { sector });
   if (hull > 0) game.missionEvent('hullHit', { sector });
+}
+
+// U2: Wer im Gas die Hülle verliert, wird nicht im Kern „wiederbelebt“: das Notfallprotokoll (space.checkEmergency: Hülle 30, 50 Marken) läuft wie immer,
+// vorher wirft die Notautomatik das Schiff aus der Atmosphäre (Seite der Ankunft, Fahrt null). Sonst stürbe es im selben Ring gleich wieder.
+function auftauchenZwang(game) {
+  const sh = game.ship; const zs = szeneZonen(game);
+  const gz = zs.filter((z) => z.zug);
+  if (!gz.length) return;
+  const mitte = gz[0]; const aussen = Math.max(...gz.map((z) => z.r1 || z.r || 0));
+  const loc = Locations.get(sh.scene); const ar = (loc && loc.scene && (loc.scene.arrive || loc.scene.start)) || { x: mitte.x, y: mitte.y + 1 };
+  let dx = ar.x - mitte.x, dy = ar.y - mitte.y; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
+  const sp = game.space;
+  sh.x = Math.max(40, Math.min(sp.w - 40, mitte.x + dx * (aussen + 160))); sh.y = Math.max(40, Math.min(sp.h - 40, mitte.y + dy * (aussen + 160)));
+  sh.vx = 0; sh.vy = 0; sh.speed = 0; sh.turnVel = 0;
+  if (sh.helm) sh.helm.stage = Math.max(0, Math.min(sh.helm.stage, 1));
+  game.oda('Hülle am Ende! Die Notautomatik schleudert das Schiff aus der Atmosphäre.', 'zone_auftauchen');
+  game.missionEvent('zoneAuftauchen', { zone: mitte.id });
+  space().checkEmergency(game);   // sofort: space.update regeneriert die Hülle vor der Prüfung, ein Schiff mit 0 Hülle würde sonst nie „gerettet“
 }
 
 function beschreibung(z) {
@@ -239,7 +258,9 @@ function beschreibung(z) {
   if (z.hitze) t.push('Hitze');
   if (z.schaden) t.push('Druck auf die Hülle');
   if (z.drift || z.tang) t.push('Strömung zieht am Schiff');
-  if (z.ertrag) t.push('hier lässt sich schöpfen');
+  if (z.zug) t.push('Sog nach innen');
+  if (z.ertrag && String(z.ertrag.ziel).startsWith('fracht:')) t.push('Schöpfen mit der Ops möglich');
+  else if (z.ertrag) t.push('hier lässt sich schöpfen');
   return t.length ? t.join(', ') + '.' : 'betreten.';
 }
 

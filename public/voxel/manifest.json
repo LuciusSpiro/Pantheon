@@ -6774,7 +6774,7 @@
       "params": {
         "art": [
           0,
-          2
+          3
         ],
         "gesichert": [
           0,
@@ -6790,6 +6790,9 @@
         },
         "fracht": {
           "art": 2
+        },
+        "deuterium": {
+          "art": 3
         },
         "ungesichert": {
           "art": 1,

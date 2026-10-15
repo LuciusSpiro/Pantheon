@@ -408,7 +408,15 @@
         const kc = stil.koord || (hs.art === 'leer' ? COL.leerText : hs.art === 'erkundet' ? 'rgba(244,238,220,0.75)' : COL.grau);
         txt(ctx, h, p.x, p.y - h3 / 2 + 3, { color: kc, align: 'center', shadow: false });
       }
-      if (hs.art === 'leer') continue;
+      if (hs.art === 'leer') {
+        // U1 (Kai): ein Leerraum-Hex mit temporärem Sprungpunkt oder Marke (Notruf, Ziel) ist ein Ort, kein schwarzes Loch: Umriss und Name
+        const rel = [...L.temp].some((id) => id.indexOf(h) >= 0) || marken.some((mk) => mk.h === h);
+        if (rel) {
+          ctx.save(); ctx.strokeStyle = 'rgba(169,214,229,0.75)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); hexPfad(ctx, p.x, p.y, s - 2); ctx.stroke(); ctx.restore();
+          if (!kompakt && !dicht) txt(ctx, 'Leerraum', p.x, p.y + h3 / 2 - 13, { color: 'rgba(169,214,229,0.9)', align: 'center' });
+        }
+        continue;
+      }
       if (hs.art === 'verborgen' || (hs.art === 'unerkundet' && !hs.nameBekannt) || (hs.s && hs.s.name === '?')) {
         txt(ctx, '?', p.x, p.y - 4, { color: COL.grau, align: 'center' });
         continue;
@@ -661,7 +669,13 @@
       if (IB && typeof IB.boje === 'function' && IB.boje(ctx, z, p.x, p.y, zoom, w, { t, ziel: !!gewaehlt }) !== false) gr = Math.max(26, 96 * zoom);
       else { gr = Math.max(12, Math.min(28, Math.round(90 * zoom))); zeichneBojeErsatz(ctx, z, p.x, p.y, gr); }
       let name = b.n || '';
-      if (P && b.n) { const nm = hexName(P, L, b.n, true); name = nm === '?' || nm === 'Unbekanntes System' ? 'Sektor ' + b.n : nm; }
+      if (P && b.n) {
+        const nm = hexName(P, L, b.n, true);
+        name = nm === '?' || nm === 'Unbekanntes System' ? 'Sektor ' + b.n : nm;
+        // U1 (Kai): ein temporärer Sprungpunkt oder ein Missionsziel führt nicht ins Namenlose: der Ortsname der Marke bzw. des Kapitels gilt
+        const hx = P.K.hexe[b.n];
+        if (name === 'Sektor ' + b.n && hx && hx.name && hx.name !== '?' && (z === 'temporaer' || (store.marken || []).some((mk) => mk && mk.h === b.n))) name = hx.name + ' ' + b.n;
+      }
       // Beschriftung unter der Boje (sonst darüber), knapp gehalten: voller Text nur beim gewählten Ziel. Bis render.js
       // die Label-Kollision (lab) im Hook reicht, weicht sie hier selbst aus: der „200“-Peilstrich der Frontsicht und
       // die eigenen Bojen-Labels sind Hindernisse.

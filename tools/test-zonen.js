@@ -71,9 +71,15 @@ section('Baustein: Geometrie, Summe, Sichtbarkeit', () => {
   const o1 = { id: 'o', sichtbarFuer: 'ops' }, k1 = { id: 'kk', sichtbarFuer: 'karte' };
   ok(Zonen.sichtbar({ id: 'a' }, {}) && Zonen.sichtbar(o1, { ops: true }) && !Zonen.sichtbar(o1, { ops: false }) && Zonen.sichtbar(o1, { bekannt: ['o'] }), 'sichtbarFuer: alle / ops / bekannt');
   ok(!Zonen.sichtbar(k1, { ops: true }) && Zonen.sichtbar(k1, { bekannt: new Set(['kk']) }), 'sichtbarFuer karte: erst nach dem Erkunden');
-  const a = Zonen.gasriese({ x: 1500, y: 1100, r: 280 }), b = Zonen.gasriese({ x: 1500, y: 1100, r: 280 });
-  ok(a.length === 7 && JSON.stringify(a) === JSON.stringify(b), 'Gasriese: 4 Ringe + 3 Sturmzellen, deterministisch');
-  ok(a.filter((z) => z.ertrag).length === 2 && a.filter((z) => z.drift).length === 3, 'Gasriese: Ertrag in zwei Ringen, Drift in den Sturmzellen');
+  const a = Zonen.gasriese({ x: 1500, y: 1100, r: 560 }), b = Zonen.gasriese({ x: 1500, y: 1100, r: 560 });
+  ok(a.length === 9 && JSON.stringify(a) === JSON.stringify(b), 'Gasriese: 5 Ringe + 4 Sturmzellen, deterministisch');
+  ok(a.filter((z) => z.ertrag).length === 1 && a.filter((z) => z.drift).length === 4, 'Gasriese: Ertrag nur in der Förderschicht, Drift in den Sturmzellen');
+  const ringe = a.filter((z) => z.id.includes('_ring'));
+  ok(ringe.every((z, i) => i === 0 || (z.zug > ringe[i - 1].zug && z.schaden >= ringe[i - 1].schaden && z.hitze > ringe[i - 1].hitze)), 'Gasriese: Zug, Schaden und Hitze wachsen von außen nach innen');
+  ok(Math.max(...ringe.map((z) => z.r1 || z.r)) === Math.round(560 * 1.9), 'Gasriese: Atmosphäre reicht bis 1,9 Planetenradien');
+  const wz = Zonen.wirkung(ringe, 1500 + 460, 1100);   // Förderschicht, rechts der Mitte: Zug zeigt zur Mitte (−x), Strömung im Uhrzeigersinn (+y)
+  ok(Math.abs(wz.zug - 72) < 1e-9 && wz.vx < -70 && wz.vy > 10, 'Zug: Versatz zur Mitte (Betrag 72 px/s in der Förderschicht)');
+  ok(Zonen.antriebNoetig(72, [65, 104, 130, 149.5]) === 2 && Zonen.antriebNoetig(140, [65, 104, 130, 149.5]) === 4 && Zonen.antriebNoetig(240, [65, 104, 130, 149.5]) === 0, 'antriebNoetig: Förderschicht Energie 2, Tiefe Energie 4, Kern keine');
   ok(a.every((z) => z.id && (z.sichtbarFuer || z.form)), 'Zonen haben IDs');
 });
 
@@ -156,35 +162,140 @@ section('Erkunden und Zähler', () => {
   ZonenSim.bekanntMachen(g2, 'alle');
 });
 
-section('Gasriese: Deuterium schöpfen, Gewicht, Abwerfen', () => {
-  const zs = Zonen.gasriese({ x: 1500, y: 1100, r: 280 }, null, 'gas').filter((z) => !z.id.includes('sturm'));
-  szene(zs, { planeten: [{ x: 1500, y: 1100, r: 280, art: 'gasriese' }] });
+// ---- Gasriese U2: Zug (Gravitation), Höhe halten, Schaden, Schöpfen per Ops-Aktion ----
+const GC = { x: 1500, y: 1100, r: 560 };   // Planet; Förderschicht 336–588, Tiefe 168–336, Kern < 168, Wolkendecke 588–812
+const gasSzene = () => szene(Zonen.gasriese(GC, null, 'gas').filter((z) => !z.id.includes('sturm')), { planeten: [{ x: GC.x, y: GC.y, r: GC.r, art: 'gasriese' }] });
+const FOERDER = 460, TIEFE = 250, KERN = 100, WOLKE = 700;
+// Höhe-halten-Messung: der Pilot steuert radial nach außen, Stufe `stufe` (Index: 2 = ¼, 3 = ½, 4 = ¾, 5 = VOLL), Energie E; gemessen wird die Radialgeschwindigkeit über 1,5 s
+function hoehe(T, E, stufe, r0, last) {
+  const g = T.g, s = g.ship;
+  T.energie({ engines: E, shields: 1, weapons: 1, life: 2 }); g.players[0].console = 'helm';
+  s.systems.engines = 'operational';
+  g.fracht = null; for (let i = 0; i < (last || 0); i++) Fracht.anBordLegen(g, 'deuterium');
+  s.helm.stage = stufe; s.helm.autoStop = false;
+  const f = CONFIG.shipClasses.lerche.stages[stufe] * CONFIG.shipClasses.lerche.maxSpeed * space.engineSpeedFactor(g);
+  T.platz(GC.x + r0, GC.y, 0); s.vx = f; s.vy = 0; s.helm.stage = stufe;
+  const rr = () => Math.hypot(s.x - GC.x, s.y - GC.y);
+  const a = rr();
+  for (let k = 0; k < Math.round(1.5 / DT); k++) { s.angle = Math.atan2(s.y - GC.y, s.x - GC.x); g.step(); }
+  return { vr: (rr() - a) / 1.5, f };
+}
+section('Gasriese: Zug und Höhe halten (Messung)', () => {
+  gasSzene();
   const T = setup(); const g = T.g;
-  T.platz(1500 + 230, 1100, 0); T.energie({ engines: 2, shields: 2, weapons: 2, life: 2 });   // Schöpfschicht (0,6–1,05 r = 168–294)
+  const zug = (r) => Zonen.wirkung(ZonenSim.szeneZonen(g), GC.x + r, GC.y).zug;
+  ok(zug(FOERDER) === 72 && zug(TIEFE) === 140 && zug(KERN) === 240 && zug(WOLKE) === 30 && zug(1000) === 10, 'Zug je Ring: Hochatmosphäre 10, Wolkendecke 30, Förderschicht 72, Tiefe 140, Kern 240 px/s');
+  const tab = [];
+  const m = (E, st, r, last) => { const x = hoehe(T, E, st, r, last); return x.vr; };
+  for (let E = 1; E <= 4; E++) tab.push('Energie ' + E + ': Förder VOLL ' + m(E, 5, FOERDER).toFixed(1) + ' | ¾ ' + m(E, 4, FOERDER).toFixed(1) + ' | ½ ' + m(E, 3, FOERDER).toFixed(1) + ' | Tiefe VOLL ' + m(E, 5, TIEFE).toFixed(1) + ' | Kern VOLL ' + m(E, 5, KERN).toFixed(1));
+  console.log('  Messung (px/s radial, + = steigt, − = sinkt; Höchsttempo E1–E4: 65 / 104 / 130 / 149,5):\n    ' + tab.join('\n    '));
+  const near = (a, b) => Math.abs(a - b) < 4;
+  ok(near(m(1, 5, FOERDER), -7), 'Förderschicht, Energie 1 (VOLL): sinkt langsam ein (' + m(1, 5, FOERDER).toFixed(1) + ' px/s)');
+  ok(near(m(2, 3, FOERDER), -20) && m(2, 3, FOERDER) < -10, 'Förderschicht, Energie 2 auf ½: sinkt (' + m(2, 3, FOERDER).toFixed(1) + ' px/s)');
+  ok(m(2, 4, FOERDER) > 0 && m(2, 4, FOERDER) < 12, 'Förderschicht, Energie 2 auf ¾: hält gerade die Höhe (' + m(2, 4, FOERDER).toFixed(1) + ' px/s)');
+  ok(near(m(2, 5, FOERDER), 32) && near(m(3, 5, FOERDER), 58) && near(m(4, 5, FOERDER), 77.5), 'Förderschicht, VOLL: Energie 2/3/4 steigen mit +32 / +58 / +77 px/s (hält leicht)');
+  ok(CONFIG.shipClasses.lerche.maxSpeed * CONFIG.enginePowerFactor[4] / 72 > 2 && 72 / (CONFIG.shipClasses.lerche.maxSpeed * CONFIG.enginePowerFactor[4]) < 0.5, 'Zug der Förderschicht ist weniger als die Hälfte der Höchstleistung des Antriebs (Energie 4)');
+  ok(m(3, 5, TIEFE) < 0 && m(4, 5, TIEFE) > 0 && m(4, 4, TIEFE) < 0, 'Tiefe: nur Energie 4 auf VOLL hält die Höhe (E3 ' + m(3, 5, TIEFE).toFixed(1) + ', E4 ' + m(4, 5, TIEFE).toFixed(1) + ' px/s)');
+  ok(m(4, 5, KERN) < -60, 'Kern: auch Energie 4 VOLL reicht nicht – das Schiff wird hineingezogen (' + m(4, 5, KERN).toFixed(1) + ' px/s)');
+  ok(m(4, 5, TIEFE, 1) < 0 && m(2, 5, FOERDER, 2) > 0 && m(2, 5, FOERDER, 2) < 5, 'Ladung (−15 % je Einheit): Tiefe mit einer Einheit nicht mehr zu halten; Förderschicht mit zwei Einheiten Energie 2 VOLL gerade so (' + m(2, 5, FOERDER, 2).toFixed(1) + ')');
+  ok(Zonen.antriebNoetig(zug(FOERDER), [1, 2, 3, 4].map((E) => CONFIG.shipClasses.lerche.maxSpeed * CONFIG.enginePowerFactor[E])) === 2, 'Anzeige-Regel: Förderschicht verlangt Antrieb 2 (aus CONFIG abgeleitet)');
+  // ohne Antrieb (Stopp) sinkt die Lerche mit dem vollen Zug
+  T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.fracht = null; T.platz(GC.x + FOERDER, GC.y, 0); g.ship.helm.stage = 1; g.players[0].console = 'weapons';
+  const r0 = Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y); T.run(2);
+  ok(r0 - Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y) > 100, 'Stopp in der Förderschicht: die Gravitation zieht ~72 px/s nach innen (' + Math.round(r0 - Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y)) + ' px in 2 s)');
+  // Hitze: Energie 3/4 heizt beim Halten, Energie 2 nicht (hitzeMinEnergie)
+  T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
+  const h2 = g.ship.heat.engines;
+  T.energie({ engines: 4, shields: 1, weapons: 1, life: 2 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
+  ok(h2 === 0 && g.ship.heat.engines > 15, 'Hitze: Energie 2 bleibt kalt, Energie 4 heizt in der Förderschicht (' + g.ship.heat.engines.toFixed(1) + ' in 2 s)');
+});
+
+section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
+  gasSzene();
+  // jeder Lauf mit frischem Spiel (nach dem Tod endet die Partie): Standardschilde (2 je Sektor), Hülle 100, Energie 2, das Schiff steht im Ring (Antrieb hält die Höhe)
+  const lauf = (r, sek) => {
+    const T = setup({ god: false }); const g = T.g; const s = g.ship;
+    const pool = () => s.shields.current.reduce((a, b) => a + b, 0);
+    T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.players[0].console = 'weapons'; s.hull = 100; s.shields.current = s.shields.current.map(() => 2);
+    const eng0 = s.systems.engines; let minH = s.hull; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
+    let tTot = null, ausserhalb = null; const em0 = g.stats.emergencies;
+    for (let k = 0; k < Math.round(sek / DT); k++) {
+      T.platz(GC.x + r, GC.y, 0); g.step(); minH = Math.min(minH, s.hull);      if (g.stats.emergencies > em0 && tTot == null) { tTot = k * DT; minH = 0; ausserhalb = Math.hypot(s.x - GC.x, s.y - GC.y); }   // Hülle 0 -> Notfallprotokoll (nach dem Hinauswurf)
+    }
+    return { dHull: 100 - minH, dPool: p0 - pool(), minH, tTot, ausserhalb, hits: g.stats.hits - hits0, eng0, eng: s.systems.engines, fire: (s.fires || []).length - fire0, odas: T.odas };
+  };
+  const w = lauf(WOLKE, 10);
+  ok(w.dPool > 0 && w.dHull <= 25, 'Wolkendecke (0,5/s): Schilde zuerst, Hülle nur wenig (Schilde −' + w.dPool + ', Hülle −' + w.dHull + ' in 10 s)');
+  const f = lauf(FOERDER, 10);
+  ok(f.dPool >= 2 && f.dHull >= 20 && f.dHull <= 45, 'Förderschicht (0,8/s): merklich, aber überlebbar (Schilde −' + f.dPool + ', Hülle −' + f.dHull + ' in 10 s; eine Einheit schöpfen dauert 10 s)');
+  const f2 = lauf(FOERDER, 20);
+  ok(f2.minH > 0 && f2.minH <= 50, 'Förderschicht, 20 s (zwei Einheiten): die Hülle hält gerade noch (' + f2.minH + ' von 100)');
+  const t = lauf(TIEFE, 14);
+  ok(t.minH <= 0 && t.tTot < 12, 'Tiefe (3/s): tödlich in ' + (t.tTot == null ? '-' : t.tTot.toFixed(1)) + ' s (Notfallprotokoll)');
+  const k = lauf(KERN, 8);
+  ok(k.minH <= 0 && k.tTot < 4, 'Kern (8/s): tödlich in ' + (k.tTot == null ? '-' : k.tTot.toFixed(1)) + ' s');
+  ok(k.ausserhalb > GC.r * 1.9 && k.odas.some((x) => /Notautomatik schleudert/.test(x)), 'Zerstörung = Auftauchen-Zwang: das Schiff liegt danach außerhalb der Atmosphäre (' + Math.round(k.ausserhalb) + ' > ' + Math.round(GC.r * 1.9) + ' px), Meldung');
+  ok(t.hits + k.hits + f.hits > 20, 'Druck kommt als Treffer an (' + (t.hits + k.hits + f.hits) + ' Treffer)');
+  ok(f.eng === f.eng0 && t.eng === t.eng0 && k.eng === k.eng0 && f.fire === 0, 'Kein Zufallsausfall: Triebwerk bleibt ' + f.eng0 + ', keine Feuer (Dauerdruck ist kein shipHit)');
+});
+
+section('Gasriese: Deuterium schöpfen per Ops-Aktion, Gewicht, Abwerfen', () => {
+  gasSzene();
+  const T = setup(); const g = T.g;
+  T.energie({ engines: 2, shields: 2, weapons: 2, life: 2 }); T.taktik();
   const z = ZonenSim.szeneZonen(g).filter((q) => q.ertrag)[0];
-  ok(!!z, 'Szene hat Ertragszonen');
-  // Driftkräfte: tangentiale Strömung hält die Position nicht -> Lerche beim Schöpfen mit Stopp neu setzen
-  const halt = () => T.platz(1500 + 230, 1100, 0);
-  for (let i = 0; i < 12 && Fracht.anBord(g, 'deuterium') < 1; i++) { halt(); T.run(2); }
-  ok(Fracht.anBord(g, 'deuterium') === 1, 'Schöpfschicht füllt eine Einheit Deuterium');
-  for (let i = 0; i < 30 && Fracht.anBord(g, 'deuterium') < 2; i++) { halt(); T.run(2); }
+  ok(!!z && z.name === 'Förderschicht', 'Szene hat genau eine Ertragszone: die Förderschicht');
+  // Zug zieht das Schiff aus dem Ring: für die Messung der Schöpfzeit bleibt die Lerche per Neusetzen an Ort und Stelle (Antrieb hält die Höhe)
+  const halt = (r) => T.platz(GC.x + (r || FOERDER), GC.y, 0);
+  const lauf = (sek, r, bis) => { let t = 0; for (; t < sek; t += DT) { halt(r); g.step(); if (bis && bis()) break; } return t; };
+  lauf(20);
+  ok(Fracht.anBord(g) === 0 && !g.fracht.halt && !(g.fracht.fuell > 0), 'Ohne Aktion füllt sich NICHTS von selbst (20 s in der Förderschicht: 0 Einheiten, Füllstand 0)');
+  const aus = (r) => { halt(r); T.run(0.1); return T.cmd('weapons.schoepfen'); };
+  ok(aus(WOLKE).length === 1 && /tiefer/.test(T.cmd('weapons.schoepfen')[0]), 'Wolkendecke: Schöpfen abgelehnt, Hinweis „tiefer hinein“');
+  ok(aus(TIEFE).length === 1 && /zu tief/.test(T.cmd('weapons.schoepfen')[0]), 'Tiefe: Schöpfen abgelehnt, Hinweis „zu tief“');
+  ok(!g.fracht.halt, 'abgelehnte Aktion startet keinen Halteprozess');
+  halt(); T.run(0.1);
+  const e0 = T.cmd('weapons.schoepfen');
+  ok(!e0.length && g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Förderschicht: Schöpfen startet als Halteprozess ' + JSON.stringify(e0));
+  ok(T.cmd('weapons.schoepfen').length === 1 && T.cmd('weapons.fracht').length === 1, 'läuft bereits: zweiter Start und Fracht-Beamen werden abgelehnt');
+  const tt = lauf(30, FOERDER, () => Fracht.anBord(g, 'deuterium') >= 1);
+  ok(Fracht.anBord(g, 'deuterium') === 1 && tt > 8 && tt < 12, 'erste Einheit nach ~10 s (Rate 0,1/s): ' + tt.toFixed(1) + ' s');
+  ok(g.fracht.halt && g.fracht.halt.kind === 'schoepf' && g.snapshot().fracht.halt.kind === 'schoepf', 'Schöpfen läuft weiter (Snapshot halt.kind schoepf)');
+  const ab1 = T.cmd('weapons.abwerfen');
+  ok(!ab1.length && Fracht.anBord(g) === 0 && g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Abwerfen (X) ist beim Schöpfen erlaubt und beendet es nicht ' + JSON.stringify(ab1));
+  lauf(60, FOERDER, () => Fracht.anBord(g, 'deuterium') >= 2);
   ok(Fracht.anBord(g, 'deuterium') === 2 && Fracht.frei(g) === 0, 'zweite Einheit: Frachtraum voll (2 Plätze)');
-  const vor = Fracht.anBord(g);
-  for (let i = 0; i < 6; i++) { halt(); T.run(2); }
-  ok(Fracht.anBord(g) === vor && T.odas.some((t) => /Frachtraum voll/.test(t)), 'voll: nichts geht verloren, nichts kommt dazu, Meldung');
+  T.run(0.3);
+  ok(!g.fracht.halt && T.odas.some((t) => /Frachtraum voll – Schöpfen beendet/.test(t)), 'Frachtraum voll: Schöpfen endet von selbst, Meldung');
+  ok(T.cmd('weapons.schoepfen').length === 1, 'voll: neuer Start abgelehnt');
   const sf = space.engineSpeedFactor(g);
   const ohne = basis(g);
   ok(Math.abs(sf - ohne * 0.7) < 1e-9, 'Gewicht: 2 Einheiten Deuterium senken die Triebwerksleistung auf 70 % (' + sf.toFixed(3) + ' vs ' + ohne + ')');
   T.taktik();
   const e1 = T.cmd('weapons.abwerfen');
-  ok(!e1.length && Fracht.anBord(g, 'deuterium') === 1 && Fracht.draussen(g).length === 1 && Fracht.draussen(g)[0].art === 'deuterium', 'Abwerfen: eine Einheit als Pod im All ' + JSON.stringify(e1));
+  ok(!e1.length && Fracht.anBord(g, 'deuterium') === 1 && Fracht.draussen(g).length === 2 && Fracht.draussen(g)[1].art === 'deuterium', 'Abwerfen: eine Einheit als Pod im All ' + JSON.stringify(e1));
   ok(Math.abs(space.engineSpeedFactor(g) - ohne * 0.85) < 1e-9, 'Gewicht sinkt nach dem Abwurf (85 %)');
   const e2 = T.cmd('weapons.abwerfen', { art: 'sprengstoff' });
   ok(e2.length === 1, 'Abwerfen einer Art, die nicht an Bord ist: Fehlermeldung ' + JSON.stringify(e2));
-  // Ohne Frachtraum-Transfer kein Schöpfen
-  g.fracht.lager = []; g.fracht.draussen = []; g.ship.systems.transfer = 'broken'; g.fracht.fuell = 0;
-  for (let i = 0; i < 5; i++) { halt(); T.run(2); }
-  ok(Fracht.anBord(g) === 0, 'Transfer zerstört: es wird nichts geschöpft');
+  // Abbrechen durch die Ops, Ring verlassen, Ops unbesetzt, Transfer ausgefallen
+  g.fracht.lager = []; g.fracht.draussen = []; g.fracht.fuell = 0; T.taktik(); halt(); T.run(0.1);
+  ok(!T.cmd('weapons.schoepfen').length && g.fracht.halt, 'Neustart nach dem Abwurf');
+  lauf(3);
+  ok(g.fracht.fuell > 0.2 && g.fracht.fuell < 0.4, 'Füllstand wächst mit der Rate 0,1/s (' + g.fracht.fuell.toFixed(2) + ' nach 3 s)');
+  T.cmd('weapons.schoepfen', { off: true });
+  const fu = g.fracht.fuell; lauf(3);
+  ok(!g.fracht.halt && g.fracht.fuell === fu && Fracht.anBord(g) === 0, 'Ops bricht ab (off): der Füllstand bleibt stehen, nichts füllt sich weiter');
+  halt(); T.run(0.1); T.cmd('weapons.schoepfen'); halt(); T.run(0.5);
+  T.platz(GC.x + WOLKE, GC.y, 0); T.run(0.2);
+  ok(!g.fracht.halt && T.odas.some((t) => /Förderschicht verlassen/.test(t)), 'Ring verlassen (hinaus gesunken/gestiegen): Schöpfen beendet, Meldung');
+  halt(); T.run(0.1); T.cmd('weapons.schoepfen'); g.players[0].console = 'helm'; lauf(0.5);
+  ok(g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Ops verlassen (Solo am Steuer): Schöpfen läuft weiter');
+  g.players[0].console = 'weapons'; T.cmd('weapons.schoepfen', { off: true });
+  ok(!g.fracht.halt, 'Beenden per Ops-Aktion');
+  g.players[0].console = 'weapons'; g.ship.systems.transfer = 'broken'; halt(); T.run(0.1);
+  ok(T.cmd('weapons.schoepfen').length === 1 && !g.fracht.halt && Fracht.anBord(g) === 0, 'Transfer zerstört: Schöpfen abgelehnt');
+  g.ship.systems.transfer = 'operational'; g.ship.docked = false;
+  ok(T.me('schoepfenStart').length >= 3, 'Ereignis schoepfenStart für das Regiebuch');
 });
 
 section('Verkaufen und Marken', () => {
@@ -237,7 +348,15 @@ section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {
   try {
     Welt.waehle(g, 'sund');
     const gas = Locations.get('gasfeld').scene, con = Locations.get('concordia').scene;
-    ok(Array.isArray(gas.zonen) && gas.zonen.length === 7 && gas.planeten.some((p) => p.art === 'gasriese'), 'Gasfeld (Sund): 7 Zonen aus dem Gasriesen');
+    ok(Array.isArray(gas.zonen) && gas.zonen.length === 9 && gas.planeten.some((p) => p.art === 'gasriese'), 'Gasfeld (Sund): 9 Zonen aus dem Gasriesen (5 Ringe, 4 Sturmzellen)');
+    const gp = gas.planeten.find((p) => p.art === 'gasriese');
+    ok(gp.r >= 480 && gp.r <= 640 && gas.w === 5000 && gas.h === 3800, 'Gasriese doppelt so groß (Radius ' + gp.r + ', Szene ' + gas.w + '×' + gas.h + ')');
+    { // Anflug und Rückflug: alle drei Sprungpunkte und der Ankunftspunkt liegen außerhalb der Atmosphäre (1,9 r), mit Abstand
+      const Sektoren = require('../shared/sektoren.js'); const aussen = gp.r * 1.9;
+      const exits = ['0403', '0504', '0603'].map((nb) => Sektoren.sprungpunktLage(gas.w, gas.h, Sektoren.richtung('0503', nb), 180));
+      const frei = [...exits, gas.arrive].map((q) => Math.hypot(q.x - gp.x, q.y - gp.y) - aussen);
+      ok(frei.every((d) => d > 300) && gp.y - aussen > 0 && gp.x - aussen > 0 && gp.x + aussen < gas.w, 'Sprungpunkte und Ankunft liegen ≥ 300 px vor der Atmosphäre, sie passt in die Szene (' + frei.map(Math.round).join('/') + ')');
+    }
     ok(con.kauft && con.kauft.deuterium === true && !gas.kauft, 'Concordia kauft Deuterium, das Gasfeld nicht');
     ok(!Locations.get('pulverhorn').scene.zonen && !Locations.get('kantenstein').scene.zonen, 'andere Hexe ohne Zonen');
     const buch = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuecher-sund', 'sl_gasriese.regiebuch.json'), 'utf8'));
@@ -257,8 +376,15 @@ section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {
     ok(m.step && m.step.id === 'schoepfen', 'am Gasfeld: Schritt schoepfen');
     const pl = gas.planeten.find((p) => p.art === 'gasriese');
     g.ship.power.engines = 2; if (g.ship.powerIntent) g.ship.powerIntent.engines = 2;
-    for (let i = 0; i < 40 && Fracht.anBord(g, 'deuterium') < 1; i++) { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; run(2); }
-    ok(Fracht.anBord(g, 'deuterium') === 1, 'Bot schöpft eine Einheit Deuterium in der Schöpfschicht');
+    g.players[0].console = 'weapons';
+    const halt = () => { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; };
+    halt(); run(8); ok(Fracht.anBord(g) === 0, 'ohne Aktion füllt sich nichts (8 s in der Förderschicht)');
+    g.ship.hull = 100; g.ship.shields.current = g.ship.shields.current.map(() => 2);   // der Druck hat gewirkt: Reparatur vor dem Schöpfen
+    halt(); run(0.2); c.inbox.length = 0; g.handleMessage(c, { t: 'cmd', c: 'weapons.schoepfen' });
+    ok(g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Bot startet das Schöpfen (weapons.schoepfen)');
+    for (let i = 0; i < 400 && Fracht.anBord(g, 'deuterium') < 1; i++) { halt(); run(0.1); }
+    ok(Fracht.anBord(g, 'deuterium') === 1, 'Bot schöpft eine Einheit Deuterium in der Förderschicht');
+    g.handleMessage(c, { t: 'cmd', c: 'weapons.schoepfen', off: true });
     ok(g.ship.hull > 40, 'Hülle überlebt eine Einheit (' + g.ship.hull + ')');
     g.debugGoto('concordia', true); run(3);
     ok(m.step && m.step.id === 'verkauf', 'in Concordia (nach dem Auftauchen): Schritt verkauf');

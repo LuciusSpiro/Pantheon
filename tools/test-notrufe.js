@@ -119,7 +119,11 @@ try {
     g.ship.x = 1500; g.ship.y = 1100; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0;
     const marks0 = g.inventory.marks; t.run(5);
     ok(Notrufe.erledigt(g, 'sl_echt') && g.inventory.marks === marks0 + 150, 'geborgen: 150 Marken');
-    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'temporärer Sprungpunkt wieder zu');
+    ok(g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'U1: Sprungpunkt bleibt offen, solange die Lerche im Leerraum-Hex steht (sonst gestrandet)');
+    ok(!Notrufe.schiff(g, Notrufe.finde(g, 'sl_echt')) && !(g.space.escorts || []).some((e) => e.notruf), 'geborgenes Schiff verlässt die Szene');
+    t.flieg('0605');
+    t.run(0.2);
+    ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'temporärer Sprungpunkt wieder zu, sobald die Lerche den Leerraum verlassen hat');
   }
 
   console.log('Falle: Hinterhalt');
@@ -161,6 +165,93 @@ try {
     const t3 = setup('pulverhorn'); const g3 = t3.g; Notrufe.freischalten(g3, 'sl_klar'); Notrufe.hinfliegen(g3, 'sl_klar');
     t3.flieg('0604'); ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.VOR_ORT, 'vor Ort');
     t3.flieg('0605'); ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.ANGENOMMEN, 'Szene verlassen: Ruf bleibt angenommen, nichts geht verloren');
+  }
+
+  console.log('U1: sichtbares Schiff am Ruf-Ort (klar, echt, Falle-Attrappe)');
+  {
+    // klar: Concordia ist ein Hafenhex, das Schiff muss trotzdem in der Szene stehen (Kai: „da war niemand“)
+    const t = setup('pulverhorn'); const g = t.g; Notrufe.freischalten(g, 'sl_klar'); Notrufe.hinfliegen(g, 'sl_klar');
+    ok(!(g.space.escorts || []).length, 'vor der Ankunft kein Schiff in der fremden Szene');
+    t.flieg('0604');
+    const r = Notrufe.finde(g, 'sl_klar'); const es = Notrufe.schiff(g, r);
+    ok(es && es.name === 'Schürferin Anka Brandt' && es.notruf === 'sl_klar', 'klar (Concordia): Schiff mit dem Namen des Absenders steht in der Szene');
+    ok(es && Math.abs(es.x - 2300) < 5 && Math.abs(es.y - 700) < 5, 'Schiff steht an der Ruf-Position');
+    const sp = g.snapshot().space;
+    ok((sp.escorts || []).some((e) => e.name === 'Schürferin Anka Brandt' && e.distress), 'Snapshot space.escorts: Schiff mit Namen und Notruf-Kennung (Taktik, Captain-Lage, Frontsicht)');
+    ok(sp.nro && Math.abs(sp.nro.x - es.x) < 3, 'space.nro (Ring) liegt am Schiff');
+    // Bergung zählt am Schiff, nicht an der Rohposition: Schiff treibt ein Stück
+    es.x += 150; es.y -= 50;
+    g.ship.x = es.x + 40; g.ship.y = es.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; g.ship.docked = false; g.ship.dockedAt = null;
+    const m0 = g.inventory.marks; t.run(6);
+    ok(Notrufe.erledigt(g, 'sl_klar') && g.inventory.marks === m0 + 100, 'Bergung am (getriebenen) Schiff: Lohn');
+    ok(!Notrufe.schiff(g, r), 'nach der Bergung ist das Schiff weg');
+  }
+  {
+    // Falle: die Attrappe sieht wie ein Notrufschiff aus; der Hinterhalt kommt erst, wenn die Lerche nah heran ist
+    const t = setup('gasfeld'); const g = t.g; Notrufe.freischalten(g, 'sl_falle'); Notrufe.hinfliegen(g, 'sl_falle');
+    Space.enterScene(g, 'leer-0502', {}); g.explore.location = 'leer-0502';
+    g.ship.x = 1200; g.ship.y = 1620; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; t.run(1, true);   // am Rück-Sprungpunkt: 1100 px vom Schiff
+    const r = Notrufe.finde(g, 'sl_falle'); const es = Notrufe.schiff(g, r);
+    ok(r.z === Notrufe.Z.VOR_ORT && es && es.name === 'Frachter Seeschwalbe', 'Falle: Attrappe „Frachter Seeschwalbe“ steht im Raum');
+    ok(g.space.enemies.filter((e) => e.tag === 'hinterhalt').length === 0, 'noch kein Hinterhalt (Lerche weit weg)');
+    ok(g.snapshot().space.escorts.some((e) => e.name === 'Frachter Seeschwalbe'), 'Attrappe im Snapshot sichtbar wie ein echter Ruf');
+    g.ship.x = es.x; g.ship.y = es.y + 650; t.run(0.3, true);
+    ok(g.space.enemies.filter((e) => e.tag === 'hinterhalt').length === 3, 'Lerche auf < hinterhaltAbstand: Hinterhalt (3 Jäger)');
+    ok(!Notrufe.schiff(g, r), 'die Attrappe verschwindet mit dem Hinterhalt');
+  }
+
+  console.log('U1: Wiederkehr abgelaufener und ignorierter Rufe');
+  {
+    const t = setup('pulverhorn'); const g = t.g; const W = g.C.notrufe.wiederkehr;
+    ok(W && W.pause === 180 && W.max >= 1, 'Config notrufe.wiederkehr (pause 180 s, max ' + (W && W.max) + ')');
+    Notrufe.freischalten(g, 'sl_echt', 60);
+    t.run(62);
+    const r = Notrufe.finde(g, 'sl_echt');
+    ok(r.z === Notrufe.Z.ABGELAUFEN && !Marken.da(g, 'notruf:sl_echt') && !g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'abgelaufen: Marke weg, Tor zu');
+    t.run(170);
+    ok(r.z === Notrufe.Z.ABGELAUFEN, 'Pause läuft (nach 170 s noch nicht wieder da)');
+    t.run(15);
+    ok(r.z === Notrufe.Z.OFFEN && r.n === 1 && r.v === 1 && Marken.da(g, 'notruf:sl_echt') && g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'nach 180 s wieder offen: Marke und Tor zurück');
+    ok(r.rest > 500, 'neuer Ablauf ab Wiederkehr (' + Math.round(r.rest) + ' s)');
+    ok(Notrufe.ansicht(r, Notrufe.datei('sl_echt')).absender === 'Leichter Frachter Krähe', 'Variante 1: anderer Absendername');
+    ok(t.odas().filter((x) => /Notruf empfangen/.test(x)).length >= 2, 'ODA wie beim ersten Mal (fällt nicht als Wiederholung auf)');
+    // Variante ist unabhängig vom Entschlüsseln des Originals
+    Notrufe.fokus(g, 'sl_echt');
+    ok(snap(g, 'sl_echt').f.b === null, 'Variante: verschlüsselt, Behauptung erst nach neuem Entschlüsseln');
+    Notrufe.entschluesseln(g, t.p, 'sl_echt'); t.abstimmen();
+    ok(/Krähe/.test(snap(g, 'sl_echt').f.b || ''), 'Variante: Behauptung des neuen Absenders');
+    // ignoriert kommt auch wieder
+    Notrufe.ablehnen(g, 'sl_echt'); ok(r.z === Notrufe.Z.ABGELEHNT && r.w === 180, 'ablehnen plant die Wiederkehr');
+    t.run(181);
+    ok(r.z === Notrufe.Z.OFFEN && r.n === 2 && r.v === 0, 'ignorierter Ruf kommt als Original wieder (Wechsel Original/Variante)');
+    // Höchstzahl
+    r.n = W.max; Notrufe.ablehnen(g, 'sl_echt'); ok(r.w === null, 'Höchstzahl erreicht: keine weitere Wiederkehr');
+    t.run(200); ok(r.z === Notrufe.Z.ABGELEHNT, '… und er bleibt weg');
+    // erledigt kommt nie wieder
+    const t2 = setup('pulverhorn'); const g2 = t2.g; Notrufe.freischalten(g2, 'sl_klar'); Notrufe.hinfliegen(g2, 'sl_klar'); t2.flieg('0604');
+    const es = Notrufe.schiff(g2, Notrufe.finde(g2, 'sl_klar')); g2.ship.x = es.x + 40; g2.ship.y = es.y; g2.ship.vx = 0; g2.ship.vy = 0; g2.ship.speed = 0; g2.ship.docked = false; g2.ship.dockedAt = null;
+    t2.run(6); ok(Notrufe.erledigt(g2, 'sl_klar'), 'geborgen');
+    t2.flieg('0605'); t2.run(400);
+    ok(Notrufe.erledigt(g2, 'sl_klar') && Notrufe.finde(g2, 'sl_klar').w === null, 'erledigter Ruf kommt nicht wieder');
+    // nur in Kapitel 7 der Kette
+    const t3 = setup('pulverhorn'); const g3 = t3.g; Notrufe.freischalten(g3, 'sl_klar', 30);
+    g3.mission.kette = { aktuell: () => ({ nr: 8, id: 'k8_entscheidung' }) };
+    t3.run(32); t3.run(400);
+    ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.ABGELAUFEN, 'außerhalb von Kapitel 7 (Kette in Kapitel 8): keine Wiederkehr');
+    g3.mission.kette = { aktuell: () => ({ nr: 7, id: 'k7_geld' }) };
+    t3.run(5);
+    ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.ABGELAUFEN, 'Die Pause läuft nur in Kapitel 7 (außerhalb ist sie nicht angebrochen)');
+    t3.run(180);
+    ok(Notrufe.finde(g3, 'sl_klar').z === Notrufe.Z.OFFEN, 'Kapitel 7: Ruf erscheint nach der Pause wieder');
+    // Weltstand: Wiederkehr-Stand wird gespeichert
+    Notrufe.ablehnen(g3, 'sl_klar'); t3.run(60);
+    const save = Notrufe.toSave(g3);
+    ok(save.sl_klar.n === 1 && save.sl_klar.v === 1 && save.sl_klar.w > 100 && save.sl_klar.w < 125, 'toSave: Wiederkehren, Variante und Rest der Pause (' + JSON.stringify(save.sl_klar) + ')');
+    const t4 = setup('pulverhorn'); Notrufe.restore(t4.g, JSON.parse(JSON.stringify(save)));
+    const r4 = Notrufe.finde(t4.g, 'sl_klar'); ok(r4 && r4.n === 1 && r4.z === Notrufe.Z.ABGELEHNT && r4.w > 100, 'restore: Wiederkehr-Stand zurück');
+    t4.run(130); ok(Notrufe.finde(t4.g, 'sl_klar').z === Notrufe.Z.OFFEN, 'nach dem Laden kommt der Ruf nach der Restpause wieder');
+    const data = Weltstand.capture(g3);
+    ok((Weltstand.validate(data, g3) || []).filter((f) => /welt/.test(String(f))).length === 0, 'Weltstand-Schema akzeptiert v/n/w');
   }
 
   console.log('Weltstand, Baustein, Snapshot-Größe');

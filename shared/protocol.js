@@ -153,7 +153,8 @@
     // Snapshot fracht + { fuell: 0..1 (Schöpf-Füllstand), vk: 1 (Händler in Reichweite) }; Snapshot zonen (nur in Szenen mit Zonen): { in: [id], bk: [id], z?: { id: Zähler } }.
     // SL0: cmd { c: 'weapons.person', id? } beamt eine Person vom gewählten Landepunkt an Bord ({ off: true } bricht ab), { c: 'weapons.person_ab', id? } gibt sie an Abnehmer/Station/Landepunkt ab.
     // Snapshot fracht + { pers: [{ id, n, b }] (Personen im Frachtraum, b = Bett), pq: [{ id, n }] (Ops kann sie jetzt hochbeamen) }; ship.npcs enthält die liegenden Figuren (lie: 1).
-    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.person', 'weapons.person_ab'],
+    // U2: cmd { c: 'weapons.schoepfen' } startet das Schöpfen (Halteprozess kind 'schoepf', nur in der Förderschicht), { off: true } beendet es; halt.p = Füllstand 0..1.
+    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
     FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).

@@ -12,6 +12,18 @@
     { "frage": "Wie viele seid ihr?", "antwort": "Vier. Zwei sind verletzt, aber stabil.", "hinweis": "Vier Lebenszeichen passen." },
     { "frage": "Hat euch jemand angegriffen?", "antwort": "Niemand. Nur der Reaktor. Er ist hinüber.", "hinweis": "Keine Waffensignatur, das passt." }
   ],
+  "schiff": { "art": "frachter", "huelle": 45 },
+  "varianten": [
+    {
+      "absender": "Tankerführer Jonas Eck",
+      "behauptung": "Hier Tanker Eck, Reaktorleck vor Concordia. Fünf Mann an Bord, wir driften auf das Dock zu, Hilfe wäre gut.",
+      "messwerte": "Fünf Lebenszeichen, Reaktor kalt, keine Waffen. Die Meldung stimmt.",
+      "befragung": [
+        { "frage": "Wie viele seid ihr?", "antwort": "Fünf. Einer hat Verbrennungen, aber er ist bei Bewusstsein.", "hinweis": "Fünf Lebenszeichen passen." },
+        { "frage": "Hat euch jemand angegriffen?", "antwort": "Nein, nur der Reaktor. Der ist durchgeschmort.", "hinweis": "Keine Waffensignatur, das passt." }
+      ]
+    }
+  ],
   "pos": { "x": 2300, "y": 700 },
   "dauer": 600,
   "lohn": 100

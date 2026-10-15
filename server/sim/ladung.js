@@ -2,7 +2,8 @@
 // SL6: Handelsware im Frachtraum – Deuterium schöpfen, abwerfen, verkaufen, Gewicht (CONCEPT-SL6 §2.2).
 // Baut auf server/sim/fracht.js (Lager, Beamen, Halteprozess) auf, ohne dessen Funktionen mit Flags zu erweitern: eigene, benannte Funktionen.
 //
-//   schoepfen(game, art, rate, dt)   aus der Zone (server/sim/zonen.js): Füllstand wächst; ist 1 erreicht und Platz frei, kommt eine Einheit ins Lager
+//   schoepfStart/-Abbrechen/-Weiter  Ops-Aktion Schöpfen (Halteprozess 'schoepf'), nur in der Ertragszone; ruft schoepfen() je Tick
+//   schoepfen(game, art, rate, dt)   Füllstand wächst; ist 1 erreicht und Platz frei, kommt eine Einheit ins Lager (nie von selbst, nur über schoepfWeiter)
 //   abwerfen(game, art?)             Ops: eine Einheit als Pod ins All (nicht Personen); sofort, wie ein Notabwurf
 //   verkaufStart(game, p)            Ops: Halteprozess „verkaufen“ (Händler im Umkreis), Marken beim Abschluss (verkaufFertig)
 //   gewichtFaktor(game)              Faktor auf die Triebwerksleistung (1 ohne schwere Ladung): space.engineSpeedFactor
@@ -39,6 +40,46 @@ function schoepfen(game, art, rate, dt) {
   return n;
 }
 
+// ---------- Schöpfen als Ops-Aktion (U2, Kai) ----------
+// Nichts füllt sich von selbst: die Ops startet das Schöpfen (weapons.schoepfen), ein Halteprozess wie das Beamen (s.halt.kind 'schoepf'). Es läuft, solange
+// die Ops es nicht abbricht (weapons.schoepfen { off }), und nur in der Ertragszone (Förderschicht): Ring verlassen, Frachtraum voll, Transfer aus oder
+// niemand an der Ops beendet es. Das Schiff muss die Höhe halten (Zug), sonst rutscht es aus der Schicht.
+function schoepfOrt(game) {
+  const Z = require('../../shared/zonen.js'); const ZS = require('./zonen.js');
+  const zs = ZS.szeneZonen(game); const sh = game.ship;
+  const ertragszonen = zs.filter((z) => z.ertrag && String(z.ertrag.ziel).startsWith('fracht:'));
+  if (!ertragszonen.length) return { ok: false, reason: 'Hier lässt sich nichts schöpfen.' };
+  const e = Z.wirkung(zs, sh.x, sh.y).ertrag.find((q) => q.ziel.startsWith('fracht:'));
+  if (e) return { ok: true, art: e.ziel.slice(e.ziel.indexOf(':') + 1), rate: e.rate, zone: e.id };
+  const z = ertragszonen[0]; const d = dist(sh.x, sh.y, z.x, z.y);
+  return { ok: false, reason: `Nur in der ${z.name || 'Förderschicht'} (grüner Ring) möglich – ${d >= (z.r1 || z.r || 0) ? 'tiefer hinein' : 'zu tief, höher'}.` };
+}
+// Ops: Schöpfen starten. Rückgabe: Fehlertext | null
+function schoepfStart(game, p) {
+  const s = Fracht.state(game);
+  if (s.halt) return s.halt.kind === 'schoepf' ? 'Schöpfen läuft bereits.' : 'Transfer läuft bereits.';
+  if (game.ship.docked) return 'Angedockt – hier wird nichts geschöpft.';
+  const T = game.ship.systems.transfer;
+  if (T === 'broken' || T === 'offline') return 'Transfer ausgefallen – erst reparieren.';
+  const o = schoepfOrt(game); if (!o.ok) return o.reason;
+  if (!Fracht.artOk(game, o.art)) return 'Diese Ware lässt sich nicht laden.';
+  if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity()}) – abwerfen oder verkaufen.`;
+  s.halt = { kind: 'schoepf', id: null, t: 0, dur: 1, art: o.art };
+  game.emit('frachtBeamen', { phase: 'start', was: 'schoepf', dur: 0 });
+  game.missionEvent('schoepfenStart', { art: o.art, zone: o.zone });
+  return null;
+}
+function schoepfAbbrechen(game) { const s = game.fracht; return !!(s && s.halt && s.halt.kind === 'schoepf' && Fracht.beamStop(game, 'ops', 'Schöpfen beendet.')); }
+// Tick des Halteprozesses (aus fracht.update): null = weiter, sonst { stop, text } (fracht.js beendet den Prozess)
+function schoepfWeiter(game, dt) {
+  const o = schoepfOrt(game);
+  if (!o.ok) return { stop: 'ort', text: 'Förderschicht verlassen – Schöpfen beendet.' };
+  schoepfen(game, o.art, o.rate, dt);
+  if (Fracht.frei(game) <= 0) return { stop: 'voll', text: 'Frachtraum voll – Schöpfen beendet. Abwerfen (X) oder zum Händler.' };
+  return null;
+}
+function schoepft(game) { const s = game.fracht; return !!(s && s.halt && s.halt.kind === 'schoepf'); }
+
 // ---------- Gewicht ----------
 function gewichtFaktor(game) {
   const G = cfg(game).gewicht;
@@ -53,7 +94,7 @@ function gewichtFaktor(game) {
 // Eine Einheit (art oder die zuletzt geladene Ware) als Pod hinter das Schiff legen. Rückgabe: Fehlertext | null
 function abwerfen(game, art) {
   const s = Fracht.state(game);
-  if (s.halt) return 'Transfer läuft – erst abbrechen.';
+  if (s.halt && s.halt.kind !== 'schoepf') return 'Transfer läuft – erst abbrechen.';   // beim Schöpfen darf man abwerfen (Platz schaffen, schneller steigen)
   if (game.ship.docked) return 'Angedockt – Fracht wird nicht abgeworfen.';
   let idx = -1;
   for (let i = s.lager.length - 1; i >= 0; i--) {
@@ -136,4 +177,4 @@ function verkaufWeiter(game) { return verkaufOrt(game).ok; }
 // Snapshot-Zusatz für fracht.snapshot: Füllstand der nächsten Einheit (0..1), nur wenn sie sich füllt
 function fuellStand(game) { const s = game.fracht; return s && s.fuell > 0.005 ? r2(Math.min(1, s.fuell)) : 0; }
 
-module.exports = { schoepfen, gewichtFaktor, abwerfen, verkaufOrt, verkaufStart, verkaufFertig, verkaufWeiter, verkauft, fuellStand, preisVon };
+module.exports = { schoepfen, schoepfOrt, schoepfStart, schoepfAbbrechen, schoepfWeiter, schoepft, gewichtFaktor, abwerfen, verkaufOrt, verkaufStart, verkaufFertig, verkaufWeiter, verkauft, fuellStand, preisVon };

@@ -25,7 +25,7 @@
     {
       "id": "auftrag",
       "enter": [
-        { "do": "sprungpunkt_oeffnen", "von": "pulverhorn", "nach": "helix", "temp": true, "bis": "mission" },
+        { "do": "sprungpunkt_oeffnen", "von": "pulverhorn", "nach": "helix", "temp": true, "bis": "immer" },
         { "oda": "@auftrag.hinweis" }
       ],
       "objectives": [],

@@ -17,6 +17,23 @@
     { "frage": "Wie heißt euer Kapitän?", "antwort": "Hesse. Kapitän Hesse, er liegt hinten in der Kapsel.", "hinweis": "Besatzungsliste der Möwe: Kapitän Hesse. Stimmt." },
     { "frage": "Was ist passiert?", "antwort": "Ein Brocken hat uns an der Seite gestreift. Dann ging der Druck.", "hinweis": "Ein Streifschaden passt zum Leck." }
   ],
+  "schiff": { "art": "frachter", "huelle": 40 },
+  "varianten": [
+    {
+      "absender": "Leichter Frachter Krähe",
+      "behauptung": "Hier Krähe. Antrieb tot, Rumpf undicht, drei Mann in der Kapsel. Bitte kommen.",
+      "indizien": [
+        "Peilung: eine einzige schwache Quelle, niedrige Energie.",
+        "Drei Lebenszeichen, das passt zur Besatzungsliste der Krähe.",
+        "Reaktor kalt, Waffen aus: ein gestrandetes Schiff, kein Lockvogel."
+      ],
+      "messwerte": "Drei Lebenszeichen, Reaktor kalt, keine Waffen. Die Meldung stimmt.",
+      "befragung": [
+        { "frage": "Wie heißt euer Kapitän?", "antwort": "Voss. Ilse Voss, sie liegt hinten in der Kapsel.", "hinweis": "Besatzungsliste der Krähe: Kapitänin Voss. Stimmt." },
+        { "frage": "Was ist passiert?", "antwort": "Ein Brocken hat die Seite aufgerissen. Dann fiel der Antrieb aus.", "hinweis": "Ein Streifschaden passt zum Leck." }
+      ]
+    }
+  ],
   "pos": { "x": 1500, "y": 1100 },
   "dauer": 600,
   "lohn": 150

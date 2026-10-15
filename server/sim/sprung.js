@@ -100,9 +100,11 @@ function autoZiel(game) {
   if (!here) return null;
   const r = SK(game).sprungpunktRadius || 250;
   let best = null;
-  for (const e of Sektoren.kantenVon(here)) {
-    const other = Sektoren.anderes(e, here); const id = Sektoren.kanteId(here, other);
-    if (!ex.tempKante(id) && e.art !== 'open' && e.art !== 'locked') continue;
+  // U1 (Kai 2026-10-14): auch temporäre Sprungpunkte zu Hexen ohne Kartenkante (Leerraum, Helix) und enthüllte verborgene Kanten zählen – vorher
+  // blieb die Lerche am sichtbaren Sprungpunkt stehen („Kein Sprungpunkt in Reichweite“), weil die Schleife nur über Kartenkanten lief
+  for (const other of Sektoren.nachbarn(here)) {
+    const id = Sektoren.kanteId(here, other); const e = Sektoren.kante(id);
+    if (!ex.tempKante(id) && !(e && (e.art === 'open' || e.art === 'locked' || (e.art === 'hidden' && ex.kanteEnthuellt(e))))) continue;
     const p = sprungpunkt(game, other); if (!p) continue;
     const d = dist(game.ship.x, game.ship.y, p.x, p.y);
     if (game._jumpSperre === id) { if (d > r) game._jumpSperre = null; else continue; }
@@ -344,6 +346,8 @@ function oeffnen(game, opts) {
     ex.offenExtra.add(id);
     ex.markBoje(id);
   }
+  // U1 (Kai): wer einen Sprungpunkt öffnet, kennt das Ziel mit Namen (Helix stand als „?“ auf der Karte, ohne dass die Crew wusste, wohin)
+  for (const hex of [a, b]) { const ort = Sektoren.ortVonHex(hex); if (ort && !Sektoren.istLeerId(ort) && Locations.get(ort)) ex.knowSilently(ort); }
   ex.sektorVersion++;
   game.emit('sprungpunktOffen', { kante: id, temp: !!o.temp });
   return null;

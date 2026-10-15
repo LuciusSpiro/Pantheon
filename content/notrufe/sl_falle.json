@@ -18,7 +18,24 @@
     { "frage": "Was habt ihr geladen?", "antwort": "Das … Steuerbord, glaube ich. Kommt einfach!", "hinweis": "Zögern, keine Frachtangabe: verdächtig." }
   ],
   "hinterhalt": { "n": 3 },
-  "pos": { "x": 1500, "y": 1100 },
+  "schiff": { "art": "frachter", "huelle": 35 },
+  "varianten": [
+    {
+      "absender": "Frachter Sturmvogel",
+      "behauptung": "Sturmvogel hier, Rumpf aufgerissen, achtundzwanzig Mann, wir verlieren Druck! Schnell!",
+      "indizien": [
+        "Peilung: Die Quelle liegt im Schatten eines Brockenfelds.",
+        "Zwölf Lebenszeichen, die Meldung sagt achtundzwanzig.",
+        "Waffen geladen, Reaktor warm: kein sinkendes Schiff."
+      ],
+      "messwerte": "Zwölf Lebenszeichen, Waffen geladen, Reaktor heiß, drei Schiffe im Brockenschatten. Das ist ein Hinterhalt.",
+      "befragung": [
+        { "frage": "Wie viele seid ihr genau?", "antwort": "Achtundzwanzig! Kommt endlich!", "hinweis": "Passt nicht zu zwölf Lebenszeichen." },
+        { "frage": "Was habt ihr geladen?", "antwort": "Äh … Maschinenteile. Vorn, glaube ich. Kommt einfach!", "hinweis": "Keine klare Frachtangabe, Zögern: verdächtig." }
+      ]
+    }
+  ],
+  "pos": { "x": 1200, "y": 520 },
   "dauer": 600,
   "lohn": 60
 }

@@ -104,15 +104,15 @@
   },
 
   "texte": {
-    "buch.briefing": "Treibstoff ist Geld. Im Gasfeld lässt sich Deuterium aus der Atmosphäre schöpfen, Concordia kauft es. Der Frachtraum fasst zwei Ladungen, je tiefer ihr taucht, desto schneller füllt er sich und desto härter drückt die Atmosphäre.",
+    "buch.briefing": "Treibstoff ist Geld. Im Gasfeld lässt sich Deuterium aus der Atmosphäre schöpfen, Concordia kauft es. Der Riese zieht jedes Schiff nach innen, je tiefer, desto stärker und heißer; der Druck zehrt an Schilden und Hülle. Geschöpft wird nur in der Förderschicht, und nur wenn die Ops es startet. Die Navigation hält die Höhe. Zwei Ladungen passen in den Frachtraum.",
     "buch.belohnung": "Marken je Ladung Deuterium",
 
     "auftrag.hinweis": "Deuterium im Gasfeld schöpfen, in Concordia verkaufen. Schilde hoch, Hitze im Blick.",
 
     "anflug.tipp": "Gasfeld: Sternkarte, Ziel wählen, Sprung für Sprung. Weitscan (Ops, S) zeigt die Bojen.",
-    "schoepfen.lage": "Gasfeld: Je näher der Mitte, desto heißer und dichter. Geschöpft wird in der Schöpfschicht.",
-    "schoepfen.tipp_eintauchen": "Tiefer hinein: Ring für Ring wird es heißer, die Sicht sinkt. Schilde zur Planetenmitte.",
-    "schoepfen.tipp_schoepfen": "Im Schöpfring füllt sich das Lager von selbst. Ops X wirft Ladung ab, Technik gibt Stufe 4.",
+    "schoepfen.lage": "Gasfeld: Der Riese zieht nach innen, Druck und Hitze steigen. Geschöpft wird in der Förderschicht.",
+    "schoepfen.tipp_eintauchen": "Tiefer hinein: Ring für Ring mehr Sog, Hitze und Druck. In der Förderschicht hält Antrieb 2 gerade die Höhe.",
+    "schoepfen.tipp_schoepfen": "In der Förderschicht startet die Ops das Schöpfen (C), es läuft weiter; Höhe halten. X wirft ab.",
     "schoepfen.fertig": "Raus aus der Atmosphäre, Ladung an Bord. Weiter nach Concordia.",
 
     "anflug_concordia.tipp": "Concordia: Sternkarte, Ziel wählen, Sprung für Sprung. Der Händler kauft im Hafen.",
@@ -121,7 +121,7 @@
     "verkauf.fertig": "Verkauft, Marken gutgeschrieben. Wer mehr will, fliegt wieder hinaus.",
 
     "ziel.zum_gasfeld": "Zum Gasfeld fliegen",
-    "ziel.schoepfen": "Deuterium schöpfen (in der Schöpfschicht bleiben)",
+    "ziel.schoepfen": "Deuterium schöpfen (Ops startet in der Förderschicht, Navigation hält die Höhe)",
     "ziel.auftauchen": "Aus der Atmosphäre aufsteigen",
     "ziel.nach_concordia": "Nach Concordia fliegen",
     "ziel.verkaufen": "Das Deuterium verkaufen (Ops, V)",

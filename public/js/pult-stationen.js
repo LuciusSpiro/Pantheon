@@ -60,12 +60,12 @@
       const hi = this.helmInfo(ship);
       const docked = ship.dockedAt || (ship.docked ? 'hafen' : null);
       const sp = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      const deg = Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360);
+      const deg = Phys.kompassGrad ? Phys.kompassGrad(n(ship.angle)) : Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360);   // 0° = Norden
       const jump = ship.jump || {};
       const w = R.worldOf(st);
       const g = P.rahmen(ctx, view, { titel: 'STEUER', S: 200, station: 'helm', anzeige: (c, r) => {
         const fv = R.drawFrontView(c, view, r);
-        try { this.helmTurnGauge(c, view, fv); this.helmAlerts(c, view, fv); } catch (e) { Net.reportError('Pult.helmAnzeige', e); }
+        try { this.helmTurnGauge(c, view, fv); this.helmAlerts(c, view, fv); if (this.helmHoehe) this.helmHoehe(c, view, fv); } catch (e) { Net.reportError('Pult.helmAnzeige', e); }
         const K = P.skin, lx = r.x + 10, rx = r.x + r.w - 10;
         let y = r.y + 10;
         T(c, 'TEMPO', lx, y, K.dim); R.text(c, String(Math.round(hi.fwd < -0.5 ? hi.fwd : sp)), lx, y + 10, { color: hi.fwd < -0.5 ? '#F08A3C' : P.FN.drive, scale: 2 }); y += 32;
@@ -178,12 +178,13 @@
         this.mapRects.weapons = mr;
         this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
         R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
-        this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); this.drawPersonenBord(c, view, mr);
+        this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.SpurView) SpurView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.NotrufView) NotrufView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.Entschluesseln) Entschluesseln.draw(c, view, mr);
         this.pultZielkasten(c, view, { x: r.x + 410, y: r.y + 4, w: r.w - 414, h: r.h - 8 }, target);
+        if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 410, y: r.y + r.h - 16, w: r.w - 414 }));   // unten im Zielkasten
       } });
       const K = g.skin, y0 = g.pult.y;
       // ---- WAFFEN im Ziffernblock-Raster
@@ -416,6 +417,7 @@
           case 5: ctl = window.NotrufView ? NotrufView.drawCaptain(c, view, a, (cc, extra) => this.cmd(view, cc, extra)) : ''; break;
           case 4: ctl = window.SektorplanView ? SektorplanView.draw(c, view, a, (cc, extra) => this.cmd(view, cc, extra)) : ''; break;
         }
+        if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 2, y: r.y + r.h - 14, w: r.w - 4 }));
       } });
       const K = g.skin, y0 = g.pult.y;
       let x = 62, cw = 330;

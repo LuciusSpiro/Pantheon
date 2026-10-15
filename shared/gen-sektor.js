@@ -86,8 +86,14 @@
     // Planeten: Gasriese bei einfluss gas, sonst 0..2 zufällig; Abstand zu Station, Ankunft und zueinander
     const np = ov.planeten != null ? ov.planeten : (einfl === 'gas' ? 1 : ganz(r, C.planeten[0], C.planeten[1]));
     const planeten = [];
+    const gasZ = ov.zonen === 'gasriese';   // U2: Gasriese mit Zonen ist doppelt so groß (Radius 480–640, Szene größer per `szene.w/h`) und steht fest (gasPos), damit Anflug und Rückflug frei bleiben
     for (let i = 0, guard = 0; i < np && guard++ < 200;) {
-      const pr = einfl === 'gas' && i === 0 ? ganz(r, 240, 320) : ganz(r, 110, 230);
+      const pr = einfl === 'gas' && i === 0 ? (gasZ ? ganz(r, 480, 640) : ganz(r, 240, 320)) : ganz(r, 110, 230);
+      if (gasZ && i === 0 && einfl === 'gas') {
+        const gp = Array.isArray(ov.gasPos) ? ov.gasPos : [0.5, 0.36];   // Sund 0503: alle drei Sprungpunkte liegen in der unteren Hälfte, der Gasriese oben in der Mitte
+        planeten.push({ x: Math.round(w * gp[0]), y: Math.round(h * gp[1]), r: pr, art: 'gasriese' });
+        i++; continue;
+      }
       const x = Math.round(weit(r, m + pr, w - m - pr)), y = Math.round(weit(r, m + pr, h - m - pr));
       if (frei.some((k) => Math.hypot(x - k.x, y - k.y) < pr + (k.r || 0) + 380)) continue;
       if (planeten.some((p) => Math.hypot(x - p.x, y - p.y) < pr + p.r + 300)) continue;

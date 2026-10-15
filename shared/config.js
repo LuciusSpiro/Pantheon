@@ -268,11 +268,16 @@
     sonden: { max: 3, tempo: 320, reichweite: 700, leben: 300, hp: 20, gegnerSicht: 650, gegnerDps: 7, sprungZeit: 20 },
     // SL8 Notrufe (server/sim/notrufe.js): dauer = Spielsekunden bis ein Ruf verstummt (auch im Schnellsprung); bergeRadius/bergeTempo/bergeZeit = Bergung
     // vor Ort (nah, langsam, so lange halten); hinterhaltN = Jäger bei einer Falle ohne eigene Angabe
-    notrufe: { dauer: 600, bergeRadius: 140, bergeTempo: 80, bergeZeit: 4, hinterhaltN: 3 },
+    // Kai (Spieltest 2026-10-14): Notrufe sind sichtbare Schiffe (Escort-Objekt, Tag nr_<id>; bei einer Falle wird sie erst auf hinterhaltAbstand
+    // zur Attrappe ausgelöst). wiederkehr: abgelaufene oder ignorierte Rufe erscheinen nach `pause` Spielsekunden erneut (gleicher Ruf oder Variante
+    // mit anderem Absender), höchstens `max`-mal je Ruf, nur solange Kapitel `kapitelNr` der Kette läuft; erledigte Rufe kommen nie wieder.
+    notrufe: { dauer: 600, bergeRadius: 140, bergeTempo: 80, bergeZeit: 4, hinterhaltN: 3, hinterhaltAbstand: 700, wiederkehr: { pause: 180, max: 4, kapitelNr: 7 } },
     // SL5 Spur (server/sim/spur.js): leseRadius = Abstand zum Spurkern, in dem die Ops liest; leseZeit = Sekunden Lesefortschritt (bricht beim Verlassen ab)
     spur: { leseRadius: 350, leseZeit: 5 },
-    entschl: { dauer: 25, rate: 0.3, weitBand: 0.22, driftV: 0.05, driftNebel: 2, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
-      qSchwellen: [0.4, 0.65, 0.9], minLauf: 3, anzeigeDauer: 12 },
+    // Kai (Spieltest): Fortschritt verdoppelt – dauer 25 -> 12,5 s; Schwellen so, dass sauberes Signal (Anlauf ~1–2 s) weiter Q3 ergibt (0,85 statt 0,9:
+    // gleiche absolute Toleranz von rund 2 s, die bei dauer 25 galt), ungenaues (Versatz 0,06 / 0,12 / 0,19) weiter Q2 / Q1 / Q0
+    entschl: { dauer: 12.5, rate: 0.3, weitBand: 0.22, driftV: 0.05, driftNebel: 2, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
+      qSchwellen: [0.3, 0.55, 0.85], minLauf: 2, anzeigeDauer: 12 },
     // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,
     // spawn_patrouille, minenfeld, schleichfahrt_an) – ohne das bleibt jede Szene wie bisher (Golden m1–m3 unverändert).
     alarm: {

@@ -96,6 +96,7 @@
     A('ops.zonen', 'ops', 'Zonen', ['KeyY']),
     A('ops.landepunkt', 'ops', 'Landepunkt scannen / abbrechen', ['KeyL']),
     A('ops.fracht.beamen', 'ops', 'Fracht beamen / abbrechen', ['KeyF'], 'ops.fracht'),
+    A('ops.fracht.schoepfen', 'ops', 'Gas schöpfen / beenden', ['KeyC'], 'ops.fracht'),
     A('ops.fracht.abliefern', 'ops', 'Fracht abliefern', ['KeyG'], 'ops.fracht'),
     A('ops.fracht.verkaufen', 'ops', 'Fracht verkaufen', ['KeyV'], 'ops.fracht'),
     A('ops.fracht.abwerfen', 'ops', 'Ladung abwerfen', ['KeyX'], 'ops.fracht'),

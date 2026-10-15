@@ -1071,6 +1071,7 @@ class Game {
       case 'weapons.zonenscan': if (msg.off) Zonen.scanAbbrechen(this); else err = Zonen.scanStarten(this, p); break;   // SL7a: Verzerrungen scannen (Halten, Ops)
       case 'weapons.landescan': if (msg.off) Lpscan.abbrechen(this); else err = Lpscan.starten(this, p); break;   // SL7b: Landepunkt scannen (Halten) bzw. abbrechen
       case 'weapons.abwerfen': err = Ladung.abwerfen(this, msg.art == null ? null : String(msg.art)); break;   // SL6: eine Einheit Ware ins All (Ops)
+      case 'weapons.schoepfen': if (msg.off) Ladung.schoepfAbbrechen(this); else err = Ladung.schoepfStart(this, p); break;   // U2: Gas schöpfen (Halteprozess bis zum Abbruch, Ops)
       case 'weapons.verkaufen': err = Ladung.verkaufStart(this, p); break;   // SL6: Ware an einen Händler in Reichweite verkaufen (Halteprozess)
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
       case 'weapons.sonde.start': err = Sonden.starteInSzene(this, p, msg.x != null && Number.isFinite(Number(msg.x)) ? { x: Number(msg.x), y: Number(msg.y) } : null); break;   // SL4: Sonde zur Marke (oder x/y)

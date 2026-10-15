@@ -26,6 +26,7 @@
       "id": "wahl", "loc": "concordia",
       "liefert_flags": ["gasVerkauft", "forschungFertig", "k7Init"],
       "enter": [
+        { "if": { "not": { "flag": "forschungFertig" } }, "do": "sprungpunkt_oeffnen", "von": "pulverhorn", "nach": "helix", "temp": true, "bis": "immer" },
         { "if": { "not": { "flag": "k7Init" } }, "do": "notrufe_freischalten", "ids": "sl_klar,sl_echt,sl_falle" },
         { "if": { "not": { "flag": "k7Init" } }, "do": "welt_fakt", "key": "notrufe_frei", "value": "ja", "quelle": "Concordia" },
         { "if": { "not": { "flag": "k7Init" } }, "oda": "@wahl.intro" },
@@ -63,6 +64,7 @@
 
     {
       "id": "frei", "loc": "concordia",
+      "enter": [{ "if": { "not": { "flag": "forschungFertig" } }, "do": "sprungpunkt_oeffnen", "von": "pulverhorn", "nach": "helix", "temp": true, "bis": "immer" }],
       "timers": [{ "at": 200, "if": { "not": { "flag": "gasVerkauft" } }, "oda": "@wahl.erneut", "garantie": "hinweis" }],
       "objectives": [
         { "id": "gas", "text": "@ziel.gas", "done": { "flag": "gasVerkauft" }, "hex": "gasfeld" },
@@ -93,7 +95,7 @@
     "buch.briefing": "400 Marken fordern die Piraten, und wer Evert zurückhaben will, braucht mehr: Im Gasfeld lässt sich Deuterium schöpfen, in der Forschungsstation Helix liegen Daten, für die Concordia zahlt. Dazu funken Schiffe in Not. Die Reihenfolge bestimmt ihr.",
     "buch.belohnung": "Marken: genug für Lösegeld oder Söldner",
 
-    "wahl.intro": "Marken verdienen: Gasfeld und Helix sind Pflicht, Reihenfolge frei. Notrufe auf der Karte sind freiwillig.",
+    "wahl.intro": "Marken verdienen: Gasfeld und Helix (Sprungpunkt ab Pulverhorn), Notrufe freiwillig.",
     "wahl.tipp": "Captain: Auftrag wählen (Reiter Funk), oder frei fliegen. Gasfeld und Helix, dazu das Geldziel.",
     "wahl.frage": "Womit fangt ihr an?",
     "wahl.gas": "Gasfeld: Deuterium schöpfen und verkaufen",

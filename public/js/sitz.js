@@ -156,7 +156,7 @@
       const hi = Consoles.helmInfo ? Consoles.helmInfo(ship) : null;
       werte.push(['FAHRT', hi ? hi.names[hi.stage] : '–', PAL.amber]);
       werte.push(['TEMPO', String(Math.round(n(ship.speed))), PAL.mint]);
-      werte.push(['KURS', Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360) + '°', PAL.mint]);
+      werte.push(['KURS', (window.Shared_Physics && Shared_Physics.kompassGrad ? Shared_Physics.kompassGrad(n(ship.angle)) : Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360)) + '°', PAL.mint]);
     } else if (S.station === 'weapons') {
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);

@@ -65,19 +65,57 @@ const HOOKS = {
     a.idleStations(S, p); return true;
   },
   // Kap. 7a Gasfeld: Helm fliegt in die Schöpfschicht (0,8 Planetenradius) und hält dort, bis Deuterium an Bord ist, dann hinaus. Ops hält Systeme (Reaktor-Pflicht allgemein).
+  // U2: Navigation (Helm) hält die Höhe in der Förderschicht (Antrieb VOLL, Kurs radial nach außen + Querhalt, sodass die Radialfahrt den Zug ausgleicht),
+  // Ops STARTET das Schöpfen (weapons.schoepfen; nichts füllt sich von selbst) und beobachtet es, Captain/Technik halten Station. Ist eine Einheit an Bord:
+  // auftauchen (Sprung nach Concordia; wer die Hülle verliert, wird vom Notfallprotokoll hinausgeworfen und beginnt von vorn).
   'sl_gasriese/schoepfen'(a, S, p) {
     if (p.zone === 'away') { a.padsUp(S, p); return true; }
     const g = a.game; const sh = S.ship;
     const pl = (Locations.get('gasfeld').scene.planeten || []).find((q) => q.art === 'gasriese');
     const voll = Fracht.anBord(g, 'deuterium') >= 1;
-    if (TRACE && a.is('helm') && S.time - (a.memo.trT || 0) > 10) { a.memo.trT = S.time; log(`  [trace ${S.time.toFixed(0)}] schoepfen pos ${Math.round(sh.x)},${Math.round(sh.y)} planet ${pl && pl.x},${pl && pl.y},${pl && pl.r} d ${pl && Math.round(dist(sh.x, sh.y, pl.x, pl.y))} v ${Math.round(sh.speed)} hülle ${Math.round(sh.hull)} deut ${Fracht.anBord(g, 'deuterium')} zonen ${JSON.stringify((S.zonen && S.zonen.i) || null)}`); }
+    const d = pl ? dist(sh.x, sh.y, pl.x, pl.y) : 0;
+    if (TRACE && a.is('helm') && S.time - (a.memo.trT || 0) > 10) { a.memo.trT = S.time; log(`  [trace ${S.time.toFixed(0)}] schoepfen pos ${Math.round(sh.x)},${Math.round(sh.y)} planet ${pl && pl.x},${pl && pl.y},${pl && pl.r} d ${pl && Math.round(d)} v ${Math.round(sh.speed)} hülle ${Math.round(sh.hull)} deut ${Fracht.anBord(g, 'deuterium')} halt ${g.fracht && g.fracht.halt && g.fracht.halt.kind} kons ${p.console} stufe ${sh.helm.stage} zonen ${JSON.stringify((S.zonen && S.zonen.i) || null)}`); }
+    // Eine Einheit genügt (jede Ladung nimmt 15 % Antrieb, bei zwei Einheiten hält Energie 2 die Höhe nicht mehr): die Ops beendet das Schöpfen
+    if (voll && (a.role === 'weapons' || a.role === 'solo') && g.fracht && g.fracht.halt && g.fracht.halt.kind === 'schoepf') { if (a.enter(S, 'weapons')) a.cmd('weapons.schoepfen', { off: true }); return true; }
+    if (voll && pl && d < pl.r * 2.05 && a.is('helm')) {   // Auftauchen: erst aus der Atmosphäre (Antrieb VOLL, schräg nach außen Richtung Süden, wo die Sprungpunkte liegen), dann der normale Weg
+      if (!a.enter(S, 'helm')) return true;
+      const ang = Math.atan2(sh.y - pl.y, sh.x - pl.x);
+      let dw = Math.PI / 2 - ang; while (dw > Math.PI) dw -= 2 * Math.PI; while (dw < -Math.PI) dw += 2 * Math.PI;
+      const at = ang + Math.max(-1.0, Math.min(1.0, dw));
+      const tx = pl.x + Math.cos(at) * pl.r * 2.2, ty = pl.y + Math.sin(at) * pl.r * 2.2;
+      let ziel = Math.atan2(ty - sh.y, tx - sh.x);
+      if (d < pl.r * 1.1) ziel = ang + 0.25;   // noch in der Förderschicht (Zug 72, tiefer tödlich): erst radial nach außen aufsteigen, nicht quer durch die Ringe
+      let diff = ziel - sh.angle; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+      a.helmS(S, a.turnCmd(S, diff), sh.helm.stages.length - 1);
+      return true;
+    }
     if (voll) { a.travel(S, p, 'concordia'); return true; }   // auftauchen = den Ort verlassen (Sprung nach Concordia; Captain wählt, Helm fliegt)
-    if (!a.is('helm') || !pl) { a.idleStations(S, p); return true; }
+    if (!pl) { a.idleStations(S, p); return true; }
+    const foerder = d > pl.r * 0.62 && d < pl.r * 1.03;
+    const laeuft = !!(g.fracht && g.fracht.halt && g.fracht.halt.kind === 'schoepf');
+    // Solo (eine Person, eine Konsole): Kurs setzen, an die Ops wechseln und schöpfen, solange das Schiff geradeaus in der Schicht bleibt; dann zurück ans Steuer
+    // (das Schöpfen läuft auch ohne besetzte Ops weiter: solo startet die Ops es und geht zurück ans Steuer)
+    // Solo wechselt erst, wenn das Schiff mit VOLL im inneren Teil der Schicht steht (die unbesetzte Steuer fliegt geradeaus weiter und steigt dabei nach außen)
+    const soloStart = a.role === 'solo' && foerder && !laeuft && !(g.fracht && g.fracht.halt) && Fracht.frei(g) > 0 && d < pl.r * 0.78 && sh.helm.stage === sh.helm.stages.length - 1;
+    if (a.role === 'weapons' || soloStart || (a.role === 'solo' && p.console === 'weapons' && !laeuft && foerder && Fracht.frei(g) > 0)) {
+      a.keepStage = a.role === 'solo';   // die Steuer behält VOLL, während die Ops (solo derselbe Spieler) das Schöpfen startet
+      if (!a.enter(S, 'weapons')) return true;
+      if (foerder && !(g.fracht && g.fracht.halt) && Fracht.frei(g) > 0) a.cmd('weapons.schoepfen');
+      return true;
+    }
+    if (!a.is('helm')) { a.idleStations(S, p); return true; }
+    a.keepStage = false;
     if (!a.enter(S, 'helm')) return true;
-    const d = dist(sh.x, sh.y, pl.x, pl.y);
-    if (voll) { a.travel(S, p, 'concordia'); return true; }   // auftauchen = den Ort verlassen (Sprung nach Concordia)
     const ang = Math.atan2(sh.y - pl.y, sh.x - pl.x);
-    a.steer(S, pl.x + Math.cos(ang) * pl.r * 0.8, pl.y + Math.sin(ang) * pl.r * 0.8, 20, 90);
+    // Anflug in die Förderschicht: schräg (Zielpunkt 0,7 rad vor dem Ort auf dem Ring), damit das Schiff nicht mit Kurs auf die Mitte eintaucht (Zug + Antrieb = Absturz)
+    if (d > pl.r * 1.0) { a.steer(S, pl.x + Math.cos(ang + 0.7) * pl.r * 0.9, pl.y + Math.sin(ang + 0.7) * pl.r * 0.9, 30, 80); return true; }
+    // Höhe halten: Radialgeschwindigkeit = Zug + Korrektur zum Soll-Ring (0,82 r); Kurs = radial nach außen, um acos(Radial/Höchsttempo) im Uhrzeigersinn gedreht
+    const Zonen = require('../shared/zonen.js'); const zug = Zonen.wirkung(require('../server/sim/zonen.js').szeneZonen(g), sh.x, sh.y).zug;
+    const vmax = (sh.helm.stages[sh.helm.stages.length - 1] || 130) * (sh.helm.speedFactor || 1);
+    const radial = zug + (pl.r * (a.role === 'solo' && !laeuft ? 0.72 : 0.82) - d) * 0.6;
+    const th = Math.acos(Math.max(-0.2, Math.min(0.97, radial / Math.max(20, vmax))));
+    let diff = ang + th - sh.angle; while (diff > Math.PI) diff -= 2 * Math.PI; while (diff < -Math.PI) diff += 2 * Math.PI;
+    a.helmS(S, a.turnCmd(S, diff), sh.helm.stages.length - 1);
     return true;
   },
   // Kap. 7a Verkauf in Concordia: an die Station, Ops verkauft
@@ -138,6 +176,12 @@ const HOOKS = {
   // Nachverdienen (T7): kein Skip mehr. Wie der ODA-Hinweis sagt, wiederholt der Bot das Gasfeld (freies Farmen, ohne Buch) und verkauft in Concordia,
   // bis die Marken für den gewählten Weg reichen; danach laufen die normalen Pfade (Rückflug nach Schrottkante bzw. Concordia).
   'k8_entscheidung/nachverdienen'(a, S, p) { return farmGeld(a, S, p, a.opts.weg === 'soeldner' ? 'soeldner' : 'loesegeld'); },
+  // Kap. 7 frei: beide Pflichtaufträge erledigt, aber das Geldziel fehlt (z. B. nach einem Notfallprotokoll im Gas, −50 Marken): Gasfeld weiter farmen
+  'k7_geld/frei'(a, S, p, info) {
+    const fl = a.game.mission.flags || {};
+    if (fl.gasVerkauft && fl.forschungFertig && farmGeld(a, S, p, 'geldziel')) return true;
+    return fallback(a, S, p, info);
+  },
   'k9a_uebergabe/nachverdienen'(a, S, p) { return farmGeld(a, S, p, 'loesegeld'); },
   'k9b_soeldner/nachverdienen'(a, S, p) { return farmGeld(a, S, p, 'soeldner'); },
   // Kap. 7: Hub. Erst Gasfeld, dann Forschungsstation, sonst "frei" (Geld per Notruf/Warten)

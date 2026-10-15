@@ -91,11 +91,21 @@ function laufGasriese(o) {
     g.debugGoto('gasfeld', false); T.run(2);
     const pl = Locations.get('gasfeld').scene.planeten.find((p) => p.art === 'gasriese');
     T.energie({ engines: 2, shields: 2, weapons: 2, life: 2 });
-    // Technik: Schilde hoch, Navigation: im Schöpfring halten (die Strömung treibt, der Bot setzt nach), Ops: Ladung beobachten und notfalls abwerfen
+    // Technik: Schilde hoch, Navigation: in der Förderschicht halten (Zug und Strömung treiben, der Bot setzt nach = der Antrieb hält die Höhe),
+    // Ops: STARTET das Schöpfen (weapons.schoepfen; nichts füllt sich von selbst), beobachtet die Ladung. Echter Schaden (kein god): der Bot muss überleben.
+    g.god = false; const em0 = g.stats.emergencies;
     T.rolle('weapons');
-    let n = 0;
-    T.run(240, () => { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; n++; return Fracht.anBord(g, 'deuterium') >= 2 && n > 10; });
+    const halt = () => { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; };
+    halt(); T.run(3, () => { halt(); return false; });
+    const leer = Fracht.anBord(g) === 0;   // ohne Aktion bleibt der Frachtraum leer
+    g.ship.hull = 100;   // Reparatur nach dem Eintauchen (Technik)
+    const startErr = T.cmd('weapons.schoepfen');
+    const gestartet = !startErr.length && !!(g.fracht.halt && g.fracht.halt.kind === 'schoepf');
+    T.run(240, () => { halt(); return Fracht.anBord(g, 'deuterium') >= 2 && !g.fracht.halt; });   // nach der zweiten Einheit beendet sich das Schöpfen von selbst (Frachtraum voll)
     const geschoepft = Fracht.anBord(g, 'deuterium');
+    const lebt = g.stats.emergencies === em0 && g.ship.hull > 0;
+    const hull = Math.round(g.ship.hull);
+    g.god = true;
     T.cmd('weapons.abwerfen');
     const nachAbwurf = Fracht.anBord(g, 'deuterium');
     Fracht.anBordLegen(g, 'deuterium');
@@ -105,7 +115,8 @@ function laufGasriese(o) {
     T.run(4);
     T.run(3);
     const ms = B.ms();
-    return ergebnis('gasriese', T, geschoepft >= 1 && nachAbwurf === geschoepft - 1 && ms && ms.state === 'done' && ms.ausgang === 'erfolg', `${geschoepft} Einheiten geschöpft, Abwurf ok, Verkauf ${err.length ? err[0] : 'ok'}, Ausgang ${ms && ms.ausgang}`);
+    return ergebnis('gasriese', T, leer && gestartet && lebt && geschoepft >= 1 && nachAbwurf === geschoepft - 1 && ms && ms.state === 'done' && ms.ausgang === 'erfolg',
+      `${leer ? 'nichts ohne Aktion' : 'FÜLLT SICH VON SELBST'}, Schöpfen ${gestartet ? 'gestartet' : 'NICHT gestartet ' + startErr[0]}, ${geschoepft} Einheiten, Hülle ${hull}${lebt ? '' : ' (TOT)'}, Abwurf ok, Verkauf ${err.length ? err[0] : 'ok'}, Ausgang ${ms && ms.ausgang}`);
   } catch (e) { return { name: 'gasriese', ok: false, sek: T.sek(), info: 'Ausnahme', fehler: String(e.stack || e).split('\n').slice(0, 3).join(' | ') }; } finally { Welt.waehle(g, 'limes'); }
 }
 

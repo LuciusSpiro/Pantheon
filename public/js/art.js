@@ -2017,7 +2017,7 @@
         R(g, 3, 12, 26, 9, '#8A5A36'); R(g, 3, 12, 26, 2, '#B07A4C'); R(g, 5, 21, 3, 6, '#5A3824'); R(g, 24, 21, 3, 6, '#5A3824');
       }); break;
       case 'cargo_bay': {   // EK3 Teil A: Frachtbucht im Frachtraum – Ladeplattform mit Warnrand, darauf die Ladung (o.cargo = { art } | null), Sicherungslicht
-        var ca = o.cargo ? (o.cargo.art === 'sprengstoff' ? 1 : 2) : 0, sec = o.secure === false ? 0 : 1;
+        var ca = o.cargo ? (o.cargo.art === 'sprengstoff' ? 1 : o.cargo.art === 'deuterium' ? 3 : 2) : 0, sec = o.secure === false ? 0 : 1;
         spr = cached('m4|cargo|' + ca + '|' + sec, 32, 32, function (g) {
           R(g, 1, 1, 30, 30, '#2C333F'); R(g, 2, 2, 28, 28, '#3A4352');
           for (var i = 0; i < 28; i += 4) { R(g, 2 + i, 2, 2, 2, '#F2C94C'); R(g, 4 + i, 2, 2, 2, '#1A1E26'); R(g, 2 + i, 28, 2, 2, '#F2C94C'); R(g, 4 + i, 28, 2, 2, '#1A1E26'); }
@@ -2027,6 +2027,10 @@
             R(g, 5, 8, 10, 15, '#9E3B2E'); R(g, 17, 8, 10, 15, '#9E3B2E'); R(g, 5, 8, 10, 2, '#C95A48'); R(g, 17, 8, 10, 2, '#C95A48');
             R(g, 5, 14, 10, 3, '#F2C94C'); R(g, 17, 14, 10, 3, '#F2C94C'); R(g, 8, 18, 4, 3, '#1A1E26'); R(g, 20, 18, 4, 3, '#1A1E26');
             R(g, 9, 5, 14, 8, '#B04A38'); R(g, 9, 5, 14, 2, '#D96C58'); R(g, 9, 9, 14, 2, '#F2C94C'); R(g, 15, 6, 2, 1, '#1A1E26');
+          } else if (ca === 3) {   // Deuterium: zwei stehende Druckbehälter mit blauem Band und Ventilkappe
+            R(g, 5, 7, 10, 17, '#7C8AA0'); R(g, 17, 7, 10, 17, '#7C8AA0'); R(g, 5, 7, 3, 17, '#A9B8CC'); R(g, 17, 7, 3, 17, '#A9B8CC');
+            R(g, 5, 13, 10, 3, '#4FB6E8'); R(g, 17, 13, 10, 3, '#4FB6E8'); R(g, 8, 4, 4, 4, '#4A5568'); R(g, 20, 4, 4, 4, '#4A5568');
+            R(g, 5, 22, 10, 2, '#4A5568'); R(g, 17, 22, 10, 2, '#4A5568');
           } else if (ca === 2) {   // sonstige Fracht: graubraune Kiste mit Spanngurt
             R(g, 6, 7, 20, 18, '#8A6A3A'); R(g, 6, 7, 20, 3, '#B08A52'); R(g, 6, 22, 20, 3, '#5A4426'); R(g, 14, 7, 4, 18, '#C9A25A');
             R(g, 20, 4, 8, 6, '#6B7F96'); R(g, 20, 4, 8, 2, '#92A6BC');

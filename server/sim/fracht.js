@@ -168,6 +168,11 @@ function update(game, dt) {
   const h = s.halt;
   if (!h) return;
   if (transferDown(game)) return void beamStop(game, 'transfer', 'Transfer ausgefallen – Beamen abgebrochen.');
+  if (h.kind === 'schoepf') {   // U2: Schöpfen läuft weiter, auch wenn die Ops verlassen wird (solo: Steuer halten); Ende nur per Ops-Aktion, Ring verlassen, voll, Transfer aus
+    const r = require('./ladung.js').schoepfWeiter(game, dt);
+    if (r) beamStop(game, r.stop, r.text);
+    return;
+  }
   if (!taktikBesetzt(game)) return void beamStop(game, 'taktik');
   if (h.kind === 'an') {
     const pod = s.draussen.find((d) => d.id === h.id);
@@ -192,7 +197,7 @@ function snapshot(game) {
   if (ware.length) { out.lager = ware.map((l) => l.art); if (ablieferOrt(game).ok) out.ab = 1; }
   Object.assign(out, require('./personen-bord.js').snapshotZusatz(game));   // SL0: pers, pq
   if (draus.length) out.draussen = draus.map((d) => ({ id: d.id, x: d.x, y: d.y, art: d.art }));
-  if (s.halt) { out.halt = { kind: s.halt.kind, p: Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
+  if (s.halt) { out.halt = { kind: s.halt.kind, p: s.halt.kind === 'schoepf' ? require('./ladung.js').fuellStand(game) : Math.round(Math.min(1, s.halt.t / s.halt.dur) * 100) / 100 }; if (s.halt.id) out.halt.id = s.halt.id; }
   if (s.abnehmer && s.abnehmer.name) out.abn = s.abnehmer.name;
   if (s.gesichert === false) out.g = false;
   { const fu = require('./ladung.js').fuellStand(game); if (fu) out.fuell = fu; }   // SL6: Füllstand der nächsten Deuterium-Einheit
