@@ -2543,8 +2543,8 @@
       const press = (fn) => { try { fn(); } catch (err) { Net.reportError('Consoles.key', err); } return true; };
       switch (c) {
         case 'helm':
-          if ((code === 'KeyA' || code === 'ArrowLeft') && e.shiftKey) return press(() => this.tryButton('Ausweichen Bb'));
-          if ((code === 'KeyD' || code === 'ArrowRight') && e.shiftKey) return press(() => this.tryButton('Ausweichen Stb'));
+          if ((code === 'KeyA' || code === 'ArrowLeft') && e.shiftKey) return press(() => this.tryButton('Ausw. Bb'));
+          if ((code === 'KeyD' || code === 'ArrowRight') && e.shiftKey) return press(() => this.tryButton('Ausw. Stb'));
           // M3b: W/S (↑/↓) = Temporegler eine Stufe; Tastenwiederholung schaltet nicht weiter
           if ((code === 'KeyW' || code === 'ArrowUp') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, 1)); return true; }
           if ((code === 'KeyS' || code === 'ArrowDown') && !e.shiftKey) { if (!e.repeat) press(() => this.throttle(view, -1)); return true; }
@@ -2768,7 +2768,9 @@
       if (this.tscanOn) this.setTscan(view, false);
     },
     findButtons(match) {
-      return R.ui.buttons.filter(b => b.label && (match instanceof RegExp ? match.test(b.label) : b.label === match || b.label.indexOf(match) === 0));
+      // UI-Sitz: im Blick VORN/CREW sind die Knöpfe verdeckt (nicht klickbar), Tasten finden sie trotzdem
+      const alle = this.verdeckt && this.verdeckt.length ? R.ui.buttons.concat(this.verdeckt) : R.ui.buttons;
+      return alle.filter(b => b.label && (match instanceof RegExp ? match.test(b.label) : b.label === match || b.label.indexOf(match) === 0));
     },
     findButton(match) { return this.findButtons(match)[0] || null; },
     activate(b) {
