@@ -42,7 +42,7 @@
   // ---------- Torpedo ----------
   // Lager: hartes Limit (Kauf und Fund bis dahin), Start 6. Cooldown = Ladeintervall des Werfers (kein Befehl R, keine Energie, fällt nicht mit dem Triebwerk aus).
   // Schaden je Zielklasse (keine Schilde: der Torpedo trifft die Hülle). Jäger sofort zerstört (Hülle 25 zu dritt, 35 im Höchstfall), alles Größere angeschlagen.
-  // Gegner-Torpedo gegen die Lerche: ein Treffer nimmt 30 von 100 Hülle (6 Schadenspunkte × 5), nie mehr als ein Drittel (kein Game Over durch einen Schuss).
+  // Gegner-Torpedo gegen die Lerche: wirkt nur bei Schild 0 im getroffenen Sektor (Lesart B, wie beim Torpedo der Lerche), dann 30 von 100 Hülle (6 Schadenspunkte × 5), nie mehr als ein Drittel (kein Game Over durch einen Schuss).
   const TORPEDO = {
     lagerMax: 12, lagerStart: 6, cooldown: 10, kaputtFaktor: 1.5,
     // Schildverhalten (Kai 2026-10-18, Lesart B für alle Ziele): 'nur-ohne-schild' = der Torpedo wirkt nur auf ein ausgefallenes Schildsegment (Schild 0), an einem stehenden Schild prallt er ab

@@ -27,8 +27,11 @@ Feuerkraft.** Alle Energiewaffen teilen sich den Ladepool (Waffen-Energie + 2 Pu
   (Weltstand `schiff.waffen`), jede offene, bestückte Lafette ist ein echtes System `lafette_N` (Treffer, Reparaturweg, Zustand).
 - **Ladepool:** bis zu acht Energiewaffen teilen `chargePoints`, `weapons.alloc` verteilt (Q/E wählen, A/D), Standardverteilung reihum Bug, Bb, Stb, Bug 2 …; wer keinen Punkt hat, lädt nicht.
   **Magazindeckel:** der gespeicherte Anfangsstoß aller Energiewaffen zusammen ≤ 36 (= 1,5 × Start-Lerche 24).
-- **Torpedowerfer** (Heck 2, Stufe 2, aus dem Bolzenwerfer): keine Energie, kein Schildschaden, trifft die Hülle (Jäger sofort zerstört, Korvette 3 Treffer, Fregatte 6), Cooldown 10 s, Lager hart 12
-  (Start 6), Heckbogen 60 Grad. Gegner tragen ihn nur gezielt; ihr Torpedo nimmt der Lerche höchstens ein Drittel der Hülle (30 von 100), ist ausweichbar und vom Abwehrturm abschießbar.
+- **Projektile statt Sofortstrahl** (Kai 2026-10-18): Standardbatterie (bernsteinfarbener Doppelbolzen), Standardkanone (dicker rotoranger Bolzen), Sturmbatterie (dünne schnelle Nadeln) und der Abwehrturm
+  (Funken) schießen langsame, ausweichbare Projektile mit Vorhalt; die Streubatterie wirft verzögerte Granaten, der Torpedo ist ein Lenkgeschoss. **Strahl bleiben nur Lanze und Lanzenbatterie.** Schaden je Treffer = Katalogwert (Batterie und Kanone 2, Sturm 0,7);
+  Ladepool, Ladekosten und Magazindeckel unverändert. Arena-Bot innerhalb ≈ ±10 % der Strahl-Werte, Trefferquote 65–77 %.
+- **Torpedowerfer** (Heck 2, Stufe 2, aus dem Bolzenwerfer): keine Energie, kein Schildschaden, **Lesart B für alle Ziele: er wirkt nur, wenn der getroffene Schildsektor 0 ist, sonst prallt er ab** (Jäger dann sofort zerstört, Korvette 3 Treffer, Fregatte 6), Cooldown 10 s, Lager hart 12
+  (Start 6), Heckbogen 60 Grad. Gegner tragen ihn nur gezielt; ihr Torpedo gilt derselbe Maßstab gegen die Lerche (stehender Schild: abgeprallt; Schild 0: höchstens ein Drittel der Hülle, 30 von 100), ist ausweichbar und vom Abwehrturm abschießbar.
 - **Gegner** aus demselben Katalog (`lanze | batterie | bolzen` werden auf Lanze/Lanzenbatterie, Standardbatterie, Standardkanone abgebildet, das Verhalten bleibt), der Ziel-Scan zeigt Waffen und Module.
 - **Debug** (`npm run debug`, Browser `?debug=1`): `bestueck <platz 1-9> <waffe-id|leer>`, `bestueck alle [stufe]`, `bestueck start`, `bestueck status`, `ausbau <0-3>`,
   `spawn <kind> [<platz>=<waffe> …]` (Platz bug|stbd|bb, Waffe = lanze|batterie|bolzen oder Katalog-Id), `inv` (Torpedos, höchstens 12). Ablauf für Kai: `CONTRACT-PAN01-C.md` §12.
