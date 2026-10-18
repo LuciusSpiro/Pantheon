@@ -127,6 +127,11 @@ section('Katalog: vollständig und konsistent', () => {
   const audio = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'audio.js'), 'utf8');
   const fehlenTon = Katalog.WAFFEN.map((w) => w.ton).concat(['streu_boom']).filter((t) => !new RegExp('(^|[^A-Za-z0-9_])' + t + '[\'"]?\\s*:').test(audio));
   ok(fehlenTon.length === 0, 'audio.js kennt alle Katalogtöne' + (fehlenTon.length ? ' – fehlt: ' + fehlenTon.join(',') : ''));
+  // Lafettenmodelle: die Voxelwerk-Familie (lerche/station/lafette_*) steht im synchronisierten Manifest und trägt state und side (Abwehrturm zusätzlich winkel)
+  const vm = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'voxel', 'manifest.json'), 'utf8'));
+  const eintraege = Array.isArray(vm.assets) ? vm.assets : Object.values(vm.assets || {});
+  const fehlenModell = Katalog.WAFFEN.filter((w) => !eintraege.some((a) => a.id === w.modell && a.params && a.params.state && a.params.side && (w.id !== 'abwehrturm' || a.params.winkel)));
+  ok(fehlenModell.length === 0, 'Voxel-Manifest kennt alle Lafettenmodelle des Katalogs' + (fehlenModell.length ? ' – fehlt: ' + fehlenModell.map((w) => w.modell).join(',') : ''));
 });
 
 section('Plätze, Stufen, Systeme (lafette_N)', () => {
@@ -537,12 +542,15 @@ section('Weltstand: Bestückung, Altstände', () => {
 
 section('Snapshot-Budget mit neun Waffen', () => {
   const T = arena(); const g = T.g;
-  const b0 = Buffer.byteLength(JSON.stringify(g.snapshot()));
+  // der Gesamt-Snapshot schwankt mit seinen Slots (Welt, Logbuch, Asteroiden): verglichen wird der Block ship (Waffen, Systeme, Verteilung)
+  const sz = (o) => Buffer.byteLength(JSON.stringify(o));
+  const s0 = snapShip(T); const b0 = sz(s0);
   T.debug('bestueck', 'alle 3');
   T.debug('bestueck', '4 sturmbatterie'); T.debug('bestueck', '7 streubatterie'); T.debug('bestueck', '9 lanzenbatterie'); T.debug('bestueck', '2 abwehrturm');
-  const b9 = Buffer.byteLength(JSON.stringify(g.snapshot()));
-  ok(b9 - b0 < 1100, `neun Waffen kosten ${b9 - b0} B mehr im Snapshot (Start ${b0} B, voll ${b9} B)`);
-  ok(b9 <= 18944, `Snapshot mit neun Waffen ${b9} B ≤ Ziel 18 944 B`);
+  const s9 = snapShip(T); const b9 = sz(s9);
+  const gesamt = sz(g.snapshot());
+  ok(b9 - b0 < 1100 && b9 > b0, `neun Waffen (gemischt) kosten ${b9 - b0} B mehr im Block ship (Start ${b0} B, voll ${b9} B; Mounts ${sz(s0.mounts)} -> ${sz(s9.mounts)} B, Systeme ${sz(s0.systems)} -> ${sz(s9.systems)} B)`);
+  ok(gesamt <= 18944 - 1100 && gesamt <= 18944, `Gesamt-Snapshot mit neun Waffen ${gesamt} B ≤ Ziel 18 944 B (Worst Case der Messung: snap:mess)`);
 });
 
 console.log(`\ntest-waffen-schiff: ${n - fails}/${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

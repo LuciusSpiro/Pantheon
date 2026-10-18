@@ -16,6 +16,25 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in PAN-01 C – Waffenkatalog, neun Waffenplätze, Torpedowerfer (`CONTRACT-PAN01-C.md`)
+
+Auftrag PAN-01 „Lerche-Ausbau, Werft, Waffen und Module“, Paket C (Branch `pan01-c`, baut auf `pan01-b` auf). Leitgedanke: **mehr Plätze heißen mehr Auswahl, nicht mehr
+Feuerkraft.** Alle Energiewaffen teilen sich den Ladepool (Waffen-Energie + 2 Punkte, unverändert); der Torpedowerfer liegt außerhalb.
+
+- **Katalog** `shared/schiffskatalog.js` (Server, Client, Gegner, später das Terminal): Standardbatterie, Sturmbatterie, Streubatterie, Lanzenbatterie (Seite) · Lanze, Standardkanone (Bug) ·
+  Torpedowerfer, Abwehrturm (Heck). Je Eintrag Wirkung, Energie, Schaden, Ladekosten, Rohre, Bogen, Reichweite, Lafettenmodell, Projektil, Ton, Taktik-Symbol, Munition.
+- **Plätze** (Ziffernblock 7 8 9 / 4 5 6 / 1 2 3): Start 8 Lanze · 4 und 6 Standardbatterie; Stufe 1 + 7 9 · Stufe 2 + 2 5 · Stufe 3 + 1 3. Die Bestückung steht in `ship.waffen`
+  (Weltstand `schiff.waffen`), jede offene, bestückte Lafette ist ein echtes System `lafette_N` (Treffer, Reparaturweg, Zustand).
+- **Ladepool:** bis zu acht Energiewaffen teilen `chargePoints`, `weapons.alloc` verteilt (Q/E wählen, A/D), Standardverteilung reihum Bug, Bb, Stb, Bug 2 …; wer keinen Punkt hat, lädt nicht.
+  **Magazindeckel:** der gespeicherte Anfangsstoß aller Energiewaffen zusammen ≤ 36 (= 1,5 × Start-Lerche 24).
+- **Torpedowerfer** (Heck 2, Stufe 2, aus dem Bolzenwerfer): keine Energie, kein Schildschaden, trifft die Hülle (Jäger sofort zerstört, Korvette 3 Treffer, Fregatte 6), Cooldown 10 s, Lager hart 12
+  (Start 6), Heckbogen 60 Grad. Gegner tragen ihn nur gezielt; ihr Torpedo nimmt der Lerche höchstens ein Drittel der Hülle (30 von 100), ist ausweichbar und vom Abwehrturm abschießbar.
+- **Gegner** aus demselben Katalog (`lanze | batterie | bolzen` werden auf Lanze/Lanzenbatterie, Standardbatterie, Standardkanone abgebildet, das Verhalten bleibt), der Ziel-Scan zeigt Waffen und Module.
+- **Debug** (`npm run debug`, Browser `?debug=1`): `bestueck <platz 1-9> <waffe-id|leer>`, `bestueck alle [stufe]`, `bestueck start`, `bestueck status`, `ausbau <0-3>`,
+  `spawn <kind> [<platz>=<waffe> …]` (Platz bug|stbd|bb, Waffe = lanze|batterie|bolzen oder Katalog-Id), `inv` (Torpedos, höchstens 12). Ablauf für Kai: `CONTRACT-PAN01-C.md` §12.
+- **Messungen:** `node tools/pan01-feuerkraft-messung.js` (3/5/7/9 Waffen, gleicher Pool), `node tools/pan01-energie-bot.js --set "w3;w5;w7;w9"` (Arena-Bot), `node tools/pan01-torpedo-messung.js [--bot]`
+  (Treffer bis Zerstörung, Cooldown, Heckbogen). Tests: `node tools/test-waffen-schiff.js` (in `npm test`).
+
 ## Neu in der Eisenwald-Kampagne (EK1–EK8)
 
 Eine feste Kampagne ohne Spielleiter: Statio Limitis → Rabenpass → Nebelheim → Methalle → Castra Martis → Eisenwald

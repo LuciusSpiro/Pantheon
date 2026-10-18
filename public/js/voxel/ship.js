@@ -64,6 +64,22 @@ const PH_COL = { sealed: '#B5532E', floor: '#5A5F6A', floor_wood: '#7A5236', flo
 function hash(x, y, s) { let n = (x * 374761393 + y * 668265263 + (s || 0) * 982451653) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; }
 function Maps() { return window.Shared_Maps || {}; }
 const stufeOf = (st) => (st && st.ship && st.ship.st) || 0;   // Ausbaustufe 0–3 (Snapshot ship.st)
+// PAN-01 C: Waffentyp eines Mounts aus dem Snapshot (typ fehlt = Startbestückung des Platzes), null ohne Waffe. Das Lafettenmodell steht im Katalog (Voxelwerk-Familie lerche/station/lafette_*).
+function mountTyp(st, mid) {
+  const K = window.Shared_Schiffskatalog; if (!K) return null;
+  const m = ((st && st.ship && st.ship.mounts) || []).find((q) => q.id === mid);
+  return m ? (m.typ || K.START_BESTUECKUNG[K.platzVonMount(mid)] || null) : null;
+}
+// Abwehrturm: Drehwinkel (Grad, 15er-Schritte) zum nächsten Jäger im Umkreis, relativ zum Schiff; ohne Ziel 0
+function turmWinkel(st) {
+  const sh = st && st.ship; const en = (st && st.space && st.space.enemies) || [];
+  if (!sh) return 0;
+  let best = null, bd = 300;
+  for (const e of en) { if (e.kind !== 'raider') continue; const d = Math.hypot(e.x - sh.x, e.y - sh.y); if (d < bd) { bd = d; best = e; } }
+  if (!best) return 0;
+  const rel = Math.atan2(best.y - sh.y, best.x - sh.x) - (sh.angle || 0);
+  return ((Math.round(rel * 180 / Math.PI / 15) * 15) % 360 + 360) % 360;
+}
 function CFG() { return window.Shared_Config || {}; }
 
 // ------------------------------------------------------------------------------------------------ Kartenanalyse
@@ -380,7 +396,15 @@ function buildDynamic(ctx, S) {
     if (kind === 'sys_lafette') {   // PAN-01 B: Lafette eines Waffenplatzes: verschlossen = Abdeckung (Stauware), frei = leere Batterielafette
       const pl = M.waffenplatzAt(o.tx, o.ty);
       o.rot = A.faceRot(o.tx, o.ty);
-      add(o, LAFETTE_ID, PH_COL.station, (st) => ({ state: !pl || stufeOf(st) < pl.stufe ? 0 : 1, art: pl ? (pl.art === 'bug' ? 1 : pl.art === 'heck' ? 2 : 0) : 0, side: pl && pl.side === 'stbd' ? 1 : 0, ladung: 0 }), { laf: true });
+      add(o, LAFETTE_ID, PH_COL.station, (st) => {
+        const zu = !pl || stufeOf(st) < pl.stufe;
+        const p = { state: zu ? 0 : 1, art: pl ? (pl.art === 'bug' ? 1 : pl.art === 'heck' ? 2 : 0) : 0, side: pl && pl.side === 'stbd' ? 1 : 0, ladung: 0 };
+        const K = window.Shared_Schiffskatalog;   // PAN-01 C: bestückter Platz = Lafettenmodell der Waffenart (Katalog), sonst frei/verschlossen
+        const typ = !zu && K ? mountTyp(st, K.mountId(pl.platz)) : null;
+        const w = typ && K.waffe(typ);
+        if (w && w.modell) { p.modell = w.modell; if (typ === 'abwehrturm') p.winkel = turmWinkel(st); }
+        return p;
+      }, { laf: true });
       continue;
     }
     if (MODUL_ID[kind]) {   // PAN-01 B: Modulplatz nach Modul im Raum
@@ -440,6 +464,15 @@ function buildDynamic(ctx, S) {
       else if (kind === 'sys_battery') fn = (st) => { const m = sys === 'battery_port' ? 'port' : 'stbd'; return { state: sysCode(st, sys), side: m === 'port' ? 0 : 1, tubes: Math.min(4, Math.floor(mountCharge(st, m) * 4.999)) }; };
       else if (kind === 'sys_emitter') fn = (st) => ({ state: sysCode(st, sys), side: EMITTER_SIDE[sys] != null ? EMITTER_SIDE[sys] : 0, strength: shieldStrength(st, SECTOR_OF_EMITTER[sys] != null ? SECTOR_OF_EMITTER[sys] : 0) });
       else fn = (st) => ({ state: sysCode(st, sys) });
+      // PAN-01 C: Startplätze 8 4 6 – trägt der Platz eine andere Waffe als die Startbestückung, zeigt er das Lafettenmodell dieser Art (sonst Lanze/Batterie wie bisher mit Schadenszustand)
+      if (kind === 'sys_weapon_bow' || kind === 'sys_weapons' || kind === 'sys_battery') {
+        const fn0 = fn; const mid = kind === 'sys_battery' ? (sys === 'battery_port' ? 'port' : 'stbd') : 'bow';
+        fn = (st) => {
+          const p = fn0(st); const K = window.Shared_Schiffskatalog; const typ = mountTyp(st, mid);
+          if (K && typ && typ !== K.START_BESTUECKUNG[K.platzVonMount(mid)]) { const w = K.waffe(typ); if (w && w.modell) { p.modell = w.modell; p.side = mid === 'stbd' ? 1 : 0; } }
+          return p;
+        };
+      }
       const e = add(o, id, PH_COL.station, fn, { station: true });
       // alle sechs Zustände vorwärmen (Bau beim ersten Schaden vermeiden)
       for (let s = 0; s <= 5; s++) { const p = fn({ ship: {} }); p.state = s; S.warm.push([id, p]); }
@@ -542,6 +575,9 @@ function placeObj(ctx, S, e, params) {
       params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 }
         : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : mm[1] === 'werkzeug' ? { voll: 1, lampe: 0 } : {};
     }
+  }
+  if (params.modell && (e.laf || e.station)) {   // PAN-01 C: Lafettenmodell der Waffenart (Voxelwerk lerche/station/lafette_*): state 2 aktiv bestückt, side Bb/Stb, Abwehrturm winkel
+    const wk = params.winkel; id = params.modell; params = { state: 2, side: params.side || 0 }; if (wk != null) params.winkel = wk;
   }
   const obj = ctx.loader.object(id, params, { color: e.color });
   obj.position.set(e.o.cx, e.y || 0, e.o.cz);

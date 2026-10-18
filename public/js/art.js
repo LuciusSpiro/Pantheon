@@ -3633,9 +3633,84 @@
     ctx.drawImage(sperrSprite(frameOf(tt, 12, 2)), -16, -6);
     ctx.restore();
   }
+  // PAN-01 C: Torpedo (zielsuchend; eigener silbern mit Bernsteinspitze, Gegner-Torpedo größer, dunkelrot und bedrohlich), Streugranate (orange Kugel, pulsiert vor der
+  // Zündung; t = Alter seit Sichtung in s, Zündzeit 1,4 s) und Sturmnadel (dünne türkise Linie). Bug +x, Cache-Schlüssel fest.
+  function torpedoSprite(enemy) {
+    return cached('proj|torpedo|' + (enemy ? 'e' : 'o'), 26, 11, function (g, c) {
+      var body = enemy ? '#8A2A24' : '#B8C4CE', hi = enemy ? '#C8584A' : '#E6EEF4', lo = enemy ? '#4A1612' : '#7C8B99', nose = enemy ? '#FF6A3D' : PAL.bernstein, fin = enemy ? '#5A1C16' : '#4F6178';
+      R(g, 6, 3, 13, 5, body); R(g, 6, 3, 13, 1, hi); R(g, 6, 7, 13, 1, lo);
+      R(g, 19, 4, 3, 3, nose); P(g, 22, 5, enemy ? '#FFE3A8' : PAL.funke); R(g, 19, 3, 1, 1, nose); R(g, 19, 7, 1, 1, nose);
+      R(g, 4, 1, 4, 2, fin); R(g, 4, 8, 4, 2, fin); R(g, 7, 2, 2, 1, fin); R(g, 7, 8, 2, 1, fin);
+      R(g, 3, 4, 3, 3, '#2E3A4A'); R(g, 11, 4, 1, 3, enemy ? '#FF6A3D' : PAL.alarmrot);
+      outline(c, enemy ? '#2A0E0A' : PAL.outlineWarm || '#2A2218');
+    });
+  }
+  function drawTorpedo(ctx, kind, x, y, angle, t) {
+    var enemy = kind === 'etorpedo', tt = t || 0, sc = enemy ? 1.5 : 1;
+    var fl = frameOf(tt, 24, 3), pulse = 0.5 + 0.5 * Math.sin(tt * (enemy ? 14 : 9));
+    glow(ctx, x, y, enemy ? PAL.alarmrot : PAL.bernstein, enemy ? 20 : 11, enemy ? 0.45 + 0.3 * pulse : 0.5);
+    if (enemy) glow(ctx, x, y, '#FF6A3D', 9, 0.4 + 0.3 * pulse);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle || 0);
+    // Rauchschweif: ausdünnende Punkte hinter der Düse
+    var tl = enemy ? 34 : 24, i;
+    for (i = 0; i < 6; i++) {
+      var d = (8 + i * (tl - 8) / 6) * sc, a = 0.3 * (1 - i / 6);
+      ctx.fillStyle = 'rgba(142,150,160,' + a.toFixed(3) + ')';
+      ctx.fillRect(-Math.round(d) - 1, Math.round((hash2(i, frameOf(tt, 12, 4), 5) - 0.5) * 3) - 1, 3, 3);
+    }
+    // Flamme: drei Phasen, länger beim Gegner
+    var fx = -Math.round((enemy ? 11 : 7) * sc - 2);
+    var len = (enemy ? 12 : 8) + fl * 2;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = enemy ? 'rgba(255,106,61,0.85)' : 'rgba(255,170,70,0.85)'; ctx.fillRect(fx - len, -1 * sc | 0, len, Math.max(2, 3 * sc | 0));
+    ctx.fillStyle = 'rgba(255,241,184,0.95)'; ctx.fillRect(fx - Math.round(len * 0.55), 0, Math.round(len * 0.55), Math.max(1, sc | 0));
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.scale(sc, sc);
+    ctx.drawImage(torpedoSprite(enemy), -13, -5);
+    ctx.restore();
+  }
+  function granateSprite(enemy) {
+    return cached('proj|granate|' + (enemy ? 'e' : 'o'), 12, 12, function (g, c) {
+      var m = enemy ? '#C65A2E' : '#E0873C', hi = enemy ? '#F08A5A' : '#FFC080', lo = enemy ? '#7A2E16' : '#9A5420';
+      ell(g, 6, 7, 4.5, 4.5, lo); ell(g, 6, 6.5, 4, 4, m); ell(g, 5, 5, 2, 1.6, hi); P(g, 4, 4, '#FFF1B8');
+      R(g, 5, 1, 2, 2, '#4F6178'); P(g, 6, 0, PAL.funke);
+      outline(c, '#2A1408');
+    });
+  }
+  function drawGranate(ctx, kind, x, y, angle, t) {
+    var enemy = kind === 'estreu', age = Math.max(0, t || 0), ph = Math.min(1, age / 1.4);
+    // pulsiert immer schneller, im letzten Drittel hell: die Zündzeit läuft ab
+    var pulse = 0.5 + 0.5 * Math.sin(age * (5 + 22 * ph * ph));
+    var col = enemy ? PAL.alarmrot : '#E0873C';
+    glow(ctx, x, y, col, 8 + Math.round(5 * ph * pulse), 0.4 + 0.5 * ph * pulse);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate((angle || 0) * 0.3);
+    ctx.drawImage(granateSprite(enemy), -6, -6);
+    if (ph > 0.55 && pulse > 0.55) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,241,184,' + (0.55 * pulse).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    if (ph > 0.7) { ctx.strokeStyle = 'rgba(255,198,107,' + (0.5 * pulse).toFixed(3) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), 6 + 10 * ph * pulse, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  function drawNadel(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(127,214,200,0.25)'; ctx.fillRect(-12, -1, 12, 3);
+    ctx.fillStyle = 'rgba(127,214,200,0.9)'; ctx.fillRect(-10, 0, 10, 1);
+    ctx.fillStyle = '#E8FFF8'; ctx.fillRect(-2, 0, 3, 1);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#7FD6C8', 4, 0.5);
+  }
   function drawProjectile(ctx, kind, x, y, angle, t) {
     if (kind === 'pistol' || kind === 'warden') { drawProjectileM2(ctx, kind, x, y, angle, t); return; }   // M2
     if (kind === 'sperrfeuer') { drawSperrfeuer(ctx, x, y, angle, t); return; }   // S2b
+    if (kind === 'torpedo' || kind === 'etorpedo') { drawTorpedo(ctx, kind, x, y, angle, t); return; }   // PAN-01 C
+    if (kind === 'streu' || kind === 'estreu') { drawGranate(ctx, kind, x, y, angle, t); return; }
+    if (kind === 'sturm') { drawNadel(ctx, x, y, angle); return; }
     if (!PROJ_GLOW[kind]) { missing(ctx, Math.round(x - 4), Math.round(y - 4), 8, 8); return; }
     var spr = projSprite(kind);
     glow(ctx, x, y, PROJ_GLOW[kind], kind === 'bolzen' ? 5 : 7, 0.6);
@@ -6453,10 +6528,10 @@
     ctx.translate(x1, y1); ctx.rotate(ang);
     ctx.globalCompositeOperation = 'lighter';
     if (kind === 'lance') {
-      if (age < 0.45) {   // voller Strahl
-        var a = age < 0.05 ? 1 : 1 - (age - 0.05) / 0.4 * 0.35, w = 9 + (age < 0.1 ? 3 : 0);
+      if (age < 0.45) {   // voller Strahl (Lanzenbatterie: zwei schlankere Strahlen)
+        var a = age < 0.05 ? 1 : 1 - (age - 0.05) / 0.4 * 0.35, w = (o.schmal ? 6 : 9) + (age < 0.1 ? 3 : 0), c2 = o.schmal ? 1 : 2;
         ctx.globalAlpha = ga * a * 0.3; ctx.fillStyle = PAL.mint; ctx.fillRect(0, -Math.round(w / 2), L, w);
-        ctx.globalAlpha = ga * a * 0.85; ctx.fillRect(0, -2, L, 5);
+        ctx.globalAlpha = ga * a * 0.85; ctx.fillRect(0, -c2, L, c2 * 2 + 1);
         ctx.globalAlpha = ga * a; ctx.fillStyle = '#E8FFF8'; ctx.fillRect(0, -1, L, 3);
         ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, L, 1);
         for (i = 6; i < L; i += 11) { ctx.globalAlpha = ga * a * 0.8; ctx.fillRect(i, -4, 1, 9); }
@@ -6467,16 +6542,33 @@
         ctx.fillStyle = '#E8FFF8';
         for (i = 0; i < 10; i++) { var px = hash2(i, 3, 61) * L, py = (hash2(i, 4, 61) - 0.5) * 8 * (1 + age); ctx.globalAlpha = ga * ag; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); }
       }
+    } else if (kind === 'battery' && o.sym === 'nadel') {   // PAN-01 C: Sturmbatterie – viele sehr dünne türkise Linien, schnell, leicht gefächert
+      var nn = 3, seed = o.seed | 0;
+      for (var q = 0; q < nn; q++) {
+        var hd = Math.min(1, age * 3.2 - q * 0.12);
+        if (hd <= 0) continue;
+        var off = (hash2(seed, q, 41) - 0.5) * 7, hx2 = hd * L, nl2 = Math.min(26, L * 0.2);
+        ctx.globalAlpha = ga * 0.3 * life; ctx.fillStyle = '#7FD6C8'; ctx.fillRect(Math.round(Math.max(0, hx2 - nl2 * 1.8)), Math.round(off), Math.round(Math.min(hx2, nl2 * 1.8)), 1);
+        ctx.globalAlpha = ga * life; ctx.fillStyle = '#9FF0E0'; ctx.fillRect(Math.round(Math.max(0, hx2 - nl2)), Math.round(off), Math.round(Math.min(hx2, nl2)), 1);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx2) - 2, Math.round(off), 2, 1);
+      }
+      ctx.globalAlpha = ga * 0.1 * life; ctx.fillStyle = '#7FD6C8'; ctx.fillRect(0, 0, L, 1);
+    } else if (kind === 'battery' && o.sym === 'funke') {   // Abwehrturm – kurze helle Blitze an der Mündung, Funken am Ziel
+      var fl2 = Math.min(L, 22 + hash2(o.seed | 0, 1, 43) * 14), fa = age < 0.5 ? 1 - age * 1.6 : 0.2;
+      ctx.globalAlpha = ga * fa * 0.35; ctx.fillStyle = '#A9D6E5'; ctx.fillRect(0, -2, fl2, 5);
+      ctx.globalAlpha = ga * fa; ctx.fillStyle = '#E8F8FF'; ctx.fillRect(0, -1, fl2, 3);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, fl2, 1);
+      for (var zz = 0; zz < 3; zz++) { ctx.fillRect(Math.round(hash2(zz, o.seed | 0, 44) * fl2), Math.round((hash2(zz, o.seed | 0, 45) - 0.5) * 7), 2, 1); }
     } else if (kind === 'battery' || kind === 'bolzen') {
-      var bolts = kind === 'bolzen' ? 1 : 2;
+      var bolts = kind === 'bolzen' ? 1 : o.dick ? 1 : 2, dk = o.dick ? 2 : 0;   // Standardkanone: ein dicker Bolzen statt zwei
       ctx.globalAlpha = ga * 0.12 * life; ctx.fillStyle = PAL.messing; ctx.fillRect(0, 0, L, 1);
       for (var b = 0; b < bolts; b++) {
         var head = Math.min(1, age * 2.4 - b * 0.22);
         if (head <= 0 || head >= 1) continue;
         var hx = head * L, bl = Math.min(14, L * 0.12);
-        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = PAL.messing; ctx.fillRect(Math.round(hx - bl * 1.6), -1, Math.round(bl * 1.6), 3);
-        ctx.globalAlpha = ga; ctx.fillStyle = '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1, Math.round(bl), 2);
-        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1, 3, 2); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
+        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = PAL.messing; ctx.fillRect(Math.round(hx - bl * 1.6), -1 - dk / 2, Math.round(bl * 1.6), 3 + dk);
+        ctx.globalAlpha = ga; ctx.fillStyle = '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1 - dk / 2, Math.round(bl), 2 + dk);
+        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1 - dk / 2, 3, 2 + dk); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
       }
     } else {   // enemy_heavy
       var ah = age < 0.06 ? 1 : 1 - (age - 0.06) / 0.94, jit = ((age * 40) | 0) % 2;
@@ -6492,6 +6584,11 @@
       glow(ctx, x2, y2, PAL.mint, 16, age < 0.45 ? 1 : 0.4 * life);
       glow(ctx, x2, y2, '#FFFFFF', 7, age < 0.45 ? 0.8 : 0);
       glow(ctx, x1, y1, PAL.mint, 10, age < 0.45 ? 0.9 : 0.3 * life);
+    } else if (kind === 'battery' && o.sym === 'nadel') {
+      if (age < 0.15) glow(ctx, x1, y1, '#7FD6C8', 6, 1 - age / 0.15);
+      if (age > 0.22 && age < 0.7) glow(ctx, x2, y2, '#7FD6C8', 6, 1 - (age - 0.22) / 0.5);
+    } else if (kind === 'battery' && o.sym === 'funke') {
+      if (age < 0.4) glow(ctx, x1, y1, '#A9D6E5', 6, 1 - age / 0.4);
     } else if (kind === 'battery' || kind === 'bolzen') {
       if (age < 0.15) glow(ctx, x1, y1, PAL.bernstein, 7, 1 - age / 0.15);
       if (age > 0.38) { glow(ctx, x2, y2, PAL.bernstein, 9, life); if (age < 0.6) drawFx(ctx, 'sparks', x2, y2, (age - 0.38) * 1.5, { small: true, seed: (x2 | 0) }); }

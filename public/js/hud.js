@@ -16,24 +16,30 @@
     thruster_port: 'Backbord-Düse', thruster_stbd: 'Steuerbord-Düse',
     emitter_bow: 'Bug-Emitter', emitter_stbd: 'Steuerbord-Emitter', emitter_aft: 'Heck-Emitter', emitter_port: 'Backbord-Emitter',
     weapon_bow: 'Bug-Waffe', battery_port: 'Backbord-Batterie', battery_stbd: 'Steuerbord-Batterie',
+    // PAN-01 C: Lafetten der weiteren Waffenplätze (nur im Snapshot, wenn der Platz offen und bestückt ist; Ziffernblock-Platz im Namen)
+    lafette_5: 'Lafette 5', lafette_7: 'Lafette 7', lafette_9: 'Lafette 9', lafette_1: 'Lafette 1', lafette_3: 'Lafette 3', lafette_2: 'Lafette 2',
   };
   const SYS_SHORT = {
     reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', transfer: 'Transfer',
     thruster_port: 'Bb-Düse', thruster_stbd: 'Stb-Düse', emitter_bow: 'Bug-Emitter', emitter_stbd: 'Stb-Emitter', emitter_aft: 'Heck-Emitter',
     emitter_port: 'Bb-Emitter', weapon_bow: 'Bug-Waffe', battery_port: 'Bb-Batterie', battery_stbd: 'Stb-Batterie',
+    lafette_5: 'Lafette 5', lafette_7: 'Lafette 7', lafette_9: 'Lafette 9', lafette_1: 'Lafette 1', lafette_3: 'Lafette 3', lafette_2: 'Lafette 2',
   };
   // Zwei Zeichen fürs HUD-Raster: Art + Seite (b Backbord, s Steuerbord, h Heck, v vorn/Bug)
   const SYS_CODE = {
     reactor: 'Re', shields: 'Sg', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
     thruster_port: 'Db', thruster_stbd: 'Ds', emitter_bow: 'Ev', emitter_stbd: 'Es', emitter_aft: 'Eh', emitter_port: 'Eb', battery_port: 'Bb', battery_stbd: 'Bs',
+    lafette_5: 'L5', lafette_7: 'L7', lafette_9: 'L9', lafette_1: 'L1', lafette_3: 'L3', lafette_2: 'L2',
   };
   // Reihenfolge nach Ort: Bug – Backbord – Steuerbord – Heck – Mitte
-  const SYSTEM_ORDER = ['weapon_bow', 'emitter_bow', 'thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer',
-    'engines', 'emitter_aft', 'reactor', 'shields'];
+  const SYSTEM_ORDER = ['weapon_bow', 'lafette_5', 'emitter_bow', 'thruster_port', 'battery_port', 'lafette_7', 'lafette_1', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'lafette_9', 'lafette_3',
+    'emitter_stbd', 'transfer', 'engines', 'emitter_aft', 'lafette_2', 'reactor', 'shields'];   // PAN-01 C: Lafetten nur anzeigen, wenn im Snapshot vorhanden (systemListe)
+  // Systeme in Anzeigereihenfolge, die der Snapshot kennt (Lafetten fehlen, solange der Platz zu oder unbestückt ist)
+  const systemListe = (ship) => SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s) || (ship && ship.systems && s in ship.systems));
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
   const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
-  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
+  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
@@ -77,7 +83,7 @@
   }
 
   const Hud = {
-    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -1041,20 +1047,22 @@
       items.forEach((it, i) => R.text(ctx, ITEM_NAMES[it] + ': ' + (inv[it] || 0), x + 10 + (i % 3) * 130, ly + Math.floor(i / 3) * 11, { color: PAL.star }));
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });
-      const up = st.upgrades || {};
-      const ups = [up.seitenturm && (CFG.spaceM3 ? 'Zusatzrohre' : 'Seitenturm'), up.bolzenwerfer && 'Bolzenwerfer'].filter(Boolean);   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt
-      R.text(ctx, 'Upgrades: ' + (ups.join(', ') || 'keine'), x + 140, ly, { color: PAL.star });
+      // PAN-01 C: Zusatzrohre und Bolzenwerfer sind im Waffenkatalog aufgegangen (state.upgrades ist leer); hier steht die Bestückung je Platz
+      const SU = window.SchiffsUI, mts = ((st.ship || {}).mounts || []);
+      const best = SU ? mts.map((m) => { const w = SU.waffeVon(m); return w ? SU.platzVon(m) + ' ' + w.kurz : null; }).filter(Boolean) : [];
+      let wtxt = 'Waffen: ' + (best.join(' · ') || 'keine'); if (R.measure(wtxt, 1) > 255) { while (wtxt.length > 14 && R.measure(wtxt + '…', 1) > 255) wtxt = wtxt.slice(0, -1); wtxt += '…'; }
+      R.text(ctx, wtxt, x + 140, ly, { color: PAL.star });
       ly += 14;
       const sys = (st.ship && st.ship.systems) || {};
       R.text(ctx, 'SYSTEME', x + 10, ly, { color: PAL.brass }); ly += 11;
-      SYSTEM_ORDER.forEach((s, i) => {
+      systemListe(st.ship).forEach((s, i) => {
         const state = sys[s] || 'ok';
         const fr = R.fragileOf(st, s);
         const cx = x + 10 + (i % 3) * 128, cy = ly + Math.floor(i / 3) * 10;
         R.text(ctx, SYS_SHORT[s], cx, cy, { color: PAL.star });
         R.text(ctx, R.stateCode(state, fr), cx + 120, cy, { color: R.stateColor(state, fr), align: 'right' });
       });
-      ly += 52;
+      ly += 10 * Math.ceil(systemListe(st.ship).length / 3) + 2;
       R.text(ctx, (st.world ? 'Ort: ' + R.locName(st, R.worldOf(st).location) : 'Abschnitt: ' + ((st.mission && st.mission.stage) || '-')) + '   Spielzeit: ' + fmtTime(st.stats && st.stats.elapsed != null ? st.stats.elapsed : st.time), x + 10, ly, { color: PAL.panelLight });
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },

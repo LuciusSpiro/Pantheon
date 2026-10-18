@@ -83,7 +83,7 @@
       wirkung: 'Wie die Bug-Lanze: aufladen, Kurs halten. Optisch zwei Lanzen, Schaden einmal.',
       schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, stoss: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 2, abstand: 7, pierce: 2 },
-      modell: 'lerche/station/lafette_lanzenbatterie', projektil: { form: 'doppelstrahl', farbe: '#FFF1B8' }, effekt: 'doppelstrahl', ton: 'lance_fire', symbol: 'schiff_lanzenbatterie',
+      modell: 'lerche/station/lafette_lanzen', projektil: { form: 'doppelstrahl', farbe: '#FFF1B8' }, effekt: 'doppelstrahl', ton: 'lance_fire', symbol: 'schiff_lanzenbatterie',
       munition: null, gegner: { verhalten: 'lanze' },
     },
     {
@@ -91,7 +91,7 @@
       wirkung: 'Aufladen, Kurs halten: der gehaltene Strahl trifft den ersten Gegner in der Linie.',
       schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, stoss: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 1, abstand: 0, pierce: 2 },
-      modell: 'lerche/station/lafette_lanze', projektil: { form: 'strahl', farbe: '#FFF1B8' }, effekt: 'lanzenstrahl', ton: 'lance_fire', symbol: 'schiff_lanze',
+      modell: 'lerche/station/lafette_lanze_bug', projektil: { form: 'strahl', farbe: '#FFF1B8' }, effekt: 'lanzenstrahl', ton: 'lance_fire', symbol: 'schiff_lanze',
       munition: null, gegner: { verhalten: 'lanze' },
     },
     {
@@ -114,7 +114,7 @@
       schaden: 1.2, rohre: 2, salvoGap: 0.12, ladekosten: 7, bogen: 360, reichweite: 260, stoss: 2.4,
       // turm: ziele = Klassen, die er bekämpft (nicht die großen Schiffe), autoFaktor = Ladezeit-Faktor ohne Besetzung (Taktik), torpedos = schießt Torpedos ab
       turm: { ziele: ['raider'], autoFaktor: 2, torpedos: true },
-      modell: 'lerche/station/lafette_abwehrturm', projektil: { form: 'funke', farbe: '#A9D6E5' }, effekt: 'funke', ton: 'abwehr_feuer', symbol: 'schiff_abwehrturm',
+      modell: 'lerche/station/lafette_abwehr', projektil: { form: 'funke', farbe: '#A9D6E5' }, effekt: 'funke', ton: 'abwehr_feuer', symbol: 'schiff_abwehrturm',
       munition: null, gegner: { verhalten: 'abwehr' },
     },
   ];

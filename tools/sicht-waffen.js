@@ -27,6 +27,8 @@ function ping() { return new Promise((res) => { const r = http.get({ host: '127.
 
 // Hauptplatz je Platzart; Gegenseite trägt eine andere Waffe, damit Bb und Stb verschieden bestückt sind
 const PLATZ = { seite: 4, bug: 8, heck: 2 };
+// Innenansicht: die Startplätze 8, 4, 6 sind Stationen mit eigenem Art-Objekt (sys_weapon_bow, sys_battery); der Platzhalter greift nur an den Lafetten (sys_lafette): 7, 5, 2
+const PLATZ_LAFETTE = { seite: 7, bug: 5, heck: 2 };
 
 async function main() {
   if (await ping()) throw new Error('Port ' + PORT + ' belegt');
@@ -40,7 +42,7 @@ async function main() {
   const b = await chromium.launch();
   const fehler = [];
   try {
-    const page = await (await b.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+    const page = await (await b.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 })).newPage();
     page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 200)); });
     await page.goto(`http://127.0.0.1:${PORT}/?debug=1&render=2d`);
@@ -95,8 +97,8 @@ async function main() {
       await page.evaluate(([k, d, f]) => { const s = __game.state.ship; __game.send({ t: 'debug', cmd: 'spawn', kind: k, volk: 'ger', dist: d, winkel: s.angle + f }); }, [art, dist, facing]);
       await sleep(900);
       const zid = await page.evaluate(() => { const l = (__game.state.space.enemies || []).slice(); const s = __game.state.ship; l.sort((p, q) => Math.hypot(p.x - s.x, p.y - s.y) - Math.hypot(q.x - s.x, q.y - s.y)); return l[0] ? l[0].id : null; });
-      if (zid) await cmd('weapons.target', { id: zid });
       await sitz('weapons'); await sleep(400);
+      if (zid) { await cmd('weapons.target', { id: zid }); await sleep(200); }   // Ziel erst am Ops-Pult setzen
       await page.mouse.move(5, 5);
       // Ladung abwarten (Energiewaffen)
       if (w.energie) await page.waitForFunction((id) => { const m = (__game.state.ship.mounts || []).find((q) => q.id === id); return m && m.charge >= 1; }, mid, { timeout: 25000 }).catch(() => console.log('Ladung nicht voll: ' + w.id));
@@ -111,26 +113,31 @@ async function main() {
       if (!OHNE_PROJ) {
         if (w.art === 'lanze') { await cmd('weapons.charge', { mount: mid, on: true }); await sleep(2600); await cmd('weapons.charge', { mount: mid, on: false }); }
         else await cmd('weapons.fire', { mount: mid });
+        if (process.argv.includes('--log')) { await sleep(300); console.log(JSON.stringify(await page.evaluate((id) => ({ pr: (__game.state.space.projectiles || []).map((q) => q.kind), m: (__game.state.ship.mounts || []).find((q) => q.id === id), inv: __game.state.inventory.bolzen, target: __game.state.ship.target }), mid))); }
         let best = -1, bestBuf = null;
         for (let i = 0; i < 18; i++) {
-          const n = await page.evaluate(() => { const sp = __game.state.space || {}; return (sp.beams || []).length * 2 + (sp.projectiles || []).length; });
+          const n = await page.evaluate((f) => { const sp = __game.state.space || {}; if (f === 'torpedo' || f === 'granate') return (sp.projectiles || []).filter((q) => q.kind === (f === 'torpedo' ? 'torpedo' : 'streu')).length; return (sp.beams || []).length * 2 + (sp.projectiles || []).length; }, w.projektil.form);
           const buf = await page.screenshot({ clip: await clip(62, 6, 404, 184) });
-          if (n > best) { best = n; bestBuf = buf; }
+          const spaet = w.projektil.form === 'torpedo' || w.projektil.form === 'granate';   // Geschosse: das späteste Bild mit Geschoss (nah am Ziel), sonst das mit den meisten Strahlen
+          if (spaet ? (n > 0 && n >= best) || !bestBuf : n > best) { best = n; bestBuf = buf; }
           if (i > 5 && best > 0 && n === 0) break;
           await sleep(60);
         }
         fs.writeFileSync(path.join(OUT, `waffe-${w.id}-projektil.png`), bestBuf);
         console.log('Bild', `waffe-${w.id}-projektil.png`, '(Strahlen/Projektile im besten Bild: ' + best + ')');
       }
-      // (d) Innenansicht: Spieler an die Lafette des Platzes stellen
+      // (d) Innenansicht: dieselbe Waffe an den Lafettenplatz, Spieler daneben stellen
+      const lplatz = PLATZ_LAFETTE[w.platzart];
+      if (lplatz !== platz) { await dbg(`bestueck ${lplatz} ${w.id}`); await sleep(400); }
       const tp = await page.evaluate(([p]) => {
         const M = window.Shared_Maps, pl = M.waffenplatz(p); if (!pl) return null;
         const solid = M.shipSolidFn(3), walk = (x, y) => !solid(x, y);
         for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1]]) if (walk(pl.x + dx, pl.y + dy)) return { x: pl.x + dx, y: pl.y + dy, lx: pl.x, ly: pl.y };
         return { x: pl.x, y: pl.y, lx: pl.x, ly: pl.y };
-      }, [platz]);
+      }, [lplatz]);
       if (tp) {
         await dbg(`tp ${tp.x} ${tp.y}`); await sleep(900);
+        console.log('Lafette Platz ' + lplatz + ' bei Kachel', tp.lx, tp.ly, '· Spieler bei', tp.x, tp.y);
         await shot(`waffe-${w.id}-lafette.png`, null);
       }
       await sleep(200);

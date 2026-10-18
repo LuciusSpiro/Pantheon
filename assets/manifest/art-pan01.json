@@ -706,6 +706,538 @@
         "werkstatt",
         "pan01"
       ]
+    },
+    {
+      "id": "lerche/station/lafette_batterie",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Standardbatterie (Seite); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_sturm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Sturmbatterie (Seite); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_streu",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Streubatterie (Seite); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_lanzen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Lanzenbatterie (Seite): zwei Lanzen; Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_kanone",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Standardkanone (Bug); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_lanze_bug",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Lanze (Bug); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_torpedo",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Torpedowerfer (Heck); Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb."
+    },
+    {
+      "id": "lerche/station/lafette_abwehr",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ],
+        "winkel": [
+          0,
+          345
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "lafette",
+        "pan01",
+        "paket-c"
+      ],
+      "notes": "Abwehrturm (Heck): drehbar ueber winkel; Voxelwerk-Familie (gen-lafetten.mjs), Rohr nach -z; state 0 verschlossen, 1 frei, 2 aktiv bestueckt; side 0 Bb / 1 Stb. winkel = Drehwinkel in Grad (Schritt 15)."
     }
   ]
 }

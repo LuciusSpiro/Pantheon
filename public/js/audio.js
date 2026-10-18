@@ -41,7 +41,9 @@
     // S2 „Spielleiter & Schützling“
     'gm_static', 'offer_in', 'distress', 'escort_hit', 'escort_lost', 'escort_saved',
     // S2b „Sperrfeuer“ (Korvette)
-    'sperrfeuer'];
+    'sperrfeuer',
+    // PAN-01 C „Waffen und Munition“ (Katalog shared/schiffskatalog.js, Feld ton; bolzen und seitenturm bleiben definiert, der Server schickt sie nicht mehr)
+    'sturm_salvo', 'streu_wurf', 'streu_boom', 'kanone_salvo', 'abwehr_feuer', 'torpedo'];
   var LOOPS = ['fire', 'breach', 'engine', 'reactor_hum'];
   var MOODS = ['ship', 'explore', 'combat', 'port', 'mystery', 'ruin', 'none'];
 
@@ -79,7 +81,9 @@
     // S2 (Notruf nie als Dauerton, Treffer am Schützling nicht als Teppich)
     gm_static: 700, offer_in: 1000, distress: 1500, escort_hit: 150, escort_lost: 1500, escort_saved: 1500,
     // S2b: ein Ton je Feuerstoß (Stoß ≈ alle 3 s), nie als Teppich
-    sperrfeuer: 600
+    sperrfeuer: 600,
+    // PAN-01 C: ein Ton je Salve bzw. Wurf, Knall und Start nie als Teppich
+    sturm_salvo: 220, streu_wurf: 300, streu_boom: 110, kanone_salvo: 220, abwehr_feuer: 140, torpedo: 400
   };
   var DEFAULT_GAP = 50;
 
@@ -99,7 +103,9 @@
     // S2: Funkrauschen leise, Notruf vorne, Treffer am Schützling unter hull_hit
     gm_static: 0.6, offer_in: 0.9, distress: 1.1, escort_hit: 0.85, escort_lost: 1.0, escort_saved: 0.85,
     // S2b: Sperrfeuer dumpf und deutlich unter hull_hit (1,3)
-    sperrfeuer: 0.8
+    sperrfeuer: 0.8,
+    // PAN-01 C: Sturm hell und leise (viele Schläge), Kanone härter als die Batterie, Abwehrturm nur Pings, Knall und Torpedostart vorne
+    sturm_salvo: 0.8, kanone_salvo: 1.1, abwehr_feuer: 0.65, streu_boom: 1.05, torpedo: 1.0
   };
   // Ducking der Musik: [Zielpegel, Haltezeit s]
   var DUCK = {
@@ -115,7 +121,7 @@
     tablet: [0.65, 1.0],
     // M3a
     tele_charge: [0.7, 1.5], heavy_hit: [0.3, 0.7], lance_fire: [0.6, 0.35], system_break: [0.55, 0.4],
-    burst_perfect: [0.7, 0.6],
+    burst_perfect: [0.7, 0.6], streu_boom: [0.6, 0.35], torpedo: [0.75, 0.4],
     // S1
     world_load: [0.6, 1.4],
     // S2
@@ -1117,6 +1123,66 @@
         tone({ f: 150, f2: 55, t: tt, dur: last ? 0.16 : 0.09, vol: 0.4, out: o });
       }
       return n * gap + 0.12;
+    },
+    // ------------------------------------------------------------ PAN-01 C „Waffen und Munition“ (kurz, unterscheidbar)
+    sturm_salvo: function (t, o, prm) {
+      // Sturmbatterie: schnelles, hohes Rattern – viele kurze helle Schläge dicht an dicht (prm.count 3–10, Standard 8)
+      var n = prm && prm.count != null ? clamp(Math.round(prm.count), 3, 10) : 8, gap = 0.05;
+      for (var i = 0; i < n; i++) {
+        var tt = t + i * gap, v = 0.9 + Math.random() * 0.25;
+        tone({ type: 'square', f: 1250 * v, f2: 520, t: tt, dur: 0.035, vol: 0.06, out: o, filter: 'lowpass', ff: 4200 });
+        noise({ t: tt, dur: 0.025, vol: 0.2, out: o, filter: 'bandpass', ff: 3800 * v, q: 2.2 });
+      }
+      tone({ f: 2200, f2: 700, t: t + n * gap, dur: 0.1, a: 0.004, vol: 0.05, out: o });
+      return n * gap + 0.14;
+    },
+    streu_wurf: function (t, o, prm) {
+      // Streubatterie: dumpfer Wurf – ein Plopp je Granate, gestaffelt wie die Salve (prm.count 1–5, Standard 3, Abstand 0,4 s)
+      var n = prm && prm.count != null ? clamp(Math.round(prm.count), 1, 5) : 3;
+      for (var i = 0; i < n; i++) {
+        var tt = t + i * 0.4;
+        tone({ f: 120, f2: 52, t: tt, dur: 0.2, vol: 0.5, out: o });
+        noise({ t: tt, dur: 0.14, vol: 0.32, out: o, filter: 'lowpass', ff: 700, ff2: 180 });
+        tone({ type: 'triangle', f: 170, f2: 330, t: tt + 0.04, dur: 0.09, a: 0.005, vol: 0.1, out: o, filter: 'lowpass', ff: 1400 });
+      }
+      return (n - 1) * 0.4 + 0.3;
+    },
+    streu_boom: function (t, o) {
+      // Granate zündet: tiefer, dumpfer Knall mit kurzem Knistern
+      tone({ f: 95, f2: 30, t: t, dur: 0.5, a: 0.004, vol: 0.62, out: o });
+      noise({ t: t, dur: 0.45, a: 0.004, vol: 0.55, out: o, filter: 'lowpass', ff: 1600, ff2: 120 });
+      for (var i = 0; i < 4; i++) noise({ t: t + 0.05 + Math.random() * 0.3, dur: 0.03, vol: 0.14, out: o, filter: 'bandpass', ff: 1200 + Math.random() * 1800, q: 3 });
+      return 0.55;
+    },
+    kanone_salvo: function (t, o, prm) {
+      // Standardkanone: härterer Einzelschlag als die Batterie – tiefer Wumms mit scharfem Knacken (prm.count 1–5, Standard 3)
+      var n = prm && prm.count != null ? clamp(Math.round(prm.count), 1, 5) : 3, gap = 0.15;
+      for (var i = 0; i < n; i++) {
+        var tt = t + i * gap;
+        click(tt, o, 0.5, 2200);
+        tone({ type: 'sawtooth', f: 210, f2: 62, t: tt, dur: 0.13, vol: 0.2, out: o, filter: 'lowpass', ff: 1500 });
+        noise({ t: tt, dur: 0.1, vol: 0.5, out: o, filter: 'lowpass', ff: 2400, ff2: 200 });
+        tone({ f: 118, f2: 38, t: tt, dur: 0.24, vol: 0.55, out: o });
+      }
+      return n * gap + 0.2;
+    },
+    abwehr_feuer: function (t, o, prm) {
+      // Abwehrturm: schnelle, leise Pings
+      var n = prm && prm.count != null ? clamp(Math.round(prm.count), 2, 6) : 4;
+      for (var i = 0; i < n; i++) {
+        var tt = t + i * 0.06;
+        tone({ type: 'triangle', f: 2400 + (i % 2) * 400, f2: 1700, t: tt, dur: 0.035, a: 0.002, vol: 0.05, out: o });
+        noise({ t: tt, dur: 0.015, vol: 0.06, out: o, filter: 'highpass', ff: 4000 });
+      }
+      return n * 0.06 + 0.06;
+    },
+    torpedo: function (t, o) {
+      // Torpedostart: dumpfer Ausstoß, dann ein Zischen, das aufsteigt und sich entfernt
+      tone({ f: 130, f2: 48, t: t, dur: 0.18, vol: 0.42, out: o });
+      click(t, o, 0.3, 1500);
+      noise({ t: t + 0.04, dur: 0.75, a: 0.05, hold: 0.25, vol: 0.34, out: o, filter: 'bandpass', ff: 500, ff2: 3600, q: 1.2 });
+      tone({ type: 'sawtooth', f: 150, f2: 460, t: t + 0.05, dur: 0.6, a: 0.05, hold: 0.2, vol: 0.08, out: o, filter: 'lowpass', ff: 400, ff2: 1900 });
+      return 0.85;
     },
     tele_charge: function (t, o, prm) {
       // angekündigter Angriff lädt: steigender Ton, je Gegnerart anders (prm.kind korvette|pylon|sentinel),

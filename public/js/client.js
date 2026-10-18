@@ -808,12 +808,18 @@
         if (ev.dodged) { Client.dodgeFx = { t0: performance.now() }; if (m && m.zone === 'ship') H.pushNotice('Ausgewichen! Der schwere Treffer geht vorbei.', PAL.mint); }
         else if (con === 'helm' || con === 'weapons') H.pushNotice('Ladung verfehlt – außer Bogen', PAL.mint);
         return true;
-      case 'lance':
-        // §20.3: Aufladen/Feuer der Lanze (Ton per sfx vom Server)
-        if (ev.state === 'fizzle') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' || con === 'helm') H.pushNotice('Lanze verpufft' + (ev.why === 'system' ? ' – System ausgefallen' : ''), PAL.warn); }
-        else if (ev.state === 'fire') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' && !ev.hit) H.pushNotice('Lanze ins Leere – Bug aufs Ziel!', PAL.warn); }
-        else if (ev.state === 'charge' && con === 'helm') H.pushNotice('LANZE LÄDT – Bug aufs Ziel!', R.BURST_COL);
+      case 'lance': {
+        // §20.3: Aufladen/Feuer der Lanze (Ton per sfx vom Server). PAN-01 C: ev.mount = Bug-Lanze ('bow') oder Lanzenbatterie (Seite); der Ton-Schlüssel folgt dem Mount
+        const lkey = 'lance' + (ev.mount && ev.mount !== 'bow' ? ev.mount : '');
+        const lm = ((Client.state || {}).ship || {}).mounts;
+        const lw = window.SchiffsUI && lm ? SchiffsUI.waffeVon(lm.find((q) => q.id === ev.mount)) : null;
+        const lname = ev.mount && ev.mount !== 'bow' && lw ? lw.name : 'Lanze';
+        const lweg = ev.mount && ev.mount !== 'bow' ? 'Seite' : 'Bug';
+        if (ev.state === 'fizzle') { stopSfx('lance_charge', lkey); if (con === 'weapons' || con === 'helm') H.pushNotice(lname + ' verpufft' + (ev.why === 'system' ? ' – System ausgefallen' : ''), PAL.warn); }
+        else if (ev.state === 'fire') { stopSfx('lance_charge', lkey); if (con === 'weapons' && !ev.hit) H.pushNotice(lname + ' ins Leere – ' + lweg + ' aufs Ziel!', PAL.warn); }
+        else if (ev.state === 'charge' && con === 'helm') H.pushNotice(lname.toUpperCase() + ' LÄDT – ' + lweg + ' aufs Ziel!', R.BURST_COL);
         return true;
+      }
       case 'aim':
         if (ev.state === 'abort' && (con === 'helm' || con === 'weapons')) H.pushNotice('Zielphase abgebrochen – Kurs nicht gehalten', PAL.warn);
         else if (ev.state === 'miss' && (con === 'helm' || con === 'weapons')) H.pushNotice('Lanze verfehlt – Ziel nicht im Bogen', PAL.warn);
@@ -1144,7 +1150,10 @@
         audio.play(ev.shield ? 'shield_hit' : 'hull_hit', { volume: ev.shield ? 0.8 : 1 });
         if (!ev.shield) Client.shakeT = performance.now();
         break;
-      case 'explosion': R.addFx('explosion', null, ev.x, ev.y, 0.7, { space: true }); audio.play('explosion_small'); break;
+      case 'explosion':   // PAN-01 C: small = Granate/Torpedo-Treffer (Ring, leiser; die Granate bringt ihren Knall als sfx streu_boom selbst mit)
+        R.addFx(ev.small ? 'explosion_ring' : 'explosion', null, ev.x, ev.y, ev.small ? 0.55 : 0.7, { space: true });
+        audio.play('explosion_small', ev.small ? { volume: 0.55 } : undefined);
+        break;
       case 'beam':
         for (const pid of ev.pids || []) Client.beamFx[pid] = { t0: performance.now(), dir: ev.dir };
         audio.play('beam');
@@ -1269,14 +1278,12 @@
     // Waffen
     const pb = (prev.space && prev.space.beams) || [], cb = (cur.space && cur.space.beams) || [];
     // M3a: lance/battery/enemy_heavy klingen über Server-sfx (lance_fire, battery_salvo, heavy_hit) – hier nur Altnamen
-    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind === 'lanze' || b.kind === 'seitenturm' || !b.kind) audio.play(b.kind === 'seitenturm' ? 'seitenturm' : 'lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
+    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind === 'lanze' || !b.kind) audio.play('lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
     // M3a: verschwindet ein ladender Gegner, Ladeton anhalten
     {
       const curIds = new Set(((cur.space && cur.space.enemies) || []).map(e => e.id));
       for (const e of (prev.space && prev.space.enemies) || []) if (e.tele && !curIds.has(e.id)) stopSfx('tele_charge', e.id);
     }
-    const pIds = new Set(((prev.space && prev.space.projectiles) || []).map(p => p.id));
-    for (const pr of (cur.space && cur.space.projectiles) || []) if (!pIds.has(pr.id) && pr.kind === 'bolzen') audio.play('bolzen');
     // Gegnertreffer (für Blinken)
     const pe = {};
     for (const e of (prev.space && prev.space.enemies) || []) pe[e.id] = e;
