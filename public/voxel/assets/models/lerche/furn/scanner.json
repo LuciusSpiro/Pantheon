@@ -1,0 +1,33 @@
+{
+  "id": "lerche/furn/scanner",
+  "name": "Diagnosering / Behandlungsgerät (Lerche, Modulplatz C Krankenstation)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "krankenstation", "modul", "scanner"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "aktiv": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Scan läuft (Ring leuchtet stärker)" }
+  },
+  "variants": { "aktiv": { "aktiv": 1 } },
+  "ops": [
+    { "op": "box", "name": "Fußplatte", "at": [1, 0, 2], "size": [14, 1, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Liegefläche Rahmen", "at": [4, 4, 1], "size": [8, 2, 14], "color": "metal_light" },
+    { "op": "box", "name": "Liegefläche Polster", "at": [4, 6, 2], "size": [8, 1, 12], "color": "secondary" },
+    { "op": "box", "name": "Liegefläche Goldkante", "at": [4, 6, 1], "size": [8, 1, 1], "color": "trim", "mode": "paint" },
+    { "op": "box", "name": "Sockel Liege", "at": [6, 1, 4], "size": [4, 3, 8], "color": "metal" },
+    { "op": "box", "name": "Bogenfuß", "at": [1, 1, 5], "size": [2, 12, 4], "color": "metal", "mirror": "x", "mirrorAt": 8 },
+    { "op": "cyl", "name": "Ring", "axis": "z", "at": [8, 13, 5], "r": 7, "h": 4, "hollow": 2, "color": { "frame": "trim", "fill": "secondary", "axes": "y", "width": 1 } },
+    { "op": "cyl", "name": "Ring innen", "axis": "z", "at": [8, 13, 5], "r": 5, "h": 4, "hollow": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Ringlicht", "if": "!aktiv", "axis": "z", "at": [8, 13, 8], "r": 5.5, "h": 1, "hollow": 1, "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "cyl", "name": "Ringlicht aktiv", "if": "aktiv", "axis": "z", "at": [8, 13, 8], "r": 5.5, "h": 1, "hollow": 1, "color": { "role": "glow", "emit": 2.2 }, "jitter": false },
+    { "op": "box", "name": "Scanstreifen", "if": "aktiv", "at": [4, 7, 5], "size": [8, 1, 1], "color": { "role": "glow", "emit": 1.8 }, "jitter": false },
+    { "op": "box", "name": "Kreuzzeichen", "at": [7, 19, 7], "size": [2, 4, 1], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Kreuzzeichen quer", "at": [6, 20, 7], "size": [4, 2, 1], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Bedienpult", "at": [11, 1, 11], "size": [4, 10, 4], "color": "metal" },
+    { "op": "box", "name": "Bedienpult Schräge", "at": [11, 11, 11], "size": [4, 2, 4], "color": "metal_dark" },
+    { "op": "box", "name": "Anzeige", "at": [12, 11, 12], "size": [3, 1, 2], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Tasten", "at": [12, 8, 15], "size": [3, 1, 1], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

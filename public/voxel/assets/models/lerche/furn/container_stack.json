@@ -1,0 +1,39 @@
+{
+  "id": "lerche/furn/container_stack",
+  "name": "Containerstapel mit Hebezeug (Lerche, Modulplatz C Frachtraum)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "lager", "fracht", "modul", "frachtraum"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "farbe": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Farbe der oberen Container (0 Rot, 1 Bronze, 2 Purpur)" }
+  },
+  "variants": { "bronze": { "farbe": 1 }, "purpur": { "farbe": 2 } },
+  "ops": [
+    { "op": "box", "name": "Palette", "at": [1, 0, 3], "size": [14, 1, 12], "color": "metal_dark" },
+    { "op": "box", "name": "Container unten", "at": [2, 1, 4], "size": [12, 8, 10], "color": { "stripes": ["metal", { "shade": "metal", "f": 0.8 }], "axis": "x", "period": 2 } },
+    { "op": "box", "name": "Container unten Rahmen", "at": [2, 1, 4], "size": [12, 8, 10], "color": { "frame": "metal_light", "fill": { "shade": "metal", "f": 0.9 }, "axes": "yz", "width": 1 }, "mode": "paint" },
+    { "op": "box", "name": "Container oben Rot", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "stripes": ["primary", { "shade": "primary", "f": 0.8 }], "axis": "x", "period": 2 }, "if": "farbe == 0" },
+    { "op": "box", "name": "Container oben Bronze", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.75 }], "axis": "x", "period": 2 }, "if": "farbe == 1" },
+    { "op": "box", "name": "Container oben Purpur", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "stripes": ["cloth2", { "shade": "cloth2", "f": 0.8 }], "axis": "x", "period": 2 }, "if": "farbe == 2" },
+    { "op": "box", "name": "Container oben Rahmen", "at": [3, 9, 5], "size": [10, 7, 8], "color": { "frame": "metal_light", "fill": "dark", "axes": "yz", "width": 1 }, "mode": "paint" },
+    { "op": "box", "name": "Eckbeschlag", "at": [2, 8, 13], "size": [2, 2, 1], "color": "trim", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Türgriffe", "at": [6, 3, 14], "size": [1, 4, 1], "color": "metal_light", "mirror": "x", "mirrorAt": 8 },
+    { "op": "box", "name": "Frachtschild", "at": [6, 11, 13], "size": [4, 3, 1], "color": { "frame": "trim", "fill": "secondary", "axes": "xy", "width": 1 } },
+
+    { "op": "group", "name": "Hebezeug (Portalkran an der Rückwand)", "ops": [
+      { "op": "box", "name": "Kransäule", "at": [1, 1, 1], "size": [2, 29, 2], "color": "metal" },
+      { "op": "box", "name": "Kransockel", "at": [0, 0, 0], "size": [4, 2, 4], "color": "metal_dark" },
+      { "op": "box", "name": "Kransäule Band", "at": [1, 10, 1], "size": [2, 2, 2], "color": { "stripes": ["warning", "black"], "axis": "y", "period": 1 }, "mode": "paint", "jitter": false },
+      { "op": "box", "name": "Ausleger", "at": [1, 28, 1], "size": [14, 2, 2], "color": "metal" },
+      { "op": "box", "name": "Auslegerstrebe", "at": [3, 25, 1], "size": [2, 3, 2], "color": "metal_dark" },
+      { "op": "line", "name": "Zugstrebe", "from": [3, 27, 2], "to": [13, 29, 2], "r": 0.5, "color": "metal_dark" },
+      { "op": "box", "name": "Laufkatze", "at": [8, 26, 0], "size": [4, 2, 4], "color": "trim" },
+      { "op": "line", "name": "Hubseil", "from": [10, 26, 2], "to": [10, 17, 6], "r": 0.5, "color": "metal_dark" },
+      { "op": "box", "name": "Haken", "at": [9, 15, 5], "size": [2, 2, 2], "color": "metal_light" },
+      { "op": "box", "name": "Kranlicht", "at": [1, 30, 1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 1.2 }, "jitter": false }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

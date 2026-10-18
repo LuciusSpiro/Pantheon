@@ -1,0 +1,649 @@
+{
+  "team": "art-pan01",
+  "assets": [
+    {
+      "id": "lerche/lift/shaft3",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        3
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "deck": [
+          0,
+          2
+        ],
+        "power": [
+          0,
+          1
+        ],
+        "tuer_offen": [
+          0,
+          1
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "mittel": {
+          "deck": 0
+        },
+        "ober": {
+          "deck": 1
+        },
+        "unter": {
+          "deck": 2
+        },
+        "notstrom": {
+          "power": 1
+        },
+        "tuer_offen": {
+          "tuer_offen": 1
+        },
+        "gekappt": {
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "light": [
+          0,
+          2.85,
+          0.9
+        ],
+        "label": [
+          0,
+          3.1,
+          0.9
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "lift",
+        "architecture",
+        "pan01"
+      ],
+      "notes": "Liftkabine 2 x 3 (PAN-01 B), loest lift/shaft ab; Parameter deck 0 Mitteldeck, 1 Oberdeck, 2 Unterdeck."
+    },
+    {
+      "id": "lerche/lift/platform3",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        2,
+        3
+      ],
+      "height": 0.94,
+      "facing": "+z",
+      "params": {
+        "moving": [
+          0,
+          1
+        ],
+        "power": [
+          0,
+          1
+        ],
+        "deck": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "still": {
+          "moving": 0
+        },
+        "fahrt": {
+          "moving": 1
+        },
+        "notstrom": {
+          "moving": 1,
+          "power": 1
+        },
+        "unter": {
+          "deck": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0.5,
+          0.7,
+          -0.4
+        ],
+        "light": [
+          0,
+          0.15,
+          0
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "lerche",
+        "lift",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/kit/lift_portal",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        3,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "power": [
+          0,
+          1
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "normal": {},
+        "notstrom": {
+          "power": 1
+        },
+        "gekappt": {
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          3.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "lerche",
+        "lift",
+        "kit",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/kit/door_sealed",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ],
+        "stufe": [
+          1,
+          2
+        ],
+        "cut": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu1": {
+          "open": 0,
+          "stufe": 1
+        },
+        "zu2": {
+          "open": 0,
+          "stufe": 2
+        },
+        "offen": {
+          "open": 1
+        },
+        "gekappt": {
+          "cut": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          3.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "lerche",
+        "kit",
+        "door",
+        "pan01"
+      ],
+      "notes": "Verschalte Pforte; nutzt intern lerche/kit/door."
+    },
+    {
+      "id": "lerche/station/lafette",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "art": [
+          0,
+          2
+        ],
+        "side": [
+          0,
+          1
+        ],
+        "ladung": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "verschlossen": {
+          "state": 0
+        },
+        "frei": {
+          "state": 1
+        },
+        "aktiv": {
+          "state": 2
+        },
+        "bug": {
+          "state": 1,
+          "art": 1
+        },
+        "heck": {
+          "state": 1,
+          "art": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.6
+        ],
+        "label": [
+          0,
+          1.08,
+          0
+        ],
+        "fx_smoke": [
+          0,
+          0.88,
+          -0.2
+        ],
+        "fx_spark": [
+          0.2,
+          0.44,
+          0.3
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "lerche",
+        "station",
+        "weapon",
+        "pan01"
+      ],
+      "notes": "Rohr zeigt nach -z (Aussenseite); art 0 Seite, 1 Bug, 2 Heck."
+    },
+    {
+      "id": "lerche/kit/floor_cargo",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.25,
+      "facing": "+z",
+      "params": {
+        "wear": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "sauber": {},
+        "verrusst": {
+          "wear": 1
+        },
+        "brand": {
+          "wear": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 500,
+      "tags": [
+        "lerche",
+        "kit",
+        "floor",
+        "pan01"
+      ],
+      "notes": "Frachtboden; Anker Mitte oben wie lerche/kit/floor."
+    },
+    {
+      "id": "lerche/furn/mission_book",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.19,
+      "facing": "+z",
+      "params": {
+        "neu": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "alt": {},
+        "neu": {
+          "neu": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          0.39,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "plan",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/stowage",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "v": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "stapel": {
+          "v": 0
+        },
+        "kisten": {
+          "v": 1
+        },
+        "niedrig": {
+          "v": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          1.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "storage",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/med_cabinet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "open": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zu": {},
+        "offen": {
+          "open": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "krankenstation",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/container_stack",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {
+        "farbe": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "rot": {},
+        "bronze": {
+          "farbe": 1
+        },
+        "purpur": {
+          "farbe": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          2.14,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "fracht",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/scanner",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "aus": {},
+        "aktiv": {
+          "aktiv": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "krankenstation",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/lathe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.19,
+      "facing": "+z",
+      "params": {
+        "lauf": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "still": {},
+        "lauf": {
+          "lauf": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          1.39,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "werkstatt",
+        "pan01"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "lerche/furn/med_cabinet",
+  "name": "Medizinschrank (Lerche, Krankenstation)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "furn", "krankenstation", "modul", "schrank"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Tür offen (Vorrat sichtbar)" }
+  },
+  "variants": { "offen": { "open": 1 } },
+  "ops": [
+    { "op": "box", "name": "Korpus", "at": [2, 0, 3], "size": [12, 30, 7], "color": { "frame": "metal_light", "fill": "secondary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Sockel", "at": [2, 0, 3], "size": [12, 3, 7], "color": "metal_dark", "mode": "paint" },
+    { "op": "box", "name": "Krone", "at": [1, 30, 2], "size": [14, 2, 9], "color": "trim" },
+    { "op": "box", "name": "Glasfeld oben", "at": [4, 18, 10], "size": [8, 9, 1], "color": { "frame": "metal_light", "fill": { "role": "glass", "emit": 0.3 }, "axes": "xy", "width": 1 }, "jitter": false, "if": "!open" },
+    { "op": "box", "name": "Blechtür unten", "at": [4, 5, 10], "size": [8, 11, 1], "color": { "frame": "metal_light", "fill": "secondary", "axes": "xy", "width": 1 }, "if": "!open" },
+    { "op": "box", "name": "Fach offen", "at": [3, 4, 4], "size": [10, 24, 6], "mode": "carve", "if": "open" },
+    { "op": "box", "name": "Fachrückwand", "at": [3, 4, 3], "size": [10, 24, 1], "color": "dark", "if": "open" },
+    { "op": "box", "name": "Fachboden", "at": [3, 12, 4], "size": [10, 1, 6], "color": "metal_light", "if": "open", "repeat": { "count": 3, "step": [0, 6, 0] } },
+    { "op": "box", "name": "Medipacks", "at": [4, 13, 5], "size": [3, 3, 4], "color": "primary", "if": "open", "repeat": { "count": 2, "step": [4, 6, 0] } },
+    { "op": "box", "name": "Türblatt offen", "at": [1, 4, 10], "size": [1, 24, 5], "color": { "frame": "metal_light", "fill": "secondary", "axes": "yz", "width": 1 }, "if": "open" },
+    { "op": "box", "name": "Kreuz senkrecht", "at": [7, 8, 11], "size": [2, 6, 1], "color": "primary", "if": "!open" },
+    { "op": "box", "name": "Kreuz quer", "at": [5, 10, 11], "size": [6, 2, 1], "color": "primary", "if": "!open" },
+    { "op": "box", "name": "Griff", "at": [12, 14, 11], "size": [1, 4, 1], "color": "trim", "if": "!open" },
+    { "op": "box", "name": "Statuslicht", "at": [7, 28, 10], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.0 }, "jitter": false }
+  ],
+  "anchor": [8, 0, 8]
+}

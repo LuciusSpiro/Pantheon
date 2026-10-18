@@ -1,0 +1,45 @@
+{
+  "id": "lerche/kit/door_sealed",
+  "name": "Lerche – Verschalte Pforte (Unterdeck, bis zum Ausbau verschlossen; offen = normale Tür), Durchgang entlang z",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "tuer", "pforte", "ausbau", "kachelbar"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "open": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "0 verschlossen (Verschalung) · 1 offen (normale Tür)" },
+    "stufe": { "default": 1, "min": 1, "max": 2, "step": 1, "label": "Stufenzeichen: Ausbaustufe, die die Pforte öffnet (1 oder 2)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m wie die Wand daneben)" }
+  },
+  "variants": {
+    "offen": { "open": 1 },
+    "stufe2": { "stufe": 2 },
+    "geschnitten": { "cut": 1 },
+    "geschnitten_stufe2": { "cut": 1, "stufe": 2 },
+    "geschnitten_offen": { "cut": 1, "open": 1 }
+  },
+  "let": {
+    "lh": "cut ? 16 : 36",
+    "mk": "cut ? 6 : 22"
+  },
+  "ops": [
+    { "op": "use", "name": "Rahmen und Blatt (Standardtür)", "model": "lerche/kit/door", "at": [8, 0, 8], "params": { "open": "open", "style": 0, "cut": "cut" } },
+
+    { "op": "group", "name": "Verschalung", "if": "!open", "ops": [
+      { "op": "box", "name": "Bretter", "at": [2, 0, 9], "size": [12, "lh", 3], "color": { "stripes": ["wood", { "shade": "wood", "f": 0.8 }], "axis": "x", "period": 3 } },
+      { "op": "box", "name": "Brett Fuge", "at": [2, 0, 11], "size": [12, "lh", 1], "color": { "shade": "wood_dark", "f": 0.9 }, "mode": "paint", "repeat": { "count": 3, "step": [3, 0, 0], "var": "k" } },
+      { "op": "box", "name": "Querbalken unten", "at": [1, 3, 12], "size": [14, 3, 2], "color": "wood_dark" },
+      { "op": "box", "name": "Querbalken oben", "at": [1, "lh - 8", 12], "size": [14, 3, 2], "color": "wood_dark" },
+      { "op": "line", "name": "Strebe", "if": "!cut", "from": [2, 6, 12.5], "to": [14, 28, 12.5], "r": 1.3, "color": "wood_dark" },
+      { "op": "box", "name": "Eisennieten", "at": [2, 4, 14], "size": [1, 1, 1], "color": "metal_light", "repeat": { "count": 4, "step": [4, 0, 0], "var": "n" } },
+      { "op": "box", "name": "Eisennieten oben", "at": [2, "lh - 7", 14], "size": [1, 1, 1], "color": "metal_light", "repeat": { "count": 4, "step": [4, 0, 0], "var": "n" } },
+      { "op": "box", "name": "Warnband", "at": [1, "lh - 15", 14], "size": [14, 3, 1], "color": { "stripes": ["warning", "black"], "axis": "x", "period": 2 }, "jitter": false, "if": "!cut" },
+      { "op": "box", "name": "Zeichentafel", "at": [4, "mk", 14], "size": [8, 8, 1], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xy", "width": 1 } },
+      { "op": "box", "name": "Stufenzeichen I", "if": "stufe == 1", "at": [7, "mk + 2", 15], "size": [2, 4, 1], "color": { "role": "warning", "emit": 1.2 }, "jitter": false },
+      { "op": "box", "name": "Stufenzeichen II", "if": "stufe == 2", "at": [5, "mk + 2", 15], "size": [2, 4, 1], "color": { "role": "warning", "emit": 1.2 }, "jitter": false, "mirror": "x", "mirrorAt": 8 },
+      { "op": "box", "name": "Siegel", "at": [7, "mk - 3", 14], "size": [2, 2, 1], "color": "primary" },
+      { "op": "box", "name": "Sperrkette", "at": [2, "mk - 4", 15], "size": [12, 1, 1], "color": { "checker": ["metal_light", "metal_dark"], "period": 1 }, "jitter": false, "if": "!cut" }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

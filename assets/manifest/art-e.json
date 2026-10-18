@@ -239,7 +239,10 @@
       "height": 1.2,
       "facing": "+z",
       "params": {
-        "art": [0, 2],
+        "art": [
+          0,
+          3
+        ],
         "gesichert": [0, 1]
       },
       "states": {

@@ -814,6 +814,454 @@
         0
       ]
     },
+    "lerche_s0/rom": {
+      "klasse": "lerche_s0",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/lerche/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/lerche_s0/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        90,
+        90
+      ],
+      "anchor": [
+        45,
+        45
+      ],
+      "lengthPx": 78,
+      "widthPx": 29,
+      "lengthM": 70,
+      "pxPerMeter": 1.1143,
+      "heck": [
+        -36.21,
+        0
+      ],
+      "params": {
+        "stufe": 0
+      },
+      "sockets": {
+        "bug": [
+          36.77,
+          0
+        ],
+        "bugzier": [
+          26.74,
+          0
+        ],
+        "muendung_lanze": [
+          39,
+          0
+        ],
+        "triebwerk_bb": [
+          -39,
+          -4.18
+        ],
+        "triebwerk_stb": [
+          -39,
+          4.18
+        ],
+        "triebwerk_mitte": [
+          -36.21,
+          0
+        ],
+        "banner_bb": [
+          -15.6,
+          -6.41
+        ],
+        "banner_stb": [
+          -15.6,
+          6.41
+        ],
+        "mast": [
+          18.39,
+          0
+        ],
+        "positionslicht_bb": [
+          7.52,
+          -9.19
+        ],
+        "positionslicht_stb": [
+          7.52,
+          9.19
+        ],
+        "lafette_1": [
+          -5.57,
+          -8.36
+        ],
+        "lafette_4": [
+          0.28,
+          -8.36
+        ],
+        "lafette_7": [
+          6.13,
+          -8.36
+        ],
+        "lafette_3": [
+          -5.57,
+          8.36
+        ],
+        "lafette_6": [
+          0.28,
+          8.36
+        ],
+        "lafette_9": [
+          6.13,
+          8.36
+        ],
+        "lafette_2": [
+          -30.09,
+          0
+        ],
+        "lafette_5": [
+          24.51,
+          0
+        ],
+        "lafette_8": [
+          27.86,
+          0
+        ]
+      }
+    },
+    "lerche_s1/rom": {
+      "klasse": "lerche_s1",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/lerche/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/lerche_s1/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        90,
+        90
+      ],
+      "anchor": [
+        45,
+        45
+      ],
+      "lengthPx": 78,
+      "widthPx": 29,
+      "lengthM": 70,
+      "pxPerMeter": 1.1143,
+      "heck": [
+        -36.21,
+        0
+      ],
+      "params": {
+        "stufe": 1
+      },
+      "sockets": {
+        "bug": [
+          36.77,
+          0
+        ],
+        "bugzier": [
+          26.74,
+          0
+        ],
+        "muendung_lanze": [
+          39,
+          0
+        ],
+        "triebwerk_bb": [
+          -39,
+          -4.18
+        ],
+        "triebwerk_stb": [
+          -39,
+          4.18
+        ],
+        "triebwerk_mitte": [
+          -36.21,
+          0
+        ],
+        "banner_bb": [
+          -15.6,
+          -6.41
+        ],
+        "banner_stb": [
+          -15.6,
+          6.41
+        ],
+        "mast": [
+          18.39,
+          0
+        ],
+        "positionslicht_bb": [
+          7.52,
+          -9.19
+        ],
+        "positionslicht_stb": [
+          7.52,
+          9.19
+        ],
+        "lafette_1": [
+          -5.57,
+          -8.36
+        ],
+        "lafette_4": [
+          0.28,
+          -8.36
+        ],
+        "lafette_7": [
+          6.13,
+          -8.36
+        ],
+        "lafette_3": [
+          -5.57,
+          8.36
+        ],
+        "lafette_6": [
+          0.28,
+          8.36
+        ],
+        "lafette_9": [
+          6.13,
+          8.36
+        ],
+        "lafette_2": [
+          -30.09,
+          0
+        ],
+        "lafette_5": [
+          24.51,
+          0
+        ],
+        "lafette_8": [
+          27.86,
+          0
+        ]
+      }
+    },
+    "lerche_s2/rom": {
+      "klasse": "lerche_s2",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/lerche/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/lerche_s2/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        90,
+        90
+      ],
+      "anchor": [
+        45,
+        45
+      ],
+      "lengthPx": 78,
+      "widthPx": 29,
+      "lengthM": 70,
+      "pxPerMeter": 1.1143,
+      "heck": [
+        -36.21,
+        0
+      ],
+      "params": {
+        "stufe": 2
+      },
+      "sockets": {
+        "bug": [
+          36.77,
+          0
+        ],
+        "bugzier": [
+          26.74,
+          0
+        ],
+        "muendung_lanze": [
+          39,
+          0
+        ],
+        "triebwerk_bb": [
+          -39,
+          -4.18
+        ],
+        "triebwerk_stb": [
+          -39,
+          4.18
+        ],
+        "triebwerk_mitte": [
+          -36.21,
+          0
+        ],
+        "banner_bb": [
+          -15.6,
+          -6.41
+        ],
+        "banner_stb": [
+          -15.6,
+          6.41
+        ],
+        "mast": [
+          18.39,
+          0
+        ],
+        "positionslicht_bb": [
+          7.52,
+          -9.19
+        ],
+        "positionslicht_stb": [
+          7.52,
+          9.19
+        ],
+        "lafette_1": [
+          -5.57,
+          -8.36
+        ],
+        "lafette_4": [
+          0.28,
+          -8.36
+        ],
+        "lafette_7": [
+          6.13,
+          -8.36
+        ],
+        "lafette_3": [
+          -5.57,
+          8.36
+        ],
+        "lafette_6": [
+          0.28,
+          8.36
+        ],
+        "lafette_9": [
+          6.13,
+          8.36
+        ],
+        "lafette_2": [
+          -30.09,
+          0
+        ],
+        "lafette_5": [
+          24.51,
+          0
+        ],
+        "lafette_8": [
+          27.86,
+          0
+        ]
+      }
+    },
+    "lerche_s3/rom": {
+      "klasse": "lerche_s3",
+      "volk": "rom",
+      "set": "rom",
+      "model": "schiff/lerche/rom",
+      "palette": "rom_schiff",
+      "file": "schiff/lerche_s3/rom.png",
+      "steps": 64,
+      "cols": 8,
+      "rows": 8,
+      "frame": [
+        90,
+        90
+      ],
+      "anchor": [
+        45,
+        45
+      ],
+      "lengthPx": 78,
+      "widthPx": 29,
+      "lengthM": 70,
+      "pxPerMeter": 1.1143,
+      "heck": [
+        -36.21,
+        0
+      ],
+      "params": {
+        "stufe": 3
+      },
+      "sockets": {
+        "bug": [
+          36.77,
+          0
+        ],
+        "bugzier": [
+          26.74,
+          0
+        ],
+        "muendung_lanze": [
+          39,
+          0
+        ],
+        "triebwerk_bb": [
+          -39,
+          -4.18
+        ],
+        "triebwerk_stb": [
+          -39,
+          4.18
+        ],
+        "triebwerk_mitte": [
+          -36.21,
+          0
+        ],
+        "banner_bb": [
+          -15.6,
+          -6.41
+        ],
+        "banner_stb": [
+          -15.6,
+          6.41
+        ],
+        "mast": [
+          18.39,
+          0
+        ],
+        "positionslicht_bb": [
+          7.52,
+          -9.19
+        ],
+        "positionslicht_stb": [
+          7.52,
+          9.19
+        ],
+        "lafette_1": [
+          -5.57,
+          -8.36
+        ],
+        "lafette_4": [
+          0.28,
+          -8.36
+        ],
+        "lafette_7": [
+          6.13,
+          -8.36
+        ],
+        "lafette_3": [
+          -5.57,
+          8.36
+        ],
+        "lafette_6": [
+          0.28,
+          8.36
+        ],
+        "lafette_9": [
+          6.13,
+          8.36
+        ],
+        "lafette_2": [
+          -30.09,
+          0
+        ],
+        "lafette_5": [
+          24.51,
+          0
+        ],
+        "lafette_8": [
+          27.86,
+          0
+        ]
+      }
+    },
     "linienschiff/aegypten": {
       "klasse": "linienschiff",
       "volk": "aegypten",

@@ -1,0 +1,31 @@
+{
+  "id": "lerche/kit/lift_portal",
+  "name": "Lerche – Liftportal (Brücken-Rückwand, 3 Kacheln breit, L1 als Tür zur Brücke)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "portal", "lift", "bruecke", "pan01"],
+  "footprint": [3, 1],
+  "jitter": 0,
+  "params": {
+    "power": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Notstrom (Lichter Amber)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m)" }
+  },
+  "variants": { "notstrom": { "power": 1 }, "geschnitten": { "cut": 1 } },
+  "ops": [
+    { "op": "box", "name": "Wandkörper", "at": [0, 0, 0], "size": [12, "cut ? 5 : 12", 4], "color": "secondary" },
+    { "op": "box", "name": "Sockel", "at": [0, 0, 0], "size": [12, 1, 4], "color": "metal_dark", "mode": "paint" },
+    { "op": "box", "name": "Öffnung unten", "at": [2, 0, 0], "size": [8, "cut ? 5 : 7", 4], "mode": "carve" },
+    { "op": "cyl", "name": "Rundbogen", "if": "!cut", "axis": "z", "at": [6, 6, 0], "r": 4, "h": 4, "mode": "carve" },
+    { "op": "box", "name": "Säulenschaft", "at": [0, 1, 0], "size": [2, "cut ? 3 : 8", 4], "color": { "stripes": ["secondary", "stone_dark"], "axis": "y", "period": 1 }, "mode": "paint", "mirror": "x", "mirrorAt": 6 },
+    { "op": "box", "name": "Säulenbasis", "at": [0, 0, 0], "size": [2, 1, 4], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 6 },
+    { "op": "box", "name": "Kapitell", "if": "!cut", "at": [0, 9, 0], "size": [2, 1, 4], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 6 },
+    { "op": "box", "name": "Gebälk", "if": "!cut", "at": [0, 10, 0], "size": [12, 2, 4], "color": { "stripes": ["trim", { "shade": "trim", "f": 0.8 }], "axis": "x", "period": 1 }, "mode": "paint" },
+    { "op": "box", "name": "Schlussstein", "if": "!cut", "at": [5, 10, 0], "size": [2, 1, 4], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Bogenfeld Rot", "if": "!cut", "at": [3, 8, 0], "size": [6, 1, 4], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Türkennung L1", "if": "!cut && !power", "at": [5, 11, 0], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Türkennung L1 Notstrom", "if": "!cut && power", "at": [5, 11, 0], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.2 }, "jitter": false },
+    { "op": "box", "name": "Kämpferlicht", "if": "!cut", "at": [2, 8, 0], "size": [1, 1, 1], "color": { "role": "glow2", "emit": 0.7 }, "jitter": false, "mirror": "x", "mirrorAt": 6 },
+    { "op": "box", "name": "Schnittkappe", "if": "cut", "at": [0, 4, 0], "size": [12, 1, 4], "color": "metal_dark", "mode": "paint" }
+  ],
+  "anchor": [6, 0, 2]
+}

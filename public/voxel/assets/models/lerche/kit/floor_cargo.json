@@ -1,0 +1,22 @@
+{
+  "id": "lerche/kit/floor_cargo",
+  "name": "Lerche – Bodenkachel Frachtraum (Metallplatte mit Gelb-Schwarz-Streifen am Rand)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "kit", "boden", "kachelbar", "frachtraum", "pan01"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "wear": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 sauber · 1 verrußt · 2 Brandfleck" }
+  },
+  "let": { "v": "0.94 + 0.04 * (seed % 4)" },
+  "variants": { "verrusst": { "wear": 1 }, "brandfleck": { "wear": 2 }, "anders": { "seed": 2 } },
+  "ops": [
+    { "op": "box", "name": "Platte", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "shade": "metal_light", "f": "0.7 * v" }, "jitter": false },
+    { "op": "box", "name": "Warnstreifen Rand", "at": [0, 0, 0], "size": [4, 1, 1], "color": { "stripes": ["warning", "black"], "axis": "x", "period": 1 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Warnstreifen Rand quer", "at": [0, 0, 1], "size": [1, 1, 3], "color": { "stripes": ["warning", "black"], "axis": "z", "period": 1 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Ruß", "if": "wear == 1", "at": [0, 0, 0], "size": [4, 1, 4], "color": { "noise": ["dark", "metal_dark"], "weights": [1, 2], "cell": 1 }, "jitter": false, "mode": "paint" },
+    { "op": "box", "name": "Brandfleck", "if": "wear == 2", "at": [1, 0, 1], "size": [3, 1, 3], "color": "dark", "jitter": false, "mode": "paint" }
+  ],
+  "anchor": [2, 1, 2]
+}
