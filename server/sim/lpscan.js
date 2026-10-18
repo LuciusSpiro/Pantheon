@@ -1,6 +1,6 @@
 'use strict';
 // SL7b (CONCEPT-SL7 §7b): Landepunkt per Scan. Die Ops scannt einen Landepunkt (Station, Schiff, Planet) vom Orbit aus; erst dann liegt dessen Karte
-// auf dem Planungstisch (Messe). Ohne Scan geht das Außenteam ohne Karte hinunter (erlaubt, riskant). Der Captain sieht die Außenmissionskarte weiter erst,
+// auf dem Planungstisch (Meetingraum, Oberdeck). Ohne Scan geht das Außenteam ohne Karte hinunter (erlaubt, riskant). Der Captain sieht die Außenmissionskarte weiter erst,
 // wenn ein Außenteam gebeamt wurde (st.away.active, unverändert).
 //
 // Benannte Schnittstelle (andere Pakete, z. B. SL0 „Person vom Boden beamen“):

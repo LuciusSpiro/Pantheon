@@ -2131,7 +2131,7 @@
     }
     if (canMove && nonzero) {
       const speed = SPEED * (m.carry ? 0.85 : 1) * (canCrouchHere(m, st) && crouchActive(m) ? crouchFactor() : run ? RUN : 1);   // §15: gleicher Faktor wie der Server (Shift = rennen)
-      const dx = mx * speed * dt, dy = my * speed * dt;
+      const dx = mx * speed * dt, dy = (m.lm ? 0 : my) * speed * dt;   // PAN-01 B: bei offener Liftwahl sind W/S die Deckwahl, der Server bewegt nicht (keine Vorhersage nach oben/unten)
       const r = Phys.moveWithCollision(isSolidFor(self.zone, st), self.x, self.y, dx, dy, HITBOX);
       self.moving = Math.abs(r.x - self.x) + Math.abs(r.y - self.y) > 0.01;
       self.x = r.x; self.y = r.y;

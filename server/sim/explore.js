@@ -187,7 +187,7 @@ class Explore {
   }
   onStationScanned(locId) {
     const g = this.game;
-    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch auf der Brücke.', null); }
+    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch im Meetingraum.', null); }
     else if (locId === 'wrack') { this.mapsKnown.wreck = true; this.version++; g.oda('Wrack kartiert – Deckplan am Planungstisch. Ein Weitscan zeigt vielleicht Hohlräume.', null); }
     else if (locId === 'kesh') { this.mapsKnown.kesh = true; this.version++; g.oda('Kesh kartiert – der Plan des Archivs liegt am Planungstisch. Zwei Wege führen nach Osten.', null); }
     else if (locId === 'relais') g.oda('Relaisscan: Der Kern liegt mittig. Captain-Scan aus nächster Nähe nötig.', null);
