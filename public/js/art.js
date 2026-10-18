@@ -2979,9 +2979,15 @@
   // Positionen im Spritekoordinatensystem (px, Bug +x, Backbord -y) fuer Schaeden an den Systemen
   var SYS_EXT_SPRITE = {
     reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-33, 0], emitter_aft: [-25, -5],
-    thruster_port: [-16, -12], thruster_stbd: [-16, 12], battery_port: [0, -10], battery_stbd: [0, 10],
+    thruster_port: [-16, -14], thruster_stbd: [-16, 14], battery_port: [0, -10], battery_stbd: [0, 10],
     emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [38, 0], emitter_bow: [24, 4],
   };
+  // Schadensorte aus den Andockpunkten des Sprites (Manifest), sonst die Tabelle oben
+  function sysExtSprite(so) {
+    var e = Object.assign({}, SYS_EXT_SPRITE), pick = function (k, n) { if (so[n]) e[k] = [so[n][0], so[n][1]]; };
+    pick('weapon_bow', 'muendung_lanze'); pick('battery_port', 'lafette_4'); pick('battery_stbd', 'lafette_6'); pick('engines', 'triebwerk_mitte');
+    return e;
+  }
   function drawShipSpriteLerche(ctx, sp, x, y, b, o, W) {
     var t = o.time || 0, bang = b / ROT_STEPS * Math.PI * 2, info = sp.info, so = info.sockets || {};
     function S(n, dx, dy) { var p = so[n]; return p ? W(p[0], p[1]) : W(dx, dy); }
@@ -3008,7 +3014,7 @@
     // Linse der Lanze glimmt (nicht bei zerstoerter Bug-Waffe)
     var lst = o.systems && o.systems.weapon_bow;
     if (lst !== 'broken') { var lz = S('muendung_lanze', 39, 0); glow(ctx, lz[0], lz[1], PAL.mint, 5, lst === 'damaged' ? 0.2 + 0.2 * Math.sin(t * 17) : 0.35 + 0.15 * Math.sin(t * 3)); }
-    drawShipDamage(ctx, W, bang, o, t, SYS_EXT_SPRITE);
+    drawShipDamage(ctx, W, bang, o, t, info.extCache || (info.extCache = sysExtSprite(so)));
     shipHitFx(ctx, x, y, W, bang, o);
   }
   function drawShip(ctx, x, y, angle, opts) {

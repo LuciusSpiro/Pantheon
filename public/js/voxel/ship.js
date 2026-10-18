@@ -43,10 +43,9 @@ const FURN_ID = {
 };
 // PAN-01 B: Modulplätze (mod_a/b/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
 // Voxelwerk-Lieferung (Tabelle des Voxel-Entwicklers): A Frachtbucht / Liege / Werkbank, B Bett / Medizinschrank / Werkzeugwand, C Containerstapel / Scanner / Drehbank.
-// Abweichung: Die Werkzeugwand (B, Werkstatt) gibt es als Modell nicht, dort steht die Werkbank (lerche/furn/workbench).
 const MODUL_ID = {
   mod_a: { f: ['lerche/furn/cargo_bay', 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
-  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_cabinet', 'schrank'], w: ['lerche/furn/workbench', null] },
+  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_cabinet', 'schrank'], w: ['lerche/furn/tool_wall', 'werkzeug'] },
   mod_c: { f: ['lerche/furn/container_stack', 'container'], k: ['lerche/furn/scanner', 'scanner'], w: ['lerche/furn/lathe', 'drehbank'] },
 };
 const CRATE_ID = 'lerche/furn/crate', STOWAGE_ID = 'lerche/furn/stowage', LAFETTE_ID = 'lerche/station/lafette', SEALED_ID = 'lerche/kit/door_sealed';
@@ -532,9 +531,8 @@ function placeObj(ctx, S, e, params) {
     else { id = STOWAGE_ID; params = { v: Math.floor(hash(e.o.tx, e.o.ty, 5) * 3) }; }
   }
   if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = { on: 1 }; }   // lampe: on (andere ignorieren den Parameter)
-  // PAN-01 B: verschalte Pforte: zu = door_sealed (Verschalung mit Stufenzeichen), nach dem Ausbau die Standardtür, die beim Nähern aufgeht
-  // (door_sealed.open 1 hieße "Blatt offen", nicht "entsiegelt"; deshalb die Standardtür nach der Entsiegelung)
-  if (e.seal) { if (params.sealed) { id = SEALED_ID; params = { open: 0, stufe: params.sstufe, cut: params.cut }; } else params = { open: params.open, style: params.style, cut: params.cut }; }
+  // PAN-01 B: verschalte Pforte = door_sealed: entsiegelt 0 verschalt (Stufenzeichen), 1 normale Tür; open = Türblatt offen (beim Nähern)
+  if (e.seal) { id = SEALED_ID; params = { entsiegelt: params.sealed ? 0 : 1, open: params.open, stufe: params.sstufe, cut: params.cut }; }
   if (e.modul) {   // Modulplatz nach Modul im Raum; ohne Modul Stauware
     const mm = MODUL_ID[e.modul][params.code];
     const vv = Math.floor(hash(e.o.tx, e.o.ty, 5) * 3);   // Stauware ohne Modul: Anordnung 0 Stapel, 1 Kisten + Fass, 2 niedrig + Plane
@@ -542,7 +540,7 @@ function placeObj(ctx, S, e, params) {
     else {
       id = mm[0];
       params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 }
-        : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : {};
+        : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : mm[1] === 'werkzeug' ? { voll: 1, lampe: 0 } : {};
     }
   }
   const obj = ctx.loader.object(id, params, { color: e.color });

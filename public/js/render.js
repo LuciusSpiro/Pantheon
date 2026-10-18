@@ -3056,12 +3056,16 @@
     }
   }
   // Rohrpositionen an der Flanke (Schiffskoordinaten, Bug = +x, Backbord = −y)
-  // Mit dem Voxel-Sprite der Lerche (lerchSprite = Stufe) liegen die Rohre auf den Lafetten-Andockpunkten (x -5,6 bis 6,1; Rohrspitze am Flankenrand y 14,4)
+  // Mit dem Voxel-Sprite der Lerche (lerchSprite = Sprite-Info) liegen die Rohre auf den Mündungs-Andockpunkten des Manifests
+  // (muendung_1/4/7 Backbord, 3/6/9 Steuerbord: Lafetten-Reihe x, Rohrspitze y); ohne Sockets Rückfall auf feste Werte
   let lerchSprite = null;
   function tubeLocal(mount, tube, tubes) {
     const n = Math.max(1, tubes);
     const sg = mount === 'port' ? -1 : 1;
-    if (lerchSprite != null) return { lx: n === 1 ? 0.3 : -5.6 + tube * (11.7 / (n - 1)), ly: sg * 14.4 };
+    if (lerchSprite) {
+      const so = lerchSprite.sockets || {}, a = so.muendung_1 || [-7.2, -17], c = so.muendung_7 || [7.8, -17], mid = (so.muendung_4 || [0.3, -17])[0];
+      return { lx: n === 1 ? mid : a[0] + tube * ((c[0] - a[0]) / (n - 1)), ly: sg * Math.abs(a[1]) };
+    }
     const lx = n === 1 ? 4 : -12 + tube * (30 / (n - 1));
     return { lx, ly: sg * 14 };
   }
@@ -3071,7 +3075,7 @@
     const A = window.Art;
     const stat = A && typeof A.lerchenSprite === 'function' ? A.lerchenSprite(stufe) : 'fehlt';
     if (stat === 'fehlt' && !lerchSprMeldung[stufe]) { lerchSprMeldung[stufe] = 1; report('Lerche.sprite', new Error('Sprite lerche_s' + stufe + '/rom fehlt, prozedurale Lerche')); }
-    return stat === 'ok' ? stufe : null;
+    return stat === 'ok' && A.lerchenSpriteInfo ? (A.lerchenSpriteInfo(stufe) || null) : null;
   }
   function drawMuzzles(ctx, sship, ship, rot, shipScale, cx, cy, t) {
     const now = performance.now() / 1000;
@@ -4015,7 +4019,7 @@
     const stg = Number.isInteger(hh.stage) && Array.isArray(hh.stages) ? hh.stages : null;
     const thrust = stg ? Math.max(0, (+stg[hh.stage] || 0) / Math.max(1, ...stg.map(Number))) : Math.max(0, hh.thrust || 0);
     const lerchStufe = stufeOf(st);
-    lerchSprite = lerchSpriteWahl(lerchStufe);
+    lerchSprite = lerchSpriteWahl(lerchStufe);   // Sprite-Info (Manifest) oder null
     const shipOpts = { thrust, stufe: lerchStufe, shields: sh.current || [0, 0, 0, 0], shieldMax: 4, hitSector: hitInfo.sector, hitT: hitInfo.t != null ? hitInfo.t : 99, time: t,
       // M3a: Außenansicht (Rauch/Funken an Systemen), Schild-Kappung, Schildstoß, bedrohte Sektoren
       systems: sship.systems || null, fragile: sship.fragile || null, shieldCap: sh.cap || null,
