@@ -1832,7 +1832,7 @@ async function runArena(opts) {
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: Math.round(game.ship.hull),
-    waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
+    waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0, schuesse: st.schuesse || 0, schussTreffer: st.schussTreffer || 0, torpedoAbgeprallt: st.torpedoAbgeprallt || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
 }
 
@@ -1949,7 +1949,7 @@ async function arenaMain() {
       log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
         `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
         `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
-        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer}`);
+        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer} · SCH ${r.schuesse}/${r.schussTreffer} · AB ${r.torpedoAbgeprallt}`);
       if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
     const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;

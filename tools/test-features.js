@@ -284,7 +284,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   // Korvette oben (Backbord des Schiffs), Blick nach Osten: seine Steuerbord-Seite (Sektor 1, Schild 2) zeigt zum Schiff
   const e = space.spawnEnemy(g, 'korvette', { x: 1000, y: 1150, facing: 0 });
   e.hp = e.hpMax = 40;
-  const hold = (en, x, y, a) => () => { en.x = x; en.y = y; en.angle = a; en.fireT = -999; en.tele = null; g.space.projectiles = []; };
+  const hold = (en, x, y, a) => () => { en.x = x; en.y = y; en.vx = 0; en.vy = 0; en.angle = a; en.fireT = -999; en.tele = null; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe || q.kind === 'torpedo'); };   // PAN-01 C: Projektile der Lerche bleiben
   const runPinned = (sec, f) => { for (let k = 0; k < Math.round(sec * 30); k++) { f(); g.step(); } };
   const pinE = hold(e, 1000, 1150, 0);
   const snap0 = g.snapshot();
@@ -300,9 +300,9 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
   cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
   let batteryBeams = 0;
-  runPinned(1.2, () => { pinE(); batteryBeams += g.space.beams.filter((b) => b.kind === 'battery' && !b.seen).map((b) => (b.seen = true)).length; });
+  runPinned(1.2, () => { pinE(); batteryBeams += g.space.projectiles.filter((b) => b.kind === 'pbatterie' && !b.seen).map((b) => (b.seen = true)).length; });
   ok(e.shields[1] === 0 && e.shields[3] === 2 && e.hp === 40 - (4 * M3.mounts.port.damage - 2), `Altname both: Bb-Salve 4×1,5 auf den Schild zum Schiff (2 -> 0), Rest auf die Hülle (hp ${e.hp})`);
-  ok(batteryBeams === 4, 'vier Batterie-Strahlen (Beam-Kind battery): ' + batteryBeams);
+  ok(batteryBeams === 4 && !g.space.beams.some((b) => b.kind === 'battery'), 'vier Batterie-Projektile (kind pbatterie, kein Strahl): ' + batteryBeams);
   e.shields = [0, 0, 0, 0]; e.hp = 40;
   sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });   // Altname phase_l -> port
@@ -315,8 +315,8 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   // §20.4: kein Ziel im Bogen -> Salve ins Leere (senkrecht zur Flanke), kein Schaden am Ziel auf Steuerbord
   const hpOut = e.hp;
   let voidBeams = 0;
-  runPinned(1.2, () => { e.x = 1000; e.y = 1850; e.fireT = -999; e.tele = null; voidBeams += g.space.beams.filter((b) => b.kind === 'battery' && b.miss && !b.seen).map((b) => (b.seen = true)).length; });
-  ok(e.hp === hpOut && voidBeams === 4, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Strahlen), kein Schaden')
+  runPinned(1.2, () => { e.x = 1000; e.y = 1850; e.fireT = -999; e.tele = null; voidBeams += g.space.projectiles.filter((b) => b.kind === 'pbatterie' && !b.seen).map((b) => (b.seen = true)).length; });
+  ok(e.hp === hpOut && voidBeams === 4, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Projektile fliegen am Ziel vorbei), kein Schaden')
   e.x = 1000; e.y = 1150;
   cmd(0, 'weapons.fire', { mount: 'bolzen' });
   ok(notices(0).some((t) => /Torpedowerfer/.test(t)), 'Torpedowerfer nicht eingebaut (Heck 2, ab Stufe 2; PAN-01 C)');
@@ -340,7 +340,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   g.space.enemies = [];
   const r = space.spawnEnemy(g, 'raider', { x: 1000, y: 1150, facing: Math.PI / 2 });
   r.shields = [0, 0, 0, 0]; r.hp = 10; sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
-  runPinned(1.2, () => { r.x = 1000; r.y = 1150; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = []; });
+  runPinned(2.5, () => { r.x = 1000; r.y = 1150; r.vx = 0; r.vy = 0; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe); });
   // Toleranz: space.damageEnemy rundet HP je Treffer auf 0,1 (0,75 -> 0,7)
   ok(Math.abs(r.hp - (10 - 4 * M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden 4×1,5) – hp ' + r.hp);
   // EMP des Wächters

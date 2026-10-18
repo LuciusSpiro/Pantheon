@@ -529,6 +529,36 @@ function turmZiel(game, id) {
 function zielAn(game, id) {
   return game.space.enemies.find((q) => q.id === id) || game.space.projectiles.find((q) => q.id === id) || null;
 }
+// ---------- Projektile der Salvenwaffen (Standardbatterie, Standardkanone, Sturmbatterie, Abwehrturm) ----------
+// Ein Projektilmodell für Spieler und Gegner wie das Sperrfeuer der Gegner: ungelenkt, geradeaus, langsam genug zum Ausweichen, Treffer per Abstand zum Ziel (updateProjectiles),
+// Schaden je Treffer = Katalogwert (Schild und Hülle wie bisher). Vorhalt: gezielt wird auf den Abfangpunkt des Ziels bei gehaltenem Kurs und Tempo (höchstens 3 s voraus); wer Kurs oder
+// Tempo wechselt, entkommt. Rohrfolge: je Rohr ein Projektil im Takt der Salve, quer versetzt und leicht gefächert (deterministisch, kein Zufall).
+function zielVel(e) {
+  if (e.vx != null || e.vy != null) return { x: e.vx || 0, y: e.vy || 0 };
+  if (e.speed != null && e.angle != null) return { x: Math.cos(e.angle) * e.speed, y: Math.sin(e.angle) * e.speed };   // Gegner-Torpedo
+  return { x: 0, y: 0 };
+}
+function vorhaltWinkel(o, e, v, speed, maxT) {
+  const rx = e.x - o.x, ry = e.y - o.y, vx = v.x, vy = v.y;
+  const a = vx * vx + vy * vy - speed * speed, b = 2 * (rx * vx + ry * vy), c = rx * rx + ry * ry;
+  let t = 0;
+  if (Math.abs(a) < 1e-6) t = b < 0 ? -c / b : 0;
+  else { const disc = b * b - 4 * a * c; if (disc >= 0) { const q = Math.sqrt(disc); const ts = [(-b - q) / (2 * a), (-b + q) / (2 * a)].filter((x) => x > 0); t = ts.length ? Math.min(...ts) : 0; } }
+  t = Math.max(0, Math.min(maxT, t));
+  return Math.atan2(ry + vy * t, rx + vx * t);
+}
+function schussAb(game, id, w, c, e, o, idx, b) {
+  const ship = game.ship; const mc = mountCfg(game, id);
+  const n = Math.max(1, b.salvoMax || c.rohre);
+  let ang = e ? vorhaltWinkel(o, e, zielVel(e), w.geschw, 3) : ship.angle + mc.facing * Math.PI / 180;
+  ang += ((idx % 4) - 1.5) * w.streuung;
+  const q = (idx - (n - 1) / 2) * 2.2;   // Rohre nebeneinander (px quer zur Flugrichtung)
+  const reach = S().waffenReichweite(game, c.reichweite);
+  game.space.projectiles.push({ id: game.nextId('pr'), kind: w.projektil.kind, x: o.x - Math.sin(ang) * q, y: o.y + Math.cos(ang) * q, angle: ang, speed: w.geschw,
+    ttl: reach / w.geschw + 0.1, dmg: c.schaden * (b.salvoFactor || 1), owner: 'lerche', waffe: w.id, mount: id });
+  game.stats.schuesse = (game.stats.schuesse || 0) + 1;
+}
+
 function updateSalvos(game, dt) {
   const sp = S();
   for (const a of ausstattung(game)) {
@@ -543,44 +573,21 @@ function updateSalvos(game, dt) {
       b.salvo--;
       let e = b.salvoTarget != null ? zielAn(game, b.salvoTarget) : null;
       const turm = w.art === 'turm';
-      // EK2: Ziel ist eine Mine (Ops hat sie angewählt): Salve geht auf die Mine, Explosion auf Distanz
+      // EK2: Ziel kann eine angewählte Mine sein (Projektile treffen Minen wie Gegner, Explosion auf Distanz)
       const mn = !e && b.salvoTarget != null && !turm ? Alarm.mineById(game, b.salvoTarget) : null;
-      if (mn && inMountArc(game, k, mn.x, mn.y)) {
-        const o2 = mountOrigin(game, k); const ttl2 = batteryBeamTtl(game);
-        game.space.beams.push({ x1: o2.x, y1: o2.y, x2: mn.x, y2: mn.y, ttl: ttl2, ttlMax: ttl2, kind: 'battery', mount: k });
-        Alarm.abschuss(game, mn); b.salvo = 0; b.salvoTarget = null;
-        break;
-      }
+      if (mn && inMountArc(game, k, mn.x, mn.y)) e = mn;
       const o = mountOrigin(game, k);
-      const ttl = batteryBeamTtl(game);
       if (turm) {   // dreht sich selbst: Ziel neu wählen, wenn es weg ist
         if (!e || (e.kind !== 'etorpedo' && dist(game.ship.x, game.ship.y, e.x, e.y) > sp.waffenReichweite(game, c.reichweite))) { e = turmZiel(game, k); b.salvoTarget = e ? e.id : null; }
       } else if (!e || !inMountArc(game, k, e.x, e.y)) { e = nearestInArc(game, k); b.salvoTarget = e ? e.id : null; }
-      if (!e) {   // §20.4: Schuss ins Leere – Strahl trotzdem zeichnen
+      if (!e) {   // §20.4: Schuss ins Leere – das Projektil fliegt trotzdem (Rohrfolge lesbar)
         if (turm) { b.salvo = 0; continue; }
         if (w.id === 'streubatterie') { streuWurf(game, k, w, c, null, o, idx); continue; }
-        const p = voidShotEnd(game, k, o, idx);
-        game.space.beams.push({ x1: o.x, y1: o.y, x2: p.x, y2: p.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, miss: true, sym: w.projektil.form });
+        schussAb(game, k, w, c, null, o, idx, b);
         continue;
       }
       if (w.id === 'streubatterie') { streuWurf(game, k, w, c, e, o, idx); continue; }
-      // W2: Brocken zwischen Rohr und Ziel fängt den Treffer
-      const rock = sp.brockenImWeg(game, o.x, o.y, e.x, e.y);
-      if (rock) {
-        sp.brockenStats(game).strahlen++;
-        game.space.beams.push({ x1: o.x, y1: o.y, x2: rock.x, y2: rock.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, miss: true, sym: w.projektil.form });
-        continue;
-      }
-      game.space.beams.push({ x1: o.x, y1: o.y, x2: e.x, y2: e.y, ttl, ttlMax: ttl, kind: 'battery', mount: k, sym: w.projektil.form });
-      if (e.kind === 'etorpedo') {   // Abwehrturm: ein Treffer zerstört den Torpedo
-        game.space.projectiles = game.space.projectiles.filter((q) => q !== e);
-        game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
-        game.stats.torpedosAbgeschossen = (game.stats.torpedosAbgeschossen || 0) + 1;
-        b.salvoTarget = null;
-        continue;
-      }
-      const opts = w.id === 'sturmbatterie' ? { sturm: w.sturm } : undefined;
-      schade(game, e, c.schaden * (b.salvoFactor || 1), o.x, o.y, opts, w.id);
+      schussAb(game, k, w, c, e, o, idx, b);
     }
     if (b.salvo <= 0) { b.salvo = 0; b.salvoTarget = null; }
   }

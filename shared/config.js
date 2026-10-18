@@ -541,8 +541,8 @@
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
         bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
-        port: { facing: -90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
-        stbd: { facing: 90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
+        port: { facing: -90, arc: 70, range: 520, damage: 2, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
+        stbd: { facing: 90, arc: 70, range: 520, damage: 2, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
       },
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,

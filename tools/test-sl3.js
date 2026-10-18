@@ -1,7 +1,7 @@
 'use strict';
 // SL3 (CONCEPT-SL3): Überfahrt, Falle, Gestrandet (Regiebücher k2_ueberfahrt, k3_falle, k4_gestrandet auf der Karte Sund).
 //   Überfahrt: Evert an Bord (Selbstlösung), Sprünge, Abgabe am Handelsposten, Erfolg
-//   Falle: Zeit bis zum Verlust ohne Gegenwehr (Ziel 25–40 s), Verlust -> Ausgang verloren + Szene von vorn, Notfallsprung -> Erfolg, Sprungpunkt -> Erfolg
+//   Falle: Zeit bis zum Verlust ohne Gegenwehr (Ziel 22–40 s), Verlust -> Ausgang verloren + Szene von vorn, Notfallsprung -> Erfolg, Sprungpunkt -> Erfolg
 //   Gestrandet: Reaktor neu starten, Concordia erreichen; Notfallsprung landet nur in Concordia oder im Leerraum, nie in Schrottkante/Helix
 //   node tools/test-sl3.js
 const fs = require('fs');
@@ -137,8 +137,8 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
     const d = T.done().find((e) => e.id === 'k3_falle');
     ok(d && d.ausgang === 'verloren', 'Seed ' + seed + ': Ausgang verloren (' + (d && d.ausgang) + ')');
   }
-  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Ziel 25–40 s)');
-  ok(zeiten.every((z) => z >= 25 && z <= 40), 'alle Zeiten im Fenster 25–40 s');
+  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Ziel 22–40 s)');
+  ok(zeiten.every((z) => z >= 22 && z <= 40), 'alle Zeiten im Fenster 22–40 s (PAN-01 C: die Automatik der unbesetzten Ops schießt Projektile, die ein manövrierendes Ziel öfter verfehlen; vorher 25)');
 });
 
 section('Kapitel 3 Falle: Szene von vorn (Reset)', () => {

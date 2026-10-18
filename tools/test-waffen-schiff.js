@@ -83,7 +83,7 @@ function gegner(T, kind, dx, dy, o) {
 }
 function pin(g) {
   const sh = g.ship; sh.vx = 0; sh.vy = 0;
-  for (const e of g.space.enemies) if (e.pin) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; if (e.sfS) e.sfS.t = -999; e.tele = null; e.streuG = -999; e.torpG = -999; }
+  for (const e of g.space.enemies) if (e.pin) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; if (e.sfS) e.sfS.t = -999; e.tele = null; e.streuG = -999; e.torpG = -999; }
 }
 const lauf = (T, sec, each) => T.run(sec, () => { pin(T.g); if (each) each(); });
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
@@ -253,20 +253,30 @@ section('Torpedowerfer: Regeln', () => {
   const tm = snapMount(T, 'p2');
   ok(tm.typ === 'torpedowerfer' && tm.facing === 180 && tm.arc === Katalog.waffe('torpedowerfer').bogen && tm.alloc === undefined && tm.charge === 1 && tm.ammo === 6, 'Snapshot: Heck, Bogen ' + tm.arc + ', Lager 6, ohne Ladepunkte');
   // Wirkung: kein Schildschaden, trifft die Hülle; Jäger sofort tot, Korvette nur angeschlagen
+  // Kai 2026-10-18: Lesart B – der Torpedo wirkt nur auf freie Hülle (Schildsegment ausgefallen); bei stehendem Schild prallt er ab (Schaden 0, kein Schildabzug)
+  ok(Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild', 'Katalog: schildUmgehung nur-ohne-schild (Lesart B, alle Ziele)');
   const j = gegner(T, 'raider', -300, 0, { schild: true }); j.shields = [4, 4, 4, 4];
   g.ship.target = j.id;
-  const sh0 = j.shields.slice();
+  const sh0 = j.shields.slice(); const jh = j.hp;
   ok(T.cmd(0, 'weapons.fire', { mount: 'bolzen' }).length === 0, 'Torpedo auf den Jäger abgefeuert');
   const alive = () => g.space.enemies.includes(j);
-  let t = 0; while (alive() && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(!alive(), `Jäger mit einem Torpedo direkt zerstört trotz voller Schilde (${t.toFixed(1)} s Flug)`);
-  ok(g.stats.torpedoTreffer === 1 && g.inventory.bolzen === 5, 'ein Treffer, ein Torpedo verbraucht (Lager 5)');
-  T.run(Katalog.TORPEDO.cooldown + 0.5);
+  let t = 0; while ((g.stats.torpedoAbgeprallt || 0) < 1 && alive() && t < 4) { pin(g); T.run(DT); t += DT; }
+  ok(alive() && j.hp === jh && JSON.stringify(j.shields) === JSON.stringify(sh0) && g.stats.torpedoAbgeprallt === 1 && g.inventory.bolzen === 5, `Jäger mit stehendem Schild: der Torpedo prallt ab (Schaden 0, Schild unberührt, Torpedo verbraucht, Lager ${g.inventory.bolzen})`);
+  lauf(T, Katalog.TORPEDO.cooldown + 0.5);
+  j.shields = [0, 0, 0, 0];   // Schild ausgefallen (z. B. von Sturm, Streu und Batterie aufgebrochen)
+  T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
+  t = 0; while (alive() && t < 4) { pin(g); T.run(DT); t += DT; }
+  ok(!alive() && g.stats.torpedoTreffer === 1, `Jäger ohne Schild mit einem Torpedo direkt zerstört (${t.toFixed(1)} s Flug): der Torpedo ist der Finisher`);
+  lauf(T, Katalog.TORPEDO.cooldown + 0.5);
   const k = gegner(T, 'korvette', -300, 0, { schild: true, hp: 22 }); k.hpMax = 22; k.shields = [2, 2, 2, 2];
   g.ship.target = k.id; const s0 = k.shields.slice();
   T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
+  t = 0; while ((g.stats.torpedoAbgeprallt || 0) < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
+  ok(k.hp === 22 && JSON.stringify(k.shields) === JSON.stringify(s0), `Korvette mit stehendem Schild ${JSON.stringify(k.shields)}: abgeprallt, Hülle ${k.hp}`);
+  lauf(T, Katalog.TORPEDO.cooldown + 0.5);
+  k.shields = [0, 0, 0, 0]; T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
   t = 0; while (g.stats.torpedoTreffer < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(g.space.enemies.includes(k) && k.hp === 22 - Katalog.torpedoSchaden('korvette') && JSON.stringify(k.shields) === JSON.stringify(s0), `Korvette (Hülle 22): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp}), Schilde unberührt ${JSON.stringify(k.shields)}`);
+  ok(g.space.enemies.includes(k) && k.hp === 22 - Katalog.torpedoSchaden('korvette'), `Korvette ohne Schild (Hülle 22): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp})`);
   ok(Katalog.torpedoSchaden('fregatte') < 22 && Katalog.torpedoSchaden('kreuzer') < 22, 'Fregatte und Kreuzer: derselbe Schaden, also mehrere Treffer');
   ok(Katalog.torpedoSchaden('raider') >= Math.round(CONFIG.enemies.raider.hp * 1 * CONFIG.spaceM3.enemyHpFactor) && Katalog.torpedoSchaden('raider') >= 25, 'Jäger-Schaden über jeder Jäger-Hülle (auch bei voller Crew-Skalierung)');
   // Cooldown
@@ -294,9 +304,14 @@ section('Torpedowerfer: Regeln', () => {
   T.run(Katalog.TORPEDO.cooldown + 0.1); g.space.projectiles = [];
   ang(half + 3); ok(T.cmd(0, 'weapons.fire', { mount: 'p2' }).some((x) => /außerhalb/.test(x)), `Ziel ${half + 3}° neben dem Heck: außerhalb`);
   // Gegner-Torpedo gegen die Lerche
+  // Lesart B (Kai 2026-10-18): derselbe Maßstab für die Lerche – ein stehender Schild prallt den Torpedo ab, bei Schild 0 trifft er (−30 Hülle)
   g.god = false; g.ship.hull = 100; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
+  const ab0 = g.stats.torpedoAbgeprallt || 0;
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
-  ok(g.ship.hull === 100 - lager.gegenLerche * lager.huelleJePunkt && 100 - g.ship.hull <= 34 && g.ship.shields.current.every((v) => v === 4), `Gegner-Torpedo: ein Treffer −${100 - g.ship.hull} Hülle (höchstens ein Drittel), Schilde unberührt`);
+  ok(g.ship.hull === 100 && g.ship.shields.current.every((v) => v === 4) && g.stats.torpedoAbgeprallt === ab0 + 1, 'Gegner-Torpedo am stehenden Schild: abgeprallt (Hülle 100, Schilde unberührt)');
+  for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0;
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
+  ok(g.ship.hull === 100 - lager.gegenLerche * lager.huelleJePunkt && 100 - g.ship.hull <= 34, `Gegner-Torpedo bei Schild 0: ein Treffer −${100 - g.ship.hull} Hülle (höchstens ein Drittel)`);
   g.ship.hull = 100; g.ship.lastDodgeT = g.time;
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
   ok(g.ship.hull === 100, 'Gegner-Torpedo direkt nach der Ausweichrolle: verfehlt');
@@ -316,9 +331,10 @@ section('Torpedo: Gegner tragen ihn nur gezielt', () => {
   g.space.enemies = [];
   const k = space.spawnEnemy(g, 'korvette', { x: g.ship.x + 250, y: g.ship.y, facing: Math.PI, waffen: { bug: 'torpedowerfer', stbd: 'standardbatterie', bb: 'standardbatterie' } });
   k.torpG = 99; g.god = false;
+  const nullSchild = () => { for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0; };
   let sah = false, h0 = 0;
   for (let i = 0; i < 30 * 12; i++) {
-    k.x = g.ship.x + 250; k.y = g.ship.y; k.angle = Math.PI; k.fireT = -999; k.boltT = -999; if (k.sf) k.sf.t = -999;
+    k.x = g.ship.x + 250; k.y = g.ship.y; k.angle = Math.PI; k.fireT = -999; k.boltT = -999; if (k.sf) k.sf.t = -999; nullSchild();
     if (g.space.projectiles.some((q) => q.kind === 'etorpedo')) { sah = true; if (!h0) h0 = g.ship.hull; }
     g.step();
     if (sah && g.ship.hull < h0) break;
@@ -345,7 +361,8 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   g.ship.mount.port.charge = 1;
   T.cmd(0, 'weapons.fire', { mount: 'port' });
   lauf(T, 1.5);
-  ok(e.hp === hp0 && near(s0 - e.shields[sec], w.rohre * w.schaden * w.sturm.schildFaktor, 1e-6), `hoher Schild (${s0}): ${w.rohre} Nadeln nehmen nur ${(s0 - e.shields[sec]).toFixed(2)} Schild und nichts von der Hülle`);
+  const nSchild = Math.round((s0 - e.shields[sec]) / (w.schaden * w.sturm.schildFaktor));   // Projektile: nicht jede Nadel trifft, jede Trefferzahl ist ein Vielfaches
+  ok(e.hp === hp0 && nSchild >= Math.ceil(w.rohre * 0.6) && nSchild <= w.rohre && near(s0 - e.shields[sec], nSchild * w.schaden * w.sturm.schildFaktor, 1e-6), `hoher Schild (${s0}): ${nSchild} von ${w.rohre} Nadeln treffen, nehmen nur ${(s0 - e.shields[sec]).toFixed(2)} Schild und nichts von der Hülle`);
   const nach = e.shields[sec];
   ok(e.regenHold > g.time - 2 && e.regenHold > 0, 'Sturm setzt die Regenerationssperre (' + w.sturm.regenSperre + ' s)');
   lauf(T, 5.2);
@@ -356,7 +373,8 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   e.shields[sec] = 0; e.fireT = 5; const hp1 = e.hp;
   g.ship.mount.port.charge = 1; T.cmd(0, 'weapons.fire', { mount: 'port' });
   lauf(T, 1.5, () => { e.fireT = Math.max(e.fireT, 5); });
-  ok(e.hp < hp1 && near(hp1 - e.hp, w.rohre * w.schaden, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (alle ${w.rohre} Nadeln treffen)`);
+  const nHuelle = Math.round((hp1 - e.hp) / w.schaden);
+  ok(e.hp < hp1 && nHuelle >= Math.ceil(w.rohre * 0.6) && nHuelle <= w.rohre && near(hp1 - e.hp, nHuelle * w.schaden, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (${nHuelle} von ${w.rohre} Nadeln treffen, je ${w.schaden})`);
   // Lerche als Ziel (Gegner-Sturm)
   g.god = false; g.ship.hull = 100; g.ship.shields.current = [4, 4, 4, 4];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
@@ -462,8 +480,8 @@ section('Seiten verschieden bestückt, Navigation sieht es', () => {
   e1.shields = [0, 0, 0, 0];
   T.cmd(0, 'weapons.fire', { mount: 'all' });
   const kinds = new Set(), syms = new Set();
-  lauf(T, 1, () => { for (const q of g.space.projectiles) kinds.add(q.kind); for (const b of g.space.beams) if (b.sym) syms.add(b.sym); });
-  ok(kinds.has('streu') && syms.has('nadel'), 'Steuerbord wirft Granaten (Projektil streu), Backbord feuert Nadeln (Strahl sym nadel)');
+  lauf(T, 1, () => { for (const q of g.space.projectiles) kinds.add(q.kind); });
+  ok(kinds.has('streu') && kinds.has('psturm') && g.space.beams.length === 0, 'Steuerbord wirft Granaten (Projektil streu), Backbord feuert Nadeln (Projektil psturm), kein Strahl');
   ok(e1.hp < 9999 && e2.hp === 9999, 'Sturm trifft auf Backbord, die Granaten brauchen noch (Zündzeit)');
   // Kenntnis in der Kennung: Katalog liefert Namen und Symbol
   ok(Katalog.waffe(bb.typ).name === 'Sturmbatterie' && Katalog.waffe(stb.typ).name === 'Streubatterie' && Katalog.waffe(bb.typ).symbol !== Katalog.waffe(stb.typ).symbol, 'Namen und Symbole je Seite verschieden (Taktik beschriftet je Seite)');
@@ -646,13 +664,13 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
   q.space.enemies = q.space.enemies.filter((e) => e !== py);
   const kj = gegner(Q, 'korvette', -300, 0, { schild: true, hp: 22 }); kj.angle = 0; kj.pin.angle = 0; q.ship.target = kj.id;
   const sk = Physics.sectorOf(kj.x, kj.y, kj.angle, q.ship.x, q.ship.y); kj.shields[sk] = 3; const kh = kj.hp; feuer();
-  ok(kj.hp === kh - 9, 'Lesart A (Standard, schildUmgehung immer): Korvette mit Schild wird getroffen (−9)');
+  ok(kj.hp === kh, 'Lesart B gilt für alle Ziele (kein Sonderfall Pylon/Wächter): Korvette mit stehendem Schild -> Schaden 0');
+  kj.shields[sk] = 0; const kh2 = kj.hp; feuer();
+  ok(kj.hp === kh2 - 9, 'Lesart B: ausgefallenes Schildsegment -> Treffer (−9)');
+  Katalog.TORPEDO.schildUmgehung = 'immer';   // nur noch Testschalter (Lesart A)
+  kj.shields[sk] = 3; q.ship.target = kj.id; const kh3 = kj.hp; feuer();
+  ok(kj.hp === kh3 - 9, 'Testschalter Lesart A (immer): Korvette mit Schild wird getroffen (−9)');
   Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';
-  kj.shields[sk] = 3; q.ship.target = kj.id; const kh2 = kj.hp; feuer();
-  ok(kj.hp === kh2, 'Lesart B (Katalogwert nur-ohne-schild): Schild steht -> Schaden 0');
-  kj.shields[sk] = 0; feuer();
-  ok(kj.hp < kh2, 'Lesart B: ausgefallenes Schildsegment -> Treffer');
-  Katalog.TORPEDO.schildUmgehung = 'immer';
 
   // M3: Torpedo-Lager hart 12 auch bei Funden; Überhang wird zu Marken
   const L = arena(); const l = L.g; l.inventory.bolzen = 12; const mk = l.inventory.marks;
@@ -668,6 +686,71 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
   ok(w3.ship.systems.weapons === 'broken', 'aktive Lafette zerstört: weapons = broken');
   W3.debug('ausbau', '0');
   ok(w3.ship.systems.weapons === 'ok' && w3.ship.systems.lafette_7 === 'ok', 'Platz zu (Stufe 0): inaktive Lafette steht heil da, weapons = ok');
+});
+
+section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, ausweichen', () => {
+  // Katalog: Strahlen nur Lanze und Lanzenbatterie
+  const strahl = Katalog.WAFFEN.filter((w) => w.projektil && w.projektil.strahl).map((w) => w.id).sort().join();
+  ok(strahl === 'lanze,lanzenbatterie', 'Katalog: Strahl nur bei Lanze und Lanzenbatterie (' + strahl + ')');
+  for (const id of ['standardbatterie', 'standardkanone', 'sturmbatterie']) {
+    const w = Katalog.waffe(id);
+    ok(!w.projektil.strahl && /^p/.test(w.projektil.kind) && w.geschw > 0 && w.geschw <= 900, `${id}: Projektil ${w.projektil.kind}, Geschwindigkeit ${w.geschw} px/s (langsam genug zum Ausweichen)`);
+  }
+  const schiess = (T, e, mount) => { const g = T.g; g.ship.target = e.id; g.ship.mount[mount].charge = 1; return T.cmd(0, 'weapons.fire', { mount }); };
+  const lade = () => { const T = arena(); T.debug('bestueck', '4 standardbatterie'); return { T, g: T.g, w: Katalog.waffe('standardbatterie') }; };
+  // Treffer auf ein ruhendes Ziel: Schaden je Treffer = Katalogwert
+  {
+    const { T, g, w } = lade();
+    const e = gegner(T, 'korvette', 0, -250, { hp: 9999 }); const hp0 = e.hp;
+    schiess(T, e, 'port'); T.run(0.1); pin(g);
+    ok(g.space.projectiles.some((q) => q.kind === 'pbatterie') && g.space.beams.length === 0, 'Batterie: Projektile (pbatterie) in der Luft, kein Strahl');
+    lauf(T, 1.5);
+    const n = g.stats.schussTreffer || 0; const verl = hp0 - e.hp;
+    ok(n >= 3 && n <= w.rohre && near(verl, n * w.schaden, 1e-6), `Treffer ${n}/${w.rohre}: Hülle −${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer)`);
+    ok(n / (g.stats.schuesse || 1) > 0.5, 'ruhendes Ziel: Trefferquote ' + Math.round(100 * n / (g.stats.schuesse || 1)) + ' %');
+  }
+  // gleicher Schaden je Treffer gegen Schild
+  {
+    const { T, g, w } = lade();
+    const e = gegner(T, 'korvette', 0, -250, { hp: 9999, schild: true }); e.shieldsMax = [40, 40, 40, 40]; e.shields = [40, 40, 40, 40]; const hp0 = e.hp;
+    schiess(T, e, 'port'); lauf(T, 1.5);
+    const n = g.stats.schussTreffer || 0; const nehm = 160 - e.shields.reduce((a, b) => a + b, 0);
+    ok(n >= 3 && e.hp === hp0 && near(nehm, n * w.schaden, 1e-6), `Schild: ${n} Treffer nehmen ${nehm} Schild (je ${w.schaden} wie an der Hülle), Hülle unberührt`);
+  }
+  // Ausweichen: das Ziel bricht nach dem Schuss seitlich aus (Vorhalt rechnet mit gleichem Kurs und Tempo)
+  {
+    const { T, g } = lade();
+    const e = gegner(T, 'korvette', 0, -250, { hp: 9999 }); const hp0 = e.hp;
+    schiess(T, e, 'port');
+    lauf(T, 1.8, () => { e.pin.x += 300 * DT; });
+    ok(e.hp === hp0 && (g.stats.schussTreffer || 0) === 0 && g.stats.schuesse >= 1, `Ausweichen (300 px/s quer): ${g.stats.schuesse} Projektile, ${g.stats.schussTreffer || 0} Treffer, Hülle unberührt`);
+  }
+  // Verfehlen ins Leere
+  {
+    const { T, g } = lade();
+    g.ship.mount.port.charge = 1; T.cmd(0, 'weapons.fire', { mount: 'port' }); T.run(0.5);
+    ok(g.space.projectiles.length > 0, 'ohne Ziel: Projektile fliegen trotzdem (Rohrfolge lesbar)');
+    T.run(2.5);
+    ok(g.space.projectiles.filter((q) => q.waffe).length === 0 && !(g.stats.schussTreffer > 0), 'Projektile ins Leere enden an der Reichweite, kein Treffer');
+  }
+  // Kanone: dasselbe Modell
+  {
+    const T = arena(); const g = T.g; const w = Katalog.waffe('standardkanone');
+    T.debug('bestueck', '8 standardkanone');
+    const e = gegner(T, 'korvette', 250, 0, { hp: 9999 }); const hp0 = e.hp;
+    schiess(T, e, 'bow'); T.run(0.1); pin(g);
+    ok(g.space.projectiles.some((q) => q.kind === 'pkanone') && g.space.beams.length === 0, 'Kanone: Projektile (pkanone), kein Strahl');
+    lauf(T, 1.5);
+    const n = g.stats.schussTreffer || 0;
+    ok(n >= 1 && near(hp0 - e.hp, n * w.schaden, 1e-6), `Kanone: ${n} Treffer × ${w.schaden} = −${hp0 - e.hp} Hülle`);
+  }
+  // Lanze bleibt Strahl
+  {
+    const T = arena(); const g = T.g; const e = gegner(T, 'korvette', 250, 0, { hp: 9999 });
+    schiess(T, e, 'bow');
+    let sah = false; lauf(T, 1.5, () => { if (g.space.beams.length) sah = true; });
+    ok(sah && e.hp < 9999, 'Lanze bleibt Sofortstrahl (beam), trifft das Ziel');
+  }
 });
 
 console.log(`\ntest-waffen-schiff: ${n - fails}/${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

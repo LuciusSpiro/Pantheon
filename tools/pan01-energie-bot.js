@@ -11,6 +11,7 @@ const fs = require('fs');
 const a = process.argv.slice(2);
 const arg = (k, d) => (a.indexOf(k) >= 0 ? a[a.indexOf(k) + 1] : d);
 const seeds = Number(arg('--seeds', 12)), players = Number(arg('--players', 3)), pilot = arg('--pilot', 'maneuver'), jobs = Number(arg('--jobs', 4));
+const kal = /^k([0-9.]+)(?:-([0-9.]+))?-(.+)$/;   // kalibrieren: k<geschw>[-<schaden>]-<satz>, z. B. k1.5-start
 const PRESETS = {
   // PAN-01 C: Feuerkraft bei 3, 5, 7, 9 Energiewaffen (gleicher Pool, Standardverteilung der Technik 2/2/2; Stufe nach Bedarf, Plätze 8 4 6 7 9 5 1 3 2)
   w3: { PAN01_WAFFEN: 'n3' }, w5: { PAN01_WAFFEN: 'n5' }, w7: { PAN01_WAFFEN: 'n7' }, w9: { PAN01_WAFFEN: 'n9' },
@@ -31,7 +32,8 @@ const root = path.join(__dirname, '..');
 function run(set, seed) {
   return new Promise((res) => {
     const tor = /^tor(12)?(B)?-([0-9]+)-([0-9]+)$/.exec(set);   // B = Lesart B (Torpedo nur gegen ausgefallenen Schild)   // PAN-01 C: Torpedowerfer mit Heckbogen und Cooldown (tor-<bogen>-<cd>)
-    const env = Object.assign({}, process.env, PRESETS[set] || {}, tor ? { PAN01_TORPEDO: 'bogen:' + tor[3] + ',cd:' + tor[4] + (tor[1] ? ',lager:12' : '') + (tor[2] ? ',schild:nur' : '') } : {});
+    const km = kal.exec(set); const basis = km ? km[3] : set;
+    const env = Object.assign({}, process.env, PRESETS[basis] || {}, km ? { PAN01_SCHUSS: km[1] + (km[2] ? ',' + km[2] : '') } : {}, tor ? { PAN01_TORPEDO: 'bogen:' + tor[3] + ',cd:' + tor[4] + (tor[1] ? ',lager:12' : '') + (tor[2] ? ',schild:nur' : '') } : {});
     const args = ['-r', './tools/pan01-energie-preload.js', 'tools/sim-headless.js', 'arena', '--pilot', pilot, '--seeds', '1', '--seed', String(seed), '--players', String(players)];
     const p = spawn(process.execPath, args, { cwd: root, env });
     let out = ''; p.stdout.on('data', (d) => { out += d; }); p.stderr.on('data', (d) => { out += d; });
@@ -39,7 +41,8 @@ function run(set, seed) {
       const m = out.match(/Seed (\d+): (\d+)\/(\d+) Wellen \((\d+) über \d+ s\) in ([\d.]+) s(.*?) · Hülle −([\d.]+) \(Überlauf ([\d.—]+)\) · Notfälle (\d+) · je Welle (.*?) · leakHits (\d+)/);
       if (!m) return res({ set, seed, err: out.slice(-300) });
       const ws = out.match(/WS ([0-9.]+) · TP ([0-9]+) · TT ([0-9]+)/);
-      res({ set, seed, cleared: +m[2], total: +m[3], failed: +m[4], time: +m[5], softlock: /SOFTLOCK/.test(m[6]), hull: +m[7], em: +m[9], leak: +m[11], ws: ws ? +ws[1] : 0, tp: ws ? +ws[2] : 0, tt: ws ? +ws[3] : 0 });
+      const sc = out.match(/SCH ([0-9]+)[/]([0-9]+)/);
+      res({ sch: sc ? +sc[1] : 0, sct: sc ? +sc[2] : 0, set, seed, cleared: +m[2], total: +m[3], failed: +m[4], time: +m[5], softlock: /SOFTLOCK/.test(m[6]), hull: +m[7], em: +m[9], leak: +m[11], ws: ws ? +ws[1] : 0, tp: ws ? +ws[2] : 0, tt: ws ? +ws[3] : 0 });
     });
   });
 }
@@ -51,12 +54,12 @@ function run(set, seed) {
   const se = (xs) => { if (xs.length < 2) return 0; const m = mean(xs); return Math.sqrt(xs.reduce((s, x) => s + (x - m) * (x - m), 0) / (xs.length - 1)) / Math.sqrt(xs.length); };
   const f = (v) => (Math.round(v * 10) / 10).toString();
   console.log(`\nPAN-01 A Arena-Bot: Steuer ${pilot}, ${players} Spieler, ${seeds} Seeds, Standardwellen (6), echte Implementierung`);
-  console.log('| Satz | Läufe | Wellen geschafft | Zeitlimit-Wellen | Hülle verloren (±SE) | Notfälle/Lauf | Dauer s (±SE) | Waffenschaden/s | Torpedos/Treffer | Softlocks | Fehler |');
-  console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+  console.log('| Satz | Läufe | Wellen geschafft | Zeitlimit-Wellen | Hülle verloren (±SE) | Notfälle/Lauf | Dauer s (±SE) | Waffenschaden/s | Projektile (Treffer) | Torpedos/Treffer | Softlocks | Fehler |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const s of sets) {
     const rs = results.filter((r) => r.set === s && !r.err); const er = results.filter((r) => r.set === s && r.err).length;
     if (!rs.length) { console.log(`| ${s} | 0 | Fehler ${er} |`); continue; }
-    console.log(`| ${s} | ${rs.length} | ${f(mean(rs.map((r) => r.cleared)))}/${rs[0].total} | ${f(mean(rs.map((r) => r.failed)))} | ${f(mean(rs.map((r) => r.hull)))} (±${f(se(rs.map((r) => r.hull)))}) | ${f(mean(rs.map((r) => r.em)))} | ${f(mean(rs.map((r) => r.time)))} (±${f(se(rs.map((r) => r.time)))}) | ${(mean(rs.map((r) => r.ws / r.time))).toFixed(2)} | ${f(mean(rs.map((r) => r.tp)))}/${f(mean(rs.map((r) => r.tt)))} | ${rs.filter((r) => r.softlock).length} | ${er} |`);
+    console.log(`| ${s} | ${rs.length} | ${f(mean(rs.map((r) => r.cleared)))}/${rs[0].total} | ${f(mean(rs.map((r) => r.failed)))} | ${f(mean(rs.map((r) => r.hull)))} (±${f(se(rs.map((r) => r.hull)))}) | ${f(mean(rs.map((r) => r.em)))} | ${f(mean(rs.map((r) => r.time)))} (±${f(se(rs.map((r) => r.time)))}) | ${(mean(rs.map((r) => r.ws / r.time))).toFixed(2)} | ${f(mean(rs.map((r) => r.sch)))} (${f(mean(rs.map((r) => r.sct)) / Math.max(1, mean(rs.map((r) => r.sch))) * 100)} %) | ${f(mean(rs.map((r) => r.tp)))}/${f(mean(rs.map((r) => r.tt)))} | ${rs.filter((r) => r.softlock).length} | ${er} |`);
   }
   const o = arg('--out', null); if (o) fs.writeFileSync(o, JSON.stringify(results, null, 1));
 })();

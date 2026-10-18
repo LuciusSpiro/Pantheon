@@ -45,9 +45,10 @@
   // Gegner-Torpedo gegen die Lerche: ein Treffer nimmt 30 von 100 Hülle (6 Schadenspunkte × 5), nie mehr als ein Drittel (kein Game Over durch einen Schuss).
   const TORPEDO = {
     lagerMax: 12, lagerStart: 6, cooldown: 10, kaputtFaktor: 1.5,
-    // Schildverhalten: 'immer' = der Torpedo geht an Schilden vorbei und trifft die Hülle (Lesart A, gebaut); 'nur-ohne-schild' = er wirkt nur auf ein ausgefallenes Schildsegment
-    // (Lesart B). raetselKlassen: Klassen, deren Schild ein Set-Piece-Rätsel der Kampagne ist (Kustoden-Wächter, Pylon im Relais) – dort gilt immer 'nur-ohne-schild'.
-    schildUmgehung: 'immer', raetselKlassen: ['pylon', 'sentinel'], geschw: 400, wenden: 1.6, ttl: 3,
+    // Schildverhalten (Kai 2026-10-18, Lesart B für alle Ziele): 'nur-ohne-schild' = der Torpedo wirkt nur auf ein ausgefallenes Schildsegment (Schild 0), an einem stehenden Schild prallt er ab
+    // (Schaden 0, kein Schildabzug); 'immer' = er ginge an Schilden vorbei (Lesart A, nur noch Testschalter).
+    schildUmgehung: 'nur-ohne-schild',
+    geschw: 400, wenden: 1.6, ttl: 3,
     schaden: { raider: 45, korvette: 9, fregatte: 9, kreuzer: 9, sentinel: 9, pylon: 9, frachter: 9, relay: 9 },
     gegenLerche: 6, gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6, huelleJePunkt: 5,
   };
@@ -57,18 +58,18 @@
     {
       id: 'standardbatterie', name: 'Standardbatterie', kurz: 'BATTERIE', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Salve aus vier Rohren, kontinuierliches Feuer, der Allrounder.',
-      schaden: 1.5, rohre: 4, salvoGap: 0.15, ladekosten: 12.3, bogen: 70, reichweite: 520, stoss: 6,
-      modell: 'lerche/station/lafette_batterie', projektil: { form: 'strahl', farbe: '#F2C14E' }, effekt: 'strahl', ton: 'battery_salvo', symbol: 'schiff_batterie',
+      schaden: 2, rohre: 4, salvoGap: 0.15, ladekosten: 12.3, bogen: 70, reichweite: 520, stoss: 6,
+      modell: 'lerche/station/lafette_batterie', projektil: { form: 'doppelbolzen', kind: 'pbatterie', farbe: '#F2C14E' }, geschw: 450, streuung: 0.012, effekt: 'doppelbolzen', ton: 'battery_salvo', symbol: 'schiff_batterie',
       munition: null, gegner: { verhalten: 'batterie' },
     },
     {
       id: 'sturmbatterie', name: 'Sturmbatterie', kurz: 'STURM', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Unterdrückung: kaum Schildschaden, aber der Schild regeneriert nicht; bei niedrigem Schild Systemschaden.',
-      schaden: 0.6, rohre: 8, salvoGap: 0.07, ladekosten: 10, bogen: 60, reichweite: 440, stoss: 4.8,
+      schaden: 0.7, rohre: 8, salvoGap: 0.07, ladekosten: 10, bogen: 60, reichweite: 440, stoss: 4.8,
       // sturm: schildFaktor = Anteil des Schadens, der den Schild trifft (Rest verpufft); regenSperre = s ohne Schildregeneration nach einem Treffer;
       // niedrig = Schildstand (Punkte) des getroffenen Segments, ab dem Treffer in die Hülle gehen; stoerung = s, um die der nächste Schuss eines Gegner-Ziels zurückgeworfen wird; systemChance = Systemtreffer-Chance je Nadel gegen die Lerche bei niedrigem Schild
       sturm: { schildFaktor: 0.25, regenSperre: 6, niedrig: 1, stoerung: 0.35, systemChance: 0.08 },
-      modell: 'lerche/station/lafette_sturm', projektil: { form: 'nadel', farbe: '#7FD6C8' }, effekt: 'nadel', ton: 'sturm_salvo', symbol: 'schiff_sturm',
+      modell: 'lerche/station/lafette_sturm', projektil: { form: 'nadel', kind: 'psturm', farbe: '#7FD6C8' }, geschw: 800, streuung: 0.02, effekt: 'nadel', ton: 'sturm_salvo', symbol: 'schiff_sturm',
       munition: null, gegner: { verhalten: 'sturm' },
     },
     {
@@ -78,7 +79,7 @@
       // streu: zuend = s bis zur Explosion, radius = Wirkradius (px), geschw = Flug (px/s), schildFaktor = Schildpunkte je Schadenspunkt,
       // fenster = s, in denen zwei Explosionen auf dasselbe Ziel als „zwei“ zählen, durchschlag = Hüllenschaden der zweiten (ohne Schild, sicher)
       streu: { zuend: 1.4, radius: 70, geschw: 150, schildFaktor: 1.5, fenster: 2, durchschlag: 3 },
-      modell: 'lerche/station/lafette_streu', projektil: { form: 'granate', farbe: '#E0873C' }, effekt: 'granate', ton: 'streu_wurf', symbol: 'schiff_streu',
+      modell: 'lerche/station/lafette_streu', projektil: { form: 'granate', kind: 'streu', farbe: '#E0873C' }, effekt: 'granate', ton: 'streu_wurf', symbol: 'schiff_streu',
       munition: null, gegner: { verhalten: 'streu' },
     },
     {
@@ -86,7 +87,7 @@
       wirkung: 'Wie die Bug-Lanze: aufladen, Kurs halten. Optisch zwei Lanzen, Schaden einmal.',
       schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, stoss: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 2, abstand: 7, pierce: 2 },
-      modell: 'lerche/station/lafette_lanzen', projektil: { form: 'doppelstrahl', farbe: '#FFF1B8' }, effekt: 'doppelstrahl', ton: 'lance_fire', symbol: 'schiff_lanzenbatterie',
+      modell: 'lerche/station/lafette_lanzen', projektil: { form: 'doppelstrahl', strahl: true, farbe: '#FFF1B8' }, effekt: 'doppelstrahl', ton: 'lance_fire', symbol: 'schiff_lanzenbatterie',
       munition: null, gegner: { verhalten: 'lanze' },
     },
     {
@@ -94,21 +95,21 @@
       wirkung: 'Aufladen, Kurs halten: der gehaltene Strahl trifft den ersten Gegner in der Linie.',
       schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, stoss: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 1, abstand: 0, pierce: 2 },
-      modell: 'lerche/station/lafette_lanze_bug', projektil: { form: 'strahl', farbe: '#FFF1B8' }, effekt: 'lanzenstrahl', ton: 'lance_fire', symbol: 'schiff_lanze',
+      modell: 'lerche/station/lafette_lanze_bug', projektil: { form: 'strahl', strahl: true, farbe: '#FFF1B8' }, effekt: 'lanzenstrahl', ton: 'lance_fire', symbol: 'schiff_lanze',
       munition: null, gegner: { verhalten: 'lanze' },
     },
     {
       id: 'standardkanone', name: 'Standardkanone', kurz: 'KANONE', platzart: 'bug', energie: true, art: 'salve',
       wirkung: 'Wie die Standardbatterie, aber nach vorn: drei Rohre, enger Bogen.',
-      schaden: 1.5, rohre: 3, salvoGap: 0.15, ladekosten: 9.2, bogen: 50, reichweite: 560, stoss: 4.5,
-      modell: 'lerche/station/lafette_kanone', projektil: { form: 'bolzen', farbe: '#FF7A3C' }, effekt: 'bolzen', ton: 'kanone_salvo', symbol: 'schiff_kanone',
+      schaden: 2, rohre: 3, salvoGap: 0.15, ladekosten: 9.2, bogen: 50, reichweite: 560, stoss: 4.5,
+      modell: 'lerche/station/lafette_kanone', projektil: { form: 'bolzen', kind: 'pkanone', farbe: '#FF7A3C' }, geschw: 520, streuung: 0.008, effekt: 'bolzen', ton: 'kanone_salvo', symbol: 'schiff_kanone',
       munition: null, gegner: { verhalten: 'bolzen' },
     },
     {
       id: 'torpedowerfer', name: 'Torpedowerfer', kurz: 'TORPEDO', platzart: 'heck', energie: false, art: 'torpedo',
       wirkung: 'Torpedos nach achtern, kein Schildschaden: trifft die Hülle (Jäger sofort zerstört), Munition aus dem Lager, eigener Cooldown.',
       schaden: TORPEDO.schaden, rohre: 1, cooldown: TORPEDO.cooldown, bogen: 60, reichweite: 650, stoss: 0,   // Heckbogen 60 Grad: Messung PAN-01 C (Arena-Bot, Lager 12) zeigt keinen Nutzen von 90 Grad, der enge Bogen bleibt das Gegengewicht
-      modell: 'lerche/station/lafette_torpedo', projektil: { form: 'torpedo', farbe: '#E9A23B' }, effekt: 'torpedo', ton: 'torpedo', symbol: 'schiff_torpedo',
+      modell: 'lerche/station/lafette_torpedo', projektil: { form: 'torpedo', kind: 'torpedo', farbe: '#E9A23B' }, effekt: 'torpedo', ton: 'torpedo', symbol: 'schiff_torpedo',
       munition: 'torpedo', gegner: { verhalten: 'torpedo' },
     },
     {
@@ -117,7 +118,7 @@
       schaden: 1.2, rohre: 2, salvoGap: 0.12, ladekosten: 7, bogen: 360, reichweite: 260, stoss: 2.4,
       // turm: ziele = Klassen, die er bekämpft (nicht die großen Schiffe), autoFaktor = Ladezeit-Faktor ohne Besetzung (Taktik), torpedos = schießt Torpedos ab
       turm: { ziele: ['raider'], autoFaktor: 2, torpedos: true },
-      modell: 'lerche/station/lafette_abwehr', projektil: { form: 'funke', farbe: '#A9D6E5' }, effekt: 'funke', ton: 'abwehr_feuer', symbol: 'schiff_abwehrturm',
+      modell: 'lerche/station/lafette_abwehr', projektil: { form: 'funke', kind: 'pfunke', farbe: '#A9D6E5' }, geschw: 700, streuung: 0.01, effekt: 'funke', ton: 'abwehr_feuer', symbol: 'schiff_abwehrturm',
       munition: null, gegner: { verhalten: 'abwehr' },
     },
   ];

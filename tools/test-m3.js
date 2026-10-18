@@ -110,11 +110,11 @@ function pinnedEnemy(g, kind, x, y, angle, opts) {
 }
 function pin(g) {
   for (const e of g.space.enemies) if (e.pin) {
-    e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle;
+    e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0;   // PAN-01 C: Vorhalt rechnet mit der Geschwindigkeit, ein festgehaltener Gegner steht
     if (!e.keepFire) { e.fireT = -999; }
     e.shields = e.keepShields ? e.shields : [0, 0, 0, 0];
   }
-  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'torpedo');
+  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'torpedo' || q.waffe);   // PAN-01 C: Projektile der Lerche bleiben
 }
 const mountOf = (g, id) => (g.ship.mount || {})[id];
 function setCharge(g, id, v) { const m = mountOf(g, id); if (m) m.charge = v; return !!m; }
@@ -1069,25 +1069,25 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   clearInbox();
   cmd(0, 'weapons.fire', { mount: 'stbd' });
   let midSalvo = null; const seen = new Set(); let beams = 0;
-  // Sichtbarkeit: jeder Salvenstrahl muss in ≥ 2 Snapshots stehen (Snapshot alle net.snapEvery Ticks)
+  // Sichtbarkeit: jedes Salvenprojektil (PAN-01 C: kind pbatterie statt Strahl) muss in ≥ 2 Snapshots stehen (Snapshot alle net.snapEvery Ticks)
   const inSnaps = new Map();
   for (let k = 0; k < 45; k++) {
     pin(g); setCharge(g, 'bow', 0); setCharge(g, 'port', 0);
     g.step();
-    for (const b of g.space.beams) if (b.kind === 'battery' && !seen.has(b)) { seen.add(b); beams++; }
+    for (const b of g.space.projectiles) if (b.kind === 'pbatterie' && !seen.has(b.id)) { seen.add(b.id); beams++; }
     if (g.wantsSnapshot()) {
       const s = g.snapshot();
       const m = s.ship.mounts.find((q) => q.id === 'stbd');
       if (m.salvo > 0 && midSalvo === null) midSalvo = m.salvo;
-      for (const b of g.space.beams) if (b.kind === 'battery') inSnaps.set(b, (inSnaps.get(b) || 0) + 1);
-      const sb = s.space.beams.find((b) => b.kind === 'battery');
-      if (sb && !(sb.ttlMax > 0 && sb.mount === 'stbd')) inSnaps.set('badfields', 1);
+      for (const b of s.space.projectiles) if (b.kind === 'pbatterie') inSnaps.set(b.id, (inSnaps.get(b.id) || 0) + 1);
+      const sb = s.space.projectiles.find((b) => b.kind === 'pbatterie');
+      if (sb && !(Number.isFinite(sb.x) && Number.isFinite(sb.angle))) inSnaps.set('badfields', 1);
     }
   }
-  ok(near(hp0 - t.hp, 4 * 1.5, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 × 1,5 = ${hp0 - t.hp})`);
-  ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Strahlen battery)`);
+  ok(near(hp0 - t.hp, 4 * M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 Projektile × ${M3.mounts.stbd.damage} = ${hp0 - t.hp})`);
+  ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Projektile pbatterie)`);
   const counts = [...inSnaps.entries()].filter(([k]) => k !== 'badfields').map(([, v]) => v);
-  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jeder Salvenstrahl in ≥ 2 Snapshots (${counts.join('/')}), mit ttlMax und mount`);
+  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jedes Salvenprojektil in ≥ 2 Snapshots (${counts.join('/')}), mit Lage und Winkel`);
   ok(events('sfx').some((e) => e.name === 'battery_salvo'), 'sfx battery_salvo');
   // ohne Gegner im Bogen: ins Leere, senkrecht zur Flanke, Strahlen trotzdem da
   g.space.enemies = [];
@@ -1095,9 +1095,9 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   nn = notices(0).length;
   cmd(0, 'weapons.fire', { mount: 'port' });
   const voids = [];
-  run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.beams) if (b.kind === 'battery' && !voids.includes(b)) voids.push(b); });
-  const perp = voids.every((b) => { const a = Math.atan2(b.y2 - b.y1, b.x2 - b.x1); return Math.abs(Physics.normAngle(a - (sh.angle - Math.PI / 2))) < 0.15 && b.miss; });
-  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Strahlen, senkrecht zur Backbord-Flanke)`);
+  run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.projectiles) if (b.kind === 'pbatterie' && !voids.some((v) => v.id === b.id)) voids.push({ id: b.id, angle: b.angle }); });
+  const perp = voids.every((b) => Math.abs(Physics.normAngle(b.angle - (sh.angle - Math.PI / 2))) < 0.15);
+  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Projektile, senkrecht zur Backbord-Flanke)`);
   // all = beide Batterien (nicht die Lanze)
   setCharge(g, 'port', 1); setCharge(g, 'stbd', 1); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'all' });

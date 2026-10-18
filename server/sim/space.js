@@ -1598,7 +1598,7 @@ function debugTele(game, id) {
   return null;
 }
 
-function torpedoNurOhneSchild(kind) { const T = Katalog.TORPEDO; return T.schildUmgehung === 'nur-ohne-schild' || (T.raetselKlassen || []).includes(kind); }
+function torpedoNurOhneSchild() { return Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }   // Kai 2026-10-18: Lesart B für alle Ziele
 // PAN-01 C: Gegner-Torpedo trifft die Lerche: geht an Schild und Schildpool vorbei, ein Treffer nimmt höchstens ein Drittel der Hülle (TORPEDO.gegenLerche × 5).
 // Wer kurz vorher ausgewichen ist (Ausweichfenster wie bei der Ladung), wird verfehlt.
 function etorpedoTreffer(game, p) {
@@ -1612,6 +1612,13 @@ function etorpedoTreffer(game, p) {
     game.emit('sfx', { name: 'dodge_evade', enemy: 'torpedo' });
     return;
   }
+  // Lesart B (Kai): bei stehendem Schildsektor prallt der Torpedo ab (kein Schaden, kein Schildabzug); ist der Sektor leer (Schild 0, Generator aus, Schilde unten), trifft er die Hülle
+  if (Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild' && (ship.shields.current[sec] || 0) > 0 && Alarm.trefferOpts(game, {}).pierce !== true) {
+    game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;
+    game.emit('hit', { sector: sec, shield: true, dmg: 0, heavy: true, absorbed: 0 });
+    game.emit('sfx', { name: 'shield_hit' });
+    return;
+  }
   game.stats.torpedoLerche = (game.stats.torpedoLerche || 0) + 1;
   shipHit(game, sec, p.dmg != null ? p.dmg : T.gegenLerche, { pierce: true, heavy: true, torpedo: true });
 }
@@ -1621,6 +1628,7 @@ function updateProjectiles(game, dt) {
   const keep = [];
   const rocks = brocken(game);
   for (const p of sp.projectiles) {
+    if (p.weg) continue;
     p.ttl -= dt;
     if (p.kind === 'torpedo' || p.kind === 'etorpedo') Waffen.lenke(game, p, dt);   // PAN-01 C: zielsuchend
     p.x += Math.cos(p.angle) * p.speed * dt; p.y += Math.sin(p.angle) * p.speed * dt;
@@ -1631,6 +1639,15 @@ function updateProjectiles(game, dt) {
       continue;
     }
     let hit = false;
+    if (p.kind === 'pfunke') {   // Abwehrturm: Flak trifft anfliegende Gegner-Torpedos im Flug
+      const tq = sp.projectiles.find((q) => q.kind === 'etorpedo' && dist(p.x, p.y, q.x, q.y) < 16);
+      if (tq) {
+        tq.weg = true; const ki = keep.indexOf(tq); if (ki >= 0) keep.splice(ki, 1);   // abgeschossen (noch nicht oder schon bearbeitet)
+        game.emit('explosion', { x: Math.round(tq.x), y: Math.round(tq.y), zone: 'space', small: true });
+        game.stats.torpedosAbgeschossen = (game.stats.torpedosAbgeschossen || 0) + 1;
+        continue;
+      }
+    }
     // W2 AP3b (E4): Geschosse beider Seiten schlagen in Brocken ein
     if (rocks.length && rocks.some((a) => dist(p.x, p.y, a.x, a.y) < a.r)) { brockenStats(game).schuesse++; continue; }
     if (p.kind === 'enemy' || p.kind === 'emp' || p.kind === 'sperrfeuer' || p.kind === 'sturm' || p.kind === 'etorpedo') {
@@ -1662,10 +1679,14 @@ function updateProjectiles(game, dt) {
       for (const e of sp.enemies) {
         if (dist(p.x, p.y, e.x, e.y) < (C.combat.hitRadius[e.kind] || 18)) {
           hit = true;
-          if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
-            game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1;
+          if (p.waffe) {   // PAN-01 C: Projektil der Lerche (Batterie, Kanone, Sturm, Abwehrturm): Schaden je Treffer = Katalogwert, Schild und Hülle wie bisher
+            const wk = Katalog.waffe(p.waffe);
+            game.stats.schussTreffer = (game.stats.schussTreffer || 0) + 1;
+            Waffen.schade(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.waffe === 'sturmbatterie' ? { sturm: wk.sturm } : undefined, p.waffe);
+          } else if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
-            Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild(e.kind) }, 'torpedowerfer');
+            const dgel = Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild() }, 'torpedowerfer');
+            if (dgel > 0) game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1; else game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;   // Lesart B: am stehenden Schild abgeprallt
           } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true } : undefined);
           break;
         }

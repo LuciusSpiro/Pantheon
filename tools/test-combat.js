@@ -759,7 +759,9 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
   console.log('\n[S2b: Jäger hält eine volle Salve aus, stirbt nach drei]');
   {
     const L = CONFIG.spaceM3.lance; const M = CONFIG.spaceM3.mounts;
-    const full = L.maxDamage + M.port.damage * M.port.tubes + M.stbd.damage * M.stbd.tubes;
+    // PAN-01 C: die Batterien schießen Projektile (Treffer ~70 %); der Schaden je Rohr ist so kalibriert, dass der ERWARTETE Salvenwert (Katalog stoss) bei 6 liegt: gerechnet wird mit dem Erwartungswert
+    const Kat = require('../shared/schiffskatalog.js'); const ef = Kat.volley('standardbatterie') / (M.port.damage * M.port.tubes);
+    const full = L.maxDamage + Kat.volley('standardbatterie') * 2;
     ok(CONFIG.enemies.raider.hp >= 36, `enemies.raider.hp ${CONFIG.enemies.raider.hp} (vorher 12)`);
     for (const crew of [1, 2, 3]) {
       const { g } = spaceArena(crew, 3);
@@ -767,8 +769,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       const e = space.spawnEnemy(g, 'raider', { tag: 'arena', x: sh.x + 300, y: sh.y, facing: Math.PI });
       const salvo = () => {   // Lanze voll (Bug, Durchschlag) + Batterie Bb + Batterie Stb (je volle Rohrzahl)
         space.damageEnemy(g, e, L.maxDamage, sh.x + 34, sh.y, { pierce: M.bow.pierce });
-        for (let i = 0; i < M.port.tubes; i++) space.damageEnemy(g, e, M.port.damage, sh.x + 300, sh.y - 60);
-        for (let i = 0; i < M.stbd.tubes; i++) space.damageEnemy(g, e, M.stbd.damage, sh.x + 300, sh.y + 60);
+        for (let i = 0; i < M.port.tubes; i++) space.damageEnemy(g, e, M.port.damage * ef, sh.x + 300, sh.y - 60);
+        for (let i = 0; i < M.stbd.tubes; i++) space.damageEnemy(g, e, M.stbd.damage * ef, sh.x + 300, sh.y + 60);
       };
       const alive = () => g.space.enemies.includes(e);
       const hp = [e.hpMax];

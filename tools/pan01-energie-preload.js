@@ -37,6 +37,12 @@ for (const kv of torpedoMode.split(',')) {
   else if (k === 'schild' && v === 'nur') Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';   // Lesart B (Standard: A, immer an den Schilden vorbei)
   else if (k === 'lager' && x > 0) { Katalog.TORPEDO.lagerMax = Math.max(Katalog.TORPEDO.lagerMax, x); torpedoLager = x; }
 }
+// PAN01_SCHUSS=<faktor>[,<dmgfaktor>]: Geschwindigkeit (und Schaden) der Projektilwaffen für die Kalibrierung skalieren
+if (process.env.PAN01_SCHUSS) {
+  const [fg, fd] = process.env.PAN01_SCHUSS.split(',').map(Number);
+  for (const id of ['standardbatterie', 'standardkanone', 'sturmbatterie']) { const w = Katalog.waffe(id); w.geschw *= fg || 1; if (fd) w.schaden *= fd; }
+  if (fd) CONFIG.spaceM3.mounts.port.damage *= fd;
+}
 const PRIO = [8, 4, 6, 7, 9, 5, 1, 3, 2];
 function waffenSetzen(g) {
   const ART = (p) => (p === 8 ? 'lanze' : p === 5 ? 'standardkanone' : p === 2 ? 'abwehrturm' : 'standardbatterie');
