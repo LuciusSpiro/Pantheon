@@ -279,10 +279,48 @@ function orbit(S, seed) {
   return { fehler, schiffeMax: max, fregatte: g.space.enemies.some((e) => e.kind === 'fregatte') };
 }
 
+// ---------- Aufbau 9 (SUND-01 B): Freie Fahrt Sund – 4 Spieler, Modus gestartet, 40 Sim-Ticks gelaufen (Posten stehen), erst im Hafen Vulcania
+// (Station mit Banner fr, Dock-Marker), dann an einem Posten (kleine Station mit Fahne); je Szene 8 gescannte Jäger. Die Sim selbst gehört nie
+// in den Snapshot: gemessen wird, was die Marker (fr, posten) und der Modus an Bytes kosten. ----------
+function freieFahrt(S, seed) {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const space = require('../server/sim/space.js');
+  const Kriegslage = require('../server/sim/kriegslage.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-ff-mess-'));
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(dir, 'regie') }, log });
+  const cs = [];
+  for (let i = 0; i < 4; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'FF' + i, name: 'FF' + i, color: i }); cs.push(c); }
+  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 15; k++) g.step();
+  for (let i = 0; i < 40; i++) Kriegslage.tick(g, 'sprung');
+  const posten = Object.entries(g.weltsim.zustand.hexe).filter(([, h]) => h.posten).map(([c]) => c);
+  const Sektoren = require('../shared/sektoren.js');
+  const orte = ['vulcania'].concat(posten.length ? [Sektoren.ortVonHex(posten[0])] : []);
+  g.god = true;
+  const je = Math.floor(TICKS / orte.length);
+  let maxMarker = 0;
+  for (const ort of orte) {
+    space.enterScene(g, ort, {});
+    g.space.enemies = [];
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; space.spawnEnemy(g, 'raider', { x: g.ship.x + Math.cos(a) * 500, y: g.ship.y + Math.sin(a) * 500, facing: a + Math.PI, tag: 'mess' }); }
+    for (const e of g.space.enemies) e.scanned = true;
+    for (let k = 0; k < je; k++) {
+      g.ship.hull = 100;
+      g.step();
+      maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
+      messen(S, g.snapshot());
+    }
+  }
+  const fehler = g.errors;
+  g.releaseWorldLock && g.releaseWorldLock();
+  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
@@ -291,7 +329,8 @@ for (let s = 1; s <= SEEDS; s++) laeufe.endkampf.push(Object.assign({ seed: s },
 for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, konvoi(KV, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, flotte(FL, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.orbit.push(Object.assign({ seed: s }, orbit(OB, 70 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.freieFahrt.push(Object.assign({ seed: s }, freieFahrt(FF, 80 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -319,7 +358,9 @@ zeigen(res.flotte);
 console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-const alleOk = res.orbit.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+zeigen(res.freieFahrt);
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker)${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+const alleOk = res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

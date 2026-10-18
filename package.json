@@ -35,6 +35,7 @@
     "gen:sund-frei": "node tools/gen-sund-frei.js",
     "gen:sund-sim": "node tools/gen-sund-sim.js",
     "test:weltsim-kopplung": "node tools/test-weltsim-kopplung.js",
+    "sim:freie-fahrt": "node tools/sim-freie-fahrt.js",
     "test:erreichbar": "node tools/test-erreichbar.js",
     "test:notrufe": "node tools/test-notrufe.js",
     "test:wellen": "node tools/test-wellen.js",
