@@ -1,0 +1,4 @@
+{
+  "_kommentar": "PAN-01 Paket C, schlanke Allow-Datei fuer Vergleiche GEGEN base-pan01c: node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01c <neu> --allow tools/fixtures/golden/allow-pan01c.json. Ein Lauf auf demselben Stand ist byte-identisch zur Basis, es gibt keine Ausnahmen. Gegen base-pan01b2 weichen 21 von 120 Traces ab (99 byte-identisch): die Bots kaufen keinen Bolzenwerfer mehr (Shop-Eintrag entfaellt, Torpedowerfer erst mit Stufe 2), dadurch andere Marken und danach zufallsbedingt andere Gefechte (Crew 3). Zaehlung und Kontrollexperiment in CONTRACT-PAN01-C.md.",
+  "stages": [], "texts": [], "flags": [], "inventory": [], "duration": []
+}

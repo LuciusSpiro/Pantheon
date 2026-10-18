@@ -215,3 +215,14 @@ Projektil- und Strahlformen je Art, neue Töne, Lafetten-Platzhalter je Waffenar
 - **Lafetten-Voxelmodelle:** Modell-Ids stehen im Katalog (`lerche/station/lafette_*`), die Modelle liefert das Voxelwerk (parallel, nur gelesen); der Client zeichnet Platzhalter.
 - **Offen für Paket D:** die Werft muss `Waffen.bestuecken(game, platz, id)` benutzen (prüft Platzart und Stufe), den Preis aus dem Katalog nehmen (Feld `preis` fehlt noch bewusst) und nach dem Umbau `verteilungZuruecksetzen` aufrufen (macht `bestuecken` schon). Das Terminal liest `shared/schiffskatalog.js` (Namen, Wirkung, Symbole).
 - **Offen:** Treffer im Torpedolager (Feuer/Explosion) bleibt aus V1; Lerche-Sprite je Bestückung: nein (Auftrag Punkt 7).
+
+## 14. Golden, Kampagnen-Bots, Prüfung (Stand dieses Branches)
+
+- **Golden** (`--all --seeds 20`, neue Basis `tools/fixtures/golden/base-pan01c`, Allow `allow-pan01c.json` schlank ohne Ausnahmen): gegen `base-pan01b2` **99 von 120 Traces byte-identisch**, 21 weichen ab (alle Crew 3 außer m2/1 Seeds 8 und 12). Ursache: die Bots kaufen keinen Bolzenwerfer
+  mehr (Shop-Eintrag entfällt, Torpedowerfer erst ab Stufe 2 über Werft/Debug); andere Marken, danach läuft der Zufall der Gefechte anders. **Fehlschläge (Erfolg true → false) ehrlich gezählt:** Seeds 1–20 vorher 13 von 120 (m1/3 6, m2/3 7), nachher **19** (m1/3 7, m2/3 12); Zusatzseeds 21–40: vorher 9, nachher **11** (m1/3 3 → 3, m2/3 6 → 8).
+  Über 1–40: 22 → 30 von 240 (m1/3 9 → 10, m2/3 13 → 20; m2 hängt an m1-Fehlschlägen). **Kontrollexperiment:** `pan01-b`-Code, nur der Bolzenwerfer-Kauf im Bot entfernt: Seeds 1–20 **16** Fehlschläge (m2/3 10), also erklärt der fehlende Bolzenwerfer
+  (er war mit 1,26 Schaden/s ohne Pool zu stark, Erkundung) die Hälfte der Verschlechterung; der Rest (16 → 19) liegt im Rauschen der Todesspirale der Crew-3-Bots (dasselbe Muster wie auf `main`/`pan01-a`/`pan01-b`, kein neuer Fehlertyp). Mediane Spieldauer: m1/3 −4 %, m2/3 +6 %, übrige 0 %.
+- **Kampagnen-Bots:** `kette` Crew 1 (Seeds 1–4) grün, `kette` Crew 3 und `sl --paket alle` grün, `sim-sund --weg beide --crew 1` und `--crew 3` (in `npm test`), `--kapitel alle --crew 3` grün. Crew 2 wie auf `main`/`pan01-a/b` Vorbestand (nicht angefasst).
+- **Voxel-Lafetten:** Voxelwerk-Familie `lafette_*` (Commit 876fa42, Branch `pan01`) synchronisiert (`npm run assets`), Manifest-Einträge (`assets/manifest/art-pan01.json`, Höhe 1,25), `public/js/voxel/ship.js` zeigt das Modell der Waffenart auf bestückten Lafetten (Startplätze 8 4 6 nur bei abweichender Waffe; Abwehrturm dreht per `winkel` zum nächsten Jäger).
+  `check:assets` 0 Fehler. **Nicht live angesehen:** das Voxel-Innenbild mit den Modellen (die Screenshots zeigen das 2D-Innenbild mit Platzhaltern, `pruefung-c\`).
+- **Beobachtung:** Der Abwehrturm lädt nicht, wenn andere Energiewaffen das Magazin (36) belegen und er keinen Platz darin findet (§4); mit Reserve-Punkten erst nach einem Schuss einer anderen Waffe.
