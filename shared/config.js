@@ -26,8 +26,8 @@
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
     breach: { hullPerSec: 0.5, o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },
-    // PAN-01 A: Die Lebenserhaltung ist kein Energieposten mehr; der O2-Verlust bei ausgefallener Lebenserhaltung (drainLifeBroken) ruht, solange AP10 ruht.
-    o2: { max: 100, drainLifeBroken: 0, regen: 2, suffocateDps: 2 },
+    // PAN-01 B: Die Lebenserhaltung ist als Station gestrichen (AP10 ruht); O2 sinkt nur durch Lecks.
+    o2: { max: 100, regen: 2, suffocateDps: 2 },
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
     hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.45, systemCooldown: 10, spill: 0.4 },   // M3a: 0.35/12 -> 0.45/10 (spill ersetzt durch spaceM3-Gewichte)

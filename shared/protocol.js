@@ -226,8 +226,8 @@
     // Debug modul [status | start | voll | an <id> [raum] | aus <id> | weg <id>]. Weltstand schiff.module [{ id, raum, an }].
     MODUL_IDS: ['frachtraum', 'krankenstation', 'werkstatt'],
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
-    // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
-    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer',
+    // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1. PAN-01 B: die Lebenserhaltung ist gestrichen (13 Systeme).
+    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'transfer',
       'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],
     // PAN-01 A: nur die Hauptsysteme; die Lebenserhaltung ist kein Energieposten mehr, Bordmodule zählen über ship.mod
     POWER_SYSTEMS: ['engines', 'shields', 'weapons'],

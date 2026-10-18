@@ -103,7 +103,12 @@ function unregister(id) {
 function registered() { return Object.keys(AWAY_MAPS).filter((id) => !istHand(id)).sort(); }
 
 const floorWalkable = (map) => (x, y) => !map.solid(x, y);
-const shipWalkable = floorWalkable(ship);
+const shipWalkable = floorWalkable(ship);   // ohne Ausbau: verschalte Pforten ('+') sind zu (Tests, Prüfungen); im Spiel gilt shipSolidFor/shipWalkableFor(stufe)
+// PAN-01 B: Solid/Begehbar der Schiffskarte bei dieser Ausbaustufe (game.ship.stufe): verschalte Pforten öffnen mit der Stufe. Je Stufe einmal gebaut.
+const solidCache = {};
+const shipSolidFor = (stufe) => solidCache[stufe | 0] || (solidCache[stufe | 0] = Maps.shipSolidFn(stufe | 0));
+const walkCache = {};
+const shipWalkableFor = (stufe) => walkCache[stufe | 0] || (walkCache[stufe | 0] = ((s) => (x, y) => !s(x, y))(shipSolidFor(stufe)));
 
 // Bodenkacheln je Schildsektor-Bereich (für Feuer) und wandnahe Bodenkacheln (für Hüllenbrüche).
 const SHIP_FLOORS = findAll(ship, (ch, x, y) => !ship.solid(x, y));
@@ -114,13 +119,23 @@ function isOuterWallAdjacent(x, y) {
   }
   return false;
 }
-// M4: Feuer/Lecks nur auf Deck I und nie auf Lift oder Leiter (Maps.hazardAllowed)
-const hazardAllowed = (x, y) => (Maps.hazardAllowed ? Maps.hazardAllowed(x, y) : !ship.solid(x, y));
+// PAN-01 B: Feuer/Lecks nur auf Mittel- und Unterdeck (nicht auf dem privaten Oberdeck), nie auf Lift oder Leiter, nie in noch nicht ausgebauten Räumen
+// (Maps.hazardAllowed mit Ausbaustufe)
+const hazardAllowed = (x, y, stufe) => Maps.hazardAllowed(x, y, stufe);
 const REGION_FLOORS = Maps.SECTOR_REGIONS.map((r) => SHIP_FLOORS.filter((t) => r.test(t.x, t.y) && hazardAllowed(t.x, t.y)));
 const REGION_WALL_FLOORS = Maps.SECTOR_REGIONS.map((r, i) => {
   const list = REGION_FLOORS[i].filter((t) => isOuterWallAdjacent(t.x, t.y) && ship.info(t.x, t.y).kind !== 'pad');
   return list.length ? list : REGION_FLOORS[i];
 });
+
+// Kandidaten je Sektor bei dieser Ausbaustufe (nur offene Räume), je Stufe einmal gefiltert
+const regionCache = {};
+function regionFloorsFor(stufe, wallAdjacent) {
+  const k = (stufe | 0) + (wallAdjacent ? 'w' : 'f');
+  if (regionCache[k]) return regionCache[k];
+  const src = wallAdjacent ? REGION_WALL_FLOORS : REGION_FLOORS;
+  return (regionCache[k] = src.map((list) => list.filter((t) => hazardAllowed(t.x, t.y, stufe))));
+}
 
 // Begehbare Nachbarkachel eines (soliden) Objekts – für Bots/Agenten.
 function accessTiles(map, walkable, tx, ty) {
@@ -141,14 +156,17 @@ const tileCenter = Physics.tileCenter;
 
 // M4 §2.4: Deck-Übergänge als BFS-Kanten für bfs(…, links). Bots: nur Lift; Spieler-Agenten (Tools) dürfen auch die Leiter.
 const deckOf = (ty) => (Maps.deckOf ? Maps.deckOf(ty) : 0);
-const liftLinks = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y, { ladder: false }) : []);
-const deckLinksAll = (x, y) => (Maps.deckLinks ? Maps.deckLinks(x, y) : []);
+// PAN-01 B: liftLinksFor(stufe) mit Ausbaustufe (der Hecklift fährt erst mit Stufe 1 ins Unterdeck); liftLinks/deckLinksAll voll ausgebaut
+const liftLinks = (x, y) => Maps.deckLinks(x, y, { ladder: false });
+const deckLinksAll = (x, y) => Maps.deckLinks(x, y);
+const linksCache = {};
+const liftLinksFor = (stufe) => linksCache[stufe | 0] || (linksCache[stufe | 0] = (x, y) => Maps.deckLinks(x, y, { ladder: false, stufe: stufe | 0 }));
 
 module.exports = {
   Maps, Locations, ship, platform, wreck, kesh, SYSTEM_TILES, STATIONS, CONSOLE_TILES, SHELF_TILES, SHIP_PADS, PLATFORM_PADS, SONDE_TILE,
   NPC_SPAWN, DATENKERN_SPAWN, DRONE_SPAWNS, PLATFORM_DOORS, REACTOR_SWITCHES, AWAY_MAPS, SHIP_FLOORS, REGION_FLOORS, REGION_WALL_FLOORS,
-  shipWalkable, accessTiles, tileCenter, findAll, roomAt,
-  hazardAllowed, deckOf, liftLinks, deckLinksAll,
+  shipWalkable, shipSolidFor, shipWalkableFor, accessTiles, tileCenter, findAll, roomAt,
+  hazardAllowed, regionFloorsFor, deckOf, liftLinks, liftLinksFor, deckLinksAll,
   // B1 (BUEHNE): Registry gebauter Karten
   HAND_IDS, istHand, register, unregister, registered,
 };

@@ -9,35 +9,35 @@
   const PAL = R.PAL;
   const TILE = 32, VW = 640, VH = 360;
 
-  // M3a: alle 14 Systeme (+ Altname weapons = schlechteste der drei Waffen)
+  // M3a, PAN-01 B: alle 13 Systeme (+ Altname weapons = schlechteste der drei Waffen); die Lebenserhaltung ist gestrichen
   const SYS_NAMES = {
-    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgenerator', weapons: 'Waffen', life: 'Lebenserhaltung', transfer: 'Transfer',
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgenerator', weapons: 'Waffen', transfer: 'Transfer',
     // gleiche Namen wie der Server (interior.SYS_LABEL)
     thruster_port: 'Backbord-Düse', thruster_stbd: 'Steuerbord-Düse',
     emitter_bow: 'Bug-Emitter', emitter_stbd: 'Steuerbord-Emitter', emitter_aft: 'Heck-Emitter', emitter_port: 'Backbord-Emitter',
     weapon_bow: 'Bug-Waffe', battery_port: 'Backbord-Batterie', battery_stbd: 'Steuerbord-Batterie',
   };
   const SYS_SHORT = {
-    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', life: 'Leben', transfer: 'Transfer',
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', transfer: 'Transfer',
     thruster_port: 'Bb-Düse', thruster_stbd: 'Stb-Düse', emitter_bow: 'Bug-Emitter', emitter_stbd: 'Stb-Emitter', emitter_aft: 'Heck-Emitter',
     emitter_port: 'Bb-Emitter', weapon_bow: 'Bug-Waffe', battery_port: 'Bb-Batterie', battery_stbd: 'Stb-Batterie',
   };
   // Zwei Zeichen fürs HUD-Raster: Art + Seite (b Backbord, s Steuerbord, h Heck, v vorn/Bug)
   const SYS_CODE = {
-    reactor: 'Re', shields: 'Sg', life: 'Le', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
+    reactor: 'Re', shields: 'Sg', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
     thruster_port: 'Db', thruster_stbd: 'Ds', emitter_bow: 'Ev', emitter_stbd: 'Es', emitter_aft: 'Eh', emitter_port: 'Eb', battery_port: 'Bb', battery_stbd: 'Bs',
   };
   // Reihenfolge nach Ort: Bug – Backbord – Steuerbord – Heck – Mitte
   const SYSTEM_ORDER = ['weapon_bow', 'emitter_bow', 'thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer',
-    'engines', 'emitter_aft', 'reactor', 'shields', 'life'];
+    'engines', 'emitter_aft', 'reactor', 'shields'];
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
-  const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'life', 'weapon_bow', 'emitter_bow'],
+  const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
-  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
+  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
   const WAFFE_KURZ = { schrottblaster: 'Schrottbl.', sturmgewehr: 'Gewehr', granatwerfer: 'Granaten', betaeuber: 'Betäuber', nahkampf: 'Klinge' };
   const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Faust', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
@@ -47,10 +47,16 @@
   const STATE_COL = { ok: PAL.moss, damaged: PAL.warn, broken: PAL.red, offline: '#9A7AE0' };
   STATE_NAMES.offline = 'offline (EMP)';
 
-  // Räume der Lerche: M3a aus dem Schiffslayout (Maps.roomAt / SHIP_ROOMS), Fallback 'Gang'
-  function roomOf(tx, ty) {
+  // Räume der Lerche: M3a aus dem Schiffslayout (Maps.roomAt / SHIP_ROOMS), Fallback 'Gang'.
+  // PAN-01 B: Modulräume heißen nach dem Modul darin (st = Snapshot, ship.mod), sonst „Modulraum n (leer)“; der Raumname nennt das Deck.
+  const MODUL_NAMEN = { f: 'Frachtraum', k: 'Krankenstation', w: 'Werkstatt' };
+  function roomOf(tx, ty, st) {
     try {
       const r = Maps && Maps.roomAt ? Maps.roomAt(tx, ty) : null;
+      if (r && r.kind === 'modul' && st && st.ship) {
+        const code = Maps.modulCodeImRaum(st.ship.mod, r.modul);
+        return code ? (MODUL_NAMEN[code] || r.name) + ' (Raum ' + r.modul + ')' : r.name + ' (leer)';
+      }
       return (r && r.name) || 'Gang';
     } catch (e) { return 'Gang'; }
   }
@@ -476,14 +482,14 @@
       R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55 + yo, { color: PAL.brass });
       // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
-      const rn = roomOf(tx, ty);
+      const rn = roomOf(tx, ty, view.state);
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
       R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
       R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
       this.drawJumpLine(ctx, view, 63);
       // Mini-Schiffsplan unten rechts
-      const map = Maps.ship;
-      R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'ship', cell: 3 });
+      const mp = R.miniPlanSize('ship', 3);   // PAN-01 B: drei Decks übereinander, ohne die leeren Zeilen dazwischen
+      R.drawMiniPlan(ctx, view, VW - mp.w - 6, VH - mp.h - 6, { zone: 'ship', cell: 3 });
       this.drawEdgeArrows(ctx, view);
     },
 

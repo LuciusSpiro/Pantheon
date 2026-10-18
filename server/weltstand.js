@@ -7,6 +7,7 @@ const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
+const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
@@ -20,7 +21,7 @@ const SCHEMA_FILE = path.join(ROOT, 'content', 'schema', 'weltstand.schema.json'
 const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
 const ID_RE = /^[a-z0-9-]{4,40}$/;
 const NPC_STATES = ['lebt', 'verwundet', 'verletzt', 'gefangen', 'tot', 'verschwunden', 'vermisst', 'unbekannt', 'befoerdert', 'uebergelaufen'];
-const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thruster_port', 'thruster_stbd',
+const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
   'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const CHRONIK_KEEP = 200;
@@ -692,6 +693,7 @@ function capture(game) {
       marken: Math.max(0, Math.round(inv.marks || 0)),
       lager,
       ausbauten: Object.keys(game.upgrades || {}).filter((k) => game.upgrades[k]),
+      stufe: Ausbau.toSave(game),   // PAN-01 B: Ausbaustufe 0–3 (öffnet Plätze und Räume)
       module: Modul.toSave(game),   // PAN-01 A: [{ id, raum, an }]; die Energieverteilung wird nicht gespeichert (Standardverteilung beim Laden)
       deko: (inv.deko || []).map(String),
       dekoPlaetze: clone(game.deco || {}),
@@ -756,13 +758,14 @@ function apply(game, data) {
   game.inventory.marks = Math.max(0, Math.round(Number(s.marken) || 0));
   for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) game.inventory[k] = v;
   game.inventory.deko = Array.isArray(s.deko) ? s.deko.slice() : [];
-  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
   Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
   // PAN-01 A: nur noch bekannte Ausbauten (schildpool entfällt, ohne Abwärtsmigration); bot2 (früher schrauber3) ist das Modul Werkstatt
   for (const k of s.ausbauten || []) if (k in game.upgrades) game.upgrades[k] = true;
+  Ausbau.restore(game, s.stufe);   // PAN-01 B: vor den Modulen (offene Räume); fehlt im Altstand = Stufe 0
   Modul.restore(game, s.module);   // fehlt im Altstand = Start-Bestückung; setzt auch die Standardverteilung
   if (!Array.isArray(s.module) && (s.ausbauten || []).some((k) => k === 'bot2' || k === 'schrauber3')) { Modul.bestuecken(game, 'werkstatt'); Modul.verteilungSetzen(game); }
+  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
   if (s.quartiere) for (const [k, v] of Object.entries(s.quartiere)) game.quarters[k] = Object.assign({}, game.quarters[k] || {}, v);

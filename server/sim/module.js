@@ -2,8 +2,8 @@
 // PAN-01 Paket A: Bordmodule (Frachtraum, Krankenstation, Werkstatt) als Daten, Energie und Wirkung.
 //
 // Ein Modul steht in einem Modulraum (Nummer 1..CONFIG.module.max) und ist an oder aus. Jedes LAUFENDE Modul zieht CONFIG.module.energie (1) aus dem
-// Reaktor, Hauptsysteme (Antrieb, Schilde, Waffen) ziehen wie bisher ihre eingestellte Energie. Gleiche Module dürfen mehrfach stehen (Paket B: vier gleiche
-// Modulräume); heute gibt es nur zwei echte Räume (Krankenstation, Frachtraum), die Räume 3 und 4 und die Werkstatt sind Daten ohne eigenen Raum.
+// Reaktor, Hauptsysteme (Antrieb, Schilde, Waffen) ziehen wie bisher ihre eingestellte Energie. Gleiche Module dürfen mehrfach stehen (PAN-01 B: vier gleich große
+// Modulräume auf dem Unterdeck, jedes Modul in jedem Raum; Raum 3 öffnet mit Ausbaustufe 1, Raum 4 mit Stufe 2, siehe ausbau.js).
 //
 //   ship.module = [{ id, raum, an, lauf }]
 //     an   = Wunsch der Technik (technik.module); lauf = tatsächlich in Betrieb (an UND genug Reaktorleistung, siehe space.enforcePower).
@@ -26,6 +26,8 @@ function finde(game, id, raum) { return liste(game).find((m) => m.id === id && (
 
 // ---------- Abfragen ----------
 function installiert(game, id) { return liste(game).some((m) => m.id === id); }
+// PAN-01 B: Modulräume, in denen ein Frachtraum steht (Kapazität 2 je Raum, Buchten und Betten dort: Maps.frachtPlaetze)
+function frachtRaeume(game) { return liste(game).filter((m) => m.id === 'frachtraum').map((m) => m.raum); }
 function laeuft(game, id) { return liste(game).some((m) => m.id === id && m.lauf); }
 // alle installierten Module dieser Art laufen (und mindestens eines ist da): Frachtraum „gesichert“ gilt nur dann
 function alleLaufen(game, id) { const l = liste(game).filter((m) => m.id === id); return l.length > 0 && l.every((m) => m.lauf); }
@@ -74,9 +76,11 @@ function bestuecken(game, id, raum) {
   const C = cfg(game);
   if (!C.ids.includes(id)) return 'Unbekanntes Modul (frachtraum | krankenstation | werkstatt).';
   const l = liste(game);
+  const offen = require('../world.js').Maps.modulRaeumeOffen(game.ship.stufe | 0);   // PAN-01 B: nur offene Räume
   let r = raum;
-  if (r == null) { for (let i = 1; i <= C.max; i++) if (!l.some((m) => m.raum === i)) { r = i; break; } }
-  if (!(r >= 1 && r <= C.max)) return `Kein freier Modulraum (1..${C.max}).`;
+  if (r == null) { for (let i = 1; i <= C.max; i++) if (offen.includes(i) && !l.some((m) => m.raum === i)) { r = i; break; } }
+  if (!(r >= 1 && r <= C.max)) return `Kein freier Modulraum (offen: ${offen.join(', ')}; Debug: ausbau <stufe>).`;
+  if (!offen.includes(r)) return `Modulraum ${r} ist noch verschlossen (Ausbaustufe ${require('../world.js').Maps.MODUL_RAEUME.find((q) => q.raum === r).stufe} nötig, Debug: ausbau <stufe>).`;
   if (l.some((m) => m.raum === r)) return `Modulraum ${r} ist belegt.`;
   l.push({ id, raum: r, an: true, lauf: true });
   l.sort((a, b) => a.raum - b.raum);
@@ -121,13 +125,15 @@ function snapshot(game) {
   return liste(game).map((m) => [codes[m.id] || m.id, m.raum, m.an ? 1 : 0, m.lauf ? 1 : 0]);
 }
 function toSave(game) { return liste(game).map((m) => ({ id: m.id, raum: m.raum, an: !!m.an })); }
-// fehlt der Block (Altstand): Start-Bestückung. Bestückung und an/aus werden übernommen, die Verteilung nicht (Standardverteilung).
+// fehlt der Block (Altstand): Start-Bestückung. Bestückung und an/aus werden übernommen, die Verteilung nicht (Standardverteilung). Räume, die bei der
+// gespeicherten Ausbaustufe noch zu sind, gibt es nicht (die Stufe wird vorher gesetzt, ausbau.restore).
 function restore(game, arr) {
   const C = cfg(game);
   const seen = new Set();
   const out = [];
+  const offen = require('../world.js').Maps.modulRaeumeOffen(game.ship.stufe | 0);
   for (const m of Array.isArray(arr) ? arr : []) {
-    if (!m || !C.ids.includes(m.id) || !Number.isInteger(m.raum) || m.raum < 1 || m.raum > C.max || seen.has(m.raum)) continue;
+    if (!m || !C.ids.includes(m.id) || !Number.isInteger(m.raum) || m.raum < 1 || m.raum > C.max || !offen.includes(m.raum) || seen.has(m.raum)) continue;
     seen.add(m.raum);
     out.push({ id: m.id, raum: m.raum, an: m.an !== false, lauf: m.an !== false });
   }
@@ -138,14 +144,15 @@ function restore(game, arr) {
 
 // ---------- Debug: modul [status | start | voll | an <id> [raum] | aus <id> [raum] | weg <id> [raum] | bau <id> [raum]] ----------
 //   start  = Frachtraum + Krankenstation (2 Module, Standardverteilung 2/2/2)
-//   voll   = vier Module (Frachtraum, Krankenstation, Werkstatt, Frachtraum; Standardverteilung 1/2/1)
-//   bau    = Modul in einen freien Raum einbauen (auch ein zweites gleiches), danach Standardverteilung
+//   voll   = vier Module (Frachtraum, Krankenstation, Werkstatt, Frachtraum; Standardverteilung 1/2/1); hebt die Ausbaustufe auf mindestens 2 (Räume 3 und 4 offen)
+//   bau    = Modul in einen freien OFFENEN Raum einbauen (auch ein zweites gleiches, raum 1..4 wählbar), danach Standardverteilung
 //   weg    = Modul ausbauen; an|aus = wie die Technik schalten (aus: immer, an: nur mit freier Reaktorleistung)
 function debug(game, args) {
   const sub = args[0] || 'status';
   const id = args[1] != null ? String(args[1]) : null;
   const raum = args[2] != null && Number.isFinite(Number(args[2])) ? Number(args[2]) : null;
   if (sub === 'start' || sub === 'voll') {
+    if (sub === 'voll' && (game.ship.stufe | 0) < 2) { require('./ausbau.js').setStufe(game, 2); game.log('Ausbaustufe auf 2 angehoben (Modulräume 3 und 4 offen).'); }
     game.ship.module = sub === 'start' ? neu(game.C)
       : [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'krankenstation', raum: 2, an: true, lauf: true },
         { id: 'werkstatt', raum: 3, an: true, lauf: true }, { id: 'frachtraum', raum: 4, an: true, lauf: true }];
@@ -163,6 +170,6 @@ function debug(game, args) {
 }
 
 module.exports = {
-  neu, liste, finde, installiert, laeuft, alleLaufen, anzahlLaufend, anzahlAn, energieWunsch, energieLauf,
+  neu, liste, finde, installiert, frachtRaeume, laeuft, alleLaufen, anzahlLaufend, anzahlAn, energieWunsch, energieLauf,
   standardVerteilung, verteilungSetzen, notrueckholungFolge, schalten, bestuecken, entfernen, update, snapshot, toSave, restore, debug, name,
 };

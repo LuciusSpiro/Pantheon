@@ -39,7 +39,7 @@ const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd'];
 // Altnamen eingehender Befehle (§5.1). seitenturm (früher Steuerbord-Turm) -> stbd.
 const MOUNT_ALIAS = { phase_l: 'port', phase_r: 'stbd', both: 'all', seitenturm: 'stbd', lanze: 'bow' };
 const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Sektor 0..3
-const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thruster_port', 'thruster_stbd',
+const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
   'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
 const SECTOR_LABEL = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
 const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
@@ -529,11 +529,8 @@ function updateSystems(game, dt) {
       game.oda(`${cap(interior.sysNameNom(k))} ist überhitzt! Stufe 4 nur kurz fahren, sonst wird's warm.`, 'heat_' + k);
     }
   }
-  // Lebenserhaltung / O₂
-  // PAN-01 A: Die Lebenserhaltung zieht keine Energie mehr; solange AP10 ruht, zehrt sie nie am O2 (drainLifeBroken 0), nur Lecks (unten)
-  const lifeDown = C.o2.drainLifeBroken > 0 && isDown(ship.systems.life);
-  if (lifeDown) ship.o2 -= C.o2.drainLifeBroken * dt;
-  else ship.o2 += C.o2.regen * dt;
+  // O₂ (PAN-01 B: die Lebenserhaltung ist als Station gestrichen; O₂ sinkt nur durch Lecks)
+  ship.o2 += C.o2.regen * dt;
   const drill = game.mission && game.mission.isDrill();
   if (!drill) ship.o2 -= C.breach.o2PerSec * ship.breachList.length * dt;
   ship.o2 = clamp(ship.o2, 0, C.o2.max);
@@ -822,7 +819,7 @@ function hitLegacy(game, sector, dmg, opts) {
   }
   if (opts.emp) {
     // EMP durch die Schilde: zufälliges System offline statt Hüllenschaden
-    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null && !(interior.INERT_SYSTEMS || []).includes(s));   // PAN-01 A: ohne Lebenserhaltung
+    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null);
     const cand = order.filter((s) => !isDown(ship.systems[s]));
     game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy });
     game.emit('sfx', { name: 'emp' });

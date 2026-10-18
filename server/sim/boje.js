@@ -1,7 +1,7 @@
 'use strict';
 // SL10 (CONCEPT-SL10): die Vorläufer-Boje wecken. Alle vier Stationen arbeiten:
 //   Ops        Frequenz und Adresse (Minispiel Glyphen/Sternkarte, server/sim/glyphen.js, id 'boje'): ohne gelöste Adresse bleibt die Boje stumm
-//   Technik    speist Energie ein: die Boje braucht `boje.freiNoetig` freie Reaktorpunkte (Waffen herunterfahren und Bordmodule abschalten, PAN-01 A; die frühere O₂-Uhr der Lebenserhaltung entfällt, solange AP10 ruht)
+//   Technik    speist Energie ein: die Boje braucht `boje.freiNoetig` freie Reaktorpunkte (Waffen herunterfahren und Bordmodule abschalten, PAN-01 A; die frühere O₂-Uhr der Lebenserhaltung ist mit der Station gestrichen, PAN-01 B)
 //   Navigation hält die Lerche im Aktivierungsfeld (Zone boje_feld, drückt und driftet; shared/zonen.js boje())
 //   Captain    sieht die Konstellation für die Ops und entscheidet (Wettlauf nach Weg A: Piraten kommen in Wellen)
 // Fortschritt (Zähler 'boje' in den Zonen, 0..100) wächst mit der Energie, solange alles stimmt, und fällt langsam, wenn die Lerche das Feld verlässt.

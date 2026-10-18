@@ -143,11 +143,13 @@ function goalTilesFor(task) {
   return out.concat(W.accessTiles(W.ship, W.shipWalkable, task.tx, task.ty));
 }
 
-function pathTo(bot, goals) {
+function pathTo(game, bot, goals) {
   const st = Physics.toTile(bot.x, bot.y);
   const set = new Set(goals.map((g) => g.y * W.ship.w + g.x));
   // M4: mit Lift-Kanten (nie Leiter) – ein Pfadschritt mit via 'lift' heißt: auf der Plattform Lift fahren
-  return bfs(W.shipWalkable, st, (x, y) => set.has(y * W.ship.w + x) && W.shipWalkable(x, y), W.ship.w, W.ship.h, null, W.liftLinks);
+  // PAN-01 B: nach Ausbaustufe (verschalte Pforten, Hecklift ins Unterdeck erst mit Stufe 1)
+  const walk = W.shipWalkableFor(game.ship.stufe);
+  return bfs(walk, st, (x, y) => set.has(y * W.ship.w + x) && walk(x, y), W.ship.w, W.ship.h, null, W.liftLinksFor(game.ship.stufe));
 }
 
 // M3a: Zugangskachel aus dem Schiffslayout (shelf.access); Fallback: begehbare Nachbarn des Regals
@@ -183,7 +185,7 @@ function chooseTask(game, bot) {
         c.mode = 'flick'; c.part = null;
       } else continue;
     }
-    const path = pathTo(bot, goalTilesFor(c));
+    const path = pathTo(game, bot, goalTilesFor(c));
     if (!path) continue;
     return c;
   }
@@ -207,10 +209,10 @@ function assign(game, bot, task) {
   if (task.part && bot.carry !== task.part) {
     if (bot.carry) { stowNow(game, bot); }
     task.phase = 'fetch';
-    bot.path = pathTo(bot, shelfAccess(task.part));
+    bot.path = pathTo(game, bot, shelfAccess(task.part));
   } else {
     task.phase = 'goto';
-    bot.path = pathTo(bot, goalTilesFor(task));
+    bot.path = pathTo(game, bot, goalTilesFor(task));
   }
 }
 
@@ -234,10 +236,8 @@ function moveAlong(game, bot, dt) {
   let budget = speed * dt;
   while (budget > 0 && bot.path.length) {
     const n = bot.path[0];
-    if (n.via === 'lift') {   // Liftkante: von der aktuellen Liftkachel aus fahren
-      const cur = Physics.toTile(bot.x, bot.y);
-      interior.startLift(game, bot, cur.x, cur.y, true);
-      bot.liftDest = { x: n.x, y: n.y };
+    if (n.via === 'lift') {   // Liftkante: von der aktuellen Liftkachel aus fahren (Ziel = Kachel auf dem Nachbardeck)
+      interior.startRide(game, bot, { x: n.x, y: n.y, deck: W.deckOf(n.y), via: 'lift' }, true);
       return false;
     }
     const c = W.tileCenter(n.x, n.y);
@@ -269,7 +269,7 @@ function schalterDienst(game) {
   if (!free.length) return;
   const sw = ((rc.switches && rc.switches.B) || (rc.latch && rc.latch.B > 0)) ? 'A' : 'B';
   const task = switchTask(game, sw);
-  const pick = free.map((b) => ({ b, path: pathTo(b, goalTilesFor(task)) })).filter((o) => o.path)
+  const pick = free.map((b) => ({ b, path: pathTo(game, b, goalTilesFor(task)) })).filter((o) => o.path)
     .sort((a, b) => a.path.length - b.path.length)[0];
   if (!pick) return;
   rc.needBot = sw;
@@ -288,7 +288,7 @@ function update(game, dt) {
   if (rc.state === 'offline' && rc.needBot && !game.bots.some((b) => b.task && b.task.kind === 'switch')) {
     const task = switchTask(game, rc.needBot);
     const free = game.bots.filter((b) => !b.task || b.task.kind === 'home' || b.task.phase !== 'work');
-    const pick = (free.length ? free : game.bots).map((b) => ({ b, path: pathTo(b, goalTilesFor(task)) })).filter((o) => o.path)
+    const pick = (free.length ? free : game.bots).map((b) => ({ b, path: pathTo(game, b, goalTilesFor(task)) })).filter((o) => o.path)
       .sort((a, b) => a.path.length - b.path.length)[0];
     if (pick) { pick.b.task = task; task.phase = 'goto'; pick.b.path = pick.path; pick.b.progress = 0; pick.b.reevalT = 1; }
   }
@@ -318,7 +318,7 @@ function update(game, dt) {
           if (bot.carry) stowNow(game, bot);
           const home = { kind: 'home', key: null, cls: 9, phase: 'goto', tx: bot.spawn.x, ty: bot.spawn.y };
           const st = Physics.toTile(bot.x, bot.y);
-          if (st.x !== bot.spawn.x || st.y !== bot.spawn.y) { bot.task = home; bot.path = pathTo(bot, [bot.spawn]); }
+          if (st.x !== bot.spawn.x || st.y !== bot.spawn.y) { bot.task = home; bot.path = pathTo(game, bot, [bot.spawn]); }
         }
       }
     }
@@ -329,7 +329,7 @@ function update(game, dt) {
         if (game.inventory[t.part] > 0) {
           game.inventory[t.part]--; bot.carry = t.part;
           game.emit('sfx', { name: 'bot_beep', zone: 'ship', x: Math.round(bot.x), y: Math.round(bot.y) });
-          t.phase = 'goto'; bot.path = pathTo(bot, goalTilesFor(t));
+          t.phase = 'goto'; bot.path = pathTo(game, bot, goalTilesFor(t));
           if (!bot.path) { bot.task = null; }
         } else {
           reportNoPart(game, t.part);

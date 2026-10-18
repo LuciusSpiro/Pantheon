@@ -16,6 +16,7 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
+const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
@@ -395,6 +396,7 @@ class Game {
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
       heat: { engines: 0, shields: 0, weapons: 0 },
       module: Modul.neu(C),   // PAN-01 A: Bestückung der Start-Lerche (Frachtraum, Krankenstation), je ein Modulraum
+      stufe: 0,   // PAN-01 B: Ausbaustufe (0 Start, 3 voll ausgebaut), öffnet Plätze und Räume (sim/ausbau.js)
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
@@ -1274,7 +1276,8 @@ class Game {
         err = k ? (id ? k.einstieg(id) : 'kapitel <id>: ' + [...k.kap.keys()].join(', ')) : 'Keine Kampagnenkette aktiv (Lobby-Modus Kampagne Eisenwald).';
         break;
       }
-      case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum] | weg <id> [raum] | an|aus <id> [raum]
+      case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum 1–4] | weg <id> [raum] | an|aus <id> [raum]
+      case 'ausbau': err = Ausbau.debug(this, argList(msg)); break;   // PAN-01 B: ausbau [status | 0..3] – Ausbaustufe (Waffenplätze, Modulräume, Pforten, Lifts)
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
@@ -1904,6 +1907,7 @@ class Game {
         power: ship.power, reactor: this.reactorSnap(),
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
         mod: Modul.snapshot(this),   // PAN-01 A: [[code, raum, an, läuft]]
+        ...(ship.stufe ? { st: ship.stufe } : {}),   // PAN-01 B: Ausbaustufe 1–3 (fehlt = 0)
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
         systems: Object.assign({}, ship.systems, { weapons: ship.systems.weapons }),

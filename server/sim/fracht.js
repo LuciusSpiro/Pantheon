@@ -6,7 +6,8 @@
 //   weapons.abliefern                  Ops: Fracht beim Abnehmer abgeben (derselbe Halteprozess, Beamen nach draußen)
 //
 // Regeln (Briefing EK3, Planung E6):
-//  - Der Frachtraum hat Maps.CARGO_CAPACITY (2) Buchten. Eine dritte Ladung wird abgelehnt.
+//  - Jedes Modul Frachtraum (PAN-01 B: in jedem der vier Modulräume möglich, auch mehrfach) hat Maps.CARGO_PER_RAUM (2) Buchten: Kapazität = 2 × Frachträume.
+//    Ohne Frachtraum nimmt das Schiff nichts an. Die n-te Ware liegt in der n-ten Bucht der Frachträume (Maps.frachtPlaetze). Ein Platz mehr wird abgelehnt.
 //  - Beamen: Haltezeit ship.beamTime (3 s; bei beschädigtem Transfer ship.beamTimeDamaged), Reichweite fracht.beamRange (320, wie scene.beam.range
 //    der Außenkarten). Ein Systemtreffer (interior.damageSystem) bricht ab, ein Schildtreffer nicht. Auch Transfer ausgefallen, Fracht
 //    außer Reichweite oder niemand mehr an der Ops bricht ab. Der Halteprozess belegt nicht ship.beaming (Schilde bleiben oben).
@@ -24,7 +25,8 @@ const Locations = require('../../shared/locations.js');
 const { dist } = require('../util.js');
 
 const cfg = (game) => game.C.fracht;
-const capacity = () => (W.Maps && W.Maps.CARGO_CAPACITY) || 2;
+// Kapazität (Waren und Personen) = 2 je Modul Frachtraum (module.js, lazy wegen Zirkelbezug)
+const capacity = (game) => W.Maps.cargoCapacity(require('./module.js').frachtRaeume(game));
 const r1 = (v) => Math.round(v * 10) / 10;
 
 function neu() {
@@ -37,7 +39,7 @@ const artName = (art) => (art === 'sprengstoff' ? 'Sprengstoff' : art === 'frach
 
 // ---------- Abfragen ----------
 function anBord(game, art) { const s = state(game); return art ? s.lager.filter((l) => l.art === art).length : s.lager.length; }
-function frei(game) { return capacity() - state(game).lager.length; }
+function frei(game) { return capacity(game) - state(game).lager.length; }
 function gesichert(game) { return state(game).gesichert !== false; }
 function setGesichert(game, on) { state(game).gesichert = !!on; }
 // Was bei einem ungesicherten Lager gefährdet ist (Waren und Personen); AP14 (Personen als Fracht) wertet das später aus
@@ -106,7 +108,7 @@ function beamStart(game, p, id) {
   const s = state(game);
   if (s.halt) return 'Transfer läuft bereits.';
   const g = beamGrund(game); if (g) return g;
-  if (frei(game) <= 0) return `Frachtraum voll (${anBord(game)}/${capacity()}) – erst abliefern.`;
+  if (frei(game) <= 0) return capacity(game) <= 0 ? 'Kein Frachtraum eingebaut.' : `Frachtraum voll (${anBord(game)}/${capacity(game)}) – erst abliefern.`;
   const draus = draussen(game);
   if (!draus.length) return 'Keine Fracht in diesem Gebiet.';
   const pod = id != null ? draus.find((d) => d.id === String(id)) : naechste(game);
@@ -164,7 +166,7 @@ function beamFertig(game) {
     const pod = s.draussen.splice(i, 1)[0];
     s.lager.push({ art: pod.art });
     game.emit('frachtBeamen', { phase: 'fertig', was: 'an', art: pod.art });
-    game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity()}).`, null);
+    game.oda(`${artName(pod.art)} an Bord (${s.lager.length}/${capacity(game)}).`, null);
     game.missionEvent('frachtAnBord', { art: pod.art, n: s.lager.length, id: pod.id });
   } else if (h.kind === 'person_an' || h.kind === 'person_ab') {   // SL0: Person beamen (server/sim/personen-bord.js)
     require('./personen-bord.js').haltFertig(game, h);
@@ -235,7 +237,7 @@ function toSave(game) { const P = require('./personen-bord.js'); return state(ga
 function restore(game, arten) {
   const s = state(game);
   const P = require('./personen-bord.js');
-  s.lager = (Array.isArray(arten) ? arten : []).filter((a) => (typeof a === 'string' && artOk(game, a)) || (a && typeof a === 'object' && a.p)).slice(0, capacity())
+  s.lager = (Array.isArray(arten) ? arten : []).filter((a) => (typeof a === 'string' && artOk(game, a)) || (a && typeof a === 'object' && a.p)).slice(0, Math.max(capacity(game), 0))
     .map((a) => (typeof a === 'string' ? { art: a } : P.restoreEntry(a)));   // SL0: Personen { p, n, b }
   s.halt = null;
 }
