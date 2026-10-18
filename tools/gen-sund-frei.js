@@ -10,11 +10,15 @@
 //  - die 6 Kanten des Prototyps karte_sund.py, die sund.json fehlen: 0405–0505, 0505–0605, 0605–0705, 0705–0805, 0504–0505, 0704–0705
 //    (alle fest offen, auch 0605–0705),
 //  - id, name, quelle, start (Ostia Nova 0305, angedockt, boden false). Damit der Start einen Ort hat, bekommt 0305 minimal ort/gen/spielbar/
-//    andocken; die Spielbarkeit aller übrigen Hexe, Andocken und Szenen setzt Paket D.
+//    andocken (Paket P0),
+//  - SUND-01 D: jedes Hex der Karte ist spielbar (ort aus dem Namen, gen true; Sonderorte behalten ihre Einträge), jedes Hex mit Hafenklasse
+//    ist andockbar (andocken true; ob die Crew wirklich darf, entscheidet der Besitzer: server/sim/besitz.js). Kantenstein bekommt einen Dock
+//    unter dem Planeten, weil der Liegeplatz sonst auf der Planetenoberfläche läge.
 // Die Datei ist abgeleitet und wird nie von Hand gepflegt; tools/test-sund-sim-daten.js prüft, dass sie zu sund.json + Overlay passt.
 // sund-sim.json wird wiederum aus sund_frei.json abgeleitet (tools/gen-sund-sim.js).
 const fs = require('fs');
 const path = require('path');
+const GenSektor = require('../shared/gen-sektor.js');
 
 const ROOT = path.join(__dirname, '..');
 const QUELLE = path.join(ROOT, 'content', 'welt', 'sund.json');
@@ -27,6 +31,8 @@ const NEUE_HEXE = {
 };
 const NEUE_KANTEN = [['0405', '0505'], ['0505', '0605'], ['0605', '0705'], ['0705', '0805'], ['0504', '0505'], ['0704', '0705']];
 const HEXE_ERGAENZT = { '0305': { spielbar: true, ort: 'ostia_nova', gen: true, andocken: true } };   // Startort; sonst Paket D
+// Sonderfall Kantenstein: Planeten-Station r 170 mit festem Mittelpunkt, Liegeplatz darunter außerhalb des Planeten
+const SZENE_ERGAENZT = { '0603': { station: { x: 1500, y: 800 }, dock: { x: 1500, y: 1070 } } };
 const START = { ort: 'ostia_nova', bekannt: ['ostia_nova'], boden: false };
 
 function bauen(sund) {
@@ -35,6 +41,18 @@ function bauen(sund) {
   for (const c of Object.keys(NEUE_HEXE)) { if (doc.hexe[c]) throw new Error(`Hex ${c} steht schon in sund.json`); }
   for (const c of Object.keys(HEXE_ERGAENZT)) Object.assign(doc.hexe[c], HEXE_ERGAENZT[c]);
   Object.assign(doc.hexe, JSON.parse(JSON.stringify(NEUE_HEXE)));
+  // Paket D: alle Hexe spielbar, alle Häfen andockbar
+  const orte = new Set();
+  for (const [c, h] of Object.entries(doc.hexe)) {
+    if (!h.spielbar) { h.spielbar = true; h.ort = h.ort || GenSektor.ortId(h.name); h.gen = true; }
+    if (h.hafen) h.andocken = true;
+    if (orte.has(h.ort)) throw new Error(`Ort-Id ${h.ort} doppelt (${c})`);
+    orte.add(h.ort);
+  }
+  for (const [c, sz] of Object.entries(SZENE_ERGAENZT)) {
+    const z = doc.hexe[c].szene = doc.hexe[c].szene || {};
+    for (const [k, v] of Object.entries(sz)) z[k] = (v && typeof v === 'object' && z[k] && typeof z[k] === 'object') ? Object.assign({}, z[k], v) : v;
+  }
   for (const [a, b] of NEUE_KANTEN) {
     if (doc.kanten.some((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a))) throw new Error(`Kante ${a}–${b} steht schon in sund.json`);
     doc.kanten.push({ a, b, art: 'open' });

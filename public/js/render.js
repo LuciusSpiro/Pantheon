@@ -2542,7 +2542,7 @@
   }
   // Hauptobjekt der Szene als Ziel (Server: weapons.target 'station'; Scan an B-7/Wrack legt den Decksplan auf den Tisch)
   function stationOf(space) {
-    const m = ((space && space.markers) || []).find(q => q.kind !== 'dock' && STATION_ART[q.kind]);
+    const m = ((space && space.markers) || []).find(q => q.kind !== 'dock' && !q.posten && STATION_ART[q.kind]);   // SUND-01 D: ein Posten ist Kulisse, nicht das Hauptobjekt/Ziel 'station'
     return m ? { id: 'station', kind: m.kind, x: m.x, y: m.y, station: true, name: m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind] } : null;
   }
   function markersOf(st) { const m = (st && st.ship && st.ship.markers) || {}; return { captain: m.captain || null, tactical: m.tactical || null }; }
@@ -2604,6 +2604,24 @@
       ctx.fillStyle = flash ? '#FFFFFF' : (kind === 'korvette' || kind === 'fregatte' || kind === 'kreuzer') ? PAL.rust : PAL.red;
       ctx.beginPath(); ctx.moveTo(size, 0); ctx.lineTo(-size * 0.7, -size * 0.6); ctx.lineTo(-size * 0.4, 0); ctx.lineTo(-size * 0.7, size * 0.6); ctx.closePath(); ctx.fill();
     }
+    ctx.restore();
+  }
+  // SUND-01 D: Banner in der Besitzerfarbe (Marker.fr = Fraktions-Id, Farbe aus fraktionen der Sektorkarte; unbekannt = neutral).
+  // Mast am oberen rechten Rand des Sprites, Fahne weht leicht. rad = Sprite-Radius in Bildschirmpixeln.
+  function bannerFarbe(fr) {
+    const SS = window.Shared_Sektoren; const K = SS && SS.KARTE; const f = K && K.fraktionen && K.fraktionen[fr];
+    return (f && f.farbe) || '#8A93A0';
+  }
+  function zeichneBanner(ctx, sx, sy, rad, fr, t) {
+    const h = Math.max(16, rad * 0.62), bw = Math.max(11, h * 0.62), bh = Math.max(7, h * 0.36);
+    const x = sx + rad * 0.45, y = sy - rad * 0.45;
+    ctx.save();
+    ctx.strokeStyle = '#D5DCE6'; ctx.lineWidth = Math.max(1.5, h * 0.06);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke();
+    const w = Math.sin(t * 2.4) * bh * 0.14;
+    ctx.fillStyle = bannerFarbe(fr);
+    ctx.beginPath(); ctx.moveTo(x, y - h); ctx.lineTo(x + bw, y - h + bh * 0.2 + w); ctx.lineTo(x + bw * 0.82, y - h + bh * 0.5 - w); ctx.lineTo(x + bw, y - h + bh * 0.8 + w); ctx.lineTo(x, y - h + bh); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(14,18,24,0.75)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
   }
   function fbStation(ctx, kind, t, m) {
@@ -3683,11 +3701,12 @@
         mLab('SPRUNGPUNKT', s.x, s.y - 4, { color: PAL.mint, align: 'center' }, 1);
       } else if (STATION_ART[m.kind]) {
         const k = STATION_ART[m.kind];
-        const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE : m.kind === 'planet' ? (m.r || 170) / 170 : 1);   // Planet: Sprite hat Radius 170
+        const stScale = zoom * (m.kind === 'station' ? STATION_SPRITE_SCALE * (m.posten ? 0.5 : 1) : m.kind === 'planet' ? (m.r || 170) / 170 : 1);   // Planet: Sprite hat Radius 170; SUND-01 D: Posten = halbe Station
         ctx.save(); ctx.translate(s.x, s.y); ctx.scale(stScale, stScale);
         if (!artStation(ctx, k, 0, 0, { time: t, name: m.name })) fbStation(ctx, m.kind, t, m);
         ctx.restore();
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
+        if (m.fr) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
         mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
