@@ -70,8 +70,7 @@
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
-      bolzen: { arc: 60, facing: 180, range: 650, damage: 5, speed: 400, magazine: 2, reloadTime: 4 },
-      seitenturm: { arc: 120, facing: 90, range: 450, damage: 1, charge: 1.5 },
+      // PAN-01 C: Bolzenwerfer und Seitenturm (Zusatzrohre) sind im Waffenkatalog aufgegangen (shared/schiffskatalog.js: torpedowerfer, Standardbatterie)
       // M1: zwei Phasenkanonen vorn links/rechts (Bögen -50…+10 und -10…+50), Sofortstrahl (Beam-Kind 'phase')
       phase_l: { arc: 60, facing: -20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
@@ -140,14 +139,13 @@
     // M0: Hafen-Übung überspringen – ODA-Begrüßung und Funkspruch von Tesk (s nach Stage-Beginn)
     drillSkip: { greetAt: 0.5, radioAt: 6 },
     shop: [
-      { id: 'seitenturm', name: 'Zusatzrohre', price: 300, kind: 'upgrade', where: ['hafen'] },
+      // PAN-01 C: `seitenturm` (Zusatzrohre) und `bolzenwerfer` gehen im Waffenkatalog auf (Bestückung ship.waffen, Werft in Paket D); Torpedos bleiben ein Artikel mit hartem Lagerlimit
       // PAN-01 A: `schildpool` entfällt; `bot2` ist das Modul Werkstatt (zweiter Schrauber), kein Shop-Eintrag mehr (Debug `modul`, Werft folgt in Paket D)
-      { id: 'bolzenwerfer', name: 'Bolzenwerfer (Heck)', price: 220, priceVaelen: 160, kind: 'upgrade' },   // M1: kein Start-Mount mehr
       { id: 'werkzeuggurt', name: 'Werkzeuggürtel', price: 120, kind: 'gear', where: ['hafen'] },
       { id: 'ersatzteil', name: 'Ersatzteil', price: 40, kind: 'item' },
       { id: 'loeschgel', name: 'Löschgel', price: 30, kind: 'item' },
       { id: 'flickblech', name: 'Flickblech', price: 30, kind: 'item' },
-      { id: 'bolzen', name: 'Bolzen', price: 10, kind: 'item' },
+      { id: 'bolzen', name: 'Torpedo', price: 10, kind: 'item', limit: 12 },   // PAN-01 C: Lagerlimit hart (Katalog TORPEDO.lagerMax); Inventarschlüssel bleibt 'bolzen'
       { id: 'medipack', name: 'Medipack', price: 30, kind: 'item' },
       { id: 'sonde', name: 'Sonde', price: 60, kind: 'item' },   // SL4: Ops-Sonde (Vorrat inventory.sonde)
       { id: 'ladung', name: 'Sprengstoff', price: 150, kind: 'item', where: ['hafen'] },   // EK5: Gegenstand für die Methalle (Inventar ladung), nur an Stationen
@@ -182,7 +180,7 @@
       asteroidImmunity: 1,
     },
     combat: {
-      beamTtl: 0.25, bolzenTurnRate: 1.6, bolzenShotDelay: 0.8, bolzenTtl: 3,
+      beamTtl: 0.25,
       enemyShotSpeed: 210, enemyShotTtl: 4,
       // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
       // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)

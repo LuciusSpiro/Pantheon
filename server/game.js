@@ -17,6 +17,8 @@ const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
+const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Waffenkatalog, neun Plätze, Ladepool, Torpedowerfer
+const Katalog = require('../shared/schiffskatalog.js');   // PAN-01 C
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
@@ -376,7 +378,7 @@ class Game {
     this.odaSeen = new Set();
     this.scans = new Set();
     this.inventory = Object.assign({ loeschgelCharges: 0, marks: C.economy.startMarks, deko: [], tafel: 0 }, JSON.parse(JSON.stringify(C.economy.startInventory)));
-    this.upgrades = { seitenturm: false, bolzenwerfer: false };   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt (ship.module)
+    this.upgrades = {};   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt (ship.module); PAN-01 C: seitenturm (Zusatzrohre) und bolzenwerfer gehen im Waffenkatalog auf (ship.waffen)
     this.deco = {};
     for (const b of W.Maps.BEDS) for (const s of b.slots) this.deco[s.id] = null;
     this.quarters = JSON.parse(JSON.stringify(C.quarters.defaults));
@@ -405,11 +407,9 @@ class Game {
       offline: {},
       fireList: [], breachList: [], groundItems: [],
       dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: null },
-      // M3a: bow/port/stbd (Ladepunkte alloc, hold für Batterien); phase_* bleiben für den alten space.js-Stand, bis COMBAT umstellt
-      mount: { phase_l: { charge: 1 }, phase_r: { charge: 1 }, bolzen: { loaded: C.weapons.bolzen.magazine, reloadT: null, shotT: 0 }, seitenturm: { charge: 0 },
-        bow: { charge: 1, alloc: allocDefault(C, 'bow', 2), power: 0, charging: false },   // §20.3 Ladewaffe
-        port: { charge: 1, alloc: allocDefault(C, 'port', 1), salvo: 0 },
-        stbd: { charge: 1, alloc: allocDefault(C, 'stbd', 1), salvo: 0 } },
+      // PAN-01 C: Bestückung (Platz 1–9 -> Katalog-Id) und Laufzeitzustand je Mount (schiffswaffen.js legt ihn beim ersten Tick an: bow = 8, port = 4, stbd = 6, p5 p7 p9 p1 p3 p2)
+      waffen: Object.assign({}, Katalog.START_BESTUECKUNG),
+      mount: {},
       target: null, priority: null, scan: { progress: 0, done: false }, scanning: false, scanAt: 0,
       tscan: { targetId: null, progress: 0, on: false, at: 0 }, widescan: { cd: 0, pulseAt: -99 },
       markers: { captain: null, tactical: null },
@@ -1248,7 +1248,7 @@ class Game {
       case 'inv': {
         const item = String(msg.item);
         if (!['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'tafel'].includes(item)) { err = 'Unbekannter Gegenstand.'; break; }
-        this.inventory[item] = Math.max(0, Math.min(99, Math.round(Number(msg.n) || 0)));
+        this.inventory[item] = Math.max(0, Math.min(item === 'bolzen' ? Katalog.TORPEDO.lagerMax : 99, Math.round(Number(msg.n) || 0)));   // PAN-01 C: Torpedo-Lager hart bei 12
         if (item === 'loeschgel') this.inventory.loeschgelCharges = 0;
         break;
       }
@@ -1286,6 +1286,7 @@ class Game {
         break;
       }
       case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum 1–4] | weg <id> [raum] | an|aus <id> [raum]
+      case 'bestueck': err = Waffen.debug(this, argList(msg)); break;   // PAN-01 C: bestueck <platz 1–9> <waffe-id|leer> | alle [stufe] | start | status
       case 'ausbau': err = Ausbau.debug(this, argList(msg)); break;   // PAN-01 B: ausbau [status | 0..3] – Ausbaustufe (Waffenplätze, Modulräume, Pforten, Lifts)
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
@@ -1771,19 +1772,8 @@ class Game {
     const book = this.mission.bookSnapshot();
     const includeBook = (this.sentBookVersion !== book.version || slot === 7) && !includeAsteroids && !includeWorld && !includeLog;
     if (includeBook) this.sentBookVersion = book.version;
-    const mount = ship.mount;
     const v2 = combat.isV2Away(aw);
-    const mounts = hasFn('mountsSnapshot') ? space.mountsSnapshot(this) : space.mountIds(this).map((id) => {
-      const w = C.weapons[id] || (C.spaceM3 && C.spaceM3.mounts && C.spaceM3.mounts[id]) || { facing: 0, arc: 0, range: 0 };
-      const o = { id, facing: w.facing, arc: w.arc, range: w.range };
-      if (!mount[id]) return o;
-      if (id === 'bolzen') {
-        const b = mount.bolzen;
-        const ch = b.reloadT != null ? b.reloadT / w.reloadTime : (b.loaded > 0 ? 1 - b.shotT / C.combat.bolzenShotDelay : 0);
-        o.charge = f2(clamp(ch, 0, 1)); o.ammo = this.inventory.bolzen; o.loaded = b.loaded;
-      } else o.charge = f2(mount[id].charge);
-      return o;
-    });
+    const mounts = space.mountsSnapshot(this);   // PAN-01 C: je offenem, bestücktem Platz ein Eintrag (typ fehlt = Startbestückung)
     const beam = ship.beaming;
     const m = this.mission.state;
     const rc = ship.reactorCtl;
@@ -1919,7 +1909,7 @@ class Game {
         ...(ship.stufe ? { st: ship.stufe } : {}),   // PAN-01 B: Ausbaustufe 1–3 (fehlt = 0)
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
-        systems: Object.assign({}, ship.systems, { weapons: ship.systems.weapons }),
+        systems: (() => { const so = Object.assign({}, ship.systems, { weapons: ship.systems.weapons }); for (const k of Object.keys(so)) if (!interior.systemAktiv(this, k)) delete so[k]; return so; })(),   // PAN-01 C: Lafetten ohne Waffe fehlen (Budget)
         fragile: Object.keys(ship.fragile).filter((k) => ship.fragile[k]),
         repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
         botAuto: !!ship.botAuto,

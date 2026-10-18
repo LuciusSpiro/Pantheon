@@ -82,7 +82,7 @@ section('Konfiguration: Reaktor 8, Hauptsysteme, Module als Daten', () => {
   ok(Protocol.MODUL_IDS.join() === CONFIG.module.ids.join(), 'MODUL_IDS = CONFIG.module.ids (Client und Server)');
   ok(Protocol.CMD_TECHNIK.includes('technik.module') && Protocol.DEBUG_CMDS.includes('modul'), 'Protokoll: technik.module, Debug modul');
   ok(!CONFIG.shop.some((s) => s.id === 'schildpool' || s.id === 'bot2'), 'Shop: schildpool entfällt, bot2 ist das Modul Werkstatt');
-  ok(CONFIG.shop.some((s) => s.id === 'bolzenwerfer') && CONFIG.shop.some((s) => s.id === 'seitenturm'), 'bolzenwerfer und seitenturm bleiben (Paket C/D)');
+  ok(!CONFIG.shop.some((s) => s.id === 'bolzenwerfer' || s.id === 'seitenturm'), 'bolzenwerfer und seitenturm gehen im Waffenkatalog auf (PAN-01 C)');
   ok(!('drainLifeBroken' in CONFIG.o2) && CONFIG.o2.max === 100, 'PAN-01 B: Lebenserhaltung als Station gestrichen, kein O2-Verlust durch sie (nur Lecks)');
   const t = CONFIG.module.standard;
   ok(JSON.stringify(t[6]) === '[2,2,2]' && JSON.stringify(t[4]) === '[1,2,1]', 'Standard: 6 frei = 2/2/2, 4 frei = 1/2/1');
@@ -136,7 +136,7 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   ok(T.g.ship.systems.transfer === 'ok' && !away.recall(T.g, 'x').includes('Energie'), 'Transfer hat keinen Energieposten (Zustand unabhängig vom Reaktor)');
   // Lebenserhaltung: als Station und System gestrichen (PAN-01 B); O2 sinkt nur durch Lecks
   const interior = require('../server/sim/interior.js');
-  ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.length === 13, 'kein System life mehr (13 Systeme)');
+  ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s)).length === 13, 'kein System life mehr (13 Systeme + Lafetten 5 7 9 1 3 2)');
   T.g.ship.o2 = 100; T.run(5);
   ok(T.g.ship.o2 >= 99.9, 'ohne Lecks sinkt O2 nicht');
   let getroffen = 0;
@@ -483,7 +483,7 @@ section('Weltstand: Bestückung', () => {
   fs.writeFileSync(file, JSON.stringify(alt, null, 1));
   const A = setup('free', { dir, world: id });
   A.run(0.3);
-  ok(A.g.ship.module.map((m) => m.id).join() === 'frachtraum,krankenstation,werkstatt' && !('schildpool' in A.g.upgrades) && A.g.upgrades.seitenturm === true, 'Altstand: Start-Bestückung + Werkstatt (aus bot2), schildpool ignoriert');
+  ok(A.g.ship.module.map((m) => m.id).join() === 'frachtraum,krankenstation,werkstatt' && !('schildpool' in A.g.upgrades) && !('seitenturm' in A.g.upgrades), 'Altstand: Start-Bestückung + Werkstatt (aus bot2), schildpool ignoriert, Zusatzrohre erstattet (PAN-01 C)');
   const bad = JSON.parse(JSON.stringify(data)); bad.schiff.module[0].id = 'traktorstrahl';
   ok(Weltstand.validate(bad).length > 0, 'Schema lehnt unbekanntes Modul ab');
   const bad2 = JSON.parse(JSON.stringify(data)); bad2.schiff.module[0].raum = 5;

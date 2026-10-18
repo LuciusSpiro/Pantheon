@@ -8,6 +8,8 @@ const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
+const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der neun Waffenplätze (schiff.waffen)
+const Katalog = require('../shared/schiffskatalog.js');
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
@@ -22,7 +24,8 @@ const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
 const ID_RE = /^[a-z0-9-]{4,40}$/;
 const NPC_STATES = ['lebt', 'verwundet', 'verletzt', 'gefangen', 'tot', 'verschwunden', 'vermisst', 'unbekannt', 'befoerdert', 'uebergelaufen'];
 const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
-  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
+  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
+  'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];   // PAN-01 C: Lafetten sind echte Systeme
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const CHRONIK_KEEP = 200;
 
@@ -694,6 +697,7 @@ function capture(game) {
       lager,
       ausbauten: Object.keys(game.upgrades || {}).filter((k) => game.upgrades[k]),
       stufe: Ausbau.toSave(game),   // PAN-01 B: Ausbaustufe 0–3 (öffnet Plätze und Räume)
+      waffen: Waffen.toSave(game),   // PAN-01 C: { Platz 1–9: Katalog-Id }; fehlt im Altstand = Startbestückung 8 Lanze · 4 und 6 Standardbatterie
       module: Modul.toSave(game),   // PAN-01 A: [{ id, raum, an }]; die Energieverteilung wird nicht gespeichert (Standardverteilung beim Laden)
       deko: (inv.deko || []).map(String),
       dekoPlaetze: clone(game.deco || {}),
@@ -746,7 +750,23 @@ function altstandStufe(s) {
     if (r && r.stufe > stufe) { stufe = r.stufe; grund = 'Modul in Raum ' + r.raum; }
   }
   if (!Array.isArray(s.module) && hatBot2(s) && stufe < 1) { stufe = 1; grund = 'Werkstatt braucht einen freien Modulraum'; }
+  // PAN-01 C: der Bolzenwerfer (Upgrade) ist der Torpedowerfer auf Heck 2 (Stufe 2)
+  if (!s.waffen && (s.ausbauten || []).includes('bolzenwerfer') && stufe < 2) { stufe = 2; grund = 'Torpedowerfer (früher Bolzenwerfer) sitzt auf Heck 2'; }
   return { stufe, gespeichert, grund };
+}
+
+// PAN-01 C (Migration, darf nie still scheitern): Bestückung laden; ein Altstand ohne schiff.waffen bekommt die Startbestückung, ein gekaufter Bolzenwerfer wird der
+// Torpedowerfer auf Heck 2 (Stufe wurde angehoben), die Zusatzrohre (seitenturm, 300 Marken) gibt es nicht mehr: Erstattung; Torpedos über dem Lagerlimit: je 10 Marken zurück.
+function waffenAltstand(game, s) {
+  Waffen.restore(game, s.waffen);
+  if (!s.waffen && (s.ausbauten || []).includes('bolzenwerfer')) {
+    const e = Waffen.bestuecken(game, 2, 'torpedowerfer');
+    if (e) { game.inventory.marks += 220; game.log('Weltstand: Torpedowerfer (früher Bolzenwerfer) konnte nicht eingebaut werden (' + e + ') – 220 Marken erstattet.'); countError(game, 'weltstand-bolzenwerfer', new Error(e)); }
+    else game.log('Weltstand: Bolzenwerfer wurde der Torpedowerfer auf Heck 2.');
+  }
+  if ((s.ausbauten || []).includes('seitenturm')) { game.inventory.marks += 300; game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); }
+  const max = Katalog.TORPEDO.lagerMax;
+  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; game.inventory.bolzen = max; game.inventory.marks += zu * 10; game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); }
 }
 
 // ---------- Anwenden (nach reset()) ----------
@@ -783,6 +803,7 @@ function apply(game, data) {
   if (alt.stufe !== alt.gespeichert) game.log(`Weltstand: Ausbaustufe von ${alt.gespeichert} auf ${alt.stufe} angehoben (${alt.grund}).`);
   Ausbau.restore(game, alt.stufe);   // vor den Modulen (offene Räume); fehlt im Altstand = Stufe 0
   Modul.restore(game, s.module);   // fehlt im Altstand = Start-Bestückung; setzt auch die Standardverteilung
+  waffenAltstand(game, s);   // PAN-01 C: schiff.waffen (fehlt = Startbestückung), Migration von Bolzenwerfer, Zusatzrohren und Torpedolager
   if (!Array.isArray(s.module) && hatBot2(s)) {
     const e = Modul.bestuecken(game, 'werkstatt');   // Rückgabewert prüfen: bei Fehlschlag Log und Marken-Erstattung (Preis 100)
     if (e) {

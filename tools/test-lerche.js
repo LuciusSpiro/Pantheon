@@ -88,8 +88,8 @@ section('Stufen 0–3 per Debug: Waffenplätze, Module, Snapshot', () => {
   ok(Ausbau.platzOffen(g, 1) && Ausbau.platzOffen(g, 3) && Ausbau.platzOffen(g, 2), 'Stufe 3: alle neun Plätze offen');
   T.debug('ausbau', '0');
   ok(!Ausbau.platzOffen(g, 7) && Ausbau.platzOffen(g, 8) && Ausbau.platzOffen(g, 4) && Ausbau.platzOffen(g, 6), 'Stufe 0: nur 8, 4 und 6 offen');
-  // Start-Waffen 8/4/6 bleiben unberührt (Lanze, zwei Batterien, Bolzenwerfer-Mount)
-  ok(['weapon_bow', 'battery_port', 'battery_stbd'].every((s) => g.ship.systems[s] === 'ok') && g.ship.mount.bow && g.ship.mount.port && g.ship.mount.stbd && g.ship.mount.bolzen, 'Start-Waffen (Lanze, Batterien, Bolzenwerfer) unverändert');
+  // Start-Waffen 8/4/6 bleiben unberührt (Lanze, zwei Batterien); PAN-01 C: der Torpedowerfer ist an Heck 2 (Stufe 2) gebunden, kein Mount auf Stufe 0
+  ok(['weapon_bow', 'battery_port', 'battery_stbd'].every((s) => g.ship.systems[s] === 'ok') && g.ship.mount.bow && g.ship.mount.port && g.ship.mount.stbd && !g.ship.mount.p2 && !g.ship.mount.bolzen, 'Start-Waffen (Lanze, Batterien) unverändert, kein Torpedowerfer auf Stufe 0');
   // Zurückstufen entfernt Module in verschlossenen Räumen, die Energie folgt
   T.debug('modul', 'voll');
   ok(g.ship.stufe === 3 || g.ship.stufe === 2, 'modul voll hebt die Stufe auf mindestens 2');
@@ -330,7 +330,7 @@ section('Weltstand: Altstände gehen nicht still verloren (bot2, Module in Raum 
   ok(a.ship.stufe === 1, 'Altstand mit bot2: Stufe auf das Minimum 1 angehoben (Raum 3 offen)');
   ok(Modul.toSave(a).some((m) => m.id === 'werkstatt' && m.raum === 3) && Modul.toSave(a).length === 3, 'Altstand mit bot2: Werkstatt in Raum 3, Start-Module bleiben ' + JSON.stringify(Modul.toSave(a)));
   ok(a.bots.length === 2, 'Altstand mit bot2: zweiter Schrauber aktiv');
-  ok(a.inventory.marks === 250 && Fracht.anBord(a) === 1 && a.upgrades.seitenturm === true, 'Altstand mit bot2: Marken 250, Fracht und Seitenturm bleiben');
+  ok(a.inventory.marks === 550 && Fracht.anBord(a) === 1 && !('seitenturm' in a.upgrades), 'Altstand mit bot2: Marken 250 + 300 (Zusatzrohre, PAN-01 C erstattet), Fracht bleibt');
   A.send({ t: 'menu', op: 'end' });
   const gespeichert = JSON.parse(fs.readFileSync(file, 'utf8'));
   ok(gespeichert.schiff.stufe === 1 && gespeichert.schiff.module.some((m) => m.id === 'werkstatt' && m.raum === 3), 'erneut gespeichert: schiff.stufe 1 und Werkstatt in schiff.module');
@@ -379,7 +379,7 @@ section('Lifts und Lafetten: nicht beschädigbar, Auskunft am Waffenplatz', () =
 section('Schiffssysteme ohne Lebenserhaltung', () => {
   const T = arena();
   const g = T.g;
-  ok(Object.keys(g.ship.systems).length === 13 && !('life' in g.ship.systems) && !W.STATIONS.some((s) => s.system === 'life'), '13 Systeme, keine Station life auf der Karte');
+  ok(Object.keys(g.ship.systems).filter((k) => !/^lafette_/.test(k)).length === 13 && !('life' in g.ship.systems) && !W.STATIONS.some((s) => s.system === 'life'), '13 Systeme, keine Station life auf der Karte');
   ok(!Maps.SHIP_ROWS.join('').includes('O') && !('O' in Maps.SHIP_LEGEND), 'Legende und Karte ohne die Lebenserhaltung');
   const snap = g.snapshot().ship;
   ok(!('life' in snap.systems) && !('life' in snap.power) && !('life' in snap.heat), 'Snapshot ohne life');

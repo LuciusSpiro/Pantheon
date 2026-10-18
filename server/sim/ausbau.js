@@ -38,6 +38,7 @@ function setStufe(game, n) {
   const liste = Modul.liste(game);
   for (let i = liste.length - 1; i >= 0; i--) if (!offen.includes(liste[i].raum)) liste.splice(i, 1);
   Modul.verteilungSetzen(game);
+  require('./schiffswaffen.js').stufeGeaendert(game);   // PAN-01 C: offene Plätze, Ladepool-Standardverteilung
   raeumeRaeumen(game);
   game.emit('ausbau', { stufe: stufe(game) });
   return stufe(game);

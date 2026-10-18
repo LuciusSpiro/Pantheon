@@ -23,6 +23,7 @@ function buy(game, p, itemId) {
   if (!entryAvailable(entry, ctx)) return ctx === 'vaelen' ? 'Das führt die Karawane nicht – gibt es im Hafen.' : 'Das gibt es nur bei der Vaelen-Karawane.';
   if (entry.kind === 'upgrade' && game.upgrades[entry.id]) return 'Schon eingebaut.';
   if (entry.kind === 'gear' && p.gear[entry.id]) return 'Hast du schon.';
+  if (entry.kind === 'item' && entry.limit != null && (game.inventory[entry.id] || 0) >= entry.limit) return `Lager voll (höchstens ${entry.limit} ${entry.name}).`;   // PAN-01 C: hartes Lagerlimit (Torpedos)
   const price = priceFor(entry, ctx);
   if (game.inventory.marks < price) return 'Nicht genug Marken.';
   game.inventory.marks -= price;

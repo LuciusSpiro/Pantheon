@@ -233,13 +233,14 @@
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1. PAN-01 B: die Lebenserhaltung ist gestrichen (13 Systeme).
     SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'transfer',
-      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],
+      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
+      'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'],   // PAN-01 C: Lafetten als echte Systeme (nur mit offenem, bestücktem Platz aktiv)
     // PAN-01 A: nur die Hauptsysteme; die Lebenserhaltung ist kein Energieposten mehr, Bordmodule zählen über ship.mod
     POWER_SYSTEMS: ['engines', 'shields', 'weapons'],
     // M1: Systemzustände ('offline' = EMP, zählt wie broken, startet nach CONFIG.emp.offlineTime selbst neu)
     SYSTEM_STATES: ['ok', 'damaged', 'broken', 'offline'],
     REACTOR_STATES: ['online', 'overload', 'offline'],
-    MOUNTS: ['bow', 'port', 'stbd', 'bolzen', 'phase_l', 'phase_r', 'seitenturm'],   // M3a: bow/port/stbd; phase_* = Altnamen
+    MOUNTS: ['bow', 'port', 'stbd', 'p5', 'p7', 'p9', 'p1', 'p3', 'p2', 'bolzen', 'phase_l', 'phase_r'],   // PAN-01 C: neun Plätze (bow = 8, port = 4, stbd = 6, p<Platz>); bolzen = Altname des Torpedowerfers, phase_* = Altnamen
     REPAIR_MODES: ['flick', 'part'],
     BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
     SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
@@ -272,6 +273,7 @@
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
       'notruf', 'spur',   // SL8/SL5: Labor-Einstiege (notruf [ids], spur [id])
       'entschl',   // SL5: entschl [id] startet ein Testsignal mit vier Schichten (Qualität 0..3, Schicht 3 versteckt)
+      'bestueck',   // PAN-01 C: bestueck <platz 1–9> <waffe-id|leer> | alle [stufe] | start | status
       'modul',   // PAN-01 A: modul status | start | voll | an <id> [raum] | aus <id> | weg <id>
       'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')

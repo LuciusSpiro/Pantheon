@@ -179,7 +179,7 @@ function main() {
     const g = t.g; const ws = g.weltstand;
     // Zustand verändern
     g.inventory.marks = 777; g.inventory.ersatzteil = 9; g.inventory.bolzen = 1; g.inventory.deko.push('lampe');
-    g.upgrades.seitenturm = true;
+    g.ship.stufe = 1; require('../server/sim/schiffswaffen.js').bestuecken(g, 7, 'streubatterie'); require('../server/sim/schiffswaffen.js').bestuecken(g, 4, 'sturmbatterie');   // PAN-01 C: Bestückung statt Ausbauten
     const slot = Object.keys(g.deco)[0]; g.deco[slot] = 'lampe';
     g.quarters.q1 = Object.assign({}, g.quarters.q1, { floor: 'fliesen', light: 'mint' });
     g.explore.reveal('b7', false); g.explore.reveal('vaelen', false); g.explore.visited.add('b7');
@@ -220,7 +220,7 @@ function main() {
     ok(t2.events('worldLoaded').length === 1 && g2.phase === 'play', 'worldLoaded, Partie läuft');
     ok(g2.weltstand.id === ws.id && g2.weltstand.persistent, 'gleicher Weltstand, persistent');
     ok(g2.inventory.marks === 777 && g2.inventory.ersatzteil === 9 && g2.inventory.bolzen === 1 && g2.inventory.deko.includes('lampe'), 'Marken, Lager, Deko');
-    ok(g2.upgrades.seitenturm === true && g2.deco[slot] === 'lampe', 'Ausbauten, Deko-Platz');
+    ok(g2.ship.waffen[7] === 'streubatterie' && g2.ship.waffen[4] === 'sturmbatterie' && g2.ship.waffen[8] === 'lanze' && g2.ship.waffen[6] === 'standardbatterie' && g2.deco[slot] === 'lampe', 'Bestückung (schiff.waffen), Deko-Platz');
     ok(g2.quarters.q1.floor === 'fliesen' && g2.quarters.q1.light === 'mint', 'Quartier');
     ok(g2.explore.isKnown('b7') && g2.explore.isKnown('vaelen') && g2.explore.visited.has('b7') && g2.explore.linksOpen.has('kesh'), 'Orte bekannt/besucht, Verbindung offen');
     ok(g2.mission.flags.technikerRescued === true && g2.mission.flags.decision === 'deliver', 'Flags');

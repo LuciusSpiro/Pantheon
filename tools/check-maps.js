@@ -248,15 +248,16 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
   const Protocol = require('../shared/protocol.js');
   check(ship.w === 40 && ship.h === 45, `Lerche (PAN-01-B-Atlas) 40×45 (ist ${ship.w}×${ship.h})`);
   check(shipLegend !== Maps.LEGEND && shipLegend === Maps.SHIP_LEGEND, 'Schiffskarte nutzt die eigene Legende SHIP_LEGEND');
-  // 13 Stationen = Protocol.SYSTEMS ohne den Altnamen 'weapons' (die Lebenserhaltung ist gestrichen)
+  // 19 Stationen = Protocol.SYSTEMS ohne den Altnamen 'weapons' (die Lebenserhaltung ist gestrichen; PAN-01 C: die sechs Lafetten sind echte Systeme)
   const want = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
-  check(want.length === 13, `Protocol.SYSTEMS: 13 Systeme ohne Altname weapons (${want.length})`);
+  check(want.length === 19, `Protocol.SYSTEMS: 19 Systeme ohne Altname weapons (${want.length}; 13 + Lafetten 5 7 9 1 3 2)`);
   check(!systems.includes('weapons') && !systems.includes('life') && !Protocol.SYSTEMS.includes('life'), 'Altname weapons und Lebenserhaltung haben keine Station mehr');
-  check(want.every((s) => systems.includes(s)) && systems.every((s) => want.includes(s)), 'Stationen auf der Karte = 13 Systeme laut Protokoll' +
+  check(want.every((s) => systems.includes(s)) && systems.every((s) => want.includes(s)), 'Stationen auf der Karte = 19 Systeme laut Protokoll' +
     (want.filter((s) => !systems.includes(s)).length ? ' – fehlt: ' + want.filter((s) => !systems.includes(s)).join(',') : ''));
   const SIDE_OF_SECTOR = { 0: 'bow', 1: 'stbd', 2: 'aft', 3: 'port', '-1': 'mid' };
   const EXPECT = { weapon_bow: 0, emitter_bow: 0, thruster_port: 3, battery_port: 3, emitter_port: 3, thruster_stbd: 1, battery_stbd: 1,
-    emitter_stbd: 1, reactor: -1, shields: -1, engines: 2, emitter_aft: 2, transfer: 1 };
+    emitter_stbd: 1, reactor: -1, shields: -1, engines: 2, emitter_aft: 2, transfer: 1,
+    lafette_5: 0, lafette_7: 3, lafette_9: 1, lafette_1: 3, lafette_3: 1, lafette_2: 2 };   // PAN-01 C: Lafetten (Sektor des Platzes, WAFFENPLAETZE)
   for (const s of want) {
     const st = stationsOf(s);
     for (const t of st) {
@@ -266,7 +267,7 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
       // Seite passt zum Sektor (Ausnahme Transfer: Sektor 1, Seite stbd)
       check(i.side === SIDE_OF_SECTOR[i.sector], `Station ${s}: Seite ${i.side} passt zu Sektor ${i.sector}`);
       check(hasAccess(ship, shipSet, t), `Station ${s} von einer begehbaren Nachbarkachel erreichbar`);
-      check(i.solid && i.interact === 'system', `Station ${s}: solid + interact system`);
+      check(i.solid && (i.interact === 'system' || (/^lafette_/.test(s) && i.interact === 'lafette')), `Station ${s}: solid + interact system (Lafetten: interact lafette)`);
     }
   }
   // Emitter je Sektor (§4.2): 0 bow, 1 stbd, 2 aft, 3 port – und jeweils im eigenen Sektor

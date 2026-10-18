@@ -150,8 +150,10 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   cmd(0, 'shop.buy', { item: 'pflanze' });
   cmd(0, 'shop.buy', { item: 'werkzeuggurt' });
   ok(g.inventory.deko.includes('pflanze') && P(0).gear.werkzeuggurt && g.inventory.marks === 150 + g.C.discovery.firstVisitMarks - 20 - 120, 'Kauf Deko + Werkzeuggürtel');
-  cmd(0, 'shop.buy', { item: 'seitenturm' });
+  g.inventory.marks = 100;   // PAN-01 C: Zusatzrohre (seitenturm) gibt es nicht mehr; Sprengstoff (150) ist zu teuer
+  cmd(0, 'shop.buy', { item: 'ladung' });
   ok(notices(0).some((t) => /Nicht genug Marken/.test(t)), 'zu teuer -> Hinweis');
+  g.inventory.marks = 150 + g.C.discovery.firstVisitMarks - 20 - 120;
   cmd(0, 'shop.buy', { item: 'kristalllampe' });
   ok(notices(0).some((t) => /Vaelen/.test(t)), 'Kristalllampe nur bei Vaelen');
   send(0, { t: 'leave' });
@@ -317,7 +319,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   ok(e.hp === hpOut && voidBeams === 4, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Strahlen), kein Schaden')
   e.x = 1000; e.y = 1150;
   cmd(0, 'weapons.fire', { mount: 'bolzen' });
-  ok(notices(0).some((t) => /Bolzenwerfer/.test(t)), 'Bolzenwerfer nicht eingebaut (Shop-Upgrade)');
+  ok(notices(0).some((t) => /Torpedowerfer/.test(t)), 'Torpedowerfer nicht eingebaut (Heck 2, ab Stufe 2; PAN-01 C)');
   // Ziel-Scan
   e.x = 1500; e.y = 1500;
   for (let k = 0; k < 8; k++) { cmd(0, 'weapons.scan', { on: true }); run(0.3); }
@@ -377,15 +379,19 @@ console.log('\n[M1 §9: Reisen, Docken Vaelen, Weitscan, Verstecke, Leitbake]');
   ok(sh.docked && sh.dockedAt === 'vaelen' && g.snapshot().shopContext === 'vaelen', 'Andocken bei Vaelen -> dockedAt, shopContext vaelen');
   send(1, { t: 'leave' });
   enter(1, 'shop');
-  const m0 = g.inventory.marks;
+  let m0 = g.inventory.marks;
   cmd(1, 'shop.buy', { item: 'kristalllampe' });
   ok(g.inventory.deko.includes('kristalllampe') && g.inventory.marks === m0 - 70, 'Kristalllampe bei Vaelen');
   g.inventory.marks = 500;
-  cmd(1, 'shop.buy', { item: 'bolzenwerfer' });
-  ok(g.upgrades.bolzenwerfer && g.inventory.marks === 340, 'Bolzenwerfer bei Vaelen günstiger (160)');
-  ok(g.snapshot().ship.mounts.some((m) => m.id === 'bolzen'), 'Bolzenwerfer jetzt als Mount');
-  cmd(1, 'shop.buy', { item: 'seitenturm' });
-  ok(notices(1).some((t) => /Hafen/.test(t)), 'Seitenturm nur im Hafen');
+  // PAN-01 C: Bolzenwerfer und Zusatzrohre sind im Waffenkatalog aufgegangen (kein Shop-Eintrag mehr); Torpedos (Inventarschlüssel bolzen) haben ein hartes Lagerlimit
+  ok(!g.C.shop.some((s) => s.id === 'bolzenwerfer' || s.id === 'seitenturm'), 'Shop: weder Bolzenwerfer noch Zusatzrohre');
+  g.inventory.bolzen = 11; m0 = g.inventory.marks;
+  cmd(1, 'shop.buy', { item: 'bolzen' });
+  ok(g.inventory.bolzen === 12 && g.inventory.marks === m0 - 10, 'Torpedo bei Vaelen: 11 -> 12, 10 Marken');
+  cmd(1, 'shop.buy', { item: 'bolzen' });
+  ok(g.inventory.bolzen === 12 && g.inventory.marks === m0 - 10 && notices(1).some((t) => /Lager voll/.test(t)), 'Torpedo-Lager hart bei 12: kein Kauf darüber, keine Abbuchung');
+  cmd(1, 'shop.buy', { item: 'ladung' });
+  ok(notices(1).some((t) => /Hafen/.test(t)), 'Sprengstoff nur im Hafen');
   send(1, { t: 'leave' });
   // Weitscan
   send(0, { t: 'leave' });

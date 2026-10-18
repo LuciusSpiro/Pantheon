@@ -5,7 +5,7 @@ const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');   // B3 (Team SEKTOR): Hexe, Kanten, Bojen
 const { dist } = require('../util.js');
 
-const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', tafel: 'Vertragstafel' };
+const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', tafel: 'Vertragstafel' };
 const DEKO_NAMES = { pflanze: 'Topfpflanze', poster: 'Sternkarten-Poster', lampe: 'Messinglampe', teppich: 'Flickenteppich', buecherregal: 'Bücherregal',
   aquarium: 'Aquarium', sessel: 'Ohrensessel', sternkarte: 'Gerahmte Sternkarte', trophaee_boje: 'Bojen-Trophäe', kristalllampe: 'Kristalllampe',
   lamassu_figur: 'Lamassu-Figur' };

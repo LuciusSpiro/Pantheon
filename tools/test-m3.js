@@ -22,7 +22,7 @@ const M3B = CONFIG.spaceM3b;
 
 const M3 = CONFIG.spaceM3;
 const FILTER = process.argv.slice(2).map((s) => s.toLowerCase());
-const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons');   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen)
+const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons' && !/^lafette_/.test(s));   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen); PAN-01 C: die sechs Lafetten (lafette_N) sind nur mit offenem, bestücktem Platz aktiv (tools/test-waffen-schiff.js)
 const COMBAT12 = SYS14.filter((s) => s !== 'transfer');
 
 let fails = 0, n = 0;
@@ -114,7 +114,7 @@ function pin(g) {
     if (!e.keepFire) { e.fireT = -999; }
     e.shields = e.keepShields ? e.shields : [0, 0, 0, 0];
   }
-  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'bolzen');
+  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'torpedo');
 }
 const mountOf = (g, id) => (g.ship.mount || {})[id];
 function setCharge(g, id, v) { const m = mountOf(g, id); if (m) m.charge = v; return !!m; }
@@ -157,7 +157,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves', 'dodges', 'dodgeEvades'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves, dodges, dodgeEvades = 0');
   ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 7 && CONFIG.ship.dodgeImpulse === 350 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10/§20.2 (Ausweichen 350/7)');
   ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 2.3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
-  ok(CONFIG.shop.find((x) => x.id === 'seitenturm').name === 'Zusatzrohre' && CONFIG.shop.find((x) => x.id === 'seitenturm').price === 300, 'Shop: Zusatzrohre 300');
+  ok(!CONFIG.shop.some((x) => x.id === 'seitenturm' || x.id === 'bolzenwerfer') && CONFIG.shop.find((x) => x.id === 'bolzen').limit === 12, 'Shop: Zusatzrohre und Bolzenwerfer gehen im Waffenkatalog auf (PAN-01 C), Torpedo mit Lagerlimit 12');
   // M4 (Studioleitung): Budget 12 → 13 KB, weil deck/lift/kit/loreRead dazukamen (gemessen 12.311 B mit Missionsbuch)
   ok(Buffer.byteLength(JSON.stringify(s)) < CONFIG.net.snapMax, 'Snapshot < CONFIG.net.snapMax');
   const g3 = arena(3).g;
@@ -165,7 +165,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
 });
 
 section('Interior-Hilfen (§9.5)', () => {
-  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 13 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme ohne weapons und ohne Lebenserhaltung');
+  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 19 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && Protocol.SYSTEMS.filter((s) => /^lafette_/.test(s)).every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme + 6 Lafetten (PAN-01 C), ohne weapons und ohne Lebenserhaltung');
   ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 13 Systeme');
   const want = { weapon_bow: 0, emitter_bow: 0, thruster_stbd: 1, battery_stbd: 1, emitter_stbd: 1, transfer: 1, engines: 2, emitter_aft: 2,
     thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1 };
@@ -199,13 +199,14 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   g.ship.jump.dest = null;
   enter(0, 'helm'); const n0 = notices(0).length; cmd(0, 'helm.dodge', { dir: 1 });
   ok(notices(0).length > n0 && g.ship.dodgeCd === 0, 'Triebwerk zerstört: keine Ausweichrolle');
-  g.upgrades.bolzenwerfer = true;
+  // PAN-01 C: der Torpedowerfer (Heck 2, Stufe 2) braucht weder Energie noch Triebwerk – er fällt mit dem Triebwerk NICHT aus
+  dbg(0, { cmd: 'bestueck', args: 'alle 2' });
   const tgt = pinnedEnemy(g, 'raider', g.ship.x - 400, g.ship.y, 0, { hp: 999 });
   enter(0, 'weapons'); cmd(0, 'weapons.target', { id: tgt.id });
-  const loaded = g.ship.mount && g.ship.mount.bolzen ? g.ship.mount.bolzen.loaded : null;
+  const lager0 = g.inventory.bolzen;
   const n1 = notices(0).length; cmd(0, 'weapons.fire', { mount: 'bolzen' });
-  ok(notices(0).length > n1 && (!g.ship.mount || g.ship.mount.bolzen.loaded === loaded), 'Triebwerk zerstört: Bolzenwerfer aus');
-  g.upgrades.bolzenwerfer = false; g.space.enemies = [];
+  ok(notices(0).length === n1 && g.inventory.bolzen === lager0 - 1 && g.space.projectiles.some((q) => q.kind === 'torpedo'), 'Triebwerk zerstört: der Torpedowerfer feuert trotzdem (kein Energie-/Triebwerksfaktor)');
+  dbg(0, { cmd: 'bestueck', args: 'start' }); g.space.enemies = [];
   set('engines', 'ok'); P(0).console && g.handleMessage(g.players[0].conn, { t: 'leave' });
   // Düsen: turnCaps und echte Winkelgeschwindigkeit
   for (const [sys, side] of [['thruster_port', 'port'], ['thruster_stbd', 'stbd']]) {
@@ -1102,9 +1103,9 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   cmd(0, 'weapons.fire', { mount: 'all' });
   ok(mountOf(g, 'port').salvo > 0 && mountOf(g, 'stbd').salvo > 0 && mountOf(g, 'bow').charge === 1, 'all: beide Batterien, Lanze bleibt');
   run(1, () => { setCharge(g, 'bow', 1); });
-  // Zusatzrohre: 5
-  g.upgrades.seitenturm = true; run(0.1, () => pin(g));
-  ok(g.snapshot().ship.mounts.find((m) => m.id === 'port').salvoMax === M3.mounts.port.tubesUpgrade, 'Zusatzrohre: salvoMax 5');
+  // PAN-01 C: Zusatzrohre gibt es nicht mehr (Standardbatterie hat vier Rohre, beschädigt zwei; mehr Feuerkraft kommt über den Katalog, nie über +X)
+  run(0.1, () => pin(g));
+  ok(g.snapshot().ship.mounts.find((m) => m.id === 'port').salvoMax === M3.mounts.port.tubes && Object.keys(g.upgrades).length === 0, 'keine Zusatzrohre mehr: salvoMax 4, keine Upgrades');
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 

@@ -15,10 +15,19 @@ const combat = () => combatMod || (combatMod = require('./combat.js'));
 let awayMod = null;   // W2 AP6: Personen-Zugriff (lazy, Zirkelbezug away -> interior)
 const away = () => awayMod || (awayMod = require('./away.js'));
 // M3a (CONTRACT-M3 §4.1), PAN-01 B: alle 13 Systeme mit Station (die Lebenserhaltung ist gestrichen); 'weapons' ist nur noch Altname (schlechtester der drei Waffen).
+// PAN-01 C: die Lafetten 5 7 9 1 3 2 sind echte Systeme (lafette_N); aktiv und trefferbar nur, wenn der Platz offen UND bestückt ist (systemAktiv). Unbestückt oder
+// verschlossen: kein Trefferziel, kein Feuer, keine Reparatur, nicht im Snapshot.
 const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'transfer',
   'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
-  'weapon_bow', 'battery_port', 'battery_stbd'];
-const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd'];
+  'weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
+const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
+const WEAPON_SYS_PLATZ = {}; for (const p of W.Maps.WAFFENPLAETZE) WEAPON_SYS_PLATZ[p.system] = p;
+function systemAktiv(game, sys) {
+  const pl = WEAPON_SYS_PLATZ[sys];
+  if (!pl) return true;
+  const s = game.ship;
+  return (s.stufe | 0) >= pl.stufe && !!(s.waffen && s.waffen[pl.platz]);
+}
 const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Index = Sektor
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
 const isDown = (st) => st === 'broken' || st === 'offline';
@@ -655,7 +664,7 @@ function npcInteraction(aw, p, tx, ty, list) {
 }
 
 function itemName(item) {
-  return { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Vertragstafel' }[item] || item;
+  return { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Vertragstafel' }[item] || item;
 }
 
 function onAct(game, p, down) {
@@ -956,7 +965,7 @@ function resolveSystem(game, sys, pickWorst) {
   if (sys !== 'weapons') return sys;
   const s = game.ship.systems;
   if (pickWorst) return WEAPON_SYSTEMS.slice().sort((a, b) => (STATE_RANK[s[b]] || 0) - (STATE_RANK[s[a]] || 0))[0];
-  const cand = WEAPON_SYSTEMS.filter((k) => s[k] !== 'broken');
+  const cand = WEAPON_SYSTEMS.filter((k) => s[k] !== 'broken' && systemAktiv(game, k));
   return cand.length ? game.rng.pick(cand) : WEAPON_SYSTEMS[0];
 }
 
@@ -1006,7 +1015,7 @@ function damageSystem(game, sys, toState, opts) {
 // Hitze bei Energie 4 (CONTRACT-M3 §4.2): weapons -> zufällige, nicht zerstörte Waffe; sonst das System selbst (nur wenn heil).
 function heatDamage(game, powerSys) {
   if (powerSys === 'weapons') {
-    const cand = WEAPON_SYSTEMS.filter((k) => game.ship.systems[k] !== 'broken' && game.ship.systems[k] !== 'offline');
+    const cand = WEAPON_SYSTEMS.filter((k) => game.ship.systems[k] !== 'broken' && game.ship.systems[k] !== 'offline' && systemAktiv(game, k));
     if (cand.length) damageSystem(game, game.rng.pick(cand));
     return;
   }
@@ -1024,7 +1033,7 @@ function hitSystems(game, sector, opts) {
   if (!ship.sysHitAt) ship.sysHitAt = {};
   const o = Object.assign({ chance: C.hitEffects.systemChance, maxState: 'broken', centre: true, breakFragile: true, fragileAlways: true }, opts || {});
   const out = [];
-  const frag = o.breakFragile ? SYSTEM_ORDER.filter((k) => isFragile(game, k) && systemSector(k) === sector && ship.systems[k] !== 'offline') : [];
+  const frag = o.breakFragile ? SYSTEM_ORDER.filter((k) => systemAktiv(game, k) && isFragile(game, k) && systemSector(k) === sector && ship.systems[k] !== 'offline') : [];
   const breakFrag = () => {
     for (const k of frag) {
       damageSystem(game, k, 'broken');
@@ -1041,7 +1050,7 @@ function hitSystems(game, sector, opts) {
   if (frag.length) return breakFrag();
   const capped = o.maxState === 'damaged';
   const lock = C.hitEffects.systemCooldown || 0;
-  const ready = (k) => (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
+  const ready = (k) => systemAktiv(game, k) && (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
     (!capped || (ship.systems[k] === 'ok' && !isFragile(game, k)));
   let pick = null;
   if (o.centre && game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
@@ -1272,7 +1281,7 @@ function updateHazards(game, dt) {
       f.dmgT = 0;
       // M3a: Nähe zu jeder Stationskachel des Systems (W.STATIONS), Reihenfolge weiter nach SYSTEM_ORDER
       for (const sys of SYSTEM_ORDER) {
-        const near = W.STATIONS.some((st) => st.system === sys && Math.abs(st.x - f.tx) <= 1 && Math.abs(st.y - f.ty) <= 1);
+        const near = systemAktiv(game, sys) && W.STATIONS.some((st) => st.system === sys && Math.abs(st.x - f.tx) <= 1 && Math.abs(st.y - f.ty) <= 1);
         if (near) { damageSystem(game, sys); break; }
       }
     }
@@ -1344,7 +1353,7 @@ module.exports = {
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
-  sysName, sysNameNom, itemName, SYSTEM_ORDER, isDown,
+  sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)

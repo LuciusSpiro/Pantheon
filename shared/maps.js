@@ -227,9 +227,9 @@
   // ---- M3a (Studioleitung, CONTRACT-M3 §2): Schiffslegende mit Stationen ----
   // Jede Station: system, sector (0 Bug, 1 Stb, 2 Heck, 3 Bb, -1 mittschiffs), side (Beschriftung/Art).
   const station = (kind, system, sector, side) => ({ kind, solid: true, interact: 'system', system, sector, side });
-  // PAN-01 B: Lafette eines Waffenplatzes (Ziffer = Taste am Ziffernblock). Keine Station mit System: Zustand (verschlossen | frei) folgt aus der Ausbaustufe
-  // (WAFFENPLAETZE); Paket C belegt die Plätze mit Waffen, die Kachel bleibt.
-  const lafette = (platz, sector, side) => ({ kind: 'sys_lafette', solid: true, interact: 'lafette', platz, sector, side });
+  // PAN-01 B: Lafette eines Waffenplatzes (Ziffer = Taste am Ziffernblock). PAN-01 C: jede Lafette ist ein System (lafette_N) mit Station auf ihrer Kachel; Treffer und
+  // Reparatur gelten nur, wenn der Platz offen (Ausbaustufe) UND bestückt ist (interior.systemAktiv), sonst zeigt die Kachel „frei“ bzw. „verschlossen“.
+  const lafette = (platz, sector, side) => ({ kind: 'sys_lafette', solid: true, interact: 'lafette', system: 'lafette_' + platz, platz, sector, side });   // PAN-01 C: echtes System (aktiv nur mit offenem, bestücktem Platz)
   const SHIP_LEGEND = Object.assign({}, LEGEND, {
     'R': station('sys_reactor', 'reactor', -1, 'mid'),
     'G': station('sys_shields', 'shields', -1, 'mid'),

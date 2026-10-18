@@ -90,10 +90,12 @@ function updateBotAuto(game) {
   const has = (s) => q.some((e) => e.system === s);
   for (const sys of interior.SYSTEM_ORDER) {
     if (q.length >= max) break;
+    if (!interior.systemAktiv(game, sys)) continue;
     if (ship.systems[sys] === 'broken' && !has(sys)) q.push({ system: sys, mode: game.inventory.ersatzteil > 0 ? 'part' : 'flick', bot: null });
   }
   for (const sys of interior.SYSTEM_ORDER) {
     if (q.length >= max) break;
+    if (!interior.systemAktiv(game, sys)) continue;
     if (ship.systems[sys] === 'damaged' && !has(sys)) q.push({ system: sys, mode: 'flick', bot: null });
   }
 }

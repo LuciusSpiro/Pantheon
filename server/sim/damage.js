@@ -7,6 +7,7 @@
 // space.shipHit (SERVER-FLIGHT) ist eine dünne Hülle um resolveHit. Alle Werte live per `tune spaceM3b.<pfad>`.
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Katalog = require('../../shared/schiffskatalog.js');
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -41,6 +42,14 @@ function resolveHit(game, sector, dmg, opts) {
   let s = s0;
   if (o.pierce === true) s = 0;
   else if (Number(o.pierce) > 0) s = Math.max(0, s0 - Number(o.pierce));
+  // PAN-01 C: Gegner-Sturmbatterie (hoher Schild: kaum Schildschaden, der Schild regeneriert nicht) und Streu-Granate (eine = Schildschaden, nie Hülle)
+  const ST = o.sturm ? Katalog.waffe('sturmbatterie').sturm : null;
+  if (ST) sh.regenHold = game.time + ST.regenSperre;
+  if ((ST && s0 > ST.niedrig) || o.streu) {
+    const take = Math.min(s0, dmg * (ST ? ST.schildFaktor : o.streu.schildFaktor));
+    if (take > 0) sh.current[sector] = Math.max(0, r1(s0 - take));
+    return { absorbed: r1(take), hull: 0, systems: [], shield: s0, rest: 0, empThrough: false };
+  }
   const row = leakRow(game, s);
   // 2. schwerer Treffer gegen S ≥ 3: Schaden − heavyReduce vor dem Absorbieren
   if (heavy && s >= 3 && row.heavyReduce) dmg = Math.max(0, dmg - row.heavyReduce);
@@ -56,7 +65,7 @@ function resolveHit(game, sector, dmg, opts) {
   // 3. EMP: Schild durchschlagen -> ein System offline statt Hüllenschaden (wie bisher)
   if (emp && rest > 0) {
     out.empThrough = true;
-    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && !interior.isDown(ship.systems[k]));
+    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && !interior.isDown(ship.systems[k]) && interior.systemAktiv(game, k));
     if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
     return out;
   }
@@ -73,6 +82,7 @@ function resolveHit(game, sector, dmg, opts) {
   if (o.sperrfeuer) {
     const SF = (C.spaceS2b && C.spaceS2b.sperrfeuer) || {};
     chance = s > 0 ? 0 : chance * (SF.leakFactor != null ? Number(SF.leakFactor) : 1);
+    if (ST) chance = Number(ST.systemChance) || 0;   // PAN-01 C: bei niedrigem Schild trifft die hohe Feuerrate Systeme
   }
   out.systems = interior.hitSystems(game, sector, {
     chance, maxState: row.maxState || 'broken', centre: !!row.centre, breakFragile: !!row.breakFragile && !heavyOnly && !(o.sperrfeuer && s > 0),
@@ -144,6 +154,7 @@ function updateEscalation(game, dt) {
   const fight = after > 0 && inCombat(game) && !(game.mission && typeof game.mission.isDrill === 'function' && game.mission.isDrill());
   for (const sys of interior.SYSTEM_ORDER) {
     const st = ship.systems[sys];
+    if (!interior.systemAktiv(game, sys)) { if (T[sys] != null) delete T[sys]; continue; }
     if (!fight || (st !== 'damaged' && st !== 'broken') || busy(game, sys)) { if (T[sys] != null) delete T[sys]; continue; }
     T[sys] = (T[sys] || 0) + dt;
     if (T[sys] < after) continue;
