@@ -11,6 +11,7 @@
 //   Zustand: game.reisePlan | null, game.reise | null, game._reiseOhne (ereignislose Hops am Stück)
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
+const Besitz = require('./besitz.js');   // SUND-01 D: aktueller Besitzer statt statischer Hex-Fraktion (ohne Overlay identisch)
 
 let sprungMod = null;
 const sprung = () => sprungMod || (sprungMod = require('./sprung.js'));
@@ -20,8 +21,7 @@ const RC = (game) => (game.C && game.C.reise) || {};
 const hexOf = (game) => Sektoren.hexVonOrt(game.ship.scene);
 
 function fraktionArt(game, hex) {
-  const d = Sektoren.hexDaten(hex) || {};
-  return (RC(game).fraktionArt || {})[d.fraktion] || 'neutral';
+  return (RC(game).fraktionArt || {})[Besitz.besitzer(game, hex)] || 'neutral';
 }
 
 // Route über erkundete Hexe und bekannte, offene Kanten (Breitensuche). -> [Hex …] ab dem ersten Hop bis zum Ziel | null

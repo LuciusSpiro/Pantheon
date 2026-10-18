@@ -18,6 +18,7 @@ const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporte
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
 const Ladung = require('./ladung.js');   // SL6: Gewicht schwerer Ladung (Deuterium) senkt die Triebwerksleistung
+const Besitz = require('./besitz.js');   // SUND-01 D: Besitzer, Posten, Andock-Erlaubnis (Banner); ohne Overlay/Modus ohne Wirkung
 const Sektoren = require('../../shared/sektoren.js');   // Kennung: Fraktion des Hexes der Szene (Volk der Gegner)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
 
@@ -102,7 +103,12 @@ function enterScene(game, locId, opts) {
   const sc = loc.scene;
   const ship = game.ship;
   const fromScene = ship.scene;
-  const docked = !!(opts && opts.docked && sc.dock);
+  // SUND-01 D: Besitzer des Hexes (Banner), Posten (kleine Station ohne Liegeplatz), Andock-Erlaubnis; ohne Overlay/Modus ändert sich nichts
+  const hexB = loc.hex || Sektoren.hexVonOrt(loc.id);
+  const frB = hexB ? Besitz.besitzer(game, hexB) : null;
+  const postenB = hexB && !sc.station && Besitz.istPosten(game, hexB) ? Besitz.postenLage(sc) : null;
+  const dockOk = !sc.dock || !hexB || Besitz.darfAndocken(game, hexB);
+  const docked = !!(opts && opts.docked && sc.dock && dockOk);
   const st = docked ? Object.assign({ angle: 0 }, sc.start || sc.dock) : sc.arrive;
   ship.scene = loc.id;
   ship.x = st.x; ship.y = st.y; ship.angle = st.angle || 0;
@@ -125,12 +131,14 @@ function enterScene(game, locId, opts) {
   const sp = game.space;
   sp.w = sc.w; sp.h = sc.h;
   sp.enemies = []; sp.projectiles = []; sp.beams = [];
-  sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc) : makeAsteroids(game, loc);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
+  sp.dockOk = dockOk; sp.dockHinweis = false;   // SUND-01 D: Andocken erlaubt? Hinweis „verweigert“ schon gezeigt?
+  sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc, postenB) : makeAsteroids(game, loc, postenB);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
   sp.salvage = [];
   sp.markers = [];
   Alarm.szeneBetreten(game);   // EK2: Alarm und Minen gelten je Szene
-  if (sc.station) sp.markers.push(Object.assign({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r }, sc.station.name ? { name: sc.station.name } : {}));   // name: Planeten-Stationen (Methalle, Eisenwald) tragen ihren Namen
-  if (sc.dock) sp.markers.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: C.travel.dockDist });
+  if (sc.station) sp.markers.push(Object.assign({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r }, sc.station.name ? { name: sc.station.name } : {}, frB && Besitz.modus(game) ? { fr: frB } : {}));   // name: Planeten-Stationen (Methalle, Eisenwald) tragen ihren Namen; fr: Besitzer für das Banner (nur im Modus Freie Fahrt)
+  if (postenB) sp.markers.push({ kind: 'station', x: postenB.x, y: postenB.y, r: postenB.r, name: 'Posten', posten: true, fr: frB });
+  if (sc.dock && dockOk) sp.markers.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: C.travel.dockDist });
   ship.asteroidImmune = {};
   game.asteroidsDirty = true;
   if (game.explore) game.explore.location = loc.id;
@@ -140,13 +148,13 @@ function enterScene(game, locId, opts) {
   if (sp.escorts && sp.escorts.length) { try { Escort.onSceneChange(game, fromScene); } catch (err) { if (game.countError) game.countError('escort-scene', err); } }
 }
 
-function makeAsteroids(game, loc) {
+function makeAsteroids(game, loc, posten) {
   const sc = loc.scene;
   const n = sc.asteroids || 0;
   if (!n) return [];
   const rng = makeRng((game.seed ^ 0xA57E ^ hashStr(loc.id)) >>> 0);
   const f = sc.field || { x0: 200, x1: sc.w - 120, y0: 80, y1: sc.h - 80 };
-  const keep = [sc.arrive, sc.station, sc.dock].filter(Boolean);
+  const keep = [sc.arrive, sc.station, sc.dock, posten].filter(Boolean);
   const hiddenPts = loc.hidden || [];
   const list = [];
   let guard = 0;
@@ -164,14 +172,14 @@ function makeAsteroids(game, loc) {
 
 // W2 AP3b: Brocken mit Bahn (shared/drift.js). Gleiche Zahl und Größe wie still, aber jede Bahnstrecke hält Abstand zu den
 // Schutzpunkten (Ankunft, Station, Dock: wie still + 280 px), zu Verstecken und zu allen anderen Bahnen (nie Berührung).
-function makeDriftAsteroids(game, loc) {
+function makeDriftAsteroids(game, loc, posten) {
   const sc = loc.scene;
   const n = sc.asteroids || 0;
   if (!n) return [];
   const D = (game.C.arena && game.C.arena.drift) || { tempo: [12, 40], amplitude: [80, 240], drehung: 0.6 };
   const rng = makeRng((game.seed ^ 0xD71F7 ^ hashStr(loc.id)) >>> 0);
   const f = sc.field || { x0: 200, x1: sc.w - 120, y0: 80, y1: sc.h - 80 };
-  const keep = [sc.arrive, sc.station, sc.dock].filter(Boolean);
+  const keep = [sc.arrive, sc.station, sc.dock, posten].filter(Boolean);
   const hiddenPts = loc.hidden || [];
   const list = []; const bahnen = [];
   const Mi = Drift.MILLI;
@@ -608,7 +616,13 @@ function updateFlight(game, dt) {
   if (ship.y > sp.h - m) { ship.y = sp.h - m; ship.vy = Math.min(0, ship.vy); }
   ship.speed = Math.hypot(ship.vx, ship.vy);
   // Andocken (Hafen und Vaelen): Dock-Ring langsam anfliegen. Nach dem Ablegen erst einmal Abstand gewinnen.
-  if (sc.dock && !ship.docked) {
+  if (sc.dock && !ship.docked && sp.dockOk === false) {
+    // SUND-01 D: Hafen im Besitz von Germanen/Piraten: kein Dock-Marker, kein Andocken; einmal je Anflug ein Hinweis
+    const so = sc.station || sc.dock;
+    const dh = dist(ship.x, ship.y, so.x, so.y);
+    if (!sp.dockHinweis && dh < 650) { sp.dockHinweis = true; const t = Besitz.verbotText(game, Sektoren.hexVonOrt(loc.id)); if (t) game.oda(t, null); }
+    else if (sp.dockHinweis && dh > 1000) sp.dockHinweis = false;
+  } else if (sc.dock && !ship.docked) {
     const d = dist(ship.x, ship.y, sc.dock.x, sc.dock.y);
     // QA M1: auch scharf, wenn man nach dem Ablegen ein paar Sekunden in der Nähe bleibt (versehentlich abgelegt)
     if (!ship.dockArmed && (d > C.travel.dockDist + 60 || game.time - (ship.undockT || 0) > 4)) ship.dockArmed = true;
@@ -1483,7 +1497,7 @@ function volkFuer(game, kind, explizit) {
   const V = K.voelker || [];
   if (V.includes(explizit)) return explizit;
   const hex = game.ship && Sektoren.hexVonOrt(game.ship.scene);
-  const fr = hex ? (Sektoren.hexDaten(hex) || {}).fraktion : null;
+  const fr = hex ? Besitz.besitzer(game, hex) : null;   // SUND-01 D: aktueller Besitzer (ohne Overlay die Karten-Fraktion)
   if (fr && V.includes(fr) && ((game.C.reise || {}).fraktionArt || {})[fr] === 'feind') return fr;
   return K.gegner || 'ger';
 }
