@@ -18,6 +18,9 @@ const away = () => awayMod || (awayMod = require('./away.js'));
 const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer',
   'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
   'weapon_bow', 'battery_port', 'battery_stbd'];
+// PAN-01 A: Systeme ohne Wirkung. Die Lebenserhaltung bleibt bis zum neuen Grundriss (Paket B) als Station stehen, zieht aber keine Energie mehr, hat
+// keine Funktion (AP10 ruht) und wird nicht mehr von Treffern oder EMP ausgewählt (sonst wären Treffer „umsonst“).
+const INERT_SYSTEMS = ['life'];
 const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd'];
 const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Index = Sektor
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
@@ -393,6 +396,7 @@ function updateDowned(game, p, dt) {
       placeOnShipPad(game, p);
       game.emit('beam', { pids: [p.id], dir: 'up' });
       game.oda(`Notrückholung für ${p.name}. Willkommen zurück, ganz ohne Kratzer. Fast.`, null);
+      require('./module.js').notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch
     } else {
       placeOnAwayPad(game, p);
     }
@@ -1011,7 +1015,7 @@ function hitSystems(game, sector, opts) {
   if (frag.length) return breakFrag();
   const capped = o.maxState === 'damaged';
   const lock = C.hitEffects.systemCooldown || 0;
-  const ready = (k) => (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
+  const ready = (k) => !INERT_SYSTEMS.includes(k) && (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
     (!capped || (ship.systems[k] === 'ok' && !isFragile(game, k)));
   let pick = null;
   if (o.centre && game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
@@ -1051,7 +1055,7 @@ function queueSystemAnnounce(game, sys, state) {
   list.push({ system: sys, state });
 }
 const BROKEN_HINT = {
-  reactor: 'nur Notstrom!', engines: 'kein Schub, kein Sprung!', shields: 'keine Schilde!', life: 'Sauerstoff sinkt!',
+  reactor: 'nur Notstrom!', engines: 'kein Schub, kein Sprung!', shields: 'keine Schilde!', life: 'ruht (keine Wirkung, bis die Lebenserhaltung wieder gebraucht wird)!',
   transfer: 'kein Beamen!', thruster_port: 'kaum Drehung nach Backbord!', thruster_stbd: 'kaum Drehung nach Steuerbord!',
   weapon_bow: 'Lanze feuert nicht!', battery_port: 'Batterie feuert nicht!', battery_stbd: 'Batterie feuert nicht!',
 };
@@ -1314,7 +1318,7 @@ module.exports = {
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
-  sysName, sysNameNom, itemName, SYSTEM_ORDER, isDown,
+  sysName, sysNameNom, itemName, SYSTEM_ORDER, INERT_SYSTEMS, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startLift, finishLift, liftTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)

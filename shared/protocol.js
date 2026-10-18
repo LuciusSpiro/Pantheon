@@ -155,7 +155,7 @@
     // Snapshot fracht + { pers: [{ id, n, b }] (Personen im Frachtraum, b = Bett), pq: [{ id, n }] (Ops kann sie jetzt hochbeamen) }; ship.npcs enthält die liegenden Figuren (lie: 1).
     // U2: cmd { c: 'weapons.schoepfen' } startet das Schöpfen (Halteprozess kind 'schoepf', nur in der Förderschicht), { off: true } beendet es; halt.p = Füllstand 0..1.
     CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
-    FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
+    FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen', 'frachtVerloren', 'frachtGesichert'],   // PAN-01 A: frachtVerloren { art } (ungesichert + Hüllentreffer), frachtGesichert { an }
     FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
@@ -220,12 +220,17 @@
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
     // R1 §4.2: Technik-Befehle (Konsole 'technik'); die alten captain.* antworten nur mit einem Hinweis
-    CMD_TECHNIK: ['technik.power', 'technik.shield', 'technik.priority', 'technik.repair', 'technik.botAuto', 'technik.overload'],
+    CMD_TECHNIK: ['technik.power', 'technik.shield', 'technik.priority', 'technik.repair', 'technik.botAuto', 'technik.overload', 'technik.module'],
+    // PAN-01 A: technik.module { id, on } schaltet ein Bordmodul ab/an (id = MODUL_IDS, bei mehreren gleichen Modulen { id, raum }). Snapshot ship.mod = [[code, raum, an, läuft]]
+    // (code f|k|w = Frachtraum | Krankenstation | Werkstatt; an = Wunsch der Technik, läuft = tatsächlich aktiv, also an UND genug Reaktorleistung); jedes laufende Modul zieht 1 Energie.
+    // Debug modul [status | start | voll | an <id> [raum] | aus <id> | weg <id>]. Weltstand schiff.module [{ id, raum, an }].
+    MODUL_IDS: ['frachtraum', 'krankenstation', 'werkstatt'],
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
     SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer',
       'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],
-    POWER_SYSTEMS: ['engines', 'shields', 'weapons', 'life'],
+    // PAN-01 A: nur die Hauptsysteme; die Lebenserhaltung ist kein Energieposten mehr, Bordmodule zählen über ship.mod
+    POWER_SYSTEMS: ['engines', 'shields', 'weapons'],
     // M1: Systemzustände ('offline' = EMP, zählt wie broken, startet nach CONFIG.emp.offlineTime selbst neu)
     SYSTEM_STATES: ['ok', 'damaged', 'broken', 'offline'],
     REACTOR_STATES: ['online', 'overload', 'offline'],
@@ -262,6 +267,7 @@
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
       'notruf', 'spur',   // SL8/SL5: Labor-Einstiege (notruf [ids], spur [id])
       'entschl',   // SL5: entschl [id] startet ein Testsignal mit vier Schichten (Qualität 0..3, Schicht 3 versteckt)
+      'modul',   // PAN-01 A: modul status | start | voll | an <id> [raum] | aus <id> | weg <id>
       'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')
     // ---- M3b Schritt A (CONTRACT-M3B) ----

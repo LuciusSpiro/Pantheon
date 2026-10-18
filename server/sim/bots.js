@@ -17,15 +17,18 @@ function makeBot(game, i) {
     spawn: { x: sp.x, y: sp.y }, task: null, path: null, progress: 0, reevalT: i * 0.3 };
 }
 
-// Regel: Standard bot.count (1), der Shop-Ausbau 'bot2' fügt einen zweiten hinzu, Maximum bot.maxCount (2).
+// Regel: Standard bot.count (1), das laufende Modul Werkstatt (PAN-01 A, früher Shop-Ausbau bot2) fügt einen zweiten hinzu, Maximum bot.maxCount (2).
 function botAnzahl(game) {
   const max = game.C.bot.maxCount || 2;
-  return Math.min(max, game.C.bot.count + (game.upgrades.bot2 ? 1 : 0));
+  return Math.min(max, game.C.bot.count + (require('./module.js').laeuft(game, 'werkstatt') ? 1 : 0));
 }
 
+// Läuft die Werkstatt nicht mehr (abgeschaltet, ohne Strom, ausgebaut), geht der zweite Schrauber an die Ruhebank: sein Werkzeug kommt zurück ins Regal,
+// seine Aufgabe übernimmt der nächste freie Schrauber.
 function ensureBotCount(game) {
   const want = botAnzahl(game);
   while (game.bots.length < want) game.bots.push(makeBot(game, game.bots.length));
+  while (game.bots.length > want) { const b = game.bots.pop(); stowNow(game, b); }
 }
 
 // ---------- Reparaturliste ----------

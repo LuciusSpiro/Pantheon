@@ -345,7 +345,7 @@ function minenSnap(game) {
 function systemSchaden(game, punkte) {
   const ship = game.ship; const res = {};
   for (let i = 0; i < punkte; i++) {
-    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && ship.systems[k] !== 'broken' && ship.systems[k] !== 'offline');
+    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && ship.systems[k] !== 'broken' && ship.systems[k] !== 'offline' && !interior.INERT_SYSTEMS.includes(k));   // PAN-01 A: ohne Lebenserhaltung
     if (!cand.length) break;
     const k = game.rng.pick(cand);
     const to = ship.systems[k] === 'ok' ? 'damaged' : 'broken';

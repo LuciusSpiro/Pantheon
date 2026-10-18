@@ -302,6 +302,7 @@ function recall(game, pid) {
   game.emit('sfx', { name: 'beam' });
   game.missionEvent('beamedUp', { players: [p], map: game.away.map });
   if (game.away.map === 'wreck' && !game.players.some((q) => q.zone === 'away')) game.away.active = false;
+  require('./module.js').notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch (Reparatur nötig)
   return null;
 }
 

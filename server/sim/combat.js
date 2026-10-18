@@ -517,6 +517,7 @@ function revive(game, p, segs, opts) {
 function updateWounded(game, p, dt) {
   p.moving = false;
   if (p.zone !== 'away' || !isV2(game)) { revive(game, p, null, { quiet: true }); return; }
+  if (krankenstationHolt(game, p, dt)) return;   // PAN-01 A: aktive Krankenstation holt jeden Ausgeschalteten
   // B2: bewusstlos/gefesselt/gefangen bluten nicht aus (Aufwachen/Befreien regelt waffen.update)
   if (waffen() && p.zustand && p.zustand !== 'ok' && p.zustand !== 'verwundet') return;
   p.downedFor += dt;
@@ -537,6 +538,30 @@ function updateWounded(game, p, dt) {
   game.explore.addLog(`${ortName(game)}: Notrückholung für ${p.name} – zu lange verwundet. Schild wieder voll.`, logTag(game));
   game.oda(`Notrückholung für ${p.name}! Schild wieder voll – über die Pads geht's zurück nach unten.`, null);
   game.missionEvent('beamedUp', { players: [p], map });
+  Modul().notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch
+}
+
+// PAN-01 A: Ist das Modul Krankenstation aktiv (läuft), holt es JEDEN Ausgeschalteten (verwundet oder bewusstlos) nach CONFIG.module.krankenstation.holNach s
+// einzeln an Bord (Schild voll, Pads); gefesselt/gefangen bleibt draußen (Gegner halten sie). Ohne aktive Krankenstation gilt die alte Regel (Ausbluten nach
+// wounded.bleedout, Bewusstlose wachen auf oder warten auf die Rückholung des ganzen Teams). Ist der Transfer aus, holt niemand: es gilt die alte Regel.
+// Rückgabe true = der Spieler wurde geholt (bzw. die Prüfung ist erledigt).
+function krankenstationHolt(game, p, dt) {
+  if (!p.downed || p.gefangen || p.zustand === 'gefesselt' || !Modul().laeuft(game, 'krankenstation')) { p.holT = 0; return false; }
+  p.holT = (p.holT || 0) + dt;
+  if (p.holT < game.C.module.krankenstation.holNach) return false;
+  if (isDown(game.ship.systems.transfer)) return false;
+  p.holT = 0;
+  const map = game.away.map;
+  interior().placeOnShipPad(game, p);
+  revive(game, p, null, { quiet: true });
+  if (game.away.stats) game.away.stats.bleedRecalls++;
+  game.emit('beam', { pids: [p.id], dir: 'up', map });
+  game.emit('sfx', { name: 'beam' });
+  game.explore.addLog(`${ortName(game)}: Notrückholung für ${p.name} – die Krankenstation hat ihn geholt.`, logTag(game));
+  game.oda(`Krankenstation: Notrückholung für ${p.name}! Schild wieder voll – der Transfer ist dabei durchgebrannt.`, null);
+  game.missionEvent('beamedUp', { players: [p], map });
+  Modul().notrueckholungFolge(game);
+  return true;
 }
 
 // Logbuch-Ort: Kesh (Handkarte mit combat 'v2') wie bisher, sonst Name der Karte bzw. „Außeneinsatz“
@@ -560,6 +585,8 @@ function updateSquadRecall(game, dt) {
   if (aw.recallT < C.wounded.squadRecallDelay) return;
   squadRecall(game);
 }
+let modulMod = null;   // PAN-01 A (lazy: Zirkelbezug module -> fracht -> …)
+const Modul = () => modulMod || (modulMod = require('./module.js'));
 function squadRecall(game) {
   const aw = game.away; const C = cfg(game); const it = interior();
   const list = game.players.filter((p) => p.zone === 'away');
@@ -577,6 +604,7 @@ function squadRecall(game) {
   game.oda(`Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt ${Math.round(C.wounded.recallBeamLock)} s ab.`, null);
   game.missionEvent('squadRecall', { pids });
   game.missionEvent('beamedUp', { players: list, map });
+  Modul().notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch
 }
 
 function updatePlayerShields(game, dt) {

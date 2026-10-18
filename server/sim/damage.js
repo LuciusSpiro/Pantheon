@@ -56,7 +56,7 @@ function resolveHit(game, sector, dmg, opts) {
   // 3. EMP: Schild durchschlagen -> ein System offline statt Hüllenschaden (wie bisher)
   if (emp && rest > 0) {
     out.empThrough = true;
-    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && !interior.isDown(ship.systems[k]));
+    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && !interior.isDown(ship.systems[k]) && !interior.INERT_SYSTEMS.includes(k));   // PAN-01 A: ohne Lebenserhaltung
     if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
     return out;
   }

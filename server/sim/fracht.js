@@ -14,8 +14,10 @@
 //  - Abliefern: beim Abnehmer (game.fracht.abnehmer.ort, vom Regiebuch gesetzt), sonst bei jeder Station (scene.station.kind in
 //    fracht.stationKinds) im Umkreis fracht.stationRange.
 //  - Mitgeführte Ladung steht im Weltstand (schiff.fracht = ['sprengstoff', …]); Ladungen im Raum nicht.
-//  - Schnittstelle gesichert/ungesichert für AP9 „Lager ohne Strom“: gesichert(game) / setGesichert(game, bool). Das Lager ist kein
-//    Schiffssystem; heute hat die Flagge keine Wirkung, sie steht nur im Snapshot (fracht.g = false) bereit.
+//  - Schnittstelle gesichert/ungesichert („Lager ohne Strom“, PAN-01 A): gesichert(game) / setGesichert(game, bool). Das Lager ist kein
+//    Schiffssystem, aber das Modul Frachtraum (module.js): läuft es nicht (abgeschaltet oder ohne Strom), setzt module.update die Flagge auf false.
+//    Wirkung: huellenTreffer(game) – bei jedem Hüllentreffer löst sich CONFIG.module.fracht.verlustJeTreffer Ladung (Ware; Personen: AP14 hängt sich
+//    an gefaehrdet()), sie treibt hinter dem Schiff und kann neu gebeamt werden. Anzeige: Snapshot fracht.g = false (Taktik: UNGESICHERT).
 const W = require('../world.js');
 const Station = require('./station.js');   // R1 §4.4
 const Locations = require('../../shared/locations.js');
@@ -38,6 +40,8 @@ function anBord(game, art) { const s = state(game); return art ? s.lager.filter(
 function frei(game) { return capacity() - state(game).lager.length; }
 function gesichert(game) { return state(game).gesichert !== false; }
 function setGesichert(game, on) { state(game).gesichert = !!on; }
+// Was bei einem ungesicherten Lager gefährdet ist (Waren und Personen); AP14 (Personen als Fracht) wertet das später aus
+function gefaehrdet(game) { return gesichert(game) ? [] : state(game).lager.slice(); }
 function lagerArten(game) { return state(game).lager.map((l) => l.art); }
 function draussen(game) { const s = state(game); return s.draussen.filter((d) => d.szene === game.ship.scene); }
 function abgeliefert(game, art) { const a = state(game).abgeliefert; return art ? (a[art] || 0) : Object.values(a).reduce((x, y) => x + y, 0); }
@@ -61,6 +65,25 @@ function fracht_abwerfen(game, x, y, art) {
   game.emit('frachtAbgeworfen', { id: pod.id, x: pod.x, y: pod.y, art: a });
   game.missionEvent('frachtAbgeworfen', { id: pod.id, art: a, x: pod.x, y: pod.y });
   return pod;
+}
+
+// PAN-01 A: Ungesichert (Frachtraum-Modul aus) + Hüllentreffer: die älteste Ware löst sich und treibt hinter dem Schiff (neu beamen möglich). Rückgabe: Anzahl.
+function huellenTreffer(game) {
+  if (gesichert(game)) return 0;
+  const s = state(game); const sh = game.ship;
+  const lim = (game.C.module && game.C.module.fracht && game.C.module.fracht.verlustJeTreffer) || 1;
+  let n = 0;
+  while (n < lim) {
+    const i = s.lager.findIndex((l) => l.art !== 'person');
+    if (i < 0) break;
+    const l = s.lager.splice(i, 1)[0];
+    n++;
+    game.emit('frachtVerloren', { art: l.art });
+    if (!sh.docked) fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art);
+    game.oda(`${artName(l.art)} hat sich gelöst – der Frachtraum ist ungesichert!`, null);
+    game.missionEvent('frachtVerloren', { art: l.art, n: s.lager.length });
+  }
+  return n;
 }
 
 // ---------- Beamen (Halteprozess) ----------
@@ -260,6 +283,6 @@ module.exports = {
   neu, state, update, snapshot, toSave, restore, debug,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, gesichert, setGesichert, lagerArten, draussen, abgeliefert,
+  anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, anBordLegen, artOk,
 };

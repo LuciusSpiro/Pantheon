@@ -26,7 +26,8 @@
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
     breach: { hullPerSec: 0.5, o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },
-    o2: { max: 100, drainLifeBroken: 1, regen: 2, suffocateDps: 2 },
+    // PAN-01 A: Die Lebenserhaltung ist kein Energieposten mehr; der O2-Verlust bei ausgefallener Lebenserhaltung (drainLifeBroken) ruht, solange AP10 ruht.
+    o2: { max: 100, drainLifeBroken: 0, regen: 2, suffocateDps: 2 },
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
     hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.45, systemCooldown: 10, spill: 0.4 },   // M3a: 0.35/12 -> 0.45/10 (spill ersetzt durch spaceM3-Gewichte)
@@ -43,8 +44,25 @@
       // jede folgende Welle löste das nächste aus (Kaskade). Jetzt +18 Hülle je Pause; in Missionen schneller zurück auf 70.
       hullRegen: 1.5, hullRegenMax: 70,   // ohne Gegner und Lecks flicken die Schrauber die Außenhaut (pro s, bis max)
     },
+    // PAN-01 A: Reaktor 8. Energieposten sind die drei Hauptsysteme (Antrieb, Schilde, Waffen; mehr ist mehr) und die aktiven Bordmodule
+    // (je 1, siehe `module`). default = Standardverteilung der Hauptsysteme bei 2 Modulen (6 Energie); andere Modulzahlen: module.standard.
     power: { reactor: 8, reactorDamaged: 6, reactorBroken: 3, maxPerSystem: 4, heatAt4: 8, heatCool: 4, heatLimit: 100,
-      default: { engines: 2, shields: 2, weapons: 2, life: 2 } },
+      default: { engines: 2, shields: 2, weapons: 2 } },
+    // PAN-01 A: Bordmodule (server/sim/module.js). Ein Modul steht in einem Modulraum (1..max), ist an oder aus und zieht als aktives Modul je `energie`.
+    // ids: alle Modularten; start: Bestückung der Start-Lerche (Raum-Nr. 1..4; Raum 3 und 4 gibt es erst mit dem Umbau, Paket B). Gleiche Module dürfen
+    // mehrfach stehen. kuerzen: Reihenfolge, in der Module bei Energiemangel abgeschaltet werden (zuerst die Werkstatt, zuletzt die Krankenstation).
+    // standard: Hauptsysteme [Antrieb, Schilde, Waffen] je freier Energie (Reaktor minus aktive Module); Erkundung PAN-01: 6 -> 2/2/2, 4 -> 1/2/1.
+    // krankenstation.holNach: s, nach denen eine aktive Krankenstation jeden Ausgeschalteten (verwundet/bewusstlos) per Notrückholung holt;
+    // ohne aktive Krankenstation gilt die alte Regel (awayCombat.wounded). notrueckholung: Folge für den Transfer.
+    // fracht.verlustJeTreffer: Ladungen, die sich bei einem Hüllentreffer lösen, solange der Frachtraum ungesichert ist (Modul aus).
+    module: { max: 4, energie: 1, ids: ['frachtraum', 'krankenstation', 'werkstatt'],
+      codes: { frachtraum: 'f', krankenstation: 'k', werkstatt: 'w' },
+      start: [{ id: 'frachtraum', raum: 1 }, { id: 'krankenstation', raum: 2 }],
+      kuerzen: ['werkstatt', 'frachtraum', 'krankenstation'],
+      standard: { 8: [3, 3, 2], 7: [2, 3, 2], 6: [2, 2, 2], 5: [2, 2, 1], 4: [1, 2, 1] },
+      krankenstation: { holNach: 10 },
+      notrueckholung: { transferZustand: 'broken' },   // jede Notrückholung sprengt den Transfer (ok|damaged|broken), Reparatur über die drei Wege
+      fracht: { verlustJeTreffer: 1 } },
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
@@ -123,8 +141,7 @@
     drillSkip: { greetAt: 0.5, radioAt: 6 },
     shop: [
       { id: 'seitenturm', name: 'Zusatzrohre', price: 300, kind: 'upgrade', where: ['hafen'] },
-      { id: 'schildpool', name: 'Schildpool +2', price: 250, kind: 'upgrade', where: ['hafen'] },
-      { id: 'bot2', name: 'Zweiter Schrauber', price: 100, kind: 'upgrade' },   // Kai: nur EIN Bot als Standard (bot.count), der zweite ist kaufbar (Maximum bot.maxCount = 2)
+      // PAN-01 A: `schildpool` entfällt; `bot2` ist das Modul Werkstatt (zweiter Schrauber), kein Shop-Eintrag mehr (Debug `modul`, Werft folgt in Paket D)
       { id: 'bolzenwerfer', name: 'Bolzenwerfer (Heck)', price: 220, priceVaelen: 160, kind: 'upgrade' },   // M1: kein Start-Mount mehr
       { id: 'werkzeuggurt', name: 'Werkzeuggürtel', price: 120, kind: 'gear', where: ['hafen'] },
       { id: 'ersatzteil', name: 'Ersatzteil', price: 40, kind: 'item' },

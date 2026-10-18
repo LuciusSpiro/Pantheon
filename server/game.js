@@ -15,6 +15,7 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
+const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
@@ -374,7 +375,7 @@ class Game {
     this.odaSeen = new Set();
     this.scans = new Set();
     this.inventory = Object.assign({ loeschgelCharges: 0, marks: C.economy.startMarks, deko: [], tafel: 0 }, JSON.parse(JSON.stringify(C.economy.startInventory)));
-    this.upgrades = { seitenturm: false, schildpool: false, bot2: false, bolzenwerfer: false };
+    this.upgrades = { seitenturm: false, bolzenwerfer: false };   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt (ship.module)
     this.deco = {};
     for (const b of W.Maps.BEDS) for (const s of b.slots) this.deco[s.id] = null;
     this.quarters = JSON.parse(JSON.stringify(C.quarters.defaults));
@@ -392,7 +393,8 @@ class Game {
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
-      heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
+      heat: { engines: 0, shields: 0, weapons: 0 },
+      module: Modul.neu(C),   // PAN-01 A: Bestückung der Start-Lerche (Frachtraum, Krankenstation), je ein Modulraum
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
@@ -1010,6 +1012,7 @@ class Game {
       case 'captain.power': case 'captain.shield': case 'captain.priority': case 'captain.repair': case 'captain.botAuto': case 'captain.overload':
         err = 'Das macht jetzt die Technik.'; break;
       case 'technik.power': err = space.technikPower(this, String(msg.sys), Number(msg.delta)); break;
+      case 'technik.module': err = space.technikModul(this, String(msg.id), !!msg.on, msg.raum == null ? null : Number(msg.raum)); break;   // PAN-01 A: Bordmodul ab-/anschalten
       case 'technik.shield': err = space.technikShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
       case 'technik.priority': {
         const t = msg.target;
@@ -1159,7 +1162,7 @@ class Game {
       away.executeBeam(this, [p.id], 'down');   // nur wer den Befehl gibt (die anderen bleiben an Bord, z. B. am Captain)
       return null;
     }
-    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; pi.life = 0; this.ship.power.weapons = 0; this.ship.power.life = 0; return null; }
+    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; this.ship.power.weapons = 0; return null; }
     if (sub === 'monster') { const M = this.away && this.away.monster; if (!M) return 'Kein Monster auf dieser Karte.'; M.x = p.x + Number(a[1] || 110); M.y = p.y + Number(a[2] || 0); M.pfad = []; M.pause = Number(a[3] || 0); return null; }   // sl monster [dx dy pause_s]: Monster neben den Spieler stellen (Sichtprüfung)
     if (sub === 'zaehler') { Zonen.zaehlerSetzen(this, String(a[1]), Number(a[2])); return null; }
     return 'sl: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler';
@@ -1271,6 +1274,7 @@ class Game {
         err = k ? (id ? k.einstieg(id) : 'kapitel <id>: ' + [...k.kap.keys()].join(', ')) : 'Keine Kampagnenkette aktiv (Lobby-Modus Kampagne Eisenwald).';
         break;
       }
+      case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum] | weg <id> [raum] | an|aus <id> [raum]
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
@@ -1898,7 +1902,8 @@ class Game {
         hull: Math.round(ship.hull * 10) / 10, hullMax: ship.hullMax, o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(),
-        heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons), life: Math.round(ship.heat.life) },
+        heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
+        mod: Modul.snapshot(this),   // PAN-01 A: [[code, raum, an, läuft]]
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
         systems: Object.assign({}, ship.systems, { weapons: ship.systems.weapons }),

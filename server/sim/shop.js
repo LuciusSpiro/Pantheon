@@ -28,7 +28,6 @@ function buy(game, p, itemId) {
   game.inventory.marks -= price;
   if (entry.kind === 'upgrade') {
     game.upgrades[entry.id] = true;
-    if (entry.id === 'bot2') require('./bots.js').ensureBotCount(game);
   } else if (entry.kind === 'gear') p.gear[entry.id] = true;
   else if (entry.kind === 'item') game.inventory[entry.id] = (game.inventory[entry.id] || 0) + 1;
   else if (entry.kind === 'deko') game.inventory.deko.push(entry.id);

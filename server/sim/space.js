@@ -17,6 +17,8 @@ const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente de
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
+const Modul = require('./module.js');   // PAN-01 A: Bordmodule (je 1 Energie), Frachtraum gesichert, Krankenstation, Werkstatt
+const Fracht = require('./fracht.js');   // PAN-01 A: ungesicherte Ladung bei Hüllentreffern
 const Ladung = require('./ladung.js');   // SL6: Gewicht schwerer Ladung (Deuterium) senkt die Triebwerksleistung
 const Sektoren = require('../../shared/sektoren.js');   // Kennung: Fraktion des Hexes der Szene (Volk der Gegner)
 const { makeRng, clamp, dist, turnToward } = require('../util.js');
@@ -339,27 +341,48 @@ function reactorOutput(game) {
   if (rc.state === 'offline') return Math.min(base, R.offlineOutput);
   return base;
 }
-function powerUsed(game) { return POWER_SYSTEMS.reduce((a, k) => a + game.ship.power[k], 0); }
-// Reihenfolge beim Kürzen bei Gleichstand: Lebenserhaltung zuletzt.
-const CUT_ORDER = ['weapons', 'engines', 'shields', 'life'];
+// PAN-01 A: Energieposten = die drei Hauptsysteme (ship.power) + jedes LAUFENDE Modul (je CONFIG.module.energie).
+function powerMain(game) { return POWER_SYSTEMS.reduce((a, k) => a + game.ship.power[k], 0); }
+function powerUsed(game) { return powerMain(game) + Modul.energieLauf(game); }
+// Bedarf nach Wunsch (eingestellte Hauptsysteme + alle Module, die an sind), auch wenn der Reaktor gerade nicht reicht: Grundlage für technik.power/technik.module
+function powerDemand(game) { return powerMain(game) + Modul.energieWunsch(game); }
+// Reihenfolge beim Kürzen bei Gleichstand: Waffen zuerst (billigstes System, Ladepunkte = Energie + 2), Schilde zuletzt.
+const CUT_ORDER = ['weapons', 'engines', 'shields'];
+// Kürzung bei zu wenig Reaktorleistung (beschädigt 6, zerstört 3, Notstrom 2). Reihenfolge, damit die Technik im Kampf nicht plötzlich ein Hauptsystem
+// verliert, solange noch ein Modul dranhängt, und doch nichts ganz ausfällt, solange es vermeidbar ist:
+//   1. Hauptsysteme von oben kürzen (höchster Wert zuerst, bei Gleichstand CUT_ORDER), aber nie unter 1
+//   2. Reicht das nicht: Module abschalten, in der Reihenfolge CONFIG.module.kuerzen (Werkstatt, Frachtraum, Krankenstation zuletzt)
+//   3. Reicht auch das nicht (Reaktor unter 3): Hauptsysteme weiter kürzen, bis 0
+// Der Wunsch der Technik (powerIntent, Modul.an) bleibt dabei erhalten; nach der Reparatur läuft wieder alles wie eingestellt.
 function enforcePower(game) {
   const out = reactorOutput(game);
   const ship = game.ship;
   if (!ship.powerIntent) ship.powerIntent = Object.assign({}, ship.power);
   const pw = ship.power;
-  Object.assign(pw, ship.powerIntent);
-  while (powerUsed(game) > out) {
+  for (const k of POWER_SYSTEMS) pw[k] = Math.max(0, Math.min(game.C.power.maxPerSystem, Number(ship.powerIntent[k]) || 0));
+  const mods = Modul.liste(game);
+  for (const m of mods) m.lauf = !!m.an;
+  const cut = (min) => {
     let top = null;
-    for (const k of CUT_ORDER) if (top === null || pw[k] > pw[top]) top = k;
-    if (pw[top] <= 0) break;
+    for (const k of CUT_ORDER) if (pw[k] > min && (top === null || pw[k] > pw[top])) top = k;
+    if (top === null) return false;
     pw[top]--;
+    return true;
+  };
+  while (powerUsed(game) > out && cut(1)) { /* Phase 1 */ }
+  if (powerUsed(game) > out) {
+    const order = game.C.module.kuerzen;
+    const rank = (m) => order.indexOf(m.id);
+    const list = mods.filter((m) => m.lauf).sort((a, b) => rank(a) - rank(b) || b.raum - a.raum);   // gleiche Art: höchster Raum zuerst
+    for (const m of list) { if (powerUsed(game) <= out) break; m.lauf = false; }
   }
+  while (powerUsed(game) > out && cut(0)) { /* Phase 3 */ }
 }
 function shieldPool(game) {
   const C = game.C; const ship = game.ship;
   const gen = ship.systems.shields;
   if (isDown(gen)) return 0;   // M3a §4.2: Generator zerstört = keine Schilde
-  let pool = ship.power.shields * C.shields.pointsPerPower + (game.upgrades.schildpool ? 2 : 0);
+  let pool = ship.power.shields * C.shields.pointsPerPower;
   if (gen === 'damaged') pool += M3(game).generatorDamagedPool || 0;   // beschädigt: Pool −2
   if (game.time < game.away.kuppelUntil) pool -= C.support.kuppel.shieldCost;
   return Math.max(0, pool);
@@ -491,6 +514,7 @@ function updateSystems(game, dt) {
   syncWeaponsAlias(game);
   updateReactor(game, dt);
   enforcePower(game);
+  Modul.update(game);   // PAN-01 A: Frachtraum gesichert, Zahl der Schrauber
   const rc = ship.reactorCtl;
   ship.reactor = { state: rc.state, output: reactorOutput(game), used: powerUsed(game), overloadLeft: Math.ceil(rc.overloadLeft),
     switches: { A: !!rc.switches.A, B: !!rc.switches.B }, latch: { A: Math.ceil((rc.latch && rc.latch.A) || 0), B: Math.ceil((rc.latch && rc.latch.B) || 0) }, restartProgress: Math.round(Math.min(1, rc.restartProgress / C.reactorM1.restartTime) * 100) / 100 };
@@ -506,7 +530,8 @@ function updateSystems(game, dt) {
     }
   }
   // Lebenserhaltung / O₂
-  const lifeDown = ship.power.life === 0 || isDown(ship.systems.life);
+  // PAN-01 A: Die Lebenserhaltung zieht keine Energie mehr; solange AP10 ruht, zehrt sie nie am O2 (drainLifeBroken 0), nur Lecks (unten)
+  const lifeDown = C.o2.drainLifeBroken > 0 && isDown(ship.systems.life);
   if (lifeDown) ship.o2 -= C.o2.drainLifeBroken * dt;
   else ship.o2 += C.o2.regen * dt;
   const drill = game.mission && game.mission.isDrill();
@@ -782,7 +807,7 @@ function shipHit(game, sector, dmg, opts) {
     game.emit('sfx', { name: 'shield_hit' });
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
-  if (hull > 0) game.missionEvent('hullHit', { sector });
+  if (hull > 0) { Fracht.huellenTreffer(game); game.missionEvent('hullHit', { sector }); }   // PAN-01 A: ungesicherter Frachtraum verliert Ladung
 }
 // Bisherige Treffer-Logik (M3a ohne Schildstoß) – nur Fallback, solange damage.js fehlt
 function hitLegacy(game, sector, dmg, opts) {
@@ -2007,10 +2032,18 @@ function technikPower(game, sys, delta) {
   const d = delta > 0 ? 1 : -1;
   const nv = pw[sys] + d;
   if (nv < 0 || nv > C.power.maxPerSystem) return 'Grenze erreicht.';
-  if (d > 0 && powerUsed(game) + 1 > reactorOutput(game)) return 'Reaktor ausgelastet – erst woanders Energie abziehen.';
+  if (d > 0 && powerDemand(game) + 1 > reactorOutput(game)) return 'Reaktor ausgelastet – erst woanders Energie abziehen oder ein Modul abschalten.';
   pw[sys] = nv;
   game.ship.powerIntent = Object.assign({}, pw);
   enforceShields(game);
+  return null;
+}
+// PAN-01 A: technik.module { id, on, raum? } – Bordmodul ab-/anschalten (frei werdende Energie kann die Technik auf Hauptsysteme legen)
+function technikModul(game, id, on, raum) {
+  const err = Modul.schalten(game, String(id), !!on, raum == null ? null : Number(raum), powerDemand(game), reactorOutput(game));
+  if (err) return err;
+  enforcePower(game); Modul.update(game);
+  if (game.ship.reactor) game.ship.reactor.used = powerUsed(game);
   return null;
 }
 function technikShield(game, sector, delta) {
@@ -2030,7 +2063,7 @@ function technikShield(game, sector, delta) {
 module.exports = {
   enterScene, update, shipHit, spawnEnemy, volkFuer, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
   weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, technikOverload, reactorOnline,
-  technikPower, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
+  technikPower, technikModul, powerUsed, powerDemand, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,
   // M3a §9.4 (SERVER-COMBAT) – Aufrufer: game.js (Befehle, Snapshot)
   weaponsAlloc, weaponsHold, weaponsCharge, lanceTrace, lanceDamage, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,

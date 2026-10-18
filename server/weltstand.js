@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
+const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
@@ -691,6 +692,7 @@ function capture(game) {
       marken: Math.max(0, Math.round(inv.marks || 0)),
       lager,
       ausbauten: Object.keys(game.upgrades || {}).filter((k) => game.upgrades[k]),
+      module: Modul.toSave(game),   // PAN-01 A: [{ id, raum, an }]; die Energieverteilung wird nicht gespeichert (Standardverteilung beim Laden)
       deko: (inv.deko || []).map(String),
       dekoPlaetze: clone(game.deco || {}),
       quartiere: clone(game.quarters || {}),
@@ -757,8 +759,10 @@ function apply(game, data) {
   Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
   Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
-  // Alt-Stand: 'schrauber3' (dritter Bot) heißt jetzt 'bot2' (zweiter Bot); ohne Feld = 1 Bot (Standard)
-  for (const k of s.ausbauten || []) game.upgrades[k === 'schrauber3' ? 'bot2' : k] = true;
+  // PAN-01 A: nur noch bekannte Ausbauten (schildpool entfällt, ohne Abwärtsmigration); bot2 (früher schrauber3) ist das Modul Werkstatt
+  for (const k of s.ausbauten || []) if (k in game.upgrades) game.upgrades[k] = true;
+  Modul.restore(game, s.module);   // fehlt im Altstand = Start-Bestückung; setzt auch die Standardverteilung
+  if (!Array.isArray(s.module) && (s.ausbauten || []).some((k) => k === 'bot2' || k === 'schrauber3')) { Modul.bestuecken(game, 'werkstatt'); Modul.verteilungSetzen(game); }
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
   if (s.quartiere) for (const [k, v] of Object.entries(s.quartiere)) game.quarters[k] = Object.assign({}, game.quarters[k] || {}, v);

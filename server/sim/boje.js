@@ -25,16 +25,14 @@ const sprung = () => sprungMod || (sprungMod = require('./sprung.js'));
 const STANDARD = { freiNoetig: 4, dauer: 60, abnahme: 0.5, fundort: 'bojenfeld', ziel: 'vorlaeufer', wellen: 3, wellenAbstand: 30, wellenGroesse: 2 };
 const cfg = (game) => Object.assign({}, STANDARD, (game.C && game.C.boje) || {});
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const POWER = ['engines', 'shields', 'weapons', 'life'];
 
 function state(game) { return game.bojeSim || (game.bojeSim = { geweckt: false, wettlauf: 0, welle: 0, naechste: 0 }); }
 function szene(game) { const loc = Locations.get(game.ship.scene); return loc && loc.scene && loc.scene.bojeFeld ? loc.scene : null; }
 
+// PAN-01 A: Hauptsysteme + laufende Module (space.powerUsed); freie Energie entsteht auch durch abgeschaltete Module
 function freieEnergie(game) {
-  const ship = game.ship;
   const out = space().reactorOutput(game);
-  const used = POWER.reduce((a, k) => a + (ship.power[k] || 0), 0);
-  return Math.max(0, out - used);
+  return Math.max(0, out - space().powerUsed(game));
 }
 function geweckt(game) {
   if (state(game).geweckt) return true;
