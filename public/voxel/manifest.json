@@ -69,7 +69,7 @@
     {
       "team": "art-pan01",
       "file": "art-pan01.json",
-      "count": 12
+      "count": 13
     },
     {
       "team": "art-ru",
@@ -7518,6 +7518,62 @@
       "source": "lerche/furn/stowage",
       "team": "art-pan01"
     },
+    "lerche/furn/tool_wall": {
+      "id": "lerche/furn/tool_wall",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {
+        "voll": [
+          0,
+          1
+        ],
+        "lampe": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "leer": {
+          "voll": 0
+        },
+        "voll": {
+          "voll": 1
+        },
+        "lampe": {
+          "voll": 1,
+          "lampe": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "lerche",
+        "furn",
+        "werkstatt",
+        "pan01"
+      ],
+      "source": "lerche/furn/tool_wall",
+      "team": "art-pan01"
+    },
     "lerche/furn/trophy_niche": {
       "id": "lerche/furn/trophy_niche",
       "kind": "model",
@@ -8304,6 +8360,10 @@
       "height": 3,
       "facing": "+z",
       "params": {
+        "entsiegelt": [
+          0,
+          1
+        ],
         "open": [
           0,
           1
@@ -8319,14 +8379,18 @@
       },
       "states": {
         "zu1": {
-          "open": 0,
+          "entsiegelt": 0,
           "stufe": 1
         },
         "zu2": {
-          "open": 0,
+          "entsiegelt": 0,
           "stufe": 2
         },
+        "entsiegelt": {
+          "entsiegelt": 1
+        },
         "offen": {
+          "entsiegelt": 1,
           "open": 1
         },
         "gekappt": {
@@ -8353,7 +8417,7 @@
         "door",
         "pan01"
       ],
-      "notes": "Verschalte Pforte; nutzt intern lerche/kit/door.",
+      "notes": "Verschalte Pforte; entsiegelt 0 verschalt, 1 normale Tür; open = Türblatt offen.",
       "source": "lerche/kit/door_sealed",
       "team": "art-pan01"
     },

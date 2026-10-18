@@ -205,6 +205,10 @@
       "height": 3,
       "facing": "+z",
       "params": {
+        "entsiegelt": [
+          0,
+          1
+        ],
         "open": [
           0,
           1
@@ -220,14 +224,18 @@
       },
       "states": {
         "zu1": {
-          "open": 0,
+          "entsiegelt": 0,
           "stufe": 1
         },
         "zu2": {
-          "open": 0,
+          "entsiegelt": 0,
           "stufe": 2
         },
+        "entsiegelt": {
+          "entsiegelt": 1
+        },
         "offen": {
+          "entsiegelt": 1,
           "open": 1
         },
         "gekappt": {
@@ -254,7 +262,7 @@
         "door",
         "pan01"
       ],
-      "notes": "Verschalte Pforte; nutzt intern lerche/kit/door."
+      "notes": "Verschalte Pforte; entsiegelt 0 verschalt, 1 normale Tür; open = Türblatt offen."
     },
     {
       "id": "lerche/station/lafette",
@@ -638,6 +646,60 @@
       },
       "tint": [],
       "budgetTris": 4000,
+      "tags": [
+        "lerche",
+        "furn",
+        "werkstatt",
+        "pan01"
+      ]
+    },
+    {
+      "id": "lerche/furn/tool_wall",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "lerche_rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {
+        "voll": [
+          0,
+          1
+        ],
+        "lampe": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "leer": {
+          "voll": 0
+        },
+        "voll": {
+          "voll": 1
+        },
+        "lampe": {
+          "voll": 1,
+          "lampe": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.55
+        ],
+        "label": [
+          0,
+          2.3,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
       "tags": [
         "lerche",
         "furn",
