@@ -15,7 +15,7 @@ Legende (neu in `SHIP_LEGEND`): `q` Modulplatz A, `r` Modulplatz B, `h` Modulpla
    x:  0         1         2         3
        0123456789012345678901234567890123456789
  0  ########################################
- 1  #==u=f#..LLLLL#y===u#=F=M=U=#.........p#
+ 1  #==u=f#.LLLLL.#y===u#=F=M=U=#.........p#
  2  #A====#.......#=====#=======#..........#
  3  #=====#.......#==R==#=======#..........#
  4  #=====####D####=====##D##D####...W.....#
@@ -24,8 +24,8 @@ Legende (neu in `SHIP_LEGEND`): `q` Modulplatz A, `r` Modulplatz B, `h` Modulpla
  7  #=====#^^.....#i====#.......^^.........#
  8  #=====####D####=====##D##D####...C.....#
  9  #=====#.......#==G==#=======#..........#
-10  #2====#.P.P...#=====#=======#..........#
-11  #==u=f#X.P.T..#u===y#=Z=J=V=#.........p#
+10  #2====#P.P....#=====#=======#..........#
+11  #==u=f#.P...TX#u===y#=Z=J=V=#.........p#
 12  ########################################
 ```
 
@@ -112,7 +112,7 @@ Gangräume decken die Türkacheln mit ab, Modulräume sind `kind: 'modul'` (`mod
 ### Schächte, Brücke, Sektoren
 - **L1** (Brückenlift, x 28–29, y 5–7) steht zwischen Gang und Brücke auf der Mittelachse; **L2** (Hecklift, x 7–8) am Ende des Gangs vor dem Antrieb; **Notleiter** `!` (17, 6) in der Mitte des Maschinenraums, darüber der Meetingraum, darunter der Lafettenbereich. Die Brücke ist **Kachel für Kachel symmetrisch** (Test), Steuer `H` (35, 6) auf der Achse, Ops `W` (33, 4) und Captain `C` (33, 8) einander gegenüber, **keine Tür außer L1**, keine Station (Lanze und Bug-Emitter wohnen im Bugraum).
 - **Schildsektoren** gelten für Mittel- und Unterdeck gemeinsam (Treffer im Backbord-Sektor kann die Batterie oben oder Modulraum 1/3 und die Lafetten 7/1 unten treffen); das Unterdeck hat kein Heck (Sektor 2 nur im Antriebsraum). Kandidaten für Feuer und Lecks je Stufe: `World.regionFloorsFor(stufe, wallAdjacent)`.
-- **Reparaturwege** des Mitteldecks liegen innerhalb ±1,5 s der alten Messwerte (`check-maps`: Batterie 4,7 s, Düse 4,7 s, Reaktor 6,3 s, Triebwerk 10,7 s, Regal 9,7 s, Heck-Emitter 12,0 s ab Captain-Platz); die **Lanze** liegt jetzt im Bugraum (6,8 s inkl. Lift hinunter). `SHIP_DRILL`: Feuer im Heckgang (11, 6), Leck im Lager (7, 3). `REACTOR_SWITCHES` A (15, 1), B (19, 11), `SHELVES` x 9–13 (Lager), Spawns und Bot-Spawns neu.
+- **Reparaturwege** des Mitteldecks liegen innerhalb ±1,5 s der alten Messwerte (`check-maps`: Batterie 4,7 s, Düse 4,7 s, Reaktor 6,3 s, Triebwerk 10,7 s, Regal 10,0 s, Heck-Emitter 12,0 s ab Captain-Platz); die **Lanze** liegt jetzt im Bugraum (6,8 s inkl. Lift hinunter). `SHIP_DRILL`: Feuer im Heckgang (11, 6), Leck im Lager (7, 3). `REACTOR_SWITCHES` A (15, 1), B (19, 11), `SHELVES` x 9–13 (Lager), Spawns und Bot-Spawns neu.
 
 ## 2. Lifts und Leiter (E, dann W/S)
 - `Maps.SHIP_LIFTS` (`L1`, `L2`; `tiles` lokal, `gate`: Deck-Index → Mindeststufe), `Maps.SHIP_LADDERS`, `fahrtZiel(x, y, dir, stufe)` (dir +1 hoch, −1 runter, je ein Deck), `fahrtOptionen(x, y, stufe)` → `{ up, down }`, `deckLinks(x, y, { ladder, stufe })` (BFS-Kanten, Bots ohne Leiter). L1: alle drei Decks ab Stufe 0; L2 und Notleiter: Unterdeck ab Stufe 1.
@@ -142,6 +142,23 @@ Gangräume decken die Türkacheln mit ab, Modulräume sind `kind: 'modul'` (`mod
 - **Andockpunkte** der Optik: `Maps.ANDOCKPUNKTE` (Bug, Triebwerk, Banner, Lafetten 1–9, nur Daten).
 - **Client:** Pfeile und Hinweis zur Liftwahl, Modulplätze nach Modul, Pforten (zu: Warnband mit Stufenzahl, offen: Tür), Lafetten (verschlossen/frei), Spind (Anrichte), Lift 2 × 3 (Platzhalter: zwei 2 × 2-Modelle), Wandstil nur Oberdeck „privat“, Minikarte ohne Deck-Lücken (`Render.miniPlanSize`), Raumname der Modulräume nach Modul (`hud.roomOf`), Laufzeit-Spalte der Technik über alle Decks (Dijkstra mit Liftzeit).
 - Tests: `tools/test-lerche.js` (neu, in `npm test`), `check-maps` (drei Decks, Stufen 0–3, Brücke, Modulräume), angepasst: test-features (Lift/Leiter/Feuer/Bots/Alarm für drei Decks), test-m3, test-lager, test-personen, test-rollen-r0, test-anzeige-u3, test-energie.
+
+## 6b. Änderungen nach Kais Test (Feedback 1)
+- **Lager** (x 7–13, y 1–3): die fünf Regale stehen mittig an der Nordwand (x 8–12, Raummitte x 10; vorher x 9–13, an der Ostwand-Ecke). Reihenfolge der Waren bleibt (Ersatzteil, Löschgel, Flickblech, Bolzen, Medipack von Heck nach Bug). `Maps.SHELVES`/`SHELF_TILES` folgen der Karte; Zugang von y 2.
+- **Transferkammer** (x 7–13, y 9–11): Pads links (Heckseite), Konsole und Station rechts (Bugseite), in Kais Ansicht Heck links, Bug rechts. Alt und neu (Atlas, Backbord oben; `.` Boden):
+```
+alt  x  7 8 9 10 11 12 13        neu  x  7 8 9 10 11 12 13
+y 9     . . . .  .  .  .         y 9     . . . .  .  .  .
+y10     . P . P  .  .  .         y10     P . P .  .  .  .
+y11     X . P .  T  .  .         y11     . P . .  .  T  X     (X = Transfer-System, T = Transfer-Konsole, P = Pad)
+
+Lager alt:  y 1  . . L L L L L     Lager neu:  y 1  . L L L L L .      (x 7–13, y 2 und 3 frei)
+```
+  `tools/check-maps.js` prüft beides (Regale symmetrisch zur Raummitte, Pads kleineres x als Konsole und Station). Wege: Regal 1 9,7 → 10,0 s (+0,3 s, es steht eine Kachel weiter heckwärts; Vertrag 9,7 ± 0,5), Transfer-Station 10,3 s unverändert, alle übrigen Reparaturwege unverändert. Pads, Landetrupp und Notrückholung (`placeOnShipPad`) nehmen die Pads aus der Karte, es gibt keine festen Koordinaten.
+- **Liftrichtung (Fehler):** Die Voxel-Animation (`voxel/actors.js`: Fahrt `lift_ride` und Ankunftseinblendung) verglich Deckindizes statt Höhenlagen. Der Deckindex ist nicht die Höhe (Unterdeck = 2, aber tiefer als das Mitteldeck), deshalb stieg die Figur bei Fahrten Mitteldeck → Unterdeck und fiel bei Unterdeck → Mitteldeck. Jetzt `deckLevel(d)` aus `SHIP_DECKS[].level`. Server, Pfeile, Hinweis, Blende und Kamera waren schon richtig. `check-maps` prüft, dass `fahrtZiel` W/hoch immer zur größeren Höhenlage führt.
+- **Minikarte im Schiffsinnern entfernt:** der Mini-Schiffsplan unten rechts (`hud.js`, Aufruf von `R.drawMiniPlan(… zone 'ship' …)` und `R.miniPlanSize`). `drawMiniPlan`/`miniPlanSize` bleiben in `render.js`, weil die Konsolen Captain/Technik (Decksplan) und die Außenmission sie benutzen; im HUD bleibt die Außen-Minikarte (zone away).
+
+- **Golden nach Feedback 1:** neue Basis `tools/fixtures/golden/base-pan01b2` (120 Traces, `--all --seeds 20`), Allow `allow-pan01b2.json` (schlank, ohne Ausnahmen). Gegen `base-pan01b` weichen **114 von 120** Traces ab, 6 sind byte-identisch (Crew 1 m1/m2/m3 und m3 Crew 3 laufen großteils unverändert nah). Gruppen: (1) Schrittzeiten > ±1 s in 85 Traces (Bots gehen zu verschobenen Regalen und Pads; Mediane: m1/1 +4,5 %, m1/3 +0,4 %, m2/1 0 %, m2/3 −3,3 %, m3/1 +0,1 %, m3/3 −1,1 %); (2) Funk-/Notice-Texte, die in einem Lauf fehlen oder neu sind, in 81 Traces (Kampf-, Verwundungs- und Medipack-Sätze, die vom Gefechtsverlauf abhängen: Zufall folgt dem veränderten Weg); (3) Inventar anders (Ersatzteile, Medipacks) in 76 Traces, dieselbe Ursache; (4) Erfolg: **vier Traces true → false** (m1/3 Seeds 5 und 16, m2/3 Seeds 16 und 12 mit dem Softlock m2/parley) und **einer false → true** (m2/3 Seed 7). Fehlschläge insgesamt 10 → 13 von 120, als Kampagnen (Crew 3, m2-Trace) 6 → 7 von 20. Absicherung gegen Zufall: Crew 3, Seeds 21–40 (m2-Läufe): 6 von 20 Fehlschlägen (vorher 7 von 20); über die Seeds 1–40 sind es vorher wie nachher 13 von 40. Das Crew-3-Bot-Muster (Kampf-Todesspirale, m1/return) ist dasselbe wie auf `main` (19 von 40) und `pan01-a` (14 von 40), kein neuer Fehlertyp. Kampagnen-Bots `kette` Crew 1 und 3, `sl --paket alle`, `sim-sund` grün.
 
 ## 6a. Bekannte Abweichungen und offene Aufgaben (Prüfung, Entscheidungen)
 - **Reparaturwege (Abweichung vom Vertrag „Mitteldeck unverändert“):** Bug-Emitter und Lanze liegen jetzt im Bugraum (Unterdeck), weil die Brücke system- und waffenfrei ist und es auf dem Mitteldeck keinen anderen Platz gibt. Gemessen (Weg vom Captain-Platz, BFS, 3 Kacheln/s, Lift 2 s): Lanze 2,0 → 6,8 s (+4,8 s), Bug-Emitter 2,0 → 5,8 s (+3,8 s). Die Heck-Ziele (Triebwerk 9,0 → 10,7 s, Heck-Emitter 10,3 → 12,0 s, +1,7 s) liegen wegen des um drei Kacheln längeren Schiffs knapp außerhalb von ±1,5 s. Alle übrigen Systeme liegen innerhalb ±1,5 s (Schilde 6,0 → 6,3, Transfer 9,3 → 10,3, Batterien, Düsen, Reaktor, Seiten-Emitter). `tools/check-maps.js` misst jetzt alle Systeme mit Alt- und Neuwert; Bugraum und Heck sind dort als Ausnahmen ausgewiesen.

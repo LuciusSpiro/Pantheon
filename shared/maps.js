@@ -20,7 +20,7 @@
   //           0123456789012345678901234567890123456789
   const SHIP_ROWS = [
     '########################################', // 0
-    '#==u=f#..LLLLL#y===u#=F=M=U=#.........p#', // 1
+    '#==u=f#.LLLLL.#y===u#=F=M=U=#.........p#', // 1
     '#A====#.......#=====#=======#..........#', // 2
     '#=====#.......#==R==#=======#..........#', // 3
     '#=====####D####=====##D##D####...W.....#', // 4
@@ -29,8 +29,8 @@
     '#=====#^^.....#i====#.......^^.........#', // 7
     '#=====####D####=====##D##D####...C.....#', // 8
     '#=====#.......#==G==#=======#..........#', // 9
-    '#2====#.P.P...#=====#=======#..........#', // 10
-    '#==u=f#X.P.T..#u===y#=Z=J=V=#.........p#', // 11
+    '#2====#P.P....#=====#=======#..........#', // 10
+    '#==u=f#.P...TX#u===y#=Z=J=V=#.........p#', // 11
     '########################################', // 12
     '                                        ', // 13
     '                                        ', // 14
@@ -274,7 +274,7 @@
   });
 
   // Regale im Lager: x-Kachel -> Gegenstand (Zeile 1). Altname; maßgeblich ist SHELF_TILES.
-  const SHELVES = { 9: 'ersatzteil', 10: 'loeschgel', 11: 'flickblech', 12: 'bolzen', 13: 'medipack' };
+  const SHELVES = { 8: 'ersatzteil', 9: 'loeschgel', 10: 'flickblech', 11: 'bolzen', 12: 'medipack' };   // PAN-01 B (Feedback 1): zentriert im Lager (x 7–13, Mitte x 10)
 
   // ---- PAN-01 B „Drei Decks“: Decks im Atlas ----
   // idx = Deck-Index (so zählen deckOf, Snapshot `deck`, Renderer), level = Höhenlage (Unterdeck −1, Mitteldeck 0, Oberdeck +1: bestimmt die Richtung der Liftblende).

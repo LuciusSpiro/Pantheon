@@ -1,0 +1,8 @@
+{
+  "_kommentar": "PAN-01 Paket B nach Kais Test (Feedback 1: Lager/Transferkammer neu angeordnet, Minikarte weg, Liftanimation), schlanke Allow-Datei für Vergleiche GEGEN base-pan01b2: node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01b2 <neu> --allow tools/fixtures/golden/allow-pan01b2.json. Ein Lauf auf demselben Stand ist byte-identisch zur Basis, es sind deshalb keine Ausnahmen nötig; spätere Pakete hängen hier nur verankerte Muster an. Zwischen base-pan01b und base-pan01b2 gibt es bewusst keine Allow-Datei: die Raumänderung verschiebt die Wege der Bots (Regale, Transfer), danach laufen alle Läufe zufallsbedingt anders (114 von 120 Traces weichen ab), das lässt sich nicht mit verankerten Mustern fassen; die Gruppen stehen in CONTRACT-PAN01-B.md.",
+  "stages": [],
+  "texts": [],
+  "flags": [],
+  "inventory": [],
+  "duration": []
+}

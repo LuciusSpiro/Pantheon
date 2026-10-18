@@ -487,9 +487,7 @@
       R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
       R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
       this.drawJumpLine(ctx, view, 63);
-      // Mini-Schiffsplan unten rechts
-      const mp = R.miniPlanSize('ship', 3);   // PAN-01 B: drei Decks übereinander, ohne die leeren Zeilen dazwischen
-      R.drawMiniPlan(ctx, view, VW - mp.w - 6, VH - mp.h - 6, { zone: 'ship', cell: 3 });
+      // PAN-01 B (Feedback 1): der Mini-Schiffsplan unten rechts im Schiffsinnern entfällt (Decksplan nur noch in den Konsolen Captain/Technik)
       this.drawEdgeArrows(ctx, view);
     },
 

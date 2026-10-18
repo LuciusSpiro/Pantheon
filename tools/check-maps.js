@@ -105,6 +105,30 @@ const stationsOf = (s) => interactive.filter((q) => q.info.system === s);
 for (const s of systems) check(stationsOf(s).length >= 1, `Systempunkt ${s} vorhanden (${stationsOf(s).length} Kachel(n))`);
 for (const c of ['helm', 'captain', 'weapons', 'transfer', 'shop', 'plan']) check(interactive.some((t) => t.info.console === c), `Konsole ${c} vorhanden`);
 check(interactive.filter((t) => t.info.kind === 'pad').length === 3, 'drei Transferpads an Bord');
+{   // PAN-01 B (Feedback 1): Fahrtrichtung. Der Deckindex (0 Mittel, 1 Ober, 2 Unter) ist NICHT die Höhe; oben/unten bestimmt SHIP_DECKS[].level (Client-Animation: deckLevel in voxel/actors.js).
+  const lv = (d) => Maps.SHIP_DECKS.find((q) => q.idx === d).level;
+  check(lv(2) < lv(0) && lv(0) < lv(1) && Maps.DECK_HOCH.map(lv).join() === '-1,0,1', 'Höhenlage: Unterdeck (Index 2) −1 < Mitteldeck (0) 0 < Oberdeck (1) +1, DECK_HOCH von unten nach oben');
+  let richtungOk = true, n = 0;
+  for (const lift of [...Maps.SHIP_LIFTS, ...Maps.SHIP_LADDERS]) {
+    const t = lift.tiles ? lift.tiles[0] : { x: lift.x, y: lift.y };
+    for (const d of Maps.DECK_HOCH) {
+      const ty = Maps.deckLocalY(t.y) + d * Maps.DECK_STRIDE;
+      const up = Maps.fahrtZiel(t.x, ty, 1, Maps.STUFE_MAX), down = Maps.fahrtZiel(t.x, ty, -1, Maps.STUFE_MAX);
+      n++;
+      if (up && lv(up.deck) <= lv(d)) richtungOk = false;
+      if (down && lv(down.deck) >= lv(d)) richtungOk = false;
+    }
+  }
+  check(richtungOk && n > 0, `fahrtZiel: W/hoch führt immer auf das Deck mit größerer Höhenlage, S/runter auf das mit kleinerer (${n} Prüfungen)`);
+}
+{   // PAN-01 B (Feedback 1): Lager und Transferkammer. Lager: die fünf Regale mittig an der Nordwand (symmetrisch zur Raummitte). Transferkammer: Pads links (Heckseite, kleineres x), Konsole und Station rechts (Bugseite).
+  const lager = Maps.SHIP_ROOMS.find((r) => r.id === 'lager'), tk = Maps.SHIP_ROOMS.find((r) => r.id === 'transfer');
+  const sx = Maps.SHELF_TILES.map((t) => t.x).sort((p, q) => p - q);
+  check(sx.length === 5 && sx[4] - sx[0] === 4 && sx[0] + sx[4] === lager.x0 + lager.x1 && Maps.SHELF_TILES.every((t) => t.y === lager.y0), `Lager: fünf Regale nebeneinander, mittig (x ${sx.join(',')}, Raummitte ${(lager.x0 + lager.x1) / 2})`);
+  const padsX = interactive.filter((t) => t.info.kind === 'pad').map((t) => t.x), tcon = interactive.find((t) => t.info.console === 'transfer'), tsys = interactive.find((t) => t.info.system === 'transfer');
+  check(padsX.every((x) => x >= tk.x0 && x <= tk.x1) && tcon.x >= tk.x0 && tsys.x <= tk.x1, 'Transferkammer: Pads, Konsole und Station im Raum');
+  check(Math.max(...padsX) < Math.min(tcon.x, tsys.x), `Transferkammer: Pads links (x bis ${Math.max(...padsX)}), Konsole (x ${tcon.x}) und Station (x ${tsys.x}) rechts`);
+}
 Maps.SECTOR_REGIONS.forEach((r, i) => {
   let floors = 0;
   for (let y = 0; y < ship.h; y++) for (let x = 0; x < ship.w; x++) if (!ship.solid(x, y) && r.test(x, y)) floors++;

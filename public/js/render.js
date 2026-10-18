@@ -1720,7 +1720,7 @@
     const mw = map.w * TILE, mh = map.h * TILE;
     let cx = view.self.x - VW / 2, cy = view.self.y - 16 - VH / 2;
     // Kamera darf etwas über den Kartenrand hinaus (Sternenhimmel), damit die eigene Figur in den Ecken
-    // nicht unter den HUD-Tafeln (Ziele oben links, Status unten links, Minikarte unten rechts) verschwindet.
+    // nicht unter den HUD-Tafeln (Ziele oben links, Status unten links, Systeme oben rechts) verschwindet.
     const MX = 150, MY = 100;
     cx = mw + 2 * MX <= VW ? (mw - VW) / 2 : Math.max(-MX, Math.min(mw - VW + MX, cx));
     cy = mh + 2 * MY <= VH ? (mh - VH) / 2 : Math.max(-MY, Math.min(mh - VH + MY, cy));
@@ -2332,7 +2332,7 @@
             const dOther = deckOfPy(p.y), decks = Maps.SHIP_DECKS || [];
             const dkO = decks.find((q) => q.idx === dOther), dkC = decks.find((q) => q.idx === deck);   // PAN-01 B: Deck-Index; Höhenlage (level) bestimmt oben/unten
             if (dkO && dkC) {
-              // x zwischen den HUD-Spalten (links Ziele, rechts Systeme/Minikarte) halten
+              // x zwischen den HUD-Spalten (links Ziele, rechts Systeme) halten
               const sx = Math.max(150, Math.min(VW - 150, P(p.x, p.y - (dkO.y0 - dkC.y0) * TILE, 0).x));
               const up = dkO.level > dkC.level, col = PAL.players[p.color || 0];
               const yy = up ? 14 : VH - 56;
