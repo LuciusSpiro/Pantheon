@@ -1048,7 +1048,8 @@ class Game {
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
       case 'weapons.charge': {   // §20.3: Lanze aufladen (on: true) / feuern (on: false)
         const mount = msg.mount == null ? 'bow' : (MOUNT_ALIAS[msg.mount] || String(msg.mount));
-        const wasCharging = !!(ship.mount.bow && ship.mount.bow.charging);
+        const mk = ship.mount[Waffen.normMount(mount, this)];
+        const wasCharging = !!(mk && mk.charging);   // PAN-01 C: jede Lanze (Bug 8, Bug 5, Lanzenbatterien)
         err = space.weaponsCharge(this, mount, !!msg.on);
         if (!err && !msg.on && wasCharging) this.missionEvent('weaponsFired', {});
         break;
@@ -1237,9 +1238,18 @@ class Game {
       }
       case 'breach': { const t = interior.randomRegionFloor(this, this.rng.int(4), true); interior.addBreach(this, t.x, t.y); break; }
       case 'spawn': {
-        const k = Protocol.ENEMY_KINDS.includes(msg.kind) ? msg.kind : 'raider';
+        // PAN-01 C: spawn <kind> [volk=ger|rom|pirat] [<platz>=<waffe>…] – Platz bug|stbd|bb (Fregatte stbd1 …), Waffe = Altart (lanze|batterie|bolzen) oder Katalog-Id
+        const sa = argList(msg); const kw = {};
+        for (const a of sa.slice(msg.kind != null ? 0 : 1)) { const m = /^([a-z0-9_]+)=([a-z0-9_]+)$/i.exec(a); if (m) kw[m[1]] = m[2]; }
+        const kindArg = msg.kind != null ? msg.kind : sa[0];
+        const k = Protocol.ENEMY_KINDS.includes(kindArg) ? kindArg : 'raider';
         if (this.ship.docked) { err = 'Nicht angedockt.'; break; }
-        const so = msg.volk ? { volk: String(msg.volk) } : {};
+        const so = msg.volk || kw.volk ? { volk: String(msg.volk || kw.volk) } : {};
+        const wf = Object.assign({}, msg.waffen && typeof msg.waffen === 'object' ? msg.waffen : {});
+        for (const pk of Object.keys(kw)) if (pk !== 'volk') wf[pk] = kw[pk];
+        for (const pk of Object.keys(wf)) if (!Katalog.gegnerWert(wf[pk])) { err = `Unbekannte Waffe „${wf[pk]}“ (lanze, batterie, bolzen oder ${Katalog.WAFFEN.map((x) => x.id).join(', ')}).`; break; }
+        if (err) break;
+        if (Object.keys(wf).length) so.waffen = wf;
         if (Number(msg.dist) > 0) { const wa = Number(msg.winkel) || 0, dd = Math.min(900, Number(msg.dist)); so.x = this.ship.x + Math.cos(wa) * dd; so.y = this.ship.y + Math.sin(wa) * dd; }   // Sichtprüfung: Abstand/Winkel zur Lerche (Gegner nah ins Bild)
         space.spawnEnemy(this, k, so);   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;

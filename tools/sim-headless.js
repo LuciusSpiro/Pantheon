@@ -41,11 +41,12 @@ const consoleTileOf = (con) => (W.CONSOLE_TILES[con] || [])[0];
 const stationTile = (sys) => { const st = (W.STATIONS || []).find((s) => s.system === sys); return st ? { x: st.x, y: st.y } : systemTile(sys); };
 const M3 = CONFIG.spaceM3 || {};
 const MOUNT_IDS = ['bow', 'port', 'stbd'];
+const ZUSATZ_IDS = ['p5', 'p7', 'p9', 'p1', 'p3', 'p2'];   // PAN-01 C: Plätze 5 7 9 1 3 und Heck 2 (nur mit Stufe und Bestückung; Start-Lerche: nie)
 const SECTOR_OF_SIDE = { port: 3, stbd: 1 };
 const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 // Reihenfolge, in der Spieler-Bots zerstörte/beschädigte Systeme angehen (Kampfwert zuerst)
 const REPAIR_PRIO = ['shields', 'reactor', 'thruster_port', 'thruster_stbd', 'emitter_port', 'emitter_stbd', 'emitter_bow', 'emitter_aft',
-  'battery_port', 'battery_stbd', 'weapon_bow', 'engines', 'transfer'];
+  'battery_port', 'battery_stbd', 'weapon_bow', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2', 'engines', 'transfer'];   // PAN-01 C: Lafetten (nur aktiv mit Bestückung)
 
 const args = process.argv.slice(2);
 const VERBOSE = args.includes('--verbose');
@@ -563,7 +564,26 @@ class Agent {
     if (bat.length && (this.memo.batAt || 0) < S.time) {
       this.memo.batAt = S.time + 0.3;
       this.cmd('weapons.fire', { mount: bat.length === 2 ? 'all' : bat[0] });
-    } else if (M.bolzen && M.bolzen.loaded > 0 && M.bolzen.charge >= 1 && this.inArcM(S, M.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
+    }
+    this.fightZusatz(S, target, M, enemies);
+  }
+  // PAN-01 C: Plätze 5 7 9 1 3 und Heck 2 bedienen: Salvenwaffen feuern, wenn ein Gegner in ihrem Bogen liegt (je Mount, alle 0,3 s); der Torpedowerfer auf das Ziel im Heckbogen,
+  // der Abwehrturm auf einen Jäger im Nahbereich (besetzt feuert er nur auf Befehl); Lanzen auf Zusatzplätzen bleiben unbedient (die Taktik hält nur die Bug-Lanze)
+  fightZusatz(S, target, M, enemies) {
+    const ids = ZUSATZ_IDS.filter((id) => M[id] && M[id].state !== 'broken');
+    if (!ids.length || (this.memo.zusatzAt || 0) > S.time) return;
+    const sh = S.ship; let fired = false;
+    for (const id of ids) {
+      const m = M[id]; const typ = m.typ || '';
+      if (typ === 'torpedowerfer') {
+        if (m.charge >= 1 && (m.ammo || 0) > 0 && this.inArcM(S, m, target)) { this.cmd('weapons.fire', { mount: id }); fired = true; this.game.simStats.torpedos = (this.game.simStats.torpedos || 0) + 1; }
+      } else if (typ === 'abwehrturm') {
+        if (m.charge >= 1 && !(m.salvo > 0) && enemies.some((e) => e.kind === 'raider' && dist(e.x, e.y, sh.x, sh.y) < 240)) { this.cmd('weapons.fire', { mount: id }); fired = true; }
+      } else if (m.power === undefined && m.salvo !== undefined) {
+        if (m.charge >= 1 && !(m.salvo > 0) && enemies.some((e) => this.inArcM(S, m, e, 6))) { this.cmd('weapons.fire', { mount: id }); fired = true; }
+      }
+    }
+    if (fired) this.memo.zusatzAt = S.time + 0.3;
   }
   // §20.3: Gegner, den die Lanze jetzt treffen würde (erster auf der Strahllinie), aus dem Snapshot
   lanceLineHit(S) {
@@ -631,6 +651,7 @@ class Agent {
     const sh = S.ship; const m = this.memo;
     const P = sh.chargePoints != null ? sh.chargePoints : 4;
     if (!M.bow || !M.port || !M.stbd) return;
+    if (ZUSATZ_IDS.some((id) => M[id] && M[id].alloc !== undefined && M[id].state !== 'broken')) return this.allocForAlle(S, target, M);   // PAN-01 C: mehr als drei Energiewaffen
     if (!m.allocWant || (m.allocAt || 0) < S.time) {
       const rel = norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle) * 180 / Math.PI;
       const want = { bow: 0, port: 0, stbd: 0 };
@@ -645,6 +666,29 @@ class Agent {
     const down = MOUNT_IDS.find((id) => M[id].alloc > w[id]);
     const up = MOUNT_IDS.find((id) => M[id].alloc < w[id]);
     const sum = MOUNT_IDS.reduce((a, id) => a + M[id].alloc, 0);
+    if (down && (sum >= P || !up)) { this.cmd('weapons.alloc', { mount: down, delta: -1 }); m.allocCmdAt = S.time + 0.3; }
+    else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
+  }
+
+  // PAN-01 C: Ladepool auf alle Energiewaffen: die Halterungen, die dem Ziel am nächsten zeigen, bekommen zuerst (je höchstens allocMax), der Rest ist Reserve
+  allocForAlle(S, target, M) {
+    const sh = S.ship; const m = this.memo;
+    const P = sh.chargePoints != null ? sh.chargePoints : 4;
+    const ids = Object.keys(M).filter((id) => M[id].alloc !== undefined && M[id].state !== 'broken');
+    if (!m.allocWant || (m.allocAt || 0) < S.time) {
+      const rel = norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle) * 180 / Math.PI;
+      const diff = (id) => Math.abs(norm((rel - M[id].facing) * Math.PI / 180)) * 180 / Math.PI;
+      const order = ids.map((id, i) => ({ id, i, d: diff(id) })).sort((a, b) => (a.d - b.d) || (a.i - b.i)).map((q) => q.id);
+      const want = {}; for (const id of ids) want[id] = 0;
+      let left = P;
+      for (const id of order) { const k = Math.min(M3.allocMax || 4, left); want[id] = k; left -= k; }
+      m.allocWant = want; m.allocAt = S.time + 2;
+    }
+    if ((m.allocCmdAt || 0) > S.time) return;
+    const w = m.allocWant;
+    const down = ids.find((id) => M[id].alloc > (w[id] || 0));
+    const up = ids.find((id) => M[id].alloc < (w[id] || 0));
+    const sum = ids.reduce((a, id) => a + M[id].alloc, 0);
     if (down && (sum >= P || !up)) { this.cmd('weapons.alloc', { mount: down, delta: -1 }); m.allocCmdAt = S.time + 0.3; }
     else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
   }
@@ -1130,7 +1174,7 @@ class Agent {
     if (buyer && !m.bought) {
       if (!this.enter(S, 'shop')) return;
       if (S.inventory.marks >= 20) this.cmd('shop.buy', { item: 'pflanze' });
-      if (this.role === 'weapons' && S.inventory.marks >= 220 + 60) this.cmd('shop.buy', { item: 'bolzenwerfer' });
+      // PAN-01 C: der Bolzenwerfer ist im Waffenkatalog aufgegangen (Torpedowerfer auf Heck 2, Werft in Paket D): kein Kauf mehr
       m.bought = true; return;
     }
     if (buyer && !m.deco) {
@@ -1788,6 +1832,7 @@ async function runArena(opts) {
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: Math.round(game.ship.hull),
+    waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
 }
 
@@ -1904,7 +1949,7 @@ async function arenaMain() {
       log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
         `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
         `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
-        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors}`);
+        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer}`);
       if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
     const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;

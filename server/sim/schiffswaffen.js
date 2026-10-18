@@ -115,6 +115,13 @@ function vorrat(game) {   // gespeicherter Anfangsstoß aller Energiewaffen
   for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && m.charge != null) sum += m.charge * a.w.stoss; }
   return sum;
 }
+// Magazin: jede Energiewaffe mit Ladung (auch angefangener) belegt ihren vollen Anfangsstoß; zusammen höchstens MAGAZINDECKEL.stossMax. Eine Waffe ohne Ladung fängt erst an zu laden,
+// wenn ihr Stoß noch hineinpasst (sonst blockierten sich viele halb geladene Waffen gegenseitig und keine würde je fertig).
+function reserviert(game) {
+  let sum = 0;
+  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && (m.charge > 0 || m.charging)) sum += a.w.stoss; }
+  return sum;
+}
 function ensureMounts(game) {
   const ship = game.ship; const m = ship.mount || (ship.mount = {});
   let neu = false;
@@ -122,8 +129,8 @@ function ensureMounts(game) {
     const cur = m[a.id];
     const passt = cur && ((a.w.art === 'torpedo') === (cur.cd !== undefined)) && ((a.w.art === 'lanze') === (cur.power !== undefined));
     if (passt) continue;
-    const room = Math.max(0, Katalog.MAGAZINDECKEL.stossMax - vorrat(game));
-    m[a.id] = neuerMount(game, a.id, a.w, a.w.stoss > 0 ? clamp(room / a.w.stoss, 0, 1) : 1);
+    const passt1 = a.w.stoss <= 0 || reserviert(game) + a.w.stoss <= Katalog.MAGAZINDECKEL.stossMax + 1e-9;   // neue Waffe startet geladen, wenn ihr Stoß noch ins Magazin passt
+    m[a.id] = neuerMount(game, a.id, a.w, passt1 ? 1 : 0);
     neu = true;
   }
   if (neu) { const al = computeAlloc(game); for (const a of energieMounts(game)) m[a.id].alloc = al[a.id] || 0; }   // Snapshot vor dem ersten Tick zeigt schon die Verteilung
@@ -188,7 +195,11 @@ function reihum(ids, cp, max) {
   return out;
 }
 function standardVerteilung(game, cp) { return reihum(energieMounts(game).map((a) => a.id), cp == null ? chargePoints(game) : cp, M3(game).allocMax); }
-function verteilungZuruecksetzen(game) { game.ship.wAllocIntent = standardVerteilung(game); }
+function verteilungZuruecksetzen(game) {
+  game.ship.wAllocIntent = standardVerteilung(game);
+  const al = computeAlloc(game);   // auch die angezeigten Punkte sofort (Snapshot vor dem nächsten Tick)
+  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m) m.alloc = al[a.id] || 0; }
+}
 // Effektive Verteilung: besetzt = Wunsch der Ops, gekürzt bei der Halterung mit den meisten Punkten (Gleichstand: zuerst die Batterien, die Lanzen zuletzt);
 // unbesetzt mit Automatik (≤ 2 Spieler) = reihum; unbesetzt ohne Automatik (3–4 Spieler) = die zuletzt gesetzte Verteilung bleibt stehen.
 function computeAlloc(game) {
@@ -224,6 +235,18 @@ function chargeTime(game, id) {
   if (w.art === 'turm') { if (!weaponsManned(game)) t *= (w.turm.autoFaktor || 1); }
   else if (waffenAutomatikAktiv(game)) t /= (M3(game).autoFactor || 1);
   return t;
+}
+
+// Treffer der Lerche auf einen Gegner (Schild + Hülle) mit Zähler game.stats.waffenSchaden { gesamt, <waffe-id>: Summe } für die Bot-Messung (Feuerkraft je Waffenzahl)
+function schade(game, e, dmg, x, y, opts, typ) {
+  const sp = S();
+  const sum = () => (e.hp > 0 ? e.hp : 0) + (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
+  const vor = sum();
+  sp.damageEnemy(game, e, dmg, x, y, opts);
+  const d = Math.max(0, vor - sum());
+  const st = game.stats.waffenSchaden || (game.stats.waffenSchaden = { gesamt: 0 });
+  st.gesamt += d; st[typ] = (st[typ] || 0) + d;
+  return d;
 }
 
 // ---------- Geometrie ----------
@@ -263,7 +286,7 @@ function update(game, dt) {
   const list = ausstattung(game);
   for (const a of list) if (a.w.energie) m[a.id].alloc = alloc[a.id] || 0;
   // Laden (Bereitschaft); der Magazindeckel begrenzt, wie viel Anfangsstoß sich in allen Energiewaffen zusammen speichert
-  let room = Katalog.MAGAZINDECKEL.stossMax - vorrat(game);
+  let belegt = reserviert(game);
   for (const a of list) {
     const mm = m[a.id];
     if (a.w.art === 'torpedo') { mm.cd = Math.max(0, mm.cd - dt); continue; }   // Cooldown: weder Energie noch Triebwerk, keine Ladepunkte
@@ -271,9 +294,11 @@ function update(game, dt) {
     if (a.w.art !== 'lanze' && mm.salvo > 0) continue;
     const t = chargeTime(game, a.id);
     if (t == null || mm.charge >= 1) continue;
-    let inc = Math.min(1 - mm.charge, dt / t);
-    if (a.w.stoss > 0) inc = Math.min(inc, Math.max(0, room) / a.w.stoss);
-    mm.charge += inc; room -= inc * a.w.stoss;
+    if (mm.charge <= 0 && a.w.stoss > 0) {   // erst laden, wenn der Stoß ins Magazin passt
+      if (belegt + a.w.stoss > Katalog.MAGAZINDECKEL.stossMax + 1e-9) continue;
+      belegt += a.w.stoss;
+    }
+    mm.charge = Math.min(1, mm.charge + dt / t);
   }
   if (ship.target && !S().resolveTarget(game, ship.target)) ship.target = null;
   const manned = weaponsManned(game);
@@ -283,17 +308,20 @@ function update(game, dt) {
   // §20.4: Automatikfeuer nur bei unbesetzter Ops und höchstens 2 Spielern (R1 §4.5; halbe Ladegeschwindigkeit über chargeTime/autoFactor).
   // Besetzt feuert nichts von selbst – die Ops drückt weapons.fire bzw. lädt die Lanze mit weapons.charge.
   if (!ship.docked && waffenAutomatikAktiv(game)) {
+    // erst die Salven, dann die Lanzen (Reihenfolge wie vor PAN-01 C: Batterien, dann Lanze)
     for (const a of list) {
+      if (a.w.art !== 'salve') continue;
       const mm = m[a.id];
-      if (a.w.art === 'salve') {
-        if (mm.charge < 1 || mm.salvo > 0 || isDown(mountState(game, a.id))) continue;
-        const tgt = nearestInArc(game, a.id);
-        if (tgt) startSalvo(game, a.id, tgt, 1);
-      } else if (a.w.art === 'lanze') {
-        // EK2: die Automatik schießt nicht auf ruhige Patrouillen und nicht auf Minen (sonst verriete sie die Lerche)
-        const autoHit = mm.charge >= 1 && !mm.charging && !isDown(mountState(game, a.id)) ? lanceTrace(game, a.id).hit : null;
-        if (autoHit && !autoHit.pat) fireLance(game, a.id, wcfg(game, a.w).autoPower, true);
-      }
+      if (mm.charge < 1 || mm.salvo > 0 || isDown(mountState(game, a.id))) continue;
+      const tgt = nearestInArc(game, a.id);
+      if (tgt) startSalvo(game, a.id, tgt, 1);
+    }
+    for (const a of list) {
+      if (a.w.art !== 'lanze') continue;
+      const mm = m[a.id];
+      // EK2: die Automatik schießt nicht auf ruhige Patrouillen und nicht auf Minen (sonst verriete sie die Lerche)
+      const autoHit = mm.charge >= 1 && !mm.charging && !isDown(mountState(game, a.id)) ? lanceTrace(game, a.id).hit : null;
+      if (autoHit && !autoHit.pat) fireLance(game, a.id, wcfg(game, a.w).autoPower, true);
     }
   }
   // Abwehrturm: dreht sich selbst; ohne Taktik schießt er schwach automatisch (auch bei mehr als zwei Spielern – es ist Nahabwehr, kein Angriff)
@@ -417,7 +445,7 @@ function fireLance(game, id, power, auto) {
   game.emit('sfx', { name: 'lance_fire', power: r2(p), mount: id });
   if (tr.hit) {
     game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
-    S().damageEnemy(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce });
+    schade(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce }, w.id);
   }
   if (tr.mine) Alarm.abschuss(game, tr.mine);   // EK2: Mine abgeschossen
   game.missionEvent('lanceFire', { power: p, hit: tr.hit ? tr.hit.id : null, auto: !!auto });
@@ -525,7 +553,7 @@ function updateSalvos(game, dt) {
         continue;
       }
       const opts = w.id === 'sturmbatterie' ? { sturm: w.sturm } : undefined;
-      sp.damageEnemy(game, e, c.schaden * (b.salvoFactor || 1), o.x, o.y, opts);
+      schade(game, e, c.schaden * (b.salvoFactor || 1), o.x, o.y, opts, w.id);
     }
     if (b.salvo <= 0) { b.salvo = 0; b.salvoTarget = null; }
   }
@@ -562,9 +590,9 @@ function streuExplosion(game, p) {
     while (L.length && game.time - L[0] > T.fenster) L.shift();
     const zwei = L.length >= 1;
     L.push(game.time);
-    sp.damageEnemy(game, e, p.dmg, p.x, p.y, { streu: { schildFaktor: T.schildFaktor } });
+    schade(game, e, p.dmg, p.x, p.y, { streu: { schildFaktor: T.schildFaktor } }, w.id);
     if (zwei && sp.hasEnemy(game, e)) {
-      sp.damageEnemy(game, e, T.durchschlag, p.x, p.y, { huelle: true });
+      schade(game, e, T.durchschlag, p.x, p.y, { huelle: true }, w.id);
       if (sp.hasEnemy(game, e)) sp.stoereGegner(e, 1.5);
       game.stats.streuZwei = (game.stats.streuZwei || 0) + 1;
     }
@@ -752,5 +780,5 @@ module.exports = {
   ensureMounts, szeneReset, bestuecken, setzeRoh, bestueckeAlle, stufeGeaendert, chargePoints, computeAlloc, standardVerteilung, verteilungZuruecksetzen, chargeTime,
   inMountArc, mountOrigin, nearestInArc, selectedEnemy, update, lanceChargeTime, lanceDamage, lanceTrace, fireLance, weaponsCharge, rohre, startSalvo,
   streuExplosion, fireTorpedo, weaponsFire, weaponsAlloc, weaponsHold, weaponsReload, consumeFullCharge, lenke, mountsSnapshot, debug, toSave, restore,
-  vorrat, turmZiel, isDown, EPS,
+  vorrat, reserviert, turmZiel, isDown, EPS, schade,
 };

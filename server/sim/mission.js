@@ -831,6 +831,7 @@ class Mission {
     for (let i = 0; i < n; i++) {
       const opts = { tag: s.tag || null };
       if (s.ziel != null) opts.ziel = s.ziel;   // S2: lerche|schuetzling|auto|<escort-tag> (space.js, SCHUETZLING)
+      if (s.waffen) opts.waffen = s.waffen;   // PAN-01 C: Bestückung je Platz (Altart lanze|batterie|bolzen oder Katalog-Id, z. B. torpedowerfer); ohne Angabe würfelt space.bestueckung
       if (s.volk) opts.volk = s.volk;   // Kennung: ger|rom|pirat (sonst space.volkFuer: Fraktion des Sektors bzw. Standard)
       if (s.angles) opts.angle = s.angles[i % s.angles.length];
       else if (s.behind) opts.angle = g.ship.angle + Math.PI + (n > 1 ? (i ? 0.35 : -0.35) : 0);   // M3a: klar achtern (Hecksektor)

@@ -30,6 +30,7 @@ const isDown = (st) => st === 'broken' || st === 'offline';
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
 const EPS = 1e-6;   // Gleitkomma-Rest bei Gegner-HP/-Schilden
+const GEGNER_GESCHOSSE = ['enemy', 'emp', 'sperrfeuer', 'sturm', 'etorpedo', 'estreu'];   // Geschosse der Gegner (PAN-01 C: Sturmnadeln, Torpedo, Granate)
 
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
@@ -39,7 +40,8 @@ const MOUNT_SYSTEM = Waffen.MOUNT_SYSTEM;
 const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
 const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Sektor 0..3
 const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
-  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
+  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
+  'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
 const SECTOR_LABEL = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
 const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
@@ -839,7 +841,7 @@ function checkEmergency(game) {
   ship.fireList = [];
   ship.breachList = [];   // M1: Notschaum dichtet auch alle Lecks ab (sonst Notfall-Schleife ohne Flickblech)
   for (const e of game.space.enemies) { e.retreatUntil = game.time + C.combat.retreatTime; if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); } }
-  game.space.projectiles = game.space.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp' && p.kind !== 'sperrfeuer');
+  game.space.projectiles = game.space.projectiles.filter((p) => !GEGNER_GESCHOSSE.includes(p.kind));
   game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
   game.stats.emergencies++;
   game.emit('emergency', {});
@@ -1661,7 +1663,7 @@ function updateProjectiles(game, dt) {
           if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
             game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1;
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
-            damageEnemy(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true });
+            Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true }, 'torpedowerfer');
           } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true } : undefined);
           break;
         }

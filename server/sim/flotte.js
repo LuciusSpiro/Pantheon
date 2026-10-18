@@ -566,7 +566,7 @@ function trennen(game, es) {
 function neustart(game) {
   const st = state(game); const sp = game.space; const Lr = lerche(game);
   for (const e of sp.enemies) if (game.ship.target === e.id) game.ship.target = null;
-  sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind !== 'enemy' && p.kind !== 'emp' && p.kind !== 'sperrfeuer' && p.kind !== 'ally');
+  sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => !['enemy', 'emp', 'sperrfeuer', 'sturm', 'etorpedo', 'estreu', 'ally'].includes(p.kind));
   st.nachschub.length = 0;
   for (const es of allies(game)) {
     if (!escort().active(es)) continue;

@@ -104,7 +104,7 @@
     {
       id: 'torpedowerfer', name: 'Torpedowerfer', kurz: 'TORPEDO', platzart: 'heck', energie: false, art: 'torpedo',
       wirkung: 'Torpedos nach achtern, kein Schildschaden: trifft die Hülle (Jäger sofort zerstört), Munition aus dem Lager, eigener Cooldown.',
-      schaden: TORPEDO.schaden, rohre: 1, cooldown: TORPEDO.cooldown, bogen: 90, reichweite: 650, stoss: 0,
+      schaden: TORPEDO.schaden, rohre: 1, cooldown: TORPEDO.cooldown, bogen: 60, reichweite: 650, stoss: 0,   // Heckbogen 60 Grad: Messung PAN-01 C (Arena-Bot, Lager 12) zeigt keinen Nutzen von 90 Grad, der enge Bogen bleibt das Gegengewicht
       modell: 'lerche/station/lafette_torpedo', projektil: { form: 'torpedo', farbe: '#E9A23B' }, effekt: 'torpedo', ton: 'torpedo', symbol: 'schiff_torpedo',
       munition: 'torpedo', gegner: { verhalten: 'torpedo' },
     },
