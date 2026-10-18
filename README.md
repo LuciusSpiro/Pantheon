@@ -16,6 +16,23 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in SUND-01 Paket A – Sim-Kern der Weltsimulation (`server/weltsim/`)
+
+Reines Modul, noch nicht an Server, Weltstand oder Client angeschlossen (Pakete B und C). Port von `Vault/Pantheon/Welt/sim_sund.py`: Wirtschaft (T M U E N, Bevölkerung, Marken, Unterhalt, Verschleiß im Feld, Neubau), abstrakter Handel des Konkordats, Standard-KI (Angriff, Beanspruchen, Posten), Stützpunkt-Phasen (Sammeln, Marsch, Belagerung, Rückzug), Gefecht samt Verteidigung ohne Flotte, Eroberung, Piratenüberfälle. **Alle Zahlen stehen in `content/welt/sund-sim-werte.json`**, kein Timer, kein Thread, kein `Math.random`/`Date.now`, nur `tick()` ändert den Zustand.
+
+| Datei | Was |
+|---|---|
+| `server/weltsim/kern.js` | `erzeuge({ karte, werte, seed })` → Zustand (reine JSON-Daten, Flotten und Feldzüge über Ids), `tick(zustand, { wirkungen, absichten, messung })` → `{ zustand, ereignisse }`; lesende Hilfen `besitzer`, `istPosten`, `flottenAm`, `abstand`, `staerkeKlasse`. `tick` **verändert** den Zustand und gibt ihn zurück (vorher klonen, wenn der alte Stand gebraucht wird) |
+| `server/weltsim/daten.js` | lädt und prüft Karte und Werte (`laden()`, einzige Stelle mit Dateizugriff), baut Nachbarschaft, BFS-Abstände und nächste Schritte für das Flottennetz (offene Kanten) und das Piratennetz |
+| `server/weltsim/zufall.js` | mulberry32, der Zustand ist eine Zahl in `zustand.zufall` (n Ticks, speichern, laden, n Ticks = 2n Ticks) |
+| `server/weltsim/ereignisse.js` | Ereignistypen und ihre Felder (`flotte_aufbruch`, `flotte_sammelt`, `flotte_marsch`, `flotte_belagert`, `angriff_abgewehrt`, `angriff_abgebrochen`, `hafen_gefallen`, `posten_gegruendet`, `posten_verloren`, `konvoi`, `notruf`, `hauptwelt_gefallen`) |
+| `server/weltsim/kennzahlen.js` | Messung für Werkzeuge und Tests (nicht Teil des Zustands): Kennzahlen, Eingreif-Fenster, Sicht |
+| `tools/sim-welt.js` | headless: `npm run sim:welt -- --laeufe 100 --ticks 300 --seed0 0 [--wert k=0.25 ...] [--sicht]` |
+| `tools/test-welt-sim.js` | Test (in `npm test`, ca. 5 s): Determinismus, Serialisierung, Reinheit, Daten statt Code, Kennzahlenbänder, Ereignisse, Hostilität |
+| `tools/sim-welt-paritaet.js` | Paritätsprobe: mit Python-Zufall und der Hexreihenfolge des Prototyps liefert der Port je Seed dieselben Zahlen wie `sim_sund.py` (`npm run sim:welt-paritaet`, nicht in `npm test`) |
+
+Erweiterungspunkte: `Kern.WIRKUNGEN` (Typ → Funktion, leer, für SUND-02; unbekannter Typ in `tick` wirft) und `zustand.absichten[fraktion]` mit `p_act`, `aggr`, `max_active` (für SUND-03). Neu in den Werten gegenüber P0: `staerkeklassen` (Schwellen klein/mittel/groß) und `konvoi.min_menge`.
+
 ## Neu in SUND-01 P0 – Daten der Weltsimulation „Freie Fahrt Sund“
 
 Nur Daten und Prüfer, kein Spiel- oder Servercode (die Simulation selbst folgt in SUND-01 Paket A). Kette: `sund.json` (Kampagne, **unverändert**) → `tools/gen-sund-frei.js` → `sund_frei.json` → `tools/gen-sund-sim.js` → `sund-sim.json`.

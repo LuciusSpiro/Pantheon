@@ -48,6 +48,8 @@
   },
   "bevoelkerung": {"wert": {"A": 3, "B": 2, "C": 1.5, "D": 1, "P": 0.5}, "einheit": "Bevölkerungspunkte", "_hinweis": "POP im Prototyp: Bevölkerungsklasse folgt aus der Hafenklasse, P = Posten (Hex ohne Hafen)"},
   "punktwerte": {"wert": {"jaeger": 1, "korvette": 2, "fregatte": 4, "kreuzer": 7}, "einheit": "Stärkepunkte je Schiff", "_hinweis": "Punktwerte je Klasse (Weltsimulation, Vorschlag Claude); die Szene braucht sie in SUND-02"},
+  "staerkeklassen": {"wert": {"mittel": 4, "gross": 8}, "einheit": "Stärkepunkte", "_hinweis": "Schwellen der groben Stärkeklasse in Ereignissen und Karte: unter mittel = 1 klein, ab mittel = 2 mittel, ab gross = 3 groß (SUND-01 A, Annahme: Fregatte 4 = mittel, Hafenflotte A 12 = groß)"},
+  "konvoi": {"wert": {"min_menge": 0}, "einheit": "Güter je Tick", "_hinweis": "Konvoi-Ereignis des abstrakten Handels nur, wenn mehr als min_menge Güter in diesem Tick gehandelt wurden (0 = bei jedem Handel), höchstens eines je Tick"},
   "sicht": {
     "weite": {"wert": 2, "einheit": "Sprünge über Kanten", "_hinweis": "Sichtweite von Rom um eigene Häfen, Posten und Flotten (Wissensmodell)"},
     "verzoegerung": {"wert": 1, "einheit": "Ticks", "_hinweis": "Anzeige hängt so viele Ticks nach"}
