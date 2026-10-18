@@ -174,12 +174,11 @@ function updatePlayers(game, dt) {
   for (const p of game.players) {
     if (p.lift) { updateLiftRide(game, p, dt); continue; }   // M4: Liftfahrt – keine Eingaben, kein Schaden
     if (!p.connected && !p.downed) { p.moving = false; continue; }
-    if (p.downed) { if (p.wound) combat().updateWounded(game, p, dt); else updateDowned(game, p, dt); continue; }
+    if (p.downed) { p.liftSel = null; if (p.wound) combat().updateWounded(game, p, dt); else updateDowned(game, p, dt); continue; }   // PAN-01 B: Liftwahl bricht ab, wer bewusstlos wird
     if (p.crouch) combat().checkCrouch(game, p);   // M2 §15: Konsole/Beamen/Zonenwechsel beenden das Ducken
     let mx = p.input.mx, my = p.input.my;
     if (p.console || p.beamLock || betaeubt(game, p)) { mx = 0; my = 0; }
     if (p.liftSel) [mx, my] = liftSelInput(game, p, mx, my);   // PAN-01 B: W/S wählen das Deck, solange die Wahl am Lift offen ist
-    if (p.liftSel && p.downed) p.liftSel = null;
     const len = Math.hypot(mx, my);
     if (len > 1) { mx /= len; my /= len; }
     p.moving = len > 0.05;
@@ -309,7 +308,7 @@ function deckSnap(game, p) {
   else if (p.zone === 'away') { const d = awayDeckOf(game, p.y); if (d >= 0) o.deck = d; }   // B1 §6.2: nur Karten mit Decks
   if (p.lift) o.lift = { to: p.lift.to, t: Math.round(p.lift.t * 100) / 100, T: p.lift.T };
   if (p.hold && p.hold.kind === 'ladder') o.ladder = { t: Math.round(p.hold.t * 100) / 100, T: p.hold.dur };
-  if (p.liftSel && !p.lift && p.zone === 'ship') { const f = W.Maps.fahrtOptionen(p.liftSel.tx, p.liftSel.ty, game.ship.stufe); o.lm = (f.up ? 1 : 0) | (f.down ? 2 : 0); }
+  if (p.liftSel && !p.lift && !p.downed && p.zone === 'ship') { const f = W.Maps.fahrtOptionen(p.liftSel.tx, p.liftSel.ty, game.ship.stufe); o.lm = (f.up ? 1 : 0) | (f.down ? 2 : 0); }
   return o;
 }
 

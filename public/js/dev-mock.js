@@ -163,7 +163,7 @@
         mod: [['f', 1, 1, 1], ['k', 2, 1, 1]],   // PAN-01 A: Bordmodule [code, raum, an, läuft]
         shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
         escalate: {},   // M3b §4: { [sys]: Restsekunden }
-        systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer']).map(s => [s, 'ok'])),
+        systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'transfer']).map(s => [s, 'ok'])),
         // M3a (CONTRACT-M3 §9.3)
         turnVel: 0, turnCap: { port: 1, stbd: 1 }, fragile: [], repairQueue: [], botAuto: false, chargePoints: 4,
         fires: [], breaches: [], groundItems: [],

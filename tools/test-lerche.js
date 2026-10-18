@@ -112,8 +112,8 @@ section('Pforten: verschlossen bis zur Stufe, Bewegung und Bots', () => {
   ok(!ST(20, 38) && !ST(10, 36) && ST(10, 40), 'Stufe 1: Lafettenbereich und Modulraum 3 offen, Modulraum 4 zu');
   T.place(23, 38, 'left'); walk(T, -1, 0, 1.5);
   ok(T.tile().x <= 19, `Stufe 1: durch die Pforte in den Lafettenbereich (x ${T.tile().x}, Raum ${Maps.roomAt(T.tile().x, T.tile().y) && Maps.roomAt(T.tile().x, T.tile().y).id})`);
-  T.place(10, 37, 'down'); walk(T, 0, 1, 1);
-  ok(T.tile().y === 37 || T.tile().y === 38 || T.tile().y > 36, 'Weg zum Modulraum 4 bleibt zu (Pforte y 40 solide)');
+  T.place(10, 39, 'down'); walk(T, 0, 1, 1.5);
+  ok(T.tile().y <= 39, `Stufe 1: der Weg zum Modulraum 4 bleibt zu (steht bei y ${T.tile().y}, Pforte y 40 solide)`);
   T.place(10, 38, 'down'); walk(T, 0, 1, 1.5);
   ok(T.tile().y <= 39, `Stufe 1: Pforte zu Modulraum 4 hält (y ${T.tile().y})`);
   T.debug('ausbau', '2');
@@ -229,8 +229,47 @@ section('Mehrere Frachträume: Personen und Betten', () => {
   const betten = Maps.frachtPlaetze([1, 2, 4]).beds;
   const figs = g.snapshot().ship.npcs.filter((q) => q.lie === 1);
   ok(figs.length === 4 && figs.every((f) => betten.some((b) => Math.floor(f.x / 32) === b.x && Math.floor(f.y / 32) === b.y)), 'vier liegende Figuren auf den Betten der drei Frachträume (Raum 1, 2, 4)');
-  ok(Math.max(...g.snapshot().fracht.pers.map((p) => p.b)) <= 5, 'Bettnummern 0–5');
+  ok(Math.max(...g.snapshot().fracht.pers.map((p) => p.b)) <= 7, 'Bettnummern 0–7 (an die Raumnummer gebunden)');
   ok(PB.personAbgeben(g, 'p1') && PB.bettFrei(g) === 1, 'Person abgegeben: ihr Bett ist frei');
+});
+
+section('ausbau 0: Spieler im gesperrten Raum und auf der Fahrt dorthin werden herausgesetzt', () => {
+  const T = arena();
+  const g = T.g;
+  T.debug('ausbau', '3');
+  const p = g.players[0];
+  T.place(10, 42, 'down');   // im Modulraum 4 (nur auf Stufe 2+ offen)
+  ok(Maps.roomAt(T.tile().x, T.tile().y).id === 'modul4', 'Spieler steht in Modulraum 4');
+  p.liftSel = { tx: 7, ty: 38, armed: true };
+  T.debug('ausbau', '0');
+  const ziel = W.tileCenter(25, 38);
+  ok(Math.hypot(p.x - ziel.x, p.y - ziel.y) < 1 && !p.liftSel && !p.lift, 'ausbau 0: Spieler aus dem gesperrten Raum zum Bugweg gesetzt, Liftwahl weg');
+  T.debug('ausbau', '3');
+  T.place(10, 38, 'down');
+  p.lift = { to: 2, t: 0.5, T: 2, via: 'lift' }; p.liftDest = { x: 10, y: 42 };   // fährt gerade in den gesperrten Raum
+  T.debug('ausbau', '1');
+  ok(!p.lift && !p.liftDest && Math.hypot(p.x - ziel.x, p.y - ziel.y) < 1, 'Fahrt in einen Raum, der zugeht: Fahrt abgebrochen, Spieler am Bugweg');
+  T.run(0.3);
+  ok(g.players[0].zone === 'ship' && !g.players[0].lift, 'Spieler danach frei beweglich');
+});
+
+section('Personen bleiben in ihrem Bett (an die Raumnummer gebunden)', () => {
+  const T = arena();
+  const g = T.g;
+  T.debug('ausbau', '3');
+  g.ship.module = [{ id: 'frachtraum', raum: 2, an: true, lauf: true }];
+  Modul.verteilungSetzen(g);
+  ok(PB.personAnBordLegen(g, 'evert', 'Evert'), 'Evert an Bord (Frachtraum in Raum 2)');
+  const pos0 = g.snapshot().ship.npcs.find((q) => q.lie === 1);
+  const raum2 = (f) => { const r = Maps.roomAt(Math.floor(f.x / 32), Math.floor(f.y / 32)); return r && r.id; };
+  ok(raum2(pos0) === 'modul2', 'Evert liegt in Modulraum 2');
+  g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }];   // Frachtraum in einem niedrigeren Raum kommt dazu
+  Modul.verteilungSetzen(g);
+  const pos1 = g.snapshot().ship.npcs.find((q) => q.lie === 1);
+  ok(pos1.x === pos0.x && pos1.y === pos0.y, 'neuer Frachtraum in Raum 1: Evert bleibt in seinem Bett');
+  g.ship.module = [];   // Frachtraum ausgebaut: Person verschwindet nicht aus der Darstellung
+  Modul.verteilungSetzen(g);
+  ok(g.snapshot().ship.npcs.some((q) => q.lie === 1), 'ohne Frachtraum: Person bleibt sichtbar (Ersatzbett)');
 });
 
 section('Weltstand: schiff.stufe und Module im Roundtrip', () => {
@@ -272,6 +311,42 @@ section('Weltstand: schiff.stufe und Module im Roundtrip', () => {
   // Module in noch verschlossenen Räumen gibt es nicht
   Ausbau.restore(R, 1); Modul.restore(R, [{ id: 'frachtraum', raum: 1 }, { id: 'werkstatt', raum: 3 }, { id: 'werkstatt', raum: 4 }]);
   ok(R.ship.module.map((m) => m.raum).join() === '1,3', 'Stufe 1: Raum 4 wird beim Laden verworfen, Raum 3 bleibt');
+});
+
+section('Weltstand: Altstände gehen nicht still verloren (bot2, Module in Raum 3/4)', () => {
+  const dir = freshDir();
+  const T = setup('free', { dir });
+  T.run(0.3);
+  const id = T.g.weltstand.id;
+  T.debug('ausbau', '2');
+  T.send({ t: 'menu', op: 'end' });
+  const file = path.join(dir, id + '.json');
+  const basis = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const lade = (data) => { fs.writeFileSync(file, JSON.stringify(data)); const L = setup('free', { dir, world: id }); L.run(0.3); return L; };
+  // 1) Altstand von main: ausbauten ['bot2'], Marken, Fracht, weder schiff.stufe noch schiff.module
+  const alt = JSON.parse(JSON.stringify(basis)); delete alt.schiff.stufe; delete alt.schiff.module;
+  alt.schiff.ausbauten = ['bot2', 'seitenturm']; alt.schiff.marken = 250; alt.schiff.fracht = ['sprengstoff'];
+  const A = lade(alt); const a = A.g;
+  ok(a.ship.stufe === 1, 'Altstand mit bot2: Stufe auf das Minimum 1 angehoben (Raum 3 offen)');
+  ok(Modul.toSave(a).some((m) => m.id === 'werkstatt' && m.raum === 3) && Modul.toSave(a).length === 3, 'Altstand mit bot2: Werkstatt in Raum 3, Start-Module bleiben ' + JSON.stringify(Modul.toSave(a)));
+  ok(a.bots.length === 2, 'Altstand mit bot2: zweiter Schrauber aktiv');
+  ok(a.inventory.marks === 250 && Fracht.anBord(a) === 1 && a.upgrades.seitenturm === true, 'Altstand mit bot2: Marken 250, Fracht und Seitenturm bleiben');
+  A.send({ t: 'menu', op: 'end' });
+  const gespeichert = JSON.parse(fs.readFileSync(file, 'utf8'));
+  ok(gespeichert.schiff.stufe === 1 && gespeichert.schiff.module.some((m) => m.id === 'werkstatt' && m.raum === 3), 'erneut gespeichert: schiff.stufe 1 und Werkstatt in schiff.module');
+  // 2) pan01-a-Stand: Werkstatt in Raum 3, kein schiff.stufe
+  const pa = JSON.parse(JSON.stringify(basis)); delete pa.schiff.stufe;
+  pa.schiff.module = [{ id: 'frachtraum', raum: 1, an: true }, { id: 'krankenstation', raum: 2, an: true }, { id: 'werkstatt', raum: 3, an: true }]; pa.schiff.ausbauten = [];
+  const B = lade(pa); const b = B.g;
+  ok(b.ship.stufe === 1 && Modul.toSave(b).map((m) => m.id + m.raum).join() === 'frachtraum1,krankenstation2,werkstatt3' && b.bots.length === 2, 'pan01-a-Stand mit Werkstatt in Raum 3: Stufe 1, nichts verloren, zwei Schrauber');
+  // 3) Modul in Raum 4 verlangt Stufe 2
+  const p4 = JSON.parse(JSON.stringify(pa)); p4.schiff.module.push({ id: 'frachtraum', raum: 4, an: true });
+  const C4 = lade(p4);
+  ok(C4.g.ship.stufe === 2 && Modul.toSave(C4.g).length === 4, 'Modul in Raum 4: Stufe 2, alle vier Module da');
+  // 4) Erstattung, wenn die Werkstatt nicht passt (Räume voll): Marken zurück
+  const ErstattG = new Game({ noStore: true, seed: 5, log: () => {} });
+  ErstattG.ship.stufe = 0; ErstattG.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'krankenstation', raum: 2, an: true, lauf: true }];
+  ok(typeof Modul.bestuecken(ErstattG, 'werkstatt') === 'string', 'Voraussetzung: auf Stufe 0 ist kein Raum frei (Rückgabewert ist ein Fehlertext)');
 });
 
 section('Lifts und Lafetten: nicht beschädigbar, Auskunft am Waffenplatz', () => {

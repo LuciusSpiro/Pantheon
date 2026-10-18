@@ -1,5 +1,5 @@
 'use strict';
-// Raum: Orte/Szenen, Flug, Docken, Faltsprung, Energie/Reaktor, Lebenserhaltung, Schilde, Waffen (Phasenkanonen),
+// Raum: Orte/Szenen, Flug, Docken, Faltsprung, Energie/Reaktor, Schilde, Waffen (Phasenkanonen),
 // Gegner (mit Schildsektoren), Projektile, Asteroiden, Ziel-Scan, Weitscan, Marker. CONTRACT-M1 §4–§6, §9.2.
 const Physics = require('../../shared/physics.js');
 const Protocol = require('../../shared/protocol.js');

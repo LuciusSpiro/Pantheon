@@ -200,9 +200,9 @@ section('Minen: zünden (ignoriert Schilde, 6 Punkte Systemschaden, Alarm)', () 
   // Teilweise schon beschädigt: beschädigt -> zerstört
   const r2 = raum(); const k2 = r2.g; heil(k2);
   for (const sy of interior.SYSTEM_ORDER) k2.ship.systems[sy] = 'broken';
-  k2.ship.systems.engines = 'ok'; k2.ship.systems.life = 'damaged';
+  k2.ship.systems.engines = 'ok'; k2.ship.systems.reactor = 'damaged';
   Alarm.minenSetzen(k2, { n: 1, positionen: [{ x: 1500, y: 800 }] }); platz(k2, 1500, 800, 0); ticks(k2, 0.1);
-  ok(k2.ship.systems.engines === 'broken' && k2.ship.systems.life === 'damaged', 'Systeme gehen eine Stufe tiefer (ok → beschädigt → zerstört), bereits zerstörte bleiben unberührt; die Lebenserhaltung (ohne Wirkung, PAN-01 A) wird nicht gewählt');
+  ok(k2.ship.systems.engines === 'broken' && k2.ship.systems.reactor === 'broken' && interior.SYSTEM_ORDER.filter((k) => k !== 'engines' && k !== 'reactor').every((k) => k2.ship.systems[k] === 'broken'), 'Systeme gehen eine Stufe tiefer (ok → beschädigt → zerstört), bereits zerstörte bleiben unberührt');
 });
 
 section('Minen: abschießen (Explosion auf Distanz, macht trotzdem Alarm)', () => {

@@ -189,6 +189,11 @@
     WORLD_LIST_FIELDS: ['id', 'name', 'savedAt', 'playTime', 'loc', 'mission', 'step', 'chronikLast', 'spieler', 'state', 'grund'],
     WORLD_EVENTS: ['worldSaved', 'worldSaveFailed', 'worldLoaded', 'worldLoadFailed', 'sessionEnded'],
     // ---- M4 Stufe 1 (CONTRACT-M4 §2.4): Lift und Notleiter. Alle Felder optional (nur wenn aktiv bzw. an Bord). ----
+    // PAN-01 B (drei Decks, Ausbaustufe): Snapshot ship.st = Ausbaustufe 0–3 (nur gesendet, wenn > 0; fehlt = 0; Weltstand schiff.stufe). Sie öffnet Waffenplätze (3 → 5 → 7 → 9),
+    //   Modulräume (2 → 3 → 4) und die verschalten Pforten (Maps.SHIP_SEALS); Client-Kollision, Lift-Optionen und Darstellung richten sich nach ihr (Maps.shipSolidFn(st), Maps.fahrtOptionen(x, y, st)).
+    //   Snapshot players[i].lm = Wahl am Lift offen (Bitmaske 1 = nach oben möglich, 2 = nach unten möglich; nur bei offener Wahl, nicht bei Bewusstlosen oder während der Fahrt).
+    //   Snapshot players[i].lift = { to: Deck 0|1|2, t, T, via?: 'ladder' } während der Fahrt (Lift ~2 s, Notleiter 2 s; x/y bleiben stehen, Teleport bei t >= T).
+    //   Eingabe an Lift/Notleiter: E öffnet die Wahl, W hoch, S runter, A/D oder E schließen; der Server fährt erst nach dem Loslassen der Taste ('armed').
     // Snapshot players[i].deck: 0 Mitteldeck / 1 Oberdeck / 2 Unterdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client); lm = Wahl am Lift offen (Bitmaske 1 hoch, 2 runter)
     //          players[i].lift: { to: 0|1, t, T } während der Liftfahrt (Eingaben gesperrt, kein Schaden, x/y bleiben stehen,
     //                           Teleport bei t >= T; Client: keine Bewegungsvorhersage, solange lift gesetzt ist)

@@ -26,14 +26,17 @@ const cfg = (game) => game.C.fracht;
 const r1 = (v) => Math.round(v * 10) / 10;
 // PAN-01 B: Betten der Modulräume, in denen ein Frachtraum steht (2 je Frachtraum, Reihenfolge nach Raum und x)
 const beds = (game) => W.Maps.frachtPlaetze(require('./module.js').frachtRaeume(game)).beds;
+// Betten sind an die Raumnummer gebunden: Schlüssel = (Raum − 1) × 2 + Platz im Raum (0–7, = Zahl in CARGO_BEDS[].id). Kommt ein Frachtraum in einem niedrigeren Raum dazu,
+// bleibt die Person in ihrem Bett. Gehört ihr Bett zu keinem Frachtraum (mehr), liegt sie auf dem ersten Bett eines Frachtraums, ohne Frachtraum auf dem ersten Bett des Schiffs
+// (sie verschwindet nie aus der Darstellung).
+const bedKey = (b) => Number(String(b.id).replace(/[^0-9]/g, ''));
 
 // ---------- Abfragen ----------
 function personenAnBord(game) { return Fracht.state(game).lager.filter((l) => l.art === ART).map((l) => ({ id: l.person, name: l.name || l.person, bett: l.bett })); }
 function personAnBord(game, id) { return Fracht.state(game).lager.some((l) => l.art === ART && (id == null || l.person === String(id))); }
 function bettFrei(game) {
   const belegt = new Set(Fracht.state(game).lager.filter((l) => l.art === ART).map((l) => l.bett));
-  const n = beds(game).length;
-  for (let i = 0; i < n; i++) if (!belegt.has(i)) return i;
+  for (const b of beds(game)) if (!belegt.has(bedKey(b))) return bedKey(b);
   return -1;
 }
 const transferDown = (game) => { const t = game.ship.systems.transfer; return t === 'broken' || t === 'offline'; };
@@ -193,7 +196,7 @@ function bordNpcs(game) {
   const out = [];
   for (const l of Fracht.state(game).lager) {
     if (l.art !== ART) continue;
-    const bl = beds(game); const b = bl[l.bett] || bl[0]; if (!b) continue;
+    const bl = beds(game); const b = bl.find((q) => bedKey(q) === l.bett) || bl[0] || W.Maps.CARGO_BEDS[0]; if (!b) continue;
     const c = W.tileCenter(b.x, b.y);
     out.push({ id: l.person, name: l.name, x: r1(c.x), y: r1(c.y), dir: 'down', lie: 1 });
   }

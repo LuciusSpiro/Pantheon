@@ -483,7 +483,6 @@
     engines: ['oooooo....', 'o####o....', 'o#++#o+...', 'o####o++..', 'o#++#o+ww+', 'o####o+ww+', 'o#++#o++..', 'o####o+...', 'oooooo....', '..........'],
     shields: ['.########.', '#++++++++#', '#+######+#', '#+######+#', '#+######+#', '.#+####+#.', '.#+####+#.', '..#+##+#..', '...#++#...', '....##....'],
     weapons: ['....##....', '..##++##..', '.#..##..#.', '.#..##..#.', '#++####++#', '#++####++#', '.#..##..#.', '.#..##..#.', '..##++##..', '....##....'],
-    life: ['....#.....', '...##.....', '..#++#....', '..#+#..#..', '.#++#.##..', '.#+#.#+#..', '.##.#++#..', '..##+##...', '...###....', '....#.....'],
     transfer: ['.#......#.', '#+#....#+#', '.#......#.', '...#..#...', '..#+##+#..', '..#+##+#..', '...#..#...', '.#......#.', '#+#....#+#', '.#......#.'],
     fire: ['....#.....', '...##.....', '...#+#..#.', '..#++#.##.', '.#++++##..', '.#+ww++#..', '#+wwww+#..', '#+wwww++#.', '.#+ww++#..', '..####....'],
     breach: ['#.......#.', '.#..#..#..', '..#.#.#...', '...ooo....', '#.ooooo.##', '..ooooo...', '...ooo....', '..#.#.#...', '.#..#..#..', '#.......#.'],
@@ -512,7 +511,7 @@
     star: ['....#.....', '....#.....', '...###....', '#########.', '.#######..', '..#####...', '..##.##...', '.##...##..', '.#.....#..', '..........'],
   };
   var ICON_COLORS = {
-    reactor: PAL.mint, engines: PAL.bernstein, shields: PAL.eisblau, weapons: PAL.alarmrot, life: '#8FD06A',
+    reactor: PAL.mint, engines: PAL.bernstein, shields: PAL.eisblau, weapons: PAL.alarmrot,
     transfer: PAL.mint, fire: '#F08A3C', breach: PAL.eisblau, o2: PAL.eisblau, hull: PAL.paneelHell, marks: PAL.messing,
     circle: PLAYER[0], triangle: PLAYER[1], diamond: PLAYER[2], kreis: PAL.sternweiss, dreieck: PAL.sternweiss,
     raute: PAL.sternweiss, stern: PAL.sternweiss, welle: PAL.sternweiss, kreuz: PAL.sternweiss, lock: PAL.messing,
@@ -1620,26 +1619,6 @@
       } else {
         ell(g, 16, 37, 9, 2.5, '#2E3A4A'); R(g, 9, 34, 14, 2, '#3A4759');
       }
-    } else if (kind === 'sys_life') {
-      sysBase(g, 2, 28, 41);
-      // Algentank
-      R(g, 4, 10, 16, 32, steelD);
-      R(g, 5, 13, 14, 26, brk ? '#20302A' : '#2F6B4A');
-      R(g, 5, 13, 14, 3, brk ? '#2A3A30' : '#4E9A62');
-      if (!brk) {
-        for (i = 0; i < 4; i++) { var bx = 7 + i * 3, byy = 37 - ((f * 3 + i * 7) % 22); P(g, bx, byy, '#C8F5E6'); }
-        line(g, 8, 38, 9, 26, PAL.moos); line(g, 9, 26, 8, 20, '#7FAE66'); line(g, 14, 38, 15, 28, PAL.moos); line(g, 15, 28, 16, 22, '#7FAE66');
-        P(g, 7, 24, '#9FCC7A'); P(g, 10, 22, '#9FCC7A'); P(g, 16, 25, '#9FCC7A');
-      } else { R(g, 7, 30, 10, 8, '#3A3A2A'); }
-      R(g, 5, 13, 1, 26, 'rgba(255,255,255,0.35)');
-      R(g, 3, 9, 18, 3, PAL.messing); R(g, 3, 9, 18, 1, '#F1D9A0'); R(g, 3, 39, 18, 3, PAL.messing);
-      // Lüfterkasten
-      R(g, 20, 20, 10, 21, steel); R(g, 20, 20, 10, 1, steelL); R(g, 29, 20, 1, 21, steelD);
-      ell(g, 25, 28, 4, 4, '#1E2631');
-      var fr = brk ? 0 : (dmg ? Math.floor(f / 2) : f);
-      for (i = 0; i < 4; i++) { var an2 = fr * Math.PI / 6 + i * Math.PI / 2; line(g, 25, 28, 25 + Math.cos(an2) * 3, 28 + Math.sin(an2) * 3, steelL); }
-      R(g, 22, 35, 6, 2, PAL.moos);
-      R(g, 7, 4, 3, 6, steel); R(g, 6, 3, 5, 2, PAL.messing);
     }
     // Statuslampe
     var lc = ok ? PAL.mint : dmg ? (f % 2 ? PAL.warngelb : '#6A5A20') : (f % 2 ? PAL.alarmrot : '#5A1E1E');
@@ -1662,7 +1641,7 @@
       var pr = 0.5 + 0.5 * Math.sin(t * 2.6);
       glow(ctx, px + 16, py - OH + 27, red ? '#FF6A4C' : PAL.mint, 20 + Math.round(pr * 8), (state === 'ok' ? 0.2 : 0.1) + 0.2 * pr);
     }
-    var gc = { sys_reactor: PAL.mint, sys_engines: '#FF9A3C', sys_shields: PAL.eisblau, sys_weapons: PAL.bernstein, sys_transfer: PAL.mint, sys_life: '#8FD06A' }[kind];
+    var gc = { sys_reactor: PAL.mint, sys_engines: '#FF9A3C', sys_shields: PAL.eisblau, sys_weapons: PAL.bernstein, sys_transfer: PAL.mint }[kind];
     if (state !== 'broken') glow(ctx, px + 16, py + 10, gc, 18, state === 'ok' ? 0.22 : 0.12 * (1 + Math.sin(t * 17)));
     // M3a: Funken/Rauch/Feuer und Zustandsmarke zeichnet stationDecor (drawSystemLegacy)
     return { spr: spr, key: key };
@@ -1883,7 +1862,7 @@
       // M3a: neue/überarbeitete Stationen (CONTRACT-M3 §12); alte Stationen mit derselben Zustandsdekoration
       case 'sys_reactor': case 'sys_engines': case 'sys_shields': case 'sys_thruster': case 'sys_battery': case 'sys_emitter': case 'sys_weapon_bow':
         drawSystemM3(ctx, kind, px, py, o); return;
-      case 'sys_weapons': case 'sys_transfer': case 'sys_life':
+      case 'sys_weapons': case 'sys_transfer':
         drawSystemLegacy(ctx, kind, px, py, o); return;
       case 'table': {
         memo = tileMemo.get(memoKey(px, py));
@@ -2978,7 +2957,7 @@
   }
   // Positionen im Spritekoordinatensystem (px, Bug +x, Backbord -y) fuer Schaeden an den Systemen
   var SYS_EXT_SPRITE = {
-    reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-33, 0], emitter_aft: [-25, -5],
+    reactor: [-6, -2], shields: [2, 2], transfer: [-13, -3], engines: [-33, 0], emitter_aft: [-25, -5],
     thruster_port: [-16, -14], thruster_stbd: [-16, 14], battery_port: [0, -10], battery_stbd: [0, 10],
     emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [38, 0], emitter_bow: [24, 4],
   };
@@ -5726,10 +5705,10 @@
   // Farbe je Seite (Emitter-Spulen, Plakettenstreifen): Bb Bernstein, Stb Mint, Bug Stoß-Weiß, Heck Eisblau, Mitte Messing
   var SIDE_COL = { port: PAL.bernstein, stbd: PAL.mint, bow: '#E8F8FF', aft: PAL.eisblau, mid: PAL.messing };
   var SYS_SIDE = {
-    reactor: 'mid', shields: 'mid', life: 'mid', transfer: 'stbd', engines: 'aft', emitter_aft: 'aft', weapon_bow: 'bow', emitter_bow: 'bow',
+    reactor: 'mid', shields: 'mid', transfer: 'stbd', engines: 'aft', emitter_aft: 'aft', weapon_bow: 'bow', emitter_bow: 'bow',
     thruster_port: 'port', battery_port: 'port', emitter_port: 'port', thruster_stbd: 'stbd', battery_stbd: 'stbd', emitter_stbd: 'stbd',
   };
-  var KIND_SIDE = { sys_reactor: 'mid', sys_shields: 'mid', sys_life: 'mid', sys_engines: 'aft', sys_weapon_bow: 'bow', sys_transfer: 'stbd', sys_weapons: 'mid' };
+  var KIND_SIDE = { sys_reactor: 'mid', sys_shields: 'mid', sys_engines: 'aft', sys_weapon_bow: 'bow', sys_transfer: 'stbd', sys_weapons: 'mid' };
   var SIDE_ALIAS = {
     0: 'bow', 1: 'stbd', 2: 'aft', 3: 'port', '-1': 'mid', bb: 'port', backbord: 'port', stb: 'stbd', steuerbord: 'stbd', starboard: 'stbd',
     bug: 'bow', heck: 'aft', mitte: 'mid', mittschiffs: 'mid', centre: 'mid', center: 'mid',
@@ -6202,7 +6181,7 @@
     }
     stationDecor(ctx, spr, key, px, py, o, kind, side, state, fragile, bx);
   }
-  // Alte Stationen (Lebenserhaltung, Transfer, Altname Waffen) bekommen dieselbe Zustandsdekoration
+  // Alte Stationen (Transfer, Altname Waffen) bekommen dieselbe Zustandsdekoration
   function drawSystemLegacy(ctx, kind, px, py, o) {
     var res = drawSystem(ctx, kind, px, py, o);
     var state = normState(o.state);
@@ -6326,7 +6305,7 @@
   // --- Außenansicht: Schäden an den Systemen ----------------------------------------------------
   // lokale Lage (px, Bug +x, Backbord -y) im Schiffssprite
   var SYS_EXT = {
-    reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-31, 0], emitter_aft: [-25, -5],
+    reactor: [-6, -2], shields: [2, 2], transfer: [-13, -3], engines: [-31, 0], emitter_aft: [-25, -5],
     thruster_port: [-16, -17], thruster_stbd: [-16, 17], battery_port: [7, -11], battery_stbd: [7, 11],
     emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [36, 0], emitter_bow: [24, 4],
   };

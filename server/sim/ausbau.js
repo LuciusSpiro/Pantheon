@@ -20,14 +20,14 @@ function plaetzeOffen(game) { return Maps.plaetzeOffen(stufe(game)); }
 function modulRaeumeOffen(game) { return Maps.modulRaeumeOffen(stufe(game)); }
 function platzOffen(game, platz) { const p = Maps.waffenplatz(platz); return !!p && stufe(game) >= p.stufe; }
 
-// Wer in einem Raum steht, der bei der neuen Stufe zu ist, wird zum Bugweg gesetzt (nur beim Zurückstufen, Debug).
+// Wer in einem Raum steht oder per Lift/Leiter dorthin fährt, der bei der neuen Stufe zu ist, wird zum Bugweg gesetzt (nur beim Zurückstufen, Debug).
 function raeumeRaeumen(game) {
   const st = stufe(game);
   const zu = (t) => { const r = Maps.roomAt(t.x, t.y); return !!(r && r.stufe && st < r.stufe); };
   const ziel = W.tileCenter(25, 38);
   for (const o of game.players.concat(game.bots)) {
     if (o.zone && o.zone !== 'ship') continue;
-    if (zu({ x: Math.floor(o.x / 32), y: Math.floor(o.y / 32) })) { o.x = ziel.x; o.y = ziel.y; o.lift = null; o.liftDest = null; o.liftSel = null; if (o.path) o.path = null; if (o.task) o.task = null; }
+    if (zu({ x: Math.floor(o.x / 32), y: Math.floor(o.y / 32) }) || (o.lift && o.liftDest && zu(o.liftDest))) { o.x = ziel.x; o.y = ziel.y; o.lift = null; o.liftDest = null; o.liftSel = null; if (o.input) { o.input.mx = 0; o.input.my = 0; } if (o.path) o.path = null; if (o.task) o.task = null; }
   }
 }
 

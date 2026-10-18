@@ -2839,7 +2839,10 @@
           // Kai 2026-10-15: Waffen am Ziffernblock-Platz (Ziffernblock oder obere Ziffernreihe). Lanze: halten lädt, loslassen feuert (keyUp)
           if (d && this.waffeAmPlatz) {
             const m = this.waffeAmPlatz(view, d);
-            if (!m) { this.denied('Keine Waffe auf Platz ' + d); return true; }
+            if (!m) {   // PAN-01 B: gesperrter Platz sagt dasselbe wie die Pult-Zelle („gesperrt · Stufe n“)
+              const SM = window.Shared_Maps, pl = SM && SM.waffenplatz ? SM.waffenplatz(d) : null, st = ((view.state.ship || {}).st) || 0;
+              this.denied(pl && st < pl.stufe ? 'Platz ' + d + ' gesperrt · Stufe ' + pl.stufe : 'Keine Waffe auf Platz ' + d); return true;
+            }
             const i3 = M3_MOUNTS.indexOf(m.id);
             if (i3 >= 0) this.sel.mount = i3;
             if ((m.id === 'bow' || m.id === 'lanze') && this.isM3(view)) { this.lanceKey = code; return press(() => this.lanceCharge(view, true, 'key')); }

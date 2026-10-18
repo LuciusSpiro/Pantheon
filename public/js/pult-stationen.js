@@ -205,7 +205,8 @@
         const info = this.mountInfo(view, m.id), isBow = m.id === 'bow' || m.id === 'lanze';
         const sst = m.state || (ship.systems || {})[{ bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' }[m.id]] || 'ok';
         const ch = n(m.charge);
-        const sub = sst === 'broken' || sst === 'offline' ? 'AUS' : isBow && m.charging ? 'lädt auf' : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : 'BEREIT') : Math.round(ch * 100) + ' %';
+        const sub0 = sst === 'broken' || sst === 'offline' ? 'AUS' : isBow && m.charging ? 'lädt auf' : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : 'BEREIT') : Math.round(ch * 100) + ' %';
+        const sub = (m.id === 'bolzen' ? 'Heck ' : '') + sub0;   // Paket C: Bolzenwerfer sitzt bis dahin auf Platz 5, gehört aber ans Heck
         const i3 = M3_MOUNTS.indexOf(m.id);
         const zustand = isBow && m.charging ? 'hold' : info.reason && !(ch >= 1 && /außerhalb|Kein Ziel/.test(info.reason)) ? 'off' : (i3 >= 0 && this.sel.mount === i3 ? 'sel' : 'normal');
         const onClick = isBow ? () => { if (i3 >= 0) this.sel.mount = i3; this.lanceCharge(view, true, 'mouse'); } : () => { if (i3 >= 0) this.sel.mount = i3; this.cmd(view, 'weapons.fire', { mount: m.id }); };

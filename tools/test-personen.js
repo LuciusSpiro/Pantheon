@@ -77,7 +77,7 @@ section('Mehrere Frachträume: Personen und Betten', () => {
   const figs = T.g.snapshot().ship.npcs.filter((q) => q.lie === 1);
   const beds = Maps.frachtPlaetze([1, 3]).beds;
   ok(figs.length === 4 && beds.every((b) => figs.some((f) => Math.floor(f.x / 32) === b.x && Math.floor(f.y / 32) === b.y)), 'vier liegende Figuren auf den vier Betten beider Frachträume (Räume 1 und 3)');
-  ok(T.g.snapshot().fracht.pers.map((p) => p.b).join() === '0,1,2,3', 'Snapshot fracht.pers: Betten 0–3');
+  ok(T.g.snapshot().fracht.pers.map((p) => p.b).join() === '0,1,4,5', 'Snapshot fracht.pers: Betten 0, 1 (Raum 1) und 4, 5 (Raum 3), an die Raumnummer gebunden');
   PB.personAbgeben(T.g, 'b');
   ok(PB.bettFrei(T.g) === 1 && Fracht.frei(T.g) === 1, 'Bett 1 wird frei, ein Platz frei');
 });

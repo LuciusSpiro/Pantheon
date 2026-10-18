@@ -459,6 +459,18 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
       if (vorher != null) check(!!r && Math.abs(r.s - vorher) <= 1.5, `${name}: Reparaturweg wie zuvor (${r ? r.s.toFixed(1) : '—'} s gegen ${vorher.toFixed(1)} s, ±1,5 s)`);
     }
     console.log('  info Laufzeiten (BFS, 3 Kacheln/s): ' + parts.join(' · '));
+    // Alle Systeme gegen den Stand vor PAN-01 B (Laufweg vom Captain-Platz zur Station, gemessen auf dem alten Schiff 37×13). Mitteldeck-Ziele ±1,5 s;
+    // die Bugraum-Ziele (Lanze, Bug-Emitter) liegen jetzt unter der Brücke (Lift hinunter) und sind eine bewusste Ausnahme (gemessen +3,8 s Bug-Emitter, +4,8 s Lanze); die Heck-Ziele liegen wegen des längeren Schiffs bis +1,7 s darüber.
+    const ALT = { weapon_bow: [2.0, 'Bugraum', 4.9], emitter_bow: [2.0, 'Bugraum', 4.9], emitter_stbd: [5.0], emitter_port: [5.0], battery_stbd: [4.0], battery_port: [4.0], shields: [6.0], transfer: [9.3],
+      thruster_port: [5.0], thruster_stbd: [5.0], reactor: [6.0], engines: [9.0, 'Heck, Schiff 3 Kacheln länger', 2.0], emitter_aft: [10.3, 'Heck, Schiff 3 Kacheln länger', 2.0] };
+    const alleSys = [];
+    for (const [sys, [alt, ausnahme, grenze]] of Object.entries(ALT)) {
+      const r = timeTo(nearSys(sys));
+      alleSys.push(sys + ' ' + (r ? r.s.toFixed(1) : '—') + (ausnahme ? '*' : ''));
+      if (!ausnahme) check(!!r && Math.abs(r.s - alt) <= 1.5, `Reparaturweg ${sys}: ${r ? r.s.toFixed(1) : '—'} s gegen ${alt.toFixed(1)} s (Mitteldeck-Ziel, ±1,5 s)`);
+      else check(!!r && r.s > alt && r.s <= alt + grenze, `Reparaturweg ${sys}: ${r ? r.s.toFixed(1) : '—'} s gegen ${alt.toFixed(1)} s – bewusste Ausnahme (${ausnahme}, höchstens +${grenze.toFixed(1)} s)`);
+    }
+    console.log('  info alle Systeme (Neuwert, * = Bugraum-Ausnahme): ' + alleSys.join(' · '));
     const lz = {}; for (const [name, fn] of TARGETS) lz[name] = timeTo(fn).s;
     check(lz['Batterie Bb'] < lz['Reaktor'] && lz['Reaktor'] < lz['Triebwerk'] && lz['Triebwerk'] < lz['Heck-Emitter'] && lz['Lanze'] < lz['Triebwerk'], 'Reihenfolge der Laufwege: Batterie < Maschinenraum < Antrieb, Lanze (Lift hinunter) näher als der Antrieb');
   }

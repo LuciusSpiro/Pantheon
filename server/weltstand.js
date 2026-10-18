@@ -734,6 +734,21 @@ function capture(game) {
   return data;
 }
 
+// ---------- Migration Altstand: Ausbaustufe ----------
+const BOT2_PREIS = 100;   // früherer Shop-Preis des zweiten Schraubers
+function hatBot2(s) { return (s.ausbauten || []).some((k) => k === 'bot2' || k === 'schrauber3'); }
+function altstandStufe(s) {
+  const M = require('./world.js').Maps;
+  const gespeichert = Number.isInteger(s.stufe) ? Math.max(0, Math.min(M.STUFE_MAX, s.stufe)) : 0;
+  let stufe = gespeichert, grund = '';
+  for (const m of Array.isArray(s.module) ? s.module : []) {
+    const r = m && M.MODUL_RAEUME.find((q) => q.raum === m.raum);
+    if (r && r.stufe > stufe) { stufe = r.stufe; grund = 'Modul in Raum ' + r.raum; }
+  }
+  if (!Array.isArray(s.module) && hatBot2(s) && stufe < 1) { stufe = 1; grund = 'Werkstatt braucht einen freien Modulraum'; }
+  return { stufe, gespeichert, grund };
+}
+
 // ---------- Anwenden (nach reset()) ----------
 function apply(game, data) {
   const d = clone(data);
@@ -762,9 +777,21 @@ function apply(game, data) {
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
   // PAN-01 A: nur noch bekannte Ausbauten (schildpool entfällt, ohne Abwärtsmigration); bot2 (früher schrauber3) ist das Modul Werkstatt
   for (const k of s.ausbauten || []) if (k in game.upgrades) game.upgrades[k] = true;
-  Ausbau.restore(game, s.stufe);   // PAN-01 B: vor den Modulen (offene Räume); fehlt im Altstand = Stufe 0
+  // PAN-01 B (Migration, darf nie still scheitern): die Ausbaustufe wird auf das Minimum angehoben, das gespeicherte Module (Raum 3 -> Stufe 1,
+  // Raum 4 -> Stufe 2) und der gekaufte zweite Schrauber (bot2 braucht einen freien Raum: Start-Bestückung belegt 1 und 2 -> Raum 3 -> Stufe 1) brauchen
+  const alt = altstandStufe(s);
+  if (alt.stufe !== alt.gespeichert) game.log(`Weltstand: Ausbaustufe von ${alt.gespeichert} auf ${alt.stufe} angehoben (${alt.grund}).`);
+  Ausbau.restore(game, alt.stufe);   // vor den Modulen (offene Räume); fehlt im Altstand = Stufe 0
   Modul.restore(game, s.module);   // fehlt im Altstand = Start-Bestückung; setzt auch die Standardverteilung
-  if (!Array.isArray(s.module) && (s.ausbauten || []).some((k) => k === 'bot2' || k === 'schrauber3')) { Modul.bestuecken(game, 'werkstatt'); Modul.verteilungSetzen(game); }
+  if (!Array.isArray(s.module) && hatBot2(s)) {
+    const e = Modul.bestuecken(game, 'werkstatt');   // Rückgabewert prüfen: bei Fehlschlag Log und Marken-Erstattung (Preis 100)
+    if (e) {
+      game.inventory.marks += BOT2_PREIS;
+      game.log('Weltstand: Werkstatt (früher zweiter Schrauber) konnte nicht eingebaut werden (' + e + ') – ' + BOT2_PREIS + ' Marken erstattet.');
+      countError(game, 'weltstand-bot2', new Error(e));
+    }
+    Modul.verteilungSetzen(game);
+  }
   Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
