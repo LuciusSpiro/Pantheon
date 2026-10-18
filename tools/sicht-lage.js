@@ -126,6 +126,8 @@ async function main() {
     await sleep(3000); await shot('funk-folge-2', 100);
     const h = await page.evaluate(() => ({ queue: (Hud.radioQueue || []).length, flash: Hud.radioFlash && Hud.radioFlash.text, lf: KarteLage.funkListe().length }));
     console.log('Lagefunk-Folge:', JSON.stringify(h), 'Funk-Ereignisse im Server-Logbuch:', g.explore.log.filter((e) => /sammelt sich/.test(e.text)).length);
+    await page.keyboard.press('Digit1'); await sleep(500);
+    await shot('funk-reiter-folge', 300);   // Lagefunk-Liste und Logbuch nach mehreren Meldungen kurz hintereinander
     console.log('Server-Fehler:', g.errors);
   } finally {
     await b.close(); await srv.close();

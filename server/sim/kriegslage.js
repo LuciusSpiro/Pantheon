@@ -156,6 +156,7 @@ function restore(game, b) {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
     starten(game);
     game.weltsim.tickZahl = tickZahl;
+    if (game.weltsim.wissen) game.weltsim.wissen.t = tickZahl;   // das neu begonnene Wissen trägt den Tick der Partie
   }
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };
