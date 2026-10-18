@@ -159,7 +159,8 @@
         helm: { turn: 0, thrust: 0, manned: false, stage: 1, autoStop: false },   // M3b: stage = Index in shipClasses.lerche.stages
         power: Object.assign({}, CFG.power.default),
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
-        heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
+        heat: { engines: 0, shields: 0, weapons: 0 },
+        mod: [['f', 1, 1, 1], ['k', 2, 1, 1]],   // PAN-01 A: Bordmodule [code, raum, an, läuft]
         shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
         escalate: {},   // M3b §4: { [sys]: Restsekunden }
         systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer']).map(s => [s, 'ok'])),
@@ -188,7 +189,7 @@
       },
       support: { sensor: 0, strike: 0, supply: 0, recall: 0, kuppel: 0 },
       inventory: Object.assign({ loeschgelCharges: 5, marks: 320, deko: ['pflanze', 'lampe', 'buecherregal', 'sternkarte'] }, CFG.economy.startInventory),
-      upgrades: { seitenturm: false, schildpool: false, bot2: false },
+      upgrades: { seitenturm: false },
       quarters: { q0: { floor: 'teppich_blau', wall: 'paneel', light: 'warm' }, q1: { floor: 'holz_dunkel', wall: 'tapete_creme', light: 'bernstein' }, q2: { floor: 'teppich_rot', wall: 'holz', light: 'mint' }, q3: { floor: 'holz_hell', wall: 'holz', light: 'warm' } },
       deco,
       plan: { seated: [], pins: [] },
@@ -1014,12 +1015,18 @@
       case 'technik.overload':
         if (s.reactor.state !== 'online') return notice('Reaktor nicht online');
         s.reactor.state = 'overload'; s.reactor.overloadLeft = +(params.get('overloadTime') || 180); s.reactor.output = 12; break;
+      case 'technik.module': {   // PAN-01 A
+        const md = (s.mod || []).find((q) => ({ f: 'frachtraum', k: 'krankenstation', w: 'werkstatt' })[q[0]] === m.id && (m.raum == null || q[1] === m.raum));
+        if (!md) return notice('Modul nicht eingebaut');
+        if (m.on && !md[2]) { const bed = Object.values(s.power).reduce((x, y) => x + y, 0) + s.mod.filter((q) => q[2]).length; if (bed + 1 > s.reactor.output) return notice('Reaktor ausgelastet'); }
+        md[2] = m.on ? 1 : 0; md[3] = md[2]; break;
+      }
       case 'technik.power': {
-        const used = Object.values(s.power).reduce((x, y) => x + y, 0);
+        const used = Object.values(s.power).reduce((x, y) => x + y, 0) + (s.mod || []).filter((q) => q[2]).length;
         const v = s.power[m.sys] + m.delta;
         if (v < 0 || v > 4) return notice('Grenze erreicht');
         if (m.delta > 0 && used >= s.reactor.output) return notice('Reaktor ausgelastet');
-        s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 3) +(W.upgrades.schildpool ? 2 : 0);
+        s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 3);
         break;
       }
       case 'technik.shield': {
@@ -1161,7 +1168,7 @@
     r.state = state; r.switches = { A: false, B: false }; r.restartProgress = 0;
     r.output = state === 'overload' ? 12 : state === 'offline' ? 2 : 8;
     r.overloadLeft = state === 'overload' ? 142 : 0;
-    if (state === 'offline') { W.ship.power = { engines: 0, shields: 1, weapons: 0, life: 1 }; }
+    if (state === 'offline') { W.ship.power = { engines: 0, shields: 1, weapons: 0 }; }
   }
 
   // ---------------------------------------------------------------- Simulation
@@ -1273,7 +1280,7 @@
       else if (r.switches.A && r.switches.B) { r.restartProgress = Math.min(1, r.restartProgress + dt / 3); if (r.restartProgress >= 1) { setReactor('online'); if (holder) holder.action = null; } }
       else r.restartProgress = 0;
     }
-    r.used = Object.values(s.power).reduce((x, y) => x + y, 0);
+    r.used = Object.values(s.power).reduce((x, y) => x + y, 0) + (s.mod || []).filter((q) => q[3]).length;
     // Schilde
     W._shieldT += dt;
     if (W._shieldT >= 4) { W._shieldT = 0; for (let i = 0; i < 4; i++) s.shields.current[i] += Math.sign(s.shields.alloc[i] - s.shields.current[i]); }

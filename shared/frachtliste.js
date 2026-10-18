@@ -10,7 +10,8 @@
   const artName = (a) => ARTEN[a] || String(a);
 
   // fracht = snapshot.fracht (kann fehlen), cap = Anzahl Frachtplätze.
-  // -> { belegt, cap, frei, eintraege: [{ art: 'deuterium'|'sprengstoff'|'fracht'|'person', name, text }], titel, text }
+  // -> { belegt, cap, frei, gesichert, eintraege: [{ art: 'deuterium'|'sprengstoff'|'fracht'|'person', name, text }], titel, text }
+  // gesichert = false (Snapshot fracht.g, PAN-01 A: Modul Frachtraum aus) hängt „UNGESICHERT“ an den Text.
   function frachtListe(fracht, cap) {
     const fr = fracht || {};
     const eintraege = [];
@@ -20,8 +21,9 @@
     const belegt = eintraege.length;
     const frei = Math.max(0, c - belegt);
     const titel = 'FRACHTRAUM ' + belegt + '/' + c;
-    const text = titel + ': ' + (belegt ? eintraege.map((e) => e.text).join(', ') : 'leer') + (belegt && frei ? ' · ' + frei + ' frei' : '');
-    return { belegt, cap: c, frei, eintraege, titel, text };
+    const gesichert = fr.g !== false;
+    const text = titel + ': ' + (belegt ? eintraege.map((e) => e.text).join(', ') : 'leer') + (belegt && frei ? ' · ' + frei + ' frei' : '') + (gesichert ? '' : ' · UNGESICHERT');
+    return { belegt, cap: c, frei, gesichert, eintraege, titel, text };
   }
 
   return { frachtListe, artName };

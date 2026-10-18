@@ -9,9 +9,10 @@
   const CFG = window.Shared_Config || {};
   const Phys = window.Shared_Physics;
   const PROTO = window.Shared_Protocol || {};
-  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons', 'life'];
-  const POWER_NAMES = { engines: 'ANTRIEB', shields: 'SCHILDE', weapons: 'WAFFEN', life: 'LEBENSERH.' };
-  const POWER_FN = { engines: 'drive', shields: 'shield', weapons: 'weapon', life: 'sensor' };
+  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
+  const POWER_NAMES = { engines: 'ANTRIEB', shields: 'SCHILDE', weapons: 'WAFFEN' };
+  const POWER_FN = { engines: 'drive', shields: 'shield', weapons: 'weapon' };
+  const SEL_MOD0 = 3, SEL_SCH0 = 7;   // Auswahl im Technik-Pult: 0–2 Hauptsysteme, 3–6 Bordmodule, 7–10 Schildsektoren (wie consoles.js)
   const SECTOR = ['BUG', 'STB', 'HECK', 'BB'];
   const M3_MOUNTS = ['bow', 'port', 'stbd'];
   const MOUNT_NAMES = { bow: 'Lanze', port: 'Batterie Bb', stbd: 'Batterie Stb', phase_l: 'Phase L', phase_r: 'Phase R', lanze: 'Lanze', bolzen: 'Bolzen', seitenturm: 'Seitenturm' };
@@ -321,7 +322,7 @@
         const pos = [[cx + 150, cy], [cx, cy + 38], [cx - 150, cy], [cx, cy - 38]];
         for (let i = 0; i < 4; i++) {
           const [px, py] = pos[i], bw = 120, bh = 26, bx = Math.round(px - bw / 2), by = Math.round(py - bh / 2);
-          const sel = this.sel.power === 4 + i, cap = n(capA[i], 4);
+          const sel = this.sel.power === SEL_SCH0 + i, cap = n(capA[i], 4);
           if (sel) P.zeileHi(c, bx, by, bw, bh, 'shield');
           if (tele[i]) { c.strokeStyle = Math.floor(view.time * 8) % 2 ? PAL.red : '#FF8A7A'; c.setLineDash([4, 3]); c.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1); c.setLineDash([]); }
           T(c, SECTOR[i], bx + 22, by + 2, sel ? P.FN.drive : K.text);
@@ -334,28 +335,42 @@
           }
           const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
           const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
-          P.knopf(c, bx, by + 6, 17, 16, '-', { disabled: !!minusR, reason: minusR, fn: 'shield', onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
-          P.knopf(c, bx + bw - 17, by + 6, 17, 16, '+', { disabled: !!plusR, reason: plusR, fn: 'shield', onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
+          P.knopf(c, bx, by + 6, 17, 16, '-', { disabled: !!minusR, reason: minusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
+          P.knopf(c, bx + bw - 17, by + 6, 17, 16, '+', { disabled: !!plusR, reason: plusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
         }
       } });
       const K = g.skin, y0 = g.pult.y;
       // ---- ENERGIE
       let x = 62, cw = 236;
       let y = P.titel(ctx, x, y0, cw, 'ENERGIE · ' + used + '/' + output + ' VERTEILT', 'shield');
+      const bedarf = this.energieBedarf(ship), mods = this.modulListe(ship);
       POWER_SYS.forEach((sys, i) => {
         const ry = y + i * 20, v = n(power[sys]), fnc = POWER_FN[sys], state = (ship.systems || {})[sys] || 'ok';
         if (this.sel.power === i) P.zeileHi(ctx, x, ry - 2, cw, 18, fnc);
         T(ctx, POWER_NAMES[sys], x + 6, ry + 3, state === 'ok' ? K.text : P.FN.weapon);
         const minusR = v <= 0 ? 'Minimum erreicht' : null;
-        const plusR = v >= 4 ? 'Maximum (4)' : used >= output ? 'Reaktor ausgelastet – erst anderswo abziehen' : null;
+        const plusR = v >= 4 ? 'Maximum (4)' : bedarf >= output ? 'Reaktor ausgelastet – erst anderswo abziehen oder ein Modul abschalten' : null;
         P.knopf(ctx, x + 74, ry, 14, 14, '-', { disabled: !!minusR, reason: minusR, fn: fnc, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: -1 }); } });
         P.segs(ctx, x + 92, ry + 4, 4, v, fnc, 11, 7);
         P.knopf(ctx, x + 146, ry, 14, 14, '+', { disabled: !!plusR, reason: plusR, fn: fnc, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: 1 }); } });
         const hv = n(heat[sys]) / ((CFG.power && CFG.power.heatLimit) || 100);
         ctx.fillStyle = K.off; ctx.fillRect(x + 166, ry + 6, cw - 168, 3); ctx.fillStyle = hv > 0.7 ? P.FN.weapon : P.FN.warn; ctx.fillRect(x + 166, ry + 6, Math.round((cw - 168) * clamp(hv, 0, 1)), 3);
       });
-      y += 4 * 20 + 2;
-      T(ctx, '↑↓ wählen · ←→ verteilen · Balken = Hitze', x, y, K.dim);
+      y += POWER_SYS.length * 20 + 2;
+      // PAN-01 A: Bordmodule – je 1 Energie, solange sie laufen; abschalten macht Energie für die Hauptsysteme frei
+      T(ctx, 'BORDMODULE', x, y, K.dim); T(ctx, mods.length + ' eingebaut · je 1 Energie', x + cw, y, K.dim, 'right'); y += 11;
+      mods.forEach((m, j) => {
+        const ry = y + j * 16, selM = this.sel.power === SEL_MOD0 + j;
+        const fnc = m.lauf ? 'shield' : m.an ? 'drive' : 'weapon';
+        if (selM) P.zeileHi(ctx, x, ry - 2, cw, 15, fnc);
+        P.lampe(ctx, x + 2, ry + 1, fnc, true);
+        T(ctx, m.name.toUpperCase() + ' ' + m.raum, x + 14, ry + 2, m.lauf ? K.text : P.FN.weapon);
+        T(ctx, m.lauf ? 'läuft' : m.an ? 'ohne Strom' : 'AUS', x + 122, ry + 2, m.lauf ? P.FN.shield : m.an ? P.FN.drive : P.FN.weapon);
+        const why = this.modulGrund(ship, m, output);
+        P.knopf(ctx, x + 168, ry - 1, 66, 13, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
+      });
+      y += Math.max(1, mods.length) * 16;
+      T(ctx, '↑↓ wählen · ←→ verteilen/Modul', x, y, K.dim);
       // ---- REAKTOR
       x = 306; cw = 150;
       y = P.titel(ctx, x, y0, cw, 'REAKTOR', 'shield');

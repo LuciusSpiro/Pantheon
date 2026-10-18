@@ -14,7 +14,7 @@
   const PAL = R.PAL;
   const VW = 640, VH = 360, TILE = 32;
 
-  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons', 'life'];
+  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
   const CODE_COLORS = PROTO.CODE_COLORS || ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'];
   const CODE_HEX = PROTO.CODE_COLOR_HEX || {};
@@ -44,7 +44,11 @@
   const MOUNT_NAMES = { bow: 'Lanze', port: 'Batterie Bb', stbd: 'Batterie Stb', phase_l: 'Phase L', phase_r: 'Phase R', lanze: 'Lanze', bolzen: 'Bolzen', seitenturm: 'Seitenturm' };
   const MOUNT_KEYS = { bow: '1', port: '2', stbd: '3', phase_l: '1', phase_r: '2', lanze: '1', bolzen: '4', seitenturm: '4' };
   const MOUNT_SYS = { bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' };
-  const POWER_NAMES = { engines: 'Antrieb', shields: 'Schilde', weapons: 'Waffen', life: 'Lebenserhaltung' };
+  const POWER_NAMES = { engines: 'Antrieb', shields: 'Schilde', weapons: 'Waffen' };
+  // PAN-01 A: Bordmodule (ship.mod = [[code, raum, an, läuft]]); Auswahl im Technik-Pult: 0–2 Hauptsysteme, 3–6 Module, 7–10 Schildsektoren
+  const MODUL_NAMEN = { f: 'Frachtraum', k: 'Krankenstation', w: 'Werkstatt' };
+  const MODUL_IDS = { f: 'frachtraum', k: 'krankenstation', w: 'werkstatt' };
+  const SEL_MOD0 = 3, SEL_SCH0 = 7;
   const SECTOR_KEYS = ['Bug', 'Stb', 'Heck', 'Bb'];
   // QA M3a: Räume zusammenfassen statt doppelt nennen („Brücke 2, Quartier 2“), Reihenfolge = erstes Auftreten
   function roomList(tiles, max) {
@@ -251,6 +255,7 @@
       ctx.strokeStyle = l.belegt ? PAL.brass : '#3A4250'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, h - 1);
       R.text(ctx, l.titel, bx + 6, y + 2, { color: PAL.brass, shadow: false });
       const x0 = bx + 6 + R.measure(l.titel, 1) + 6;
+      if (!l.gesichert) R.text(ctx, 'UNGESICHERT', bx + bw - 6, y + 2, { color: PAL.red, shadow: false, align: 'right' });   // PAN-01 A: Frachtraum ohne Strom
       if (!l.belegt) { R.text(ctx, 'leer · ' + l.frei + ' frei', x0, y + 2, { color: PAL.panelLight, shadow: false }); return; }
       let x = x0;
       for (const e of l.eintraege) {
@@ -1055,12 +1060,45 @@
       view.send({ t: 'cmd', c: 'captain.scan', on });
     },
 
+    // ---- PAN-01 A: Bordmodule (Technik). Daten aus ship.mod; ein Modul zieht 1 Energie, solange es läuft.
+    modulListe(ship) { return (ship.mod || []).map((m) => ({ code: m[0], id: MODUL_IDS[m[0]] || m[0], name: MODUL_NAMEN[m[0]] || m[0], raum: n(m[1]), an: !!m[2], lauf: !!m[3] })); },
+    // Bedarf nach Wunsch (wie server space.powerDemand): Hauptsysteme + alle Module, die an sind
+    energieBedarf(ship) { const p = ship.power || {}; return POWER_SYS.reduce((s, k) => s + n(p[k]), 0) + this.modulListe(ship).filter((m) => m.an).length; },
+    // gültige Auswahlpositionen (Module nur, soweit eingebaut)
+    selFolge(ship) { const out = [0, 1, 2]; const nm = this.modulListe(ship).length; for (let j = 0; j < nm; j++) out.push(SEL_MOD0 + j); for (let i = 0; i < 4; i++) out.push(SEL_SCH0 + i); return out; },
+    selSchritt(ship, dir) { const f = this.selFolge(ship); const i = f.indexOf(this.sel.power); this.sel.power = f[((i < 0 ? 0 : i) + dir + f.length) % f.length]; },
+    modulSchalten(view, m, on) { this.cmd(view, 'technik.module', { id: m.id, raum: m.raum, on: !!on }); },
+    modulGrund(ship, m, output) {
+      if (m.an) return null;
+      return this.energieBedarf(ship) + 1 > output ? 'Reaktor ausgelastet – erst Energie abziehen' : null;
+    },
+    // Modulzeilen im Technik-Interface; Rückgabe: neues y
+    capModule(ctx, view, a, y, ship, output) {
+      const mods = this.modulListe(ship);
+      R.text(ctx, 'BORDMODULE', a.x, y, { color: PAL.brass });
+      R.text(ctx, mods.length + ' eingebaut · je 1 Energie, solange sie laufen', a.x + 80, y, { color: PAL.panelLight });
+      y += 12;
+      mods.forEach((m, j) => {
+        const sel = this.sel.power === SEL_MOD0 + j;
+        if (sel) { ctx.fillStyle = 'rgba(127,224,194,0.10)'; ctx.fillRect(a.x - 2, y - 2, 300, 16); }
+        const col = m.lauf ? PAL.mint : m.an ? PAL.amber : PAL.red;
+        ctx.fillStyle = col; ctx.fillRect(a.x + 2, y + 2, 6, 6);
+        R.text(ctx, m.name + ' ' + m.raum, a.x + 14, y + 1, { color: sel ? PAL.amber : PAL.star });
+        R.text(ctx, m.lauf ? 'läuft' : m.an ? 'ohne Strom' : 'AUS', a.x + 130, y + 1, { color: col });
+        const why = this.modulGrund(ship, m, output);
+        R.button(ctx, a.x + 190, y - 1, 104, 14, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
+        y += 16;
+      });
+      return y;
+    },
+
     // ---- Energie & Schilde + Reaktor überladen
     capPower(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
       const power = ship.power || {}, heat = ship.heat || {}, reactor = ship.reactor || {};
       const output = n(reactor.output, 8);
       const used = n(reactor.used, POWER_SYS.reduce((s, k) => s + n(power[k]), 0));
+      const bedarf = this.energieBedarf(ship);
       let y = a.y + 4;
       R.text(ctx, 'ENERGIE', a.x, y, { color: PAL.brass });
       R.text(ctx, used + ' / ' + output + ' Einheiten verteilt', a.x + 60, y, { color: used >= output ? PAL.amber : PAL.mint });
@@ -1074,7 +1112,7 @@
         R.text(ctx, POWER_NAMES[sys] || H.SYS_NAMES[sys], a.x + 16, y + 2, { color: sel ? PAL.amber : PAL.star });
         if (state !== 'ok') R.text(ctx, H.STATE_NAMES[state] || state, a.x + 16, y + 12, { color: H.STATE_COL[state] || PAL.red });
         const minusR = v <= 0 ? 'Minimum erreicht' : null;
-        const plusR = v >= 4 ? 'Maximum (4)' : used >= output ? 'Reaktor ausgelastet – erst anderswo abziehen' : null;
+        const plusR = v >= 4 ? 'Maximum (4)' : bedarf >= output ? 'Reaktor ausgelastet – erst anderswo abziehen oder ein Modul abschalten' : null;
         R.button(ctx, a.x + 110, y, 16, 16, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: -1 }); } });
         for (let k = 0; k < 4; k++) { ctx.fillStyle = k < v ? (k === 3 ? PAL.amber : PAL.mint) : '#26313F'; ctx.fillRect(a.x + 130 + k * 22, y + 2, 20, 12); }
         R.button(ctx, a.x + 220, y, 16, 16, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: 1 }); } });
@@ -1083,6 +1121,7 @@
         R.bar(ctx, a.x + 160, y + 18, 76, 4, hv / ((CFG.power && CFG.power.heatLimit) || 100), hv > 70 ? PAL.red : PAL.rust);
         y += 30;
       });
+      y = this.capModule(ctx, view, a, y, ship, output);
       // Reaktor (M1 §6)
       y += 4;
       const rs = reactor.state || 'online';
@@ -1156,7 +1195,7 @@
       }
       for (let i = 0; i < 4; i++) {
         const [px, py] = pos[i];
-        const sel = this.sel.power === 4 + i;
+        const sel = this.sel.power === SEL_SCH0 + i;
         const bw = 110, bh = 40;
         const bx = px - bw / 2, by = py - bh / 2;
         const cap = n(capA[i], 4);
@@ -1182,13 +1221,13 @@
         if (cap <= 0) R.text(ctx, 'AUS', px, by + 13, { color: PAL.red, align: 'center', scale: 1 });
         const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
         const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
-        R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
-        R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
+        R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
+        R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
         // Durchlass bei aktueller Stärke
         const lk = leakText(n(cur[i]));
         R.text(ctx, n(cur[i]) + ': ' + lk.short, px, by + bh + 2, { color: lk.col, align: 'center' });
       }
-      return '↑/↓ wählen · ←/→ verteilen · U überladen · 1–2 Reiter';
+      return '↑/↓ wählen · ←/→ verteilen / Modul aus·an · U überladen · 1–2 Reiter';
     },
 
     damageRows(st) {
@@ -1635,7 +1674,7 @@
       else if (!fr.ab) ab = fr.abn ? 'Abnehmer: ' + fr.abn + ' – nicht in Reichweite' : 'Hier nimmt keine Station Fracht an';
       const personHalt = !!(halt && (halt.kind === 'person_an' || halt.kind === 'person_ab'));   // Personentransfer zeigt nur die Personen-Leiste, nicht zusätzlich die Fracht-Leiste
       const gas = this.gasLage(st);   // U2: im Gasfeld erscheint die Leiste immer (Schöpfen-Knopf)
-      return { fr, cap, lager, draus, halt, beam, ab, gas, show: !!(draus.length || lager.length || (halt && !personHalt) || fr.fuell || (gas && gas.ertragSzene)) };
+      return { fr, cap, lager, draus, halt, beam, ab, gas, show: !!(draus.length || lager.length || (halt && !personHalt) || fr.fuell || (gas && gas.ertragSzene) || fr.g === false) };
     },
     // SL0: Personen-Leiste unten links in der Ops-Karte: Person vom Landepunkt an Bord beamen (U) bzw. abgeben (B). Eine Person belegt einen Frachtplatz.
     // (Name drawPersonenBord: drawPersonen ist die Personenliste des Captains, die Namensgleichheit überschrieb sie sonst)
@@ -2726,13 +2765,14 @@
             if (code === 'KeyU') return press(() => this.tryButton('Reaktor überladen …'));
             if (code === 'KeyJ' || (code === 'Enter' && performance.now() - this.overloadAsk < 6000)) return press(() => this.tryButton('Ja, überladen'));
             if (code === 'KeyN') { this.overloadAsk = -1e9; return true; }
-            if (code === 'ArrowUp' || code === 'KeyW') { this.sel.power = (this.sel.power + 7) % 8; return true; }
-            if (code === 'ArrowDown' || code === 'KeyS') { this.sel.power = (this.sel.power + 1) % 8; return true; }
+            if (code === 'ArrowUp' || code === 'KeyW') { this.selSchritt(st.ship || {}, -1); return true; }
+            if (code === 'ArrowDown' || code === 'KeyS') { this.selSchritt(st.ship || {}, 1); return true; }
             if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD' || code === 'Minus' || code === 'NumpadSubtract' || code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') {
               const delta = (code === 'ArrowLeft' || code === 'KeyA' || code === 'Minus' || code === 'NumpadSubtract') ? -1 : 1;
               const i = this.sel.power;
-              if (i < 4) this.cmd(view, 'technik.power', { sys: POWER_SYS[i], delta });
-              else this.cmd(view, 'technik.shield', { sector: i - 4, delta });
+              if (i < POWER_SYS.length) this.cmd(view, 'technik.power', { sys: POWER_SYS[i], delta });
+              else if (i < SEL_SCH0) { const m = this.modulListe(st.ship || {})[i - SEL_MOD0]; if (m) this.modulSchalten(view, m, delta > 0); }   // PAN-01 A: ← schaltet ab, → an
+              else this.cmd(view, 'technik.shield', { sector: i - SEL_SCH0, delta });
               return true;
             }
           } else if (tab === 1) {
