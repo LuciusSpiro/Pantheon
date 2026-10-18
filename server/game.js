@@ -452,7 +452,7 @@ class Game {
     Object.assign(p, { zone: 'ship', x: c.x, y: c.y, dir: 'down', moving: false, console: null, carry: null, carryCharges: 0,
       hp: this.C.player.hp, downed: false, downedFor: 0, hold: null, beamLock: false, actDown: false,
       gear: { werkzeuggurt: false }, input: { mx: 0, my: 0 }, shootReadyAt: 0,
-      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null, stunBis: 0, schubsBereit: 0 });
+      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null, liftSel: null, stunBis: 0, schubsBereit: 0 });
   }
 
   nextId(prefix) { return prefix + (++this.idCounter); }

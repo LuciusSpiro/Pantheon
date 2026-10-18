@@ -197,7 +197,11 @@
         const ix = (platz - 1) % 3, iy = 2 - Math.floor((platz - 1) / 3);
         const zx = x + ix * (zw + 4), zy = y + iy * (zh + 3);
         const m = this.waffeAmPlatz(view, platz);
-        if (!m) { P.zelle(ctx, zx, zy, zw, zh, String(platz), 'frei', PLATZ_SEITE[platz], 'weapon', 'leer', 0, { aktion: PLATZ_AKTION[platz] }); continue; }
+        if (!m) {   // PAN-01 B: Plätze, die die Ausbaustufe noch nicht öffnet, stehen als „gesperrt“ (mit Stufe) statt „frei“ da
+          const SM = window.Shared_Maps, pl = SM && SM.waffenplatz ? SM.waffenplatz(platz) : null, zu = !!pl && n(ship.st) < pl.stufe;
+          P.zelle(ctx, zx, zy, zw, zh, String(platz), zu ? 'gesperrt' : 'frei', zu ? 'Stufe ' + pl.stufe : PLATZ_SEITE[platz], 'weapon', 'leer', 0, { aktion: PLATZ_AKTION[platz] });
+          continue;
+        }
         const info = this.mountInfo(view, m.id), isBow = m.id === 'bow' || m.id === 'lanze';
         const sst = m.state || (ship.systems || {})[{ bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' }[m.id]] || 'ok';
         const ch = n(m.charge);
