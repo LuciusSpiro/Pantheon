@@ -560,4 +560,4 @@ function tick(zustand, { wirkungen = [], absichten, messung } = {}) {
   return { zustand, ereignisse: c.ev };
 }
 
-module.exports = { erzeuge, tick, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, WIRKUNGEN, GUETER, FRAKTIONEN };
+module.exports = { erzeuge, tick, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, GUETER, FRAKTIONEN };
