@@ -84,14 +84,15 @@ function label(game, id) {
 function wcfg(game, w) {
   const M = M3(game); const P = M.mounts.port;
   const c = { schaden: w.schaden, rohre: w.rohre, gap: w.salvoGap || 0.15, ladekosten: w.ladekosten, bogen: w.bogen, reichweite: w.reichweite,
-    rohreKaputt: Math.max(1, Math.ceil(w.rohre / 2)), kaputtFaktor: P.damagedFactor || 1.5 };
+    rohreKaputt: Math.max(1, Math.ceil(w.rohre / 2)), kaputtFaktor: P.damagedFactor || 1 };   // Batterie/Kanone: wie vor PAN-01 C kein Zeitfaktor (nur weniger Rohre), die Config kennt keinen damagedFactor für port/stbd
   if (w.id === 'standardbatterie') Object.assign(c, { schaden: P.damage, rohre: P.tubes, gap: P.salvoGap, ladekosten: P.secPerPoint, bogen: P.arc, reichweite: P.range, rohreKaputt: P.tubesDamaged });
   if (w.art === 'lanze') {
     const L = M.lance || {}; const B = M.mounts.bow; const K = w.lanze;
     Object.assign(c, { aufladen: L.chargeTime != null ? L.chargeTime : K.aufladen, min: L.minDamage != null ? L.minDamage : K.min, max: L.maxDamage != null ? L.maxDamage : K.max,
       breite: L.width != null ? L.width : K.breite, autoPower: L.autoPower != null ? L.autoPower : 0.5, kaputtZeit: L.damagedTimeFactor || 1, kaputtMax: L.damagedMaxFactor || 1,
       strahlen: K.strahlen, abstand: K.abstand, pierce: w.id === 'lanze' && B.pierce != null ? B.pierce : K.pierce });
-    if (w.id === 'lanze') Object.assign(c, { bogen: B.arc, reichweite: B.range, ladekosten: B.secPerPoint, kaputtFaktor: B.damagedFactor || 1.5 });
+    c.kaputtFaktor = B.damagedFactor || 1.5;   // jede Lanze: beschädigt lädt 1,5× so langsam (wie die Bug-Lanze)
+    if (w.id === 'lanze') Object.assign(c, { bogen: B.arc, reichweite: B.range, ladekosten: B.secPerPoint });
   }
   return c;
 }
@@ -117,9 +118,10 @@ function vorrat(game) {   // gespeicherter Anfangsstoß aller Energiewaffen
 }
 // Magazin: jede Energiewaffe mit Ladung (auch angefangener) belegt ihren vollen Anfangsstoß; zusammen höchstens MAGAZINDECKEL.stossMax. Eine Waffe ohne Ladung fängt erst an zu laden,
 // wenn ihr Stoß noch hineinpasst (sonst blockierten sich viele halb geladene Waffen gegenseitig und keine würde je fertig).
+// Ausgefallene Waffen belegen nichts. Waffen MIT Ladepunkten haben Vorrang: braucht eine solche Platz, geben volle Waffen OHNE Ladepunkte (Reserve) ihre Ladung ab (update).
 function reserviert(game) {
   let sum = 0;
-  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && (m.charge > 0 || m.charging)) sum += a.w.stoss; }
+  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && (m.charge > 0 || m.charging) && !isDown(mountState(game, a.id))) sum += a.w.stoss; }
   return sum;
 }
 function ensureMounts(game) {
@@ -177,7 +179,7 @@ function szeneReset(game) {
     if (m.salvo !== undefined) { m.salvo = 0; m.salvoTarget = null; }
   }
 }
-function stufeGeaendert(game) { ensureMounts(game); verteilungZuruecksetzen(game); }
+function stufeGeaendert(game) { ensureMounts(game); require('./interior.js').inaktiveHeilen(game); verteilungZuruecksetzen(game); }
 
 // ---------- Ladepool ----------
 function chargePoints(game) { const pw = game.ship.power.weapons; return pw > 0 ? pw + 2 : 0; }
@@ -194,7 +196,15 @@ function reihum(ids, cp, max) {
   }
   return out;
 }
-function standardVerteilung(game, cp) { return reihum(energieMounts(game).map((a) => a.id), cp == null ? chargePoints(game) : cp, M3(game).allocMax); }
+// Ein Punkt ist dem Abwehrturm reserviert, solange er bestückt ist und der Pool mindestens einen hat (sonst lädt er nie und die „schwache Automatik“ fiele aus); er kostet die
+// Waffen hinten in der Reihenfolge einen Punkt. Start-Lerche ohne Abwehrturm: unverändert.
+function mitTurm(game, ids, cp, max) {
+  const t = ids.find((id) => waffeAn(game, id).art === 'turm');
+  if (!t || cp < 1) return reihum(ids, cp, max);
+  const out = reihum(ids.filter((id) => id !== t), cp - 1, max); out[t] = 1;
+  return out;
+}
+function standardVerteilung(game, cp) { return mitTurm(game, energieMounts(game).map((a) => a.id), cp == null ? chargePoints(game) : cp, M3(game).allocMax); }
 function verteilungZuruecksetzen(game) {
   game.ship.wAllocIntent = standardVerteilung(game);
   const al = computeAlloc(game);   // auch die angezeigten Punkte sofort (Snapshot vor dem nächsten Tick)
@@ -206,7 +216,7 @@ function computeAlloc(game) {
   const Sx = M3(game); const ship = game.ship;
   const list = energieMounts(game); const ids = list.map((a) => a.id);
   const cp = chargePoints(game);
-  if (waffenAutomatikAktiv(game)) return reihum(ids, cp, Sx.allocMax);
+  if (waffenAutomatikAktiv(game)) return mitTurm(game, ids, cp, Sx.allocMax);
   const want = ship.wAllocIntent || Sx.allocDefault;
   const out = {};
   for (const id of ids) out[id] = clamp(Math.round(Number(want[id]) || 0), 0, Sx.allocMax);
@@ -220,6 +230,13 @@ function computeAlloc(game) {
     if (top === null || out[top] <= 0) break;
     out[top]--;
   }
+  // unbesetzt: der Abwehrturm behält einen Punkt (Nahabwehr), auch wenn die Ops ihn früher auf 0 gestellt hat; besetzt ist er frei verteilbar
+  const tid = ids.find((id) => waffeAn(game, id).art === 'turm');
+  if (tid && !weaponsManned(game) && cp > 0 && out[tid] === 0) {
+    let top = null; for (const id of ids) if (id !== tid && out[id] > 0 && (top === null || out[id] > out[top])) top = id;
+    if (top) out[top]--;
+    out[tid] = 1;
+  }
   return out;
 }
 // Ladezeit einer Halterung für 0 -> 1 (null = lädt nicht)
@@ -230,7 +247,7 @@ function chargeTime(game, id) {
   if (isDown(st) || !(m.alloc > 0)) return null;
   const c = wcfg(game, w);
   let t = c.ladekosten / m.alloc;
-  if (st === 'damaged') t *= (w.art === 'lanze' ? (c.kaputtFaktor) : c.kaputtFaktor);
+  if (st === 'damaged') t *= c.kaputtFaktor;
   // §5.5 unbesetzte Ops: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer). Der Abwehrturm hat seinen eigenen Faktor (ohne Taktik).
   if (w.art === 'turm') { if (!weaponsManned(game)) t *= (w.turm.autoFaktor || 1); }
   else if (waffenAutomatikAktiv(game)) t /= (M3(game).autoFactor || 1);
@@ -295,9 +312,19 @@ function update(game, dt) {
     const t = chargeTime(game, a.id);
     if (t == null || mm.charge >= 1) continue;
     if (mm.charge <= 0 && a.w.stoss > 0) {   // erst laden, wenn der Stoß ins Magazin passt
-      if (belegt + a.w.stoss > Katalog.MAGAZINDECKEL.stossMax + 1e-9) continue;
+      const cap = Katalog.MAGAZINDECKEL.stossMax + 1e-9;
+      if (belegt + a.w.stoss > cap) {   // Platz schaffen: Waffen ohne Ladepunkte (Reserve) geben ihre Ladung ab, die hinterste zuerst
+        for (const b of list.slice().reverse()) {
+          if (belegt + a.w.stoss <= cap) break;
+          const bm = m[b.id];
+          if (b.id === a.id || !b.w.energie || b.w.stoss <= 0 || !bm || bm.charge <= 0 || bm.charging || bm.alloc > 0 || isDown(mountState(game, b.id))) continue;
+          bm.charge = 0; belegt -= b.w.stoss;
+        }
+      }
+      if (belegt + a.w.stoss > cap) { mm.blk = true; continue; }   // Magazin voll: Anzeige „Magazin voll“
       belegt += a.w.stoss;
     }
+    mm.blk = false;
     mm.charge = Math.min(1, mm.charge + dt / t);
   }
   if (ship.target && !S().resolveTarget(game, ship.target)) ship.target = null;
@@ -608,7 +635,7 @@ function fireTorpedo(game, id) {
   if (game.inventory.bolzen <= 0) return 'Keine Torpedos mehr im Lager (Hafen).';
   if (m.cd > 0) return `Torpedowerfer lädt nach (${Math.ceil(m.cd)} s).`;
   game.inventory.bolzen--;
-  m.cdMax = T.cooldown * (mountState(game, id) === 'damaged' ? M3(game).mounts.port.damagedFactor || 1.5 : 1);
+  m.cdMax = T.cooldown * (mountState(game, id) === 'damaged' ? T.kaputtFaktor : 1);   // beschädigte Lafette: Cooldown ×1,5 (Katalogwert; Triebwerk und Energie wirken nie)
   m.cd = m.cdMax;
   Alarm.laerm(game, 'waffen');   // EK2
   const a = Math.atan2(target.y - ship.y, target.x - ship.x);
@@ -617,6 +644,17 @@ function fireTorpedo(game, id) {
   game.stats.torpedos = (game.stats.torpedos || 0) + 1;
   game.emit('sfx', { name: 'torpedo' });
   return null;
+}
+
+// Eine Stelle für jede Gutschrift ins Lager (Fundbelohnung, Regiebuch, Shop-Folgen): Torpedos höchstens `lagerMax`; der Überhang wird zu 10 Marken je Stück verkauft (ODA sagt es)
+function lagerGutschrift(game, item, n) {
+  n = Math.round(Number(n) || 0);
+  if (item !== 'bolzen') { game.inventory[item] = (game.inventory[item] || 0) + n; return n; }
+  const max = Katalog.TORPEDO.lagerMax; const have = game.inventory.bolzen || 0;
+  const add = Math.max(0, Math.min(n, max - have)); game.inventory.bolzen = have + add;
+  const rest = n - add;
+  if (rest > 0) { game.inventory.marks += rest * 10; game.oda(`Torpedolager voll (höchstens ${max}) – ${rest} Torpedo${rest === 1 ? '' : 's'} für ${rest * 10} Marken verkauft.`, null); }
+  return add;
 }
 
 // ---------- Befehle ----------
@@ -735,6 +773,7 @@ function mountsSnapshot(game) {
       o.charge = r2(clamp(mm.cdMax > 0 ? 1 - mm.cd / mm.cdMax : 1, 0, 1)); o.ammo = game.inventory.bolzen; o.cd = Math.ceil(mm.cd);
     } else {
       o.charge = r2(mm.charge); o.alloc = mm.alloc || 0;
+      if (mm.blk && mm.alloc > 0 && mm.charge <= 0) o.blk = 1;   // Magazin voll: lädt nicht, weil der Anfangsstoß-Deckel erreicht ist
       if (a.w.art === 'lanze') { o.power = r2(mm.power || 0); o.charging = !!mm.charging; o.dmg = r1(lanceDamage(game, mm.power || 0, a.id)); }
       else { o.salvo = mm.salvo || 0; o.salvoMax = rohre(game, a.id); }
     }
@@ -772,6 +811,7 @@ function restore(game, saved) {
   } else Object.assign(wm, Katalog.START_BESTUECKUNG);
   game.ship.waffen = wm; game.ship.mount = {};
   ensureMounts(game);
+  require('./interior.js').inaktiveHeilen(game);
   verteilungZuruecksetzen(game);
 }
 
@@ -780,5 +820,5 @@ module.exports = {
   ensureMounts, szeneReset, bestuecken, setzeRoh, bestueckeAlle, stufeGeaendert, chargePoints, computeAlloc, standardVerteilung, verteilungZuruecksetzen, chargeTime,
   inMountArc, mountOrigin, nearestInArc, selectedEnemy, update, lanceChargeTime, lanceDamage, lanceTrace, fireLance, weaponsCharge, rohre, startSalvo,
   streuExplosion, fireTorpedo, weaponsFire, weaponsAlloc, weaponsHold, weaponsReload, consumeFullCharge, lenke, mountsSnapshot, debug, toSave, restore,
-  vorrat, reserviert, turmZiel, isDown, EPS, schade,
+  vorrat, reserviert, lagerGutschrift, turmZiel, isDown, EPS, schade,
 };

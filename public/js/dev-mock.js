@@ -189,7 +189,7 @@
       },
       support: { sensor: 0, strike: 0, supply: 0, recall: 0, kuppel: 0 },
       inventory: Object.assign({ loeschgelCharges: 5, marks: 320, deko: ['pflanze', 'lampe', 'buecherregal', 'sternkarte'] }, CFG.economy.startInventory),
-      upgrades: { seitenturm: false },
+      upgrades: {},
       quarters: { q0: { floor: 'teppich_blau', wall: 'paneel', light: 'warm' }, q1: { floor: 'holz_dunkel', wall: 'tapete_creme', light: 'bernstein' }, q2: { floor: 'teppich_rot', wall: 'holz', light: 'mint' }, q3: { floor: 'holz_hell', wall: 'holz', light: 'warm' } },
       deco,
       plan: { seated: [], pins: [] },
@@ -827,7 +827,7 @@
       const msys = MOUNT_SYS[mt.id];
       if (!msys) continue;
       mt.state = sys[msys];
-      if (mt.salvoMax != null) mt.salvoMax = W.upgrades.seitenturm ? 5 : mt.state === 'damaged' ? 2 : 4;
+      if (mt.salvoMax != null) mt.salvoMax = mt.state === 'damaged' ? 2 : 4;
       const per = (CFG.spaceM3 && CFG.spaceM3.mounts[mt.id].secPerPoint) || 16;
       if (mt.state !== 'broken' && mt.alloc > 0 && !mt.charging && !(mt.salvo > 0)) mt.charge = Math.min(1, mt.charge + dt * mt.alloc / per * (mt.state === 'damaged' ? 1 / 1.5 : 1) * (params.get('fastcharge') === '1' ? 6 : 1));
       if (mt.id === 'bow') {

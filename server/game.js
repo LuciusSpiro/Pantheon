@@ -299,6 +299,7 @@ class Game {
       this.reset();
       return fail('Der Weltstand ließ sich nicht übernehmen (' + e.message + ').');
     }
+    if (this.weltMigriert) { this.weltMigriert = false; try { Weltstand.save(this); } catch (e) { this.countError('weltstand-migration-save', e); } }   // PAN-01 C: Migration (Erstattungen) nur einmal: der migrierte Stand wird sofort gespeichert
     this.emit('worldLoaded', { id, name: this.weltstand.name });
     if (r.fromBak) this.log(`Weltstand ${id} aus der Sicherung (.bak) geladen.`);
     this.log(`Weltstand ${id} („${this.weltstand.name}“) fortgesetzt mit ${this.players.length} Spieler(n), angedockt: ${this.ship.dockedAt}.`);

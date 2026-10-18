@@ -44,7 +44,10 @@
   // Schaden je Zielklasse (keine Schilde: der Torpedo trifft die Hülle). Jäger sofort zerstört (Hülle 25 zu dritt, 35 im Höchstfall), alles Größere angeschlagen.
   // Gegner-Torpedo gegen die Lerche: ein Treffer nimmt 30 von 100 Hülle (6 Schadenspunkte × 5), nie mehr als ein Drittel (kein Game Over durch einen Schuss).
   const TORPEDO = {
-    lagerMax: 12, lagerStart: 6, cooldown: 10, geschw: 400, wenden: 1.6, ttl: 3,
+    lagerMax: 12, lagerStart: 6, cooldown: 10, kaputtFaktor: 1.5,
+    // Schildverhalten: 'immer' = der Torpedo geht an Schilden vorbei und trifft die Hülle (Lesart A, gebaut); 'nur-ohne-schild' = er wirkt nur auf ein ausgefallenes Schildsegment
+    // (Lesart B). raetselKlassen: Klassen, deren Schild ein Set-Piece-Rätsel der Kampagne ist (Kustoden-Wächter, Pylon im Relais) – dort gilt immer 'nur-ohne-schild'.
+    schildUmgehung: 'immer', raetselKlassen: ['pylon', 'sentinel'], geschw: 400, wenden: 1.6, ttl: 3,
     schaden: { raider: 45, korvette: 9, fregatte: 9, kreuzer: 9, sentinel: 9, pylon: 9, frachter: 9, relay: 9 },
     gegenLerche: 6, gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6, huelleJePunkt: 5,
   };
@@ -98,7 +101,7 @@
       id: 'standardkanone', name: 'Standardkanone', kurz: 'KANONE', platzart: 'bug', energie: true, art: 'salve',
       wirkung: 'Wie die Standardbatterie, aber nach vorn: drei Rohre, enger Bogen.',
       schaden: 1.5, rohre: 3, salvoGap: 0.15, ladekosten: 9.2, bogen: 50, reichweite: 560, stoss: 4.5,
-      modell: 'lerche/station/lafette_kanone', projektil: { form: 'strahl', farbe: '#F2C14E' }, effekt: 'strahl', ton: 'kanone_salvo', symbol: 'schiff_kanone',
+      modell: 'lerche/station/lafette_kanone', projektil: { form: 'bolzen', farbe: '#FF7A3C' }, effekt: 'bolzen', ton: 'kanone_salvo', symbol: 'schiff_kanone',
       munition: null, gegner: { verhalten: 'bolzen' },
     },
     {

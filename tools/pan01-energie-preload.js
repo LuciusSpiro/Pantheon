@@ -34,6 +34,7 @@ for (const kv of torpedoMode.split(',')) {
   const [k, v] = kv.split(':'); const x = Number(v);
   if (k === 'bogen' && x > 0) Katalog.waffe('torpedowerfer').bogen = x;
   else if (k === 'cd' && x > 0) Katalog.TORPEDO.cooldown = x;
+  else if (k === 'schild' && v === 'nur') Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';   // Lesart B (Standard: A, immer an den Schilden vorbei)
   else if (k === 'lager' && x > 0) { Katalog.TORPEDO.lagerMax = Math.max(Katalog.TORPEDO.lagerMax, x); torpedoLager = x; }
 }
 const PRIO = [8, 4, 6, 7, 9, 5, 1, 3, 2];

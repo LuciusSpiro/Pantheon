@@ -1,6 +1,6 @@
 'use strict';
 // PAN-01 Paket C (Abnahme 11): Feuerkraft bei 3, 5, 7 und 9 Energiewaffen mit GLEICHEM Ladepool. Deterministisch (feste Attrappen, kein Bot-Rauschen).
-//   node tools/pan01-feuerkraft-messung.js [--pool 4|5|6] [--sek 180] [--verteilung reihum|best] [--noheat]   (ab Pool 6 ohne Hitze, sonst überhitzen die Waffen bei Energie 4)
+//   node tools/pan01-feuerkraft-messung.js [--pool 4|5|6] [--sek 180] [--verteilung reihum|best|ziel] [--einseitig] [--noheat]   (ab Pool 6 ohne Hitze, sonst überhitzen die Waffen bei Energie 4)
 // Aufbau: Die Lerche steht still, je Richtung (Bug, Backbord, Steuerbord) steht eine unzerstörbare Attrappe ohne Schilde im Bogen aller Waffen dieser Richtung, dazu ein Jäger-
 // Attrappe im Nahbereich für den Abwehrturm. Die „Ops“ feuert jede Waffe, sobald sie bereit ist (Lanzen werden voll aufgeladen). Gemessen wird der Schaden an den Attrappen
 // (game.stats.waffenSchaden) je Zeitfenster: Anfangsstoß (0–10 s, volle Rohre), Dauerfeuer (60–180 s). Verteilung: reihum (Standard des Spiels) oder best (Punkte auf die
@@ -21,6 +21,7 @@ const argv = process.argv.slice(2);
 const arg = (k, d) => (argv.indexOf(k) >= 0 ? argv[argv.indexOf(k) + 1] : d);
 const POOL = Number(arg('--pool', 4)), SEK = Number(arg('--sek', 180)), VERT = arg('--verteilung', 'reihum');
 const DT = 1 / CONFIG.tickHz;
+const EINSEITIG = argv.includes('--einseitig');   // Gegner nur an einer Seite: Waffen auf der anderen Seite und am Bug haben kein Ziel (Magazin darf trotzdem keine Punkte stilllegen)
 if (POOL >= 6 || argv.includes('--noheat')) CONFIG.power.heatAt4 = 0;   // Waffen-Energie 4 überhitzt nach 12,5 s (Erkundung PAN-01): für die Messung aus
 const PRIO = [8, 4, 6, 7, 9, 5, 1, 3, 2];
 const ART = (p) => (p === 8 ? 'lanze' : p === 5 ? 'standardkanone' : p === 2 ? 'abwehrturm' : 'standardbatterie');
@@ -49,12 +50,20 @@ function messe(k) {
   // Attrappen (still, ohne Schilde, unzerstörbar)
   g.space.enemies = []; g.space.projectiles = [];
   const mk = (kind, dx, dy) => { const e = space.spawnEnemy(g, kind, { x: sh.x + dx, y: sh.y + dy, facing: Math.PI }); e.shields = e.shields.map(() => 0); e.hp = e.hpMax = 1e9; e.pin = { x: e.x, y: e.y, angle: e.angle }; return e; };
-  mk('korvette', 400, 0); mk('korvette', 0, -300); mk('korvette', 0, 300); mk('raider', -120, 90);
+  if (EINSEITIG) { mk('korvette', 0, 300); mk('raider', -120, 90); }   // nur Steuerbord (plus Jäger für den Abwehrturm)
+  else { mk('korvette', 400, 0); mk('korvette', 0, -300); mk('korvette', 0, 300); mk('raider', -120, 90); }
   const pin = () => { sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; for (const e of g.space.enemies) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.hp = 1e9; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; } };
   const sprung = (id) => { const w = Waffen.waffeAn(g, id); return w && w.art === 'lanze'; };
   // Verteilung wählen
   const verteile = () => {
-    if (VERT === 'best') {
+    if (VERT === 'ziel') {   // Ops verteilt gezielt: nur auf Waffen, die ein Ziel im Bogen haben (einseitig: Steuerbord), nach Schaden je Punkt
+      const rate = (id) => { const w = Waffen.waffeAn(g, id); return w.stoss / w.ladekosten; };
+      const mc = (id) => Waffen.mountCfg(g, id);
+      const treffen = ids.filter((id) => (EINSEITIG ? mc(id).facing === 90 : true)).sort((a, b) => rate(b) - rate(a));
+      const want = {}; for (const id of ids) want[id] = 0; let left = POOL;
+      for (const id of treffen) { const q = Math.min(CONFIG.spaceM3.allocMax, left); want[id] = q; left -= q; }
+      g.ship.wAllocIntent = want;
+    } else if (VERT === 'best') {
       const rate = (id) => { const w = Waffen.waffeAn(g, id); return w.stoss / w.ladekosten; };
       const order = ids.slice().sort((a, b) => rate(b) - rate(a));
       const want = {}; let left = POOL; for (const id of order) { const q = Math.min(CONFIG.spaceM3.allocMax, left); want[id] = q; left -= q; }

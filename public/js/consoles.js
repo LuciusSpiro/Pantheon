@@ -1898,6 +1898,7 @@
       }
       if (w && w.art === 'lanze' && m.charging) return { text: 'lädt auf', kind: 'halten', info };
       if (n(m.salvo) > 0) return { text: 'Salve ' + n(m.salvo), kind: 'salve', info };
+      if (m.blk && n(m.charge) < 1) return { text: 'Magazin voll', kind: 'reserve', info };   // PAN-01 C: Waffe hat Punkte, der Anfangsstoß-Deckel lässt sie nicht laden
       if (n(m.alloc) <= 0 && n(m.charge) < 1) return { text: 'Reserve', kind: 'reserve', info };
       if (n(m.charge) >= 1) return { text: info.reason ? 'geladen' : (w && w.art === 'lanze' ? 'halten' : 'bereit'), kind: 'bereit', info };
       return { text: Math.round(n(m.charge) * 100) + ' %', kind: 'laedt', info };

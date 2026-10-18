@@ -1093,13 +1093,14 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     if (add > 0) { e.tele.left += add; e.tele.dur += add; e.tele.delayed = (e.tele.delayed || 0) + add; }
   }
   let rest = dmg;
-  if (srcX != null && e.shields && !(opts && opts.huelle)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei
+  if (srcX != null && e.shields && !(opts && opts.huelle && !opts.nurOhneSchild)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei (nurOhneSchild: wirkt nur auf ein ausgefallenes Segment)
     // EK1b: Segment des Treffers (Seite aus dem Winkel, Seitenbereich aus der Längslage – shared/schilde.js); Klassen ohne Segmente: Sektor wie bisher
     const lay = Schilde.layout(game.C, e.kind);
     let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
     const pierce = (opts && opts.pierce) || 0;
     const sv = e.shields[sec];
+    if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
     if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
       const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
       if (sv > T.niedrig) {
@@ -1597,6 +1598,7 @@ function debugTele(game, id) {
   return null;
 }
 
+function torpedoNurOhneSchild(kind) { const T = Katalog.TORPEDO; return T.schildUmgehung === 'nur-ohne-schild' || (T.raetselKlassen || []).includes(kind); }
 // PAN-01 C: Gegner-Torpedo trifft die Lerche: geht an Schild und Schildpool vorbei, ein Treffer nimmt höchstens ein Drittel der Hülle (TORPEDO.gegenLerche × 5).
 // Wer kurz vorher ausgewichen ist (Ausweichfenster wie bei der Ladung), wird verfehlt.
 function etorpedoTreffer(game, p) {
@@ -1663,7 +1665,7 @@ function updateProjectiles(game, dt) {
           if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
             game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1;
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
-            Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true }, 'torpedowerfer');
+            Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild(e.kind) }, 'torpedowerfer');
           } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true } : undefined);
           break;
         }

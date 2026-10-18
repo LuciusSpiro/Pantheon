@@ -529,6 +529,11 @@ section('Weltstand: Bestückung, Altstände', () => {
   ok(b.ship.stufe === 2 && b.ship.waffen[2] === 'torpedowerfer' && Waffen.mountIds(b).includes('p2'), 'Altstand mit Bolzenwerfer: Stufe auf 2 angehoben, Torpedowerfer auf Heck 2 (kein Verlust)');
   ok(b.inventory.marks === 100 + 300 + 8 * 10 && b.inventory.bolzen === 12, 'Zusatzrohre (300) und Torpedos über dem Limit (8 × 10) erstattet: Marken ' + b.inventory.marks + ', Lager ' + b.inventory.bolzen);
   B.send({ t: 'menu', op: 'end' });
+  // Migration idempotent: derselbe Altstand zweimal geladen (ohne Spielende dazwischen) zahlt die Erstattung nur einmal
+  fs.writeFileSync(file, JSON.stringify(alt2));
+  const M1 = setup('free', { dir, world: id }); M1.run(0.3); const marken1 = M1.g.inventory.marks;
+  const M2 = setup('free', { dir, world: id }); M2.run(0.3);
+  ok(marken1 === 480 && M2.g.inventory.marks === 480 && M2.g.inventory.bolzen === 12, `Altstand zweimal geladen: Marken ${marken1} und ${M2.g.inventory.marks} (Erstattung einmalig)`);
   const bad = JSON.parse(JSON.stringify(basis)); bad.schiff.waffen['4'] = 'quatsch';
   ok(Weltstand.validate(bad).length > 0, 'Schema lehnt unbekannte Waffe ab');
   const bad2 = JSON.parse(JSON.stringify(basis)); bad2.schiff.waffen['0'] = 'lanze';
@@ -551,6 +556,118 @@ section('Snapshot-Budget mit neun Waffen', () => {
   const gesamt = sz(g.snapshot());
   ok(b9 - b0 < 1100 && b9 > b0, `neun Waffen (gemischt) kosten ${b9 - b0} B mehr im Block ship (Start ${b0} B, voll ${b9} B; Mounts ${sz(s0.mounts)} -> ${sz(s9.mounts)} B, Systeme ${sz(s0.systems)} -> ${sz(s9.systems)} B)`);
   ok(gesamt <= 18944 - 1100 && gesamt <= 18944, `Gesamt-Snapshot mit neun Waffen ${gesamt} B ≤ Ziel 18 944 B (Worst Case der Messung: snap:mess)`);
+});
+
+section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrturm-Automatik, Torpedo-Schild, Lager', () => {
+  // H1: beschädigte Standardbatterie lädt wie vor PAN-01 C (kein Zeitfaktor, nur weniger Rohre); Lanzen behalten 1,5
+  const T = arena(); const g = T.g;
+  const P = CONFIG.spaceM3.mounts.port;
+  g.ship.systems.battery_port = 'damaged';
+  const al = g.ship.mount.port.alloc;
+  ok(near(Waffen.chargeTime(g, 'port'), P.secPerPoint / al, 1e-9) && !P.damagedFactor, `beschädigte Standardbatterie lädt wie vor PAN-01 C (${Waffen.chargeTime(g, 'port').toFixed(2)} s = ${P.secPerPoint} / ${al}), ohne Faktor`);
+  ok(Waffen.rohre(g, 'port') === P.tubesDamaged, 'beschädigt: ' + P.tubesDamaged + ' Rohre');
+  g.ship.systems.weapon_bow = 'damaged';
+  ok(near(Waffen.chargeTime(g, 'bow'), CONFIG.spaceM3.mounts.bow.secPerPoint / g.ship.mount.bow.alloc * 1.5, 1e-9), 'beschädigte Lanze lädt 1,5× so langsam (wie bisher)');
+  // Torpedo: beschädigte Lafette verdoppelt nichts still – Katalogfaktor
+  ok(Katalog.TORPEDO.kaputtFaktor === 1.5, 'Torpedo: beschädigter Werfer ×' + Katalog.TORPEDO.kaputtFaktor + ' Cooldown (Katalogwert; Triebwerk und Energie wirken nie)');
+
+  // H2: Magazin blockiert keine Ladepunkte: volle Reserve-Waffen geben Platz frei, ausgefallene belegen nichts
+  const U = arena(); const h = U.g;
+  U.debug('bestueck', 'alle 3');
+  const ids = Waffen.energieMounts(h).map((a) => a.id);
+  h.ship.wAllocIntent = { bow: 1, port: 1, stbd: 1, p5: 1 };
+  for (const id of ids) h.ship.mount[id].charge = 0;
+  for (const id of ['p7', 'p9', 'p1', 'p3']) h.ship.mount[id].charge = 1;   // volle Reserve (keine Punkte): 4 × 6 = 24
+  for (const id of ['bow', 'port']) h.ship.mount[id].charge = 0.5;          // belegen 12 + 6
+  U.run(0.2);
+  const b0 = h.ship.mount.stbd.charge;
+  U.run(8);
+  ok(h.ship.mount.stbd.charge > b0 && !h.ship.mount.stbd.blk && h.ship.mount.p5.charge > 0, 'Waffe mit Ladepunkten lädt, die volle Reserve ohne Punkte macht Platz (kein Stillstand): stbd ' + h.ship.mount.stbd.charge.toFixed(2));
+  ok(Waffen.vorrat(h) <= Katalog.MAGAZINDECKEL.stossMax + 1e-6, 'Anfangsstoß-Deckel bleibt: ' + Waffen.vorrat(h).toFixed(1) + ' ≤ ' + Katalog.MAGAZINDECKEL.stossMax);
+  // ausgefallene Waffe belegt nichts
+  const V = arena(); const v = V.g; V.debug('bestueck', 'alle 3');
+  for (const id of ['p7', 'p9', 'p1', 'p3', 'p5']) v.ship.mount[id].charge = 1;
+  const r0 = Waffen.reserviert(v);
+  v.ship.systems.lafette_7 = 'broken';
+  ok(Waffen.reserviert(v) === r0 - Katalog.volley('standardbatterie'), 'ausgefallene Waffe belegt kein Magazin');
+  // einseitiges Gefecht: Gegner nur Steuerbord, Waffen feuern bereit: Dauerfeuer sinkt mit mehr Plätzen nicht deutlich
+  const dauer = (n) => {
+    const X = arena(); const x = X.g;
+    const PRIO = [8, 4, 6, 7, 9, 5, 1, 3, 2]; const st = Math.max(0, ...PRIO.slice(0, n).map((p) => Maps.waffenplatz(p).stufe));
+    Ausbau.setStufe(x, st);
+    for (const p of Maps.WAFFENPLAETZE) if (st >= p.stufe) Waffen.bestuecken(x, p.platz, PRIO.slice(0, n).includes(p.platz) ? (p.platz === 8 ? 'lanze' : p.platz === 5 ? 'standardkanone' : p.platz === 2 ? 'abwehrturm' : 'standardbatterie') : 'leer');
+    const e = gegner(X, 'korvette', 0, 300, { hp: 1e9 }); x.ship.target = e.id;
+    const ids2 = Waffen.energieMounts(x).map((a) => a.id);
+    let t = 0, d0 = 0;
+    while (t < 120) {
+      pin(x); e.hp = 1e9;
+      for (const id of ids2) { const m = x.ship.mount[id]; const w = Waffen.waffeAn(x, id); if (w.art === 'lanze') continue; if (m.charge >= 1 && !(m.salvo > 0) && Waffen.inMountArc(x, id, e.x, e.y)) Waffen.weaponsFire(x, id); }
+      x.step(); t += DT; if (Math.abs(t - 20) < DT / 2) d0 = (x.stats.waffenSchaden || { gesamt: 0 }).gesamt;
+    }
+    return (((x.stats.waffenSchaden || { gesamt: 0 }).gesamt) - d0) / 100;
+  };
+  const d3 = dauer(3), d5 = dauer(5), d9 = dauer(9);
+  ok(d5 >= d3 * 0.9 && d9 >= d3 * 0.9, `einseitiges Gefecht (nur Steuerbord): Dauerfeuer 3 Waffen ${d3.toFixed(2)}, 5: ${d5.toFixed(2)}, 9: ${d9.toFixed(2)} Schaden/s – sinkt mit mehr Plätzen nicht (Magazin legt keine Punkte still)`);
+  // Anzeige: blockierte Waffe meldet „Magazin voll“ (blk im Snapshot), solange nichts Platz macht
+  const Z = arena(); const z = Z.g; Z.debug('bestueck', 'alle 3');
+  z.ship.powerIntent = { engines: 1, shields: 1, weapons: 4 }; Object.assign(z.ship.power, z.ship.powerIntent);   // 6 Ladepunkte
+  z.ship.wAllocIntent = { bow: 1, port: 1, stbd: 1, p5: 1, p7: 1, p9: 1 };
+  for (const id of Waffen.energieMounts(z).map((a) => a.id)) z.ship.mount[id].charge = 0;
+  for (const id of ['bow', 'port', 'stbd', 'p5', 'p7']) z.ship.mount[id].charge = 1;   // alles mit Punkten gefüllt: 12+6+6+4,5+6 = 34,5, p9 (6) passt nicht
+  Z.run(0.3);
+  ok(z.ship.mount.p9.blk === true && snapMount(Z, 'p9').blk === 1, 'Waffe mit Punkten, die nicht ins volle Magazin passt, meldet blk (Anzeige „Magazin voll“)');
+
+  // H3: Abwehrturm mit Standardverteilung, ohne Handeingriff: unbesetzt schießt er auf Jäger im Überflug (solo und zu dritt)
+  for (const spieler of [1, 3]) {
+    const A = arena({ players: spieler }); const a = A.g;
+    A.debug('ausbau', '2'); A.debug('bestueck', '2 abwehrturm');
+    a.players.forEach((p) => { p.console = null; });
+    ok(a.ship.mount.p2.alloc >= 1, `${spieler} Spieler: dem Abwehrturm ist ein Ladepunkt reserviert (alloc ${a.ship.mount.p2.alloc}), Verteilung ${JSON.stringify(Waffen.computeAlloc(a))}`);
+    gegner(A, 'raider', 100, 80, { hp: 1e9 });
+    let salven = 0; const n0 = A.ev('sfx').filter((e) => e.name === 'abwehr_feuer').length;
+    lauf(A, 40);
+    salven = A.ev('sfx').filter((e) => e.name === 'abwehr_feuer').length - n0;
+    ok(salven > 0, `${spieler} Spieler: Abwehrturm schießt unbesetzt allein (${salven} Salven in 40 s, Standardverteilung, ohne Handeingriff)`);
+  }
+  { const A = arena(); A.debug('ausbau', '2'); A.debug('bestueck', '2 abwehrturm'); const dist0 = JSON.stringify(Waffen.standardVerteilung(A.g));
+    ok(Waffen.standardVerteilung(A.g).p2 === 1 && Object.values(Waffen.standardVerteilung(A.g)).reduce((a, b) => a + b, 0) === 4, 'Standardverteilung Stufe 2: Turm 1, der Rest reihum (' + dist0 + ')');
+    const B = arena(); ok(JSON.stringify(Waffen.standardVerteilung(B.g)) === '{"bow":2,"port":1,"stbd":1}', 'Start-Lerche ohne Abwehrturm unverändert 2/1/1'); }
+
+  // M1: Torpedo und Schild-Rätsel (Pylon, Wächter): nur bei ausgefallenem Schild; Lesart B als Katalogwert
+  const Q = arena(); const q = Q.g; Q.debug('ausbau', '2'); Q.debug('bestueck', '2 torpedowerfer'); q.inventory.bolzen = 12;
+  const py = gegner(Q, 'pylon', -300, 0, { schild: true, hp: 50 }); py.hpMax = 50; py.angle = 0; py.pin.angle = 0;   // Bug (geschützt) zur Lerche
+  const sec = Physics.sectorOf(py.x, py.y, py.angle, q.ship.x, q.ship.y);
+  q.ship.target = py.id;
+  const feuer = () => { q.ship.mount.p2.cd = 0; Q.cmd(0, 'weapons.fire', { mount: 'p2' }); let t = 0; const c0 = q.stats.torpedoTreffer || 0; while ((q.stats.torpedoTreffer || 0) === c0 && t < 4) { pin(q); Q.run(DT); t += DT; } };
+  py.shields[sec] = 4; const hp0 = py.hp; feuer();
+  ok(py.hp === hp0 && py.shields[sec] === 4, 'Pylon mit Schild: der Torpedo prallt ab (Schaden 0), Schild unberührt');
+  py.shields[sec] = 0; feuer();
+  ok(py.hp === hp0 - Katalog.torpedoSchaden('pylon'), 'Pylon mit ausgefallenem Schildsegment: Torpedo trifft die Hülle (−' + Katalog.torpedoSchaden('pylon') + ')');
+  q.space.enemies = q.space.enemies.filter((e) => e !== py);
+  const kj = gegner(Q, 'korvette', -300, 0, { schild: true, hp: 22 }); kj.angle = 0; kj.pin.angle = 0; q.ship.target = kj.id;
+  const sk = Physics.sectorOf(kj.x, kj.y, kj.angle, q.ship.x, q.ship.y); kj.shields[sk] = 3; const kh = kj.hp; feuer();
+  ok(kj.hp === kh - 9, 'Lesart A (Standard, schildUmgehung immer): Korvette mit Schild wird getroffen (−9)');
+  Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';
+  kj.shields[sk] = 3; q.ship.target = kj.id; const kh2 = kj.hp; feuer();
+  ok(kj.hp === kh2, 'Lesart B (Katalogwert nur-ohne-schild): Schild steht -> Schaden 0');
+  kj.shields[sk] = 0; feuer();
+  ok(kj.hp < kh2, 'Lesart B: ausgefallenes Schildsegment -> Treffer');
+  Katalog.TORPEDO.schildUmgehung = 'immer';
+
+  // M3: Torpedo-Lager hart 12 auch bei Funden; Überhang wird zu Marken
+  const L = arena(); const l = L.g; l.inventory.bolzen = 12; const mk = l.inventory.marks;
+  const txt = l.explore.reward({ marks: 30, items: { bolzen: 4 } });
+  ok(l.inventory.bolzen === 12 && l.inventory.marks === mk + 30 + 40 && /0× Torpedo/.test(txt), 'Fundbelohnung bei vollem Lager: 12 bleibt, 4 Torpedos als 40 Marken (' + txt + ')');
+  ok(L.events.some((e) => e.kind === 'oda' && /Torpedolager voll/.test(e.text || '')), 'ODA sagt, dass das Lager voll ist');
+  l.inventory.bolzen = 10; l.explore.reward({ items: { bolzen: 4 } });
+  ok(l.inventory.bolzen === 12, 'Fund bei 10: 2 passen, 2 Überhang -> Lager 12');
+  ok(!/Bolzen/.test(require('../shared/locations.js').get('b7') ? JSON.stringify(require('../shared/locations.js').get('b7').hidden || '') : ''), 'Kistentext sagt Torpedos statt Bolzen');
+
+  // L3: inaktive Waffensysteme zählen im Altnamen weapons nicht
+  const W3 = arena(); const w3 = W3.g; W3.debug('ausbau', '3'); W3.debug('bestueck', 'alle 3'); w3.ship.systems.lafette_7 = 'broken';
+  ok(w3.ship.systems.weapons === 'broken', 'aktive Lafette zerstört: weapons = broken');
+  W3.debug('ausbau', '0');
+  ok(w3.ship.systems.weapons === 'ok' && w3.ship.systems.lafette_7 === 'ok', 'Platz zu (Stufe 0): inaktive Lafette steht heil da, weapons = ok');
 });
 
 console.log(`\ntest-waffen-schiff: ${n - fails}/${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

@@ -199,7 +199,7 @@ class Explore {
     if (!r) return '';
     const g = this.game; const parts = [];
     if (r.marks) { g.inventory.marks += r.marks; parts.push(r.marks + ' Marken'); }
-    for (const [k, n] of Object.entries(r.items || {})) { g.inventory[k] = (g.inventory[k] || 0) + n; parts.push(n + '× ' + (ITEM_NAMES[k] || k)); }
+    for (const [k, n] of Object.entries(r.items || {})) { const add = require('./schiffswaffen.js').lagerGutschrift(g, k, n); parts.push(add + '× ' + (ITEM_NAMES[k] || k)); }   // PAN-01 C: Torpedo-Lager hart bei 12 (Überhang = Marken)
     for (const d of r.deko || []) { g.inventory.deko.push(d); parts.push('Deko: ' + (DEKO_NAMES[d] || d)); }
     return parts.join(', ');
   }

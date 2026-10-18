@@ -30,8 +30,8 @@ const sets = arg('--set', 'start;voll;voll-kampf;start-kampf').split(';');
 const root = path.join(__dirname, '..');
 function run(set, seed) {
   return new Promise((res) => {
-    const tor = /^tor(12)?-([0-9]+)-([0-9]+)$/.exec(set);   // PAN-01 C: Torpedowerfer mit Heckbogen und Cooldown (tor-<bogen>-<cd>)
-    const env = Object.assign({}, process.env, PRESETS[set] || {}, tor ? { PAN01_TORPEDO: 'bogen:' + tor[2] + ',cd:' + tor[3] + (tor[1] ? ',lager:12' : '') } : {});
+    const tor = /^tor(12)?(B)?-([0-9]+)-([0-9]+)$/.exec(set);   // B = Lesart B (Torpedo nur gegen ausgefallenen Schild)   // PAN-01 C: Torpedowerfer mit Heckbogen und Cooldown (tor-<bogen>-<cd>)
+    const env = Object.assign({}, process.env, PRESETS[set] || {}, tor ? { PAN01_TORPEDO: 'bogen:' + tor[3] + ',cd:' + tor[4] + (tor[1] ? ',lager:12' : '') + (tor[2] ? ',schild:nur' : '') } : {});
     const args = ['-r', './tools/pan01-energie-preload.js', 'tools/sim-headless.js', 'arena', '--pilot', pilot, '--seeds', '1', '--seed', String(seed), '--players', String(players)];
     const p = spawn(process.execPath, args, { cwd: root, env });
     let out = ''; p.stdout.on('data', (d) => { out += d; }); p.stderr.on('data', (d) => { out += d; });
@@ -56,7 +56,7 @@ function run(set, seed) {
   for (const s of sets) {
     const rs = results.filter((r) => r.set === s && !r.err); const er = results.filter((r) => r.set === s && r.err).length;
     if (!rs.length) { console.log(`| ${s} | 0 | Fehler ${er} |`); continue; }
-    console.log(`| ${s} | ${rs.length} | ${f(mean(rs.map((r) => r.cleared)))}/${rs[0].total} | ${f(mean(rs.map((r) => r.failed)))} | ${f(mean(rs.map((r) => r.hull)))} (±${f(se(rs.map((r) => r.hull)))}) | ${f(mean(rs.map((r) => r.em)))} | ${f(mean(rs.map((r) => r.time)))} (±${f(se(rs.map((r) => r.time)))}) | ${f(mean(rs.map((r) => r.ws / r.time)) * 100) / 100} | ${f(mean(rs.map((r) => r.tp)))}/${f(mean(rs.map((r) => r.tt)))} | ${rs.filter((r) => r.softlock).length} | ${er} |`);
+    console.log(`| ${s} | ${rs.length} | ${f(mean(rs.map((r) => r.cleared)))}/${rs[0].total} | ${f(mean(rs.map((r) => r.failed)))} | ${f(mean(rs.map((r) => r.hull)))} (±${f(se(rs.map((r) => r.hull)))}) | ${f(mean(rs.map((r) => r.em)))} | ${f(mean(rs.map((r) => r.time)))} (±${f(se(rs.map((r) => r.time)))}) | ${(mean(rs.map((r) => r.ws / r.time))).toFixed(2)} | ${f(mean(rs.map((r) => r.tp)))}/${f(mean(rs.map((r) => r.tt)))} | ${rs.filter((r) => r.softlock).length} | ${er} |`);
   }
   const o = arg('--out', null); if (o) fs.writeFileSync(o, JSON.stringify(results, null, 1));
 })();

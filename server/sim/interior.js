@@ -740,6 +740,8 @@ function performInteraction(game, p, it) {
       const pl = W.Maps.waffenplatzAt(it.tx, it.ty);
       if (!pl) return;
       const offen = (game.ship.stufe | 0) >= pl.stufe;
+      const wk = offen ? require('../../shared/schiffskatalog.js').waffe((game.ship.waffen || {})[pl.platz]) : null;   // PAN-01 C: bestückter Platz nennt Waffe und Zustand
+      if (wk) { const zs = game.ship.systems[pl.system]; return game.notice(p, `Waffenplatz ${pl.platz}: ${wk.name}${zs && zs !== 'ok' ? ' (' + (zs === 'damaged' ? 'beschädigt' : 'zerstört') + ' – reparieren: E halten)' : ''}.`); }
       return game.notice(p, offen ? `Waffenplatz ${pl.platz}: frei, noch keine Waffe eingebaut (Werft, später).` : `Waffenplatz ${pl.platz}: verschlossen – Ausbaustufe ${pl.stufe} nötig.`);
     }
     case 'console': return enterConsole(game, p, it.console);
@@ -969,6 +971,13 @@ function resolveSystem(game, sys, pickWorst) {
   return cand.length ? game.rng.pick(cand) : WEAPON_SYSTEMS[0];
 }
 
+// Inaktive Waffensysteme (Platz zu oder unbestückt) stehen immer heil da (Altname weapons, Weltstand, Zurückstufen)
+function inaktiveHeilen(game) {
+  for (const k of WEAPON_SYSTEMS) {
+    if (systemAktiv(game, k) || game.ship.systems[k] === 'ok') continue;
+    game.ship.systems[k] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[k]; if (game.ship.offline) delete game.ship.offline[k];
+  }
+}
 function systemSector(sys) {
   const st = W.STATIONS.find((q) => q.system === sys);
   return st && Number.isInteger(st.sector) ? st.sector : -1;
@@ -1353,7 +1362,7 @@ module.exports = {
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
-  sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, isDown,
+  sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)

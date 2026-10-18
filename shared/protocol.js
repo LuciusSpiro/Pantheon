@@ -135,7 +135,7 @@
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette ----
     // Snapshot space.projectiles[] { id, kind, x, y, angle } – kind 'sperrfeuer' (langsames Geschoss, ungelenkt, aus der
     // Breitseite). Ereignis sfx { name: 'sperrfeuer', enemy: 'korvette', x, y } einmal je Feuerstoß (nicht je Geschoss).
-    SPACE_PROJECTILES: ['bolzen', 'enemy', 'emp', 'sperrfeuer'],
+    SPACE_PROJECTILES: ['torpedo', 'etorpedo', 'streu', 'estreu', 'sturm', 'enemy', 'emp', 'sperrfeuer'],   // PAN-01 C: bolzen entfällt (Torpedo), neue Arten
     CMD_PLAN_DECLINE: 'plan.decline',
     CMD_CAPTAIN_ESCORT: 'captain.escort',
     ESCORT_ORDERS: ['halten', 'folgen', 'volle_kraft', 'andocken'],

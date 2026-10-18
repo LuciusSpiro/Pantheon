@@ -44,16 +44,16 @@ function neuesSpiel(players) {
 }
 
 // Teil 1: ein Ziel steht still 400 px hinter der Lerche; so lange feuern, bis es zerstört ist
-function treffer(kind, crew) {
+function treffer(kind, crew, seite) {
   const g = neuesSpiel(crew);
   const sh = g.ship;
   g.inventory.bolzen = 99;
-  const e = space.spawnEnemy(g, kind, { x: sh.x - 400, y: sh.y, facing: 0 });
+  const e = space.spawnEnemy(g, kind, { x: sh.x - 400, y: sh.y, facing: seite === 'heck' ? Math.PI : 0 });   // bug: Schildseite (Bug des Ziels) zur Lerche, heck: ungeschützte Seite
   const hp0 = e.hp, schild0 = e.shields.reduce((a, b) => a + b, 0);
   g.ship.target = e.id;
   let t = 0, schuesse = 0, tZerstoert = null;
-  const pin = () => { e.x = sh.x - 400; e.y = sh.y; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.vx = sh.vy = 0; };
-  while (g.space.enemies.includes(e) && t < 400) {
+  const pin = () => { e.x = sh.x - 400; e.y = sh.y; e.angle = seite === 'heck' ? Math.PI : 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.vx = sh.vy = 0; };
+  while (g.space.enemies.includes(e) && t < (seite === 'bug' && Katalog.TORPEDO.schildUmgehung !== 'immer' ? 60 : 400)) {
     pin();
     if (g.ship.mount.p2.cd <= 0 && !g.space.projectiles.some((q) => q.kind === 'torpedo')) { const err = Waffen.weaponsFire(g, 'bolzen'); if (!err) schuesse++; }
     g.step(); t += DT;
@@ -79,6 +79,18 @@ function teil1() {
 }
 
 // Teil 2: Gegner-Torpedo auf die Lerche
+// Lesart A (immer) gegen B (nur ohne Schild; Pylon und Wächter immer so): Treffer bis Zerstörung je Klasse, Ziel mit Bug (Schildseite) oder Heck zur Lerche, 3 Spieler
+function teilLesarten() {
+  console.log('## Lesarten des Torpedo-Schilds (Crew 3; — = kein Schaden, solange der Schild steht)');
+  console.log('| Ziel | Seite zur Lerche | Lesart A (immer an Schilden vorbei) | Lesart B (nur ohne Schild) |');
+  console.log('|---|---|---|---|');
+  for (const kind of ['raider', 'korvette', 'fregatte', 'kreuzer', 'pylon', 'sentinel']) for (const seite of ['bug', 'heck']) {
+    const res = {};
+    for (const l of ['immer', 'nur-ohne-schild']) { Katalog.TORPEDO.schildUmgehung = l; const r = treffer(kind, 3, seite); res[l] = r.toetet ? r.treffer : '—'; }
+    Katalog.TORPEDO.schildUmgehung = 'immer';
+    console.log(`| ${kind} | ${seite === 'bug' ? 'Bug (geschützt)' : 'Heck (offen)'} | ${res.immer} | ${res['nur-ohne-schild']} |`);
+  }
+}
 function teil2() {
   console.log('\n## Teil 2 – Gegner-Torpedo gegen die Lerche (Katalog TORPEDO.gegenLerche, geht an Schild und Pool vorbei)');
   const T = Katalog.TORPEDO;
@@ -103,7 +115,7 @@ function teil2() {
 function teil3() {
   const seeds = Number(arg('--seeds', 12)), jobs = Number(arg('--jobs', 4));
   const sets = ['start'];
-  for (const pre of ['tor', 'tor12']) for (const bogen of [60, 90]) for (const cd of [8, 10, 12]) sets.push(`${pre}-${bogen}-${cd}`);   // tor = Startlager 6, tor12 = Lager 12 (sonst wie der Start: 6 Torpedos sind in einem Lauf verbraucht)
+  for (const pre of ['tor', 'tor12', 'tor12B']) for (const bogen of [60, 90]) for (const cd of [8, 10, 12]) sets.push(`${pre}-${bogen}-${cd}`);   // tor = Startlager 6, tor12 = Lager 12 (sonst wie der Start: 6 Torpedos sind in einem Lauf verbraucht)
   console.log(`\n## Teil 3 – Arena-Bot (3 Spieler, ${seeds} Seeds, Steuer maneuver), Heckbogen 60/90 Grad, Cooldown 8/10/12 s`);
   return new Promise((res) => {
     const p = spawn(process.execPath, [path.join(__dirname, 'pan01-energie-bot.js'), '--seeds', String(seeds), '--jobs', String(jobs), '--set', sets.join(';')], { cwd: path.join(__dirname, '..') });
@@ -114,6 +126,6 @@ function teil3() {
 
 (async () => {
   console.log('PAN-01 C Torpedo-Messung (Katalog: Cooldown ' + Katalog.TORPEDO.cooldown + ' s, Lager ' + Katalog.TORPEDO.lagerMax + ', Bogen ' + Katalog.waffe('torpedowerfer').bogen + ' Grad)');
-  teil1(); teil2();
+  teil1(); teil2(); teilLesarten();
   if (argv.includes('--bot')) await teil3();
 })();

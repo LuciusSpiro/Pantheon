@@ -763,10 +763,11 @@ function waffenAltstand(game, s) {
     const e = Waffen.bestuecken(game, 2, 'torpedowerfer');
     if (e) { game.inventory.marks += 220; game.log('Weltstand: Torpedowerfer (früher Bolzenwerfer) konnte nicht eingebaut werden (' + e + ') – 220 Marken erstattet.'); countError(game, 'weltstand-bolzenwerfer', new Error(e)); }
     else game.log('Weltstand: Bolzenwerfer wurde der Torpedowerfer auf Heck 2.');
+    game.weltMigriert = true;
   }
-  if ((s.ausbauten || []).includes('seitenturm')) { game.inventory.marks += 300; game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); }
+  if ((s.ausbauten || []).includes('seitenturm')) { game.inventory.marks += 300; game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); game.weltMigriert = true; }
   const max = Katalog.TORPEDO.lagerMax;
-  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; game.inventory.bolzen = max; game.inventory.marks += zu * 10; game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); }
+  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; game.inventory.bolzen = max; game.inventory.marks += zu * 10; game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
 }
 
 // ---------- Anwenden (nach reset()) ----------
@@ -824,6 +825,7 @@ function apply(game, data) {
   }
   if (Number.isFinite(s.huelle)) ship.hull = Math.max(1, Math.min(ship.hullMax, s.huelle));
   for (const k of SYSTEM_ORDER) if (s.systeme && ['ok', 'damaged', 'broken'].includes(s.systeme[k])) ship.systems[k] = s.systeme[k];
+  require('./sim/interior.js').inaktiveHeilen(game);   // PAN-01 C: Lafetten ohne Platz/Bestückung stehen heil da
   ship.offline = {}; ship.fragile = {};
   // Welt
   const w = d.welt || {};

@@ -6566,9 +6566,10 @@
         var head = Math.min(1, age * 2.4 - b * 0.22);
         if (head <= 0 || head >= 1) continue;
         var hx = head * L, bl = Math.min(14, L * 0.12);
-        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = PAL.messing; ctx.fillRect(Math.round(hx - bl * 1.6), -1 - dk / 2, Math.round(bl * 1.6), 3 + dk);
-        ctx.globalAlpha = ga; ctx.fillStyle = '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1 - dk / 2, Math.round(bl), 2 + dk);
-        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1 - dk / 2, 3, 2 + dk); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
+        // Standardkanone (dick): eigene Farbe (rotorange) und längerer Bolzen, damit sie sich von der bernsteinfarbenen Standardbatterie abhebt
+        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = o.dick ? '#B8442C' : PAL.messing; ctx.fillRect(Math.round(hx - bl * (o.dick ? 2.4 : 1.6)), -1 - dk / 2, Math.round(bl * (o.dick ? 2.4 : 1.6)), 3 + dk);
+        ctx.globalAlpha = ga; ctx.fillStyle = o.dick ? '#FF7A3C' : '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1 - dk / 2, Math.round(bl), 2 + dk);
+        ctx.fillStyle = o.dick ? '#FFD2B0' : '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1 - dk / 2, 3, 2 + dk); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
       }
     } else {   // enemy_heavy
       var ah = age < 0.06 ? 1 : 1 - (age - 0.06) / 0.94, jit = ((age * 40) | 0) % 2;
