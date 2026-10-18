@@ -38,6 +38,8 @@ function setup(players, opts) {
     conns.push(c);
   }
   for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+  // PAN-01 A: Diese Tests prüfen die ALTE Regel (Ausbluten, Notrückholung aller); sie gilt ohne aktive Krankenstation. Die neue Regel steht in test-energie.js.
+  if (!o.krankenstation) g.ship.module = g.ship.module.filter((m) => m.id !== 'krankenstation');
   const P = (i) => g.players[i];
   const send = (i, m) => g.handleMessage(conns[i], m);
   const run = (sec, each) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.step(); if (each) each(); } };
@@ -245,6 +247,8 @@ console.log('\n[Notrückholung aller]');
   run(0.5);
   ok(P(0).zone === 'ship' && P(1).zone === 'ship' && !P(0).downed && !P(1).downed && events('squadRecall').length === 1, 'alle verwundet -> Notrückholung aller (squadRecall)');
   ok(g.mission.state.stage === stage && g.phase === 'play', 'kein Game Over, Schritt bleibt');
+  ok(g.ship.systems.transfer === 'broken', 'PAN-01 A: die Notrückholung sprengt den Transfer (zerstört)');
+  g.ship.systems.transfer = 'ok';   // repariert
   const chk = away.canBeam(g, 'down');
   ok(!chk.ok && /kühlt/.test(chk.reason), 'Transfer danach gesperrt: ' + chk.reason);
   g.ship.x = 1500 - 250; g.ship.y = 900; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0;

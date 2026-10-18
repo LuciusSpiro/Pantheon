@@ -333,7 +333,7 @@ function main() {
       const marks = g.inventory.marks; const p = g.players[0];
       ok(shop.buy(g, p, 'ersatzteil') === null && g.inventory.marks === marks - 40, `${ort}: Ersatzteil gekauft (−40 Marken)`);
       g.inventory.marks += 500;
-      ok(shop.buy(g, p, 'schildpool') === null && g.upgrades.schildpool === true, `${ort}: Hafensortiment (Schildpool) wie Lichtkordon`);
+      ok(shop.buy(g, p, 'seitenturm') === null && g.upgrades.seitenturm === true && shop.buy(g, p, 'schildpool') !== null, `${ort}: Hafensortiment (Zusatzrohre) wie Lichtkordon, Schildpool entfällt (PAN-01 A)`);
       ok(shop.buy(g, p, 'kristalllampe') !== null, `${ort}: Vaelen-Sortiment bleibt bei der Karawane`);
       ok(g.weltstand.fraktionHaltung('kontor') === 0 && !Object.keys(g.weltstand.data.fakten).some((k) => /^haltung_/.test(k)), `${ort}: kein Ruf (keine Haltung gesetzt oder verlangt)`);
       // Weltstand fortsetzen: angedockt im Hafen

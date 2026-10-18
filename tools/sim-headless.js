@@ -1346,6 +1346,8 @@ class KeshAgent extends Agent {
   // ---- Captain an Bord: Funk, Kurs, Befehle, Sensor, Kuppel ----
   captainLogic(S, p, st) {
     if (st === 'briefing') { this.acceptRadio(S) || this.enter(S, 'captain'); return; }
+    // PAN-01 A: Jede Notrückholung sprengt den Transfer; der Captain-Bot repariert ihn, damit das Team unten wieder hochkommt (sonst Softlock beim Extract)
+    if (S.ship.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
     if (S.ship.scene !== 'kesh') { this.travel(S, p, 'kesh'); return; }
     if (!this.enter(S, 'captain')) return;
     const away = S.players.filter((o) => o.zone === 'away');
@@ -1368,6 +1370,8 @@ class KeshAgent extends Agent {
     if (st === 'briefing') { if (this.role === 'helm') this.enter(S, 'helm'); else this.input(0, 0); return; }
     if (S.ship.scene !== 'kesh') { if (this.role === 'helm') this.travel(S, p, 'kesh'); else if (p.console) this.leave(S); else this.onMyPad(S, p); return; }
     if (st === 'extract' && S.inventory.tafel >= 1) { if (p.console) this.leave(S); this.input(0, 0); return; }
+    // PAN-01 A: Jede Notrückholung sprengt den Transfer; die Besatzung an Bord (nicht der Helm) repariert ihn, bevor es wieder runtergeht
+    if (this.role !== 'helm' && S.ship.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
     const sh = S.ship; const stn = this.station(S);
     const spot = { x: stn.x - 250, y: stn.y };
     const ok = dist(sh.x, sh.y, stn.x, stn.y) <= 330 && sh.speed <= 12;

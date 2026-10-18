@@ -366,16 +366,18 @@ section('Snapshot kompakt', () => {
   info(full);
 });
 
-section('Schnittstelle gesichert/ungesichert (AP9, nur bereitgestellt)', () => {
+section('Schnittstelle gesichert/ungesichert (AP9; Wirkung in test-energie.js)', () => {
   const T = arena();
   ok(Fracht.gesichert(T.g) === true && T.g.snapshot().fracht === undefined, 'Standard: gesichert, nicht im Snapshot');
   Fracht.setGesichert(T.g, false);
   ok(Fracht.gesichert(T.g) === false && T.g.snapshot().fracht && T.g.snapshot().fracht.g === false, 'ungesichert: Snapshot fracht.g = false');
   Fracht.setGesichert(T.g, true);
   ok(T.g.snapshot().fracht === undefined, 'wieder gesichert: Feld weg');
-  Fracht.setGesichert(T.g, false);
+  // PAN-01 A: das Modul Frachtraum setzt die Flagge jeden Tick; ausgeschaltet bleibt sie false
+  require('../server/sim/module.js').schalten(T.g, 'frachtraum', false, null, 0, 8); T.run(0.1);
+  ok(Fracht.gesichert(T.g) === false, 'Modul Frachtraum aus: ungesichert');
   pod(T, 100); T.taktik(); T.cmd('weapons.fracht'); T.run(3.1);
-  ok(Fracht.anBord(T.g) === 1, 'ungesichert hat heute keine Wirkung auf das Beamen (AP9 nutzt die Flagge später)');
+  ok(Fracht.anBord(T.g) === 1, 'ungesichert hat keine Wirkung auf das Beamen (die Wirkung sind Hüllentreffer, siehe test-energie.js)');
 });
 
 section('Debug-Befehle', () => {

@@ -173,7 +173,9 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   run(0.1);
   ok(g.ship.power.shields === 3 && g.ship.shields.pool === 3 * g.C.shields.pointsPerPower, 'Energie verschoben, Schildpool ' + g.ship.shields.pool + ' (M3b: 3 je Energie)');
   g.ship.systems.reactor = 'broken'; run(0.1);
-  ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= g.C.spaceM3.reactorBrokenOutput && g.ship.power.life >= 1, 'Reaktor broken -> Notstrom 2, von oben gekürzt, Lebenserhaltung zuletzt');
+  // PAN-01 A: Kürzung 1. Hauptsysteme von oben bis 1, 2. Module aus, 3. Hauptsysteme unter 1 (Waffen zuerst); Modul-Wunsch bleibt erhalten
+  const SP = require('../server/sim/space.js');
+  ok(SP.powerUsed(g) <= g.C.spaceM3.reactorBrokenOutput && g.ship.module.every((m) => !m.lauf && m.an) && g.ship.power.engines >= 1 && g.ship.power.shields >= 1, 'Reaktor broken -> Notstrom 2: Hauptsysteme auf 1, Module aus (Wunsch bleibt), Waffen zuletzt unter 1');
   // M3a: Ein zerstörter Reaktor braucht nach der Reparatur einen Neustart (test-m3); hier direkt wieder online
   g.ship.systems.reactor = 'ok'; require('../server/sim/space.js').reactorOnline(g, 'Test'); run(0.1);
   ok(g.ship.power.shields === 3 && g.ship.power.weapons === 1, 'Reaktor repariert + online -> letzte Einstellung zurück');
@@ -194,7 +196,7 @@ console.log('\n[M1 §6: Reaktor überladen, offline, Neustart zu zweit]');
   ok(events('oda').some((e) => /endet in 30 s/.test(e.text)), 'ODA-Warnung 30 s vorher');
   run(31);
   ok(g.ship.reactor.state === 'offline' && g.ship.reactor.output === 2, 'danach offline, Notstrom 2');
-  ok(Object.values(g.ship.power).reduce((a, b) => a + b, 0) <= 2 && g.ship.power.life >= 1, 'Energie von oben gekürzt, Lebenserhaltung zuletzt');
+  ok(require('../server/sim/space.js').powerUsed(g) <= 2 && g.ship.power.shields >= 1 && g.ship.power.engines >= 1, 'Energie gekürzt (Notstrom 2): Module aus, Schilde und Antrieb behalten 1');
   send(0, { t: 'leave' });
   placeAt(0, switchSpot('A')); placeAt(1, switchSpot('B'));
   send(0, { t: 'act', down: true }); run(1);
@@ -224,14 +226,14 @@ console.log('\n[Kai: ein Bot als Standard, zweiter im Shop; Reaktor-Neustart sol
   const { g, P, send, run, placeAt, events } = setup(1);
   send(0, { t: 'debug', cmd: 'skip' });
   ok(g.C.bot.count === 1 && g.bots.length === 1 && Bots.botAnzahl(g) === 1, 'Standard: genau 1 Bot (' + g.bots.length + ')');
-  const e = g.C.shop.find((s) => s.id === 'bot2');
-  ok(e && e.price === 100 && e.kind === 'upgrade' && !g.C.shop.some((s) => s.id === 'schrauber3'), 'Shop-Ware bot2 (100 Marken), kein dritter Schrauber');
-  g.upgrades.bot2 = true; Bots.ensureBotCount(g);
-  ok(g.bots.length === 2, 'mit bot2: 2 Bots');
-  g.upgrades.schrauber3 = true; g.upgrades.bot2 = true; Bots.ensureBotCount(g);
-  ok(g.bots.length === 2 && Bots.botAnzahl(g) === 2, 'Maximum 2 Bots');
+  // PAN-01 A: bot2 ist das Modul Werkstatt (kein Shop-Eintrag mehr), schildpool entfällt
+  ok(!g.C.shop.some((s) => s.id === 'bot2' || s.id === 'schildpool' || s.id === 'schrauber3') && !('bot2' in g.upgrades) && !('schildpool' in g.upgrades), 'Shop: kein bot2, kein schildpool, kein dritter Schrauber');
+  const Modul = require('../server/sim/module.js');
+  ok(Modul.bestuecken(g, 'werkstatt') === null && (Bots.ensureBotCount(g), g.bots.length === 2), 'mit Modul Werkstatt: 2 Bots');
+  Modul.bestuecken(g, 'werkstatt'); Bots.ensureBotCount(g);
+  ok(g.bots.length === 2 && Bots.botAnzahl(g) === 2, 'Maximum 2 Bots (auch mit zwei Werkstätten)');
   // Neustart nacheinander, ohne Bot
-  g.bots.length = 0; g.C.bot.count = 0; g.upgrades.bot2 = false; g.upgrades.schrauber3 = false;
+  g.bots.length = 0; g.C.bot.count = 0; g.ship.module = [];
   g.ship.reactorCtl.state = 'offline'; g.ship.reactorCtl.offlineT = 0;
   placeAt(0, switchSpot('A')); send(0, { t: 'act', down: true }); run(2);
   ok(g.ship.reactor.latch.A > 0 && g.ship.reactor.switches.A, 'Schalter A rastet nach latchHold ein');

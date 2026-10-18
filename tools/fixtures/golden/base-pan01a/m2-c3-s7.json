@@ -1,0 +1,15 @@
+{
+  "format": "golden-trace/1",
+  "mission": "m2",
+  "crew": 3,
+  "seed": 7,
+  "success": false,
+  "softlock": "m1/return",
+  "durationS": null,
+  "stages": [],
+  "radio": [],
+  "oda": [],
+  "notices": [],
+  "rewards": [],
+  "end": null
+}
