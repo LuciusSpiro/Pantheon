@@ -253,9 +253,10 @@
       const bx = box ? box.x : 8, bw = box ? box.w : VW - 16, y = box ? box.y : VH - 30, h = 12;   // Pult: Lage aus box (unten in der Anzeige)
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(bx, y, bw, h);
       ctx.strokeStyle = l.belegt ? PAL.brass : '#3A4250'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, h - 1);
-      R.text(ctx, l.titel, bx + 6, y + 2, { color: PAL.brass, shadow: false });
-      const x0 = bx + 6 + R.measure(l.titel, 1) + 6;
-      if (!l.gesichert) R.text(ctx, 'UNGESICHERT', bx + bw - 6, y + 2, { color: PAL.red, shadow: false, align: 'right' });   // PAN-01 A: Frachtraum ohne Strom
+      // PAN-01 A: ungesichert (Frachtraum ohne Strom) = roter Titel; im breiten Kasten mit Wort, im schmalen Pult-Kasten nur mit „!“
+      const titel = l.gesichert ? l.titel : (bw >= 300 ? l.titel + ' · UNGESICHERT' : '! ' + l.titel);
+      R.text(ctx, titel, bx + 6, y + 2, { color: l.gesichert ? PAL.brass : PAL.red, shadow: false });
+      const x0 = bx + 6 + R.measure(titel, 1) + 6;
       if (!l.belegt) { R.text(ctx, 'leer · ' + l.frei + ' frei', x0, y + 2, { color: PAL.panelLight, shadow: false }); return; }
       let x = x0;
       for (const e of l.eintraege) {
@@ -1076,7 +1077,7 @@
     capModule(ctx, view, a, y, ship, output) {
       const mods = this.modulListe(ship);
       R.text(ctx, 'BORDMODULE', a.x, y, { color: PAL.brass });
-      R.text(ctx, mods.length + ' eingebaut · je 1 Energie, solange sie laufen', a.x + 80, y, { color: PAL.panelLight });
+      R.text(ctx, mods.length + ' eingebaut · je 1 Energie', a.x + 80, y, { color: PAL.panelLight });
       y += 12;
       mods.forEach((m, j) => {
         const sel = this.sel.power === SEL_MOD0 + j;
@@ -2027,13 +2028,13 @@
       else if (n(sup.supply) > 0) supR = 'Abklingzeit ' + Math.ceil(sup.supply) + ' s';
       R.button(ctx, 16, y, 388, 18, 'Nachschub: Medipack zur Markierung (' + n(inv.medipack) + ' im Lager)', { hotkey: '3', disabled: !!supR, reason: supR, onClick: () => this.cmd(view, 'transfer.supply') });
       y += 28;
-      R.text(ctx, 'AUSSENTEAM · NOTRÜCKHOLUNG', 16, y, { color: PAL.brass }); y += 12;
+      R.text(ctx, 'AUSSENTEAM · NOTRÜCKHOLUNG', 16, y, { color: PAL.brass }); R.text(ctx, 'sprengt den Transfer (Reparatur nötig)', 224, y, { color: PAL.amber }); y += 12;
       if (!awayTeam.length) R.text(ctx, 'Niemand unten.', 16, y, { color: PAL.panelLight });
       awayTeam.forEach((p, i) => {
         R.shape(ctx, R.SHAPES[p.color || 0], 21, y + 8, 8, PAL.players[p.color || 0]);
         R.text(ctx, String(p.name).slice(0, 12), 30, y + 4, { color: PAL.players[p.color || 0] });
         if (Array.isArray(p.sh) && !p.downed) R.drawShieldPips(ctx, 120, y + 3, p.sh[0], p.sh[1], n(p.shR), 9, 2);
-        else if (Array.isArray(p.sh)) R.text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.ceil(p.bleed) + ' s' : ''), 120, y + 4, { color: PAL.red });
+        else if (Array.isArray(p.sh)) R.text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.ceil(H.holIn(st, p)) + ' s' : ''), 120, y + 4, { color: PAL.red });
         else R.bar(ctx, 120, y + 5, 90, 6, n(p.hp, 100) / 100, p.downed ? PAL.red : PAL.moss);
         const rr = sysDown(st.ship || {}, 'transfer') ? 'Transfer ausgefallen' : n(sup.recall) > 0 ? 'Abklingzeit ' + Math.ceil(sup.recall) + ' s' : null;
         R.button(ctx, 220, y, 184, 16, 'Notrückholung', { hotkey: String(4 + i), disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'transfer.recall', { pid: p.id }) });

@@ -60,8 +60,18 @@
     return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
   }
 
+  // PAN-01 A: Sekunden bis zur Notrückholung eines Verwundeten. Läuft die Krankenstation (ship.mod) und ist der Transfer heil, holt sie nach
+  // CONFIG.module.krankenstation.holNach s (kürzer als das Ausbluten); sonst gilt der Ausblut-Zähler (bleed).
+  function holIn(st, p) {
+    if (!p || p.bleed == null) return null;
+    const ship = (st && st.ship) || {};
+    const kr = (ship.mod || []).some((m) => m[0] === 'k' && m[3]) && ship.systems && ship.systems.transfer !== 'broken' && ship.systems.transfer !== 'offline';
+    const hol = (CFG.module && CFG.module.krankenstation && CFG.module.krankenstation.holNach) || 10;
+    return kr ? Math.min(p.bleed, Math.max(0, hol - (+p.downedFor || 0))) : p.bleed;
+  }
+
   const Hud = {
-    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -758,7 +768,7 @@
       // Kameraden kein „E halten“-Hinweis
       const wellen = !!st.wellen;
       const kamerad = (st.players || []).some(q => q.id !== me.id && q.zone === 'away' && !q.downed && q.connected !== false);
-      R.text(ctx, 'VERWUNDET' + (!wellen && me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(me.bleed)) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
+      R.text(ctx, 'VERWUNDET' + (!wellen && me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(this.holIn(st, me))) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
       R.text(ctx, kamerad ? 'Kameraden: neben dir E halten' : wellen ? 'Niemand steht mehr – die Runde endet' : 'Allein unten – warte auf die Notrückholung', cx, y + 16, { color: PAL.star, align: 'center' });
       R.text(ctx, 'Du: mit der Maus zielen, Klick = Pistole', cx, y + 27, { color: R.SHIELD_COL, align: 'center' });
     },

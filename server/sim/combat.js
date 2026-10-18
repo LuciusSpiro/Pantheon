@@ -546,7 +546,8 @@ function updateWounded(game, p, dt) {
 // wounded.bleedout, Bewusstlose wachen auf oder warten auf die Rückholung des ganzen Teams). Ist der Transfer aus, holt niemand: es gilt die alte Regel.
 // Rückgabe true = der Spieler wurde geholt (bzw. die Prüfung ist erledigt).
 function krankenstationHolt(game, p, dt) {
-  if (!p.downed || p.gefangen || p.zustand === 'gefesselt' || !Modul().laeuft(game, 'krankenstation')) { p.holT = 0; return false; }
+  // Wellenmodus Boden: keine Notrückholung (alle unten = Ende der Runde, wellen.js), also holt auch die Krankenstation niemanden
+  if (!p.downed || p.gefangen || p.zustand === 'gefesselt' || (game.arena && game.arena.wellen) || !Modul().laeuft(game, 'krankenstation')) { p.holT = 0; return false; }
   p.holT = (p.holT || 0) + dt;
   if (p.holT < game.C.module.krankenstation.holNach) return false;
   if (isDown(game.ship.systems.transfer)) return false;
@@ -1776,7 +1777,7 @@ function awaySnap(game, aw) {
 }
 
 module.exports = {
-  makeKesh, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, squadRecall,
+  makeKesh, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, scanQuality, tune, tuneList,
   playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,

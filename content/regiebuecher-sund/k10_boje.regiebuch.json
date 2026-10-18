@@ -1,6 +1,6 @@
 {
   "$schema": "../regiebuch/regiebuch.schema.json",
-  "_kommentar": "SL10 Kapitel 10 „Die Boje“ (CONCEPT-SL10): Fundort Bojenfeld (verborgene Kante boje-fundort wird enthüllt), alle vier Stationen: Ops löst die Adresse (Glyphen/Sternkarte, der Captain sieht die Konstellation), Technik fährt Module herunter und hält 4 Reaktorpunkte frei (Lebenserhaltung aus = Uhr), Navigation hält die Lerche im Aktivierungsfeld (drückt und driftet). Nach Weg A (Lösegeld, Fakt lerche_weg = loesegeld) kommen die Piraten in Wellen (Wettlauf), nach Weg B nicht. Bei 100 erwacht die Boje: die locked-Kante in den Vorläufer-Sektor öffnet sich dauerhaft. Danach Sprung in den Vorläufer-Sektor, Ende der Kampagne (Abspann: concept/sl/abspann.ende.json). Orte nur mit aktiver Sund-Karte gültig.",
+  "_kommentar": "SL10 Kapitel 10 „Die Boje“ (CONCEPT-SL10): Fundort Bojenfeld (verborgene Kante boje-fundort wird enthüllt), alle vier Stationen: Ops löst die Adresse (Glyphen/Sternkarte, der Captain sieht die Konstellation), Technik fährt Waffen und Bordmodule herunter und hält 4 Reaktorpunkte frei (PAN-01 A: die frühere O2-Uhr der Lebenserhaltung entfällt, solange AP10 ruht), Navigation hält die Lerche im Aktivierungsfeld (drückt und driftet). Nach Weg A (Lösegeld, Fakt lerche_weg = loesegeld) kommen die Piraten in Wellen (Wettlauf), nach Weg B nicht. Bei 100 erwacht die Boje: die locked-Kante in den Vorläufer-Sektor öffnet sich dauerhaft. Danach Sprung in den Vorläufer-Sektor, Ende der Kampagne (Abspann: concept/sl/abspann.ende.json). Orte nur mit aktiver Sund-Karte gültig.",
   "format": "regiebuch/1",
   "id": "k10_boje",
 
@@ -105,7 +105,7 @@
     "boje.lage": "Die Boje schläft. Ops: Adresse, Captain liest die Konstellation vor. Technik: Module aus. Navigation: im Feld bleiben.",
     "boje.tipp_adresse": "Captain: Die Konstellation steht auf deinem Schirm, sag der Ops die Sterne an. Ops: Leertaste setzt, Enter sendet.",
     "boje.tipp_feld": "Navigation: Die Lerche muss im Aktivierungsfeld bleiben. Es drückt und driftet, gegen die Strömung halten.",
-    "boje.tipp_energie": "Technik: Die Boje braucht 4 freie Reaktorpunkte. Waffen und Lebenserhaltung herunterfahren, der O2-Vorrat läuft.",
+    "boje.tipp_energie": "Technik: Die Boje braucht 4 freie Reaktorpunkte. Waffen herunterfahren, Bordmodule abschalten.",
     "boje.erwacht": "Die Boje erwacht! Der Sprungpunkt in den Vorläufer-Sektor ist offen. Technik, Module wieder hoch.",
 
     "sprung.tipp": "Sprungpunkt am Rand des Bojenfelds: Sternkarte, Vorläufer-Sektor wählen, Sprung.",
