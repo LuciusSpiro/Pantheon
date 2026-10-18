@@ -753,5 +753,21 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
   }
 });
 
+section('Snapshot-Budget mit neun feuernden Waffen (Projektile im Flug)', () => {
+  const T = arena(); const g = T.g; T.debug('ausbau', '3'); T.debug('bestueck', 'alle 3');
+  for (const d of [[0, -250], [250, 0], [-250, 0], [0, 250]]) gegner(T, 'korvette', d[0], d[1], { hp: 99999 });
+  g.ship.target = g.space.enemies[0].id;
+  let max = 0, maxPr = 0;
+  for (let i = 0; i < 30 * 20; i++) {
+    pin(g);
+    for (const id of Object.keys(g.ship.mount)) { const m = g.ship.mount[id]; if (m.charge != null && !(m.salvo > 0)) m.charge = 1; }
+    if (i % 20 === 0) T.cmd(0, 'weapons.fire', { mount: 'all' });
+    T.run(1 / 30);
+    const n = JSON.stringify(g.snapshot()).length; if (n > max) max = n;
+    const pr = g.space.projectiles.length; if (pr > maxPr) maxPr = pr;
+  }
+  ok(max <= 18944 && maxPr >= 20, `Snapshot max ${max} B bei bis zu ${maxPr} Projektilen gleichzeitig (Budget 18944 B)`);
+});
+
 console.log(`\ntest-waffen-schiff: ${n - fails}/${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));
 process.exit(fails ? 1 : 0);

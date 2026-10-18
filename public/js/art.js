@@ -3705,12 +3705,53 @@
     ctx.globalCompositeOperation = op;
     glow(ctx, x, y, '#7FD6C8', 4, 0.5);
   }
+  // PAN-01 C (Kai 2026-10-18): Projektile der Lerche. Standardbatterie = bernsteinfarbener Doppelbolzen (zwei Funken nebeneinander), Standardkanone = dicker rotorangefarbener Bolzen
+  // mit Glutspur, Sturmbatterie = Nadel (drawNadel), Abwehrturm = kleiner heller Funke. Bug +x; feste Größen, kein Cache nötig.
+  function drawDoppelbolzen(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(242,193,78,0.28)'; ctx.fillRect(-14, -3, 12, 6);
+    ctx.fillStyle = 'rgba(242,193,78,0.95)'; ctx.fillRect(-8, -3, 8, 2); ctx.fillRect(-8, 1, 8, 2);
+    ctx.fillStyle = '#FFF1B8'; ctx.fillRect(-2, -3, 3, 2); ctx.fillRect(-2, 1, 3, 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#F2C14E', 6, 0.55);
+  }
+  function drawKanonenbolzen(ctx, x, y, angle, t) {
+    var op = ctx.globalCompositeOperation, fl = frameOf(t || 0, 20, 2);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(255,122,60,0.25)'; ctx.fillRect(-20, -3, 14, 6);
+    ctx.fillStyle = 'rgba(255,122,60,0.55)'; ctx.fillRect(-14, -2, 10, 4);
+    ctx.fillStyle = '#FF7A3C'; ctx.fillRect(-8, -2, 9, 4);
+    ctx.fillStyle = fl ? '#FFF1B8' : '#FFC66B'; ctx.fillRect(-1, -1, 4, 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#FF7A3C', 8, 0.65);
+  }
+  function drawFunke(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(169,214,229,0.4)'; ctx.fillRect(-7, -1, 7, 3);
+    ctx.fillStyle = '#E8F7FF'; ctx.fillRect(-2, 0, 4, 1);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#A9D6E5', 3, 0.5);
+  }
   function drawProjectile(ctx, kind, x, y, angle, t) {
     if (kind === 'pistol' || kind === 'warden') { drawProjectileM2(ctx, kind, x, y, angle, t); return; }   // M2
     if (kind === 'sperrfeuer') { drawSperrfeuer(ctx, x, y, angle, t); return; }   // S2b
     if (kind === 'torpedo' || kind === 'etorpedo') { drawTorpedo(ctx, kind, x, y, angle, t); return; }   // PAN-01 C
     if (kind === 'streu' || kind === 'estreu') { drawGranate(ctx, kind, x, y, angle, t); return; }
-    if (kind === 'sturm') { drawNadel(ctx, x, y, angle); return; }
+    if (kind === 'sturm' || kind === 'psturm') { drawNadel(ctx, x, y, angle); return; }
+    if (kind === 'pbatterie') { drawDoppelbolzen(ctx, x, y, angle); return; }
+    if (kind === 'pkanone') { drawKanonenbolzen(ctx, x, y, angle, t); return; }
+    if (kind === 'pfunke') { drawFunke(ctx, x, y, angle); return; }
     if (!PROJ_GLOW[kind]) { missing(ctx, Math.round(x - 4), Math.round(y - 4), 8, 8); return; }
     var spr = projSprite(kind);
     glow(ctx, x, y, PROJ_GLOW[kind], kind === 'bolzen' ? 5 : 7, 0.6);

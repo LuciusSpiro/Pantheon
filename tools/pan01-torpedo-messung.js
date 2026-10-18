@@ -44,7 +44,7 @@ function neuesSpiel(players) {
 }
 
 // Teil 1: ein Ziel steht still 400 px hinter der Lerche; so lange feuern, bis es zerstört ist
-function treffer(kind, crew, seite) {
+function treffer(kind, crew, seite, schildNull) {
   const g = neuesSpiel(crew);
   const sh = g.ship;
   g.inventory.bolzen = 99;
@@ -52,8 +52,8 @@ function treffer(kind, crew, seite) {
   const hp0 = e.hp, schild0 = e.shields.reduce((a, b) => a + b, 0);
   g.ship.target = e.id;
   let t = 0, schuesse = 0, tZerstoert = null;
-  const pin = () => { e.x = sh.x - 400; e.y = sh.y; e.angle = seite === 'heck' ? Math.PI : 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.vx = sh.vy = 0; };
-  while (g.space.enemies.includes(e) && t < (seite === 'bug' && Katalog.TORPEDO.schildUmgehung !== 'immer' ? 60 : 400)) {
+  const pin = () => { if (schildNull) e.shields = e.shields.map(() => 0); e.x = sh.x - 400; e.y = sh.y; e.angle = seite === 'heck' ? Math.PI : 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.vx = sh.vy = 0; };
+  while (g.space.enemies.includes(e) && t < (!schildNull && Katalog.TORPEDO.schildUmgehung !== 'immer' ? 60 : 400)) {
     pin();
     if (g.ship.mount.p2.cd <= 0 && !g.space.projectiles.some((q) => q.kind === 'torpedo')) { const err = Waffen.weaponsFire(g, 'bolzen'); if (!err) schuesse++; }
     g.step(); t += DT;
@@ -63,13 +63,13 @@ function treffer(kind, crew, seite) {
 }
 
 function teil1() {
-  console.log('\n## Teil 1 – Treffer bis Zerstörung (Torpedo, kein Schildschaden, Katalog TORPEDO.schaden)');
+  console.log('\n## Teil 1 – Treffer bis Zerstörung (Lesart B: Schild 0 im getroffenen Sektor, kein Schildschaden, Katalog TORPEDO.schaden)');
   console.log('| Ziel | Crew | Hülle | Schild (Summe) | Schaden/Treffer | Treffer bis Zerstörung | Zeit bei Cooldown 8 s | 10 s | 12 s |');
   console.log('|---|---|---|---|---|---|---|---|---|');
   const klassen = ['raider', 'korvette', 'fregatte', 'kreuzer', 'sentinel', 'pylon', 'frachter'];
   const rows = [];
   for (const kind of klassen) for (const crew of [1, 3]) {
-    const r = treffer(kind, crew); rows.push(r);
+    const r = treffer(kind, crew, 'bug', true); rows.push(r);
     const zeit = (cd) => f1(Math.max(0, r.treffer - 1) * cd + (r.flug > 0 ? Math.min(r.flug, 2.5) : 1.2));
     console.log(`| ${kind} | ${crew} | ${f1(r.hp)} | ${f1(r.schild)} | ${r.dmg} | ${r.treffer} | ${zeit(8)} s | ${zeit(10)} s | ${zeit(12)} s |`);
   }
@@ -78,36 +78,36 @@ function teil1() {
   return rows;
 }
 
-// Teil 2: Gegner-Torpedo auf die Lerche
-// Lesart A (immer) gegen B (nur ohne Schild; Pylon und Wächter immer so): Treffer bis Zerstörung je Klasse, Ziel mit Bug (Schildseite) oder Heck zur Lerche, 3 Spieler
+// Lesarten: A (Testschalter 'immer': an Schilden vorbei) gegen B (Katalogwert 'nur-ohne-schild', Kai 2026-10-18, alle Ziele): Treffer bis Zerstörung je Klasse, Crew 3, Ziel mit Schildseite zur Lerche
 function teilLesarten() {
-  console.log('## Lesarten des Torpedo-Schilds (Crew 3; — = kein Schaden, solange der Schild steht)');
-  console.log('| Ziel | Seite zur Lerche | Lesart A (immer an Schilden vorbei) | Lesart B (nur ohne Schild) |');
+  console.log('## Lesarten des Torpedo-Schilds (Crew 3, Schildseite des Ziels zur Lerche; — = kein Schaden, solange der Schild steht)');
+  console.log('| Ziel | Lesart A (Testschalter: immer an Schilden vorbei) | Lesart B, Schild steht | Lesart B, Schild 0 |');
   console.log('|---|---|---|---|');
-  for (const kind of ['raider', 'korvette', 'fregatte', 'kreuzer', 'pylon', 'sentinel']) for (const seite of ['bug', 'heck']) {
-    const res = {};
-    for (const l of ['immer', 'nur-ohne-schild']) { Katalog.TORPEDO.schildUmgehung = l; const r = treffer(kind, 3, seite); res[l] = r.toetet ? r.treffer : '—'; }
-    Katalog.TORPEDO.schildUmgehung = 'immer';
-    console.log(`| ${kind} | ${seite === 'bug' ? 'Bug (geschützt)' : 'Heck (offen)'} | ${res.immer} | ${res['nur-ohne-schild']} |`);
+  for (const kind of ['raider', 'korvette', 'fregatte', 'kreuzer', 'pylon', 'sentinel']) {
+    Katalog.TORPEDO.schildUmgehung = 'immer'; const a = treffer(kind, 3, 'bug', false);
+    Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild'; const b = treffer(kind, 3, 'bug', false); const c = treffer(kind, 3, 'bug', true);
+    console.log(`| ${kind} | ${a.toetet ? a.treffer : '—'} | ${b.toetet ? b.treffer : '—'} | ${c.toetet ? c.treffer : '—'} |`);
   }
 }
 function teil2() {
-  console.log('\n## Teil 2 – Gegner-Torpedo gegen die Lerche (Katalog TORPEDO.gegenLerche, geht an Schild und Pool vorbei)');
+  console.log('\n## Teil 2 – Gegner-Torpedo gegen die Lerche (Katalog TORPEDO.gegenLerche; Lesart B: wirkt nur bei Schild 0 im getroffenen Sektor)');
   const T = Katalog.TORPEDO;
   const g = neuesSpiel(3); const sh = g.ship; g.god = false;
   const mess = (opt) => {
-    g.ship.hull = g.ship.hullMax; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
+    g.ship.hull = g.ship.hullMax; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = opt.schildNull ? 0 : 4;
     g.ship.lastDodgeT = opt.ausweichen ? g.time : -99;
     const h0 = g.ship.hull; const s0 = g.ship.shields.current.slice();
     space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche });
     return { huelle: h0 - g.ship.hull, schild: s0.map((v, i) => v - g.ship.shields.current[i]).reduce((a, b) => a + b, 0) };
   };
-  const r = mess({});
-  console.log(`Ein Treffer bei vollen Schilden (4 je Sektor): Hülle −${f1(r.huelle)} von ${sh.hullMax} (${f1(r.huelle / sh.hullMax * 100)} %), Schildabzug ${f1(r.schild)}.`);
-  const a = mess({ ausweichen: true });
+  const r0 = mess({});
+  console.log(`Lesart B (Kai 2026-10-18) gilt auch für die Lerche: ein Treffer bei vollen Schilden (4 je Sektor): Hülle −${f1(r0.huelle)} (abgeprallt), Schildabzug ${f1(r0.schild)}.`);
+  const r = mess({ schildNull: true });
+  console.log(`Ein Treffer bei Schild 0 im getroffenen Sektor: Hülle −${f1(r.huelle)} von ${sh.hullMax} (${f1(r.huelle / sh.hullMax * 100)} %), Schildabzug ${f1(r.schild)}.`);
+  const a = mess({ ausweichen: true, schildNull: true });
   console.log(`Treffer direkt nach einer Ausweichrolle (Fenster ${CONFIG.spaceM3.dodgeWindow} s): Hülle −${f1(a.huelle)} (verfehlt).`);
-  const dreimal = (() => { g.ship.hull = g.ship.hullMax; g.ship.lastDodgeT = -99; for (let i = 0; i < 3; i++) space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche }); return g.ship.hullMax - g.ship.hull; })();
-  console.log(`Drei Treffer in Folge: Hülle −${f1(dreimal)} (Notfallprotokoll bei 0, nie Game Over; ${f1(dreimal)} < ${sh.hullMax}).`);
+  const dreimal = (() => { g.ship.hull = g.ship.hullMax; g.ship.lastDodgeT = -99; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0; for (let i = 0; i < 3; i++) space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche }); return g.ship.hullMax - g.ship.hull; })();
+  console.log(`Drei Treffer in Folge (Schild 0): Hülle −${f1(dreimal)} (Notfallprotokoll bei 0, nie Game Over; ${f1(dreimal)} < ${sh.hullMax}).`);
   return r;
 }
 
