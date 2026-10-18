@@ -1255,7 +1255,14 @@ class Game {
       case 'god': this.god = !!msg.on; break;
       case 'tp': {   // QA (EK5/EK6): tp <kachelX> <kachelY> – Spieler auf der Außenkarte an eine Kachel setzen (Karten ansehen, Methalle/Feldzeichen erreichen)
         const a = argList(msg); const x = Number(a[0]), y = Number(a[1]);
-        if (p.zone !== 'away' || !Number.isFinite(x) || !Number.isFinite(y)) { err = 'tp <x> <y>: nur im Außeneinsatz, Kachelkoordinaten.'; break; }
+        if (!Number.isFinite(x) || !Number.isFinite(y)) { err = 'tp <x> <y>: Kachelkoordinaten (Außeneinsatz, oder an Bord im Schiffsatlas: Mitteldeck y 0–12, Oberdeck 16–28, Unterdeck 32–44).'; break; }
+        if (p.zone === 'ship') {   // PAN-01 B: an Bord auf eine begehbare Kachel (Decks ansehen, Lifts und Modulräume testen); Pforten gelten nach der Ausbaustufe
+          const tx = Math.round(x), ty = Math.round(y);
+          if (!W.shipWalkableFor(this.ship.stufe)(tx, ty)) { err = 'tp: Kachel (' + tx + ',' + ty + ') ist nicht begehbar.'; break; }
+          p.x = tx * 32 + 16; p.y = ty * 32 + 16; p.lift = null; p.liftDest = null; p.liftSel = null; p.console = null;
+          break;
+        }
+        if (p.zone !== 'away') { err = 'tp <x> <y>: nur an Bord oder im Außeneinsatz.'; break; }
         p.x = Math.round(x) * 32 + 16; p.y = Math.round(y) * 32 + 16;
         break;
       }
