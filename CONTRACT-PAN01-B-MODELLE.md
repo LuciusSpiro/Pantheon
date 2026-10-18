@@ -47,3 +47,15 @@ Das neue **Lerche-Modell** (drei Decks) und der **Draufsicht-Sprite** liefert da
 
 - Kachelart → Modell: Tabellen `STATION_ID`, `CONSOLE_ID`, `FURN_ID` und die Sonderfälle in `buildDynamic` (Modulplätze nach Modul im Raum, Pforte nach Ausbaustufe, Lafette nach Ausbaustufe, Lift 2 × 3).
 - Zustand: `snapshot.ship.mod` (Module je Raum), `snapshot.ship.st` (Ausbaustufe), `snapshot.fracht` (Waren, Personen).
+
+## Integration der Voxelwerk-Lieferung (Stand 2026-10-18, Voxelwerk cc6dcd3)
+
+Die Platzhalter sind ersetzt. Manifest: `assets/manifest/art-pan01.json` (12 Modelle, `cargo_bay` in `art-e.json` auf `art` 0–3).
+
+- **Außenansicht:** `Art.drawShip` zeichnet die Lerche aus dem Sprite `lerche_s0..s3` (Set `rom`, Wahl nach `snapshot.ship.st`, Drehung wie bei den Gegnern). Rohre, Mündungsfeuer, Schildbögen, Schadensrauch und Positionslichter bleiben prozedural; die Rohre sitzen auf den Lafetten-Andockpunkten des Sprites (`tubeLocal` in `render.js`, Spitze am Flankenrand y ±14,4), Schadensrauch auf `SYS_EXT_SPRITE`. Fehlt Manifest, Sheet oder Eintrag, gilt die alte prozedurale Zeichnung, und `Net.reportError('Lerche.sprite')` zählt einmal je Stufe. `tools/check-assets.mjs` kennt die Klassen `lerche_s0..s3` (nur Set `rom` ist Pflicht).
+- **Lift:** `lift/shaft3` + `lift/platform3` (`deck` = Deckindex 0 Mittel, 1 Ober, 2 Unter; `tuer_offen`, solange jemand davor steht und die Kabine steht), `kit/lift_portal` als Brückenrückwand östlich von L1 (Mitteldeck).
+- **Pforten:** zu = `kit/door_sealed` (`stufe` aus `SHIP_SEALS`). Nach der Entsiegelung steht die Standardtür `kit/door`, die beim Nähern aufgeht (`door_sealed.open` hieße „Blatt offen“, nicht „entsiegelt“).
+- **Lafetten:** `station/lafette`, `state` 0 verschlossen / 1 frei (je Ausbaustufe), `art` 0 Seite / 1 Bug (Platz 5) / 2 Heck (Platz 2), `side` aus dem Platz. `ladung`/`state` 2 kommen mit Paket C. Die Batterien 4/6 und die Lanze 8 behalten ihre Systemmodelle.
+- **Modulplätze:** A `cargo_bay`/`med_bed`/`workbench`, B `bed`/`med_cabinet`/`workbench` (die Werkzeugwand gibt es nicht als Modell), C `container_stack`/`scanner`/`lathe`, ohne Modul `stowage` (v nach Kachel-Hash). Frachtraum-Boden `kit/floor_cargo`. Wechsel live über `snapshot.ship.mod`.
+- **Planungstisch:** `furn/mission_book` liegt auf dem Tisch (`neu` bleibt 0, bis ein Anlass im Snapshot definiert ist). Stauware ersetzt die Kiste bei der Schlafecke ohne Bewohner.
+- **Nicht gebaut (Voxelwerk):** Unterdeck-Wandstil, Notleiter-Variante. Das Unterdeck nutzt den Technikwandstil des Mitteldecks (`style 0`).

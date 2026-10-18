@@ -1239,7 +1239,9 @@ class Game {
       case 'spawn': {
         const k = Protocol.ENEMY_KINDS.includes(msg.kind) ? msg.kind : 'raider';
         if (this.ship.docked) { err = 'Nicht angedockt.'; break; }
-        space.spawnEnemy(this, k, msg.volk ? { volk: String(msg.volk) } : {});   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
+        const so = msg.volk ? { volk: String(msg.volk) } : {};
+        if (Number(msg.dist) > 0) { const wa = Number(msg.winkel) || 0, dd = Math.min(900, Number(msg.dist)); so.x = this.ship.x + Math.cos(wa) * dd; so.y = this.ship.y + Math.sin(wa) * dd; }   // Sichtprüfung: Abstand/Winkel zur Lerche (Gegner nah ins Bild)
+        space.spawnEnemy(this, k, so);   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;
       }
       case 'marks': this.inventory.marks = Math.max(0, Math.round(Number(msg.n) || 0)); break;

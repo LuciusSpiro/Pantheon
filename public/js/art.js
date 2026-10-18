@@ -2925,12 +2925,100 @@
       poly(g, [0, 4.5, L * 0.3, 5.3, L * 0.45, 6, L * 0.3, 6.7, 0, 7.5], '#FFF7E0');
     });
   }
+  function shipHitFx(ctx, x, y, W, bang, o) {
+    // Treffer-Blitz im Sektor
+    if (o.hitSector != null && o.hitT != null && o.hitT >= 0 && o.hitT < 0.45) {
+      var q = 1 - o.hitT / 0.45;
+      var secAng = [0, Math.PI / 2, Math.PI, -Math.PI / 2][o.hitSector | 0] || 0;
+      var shielded = o.shields && o.shields[o.hitSector | 0] > 0;
+      var rad = shielded ? 44 : ([34, 15, 34, 15][o.hitSector | 0] || 20);
+      var hp = W(Math.cos(secAng) * rad, Math.sin(secAng) * rad);
+      if (shielded) {
+        ctx.fillStyle = rgba(PAL.eisblau, 0.9 * q);
+        for (var i = -6; i <= 6; i++) {
+          var aa = bang + secAng + i * 0.07;
+          var rr = 44 + (i % 2 ? 1 : 0);
+          ctx.fillRect(Math.round(x + Math.cos(aa) * rr), Math.round(y + Math.sin(aa) * rr * 0.92), 2, 1);
+        }
+        glow(ctx, hp[0], hp[1], PAL.eisblau, 16, q * 0.8);
+      } else {
+        glow(ctx, hp[0], hp[1], '#F08A3C', 14, q);
+        drawFx(ctx, 'sparks', hp[0], hp[1], (1 - q) * 0.45, { seed: 3 });
+      }
+    }
+  }
+  // ---------------------------------------------------------------------------------------------
+  // PAN-01 B Integration: Lerche aus dem Voxelwerk-Sprite (Klassen lerche_s0..s3, Set rom, Wahl nach snapshot.ship.st).
+  // Rohre, Muendungsfeuer und Schildboegen bleiben prozedural (render.js, Rohrlage = Lafetten-Andockpunkte des Sprites).
+  // Rueckfall: Manifest/Sheet/Eintrag fehlt -> alte prozedurale Zeichnung; der Fehler wird je Stufe einmal gezaehlt (Art.errors).
+  // ---------------------------------------------------------------------------------------------
+  var LERCHE_SET = 'rom';
+  var lerchenFehler = {};
+  function lerchenStufe(st) { st = Math.round(+st); return st >= 0 && st <= 3 ? st : 0; }
+  // 'ok' | 'laden' (noch nicht da, kein Fehler) | 'fehlt' (Asset fehlt oder kaputt)
+  function lerchenStatus(stufe) {
+    var klasse = 'lerche_s' + lerchenStufe(stufe);
+    if (!hasDom) return 'fehlt';
+    var info = sprInfo(klasse, LERCHE_SET);
+    if (SPR.state === 'loading' || SPR.state === 'idle') return 'laden';
+    if (!info) return 'fehlt';
+    var s = SPR.sheets[info.file];
+    if (s && s.failed) return 'fehlt';
+    return sprSheet(info) ? 'ok' : 'laden';
+  }
+  function lerchenSprite(stufe) {
+    var st = lerchenStufe(stufe), klasse = 'lerche_s' + st, stat = lerchenStatus(st);
+    if (stat === 'fehlt') {
+      if (!lerchenFehler[klasse]) { lerchenFehler[klasse] = 1; warn('lerche-sprite ' + klasse, 'Sprite fehlt, prozedurale Lerche'); }
+      return null;
+    }
+    if (stat !== 'ok') return null;
+    var info = sprInfo(klasse, LERCHE_SET);
+    return { info: info, img: sprSheet(info) };
+  }
+  // Positionen im Spritekoordinatensystem (px, Bug +x, Backbord -y) fuer Schaeden an den Systemen
+  var SYS_EXT_SPRITE = {
+    reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-33, 0], emitter_aft: [-25, -5],
+    thruster_port: [-16, -12], thruster_stbd: [-16, 12], battery_port: [0, -10], battery_stbd: [0, 10],
+    emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [38, 0], emitter_bow: [24, 4],
+  };
+  function drawShipSpriteLerche(ctx, sp, x, y, b, o, W) {
+    var t = o.time || 0, bang = b / ROT_STEPS * Math.PI * 2, info = sp.info, so = info.sockets || {};
+    function S(n, dx, dy) { var p = so[n]; return p ? W(p[0], p[1]) : W(dx, dy); }
+    // Schubflamme hinter dem Triebwerk
+    var th = Math.max(0, Math.min(1, o.thrust || 0));
+    var rp = W(info.heck[0] + 1, 0);
+    glow(ctx, rp[0], rp[1], PAL.bernstein, 10 + th * 12, 0.3 + th * 0.4);
+    if (th > 0.02) {
+      ctx.save();
+      ctx.translate(rp[0], rp[1]); ctx.rotate(bang + Math.PI);
+      var fl = flameSprite(frameOf(t, 14, 4)), len = 6 + th * 22, op = ctx.globalCompositeOperation;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(fl, 0, -6, Math.round(len), 12);
+      ctx.globalCompositeOperation = op;
+      ctx.restore();
+    }
+    ctx.drawImage(sprFrame(sp, b), Math.round(x - info.anchor[0]), Math.round(y - info.anchor[1]));
+    // Positionslichter (Backbord rot, Steuerbord mint) an den Andockpunkten des Sprites
+    var blink = (t % 1.2) < 0.6, red = S('positionslicht_bb', 7.5, -9.2), mint = S('positionslicht_stb', 7.5, 9.2);
+    glow(ctx, red[0], red[1], PAL.alarmrot, 7, blink ? 0.9 : 0.35);
+    glow(ctx, mint[0], mint[1], PAL.mint, 7, blink ? 0.35 : 0.9);
+    ctx.fillStyle = blink ? '#FFD0C4' : '#C8605A'; ctx.fillRect(Math.round(red[0]), Math.round(red[1]), 1, 1);
+    ctx.fillStyle = blink ? '#8FD0B8' : '#E8FFF8'; ctx.fillRect(Math.round(mint[0]), Math.round(mint[1]), 1, 1);
+    // Linse der Lanze glimmt (nicht bei zerstoerter Bug-Waffe)
+    var lst = o.systems && o.systems.weapon_bow;
+    if (lst !== 'broken') { var lz = S('muendung_lanze', 39, 0); glow(ctx, lz[0], lz[1], PAL.mint, 5, lst === 'damaged' ? 0.2 + 0.2 * Math.sin(t * 17) : 0.35 + 0.15 * Math.sin(t * 3)); }
+    drawShipDamage(ctx, W, bang, o, t, SYS_EXT_SPRITE);
+    shipHitFx(ctx, x, y, W, bang, o);
+  }
   function drawShip(ctx, x, y, angle, opts) {
     var o = opts || {};
     var t = o.time || 0, ang = angle || 0, b = rotBucket(ang);
     var bang = b / ROT_STEPS * Math.PI * 2;
     var co = Math.cos(bang), si = Math.sin(bang);
     function W(lx, ly) { return [x + lx * co - ly * si, y + lx * si + ly * co]; }
+    var lsp = lerchenSprite(o.stufe);   // PAN-01 B (Integration): Voxel-Sprite der Lerche je Ausbaustufe, sonst die prozedurale Zeichnung
+    if (lsp) { drawShipSpriteLerche(ctx, lsp, x, y, b, o, W); return; }
     // Schubflamme hinter dem Ring
     var th = Math.max(0, Math.min(1, o.thrust || 0));
     var rp = W(-35, 0);
@@ -2966,26 +3054,7 @@
       drawBurst(ctx, x, y, { angle: ang, sector: o.burst.sector, r: o.burstR || 46, duration: bd, age: o.burst.age != null ? o.burst.age : bd - (o.burst.left || 0),
         perfect: !!o.burst.perfect, perfectAge: o.burst.perfectAge, time: t });
     }
-    // Treffer-Blitz im Sektor
-    if (o.hitSector != null && o.hitT != null && o.hitT >= 0 && o.hitT < 0.45) {
-      var q = 1 - o.hitT / 0.45;
-      var secAng = [0, Math.PI / 2, Math.PI, -Math.PI / 2][o.hitSector | 0] || 0;
-      var shielded = o.shields && o.shields[o.hitSector | 0] > 0;
-      var rad = shielded ? 44 : ([34, 15, 34, 15][o.hitSector | 0] || 20);
-      var hp = W(Math.cos(secAng) * rad, Math.sin(secAng) * rad);
-      if (shielded) {
-        ctx.fillStyle = rgba(PAL.eisblau, 0.9 * q);
-        for (var i = -6; i <= 6; i++) {
-          var aa = bang + secAng + i * 0.07;
-          var rr = 44 + (i % 2 ? 1 : 0);
-          ctx.fillRect(Math.round(x + Math.cos(aa) * rr), Math.round(y + Math.sin(aa) * rr * 0.92), 2, 1);
-        }
-        glow(ctx, hp[0], hp[1], PAL.eisblau, 16, q * 0.8);
-      } else {
-        glow(ctx, hp[0], hp[1], '#F08A3C', 14, q);
-        drawFx(ctx, 'sparks', hp[0], hp[1], (1 - q) * 0.45, { seed: 3 });
-      }
-    }
+    shipHitFx(ctx, x, y, W, bang, o);
   }
 
   // Rostmeute-Jäger (aus concept/raider.svg, gespiegelt: Bug +x)
@@ -3060,7 +3129,7 @@
   // ---------------------------------------------------------------------------------------------
   // EK1b: Drehsprites aus dem Voxelwerk (public/voxel/sprites/, erzeugt mit `npm run sprites` im Voxelwerk, kopiert von `npm run assets`).
   // Sheet je Klasse x Farbthema: ROT_STEPS-Stufen (Stufe b = b/64*2PI, Bug bei 0 nach +x), cols Spalten. Fehlt Manifest, Sheet oder Eintrag,
-  // gilt die prozedurale Zeichnung (buildRaider/buildKorvette) weiter. Die Lerche ist nicht betroffen.
+  // gilt die prozedurale Zeichnung (buildRaider/buildKorvette) weiter. Die Lerche hat eigene Klassen lerche_s0..s3 (siehe drawShipSpriteLerche).
   // ---------------------------------------------------------------------------------------------
   var SPR_BASE = 'voxel/sprites/';
   var SPR = { manifest: null, state: 'idle', sheets: {}, waiters: [] };
@@ -6261,17 +6330,18 @@
     else if (fr && typeof fr === 'object') for (var k in fr) if (fr[k]) out[k] = true;
     return out;
   }
-  function drawShipDamage(ctx, W, bang, o, t) {
+  function drawShipDamage(ctx, W, bang, o, t, ext) {
     var sys = o.systems;
     if (!sys || typeof sys !== 'object') return;
     var fr = fragileSet(o.fragile);
     var bx = -Math.cos(bang), by = -Math.sin(bang);   // Rauch treibt nach achtern
     var ga = ctx.globalAlpha, k = 0;
-    for (var id in SYS_EXT) {
+    var EXT = ext || SYS_EXT;
+    for (var id in EXT) {
       var st = sys[id];
       k++;
-      if (st !== 'damaged' && st !== 'broken') { if (fr[id]) { var pf = W(SYS_EXT[id][0], SYS_EXT[id][1]); if (((t * 1.5 + k) | 0) % 3 === 0) { ctx.fillStyle = M3C.flick; ctx.fillRect(Math.round(pf[0]), Math.round(pf[1]), 1, 1); } } continue; }
-      var p = W(SYS_EXT[id][0], SYS_EXT[id][1]), brk = st === 'broken';
+      if (st !== 'damaged' && st !== 'broken') { if (fr[id]) { var pf = W(EXT[id][0], EXT[id][1]); if (((t * 1.5 + k) | 0) % 3 === 0) { ctx.fillStyle = M3C.flick; ctx.fillRect(Math.round(pf[0]), Math.round(pf[1]), 1, 1); } } continue; }
+      var p = W(EXT[id][0], EXT[id][1]), brk = st === 'broken';
       var n = brk ? 7 : 4, len = brk ? 26 : 14;
       for (var i = 0; i < n; i++) {
         var q = (t * (brk ? 0.9 : 0.7) + i / n + k * 0.13) % 1;
@@ -6638,6 +6708,8 @@
   Art.drawItem = safe('drawItem', drawItem);
   Art.drawFx = safe('drawFx', drawFx);
   Art.drawShip = safe('drawShip', drawShip);
+  Art.lerchenSprite = function (stufe) { try { return lerchenStatus(stufe); } catch (e) { warn('lerchenSprite', e); return 'fehlt'; } };   // 'ok' | 'laden' | 'fehlt'
+  Art.lerchenSpriteInfo = function (stufe) { try { var sp = lerchenSprite(stufe); return sp ? sp.info : null; } catch (e) { warn('lerchenSpriteInfo', e); return null; } };
   Art.drawEnemy = safe('drawEnemy', drawEnemy);
   // EK1b
   Art.drawShipSprite = safe('drawShipSprite', drawShipSprite, false);

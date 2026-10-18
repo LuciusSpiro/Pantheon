@@ -42,19 +42,21 @@ const FURN_ID = {
   locker: 'lerche/furn/sideboard',   // PAN-01 B: Spind im Quartier (Platzhalter Anrichte, Modellliste CONTRACT-PAN01-B-MODELLE.md)
 };
 // PAN-01 B: Modulplätze (mod_a/b/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
-// Platzhalter aus vorhandenen Modellen, bis das Voxelwerk die Modul-Ausstattung liefert (Modellliste)
+// Voxelwerk-Lieferung (Tabelle des Voxel-Entwicklers): A Frachtbucht / Liege / Werkbank, B Bett / Medizinschrank / Werkzeugwand, C Containerstapel / Scanner / Drehbank.
+// Abweichung: Die Werkzeugwand (B, Werkstatt) gibt es als Modell nicht, dort steht die Werkbank (lerche/furn/workbench).
 const MODUL_ID = {
   mod_a: { f: ['lerche/furn/cargo_bay', 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
-  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
-  mod_c: { f: ['lerche/furn/crate', 'stapel'], k: ['lerche/furn/control_desk', null], w: ['lerche/furn/pipes', null] },
+  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_cabinet', 'schrank'], w: ['lerche/furn/workbench', null] },
+  mod_c: { f: ['lerche/furn/container_stack', 'container'], k: ['lerche/furn/scanner', 'scanner'], w: ['lerche/furn/lathe', 'drehbank'] },
 };
-const CRATE_ID = 'lerche/furn/crate', SEALED_ID = 'lerche/unknown/door_sealed', BATTERY_ID = 'lerche/station/battery';
+const CRATE_ID = 'lerche/furn/crate', STOWAGE_ID = 'lerche/furn/stowage', LAFETTE_ID = 'lerche/station/lafette', SEALED_ID = 'lerche/kit/door_sealed';
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
 const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte (Lift 2×3): einmal in die Blockmitte
 const ID = {
   floor: 'lerche/kit/floor', wall: 'lerche/kit/wall', window: 'lerche/kit/window', door: 'lerche/kit/door', breach: 'lerche/kit/breach',
   light: 'lerche/kit/light', plaque: 'lerche/kit/plaque', pad: 'lerche/kit/pad', shaft: 'lerche/lift/shaft', platform: 'lerche/lift/platform',
   ladder: 'lerche/lift/ladder', decal: 'lerche/furn/floor_decal', qfloor: 'lerche/deco/quarter_floor',
+  shaft3: 'lerche/lift/shaft3', platform3: 'lerche/lift/platform3', portal: 'lerche/kit/lift_portal', floorCargo: 'lerche/kit/floor_cargo', missionBook: 'lerche/furn/mission_book',
 };
 // Platzhalterfarben je Kachelart (Debug: Magenta im Loader)
 const PH_COL = { sealed: '#B5532E', floor: '#5A5F6A', floor_wood: '#7A5236', floor_mosaic: '#B8A88C', wall: '#3A3F4C', station: '#B0453A', console: '#4F6178',
@@ -207,6 +209,8 @@ const layer = {
     for (const v of Object.values(CONSOLE_ID)) ids.add(v);
     for (const v of Object.values(FURN_ID)) ids.add(v);
     for (const d of CFG().deko || []) ids.add('lerche/deco/' + d);
+    for (const v of Object.values(MODUL_ID)) for (const m of Object.values(v)) ids.add(m[0]);
+    for (const v of [STOWAGE_ID, LAFETTE_ID, SEALED_ID, CRATE_ID]) ids.add(v);
     await Promise.race([ctx.loader.loadMany([...ids]), new Promise((r) => setTimeout(r, 8000))]);
     if (ctx._disposed) return;
     buildDynamic(ctx, S);
@@ -305,13 +309,13 @@ function rebake(ctx, S, d, st, withSolids) {
       if (kind === 0) {   // Brücke, Krankenstation (Modul im Modulraum: PAN-01 B), Werkstatt: eigene Böden
         const r = A.roomOf(tx, ty);
         if (r && r.id === 'bruecke') kind = 4;
-        else if (r && r.kind === 'modul') { const code = Maps().modulCodeImRaum((st.ship && st.ship.mod) || [], r.modul); if (code === 'k') kind = 5; else if (code === 'w') kind = 1; }
+        else if (r && r.kind === 'modul') { const code = Maps().modulCodeImRaum((st.ship && st.ship.mod) || [], r.modul); if (code === 'k') kind = 5; else if (code === 'w') kind = 1; else if (code === 'f') kind = 6; }   // 6 = Frachtboden (lerche/kit/floor_cargo)
       }
       const wear = S.fireTiles.has(tx + ',' + ty) ? 2 : 0;
       // Kai 2026-10-11: Böden einfarbig, seed = Helligkeitsstufe (kein Mäanderrand mehr), dazu leichter Höhenversatz je Kachel (stufeY)
       const seed = Math.floor(hash(tx, ty, 3) * 8), frot = 0;
-      const g = L.geometries(ID.floor, { kind, wear, seed });
-      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, frot, stufeY(tx, ty)) });
+      const g = kind === 6 ? L.geometries(ID.floorCargo, { wear }) : L.geometries(ID.floor, { kind, wear, seed });
+      floors.push({ geo: g ? g.geo : phGeo(1, 0.06, 1, kind === 2 ? PH_COL.floor_wood : kind === 3 ? PH_COL.floor_mosaic : PH_COL.floor, -0.06), matrix: mat(lx, lz, frot, kind === 6 ? 0 : stufeY(tx, ty)) });
     }
     // Bodenkleinkram (nur Systemdeck, stabil per Hash, nicht vor Stationen, nicht auf Türen/Lift/Leiter/Pads)
     if (withSolids && dk.index === 0 && (ch === '.' || ch === '=' || ch === '_') && !frontOfStation.has(tx + ',' + ty) && hash(tx, ty, 7) < 0.1) {
@@ -370,19 +374,20 @@ function buildDynamic(ctx, S) {
       const vertical = WALLISH[A.map.at(o.tx, o.ty - 1)] && WALLISH[A.map.at(o.tx, o.ty + 1)];
       o.rot = vertical ? Math.PI / 2 : 0;
       const cut = A.interior(o.tx, o.ty - 1) ? 1 : 0;
-      add(o, ID.door, PH_COL.sealed, (st, ent) => ({ sealed: M.sealOpen(o.tx, o.ty, stufeOf(st)) ? 0 : 1, open: ent.near(o) ? 1 : 0, style: 0, cut }), { door: true, seal: true });
+      const sealStufe = (M.sealAt(o.tx, o.ty) || {}).stufe || 1;
+      add(o, ID.door, PH_COL.sealed, (st, ent) => ({ sealed: M.sealOpen(o.tx, o.ty, stufeOf(st)) ? 0 : 1, open: ent.near(o) ? 1 : 0, style: 0, cut, sstufe: sealStufe }), { door: true, seal: true });
       continue;
     }
     if (kind === 'sys_lafette') {   // PAN-01 B: Lafette eines Waffenplatzes: verschlossen = Abdeckung (Stauware), frei = leere Batterielafette
       const pl = M.waffenplatzAt(o.tx, o.ty);
       o.rot = A.faceRot(o.tx, o.ty);
-      add(o, BATTERY_ID, PH_COL.station, (st) => ({ sealed: !pl || stufeOf(st) < pl.stufe ? 1 : 0, side: pl && pl.side === 'stbd' ? 1 : 0 }), { laf: true });
+      add(o, LAFETTE_ID, PH_COL.station, (st) => ({ state: !pl || stufeOf(st) < pl.stufe ? 0 : 1, art: pl ? (pl.art === 'bug' ? 1 : pl.art === 'heck' ? 2 : 0) : 0, side: pl && pl.side === 'stbd' ? 1 : 0, ladung: 0 }), { laf: true });
       continue;
     }
     if (MODUL_ID[kind]) {   // PAN-01 B: Modulplatz nach Modul im Raum
       const r = A.roomOf(o.tx, o.ty);
       const bays = (st) => M.frachtPlaetze(M.frachtRaeumeAusMod(st.ship && st.ship.mod));
-      add(o, CRATE_ID, PH_COL.furn, (st) => {
+      add(o, STOWAGE_ID, PH_COL.furn, (st) => {
         const code = r && r.modul && st.ship ? M.modulCodeImRaum(st.ship.mod, r.modul) : null;
         const p = { code: code || '-' };
         if (code === 'f' && kind === 'mod_a') { const bi = bays(st).bays.findIndex((b) => b.x === o.tx && b.y === o.ty); const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; p.art = c ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0; p.gesichert = f.g === false ? 0 : 1; }
@@ -396,12 +401,20 @@ function buildDynamic(ctx, S) {
       for (let i = 0; i < o.w; i++) if (A.walkable(o.tx + i, o.ty - 1)) open |= 1;
       for (let j = 0; j < o.h; j++) { if (A.walkable(o.tx + o.w, o.ty + j)) open |= 2; if (A.walkable(o.tx - 1, o.ty + j)) open |= 8; }
       const emerg = (st) => { const p = reactorPower(st); return p === 2 || p === 3 ? 1 : 0; };
-      // PAN-01 B: die Kabine ist 2 × 3 (bisher 2 × 2): Platzhalter = zwei 2 × 2-Modelle, um ± 0,5 versetzt (Modellliste)
-      for (const sh of o.h === 3 ? [-0.5, 0.5] : [0]) {
-        const oo = Object.assign({}, o, { cz: o.cz + sh });
-        add(oo, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck === 1 ? 1 : 0, power: emerg(st), open, cut: 1 }));
-        add(oo, ID.platform, PH_COL.lift, (st) => ({ moving: (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift) ? 1 : 0, power: emerg(st) }));
+      const riding = (st) => (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift);
+      if (o.h === 3) {   // PAN-01 B: Kabine 2 × 3 (lift/shaft3 + lift/platform3, deck = Deckindex 0 Mittel, 1 Ober, 2 Unter); Türen auf, wenn jemand davor steht und die Kabine steht
+        add(o, ID.shaft3, PH_COL.lift, (st, ent) => ({ deck: o.deck, power: emerg(st), tuer_offen: !riding(st) && ent.nearBlock(o) ? 1 : 0, cut: 1 }));
+        add(o, ID.platform3, PH_COL.lift, (st) => ({ moving: riding(st) ? 1 : 0, power: emerg(st), deck: o.deck }));
+        // Liftportal: Brückenrückwand am Brückenlift (Mitteldeck, östlich der Kabine, Wand 3 Kacheln breit, Rückseite bündig mit dem Kabinenende)
+        const br = A.roomOf(o.tx + o.w, o.ty);
+        if (br && br.id === 'bruecke') {
+          const po = { ch: 'portal', tx: o.tx + o.w, ty: o.ty, cx: o.tx + o.w + 0.5, cz: o.cz, deck: o.deck, rot: Math.PI / 2, w: 1, h: 3 };
+          add(po, ID.portal, PH_COL.lift, (st) => ({ power: emerg(st), cut: 0 }));
+        }
+        continue;
       }
+      add(o, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck === 1 ? 1 : 0, power: emerg(st), open, cut: 1 }));
+      add(o, ID.platform, PH_COL.lift, (st) => ({ moving: riding(st) ? 1 : 0, power: emerg(st) }));
       continue;
     }
     if (ch === '!') { add(o, ID.ladder, PH_COL.lift, () => ({})); continue; }
@@ -441,6 +454,7 @@ function buildDynamic(ctx, S) {
       else if (con === 'captain') fn = (st) => ({ occupied: consoleBusy(st, con) });
       else fn = (st) => ({ occupied: consoleBusy(st, con), alert: st.ship && st.ship.alert === 'red' ? 1 : 0 });
       add(o, id, PH_COL.console, fn, { con });
+      if (con === 'plan') add(Object.assign({}, o, { rot: Math.PI }), ID.missionBook, PH_COL.furn, () => ({ neu: 0 }), { y: 1.1 });   // Missionsbuch auf der Tischplatte (Höhe 1,1 m)
       continue;
     }
     if (FURN_ID[kind]) {
@@ -500,6 +514,11 @@ function entitiesNear(view, S) {
       for (const p of pts) if (Math.abs(p.x - cx) < 44 && Math.abs(p.y - cy) < 44) return true;
       return false;
     },
+    nearBlock(o) {   // Block aus w × h Kacheln, 0,75 Kachel Rand
+      const x0 = o.tx * TILE - 24, x1 = (o.tx + o.w) * TILE + 24, y0 = o.ty * TILE - 24, y1 = (o.ty + o.h) * TILE + 24;
+      for (const p of pts) if (p.x > x0 && p.x < x1 && p.y > y0 && p.y < y1) return true;
+      return false;
+    },
   };
 }
 
@@ -510,18 +529,24 @@ function placeObj(ctx, S, e, params) {
   let id = e.id;
   if (e.nook) {   // R0: Schlafecke (Pritsche/Werkzeugwand) oder Stauware
     if (params.bewohnt) params = e.nook === 'cargo_cot' ? { color: params.color } : {};
-    else { id = 'lerche/furn/crate'; params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) }; }
+    else { id = STOWAGE_ID; params = { v: Math.floor(hash(e.o.tx, e.o.ty, 5) * 3) }; }
   }
   if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = { on: 1 }; }   // lampe: on (andere ignorieren den Parameter)
-  if (e.seal) { if (params.sealed) { id = SEALED_ID; params = {}; } else params = { open: params.open, style: params.style, cut: params.cut }; }   // PAN-01 B: verschalte Pforte zu = Block, offen = Tür
-  if (e.laf) { if (params.sealed) { id = CRATE_ID; params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) }; } else params = { state: 0, side: params.side, tubes: 0 }; }   // Lafette: verschlossen = Abdeckung, frei = leer
+  // PAN-01 B: verschalte Pforte: zu = door_sealed (Verschalung mit Stufenzeichen), nach dem Ausbau die Standardtür, die beim Nähern aufgeht
+  // (door_sealed.open 1 hieße "Blatt offen", nicht "entsiegelt"; deshalb die Standardtür nach der Entsiegelung)
+  if (e.seal) { if (params.sealed) { id = SEALED_ID; params = { open: 0, stufe: params.sstufe, cut: params.cut }; } else params = { open: params.open, style: params.style, cut: params.cut }; }
   if (e.modul) {   // Modulplatz nach Modul im Raum; ohne Modul Stauware
     const mm = MODUL_ID[e.modul][params.code];
-    if (!mm) params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) };
-    else { id = mm[0]; params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 } : mm[1] === 'stapel' ? { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) } : {}; }
+    const vv = Math.floor(hash(e.o.tx, e.o.ty, 5) * 3);   // Stauware ohne Modul: Anordnung 0 Stapel, 1 Kisten + Fass, 2 niedrig + Plane
+    if (!mm) { id = STOWAGE_ID; params = { v: vv }; }
+    else {
+      id = mm[0];
+      params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 }
+        : mm[1] === 'container' ? { farbe: vv } : mm[1] === 'scanner' ? { aktiv: 0 } : mm[1] === 'drehbank' ? { lauf: 0 } : mm[1] === 'schrank' ? { open: 0 } : {};
+    }
   }
   const obj = ctx.loader.object(id, params, { color: e.color });
-  obj.position.set(e.o.cx, 0, e.o.cz);
+  obj.position.set(e.o.cx, e.y || 0, e.o.cz);
   obj.rotation.y = e.o.rot || 0;
   obj.userData.tile = [e.o.tx, e.o.ty];
   d.group.add(obj);
@@ -535,7 +560,7 @@ function updateDynamic(view, ctx, S, st) {
     if (e.deck !== ctx.deck && e.obj) continue;   // unsichtbares Deck nicht nachführen (außer beim ersten Aufbau)
     let params;
     try { params = e.paramsFn(st, ent) || {}; } catch (err) { params = {}; }
-    if (!e.door && !e.deco && !e.station && e.id && e.id.indexOf('/kit/pad') < 0) params.seed = params.seed != null ? params.seed : Math.floor(hash(e.o.tx, e.o.ty, 4) * 8);
+    if (!e.door && !e.deco && !e.station && e.id && e.id.indexOf('/kit/pad') < 0 && e.id.indexOf('/lift/') < 0) params.seed = params.seed != null ? params.seed : Math.floor(hash(e.o.tx, e.o.ty, 4) * 8);
     const sig = JSON.stringify(params);
     if (sig === e.sig) continue;
     e.sig = sig;
