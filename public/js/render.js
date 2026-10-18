@@ -2613,7 +2613,7 @@
     return (f && f.farbe) || '#8A93A0';
   }
   function zeichneBanner(ctx, sx, sy, rad, fr, t) {
-    const h = Math.max(16, rad * 0.62), bw = Math.max(11, h * 0.62), bh = Math.max(7, h * 0.36);
+    const h = Math.max(24, rad * 0.8), bw = Math.max(18, h * 0.78), bh = Math.max(11, h * 0.46);
     const x = sx + rad * 0.45, y = sy - rad * 0.45;
     ctx.save();
     ctx.strokeStyle = '#D5DCE6'; ctx.lineWidth = Math.max(1.5, h * 0.06);
