@@ -383,6 +383,7 @@ function downPlayer(game, p, source) {
 }
 
 function revivePlayer(game, p) {
+  p.holT = 0;
   p.downed = false; p.downedFor = 0; p.hp = game.C.player.revivedHp;
   p.hold = null;
 }

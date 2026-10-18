@@ -2573,19 +2573,13 @@
       case 'seitenturm':
         ell(g, 8, 10, 5, 4, '#4F6178'); ell(g, 8, 9, 4, 3, '#8EA3B5'); R(g, 8, 3, 7, 3, '#55667D'); R(g, 13, 3, 2, 3, PAL.mint);
         break;
-      case 'schildpool':
-        grid(g, 3, 2, ICONS.shields, { '#': PAL.eisblau, '+': '#E8F8FF' });
-        break;
-      case 'bot2':
-        R(g, 3, 4, 10, 8, PAL.messing); R(g, 4, 6, 8, 3, '#1B2230'); R(g, 5, 7, 2, 1, PAL.mint); R(g, 9, 7, 2, 1, PAL.mint); R(g, 2, 12, 12, 3, '#4F6178'); R(g, 7, 1, 1, 3, '#2B1D1A');
-        break;
       default:
         if (!buildItemM1(g, kind) && !buildItemM2(g, kind)) return false;
     }
     outline(c, PAL.outlineWarm);
     return true;
   }
-  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1, schildpool: 1, bot2: 1,
+  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1,
     // M1: neue Deko (Inventar-Icons), versteckte Objekte im Raum
     buecherregal: 1, aquarium: 1, sessel: 1, sternkarte: 1, trophaee_boje: 1, kristalllampe: 1, cache: 1, beacon: 1, lore: 1, bolzenwerfer: 1 };
   function drawItem(ctx, kind, x, y, opts) {

@@ -79,7 +79,7 @@ function huellenTreffer(game) {
     const l = s.lager.splice(i, 1)[0];
     n++;
     game.emit('frachtVerloren', { art: l.art });
-    if (!sh.docked) fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art);
+    if (!sh.docked) { const pod = fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art); if (pod) pod.eigene = true; }
     game.oda(`${artName(l.art)} hat sich gelöst – der Frachtraum ist ungesichert!`, null);
     game.missionEvent('frachtVerloren', { art: l.art, n: s.lager.length });
   }
@@ -186,7 +186,7 @@ function update(game, dt) {
   if (s.szene !== sc) {
     s.szene = sc;
     if (s.halt) beamStop(game, 'szene');
-    s.draussen = [];
+    s.draussen = s.draussen.filter((d) => d.eigene);   // PAN-01 A: Ware, die sich im ungesicherten Frachtraum gelöst hat, bleibt für die Rückkehr im Sektor liegen
   }
   const h = s.halt;
   if (!h) return;

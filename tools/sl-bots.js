@@ -50,6 +50,9 @@ function spiel(np, seed) {
   const T = { g, cs, run, mev, t0: g.time };
   T.cmd = (cmd, f, i) => { const c = cs[i || 0]; c.inbox.length = 0; g.handleMessage(c, Object.assign({ t: 'cmd', c: cmd }, f || {})); return c.inbox.filter((m) => m.kind === 'notice').map((m) => m.text); };
   T.rolle = (r, i) => { g.players[i || 0].console = r; };
+  // PAN-01 A: Module ziehen je 1 Energie; die Technik schaltet sie ab (technik.module), damit Reaktorpunkte frei werden (Boje)
+  T.moduleAus = () => { for (const m of g.ship.module.slice()) require('../server/sim/space.js').technikModul(g, m.id, false, m.raum); };
+  T.moduleAn = () => { for (const m of g.ship.module.slice()) require('../server/sim/space.js').technikModul(g, m.id, true, m.raum); };
   T.energie = (o) => { Object.assign(g.ship.powerIntent || (g.ship.powerIntent = {}), o); Object.assign(g.ship.power, o); };
   T.sek = () => Math.round(g.time - T.t0);
   // Navigation nach Ansage: Wegpunkte der Reihe nach, Drift 120 px voraus ausgleichen (die Ops sagt Stärke und Richtung an)
@@ -90,7 +93,7 @@ function laufGasriese(o) {
     const B = buch(T, 'sl_gasriese'); T.run(5);
     g.debugGoto('gasfeld', false); T.run(2);
     const pl = Locations.get('gasfeld').scene.planeten.find((p) => p.art === 'gasriese');
-    T.energie({ engines: 2, shields: 2, weapons: 2, life: 2 });
+    T.energie({ engines: 2, shields: 2, weapons: 2 });
     // Technik: Schilde hoch, Navigation: in der Förderschicht halten (Zug und Strömung treiben, der Bot setzt nach = der Antrieb hält die Höhe),
     // Ops: STARTET das Schöpfen (weapons.schoepfen; nichts füllt sich von selbst), beobachtet die Ladung. Echter Schaden (kein god): der Bot muss überleben.
     g.god = false; const em0 = g.stats.emergencies;
@@ -164,7 +167,7 @@ function laufForschung(o) {
     g.debugGoto('helix', false); T.run(2);
     const gv = Locations.get('helix').scene.gravimetrie;
     g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0;
-    T.energie({ engines: 3, shields: 2, weapons: 1, life: 2 });
+    T.energie({ engines: 3, shields: 2, weapons: 1 });
     T.rolle('weapons'); T.run(0.2); T.cmd('weapons.zonenscan'); T.run(3.5);
     T.fliege(gv.weg.slice(1), 120, () => B.schritt() === 'station'); T.run(1);
     if (B.schritt() !== 'station') return ergebnis(name, T, false, 'Gravimetrie nicht durchflogen (Schritt ' + B.schritt() + ')');
@@ -195,7 +198,7 @@ function laufForschung(o) {
     away.executeBeam(g, g.players.map((q) => q.id), 'up'); g.players.forEach((q) => { q.zone = 'ship'; q.downed = false; });
     T.run(2);
     g.ship.x = gv.station.x; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0;
-    T.energie({ engines: 4, shields: 1, weapons: 1, life: 2 });
+    T.energie({ engines: 4, shields: 1, weapons: 1 });
     T.fliege(gv.fluchtweg, 90, () => B.schritt() === 'abliefern_anflug'); T.run(1);
     if (B.schritt() !== 'abliefern_anflug') return ergebnis(name, T, false, 'Finale: nicht aus dem Haltefeld (Schritt ' + B.schritt() + ')');
     g.debugGoto('concordia', true); T.run(3);
@@ -222,11 +225,11 @@ function laufBoje(o) {
     if (!gl || !gl.m) return ergebnis(name, T, false, 'keine Glyphen-Aufgabe');
     for (let i = 0; i < 9; i++) if (gl.m[i] === '1') T.cmd('weapons.glyphen.waehle', { i });
     T.cmd('weapons.glyphen.senden');
-    // Technik: Waffen und Lebenserhaltung herunterfahren (Uhr: O2), Navigation: im Feld halten
-    T.energie({ weapons: 0, life: 0 });
+    // Technik: Waffen herunterfahren und Bordmodule abschalten (4 Punkte frei), Navigation: im Feld halten
+    T.energie({ weapons: 0 }); T.moduleAus();
     halten(); T.run(120, () => { halten(); return Boje.geweckt(g); });
     if (!Boje.geweckt(g)) return ergebnis(name, T, false, 'Boje nicht erwacht (Zähler ' + Math.round(ZonenSim.zaehler(g, 'boje')) + ')');
-    T.energie({ weapons: 2, life: 2 });
+    T.energie({ weapons: 2 }); T.moduleAn();
     const piraten = g.space.enemies.filter((e) => e.kind === 'raider').length;
     T.run(2);
     g.debugGoto('vorlaeufer', false); T.run(2);

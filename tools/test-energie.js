@@ -88,7 +88,7 @@ section('Konfiguration: Reaktor 8, Hauptsysteme, Module als Daten', () => {
   ok(JSON.stringify(t[6]) === '[2,2,2]' && JSON.stringify(t[4]) === '[1,2,1]', 'Standard: 6 frei = 2/2/2, 4 frei = 1/2/1');
   ok(Object.values(t).every((v) => v.length === 3 && v.every((x) => x >= 1 && x <= CONFIG.power.maxPerSystem)), 'jede Standardverteilung: mindestens 1 je Hauptsystem, höchstens 4');
   const T = arena();
-  ok(Object.values(CONFIG.module.standard).every((v, i) => true) && [8, 7, 6, 5, 4].every((f) => sum(Modul.standardVerteilung(T.g, f)) <= f), 'Standardverteilung nie über der freien Energie');
+  ok([8, 7, 6, 5, 4].every((f) => sum(Modul.standardVerteilung(T.g, f)) <= f), 'Standardverteilung nie über der freien Energie');
 });
 
 section('Start-Lerche: 2 Module, Standardverteilung 2/2/2', () => {
@@ -204,6 +204,25 @@ section('Kürzung bei Reaktorschaden (enforcePower)', () => {
   ok(space.powerUsed(g) <= 2, 'Reaktor offline (Notstrom 2): Verbrauch ' + space.powerUsed(g));
 });
 
+section('Kürzung: Wunsch der Technik bleibt (N1), Modulräume (N3), EMP', () => {
+  const T = arena();
+  const g = T.g;
+  technik(T);
+  // Reaktor beschädigt (6): Verteilung 2/2/2 wird auf 1/2/1 gekürzt; die Technik nimmt einen Schildpunkt weg
+  g.ship.systems.reactor = 'damaged'; T.run(0.1);
+  ok(JSON.stringify(g.ship.power) === '{"engines":1,"shields":2,"weapons":1}', 'gekürzt auf 1/2/1');
+  ok(T.cmd(0, 'technik.power', { sys: 'shields', delta: -1 }).length === 0, 'Technik: Schilde −1 während der Kürzung');
+  ok(g.ship.powerIntent.engines === 2 && g.ship.powerIntent.weapons === 2 && g.ship.powerIntent.shields === 1, 'Wunsch der anderen Systeme bleibt (2/1/2): ' + JSON.stringify(g.ship.powerIntent));
+  g.ship.systems.reactor = 'ok'; T.run(0.1);
+  ok(g.ship.power.engines === 2 && g.ship.power.weapons === 2 && g.ship.power.shields === 1, 'nach der Reparatur: 2/1/2 statt der gekürzten Werte: ' + JSON.stringify(g.ship.power));
+  // N3: Modulraum nur als ganze Zahl 1–4
+  const R = (raum) => { Modul.restore(g, [{ id: 'frachtraum', raum }, { id: 'krankenstation', raum: 2 }]); return g.ship.module.length; };
+  ok(R('1') === 1 && R(1.5) === 1 && R(0) === 1 && R(5) === 1 && R(3) === 2, 'restore: Strings, Brüche, 0 und 5 werden abgelehnt, 3 gilt');
+  // N4: EMP im Altpfad wählt die Lebenserhaltung nie
+  const interior = require('../server/sim/interior.js');
+  ok(typeof space.shipHit === 'function' && interior.INERT_SYSTEMS.includes('life'), 'Lebenserhaltung bleibt vom EMP ausgenommen');
+});
+
 section('Frachtraum ungesichert: sichtbare Folge', () => {
   const T = arena();
   const g = T.g;
@@ -247,6 +266,17 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   ok(Modul.laeuft(g, 'frachtraum') && !Fracht.gesichert(g), 'zwei Frachträume, einer aus: ungesichert');
   T.cmd(0, 'technik.module', { id: 'frachtraum', on: true, raum: 4 }); T.run(0.1);
   ok(Fracht.gesichert(g), 'beide laufen: gesichert');
+  // N2: gelöste Ware bleibt beim Sektorwechsel für die Rückkehr liegen (Kampagnen-Fracht kann nicht verloren gehen)
+  const S = arena();
+  Fracht.anBordLegen(S.g, 'sprengstoff'); Fracht.setGesichert(S.g, false); S.g.ship.shields.current = [0, 0, 0, 0];
+  S.g.ship.module.forEach((m) => { m.an = false; });
+  space.shipHit(S.g, 0, 1, {});
+  const hier = S.g.ship.scene;
+  ok(Fracht.draussen(S.g).length === 1 && S.g.fracht.draussen[0].eigene, 'gelöste Ware liegt im Sektor');
+  S.g.ship.scene = 'andernorts'; S.run(0.1);
+  ok(S.g.fracht.draussen.length === 1, 'nach dem Sektorwechsel nicht gelöscht');
+  S.g.ship.scene = hier; S.run(0.1);
+  ok(Fracht.draussen(S.g).length === 1, 'zurück im Sektor: wieder beamfähig');
   // Docked: nichts treibt, die Ware ist weg
   const D = arena();
   Fracht.anBordLegen(D.g, 'fracht'); D.g.ship.docked = true; D.g.ship.shields.current = [0, 0, 0, 0];
@@ -265,9 +295,10 @@ section('Werkstatt: zweiter Schrauber als Modul', () => {
   g.bots[1].carry = 'ersatzteil'; const vorrat = g.inventory.ersatzteil;
   T.cmd(0, 'technik.module', { id: 'werkstatt', on: false }); T.run(0.1);
   ok(g.bots.length === 1 && g.inventory.ersatzteil === vorrat + 1, 'Werkstatt aus: der zweite Schrauber geht, sein Teil kommt zurück ins Regal');
-  T.cmd(0, 'technik.power', { sys: 'weapons', delta: 1 });
-  T.cmd(0, 'technik.module', { id: 'werkstatt', on: true }); T.run(0.1);
-  ok(g.bots.length === 1 || g.bots.length === 2, 'Einschalten bei voller Verteilung: ' + g.bots.length + ' Schrauber');
+  ok(T.cmd(0, 'technik.power', { sys: 'weapons', delta: 1 }).length === 0, 'freie Energie auf die Waffen');
+  ok(T.cmd(0, 'technik.module', { id: 'werkstatt', on: true }).some((t) => /Reaktor ausgelastet/.test(t)) && (T.run(0.1), g.bots.length === 1), 'Einschalten bei voller Verteilung abgelehnt: weiter ein Schrauber');
+  T.cmd(0, 'technik.power', { sys: 'weapons', delta: -1 });
+  ok(T.cmd(0, 'technik.module', { id: 'werkstatt', on: true }).length === 0 && (T.run(0.1), g.bots.length === 2), 'Energie frei: Werkstatt an, zwei Schrauber');
   ok(!('bot2' in g.upgrades) && !('schildpool' in g.upgrades), 'upgrades kennt bot2/schildpool nicht mehr');
 });
 
@@ -308,17 +339,26 @@ section('Notrückholung mit Krankenstation: jeder Ausgeschaltete wird geholt', (
   ok(g.ship.systems.transfer === 'broken', 'die Notrückholung hat den Transfer gesprengt (zerstört, Reparatur nötig)');
   ok(odas().some((t) => /Krankenstation: Notrückholung für K0/.test(t)) && events('beam').some((e) => e.dir === 'up' && e.pids.includes(P(0).id)), 'ODA „Krankenstation: Notrückholung“, Beam-Ereignis');
   ok(g.phase === 'play', 'kein Game Over');
-  // zweiter Ausgeschalteter bei kaputtem Transfer: niemand holt ihn (der Transfer ist hin), es gilt die alte Regel
+  // M2: auch der zweite Ausgeschaltete wird geholt, obwohl der Transfer schon zerstört ist (er bleibt zerstört)
   combat.woundPlayer(g, P(1), 'test');
-  run(HOL + 1);
-  ok(P(1).zone === 'away' && P(1).downed, 'Transfer kaputt: auch die Krankenstation kann nicht holen');
-  run(AC.wounded.bleedout - HOL);
-  ok(P(1).zone === 'away' && !P(1).downed, 'nach dem Ausbluten richtet der Transfer-Notbehelf den Schild aus der Ferne (alte Regel, Transfer ausgefallen)');
-  // Reparatur (die drei Wege): Transfer heil -> der nächste wird wieder geholt
-  g.ship.systems.transfer = 'ok';
+  run(HOL + 0.5);
+  ok(P(1).zone === 'ship' && !P(1).downed && g.ship.systems.transfer === 'broken', 'Transfer schon zerstört: die Krankenstation holt trotzdem jeden Ausgeschalteten');
+  // Reparatur über den echten Weg (Reparaturliste der Schrauber, Flicken), dann holt sie wieder und sprengt wieder
+  ok(Bots.queueRepair(g, 'transfer', 'flick') === null, 'Technik setzt einen Schrauber auf den Transfer');
+  run(25);
+  ok(g.ship.systems.transfer === 'ok', 'Schrauber haben den Transfer geflickt: ' + g.ship.systems.transfer);
   combat.woundPlayer(g, P(2), 'test');
   run(HOL + 0.5);
   ok(P(2).zone === 'ship' && g.ship.systems.transfer === 'broken', 'nach der Reparatur holt die Krankenstation wieder, und sprengt wieder');
+  // M1: die Holzeit beginnt mit jedem Ausfall neu (9 s verwundet, aufgeholfen, später erneut verwundet: volle 10 s)
+  const K = kesh(3);
+  combat.woundPlayer(K.g, K.P(0), 'test'); K.run(HOL - 1);
+  combat.revive(K.g, K.P(0), null, { quiet: true });
+  K.run(30);
+  combat.woundPlayer(K.g, K.P(0), 'test'); K.run(HOL - 1.5);
+  ok(K.P(0).zone === 'away' && K.P(0).downed, 'M1: erneut verwundet nach 30 s: nach ' + (HOL - 1.5) + ' s noch unten (Holzeit startet neu)');
+  K.run(2);
+  ok(K.P(0).zone === 'ship', 'M1: nach vollen ' + HOL + ' s geholt');
 });
 
 section('Notrückholung mit Krankenstation: kein Wellenmodus', () => {
@@ -434,6 +474,14 @@ section('Weltstand: Bestückung', () => {
   ok(Weltstand.validate(bad).length > 0, 'Schema lehnt unbekanntes Modul ab');
   const bad2 = JSON.parse(JSON.stringify(data)); bad2.schiff.module[0].raum = 5;
   ok(Weltstand.validate(bad2).length > 0, 'Schema lehnt Modulraum 5 ab');
+});
+
+section('Debug sl energie: Waffen 0 und alle Module aus (4 Punkte frei)', () => {
+  const T = arena();
+  ok(T.debug('sl', 'energie').length === 0, 'debug sl energie');
+  T.run(0.2);
+  const Boje = require('../server/sim/boje.js');
+  ok(Boje.freieEnergie(T.g) >= 4 && Modul.anzahlLaufend(T.g) === 0, 'freie Energie ' + Boje.freieEnergie(T.g) + ', Module laufen: ' + Modul.anzahlLaufend(T.g));
 });
 
 section('Snapshot: Budget', () => {

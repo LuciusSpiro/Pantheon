@@ -7,23 +7,23 @@
   "success": true,
   "softlock": null,
   "stageAtEnd": null,
-  "durationS": 227.9,
+  "durationS": 229.9,
   "stages": [
     {"t":0,"mission":"m3","stage":"briefing"},
     {"t":4.4,"mission":"m3","stage":"flight"},
     {"t":53,"mission":"m3","stage":"courtyard"},
     {"t":124.2,"mission":"m3","stage":"archive"},
-    {"t":176.3,"mission":"m3","stage":"tablet"},
-    {"t":183.1,"mission":"m3","stage":"warden"},
-    {"t":223.2,"mission":"m3","stage":"extract"}
+    {"t":178.1,"mission":"m3","stage":"tablet"},
+    {"t":184.8,"mission":"m3","stage":"warden"},
+    {"t":225.2,"mission":"m3","stage":"extract"}
   ],
   "radio": [
     {"t":2,"from":"Hafenmeisterin Tesk","text":"Lerche, hier Tesk. Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel – die darf nicht verkauft werden. Holt sie?"},
     {"t":4.4,"from":"Hafenmeisterin Tesk","text":"Danke. Die Plünderer sind gut bewaffnet, aber schlecht organisiert. Nehmt Medipacks mit – und bringt alle heil zurück."},
     {"t":61.1,"from":"Hafenmeisterin Tesk","text":"Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen."},
     {"t":129.3,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
-    {"t":187.1,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
-    {"t":227.9,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
+    {"t":188.8,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
+    {"t":229.9,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
   ],
   "oda": [
     {"t":2,"text":"Direkt zur Planetenmission! Wir liegen im Hafen. Captain: Funk annehmen, dann Kurs Mond Kesh."},
@@ -46,23 +46,24 @@
     {"t":119.8,"text":"Plünderer erledigt. Der hatte eh nur Schrott in den Taschen."},
     {"t":120,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
     {"t":124.2,"text":"Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor."},
-    {"t":125,"text":"Krankenstation: Notrückholung für Ada! Schild wieder voll – der Transfer ist dabei durchgebrannt."},
-    {"t":125,"text":"Transfer zerstört – kein Beamen!"},
-    {"t":176.3,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
-    {"t":183.1,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
-    {"t":194.7,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":199.7,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
-    {"t":199.8,"text":"Transfer zerstört – kein Beamen!"},
-    {"t":223.2,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
+    {"t":125.1,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":125.1,"text":"Transfer zerstört – kein Beamen!"},
+    {"t":178.1,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
+    {"t":184.8,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
+    {"t":196.7,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":201.8,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":201.8,"text":"Transfer zerstört – kein Beamen!"},
+    {"t":225.2,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
   ],
   "notices": [
-    {"t":77.2,"text":"Transfer zerstört – erst reparieren (Bots holen Ersatzteile)."}
+    {"t":77.2,"text":"Transfer zerstört – erst reparieren (Bots holen Ersatzteile)."},
+    {"t":143.8,"text":"Transfer kühlt nach der Notrückholung ab (2 s)."}
   ],
   "rewards": [
     {"t":23.4,"marks":190,"delta":20},
-    {"t":227.9,"marks":310,"delta":120}
+    {"t":229.9,"marks":310,"delta":120}
   ],
   "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":false,"m3Direct":true},"marks":310,"inventory":{"loeschgelCharges":0,"marks":310,"deko":["trophaee_boje"],"tafel":0,"ersatzteil":1,"loeschgel":2,"flickblech":3,"bolzen":6,"medipack":2,"sonde":3}},
   "errors": 0,
-  "ending": {"t":227.9,"title":"Die Tafel ist sicher"}
+  "ending": {"t":229.9,"title":"Die Tafel ist sicher"}
 }

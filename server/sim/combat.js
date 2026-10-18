@@ -313,6 +313,7 @@ function folgenAbgleich(game) {
 // Spieler bewusstlos (Betäuber) bzw. gefesselt: liegt, keine Pistole, kein Ausbluten, niemand kann aufhelfen (B2 §2)
 function bewusstlosPlayer(game, p) {
   const it = interior();
+  p.holT = 0;
   if (p.console) it.leaveConsole(game, p);
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.bewusstlos = true; p.bleed = null; p.crouch = false;
@@ -482,6 +483,7 @@ function hitPlayerWaffen(game, p, Wf, wk) {
 function woundPlayer(game, p, source) {
   const C = cfg(game); const it = interior();
   if (p.downed) return;
+  p.holT = 0;
   if (p.console) it.leaveConsole(game, p);
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.hp = 0; p.crouch = false;
@@ -499,6 +501,7 @@ function woundPlayer(game, p, source) {
 
 function revive(game, p, segs, opts) {
   const o = opts || {};
+  p.holT = 0;   // PAN-01 A: Holzeit der Krankenstation beginnt mit jedem Ausfall neu
   p.downed = false; p.downedFor = 0; p.wound = false; p.bleed = null; p.hold = null;
   p.hp = game.C.player.hp;
   if (!p.shield) initShield(game, p);
@@ -543,14 +546,14 @@ function updateWounded(game, p, dt) {
 
 // PAN-01 A: Ist das Modul Krankenstation aktiv (läuft), holt es JEDEN Ausgeschalteten (verwundet oder bewusstlos) nach CONFIG.module.krankenstation.holNach s
 // einzeln an Bord (Schild voll, Pads); gefesselt/gefangen bleibt draußen (Gegner halten sie). Ohne aktive Krankenstation gilt die alte Regel (Ausbluten nach
-// wounded.bleedout, Bewusstlose wachen auf oder warten auf die Rückholung des ganzen Teams). Ist der Transfer aus, holt niemand: es gilt die alte Regel.
+// wounded.bleedout, Bewusstlose wachen auf oder warten auf die Rückholung des ganzen Teams). Auch bei zerstörtem Transfer (er wird dann nicht erneut gesprengt).
 // Rückgabe true = der Spieler wurde geholt (bzw. die Prüfung ist erledigt).
 function krankenstationHolt(game, p, dt) {
   // Wellenmodus Boden: keine Notrückholung (alle unten = Ende der Runde, wellen.js), also holt auch die Krankenstation niemanden
   if (!p.downed || p.gefangen || p.zustand === 'gefesselt' || (game.arena && game.arena.wellen) || !Modul().laeuft(game, 'krankenstation')) { p.holT = 0; return false; }
   p.holT = (p.holT || 0) + dt;
   if (p.holT < game.C.module.krankenstation.holNach) return false;
-  if (isDown(game.ship.systems.transfer)) return false;
+  // M2: Die Krankenstation holt auch bei bereits zerstörtem Transfer (er bleibt zerstört, Modul.notrueckholungFolge sprengt nur Heile)
   p.holT = 0;
   const map = game.away.map;
   interior().placeOnShipPad(game, p);
@@ -559,7 +562,7 @@ function krankenstationHolt(game, p, dt) {
   game.emit('beam', { pids: [p.id], dir: 'up', map });
   game.emit('sfx', { name: 'beam' });
   game.explore.addLog(`${ortName(game)}: Notrückholung für ${p.name} – die Krankenstation hat ihn geholt.`, logTag(game));
-  game.oda(`Krankenstation: Notrückholung für ${p.name}! Schild wieder voll – der Transfer ist dabei durchgebrannt.`, null);
+  game.oda(`Krankenstation: Notrückholung für ${p.name}! Schild wieder voll – der Transfer ist dabei durchgebrannt: an der Station E halten (Flicken) oder die Technik setzt Schrauber an.`, null);
   game.missionEvent('beamedUp', { players: [p], map });
   Modul().notrueckholungFolge(game);
   return true;

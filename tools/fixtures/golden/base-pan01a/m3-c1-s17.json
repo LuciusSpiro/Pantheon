@@ -48,7 +48,7 @@
     {"t":137.6,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
     {"t":144.3,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
     {"t":158,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":163,"text":"Krankenstation: Notrückholung für Ada! Schild wieder voll – der Transfer ist dabei durchgebrannt."},
+    {"t":163,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
     {"t":163,"text":"Transfer zerstört – kein Beamen!"},
     {"t":186.4,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
   ],

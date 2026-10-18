@@ -305,7 +305,7 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   // Hitze auf Waffen trifft eine der drei Waffen
   g.handleMessage(g.players[0].conn, { t: 'leave' });
   resetSystems(g);
-  setPower(g, { engines: 0, shields: 2, weapons: 4, life: 2 });
+  setPower(g, { engines: 0, shields: 2, weapons: 4 });
   g.ship.heat.weapons = CONFIG.power.heatLimit - 0.5;
   run(0.5, () => { pin(g); noFire(g); });
   const hot = ['weapon_bow', 'battery_port', 'battery_stbd'].filter((s) => g.ship.systems[s] !== 'ok');

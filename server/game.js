@@ -1162,7 +1162,7 @@ class Game {
       away.executeBeam(this, [p.id], 'down');   // nur wer den Befehl gibt (die anderen bleiben an Bord, z. B. am Captain)
       return null;
     }
-    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; this.ship.power.weapons = 0; return null; }
+    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; this.ship.power.weapons = 0; for (const m of this.ship.module.slice()) space.technikModul(this, m.id, false, m.raum); return null; }   // PAN-01 A: Waffen 0 und alle Module aus = 4 Punkte frei (Boje)
     if (sub === 'monster') { const M = this.away && this.away.monster; if (!M) return 'Kein Monster auf dieser Karte.'; M.x = p.x + Number(a[1] || 110); M.y = p.y + Number(a[2] || 0); M.pfad = []; M.pause = Number(a[3] || 0); return null; }   // sl monster [dx dy pause_s]: Monster neben den Spieler stellen (Sichtprüfung)
     if (sub === 'zaehler') { Zonen.zaehlerSetzen(this, String(a[1]), Number(a[2])); return null; }
     return 'sl: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler';

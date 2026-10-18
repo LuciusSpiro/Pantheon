@@ -7,23 +7,23 @@
   "success": true,
   "softlock": null,
   "stageAtEnd": null,
-  "durationS": 248.6,
+  "durationS": 251,
   "stages": [
     {"t":0,"mission":"m3","stage":"briefing"},
     {"t":4.4,"mission":"m3","stage":"flight"},
     {"t":53,"mission":"m3","stage":"courtyard"},
-    {"t":178.6,"mission":"m3","stage":"archive"},
-    {"t":194,"mission":"m3","stage":"tablet"},
-    {"t":200.7,"mission":"m3","stage":"warden"},
-    {"t":243.9,"mission":"m3","stage":"extract"}
+    {"t":182.6,"mission":"m3","stage":"archive"},
+    {"t":201.3,"mission":"m3","stage":"tablet"},
+    {"t":208,"mission":"m3","stage":"warden"},
+    {"t":246.3,"mission":"m3","stage":"extract"}
   ],
   "radio": [
     {"t":2,"from":"Hafenmeisterin Tesk","text":"Lerche, hier Tesk. Plünderer graben auf Mond Kesh in einem Kustoden-Archiv. Dort liegt eine Vertragstafel – die darf nicht verkauft werden. Holt sie?"},
     {"t":4.4,"from":"Hafenmeisterin Tesk","text":"Danke. Die Plünderer sind gut bewaffnet, aber schlecht organisiert. Nehmt Medipacks mit – und bringt alle heil zurück."},
     {"t":61.1,"from":"Hafenmeisterin Tesk","text":"Die Plünderer haben Störrelais in den Gängen. Solange die laufen, sieht euer Captain nur Rauschen."},
-    {"t":183.6,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
-    {"t":204.8,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
-    {"t":248.6,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
+    {"t":187.6,"from":"Hafenmeisterin Tesk","text":"Die Kustoden bauten für Paare. Einer allein kommt da nicht rein – das war Absicht."},
+    {"t":212,"from":"Hafenmeisterin Tesk","text":"Lerche, das Camp hat euch gehört! Sie kommen durch beide Gänge – passt auf eure Flanken auf."},
+    {"t":251,"from":"Hafenmeisterin Tesk","text":"Ihr habt die Tafel? Gebt sie mir, ich bringe sie ins Archiv zu Melk – dort ist sie sicher. Danke, Lerche. 120 Marken sind unterwegs."}
   ],
   "oda": [
     {"t":2,"text":"Direkt zur Planetenmission! Wir liegen im Hafen. Captain: Funk annehmen, dann Kurs Mond Kesh."},
@@ -44,15 +44,16 @@
     {"t":93,"text":"Captain: Reiter „Außenteam“ – Befehle setzen, Sensor und Kuppel. Ihr seid die Augen von oben."},
     {"t":98.2,"text":"Ein Schrauber hat repariert. Ich bin stolz auf die Kleinen."},
     {"t":120.5,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":125.5,"text":"Krankenstation: Notrückholung für Ada! Schild wieder voll – der Transfer ist dabei durchgebrannt."},
-    {"t":125.5,"text":"Transfer zerstört – kein Beamen!"},
-    {"t":178.6,"text":"Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor."},
-    {"t":194,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
-    {"t":200.7,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
-    {"t":215.5,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
-    {"t":220.5,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
-    {"t":220.6,"text":"Transfer zerstört – kein Beamen!"},
-    {"t":243.9,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
+    {"t":125.6,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":125.6,"text":"Transfer zerstört – kein Beamen!"},
+    {"t":178.1,"text":"Plünderer erledigt. Der hatte eh nur Schrott in den Taschen."},
+    {"t":182.6,"text":"Ruhe. Zwei Archivschlüssel, weit auseinander: beide gleichzeitig E halten, dann öffnet das Tor."},
+    {"t":201.3,"text":"Das Tor ist offen! Die Tafel liegt im Gewölbe – E halten, dann ist sie direkt im Inventar."},
+    {"t":208,"text":"Der Wächter erwacht! Vorn hält sein Schild alles ab – von der Seite oder hinten treffen. Und dann raus!"},
+    {"t":217.8,"text":"Ada ist verwundet! Kameraden: E halten zum Aufhelfen. Liegend geht noch die Pistole."},
+    {"t":222.8,"text":"Notrückholung! Alle an Bord, Schilde voll. Der Transfer kühlt 20 s ab."},
+    {"t":222.9,"text":"Transfer zerstört – kein Beamen!"},
+    {"t":246.3,"text":"Nachhut im Hof! Durch zum Südtor, dann zu den Pads und hochbeamen."}
   ],
   "notices": [
     {"t":79.5,"text":"Transfer zerstört – erst reparieren (Bots holen Ersatzteile)."},
@@ -60,9 +61,9 @@
   ],
   "rewards": [
     {"t":23.4,"marks":190,"delta":20},
-    {"t":248.6,"marks":310,"delta":120}
+    {"t":251,"marks":310,"delta":120}
   ],
   "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":false,"m3Direct":true},"marks":310,"inventory":{"loeschgelCharges":0,"marks":310,"deko":["trophaee_boje"],"tafel":0,"ersatzteil":1,"loeschgel":2,"flickblech":3,"bolzen":6,"medipack":2,"sonde":3}},
   "errors": 0,
-  "ending": {"t":248.6,"title":"Die Tafel ist sicher"}
+  "ending": {"t":251,"title":"Die Tafel ist sicher"}
 }

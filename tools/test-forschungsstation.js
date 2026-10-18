@@ -93,7 +93,7 @@ section('Buch: Prüfer, Kante, Gravimetrie, Station, Finale, Concordia', () => {
     ok(m.step && m.step.id === 'gravimetrie', 'am Helix: Schritt gravimetrie');
     const loc = Locations.get('helix'); const gv = loc.scene.gravimetrie;
     g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0;
-    T.energie({ engines: 3, shields: 2, weapons: 1, life: 2 });
+    T.energie({ engines: 3, shields: 2, weapons: 1 });
     // Ops scannt
     T.rolle('weapons'); T.run(0.2);
     ok(T.cmd('weapons.zonenscan').length === 0, 'Ops startet den Zonen-Scan');
@@ -148,7 +148,7 @@ section('Buch: Prüfer, Kante, Gravimetrie, Station, Finale, Concordia', () => {
     ok(m.step && m.step.id === 'finale', 'Team an Bord: Schritt finale (' + (m.step && m.step.id) + ')');
     // Finale: aus der Mitte durch den langen Kanal
     g.ship.x = gv.station.x; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0;
-    T.energie({ engines: 4, shields: 1, weapons: 1, life: 2 });
+    T.energie({ engines: 4, shields: 1, weapons: 1 });
     T.fliege(gv.fluchtweg, 60, () => m.step && m.step.id === 'abliefern_anflug');
     T.run(1);
     ok(m.step && m.step.id === 'abliefern_anflug', 'aus dem Haltefeld heraus: Schritt abliefern_anflug (Abstand ' + Math.round(Math.hypot(g.ship.x - gv.station.x, g.ship.y - gv.station.y)) + ')');

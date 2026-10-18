@@ -2016,13 +2016,13 @@
       R.text(ctx, 'Transfer-System: ' + (H.STATE_NAMES[tr] || tr) + (tr === 'damaged' ? ' (dauert doppelt so lang)' : ''), 16, y, { color: H.STATE_COL[tr] || PAL.red }); y += 11;
       R.text(ctx, block ? 'Gesperrt: ' + block : 'Bereit zum Beamen. Schilde fallen während des Transfers kurz aus.', 16, y, { color: block ? PAL.warn : PAL.mint }); y += 16;
       const downR = block || (onShipPads ? null : 'Niemand auf den Schiffs-Pads');
-      const upR = (sysDown(st.ship || {}, 'transfer') ? 'Transfer ausgefallen' : null) || (awayTeam.length ? null : 'Kein Außenteam unten');
+      const upR = (sysDown(st.ship || {}, 'transfer') ? 'Transfer kaputt – an der Transfer-Station E halten (Flicken), Technik: Schrauber ansetzen' : null) || (awayTeam.length ? null : 'Kein Außenteam unten');
       R.button(ctx, 16, y, 190, 18, 'Runterbeamen (' + onShipPads + ' auf Pads)', { hotkey: '1', disabled: !!downR, reason: downR, onClick: () => this.cmd(view, 'transfer.down') });
       R.button(ctx, 214, y, 190, 18, 'Hochbeamen (' + awayTeam.length + ' unten)', { hotkey: '2', disabled: !!upR, reason: upR, onClick: () => this.cmd(view, 'transfer.up') });
       y += 24;
       let supR = null;
       if (!away.active) supR = 'Nur während der Außenmission';
-      else if (sysDown(st.ship || {}, 'transfer')) supR = 'Transfer ausgefallen';
+      else if (sysDown(st.ship || {}, 'transfer')) supR = 'Transfer kaputt – an der Transfer-Station E halten (Flicken), Technik: Schrauber ansetzen';
       else if (!away.marker) supR = 'Keine Markierung (Außenteam: Q)';
       else if (n(inv.medipack) <= 0) supR = 'Kein Medipack im Lager';
       else if (n(sup.supply) > 0) supR = 'Abklingzeit ' + Math.ceil(sup.supply) + ' s';
@@ -2036,7 +2036,7 @@
         if (Array.isArray(p.sh) && !p.downed) R.drawShieldPips(ctx, 120, y + 3, p.sh[0], p.sh[1], n(p.shR), 9, 2);
         else if (Array.isArray(p.sh)) R.text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.ceil(H.holIn(st, p)) + ' s' : ''), 120, y + 4, { color: PAL.red });
         else R.bar(ctx, 120, y + 5, 90, 6, n(p.hp, 100) / 100, p.downed ? PAL.red : PAL.moss);
-        const rr = sysDown(st.ship || {}, 'transfer') ? 'Transfer ausgefallen' : n(sup.recall) > 0 ? 'Abklingzeit ' + Math.ceil(sup.recall) + ' s' : null;
+        const rr = sysDown(st.ship || {}, 'transfer') ? 'Transfer kaputt – an der Transfer-Station E halten (Flicken), Technik: Schrauber ansetzen' : n(sup.recall) > 0 ? 'Abklingzeit ' + Math.ceil(sup.recall) + ' s' : null;
         R.button(ctx, 220, y, 184, 16, 'Notrückholung', { hotkey: String(4 + i), disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'transfer.recall', { pid: p.id }) });
         y += 20;
       });
@@ -2208,8 +2208,8 @@
       const r = rows[this.sel.shop];
       if (r) {
         const desc = {
-          seitenturm: 'Schneller Turm an Steuerbord (Feuerbogen 120°).', schildpool: 'Zwei zusätzliche Schildpunkte zum Verteilen.',
-          bot2: 'Ein zweiter Reparatur-Bot (der erste ist immer an Bord).', werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
+          seitenturm: 'Schneller Turm an Steuerbord (Feuerbogen 120°).',
+          werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
           bolzenwerfer: 'Bolzenwerfer am Heck (Taste 3), zielsuchend, Magazin 2.', bolzen_werfer: 'Bolzenwerfer am Heck (Taste 3), zielsuchend, Magazin 2.',
           ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt einen Hüllenbruch.',
           bolzen: 'Munition für den Bolzenwerfer.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',

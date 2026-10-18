@@ -822,7 +822,7 @@ function hitLegacy(game, sector, dmg, opts) {
   }
   if (opts.emp) {
     // EMP durch die Schilde: zufälliges System offline statt Hüllenschaden
-    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null);
+    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null && !(interior.INERT_SYSTEMS || []).includes(s));   // PAN-01 A: ohne Lebenserhaltung
     const cand = order.filter((s) => !isDown(ship.systems[s]));
     game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy });
     game.emit('sfx', { name: 'emp' });
@@ -2034,7 +2034,9 @@ function technikPower(game, sys, delta) {
   if (nv < 0 || nv > C.power.maxPerSystem) return 'Grenze erreicht.';
   if (d > 0 && powerDemand(game) + 1 > reactorOutput(game)) return 'Reaktor ausgelastet – erst woanders Energie abziehen oder ein Modul abschalten.';
   pw[sys] = nv;
-  game.ship.powerIntent = Object.assign({}, pw);
+  // PAN-01 A: nur der Wunsch für dieses System ändert sich; was die Kürzung bei Reaktorschaden den anderen Systemen genommen hat, bleibt als Wunsch erhalten
+  if (!game.ship.powerIntent) game.ship.powerIntent = Object.assign({}, pw);
+  game.ship.powerIntent[sys] = nv;
   enforceShields(game);
   return null;
 }

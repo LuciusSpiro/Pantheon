@@ -109,7 +109,7 @@ section('Drift: Lerche und Gegner gleich', () => {
   // Antrieb Stufe 4 gegen Drift: Nettotempo = Schiff + Drift (Positionsversatz außerhalb von stepBody)
   szene([{ id: 'd2', form: 'rechteck', x: 1500, y: 1100, w: 2000, h: 1200, drift: { winkel: Math.PI, staerke: 60 } }]);
   const U = setup(); U.platz(2000, 1100, 0);
-  U.g.ship.helm.stage = 5; U.energie({ engines: 4, shields: 1, weapons: 1, life: 2 }); U.run(12);
+  U.g.ship.helm.stage = 5; U.energie({ engines: 4, shields: 1, weapons: 1 }); U.run(12);
   const vorw = U.g.ship.x - 2000;
   ok(vorw > 0 && vorw < 12 * 150, 'Stufe VOLL gegen 60 px/s Gegenstrom: kommt voran, aber langsamer (Δx ' + Math.round(vorw) + ')');
   const V = setup(); V.platz(2000, 1100, 0); V.g.ship.helm.stage = 1; V.run(4);
@@ -120,7 +120,7 @@ section('Drift: Lerche und Gegner gleich', () => {
 section('Hitze, Schaden, Sicht', () => {
   szene([{ id: 'h1', form: 'kreis', x: 1000, y: 1000, r: 400, hitze: 20, schaden: 2, sicht: 0.5 }]);
   const T = setup({ god: false }); const g = T.g;
-  T.platz(1000, 1000, 0); T.energie({ engines: 3, shields: 2, weapons: 1, life: 2 });
+  T.platz(1000, 1000, 0); T.energie({ engines: 3, shields: 2, weapons: 1 });
   const h0 = g.ship.heat.engines;
   T.run(1.5);
   ok(g.ship.heat.engines > h0 + 10, 'Zonenhitze heizt den Antrieb (Energie 3): ' + g.ship.heat.engines.toFixed(1));
@@ -129,7 +129,7 @@ section('Hitze, Schaden, Sicht', () => {
   ok(g.stats.hits >= hits + 3, 'Schaden 2/s kommt im Sekundentakt als Treffer an (' + (g.stats.hits - hits) + ' Treffer in 3 s)');
   ok(Math.abs(space.erfassung(g) - (CONFIG.tscan.range || 800) * 0.5) < 1e-6, 'Sichtgrenze halbiert die Erfassung');
   ok(space.sensorReichweite(g) < (CONFIG.sensors.range || 1400), 'Sensorreichweite kleiner in der Zone');
-  T.energie({ engines: 1, shields: 3, weapons: 2, life: 2 }); g.ship.heat.engines = 0; T.run(1);
+  T.energie({ engines: 1, shields: 3, weapons: 2 }); g.ship.heat.engines = 0; T.run(1);
   ok(g.ship.heat.engines === 0, 'Antrieb mit Energie 1 nimmt keine Zonenhitze auf (hitzeMinEnergie)');
   T.platz(100, 100, 0); T.run(0.2);
   ok(space.erfassung(g) === (CONFIG.tscan.range || 800), 'außerhalb: Sicht wieder normal');
@@ -169,7 +169,7 @@ const FOERDER = 460, TIEFE = 250, KERN = 100, WOLKE = 700;
 // Höhe-halten-Messung: der Pilot steuert radial nach außen, Stufe `stufe` (Index: 2 = ¼, 3 = ½, 4 = ¾, 5 = VOLL), Energie E; gemessen wird die Radialgeschwindigkeit über 1,5 s
 function hoehe(T, E, stufe, r0, last) {
   const g = T.g, s = g.ship;
-  T.energie({ engines: E, shields: 1, weapons: 1, life: 2 }); g.players[0].console = 'helm';
+  T.energie({ engines: E, shields: 1, weapons: 1 }); g.players[0].console = 'helm';
   s.systems.engines = 'operational';
   g.fracht = null; for (let i = 0; i < (last || 0); i++) Fracht.anBordLegen(g, 'deuterium');
   s.helm.stage = stufe; s.helm.autoStop = false;
@@ -200,13 +200,13 @@ section('Gasriese: Zug und Höhe halten (Messung)', () => {
   ok(m(4, 5, TIEFE, 1) < 0 && m(2, 5, FOERDER, 2) > 0 && m(2, 5, FOERDER, 2) < 5, 'Ladung (−15 % je Einheit): Tiefe mit einer Einheit nicht mehr zu halten; Förderschicht mit zwei Einheiten Energie 2 VOLL gerade so (' + m(2, 5, FOERDER, 2).toFixed(1) + ')');
   ok(Zonen.antriebNoetig(zug(FOERDER), [1, 2, 3, 4].map((E) => CONFIG.shipClasses.lerche.maxSpeed * CONFIG.enginePowerFactor[E])) === 2, 'Anzeige-Regel: Förderschicht verlangt Antrieb 2 (aus CONFIG abgeleitet)');
   // ohne Antrieb (Stopp) sinkt die Lerche mit dem vollen Zug
-  T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.fracht = null; T.platz(GC.x + FOERDER, GC.y, 0); g.ship.helm.stage = 1; g.players[0].console = 'weapons';
+  T.energie({ engines: 2, shields: 2, weapons: 1 }); g.fracht = null; T.platz(GC.x + FOERDER, GC.y, 0); g.ship.helm.stage = 1; g.players[0].console = 'weapons';
   const r0 = Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y); T.run(2);
   ok(r0 - Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y) > 100, 'Stopp in der Förderschicht: die Gravitation zieht ~72 px/s nach innen (' + Math.round(r0 - Math.hypot(g.ship.x - GC.x, g.ship.y - GC.y)) + ' px in 2 s)');
   // Hitze: Energie 3/4 heizt beim Halten, Energie 2 nicht (hitzeMinEnergie)
-  T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
+  T.energie({ engines: 2, shields: 2, weapons: 1 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
   const h2 = g.ship.heat.engines;
-  T.energie({ engines: 4, shields: 1, weapons: 1, life: 2 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
+  T.energie({ engines: 4, shields: 1, weapons: 1 }); g.ship.heat.engines = 0; T.platz(GC.x + FOERDER, GC.y, 0); T.run(2);
   ok(h2 === 0 && g.ship.heat.engines > 15, 'Hitze: Energie 2 bleibt kalt, Energie 4 heizt in der Förderschicht (' + g.ship.heat.engines.toFixed(1) + ' in 2 s)');
 });
 
@@ -216,7 +216,7 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
   const lauf = (r, sek) => {
     const T = setup({ god: false }); const g = T.g; const s = g.ship;
     const pool = () => s.shields.current.reduce((a, b) => a + b, 0);
-    T.energie({ engines: 2, shields: 2, weapons: 1, life: 2 }); g.players[0].console = 'weapons'; s.hull = 100; s.shields.current = s.shields.current.map(() => 2);
+    T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.hull = 100; s.shields.current = s.shields.current.map(() => 2);
     const eng0 = s.systems.engines; let minH = s.hull; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
     let tTot = null, ausserhalb = null; const em0 = g.stats.emergencies;
     for (let k = 0; k < Math.round(sek / DT); k++) {
@@ -242,7 +242,7 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
 section('Gasriese: Deuterium schöpfen per Ops-Aktion, Gewicht, Abwerfen', () => {
   gasSzene();
   const T = setup(); const g = T.g;
-  T.energie({ engines: 2, shields: 2, weapons: 2, life: 2 }); T.taktik();
+  T.energie({ engines: 2, shields: 2, weapons: 2 }); T.taktik();
   const z = ZonenSim.szeneZonen(g).filter((q) => q.ertrag)[0];
   ok(!!z && z.name === 'Förderschicht', 'Szene hat genau eine Ertragszone: die Förderschicht');
   // Zug zieht das Schiff aus dem Ring: für die Messung der Schöpfzeit bleibt die Lerche per Neusetzen an Ort und Stelle (Antrieb hält die Höhe)
@@ -419,7 +419,7 @@ section('SL7a Gravimetrie: Forschungsstation Helix (Sund 0506)', () => {
     const gv = loc.scene.gravimetrie;
     space.enterScene(g, 'helix', {});
     g.players[0].console = 'weapons';
-    g.ship.power.engines = 3; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 3; g.ship.powerIntent.weapons = 1; g.ship.powerIntent.shields = 2; g.ship.powerIntent.life = 2; }
+    g.ship.power.engines = 3; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 3; g.ship.powerIntent.weapons = 1; g.ship.powerIntent.shields = 2; }
     run(0.3);
     const Zs = loc.scene.zonen;
     const felder = Zs.filter((z) => /^gravi_feld/.test(z.id));
@@ -472,7 +472,7 @@ section('SL7a Gravimetrie: Forschungsstation Helix (Sund 0506)', () => {
     ok(ZonenSim.szeneZonen(g).some((z) => z.id === 'halt_feld') && ZonenSim.sichtbarMachen(g, 'halt', true) === 5, 'zone_schalten halt an, Feldkarte: 5 Zonen für alle sichtbar');
     const sv = g.snapshot().zonen; ok(sv.sv.length === 5 && !sv.au, 'Snapshot sv (5 sichtbar), au leer');
     g.ship.x = gv.station.x - 250; g.ship.y = gv.station.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = Math.PI; g.ship.turnVel = 0;
-    g.ship.power.engines = 4; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 4; g.ship.powerIntent.shields = 1; g.ship.powerIntent.weapons = 1; g.ship.powerIntent.life = 2; }
+    g.ship.power.engines = 4; if (g.ship.powerIntent) { g.ship.powerIntent.engines = 4; g.ship.powerIntent.shields = 1; g.ship.powerIntent.weapons = 1; }
     run(0.3);
     // falscher Weg: in einen der drei kurzen Kanäle (Sackgasse) fliegen und weiter geradeaus: das Haltefeld holt das Schiff zurück
     const kurz = Zs.find((z) => /^halt_kanal_kurz/.test(z.id));

@@ -127,7 +127,7 @@ function restore(game, arr) {
   const seen = new Set();
   const out = [];
   for (const m of Array.isArray(arr) ? arr : []) {
-    if (!m || !C.ids.includes(m.id) || !(m.raum >= 1 && m.raum <= C.max) || seen.has(m.raum)) continue;
+    if (!m || !C.ids.includes(m.id) || !Number.isInteger(m.raum) || m.raum < 1 || m.raum > C.max || seen.has(m.raum)) continue;
     seen.add(m.raum);
     out.push({ id: m.id, raum: m.raum, an: m.an !== false, lauf: m.an !== false });
   }
