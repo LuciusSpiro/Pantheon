@@ -16,6 +16,29 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in SUND-01 Paket B – Kopplung: Modus „Freie Fahrt Sund“, Weltstand, Tick je Sprung
+
+Die Weltsimulation (Paket A) läuft jetzt im Spiel, **nur** im neuen Lobby-Modus „Freie Fahrt Sund“ (`freie_fahrt`, Taste **M**, nach „Die Schuld der Lerche“). Kampagnen, Limes, Tutorial, Labor und Arena sind unverändert: dort ist `game.weltsim` `null`, es gibt keinen Tick und keinen Block im Weltstand. Es gibt in B **keinen** Snapshot-Block und keine Client-Anzeige außer dem Lobby-Eintrag (Karte und Meldungen: Paket C).
+
+| Datei | Was |
+|---|---|
+| `server/sim/kriegslage.js` | Kopplung (Action-Layer). `game.weltsim = { zustand, tickZahl, fehler, ereignisse[], hauptweltGefallen }`; `starten(game, seed?)`, `tick(game, quelle)`, `szeneNachziehen(game)`, `nachLaden(game)`, `toSave`/`restore`/`reset`. Füllt `game.weltBesitz.hexe` (Paket D) für alle Sim-Hexe (Sim `kon` heißt dort `saum`, frei heißt `frei`; Sonderorte außerhalb der Sim bleiben statisch). Rohereignisse der Sim liegen in einem Ring von 120 Einträgen **auf dem Server** (nicht gespeichert, nicht im Snapshot), daraus baut Paket C das Wissen von Rom |
+| `tools/test-weltsim-kopplung.js` | Test (in `npm test`, ca. 3 s): Modusstart, Tick-Folge, Kampagne ohne Sim, Speichern/Neustart/Laden mit Tiefenvergleich, Altstände, Schema, Besitz-Overlay, `game.rng`, Hauptwelt, `dockOk` |
+| `tools/sim-freie-fahrt.js` | Bot-Lauf ohne Spielleiter: `npm run sim:freie-fahrt -- --spruenge 100 [--minuten 30] [--seed 7]` (echte Sprünge im Zufallsgang, prüft Ticks == Sprünge, Fehler, Weltveränderung, Stillstand) |
+| `tools/snap-mess.js` | neuer Aufbau „freie_fahrt“ (4 Spieler, Hafen mit Banner und Posten mit Fahne, 8 Jäger) |
+
+**Ein Tick je Sprung.** Der Hook `Kriegslage.tick` sitzt in `sprung.js` **direkt vor dem Szenenaufbau** (`enterScene`): in `springeNach` (Normalsprung **und** jeder Hop des Schnellsprungs, `reise.hop` ruft `springeNach`) und im Notfallsprung (je Ausführung, auch beim Rückfall in denselben Sektor; dann `szeneNachziehen`). Banner und Besitz der Ankunftsszene entsprechen so dem Stand nach dem Tick. Kein Tick beim Andocken, Warten, Ablegen, Planen einer Route, Start des Schnellsprungs ohne Hop, `debugGoto` und anderen Szenenwechseln ohne Sprung. Die Sim hat ihren **eigenen Zufallsstrom** (`zustand.zufall`, Seed aus dem Spiel-Seed) und fasst `game.rng` nie an. Wirft die Sim, wird der Fehler mit `game.countError('kriegslage-tick')` gezählt, der Zustand auf den Stand vor dem Tick zurückgesetzt und der Tick übersprungen; das Spiel läuft weiter.
+
+**Modus.** `startGame`: Karte `sund_frei`, Weltstand wie bei den Kampagnen (persistent, Fakt `welt_karte`), **keine Kette, kein Spielleiter, keine Mission** (`mission.activeId` bleibt `null`, eine leere Rahmenmission war nicht nötig: das Spiel läuft ohne laufende Mission, wie zwischen zwei Missionen). Die Crew steht angedockt in Ostia Nova (Start der Karte). Beim Fortsetzen setzt `Kriegslage.nachLaden` `mission.mode` zurück auf `null` (`mission.restore` setzt `campaign`, das würde Angebote der Limes-Kampagne zulassen) und berechnet `space.dockOk` neu.
+
+**Weltstand.** Keine Versionserhöhung (bleibt 3): neuer optionaler Block `welt.sim` = `{ modus: 'freie_fahrt', tick, hauptweltGefallen?, zustand }`; `zustand` ist der Sim-Zustand **ohne `werte` und `karte`** (beim Laden kommen beide frisch aus `content/welt/sund-sim.json` und `sund-sim-werte.json`; ein Stand läuft also immer mit den aktuellen Werten, ändert man Gefechtstempo und Co. in der Datei, gilt das auch für alte Stände). Fehlt der Block, ist der Stand eine Kampagne (`game.weltsim` bleibt `null`, Altstände laden unverändert). Ein Block mit unbrauchbarem Zustand (z. B. Hexe fehlen) wird als Fehler gezählt, die Welt neu erzeugt, der Tick-Zähler bleibt.
+
+**Gespeichert wird weiter nur angedockt** (`saveWorld`/`updateWeltstand`, außer `missionDone`). Schiffsort und Welt bleiben dadurch konsistent; ein Absturz zwischen zwei Docks setzt auf das letzte Dock zurück (Welt und Schiff beide).
+
+**Hauptwelt.** Fällt Palatina (`hauptwelt_gefallen` mit `alt: rom`), setzt die Kopplung `weltsim.hauptweltGefallen = { fraktion: 'rom', tick }` (gespeichert), meldet per `game.oda` den Platzhalter „Palatina ist gefallen.“ (einmal je Spiel) und löst das Missionsereignis `hauptwelt_gefallen` aus; das Spiel läuft weiter (Abspann: SUND-04). Hrafnheim: Ereignis und „Hrafnheim ist gefallen.“, kein Merker.
+
+Bekannt, nicht Teil von B: Sprungziele brauchen wie in der Kampagne Sund eine gefundene Boje (Weitscan). Debug-Befehle, die Szenen ohne Sprung wechseln, ticken die Welt nicht.
+
 ## Neu in SUND-01 Paket A – Sim-Kern der Weltsimulation (`server/weltsim/`)
 
 Reines Modul, noch nicht an Server, Weltstand oder Client angeschlossen (Pakete B und C). Port von `Vault/Pantheon/Welt/sim_sund.py`: Wirtschaft (T M U E N, Bevölkerung, Marken, Unterhalt, Verschleiß im Feld, Neubau), abstrakter Handel des Konkordats, Standard-KI (Angriff, Beanspruchen, Posten), Stützpunkt-Phasen (Sammeln, Marsch, Belagerung, Rückzug), Gefecht samt Verteidigung ohne Flotte, Eroberung, Piratenüberfälle. **Alle Zahlen stehen in `content/welt/sund-sim-werte.json`**, kein Timer, kein Thread, kein `Math.random`/`Date.now`, nur `tick()` ändert den Zustand.
