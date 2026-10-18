@@ -70,6 +70,10 @@ function fracht_abwerfen(game, x, y, art) {
 // PAN-01 A: Ungesichert (Frachtraum-Modul aus) + Hüllentreffer: die älteste Ware löst sich und treibt hinter dem Schiff (neu beamen möglich). Rückgabe: Anzahl.
 function huellenTreffer(game) {
   if (gesichert(game)) return 0;
+  // Nur wer den Frachtraum bewusst abgeschaltet hat (Technik), trägt das Risiko. Fällt er nur durch Reaktorschaden aus (Notstrom), zeigt die Anzeige
+  // UNGESICHERT, aber die Ladung bleibt: sonst ginge Kampagnen-Fracht (Konvoi, Eisenwald) durch einen Treffer auf den Reaktor verloren (Kette k2).
+  const M = require('./module.js');
+  if (M.installiert(game, 'frachtraum') && !M.liste(game).some((m) => m.id === 'frachtraum' && !m.an)) return 0;
   const s = state(game); const sh = game.ship;
   const lim = (game.C.module && game.C.module.fracht && game.C.module.fracht.verlustJeTreffer) || 1;
   let n = 0;

@@ -1085,9 +1085,12 @@
         const col = m.lauf ? PAL.mint : m.an ? PAL.amber : PAL.red;
         ctx.fillStyle = col; ctx.fillRect(a.x + 2, y + 2, 6, 6);
         R.text(ctx, m.name + ' ' + m.raum, a.x + 14, y + 1, { color: sel ? PAL.amber : PAL.star });
-        R.text(ctx, m.lauf ? 'läuft' : m.an ? 'ohne Strom' : 'AUS', a.x + 130, y + 1, { color: col });
+        // an, aber ohne Strom: klare Anzeige „Energie fehlt“ (kein „Abschalten“ im Weg); kleiner Knopf „Aus“ nimmt den Wunsch zurück
+        R.text(ctx, m.lauf ? 'läuft' : m.an ? 'Energie fehlt' : 'AUS', a.x + 130, y + 1, { color: col });
         const why = this.modulGrund(ship, m, output);
-        R.button(ctx, a.x + 190, y - 1, 104, 14, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
+        const starved = m.an && !m.lauf;
+        if (starved) R.button(ctx, a.x + 250, y - 1, 44, 14, 'Aus', { onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, false); } });
+        else R.button(ctx, a.x + 190, y - 1, 104, 14, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
         y += 16;
       });
       return y;

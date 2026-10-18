@@ -280,8 +280,19 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   // Docked: nichts treibt, die Ware ist weg
   const D = arena();
   Fracht.anBordLegen(D.g, 'fracht'); D.g.ship.docked = true; D.g.ship.shields.current = [0, 0, 0, 0];
-  Fracht.setGesichert(D.g, false);
+  Fracht.setGesichert(D.g, false); D.g.ship.module.forEach((m) => { m.an = false; });
   ok(Fracht.huellenTreffer(D.g) === 1 && Fracht.anBord(D.g) === 0 && Fracht.draussen(D.g).length === 0, 'angedockt: die Ladung ist weg, es treibt nichts');
+});
+
+section('Frachtraum ohne Strom durch Reaktorschaden: ungesichert, aber nichts geht verloren', () => {
+  const T = arena();
+  const g = T.g;
+  Fracht.anBordLegen(g, 'sprengstoff');
+  g.ship.systems.reactor = 'broken'; T.run(0.2);
+  ok(!Fracht.gesichert(g) && g.snapshot().fracht.g === false, 'Notstrom: Frachtraum ungesichert (Anzeige)');
+  g.ship.shields.current = [0, 0, 0, 0];
+  space.shipHit(g, 0, 1, {});
+  ok(Fracht.anBord(g) === 1 && Fracht.draussen(g).length === 0, 'Hüllentreffer im Notstrom: Ladung bleibt (Kampagnen-Fracht, Kette k2)');
 });
 
 section('Werkstatt: zweiter Schrauber als Modul', () => {

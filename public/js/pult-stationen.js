@@ -365,9 +365,10 @@
         if (selM) P.zeileHi(ctx, x, ry - 2, cw, 15, fnc);
         P.lampe(ctx, x + 2, ry + 1, fnc, true);
         T(ctx, m.name.toUpperCase() + ' ' + m.raum, x + 14, ry + 2, m.lauf ? K.text : P.FN.weapon);
-        T(ctx, m.lauf ? 'läuft' : m.an ? 'ohne Strom' : 'AUS', x + 122, ry + 2, m.lauf ? P.FN.shield : m.an ? P.FN.drive : P.FN.weapon);
+        T(ctx, m.lauf ? 'läuft' : m.an ? 'ENERGIE FEHLT' : 'AUS', x + 122, ry + 2, m.lauf ? P.FN.shield : m.an ? P.FN.drive : P.FN.weapon);
         const why = this.modulGrund(ship, m, output);
-        P.knopf(ctx, x + 168, ry - 1, 66, 13, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
+        if (m.an && !m.lauf) P.knopf(ctx, x + 206, ry - 1, 28, 13, 'Aus', { fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, false); } });   // Wunsch zurücknehmen
+        else P.knopf(ctx, x + 168, ry - 1, 66, 13, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
       });
       y += Math.max(1, mods.length) * 16;
       T(ctx, '↑↓ wählen · ←→ verteilen/Modul', x, y, K.dim);
