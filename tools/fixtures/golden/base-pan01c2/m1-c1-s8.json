@@ -7,7 +7,7 @@
   "success": true,
   "softlock": null,
   "stageAtEnd": null,
-  "durationS": 492.9,
+  "durationS": 492.6,
   "stages": [
     {"t":0,"mission":"m1","stage":"dock"},
     {"t":34.9,"mission":"m1","stage":"undock"},
@@ -17,7 +17,7 @@
     {"t":274.5,"mission":"m1","stage":"away"},
     {"t":346,"mission":"m1","stage":"decision"},
     {"t":357.8,"mission":"m1","stage":"return"},
-    {"t":467.3,"mission":"m1","stage":"port"}
+    {"t":467,"mission":"m1","stage":"port"}
   ],
   "radio": [
     {"t":27.9,"from":"Hafenmeisterin Tesk","text":"Lerche, hier Tesk. Boje B-7 ist verstummt – liegt hinter dem Splittergürtel. Seht nach, ja? Zahlung wie üblich."},
@@ -29,9 +29,9 @@
     {"t":307.5,"from":"Techniker Ivo","text":"Danke! Das Bein hält wieder. Ich bin Ivo, Wartung B-7 – ich folge dir zu den Pads!"},
     {"t":324.5,"from":"Hafenmeisterin Tesk","text":"Lerche? B-7 sendet wieder! Tesk dankt – 40 Marken Bonus sind unterwegs."},
     {"t":363.8,"from":"Grauzahn (Rostmeute)","text":"Ihr habt meine Jungs blamiert. Die Nachhut verabschiedet euch persönlich."},
-    {"t":392.9,"from":"Grauzahn (Rostmeute)","text":"Schon gut, schon gut! Fliegt nach Hause, Lerche. Diesmal."},
-    {"t":397.9,"from":"Sela (Vaelen-Händlerin)","text":"Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?"},
-    {"t":492.9,"from":"Hafenmeisterin Tesk","text":"Willkommen zurück, Lerche. B-7 sendet wieder – sauber gemacht. Hier, eine Kleinigkeit für die Vitrine."}
+    {"t":392.6,"from":"Grauzahn (Rostmeute)","text":"Schon gut, schon gut! Fliegt nach Hause, Lerche. Diesmal."},
+    {"t":397.6,"from":"Sela (Vaelen-Händlerin)","text":"Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?"},
+    {"t":492.6,"from":"Hafenmeisterin Tesk","text":"Willkommen zurück, Lerche. B-7 sendet wieder – sauber gemacht. Hier, eine Kleinigkeit für die Vitrine."}
   ],
   "oda": [
     {"t":0.5,"text":"Guten Morgen, Crew der Lerche! Ich bin ODA, eure Bordintelligenz. Laufen: WASD oder Pfeiltasten."},
@@ -107,12 +107,12 @@
     {"t":363.8,"text":"Nachhut von achtern! Ihr Störsender blockiert den Faltsprung. Ops besetzen, Schilde nach hinten!"},
     {"t":370.4,"text":"Backbord-Batterie beschädigt."},
     {"t":386.6,"text":"Heck-Emitter beschädigt."},
-    {"t":392.9,"text":"Störsender weg! Heimweg: über den Splittergürtel zum Hafen (Sternkarte)."},
-    {"t":397.9,"text":"Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela."},
-    {"t":431.6,"text":"Faltsprung bereit – Steuer: F drücken!"},
-    {"t":467.3,"text":"Faltsprung bereit – Steuer: F drücken!"},
-    {"t":467.8,"text":"Zuhause! Steuer: langsam in den Dock-Ring neben der Station. Unter 28 px/s docke ich an."},
-    {"t":492.9,"text":"Angedockt! Die Bojen-Trophäe liegt im Inventar – an der eigenen Koje aufstellen. Terminal ist offen."}
+    {"t":392.6,"text":"Störsender weg! Heimweg: über den Splittergürtel zum Hafen (Sternkarte)."},
+    {"t":397.6,"text":"Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela."},
+    {"t":431.3,"text":"Faltsprung bereit – Steuer: F drücken!"},
+    {"t":467,"text":"Faltsprung bereit – Steuer: F drücken!"},
+    {"t":467.6,"text":"Zuhause! Steuer: langsam in den Dock-Ring neben der Station. Unter 28 px/s docke ich an."},
+    {"t":492.6,"text":"Angedockt! Die Bojen-Trophäe liegt im Inventar – an der eigenen Koje aufstellen. Terminal ist offen."}
   ],
   "notices": [
     {"t":9.8,"text":"Du trägst nichts."},
@@ -131,7 +131,7 @@
     {"t":324.5,"marks":335,"delta":40},
     {"t":346,"marks":385,"delta":50},
     {"t":357.8,"marks":585,"delta":200},
-    {"t":392.9,"marks":605,"delta":20}
+    {"t":392.6,"marks":605,"delta":20}
   ],
   "end": {"flags":{"bribed":false,"decision":"deliver","technikerRescued":true,"rearguardRepelled":true,"selaCalled":true,"vaelenHelped":false},"marks":605,"inventory":{"loeschgelCharges":0,"marks":605,"deko":["trophaee_boje"],"tafel":0,"ersatzteil":3,"loeschgel":1,"flickblech":2,"bolzen":6,"medipack":1,"sonde":3}},
   "errors": 0

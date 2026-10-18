@@ -1,0 +1,4 @@
+{
+  "_kommentar": "PAN-01 Paket C (nach Review), schlanke Allow-Datei fuer Vergleiche GEGEN base-pan01c2: node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01c2 <neu> --allow tools/fixtures/golden/allow-pan01c2.json. Ein Lauf auf demselben Stand ist byte-identisch zur Basis, es gibt keine Ausnahmen. Gegen base-pan01b2 sind 106 von 120 Traces byte-identisch; die uebrigen weichen ab, weil die Bots keinen Bolzenwerfer mehr kaufen (Shop-Eintrag entfaellt, Torpedowerfer erst mit Stufe 2): Fehlschlaege Seeds 1-20 13 -> 16, identisch zum Kontrolllauf 'pan01-b-Code, nur Bolzenkauf entfernt' (16). Zaehlung in CONTRACT-PAN01-C.md §14.",
+  "stages": [], "texts": [], "flags": [], "inventory": [], "duration": []
+}

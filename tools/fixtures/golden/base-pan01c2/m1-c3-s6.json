@@ -178,24 +178,14 @@
     {"t":615.5,"text":"Backbord-Batterie zerstört – Batterie feuert nicht!"},
     {"t":618,"text":"Bo ist k.o.! Jemand E halten zum Aufhelfen – sonst rappelst du dich in 15 s auf."},
     {"t":622.7,"text":"Triebwerk zerstört – kein Schub, kein Sprung!"},
-    {"t":627.9,"text":"Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord! Steuerbord-Emitter zerstört – Steuerbordsektor offen! Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
-    {"t":631,"text":"Backbord-Düse zerstört – kaum Drehung nach Backbord! Backbord-Emitter zerstört – Backbordsektor offen!"},
-    {"t":637.6,"text":"Reaktor zerstört – nur Notstrom!"},
-    {"t":637.7,"text":"Frachtraum ohne Strom – die Sicherungen sind aus, die Ladung ist ungesichert!"},
-    {"t":640.7,"text":"Heck-Emitter beschädigt."},
-    {"t":644.1,"text":"Notfallprotokoll! Hülle stabilisiert, Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde."},
+    {"t":637.8,"text":"Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord! Steuerbord-Emitter zerstört – Steuerbordsektor offen! Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
+    {"t":644.2,"text":"Backbord-Düse zerstört – kaum Drehung nach Backbord! Backbord-Emitter zerstört – Backbordsektor offen! Backbord-Batterie zerstört – Batterie feuert nicht!"},
     {"t":644.4,"text":"Keine Ersatzteile mehr – ich habe den Transfer mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":647.2,"text":"Liegengeblieben – es brennt neben der Station Backbord-Batterie! Löschgel und Werkzeug, bitte."},
-    {"t":647.4,"text":"Reaktor wieder ganz, aber kalt. Gefechtsstart in 3 s – festhalten!"},
-    {"t":650.2,"text":"Liegengeblieben – es brennt neben den Stationen Steuerbord-Batterie, Transfer! Löschgel und Werkzeug, bitte."},
-    {"t":650.4,"text":"Gefechtsstart: Der Reaktor zündet von selbst. Weiter geht's!"},
-    {"t":650.5,"text":"Frachtraum wieder unter Strom – Ladung gesichert."},
-    {"t":659.4,"text":"Transfer zerstört – kein Beamen!"},
-    {"t":660.4,"text":"Keine Ersatzteile mehr – ich habe die Backbord-Batterie mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":672.9,"text":"Keine Ersatzteile mehr – ich habe den Steuerbord-Emitter mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":672.9,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Batterie mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":673,"text":"Keine Ersatzteile mehr – ich habe den Backbord-Emitter mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":674,"text":"Steuerbord-Emitter zerstört – Steuerbordsektor offen!"}
+    {"t":653.9,"text":"Transfer zerstört – kein Beamen! Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord!"},
+    {"t":667.7,"text":"Keine Ersatzteile mehr – ich habe das Triebwerk mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
+    {"t":669.9,"text":"Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord! Steuerbord-Emitter zerstört – Steuerbordsektor offen!"},
+    {"t":673,"text":"Triebwerk zerstört – kein Schub, kein Sprung!"},
+    {"t":673.3,"text":"Notfallprotokoll! Hülle stabilisiert, Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde."}
   ],
   "notices": [
     {"t":10.5,"text":"Du trägst nichts."},
@@ -221,8 +211,9 @@
     {"t":465.8,"marks":205,"delta":-50},
     {"t":529.4,"marks":155,"delta":-50},
     {"t":586.8,"marks":105,"delta":-50},
-    {"t":644.1,"marks":55,"delta":-50}
+    {"t":625.2,"marks":125,"delta":20},
+    {"t":673.3,"marks":75,"delta":-50}
   ],
-  "end": {"flags":{"bribed":true,"decision":"decode","technikerRescued":true},"marks":55,"inventory":{"loeschgelCharges":0,"marks":55,"deko":[],"tafel":0,"ersatzteil":0,"loeschgel":1,"flickblech":2,"bolzen":6,"medipack":1,"sonde":3}},
+  "end": {"flags":{"bribed":true,"decision":"decode","technikerRescued":true},"marks":75,"inventory":{"loeschgelCharges":0,"marks":75,"deko":[],"tafel":0,"ersatzteil":0,"loeschgel":1,"flickblech":2,"bolzen":6,"medipack":1,"sonde":3}},
   "errors": 0
 }

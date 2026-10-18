@@ -27,8 +27,8 @@
     {"t":262.3,"from":"Techniker Ivo","text":"Danke! Das Bein hält wieder. Ich bin Ivo, Wartung B-7 – ich folge dir zu den Pads!"},
     {"t":273.5,"from":"Hafenmeisterin Tesk","text":"Lerche? B-7 sendet wieder! Tesk dankt – 40 Marken Bonus sind unterwegs."},
     {"t":300.4,"from":"Grauzahn (Rostmeute)","text":"Wegezoll galt für die Hinfahrt, Kleine. Die Rückfahrt kostet extra."},
-    {"t":546.1,"from":"Grauzahn (Rostmeute)","text":"Schon gut, schon gut! Fliegt nach Hause, Lerche. Diesmal."},
-    {"t":551.1,"from":"Sela (Vaelen-Händlerin)","text":"Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?"}
+    {"t":536.2,"from":"Grauzahn (Rostmeute)","text":"Schon gut, schon gut! Fliegt nach Hause, Lerche. Diesmal."},
+    {"t":541.2,"from":"Sela (Vaelen-Händlerin)","text":"Lerche? Hier Sela, Vaelen-Karawane. Mein Reaktor hustet. Kommt vorbei – wir liegen gleich beim Hafen. Bitte?"}
   ],
   "oda": [
     {"t":0,"text":"Bo ist an Bord gekommen. Willkommen in der Schicht!"},
@@ -153,8 +153,8 @@
     {"t":517.1,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Batterie mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":517.7,"text":"Heck-Emitter zerstört – Hecksektor offen!"},
     {"t":531.1,"text":"Transfer zerstört – kein Beamen! Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
-    {"t":546.1,"text":"Störsender weg! Heimweg: über den Splittergürtel zum Hafen (Sternkarte)."},
-    {"t":551.1,"text":"Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela."},
+    {"t":536.2,"text":"Störsender weg! Heimweg: über den Splittergürtel zum Hafen (Sternkarte)."},
+    {"t":541.2,"text":"Ein Notruf! Optional: Die Vaelen-Karawane ist jetzt auf der Sternkarte – dort andocken hilft Sela."},
     {"t":554.6,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Düse mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":555,"text":"Keine Ersatzteile mehr – ich habe den Steuerbord-Emitter mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":558.3,"text":"Steuerbord-Emitter zerstört – Steuerbordsektor offen!"},
@@ -163,11 +163,16 @@
     {"t":565.9,"text":"Heck-Emitter zerstört – Hecksektor offen!"},
     {"t":576,"text":"Keine Ersatzteile mehr – ich habe den Transfer mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":576,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Batterie mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":582.4,"text":"Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
-    {"t":591.1,"text":"Dauerbrand! Ich flute die Sektionen mit Löschschaum – alle Feuer aus. Bitte nicht zur Gewohnheit machen."},
+    {"t":578.4,"text":"Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
+    {"t":581.2,"text":"Dauerbrand! Ich flute die Sektionen mit Löschschaum – alle Feuer aus. Bitte nicht zur Gewohnheit machen."},
     {"t":603.2,"text":"Keine Ersatzteile mehr – ich habe den Steuerbord-Emitter mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":610.8,"text":"Keine Ersatzteile mehr – ich habe den Heck-Emitter mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":669.2,"text":"Faltsprung bereit – Steuer: F drücken!"}
+    {"t":623.4,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Batterie mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
+    {"t":669.7,"text":"Faltsprung bereit – Steuer: F drücken!"},
+    {"t":703.4,"text":"Transfer zerstört – kein Beamen! Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord! Steuerbord-Emitter zerstört – Steuerbordsektor offen! Dazu 1 weitere Schäden."},
+    {"t":706.5,"text":"Schildgenerator zerstört – keine Schilde!"},
+    {"t":709.5,"text":"Triebwerk zerstört – kein Schub, kein Sprung! Heck-Emitter zerstört – Hecksektor offen! Bug-Waffe beschädigt."},
+    {"t":712.6,"text":"Backbord-Batterie beschädigt."}
   ],
   "notices": [
     {"t":10.5,"text":"Du trägst nichts."},
@@ -191,8 +196,8 @@
     {"t":402.3,"marks":255,"delta":-50},
     {"t":449.8,"marks":205,"delta":-50},
     {"t":494.2,"marks":155,"delta":-50},
-    {"t":496,"marks":175,"delta":20},
-    {"t":546.1,"marks":195,"delta":20}
+    {"t":495.7,"marks":175,"delta":20},
+    {"t":536.2,"marks":195,"delta":20}
   ],
   "end": {"flags":{"bribed":true,"decision":"decode","technikerRescued":true,"rearguardRepelled":true,"selaCalled":true},"marks":195,"inventory":{"loeschgelCharges":0,"marks":195,"deko":[],"tafel":0,"ersatzteil":0,"loeschgel":1,"flickblech":3,"bolzen":6,"medipack":1,"sonde":3}},
   "errors": 0

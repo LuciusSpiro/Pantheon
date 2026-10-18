@@ -130,7 +130,8 @@
   ],
   "notices": [
     {"t":114.2,"text":"Ausweichrolle lädt noch."},
-    {"t":120.4,"text":"Batterie Backbord lädt noch."}
+    {"t":120.4,"text":"Batterie Backbord lädt noch."},
+    {"t":611,"text":"Batterie Steuerbord lädt noch."}
   ],
   "rewards": [
     {"t":8.3,"marks":375,"delta":-20},

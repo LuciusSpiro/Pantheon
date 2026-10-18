@@ -7,7 +7,7 @@
   "success": true,
   "softlock": null,
   "stageAtEnd": null,
-  "durationS": 828.5,
+  "durationS": 835.3,
   "stages": [
     {"t":0,"mission":"m2","stage":"briefing"},
     {"t":22,"mission":"m2","stage":"vaelen"},
@@ -17,7 +17,7 @@
     {"t":561.4,"mission":"m2","stage":"beacon"},
     {"t":662.1,"mission":"m2","stage":"toRelais"},
     {"t":710.5,"mission":"m2","stage":"relay"},
-    {"t":824.5,"mission":"m2","stage":"finale"}
+    {"t":831.3,"mission":"m2","stage":"finale"}
   ],
   "radio": [
     {"t":8,"from":"Hafenmeisterin Tesk","text":"Übrigens: Hinter dem Splittergürtel treibt das Wrack der „Zaunkönig“. Plünderer waren da – aber nicht gründlich."},
@@ -29,8 +29,8 @@
     {"t":95.7,"from":"Grauzahn (Rostmeute)","text":"Nebel ist praktisch, Lerche. Man sieht euch nicht kommen – und uns auch nicht."},
     {"t":189.5,"from":"Grauzahn (Rostmeute)","text":"Nicht schlecht, Lerche. Aber was sucht so ein Kahn wie eurer in der Grauen Weite? Raus mit der Sprache."},
     {"t":189.5,"from":"Grauzahn (Rostmeute)","text":"Konkordat? Ihr habt deren Kern geknackt, das weiß jeder. Jungs – noch eine Runde!"},
-    {"t":799.5,"from":"Kustoden-Relais","text":"…FREMDE STIMME. PRÜFUNG BEGINNT."},
-    {"t":824.5,"from":"Kustoden-Relais","text":"…FRAGE ERKANNT. ANTWORT WIRD VORBEREITET. BITTE WARTEN, KLEINES SCHIFF…"}
+    {"t":773.9,"from":"Kustoden-Relais","text":"…FREMDE STIMME. PRÜFUNG BEGINNT."},
+    {"t":831.3,"from":"Kustoden-Relais","text":"…FRAGE ERKANNT. ANTWORT WIRD VORBEREITET. BITTE WARTEN, KLEINES SCHIFF…"}
   ],
   "oda": [
     {"t":0.1,"text":"Ops unbesetzt, Automatik aus – ohne Ops schießt niemand."},
@@ -171,25 +171,26 @@
     {"t":712.6,"text":"Scan: Pylon: nur die Front ist geschützt – Pilot, an die Seite!"},
     {"t":713.7,"text":"Treffer auf den Frontschild des Pylons – verpufft. Pilot: an die Seite!"},
     {"t":730.5,"text":"Liegengeblieben – es brennt neben den Stationen Transfer, Steuerbord-Batterie! Löschgel und Werkzeug, bitte."},
-    {"t":735.5,"text":"Pylon fällt! Seitlich anfliegen wirkt also. Notiert."},
-    {"t":735.5,"text":"Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten."},
+    {"t":733.6,"text":"Pylon fällt! Seitlich anfliegen wirkt also. Notiert."},
+    {"t":733.6,"text":"Ein Kustoden-Wächter erwacht! Seine EMP-Schüsse legen Systeme lahm – Schilde oben halten."},
     {"t":740.6,"text":"Transfer zerstört – kein Beamen! Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord!"},
-    {"t":754.4,"text":"Scan: Kustoden-Wächter: rundum geschützt, EMP-Schüsse. Schilde oben halten!"},
+    {"t":743.4,"text":"Scan: Kustoden-Wächter: rundum geschützt, EMP-Schüsse. Schilde oben halten!"},
+    {"t":773.9,"text":"Das Relais prüft uns: zwei neue Pylonen – ihre Front zeigt zum Kern! Ops: scannen, Pilot von außen ran."},
     {"t":785.5,"text":"Keine Ersatzteile mehr – ich habe den Transfer mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
     {"t":785.5,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Düse mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
-    {"t":788.8,"text":"Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
-    {"t":792.8,"text":"Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord!"},
-    {"t":795.8,"text":"Transfer zerstört – kein Beamen! Steuerbord-Emitter beschädigt."},
-    {"t":799.5,"text":"Das Relais prüft uns: zwei neue Pylonen – ihre Front zeigt zum Kern! Ops: scannen, Pilot von außen ran."},
-    {"t":804.9,"text":"Steuerbord-Emitter zerstört – Steuerbordsektor offen!"},
-    {"t":815.7,"text":"Prüfung bestanden. Captain: nah an den Kern (≤ 460) und die Leertaste halten – 6 Sekunden."},
-    {"t":828.5,"text":"Das Relais antwortet uns. Ich glaube, wir haben gerade etwas sehr Großes geweckt."}
+    {"t":788.8,"text":"Steuerbord-Düse zerstört – kaum Drehung nach Steuerbord!"},
+    {"t":792.8,"text":"Transfer zerstört – kein Beamen!"},
+    {"t":795.9,"text":"Steuerbord-Batterie zerstört – Batterie feuert nicht!"},
+    {"t":800.9,"text":"Steuerbord-Emitter beschädigt."},
+    {"t":810.9,"text":"Steuerbord-Emitter zerstört – Steuerbordsektor offen!"},
+    {"t":818.3,"text":"Prüfung bestanden. Captain: nah an den Kern (≤ 460) und die Leertaste halten – 6 Sekunden."},
+    {"t":833.8,"text":"Keine Ersatzteile mehr – ich habe die Steuerbord-Düse mit Draht und Gebet notrepariert. Jetzt nur noch beschädigt."},
+    {"t":835.3,"text":"Das Relais antwortet uns. Ich glaube, wir haben gerade etwas sehr Großes geweckt."}
   ],
   "notices": [
     {"t":105.8,"text":"Ausweichrolle lädt noch."},
     {"t":122.5,"text":"Batterie Steuerbord lädt noch."},
-    {"t":738.6,"text":"Batterie Backbord lädt noch."},
-    {"t":772.8,"text":"Lanze lädt noch."}
+    {"t":740.8,"text":"Batterie Backbord lädt noch."}
   ],
   "rewards": [
     {"t":6.9,"marks":295,"delta":-50},
@@ -207,13 +208,13 @@
     {"t":561.4,"marks":155,"delta":20},
     {"t":662.1,"marks":195,"delta":40},
     {"t":710.5,"marks":215,"delta":20},
-    {"t":735.5,"marks":240,"delta":25},
-    {"t":760.1,"marks":265,"delta":25},
-    {"t":768.2,"marks":345,"delta":80},
-    {"t":799.5,"marks":370,"delta":25},
-    {"t":800.1,"marks":395,"delta":25},
-    {"t":815.7,"marks":420,"delta":25},
-    {"t":824.5,"marks":570,"delta":150}
+    {"t":733.6,"marks":240,"delta":25},
+    {"t":741.3,"marks":265,"delta":25},
+    {"t":754.1,"marks":345,"delta":80},
+    {"t":773.9,"marks":370,"delta":25},
+    {"t":790.4,"marks":395,"delta":25},
+    {"t":818.3,"marks":420,"delta":25},
+    {"t":831.3,"marks":570,"delta":150}
   ],
   "end": {"flags":{"bribed":true,"decision":"decode","technikerRescued":true,"rearguardRepelled":true,"selaCalled":true,"vaelenHelped":true,"nebelMap":true,"m3Direct":false},"marks":570,"inventory":{"loeschgelCharges":0,"marks":570,"deko":["pflanze","lampe"],"tafel":0,"ersatzteil":0,"loeschgel":1,"flickblech":3,"bolzen":6,"medipack":1,"sonde":3}},
   "errors": 0
