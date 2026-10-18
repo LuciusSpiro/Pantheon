@@ -28,6 +28,7 @@
     "test:gespraech": "node tools/test-gespraech.js",
     "test:sl11": "node tools/test-sl11.js",
     "test:sund-sim-daten": "node tools/test-sund-sim-daten.js",
+    "gen:sund-frei": "node tools/gen-sund-frei.js",
     "gen:sund-sim": "node tools/gen-sund-sim.js",
     "test:erreichbar": "node tools/test-erreichbar.js",
     "test:notrufe": "node tools/test-notrufe.js",

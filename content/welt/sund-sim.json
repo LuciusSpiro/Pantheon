@@ -1,7 +1,7 @@
 {
   "format": "weltsim-karte/1",
-  "_hinweis": "ABGELEITET, nicht von Hand ändern: node tools/gen-sund-sim.js (Quelle content/welt/sund.json + Gütertabelle in tools/gen-sund-sim.js). simFraktion null = freier Sektor. flotte: Flotten fahren nur offene Kanten; piraten: Piraten nutzen alle Kanten.",
-  "karte": "sund",
+  "_hinweis": "ABGELEITET, nicht von Hand ändern: node tools/gen-sund-sim.js (Quelle content/welt/sund_frei.json + Gütertabelle in tools/gen-sund-sim.js). simFraktion null = freier Sektor. flotte: Flotten fahren nur offene Kanten; piraten: Piraten nutzen alle Kanten.",
+  "karte": "sund_frei",
   "spalten": 11,
   "zeilen": 7,
   "hexe": [
@@ -57,6 +57,7 @@
     {"a":"0604","b":"0605","art":"open","flotte":true,"piraten":true},
     {"a":"0604","b":"0704","art":"open","flotte":true,"piraten":true},
     {"a":"0605","b":"0606","art":"hidden","flotte":false,"piraten":true},
+    {"a":"0605","b":"0705","art":"open","flotte":true,"piraten":true},
     {"a":"0703","b":"0704","art":"open","flotte":true,"piraten":true},
     {"a":"0703","b":"0803","art":"open","flotte":true,"piraten":true},
     {"a":"0704","b":"0705","art":"open","flotte":true,"piraten":true},

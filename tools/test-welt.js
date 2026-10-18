@@ -41,13 +41,39 @@ const echteFehler = (g) => Object.keys(g.errorLog || {}).filter((k) => k !== 'ke
 section('Karte Sund (content/welt/sund.json)');
 const K = Welt.karte('sund');
 ok(!!K && K.format === 'sektorkarte/1' && K.id === 'sund' && K.spalten === 11 && K.zeilen === 7, 'sund.json: Format sektorkarte/1, 11×7');
-ok(Welt.ids().join() === 'limes,sund', 'Welt.ids: limes, sund');
+ok(Welt.ids().join() === 'limes,sund,sund_frei', 'Welt.ids: limes, sund, sund_frei (SUND-01 P0)');
+
+section('Karte Sund Freie Fahrt (content/welt/sund_frei.json, SUND-01 P0)');
+{
+  const F = Welt.karte('sund_frei');
+  const hexe = Object.keys(F.hexe);
+  ok(!!F && F.format === 'sektorkarte/1' && F.id === 'sund_frei' && F.spalten === 11 && F.zeilen === 7, 'sund_frei.json: Format sektorkarte/1, 11×7');
+  Welt.waehle(null, 'sund_frei');
+  ok(hexe.length === 30 && F.kanten.length === 40, 'sund_frei: 30 Systeme, 40 Kanten (' + hexe.length + ', ' + F.kanten.length + ')');
+  ok(hexe.every((h) => Sektoren.imRaster(h) && F.regionen[F.hexe[h].region] && typeof F.hexe[h].spielbar === 'boolean'), 'alle Systeme im Raster, mit Region und spielbar');
+  const ids = F.kanten.map((e) => Sektoren.kanteId(e.a, e.b));
+  ok(new Set(ids).size === ids.length, 'Kanten eindeutig');
+  ok(F.kanten.every((e) => F.hexe[e.a] && F.hexe[e.b] && Sektoren.sindNachbarn(e.a, e.b)), 'jede Kante verbindet zwei Systeme, die Nachbarn sind');
+  ok(F.kanten.every((e) => e.art === 'open' || ((e.art === 'hidden' || e.art === 'locked') && e.key)), 'nur open, hidden oder locked, nicht offene mit Schlüssel');
+  ok(F.kanten.some((e) => e.a === '0605' && e.b === '0705' && e.art === 'open'), 'Kante 0605–0705 fest und offen');
+  ok(F.hexe['0505'].spielbar && F.hexe['0705'].spielbar && F.hexe['0505'].gen === true && F.hexe['0705'].gen === true && F.hexe['0505'].ort === 'brachland' && F.hexe['0705'].ort === 'saatfeld', 'Brachland und Saatfeld: spielbar, gen, ort');
+  ok(hexe.filter((h) => F.hexe[h].spielbar).every((h) => F.hexe[h].gen === true && F.hexe[h].ort && Locations.get(F.hexe[h].ort) && Locations.get(F.hexe[h].ort).hex === h), 'spielbare Systeme: Szene aus Daten, Ort liefert die Szene (Locations)');
+  ok(Welt.startOrt() === 'ostia_nova' && Welt.bodenStart() === false && Sektoren.hexVonOrt('ostia_nova') === '0305', 'Start: Ostia Nova 0305, angedockt (boden false)');
+  // Erreichbarkeit der spielbaren Hexe vom Start über alle Kanten (Schlüsselkanten gelten als freigeschaltet); Helix hat nur einen temporären Sprungpunkt
+  const nb = {}; for (const h of hexe) nb[h] = [];
+  for (const e of F.kanten) { nb[e.a].push(e.b); nb[e.b].push(e.a); }
+  const reach = (offen) => { const d = new Set(['0305']), q = ['0305']; while (q.length) { const x = q.shift(); for (const e of F.kanten) { if (offen && e.art !== 'open') continue; const y = e.a === x ? e.b : e.b === x ? e.a : null; if (y && !d.has(y)) { d.add(y); q.push(y); } } } return d; };
+  const alle = reach(false), offen = reach(true);
+  ok(hexe.filter((h) => F.hexe[h].spielbar && !alle.has(h)).join() === '0506', 'alle spielbaren Hexe vom Start erreichbar, außer Helix 0506 (nur temporärer Sprungpunkt)');
+  ok(['0204', '0603', '0605', '0505', '0705', '1004', '0604'].every((h) => offen.has(h)), 'über offene Kanten: Palatina, Kantenstein, Pulverhorn, Brachland, Saatfeld, Hrafnheim, Concordia');
+  ok(!offen.has('0602') && !offen.has('0606') && !offen.has('0706') && !offen.has('0806'), 'Piratenlager, Bojenfeld und Vorläufer-Sektor nur über Schlüsselkanten');
+  Welt.waehle(null, 'sund');
+}
 Welt.waehle(null, 'sund');
 {
   const hexe = Object.keys(K.hexe);
-  // SUND-01 P0: Brachland (0505) und Saatfeld (0705) sind jetzt freie Sektoren der Weltsimulation (vorher in der Kampagne Leerraum, T7). Kampagne unverändert: Notfallziele, Notruf sl_echt über den temporären Sprungpunkt 0605–0705.
-  ok(hexe.length === 30 && K.kanten.length === 39 && K.hexe['0505'].name === 'Brachland' && K.hexe['0705'].name === 'Saatfeld', `30 Systeme und 39 Kanten (Karte Sund mit Brachland und Saatfeld, dazu Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
-  ok(!K.kanten.some((e) => (e.a === '0605' && e.b === '0705') || (e.a === '0705' && e.b === '0605')), '0605–0705 ist keine feste Kante (bleibt der temporäre Sprungpunkt des Notrufs sl_echt)');
+  // T7: Brachland (0505) und Saatfeld (0705) sind bewusst Leerraum (Notfallsprung-Ziel bzw. Notruf sl_echt), samt ihrer 6 Kanten: 27-2+Helix/Boje -> 26 Systeme, 32 Kanten
+  ok(hexe.length >= 26 && K.kanten.length >= 32 && !K.hexe['0505'] && !K.hexe['0705'], `mindestens 26 Systeme und 32 Kanten (Entwurf abzüglich Brachland/Saatfeld = Leerraum, dazu Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
   ok(['0204', '0603', '0604', '0605', '0606', '0602', '0503', '1004'].every((h) => K.hexe[h]) && K.spalten * K.zeilen - hexe.length >= 40, 'Systeme des Entwurfs vorhanden, genug Leerraum');
   ok(hexe.every((h) => Sektoren.imRaster(h) && K.regionen[K.hexe[h].region] && typeof K.hexe[h].spielbar === 'boolean'), 'alle Systeme im Raster, mit Region und spielbar');
   const ids = K.kanten.map((e) => Sektoren.kanteId(e.a, e.b));

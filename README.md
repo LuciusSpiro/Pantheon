@@ -18,17 +18,18 @@ Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `con
 
 ## Neu in SUND-01 P0 – Daten der Weltsimulation „Freie Fahrt Sund“
 
-Nur Daten und Prüfer, kein Spiel- oder Servercode (die Simulation selbst folgt in SUND-01 Paket A).
+Nur Daten und Prüfer, kein Spiel- oder Servercode (die Simulation selbst folgt in SUND-01 Paket A). Kette: `sund.json` (Kampagne, **unverändert**) → `tools/gen-sund-frei.js` → `sund_frei.json` → `tools/gen-sund-sim.js` → `sund-sim.json`.
 
 | Datei | Was |
 |---|---|
-| `content/welt/sund.json` | Karte Sund, jetzt mit **Brachland 0505** und **Saatfeld 0705** (freie Sektoren, Südroute, Quelle N) und den Kanten 0405–0505, 0505–0605, 0705–0805, 0504–0505, 0704–0705. **Die Prototyp-Kante 0605–0705 fehlt bewusst:** 0705 trägt in der Kampagne den Notruf `sl_echt` über einen temporären Sprungpunkt von Pulverhorn; als feste Kante würde `notrufe.js` ihn beim Schließen mitreißen. Entscheidung offen (Entwicklungsleiter). |
-| `content/welt/sund-sim.json` | Format `weltsim-karte/1`, **abgeleitet** (nicht von Hand ändern): je Sim-Hex `code, name, simFraktion` (rom, ger, kon, pirat, null = frei), `hafenklasse`, `quellen` (Güter T M U E N); Kanten mit `art`, `flotte` (nur offene Kanten) und `piraten` (alle Kanten). Sonderorte Bojenfeld, Vorläufer-Sektor und Helix sind nicht enthalten. |
+| `content/welt/sund_frei.json` | Karte des Modus Freie Fahrt Sund (id `sund_frei`, Unterstrich, weil `Welt.karte` nur `[a-z][a-z0-9_]*` als Id zulässt), **abgeleitet** aus `sund.json` plus Overlay: dazu **Brachland 0505** und **Saatfeld 0705** (freie Sektoren, Quelle N) und die 6 Kanten des Prototyps 0405–0505, 0505–0605, **0605–0705 (fest offen)**, 0705–0805, 0504–0505, 0704–0705; Start Ostia Nova 0305 (angedockt, `boden:false`, dafür bekommt 0305 minimal `ort/gen/spielbar/andocken`). Alles Übrige (Sonderorte, Schlüsselkanten) wie in `sund.json`; `spielbar`/`andocken` für die anderen Hexe setzt Paket D. Die Kampagne bleibt auf `sund.json` (dort ist 0605–0705 der temporäre Sprungpunkt des Notrufs `sl_echt`). |
+| `content/welt/sund-sim.json` | Format `weltsim-karte/1`, **abgeleitet** aus `sund_frei.json` (nicht von Hand ändern): je Sim-Hex `code, name, simFraktion` (rom, ger, kon, pirat, null = frei), `hafenklasse`, `quellen` (Güter T M U E N); Kanten mit `art`, `flotte` (nur offene Kanten) und `piraten` (alle Kanten). Sonderorte Bojenfeld, Vorläufer-Sektor und Helix sind nicht enthalten. |
 | `content/welt/sund-sim-werte.json` | Format `weltsim-werte/1`: alle `DEFAULT`-Werte des Prototyps `sim_sund.py` mit den Vorgaben aus SUND-01 (stuetz, feld_decay 0,015, overext 0, k 0,10, sammeln 3–8, stuetz_cap 6, claim_ticks 3, garrison 4), dazu Bevölkerung je Hafenklasse, Punktwerte je Schiffsklasse (Jäger 1, Korvette 2, Fregatte 4, Kreuzer 7) und Sicht (2 Sprünge, 1 Tick Verzögerung). Jeder Wert mit `einheit` und `_hinweis`. |
-| `tools/gen-sund-sim.js` | erzeugt `sund-sim.json` aus `sund.json` plus kleiner Gütertabelle; `--pruefen` meldet Abweichung (`npm run gen:sund-sim`) |
-| `tools/test-sund-sim-daten.js` | prüft Ableitung, Hexmengen, Spiegelsymmetrie Rom/Germanen, Kanten, 8+8+3 Häfen, 2 Piratenlager, Hauptwelten, Werte (`npm run test:sund-sim-daten`, in `npm test` vor `test-erreichbar`) |
+| `tools/gen-sund-frei.js` | erzeugt `sund_frei.json` aus `sund.json` + Overlay; `--pruefen` meldet Abdrift (`npm run gen:sund-frei`) |
+| `tools/gen-sund-sim.js` | erzeugt `sund-sim.json` aus `sund_frei.json` + kleiner Gütertabelle; `--pruefen` (`npm run gen:sund-sim`) |
+| `tools/test-sund-sim-daten.js` | prüft: `sund.json` unberührt (28 Hexe, 34 Kanten, kein 0505/0705), Ableitungen, Hexmengen, Spiegelsymmetrie Rom/Germanen (Hexe und Kanten), 8+8+3 Häfen, 2 Piratenlager, Hauptwelten, Werte (`npm run test:sund-sim-daten`, in `npm test` vor `test-erreichbar`). `tools/test-welt.js` prüft `sund_frei` mit (Geometrie, Kanten, Erreichbarkeit der spielbaren Hexe). |
 
-Hafenklassen in der Sim: nur Rom, Germanen und Konkordat haben Häfen (wie im Prototyp). Kantenstein (D) und Pulverhorn (C) tragen in `sund.json` eine Klasse für die Kampagne; die Sim behandelt sie als freie Sektoren.
+Hafenklassen in der Sim: nur Rom, Germanen und Konkordat haben Häfen (wie im Prototyp). Kantenstein (D) und Pulverhorn (C) tragen eine Klasse für die Kampagne; die Sim behandelt sie als freie Sektoren. Der Auswahlmechanismus des Modus (Lobby, `Welt.waehle`) folgt in Paket B.
 
 ## Neu in der Eisenwald-Kampagne (EK1–EK8)
 
