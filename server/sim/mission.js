@@ -1133,7 +1133,7 @@ class Mission {
     switch (name) {
       case 'consoleEnter': if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break;
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
-      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Das Hafenterminal in der Messe (Privatdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
+      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Die Handelskonsole im Meetingraum (Oberdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;
       case 'asteroid': g.oda('Autsch. Der Brocken hatte Vorfahrt.', 'asteroid'); break;
       case 'salvage': g.oda('Bergungsgut an Bord: ' + data.what + '. ' + (data.n >= g.C.salvage.count ? 'Das war alles!' : 'Weiter, da treibt noch mehr.'), null); break;

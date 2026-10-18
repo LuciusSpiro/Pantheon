@@ -1,6 +1,6 @@
 // Frachtraum-Liste (Action-Layer der Anzeige): macht aus dem Snapshot-Feld `fracht` (lager = Waren-Arten, pers = Personen an Bord) die eine, überall
 // gleiche Aufstellung "FRACHTRAUM 2/2: Deuterium, Evert Kroeger". Ops, Captain und Transfer-Terminal lesen dieselbe Funktion (kein eigenes Formatieren).
-// UMD: window.Shared_Frachtliste / require. Reine Darstellung, keine Spielregel (Kapazität kommt aus Maps.CARGO_CAPACITY).
+// UMD: window.Shared_Frachtliste / require. Reine Darstellung, keine Spielregel (Kapazität: Maps.cargoCapacity, 2 Plätze je Modul Frachtraum).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Shared_Frachtliste = factory();

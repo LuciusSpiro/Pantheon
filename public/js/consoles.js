@@ -15,7 +15,9 @@
   const VW = 640, VH = 360, TILE = 32;
 
   const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
-  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
+  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
+  // PAN-01 B: Frachtkapazität = 2 Plätze je Modul Frachtraum (Snapshot ship.mod, Code f)
+  const frachtCap = (st) => ((window.Shared_Maps && window.Shared_Maps.cargoCapacity) ? window.Shared_Maps.cargoCapacity(window.Shared_Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)) : 2);
   const CODE_COLORS = PROTO.CODE_COLORS || ['mint', 'bernstein', 'rot', 'blau', 'pink', 'weiss'];
   const CODE_HEX = PROTO.CODE_COLOR_HEX || {};
   const COLOR_NAMES = { mint: 'Mint', bernstein: 'Bernstein', rot: 'Rot', blau: 'Blau', pink: 'Pink', weiss: 'Weiß' };
@@ -248,7 +250,7 @@
     frachtLeiste(ctx, view, box) {
       const FL = window.Shared_Frachtliste;
       if (!FL) return;
-      const cap = (Maps && Maps.CARGO_CAPACITY) || 2;
+      const cap = frachtCap(view.state);   // PAN-01 B: 2 Plätze je Modul Frachtraum
       const l = FL.frachtListe(view.state && view.state.fracht, cap);
       const bx = box ? box.x : 8, bw = box ? box.w : VW - 16, y = box ? box.y : VH - 30, h = 12;   // Pult: Lage aus box (unten in der Anzeige)
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(bx, y, bw, h);
@@ -1249,22 +1251,30 @@
         const W = {};
         try {
           const m = Maps.ship;
-          const con = m.find('C')[0] || { x: 37, y: 6 };
+          const con = m.find('C')[0] || { x: 33, y: 8 };
+          const solid = Maps.shipSolidFn(Maps.STUFE_MAX);   // PAN-01 B: Laufweg über alle Decks (Lift = Fahrzeit als Kachel-Äquivalent), verschalte Pforten offen
           let start = null;
-          for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (!start && !m.solid(con.x + dx, con.y + dy)) start = { x: con.x + dx, y: con.y + dy };
+          for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (!start && !solid(con.x + dx, con.y + dy)) start = { x: con.x + dx, y: con.y + dy };
           const dist = {};
-          if (start) {
-            const q = [start]; dist[start.x + ',' + start.y] = 0;
-            while (q.length) {
-              const c = q.shift();
-              for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                const nx = c.x + dx, ny = c.y + dy, k = nx + ',' + ny;
-                if (k in dist || m.solid(nx, ny)) continue;
-                dist[k] = dist[c.x + ',' + c.y] + 1; q.push({ x: nx, y: ny });
+          const tps = ((CFG.player && CFG.player.speed) || 96) / TILE;
+          const rideT = ((CFG.lift && CFG.lift.rideTime) || 1.5) * tps;
+          if (start) {   // Dijkstra auf dem kleinen Raster (Schritt 1, Liftfahrt rideT)
+            const open = [{ k: start.x + ',' + start.y, x: start.x, y: start.y, d: 0 }]; dist[open[0].k] = 0;
+            while (open.length) {
+              let bi = 0; for (let i = 1; i < open.length; i++) if (open[i].d < open[bi].d) bi = i;
+              const c = open.splice(bi, 1)[0];
+              if (c.d > dist[c.k]) continue;
+              const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => ({ x: c.x + dx, y: c.y + dy, w: 1 }))
+                .concat((Maps.deckLinks ? Maps.deckLinks(c.x, c.y, { ladder: false }) : []).map((l) => ({ x: l.x, y: l.y, w: rideT })));
+              for (const nx of next) {
+                const k = nx.x + ',' + nx.y;
+                if (solid(nx.x, nx.y)) continue;
+                const nd = c.d + nx.w;
+                if (k in dist && dist[k] <= nd) continue;
+                dist[k] = nd; open.push({ k, x: nx.x, y: nx.y, d: nd });
               }
             }
           }
-          const tps = ((CFG.player && CFG.player.speed) || 96) / TILE;
           for (const s of R.shipStations()) {
             let best = Infinity;
             for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const d = dist[(s.x + dx) + ',' + (s.y + dy)]; if (d != null && d < best) best = d; }
@@ -1354,7 +1364,7 @@
       const px = a.x + 332, pw = a.w - 332;
       const cell = Math.max(3, Math.min(8, Math.floor(pw / Maps.ship.w)));
       R.drawMiniPlan(ctx, view, px, a.y + 4, { zone: 'ship', cell });
-      let ly = a.y + 4 + Maps.ship.h * cell + 8;
+      let ly = a.y + 4 + R.miniPlanSize('ship', cell).h + 8;
       const fires = ship.fires || [], br = ship.breaches || [];
       R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 3) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
       R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 3) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 11;
@@ -1398,7 +1408,7 @@
       const px = a.x + 300;
       const cell = Math.max(3, Math.min(8, Math.floor((a.w - 300) / Maps.ship.w)));
       R.drawMiniPlan(ctx, view, px, a.y + 10, { zone: 'ship', cell });
-      let ly = a.y + 10 + Maps.ship.h * cell + 10;
+      let ly = a.y + 10 + R.miniPlanSize('ship', cell).h + 10;
       const fires = ship.fires || [], br = ship.breaches || [];
       R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 4) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
       R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 4) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 14;
@@ -1663,7 +1673,7 @@
     // F beamt die nächste Fracht in Reichweite an Bord (3 s halten, Systemtreffer bricht ab) bzw. bricht ab, G liefert ab.
     fracht(st) {
       const ship = st.ship || {}, fr = st.fracht || {};
-      const cap = (window.Shared_Maps && window.Shared_Maps.CARGO_CAPACITY) || 2;
+      const cap = frachtCap(st);
       const beamR = (CFG.fracht && CFG.fracht.beamRange) || 320;
       const lager = fr.lager || [], draus = fr.draussen || [], halt = fr.halt || null;
       const near = draus.filter(f => Math.hypot(f.x - n(ship.x), f.y - n(ship.y)) <= beamR);
@@ -1697,7 +1707,7 @@
         R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'U', onClick: () => this.cmd(view, 'weapons.person', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(halt.p), PAL.mint);
       } else {
-        const frei = (view.state.fracht && ((fr.lager || []).length + pers.length) < ((window.Shared_Maps && window.Shared_Maps.CARGO_CAPACITY) || 2));
+        const frei = (view.state.fracht && ((fr.lager || []).length + pers.length) < frachtCap(view.state));
         const whyUp = !pq.length ? 'Niemand am Landepunkt in Reichweite (Landepunkt gescannt?)' : !frei ? 'Frachtraum voll – erst abgeben' : null;
         R.button(ctx, x + 4, by, 126, 12, 'Person beamen', { hotkey: 'U', disabled: !!whyUp, reason: whyUp, onClick: () => this.cmd(view, 'weapons.person', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Person abgeben', { hotkey: 'B', disabled: !pers.length, reason: 'Keine Person an Bord', onClick: () => this.cmd(view, 'weapons.person_ab') });

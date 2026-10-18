@@ -22,8 +22,8 @@ const M3B = CONFIG.spaceM3b;
 
 const M3 = CONFIG.spaceM3;
 const FILTER = process.argv.slice(2).map((s) => s.toLowerCase());
-const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
-const COMBAT12 = SYS14.filter((s) => s !== 'life' && s !== 'transfer');
+const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons');   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen)
+const COMBAT12 = SYS14.filter((s) => s !== 'transfer');
 
 let fails = 0, n = 0;
 const missing = new Set();
@@ -165,10 +165,10 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
 });
 
 section('Interior-Hilfen (§9.5)', () => {
-  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 14 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons'), 'SYSTEM_ORDER: 14 Systeme ohne weapons');
-  ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 14 Systeme');
+  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 13 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme ohne weapons und ohne Lebenserhaltung');
+  ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 13 Systeme');
   const want = { weapon_bow: 0, emitter_bow: 0, thruster_stbd: 1, battery_stbd: 1, emitter_stbd: 1, transfer: 1, engines: 2, emitter_aft: 2,
-    thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1, life: -1 };
+    thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1 };
   ok(SYS14.every((s) => I.systemSector(s) === want[s]), 'systemSector laut §2.2');
   ok([0, 1, 2, 3].map((i) => I.emitterFor(i)).join() === 'emitter_bow,emitter_stbd,emitter_aft,emitter_port', 'emitterFor 0..3');
 });
@@ -1349,8 +1349,7 @@ section('bridgeLeaves (§8.3)', () => {
   const { g, P, send, run, place } = arena(1);
   // M4: Brückentür aus dem Layout (Tür im Raum bruecke mit begehbarem Nachbarn links außerhalb der Brücke)
   const br = Maps.SHIP_ROOMS.find((r) => r.id === 'bruecke');
-  const dt0 = Maps.ship.find('D').find((t) => t.x === br.x0 && t.y >= br.y0 && t.y <= br.y1 && !Maps.ship.solid(t.x - 1, t.y));
-  const door = { x: dt0.x, y: dt0.y, dir: 'left' };
+  const door = { x: br.x0 + 1, y: 6, dir: 'left' };   // PAN-01 B: die Brückentür ist der Lift L1 (Mittelachse), eine Kachel davor stehen und hindurchgehen
   const walkOut = () => { place(0, door); send(0, { t: 'input', seq: 1, mx: -1, my: 0 }); run(0.8, () => { pin(g); noFire(g); }); send(0, { t: 'input', seq: 2, mx: 0, my: 0 }); run(0.1); };
   const room = () => Maps.roomAt(Math.floor(P(0).x / 32), Math.floor(P(0).y / 32));
   walkOut();

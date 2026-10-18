@@ -280,11 +280,7 @@ function finishLift(game, actor, isBot) {
   const via = actor.lift && actor.lift.via === 'ladder' ? 'ladder' : 'lift';
   actor.lift = null; actor.liftDest = null;
   game.emit('lift', isBot ? { bot: actor.id, deck, phase: 'arrive' } : { pid: actor.id, deck, phase: 'arrive', ...(via === 'ladder' ? { via } : {}) });
-  if (!isBot) {
-    game.missionEvent('deckChanged', { p: actor, deck, via });
-    // die Wahl bleibt offen, wenn man auf einer Lift-/Leiterkachel steht (weiterfahren ohne neues E)
-    if (W.Maps.liftAt(at.x, at.y) || W.Maps.ladderAt(at.x, at.y)) actor.liftSel = { tx: at.x, ty: at.y, armed: false };
-  }
+  if (!isBot) game.missionEvent('deckChanged', { p: actor, deck, via });   // nach der Fahrt ist die Wahl zu: für das nächste Deck wieder E (dann W/S)
 }
 function updateLiftRide(game, p, dt) {
   p.moving = false;

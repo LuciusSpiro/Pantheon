@@ -21,7 +21,7 @@ const SECTOR_OF_EMITTER = { emitter_bow: 0, emitter_stbd: 1, emitter_aft: 2, emi
 // Legenden-kind → Asset-ID (Stationen nach kind, Konsolen nach console)
 const STATION_ID = {
   sys_reactor: 'lerche/station/reactor', sys_engines: 'lerche/station/engine', sys_shields: 'lerche/station/shield_gen',
-  sys_life: 'lerche/station/life_support', sys_thruster: 'lerche/station/thruster', sys_weapon_bow: 'lerche/station/lance',
+  sys_thruster: 'lerche/station/thruster', sys_weapon_bow: 'lerche/station/lance',
   sys_weapons: 'lerche/station/lance', sys_battery: 'lerche/station/battery', sys_emitter: 'lerche/station/emitter',
   sys_transfer: 'lerche/station/transfer',
 };
@@ -39,20 +39,30 @@ const FURN_ID = {
   cargo_bay: 'lerche/furn/cargo_bay',   // EK3 Teil A: Frachtbucht im Frachtraum (Deck II), Ladung aus snapshot.fracht.lager
   cargo_bed: 'lerche/furn/bed',   // SL0: Frachtbett für Personen an Bord (Figur liegt als ship.npcs-Actor darauf)
   cargo_cot: 'lerche/furn/bed', tool_wall: 'lerche/furn/workbench',   // R0: Ivos Schlafecke (Pritsche = Bett in Farbe 3), ohne Bewohner Stauware (crate)
+  locker: 'lerche/furn/sideboard',   // PAN-01 B: Spind im Quartier (Platzhalter Anrichte, Modellliste CONTRACT-PAN01-B-MODELLE.md)
 };
+// PAN-01 B: Modulplätze (mod_a/b/c) nach Modul im Raum (Code f Frachtraum, k Krankenstation, w Werkstatt, ohne Modul Stauware): [Modell, Parameterart]
+// Platzhalter aus vorhandenen Modellen, bis das Voxelwerk die Modul-Ausstattung liefert (Modellliste)
+const MODUL_ID = {
+  mod_a: { f: ['lerche/furn/cargo_bay', 'bay'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
+  mod_b: { f: ['lerche/furn/bed', 'bett'], k: ['lerche/furn/med_bed', null], w: ['lerche/furn/workbench', null] },
+  mod_c: { f: ['lerche/furn/crate', 'stapel'], k: ['lerche/furn/control_desk', null], w: ['lerche/furn/pipes', null] },
+};
+const CRATE_ID = 'lerche/furn/crate', SEALED_ID = 'lerche/unknown/door_sealed', BATTERY_ID = 'lerche/station/battery';
 const SHOW_PLAQUES = false;   // Nachrunde M4 (Kai): Seitenplaketten BUG/STB/HECK/BB/MITTE aus
-const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte: einmal in die Blockmitte
+const MULTI = { Y: 1, m: 1, '^': 1 };    // 2×2-Objekte (Lift 2×3): einmal in die Blockmitte
 const ID = {
   floor: 'lerche/kit/floor', wall: 'lerche/kit/wall', window: 'lerche/kit/window', door: 'lerche/kit/door', breach: 'lerche/kit/breach',
   light: 'lerche/kit/light', plaque: 'lerche/kit/plaque', pad: 'lerche/kit/pad', shaft: 'lerche/lift/shaft', platform: 'lerche/lift/platform',
   ladder: 'lerche/lift/ladder', decal: 'lerche/furn/floor_decal', qfloor: 'lerche/deco/quarter_floor',
 };
 // Platzhalterfarben je Kachelart (Debug: Magenta im Loader)
-const PH_COL = { floor: '#5A5F6A', floor_wood: '#7A5236', floor_mosaic: '#B8A88C', wall: '#3A3F4C', station: '#B0453A', console: '#4F6178',
+const PH_COL = { sealed: '#B5532E', floor: '#5A5F6A', floor_wood: '#7A5236', floor_mosaic: '#B8A88C', wall: '#3A3F4C', station: '#B0453A', console: '#4F6178',
   furn: '#6E4228', lift: '#8A8F99', door: '#C9974A', deco: '#5B7A4A', light: '#FFC66B', breach: '#A9D6E5' };
 
 function hash(x, y, s) { let n = (x * 374761393 + y * 668265263 + (s || 0) * 982451653) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967296; }
 function Maps() { return window.Shared_Maps || {}; }
+const stufeOf = (st) => (st && st.ship && st.ship.st) || 0;   // Ausbaustufe 0–3 (Snapshot ship.st)
 function CFG() { return window.Shared_Config || {}; }
 
 // ------------------------------------------------------------------------------------------------ Kartenanalyse
@@ -215,7 +225,7 @@ const layer = {
     for (const f of (st.ship && st.ship.fires) || []) { const k = f[0] + ',' + f[1]; if (!S.fireTiles.has(k)) { S.fireTiles.add(k); wearChanged = true; } }
     // statische Netze neu backen, wenn Quartier-Optionen oder Brandflecken sich ändern (selten)
     // Wände nur bei geänderten Quartier-Optionen, Böden auch bei neuen Brandflecken (Wände sind teuer: seed je Kachel)
-    const qSig = JSON.stringify(st.quarters || {}), fSig = qSig + '|' + S.fireTiles.size;
+    const qSig = JSON.stringify(st.quarters || {}), fSig = qSig + '|' + S.fireTiles.size + '|' + JSON.stringify(((st.ship && st.ship.mod) || []).map((m) => [m[0], m[1]]));   // PAN-01 B: Module ändern den Boden der Modulräume
     for (const d of S.decks) {
       if (d.bakeSig !== qSig) { rebake(ctx, S, d, st, true); d.bakeSig = qSig; d.floorSig = fSig; }
       else if (d.floorSig !== fSig) { rebake(ctx, S, d, st, false); d.floorSig = fSig; }
@@ -249,7 +259,7 @@ function wallStyle(A, st, tx, ty, deckIndex) {
     const r = A.roomOf(tx + dx, ty + dy);
     if (r && r.id === 'bruecke') return { style: 2, variant: 0 };
   }
-  return { style: deckIndex >= 1 ? 1 : 0, variant: 0 };
+  return { style: deckIndex === 1 ? 1 : 0, variant: 0 };   // PAN-01 B: nur das Oberdeck (Index 1) ist privat; Mittel- und Unterdeck Technik
 }
 
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(1, 1, 1), UP = new THREE.Vector3(0, 1, 0);
@@ -292,7 +302,11 @@ function rebake(ctx, S, d, st, withSolids) {
     } else {
       const fc = floorChar(A, tx, ty);
       let kind = FLOOR_CH[fc];
-      if (kind === 0) { const r = A.roomOf(tx, ty); if (r && r.id === 'bruecke') kind = 4; else if (r && r.id === 'krankenstation') kind = 5; }
+      if (kind === 0) {   // Brücke, Krankenstation (Modul im Modulraum: PAN-01 B), Werkstatt: eigene Böden
+        const r = A.roomOf(tx, ty);
+        if (r && r.id === 'bruecke') kind = 4;
+        else if (r && r.kind === 'modul') { const code = Maps().modulCodeImRaum((st.ship && st.ship.mod) || [], r.modul); if (code === 'k') kind = 5; else if (code === 'w') kind = 1; }
+      }
       const wear = S.fireTiles.has(tx + ',' + ty) ? 2 : 0;
       // Kai 2026-10-11: Böden einfarbig, seed = Helligkeitsstufe (kein Mäanderrand mehr), dazu leichter Höhenversatz je Kachel (stufeY)
       const seed = Math.floor(hash(tx, ty, 3) * 8), frot = 0;
@@ -349,7 +363,31 @@ function buildDynamic(ctx, S) {
       const vertical = WALLISH[A.map.at(o.tx, o.ty - 1)] && WALLISH[A.map.at(o.tx, o.ty + 1)];
       o.rot = vertical ? Math.PI / 2 : 0;
       const cut = A.interior(o.tx, o.ty - 1) ? 1 : 0;
-      add(o, ID.door, PH_COL.door, (st, ent) => ({ open: ent.near(o) ? 1 : 0, style: o.deck >= 1 ? 1 : 0, cut }), { door: true });
+      add(o, ID.door, PH_COL.door, (st, ent) => ({ open: ent.near(o) ? 1 : 0, style: o.deck === 1 ? 1 : 0, cut }), { door: true });
+      continue;
+    }
+    if (ch === '+') {   // PAN-01 B: verschalte Pforte (Unterdeck): zu = Platzhalterblock, offen (Ausbaustufe) = Tür
+      const vertical = WALLISH[A.map.at(o.tx, o.ty - 1)] && WALLISH[A.map.at(o.tx, o.ty + 1)];
+      o.rot = vertical ? Math.PI / 2 : 0;
+      const cut = A.interior(o.tx, o.ty - 1) ? 1 : 0;
+      add(o, ID.door, PH_COL.sealed, (st, ent) => ({ sealed: M.sealOpen(o.tx, o.ty, stufeOf(st)) ? 0 : 1, open: ent.near(o) ? 1 : 0, style: 0, cut }), { door: true, seal: true });
+      continue;
+    }
+    if (kind === 'sys_lafette') {   // PAN-01 B: Lafette eines Waffenplatzes: verschlossen = Abdeckung (Stauware), frei = leere Batterielafette
+      const pl = M.waffenplatzAt(o.tx, o.ty);
+      o.rot = A.faceRot(o.tx, o.ty);
+      add(o, BATTERY_ID, PH_COL.station, (st) => ({ sealed: !pl || stufeOf(st) < pl.stufe ? 1 : 0, side: pl && pl.side === 'stbd' ? 1 : 0 }), { laf: true });
+      continue;
+    }
+    if (MODUL_ID[kind]) {   // PAN-01 B: Modulplatz nach Modul im Raum
+      const r = A.roomOf(o.tx, o.ty);
+      const bays = (st) => M.frachtPlaetze(M.frachtRaeumeAusMod(st.ship && st.ship.mod));
+      add(o, CRATE_ID, PH_COL.furn, (st) => {
+        const code = r && r.modul && st.ship ? M.modulCodeImRaum(st.ship.mod, r.modul) : null;
+        const p = { code: code || '-' };
+        if (code === 'f' && kind === 'mod_a') { const bi = bays(st).bays.findIndex((b) => b.x === o.tx && b.y === o.ty); const f = st.fracht || {}; const c = bi >= 0 && f.lager ? f.lager[bi] : null; p.art = c ? (c === 'sprengstoff' ? 1 : c === 'deuterium' ? 3 : 2) : 0; p.gesichert = f.g === false ? 0 : 1; }
+        return p;
+      }, { modul: kind });
       continue;
     }
     if (ch === '^') {
@@ -358,8 +396,12 @@ function buildDynamic(ctx, S) {
       for (let i = 0; i < o.w; i++) if (A.walkable(o.tx + i, o.ty - 1)) open |= 1;
       for (let j = 0; j < o.h; j++) { if (A.walkable(o.tx + o.w, o.ty + j)) open |= 2; if (A.walkable(o.tx - 1, o.ty + j)) open |= 8; }
       const emerg = (st) => { const p = reactorPower(st); return p === 2 || p === 3 ? 1 : 0; };
-      add(o, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck, power: emerg(st), open, cut: 1 }));
-      add(o, ID.platform, PH_COL.lift, (st) => ({ moving: (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift) ? 1 : 0, power: emerg(st) }));
+      // PAN-01 B: die Kabine ist 2 × 3 (bisher 2 × 2): Platzhalter = zwei 2 × 2-Modelle, um ± 0,5 versetzt (Modellliste)
+      for (const sh of o.h === 3 ? [-0.5, 0.5] : [0]) {
+        const oo = Object.assign({}, o, { cz: o.cz + sh });
+        add(oo, ID.shaft, PH_COL.lift, (st) => ({ deck: o.deck === 1 ? 1 : 0, power: emerg(st), open, cut: 1 }));
+        add(oo, ID.platform, PH_COL.lift, (st) => ({ moving: (st.players || []).some((p) => p.lift) || (st.bots || []).some((b) => b.lift) ? 1 : 0, power: emerg(st) }));
+      }
       continue;
     }
     if (ch === '!') { add(o, ID.ladder, PH_COL.lift, () => ({})); continue; }
@@ -471,6 +513,13 @@ function placeObj(ctx, S, e, params) {
     else { id = 'lerche/furn/crate'; params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) }; }
   }
   if (e.deco) { if (!params.item) return; id = 'lerche/deco/' + params.item; params = { on: 1 }; }   // lampe: on (andere ignorieren den Parameter)
+  if (e.seal) { if (params.sealed) { id = SEALED_ID; params = {}; } else params = { open: params.open, style: params.style, cut: params.cut }; }   // PAN-01 B: verschalte Pforte zu = Block, offen = Tür
+  if (e.laf) { if (params.sealed) { id = CRATE_ID; params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) }; } else params = { state: 0, side: params.side, tubes: 0 }; }   // Lafette: verschlossen = Abdeckung, frei = leer
+  if (e.modul) {   // Modulplatz nach Modul im Raum; ohne Modul Stauware
+    const mm = MODUL_ID[e.modul][params.code];
+    if (!mm) params = { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) };
+    else { id = mm[0]; params = mm[1] === 'bay' ? { art: params.art || 0, gesichert: params.gesichert == null ? 1 : params.gesichert } : mm[1] === 'bett' ? { color: 3 } : mm[1] === 'stapel' ? { seed: Math.floor(hash(e.o.tx, e.o.ty, 5) * 16) } : {}; }
+  }
   const obj = ctx.loader.object(id, params, { color: e.color });
   obj.position.set(e.o.cx, 0, e.o.cz);
   obj.rotation.y = e.o.rot || 0;

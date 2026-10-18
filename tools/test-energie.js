@@ -83,7 +83,7 @@ section('Konfiguration: Reaktor 8, Hauptsysteme, Module als Daten', () => {
   ok(Protocol.CMD_TECHNIK.includes('technik.module') && Protocol.DEBUG_CMDS.includes('modul'), 'Protokoll: technik.module, Debug modul');
   ok(!CONFIG.shop.some((s) => s.id === 'schildpool' || s.id === 'bot2'), 'Shop: schildpool entfällt, bot2 ist das Modul Werkstatt');
   ok(CONFIG.shop.some((s) => s.id === 'bolzenwerfer') && CONFIG.shop.some((s) => s.id === 'seitenturm'), 'bolzenwerfer und seitenturm bleiben (Paket C/D)');
-  ok(CONFIG.o2.drainLifeBroken === 0, 'O2-Verlust durch ausgefallene Lebenserhaltung ruht (AP10)');
+  ok(!('drainLifeBroken' in CONFIG.o2) && CONFIG.o2.max === 100, 'PAN-01 B: Lebenserhaltung als Station gestrichen, kein O2-Verlust durch sie (nur Lecks)');
   const t = CONFIG.module.standard;
   ok(JSON.stringify(t[6]) === '[2,2,2]' && JSON.stringify(t[4]) === '[1,2,1]', 'Standard: 6 frei = 2/2/2, 4 frei = 1/2/1');
   ok(Object.values(t).every((v) => v.length === 3 && v.every((x) => x >= 1 && x <= CONFIG.power.maxPerSystem)), 'jede Standardverteilung: mindestens 1 je Hauptsystem, höchstens 4');
@@ -134,14 +134,14 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   T.g.ship.systems.reactor = 'broken'; T.run(0.2);
   ok(space.powerUsed(T.g) <= 2, 'Reaktor zerstört: Notstrom 2, alles gekürzt (' + space.powerUsed(T.g) + ')');
   ok(T.g.ship.systems.transfer === 'ok' && !away.recall(T.g, 'x').includes('Energie'), 'Transfer hat keinen Energieposten (Zustand unabhängig vom Reaktor)');
-  // Lebenserhaltung: kein Energieposten, kein O2-Verlust; Treffer und EMP wählen sie nicht mehr
-  T.g.ship.systems.life = 'broken'; T.g.ship.o2 = 100; T.run(5);
-  ok(T.g.ship.o2 >= 99.9, 'Lebenserhaltung zerstört: O2 sinkt nicht (AP10 ruht)');
+  // Lebenserhaltung: als Station und System gestrichen (PAN-01 B); O2 sinkt nur durch Lecks
   const interior = require('../server/sim/interior.js');
-  ok(interior.INERT_SYSTEMS.join() === 'life', 'Lebenserhaltung ist als wirkungslos markiert (nicht trefferbar)');
+  ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.length === 13, 'kein System life mehr (13 Systeme)');
+  T.g.ship.o2 = 100; T.run(5);
+  ok(T.g.ship.o2 >= 99.9, 'ohne Lecks sinkt O2 nicht');
   let getroffen = 0;
   for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); T.g.ship.sysHitAt = {}; for (const r of interior.hitSystems(T.g, i % 4, { chance: 1 })) if (r.system === 'life') getroffen++; }
-  ok(getroffen === 0, 'in 400 Treffern wird die Lebenserhaltung nie ausgewählt');
+  ok(getroffen === 0, 'in 400 Treffern kommt kein System life vor');
 });
 
 section('Technik schaltet Module ab', () => {
@@ -216,11 +216,12 @@ section('Kürzung: Wunsch der Technik bleibt (N1), Modulräume (N3), EMP', () =>
   g.ship.systems.reactor = 'ok'; T.run(0.1);
   ok(g.ship.power.engines === 2 && g.ship.power.weapons === 2 && g.ship.power.shields === 1, 'nach der Reparatur: 2/1/2 statt der gekürzten Werte: ' + JSON.stringify(g.ship.power));
   // N3: Modulraum nur als ganze Zahl 1–4
+  require('../server/sim/ausbau.js').setStufe(g, 1);   // PAN-01 B: Raum 3 ist ab Stufe 1 offen
   const R = (raum) => { Modul.restore(g, [{ id: 'frachtraum', raum }, { id: 'krankenstation', raum: 2 }]); return g.ship.module.length; };
   ok(R('1') === 1 && R(1.5) === 1 && R(0) === 1 && R(5) === 1 && R(3) === 2, 'restore: Strings, Brüche, 0 und 5 werden abgelehnt, 3 gilt');
-  // N4: EMP im Altpfad wählt die Lebenserhaltung nie
+  // N4: EMP im Altpfad: nur Systeme, die es gibt (die Lebenserhaltung ist gestrichen)
   const interior = require('../server/sim/interior.js');
-  ok(typeof space.shipHit === 'function' && interior.INERT_SYSTEMS.includes('life'), 'Lebenserhaltung bleibt vom EMP ausgenommen');
+  ok(typeof space.shipHit === 'function' && !interior.SYSTEM_ORDER.includes('life'), 'EMP wählt aus 13 Systemen (keine Lebenserhaltung)');
 });
 
 section('Frachtraum ungesichert: sichtbare Folge', () => {
@@ -300,7 +301,9 @@ section('Werkstatt: zweiter Schrauber als Modul', () => {
   const g = T.g;
   technik(T);
   ok(g.bots.length === 1 && Bots.botAnzahl(g) === 1, 'Start: ein Schrauber');
-  ok(Modul.bestuecken(g, 'werkstatt') === null, 'Werkstatt einbauen (Debug)');
+  ok(/verschlossen|Kein freier/.test(Modul.bestuecken(g, 'werkstatt') || ''), 'Stufe 0: Raum 3 ist noch zu, kein Einbau');
+  T.debug('ausbau', '1');
+  ok(Modul.bestuecken(g, 'werkstatt') === null, 'Werkstatt einbauen (Debug, Stufe 1)');
   Modul.verteilungSetzen(g); T.run(0.1);
   ok(g.bots.length === 2 && Bots.botAnzahl(g) === 2, 'Werkstatt läuft: zwei Schrauber');
   g.bots[1].carry = 'ersatzteil'; const vorrat = g.inventory.ersatzteil;

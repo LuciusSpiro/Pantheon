@@ -144,7 +144,7 @@
 
   const ICON_FALLBACK = {
     reactor: ['R', PAL.amber], engines: ['A', PAL.rust], shields: ['S', PAL.ice], weapons: ['W', PAL.red],
-    life: ['L', PAL.moss], transfer: ['T', PAL.mint], fire: ['F', PAL.red], breach: ['B', PAL.ice],
+    transfer: ['T', PAL.mint], fire: ['F', PAL.red], breach: ['B', PAL.ice],
     o2: ['O', PAL.ice], hull: ['H', PAL.panelLight], marks: ['M', PAL.brass], lock: ['X', PAL.grey], arrow: ['>', PAL.warn],
     // M3a: neue Systeme (Fallback-Buchstaben: D Düse, E Emitter, W Bug-Waffe, B Batterie)
     thruster_port: ['D', PAL.rust], thruster_stbd: ['D', PAL.rust], emitter_bow: ['E', PAL.ice], emitter_stbd: ['E', PAL.ice],
@@ -274,7 +274,7 @@
   const OBJ = {
     H: 'console_helm', C: 'console_captain', W: 'console_weapons', i: 'console_technik', T: 'console_transfer', S: 'terminal_shop',
     L: 'shelf', B: 'bed', R: 'sys_reactor', E: 'sys_engines', G: 'sys_shields', K: 'sys_weapons', X: 'sys_transfer',
-    O: 'sys_life', m: 'table', p: 'plant', c: 'crate', x: 'crate', b: 'buoy_core', Z: 'sonde',
+    m: 'table', p: 'plant', c: 'crate', x: 'crate', b: 'buoy_core', Z: 'sonde',
     u: 'pipes', k: 'workbench', n: 'control_desk', f: 'barrel',   // M0: Maschinenraum
     y: 'reactor_switch', Y: 'plan_table',                         // M1
   };
@@ -282,7 +282,7 @@
   const OBJ_WRECK = { h: 'salvage', g: 'lore_terminal', V: 'wall_weak', x: 'debris' };
   // M3a: System/Konsole/Objekt-Art eines Zeichens kommen aus der Legende der Karte (map.legend[ch].system/.console/.kind).
   // Die festen Tabellen sind nur noch Fallback für Zeichen ohne Legende (z. B. Ersatzkarten ohne legend).
-  const SYS_BY_CHAR_FB = { R: 'reactor', E: 'engines', G: 'shields', K: 'weapons', X: 'transfer', O: 'life' };
+  const SYS_BY_CHAR_FB = { R: 'reactor', E: 'engines', G: 'shields', K: 'weapons', X: 'transfer' };
   const CONSOLE_BY_CHAR_FB = { H: 'helm', C: 'captain', W: 'weapons', T: 'transfer', S: 'shop', Y: 'plan' };
   const NON_OBJ_KINDS = { wall: 1, void: 1, space: 1, rock: 1, wall_ruin: 1 };
   function legendOf(map, ch) {
@@ -736,6 +736,38 @@
     return ((st.ship && st.ship.npcs) || []).some(n => n.id === 'ivo' && !n.ab);
   }
   function bedAt(tx, ty) { return (Maps.BEDS || []).find(b => b.x === tx && b.y === ty); }
+  // PAN-01 B: Modulplätze (mod_a/b/c in den vier Modulräumen) zeigen, welches Modul im Raum steht (st.ship.mod, Codes f k w); ohne Modul Stauware.
+  // Frachtraum: Bucht, Bett, Stapel · Krankenstation: Liege, Liege, Scanner · Werkstatt: Werkbank, Werkbank, Maschine (Platzhalter, bis das Voxelwerk eigene Modelle liefert)
+  const MODUL_KIND = { mod_a: { f: 'cargo_bay', k: 'med_bed', w: 'workbench' }, mod_b: { f: 'cargo_bed', k: 'med_bed', w: 'workbench' }, mod_c: { f: 'crate', k: 'control_desk', w: 'pipes' } };
+  function modulKind(kind, tx, ty, st) {
+    const tab = MODUL_KIND[kind];
+    if (!tab) return kind;
+    const r = Maps.roomAt(tx, ty);
+    const code = r && r.modul && st && st.ship ? Maps.modulCodeImRaum(st.ship.mod, r.modul) : null;
+    return (code && tab[code]) || 'crate';
+  }
+  // belegbare Buchten: die der Modulräume mit Frachtraum (2 je Raum), Ware n liegt in Bucht n
+  function aktiveBuchten(st) { return Maps.frachtPlaetze(Maps.frachtRaeumeAusMod(st && st.ship && st.ship.mod)).bays; }
+  const stufeOf = (st) => (st && st.ship && st.ship.st) || 0;
+  // Pforte (verschaltes Schott) und Lafette: ohne Art-Modell, einfache lesbare Darstellung (Modellliste: CONTRACT-PAN01-B-MODELLE.md)
+  function fbDoorSealed(ctx, px, py, opts) {
+    ctx.fillStyle = 'rgba(11,14,26,0.5)'; ctx.fillRect(px + 2, py + 24, 28, 6);
+    ctx.fillStyle = '#6A3A2A'; ctx.fillRect(px + 1, py - 6, 30, 32);
+    ctx.save(); ctx.beginPath(); ctx.rect(px + 1, py - 6, 30, 32); ctx.clip();
+    ctx.strokeStyle = PAL.amber; ctx.lineWidth = 3;
+    for (let i = -32; i < 40; i += 12) { ctx.beginPath(); ctx.moveTo(px + 1 + i, py + 26); ctx.lineTo(px + 1 + i + 32, py - 6); ctx.stroke(); }
+    ctx.restore(); ctx.lineWidth = 1;
+    ctx.fillStyle = PAL.space; ctx.fillRect(px + 8, py + 5, 16, 11);
+    text(ctx, String((opts && opts.stufe) || ''), px + 16, py + 7, { color: PAL.amber, align: 'center', shadow: false });
+  }
+  function fbLafette(ctx, px, py, opts) {
+    ctx.fillStyle = 'rgba(11,14,26,0.5)'; ctx.fillRect(px + 3, py + 24, 26, 6);
+    ctx.fillStyle = opts.sealed ? '#3B4658' : PAL.panel; ctx.fillRect(px + 3, py - 4, 26, 30);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + 3, py - 4, 26, 4);
+    if (opts.sealed) { hatch(ctx, px + 3, py - 4, 26, 30, 'rgba(11,14,26,0.45)', 5); crossX(ctx, px + 3, py - 4, 26, 30, PAL.space, 2); }
+    else { ctx.strokeStyle = PAL.brass; ctx.beginPath(); ctx.arc(px + 16, py + 11, 9, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = PAL.brass; ctx.fillRect(px + 14, py + 9, 4, 4); }
+    text(ctx, String(opts.platz || ''), px + 16, py - 2, { color: opts.sealed ? PAL.panelLight : PAL.brass, align: 'center', shadow: false });
+  }
 
   function sysState(st, sys) { return (st && st.ship && st.ship.systems && st.ship.systems[sys]) || 'ok'; }
 
@@ -929,6 +961,8 @@
 
   function fbObject(ctx, kind, px, py, opts) {
     if (fbObjectM1(ctx, kind, px, py, opts || {})) return;
+    if (kind === 'door_sealed') return fbDoorSealed(ctx, px, py, opts);
+    if (kind === 'sys_lafette') return fbLafette(ctx, px, py, opts);
     const st = opts.state || 'ok';
     let col = PAL.panel, label = '';
     if (kind.indexOf('console_') === 0 || kind === 'terminal_shop') { col = PAL.panel; label = kind === 'terminal_shop' ? '$' : kind.charAt(8).toUpperCase(); }
@@ -1771,8 +1805,10 @@
           continue;
         }
         let base = ch;
+        const sealOffen = zone === 'ship' && ch === '+' && Maps.sealOpen(tx, ty, stufeOf(st));   // PAN-01 B: Pforte offen = Tür
         const isHollowOpen = isWreck && ch === 'V' && hollowOpen;
         if (isWreck && ch === 'V' && !isHollowOpen) base = 'V';   // Art: drawTile('V') = Wand, wall_weak darüber
+        else if (sealOffen) base = 'D';
         else if (objKind(ch) || isHollowOpen) base = floorFor(map, tx, ty);
         else if (ch === 'N' || ch === 'Q' || ch === 'd' || ch === 'a') base = '.';
         env.tx = tx; env.ty = ty;
@@ -1780,7 +1816,7 @@
         env.roomStyle = ra ? roomStyleOf(st, ra.room.id) : null;
         if (!art('drawTile', 'drawTile', [ctx, base, px, py, env])) fbTile(ctx, base, px, py, env);
         if (ra && ownRoomTint && (ra.wall ? base === '#' : FLOOR[base])) fbRoomTint(ctx, base, px, py, env.roomStyle, ra.wall);
-        if (objKind(ch) && !isHollowOpen) drawables.push({ key: ty * TILE + TILE - 1, tx, ty, ch, type: 'obj' });
+        if (objKind(ch) && !isHollowOpen && !sealOffen) drawables.push({ key: ty * TILE + TILE - 1, tx, ty, ch, type: 'obj' });
       }
     }
     env.roomStyle = null;
@@ -1851,6 +1887,12 @@
             if (!artObject(ctx, kind, px, py, opts)) fbObject(ctx, kind, px, py, opts);
             continue;
           }
+          if (zone === 'ship') {   // PAN-01 B: Modulplätze nach Modul im Raum, Pforten und Lafetten nach Ausbaustufe, Spind als Anrichte
+            kind = modulKind(kind, d.tx, d.ty, st);
+            if (kind === 'locker') kind = 'sideboard';
+            if (kind === 'door_sealed') { const sl = Maps.sealAt(d.tx, d.ty); fbDoorSealed(ctx, px, py, { stufe: sl ? sl.stufe : 0 }); continue; }
+            if (kind === 'sys_lafette') { const pl = Maps.waffenplatzAt(d.tx, d.ty); fbLafette(ctx, px, py, { platz: pl ? pl.platz : 0, sealed: !pl || stufeOf(st) < pl.stufe }); continue; }
+          }
           if (kind === 'reactor_switch') {
             const sw = Maps.REACTOR_SWITCHES ? Maps.REACTOR_SWITCHES.find(s => s.x === d.tx && s.y === d.ty) : null;
             opts.held = !!(sw && reactor.switches && reactor.switches[sw.id]);
@@ -1889,7 +1931,7 @@
           if (kind === 'bed') { const bed = bedAt(d.tx, d.ty); opts.color = bed ? bed.color : 0; }
           if ((kind === 'cargo_cot' || kind === 'tool_wall') && !ivoWohntImFrachtraum(st, d.tx, d.ty)) kind = 'crate';   // R0: ohne Bewohner Stauware statt Schlafecke
           if (kind === 'cargo_bed') kind = 'cargo_cot';   // SL0: Frachtbett zeichnet die Pritsche (die liegende Person kommt als ship.npcs-Figur, lie: 1)
-          if (kind === 'cargo_bay') { const bi = (Maps.CARGO_BAYS || []).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
+          if (kind === 'cargo_bay') { const bi = aktiveBuchten(st).findIndex(b => b.x === d.tx && b.y === d.ty); const fl = (st.fracht && st.fracht.lager) || []; opts.cargo = bi >= 0 && fl[bi] ? { art: fl[bi] } : null; opts.secure = !(st.fracht && st.fracht.g === false); }   // EK3 Teil A: Ladung dieser Bucht (Art oder null)
           if (kind === 'sonde') opts.disabled = sondeDisabled;
           if (kind === 'barrel' || kind === 'pipes' || kind === 'control_desk') opts.variant = (d.tx * 7 + d.ty * 3) % 2;   // M0: Fass/Kabeltrommel, Rohr-Varianten
           // Mehrkachel-Objekte: Lage explizit übergeben (Art kennt die Nachbarn sonst nicht,
@@ -2236,6 +2278,19 @@
         const s = P(n.x, n.y, 48); if (inView(s)) text(ctx, n.id === 'ivo' ? 'Ivo' : String(n.name || n.id || ''), s.x, s.y, { color: PAL.ice, align: 'center' });
       }
     });
+    // PAN-01 B: Wahl am Lift/an der Notleiter offen (E gedrückt): Pfeile über und unter der Figur, nur für mögliche Richtungen (W hoch, S runter)
+    if (zone === 'ship') guard('liftwahl', () => {
+      const lm = view.me && view.me.lm;
+      if (!lm || !view.self || (view.me && view.me.lift)) return;
+      const s = P(view.self.x, view.self.y, 0);
+      if (!inView(s)) return;
+      ctx.globalAlpha = 0.65 + 0.35 * Math.sin(t * 6); ctx.fillStyle = PAL.amber;
+      if (lm & 1) { ctx.beginPath(); ctx.moveTo(s.x, s.y - 84); ctx.lineTo(s.x - 10, s.y - 70); ctx.lineTo(s.x + 10, s.y - 70); ctx.closePath(); ctx.fill(); }
+      if (lm & 2) { ctx.beginPath(); ctx.moveTo(s.x, s.y + 14); ctx.lineTo(s.x - 10, s.y + 0); ctx.lineTo(s.x + 10, s.y + 0); ctx.closePath(); ctx.fill(); }
+      ctx.globalAlpha = 1;
+      if (lm & 1) text(ctx, 'W', s.x, s.y - 98, { color: PAL.amber, align: 'center' });
+      if (lm & 2) text(ctx, 'S', s.x, s.y + 17, { color: PAL.amber, align: 'center' });
+    });
     if (zone === 'away') guard('npc', () => {
       const GP = window.Gespraech; const gp = st.gp; const me = view.self;
       for (const n of view.npcs || []) {   // W2 AP6: bis 3 Personen
@@ -2275,11 +2330,11 @@
           // QA M4: Mitspieler auf dem anderen Deck – Randmarke ▲ (Deck darüber) / ▼ (darunter) mit Namen, x wie auf dem eigenen Deck
           if (zone === 'ship' && p.id !== view.pid) {
             const dOther = deckOfPy(p.y), decks = Maps.SHIP_DECKS || [];
-            const dkO = decks.find((q) => q.level === dOther), dkC = decks.find((q) => q.level === deck);
+            const dkO = decks.find((q) => q.idx === dOther), dkC = decks.find((q) => q.idx === deck);   // PAN-01 B: Deck-Index; Höhenlage (level) bestimmt oben/unten
             if (dkO && dkC) {
               // x zwischen den HUD-Spalten (links Ziele, rechts Systeme/Minikarte) halten
               const sx = Math.max(150, Math.min(VW - 150, P(p.x, p.y - (dkO.y0 - dkC.y0) * TILE, 0).x));
-              const up = dOther < deck, col = PAL.players[p.color || 0];
+              const up = dkO.level > dkC.level, col = PAL.players[p.color || 0];
               const yy = up ? 14 : VH - 56;
               ctx.fillStyle = col; ctx.beginPath();
               if (up) { ctx.moveTo(sx, yy - 6); ctx.lineTo(sx - 5, yy); ctx.lineTo(sx + 5, yy); } else { ctx.moveTo(sx, yy + 6); ctx.lineTo(sx - 5, yy); ctx.lineTo(sx + 5, yy); }
@@ -4392,7 +4447,11 @@
     const c = opts.cell || 3;
     const reactor = (st.ship && st.ship.reactor) || {};
     const t = view.time;
-    ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.fillRect(x - 2, y - 2, map.w * c + 4, map.h * c + 4);
+    // PAN-01 B: Schiff = drei Decks im Atlas mit je drei leeren Zeilen dazwischen; die Minikarte lässt die Lücken weg (yo = Zeile ohne Lücken davor)
+    const shipZ = zone === 'ship' && map.id === 'ship' && !!Maps.deckOf;
+    const yo = shipZ ? (v) => v - 3 * Math.max(0, Maps.deckOf(Math.floor(v))) : (v) => v;
+    const mh = shipZ ? map.h - 3 * (Maps.SHIP_DECKS.length - 1) : map.h;
+    ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.fillRect(x - 2, y - 2, map.w * c + 4, mh * c + 4);
     const away = st.away || {};
     const doorOpen = !!(away.doorOpen || (away.kustodenpult && away.kustodenpult.disabled));
     const blinkM = Math.floor(t * 3) % 2 === 0;
@@ -4403,7 +4462,7 @@
       const ch = map.at(tx, ty);
       if (ch === ' ' || ch === '~') continue;
       let col;
-      if (buehneMap) { col = buehneKachelFarbe(map, st, tx, ty); if (col) { ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + ty * c, c, c); } continue; }   // B1
+      if (buehneMap) { col = buehneKachelFarbe(map, st, tx, ty); if (col) { ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + yo(ty) * c, c, c); } continue; }   // B1
       if (keshMap) {
         // M2: Kesh – Fels dunkel, Mauer, Boden, Deckung, Relais/Schlüssel/Tor/Tafel
         if (ch === 'R') continue;
@@ -4417,7 +4476,7 @@
         else if (ch === 'G') col = kSolid(tx, ty) ? '#7A3FB0' : '#2E2B36';
         else if (ch === 'T') col = away.tablet && away.tablet.taken ? '#5A5262' : '#D9A441';
         else col = '#2E2B36';
-        ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + ty * c, c, c);
+        ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + yo(ty) * c, c, c);
         continue;
       }
       if (ch === '#') col = '#55677E';
@@ -4433,7 +4492,7 @@
       else if (map.id === 'wreck' && ch === 'g') col = PAL.mint;
       else if (map.id === 'wreck' && ch === 'V') col = (away.hollow && away.hollow.open) ? '#2A3446' : (away.hollow && away.hollow.marked) ? PAL.amber : '#55677E';
       else col = '#3B4658';
-      ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + ty * c, c, c);
+      ctx.fillStyle = col; ctx.fillRect(x + tx * c, y + yo(ty) * c, c, c);
     }
     const blink = Math.floor(t * 3) % 2 === 0;
     if (buehneMap) (map.anker || []).forEach((a, i) => {   // B1: Objektanker als Punkte
@@ -4444,27 +4503,27 @@
     });
     if (zone === 'ship' && st.ship) {
       ctx.fillStyle = blink ? PAL.red : PAL.amber;
-      for (const f of st.ship.fires || []) ctx.fillRect(x + f[0] * c, y + f[1] * c, c, c);
+      for (const f of st.ship.fires || []) ctx.fillRect(x + f[0] * c, y + yo(f[1]) * c, c, c);
       ctx.fillStyle = PAL.ice;
-      for (const b of st.ship.breaches || []) ctx.fillRect(x + b.tx * c, y + b.ty * c, c, c);
+      for (const b of st.ship.breaches || []) ctx.fillRect(x + b.tx * c, y + yo(b.ty) * c, c, c);
       // M0: leeres Regal = roter Punkt
       for (const sh of shelfTiles()) {
         if (shelfStock(st.inventory, sh.item) > 0) continue;
         const dot = c > 4 ? 4 : 2;
         ctx.fillStyle = blink || c > 4 ? PAL.red : '#8A2A24';
-        ctx.fillRect(Math.round(x + sh.x * c + c / 2 - dot / 2), Math.round(y + sh.y * c + c / 2 - dot / 2), dot, dot);
+        ctx.fillRect(Math.round(x + sh.x * c + c / 2 - dot / 2), Math.round(y + yo(sh.y) * c + c / 2 - dot / 2), dot, dot);
       }
       ctx.fillStyle = PAL.brass;
-      for (const b of view.bots || []) ctx.fillRect(x + Math.floor(b.x / TILE) * c, y + Math.floor(b.y / TILE) * c, c, c);
+      for (const b of view.bots || []) ctx.fillRect(x + Math.floor(b.x / TILE) * c, y + yo(Math.floor(b.y / TILE)) * c, c, c);
     }
     if (zone === 'away') {
-      for (const it of away.items || []) { ctx.fillStyle = it.kind === 'datenkern' ? PAL.mint : PAL.star; ctx.fillRect(x + Math.floor(it.x / TILE) * c, y + Math.floor(it.y / TILE) * c, c, c); }
-      for (const npc of view.npcs || []) if (!npc.rescued) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(npc.x / TILE) * c, y + Math.floor(npc.y / TILE) * c, c, c); }
+      for (const it of away.items || []) { ctx.fillStyle = it.kind === 'datenkern' ? PAL.mint : PAL.star; ctx.fillRect(x + Math.floor(it.x / TILE) * c, y + yo(Math.floor(it.y / TILE)) * c, c, c); }
+      for (const npc of view.npcs || []) if (!npc.rescued) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(npc.x / TILE) * c, y + yo(Math.floor(npc.y / TILE)) * c, c, c); }
       const sensorOn = away.sensorUntil && st.time < away.sensorUntil;
       const v2m = isV2(st);
       for (const d of view.drones || []) {
         if (d.alive === false || !(sensorOn || aufgedeckt(d, st) || opts.showDrones || (v2m && d.vis))) continue;
-        ctx.fillStyle = d.kind === 'warden' ? KESH_VIOLET : PAL.red; ctx.fillRect(x + Math.floor(d.x / TILE) * c, y + Math.floor(d.y / TILE) * c, c, c);
+        ctx.fillStyle = d.kind === 'warden' ? KESH_VIOLET : PAL.red; ctx.fillRect(x + Math.floor(d.x / TILE) * c, y + yo(Math.floor(d.y / TILE)) * c, c, c);
       }
       if (v2m) for (const o of activeOrders(st)) {
         const op = orderPos(o, view.drones);
@@ -4478,12 +4537,19 @@
         ctx.fillRect(Math.round(x + pin.x / TILE * c), Math.round(y + pin.y / TILE * c) - 4, 3, 2);
       }
     }
-    if (zone === 'ship') for (const n of view.shipNpcs || (st.ship && st.ship.npcs) || []) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(n.x / TILE) * c, y + Math.floor(n.y / TILE) * c, c, c); }
+    if (zone === 'ship') for (const n of view.shipNpcs || (st.ship && st.ship.npcs) || []) { ctx.fillStyle = PAL.ice; ctx.fillRect(x + Math.floor(n.x / TILE) * c, y + yo(Math.floor(n.y / TILE)) * c, c, c); }
     for (const p of view.players || []) {
       if (p.zone !== zone || p.connected === false) continue;
-      const px = x + p.x / TILE * c, py = y + p.y / TILE * c;
+      const px = x + p.x / TILE * c, py = y + yo(p.y / TILE) * c;
       shape(ctx, SHAPES[p.color || 0], Math.round(px), Math.round(py), 6, PAL.players[p.color || 0], PAL.space);
     }
+  }
+
+  // PAN-01 B: Maße der Minikarte in Pixeln bei Kachelgröße cell (Schiff ohne die Lücken zwischen den Decks)
+  function miniPlanSize(zone, cell) {
+    const map = Maps.ship;   // nur das Schiff hat Decks (Außenkarten: nicht gebraucht)
+    const lueck = Maps.SHIP_DECKS ? 3 * (Maps.SHIP_DECKS.length - 1) : 0;
+    return { w: map.w * cell, h: (map.h - lueck) * cell };
   }
 
   window.Render = {
@@ -4497,7 +4563,7 @@
     beginUi, button, clickUi, drawTooltip, ui,
     camera, mapFor, floorFor, bedAt, sysState, itemFallback, drawFx,
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,
-    addFx, drawWorld, drawTactical, drawMiniPlan, updateCamera,
+    addFx, drawWorld, drawTactical, drawMiniPlan, miniPlanSize, updateCamera,
     // M1
     OBJ_WRECK, mapById, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
     // M2

@@ -99,6 +99,7 @@
   G.send = send;
 
   function isSolidFor(zone, st) {
+    if (zone === 'ship' && Maps.shipSolidFn) return Maps.shipSolidFn((st && st.ship && st.ship.st) || 0);   // PAN-01 B: verschalte Pforten öffnen mit der Ausbaustufe
     const map = R.mapFor(zone, st);
     if (zone === 'away' && (map.id === 'kesh' || R.isBuehne(map))) return R.solidFn(map, st);   // B1: Türen nach Zustand   // M2: Tor offen = begehbar, low-Kacheln solid
     const away = (st && st.away) || {};
@@ -1607,8 +1608,18 @@
     }
     // M4 (DECKS): Lift nur von der eigenen Kachel, Notleiter auch von der Nachbarkachel
     const shipInteract = zone === 'ship' && map.legend && map.legend[ch] ? map.legend[ch].interact : null;
-    if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift zum ' + (Maps.deckOf && Maps.deckOf(ty) ? 'Systemdeck' : 'Privatdeck'), ok: true };
-    if (shipInteract === 'ladder' && !(m && m.ladder)) return { label: 'Halten: Notleiter (2 s)', ok: true };
+    // PAN-01 B: E aktiviert Lift/Notleiter, dann W (hoch) / S (runter) – nur mögliche Richtungen; E oder A/D schließen die Wahl
+    if (zone === 'ship' && m && m.lm && !m.lift) {
+      const stu = (st.ship && st.ship.st) || 0, dn = (d) => ((Maps.SHIP_DECKS || [])[d] || {}).name || 'Deck';
+      const sel = ownTile && (shipInteract === 'lift' || shipInteract === 'ladder') ? { x: tx, y: ty } : null;
+      const up = sel && Maps.fahrtZiel(sel.x, sel.y, 1, stu), down = sel && Maps.fahrtZiel(sel.x, sel.y, -1, stu);
+      const parts = [];
+      if (m.lm & 1) parts.push('W hoch' + (up ? ' (' + dn(up.deck) + ')' : ''));
+      if (m.lm & 2) parts.push('S runter' + (down ? ' (' + dn(down.deck) + ')' : ''));
+      return { label: parts.join(' · ') + ' · E Abbruch', ok: true };
+    }
+    if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift benutzen', ok: true };
+    if (shipInteract === 'ladder' && !(m && m.lift) && !(m && m.ladder)) return { label: 'E: Notleiter benutzen', ok: true };
     if (ownTile) {
       const items = zone === 'away' ? ((st.away && st.away.items) || []) : ((st.ship && st.ship.groundItems) || []);
       const it = items.find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);

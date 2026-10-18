@@ -18,7 +18,7 @@ ok(Math.abs(Phys.radAusKompass(0) + P / 2) < 1e-9, 'radAusKompass(0) = −π/2 (
 
 console.log('Frachtraum-Liste');
 {
-  const cap = Maps.CARGO_CAPACITY;
+  const cap = Maps.cargoCapacity([1]);   // PAN-01 B: 2 Plätze je Modul Frachtraum (Start-Lerche: ein Frachtraum)
   const leer = FL.frachtListe(null, cap);
   ok(leer.belegt === 0 && leer.frei === cap && leer.text === 'FRACHTRAUM 0/' + cap + ': leer', 'leer: ' + leer.text);
   const eins = FL.frachtListe({ lager: ['deuterium'] }, cap);
@@ -27,6 +27,9 @@ console.log('Frachtraum-Liste');
   ok(voll.belegt === 2 && voll.frei === 0 && voll.text === 'FRACHTRAUM 2/2: Deuterium, Evert Kroeger', 'Ware und Person: ' + voll.text);
   ok(voll.eintraege[1].art === 'person' && voll.eintraege[0].art === 'deuterium', 'Einträge nach Art');
   ok(FL.frachtListe({ lager: ['sprengstoff', 'fracht'] }, cap).text === 'FRACHTRAUM 2/2: Sprengstoff, Fracht', 'Sprengstoff und Fracht');
+  const drei = FL.frachtListe({ lager: ['deuterium', 'fracht', 'sprengstoff'], pers: [{ id: 'evert', n: 'Evert', b: 0 }] }, Maps.cargoCapacity([1, 2]));
+  ok(drei.cap === 4 && drei.belegt === 4 && drei.frei === 0 && drei.titel === 'FRACHTRAUM 4/4', 'zwei Frachträume: 4 Plätze (' + drei.titel + ')');
+  ok(Maps.cargoCapacity(Maps.frachtRaeumeAusMod([['f', 1, 1, 1], ['k', 2, 1, 1], ['f', 4, 1, 1]])) === 4, 'Kapazität aus dem Snapshot-Feld ship.mod (Code f): zwei Frachträume = 4');
 }
 
 console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

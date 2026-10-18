@@ -189,7 +189,7 @@
     WORLD_LIST_FIELDS: ['id', 'name', 'savedAt', 'playTime', 'loc', 'mission', 'step', 'chronikLast', 'spieler', 'state', 'grund'],
     WORLD_EVENTS: ['worldSaved', 'worldSaveFailed', 'worldLoaded', 'worldLoadFailed', 'sessionEnded'],
     // ---- M4 Stufe 1 (CONTRACT-M4 §2.4): Lift und Notleiter. Alle Felder optional (nur wenn aktiv bzw. an Bord). ----
-    // Snapshot players[i].deck: 0 Systemdeck / 1 Privatdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client)
+    // Snapshot players[i].deck: 0 Mitteldeck / 1 Oberdeck / 2 Unterdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client); lm = Wahl am Lift offen (Bitmaske 1 hoch, 2 runter)
     //          players[i].lift: { to: 0|1, t, T } während der Liftfahrt (Eingaben gesperrt, kein Schaden, x/y bleiben stehen,
     //                           Teleport bei t >= T; Client: keine Bewegungsvorhersage, solange lift gesetzt ist)
     //          players[i].ladder: { t, T } solange E an der Notleiter gehalten wird (zusätzlich action { kind: 'ladder', progress })
@@ -259,7 +259,7 @@
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
-    DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
+    DEBUG_CMDS: ['ausbau', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')

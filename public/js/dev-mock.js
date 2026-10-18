@@ -609,12 +609,12 @@
     const map = p.zone === 'away' ? awayMapNow() : Maps.ship;
     const t = Phys.toTile(p.x, p.y);
     // M4: Lift (auf ^ stehen) bzw. Notleiter (auf/vor !) – im Mock sofort aufs andere Deck (ohne Fahrzeit)
-    if (p.zone === 'ship' && Maps.otherDeckTile) {
+    if (p.zone === 'ship' && Maps.fahrtZiel) {   // PAN-01 B: drei Decks; der Mock fährt (ohne Wahl) ein Deck hoch, sonst runter
       const own = map.info(t.x, t.y);
       const lad = [[0, 0], [DIRV[p.dir][0], DIRV[p.dir][1]]].map(([dx, dy]) => ({ x: t.x + dx, y: t.y + dy })).find(q => map.info(q.x, q.y).interact === 'ladder');
       const from = own.interact === 'lift' ? t : lad;
-      const to = from ? (own.interact === 'lift' ? Maps.otherDeckTile(from.x, from.y) : Maps.ladderPartner(from.x, from.y)) : null;
-      if (to) { Object.assign(p, tc(to.x, to.y)); notice(own.interact === 'lift' ? 'Lift: ' + (Maps.deckOf(to.y) ? 'Privatdeck' : 'Systemdeck') : 'Notleiter'); return; }
+      const to = from ? (Maps.fahrtZiel(from.x, from.y, 1) || Maps.fahrtZiel(from.x, from.y, -1)) : null;
+      if (to) { Object.assign(p, tc(to.x, to.y)); notice((own.interact === 'lift' ? 'Lift: ' : 'Notleiter: ') + ((Maps.SHIP_DECKS[to.deck] || {}).name || 'Deck')); return; }
     }
     const d = DIRV[p.dir];
     const cand = [[d[0], d[1]], [0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]];

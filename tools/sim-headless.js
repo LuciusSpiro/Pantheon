@@ -45,7 +45,7 @@ const SECTOR_OF_SIDE = { port: 3, stbd: 1 };
 const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 // Reihenfolge, in der Spieler-Bots zerstörte/beschädigte Systeme angehen (Kampfwert zuerst)
 const REPAIR_PRIO = ['shields', 'reactor', 'thruster_port', 'thruster_stbd', 'emitter_port', 'emitter_stbd', 'emitter_bow', 'emitter_aft',
-  'battery_port', 'battery_stbd', 'weapon_bow', 'engines', 'life', 'transfer'];
+  'battery_port', 'battery_stbd', 'weapon_bow', 'engines', 'transfer'];
 
 const args = process.argv.slice(2);
 const VERBOSE = args.includes('--verbose');
@@ -151,10 +151,11 @@ class Agent {
       const m = this.awayMap(S);
       return (x, y) => { const ch = m.at(x, y); if (ch === 'L' && S.away.map === 'platform') return S.away.doorOpen; if (ch === 'V' && S.away.map === 'wreck') return !!(S.away.hollow && S.away.hollow.open); return !m.solid(x, y); };
     }
-    return (x, y) => !Maps.ship.solid(x, y);
+    const solid = Maps.shipSolidFn((S.ship && S.ship.st) || 0);   // PAN-01 B: verschalte Pforten öffnen mit der Ausbaustufe
+    return (x, y) => !solid(x, y);
   }
   mapFor(S, zone) { return zone === 'away' ? this.awayMap(S) : Maps.ship; }
-  pathLinks(S, zone) { return zone === 'ship' ? W.liftLinks : null; }
+  pathLinks(S, zone) { return zone === 'ship' ? W.liftLinksFor((S.ship && S.ship.st) || 0) : null; }
 
   goto(S, goals) {
     const p = this.me(S);
@@ -170,6 +171,12 @@ class Agent {
       // auf der Liftkachel: zur Mitte, stehen bleiben, E tippen
       const c = Physics.tileCenter(st.x, st.y);
       if (dist(p.x, p.y, c.x, c.y) > 4) { const dx = c.x - p.x, dy = c.y - p.y, l = Math.hypot(dx, dy) || 1; this.input(Math.round(dx / l * 50) / 100, Math.round(dy / l * 50) / 100); return false; }
+      // PAN-01 B: E aktiviert den Lift, dann W (hoch) / S (runter) zum Nachbardeck; ist die Wahl offen (players[].lm), nur noch die Richtung drücken
+      if (p.lm) {
+        const lvl = (ty) => ((Maps.SHIP_DECKS[Maps.deckOf(ty)] || {}).level || 0);
+        this.input(0, lvl(path[0].y) > lvl(st.y) ? -1 : 1);
+        return false;
+      }
       this.input(0, 0);
       if ((this.memo.liftTapAt || -9) < S.time - 0.5) {
         this.memo.liftTapAt = S.time;
@@ -2155,7 +2162,7 @@ class GenericAgent extends KeshAgent {
   personenBot(S, p) {
     if (!this.is('weapons') || p.zone !== 'ship' || S.fracht.halt) return false;
     if ((this.memo.personAt || 0) > S.time) return false;
-    const fr = S.fracht; const cap = (Maps.CARGO_CAPACITY || 2);
+    const fr = S.fracht; const cap = Maps.cargoCapacity(Maps.frachtRaeumeAusMod(S.ship && S.ship.mod));   // PAN-01 B: 2 je Frachtraum
     if (fr.pq && fr.pq.length && ((fr.lager || []).length + (fr.pers || []).length) < cap) {
       this.memo.personAt = S.time + 2; if (p.console !== 'weapons') { this.enter(S, 'weapons'); return true; }
       this.cmd('weapons.person'); return true;

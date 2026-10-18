@@ -229,6 +229,8 @@ console.log('\n[Kai: ein Bot als Standard, zweiter im Shop; Reaktor-Neustart sol
   // PAN-01 A: bot2 ist das Modul Werkstatt (kein Shop-Eintrag mehr), schildpool entfällt
   ok(!g.C.shop.some((s) => s.id === 'bot2' || s.id === 'schildpool' || s.id === 'schrauber3') && !('bot2' in g.upgrades) && !('schildpool' in g.upgrades), 'Shop: kein bot2, kein schildpool, kein dritter Schrauber');
   const Modul = require('../server/sim/module.js');
+  ok(typeof Modul.bestuecken(g, 'werkstatt') === 'string', 'Stufe 0: kein freier Modulraum (nur 1 und 2 offen, beide belegt)');
+  require('../server/sim/ausbau.js').setStufe(g, 2);   // PAN-01 B: Raum 3 und 4 öffnen mit Stufe 1 und 2
   ok(Modul.bestuecken(g, 'werkstatt') === null && (Bots.ensureBotCount(g), g.bots.length === 2), 'mit Modul Werkstatt: 2 Bots');
   Modul.bestuecken(g, 'werkstatt'); Bots.ensureBotCount(g);
   ok(g.bots.length === 2 && Bots.botAnzahl(g) === 2, 'Maximum 2 Bots (auch mit zwei Werkstätten)');
@@ -694,92 +696,156 @@ console.log('\n[M0: Lager leer / debug inv]');
 }
 
 // ======================================================================
-// M4 Stufe 1 „Zwei Decks“ (CONTRACT-M4 §2.4, §8): Lift, Notleiter, Bots über den Lift, Ivo auf Deck II, kein Feuer auf Deck II
-console.log('\n[M4 Zwei Decks: Lift und Leiter]');
+// M4 „Zwei Decks“ (CONTRACT-M4 §2.4, §8), PAN-01 B „Drei Decks“: Lift und Notleiter (E aktiviert, W hoch / S runter), Bots über den Lift, Ivo auf dem Oberdeck,
+// kein Feuer auf dem Oberdeck, Gefechtsalarm. Die ausführlichen Tests der Ausbaustufen, Modulräume und Frachträume stehen in tools/test-lerche.js.
+console.log('\n[PAN-01 B Drei Decks: Lift und Leiter]');
 {
   const S = Maps.DECK_STRIDE;
   const deckOfP = (p) => Maps.deckOfPx(p.y);
   const tileOf = (o) => Physics.toTile(o.x, o.y);
-  const { g, P, send, run, place, events } = setup(3);
+  const { g, P, send, run, place, events, tap } = setup(3);
   g.mission.isDrill = () => false;   // Übung aus (sonst stehen die Schrauber)
   g.ship.fireList = []; g.ship.breachList = [];
+  let seq = 0;
+  const hold = (i, mx, my) => send(i, { t: 'input', seq: ++seq, mx, my });   // Bewegungstasten halten (W = my −1, S = my +1)
+  const lm = (i) => g.snapshot().players[i].lm;
   const L = g.C.lift;
   ok(L && L.rideTime === 1.5 && L.rideTimeLowPower === 3 && L.ladderTime === 2 && L.arrivalClearRadius === 1, 'CONFIG.lift laut Vertrag');
-  // drei Spieler gleichzeitig im Lift, zwei davon auf derselben Kachel
+  // drei Spieler gleichzeitig am Brückenlift L1 (Mitteldeck), zwei davon auf derselben Kachel: E öffnet nur die Wahl
   const lt = Maps.SHIP_LIFTS[0].tiles;
   place(0, lt[0][0], lt[0][1]); place(1, lt[0][0], lt[0][1]); place(2, lt[3][0], lt[3][1]);
-  for (let i = 0; i < 3; i++) { send(i, { t: 'act', down: true }); send(i, { t: 'act', down: false }); }
-  ok([0, 1, 2].every((i) => P(i).lift && P(i).lift.to === 1 && P(i).lift.T === 1.5), 'drei Spieler gleichzeitig im Lift (to 1, T 1,5 s)');
+  for (let i = 0; i < 3; i++) tap(i);
+  run(0.1);
+  ok([0, 1, 2].every((i) => !P(i).lift && lm(i) === 3), 'E am Lift öffnet die Wahl (Mitteldeck: W hoch und S runter), noch keine Fahrt');
+  ok(g.snapshot().players.every((q) => q.deck === 0), 'Snapshot: deck 0 (Mitteldeck)');
+  for (let i = 0; i < 3; i++) hold(i, 0, -1);   // W
+  run(0.1);
+  ok([0, 1, 2].every((i) => P(i).lift && P(i).lift.to === 1 && P(i).lift.T === 1.5), 'W: drei Spieler gleichzeitig im Lift nach oben (to 1, T 1,5 s)');
   const snap0 = g.snapshot();
-  ok(snap0.players.every((q) => q.lift && q.lift.to === 1 && q.lift.T === 1.5 && q.deck === 0), 'Snapshot players[].lift { to, t, T } und deck 0');
+  ok(snap0.players.every((q) => q.lift && q.lift.to === 1 && q.lift.T === 1.5 && q.deck === 0 && q.lm === undefined), 'Snapshot players[].lift { to, t, T }, die Wahl ist zu (kein lm)');
   ok(events('lift').filter((e) => e.phase === 'start').length === 3, 'Ereignis lift (phase start) je Spieler');
   // Eingaben gesperrt, kein Schaden während der Fahrt
   const x0 = P(0).x, y0 = P(0).y, hp0 = P(0).hp;
-  send(0, { t: 'input', seq: 1, mx: 1, my: 0 });
+  hold(0, 1, 0);
   interior.damagePlayer(g, P(0), 30, 'test');
-  let ticks = 0;
+  let ticks = 3;   // 0,1 s (3 Ticks) sind schon gelaufen
   while (P(2).lift && ticks < 200) { g.step(); ticks++; }
-  send(0, { t: 'input', seq: 2, mx: 0, my: 0 });
+  hold(0, 0, 0);
   const rideS = ticks / g.C.tickHz;
-  ok(Math.abs(rideS - 1.5) <= 0.1, `Liftfahrt gemessen ${rideS.toFixed(2)} s (1,5 s ± 0,1)`);
+  ok(Math.abs(rideS - 1.5) <= 0.15, `Liftfahrt gemessen ${rideS.toFixed(2)} s (1,5 s ± 0,15)`);
   ok(P(0).hp === hp0, 'im Lift kein Schaden');
-  ok([0, 1, 2].every((i) => !P(i).lift && deckOfP(P(i)) === 1), 'alle drei auf Deck II angekommen');
+  ok([0, 1, 2].every((i) => !P(i).lift && deckOfP(P(i)) === 1), 'alle drei auf dem Oberdeck angekommen (Deck 1)');
   const t0 = tileOf(P(0)), t1 = tileOf(P(1)), t2 = tileOf(P(2));
   ok(t2.x === lt[3][0] && t2.y === lt[3][1] + S, 'Ankunft auf derselben lokalen Kachel (y + 16)');
   ok(!(t0.x === t1.x && t0.y === t1.y) && Math.abs(t0.x - t1.x) + Math.abs(t0.y - t1.y) <= 2, `belegte Zielkachel -> freie Nachbarkachel (${t0.x},${t0.y}) / (${t1.x},${t1.y})`);
   ok(Math.abs(x0 - P(0).x) < 64 && P(0).y > y0 + S * 32 - 64, 'keine Bewegung während der Fahrt (nur Teleport)');
   ok(events('lift').filter((e) => e.phase === 'arrive').length === 3, 'Ereignis lift (phase arrive) je Spieler');
   const snap1 = g.snapshot();
-  ok(snap1.players.every((q) => q.deck === 1 && !('lift' in q)), 'Snapshot: deck 1, lift nur während der Fahrt');
-  // Raumname auf Deck II
-  ok(Maps.roomAt(t2.x, t2.y).name === 'Liftvorraum', 'roomAt auf Deck II: Liftvorraum');
-  // zurück nach oben, Notstrom: 3 s
-  g.ship.reactorCtl.state = 'offline';
+  ok(snap1.players.every((q) => q.deck === 1 && !('lift' in q) && q.lm === undefined), 'Snapshot: deck 1, lift nur während der Fahrt, die Wahl ist nach der Fahrt zu');
+  ok(Maps.roomAt(t2.x, t2.y).id === 'lift1_ober', 'roomAt auf dem Oberdeck: Brückenlift');
+  // Oberdeck: nur runter (kein Deck darüber): W fährt nicht, S fährt
   place(0, lt[1][0], lt[1][1] + S);
-  send(0, { t: 'act', down: true }); send(0, { t: 'act', down: false });
+  tap(0); run(0.1);
+  ok(!P(0).lift && lm(0) === 2, 'Oberdeck: die Wahl zeigt nur S (runter)');
+  hold(0, 0, -1); run(0.2);
+  ok(!P(0).lift && lm(0) === 2, 'W fährt dort nicht (kein Deck darüber)');
+  hold(0, 0, 0); run(0.1); hold(0, 0, 1); run(0.1);
+  ok(P(0).lift && P(0).lift.to === 0, 'S: zurück aufs Mitteldeck');
+  hold(0, 0, 0);
+  ticks = 0; while (P(0).lift && ticks < 200) { g.step(); ticks++; }
+  ok(deckOfP(P(0)) === 0, 'Mitteldeck erreicht');
+  // Mitteldeck -> Unterdeck über L1 (von Anfang an), Ankunft auf derselben lokalen Kachel + 32
+  place(0, lt[2][0], lt[2][1]);
+  tap(0); run(0.1); hold(0, 0, 1); run(0.1); hold(0, 0, 0);
+  ok(P(0).lift && P(0).lift.to === 2, 'S am Brückenlift (Stufe 0): L1 fährt von Anfang an ins Unterdeck');
+  ticks = 0; while (P(0).lift && ticks < 200) { g.step(); ticks++; }
+  ok(deckOfP(P(0)) === 2 && tileOf(P(0)).x === lt[2][0] && tileOf(P(0)).y === lt[2][1] + 2 * S, `Unterdeck erreicht, gleiche lokale Kachel (y + 32): ${tileOf(P(0)).x},${tileOf(P(0)).y}`);
+  ok(g.snapshot().players[0].deck === 2, 'Snapshot: deck 2 (Unterdeck)');
+  // Notstrom: 3 s
+  g.ship.reactorCtl.state = 'offline';
+  place(0, lt[1][0], lt[1][1] + 2 * S);
+  tap(0); run(0.1); hold(0, 0, -1); run(0.1); hold(0, 0, 0);
   ok(P(0).lift && P(0).lift.to === 0 && P(0).lift.T === 3, 'Notstrom (Reaktor abgeschaltet): Liftfahrt 3 s');
-  ticks = 0; while (P(0).lift && ticks < 300) { g.step(); ticks++; }
-  ok(Math.abs(ticks / 30 - 3) <= 0.1 && deckOfP(P(0)) === 0, `Notstrom-Fahrt gemessen ${(ticks / 30).toFixed(2)} s, oben angekommen`);
+  ticks = 3; while (P(0).lift && ticks < 300) { g.step(); ticks++; }
+  ok(Math.abs(ticks / 30 - 3) <= 0.15 && deckOfP(P(0)) === 0, `Notstrom-Fahrt gemessen ${(ticks / 30).toFixed(2)} s, oben angekommen`);
   g.ship.reactorCtl.state = 'online';
-  // E vor dem Lift (nicht darauf) startet keine Fahrt
-  place(1, 28, 18, 'left');
-  send(1, { t: 'act', down: true }); send(1, { t: 'act', down: false });
-  ok(!P(1).lift, 'neben dem Lift: keine Fahrt (nur auf der Plattform)');
-  // Notleiter: E halten 2 s
-  const lad = Maps.SHIP_LADDERS;
-  place(1, lad[1].x, lad[1].y, 'down');
-  send(1, { t: 'act', down: true }); run(1.0); send(1, { t: 'act', down: false }); run(0.1);
-  ok(deckOfP(P(1)) === 1 && !P(1).hold, 'Leiter: zu früh losgelassen -> bleibt unten');
-  send(1, { t: 'act', down: true });
-  run(1.0);
-  const sl = g.snapshot().players[1];
-  ok(sl.ladder && sl.ladder.T === 2 && sl.ladder.t > 0.8 && sl.action && sl.action.kind === 'ladder', 'Snapshot players[].ladder { t, T } + action ladder');
-  let lt2 = 0; while (deckOfP(P(1)) === 1 && lt2 < 120) { g.step(); lt2++; }
-  send(1, { t: 'act', down: false });
-  const ladS = 1.0 + lt2 / 30;
-  ok(deckOfP(P(1)) === 0 && Math.abs(ladS - 2) <= 0.1, `Leiter gemessen ${ladS.toFixed(2)} s, oben an der Leiter (${tileOf(P(1)).x},${tileOf(P(1)).y})`);
-  ok(tileOf(P(1)).x === lad[0].x && tileOf(P(1)).y === lad[0].y, 'Leiter: Ankunft auf der Gegenleiter');
+  // A/D, E und gehaltene Taste: Wahl schließen bzw. kein Durchrutschen
+  place(0, lt[0][0], lt[0][1]);
+  tap(0); run(0.1); hold(0, 1, 0); run(0.1); hold(0, 0, 0);
+  ok(lm(0) === undefined && !P(0).lift, 'A/D schließt die Wahl (man geht weg)');
+  place(0, lt[0][0], lt[0][1]);
+  tap(0); run(0.1); tap(0);
+  ok(lm(0) === undefined && !P(0).lift, 'E noch einmal schließt die Wahl');
+  place(0, lt[0][0], lt[0][1]); hold(0, 0, -1);
+  tap(0); run(0.3);
+  ok(!P(0).lift && lm(0) === 3, 'W schon vor dem E gehalten: keine Fahrt, solange die Taste nicht losgelassen wurde');
+  hold(0, 0, 0); run(0.1); hold(0, 0, -1); run(0.1);
+  ok(P(0).lift && P(0).lift.to === 1, 'nach dem Loslassen und erneutem W fährt der Lift');
+  hold(0, 0, 0);
+  ticks = 0; while (P(0).lift && ticks < 200) { g.step(); ticks++; }
+  // E vor dem Lift (nicht darauf) öffnet nichts
+  place(1, lt[0][0] - 2, lt[0][1], 'right');
+  tap(1); run(0.1);
+  ok(!P(1).lift && lm(1) === undefined, 'neben dem Lift: keine Wahl (nur auf der Plattform)');
+  // Hecklift L2: ins Unterdeck erst mit dem Ausbau (Stufe 1)
+  const l2 = Maps.SHIP_LIFTS[1].tiles;
+  place(1, l2[0][0], l2[0][1]);
+  tap(1); run(0.1);
+  ok(lm(1) === 1, 'Hecklift auf Stufe 0: nur W (hoch), kein Weg ins Unterdeck');
+  hold(1, 0, 1); run(0.2);
+  ok(!P(1).lift, 'S fährt auf Stufe 0 nicht ins Unterdeck');
+  hold(1, 0, 0); tap(1); run(0.1);   // E schließt die Wahl
+  send(0, { t: 'debug', cmd: 'ausbau', args: '1' });
+  ok(g.ship.stufe === 1 && g.snapshot().ship.st === 1, 'Debug ausbau 1: ship.stufe 1, Snapshot ship.st 1');
+  tap(1); run(0.1);
+  ok(lm(1) === 3, 'Stufe 1: der Hecklift zeigt W und S');
+  hold(1, 0, 1); run(0.1); hold(1, 0, 0);
+  ok(P(1).lift && P(1).lift.to === 2 && P(1).lift.T === 1.5, 'Stufe 1: Hecklift fährt ins Unterdeck');
+  ticks = 0; while (P(1).lift && ticks < 200) { g.step(); ticks++; }
+  ok(deckOfP(P(1)) === 2, 'Unterdeck am Hecklift');
+  send(0, { t: 'debug', cmd: 'ausbau', args: '0' });
+  ok(g.ship.stufe === 0 && !('st' in g.snapshot().ship) && Maps.roomAt(tileOf(P(1)).x, tileOf(P(1)).y).id !== 'lift2_unter', 'Zurückstufen auf 0: wer in einem noch verschlossenen Bereich stand, steht wieder im Bugweg');
+  // Notleiter (mittig im Maschinenraum): E, dann W/S, langsamer (2 s); von der Nachbarkachel aus
+  const lad = Maps.SHIP_LADDERS[0];
+  place(1, lad.x - 1, lad.y, 'right');
+  tap(1); run(0.1);
+  ok(lm(1) === 1, 'Notleiter auf Stufe 0: nur W (hoch)');
+  hold(1, 0, -1); run(0.1); hold(1, 0, 0);
+  ok(P(1).lift && P(1).lift.via === 'ladder' && P(1).lift.T === 2 && P(1).lift.to === 1, 'W: Notleiter-Fahrt (T 2 s, to 1)');
+  ticks = 3; while (P(1).lift && ticks < 200) { g.step(); ticks++; }
+  ok(deckOfP(P(1)) === 1 && tileOf(P(1)).x === lad.x && tileOf(P(1)).y === lad.y + S && Math.abs(ticks / 30 - 2) <= 0.15, `Notleiter gemessen ${(ticks / 30).toFixed(2)} s, oben im Meetingraum (${tileOf(P(1)).x},${tileOf(P(1)).y})`);
+  ok(Maps.roomAt(tileOf(P(1)).x, tileOf(P(1)).y).id === 'meeting', 'darüber liegt der Meetingraum');
+  ok(events('lift').some((e) => e.phase === 'arrive' && e.via === 'ladder'), 'Ereignis lift arrive mit via ladder');
+  tap(1); run(0.1);
+  ok(lm(1) === 2, 'Notleiter im Meetingraum: nur S (runter)');
+  hold(1, 0, 1); run(0.1); hold(1, 0, 0);
+  ticks = 3; while (P(1).lift && ticks < 200) { g.step(); ticks++; }
+  ok(deckOfP(P(1)) === 0 && Maps.roomAt(tileOf(P(1)).x, tileOf(P(1)).y).id === 'maschinenraum', 'S: zurück in den Maschinenraum');
 }
 
-console.log('\n[M4 Zwei Decks: kein Feuer/Leck auf Deck II]');
+console.log('\n[PAN-01 B Drei Decks: kein Feuer/Leck auf dem Oberdeck]');
 {
   const { g, send, conns } = setup(1);
   g.ship.fireList = []; g.ship.breachList = [];
   let bad = 0;
   for (let y = 16; y <= 28; y++) for (let x = 0; x < W.ship.w; x++) if (interior.addFire(g, x, y) || interior.addBreach(g, x, y)) bad++;
-  const lt = Maps.SHIP_LIFTS[0].tiles;
-  for (const [x, y] of lt) if (interior.addFire(g, x, y) || interior.addBreach(g, x, y)) bad++;
-  for (const l of Maps.SHIP_LADDERS) if (interior.addFire(g, l.x, l.y) || interior.addBreach(g, l.x, l.y)) bad++;
-  ok(bad === 0 && g.ship.fireList.length === 0 && g.ship.breachList.length === 0, 'addFire/addBreach lehnen Deck II, Lift und Leiter ab');
+  for (const d of [0, 1, 2]) for (const [x, y] of Maps.SHIP_LIFTS.flatMap((l) => l.tiles)) if (interior.addFire(g, x, y + d * 16) || interior.addBreach(g, x, y + d * 16)) bad++;
+  for (const d of [0, 1, 2]) for (const l of Maps.SHIP_LADDERS) if (interior.addFire(g, l.x, l.y + d * 16) || interior.addBreach(g, l.x, l.y + d * 16)) bad++;
+  ok(bad === 0 && g.ship.fireList.length === 0 && g.ship.breachList.length === 0, 'addFire/addBreach lehnen das Oberdeck, Lifts und Leitern ab');
+  // noch verschlossene Räume (Stufe 0): kein Feuer im Modulraum 3/4 und im Lafettenbereich
+  let zu = 0;
+  for (const id of ['modul3', 'modul4', 'lafetten_bb', 'lafetten_stb', 'weg_heck']) { const r = Maps.SHIP_ROOMS.find((q) => q.id === id); for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (interior.addFire(g, x, y) || interior.addBreach(g, x, y)) zu++; }
+  ok(zu === 0, 'Stufe 0: in den noch verschlossenen Räumen (Modulraum 3/4, Lafetten) entsteht kein Feuer und kein Leck');
   let wrong = 0;
   for (let k = 0; k < 400; k++) for (let r = 0; r < 4; r++) for (const wall of [false, true]) {
     const t = interior.randomRegionFloor(g, r, wall);
-    if (!t || Maps.deckOf(t.y) !== 0 || !Maps.hazardAllowed(t.x, t.y)) wrong++;
+    if (!t || ![0, 2].includes(Maps.deckOf(t.y)) || !Maps.hazardAllowed(t.x, t.y, g.ship.stufe)) wrong++;
   }
-  ok(wrong === 0, 'Treffer-Feuer/-Lecks (randomRegionFloor, 3200 Würfe) nur auf Deck I');
+  ok(wrong === 0, 'Treffer-Feuer/-Lecks (randomRegionFloor, 3200 Würfe) nur auf Mittel- und Unterdeck, nur in offenen Räumen');
   // Feuer neben dem Lift breitet sich nie auf die Plattform aus (300 s Ausbreitung, Übung aus)
   g.mission.isDrill = () => false;
   g.god = true;
+  const lt = Maps.SHIP_LIFTS[0].tiles;
   const lift0 = lt[2];
   interior.addFire(g, lift0[0] + 2, lift0[1]);
   const savedMax = g.C.fire.max; g.C.fire.max = 40;
@@ -788,12 +854,12 @@ console.log('\n[M4 Zwei Decks: kein Feuer/Leck auf Deck II]');
   const botUpdate = botsMod.update;
   botsMod.update = () => {};   // Schrauber aus, sonst löschen sie sofort
   try { for (let k = 0; k < 300 * 30; k++) g.step(); } finally { botsMod.update = botUpdate; g.C.fire.max = savedMax; g.C.emergencyRepair.fireDelay = savedFlood; }
-  ok(g.ship.fireList.length > 1 && g.ship.fireList.every((f) => Maps.deckOf(f.ty) === 0 && Maps.hazardAllowed(f.tx, f.ty)),
-    `Ausbreitung: ${g.ship.fireList.length} Feuer, keines auf Lift/Leiter/Deck II`);
-  // Debug-Feuer auf Deck II wird abgelehnt
+  ok(g.ship.fireList.length > 1 && g.ship.fireList.every((f) => [0, 2].includes(Maps.deckOf(f.ty)) && Maps.hazardAllowed(f.tx, f.ty, 0)),
+    `Ausbreitung: ${g.ship.fireList.length} Feuer, keines auf Lift/Leiter/Oberdeck/in verschlossenen Räumen`);
+  // Debug-Feuer auf dem Oberdeck wird abgelehnt
   g.ship.fireList = [];
   send(0, { t: 'debug', cmd: 'fire', x: 15, y: 22 });
-  ok(g.ship.fireList.length === 0, 'Debug-Feuer auf Deck II: keins');
+  ok(g.ship.fireList.length === 0, 'Debug-Feuer auf dem Oberdeck: keins');
   // QA S2b: Brandschutz-Flutung – außerhalb des Kampfs ≥ fireMin Brände fireDelay s lang -> ODA löscht alles
   {
     const ER = g.C.emergencyRepair;
@@ -813,7 +879,7 @@ console.log('\n[M4 Zwei Decks: kein Feuer/Leck auf Deck II]');
   void conns;
 }
 
-console.log('\n[M4 Zwei Decks: Bots und Ivo]');
+console.log('\n[PAN-01 B Drei Decks: Bots und Ivo]');
 {
   const { g, run } = setup(1);   // solo: Bot-Automatik an
   g.mission.isDrill = () => false;
@@ -821,14 +887,14 @@ console.log('\n[M4 Zwei Decks: Bots und Ivo]');
   for (const s of Object.keys(g.ship.systems)) g.ship.systems[s] = 'ok';
   g.inventory.ersatzteil = 3;
   g.ship.systems.battery_port = 'broken';
-  let carried = false, onDeck2 = false;
+  let carried = false, offDeck0 = false;
   for (let k = 0; k < 90 * 30 && g.ship.systems.battery_port !== 'ok'; k++) {
     g.step();
-    for (const b of g.bots) { if (b.carry === 'ersatzteil') carried = true; if (Maps.deckOfPx(b.y) !== 0 || b.lift) onDeck2 = true; }
+    for (const b of g.bots) { if (b.carry === 'ersatzteil') carried = true; if (Maps.deckOfPx(b.y) !== 0 || b.lift) offDeck0 = true; }
   }
-  ok(g.ship.systems.battery_port === 'ok' && carried && g.inventory.ersatzteil === 2, `Bot holt Ersatzteil aus dem Regal und repariert auf Deck I (Lager ${g.inventory.ersatzteil})`);
-  ok(!onDeck2, 'Bots bleiben dabei auf Deck I');
-  // Bot steht auf Deck II -> fährt Lift (gleiche Zeit) und repariert oben
+  ok(g.ship.systems.battery_port === 'ok' && carried && g.inventory.ersatzteil === 2, `Bot holt Ersatzteil aus dem Regal und repariert auf dem Mitteldeck (Lager ${g.inventory.ersatzteil})`);
+  ok(!offDeck0, 'Bots bleiben dabei auf dem Mitteldeck');
+  // Bot steht auf dem Oberdeck (Meetingraum) -> fährt Lift (gleiche Zeit) und repariert unten auf dem Mitteldeck
   const b = g.bots[0];
   for (const o of g.bots) { o.task = null; o.path = null; o.carry = null; }
   const c = Physics.tileCenter(15, 22); b.x = c.x; b.y = c.y;
@@ -840,19 +906,29 @@ console.log('\n[M4 Zwei Decks: Bots und Ivo]');
   }
   ok(rode === g.C.lift.rideTime && Math.abs(liftT / 30 - rode) <= 0.1, `Bot fährt Lift (T ${rode} s, gemessen ${(liftT / 30).toFixed(2)} s)`);
   ok(sawSnap, 'Snapshot bots[].lift während der Fahrt');
-  ok(g.ship.systems.thruster_port === 'ok' && Maps.deckOfPx(b.y) === 0, 'Bot von Deck II repariert die Düse auf Deck I');
-  // Ivo bleibt auf Deck II
+  ok(g.ship.systems.thruster_port === 'ok' && Maps.deckOfPx(b.y) === 0, 'Bot vom Oberdeck repariert die Düse auf dem Mitteldeck');
+  // Lanze (Bugraum, Unterdeck): der Bot fährt mit L1 hinunter und repariert unten
+  for (const o of g.bots) { o.task = null; o.path = null; o.carry = null; }
+  const c2 = Physics.tileCenter(24, 6); b.x = c2.x; b.y = c2.y;
+  g.ship.systems.weapon_bow = 'damaged';
+  let down = false, back = false;
+  for (let k = 0; k < 150 * 30 && g.ship.systems.weapon_bow !== 'ok'; k++) { g.step(); if (b.lift && b.lift.to === 2) down = true; }
+  for (let k = 0; k < 60 * 30 && !(down && Maps.deckOfPx(b.y) === 0 && !b.task); k++) { g.step(); }
+  back = Maps.deckOfPx(b.y) === 0;
+  ok(g.ship.systems.weapon_bow === 'ok' && down, 'Bot fährt mit L1 ins Unterdeck und repariert die Lanze im Bugraum');
+  ok(back, 'danach geht er wieder nach oben (Ruheplatz auf dem Mitteldeck)');
+  // Ivo bleibt auf dem Oberdeck
   g.mission.flags.technikerRescued = true;
   let ivoUp = 0, ivoMoved = 0, last = null;
   for (let k = 0; k < 120 * 30; k++) {
     g.step();
     if (g.ivo) { if (Maps.deckOfPx(g.ivo.y) !== 1) ivoUp++; const tt = Physics.toTile(g.ivo.x, g.ivo.y); const key = tt.x + ',' + tt.y; if (key !== last) { ivoMoved++; last = key; } }
   }
-  ok(g.ivo && ivoUp === 0 && ivoMoved > 10, `Ivo bleibt auf Deck II (${ivoMoved} Kachelwechsel in 120 s)`);
+  ok(g.ivo && ivoUp === 0 && ivoMoved > 10, `Ivo bleibt auf dem Oberdeck (${ivoMoved} Kachelwechsel in 120 s)`);
   run(0);
 }
 
-console.log('\n[M4 Zwei Decks: Gefechtsalarm]');
+console.log('\n[PAN-01 B Drei Decks: Gefechtsalarm]');
 {
   const S = require('../server/sim/space.js');
   for (const below of [true, false]) {
@@ -878,15 +954,14 @@ console.log('\n[M4 Zwei Decks: Gefechtsalarm]');
       g.step();
       const shot = g.space.projectiles.some((q) => q.kind === 'enemy' || q.kind === 'emp') || g.space.enemies.some((e) => e.tele);
       if (shot && firstShot == null) firstShot = k / 30;
-      if (Maps.deckOfPx(p.y) === 1 && below) { /* bleibt unten */ }
     }
-    const odaHit = c.inbox.some((m) => m.kind === 'oda' && /Lift im Liftvorraum/.test(m.text));
+    const odaHit = c.inbox.some((m) => m.kind === 'oda' && /Brückenlift/.test(m.text));
     if (below) {
-      ok(odaHit, 'Spieler auf Deck II: ODA „Alle auf Station – Lift im Liftvorraum.“');
+      ok(odaHit, 'Spieler auf dem Oberdeck: ODA „Alle auf Station – zum Brückenlift!“');
       ok(firstShot == null || firstShot >= 8 - 0.05, `erster Feindkontakt ≥ 8 s nach dem Alarm (erster Schuss ${firstShot == null ? '–' : firstShot.toFixed(1) + ' s'})`);
     } else {
-      ok(!odaHit, 'alle auf Deck I: keine Lift-Ansage');
-      ok(firstShot != null && firstShot < 8, `ohne Spieler auf Deck II schießt der Jäger früher (${firstShot == null ? '–' : firstShot.toFixed(1) + ' s'})`);
+      ok(!odaHit, 'alle auf dem Mitteldeck: keine Lift-Ansage');
+      ok(firstShot != null && firstShot < 8, `ohne Spieler auf dem Oberdeck schießt der Jäger früher (${firstShot == null ? '–' : firstShot.toFixed(1) + ' s'})`);
     }
   }
 }

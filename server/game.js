@@ -1594,13 +1594,13 @@ class Game {
       this.emit('alarm', { level });
       if (level !== 'normal') this.emit('sfx', { name: level === 'red' ? 'alarm_red' : 'alarm_yellow' });
     }
-    // M4 §2.4: Gefechtsbeginn (erster Gegner außer Relais) – wer auf Deck II ist, bekommt eine ODA-Zeile, und der erste
+    // M4 §2.4, PAN-01 B: Gefechtsbeginn (erster Gegner außer Relais) – wer auf dem Oberdeck (Deck-Index 1) ist, bekommt eine ODA-Zeile, und der erste
     // Feindkontakt kommt frühestens CONFIG.lift.firstContactDelay s nach dem Alarm.
     const hostile = this.space.enemies.some((e) => e.kind !== 'relay');
     if (hostile && !s.hostilePrev) {
       const below = this.players.filter((p) => p.connected && p.zone === 'ship' && (W.deckOf(Math.floor(p.y / 32)) === 1 || (p.lift && p.lift.to === 1)));
       if (below.length) {
-        this.oda('Alle auf Station – Lift im Liftvorraum.', null);
+        this.oda('Alle auf Station – zum Brückenlift!', null);
         const delay = Number(this.C.lift && this.C.lift.firstContactDelay) || 0;
         if (delay > 0) s.holdFireUntil = this.time + delay;
       }

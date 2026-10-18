@@ -100,7 +100,7 @@
     salvage: { count: 3, pickupDist: 60, giveUpAfter: 150, rewards: ['ersatzteil', 'flickblech', 'marks'], marks: 40 },
     // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Ops), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
     // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
-    // Transfer ship.beamTimeDamaged). Kapazität kommt aus der Karte (Maps.CARGO_CAPACITY = Frachtbuchten).
+    // Transfer ship.beamTimeDamaged). Kapazität = 2 Plätze je Modul Frachtraum (Maps.CARGO_PER_RAUM, PAN-01 B).
     fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht', 'deuterium'], artDefault: 'sprengstoff', maxDraussen: 6,
       // SL6: Deuterium (Gasriese schöpfen). preise = Marken je Einheit bei Händlern (scene.kauft überschreibt je Szene; Studiowerte, nach dem Spieleabend
       // nachgestellt), gewicht = Abzug auf die Triebwerksleistung je Einheit an Bord (nur für diese Arten, Sprengstoff/Fracht unverändert).
@@ -221,10 +221,10 @@
     // Hafen-Übung (Stage dock): Kabelbrand + zerstörtes System; Funkspruch spätestens nach timeout s
     // fire/breach sind Altnamen; maßgeblich ist Shared_Maps.SHIP_DRILL (M4: Feuer im Vorraum, Leck im Lager)
     drill: { fire: { x: 7, y: 6 }, breach: { x: 5, y: 3 }, system: 'transfer', timeout: 150 },
-    // M4 Stufe 1 (CONTRACT-M4 §2.4): Lift (E tippen) und Notleiter (E halten) zwischen Systemdeck und Privatdeck.
+    // M4 Stufe 1 (CONTRACT-M4 §2.4), PAN-01 B: Lift und Notleiter zwischen Mittel-, Ober- und Unterdeck (E aktiviert, dann W hoch / S runter, je ein Deck weiter).
     // rideTimeLowPower gilt bei Notstrom (Reaktor abgeschaltet/zerstört/EMP). arrivalClearRadius: Suchradius (Kacheln)
     // für eine freie Ankunftskachel, wenn die Zielkachel belegt ist.
-    // firstContactDelay: Ist bei Gefechtsalarm jemand auf Deck II, feuern Gegner frühestens so viele s nach dem Alarm.
+    // firstContactDelay: Ist bei Gefechtsalarm jemand auf dem Oberdeck (privat), feuern Gegner frühestens so viele s nach dem Alarm.
     lift: { rideTime: 1.5, rideTimeLowPower: 3.0, ladderTime: 2.0, arrivalClearRadius: 1, firstContactDelay: 8 },
     weaponPowerFactor: [null, 1.6, 1, 0.8, 0.65], // Ladezeit-Faktor je Energie-Stufe (null = lädt nicht)
     enginePowerFactor: [0, 0.5, 0.8, 1, 1.15],
