@@ -24,6 +24,7 @@ const Glyphen = require('./sim/glyphen.js');   // SL10: Glyphen/Sternkarte (Adre
 const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL7c: Monster-Station (Zustandsmaschine, Pult-Reihenfolge)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
+const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
 const Sonden = require('./sim/sonden.js');   // SL4: Sonden der Ops (game.sonden, Snapshot space.so)
 const Entschl = require('./sim/entschluesseln.js');   // SL5: Signal entschlüsseln (Ops-Minispiel, Snapshot en)
@@ -226,7 +227,7 @@ class Game {
 
   // S2 §2.1: Spielleiter nur in der Kampagne (game.weltstand.persistent). Defensiv: fehlt das Modul, bleibt er null.
   createSpielleiter() {
-    if (this.spielleiter || !this.weltstand || !this.weltstand.persistent) return this.spielleiter || null;
+    if (this.spielleiter || !this.weltstand || !this.weltstand.persistent || this.weltsim) return this.spielleiter || null;   // Freie Fahrt Sund: kein Spielleiter (SUND-03)
     const mod = spielleiterMod();
     const create = mod && (typeof mod.create === 'function' ? mod.create : (mod.Spielleiter && typeof mod.Spielleiter.create === 'function' ? mod.Spielleiter.create : null));
     if (!create) return null;
@@ -353,6 +354,7 @@ class Game {
     Sonden.reset(this);
     Spur.reset(this);
     Notrufe.reset(this);
+    Kriegslage.reset(this);
     Sektorplan.reset(this);
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
@@ -889,7 +891,8 @@ class Game {
       if (this.worldList.length >= this.worldMax()) return this.refuseStart('Erst einen Weltstand löschen.');
     }
     // SL1: Karte der Partie wählen (Limes, Sund), bevor reset() Startort und Wissen daraus ableitet; nur die Ketten-Modi wählen eine eigene
-    Welt.waehle(this, (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
+    const freieFahrt = sm === Kriegslage.MODUS;   // SUND-01 B: Weltstand, aber ohne Kette und ohne Spielleiter
+    Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
@@ -904,7 +907,7 @@ class Game {
         if (lk.ok) this.worldLock = { dir: this.worldDir, id: this.weltstand.id }; else this.countError('weltstand-lock', new Error(lk.error));
       }
     }
-    if (campaign && !CAMPAIGN_KETTEN[sm]) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart); die feste Kette (EK8) braucht keinen Spielleiter
+    if (campaign && !CAMPAIGN_KETTEN[sm] && !freieFahrt) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart); die feste Kette (EK8) braucht keinen Spielleiter
     if (campaign) {   // B2 (Wunsch WAFFEN): neue Kampagne -> leerer Block crew.waffen
       const wr = fnOf(waffenMod(), 'restore');
       if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
@@ -915,6 +918,7 @@ class Game {
     if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
     else if (sm === 'm3') this.mission.startDirect('m3');
     else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
+    else if (freieFahrt) Kriegslage.starten(this);   // SUND-01 B: keine Mission, Crew angedockt am Start der Karte (reset), die Welt tickt ab dem ersten Sprung
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);

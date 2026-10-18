@@ -11,6 +11,7 @@
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const { dist } = require('../util.js');
+const Kriegslage = require('./kriegslage.js');   // SUND-01 B: Tick der Weltsimulation je Sprung
 
 const JAMMERS = ['raider', 'korvette', 'fregatte', 'kreuzer'];   // Rostmeute: Störsender blockieren den Faltsprung
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
@@ -183,6 +184,7 @@ function springeNach(game, dest) {
   game._jumpAuto = false;
   if (vonHex && nachHex) game._jumpSperre = Sektoren.kanteId(vonHex, nachHex);   // Gegen-Sprungpunkt der Ankunft: erst verlassen, dann wieder Ziel
   game.emit('sfx', { name: 'jump' });
+  Kriegslage.tick(game, 'sprung');   // SUND-01 B: ein Tick je Sprung (auch jeder Hop des Schnellsprungs), vor dem Szenenaufbau; ohne Modus nichts
   space().enterScene(game, dest, {});
   // B3 §4 Ankunft: am Sprungpunkt der Gegenkante, Blick in Flugrichtung (seit W1 auch im Tutorial)
   if (pflicht && vonHex && nachHex) ankunftAmSprungpunkt(game, vonHex, nachHex);
@@ -306,8 +308,9 @@ function notsprung(game) {
   ship.hull = Math.max(1, (ship.hull || 0) - (Number(N.huelle) || 0));
   game.emit('sfx', { name: 'jump' });
   game.emit('sfx', { name: 'reactor_down' });
+  Kriegslage.tick(game, 'notsprung');   // SUND-01 B: auch der Notfallsprung ist ein Sprung (ein Tick, auch ohne Ortswechsel)
   if (nachOrt !== vonOrt) space().enterScene(game, nachOrt, {});
-  else { ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false; }
+  else { ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false; Kriegslage.szeneNachziehen(game); }   // SUND-01 B: gleiche Szene, Besitz kann sich geändert haben
   // Ankunft ohne Gegenkante: zufällig im mittleren Drittel, Blick in Flugrichtung
   const sc = Locations.get(ship.scene).scene;
   ship.x = Math.round(sc.w / 3 + rng() * sc.w / 3);

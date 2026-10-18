@@ -1141,7 +1141,7 @@
         break;
       case 'lobbyOpt':
         if (typeof msg.skipDrill === 'boolean') W.lobbyOpts.skipDrill = msg.skipDrill;
-        if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
+        if (((window.Shared_Protocol && window.Shared_Protocol.START_MISSIONS) || ['m1', 'm3']).concat(['free', 'freie_fahrt']).indexOf(msg.startMission) >= 0) W.lobbyOpts.startMission = msg.startMission;
         if ('world' in msg) W.lobbyOpts.world = msg.world == null ? null : (W.lobbyOpts.worlds.some(x => x.id === msg.world && x.state === 'ok') ? msg.world : W.lobbyOpts.world);
         break;
       case 'mark': W.away.marker = { x: msg.x, y: msg.y }; break;

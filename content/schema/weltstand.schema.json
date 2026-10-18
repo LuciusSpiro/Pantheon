@@ -132,6 +132,26 @@
             "v": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Index der Variante (0 = Original)" }, "n": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Zahl der bisherigen Wiederkehren" },
             "w": { "type": "number", "minimum": 0, "description": "Wiederkehr: Sekunden bis der Ruf erneut erscheint" } } }
         },
+        "sim": {
+          "type": "object", "required": ["modus", "tick", "zustand"], "additionalProperties": false,
+          "description": "SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund. Fehlt der Block, ist der Stand eine Kampagne. Inhaber server/sim/kriegslage.js; der Sim-Zustand (server/weltsim/kern.js) steht ohne werte und karte hier, beide kommen beim Laden aus content/welt/sund-sim*.json.",
+          "properties": {
+            "modus": { "const": "freie_fahrt" },
+            "tick": { "type": "integer", "minimum": 0, "description": "Zahl der Ticks (ein Tick je Sprung)" },
+            "hauptweltGefallen": { "type": "object", "required": ["fraktion", "tick"], "additionalProperties": false, "properties": { "fraktion": { "type": "string" }, "tick": { "type": "integer", "minimum": 0 } } },
+            "zustand": {
+              "type": "object", "required": ["version", "seed", "tick", "zufall", "hexe", "flotten", "naechsteId", "angriffe", "vorrat", "marken", "absichten"],
+              "properties": {
+                "version": { "type": "integer" }, "seed": { "type": "number" }, "tick": { "type": "integer", "minimum": 0 }, "zufall": { "type": "integer", "minimum": 0 },
+                "hexe": { "type": "object", "additionalProperties": { "type": "object" } },
+                "flotten": { "type": "array", "items": { "type": "object" } },
+                "naechsteId": { "type": "integer", "minimum": 1 },
+                "angriffe": { "type": "array", "items": { "type": "object" } },
+                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" }
+              }
+            }
+          }
+        },
         "spur": {
           "type": "object", "description": "SL5 (CONCEPT-SL5): laufende Ionenspur. Inhaber server/sim/spur.js; Wegliste steht in content/spuren/<id>.json.",
           "properties": { "id": { "type": "string" }, "idx": { "type": "integer", "minimum": 0 }, "gelesen": { "type": "boolean" }, "fertig": { "type": "boolean" } }

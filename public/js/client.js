@@ -298,7 +298,7 @@
     const lob = Client.lastLobby || {};
     const start = lob.startMission || 'm1';
     // QA-Abnahme S1: Server-Feld `campaign` (im Spiel immer da) hat Vorrang – Spät-Beitretende kennen die Lobby-Wahl nicht
-    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche');
+    const campaign = typeof st.campaign === 'boolean' ? st.campaign : (lob.world != null || start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche' || start === 'freie_fahrt');
     const ship = st.ship || {};
     return { campaign, docked: !!(ship.dockedAt || ship.docked) };
   }
@@ -457,7 +457,7 @@
       // S1: Neue Kampagne bei vollen Weltständen -> Löschdialog (ältester vorausgewählt)
       const lob = (Client.state && Client.state.lobby) || {};
       const start = lob.startMission || 'm1';
-      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche')) {
+      if (!m.ready && lob.worldsFull && lob.world == null && (start === 'm1' || start === 'free' || start === 'eisenwald' || start === 'eisenwald_ohne' || start === 'schuld_der_lerche' || start === 'freie_fahrt')) {
         H.pushNotice('Erst einen Weltstand löschen (höchstens ' + H.worldsMax() + ')', R.PAL.warn, 4);
         openWorlds('full');
         audio.play('error');

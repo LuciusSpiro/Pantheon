@@ -7,6 +7,7 @@ const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
+const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: welt.sim (Weltsimulation im Modus Freie Fahrt Sund)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung (schiff.zonen)
@@ -720,6 +721,7 @@ function capture(game) {
   // B1–B3 (§8): Blöcke der Teams (explore.toSave darf sektoren selbst liefern, sonst sprung.js bzw. der geladene Block)
   { const nr = Notrufe.toSave(game); if (nr) data.welt.notrufe = nr; }   // SL8: nur wenn Rufe freigeschaltet wurden
   { const sp = Spur.toSave(game); if (sp) data.welt.spur = sp; }   // SL5: nur wenn eine Spur läuft/lief
+  { const si = Kriegslage.toSave(game); if (si) data.welt.sim = si; }   // SUND-01 B: nur im Modus Freie Fahrt Sund (ohne Block = Kampagne)
   { const sp = Sektorplan.toSave(game); if (sp) data.welt.sektorplan = sp; }   // SL4: nur wenn etwas gesichtet/markiert ist
   data.welt.landepunkte = blockSave(game, 'landepunkte');
   data.welt.wracks = blockSave(game, 'wracks');
@@ -783,6 +785,7 @@ function apply(game, data) {
   Sektorplan.restore(game, w.sektorplan);   // SL4: fehlt im Altstand = leer
   Notrufe.restore(game, w.notrufe);         // SL8: fehlt im Altstand = keine Rufe
   Spur.restore(game, w.spur);              // SL5: fehlt im Altstand = keine Spur
+  Kriegslage.restore(game, w.sim);          // SUND-01 B: fehlt = Kampagne, game.weltsim bleibt null (vor enterScene: Banner, Andocken)
   blockRestore(game, 'landepunkte', ws.data.bloecke.landepunkte);
   blockRestore(game, 'wracks', ws.data.bloecke.wracks);
   blockRestore(game, 'waffen', ws.data.bloecke.waffen);
@@ -820,6 +823,7 @@ function apply(game, data) {
     restoreFallback(game, obj);
   }
   game.asteroidsDirty = true;
+  Kriegslage.nachLaden(game);   // SUND-01 B: nur im Modus; keine Kampagnen-Angebote, dockOk der Szene neu
   // S2 (BAUSTEINE): Außenkarten aus den Fakten herrichten (Tafel weg vom Kesh-Sockel, zerstörter Wächter bleibt zerstört)
   try {
     const away = require('./sim/away.js');
