@@ -45,8 +45,9 @@ ok(Welt.ids().join() === 'limes,sund', 'Welt.ids: limes, sund');
 Welt.waehle(null, 'sund');
 {
   const hexe = Object.keys(K.hexe);
-  // T7: Brachland (0505) und Saatfeld (0705) sind bewusst Leerraum (Notfallsprung-Ziel bzw. Notruf sl_echt), samt ihrer 6 Kanten: 27-2+Helix/Boje -> 26 Systeme, 32 Kanten
-  ok(hexe.length >= 26 && K.kanten.length >= 32 && !K.hexe['0505'] && !K.hexe['0705'], `mindestens 26 Systeme und 32 Kanten (Entwurf abzüglich Brachland/Saatfeld = Leerraum, dazu Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
+  // SUND-01 P0: Brachland (0505) und Saatfeld (0705) sind jetzt freie Sektoren der Weltsimulation (vorher in der Kampagne Leerraum, T7). Kampagne unverändert: Notfallziele, Notruf sl_echt über den temporären Sprungpunkt 0605–0705.
+  ok(hexe.length === 30 && K.kanten.length === 39 && K.hexe['0505'].name === 'Brachland' && K.hexe['0705'].name === 'Saatfeld', `30 Systeme und 39 Kanten (Karte Sund mit Brachland und Saatfeld, dazu Helix und Boje: ${hexe.length} Systeme, ${K.kanten.length} Kanten), Leerraum ${K.spalten * K.zeilen - hexe.length} Felder`);
+  ok(!K.kanten.some((e) => (e.a === '0605' && e.b === '0705') || (e.a === '0705' && e.b === '0605')), '0605–0705 ist keine feste Kante (bleibt der temporäre Sprungpunkt des Notrufs sl_echt)');
   ok(['0204', '0603', '0604', '0605', '0606', '0602', '0503', '1004'].every((h) => K.hexe[h]) && K.spalten * K.zeilen - hexe.length >= 40, 'Systeme des Entwurfs vorhanden, genug Leerraum');
   ok(hexe.every((h) => Sektoren.imRaster(h) && K.regionen[K.hexe[h].region] && typeof K.hexe[h].spielbar === 'boolean'), 'alle Systeme im Raster, mit Region und spielbar');
   const ids = K.kanten.map((e) => Sektoren.kanteId(e.a, e.b));
