@@ -182,7 +182,7 @@
     legende: {
       jetzt: 'jetzt', gesehen: 'T-1', alt: 'alt',
       phasen: 'S sammelt · ▶ Kurs · B belagert',
-      front: 'Front', sicht: 'Sicht', dunkel: 'außer Sicht',
+      front: 'Front', sicht: 'Sicht', dunkel: 'außer Sicht', dunkelKurz: 'dunkel',   // dunkelKurz: schmale Spalte (Pult), SUND-01 C
     },
     // Funkvorlagen (feste Texte, kein LLM). {von} = Knoten, der es gesehen hat (Posten X, Wache X, Lerche).
     funk: {

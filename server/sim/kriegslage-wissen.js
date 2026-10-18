@@ -92,7 +92,7 @@ function phaseVon(fl) {
     case 'sammeln': return fl.ort === fl.ziel ? 's' : 'u';
     case 'angriff': return fl.ort === fl.ziel ? 'b' : 'm';
     case 'anspruch': return fl.ort === fl.ziel ? 'h' : 'u';
-    case 'rueckzug': return fl.ort === fl.heimat ? 'h' : 'r';
+    case 'rueckzug': return fl.ort === fl.heimat ? null : 'r';   // am Heimathafen angekommen = daheim, nicht auf der Karte
     default: return null;   // heim: nicht auf der Karte
   }
 }

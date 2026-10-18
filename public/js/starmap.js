@@ -530,7 +530,7 @@
       if (fokusSet) {
         ctx.fillStyle = 'rgba(11,14,26,0.6)';
         for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
-        if (!kompakt) txt(ctx, kn + (LG ? (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
+        if (!kompakt) txt(ctx, kn + (LG ? (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - (LG ? 24 : 11), { color: 'rgba(201,151,74,0.8)' });
       } else if (!kompakt) txt(ctx, kn, gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
     }
 
@@ -554,7 +554,7 @@
         y += z.gap || 0;
       }
       legende(ctx, sx, rect.y + rect.h - 46, sw);
-    } else if (fokus && hover && !LG) {
+    } else if (fokus && hover && !(LG && opts.ansichtKey === 'captain-stern')) {   // SUND-01 C: nur die Captain-Konsole hat die Spalte mit der Ortsinfo, sonst bleibt das Schild
       const sw = Math.min(180, rect.w - 8);
       const ls = [];
       for (const z of zeilen.slice(0, 5)) for (const l of Rd.wrap(z.t, sw - 8, 1).slice(0, z.max || 2)) ls.push({ l, c: z.c });   // F5: z.max achten (Leerraum 3 Zeilen)

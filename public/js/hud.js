@@ -931,6 +931,13 @@
       R.text(ctx, 'G: ablegen', 26, y + 11, { color: PAL.panelLight });
     },
 
+    // SUND-01 C: Lagefunk an der Konsole: die Konsole deckt den HUD-Bereich, deshalb zeichnet client.js dieses Feld nach der Konsole darüber (6 s, roter Streifen)
+    drawLagefunk(ctx, view) {
+      const f = this.radioAktuell();
+      if (!f || !f.lage || !view.me || !view.me.console || (view.state.mission && view.state.mission.radio)) return;
+      this.drawRadio(ctx, view, false);
+    },
+
     drawRadio(ctx, view, compact) {
       const st = view.state;
       const radio = st.mission && st.mission.radio;

@@ -132,6 +132,8 @@ section('Eigene Gebiete und Flotten exakt, ohne Verzögerung');
   ok(e && e.a === 0 && e.p === 'h', 'eigene Flotte steht sofort am neuen Ort, Alter 0 (anspruch am Ziel = hält)');
   const b2 = s.schritt((z) => { Object.assign(z.hexe['0403'], { besitzer: 'ger' }); });
   ok(hxVon(b2)['0403'].f === 'g' && hxVon(b2)['0403'].alter === 0, 'verlorener eigener Hafen (Speculum): sofort der neue Besitzer, exakt');
+  const bz = s.schritt((z) => { rf.befehl = 'rueckzug'; rf.ort = rf.heimat; rf.ziel = rf.heimat; });
+  ok(!bz.f.some((q) => q.f === 'r' && q.h === '0403'), 'eine Flotte im Rückzug, die den Heimathafen erreicht hat, steht nicht auf der Karte');
   const b3 = s.schritt((z) => { Object.assign(z.hexe['0603'], { posten: false, besitzer: null }); });
   ok(hxVon(b3)['0603'].f === '-' && hxVon(b3)['0603'].posten === false, 'verlorener Posten: sofort herrenlos, ohne Posten');
 }
@@ -485,8 +487,9 @@ section('Speichern und Laden des Wissens; Altstand ohne Wissensblock');
   c.send({ t: 'menu', op: 'end' });
   // unbrauchbarer Wissensblock: kein Absturz, neu beginnen, Fehler gezählt
   const dk2 = kopie(d); dk2.welt.sim.wissen.hexe = { '0105': { f: 'q', p: 0, a: 1 } }; fs.writeFileSync(file, JSON.stringify(dk2));
-  const e = setup(wdirReal, 'free'); e.send({ t: 'lobbyOpt', world: id }); e.send({ t: 'ready', ready: true });
-  const log = console.warn, logE = console.error; console.warn = () => {}; console.error = () => {}; try { e.run(2); } finally { console.warn = log; console.error = logE; }
+  const e = setup(wdirReal, 'free');
+  const log = console.warn, logE = console.error; console.warn = () => {}; console.error = () => {};
+  try { e.send({ t: 'lobbyOpt', world: id }); e.send({ t: 'ready', ready: true }); e.run(2); } finally { console.warn = log; console.error = logE; }
   ok(e.g.phase === 'play' && e.g.weltsim && e.g.weltsim.wissen && e.g.errors >= 1, 'unbrauchbarer Wissensblock: neu begonnen, Fehler gezählt, Spiel läuft');
   e.send({ t: 'menu', op: 'end' });
 }

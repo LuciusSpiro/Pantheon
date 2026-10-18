@@ -300,7 +300,7 @@
       const n = o.dist ? o.dist(h) : undefined;
       if (n != null && n < 99) { txt(ctx, kurzText(T.vorlage('ortsinfo.aussenKnoten', { n }) + (A.sw != null ? ' (Sicht ' + A.sw + ')' : ''), o.rw), o.rx, y, { color: P.grau }); y += MS.zeile; }
     }
-    const art = o.art(h);
+    const art = o.ohneArt ? '' : o.art(h);
     if (art) { txt(ctx, kurzText(art, o.rw), o.rx, y, { color: P.grau }); y += MS.zeile; }
     return y;
   }
@@ -329,46 +329,61 @@
     const MS = M.spalte;
     let y = o.y;
     txt(ctx, T.vorlage('meldeliste.kopf', { vz: A.vz }), o.rx, y, { color: F.meldeliste.kopf }); y += 12;
-    const zeilen = listenZeilen(A), max = MS.meldung.max;
+    const zeilen = listenZeilen(A), max = Math.max(1, Math.min(MS.meldung.max, o.maxZeilen || MS.meldung.max));
     zeilen.slice(0, max).forEach((z) => {
       const q = z.q, sel = (z.ereignis ? z.ereignis.h : q.h) === o.sel, neu = !z.ereignis && q.f !== 'r' && A.neu.has(q.h) && q.stufe !== 'alt';
       if (sel) { ctx.fillStyle = F.meldeliste.gewaehlt; ctx.fillRect(o.rx - 2, y - 2, o.rw + 2, 12); ctx.fillStyle = F.meldeliste.gewaehltKante; ctx.fillRect(o.rx - 2, y - 2, 2, 12); }
       else if (neu) { ctx.fillStyle = F.meldeliste.neu; ctx.fillRect(o.rx - 2, y - 2, 2, 12); }
       if (!z.ereignis) plakette(ctx, o.rx + MS.meldung.plaketteX + plBreite(q) / 2, y + 3, q, { kurs: o.kurs ? o.kurs(q) : 0 });
       const farbe = z.ereignis ? P.hell : q.stufe === 'alt' ? F.meldeliste.textAlt : neu ? F.meldeliste.textNeu : F.meldeliste.textGesehen;
-      txt(ctx, kurzText(zeilenText(z, o), o.rw - MS.meldung.textX), o.rx + MS.meldung.textX, y, { color: farbe });
+      const breite = o.rw - MS.meldung.textX;
+      let text = zeilenText(z, o);
+      if (!z.ereignis && tw(text) > breite) text = o.name(q.h);   // schmale Spalte: die Plakette trägt Phase, Stärke und Alter, der Text nur den Ort
+      txt(ctx, kurzText(text, breite), o.rx + MS.meldung.textX, y, { color: farbe });
       y += MS.meldung.zeile;
     });
     if (zeilen.length > max) { txt(ctx, T.vorlage('meldeliste.mehr', { n: zeilen.length - max }), o.rx + MS.meldung.textX, y, { color: F.meldeliste.mehr }); y += MS.meldung.zeile; }
     if (!zeilen.length) { txt(ctx, T.TEXT.meldeliste.leer, o.rx, y, { color: P.grau }); y += MS.meldung.zeile; }
     return { y, zeilen: zeilen.length };
   }
-  // Legende (3 Zeilen à 12 px ab y)
-  function legende(ctx, x, y) {
-    const L = T.TEXT.legende;
-    plakette(ctx, x + 11, y + 4, { f: 'r', k: 2, p: 'h', a: 0, stufe: 'jetzt' }); txt(ctx, L.jetzt, x + 25, y, { color: P.grau });
-    plakette(ctx, x + 73, y + 4, { f: 'g', k: 2, p: 'h', a: 1, stufe: 'gesehen' }); txt(ctx, L.gesehen, x + 87, y, { color: P.grau });
-    plakette(ctx, x + 131, y + 4, { f: 'g', k: 2, p: 'h', a: 7, stufe: 'alt' }); txt(ctx, L.alt, x + 152, y, { color: P.grau });
-    y += 12;
-    const feld = (fx, t, bg, pfeil) => {
-      ctx.fillStyle = P.tisch; ctx.fillRect(fx - 1, y - 1, 10, 9); ctx.fillStyle = bg; ctx.fillRect(fx, y, 8, 7);
-      if (pfeil) { ctx.fillStyle = P.tisch; ctx.beginPath(); ctx.moveTo(fx + 6.5, y + 3.5); ctx.lineTo(fx + 2, y + 1); ctx.lineTo(fx + 2, y + 6); ctx.closePath(); ctx.fill(); }
-      else txt(ctx, t, fx + 4, y, { color: P.tisch, align: 'center', shadow: false });
-    };
-    feld(x, 'S', P.warn); txt(ctx, 'sammelt', x + 12, y, { color: P.grau });
-    feld(x + 62, '', F.fraktion.g.haltung, true); txt(ctx, 'Kurs', x + 74, y, { color: P.grau });
-    feld(x + 106, 'B', F.phase.b.bg); txt(ctx, 'belagert', x + 118, y, { color: P.grau });
-    y += 12;
-    for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); }
-    txt(ctx, L.front, x + 19, y, { color: P.grau });
-    ctx.fillStyle = P.tisch; ctx.fillRect(x + 50, y + 1, 18, 4); ctx.fillStyle = P.eis; ctx.fillRect(x + 50, y + 2, 18, 2);
-    txt(ctx, L.sicht, x + 71, y, { color: P.grau });
-    ctx.save(); ctx.fillStyle = F.fraktion.g.flaeche; ctx.fillRect(x + 100, y, 14, 8); ctx.fillStyle = F.dunkel.abdunklung; ctx.fillRect(x + 100, y, 14, 8);
-    const kp = kornPat(ctx); if (kp) { ctx.fillStyle = kp; ctx.fillRect(x + 100, y, 14, 8); }
-    const mp = musterPat(ctx, 'ger', 'dunkel'); if (mp) { ctx.fillStyle = mp; ctx.fillRect(x + 100, y, 14, 8); }
-    ctx.restore();
-    txt(ctx, L.dunkel, x + 117, y, { color: P.grau });
-    return y + 12;
+  // Legende: Einträge laufen nach der Breite w in Zeilen à 12 px (breit 3 Zeilen, in der schmalen Pult-Spalte bis zu 4). legendeZeilen(w) = Zahl der Zeilen.
+  function legendeEintraege(eng) {
+    const L = T.TEXT.legende, g = P.grau;
+    const pl = (q, text) => ({ b: plBreite(q), text, zeichne: (ctx, x, y) => { plakette(ctx, x + plBreite(q) / 2, y + 4, q); txt(ctx, text, x + plBreite(q) + 3, y, { color: g }); }, breite: plBreite(q) + 3 + tw(text) });
+    const feld = (t, bg, pfeil, text) => ({ breite: 9 + 3 + tw(text), zeichne: (ctx, x, y) => {
+      ctx.fillStyle = P.tisch; ctx.fillRect(x - 1, y - 1, 10, 9); ctx.fillStyle = bg; ctx.fillRect(x, y, 8, 7);
+      if (pfeil) { ctx.fillStyle = P.tisch; ctx.beginPath(); ctx.moveTo(x + 6.5, y + 3.5); ctx.lineTo(x + 2, y + 1); ctx.lineTo(x + 2, y + 6); ctx.closePath(); ctx.fill(); }
+      else txt(ctx, t, x + 4, y, { color: P.tisch, align: 'center', shadow: false });
+      txt(ctx, text, x + 12, y, { color: g });
+    } });
+    return [
+      pl({ f: 'r', k: 2, p: 'h', a: 0, stufe: 'jetzt' }, L.jetzt), pl({ f: 'g', k: 2, p: 'h', a: 1, stufe: 'gesehen' }, L.gesehen), pl({ f: 'g', k: 2, p: 'h', a: 7, stufe: 'alt' }, L.alt),
+      feld('S', P.warn, false, 'sammelt'), feld('', F.fraktion.g.haltung, true, 'Kurs'), feld('B', F.phase.b.bg, false, 'belagert'),
+      { breite: 16 + 3 + tw(L.front), zeichne: (ctx, x, y) => { for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); } txt(ctx, L.front, x + 19, y, { color: g }); } },
+      { breite: 18 + 3 + tw(L.sicht), zeichne: (ctx, x, y) => { ctx.fillStyle = P.tisch; ctx.fillRect(x, y + 1, 18, 4); ctx.fillStyle = P.eis; ctx.fillRect(x, y + 2, 18, 2); txt(ctx, L.sicht, x + 21, y, { color: g }); } },
+      { breite: (eng ? 12 : 14) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
+        const bw = eng ? 12 : 14;
+        ctx.save(); ctx.fillStyle = F.fraktion.g.flaeche; ctx.fillRect(x, y, bw, 8); ctx.fillStyle = F.dunkel.abdunklung; ctx.fillRect(x, y, bw, 8);
+        const kp = kornPat(ctx); if (kp) { ctx.fillStyle = kp; ctx.fillRect(x, y, bw, 8); }
+        const mp = musterPat(ctx, 'ger', 'dunkel'); if (mp) { ctx.fillStyle = mp; ctx.fillRect(x, y, bw, 8); }
+        ctx.restore(); txt(ctx, eng ? L.dunkelKurz : L.dunkel, x + bw + 3, y, { color: g });
+      } },
+    ];
+  }
+  function legendeLayout(w) {
+    const out = [], eng = w < 190, gap = eng ? 2 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, enge Abstände, drei Zeilen
+    let x = 0, zeile = 0;
+    for (const e of legendeEintraege(eng)) {
+      if (x > 0 && x + e.breite > w) { zeile++; x = 0; }
+      out.push({ e, x, zeile }); x += e.breite + gap;
+    }
+    return { eintraege: out, zeilen: out.length ? out[out.length - 1].zeile + 1 : 0 };
+  }
+  const legendeZeilen = (w) => legendeLayout(w).zeilen;
+  function legende(ctx, x, y, w) {
+    const lay = legendeLayout(w || 196);
+    for (const it of lay.eintraege) it.e.zeichne(ctx, x + it.x, y + it.zeile * 12);
+    return y + lay.zeilen * 12;
   }
 
   // ------------------------------------------------------------------ Lagefunk (Funk-Reiter)
@@ -383,5 +398,5 @@
   const funkLeeren = () => { funk.length = 0; };
 
   return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, flaeche, seite, sichtgrenze, front, frontSeiten, plakette, kurzplakette, plBreite, posten, flotten,
-    fokusHexe, abstaende, winkelHex, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, legende, funkMerken, funkListe, funkLeeren, kurzText };
+    fokusHexe, abstaende, winkelHex, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
 });
