@@ -24,13 +24,17 @@ function bump(game) { if (game.explore) game.explore.sektorVersion++; }
 function bekannt(game, hex) { return !!(game.explore && game.explore.hexErkundet(hex)) || !!st(game).gesichtet[hex]; }
 function gesichtet(game, hex) { return !!st(game).gesichtet[hex]; }
 
+// SUND-01 C: eine Sonden-Sichtung geht sofort ins Wissen von Rom (nur im Modus Freie Fahrt Sund; kriegslage.js wird erst hier geladen, kein Zyklus)
+function sondeInsWissen(game, hex, q) { if (q === 'sonde' && game.weltsim) require('./kriegslage.js').sondeGesichtet(game, hex); }
+
 // Hex sichten (Sonde, Karte). Erkundet wird er dadurch NIE. -> true, wenn der Plan sich geändert hat
 function sichten(game, hex, quelle) {
   if (!Sektoren.imRaster(hex) || !Sektoren.spielbar(hex)) return false;
   const s = st(game); const q = quelle === 'karte' ? 'karte' : 'sonde';
   const alt = s.gesichtet[hex];
-  if (alt && alt.q === q) { alt.t = game.time; return false; }
+  if (alt && alt.q === q) { alt.t = game.time; sondeInsWissen(game, hex, q); return false; }
   s.gesichtet[hex] = { q: alt ? alt.q : q, t: game.time };
+  sondeInsWissen(game, hex, q);
   bump(game);
   game.emit('hexGesichtet', { hex, quelle: q });
   game.missionEvent('hexGesichtet', { hex, quelle: q });

@@ -296,6 +296,15 @@ function freieFahrt(S, seed) {
   for (let i = 0; i < 40; i++) Kriegslage.tick(g, 'sprung');
   const posten = Object.entries(g.weltsim.zustand.hexe).filter(([, h]) => h.posten).map(([c]) => c);
   const Sektoren = require('../shared/sektoren.js');
+  // SUND-01 C: Worst Case des Anzeigeblocks world.lage (12 Flotten mit allen Feldern, 6 Meldungen, Altstand und eigene Flotten gemischt), in jedem Snapshot gesendet,
+  // der nach den Slots (Asteroiden, Ortsliste, Logbuch, Buch) Platz hat: der Schlüssel wird vor jedem Snapshot zurückgesetzt
+  const wi = g.weltsim.wissen, KT = require('../public/js/karte-tokens.js'), codes = KT.hexReihenfolge(require('../content/welt/sund_frei.json')), T = wi.t = wi.t || 40;
+  const arten = ['s', 'm', 'b', 'u', 'r', 'h'];
+  wi.flotten = []; wi.meldungen = [];
+  for (let i = 0; i < 12; i++) wi.flotten.push({ f: ['g', 'r', 'k', 'p'][i % 4], h: codes[i + 3], k: 1 + (i % 3), p: arten[i % 6], a: i % 4 === 3 ? T - 11 : i % 3 === 0 ? T : T - 1, n: codes[i + 4], z: codes[i + 6], d: 3, ids: [i], an: [i] });
+  for (let i = 0; i < 6; i++) wi.meldungen.push({ e: ['sa', 'ma', 'be', 'hf', 'hh', 'pv'][i], h: codes[i], t: T - (i % 2), f: 'g', k: 3 });
+  wi.ver++;
+  let lageMax = 0, lageMitMax = 0;
   const orte = ['vulcania'].concat(posten.length ? [Sektoren.ortVonHex(posten[0])] : []);
   g.god = true;
   const je = Math.floor(TICKS / orte.length);
@@ -309,12 +318,15 @@ function freieFahrt(S, seed) {
       g.ship.hull = 100;
       g.step();
       maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
-      messen(S, g.snapshot());
+      g.sentLageKey = null;
+      const sn = g.snapshot();
+      if (sn.world && sn.world.lage) { lageMax = Math.max(lageMax, bytes(sn.world.lage)); lageMitMax = Math.max(lageMitMax, bytes(sn)); }
+      messen(S, sn);
     }
   }
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker };
+  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax };
 }
 
 // ---------- Lauf ----------
@@ -359,7 +371,7 @@ console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
-console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker)${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, Snapshot mit Block max ${l.lageSnapshotMax} B)${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const alleOk = res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
 ${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);

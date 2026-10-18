@@ -107,6 +107,14 @@
     // welcome.sektorkarte: Inhalt von content/welt/limes.json ohne praesenz (≈ 6 KB), nur im welcome, nie im Snapshot.
     // Snapshot world.sektoren { e: [hex], b: [kantenId], t: [kantenId], o: [kantenId], v } – nur wenn sich v ändert (wie
     //   world.locations), sonst fehlt das Feld.
+    // SUND-01 C: Snapshot world.lage { t, vz, sw, hx, f[], m[] } – nur im Modus freie_fahrt, nur bei Änderung (Schlüssel t:ver), für alle Clients gleich, nie im
+    //   Snapshot mit Asteroiden/Ortsliste/Logbuch/Buch (≈ 0,3 bis 1,2 KB). Das ist das WISSEN von Rom (Sensorknoten: römische Häfen, Posten, Flotten und die Lerche;
+    //   Sichtweite sw Sprünge, fremde Daten mit vz Ticks Verzögerung), nie der Sim-Zustand und nie ein wahres Ziel. t = Tick des Stands, vz = Verzögerung (Daten),
+    //   sw = Sichtweite (Daten). hx = je Kartenhex (Reihenfolge Object.keys(karte.hexe).sort(), KarteTokens.hexReihenfolge) zwei Zeichen: Besitzer r g k p - v
+    //   (Großbuchstabe = Posten), Alter e = jetzt, 1–9 a–d f–z = Ticks (ohne e; KarteTokens.alterZeichen), ? = nie gesehen (Besitz dann laut Karte). f[] (≤ 12, nach Rang) Plaketten { f Fraktion, h Hex,
+    //   k Stärkeklasse 1–3, p Phase h u s m b r, a Alter (0 = eigen), n nächstes Hex (Kurs), z vermutetes Ziel (nur Marsch, eine Schätzung), d Ticks im Sammeln }.
+    //   m[] (≤ 6) Meldungen { e sa ma be hf hh pg pv, h Hex, t Tick, f?, k? }. Ereignis radio { from, text, lage: 1, tick } = Lagefunk (einmal je Feldzug).
+    //   Dazu welt.sim.wissen im Weltstand (Schema) und Notruf-Marken in world.marken.
     // Snapshot space.jp [{ k: kantenId, x, y, z: JP_STATES, n: zielHex }] (nur bekannte Bojen der Szene, ≤ 6).
     // Snapshot ship.jump: zusätzlich jp (Kante des gewählten Ziels), d (Abstand in m, gerundet).
     // Snapshot ship.jump.anflug (boolean, immer): true = Sprungpunkt muss angeflogen werden (freies Spiel), false = Tutorial

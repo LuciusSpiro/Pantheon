@@ -769,6 +769,20 @@
         }
         if (tz.listenable !== false && (m.stage === 'port' || tz.listenable)) R.button(ctx, a.x, y, 200, 17, 'Neuen Funkspruch abhören', { hotkey: 'L', disabled: tz.status !== 'ready', reason: 'Wird noch empfangen', onClick: () => this.cmd(view, 'captain.listen') });
       }
+      // SUND-01 C: Lagefunk (Freie Fahrt Sund): die letzten Meldungen über feindliche Flotten, mit rotem Akzent; das Logbuch rechts hält sie dauerhaft
+      const lf = window.KarteLage && window.StarMap && window.StarMap.lageAktiv() ? window.KarteLage.funkListe() : [];
+      if (lf.length) {
+        shown = true;
+        for (const e of lf.slice(0, 3)) {
+          const rl = R.wrap(e.text, lw - 20, 1).slice(0, 4), ph = 20 + rl.length * 10;
+          R.panel(ctx, a.x, y, lw, ph, { style: 'brass' });
+          ctx.fillStyle = KarteTokens.FARBE.funk.akzentFeind; ctx.fillRect(a.x, y, 3, ph);
+          R.text(ctx, 'LAGEFUNK · ' + e.von + (e.t != null ? ' · TICK ' + e.t : ''), a.x + 10, y + 6, { color: PAL.amber });
+          let ly = y + 18; for (const l of rl) { R.text(ctx, l, a.x + 10, ly, { color: PAL.star }); ly += 10; }
+          y += ph + 4;
+        }
+        R.text(ctx, 'Die Meldungen stehen auch auf der Sternkarte (Reiter 2).', a.x, y + 4, { color: PAL.panelLight });
+      }
       if (!shown) R.text(ctx, 'Kein Funkverkehr. Alles ruhig im Saumraum.', a.x, y + 4, { color: PAL.panelLight });
 
       // rechts: Missionen, Logbuch
@@ -799,7 +813,8 @@
           if (o.done) { ctx.fillStyle = PAL.moss; ctx.fillRect(rx + 2, ry + 2, 3, 3); }
           for (const l of lines) { R.text(ctx, l, rx + 10, ry, { color: o.done ? '#6E8A6A' : o.optional ? PAL.panelLight : PAL.star }); ry += 10; }
         }
-      } else { R.text(ctx, 'Kein aktiver Auftrag – erkunden lohnt sich.', rx, ry, { color: PAL.panelLight }); ry += 10; }
+      } else if (window.StarMap && window.StarMap.lageAktiv()) { R.text(ctx, 'Freie Fahrt Sund', rx, ry, { color: PAL.amber }); ry += 10; R.text(ctx, 'Kein Auftrag. Die Welt läuft.', rx, ry, { color: PAL.panelLight }); ry += 10; }   // SUND-01 C
+      else { R.text(ctx, 'Kein aktiver Auftrag – erkunden lohnt sich.', rx, ry, { color: PAL.panelLight }); ry += 10; }
       const list = (m.list || []).filter(x => !act || x.id !== act.id);
       if (list.length) {
         ry += 3;
@@ -836,6 +851,7 @@
       this.maps.star = R.drawStarMap(ctx, view, mapRect, { selected: this.starSel, mouse: view.mouse, rects: this.starRects, ansichtKey: 'captain-stern' });
       const rx = a.x + 420, rw = a.w - 420;
       let y = a.y + 2;
+      if (!isLeerId(this.starSel) && window.StarMap && window.StarMap.lageAktiv() && window.StarMap.lageModell()) return this.capStarLage(ctx, view, a, rx, y, rw);   // SUND-01 C: Freie Fahrt Sund
       if (isLeerId(this.starSel)) return this.capStarLeer(ctx, view, rx, y, rw);
       const loc = R.locById(st, this.starSel) || {};
       R.text(ctx, 'ORT', rx, y, { color: PAL.brass }); y += 11;
@@ -857,6 +873,34 @@
       if (!reason && !linked && !w.fallback && !this.hexAktiv()) { R.text(ctx, 'Keine direkte Verbindung', rx, y, { color: PAL.warn }); y += 10; }
       y += 4;
       return this.capStarSprung(ctx, view, rx, y, rw);
+    },
+    // SUND-01 C: rechte Spalte der Sternkarte im Modus Freie Fahrt Sund (CONCEPT-SUND01-KARTE §7): Ortsinfo mit Wissenszeile (folgt dem überfahrenen Hex),
+    // Meldeliste, Sprungziel, Sprungstatus, Legende. Die innere Seitenleiste der Karte entfällt in diesem Modus.
+    capStarLage(ctx, view, a, rx, y, rw) {
+      const st = view.state, ship = st.ship || {}, w = R.worldOf(st), SM = window.StarMap, KL = window.KarteLage, mod = SM.lageModell(), K = SM.karte, SS = window.Shared_Sektoren;
+      const loc = R.locById(st, this.starSel) || {};
+      const selHex = (SS && typeof SS.hexVonOrt === 'function' ? SS.hexVonOrt(this.starSel) : null) || this.starHex;
+      const hv = SM.hoverHex, hex = hv && K.hexe[hv] ? hv : selHex;
+      const A = mod.A, hd = (h) => K.hexe[h] || {};
+      const quellen = A.codes.filter((c) => A.hex[c] && A.hex[c].f === 'r' && (hd(c).hafen || A.hex[c].posten)).concat(A.fl.filter((q) => q.f === 'r' && q.a === 0).map((q) => q.h), mod.hier ? [mod.hier] : []);
+      const dist = KL.abstaende(quellen, mod.adj);
+      const o = { rx, rw, y, sel: hex, name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.n ? KL.winkelHex(q.h, q.n) : 0) };
+      y = KL.ortsinfo(ctx, A, o) + 4;
+      y = KL.meldeliste(ctx, A, Object.assign({}, o, { y })).y + 4;
+      const jump = ship.jump || {};
+      let reason = null;
+      if (loc.id === w.location) reason = 'Hier sind wir schon';
+      else if (!R.locVisible(loc)) reason = 'Ort unbekannt';
+      else if (isLeerId(w.location) && this.hexAktiv() && !this.leerKanteZu(st, w.location, loc.id)) reason = 'Kein Sprungpunkt dorthin – nur Notfallsprung (Steuer N)';
+      R.button(ctx, rx, y, rw, 17, jump.dest === loc.id ? 'Sprungziel (gewählt)' : 'Als Sprungziel wählen', { hotkey: 'Enter', active: jump.dest === loc.id, disabled: !!reason, reason, onClick: () => this.selectDest(view, loc.id) }); y += 20;
+      R.text(ctx, 'SPRUNG', rx, y, { color: PAL.brass }); y += 11;
+      R.text(ctx, 'Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins'), rx, y, { color: PAL.star }); y += 10;
+      if (jump.dest && jump.d != null && anflugPflicht(st)) { R.text(ctx, 'Sprungpunkt: ' + jump.d + ' m', rx, y, { color: jumpPointNear(jump) ? PAL.mint : PAL.amber }); y += 10; }
+      R.bar(ctx, rx, y + 1, rw, 6, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 10;
+      if (jump.blockedReason && !jump.ready) { for (const l of R.wrap(jump.blockedReason, rw, 1).slice(0, 2)) { R.text(ctx, l, rx, y, { color: PAL.warn }); y += 10; } }
+      if (jump.ready) R.text(ctx, 'Bereit – Steuer: F', rx, y, { color: PAL.mint });
+      KL.legende(ctx, rx, a.y + a.h - 36);
+      return 'Rad Zoom · 0 zurück · Enter Sprungziel · M ' + (SM.lageAnsicht === 'nah' ? 'Übersicht' : 'Nahansicht') + ' · Kanten gelb offen, rot gesperrt · 1–6 Reiter';
     },
     // QA-B3 F5: aus dem Leerraum führt nur eine temporäre Kante (world.sektoren.t) hinaus (Server: sprung.hexGrund)
     leerKanteZu(st, leerId, zielId) {

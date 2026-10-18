@@ -5,7 +5,9 @@
 //   tick(game, quelle)        genau ein Sim-Tick (Aufrufer: Sprung, Schnellsprung-Hop, Notfallsprung – sonst niemand). Ohne Modus: nichts
 //   szeneNachziehen(game)     Andock-Erlaubnis und Banner der aktuellen Szene nach einem Tick ohne Szenenwechsel neu setzen
 //   nachLaden(game)           nach dem Laden: keine Angebote der Kampagne, Szene nachziehen
-//   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim
+//   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim (inkl. welt.sim.wissen, SUND-01 C)
+//   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
+//   lage(game) / lageSchluessel(game)  Anzeigeblock world.lage und Änderungsschlüssel (nur im Modus, Wissen statt Wahrheit)
 // Die Sim hat ihren eigenen Zufallsstrom (zustand.zufall) und fasst game.rng nie an. Rohereignisse bleiben auf dem Server (Ring, nicht gespeichert);
 // Paket C baut daraus das Wissen. Der Sim-Zustand wird OHNE `werte` und `karte` gespeichert (kein Ballast im Speicherstand): beim Laden kommen beide
 // wieder aus content/welt/sund-sim.json und sund-sim-werte.json.
@@ -13,6 +15,7 @@
 const Kern = require('../weltsim/kern.js');
 const Daten = require('../weltsim/daten.js');
 const Besitz = require('./besitz.js');
+const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
 
@@ -60,13 +63,15 @@ function overlayFuellen(game) {
 function starten(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null };
   overlayFuellen(game);
+  try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
 }
 
-// Ein Tick. quelle: 'sprung' | 'hop' | 'notsprung' (nur für Zähler und Tests). -> Ereignisse des Ticks | null (kein Modus oder Fehler)
-function tick(game, wo) {
+// Ein Tick. wo: 'sprung' | 'hop' | 'notsprung' (nur für Zähler und Tests). nachOrt: Ort/Hex, in dem die Lerche nach dem Sprung steht (Sensorknoten des
+// Wissens; ohne Angabe der aktuelle Ort des Schiffs). -> Ereignisse des Ticks | null (kein Modus oder Fehler)
+function tick(game, wo, nachOrt) {
   const ws = game.weltsim;
   if (!ws) return null;
   const sicher = abbild(ws.zustand);   // Rückfall, falls die Sim mitten im Tick wirft (der halbe Tick darf nie stehen bleiben)
@@ -84,6 +89,7 @@ function tick(game, wo) {
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
+  try { Wissen.nachTick(game, sicher, ev, nachOrt); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // SUND-01 C: nach dem Tick, vor dem Szenenaufbau
   try { for (const e of ev) if (e.typ === 'hauptwelt_gefallen') hauptweltFaellt(game, e); } catch (e) { if (game.countError) game.countError('kriegslage-hauptwelt', e); }
   return ev;
 }
@@ -119,13 +125,23 @@ function nachLaden(game) {
   if (!game.weltsim) return;
   if (game.mission) game.mission.mode = null;   // mission.restore setzt 'campaign': hier gibt es keine Angebote der Limes-Kampagne
   szeneNachziehen(game);
+  try { Wissen.markenNeu(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // Notruf-Marken stehen nicht im Weltstand
 }
+
+// Sonden-Sichtung (Hook in Sektorplan.sichten): sofort ins Wissen, ohne Verzögerung
+function sondeGesichtet(game, hex) {
+  if (!game.weltsim) return;
+  try { Wissen.sondeGesichtet(game, hex); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
+}
+const lage = (game) => (game.weltsim ? Wissen.lage(game) : null);
+const lageSchluessel = (game) => (game.weltsim ? Wissen.schluessel(game) : null);
 
 // Weltstand welt.sim: { modus, tick, hauptweltGefallen?, zustand } | null (kein Modus: Block fehlt, Altstände bleiben Kampagne)
 function toSave(game) {
   const ws = game.weltsim;
   if (!ws) return null;
   const b = { modus: MODUS, tick: ws.tickZahl, zustand: abbild(ws.zustand) };
+  const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
   if (ws.hauptweltGefallen) b.hauptweltGefallen = { fraktion: String(ws.hauptweltGefallen.fraktion), tick: ws.hauptweltGefallen.tick };
   return b;
 }
@@ -134,7 +150,8 @@ function restore(game, b) {
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null };
+    try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
     starten(game);
@@ -146,4 +163,4 @@ function restore(game, b) {
   szeneNachziehen(game);
 }
 
-module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, szeneNachziehen, nachLaden, toSave, restore, reset };
+module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };

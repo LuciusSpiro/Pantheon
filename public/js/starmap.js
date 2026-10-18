@@ -26,14 +26,15 @@
   function mess(s) { return R().measure(s, 1); }
 
   // ------------------------------------------------------------------ Datenhaltung
-  const store = { karte: null, kartePrep: null, sektoren: null, fehler: 0, aus: false, layouts: [], pick: null, pickSel: undefined, ansicht: 'fokus', marken: [] };
+  const store = { karte: null, kartePrep: null, sektoren: null, fehler: 0, aus: false, layouts: [], pick: null, pickSel: undefined, ansicht: 'fokus', marken: [],
+    lage: null, lageAnsicht: 'uebersicht', lageModell: null, hoverHex: null };   // SUND-01 C: Wissen von Rom (world.lage) – nur im Modus Freie Fahrt Sund
   // Ansichten (SL1B, karteneutral): 'fokus' = spielbare Hexe + ein Ring Nachbarn (Standard, groß), 'gesamt' = ganze Karte. Die alten Namen
   // 'saumraum' und 'limes' gelten weiter.
   const normAnsicht = (a) => (a === 'gesamt' || a === 'limes' ? 'gesamt' : 'fokus');
 
   function setKarte(k) {
     if (!k || typeof k !== 'object' || !k.hexe) return false;
-    if (store.karte && store.karte.id !== k.id) { store.sektoren = null; store.marken = []; }   // andere Karte (Limes <-> Sund): alter Stand gilt nicht
+    if (store.karte && store.karte.id !== k.id) { store.sektoren = null; store.marken = []; store.lage = null; }   // andere Karte (Limes <-> Sund): alter Stand gilt nicht
     store.karte = k; store.kartePrep = null;
     return true;
   }
@@ -55,7 +56,9 @@
         try { SS.setzeKarte(msg.sektorkarte); } catch (e) { report('StarMap.setzeKarte', e); }
       }
     }
+    else if (msg.t === 'snap' && msg.phase === 'lobby') { store.lage = null; if (window.KarteLage) window.KarteLage.funkLeeren(); }   // SUND-01 C: neue Partie, altes Wissen verwerfen
     else if (msg.t === 'snap' && msg.world) {
+      if (msg.world.lage) store.lage = msg.world.lage;   // SUND-01 C: nur bei Änderung
       if (msg.world.sektoren) store.sektoren = msg.world.sektoren;
       if (Array.isArray(msg.world.marken)) store.marken = msg.world.marken;   // SL1B: Marken (Ziele, Notrufe, Spuren, Funde, Kontakte), nur bei Änderung
     }
@@ -76,6 +79,21 @@
     return cand.filter(([a, b]) => a >= 1 && a <= K.spalten && b >= 1 && b <= K.zeilen).map(([a, b]) => code(a, b));
   }
   function kanteId(a, b) { return a < b ? a + '-' + b : b + '-' + a; }
+  // SUND-01 C: Nachbarschaft über offene Kanten (Nahansicht, Vermutung), Fraktionsname der Karte -> Kürzel des Anzeigeblocks
+  const FRK = { rom: 'r', ger: 'g', saum: 'k', pirat: 'p', frei: '-', vorl: 'v' };
+  function lageAdj(P) {
+    if (P.lageAdj) return P.lageAdj;
+    const adj = {};
+    for (const e of P.kanten) { if (e.art === 'hidden' || e.art === 'far' || e.art === 'locked') continue; (adj[e.a] = adj[e.a] || []).push(e.b); (adj[e.b] = adj[e.b] || []).push(e.a); }
+    return (P.lageAdj = adj);
+  }
+  function lageWeg(P, a, b) {
+    const adj = lageAdj(P), prev = { [a]: null }, q = [a];
+    for (let i = 0; i < q.length; i++) { if (q[i] === b) break; for (const y of adj[q[i]] || []) if (!(y in prev)) { prev[y] = q[i]; q.push(y); } }
+    if (!(b in prev)) return null;
+    const out = []; for (let x = b; x; x = prev[x]) out.unshift(x);
+    return out;
+  }
 
   // Vorbereitete Karte: Kantenliste mit IDs, Ort <-> Hex, Regionen
   function prep(K) {
@@ -238,12 +256,15 @@
     // Ansicht: „fokus“ (Standard, spielbare Hexe + ein Ring Nachbarn, groß; Hexe mit Marken kommen dazu) oder „gesamt“ (ganze Karte).
     // Der HUD-Ausschnitt (opts.kompakt) zeigt immer den Fokus.
     const marken = (store.marken || []).filter((mk) => mk && /^\d{4}$/.test(mk.h) && P.K.hexe !== undefined);   // SL1B: Ziele, Notrufe, Spuren, Funde, Kontakte
-    const ansicht = opts.kompakt ? 'fokus' : normAnsicht(opts.ansicht || store.ansicht);
+    const LG = !opts.kompakt && store.lage && window.KarteLage ? window.KarteLage : null;   // SUND-01 C: Übersichtskarte nach dem Wissen von Rom (nur mit world.lage)
+    const A = LG ? LG.lesen(store.lage, LG.T.hexReihenfolge(K)) : null;
+    const ansicht = LG ? 'lage-' + store.lageAnsicht : opts.kompakt ? 'fokus' : normAnsicht(opts.ansicht || store.ansicht);
     const alle = [];
     for (let c = 1; c <= C; c++) for (let r = 1; r <= Z; r++) alle.push(code(c, r));
     const ux = (c) => 1 + 1.5 * (c - 1), uy = (c, r) => SQ3 / 2 + SQ3 * (r - 1) + (c % 2 === 0 ? SQ3 / 2 : 0);
     let fokusSet = null;
-    if (ansicht === 'fokus') {
+    if (LG) fokusSet = LG.fokusHexe(store.lageAnsicht, Object.keys(K.hexe), L.hier, lageAdj(P));   // ohne Ring, ohne innere Seitenleiste
+    else if (ansicht === 'fokus') {
       fokusSet = new Set();
       for (const mk of marken) { fokusSet.add(mk.h); for (const n of nachbarn(mk.h, P)) fokusSet.add(n); }   // Marken liegen immer im Bild
       for (const h in K.hexe) { const q = K.hexe[h]; if (q && (q.spielbar !== false || q.region === 'saumraum')) { fokusSet.add(h); for (const n of nachbarn(h, P)) fokusSet.add(n); } }
@@ -257,12 +278,13 @@
     // Seitenleiste für Hex-Details, wenn genug Platz bleibt; sonst Detail als Schild im Bild
     let seiteW = 0;
     if (!opts.kompakt) {
-      if (fokusSet) seiteW = rect.w >= 320 ? 130 : 0;
+      if (LG) seiteW = 0;
+      else if (fokusSet) seiteW = rect.w >= 320 ? 130 : 0;
       else { const s0 = Math.min((rect.w - 8) / bbW, (rect.h - 8) / bbH); seiteW = Math.min(150, rect.w - 8 - bbW * s0); if (seiteW < 96) seiteW = 0; }
     }
     const seite = seiteW > 0;
     const availW = rect.w - 8 - seiteW;
-    const s0 = Math.max(6, Math.min(availW / bbW, (rect.h - 8) / bbH));
+    const s0 = Math.max(6, Math.min(availW / bbW, (rect.h - 8) / bbH, LG && store.lageAnsicht === 'nah' ? LG.M.hexradius.nahMax : Infinity));
     const gArea = { x: rect.x + 2, y: rect.y + 2, w: availW + 4, h: rect.h - 4 };
     const ox0 = rect.x + 4 + (availW - bbW * s0) / 2 - bx0 * s0, oy0 = rect.y + (rect.h - bbH * s0) / 2 - by0 * s0;
     // TB1: Zoom/Pan (kartenansicht.js, reine Client-Ansicht; nicht im HUD-Ausschnitt). Schlüssel je Konsole und Ansicht.
@@ -308,6 +330,7 @@
       const pfad = [];
       for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i; pfad.push([p.x + (s - 0.5) * Math.cos(a), p.y + (s - 0.5) * Math.sin(a)]); }
       const fr = hs.s ? hs.s.fraktion : null;
+      if (LG && hs.s && (hs.art === 'erkundet' || hs.art === 'unerkundet')) { LG.flaeche(ctx, p, s, A, h, FRK[fr] || '-'); continue; }   // SUND-01 C
       if (typeof IB.hexFlaeche === 'function' && IB.hexFlaeche(ctx, pfad, fr, STATUS_IB[hs.art], { s: Math.max(0.5, sk), ohneMuster: kompakt }) !== false) continue;
       hexPfad(ctx, p.x, p.y, s - 0.5);
       if (hs.art === 'leer') {
@@ -345,6 +368,7 @@
       if (!o.ohnePerle) zeichneBojeErsatz(ctx, z, o.perle ? o.perle.x : (ax + bx) / 2, o.perle ? o.perle.y : (ay + by) / 2, Math.max(5, 16 * ks));
     };
     // temporäre Kanten, die nicht in limes.json stehen (z. B. in den Leerraum), kommen dazu
+    const perlenLage = [];   // SUND-01 C: Perlen werden über Sichtgrenze und Front erneut gezeichnet
     const kantenListe = P.kanten.slice();
     for (const id of L.temp) if (!P.kanteById[id]) { const [a, b] = id.split('-'); if (a && b) kantenListe.push({ a, b, art: 'temp', id }); }
     for (const e of kantenListe) {
@@ -369,6 +393,13 @@
       if (nurKarte) ctx.globalAlpha = 0.35;
       kante(mx + ux * hl, my + uy * hl, mx - ux * hl, my - uy * hl, z, { s: nurKarte ? Math.max(0.25, sk * 0.6) : ks, ohnePerle: nurKarte });
       ctx.restore();
+      if (LG && !nurKarte) perlenLage.push({ x: mx, y: my, z, ks });
+    }
+    // SUND-01 C: Sichtgrenze, Front (Warnbake), dann die Perlen der Kanten oben (der Sprungpunkt bleibt auf Grenze und Front sichtbar)
+    const V = LG ? { s, h3, mitte, nachbarn: (h) => nachbarn(h, P), hexe: Object.keys(K.hexe), bereich: LG.T.bereich(s), weg: (a, b) => lageWeg(P, a, b) } : null;
+    if (LG) {
+      LG.sichtgrenze(ctx, A, V); LG.front(ctx, A, V);
+      for (const q of perlenLage) { if (typeof IB.perle !== 'function' || IB.perle(ctx, q.z, q.x, q.y, q.ks) === false) zeichneBojeErsatz(ctx, q.z, q.x, q.y, Math.max(5, 16 * q.ks)); }
     }
 
     // 3) Route (über bekannte Kanten) zum gewählten / angefahrenen Ziel: Hell 2 px, Strich 4/4 (Stilblatt §2.3)
@@ -403,8 +434,10 @@
     for (const h of alle) {
       const p = mitte(h), hs = hexStatus(P, L, h);
       const stil = HS[STATUS_IB[hs.art]] || {};
+      const lgHex = !!(LG && hs.s && (hs.art === 'erkundet' || hs.art === 'unerkundet'));   // SUND-01 C: Kartenstand gilt für alle Sim-Hexe (Namen, Symbole)
+      const lgBel = lgHex && LG.belagert(A, h);
       // dicht (ganze Karte auf der 640×360-Konsole, s < 24): Koordinate nur im Detailfeld, Namen nur im Saumraum
-      if (!kompakt && !dicht) {
+      if (!kompakt && !dicht && !LG) {   // SUND-01 C: in der Übersicht entfällt die Koordinate im Hex
         const kc = stil.koord || (hs.art === 'leer' ? COL.leerText : hs.art === 'erkundet' ? 'rgba(244,238,220,0.75)' : COL.grau);
         txt(ctx, h, p.x, p.y - h3 / 2 + 3, { color: kc, align: 'center', shadow: false });
       }
@@ -417,29 +450,34 @@
         }
         continue;
       }
-      if (hs.art === 'verborgen' || (hs.art === 'unerkundet' && !hs.nameBekannt) || (hs.s && hs.s.name === '?')) {
+      if (hs.art === 'verborgen' || (hs.art === 'unerkundet' && !hs.nameBekannt && !lgHex) || (hs.s && hs.s.name === '?')) {
         txt(ctx, '?', p.x, p.y - 4, { color: COL.grau, align: 'center' });
         continue;
       }
       const sys = hs.s;
       const haupt = hauptIcon(sys);
       ctx.save();
-      if (hs.art === 'unerkundet') ctx.globalAlpha = 0.6;
+      if (lgHex) { if (!A.hell(h)) ctx.globalAlpha = LG.F.dunkel.inhaltAlpha; }
+      else if (hs.art === 'unerkundet') ctx.globalAlpha = 0.6;
       else if (hs.art === 'gesperrt') ctx.globalAlpha = 0.8;
-      zeichneHexIcon(ctx, haupt, p.x, p.y - (kompakt ? 0 : 1), COL.text);
+      if (!lgBel) zeichneHexIcon(ctx, haupt, p.x, p.y - (kompakt ? 0 : 1), COL.text);
       if (!kompakt && !(dicht && hs.art === 'gesperrt')) {
         // weiteres Symbol (z. B. Schrein, Verbündete, Ziel) links neben dem Hauptsymbol
         const neben = (sys.symbole || []).map(x => (SYMBOL_ICON[x] || x)).find(x => x !== haupt && x !== 'heimat');
         if (neben && s >= 16) zeichneHexIcon(ctx, neben, p.x - s * 0.62, p.y - 1, COL.text);
-        if (sys.hafen) txt(ctx, String(sys.hafen), p.x + 8, p.y - 11, { color: COL.text });
-        if (sys.einfluss && hs.art !== 'unerkundet' && s >= 16) zeichneEinfluss(ctx, sys.einfluss, p.x + s * 0.62, p.y - 1);
+        if (sys.hafen && !lgBel) txt(ctx, String(sys.hafen), p.x + 8, p.y + (lgHex ? LG.M.plakette.anker.hafenDy : -11), { color: COL.text });
+        if (sys.einfluss && (hs.art !== 'unerkundet' || lgHex) && s >= 16) zeichneEinfluss(ctx, sys.einfluss, p.x + s * 0.62, p.y - 1);
+        if (lgHex && A.hex[h] && A.hex[h].posten) LG.posten(ctx, p.x - s * 0.62, p.y - 1, A.hex[h].f);
       }
       ctx.restore();
       if (!kompakt && !(dicht && hs.art === 'gesperrt')) {
         const nm = kurzName(sys.name || h, 1.6 * s);
-        txt(ctx, nm, p.x, p.y + h3 / 2 - (dicht ? 9 : 13), { color: stil.name || (hs.art === 'erkundet' ? COL.text : COL.grau), align: 'center' });
+        txt(ctx, nm, p.x, p.y + h3 / 2 - (dicht ? 9 : 13), { color: lgHex ? (A.hell(h) ? COL.text : LG.F.dunkel.name) : (stil.name || (hs.art === 'erkundet' ? COL.text : COL.grau)), align: 'center' });
       }
     }
+
+    // SUND-01 C: Belagerung, Kurs, Vermutung und Plaketten der Flotten (über Hexinhalten, unter Lerche, Auswahl und Notrufen)
+    if (LG) LG.flotten(ctx, A, V, { notrufHex: new Set(marken.filter((mk) => mk.t === 'notruf').map((mk) => mk.h)) });
 
     // 5) Markierungen (Stilblatt §2.3): eigene Position Hell-Ring + Lerche-Dreieck, Ziel Gold-Doppelring pulsierend
     const ring = (h, farbe, breite, strich, inset) => {
@@ -451,9 +489,11 @@
     if (L.hier) {
       ring(L.hier, COL.text, 2, null, 2);
       // QA-B3 F5: Lerche-Dreieck rechts neben die Koordinate (verdeckte sonst deren letzte Ziffer)
-      const p = mitte(L.hier), ty = p.y - h3 / 2 + 7, tx = Math.min(p.x + Math.ceil(mess(L.hier) / 2) + 2, p.x + s / 2 - 3);
-      ctx.fillStyle = COL.text; ctx.strokeStyle = COL.tisch; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(tx + 6, ty); ctx.lineTo(tx, ty - 3); ctx.lineTo(tx, ty + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const p = mitte(L.hier), ty = p.y - h3 / 2 + 7, tx = LG ? p.x - 3 : Math.min(p.x + Math.ceil(mess(L.hier) / 2) + 2, p.x + s / 2 - 3);
+      if (!(LG && LG.hatPlakette(A, L.hier))) {   // SUND-01 C: mit Plakette im Lerche-Hex entfällt das Dreieck (der helle Ring bleibt)
+        ctx.fillStyle = COL.text; ctx.strokeStyle = COL.tisch; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tx + 6, ty); ctx.lineTo(tx, ty - 3); ctx.lineTo(tx, ty + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
     }
     if (L.ziel && L.ziel !== L.hier) {
       const pul = 0.6 + 0.4 * Math.abs(Math.sin(t * 3));
@@ -490,7 +530,7 @@
       if (fokusSet) {
         ctx.fillStyle = 'rgba(11,14,26,0.6)';
         for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
-        if (!kompakt) txt(ctx, kn + ' · AUSSCHNITT', gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
+        if (!kompakt) txt(ctx, kn + (LG ? (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
       } else if (!kompakt) txt(ctx, kn, gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
     }
 
@@ -514,7 +554,7 @@
         y += z.gap || 0;
       }
       legende(ctx, sx, rect.y + rect.h - 46, sw);
-    } else if (fokus && hover) {
+    } else if (fokus && hover && !LG) {
       const sw = Math.min(180, rect.w - 8);
       const ls = [];
       for (const z of zeilen.slice(0, 5)) for (const l of Rd.wrap(z.t, sw - 8, 1).slice(0, z.max || 2)) ls.push({ l, c: z.c });   // F5: z.max achten (Leerraum 3 Zeilen)
@@ -529,6 +569,7 @@
     if (ab) KA.knopf(ctx, R(), ansichtKey, gArea);   // TB1: Ansicht zurücksetzen (nur wenn gezoomt/verschoben)
     ctx.restore();
     ctx.strokeStyle = COL.messing; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+    if (LG) { store.hoverHex = hover; store.lageModell = { A, adj: lageAdj(P), hier: L.hier, hexe: Object.keys(K.hexe) }; } else { store.hoverHex = null; store.lageModell = null; }   // SUND-01 C: für die Spalte der Konsole
     if (opts.rects) opts.rects.length = 0;   // Treffer laufen über StarMap.hit
     return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht, area: gArea } };
   }
@@ -729,7 +770,16 @@
     // Ansicht der Sternkarte: 'fokus' (Standard, groß) | 'gesamt' (ganze Karte); alte Namen 'saumraum' und 'limes' werden übersetzt.
     // Taste bindet CLIENT (consoles.js).
     setAnsicht(a) { store.ansicht = normAnsicht(a); return store.ansicht; },
-    toggleAnsicht() { store.ansicht = store.ansicht === 'gesamt' ? 'fokus' : 'gesamt'; return store.ansicht; },
+    toggleAnsicht() {
+      if (store.lage && window.KarteLage) { store.lageAnsicht = store.lageAnsicht === 'nah' ? 'uebersicht' : 'nah'; return store.lageAnsicht; }   // SUND-01 C: Übersicht <-> Nahansicht (Lerche + 2 Sprünge)
+      store.ansicht = store.ansicht === 'gesamt' ? 'fokus' : 'gesamt'; return store.ansicht;
+    },
+    // SUND-01 C: Übersichtskarte nach dem Wissen von Rom aktiv (world.lage da)? Modell der zuletzt gezeichneten Karte, Hex unter der Maus
+    lageAktiv() { return !store.aus && !!store.lage && !!window.KarteLage && !!karte(); },
+    get lageAnsicht() { return store.lageAnsicht; },
+    lageModell() { return store.lageModell; },
+    get hoverHex() { return store.hoverHex; },
+
     get ansicht() { return store.ansicht; },
     // SL1B: Marken aus dem Snapshot (world.marken) [{ h, t, id?, s?, b?, g? }]; für Konsolen und den Sektorplan (SL4)
     get marken() { return (store.marken || []).slice(); },

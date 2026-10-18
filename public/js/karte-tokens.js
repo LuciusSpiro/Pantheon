@@ -10,7 +10,7 @@
 //   KarteTokens.STAERKE    Stärkeklasse 1..3 -> { lampen, name }
 //   KarteTokens.WERTE      Anzeige-Grenzen (Altstand-Höchstalter, Listenlänge …); Sichtweite und Verzögerung kommen vom Server
 //   Hilfen (rein):  wissensstufe(alter, vz) · lampen(k) · staerkeName(k) · phaseFeld(p, fraktion, stufe, alter) · alterText(a)
-//                   bereich(s) · hexReihenfolge(karte) · hxLesen(hx, codes) · vorlage(id, werte)
+//                   bereich(s) · hexReihenfolge(karte) · alterZeichen(a) · alterLesen(c) · hxLesen(hx, codes) · vorlage(id, werte)
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.KarteTokens = factory();
@@ -219,7 +219,11 @@
   function bereich(s) { return s >= MASS.hexradius.voll ? 'voll' : s >= MASS.hexradius.knapp ? 'knapp' : 'kompakt'; }
   // Reihenfolge der Hexe im Feld hx des Anzeigeblocks: Codes der Karte, aufsteigend sortiert
   function hexReihenfolge(karte) { return Object.keys((karte && karte.hexe) || {}).sort(); }
-  // hx: je Hex zwei Zeichen. 1. Besitzer (r g k p - v; groß = Posten im Hex), 2. Alter (e = jetzt, 1-9a-z = Ticks base36, ? = unbekannt).
+  // Alter im Anzeigeblock: e = jetzt, 1–9 a–d f–z = Ticks (das e fehlt: es heißt „jetzt“; z = 34 und mehr), ? = nie gesehen. Gemeinsame Quelle für Server und Client.
+  const ALTER_ZEICHEN = '123456789abcdfghijklmnopqrstuvwxyz';
+  function alterZeichen(a) { if (a == null) return '?'; if (a <= 0) return 'e'; return ALTER_ZEICHEN[Math.min(a, ALTER_ZEICHEN.length) - 1]; }
+  function alterLesen(c) { if (c === 'e') return 0; if (c === '?' || c === undefined) return null; const i = ALTER_ZEICHEN.indexOf(c); return i < 0 ? null : i + 1; }
+  // hx: je Hex zwei Zeichen. 1. Besitzer (r g k p - v; groß = Posten im Hex), 2. Alter (alterZeichen).
   // -> { code: { f, posten, alter } } (alter: 0 jetzt, n Ticks, null unbekannt). Ungültige Zeichen ergeben null-Felder, nie Fehler.
   function hxLesen(hx, codes) {
     const out = {};
@@ -228,7 +232,7 @@
       const b = s[2 * i], a = s[2 * i + 1];
       if (b === undefined) break;
       const lo = b.toLowerCase();
-      const alter = a === 'e' ? 0 : a === '?' || a === undefined ? null : (parseInt(a, 36) || null);
+      const alter = alterLesen(a);
       out[codes[i]] = { f: FARBE.fraktion[lo] ? lo : null, posten: b !== lo, alter };
     }
     return out;
@@ -241,5 +245,5 @@
     return t.replace(/\{(\w+)\}/g, (m, k) => (werte && werte[k] != null ? String(werte[k]) : m));
   }
 
-  return { PULT, FARBE, MUSTER, MASS, STAERKE, WERTE, TEXT, wissensstufe, lampen, staerkeName, phaseFeld, alterText, bereich, hexReihenfolge, hxLesen, vorlage };
+  return { PULT, FARBE, MUSTER, MASS, STAERKE, WERTE, TEXT, wissensstufe, lampen, staerkeName, phaseFeld, alterText, alterZeichen, alterLesen, bereich, hexReihenfolge, hxLesen, vorlage };
 });

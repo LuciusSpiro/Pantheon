@@ -81,7 +81,19 @@
       this.notices.push({ text: String(text), color: color || PAL.warn, t: performance.now() / 1000, d: dur > 0 ? +dur : 3 });   // S1: dur optional (s)
       if (this.notices.length > 3) this.notices.shift();
     },
-    onRadio(from, text, pid) { this.radioFlash = { from: from || 'Funk', text: text || '', t: performance.now() / 1000, pid: pid || null }; },
+    // SUND-01 C: Lagefunk (lage = true) mit rotem Akzentstreifen; mehrere Lagemeldungen kurz hintereinander (Schnellsprung) laufen nacheinander:
+    // die nächste rückt nach, sobald die laufende mindestens 3,5 s stand (die Meldungen stehen zusätzlich im Logbuch)
+    onRadio(from, text, pid, lage) {
+      const f = { from: from || 'Funk', text: text || '', t: performance.now() / 1000, pid: pid || null, lage: !!lage };
+      const cur = this.radioAktuell();
+      if (lage && cur && cur.lage) { const q = this.radioQueue || (this.radioQueue = []); q.push(f); if (q.length > 6) q.shift(); return; }
+      this.radioFlash = f;
+    },
+    radioAktuell() {
+      const now = performance.now() / 1000, q = this.radioQueue, cur = this.radioFlash;
+      if (q && q.length && (!cur || now - cur.t >= 6 || (cur.lage && now - cur.t >= 3.5))) { this.radioFlash = q.shift(); this.radioFlash.t = now; }
+      return this.radioFlash && now - this.radioFlash.t < 6 ? this.radioFlash : null;
+    },
     // EK4: Funkporträt (legat) bzw. Symbol (mars, kein Gesicht) in einem Feld w×w bei (x, y); ohne Kennung nichts (false)
     drawFunkBild(ctx, pid, x, y, w) {
       if (pid !== 'legat' && pid !== 'mars') return false;
@@ -748,7 +760,7 @@
       // oben mittig zwischen Zielliste (links) und Schiffsstatus (rechts)
       // liegt ein Funkspruch oben, rutscht die Tafel darunter
       const st = view.state, radio = st.mission && st.mission.radio;
-      const flash = this.radioFlash && performance.now() / 1000 - this.radioFlash.t < 6 ? this.radioFlash : null;
+      const flash = this.radioAktuell();
       const r = radio || flash;
       const rh = r ? 16 + R.wrap(r.text || '', 216, 1).slice(0, 4).length * 10 + (radio && radio.needsAccept ? 11 : 2) : 0;
       const w = 300, x = Math.round(VW / 2 - w / 2) + 38, y = r ? 6 + rh + 4 : 24, cx = x + w / 2;
@@ -922,7 +934,7 @@
     drawRadio(ctx, view, compact) {
       const st = view.state;
       const radio = st.mission && st.mission.radio;
-      const flash = this.radioFlash && performance.now() / 1000 - this.radioFlash.t < 6 ? this.radioFlash : null;
+      const flash = this.radioAktuell();
       const r = radio || flash;
       if (!r) return;
       if (compact) {
@@ -938,6 +950,7 @@
       const lines = R.wrap(r.text || '', w - 12 - pw, 1).slice(0, 4);
       const h = Math.max(pw ? 16 + 24 : 0, 16 + lines.length * 10 + (radio && radio.needsAccept ? 11 : 2));
       R.panel(ctx, x, 6, w, h, { style: 'brass' });
+      if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, 6, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
       R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, 10, { color: PAL.amber });
       if (pw) this.drawFunkBild(ctx, r.pid, x + 6, 20, 24);
       let y = 21;
