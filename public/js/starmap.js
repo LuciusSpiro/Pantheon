@@ -477,6 +477,11 @@
       }
     }
 
+    // SUND-01 F: Nahansicht dunkelt die Hexe außerhalb des Ausschnitts VOR Plaketten, Marken und Lerche ab (Übersicht: keine Abdunklung, Spezifikation §8)
+    if (LG && fokusSet && store.lageAnsicht === 'nah') {
+      ctx.fillStyle = 'rgba(11,14,26,0.6)';
+      for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
+    }
     // SUND-01 C: Belagerung, Kurs, Vermutung und Plaketten der Flotten (über Hexinhalten, unter Lerche, Auswahl und Notrufen)
     if (LG) LG.flotten(ctx, A, V, { notrufHex: new Set(marken.filter((mk) => mk.t === 'notruf').map((mk) => mk.h)) });
 
@@ -529,8 +534,10 @@
     {
       const kn = String((K && K.name) || 'Karte').toUpperCase();
       if (fokusSet) {
-        ctx.fillStyle = 'rgba(11,14,26,0.6)';
-        for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
+        if (!LG) {
+          ctx.fillStyle = 'rgba(11,14,26,0.6)';
+          for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
+        }
         if (!kompakt) txt(ctx, kn + (LG ? (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - (LG ? 24 : 11), { color: 'rgba(201,151,74,0.8)' });
       } else if (!kompakt) txt(ctx, kn, gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
     }
