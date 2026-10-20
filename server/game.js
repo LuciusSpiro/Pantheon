@@ -18,6 +18,7 @@ const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beam
 const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Waffenkatalog, neun Plätze, Ladepool, Torpedowerfer
+const Werft = require('./sim/werft.js');   // PAN-01 D: Werft der Flottenbasen (Freischalten, Umbauen, Vorschau)
 const Katalog = require('../shared/schiffskatalog.js');   // PAN-01 C
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
@@ -52,7 +53,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -400,6 +401,7 @@ class Game {
       heat: { engines: 0, shields: 0, weapons: 0 },
       module: Modul.neu(C),   // PAN-01 A: Bestückung der Start-Lerche (Frachtraum, Krankenstation), je ein Modulraum
       stufe: 0,   // PAN-01 B: Ausbaustufe (0 Start, 3 voll ausgebaut), öffnet Plätze und Räume (sim/ausbau.js)
+      freigeschaltet: Werft.startFrei(this),   // PAN-01 D: höchste gekaufte Stufe, freigeschaltete Waffen und Module (sim/werft.js)
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
@@ -1118,6 +1120,18 @@ class Game {
       }
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
+      case 'werft.vorschau':   // PAN-01 D: Vorschau für das Terminal (rein berechnet), Antwort an den Absender: Ereignis werftVorschau { pid, vorschau }
+        if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) });
+        break;
+      case 'werft.freischalten': case 'werft.umbau': case 'werft.modul': {   // PAN-01 D: am Terminal (Konsole shop), jeder darf; Antwort an den Absender: werftAntwort { ok, op, code?, text? }
+        const op = c.slice(6);
+        const r = op === 'freischalten' ? Werft.freischalten(this, p, String(msg.art), msg.id)
+          : op === 'umbau' ? Werft.umbau(this, p, msg.platz, msg.waffe == null ? 'leer' : String(msg.waffe))
+            : Werft.modul(this, p, msg.raum, msg.id == null ? 'leer' : String(msg.id));
+        if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'werftAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+        err = r ? r.text : null;
+        break;
+      }
       case 'deco.place': err = shop.placeDeco(this, p, String(msg.slot), msg.item == null ? null : String(msg.item)); break;
       case 'quartier.style': err = shop.setStyle(this, p, String(msg.part), String(msg.value)); break;
       case 'plan.pin': err = onboard.pin(this, p, msg); break;
@@ -1256,7 +1270,7 @@ class Game {
         space.spawnEnemy(this, k, so);   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;
       }
-      case 'marks': this.inventory.marks = Math.max(0, Math.round(Number(msg.n) || 0)); break;
+      case 'marks': case 'marken': this.inventory.marks = Math.max(0, Math.round(Number(msg.n != null ? msg.n : argList(msg)[0]) || 0)); break;   // PAN-01 D: marken <n>
       case 'inv': {
         const item = String(msg.item);
         if (!['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'tafel'].includes(item)) { err = 'Unbekannter Gegenstand.'; break; }
@@ -1299,6 +1313,7 @@ class Game {
       }
       case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum 1–4] | weg <id> [raum] | an|aus <id> [raum]
       case 'bestueck': err = Waffen.debug(this, argList(msg)); break;   // PAN-01 C: bestueck <platz 1–9> <waffe-id|leer> | alle [stufe] | start | status
+      case 'werft': err = Werft.debug(this, argList(msg)); break;   // PAN-01 D: werft [status | freischalten alle | reset]
       case 'ausbau': err = Ausbau.debug(this, argList(msg)); break;   // PAN-01 B: ausbau [status | 0..3] – Ausbaustufe (Waffenplätze, Modulräume, Pforten, Lifts)
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
@@ -1988,6 +2003,7 @@ class Game {
       world,
       ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
+      ...((wf) => (wf ? { werft: wf } : {}))(Werft.snapshot(this)),   // PAN-01 D: nur wenn jemand am Terminal sitzt
       mission: missionOut,
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,
         emergencies: this.stats.emergencies,

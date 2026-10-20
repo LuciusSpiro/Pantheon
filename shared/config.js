@@ -63,6 +63,18 @@
       krankenstation: { holNach: 10 },
       notrueckholung: { transferZustand: 'broken' },   // jede Notrückholung sprengt den Transfer (ok|damaged|broken), Reparatur über die drei Wege
       fracht: { verlustJeTreffer: 1 } },
+    // PAN-01 D: Werft einer Flottenbasis (server/sim/werft.js). Freischalten kostet einmalig Marken (Ausbaustufe der Reihe nach, Waffentyp, Modul), Umbauen ist gratis.
+    // Die Start-Lerche besitzt Stufe 0, Lanze, Standardbatterie, Frachtraum und Krankenstation. Preise gemessen an der Kette (CONTRACT-PAN01-D §4): an Castra Martis (Kapitel 5/6,
+    // einzige spielbare Flottenbasis der Kampagne) liegen 420–580 Marken (schwächster Bot-Lauf Crew 3: 420); Stufe 1 + 2 + zwei wichtige Waffen (Sturmbatterie, Abwehrturm)
+    // = 410, Stufe 3 (600) gehört ins freie Spiel. ruf: optionales Rang-Feld je Ausbaustufe (Paket 2, Standard keine Bedingung, keine Anzeige).
+    werft: {
+      preise: {
+        stufe: { 1: 100, 2: 180, 3: 600 },
+        waffe: { standardkanone: 40, sturmbatterie: 60, streubatterie: 70, abwehrturm: 70, torpedowerfer: 100, lanzenbatterie: 120 },
+        modul: { werkstatt: 40 },
+      },
+      ruf: { stufe: {} },
+    },
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },

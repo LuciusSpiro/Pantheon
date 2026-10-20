@@ -172,6 +172,12 @@
     frachter: ['frachtraum', 'frachtraum'], sentinel: [], pylon: [], relay: [],
   };
   const MODUL_NAMEN = { frachtraum: 'Frachtraum', krankenstation: 'Krankenstation', werkstatt: 'Werkstatt' };
+  // PAN-01 D: Wirkung je Modul in einem Satz (Terminal, Ziel-Scan); jedes laufende Modul zieht 1 Energie (CONFIG.module.energie). Preise: CONFIG.werft.preise (nicht im Katalog).
+  const MODUL_WIRKUNG = {
+    frachtraum: 'Zwei Frachtplätze für Waren und Personen; ohne Strom ist die Ladung ungesichert.',
+    krankenstation: 'Notrückholung: holt Ausgeschaltete an Bord, danach ist der Transfer zu reparieren.',
+    werkstatt: 'Ein zweiter Schrauber repariert mit.',
+  };
 
   // ---------- Hilfen ----------
   const waffe = (id) => BY_ID[id] || null;
@@ -187,6 +193,6 @@
   const volley = (id) => { const w = BY_ID[id]; return w ? w.stoss : 0; };
   const moduleFuerKlasse = (kind) => (MODULE_JE_KLASSE[kind] || []).slice();
 
-  return { WAFFEN, BY_ID, SYMBOLE, MOUNT_ID, PLATZ_VON_ID, PRIORITAET, PLATZ, START_BESTUECKUNG, MAGAZINDECKEL, TORPEDO, GEGNER_ZUFALL, MODULE_JE_KLASSE, MODUL_NAMEN,
+  return { WAFFEN, BY_ID, SYMBOLE, MOUNT_ID, PLATZ_VON_ID, PRIORITAET, PLATZ, START_BESTUECKUNG, MAGAZINDECKEL, TORPEDO, GEGNER_ZUFALL, MODULE_JE_KLASSE, MODUL_NAMEN, MODUL_WIRKUNG,
     waffe, platzArt, mountId, platzVonMount, passtAuf, fuerPlatzart, torpedoSchaden, volley, moduleFuerKlasse, eintragVon, gegnerWert, verhaltenVon, platzartGegner, LEGACY };
 });

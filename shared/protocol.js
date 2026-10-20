@@ -230,6 +230,15 @@
     // (code f|k|w = Frachtraum | Krankenstation | Werkstatt; an = Wunsch der Technik, läuft = tatsächlich aktiv, also an UND genug Reaktorleistung); jedes laufende Modul zieht 1 Energie.
     // Debug modul [status | start | voll | an <id> [raum] | aus <id> | weg <id>]. Weltstand schiff.module [{ id, raum, an }].
     MODUL_IDS: ['frachtraum', 'krankenstation', 'werkstatt'],
+    // PAN-01 D: Werft am Terminal (Konsole 'shop', nur angedockt an einer Flottenbasis, jeder Spieler). cmd { c: 'werft.freischalten', art: 'stufe'|'waffe'|'modul', id },
+    // { c: 'werft.umbau', platz: 1–9, waffe: Katalog-Id | 'leer' }, { c: 'werft.modul', raum: 1–4, id: Modul-Id | 'leer' }. Antwort an den Absender: Ereignis
+    // werftAntwort { pid, op, ok, code?, text? } (bei Fehler zusätzlich notice); bei Erfolg an alle: Ereignis werft { op: 'freigeschaltet'|'umbau', art, id, platz?, raum?, marks?, pid }.
+    // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul } }
+    // nur, solange jemand am Terminal sitzt (aktiv: false = nur aktiv, grund, nutzer, stufe). Weltstand schiff.freigeschaltet { stufe, waffen[], module[] }. Debug werft, marken <n>.
+    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau'],   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
+    WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
+    WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
+      'platz_unbekannt', 'platz_gesperrt', 'platzart', 'raum_unbekannt', 'raum_gesperrt', 'fracht_belegt', 'unveraendert', 'umbau'],
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1. PAN-01 B: die Lebenserhaltung ist gestrichen (13 Systeme).
     SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'transfer',
@@ -265,7 +274,7 @@
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
-    DEBUG_CMDS: ['ausbau', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
+    DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')

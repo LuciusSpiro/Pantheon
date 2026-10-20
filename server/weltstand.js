@@ -9,6 +9,7 @@ const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung 
 const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der neun Waffenplätze (schiff.waffen)
+const Werft = require('./sim/werft.js');   // PAN-01 D: Freigeschaltetes (schiff.freigeschaltet)
 const Katalog = require('../shared/schiffskatalog.js');
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
@@ -698,6 +699,7 @@ function capture(game) {
       ausbauten: Object.keys(game.upgrades || {}).filter((k) => game.upgrades[k]),
       stufe: Ausbau.toSave(game),   // PAN-01 B: Ausbaustufe 0–3 (öffnet Plätze und Räume)
       waffen: Waffen.toSave(game),   // PAN-01 C: { Platz 1–9: Katalog-Id }; fehlt im Altstand = Startbestückung 8 Lanze · 4 und 6 Standardbatterie
+      freigeschaltet: Werft.toSave(game),   // PAN-01 D: { stufe, waffen[], module[] }; fehlt im Altstand = abgeleitet aus Stufe, Bestückung und Modulen
       module: Modul.toSave(game),   // PAN-01 A: [{ id, raum, an }]; die Energieverteilung wird nicht gespeichert (Standardverteilung beim Laden)
       deko: (inv.deko || []).map(String),
       dekoPlaetze: clone(game.deco || {}),
@@ -814,6 +816,7 @@ function apply(game, data) {
     }
     Modul.verteilungSetzen(game);
   }
+  Werft.restore(game, s.freigeschaltet);   // PAN-01 D: Start + gespeichert + alles, was Stufe, Waffenplätze und Modulräume tragen (Altstände: nichts geht verloren, keine Erstattung)
   Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;

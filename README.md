@@ -16,6 +16,21 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in PAN-01 D (Server und Daten) – Werft der Flottenbasen (`CONTRACT-PAN01-D.md`)
+
+Auftrag PAN-01, Paket D, Teil 1 (Branch `pan01-d`, baut auf `pan01-c` auf; das Terminal selbst folgt in D2). **Einmal kaufen (Freischalten), gratis umbauen (Umbauen), nur angedockt
+an einer Flottenbasis, jeder Spieler am Terminal darf.** Alles serverseitig in `server/sim/werft.js`.
+
+- **Ortsfeld `flottenbasis`** in `content/welt/limes.json` (Castra Martis) und `sund.json` (Castra Gradivi), durchgereicht von `shared/gen-sektor.js` als `loc.flottenbasis`; feindliche Basen tragen es nicht.
+  Weitere Werften (Flottenstützpunkte der Weltsimulation) setzt später ein Modul per `Werft.setzeFlottenbasis(game, ort)`. Handel (`shop.buy`) läuft überall wie bisher.
+- **Befehle** (Konsole `shop` = Handelskonsole im Meetingraum): `werft.freischalten { art: 'stufe'|'waffe'|'modul', id }`, `werft.umbau { platz 1–9, waffe | 'leer' }`, `werft.modul { raum 1–4, id | 'leer' }`.
+  Antwort an den Absender: Ereignis `werftAntwort { op, ok, code?, text? }`, bei Erfolg an alle `werft`. Snapshot-Block `werft` (nur solange jemand am Terminal sitzt, ≤ 500 B).
+- **Preise** in `CONFIG.werft.preise`: Ausbaustufe 1/2/3 100/180/600, Standardkanone 40, Sturmbatterie 60, Streubatterie 70, Abwehrturm 70, Torpedowerfer 100, Lanzenbatterie 120, Werkstatt 40;
+  Stufe 1 und 2 plus zwei wichtige Waffen sind in der Kampagne an Castra Martis erreichbar, Stufe 3 gehört ins freie Spiel (Messung: `CONTRACT-PAN01-D.md` §4).
+- **Weltstand** `schiff.freigeschaltet { stufe, waffen[], module[] }` (Format bleibt 3, Feld optional): fehlt es, gilt alles am Schiff als freigeschaltet.
+- **Debug:** `marken <n>`, `werft status`, `werft freischalten alle`, `werft reset` (zusätzlich `ausbau`, `bestueck`, `modul`). Test: `node tools/test-werft.js` (in `npm test`).
+  Marken je Kapitel der Kette: `node tools/sim-headless.js kette --crew 1 --seeds 3 --marken`.
+
 ## Neu in PAN-01 C – Waffenkatalog, neun Waffenplätze, Torpedowerfer (`CONTRACT-PAN01-C.md`)
 
 Auftrag PAN-01 „Lerche-Ausbau, Werft, Waffen und Module“, Paket C (Branch `pan01-c`, baut auf `pan01-b` auf). Leitgedanke: **mehr Plätze heißen mehr Auswahl, nicht mehr
