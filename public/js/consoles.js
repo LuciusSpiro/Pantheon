@@ -888,11 +888,11 @@
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Platz: unten bleiben 14 px für die Frachtleiste des Pults; Sprung (Knopf, Ziel, Balken, Grund) braucht etwa 71, die Legende ihre Zeilen
       // SUND-01 G: Höhenbilanz in KL.spaltenPlan (Meldeliste mindestens 3 Zeilen, Sprunghinweis eine Zeile für den Standardfall, höchstens zwei sonst)
-      const unten = a.y + a.h - 14, legZ = KL.legendeZeilen(rw);
-      const jp = ship.jump || {}, hinweis = jp.blockedReason && !jp.ready ? KL.sprungHinweis(jp.blockedReason, (t) => R.wrap(t, rw, 1)) : [], grundZ = jp.ready ? 1 : hinweis.length;
+      const unten = a.y + a.h - 14;
+      const jp = ship.jump || {}, hinweis0 = jp.blockedReason && !jp.ready ? KL.sprungHinweis(jp.blockedReason, (t) => R.wrap(t, rw, 1)) : [], grundZ = jp.ready ? 1 : hinweis0.length;
       const sprungBasis = 20 + 11 + 10 + 10 + (jp.dest && jp.d != null && anflugPflicht(st) ? 10 : 0);
       const plan = KL.spaltenPlan(A, { y, unten, rw, sprungBasis, grundZ });
-      const legH = legZ * 12 + 4;
+      const hinweis = hinweis0.slice(0, plan.grundZ);   // eng: nur die erste Hinweiszeile
       y = KL.meldeliste(ctx, A, Object.assign({}, o, { y, maxZeilen: plan.maxZeilen })).y + 4;
       const jump = ship.jump || {};
       let reason = null;
@@ -906,7 +906,7 @@
       R.bar(ctx, rx, y + 1, rw, 6, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 10;
       for (const l of hinweis) { R.text(ctx, l, rx, y, { color: PAL.warn }); y += 10; }
       if (jump.ready) R.text(ctx, 'Bereit – Steuer: F', rx, y, { color: PAL.mint });
-      if (legH) KL.legende(ctx, rx, unten - legZ * 12, rw);
+      KL.legende(ctx, rx, unten - plan.legZ * 12, rw, plan.kompakt);   // die Legende bleibt in jeder Lage sichtbar
       return 'Rad Zoom · 0 zurück · Enter Sprungziel · M ' + (SM.lageAnsicht === 'nah' ? 'Übersicht' : 'Nahansicht') + ' · Kanten gelb offen, rot gesperrt · 1–6 Reiter';
     },
     // QA-B3 F5: aus dem Leerraum führt nur eine temporäre Kante (world.sektoren.t) hinaus (Server: sprung.hexGrund)

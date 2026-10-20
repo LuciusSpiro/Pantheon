@@ -133,7 +133,7 @@
     spalte: {
       zeile: 10, kopf: 11, abschnitt: 4,
       meldung: { zeile: 12, max: 5, min: 3, textX: 42, plaketteX: 2 },   // SUND-01 G: mindestens 3 Meldezeilen sind reserviert, bevor Sprungblock und Legende Platz bekommen
-      legende: { zeile: 12, zeilen: 3 },
+      legende: { zeile: 12, zeilen: 3, kompaktZeilen: 2 },   // SUND-01 G: kompakt = zwei Zeilen (Wissensstufen; Front, Sicht, dunkel), wenn die Meldeliste sonst unter 3 Zeilen fiele
     },
     notruf: { r: 0.2, rMin: 5, rMax: 9, rMinLage: 6 },   // wie starmap.js Marken; in der Lage-Karte mindestens 6 und mit deckender Scheibe (r + 2)
   };

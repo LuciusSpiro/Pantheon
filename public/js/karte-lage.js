@@ -360,19 +360,20 @@
   // SUND-01 G: Höhenbilanz der rechten Spalte (Reihenfolge der Blöcke: Ortsinfo, Meldeliste, Sprungknopf und Sprung, Legende). Die Meldeliste hat Vorrang vor Sprungblock
   // und Legende: mindestens MS.meldung.min Zeilen (bei mehr Meldungen plus „+n weitere“) sind reserviert; was darüber frei bleibt, bekommt die Liste bis MS.meldung.max.
   // o: { y (Oberkante der Meldeliste), unten (Unterkante der Spalte), rw, sprungBasis (Knopf, SPRUNG, Ziel, Balken, ggf. Sprungpunkt; ohne Grundzeilen), grundZ (Zeilen des Sprunghinweises) }
-  // -> { maxZeilen (Meldezeilen ohne „+n weitere“), grundZ, frei, passt }
+  // -> { maxZeilen (Meldezeilen ohne „+n weitere“), grundZ (Hinweiszeilen), kompakt (Legende auf zwei Zeilen), legZ (Zeilen der Legende), frei, passt }
   function spaltenPlan(A, o) {
     const MS = M.spalte, z = MS.meldung.zeile, n = listenZeilen(A).length;
     const mn = Math.min(Math.max(n, 1), MS.meldung.min), minH = 12 + mn * z + (n > mn ? z : 0);
-    const stufen = [{ grundZ: o.grundZ }];
+    // Reihenfolge der Zugeständnisse: erst die Legende auf zwei Zeilen verdichten (sie bleibt in jeder Lage sichtbar), dann den Sprunghinweis auf eine Zeile
+    const stufen = [{ kompakt: false, grundZ: o.grundZ }, { kompakt: true, grundZ: o.grundZ }, { kompakt: true, grundZ: Math.min(1, o.grundZ) }];
     let wahl = stufen[stufen.length - 1], frei = 0, passt = false;
     for (const st of stufen) {
-      frei = o.unten - o.y - (o.sprungBasis + st.grundZ * 10) - (legendeZeilen(o.rw) * 12 + 4) - 4;
+      frei = o.unten - o.y - (o.sprungBasis + st.grundZ * 10) - (legendeZeilen(o.rw, st.kompakt) * 12 + 4) - 4;
       wahl = st;
       if (frei >= minH) { passt = true; break; }
     }
     const avail = Math.max(1, Math.floor((frei - 12) / z)), want = Math.min(n, MS.meldung.max);
-    return { maxZeilen: want + (n > want ? 1 : 0) <= avail ? want : Math.max(1, avail - 1), grundZ: wahl.grundZ, frei, passt };
+    return { maxZeilen: want + (n > want ? 1 : 0) <= avail ? want : Math.max(1, avail - 1), grundZ: wahl.grundZ, kompakt: wahl.kompakt, legZ: legendeZeilen(o.rw, wahl.kompakt), frei, passt };
   }
   // Zeilen des Sprunghinweises in der Spalte: bekannte Serverhinweise in einer Zeile (TEXT.sprungHinweis), alle anderen höchstens zwei Zeilen. wrap(text) -> Zeilen
   function sprungHinweis(text, wrap) {
@@ -404,20 +405,22 @@
     return { y, zeilen: zeilen.length };
   }
   // Legende: Einträge laufen nach der Breite w in Zeilen à 12 px (breit 3 Zeilen, in der schmalen Pult-Spalte bis zu 4). legendeZeilen(w) = Zahl der Zeilen.
-  function legendeEintraege(eng) {
+  function legendeEintraege(eng, kompakt) {
     const L = T.TEXT.legende, g = P.grau;
-    const pl = (q, text) => ({ b: plBreite(q), text, zeichne: (ctx, x, y) => { plakette(ctx, x + plBreite(q) / 2, y + 4, q); txt(ctx, text, x + plBreite(q) + 3, y, { color: g }); }, breite: plBreite(q) + 3 + tw(text) });
+    // kompakt (SUND-01 G): zwei Zeilen, nur Wissensstufen (Plaketten ohne Phasenfeld), Front, Sicht und dunkel; die Phasenfelder erklärt die Plakette selbst
+    const pl = (q, text, ohne) => { const b = ohne ? M.plakette.breiteOhnePhase : plBreite(q); return { b, text, zeichne: (ctx, x, y) => { plakette(ctx, x + b / 2, y + 4, q, { ohnePhase: !!ohne }); txt(ctx, text, x + b + 3, y, { color: g }); }, breite: b + 3 + tw(text) }; };
     const feld = (t, bg, pfeil, text) => ({ breite: 9 + 3 + tw(text), zeichne: (ctx, x, y) => {
       ctx.fillStyle = P.tisch; ctx.fillRect(x - 1, y - 1, 10, 9); ctx.fillStyle = bg; ctx.fillRect(x, y, 8, 7);
       if (pfeil) { ctx.fillStyle = P.tisch; ctx.beginPath(); ctx.moveTo(x + 6.5, y + 3.5); ctx.lineTo(x + 2, y + 1); ctx.lineTo(x + 2, y + 6); ctx.closePath(); ctx.fill(); }
       else txt(ctx, t, x + 4, y, { color: P.tisch, align: 'center', shadow: false });
       txt(ctx, text, x + 12, y, { color: g });
     } });
+    const bk = kompakt ? 3 : 4, sl = kompakt ? 12 : 18;   // Bake: Segmente, Eislinie: Länge
     return [
-      pl({ f: 'r', k: 2, p: 'h', a: 0, stufe: 'jetzt' }, L.jetzt), pl({ f: 'g', k: 2, p: 'h', a: 1, stufe: 'gesehen' }, L.gesehen), pl({ f: 'g', k: 2, p: 'h', a: 7, stufe: 'alt' }, L.alt),
-      feld('S', P.warn, false, 'sammelt'), feld('', F.fraktion.g.haltung, true, 'Kurs'), feld('B', F.phase.b.bg, false, 'belagert'),
-      { breite: 16 + 3 + tw(L.front), zeichne: (ctx, x, y) => { for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); } txt(ctx, L.front, x + 19, y, { color: g }); } },
-      { breite: 18 + 3 + tw(L.sicht), zeichne: (ctx, x, y) => { ctx.fillStyle = P.tisch; ctx.fillRect(x, y + 1, 18, 4); ctx.fillStyle = P.eis; ctx.fillRect(x, y + 2, 18, 2); txt(ctx, L.sicht, x + 21, y, { color: g }); } },
+      pl({ f: 'r', k: 2, p: 'h', a: 0, stufe: 'jetzt' }, L.jetzt, kompakt), pl({ f: 'g', k: 2, p: 'h', a: 1, stufe: 'gesehen' }, L.gesehen, kompakt), pl({ f: 'g', k: 2, p: 'h', a: 7, stufe: 'alt' }, L.alt, kompakt),
+      ...(kompakt ? [] : [feld('S', P.warn, false, 'sammelt'), feld('', F.fraktion.g.haltung, true, 'Kurs'), feld('B', F.phase.b.bg, false, 'belagert')]),
+      { breite: bk * 4 + 3 + tw(L.front), zeichne: (ctx, x, y) => { for (let i = 0; i < bk; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); } txt(ctx, L.front, x + bk * 4 + 3, y, { color: g }); } },
+      { breite: sl + 3 + tw(L.sicht), zeichne: (ctx, x, y) => { ctx.fillStyle = P.tisch; ctx.fillRect(x, y + 1, sl, 4); ctx.fillStyle = P.eis; ctx.fillRect(x, y + 2, sl, 2); txt(ctx, L.sicht, x + sl + 3, y, { color: g }); } },
       { breite: (eng ? 14 : 16) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
         // SUND-01 F: Feld halb hell (Muster), halb dunkel, mit Rand: der Vergleich macht „dunkel“ lesbar
         const bw = eng ? 14 : 16, hb = bw / 2;
@@ -431,18 +434,18 @@
       } },
     ];
   }
-  function legendeLayout(w) {
-    const out = [], eng = w < 190, gap = eng ? 6 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, Abstand 6 (SUND-01 F: bei 2 klebte der Text an der nächsten Plakette), vier bis fünf Zeilen
+  function legendeLayout(w, kompakt) {
+    const out = [], eng = w < 190 || !!kompakt, gap = kompakt ? 4 : eng ? 6 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, Abstand 6 (SUND-01 F: bei 2 klebte der Text an der nächsten Plakette), vier bis fünf Zeilen
     let x = 0, zeile = 0;
-    for (const e of legendeEintraege(eng)) {
+    for (const e of legendeEintraege(eng, kompakt)) {
       if (x > 0 && x + e.breite > w) { zeile++; x = 0; }
       out.push({ e, x, zeile }); x += e.breite + gap;
     }
     return { eintraege: out, zeilen: out.length ? out[out.length - 1].zeile + 1 : 0 };
   }
-  const legendeZeilen = (w) => legendeLayout(w).zeilen;
-  function legende(ctx, x, y, w) {
-    const lay = legendeLayout(w || 196);
+  const legendeZeilen = (w, kompakt) => legendeLayout(w, kompakt).zeilen;
+  function legende(ctx, x, y, w, kompakt) {
+    const lay = legendeLayout(w || 196, kompakt);
     for (const it of lay.eintraege) it.e.zeichne(ctx, x + it.x, y + it.zeile * 12);
     return y + lay.zeilen * 12;
   }
