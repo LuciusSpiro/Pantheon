@@ -3709,6 +3709,7 @@
     const lab = (str, x, y, o, prio, optional) => { if (str) labels.push({ str: String(str), x, y, o: o || {}, prio: prio || 0, optional: !!optional }); };
     const placed = [];
     const block = (x, y, w, h) => placed.push({ x, y, w, h });   // Sprites als Hindernis für Labels
+    for (const q of cfg.sperren || []) block(q.x, q.y, q.w, q.h);   // Abnahme 12: Leisten oben links (Fracht, Landepunkt-Scan …) überdecken keine Bogenbeschriftung
     const edge = front ? 6 : 4;
     // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
     const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;

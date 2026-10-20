@@ -195,6 +195,12 @@
     opts = opts || {};
     kz = kappe(kz, opts.aktion);
     const b = { x, y, w, h, label: opts.label || label, disabled: zustand === 'off' || zustand === 'leer', reason: opts.reason, onClick: opts.onClick, hotkey: kz };
+    // Abnahme 12: Platz rechts für Symbol und Ladepunkte (opts.rechts px) freihalten: Texte kürzen statt vom Symbol überdecken lassen
+    if (opts.rechts) {
+      const aw = w - 13 - 5 - opts.rechts, kurz = { 'Magazin voll': 'Magazin', 'BATTERIE': 'BATT.' };
+      const fit = (t) => { if (t == null) return t; t = String(t); if (tw(t) <= aw) return t; if (kurz[t] && tw(kurz[t]) <= aw) return kurz[t]; while (t.length > 2 && tw(t + '.') > aw) t = t.slice(0, -1); return t + '.'; };
+      label = fit(label); sub = fit(sub);
+    }
     K.zelle(c, b, kz, label, sub, FN[fn] || fn, zustand, p);
     if (zustand !== 'leer') { R.ui.buttons.push(b); if (hit(b) && b.disabled && b.reason) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y }; }
     return b;

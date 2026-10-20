@@ -135,11 +135,11 @@
       // ---- LAGE
       x = 504; cw = 130;
       y = P.titel(ctx, x, y0, cw, 'LAGE', 'sensor');
-      const bow = (ship.mounts || []).find((mm) => mm.id === 'bow');
-      if (bow) {
-        const bs = bow.state || (ship.systems || {}).weapon_bow || 'ok';
-        const t = bs === 'broken' ? 'AUS' : bow.charging ? 'lädt auf' : n(bow.charge) >= 1 ? 'bereit' : Math.round(n(bow.charge) * 100) + ' %';
-        P.lampe(ctx, x, y + 1, 'weapon', bs !== 'broken' && n(bow.charge) >= 1); T(ctx, (waffeVon(bow) || { name: 'Lanze' }).name, x + 10, y, K.text); T(ctx, t, x + cw, y, bs === 'broken' ? P.FN.weapon : P.FN.weapon, 'right'); y += 11;
+      // Abnahme 14: je Seite die Bestückung und ihre Bereitschaft (nur Anzeige; Bedienung am Ops-Pult)
+      for (const z of (UI && UI.seitenUebersicht ? UI.seitenUebersicht(ship) : [])) {
+        P.lampe(ctx, x, y + 1, 'weapon', z.bereit && !z.aus);
+        T(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' ×' + z.n : ''), x + 10, y, z.aus ? K.dim : K.text);
+        T(ctx, z.text, x + cw, y, z.aus ? P.FN.warn : z.bereit ? P.FN.shield : K.dim, 'right'); y += 10;
       }
       const reactor = ship.reactor || {}, rs = reactor.state || 'online';
       P.lampe(ctx, x, y + 1, rs === 'offline' ? 'weapon' : 'shield', rs !== 'offline'); T(ctx, 'Reaktor', x + 10, y, K.text); T(ctx, { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' }[rs] || rs, x + cw, y, rs === 'offline' ? P.FN.weapon : rs === 'overload' ? P.FN.drive : P.FN.shield, 'right'); y += 13;
@@ -177,7 +177,7 @@
       const g = P.rahmen(ctx, view, { titel: 'OPS', S: 196, station: 'weapons', anzeige: (c, r) => {
         const mr = { x: r.x, y: r.y, w: 404, h: r.h };
         this.mapRects.weapons = mr;
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }] : [] });
         R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
         this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
@@ -211,10 +211,10 @@
         const zustand = stt.kind === 'halten' ? 'hold' : info.reason && !(ch >= 1 && /außerhalb|Kein Ziel/.test(info.reason)) ? 'off' : (selM && selM.id === m.id ? 'sel' : 'normal');
         const sub = isTorp ? n(m.ammo) + '/' + lagerMax + (stt.kind === 'laedt' ? ' ' + n(m.cd) + 's' : stt.kind === 'bereit' ? '' : ' leer') : stt.text;
         const onClick = () => { if (iE >= 0) this.sel.mount = iE; this.waffeBedienen(view, m, 'mouse'); };
-        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, aktion: PLATZ_AKTION[platz] });
+        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, aktion: PLATZ_AKTION[platz], rechts: 8 });
         // Symbol der Waffe rechts, darüber die Ladepunkte der Energiewaffe als Pünktchen (der Torpedowerfer hat keine)
-        if (UI) UI.drawWaffe(ctx, w.id, zx + zw - 9, zy + 14, { color: zustand === 'off' ? K.dim : P.mix(K.ink, P.FN.weapon, 0.12) });
-        if (!isTorp) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 15 + k * 3, zy + 3, 2, 2); }
+        if (UI) UI.drawWaffe(ctx, w.id, zx + zw - 7, zy + 13, { color: zustand === 'off' ? K.dim : P.mix(K.ink, P.FN.weapon, 0.12) });
+        if (!isTorp) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 15 + k * 3, zy + zh - 4, 2, 2); }   // Ladepunkte unten rechts, damit sie keinen Namen überdecken
         if (iE >= 0 && selM && selM.id === m.id && zustand !== 'sel') { ctx.fillStyle = K.text; ctx.fillRect(zx, zy + zh + 1, zw, 1); }
       }
       y += 3 * zh + 6 + 4;
@@ -469,6 +469,17 @@
       const radio = st.mission && st.mission.radio;
       if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) T(ctx, 'Funk wartet! (1)', x, y, P.FN.drive);
       else if (this.tab !== 2 && this.escortList(view).some((e) => e.distress && e.state !== 'kampfunfaehig') && Math.floor(view.time * 2) % 2 === 0) T(ctx, 'NOTRUF Schützling! (3)', x, y, P.FN.drive);
+      // Abnahme 14: die Seiten und ihre Bestückung auf einen Blick (nur Anzeige, bedient wird am Ops-Pult)
+      y += 4;
+      const sz = UI && UI.seitenUebersicht ? UI.seitenUebersicht(st.ship || {}) : [];
+      if (sz.length) {
+        const hw = Math.floor(cw / 2);
+        sz.forEach((z, i) => {
+          const zx = x + (i % 2) * hw, zy = y + Math.floor(i / 2) * 10;
+          P.lampe(ctx, zx, zy + 1, 'weapon', z.bereit && !z.aus);
+          T(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' ×' + z.n : '') + ' ' + z.text, zx + 10, zy, z.aus ? K.dim : K.text);
+        });
+      }
       return ctl;
     },
   });

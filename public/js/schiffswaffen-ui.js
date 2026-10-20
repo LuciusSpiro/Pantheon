@@ -172,5 +172,31 @@
     } catch (e) { warn('lafette', e); return false; }
   };
 
+  // Abnahme 14: Seitenübersicht für Steuer und Captain (nur Anzeige): je Seite Bug / Bb / Stb / Heck die Bestückung und ihre Bereitschaft.
+  // Gruppen nach dem Ziffernblock: Bug 8 5, Backbord 7 4 1, Steuerbord 9 6 3, Heck 2 (Mount-Ids bow p5 | p7 port p1 | p9 stbd p3 | p2).
+  var SEITEN = [['Bug', ['bow', 'p5']], ['Bb', ['port', 'p7', 'p1']], ['Stb', ['stbd', 'p9', 'p3']], ['Heck', ['p2']]];
+  UI.seitenUebersicht = function (ship) {
+    var out = [];
+    try {
+      var ms = (ship && ship.mounts) || [];
+      for (var i = 0; i < SEITEN.length; i++) {
+        var list = [];
+        for (var j = 0; j < SEITEN[i][1].length; j++) { var m = ms.find(function (q) { return q.id === SEITEN[i][1][j]; }); if (m) list.push(m); }
+        if (!list.length) continue;
+        var ws = list.map(function (m) { return UI.waffeVon(m); });
+        var gleich = ws.every(function (w) { return w && w.id === ws[0].id; });
+        var kurz = (ws[0] ? ws[0].kurz : '?') + (gleich || list.length < 2 ? '' : ' +' + (list.length - 1));
+        var broken = list.filter(function (m) { return m.state === 'broken'; }).length;
+        var ready = list.filter(function (m, k) { var w = ws[k]; return m.state !== 'broken' && (w && w.art === 'torpedo' ? (m.charge >= 1 && (m.ammo == null || m.ammo > 0)) : m.charge >= 1); }).length;
+        var text;
+        if (broken === list.length) text = 'AUS';
+        else if (list.length === 1) { var m0 = list[0]; text = ready ? 'bereit' : (m0.charging ? 'lädt auf' : Math.round((m0.charge || 0) * 100) + ' %'); }
+        else text = ready === list.length ? 'bereit' : ready + '/' + list.length;
+        out.push({ seite: SEITEN[i][0], kurz: kurz, n: list.length, gleich: gleich, text: text, bereit: ready > 0, aus: broken === list.length });
+      }
+    } catch (e) { warn('seitenUebersicht', e); }
+    return out;
+  };
+
   root.SchiffsUI = UI;
 })(typeof self !== 'undefined' ? self : this);

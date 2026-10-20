@@ -415,12 +415,11 @@
       // B3: Notfallsprung (cmd helm.notsprung) mit Bestätigung: N, dann J
       y = this.helmNotsprung(ctx, view, lx, y, lw);
       // M3a/§20.3: Lanze (Ops lädt auf und feuert) – der Pilot sieht, wann er den Bug aufs Ziel halten muss
-      const bow = (ship.mounts || []).find(mm => mm.id === 'bow');
-      if (bow && y < 254) {
-        R.text(ctx, (waffeVonMount(bow) || { kurz: 'LANZE' }).kurz, lx, y, { color: PAL.brass });
-        const bs = bow.state || (ship.systems || {}).weapon_bow || 'ok';
-        const txt = bs === 'broken' ? 'AUS' : bow.charging ? 'LÄDT AUF' : n(bow.charge) >= 1 ? 'bereit' : 'lädt ' + Math.round(n(bow.charge) * 100) + ' %';
-        R.text(ctx, txt, lx + 36, y, { color: bs === 'broken' ? PAL.red : bow.charging ? R.BURST_COL : n(bow.charge) >= 1 ? PAL.mint : PAL.panelLight });
+      // Abnahme 14: je Seite die Bestückung und ihre Bereitschaft (nur Anzeige)
+      for (const z of (window.SchiffsUI && SchiffsUI.seitenUebersicht ? SchiffsUI.seitenUebersicht(ship) : [])) {
+        if (y > 276) break;
+        R.text(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' x' + z.n : ''), lx, y, { color: z.aus ? PAL.panelLight : PAL.brass });
+        R.text(ctx, z.text, lx + lw, y, { color: z.aus ? PAL.red : z.bereit ? PAL.mint : PAL.panelLight, align: 'right' });
         y += 10;
       }
       y = Math.max(y + 2, 266);
@@ -1802,7 +1801,7 @@
     drawWeapons(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
+      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, sperren: this.stapelH ? [{ x: rect.x + 4, y: rect.y + 3, w: 266, h: this.stapelH }] : [] });
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
@@ -1971,7 +1970,7 @@
           if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(rx - 2, y - 1, rw + 3, 13); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx - 1.5, y - 0.5, rw + 2, 12); }
           R.button(ctx, rx, y, 68, 11, label, { hotkey: String(platz), disabled: !!info.reason, reason: info.reason, active: stt.kind === 'halten', onClick: onPress });
           R.bar(ctx, rx + 72, y + 3, 22, 4, ch, ch >= 1 ? PAL.mint : PAL.amber);
-          R.text(ctx, stt.text, rx + 98, y + 2, { color: col });
+          R.text(ctx, stt.text === 'Magazin voll' ? 'Magazin' : stt.text, rx + 98, y + 2, { color: col });   // Abnahme 12: bis zu den Ladepunkten (rx + 140) ist nur Platz für ≈ 7 Zeichen
           if (isTorp) R.text(ctx, n(m.ammo) + '/' + (SCH ? SCH.TORPEDO.lagerMax : 12), rx + rw, y + 2, { color: n(m.ammo) > 0 ? PAL.brass : PAL.red, align: 'right' });
           else {
             for (let k = 0; k < amax; k++) { ctx.fillStyle = k < al ? PAL.amber : '#26313F'; ctx.fillRect(rx + 140 + k * 6, y + 3, 4, 5); }
