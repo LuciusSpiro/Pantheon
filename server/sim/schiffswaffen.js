@@ -137,7 +137,7 @@ function ensureMounts(game) {
   }
   if (neu) { const al = computeAlloc(game); for (const a of energieMounts(game)) m[a.id].alloc = al[a.id] || 0; }   // Snapshot vor dem ersten Tick zeigt schon die Verteilung
 }
-function bestuecken(game, platz, id) {
+function bestuecken(game, platz, id, behalteZustand) {
   platz = Number(platz);
   if (!Katalog.PLATZ[platz]) return 'Unbekannter Platz (1–9).';
   const leer = id == null || id === 'leer' || id === '-';
@@ -145,16 +145,19 @@ function bestuecken(game, platz, id) {
   if (!leer && !w) return `Unbekannte Waffe „${id}“. Katalog: ${Katalog.WAFFEN.map((x) => x.id).join(', ')}.`;
   if (!platzOffen(game, platz)) { const pl = Maps.waffenplatz(platz); return `Platz ${platz} ist gesperrt (Ausbaustufe ${pl.stufe} nötig).`; }
   if (w && !Katalog.passtAuf(w.id, platz)) return `${w.name} ist eine ${w.platzart}-Waffe, Platz ${platz} ist ein ${Katalog.PLATZ[platz].art}-Platz.`;
-  setzeRoh(game, platz, leer ? null : w.id);
+  setzeRoh(game, platz, leer ? null : w.id, behalteZustand);
   return null;
 }
+// Umbau in der Werft (PAN-01 D): wie bestuecken, aber der Systemzustand des Platzes bleibt (kaputt bleibt kaputt, Flickstelle und EMP-Pause bleiben): die Werft ist keine Abkürzung
+// an der Reparaturmechanik. bestuecken (Debug, Start, Weltstand) setzt das System wie bisher auf ok.
+function umruesten(game, platz, id) { return bestuecken(game, platz, id, true); }
 // ohne Prüfung (Weltstand, Stufenwechsel)
-function setzeRoh(game, platz, id) {
+function setzeRoh(game, platz, id, behalteZustand) {
   const wm = waffenMap(game); const mid = Katalog.mountId(platz);
   if (id) wm[platz] = id; else delete wm[platz];
   delete game.ship.mount[mid];
   const sys = MOUNT_SYSTEM[mid];   // neue Hardware: Schaden, Flickstelle und EMP-Pause des Platzes gelten nicht mehr
-  if (sys) { game.ship.systems[sys] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[sys]; if (game.ship.offline) delete game.ship.offline[sys]; }
+  if (sys && !behalteZustand) { game.ship.systems[sys] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[sys]; if (game.ship.offline) delete game.ship.offline[sys]; }
   ensureMounts(game);
   verteilungZuruecksetzen(game);
 }
@@ -824,7 +827,7 @@ function restore(game, saved) {
 
 module.exports = {
   MOUNT_SYSTEM, SYSTEM_MOUNT, ALLE, waffenMap, platzOffen, ausstattung, mountIds, waffeAn, energieMounts, normMount, mountState, label, wcfg, mountCfg,
-  ensureMounts, szeneReset, bestuecken, setzeRoh, bestueckeAlle, stufeGeaendert, chargePoints, computeAlloc, standardVerteilung, verteilungZuruecksetzen, chargeTime,
+  ensureMounts, szeneReset, bestuecken, umruesten, setzeRoh, bestueckeAlle, stufeGeaendert, chargePoints, computeAlloc, standardVerteilung, verteilungZuruecksetzen, chargeTime,
   inMountArc, mountOrigin, nearestInArc, selectedEnemy, update, lanceChargeTime, lanceDamage, lanceTrace, fireLance, weaponsCharge, rohre, startSalvo,
   streuExplosion, fireTorpedo, weaponsFire, weaponsAlloc, weaponsHold, weaponsReload, consumeFullCharge, lenke, mountsSnapshot, debug, toSave, restore,
   vorrat, reserviert, lagerGutschrift, turmZiel, isDown, EPS, schade, vorhaltWinkel,

@@ -1,0 +1,630 @@
+{
+ "gemessen": "2026-10-20",
+ "start": 150,
+ "laeufe": [
+  {
+   "crew": 1,
+   "seed": 1,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 450
+    },
+    "K3": {
+     "start": 450,
+     "ende": 370
+    },
+    "K4": {
+     "start": 370,
+     "ende": 390
+    },
+    "K5": {
+     "start": 390,
+     "ende": 450
+    },
+    "K6": {
+     "start": 450,
+     "ende": 890
+    },
+    "K7": {
+     "start": 890,
+     "ende": 840
+    },
+    "K8": {
+     "start": 840,
+     "ende": 840
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 2,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 430
+    },
+    "K3": {
+     "start": 430,
+     "ende": 500
+    },
+    "K4": {
+     "start": 500,
+     "ende": 520
+    },
+    "K5": {
+     "start": 520,
+     "ende": 580
+    },
+    "K6": {
+     "start": 580,
+     "ende": 1020
+    },
+    "K7": {
+     "start": 1020,
+     "ende": 1020
+    },
+    "K8": {
+     "start": 1020,
+     "ende": 1020
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 3,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 450
+    },
+    "K3": {
+     "start": 450,
+     "ende": 510
+    },
+    "K4": {
+     "start": 510,
+     "ende": 530
+    },
+    "K5": {
+     "start": 530,
+     "ende": 590
+    },
+    "K6": {
+     "start": 590,
+     "ende": 1030
+    },
+    "K7": {
+     "start": 1030,
+     "ende": 1030
+    },
+    "K8": {
+     "start": 1030,
+     "ende": 1030
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 4,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 390
+    },
+    "K3": {
+     "start": 390,
+     "ende": 450
+    },
+    "K4": {
+     "start": 450,
+     "ende": 470
+    },
+    "K5": {
+     "start": 470,
+     "ende": 530
+    },
+    "K6": {
+     "start": 530,
+     "ende": 950
+    },
+    "K7": {
+     "start": 950,
+     "ende": 950
+    },
+    "K8": {
+     "start": 950,
+     "ende": 950
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 5,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 430
+    },
+    "K3": {
+     "start": 430,
+     "ende": 500
+    },
+    "K4": {
+     "start": 500,
+     "ende": 520
+    },
+    "K5": {
+     "start": 520,
+     "ende": 580
+    },
+    "K6": {
+     "start": 580,
+     "ende": 980
+    },
+    "K7": {
+     "start": 980,
+     "ende": 980
+    },
+    "K8": {
+     "start": 980,
+     "ende": 980
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 6,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 460
+    },
+    "K3": {
+     "start": 460,
+     "ende": 530
+    },
+    "K4": {
+     "start": 530,
+     "ende": 550
+    },
+    "K5": {
+     "start": 550,
+     "ende": 610
+    },
+    "K6": {
+     "start": 610,
+     "ende": 1050
+    },
+    "K7": {
+     "start": 1050,
+     "ende": 1050
+    },
+    "K8": {
+     "start": 1050,
+     "ende": 1050
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 7,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 410
+    },
+    "K3": {
+     "start": 410,
+     "ende": 480
+    },
+    "K4": {
+     "start": 480,
+     "ende": 500
+    },
+    "K5": {
+     "start": 500,
+     "ende": 560
+    },
+    "K6": {
+     "start": 560,
+     "ende": 1000
+    },
+    "K7": {
+     "start": 1000,
+     "ende": 1000
+    },
+    "K8": {
+     "start": 1000,
+     "ende": 1000
+    }
+   }
+  },
+  {
+   "crew": 1,
+   "seed": 8,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 430
+    },
+    "K3": {
+     "start": 430,
+     "ende": 500
+    },
+    "K4": {
+     "start": 500,
+     "ende": 520
+    },
+    "K5": {
+     "start": 520,
+     "ende": 580
+    },
+    "K6": {
+     "start": 580,
+     "ende": 1020
+    },
+    "K7": {
+     "start": 1020,
+     "ende": 1020
+    },
+    "K8": {
+     "start": 1020,
+     "ende": 1020
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 1,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 320
+    },
+    "K3": {
+     "start": 320,
+     "ende": 380
+    },
+    "K4": {
+     "start": 380,
+     "ende": 400
+    },
+    "K5": {
+     "start": 400,
+     "ende": 460
+    },
+    "K6": {
+     "start": 460,
+     "ende": 640
+    },
+    "K7": {
+     "start": 640,
+     "ende": 590
+    },
+    "K8": {
+     "start": 590,
+     "ende": 590
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 2,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 320
+    },
+    "K3": {
+     "start": 320,
+     "ende": 340
+    },
+    "K4": {
+     "start": 340,
+     "ende": 360
+    },
+    "K5": {
+     "start": 360,
+     "ende": 420
+    },
+    "K6": {
+     "start": 420,
+     "ende": 650
+    },
+    "K7": {
+     "start": 650,
+     "ende": 650
+    },
+    "K8": {
+     "start": 650,
+     "ende": 650
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 3,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 370
+    },
+    "K3": {
+     "start": 370,
+     "ende": 430
+    },
+    "K4": {
+     "start": 430,
+     "ende": 450
+    },
+    "K5": {
+     "start": 450,
+     "ende": 510
+    },
+    "K6": {
+     "start": 510,
+     "ende": 750
+    },
+    "K7": {
+     "start": 750,
+     "ende": 750
+    },
+    "K8": {
+     "start": 750,
+     "ende": 750
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 4,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 370
+    },
+    "K3": {
+     "start": 370,
+     "ende": 430
+    },
+    "K4": {
+     "start": 430,
+     "ende": 450
+    },
+    "K5": {
+     "start": 450,
+     "ende": 510
+    },
+    "K6": {
+     "start": 510,
+     "ende": 810
+    },
+    "K7": {
+     "start": 810,
+     "ende": 810
+    },
+    "K8": {
+     "start": 810,
+     "ende": 810
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 5,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 280
+    },
+    "K3": {
+     "start": 280,
+     "ende": 300
+    },
+    "K4": {
+     "start": 300,
+     "ende": 320
+    },
+    "K5": {
+     "start": 320,
+     "ende": 380
+    },
+    "K6": {
+     "start": 380,
+     "ende": 160
+    },
+    "K7": {
+     "start": 160,
+     "ende": 160
+    },
+    "K8": {
+     "start": 160,
+     "ende": 160
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 6,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 370
+    },
+    "K3": {
+     "start": 370,
+     "ende": 430
+    },
+    "K4": {
+     "start": 430,
+     "ende": 450
+    },
+    "K5": {
+     "start": 450,
+     "ende": 510
+    },
+    "K6": {
+     "start": 510,
+     "ende": 860
+    },
+    "K7": {
+     "start": 860,
+     "ende": 810
+    },
+    "K8": {
+     "start": 810,
+     "ende": 810
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 7,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 370
+    },
+    "K3": {
+     "start": 370,
+     "ende": 430
+    },
+    "K4": {
+     "start": 430,
+     "ende": 450
+    },
+    "K5": {
+     "start": 450,
+     "ende": 510
+    },
+    "K6": {
+     "start": 510,
+     "ende": 700
+    },
+    "K7": {
+     "start": 700,
+     "ende": 700
+    },
+    "K8": {
+     "start": 700,
+     "ende": 700
+    }
+   }
+  },
+  {
+   "crew": 3,
+   "seed": 8,
+   "ok": true,
+   "kapitel": {
+    "K1": {
+     "start": 150,
+     "ende": 190
+    },
+    "K2": {
+     "start": 190,
+     "ende": 370
+    },
+    "K3": {
+     "start": 370,
+     "ende": 330
+    },
+    "K4": {
+     "start": 330,
+     "ende": 350
+    },
+    "K5": {
+     "start": 350,
+     "ende": 410
+    },
+    "K6": {
+     "start": 410,
+     "ende": 160
+    },
+    "K7": {
+     "start": 160,
+     "ende": 160
+    },
+    "K8": {
+     "start": 160,
+     "ende": 160
+    }
+   }
+  }
+ ]
+}

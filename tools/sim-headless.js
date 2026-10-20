@@ -3508,9 +3508,7 @@ async function runGeneric(opts) {
   const res = { seed, crew, missions: [], errors: 0, errList, aborted: null, snapMax: 0 };
   let cur = null;
   const doneEvents = [];
-  // PAN-01 D: Marken je Kapitel (Messung der Werftpreise): Gutschriften und Abbuchungen über das Ereignis marksCredited/marksPaid
-  const marken = { plus: 0, minus: 0 };
-  { const me = game.missionEvent.bind(game); game.missionEvent = (k, o) => { if (k === 'marksCredited') marken.plus += o.n; else if (k === 'marksPaid') marken.minus += o.n; return me(k, o); }; }
+  // PAN-01 D: Marken je Kapitel (Messung der Werftpreise): Kontostand am Anfang und Ende jedes Kapitels (Erlöse und Ausgaben laufen großteils direkt über inventory.marks, deshalb nur der Saldo)
   const watcher = { send: (o) => {
     if (o.t !== 'event') return;
     if (o.kind === 'missionDone') doneEvents.push(o);
@@ -3565,7 +3563,7 @@ async function runGeneric(opts) {
     const e1 = escortStats(); cur.escortStats = {};
     for (const k of Object.keys(e1)) cur.escortStats[k] = r1((e1[k] || 0) - (cur.escort0[k] || 0));
     cur.errors = game.errors - cur.err0;
-    cur.marken = { start: cur.marks0, ende: game.inventory.marks, plus: marken.plus - cur.plus0, minus: marken.minus - cur.minus0 };
+    cur.marken = { start: cur.marks0, ende: game.inventory.marks };
     res.missions.push(cur); cur = null;
     idleSince = game.time;
   };
@@ -3593,7 +3591,7 @@ async function runGeneric(opts) {
     if (m.activeId && (!cur || cur.id !== m.activeId)) {
       if (cur) { closeStep(); cur.success = false; cur.ausgang = null; cur.dur = r1(game.time - cur.t0); res.missions.push(cur); }
       const sl = game.spielleiter; const plan = sl && sl.planById ? sl.planById(m.activeId) : null;
-      cur = { id: m.activeId, title: m.def && m.def.title, archiv: plan ? plan.archivName : null, origin: plan ? plan.origin : 'test', t0: game.time, marks0: game.inventory.marks, plus0: marken.plus, minus0: marken.minus, steps: [], escort0: escortStats(), err0: game.errors, softlock: null };
+      cur = { id: m.activeId, title: m.def && m.def.title, archiv: plan ? plan.archivName : null, origin: plan ? plan.origin : 'test', t0: game.time, marks0: game.inventory.marks, steps: [], escort0: escortStats(), err0: game.errors, softlock: null };
       if (plan && plan.archivName) played.add(plan.archivName);
       game.simWant = null;
     }
@@ -3903,7 +3901,7 @@ async function ketteMain() {
   log('\n| Lauf | Crew | Seed | Ergebnis | Spielzeit (min) | Kapitel (Dauer min, Ausgang, Skips) | Fehler | Snapshot max (B) |');
   log('|---|---|---|---|---|---|---|---|');
   for (const x of rows) {
-    if (args.includes('--marken')) log('Marken ' + x.j.label + ' Crew ' + x.crew + ' Seed ' + x.seed + ': ' + x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + (m.marken ? `${m.marken.start}->${m.marken.ende} (+${m.marken.plus} -${m.marken.minus})` : '?')).join(' | '));
+    if (args.includes('--marken')) log('Marken ' + x.j.label + ' Crew ' + x.crew + ' Seed ' + x.seed + ': ' + x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + (m.marken ? `${m.marken.start}->${m.marken.ende}` : '?')).join(' | '));
     const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ');
     log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} |`);
   }

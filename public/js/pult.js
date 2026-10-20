@@ -197,7 +197,7 @@
     const b = { x, y, w, h, label: opts.label || label, disabled: zustand === 'off' || zustand === 'leer', reason: opts.reason, onClick: opts.onClick, hotkey: kz };
     // Abnahme 12: Platz rechts für Symbol und Ladepunkte (opts.rechts px) freihalten: Texte kürzen statt vom Symbol überdecken lassen
     if (opts.rechts) {
-      const aw = w - 13 - 5 - opts.rechts, kurz = { 'Magazin voll': 'Magazin', 'BATTERIE': 'BATT.' };
+      const aw = w - 13 - 5 - opts.rechts, kurz = { 'Magazin voll': 'Magazin', 'BATTERIE': 'BATT.', 'STANDARD': 'STAND.' };
       const fit = (t) => { if (t == null) return t; t = String(t); if (tw(t) <= aw) return t; if (kurz[t] && tw(kurz[t]) <= aw) return kurz[t]; while (t.length > 2 && tw(t + '.') > aw) t = t.slice(0, -1); return t + '.'; };
       label = fit(label); sub = fit(sub);
     }

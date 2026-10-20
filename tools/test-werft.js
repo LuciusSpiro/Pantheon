@@ -284,7 +284,7 @@ section('Vorschau: Energie, Ladepunkte, Seiten vorher/nachher', () => {
   const T = setup('arena_space'); const g = T.g;
   T.dock('castra_martis'); T.sit(0); g.inventory.marks = 3000;
   T.debug('werft', 'freischalten alle');
-  T.debug('werft', 'reset');
+  T.debug('werft', 'reset'); T.debug('ausbau', '0');
   let v = Werft.vorschau(g, { art: 'stufe', id: 1 });
   const vor0 = werftSicht(g);
   ok(v.moeglich && v.frei === false && v.kosten === CONFIG.werft.preise.stufe[1] && v.jetzt === true, 'Stufe 1 vor dem Kauf: möglich, nicht frei, Kosten ' + v.kosten);
@@ -416,9 +416,15 @@ section('Preise und Katalog', () => {
   ok(CONFIG.module.ids.filter((id) => !start.module.includes(id)).every((id) => P.modul[id] > 0), 'Werkstatt hat einen Preis');
   ok([1, 2, 3].every((i) => P.stufe[i] > 0) && P.stufe[1] < P.stufe[2] && P.stufe[2] < P.stufe[3], 'Stufenpreise steigen: ' + [1, 2, 3].map((i) => P.stufe[i]).join(' / '));
   // Messung der Kette (CONTRACT-PAN01-D §4): Castra Martis in Kapitel 5/6, schwächster Lauf (Crew 3) 420 Marken
-  const KETTE_MIN = 420;
-  ok(P.stufe[1] + P.stufe[2] + P.waffe.sturmbatterie + P.waffe.abwehrturm <= KETTE_MIN, `Kampagne: Stufe 1 + 2 + Sturmbatterie + Abwehrturm = ${P.stufe[1] + P.stufe[2] + P.waffe.sturmbatterie + P.waffe.abwehrturm} <= ${KETTE_MIN} Marken an Castra Martis`);
-  ok(P.stufe[1] + P.stufe[2] + P.stufe[3] > 640 && P.stufe[3] > KETTE_MIN, 'Stufe 3 liegt über allem, was die Kampagne an Castra Martis einbringt (freies Spiel)');
+  // Messung der Kette (tools/messung-kette-marken.js -> tools/fixtures/werft-kette-marken.json, Bot ohne Einkäufe): die Preise hängen an den gemessenen Ständen, nicht an einer festen Zahl
+  const mess = require('./fixtures/werft-kette-marken.json');
+  const lauf = mess.laeufe.filter((l) => l.ok && l.kapitel.K2 && l.kapitel.K5 && l.kapitel.K6);
+  const k2Min = Math.min(...lauf.map((l) => l.kapitel.K2.ende)), k5 = lauf.map((l) => l.kapitel.K5.ende).sort((a, b) => a - b), k6Max = Math.max(...lauf.map((l) => l.kapitel.K6.ende));
+  const s12 = P.stufe[1] + P.stufe[2], s123 = s12 + P.stufe[3], zweiWaffen = s12 + P.waffe.sturmbatterie + P.waffe.abwehrturm;
+  ok(lauf.length >= 12, `Messung: ${lauf.length} Läufe (Crew ${[...new Set(lauf.map((l) => l.crew))].join(' und ')}, gemessen ${mess.gemessen})`);
+  ok(s12 <= k2Min, `Kampagne: Stufe 1 + 2 (${s12}) sind ab Kapitel 2 in allen Läufen bezahlbar (niedrigster Stand ${k2Min})`);
+  ok(lauf.filter((l) => zweiWaffen <= l.kapitel.K5.ende).length >= Math.ceil(lauf.length * 0.9), `Kampagne: Stufe 1 + 2 + Sturmbatterie + Abwehrturm (${zweiWaffen}) bis Kapitel 5 in mindestens 90 % der Läufe (K5-Stände ${k5.join(' ')})`);
+  ok(s123 > k6Max && P.stufe[3] > Math.max(...lauf.map((l) => l.kapitel.K5.ende)), `Stufe 3 gehört ins freie Spiel: 1 + 2 + 3 = ${s123} liegt über dem höchsten Stand am Ende von Kapitel 6 (${k6Max}), Stufe 3 allein (${P.stufe[3]}) über jedem Kapitel-5-Stand`);
   ok(Werft.sortiment(g0()).length === 3 + Katalog.WAFFEN.length + CONFIG.module.ids.length, 'Sortiment: 3 Stufen + alle Waffen + alle Module');
   function g0() { return { C: CONFIG }; }
 });
@@ -439,10 +445,124 @@ section('Debug', () => {
   const T = setup('arena_space'); const g = T.g;
   ok(T.debug('marken', '777').length === 0 && g.inventory.marks === 777, 'marken 777');
   ok(T.debug('marks', '12').length === 0 && g.inventory.marks === 12, 'marks 12 (Altname)');
-  ok(T.debug('werft', 'freischalten alle').length === 0 && Werft.liste(g).stufe === 3 && Werft.istFrei(g, 'waffe', 'torpedowerfer') && Werft.istFrei(g, 'modul', 'werkstatt') && g.ship.stufe === 0, 'werft freischalten alle (Stufe des Schiffs bleibt, Debug ausbau)');
+  ok(T.debug('werft', 'freischalten alle').length === 0 && Werft.liste(g).stufe === 3 && Werft.istFrei(g, 'waffe', 'torpedowerfer') && Werft.istFrei(g, 'modul', 'werkstatt') && g.ship.stufe === 3, 'werft freischalten alle (hebt auch die Schiffsstufe auf 3)');
   ok(T.debug('werft', 'reset').length === 0 && Werft.liste(g).stufe === 0 && !Werft.istFrei(g, 'waffe', 'torpedowerfer'), 'werft reset');
   ok(T.debug('werft', 'status').length === 0, 'werft status');
   ok(Protocol.DEBUG_CMDS.includes('werft') && Protocol.DEBUG_CMDS.includes('marken'), 'Protocol.DEBUG_CMDS: werft, marken');
+});
+
+section('Review H1: Ids wie __proto__, constructor, toString sind keine Treffer', () => {
+  const BOESE = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'prototype'];
+  ok(BOESE.every((id) => Katalog.waffe(id) === null && Katalog.BY_ID[id] === undefined && Katalog.platzVonMount(id) === null && Katalog.mountId(id) === null && !Katalog.passtAuf(id, 4) && !Katalog.gegnerWert(id) && Katalog.moduleFuerKlasse(id).length === 0), 'Katalog: keine Treffer für ' + BOESE.join(', '));
+  const T = setup('arena_space'); const g = T.g;
+  T.dock('castra_martis'); T.sit(0); g.inventory.marks = 5000;
+  T.debug('ausbau', '3');
+  const vorher = werftSicht(g);
+  const alle = [];
+  for (const id of BOESE) {
+    for (const art of ['waffe', 'modul', 'stufe']) alle.push(['werft.freischalten', { art, id }]);
+    alle.push(['werft.freischalten', { art: id, id: 'sturmbatterie' }], ['werft.freischalten', { art: id, id: 1 }]);
+    alle.push(['werft.umbau', { platz: 7, waffe: id }], ['werft.umbau', { platz: id, waffe: 'lanze' }]);
+    alle.push(['werft.modul', { raum: 3, id }], ['werft.modul', { raum: id, id: 'frachtraum' }]);
+    alle.push(['werft.ansicht', { b: id, a: id, n: id, i: id }], ['werft.vorschau', { art: id, platz: id, raum: id, id }]);
+  }
+  for (const [c, f] of alle) { const r = T.cmd(0, c, f); if (c !== 'werft.ansicht' && c !== 'werft.vorschau') ok(!r.ok, `${c} ${JSON.stringify(f)} abgelehnt`); }
+  ok(werftSicht(g) === vorher && g.inventory.marks === 5000, 'nichts gebucht, nichts freigeschaltet, Schiff unverändert');
+  const f = Werft.liste(g);
+  ok(f.waffen.every((w) => Katalog.waffe(w)) && f.module.every((m) => CONFIG.module.ids.includes(m)), 'freigeschaltet enthält nur echte Ids');
+  ok(Werft.preis(g, 'waffe', 'constructor') === null && Werft.preis(g, '__proto__', 'x') === null && Werft.preis(g, 'waffe', '__proto__') === null, 'Werft.preis: eigene Schlüssel');
+  const ui = g.werftUi;
+  ok(!ui || (ui.b === 'w' && ui.a === 'p'), 'werft.ansicht mit Unfug fällt auf Standardwerte (' + JSON.stringify(ui) + ')');
+  // Weltstand: ein Restore mit Unfug-Ids wirft sie weg und speichert weiter
+  const R = new Game({ noStore: true, seed: 3, log: () => {} });
+  Werft.restore(R, { stufe: 1, waffen: BOESE, module: BOESE });
+  ok(Werft.toSave(R).waffen.length === 2 && Werft.toSave(R).module.length === 2, 'restore verwirft Unfug-Ids');
+});
+
+section('Review M1: Umbau behält den Systemzustand des Platzes', () => {
+  const T = setup('arena_space'); const g = T.g;
+  T.dock('castra_martis'); T.sit(0); g.inventory.marks = 5000;
+  T.debug('werft', 'freischalten alle');
+  T.debug('bestueck', '7 standardbatterie');
+  g.ship.systems.lafette_7 = 'broken'; g.ship.fragile = g.ship.fragile || {}; g.ship.fragile.lafette_7 = true;
+  const rep = g.inventory.ersatzteil;
+  let r = T.cmd(0, 'werft.umbau', { platz: 7, waffe: 'sturmbatterie' });
+  ok(r.ok && Waffen.waffenMap(g)[7] === 'sturmbatterie', 'Umbau auf Platz 7 geht');
+  ok(g.ship.systems.lafette_7 === 'broken' && g.ship.fragile.lafette_7 === true, 'kaputte Lafette bleibt kaputt, Flickstelle bleibt (kein Gratis-Reparieren)');
+  r = T.cmd(0, 'werft.umbau', { platz: 7 });
+  ok(r.ok && g.ship.systems.lafette_7 === 'broken', 'auch Leeren und Wiederbestücken heilt nichts');
+  ok(g.inventory.ersatzteil === rep, 'Ersatzteile bleiben unberührt (Reparatur nur über die drei Wege)');
+  // Debug und Start bestücken wie bisher neu
+  T.debug('bestueck', '7 streubatterie');
+  ok(g.ship.systems.lafette_7 === 'ok', 'Debug bestueck setzt das System weiter auf ok');
+  g.ship.systems.lafette_9 = 'damaged';
+  r = T.cmd(0, 'werft.umbau', { platz: 9, waffe: 'standardbatterie' });
+  ok(g.ship.systems.lafette_9 === 'damaged', 'beschädigter Platz bleibt beschädigt');
+});
+
+section('Review N1: Schiffsstufe und gekaufte Stufe', () => {
+  const T = setup('arena_space'); const g = T.g;
+  T.dock('castra_martis'); T.sit(0); g.inventory.marks = 5000;
+  T.debug('ausbau', '2');
+  let r = T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 1 });
+  ok(r.ok && g.ship.stufe === 2 && Werft.liste(g).stufe === 1, 'Stufe 1 kaufen bei Schiffsstufe 2 (Debug): das Schiff fällt nicht zurück');
+  r = T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 1 });
+  ok(!r.ok && r.code === 'schon_freigeschaltet', 'danach ist Stufe 1 gekauft');
+  T.debug('werft', 'freischalten alle');
+  ok(Werft.liste(g).stufe === 3 && g.ship.stufe === 3, 'werft freischalten alle: gekaufte Stufe 3 und Schiffsstufe 3');
+  // gekaufte Stufe anwenden (Altstand oder Debug-Abstufung): kostet nichts
+  T.debug('ausbau', '1');
+  const m = g.inventory.marks;
+  r = T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 3 });
+  ok(r.ok && g.ship.stufe === 3 && g.inventory.marks === m, 'gekaufte Stufe 3 anwenden: gratis, Schiff auf Stufe 3');
+  T.debug('ausbau', '0'); Werft.liste(g).stufe = 1;
+  r = T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 2 });
+  ok(r.ok && g.ship.stufe === 2 && Werft.liste(g).stufe === 2 && g.inventory.marks === m - CONFIG.werft.preise.stufe[2], 'Kauf der Stufe 2 hebt Schiff und gekaufte Stufe');
+  // Weltstand: restore hebt die gekaufte Stufe auf die Schiffsstufe
+  const R = new Game({ noStore: true, seed: 4, log: () => {} });
+  R.ship.stufe = 2; Werft.restore(R, { stufe: 0, waffen: [], module: [] });
+  ok(Werft.toSave(R).stufe >= 2, 'restore: gekaufte Stufe nie unter der Schiffsstufe');
+});
+
+section('Review N3 und N4: Zusehen und Vorschau nur an Bord, Terminal nur angedockt', () => {
+  const T = setup('arena_space', { players: 2 }); const g = T.g;
+  T.dock('castra_martis'); T.sit(0);
+  g.players[1].zone = 'away';
+  T.send(1, { t: 'cmd', c: 'werft.zusehen', on: true });
+  ok(g.players[1].zusehen !== true, 'Außenteam: werft.zusehen wird ignoriert');
+  T.conns[1].inbox.length = 0; T.send(1, { t: 'cmd', c: 'werft.vorschau', art: 'waffe', platz: 8, id: 'lanze' });
+  ok(!T.conns[1].inbox.some((m) => m.kind === 'werftVorschau'), 'Außenteam: keine Vorschau');
+  g.players[1].zone = 'ship'; g.players[1].downed = true;
+  T.send(1, { t: 'cmd', c: 'werft.zusehen', on: true });
+  ok(g.players[1].zusehen !== true, 'ausgeschaltet: werft.zusehen wird ignoriert');
+  g.players[1].downed = false;
+  T.send(1, { t: 'cmd', c: 'werft.zusehen', on: true });
+  ok(g.players[1].zusehen === true, 'an Bord und fit: werft.zusehen geht');
+  T.conns[1].inbox.length = 0; T.send(1, { t: 'cmd', c: 'werft.vorschau', art: 'waffe', platz: 8, id: 'lanze', rid: 'abc' });
+  const ev = T.conns[1].inbox.find((m) => m.kind === 'werftVorschau');
+  ok(ev && ev.rid === 'abc', 'Vorschau gibt den Anfrage-Schlüssel (rid) zurück (N2)');
+  // N4: Ablegen setzt den Nutzer von der Konsole
+  ok(g.snapshot().werft, 'angedockt mit Nutzer: Block werft da');
+  g.ship.docked = false; g.ship.dockedAt = null;
+  g.updateWeltstand(0.03);
+  ok(g.players[0].console === null && !g.snapshot().werft, 'Ablegen: der Nutzer steht auf, der Block werft fehlt (nie im Flug oder Kampf)');
+});
+
+section('Review N8: Frachtraum mit liegender Person bleibt', () => {
+  const T = setup('arena_space'); const g = T.g;
+  T.dock('castra_martis'); T.sit(0); g.inventory.marks = 500;
+  g.fracht.lager.push({ art: 'person', person: 'evert', name: 'Evert', bett: 0 });
+  let r = T.cmd(0, 'werft.modul', { raum: 1, id: 'leer' });
+  ok(!r.ok && r.code === 'person_im_raum' && Modul.finde(g, 'frachtraum', 1), 'Frachtraum 1 mit Person in Bett 0: Entfernen abgelehnt (person_im_raum)');
+  r = T.cmd(0, 'werft.modul', { raum: 1, id: 'krankenstation' });
+  ok(!r.ok && r.code === 'person_im_raum', 'Tauschen gegen ein anderes Modul ebenso');
+  T.debug('ausbau', '1'); T.debug('modul', 'bau frachtraum 3');
+  r = T.cmd(0, 'werft.modul', { raum: 3, id: 'leer' });
+  ok(r.ok, 'ein anderer Frachtraum (Raum 3, Betten 4 und 5) ohne Person lässt sich entfernen');
+  g.fracht.lager.length = 0;
+  r = T.cmd(0, 'werft.modul', { raum: 1, id: 'leer' });
+  ok(r.ok, 'ohne Person geht der Frachtraum');
+  ok(Protocol.WERFT_CODES.includes('person_im_raum'), 'Code person_im_raum im Protokoll');
 });
 
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }

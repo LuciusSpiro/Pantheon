@@ -64,12 +64,14 @@
       notrueckholung: { transferZustand: 'broken' },   // jede Notrückholung sprengt den Transfer (ok|damaged|broken), Reparatur über die drei Wege
       fracht: { verlustJeTreffer: 1 } },
     // PAN-01 D: Werft einer Flottenbasis (server/sim/werft.js). Freischalten kostet einmalig Marken (Ausbaustufe der Reihe nach, Waffentyp, Modul), Umbauen ist gratis.
-    // Die Start-Lerche besitzt Stufe 0, Lanze, Standardbatterie, Frachtraum und Krankenstation. Preise gemessen an der Kette (CONTRACT-PAN01-D §4): an Castra Martis (Kapitel 5/6,
-    // einzige spielbare Flottenbasis der Kampagne) liegen 420–580 Marken (schwächster Bot-Lauf Crew 3: 420); Stufe 1 + 2 + zwei wichtige Waffen (Sturmbatterie, Abwehrturm)
-    // = 410, Stufe 3 (600) gehört ins freie Spiel. ruf: optionales Rang-Feld je Ausbaustufe (Paket 2, Standard keine Bedingung, keine Anzeige).
+    // Die Start-Lerche besitzt Stufe 0, Lanze, Standardbatterie, Frachtraum und Krankenstation. Preise gemessen an der Kette (tools/messung-kette-marken.js ->
+    // tools/fixtures/werft-kette-marken.json, CONTRACT-PAN01-D §4): Castra Martis liegt auf dem Weg Statio Limitis - Ferraria - Tiberis - Castra Martis, die Kapitel 2 bis 5 ergeben
+    // dort 320 (Crew 3 nach Kapitel 2) bis 600 Marken; Stufe 1 + 2 (280) sind in der Kampagne ohne Grind bezahlbar, dazu kommen bis Kapitel 5 zwei wichtige Waffen.
+    // Stufe 3 (900) gehört ins freie Spiel (Kai): Stufe 1 + 2 + 3 = 1180 liegen über dem höchsten gemessenen Stand am Ende von Kapitel 6. ruf: optionales Rang-Feld je Ausbaustufe
+    // (Paket 2, Standard keine Bedingung, keine Anzeige).
     werft: {
       preise: {
-        stufe: { 1: 100, 2: 180, 3: 600 },
+        stufe: { 1: 100, 2: 180, 3: 900 },
         waffe: { standardkanone: 40, sturmbatterie: 60, streubatterie: 70, abwehrturm: 70, torpedowerfer: 100, lanzenbatterie: 120 },
         modul: { werkstatt: 40 },
       },

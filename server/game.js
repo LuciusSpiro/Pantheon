@@ -204,6 +204,7 @@ class Game {
   // §5.3: am Ende des Ticks. docked -> sofort; angedockt entprellt nur bei Änderung; missionDone -> auch ohne Dock.
   updateWeltstand(dt) {
     const ws = this.weltstand; const ship = this.ship;
+    Werft.aufstehen(this);   // PAN-01 D: das Terminal gibt es nur angedockt
     if (!ws) return;
     if (ship.docked && ship.dockedAt) ws.lastDockedAt = ship.dockedAt;
     const pr = this.pendingRadio;
@@ -989,8 +990,11 @@ class Game {
     // R1 §4.4: Tab/Shift+Tab schaltet das Interface (Station), ohne den Ort zu wechseln
     if (c === Protocol.CMD_STATION_TAB) { const e = Station.tab(this, p, Number(msg.dir) < 0 ? -1 : 1); if (e) this.notice(p, e); return; }
     // PAN-01 D: Zusehen und Vorschau am Terminal brauchen keine Konsole (Zuschauer sehen die Ansicht des Nutzers, rein lesend)
-    if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
-    if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
+    if (c === 'werft.zusehen' || c === 'werft.vorschau') {
+      if (p.zone !== 'ship' || p.downed || !p.connected) { if (c === 'werft.zusehen') p.zusehen = false; return; }   // nur an Bord, nicht ausgeschaltet, nicht im Außenteam
+      if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
+    }
+    if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, rid: typeof msg.rid === 'string' ? msg.rid.slice(0, 60) : null, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');

@@ -12,6 +12,7 @@ const REGELN = [
   { name: 'freie rgb/hsl-Farbe', re: /\b(?:rgba?|hsla?)\(\s*\d/g },
   { name: 'eigene Schrift', re: /\.font\s*=|font-family/g },
   { name: 'Emoji', re: /\p{Extended_Pictographic}/gu },
+  { name: 'Palette (R.PAL / PAL.*)', re: /\bR\.PAL\b|(?<![\w.])PAL\.\w/g },   // Terminal-Farben nur über Token (PAL ist die Palette der alten Konsolen)
 ];
 function pruefe(name, src) {
   const out = [];
@@ -26,8 +27,8 @@ function pruefe(name, src) {
   return out;
 }
 if (process.argv.includes('--selftest')) {
-  const fehler = pruefe('t.js', "// <tokens>\nconst A = '#112233';\n// </tokens>\nrect(c, 0, 0, 1, 1, '#FF0000');\nc.font = '8px x';\nrgba(1,2,3)\n// '#00FF00' im Kommentar\n");
-  const ok = fehler.length === 3 && fehler.map((f) => f.zeile).join() === '4,5,6';
+  const fehler = pruefe('t.js', "// <tokens>\nconst A = '#112233';\n// </tokens>\nrect(c, 0, 0, 1, 1, '#FF0000');\nc.font = '8px x';\nrgba(1,2,3)\n// '#00FF00' im Kommentar\ntxt(c, 'x', 0, 0, { color: R.PAL.red });\n");
+  const ok = fehler.length === 4 && fehler.map((f) => f.zeile).join() === '4,5,6,8';
   console.log(ok ? 'Selbsttest ok' : 'Selbsttest FEHLER ' + JSON.stringify(fehler)); process.exit(ok ? 0 : 1);
 }
 const dateien = fs.readdirSync(DIR).filter((f) => /terminal/i.test(f) && f.endsWith('.js'));

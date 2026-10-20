@@ -1801,8 +1801,9 @@
       const me = view.me;
       const inGame = st.phase && st.phase !== 'lobby' && me;
       const carry = !!(inGame && me.carry && !me.console);
-      const h = 22;
-      let y = VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
+      const h = kons ? 14 : 22;
+      let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
       let text;
@@ -1823,14 +1824,14 @@
         const room = Math.max(96, Math.floor((VW - R.measure(tone, 1)) / 2) - 4 - 34 - 6);
         text = cands.find(c => c && R.measure(c, 1) <= room) || this.fit(short, room, 1);
       }
-      const w = R.measure(text, 1) + 34, x = 4;
+      const w = R.measure(text, 1) + (kons ? 24 : 34), x = kons ? 270 : 4;
       const col = s.ok ? PAL.mint : PAL.warn;
       ctx.globalAlpha = a;
       R.backdrop(ctx, x, y, w, h, 0.85);
       ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const stamp = s.ok ? 1 + 0.35 * Math.max(0, 1 - age / 0.3) : 1;   // kurzer „Stempel“-Effekt
-      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + 12, y + h / 2, Math.round(16 * stamp), s.ok ? 'ok' : 'warn'));
-      R.text(ctx, text, x + 24, y + h / 2 - 4, { color: col });
+      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + (kons ? 9 : 12), y + h / 2, Math.round((kons ? 10 : 16) * stamp), s.ok ? 'ok' : 'warn'));
+      R.text(ctx, text, x + (kons ? 18 : 24), y + h / 2 - 4, { color: col });
       ctx.globalAlpha = 1;
     },
     drawPause(ctx, view, menuOpen) {

@@ -46,7 +46,7 @@
     // Flächen
     kachel: '#1A2238',                   // Teil frei / Artikel: Text 13,7:1, Dim 6,1:1
     kachelZu: '#10151F',                 // Teil kostet Marken / gesperrt
-    textZu: '#6F7A8E',                   // Name eines nicht freigeschalteten Teils auf kachelZu (4,1:1: deaktiviert, der Preis daneben trägt die Info)
+    textZu: '#76829A',                   // gesperrtes Teil auf kachelZu: 4,7:1 (Review 2026-10-20, vorher #6F7A8E 4,2:1)
     trenner: '#1C2638',                  // Linie zwischen Plan und rechter Spalte
     // Schiffsschnitt
     rumpf: '#0E1422',                    // Rumpffläche (Gänge liegen darin)
@@ -57,6 +57,7 @@
     // Zustandsfarben (Funktion)
     waffe: FN.weapon,                    // eingebaut = roter Rand · wird eingebaut = volle rote Fläche
     modul: FN.shield,                    // frei / freigeschaltet / Modul / neu öffnend = Mint
+    antrieb: FN.drive,                   // Energieverteilung: Antrieb (Bernstein), Schilde = modul (Mint), Waffen = waffe (Rot)
     preis: FN.nav,                       // kostet Marken = Messing (7,5:1)
     warn: FN.warn,                       // Werft gesperrt
     warnGrund: '#1A1608',                // Fläche des Sperrhinweises (Gelb darauf 11,9:1)
@@ -274,8 +275,9 @@
     if (z.gewaehlt === platz) rand(c, x - 2, y - 2, w + 4, h + 4, 'text');
   }
   // Legende unter dem Plan (für Zuschauer ohne Vorwissen)
-  function zeichneLegende(c, r, mitNeu) {
+  function zeichneLegende(c, r, mitNeu, nurAnsicht) {
     let x = r.x;
+    if (nurAnsicht) { txt(c, 'nur Ansicht · die Werft ist hier gesperrt', x, r.y + 1, 'dim'); return; }
     const eintrag = (zeichne, text) => { zeichne(x, r.y); x = txt(c, text, x + 13, r.y + 1, 'dim') + 10; };
     eintrag((xx, yy) => cham(c, xx, yy, 9, 9, FARBE.waffe, 0, 0, 2, 0), 'bestückt');
     eintrag((xx, yy) => rand(c, xx, yy, 9, 9, 'waffe'), 'frei');
@@ -306,8 +308,10 @@
     // Höhe je Zeile: so viele Wirkungszeilen, wie der Text braucht (höchstens 2, gewählt 3), solange die Liste in r.h passt
     const braucht = teile.map((t) => Math.max(1, R.wrap(String(t.wirkung || ''), textW, 1).length));
     const hoehe = (maxN, maxSel) => teile.map((t, i) => 13 + Math.min(braucht[i], t.id === l.gewaehlt ? maxSel : maxN) * zl + 3);
-    let hs = hoehe(2, 3); if (hs.reduce((a, b) => a + b, 0) + (n - 1) * luft > r.h) hs = hoehe(2, 2);
-    if (hs.reduce((a, b) => a + b, 0) + (n - 1) * luft > r.h) hs = hoehe(1, 1);
+    const passt = (h) => h.reduce((a, b) => a + b, 0) + (n - 1) * luft <= r.h;
+    let hs = hoehe(2, 3); if (!passt(hs)) hs = hoehe(2, 2);
+    if (!passt(hs)) hs = hoehe(1, 2);   // Zwischenstufe: nur der gewählte Eintrag behält zwei Zeilen
+    if (!passt(hs)) hs = hoehe(1, 1);
     const sel = F(l.fn || 'waffe');
     let y = r.y;
     teile.forEach((t, i) => {
@@ -317,8 +321,11 @@
       else { cham(c, x, y, w, rh, frei ? FARBE.kachel : FARBE.kachelZu, 0, 0, 6, 0); if (hit(b)) rand(c, x, y, w, rh, mix(sel, FARBE.grund, 0.4)); }
       if (t.zustand === 'eingebaut' && !gew) rect(c, x, y, 3, rh, sel);
       if (t.zustand === 'gesperrt' && !gew) strich(c, x, y, w, rh, 'platzZu', 2);
-      const ink = gew ? 'ink' : frei ? 'text' : 'textZu', sub = gew ? mix(FARBE.ink, sel, 0.3) : frei ? FARBE.dim : FARBE.textZu;
-      symbolTeil(c, t, x + 18, y + 15, { scale: 2, color: gew ? mix(FARBE.ink, sel, 0.12) : frei ? sel : FARBE.textZu });
+      // Kontrast: nur „gesperrt“ nimmt textZu; „kostet“ liest wie „frei“ (Name text, Wirkung dim), gewählt = ink auf der Auswahlfläche
+      const kostet = t.zustand === 'kostet';
+      const ink = gew ? 'ink' : (frei || kostet) ? 'text' : 'textZu', sub = gew ? FARBE.ink : (frei || kostet) ? FARBE.dim : FARBE.textZu;
+      symbolTeil(c, t, x + 18, y + 15, { scale: 2, color: gew ? mix(FARBE.ink, sel, 0.12) : frei ? sel : kostet ? FARBE.dim : FARBE.textZu });
+      if (hit(b) && t.wirkung) R.ui.tooltip = { text: t.wirkung, x: R.ui.mouse.x, y: R.ui.mouse.y };   // voller Wirkungssatz, wenn die Liste ihn kürzen musste
       const tx = x + tx0;
       txt(c, t.name, tx, y + 3, ink);
       const zeilen = Math.round((rh - 16) / zl);
@@ -336,10 +343,17 @@
   }
   // v: { titel ('VORSCHAU'), fn, zeilen: [{ label, vorher, nachher, segs: max | null, fn }], seiten: [{ label: 'BB', text, neu: bool }] }
   function zeichneVorschau(c, r, v) {
+    if (!(v.zeilen || []).length && !(v.seiten || []).length) return;   // nichts zu zeigen: auch keinen Titel
     txtRolle(c, v.titel || 'VORSCHAU', r.x, r.y, v.fn || 'waffe', 'titel');
     const halb = Math.floor(r.w / 2) - 4;
     (v.zeilen || []).slice(0, 2).forEach((z, i) => {
       const y = r.y + 12 + i * 11; let x = txt(c, z.label, r.x, y, z.fn || 'modul') + 6;
+      if (z.verteilung) {   // Energieverteilung A S W: Buchstabe in Funktionsfarbe, die geänderte Stelle nachher in text, der Rest dim
+        const V = z.verteilung, K3 = [['A', 'antrieb'], ['S', 'modul'], ['W', 'waffe']];
+        const teil = (arr, ref) => K3.forEach(([k, col], q) => { x = txt(c, k, x, y, col); x = txt(c, String(arr[q]), x, y, ref && ref[q] !== arr[q] ? 'text' : 'dim') + 4; });
+        teil(V.vorher, null); x = txt(c, '→', x, y, 'dim') + 4; teil(V.nachher, V.vorher);
+        return;
+      }
       if (z.segs) { x = P.segs(c, x, y, z.segs, Math.min(z.segs, +z.nachher || 0), z.fn === 'dim' ? FARBE.dim : F(z.fn || 'modul'), 8, 7) + 4; }
       const gleich = String(z.vorher) === String(z.nachher);
       x = txt(c, z.vorher + ' → ' + z.nachher, x, y, gleich ? 'dim' : 'text');
@@ -349,7 +363,7 @@
     (v.seiten || []).slice(0, 2).forEach((s, i) => {
       const y = r.y + 12 + i * 11; let x = r.x + halb + 8;
       const neu = (s.teile || []).some((q) => q.neu);
-      txt(c, s.label, x, y, neu ? 'text' : 'dim'); x += 22;
+      txt(c, s.label, x, y, neu ? 'text' : 'dim'); x += Math.max(22, tw(s.label) + 4);   // BUG, HECK sind breiter als BB und STB
       (s.teile || [{ t: s.text }]).forEach((q, j) => { if (j) x = txt(c, ' · ', x, y, 'dim'); x = txt(c, q.t, x, y, q.neu ? (v.fn || 'waffe') : neu ? 'text' : 'dim'); });
     });
   }
@@ -364,6 +378,7 @@
       txt(c, st.waffen + ' WAFFEN', x + 22, y + 5, ziel ? 'ink' : hat ? 'text' : 'dim'); txt(c, st.module + ' MODULE', x + 22, y + 16, ziel ? 'ink' : hat ? 'text' : 'dim');
       txt(c, hat ? 'GEKAUFT' : st.preis + ' M', x + tw4 - 2, y + 34, hat ? 'modul' : 'preis', { align: 'right' });
     });
+    if (s.voll) { txt(c, s.hinweis || 'Das Schiff ist voll ausgebaut.', r.x, r.y + 60, 'modul'); return; }   // alles gekauft: nur dieser Satz, kein „öffnet“, keine Marken
     if (s.ziel == null) return;
     txtRolle(c, 'STUFE ' + s.ziel + ' ÖFFNET', r.x, r.y + 60, 'modul', 'titel');
     (s.oeffnet || []).forEach((o, i) => { const y = r.y + 74 + i * 13; const kw = Math.max(18, tw(o.kappe) + 8); cham(c, r.x, y - 2, kw, 11, FARBE.modul, 0, 0, 2, 0); txt(c, o.kappe, r.x + kw / 2, y, 'ink', { align: 'center' }); txt(c, o.text, r.x + kw + 6, y, 'text'); });
@@ -376,7 +391,7 @@
   // g: { titel ('WERFT GESPERRT'), grund ('Nur an Flottenbasen.'), text, bestueckung: [{ kappe, name, fn }] }
   function zeichneGesperrt(c, r, g) {
     const h = 86; cham(c, r.x, r.y, r.w, h, F('warnGrund'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'warn');
-    txtRolle(c, g.titel || 'WERFT GESPERRT', r.x + 14, r.y + 10, 'warn', 'gross');
+    txtRolle(c, g.titel || 'WERFT GESPERRT', r.x + 14, r.y + 12, 'warn', 'titel');
     txt(c, g.grund || '', r.x + 14, r.y + 32, 'text');
     umbruch(g.text || '', r.w - 28, 4).forEach((z, i) => txt(c, z, r.x + 14, r.y + 46 + i * SCHRIFT.zeileLuft, 'dim'));
     const y = r.y + h + 12; txt(c, 'Bestückung (nur Ansicht)', r.x, y, 'dim');
@@ -396,7 +411,8 @@
       if (gew) cham(c, x, y, cw, ch, zu ? SK.offLine : FARBE.preis, 0, 0, 4, 0);
       else { cham(c, x, y, cw, ch, zu ? FARBE.kachelZu : FARBE.kachel, 0, 0, 4, 0); rect(c, x, y, 2, ch, zu ? SK.offLine : FARBE.preis); }
       const ink = gew ? (zu ? 'text' : 'ink') : zu ? 'textZu' : 'text';
-      txt(c, a.name, x + 7, y + 3, ink); txt(c, a.art + (a.besitz ? ' · ' + a.besitz : '') + (zu ? ' · ' + a.grund : ''), x + 7, y + 12, gew ? (zu ? 'dim' : mix(FARBE.ink, FARBE.preis, 0.3)) : 'dim');
+      // Unterzeile nur Art und Besitz (gekürzt); der Grund steht einmal in der Infozeile (h.info.grund), gesperrte Kacheln dimmen nur über Fläche und Preis
+      txt(c, a.name, x + 7, y + 3, ink); txt(c, umbruch(a.art + (a.besitz ? ' · ' + a.besitz : ''), cw - 14, 1)[0] || '', x + 7, y + 12, gew ? (zu ? 'text' : 'ink') : 'dim');
       txt(c, a.preis + ' M', x + cw - 5, y + 3, gew ? ink : zu ? 'textZu' : a.guenstiger ? 'modul' : 'preis', { align: 'right' });
       klick(b);
     });
@@ -418,7 +434,7 @@
       }
       const w = pl.waffe && KAT ? KAT.BY_ID[pl.waffe] : null;
       const zustand = z.gesperrt ? 'off' : pl.zustand === 'offen' ? 'off' : p === z.gewaehlt ? 'sel' : 'normal';
-      P.zelle(c, r.x, r.y, r.w, r.h, kz, w ? w.kurz : 'frei', null, 'weapon', zustand, 0, { label: 'Platz ' + p, rechts: 1, onClick: z.onPlatz ? () => z.onPlatz(p) : null, reason: z.gesperrt ? z.grund : null });
+      P.zelle(c, r.x, r.y, r.w, r.h, kz, w ? w.kurz : 'leer', null, 'weapon', zustand, 0, { label: 'Platz ' + p, rechts: 1, onClick: z.onPlatz ? () => z.onPlatz(p) : null, reason: z.gesperrt ? z.grund : null });
       if (zustand === 'off' && p === z.gewaehlt && !z.gesperrt) rand(c, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 'text');   // gewählter leerer Platz
     }
   }
@@ -474,10 +490,10 @@
   function zeichneTerminal(c, view, m) {
     const L = layout(VW, VH);
     const neu = m.ansicht === 'stufe';
-    const g = P.rahmen(c, view, { titel: 'TERMINAL', S, station: 'shop', anzeige: (cc) => {
+    const g = P.rahmen(c, view, { titel: m.titel || 'TERMINAL', S, station: 'shop', anzeige: (cc) => {
       if (m.bereich === 'handel') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneHandel(cc, L.handel, L.handelInfo, m.handel || {}); return; }
       zeichneSchnitt(cc, L, m.schnitt || {});
-      zeichneLegende(cc, L.legende, neu);
+      zeichneLegende(cc, L.legende, neu, m.ansicht === 'gesperrt');
       rect(cc, RASTER.trennerX, 12, 1, 214, 'trenner');
       zeichneKopf(cc, L.kopf, m.kopf || {});
       if (m.ansicht === 'gesperrt') { zeichneGesperrt(cc, { x: L.rechts.x, y: 32, w: L.rechts.w, h: 190 }, m.gesperrt || {}); return; }
@@ -491,6 +507,7 @@
     zeichneBereich(c, L.aktionen, m.bereichUmschalter || { bereich: m.bereich });
     zeichneAktionen(c, L.aktionen, m.aktionen || {});
     zeichneStatus(c, L.status, m.status || {});
+    if (m.rahmenFarbe != null && FARBE.spieler[m.rahmenFarbe]) rand(c, L.anzeige.x, L.anzeige.y, L.anzeige.w, L.anzeige.h, FARBE.spieler[m.rahmenFarbe]);   // Zuschauer: 1-px-Rahmen in der Farbe des Nutzers am Gerät
     P.zeichneHilfe(c);
     return { layout: L, rahmen: g };
   }

@@ -25,13 +25,13 @@
     antwort: null,                                                                       // { ok, text, t } letzte Rückmeldung des Servers
     wartet: null,                                                                        // { t } Befehl unterwegs
     kauf: null,                                                                          // { item, marks, t } Handelskauf unterwegs (Antwort: Kontostand sinkt oder notice)
-    vorschau: { cache: {}, pending: [], sent: null, wechsel: 0, key: null },
+    vorschau: { cache: {}, sent: null, wechsel: 0, key: null },
     gesendet: null, gesendetT: 0,                                                        // zuletzt gesendete werft.ansicht
-    zusehen: false, geoeffnet: false,
+    zusehen: false, geoeffnet: false, letzterKauf: null,
   };
   function zuruecksetzen() {
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = 8; s.raum = 1; s.teil = null; s.handel = null; s.antwort = null; s.wartet = null; s.kauf = null;
-    s.vorschau = { cache: {}, pending: [], sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false;
+    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false;
   }
 
   // ---------------------------------------------------------------- Lesen aus dem Snapshot
@@ -50,7 +50,8 @@
   }
   const istFrei = (L, art, id) => (art === 'stufe' ? id <= L.frei.stufe : (art === 'waffe' ? L.frei.waffen : L.frei.module).indexOf(id) >= 0);
   const preisVon = (L, art, id) => { const t = L.preise[art]; return t && t[id] != null ? t[id] : null; };
-  const kurzName = (id) => (KAT.BY_ID[id] ? KAT.BY_ID[id].name.replace(/batterie$/, '') : id);
+  // Kurzname aus dem Katalogfeld kurz (STANDARD, STREU, LANZ-BT …), gemischt geschrieben; dieselbe Quelle wie die Zellen von Ops und Terminal
+  const kurzName = (id) => { const k = KAT.BY_ID[id] && KAT.BY_ID[id].kurz; return k ? k.charAt(0) + k.slice(1).toLowerCase().replace(/-bt$/, '-BT') : id; };
   const raumAn = (x, y) => (M.SHIP_ROOMS.find((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) || {}).name || '';
   const deckName = (y) => T.TOKENS.RASTER.deckName[M.deckOf(y)];
 
@@ -94,6 +95,7 @@
   function warten() { s.wartet = { t: now() }; }
   function freischalten(view, L, art, id) {
     if (s.zusehen) return;
+    s.letzterKauf = { art, id };
     cmd(view, 'werft.freischalten', { art, id }); warten();
   }
   function umbauen(view, L, a, teil) {
@@ -111,7 +113,7 @@
   // Kurztexte je Fehlercode (Protocol.WERFT_CODES) für die schmale Zeile unter dem Hauptknopf; der volle Serbertext bleibt in s.antwort.text und im Tooltip
   const CODE_KURZ = { nicht_angedockt: 'Nicht angedockt', keine_flottenbasis: 'Nur an Flottenbasen', unbekannt: 'Unbekanntes Teil', schon_freigeschaltet: 'Schon freigeschaltet', nicht_freigeschaltet: 'Erst freischalten',
     stufe_reihenfolge: 'Erst die Stufe davor', zu_wenig_marken: 'Nicht genug Marken', ruf: 'Rang fehlt', platz_unbekannt: 'Unbekannter Platz', platz_gesperrt: 'Platz noch gesperrt', platzart: 'Passt nicht auf den Platz',
-    raum_unbekannt: 'Unbekannter Modulraum', raum_gesperrt: 'Raum noch gesperrt', fracht_belegt: 'Erst Fracht abliefern', unveraendert: 'Sitzt schon dort', umbau: 'Umbau nicht möglich' };
+    raum_unbekannt: 'Unbekannter Modulraum', raum_gesperrt: 'Raum noch gesperrt', fracht_belegt: 'Erst Fracht abliefern', person_im_raum: 'Person im Frachtraum', unveraendert: 'Sitzt schon dort', umbau: 'Umbau nicht möglich' };
   const meldung = (ok, text, code) => { s.antwort = { ok, text, code: code || null, kurz: (code && CODE_KURZ[code]) || null, t: now() }; };
   // Text auf die Breite kürzen (Pixelschrift über PultTerminal.tw)
   function kurz(text, w) {
@@ -161,7 +163,7 @@
   }
   function stufenZiel(L) { return Math.min(STUFE_MAX, L.frei.stufe + 1); }
   function stufenKauf(view, L) { if (L.frei.stufe >= STUFE_MAX) { meldung(false, 'Das Schiff ist voll ausgebaut.'); return; } freischalten(view, L, 'stufe', stufenZiel(L)); }
-  function ausbauTaste(view) { if (s.zusehen) return; s.bereich = 'werft'; s.auswahl = s.auswahl === 'stufe' ? 'platz' : 'stufe'; s.antwort = null; }
+  function ausbauTaste(view) { if (s.zusehen) return; s.bereich = 'werft'; if (s.auswahl === 'stufe') s.auswahl = s.platzVorher || 'platz'; else { s.platzVorher = s.auswahl; s.auswahl = 'stufe'; } s.antwort = null; }
 
   // ---------------------------------------------------------------- Vorschau (angefordert, entprellt, vom Server berechnet)
   function vorschauAnfrage(a, L, teil) {
@@ -175,8 +177,8 @@
     const v = s.vorschau, q = vorschauAnfrage(a, L, teil), key = schluessel(q);
     if (key !== v.key) { v.key = key; v.wechsel = now(); }
     if (!q || v.sent === key || now() - v.wechsel < ENTPRELL_MS) return;
-    v.sent = key; v.pending.push(key);
-    view.send({ t: 'cmd', c: 'werft.vorschau', art: q.art, platz: q.platz, raum: q.raum, id: q.id });
+    v.sent = key;
+    view.send({ t: 'cmd', c: 'werft.vorschau', art: q.art, platz: q.platz, raum: q.raum, id: q.id, rid: key });   // der Server gibt rid in werftVorschau zurück: Antworten kommen nie dem falschen Schlüssel zu
   }
   function vorschauNeu() { s.vorschau.cache = {}; s.vorschau.sent = null; }
 
@@ -234,26 +236,56 @@
       const nb = {}; [].concat(N.seiten.Bb, N.seiten.Stb, N.seiten.vorn, N.seiten.Heck).forEach((e) => { nb[e.platz] = e.id; });
       return { titel: 'VORSCHAU', fn: 'waffe',
         zeilen: [{ label: 'LADEPOOL', vorher: V.ladepunkte, nachher: N.ladepunkte, segs: Math.max(6, V.ladepunkte, N.ladepunkte), gleichText: false }, { label: 'ENERGIEWAFFEN', vorher: cnt(V), nachher: cnt(N), fn: 'dim', gleichText: false }],
-        seiten: seiten.map(([label, k]) => ({ label, teile: seitenTeile(nb, k, a.platz) })) };
+        seiten: seiten.map(([label, k]) => { const t = seitenTeile(nb, k, a.platz); return { label, teile: t.length ? t : [{ t: 'leer' }] }; }) };
     }
-    const ver = (e) => e.engines + '/' + e.shields + '/' + e.weapons;
     const names = KAT.MODUL_NAMEN || {};
     const nm = {}; N.module.forEach((e) => { nm[e.raum] = e.id; });
     const nach = N.module.map((e) => ({ t: (MODUL_KURZ[e.id] || names[e.id] || e.id), neu: e.raum === a.raum }));
     return { titel: 'VORSCHAU', fn: 'modul',
-      zeilen: [{ label: 'ENERGIE', vorher: V.energie.frei, nachher: N.energie.frei, segs: Math.max(1, V.energie.reaktor), gleichText: false }, { label: 'VERTEILUNG', vorher: ver(V.energie), nachher: ver(N.energie), fn: 'dim', gleichText: false }],
+      zeilen: [{ label: 'ENERGIE', vorher: V.energie.frei, nachher: N.energie.frei, segs: Math.max(1, V.energie.reaktor), gleichText: false }, { label: 'VERT.', verteilung: { vorher: [V.energie.engines, V.energie.shields, V.energie.weapons], nachher: [N.energie.engines, N.energie.shields, N.energie.weapons] } }],
       seiten: [{ label: 'F' + a.raum, teile: [{ t: teil.id === 'leer' ? 'leer' : (MODUL_KURZ[teil.id] || names[teil.id] || teil.id), neu: true }] }, { label: '', teile: nach.length ? [{ t: nach.map((e) => e.t).join(' · ') }] : [{ t: 'keine Module' }] }] };
   }
   function ziffern(p) { return String(p); }
 
+  // Stufenansicht (rechts „STUFE n ÖFFNET“, Marken vorher -> nachher) für die Ausbau-Taste und für einen noch gesperrten Platz oder Raum
+  function stufenBlock(L, ziel) {
+    const preis = preisVon(L, 'stufe', ziel), voll = L.frei.stufe >= STUFE_MAX;
+    const opens = M.WAFFENPLAETZE.filter((p) => p.stufe === ziel).sort((x, y) => y.platz - x.platz).map((p) => ({ kappe: ziffern(p.platz), text: (p.art === 'bug' ? 'Zweite Bugwaffe' : p.art === 'heck' ? 'Heckwaffe' : 'Seitenwaffe') + ' · ' + raumAn(p.x, p.y) + ', ' + deckName(p.y) }))
+      .concat(M.MODUL_RAEUME.filter((r) => r.stufe === ziel).map((r) => { const rr = M.SHIP_ROOMS.find((q) => q.id === r.room); return { kappe: 'F' + r.raum, text: rr.name + ' · ' + deckName(rr.y0) }; }));
+    const stufen = []; for (let i = 0; i <= STUFE_MAX; i++) stufen.push({ waffen: M.WAFFENPLAETZE.filter((p) => p.stufe <= i).length, module: M.MODUL_RAEUME.filter((r) => r.stufe <= i).length, preis: i ? n(L.preise.stufe[i], 0) : 0 });
+    return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
+      hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' } };
+  }
+  const fehlt = (preis, marks) => (preis != null && marks < preis ? 'Nicht genug Marken (fehlen ' + (preis - marks) + ')' : null);
+
+  // Modell für den Zuschauer: dieselbe Ansicht, aber alles gesperrt, Titel ZUSEHEN, Rahmen in der Farbe des Nutzers
   function modell(view) {
+    const m = bauen(view);
+    if (!s.zusehen) return m;
+    const L = lage(view), u = L.w && L.w.nutzer != null ? L.w.nutzer : null, namen = T.TOKENS.SPIELER_NAMEN || [];
+    m.titel = 'ZUSEHEN'; if (u != null) m.rahmenFarbe = u;
+    if (m.kreuz) { m.kreuz.gesperrt = true; m.kreuz.grund = null; }
+    if (m.module) m.module.gesperrt = true;
+    const h = m.aktionen && m.aktionen.haupt;
+    if (h) { h.text = (u != null && namen[u] ? namen[u] : 'Der Nutzer') + ' bedient'; h.disabled = true; h.grund = null; h.onClick = null; }
+    return m;
+  }
+
+  function bauen(view) {
     const L = lage(view), a = ansicht(L);
+    let fehlPreis = null;   // Preis der Aktion unter dem Hauptknopf (für „fehlen n“ bei der Serverantwort zu_wenig_marken)
     const m = { status: { amGeraet: L.w && L.w.nutzer != null ? L.w.nutzer : null, zusehen: (L.w && L.w.zu) || [] } };
     const bedienbar = !s.zusehen;
     const wartet = !!s.wartet && now() - s.wartet.t < 3000;
     // Rückmeldung unter dem Hauptknopf
     const ant = s.antwort && now() - s.antwort.t < KOMMENTAR_MS ? s.antwort : null;
-    const hinweis = (std, fn) => s.zusehen ? { text: 'Du siehst zu · Esc zurück', fn: 'dim' } : ant ? { text: kurz(ant.kurz || ant.text, 156), fn: ant.ok ? 'modul' : 'warn' } : { text: kurz(std, 156), fn: fn };
+    const hinweis = (std, fn) => {
+      if (s.zusehen) return { text: 'Du siehst zu · Esc zurück', fn: 'dim' };
+      if (!ant) return { text: kurz(std, 156), fn };
+      let t = ant.kurz || ant.text;
+      if (ant.code === 'zu_wenig_marken' && fehlPreis != null && L.marks < fehlPreis) t = 'Es fehlen ' + (fehlPreis - L.marks) + ' Marken';
+      return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
+    };
     m.kopf = { ort: L.ort, art: L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };
     m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null };
     const ausbauAktiv = a.auswahl === 'stufe';
@@ -266,9 +298,11 @@
         artikel: rows.map((r) => ({ id: r.id, name: r.name, art: HANDEL_ART[r.kind] || r.kind, preis: r.price, besitz: String(r.owned || '').replace(/^(Lager|Besitz):\s*/, (x) => x.replace(':', '').trim() + ' '),
           grund: r.reason, guenstiger: r.cheaper, onClick: bedienbar ? () => { s.handel = r.id; } : null })),
         gewaehlt: sel ? sel.id : null,
-        info: sel ? { text: HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : ''), grund: null } : { text: 'Kein Sortiment.' },
+        info: sel ? { text: HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : ''), grund: sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) : sel.reason } : { text: 'Kein Sortiment.' },
       };
-      m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null }; m.module = { module: moduleModell(L), energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
+      // im Handel stehen Kreuz und Module gedimmt (die Werft ist ein anderer Bereich); ein Klick wechselt in die Werft
+      m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null }; m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
+      fehlPreis = sel ? sel.price : null;
       const lager = sel && sel.limit ? ' · Lager ' + n((L.st.inventory || {})[sel.id]) + '/' + sel.limit : '';
       m.aktionen = {
         haupt: { art: 'kaufen', text: sel ? kurz(sel.name, 100) + ' kaufen · ' + sel.price + ' M' : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
@@ -293,15 +327,11 @@
     }
     if (a.auswahl === 'stufe') {
       m.ansicht = 'stufe';
-      const preis = preisVon(L, 'stufe', ziel), voll = L.frei.stufe >= STUFE_MAX;
-      const opens = M.WAFFENPLAETZE.filter((p) => p.stufe === ziel).sort((x, y) => y.platz - x.platz).map((p) => ({ kappe: ziffern(p.platz), text: (p.art === 'bug' ? 'Zweite Bugwaffe' : p.art === 'heck' ? 'Heckwaffe' : 'Seitenwaffe') + ' · ' + raumAn(p.x, p.y) + ', ' + deckName(p.y) }))
-        .concat(M.MODUL_RAEUME.filter((r) => r.stufe === ziel).map((r) => { const rr = M.SHIP_ROOMS.find((q) => q.id === r.room); return { kappe: 'F' + r.raum, text: rr.name + ' · ' + deckName(rr.y0) }; }));
-      const stufen = []; for (let i = 0; i <= STUFE_MAX; i++) stufen.push({ waffen: M.WAFFENPLAETZE.filter((p) => p.stufe <= i).length, module: M.MODUL_RAEUME.filter((r) => r.stufe <= i).length, preis: i ? n(L.preise.stufe[i], 0) : 0 });
-      m.stufen = { stufe: L.frei.stufe, ziel, stufen, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis],
-        hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' };
+      const sb = stufenBlock(L, ziel), preis = sb.preis, voll = sb.voll;
+      m.stufen = sb.stufen; fehlPreis = preis;
       let grund = null;
-      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (L.marks < preis) grund = 'Nicht genug Marken'; else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
-      m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' freischalten', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis(preis != null && !voll ? preis + ' Marken, einmalig' : '', 'preis'), ausbau: ausbauKnopf, teil: { disabled: true } };
+      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
+      m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' öffnen · ' + preis + ' M', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis(preis != null && !voll ? preis + ' Marken, einmalig' : '', 'preis'), ausbau: ausbauKnopf, teil: { disabled: true } };
       return m;
     }
     // Platz oder Modulraum
@@ -319,14 +349,16 @@
       m.platzKopf = { kappe: ziffern(a.platz), titel: 'PLATZ ' + a.platz + ' · ' + SEITE[KAT.PLATZ[a.platz].seite], lage: deckName(pl.y) + ' · ' + raumAn(pl.x, pl.y) + ' · ' + ART[pl.art], fn: 'waffe' };
     }
     if (!offen) {
-      // gesperrter Platz oder Raum: die Stufe-Ansicht zeigt, was fehlt
-      const pl = modulAnsicht ? M.MODUL_RAEUME.find((q) => q.raum === a.raum) : M.waffenplatz(a.platz);
-      m.platzKopf.lage = 'noch nicht ausgebaut · öffnet mit Stufe ' + pl.stufe;
-      m.liste = { fn: modulAnsicht ? 'modul' : 'waffe', gewaehlt: null, teile: [] };
-      m.vorschau = { titel: 'VORSCHAU', fn: 'waffe', zeilen: [], seiten: [] };
-      const preis = preisVon(L, 'stufe', ziel);
-      const grund = L.frei.stufe >= pl.stufe ? 'Stufe gekauft' : ziel < pl.stufe ? 'Erst Stufe ' + ziel : preis != null && L.marks < preis ? 'Nicht genug Marken' : null;
-      m.aktionen = { haupt: { art: 'freischalten', text: 'Stufe ' + Math.min(pl.stufe, ziel) + ' freischalten', disabled: !!grund || !bedienbar, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis('öffnet mit Stufe ' + pl.stufe, 'dim'), ausbau: ausbauKnopf, teil: { disabled: true } };
+      // gesperrter Platz oder Raum: rechts der Block „STUFE n ÖFFNET“, der Hauptknopf kauft den nächsten Schritt (nur der Reihe nach)
+      const pl = modulAnsicht ? M.MODUL_RAEUME.find((q) => q.raum === a.raum) : M.waffenplatz(a.platz), kappe = modulAnsicht ? 'F' + a.raum : ziffern(a.platz);
+      const sb = stufenBlock(L, ziel), preis = sb.preis, voll = sb.voll;
+      m.ansicht = 'stufe'; m.stufen = sb.stufen; fehlPreis = preis;
+      m.schnitt.plaetze = plaetzeModell(L, ziel); m.schnitt.module = moduleModell(L, ziel); m.kreuz.plaetze = m.schnitt.plaetze; m.module.module = m.schnitt.module;
+      let grund = null;
+      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
+      const danach = preisVon(L, 'stufe', pl.stufe);
+      const spaeter = pl.stufe > ziel ? kappe + ' ab Stufe ' + pl.stufe + (danach != null ? ' · dann ' + danach + ' M' : '') : kappe + ' öffnet mit Stufe ' + pl.stufe;   // schmale Zeile (156 px): „F4 ab Stufe 2 · dann 180 M“
+      m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' öffnen · ' + preis + ' M', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis(spaeter, 'dim'), ausbau: ausbauKnopf, teil: { disabled: true } };
       return m;
     }
     m.liste = { fn: modulAnsicht ? 'modul' : 'waffe', gewaehlt: teil ? teil.id : null, teile: teile.map((t) => Object.assign({}, t, { onClick: bedienbar ? () => { s.teil = t.id; s.antwort = null; } : null })) };
@@ -335,7 +367,7 @@
     let haupt;
     if (!teil) haupt = { art: modulAnsicht ? 'modul' : 'umbau', text: 'Umbau bestätigen', disabled: true };
     else if (teil.zustand === 'kostet') {
-      const pr = teil.preis, grund = pr == null ? 'Nicht im Angebot' : L.marks < pr ? 'Nicht genug Marken' : !bedienbar ? 'Zuschauer bedienen nicht' : wartet ? 'Warte auf den Server …' : null;
+      const pr = teil.preis; fehlPreis = pr; const grund = pr == null ? 'Nicht im Angebot' : fehlt(pr, L.marks) ? fehlt(pr, L.marks) : !bedienbar ? 'Zuschauer bedienen nicht' : wartet ? 'Warte auf den Server …' : null;
       haupt = { art: 'freischalten', text: 'Freischalten · ' + pr + ' M', disabled: !!grund, grund, onClick: () => freischalten(view, L, teil.art, teil.id) };
     } else {
       const eingebaut = teil.zustand === 'eingebaut';
@@ -365,7 +397,7 @@
     ansichtSenden(view, L);
     if (s.zusehen && !L.geladen) { zusehen(view, false); }
     let m;
-    try { m = modell(view); } catch (e) { Net.reportError('TerminalUI.modell', e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 70, 60, { color: R.PAL.red }); return ''; }
+    try { m = modell(view); } catch (e) { Net.reportError('TerminalUI.modell', e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 70, 60, { color: T.TOKENS.FARBE.warn }); return ''; }
     T.zeichneTerminal(ctx, view, m);
     R.drawTooltip(ctx);
     return '';
@@ -393,12 +425,14 @@
     if (ev.kind === 'werftAntwort') {
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
+      // nach einem Stufenkauf zurück zur Platzansicht (sonst kauft ein zweites F gleich die nächste Stufe)
+      if (ev.ok && s.letzterKauf && s.letzterKauf.art === 'stufe' && s.auswahl === 'stufe') s.auswahl = s.platzVorher || 'platz';
+      s.letzterKauf = null;
       meldung(!!ev.ok, ev.ok ? (ev.op === 'freischalten' ? 'Freigeschaltet.' : 'Umgebaut.') : (ev.text || 'Abgelehnt.'), ev.ok ? null : ev.code);
       vorschauNeu();
     } else if (ev.kind === 'werftVorschau') {
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
-      const key = s.vorschau.pending.shift();
-      if (key) s.vorschau.cache[key] = ev.vorschau;
+      if (typeof ev.rid === 'string' && ev.rid) s.vorschau.cache[ev.rid] = ev.vorschau;
     } else if (ev.kind === 'werft') {
       vorschauNeu();   // jemand hat gekauft oder umgebaut: Vorschauen sind veraltet
     }
@@ -408,7 +442,7 @@
   function zusehen(view, an) {
     an = !!an;
     if (s.zusehen === an) return;
-    s.zusehen = an; s.vorschau = { cache: {}, pending: [], sent: null, wechsel: 0, key: null };
+    s.zusehen = an; s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null };
     if (view && view.send) cmd(view, 'werft.zusehen', { on: an });
   }
   // Zuschauer-Ansicht zeichnen (ohne eigene Konsole); schließt sich, wenn der Nutzer aufsteht

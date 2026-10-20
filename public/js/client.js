@@ -1693,7 +1693,7 @@
     if (con && zone === 'ship') {
       if (con === 'shop' && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
       const taken = players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
-      if (taken) return Object.assign({ label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')' + (con === 'shop' && window.TerminalUI ? ' · E zusehen' : ''), ok: false }, con === 'shop' && window.TerminalUI ? { zusehen: 'shop' } : {});   // PAN-01 D2: am besetzten Terminal zusehen
+      if (taken) return Object.assign({ label: con === 'shop' && window.TerminalUI ? 'Terminal: ' + ((window.PultTerminal && PultTerminal.TOKENS.SPIELER_NAMEN[taken.color]) || 'Mitspieler') + ' am Gerät · E zusehen' : H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false }, con === 'shop' && window.TerminalUI ? { zusehen: 'shop' } : {});   // PAN-01 D2: am besetzten Terminal zusehen
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }
     if (shipKind === 'shelf') {

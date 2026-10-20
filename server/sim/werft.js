@@ -55,7 +55,8 @@ function istFrei(game, art, id) {
   if (art === 'stufe') return f.stufe >= Number(id);
   return art === 'waffe' ? f.waffen.includes(id) : f.module.includes(id);
 }
-function preis(game, art, id) { const t = cfg(game).preise[art]; return t && t[id] != null ? t[id] : null; }
+const hat = (o, k) => !!o && typeof k !== 'object' && Object.prototype.hasOwnProperty.call(o, k);
+function preis(game, art, id) { const P = cfg(game).preise; const t = hat(P, art) ? P[art] : null; return hat(t, id) ? t[id] : null; }
 // Alles, was die Werft verkauft: [{ art, id }] (Stufen 1..STUFE_MAX, Waffen und Module des Katalogs mit Preis)
 function sortiment(game) {
   const out = [];
@@ -84,9 +85,9 @@ function freischaltenPruefen(game, art, id) {
   else if (art === 'modul') { if (!game.C.module.ids.includes(String(id))) return fehler('unbekannt', 'Unbekanntes Modul.'); }
   else return fehler('unbekannt', 'Unbekannte Art (stufe, waffe, modul).');
   const name = teilName(art, id);
-  if (istFrei(game, art, id)) return fehler('schon_freigeschaltet', `${name} ist schon freigeschaltet.`);
-  if (art === 'stufe' && id !== liste(game).stufe + 1) return fehler('stufe_reihenfolge', `Ausbaustufen nur der Reihe nach: erst Stufe ${liste(game).stufe + 1}.`);
-  const p = preis(game, art, id);
+  if (istFrei(game, art, id) && !(art === 'stufe' && id > (game.ship.stufe | 0))) return fehler('schon_freigeschaltet', `${name} ist schon freigeschaltet.`);
+  if (art === 'stufe' && !istFrei(game, art, id) && id !== liste(game).stufe + 1) return fehler('stufe_reihenfolge', `Ausbaustufen nur der Reihe nach: erst Stufe ${liste(game).stufe + 1}.`);
+  const p = art === 'stufe' && istFrei(game, art, id) ? 0 : preis(game, art, id);
   if (p == null) return fehler('unbekannt', `${name} steht nicht zum Verkauf.`);
   const bed = rufBedingung(game, art, id);
   if (bed) return bed;
@@ -104,10 +105,11 @@ function freischalten(game, p, art, id) {
   const e = ortPruefen(game) || freischaltenPruefen(game, art, id);
   if (e) return e;
   if (art === 'stufe') id = Number(id); else id = String(id);
-  const kosten = preis(game, art, id);
+  // gekaufte Stufe, die das Schiff noch nicht trägt (Debug, Altstand): anwenden kostet nichts
+  const kosten = art === 'stufe' && istFrei(game, art, id) ? 0 : preis(game, art, id);
   if (!Geld.abbuchen(game, kosten, 'werft')) return fehler('zu_wenig_marken', 'Nicht genug Marken.');
   const f = liste(game);
-  if (art === 'stufe') { f.stufe = id; Ausbau.setStufe(game, id); }
+  if (art === 'stufe') { f.stufe = Math.max(f.stufe, id); Ausbau.setStufe(game, Math.max(game.ship.stufe | 0, id)); }   // das Schiff fällt nie auf eine niedrigere Stufe zurück (Debug ausbau)
   else if (art === 'waffe') f.waffen.push(id);
   else f.module.push(id);
   game.emit('sfx', { name: 'buy' });
@@ -137,7 +139,7 @@ function umbau(game, p, platz, waffe) {
   if (e) return e;
   platz = Number(platz);
   const leer = waffe == null || waffe === 'leer';
-  const r = Waffen.bestuecken(game, platz, leer ? null : String(waffe));   // prüft Platzart und Stufe noch einmal, setzt die Ladepunktverteilung zurück
+  const r = Waffen.umruesten(game, platz, leer ? null : String(waffe));   // prüft Platzart und Stufe noch einmal, setzt die Ladepunktverteilung zurück, behält den Systemzustand des Platzes (kein Gratis-Reparieren)
   if (r) return fehler('umbau', r);
   game.emit('sfx', { name: 'drop' });
   if (game.markSaveDue) game.markSaveDue('docked');
@@ -159,6 +161,9 @@ function modulPruefen(game, raum, id, strikt) {
   // ein Frachtraum geht nur, wenn die Ladung danach noch Platz hat (sonst hinge Fracht in einem leeren Raum)
   if (cur && cur.id === 'frachtraum' && (leer || String(id) !== 'frachtraum')) {
     const Fracht = require('./fracht.js');
+    // Personen liegen in Betten ihres Frachtraums (Bettschlüssel (Raum − 1) × 2 + 0/1, personen-bord.js): ein Raum mit liegender Person bleibt
+    const imRaum = Fracht.state(game).lager.some((l) => l.art === 'person' && Number.isInteger(l.bett) && l.bett >= (raum - 1) * 2 && l.bett <= (raum - 1) * 2 + 1);
+    if (imRaum) return fehler('person_im_raum', `Im Frachtraum (Modulraum ${raum}) liegt eine Person: erst abgeben.`);
     const rest = Modul.frachtRaeume(game).filter((q) => q !== raum);
     if (Fracht.anBord(game) > Maps.cargoCapacity(rest)) return fehler('fracht_belegt', `Im Frachtraum liegt noch Ladung (${Fracht.anBord(game)} Plätze belegt, danach nur ${Maps.cargoCapacity(rest)}): erst abliefern oder abwerfen.`);
   }
@@ -256,6 +261,11 @@ function vorschau(game, aenderung) {
 // ---------- Snapshot ----------
 // Block `werft` nur, wenn jemand am Terminal (Konsole shop) sitzt: aktiv/grund, Nutzer (Spielerfarbe), Stufe, Bestückung je Platz, Freigeschaltetes,
 // Preise der noch nicht freigeschalteten Teile. Namen, Wirkungstexte und Energiebedarf kommen aus dem Katalog (shared/schiffskatalog.js).
+// Wer beim Ablegen am Terminal sitzen bleibt, steht auf: das Terminal gibt es nur angedockt (Block werft nie im Flug oder Kampf)
+function aufstehen(game) {
+  if (game.ship.docked) return;
+  for (const p of game.players) if (p.console === 'shop') require('./interior.js').leaveConsole(game, p);
+}
 function nutzer(game) { return game.players.find((o) => o.connected && o.console === 'shop') || null; }
 // Ansicht des Nutzers am Terminal (Bereich, Platz/Raum/Stufe, gewähltes Teil), damit Zuschauer dasselbe Bild sehen: { b: 'h'|'w', a: 'p'|'m'|'s', n, i (Teil-Id), von }
 function ansichtSetzen(game, p, msg) {
@@ -307,13 +317,13 @@ function restore(game, saved) {
 }
 
 // ---------- Debug: werft [status | freischalten alle | reset] ----------
-//   freischalten alle  = Stufe 3 und alles freischalten (ohne Marken, ohne Ort), Stufe wird NICHT gesetzt (Debug ausbau)
+//   freischalten alle  = Stufe 3 und alles freischalten (ohne Marken, ohne Ort), auch die Schiffsstufe wird auf 3 gesetzt
 //   reset              = zurück auf die Start-Freischaltung (Stufe, Waffen, Module des Schiffs bleiben wie sie sind und gelten beim nächsten Laden wieder als frei)
 function debug(game, args) {
   const sub = args[0] || 'status';
   if (sub === 'freischalten' && (args[1] === 'alle' || args[1] == null)) {
     const f = liste(game);
-    f.stufe = Maps.STUFE_MAX;
+    f.stufe = Maps.STUFE_MAX; Ausbau.setStufe(game, Maps.STUFE_MAX);   // das Schiff trägt die gekaufte Stufe
     for (const w of Katalog.WAFFEN) if (!f.waffen.includes(w.id)) f.waffen.push(w.id);
     for (const id of game.C.module.ids) if (!f.module.includes(id)) f.module.push(id);
     return null;
@@ -326,5 +336,5 @@ function debug(game, args) {
 
 module.exports = {
   istFlottenbasis, setzeFlottenbasis, status, startFrei, liste, istFrei, preis, sortiment, ableiten,
-  freischalten, freischaltenPruefen, umbau, umbauPruefen, modul, modulPruefen, vorschau, snapshot, nutzer, ansichtSetzen, zusehenSetzen, toSave, restore, debug,
+  freischalten, freischaltenPruefen, umbau, umbauPruefen, modul, modulPruefen, vorschau, snapshot, nutzer, aufstehen, ansichtSetzen, zusehenSetzen, toSave, restore, debug,
 };

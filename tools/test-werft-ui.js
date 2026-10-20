@@ -89,8 +89,9 @@ section('Eingabe: Auswahl, Freischalten, Umbauen gegen den Server');
   T.key('KeyF');
   ok(g.inventory.marks === vorMarks - CONFIG.werft.preise.stufe[1] && g.ship.stufe === 1, 'F kauft Stufe 1 (Server bucht, Schiff auf Stufe 1)');
   ok(TU.zustand.antwort && TU.zustand.antwort.ok, 'Antwort werftAntwort ok in der UI');
-  T.key('KeyF');   // Stufe 2: kostet 180, es sind 900 da
-  ok(g.ship.stufe === 2, 'zweites F kauft Stufe 2 der Reihe nach');
+  ok(TU.zustand.auswahl === 'platz', 'nach dem Stufenkauf zurück zur Platzansicht (ein zweites F kauft nicht still die nächste Stufe)');
+  T.key('KeyA'); T.key('KeyF');   // bewusst: Ausbau, Stufe 2 kostet 180
+  ok(g.ship.stufe === 2, 'Stufe 2 der Reihe nach');
   T.key('KeyA');
   T.key('Digit7'); m = T.m();
   ok(m.platzKopf.kappe === '7' && m.liste.teile.map((t) => t.id).join() === 'standardbatterie,sturmbatterie,streubatterie,lanzenbatterie,leer', 'Taste 7: Platz 7 (Seite), Liste der Seitenwaffen');
@@ -105,7 +106,7 @@ section('Eingabe: Auswahl, Freischalten, Umbauen gegen den Server');
   zeichnen(T); warte(160); zeichnen(T);   // Vorschau anfordern und Antwort verarbeiten
   m = T.m();
   ok(m.vorschau.zeilen.length === 2 && /LADEPOOL/.test(m.vorschau.zeilen[0].label) && m.vorschau.seiten.length === 2, 'Vorschau vom Server: Ladepool und Seiten (BB, STB)');
-  ok(m.vorschau.seiten[0].teile.some((q) => q.neu && /Lanzen/.test(q.t)), 'Vorschau: die neue Lanzenbatterie steht links (BB) und ist als neu markiert');
+  ok(m.vorschau.seiten[0].teile.some((q) => q.neu && /Lanz/.test(q.t)), 'Vorschau: die neue Lanzenbatterie steht links (BB) und ist als neu markiert');
   const mu = g.inventory.marks;
   T.key('Enter');
   ok(g.ship.waffen[7] === 'lanzenbatterie' && g.inventory.marks === mu, 'Enter baut um: Lanzenbatterie auf Platz 7, gratis');
@@ -132,7 +133,7 @@ section('Eingabe: Auswahl, Freischalten, Umbauen gegen den Server');
   ok(g.ship.module.some((q) => q.id === 'frachtraum' && q.raum === 4), 'Klick auf den Hauptknopf baut den Frachtraum in Raum 4 ein');
   // Zielplatz gesperrt
   T.key('Digit1'); m = T.m();
-  ok(m.ansicht === 'platz' && m.aktionen.haupt.art === 'freischalten' && m.liste.teile.length === 0 && /Stufe 3/.test(m.platzKopf.lage), 'Platz 1 (Stufe 3) noch zu: Liste leer, Hauptknopf kauft die nächste Stufe');
+  ok(m.ansicht === 'stufe' && m.stufen.ziel === 3 && m.aktionen.haupt.art === 'freischalten' && /^Stufe 3 öffnen · \d+ M$/.test(m.aktionen.haupt.text) && /1 öffnet mit Stufe 3/.test(m.aktionen.hinweis.text), 'Platz 1 (Stufe 3) noch zu: rechts der Block Stufe 3, Hauptknopf kauft den nächsten Schritt mit Preis: ' + m.aktionen.haupt.text + ' / ' + m.aktionen.hinweis.text);
 }
 
 section('Fehler: Text und Code vom Server, nichts lokal vorweggenommen');
@@ -143,7 +144,7 @@ section('Fehler: Text und Code vom Server, nichts lokal vorweggenommen');
   T.key('KeyF');   // F sendet trotz zu weniger Marken: der Server entscheidet
   ok(g.ship.stufe === 0 && g.inventory.marks === 20 && TU.zustand.antwort && !TU.zustand.antwort.ok && /Marken/.test(TU.zustand.antwort.text), 'zu wenig Marken: Server lehnt ab, Text in der UI: ' + (TU.zustand.antwort && TU.zustand.antwort.text));
   const m = T.m();
-  ok(m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === 'Nicht genug Marken', 'Hauptknopf zeigt den Grund (Marken)');
+  ok(m.aktionen.haupt.disabled === true && /^Nicht genug Marken \(fehlen \d+\)$/.test(m.aktionen.haupt.grund), 'Hauptknopf zeigt den Grund mit fehlendem Betrag: ' + m.aktionen.haupt.grund);
   ok(m.aktionen.hinweis.fn === 'warn' && /Marken/.test(m.aktionen.hinweis.text), 'Rückmeldung unter dem Knopf (warn)');
 }
 
@@ -199,6 +200,40 @@ section('Zuschauer: Ansicht des Nutzers, keine Bedienung');
   g.snapshot();
   ok(!g.snapshot().werft, 'Nutzer steht auf: Block werft fehlt, Zuschauerflag zurückgesetzt');
   ok(g.players[1].zusehen === false, 'Zuschauerflag nach dem Aufstehen gelöscht');
+}
+
+section('Review: Vorschau-Zuordnung, gesperrter Raum, Zuschauer-Modell, voll ausgebaut, Handel');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T);
+  // N2: Antworten werden über rid zugeordnet, nicht nach Reihenfolge
+  TU.onEvent({ kind: 'werftVorschau', rid: 'waffe|9|sturmbatterie', vorschau: { moeglich: true, marker: 'B' } });
+  TU.onEvent({ kind: 'werftVorschau', rid: 'waffe|9|streubatterie', vorschau: { moeglich: true, marker: 'A' } });
+  ok(TU.zustand.vorschau.cache['waffe|9|streubatterie'].marker === 'A' && TU.zustand.vorschau.cache['waffe|9|sturmbatterie'].marker === 'B', 'werftVorschau: Zuordnung über rid, auch bei vertauschter Reihenfolge');
+  TU.zuruecksetzen();
+  // gesperrter Raum F4 auf Stufe 0: der Hauptknopf kauft den nächsten Schritt mit Preis, Hinweis nennt den Rest
+  T.key('F4'); let m = T.m();
+  ok(m.ansicht === 'stufe' && m.aktionen.haupt.text === 'Stufe 1 öffnen · ' + CONFIG.werft.preise.stufe[1] + ' M' && !m.aktionen.haupt.disabled, 'F4 noch zu: Hauptknopf "' + m.aktionen.haupt.text + '"');
+  ok(m.aktionen.hinweis.text === 'F4 ab Stufe 2 · dann ' + CONFIG.werft.preise.stufe[2] + ' M', 'Hinweis "' + m.aktionen.hinweis.text + '"');
+  ok(m.stufen.ziel === 1 && m.stufen.oeffnet.length > 0 && m.schnitt.plaetze[7].zustand === 'neu', 'rechts der Block "Stufe 1 öffnet", Plätze 7 und 9 als neu im Plan');
+  // Zuschauer: Titel, Rahmen, gesperrte Zellen
+  TU.zusehen({ send() {} }, true);
+  m = TU.modell(T.view(1));
+  ok(m.titel === 'ZUSEHEN' && m.rahmenFarbe === 0 && m.kreuz.gesperrt === true && m.module.gesperrt === true && m.aktionen.haupt.disabled === true, 'Zuschauer-Modell: Titel ZUSEHEN, Rahmen in der Farbe des Nutzers, Kreuz und Module gedimmt');
+  TU.zusehen({ send() {} }, false);
+  // voll ausgebaut
+  T.g.inventory.marks = 5000; T.debug && null;
+  Werft.debug(T.g, ['freischalten', 'alle']);
+  T.key('KeyA'); m = T.m();
+  ok(m.stufen && m.stufen.voll === true && m.stufen.oeffnet.length === 0 && m.aktionen.haupt.disabled === true && /Voll ausgebaut/.test(m.aktionen.haupt.text), 'voll ausgebaut: kein "öffnet", kein Kauf');
+  // Handel: gedimmtes Kreuz, Klick wechselt in die Werft, Grund einmal in der Infozeile
+  T.g.inventory.marks = 5; T.key('KeyH'); m = T.m();
+  ok(m.kreuz.gesperrt === true && m.module.gesperrt === true && typeof m.kreuz.onPlatz === 'function', 'Handel: Kreuz und Module gedimmt, Klick vorhanden');
+  ok(/^Nicht genug Marken \(fehlen \d+\)$/.test(m.handel.info.grund || ''), 'Handel: Grund in der Infozeile mit fehlendem Betrag: ' + m.handel.info.grund);
+  m.kreuz.onPlatz(8); ok(TU.zustand.bereich === 'werft' && TU.zustand.platz === 8, 'Klick auf das Kreuz im Handel wechselt in die Werft');
+  // Sonderzeichen-Ids aus dem Snapshot stören nicht
+  const v = T.view(0); v.state.ship.mounts.push({ id: 'constructor', typ: '__proto__' });
+  let fehlerText = null; try { TU.modell(v); } catch (e) { fehlerText = e.message; }
+  ok(fehlerText === null, 'Modell übersteht unbekannte Mount-Ids ' + (fehlerText || ''));
 }
 
 section('Tastenbelegung (tasten.js, Gruppe terminal)');

@@ -56,7 +56,7 @@
   // ---------- Waffen ----------
   const WAFFEN = [
     {
-      id: 'standardbatterie', name: 'Standardbatterie', kurz: 'BATTERIE', platzart: 'seite', energie: true, art: 'salve',
+      id: 'standardbatterie', name: 'Standardbatterie', kurz: 'STANDARD', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Salve aus vier Rohren, kontinuierliches Feuer, der Allrounder.',
       schaden: 2, rohre: 4, salvoGap: 0.15, ladekosten: 12.3, bogen: 70, reichweite: 520, stoss: 6,
       modell: 'lerche/station/lafette_batterie', projektil: { form: 'doppelbolzen', kind: 'pbatterie', farbe: '#F2C14E' }, geschw: 450, streuung: 0.012, effekt: 'doppelbolzen', ton: 'battery_salvo', symbol: 'schiff_batterie',
@@ -122,7 +122,9 @@
       munition: null, gegner: { verhalten: 'abwehr' },
     },
   ];
-  const BY_ID = {}; for (const w of WAFFEN) BY_ID[w.id] = w;
+  // Tabellen ohne Prototyp und Abfragen über eigene Schlüssel: Ids wie „constructor“, „__proto__“ oder „toString“ aus Befehlen und Weltständen sind keine Treffer (PAN-01 D Review H1)
+  const own = (o, k) => typeof k !== 'object' && Object.prototype.hasOwnProperty.call(o, k);
+  const BY_ID = Object.create(null); for (const w of WAFFEN) BY_ID[w.id] = w;
 
   // ---------- Taktik-Symbole (Pixel-Masken 10×10, Format wie IconsB: '#' Hauptfarbe · '+' hell · 'o' dunkel · 'w' Akzent) ----------
   const SYMBOLE = {
@@ -151,17 +153,17 @@
   function platzartGegner(platz) { return /^bug/.test(String(platz)) ? 'bug' : /^heck/.test(String(platz)) ? 'heck' : 'seite'; }
   // Altart (lanze | batterie | bolzen) oder Katalog-Id -> Katalogeintrag für diesen Gegner-Platz (null = unbekannt)
   function eintragVon(wert, platz) {
-    const m = LEGACY[wert];
+    const m = own(LEGACY, wert) ? LEGACY[wert] : null;
     if (m) return BY_ID[platzartGegner(platz) === 'bug' ? m.bug : m.seite] || null;
     return BY_ID[wert] || null;
   }
   // Verhalten eines Gegner-Eintrags: 'lanze' | 'batterie' | 'bolzen' | 'sturm' | 'streu' | 'torpedo' | 'abwehr' (null = unbekannt)
   function verhaltenVon(wert) {
-    if (LEGACY[wert]) return LEGACY[wert].verhalten;
+    if (own(LEGACY, wert)) return LEGACY[wert].verhalten;
     const w = BY_ID[wert]; return w && w.gegner ? w.gegner.verhalten : null;
   }
   // gültiger Wert in e.waffen (Altart oder Katalog-Id)?
-  const gegnerWert = (v) => !!(LEGACY[v] || BY_ID[v]);
+  const gegnerWert = (v) => !!(own(LEGACY, v) || BY_ID[v]);
   // Waffen, die ein Gegner im Zufallswurf tragen darf (CONFIG.korvetteWaffen): nur die drei Altarten, alles andere ist Absicht
   const GEGNER_ZUFALL = ['lanze', 'batterie', 'bolzen'];
 
@@ -181,17 +183,17 @@
 
   // ---------- Hilfen ----------
   const waffe = (id) => BY_ID[id] || null;
-  const platzArt = (platz) => (PLATZ[platz] ? PLATZ[platz].art : null);
-  const mountId = (platz) => MOUNT_ID[platz] || null;
-  const platzVonMount = (id) => (PLATZ_VON_ID[id] != null ? PLATZ_VON_ID[id] : null);
+  const platzArt = (platz) => (own(PLATZ, platz) ? PLATZ[platz].art : null);
+  const mountId = (platz) => (own(MOUNT_ID, platz) ? MOUNT_ID[platz] : null);
+  const platzVonMount = (id) => (own(PLATZ_VON_ID, id) ? PLATZ_VON_ID[id] : null);
   // darf diese Waffe auf diesen Platz? (Platzart gleich)
-  const passtAuf = (id, platz) => { const w = BY_ID[id]; return !!w && !!PLATZ[platz] && w.platzart === PLATZ[platz].art; };
+  const passtAuf = (id, platz) => { const w = BY_ID[id]; return !!w && own(PLATZ, platz) && w.platzart === PLATZ[platz].art; };
   const fuerPlatzart = (art) => WAFFEN.filter((w) => w.platzart === art);
   // Torpedo-Schaden gegen eine Zielklasse (Schadenspunkte); die Lerche trägt gegenLerche
   const torpedoSchaden = (kind) => (kind === 'lerche' ? TORPEDO.gegenLerche : (TORPEDO.schaden[kind] != null ? TORPEDO.schaden[kind] : 9));
   // Volley einer Waffe (Schaden einer vollen Salve bzw. Lanze bei voller Aufladung)
   const volley = (id) => { const w = BY_ID[id]; return w ? w.stoss : 0; };
-  const moduleFuerKlasse = (kind) => (MODULE_JE_KLASSE[kind] || []).slice();
+  const moduleFuerKlasse = (kind) => (own(MODULE_JE_KLASSE, kind) ? MODULE_JE_KLASSE[kind] : []).slice();
 
   return { WAFFEN, BY_ID, SYMBOLE, MOUNT_ID, PLATZ_VON_ID, PRIORITAET, PLATZ, START_BESTUECKUNG, MAGAZINDECKEL, TORPEDO, GEGNER_ZUFALL, MODULE_JE_KLASSE, MODUL_NAMEN, MODUL_WIRKUNG,
     waffe, platzArt, mountId, platzVonMount, passtAuf, fuerPlatzart, torpedoSchaden, volley, moduleFuerKlasse, eintragVon, gegnerWert, verhaltenVon, platzartGegner, LEGACY };

@@ -33,7 +33,8 @@ Farben nur im Block `// <tokens>` … `// </tokens>`. Bausteine nehmen **Token-N
 | `dim` | `#8EA3B5` | Wirkung, Beschriftung | 7,6:1 Schirm · 6,1:1 Kachel · 4,65:1 Modulraum |
 | `kachel` | `#1A2238` | Teil frei, Artikel | – |
 | `kachelZu` | `#10151F` | Teil kostet / gesperrt | – |
-| `textZu` | `#6F7A8E` | Name eines nicht freigeschalteten Teils, Text gesperrter Zellen | 4,2:1 auf `kachelZu`, 4,4:1 auf Pult (deaktiviert) |
+| `textZu` | `#76829A` (Review: vorher `#6F7A8E`, 4,2:1) | **nur** Name und Wirkung eines **gesperrten** Teils, Text gesperrter Zellen | 4,7:1 auf `kachelZu`, 5,0:1 auf Pult |
+| `antrieb` | `FN.drive` | Buchstabe A der Energieverteilung in der Vorschau (S = `modul`, W = `waffe`) | – |
 | `waffe` | `FN.weapon` `#E0473C` | **eingebaut = roter Rand links**, **wird eingebaut = volle rote Fläche** | Ink darauf 4,7:1 |
 | `modul` | `FN.shield` `#7FE0C2` | **frei / freigeschaltet / Modul / öffnet neu** | 12,6:1 Schirm · Ink darauf 12,2:1 |
 | `preis` | `FN.nav` `#C9974A` | **kostet Marken**, Ort, Handel | 7,5:1 Schirm · 7,0:1 `kachelZu` · Ink darauf 7,3:1 |
@@ -86,7 +87,7 @@ beim Zeichnen (`Pult.knopf`, `Pult.zelle`, Listenzeilen und Artikel über `R.ui.
 | `stufen` | `zeichneStufen` | `{ stufe, ziel, stufen: [{waffen, module, preis}], oeffnet: [{kappe, text}], marken: [vorher, nachher], hinweis, energie }` |
 | `gesperrt` | `zeichneGesperrt` | `{ titel, grund, text, bestueckung: [{kappe, name, fn}] }` (Waffen links, `fn: 'modul'` rechts) |
 | `handel` | `zeichneHandel` | `{ artikel: [{ id, name, art, preis, besitz, grund, guenstiger, onClick }], gewaehlt, info: { text, grund } }` (Daten wie `Consoles.shopRows`) |
-| `kreuz` | `zeichneKreuz` | `{ plaetze (wie schnitt, + stufe), gewaehlt, gesperrt, grund, onPlatz(k) }` – `Pult.zelle`, gleiche Kurznamen wie die Ops |
+| `kreuz` | `zeichneKreuz` | `{ plaetze (wie schnitt, + stufe), gewaehlt, gesperrt, grund, onPlatz(k) }` – `Pult.zelle`, gleiche Kurznamen wie die Ops (`kurz` aus dem Katalog; Standardbatterie `STANDARD`, in der Zelle `STAND.`). **Zustände:** bestückt = volle rote Fläche, gewählt = weißer Rahmen, unbestückter offener Platz = „leer“ (das Ops-Pult zeigt dort weiter „frei“), noch nicht ausgebaut = gestrichelt mit „Stufe n“, `gesperrt` = gedimmt (`off`); im Handel steht das Kreuz gedimmt, ein Klick wechselt in die Werft |
 | `module` | `zeichneModulraeume` | `{ module (wie schnitt, + stufe), gewaehlt: 'F2', gesperrt, onModul(n), energie: 'ENERGIE  Module 3 · frei 5' }` |
 | `bereichUmschalter` | `zeichneBereich` | `{ bereich, werftZu, onBereich(b) }` |
 | `aktionen` | `zeichneAktionen` | `{ haupt: { art: 'umbau'\|'modul'\|'freischalten'\|'kaufen'\|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, grund, onClick }, teil: { disabled, onClick } }` |
@@ -104,7 +105,7 @@ weil es Marken kostet. Mint bleibt für „öffnet neu“.
 ## 5. Tasten (Kappen zeigen die echte Taste)
 
 `PultTerminal.kappe(aktion, ersatz)` nimmt die Belegung aus `tasten.js`, sobald die Aktion dort steht, sonst die Ersatzbeschriftung.
-Vorgeschlagene Aktions-Ids (Gruppe neu `terminal`): `terminal.platz1`–`9` (NUM 1–9), `terminal.modul1`–`4` (F1–F4), `terminal.teil` (↑↓),
+Vorgeschlagene Aktions-Ids (Gruppe neu `terminal`): `terminal.platz1`–`9` (NUM 1–9), `terminal.modul1`–`4` (F1–F4), `terminal.teilHoch`/`terminal.teilRunter` (↑ und ↓; die Kappe „↑↓“ am Knopf Teil bleibt die Ersatzbeschriftung),
 `terminal.bestaetigen` (Enter), `terminal.freischalten` (KeyF), `terminal.ausbau` (KeyA), `terminal.handel` (KeyH), `terminal.werft` (KeyW), `terminal.kaufen` (Enter).
 Enter erscheint als **„Ent“** (Konvention `KAPPEN` in `tasten.js`, wie alle Pulte; das Mockup zeigte „Enter“).
 
@@ -128,13 +129,26 @@ Befunde zu Konflikten (geprüft: `tasten.js`, `client.js`, `voxel/boot.js`, `con
 6. **Kein Emoji, keine Web-Schrift, keine Verläufe**, nur dunkel. Bilder nur als Pixelmaske.
 7. Neue Zustände oder Ansichten: erst in `terminal-preview.html` zeigen, dann Screenshot ansehen.
 
-## 7. Offene Punkte
+## 7. Review-Nachtrag 2026-10-20 (Designer-Review von Paket D) und offene Punkte
 
-- **Reihenfolge der Lafetten 7/1 und 9/3 in der Karte:** In `shared/maps.js` liegt Platz 1 **vor** Platz 7 (x 18 gegen x 16), ebenso 3 vor 9. Mit dem Bug
-  oben steht im Schnitt deshalb 1 über 7, im Ziffernblock ist es umgekehrt. Empfehlung: Lafetten 7 ↔ 1 und 9 ↔ 3 in der Legende tauschen
-  (nur Datenlage, Stufe 1 öffnet 7/9, Stufe 3 öffnet 1/3, also prüfen, ob Räume/Pforten mitwandern). Zeichnet der Schnitt die echten Kacheln, ist
-  die Lage richtig, das Bild widerspricht nur dem Ziffernblock. Entscheidung Leiter/Kai.
-- **Preise** fehlen im Katalog (`preis`); die Vorschau nimmt die Vorschläge aus den Designrichtungen.
-- **Modul-Wirkungstexte** gehören in den Katalog (heute nur `MODUL_NAMEN`); die Vorschau trägt sie vorläufig selbst.
-- **Raumlinien 1,9:1** liegen unter 3:1 für Grafik. Der Plan ist Orientierung, die Information (Plätze, Module, Zustand) steht in Kappen, Kreuz und Liste mit ≥ 3,4:1.
-- **Modulraum leeren** (kein Modul): als Listeneintrag nicht vorgesehen, bis die Entwicklung entscheidet, ob ein Raum leer stehen darf.
+**Kontraste nachgemessen** (WCAG-Formel, `PultTerminal.kontrast`, Zielwert 4,5:1 für Text; Grafik 3:1):
+| Paar | Werte | Kontrast |
+|---|---|---|
+| Wirkung `dim` auf `kachel` (frei, kostet) | `#8EA3B5` auf `#1A2238` | 6,06:1 |
+| Wirkung `dim` auf `kachelZu` (kostet, Tag gesperrt) | `#8EA3B5` auf `#10151F` | 7,01:1 |
+| Name `text` auf `kachelZu` (kostet) | `#F4EEDC` auf `#10151F` | 15,76:1 |
+| Name `text` auf `kachel` | `#F4EEDC` auf `#1A2238` | 13,62:1 |
+| **gesperrt** `textZu` auf `kachelZu` | `#76829A` auf `#10151F` | **4,73:1** (vorher 4,22:1) |
+| gewählt, Waffe: `ink` auf `waffe` (Name und Wirkung) | `#0B0E1A` auf `#E0473C` | 4,70:1 |
+| gewählt, Modul: `ink` auf `modul` | `#0B0E1A` auf `#7FE0C2` | 12,22:1 |
+| gewählt, Artikel: `ink` auf `preis` | `#0B0E1A` auf `#C9974A` | 7,33:1 |
+| Preis `preis` auf `kachelZu` / `kachel` | `#C9974A` | 6,97:1 / 6,02:1 |
+| EINGEBAUT `modul` auf `kachel` | `#7FE0C2` auf `#1A2238` | 10,03:1 |
+| Unterzeile Handel `dim` auf Schirm | `#8EA3B5` auf `#070A14` | 7,58:1 |
+| gewählt und gesperrt (Handel) `text` auf `offLine` | `#F4EEDC` auf `#3A4A66` | 7,70:1 |
+Geändert wurde im Tokenblock nur `textZu`; neu ist das Token `antrieb`. Gewählte Zeilen schreiben Name und Wirkung in `ink` (vorher eine Mischfarbe), Teile, die Marken kosten, lesen sich wie freie (Name `text`, Wirkung `dim`), `textZu` gilt nur noch für gesperrte Teile.
+
+**Weitere Anpassungen der Bausteine:** Teilliste mit Höhenstaffel (2,3) → (2,2) → (1,2) → (1,1) und Tooltip mit dem vollen Wirkungssatz beim Überfahren · Handel-Kacheln nur `Art · Besitz` (gekürzt), der Grund einmal in der Infozeile, gesperrte Kacheln dimmen über Fläche und Preis · Vorschau ohne Inhalt zeichnet keinen Titel, Verteilung als `A2 S2 W2 → A2 S2 W1` (Buchstabe in Funktionsfarbe, geänderte Stelle `text`, Rest `dim`) · Stufen bei voll ausgebautem Schiff nur mit dem Satz „Das Schiff ist voll ausgebaut.“ in Mint · gesperrte Werft: Legende „nur Ansicht …“, Titel in der Titel-Rolle · `zeichneTerminal` nimmt `m.titel` (Säulentitel, Zuschauer: ZUSEHEN) und `m.rahmenFarbe` (1-px-Rahmen in der Farbe des Nutzers um die Anzeige) · Kreuzzelle „leer“ statt „frei“.
+
+**Erledigt seit der ersten Fassung:** die Reihenfolge der Lafetten (7 und 9 bugwärts, 1 und 3 heckwärts, Karte getauscht) · Preise (`CONFIG.werft.preise`, nicht im Katalog) · Wirkungstexte der Module (`Katalog.MODUL_WIRKUNG`) · ein Modulraum darf leer bleiben (`werft.modul` mit `leer`, Listeneintrag „Leer lassen“).
+**Offen:** Raumlinien 1,9:1 (Plan ist Orientierung, die Information steht in Kappen, Kreuz und Liste mit ≥ 3,4:1) · das Ops-Pult zeigt für einen unbestückten Platz weiter „frei“ (hier „leer“; nicht angefasst) · ODA im Terminal, siehe CONTRACT-PAN01-D.md §13.
