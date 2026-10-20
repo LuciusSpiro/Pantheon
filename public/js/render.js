@@ -2608,15 +2608,30 @@
   }
   // SUND-01 D: Banner in der Besitzerfarbe (Marker.fr = Fraktions-Id, Farbe aus fraktionen der Sektorkarte; unbekannt = neutral).
   // Mast am oberen rechten Rand des Sprites, Fahne weht leicht. rad = Sprite-Radius in Bildschirmpixeln.
+  // SUND-01 H: sicht = sichtbarer Ausschnitt in Bildschirmpixeln (Rechteck). Der Mast ragt über den Sprite hinaus; wo der Ausschnitt
+  // das Banner abschneiden würde (Hauptschirm im Voxel-Modus zeigt nur 417 px nach vorn), wird der Mast gekürzt bzw. nach innen gerückt,
+  // sodass Mast und Fahne ganz im Ausschnitt bleiben. Ohne sicht oder mit Platz im Ausschnitt: Maße wie in D.
   function bannerFarbe(fr) {
     const SS = window.Shared_Sektoren; const K = SS && SS.KARTE; const f = K && K.fraktionen && K.fraktionen[fr];
     return (f && f.farbe) || '#8A93A0';
   }
-  function zeichneBanner(ctx, sx, sy, rad, fr, t) {
-    const h = Math.max(24, rad * 0.8), bw = Math.max(18, h * 0.78), bh = Math.max(11, h * 0.46);
-    const x = sx + rad * 0.45, y = sy - rad * 0.45;
+  function bannerMasse(sx, sy, rad, sicht) {
+    const h0 = Math.max(24, rad * 0.8), bw = Math.max(18, h0 * 0.78), bh = Math.max(11, h0 * 0.46);
+    let x = sx + rad * 0.45, y = sy - rad * 0.45, h = h0;
+    if (sicht) {
+      const o = sicht.y + 2, u = sicht.y + sicht.h - 2, l = sicht.x + 2, r = sicht.x + sicht.w - 2;
+      h = Math.min(h0, Math.max(bh + 2, y - o));               // Mast kürzen, wenn die Spitze über den oberen Rand ragt (Fahne bleibt ganz)
+      if (y - h < o) y = Math.min(o + h, sy + rad * 0.9);       // reicht das nicht: Mastfuß nach unten auf den Sprite rücken
+      if (y > u) y = u;
+      if (x + bw > r) x = r - bw;
+      if (x < l) x = l;
+    }
+    return { x, y, h, bw, bh };
+  }
+  function zeichneBanner(ctx, sx, sy, rad, fr, t, sicht) {
+    const { x, y, h, bw, bh } = bannerMasse(sx, sy, rad, sicht);
     ctx.save();
-    ctx.strokeStyle = '#D5DCE6'; ctx.lineWidth = Math.max(1.5, h * 0.06);
+    ctx.strokeStyle = '#D5DCE6'; ctx.lineWidth = Math.max(1.5, Math.max(24, rad * 0.8) * 0.06);
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h); ctx.stroke();
     const w = Math.sin(t * 2.4) * bh * 0.14;
     ctx.fillStyle = bannerFarbe(fr);
@@ -3706,7 +3721,8 @@
         if (!artStation(ctx, k, 0, 0, { time: t, name: m.name })) fbStation(ctx, m.kind, t, m);
         ctx.restore();
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
-        if (m.fr) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
+        const sicht = cfg.sicht || B;   // SUND-01 H: sichtbarer Ausschnitt (Hauptschirm im Voxel-Modus: Textur, kleiner als das Fenster)
+        if (m.fr && s.x >= sicht.x && s.x <= sicht.x + sicht.w && s.y >= sicht.y && s.y <= sicht.y + sicht.h) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t, sicht);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
         mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
@@ -4138,7 +4154,7 @@
     const cx = rect.x + Math.round(rect.w / 2), cy = rect.y + Math.round(FRONT.fwd * zoom);
     const half = Math.round(FRONT.side * zoom);
     const win = { x: cx - half, y: rect.y, w: half * 2, h: rect.h };
-    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
+    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
     const t = view.time;
     if (fog) {
       ctx.save(); ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();
@@ -4525,7 +4541,7 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    drawSpace, drawFrontView, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,

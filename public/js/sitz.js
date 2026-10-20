@@ -134,7 +134,7 @@
     const nb = R.ui.buttons.length;
     try {
       const zoom = (SW / 2) / R.FRONT.side, h = (R.FRONT.fwd + R.FRONT.back) * zoom;
-      R.drawFrontView(c, view, { x: 0, y: SH - 34 - R.FRONT.fwd * zoom, w: SW, h });
+      R.drawFrontView(c, view, { x: 0, y: SH - 34 - R.FRONT.fwd * zoom, w: SW, h, sicht: { x: 0, y: 0, w: SW, h: SH } });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
     } catch (e) { Net.reportError('Sitz.schirm', e); }
     R.ui.buttons.length = nb;
     S.schirmVersion++;
