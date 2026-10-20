@@ -2,7 +2,7 @@
 // echter Browser-Client (Playwright), Modus „Freie Fahrt Sund“, Captain-Konsole. Lagen: ruhig, Aufmarsch gesehen (mit Funk-Einblendung), Aufmarsch nicht
 // gesehen (Altstand), Marsch, Belagerung, Zoom, Nahansicht, Funk-Reiter, mehrere Meldungen kurz hintereinander. Die Lagen entstehen durch einen
 // präparierten Sim-Zustand (kein Warten), das Wissen von Rom rechnet der echte Server (kriegslage-wissen.js), gezeichnet wird mit dem echten Client.
-// Aufruf: node tools/sicht-lage.js [--shots <Ordner>] [--port 3460]      (Bilder nicht im Repo, Standard: Temp-Ordner)
+// Aufruf: node tools/sicht-lage.js [--shots <Ordner>] [--port 3460] [--dpr 1]      (Bilder nicht im Repo, Standard: Temp-Ordner; --dpr 3 für die Hexnahaufnahmen z-*.png)
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -13,6 +13,7 @@ process.chdir(ROOT);
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const PORT = +arg('port', '3460');
 const SHOTS = arg('shots', path.join(os.tmpdir(), 'sund01-shots'));
+const DPR = +arg('dpr', '1');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sicht-lage-'));
 process.env.MISSION_SOURCE = 'fallback'; process.env.REGIE_DIR = path.join(TMP, 'regie'); process.env.ERZEUGT_DIR = path.join(TMP, 'erzeugt');
 delete process.env.LLM_LIVE; delete process.env.SPIELLEITER_LLM;
@@ -30,7 +31,7 @@ async function main() {
   const b = await chromium.launch();
   const fehler = [];
   try {
-    const page = await (await b.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+    const page = await (await b.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: DPR })).newPage();
     page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 200)); });
     await page.goto(`http://127.0.0.1:${PORT}/?debug=1&render=2d`);
@@ -54,6 +55,8 @@ async function main() {
     const KARTE = { x: 125, y: 15, width: 830, height: 470 }, SPALTE = { x: 965, y: 15, width: 310, height: 470 };
     const shot = async (name, wartMs, clip) => { await sleep(wartMs || 700); await page.screenshot(Object.assign({ path: path.join(SHOTS, name + '.png') }, clip ? { clip } : {})); console.log('Bild', name); };
     const hexPos = (code) => page.evaluate((c) => { const m = StarMap.hexMitte(c); const cv = document.getElementById('game'); const r = cv.getBoundingClientRect(); return m ? { x: r.x + m.x * r.width / 640, y: r.y + m.y * r.height / 360 } : null; }, code);
+    // Nahaufnahme eines Hexes (SUND-01 G: eigener Kurspfeil, Auswahl über den Plaketten, Klasse unter Belagerung)
+    const hexShot = async (name, code, dx, dy) => { const q = await hexPos(code); if (!q) return; await page.screenshot({ path: path.join(SHOTS, name + '.png'), clip: { x: Math.max(0, q.x - (dx || 55)), y: Math.max(0, q.y - (dy || 45)), width: 2 * (dx || 55), height: 2 * (dy || 45) } }); console.log('Bild', name); };
     const hover = async (code) => { const q = await hexPos(code); if (q) await page.mouse.move(q.x, q.y); await sleep(250); };
     const sitz = (c) => page.evaluate((cc) => __game.send({ t: 'debug', cmd: 'sitz', console: cc }), c);
     const lage = () => page.evaluate(() => ({ hat: !!(window.StarMap && StarMap.lageAktiv()), ansicht: StarMap.lageAnsicht }));
@@ -73,6 +76,7 @@ async function main() {
     schritt(() => { rom.befehl = 'anspruch'; rom.ziel = '0505'; rom.ort = '0405'; skj.befehl = 'anspruch'; skj.ziel = '0703'; skj.ort = '0803'; });
     schritt();
     await shot('a-ruhig'); await shot('crop-a-karte', 100, KARTE); await shot('crop-a-spalte', 100, SPALTE);
+    await hexShot('z-a-porta', '0405'); await hexShot('z-a-eisfeld', '0703'); await hexShot('z-a-ulfs', '0803');
     await hover('0602'); await shot('crop-altrost-spalte', 100, SPALTE); await page.mouse.move(5, 5);   // verborgenes Hex Altrost: „?“ ohne Namen (Wissensleck geschlossen)
     console.log('Lage A:', JSON.stringify(await lage()), JSON.stringify(Wissen.lage(g)).length + ' B');
 
@@ -109,6 +113,7 @@ async function main() {
     schritt(() => { ger.ort = '0403'; z.angriffe[0].t_an = z.tick; }, [{ typ: 'notruf', tick: z.tick, fraktion: 'rom', art: 'belagerung', ort: '0403', ortName: 'Speculum', opfer: 'rom', angreifer: 'ger', staerke: 2, klasse: 1, angriff: 1 }]);
     schritt();
     await shot('phase-belagerung', 900); await shot('crop-bel', 50, KARTE); await shot('crop-bel-spalte', 50, SPALTE);
+    await hexShot('z-bel-spec', '0403'); await hover('0403'); await hexShot('z-bel-spec-sel', '0403'); await page.mouse.move(5, 5);
 
     // ---- Lage C: Aufmarsch nicht gesehen (Posten Kantenstein verloren, Ulfsvakt außer Sicht, Altstand)
     ruhigMachen(true, 'pulverhorn');

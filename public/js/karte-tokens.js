@@ -120,7 +120,7 @@
       anker: { dy: -0.36, dx: 0, dxNotruf: -9, hafenDy: -4, verteidigerDy: 1 },
       maxJeHex: 2, mehrChip: { breite: 11, hoehe: 9 },   // „+1“ bei mehr als zwei Plaketten
     },
-    kurs: { pfeil: 0.2, pfeilMin: 5, abstandRand: 6 },   // Pfeil 6 px innen vor der Hexseite, Größe max(5, 0.2·s): eigene Flotte hinaus zum nächsten Hex (n), fremde hinein von der Seite, aus der sie kam (v)
+    kurs: { pfeil: 0.2, pfeilMin: 5, abstandRand: 6 },   // Pfeil 6 px innen vor der Hexseite, Größe max(5, 0.2·s): eigene Flotte hinaus zum nächsten Hex (n), fremde hinein von der Seite, aus der sie kam (v). SUND-01 G: der eigene Pfeil ist auf die Mitte der Hexseite zentriert (Fuß und Spitze je halbe Pfeillänge von der Seite, senkrecht zu ihr) und hängt so nicht an Klasse und Name
     vermutet: { strich: [4, 3], breite: 1, unterlage: 3, marke: { breite: 8, hoehe: 10 }, maxHexe: 3 },
     front: { breite: 5, unterlage: 8, segment: 4, ueberstand: 0.15 },   // Streifen hell/rot, je 4 px; Seite um 15 % verlängert
     sicht: { breite: 2, unterlage: 4 },

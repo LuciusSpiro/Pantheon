@@ -331,6 +331,31 @@ section('SUND-01 G: Spaltenbilanz, Meldeliste mindestens 3 Zeilen, Sprunghinweis
   log.length = 0; KL.meldeliste(fakeCtx(), B, Object.assign({}, On, { rw: 60 }));
   ok(log.slice(1).every((l) => l.s.length * 5 <= 60 - MS.meldung.textX + 6), 'Spalte zu schmal: gekürzt, ohne Fehler');
 }
+section('SUND-01 G: Kurspfeil eigener Flotten auf der Hexseite');
+{
+  const s = 23.6, SQ = Math.sqrt(3);
+  const mitte = (h) => { const c = +h.slice(0, 2), r = +h.slice(2); return { x: 30 + s * (1 + 1.5 * (c - 1)), y: 20 + s * (SQ / 2 + SQ * (r - 1) + (c % 2 === 0 ? SQ / 2 : 0)) }; };
+  const V = { s, h3: SQ * s, hexe: CODES, bereich: 'voll', mitte, nachbarn: () => [], weg: (a, b) => [a, b] };
+  const pfeil = (q) => {
+    const pts = []; let offen = false;   // der erste geschlossene Pfad ist der Kurspfeil (danach folgt das Phasenfeld der Plakette)
+    const ctx = new Proxy({}, { get(_, k) { return (...a) => { if (k === 'beginPath') { offen = true; pts.length = 0; } if ((k === 'moveTo' || k === 'lineTo') && offen) pts.push(a); if (k === 'closePath') { offen = false; if (!pts.done) pts.done = pts.slice(); } }; }, set() { return true; } });
+    KL.flotten(ctx, KL.lesen(Object.assign(blockLageB(), { f: [q], m: [] }), CODES), V, {});
+    return pts.done;
+  };
+  for (const [h, nb] of [['0405', '0505'], ['0603', '0503'], ['0603', '0703'], ['0603', '0604']]) {
+    const own = pfeil({ f: 'r', h, k: 1, p: 'm', a: 0, n: nb });
+    if (!own) { ok(false, 'eigener Pfeil ' + h + ' -> ' + nb + ': gezeichnet'); continue; }
+    const p = mitte(h), q2 = mitte(nb), dx = q2.x - p.x, dy = q2.y - p.y, len = Math.hypot(dx, dy), nx = dx / len, ny = dy / len;
+    const mx = (p.x + q2.x) / 2, my = (p.y + q2.y) / 2, tip = own[0], b1 = own[1], b2 = own[2], bm = { x: (b1[0] + b2[0]) / 2, y: (b1[1] + b2[1]) / 2 };
+    const ts = (tip[0] - mx) * nx + (tip[1] - my) * ny, bs = (bm.x - mx) * nx + (bm.y - my) * ny, quer = (tip[0] - bm.x) * -ny + (tip[1] - bm.y) * nx;
+    ok(Math.abs(ts + bs) < 0.01 && ts > 0 && bs < 0, 'eigener Pfeil ' + h + ' -> ' + nb + ': Spitze ' + ts.toFixed(1) + ' px hinter, Fuß ' + (-bs).toFixed(1) + ' px vor der Seitenmitte (zentriert)');
+    ok(Math.abs(quer) < 0.01 && Math.abs((tip[0] - bm.x) * nx + (tip[1] - bm.y) * ny - (ts - bs)) < 0.01, 'eigener Pfeil ' + h + ' -> ' + nb + ': senkrecht zur Hexseite ausgerichtet');
+  }
+  const fremd = pfeil({ f: 'g', h: '0405', k: 1, p: 'u', a: 1, v: '0505' });
+  const p = mitte('0405'), q2 = mitte('0505'), mx = (p.x + q2.x) / 2, my = (p.y + q2.y) / 2, len = Math.hypot(q2.x - p.x, q2.y - p.y), nx = (q2.x - p.x) / len, ny = (q2.y - p.y) / len;
+  const fb = { x: (fremd[1][0] + fremd[2][0]) / 2, y: (fremd[1][1] + fremd[2][1]) / 2 };
+  ok(Math.abs(((fb.x - mx) * nx + (fb.y - my) * ny) + T.MASS.kurs.abstandRand) < 0.01, 'fremder Pfeil (Herkunft v) unverändert: 6 px innen vor der Hexseite');
+}
 section('SUND-01 F: StarMap mit Lage: Hafenklasse, Nebensymbole, Abdunklung, Etikett');
 {
   let einfl = 0; const einflOrig = KZ.einfluss; KZ.einfluss = (...a) => { einfl++; return einflOrig(...a); };

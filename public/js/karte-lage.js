@@ -254,8 +254,8 @@
             txt(ctx, '?', z.x + 1, z.y, { color: F.vermutet.marke, align: 'center', shadow: false });
           }
         }
-        // Pfeil an der Hexseite zum Nachbarn: eigene Flotte hinaus (n), fremde hinein (v, Spitze zur Hexmitte)
-        const k = Math.max(M.kurs.pfeilMin, s * M.kurs.pfeil), cx = S.mx - S.nx * M.kurs.abstandRand, cy = S.my - S.ny * M.kurs.abstandRand, t = (q.v ? -1 : 1) * k;
+        // Pfeil an der Hexseite zum Nachbarn: eigene Flotte hinaus (n, auf der Seitenmitte, senkrecht zur Seite), fremde hinein (v, 6 px innen, Spitze zur Hexmitte)
+        const k = Math.max(M.kurs.pfeilMin, s * M.kurs.pfeil), ab = q.v ? M.kurs.abstandRand : k / 2, cx = S.mx - S.nx * ab, cy = S.my - S.ny * ab, t = (q.v ? -1 : 1) * k;
         ctx.save(); ctx.beginPath(); ctx.moveTo(cx + S.nx * t, cy + S.ny * t); ctx.lineTo(cx - S.ny * k * 0.8, cy + S.nx * k * 0.8); ctx.lineTo(cx + S.ny * k * 0.8, cy - S.nx * k * 0.8); ctx.closePath();
         ctx.strokeStyle = P.tisch; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = q.p === 'r' ? P.stahlhell : col; ctx.fill(); ctx.restore();
       }
