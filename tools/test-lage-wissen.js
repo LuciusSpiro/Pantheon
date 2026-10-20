@@ -439,25 +439,76 @@ section('Weitere Funkmeldungen (Belagerung, Fall) und Meldungen; Marsch funkt ni
 }
 
 // =============================================================================================================================
-section('Notruf-Marken nur wenn gesehen');
+section('Notruf-Marken nur wenn gesehen, neutrale Id, Ende nach der Sicht und nie nach der Wahrheit');
 {
+  const nr = (s, an, ort, opfer) => [{ typ: 'notruf', tick: s.z.tick, fraktion: opfer, art: 'belagerung', ort, ortName: ort, opfer, angreifer: 'ger', staerke: 5, klasse: 2, angriff: an }];
+  const marken = (s) => s.g.marken.filter((m) => m.t === 'notruf');
+  const rec = (z, id, ziel) => z.angriffe.push({ id, t0: 0, ziel, von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: 1, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: 0, stuetz: null, flotten: [] });
+  const belagere = (z, fl, an, ort) => { fl.befehl = 'angriff'; fl.ziel = ort; fl.ort = ort; fl.angriff = an; rec(z, an, ort); };
+  const beende = (z, fl, an) => { fl.befehl = 'heim'; fl.ziel = null; fl.ort = fl.heimat; fl.angriff = null; const r = z.angriffe.find((x) => x.id === an); r.t_ende = z.tick; r.ausgang = 'abgewehrt'; };
   const s = szene();
-  const nr = (an, ort, opfer) => [{ typ: 'notruf', tick: s.z.tick, fraktion: opfer, art: 'belagerung', ort, ortName: ort, opfer, angreifer: 'ger', staerke: 5, klasse: 2, angriff: an }];
-  const marken = () => s.g.marken.filter((m) => m.t === 'notruf');
-  const rec = (id, ziel) => s.z.angriffe.push({ id, t0: 0, ziel, von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: 1, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: 0, stuetz: null, flotten: [] });
-  rec(1, '0403'); rec(2, '0504'); rec(3, '1005');
-  s.schritt(null, nr(1, '0403', 'rom'));
-  ok(marken().length === 1 && marken()[0].h === '0403' && marken()[0].id === 'lage:a1', 'Notruf eines eigenen Hafens: Marke sofort');
-  ok(s.g.snapshot().world.marken.some((m) => m.h === '0403' && m.t === 'notruf'), 'Marke im Snapshot (world.marken)');
-  s.schritt(null, nr(3, '1005', 'ger')); s.schritt(); s.schritt();
-  ok(!marken().some((m) => m.h === '1005'), 'Notruf außer Sicht (Eisenhall): keine Marke');
-  s.schritt(null, nr(2, '0504', 'kon'));
-  ok(!marken().some((m) => m.h === '0504'), 'fremder Notruf in Sicht: Tick n noch keine Marke');
+  const fA = flotteVon(s.z, '0803'), fB = flotteVon(s.z, '0904'), fC = flotteVon(s.z, '1005');
+  s.schritt((z) => belagere(z, fA, 37, '0403'), nr(s, 37, '0403', 'rom'));
+  ok(marken(s).length === 1 && marken(s)[0].h === '0403' && /^lage:n\d+$/.test(marken(s)[0].id) && !/37/.test(marken(s)[0].id), 'Notruf eines eigenen Hafens: Marke sofort, Id neutral (laufende Nummer, nicht die Feldzug-Nummer): ' + marken(s)[0].id);
+  ok(s.g.snapshot().world.marken.some((m) => m.h === '0403' && m.t === 'notruf' && !/37/.test(m.id || '')), 'Marke im Snapshot (world.marken), ohne Feldzug-Nummer');
+  s.schritt((z) => belagere(z, fC, 39, '1005'), nr(s, 39, '1005', 'ger')); s.schritt(); s.schritt();
+  ok(!marken(s).some((m) => m.h === '1005'), 'Notruf außer Sicht (Eisenhall): keine Marke');
+  s.schritt((z) => belagere(z, fB, 38, '0504'), nr(s, 38, '0504', 'kon'));
+  ok(!marken(s).some((m) => m.h === '0504'), 'fremder Notruf in Sicht: Tick n noch keine Marke');
   s.schritt();
-  ok(marken().some((m) => m.h === '0504'), 'Tick n+1: Marke (gesehen)');
-  s.schritt((z) => { z.angriffe[0].t_ende = z.tick; z.angriffe[0].ausgang = 'abgewehrt'; });
-  ok(!marken().some((m) => m.h === '0403') && marken().some((m) => m.h === '0504'), 'Marke endet mit der Lage (Feldzug beendet), die andere bleibt');
+  ok(marken(s).some((m) => m.h === '0504'), 'Tick n+1: Marke (gesehen)');
+  ok(marken(s).some((m) => m.h === '0403') && marken(s).length === 2, 'eigene Marke steht noch (der Feldzug läuft), im Stand von Tick n sind beide Belagerer da');
+  s.schritt((z) => beende(z, fA, 37));
+  ok(marken(s).some((m) => m.h === '0403'), 'der Feldzug endet in Tick n: die Marke bleibt noch (Anzeige hängt einen Tick nach)');
+  s.schritt();
+  ok(!marken(s).some((m) => m.h === '0403') && marken(s).some((m) => m.h === '0504'), 'Tick n+1: Rom sieht den Hafen ohne Belagerer, die Marke endet; die andere bleibt');
   ok(s.g.errors === 0, 'keine Fehler');
+}
+{
+  // Metamorph: außer Sicht endet der Feldzug (Marke Concordia, Sammelzähler d Ulfsvakt) in der Sim oder nicht, der Block und die Marken sind gleich
+  const nr = (s, an, ort, opfer) => [{ typ: 'notruf', tick: s.z.tick, fraktion: opfer, art: 'belagerung', ort, ortName: ort, opfer, angreifer: 'ger', staerke: 5, klasse: 2, angriff: an }];
+  const marken = (s) => kopie(s.g.marken.filter((m) => m.t === 'notruf'));
+  const lauf = (endet, wieder) => {
+    const s = szene();
+    const fC = flotteVon(s.z, '0904'), fD = flotteVon(s.z, '0803');
+    s.schritt((z) => { fC.befehl = 'angriff'; fC.ziel = '0604'; fC.ort = '0604'; fC.angriff = 41; z.angriffe.push({ id: 41, t0: z.tick, ziel: '0604', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: z.tick, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: z.tick, stuetz: null, flotten: [fC.id] }); sammelt(z, fD, 42, '0803'); }, nr(s, 41, '0604', 'kon'));
+    s.schritt(); s.schritt();   // Concordia ist über den Posten Kantenstein in Sicht (1 Sprung), Ulfsvakt (2 Sprünge) auch
+    const sicht = kopie(s.block());
+    const hatMarke = marken(s).some((m) => m.h === '0604');
+    const hatD = !!(eintrag(sicht, '0803', 'g') && eintrag(sicht, '0803', 'g').d);
+    s.schritt((z) => { Object.assign(z.hexe['0603'], { besitzer: null, posten: false, garnison: 0 }); });   // Rom verliert den Posten: beide Hexe außer Sicht
+    s.schritt((z) => {
+      if (endet) {
+        fC.befehl = 'heim'; fC.ziel = null; fC.ort = fC.heimat; fC.angriff = null; z.angriffe[0].t_ende = z.tick; z.angriffe[0].ausgang = 'abgewehrt';
+        fD.befehl = 'heim'; fD.ziel = null; fD.ort = fD.heimat; fD.angriff = null; z.angriffe[1].t_ende = z.tick; z.angriffe[1].ausgang = 'abgebrochen';
+      }
+    });
+    s.schritt(); s.schritt();
+    if (wieder) { s.schritt((z) => { Object.assign(z.hexe['0603'], { besitzer: 'rom', posten: true, garnison: 4 }); }); s.schritt(); s.schritt(); }
+    return { s, hatMarke, hatD, b: kopie(s.block()), m: marken(s) };
+  };
+  const A = lauf(false), B = lauf(true);
+  ok(A.hatMarke && A.hatD, 'Vorbereitung: Marke Concordia und Sammelzähler d (Ulfsvakt) standen, solange Rom die Hexe sah');
+  ok(gleich(A.b, B.b) && gleich(A.m, B.m), 'Ende des Feldzugs außer Sicht (Belagerung und Sammeln): Block und Notruf-Marken unverändert');
+  ok(A.m.some((m) => m.h === '0604') && A.b.f.some((q) => q.h === '0803' && q.d), 'die Marke und der Zähler d stehen weiter (Altstand)');
+  const A2 = lauf(false, true), B2 = lauf(true, true);
+  ok(A2.m.some((m) => m.h === '0604') && !B2.m.some((m) => m.h === '0604'), 'Rom sieht Concordia wieder: dauert der Feldzug an, bleibt die Marke, ist er vorbei, endet sie');
+  ok(!B2.b.f.some((q) => q.h === '0803') && A2.b.f.some((q) => q.h === '0803' && q.p === 's'), 'und der Sammelzähler/Plakette von Ulfsvakt mit ihm');
+  // nach altMax Ticks außer Sicht endet die Marke auch ohne Wiedersehen
+  const s = szene();
+  const fC = flotteVon(s.z, '0904');
+  s.schritt((z) => { fC.befehl = 'angriff'; fC.ziel = '0604'; fC.ort = '0604'; fC.angriff = 41; z.angriffe.push({ id: 41, t0: z.tick, ziel: '0604', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: z.tick, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: z.tick, stuetz: null, flotten: [fC.id] }); }, nr(s, 41, '0604', 'kon'));
+  s.schritt(); s.schritt((z) => { Object.assign(z.hexe['0603'], { besitzer: null, posten: false, garnison: 0 }); });
+  for (let i = 0; i < KT.WERTE.altMax - 1; i++) s.schritt();   // 12 Ticks nach der letzten Sicht (Stand 2): Altstand-Plaketten leben genauso lang
+  const noch = s.g.marken.some((m) => m.t === 'notruf');
+  s.schritt();
+  ok(noch && !s.g.marken.some((m) => m.t === 'notruf'), 'außer Sicht endet die Marke, wenn die letzte Sicht mehr als altMax (' + KT.WERTE.altMax + ') Ticks zurückliegt, nicht früher');
+  // Laden: die Marke kommt mit derselben Id zurück, Altstand ohne Marken-Id bekommt eine neutrale
+  const W = kopie(Wissen.toSave(A.s.ws));
+  ok(W.notrufe.length === 1 && /^lage:n\d+$/.test(W.notrufe[0].m), 'im gespeicherten Wissen: neutrale Marken-Id');
+  const W2 = kopie(W); for (const x of W2.notrufe) { delete x.m; delete x.t; delete x.s; } delete W2.nrz;
+  const sx = szene(); sx.ws.zustand.tick = W2.t; sx.ws.tickZahl = W2.t; Wissen.restore(sx.g, W2); Wissen.markenNeu(sx.g);
+  ok(sx.ws.wissen.notrufe.length === 1 && /^lage:n\d+$/.test(sx.ws.wissen.notrufe[0].m) && sx.g.marken.some((m) => m.t === 'notruf' && m.id === sx.ws.wissen.notrufe[0].m), 'Altstand (Marke ohne Id): bekommt eine neutrale Id, die Marke wird gesetzt');
 }
 
 // =============================================================================================================================

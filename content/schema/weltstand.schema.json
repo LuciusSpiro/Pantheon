@@ -151,7 +151,8 @@
                 "gesehen": { "type": "array", "items": { "type": "string" } },
                 "meldungen": { "type": "array", "items": { "type": "object" } },
                 "wartend": { "type": "array", "items": { "type": "object" } },
-                "notrufe": { "type": "array", "items": { "type": "object", "required": ["an", "h"], "properties": { "an": { "type": "integer" }, "h": { "type": "string" } } } }
+                "notrufe": { "type": "array", "items": { "type": "object", "required": ["an", "h"], "properties": { "an": { "type": "integer" }, "h": { "type": "string" }, "m": { "type": "string", "description": "neutrale Marken-Id lage:n<Nummer> (SUND-01 E)" }, "t": { "type": "integer" }, "s": { "type": "integer", "description": "zuletzt gesehen mit Belagerer" } } } },
+                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" }
               }
             },
             "zustand": {

@@ -14,7 +14,9 @@
 //
 // Wissen (Zustand, wird mit welt.sim gespeichert, Schema ergänzt, keine Versionserhöhung):
 //   { v, t, hexe: { <hex>: { f, p, a } }, flotten: [ { f, h, k, p, a, n? (nur eigene), v? (nur fremde), z?, d?, an?, ids } ], erst: { <angriff>: Tick }, gesehen: [ 'sa:3' ... ],
-//     spur: { <flottenid>: { h, a, v? } }, meldungen: [ { e, h, t, f?, k? } ], wartend: [ Ereignis ], notrufe: [ { an, h } ] }
+//     spur: { <flottenid>: { h, a, v? } }, meldungen: [ { e, h, t, f?, k? } ], wartend: [ Ereignis ], notrufe: [ { an, h, m, t, s } ], nrz }
+//   notrufe: m = neutrale Marken-Id ('lage:n<laufende Nummer>', nrz zählt), t = Tick der Marke, s = zuletzt gesehen mit Belagerer. Die Marke endet erst,
+//   wenn Rom das Hex wieder sieht und dort der Feldzug nicht mehr läuft, oder nach altMax Ticks außer Sicht, nie nach der Wahrheit der Sim.
 //   spur: je sichtbarer fremder Flotte das zuletzt beobachtete Hex h (Stand a); wird dieselbe Flotte im Stand a+1 in einem anderen Hex gesehen,
 //   ist h ihr `v`. Nur die Ids der Sim als Schlüssel (intern), sie gehen nie in den Anzeigeblock.
 //   f Fraktion r g k p - v · p (Hex) Posten 0|1 · a Tick der Daten (null = Kartenstand) · k Stärkeklasse 1..3 · p (Flotte) Phase h u s m b r
@@ -54,7 +56,7 @@ function karte() {
 }
 const hexVon = (ref) => Marken.hexVon(ref);
 
-function neuLeer() { return { v: 1, t: 0, ver: 0, sondeT: 0, hexe: {}, flotten: [], erst: {}, spur: {}, gesehen: [], meldungen: [], wartend: [], notrufe: [] }; }
+function neuLeer() { return { v: 1, t: 0, ver: 0, sondeT: 0, hexe: {}, flotten: [], erst: {}, spur: {}, gesehen: [], meldungen: [], wartend: [], notrufe: [], nrz: 0 }; }
 
 // ---------------------------------------------------------------------------------------------------------------- Sicht
 const istHafen = (d, code) => !!(d.hex[code] && d.hex[code].hafen);
@@ -290,7 +292,10 @@ function berechne(W0, o) {
   }
   // Zähler „Ticks im Sammeln“ (d): seit der ersten Sicht
   for (const r of W.flotten) if (r.p === 's' && r.an) { const e = r.an.map((an) => W.erst[an]).filter((x) => x != null); if (e.length) r.d = Math.max(1, r.a - Math.min(...e) + 1); else delete r.d; } else delete r.d;
-  for (const an of Object.keys(W.erst)) { const rec = z.angriffe.find((x) => x.id === Number(an)); if (!rec || rec.t_ende !== null) delete W.erst[an]; }
+  // der Zähler lebt so lange wie eine Plakette des Feldzugs im Wissen steht (Sicht oder Altstand), nie nach dem Ende in der Sim
+  const lebendig = new Set();
+  for (const r of W.flotten) for (const an of r.an || []) lebendig.add(an);
+  for (const an of Object.keys(W.erst)) if (!lebendig.has(Number(an))) delete W.erst[an];
   if (Object.keys(W.erst).length > ERST_MAX) for (const an of Object.keys(W.erst).slice(0, Object.keys(W.erst).length - ERST_MAX)) delete W.erst[an];
 
   // 4) Ereignisse (Hafen gefallen, Posten verloren und gegründet, Angriff abgewehrt, Notruf): eigene sofort, fremde einen Tick später und nur, wenn gesehen
@@ -302,8 +307,8 @@ function berechne(W0, o) {
       if (!sofort && !sieht(ev.h)) return;
       if (!merke(key)) return;
       if (ev.e === 'nr') {
-        if (!W.notrufe.some((x) => x.an === ev.an)) { W.notrufe.push({ an: ev.an, h: ev.h }); aus.markenSetzen.push({ id: 'lage:a' + ev.an, h: ev.h }); }
-        if (W.notrufe.length > NOTRUF_MAX) { const weg = W.notrufe.shift(); aus.markenEntfernen.push('lage:a' + weg.an); }
+        if (!W.notrufe.some((x) => x.an === ev.an)) { const m = 'lage:n' + (W.nrz = (W.nrz || 0) + 1); W.notrufe.push({ an: ev.an, h: ev.h, m, t: T, s: T }); aus.markenSetzen.push({ id: m, h: ev.h }); }
+        if (W.notrufe.length > NOTRUF_MAX) { const weg = W.notrufe.shift(); aus.markenEntfernen.push(weg.m); }
         return;
       }
       meldung(ev.e, ev.h, ev.f);
@@ -319,10 +324,15 @@ function berechne(W0, o) {
       if (x.eigen) zeige(x, true); else W.wartend.push(x);
     }
     if (W.wartend.length > WARTEND_MAX) W.wartend.splice(0, W.wartend.length - WARTEND_MAX);
-    // Notruf-Marken enden mit dem Feldzug
+    // Notruf-Marken enden nach dem, was Rom sieht: hat Rom das Hex wieder im Blick (Stand des Vor-Ticks) und dort läuft der Feldzug nicht mehr, fällt die
+    // Marke weg; außer Sicht bleibt sie bis altMax Ticks nach der letzten Sicht. Die ersten vz Ticks gelten als Schonfrist (der Belagerer steht im
+    // beobachteten Stand erst einen Tick später da). Nie nach der Wahrheit der Sim: ein unbemerktes Ende ändert nichts.
     for (const nr of W.notrufe.slice()) {
-      const rec = z.angriffe.find((x) => x.id === nr.an);
-      if (!rec || rec.t_ende !== null) { W.notrufe.splice(W.notrufe.indexOf(nr), 1); aus.markenEntfernen.push('lage:a' + nr.an); }
+      const weg = () => { W.notrufe.splice(W.notrufe.indexOf(nr), 1); aus.markenEntfernen.push(nr.m); };
+      if (sichtbar.has(nr.h)) {
+        if (neu.some((g) => g.h === nr.h && g.p === 'b' && g.an.includes(nr.an))) nr.s = T;
+        else if (T - nr.t > vz) weg();
+      } else if (T - nr.s > KT.WERTE.altMax) weg();
     }
   }
   // alte Meldungen fallen weg: Flottenmeldungen nach einem Tick, Ereignisse nach meldungAlter Ticks
@@ -446,6 +456,12 @@ function restore(game, block) {
     W.ver = 1; W.sondeT = game.time;
     if (!W.spur || typeof W.spur !== 'object' || Array.isArray(W.spur)) W.spur = {};
     for (const r of W.flotten) if (r.f !== 'r' && 'n' in r) delete r.n;   // Altstand vor SUND-01 E: fremde Flotten tragen nur `v`
+    if (!Number.isFinite(W.nrz)) W.nrz = 0;
+    for (const nr of W.notrufe) {   // Altstand: Marken-Id 'lage:a<Feldzug>' zeigte die globale Feldzug-Nummer, jetzt neutral
+      if (typeof nr.m !== 'string') nr.m = 'lage:n' + (++W.nrz);
+      if (!Number.isFinite(nr.t)) nr.t = W.t;
+      if (!Number.isFinite(nr.s)) nr.s = W.t;
+    }
     ws.wissen = W;
     return true;
   }
@@ -457,7 +473,7 @@ function restore(game, block) {
 function markenNeu(game) {
   const ws = game.weltsim;
   if (!ws || !ws.wissen) return;
-  for (const nr of ws.wissen.notrufe) Marken.setze(game, { id: 'lage:a' + nr.an, typ: 'notruf', hex: nr.h });
+  for (const nr of ws.wissen.notrufe) Marken.setze(game, { id: nr.m, typ: 'notruf', hex: nr.h });
 }
 
 module.exports = { neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };
