@@ -41,6 +41,7 @@ function voll(ab) {
   const d = daten();
   const frisch = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: 0 });
   const z = Object.assign({}, klon(ab), { werte: frisch.werte, karte: frisch.karte });
+  if (!Number.isFinite(z.naechsteAngriffId)) z.naechsteAngriffId = z.angriffe.reduce((m, a) => Math.max(m, a.id), 0) + 1;   // Altstand vor SUND-01 E
   return z;
 }
 function abbildOk(ab) {

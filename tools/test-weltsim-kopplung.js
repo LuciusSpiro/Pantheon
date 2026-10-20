@@ -445,6 +445,44 @@ section('dockOk nach dem Laden mitten in einer Szene');
   ok(g.space.dockOk === false, 'szeneNachziehen nach einem Tick ohne Szenenwechsel');
 }
 
+// =============================================================================================================================
+section('Langlauf: der gespeicherte Block bleibt klein, die Zeit je Tick flach (SUND-01 E)');
+{
+  const t = setup(freshDir(), 'freie_fahrt'); t.start();
+  const g = t.g, ws = () => g.weltsim;
+  const MAX = 60 * 1024;
+  const groesse = () => Buffer.byteLength(JSON.stringify(Kriegslage.toSave(g)));
+  const zeit = (von, bis) => { const a = process.hrtime.bigint(); for (let i = von; i < bis; i++) Kriegslage.tick(g, 'test'); return Number(process.hrtime.bigint() - a) / 1e6 / (bis - von); };
+  const frueh = zeit(0, 500);
+  zeit(500, 1000); const g1000 = groesse(), l1000 = ws().zustand.angriffe.length;
+  zeit(1000, 4500); const spaet = zeit(4500, 5000);
+  const g5000 = groesse(), l5000 = ws().zustand.angriffe.length;
+  console.log(`  Messung: welt.sim nach 1000 Ticks ${g1000} B (angriffe ${l1000}), nach 5000 Ticks ${g5000} B (angriffe ${l5000}); Zeit je Tick ${frueh.toFixed(2)} ms (1-500), ${spaet.toFixed(2)} ms (4501-5000)`);
+  ok(ws().tickZahl === 5000 && g.weltsim.fehler === 0 && g.errors === 0, '5000 Ticks ohne Fehler');
+  ok(g5000 <= MAX && g5000 < g1000 * 1.5, `welt.sim nach 5000 Ticks: ${g5000} B ≤ ${MAX} B und nicht mehr gewachsen als das 1,5fache von 1000 Ticks (${g1000} B)`);
+  ok(l5000 < 40, `zustand.angriffe bleibt kurz (${l5000} Einträge)`);
+  ok(spaet < Math.max(2.5 * frueh, 1.5), `Zeit je Tick bleibt flach (${frueh.toFixed(2)} -> ${spaet.toFixed(2)} ms)`);
+  // Speichern und Laden nach dem Entfernen: gleicher Block, gleicher Weiterlauf
+  const b = JSON.parse(JSON.stringify(Kriegslage.toSave(g)));
+  const t2 = setup(freshDir(), 'freie_fahrt'); t2.start();
+  Kriegslage.restore(t2.g, JSON.parse(JSON.stringify(b)));
+  ok(gleich(Kriegslage.toSave(t2.g).zustand, b.zustand) && t2.g.weltsim.zustand.naechsteAngriffId === b.zustand.naechsteAngriffId, 'Speichern, Laden: Zustand und Zähler naechsteAngriffId gleich');
+  for (let i = 0; i < 80; i++) { Kriegslage.tick(g, 'test'); Kriegslage.tick(t2.g, 'test'); }
+  ok(gleich(Kriegslage.toSave(g).zustand, Kriegslage.toSave(t2.g).zustand), 'nach dem Laden 80 Ticks weitergerechnet: derselbe Zustand wie ohne Speichern');
+  // Altstand mit langer Liste und ohne Zähler lädt; beendete Feldzüge fallen mit dem nächsten Tick weg, neue Ids kollidieren nicht
+  const alt = JSON.parse(JSON.stringify(b));
+  delete alt.zustand.naechsteAngriffId;
+  const hoechste = alt.zustand.angriffe.reduce((m, r) => Math.max(m, r.id), 0);
+  for (let i = 0; i < 400; i++) alt.zustand.angriffe.push({ id: hoechste + 1 + i, t0: 1, ziel: '0204', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: 2, t_ende: 3, ausgang: 'abgewehrt', phase: 'marsch', t_marsch: 2, stuetz: null, flotten: [] });
+  const t3 = setup(freshDir(), 'freie_fahrt'); t3.start();
+  Kriegslage.restore(t3.g, alt);
+  ok(t3.g.weltsim && t3.g.weltsim.zustand.angriffe.length > 400 && t3.g.weltsim.zustand.naechsteAngriffId === hoechste + 401, 'Altstand mit 400 zusätzlichen Feldzügen und ohne Zähler lädt, Zähler = höchste Id + 1');
+  for (let i = 0; i < 3; i++) Kriegslage.tick(t3.g, 'test');
+  ok(t3.g.weltsim.zustand.angriffe.length < 40 && t3.g.errors === 0, 'der erste Tick entfernt die alten beendeten Feldzüge (' + t3.g.weltsim.zustand.angriffe.length + ' bleiben), keine Fehler');
+  const ids = t3.g.weltsim.zustand.angriffe.map((r) => r.id);
+  ok(new Set(ids).size === ids.length, 'Ids eindeutig');
+}
+
 console.log(`\n${n - fails}/${n} Prüfungen ok`);
 try { fs.rmSync(ROOT_TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 process.exit(fails ? 1 : 0);

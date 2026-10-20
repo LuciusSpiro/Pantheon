@@ -34,6 +34,8 @@ function werteFlach(werte) {
   }
   if (!werte.sicht || !werte.sicht.weite || !werte.sicht.verzoegerung) throw new Error('Werte: Abschnitt "sicht" fehlt');
   w.sicht = { weite: werte.sicht.weite.wert, verzoegerung: werte.sicht.verzoegerung.wert };
+  if (!werte.speicher || !werte.speicher.angriff_behalt || !(werte.speicher.angriff_behalt.wert >= 0)) throw new Error('Werte: Abschnitt "speicher" (angriff_behalt) fehlt');
+  w.angriff_behalt = werte.speicher.angriff_behalt.wert;
   return w;
 }
 

@@ -26,6 +26,7 @@ function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = nu
     for (const f of Kern.FRAKTIONEN) staerke[f].push(z.flotten.filter((fl) => fl.fraktion === f).reduce((s, fl) => s + fl.staerke, 0));
     if (sichtRadien) beobacheSicht(z, d, sichtRadien, erstSicht);
   }
+  const alle = (m.angriffe_entfernt || []).concat(z.angriffe);   // beendete Feldzüge hält der Zustand nur angriff_behalt Ticks: die entfernten kommen über die Messung
   const haefen = (f) => d.codes.filter((c) => z.hexe[c].besitzer === f && d.hex[c].hafen).length;
   const hw = d.hauptwelten;
   const anteil = (k, f) => (m[k + '_' + f] || 0) / Math.max(1, k === 'mdef' || k === 'ndef' ? T : (m['fleet_ticks_' + f] || 0));
@@ -42,18 +43,18 @@ function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = nu
     kon_marken: z.marken.kon, attacks: m.attacks || 0, claims: m.claims || 0, rr: m.rr || 0, pb: m.pb || 0,
     plost_pirat: m.plost_pirat || 0, plost_reich: m.plost_reich || 0, abort: m.abort || 0, feld_loss: m.feld_loss || 0,
     stage_share: (m.stage_ticks || 0) / Math.max(1, Kern.FRAKTIONEN.reduce((s, f) => s + (m['fleet_ticks_' + f] || 0), 0)),
-    atk: fenster(z, d),
+    atk: fenster(z, d, alle),
   };
-  if (sichtRadien) res.sicht = sichtZeilen(z, d, sichtRadien, erstSicht, verzoegerung !== null ? verzoegerung : z.werte.sicht.verzoegerung);
+  if (sichtRadien) res.sicht = sichtZeilen(z, d, sichtRadien, erstSicht, verzoegerung !== null ? verzoegerung : z.werte.sicht.verzoegerung, alle);
   return res;
 }
 
 // Je Feldzug: Vorlauf (Start bis Ankunft), Belagerung (Ankunft bis Ende), Anteil der Karte, den die Crew rechtzeitig erreichen könnte,
 // wenn sie ab Start (A), erst 2 Sprünge vor der Ankunft (B) oder erst mit Marschbeginn (C) gewarnt wird (window_stats im Prototyp).
-function fenster(z, d) {
+function fenster(z, d, angriffe = z.angriffe) {
   const out = [];
   const knoten = d.codes.filter((c) => z.hexe[c].besitzer !== 'pirat');
-  for (const rec of z.angriffe) {
+  for (const rec of angriffe) {
     if (rec.t_ende === null || !rec.relevant || rec.ausgang === 'abgebrochen') continue;
     const t0 = rec.t0, te = rec.t_ende;
     const tm = rec.t_marsch !== null ? rec.t_marsch : t0;
@@ -121,10 +122,10 @@ function beobacheSicht(z, d, radien, erst) {
   }
 }
 
-function sichtZeilen(z, d, radien, erst, verz) {
+function sichtZeilen(z, d, radien, erst, verz, angriffe = z.angriffe) {
   const alle = d.codes.filter((c) => z.hexe[c].besitzer !== 'pirat');
   const out = [];
-  for (const rec of z.angriffe) {
+  for (const rec of angriffe) {
     if (rec.von !== 'ger' || rec.art !== 'reich' || rec.t_ende === null || rec.ausgang === 'abgebrochen') continue;
     const te = rec.t_ende, ta = rec.t_an !== null ? rec.t_an : te, tm = rec.t_marsch !== null ? rec.t_marsch : rec.t0;
     const fr = erst[rec.id] || {};

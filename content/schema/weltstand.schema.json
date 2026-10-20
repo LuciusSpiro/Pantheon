@@ -161,7 +161,8 @@
                 "hexe": { "type": "object", "additionalProperties": { "type": "object" } },
                 "flotten": { "type": "array", "items": { "type": "object" } },
                 "naechsteId": { "type": "integer", "minimum": 1 },
-                "angriffe": { "type": "array", "items": { "type": "object" } },
+                "angriffe": { "type": "array", "items": { "type": "object" }, "description": "laufende und zuletzt beendete Feldzüge (beendete fallen nach werte.angriff_behalt Ticks weg)" },
+                "naechsteAngriffId": { "type": "integer", "minimum": 1, "description": "SUND-01 E: nächste Feldzug-Id (Ids werden nie wiederverwendet); fehlt im Altstand, dann höchste Id + 1" },
                 "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" }
               }
             }

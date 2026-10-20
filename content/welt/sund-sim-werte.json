@@ -53,5 +53,8 @@
   "sicht": {
     "weite": {"wert": 2, "einheit": "Sprünge über Kanten", "_hinweis": "Sichtweite von Rom um eigene Häfen, Posten und Flotten (Wissensmodell)"},
     "verzoegerung": {"wert": 1, "einheit": "Ticks", "_hinweis": "Anzeige hängt so viele Ticks nach"}
+  },
+  "speicher": {
+    "angriff_behalt": {"wert": 60, "einheit": "Ticks", "_hinweis": "Ein beendeter Feldzug bleibt so viele Ticks in zustand.angriffe und wird dann entfernt (der Zustand wächst sonst mit jedem Feldzug, 29 B je Sprung). Länger als jede Flotte unterwegs ist (Marsch höchstens ca. 10 Hexe, Sammeln höchstens sammeln_max 8 Ticks) und mehr als das Fünffache von altMax (12), nach dem das Wissen von Rom ein Altstand-Ergebnis verwirft; die Ids laufen weiter (naechsteAngriffId). Die Kennzahlen bekommen entfernte Feldzüge über das Messobjekt von tick()."}
   }
 }

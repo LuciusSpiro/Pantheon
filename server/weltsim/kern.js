@@ -6,10 +6,13 @@
 // Zustand (reine JSON-Daten, keine Objektverweise, JSON.parse(JSON.stringify(z)) ist verlustfrei):
 //   { version, seed, tick, zufall, werte, karte, hexe: {code: {besitzer, posten, garnison, abwehr, anspruch: {fraktion: n}}},
 //     flotten: [{id, fraktion, heimat, ort, staerke, kap, befehl, ziel, warte, versorgung, angriff: id|null}], naechsteId,
-//     angriffe: [{id, t0, ziel, von, art, relevant, zielArt, t_an, t_ende, ausgang, phase, t_marsch, stuetz, flotten: [flotten-ids]}],
+//     angriffe: [{id, t0, ziel, von, art, relevant, zielArt, t_an, t_ende, ausgang, phase, t_marsch, stuetz, flotten: [flotten-ids]}], naechsteAngriffId,
 //     vorrat: {rom|ger|kon: {T,M,U,E,N}}, marken: {rom,ger,kon}, absichten: {fraktion: {p_act?, aggr?, max_active?}} }
 //   befehl: 'heim' | 'sammeln' | 'angriff' | 'anspruch' | 'rueckzug'.   fraktion der Flotten: rom | ger | kon | pirat.
-//   angriffe enthält alle Feldzüge (auch beendete): Grundlage der Kennzahlen, wächst langsam (einige je 100 Ticks).
+//   angriffe enthält die laufenden und die zuletzt beendeten Feldzüge: ein beendeter Feldzug wird `werte.angriff_behalt` Ticks nach seinem Ende entfernt
+//   (sonst wüchse der Zustand mit jedem Feldzug ohne Grenze). Ids kommen aus `naechsteAngriffId` und werden nie wiederverwendet; Verweise auf entfernte
+//   Feldzüge (flotte.angriff, Wissen) müssen mit einer fehlenden Id umgehen können. Die entfernten Datensätze gehen an `messung.angriffe_entfernt`
+//   (Kennzahlen und Eingreif-Fenster der Werkzeuge), der Spielzustand hält sie nicht.
 //
 // tick(zustand, {wirkungen, absichten, messung}) VERÄNDERT den Zustand und gibt { zustand, ereignisse } zurück (derselbe Zustand, kein Klon).
 //   Wer den alten Stand braucht, klont vorher (structuredClone / JSON). Der Zufallsstrom liegt im Zustand (zustand.zufall).
@@ -33,7 +36,7 @@ function erzeuge({ karte, werte, seed = 0 }) {
   const d = Daten.baue(kartenKopie);
   const z = {
     version: 1, seed, tick: 0, zufall: Zufall.startzustand(seed), werte: w, karte: kartenKopie,
-    hexe: {}, flotten: [], naechsteId: 1, angriffe: [], vorrat: {}, marken: {}, absichten: {},
+    hexe: {}, flotten: [], naechsteId: 1, angriffe: [], naechsteAngriffId: 1, vorrat: {}, marken: {}, absichten: {},
   };
   for (const code of d.codes) {
     const h = d.hex[code];
@@ -115,6 +118,7 @@ function schritt(c) {
   anspruecheAuswerten(c);
   regeneration(c);
   angriffeSchliessen(c);
+  angriffeAufraeumen(c);
 }
 
 function wirtschaft(c) {
@@ -231,8 +235,17 @@ function verteidigung(c, code) {
   return istHafen(c, code) ? nd.abwehr : nd.garnison;
 }
 
+// Nächste freie Feldzug-Id: der Zähler, nie kleiner als höchste vorhandene Id + 1 (Altstände ohne Zähler, von Hand gebaute Zustände in Tests)
+function naechsteAngriffId(z) {
+  let m = 0;
+  for (const a of z.angriffe) if (a.id > m) m = a.id;
+  const id = Number.isFinite(z.naechsteAngriffId) ? Math.max(z.naechsteAngriffId, m + 1) : m + 1;
+  z.naechsteAngriffId = id + 1;
+  return id;
+}
+
 function neuerAngriff(z, felder) {
-  const rec = { id: z.angriffe.length + 1, t0: z.tick, t_an: null, t_ende: null, ausgang: null, phase: null, t_marsch: null, stuetz: null, ...felder };
+  const rec = { id: naechsteAngriffId(z), t0: z.tick, t_an: null, t_ende: null, ausgang: null, phase: null, t_marsch: null, stuetz: null, ...felder };
   z.angriffe.push(rec);
   return rec;
 }
@@ -537,6 +550,18 @@ function angriffeSchliessen(c) {
     }
     if (abgewehrt) melde(c, 'angriff_abgewehrt', nd.besitzer === null ? rec.von : nd.besitzer, { art: rec.art, ziel: rec.ziel, zielArt: rec.zielArt, besitzer: nd.besitzer, angriff: rec.id });
   }
+}
+
+// Beendete Feldzüge fallen nach werte.angriff_behalt Ticks aus dem Zustand; das Messobjekt bekommt die Datensätze (Kennzahlen, Eingreif-Fenster).
+function angriffeAufraeumen(c) {
+  const { z, w } = c;
+  if (!z.angriffe.some((rec) => rec.t_ende !== null && z.tick - rec.t_ende > w.angriff_behalt)) return;
+  const bleibt = [];
+  for (const rec of z.angriffe) {
+    if (rec.t_ende !== null && z.tick - rec.t_ende > w.angriff_behalt) { if (c.mess) (c.mess.angriffe_entfernt || (c.mess.angriffe_entfernt = [])).push(rec); }
+    else bleibt.push(rec);
+  }
+  z.angriffe = bleibt;
 }
 
 function regeneration(c) {

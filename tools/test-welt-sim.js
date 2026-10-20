@@ -256,5 +256,43 @@ section('8. Schnittstelle: Wirkungen, Absichten, lesende Hilfen');
   ok(Daten.datenVon(f).hauptwelten.rom === '0204' && dat.hauptwelten.ger === '1004', 'Hauptwelten aus den Daten abgeleitet (Klasse A der Reiche)');
 }
 
+section('9. Beendete Feldzüge werden entfernt, nichts ändert sich am Lauf (SUND-01 E)');
+{
+  const N = werte.speicher.angriff_behalt.wert;
+  ok(Number.isInteger(N) && N >= 30 && N <= 200, `angriff_behalt ist ein Datenwert (${N} Ticks)`);
+  const ohneEntfernen = (seed) => { const w = kopie(werte); w.speicher.angriff_behalt.wert = 1e9; return Kern.erzeuge({ karte, werte: w, seed }); };
+  let gleichLauf = true, gekuerzt = 0, idsOk = true, messOk = true, maxLen = 0, alt = 0;
+  for (const seed of [0, 1, 2, 3, 4, 5]) {
+    const a = neu(seed), b = ohneEntfernen(seed), m = {};
+    for (let i = 0; i < 1500; i++) {
+      const ea = Kern.tick(a, { messung: m }).ereignisse, eb = Kern.tick(b).ereignisse;
+      if (!gleich(ea, eb)) gleichLauf = false;
+      maxLen = Math.max(maxLen, a.angriffe.length);
+    }
+    const strip = (z) => { const c = kopie(z); delete c.angriffe; delete c.naechsteAngriffId; delete c.werte; return c; };
+    if (!gleich(strip(a), strip(b))) gleichLauf = false;
+    if (a.angriffe.length < b.angriffe.length) gekuerzt++;
+    if (a.naechsteAngriffId !== b.angriffe.length + 1) idsOk = false;
+    if (a.angriffe.some((r) => r.t_ende !== null && a.tick - r.t_ende > N)) alt++;
+    if (!gleich((m.angriffe_entfernt || []).concat(a.angriffe).sort((x, y) => x.id - y.id), b.angriffe)) messOk = false;
+  }
+  ok(gleichLauf, 'sechs Seeds à 1500 Ticks: Ereignisse je Tick und der ganze Zustand (außer angriffe) gleich mit und ohne Entfernen');
+  ok(gekuerzt === 6 && alt === 0 && maxLen < 40, `die Liste wird gekürzt (höchste Länge ${maxLen}), kein beendeter Feldzug älter als ${N} Ticks bleibt`);
+  ok(idsOk, 'Ids laufen weiter (naechsteAngriffId = Zahl aller je begonnenen Feldzüge + 1), keine Wiederverwendung');
+  ok(messOk, 'entfernte Feldzüge + Rest = die volle Liste: das Messobjekt (messung.angriffe_entfernt) bekommt jeden Datensatz');
+  // Altstand ohne Zähler: aus der höchsten Id abgeleitet
+  const z = neu(2);
+  laufe(z, 200);
+  const hoechste = z.angriffe.reduce((x, r) => Math.max(x, r.id), 0);
+  delete z.naechsteAngriffId;
+  laufe(z, 200);
+  const neue = z.angriffe.filter((r) => r.t0 > 200).map((r) => r.id);
+  ok(neue.length > 0 && Math.min(...neue) > hoechste && Number.isInteger(z.naechsteAngriffId), 'Zustand ohne naechsteAngriffId: der Zähler beginnt bei höchste Id + 1');
+  // von Hand eingetragene Feldzüge (Tests) kollidieren nicht mit der nächsten Id
+  const y = neu(3); y.angriffe.push({ id: 9, t0: 0, ziel: '0204', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: null, t_ende: 1, ausgang: 'abgewehrt', phase: 'marsch', t_marsch: 0, stuetz: null, flotten: [] });
+  laufe(y, 100);
+  ok(new Set(y.angriffe.map((r) => r.id)).size === y.angriffe.length, 'Ids bleiben eindeutig, auch neben von Hand eingetragenen');
+}
+
 console.log(`\n${n - fails}/${n} bestanden`);
 process.exit(fails ? 1 : 0);
