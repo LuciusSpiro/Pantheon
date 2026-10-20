@@ -115,9 +115,9 @@
       breiteMitPhase: 30,                          // + 8
       kurz: { breite: 9 },                         // Bereich „knapp“: nur Buchstabenfeld + Rahmen
       // Lage im Hex (s = Hexradius, h3 = √3·s): Mitte x = p.x, Mitte y = p.y + round(−0.36·h3) (oberes Band, frei, seit die Koordinate
-      // entfällt); mit Notruf-Marke im Hex 9 px nach links. Die Hafenklasse rückt dafür von p.y − 11 auf p.y − 9 (hafenDy).
+      // entfällt); mit Notruf-Marke im Hex 9 px nach links. Die Hafenklasse steht auf Symbolhöhe rechts neben dem Symbol (hafenDy −4; bei s < 30 entfallen dafür die Nebensymbole, SUND-01 F).
       // Zweite Plakette (nur Belagerung): Verteidiger ersetzt Hafensymbol und Klasse, Mitte (p.x, p.y + 1), im Belagerungsrahmen.
-      anker: { dy: -0.36, dx: 0, dxNotruf: -9, hafenDy: -9, verteidigerDy: 1 },
+      anker: { dy: -0.36, dx: 0, dxNotruf: -9, hafenDy: -4, verteidigerDy: 1 },
       maxJeHex: 2, mehrChip: { breite: 11, hoehe: 9 },   // „+1“ bei mehr als zwei Plaketten
     },
     kurs: { pfeil: 0.2, pfeilMin: 5, abstandRand: 6 },   // Pfeil 6 px innen vor der Hexseite, Größe max(5, 0.2·s): eigene Flotte hinaus zum nächsten Hex (n), fremde hinein von der Seite, aus der sie kam (v)
@@ -126,7 +126,7 @@
     sicht: { breite: 2, unterlage: 4 },
     belagerung: { rahmen: 2, unterlage: 4, abstandX: 3, abstandY: 4, strich: [3, 3] },   // Rahmen um die Verteidiger-Plakette, Hell mit roten Strichen
     // Hexradius-Bereiche: voll = ganze Plakette, knapp = Kurzplakette (Buchstabe, Phase als Rahmenfarbe), kompakt = HUD-Ausschnitt
-    hexradius: { voll: 22, knapp: 14, ausgang: 23.6, nahMax: 40 },
+    hexradius: { voll: 22, knapp: 14, ausgang: 23.6, nahMax: 40, nebenMin: 30 },
     // Ausgangsansicht der Sternkarte im Modus Freie Fahrt (siehe Konzept §8)
     ansicht: { seitenleiste: 0, ring: false, nahSpruenge: 2 },
     // rechte Spalte der Captain-Konsole (consoles.js capStar: rx = a.x + 420, rw = 196)

@@ -464,9 +464,10 @@
       if (!kompakt && !(dicht && hs.art === 'gesperrt')) {
         // weiteres Symbol (z. B. Schrein, Verbündete, Ziel) links neben dem Hauptsymbol
         const neben = (sys.symbole || []).map(x => (SYMBOL_ICON[x] || x)).find(x => x !== haupt && x !== 'heimat');
-        if (neben && s >= 16) zeichneHexIcon(ctx, neben, p.x - s * 0.62, p.y - 1, COL.text);
+        const nebenOk = !(lgHex && s < LG.M.hexradius.nebenMin);   // SUND-01 F: kleine Hexe der Übersicht ohne Nebensymbole, die Hafenklasse steht auf Symbolhöhe
+        if (neben && s >= 16 && nebenOk) zeichneHexIcon(ctx, neben, p.x - s * 0.62, p.y - 1, COL.text);
         if (sys.hafen && !lgBel) txt(ctx, String(sys.hafen), p.x + 8, p.y + (lgHex ? LG.M.plakette.anker.hafenDy : -11), { color: COL.text });
-        if (sys.einfluss && (hs.art !== 'unerkundet' || lgHex) && s >= 16) zeichneEinfluss(ctx, sys.einfluss, p.x + s * 0.62, p.y - 1);
+        if (sys.einfluss && (hs.art !== 'unerkundet' || lgHex) && s >= 16 && nebenOk) zeichneEinfluss(ctx, sys.einfluss, p.x + s * 0.62, p.y - 1);
         if (lgHex && A.hex[h] && A.hex[h].posten) LG.posten(ctx, p.x - s * 0.62, p.y - 1, A.hex[h].f);
       }
       ctx.restore();
