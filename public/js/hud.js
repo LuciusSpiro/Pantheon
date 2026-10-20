@@ -81,18 +81,20 @@
       this.notices.push({ text: String(text), color: color || PAL.warn, t: performance.now() / 1000, d: dur > 0 ? +dur : 3 });   // S1: dur optional (s)
       if (this.notices.length > 3) this.notices.shift();
     },
-    // SUND-01 C: Lagefunk (lage = true) mit rotem Akzentstreifen; mehrere Lagemeldungen kurz hintereinander (Schnellsprung) laufen nacheinander:
-    // die nächste rückt nach, sobald die laufende mindestens 3,5 s stand (die Meldungen stehen zusätzlich im Logbuch)
+    // SUND-01 C/F: Lagefunk (lage = true) mit rotem Akzentstreifen. Kommen mehrere Lagemeldungen kurz hintereinander (Schnellsprung), steht nur die
+    // neueste mit „+n im Funk-Reiter“ (n = die davor, `mehr`); die Einblendung läuft höchstens LAGE_SERIE s ab der ersten Meldung der Serie
+    // (die Meldungen stehen zusätzlich im Funk-Reiter und im Logbuch)
     onRadio(from, text, pid, lage) {
-      const f = { from: from || 'Funk', text: text || '', t: performance.now() / 1000, pid: pid || null, lage: !!lage };
+      const now = performance.now() / 1000;
+      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now };
       const cur = this.radioAktuell();
-      if (lage && cur && cur.lage) { const q = this.radioQueue || (this.radioQueue = []); q.push(f); if (q.length > 6) q.shift(); return; }
+      if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + 1; f.t0 = cur.t0 || cur.t; }
       this.radioFlash = f;
     },
     radioAktuell() {
-      const now = performance.now() / 1000, q = this.radioQueue, cur = this.radioFlash;
-      if (q && q.length && (!cur || now - cur.t >= 6 || (cur.lage && now - cur.t >= 3.5))) { this.radioFlash = q.shift(); this.radioFlash.t = now; }
-      return this.radioFlash && now - this.radioFlash.t < 6 ? this.radioFlash : null;
+      const now = performance.now() / 1000, cur = this.radioFlash;
+      if (!cur) return null;
+      return now - cur.t < 6 && !(cur.lage && now - (cur.t0 || cur.t) >= 7) ? cur : null;
     },
     // EK4: Funkporträt (legat) bzw. Symbol (mars, kein Gesicht) in einem Feld w×w bei (x, y); ohne Kennung nichts (false)
     drawFunkBild(ctx, pid, x, y, w) {
@@ -935,6 +937,7 @@
     drawLagefunk(ctx, view) {
       const f = this.radioAktuell();
       if (!f || !f.lage || !view.me || !view.me.console || (view.state.mission && view.state.mission.radio)) return;
+      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) return;   // SUND-01 F: im offenen Funk-Reiter steht der Lagefunk dort selbst (das Feld überdeckte ihn)
       this.drawRadio(ctx, view, false);
     },
 
@@ -955,18 +958,21 @@
       const x = 204, w = 228;
       const pw = r.pid ? 28 : 0;   // EK4: Funkporträt / Symbol
       const lines = R.wrap(r.text || '', w - 12 - pw, 1).slice(0, 4);
-      const h = Math.max(pw ? 16 + 24 : 0, 16 + lines.length * 10 + (radio && radio.needsAccept ? 11 : 2));
-      R.panel(ctx, x, 6, w, h, { style: 'brass' });
-      if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, 6, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
-      R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, 10, { color: PAL.amber });
-      if (pw) this.drawFunkBild(ctx, r.pid, x + 6, 20, 24);
-      let y = 21;
+      const mehrZ = !radio && r.mehr > 0 ? 1 : 0;   // SUND-01 F: „+n im Funk-Reiter“
+      const h = Math.max(pw ? 16 + 24 : 0, 16 + (lines.length + mehrZ) * 10 + (radio && radio.needsAccept ? 11 : 2));
+      const oy = view.me && view.me.console && /[?&]debug=1(&|$)/.test((typeof location !== 'undefined' && location.search) || '') ? 16 : 6;   // SUND-01 F: an der Konsole liegt im Debug-Modus die FPS-Zeile oben (y 1–11), das Panel rückt darunter
+      R.panel(ctx, x, oy, w, h, { style: 'brass' });
+      if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, oy, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
+      R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, oy + 4, { color: PAL.amber });
+      if (pw) this.drawFunkBild(ctx, r.pid, x + 6, oy + 14, 24);
+      let y = oy + 15;
       for (const l of lines) { R.text(ctx, l, x + 6 + pw, y, { color: PAL.star }); y += 10; }
+      if (mehrZ) { R.text(ctx, '+' + r.mehr + ' im Funk-Reiter', x + 6 + pw, y, { color: PAL.panelLight }); y += 10; }
       if (radio && radio.needsAccept) {
         const blink = Math.floor(view.time * 2) % 2 === 0;
         R.text(ctx, '> Captain-Konsole: annehmen', tx, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
-      return 6 + h;   // S2: Unterkante (Schützling-Zeile darunter)
+      return oy + h;   // S2: Unterkante (Schützling-Zeile darunter)
     },
 
     drawOda(ctx, view, top) {

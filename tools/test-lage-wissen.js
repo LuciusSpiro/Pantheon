@@ -446,6 +446,10 @@ section('Weitere Funkmeldungen (Belagerung, Fall) und Meldungen; Marsch funkt ni
   const bf = s.schritt((z) => { z.hexe['0403'].besitzer = 'ger'; a.befehl = 'heim'; a.ort = '0803'; a.angriff = null; z.angriffe[0].t_ende = z.tick; }, ev);
   ok(nF() === n0 + 2 && /Speculum ist gefallen\./.test(s.t.radios().filter((x) => x.lage).pop().text), 'Hafen gefallen: Funk „… ist gefallen“, sofort (eigener Hafen)');
   ok(bf.m.some((m) => m.e === 'hf' && m.h === '0403' && m.f === 'g'), 'Meldung hf (Hafen gefallen) im Block');
+  // SUND-01 F: ein verlorener Posten heißt im Funk „verloren“ (nicht „gefallen“), im Logbuch ebenso
+  const nP = nF();
+  s.schritt(undefined, [{ typ: 'posten_verloren', tick: s.z.tick, fraktion: 'rom', ort: '0603', ortName: 'Kantenstein', besitzer: 'rom', durch: 'pirat' }]);
+  ok(nF() === nP + 1 && s.t.radios().filter((x) => x.lage).pop().text === 'Posten Kantenstein verloren.', 'Posten verloren: Funk „Posten Kantenstein verloren.“ (Vorlage funk.postenVerloren)');
   // Fall eines fremden Hafens außer Sicht: keine Meldung; in Sicht: einen Tick später
   const evF = (ort, alt, neu) => [{ typ: 'hafen_gefallen', tick: s.z.tick, fraktion: neu, ort, ortName: ort, alt, neu }];
   const nv = nF();

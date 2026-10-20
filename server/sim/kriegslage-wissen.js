@@ -316,8 +316,8 @@ function berechne(W0, o) {
       }
       meldung(ev.e, ev.h, ev.f);
       if (ev.e === 'hf' || ev.e === 'pv') {
-        const ziel = ev.e === 'pv' ? 'Posten ' + hexName(d, ev.h) : hexName(d, ev.h);
-        aus.funk.push({ von: absender(d, knoten, ev.h), text: KT.vorlage('funk.gefallen', { ziel }), loc: ortId(ev.h), t: T, log: KT.vorlage('funk.log.gefallen', { t: T }) });
+        const posten = ev.e === 'pv';   // SUND-01 F: Posten „verloren“, nur Häfen „gefallen“
+        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
       }
     };
     for (const ev of geprueft) zeige(ev, false);
