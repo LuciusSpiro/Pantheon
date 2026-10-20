@@ -53,7 +53,7 @@
     '                                        ', // 31
     '      ##################################', // 32
     '      #.q.h.q.#=====#.q.h.q.#==========#', // 33
-    '      #.......#=7=1=#.......#========K=#', // 34
+    '      #.......#=1=7=#.......#========K=#', // 34
     '      #.r...r.#=====#.r...r.#==========#', // 35
     '      ####+####=====####D#####=========#', // 36
     '      #^^.....#=====#.......^^=========#', // 37
@@ -61,7 +61,7 @@
     '      #^^.....#=====#.......^^=========#', // 39
     '      ####+####=====####D#####=========#', // 40
     '      #.r...r.#=====#.r...r.#==========#', // 41
-    '      #.......#=9=3=#.......#========5=#', // 42
+    '      #.......#=3=9=#.......#========5=#', // 42
     '      #.q.h.q.#=====#.q.h.q.#======I===#', // 43
     '      ##################################', // 44
   ];
@@ -365,18 +365,19 @@
   // Offene Modulräume bei dieser Ausbaustufe (Stufe 0: 1, 2 · Stufe 1: + 3 · Stufe 2: + 4)
   function modulRaeumeOffen(stufe) { return MODUL_RAEUME.filter((r) => stufe >= r.stufe).map((r) => r.raum); }
 
+  // PAN-01 D: 7 und 9 liegen bugwärts (x 18), 1 und 3 heckwärts (x 16), wie der Ziffernblock (7 oben/Bug, 1 unten/Heck).
   // PAN-01 B: die neun Waffenplätze (Taste am Ziffernblock). x/y = Lafettenkachel im Atlas; system = Name des Systems (8, 4, 6 sind die Startwaffen und tragen ihre
   // Station weiter; die übrigen bekommen ihr System, wenn Paket C sie mit Waffen belegt). stufe = Ausbaustufe, ab der der Platz offen ist.
   const WAFFENPLAETZE = [
     { platz: 8, art: 'bug', stufe: 0, sector: 0, side: 'bow', system: 'weapon_bow', x: 37, y: 34 },
     { platz: 4, art: 'seite', stufe: 0, sector: 3, side: 'port', system: 'battery_port', x: 24, y: 1 },
     { platz: 6, art: 'seite', stufe: 0, sector: 1, side: 'stbd', system: 'battery_stbd', x: 24, y: 11 },
-    { platz: 7, art: 'seite', stufe: 1, sector: 3, side: 'port', system: 'lafette_7', x: 16, y: 34 },
-    { platz: 9, art: 'seite', stufe: 1, sector: 1, side: 'stbd', system: 'lafette_9', x: 16, y: 42 },
+    { platz: 7, art: 'seite', stufe: 1, sector: 3, side: 'port', system: 'lafette_7', x: 18, y: 34 },
+    { platz: 9, art: 'seite', stufe: 1, sector: 1, side: 'stbd', system: 'lafette_9', x: 18, y: 42 },
     { platz: 2, art: 'heck', stufe: 2, sector: 2, side: 'aft', system: 'lafette_2', x: 1, y: 10 },
     { platz: 5, art: 'bug', stufe: 2, sector: 0, side: 'bow', system: 'lafette_5', x: 37, y: 42 },
-    { platz: 1, art: 'seite', stufe: 3, sector: 3, side: 'port', system: 'lafette_1', x: 18, y: 34 },
-    { platz: 3, art: 'seite', stufe: 3, sector: 1, side: 'stbd', system: 'lafette_3', x: 18, y: 42 },
+    { platz: 1, art: 'seite', stufe: 3, sector: 3, side: 'port', system: 'lafette_1', x: 16, y: 34 },
+    { platz: 3, art: 'seite', stufe: 3, sector: 1, side: 'stbd', system: 'lafette_3', x: 16, y: 42 },
   ];
   function waffenplatz(platz) { return WAFFENPLAETZE.find((p) => p.platz === platz) || null; }
   function waffenplatzAt(tx, ty) { return WAFFENPLAETZE.find((p) => p.x === tx && p.y === ty) || null; }
