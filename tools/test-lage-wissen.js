@@ -201,6 +201,25 @@ section('Sonden-Sichtung: sofort, ohne Verzögerung (Erweiterungspunkt zusatzSic
   const zs = Wissen.zusatzSicht(s.g, 0);
   ok(zs instanceof Set && zs.has('0904'), 'zusatzSicht(game, seit) liefert die gesichteten Hexe als Set');
 }
+{
+  // SUND-01 E: eine Sonde über einem Hex, das schon per Karte gesichtet war (Sektorplan behält q 'karte'), speist das Wissen trotzdem sofort
+  const s = szene();
+  const b = flotteVon(s.z, '0904'); sammelt(s.z, b, 2, '0904', '0803');
+  s.schritt(); s.schritt();
+  s.g.time = 60;
+  Sektorplan.sichten(s.g, '0904', 'karte');
+  ok(!eintrag(s.block(), '0904') && s.g.sektorplan.gesichtet['0904'].q === 'karte', 'vorher per Karte gesichtet (q karte): das Wissen von Rom sieht nichts');
+  s.g.time = 61;
+  Sektorplan.sichten(s.g, '0904', 'sonde');
+  ok(s.g.sektorplan.gesichtet['0904'].q === 'karte', 'Gegenprobe: der Sektorplan behält q karte (darum fiel es früher nicht auf)');
+  const bl = s.block();
+  ok(eintrag(bl, '0904', 'g') && eintrag(bl, '0904', 'g').a === 0 && hxVon(bl)['0904'].alter === 0, 'die Sonde über dem schon gesichteten Hex: Flotte sofort im Block, Alter 0');
+  ok(Wissen.zusatzSicht(s.g, 1e9).size === 0 && !s.g.errors, 'die Meldung ist verbraucht (kein Rest in der Warteschlange), kein Fehler');
+  // Hex nie gesichtet: weiter wie vorher; Quelle karte allein ändert nichts
+  const s2 = szene(); sammelt(s2.z, flotteVon(s2.z, '0904'), 2, '0904', '0803'); s2.schritt(); s2.schritt();
+  const k0 = Wissen.schluessel(s2.g); s2.g.time = 70; Sektorplan.sichten(s2.g, '0904', 'karte');
+  ok(Wissen.schluessel(s2.g) === k0 && !eintrag(s2.block(), '0904'), 'Quelle karte allein ändert das Wissen nicht');
+}
 
 // =============================================================================================================================
 section('Rom erfährt nie mehr, als es sieht');

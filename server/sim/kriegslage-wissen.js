@@ -24,7 +24,7 @@
 //
 //   starten(game)                       Wissen beim Modusstart
 //   nachTick(game, vor, ereignisse, nachOrt)   ein Tick der Sim ist gelaufen; vor = Abbild des Sim-Zustands davor, nachOrt = Ort/Hex der Lerche danach
-//   sondeGesichtet(game, hex)           Hook von Sektorplan.sichten (Sonde): Hex sofort, ohne Verzögerung
+//   sondeGesichtet(game, hex)           Hook von Sektorplan.sichten (Sonde): Hex sofort, ohne Verzögerung, auch wenn es schon per Karte gesichtet war
 //   zusatzSicht(game, seit)             Erweiterungspunkt SUND-03 (Sonden, Weitscan, Konkordat-Belege): Hexe, die Rom über die Sensorknoten hinaus sieht
 //   lage(game) / schluessel(game)       Anzeigeblock world.lage (nur Darstellung) und sein Änderungsschlüssel
 //   toSave(ws) / restore(game, block) / neuLeer()
@@ -82,11 +82,14 @@ function knotenAbstand(d, knoten, hex) {
   return best;
 }
 
-// Erweiterungspunkt für SUND-03: Hexe, die Rom über die Sensorknoten hinaus sieht und zwar ohne Verzögerung. Heute nur die Sonden-Sichtung:
-// ein Hex, den eine Sonde seit `seit` (Spielzeit) im Sektorplan gesichtet hat (q 'sonde'). Weitscan der Lerche und Konkordat-Belege folgen in
-// SUND-03; sie hängen sich hier ein und liefern weiter nur eine Menge von Hex-Codes.
+// Erweiterungspunkt für SUND-03: Hexe, die Rom über die Sensorknoten hinaus sieht und zwar ohne Verzögerung. Heute die Sonden-Sichtungen: die Hexe, die
+// der Hook von Sektorplan.sichten selbst gemeldet hat (ws.sondeHexe: { hex, t }, die Quelle des Aufrufs zählt; ein Hex, das vorher schon per Karte
+// gesichtet war, behält im Sektorplan q 'karte' und würde sonst nie auffallen), dazu die im Sektorplan als q 'sonde' gesichteten seit `seit`
+// (Spielzeit). Weitscan der Lerche und Konkordat-Belege folgen in SUND-03; sie hängen sich hier ein und liefern weiter nur eine Menge von Hex-Codes.
 function zusatzSicht(game, seit) {
   const out = new Set();
+  const ws = game.weltsim;
+  for (const e of (ws && ws.sondeHexe) || []) out.add(e.hex);
   const g = (game.sektorplan && game.sektorplan.gesichtet) || {};
   for (const [hex, s] of Object.entries(g)) if (s && s.q === 'sonde' && Number(s.t) > (Number(seit) || 0)) out.add(hex);
   return out;
@@ -398,10 +401,12 @@ function nachTick(game, vor, ereignisse, nachOrt) {
   ausgeben(game, r.aus);
 }
 
-function sondeGesichtet(game) {
+function sondeGesichtet(game, hex) {
   const ws = game.weltsim;
   if (!ws || !ws.wissen) return;
+  if (hex) (ws.sondeHexe || (ws.sondeHexe = [])).push({ hex, t: game.time });
   const zus = zusatzSicht(game, ws.wissen.sondeT);
+  ws.sondeHexe = [];   // verbraucht: jede Meldung wirkt einmal, sofort
   if (!zus.size) return;
   const { z, d, T } = dat(ws);
   const r = berechne(ws.wissen, { z, d, T, vor: null, lerche: null, sofort: zus, ereignisse: [] });
