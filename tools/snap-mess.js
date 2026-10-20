@@ -301,7 +301,7 @@ function freieFahrt(S, seed) {
   const wi = g.weltsim.wissen, KT = require('../public/js/karte-tokens.js'), codes = KT.hexReihenfolge(require('../content/welt/sund_frei.json')), T = wi.t = wi.t || 40;
   const arten = ['s', 'm', 'b', 'u', 'r', 'h'];
   wi.flotten = []; wi.meldungen = [];
-  for (let i = 0; i < 12; i++) wi.flotten.push({ f: ['g', 'r', 'k', 'p'][i % 4], h: codes[i + 3], k: 1 + (i % 3), p: arten[i % 6], a: i % 4 === 3 ? T - 11 : i % 3 === 0 ? T : T - 1, n: codes[i + 4], z: codes[i + 6], d: 3, ids: [i], an: [i] });
+  for (let i = 0; i < 12; i++) { const fk = ['g', 'r', 'k', 'p'][i % 4]; wi.flotten.push({ f: fk, h: codes[i + 3], k: 1 + (i % 3), p: arten[i % 6], a: i % 4 === 3 ? T - 11 : i % 3 === 0 ? T : T - 1, [fk === 'r' ? 'n' : 'v']: codes[i + 4], z: codes[i + 6], d: 3, ids: [i], an: [i] }); }   // eigene Flotten tragen n, fremde v (SUND-01 E)
   for (let i = 0; i < 6; i++) wi.meldungen.push({ e: ['sa', 'ma', 'be', 'hf', 'hh', 'pv'][i], h: codes[i], t: T - (i % 2), f: 'g', k: 3 });
   wi.ver++;
   let lageMax = 0, lageMitMax = 0;

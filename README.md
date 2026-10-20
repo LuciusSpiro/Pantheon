@@ -16,6 +16,19 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in SUND-01 Korrekturrunde E – Befunde des Reviews (Server)
+
+Behoben auf `sund01-e` (Verhalten der Sim und Kennzahlen unverändert, `sim-welt` und `sim-welt-paritaet` byte-gleich):
+
+- **Kurs fremder Flotten ist beobachtete Bewegung.** `n` (nächstes Hex) verriet bei verzögerter Anzeige die jetzige Position (98,7 % Treffer). Fremde Plaketten tragen jetzt `v` („kam von“): das Wissen merkt sich je sichtbarer fremder Flotte das Hex des vorigen Standes (`wissen.spur`, Schlüssel Sim-Flottenid, nur intern); die Karte zeichnet den Pfeil von der `v`-Seite **in das Hex hinein**. Eigene Flotten (Alter 0) zeigen weiter ihr echtes `n`. Das vermutete Ziel `z` rechnet aus dem beobachteten Schritt `v -> h`. Metamorph getestet (`tools/test-lage-wissen.js`): zwei Zustände, die sich nur in Unsichtbarem unterscheiden, geben denselben Block; ändert man Gesehenes, ändert er sich.
+- **`zustand.angriffe` wächst nicht mehr.** Beendete Feldzüge fallen `werte.speicher.angriff_behalt` (60) Ticks nach ihrem Ende heraus, Ids kommen aus `naechsteAngriffId` (Altstand: höchste Id + 1). Das Messobjekt von `Kern.tick` sammelt die entfernten Datensätze in `messung.angriffe_entfernt` (Kennzahlen, Eingreif-Fenster). `welt.sim` nach 5000 Ticks: 11,5 KB statt 155 KB.
+- **Notruf-Marken** tragen eine neutrale Id (`lage:n<Nummer>`); Marke und Sammelzähler `d` enden nach der Sicht (Rom sieht das Hex ohne Belagerer wieder, oder `altMax` Ticks außer Sicht), nie nach der Wahrheit der Sim.
+- **Sonde über einem per Karte gesichteten Hex** speist das Wissen (der Hook meldet das Hex, `ws.sondeHexe`).
+- **`szeneNachziehen`** zieht auch den Posten-Marker nach. **Tick-Fehler** melden einmal je Partie „Kriegslage gestört.“ (Platzhalter bis SUND-04).
+- **Rom-Gebiet und Konkordat beim Start vorab erkundet** (Kai): `content/welt/sund_frei.json` `start.erkundet` (Hexe) und `start.bojen` (Kanten), erzeugt von `tools/gen-sund-frei.js` (`vorerkundung()`), angewendet still von `Kriegslage.starten` über `Explore.vorerkunden`. Erkundet sind die 8 Rom-Hexe, die 3 Konkordat-Hexe und die beiden freien Hexe zwischen ihnen (Gasfeld, Brachland, sonst ginge der Schnellsprung nach Concordia nicht); Bojen aller offenen Kanten mit einem Rom- oder Konkordat-Ende. Alles andere (Germanen, Piraten, Sonderorte, übrige freie Sektoren, verborgene und gesperrte Kanten) bleibt unerkundet.
+
+Geteilte Dateien: `server/sim/explore.js` (`vorerkunden`), `shared/sektoren.js` (`vorerkundetBeiStart`), `server/weltsim/daten.js` (Wert `speicher.angriff_behalt`), `content/schema/weltstand.schema.json`, `shared/protocol.js` (Doku), `public/js/consoles.js` (eine Zeile: Kurswinkel), `tools/snap-mess.js` (Worst Case mit `v` statt `n` bei fremden Flotten).
+
 ## Neu in SUND-01 Paket C – Wissen von Rom, Übersichtskarte, Lagefunk
 
 Die Karte des Captains zeigt im Modus „Freie Fahrt Sund“ nicht den Sim-Zustand, sondern das, was **Rom weiß**. Gestaltung: `CONCEPT-SUND01-KARTE.md` und `public/js/karte-tokens.js` (Designer). Kampagnen und Limes bleiben unverändert (kein `world.lage` ⇒ alter Pfad der Karte).
