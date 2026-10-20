@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantheon – Terminal-Vorschau</title>
+<style>
+  /* Seite um die Vorschau (wie art-preview.html); das Terminal selbst zeichnet nur aus PultTerminal.TOKENS */
+  :root { --bg: #0B0E1A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; --mint: #7FE0C2; --red: #E0473C; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 ui-monospace, Consolas, monospace; }
+  header { position: sticky; top: 0; z-index: 5; background: #121725; border-bottom: 2px solid var(--brass); padding: 8px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; color: var(--brass); letter-spacing: .5px; }
+  header a { color: var(--muted); text-decoration: none; } header a:hover { color: var(--ink); }
+  section { padding: 12px 16px 20px; border-bottom: 1px solid #222a3a; }
+  section h2 { font-size: 14px; color: var(--brass); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  .scroll { overflow-x: auto; max-width: 100%; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 1280px; height: 720px; background: #0B0E1A; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 1280px; }
+  table { border-collapse: collapse; font-size: 12px; } td, th { padding: 2px 10px 2px 0; text-align: left; } th { color: var(--muted); font-weight: normal; }
+  .ok { color: var(--mint); } .bad { color: var(--red); } .sw { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pantheon · Hafenterminal (Richtung B „Waffenkreuz“)</h1>
+  <a href="#umbau">Umbau</a><a href="#stufe">Ausbaustufe</a><a href="#modul">Modulraum</a><a href="#gesperrt">Werft gesperrt</a><a href="#handel">Handel</a><a href="#kontrast">Kontrast</a>
+  <span id="status">lade …</span>
+</header>
+<section id="umbau"><h2>1 · Umbau Platz 9 Steuerbord: Standardbatterie → Streubatterie</h2><div class="scroll"><canvas id="cUmbau" width="640" height="360"></canvas></div>
+  <p class="note">Platz 9 gewählt (Taste 9). Liste = Seitenwaffen aus dem Katalog. Volle rote Fläche = wird eingebaut, roter Rand links = eingebaut, Messing = kostet Marken. Vorschau: Ladepool bleibt gleich (alle Seitenwaffen teilen sich den Pool).</p></section>
+<section id="stufe"><h2>2 · Ausbaustufe 2 freischalten (Taste A, dann F)</h2><div class="scroll"><canvas id="cStufe" width="640" height="360"></canvas></div>
+  <p class="note">Plätze, die Stufe 2 öffnet (aus Shared_Maps.WAFFENPLAETZE / MODUL_RAEUME): Mint-Schraffur im Plan und „NEU“ im Waffenkreuz.</p></section>
+<section id="modul"><h2>3 · Vier Modulräume: Frachtraum in Modulraum 4 (Taste F4)</h2><div class="scroll"><canvas id="cModul" width="640" height="360"></canvas></div>
+  <p class="note">Stufe 2 gekauft, alle vier Räume offen. Energie: Reaktor 8, je Modul 1, Standardverteilung (CONFIG.module.standard) 2/2/1 → 1/2/1.</p></section>
+<section id="gesperrt"><h2>4 · Werft gesperrt: kein Flottenbasis-Hafen</h2><div class="scroll"><canvas id="cGesperrt" width="640" height="360"></canvas></div>
+  <p class="note">Werftbereich ist sichtbar (W), aber gesperrt mit Grund. Bestückung zur Ansicht, alle Marken grau.</p></section>
+<section id="handel"><h2>5 · Handel: Sortiment als Pult-Zellen</h2><div class="scroll"><canvas id="cHandel" width="640" height="360"></canvas></div>
+  <p class="note">Sortiment aus CONFIG.shop (where = hafen), Preise und Gründe wie Consoles.shopRows. Gewählt = volle Messingfläche.</p></section>
+<section id="kontrast"><h2>Kontrast (WCAG 2.1, aus den Tokens gemessen)</h2><div id="kTab"></div>
+  <p class="note">AA verlangt 4,5:1 für Text, 3:1 für Grafik und deaktivierte Elemente (deaktivierte Bedienelemente sind von der Pflicht ausgenommen; Ziel hier trotzdem ≥ 3:1).</p></section>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/protocol.js"></script>
+<script src="../shared/maps.js"></script>
+<script src="../shared/schiffskatalog.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tasten.js"></script>
+<script src="js/schiffswaffen-ui.js"></script>
+<script src="js/pult.js"></script>
+<script src="js/pult-terminal-tokens.js"></script>
+<script>
+(function () {
+  'use strict';
+  const T = window.PultTerminal, KAT = window.Shared_Schiffskatalog, M = window.Shared_Maps, CFG = window.Shared_Config || {};
+  const status = document.getElementById('status');
+  // Preise: Katalogfeld `preis`, solange es fehlt die Vorschläge aus den Designrichtungen (die Entwicklung legt die Werte fest)
+  const VORSCHLAG = { standardbatterie: 0, lanze: 0, sturmbatterie: 180, streubatterie: 200, lanzenbatterie: 250, standardkanone: 150, abwehrturm: 200, torpedowerfer: 220, frachtraum: 0, krankenstation: 0, werkstatt: 100 };
+  const preis = (id) => { const w = KAT.BY_ID[id]; return w && w.preis != null ? w.preis : VORSCHLAG[id]; };
+  const STUFEN = [{ waffen: 3, module: 2, preis: 0 }, { waffen: 5, module: 3, preis: 400 }, { waffen: 7, module: 4, preis: 600 }, { waffen: 9, module: 4, preis: 800 }];
+  // Modul-Wirkung (Inhalt gehört in den Katalog; bis dahin hier)
+  const MODUL = {
+    frachtraum: { wirkung: 'Zwei Frachtplätze für Güter oder Personen.' },
+    krankenstation: { wirkung: 'Notrückholung holt Ausgeschaltete an Bord; danach muss der Transfer repariert werden.' },
+    werkstatt: { wirkung: 'Ein zweiter Schrauber-Bot repariert mit.' },
+  };
+  const kurzName = (id) => (KAT.BY_ID[id] ? KAT.BY_ID[id].name.replace(/batterie$/, '') : id);
+  const raumAn = (x, y) => (M.SHIP_ROOMS.find((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) || {}).name || '';
+  const deckName = (y) => T.TOKENS.RASTER.deckName[M.deckOf(y)];
+  const SEITE = { Bb: 'BACKBORD', Stb: 'STEUERBORD', vorn: 'BUG', Heck: 'HECK' };
+  const ART = { seite: 'Seitenwaffe', bug: 'Bugwaffe', heck: 'Heckwaffe' };
+
+  // Zustand des Schiffs (Beispiel: Lerche auf Stufe 1 in Castra Martis)
+  function schiff(stufe) {
+    return {
+      stufe, marken: 840,
+      bestueckt: { 8: 'lanze', 4: 'standardbatterie', 6: 'standardbatterie', 7: 'sturmbatterie', 9: 'standardbatterie' },
+      module: { 1: 'frachtraum', 2: 'krankenstation', 3: 'werkstatt' },
+      frei: { standardbatterie: 1, sturmbatterie: 1, streubatterie: 1, lanze: 1, frachtraum: 1, krankenstation: 1, werkstatt: 1 },
+    };
+  }
+  // Plätze/Module -> Zustände für Schnitt und Kreuz (das macht im Spiel der Action-Layer)
+  function plaetze(s, neuStufe) {
+    const out = {};
+    M.WAFFENPLAETZE.forEach((p) => {
+      const offen = p.stufe <= s.stufe, w = s.bestueckt[p.platz];
+      out[p.platz] = { zustand: offen ? (w ? 'bestueckt' : 'offen') : (neuStufe === p.stufe ? 'neu' : 'zu'), waffe: w, stufe: p.stufe };
+    });
+    return out;
+  }
+  function module(s, neuStufe) {
+    const out = {};
+    M.MODUL_RAEUME.forEach((r) => { const offen = r.stufe <= s.stufe, md = s.module[r.raum]; out[r.raum] = { zustand: offen ? (md ? 'bestueckt' : 'offen') : (neuStufe === r.stufe ? 'neu' : 'zu'), modul: md, stufe: r.stufe }; });
+    return out;
+  }
+  function seitenTeile(best, seite, neu) { return [7, 4, 1, 9, 6, 3].filter((p) => KAT.PLATZ[p].seite === seite && best[p]).map((p) => ({ t: p + ' ' + kurzName(best[p]), neu: p === neu })); }
+  window.Consoles = window.Consoles || { helmInfo: () => ({ names: ['DOCK'], stage: 0 }) };   // Statusleiste wie angedockt
+  const view = { state: { ship: { speed: 0, shields: { current: [1, 1, 1, 0] }, hull: 100, hullMax: 100, alert: 'normal', docked: true } }, actions: { leave() {} }, send() {} };
+  function energieText(s) { const n = Object.keys(s.module).length; return 'ENERGIE  Module ' + n + ' · frei ' + (8 - n); }
+  function teilWaffe(s, id, platz) {
+    const w = KAT.BY_ID[id], ein = s.bestueckt[platz] === id;
+    return { id, art: 'waffe', name: w.name, wirkung: w.wirkung, energie: w.energie ? 'Ladepool' : 'Munition', zustand: ein ? 'eingebaut' : s.frei[id] ? 'frei' : 'kostet', preis: preis(id) };
+  }
+
+  const MODELLE = {
+    umbau() {
+      const s = schiff(1), platz = 9, wahl = 'streubatterie', pl = M.waffenplatz(platz), nach = Object.assign({}, s.bestueckt, { [platz]: wahl });
+      return {
+        bereich: 'werft', ansicht: 'platz',
+        kopf: { ort: 'Castra Martis', art: 'werft', marken: s.marken },
+        schnitt: { stufe: s.stufe, plaetze: plaetze(s), module: module(s), gewaehlt: platz, deck: M.deckOf(pl.y), hier: 'meeting' },
+        platzKopf: { kappe: String(platz), titel: 'PLATZ ' + platz + ' · ' + SEITE[KAT.PLATZ[platz].seite], lage: deckName(pl.y) + ' · ' + raumAn(pl.x, pl.y) + ' · ' + ART[pl.art], fn: 'waffe' },
+        liste: { fn: 'waffe', gewaehlt: wahl, teile: KAT.fuerPlatzart(pl.art).map((w) => teilWaffe(s, w.id, platz)) },
+        vorschau: { titel: 'VORSCHAU', fn: 'waffe', zeilen: [{ label: 'LADEPOOL', vorher: 3, nachher: 3, segs: 3 }, { label: 'ENERGIEWAFFEN', vorher: 5, nachher: 5, fn: 'dim', gleichText: false }],
+          seiten: [{ label: 'BB', teile: seitenTeile(nach, 'Bb', platz) }, { label: 'STB', teile: seitenTeile(nach, 'Stb', platz) }] },
+        kreuz: { plaetze: plaetze(s), gewaehlt: platz }, module: { module: module(s), energie: energieText(s) },
+        aktionen: { haupt: { art: 'umbau', text: 'Umbau bestätigen' }, hinweis: { text: 'Umbauen ist frei', fn: 'modul' }, ausbau: {}, teil: {} },
+        status: { amGeraet: 0, zusehen: [1, 2] }, bereichUmschalter: { bereich: 'werft' },
+      };
+    },
+    stufe() {
+      const s = schiff(1), ziel = 2;
+      const oeffnet = M.WAFFENPLAETZE.filter((p) => p.stufe === ziel).sort((a, b) => b.platz - a.platz).map((p) => ({ kappe: String(p.platz), text: (p.art === 'bug' ? 'Zweite Bugwaffe' : p.art === 'heck' ? 'Heckwaffe' : 'Seitenwaffe') + ' · ' + raumAn(p.x, p.y) + ', ' + deckName(p.y) }))
+        .concat(M.MODUL_RAEUME.filter((r) => r.stufe === ziel).map((r) => { const rr = M.SHIP_ROOMS.find((q) => q.id === r.room); return { kappe: 'F' + r.raum, text: rr.name + ' · ' + deckName(rr.y0) }; }));
+      return {
+        bereich: 'werft', ansicht: 'stufe',
+        kopf: { ort: 'Castra Martis', art: 'werft', marken: s.marken },
+        schnitt: { stufe: s.stufe, plaetze: plaetze(s, ziel), module: module(s, ziel), hier: 'meeting' },
+        stufen: { stufe: s.stufe, ziel, stufen: STUFEN, oeffnet, marken: [s.marken, s.marken - STUFEN[ziel].preis], hinweis: 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' },
+        kreuz: { plaetze: plaetze(s, ziel) }, module: { module: module(s, ziel), energie: energieText(s) },
+        aktionen: { haupt: { art: 'freischalten', text: 'Stufe ' + ziel + ' freischalten' }, hinweis: { text: STUFEN[ziel].preis + ' Marken, einmalig', fn: 'preis' }, ausbau: { active: true }, teil: { disabled: true } },
+        status: { amGeraet: 0, zusehen: [1, 2] }, bereichUmschalter: { bereich: 'werft' },
+      };
+    },
+    modul() {
+      const s = schiff(2), raum = 4, wahl = 'frachtraum', rr = M.SHIP_ROOMS.find((q) => q.id === 'modul' + raum);
+      s.marken = 240; s.bestueckt[5] = 'standardkanone'; s.frei.standardkanone = 1;
+      const vorher = Object.keys(s.module).length;
+      return {
+        bereich: 'werft', ansicht: 'modul',
+        kopf: { ort: 'Castra Martis', art: 'werft', marken: s.marken },
+        schnitt: { stufe: s.stufe, plaetze: plaetze(s), module: module(s), gewaehlt: 'F' + raum, deck: 2, hier: 'meeting' },
+        platzKopf: { kappe: 'F' + raum, titel: 'MODULRAUM ' + raum, lage: deckName(rr.y0) + ' · Heckende Steuerbord · jedes Modul passt', fn: 'modul' },
+        liste: { fn: 'modul', gewaehlt: wahl, teile: ['frachtraum', 'krankenstation', 'werkstatt'].map((id) => ({ id, art: 'modul', name: KAT.MODUL_NAMEN[id], wirkung: MODUL[id].wirkung, energie: '1 Energie', zustand: s.frei[id] ? 'frei' : 'kostet', preis: preis(id) })) },
+        vorschau: { titel: 'VORSCHAU', fn: 'modul', zeilen: [{ label: 'ENERGIE', vorher: 8 - vorher, nachher: 8 - vorher - 1, segs: 5 }, { label: 'VERTEILUNG', vorher: '2/2/1', nachher: '1/2/1', fn: 'dim' }],
+          seiten: [{ label: 'F4', teile: [{ t: 'Frachtraum', neu: true }] }, { label: '', teile: [{ t: 'Fracht 2 → 4' }] }] },
+        kreuz: { plaetze: plaetze(s) }, module: { module: module(s), gewaehlt: 'F' + raum, energie: energieText(s) },
+        aktionen: { haupt: { art: 'modul', text: 'Modul einbauen' }, hinweis: { text: 'Umbauen ist frei', fn: 'modul' }, ausbau: {}, teil: {} },
+        status: { amGeraet: 3, zusehen: [0] }, bereichUmschalter: { bereich: 'werft' },
+      };
+    },
+    gesperrt() {
+      const s = schiff(1);
+      const best = [8, 4, 6, 7, 9].map((p) => ({ kappe: String(p), name: KAT.BY_ID[s.bestueckt[p]].name })).concat([1, 2, 3].map((r) => ({ kappe: 'F' + r, name: KAT.MODUL_NAMEN[s.module[r]], fn: 'modul' })));
+      return {
+        bereich: 'werft', ansicht: 'gesperrt',
+        kopf: { ort: 'Statio Limitis', art: 'hafen', marken: s.marken, gesperrt: true },
+        schnitt: { stufe: s.stufe, plaetze: plaetze(s), module: module(s), gesperrt: true, hier: 'meeting' },
+        gesperrt: { grund: 'Nur an Flottenbasen.', text: 'Hier kannst du handeln. Umbau und Freischalten gehen nur in der Werft einer Flottenbasis, zum Beispiel in Castra Martis.', bestueckung: best },
+        kreuz: { plaetze: plaetze(s), gesperrt: true, grund: 'Werft nur an Flottenbasen' }, module: { module: module(s), gesperrt: true, energie: energieText(s) },
+        aktionen: { haupt: { art: 'handel', text: 'Zum Handel' }, hinweis: { text: 'Werft nur an Flottenbasen', fn: 'warn' }, ausbau: { disabled: true, grund: 'Werft nur an Flottenbasen' }, teil: { disabled: true, grund: 'Werft nur an Flottenbasen' } },
+        status: { amGeraet: 1, zusehen: [] }, bereichUmschalter: { bereich: 'werft', werftZu: true },
+      };
+    },
+    handel() {
+      const s = schiff(1), inv = { ersatzteil: 3, loeschgel: 2, flickblech: 1, bolzen: 6, medipack: 2, sonde: 1, ladung: 0 };
+      const ART_NAMEN = { item: 'Vorrat', gear: 'Ausrüstung', deko: 'Deko' }, LIMIT = { bolzen: KAT.TORPEDO.lagerMax };
+      const sort = { item: 0, gear: 1, deko: 2 };
+      const artikel = (CFG.shop || []).filter((a) => !a.where || a.where.indexOf('hafen') >= 0).sort((a, b) => sort[a.kind] - sort[b.kind]).map((a) => ({
+        id: a.id, name: a.name, art: ART_NAMEN[a.kind] || a.kind, preis: a.price,
+        besitz: a.kind === 'item' ? 'Lager ' + (inv[a.id] || 0) + (LIMIT[a.id] ? '/' + LIMIT[a.id] : '') : '',
+        grund: a.id === 'werkzeuggurt' ? 'Hast du schon' : null,
+      }));
+      return {
+        bereich: 'handel',
+        kopf: { ort: 'Statio Limitis', art: 'hafen', marken: s.marken },
+        handel: { artikel, gewaehlt: 'bolzen', info: { text: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, trifft die Hülle. Das Lager fasst höchstens ' + KAT.TORPEDO.lagerMax + '.' } },
+        kreuz: { plaetze: plaetze(s) }, module: { module: module(s), energie: energieText(s) },
+        aktionen: { haupt: { art: 'kaufen', text: 'Torpedo kaufen · 10 M' }, hinweis: { text: 'Lager 6/12 → 7/12', fn: 'dim' }, ausbau: { disabled: true, grund: 'Werft nur an Flottenbasen' }, teil: {} },
+        status: { amGeraet: 1, zusehen: [0, 3] }, bereichUmschalter: { bereich: 'handel', werftZu: true },
+      };
+    },
+  };
+
+  const CANVAS = { umbau: 'cUmbau', stufe: 'cStufe', modul: 'cModul', gesperrt: 'cGesperrt', handel: 'cHandel' };
+  let fehler = 0;
+  Object.keys(CANVAS).forEach((k) => {
+    try {
+      const cv = document.getElementById(CANVAS[k]), c = cv.getContext('2d'); c.imageSmoothingEnabled = false;
+      Render.ui = Render.ui || { buttons: [], mouse: { x: -1, y: -1 } }; Render.ui.buttons.length = 0;
+      T.zeichneTerminal(c, view, MODELLE[k]());
+    } catch (e) { fehler++; console.error(k, e); }
+  });
+
+  // Kontrasttabelle aus den Tokens
+  const FA = T.TOKENS.FARBE;
+  const paare = [
+    ['Text auf Schirm', 'text', 'grund', 4.5], ['Dim auf Schirm', 'dim', 'grund', 4.5], ['Messing (Ort, Preis) auf Schirm', 'preis', 'grund', 4.5], ['Mint (frei) auf Schirm', 'modul', 'grund', 4.5],
+    ['Text auf Kachel', 'text', 'kachel', 4.5], ['Dim auf Kachel', 'dim', 'kachel', 4.5], ['Mint „EINGEBAUT“ auf Kachel', 'modul', 'kachel', 4.5], ['Messing „250 M“ auf Kachel zu', 'preis', 'kachelZu', 4.5],
+    ['Name gesperrt auf Kachel zu (deaktiviert)', 'textZu', 'kachelZu', 3], ['Ink auf Rot (gewählt)', 'ink', 'waffe', 4.5], ['Ink auf Mint (Stufe, Kappe)', 'ink', 'modul', 4.5], ['Ink auf Messing (Artikel gewählt)', 'ink', 'preis', 4.5],
+    ['Gelb auf Warnfläche', 'warn', 'warnGrund', 4.5], ['Platzmarke zu (Grafik)', 'platzZu', 'grund', 3], ['Raumlinie (Grafik)', 'raumLinie', 'rumpf', 1.5],
+  ];
+  const rows = paare.map(([n, a, b, min]) => { const k = T.kontrast(a, b); return '<tr><td><span class="sw" style="background:' + FA[a] + '"></span><span class="sw" style="background:' + FA[b] + '"></span>' + n + '</td><td>' + FA[a] + ' / ' + FA[b] + '</td><td class="' + (k >= min ? 'ok' : 'bad') + '">' + k.toFixed(1) + ':1</td><td>Ziel ' + min + '</td></tr>'; });
+  document.getElementById('kTab').innerHTML = '<table><tr><th>Paar</th><th>Werte</th><th>gemessen</th><th></th></tr>' + rows.join('') + '</table>';
+  window.__kontrast = paare.map(([n, a, b, min]) => ({ n, k: +T.kontrast(a, b).toFixed(2), min }));
+  status.textContent = fehler ? fehler + ' Fehler (Konsole)' : 'bereit';
+  window.__bereit = !fehler;
+})();
+</script>
+</body>
+</html>
