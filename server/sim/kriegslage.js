@@ -3,7 +3,7 @@
 // Action-Layer. Zustand: game.weltsim = { zustand, tickZahl, fehler, ereignisse[], hauptweltGefallen } | null (Kampagne, Limes, Labor, Arena).
 //   starten(game, seed?)      Modus beginnen: Sim erzeugen (eigener Zufallsstrom aus dem Spiel-Seed), Besitz-Overlay füllen
 //   tick(game, quelle)        genau ein Sim-Tick (Aufrufer: Sprung, Schnellsprung-Hop, Notfallsprung – sonst niemand). Ohne Modus: nichts
-//   szeneNachziehen(game)     Andock-Erlaubnis und Banner der aktuellen Szene nach einem Tick ohne Szenenwechsel neu setzen
+//   szeneNachziehen(game)     Andock-Erlaubnis, Banner und Posten-Marker der aktuellen Szene nach einem Tick ohne Szenenwechsel neu setzen
 //   nachLaden(game)           nach dem Laden: keine Angebote der Kampagne, Szene nachziehen
 //   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim (inkl. welt.sim.wissen, SUND-01 C)
 //   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
@@ -104,7 +104,7 @@ function hauptweltFaellt(game, e) {
   game.missionEvent('hauptwelt_gefallen', { fraktion: wer, ort: e.ort, neu: e.neu, tick: ws.tickZahl });
 }
 
-// Andock-Erlaubnis und Banner der Szene, in der das Schiff steht, neu setzen (nach einem Tick oder Laden ohne enterScene)
+// Andock-Erlaubnis, Banner und Posten-Marker der Szene, in der das Schiff steht, neu setzen (nach einem Tick oder Laden ohne enterScene)
 function szeneNachziehen(game) {
   const sp = game.space; const ship = game.ship;
   if (!sp || !ship || !ship.scene) return;
@@ -120,6 +120,11 @@ function szeneNachziehen(game) {
   const i = m.findIndex((k) => k.kind === 'dock');
   if (sc.dock && sp.dockOk && i < 0) m.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: game.C.travel.dockDist });
   else if (i >= 0 && !sp.dockOk) m.splice(i, 1);
+  // Posten-Marker (wie in Space.enterScene): im Hex wurde im Tick ein Posten gegründet oder verloren. Die Asteroiden der Szene bleiben (neu bis zum nächsten Besuch).
+  const hatPosten = !sc.station && Besitz.istPosten(game, hex);
+  const pi = m.findIndex((k) => k.posten);
+  if (hatPosten && pi < 0) { const pl = Besitz.postenLage(sc); m.push({ kind: 'station', x: pl.x, y: pl.y, r: pl.r, name: 'Posten', posten: true, fr }); }
+  else if (!hatPosten && pi >= 0) m.splice(pi, 1);
 }
 
 function nachLaden(game) {

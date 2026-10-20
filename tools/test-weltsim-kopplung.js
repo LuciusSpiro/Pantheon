@@ -361,6 +361,21 @@ section('Besitz-Overlay wirkt (Andocken, Fraktionsart, Banner, Posten)');
     ok(Besitz.istPosten(g, freie[0]) && Besitz.besitzer(g, freie[0]) === 'rom' && !Besitz.darfAndocken(g, freie[0]), 'Posten im Overlay: Besitzer rom, nicht andockbar');
     Space.enterScene(g, Sektoren.ortVonHex(freie[0]), {});
     ok(g.space.markers.some((m) => m.posten === true && m.fr === 'rom'), 'Szene zeigt den Posten mit Fahne rom');
+    // SUND-01 E: Notfallsprung ohne Ortswechsel, im Tick geht der Posten im eigenen Hex verloren bzw. wird gegründet: der Marker zieht nach
+    const hf = z.hexe[freie[0]];
+    Object.assign(hf, { besitzer: null, posten: false, garnison: 0 });
+    Kriegslage.tick(g, 'notsprung'); Kriegslage.szeneNachziehen(g);
+    ok(!g.space.markers.some((m) => m.posten) && !g.space.markers.some((m) => m.kind === 'station'), 'Posten im Tick verloren: Marker verschwindet (szeneNachziehen)');
+    Object.assign(hf, { besitzer: 'rom', posten: true, garnison: 4 });
+    Kriegslage.tick(g, 'notsprung'); Kriegslage.szeneNachziehen(g);
+    const pm = g.space.markers.filter((m) => m.posten);
+    const pl = Besitz.postenLage(require('../shared/locations.js').get(g.ship.scene).scene);
+    ok(pm.length === 1 && pm[0].fr === 'rom' && pm[0].kind === 'station' && pm[0].x === pl.x && pm[0].y === pl.y, 'Posten im Tick gegründet: genau ein Marker an der Postenlage, Fahne rom');
+    Kriegslage.tick(g, 'notsprung'); Kriegslage.szeneNachziehen(g);
+    ok(g.space.markers.filter((m) => m.posten).length === 1, 'nochmaliges Nachziehen verdoppelt den Marker nicht');
+    hf.besitzer = 'ger';
+    Kriegslage.tick(g, 'notsprung'); Kriegslage.szeneNachziehen(g);
+    ok(g.space.markers.filter((m) => m.posten).length === 1 && g.space.markers.find((m) => m.posten).fr === 'ger', 'Besitzerwechsel des Postens: Banner folgt');
   }
   // Sonderorte außerhalb der Sim bleiben statisch
   ok(Object.keys(g.weltBesitz.hexe).every((c) => z.hexe[c]) && !('0506' in g.weltBesitz.hexe), 'Hexe außerhalb der Sim (Helix) nicht im Overlay');
