@@ -176,11 +176,13 @@
     return Object.keys(K.hexe).filter((hx) => K.hexe[hx].gen && K.hexe[hx].ort).sort().map((hx) => K.hexe[hx].ort);
   }
 
-  // SL1: Start der Partie laut Karte. Feld `start` der Karte: { ort, bekannt?: [Orte], boden?: bool }. Ohne Feld (Limes): Hafen Lichtkordon.
+  // SL1: Start der Partie laut Karte. Feld `start` der Karte: { ort, bekannt?: [Orte], boden?: bool, erkundet?: [Hexe], bojen?: [Kanten-Ids] }. Ohne Feld (Limes): Hafen Lichtkordon.
+  // erkundet/bojen (SUND-01 E): Hexe und Bojen, die die Crew beim Start schon kennt (nur die Karte sund_frei, Modus Freie Fahrt Sund).
   function startDaten() { const K = api.KARTE; return K && K.start && typeof K.start === 'object' ? K.start : null; }
   function startOrt() { const s = startDaten(); return (s && s.ort) || 'hafen'; }
   function bekanntBeiStart() { const s = startDaten(); return s && Array.isArray(s.bekannt) ? s.bekannt.slice() : ['hafen', 'splitter']; }
   function bodenStart() { const s = startDaten(); return !!(s && s.boden); }
+  function vorerkundetBeiStart() { const s = startDaten(); return { hexe: s && Array.isArray(s.erkundet) ? s.erkundet.slice() : [], bojen: s && Array.isArray(s.bojen) ? s.bojen.slice() : [] }; }
   // Verborgene Hexe (`verborgen: true`): kein Notfallsprung und keine Zielwahl dorthin, solange keine Kante dorthin enthüllt ist
   function istVerborgen(hex) { const h = hexDaten(hex); return !!(h && h.verborgen); }
   function kartenId() { const K = api.KARTE; return (K && K.id) || 'limes'; }
@@ -197,7 +199,7 @@
     LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, kanteId, kanteAusId, kante, kantenVon, anderes,
     hexZuPixel, pixelZuHex, richtung, winkel, sprungpunktLage, imRaster, hexDaten, istLeerraum, spielbar, region, sperrtext,
     hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient,
-    startOrt, bekanntBeiStart, bodenStart, istVerborgen, kartenId,
+    startOrt, bekanntBeiStart, bodenStart, vorerkundetBeiStart, istVerborgen, kartenId,
   });
   if (startKarte) setzeKarte(startKarte);
   return api;

@@ -521,6 +521,82 @@ section('Tick-Fehler: Rückfall, Zähler und genau ein Hinweis „Kriegslage ges
   ok(Kriegslage.tick(g, 'sprung') !== null && g.weltsim.tickZahl === 1, 'danach läuft der Tick wieder normal');
 }
 
+// =============================================================================================================================
+section('Rom-Gebiet und Konkordat sind beim Start erkundet: Springen ohne Weitscan (SUND-01 E, Kai)');
+{
+  const K = Sektoren.KARTE;
+  const t = setup(freshDir(), 'freie_fahrt'); t.start();
+  const g = t.g, ex = g.explore;
+  g.C.reise.neutralChance = 0; g.C.reise.neutralPlus = 0; g.C.reise.feindChance = 0;
+  const fr = (h) => K.hexe[h].fraktion;
+  const gebiet = Object.keys(K.hexe).filter((h) => fr(h) === 'rom' || fr(h) === 'saum');
+  ok(K.id === 'sund_frei' && gebiet.filter((h) => fr(h) === 'rom').length === 8 && gebiet.filter((h) => fr(h) === 'saum').length === 3, 'Karte sund_frei: 8 römische und 3 Konkordat-Hexe');
+  ok(gebiet.every((h) => ex.hexErkundet(h)), 'alle 11 Hexe von Rom und Konkordat sind erkundet');
+  const erk = Object.keys(K.hexe).filter((h) => ex.hexErkundet(h));
+  const rest = erk.filter((h) => !gebiet.includes(h));
+  ok(rest.sort().join() === '0503,0505', 'außerdem nur Gasfeld 0503 und Brachland 0505 (die einzige Verbindung zwischen beiden Gebieten): ' + rest.join());
+  ok(Object.keys(K.hexe).filter((h) => fr(h) === 'ger' || fr(h) === 'pirat' || fr(h) === 'vorl' || h === '0506').every((h) => !ex.hexErkundet(h)), 'Germanen, Piraten, Sonderorte und Vorläufer-Hexe bleiben unerkundet');
+  ok(!ex.hexErkundet('0603') && !ex.hexErkundet('0703') && !ex.hexErkundet('0705') && !ex.hexErkundet('0605'), 'die anderen freien Sektoren (Kantenstein, Eisfeld, Saatfeld, Pulverhorn) bleiben unerkundet');
+  // Bojen: jede offene Kante mit einem Rom- oder Konkordat-Ende, sonst keine
+  const mit = K.kanten.filter((e) => gebiet.includes(e.a) || gebiet.includes(e.b));
+  const ohne = K.kanten.filter((e) => !gebiet.includes(e.a) && !gebiet.includes(e.b));
+  ok(mit.length > 15 && mit.every((e) => ex.bojeBekannt(Sektoren.kanteId(e.a, e.b))), 'Boje bekannt für alle ' + mit.length + ' Kanten, deren eines Ende Rom oder Konkordat ist (auch hinaus in die angrenzenden Hexe)');
+  const fremdBojen = ohne.filter((e) => ex.bojeBekannt(Sektoren.kanteId(e.a, e.b)));
+  ok(fremdBojen.length === 0, 'keine Boje bekannt für Kanten ohne Rom-/Konkordat-Ende (' + ohne.length + ' Kanten, bekannt: ' + fremdBojen.map((e) => e.a + '-' + e.b).join(',') + ')');
+  ok(K.kanten.filter((e) => e.art === 'hidden' || e.art === 'locked').every((e) => !ex.bojeBekannt(Sektoren.kanteId(e.a, e.b))), 'verborgene und gesperrte Kanten bleiben verborgen');
+  ok(ex.hexErkundet('0305') && g.ship.scene === 'ostia_nova', 'Start: Ostia Nova');
+  const ereignisse = t.events('hexErkundet').filter((m) => m.hex !== '0305').length + t.events('bojeGefunden').length;
+  ok(ereignisse === 0, 'still: keine Meldung „Sektor erkundet / Boje gefunden“ beim Start (nur der Startsektor selbst; ' + ereignisse + ')');
+  // Normalsprung ohne Weitscan und ohne markBoje: Ostia Nova -> Palatina
+  const springeOhne = (hex) => {
+    const e = Sprung.selectDest(g, Sektoren.ortVonHex(hex)); if (e) return 'Ziel: ' + e;
+    const p = Sprung.sprungpunkt(g, hex); place(g, p.x - 80, p.y);
+    t.run(40); g.space.enemies = [];
+    return Sprung.doJump(g);
+  };
+  const r1 = springeOhne('0204');
+  ok(r1 === null && g.ship.scene === Sektoren.ortVonHex('0204'), 'Normalsprung Ostia Nova -> Palatina ohne Weitscan (' + r1 + ')');
+  // Normalsprung nach Concordia, Hop für Hop über die geplante Route
+  const hops = Reise.planen(g, '0204', '0604');
+  ok(!!hops && hops[hops.length - 1] === '0604' && hops.every((h) => ex.hexErkundet(h)), 'Route Palatina -> Concordia über erkundete Hexe: ' + (hops || []).join(','));
+  let fehler = null;
+  for (const h of hops || []) { fehler = springeOhne(h); if (fehler) break; }
+  ok(!fehler && g.ship.scene === Sektoren.ortVonHex('0604'), 'Normalsprung Hop für Hop nach Concordia ohne Weitscan (' + (fehler || 'ok') + ')');
+  ok(ticks(g) === 1 + (hops || []).length, 'jeder Sprung ein Tick der Sim (' + ticks(g) + ')');
+  // Normalsprung hinaus in ein angrenzendes freies Hex (Kante mit Konkordat-Ende)
+  const r2 = springeOhne('0603');
+  ok(r2 === null && g.ship.scene === Sektoren.ortVonHex('0603'), 'Concordia -> Kantenstein (angrenzendes freies Hex, Boje durch das Konkordat-Ende): Sprung geht');
+  // Ein Sprung in ein germanisches Hex bleibt ohne Boje gesperrt: Kantenstein/Eisfeld liegen vor Ulfsvakt
+  Space.enterScene(g, Sektoren.ortVonHex('0703'), {}); g.explore.location = Sektoren.ortVonHex('0703'); g.ship.docked = false; g.ship.dockedAt = null;
+  const e3 = Sprung.selectDest(g, Sektoren.ortVonHex('0803'));
+  ok(typeof e3 === 'string' && /Boje/.test(e3) && !ex.bojeBekannt(Sektoren.kanteId('0703', '0803')), 'Eisfeld -> Ulfsvakt (germanisch, Kante ohne Rom-/Konkordat-Ende): gesperrt, „Boje suchen“ (' + e3 + ')');
+  ok(ex.markBoje(Sektoren.kanteId('0703', '0803')) && Sprung.selectDest(g, Sektoren.ortVonHex('0803')) === null, 'nach dem Weitscan/Finden der Boje geht derselbe Sprung');
+  // Schnellsprung in einer frischen Partie: Ostia Nova -> Speculum -> Concordia
+  const t3 = setup(freshDir(), 'freie_fahrt'); t3.start();
+  const g3 = t3.g; g3.C.reise.neutralChance = 0; g3.C.reise.neutralPlus = 0; g3.C.reise.feindChance = 0;
+  const e4 = Sprung.selectDest(g3, Sektoren.ortVonHex('0403'));   // Speculum: 3 Hops über Rom-Hexe
+  ok(e4 === null && g3.reisePlan && g3.reisePlan.hops.length >= 2, 'Schnellsprung-Route Ostia Nova -> Speculum durch das Rom-Gebiet angelegt: ' + (g3.reisePlan && g3.reisePlan.hops.join(',')));
+  const zumSprungpunkt = (gx, tx) => { const p = Sprung.sprungpunkt(gx, gx.reisePlan.hops[0]); place(gx, p.x - 80, p.y); tx.run(40); gx.space.enemies = []; };
+  zumSprungpunkt(g3, t3);
+  ok(Reise.befehl(g3) === null, 'Schnellsprung startet');
+  t3.run(4.2 * g3.reise.hops.length + 2);
+  ok(g3.ship.scene === Sektoren.ortVonHex('0403') && !g3.reise, 'Schnellsprung nach Speculum angekommen');
+  const e5 = Sprung.selectDest(g3, Sektoren.ortVonHex('0604'));   // Concordia: weiter über Gasfeld und Hammerwerke
+  ok(e5 === null && g3.reisePlan && g3.reisePlan.hops[g3.reisePlan.hops.length - 1] === '0604' && g3.reisePlan.hops.length >= 3, 'Schnellsprung-Route Speculum -> Concordia über Gasfeld und Hammerwerke: ' + (g3.reisePlan && g3.reisePlan.hops.join(',')));
+  zumSprungpunkt(g3, t3);
+  ok(Reise.befehl(g3) === null, 'Schnellsprung nach Concordia startet');
+  t3.run(4.2 * g3.reise.hops.length + 2);
+  ok(g3.ship.scene === Sektoren.ortVonHex('0604') && !g3.reise && g3.errors === 0, 'Schnellsprung: Concordia erreicht, keine Fehler');
+  // Schnellsprung in ein germanisches Hex: keine Route (Ziel unerkundet), kein Sprung ohne Boje
+  const t4 = setup(freshDir(), 'freie_fahrt'); t4.start();
+  ok(Reise.planen(t4.g, '0305', '1004') === null && typeof Sprung.selectDest(t4.g, Sektoren.ortVonHex('1004')) === 'string', 'Hrafnheim (germanisch): keine Schnellsprung-Route, Zielwahl abgelehnt');
+  // Speichern und Laden behält die Erkundung (Block welt.sektoren)
+  const d = Weltstand.capture(g3);
+  ok(d.welt.sektoren.erkundet.includes('0204') && d.welt.sektoren.bojen.includes('0204-0305'), 'welt.sektoren trägt die vorerkundeten Hexe und Bojen');
+  // Kampagnen unverändert: die Karte Limes und Sund tragen kein start.erkundet/bojen
+  ok(Sektoren.vorerkundetBeiStart().hexe.length > 0 && require('../content/welt/sund.json').start.erkundet === undefined && require('../content/welt/limes.json').start === undefined, 'Kampagnenkarten (sund, limes) ohne start.erkundet/bojen');
+}
+
 console.log(`\n${n - fails}/${n} Prüfungen ok`);
 try { fs.rmSync(ROOT_TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 process.exit(fails ? 1 : 0);

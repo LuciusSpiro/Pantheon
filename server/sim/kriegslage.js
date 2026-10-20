@@ -62,13 +62,25 @@ function overlayFuellen(game) {
   game.weltBesitz = { hexe };
 }
 
-function starten(game, seed) {
+// Neue Sim und neues Wissen (auch der Rückfall von restore(), wenn der gespeicherte Zustand unbrauchbar ist: dort bleibt die Erkundung des Standes)
+function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
   game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
+}
+
+// Modus beginnen: Sim erzeugen und die Gebiete erkunden, die die Crew laut Karte (start.erkundet, start.bojen) schon kennt: bei sund_frei das Gebiet von
+// Rom und Konkordat samt Bojen der Kanten hinaus (Spielerkenntnis, nicht Wissen der Sim: das Wissensmodell von Rom bleibt, wie es ist).
+function starten(game, seed) {
+  const ws = neueSim(game, seed);
+  try {
+    const v = Sektoren.vorerkundetBeiStart();
+    if (game.explore && (v.hexe.length || v.bojen.length)) game.explore.vorerkunden(v.hexe, v.bojen);
+  } catch (e) { if (game.countError) game.countError('kriegslage-vorerkundung', e); }
+  return ws;
 }
 
 // Ein Tick. wo: 'sprung' | 'hop' | 'notsprung' (nur für Zähler und Tests). nachOrt: Ort/Hex, in dem die Lerche nach dem Sprung steht (Sensorknoten des
@@ -162,7 +174,7 @@ function restore(game, b) {
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
-    starten(game);
+    neueSim(game);
     game.weltsim.tickZahl = tickZahl;
     if (game.weltsim.wissen) game.weltsim.wissen.t = tickZahl;   // das neu begonnene Wissen trägt den Tick der Partie
   }

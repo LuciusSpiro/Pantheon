@@ -5,7 +5,7 @@
   "spalten": 11,
   "zeilen": 7,
   "quelle": "ABGELEITET aus content/welt/sund.json plus Overlay (tools/gen-sund_frei.js), nicht von Hand ändern. Karte des Modus Freie Fahrt Sund (SUND-01): alle Hexe und Kanten von sund.json, dazu Brachland 0505, Saatfeld 0705 und die 6 Kanten des Prototyps karte_sund.py, die sund.json fehlen (auch 0605–0705 fest offen). Die Kampagne Die Schuld der Lerche bleibt auf sund.json.",
-  "start": {"ort":"ostia_nova","bekannt":["ostia_nova"],"boden":false},
+  "start": {"ort":"ostia_nova","bekannt":["ostia_nova"],"boden":false,"erkundet":["0105","0203","0204","0205","0304","0305","0403","0405","0503","0504","0505","0604","0704"],"bojen":["0105-0204","0105-0205","0203-0204","0203-0304","0204-0205","0204-0304","0204-0305","0205-0305","0304-0403","0305-0405","0403-0503","0405-0505","0503-0504","0504-0505","0504-0604","0603-0604","0604-0605","0604-0704","0703-0704","0704-0705"]},
   "siedlung": {"boden":"auto","ausstattung":true,"hinweis":"TA (Kai 2026-10-14): Siedlungen dieser Welt: Bodenton sand | gras | wald nach Seed des Landepunkts (gen.boden setzt ihn fest), zivile Siedlungen mit Taverne, Marktständen und Laternen (shared/gen-siedlung.js, opts.ausstattung). Fehlt der Eintrag (Limes), bleibt alles wie bisher."},
   "hexe": {
     "1003": {"name":"Gullfjord","fraktion":"ger","art":"Kolonie","hafen":"C","region":"germanen","spielbar":true,"ort":"gullfjord","gen":true,"andocken":true},

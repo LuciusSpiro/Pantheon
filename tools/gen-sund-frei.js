@@ -13,12 +13,14 @@
 //    andocken (Paket P0),
 //  - SUND-01 D: jedes Hex der Karte ist spielbar (ort aus dem Namen, gen true; Sonderorte behalten ihre Einträge), jedes Hex mit Hafenklasse
 //    ist andockbar (andocken true; ob die Crew wirklich darf, entscheidet der Besitzer: server/sim/besitz.js). Kantenstein bekommt einen Dock
-//    unter dem Planeten, weil der Liegeplatz sonst auf der Planetenoberfläche läge.
+//    unter dem Planeten, weil der Liegeplatz sonst auf der Planetenoberfläche läge,
+//  - SUND-01 E (Kai): Rom-Gebiet und Konkordat sind beim Start vorab erkundet (start.erkundet = Hexe, start.bojen = Kanten, siehe vorerkundung()).
 // Die Datei ist abgeleitet und wird nie von Hand gepflegt; tools/test-sund-sim-daten.js prüft, dass sie zu sund.json + Overlay passt.
 // sund-sim.json wird wiederum aus sund_frei.json abgeleitet (tools/gen-sund-sim.js).
 const fs = require('fs');
 const path = require('path');
 const GenSektor = require('../shared/gen-sektor.js');
+const Sektoren = require('../shared/sektoren.js');
 
 const ROOT = path.join(__dirname, '..');
 const QUELLE = path.join(ROOT, 'content', 'welt', 'sund.json');
@@ -34,6 +36,21 @@ const HEXE_ERGAENZT = { '0305': { spielbar: true, ort: 'ostia_nova', gen: true, 
 // Sonderfall Kantenstein: Planeten-Station r 170 mit festem Mittelpunkt, Liegeplatz darunter außerhalb des Planeten
 const SZENE_ERGAENZT = { '0603': { station: { x: 1500, y: 800 }, dock: { x: 1500, y: 1070 } } };
 const START = { ort: 'ostia_nova', bekannt: ['ostia_nova'], boden: false };
+
+// SUND-01 E (Kai 2026-10-20): Spielerkenntnis, nicht Wissen der Sim. Die Crew kennt beim Start ohne Weitscan
+//  - alle Hexe mit Besitzer Rom und Konkordat (erkundet: Zielwahl, Schnellsprung) und die freien Hexe, die an beide grenzen (Gasfeld 0503, Brachland 0505:
+//    die einzige Verbindung zwischen den Gebieten, ohne sie ginge der Schnellsprung nach Concordia nicht),
+//  - die Boje jeder offenen Kante, deren eines Ende ein Rom- oder Konkordat-Hex ist (also auch die Kanten hinaus in die angrenzenden Hexe).
+// Freie Sektoren sonst, Germanen, Piraten, Sonderorte und alle verborgenen/gesperrten Kanten bleiben unerkundet wie bisher.
+function vorerkundung(doc) {
+  const nb = (c) => doc.kanten.filter((e) => e.a === c || e.b === c).map((e) => (e.a === c ? e.b : e.a));
+  const fr = (c) => doc.hexe[c].fraktion;
+  const gebiet = Object.keys(doc.hexe).filter((c) => fr(c) === 'rom' || fr(c) === 'saum');
+  const korridor = Object.keys(doc.hexe).filter((c) => fr(c) === 'frei' && nb(c).some((n) => fr(n) === 'rom') && nb(c).some((n) => fr(n) === 'saum'));
+  const erkundet = gebiet.concat(korridor).sort();
+  const bojen = doc.kanten.filter((e) => e.art === 'open' && (gebiet.includes(e.a) || gebiet.includes(e.b))).map((e) => Sektoren.kanteId(e.a, e.b)).sort();
+  return { erkundet, bojen };
+}
 
 function bauen(sund) {
   sund = sund || JSON.parse(fs.readFileSync(QUELLE, 'utf8'));
@@ -60,7 +77,7 @@ function bauen(sund) {
   doc.id = 'sund_frei';
   doc.name = 'Karte Sund (Freie Fahrt)';
   doc.quelle = 'ABGELEITET aus content/welt/sund.json plus Overlay (tools/gen-sund_frei.js), nicht von Hand ändern. Karte des Modus Freie Fahrt Sund (SUND-01): alle Hexe und Kanten von sund.json, dazu Brachland 0505, Saatfeld 0705 und die 6 Kanten des Prototyps karte_sund.py, die sund.json fehlen (auch 0605–0705 fest offen). Die Kampagne Die Schuld der Lerche bleibt auf sund.json.';
-  doc.start = JSON.parse(JSON.stringify(START));
+  doc.start = Object.assign(JSON.parse(JSON.stringify(START)), vorerkundung(doc));
   return doc;
 }
 
@@ -72,7 +89,7 @@ function text(doc) {
     + '\n  ],\n  "regionen": {\n' + zeilen(doc.regionen) + '\n  },\n  "fraktionen": {\n' + zeilen(doc.fraktionen) + '\n  }\n}\n';
 }
 
-module.exports = { bauen, text, AUS, QUELLE, NEUE_HEXE, NEUE_KANTEN };
+module.exports = { bauen, text, vorerkundung, AUS, QUELLE, NEUE_HEXE, NEUE_KANTEN };
 
 if (require.main === module) {
   const soll = text(bauen());

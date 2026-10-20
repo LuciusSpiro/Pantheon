@@ -265,6 +265,15 @@ class Explore {
     this.game.emit('hexErkundet', { hex });
     return true;
   }
+  // SUND-01 E: Hexe und Bojen, die die Crew beim Start der Partie schon kennt (Karte: start.erkundet, start.bojen): still, ohne Ereignis, Meldung oder Ton.
+  // Verborgene und ferne Kanten nie. -> Zahl der neu bekannten Hexe und Bojen
+  vorerkunden(hexe, bojen) {
+    let n = 0;
+    for (const h of hexe || []) if (Sektoren.imRaster(h) && !this.erkundet.has(h)) { this.erkundet.add(h); n++; }
+    for (const id of bojen || []) { const e = Sektoren.kante(id); if (e && e.art !== 'far' && e.art !== 'hidden' && !this.bojenGefunden.has(id)) { this.bojenGefunden.add(id); n++; } }
+    if (n) this.sektorVersion++;
+    return n;
+  }
   tempKante(id) { return this.temp.find((t) => t.id === id) || null; }
   // Kante sprungfähig: open, geöffnete locked-Kante oder temporäre Kante
   kanteOffen(id) {
