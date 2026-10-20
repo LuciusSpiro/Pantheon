@@ -498,6 +498,29 @@ section('Langlauf: der gespeicherte Block bleibt klein, die Zeit je Tick flach (
   ok(new Set(ids).size === ids.length, 'Ids eindeutig');
 }
 
+// =============================================================================================================================
+section('Tick-Fehler: Rückfall, Zähler und genau ein Hinweis „Kriegslage gestört.“ je Partie (SUND-01 E)');
+{
+  const t = setup(freshDir(), 'freie_fahrt'); t.start();
+  const g = t.g, z0 = JSON.stringify(Kriegslage.abbild(g.weltsim.zustand));
+  const echt = Kern.tick;
+  Kern.tick = function () { throw new Error('Test: absichtlicher Tick-Fehler'); };
+  const stumm = console.warn; console.warn = () => {};
+  let r1, r2, r3;
+  try { r1 = Kriegslage.tick(g, 'sprung'); r2 = Kriegslage.tick(g, 'sprung'); r3 = Kriegslage.tick(g, 'hop'); } finally { Kern.tick = echt; console.warn = stumm; }
+  t.run(1);
+  const hinweise = () => t.c.inbox.filter((m) => m.t === 'event' && m.kind === 'oda' && m.text === 'Kriegslage gestört.');
+  ok(r1 === null && r2 === null && r3 === null && g.weltsim.fehler === 3, 'drei Tick-Fehler: Rückgabe null, Fehlerzähler 3');
+  ok(JSON.stringify(Kriegslage.abbild(g.weltsim.zustand)) === z0 && g.weltsim.tickZahl === 0, 'der Rückfall stellt den Zustand wieder her, kein halber Tick');
+  ok(hinweise().length === 1, 'Hinweis „Kriegslage gestört.“ genau einmal trotz drei Fehlern (' + hinweise().length + ')');
+  Kern.tick = function () { throw new Error('Test: noch ein Fehler'); };
+  console.warn = () => {};
+  try { Kriegslage.tick(g, 'sprung'); } finally { Kern.tick = echt; console.warn = stumm; }
+  t.run(1);
+  ok(hinweise().length === 1 && g.weltsim.fehler === 4, 'auch bei späteren Fehlern kein zweiter Hinweis, Zähler zählt weiter');
+  ok(Kriegslage.tick(g, 'sprung') !== null && g.weltsim.tickZahl === 1, 'danach läuft der Tick wieder normal');
+}
+
 console.log(`\n${n - fails}/${n} Prüfungen ok`);
 try { fs.rmSync(ROOT_TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 process.exit(fails ? 1 : 0);

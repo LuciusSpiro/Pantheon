@@ -24,6 +24,7 @@ const KARTE = 'sund_frei';
 const RING = 120;   // letzte Ereignisse, die der Server für das Wissen (Paket C) bereithält
 const KARTEN_FRAKTION = { rom: 'rom', ger: 'ger', kon: 'saum', pirat: 'pirat' };   // Sim -> Fraktionsname der Karte, null (frei) -> 'frei'
 const HAUPTWELT_TEXT = { rom: 'Palatina ist gefallen.', ger: 'Hrafnheim ist gefallen.' };   // Platzhalter bis SUND-04
+const STOERUNG_TEXT = 'Kriegslage gestört.';   // Platzhalter bis SUND-04: ein Tick-Fehler friert die Sim ein (jeder Folgetick scheitert gleich), die Crew soll es wenigstens erfahren
 
 let quelle = null;   // Karte und Werte der Sim, einmal je Prozess gelesen
 const daten = () => quelle || (quelle = Daten.laden());
@@ -83,6 +84,7 @@ function tick(game, wo, nachOrt) {
     ws.zustand = Object.assign(sicher, { werte: ws.zustand.werte, karte: ws.zustand.karte });
     ws.fehler++;
     if (game.countError) game.countError('kriegslage-tick', e);
+    try { game.oda(STOERUNG_TEXT, 'kriegslage_gestoert'); } catch (e2) { /* der Hinweis ist nur Beiwerk */ }   // einmal je Partie
     return null;
   }
   ws.tickZahl++;
