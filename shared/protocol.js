@@ -233,9 +233,9 @@
     // PAN-01 D: Werft am Terminal (Konsole 'shop', nur angedockt an einer Flottenbasis, jeder Spieler). cmd { c: 'werft.freischalten', art: 'stufe'|'waffe'|'modul', id },
     // { c: 'werft.umbau', platz: 1–9, waffe: Katalog-Id | 'leer' }, { c: 'werft.modul', raum: 1–4, id: Modul-Id | 'leer' }. Antwort an den Absender: Ereignis
     // werftAntwort { pid, op, ok, code?, text? } (bei Fehler zusätzlich notice); bei Erfolg an alle: Ereignis werft { op: 'freigeschaltet'|'umbau', art, id, platz?, raum?, marks?, pid }.
-    // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul } }
+    // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul }, zu [Farben der Zuschauer], ui { b: 'h'|'w', a: 'p'|'m'|'s', n, i } (Ansicht des Nutzers für Zuschauer) }
     // nur, solange jemand am Terminal sitzt (aktiv: false = nur aktiv, grund, nutzer, stufe). Weltstand schiff.freigeschaltet { stufe, waffen[], module[] }. Debug werft, marken <n>.
-    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau'],   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
+    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen'],   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
       'platz_unbekannt', 'platz_gesperrt', 'platzart', 'raum_unbekannt', 'raum_gesperrt', 'fracht_belegt', 'unveraendert', 'umbau'],

@@ -145,6 +145,7 @@
       this.notsprungAsk = -1e9;
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
+      if (name === 'shop' && window.TerminalUI) TerminalUI.zuruecksetzen();   // PAN-01 D2: Terminal beginnt frisch
     },
     // R1 §4.4: aktives Interface des Spielers (p.station, solange es vom Ort abweicht; sonst die Konsole selbst)
     stationOf(me) { return me && me.console ? (me.station || me.console) : null; },
@@ -201,6 +202,8 @@
       this.view = view;
       const c = this.stationOf(view.me);
       if (c !== this.current) { if (this.current) this.stationAbbau(view); this.onOpen(c); }
+      // PAN-01 D2: Hafenterminal (Handel und Werft) im Pult-Stil; die alte Konsole bleibt nur, falls das Pult-System nicht greift
+      if (c === 'shop' && window.TerminalUI && TerminalUI.bereit() && window.PultTerminal) return TerminalUI.draw(ctx, view);
       // Pult-Baukasten (pult.js, pult-stationen.js): Brückenstationen im neuen Aufbau mit Skin je Volk
       if (window.Pult && this.pultDraw && this.PULT_STATIONEN.includes(c)) return this.pultDraw(ctx, view, c);
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
@@ -2732,10 +2735,11 @@
 
     // ================================================================= Eingabe
     // Tastenbelegung (tasten.js, Menü „Steuerung“): Aktionen der Station und ihrer aktiven Bereiche
-    tastenGruppe(c) { return { helm: 'steuer', weapons: 'ops', technik: 'technik', captain: 'captain' }[c] || null; },
+    tastenGruppe(c) { return { helm: 'steuer', weapons: 'ops', technik: 'technik', captain: 'captain', shop: 'terminal' }[c] || null; },
     tastenBereiche(c, view) {
       const st = view.state || {}, b = new Set();
       if (c === 'technik') b.add(this.ttab === 1 ? 'technik.schaden' : 'technik.energie');
+      if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // PAN-01 D2: Enter kauft im Handel, baut um in der Werft
       if (c === 'captain') { b.add(['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }
       if (c === 'weapons') {
         if (this.fracht && this.fracht(st).show) b.add('ops.fracht');
@@ -2765,7 +2769,7 @@
       if (!c) return false;
       e = this.tastenKanon(e, c, view, false);
       if (!e) return true;
-      if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && this.PULT_STATIONEN.includes(c)) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
+      if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && (this.PULT_STATIONEN.includes(c) || (c === 'shop' && window.TerminalUI))) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
       const code = e.code;
       this.keys[code] = true;
       if (code === 'Escape') { view.actions.leave(); return true; }
@@ -2932,10 +2936,11 @@
           if ((d >= 7 && d <= 9) || code === 'Digit0' || code === 'Numpad0') { const k = d ? String(d) : '0'; const b = R.ui.buttons.filter(q => q.hotkey === k)[0]; if (b) this.activate(b); return true; }   // B1: Landepunkt
           return true;
         case 'shop': {
+          if (window.TerminalUI && TerminalUI.bereit() && window.PultTerminal) return TerminalUI.keyDown(e, view);   // PAN-01 D2
           const rows = this.shopRows(view);
           if (!rows.length) return true;
-          if (code === 'ArrowUp' || code === 'KeyW') { this.sel.shop = (this.sel.shop + rows.length - 1) % rows.length; return true; }
-          if (code === 'ArrowDown' || code === 'KeyS') { this.sel.shop = (this.sel.shop + 1) % rows.length; return true; }
+          if (code === 'ArrowUp') { this.sel.shop = (this.sel.shop + rows.length - 1) % rows.length; return true; }
+          if (code === 'ArrowDown') { this.sel.shop = (this.sel.shop + 1) % rows.length; return true; }
           if (code === 'Enter' || code === 'Space') { const r = rows[this.sel.shop]; if (r && r.reason) this.denied(r.reason); else this.buy(view, r); return true; }
           return true;
         }

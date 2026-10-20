@@ -376,6 +376,7 @@ class Game {
     this.god = false;
     this.labor = null;   // AP3a: laufendes Szenario-Labor (server/mission/labor.js)
     this.flags = {};
+    this.werftUi = null;   // PAN-01 D: Ansicht am Werft-Terminal (für Zuschauer)
     this.abspann = null;
     this.odaSeen = new Set();
     this.scans = new Set();
@@ -987,6 +988,9 @@ class Game {
     if (c === Protocol.CMD_AWAY_MAP_GET) { const e = this.sendAwayMap(p, msg.id == null ? null : String(msg.id)); if (e) this.notice(p, e); return; }
     // R1 §4.4: Tab/Shift+Tab schaltet das Interface (Station), ohne den Ort zu wechseln
     if (c === Protocol.CMD_STATION_TAB) { const e = Station.tab(this, p, Number(msg.dir) < 0 ? -1 : 1); if (e) this.notice(p, e); return; }
+    // PAN-01 D: Zusehen und Vorschau am Terminal brauchen keine Konsole (Zuschauer sehen die Ansicht des Nutzers, rein lesend)
+    if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
+    if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1120,9 +1124,7 @@ class Game {
       }
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
-      case 'werft.vorschau':   // PAN-01 D: Vorschau für das Terminal (rein berechnet), Antwort an den Absender: Ereignis werftVorschau { pid, vorschau }
-        if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) });
-        break;
+      case 'werft.ansicht': Werft.ansichtSetzen(this, p, msg); break;   // PAN-01 D: Ansicht des Nutzers für die Zuschauer
       case 'werft.freischalten': case 'werft.umbau': case 'werft.modul': {   // PAN-01 D: am Terminal (Konsole shop), jeder darf; Antwort an den Absender: werftAntwort { ok, op, code?, text? }
         const op = c.slice(6);
         const r = op === 'freischalten' ? Werft.freischalten(this, p, String(msg.art), msg.id)

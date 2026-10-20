@@ -28,6 +28,8 @@ an einer Flottenbasis, jeder Spieler am Terminal darf.** Alles serverseitig in `
 - **Preise** in `CONFIG.werft.preise`: Ausbaustufe 1/2/3 100/180/600, Standardkanone 40, Sturmbatterie 60, Streubatterie 70, Abwehrturm 70, Torpedowerfer 100, Lanzenbatterie 120, Werkstatt 40;
   Stufe 1 und 2 plus zwei wichtige Waffen sind in der Kampagne an Castra Martis erreichbar, Stufe 3 gehört ins freie Spiel (Messung: `CONTRACT-PAN01-D.md` §4).
 - **Weltstand** `schiff.freigeschaltet { stufe, waffen[], module[] }` (Format bleibt 3, Feld optional): fehlt es, gilt alles am Schiff als freigeschaltet.
+- **Terminal (D2)** `public/js/terminal-ui.js` + `pult-terminal-tokens.js`: Handelskonsole im Meetingraum (E, Konsole `shop`). Tasten (umbelegbar, Gruppe Terminal): `H` Handel, `W` Werft, `1`–`9` Waffenplatz, `F1`–`F4` Modulraum, `↑↓` Teil, `Enter` bestätigen (Umbau gratis, im Handel kaufen), `F` freischalten (Marken), `A` Ausbau, `Esc` verlassen. Vorschau vor dem Bestätigen, Fehlermeldungen vom Server als Text. Ein Nutzer am Gerät, Mitspieler sehen mit E zu. Browser-Test: `node tools/pw-werft-ui.js` (Debug-Server), headless: `node tools/test-werft-ui.js`.
+  Ausprobieren: `npm run debug`, `?debug=1`, in der Browser-Konsole `__game.debugCmd('goto', {loc: 'castra_martis', docked: true})`, `__game.debugCmd('marken', {args: '1000'})`, E an der Handelskonsole.
 - **Debug:** `marken <n>`, `werft status`, `werft freischalten alle`, `werft reset` (zusätzlich `ausbau`, `bestueck`, `modul`). Test: `node tools/test-werft.js` (in `npm test`).
   Marken je Kapitel der Kette: `node tools/sim-headless.js kette --crew 1 --seeds 3 --marken`.
 

@@ -1118,6 +1118,7 @@
   function ankerPos(mapId, id) { const m = Maps[mapId || ((Client.state && Client.state.away) || {}).map]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? { x: a[2] * TILE + 16, y: a[3] * TILE + 16 } : null; }
 
   function onEvent(ev) {
+    if (ev.kind && ev.kind.indexOf('werft') === 0 && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;
@@ -1692,7 +1693,7 @@
     if (con && zone === 'ship') {
       if (con === 'shop' && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
       const taken = players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
-      if (taken) return { label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false };
+      if (taken) return Object.assign({ label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')' + (con === 'shop' && window.TerminalUI ? ' · E zusehen' : ''), ok: false }, con === 'shop' && window.TerminalUI ? { zusehen: 'shop' } : {});   // PAN-01 D2: am besetzten Terminal zusehen
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }
     if (shipKind === 'shelf') {
@@ -1980,6 +1981,9 @@
       if (d) actions.setColor(+d[1] - 1);
       return;
     }
+    // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
+    if (/^F[1-4]$/.test(code) && (m.console === 'shop' || (window.TerminalUI && TerminalUI.zusehend))) e.preventDefault();
+    if (window.TerminalUI && TerminalUI.zusehend && !m.console) { if (code === 'Escape') { TerminalUI.zusehen(Client.view, false); Client.keys = {}; } return; }
     Client.keys[code] = true;
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
@@ -1999,7 +2003,12 @@
         if (m.zone === 'ship' && ia && ia.sys && ia.alt) startMinigame(ia.sys);
         break;
       }
-      case 'KeyE': if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); } break;
+      case 'KeyE': {
+        const iaz = Client.view && Client.view.interaction;
+        if (iaz && iaz.zusehen === 'shop' && window.TerminalUI) { Client.keys = {}; TerminalUI.zusehen(Client.view, true); break; }   // PAN-01 D2: am besetzten Terminal zusehen
+        if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); }
+        break;
+      }
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
       case 'KeyV': if (m.zone === 'ship' && !m.downed && !m.stun) send({ t: P.C.SCHUBS || 'schubs' }); break;   // Schubs: Mitspieler betäuben bzw. von der Konsole holen
       case 'Space': shoot(); Client.fireHeld.key = true; break;
@@ -2278,6 +2287,8 @@
         else { K.verdeckt = null; Net.guard('Consoles.draw', () => K.draw(ctx, v)); }
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
+      } else if (window.TerminalUI && TerminalUI.zusehend) {   // PAN-01 D2: Zuschauer am besetzten Terminal (rein lesend)
+        K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
@@ -2303,7 +2314,7 @@
     if (VR.notice) { const n = VR.notice; VR.notice = null; Net.guard('Hud.pushNotice', () => H.pushNotice(n, R.PAL.warn)); }
     let ok = false;
     const sitz = !!(window.Sitz && Net.guard('Sitz.update', () => Sitz.update(v, Client.frameDt || STEP), false));   // UI-Sitz (E2): Egoperspektive an Steuer/Ops/Captain
-    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && (!v.me.console || sitz)) {
+    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && ((!v.me.console && !(window.TerminalUI && TerminalUI.zusehend)) || sitz)) {
       const zone = VR.zoneOf(v);
       if (zone && VR.handles(zone)) ok = !!Net.guard('Voxel.frame', () => VR.frame(v, Client.frameDt || STEP), false);
     }
@@ -2324,7 +2335,7 @@
     const me = (st.players || []).find(p => p.id === Client.pid);
     // QA-Abnahme S2: Bei Kapitelkarte, Ende- oder Menüseite ebenfalls kompakt – sonst liegt das Overlay über dem Text.
     const overlay = !!Client.chapter || !!uiTop() || st.phase === 'end';
-    if ((me && me.console) || overlay) {
+    if ((me && me.console) || overlay || (window.TerminalUI && TerminalUI.zusehend)) {
       const line = 'FPS ' + Client.fps + ' · Ping ' + Net.ping + ' · Fehler ' + G.errors + '/' + (st.errors || 0) + ' · ' + ((st.mission && st.mission.stage) || '-');
       const w = R.measure ? R.measure(line, 1) + 8 : 220;
       R.backdrop(ctx, 320 - w / 2, 1, w, 10, 0.75);

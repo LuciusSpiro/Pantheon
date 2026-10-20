@@ -257,12 +257,27 @@ function vorschau(game, aenderung) {
 // Block `werft` nur, wenn jemand am Terminal (Konsole shop) sitzt: aktiv/grund, Nutzer (Spielerfarbe), Stufe, Bestückung je Platz, Freigeschaltetes,
 // Preise der noch nicht freigeschalteten Teile. Namen, Wirkungstexte und Energiebedarf kommen aus dem Katalog (shared/schiffskatalog.js).
 function nutzer(game) { return game.players.find((o) => o.connected && o.console === 'shop') || null; }
+// Ansicht des Nutzers am Terminal (Bereich, Platz/Raum/Stufe, gewähltes Teil), damit Zuschauer dasselbe Bild sehen: { b: 'h'|'w', a: 'p'|'m'|'s', n, i (Teil-Id), von }
+function ansichtSetzen(game, p, msg) {
+  const b = msg.b === 'h' ? 'h' : 'w';
+  const a = msg.a === 'm' ? 'm' : msg.a === 's' ? 's' : 'p';
+  const n = Math.max(0, Math.min(a === 'p' ? 9 : a === 'm' ? 4 : 3, Math.round(Number(msg.n)) || 0));
+  const i = typeof msg.i === 'string' && /^[a-z_0-9]{1,24}$/.test(msg.i) ? msg.i : null;
+  game.werftUi = { b, a, n, i, von: p.id };
+}
+function zusehenSetzen(game, p, an) {
+  const u = nutzer(game);
+  p.zusehen = !!an && !!u && u !== p;
+}
 function snapshot(game) {
   const u = nutzer(game);
-  if (!u) return undefined;
+  if (!u) { for (const o of game.players) o.zusehen = false; game.werftUi = null; return undefined; }
   const s = status(game);
   const f = liste(game);
   const out = { aktiv: s.aktiv, nutzer: u.color != null ? u.color : null, stufe: game.ship.stufe | 0 };
+  const zu = game.players.filter((o) => o.connected && o.zusehen && o !== u && o.color != null).map((o) => o.color);
+  if (zu.length) out.zu = zu;   // Spielerfarben der Zuschauer
+  if (game.werftUi && game.werftUi.von === u.id) out.ui = { b: game.werftUi.b, a: game.werftUi.a, n: game.werftUi.n, i: game.werftUi.i };
   if (!s.aktiv) { out.grund = s.grund; return out; }
   const wm = Waffen.waffenMap(game); const w = {};
   for (const pl of Maps.WAFFENPLAETZE) if (wm[pl.platz]) w[pl.platz] = wm[pl.platz];
@@ -311,5 +326,5 @@ function debug(game, args) {
 
 module.exports = {
   istFlottenbasis, setzeFlottenbasis, status, startFrei, liste, istFrei, preis, sortiment, ableiten,
-  freischalten, freischaltenPruefen, umbau, umbauPruefen, modul, modulPruefen, vorschau, snapshot, nutzer, toSave, restore, debug,
+  freischalten, freischaltenPruefen, umbau, umbauPruefen, modul, modulPruefen, vorschau, snapshot, nutzer, ansichtSetzen, zusehenSetzen, toSave, restore, debug,
 };

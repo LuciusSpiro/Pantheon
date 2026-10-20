@@ -964,7 +964,7 @@
       for (const l of lines) { R.text(ctx, l, x + 6 + pw, y, { color: PAL.star }); y += 10; }
       if (radio && radio.needsAccept) {
         const blink = Math.floor(view.time * 2) % 2 === 0;
-        R.text(ctx, '> Captain-Konsole: annehmen', tx, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
+        R.text(ctx, '> Captain-Konsole: annehmen', x + 6 + pw, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
       return 6 + h;   // S2: Unterkante (Schützling-Zeile darunter)
     },
