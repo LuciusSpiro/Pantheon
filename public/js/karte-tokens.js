@@ -132,7 +132,7 @@
     // rechte Spalte der Captain-Konsole (consoles.js capStar: rx = a.x + 420, rw = 196)
     spalte: {
       zeile: 10, kopf: 11, abschnitt: 4,
-      meldung: { zeile: 12, max: 5, textX: 42, plaketteX: 2 },
+      meldung: { zeile: 12, max: 5, min: 3, textX: 42, plaketteX: 2 },   // SUND-01 G: mindestens 3 Meldezeilen sind reserviert, bevor Sprungblock und Legende Platz bekommen
       legende: { zeile: 12, zeilen: 3 },
     },
     notruf: { r: 0.2, rMin: 5, rMax: 9, rMinLage: 6 },   // wie starmap.js Marken; in der Lage-Karte mindestens 6 und mit deckender Scheibe (r + 2)
@@ -178,6 +178,8 @@
       belagert: '{ort} · belagert', steht: '{ort}', alt: '{ort} · vor {a} Ticks',
       // Kurzformen für die schmale Pult-Spalte (SUND-01 F): erst Langform, dann Kurzform (mit vollen, dann mit Kurznamen), zuletzt nur der Ort
       sammeltKurz: '{ort} · seit {d}', kamKurz: '{von}→{ort}', marschKurz: '{ort}→{nach}?', unterwegsKurz: '{ort}→{nach}', altKurz: '{ort} · vor {a}', postenWegKurz: '{ort} verloren', postenNeuKurz: 'Posten {ort}', hafenGefallenKurz: '{ort} gefallen', hafenHaeltKurz: '{ort} hält',
+      // SUND-01 G: Flotte ohne Ziel und Herkunft: die Phase als Wort statt „nur der Ort“ (die Plakette trägt Stärke und Alter)
+      unterwegsOhne: '{ort} · unterwegs', marschOhne: '{ort} · marschiert', rueckzugOhne: '{ort} · Rückzug', unterwegsOhneKurz: '{ort} · unterw.', marschOhneKurz: '{ort} · marsch', rueckzugOhneKurz: '{ort} · Rückz.',
       hafenGefallen: '{ort} gefallen', hafenHaelt: '{ort} hält', postenNeu: 'Posten {ort}', postenWeg: 'Posten {ort} verloren',
     },
     // Handverlesene Kurznamen der Hexe (höchstens 6 Zeichen plus Punkt), wenn der volle Name nicht in die Hexbreite passt. `kurznameImmer`: auch wenn der
@@ -195,6 +197,8 @@
       phasen: 'S sammelt · ▶ Kurs · B belagert',
       front: 'Front', sicht: 'Sicht', dunkel: 'außer Sicht', dunkelKurz: 'dunkel',   // dunkelKurz: schmale Spalte (Pult), SUND-01 C
     },
+    // SUND-01 G: Sprunghinweis in der Spalte der Übersichtskarte: bekannte Serverhinweise in einer Zeile (schmale Pult-Spalte, 144 px); alle anderen laufen höchstens zwei Zeilen
+    sprungHinweis: { 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.': 'Boje am Rand anfliegen' },
     // Funkvorlagen (feste Texte, kein LLM). {von} = Knoten, der es gesehen hat (Posten X, Wache X, Lerche).
     funk: {
       von: { posten: 'Posten {ort}', hafen: 'Hafen {ort}', flotte: 'Flotte bei {ort}', lerche: 'Sensoren Lerche' },

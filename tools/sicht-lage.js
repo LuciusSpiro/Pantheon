@@ -122,6 +122,11 @@ async function main() {
     await sleep(6800);   // die Einblendung „Posten verloren“ auslaufen lassen, damit keine Funkmeldung auf dem Bild steht
     await hover('0803');
     await shot('c-aufmarsch-nicht-gesehen', 900); await shot('crop-c-karte', 50, KARTE); await shot('crop-c-spalte', 50, SPALTE);
+    // SUND-01 G: mit gewähltem Sprungziel (Knopf, Sprungpunkt-Zeile und Hinweis zusammen: die engste Höhenbilanz der Spalte)
+    for (const hh of ['0803', '0603', '0703', '0503', '0604', '0602', '0704']) { await page.evaluate((x) => __game.send({ t: 'cmd', c: 'captain.selectDest', hex: x }), hh); await sleep(250); if (g.ship.jump.dest) { console.log('Sprungziel', g.ship.jump.dest, '·', g.ship.jump.blockedReason); break; } }
+    await sleep(300);
+    await shot('crop-c-ziel-spalte', 300, SPALTE);
+    g.ship.jump.dest = null; await sleep(300);
     await page.mouse.move(5, 5);
 
     // ---- mehrere Meldungen kurz hintereinander (Schnellsprung): drei Lagefunks im Abstand von 1,5 s
@@ -132,12 +137,19 @@ async function main() {
     schritt(() => { sammelt(c2, 12, '0703', '0403'); });
     schritt(() => { sammelt(d2, 13, '0703', '0503'); });
     schritt(); await sleep(1500); schritt(); await sleep(1500); schritt();
-    await shot('funk-folge-1', 200); await shot('crop-viele', 50, KARTE);
+    await shot('funk-folge-1', 200); await shot('crop-viele', 50, KARTE); await shot('crop-viele-spalte', 50, SPALTE);
     await sleep(3000); await shot('funk-folge-2', 100);
     const h = await page.evaluate(() => ({ queue: (Hud.radioQueue || []).length, flash: Hud.radioFlash && Hud.radioFlash.text, lf: KarteLage.funkListe().length }));
     console.log('Lagefunk-Folge:', JSON.stringify(h), 'Funk-Ereignisse im Server-Logbuch:', g.explore.log.filter((e) => /sammelt sich/.test(e.text)).length);
     await page.keyboard.press('Digit1'); await sleep(500);
     await shot('funk-reiter-folge', 300);   // Lagefunk-Liste und Logbuch nach mehreren Meldungen kurz hintereinander
+    // SUND-01 G: viele Flotten (Liste länger als 5), Ortsinfo mit Hafen
+    await page.keyboard.press('Digit2'); await sleep(300);
+    ruhigMachen(true, 'pulverhorn');
+    const ids = ['0803', '0805', '0904', '0905', '1003', '1004', '1005', '1105'], ziele = ['0703', '0704', '0705', '0703', '0803', '0705', '0904', '0805'];
+    schritt(() => { ids.forEach((hh, i) => { const f = flotteVon(hh); if (f) { f.befehl = 'anspruch'; f.ziel = ziele[i]; f.ort = ziele[i]; } }); const pp = z.flotten.find((f) => f.fraktion === 'pirat'); if (pp) { pp.befehl = 'anspruch'; pp.ziel = '0703'; pp.ort = '0703'; } });
+    schritt(); schritt(); await sleep(6800);
+    await hover('0704'); await shot('viele-flotten', 400); await shot('crop-viele2-spalte', 50, SPALTE); await page.mouse.move(5, 5);
     console.log('Server-Fehler:', g.errors);
   } finally {
     await b.close(); await srv.close();

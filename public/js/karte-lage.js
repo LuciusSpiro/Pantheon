@@ -352,10 +352,32 @@
     if (q.stufe === 'alt') return V('alt', { ort, a: q.a });
     if (q.p === 's') { const d = q.d || 1; return V('sammelt', { ort, d: kurz === 3 ? d : d + (d === 1 ? ' Tick' : ' Ticks') }); }
     if (q.v && (q.p === 'm' || q.p === 'u' || q.p === 'r')) return V('kam', { ort, von: nm(q.v) });   // fremd: beobachtete Bewegung
-    if (q.p === 'm') return q.n ? V('marsch', { ort, nach: nm(q.n) }) : ort;
-    if (q.p === 'u' || q.p === 'r') return q.n ? V('unterwegs', { ort, nach: nm(q.n) }) : ort;
+    if (q.p === 'm') return q.n ? V('marsch', { ort, nach: nm(q.n) }) : V('marschOhne', { ort });   // SUND-01 G: ohne Ziel und Herkunft die Phase als Wort statt nur des Orts
+    if (q.p === 'u' || q.p === 'r') return q.n ? V('unterwegs', { ort, nach: nm(q.n) }) : V(q.p === 'r' ? 'rueckzugOhne' : 'unterwegsOhne', { ort });
     if (q.p === 'b') return T.vorlage('meldeliste.belagert', { ort });
     return ort;
+  }
+  // SUND-01 G: Höhenbilanz der rechten Spalte (Reihenfolge der Blöcke: Ortsinfo, Meldeliste, Sprungknopf und Sprung, Legende). Die Meldeliste hat Vorrang vor Sprungblock
+  // und Legende: mindestens MS.meldung.min Zeilen (bei mehr Meldungen plus „+n weitere“) sind reserviert; was darüber frei bleibt, bekommt die Liste bis MS.meldung.max.
+  // o: { y (Oberkante der Meldeliste), unten (Unterkante der Spalte), rw, sprungBasis (Knopf, SPRUNG, Ziel, Balken, ggf. Sprungpunkt; ohne Grundzeilen), grundZ (Zeilen des Sprunghinweises) }
+  // -> { maxZeilen (Meldezeilen ohne „+n weitere“), grundZ, frei, passt }
+  function spaltenPlan(A, o) {
+    const MS = M.spalte, z = MS.meldung.zeile, n = listenZeilen(A).length;
+    const mn = Math.min(Math.max(n, 1), MS.meldung.min), minH = 12 + mn * z + (n > mn ? z : 0);
+    const stufen = [{ grundZ: o.grundZ }];
+    let wahl = stufen[stufen.length - 1], frei = 0, passt = false;
+    for (const st of stufen) {
+      frei = o.unten - o.y - (o.sprungBasis + st.grundZ * 10) - (legendeZeilen(o.rw) * 12 + 4) - 4;
+      wahl = st;
+      if (frei >= minH) { passt = true; break; }
+    }
+    const avail = Math.max(1, Math.floor((frei - 12) / z)), want = Math.min(n, MS.meldung.max);
+    return { maxZeilen: want + (n > want ? 1 : 0) <= avail ? want : Math.max(1, avail - 1), grundZ: wahl.grundZ, frei, passt };
+  }
+  // Zeilen des Sprunghinweises in der Spalte: bekannte Serverhinweise in einer Zeile (TEXT.sprungHinweis), alle anderen höchstens zwei Zeilen. wrap(text) -> Zeilen
+  function sprungHinweis(text, wrap) {
+    const k = T.TEXT.sprungHinweis[text];
+    return k ? [k] : wrap(text).slice(0, 2);
   }
   // o: { rx, y, rw, sel, name(h), kurs(q) -> Winkel }; -> y unter der Liste
   function meldeliste(ctx, A, o) {
@@ -437,5 +459,5 @@
   const funkLeeren = () => { funk.length = 0; };
 
   return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, rangVergleich, flaeche, seite, sichtgrenze, front, frontSeiten, plakette, kurzplakette, plBreite, posten, flotten,
-    fokusHexe, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
+    fokusHexe, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, spaltenPlan, sprungHinweis, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
 });

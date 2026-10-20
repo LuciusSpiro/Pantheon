@@ -294,6 +294,36 @@ section('SUND-01 F: Kurznamen, Meldeliste-Kurzformen, Rangfolge, Legende, Ortsin
   ok(rec.find((x) => x.k === 'arc').r === 6, 'ohne deckend (Limes, Kampagne): unverändert Radius r, keine Scheibe');
   ok(T.MASS.notruf.rMinLage === 6, 'Notruf-Marke in der Lage-Karte mindestens Radius 6');
 }
+section('SUND-01 G: Spaltenbilanz, Meldeliste mindestens 3 Zeilen, Sprunghinweis, Kurzform-Kette');
+{
+  const log = []; KL.env.Render = fakeRender(log);
+  const name = (h) => ({ '0803': 'Ulfsvakt', '0603': 'Kantenstein', '0904': 'Skjaldborg', '0703': 'Eisfeld', '0403': 'Speculum' })[h] || h;
+  const MS = T.MASS.spalte, Bl = (f) => KL.lesen(Object.assign(blockLageB(), { f, m: [] }), CODES);
+  const flotten = (k) => Array.from({ length: k }, (_, i) => ({ f: 'g', h: CODES[10 + i], k: 2, p: 'h', a: 1 }));
+  // Platz der Pult-Spalte: a.y 10, a.h 238, rw 144; Ortsinfo bis y 57 (4 Zeilen) oder 67 (5 Zeilen, Lage c); Sprungblock ohne Hinweis 51, Hinweis 1 Zeile
+  const plan = (k, y, o) => KL.spaltenPlan(Bl(flotten(k)), Object.assign({ y, unten: 10 + 238 - 14, rw: 144, sprungBasis: 51, grundZ: 1 }, o));
+  let kleinste = 99;
+  for (const y of [57]) for (const k of [1, 2, 3, 4, 5, 6, 9, 12]) { const p = plan(k, y); kleinste = Math.min(kleinste, Math.min(p.maxZeilen, k)); ok(p.passt && p.maxZeilen >= Math.min(k, MS.meldung.min), 'Spaltenbilanz y ' + y + ', ' + k + ' Meldungen: ' + p.maxZeilen + ' Zeilen (mindestens ' + Math.min(k, MS.meldung.min) + '), frei ' + p.frei); }
+  ok(plan(12, 57).maxZeilen >= 3 && plan(12, 57).maxZeilen <= MS.meldung.max, 'viele Flotten: 3 bis ' + MS.meldung.max + ' Zeilen plus „+n weitere“ (' + plan(12, 57).maxZeilen + ')');
+  ok(plan(3, 57).maxZeilen === 3 && plan(2, 67).maxZeilen === 2, 'wenige Meldungen: alle Zeilen, keine Reserve für „+n weitere“');
+  ok(plan(12, 57, { grundZ: 1 }).frei - plan(12, 57, { grundZ: 3 }).frei === 20, 'zwei Hinweiszeilen weniger geben der Liste 20 px');
+  // Sprunghinweis: Standardhinweis des Servers eine Zeile (Pult 144 px), andere höchstens zwei Zeilen
+  const wrap3 = (t) => String(t).match(/.{1,12}/g) || [];
+  const std = 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.';
+  ok(KL.sprungHinweis(std, wrap3).length === 1 && KL.sprungHinweis(std, wrap3)[0].length * 5 <= 144, 'Sprunghinweis Standardfall: eine Zeile, in 144 px: ' + KL.sprungHinweis(std, wrap3)[0]);
+  ok(KL.sprungHinweis('Antrieb ohne Energie. Und ein sehr langer Zusatz, der drei Zeilen füllen würde.', wrap3).length === 2, 'anderer Hinweis: höchstens zwei Zeilen');
+  // Kurzform-Kette: ohne Ziel und Herkunft steht die Phase als Wort, nicht nur der Ort
+  const B = Bl([{ f: 'g', h: '0803', k: 2, p: 'u', a: 1 }, { f: 'g', h: '0703', k: 2, p: 'm', a: 1 }, { f: 'g', h: '0904', k: 1, p: 'r', a: 1 }]);
+  const On = { rx: 432, rw: 144, y: 50, sel: null, name, art: () => '', hafen: () => '', karteFraktion: () => 'g', dist: () => 3, kurs: () => 0 };
+  log.length = 0; KL.meldeliste(fakeCtx(), B, On);
+  const t = log.map((l) => l.s), breite = On.rw - MS.meldung.textX;
+  ok(t.some((s) => /Ulf.* · unterw/.test(s)) && t.some((s) => /Eisfeld · marsch/.test(s)) && t.some((s) => /Skjald.* · Rückz/.test(s)) && t.slice(1).every((s) => s.length * 5 <= breite), 'schmale Liste: Flotte ohne Ziel zeigt „Ort · unterw.“, „· marsch“, „· Rückz.“ statt nur den Ort: ' + JSON.stringify(t.slice(1)));
+  const breit = KL.zeilenText({ q: Object.assign({ stufe: 'gesehen' }, B.fl[0]) }, { name }, false);
+  ok(breit === 'Ulfsvakt · unterwegs', 'Langform ohne Ziel: „Ulfsvakt · unterwegs“ (' + breit + ')');
+  // nur der Ort erst, wenn gar keine Form mehr passt
+  log.length = 0; KL.meldeliste(fakeCtx(), B, Object.assign({}, On, { rw: 60 }));
+  ok(log.slice(1).every((l) => l.s.length * 5 <= 60 - MS.meldung.textX + 6), 'Spalte zu schmal: gekürzt, ohne Fehler');
+}
 section('SUND-01 F: StarMap mit Lage: Hafenklasse, Nebensymbole, Abdunklung, Etikett');
 {
   let einfl = 0; const einflOrig = KZ.einfluss; KZ.einfluss = (...a) => { einfl++; return einflOrig(...a); };

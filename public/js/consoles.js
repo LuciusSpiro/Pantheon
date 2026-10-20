@@ -887,13 +887,13 @@
       const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Platz: unten bleiben 14 px für die Frachtleiste des Pults; Sprung (Knopf, Ziel, Balken, Grund) braucht etwa 71, die Legende ihre Zeilen
+      // SUND-01 G: Höhenbilanz in KL.spaltenPlan (Meldeliste mindestens 3 Zeilen, Sprunghinweis eine Zeile für den Standardfall, höchstens zwei sonst)
       const unten = a.y + a.h - 14, legZ = KL.legendeZeilen(rw);
-      const jp = ship.jump || {}, grundZ = jp.blockedReason && !jp.ready ? Math.min(3, R.wrap(jp.blockedReason, rw, 1).length) : (jp.ready ? 1 : 0);   // SUND-01 F: Grund bis 3 Zeilen
-      const sprungH = 20 + 11 + 10 + 10 + (jp.dest && jp.d != null && anflugPflicht(st) ? 10 : 0) + grundZ * 10;
-      let legH = legZ * 12 + 4;
-      let frei = unten - y - sprungH - legH - 4;
-      if (frei < 12 + 2 * 12) { legH = 0; frei = unten - y - sprungH - 4; }   // zu eng: erst die Legende opfern, nie die Meldeliste
-      y = KL.meldeliste(ctx, A, Object.assign({}, o, { y, maxZeilen: Math.floor((frei - 12) / 12) - 1 })).y + 4;
+      const jp = ship.jump || {}, hinweis = jp.blockedReason && !jp.ready ? KL.sprungHinweis(jp.blockedReason, (t) => R.wrap(t, rw, 1)) : [], grundZ = jp.ready ? 1 : hinweis.length;
+      const sprungBasis = 20 + 11 + 10 + 10 + (jp.dest && jp.d != null && anflugPflicht(st) ? 10 : 0);
+      const plan = KL.spaltenPlan(A, { y, unten, rw, sprungBasis, grundZ });
+      const legH = legZ * 12 + 4;
+      y = KL.meldeliste(ctx, A, Object.assign({}, o, { y, maxZeilen: plan.maxZeilen })).y + 4;
       const jump = ship.jump || {};
       let reason = null;
       if (loc.id === w.location) reason = 'Hier sind wir schon';
@@ -904,7 +904,7 @@
       R.text(ctx, 'Ziel: ' + (jump.dest ? R.locName(st, jump.dest) : 'keins'), rx, y, { color: PAL.star }); y += 10;
       if (jump.dest && jump.d != null && anflugPflicht(st)) { R.text(ctx, 'Sprungpunkt: ' + jump.d + ' m', rx, y, { color: jumpPointNear(jump) ? PAL.mint : PAL.amber }); y += 10; }
       R.bar(ctx, rx, y + 1, rw, 6, n(jump.charge), jump.ready ? PAL.mint : PAL.amber); y += 10;
-      if (jump.blockedReason && !jump.ready) { for (const l of R.wrap(jump.blockedReason, rw, 1).slice(0, 3)) { R.text(ctx, l, rx, y, { color: PAL.warn }); y += 10; } }
+      for (const l of hinweis) { R.text(ctx, l, rx, y, { color: PAL.warn }); y += 10; }
       if (jump.ready) R.text(ctx, 'Bereit – Steuer: F', rx, y, { color: PAL.mint });
       if (legH) KL.legende(ctx, rx, unten - legZ * 12, rw);
       return 'Rad Zoom · 0 zurück · Enter Sprungziel · M ' + (SM.lageAnsicht === 'nah' ? 'Übersicht' : 'Nahansicht') + ' · Kanten gelb offen, rot gesperrt · 1–6 Reiter';
