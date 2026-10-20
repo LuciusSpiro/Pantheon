@@ -40,7 +40,7 @@ dringendste: B > M > S > unterwegs/Rückzug > hält). Pixelgenau, skaliert nicht
 | Rahmen | Haltungsfarbe 35 % zum Grund gemischt; bei Altstand `#3A4A66`. |
 
 **Lage im Hex** (`MASS.plakette.anker`): Mitte x = Hexmitte, Mitte y = Hexmitte + round(−0,36 · √3 · s), also im oberen Band, wo früher die
-Koordinate stand. Die **Hafenklasse** rückt dafür von `p.y − 11` auf `p.y − 9`. Steht im Hex eine Notruf-Marke (oben rechts), rückt die
+Koordinate stand. Die **Hafenklasse** steht auf Symbolhöhe rechts neben dem Symbol (`p.x + 8`, `p.y − 4`, `hafenDy`; SUND-01 F: bei `p.y − 9` las man sie als Teil der Namenszeile des oberen Nachbarn). Bei Hexradius s < 30 (`hexradius.nebenMin`, Übersicht) entfallen dafür die Nebensymbole (Einfluss rechts, zweites Symbol links); der Posten bleibt. Ab Zoom (s ≥ 30) und in der Ortsinfo sind sie sichtbar. Steht im Hex eine Notruf-Marke (oben rechts), rückt die
 Plakette 9 px nach links. Die Lerche-Markierung (Dreieck) entfällt, wenn im Lerche-Hex eine Plakette steht; der helle Ring bleibt.
 
 **Kurs** (geändert in SUND-01 E, Review-Befund „`n` verrät die jetzige Position“): Bei Marsch, unterwegs und Rückzug zusätzlich ein gefüllter Pfeil
@@ -94,11 +94,11 @@ ein `opts.muster` aus den Tokens, oder `starmap.js` zeichnet im Modus Freie Fahr
   dunkle Unterlage, darauf 5 px Streifen Hell/Rot im Wechsel, je ~4 px. Nur Rom|Germanen (Konkordat neutral, Piraten keine Front).
 - **Posten:** kleine Station mit Fahne links neben dem Symbol (x = p.x − 0,62·s), Fahnenfarbe `FARBE.fraktion.*.fahne`. Der Besitzer ist am
   Hexmuster ablesbar, die Fahne ist zweites Merkmal. Erkennungszeichen im Datenblock: Großbuchstabe (§12).
-- **Häfen:** Symbol wie heute, Hafenklasse A–D rechts daneben (jetzt `p.y − 9`).
+- **Häfen:** Symbol wie heute, Hafenklasse A–D rechts daneben auf Symbolhöhe (`p.y − 4`, s. §2).
 - **Belagerter Hafen (zwei Plaketten):** oben die Plakette des Angreifers mit **B**; das Hafensymbol und die Klasse entfallen, an ihrer Stelle
   (Mitte p.y + 1) die **Plakette des Verteidigers** (Garnison des Hafens, Stärkeklasse) in einem **Belagerungsrahmen**: Rechteck 2 px Hell
   mit roten Strichen 3/3 (Sprache der Bake, unter Protanopie noch sichtbar), 3 px seitlich und 4 px oben/unten Abstand, 4 px dunkle Unterlage. Sonst werden Heimatflotten im eigenen Hafen **nicht** gezeigt (§12).
-- **Notruf-Marken:** unverändert `Kartenzeichen.marke('notruf')` oben rechts im Hex mit Restzeit-Bogen, Radius max(5, min(9, 0,2·s)). Kommt
+- **Notruf-Marken:** `Kartenzeichen.marke('notruf')` oben rechts im Hex mit Restzeit-Bogen, Radius max(**6**, min(9, 0,2·s)). SUND-01 F: In der Lage-Karte steht unter der Marke eine **deckende Scheibe** in `#0B0E1A` (Radius r + 2, Alpha 1, Option `deckend`), die Bake scheint nicht durch; der **Puls (0,65–1) gilt nur dem Ring**, Füllung und „!“ (Hellrot `#FF6B5E`) sind voll deckend. Kommt
   im Modus Freie Fahrt aus der Sim (`notruf`-Ereignis), nur wenn Rom das Hex sieht. Liegt oben auf, auch über einer Bake.
 
 ## 7. Meldeliste, Ortsinfo, Legende (rechte Spalte der Captain-Konsole)
@@ -128,7 +128,7 @@ Platzbedarf geprüft im Mockup: Ort 5 Zeilen + 5 Meldungen + Sprung + Legende pa
 | Hexradius s | **16,0** | 20,3 | **23,6** (+48 % zu heute) |
 
 - `fokusSet` = die Hexe der Karte (`K.hexe`), ohne Nachbarring; Marken und Lerche liegen ohnehin auf Kartenhexen. Keine Abdunklung „außerhalb
-  des Ausschnitts“ (es gibt keinen). Bei s = 23,6 gilt `dicht` (Namen kurz, `p.y + h3/2 − 9`), Bereich **voll** (s ≥ 22) für Plaketten.
+  des Ausschnitts“ (es gibt keinen); in der **Nahansicht** wird außerhalb des Ausschnitts abgedunkelt, aber **vor** Plaketten, Marken und Lerche (SUND-01 F: vorher lag die Abdunklung über ihnen). Bei s = 23,6 gilt `dicht` (Namen kurz, `p.y + h3/2 − 9`), Bereich **voll** (s ≥ 22) für Plaketten.
 - Hover-Details: ohne innere Leiste zeigt `starmap.js` heute das Schild im Bild. Vorschlag: im Modus Freie Fahrt kein Schild, die Ortsinfo
   der Spalte folgt dem überfahrenen Hex (Auswahl bleibt per Klick).
 - **Zoom (Rad, 1–8×), Ziehen, 0:** unverändert. Plaketten, Linienbreiten, Muster (8-px-Kachel im Bildschirmraster) und Schrift bleiben
