@@ -515,7 +515,7 @@
     // oberen rechten Ecke des Hexes; mehrere Marken im selben Hex stehen nebeneinander. Notrufe zeigen ihre Restzeit als Bogen.
     {
       const nr = {};
-      const pr = Math.max(5, Math.min(9, s * 0.2));
+      const pr = Math.max(LG ? LG.M.notruf.rMinLage : 5, Math.min(9, s * 0.2));   // SUND-01 F: in der Lage-Karte mindestens 6
       for (const mk of marken) {
         const M = KZ.MARKEN[mk.t] || KZ.MARKEN.fund;
         const p = mitte(mk.h);
@@ -526,7 +526,7 @@
         }
         const k = nr[mk.h] = (nr[mk.h] || 0) + 1;
         const px = p.x + s * 0.5 - (k - 1) * (pr * 2 + 1), py = p.y - h3 / 2 + pr + 2;
-        KZ.marke(ctx, mk.t, px, py, t, { r: pr, hier: mk.h === L.hier, rest: mk.b, gesamt: mk.g || 0 });
+        KZ.marke(ctx, mk.t, px, py, t, { r: pr, hier: mk.h === L.hier, rest: mk.b, gesamt: mk.g || 0, deckend: !!LG });
       }
     }
 

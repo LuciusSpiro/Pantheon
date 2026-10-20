@@ -135,7 +135,7 @@
       meldung: { zeile: 12, max: 5, textX: 40, plaketteX: 2 },
       legende: { zeile: 12, zeilen: 3 },
     },
-    notruf: { r: 0.2, rMin: 5, rMax: 9 },   // wie starmap.js Marken
+    notruf: { r: 0.2, rMin: 5, rMax: 9, rMinLage: 6 },   // wie starmap.js Marken; in der Lage-Karte mindestens 6 und mit deckender Scheibe (r + 2)
   };
 
   // ------------------------------------------------------------------ Stärkeklassen (Server liefert k = 1..3, Schwellen in sund-sim-werte.json)

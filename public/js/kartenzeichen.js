@@ -171,9 +171,17 @@
     const puls = op.hier || (typ !== 'notruf' && typ !== 'ziel') ? 1 : 0.65 + 0.35 * Math.abs(Math.sin((t || 0) * 3));
     ctx.save();
     ctx.translate(Math.round(x), Math.round(y));
-    ctx.globalAlpha = puls;
-    ctx.fillStyle = 'rgba(11,14,26,0.92)'; ctx.strokeStyle = M.farbe; ctx.lineWidth = Math.max(1, r / 4);
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (op.deckend) {   // SUND-01 F: deckende Scheibe (Alpha 1, r + 2) unter der Marke; der Puls gilt nur dem Ring, nicht Füllung und Zeichen
+      ctx.fillStyle = COL.tisch; ctx.beginPath(); ctx.arc(0, 0, r + 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgb(11,14,26)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = puls; ctx.strokeStyle = M.farbe; ctx.lineWidth = Math.max(1, r / 4);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.globalAlpha = puls;
+      ctx.fillStyle = 'rgba(11,14,26,0.92)'; ctx.strokeStyle = M.farbe; ctx.lineWidth = Math.max(1, r / 4);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
     ctx.strokeStyle = M.farbe; ctx.fillStyle = M.farbe; ctx.lineWidth = Math.max(1, r / 5); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const k = r / 6;
     ctx.beginPath();
