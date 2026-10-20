@@ -377,6 +377,16 @@ section('SUND-01 F: StarMap mit Lage: Hafenklasse, Nebensymbole, Abdunklung, Eti
     r = k.zeichne(RECT, { loc: 'kantenstein', ship: { scene: 'kantenstein' } }, { ansichtKey: 'fz' });
     const dim = STYLES.find((x) => x.v === 'rgba(11,14,26,0.6)'), ersteG = r.texte.indexOf('G');
     ok(dim && (ersteG < 0 || dim.at <= ersteG), 'Nahansicht: Abdunklung wird vor den Plaketten gezeichnet (Position ' + (dim && dim.at) + ' vor erstem „G“ bei ' + ersteG + ')');
+    // SUND-01 G: Auswahlrahmen (1 px, Inset 5) liegt unter den Plaketten: vor dem ersten Plakettenbuchstaben gezeichnet
+    KA.zuruecksetzen('fz');
+    const strokes = []; let tlog = null;
+    const sctx = new Proxy({}, { get(_, k) { if (k === 'stroke') return () => strokes.push({ v: st.strokeStyle, lw: st.lineWidth, at: tlog.length }); if (k in st) return st[k]; return () => {}; }, set(_, k, v) { st[k] = v; return true; } });
+    const st = {}, k3 = neueKarte(); tlog = k3.log;
+    k3.senden({ t: 'snap', phase: 'play', world: { lage: blockLageB() } });
+    k3.log.length = 0; k3.win.StarMap.draw(sctx, { state: { loc: 'ostia_nova', ship: { scene: 'ostia_nova' } }, time: 1 }, RECT, { ansichtKey: 'auswahl', selected: 'kantenstein' });
+    const txs = k3.log.map((l) => l.s), erst = Math.min(...['G', 'R'].map((b) => (txs.indexOf(b) < 0 ? 1e9 : txs.indexOf(b))));
+    const wahl = strokes.filter((x) => x.v === '#F4EEDC' && x.lw === 1);
+    ok(wahl.length > 0 && erst < 1e9 && wahl.every((x) => x.at <= erst), 'Auswahlrahmen vor den Plaketten gezeichnet (Rahmen bei Text-Position ' + wahl.map((x) => x.at).join(',') + ', erster Plakettenbuchstabe bei ' + erst + ')');
   } finally { KZ.einfluss = einflOrig; fakeCtx = fakeCtxOrig; }
 }
 

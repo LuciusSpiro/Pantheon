@@ -482,9 +482,6 @@
       ctx.fillStyle = 'rgba(11,14,26,0.6)';
       for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
     }
-    // SUND-01 C: Belagerung, Kurs, Vermutung und Plaketten der Flotten (über Hexinhalten, unter Lerche, Auswahl und Notrufen)
-    if (LG) LG.flotten(ctx, A, V, { notrufHex: new Set(marken.filter((mk) => mk.t === 'notruf').map((mk) => mk.h)) });
-
     // 5) Markierungen (Stilblatt §2.3): eigene Position Hell-Ring + Lerche-Dreieck, Ziel Gold-Doppelring pulsierend
     const ring = (h, farbe, breite, strich, inset) => {
       if (!h) return;
@@ -492,6 +489,15 @@
       ctx.save(); ctx.strokeStyle = farbe; ctx.lineWidth = breite; if (strich) ctx.setLineDash(strich);
       hexPfad(ctx, p.x, p.y, s - inset); ctx.stroke(); ctx.restore();
     };
+    // Auswahl, Wahlversuch und Überfahren: Rahmen im Hex (Inset 5). SUND-01 G: in der Übersichtskarte liegen sie UNTER den Plaketten (die Linie lief sonst quer über Plakette und Lampen und machte sie milchig), sonst wie bisher nach dem Ziel-Ring
+    const auswahlRinge = () => {
+      if (selHex && selHex !== L.ziel) ring(selHex, COL.wahl, 1, null, 5);
+      if (store.pick && store.pick !== selHex) ring(store.pick, COL.gesperrt, 1, [2, 2], 5);
+      if (hover && hover !== selHex) ring(hover, 'rgba(244,238,220,0.6)', 1, null, 5);
+    };
+    // SUND-01 C: Belagerung, Kurs, Vermutung und Plaketten der Flotten (über Hexinhalten, unter Lerche, Ziel und Notrufen; SUND-01 G: über den Auswahlrahmen)
+    if (LG) { auswahlRinge(); LG.flotten(ctx, A, V, { notrufHex: new Set(marken.filter((mk) => mk.t === 'notruf').map((mk) => mk.h)) }); }
+
     if (L.hier) {
       ring(L.hier, COL.text, 2, null, 2);
       // QA-B3 F5: Lerche-Dreieck rechts neben die Koordinate (verdeckte sonst deren letzte Ziffer)
@@ -507,9 +513,7 @@
       ring(L.ziel, 'rgba(255,198,107,' + pul + ')', 1, null, 5);
     }
     const fokus = hover || store.pick || selHex;
-    if (selHex && selHex !== L.ziel) ring(selHex, COL.wahl, 1, null, 5);
-    if (store.pick && store.pick !== selHex) ring(store.pick, COL.gesperrt, 1, [2, 2], 5);
-    if (hover && hover !== selHex) ring(hover, 'rgba(244,238,220,0.6)', 1, null, 5);
+    if (!LG) auswahlRinge();
 
     // SL1B: Marken (Missionsziele, Notrufe, Spuren, Funde, Kontakte). Ziel: gestrichelter Doppelring + Fähnchen, die übrigen: Plakette an der
     // oberen rechten Ecke des Hexes; mehrere Marken im selben Hex stehen nebeneinander. Notrufe zeigen ihre Restzeit als Bogen.

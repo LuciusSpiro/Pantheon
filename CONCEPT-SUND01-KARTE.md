@@ -72,7 +72,9 @@ und **die Lerche** (Kai: Sensorknoten).
 - **Sichtgrenze**: jede Hexseite zwischen einem hellen und einem dunklen **Kartenhex** (nicht zum Leerraum-Rand): 4 px `#0B0E1A`, darauf 2 px
   Eisblau. Ohne Glow (Formsprache der Meldetafel).
 - Reihenfolge: Flächen + Muster + Dunkel → Kanten → Sichtgrenze → Front → **Kantenperlen erneut** (Sprungpunkt bleibt auf Grenze und Front
-  sichtbar) → Hexinhalte → Belagerung, Kurs, Vermutung → Plaketten → Lerche, Auswahl, Notrufe (oben).
+  sichtbar) → Hexinhalte → **Auswahlrahmen** (Auswahl, Wahlversuch, Überfahren; 1 px, Inset 5) → Belagerung, Kurs, Vermutung → Plaketten → Lerche, Ziel, Notrufe (oben).
+  SUND-01 G: Der Auswahlrahmen liegt unter den Plaketten (vorher darüber: die Linie lief quer über Plakette und Lampen und machte sie milchig). Der
+  Rahmen bleibt rund um die Plakette sichtbar; Lerche-Ring, Ziel-Ring und Notrufe liegen weiter darüber. Außerhalb des Modus (Limes, Kampagne) bleibt die Reihenfolge wie vorher.
 - Verborgene Kanten (`hidden`) bleiben wie heute unsichtbar, bis sie bekannt sind.
 
 ## 5. Besitzermuster (Farbenblind)
