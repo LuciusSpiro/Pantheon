@@ -1169,11 +1169,14 @@ function hatPlaetze(game, kind) { const W = game.C.enemyWeapons && game.C.enemyW
 function plaetzeImBogen(game, e, T, typ, range) {
   return waffenPlaetze(game, e, typ).filter((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, waffenReichweite(game, range != null ? range : w.range), T.x, T.y));
 }
+// Abnahme 3: Der Gegner-Torpedo sitzt nur auf Seitenplätzen (Bogen 90°, quer zur Fahrt): Breitseiten-Schiffe zeigen der Lerche ihre Seite, nie den Bug (Bogen 40°) – am Bug feuerte er nie.
+function torpedoPlatzOk(platz) { return /^(stbd|bb)/.test(String(platz)); }
 function bestueckung(game, kind, vorgabe) {
   const arten = game.C.korvetteWaffen || ['lanze', 'batterie', 'bolzen'];
   const w = {};
   for (const w0 of game.C.enemyWeapons[kind] || []) {
-    const v = vorgabe && vorgabe[w0.platz];
+    let v = vorgabe && vorgabe[w0.platz];
+    if (v && Katalog.verhaltenVon(v) === 'torpedo' && !torpedoPlatzOk(w0.platz)) { v = null; if (game.countError) game.countError('gegner-torpedo-platz', new Error('Gegner-Torpedo nur auf Seitenplätzen (stbd, bb), nicht auf ' + w0.platz)); }   // Abnahme 3: der Bug zeigt bei Breitseiten-Schiffen nie auf die Lerche
     w[w0.platz] = arten.includes(v) || (v && Katalog.waffe(v)) ? v : arten[game.rng.int(arten.length)];   // PAN-01 C: gezielt auch jede Katalogwaffe, der Zufall bleibt bei den drei Altarten (Golden)
   }
   return w;
@@ -1789,7 +1792,7 @@ module.exports = {
   // M3b §2/§3 (SERVER-FLIGHT): Temporegler, Snapshot-Ergänzungen
   helmThrottle, helmSnapshot, enemySnapExtra, engineSpeedFactor, lercheClass,
   leadAngle,   // QA M3b: Vorhalt der Jäger-Schüsse (spaceM3b.pilotFire)
-  hasEnemy, stoereGegner, meldeWaffenAutomatik, selectedEnemy, bestueckung, estreuExplosion, etorpedoTreffer,   // PAN-01 C (schiffswaffen.js, Tests)
+  hasEnemy, stoereGegner, meldeWaffenAutomatik, selectedEnemy, bestueckung, estreuExplosion, etorpedoTreffer, torpedoPlatzOk,   // PAN-01 C (schiffswaffen.js, Tests)
   crewScale, holdingFire, enemyCanHit, waffenPlaetze,   // S2 §5 (escort.js)
   updateEnemies, hatPlaetze, plaetzeImBogen,   // EK1b (Tests)
   // W2 AP3b: Nebel und Brocken (gleiche Regeln für Lerche und Gegner)

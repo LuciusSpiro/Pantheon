@@ -319,9 +319,12 @@ section('Torpedowerfer: Regeln', () => {
 
 section('Torpedo: Gegner tragen ihn nur gezielt', () => {
   const T = arena(); const g = T.g;
-  const r = T.debug('spawn', 'korvette bug=torpedowerfer stbd=standardbatterie bb=sturmbatterie');
+  ok(T.debug('spawn', 'korvette bug=torpedowerfer').some((x) => /Seitenpl/.test(x)) && g.space.enemies.length === 0, 'Gegner-Torpedo am Bug wird abgelehnt (nur Seitenplätze: der Bug zeigt nie auf die Lerche)');
+  const r = T.debug('spawn', 'korvette bug=standardkanone stbd=torpedowerfer bb=sturmbatterie');
   const e = g.space.enemies[0];
-  ok(r.length === 0 && e && e.waffen.bug === 'torpedowerfer' && e.waffen.stbd === 'standardbatterie' && e.waffen.bb === 'sturmbatterie', 'Debug spawn mit Katalogwaffen je Platz');
+  ok(r.length === 0 && e && e.waffen.bug === 'standardkanone' && e.waffen.stbd === 'torpedowerfer' && e.waffen.bb === 'sturmbatterie', 'Debug spawn mit Katalogwaffen je Platz');
+  const vq = space.spawnEnemy(g, 'korvette', { x: 100, y: 100, waffen: { bug: 'torpedowerfer', stbd: 'lanze', bb: 'lanze' } });
+  ok(vq.waffen.bug !== 'torpedowerfer', 'Regiebuch/Spawn mit Torpedo am Bug: Vorgabe wird verworfen (Seitenplatz-Regel), kein Torpedo am Bug');
   ok(T.debug('spawn', 'korvette bug=quatsch').length === 1, 'unbekannte Waffe wird abgelehnt');
   // nie Zufall
   const arten = new Set();
@@ -329,12 +332,12 @@ section('Torpedo: Gegner tragen ihn nur gezielt', () => {
   ok([...arten].sort().join() === 'batterie,bolzen,lanze', 'Zufallsbestückung bleibt bei lanze | batterie | bolzen (Torpedo nie Zufall): ' + [...arten].sort().join());
   // feuert
   g.space.enemies = [];
-  const k = space.spawnEnemy(g, 'korvette', { x: g.ship.x + 250, y: g.ship.y, facing: Math.PI, waffen: { bug: 'torpedowerfer', stbd: 'standardbatterie', bb: 'standardbatterie' } });
+  const k = space.spawnEnemy(g, 'korvette', { x: g.ship.x + 250, y: g.ship.y, facing: Math.PI / 2, waffen: { bug: 'standardbatterie', stbd: 'torpedowerfer', bb: 'standardbatterie' } });   // Breitseite zur Lerche: Steuerbord zeigt nach Westen
   k.torpG = 99; g.god = false;
   const nullSchild = () => { for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0; };
   let sah = false, h0 = 0;
   for (let i = 0; i < 30 * 12; i++) {
-    k.x = g.ship.x + 250; k.y = g.ship.y; k.angle = Math.PI; k.fireT = -999; k.boltT = -999; if (k.sf) k.sf.t = -999; nullSchild();
+    k.x = g.ship.x + 250; k.y = g.ship.y; k.angle = Math.PI / 2; k.fireT = -999; k.boltT = -999; if (k.sf) k.sf.t = -999; nullSchild();
     if (g.space.projectiles.some((q) => q.kind === 'etorpedo')) { sah = true; if (!h0) h0 = g.ship.hull; }
     g.step();
     if (sah && g.ship.hull < h0) break;
@@ -702,12 +705,31 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
   {
     const { T, g, w } = lade();
     const e = gegner(T, 'korvette', 0, -250, { hp: 9999 }); const hp0 = e.hp;
-    schiess(T, e, 'port'); T.run(0.1); pin(g);
+    pin(g); schiess(T, e, 'port'); T.run(0.1); pin(g);   // vor dem ersten Schuss fixieren: ein frisch gespawntes Ziel trägt noch seine Anfangsgeschwindigkeit (der Vorhalt rechnet damit; das gäbe 75 %)
     ok(g.space.projectiles.some((q) => q.kind === 'pbatterie') && g.space.beams.length === 0, 'Batterie: Projektile (pbatterie) in der Luft, kein Strahl');
     lauf(T, 1.5);
     const n = g.stats.schussTreffer || 0; const verl = hp0 - e.hp;
     ok(n >= 3 && n <= w.rohre && near(verl, n * w.schaden, 1e-6), `Treffer ${n}/${w.rohre}: Hülle −${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer)`);
     ok(n / (g.stats.schuesse || 1) > 0.5, 'ruhendes Ziel: Trefferquote ' + Math.round(100 * n / (g.stats.schuesse || 1)) + ' %');
+  }
+  // Trefferquote auf ein ruhendes Ziel (Korvette, 250 px): je Klasse gemessen, im Contract §9 genannt
+  for (const [mid, wid, bm] of [['port', 'standardbatterie', '4 standardbatterie'], ['port', 'sturmbatterie', '4 sturmbatterie'], ['bow', 'standardkanone', '8 standardkanone']]) {
+    const T = arena(); const g = T.g; T.debug('bestueck', bm);
+    const e = gegner(T, 'korvette', mid === 'bow' ? 250 : 0, mid === 'bow' ? 0 : -250, { hp: 1e9 });
+    pin(g); for (let v = 0; v < 8; v++) { schiess(T, e, mid); lauf(T, 1.6); }
+    const q = (g.stats.schussTreffer || 0) / (g.stats.schuesse || 1);
+    info(`${wid}: ruhendes Ziel, ${g.stats.schussTreffer}/${g.stats.schuesse} Projektile treffen (${Math.round(q * 100)} %)`);
+    ok(q >= 0.95, `${wid}: Trefferquote auf ein wirklich ruhendes Ziel ${Math.round(q * 100)} % (Contract §9: 100 %)`);
+  }
+  // Vorhalt höchstens 3 s: Ziel weit weg und schnell (Abfang erst nach > 3 s) -> gezielt wird auf den Ort in 3 s, nicht auf den Abfangpunkt
+  {
+    const o = { x: 0, y: 0 }, e = { x: 1200, y: 0 }, v = { x: 300, y: 200 };   // entfernt sich mit 300 px/s, Geschoss 450: freier Abfang bei ≈ 8 s
+    const frei = Waffen.vorhaltWinkel(o, e, v, 450, 30), kapp = Waffen.vorhaltWinkel(o, e, v, 450, 3);
+    const bei3 = Math.atan2(e.y + v.y * 3, e.x + v.x * 3);
+    ok(Math.abs(kapp - bei3) < 1e-9, `Vorhalt gedeckelt: Winkel ${kapp.toFixed(4)} rad = Zielpunkt bei 3 s (${bei3.toFixed(4)} rad)`);
+    ok(Math.abs(frei - bei3) > 1e-4 && frei > kapp, `ohne Deckel (30 s) liefe der Vorhalt weiter voraus (${frei.toFixed(4)} rad): der Deckel wirkt`);
+    const nah = Waffen.vorhaltWinkel(o, { x: 300, y: 0 }, { x: 0, y: 200 }, 450, 3);
+    ok(nah > 0.3 && nah < Math.atan2(200 * 3, 300), 'nahes Ziel: Abfangpunkt unter 3 s, nicht gedeckelt');
   }
   // gleicher Schaden je Treffer gegen Schild
   {

@@ -827,5 +827,5 @@ module.exports = {
   ensureMounts, szeneReset, bestuecken, setzeRoh, bestueckeAlle, stufeGeaendert, chargePoints, computeAlloc, standardVerteilung, verteilungZuruecksetzen, chargeTime,
   inMountArc, mountOrigin, nearestInArc, selectedEnemy, update, lanceChargeTime, lanceDamage, lanceTrace, fireLance, weaponsCharge, rohre, startSalvo,
   streuExplosion, fireTorpedo, weaponsFire, weaponsAlloc, weaponsHold, weaponsReload, consumeFullCharge, lenke, mountsSnapshot, debug, toSave, restore,
-  vorrat, reserviert, lagerGutschrift, turmZiel, isDown, EPS, schade,
+  vorrat, reserviert, lagerGutschrift, turmZiel, isDown, EPS, schade, vorhaltWinkel,
 };

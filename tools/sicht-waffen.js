@@ -146,7 +146,7 @@ async function main() {
     // ---- Zielkasten: Korvette mit Bug lanzenbatterie? (Katalog-Id), gescannt
     await dbg('bestueck alle 3'); await sleep(300);
     await sitz('weapons'); await sleep(400);
-    await page.evaluate(() => { const s = __game.state.ship; __game.send({ t: 'debug', cmd: 'spawn', kind: 'fregatte', volk: 'ger', dist: 330, winkel: s.angle - 0.5, waffen: { bug: 'torpedowerfer', stbd1: 'sturmbatterie', stbd2: 'streubatterie', bb1: 'lanze', bb2: 'batterie' } }); });
+    await page.evaluate(() => { const s = __game.state.ship; __game.send({ t: 'debug', cmd: 'spawn', kind: 'fregatte', volk: 'ger', dist: 330, winkel: s.angle - 0.5, waffen: { bug: 'standardkanone', stbd1: 'torpedowerfer', stbd2: 'streubatterie', bb1: 'lanze', bb2: 'batterie' } }); });
     await sleep(900);
     await page.evaluate(() => __game.send({ t: 'debug', cmd: 'scanall' }));
     await sleep(700);

@@ -1249,6 +1249,7 @@ class Game {
         const wf = Object.assign({}, msg.waffen && typeof msg.waffen === 'object' ? msg.waffen : {});
         for (const pk of Object.keys(kw)) if (pk !== 'volk') wf[pk] = kw[pk];
         for (const pk of Object.keys(wf)) if (!Katalog.gegnerWert(wf[pk])) { err = `Unbekannte Waffe „${wf[pk]}“ (lanze, batterie, bolzen oder ${Katalog.WAFFEN.map((x) => x.id).join(', ')}).`; break; }
+        for (const pk of Object.keys(wf)) if (Katalog.verhaltenVon(wf[pk]) === 'torpedo' && !space.torpedoPlatzOk(pk)) { err = `Gegner-Torpedo nur auf Seitenplätzen (stbd, bb, stbd1 …), nicht auf „${pk}“: Der Bug zeigt bei Breitseiten-Schiffen nie auf die Lerche.`; break; }
         if (err) break;
         if (Object.keys(wf).length) so.waffen = wf;
         if (Number(msg.dist) > 0) { const wa = Number(msg.winkel) || 0, dd = Math.min(900, Number(msg.dist)); so.x = this.ship.x + Math.cos(wa) * dd; so.y = this.ship.y + Math.sin(wa) * dd; }   // Sichtprüfung: Abstand/Winkel zur Lerche (Gegner nah ins Bild)
