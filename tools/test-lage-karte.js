@@ -179,7 +179,7 @@ section('StarMap: Zoom-Stufen, Nahansicht, kleine Konsole');
   ok(k.SM.toggleAnsicht() === 'nah' && k.SM.lageAnsicht === 'nah', 'M: Nahansicht');
   r = k.zeichne(RECT, { loc: 'kantenstein', ship: { scene: 'kantenstein' } }, { ansichtKey: 'nah' });
   ok(r.alt === 0 && r.res.scale <= T.MASS.hexradius.nahMax + 0.01 && r.res.scale > 23.6, 'Nahansicht: größerer Hexradius (' + r.res.scale.toFixed(1) + ' ≤ ' + T.MASS.hexradius.nahMax + ')');
-  ok(r.texte.some((s) => /NAHANSICHT/.test(s)), 'Beschriftung „· NAHANSICHT“');
+  ok(!r.texte.some((s) => /NAHANSICHT|ÜBERSICHT/.test(s)), 'Nahansicht: kein Kartenetikett (SUND-01 F: es überdeckte Hexnamen; die Fußzeile nennt die Ansicht)');
   ok(k.SM.toggleAnsicht() === 'uebersicht', 'M noch einmal: zurück zur Übersicht');
 }
 
@@ -235,13 +235,87 @@ section('Spalte: Texte');
   ok(t.includes('Eigen · aktuell'), 'Ortsinfo eigenes Hex: „Eigen · aktuell“');
   log.length = 0; KL.ortsinfo(fakeCtx(), KL.lesen(blockLeer(), CODES), Object.assign({ sel: '1004' }, o)); t = txts();
   ok(t.includes('Außer Sicht · nie gesehen'), 'Ortsinfo nie gesehen');
-  log.length = 0; const res = KL.meldeliste(fakeCtx(), A, Object.assign({ sel: '0803' }, o)); t = txts();
+  log.length = 0; const res = KL.meldeliste(fakeCtx(), A, Object.assign({ sel: '0803' }, o, { rw: 200 })); t = txts();   // SUND-01 F: rw 200, weil der Text jetzt ab x 42 (statt 40) beginnt und die Langform in Fake-Breite 5/Zeichen knapp passt
   ok(t[0] === 'MELDUNGEN · STAND T-1' && t.includes('Ulfsvakt · sammelt seit 2 Ticks') && t.some((s) => /Skjaldborg · vor 11 Ticks/.test(s)), 'Meldeliste: Kopf, „sammelt seit 2 Ticks“, Altstand „vor 11 Ticks“ ' + JSON.stringify(t));
   ok(res.zeilen === 4, 'Meldeliste: 3 Flotten und 1 Ereigniszeile (Posten gegründet); „sammelt“ in der Meldung ist nur das Neu-Zeichen');
   log.length = 0; KL.meldeliste(fakeCtx(), KL.lesen(block12(), CODES), Object.assign({ sel: null }, o)); t = txts();
   ok(t.some((s) => /^\+\d+ weitere$/.test(s)) && t.filter((s) => s !== 'MELDUNGEN · STAND T-1' && !/^\+/.test(s) && s.length > 3).length <= T.MASS.spalte.meldung.max + 2, 'Meldeliste bei vielen Einträgen: höchstens ' + T.MASS.spalte.meldung.max + ' Zeilen und „+n weitere“');
   log.length = 0; KL.meldeliste(fakeCtx(), KL.lesen(blockLeer(), CODES), Object.assign({ sel: null }, o)); t = txts();
   ok(t.includes(T.TEXT.meldeliste.leer), 'leere Liste: „Keine Flotten gemeldet.“');
+}
+
+// =============================================================================================================================
+section('SUND-01 F: Kurznamen, Meldeliste-Kurzformen, Rangfolge, Legende, Ortsinfo, Marken-Scheibe');
+{
+  const log = []; KL.env.Render = fakeRender(log);
+  // Kurznamen
+  const KN = T.TEXT.kurzname;
+  const langeNamen = CODES.map((c) => SUND.hexe[c].name).filter((nm) => nm.length > 7);
+  ok(langeNamen.every((nm) => KN[nm]), 'jeder lange Hexname (> 7 Zeichen) hat einen handverlesenen Kurznamen: ' + langeNamen.filter((nm) => !KN[nm]).join(', '));
+  const schlecht = Object.keys(KN).filter((k) => !(CODES.some((c) => SUND.hexe[c].name === k) && KN[k].replace('.', '').length <= 6 && KN[k].length < k.length));
+  ok(!schlecht.length && Object.keys(KN).every((k) => CODES.some((c) => SUND.hexe[c].name === k) && KN[k].replace('.', '').length <= 6 && KN[k].length < k.length), 'Kurznamen: gehören zu einem Kartenhex, höchstens 6 Zeichen plus Punkt, kürzer als der Name ' + schlecht.join(', '));
+  ok(KL.kurzname('Raffinerie Lumen', 600) === 'Lumen' && KL.kurzname('Raffinerie Lumen', 38) === 'Lumen', '„Raffinerie Lumen“ heißt immer „Lumen“ (Übersicht und Zoom)');
+  ok(KL.kurzname('Vorläufer-Sektor', 38) === 'Vorl.' && KL.kurzname('Vorläufer-Sektor', 600) === 'Vorläufer-Sektor', 'Vorläufer-Sektor: „Vorl.“ in der Übersicht, voller Name im Zoom');
+  ok(KL.kurzname('Sudrvik', 38) === 'Sudrvik' && KL.kurzname('Unbekannt Name Lang', 38) === null, 'Name passt: voll; ohne Tabelleneintrag: null (Aufrufer kürzt)');
+  // Meldeliste in der schmalen Pult-Spalte: Zeit und Ziel gehen nicht verloren
+  const name = (h) => ({ '0803': 'Ulfsvakt', '0603': 'Kantenstein', '0904': 'Skjaldborg', '0703': 'Eisfeld', '0403': 'Speculum' })[h] || h;
+  const B = blockLageB();
+  B.f = [{ f: 'g', h: '0803', k: 3, p: 's', a: 1, d: 2 }, { f: 'g', h: '0703', k: 2, p: 'm', a: 1, v: '0803' }, { f: 'g', h: '0904', k: 2, p: 'u', a: 11, v: '0803' }];
+  const On = { rx: 432, rw: 144, y: 50, sel: null, name, art: () => '', hafen: () => '', karteFraktion: () => 'g', dist: () => 3, kurs: () => 0 };
+  log.length = 0; KL.meldeliste(fakeCtx(), KL.lesen(B, CODES), On);
+  const breiteN = On.rw - T.MASS.spalte.meldung.textX, zeilen = log.map((l) => l.s).filter((s) => /seit|→|vor/.test(s));
+  ok(zeilen.some((s) => /Ulf.* · seit 2/.test(s)) && zeilen.some((s) => /Ulf.*→ ?Eisfeld/.test(s)) && zeilen.every((s) => s.length * 5 <= breiteN), 'schmale Meldeliste: Kurzformen mit Ort und Zeit/Herkunft statt bloßem Ortsnamen: ' + JSON.stringify(zeilen));
+  ok(T.MASS.spalte.meldung.textX === 42, 'Meldeliste: Text ab x 42');
+  // Rangfolge: Gleichstand nach Fraktion (g vor p vor k), dann Stärke
+  const qg = { f: 'g', k: 1, p: 'u', a: 1, stufe: 'gesehen' }, qp = { f: 'p', k: 3, p: 'u', a: 1, stufe: 'gesehen' }, qk = { f: 'k', k: 3, p: 'u', a: 1, stufe: 'gesehen' }, qg3 = { f: 'g', k: 3, p: 'u', a: 1, stufe: 'gesehen' };
+  ok([qk, qp, qg].sort(KL.rangVergleich).map((q) => q.f).join('') === 'gpk' && [qg, qg3].sort(KL.rangVergleich)[0] === qg3, 'Rangfolge bei Gleichstand: g vor p vor k, danach Stärke absteigend');
+  const Mix = KL.lesen({ t: 5, vz: 1, sw: 2, hx: CODES.map(() => '-1').join(''), f: [{ f: 'p', h: '0703', k: 1, p: 'u', a: 1 }, { f: 'g', h: '0703', k: 2, p: 'u', a: 1 }], m: [] }, CODES);
+  log.length = 0;
+  KL.flotten(fakeCtx(), Mix, { s: 24, h3: 41.6, mitte: () => ({ x: 100, y: 100 }), nachbarn: () => [], hexe: ['0703'], bereich: 'voll' }, {});
+  ok(log.some((l) => l.s === 'G') && !log.some((l) => l.s === 'P') && log.some((l) => l.s === '+1'), 'Mischhex Eisfeld: die germanische Flotte steht auf der Plakette, die Piraten im Chip „+1“');
+  // Legende: schmale Spalte vier bis fünf Zeilen, breite drei
+  ok(KL.legendeZeilen(144) >= 4 && KL.legendeZeilen(144) <= 5 && KL.legendeZeilen(196) === 3, 'Legende: schmale Spalte ' + KL.legendeZeilen(144) + ' Zeilen (4 bis 5), breite ' + KL.legendeZeilen(196));
+  // Ortsinfo außer Sicht in der schmalen Spalte: Kurzform mit Sichtweite
+  const Aalt = KL.lesen(blockLageB(), CODES);
+  log.length = 0; KL.ortsinfo(fakeCtx(), Aalt, { rx: 432, rw: 146, y: 50, sel: '0904', name, art: () => '', hafen: () => '', karteFraktion: () => 'g', dist: () => 4, kurs: () => 0, ohneArt: true });
+  ok(log.some((l) => l.s === 'Knoten 4 Sprünge · Sicht 2'), 'Ortsinfo außer Sicht (146 px): „Knoten 4 Sprünge · Sicht 2“ statt abgeschnittener Langform: ' + JSON.stringify(log.map((l) => l.s)));
+  // Verborgenes, unerkundetes Hex: kein Name, kein Besitzer, keine Art
+  log.length = 0; KL.ortsinfo(fakeCtx(), Aalt, { rx: 432, rw: 196, y: 50, sel: '0602', name: () => 'Altrost', art: () => 'Piratenlager Nord', hafen: () => '', karteFraktion: () => 'p', dist: () => 3, kurs: () => 0, verborgen: (h) => h === '0602' });
+  ok(log.some((l) => l.s === '?') && !log.some((l) => /Altrost|Pirat/.test(l.s)), 'Ortsinfo verborgenes Hex: „?“, nichts von Name, Besitzer oder Art: ' + JSON.stringify(log.map((l) => l.s)));
+  // Notruf-Marke: deckende Scheibe (Alpha 1, r + 2) unter dem Ring, Puls nur auf dem Ring
+  const rec = []; let ga = 1, fst = '';
+  const mctx = new Proxy({}, { get(_, k) { if (k === 'globalAlpha') return ga; if (k === 'fillStyle') return fst; return (...a) => { if (k === 'arc') rec.push({ k, r: a[2], ga, fs: fst }); if (k === 'fill' || k === 'stroke') rec.push({ k, ga, fs: fst }); }; }, set(_, k, v) { if (k === 'globalAlpha') ga = v; if (k === 'fillStyle') fst = v; return true; } });
+  KZ.marke(mctx, 'notruf', 50, 50, 0.52, { r: 6, deckend: true });
+  const scheibe = rec.find((x) => x.k === 'arc'), erstesFill = rec.find((x) => x.k === 'fill');
+  ok(scheibe && scheibe.r === 8 && erstesFill && erstesFill.ga === 1 && erstesFill.fs === KZ.COL.tisch, 'Notruf-Marke deckend: erste Fläche = Scheibe Radius r + 2 = 8 in Tischfarbe mit Alpha 1');
+  const ring = rec.filter((x) => x.k === 'stroke')[0], zeichen = rec.filter((x) => x.k === 'fill').slice(-1)[0];
+  ok(ring && ring.ga < 1 && zeichen && zeichen.ga === 1, 'Notruf-Marke deckend: Puls nur auf dem Ring (Alpha ' + (ring && ring.ga.toFixed(2)) + '), Zeichen „!“ voll deckend');
+  rec.length = 0; KZ.marke(mctx, 'notruf', 50, 50, 0.52, { r: 6 });
+  ok(rec.find((x) => x.k === 'arc').r === 6, 'ohne deckend (Limes, Kampagne): unverändert Radius r, keine Scheibe');
+  ok(T.MASS.notruf.rMinLage === 6, 'Notruf-Marke in der Lage-Karte mindestens Radius 6');
+}
+section('SUND-01 F: StarMap mit Lage: Hafenklasse, Nebensymbole, Abdunklung, Etikett');
+{
+  let einfl = 0; const einflOrig = KZ.einfluss; KZ.einfluss = (...a) => { einfl++; return einflOrig(...a); };
+  const STYLES = []; const fakeCtxOrig = fakeCtx;
+  fakeCtx = () => new Proxy(fakeCtxOrig(), { set(t, k, v) { if (k === 'fillStyle') STYLES.push({ v, at: STYLES.log ? STYLES.log.length : 0 }); t[k] = v; return true; } });
+  try {
+    const k = neueKarte(); STYLES.log = k.log;
+    k.senden({ t: 'snap', phase: 'play', world: { lage: blockLageB() } });
+    let r = k.zeichne(RECT, null, { ansichtKey: 'fz' });   // eigener Schlüssel: KA.rad trifft den zuletzt registrierten frischen Bereich
+    ok(einfl === 0 && T.MASS.hexradius.nebenMin === 30 && T.MASS.plakette.anker.hafenDy === -4, 'Übersicht (s 23,6 < 30): keine Einfluss-Nebensymbole; Hafenklasse auf Symbolhöhe (hafenDy −4)');
+    ok(!STYLES.some((x) => x.v === 'rgba(11,14,26,0.6)'), 'Übersicht: keine Abdunklung außerhalb des Ausschnitts (Spezifikation §8)');
+    ok(r.texte.some((s) => /ÜBERSICHT/.test(s)), 'Etikett in der unbewegten Übersicht');
+    for (let i = 0; i < 6; i++) { KA.rad(200, 180, -100); r = k.zeichne(RECT, null, { ansichtKey: 'fz' }); }
+    einfl = 0; r = k.zeichne(RECT, null, { ansichtKey: 'fz' });
+    ok(r.res.scale >= 30 && einfl > 0, 'Zoom (s ' + r.res.scale.toFixed(1) + ' ≥ 30): Nebensymbole wieder sichtbar');
+    ok(!r.texte.some((s) => /ÜBERSICHT|NAHANSICHT/.test(s)), 'Zoom: kein Kartenetikett über den Hexnamen');
+    KA.zuruecksetzen('fz');
+    k.SM.toggleAnsicht(); STYLES.length = 0;
+    r = k.zeichne(RECT, { loc: 'kantenstein', ship: { scene: 'kantenstein' } }, { ansichtKey: 'fz' });
+    const dim = STYLES.find((x) => x.v === 'rgba(11,14,26,0.6)'), ersteG = r.texte.indexOf('G');
+    ok(dim && (ersteG < 0 || dim.at <= ersteG), 'Nahansicht: Abdunklung wird vor den Plaketten gezeichnet (Position ' + (dim && dim.at) + ' vor erstem „G“ bei ' + ersteG + ')');
+  } finally { KZ.einfluss = einflOrig; fakeCtx = fakeCtxOrig; }
 }
 
 console.log('\n' + (n - fails) + '/' + n + ' Prüfungen ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

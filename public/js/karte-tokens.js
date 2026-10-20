@@ -122,7 +122,7 @@
     },
     kurs: { pfeil: 0.2, pfeilMin: 5, abstandRand: 6 },   // Pfeil 6 px innen vor der Hexseite, Größe max(5, 0.2·s): eigene Flotte hinaus zum nächsten Hex (n), fremde hinein von der Seite, aus der sie kam (v)
     vermutet: { strich: [4, 3], breite: 1, unterlage: 3, marke: { breite: 8, hoehe: 10 }, maxHexe: 3 },
-    front: { breite: 5, unterlage: 8, segment: 4, ueberstand: 0.28 },   // Streifen hell/rot, je 4 px; Seite um 28 % verlängert
+    front: { breite: 5, unterlage: 8, segment: 4, ueberstand: 0.15 },   // Streifen hell/rot, je 4 px; Seite um 15 % verlängert
     sicht: { breite: 2, unterlage: 4 },
     belagerung: { rahmen: 2, unterlage: 4, abstandX: 3, abstandY: 4, strich: [3, 3] },   // Rahmen um die Verteidiger-Plakette, Hell mit roten Strichen
     // Hexradius-Bereiche: voll = ganze Plakette, knapp = Kurzplakette (Buchstabe, Phase als Rahmenfarbe), kompakt = HUD-Ausschnitt
@@ -132,7 +132,7 @@
     // rechte Spalte der Captain-Konsole (consoles.js capStar: rx = a.x + 420, rw = 196)
     spalte: {
       zeile: 10, kopf: 11, abschnitt: 4,
-      meldung: { zeile: 12, max: 5, textX: 40, plaketteX: 2 },
+      meldung: { zeile: 12, max: 5, textX: 42, plaketteX: 2 },
       legende: { zeile: 12, zeilen: 3 },
     },
     notruf: { r: 0.2, rMin: 5, rMax: 9, rMinLage: 6 },   // wie starmap.js Marken; in der Lage-Karte mindestens 6 und mit deckender Scheibe (r + 2)
@@ -176,9 +176,20 @@
       kopf: 'MELDUNGEN · STAND T-{vz}', leer: 'Keine Flotten gemeldet.', mehr: '+{n} weitere',
       sammelt: '{ort} · sammelt seit {d}', marsch: '{ort} → {nach} ?', unterwegs: '{ort} → {nach}', kam: '{von} → {ort}',
       belagert: '{ort} · belagert', steht: '{ort}', alt: '{ort} · vor {a} Ticks',
+      // Kurzformen für die schmale Pult-Spalte (SUND-01 F): erst Langform, dann Kurzform (mit vollen, dann mit Kurznamen), zuletzt nur der Ort
+      sammeltKurz: '{ort} · seit {d}', kamKurz: '{von}→{ort}', marschKurz: '{ort}→{nach}?', unterwegsKurz: '{ort}→{nach}', altKurz: '{ort} · vor {a}', postenWegKurz: '{ort} verloren', postenNeuKurz: 'Posten {ort}', hafenGefallenKurz: '{ort} gefallen', hafenHaeltKurz: '{ort} hält',
       hafenGefallen: '{ort} gefallen', hafenHaelt: '{ort} hält', postenNeu: 'Posten {ort}', postenWeg: 'Posten {ort} verloren',
     },
-    ortsinfo: { aussenKnoten: 'Nächster Knoten: {n} Sprünge', sicht: 'Sicht reicht {w} Sprünge' },
+    // Handverlesene Kurznamen der Hexe (höchstens 6 Zeichen plus Punkt), wenn der volle Name nicht in die Hexbreite passt. `kurznameImmer`: auch wenn der
+    // volle Name passt (Übersicht und Zoom nennen das Hex gleich). Der volle Name steht in Ortsinfo, Meldeliste und Funk.
+    kurzname: {
+      Gullfjord: 'Gull.', Hrafnheim: 'Hrafn.', Eisenhall: 'Eisen.', 'Ymirs Zahn': 'Ymir', Palatina: 'Palat.', Campania: 'Camp.', Carrara: 'Carr.', Vulcania: 'Vulc.',
+      'Castra Gradivi': 'Castra', 'Ostia Nova': 'Ostia', Speculum: 'Spec.', 'Porta Australis': 'Porta', Skjaldborg: 'Skjald.', Kaupangr: 'Kaup.', Ulfsvakt: 'Ulfs.',
+      Gasfeld: 'Gasf.', Kantenstein: 'Kanten.', Pulverhorn: 'Pulver.', Bojenfeld: 'Bojen.', 'Vorläufer-Sektor': 'Vorl.', 'Forschungsstation Helix': 'Helix',
+      Hammerwerke: 'Hammer.', 'Raffinerie Lumen': 'Lumen', Concordia: 'Concor.', Schrottkante: 'Schrot.', Brachland: 'Brach.', Saatfeld: 'Saat.',
+    },
+    kurznameImmer: ['Raffinerie Lumen'],
+    ortsinfo: { aussenKnoten: 'Nächster Knoten: {n} Sprünge', aussenKnotenKurz: 'Knoten {n} Sprünge · Sicht {sw}', aussenKnotenKurzOhneSicht: 'Knoten {n} Sprünge', verborgen: 'Unbekanntes System', verborgenWissen: 'Nie gesehen', sicht: 'Sicht reicht {w} Sprünge' },
     legende: {
       jetzt: 'jetzt', gesehen: 'T-1', alt: 'alt',
       phasen: 'S sammelt · ▶ Kurs · B belagert',
@@ -190,10 +201,11 @@
       sammeln: 'Germanische Flotte sammelt sich bei {ort}. Stärke {klasse}, Ziel unbekannt.',
       marsch: 'Germanische Flotte ({klasse}) bricht von {ort} auf, Kurs {nach}. Ziel vermutlich {ziel}.',
       belagerung: '{ziel} wird belagert. Germanische Flotte, Stärke {klasse}.',
-      gefallen: '{ziel} ist gefallen.',
+      gefallen: '{ziel} ist gefallen.',   // nur Häfen; Posten: postenVerloren (Liste und Logbuch sagen „verloren“)
+      postenVerloren: 'Posten {ort} verloren.',
       gehalten: '{ziel} hat die Belagerung abgewehrt.',
       log: { sammeln: 'Germanische Flotte sammelt sich ({klasse}). Tick {t}.', marsch: 'Germanische Flotte marschiert, Kurs {nach} ({klasse}). Tick {t}.',
-        belagerung: 'Belagert ({klasse}). Tick {t}.', gefallen: 'Gefallen. Tick {t}.', gehalten: 'Belagerung abgewehrt. Tick {t}.' },
+        belagerung: 'Belagert ({klasse}). Tick {t}.', gefallen: 'Gefallen. Tick {t}.', postenVerloren: 'Posten verloren. Tick {t}.', gehalten: 'Belagerung abgewehrt. Tick {t}.' },
     },
   };
 

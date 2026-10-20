@@ -472,7 +472,7 @@
       }
       ctx.restore();
       if (!kompakt && !(dicht && hs.art === 'gesperrt')) {
-        const nm = kurzName(sys.name || h, 1.6 * s);
+        const nm = (lgHex && LG.kurzname(sys.name || h, 1.6 * s)) || kurzName(sys.name || h, 1.6 * s);   // SUND-01 F: handverlesene Kurznamen
         txt(ctx, nm, p.x, p.y + h3 / 2 - (dicht ? 9 : 13), { color: lgHex ? (A.hell(h) ? COL.text : LG.F.dunkel.name) : (stil.name || (hs.art === 'erkundet' ? COL.text : COL.grau)), align: 'center' });
       }
     }
@@ -538,7 +538,8 @@
           ctx.fillStyle = 'rgba(11,14,26,0.6)';
           for (const h of alle) if (!fokusSet.has(h)) { const p = mitte(h); hexPfad(ctx, p.x, p.y, s + 0.5); ctx.fill(); }
         }
-        if (!kompakt) txt(ctx, kn + (LG ? (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - (LG ? 24 : 11), { color: 'rgba(201,151,74,0.8)' });
+        if (!kompakt && !(LG && ((ab && ab.geaendert) || store.lageAnsicht === 'nah'))) txt(ctx, kn + (LG ?   // SUND-01 F: das Kartenetikett steht nur in der unbewegten Übersicht (Nahansicht und Zoom füllen den Rahmen, es überdeckte Hexnamen; die Fußzeile nennt die Ansicht)
+           (store.lageAnsicht === 'nah' ? ' · NAHANSICHT' : ' · ÜBERSICHT') : ' · AUSSCHNITT'), gArea.x + 3, gArea.y + gArea.h - (LG ? 24 : 11), { color: 'rgba(201,151,74,0.8)' });
       } else if (!kompakt) txt(ctx, kn, gArea.x + 3, gArea.y + gArea.h - 11, { color: 'rgba(201,151,74,0.8)' });
     }
 
@@ -577,7 +578,7 @@
     if (ab) KA.knopf(ctx, R(), ansichtKey, gArea);   // TB1: Ansicht zurücksetzen (nur wenn gezoomt/verschoben)
     ctx.restore();
     ctx.strokeStyle = COL.messing; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
-    if (LG) { store.hoverHex = hover; store.lageModell = { A, adj: lageAdj(P), hier: L.hier, hexe: Object.keys(K.hexe) }; } else { store.hoverHex = null; store.lageModell = null; }   // SUND-01 C: für die Spalte der Konsole
+    if (LG) { store.hoverHex = hover; store.lageModell = { A, adj: lageAdj(P), hier: L.hier, hexe: Object.keys(K.hexe), verborgen: new Set(Object.keys(K.hexe).filter((h) => hexStatus(P, L, h).art === 'verborgen')) }; } else { store.hoverHex = null; store.lageModell = null; }   // SUND-01 C: für die Spalte der Konsole
     if (opts.rects) opts.rects.length = 0;   // Treffer laufen über StarMap.hit
     return { toS, toW, scale: s, mitte, layout: { rect: gArea, gx, gy, s, h3, alle, mitte, ansicht, area: gArea } };
   }

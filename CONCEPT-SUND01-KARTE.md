@@ -24,7 +24,7 @@ Punktrasters. Team Design. **Stand:** Spezifikation und Tokens, nichts am Spielc
 
 ## 2. Plakette (Flotte auf der Karte)
 Eine Plakette steht für **die Flotten einer Fraktion in einem Hex** (gleiche Fraktion im selben Hex wird zusammengefasst, Stärke summiert, Phase = die
-dringendste: B > M > S > unterwegs/Rückzug > hält). Pixelgenau, skaliert nicht mit dem Zoom.
+dringendste: B > M > S > unterwegs/Rückzug > hält). Mehrere Fraktionen im Hex: Rang nach Phase, bei Gleichstand nach Fraktion (Germanen vor Piraten vor Konkordat) und Stärke absteigend (SUND-01 F; so zeigt das Mischhex Eisfeld die germanische Flotte, nicht „P +1“). Pixelgenau, skaliert nicht mit dem Zoom.
 
 ```
  ┌───────┬───┬───┬───┬────────┐   Höhe 9 px, Rahmen 1 px, 1 px dunkle Unterlage rundum (#0B0E1A)
@@ -52,7 +52,7 @@ das Hex. Nur bei Wissensstufe jetzt/gesehen; ein Altstand zeigt keinen Kurs.
 
 **Ziel:** Sammeln → **unbekannt** (kein Zeichen; Liste und Funk sagen „Ziel unbekannt“). Marsch → **vermutet**: Strichlinie 4/3 (1 px Hell auf 3 px
 dunkel) bei fremden Flotten von der Hexmitte (bei eigenen von der Hexseite zu `n`) über höchstens 3 Hexe bis zum vermuteten Ziel, dort ein Kästchen
-8×10 mit **„?“**. Es gibt sie nur, wenn der Kurs `v` bekannt ist (Schätzung aus der beobachteten Bewegung). Belagerung → bekannt (das Hex selbst).
+8×10 mit **„?“**, das (wie das Linienende) auf dem Plakettenanker des Zielhexes im oberen Band liegt (SUND-01 F: vorher über dessen Symbol). Es gibt sie nur, wenn der Kurs `v` bekannt ist (Schätzung aus der beobachteten Bewegung). Belagerung → bekannt (das Hex selbst).
 
 ## 3. Wissensstufen
 | Stufe | Bedingung (Alter a, Verzögerung vz) | Plakette | Hex |
@@ -90,7 +90,7 @@ Die Sund-Karte nutzt diese Kacheln statt `icons-b musterKachel` (Limes und SL bl
 ein `opts.muster` aus den Tokens, oder `starmap.js` zeichnet im Modus Freie Fahrt Fläche und Muster selbst. Entscheidet die Entwicklung.
 
 ## 6. Front, Posten, Häfen, Belagerung, Notrufe
-- **Front (Warnbake):** jede Hexseite zwischen bekanntem römischem und bekanntem germanischem Besitz. Seite um 28 % je Ende verlängert, 8 px
+- **Front (Warnbake):** jede Hexseite zwischen bekanntem römischem und bekanntem germanischem Besitz. Seite um 15 % je Ende verlängert (SUND-01 F: 28 % schnitten Namen wie „Gasfeld“), 8 px
   dunkle Unterlage, darauf 5 px Streifen Hell/Rot im Wechsel, je ~4 px. Nur Rom|Germanen (Konkordat neutral, Piraten keine Front).
 - **Posten:** kleine Station mit Fahne links neben dem Symbol (x = p.x − 0,62·s), Fahnenfarbe `FARBE.fraktion.*.fahne`. Der Besitzer ist am
   Hexmuster ablesbar, die Fahne ist zweites Merkmal. Erkennungszeichen im Datenblock: Großbuchstabe (§12).
@@ -105,17 +105,17 @@ ein `opts.muster` aus den Tokens, oder `starmap.js` zeichnet im Modus Freie Fahr
 Spalte x = a.x + 420, Breite 196, ab y = a.y + 2. Die innere Seitenleiste der Karte entfällt im Modus Freie Fahrt (§8). Aufbau von oben:
 1. **ORT · SEKTOR 0803** (Messing) · Name (Gold) · „Germanen · Hafen D · Posten“ (Hell) · **Wissenszeile**: „Eigen · aktuell“ (Mint) /
    „Gesehen · Stand Tick 42“ (Eisblau) / „Außer Sicht · Stand vor 7 Ticks“ (Grau) / „Außer Sicht · nie gesehen“; außer Sicht zusätzlich
-   „Nächster Knoten: 3 Sprünge (Sicht 2)“. Statt der Beschreibung (`desc`, bis 4 Zeilen) nur die Art in einer Zeile.
+   „Nächster Knoten: 3 Sprünge (Sicht 2)“, in der schmalen Spalte „Knoten 3 Sprünge · Sicht 2“ (`aussenKnotenKurz`) und „Außer Sicht · vor 3 Ticks“. **Verborgenes, unerkundetes Hex** (z. B. Altrost, Schrottkante): wie auf der Karte „?“ – Ortsinfo nennt weder Namen noch Besitzer noch Art, nur „Unbekanntes System · Nie gesehen“ (SUND-01 F: vorher stand „Altrost · Piraten“ in der Ortsinfo, die Karte zeigte „?“). Statt der Beschreibung (`desc`, bis 4 Zeilen) nur die Art in einer Zeile.
 2. **MELDUNGEN · STAND T-1** (Messing), Zeilen à 12 px: Plakette ab x + 2, Text ab x + 40 (`MASS.spalte.meldung`). **Höchstens 5 Zeilen**,
    darunter „+n weitere“ (Grau). Rang: neu (Meldung aus dem letzten Tick, feindlich) → Belagerung → Marsch → Sammeln → unterwegs → hält →
    eigene → Altstand (jüngste zuerst). Ereignisse ohne Flotte („Speculum gefallen“, „Speculum hält“, „Posten Kantenstein verloren“) stehen
-   `WERTE.meldungAlter` (3) Ticks lang am Ende. Texte `TEXT.meldeliste`:
+   `WERTE.meldungAlter` (3) Ticks lang am Ende. SUND-01 F: passt die Zeile nicht (schmale Pult-Spalte, Text ab x 42), probiert `meldeliste()` der Reihe nach Langform → Kurzform mit vollen Namen → Kurzform mit Kurznamen → Kurzform ohne Zeiteinheit → nur der Ort; die Kurzformen (`sammeltKurz`, `kamKurz`, `marschKurz`, `unterwegsKurz`, `altKurz`, Ereignisse) behalten Ziel/Herkunft und Zeitangabe, Ereigniszeilen immer ihr Verb („Kantenstein verloren“). Texte `TEXT.meldeliste`:
    `Ulfsvakt · sammelt seit 2 Ticks` · `Eisfeld → Kantenstein ?` · `Speculum · belagert` · `Skjaldborg · vor 11 Ticks` · `Gasfeld → Kantenstein`.
    **Neu**-Strich 2 px Rot links, gewählte Zeile (Hex = Auswahl) 10 % Hell hinterlegt mit 2 px Hell links. Text Hell (neu), `#C9D2DC`
    (gesehen), Grau (alt). Zu lange Zeilen kürzen mit „.“. Vorschlag: Klick auf eine Zeile wählt das Hex.
-3. Knopf „Als Sprungziel wählen“, dann **SPRUNG** kompakt (Ziel, Ladebalken, Bereit/Grund).
-4. **Legende** unten (3 Zeilen à 12 px, Unterkante a.y + a.h): Plaketten jetzt/T-1/alt · Phasenfelder S sammelt, Pfeil Kurs, B belagert ·
-   Bake Front, Eislinie Sicht, dunkles Feld außer Sicht. Die Bojen-Legende der inneren Leiste entfällt in diesem Modus (Kanten sind auf Sund
+3. Knopf „Sprungziel“ (gewählt: „Ziel gewählt“; SUND-01 F: kurz, in der schmalen Spalte schnitt „Als Sprungziel wählen“ ab), dann **SPRUNG** kompakt (Ziel, Ladebalken, Bereit/Grund).
+4. **Legende** unten (3 Zeilen à 12 px in der breiten, 4 bis 5 in der schmalen Pult-Spalte, Abstand der Einträge dort 6 px, Unterkante a.y + a.h): Plaketten jetzt/T-1/alt · Phasenfelder S sammelt, Pfeil Kurs, B belagert ·
+   Bake Front, Eislinie Sicht, Feld „dunkel“ (SUND-01 F: halb hell mit Muster, halb dunkel, mit Rand – der Vergleich macht es lesbar). Die Bojen-Legende der inneren Leiste entfällt in diesem Modus (Kanten sind auf Sund
    fast alle offen; der Hinweis „gelb offen, rot gesperrt“ bleibt in der Fußzeile).
 
 Platzbedarf geprüft im Mockup: Ort 5 Zeilen + 5 Meldungen + Sprung + Legende passen in 274 px.
@@ -131,6 +131,7 @@ Platzbedarf geprüft im Mockup: Ort 5 Zeilen + 5 Meldungen + Sprung + Legende pa
   des Ausschnitts“ (es gibt keinen); in der **Nahansicht** wird außerhalb des Ausschnitts abgedunkelt, aber **vor** Plaketten, Marken und Lerche (SUND-01 F: vorher lag die Abdunklung über ihnen). Bei s = 23,6 gilt `dicht` (Namen kurz, `p.y + h3/2 − 9`), Bereich **voll** (s ≥ 22) für Plaketten.
 - Hover-Details: ohne innere Leiste zeigt `starmap.js` heute das Schild im Bild. Vorschlag: im Modus Freie Fahrt kein Schild, die Ortsinfo
   der Spalte folgt dem überfahrenen Hex (Auswahl bleibt per Klick).
+- **Kartenetikett** „KARTE SUND (FREIE FAHRT) · ÜBERSICHT“: nur in der unbewegten Übersicht (SUND-01 F: in Nahansicht und Zoom füllen Hexe den Rahmen, das Etikett überdeckte „Pulverhorn“ und „Ostia Nova“; die Fußzeile nennt die Ansicht).
 - **Zoom (Rad, 1–8×), Ziehen, 0:** unverändert. Plaketten, Linienbreiten, Muster (8-px-Kachel im Bildschirmraster) und Schrift bleiben
   pixelgroß; nur die Hexe wachsen. Die Plakette bleibt am Anker (−0,36·h3) und rückt damit bei Zoom in den oberen Teil des Hexes.
 - **Taste M:** auf dieser Karte ist „ganze Karte“ = Ausgangsansicht. Vorschlag: M wechselt **Übersicht ↔ Nahansicht** (Lerche + alle Hexe
@@ -152,7 +153,7 @@ Platzbedarf geprüft im Mockup: Ort 5 Zeilen + 5 Meldungen + Sprung + Legende pa
 ## 10. Funkmeldung
 - **Pflicht (Abnahme 8):** bei **Sammelbeginn**, nur wenn Rom die Flotte sieht (Stützpunkt in Sicht), einmal je Feldzug (Schlüssel
   Feldzug-Id + Phase), auch im Schnellsprung (dann je Hop höchstens eine je Feldzug).
-- **Einblendung:** `Hud.onRadio(von, text)`, Dauer `WERTE.funkDauer` = 6 s (vorhanden), Ton `radio`. Kopf „FUNK · POSTEN KANTENSTEIN“ (Gold),
+- **Einblendung:** `Hud.onRadio(von, text)`, Dauer `WERTE.funkDauer` = 6 s (vorhanden), Ton `radio`. SUND-01 F: mehrere Lagemeldungen kurz hintereinander werden zusammengefasst – die neueste steht mit „+n im Funk-Reiter“, die Serie läuft höchstens 7 s; im offenen Funk-Reiter wird nicht eingeblendet (die Liste steht dort selbst); im Debug-Modus rückt das Panel unter die FPS-Zeile. Posten heißen im Funk „Posten {ort} verloren.“ (`funk.postenVerloren`), nur Häfen „gefallen“. Kopf „FUNK · POSTEN KANTENSTEIN“ (Gold),
   Text Hell, höchstens 4 Zeilen (vorhanden). Neu: **3 px Akzentstreifen links in Rot** (`FARBE.funk.akzentFeind`) für Feindmeldungen.
 - **Absender** `TEXT.funk.von`: der Knoten, der die Flotte sieht (nächster): „Posten {ort}“, „Hafen {ort}“, „Flotte bei {ort}“, „Sensoren Lerche“.
 - **Text** `TEXT.funk.sammeln`: „Germanische Flotte sammelt sich bei {ort}. Stärke {klasse}, Ziel unbekannt.“
@@ -166,7 +167,7 @@ Platzbedarf geprüft im Mockup: Ort 5 Zeilen + 5 Meldungen + Sprung + Legende pa
 - Höchstens **zwei Plaketten** je Hex, die zweite nur bei Belagerung. Mehr Fraktionen im Hex: die ranghöchste zeigen, rechts ein Chip „+1“
   (dunkel, Hell); die Ortsinfo nennt alle.
 - Plakette darf seitlich bis ~7 px über den Hexrand ragen (eigene dunkle Unterlage); sie liegt über Mustern, Kanten und Nachbarnamen.
-- Meldeliste 5 Zeilen + „+n weitere“; Funk 4 Zeilen; Vermutung höchstens 3 Hexe weit; Namen per `kurzName` (vorhanden).
+- Meldeliste 5 Zeilen + „+n weitere“; Funk 4 Zeilen; Vermutung höchstens 3 Hexe weit; Namen per `kurzName` (vorhanden); SUND-01 F: auf der Sund-Karte zuerst die **handverlesenen Kurznamen** `TEXT.kurzname` (höchstens 6 Zeichen plus Punkt, z. B. „Vorläufer-Sektor“ → „Vorl.“, „Gasfeld“ → „Gasf.“), wenn der volle Name nicht passt; „Raffinerie Lumen“ heißt in Übersicht und Zoom immer „Lumen“ (`kurznameImmer`). Ortsinfo, Meldeliste und Funk nennen den vollen Namen.
 - **Farbenblind:** Fraktion nie nur über Farbe (Buchstabe R/G/K/P, Flächenmuster). Wissensstufe über Form (voll/Raster/Umriss + Zahl) und
   Helligkeit (Dunkel), Phase über Buchstabe/Pfeil, Front über Streifen, Sichtgrenze über Linie und Helligkeitssprung. Geprüft mit
   Deuteranopie und Protanopie (Machado 2009): Rom waagrecht und Germanen senkrecht klar getrennt, Buchstaben lesbar (Mockup-PNGs).

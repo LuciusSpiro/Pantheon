@@ -57,6 +57,14 @@
     }
     return KACH.korn ? ctx.createPattern(KACH.korn, 'repeat') : null;
   }
+  // Kurzname eines Hexes für die Namenszeile (SUND-01 F): voller Name, wenn er in w passt; sonst der handverlesene Kurzname aus TEXT.kurzname, sonst null
+  // (der Aufrufer kürzt dann selbst). Namen aus `kurznameImmer` stehen immer kurz.
+  function kurzname(name, w) {
+    const n = String(name), k = T.TEXT.kurzname[n];
+    if (k && T.TEXT.kurznameImmer.indexOf(n) >= 0) return k;
+    if (tw(n) <= w) return n;
+    return k && tw(k) <= w ? k : null;
+  }
   const fraktion = (f) => F.fraktion[f] || F.fraktion['-'];
 
   // ------------------------------------------------------------------ Ansichtsmodell aus dem Anzeigeblock
@@ -82,6 +90,9 @@
     if (q.stufe === 'alt') return 20 + q.a;
     return (q.f === 'r' ? 10 : 0) + (PH[q.p] != null ? PH[q.p] : 4);
   }
+  // SUND-01 F: Gleichstand im Rang (z. B. zwei Fraktionen im Hex) nach Fraktion (Germanen vor Piraten vor Konkordat vor Rest), dann Stärke absteigend
+  const FRK_RANG = { g: 0, p: 1, k: 2 };
+  const rangVergleich = (a, b) => rang(a) - rang(b) || (FRK_RANG[a.f] != null ? FRK_RANG[a.f] : 3) - (FRK_RANG[b.f] != null ? FRK_RANG[b.f] : 3) || (b.k || 0) - (a.k || 0);
 
   // ------------------------------------------------------------------ Fläche, Muster, Dunkel
   function flaeche(ctx, p, s, A, h, fallback) {
@@ -233,9 +244,11 @@
           const start = q.v ? mitte(q.h) : { x: S.mx, y: S.my - 3 };
           const weg = (V.weg ? V.weg(q.v ? q.h : q.n, q.z) : null) || (q.v ? [] : [q.n]), w = (q.v ? weg.slice(1) : weg).slice(0, M.vermutet.maxHexe), pts = w.map((h) => mitte(h));
           if (pts.length) {
-            ctx.save(); ctx.beginPath(); ctx.moveTo(start.x, start.y + 3); pts.forEach((pp) => ctx.lineTo(pp.x, pp.y + 3)); ctx.setLineDash(M.vermutet.strich);
+            // SUND-01 F: Linienende und „?“-Kästchen liegen auf dem Plakettenanker des Zielhexes (oberes Band), nicht über dessen Symbol
+            const zl = pts[pts.length - 1], ya = zl.y + Math.round(M.plakette.anker.dy * h3);
+            ctx.save(); ctx.beginPath(); ctx.moveTo(start.x, start.y + 3); pts.forEach((pp, i) => ctx.lineTo(pp.x, i === pts.length - 1 ? ya : pp.y + 3)); ctx.setLineDash(M.vermutet.strich);
             ctx.strokeStyle = F.vermutet.unterlage; ctx.lineWidth = M.vermutet.unterlage; ctx.stroke(); ctx.strokeStyle = F.vermutet.linie; ctx.lineWidth = M.vermutet.breite; ctx.stroke(); ctx.restore();
-            const z = pts[pts.length - 1], mk = M.vermutet.marke;
+            const z = { x: zl.x, y: ya - 3 }, mk = M.vermutet.marke;
             ctx.fillStyle = P.tisch; ctx.fillRect(z.x - mk.breite / 2 - 1, z.y - 2, mk.breite + 2, mk.hoehe + 2);
             ctx.strokeStyle = F.vermutet.marke; ctx.lineWidth = 1; ctx.strokeRect(z.x - mk.breite / 2 + 0.5, z.y - 1.5, mk.breite, mk.hoehe);
             txt(ctx, '?', z.x + 1, z.y, { color: F.vermutet.marke, align: 'center', shadow: false });
@@ -251,7 +264,7 @@
     for (const q of A.fl) { if (q.p === 'h' && A.fl.some((x) => x.h === q.h && x.p === 'b')) continue; (jeHex[q.h] = jeHex[q.h] || []).push(q); }
     for (const h of Object.keys(jeHex)) {
       if (V.hexe.indexOf(h) < 0) continue;
-      const liste = jeHex[h].sort((a, b) => rang(a) - rang(b)), q = liste[0], p = mitte(h), an = M.plakette.anker;
+      const liste = jeHex[h].sort(rangVergleich), q = liste[0], p = mitte(h), an = M.plakette.anker;
       const nr = o.notrufHex && o.notrufHex.has(h) ? an.dxNotruf : 0;
       const x = p.x + an.dx + nr, y = p.y + Math.round(an.dy * h3);
       if (knapp) kurzplakette(ctx, x, y, q);
@@ -294,6 +307,12 @@
     if (!h) { txt(ctx, 'ORT', o.rx, y, { color: P.messing }); y += MS.kopf; txt(ctx, 'Sektor überfahren oder anklicken.', o.rx, y, { color: P.grau }); return y + MS.zeile; }
     const kh = A.hex[h] || {}, fr = fraktion(kh.f || o.karteFraktion(h));
     txt(ctx, 'ORT · SEKTOR ' + h, o.rx, y, { color: P.messing }); y += MS.kopf;
+    if (o.verborgen && o.verborgen(h)) {   // SUND-01 F: verborgenes, unerkundetes Hex: wie auf der Karte „?“, weder Name noch Besitzer noch Art (Wissensleck)
+      txt(ctx, '?', o.rx, y, { color: P.gold }); y += MS.zeile;
+      txt(ctx, T.TEXT.ortsinfo.verborgen, o.rx, y, { color: P.hell }); y += MS.zeile;
+      txt(ctx, T.TEXT.ortsinfo.verborgenWissen, o.rx, y, { color: WISSEN_FARBE.unbekannt || P.grau }); y += MS.zeile;
+      return y;
+    }
     txt(ctx, kurzText(o.name(h), o.rw), o.rx, y, { color: P.gold }); y += MS.zeile;
     const hafen = o.hafen(h);
     txt(ctx, kurzText([fr.name, hafen ? 'Hafen ' + hafen : null, kh.posten ? 'Posten' : null].filter(Boolean).join(' · '), o.rw), o.rx, y, { color: P.hell }); y += MS.zeile;
@@ -301,12 +320,15 @@
     let wt;
     if (st === 'jetzt') wt = kh.f === 'r' ? 'Eigen · aktuell' : 'Sonde · aktuell';
     else if (st === 'gesehen') wt = 'Gesehen · Stand Tick ' + Math.max(0, A.t - A.vz);
-    else if (st === 'alt') wt = 'Außer Sicht · Stand vor ' + kh.alter + ' Ticks';
+    else if (st === 'alt') { wt = 'Außer Sicht · Stand vor ' + kh.alter + ' Ticks'; if (tw(wt) > o.rw) wt = 'Außer Sicht · vor ' + kh.alter + ' Ticks'; }   // SUND-01 F: schmale Spalte ohne „Stand“
     else wt = 'Außer Sicht · nie gesehen';
     txt(ctx, wt, o.rx, y, { color: WISSEN_FARBE[st] || P.grau }); y += MS.zeile;
     if (st === 'alt' || st === 'unbekannt') {
       const n = o.dist ? o.dist(h) : undefined;
-      if (n != null && n < 99) { txt(ctx, kurzText(T.vorlage('ortsinfo.aussenKnoten', { n }) + (A.sw != null ? ' (Sicht ' + A.sw + ')' : ''), o.rw), o.rx, y, { color: P.grau }); y += MS.zeile; }
+      if (n != null && n < 99) {   // SUND-01 F: passt die Langform nicht, steht die Kurzform mit der Sichtweite statt einer abgeschnittenen Langform
+        const lang = T.vorlage('ortsinfo.aussenKnoten', { n }) + (A.sw != null ? ' (Sicht ' + A.sw + ')' : ''), kurz = T.vorlage(A.sw != null ? 'ortsinfo.aussenKnotenKurz' : 'ortsinfo.aussenKnotenKurzOhneSicht', { n, sw: A.sw });
+        txt(ctx, kurzText(tw(lang) <= o.rw ? lang : kurz, o.rw), o.rx, y, { color: P.grau }); y += MS.zeile;
+      }
     }
     const art = o.ohneArt ? '' : o.art(h);
     if (art) { txt(ctx, kurzText(art, o.rw), o.rx, y, { color: P.grau }); y += MS.zeile; }
@@ -315,21 +337,23 @@
   // Zeilen der Meldeliste: Flottenplaketten nach Rang (neu feindlich zuerst), dann Ereignisse ohne Flotte. -> [{ q } | { ereignis }]
   function listenZeilen(A) {
     const neuF = (q) => (A.neu.has(q.h) && q.f !== 'r' && q.stufe !== 'alt' ? 1 : 0);
-    const zeilen = A.fl.map((q) => ({ q })).sort((a, b) => neuF(b.q) - neuF(a.q) || rang(a.q) - rang(b.q) || (a.q.h < b.q.h ? -1 : 1));
+    const zeilen = A.fl.map((q) => ({ q })).sort((a, b) => neuF(b.q) - neuF(a.q) || rangVergleich(a.q, b.q) || (a.q.h < b.q.h ? -1 : 1));
     for (const m of A.m) if (m.e === 'hf' || m.e === 'hh' || m.e === 'pv' || m.e === 'pg') zeilen.push({ ereignis: m });
     return zeilen;
   }
-  function zeilenText(z, o) {
+  // kurz: false = Langform, 1 = Kurzvorlage mit vollen Namen, 2 = Kurzvorlage mit Kurznamen der Hexe, 3 = wie 2, die Zeitangabe ohne Einheit (SUND-01 F; meldeliste probiert der Reihe nach)
+  function zeilenText(z, o, kurz) {
+    const nm = (h) => (kurz >= 2 ? T.TEXT.kurzname[o.name(h)] || o.name(h) : o.name(h)), V = (id, w) => T.vorlage('meldeliste.' + id + (kurz ? 'Kurz' : ''), w);
     if (z.ereignis) {
       const id = { hf: 'hafenGefallen', hh: 'hafenHaelt', pv: 'postenWeg', pg: 'postenNeu' }[z.ereignis.e];
-      return T.vorlage('meldeliste.' + id, { ort: o.name(z.ereignis.h) });
+      return V(id, { ort: nm(z.ereignis.h) });
     }
-    const q = z.q, ort = o.name(q.h);
-    if (q.stufe === 'alt') return T.vorlage('meldeliste.alt', { ort, a: q.a });
-    if (q.p === 's') return T.vorlage('meldeliste.sammelt', { ort, d: (q.d || 1) + ((q.d || 1) === 1 ? ' Tick' : ' Ticks') });
-    if (q.v && (q.p === 'm' || q.p === 'u' || q.p === 'r')) return T.vorlage('meldeliste.kam', { ort, von: o.name(q.v) });   // fremd: beobachtete Bewegung
-    if (q.p === 'm') return q.n ? T.vorlage('meldeliste.marsch', { ort, nach: o.name(q.n) }) : ort;
-    if (q.p === 'u' || q.p === 'r') return q.n ? T.vorlage('meldeliste.unterwegs', { ort, nach: o.name(q.n) }) : ort;
+    const q = z.q, ort = nm(q.h);
+    if (q.stufe === 'alt') return V('alt', { ort, a: q.a });
+    if (q.p === 's') { const d = q.d || 1; return V('sammelt', { ort, d: kurz === 3 ? d : d + (d === 1 ? ' Tick' : ' Ticks') }); }
+    if (q.v && (q.p === 'm' || q.p === 'u' || q.p === 'r')) return V('kam', { ort, von: nm(q.v) });   // fremd: beobachtete Bewegung
+    if (q.p === 'm') return q.n ? V('marsch', { ort, nach: nm(q.n) }) : ort;
+    if (q.p === 'u' || q.p === 'r') return q.n ? V('unterwegs', { ort, nach: nm(q.n) }) : ort;
     if (q.p === 'b') return T.vorlage('meldeliste.belagert', { ort });
     return ort;
   }
@@ -347,7 +371,9 @@
       const farbe = z.ereignis ? P.hell : q.stufe === 'alt' ? F.meldeliste.textAlt : neu ? F.meldeliste.textNeu : F.meldeliste.textGesehen;
       const breite = o.rw - MS.meldung.textX;
       let text = zeilenText(z, o);
-      if (!z.ereignis && tw(text) > breite) text = o.name(q.h);   // schmale Spalte: die Plakette trägt Phase, Stärke und Alter, der Text nur den Ort
+      if (tw(text) > breite) {   // schmale Spalte: Kurzform (volle Namen, dann Kurznamen), zuletzt nur der Ort (die Plakette trägt Phase, Stärke und Alter; Ereigniszeilen behalten ihr Verb)
+        text = [zeilenText(z, o, 1), zeilenText(z, o, 2), zeilenText(z, o, 3)].find((t) => tw(t) <= breite) || (z.ereignis ? zeilenText(z, o, 2) : o.name(q.h));
+      }
       txt(ctx, kurzText(text, breite), o.rx + MS.meldung.textX, y, { color: farbe });
       y += MS.meldung.zeile;
     });
@@ -370,17 +396,21 @@
       feld('S', P.warn, false, 'sammelt'), feld('', F.fraktion.g.haltung, true, 'Kurs'), feld('B', F.phase.b.bg, false, 'belagert'),
       { breite: 16 + 3 + tw(L.front), zeichne: (ctx, x, y) => { for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); } txt(ctx, L.front, x + 19, y, { color: g }); } },
       { breite: 18 + 3 + tw(L.sicht), zeichne: (ctx, x, y) => { ctx.fillStyle = P.tisch; ctx.fillRect(x, y + 1, 18, 4); ctx.fillStyle = P.eis; ctx.fillRect(x, y + 2, 18, 2); txt(ctx, L.sicht, x + 21, y, { color: g }); } },
-      { breite: (eng ? 12 : 14) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
-        const bw = eng ? 12 : 14;
-        ctx.save(); ctx.fillStyle = F.fraktion.g.flaeche; ctx.fillRect(x, y, bw, 8); ctx.fillStyle = F.dunkel.abdunklung; ctx.fillRect(x, y, bw, 8);
-        const kp = kornPat(ctx); if (kp) { ctx.fillStyle = kp; ctx.fillRect(x, y, bw, 8); }
-        const mp = musterPat(ctx, 'ger', 'dunkel'); if (mp) { ctx.fillStyle = mp; ctx.fillRect(x, y, bw, 8); }
+      { breite: (eng ? 14 : 16) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
+        // SUND-01 F: Feld halb hell (Muster), halb dunkel, mit Rand: der Vergleich macht „dunkel“ lesbar
+        const bw = eng ? 14 : 16, hb = bw / 2;
+        ctx.save(); ctx.fillStyle = F.fraktion.g.flaeche; ctx.fillRect(x, y, bw, 8);
+        const hp = musterPat(ctx, 'ger', 'hell'); if (hp) { ctx.fillStyle = hp; ctx.fillRect(x, y, hb, 8); }
+        ctx.fillStyle = F.dunkel.abdunklung; ctx.fillRect(x + hb, y, bw - hb, 8);
+        const kp = kornPat(ctx); if (kp) { ctx.fillStyle = kp; ctx.fillRect(x + hb, y, bw - hb, 8); }
+        const mp = musterPat(ctx, 'ger', 'dunkel'); if (mp) { ctx.fillStyle = mp; ctx.fillRect(x + hb, y, bw - hb, 8); }
+        ctx.strokeStyle = P.grau; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, bw - 1, 7);
         ctx.restore(); txt(ctx, eng ? L.dunkelKurz : L.dunkel, x + bw + 3, y, { color: g });
       } },
     ];
   }
   function legendeLayout(w) {
-    const out = [], eng = w < 190, gap = eng ? 2 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, enge Abstände, drei Zeilen
+    const out = [], eng = w < 190, gap = eng ? 6 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, Abstand 6 (SUND-01 F: bei 2 klebte der Text an der nächsten Plakette), vier bis fünf Zeilen
     let x = 0, zeile = 0;
     for (const e of legendeEintraege(eng)) {
       if (x > 0 && x + e.breite > w) { zeile++; x = 0; }
@@ -406,6 +436,6 @@
   const funkListe = () => funk.slice();
   const funkLeeren = () => { funk.length = 0; };
 
-  return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, flaeche, seite, sichtgrenze, front, frontSeiten, plakette, kurzplakette, plBreite, posten, flotten,
-    fokusHexe, abstaende, winkelHex, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
+  return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, rangVergleich, flaeche, seite, sichtgrenze, front, frontSeiten, plakette, kurzplakette, plBreite, posten, flotten,
+    fokusHexe, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
 });
