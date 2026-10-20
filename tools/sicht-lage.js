@@ -73,6 +73,7 @@ async function main() {
     schritt(() => { rom.befehl = 'anspruch'; rom.ziel = '0505'; rom.ort = '0405'; skj.befehl = 'anspruch'; skj.ziel = '0703'; skj.ort = '0803'; });
     schritt();
     await shot('a-ruhig'); await shot('crop-a-karte', 100, KARTE); await shot('crop-a-spalte', 100, SPALTE);
+    await hover('0602'); await shot('crop-altrost-spalte', 100, SPALTE); await page.mouse.move(5, 5);   // verborgenes Hex Altrost: „?“ ohne Namen (Wissensleck geschlossen)
     console.log('Lage A:', JSON.stringify(await lage()), JSON.stringify(Wissen.lage(g)).length + ' B');
 
     // ---- Lage B: Aufmarsch gesehen: Sammeln in Ulfsvakt (2 Sprünge vom Posten), Funk-Einblendung
@@ -117,7 +118,8 @@ async function main() {
     schritt();
     await sleep(6800);   // Funk-Einblendung (6 s) auslaufen lassen
     schritt((zz) => { Object.assign(zz.hexe['0603'], { besitzer: null, posten: false, garnison: 0 }); }, [{ typ: 'posten_verloren', tick: z.tick, fraktion: 'rom', ort: '0603', ortName: 'Kantenstein', besitzer: 'rom', durch: 'pirat' }]);
-    schritt();   // höchstens 2 Ticks nach dem Postenverlust: Ulfsvakt ist Altstand (kein Funk)
+    schritt();   // höchstens 2 Ticks nach dem Postenverlust: Ulfsvakt ist Altstand (kein Aufmarsch-Funk)
+    await sleep(6800);   // die Einblendung „Posten verloren“ auslaufen lassen, damit keine Funkmeldung auf dem Bild steht
     await hover('0803');
     await shot('c-aufmarsch-nicht-gesehen', 900); await shot('crop-c-karte', 50, KARTE); await shot('crop-c-spalte', 50, SPALTE);
     await page.mouse.move(5, 5);
