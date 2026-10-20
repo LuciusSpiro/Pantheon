@@ -114,6 +114,8 @@ async function main() {
     schritt();
     await shot('phase-belagerung', 900); await shot('crop-bel', 50, KARTE); await shot('crop-bel-spalte', 50, SPALTE);
     await hexShot('z-bel-spec', '0403'); await hover('0403'); await hexShot('z-bel-spec-sel', '0403'); await page.mouse.move(5, 5);
+    // SUND-01 G: Hafenklasse unter Belagerung erscheint, wo Platz ist (Zoom); in der Übersicht entfällt sie
+    { const q = await hexPos('0403'); if (q) { await page.mouse.move(q.x, q.y); for (let i = 0; i < 3; i++) { await page.mouse.wheel(0, -120); await sleep(120); } await sleep(300); await shot('zoom-bel', 300); await shot('crop-zoom-bel', 50, KARTE); await page.keyboard.press('Digit0'); await sleep(300); await page.mouse.move(5, 5); } }
 
     // ---- Lage C: Aufmarsch nicht gesehen (Posten Kantenstein verloren, Ulfsvakt außer Sicht, Altstand)
     ruhigMachen(true, 'pulverhorn');

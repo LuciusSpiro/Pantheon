@@ -356,6 +356,15 @@ section('SUND-01 G: Kurspfeil eigener Flotten auf der Hexseite');
   const fb = { x: (fremd[1][0] + fremd[2][0]) / 2, y: (fremd[1][1] + fremd[2][1]) / 2 };
   ok(Math.abs(((fb.x - mx) * nx + (fb.y - my) * ny) + T.MASS.kurs.abstandRand) < 0.01, 'fremder Pfeil (Herkunft v) unverändert: 6 px innen vor der Hexseite');
 }
+section('SUND-01 G: Hafenklasse unter Belagerung');
+{
+  const log = []; KL.env.Render = fakeRender(log);
+  const A = KL.lesen(Object.assign(blockLageB(), { f: [{ f: 'g', h: '0603', k: 2, p: 'b', a: 0 }, { f: 'r', h: '0603', k: 1, p: 'h', a: 0 }], m: [] }), CODES);
+  const p = { x: 100, y: 100 };
+  ok(KL.belagerungKlasse(fakeCtx(), A, p, '0603', 'D', 23.6, '#fff') === false && log.length === 0, 'Übersicht (s 23,6): kein Platz neben dem Rahmen, die Klasse entfällt (Plakette und Hexrand bleiben frei)');
+  ok(KL.belagerungKlasse(fakeCtx(), A, p, '0603', 'D', 32, '#fff') === true && log.length === 1 && log[0].s === 'D' && log[0].x > p.x + 14 && log[0].x + 4 <= p.x + 32 - 3, 'Zoom (s 32): Klasse rechts neben dem Rahmen, innerhalb des Hexrands');
+  ok(KL.belagerungKlasse(fakeCtx(), A, p, '0403', 'D', 40, '#fff') === false && KL.belagerungKlasse(fakeCtx(), A, p, '0603', 'D', 14, '#fff') === false, 'ohne Belagerung im Hex und im Bereich „knapp“: nichts');
+}
 section('SUND-01 F: StarMap mit Lage: Hafenklasse, Nebensymbole, Abdunklung, Etikett');
 {
   let einfl = 0; const einflOrig = KZ.einfluss; KZ.einfluss = (...a) => { einfl++; return einflOrig(...a); };

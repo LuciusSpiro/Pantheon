@@ -225,6 +225,18 @@
     ctx.restore();
     if (vd) plakette(ctx, p.x, vy, vd);
   }
+  // SUND-01 G: Hafenklasse unter Belagerung (die Verteidiger-Plakette ersetzt dort Hafensymbol und Klasse): klein rechts neben dem Belagerungsrahmen, auf Symbolhöhe,
+  // aber nur wenn sie zwischen Rahmenunterlage und Hexrand (mit 1 px Luft) Platz hat; sonst entfällt sie (Plakette und Hexrand bleiben frei). -> gezeichnet?
+  function belagerungKlasse(ctx, A, p, h, klasse, s, farbe) {
+    if (s < M.hexradius.voll || !klasse) return false;
+    const b = A.fl.find((x) => x.h === h && x.p === 'b');
+    if (!b) return false;
+    const vd = A.fl.find((x) => x.h === h && x.f !== b.f && x.p === 'h'), B = M.belagerung, dw = vd ? plBreite(vd) : 22;
+    const links = dw / 2 + B.abstandX + B.unterlage / 2 + 1, rand = s - 3;   // Rahmen außen (Unterlage) + 1 px Luft; Hexrand auf Buchstabenhöhe (Schräge und Linie)
+    if (links + tw(klasse) - 1 > rand) return false;
+    txt(ctx, klasse, Math.round(p.x + links), p.y + M.plakette.anker.hafenDy, { color: farbe });
+    return true;
+  }
   // o: { notrufHex: Set, kurz: bool } -> { plaketten: Anzahl gezeichneter Plaketten }
   function flotten(ctx, A, V, o) {
     o = o || {};
@@ -461,6 +473,6 @@
   const funkListe = () => funk.slice();
   const funkLeeren = () => { funk.length = 0; };
 
-  return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, rangVergleich, flaeche, seite, sichtgrenze, front, frontSeiten, plakette, kurzplakette, plBreite, posten, flotten,
+  return { env, T, F, M, hexPfad, mix, lesen, belagert, hatPlakette, rang, rangVergleich, flaeche, seite, sichtgrenze, front, frontSeiten, belagerungKlasse, plakette, kurzplakette, plBreite, posten, flotten,
     fokusHexe, abstaende, winkelHex, kurzname, kartenFraktion, ortsinfo, listenZeilen, zeilenText, meldeliste, spaltenPlan, sprungHinweis, legende, legendeZeilen, funkMerken, funkListe, funkLeeren, kurzText };
 });
