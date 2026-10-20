@@ -145,8 +145,9 @@
               "properties": {
                 "v": { "type": "integer" }, "t": { "type": "integer", "minimum": 0, "description": "Tick des Wissensstands (gleich sim.tick)" },
                 "hexe": { "type": "object", "additionalProperties": { "type": "object", "required": ["f", "p", "a"], "properties": { "f": { "type": "string" }, "p": { "type": "integer" }, "a": { "type": ["integer", "null"] } } } },
-                "flotten": { "type": "array", "items": { "type": "object", "required": ["f", "h", "k", "p", "a", "ids"], "properties": { "f": { "type": "string" }, "h": { "type": "string" }, "k": { "type": "integer" }, "p": { "type": "string" }, "a": { "type": "integer" }, "n": { "type": "string" }, "z": { "type": "string" }, "d": { "type": "integer" }, "an": { "type": "array", "items": { "type": "integer" } }, "ids": { "type": "array", "items": { "type": "integer" } } } } },
+                "flotten": { "type": "array", "items": { "type": "object", "required": ["f", "h", "k", "p", "a", "ids"], "properties": { "f": { "type": "string" }, "h": { "type": "string" }, "k": { "type": "integer" }, "p": { "type": "string" }, "a": { "type": "integer" }, "n": { "type": "string" }, "v": { "type": "string" }, "z": { "type": "string" }, "d": { "type": "integer" }, "an": { "type": "array", "items": { "type": "integer" } }, "ids": { "type": "array", "items": { "type": "integer" } } } } },
                 "erst": { "type": "object", "additionalProperties": { "type": "integer" } },
+                "spur": { "type": "object", "description": "SUND-01 E: je sichtbarer fremder Flotte (Sim-Id) das zuletzt beobachtete Hex h, Stand a, Kurs v (kam von)", "additionalProperties": { "type": "object", "required": ["h", "a"], "properties": { "h": { "type": "string" }, "a": { "type": "integer" }, "v": { "type": "string" } } } },
                 "gesehen": { "type": "array", "items": { "type": "string" } },
                 "meldungen": { "type": "array", "items": { "type": "object" } },
                 "wartend": { "type": "array", "items": { "type": "object" } },

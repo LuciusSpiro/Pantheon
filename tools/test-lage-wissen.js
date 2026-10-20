@@ -235,9 +235,90 @@ section('Rom erfährt nie mehr, als es sieht');
   };
   const m1 = marsch('0403'), m2 = marsch('0503');
   const q1 = eintrag(m1.b, '0703', 'g'), q2 = eintrag(m2.b, '0703', 'g');
-  ok(q1 && q1.p === 'm' && q1.n === '0603' && q1.z === '0603', 'Marsch: Kurs Kantenstein, vermutetes Ziel = erstes römisches Ziel in Marschrichtung (Posten Kantenstein), nicht Speculum');
+  ok(q1 && q1.p === 'm' && q1.v === '0803' && !('n' in q1) && q1.z === '0603', 'Marsch: Kurs = kam von Ulfsvakt (beobachtet, kein n), vermutetes Ziel = erstes römisches Ziel in beobachteter Marschrichtung (Posten Kantenstein), nicht Speculum');
   ok(gleich(q1, q2), 'zwei verschiedene wahre Ziele (Speculum, Gasfeld) mit gleichem nächsten Hex: identische Anzeige (die Schätzung liest die Absicht nicht)');
   ok(m1.s.z.flotten.find((f) => f.id === flotteVon(m1.s.z, '0803').id).ziel === '0403', 'Gegenprobe: das wahre Ziel steht in der Sim wirklich anders (Speculum)');
+}
+
+// =============================================================================================================================
+section('Kurs fremder Flotten = beobachtete Bewegung (kam von), nie die jetzige Position (SUND-01 E, Abnahme 6)');
+{
+  // Metamorphe Prüfung: bis zum Stand nach Tick 3 gleiche Geschichte; was im Tick 4 danach geschieht, liegt hinter der Verzögerung und darf den Block nicht ändern.
+  const lauf = (variante) => {
+    const s = szene();
+    const fl = flotteVon(s.z, '0803'), fern = flotteVon(s.z, '1005'), fern2 = flotteVon(s.z, '1003');
+    sammelt(s.z, fl, 1, '0803', '0403');
+    s.schritt(); s.schritt();
+    s.schritt((z) => { fl.befehl = 'angriff'; fl.ziel = '0403'; fl.ort = '0703'; z.angriffe[0].phase = 'marsch'; if (variante === 'C') fl.staerke = 20; });   // Tick 3: Marsch, steht in Eisfeld
+    const b3 = kopie(s.block());
+    const b4 = kopie(s.schritt((z) => {
+      if (variante === 'A') { fl.ort = '0603'; }   // Tick 4: zieht weiter (in den römischen Posten)
+      if (variante === 'B') {   // Tick 4: ganz anders, alles hinter der Verzögerung
+        fl.ort = '0803'; fl.befehl = 'rueckzug'; fl.ziel = fl.heimat; fl.staerke = 0.7; fl.angriff = null;
+        z.angriffe[0].ziel = '0305'; z.angriffe[0].t_ende = z.tick; z.angriffe[0].ausgang = 'abgewehrt';
+        z.hexe['0803'].besitzer = null; z.hexe['0803'].abwehr = 0; z.hexe['0703'].besitzer = 'kon'; z.hexe['0703'].posten = true;
+        fern.befehl = 'angriff'; fern.ziel = '0603'; fern.ort = '0904'; fern2.befehl = 'sammeln'; fern2.ziel = '1003'; fern2.ort = '1003'; fern2.angriff = 9; fern2.staerke = 11;   // 0904 liegt 3 Sprünge entfernt: außer Sicht
+        z.vorrat.ger.U = 0; z.zufall = 99;
+      }
+    }));
+    return { s, fl, b3, b4 };
+  };
+  const A = lauf('A'), B = lauf('B'), C = lauf('C');
+  const qA = eintrag(A.b4, '0703', 'g');
+  ok(qA && qA.p === 'm' && qA.v === '0803' && !('n' in qA), 'Marsch in Eisfeld: Kurs v = Ulfsvakt (beobachtet), kein n');
+  ok(A.s.z.flotten.find((f) => f.id === A.fl.id).ort === '0603' && qA.h === '0703', 'Gegenprobe: die Flotte steht jetzt im Posten, die Anzeige noch in Eisfeld');
+  ok(!A.b4.f.some((q) => q.f === 'g' && (q.v === '0603' || q.n === '0603' || q.h === '0603')), 'Block verrät nichts über den jetzigen Stand der Flotte (kein germanischer Eintrag im Posten, kein Kurs dorthin)');
+  ok(gleich(A.b4, B.b4), 'Metamorph: jetziger Ort, Befehl, Ziel, Stärke, Besitz in Sicht, ferne Flotten, Vorräte, Zufall verschieden -> Block identisch');
+  ok(gleich(A.b3, B.b3), 'und schon im Tick davor identisch');
+  ok(!gleich(A.b4, C.b4), 'Gegenprobe: ändert sich etwas Gesehenes (Stärke der marschierenden Flotte im Stand von Tick 3), ändert sich der Block');
+  // v nur aus der Beobachtung: eine Flotte, die erst jetzt in Sicht kommt, hat keinen Kurs
+  const s2 = szene();
+  const f2 = flotteVon(s2.z, '0904'); sammelt(s2.z, f2, 2, '0904', '0803');
+  s2.schritt(); s2.schritt((z) => { f2.befehl = 'angriff'; f2.ziel = '0403'; f2.ort = '0803'; z.angriffe[0].phase = 'marsch'; });
+  const e0 = s2.schritt();   // im Stand von Tick 2 ist sie in Ulfsvakt, vorher war sie nie in Sicht
+  ok(eintrag(e0, '0803', 'g') && eintrag(e0, '0803', 'g').p === 'm' && !('v' in eintrag(e0, '0803', 'g')) && !('n' in eintrag(e0, '0803', 'g')), 'erst jetzt in Sicht: Marsch ohne Kursangabe (weder v noch n)');
+  s2.schritt((z) => { f2.ort = '0703'; });
+  const e1 = s2.schritt();
+  ok(eintrag(e1, '0703', 'g') && eintrag(e1, '0703', 'g').v === '0803', 'ein Tick später: Kurs v = Ulfsvakt');
+  // eigene Flotte: weiter der echte nächste Schritt n (Alter 0), kein v
+  const s3 = szene();
+  const rf = flotteVon(s3.z, '0403');
+  const e3 = s3.schritt((z) => { rf.befehl = 'angriff'; rf.ziel = '0503'; rf.ort = '0403'; });
+  const qr = eintrag(e3, '0403', 'r');
+  ok(qr && qr.a === 0 && qr.n && !('v' in qr) && qr.p === 'm', 'eigener Marsch: n (echter nächster Schritt), kein v');
+  // Speichern und Laden: die Spur bleibt, Altstand mit n an fremden Flotten verliert n
+  const W = kopie(Wissen.toSave(A.s.ws));
+  ok(W.spur && Object.keys(W.spur).length > 0, 'die Spur steht im gespeicherten Wissen');
+  const W2 = kopie(W); W2.flotten.push({ f: 'g', h: '0703', k: 1, p: 'm', a: W2.t - 1, n: '0603', ids: [999] }); delete W2.spur;
+  const sx = szene(); sx.ws.zustand.tick = W2.t; sx.ws.tickZahl = W2.t; Wissen.restore(sx.g, W2);
+  ok(sx.ws.wissen.flotten.every((r) => r.f === 'r' || !('n' in r)) && gleich(sx.ws.wissen.spur, {}), 'Altstand: n an fremden Flotten entfernt, fehlende Spur leer');
+  // Messung (8 Seeds x 400 Ticks wie die Prüfung des Reviewers): kein n an fremden Plaketten, Kurs nur aus der Bewegung
+  let fremd = 0, mitN = 0, mitV = 0, selbst = 0;
+  for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    const dir = freshDir();
+    const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(ROOT_TMP, 'regie') }, log: () => {} });
+    const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(sx2) { this.inbox.push(JSON.parse(sx2)); } };
+    g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'K0', name: 'Crew', color: 0 });
+    g.handleMessage(c, { t: 'lobbyOpt', startMission: 'freie_fahrt' }); g.handleMessage(c, { t: 'ready', ready: true });
+    for (let k = 0; k < 30; k++) g.step();
+    for (let i = 1; i <= 400; i++) {
+      Kriegslage.tick(g, 'test');
+      const L = Wissen.lage(g), z = g.weltsim.zustand, T = g.weltsim.wissen.t;
+      for (const q of L.f) {
+        if (q.f === 'r' || q.a < 1) continue;
+        fremd++; if ('n' in q) mitN++;
+        if (q.v) {
+          mitV++;
+          const rec = g.weltsim.wissen.flotten.find((r) => r.f === q.f && r.h === q.h && r.a === T - q.a);
+          if (rec && z.flotten.some((fl) => rec.ids.includes(fl.id) && fl.ort === q.v)) selbst++;   // die Flotte selbst steht jetzt wieder auf v (Umkehr), kein Leck
+        }
+      }
+    }
+    ok(g.weltsim.fehler === 0 && g.errors === 0, 'Seed ' + seed + ': 400 Ticks ohne Fehler');
+  }
+  console.log(`  Messung: ${fremd} fremde Plaketten (Alter >= 1), mit n: ${mitN}, mit Kurs v: ${mitV}, davon die Flotte selbst jetzt auf v (Umkehr): ${selbst}`);
+  ok(fremd > 1000 && mitN === 0, 'kein fremder Eintrag trägt n (' + mitN + ' von ' + fremd + ')');
+  ok(mitV > 100 && selbst <= 0.05 * mitV, 'v ist (fast) nie die jetzige Position der Flotte selbst: ' + selbst + ' von ' + mitV + ' (Umkehr im Tick), vorher verriet n sie in 98,7 % der Fälle');
 }
 
 // =============================================================================================================================
@@ -388,7 +469,7 @@ section('Block: Größe, Inhalt, kein Sim-Zustand');
   W.flotten = [];
   for (let i = 0; i < 14; i++) {
     const h = CODES[i + 4];
-    W.flotten.push({ f: i % 2 ? 'g' : 'r', h, k: 1 + (i % 3), p: arten[i % 6], a: i % 4 === 3 ? T - 11 : i % 3 === 0 ? T : T - 1, n: CODES[i + 5], z: CODES[i + 6], d: 3, ids: [i], an: [i] });
+    W.flotten.push({ f: i % 2 ? 'g' : 'r', h, k: 1 + (i % 3), p: arten[i % 6], a: i % 4 === 3 ? T - 11 : i % 3 === 0 ? T : T - 1, [i % 2 ? 'v' : 'n']: CODES[i + 5], z: CODES[i + 6], d: 3, ids: [i], an: [i] });
   }
   W.meldungen = [];
   for (let i = 0; i < 8; i++) W.meldungen.push({ e: ['sa', 'ma', 'be', 'hf', 'hh', 'pv'][i % 6], h: CODES[i], t: T - (i % 2), f: 'g', k: 3 });

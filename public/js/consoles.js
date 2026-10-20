@@ -884,7 +884,7 @@
       const A = mod.A, hd = (h) => K.hexe[h] || {};
       const quellen = A.codes.filter((c) => A.hex[c] && A.hex[c].f === 'r' && (hd(c).hafen || A.hex[c].posten)).concat(A.fl.filter((q) => q.f === 'r' && q.a === 0).map((q) => q.h), mod.hier ? [mod.hier] : []);
       const dist = KL.abstaende(quellen, mod.adj);
-      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.n ? KL.winkelHex(q.h, q.n) : 0) };
+      const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Platz: unten bleiben 14 px für die Frachtleiste des Pults; Sprung (Knopf, Ziel, Balken, Grund) braucht etwa 71, die Legende ihre Zeilen
       const unten = a.y + a.h - 14, legZ = KL.legendeZeilen(rw);

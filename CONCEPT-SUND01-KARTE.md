@@ -43,11 +43,16 @@ dringendste: B > M > S > unterwegs/Rückzug > hält). Pixelgenau, skaliert nicht
 Koordinate stand. Die **Hafenklasse** rückt dafür von `p.y − 11` auf `p.y − 9`. Steht im Hex eine Notruf-Marke (oben rechts), rückt die
 Plakette 9 px nach links. Die Lerche-Markierung (Dreieck) entfällt, wenn im Lerche-Hex eine Plakette steht; der helle Ring bleibt.
 
-**Kurs:** Bei Marsch, unterwegs und Rückzug zusätzlich ein gefüllter Pfeil 6 px innen vor der Hexseite zum nächsten Hex (`n`), Größe
-max(5, 0,2·s), 3 px dunkle Kontur. Nur bei Wissensstufe jetzt/gesehen; ein Altstand zeigt keinen Kurs.
+**Kurs** (geändert in SUND-01 E, Review-Befund „`n` verrät die jetzige Position“): Bei Marsch, unterwegs und Rückzug zusätzlich ein gefüllter Pfeil
+6 px innen vor der Hexseite, Größe max(5, 0,2·s), 3 px dunkle Kontur. **Fremde Flotten** zeigen die **beobachtete Bewegung**: der Pfeil sitzt an der
+Seite zum Hex, aus dem die Flotte kam (`v`, „kam von“), und zeigt von dort **in das Hex hinein** (Spitze zur Hexmitte). Das ist keine Vorhersage: ein
+`n` (nächstes Hex) gäbe bei verzögerter Anzeige die jetzige Position preis. Eine Flotte, die Rom zum ersten Mal sieht oder die stillstand, hat noch
+keinen Kurs (Plakette ohne Pfeil, nur das Phasenfeld). **Eigene Flotten** (Alter 0) zeigen weiter ihren echten nächsten Schritt `n`, der Pfeil verlässt
+das Hex. Nur bei Wissensstufe jetzt/gesehen; ein Altstand zeigt keinen Kurs.
 
 **Ziel:** Sammeln → **unbekannt** (kein Zeichen; Liste und Funk sagen „Ziel unbekannt“). Marsch → **vermutet**: Strichlinie 4/3 (1 px Hell auf 3 px
-dunkel) von der Hexseite über höchstens 3 Hexe bis zum vermuteten Ziel, dort ein Kästchen 8×10 mit **„?“**. Belagerung → bekannt (das Hex selbst).
+dunkel) bei fremden Flotten von der Hexmitte (bei eigenen von der Hexseite zu `n`) über höchstens 3 Hexe bis zum vermuteten Ziel, dort ein Kästchen
+8×10 mit **„?“**. Es gibt sie nur, wenn der Kurs `v` bekannt ist (Schätzung aus der beobachteten Bewegung). Belagerung → bekannt (das Hex selbst).
 
 ## 3. Wissensstufen
 | Stufe | Bedingung (Alter a, Verzögerung vz) | Plakette | Hex |
@@ -176,7 +181,7 @@ Kein Sim-Zustand, nur was die Darstellung braucht, alles schon nach dem Wissen v
   "hx": "rererererererereRek1-1-?p5Rek1-1p4G1k1-1v3g1g1v6gbg9g9g9g9g9",
   "f": [ { "f": "g", "h": "0803", "k": 3, "p": "s", "a": 1, "d": 2 },
          { "f": "g", "h": "0703", "k": 1, "p": "h", "a": 1 },
-         { "f": "g", "h": "0904", "k": 2, "p": "u", "a": 11, "n": "0803" } ],
+         { "f": "g", "h": "0904", "k": 2, "p": "u", "a": 11, "v": "0803" } ],
   "m": [ { "e": "sa", "h": "0803", "t": 43, "f": "g", "k": 3 },
          { "e": "pg", "h": "0603", "t": 38, "f": "r" } ] }
 ```
@@ -187,7 +192,7 @@ Kein Sim-Zustand, nur was die Darstellung braucht, alles schon nach dem Wissen v
 | `t` | Tick des Wissensstands | – |
 | `vz` | Verzögerung in Ticks (Daten, Vorgabe 1); `a ≤ vz` = gesehen | – |
 | `hx` | **je Hex zwei Zeichen** in der Reihenfolge `Object.keys(karte.hexe).sort()` (`KarteTokens.hexReihenfolge`, 30 Hexe = 60 Zeichen). Zeichen 1: zuletzt bekannter Besitzer `r g k p - v` (`-` = herrenlos, Fläche dann aus der Karte), **Großbuchstabe = Posten**. Zeichen 2: Alter `e` = jetzt, `1`–`9`, `a`–`z` = Ticks (base36, `z` ≥ 35), `?` = nie gesehen. Lesen: `KarteTokens.hxLesen(hx, codes)`. | jetzt (`e`), gesehen (≤ vz), Altstand, unbekannt (`?`) |
-| `f[]` | Flotten mit Plakette, nach Rang, höchstens `WERTE.flottenMax` (12): `f` Fraktion, `h` Hex, `k` Stärkeklasse 1–3, `p` Phase (`h` hält, `u` unterwegs, `s` sammelt, `m` Marsch, `b` belagert, `r` Rückzug), `a` Alter (0 eigen), optional `n` nächstes Hex (Kurs), `z` Ziel (nur `m` = vermutet, `b` = bekannt; bei `s` nie), `d` Ticks im Sammeln | je Eintrag über `a` |
+| `f[]` | Flotten mit Plakette, nach Rang, höchstens `WERTE.flottenMax` (12): `f` Fraktion, `h` Hex, `k` Stärkeklasse 1–3, `p` Phase (`h` hält, `u` unterwegs, `s` sammelt, `m` Marsch, `b` belagert, `r` Rückzug), `a` Alter (0 eigen), optional Kurs: `v` „kam von“ (fremde Flotten, beobachtete Bewegung, nur wenn die Flotte im vorigen Stand in Sicht war) oder `n` nächstes Hex (nur eigene Flotten, Alter 0), `z` Ziel (nur `m` = vermutet, `b` = bekannt; bei `s` nie), `d` Ticks im Sammeln | je Eintrag über `a` |
 | `m[]` | Lagemeldungen der letzten Ticks (höchstens 6): `e` Art (`sa` sammelt, `ma` Marsch, `be` Belagerung, `hf` Hafen gefallen, `hh` Hafen hält, `pg` Posten gegründet, `pv` Posten verloren), `h` Hex, `t` Tick, optional `f`, `k` | nur, was Rom gesehen hat |
 
 Beispiel `hx` gelesen: `0105` → `re` = Rom, kein Posten, jetzt. `0503` → `Re` = Rom **mit Posten**, jetzt. `0803` → `g1` = Germanen, gesehen
@@ -199,7 +204,9 @@ Regeln für den Server (Wissensmodell, Abnahme 6):
   belagerten Hafens als Eintrag `p: "h"` am selben Hex (zweite Plakette).
 - **Vermutetes Ziel** (`z` bei `m`): Empfehlung eine Schätzung (erstes römisches Ziel, Hafen oder Posten, auf dem kürzesten Weg in
   Marschrichtung), nicht die wahre Absicht. Die Karte darf irren; der Leitgedanke „auch wenn das falsch ist“ gilt.
-- **Kurs** `n` ergibt sich aus der beobachteten Bewegung (Stand T−vz). `d` zählt die Ticks, die Rom das Sammeln gesehen hat.
+- **Kurs** fremder Flotten: `v` ergibt sich aus der beobachteten Bewegung (das Wissen merkt sich je sichtbarer Flotte das Hex des vorigen Standes, Spur intern
+  nach Sim-Flottenid, nie im Block); `n` (Vorhersage) gibt es nur für eigene Flotten. Der Block enthält zu fremden Flotten nichts, was vom Zustand nach dem
+  Vor-Tick abhängt (metamorph getestet). `d` zählt die Ticks, die Rom das Sammeln gesehen hat.
 - **Sicht** rechnet nur der Server; der Client leitet hell/dunkel aus `hx` ab und rechnet nur „Nächster Knoten“ für die Ortsinfo nach.
 - Ids braucht die Darstellung nicht. Für „nie doppelt“ (Funk) hält der Server die Feldzug-Id intern.
 

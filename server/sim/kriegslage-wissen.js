@@ -8,11 +8,15 @@
 //   · außerhalb der Sicht der letzte bekannte Stand mit Alter in Ticks · nie gesehen = Kartenstand (Besitz der Karte, Alter null).
 // Die Verzögerung ist keine Zeitschleife: kriegslage.js übergibt den Zustand vor dem Tick (`vor`), das Wissen liest fremde Daten dort.
 // Rom erfährt nie mehr, als es sieht: die Anzeige nutzt von der Sim nur Daten sichtbarer Hexe (und eigene Daten). Das wahre Ziel einer
-// feindlichen Flotte wird nie gelesen; `z` ist eine Schätzung aus öffentlichen Daten (erstes römisches Ziel in Marschrichtung).
+// feindlichen Flotte wird nie gelesen; `z` ist eine Schätzung aus öffentlichen Daten (erstes römisches Ziel in der beobachteten Marschrichtung).
+// Der Kurs einer fremden Flotte ist `v` („kam von“): das Hex, in dem das Wissen sie beim vorigen Stand gesehen hat (Spur, siehe unten). Ein
+// Kurs nach vorn (`n`) gibt es nur für eigene Flotten; bei fremden stünde dort das Hex, das sie im jetzigen Tick betreten haben.
 //
 // Wissen (Zustand, wird mit welt.sim gespeichert, Schema ergänzt, keine Versionserhöhung):
-//   { v, t, hexe: { <hex>: { f, p, a } }, flotten: [ { f, h, k, p, a, n?, z?, d?, an?, ids } ], erst: { <angriff>: Tick }, gesehen: [ 'sa:3' ... ],
-//     meldungen: [ { e, h, t, f?, k? } ], wartend: [ Ereignis ], notrufe: [ { an, h } ] }
+//   { v, t, hexe: { <hex>: { f, p, a } }, flotten: [ { f, h, k, p, a, n? (nur eigene), v? (nur fremde), z?, d?, an?, ids } ], erst: { <angriff>: Tick }, gesehen: [ 'sa:3' ... ],
+//     spur: { <flottenid>: { h, a, v? } }, meldungen: [ { e, h, t, f?, k? } ], wartend: [ Ereignis ], notrufe: [ { an, h } ] }
+//   spur: je sichtbarer fremder Flotte das zuletzt beobachtete Hex h (Stand a); wird dieselbe Flotte im Stand a+1 in einem anderen Hex gesehen,
+//   ist h ihr `v`. Nur die Ids der Sim als Schlüssel (intern), sie gehen nie in den Anzeigeblock.
 //   f Fraktion r g k p - v · p (Hex) Posten 0|1 · a Tick der Daten (null = Kartenstand) · k Stärkeklasse 1..3 · p (Flotte) Phase h u s m b r
 // `gesehen` sind die gemerkten Ids (Feldzug + Phase): Funkmeldungen kommen einmal je Feldzug, auch nach Speichern und Laden.
 //
@@ -50,7 +54,7 @@ function karte() {
 }
 const hexVon = (ref) => Marken.hexVon(ref);
 
-function neuLeer() { return { v: 1, t: 0, ver: 0, sondeT: 0, hexe: {}, flotten: [], erst: {}, gesehen: [], meldungen: [], wartend: [], notrufe: [] }; }
+function neuLeer() { return { v: 1, t: 0, ver: 0, sondeT: 0, hexe: {}, flotten: [], erst: {}, spur: {}, gesehen: [], meldungen: [], wartend: [], notrufe: [] }; }
 
 // ---------------------------------------------------------------------------------------------------------------- Sicht
 const istHafen = (d, code) => !!(d.hex[code] && d.hex[code].hafen);
@@ -104,7 +108,9 @@ const naechster = (d, fl) => {
 const summe = (liste) => liste.reduce((s, fl) => s + fl.staerke, 0);
 
 // Gruppen (eine Plakette je Fraktion und Hex) aus einer Flottenliste. q = Zustand, aus dem die Liste stammt (Vor-Tick oder jetzt).
-function gruppenBilden(q, d, werte, flotten) {
+// Kurs: eigene Flotten (Alter 0) zeigen ihren echten nächsten Schritt `n`; fremde bekommen `v` (kam von) aus `vonVon` ({ flottenid: Hex | null },
+// aus der Spur des Wissens), nie etwas, das vom Zustand nach dem Vor-Tick abhängt.
+function gruppenBilden(q, d, werte, flotten, vonVon) {
   const map = new Map();
   for (const fl of flotten) {
     const p = phaseVon(fl);
@@ -118,14 +124,28 @@ function gruppenBilden(q, d, werte, flotten) {
     let p = 'h';
     for (const x of g.fl) if (PH_RANG[x.p] < PH_RANG[p]) p = x.p;
     const dom = g.fl.filter((x) => x.p === p);
-    const mitN = dom.map((x) => ({ x, n: naechster(d, x.fl) })).find((y) => y.n);
     const gr = { fraktion: g.fraktion, f: fk(g.fraktion), h: g.h, p, k: Kern.staerkeKlasse(summe(g.fl.map((x) => x.fl)), werte), ids: g.fl.map((x) => x.fl.id), an: [] };
-    if (p === 'm' || p === 'u' || p === 'r') { if (mitN) gr.n = mitN.n; else if (p !== 'm') gr.p = 'h'; }
+    if (g.fraktion === 'rom') {
+      const mitN = dom.map((x) => ({ x, n: naechster(d, x.fl) })).find((y) => y.n);
+      if (p === 'm' || p === 'u' || p === 'r') { if (mitN) gr.n = mitN.n; else if (p !== 'm') gr.p = 'h'; }
+      if (p === 'm' && !gr.n) gr.p = 'h';
+    } else if ((p === 'm' || p === 'u' || p === 'r') && vonVon) {
+      const mitV = dom.map((x) => vonVon[x.fl.id]).find((v) => v);
+      if (mitV) gr.v = mitV;
+    }
     for (const x of g.fl) if (x.fl.angriff != null && !gr.an.includes(x.fl.angriff)) gr.an.push(x.fl.angriff);
-    if (p === 'm' && !gr.n) gr.p = 'h';
     out.push(gr);
   }
   return out;
+}
+
+// „Kam von“ einer fremden Flotte: das Hex, in dem das Wissen sie im vorigen Stand (a-1) beobachtet hat, sofern sie jetzt woanders steht.
+// Derselbe Stand zweimal gesehen (Sonde, dann regulär) behält den Wert. Sonst keine Angabe (neu in Sicht, außer Sicht gewesen, steht still).
+function kamVon(spur, id, hex, a) {
+  const r = spur && spur[id];
+  if (!r) return null;
+  if (r.a === a) return r.h === hex ? (r.v || null) : null;
+  return r.a === a - 1 && r.h !== hex ? r.h : null;
 }
 
 // Verteidiger eines belagerten Hex (zweite Plakette): Flotten des Besitzers dort, sonst Abwehr bzw. Garnison
@@ -137,15 +157,15 @@ function verteidiger(q, d, werte, hex) {
   return { fraktion: nd.besitzer, f: fk(nd.besitzer), h: hex, p: 'h', k: Kern.staerkeKlasse(st, werte), ids: hier.map((fl) => fl.id), an: [] };
 }
 
-// Vermutetes Ziel eines marschierenden fremden Verbands: erstes römisches Ziel (Hafen oder Posten) auf einem kürzesten Weg über das nächste Hex.
-// Nutzt nur öffentliche Daten (Position, nächstes Hex, römische Knoten), nie die Absicht der KI.
-function vermutetesZiel(z, d, h, n) {
+// Vermutetes Ziel eines marschierenden fremden Verbands: erstes römisches Ziel (Hafen oder Posten), dem der Verband mit dem beobachteten Schritt
+// v -> h näher gekommen ist (liegt auf einem kürzesten Weg über h). Nutzt nur öffentliche Daten (beobachtete Bewegung, römische Knoten), nie die Absicht der KI.
+function vermutetesZiel(z, d, v, h) {
   let best = null;
   for (const code of d.codes) {
     const nd = z.hexe[code];
     if (nd.besitzer !== 'rom' || !(istHafen(d, code) || nd.posten)) continue;
-    const dh = abstandKnoten(d, h, code), dn = abstandKnoten(d, n, code);
-    if (dh < 1 || dh > 6 || dn !== dh - 1) continue;
+    const dh = abstandKnoten(d, h, code), dv = abstandKnoten(d, v, code);
+    if (dh < 1 || dh > 6 || dv !== dh + 1) continue;
     if (!best || dh < best.dh || (dh === best.dh && code < best.code)) best = { dh, code };
   }
   return best ? best.code : null;
@@ -212,17 +232,22 @@ function berechne(W0, o) {
     if (g.p === 'm') { const fl = eigeneFl.find((x) => x.ort === g.h && phaseVon(x) === 'm'); if (fl && fl.ziel) g.z = fl.ziel; }
     neu.push(g);
   }
+  const spur = W.spur || (W.spur = {});
   const fremdAus = (q, hexe, a) => {
     const fl = q.flotten.filter((x) => x.fraktion !== 'rom' && hexe.has(x.ort));
-    for (const g of gruppenBilden(q, d, w, fl)) {
+    const vonVon = {};
+    for (const x of fl) vonVon[x.id] = kamVon(spur, x.id, x.ort, a);
+    for (const g of gruppenBilden(q, d, w, fl, vonVon)) {
       g.a = a;
-      if (g.p === 'm' && g.n) { const zz = vermutetesZiel(z, d, g.h, g.n); if (zz) g.z = zz; }
+      if (g.p === 'm' && g.v) { const zz = vermutetesZiel(z, d, g.v, g.h); if (zz) g.z = zz; }
       neu.push(g);
     }
+    for (const x of fl) { const r = { h: x.ort, a }; if (vonVon[x.id]) r.v = vonVon[x.id]; spur[x.id] = r; }
   };
   const inSichtMenge = new Set([...sichtbar].filter((c) => !zusatz.has(c)));
   fremdAus(vor, inSichtMenge, T - vz);
   if (zusatz.size) fremdAus(z, zusatz, T);
+  if (tick) for (const id of Object.keys(spur)) if (spur[id].a < T - vz - 1) delete spur[id];   // nur der letzte und der jetzige Stand zählen
   // Verteidiger belagerter Hexe (zweite Plakette); eigene Hexe aus dem jetzigen, fremde aus dem Vor-Tick-Zustand
   for (const g of neu.slice()) {
     if (g.p !== 'b') continue;
@@ -243,7 +268,7 @@ function berechne(W0, o) {
     if (T - r.a > KT.WERTE.altMax) continue;
     alte.push(Object.assign({}, r, { ids }));
   }
-  W.flotten = alte.concat(neu.map((g) => { const r = { f: g.f, h: g.h, k: g.k, p: g.p, a: g.a, ids: g.ids }; if (g.n) r.n = g.n; if (g.z) r.z = g.z; if (g.an.length) r.an = g.an; return r; }));
+  W.flotten = alte.concat(neu.map((g) => { const r = { f: g.f, h: g.h, k: g.k, p: g.p, a: g.a, ids: g.ids }; if (g.n) r.n = g.n; if (g.v) r.v = g.v; if (g.z) r.z = g.z; if (g.an.length) r.an = g.an; return r; }));
 
   // 3) Meldungen und Funk aus dem, was Rom jetzt sieht (Zustand, nicht Ereignisse: nie doppelt, nie verloren, auch im Schnellsprung)
   const merke = (key) => { if (W.gesehen.includes(key)) return false; W.gesehen.push(key); if (W.gesehen.length > GESEHEN_MAX) W.gesehen.splice(0, W.gesehen.length - GESEHEN_MAX); return true; };
@@ -387,7 +412,7 @@ function lage(game) {
   for (const c of kt.codes) { const r = W.hexe[c] || { f: '-', p: 0, a: null }; hx += (r.p ? r.f.toUpperCase() : r.f) + alterZeichen(r.a, T); }
   const f = W.flotten.filter((r) => T - r.a <= KT.WERTE.altMax)
     .sort((a, b) => rangVon(a, T) - rangVon(b, T) || (a.h < b.h ? -1 : a.h > b.h ? 1 : 0)).slice(0, KT.WERTE.flottenMax)
-    .map((r) => { const o = { f: r.f, h: r.h, k: r.k, p: r.p, a: Math.max(0, T - r.a) }; if (r.n) o.n = r.n; if (r.z) o.z = r.z; if (r.d) o.d = r.d; return o; });
+    .map((r) => { const o = { f: r.f, h: r.h, k: r.k, p: r.p, a: Math.max(0, T - r.a) }; if (r.f === 'r' && r.n) o.n = r.n; if (r.f !== 'r' && r.v) o.v = r.v; if (r.z) o.z = r.z; if (r.d) o.d = r.d; return o; });
   const m = W.meldungen.map((x) => { const o = { e: x.e, h: x.h, t: x.t }; if (x.f) o.f = x.f; if (x.k) o.k = x.k; return o; });
   const block = { t: T, vz, sw: w.sicht.weite, hx, f, m };
   ws._lage = { ver: W.ver, block };
@@ -419,6 +444,8 @@ function restore(game, block) {
   if (gueltig(block, T, d)) {
     const W = klon(block);
     W.ver = 1; W.sondeT = game.time;
+    if (!W.spur || typeof W.spur !== 'object' || Array.isArray(W.spur)) W.spur = {};
+    for (const r of W.flotten) if (r.f !== 'r' && 'n' in r) delete r.n;   // Altstand vor SUND-01 E: fremde Flotten tragen nur `v`
     ws.wissen = W;
     return true;
   }

@@ -150,7 +150,7 @@
   // ------------------------------------------------------------------ Plakette (CONCEPT §2)
   const phaseBreite = (ph) => (ph ? Math.max(M.plakette.phase.minBreite, (ph.pfeil ? 7 : tw(ph.text)) + M.plakette.phase.polster) : 0);
   const plBreite = (q) => M.plakette.breiteOhnePhase + phaseBreite(T.phaseFeld(q.p, q.f, q.stufe, q.a));
-  // q: { f, k, p, a, stufe, d?, n? }; o: { kurs (Winkel), ohnePhase }. Mitte (x, y). -> Breite
+  // q: { f, k, p, a, stufe, d?, n? (eigen), v? (fremd) }; o: { kurs (Winkel), ohnePhase }. Mitte (x, y). -> Breite
   function plakette(ctx, x, y, q, o) {
     o = o || {};
     const fr = fraktion(q.f), st = q.stufe || T.wissensstufe(q.a, 1), ph = o.ohnePhase ? null : T.phaseFeld(q.p, q.f, st, q.a);
@@ -201,7 +201,9 @@
 
   // ------------------------------------------------------------------ Flotten auf der Karte
   const winkelZu = (V, a, b) => { const p = V.mitte(a), q = V.mitte(b); return Math.atan2(q.y - p.y, q.x - p.x); };
-  const kursVon = (V, q) => (q.n && V.mitte ? winkelZu(V, q.h, q.n) : 0);
+  // Kurs (SUND-01 E): eigene Flotten zeigen nach vorn (`n`, der Pfeil verlässt das Hex), fremde die beobachtete Bewegung (`v` = kam von, der Pfeil
+  // zeigt von der v-Seite ins Hex hinein). Eine Vorhersage fremder Flotten gibt der Block nicht her.
+  const kursVon = (V, q) => (!V.mitte ? 0 : q.v ? winkelZu(V, q.v, q.h) : q.n ? winkelZu(V, q.h, q.n) : 0);
   function belagerungRahmen(ctx, p, vd) {
     const B = M.belagerung, vy = p.y + M.plakette.anker.verteidigerDy;
     const dw = vd ? plBreite(vd) : 22, fw = dw + 2 * B.abstandX, fh = M.plakette.hoehe + 2 * B.abstandY, fx = Math.round(p.x - fw / 2) + 0.5, fy = Math.round(vy - fh / 2) + 0.5;
@@ -223,19 +225,25 @@
         const p = mitte(q.h), vd = A.fl.find((x) => x.h === q.h && x.f !== q.f && x.p === 'h');
         belagerungRahmen(ctx, p, vd);
       }
-      if ((q.p === 'm' || q.p === 'u' || q.p === 'r') && q.n && q.stufe !== 'alt' && V.hexe.indexOf(q.n) >= 0) {
-        const S = seite(V, q.h, q.n), col = fraktion(q.f).haltung;
+      const nb = q.v || q.n;
+      if ((q.p === 'm' || q.p === 'u' || q.p === 'r') && nb && q.stufe !== 'alt' && V.hexe.indexOf(nb) >= 0) {
+        const S = seite(V, q.h, nb), col = fraktion(q.f).haltung;
         if (q.p === 'm' && q.z && !knapp) {
-          const weg = (V.weg ? V.weg(q.n, q.z) : null) || [q.n], w = weg.slice(0, M.vermutet.maxHexe), pts = w.map((h) => mitte(h));
-          ctx.save(); ctx.beginPath(); ctx.moveTo(S.mx, S.my); pts.forEach((pp) => ctx.lineTo(pp.x, pp.y + 3)); ctx.setLineDash(M.vermutet.strich);
-          ctx.strokeStyle = F.vermutet.unterlage; ctx.lineWidth = M.vermutet.unterlage; ctx.stroke(); ctx.strokeStyle = F.vermutet.linie; ctx.lineWidth = M.vermutet.breite; ctx.stroke(); ctx.restore();
-          const z = pts[pts.length - 1], mk = M.vermutet.marke;
-          ctx.fillStyle = P.tisch; ctx.fillRect(z.x - mk.breite / 2 - 1, z.y - 2, mk.breite + 2, mk.hoehe + 2);
-          ctx.strokeStyle = F.vermutet.marke; ctx.lineWidth = 1; ctx.strokeRect(z.x - mk.breite / 2 + 0.5, z.y - 1.5, mk.breite, mk.hoehe);
-          txt(ctx, '?', z.x + 1, z.y, { color: F.vermutet.marke, align: 'center', shadow: false });
+          // eigene Flotte: Weg ab dem nächsten Hex n; fremde: Weg ab dem angezeigten Hex (die Schätzung gilt der beobachteten Richtung v -> h)
+          const start = q.v ? mitte(q.h) : { x: S.mx, y: S.my - 3 };
+          const weg = (V.weg ? V.weg(q.v ? q.h : q.n, q.z) : null) || (q.v ? [] : [q.n]), w = (q.v ? weg.slice(1) : weg).slice(0, M.vermutet.maxHexe), pts = w.map((h) => mitte(h));
+          if (pts.length) {
+            ctx.save(); ctx.beginPath(); ctx.moveTo(start.x, start.y + 3); pts.forEach((pp) => ctx.lineTo(pp.x, pp.y + 3)); ctx.setLineDash(M.vermutet.strich);
+            ctx.strokeStyle = F.vermutet.unterlage; ctx.lineWidth = M.vermutet.unterlage; ctx.stroke(); ctx.strokeStyle = F.vermutet.linie; ctx.lineWidth = M.vermutet.breite; ctx.stroke(); ctx.restore();
+            const z = pts[pts.length - 1], mk = M.vermutet.marke;
+            ctx.fillStyle = P.tisch; ctx.fillRect(z.x - mk.breite / 2 - 1, z.y - 2, mk.breite + 2, mk.hoehe + 2);
+            ctx.strokeStyle = F.vermutet.marke; ctx.lineWidth = 1; ctx.strokeRect(z.x - mk.breite / 2 + 0.5, z.y - 1.5, mk.breite, mk.hoehe);
+            txt(ctx, '?', z.x + 1, z.y, { color: F.vermutet.marke, align: 'center', shadow: false });
+          }
         }
-        const k = Math.max(M.kurs.pfeilMin, s * M.kurs.pfeil), cx = S.mx - S.nx * M.kurs.abstandRand, cy = S.my - S.ny * M.kurs.abstandRand;
-        ctx.save(); ctx.beginPath(); ctx.moveTo(cx + S.nx * k, cy + S.ny * k); ctx.lineTo(cx - S.ny * k * 0.8, cy + S.nx * k * 0.8); ctx.lineTo(cx + S.ny * k * 0.8, cy - S.nx * k * 0.8); ctx.closePath();
+        // Pfeil an der Hexseite zum Nachbarn: eigene Flotte hinaus (n), fremde hinein (v, Spitze zur Hexmitte)
+        const k = Math.max(M.kurs.pfeilMin, s * M.kurs.pfeil), cx = S.mx - S.nx * M.kurs.abstandRand, cy = S.my - S.ny * M.kurs.abstandRand, t = (q.v ? -1 : 1) * k;
+        ctx.save(); ctx.beginPath(); ctx.moveTo(cx + S.nx * t, cy + S.ny * t); ctx.lineTo(cx - S.ny * k * 0.8, cy + S.nx * k * 0.8); ctx.lineTo(cx + S.ny * k * 0.8, cy - S.nx * k * 0.8); ctx.closePath();
         ctx.strokeStyle = P.tisch; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = q.p === 'r' ? P.stahlhell : col; ctx.fill(); ctx.restore();
       }
     }
@@ -319,6 +327,7 @@
     const q = z.q, ort = o.name(q.h);
     if (q.stufe === 'alt') return T.vorlage('meldeliste.alt', { ort, a: q.a });
     if (q.p === 's') return T.vorlage('meldeliste.sammelt', { ort, d: (q.d || 1) + ((q.d || 1) === 1 ? ' Tick' : ' Ticks') });
+    if (q.v && (q.p === 'm' || q.p === 'u' || q.p === 'r')) return T.vorlage('meldeliste.kam', { ort, von: o.name(q.v) });   // fremd: beobachtete Bewegung
     if (q.p === 'm') return q.n ? T.vorlage('meldeliste.marsch', { ort, nach: o.name(q.n) }) : ort;
     if (q.p === 'u' || q.p === 'r') return q.n ? T.vorlage('meldeliste.unterwegs', { ort, nach: o.name(q.n) }) : ort;
     if (q.p === 'b') return T.vorlage('meldeliste.belagert', { ort });

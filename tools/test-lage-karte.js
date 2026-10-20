@@ -50,14 +50,14 @@ function blockLageB() {
   const o = {}; for (const c of CODES) { const f = SUND.hexe[c].fraktion; o[c] = (f === 'rom' ? 'r' : f === 'ger' ? 'g' : f === 'saum' ? 'k' : f === 'pirat' ? 'p' : f === 'vorl' ? 'v' : '-') + (f === 'rom' ? 'e' : '9'); }
   Object.assign(o, { '0603': 'Re', '0703': 'r1', '0803': 'g1', '0904': 'g9' });
   return { t: 43, vz: 1, sw: 2, hx: CODES.map((c) => o[c]).join(''),
-    f: [{ f: 'g', h: '0803', k: 3, p: 's', a: 1, d: 2 }, { f: 'r', h: '0603', k: 1, p: 'h', a: 0 }, { f: 'g', h: '0904', k: 2, p: 'u', a: 11, n: '0803' }],
+    f: [{ f: 'g', h: '0803', k: 3, p: 's', a: 1, d: 2 }, { f: 'r', h: '0603', k: 1, p: 'h', a: 0 }, { f: 'g', h: '0904', k: 2, p: 'u', a: 11, v: '0803' }],
     m: [{ e: 'sa', h: '0803', t: 43, f: 'g', k: 3 }, { e: 'pg', h: '0603', t: 38, f: 'r' }] };
 }
 function block12() {
   const b = blockLageB();
   const arten = ['s', 'm', 'b', 'u', 'r', 'h'], hexe = CODES.filter((c) => SUND.hexe[c].spielbar !== false);
   b.f = []; b.m = [];
-  for (let i = 0; i < 12; i++) b.f.push({ f: ['g', 'r', 'k', 'p'][i % 4], h: hexe[i], k: 1 + (i % 3), p: arten[i % 6], a: i % 5 === 4 ? 9 : i % 3 === 0 ? 0 : 1, n: hexe[(i + 1) % hexe.length], z: i % 6 === 1 ? hexe[(i + 3) % hexe.length] : undefined, d: i % 6 === 0 ? 2 : undefined });
+  for (let i = 0; i < 12; i++) b.f.push({ f: ['g', 'r', 'k', 'p'][i % 4], h: hexe[i], k: 1 + (i % 3), p: arten[i % 6], a: i % 5 === 4 ? 9 : i % 3 === 0 ? 0 : 1, [i % 4 === 1 ? 'n' : 'v']: hexe[(i + 1) % hexe.length], z: i % 6 === 1 ? hexe[(i + 3) % hexe.length] : undefined, d: i % 6 === 0 ? 2 : undefined });
   for (let i = 0; i < 6; i++) b.m.push({ e: ['sa', 'ma', 'be', 'hf', 'hh', 'pv'][i], h: hexe[i], t: 43 - (i % 2), f: 'g', k: 2 });
   return b;
 }

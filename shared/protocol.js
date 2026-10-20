@@ -112,7 +112,7 @@
     //   Sichtweite sw Sprünge, fremde Daten mit vz Ticks Verzögerung), nie der Sim-Zustand und nie ein wahres Ziel. t = Tick des Stands, vz = Verzögerung (Daten),
     //   sw = Sichtweite (Daten). hx = je Kartenhex (Reihenfolge Object.keys(karte.hexe).sort(), KarteTokens.hexReihenfolge) zwei Zeichen: Besitzer r g k p - v
     //   (Großbuchstabe = Posten), Alter e = jetzt, 1–9 a–d f–z = Ticks (ohne e; KarteTokens.alterZeichen), ? = nie gesehen (Besitz dann laut Karte). f[] (≤ 12, nach Rang) Plaketten { f Fraktion, h Hex,
-    //   k Stärkeklasse 1–3, p Phase h u s m b r, a Alter (0 = eigen), n nächstes Hex (Kurs), z vermutetes Ziel (nur Marsch, eine Schätzung), d Ticks im Sammeln }.
+    //   k Stärkeklasse 1–3, p Phase h u s m b r, a Alter (0 = eigen), Kurs: v „kam von“ (fremde Flotten, beobachtete Bewegung) oder n nächstes Hex (nur eigene Flotten), z vermutetes Ziel (nur Marsch, eine Schätzung), d Ticks im Sammeln }.
     //   m[] (≤ 6) Meldungen { e sa ma be hf hh pg pv, h Hex, t Tick, f?, k? }. Ereignis radio { from, text, lage: 1, tick } = Lagefunk (einmal je Feldzug).
     //   Dazu welt.sim.wissen im Weltstand (Schema) und Notruf-Marken in world.marken.
     // Snapshot space.jp [{ k: kantenId, x, y, z: JP_STATES, n: zielHex }] (nur bekannte Bojen der Szene, ≤ 6).
