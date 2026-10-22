@@ -4306,12 +4306,13 @@
 
   // Steuer: Frontsicht (M1 §4.1). Bug oben, Schiff im unteren Teil, vorn ≈ 700, seitlich ± 420, hinten ≈ 120.
   const FRONT = { fwd: 700, back: 120, side: 420 };
+  // rect.side (optional): halbe Breite des Cockpitfensters in Weltmetern statt FRONT.side (Voxel-Hauptschirm, sitz.js); ohne: FRONT.side wie bisher
   function drawFrontView(ctx, view, rect) {
     const st = view.state, ship = view.ship || st.ship || {};
     const fog = inFog(st);
     const zoom = rect.h / (FRONT.fwd + FRONT.back);
     const cx = rect.x + Math.round(rect.w / 2), cy = rect.y + Math.round(FRONT.fwd * zoom);
-    const half = Math.round(FRONT.side * zoom);
+    const half = Math.round((rect.side || FRONT.side) * zoom);
     const win = { x: cx - half, y: rect.y, w: half * 2, h: rect.h };
     const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
     const t = view.time;

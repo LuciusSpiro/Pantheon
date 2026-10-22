@@ -134,13 +134,10 @@
     const nb = R.ui.buttons.length;
     try {
       // SUND-02a B: derselbe Ausschnitt wie im 2D-Helm: R.FRONT.fwd voraus und .back zurück füllen die Textur in der Höhe (Zoom = SH / (fwd + back)),
-      // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; solange er zeichnet, reicht FRONT.side deshalb bis
-      // zum Texturrand (synchron gesetzt und im finally zurückgesetzt: 2D-Helm und Pult sehen den Wert nie verändert).
-      const F = R.FRONT, zoom = SH / (F.fwd + F.back), seite = F.side;
-      F.side = (SW / 2) / zoom;
-      try {
-        R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, sicht: { x: 0, y: 0, w: SW, h: SH } });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
-      } finally { F.side = seite; }
+      // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; hier reicht das Fenster über rect.side bis zum
+      // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
+      const F = R.FRONT, zoom = SH / (F.fwd + F.back);
+      R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH } });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
     } catch (e) { Net.reportError('Sitz.schirm', e); }
     R.ui.buttons.length = nb;
     S.schirmVersion++;
