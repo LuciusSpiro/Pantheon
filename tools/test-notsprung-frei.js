@@ -58,6 +58,26 @@ section('Freie Fahrt: manueller Neustart vor Ablauf räumt auf');
   ok(g.ship.reactorCtl.state === 'online' && g.ship.reactorCtl.autoRestartAt == null && g.ship.reactorCtl.autoRestartText === undefined, 'Hilfsfelder nach Handneustart weg');
 }
 
+section('Freie Fahrt: Reaktorsystem wird im Neustartfenster repariert (Review H5)');
+{
+  // Der Reaktor geht erst nach dem Notfallsprung kaputt (davor sperrt der Sprung) und wird innerhalb des Fensters repariert: reactorNeedsRestart kehrt bei
+  // schon abgeschaltetem Reaktor zurück, die Autostart-Zeit bleibt also stehen, der Neustart kommt pünktlich, nichts hängt.
+  const { g, run } = setup('freie_fahrt');
+  const I = require('../server/sim/interior.js');
+  const N = g.C.sektoren.notsprung; const rc = g.ship.reactorCtl;
+  frei(g); Sprung.notsprung(g);
+  const bis = rc.autoRestartAt;
+  g.ship.systems.reactor = 'broken';
+  run(1);
+  ok(I.repairSystem(g, 'reactor', 'bot', 'swap') === true && g.ship.systems.reactor === 'ok', 'Reaktorsystem im Fenster repariert');
+  ok(rc.autoRestartAt === bis && rc.autoRestartText === 'Reaktor läuft wieder – Neustart durch.', 'Autostart-Zeit und Text unverändert (nicht überschrieben)');
+  run(N.autoNeustartFrei + 1);
+  ok(rc.state === 'online' && rc.autoRestartAt == null && rc.autoRestartText === undefined, 'Autoneustart kam pünktlich, Hilfsfelder aufgeräumt');
+  // Text ohne Zeit (Altlast): wird weggeräumt
+  rc.autoRestartText = 'Rest'; run(0.2);
+  ok(rc.autoRestartText === undefined, 'ein Text ohne Autostart-Zeit wird aufgeräumt');
+}
+
 section('Kampagne: Reaktor bleibt offline (Handneustart)');
 {
   const { g, run, c } = setup('free');

@@ -201,7 +201,8 @@ function escalateSnapshot(game) {
 // interior.reactorNeedsRestart setzt reactorCtl.autoRestartAt, wenn beim Reparieren Gegner da sind.
 function updateReactorAuto(game) {
   const rc = game.ship.reactorCtl;
-  if (!rc || rc.autoRestartAt == null) return;
+  if (!rc) return;
+  if (rc.autoRestartAt == null) { if (rc.autoRestartText !== undefined) delete rc.autoRestartText; return; }   // ein Text ohne Autostart-Zeit bliebe sonst hängen
   if (rc.state !== 'offline') { rc.autoRestartAt = null; delete rc.autoRestartText; return; }
   if (game.time < rc.autoRestartAt) return;
   rc.autoRestartAt = null;
