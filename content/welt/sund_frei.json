@@ -16,7 +16,7 @@
     "0203": {"name":"Campania","fraktion":"rom","art":"Kolonie","hafen":"C","region":"imperium","spielbar":true,"ort":"campania","gen":true,"andocken":true},
     "0105": {"name":"Carrara","fraktion":"rom","art":"Bergbau","hafen":"C","einfluss":"asteroiden","region":"imperium","spielbar":true,"ort":"carrara","gen":true,"andocken":true},
     "0205": {"name":"Vulcania","fraktion":"rom","art":"Waffenschmiede","hafen":"C","region":"imperium","spielbar":true,"ort":"vulcania","gen":true,"andocken":true},
-    "0304": {"name":"Castra Gradivi","fraktion":"rom","art":"Flottenbasis","hafen":"B","region":"imperium","spielbar":true,"ort":"castra_gradivi","gen":true,"andocken":true},
+    "0304": {"name":"Castra Gradivi","fraktion":"rom","art":"Flottenbasis","flottenbasis":true,"hafen":"B","region":"imperium","spielbar":true,"ort":"castra_gradivi","gen":true,"andocken":true},
     "0305": {"name":"Ostia Nova","fraktion":"rom","art":"Hafen, Kontor","hafen":"B","region":"imperium","spielbar":true,"ort":"ostia_nova","gen":true,"andocken":true},
     "0403": {"name":"Speculum","fraktion":"rom","art":"Nordtor, Wachposten","hafen":"D","symbole":["fort"],"region":"imperium","spielbar":true,"ort":"speculum","gen":true,"andocken":true},
     "0405": {"name":"Porta Australis","fraktion":"rom","art":"Südtor, Handelshafen","hafen":"C","region":"imperium","spielbar":true,"ort":"porta_australis","gen":true,"andocken":true},
