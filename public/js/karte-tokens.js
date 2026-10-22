@@ -132,8 +132,8 @@
     // rechte Spalte der Captain-Konsole (consoles.js capStar: rx = a.x + 420, rw = 196)
     spalte: {
       zeile: 10, kopf: 11, abschnitt: 4,
-      meldung: { zeile: 12, max: 5, min: 3, textX: 42, plaketteX: 2 },   // SUND-01 G: mindestens 3 Meldezeilen sind reserviert, bevor Sprungblock und Legende Platz bekommen
-      legende: { zeile: 12, zeilen: 3, kompaktZeilen: 2 },   // SUND-01 G: kompakt = zwei Zeilen (Wissensstufen; Front, Sicht, dunkel), wenn die Meldeliste sonst unter 3 Zeilen fiele
+      meldung: { zeile: 12, max: 5, min: 4, textX: 42, plaketteX: 2 },   // SUND-01 G: mindestens Meldezeilen (min) sind reserviert, bevor Sprungblock und Legende Platz bekommen; SUND-02a C: min 4 statt 3 (mehr Szenen, mehr Meldungen)
+      legende: { zeile: 12, zeilen: 3, kompaktZeilen: 2, einzeilig: 1 },   // SUND-01 G: kompakt = zwei Zeilen (Wissensstufen; Front, Sicht, dunkel); SUND-02a C: einzeilig = nur die drei Wissensstufen; beide weichen der Meldeliste, wenn sie sonst keine 5 Zeilen bekäme
     },
     notruf: { r: 0.2, rMin: 5, rMax: 9, rMinLage: 6 },   // wie starmap.js Marken; in der Lage-Karte mindestens 6 und mit deckender Scheibe (r + 2)
   };

@@ -306,6 +306,10 @@ function notsprung(game) {
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.overloadLeft = 0; rc.warned = false; }
   ship.hull = Math.max(1, (ship.hull || 0) - (Number(N.huelle) || 0));
+  // SUND-02a C: Freie Fahrt (weltsim gesetzt): der Reaktor startet nach autoNeustartFrei s von selbst (Mechanik des Gefechtsstarts, damage.updateReactorAuto);
+  // die Kampagne bleibt beim Handneustart (Schalter A+B) bzw. dem Notstart nach autoRestartAfter
+  const frei = !!game.weltsim && Number(N.autoNeustartFrei) > 0;
+  if (rc && frei) { rc.autoRestartAt = game.time + Number(N.autoNeustartFrei); rc.autoRestartText = 'Reaktor läuft wieder – Neustart durch.'; }
   game.emit('sfx', { name: 'jump' });
   game.emit('sfx', { name: 'reactor_down' });
   Kriegslage.tick(game, 'notsprung', nachOrt);   // SUND-01 B: auch der Notfallsprung ist ein Sprung (ein Tick, auch ohne Ortswechsel)
@@ -321,7 +325,10 @@ function notsprung(game) {
   const evt = { von: vonHex, nach: nachHex || vonHex };
   game.emit('notsprung', evt);
   if (nachOrt !== vonOrt) game.explore.arrive(nachOrt);
-  game.oda(nachOrt !== vonOrt
+  if (frei) game.oda(nachOrt !== vonOrt
+    ? `Notfallsprung! Wir sind in ${Sektoren.hexName(nachHex)} (${nachHex}). Reaktor kurz offline, Neustart läuft (ca. ${Math.round(Number(N.autoNeustartFrei))} s).`
+    : `Notfallsprung ins Leere – wir sind noch im selben Sektor, nur woanders. Reaktor kurz offline, Neustart läuft (ca. ${Math.round(Number(N.autoNeustartFrei))} s).`, null);
+  else game.oda(nachOrt !== vonOrt
     ? `Notfallsprung! Wir sind in ${Sektoren.hexName(nachHex)} (${nachHex}). Reaktor überladen und offline – Neustart: Schalter A und B halten – gleichzeitig oder nacheinander (der erste rastet ein).`
     : 'Notfallsprung ins Leere – wir sind noch im selben Sektor, nur woanders. Reaktor offline: Schalter A und B halten – gleichzeitig oder nacheinander (der erste rastet ein).', null);
   game.missionEvent('reactorOffline', {});

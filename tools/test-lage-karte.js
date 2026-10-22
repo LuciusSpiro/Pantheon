@@ -306,10 +306,16 @@ section('SUND-01 G: Spaltenbilanz, Meldeliste mindestens 3 Zeilen, Sprunghinweis
   for (const y of [57, 67]) for (const k of [1, 2, 3, 4, 5, 6, 9, 12]) { const p = plan(k, y); kleinste = Math.min(kleinste, Math.min(p.maxZeilen, k)); ok(p.passt && p.maxZeilen >= Math.min(k, MS.meldung.min), 'Spaltenbilanz y ' + y + ', ' + k + ' Meldungen: ' + p.maxZeilen + ' Zeilen (mindestens ' + Math.min(k, MS.meldung.min) + '), frei ' + p.frei); }
   ok(plan(12, 57).maxZeilen >= 3 && plan(12, 57).maxZeilen <= MS.meldung.max, 'viele Flotten: 3 bis ' + MS.meldung.max + ' Zeilen plus „+n weitere“ (' + plan(12, 57).maxZeilen + ')');
   ok(plan(3, 57).maxZeilen === 3 && plan(2, 67).maxZeilen === 2, 'wenige Meldungen: alle Zeilen, keine Reserve für „+n weitere“');
-  // engste Lage: Sprungziel gewählt (Sprungpunkt-Zeile, Hinweis zwei Zeilen) und Ortsinfo mit fünf Zeilen: die Legende wird zweizeilig, die Liste behält 3 Zeilen
+  // engste Lage: Sprungziel gewählt (Sprungpunkt-Zeile, Hinweis zwei Zeilen) und Ortsinfo mit fünf Zeilen: die Legende wird einzeilig, der Hinweis einzeilig, die Liste behält mindestens 4 Zeilen (SUND-02a C)
   const eng = plan(12, 67, { sprungBasis: 61, grundZ: 2 }), weit = plan(12, 57), kurz = plan(2, 67, { sprungBasis: 61, grundZ: 2 });
-  ok(eng.kompakt && eng.legZ === MS.legende.kompaktZeilen && eng.maxZeilen >= 3 && eng.passt, 'Sprungziel gewählt, Ortsinfo 5 Zeilen, 12 Meldungen: Legende kompakt (' + eng.legZ + ' Zeilen), Liste ' + eng.maxZeilen + ' Zeilen, Hinweis ' + eng.grundZ + ' Zeile(n)');
-  ok(!weit.kompakt && weit.legZ === KL.legendeZeilen(144) && kurz.maxZeilen === 2 && kurz.passt, 'genug Platz: volle Legende (' + weit.legZ + ' Zeilen); wenige Meldungen: nie mehr Zeilen als Meldungen');
+  ok(eng.kompakt === 'eins' && eng.legZ === MS.legende.einzeilig && eng.maxZeilen >= MS.meldung.min && eng.passt, 'Sprungziel gewählt, Ortsinfo 5 Zeilen, 12 Meldungen: Legende einzeilig (' + eng.legZ + ' Zeile), Liste ' + eng.maxZeilen + ' Zeilen, Hinweis ' + eng.grundZ + ' Zeile(n)');
+  const gross = plan(12, 57, { unten: 10 + 238 + 60 });
+  ok(weit.kompakt === true && weit.maxZeilen === MS.meldung.max && weit.passt, 'Pult-Standardlage (Ortsinfo 4 Zeilen, 12 Meldungen): Legende kompakt (' + weit.legZ + ' Zeilen), Liste ' + weit.maxZeilen + ' Zeilen plus „+n weitere“');
+  ok(!gross.kompakt && gross.legZ === KL.legendeZeilen(144) && gross.maxZeilen === MS.meldung.max && kurz.maxZeilen === 2 && kurz.passt, 'viel Platz: volle Legende (' + gross.legZ + ' Zeilen) und 5 Meldungen; wenige Meldungen: nie mehr Zeilen als Meldungen');
+  for (const y of [57, 67]) ok(plan(12, y).maxZeilen >= MS.meldung.max - 1 && plan(5, y).maxZeilen === 5, 'Pult: bei y ' + y + ' mindestens ' + (MS.meldung.max - 1) + ' von 12 Meldungen, 5 von 5 ganz (' + plan(12, y).maxZeilen + '/' + plan(5, y).maxZeilen + ')');
+  ok(KL.legendeZeilen(144, 'eins') === MS.legende.einzeilig && KL.legendeZeilen(196, 'eins') === MS.legende.einzeilig, 'einzeilige Legende (144 und 196 px): genau eine Zeile');
+  { const lg = []; KL.env.Render = fakeRender(lg); KL.legende(fakeCtx(), 432, 200, 144, 'eins'); const tl = lg.map((l) => l.s);
+    ok(['jetzt', 'T-1', 'alt'].every((x) => tl.includes(x)) && !tl.includes('Front') && !tl.includes('dunkel'), 'einzeilige Legende nennt nur die Wissensstufen: ' + JSON.stringify(tl)); KL.env.Render = fakeRender(log); }
   for (const w of [144, 196]) ok(KL.legendeZeilen(w, true) === MS.legende.kompaktZeilen, 'kompakte Legende (' + w + ' px): genau ' + MS.legende.kompaktZeilen + ' Zeilen (' + KL.legendeZeilen(w, true) + ')');
   { const lg = []; KL.env.Render = fakeRender(lg); KL.legende(fakeCtx(), 432, 200, 144, true); const tl = lg.map((l) => l.s);
     ok(['jetzt', 'T-1', 'alt', 'Front', 'Sicht', 'dunkel'].every((x) => tl.includes(x)), 'kompakte Legende nennt Wissensstufen, Front, Sicht und dunkel: ' + JSON.stringify(tl));

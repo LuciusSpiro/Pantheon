@@ -202,11 +202,13 @@ function escalateSnapshot(game) {
 function updateReactorAuto(game) {
   const rc = game.ship.reactorCtl;
   if (!rc || rc.autoRestartAt == null) return;
-  if (rc.state !== 'offline') { rc.autoRestartAt = null; return; }
+  if (rc.state !== 'offline') { rc.autoRestartAt = null; delete rc.autoRestartText; return; }
   if (game.time < rc.autoRestartAt) return;
   rc.autoRestartAt = null;
+  const text = rc.autoRestartText || 'Gefechtsstart: Der Reaktor zündet von selbst. Weiter geht\'s!';
+  delete rc.autoRestartText;   // SUND-02a C: nur der Notfallsprung der Freien Fahrt setzt einen eigenen Text
   const s = space();
-  if (typeof s.reactorOnline === 'function') s.reactorOnline(game, 'Gefechtsstart: Der Reaktor zündet von selbst. Weiter geht\'s!');
+  if (typeof s.reactorOnline === 'function') s.reactorOnline(game, text);
   game.stats.reactorAutoStarts = (game.stats.reactorAutoStarts || 0) + 1;
 }
 function reactorAutoLeft(game) {
