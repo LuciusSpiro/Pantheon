@@ -139,6 +139,7 @@ class Game {
     this.storeDisabled = !!o.noStore;
     // S1 §5: Weltstände auf der Platte (Standard: an, außer noStore – Tests/Smoke schreiben nichts). worlds: true erzwingt.
     this.worldsEnabled = o.worlds != null ? !!o.worlds : !o.noStore;
+    this.ruestphase = !!o.ruestphase;   // PAN-01 D (Kai 2026-10-22): Wellenmodi beginnen mit Rüstphase am Terminal; der echte Server schaltet es ein (index.js, RUESTPHASE=0 aus), Tests und Bots nicht
     this.worldDir = o.worldDir || Weltstand.dir(this.env);
     this.worldList = [];
     this.worldLock = null;        // { dir, id } solange dieser Prozess einen Weltstand offen hat
@@ -926,6 +927,7 @@ class Game {
     else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
+    if (arena.isArena(sm) || sm === 'labor') this.inventory.marks = this.C.werft.testmarken;   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
@@ -1128,7 +1130,8 @@ class Game {
       }
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
-      case 'werft.ansicht': Werft.ansichtSetzen(this, p, msg); break;   // PAN-01 D: Ansicht des Nutzers für die Zuschauer
+      case 'werft.ansicht': Werft.ansichtSetzen(this, p, msg); break;
+      case 'werft.start': { const r = Werft.szeneStarten(this, p); err = r ? r.text : null; break; }   // PAN-01 D: Rüstphase der Testumgebung beenden   // PAN-01 D: Ansicht des Nutzers für die Zuschauer
       case 'werft.freischalten': case 'werft.umbau': case 'werft.modul': {   // PAN-01 D: am Terminal (Konsole shop), jeder darf; Antwort an den Absender: werftAntwort { ok, op, code?, text? }
         const op = c.slice(6);
         const r = op === 'freischalten' ? Werft.freischalten(this, p, String(msg.art), msg.id)
@@ -2009,6 +2012,7 @@ class Game {
       world,
       ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
+      ...(Werft.testumgebung(this) ? { werftTest: 1 } : {}),   // Testumgebung: Terminal und Werft auch abgedockt (Client)
       ...((wf) => (wf ? { werft: wf } : {}))(Werft.snapshot(this)),   // PAN-01 D: nur wenn jemand am Terminal sitzt
       mission: missionOut,
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,

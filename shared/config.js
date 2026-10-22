@@ -76,6 +76,11 @@
         modul: { werkstatt: 40 },
       },
       ruf: { stufe: {} },
+      // Testumgebung (Kai 2026-10-22): in den Test-, Wellen- und Labor-Modi (Testgelände, Wellen All, Wellen Boden, Szenario-Labor; nicht in Kampagne, Tutorial und freiem Spiel) ist die
+      // Werft des Terminals überall und auch abgedockt aktiv (Grund „Testumgebung“), und die Crew startet mit `testmarken` statt 150. Alles zusammen kostet 1740: Stufe 1–3 = 1180,
+      // alle Waffen 460 (Kanone 40, Sturm 60, Streu 70, Abwehrturm 70, Torpedowerfer 100, Lanzenbatterie 120), Werkstatt 40, dazu Torpedos bis Lager 12 (60) – 5000 decken das mehrfach
+      // ab (Umbauen kostet nichts, Handel und Deko kommen obendrauf), ohne dass ein Test an Marken scheitert.
+      testmarken: 5000,
     },
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,

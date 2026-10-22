@@ -235,10 +235,10 @@
     // werftAntwort { pid, op, ok, code?, text? } (bei Fehler zusätzlich notice); bei Erfolg an alle: Ereignis werft { op: 'freigeschaltet'|'umbau', art, id, platz?, raum?, marks?, pid }.
     // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul }, zu [Farben der Zuschauer], ui { b: 'h'|'w', a: 'p'|'m'|'s', n, i } (Ansicht des Nutzers für Zuschauer) }
     // nur, solange jemand am Terminal sitzt (aktiv: false = nur aktiv, grund, nutzer, stufe). Weltstand schiff.freigeschaltet { stufe, waffen[], module[] }. Debug werft, marken <n>.
-    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen'],   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
+    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen', 'werft.start'],   // werft.start: Szene der Wellenmodi starten (nur Testumgebung, Rüstphase)   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
-      'platz_unbekannt', 'platz_gesperrt', 'platzart', 'raum_unbekannt', 'raum_gesperrt', 'fracht_belegt', 'person_im_raum', 'unveraendert', 'umbau'],
+      'platz_unbekannt', 'platz_gesperrt', 'platzart', 'raum_unbekannt', 'raum_gesperrt', 'fracht_belegt', 'person_im_raum', 'kein_start', 'unveraendert', 'umbau'],
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
     // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1. PAN-01 B: die Lebenserhaltung ist gestrichen (13 Systeme).
     SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'transfer',
@@ -330,7 +330,7 @@
     // Debug (nur --debug): welle <n> – sofort Welle n (aktuelle Gegner weg).
     WELLEN_KARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'],
     WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)' },
-    WELLEN_PHASEN: ['countdown', 'kampf', 'pause', 'ende'],
+    WELLEN_PHASEN: ['vorbereitung', 'countdown', 'kampf', 'pause', 'ende'],   // vorbereitung = Rüstphase der Testumgebung (Crew rüstet am Terminal aus, werft.start beginnt)
     CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche'],   // Weltstand gibt es für diese Modi
     // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.
     //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }] } nur in Phase end der Kette (kein freies Spiel danach); Ereignis ending { abspann: true };

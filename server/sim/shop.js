@@ -6,7 +6,7 @@ const Locations = require('../../shared/locations.js');
 // Sortiment-Kontext: die Orts-ID (hafen, vaelen) – oder, wenn der Ort es vorgibt (`shop`, EK7: Häfen aus Daten wie
 // Castra Martis und Statio Limitis), dieser Kontext. Häfen ohne Ruf: es gilt nur der Kontext, keine Haltung.
 function shopContext(game) {
-  if (!game.ship.docked) return null;
+  if (!game.ship.docked) return require('./werft.js').testumgebung(game) ? 'hafen' : null;   // Testumgebung: Handel auch abgedockt (Torpedos für den Test)
   const loc = Locations.get(game.ship.dockedAt);
   return (loc && loc.shop) || game.ship.dockedAt;
 }

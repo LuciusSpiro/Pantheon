@@ -138,7 +138,7 @@ function startServer(opts) {
   const roomCode = resolveRoomCode(o.roomCode !== undefined ? o.roomCode : process.env.ROOM_CODE);
   // S1 §5.2: Weltstände in WORLD_DIR (Standard data/worlds); noStore schaltet sie ab (Tests), worlds: true erzwingt
   const worldDir = o.worldDir || Weltstand.dir(process.env);
-  const game = new Game({ debug, noStore: o.noStore, worlds: o.worlds, worldDir, port, roomCode, log: o.quiet ? () => {} : undefined });
+  const game = new Game({ ruestphase: o.ruestphase != null ? !!o.ruestphase : process.env.RUESTPHASE !== '0', debug, noStore: o.noStore, worlds: o.worlds, worldDir, port, roomCode, log: o.quiet ? () => {} : undefined });
   // B1 (OFFEN-STUDIO): Landepunkte beim Serverstart laden; vorwaermen (Bühnendaten, ein Probebau je Kartenart ≈ 0,4 s)
   // läuft per setImmediate vor dem ersten Spiel und nie im Tick. Fehlt das Modul, läuft der Server ohne gebaute Karten.
   try {

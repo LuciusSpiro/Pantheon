@@ -563,7 +563,7 @@ function interactionsAt(game, p, tx, ty, own) {
     if (info.console) {
       const occupant = consoleOccupant(game, p, info.console);
       if (occupant) list.push({ kind: 'console', blocked: `Konsole besetzt (${occupant.name}).` });
-      else if (info.console === 'shop' && !game.ship.dockedAt) list.push({ kind: 'console', blocked: 'Hafenterminal: nur angedockt (Hafen oder Vaelen-Karawane).' });
+      else if (info.console === 'shop' && !game.ship.dockedAt && !require('./werft.js').testumgebung(game)) list.push({ kind: 'console', blocked: 'Hafenterminal: nur angedockt (Hafen oder Vaelen-Karawane).' });
       else if (info.console === 'plan' && game.players.filter((o) => o.console === 'plan' && o.connected).length >= game.C.plan.maxSeated) list.push({ kind: 'console', blocked: 'Am Tisch ist kein Platz mehr.' });
       else list.push({ kind: 'console', console: info.console });
     }

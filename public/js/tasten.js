@@ -185,6 +185,7 @@
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
+    A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
     A('terminal.platz1', 'terminal', 'Waffenplatz 1 (Backbord hinten)', NUM(1), 'terminal.werft'),

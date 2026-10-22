@@ -255,6 +255,7 @@
         R.text(ctx, this.fit(this.wellenKarteName(w.k), 70, 1), bx + bw - 6, by + 4, { color: PAL.panelLight, align: 'right' });
         let line, col = PAL.star;
         if (w.ph === 'kampf') { line = 'Gegner übrig: ' + w.r + (w.r > w.l ? ' (' + w.l + ' da)' : ''); col = w.r ? PAL.star : PAL.mint; }
+        else if (w.ph === 'vorbereitung') { line = 'Rüstphase: Terminal'; col = PAL.amber; }
         else if (w.ph === 'countdown') { line = 'Welle 1 in ' + w.t + ' s'; col = PAL.amber; }
         else if (w.ph === 'pause') { line = 'Nächste Welle in ' + w.t + ' s'; col = PAL.mint; }
         else line = 'Runde vorbei';
@@ -263,10 +264,11 @@
       // Banner Mitte oben: Countdown/Pause dauerhaft, Wellenbeginn kurz
       let big = null, sub = null, bc = PAL.amber;
       const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
-      if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Ops, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
+      if (w.ph === 'vorbereitung') { big = 'RÜSTPHASE'; sub = 'Am Terminal im Meetingraum ausbauen, dann dort „Szene starten“'; }
+      else if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Ops, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
       else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
-      if (big && w.ph !== 'ende') {
+      if (big && w.ph !== 'ende' && !(w.ph === 'vorbereitung' && inConsole)) {   // Rüstphase an der Konsole: das Terminal hat den Startknopf, der Banner würde die Liste verdecken
         const scale = R.measure(big, 2) > VW - 40 ? 1 : 2;
         const bh = scale === 2 ? 34 : 26;
         R.backdrop(ctx, VW / 2 - (R.measure(big, scale) / 2 + 14), 52, R.measure(big, scale) + 28, bh, 0.6);

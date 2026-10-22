@@ -43,7 +43,7 @@
     const loc = window.Shared_Locations && Shared_Locations.get ? Shared_Locations.get(ship.dockedAt) : null;
     return {
       st, ship, w, marks: n((st.inventory || {}).marks), stufe: n(ship.st), best, mod,
-      aktiv: !!(w && w.aktiv), geladen: !!w,
+      aktiv: !!(w && w.aktiv), geladen: !!w, test: !!(w && w.test), ruest: !!(st.wellen && st.wellen.ph === 'vorbereitung'),   // test = Testumgebung (Werft überall), ruest = Rüstphase der Wellenmodi
       ort: (loc && loc.name) || (ship.dockedAt === 'vaelen' ? 'Vaelen-Karawane' : ship.dockedAt) || 'Nicht angedockt',
       frei: (w && w.frei) || { stufe: 0, waffen: [], module: [] }, preise: (w && w.preise) || { stufe: {}, waffe: {}, modul: {} },
     };
@@ -163,6 +163,8 @@
   }
   function stufenZiel(L) { return Math.min(STUFE_MAX, L.frei.stufe + 1); }
   function stufenKauf(view, L) { if (L.frei.stufe >= STUFE_MAX) { meldung(false, 'Das Schiff ist voll ausgebaut.'); return; } freischalten(view, L, 'stufe', stufenZiel(L)); }
+  // Rüstphase der Testumgebung beenden (Wellen All: Countdown beginnt; Wellen Boden: die Crew beamt hinunter)
+  function szeneStart(view) { if (s.zusehen) return; cmd(view, 'werft.start', {}); }
   function ausbauTaste(view) { if (s.zusehen) return; s.bereich = 'werft'; if (s.auswahl === 'stufe') s.auswahl = s.platzVorher || 'platz'; else { s.platzVorher = s.auswahl; s.auswahl = 'stufe'; } s.antwort = null; }
 
   // ---------------------------------------------------------------- Vorschau (angefordert, entprellt, vom Server berechnet)
@@ -279,6 +281,7 @@
     const wartet = !!s.wartet && now() - s.wartet.t < 3000;
     // Rückmeldung unter dem Hauptknopf
     const ant = s.antwort && now() - s.antwort.t < KOMMENTAR_MS ? s.antwort : null;
+    if (L.test && L.ruest) m.start = { text: 'Szene starten', disabled: !bedienbar, grund: bedienbar ? null : 'Nur der Nutzer am Terminal startet die Szene', onClick: bedienbar ? () => szeneStart(view) : null };
     const hinweis = (std, fn) => {
       if (s.zusehen) return { text: 'Du siehst zu · Esc zurück', fn: 'dim' };
       if (!ant) return { text: kurz(std, 156), fn };
@@ -286,7 +289,7 @@
       if (ant.code === 'zu_wenig_marken' && fehlPreis != null && L.marks < fehlPreis) t = 'Es fehlen ' + (fehlPreis - L.marks) + ' Marken';
       return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
     };
-    m.kopf = { ort: L.ort, art: L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };
+    m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };
     m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
@@ -418,6 +421,7 @@
     if (code === 'Enter' || code === 'NumpadEnter' || code === 'Space') { hauptTaste(view, L, a); return true; }
     if (code === 'KeyF') { freischaltenTaste(view, L, a); return true; }
     if (code === 'KeyA') { ausbauTaste(view); return true; }
+    if (code === 'KeyG') { if (L.test && L.ruest) szeneStart(view); return true; }
     return true;
   }
 
