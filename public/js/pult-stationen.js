@@ -177,8 +177,8 @@
       const g = P.rahmen(ctx, view, { titel: 'OPS', S: 196, station: 'weapons', anzeige: (c, r) => {
         const mr = { x: r.x, y: r.y, w: 404, h: r.h };
         this.mapRects.weapons = mr;
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }] : [] });
-        R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }] : [] });
+        R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, Math.max(mr.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
         this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.SpurView) SpurView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));

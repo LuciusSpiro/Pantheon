@@ -126,6 +126,19 @@
     return true;
   }
 
+  // Fixrunde N3/N1: Unterkante der Szenenzeile in Texturpixeln (0 ohne Szene). Die Zeile sitzt bei y 6 (SZ_Y0).
+  const SZ_Y0 = 6;
+  const szeneOben = (view) => { const H = window.Hud; const h = H && H.szeneVon && H.szeneVon(view) ? H.szenenHoehe(view) : 0; return h ? SZ_Y0 + h + 4 : 0; };
+  // Fixrunde N1: Der Hauptschirm steht im Blick VORN fest im Bild (Kamera fest, 16:9): Textur 512×288 liegt in HUD-Koordinaten (640×360) bei y 80 bis 265, Maßstab 0,642.
+  // Liegt dort die Szenenzeile, schieben Lagefunk-Tafel und Logbuch-Hinweis unter ihre Unterkante (sonst deckten sie sie in den ersten Sekunden nach der Ankunft zu).
+  // Gemessen an 1280×720 und 1920×1080 (gleiches Verhältnis). -> HUD-y der Unterkante der Zeile, 0 wenn nichts zu verschieben ist
+  const SCHIRM_VY0 = 80, SCHIRM_VS = 0.642;
+  function szeneUnten(view) {
+    if (!S.station || S.blick !== 'vorn') return 0;
+    const o = szeneOben(view);
+    return o ? Math.round(SCHIRM_VY0 + (o - 4) * SCHIRM_VS) : 0;
+  }
+
   // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)
   function zeichneSchirm(view) {
     const c = schirmCtx;
@@ -137,7 +150,8 @@
       // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; hier reicht das Fenster über rect.side bis zum
       // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
       const F = R.FRONT, zoom = SH / (F.fwd + F.back);
-      R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH } });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+      // Fixrunde N3: bei aktiver Szene klemmen Randpfeile und Labels unter der Szenenzeile (Oberkante 6 + Höhe + 4), sonst verdeckt sie den HAFEN-Pfeil am Oberrand
+      R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
       // SUND-02a Client-Runde M2: Szenenzeile der Sim-Szene oben mittig auf dem Hauptschirm (nur solange state.flotte.sz da ist; sonst nichts)
       const H = window.Hud;
       if (H && H.szeneVon && H.szeneVon(view)) { const w = H.drawSzenenStrip(c, view, 6, { measure: true }); H.drawSzenenStrip(c, view, 6, { x: Math.round((SW - w) / 2) }); }
@@ -210,7 +224,7 @@
   function klickErlaubt() { return !S.station || S.pultSicht >= 0.6; }
 
   window.Sitz = {
-    aktiv, update, draw, rad, klickErlaubt, setBlick,
+    aktiv, update, draw, rad, klickErlaubt, setBlick, szeneUnten,
     get blick() { return S.blick; }, get station() { return S.station; }, get versteckt() { return S.versteckt; },
     schirm: { mass: SCHIRM, canvas: schirmCanvas, get version() { return S.schirmVersion; }, get aktiv() { return S.schirmLive; } },
   };

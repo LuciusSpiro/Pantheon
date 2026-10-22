@@ -742,7 +742,7 @@
     capRadio(ctx, view, a) {
       const st = view.state, m = st.mission || {};
       const lw = 352;
-      let y = a.y + 4 + (H.szeneVon && H.szeneVon(view) ? 28 : 0);   // Client-Runde S3: unter der Szenenzeile (sie überdeckte sonst die erste Meldung)
+      let y = a.y + 4 + (H.szeneVon && H.szeneVon(view) ? H.SZ_H_HOCH + 1 : 0);   // Client-Runde S3: unter der Szenenzeile (sie überdeckte sonst die erste Meldung)
       let shown = false;
       if (m.radio) {
         shown = true;
@@ -898,7 +898,9 @@
       const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
       // Client-Runde A3: Im eigenen Hex steht während einer Sim-Szene „Feindkontakt“ (sonst „Keine Flotten gemeldet“ – die Meldeliste ist Wissen von Rom, die Szene die Wahrheit vor Ort)
-      if (H.szeneVon && H.szeneVon(view) && mod.hier && hex === mod.hier) { R.text(ctx, 'FEINDKONTAKT', rx, y, { color: KarteTokens.PULT.rot }); y += 12; }
+      // Fixrunde N7: nur solange die Szene läuft (p v/k/f), nicht nach dem Ende (SIEG/NIEDERLAGE); „vor Ort“ grenzt es von der Meldeliste (Wissen von Rom) darunter ab
+      const szP = H.szeneVon && H.szeneVon(view);
+      if (szP && 'vkf'.includes(szP.p) && mod.hier && hex === mod.hier) { R.text(ctx, 'FEINDKONTAKT · vor Ort', rx, y, { color: KarteTokens.PULT.rot }); y += 12; }
       // Platz: unten bleiben 14 px für die Frachtleiste des Pults; Sprung (Knopf, Ziel, Balken, Grund) braucht etwa 71, die Legende ihre Zeilen
       // SUND-01 G: Höhenbilanz in KL.spaltenPlan (Meldeliste mindestens 3 Zeilen, Sprunghinweis eine Zeile für den Standardfall, höchstens zwei sonst)
       const unten = a.y + a.h - 14;
@@ -990,7 +992,7 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: a.x, y: a.y, w: 440, h: a.h - 2 };
       if (this.mapRects) this.mapRects.lage = rect;
-      this.maps.lage = R.drawTactical(ctx, view, rect, { zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true });
+      this.maps.lage = R.drawTactical(ctx, view, rect, { zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: H.szeneRandOben(view, rect.y) });
       const rx = a.x + 450, rw = a.w - 450;
       let y = a.y + 2;
       R.text(ctx, 'LAGE · ' + R.locName(st, R.worldOf(st).location), rx, y, { color: PAL.brass }); y += 12;
@@ -1894,9 +1896,9 @@
     drawWeapons(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, sperren: this.stapelH ? [{ x: rect.x + 4, y: rect.y + 3, w: 266, h: this.stapelH }] : [] });
+      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: this.stapelH ? [{ x: rect.x + 4, y: rect.y + 3, w: 266, h: this.stapelH }] : [] });
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
-      R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, rect.y + 3, { color: PAL.panelLight, align: 'right' });
+      R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, Math.max(rect.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
       this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
       this.drawLpscan(ctx, view, rect);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
       this.drawZonenscan(ctx, view, rect);   // SL7a: Verzerrungen scannen

@@ -3508,7 +3508,7 @@
   }
   // SUND-02a Client-Runde: läuft eine Sim-Szene (Freie Fahrt Sund)? Server sendet dann state.flotte.sz (kriegslage-szene.js snapshot). Alles Neue der Runde hängt daran:
   // Kampagne, Eisenwald, Limes und Tutorial sehen es nie.
-  const szeneAktiv = (st) => !!(st && st.flotte && st.flotte.sz);
+  const szeneAktiv = (st) => (window.Hud && window.Hud.szeneVon ? !!window.Hud.szeneVon({ state: st }) : !!(st && st.flotte && st.flotte.sz));   // H6: dieselbe Gültigkeitsprüfung wie die Szenenzeile
   // Schützlinge in drawSpace (env = Hilfen aus drawSpace)
   function drawEscortsInSpace(ctx, view, env) {
     const list = view.escorts || (view.state.space && view.state.space.escorts) || [];
@@ -3516,7 +3516,8 @@
     const { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space } = env;
     // M3 (Client-Runde): in der Frontsicht einer Sim-Szene sind Verbündete Mint (Ring, Hüllenbalken, Name): Gold war von Kupfer/Orange der germanischen Gegner farbenblind nicht zu unterscheiden,
     // und Bernstein-Balken (Verbündete) gegen Rot (Gegner) ebenso. Ops/Captain-Karten zeichnen Verbündete schon mit Mint-Kennung. Notruf/Wrack behalten ihre Farben.
-    const mintAl = front && szeneAktiv(view.state);
+    // Fixrunde M3-Rest: auch auf den Karten (Ops, Captain) in der Sim-Szene Mint für Ring, Name und Hüllenbalken (Füllung war schon Mint; Bernstein wurde bei Deuteranopie gleich gelb wie die rostfarbenen Gegner)
+    const mintAl = szeneAktiv(view.state);
     const alMint = (e) => (mintAl && e.al && !e.distress && !escortDown(e) ? PAL.mint : null);
     for (const e of list) {
       if (!e || !isFinite(+e.x) || !isFinite(+e.y)) continue;
@@ -3546,7 +3547,9 @@
         const lw = measure(name, 1) / 2 + 3;
         const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, p.x - Math.cos(ang) * 32));
         const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, p.y - Math.sin(ang) * 18 - 3));
-        lab(name + (e.distress && !escortDown(e) ? ' NOTRUF' : '') + ' ' + dist, lx, ly, { color: alMint(e) || escortRingCol(e, t), align: 'center' }, 6);
+        const ringTxt = name + (e.distress && !escortDown(e) ? ' NOTRUF' : '') + ' ' + dist, ringCol = alMint(e) || escortRingCol(e, t);
+        if (env.ringLabel) env.ringLabel(ringTxt, lx, ly, ringCol, p.x, p.y);   // Fixrunde N2 (Frontsicht der Sim-Szene): Ring-Label stapelt mit den Randpfeil-Labels
+        else lab(ringTxt, lx, ly, { color: ringCol, align: 'center' }, 6);
         continue;
       }
       const hitT = view.escortHit && view.escortHit[e.id] != null ? view.escortHit[e.id] : 99;
@@ -3735,6 +3738,7 @@
     const toS = (wx, wy) => { const dx = (wx - ship.x) * zoom, dy = (wy - ship.y) * zoom; return { x: Math.round(cx + dx * cosR - dy * sinR), y: Math.round(cy + dx * sinR + dy * cosR) }; };
     const toW = (sx, sy) => { const dx = (sx - cx) / zoom, dy = (sy - cy) / zoom; return { x: ship.x + dx * cosR + dy * sinR, y: ship.y - dx * sinR + dy * cosR }; };
     const B = cfg.bound || rect;
+    const BT = cfg.randOben > 0 ? { x: B.x, y: B.y + cfg.randOben, w: B.w, h: B.h - cfg.randOben } : B;   // Fixrunde N3: Randpfeile und Labels klemmen unter der Szenenzeile des Hauptschirms (Voxel-Sitz), sonst wie B
     const inB = (p, m) => p.x >= B.x - m && p.y >= B.y - m && p.x <= B.x + B.w + m && p.y <= B.y + B.h + m;
     const sight = cfg.sight || Infinity;
     const visible = (wx, wy, r) => Math.hypot(wx - ship.x, wy - ship.y) - (r || 0) <= sight;
@@ -3765,13 +3769,15 @@
         // QA-Abnahme S2: Rand der Frontsicht (Messingrahmen mit Fase) und der Kartenrahmen fressen ein paar Pixel –
         // daher 6 bzw. 4 px Abstand; in der Frontsicht liegt unten mittig die DREHEN-Anzeige (Label darüber setzen).
         const inside = (r) => {
-          r.x = Math.max(B.x + edge, Math.min(B.x + B.w - w - edge, r.x)); r.y = Math.max(B.y + 2, Math.min(B.y + B.h - h - 1, r.y));
+          r.x = Math.max(BT.x + edge, Math.min(BT.x + BT.w - w - edge, r.x)); r.y = Math.max(BT.y + 2, Math.min(BT.y + BT.h - h - 1, r.y));
           if (gauge && r.x < gauge.x + gauge.w && gauge.x < r.x + r.w && r.y < gauge.y + gauge.h && gauge.y < r.y + h) r.y = gauge.y - h - 1;
           return r;
         };
-        // Client-Runde S4: weitere Ausweichplätze (zuletzt, die bisherigen und ihre Reihenfolge bleiben): wo bisher nichts frei war und das Label über einem anderen stand (unlesbar), probiert es noch diagonal und weiter weg
-        for (const [dx, dy] of [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30],
-          [w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]]) {
+        // Client-Runde S4: weitere Ausweichplätze (zuletzt, die bisherigen und ihre Reihenfolge bleiben): wo bisher nichts frei war und das Label über einem anderen stand (unlesbar), probiert es noch diagonal und weiter weg.
+        // Fixrunde S3: nur für Randpfeil-Labels (prio 3, nicht optional); alle anderen Labels in allen Modi suchen wie vor der Client-Runde (optionale entfallen bei Platzmangel weiter)
+        const plaetze = [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]];
+        if (l.prio === 3 && !l.optional) plaetze.push([w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]);
+        for (const [dx, dy] of plaetze) {
           const r = inside({ x: left + dx, y: l.y + dy, w, h });
           if (!placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h)) { best = r; break; }
         }
@@ -3786,11 +3792,15 @@
     // Label zweimal entfällt. Frontsicht: Ziele „hinter uns“ (Randpunkt im unteren Band = Lerche und DREHEN-Anzeige)
     // rücken an die untere Ecke der passenden Seite (wie die Schützlinge).
     const arrows = [];
+    // Fixrunde N2 (nur Frontsicht einer Sim-Szene): Randringe der Verbündeten merken ihre Lage (Pfeile weichen aus) und ihre Labels (stapeln mit den Pfeil-Labels)
+    const ringe = [], ringLabels = [];
+    const ringLabel = front && szeneAktiv(st) ? (str, lx, ly, col, px, py) => { ringe.push({ x: px, y: py }); ringLabels.push({ q: { label: str, col }, lx, ly, lw: measure(str, 1) / 2 + 3, prio: 6 }); } : null;
     const arrow = (wx, wy, col, label) => {
       const s = toS(wx, wy);
       const ang = Math.atan2(s.y - cy, s.x - cx);
-      const e = rayToRect(B, cx, cy, ang, 12);
-      if (front && e.y > B.y + B.h - 54) { e.x = s.x < cx ? B.x + 16 : B.x + B.w - 16; e.y = B.y + B.h - 60; }
+      const e = rayToRect(BT, cx, cy, ang, 12);
+      if (front && e.y > BT.y + BT.h - 54) { e.x = s.x < cx ? BT.x + 16 : BT.x + BT.w - 16; e.y = BT.y + BT.h - 60; }
+      if (ringe.some((r) => Math.hypot(r.x - e.x, r.y - e.y) < 20)) e.x += e.x < cx ? 16 : -16;   // N2: steht dort schon ein Ring, rückt der Gegnerpfeil 16 px zur Bildmitte
       arrows.push({ e, ang, col, label: label ? String(label) : '' });
       return e;
     };
@@ -3802,25 +3812,25 @@
         else if (!g.some((q) => q.label === a.label)) g.push(a);
       }
       arrows.length = 0;
-      const stapel = [];   // S4 (Client-Runde): Labels aller Gruppen, damit Labels benachbarter Pfeile einer Randseite einander nicht überdecken
+      const stapel = ringLabels.splice(0);   // S4 (Client-Runde): Labels aller Gruppen, damit Labels benachbarter Pfeile einer Randseite einander nicht überdecken (N2: samt den Ring-Labels der Verbündeten)
       for (const g of groups) {
         const a = g[0], e = a.e;
         edgeArrow(ctx, e.x, e.y, a.ang, a.col);
         const list = g.filter((q) => q.label);
         if (!list.length) continue;
         // Stapel vom Rand weg: unten nach oben, sonst nach unten
-        const lowHalf = e.y > B.y + B.h / 2;
+        const lowHalf = e.y > BT.y + BT.h / 2;
         const baseY = e.y - Math.sin(a.ang) * 16 - 3 + (lowHalf ? -(list.length - 1) * 10 : 0);
         list.forEach((q, i) => {
           const lw = measure(q.label, 1) / 2 + 3;
-          const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, e.x - Math.cos(a.ang) * 30));
-          const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, baseY + i * 10));
+          const lx = Math.max(BT.x + lw, Math.min(BT.x + BT.w - lw, e.x - Math.cos(a.ang) * 30));
+          const ly = Math.max(BT.y + 2, Math.min(BT.y + BT.h - 10, baseY + i * 10));
           stapel.push({ q, lx, ly, lw });
         });
       }
       // Labels, die sich waagerecht überlappen, stehen mindestens 10 px untereinander (von oben nach unten; am unteren Rand weicht der Stapel nach oben)
       stapel.sort((p, q) => p.ly - q.ly);
-      const maxY = B.y + B.h - 10;
+      const maxY = BT.y + BT.h - 10;
       for (let i = 0; i < stapel.length; i++) {
         const c = stapel[i];
         for (let j = 0; j < i; j++) {
@@ -3830,10 +3840,10 @@
         if (c.ly > maxY) {   // unten kein Platz: dieses Label an den unteren Rand, die darüber überlappenden rücken nach oben
           c.ly = maxY;
           let unten = c;
-          for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(B.y + 2, unten.ly - 10); unten = d; } }
+          for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(BT.y + 2, unten.ly - 10); unten = d; } }
         }
       }
-      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center' }, 3);
+      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center' }, c.prio || 3);
     };
 
     ctx.save();
@@ -4037,7 +4047,7 @@
     }
 
     // S2: Schützlinge (unter Projektilen und Gegnern, über Asteroiden)
-    const escEnv = { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space, rot, zoom, mode: cfg.mode };
+    const escEnv = { toS, inB, visible, lab, block, B: BT, cx, cy, front, t, ship, space, rot, zoom, mode: cfg.mode, ringLabel };
     try { drawEscortsInSpace(ctx, view, escEnv); } catch (e) { report('Render.escorts', e); }
     try { drawBefehlMarken(ctx, view, escEnv); } catch (e) { report('Render.befehl', e); }   // EK4
 
@@ -4258,7 +4268,8 @@
       randGegner = [];
       if (szeneAktiv(st)) {
         const dd = (o) => Math.hypot(o.e.x - ship.x, o.e.y - ship.y);
-        const nah = offscreen.filter((o) => o.e.st !== 'treibt').sort((a, b) => dd(a) - dd(b));
+        // H1: dieselbe Sensorreichweite wie auf den Karten (der Pilot sieht nicht mehr als Ops/Captain); das Flaggschiff (fg, per Funk angekündigt) bleibt immer
+        const nah = offscreen.filter((o) => o.e.st !== 'treibt' && (o.e.fg || dd(o) <= sensR)).sort((a, b) => dd(a) - dd(b));
         randGegner = nah.filter((o) => o.e.fg).slice(0, 1);
         for (const o of nah) { if (randGegner.length >= 3) break; if (!randGegner.includes(o)) randGegner.push(o); }
       }
@@ -4354,7 +4365,7 @@
     const cx = rect.x + Math.round(rect.w / 2), cy = rect.y + Math.round(FRONT.fwd * zoom);
     const half = Math.round((rect.side || FRONT.side) * zoom);
     const win = { x: cx - half, y: rect.y, w: half * 2, h: rect.h };
-    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
+    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, randOben: rect.randOben, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
     const t = view.time;
     if (fog) {
       ctx.save(); ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();

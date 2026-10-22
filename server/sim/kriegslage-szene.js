@@ -29,6 +29,7 @@ const Flotte = require('./flotte.js');
 const Escort = require('./escort.js');
 const Kriegslage = require('./kriegslage.js');
 const Besitz = require('./besitz.js');
+const KT = require('../../public/js/karte-tokens.js');   // Stärkenamen (wie Wissen von Rom, kriegslage-wissen.js)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
 
@@ -54,7 +55,7 @@ const fmt = (t, v) => Flotte.fmt(t, v);
 function funk(game, text, o) {
   if (!text) return;
   const von = texte().sprecher || 'Aufklärung';
-  game.emit('radio', Object.assign({ from: von, text: String(text), lage: 1, sz: 1 }, o && o.reiter ? { r: 1 } : {}));
+  game.emit('radio', Object.assign({ from: von, text: String(text), lage: 1, sz: 1 }, o && o.reiter ? { r: 1 } : {}, o && o.kz ? { kz: String(o.kz) } : {}));
   try { if (game.explore && o && o.log) game.explore.addLog(String(o.log), game.ship.scene, null); } catch (e) { if (game.countError) game.countError('sim-szene-log', e); }
 }
 // s: Ergebniszeile „SIEG · …“/„NIEDERLAGE · …“ in der Szenenzeile nach dem Ende (CONFIG.simSzene.endeAnzeige, Standard 6)
@@ -312,7 +313,7 @@ function betreten(game, hex) {
   // Reihenfolge (M1): Verteidiger, Hinweis „entkommen“, zuletzt die Vorwarnung mit Fraktion, Stärke und Kommandant – sie steht an der Konsole obenauf
   if (S.vert.n0 > 0) funk(game, fmt((T.verteidiger || {})[L.ort || 'frei'], { ort: S.ortName, n: S.vert.n0 }));
   if (kd && ws.kommandanten && ws.kommandanten[kd.name] && ws.kommandanten[kd.name].schicksal === 'entkommen') funk(game, fmt(vw.entkommen, vars));
-  funk(game, fmt(kd ? (L.ort ? vw.ort : vw.frei) : vw.ohneKommandant, vars), { reiter: 1, log: fmt((T.log || {})[kd ? 'vorwarnung' : 'vorwarnungOhne'], vars) });
+  funk(game, fmt(kd ? (L.ort ? vw.ort : vw.frei) : vw.ohneKommandant, vars), { reiter: 1, log: fmt((T.log || {})[kd ? 'vorwarnung' : 'vorwarnungOhne'], vars), kz: fmt(vw.kz, { ort: S.ortName, fraktion: fr.name || '', klasse: KT.staerkeName(Kern.staerkeKlasse(L.summe, z.werte)) }) });
   if (L.fraktion === 'pirat') game.oda(vw.pirat, null);
   game.oda(fmt(vw.hinweis, vars), null);
   return S;

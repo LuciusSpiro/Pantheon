@@ -27,6 +27,7 @@
     "ohneKommandant": "Feindkontakt in {ort}: {klasse} {flotte}. Klarmachen! Erste Welle in {sek} s.",
     "entkommen": "{kommandant} ist uns schon einmal entkommen.",
     "hinweis": "Erste Welle in {sek} s – Klarmachen.",
+    "kz": "{ort} · {fraktion} · Stärke {klasse}",
     "pirat": "Die Piraten wollen Beute, keinen Krieg: wer ihnen nicht begegnen will, springt weiter."
   },
   "verteidiger": {

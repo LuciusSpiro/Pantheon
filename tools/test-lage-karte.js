@@ -219,6 +219,13 @@ section('Lagefunk-Liste (Funk-Reiter)');
   const l = KL.funkListe();
   ok(l.length === 4 && l[0].text === 'm9' && l[0].t === 9, 'Liste: neueste zuerst, höchstens 4, Unsinn wird ignoriert');
   KL.funkLeeren(); ok(KL.funkListe().length === 0, 'leeren');
+  // Fixrunde S2: Szenenfunk kommt nur mit r: 1 (Vorwarnung, Ergebnis) in den Reiter und verdrängt das Wissen von Rom nicht
+  KL.funkMerken({ from: 'ROM', text: 'Wissen', tick: 1 });
+  KL.funkMerken({ from: 'Aufklärung', text: 'Verteidiger', sz: 1 }); KL.funkMerken({ from: 'Aufklärung', text: 'Vorwarnung', sz: 1, r: 1 });
+  KL.funkMerken({ from: 'Aufklärung', text: 'Finale', sz: 1 }); KL.funkMerken({ from: 'Aufklärung', text: 'Grund', sz: 1 }); KL.funkMerken({ from: 'Aufklärung', text: 'Ergebnis', sz: 1, r: 1 });
+  const l2 = KL.funkListe().map((x) => x.text);
+  ok(l2.join('|') === 'Ergebnis|Vorwarnung|Wissen', 'Szenenfunk im Reiter: nur Vorwarnung und Ergebnis, das Wissen bleibt (' + l2.join('|') + ')');
+  KL.funkLeeren();
 }
 
 section('Spalte: Texte');

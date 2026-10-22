@@ -289,8 +289,9 @@ function berechne(W0, o) {
       if (g.p === 's') W.erst[an] = g.a;
       if (g.f !== 'g' || g.p === 'm' || (o.stumm || []).includes(g.h)) continue;   // stumm: Szenenende im Hex, die Szene hat den Ausgang gemeldet
       const von = absender(d, fkn, g.h);
-      if (g.p === 's') aus.funk.push({ von, text: KT.vorlage('funk.sammeln', { ort: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.sammeln', { klasse: klasseName(g.k), t: T }) });
-      else aus.funk.push({ von, text: KT.vorlage('funk.belagerung', { ziel: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.belagerung', { klasse: klasseName(g.k), t: T }) });
+      const kz = hexName(d, g.h) + ' · ' + ((KT.FARBE.fraktion[g.f] || {}).name || 'Feind') + ' · Stärke ' + klasseName(g.k);   // Kernaussage für die einzeilige Lagefunk-Zeile (Fixrunde N5)
+      if (g.p === 's') aus.funk.push({ von, kz, text: KT.vorlage('funk.sammeln', { ort: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.sammeln', { klasse: klasseName(g.k), t: T }) });
+      else aus.funk.push({ von, kz, text: KT.vorlage('funk.belagerung', { ziel: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.belagerung', { klasse: klasseName(g.k), t: T }) });
     }
   }
   // Zähler „Ticks im Sammeln“ (d): seit der ersten Sicht
@@ -363,7 +364,7 @@ function ausgeben(game, aus) {
   for (const m of aus.markenSetzen) { try { const f = Marken.setze(game, { id: m.id, typ: 'notruf', hex: m.h }); if (f && game.countError) game.countError('lage-marke', new Error(f)); } catch (e) { if (game.countError) game.countError('lage-marke', e); } }
   for (const f of aus.funk) {
     try {
-      game.emit('radio', { from: f.von, text: f.text, lage: 1, tick: f.t });
+      game.emit('radio', Object.assign({ from: f.von, text: f.text, lage: 1, tick: f.t }, f.kz ? { kz: f.kz } : {}));
       if (game.explore && f.log) game.explore.addLog(f.log, f.loc, null);
     } catch (e) { if (game.countError) game.countError('lage-funk', e); }
   }

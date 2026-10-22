@@ -341,6 +341,21 @@ function freieFahrt(S, seed) {
     if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
     messen(S, sn);
   }
+  // Fixrunde H7: auch die Ergebniszeile nach dem Ende (Phase s Sieg, n Niederlage) wird gemessen: die ersten Sekunden nach dem Ende, dann eine zweite Szene bis zur Niederlage
+  const messSz = (sek) => {
+    for (let k = 0; k < Math.round(sek * CONFIG.tickHz); k++) {
+      g.step(); g.sentLageKey = null;
+      const sn = g.snapshot(); const sz = sn.flotte && sn.flotte.sz;
+      if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
+      messen(S, sn);
+    }
+  };
+  messSz(3);   // Sieg (oder Niederlage der ersten Szene), Ergebniszeile steht
+  g.simSzene = null; g.simSzeneEnde = null;
+  SimSzene.debug(g, ['40', 'ger', 'belagerung']);
+  messSz(21);   // Vorwarnung und Beginn des Kampfes
+  for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('../server/sim/escort.js').hit(g, q, 99999, {});   // alle Verteidiger fallen
+  g.ship.hull = 0; messSz(0.4); g.ship.hull = 0; messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
   return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
@@ -389,7 +404,9 @@ zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
 console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
-const alleOk = res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
+if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
+const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
 ${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);
