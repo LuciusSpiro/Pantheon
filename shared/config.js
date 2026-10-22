@@ -718,12 +718,16 @@
     // Umrechnung Verteidigung (Hafen/Posten der Crew-Seite, Besitzer rom): Punkte = Σ römische Flotten im Hex (Stärke × Versorgung × (1 + Ortsbonus)) +
     // Abwehr (Hafen) bzw. Garnison (Posten); daraus höchstens verteidiger.max Schiffe (Klassenwerte = wellenplan.punkte). Mehr Punkte heißt gröbere
     // Auflösung (jedes Schiff trägt mehr Verlust), nie mehr Schiffe. abstand = Ring der Aufstellung um Station/Posten bzw. Lerche (px).
+    // Eichung (npm run sim:szene -- --fall eichung): huelle = Hülle der Schiffe der Verteidigung in % der Klassenhülle (flotte.hull; 100 = voll). Die Gegner der Sim-Szene haben
+    // nur crewScaling.enemyHp × Hülle und kommen in kleinen Wellen: mit voller Hülle schlüge die Hafenflotte allein (Crew passiv) jede Stärke bis 27 ohne Verlust. Mit 30 %
+    // (Ostia Nova, 13,6 Punkte, Crew passiv): Stärke 17 und 27 gehalten mit ~17 % Verlust, Stärke 40 meist verloren. Stellschraube, kein Messwert der Sim.
     // erschoepfungGnade = Sekunden, die der Crew nach dem Fall des letzten Verteidigers bleiben (Flaggschiff fällt davor: Sieg).
-    // notfallBisNiederlage = so viele Notfallprotokolle der Lerche in der Szene gelten als „Crew unterlegen“ (das Spiel kennt kein Game Over).
+    // notfallBisNiederlage = so viele Notfallprotokolle der Lerche gelten als „Crew unterlegen“ (das Spiel kennt kein Game Over), gezählt erst, wenn neben der Lerche
+    // kein Verteidiger mehr lebt (mit lebender Hafenflotte geht die Schlacht weiter, die Gegner ziehen wie überall 10 s ab).
     // schicksal.entkommen = Wahrscheinlichkeit, dass ein gefallenes Flaggschiff als „entkommen“ gilt (deterministisch aus dem Seed der Flotte).
     simSzene: {
       vorwarnung: 20, vorwarnungErinnerung: [10, 5], restAnteil: 0.34,
-      verteidiger: { max: 4, abstand: 260, rolle: 'angreifer' },
+      verteidiger: { max: 4, abstand: 260, rolle: 'angreifer', huelle: 30 },
       erschoepfungGnade: 15, notfallBisNiederlage: 1,
       schicksal: { entkommen: 0.5 },
     },

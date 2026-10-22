@@ -3,6 +3,8 @@
 // Action-Layer. Zustand: game.weltsim = { zustand, tickZahl, fehler, ereignisse[], hauptweltGefallen } | null (Kampagne, Limes, Labor, Arena).
 //   starten(game, seed?)      Modus beginnen: Sim erzeugen (eigener Zufallsstrom aus dem Spiel-Seed), Besitz-Overlay füllen
 //   tick(game, quelle)        genau ein Sim-Tick (Aufrufer: Sprung, Schnellsprung-Hop, Notfallsprung – sonst niemand). Ohne Modus: nichts
+//   (SUND-02a A2) Die Sim-Szene (kriegslage-szene.js, game.simSzene) hängt hier mit zwei Stellen: tick() merkt beim Sprung die Verluste einer laufenden Szene VOR dem
+//   Tick vor (Flucht, der Sprung-Tick ist der eine Tick); szeneAbschliessen() ist das Ende bei Sieg und Niederlage. reset() räumt game.simSzene mit weg.
 //   szeneAbschliessen(game, { wirkungen, wo })   SUND-02: Szenenende OHNE Sprung (Sieg, Bleiben): Wirkungen der Crew + genau ein eigener Tick
 //   wirkungenVormerken(game, wirkungen)          SUND-02: Szenenende MIT Sprung (Flucht): Wirkungen merken, der Sprung-Tick wendet sie an (kein zweiter Tick)
 //   Beides atomar: gültige Wirkungen gelten, ungültige werden verworfen und gemeldet, ein Wurf rollt auf die Sicherung zurück. Gespeichert wird nie

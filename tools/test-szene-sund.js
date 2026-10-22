@@ -74,7 +74,7 @@ function ab(g) { const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.s
 // Flotte der Sim in einem Hex (optional mit Belagerung, Feldzug marsch, Ankunft jetzt)
 function flotte(g, hex, fraktion, staerke, o) {
   const st = z(g); const opt = o || {};
-  const fl = { id: st.naechsteId++, fraktion, heimat: opt.heimat || hex, ort: hex, staerke, kap: opt.kap || Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: st.naechsteId++, fraktion, heimat: opt.heimat || HEIMAT[fraktion] || hex, ort: hex, staerke, kap: opt.kap || Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
   st.flotten.push(fl);
   if (opt.belagerung) {
     const id = st.naechsteAngriffId++;
@@ -112,6 +112,7 @@ function vergleich(g) {
   return gleich(Kriegslage.abbild(probe), Kriegslage.abbild(ws.zustand));
 }
 const OSTIA = '0305';
+const HEIMAT = { ger: '1004', pirat: '0602', kon: '0604' };   // Heimathäfen der Fixtures (rom: der Hex selbst); ohne eigene Heimat zöge sich eine Flotte im Hex „nach Hause“ und bliebe dort
 
 section('Daten und Config', () => {
   const T = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'flotte', 'sim-szene.json'), 'utf8'));
@@ -305,7 +306,7 @@ section('Verluste -> Punkte, Flaggschiff fällt (Sieg mit Reststärke)', () => {
   ok(!L.wirkungen.some((x) => x.typ.startsWith('ort_')), 'freier Sektor: keine ort_*-Wirkung');
   ok(L.ergebnis.ok && L.ergebnis.angewandt === L.wirkungen.length && L.ergebnis.verworfen === 0, 'alle Wirkungen angewandt, keine verworfen');
   ok(vergleich(g), 'Weltstand = Vergleichslauf (gleiche Wirkungen, ein Tick auf dem Zustand davor)');
-  ok(fl.befehl === 'rueckzug' || fl.befehl === 'heim' || fl.ort === fl.heimat, 'die Flotte bricht ab (Rückzug)');
+  ok(['rueckzug', 'heim'].includes(fl.befehl) && ['rueckzug', 'heim'].includes(fl2.befehl) && fl.ort !== '0505' && fl2.ort !== '0505', 'die Flotten brechen ab (Rückzug bzw. heim, wenn die Stärke unter 0,5 fiel), sie haben das Hex im Tick verlassen');
   ok(fl.staerke + fl2.staerke > 0.5 && fl.staerke < vor.a + 0.01, `Reststärke bleibt (${fl.staerke.toFixed(1)} + ${fl2.staerke.toFixed(1)}): der Sieg gilt auch mit Rest`);
   const km = g.weltsim.kommandanten[S.kommandant.name];
   ok(km && km.fraktion === 'ger' && km.schicksal === L.schicksal && km.begegnungen === 1, 'Kommandanten-Gedächtnis: ' + JSON.stringify(km) + ' (einmal gezählt trotz zwei Flotten)');
@@ -354,13 +355,14 @@ section('Hafen gehalten', () => {
   const rec = z(g).angriffe.find((r) => r.id === fl.angriff) || z(g).angriffe.find((r) => r.ziel === OSTIA);
   ok(rec && rec.ausgang === 'abgewehrt' && rec.t_ende !== null && hatEreignis(g, 'angriff_abgewehrt').length >= 1, 'Belagerung endet „abgewehrt“ (Ereignis angriff_abgewehrt)');
   ok(z(g).hexe[OSTIA].besitzer === 'rom' && L.ergebnis.verworfen === 0 && vergleich(g), 'Ostia Nova bleibt römisch, nichts verworfen, Weltstand = Vergleichslauf');
+  ok(fl.ort !== OSTIA && ['rueckzug', 'heim'].includes(fl.befehl), 'die Angreiferflotte zieht ab (verlässt das Hex im Tick)');
   ok(verbuendete(g).length === 0 && (g.space.escorts || []).every((q) => !q.sim), 'Verbündete der Szene sind weg (springen nicht mit)');
   ok(g.space.dockOk === true && Besitz.darfAndocken(g, OSTIA) && g.space.markers.some((m) => m.kind === 'dock'), 'Andocken wieder erlaubt, Dock-Marker zurück');
   ok(romStaerke0.every((v, i) => rom[i].staerke <= v + 1e-9), 'Hafenflotte hat nur verloren, nichts gewonnen');
 });
 
 section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
-  // a) Notfallprotokoll der Lerche
+  // a) Notfallprotokoll der Lerche: mit lebenden Verteidigern geht die Schlacht weiter, ohne sie ist die Crew unterlegen
   let t = neu(); let g = t.g; ab(g);
   flotte(g, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g, OSTIA);
@@ -368,8 +370,13 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   run(g, 21);
   ok(g.simSzene && g.simSzene.phase === 'kampf', 'Kampf läuft');
   g.ship.hull = 0; run(g, 0.3);
+  ok(g.simSzene && g.stats.emergencies === 1 && ticks(g) === tick0, 'Notfallprotokoll der Lerche mit lebenden Verteidigern: die Schlacht geht weiter, kein Tick');
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  run(g, 1);
+  ok(g.simSzene && g.simSzene.vert.lebend === 0, 'Verteidiger gefallen: Gnadenfrist (das frühere Protokoll zählt nicht mit)');
+  g.ship.hull = 0; run(g, 0.3);
   const L = Szene.letzte(g);
-  ok(!g.simSzene && L && L.ausgang === 'niederlage' && L.grund === 'lerche' && g.stats.emergencies === 1, 'Notfallprotokoll der Lerche = Crew unterlegen: Szene endet');
+  ok(!g.simSzene && L && L.ausgang === 'niederlage' && L.grund === 'lerche' && g.stats.emergencies === 2, 'Notfallprotokoll der Lerche ohne Verteidiger = Crew unterlegen: Szene endet');
   ok(ticks(g) === tick0 + 1 && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.ort === OSTIA && x.an === 'ger'), 'ein Tick, ort_gefallen an ger');
   ok(z(g).hexe[OSTIA].besitzer === 'ger' && hatEreignis(g, 'hafen_gefallen').length === 1, 'die Sim überträgt den Hafen (hafen_gefallen) wie sonst');
   ok(vergleich(g) && L.ergebnis.verworfen === 0, 'Weltstand = Vergleichslauf');
@@ -402,6 +409,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   t = neu(); g = t.g; ab(g);
   flotte(g, OSTIA, 'pirat', 9, { belagerung: true });
   ankunft(g, OSTIA); run(g, 21);
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
   g.ship.hull = 0; run(g, 0.3);
   const L4 = Szene.letzte(g);
   ok(L4.ausgang === 'niederlage' && !L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom', 'Piraten gegen einen Hafen: kein ort_gefallen aus der Szene (Piraten erobern keinen Hafen)');
@@ -409,9 +417,9 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
 
 section('Posten gehalten und gefallen', () => {
   const POSTEN = '0505';
-  const aufbau = () => {
+  const aufbau = (garnison) => {
     const t = neu(); const g = t.g; ab(g);
-    const h = z(g).hexe[POSTEN]; h.besitzer = 'rom'; h.posten = true; h.garnison = 4; h.anspruch = {};
+    const h = z(g).hexe[POSTEN]; h.besitzer = 'rom'; h.posten = true; h.garnison = garnison == null ? 4 : garnison; h.anspruch = {};
     g.weltBesitz.hexe[POSTEN] = { besitzer: 'rom', posten: true };
     ohneFlotten(g, POSTEN);
     return { t, g };
@@ -428,12 +436,23 @@ section('Posten gehalten und gefallen', () => {
   let L = Szene.letzte(g);
   ok(L.ausgang === 'sieg' && L.wirkungen.some((x) => x.typ === 'ort_gehalten') && ticks(g) === tick0 + 1 && z(g).hexe[POSTEN].besitzer === 'rom' && z(g).hexe[POSTEN].posten, 'Posten gehalten: ort_gehalten, ein Tick, Posten steht');
   ok(vergleich(g), 'Weltstand = Vergleichslauf');
-  ({ g } = aufbau());
+  // gefallen a) Garnison 0: die Lerche steht allein, ihr Notfallprotokoll ist die Niederlage
+  ({ g } = aufbau(0));
   flotte(g, POSTEN, 'ger', 8, { belagerung: true });
   ankunft(g, POSTEN); run(g, 21);
+  ok(g.simSzene && g.simSzene.vert.n0 === 0, 'Garnison 0: keine Verteidiger');
   g.ship.hull = 0; run(g, 0.3);
   L = Szene.letzte(g);
-  ok(L.ausgang === 'niederlage' && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.an === 'ger') && z(g).hexe[POSTEN].besitzer === null && !z(g).hexe[POSTEN].posten && hatEreignis(g, 'posten_verloren').length === 1, 'Posten gefallen: ort_gefallen, Posten verloren (posten_verloren), Ort frei');
+  ok(L.ausgang === 'niederlage' && L.grund === 'lerche' && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.an === 'ger') && z(g).hexe[POSTEN].besitzer === null && !z(g).hexe[POSTEN].posten && hatEreignis(g, 'posten_verloren').length === 1, 'Posten gefallen (Lerche allein unterlegen): ort_gefallen, Posten verloren (posten_verloren), Ort frei');
+  ok(vergleich(g), 'Weltstand = Vergleichslauf');
+  // gefallen b) Garnison fällt (Verteidiger erschöpft, Gnadenfrist)
+  ({ g } = aufbau(4));
+  flotte(g, POSTEN, 'ger', 8, { belagerung: true });
+  ankunft(g, POSTEN); run(g, 21);
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  run(g, CONFIG.simSzene.erschoepfungGnade + 1);
+  L = Szene.letzte(g);
+  ok(L.ausgang === 'niederlage' && L.grund === 'verteidigung' && z(g).hexe[POSTEN].besitzer === null && L.wirkungen.some((x) => x.typ === 'abwehr_verlust' && x.punkte === 4), 'Posten gefallen (Garnison erschöpft): abwehr_verlust 4, ort_gefallen');
   ok(vergleich(g), 'Weltstand = Vergleichslauf');
 });
 
@@ -540,9 +559,9 @@ section('Keine Endlos-Neuauslösung', () => {
   ok(g.simSzene && g.simSzene.id === id1 + 2 && Szene.letzte(g).ausgang === 'abbruch' && (g.space.escorts || []).filter((q) => q.sim === id1 + 1).length === 0, 'zweite Ankunft: die alte Szene ist abgebrochen, nur eine Szene lebt');
   // Niederlage mit stehender Flotte: bleibt die Crew, bleibt Ruhe (die Flotte ist noch da, die Szene nicht)
   const t2 = neu(); const g2 = t2.g; ab(g2);
-  flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
-  ankunft(g2, OSTIA); run(g2, 21); g2.ship.hull = 0; run(g2, 0.3);
-  ok(!g2.simSzene && z(g2).flotten.some((f) => f.ort === OSTIA && f.fraktion === 'ger'), 'nach der Niederlage steht die Flotte noch im Hex');
+  ohneFlotten(g2, '0505'); flotte(g2, '0505', 'ger', 17);
+  ankunft(g2, '0505'); run(g2, 21); g2.ship.hull = 0; run(g2, 0.3);
+  ok(!g2.simSzene && z(g2).flotten.some((f) => f.ort === '0505' && f.fraktion === 'ger'), 'nach der Niederlage (Lerche allein im freien Sektor) steht die Flotte noch im Hex');
   run(g2, 60);
   ok(!g2.simSzene && Szene.letzte(g2).ausgang === 'niederlage', 'Flotte noch da, Crew bleibt: keine Neuauslösung in 60 s');
   // Schnellsprung: Feindkontakt beendet ihn

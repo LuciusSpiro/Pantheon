@@ -17,7 +17,7 @@
 //    Hex bleibt, bekommt keine zweite: erst die nächste Ankunft löst wieder aus. Gedockt (Laden, Debug-Start) gibt es keine Szene; Laden stellt nie eine her.
 //  - Szenenzustand (game.simSzene) wird nicht gespeichert und liegt am Schiff, nicht an Spielern.
 //  - Ende: SIEG = Flaggschiff gefallen (Rest bricht ab, auch mit Reststärke) -> Verluste + flaggschiff_gefallen (+ ort_gehalten bei Belagerung) + ein Tick.
-//    NIEDERLAGE = Notfallprotokoll der Lerche (CONFIG.simSzene.notfallBisNiederlage) oder Verteidiger erschöpft (nach Gnadenfrist) -> Verluste + ort_gefallen
+//    NIEDERLAGE = Notfallprotokoll der Lerche, wenn kein Verteidiger mehr neben ihr lebt (CONFIG.simSzene.notfallBisNiederlage), oder Verteidiger erschöpft (nach Gnadenfrist) -> Verluste + ort_gefallen
 //    (Hafen/Posten der Crew-Seite) + ein Tick. ABBRUCH (Flucht per Sprung/Notfallsprung, Verlassen) -> nur Verluste, kein ort_*, kein eigener Tick.
 const fs = require('fs');
 const path = require('path');
@@ -162,7 +162,7 @@ function merken(game, S, ausgang, wirkungen, extra) {
 // ---------- Ende der Szene ----------
 function sieg(game, S) {
   S.phase = 'ende';
-  const z = game.weltsim.zustand; const ws = game.weltsim;
+  const z = game.weltsim.zustand;
   const kd = S.kommandant; const kName = kd ? kd.name : (texte().ohneKommandant || 'Der Flottenführer');
   const schicksal = schicksalWahl(game, S);
   const w = verlustWirkungen(game, S);
@@ -235,6 +235,8 @@ function verteidigerAufstellen(game, S, L) {
     const es = Flotte.aufstellen(game, { tag, kind, name: namen.length ? namen[(S.id * 3 + i) % namen.length] : undefined, rolle: V.rolle || 'angreifer',
       von: { x: Math.max(60, Math.min((sc.w || game.space.w) - 60, ank.x + Math.cos(a) * ring)), y: Math.max(60, Math.min((sc.h || game.space.h) - 60, ank.y + Math.sin(a) * ring)) } });
     if (!es) return;
+    const hf = Number(V.huelle) > 0 ? Number(V.huelle) / 100 : 1;   // Hülle der Szenen-Verteidiger in Prozent der Klassenhülle (Eichung gegen die Gegner, CONFIG.simSzene.verteidiger.huelle)
+    if (hf !== 1) { es.hpMax = Math.max(1, Math.round(es.hpMax * hf)); es.hp = es.hpMax; }
     es.sim = S.id; es.simPts = P[kind];
     S.vert.schiffe.push(tag); S.vert.ges += P[kind]; S.vert.lebend++; S.vert.n0++;
   });
@@ -258,7 +260,7 @@ function betreten(game, hex) {
   const loc = Locations.get(game.ship.scene);
   const S = { id: game.simSzeneN, hex, ort: L.ort, ortName: Sektoren.hexName(hex) || (loc && loc.name) || hex, szene: game.ship.scene, phase: 'vorwarnung',
     fraktion: L.fraktion, angreifer: L.angreifer, summe: L.summe, seed, plan, kommandant: kd, kills: {}, killPunkte: 0, flaggGefallen: false,
-    t0: game.time, vorlauf: Number(C.vorwarnung) || 0, erinnern: (C.vorwarnungErinnerung || []).slice().sort((a, b) => b - a), em0: game.stats.emergencies || 0, finale: false };
+    t0: game.time, vorlauf: Number(C.vorwarnung) || 0, erinnern: (C.vorwarnungErinnerung || []).slice().sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false };
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
   verteidigerAufstellen(game, S, L);
@@ -294,7 +296,10 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
     if (S.kommandant) funk(game, fmt(T.finale, { kommandant: S.kommandant.name }));
   }
   if (S.flaggGefallen || (w && w.fertig)) { sieg(game, S); return; }   // Flaggschiff gefallen, oder alle Gegner tot
-  if ((game.stats.emergencies || 0) >= S.em0 + Math.max(1, Number(C.notfallBisNiederlage) || 1)) { niederlage(game, S, 'lerche'); return; }
+  // Die Lerche unterliegt (Notfallprotokoll): Niederlage nur, wenn kein Verteidiger mehr lebt – mit Verteidigern geht die Schlacht weiter (die Gegner ziehen 10 s ab,
+  // wie überall; ein Hafen fällt nicht, solange seine Flotte steht). Das Protokoll zählt erst, wenn niemand mehr neben der Lerche kämpft.
+  if (S.vert.lebend > 0) S.emBasis = game.stats.emergencies || 0;
+  if ((game.stats.emergencies || 0) >= S.emBasis + Math.max(1, Number(C.notfallBisNiederlage) || 1)) { niederlage(game, S, 'lerche'); return; }
   if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0) {   // Verteidiger erschöpft: Gnadenfrist, danach ist der Ort verloren
     if (S.vert.erschT == null) { S.vert.erschT = game.time; funk(game, fmt(T.gnade, { sek: Math.round(Number(C.erschoepfungGnade) || 0), ort: S.ortName })); }
     else if (game.time - S.vert.erschT >= (Number(C.erschoepfungGnade) || 0)) { niederlage(game, S, 'verteidigung'); return; }
@@ -331,7 +336,8 @@ function debug(game, args) {
   const staerke = Math.max(1, Number(a[0]) || 8);
   const fraktion = a[1] === 'pirat' ? 'pirat' : 'ger';
   const z = ws.zustand;
-  const fl = { id: z.naechsteId++, fraktion, heimat: hex, ort: hex, staerke, kap: staerke, befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const heimat = Object.keys(z.hexe).find((c) => c !== hex && z.hexe[c].besitzer === fraktion) || hex;   // eine Flotte braucht eine Heimat außerhalb des Hexes, sonst bliebe sie beim Rückzug dort
+  const fl = { id: z.naechsteId++, fraktion, heimat, ort: hex, staerke, kap: staerke, befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
   z.flotten.push(fl);
   if (a.includes('belagerung')) {
     const id = Number.isFinite(z.naechsteAngriffId) ? z.naechsteAngriffId++ : z.angriffe.reduce((m, r) => Math.max(m, r.id), 0) + 1;
