@@ -25,7 +25,8 @@ const GUETER = ['T', 'M', 'U', 'E', 'N'];
 const FRAKTIONEN = Daten.FRAKTIONEN;                        // rom, ger, kon: Reiche und Konkordat (Piraten haben keine Wirtschaft)
 const BEFEHLE_FELD = ['angriff', 'anspruch', 'rueckzug'];   // Befehle, bei denen die Flotte im Feld unterwegs ist
 
-// Erweiterungspunkt für SUND-02: Wirkungen der Crew auf die Welt. Typ -> (kontext, wirkung) => void. Leer in SUND-01.
+// Erweiterungspunkt: Wirkungen der Crew auf die Welt (SUND-02). Typ -> (kontext, wirkung) => void; die Einträge kommen aus wirkungen.js.
+// Wirkungen werden in tick() VOR dem Schritt angewandt. Ohne Wirkungen ändert sich am Lauf nichts.
 const WIRKUNGEN = {};
 
 // ---------- Zustand erzeugen
@@ -464,9 +465,7 @@ function gefecht(c) {
           } else if (hafen) {
             nd.abwehr = 0.5;
           } else {
-            mz(c, 'posten_lost'); mz(c, 'plost_pirat', top === 'pirat' ? 1 : 0); mz(c, 'plost_reich', top !== 'pirat' ? 1 : 0);
-            melde(c, 'posten_verloren', owner, { ort: code, besitzer: owner, durch: top });
-            nd.posten = false; nd.besitzer = null; nd.garnison = 0; nd.anspruch = {};
+            postenVerlieren(c, code, owner, top);
           }
         }
       }
@@ -485,6 +484,14 @@ function gefecht(c) {
       fl.befehl = 'rueckzug'; fl.ziel = fl.heimat;
     }
   }
+}
+
+// Posten fällt an `durch` (Fraktion des Siegers): der Ort wird frei. Auch Wirkung ort_gefallen (wirkungen.js).
+function postenVerlieren(c, code, owner, durch) {
+  const nd = c.z.hexe[code];
+  mz(c, 'posten_lost'); mz(c, 'plost_pirat', durch === 'pirat' ? 1 : 0); mz(c, 'plost_reich', durch !== 'pirat' ? 1 : 0);
+  melde(c, 'posten_verloren', owner, { ort: code, besitzer: owner, durch });
+  nd.posten = false; nd.besitzer = null; nd.garnison = 0; nd.anspruch = {};
 }
 
 function erobern(c, code, neu) {
@@ -548,8 +555,12 @@ function angriffeSchliessen(c) {
       rec.ausgang = nd.besitzer === null && rec.relevant ? 'posten' : 'abgewehrt'; rec.t_ende = z.tick;
       abgewehrt = rec.ausgang === 'abgewehrt';
     }
-    if (abgewehrt) melde(c, 'angriff_abgewehrt', nd.besitzer === null ? rec.von : nd.besitzer, { art: rec.art, ziel: rec.ziel, zielArt: rec.zielArt, besitzer: nd.besitzer, angriff: rec.id });
+    if (abgewehrt) meldeAbgewehrt(c, rec);
   }
+}
+function meldeAbgewehrt(c, rec) {
+  const nd = c.z.hexe[rec.ziel];
+  melde(c, 'angriff_abgewehrt', nd.besitzer === null ? rec.von : nd.besitzer, { art: rec.art, ziel: rec.ziel, zielArt: rec.zielArt, besitzer: nd.besitzer, angriff: rec.id });
 }
 
 // Beendete Feldzüge fallen nach werte.angriff_behalt Ticks aus dem Zustand; das Messobjekt bekommt die Datensätze (Kennzahlen, Eingreif-Fenster).
@@ -585,4 +596,24 @@ function tick(zustand, { wirkungen = [], absichten, messung } = {}) {
   return { zustand, ereignisse: c.ev };
 }
 
-module.exports = { erzeuge, tick, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, GUETER, FRAKTIONEN };
+// Wirkungen der Crew (SUND-02): Katalog, Prüfer und Anwender in wirkungen.js, trägt sich in WIRKUNGEN ein.
+const Wirkungen = require('./wirkungen.js');
+Wirkungen.installiere(WIRKUNGEN, { melde, erobern, postenVerlieren, meldeAbgewehrt, istHafen });
+
+// Probelauf für den Spielaufsatz: prüft die Wirkungen der Reihe nach gegen eine Kopie des Zustands und wendet jede gültige dort an, so dass spätere
+// Wirkungen den Stand der früheren sehen (z. B. zweimal ort_gefallen für denselben Ort). Der Zustand selbst bleibt unberührt.
+// -> { gueltig: [wirkung], verworfen: [{ wirkung, grund }] }
+function filtereWirkungen(zustand, wirkungen) {
+  const gueltig = [], verworfen = [];
+  const rest = Object.fromEntries(Object.entries(zustand).filter(([k]) => k !== 'werte' && k !== 'karte'));
+  const probe = Object.assign(JSON.parse(JSON.stringify(rest)), { werte: zustand.werte, karte: zustand.karte });
+  const c = { z: probe, d: Daten.datenVon(probe), w: probe.werte, ev: [], mess: null };
+  for (const wk of wirkungen) {
+    const p = Wirkungen.pruefe(probe, wk);
+    if (!p.ok) { verworfen.push({ wirkung: wk, grund: p.grund }); continue; }
+    try { WIRKUNGEN[wk.typ](c, wk); gueltig.push(wk); } catch (e) { verworfen.push({ wirkung: wk, grund: 'Anwendung wirft: ' + e.message }); }
+  }
+  return { gueltig, verworfen };
+}
+
+module.exports = { erzeuge, tick, filtereWirkungen, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, pruefeWirkung: Wirkungen.pruefe, GUETER, FRAKTIONEN };
