@@ -8,9 +8,9 @@
 // Katalog (jede Zeile: Typ, Felder, Wirkung):
 //   flotte_verlust       { flotte: id, punkte: >0 }            Stärke -= punkte (nicht mehr als vorhanden). Unter 0,5: Stärke 0,5, Rückzug nach Heimat, wie gefecht().
 //   abwehr_verlust       { ort, punkte: >0 }                   Abwehr des Hafens bzw. Garnison des Postens -= punkte (nicht mehr als vorhanden, nie unter 0).
-//   flaggschiff_gefallen { flotte, kommandant: {name, schicksal: 'entkommen'|'gefallen'} }   die Flotte bricht ab (Rückzug, auch mit Reststärke); Merken im Gedächtnis macht kriegslage.js.
+//   flaggschiff_gefallen { flotte, kommandant?: {name, schicksal: 'entkommen'|'gefallen'} }   die Flotte bricht ab (Rückzug, auch mit Reststärke); Merken im Gedächtnis macht kriegslage.js, nur MIT kommandant (ohne: kein Eintrag).
 //   ort_gehalten         { ort, angriff?: id }                 laufende Belagerung des Ortes endet: Flotten des Feldzugs Rückzug, Feldzug „abgewehrt“ (Ereignis angriff_abgewehrt).
-//   ort_gefallen         { ort, an: fraktion }                 Hafen: wie erobern() (Ereignis hafen_gefallen); Posten: wie der Posten-Verlust im Gefecht (Ereignis posten_verloren).
+//   ort_gefallen         { ort, an: fraktion }                 nur bei laufender Belagerung des Ortes durch Flotten von `an`. Hafen: wie erobern() (Ereignis hafen_gefallen); Posten: wie der Posten-Verlust im Gefecht (Ereignis posten_verloren).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
 
@@ -29,7 +29,8 @@ const punkteFehler = (p, max, was) => {
   return null;
 };
 // laufende Belagerung eines Ortes: Feldzug mit Ziel ort, nicht beendet, Marsch/Direkt (nicht Sammeln), erste Flotte angekommen
-const belagerungen = (z, ort, angriff) => z.angriffe.filter((r) => r.ziel === ort && r.t_ende === null && r.phase !== 'sammeln' && r.phase !== 'abgebrochen' && r.t_an !== null && (angriff === undefined || r.id === angriff));
+// angriff (optional): nur dieser Feldzug; von (optional): nur Feldzüge dieser Fraktion
+const belagerungen = (z, ort, angriff, von) => z.angriffe.filter((r) => r.ziel === ort && r.t_ende === null && r.phase !== 'sammeln' && r.phase !== 'abgebrochen' && r.t_an !== null && (angriff === undefined || r.id === angriff) && (von === undefined || r.von === von));
 
 const KATALOG = {
   flotte_verlust: {
@@ -60,7 +61,8 @@ const KATALOG = {
     pruefe(z, d, wk) {
       if (!istId(wk.flotte) || !flotteMit(z, wk.flotte)) return 'unbekannte Flotte';
       const k = wk.kommandant;
-      if (!k || typeof k !== 'object') return 'kommandant fehlt';
+      if (k === undefined) return null;   // ohne Kommandant (kein Name aus dem Plan): die Flotte bricht ab, ins Gedächtnis kommt nichts
+      if (!k || typeof k !== 'object') return 'kommandant ungültig';
       if (typeof k.name !== 'string' || !k.name.trim() || k.name.length > NAME_MAX) return 'kommandant.name fehlt oder ungültig';
       if (!SCHICKSALE.includes(k.schicksal)) return 'kommandant.schicksal muss entkommen oder gefallen sein';
       return null;
@@ -97,6 +99,7 @@ const KATALOG = {
       if (!alt) return 'Ort hat keinen Besitzer';
       if (!feind(wk.an, alt)) return `${wk.an} ist nicht feindlich zu ${alt}`;
       if (k.hafen && wk.an === 'pirat') return 'Piraten erobern keinen Hafen';
+      if (!belagerungen(z, wk.ort, undefined, wk.an).length) return 'keine laufende Belagerung des Ortes durch ' + wk.an;   // ohne Feldzug hätte die Sim nie erobert
       return null;
     },
     anwenden(c, wk) {

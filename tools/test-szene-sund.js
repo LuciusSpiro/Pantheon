@@ -323,6 +323,15 @@ section('Verluste -> Punkte, Flaggschiff fällt (Sieg mit Reststärke)', () => {
   ohneFlotten(g, '0505'); flotte(g, '0505', 'ger', 9); ankunft(g, '0505');
   ok(g.simSzene.kommandant === null && g.simSzene.plan.flaggschiff.kommandant.name === 'Der Flottenführer', 'alle gefallen: Ersatzname „Der Flottenführer“ statt Absturz');
   ok(tot.length === 0 || tot.every((nm) => g.weltsim.kommandanten[nm]), 'Gedächtnis wird nicht vergessen');
+  // Sieg ohne echten Kommandanten: die Flotte bricht ab, aber der Ersatzname kommt nicht ins Gedächtnis
+  const namen0 = Object.keys(g.weltsim.kommandanten).sort(); const fl0 = z(g).flotten.find((f) => f.ort === '0505' && f.fraktion === 'ger');
+  const t0 = ticks(g);
+  run(g, 21); bisFlaggschiff(g, 300);
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.2);
+  const Lk = Szene.letzte(g);
+  ok(Lk && Lk.ausgang === 'sieg' && ticks(g) === t0 + 1 && Lk.wirkungen.some((x) => x.typ === 'flaggschiff_gefallen' && x.flotte === fl0.id && !('kommandant' in x)), 'Sieg ohne Kommandant: flaggschiff_gefallen ohne Kommandantenfeld, ein Tick');
+  ok(gleich(Object.keys(g.weltsim.kommandanten).sort(), namen0) && !g.weltsim.kommandanten['Der Flottenführer'], 'kein Platzhalter „Der Flottenführer“ im Gedächtnis');
+  ok(fl0.befehl === 'rueckzug' || fl0.ort === fl0.heimat, 'die Flotte bricht trotzdem ab (Rückzug)');
 });
 
 section('Hafen gehalten', () => {
@@ -413,6 +422,59 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   g.ship.hull = 0; run(g, 0.3);
   const L4 = Szene.letzte(g);
   ok(L4.ausgang === 'niederlage' && !L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom', 'Piraten gegen einen Hafen: kein ort_gefallen aus der Szene (Piraten erobern keinen Hafen)');
+});
+
+section('Durchziehende Flotte (keine Belagerung): der Ort fällt nicht', () => {
+  // Gegenprobe zu „Hafen gefallen“: dieselbe Niederlage, aber ohne Feldzug gegen den Ort. Ohne die Crew hätte die Sim nie erobert (Auftrag §3).
+  // wie in der Sim: wer durchzieht, ist unterwegs (Rückzug nach Hause) und verlässt das Hex im nächsten Tick; „heim“ gibt es nur im eigenen Hafen
+  const durchzug = (f) => { f.befehl = 'rueckzug'; f.ziel = f.heimat; return f; };
+  const unterliegen = (g) => { run(g, 21); for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); run(g, 0.3); g.ship.hull = 0; run(g, 0.5); return Szene.letzte(g); };
+  let t = neu(); let g = t.g; ab(g);
+  ohneFlotten(g, OSTIA);
+  const fl = durchzug(flotte(g, OSTIA, 'ger', 3));   // keine Belagerung
+  ankunft(g, OSTIA);
+  const tick0 = ticks(g);
+  ok(g.simSzene && g.simSzene.ort === 'hafen' && z(g).angriffe.every((r) => r.ziel !== OSTIA || r.t_ende !== null), 'durchziehende Flotte löst die Szene aus (Hafen, keine Belagerung)');
+  const L = unterliegen(g);
+  ok(!g.simSzene && L && L.ausgang === 'niederlage', 'Crew unterliegt: Szene endet als Niederlage');
+  ok(!L.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom' && hatEreignis(g, 'hafen_gefallen').length === 0, 'kein ort_gefallen, Ostia Nova bleibt römisch, keine Eroberung');
+  ok(ticks(g) === tick0 + 1 && L.ergebnis.verworfen === 0 && vergleich(g), 'genau ein Tick, nichts verworfen, Weltstand = Vergleichslauf');
+  ok(g.space.dockOk === true && Besitz.darfAndocken(g, OSTIA) === true && t.funk().some((s) => /Schlacht ist verloren/.test(s)) && !t.funk().some((s) => /ist verloren.$/.test(s) && /Ostia/.test(s)), 'Andocken bleibt erlaubt, Funk: Schlacht verloren, nicht „Ort verloren“');
+  // Hauptwelt Palatina
+  t = neu(); g = t.g; ab(g);
+  ohneFlotten(g, '0204');
+  durchzug(flotte(g, '0204', 'ger', 2));
+  ankunft(g, '0204');
+  const L2 = unterliegen(g);
+  ok(L2 && L2.ausgang === 'niederlage' && z(g).hexe['0204'].besitzer === 'rom' && !g.weltsim.hauptweltGefallen && hatEreignis(g, 'hauptwelt_gefallen').length === 0, 'Palatina bleibt römisch (kein hauptweltGefallen)');
+  // Posten ohne Feldzug
+  const P = '0505';
+  t = neu(); g = t.g; ab(g);
+  const h = z(g).hexe[P]; h.besitzer = 'rom'; h.posten = true; h.garnison = 0; h.anspruch = {};
+  g.weltBesitz.hexe[P] = { besitzer: 'rom', posten: true };
+  ohneFlotten(g, P);
+  durchzug(flotte(g, P, 'ger', 8));
+  ankunft(g, P); run(g, 21); g.ship.hull = 0; run(g, 0.5);
+  const L3 = Szene.letzte(g);
+  ok(L3.ausgang === 'niederlage' && z(g).hexe[P].besitzer === 'rom' && z(g).hexe[P].posten && hatEreignis(g, 'posten_verloren').length === 0, 'Posten ohne Belagerung: bleibt stehen');
+  // Gegenprobe mit Belagerung: derselbe Aufbau, der Hafen fällt (siehe Abschnitt davor)
+  t = neu(); g = t.g; ab(g);
+  ohneFlotten(g, OSTIA);
+  flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  const L4 = unterliegen(g);
+  ok(L4 && L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'ger', 'Gegenprobe mit Belagerung: der Hafen fällt');
+});
+
+section('Debug szene: Stärke begrenzt', () => {
+  const t = neu(); const g = t.g; ab(g);
+  const n0 = z(g).flotten.length;
+  const r = Szene.debug(g, ['5000', 'ger']);
+  ok(typeof r === 'string' && /200/.test(r) && z(g).flotten.length === n0 && !g.simSzene, 'Stärke 5000: abgelehnt mit Hinweis, keine Flotte, keine Szene');
+  ok(Szene.debug(g, ['201']) !== null && !g.simSzene, 'Stärke 201: abgelehnt');
+  ohneFlotten(g, OSTIA);
+  const r2 = Szene.debug(g, ['200', 'ger']);
+  ok(r2 === null || typeof r2 === 'string', 'Stärke 200 (Obergrenze): wird nicht wegen der Grenze abgelehnt (' + r2 + ')');
 });
 
 section('Posten gehalten und gefallen', () => {
@@ -518,6 +580,21 @@ section('Abbruch: Flucht per Sprung und Notfallsprung', () => {
   // Notfallsprung im selben Sektor (kein Nachbar): bleibt am Ort, die Szene wird nicht neu ausgelöst
   run(g, 1);
   ok(!g.simSzene, 'nach einem Notfallsprung im selben Sektor: keine Neuauslösung (nur Ankunft löst aus)');
+  // d) Debug-Ortswechsel ohne Sprung (debugGoto, debugHex): kein Sprung-Tick folgt, also schließt die Szene selbst ab – Verluste + genau ein Tick, nichts vorgemerkt
+  for (const weg of ['goto', 'hex']) {
+    t = neu(); g = t.g; ab(g);
+    const fl4 = flotte(g, '0505', 'ger', 9, { belagerung: true });
+    ankunft(g, '0505'); run(g, 21);
+    const e4 = gegner(g)[0]; const p4 = CONFIG.wellenplan.punkte[e4.kind];
+    kill(g, e4); run(g, 0.2);
+    const t4 = ticks(g);
+    const fehl = weg === 'goto' ? g.debugGoto(Sektoren.ortVonHex(OSTIA), false) : Sprung.debugHex(g, OSTIA);
+    run(g, 0.5);
+    const L4 = Szene.letzte(g);
+    ok(!fehl && !g.simSzene && ticks(g) === t4 + 1 && g.weltsim.vorgemerkt.length === 0, `Debug-${weg} mit laufender Szene: Tickzähler +1 (${t4} -> ${ticks(g)}), nichts vorgemerkt`);
+    ok(L4.ausgang === 'abbruch' && L4.wo === 'neu' && !L4.wirkungen.some((x) => x.typ.startsWith('ort_')) && letzterTick.wirkungen.some((x) => x.typ === 'flotte_verlust' && x.flotte === fl4.id && x.punkte === p4), 'Verluste gingen in diesen Tick, kein ort_*');
+    ok(vergleich(g) && g.errors === 0, 'Weltstand = Vergleichslauf');
+  }
 });
 
 section('Docken während der Szene', () => {

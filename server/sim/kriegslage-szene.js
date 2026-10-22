@@ -6,7 +6,8 @@
 //   betreten(game, hex)        Auslöser: Hook am Ende von Space.enterScene (jede Ankunft, nie ein Tick). -> Szene | null
 //   update(game, dt)           Takt der Szene (aus game.step): Vorwarnung, Finale, Sieg, Niederlage
 //   ereignis(game, name, data) Hook aus game.missionEvent: enemyKilled (Verluste der Angreifer), allyLost (Verluste der Verteidiger)
-//   abbrechen(game, wo)        Flucht/Verlassen: Verluste bis dahin als Wirkungen VORMERKEN (der Sprung-Tick ist der eine Tick); Hook in Kriegslage.tick
+//   abbrechen(game, wo)        Flucht per Sprung: Verluste bis dahin als Wirkungen VORMERKEN (der Sprung-Tick ist der eine Tick); Hook in Kriegslage.tick
+//   verlassen(game, wo)        Ortswechsel ohne Sprung (Debug): Verluste + genau ein eigener Tick (szeneAbschliessen), nichts bleibt vorgemerkt
 //   lage(game, hex)            was die Sim im Hex hat (Angreifer, Verteidiger, Ort), rein lesend
 //   letzte(game)               Ergebnis der letzten Szene (Tests, Debug), nicht gespeichert
 //   debug(game, args)          nur --debug: szene [staerke] [ger|pirat] [belagerung]
@@ -18,7 +19,7 @@
 //  - Szenenzustand (game.simSzene) wird nicht gespeichert und liegt am Schiff, nicht an Spielern.
 //  - Ende: SIEG = Flaggschiff gefallen (Rest bricht ab, auch mit Reststärke) -> Verluste + flaggschiff_gefallen (+ ort_gehalten bei Belagerung) + ein Tick.
 //    NIEDERLAGE = Notfallprotokoll der Lerche, wenn kein Verteidiger mehr neben ihr lebt (CONFIG.simSzene.notfallBisNiederlage), oder Verteidiger erschöpft (nach Gnadenfrist) -> Verluste + ort_gefallen
-//    (Hafen/Posten der Crew-Seite) + ein Tick. ABBRUCH (Flucht per Sprung/Notfallsprung, Verlassen) -> nur Verluste, kein ort_*, kein eigener Tick.
+//    (Hafen/Posten der Crew-Seite) + ein Tick. ABBRUCH (Flucht per Sprung/Notfallsprung) -> nur Verluste, kein ort_*, kein eigener Tick (Sprung-Tick). Ortswechsel ohne Sprung (Debug) -> nur Verluste + ein eigener Tick.
 const fs = require('fs');
 const path = require('path');
 const Kern = require('../weltsim/kern.js');
@@ -33,6 +34,7 @@ const Locations = require('../../shared/locations.js');
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
 const FEIND_VON = 'rom';   // die Crew spielt für Rom: Gegner sind alle, die zu Rom feindlich sind (ger, pirat)
+const DEBUG_STAERKE_MAX = 200;   // Debug `szene <staerke>`: darüber wäre der Plan nur noch eine Last für den Server
 const r2 = (v) => Math.round(v * 100) / 100;
 const cfg = (game) => game.C.simSzene || {};
 const hypot = Math.hypot;
@@ -163,10 +165,10 @@ function merken(game, S, ausgang, wirkungen, extra) {
 function sieg(game, S) {
   S.phase = 'ende';
   const z = game.weltsim.zustand;
-  const kd = S.kommandant; const kName = kd ? kd.name : (texte().ohneKommandant || 'Der Flottenführer');
+  const kd = S.kommandant;
   const schicksal = schicksalWahl(game, S);
   const w = verlustWirkungen(game, S);
-  for (const a of S.angreifer) if (flotteMit(z, a.id)) w.push({ typ: 'flaggschiff_gefallen', flotte: a.id, kommandant: { name: kName, schicksal } });   // alle Flotten des Angreifers brechen ab
+  for (const a of S.angreifer) if (flotteMit(z, a.id)) w.push(Object.assign({ typ: 'flaggschiff_gefallen', flotte: a.id }, kd ? { kommandant: { name: kd.name, schicksal } } : {}));   // alle Flotten des Angreifers brechen ab; ohne echten Kommandanten kein Gedächtniseintrag
   if (S.ort) w.push({ typ: 'ort_gehalten', ort: S.hex });
   const wirk = gueltige(game, w);
   const T = texte();
@@ -181,12 +183,13 @@ function sieg(game, S) {
 function niederlage(game, S, grund) {
   S.phase = 'ende';
   const w = verlustWirkungen(game, S);
-  if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // der Prüfer lehnt ab, was nicht gilt (z. B. Piraten erobern keinen Hafen)
+  if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // der Prüfer lehnt ab, was nicht gilt: Piraten erobern keinen Hafen, und ohne laufende Belagerung (durchziehende Flotte) fällt nichts
   const wirk = gueltige(game, w);
+  const gefallen = wirk.some((x) => x.typ === 'ort_gefallen');
   const T = texte();
   aufraeumen(game, S);
   funk(game, (T.niederlage || {})[grund]);
-  funk(game, S.ort ? fmt((T.niederlage || {}).ort, { ort: S.ortName }) : (T.niederlage || {}).frei);
+  funk(game, gefallen ? fmt((T.niederlage || {}).ort, { ort: S.ortName }) : (T.niederlage || {}).frei);
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene' });
   merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
@@ -200,6 +203,18 @@ function abbrechen(game, wo) {
   aufraeumen(game, S);
   const r = Kriegslage.wirkungenVormerken(game, w);
   merken(game, S, 'abbruch', w, { wo: wo || null, vorgemerkt: r.vorgemerkt });
+  return r;
+}
+// Ortswechsel OHNE Sprung (nur Debug: debugGoto, debugHex): kein Sprung-Tick folgt, also schließt die Szene selbst ab – Verluste + genau ein Tick (szeneAbschliessen),
+// kein ort_*. Bei einem Sprung ist Kriegslage.tick schon vor dem Szenenaufbau gelaufen und hat die Szene über abbrechen() beendet; dann steht hier keine mehr.
+function verlassen(game, wo) {
+  const S = game.simSzene;
+  if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
+  S.phase = 'ende';
+  const w = gueltige(game, verlustWirkungen(game, S));
+  aufraeumen(game, S);
+  const r = Kriegslage.szeneAbschliessen(game, { wirkungen: w, wo: 'szene' });
+  merken(game, S, 'abbruch', w, { wo: wo || null, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
 }
 
@@ -242,7 +257,7 @@ function verteidigerAufstellen(game, S, L) {
   });
 }
 function betreten(game, hex) {
-  if (game.simSzene) abbrechen(game, 'neu');   // eine alte Szene ragt nie in eine neue hinein
+  if (game.simSzene) verlassen(game, 'neu');   // eine alte Szene ragt nie in eine neue hinein (nach einem Sprung ist sie schon weg, siehe verlassen)
   const ws = game.weltsim;
   if (!ws || !hex || !game.ship || game.ship.docked) return null;
   const L = lage(game, hex);
@@ -283,7 +298,7 @@ function betreten(game, hex) {
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   const S = game.simSzene;
   if (!S || S.phase === 'ende') return;
-  if (game.ship.scene !== S.szene) { abbrechen(game, 'verlassen'); return; }   // Ortswechsel ohne Sprung (Debug): wie Flucht
+  if (game.ship.scene !== S.szene) { verlassen(game, 'verlassen'); return; }   // Ortswechsel ohne Sprung (Debug): die Szene schließt selbst ab
   const C = cfg(game); const T = texte();
   const rest = S.start - game.time;
   if (S.phase === 'vorwarnung') {
@@ -334,11 +349,13 @@ function debug(game, args) {
   const hex = Sektoren.hexVonOrt(game.ship.scene);
   if (!hex || !ws.zustand.hexe[hex]) return 'Hier gibt es kein Sim-Hex.';
   const staerke = Math.max(1, Number(a[0]) || 8);
+  if (staerke > DEBUG_STAERKE_MAX) return `Stärke höchstens ${DEBUG_STAERKE_MAX}.`;
   const fraktion = a[1] === 'pirat' ? 'pirat' : 'ger';
   const z = ws.zustand;
   const heimat = Object.keys(z.hexe).find((c) => c !== hex && z.hexe[c].besitzer === fraktion) || hex;   // eine Flotte braucht eine Heimat außerhalb des Hexes, sonst bliebe sie beim Rückzug dort
   const fl = { id: z.naechsteId++, fraktion, heimat, ort: hex, staerke, kap: staerke, befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
   z.flotten.push(fl);
+  if (!a.includes('belagerung')) { fl.befehl = 'rueckzug'; fl.ziel = heimat; }   // eine durchziehende Flotte ist unterwegs (die Sim kennt „heim“ nur im eigenen Hafen) und zieht im nächsten Tick weiter
   if (a.includes('belagerung')) {
     const id = Number.isFinite(z.naechsteAngriffId) ? z.naechsteAngriffId++ : z.angriffe.reduce((m, r) => Math.max(m, r.id), 0) + 1;
     z.angriffe.push({ id, t0: z.tick, ziel: hex, von: fraktion, art: fraktion === 'pirat' ? 'pirat' : 'reich', relevant: true, zielArt: z.hexe[hex].posten ? 'posten' : 'hafen', t_an: z.tick, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: z.tick, stuetz: null, flotten: [fl.id] });
@@ -348,4 +365,4 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-module.exports = { betreten, update, ereignis, abbrechen, lage, letzte, debug, schiffeFuer, verteile };
+module.exports = { betreten, update, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };

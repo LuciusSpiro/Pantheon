@@ -39,6 +39,12 @@ function belagerung() {
   fl.angriff = id;
   return { z, fl, id };
 }
+// laufende Belagerung des Ortes `ort` durch `von` (Feldzug am Ziel angekommen); ort_gefallen verlangt sie
+function belagere(z, ort, von) {
+  const id = Number.isFinite(z.naechsteAngriffId) ? z.naechsteAngriffId++ : z.angriffe.reduce((m, a) => Math.max(m, a.id), 0) + 1;
+  z.angriffe.push({ id, t0: z.tick, ziel: ort, von, art: von === 'pirat' ? 'pirat' : 'reich', relevant: true, zielArt: z.hexe[ort].posten ? 'posten' : 'hafen', t_an: z.tick, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: z.tick, stuetz: null, flotten: [] });
+  return id;
+}
 const romFlotte = (z) => z.flotten.find((f) => f.fraktion === 'rom');
 const freiesHex = (z) => { const d = Daten.datenVon(z); return d.codes.find((c) => z.hexe[c].besitzer === null && d.hex[c].hafen === ''); };
 
@@ -76,18 +82,18 @@ section('1. Katalog: jede Wirkung einzeln (Zustand vor/nach)');
   ok(ev.length === 1 && ev[0].typ === 'angriff_abgewehrt' && ev[0].ziel === '0204' && ev[0].angriff === h.id, 'ort_gehalten: Ereignis angriff_abgewehrt');
   ok(!pr(h.z, { typ: 'ort_gehalten', ort: '0204' }).ok, 'ort_gehalten: ein zweites Mal ohne laufende Belagerung abgelehnt');
   // ort_gefallen: Hafen
-  const g = neu(1);
+  const g = neu(1); belagere(g, '0204', 'ger');
   const evh = wende(g, { typ: 'ort_gefallen', ort: '0204', an: 'ger' });
   ok(g.hexe['0204'].besitzer === 'ger', 'ort_gefallen (Hafen): Besitzer wechselt');
   ok(evh.some((e) => e.typ === 'hafen_gefallen' && e.neu === 'ger' && e.alt === 'rom') && evh.some((e) => e.typ === 'hauptwelt_gefallen'), 'ort_gefallen (Hafen): Ereignisse hafen_gefallen und hauptwelt_gefallen wie erobern()');
   ok(g.flotten.some((f) => f.fraktion === 'ger' && f.heimat === '0204' && f.ort === '0204'), 'ort_gefallen (Hafen): neue Flotte des Siegers im Hafen');
   // ort_gefallen: Posten
-  const p = neu(1), px = freiesHex(p); p.hexe[px].posten = true; p.hexe[px].besitzer = 'rom'; p.hexe[px].garnison = 3;
+  const p = neu(1), px = freiesHex(p); p.hexe[px].posten = true; p.hexe[px].besitzer = 'rom'; p.hexe[px].garnison = 3; belagere(p, px, 'pirat');
   const evp = wende(p, { typ: 'ort_gefallen', ort: px, an: 'pirat' });
   ok(p.hexe[px].besitzer === null && p.hexe[px].posten === false && p.hexe[px].garnison === 0, 'ort_gefallen (Posten): Ort wird frei, Posten weg');
   ok(evp.length === 1 && evp[0].typ === 'posten_verloren' && evp[0].durch === 'pirat' && evp[0].besitzer === 'rom', 'ort_gefallen (Posten): Ereignis posten_verloren wie im Gefecht');
   // über den Tick: Wirkungen kommen vor dem Schritt
-  const t = neu(2); const nach = Kern.tick(t, { wirkungen: [{ typ: 'ort_gefallen', ort: '0204', an: 'ger' }] });
+  const t = neu(2); belagere(t, '0204', 'ger'); const nach = Kern.tick(t, { wirkungen: [{ typ: 'ort_gefallen', ort: '0204', an: 'ger' }] });
   ok(nach.ereignisse.some((e) => e.typ === 'hafen_gefallen') && nach.zustand.tick === 1, 'Kern.tick(wirkungen): Wirkung vor dem Schritt, ein Tick');
 }
 
@@ -106,7 +112,9 @@ section('2. Prüfer lehnt Ungültiges ab');
   nein({ typ: 'abwehr_verlust', ort: 'XXXX', punkte: 1 }, 'unbekannter Ort');
   nein({ typ: 'abwehr_verlust', ort: '0204', punkte: z.hexe['0204'].abwehr + 1 }, 'mehr Punkte als Abwehr');
   nein({ typ: 'abwehr_verlust', ort: freiesHex(z), punkte: 1 }, 'abwehr_verlust für Ort ohne Hafen und Posten');
-  nein({ typ: 'flaggschiff_gefallen', flotte: fl.id }, 'flaggschiff_gefallen ohne Kommandant');
+  ok(pr(z, { typ: 'flaggschiff_gefallen', flotte: fl.id }).ok, 'flaggschiff_gefallen ohne Kommandant gültig (kein Gedächtniseintrag, Flotte bricht ab)');
+  nein({ typ: 'flaggschiff_gefallen', flotte: fl.id, kommandant: 'Varro' }, 'flaggschiff_gefallen mit Kommandant vom falschen Typ');
+  nein({ typ: 'flaggschiff_gefallen', flotte: fl.id, kommandant: null }, 'flaggschiff_gefallen mit Kommandant null');
   nein({ typ: 'flaggschiff_gefallen', flotte: fl.id, kommandant: { name: 'X', schicksal: 'tot' } }, 'ungültiges Schicksal');
   nein({ typ: 'flaggschiff_gefallen', flotte: fl.id, kommandant: { name: '', schicksal: 'gefallen' } }, 'leerer Kommandantenname');
   nein({ typ: 'flaggschiff_gefallen', flotte: 0, kommandant: { name: 'X', schicksal: 'gefallen' } }, 'flaggschiff_gefallen: unbekannte Flotte');
@@ -119,10 +127,17 @@ section('2. Prüfer lehnt Ungültiges ab');
   nein({ typ: 'ort_gefallen', ort: '0204', an: 'pirat' }, 'ort_gefallen: Piraten erobern keinen Hafen');
   nein({ typ: 'ort_gefallen', ort: '0204', an: 'elfen' }, 'ort_gefallen an unbekannte Fraktion');
   nein({ typ: 'ort_gefallen', ort: freiesHex(z), an: 'ger' }, 'ort_gefallen für Ort ohne Besitzer');
-  ok(pr(z, { typ: 'ort_gefallen', ort: '0204', an: 'ger' }).ok, 'Gegenprobe: ort_gefallen an Germanen gültig');
+  nein({ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, 'ort_gefallen ohne Belagerung (durchziehende Flotte): verworfen');
+  const zb = neu(1); belagere(zb, '0204', 'ger');
+  ok(pr(zb, { typ: 'ort_gefallen', ort: '0204', an: 'ger' }).ok, 'Gegenprobe: ort_gefallen an Germanen bei laufender Belagerung gültig');
+  nein({ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, 'ort_gefallen: Belagerung durch eine andere Fraktion (kon) zählt nicht', (() => { const q = neu(1); belagere(q, '0204', 'kon'); return q; })());
+  const zs = neu(1); belagere(zs, '0204', 'ger'); zs.angriffe[0].phase = 'sammeln';
+  nein({ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, 'ort_gefallen: Feldzug noch in der Sammelphase', zs);
+  const ze = neu(1); belagere(ze, '0204', 'ger'); ze.angriffe[0].t_ende = 0;
+  nein({ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, 'ort_gefallen: Feldzug beendet', ze);
   // Probelauf sieht frühere Wirkungen: zweimal derselbe Hafen
-  const f = Kern.filtereWirkungen(z, [{ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, { typ: 'ort_gefallen', ort: '0204', an: 'ger' }]);
-  ok(f.gueltig.length === 1 && f.verworfen.length === 1 && hexRom(z), 'zweimal ort_gefallen: die zweite wird verworfen, der echte Zustand bleibt unberührt');
+  const f = Kern.filtereWirkungen(zb, [{ typ: 'ort_gefallen', ort: '0204', an: 'ger' }, { typ: 'ort_gefallen', ort: '0204', an: 'ger' }]);
+  ok(f.gueltig.length === 1 && f.verworfen.length === 1 && hexRom(zb), 'zweimal ort_gefallen: die zweite wird verworfen, der echte Zustand bleibt unberührt');
 }
 function hexRom(z) { return z.hexe['0204'].besitzer === 'rom'; }
 
@@ -176,6 +191,7 @@ section('4. Takt: Szenenende ohne Sprung = ein Tick, Flucht per Sprung = der ein
   ok(Array.isArray(r.ereignisse) && g.errors === 0, 'Ereignisse geliefert, keine Fehler');
   // Ereignisse landen im Ring (Pipeline wie beim Sprung)
   const gf = setup(7);
+  belagere(gf.weltsim.zustand, '0204', 'ger');
   const r2 = Kriegslage.szeneAbschliessen(gf, { wirkungen: [{ typ: 'ort_gefallen', ort: '0204', an: 'ger' }] });
   ok(r2.ereignisse.some((e) => e.typ === 'hafen_gefallen') && gf.weltsim.ereignisse.some((e) => e.typ === 'hafen_gefallen' && e.n === gf.weltsim.tickZahl), 'Ereignisse im Ring (n = Tickzähler)');
   ok(gf.weltBesitz.hexe['0204'].besitzer === 'ger' && gf.weltsim.hauptweltGefallen && gf.weltsim.hauptweltGefallen.fraktion === 'rom', 'Besitz-Overlay und Hauptwelt-Hook nach der Wirkung');
@@ -184,7 +200,7 @@ section('4. Takt: Szenenende ohne Sprung = ein Tick, Flucht per Sprung = der ein
   // Flucht per Sprung
   const f = setup(7); const w2 = f.weltsim;
   const px = freiesHex(w2.zustand);
-  w2.zustand.hexe[px].posten = true; w2.zustand.hexe[px].besitzer = 'rom'; w2.zustand.hexe[px].garnison = 3;
+  w2.zustand.hexe[px].posten = true; w2.zustand.hexe[px].besitzer = 'rom'; w2.zustand.hexe[px].garnison = 3; belagere(w2.zustand, px, 'pirat');
   const k1 = kernTicks, t1 = w2.tickZahl;
   const v = Kriegslage.wirkungenVormerken(f, [{ typ: 'ort_gefallen', ort: px, an: 'pirat' }, { typ: 'abwehr_verlust', ort: '0204', punkte: -3 }]);
   ok(v.vorgemerkt === 1 && v.verworfen.length === 1 && w2.tickZahl === t1 && kernTicks === k1, 'wirkungenVormerken: eine vorgemerkt, eine verworfen, KEIN Tick');
@@ -202,6 +218,17 @@ section('4. Takt: Szenenende ohne Sprung = ein Tick, Flucht per Sprung = der ein
   const h = setup(7); Kriegslage.wirkungenVormerken(h, [{ typ: 'flotte_verlust', flotte: romFlotte(h.weltsim.zustand).id, punkte: 0.3 }]);
   const k2 = kernTicks; Kriegslage.szeneAbschliessen(h, { wirkungen: [] });
   ok(kernTicks === k2 + 1 && h.weltsim.wirkungenAngewandt === 1 && h.weltsim.vorgemerkt.length === 0, 'Vorgemerktes + szeneAbschliessen: ein Tick, Vorgemerktes angewandt');
+
+  // Obergrenze der Vormerkung: gemeldet wird, was wirklich vorgemerkt ist; der Rest kommt als verworfen zurück
+  const m = setup(7); const rid = romFlotte(m.weltsim.zustand).id;
+  const viele = (k) => Array.from({ length: k }, () => ({ typ: 'flotte_verlust', flotte: rid, punkte: 0.01 }));
+  const v1 = Kriegslage.wirkungenVormerken(m, viele(45));
+  ok(v1.vorgemerkt === 45 && v1.verworfen.length === 0 && m.weltsim.vorgemerkt.length === 45, 'Vormerkung unter der Grenze: 45 vorgemerkt, nichts verworfen');
+  const v2 = Kriegslage.wirkungenVormerken(m, viele(20));
+  ok(v2.vorgemerkt === 5 && m.weltsim.vorgemerkt.length === 50, 'Grenze 50: von 20 neuen werden nur 5 vorgemerkt und auch so gemeldet (' + v2.vorgemerkt + ')');
+  ok(v2.verworfen.length === 15 && v2.verworfen.every((x) => x.grund && /voll/.test(x.grund) && x.wirkung.typ === 'flotte_verlust'), 'die 15 abgeschnittenen kommen als verworfen mit Grund zurück');
+  const v3 = Kriegslage.wirkungenVormerken(m, viele(3));
+  ok(v3.vorgemerkt === 0 && v3.verworfen.length === 3 && m.weltsim.vorgemerkt.length === 50, 'bei voller Vormerkung: 0 vorgemerkt, alle gemeldet verworfen');
 }
 
 section('5. Atomarität');

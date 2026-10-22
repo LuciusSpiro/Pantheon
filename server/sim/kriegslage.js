@@ -113,7 +113,7 @@ function tickMit(game, wo, nachOrt, wirkungen) {
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
-      kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen').map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }))
+      kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen' && w.kommandant).map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }))
         .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
     }
     ev = Kern.tick(ws.zustand, { wirkungen: gueltig }).ereignisse;
@@ -163,7 +163,7 @@ function szeneAbschliessen(game, { wirkungen = [], wo } = {}) {
 }
 
 // Szenenende mit Sprung (Flucht): Wirkungen für den nächsten Tick merken, das ist der Sprung-Tick (tick()), kein eigener. Geprüft wird sofort (Ablehnungen
-// kommen zurück) und beim Tick noch einmal gegen den dann gültigen Zustand. Leere Liste ändert nichts. -> { vorgemerkt: Zahl, verworfen: [{ wirkung, grund }] }
+// kommen zurück; ebenso, was wegen VORGEMERKT_MAX nicht mehr passt) und beim Tick noch einmal gegen den dann gültigen Zustand. Leere Liste ändert nichts. -> { vorgemerkt: Zahl, verworfen: [{ wirkung, grund }] }
 function wirkungenVormerken(game, wirkungen) {
   const ws = game.weltsim;
   if (!ws || !Array.isArray(wirkungen) || !wirkungen.length) return { vorgemerkt: 0, verworfen: [] };
@@ -171,8 +171,11 @@ function wirkungenVormerken(game, wirkungen) {
   const neu = wirkungen.map(klon);
   const { gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alt.concat(neu));
   const nurNeu = gueltig.filter((w) => neu.includes(w));
-  ws.vorgemerkt = alt.concat(nurNeu).slice(0, VORGEMERKT_MAX);
-  return { vorgemerkt: nurNeu.length, verworfen: verworfen.filter((v) => neu.includes(v.wirkung)) };
+  const platz = Math.max(0, VORGEMERKT_MAX - alt.length);   // mehr als VORGEMERKT_MAX passt nicht: der Rest wird verworfen UND als verworfen gemeldet
+  const behalten = nurNeu.slice(0, platz);
+  ws.vorgemerkt = alt.concat(behalten);
+  const voll = nurNeu.slice(platz).map((w) => ({ wirkung: w, grund: 'Vormerkung voll (höchstens ' + VORGEMERKT_MAX + ')' }));
+  return { vorgemerkt: behalten.length, verworfen: verworfen.filter((v) => neu.includes(v.wirkung)).concat(voll) };
 }
 
 // Platzhalter bis SUND-04 (Abspann): Merker, Meldung, Missionsereignis; das Spiel läuft weiter
