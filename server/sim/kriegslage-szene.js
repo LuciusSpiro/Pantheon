@@ -34,6 +34,7 @@ const Locations = require('../../shared/locations.js');
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
 const FEIND_VON = 'rom';   // die Crew spielt für Rom: Gegner sind alle, die zu Rom feindlich sind (ger, pirat)
+const SZENEN_TAG = 'sim_szene';   // Spawn-Tag der Gegner dieser Szene (Flotte.wellenStartAusPlan)
 const DEBUG_STAERKE_MAX = 200;   // Debug `szene <staerke>`: darüber wäre der Plan nur noch eine Last für den Server
 const r2 = (v) => Math.round(v * 100) / 100;
 const cfg = (game) => game.C.simSzene || {};
@@ -152,8 +153,9 @@ function aufraeumen(game, S) {
     if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((g) => !String(g.tag || '').startsWith('sz' + S.id + '_'));
   }
   if (game.flotte) { Flotte.beenden(game); game.flotte = null; }   // in Freie Fahrt gehört der Flottenzustand der Szene
-  // alle übrigen Gegner drehen ab und verlassen das Feld (sichtbar, höchstens ~14 s); die Rückzugsregel gilt nur für diese Gegner, nicht für spätere
-  try { Escort.retreat(game, {}); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('sim-szene-retreat', e); }
+  // die übrigen Gegner DER SZENE (Spawn-Tag SZENEN_TAG) drehen ab und verlassen das Feld (sichtbar, höchstens ~14 s); die Rückzugsregel gilt nur für diese Gegner, nicht für spätere.
+  // Gegner anderer Herkunft (z. B. der Hinterhalt eines Notrufs im selben Hex) bleiben: ihr Verschwinden würde sonst als „erledigt“ zählen (Lohn ohne Kampf, zweiter Tick).
+  try { Escort.retreat(game, { tag: SZENEN_TAG }); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('sim-szene-retreat', e); }
   game.simSzene = null;
 }
 function merken(game, S, ausgang, wirkungen, extra) {
@@ -279,7 +281,7 @@ function betreten(game, hex) {
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
   verteidigerAufstellen(game, S, L);
-  Flotte.wellenStartAusPlan(game, { plan, volk, ziel: 'auto', richtung: 'alle', tag: 'sim_szene', vorlauf: S.vorlauf, restAnteil: C.restAnteil });
+  Flotte.wellenStartAusPlan(game, { plan, volk, ziel: 'auto', richtung: 'alle', tag: SZENEN_TAG, vorlauf: S.vorlauf, restAnteil: C.restAnteil });
   try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }   // Andocken gesperrt, Dock-Marker weg
   // Vorwarnung: Funkspruch mit Stärkeklasse, Fraktion, Kommandant; Zeit bis Welle 1 steht im Text und im Hinweis (ODA)
   const klasse = (T.klassen || {})[Kern.staerkeKlasse(L.summe, z.werte)] || '';

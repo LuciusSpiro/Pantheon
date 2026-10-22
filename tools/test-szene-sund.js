@@ -692,6 +692,37 @@ section('Takt: Notruf erledigt in Freie Fahrt', () => {
   }
 });
 
+section('Notruf-Hinterhalt im selben Hex: der Szenen-Rückzug zählt nicht als „erledigt“', () => {
+  // Die heutige Falle (sl_falle) liegt in 0502, keinem Sim-Hex; hier wird sie als Kopie in einen Sim-Hex gelegt, damit Szene und Hinterhalt zusammenfallen.
+  const Notrufe = require('../server/sim/notrufe.js');
+  const orig = Notrufe.datei('sl_falle');
+  const HEX = '0505';
+  Notrufe.registriere(Object.assign(kopie(orig), { hex: HEX }));
+  try {
+    const t = neu(); const g = t.g; ab(g); g.god = true;
+    ohneFlotten(g, HEX); Notrufe.freischalten(g, 'sl_falle'); Notrufe.hinfliegen(g, 'sl_falle');
+    flotte(g, HEX, 'ger', 9);
+    ankunft(g, HEX); run(g, 1);
+    const r = Notrufe.finde(g, 'sl_falle');
+    ok(g.simSzene && r.z === Notrufe.Z.VOR_ORT, 'Szene und Notruf-Falle im selben Hex');
+    const sh = Notrufe.schiff(g, r); g.ship.x = sh.x + 100; g.ship.y = sh.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0;
+    run(g, 0.5);
+    const hinter = () => g.space.enemies.filter((e) => e.tag === 'hinterhalt');
+    ok(r.hinterhalt && hinter().length === 3, 'Hinterhalt ausgelöst: 3 Jäger mit Tag hinterhalt');
+    run(g, 21);
+    for (let i = 0; i < 300 * HZ && g.simSzene && !g.space.enemies.some((e) => e.flagg); i++) { for (const e of gegner(g)) kill(g, e); g.step(); }   // nur die Welle der Szene, der Hinterhalt bleibt
+    kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.2);
+    ok(Szene.letzte(g).ausgang === 'sieg', 'Szene gewonnen');
+    const marks0 = g.inventory.marks, t0 = ticks(g);
+    run(g, 20);
+    ok(gegner(g).length === 0 && !g.space.enemies.some((e) => e.tag === 'sim_szene'), 'die Gegner der Szene sind abgezogen (Rückzug wie bisher)');
+    ok(hinter().length === 3 && r.z === Notrufe.Z.VOR_ORT && !Notrufe.erledigt(g, 'sl_falle'), 'die Hinterhalt-Jäger des Notrufs bleiben: Notruf nicht erledigt');
+    ok(g.inventory.marks === marks0 && ticks(g) === t0, 'keine Beute ohne Kampf, kein zweiter Tick (notrufErledigt)');
+    g.space.enemies = []; run(g, 0.5);   // Hinterhalt weg (wie in test-notrufe: ohne Kopfgeld der Abschüsse)
+    ok(Notrufe.erledigt(g, 'sl_falle') && g.inventory.marks === marks0 + 60 && ticks(g) === t0 + 1, 'Hinterhalt wirklich abgewehrt: Notruf erledigt, Beute 60, ein Tick (Notruf-Ende ohne Szene)');
+  } finally { Notrufe.registriere(orig); }
+});
+
 section('Weltstand: nichts wird gespeichert, Altstände laden, Laden löst nichts aus', () => {
   const t = neu(); const g = t.g;
   const data0 = kopie(Weltstand.capture(g));
