@@ -200,6 +200,7 @@
       kreuz: {}, module: {},
       energie: { x: 266, y: py + 54, w: 154, h: 9 },
       status: { x: 62, y: py + 76, w: 400, h: 9 },
+      start: { x: 266, y: py + 64, w: 154, h: 12 },   // Szene starten (Rüstphase der Testumgebung), unter der Energiezeile
       aktionen: {
         handel: { x: 474, y: py - 4, w: KNOPF.halbW, h: KNOPF.h }, werft: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py - 4, w: KNOPF.halbW, h: KNOPF.h },
         haupt: { x: 474, y: py + 22, w: KNOPF.w, h: KNOPF.hauptH }, hinweis: { x: 474, y: py + 50, w: KNOPF.w, h: 9 },
@@ -289,7 +290,7 @@
   // k: { ort, art: 'werft'|'hafen', marken, gesperrt }
   function zeichneKopf(c, r, k) {
     const e = txtRolle(c, k.ort || '', r.x, r.y + 2, k.gesperrt ? 'warn' : 'preis', 'titel');
-    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : 'HAFEN', e + 8, r.y + 2, 'dim');
+    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : 'HAFEN', e + 8, r.y + 2, 'dim');
     const mw = txt(c, String(k.marken == null ? '' : k.marken), r.x + r.w, r.y, 'text', { scale: 2, align: 'right' });
     txt(c, 'MARKEN', r.x + r.w - tw(String(k.marken), 2) - 6, r.y + 6, 'dim', { align: 'right' }); return mw;
   }
@@ -477,6 +478,10 @@
     P.knopf(c, A.teil.x, A.teil.y, A.teil.w, A.teil.h, 'Teil', { hotkey: kappe('terminal.teil', '↑↓'), fn: 'neutral', disabled: !!te.disabled, reason: te.grund, onClick: te.onClick });
   }
   // s: { amGeraet: Farbindex 0–3 | null, zusehen: [Farbindex] }
+  // s: { text, disabled, grund, onClick } – nur in der Rüstphase der Testumgebung (Wellenmodi): „Szene starten“, Taste G
+  function zeichneStart(c, r, s) {
+    P.knopf(c, r.x, r.y, r.w, r.h, s.text, { hotkey: kappe('terminal.start', 'G'), fn: 'shield', disabled: !!s.disabled, reason: s.grund, onClick: s.onClick });
+  }
   function zeichneStatus(c, r, s) {
     let x = txt(c, 'AM GERÄT', r.x, r.y, 'dim') + 5;
     const farbe = (i) => { rect(c, x, r.y, 7, 7, FARBE.spieler[i]); x = txt(c, SPIELER_NAMEN[i], x + 10, r.y, 'text') + 8; };
@@ -506,6 +511,7 @@
     zeichneModulraeume(c, L, m.module || {});
     zeichneBereich(c, L.aktionen, m.bereichUmschalter || { bereich: m.bereich });
     zeichneAktionen(c, L.aktionen, m.aktionen || {});
+    if (m.start) zeichneStart(c, L.start, m.start);
     zeichneStatus(c, L.status, m.status || {});
     if (m.rahmenFarbe != null && FARBE.spieler[m.rahmenFarbe]) rand(c, L.anzeige.x, L.anzeige.y, L.anzeige.w, L.anzeige.h, FARBE.spieler[m.rahmenFarbe]);   // Zuschauer: 1-px-Rahmen in der Farbe des Nutzers am Gerät
     P.zeichneHilfe(c);
@@ -515,7 +521,7 @@
   window.PultTerminal = {
     TOKENS, SYMBOLE_MODUL, layout, zeichneTerminal,
     zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel,
-    zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStatus, symbolModul, symbolTeil,
+    zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStart, zeichneStatus, symbolModul, symbolTeil,
     txt, tw, umbruch, kappe, kontrast,
   };
 })();

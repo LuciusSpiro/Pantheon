@@ -41,12 +41,13 @@ const TU = win.TerminalUI;
 ok(TU && typeof TU.modell === 'function' && typeof TU.keyDown === 'function', 'TerminalUI geladen');
 
 // ---------------------------------------------------------------- Partie mit zwei Spielern, UI von Spieler 0
-function partie() {
+function partie(opt) {
   const g = new Game({ noStore: true, seed: 33, debug: true, log: () => {}, env: { MISSION_SOURCE: 'fallback' } });
   const conns = [0, 1].map((i) => { const c = { inbox: [], send(m) { this.inbox.push(m); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'U' + i, name: 'Ui' + i, color: i }); return c; });
   g.handleMessage(conns[0], { t: 'lobbyOpt', startMission: 'arena_space' });
   for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
   g.space.enemies = [];
+  if (!(opt && opt.test)) g.arena = null;   // Bühne ohne Testumgebung: Kampagnen-Verhalten (Werft nur an Flottenbasen)
   g.ship.docked = true; g.ship.dockedAt = 'castra_martis';
   g.players[0].console = 'shop';
   g.inventory.marks = 1000;
@@ -234,6 +235,27 @@ section('Review: Vorschau-Zuordnung, gesperrter Raum, Zuschauer-Modell, voll aus
   const v = T.view(0); v.state.ship.mounts.push({ id: 'constructor', typ: '__proto__' });
   let fehlerText = null; try { TU.modell(v); } catch (e) { fehlerText = e.message; }
   ok(fehlerText === null, 'Modell übersteht unbekannte Mount-Ids ' + (fehlerText || ''));
+}
+
+section('Testumgebung: Terminal in Wellen All mit Rüstphase');
+{
+  const g = new Game({ noStore: true, seed: 33, debug: true, ruestphase: true, log: () => {}, env: { MISSION_SOURCE: 'fallback' } });
+  const conns = [0, 1].map((i) => { const c = { inbox: [], send(m) { this.inbox.push(m); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'W' + i, name: 'Wa' + i, color: i }); return c; });
+  g.handleMessage(conns[0], { t: 'lobbyOpt', startMission: 'arena_space', szene: 'frei' });
+  for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+  g.players[0].console = 'shop';
+  const sicht = (i) => ({ state: JSON.parse(JSON.stringify(g.snapshot())), me: g.players[i], send(m) { g.handleMessage(conns[i], m); const ib = conns[i].inbox.splice(0); for (const e of ib) if (e.t === 'event' && /^werft/.test(e.kind)) TU.onEvent(e); }, actions: { sfx() {}, leave() {} } });
+  TU.zuruecksetzen();
+  let m = TU.modell(sicht(0));
+  ok(m.kopf.art === 'test' && m.kopf.ort === 'Lerche' && m.bereich === 'werft' && m.kopf.marken === CONFIG.werft.testmarken, 'Kopf: Testumgebung, Marken ' + m.kopf.marken);
+  ok(m.start && m.start.text === 'Szene starten' && !m.start.disabled && typeof m.start.onClick === 'function', 'Rüstphase: Knopf "Szene starten" (Taste G)');
+  ok(m.ansicht === 'platz' && m.aktionen.haupt, 'Werft ist nutzbar (kein "gesperrt")');
+  TU.zusehen({ send() {} }, true); const mz = TU.modell(sicht(1)); TU.zusehen({ send() {} }, false);
+  ok(mz.start && mz.start.disabled === true && !mz.start.onClick, 'Zuschauer: Startknopf gesperrt');
+  TU.keyDown({ code: 'KeyG' }, sicht(0));
+  ok(g.arena.wellen.ph === 'countdown', 'Taste G startet die Szene (werft.start)');
+  m = TU.modell(sicht(0));
+  ok(!m.start, 'danach kein Startknopf mehr');
 }
 
 section('Tastenbelegung (tasten.js, Gruppe terminal)');

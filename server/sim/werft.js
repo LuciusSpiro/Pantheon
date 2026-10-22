@@ -37,8 +37,12 @@ function istFlottenbasis(game, ortId) {
 }
 // Flag für einen Ort setzen (Weltsimulation, Paket 2: Flottenstützpunkte, die erst im Spiel entstehen). Wird mit den Missions-Flags gespeichert.
 function setzeFlottenbasis(game, ortId, an) { if (game.mission && game.mission.flags) game.mission.flags[FLAGGE + ortId] = an !== false; }
-// { aktiv, grund?, code? }: aktiv nur angedockt an einer Flottenbasis
+// Testumgebung (Kai 2026-10-22): Testgelände, Wellen All, Wellen Boden und Szenario-Labor (game.arena bzw. game.labor; reset() leert beide, Kampagne und freies Spiel haben sie nie).
+// Dort ist die Werft immer aktiv, auch abgedockt, und die Crew bekommt CONFIG.werft.testmarken.
+function testumgebung(game) { return !!(game.arena || game.labor); }
+// { aktiv, grund?, code? }: aktiv nur angedockt an einer Flottenbasis (Kampagne, freies Spiel) – oder in der Testumgebung überall (test: true, grund „Testumgebung“)
 function status(game) {
+  if (testumgebung(game)) return { aktiv: true, test: true, grund: 'Testumgebung' };
   if (!game.ship.docked || !game.ship.dockedAt) return { aktiv: false, code: 'nicht_angedockt', grund: 'Nicht angedockt' };
   if (!istFlottenbasis(game, game.ship.dockedAt)) return { aktiv: false, code: 'keine_flottenbasis', grund: 'Nur an Flottenbasen' };
   return { aktiv: true };
@@ -263,7 +267,7 @@ function vorschau(game, aenderung) {
 // Preise der noch nicht freigeschalteten Teile. Namen, Wirkungstexte und Energiebedarf kommen aus dem Katalog (shared/schiffskatalog.js).
 // Wer beim Ablegen am Terminal sitzen bleibt, steht auf: das Terminal gibt es nur angedockt (Block werft nie im Flug oder Kampf)
 function aufstehen(game) {
-  if (game.ship.docked) return;
+  if (game.ship.docked || testumgebung(game)) return;
   for (const p of game.players) if (p.console === 'shop') require('./interior.js').leaveConsole(game, p);
 }
 function nutzer(game) { return game.players.find((o) => o.connected && o.console === 'shop') || null; }
@@ -285,6 +289,7 @@ function snapshot(game) {
   const s = status(game);
   const f = liste(game);
   const out = { aktiv: s.aktiv, nutzer: u.color != null ? u.color : null, stufe: game.ship.stufe | 0 };
+  if (s.test) { out.test = 1; out.grund = s.grund; }   // Testumgebung: aktiv, mit Grund-Text
   const zu = game.players.filter((o) => o.connected && o.zusehen && o !== u && o.color != null).map((o) => o.color);
   if (zu.length) out.zu = zu;   // Spielerfarben der Zuschauer
   if (game.werftUi && game.werftUi.von === u.id) out.ui = { b: game.werftUi.b, a: game.werftUi.a, n: game.werftUi.n, i: game.werftUi.i };
@@ -300,6 +305,17 @@ function snapshot(game) {
   for (const t of sortiment(game)) if (!istFrei(game, t.art, t.id)) { const pr = preis(game, t.art, t.id); if (pr != null) p[t.art][t.id] = pr; }
   out.preise = p;
   return out;
+}
+
+// ---------- Szene starten (Rüstphase der Wellenmodi) ----------
+// Wellen All und Wellen Boden beginnen in der Testumgebung mit der Rüstphase (wellen.ph 'vorbereitung', Crew an Bord): wer will, baut am Terminal aus, dann startet jemand am Terminal die Szene
+// (Boden: die Crew beamt hinunter, dann läuft der Countdown). Kein Debug nötig.
+function szeneStarten(game, p) {
+  const S = game.arena && game.arena.wellen;
+  if (!S || S.ph !== 'vorbereitung') return fehler('kein_start', 'Es gibt gerade nichts zu starten (die Rüstphase läuft nur zu Beginn der Wellenmodi).');
+  require('./wellen.js').vorbereitungEnde(game);
+  game.emit('werft', { op: 'szene', pid: p ? p.id : null });
+  return null;
 }
 
 // ---------- Weltstand ----------
@@ -335,6 +351,6 @@ function debug(game, args) {
 }
 
 module.exports = {
-  istFlottenbasis, setzeFlottenbasis, status, startFrei, liste, istFrei, preis, sortiment, ableiten,
+  istFlottenbasis, setzeFlottenbasis, status, testumgebung, szeneStarten, startFrei, liste, istFrei, preis, sortiment, ableiten,
   freischalten, freischaltenPruefen, umbau, umbauPruefen, modul, modulPruefen, vorschau, snapshot, nutzer, aufstehen, ansichtSetzen, zusehenSetzen, toSave, restore, debug,
 };

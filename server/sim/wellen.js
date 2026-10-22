@@ -144,9 +144,11 @@ function start(game, o) {
     untenSeit: null, squadNr: 0, kandidaten: null, rng: makeRng(((o.seed | 0) * 2654435761 + 7) >>> 0), ergebnis: null, maxLebend: 0,
   };
   game.arena.wellen = S;
+  if (game.ruestphase) { S.ph = 'vorbereitung'; S.bis = null; }   // Rüstphase (Testumgebung): die Crew bleibt an Bord, bis am Terminal die Szene gestartet wird
   tuerenAuf(game, o.lp);
   S.kandidaten = kandidaten(game, o.lp);
-  game.oda(`Bodenkampf: Wellen auf ${o.name || o.karte} (Seed ${o.seed}). Welle 1 in ${Math.round(C.countdown)} s – sucht euch Deckung.`, null);
+  if (S.ph === 'vorbereitung') game.oda(`Bodenkampf: Wellen auf ${o.name || o.karte}. Rüstphase: am Terminal ausbauen, dann „Szene starten“ – die Crew beamt hinunter.`, null);
+  else game.oda(`Bodenkampf: Wellen auf ${o.name || o.karte} (Seed ${o.seed}). Welle 1 in ${Math.round(C.countdown)} s – sucht euch Deckung.`, null);
   game.log(`Wellen gestartet: ${o.karte} Seed ${o.seed} (${o.lp}).`);
   return S;
 }
@@ -549,7 +551,9 @@ function startAll(game, o) {
     em0: game.stats.emergencies || 0,
   };
   game.arena.wellen = S;
-  game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Ops, Captain auf Station.`, null);
+  if (game.ruestphase) { S.ph = 'vorbereitung'; S.bis = null; }
+  if (S.ph === 'vorbereitung') game.oda(`Wellen All: ${o.name || o.szene}. Rüstphase: am Terminal ausbauen, dann „Szene starten“.`, null);
+  else game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Ops, Captain auf Station.`, null);
   game.log(`Wellen All gestartet: ${o.szene} Seed ${o.seed}.`);
   return S;
 }
@@ -590,11 +594,27 @@ function ende(game, S) {
   game.log(`Wellen Ende: ${S.karte} Seed ${S.seed}, Welle ${S.n}, ${zeit} s, Abschüsse ${kills.map((k) => k[1] + ' ' + k[2]).join(', ')}.`);
 }
 
+// Ende der Rüstphase (werft.start am Terminal, Testumgebung): Boden – die Crew beamt hinunter; dann beginnt der Countdown
+function vorbereitungEnde(game) {
+  const S = st(game);
+  if (!S || S.ph !== 'vorbereitung') return false;
+  if (S.buehne === 'boden') {
+    const t = team(game);
+    for (const p of t) { if (p.console) M().interior.leaveConsole(game, p); if (p.downed) M().interior.revivePlayer(game, p); }
+    if (t.length) M().away.executeBeam(game, t.map((p) => p.id), 'down');
+  }
+  const C = cfg(game);
+  S.ph = 'countdown'; S.bis = game.time + Number(C.countdown || 0);
+  game.oda(S.buehne === 'all' ? `Welle 1 in ${Math.round(C.countdown)} s – Steuer, Ops, Captain auf Station.` : `Welle 1 in ${Math.round(C.countdown)} s – sucht euch Deckung.`, null);
+  return true;
+}
+
 function update(game, dt) {
   const S = st(game);
   if (!S || game.phase !== 'play') return;
   const C = cfg(game); const B = buehne(S);
   if (!B.bereit(game, S)) return;
+  if (S.ph === 'vorbereitung') return;   // Rüstphase: nichts läuft, bis am Terminal gestartet wird
   if (S.ph === 'ende') {
     B.endeTick(game, S);
     if (game.time >= S.bis) zurLobby(game);
@@ -637,4 +657,4 @@ function debugWelle(game, n) {
   return null;
 }
 
-module.exports = { TAG, plan, planAll, anzahl, haeuptlinge, start, startAll, update, snap, debugWelle, kandidaten, spawnPlatz, BUEHNEN, _st: st };
+module.exports = { TAG, plan, planAll, anzahl, haeuptlinge, start, startAll, vorbereitungEnde, update, snap, debugWelle, kandidaten, spawnPlatz, BUEHNEN, _st: st };

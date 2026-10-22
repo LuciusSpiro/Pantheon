@@ -296,8 +296,11 @@ function startWellen(game, karte, params) {
   game.setAwayMap(lp);
   worldFirst(game);
   const team = game.players.filter((p) => p.connected);
-  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
-  if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
+  // Rüstphase (Testumgebung, game.ruestphase): die Crew bleibt an Bord und beamt erst hinunter, wenn am Terminal „Szene starten“ gedrückt wird (wellen.vorbereitungEnde)
+  if (!game.ruestphase) {
+    for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+    if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
+  }
   const echteKarte = lp === 'kesh' ? 'kesh' : art;
   game.arena = { kind: 'arena_away', lp, wellen: null, params: url ? Object.assign({}, url) : null };
   Wellen.start(game, { karte: echteKarte, seed, lp, fraktion: (KARTEN_WELLEN[echteKarte] || K).fraktion, name: (KARTEN_WELLEN[echteKarte] || K).name });
@@ -313,7 +316,8 @@ function wellenText(game) {
   const s = require('./wellen.js').snap(game);
   if (!s) return null;
   const all = game.arena && game.arena.kind === 'arena_space';
-  return s.ph === 'countdown' ? `Welle 1 in ${s.t} s – ${all ? 'auf Station' : 'Deckung suchen'}`
+  return s.ph === 'vorbereitung' ? 'Rüstphase – am Terminal ausbauen, dann Szene starten'
+    : s.ph === 'countdown' ? `Welle 1 in ${s.t} s – ${all ? 'auf Station' : 'Deckung suchen'}`
     : s.ph === 'kampf' ? `Welle ${s.n}: Gegner ausschalten (${s.r} übrig)`
       : s.ph === 'pause' ? `Welle ${s.n} überstanden – nächste in ${s.t} s` : `Erreicht: Welle ${s.n}`;
 }

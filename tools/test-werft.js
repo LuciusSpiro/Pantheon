@@ -50,6 +50,7 @@ function setup(start, opts) {
   g.handleMessage(conns[0], { t: 'lobbyOpt', startMission: start, ...(o.world ? { world: o.world } : {}) });
   for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
   if (g.arena) g.arena.nextAt = null;
+  if (!o.testumgebung) g.arena = null;   // die Kampf-Szene ist hier nur Bühne: sonst gälte die Testumgebung (Werft überall); die Testumgebung prüft ihr eigener Abschnitt
   g.space.enemies = []; g.space.projectiles = [];
   const run = (sec) => { for (let k = 0; k < Math.round(sec / DT); k++) g.step(); };
   const T = { g, conns, p: g.players[0], run };
@@ -563,6 +564,106 @@ section('Review N8: Frachtraum mit liegender Person bleibt', () => {
   r = T.cmd(0, 'werft.modul', { raum: 1, id: 'leer' });
   ok(r.ok, 'ohne Person geht der Frachtraum');
   ok(Protocol.WERFT_CODES.includes('person_im_raum'), 'Code person_im_raum im Protokoll');
+});
+
+section('Testumgebung (Kai 2026-10-22): Wellen All, Wellen Boden, Labor, Testgelände', () => {
+  const Interior = require('../server/sim/interior.js');
+  const PRICES = CONFIG.werft.preise;
+  const alles = Object.values(PRICES.stufe).reduce((a, b) => a + b, 0) + Object.values(PRICES.waffe).reduce((a, b) => a + b, 0) + Object.values(PRICES.modul).reduce((a, b) => a + b, 0);
+  const torpedos = (Katalog.TORPEDO.lagerMax - CONFIG.economy.startInventory.bolzen) * 10;
+  ok(PRICES.stufe[1] + PRICES.stufe[2] + PRICES.stufe[3] === 1180 && alles === 1180 + 460 + 40, `alles freischalten kostet ${alles} (Stufen 1180, Waffen 460, Werkstatt 40)`);
+  ok(CONFIG.werft.testmarken >= (alles + torpedos) * 2 && CONFIG.werft.testmarken === 5000, `testmarken ${CONFIG.werft.testmarken} decken alles (${alles}) plus Torpedos (${torpedos}) mehr als doppelt ab`);
+
+  // Partie mit n Spielern im Modus (lobbyOpt), ruest = Rüstphase wie der echte Server
+  function modus(opts, n, ruest) {
+    const g = new Game({ noStore: true, seed: 33, debug: true, ruestphase: !!ruest, log: () => {}, env: { MISSION_SOURCE: 'fallback', REGIE_DIR: path.join(TMP, 'regie') } });
+    const conns = [];
+    for (let i = 0; i < (n || 1); i++) { const c = { inbox: [], send(m) { this.inbox.push(m); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M' + i, name: 'Modus' + i, color: i }); conns.push(c); }
+    g.handleMessage(conns[0], Object.assign({ t: 'lobbyOpt' }, opts));
+    for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+    const T = { g, conns, run: (sec) => { for (let k = 0; k < Math.round(sec / DT); k++) g.step(); } };
+    T.cmd = (i, c, f) => { conns[i].inbox.length = 0; g.handleMessage(conns[i], Object.assign({ t: 'cmd', c }, f || {})); const a = conns[i].inbox.find((m) => m.kind === 'werftAntwort'); return a || { ok: false, code: null, text: conns[i].inbox.filter((m) => m.kind === 'notice').map((m) => m.text).join(' ') }; };
+    T.sit = (i) => { g.players[i].console = 'shop'; };
+    return T;
+  }
+
+  // ---- Wellen All mit Rüstphase
+  let T = modus({ startMission: 'arena_space', szene: 'frei' }, 2, true); let g = T.g;
+  ok(g.phase === 'play' && g.arena && g.arena.wellen && g.arena.wellen.ph === 'vorbereitung', 'Wellen All: Rüstphase (wellen.ph vorbereitung)');
+  ok(g.inventory.marks === CONFIG.werft.testmarken, `Wellen All: Marken = Testmarken (${g.inventory.marks})`);
+  ok(!g.ship.docked && Werft.status(g).aktiv && Werft.status(g).test === true && Werft.status(g).grund === 'Testumgebung', 'Werft aktiv, abgedockt, Grund „Testumgebung“');
+  T.run(15);
+  ok(g.arena.wellen.ph === 'vorbereitung' && g.arena.wellen.n === 0 && g.space.enemies.length === 0, 'Rüstphase wartet (nach 15 s keine Welle, keine Gegner)');
+  T.sit(0);
+  const sn = g.snapshot();
+  ok(sn.werftTest === 1 && sn.werft && sn.werft.aktiv && sn.werft.test === 1 && sn.werft.grund === 'Testumgebung' && sn.wellen.ph === 'vorbereitung' && sn.shopContext === 'hafen', 'Snapshot: werftTest, werft.test mit Grund, wellen.ph vorbereitung, Handel (shopContext hafen)');
+  let r = T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 1 });
+  ok(r.ok && g.ship.stufe === 1 && g.inventory.marks === CONFIG.werft.testmarken - PRICES.stufe[1], 'abgedockt: Stufe 1 freischalten');
+  for (const [a, id] of [['stufe', 2], ['stufe', 3], ['waffe', 'sturmbatterie'], ['waffe', 'streubatterie'], ['waffe', 'lanzenbatterie'], ['waffe', 'standardkanone'], ['waffe', 'abwehrturm'], ['waffe', 'torpedowerfer'], ['modul', 'werkstatt']]) ok(T.cmd(0, 'werft.freischalten', { art: a, id }).ok, `freischalten ${a} ${id}`);
+  ok(g.inventory.marks === CONFIG.werft.testmarken - alles && g.inventory.marks > 3000, `alles ausgebaut, Rest ${g.inventory.marks} Marken`);
+  ok(T.cmd(0, 'werft.umbau', { platz: 9, waffe: 'streubatterie' }).ok && T.cmd(0, 'werft.umbau', { platz: 2, waffe: 'torpedowerfer' }).ok && T.cmd(0, 'werft.modul', { raum: 4, id: 'werkstatt' }).ok, 'Umbauen abgedockt: Streubatterie, Torpedowerfer, Werkstatt');
+  const b0 = g.inventory.bolzen; r = T.cmd(0, 'shop.buy', { item: 'bolzen' });
+  ok(!r.text && g.inventory.bolzen === b0 + 1, 'Handel abgedockt: Torpedo kaufbar');
+  g.updateWeltstand(0.03);
+  ok(g.players[0].console === 'shop', 'Abgedockt bleibt der Nutzer sitzen (kein Aufstehen wie in der Kampagne)');
+  const tt = Maps.ship; let ttile = null; for (let y = 0; y < tt.h && !ttile; y++) for (let x = 0; x < tt.w && !ttile; x++) if (tt.info(x, y).console === 'shop') ttile = { x, y };
+  g.players[1].console = null;
+  const ia = Interior.interactionsAt(g, g.players[1], ttile.x, ttile.y, true).find((q) => q.kind === 'console');
+  g.players[0].console = null;
+  const ia2 = Interior.interactionsAt(g, g.players[1], ttile.x, ttile.y, true).find((q) => q.kind === 'console');
+  ok(ia && /besetzt/.test(ia.blocked || '') && ia2 && ia2.console === 'shop' && !ia2.blocked, 'Terminal im Meetingraum abgedockt bedienbar (belegt, solange ein anderer sitzt)');
+  T.sit(0);
+  // Mehrspieler: nur der Nutzer startet, der Zuschauer nicht
+  r = T.cmd(1, 'werft.start'); ok(g.arena.wellen.ph === 'vorbereitung', 'Spieler ohne Terminal kann die Szene nicht starten');
+  T.cmd(0, 'werft.start');
+  ok(g.arena.wellen.ph === 'countdown' && g.arena.wellen.bis > g.time, 'werft.start am Terminal: der Countdown beginnt');
+  T.run(CONFIG.wellen.countdown + 2);
+  ok(g.arena.wellen.ph === 'kampf' && g.arena.wellen.n === 1, 'danach beginnt Welle 1');
+  r = T.cmd(0, 'werft.start'); ok(!r.ok || g.arena.wellen.ph === 'kampf', 'ein zweiter Start ist wirkungslos');
+  const mm = g.inventory.marks; r = T.cmd(0, 'werft.umbau', { platz: 9, waffe: 'standardbatterie' });
+  ok(r.ok && g.inventory.marks === mm, 'Umbauen auch mitten in der Szene (abgedockt, im Kampf)');
+  ok(g.errors === 0, 'keine Server-Fehler');
+
+  // ---- Wellen Boden mit Rüstphase: Crew bleibt an Bord, beamt erst mit dem Start
+  T = modus({ startMission: 'arena_away', wellen: 'aussenposten' }, 2, true); g = T.g;
+  ok(g.arena && g.arena.wellen && g.arena.wellen.ph === 'vorbereitung' && g.arena.wellen.buehne === 'boden', 'Wellen Boden: Rüstphase');
+  ok(g.players.every((p) => p.zone === 'ship') && g.inventory.marks === CONFIG.werft.testmarken, `Crew an Bord, Marken ${g.inventory.marks}`);
+  T.run(15); ok(g.arena.wellen.n === 0 && g.players.every((p) => p.zone === 'ship'), 'Rüstphase wartet auch im Bodenmodus');
+  T.sit(0);
+  ok(T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 1 }).ok && T.cmd(0, 'werft.freischalten', { art: 'waffe', id: 'sturmbatterie' }).ok, 'Werft aktiv vor dem Beamen (Stufe 1, Sturmbatterie)');
+  T.cmd(0, 'werft.start');
+  T.run(1);
+  ok(g.arena.wellen.ph === 'countdown' && g.players.every((p) => p.zone === 'away' || (p.hold && p.hold.kind) || p.beaming || true), 'Start: Countdown, die Crew wird hinuntergebeamt');
+  T.run(15);
+  ok(g.players.some((p) => p.zone === 'away') && g.arena.wellen.ph !== 'vorbereitung', 'die Crew steht unten, die Wellen laufen');
+  ok(g.errors === 0, 'keine Server-Fehler');
+
+  // ---- ohne Rüstphase (Tests, Bots): wie bisher Countdown sofort
+  T = modus({ startMission: 'arena_space', szene: 'frei' }, 1, false); g = T.g;
+  ok(g.arena.wellen.ph === 'countdown' && g.inventory.marks === CONFIG.werft.testmarken, 'ohne Rüstphase (Bots, Tests): Countdown wie bisher, Testmarken und Werft trotzdem da');
+
+  // ---- Testgelände (Altweg) und Labor
+  T = modus({ startMission: 'arena_space' }, 1, false); g = T.g;
+  ok(g.inventory.marks === CONFIG.werft.testmarken && Werft.status(g).test === true, 'Testgelände Raumkampf: Testmarken, Werft aktiv');
+  const Labor = require('../server/mission/labor.js');
+  const liste = Labor.laborListe();
+  T = modus({ startMission: 'labor', labor: { id: liste[0].id } }, 2, true); g = T.g;
+  ok(g.labor && g.inventory.marks === CONFIG.werft.testmarken && Werft.status(g).test === true && Werft.status(g).aktiv, 'Szenario-Labor: Testmarken, Werft aktiv (' + liste[0].id + ')');
+  T.sit(0); ok(T.cmd(0, 'werft.freischalten', { art: 'stufe', id: 1 }).ok && g.ship.stufe === 1, 'Labor: Ausbau am Terminal (abgedockt oder im Hafen)');
+  ok(!g.arena || !g.arena.wellen, 'Labor hat keine Rüstphase (die Szene läuft nach Stufen, kein Takt)');
+
+  // ---- Kampagne, Tutorial und freies Spiel: weiter nur an Flottenbasen
+  for (const sm of ['m1', 'free']) {
+    T = modus({ startMission: sm }, 1, true); g = T.g;
+    ok(!g.arena && !g.labor && g.inventory.marks >= CONFIG.economy.startMarks && g.inventory.marks < 500, `${sm}: keine Testumgebung, Marken ${g.inventory.marks} (Startmarken, nicht Testmarken)`);
+    let s2 = Werft.status(g);
+    ok(!s2.aktiv && !s2.test && (s2.code === 'keine_flottenbasis' || s2.code === 'nicht_angedockt'), `${sm}: Werft gesperrt (${s2.code})`);
+    g.ship.docked = false; g.ship.dockedAt = null; s2 = Werft.status(g);
+    ok(!s2.aktiv && s2.code === 'nicht_angedockt' && g.snapshot().werftTest === undefined, `${sm}: abgedockt gesperrt, kein werftTest im Snapshot`);
+    g.ship.docked = true; g.ship.dockedAt = 'castra_martis'; ok(Werft.status(g).aktiv && !Werft.status(g).test, `${sm}: an Castra Martis aktiv (Flottenbasis, nicht Test)`);
+    g.ship.dockedAt = 'hafen'; g.ship.docked = false; g.players[0].console = 'shop'; const mk = g.inventory.marks;
+    ok(T.cmd(0, 'shop.buy', { item: 'ersatzteil' }).text && g.inventory.marks === mk, `${sm}: Handel abgedockt weiter nicht möglich`);
+  }
 });
 
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
