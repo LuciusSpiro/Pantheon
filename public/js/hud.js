@@ -1095,6 +1095,9 @@
     drawNotices(ctx, view, y0, max) {
       const now = performance.now() / 1000;
       let y = y0 == null ? 96 + this.sitzVersatz(view) : y0;
+      // N1: die verschobene Lagefunk-Tafel kann (4 Zeilen + „+n im Funk-Reiter“) länger sein als der Abstand zum Hinweis: der Hinweis steht darunter
+      const lf = y0 == null && this.sitzVersatz(view) > 0 ? this.radioAktuell() : null;
+      if (lf && lf.lage) y = Math.max(y, LAGEFUNK_Y + this.sitzVersatz(view) + this.funkTafelHoehe(lf, null) + 4);
       let all = this.notices.slice();
       if (R.uiDenied && performance.now() - R.uiDenied.t < 1800) all.push({ text: R.uiDenied.text, color: PAL.warn, t: R.uiDenied.t / 1000 });
       if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
