@@ -182,7 +182,7 @@
     b.hotkey = kappe(opts.hotkey, opts.aktion) || null;
     K.knopf(c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);
     R.ui.buttons.push(b);
-    if (hit(b) && b.disabled && b.reason) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y };
+    if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y };
     return b;
   }
   // R.button während fn durch den Skin-Knopf ersetzen (eingebettete Ansichten)

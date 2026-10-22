@@ -1687,6 +1687,43 @@
       if (info.reason) { this.denied(info.reason); return; }
       this.cmd(view, 'weapons.fire', { mount: m.id });
     },
+    // Waffe ohne Ladepunkte und ohne gespeicherte Ladung (neu bestückt oder leergeschossen): bedienen geht nicht, bis sie einen Ladepunkt hat
+    keinePunkte(view, m) {
+      const info = this.mountInfo(view, m.id);
+      return !!info.reason && /^Keine Ladepunkte/.test(info.reason);
+    },
+    // Mausklick auf eine Waffenzelle (Pult und altes Interface), gleichwertig zu den Tasten: wählt die Waffe (Q/E) und bedient sie (feuern, Lanze laden); hat sie keine
+    // Ladepunkte, gibt der Klick ihr den ersten (wie A/D: +1) statt eines Fehlertons; ist das nicht möglich, steht der Grund da
+    mountKlick(view, m) {
+      const w = waffeVonMount(m);
+      if (!w) return;
+      const i = this.energieMounts(view).findIndex((q) => m && q.id === m.id);
+      if (i >= 0) this.sel.mount = i;
+      if (i >= 0 && this.keinePunkte(view, m)) {
+        const g = this.allocGrund ? this.allocGrund(view, i, 1) : null;
+        if (g) { this.denied(g); return; }
+        this.cmd(view, 'weapons.alloc', { mount: m.id, delta: 1 });
+        return;
+      }
+      this.waffeBedienen(view, m, 'mouse');
+    },
+    // Rechtsklick und Mausrad auf einer Waffenzelle: Ladepunkt −1 bzw. +1 (wie A/D) auf der angeklickten Waffe; true = verbraucht
+    punktAmZiel(view, x, y, delta) {
+      const z = (this.waffenZellen || []).find((q) => this.inRect(x, y, q));
+      if (!z) return false;
+      const m = (view.state.ship.mounts || []).find((q) => q.id === z.id);
+      const i = this.energieMounts(view).findIndex((q) => m && q.id === m.id);
+      if (!m || i < 0) return true;
+      this.sel.mount = i;
+      const g = this.allocGrund ? this.allocGrund(view, i, delta) : null;
+      if (g) { this.denied(g); return true; }
+      this.cmd(view, 'weapons.alloc', { mount: m.id, delta });
+      return true;
+    },
+    rad(x, y, dy, view) {
+      if (this.stationOf(view.me) !== 'weapons' || !dy) return false;
+      return this.punktAmZiel(view, x, y, dy < 0 ? 1 : -1);
+    },
     tscanReason(view) {
       const st = view.state, ship = st.ship || {};
       const tg = this.targetOf(view);
@@ -2016,13 +2053,13 @@
         const sysSt = m.state || 'ok';
         const col = stt.kind === 'aus' ? PAL.red : stt.kind === 'halten' ? R.BURST_COL : !info.reason || stt.kind === 'bereit' ? PAL.mint : PAL.panelLight;
         const label = w ? w.kurz : m.id;
-        const onPress = () => { if (!isTorp && !isLanze) { const i = em.indexOf(m); if (i >= 0) this.sel.mount = i; } this.waffeBedienen(view, m, 'mouse'); };
+        const onPress = () => this.mountKlick(view, m);   // wie das Pult: ohne Ladepunkte gibt der Klick den ersten
         const plusR = isTorp ? 'Der Torpedowerfer braucht keine Ladepunkte' : al >= amax ? 'Maximum (' + amax + ')' : used >= cp ? (cp ? 'Alle Ladepunkte verteilt – erst anderswo abziehen' : 'Keine Waffenenergie (Technik)') : null;
         const minusR = isTorp ? 'Der Torpedowerfer braucht keine Ladepunkte' : al <= 0 ? 'Keine Punkte auf dieser Waffe' : null;
         const pick = () => { const i = em.indexOf(m); if (i >= 0) this.sel.mount = i; };
         if (compact) {
           if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(rx - 2, y - 1, rw + 3, 13); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx - 1.5, y - 0.5, rw + 2, 12); }
-          R.button(ctx, rx, y, 68, 11, label, { hotkey: String(platz), disabled: !!info.reason, reason: info.reason, active: stt.kind === 'halten', onClick: onPress });
+          R.button(ctx, rx, y, 68, 11, label, { hotkey: String(platz), disabled: !!info.reason && !this.keinePunkte(view, m), reason: info.reason, active: stt.kind === 'halten', onClick: onPress });
           R.bar(ctx, rx + 72, y + 3, 22, 4, ch, ch >= 1 ? PAL.mint : PAL.amber);
           R.text(ctx, stt.text === 'Magazin voll' ? 'Magazin' : stt.text, rx + 98, y + 2, { color: col });   // Abnahme 12: bis zu den Ladepunkten (rx + 140) ist nur Platz für ≈ 7 Zeichen
           if (isTorp) R.text(ctx, n(m.ammo) + '/' + (SCH ? SCH.TORPEDO.lagerMax : 12), rx + rw, y + 2, { color: n(m.ammo) > 0 ? PAL.brass : PAL.red, align: 'right' });
@@ -2036,7 +2073,7 @@
           continue;
         }
         if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(rx - 2, y - 1, rw + 3, 26); ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1; ctx.strokeRect(rx - 1.5, y - 0.5, rw + 2, 25); }
-        R.button(ctx, rx, y, 76, 12, label, { hotkey: String(platz), disabled: !!info.reason, reason: info.reason, active: stt.kind === 'halten', onClick: onPress });
+        R.button(ctx, rx, y, 76, 12, label, { hotkey: String(platz), disabled: !!info.reason && !this.keinePunkte(view, m), reason: info.reason, active: stt.kind === 'halten', onClick: onPress });
         R.bar(ctx, rx + 80, y + 4, 36, 5, ch, ch >= 1 ? PAL.mint : PAL.amber);
         R.text(ctx, stt.text, rx + 120, y + 2, { color: col });
         if (sysSt !== 'ok' || R.fragileOf(view.state, MOUNT_SYS[m.id])) R.stateBadge(ctx, rx + rw - 34, y + 1, 34, 10, sysSt, R.fragileOf(view.state, MOUNT_SYS[m.id]));
@@ -3091,6 +3128,7 @@
       const c = this.stationOf(view.me);
       button = button || 0;
       if (c === 'weapons') {
+        if (button === 2 && this.punktAmZiel(view, x, y, -1)) return true;   // Rechtsklick auf eine Waffenzelle: Ladepunkt −1
         const mp = this.maps.weapons;
         if (!mp || !this.inRect(x, y, (this.mapRects && this.mapRects.weapons) || { x: 10, y: 26, w: 404, h: 292 })) return false;
         if (button === 2) {

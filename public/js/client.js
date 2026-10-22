@@ -2097,6 +2097,7 @@
     const p = toCanvas(e);
     const SZ = window.Sitz && Sitz.station ? Sitz : null;   // UI-Sitz (E2): Rad wechselt den Blick
     if (SZ && SZ.blick !== 'pult') { if (SZ.rad(e.deltaY, false)) e.preventDefault(); return; }
+    { const m2 = me(); if (m2 && m2.console === 'weapons' && Client.view && Net.guard('Consoles.rad', () => K.rad(p.x, p.y, e.deltaY, Client.view), false)) { e.preventDefault(); return; } }   // Ops: Mausrad über einer Waffenzelle = Ladepunkt +1/−1
     if (!KA) return;
     const used = KA.rad(p.x, p.y, e.deltaY * (e.deltaMode === 1 ? 33 : 1));
     if (used) e.preventDefault();

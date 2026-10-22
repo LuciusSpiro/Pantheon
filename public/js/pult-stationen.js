@@ -192,6 +192,7 @@
       let x = 62, cw = 212;
       let y = P.titel(ctx, x, y0, cw, 'WAFFEN · ZIFFERNBLOCK', 'weapon');
       const zw = Math.floor((cw - 8) / 3), zh = 24;
+      this.waffenZellen = [];   // Klickflächen der Energiewaffen für Rechtsklick und Mausrad (Consoles.punktAmZiel)
       const amax = m3('allocMax', 4);
       const em = this.energieMounts(view), selM = this.selMount(view);
       const lagerMax = (SCH.TORPEDO && SCH.TORPEDO.lagerMax) || 12;
@@ -202,6 +203,9 @@
         if (!m || !w) {   // PAN-01 B: Plätze, die die Ausbaustufe noch nicht öffnet, stehen als „gesperrt“ (mit Stufe) statt „frei“ da
           const SM = window.Shared_Maps, pl = SM && SM.waffenplatz ? SM.waffenplatz(platz) : null, zu = !!pl && n(ship.st) < pl.stufe;
           P.zelle(ctx, zx, zy, zw, zh, String(platz), zu ? 'gesperrt' : 'frei', zu ? 'Stufe ' + pl.stufe : PLATZ_SEITE[platz], 'weapon', 'leer', 0, { aktion: PLATZ_AKTION[platz] });
+          // leerer oder noch gesperrter Platz: ein Klick sagt warum (Hinweis, kein Fehlerton); bestückt wird am Werft-Terminal
+          const grundLeer = zu ? 'Platz ' + platz + ': gesperrt · Ausbaustufe ' + pl.stufe + ' nötig (Werft-Terminal)' : 'Platz ' + platz + ': keine Waffe eingebaut (Werft-Terminal)';
+          R.ui.buttons.push({ x: zx, y: zy, w: zw, h: zh, label: 'Platz ' + platz, disabled: false, onClick: () => { view.actions.sfx('ui_click'); H.pushNotice(grundLeer, PAL.panelLight); } });
           continue;
         }
         const stt = this.mountStatus(view, m), info = stt.info;
@@ -210,8 +214,9 @@
         const iE = em.indexOf(m);
         const zustand = stt.kind === 'halten' ? 'hold' : info.reason && !(ch >= 1 && /außerhalb|Kein Ziel/.test(info.reason)) ? 'off' : (selM && selM.id === m.id ? 'sel' : 'normal');
         const sub = isTorp ? n(m.ammo) + '/' + lagerMax + (stt.kind === 'laedt' ? ' ' + n(m.cd) + 's' : stt.kind === 'bereit' ? '' : ' leer') : stt.text;
-        const onClick = () => { if (iE >= 0) this.sel.mount = iE; this.waffeBedienen(view, m, 'mouse'); };
-        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, aktion: PLATZ_AKTION[platz], rechts: 8 });
+        const onClick = () => this.mountKlick(view, m);   // Klick = Taste: wählen und bedienen, ohne Ladepunkte gibt er den ersten
+        if (iE >= 0) this.waffenZellen.push({ x: zx, y: zy, w: zw, h: zh, id: m.id });
+        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, klickbar: true, aktion: PLATZ_AKTION[platz], rechts: 8 });
         // Symbol der Waffe rechts, darüber die Ladepunkte der Energiewaffe als Pünktchen (der Torpedowerfer hat keine)
         if (UI) UI.drawWaffe(ctx, w.id, zx + zw - 7, zy + 13, { color: zustand === 'off' ? K.dim : P.mix(K.ink, P.FN.weapon, 0.12) });
         if (!isTorp) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 15 + k * 3, zy + zh - 4, 2, 2); }   // Ladepunkte unten rechts, damit sie keinen Namen überdecken
@@ -224,7 +229,7 @@
         const batReady = salven.some((mm) => !this.mountInfo(view, mm.id).reason);
         P.knopf(ctx, x, y, 70, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
         T(ctx, 'PUNKTE ' + used + '/' + cp, x + 78, y + 1, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
-        T(ctx, 'Q/E wählen · A/D verteilen', x + 78, y + 9, K.dim);
+        T(ctx, 'Q/E · A/D · Rad/Rechtsklick: Punkte', x + 78, y + 9, K.dim);
       }
       // ---- SENSOREN
       x = 282; cw = 112;
