@@ -2290,6 +2290,7 @@
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung (Freie Fahrt Sund) über der Konsole
       } else if (window.TerminalUI && TerminalUI.zusehend) {   // PAN-01 D2: Zuschauer am besetzten Terminal (rein lesend)
         K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
+        Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung auch für Zuschauer am Terminal (sonst gehen die Pflichtmeldungen verloren)
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
