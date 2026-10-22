@@ -370,20 +370,19 @@
     return ort;
   }
   // SUND-01 G: Höhenbilanz der rechten Spalte (Reihenfolge der Blöcke: Ortsinfo, Meldeliste, Sprungknopf und Sprung, Legende). Die Meldeliste hat Vorrang vor Sprungblock
-  // und Legende: mindestens MS.meldung.min Zeilen (bei mehr Meldungen plus „+n weitere“) sind reserviert; was darüber frei bleibt, bekommt die Liste bis MS.meldung.max.
+  // und Legende: mindestens MS.meldung.min Zeilen (bei mehr Meldungen plus „+n weitere“) sind reserviert. SUND-02a C: die Liste bekommt bis MS.meldung.max Zeilen, die Legende weicht dafür (voll, kompakt, einzeilig), danach der Sprunghinweis.
   // o: { y (Oberkante der Meldeliste), unten (Unterkante der Spalte), rw, sprungBasis (Knopf, SPRUNG, Ziel, Balken, ggf. Sprungpunkt; ohne Grundzeilen), grundZ (Zeilen des Sprunghinweises) }
-  // -> { maxZeilen (Meldezeilen ohne „+n weitere“), grundZ (Hinweiszeilen), kompakt (Legende auf zwei Zeilen), legZ (Zeilen der Legende), frei, passt }
+  // -> { maxZeilen (Meldezeilen ohne „+n weitere“), grundZ (Hinweiszeilen), kompakt (false | true = Legende auf zwei Zeilen | 'eins' = eine Zeile), legZ (Zeilen der Legende), frei, passt }
   function spaltenPlan(A, o) {
     const MS = M.spalte, z = MS.meldung.zeile, n = listenZeilen(A).length;
     const mn = Math.min(Math.max(n, 1), MS.meldung.min), minH = 12 + mn * z + (n > mn ? z : 0);
     // Reihenfolge der Zugeständnisse: erst die Legende auf zwei Zeilen verdichten (sie bleibt in jeder Lage sichtbar), dann den Sprunghinweis auf eine Zeile
-    const stufen = [{ kompakt: false, grundZ: o.grundZ }, { kompakt: true, grundZ: o.grundZ }, { kompakt: true, grundZ: Math.min(1, o.grundZ) }];
-    let wahl = stufen[stufen.length - 1], frei = 0, passt = false;
-    for (const st of stufen) {
-      frei = o.unten - o.y - (o.sprungBasis + st.grundZ * 10) - (legendeZeilen(o.rw, st.kompakt) * 12 + 4) - 4;
-      wahl = st;
-      if (frei >= minH) { passt = true; break; }
-    }
+    const stufen = [{ kompakt: false, grundZ: o.grundZ }, { kompakt: true, grundZ: o.grundZ }, { kompakt: 'eins', grundZ: o.grundZ }, { kompakt: 'eins', grundZ: Math.min(1, o.grundZ) }];
+    const freiBei = (st) => o.unten - o.y - (o.sprungBasis + st.grundZ * 10) - (legendeZeilen(o.rw, st.kompakt) * 12 + 4) - 4;
+    const wunsch = 12 + Math.min(n, MS.meldung.max) * z + (n > MS.meldung.max ? z : 0);   // SUND-02a C: erst die Stufe, in der die Liste ihre Wunschhöhe (bis max Zeilen) bekommt, sonst die erste, die das Minimum hält
+    let wahl = stufen.find((st) => freiBei(st) >= wunsch), passt = true;
+    if (!wahl) { wahl = stufen.find((st) => freiBei(st) >= minH); if (!wahl) { wahl = stufen[stufen.length - 1]; passt = false; } }
+    const frei = freiBei(wahl);
     const avail = Math.max(1, Math.floor((frei - 12) / z)), want = Math.min(n, MS.meldung.max);
     return { maxZeilen: want + (n > want ? 1 : 0) <= avail ? want : Math.max(1, avail - 1), grundZ: wahl.grundZ, kompakt: wahl.kompakt, legZ: legendeZeilen(o.rw, wahl.kompakt), frei, passt };
   }
@@ -449,7 +448,7 @@
   function legendeLayout(w, kompakt) {
     const out = [], eng = w < 190 || !!kompakt, gap = kompakt ? 4 : eng ? 6 : 8;   // schmale Spalte (Pult, 144 px): kurzer Text, Abstand 6 (SUND-01 F: bei 2 klebte der Text an der nächsten Plakette), vier bis fünf Zeilen
     let x = 0, zeile = 0;
-    for (const e of legendeEintraege(eng, kompakt)) {
+    for (const e of legendeEintraege(eng, kompakt).slice(0, kompakt === 'eins' ? 3 : 99)) {   // SUND-02a C: 'eins' = nur die drei Wissensstufen (je Plakette ohne Phasenfeld) in einer Zeile
       if (x > 0 && x + e.breite > w) { zeile++; x = 0; }
       out.push({ e, x, zeile }); x += e.breite + gap;
     }
