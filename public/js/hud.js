@@ -8,6 +8,7 @@
   const PROTO = window.Shared_Protocol || {};
   const PAL = R.PAL;
   const TILE = 32, VW = 640, VH = 360;
+  const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
 
   // M3a, PAN-01 B: alle 13 Systeme (+ Altname weapons = schlechteste der drei Waffen); die Lebenserhaltung ist gestrichen
   const SYS_NAMES = {
@@ -87,6 +88,7 @@
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
+    radioNach: null,   // SUND-02a C: zurückgestellter Funkspruch, solange eine Lagemeldung läuft
     showCrew: false,
 
     // ---------------------------------------------------------------- Meldungen
@@ -111,12 +113,16 @@
       const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now };
       const cur = this.radioAktuell();
       if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + 1; f.t0 = cur.t0 || cur.t; }
+      // SUND-02a C: Ein normaler Funkspruch verdrängt eine laufende Lagemeldung nicht: er wird zurückgestellt (der neueste) und danach eingeblendet
+      if (!lage && cur && cur.lage) { this.radioNach = f; return; }
       this.radioFlash = f;
     },
     radioAktuell() {
       const now = performance.now() / 1000, cur = this.radioFlash;
-      if (!cur) return null;
-      return now - cur.t < 6 && !(cur.lage && now - (cur.t0 || cur.t) >= 7) ? cur : null;
+      if (cur && now - cur.t < 6 && !(cur.lage && now - (cur.t0 || cur.t) >= 7)) return cur;
+      const nach = this.radioNach;   // Lagemeldung abgelaufen: der zurückgestellte Funkspruch beginnt jetzt seine 6 s
+      if (nach) { this.radioNach = null; nach.t = now; nach.t0 = now; this.radioFlash = nach; return nach; }
+      return null;
     },
     // EK4: Funkporträt (legat) bzw. Symbol (mars, kein Gesicht) in einem Feld w×w bei (x, y); ohne Kennung nichts (false)
     drawFunkBild(ctx, pid, x, y, w) {
@@ -956,11 +962,13 @@
     },
 
     // SUND-01 C: Lagefunk an der Konsole: die Konsole deckt den HUD-Bereich, deshalb zeichnet client.js dieses Feld nach der Konsole darüber (6 s, roter Streifen)
+    // SUND-02a C: Das Feld sitzt unter dem Konsolen-/Terminal-Kopf (LAGEFUNK_Y statt 6/16: dort lag es über Ort, Marken und Bereichsname) und läuft auch
+    // weiter, wenn ein normaler Funkspruch ansteht (an der Konsole steht der Funkspruch nicht im HUD, die Lagemeldung ginge sonst verloren).
     drawLagefunk(ctx, view) {
       const f = this.radioAktuell();
-      if (!f || !f.lage || !view.me || !view.me.console || (view.state.mission && view.state.mission.radio)) return;
+      if (!f || !f.lage || !view.me || !view.me.console) return;
       if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) return;   // SUND-01 F: im offenen Funk-Reiter steht der Lagefunk dort selbst (das Feld überdeckte ihn)
-      this.drawRadio(ctx, view, false);
+      this.zeichneFunkTafel(ctx, view, f, null, LAGEFUNK_Y);
     },
 
     drawRadio(ctx, view, compact) {
@@ -977,12 +985,20 @@
         R.text(ctx, label, VW / 2, 4, { color: PAL.amber, align: 'center' });
         return;
       }
+      const oy = view.me && view.me.console && /[?&]debug=1(&|$)/.test((typeof location !== 'undefined' && location.search) || '') ? 16 : 6;   // SUND-01 F: an der Konsole liegt im Debug-Modus die FPS-Zeile oben (y 1–11), das Panel rückt
+      const ende = this.zeichneFunkTafel(ctx, view, r, radio, oy);
+      // SUND-02a C: Eine laufende Lagemeldung geht nicht verloren, wenn ein normaler Funkspruch ansteht: sie steht darunter (r ist dann der Funkspruch)
+      if (radio && flash && flash.lage) return this.zeichneFunkTafel(ctx, view, flash, null, ende + 4);
+      return ende;   // S2: Unterkante (Schützling-Zeile darunter)
+    },
+
+    // Funktafel (Funkspruch oder Lagemeldung r) bei y = oy; radio = der Missions-Funkspruch (null für die Lagemeldung). -> Unterkante
+    zeichneFunkTafel(ctx, view, r, radio, oy) {
       const x = 204, w = 228;
       const pw = r.pid ? 28 : 0;   // EK4: Funkporträt / Symbol
       const lines = R.wrap(r.text || '', w - 12 - pw, 1).slice(0, 4);
       const mehrZ = !radio && r.mehr > 0 ? 1 : 0;   // SUND-01 F: „+n im Funk-Reiter“
       const h = Math.max(pw ? 16 + 24 : 0, 16 + (lines.length + mehrZ) * 10 + (radio && radio.needsAccept ? 11 : 2));
-      const oy = view.me && view.me.console && /[?&]debug=1(&|$)/.test((typeof location !== 'undefined' && location.search) || '') ? 16 : 6;   // SUND-01 F: an der Konsole liegt im Debug-Modus die FPS-Zeile oben (y 1–11), das Panel rückt darunter
       R.panel(ctx, x, oy, w, h, { style: 'brass' });
       if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, oy, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
       R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, oy + 4, { color: PAL.amber });
@@ -994,7 +1010,7 @@
         const blink = Math.floor(view.time * 2) % 2 === 0;
         R.text(ctx, '> Captain-Konsole: annehmen', x + 6 + pw, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
-      return oy + h;   // S2: Unterkante (Schützling-Zeile darunter)
+      return oy + h;
     },
 
     drawOda(ctx, view, top) {
