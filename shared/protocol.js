@@ -171,7 +171,7 @@
     KONVOI_AUSGAENGE: ['gepluendert', 'aufgehalten', 'entkommen'],
     // ---- EK4 (CONTRACT-EK4): Flotte. Snapshot space.escorts[] enthält zusätzlich Verbündete (al: 1, kind korvette|fregatte|kreuzer|raider, bis CONFIG.flotte.max);
     // Snapshot flotte (fehlt ohne Flotte): { b?: { a: Befehlsart, st: 0 läuft|1 erfüllt|2 gescheitert|3 abgebrochen, r?: Rest-Frist s, k?, n? (Abschüsse), i?, w?: [[x, y, ok]], rad?, s?: Schiff-ID, g?: Grund },
-    // wl?: [Welle, von, druck?] }. Funkspruch (Ereignis radio und mission.radio) trägt pid: 'legat' | 'mars' (Porträt bzw. Symbol).
+    // wl?: [Welle, von, druck?], sz?: Szenenzeile (nur Freie Fahrt Sund, nur während einer Sim-Szene und 6 s danach: { p: 'v' Vorwarnung|'k' Kampf|'f' Finale|'s' Sieg|'n' Niederlage, v?: [Restsekunden, Vorwarnzeit], f?: 'ger'|'pirat', k?: Stärkeklasse 1–3, g?: lebende Gegner, kd?: Kommandant (≤ 24, nur Finale), o?: Ort (nur Sieg/Niederlage mit Ort) } }; Gegner im Snapshot: fg: 1 = Flaggschiff der Sim-Szene. Funkspruch (Ereignis radio und mission.radio) trägt pid: 'legat' | 'mars' (Porträt bzw. Symbol).
     // Ereignisse: flotteBefehl { id, art, st, grund?, frist? }, flotteWegpunkt { id, i, n }, flotteWelle { n, von }, flotteDruck { n }, flotteNeustart {},
     // flotteGedaechtnis { art }, flotteFehlt { tag }, flotteNachschub { art, rest }, allyDistress { id, tag, kritisch? }, allyLost { id, tag, name, x, y, kapsel },
     // allyEintritt { id, tag, name, x, y, dauer } (Sprungblitz). Snapshot flotte.nq = wartender Nachschub; Verbündete im Snapshot: state/befehl/distress fehlen = ok/null/false, ein: 1 beim Einblenden.

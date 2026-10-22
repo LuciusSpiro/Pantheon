@@ -47,7 +47,15 @@ function texte() {
   return texteCache;
 }
 const fmt = (t, v) => Flotte.fmt(t, v);
-function funk(game, text) { if (text) Flotte.funk(game, { name: texte().sprecher || 'Aufklärung' }, text); }
+// SUND-02a Client-Runde M1: Szenenfunk läuft über den Lagefunk-Pfad (lage: 1 wie bei Kriegslage-Wissen): an jeder Konsole (Lagefunk-Tafel), im Funk-Reiter des
+// Captains (KarteLage.funkMerken) und im Logbuch. Die normale Funk-Einblendung zeigt an Konsolen nur Missionsfunk mit Annahme, deshalb sah dort niemand die Szene.
+function funk(game, text) {
+  if (!text) return;
+  const von = texte().sprecher || 'Aufklärung';
+  game.emit('radio', { from: von, text: String(text), lage: 1 });
+  try { if (game.explore) game.explore.addLog(String(text), game.ship.scene, null); } catch (e) { if (game.countError) game.countError('sim-szene-log', e); }
+}
+const ENDE_ANZEIGE = 6;   // s: Ergebniszeile „SIEG · …“/„NIEDERLAGE · …“ in der Szenenzeile nach dem Ende (Client-Runde M2)
 
 // ---------- Lage: was die Sim im Hex hat ----------
 const nachStaerke = (a, b) => b.staerke - a.staerke || a.id - b.id;
@@ -176,8 +184,10 @@ function sieg(game, S) {
   const T = texte();
   const text = kd ? fmt(((T.sieg || {})[schicksal]), { kommandant: kd.name }) : (T.sieg || {}).ohneKommandant;
   aufraeumen(game, S);
-  funk(game, text);
+  game.simSzeneEnde = { bis: game.time + ENDE_ANZEIGE, szene: game.ship.scene, p: 's', o: S.ort ? S.ortName : null };
+  // Reihenfolge: die zuletzt gesendete Lagemeldung steht an der Konsole obenauf (Rest: „+n im Funk-Reiter“); die mit dem Kommandanten soll oben stehen
   if (S.ort) funk(game, fmt((T.sieg || {}).ort, { ort: S.ortName }));
+  funk(game, text);
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene' });
   merken(game, S, 'sieg', wirk, { schicksal, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
@@ -190,8 +200,9 @@ function niederlage(game, S, grund) {
   const gefallen = wirk.some((x) => x.typ === 'ort_gefallen');
   const T = texte();
   aufraeumen(game, S);
-  funk(game, (T.niederlage || {})[grund]);
+  game.simSzeneEnde = { bis: game.time + ENDE_ANZEIGE, szene: game.ship.scene, p: 'n', o: gefallen ? S.ortName : null };
   funk(game, gefallen ? fmt((T.niederlage || {}).ort, { ort: S.ortName }) : (T.niederlage || {}).frei);
+  funk(game, (T.niederlage || {})[grund]);
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene' });
   merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
@@ -274,9 +285,10 @@ function betreten(game, hex) {
   if (!plan.wellen.length) return null;
   const C = cfg(game); const T = texte();
   game.simSzeneN = (game.simSzeneN || 0) + 1;
+  game.simSzeneEnde = null;
   const loc = Locations.get(game.ship.scene);
   const S = { id: game.simSzeneN, hex, ort: L.ort, ortName: Sektoren.hexName(hex) || (loc && loc.name) || hex, szene: game.ship.scene, phase: 'vorwarnung',
-    fraktion: L.fraktion, angreifer: L.angreifer, summe: L.summe, seed, plan, kommandant: kd, kills: {}, killPunkte: 0, flaggGefallen: false,
+    klasse: Kern.staerkeKlasse(L.summe, z.werte), fraktion: L.fraktion, angreifer: L.angreifer, summe: L.summe, seed, plan, kommandant: kd, kills: {}, killPunkte: 0, flaggGefallen: false,
     t0: game.time, vorlauf: Number(C.vorwarnung) || 0, erinnern: (C.vorwarnungErinnerung || []).slice().sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false };
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
@@ -288,10 +300,11 @@ function betreten(game, hex) {
   const fr = (T.fraktionen || {})[L.fraktion] || {};
   const vars = { ort: S.ortName, klasse, flotte: fr.flotte || 'Flotte', kommandant: kd ? kd.name : '', sek: Math.round(S.vorlauf) };
   const vw = T.vorwarnung || {};
-  funk(game, fmt(kd ? (L.ort ? vw.ort : vw.frei) : vw.ohneKommandant, vars));
-  if (kd && ws.kommandanten && ws.kommandanten[kd.name] && ws.kommandanten[kd.name].schicksal === 'entkommen') funk(game, fmt(vw.entkommen, vars));
-  if (L.fraktion === 'pirat') game.oda(vw.pirat, null);
+  // Reihenfolge (M1): Verteidiger, Hinweis „entkommen“, zuletzt die Vorwarnung mit Fraktion, Stärke und Kommandant – sie steht an der Konsole obenauf
   if (S.vert.n0 > 0) funk(game, fmt((T.verteidiger || {})[L.ort || 'frei'], { ort: S.ortName, n: S.vert.n0 }));
+  if (kd && ws.kommandanten && ws.kommandanten[kd.name] && ws.kommandanten[kd.name].schicksal === 'entkommen') funk(game, fmt(vw.entkommen, vars));
+  funk(game, fmt(kd ? (L.ort ? vw.ort : vw.frei) : vw.ohneKommandant, vars));
+  if (L.fraktion === 'pirat') game.oda(vw.pirat, null);
   game.oda(fmt(vw.hinweis, vars), null);
   return S;
 }
@@ -318,7 +331,12 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   if (S.vert.lebend > 0) S.emBasis = game.stats.emergencies || 0;
   if ((game.stats.emergencies || 0) >= S.emBasis + Math.max(1, Number(C.notfallBisNiederlage) || 1)) { niederlage(game, S, 'lerche'); return; }
   if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0) {   // Verteidiger erschöpft: Gnadenfrist, danach ist der Ort verloren
-    if (S.vert.erschT == null) { S.vert.erschT = game.time; funk(game, fmt(T.gnade, { sek: Math.round(Number(C.erschoepfungGnade) || 0), ort: S.ortName })); }
+    // ohne laufende Belagerung (durchziehende Flotte) kann der Ort nicht fallen (ort_gefallen verlangt sie): dann ohne „verloren“ (Client-Runde GRNDS.)
+    if (S.vert.erschT == null) {
+      S.vert.erschT = game.time;
+      const kannFallen = Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gefallen', ort: S.hex, an: S.fraktion }).ok;
+      funk(game, fmt(kannFallen ? T.gnade : (T.gnadeOhneBelagerung || T.gnade), { sek: Math.round(Number(C.erschoepfungGnade) || 0), ort: S.ortName }));
+    }
     else if (game.time - S.vert.erschT >= (Number(C.erschoepfungGnade) || 0)) { niederlage(game, S, 'verteidigung'); return; }
   }
 }
@@ -341,6 +359,24 @@ function ereignis(game, name, data) {
 }
 
 const letzte = (game) => game.simSzeneLetzte || null;
+
+// ---------- Snapshot: Szenenzeile (Client-Runde M2) ----------
+// -> null | { p: 'v'|'k'|'f'|'s'|'n', v?: [Restsekunden, Vorwarnzeit], f?: Fraktion, k?: Klasse 1..3, g?: lebende Gegner, kd?: Kommandant (≤ 24), o?: Ort }
+// Nur während einer Szene und die ersten ENDE_ANZEIGE s nach Sieg/Niederlage. Phase v Vorwarnung, k Kampf, f Finale, s Sieg, n Niederlage. Die Welle k/n der Zeile steht
+// schon in flotte.wl; kd nur im Finale (Kommandant gekürzt), o nur am Ende (Ort, der hält bzw. fällt).
+const kurz = (t, n) => { const x = String(t || ''); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+function snapshot(game) {
+  const S = game.simSzene;
+  if (S && S.phase !== 'ende') {
+    if (S.phase === 'vorwarnung') return { p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse };
+    const w = game.flotte && game.flotte.welle;
+    const g = w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0;
+    return S.finale ? Object.assign({ p: 'f', g }, S.kommandant ? { kd: kurz(S.kommandant.name, 24) } : {}) : { p: 'k', g };
+  }
+  const E = game.simSzeneEnde;
+  if (E && game.time < E.bis && E.szene === game.ship.scene) return Object.assign({ p: E.p }, E.o ? { o: kurz(E.o, 24) } : {});
+  return null;
+}
 
 // ---------- Debug: szene [staerke] [ger|pirat] [belagerung] – setzt im Hex der Lerche eine Flotte der Sim und löst die Szene aus ----------
 function debug(game, args) {
@@ -367,4 +403,4 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-module.exports = { betreten, update, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
+module.exports = { betreten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };

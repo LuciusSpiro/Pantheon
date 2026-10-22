@@ -109,7 +109,7 @@ const ohne = (g, hex) => { const z = g.weltsim.zustand; z.flotten = z.flotten.fi
   ok(g.weltsim.kommandanten && Object.keys(g.weltsim.kommandanten).length === 1, 'Kommandant im Gedächtnis (' + Object.keys(g.weltsim.kommandanten) + ')');
   ok(fl1.befehl === 'rueckzug' || fl1.befehl === 'heim', 'Piratenflotte bricht ab');
   await sleep(1500);
-  ok(a.snaps.length > 0 && !snap().flotte, 'nach dem Ende kein flotte-Feld mehr im Snapshot');
+  ok(a.snaps.length > 0 && snap().flotte && snap().flotte.sz && snap().flotte.sz.p === 's' && Object.keys(snap().flotte).join() === 'sz', 'nach dem Ende nur noch die Ergebniszeile flotte.sz (Sieg) im Snapshot, sonst nichts');
 
   // ---------- Misserfolg ----------
   console.log('\nMisserfolg: Ostia Nova belagert (Germanen 17), die Lerche unterliegt');

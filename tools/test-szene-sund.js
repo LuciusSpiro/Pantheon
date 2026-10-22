@@ -774,6 +774,116 @@ section('Mehrspieler: Crew 3, eine Szene für alle, Wirkungen nur einmal', () =>
   ok(t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && /Feindkontakt/.test(m.text)).length === 1, 'der Funkspruch kam genau einmal');
   ok(g.errors === 0, 'keine Fehler');
 });
+section('Client-Runde M1: Szenenfunk läuft über den Lagefunk-Pfad (Konsolen, Funk-Reiter, Logbuch)', () => {
+  const t = neu(); const g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  const ev = () => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio');
+  const logN = g.explore.log.length;
+  ankunft(g, OSTIA);
+  const e = ev();
+  ok(e.length >= 2 && e.every((m) => m.lage), 'alle Funksprüche der Szene tragen die Lagefunk-Kennung (lage), ' + e.length + ' Stück');
+  const letzter = e[e.length - 1];
+  ok(/Feindkontakt/.test(letzter.text) && letzter.text.includes(g.simSzene.kommandant.name), 'der letzte (an der Konsole obenauf stehende) Funkspruch ist die Vorwarnung mit Fraktion, Stärke und Kommandant: „' + letzter.text.slice(0, 70) + '…“');
+  ok(g.explore.log.length > logN && g.explore.log.slice(logN).some((l) => /Feindkontakt/.test(l.text) && l.loc === g.ship.scene), 'die Vorwarnung steht im Logbuch (explore.log)');
+  // Finale mit Flaggschiff und Sieg
+  bisFlaggschiff(g, 300);
+  ok(ev().some((m) => m.lage && /greift mit dem Flaggschiff ein/.test(m.text) && m.text.includes(g.simSzene.kommandant.name)), 'Finale: „… greift mit dem Flaggschiff ein!“ als Lagefunk, mit dem Namen des Kommandanten');
+  const n0 = ev().length;
+  kill(g, g.space.enemies.find((x) => x.flagg)); run(g, 0.2);
+  const neue = ev().slice(n0);
+  ok(neue.length >= 2 && neue.every((m) => m.lage), 'Sieg: Funk als Lagefunk (' + neue.map((m) => m.text).join(' | ').slice(0, 100) + ')');
+  const kd = neue.findIndex((m) => m.text.includes(g.simSzene ? '' : Szene.letzte(g) && Szene.letzte(g).wirkungen.find((x) => x.typ === 'flaggschiff_gefallen').kommandant.name));
+  ok(kd > 0 && /hält\./.test(neue[0].text), 'Sieg: erst „… hält.“, dann der Spruch zum Kommandanten (Name erreicht die Crew); danach höchstens Meldungen der Weltsimulation');
+  ok(g.errors === 0, 'keine Fehler');
+  // Niederlage
+  const t2 = neu(); const g2 = t2.g; ab(g2);
+  ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g2, OSTIA); run(g2, 21);
+  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5);
+  const nl = t2.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage).map((m) => m.text);
+  ok(nl.some((s) => /ist verloren/.test(s)) && nl.some((s) => /Lerche ist angeschlagen/.test(s)), 'Niederlage als Lagefunk');
+});
+
+section('Client-Runde M2: Szenenzeile im Snapshot (flotte.sz) und Messung', () => {
+  const t = neu(); const g = t.g; ab(g);
+  ok(!g.snapshot().flotte || !g.snapshot().flotte.sz, 'ohne Szene kein Feld sz');
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  run(g, 5);
+  let s = g.snapshot().flotte;
+  ok(s && s.sz && s.sz.p === 'v' && s.sz.f === 'ger' && s.sz.k === 3 && Array.isArray(s.sz.v) && s.sz.v[1] === 20 && s.sz.v[0] >= 14 && s.sz.v[0] <= 16, 'Vorwarnung: Phase v, Fraktion ger, Klasse 3, Restsekunden ' + JSON.stringify(s && s.sz && s.sz.v) + ' von 20');
+  ok(s.wl && s.wl[0] === 0 && s.wl[1] === 3 && s.sz.kd === undefined, 'Welle 0/3 kommt aus dem vorhandenen flotte.wl, kein Kommandant in der Vorwarnung');
+  const mess = (o) => Buffer.byteLength(JSON.stringify(o));
+  ok(mess(s.sz) <= 60, 'sz in der Vorwarnung: ' + mess(s.sz) + ' B');
+  run(g, 16);
+  s = g.snapshot().flotte;
+  ok(s.sz.p === 'k' && s.sz.g > 0 && s.sz.v === undefined && s.sz.f === undefined, 'Kampf: Phase k, Zahl der Gegner ' + s.sz.g + ', Vorwarnfelder weg');
+  ok(s.sz.g === gegner(g).length, 'g = lebende Gegner der Welle');
+  bisFlaggschiff(g, 300);
+  run(g, 0.5);
+  s = g.snapshot().flotte;
+  ok(s.sz.p === 'f' && s.sz.kd === g.simSzene.kommandant.name.slice(0, 24) && s.sz.kd.length <= 24, 'Finale: Phase f mit Kommandant (höchstens 24 Zeichen): ' + s.sz.kd);
+  ok(g.space.enemies.some((e) => e.flagg) && g.snapshot().space.enemies.filter((e) => e.fg === 1).length === 1, 'das Flaggschiff trägt fg im Snapshot (genau eines)');
+  const dauer = mess(g.snapshot());
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3);
+  s = g.snapshot().flotte;
+  ok(s && s.sz && s.sz.p === 's' && s.sz.o === 'Ostia Nova', 'Sieg: sz.p s, Ort Ostia Nova (6 s lang)');
+  ok(s.wl === undefined && s.b === undefined, 'nach dem Ende gibt es sonst nichts im flotte-Block');
+  run(g, 5); ok(g.snapshot().flotte && g.snapshot().flotte.sz, 'nach 5 s noch da');
+  run(g, 1.5); ok(!(g.snapshot().flotte && g.snapshot().flotte.sz), 'nach 6,5 s weg');
+  console.log('       Snapshot im Finale: ' + dauer + ' B');
+  // Niederlage mit Ort
+  const t2 = neu(); const g2 = t2.g; ab(g2);
+  ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g2, OSTIA); run(g2, 21);
+  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5);
+  const s2 = g2.snapshot().flotte;
+  ok(s2 && s2.sz && s2.sz.p === 'n' && s2.sz.o === 'Ostia Nova', 'Niederlage: sz.p n mit Ort');
+  // Szenenwechsel beendet die Ergebnisanzeige (kein Nachhall in einem anderen Hex)
+  const t3 = neu(); const g3 = t3.g; ab(g3);
+  ohneFlotten(g3, OSTIA); flotte(g3, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g3, OSTIA); run(g3, 21); bisFlaggschiff(g3, 300); kill(g3, g3.space.enemies.find((e) => e.flagg)); run(g3, 0.3);
+  ok(g3.snapshot().flotte && g3.snapshot().flotte.sz, 'Ergebnis steht');
+  ankunft(g3, '0205');
+  ok(!(g3.snapshot().flotte && g3.snapshot().flotte.sz), 'anderes Hex: keine Ergebniszeile des alten Hexes');
+  // Kampagne: nie
+  const tk = neu({ start: 'free' }); ok(!tk.g.snapshot().flotte, 'Kampagne: kein flotte-Block, kein sz');
+  ok(g.errors === 0 && g2.errors === 0, 'keine Fehler');
+});
+
+section('Client-Runde S2: Alarm Rot nur während der Szene (reine Darstellung)', () => {
+  const t = neu(); const g = t.g; ab(g);
+  run(g, 1);
+  ok(g.snapshot().ship.alert === 'normal', 'vor der Szene Alarm Grün');
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA); run(g, 1);
+  ok(g.space.enemies.length === 0 && g.snapshot().ship.alert === 'red', 'Vorwarnung (noch keine Gegner): Alarm Rot');
+  ok(!g.space.alarm || !g.space.alarm.aktiv, 'der Raum-Alarm (Gegner-KI, Minen, Einsprung) bleibt aus: reine Darstellung');
+  run(g, 20); bisFlaggschiff(g, 300); kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.5);
+  g.space.enemies = []; run(g, 1);
+  ok(!g.simSzene && g.snapshot().ship.alert === 'normal', 'nach der Szene wieder Alarm Grün');
+});
+
+section('Client-Runde GRNDS.: Gnadenfrist-Meldung ohne Belagerung ohne „verloren“', () => {
+  const durchzug = (f) => { f.befehl = 'rueckzug'; f.ziel = f.heimat; return f; };
+  let t = neu(); let g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); durchzug(flotte(g, OSTIA, 'ger', 3));
+  ankunft(g, OSTIA); run(g, 21);
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  run(g, 0.3);
+  const f1 = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio').map((m) => m.text).filter((s) => /Die letzten Verteidiger/.test(s));
+  ok(f1.length === 1 && !/verloren/.test(f1[0]) && /sonst bricht die Linie/.test(f1[0]), 'durchziehende Flotte: Gnadenfrist ohne „… verloren“: „' + f1[0] + '“');
+  t = neu(); g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA); run(g, 21);
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  run(g, 0.3);
+  const f2 = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio').map((m) => m.text).filter((s) => /Die letzten Verteidiger/.test(s));
+  ok(f2.length === 1 && /sonst ist Ostia Nova verloren/.test(f2[0]), 'mit Belagerung: wie bisher „sonst ist Ostia Nova verloren!“');
+});
+
 
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 console.log(`\n${n} Prüfungen, ${fails} Fehler`);

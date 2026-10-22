@@ -58,6 +58,7 @@
     "frei": "Die Schlacht ist verloren, der Feind bleibt Herr des Sektors."
   },
   "gnade": "Die letzten Verteidiger sind gefallen – das Flaggschiff muss in {sek} s fallen, sonst ist {ort} verloren!",
+  "gnadeOhneBelagerung": "Die letzten Verteidiger sind gefallen – das Flaggschiff muss in {sek} s fallen, sonst bricht die Linie zusammen!",
   "abbruch": "Die Crew bricht ab.",
   "ohneKommandant": "Der Flottenführer"
 }

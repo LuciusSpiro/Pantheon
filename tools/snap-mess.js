@@ -324,9 +324,26 @@ function freieFahrt(S, seed) {
       messen(S, sn);
     }
   }
+  // SUND-02a Client-Runde M2: Sim-Szene im Hafen (Debug szene 40 ger belagerung, bis 12 Schiffe, Vorwarnung, Wellen, Finale): flotte.sz, flotte.wl und fg stehen im Snapshot
+  const SimSzene = require('../server/sim/kriegslage-szene.js');
+  let szeneMax = 0, szeneSz = 0, szeneTicks = 0;
+  space.enterScene(g, 'vulcania', {});
+  g.ship.docked = false; g.ship.dockedAt = null; g.space.enemies = [];
+  SimSzene.debug(g, ['40', 'ger', 'belagerung']);
+  const phasen = new Set();
+  for (let k = 0; k < Math.round(60 * CONFIG.tickHz) && g.simSzene; k++) {
+    g.ship.hull = 100;
+    g.step();
+    if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
+    g.sentLageKey = null;   // Worst Case: der Block world.lage steht im selben Snapshot
+    const sn = g.snapshot();
+    const sz = sn.flotte && sn.flotte.sz;
+    if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
+    messen(S, sn);
+  }
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax };
+  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
 }
 
 // ---------- Lauf ----------
@@ -371,7 +388,7 @@ console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
-console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, Snapshot mit Block max ${l.lageSnapshotMax} B)${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const alleOk = res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
 ${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);

@@ -1646,6 +1646,9 @@ class Game {
     const downSys = Object.values(s.systems).some((v) => v === 'broken' || v === 'offline');
     if (s.fireList.length || s.breachList.length || downSys || s.reactorCtl.state === 'offline') level = 'yellow';
     if (this.space.enemies.some((e) => e.kind !== 'relay') || s.hull < 40 || s.o2 < 50) level = 'red';
+    // SUND-02a Client-Runde S2: Alarm Rot für die Dauer einer Sim-Szene, auch in der Vorwarnung. Die Stufe ist reine Darstellung (Sirene, Raumlicht, Pult); sie kommt vor jedem
+    // Tick neu aus dem Zustand, endet also mit der Szene von selbst. Nicht zu verwechseln mit dem Raum-Alarm (server/sim/alarm.js: Gegner-KI, Minen), der hier unberührt bleibt.
+    if (this.simSzene && this.simSzene.phase !== 'ende') level = 'red';
     if (level !== s.alert) {
       s.alert = level;
       this.emit('alarm', { level });
@@ -1838,6 +1841,7 @@ class Game {
         // M3b §3: vx, vy, state (SERVER-FLIGHT)
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
         if (e.volk && e.volk !== ((C.kennung || {}).gegner || 'ger')) o.vk = e.volk;   // Kennung (Volk, space.volkFuer): fehlt = CONFIG.kennung.gegner bzw. Klasse ohne Kennung
+        if (e.flagg) o.fg = 1;   // SUND-02a Client-Runde S1: Flaggschiff der Sim-Szene (Randpfeil in der Frontsicht); nur dort gesetzt
         if (e.st) o.st = e.st;   // B1 §7/§9: 'treibt' = kampfunfähiges Feindschiff (entern.js, liegt in space.treibend)
         if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)
         if (e.pat) { const pr = Alarm.patrouillenSnap(this, e); if (pr != null) o.pat = pr; }   // EK2: Patrouille, Wert = wirksamer Sensorkreis (px)
@@ -1993,7 +1997,7 @@ class Game {
       ...((gp) => (gp ? { gp } : {}))(this.gespraech ? Gespraech.snapshot(this) : null),   // SL2: laufendes Gespräch (nur währenddessen)
       ...((nr) => (nr ? { nr } : {}))(Notrufe.snapshot(this)),   // SL8: offene Notrufe (Fokus mit Details), nur wenn vorhanden
       ...((en) => (en ? { en } : {}))(Entschl.snapshot(this)),   // SL5: Signal entschlüsseln (nur wenn ein Signal anliegt)
-      ...((fl) => (fl ? { flotte: fl } : {}))(this.flotte ? Flotte.snapshot(this) : null),   // EK4: Befehl und Welle (fehlt ohne Flotte)
+      ...((fl) => (fl ? { flotte: fl } : {}))(((fb, sz) => (sz ? Object.assign(fb || {}, { sz }) : fb))(this.flotte ? Flotte.snapshot(this) : null, this.weltsim ? SimSzene.snapshot(this) : null)),   // EK4: Befehl und Welle (fehlt ohne Flotte); SUND-02a: sz = Szenenzeile (nur Freie Fahrt Sund, nur während/kurz nach einer Sim-Szene)
       away: {
         map: aw.map, active: aw.active,
         // W1 AP1: Kampf v2 ohne revealed (Leser: time < away.sensorUntil) und alive (droneSnap sendet nur alive:false)
