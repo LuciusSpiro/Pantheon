@@ -55,14 +55,31 @@ function arena() {
   return T;
 }
 
-section('Frachtbetten im Grundriss', () => {
-  ok(Array.isArray(Maps.CARGO_BEDS) && Maps.CARGO_BEDS.length === 2, 'zwei Frachtbetten');
+section('Frachtbetten im Grundriss (PAN-01 B: zwei je Modulraum)', () => {
+  ok(Array.isArray(Maps.CARGO_BEDS) && Maps.CARGO_BEDS.length === 8, 'acht Frachtbetten (zwei je Modulraum)');
   for (const b of Maps.CARGO_BEDS) {
     const r = Maps.roomAt(b.x, b.y);
-    ok(Maps.ship.at(b.x, b.y) === 'l' && Maps.ship.solid(b.x, b.y) && r && r.id === 'frachtraum', `${b.id} im Frachtraum, solide`);
+    ok(Maps.ship.at(b.x, b.y) === 'r' && Maps.ship.solid(b.x, b.y) && r && r.kind === 'modul' && r.modul === b.raum, `${b.id} in Modulraum ${b.raum}, solide`);
     ok(!Maps.ship.solid(b.access.x, b.access.y), `${b.id}: Zugangskachel begehbar`);
   }
-  ok(Maps.CARGO_CAPACITY === 2, 'Kapazität bleibt 2 (Personen und Waren teilen sich die Plätze)');
+  ok(Maps.cargoCapacity([1]) === 2 && Maps.frachtPlaetze([1]).beds.length === 2, 'Kapazität 2 je Frachtraum (Personen und Waren teilen sich die Plätze), zwei Betten je Frachtraum');
+});
+
+section('Mehrere Frachträume: Personen und Betten', () => {
+  const T = arena();
+  const Modul = require('../server/sim/module.js');
+  require('../server/sim/ausbau.js').setStufe(T.g, 2);
+  T.g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 3, an: true, lauf: true }, { id: 'krankenstation', raum: 2, an: true, lauf: true }];
+  Modul.verteilungSetzen(T.g);
+  ok(Fracht.capacity(T.g) === 4 && PB.bettFrei(T.g) === 0, 'zwei Frachträume: Kapazität 4, erstes Bett frei');
+  for (const [id, n] of [['a', 'Anna'], ['b', 'Bernd'], ['c', 'Carla'], ['d', 'Dirk']]) ok(PB.personAnBordLegen(T.g, id, n), `${n} an Bord`);
+  ok(!PB.personAnBordLegen(T.g, 'e', 'Egon') && PB.bettFrei(T.g) === -1, 'fünfte Person abgelehnt, kein Bett frei');
+  const figs = T.g.snapshot().ship.npcs.filter((q) => q.lie === 1);
+  const beds = Maps.frachtPlaetze([1, 3]).beds;
+  ok(figs.length === 4 && beds.every((b) => figs.some((f) => Math.floor(f.x / 32) === b.x && Math.floor(f.y / 32) === b.y)), 'vier liegende Figuren auf den vier Betten beider Frachträume (Räume 1 und 3)');
+  ok(T.g.snapshot().fracht.pers.map((p) => p.b).join() === '0,1,4,5', 'Snapshot fracht.pers: Betten 0, 1 (Raum 1) und 4, 5 (Raum 3), an die Raumnummer gebunden');
+  PB.personAbgeben(T.g, 'b');
+  ok(PB.bettFrei(T.g) === 1 && Fracht.frei(T.g) === 1, 'Bett 1 wird frei, ein Platz frei');
 });
 
 section('Person an Bord: Platz, Bett, Snapshot', () => {

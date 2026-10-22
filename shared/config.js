@@ -26,7 +26,8 @@
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
     breach: { hullPerSec: 0.5, o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },
-    o2: { max: 100, drainLifeBroken: 1, regen: 2, suffocateDps: 2 },
+    // PAN-01 B: Die Lebenserhaltung ist als Station gestrichen (AP10 ruht); O2 sinkt nur durch Lecks.
+    o2: { max: 100, regen: 2, suffocateDps: 2 },
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
     hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.45, systemCooldown: 10, spill: 0.4 },   // M3a: 0.35/12 -> 0.45/10 (spill ersetzt durch spaceM3-Gewichte)
@@ -43,8 +44,39 @@
       // jede folgende Welle löste das nächste aus (Kaskade). Jetzt +18 Hülle je Pause; in Missionen schneller zurück auf 70.
       hullRegen: 1.5, hullRegenMax: 70,   // ohne Gegner und Lecks flicken die Schrauber die Außenhaut (pro s, bis max)
     },
+    // PAN-01 A: Reaktor 8. Energieposten sind die drei Hauptsysteme (Antrieb, Schilde, Waffen; mehr ist mehr) und die aktiven Bordmodule
+    // (je 1, siehe `module`). default = Standardverteilung der Hauptsysteme bei 2 Modulen (6 Energie); andere Modulzahlen: module.standard.
     power: { reactor: 8, reactorDamaged: 6, reactorBroken: 3, maxPerSystem: 4, heatAt4: 8, heatCool: 4, heatLimit: 100,
-      default: { engines: 2, shields: 2, weapons: 2, life: 2 } },
+      default: { engines: 2, shields: 2, weapons: 2 } },
+    // PAN-01 A: Bordmodule (server/sim/module.js). Ein Modul steht in einem Modulraum (1..max), ist an oder aus und zieht als aktives Modul je `energie`.
+    // ids: alle Modularten; start: Bestückung der Start-Lerche (Raum-Nr. 1..4; Raum 3 und 4 gibt es erst mit dem Umbau, Paket B). Gleiche Module dürfen
+    // mehrfach stehen. kuerzen: Reihenfolge, in der Module bei Energiemangel abgeschaltet werden (zuerst die Werkstatt, zuletzt die Krankenstation).
+    // standard: Hauptsysteme [Antrieb, Schilde, Waffen] je freier Energie (Reaktor minus aktive Module); Erkundung PAN-01: 6 -> 2/2/2, 4 -> 1/2/1.
+    // krankenstation.holNach: s, nach denen eine aktive Krankenstation jeden Ausgeschalteten (verwundet/bewusstlos) per Notrückholung holt;
+    // ohne aktive Krankenstation gilt die alte Regel (awayCombat.wounded). notrueckholung: Folge für den Transfer.
+    // fracht.verlustJeTreffer: Ladungen, die sich bei einem Hüllentreffer lösen, solange der Frachtraum ungesichert ist (Modul aus).
+    module: { max: 4, energie: 1, ids: ['frachtraum', 'krankenstation', 'werkstatt'],
+      codes: { frachtraum: 'f', krankenstation: 'k', werkstatt: 'w' },
+      start: [{ id: 'frachtraum', raum: 1 }, { id: 'krankenstation', raum: 2 }],
+      kuerzen: ['werkstatt', 'frachtraum', 'krankenstation'],
+      standard: { 8: [3, 3, 2], 7: [2, 3, 2], 6: [2, 2, 2], 5: [2, 2, 1], 4: [1, 2, 1] },
+      krankenstation: { holNach: 10 },
+      notrueckholung: { transferZustand: 'broken' },   // jede Notrückholung sprengt den Transfer (ok|damaged|broken), Reparatur über die drei Wege
+      fracht: { verlustJeTreffer: 1 } },
+    // PAN-01 D: Werft einer Flottenbasis (server/sim/werft.js). Freischalten kostet einmalig Marken (Ausbaustufe der Reihe nach, Waffentyp, Modul), Umbauen ist gratis.
+    // Die Start-Lerche besitzt Stufe 0, Lanze, Standardbatterie, Frachtraum und Krankenstation. Preise gemessen an der Kette (tools/messung-kette-marken.js ->
+    // tools/fixtures/werft-kette-marken.json, CONTRACT-PAN01-D §4): Castra Martis liegt auf dem Weg Statio Limitis - Ferraria - Tiberis - Castra Martis, die Kapitel 2 bis 5 ergeben
+    // dort 320 (Crew 3 nach Kapitel 2) bis 600 Marken; Stufe 1 + 2 (280) sind in der Kampagne ohne Grind bezahlbar, dazu kommen bis Kapitel 5 zwei wichtige Waffen.
+    // Stufe 3 (900) gehört ins freie Spiel (Kai): Stufe 1 + 2 + 3 = 1180 liegen über dem höchsten gemessenen Stand am Ende von Kapitel 6. ruf: optionales Rang-Feld je Ausbaustufe
+    // (Paket 2, Standard keine Bedingung, keine Anzeige).
+    werft: {
+      preise: {
+        stufe: { 1: 100, 2: 180, 3: 900 },
+        waffe: { standardkanone: 40, sturmbatterie: 60, streubatterie: 70, abwehrturm: 70, torpedowerfer: 100, lanzenbatterie: 120 },
+        modul: { werkstatt: 40 },
+      },
+      ruf: { stufe: {} },
+    },
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
@@ -52,8 +84,7 @@
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
-      bolzen: { arc: 60, facing: 180, range: 650, damage: 5, speed: 400, magazine: 2, reloadTime: 4 },
-      seitenturm: { arc: 120, facing: 90, range: 450, damage: 1, charge: 1.5 },
+      // PAN-01 C: Bolzenwerfer und Seitenturm (Zusatzrohre) sind im Waffenkatalog aufgegangen (shared/schiffskatalog.js: torpedowerfer, Standardbatterie)
       // M1: zwei Phasenkanonen vorn links/rechts (Bögen -50…+10 und -10…+50), Sofortstrahl (Beam-Kind 'phase')
       phase_l: { arc: 60, facing: -20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
@@ -82,7 +113,7 @@
     salvage: { count: 3, pickupDist: 60, giveUpAfter: 150, rewards: ['ersatzteil', 'flickblech', 'marks'], marks: 40 },
     // EK3 Teil A: Fracht (Ladung) im Raum, Beamen an Bord (Ops), Frachtraum der Lerche (server/sim/fracht.js, CONTRACT-EK3).
     // beamRange = Reichweite des Transfers wie bei den Außenkarten (scene.beam.range 320); Haltezeit wie ship.beamTime (3 s, bei beschädigtem
-    // Transfer ship.beamTimeDamaged). Kapazität kommt aus der Karte (Maps.CARGO_CAPACITY = Frachtbuchten).
+    // Transfer ship.beamTimeDamaged). Kapazität = 2 Plätze je Modul Frachtraum (Maps.CARGO_PER_RAUM, PAN-01 B).
     fracht: { beamRange: 320, stationRange: 320, stationKinds: ['station', 'vaelen'], arten: ['sprengstoff', 'fracht', 'deuterium'], artDefault: 'sprengstoff', maxDraussen: 6,
       // SL6: Deuterium (Gasriese schöpfen). preise = Marken je Einheit bei Händlern (scene.kauft überschreibt je Szene; Studiowerte, nach dem Spieleabend
       // nachgestellt), gewicht = Abzug auf die Triebwerksleistung je Einheit an Bord (nur für diese Arten, Sprengstoff/Fracht unverändert).
@@ -122,15 +153,13 @@
     // M0: Hafen-Übung überspringen – ODA-Begrüßung und Funkspruch von Tesk (s nach Stage-Beginn)
     drillSkip: { greetAt: 0.5, radioAt: 6 },
     shop: [
-      { id: 'seitenturm', name: 'Zusatzrohre', price: 300, kind: 'upgrade', where: ['hafen'] },
-      { id: 'schildpool', name: 'Schildpool +2', price: 250, kind: 'upgrade', where: ['hafen'] },
-      { id: 'bot2', name: 'Zweiter Schrauber', price: 100, kind: 'upgrade' },   // Kai: nur EIN Bot als Standard (bot.count), der zweite ist kaufbar (Maximum bot.maxCount = 2)
-      { id: 'bolzenwerfer', name: 'Bolzenwerfer (Heck)', price: 220, priceVaelen: 160, kind: 'upgrade' },   // M1: kein Start-Mount mehr
+      // PAN-01 C: `seitenturm` (Zusatzrohre) und `bolzenwerfer` gehen im Waffenkatalog auf (Bestückung ship.waffen, Werft in Paket D); Torpedos bleiben ein Artikel mit hartem Lagerlimit
+      // PAN-01 A: `schildpool` entfällt; `bot2` ist das Modul Werkstatt (zweiter Schrauber), kein Shop-Eintrag mehr (Debug `modul`, Werft folgt in Paket D)
       { id: 'werkzeuggurt', name: 'Werkzeuggürtel', price: 120, kind: 'gear', where: ['hafen'] },
       { id: 'ersatzteil', name: 'Ersatzteil', price: 40, kind: 'item' },
       { id: 'loeschgel', name: 'Löschgel', price: 30, kind: 'item' },
       { id: 'flickblech', name: 'Flickblech', price: 30, kind: 'item' },
-      { id: 'bolzen', name: 'Bolzen', price: 10, kind: 'item' },
+      { id: 'bolzen', name: 'Torpedo', price: 10, kind: 'item', limit: 12 },   // PAN-01 C: Lagerlimit hart (Katalog TORPEDO.lagerMax); Inventarschlüssel bleibt 'bolzen'
       { id: 'medipack', name: 'Medipack', price: 30, kind: 'item' },
       { id: 'sonde', name: 'Sonde', price: 60, kind: 'item' },   // SL4: Ops-Sonde (Vorrat inventory.sonde)
       { id: 'ladung', name: 'Sprengstoff', price: 150, kind: 'item', where: ['hafen'] },   // EK5: Gegenstand für die Methalle (Inventar ladung), nur an Stationen
@@ -165,7 +194,7 @@
       asteroidImmunity: 1,
     },
     combat: {
-      beamTtl: 0.25, bolzenTurnRate: 1.6, bolzenShotDelay: 0.8, bolzenTtl: 3,
+      beamTtl: 0.25,
       enemyShotSpeed: 210, enemyShotTtl: 4,
       // QA M3a: raiderOrbit 250 -> 320 – Jäger kreisen damit mit ~0,38 rad/s statt ~0,48 rad/s und bleiben unter dem
       // Drehtempo der Lerche (0,5 rad/s); die Steuer kann sie so in einer Breitseite halten (vorher praktisch unmöglich)
@@ -204,10 +233,10 @@
     // Hafen-Übung (Stage dock): Kabelbrand + zerstörtes System; Funkspruch spätestens nach timeout s
     // fire/breach sind Altnamen; maßgeblich ist Shared_Maps.SHIP_DRILL (M4: Feuer im Vorraum, Leck im Lager)
     drill: { fire: { x: 7, y: 6 }, breach: { x: 5, y: 3 }, system: 'transfer', timeout: 150 },
-    // M4 Stufe 1 (CONTRACT-M4 §2.4): Lift (E tippen) und Notleiter (E halten) zwischen Systemdeck und Privatdeck.
+    // M4 Stufe 1 (CONTRACT-M4 §2.4), PAN-01 B: Lift und Notleiter zwischen Mittel-, Ober- und Unterdeck (E aktiviert, dann W hoch / S runter, je ein Deck weiter).
     // rideTimeLowPower gilt bei Notstrom (Reaktor abgeschaltet/zerstört/EMP). arrivalClearRadius: Suchradius (Kacheln)
     // für eine freie Ankunftskachel, wenn die Zielkachel belegt ist.
-    // firstContactDelay: Ist bei Gefechtsalarm jemand auf Deck II, feuern Gegner frühestens so viele s nach dem Alarm.
+    // firstContactDelay: Ist bei Gefechtsalarm jemand auf dem Oberdeck (privat), feuern Gegner frühestens so viele s nach dem Alarm.
     lift: { rideTime: 1.5, rideTimeLowPower: 3.0, ladderTime: 2.0, arrivalClearRadius: 1, firstContactDelay: 8 },
     weaponPowerFactor: [null, 1.6, 1, 0.8, 0.65], // Ladezeit-Faktor je Energie-Stufe (null = lädt nicht)
     enginePowerFactor: [0, 0.5, 0.8, 1, 1.15],
@@ -526,8 +555,8 @@
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
         bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
-        port: { facing: -90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
-        stbd: { facing: 90, arc: 70, range: 520, damage: 1.5, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
+        port: { facing: -90, arc: 70, range: 520, damage: 2, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
+        stbd: { facing: 90, arc: 70, range: 520, damage: 2, tubes: 4, tubesDamaged: 2, tubesUpgrade: 5, secPerPoint: 12.3, salvoGap: 0.15 },
       },
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,

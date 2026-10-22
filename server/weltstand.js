@@ -6,6 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: mitgeführte Ladung (schiff.fracht)
+const Modul = require('./sim/module.js');   // PAN-01 A: Bestückung der Modulräume (schiff.module)
+const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe (schiff.stufe)
+const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der neun Waffenplätze (schiff.waffen)
+const Werft = require('./sim/werft.js');   // PAN-01 D: Freigeschaltetes (schiff.freigeschaltet)
+const Katalog = require('../shared/schiffskatalog.js');
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: welt.sim (Weltsimulation im Modus Freie Fahrt Sund)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
@@ -20,8 +25,9 @@ const SCHEMA_FILE = path.join(ROOT, 'content', 'schema', 'weltstand.schema.json'
 const NPC_FILE = path.join(ROOT, 'content', 'npc.json');
 const ID_RE = /^[a-z0-9-]{4,40}$/;
 const NPC_STATES = ['lebt', 'verwundet', 'verletzt', 'gefangen', 'tot', 'verschwunden', 'vermisst', 'unbekannt', 'befoerdert', 'uebergelaufen'];
-const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'life', 'transfer', 'thruster_port', 'thruster_stbd',
-  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'];
+const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
+  'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
+  'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];   // PAN-01 C: Lafetten sind echte Systeme
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
 const CHRONIK_KEEP = 200;
 
@@ -692,6 +698,10 @@ function capture(game) {
       marken: Math.max(0, Math.round(inv.marks || 0)),
       lager,
       ausbauten: Object.keys(game.upgrades || {}).filter((k) => game.upgrades[k]),
+      stufe: Ausbau.toSave(game),   // PAN-01 B: Ausbaustufe 0–3 (öffnet Plätze und Räume)
+      waffen: Waffen.toSave(game),   // PAN-01 C: { Platz 1–9: Katalog-Id }; fehlt im Altstand = Startbestückung 8 Lanze · 4 und 6 Standardbatterie
+      freigeschaltet: Werft.toSave(game),   // PAN-01 D: { stufe, waffen[], module[] }; fehlt im Altstand = abgeleitet aus Stufe, Bestückung und Modulen
+      module: Modul.toSave(game),   // PAN-01 A: [{ id, raum, an }]; die Energieverteilung wird nicht gespeichert (Standardverteilung beim Laden)
       deko: (inv.deko || []).map(String),
       dekoPlaetze: clone(game.deco || {}),
       quartiere: clone(game.quarters || {}),
@@ -732,6 +742,38 @@ function capture(game) {
   return data;
 }
 
+// ---------- Migration Altstand: Ausbaustufe ----------
+const BOT2_PREIS = 100;   // früherer Shop-Preis des zweiten Schraubers
+function hatBot2(s) { return (s.ausbauten || []).some((k) => k === 'bot2' || k === 'schrauber3'); }
+function altstandStufe(s) {
+  const M = require('./world.js').Maps;
+  const gespeichert = Number.isInteger(s.stufe) ? Math.max(0, Math.min(M.STUFE_MAX, s.stufe)) : 0;
+  let stufe = gespeichert, grund = '';
+  for (const m of Array.isArray(s.module) ? s.module : []) {
+    const r = m && M.MODUL_RAEUME.find((q) => q.raum === m.raum);
+    if (r && r.stufe > stufe) { stufe = r.stufe; grund = 'Modul in Raum ' + r.raum; }
+  }
+  if (!Array.isArray(s.module) && hatBot2(s) && stufe < 1) { stufe = 1; grund = 'Werkstatt braucht einen freien Modulraum'; }
+  // PAN-01 C: der Bolzenwerfer (Upgrade) ist der Torpedowerfer auf Heck 2 (Stufe 2)
+  if (!s.waffen && (s.ausbauten || []).includes('bolzenwerfer') && stufe < 2) { stufe = 2; grund = 'Torpedowerfer (früher Bolzenwerfer) sitzt auf Heck 2'; }
+  return { stufe, gespeichert, grund };
+}
+
+// PAN-01 C (Migration, darf nie still scheitern): Bestückung laden; ein Altstand ohne schiff.waffen bekommt die Startbestückung, ein gekaufter Bolzenwerfer wird der
+// Torpedowerfer auf Heck 2 (Stufe wurde angehoben), die Zusatzrohre (seitenturm, 300 Marken) gibt es nicht mehr: Erstattung; Torpedos über dem Lagerlimit: je 10 Marken zurück.
+function waffenAltstand(game, s) {
+  Waffen.restore(game, s.waffen);
+  if (!s.waffen && (s.ausbauten || []).includes('bolzenwerfer')) {
+    const e = Waffen.bestuecken(game, 2, 'torpedowerfer');
+    if (e) { game.inventory.marks += 220; game.log('Weltstand: Torpedowerfer (früher Bolzenwerfer) konnte nicht eingebaut werden (' + e + ') – 220 Marken erstattet.'); countError(game, 'weltstand-bolzenwerfer', new Error(e)); }
+    else game.log('Weltstand: Bolzenwerfer wurde der Torpedowerfer auf Heck 2.');
+    game.weltMigriert = true;
+  }
+  if ((s.ausbauten || []).includes('seitenturm')) { game.inventory.marks += 300; game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); game.weltMigriert = true; }
+  const max = Katalog.TORPEDO.lagerMax;
+  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; game.inventory.bolzen = max; game.inventory.marks += zu * 10; game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
+}
+
 // ---------- Anwenden (nach reset()) ----------
 function apply(game, data) {
   const d = clone(data);
@@ -756,11 +798,28 @@ function apply(game, data) {
   game.inventory.marks = Math.max(0, Math.round(Number(s.marken) || 0));
   for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) game.inventory[k] = v;
   game.inventory.deko = Array.isArray(s.deko) ? s.deko.slice() : [];
-  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer)
   Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
-  // Alt-Stand: 'schrauber3' (dritter Bot) heißt jetzt 'bot2' (zweiter Bot); ohne Feld = 1 Bot (Standard)
-  for (const k of s.ausbauten || []) game.upgrades[k === 'schrauber3' ? 'bot2' : k] = true;
+  // PAN-01 A: nur noch bekannte Ausbauten (schildpool entfällt, ohne Abwärtsmigration); bot2 (früher schrauber3) ist das Modul Werkstatt
+  for (const k of s.ausbauten || []) if (k in game.upgrades) game.upgrades[k] = true;
+  // PAN-01 B (Migration, darf nie still scheitern): die Ausbaustufe wird auf das Minimum angehoben, das gespeicherte Module (Raum 3 -> Stufe 1,
+  // Raum 4 -> Stufe 2) und der gekaufte zweite Schrauber (bot2 braucht einen freien Raum: Start-Bestückung belegt 1 und 2 -> Raum 3 -> Stufe 1) brauchen
+  const alt = altstandStufe(s);
+  if (alt.stufe !== alt.gespeichert) game.log(`Weltstand: Ausbaustufe von ${alt.gespeichert} auf ${alt.stufe} angehoben (${alt.grund}).`);
+  Ausbau.restore(game, alt.stufe);   // vor den Modulen (offene Räume); fehlt im Altstand = Stufe 0
+  Modul.restore(game, s.module);   // fehlt im Altstand = Start-Bestückung; setzt auch die Standardverteilung
+  waffenAltstand(game, s);   // PAN-01 C: schiff.waffen (fehlt = Startbestückung), Migration von Bolzenwerfer, Zusatzrohren und Torpedolager
+  if (!Array.isArray(s.module) && hatBot2(s)) {
+    const e = Modul.bestuecken(game, 'werkstatt');   // Rückgabewert prüfen: bei Fehlschlag Log und Marken-Erstattung (Preis 100)
+    if (e) {
+      game.inventory.marks += BOT2_PREIS;
+      game.log('Weltstand: Werkstatt (früher zweiter Schrauber) konnte nicht eingebaut werden (' + e + ') – ' + BOT2_PREIS + ' Marken erstattet.');
+      countError(game, 'weltstand-bot2', new Error(e));
+    }
+    Modul.verteilungSetzen(game);
+  }
+  Werft.restore(game, s.freigeschaltet);   // PAN-01 D: Start + gespeichert + alles, was Stufe, Waffenplätze und Modulräume tragen (Altstände: nichts geht verloren, keine Erstattung)
+  Fracht.restore(game, s.fracht);   // EK3 Teil A: Frachtraum (fehlt im Altstand = leer); PAN-01 B: Kapazität hängt an den Frachträumen, also nach den Modulen
   require('./sim/bots.js').ensureBotCount(game);
   if (s.dekoPlaetze) for (const [k, v] of Object.entries(s.dekoPlaetze)) if (k in game.deco) game.deco[k] = v;
   if (s.quartiere) for (const [k, v] of Object.entries(s.quartiere)) game.quarters[k] = Object.assign({}, game.quarters[k] || {}, v);
@@ -771,6 +830,7 @@ function apply(game, data) {
   }
   if (Number.isFinite(s.huelle)) ship.hull = Math.max(1, Math.min(ship.hullMax, s.huelle));
   for (const k of SYSTEM_ORDER) if (s.systeme && ['ok', 'damaged', 'broken'].includes(s.systeme[k])) ship.systems[k] = s.systeme[k];
+  require('./sim/interior.js').inaktiveHeilen(game);   // PAN-01 C: Lafetten ohne Platz/Bestückung stehen heil da
   ship.offline = {}; ship.fragile = {};
   // Welt
   const w = d.welt || {};

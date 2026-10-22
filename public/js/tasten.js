@@ -18,6 +18,7 @@
     { id: 'ops', name: 'Ops' },
     { id: 'technik', name: 'Technik' },
     { id: 'captain', name: 'Captain' },
+    { id: 'terminal', name: 'Terminal' },
     { id: 'allgemein', name: 'Allgemein' },
   ];
 
@@ -35,6 +36,8 @@
     'captain.notruf': { name: 'Reiter Notrufe' },
     'technik.energie': { name: 'Reiter Energie & Schilde' },
     'technik.schaden': { name: 'Reiter Schadensplan' },
+    'terminal.werft': { name: 'Bereich Werft' },
+    'terminal.handel': { name: 'Bereich Handel' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -63,21 +66,21 @@
 
     // ------------------------------------------------------------ Ops (weapons)
     A('ops.ziel', 'ops', 'Nächstes Ziel', ['KeyT']),
-    A('ops.waffeZurueck', 'ops', 'Vorige Waffe wählen', ['KeyQ']),
-    A('ops.waffeVor', 'ops', 'Nächste Waffe wählen', ['KeyE']),
+    A('ops.waffeZurueck', 'ops', 'Vorige Energiewaffe wählen', ['KeyQ']),
+    A('ops.waffeVor', 'ops', 'Nächste Energiewaffe wählen', ['KeyE']),
     A('ops.ladenWeniger', 'ops', 'Ladepunkte − (gewählte Waffe)', ['KeyA']),
     A('ops.ladenMehr', 'ops', 'Ladepunkte + (gewählte Waffe)', ['KeyD']),
-    A('ops.waffe.vorn1', 'ops', 'Frontwaffe 1 (Lanze: halten lädt)', NUM(8)),
-    A('ops.waffe.vorn2', 'ops', 'Frontwaffe 2', NUM(5)),
-    A('ops.waffe.heck', 'ops', 'Heckwaffe', NUM(2)),
-    A('ops.waffe.bb1', 'ops', 'Backbord 1 (Batterie Bb)', NUM(4)),
-    A('ops.waffe.stb1', 'ops', 'Steuerbord 1 (Batterie Stb)', NUM(6)),
-    A('ops.waffe.bb2', 'ops', 'Backbord 2', NUM(7)),
-    A('ops.waffe.stb2', 'ops', 'Steuerbord 2', NUM(9)),
-    A('ops.waffe.bb3', 'ops', 'Backbord 3', NUM(1)),
-    A('ops.waffe.stb3', 'ops', 'Steuerbord 3', NUM(3)),
-    A('ops.waffe.beideSeiten', 'ops', 'Beide Batterien', ['Space']),
-    A('ops.nachladen', 'ops', 'Nachladen', ['KeyR']),
+    A('ops.waffe.vorn1', 'ops', 'Frontwaffe 1 (Platz 8; Lanze: halten lädt)', NUM(8)),
+    A('ops.waffe.vorn2', 'ops', 'Frontwaffe 2 (Platz 5)', NUM(5)),
+    A('ops.waffe.heck', 'ops', 'Heckwaffe (Platz 2: Torpedowerfer)', NUM(2)),
+    A('ops.waffe.bb1', 'ops', 'Backbord 1 (Platz 4)', NUM(4)),
+    A('ops.waffe.stb1', 'ops', 'Steuerbord 1 (Platz 6)', NUM(6)),
+    A('ops.waffe.bb2', 'ops', 'Backbord 2 (Platz 7)', NUM(7)),
+    A('ops.waffe.stb2', 'ops', 'Steuerbord 2 (Platz 9)', NUM(9)),
+    A('ops.waffe.bb3', 'ops', 'Backbord 3 (Platz 1)', NUM(1)),
+    A('ops.waffe.stb3', 'ops', 'Steuerbord 3 (Platz 3)', NUM(3)),
+    A('ops.waffe.beideSeiten', 'ops', 'Alle Batterien (Salvenwaffen)', ['Space']),
+    A('ops.nachladen', 'ops', 'Nachladen (Torpedowerfer lädt selbst)', ['KeyR']),
     A('ops.scan', 'ops', 'Zielscan (halten)', ['KeyS']),
     A('ops.weitscan', 'ops', 'Weitscan', ['KeyW']),
     A('ops.schilde', 'ops', 'Schilde hoch/runter', ['KeyH']),
@@ -178,6 +181,29 @@
     A('captain.notruf.frage2', 'captain', 'Notruf: Frage 2', ['KeyE'], 'captain.notruf'),
     A('captain.notruf.frage3', 'captain', 'Notruf: Frage 3', ['KeyR'], 'captain.notruf'),
     A('captain.notruf.frage4', 'captain', 'Notruf: Frage 4', ['KeyF'], 'captain.notruf'),
+
+    // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
+    A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
+    A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
+    A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
+    A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
+    A('terminal.platz1', 'terminal', 'Waffenplatz 1 (Backbord hinten)', NUM(1), 'terminal.werft'),
+    A('terminal.platz2', 'terminal', 'Waffenplatz 2 (Heck)', NUM(2), 'terminal.werft'),
+    A('terminal.platz3', 'terminal', 'Waffenplatz 3 (Steuerbord hinten)', NUM(3), 'terminal.werft'),
+    A('terminal.platz4', 'terminal', 'Waffenplatz 4 (Backbord Mitte)', NUM(4), 'terminal.werft'),
+    A('terminal.platz5', 'terminal', 'Waffenplatz 5 (zweiter Bug)', NUM(5), 'terminal.werft'),
+    A('terminal.platz6', 'terminal', 'Waffenplatz 6 (Steuerbord Mitte)', NUM(6), 'terminal.werft'),
+    A('terminal.platz7', 'terminal', 'Waffenplatz 7 (Backbord vorn)', NUM(7), 'terminal.werft'),
+    A('terminal.platz8', 'terminal', 'Waffenplatz 8 (Bug)', NUM(8), 'terminal.werft'),
+    A('terminal.platz9', 'terminal', 'Waffenplatz 9 (Steuerbord vorn)', NUM(9), 'terminal.werft'),
+    A('terminal.modul1', 'terminal', 'Modulraum 1', ['F1'], 'terminal.werft'),
+    A('terminal.modul2', 'terminal', 'Modulraum 2', ['F2'], 'terminal.werft'),
+    A('terminal.modul3', 'terminal', 'Modulraum 3', ['F3'], 'terminal.werft'),
+    A('terminal.modul4', 'terminal', 'Modulraum 4', ['F4'], 'terminal.werft'),
+    A('terminal.bestaetigen', 'terminal', 'Umbau bestätigen (gratis)', ['Enter', 'NumpadEnter'], 'terminal.werft'),
+    A('terminal.freischalten', 'terminal', 'Freischalten (kostet Marken)', ['KeyF'], 'terminal.werft'),
+    A('terminal.ausbau', 'terminal', 'Ausbaustufe (Ansicht wechseln)', ['KeyA'], 'terminal.werft'),
+    A('terminal.kaufen', 'terminal', 'Artikel kaufen', ['Enter', 'NumpadEnter'], 'terminal.handel'),
   ];
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;

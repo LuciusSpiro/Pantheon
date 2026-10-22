@@ -5,7 +5,7 @@ const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');   // B3 (Team SEKTOR): Hexe, Kanten, Bojen
 const { dist } = require('../util.js');
 
-const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', tafel: 'Vertragstafel' };
+const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', tafel: 'Vertragstafel' };
 const DEKO_NAMES = { pflanze: 'Topfpflanze', poster: 'Sternkarten-Poster', lampe: 'Messinglampe', teppich: 'Flickenteppich', buecherregal: 'Bücherregal',
   aquarium: 'Aquarium', sessel: 'Ohrensessel', sternkarte: 'Gerahmte Sternkarte', trophaee_boje: 'Bojen-Trophäe', kristalllampe: 'Kristalllampe',
   lamassu_figur: 'Lamassu-Figur' };
@@ -187,7 +187,7 @@ class Explore {
   }
   onStationScanned(locId) {
     const g = this.game;
-    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch auf der Brücke.', null); }
+    if (locId === 'b7') { this.mapsKnown.platform = true; this.version++; g.oda('Plattform B-7 kartiert – der Plan liegt jetzt auf dem Planungstisch im Meetingraum.', null); }
     else if (locId === 'wrack') { this.mapsKnown.wreck = true; this.version++; g.oda('Wrack kartiert – Deckplan am Planungstisch. Ein Weitscan zeigt vielleicht Hohlräume.', null); }
     else if (locId === 'kesh') { this.mapsKnown.kesh = true; this.version++; g.oda('Kesh kartiert – der Plan des Archivs liegt am Planungstisch. Zwei Wege führen nach Osten.', null); }
     else if (locId === 'relais') g.oda('Relaisscan: Der Kern liegt mittig. Captain-Scan aus nächster Nähe nötig.', null);
@@ -199,7 +199,7 @@ class Explore {
     if (!r) return '';
     const g = this.game; const parts = [];
     if (r.marks) { g.inventory.marks += r.marks; parts.push(r.marks + ' Marken'); }
-    for (const [k, n] of Object.entries(r.items || {})) { g.inventory[k] = (g.inventory[k] || 0) + n; parts.push(n + '× ' + (ITEM_NAMES[k] || k)); }
+    for (const [k, n] of Object.entries(r.items || {})) { const add = require('./schiffswaffen.js').lagerGutschrift(g, k, n); parts.push(add + '× ' + (ITEM_NAMES[k] || k)); }   // PAN-01 C: Torpedo-Lager hart bei 12 (Überhang = Marken)
     for (const d of r.deko || []) { g.inventory.deko.push(d); parts.push('Deko: ' + (DEKO_NAMES[d] || d)); }
     return parts.join(', ');
   }

@@ -22,8 +22,8 @@ const M3B = CONFIG.spaceM3b;
 
 const M3 = CONFIG.spaceM3;
 const FILTER = process.argv.slice(2).map((s) => s.toLowerCase());
-const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
-const COMBAT12 = SYS14.filter((s) => s !== 'life' && s !== 'transfer');
+const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons' && !/^lafette_/.test(s));   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen); PAN-01 C: die sechs Lafetten (lafette_N) sind nur mit offenem, bestücktem Platz aktiv (tools/test-waffen-schiff.js)
+const COMBAT12 = SYS14.filter((s) => s !== 'transfer');
 
 let fails = 0, n = 0;
 const missing = new Set();
@@ -110,11 +110,11 @@ function pinnedEnemy(g, kind, x, y, angle, opts) {
 }
 function pin(g) {
   for (const e of g.space.enemies) if (e.pin) {
-    e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle;
+    e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0;   // PAN-01 C: Vorhalt rechnet mit der Geschwindigkeit, ein festgehaltener Gegner steht
     if (!e.keepFire) { e.fireT = -999; }
     e.shields = e.keepShields ? e.shields : [0, 0, 0, 0];
   }
-  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'bolzen');
+  g.space.projectiles = g.space.projectiles.filter((q) => q.kind === 'torpedo' || q.waffe);   // PAN-01 C: Projektile der Lerche bleiben
 }
 const mountOf = (g, id) => (g.ship.mount || {})[id];
 function setCharge(g, id, v) { const m = mountOf(g, id); if (m) m.charge = v; return !!m; }
@@ -157,7 +157,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves', 'dodges', 'dodgeEvades'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves, dodges, dodgeEvades = 0');
   ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 7 && CONFIG.ship.dodgeImpulse === 350 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10/§20.2 (Ausweichen 350/7)');
   ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 2.3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
-  ok(CONFIG.shop.find((x) => x.id === 'seitenturm').name === 'Zusatzrohre' && CONFIG.shop.find((x) => x.id === 'seitenturm').price === 300, 'Shop: Zusatzrohre 300');
+  ok(!CONFIG.shop.some((x) => x.id === 'seitenturm' || x.id === 'bolzenwerfer') && CONFIG.shop.find((x) => x.id === 'bolzen').limit === 12, 'Shop: Zusatzrohre und Bolzenwerfer gehen im Waffenkatalog auf (PAN-01 C), Torpedo mit Lagerlimit 12');
   // M4 (Studioleitung): Budget 12 → 13 KB, weil deck/lift/kit/loreRead dazukamen (gemessen 12.311 B mit Missionsbuch)
   ok(Buffer.byteLength(JSON.stringify(s)) < CONFIG.net.snapMax, 'Snapshot < CONFIG.net.snapMax');
   const g3 = arena(3).g;
@@ -165,10 +165,10 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
 });
 
 section('Interior-Hilfen (§9.5)', () => {
-  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 14 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons'), 'SYSTEM_ORDER: 14 Systeme ohne weapons');
-  ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 14 Systeme');
+  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 19 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && Protocol.SYSTEMS.filter((s) => /^lafette_/.test(s)).every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme + 6 Lafetten (PAN-01 C), ohne weapons und ohne Lebenserhaltung');
+  ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 13 Systeme');
   const want = { weapon_bow: 0, emitter_bow: 0, thruster_stbd: 1, battery_stbd: 1, emitter_stbd: 1, transfer: 1, engines: 2, emitter_aft: 2,
-    thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1, life: -1 };
+    thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1 };
   ok(SYS14.every((s) => I.systemSector(s) === want[s]), 'systemSector laut §2.2');
   ok([0, 1, 2, 3].map((i) => I.emitterFor(i)).join() === 'emitter_bow,emitter_stbd,emitter_aft,emitter_port', 'emitterFor 0..3');
 });
@@ -199,13 +199,14 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   g.ship.jump.dest = null;
   enter(0, 'helm'); const n0 = notices(0).length; cmd(0, 'helm.dodge', { dir: 1 });
   ok(notices(0).length > n0 && g.ship.dodgeCd === 0, 'Triebwerk zerstört: keine Ausweichrolle');
-  g.upgrades.bolzenwerfer = true;
+  // PAN-01 C: der Torpedowerfer (Heck 2, Stufe 2) braucht weder Energie noch Triebwerk – er fällt mit dem Triebwerk NICHT aus
+  dbg(0, { cmd: 'bestueck', args: 'alle 2' });
   const tgt = pinnedEnemy(g, 'raider', g.ship.x - 400, g.ship.y, 0, { hp: 999 });
   enter(0, 'weapons'); cmd(0, 'weapons.target', { id: tgt.id });
-  const loaded = g.ship.mount && g.ship.mount.bolzen ? g.ship.mount.bolzen.loaded : null;
+  const lager0 = g.inventory.bolzen;
   const n1 = notices(0).length; cmd(0, 'weapons.fire', { mount: 'bolzen' });
-  ok(notices(0).length > n1 && (!g.ship.mount || g.ship.mount.bolzen.loaded === loaded), 'Triebwerk zerstört: Bolzenwerfer aus');
-  g.upgrades.bolzenwerfer = false; g.space.enemies = [];
+  ok(notices(0).length === n1 && g.inventory.bolzen === lager0 - 1 && g.space.projectiles.some((q) => q.kind === 'torpedo'), 'Triebwerk zerstört: der Torpedowerfer feuert trotzdem (kein Energie-/Triebwerksfaktor)');
+  dbg(0, { cmd: 'bestueck', args: 'start' }); g.space.enemies = [];
   set('engines', 'ok'); P(0).console && g.handleMessage(g.players[0].conn, { t: 'leave' });
   // Düsen: turnCaps und echte Winkelgeschwindigkeit
   for (const [sys, side] of [['thruster_port', 'port'], ['thruster_stbd', 'stbd']]) {
@@ -305,7 +306,7 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   // Hitze auf Waffen trifft eine der drei Waffen
   g.handleMessage(g.players[0].conn, { t: 'leave' });
   resetSystems(g);
-  setPower(g, { engines: 0, shields: 2, weapons: 4, life: 2 });
+  setPower(g, { engines: 0, shields: 2, weapons: 4 });
   g.ship.heat.weapons = CONFIG.power.heatLimit - 0.5;
   run(0.5, () => { pin(g); noFire(g); });
   const hot = ['weapon_bow', 'battery_port', 'battery_stbd'].filter((s) => g.ship.systems[s] !== 'ok');
@@ -1068,25 +1069,25 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   clearInbox();
   cmd(0, 'weapons.fire', { mount: 'stbd' });
   let midSalvo = null; const seen = new Set(); let beams = 0;
-  // Sichtbarkeit: jeder Salvenstrahl muss in ≥ 2 Snapshots stehen (Snapshot alle net.snapEvery Ticks)
+  // Sichtbarkeit: jedes Salvenprojektil (PAN-01 C: kind pbatterie statt Strahl) muss in ≥ 2 Snapshots stehen (Snapshot alle net.snapEvery Ticks)
   const inSnaps = new Map();
   for (let k = 0; k < 45; k++) {
     pin(g); setCharge(g, 'bow', 0); setCharge(g, 'port', 0);
     g.step();
-    for (const b of g.space.beams) if (b.kind === 'battery' && !seen.has(b)) { seen.add(b); beams++; }
+    for (const b of g.space.projectiles) if (b.kind === 'pbatterie' && !seen.has(b.id)) { seen.add(b.id); beams++; }
     if (g.wantsSnapshot()) {
       const s = g.snapshot();
       const m = s.ship.mounts.find((q) => q.id === 'stbd');
       if (m.salvo > 0 && midSalvo === null) midSalvo = m.salvo;
-      for (const b of g.space.beams) if (b.kind === 'battery') inSnaps.set(b, (inSnaps.get(b) || 0) + 1);
-      const sb = s.space.beams.find((b) => b.kind === 'battery');
-      if (sb && !(sb.ttlMax > 0 && sb.mount === 'stbd')) inSnaps.set('badfields', 1);
+      for (const b of s.space.projectiles) if (b.kind === 'pbatterie') inSnaps.set(b.id, (inSnaps.get(b.id) || 0) + 1);
+      const sb = s.space.projectiles.find((b) => b.kind === 'pbatterie');
+      if (sb && !(Number.isFinite(sb.x) && Number.isFinite(sb.angle))) inSnaps.set('badfields', 1);
     }
   }
-  ok(near(hp0 - t.hp, 4 * 1.5, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 × 1,5 = ${hp0 - t.hp})`);
-  ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Strahlen battery)`);
+  ok(near(hp0 - t.hp, 4 * M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 Projektile × ${M3.mounts.stbd.damage} = ${hp0 - t.hp})`);
+  ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Projektile pbatterie)`);
   const counts = [...inSnaps.entries()].filter(([k]) => k !== 'badfields').map(([, v]) => v);
-  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jeder Salvenstrahl in ≥ 2 Snapshots (${counts.join('/')}), mit ttlMax und mount`);
+  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jedes Salvenprojektil in ≥ 2 Snapshots (${counts.join('/')}), mit Lage und Winkel`);
   ok(events('sfx').some((e) => e.name === 'battery_salvo'), 'sfx battery_salvo');
   // ohne Gegner im Bogen: ins Leere, senkrecht zur Flanke, Strahlen trotzdem da
   g.space.enemies = [];
@@ -1094,17 +1095,17 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   nn = notices(0).length;
   cmd(0, 'weapons.fire', { mount: 'port' });
   const voids = [];
-  run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.beams) if (b.kind === 'battery' && !voids.includes(b)) voids.push(b); });
-  const perp = voids.every((b) => { const a = Math.atan2(b.y2 - b.y1, b.x2 - b.x1); return Math.abs(Physics.normAngle(a - (sh.angle - Math.PI / 2))) < 0.15 && b.miss; });
-  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Strahlen, senkrecht zur Backbord-Flanke)`);
+  run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.projectiles) if (b.kind === 'pbatterie' && !voids.some((v) => v.id === b.id)) voids.push({ id: b.id, angle: b.angle }); });
+  const perp = voids.every((b) => Math.abs(Physics.normAngle(b.angle - (sh.angle - Math.PI / 2))) < 0.15);
+  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Projektile, senkrecht zur Backbord-Flanke)`);
   // all = beide Batterien (nicht die Lanze)
   setCharge(g, 'port', 1); setCharge(g, 'stbd', 1); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'all' });
   ok(mountOf(g, 'port').salvo > 0 && mountOf(g, 'stbd').salvo > 0 && mountOf(g, 'bow').charge === 1, 'all: beide Batterien, Lanze bleibt');
   run(1, () => { setCharge(g, 'bow', 1); });
-  // Zusatzrohre: 5
-  g.upgrades.seitenturm = true; run(0.1, () => pin(g));
-  ok(g.snapshot().ship.mounts.find((m) => m.id === 'port').salvoMax === M3.mounts.port.tubesUpgrade, 'Zusatzrohre: salvoMax 5');
+  // PAN-01 C: Zusatzrohre gibt es nicht mehr (Standardbatterie hat vier Rohre, beschädigt zwei; mehr Feuerkraft kommt über den Katalog, nie über +X)
+  run(0.1, () => pin(g));
+  ok(g.snapshot().ship.mounts.find((m) => m.id === 'port').salvoMax === M3.mounts.port.tubes && Object.keys(g.upgrades).length === 0, 'keine Zusatzrohre mehr: salvoMax 4, keine Upgrades');
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
@@ -1349,8 +1350,7 @@ section('bridgeLeaves (§8.3)', () => {
   const { g, P, send, run, place } = arena(1);
   // M4: Brückentür aus dem Layout (Tür im Raum bruecke mit begehbarem Nachbarn links außerhalb der Brücke)
   const br = Maps.SHIP_ROOMS.find((r) => r.id === 'bruecke');
-  const dt0 = Maps.ship.find('D').find((t) => t.x === br.x0 && t.y >= br.y0 && t.y <= br.y1 && !Maps.ship.solid(t.x - 1, t.y));
-  const door = { x: dt0.x, y: dt0.y, dir: 'left' };
+  const door = { x: br.x0 + 1, y: 6, dir: 'left' };   // PAN-01 B: die Brückentür ist der Lift L1 (Mittelachse), eine Kachel davor stehen und hindurchgehen
   const walkOut = () => { place(0, door); send(0, { t: 'input', seq: 1, mx: -1, my: 0 }); run(0.8, () => { pin(g); noFire(g); }); send(0, { t: 'input', seq: 2, mx: 0, my: 0 }); run(0.1); };
   const room = () => Maps.roomAt(Math.floor(P(0).x / 32), Math.floor(P(0).y / 32));
   walkOut();

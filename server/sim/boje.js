@@ -1,7 +1,7 @@
 'use strict';
 // SL10 (CONCEPT-SL10): die Vorläufer-Boje wecken. Alle vier Stationen arbeiten:
 //   Ops        Frequenz und Adresse (Minispiel Glyphen/Sternkarte, server/sim/glyphen.js, id 'boje'): ohne gelöste Adresse bleibt die Boje stumm
-//   Technik    speist Energie ein: die Boje braucht `boje.freiNoetig` freie Reaktorpunkte (Module herunterfahren, z. B. Waffen, Lebenserhaltung = Uhr: O₂)
+//   Technik    speist Energie ein: die Boje braucht `boje.freiNoetig` freie Reaktorpunkte (Waffen herunterfahren und Bordmodule abschalten, PAN-01 A; die frühere O₂-Uhr der Lebenserhaltung ist mit der Station gestrichen, PAN-01 B)
 //   Navigation hält die Lerche im Aktivierungsfeld (Zone boje_feld, drückt und driftet; shared/zonen.js boje())
 //   Captain    sieht die Konstellation für die Ops und entscheidet (Wettlauf nach Weg A: Piraten kommen in Wellen)
 // Fortschritt (Zähler 'boje' in den Zonen, 0..100) wächst mit der Energie, solange alles stimmt, und fällt langsam, wenn die Lerche das Feld verlässt.
@@ -25,16 +25,14 @@ const sprung = () => sprungMod || (sprungMod = require('./sprung.js'));
 const STANDARD = { freiNoetig: 4, dauer: 60, abnahme: 0.5, fundort: 'bojenfeld', ziel: 'vorlaeufer', wellen: 3, wellenAbstand: 30, wellenGroesse: 2 };
 const cfg = (game) => Object.assign({}, STANDARD, (game.C && game.C.boje) || {});
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const POWER = ['engines', 'shields', 'weapons', 'life'];
 
 function state(game) { return game.bojeSim || (game.bojeSim = { geweckt: false, wettlauf: 0, welle: 0, naechste: 0 }); }
 function szene(game) { const loc = Locations.get(game.ship.scene); return loc && loc.scene && loc.scene.bojeFeld ? loc.scene : null; }
 
+// PAN-01 A: Hauptsysteme + laufende Module (space.powerUsed); freie Energie entsteht auch durch abgeschaltete Module
 function freieEnergie(game) {
-  const ship = game.ship;
   const out = space().reactorOutput(game);
-  const used = POWER.reduce((a, k) => a + (ship.power[k] || 0), 0);
-  return Math.max(0, out - used);
+  return Math.max(0, out - space().powerUsed(game));
 }
 function geweckt(game) {
   if (state(game).geweckt) return true;

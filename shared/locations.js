@@ -47,7 +47,7 @@
         beam: { map: 'platform', range: 320 }, asteroids: 0 },
       hidden: [
         { id: 'b7_cache', kind: 'cache', x: 2700, y: 450, name: 'Treibende Wartungskiste',
-          reward: { marks: 30, items: { bolzen: 4 } }, text: 'Eine Wartungskiste von B-7, abgetrieben. Darin: Bolzen. Jemand hat hier mal ernsthaft geschraubt.' },
+          reward: { marks: 30, items: { bolzen: 4 } }, text: 'Eine Wartungskiste von B-7, abgetrieben. Darin: Torpedos. Jemand hat hier mal ernsthaft geschraubt.' },
         // QA M1: mehr Entdeckungen je Ort
         { id: 'b7_fragment', kind: 'lore', x: 1500, y: 2300, name: 'Kustoden-Splitter',
           reward: { marks: 35 }, text: 'Ein Splitter aus Kustoden-Kristall, warm wie eine Hand. Er summt im selben Takt wie die Boje.' },
@@ -55,7 +55,7 @@
     },
     {
       id: 'vaelen', name: 'Vaelen-Karawane', kind: 'trader', x: 230, y: 430, fog: false,
-      desc: 'Fahrende Händler mit Kristalllampen, Tee und guten Preisen für Bolzenwerfer. Andocken erlaubt.',
+      desc: 'Fahrende Händler mit Kristalllampen, Tee und guten Preisen für Torpedos. Andocken erlaubt.',
       first: 'Die Vaelen-Karawane! Andocken am Ring längsseits – das Hafenterminal zeigt dann ihr Sortiment.',
       scene: { w: 2200, h: 1600, arrive: { x: 300, y: 800, angle: 0 }, station: { kind: 'vaelen', x: 1300, y: 760, r: 90 },
         dock: { x: 1300, y: 930 }, asteroids: 0 },

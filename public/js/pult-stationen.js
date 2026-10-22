@@ -9,15 +9,16 @@
   const CFG = window.Shared_Config || {};
   const Phys = window.Shared_Physics;
   const PROTO = window.Shared_Protocol || {};
-  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons', 'life'];
-  const POWER_NAMES = { engines: 'ANTRIEB', shields: 'SCHILDE', weapons: 'WAFFEN', life: 'LEBENSERH.' };
-  const POWER_FN = { engines: 'drive', shields: 'shield', weapons: 'weapon', life: 'sensor' };
+  const POWER_SYS = PROTO.POWER_SYSTEMS || ['engines', 'shields', 'weapons'];   // PAN-01 A: Hauptsysteme; Bordmodule stehen in ship.mod
+  const POWER_NAMES = { engines: 'ANTRIEB', shields: 'SCHILDE', weapons: 'WAFFEN' };
+  const POWER_FN = { engines: 'drive', shields: 'shield', weapons: 'weapon' };
+  const SEL_MOD0 = 3, SEL_SCH0 = 7;   // Auswahl im Technik-Pult: 0–2 Hauptsysteme, 3–6 Bordmodule, 7–10 Schildsektoren (wie consoles.js)
   const SECTOR = ['BUG', 'STB', 'HECK', 'BB'];
-  const M3_MOUNTS = ['bow', 'port', 'stbd'];
-  const MOUNT_NAMES = { bow: 'Lanze', port: 'Batterie Bb', stbd: 'Batterie Stb', phase_l: 'Phase L', phase_r: 'Phase R', lanze: 'Lanze', bolzen: 'Bolzen', seitenturm: 'Seitenturm' };
-  const MOUNT_KURZ = { bow: 'LANZE', port: 'BATT BB', stbd: 'BATT STB', phase_l: 'PHASE L', phase_r: 'PHASE R', lanze: 'LANZE', bolzen: 'BOLZEN', seitenturm: 'TURM' };
+  // PAN-01 C: Waffen und Plätze aus dem Katalog (shared/schiffskatalog.js, public/js/schiffswaffen-ui.js); der Mount-Eintrag trägt typ (fehlt = Startbestückung)
+  const SCH = window.Shared_Schiffskatalog || {};
+  const UI = window.SchiffsUI;
+  const waffeVon = (m) => (UI ? UI.waffeVon(m) : null);
   // Kai 2026-10-15: Ziffernblock wie das Schiff – 7/4/1 Backbord, 9/6/3 Steuerbord, 8/5 vorn, 2 Heck
-  const NUMPAD_PLATZ = { bow: 8, lanze: 8, bolzen: 5, port: 4, phase_l: 4, stbd: 6, phase_r: 6, seitenturm: 2 };
   const PLATZ_SEITE = { 7: 'Bb', 4: 'Bb', 1: 'Bb', 9: 'Stb', 6: 'Stb', 3: 'Stb', 8: 'vorn', 5: 'vorn', 2: 'Heck' };
   const PLATZ_AKTION = { 8: 'ops.waffe.vorn1', 5: 'ops.waffe.vorn2', 2: 'ops.waffe.heck', 4: 'ops.waffe.bb1', 6: 'ops.waffe.stb1', 7: 'ops.waffe.bb2', 9: 'ops.waffe.stb2', 1: 'ops.waffe.bb3', 3: 'ops.waffe.stb3' };
   const n = (v, d) => (typeof v === 'number' && isFinite(v) ? v : (d || 0));
@@ -134,11 +135,11 @@
       // ---- LAGE
       x = 504; cw = 130;
       y = P.titel(ctx, x, y0, cw, 'LAGE', 'sensor');
-      const bow = (ship.mounts || []).find((mm) => mm.id === 'bow');
-      if (bow) {
-        const bs = bow.state || (ship.systems || {}).weapon_bow || 'ok';
-        const t = bs === 'broken' ? 'AUS' : bow.charging ? 'lädt auf' : n(bow.charge) >= 1 ? 'bereit' : Math.round(n(bow.charge) * 100) + ' %';
-        P.lampe(ctx, x, y + 1, 'weapon', bs !== 'broken' && n(bow.charge) >= 1); T(ctx, 'Lanze', x + 10, y, K.text); T(ctx, t, x + cw, y, bs === 'broken' ? P.FN.weapon : P.FN.weapon, 'right'); y += 11;
+      // Abnahme 14: je Seite die Bestückung und ihre Bereitschaft (nur Anzeige; Bedienung am Ops-Pult)
+      for (const z of (UI && UI.seitenUebersicht ? UI.seitenUebersicht(ship) : [])) {
+        P.lampe(ctx, x, y + 1, 'weapon', z.bereit && !z.aus);
+        T(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' ×' + z.n : ''), x + 10, y, z.aus ? K.dim : K.text);
+        T(ctx, z.text, x + cw, y, z.aus ? P.FN.warn : z.bereit ? P.FN.shield : K.dim, 'right'); y += 10;
       }
       const reactor = ship.reactor || {}, rs = reactor.state || 'online';
       P.lampe(ctx, x, y + 1, rs === 'offline' ? 'weapon' : 'shield', rs !== 'offline'); T(ctx, 'Reaktor', x + 10, y, K.text); T(ctx, { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' }[rs] || rs, x + cw, y, rs === 'offline' ? P.FN.weapon : rs === 'overload' ? P.FN.drive : P.FN.shield, 'right'); y += 13;
@@ -157,18 +158,18 @@
     },
 
     // ================================================================= Ops
+    // i = Index in energieMounts (Q/E-Auswahl); der Server meldet dieselben Grenzen als Text
     allocGrund(view, i, delta) {
       const ship = view.state.ship || {};
-      const ms = M3_MOUNTS.map((id) => (ship.mounts || []).find((m) => m.id === id) || { id, missing: true });
-      const m = ms[i]; if (!m) return 'Nicht verfügbar';
+      const ms = this.energieMounts(view);
+      const m = ms[i]; if (!m) return 'Keine Energiewaffe';
       const al = n(m.alloc), amax = m3('allocMax', 4), cp = n(ship.chargePoints), used = ms.reduce((s, x) => s + n(x.alloc), 0);
-      if (delta < 0) return m.missing || al <= 0 ? 'Keine Punkte auf dieser Waffe' : null;
-      return m.missing ? 'Nicht verfügbar' : al >= amax ? 'Maximum (' + amax + ')' : used >= cp ? (cp ? 'Alle Ladepunkte verteilt – erst anderswo abziehen' : 'Keine Waffenenergie (Technik)') : null;
+      if (delta < 0) return al <= 0 ? 'Keine Punkte auf dieser Waffe' : null;
+      return al >= amax ? 'Maximum (' + amax + ')' : used >= cp ? (cp ? 'Alle Ladepunkte verteilt – erst anderswo abziehen' : 'Keine Waffenenergie (Technik)') : null;
     },
     // Waffe am Ziffernblock-Platz (1–9) oder null
     waffeAmPlatz(view, platz) {
-      const ship = view.state.ship || {};
-      return (ship.mounts || []).find((m) => NUMPAD_PLATZ[m.id] === platz && !m.missing) || null;
+      return UI ? UI.mountAmPlatz(view.state.ship || {}, platz) : null;
     },
     pultOps(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {}, away = st.away || {};
@@ -176,7 +177,7 @@
       const g = P.rahmen(ctx, view, { titel: 'OPS', S: 196, station: 'weapons', anzeige: (c, r) => {
         const mr = { x: r.x, y: r.y, w: 404, h: r.h };
         this.mapRects.weapons = mr;
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects });
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }] : [] });
         R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
         this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
@@ -187,33 +188,41 @@
         if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 410, y: r.y + r.h - 16, w: r.w - 414 }));   // unten im Zielkasten
       } });
       const K = g.skin, y0 = g.pult.y;
-      // ---- WAFFEN im Ziffernblock-Raster
+      // ---- WAFFEN im Ziffernblock-Raster (PAN-01 C: Waffenname, Symbol, Zustand und Ladepunkte je Platz)
       let x = 62, cw = 212;
       let y = P.titel(ctx, x, y0, cw, 'WAFFEN · ZIFFERNBLOCK', 'weapon');
       const zw = Math.floor((cw - 8) / 3), zh = 24;
       const amax = m3('allocMax', 4);
+      const em = this.energieMounts(view), selM = this.selMount(view);
+      const lagerMax = (SCH.TORPEDO && SCH.TORPEDO.lagerMax) || 12;
       for (let platz = 1; platz <= 9; platz++) {
         const ix = (platz - 1) % 3, iy = 2 - Math.floor((platz - 1) / 3);
         const zx = x + ix * (zw + 4), zy = y + iy * (zh + 3);
-        const m = this.waffeAmPlatz(view, platz);
-        if (!m) { P.zelle(ctx, zx, zy, zw, zh, String(platz), 'frei', PLATZ_SEITE[platz], 'weapon', 'leer', 0, { aktion: PLATZ_AKTION[platz] }); continue; }
-        const info = this.mountInfo(view, m.id), isBow = m.id === 'bow' || m.id === 'lanze';
-        const sst = m.state || (ship.systems || {})[{ bow: 'weapon_bow', port: 'battery_port', stbd: 'battery_stbd' }[m.id]] || 'ok';
+        const m = this.waffeAmPlatz(view, platz), w = waffeVon(m);
+        if (!m || !w) {   // PAN-01 B: Plätze, die die Ausbaustufe noch nicht öffnet, stehen als „gesperrt“ (mit Stufe) statt „frei“ da
+          const SM = window.Shared_Maps, pl = SM && SM.waffenplatz ? SM.waffenplatz(platz) : null, zu = !!pl && n(ship.st) < pl.stufe;
+          P.zelle(ctx, zx, zy, zw, zh, String(platz), zu ? 'gesperrt' : 'frei', zu ? 'Stufe ' + pl.stufe : PLATZ_SEITE[platz], 'weapon', 'leer', 0, { aktion: PLATZ_AKTION[platz] });
+          continue;
+        }
+        const stt = this.mountStatus(view, m), info = stt.info;
+        const isTorp = w.art === 'torpedo';
         const ch = n(m.charge);
-        const sub = sst === 'broken' || sst === 'offline' ? 'AUS' : isBow && m.charging ? 'lädt auf' : n(m.salvo) > 0 ? 'Salve ' + n(m.salvo) : ch >= 1 ? (info.reason ? 'geladen' : 'BEREIT') : Math.round(ch * 100) + ' %';
-        const i3 = M3_MOUNTS.indexOf(m.id);
-        const zustand = isBow && m.charging ? 'hold' : info.reason && !(ch >= 1 && /außerhalb|Kein Ziel/.test(info.reason)) ? 'off' : (i3 >= 0 && this.sel.mount === i3 ? 'sel' : 'normal');
-        const onClick = isBow ? () => { if (i3 >= 0) this.sel.mount = i3; this.lanceCharge(view, true, 'mouse'); } : () => { if (i3 >= 0) this.sel.mount = i3; this.cmd(view, 'weapons.fire', { mount: m.id }); };
-        P.zelle(ctx, zx, zy, zw, zh, String(platz), MOUNT_KURZ[m.id] || m.id, sub, 'weapon', zustand, n(m.power), { label: MOUNT_NAMES[m.id], reason: info.reason, onClick, aktion: PLATZ_AKTION[platz] });
-        // Ladepunkte der Waffe als Pünktchen rechts oben
-        if (i3 >= 0) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 4, zy + 3 + k * 4, 2, 2); }
-        if (i3 >= 0 && this.sel.mount === i3 && zustand !== 'sel') { ctx.fillStyle = K.text; ctx.fillRect(zx, zy + zh + 1, zw, 1); }
+        const iE = em.indexOf(m);
+        const zustand = stt.kind === 'halten' ? 'hold' : info.reason && !(ch >= 1 && /außerhalb|Kein Ziel/.test(info.reason)) ? 'off' : (selM && selM.id === m.id ? 'sel' : 'normal');
+        const sub = isTorp ? n(m.ammo) + '/' + lagerMax + (stt.kind === 'laedt' ? ' ' + n(m.cd) + 's' : stt.kind === 'bereit' ? '' : ' leer') : stt.text;
+        const onClick = () => { if (iE >= 0) this.sel.mount = iE; this.waffeBedienen(view, m, 'mouse'); };
+        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, aktion: PLATZ_AKTION[platz], rechts: 8 });
+        // Symbol der Waffe rechts, darüber die Ladepunkte der Energiewaffe als Pünktchen (der Torpedowerfer hat keine)
+        if (UI) UI.drawWaffe(ctx, w.id, zx + zw - 7, zy + 13, { color: zustand === 'off' ? K.dim : P.mix(K.ink, P.FN.weapon, 0.12) });
+        if (!isTorp) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 15 + k * 3, zy + zh - 4, 2, 2); }   // Ladepunkte unten rechts, damit sie keinen Namen überdecken
+        if (iE >= 0 && selM && selM.id === m.id && zustand !== 'sel') { ctx.fillStyle = K.text; ctx.fillRect(zx, zy + zh + 1, zw, 1); }
       }
       y += 3 * zh + 6 + 4;
-      if (this.isM3(view)) {
-        const cp = n(ship.chargePoints), used = M3_MOUNTS.reduce((s, id) => s + n(((ship.mounts || []).find((mm) => mm.id === id) || {}).alloc), 0);
-        const batReady = ['port', 'stbd'].some((id) => !this.mountInfo(view, id).reason);
-        P.knopf(ctx, x, y, 70, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
+      {
+        const cp = n(ship.chargePoints), used = em.reduce((s, mm) => s + n(mm.alloc), 0);
+        const salven = (ship.mounts || []).filter((mm) => { const ww = waffeVon(mm); return ww && ww.art === 'salve'; });
+        const batReady = salven.some((mm) => !this.mountInfo(view, mm.id).reason);
+        P.knopf(ctx, x, y, 70, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
         T(ctx, 'PUNKTE ' + used + '/' + cp, x + 78, y + 1, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
         T(ctx, 'Q/E wählen · A/D verteilen', x + 78, y + 9, K.dim);
       }
@@ -239,7 +248,7 @@
       P.knopf(ctx, x, y, cw, 14, 'Löschen', { hotkey: 'X', aktion: 'ops.markerLoeschen', fn: 'nav', disabled: !mk, reason: 'Kein Marker gesetzt', onClick: () => this.cmd(view, 'weapons.marker', { clear: true }) }); y += 17;
       let sr = null;
       const spd = n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy)));
-      const charged = (ship.mounts || []).some((m) => n(m.charge) >= 1);
+      const charged = this.energieMounts(view).some((m) => n(m.charge) >= 1);   // PAN-01 C: erste volle Energiewaffe (der Torpedowerfer zählt nicht)
       if (!away.active) sr = 'Nur während der Außenmission';
       else if (!away.marker) sr = 'Keine Markierung (Außenteam: Q)';
       else if (n(sup.strike) > 0) sr = 'Abklingzeit ' + Math.ceil(sup.strike) + ' s';
@@ -247,14 +256,19 @@
       else if (!charged) sr = 'Keine Waffe voll geladen';
       P.knopf(ctx, x, y, cw, 14, 'Orbitalschlag auf Markierung', { hotkey: 'O', aktion: 'ops.orbitalschlag', text: 'Orbitalschlag', fn: 'weapon', disabled: !!sr, reason: sr, onClick: () => this.cmd(view, 'weapons.strike') }); y += 17;
       T(ctx, mk ? 'gesetzt · ' + Math.round(Math.hypot(mk.x - n(ship.x), mk.y - n(ship.y))) : 'Rechtsklick: Marke', x, y, mk ? P.FN.nav : K.dim);
-      // ---- EINSATZ: Bolzen, Signatur, Hinweise
+      // ---- EINSATZ: Torpedo-Lager, Signatur, Hinweise
       x = 510; cw = 124;
       y = P.titel(ctx, x, y0, cw, 'EINSATZ', 'sensor');
-      const bolzen = (ship.mounts || []).find((m) => m.id === 'bolzen' && !m.missing);
-      if (bolzen) {
-        const mag = n(bolzen.ammo, bolzen.loaded ? 1 : 0), magMax = (CFG.weapons && CFG.weapons.bolzen && CFG.weapons.bolzen.magazine) || 2;
-        const rr = n(inv.bolzen) <= 0 ? 'Kein Bolzen-Vorrat (Lager/Shop)' : mag >= magMax ? 'Magazin voll' : null;
-        P.knopf(ctx, x, y, cw, 14, 'Nachladen', { hotkey: 'R', aktion: 'ops.nachladen', text: 'Bolzen ' + mag + '/' + magMax, fn: 'weapon', disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'weapons.reload') }); y += 17;
+      const tm = (ship.mounts || []).find((mm) => { const ww = waffeVon(mm); return ww && ww.art === 'torpedo'; });
+      if (tm || n(inv.bolzen) > 0) {   // PAN-01 C: Torpedowerfer lädt selbst nach (Cooldown), nur das Lager (hart 12) muss gefüllt sein – kein Nachladen-Knopf
+        const ammo = tm ? n(tm.ammo) : n(inv.bolzen);
+        T(ctx, 'TORPEDOS ' + ammo + '/' + lagerMax, x, y, ammo > 0 ? K.text : P.FN.weapon); y += 10;
+        P.segs(ctx, x, y, lagerMax, ammo, 'weapon', 7, 5); y += 8;
+        if (tm) {
+          const cd = n(tm.cd), cwid = cw - 2;
+          ctx.fillStyle = K.off; ctx.fillRect(x, y, cwid, 3); ctx.fillStyle = n(tm.charge) >= 1 ? P.FN.shield : P.FN.drive; ctx.fillRect(x, y, Math.round(cwid * clamp(n(tm.charge), 0, 1)), 3); y += 5;
+          T(ctx, ammo <= 0 ? 'Lager leer (Shop)' : n(tm.charge) >= 1 ? 'bereit · lädt selbst nach' : 'Cooldown ' + cd + ' s', x, y, K.dim); y += 12;
+        } else { T(ctx, 'kein Werfer (Platz 2)', x, y, K.dim); y += 12; }
       }
       if (ship.sf) {
         const sig = clamp(n(ship.sf.sig) / 100, 0, 1);
@@ -296,6 +310,11 @@
       } else { c.fillStyle = P.FN.weapon; c.fillRect(cx - 8, cy - 3, 16, 6); }
       const lab = (i, x, yy, al) => { const v = seite(i), mx = seiteMax(i); T(c, SECTOR[i] + ' ' + v, x, yy, v <= 0 ? P.FN.weapon : v >= mx ? P.FN.shield : P.mix(P.FN.shield, K.bg, 0.4), al); };
       lab(0, cx + 26, cy - 3); lab(2, cx - 26, cy - 3, 'right'); lab(3, cx, cy - 33, 'center'); lab(1, cx, cy + 26, 'center');
+      // PAN-01 C: Waffen je Seite (Katalog) und Module der Klasse – nur nach dem Scan, passt unter den Schilden in den Kasten
+      const ya = cy + 37, yMax = b.y + b.h - 16;
+      if (yMax - ya >= 11) {
+        try { this.zielAusstattung(c, target, b.x + 6, ya, b.w - 12, yMax - ya, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); }
+      }
     },
 
     // ================================================================= Technik
@@ -321,7 +340,7 @@
         const pos = [[cx + 150, cy], [cx, cy + 38], [cx - 150, cy], [cx, cy - 38]];
         for (let i = 0; i < 4; i++) {
           const [px, py] = pos[i], bw = 120, bh = 26, bx = Math.round(px - bw / 2), by = Math.round(py - bh / 2);
-          const sel = this.sel.power === 4 + i, cap = n(capA[i], 4);
+          const sel = this.sel.power === SEL_SCH0 + i, cap = n(capA[i], 4);
           if (sel) P.zeileHi(c, bx, by, bw, bh, 'shield');
           if (tele[i]) { c.strokeStyle = Math.floor(view.time * 8) % 2 ? PAL.red : '#FF8A7A'; c.setLineDash([4, 3]); c.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1); c.setLineDash([]); }
           T(c, SECTOR[i], bx + 22, by + 2, sel ? P.FN.drive : K.text);
@@ -334,28 +353,43 @@
           }
           const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
           const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
-          P.knopf(c, bx, by + 6, 17, 16, '-', { disabled: !!minusR, reason: minusR, fn: 'shield', onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
-          P.knopf(c, bx + bw - 17, by + 6, 17, 16, '+', { disabled: !!plusR, reason: plusR, fn: 'shield', onClick: () => { this.sel.power = 4 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
+          P.knopf(c, bx, by + 6, 17, 16, '-', { disabled: !!minusR, reason: minusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
+          P.knopf(c, bx + bw - 17, by + 6, 17, 16, '+', { disabled: !!plusR, reason: plusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
         }
       } });
       const K = g.skin, y0 = g.pult.y;
       // ---- ENERGIE
       let x = 62, cw = 236;
       let y = P.titel(ctx, x, y0, cw, 'ENERGIE · ' + used + '/' + output + ' VERTEILT', 'shield');
+      const bedarf = this.energieBedarf(ship), mods = this.modulListe(ship);
       POWER_SYS.forEach((sys, i) => {
         const ry = y + i * 20, v = n(power[sys]), fnc = POWER_FN[sys], state = (ship.systems || {})[sys] || 'ok';
         if (this.sel.power === i) P.zeileHi(ctx, x, ry - 2, cw, 18, fnc);
         T(ctx, POWER_NAMES[sys], x + 6, ry + 3, state === 'ok' ? K.text : P.FN.weapon);
         const minusR = v <= 0 ? 'Minimum erreicht' : null;
-        const plusR = v >= 4 ? 'Maximum (4)' : used >= output ? 'Reaktor ausgelastet – erst anderswo abziehen' : null;
+        const plusR = v >= 4 ? 'Maximum (4)' : bedarf >= output ? 'Reaktor ausgelastet – erst anderswo abziehen oder ein Modul abschalten' : null;
         P.knopf(ctx, x + 74, ry, 14, 14, '-', { disabled: !!minusR, reason: minusR, fn: fnc, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: -1 }); } });
         P.segs(ctx, x + 92, ry + 4, 4, v, fnc, 11, 7);
         P.knopf(ctx, x + 146, ry, 14, 14, '+', { disabled: !!plusR, reason: plusR, fn: fnc, onClick: () => { this.sel.power = i; this.cmd(view, 'technik.power', { sys, delta: 1 }); } });
         const hv = n(heat[sys]) / ((CFG.power && CFG.power.heatLimit) || 100);
         ctx.fillStyle = K.off; ctx.fillRect(x + 166, ry + 6, cw - 168, 3); ctx.fillStyle = hv > 0.7 ? P.FN.weapon : P.FN.warn; ctx.fillRect(x + 166, ry + 6, Math.round((cw - 168) * clamp(hv, 0, 1)), 3);
       });
-      y += 4 * 20 + 2;
-      T(ctx, '↑↓ wählen · ←→ verteilen · Balken = Hitze', x, y, K.dim);
+      y += POWER_SYS.length * 20 + 2;
+      // PAN-01 A: Bordmodule – je 1 Energie, solange sie laufen; abschalten macht Energie für die Hauptsysteme frei
+      T(ctx, 'BORDMODULE', x, y, K.dim); T(ctx, mods.length + ' eingebaut · je 1 Energie', x + cw, y, K.dim, 'right'); y += 11;
+      mods.forEach((m, j) => {
+        const ry = y + j * 16, selM = this.sel.power === SEL_MOD0 + j;
+        const fnc = m.lauf ? 'shield' : m.an ? 'drive' : 'weapon';
+        if (selM) P.zeileHi(ctx, x, ry - 2, cw, 15, fnc);
+        P.lampe(ctx, x + 2, ry + 1, fnc, true);
+        T(ctx, m.name.toUpperCase() + ' ' + m.raum, x + 14, ry + 2, m.lauf ? K.text : P.FN.weapon);
+        T(ctx, m.lauf ? 'läuft' : m.an ? 'ENERGIE FEHLT' : 'AUS', x + 122, ry + 2, m.lauf ? P.FN.shield : m.an ? P.FN.drive : P.FN.weapon);
+        const why = this.modulGrund(ship, m, output);
+        if (m.an && !m.lauf) P.knopf(ctx, x + 206, ry - 1, 28, 13, 'Aus', { fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, false); } });   // Wunsch zurücknehmen
+        else P.knopf(ctx, x + 168, ry - 1, 66, 13, m.an ? 'Abschalten' : 'Einschalten', { disabled: !!why, reason: why, fn: fnc, onClick: () => { this.sel.power = SEL_MOD0 + j; this.modulSchalten(view, m, !m.an); } });
+      });
+      y += Math.max(1, mods.length) * 16;
+      T(ctx, '↑↓ wählen · ←→ verteilen/Modul', x, y, K.dim);
       // ---- REAKTOR
       x = 306; cw = 150;
       y = P.titel(ctx, x, y0, cw, 'REAKTOR', 'shield');
@@ -435,6 +469,17 @@
       const radio = st.mission && st.mission.radio;
       if (radio && radio.needsAccept && this.tab !== 0 && Math.floor(view.time * 2) % 2 === 0) T(ctx, 'Funk wartet! (1)', x, y, P.FN.drive);
       else if (this.tab !== 2 && this.escortList(view).some((e) => e.distress && e.state !== 'kampfunfaehig') && Math.floor(view.time * 2) % 2 === 0) T(ctx, 'NOTRUF Schützling! (3)', x, y, P.FN.drive);
+      // Abnahme 14: die Seiten und ihre Bestückung auf einen Blick (nur Anzeige, bedient wird am Ops-Pult)
+      y += 4;
+      const sz = UI && UI.seitenUebersicht ? UI.seitenUebersicht(st.ship || {}) : [];
+      if (sz.length) {
+        const hw = Math.floor(cw / 2);
+        sz.forEach((z, i) => {
+          const zx = x + (i % 2) * hw, zy = y + Math.floor(i / 2) * 10;
+          P.lampe(ctx, zx, zy + 1, 'weapon', z.bereit && !z.aus);
+          T(ctx, z.seite + ' ' + z.kurz + (z.n > 1 && z.gleich ? ' ×' + z.n : '') + ' ' + z.text, zx + 10, zy, z.aus ? K.dim : K.text);
+        });
+      }
       return ctl;
     },
   });

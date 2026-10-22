@@ -71,7 +71,7 @@ function an(game, o) {
   const art = game.C.fracht.arten.includes(q.ladung) ? q.ladung : game.C.fracht.artDefault;
   const sieg = SIEGE.includes(q.sieg) ? q.sieg : 'pluendern';
   const eskorte = ESKORTEN.includes(q.eskorte) ? q.eskorte : 'voll';
-  const cap = Fracht.capacity();
+  const cap = Math.max(1, Fracht.capacity(game));
   const beuteMin = clamp(Math.round(Number(q.beute_min) || Math.min(nW, cap)), 1, Math.min(nW, cap));
   game.space.konvoi = {
     sieg, art, nWunsch: nW, beuteMin, eskorte, wiederholung: q.wiederholung !== false, volk: q.volk || null, tempo: q.tempo != null ? Number(q.tempo) : null,
@@ -85,7 +85,7 @@ function spawnen(game) {
   // Plündern: schon an Bord liegende Ladung dieser Art zählt (eine Ladung bleibt bis zum Systemwechsel an Bord), der Rest des Konvois ist kleiner
   const schonDa = k.sieg === 'pluendern' ? Math.min(Fracht.anBord(game, k.art), k.beuteMin - 1) : 0;
   const nT = Math.max(1, k.nWunsch - schonDa);
-  k.beuteMin = Math.min(k.beuteMin, Fracht.capacity());
+  k.beuteMin = Math.min(k.beuteMin, Math.max(1, Fracht.capacity(game)));
   const a = k.route[0], b = k.route[1];
   const head = Math.atan2(b.y - a.y, b.x - a.x);
   const ux = Math.cos(head), uy = Math.sin(head);

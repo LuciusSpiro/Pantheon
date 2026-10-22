@@ -9,35 +9,41 @@
   const PAL = R.PAL;
   const TILE = 32, VW = 640, VH = 360;
 
-  // M3a: alle 14 Systeme (+ Altname weapons = schlechteste der drei Waffen)
+  // M3a, PAN-01 B: alle 13 Systeme (+ Altname weapons = schlechteste der drei Waffen); die Lebenserhaltung ist gestrichen
   const SYS_NAMES = {
-    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgenerator', weapons: 'Waffen', life: 'Lebenserhaltung', transfer: 'Transfer',
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgenerator', weapons: 'Waffen', transfer: 'Transfer',
     // gleiche Namen wie der Server (interior.SYS_LABEL)
     thruster_port: 'Backbord-Düse', thruster_stbd: 'Steuerbord-Düse',
     emitter_bow: 'Bug-Emitter', emitter_stbd: 'Steuerbord-Emitter', emitter_aft: 'Heck-Emitter', emitter_port: 'Backbord-Emitter',
     weapon_bow: 'Bug-Waffe', battery_port: 'Backbord-Batterie', battery_stbd: 'Steuerbord-Batterie',
+    // PAN-01 C: Lafetten der weiteren Waffenplätze (nur im Snapshot, wenn der Platz offen und bestückt ist; Ziffernblock-Platz im Namen)
+    lafette_5: 'Lafette 5', lafette_7: 'Lafette 7', lafette_9: 'Lafette 9', lafette_1: 'Lafette 1', lafette_3: 'Lafette 3', lafette_2: 'Lafette 2',
   };
   const SYS_SHORT = {
-    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', life: 'Leben', transfer: 'Transfer',
+    reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', transfer: 'Transfer',
     thruster_port: 'Bb-Düse', thruster_stbd: 'Stb-Düse', emitter_bow: 'Bug-Emitter', emitter_stbd: 'Stb-Emitter', emitter_aft: 'Heck-Emitter',
     emitter_port: 'Bb-Emitter', weapon_bow: 'Bug-Waffe', battery_port: 'Bb-Batterie', battery_stbd: 'Stb-Batterie',
+    lafette_5: 'Lafette 5', lafette_7: 'Lafette 7', lafette_9: 'Lafette 9', lafette_1: 'Lafette 1', lafette_3: 'Lafette 3', lafette_2: 'Lafette 2',
   };
   // Zwei Zeichen fürs HUD-Raster: Art + Seite (b Backbord, s Steuerbord, h Heck, v vorn/Bug)
   const SYS_CODE = {
-    reactor: 'Re', shields: 'Sg', life: 'Le', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
+    reactor: 'Re', shields: 'Sg', transfer: 'Tr', engines: 'Tw', weapon_bow: 'La',
     thruster_port: 'Db', thruster_stbd: 'Ds', emitter_bow: 'Ev', emitter_stbd: 'Es', emitter_aft: 'Eh', emitter_port: 'Eb', battery_port: 'Bb', battery_stbd: 'Bs',
+    lafette_5: 'L5', lafette_7: 'L7', lafette_9: 'L9', lafette_1: 'L1', lafette_3: 'L3', lafette_2: 'L2',
   };
   // Reihenfolge nach Ort: Bug – Backbord – Steuerbord – Heck – Mitte
-  const SYSTEM_ORDER = ['weapon_bow', 'emitter_bow', 'thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer',
-    'engines', 'emitter_aft', 'reactor', 'shields', 'life'];
+  const SYSTEM_ORDER = ['weapon_bow', 'lafette_5', 'emitter_bow', 'thruster_port', 'battery_port', 'lafette_7', 'lafette_1', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'lafette_9', 'lafette_3',
+    'emitter_stbd', 'transfer', 'engines', 'emitter_aft', 'lafette_2', 'reactor', 'shields'];   // PAN-01 C: Lafetten nur anzeigen, wenn im Snapshot vorhanden (systemListe)
+  // Systeme in Anzeigereihenfolge, die der Snapshot kennt (Lafetten fehlen, solange der Platz zu oder unbestückt ist)
+  const systemListe = (ship) => SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s) || (ship && ship.systems && s in ship.systems));
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
-  const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'life', 'weapon_bow', 'emitter_bow'],
+  const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
-  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Bolzen', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
+  const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
   const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
-  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer'];
+  const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
   const WAFFE_KURZ = { schrottblaster: 'Schrottbl.', sturmgewehr: 'Gewehr', granatwerfer: 'Granaten', betaeuber: 'Betäuber', nahkampf: 'Klinge' };
   const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Faust', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
@@ -47,10 +53,16 @@
   const STATE_COL = { ok: PAL.moss, damaged: PAL.warn, broken: PAL.red, offline: '#9A7AE0' };
   STATE_NAMES.offline = 'offline (EMP)';
 
-  // Räume der Lerche: M3a aus dem Schiffslayout (Maps.roomAt / SHIP_ROOMS), Fallback 'Gang'
-  function roomOf(tx, ty) {
+  // Räume der Lerche: M3a aus dem Schiffslayout (Maps.roomAt / SHIP_ROOMS), Fallback 'Gang'.
+  // PAN-01 B: Modulräume heißen nach dem Modul darin (st = Snapshot, ship.mod), sonst „Modulraum n (leer)“; der Raumname nennt das Deck.
+  const MODUL_NAMEN = { f: 'Frachtraum', k: 'Krankenstation', w: 'Werkstatt' };
+  function roomOf(tx, ty, st) {
     try {
       const r = Maps && Maps.roomAt ? Maps.roomAt(tx, ty) : null;
+      if (r && r.kind === 'modul' && st && st.ship) {
+        const code = Maps.modulCodeImRaum(st.ship.mod, r.modul);
+        return code ? (MODUL_NAMEN[code] || r.name) + ' (Raum ' + r.modul + ')' : r.name + ' (leer)';
+      }
       return (r && r.name) || 'Gang';
     } catch (e) { return 'Gang'; }
   }
@@ -60,8 +72,18 @@
     return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
   }
 
+  // PAN-01 A: Sekunden bis zur Notrückholung eines Verwundeten. Läuft die Krankenstation (ship.mod) und ist der Transfer heil, holt sie nach
+  // CONFIG.module.krankenstation.holNach s (kürzer als das Ausbluten); sonst gilt der Ausblut-Zähler (bleed).
+  function holIn(st, p) {
+    if (!p || p.bleed == null) return null;
+    const ship = (st && st.ship) || {};
+    const kr = (ship.mod || []).some((m) => m[0] === 'k' && m[3]) && ship.systems && ship.systems.transfer !== 'broken' && ship.systems.transfer !== 'offline';
+    const hol = (CFG.module && CFG.module.krankenstation && CFG.module.krankenstation.holNach) || 10;
+    return kr ? Math.min(p.bleed, Math.max(0, hol - (+p.downedFor || 0))) : p.bleed;
+  }
+
   const Hud = {
-    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -480,14 +502,12 @@
       R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55 + yo, { color: PAL.brass });
       // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
-      const rn = roomOf(tx, ty);
+      const rn = roomOf(tx, ty, view.state);
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
       R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
       R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
       this.drawJumpLine(ctx, view, 63);
-      // Mini-Schiffsplan unten rechts
-      const map = Maps.ship;
-      R.drawMiniPlan(ctx, view, VW - map.w * 3 - 6, VH - map.h * 3 - 6, { zone: 'ship', cell: 3 });
+      // PAN-01 B (Feedback 1): der Mini-Schiffsplan unten rechts im Schiffsinnern entfällt (Decksplan nur noch in den Konsolen Captain/Technik)
       this.drawEdgeArrows(ctx, view);
     },
 
@@ -772,7 +792,7 @@
       // Kameraden kein „E halten“-Hinweis
       const wellen = !!st.wellen;
       const kamerad = (st.players || []).some(q => q.id !== me.id && q.zone === 'away' && !q.downed && q.connected !== false);
-      R.text(ctx, 'VERWUNDET' + (!wellen && me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(me.bleed)) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
+      R.text(ctx, 'VERWUNDET' + (!wellen && me.bleed != null ? ' – Notrückholung in ' + fmtTime(Math.ceil(this.holIn(st, me))) : ''), cx, y + 4, { color: PAL.red, align: 'center' });
       R.text(ctx, kamerad ? 'Kameraden: neben dir E halten' : wellen ? 'Niemand steht mehr – die Runde endet' : 'Allein unten – warte auf die Notrückholung', cx, y + 16, { color: PAL.star, align: 'center' });
       R.text(ctx, 'Du: mit der Maus zielen, Klick = Pistole', cx, y + 27, { color: R.SHIELD_COL, align: 'center' });
     },
@@ -970,7 +990,7 @@
       if (mehrZ) { R.text(ctx, '+' + r.mehr + ' im Funk-Reiter', x + 6 + pw, y, { color: PAL.panelLight }); y += 10; }
       if (radio && radio.needsAccept) {
         const blink = Math.floor(view.time * 2) % 2 === 0;
-        R.text(ctx, '> Captain-Konsole: annehmen', tx, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
+        R.text(ctx, '> Captain-Konsole: annehmen', x + 6 + pw, y + 1, { color: blink ? PAL.mint : PAL.panelLight });
       }
       return oy + h;   // S2: Unterkante (Schützling-Zeile darunter)
     },
@@ -1053,20 +1073,22 @@
       items.forEach((it, i) => R.text(ctx, ITEM_NAMES[it] + ': ' + (inv[it] || 0), x + 10 + (i % 3) * 130, ly + Math.floor(i / 3) * 11, { color: PAL.star }));
       ly += 26;
       R.text(ctx, 'Marken: ' + (inv.marks || 0), x + 10, ly, { color: PAL.brass });
-      const up = st.upgrades || {};
-      const ups = [up.seitenturm && (CFG.spaceM3 ? 'Zusatzrohre' : 'Seitenturm'), up.schildpool && 'Schildpool +2', up.bot2 && 'Zweiter Schrauber'].filter(Boolean);
-      R.text(ctx, 'Upgrades: ' + (ups.join(', ') || 'keine'), x + 140, ly, { color: PAL.star });
+      // PAN-01 C: Zusatzrohre und Bolzenwerfer sind im Waffenkatalog aufgegangen (state.upgrades ist leer); hier steht die Bestückung je Platz
+      const SU = window.SchiffsUI, mts = ((st.ship || {}).mounts || []);
+      const best = SU ? mts.map((m) => { const w = SU.waffeVon(m); return w ? SU.platzVon(m) + ' ' + w.kurz : null; }).filter(Boolean) : [];
+      let wtxt = 'Waffen: ' + (best.join(' · ') || 'keine'); if (R.measure(wtxt, 1) > 255) { while (wtxt.length > 14 && R.measure(wtxt + '…', 1) > 255) wtxt = wtxt.slice(0, -1); wtxt += '…'; }
+      R.text(ctx, wtxt, x + 140, ly, { color: PAL.star });
       ly += 14;
       const sys = (st.ship && st.ship.systems) || {};
       R.text(ctx, 'SYSTEME', x + 10, ly, { color: PAL.brass }); ly += 11;
-      SYSTEM_ORDER.forEach((s, i) => {
+      systemListe(st.ship).forEach((s, i) => {
         const state = sys[s] || 'ok';
         const fr = R.fragileOf(st, s);
         const cx = x + 10 + (i % 3) * 128, cy = ly + Math.floor(i / 3) * 10;
         R.text(ctx, SYS_SHORT[s], cx, cy, { color: PAL.star });
         R.text(ctx, R.stateCode(state, fr), cx + 120, cy, { color: R.stateColor(state, fr), align: 'right' });
       });
-      ly += 52;
+      ly += 10 * Math.ceil(systemListe(st.ship).length / 3) + 2;
       R.text(ctx, (st.world ? 'Ort: ' + R.locName(st, R.worldOf(st).location) : 'Abschnitt: ' + ((st.mission && st.mission.stage) || '-')) + '   Spielzeit: ' + fmtTime(st.stats && st.stats.elapsed != null ? st.stats.elapsed : st.time), x + 10, ly, { color: PAL.panelLight });
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
@@ -1805,8 +1827,9 @@
       const me = view.me;
       const inGame = st.phase && st.phase !== 'lobby' && me;
       const carry = !!(inGame && me.carry && !me.console);
-      const h = 22;
-      let y = VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
+      const h = kons ? 14 : 22;
+      let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
       let text;
@@ -1827,14 +1850,14 @@
         const room = Math.max(96, Math.floor((VW - R.measure(tone, 1)) / 2) - 4 - 34 - 6);
         text = cands.find(c => c && R.measure(c, 1) <= room) || this.fit(short, room, 1);
       }
-      const w = R.measure(text, 1) + 34, x = 4;
+      const w = R.measure(text, 1) + (kons ? 24 : 34), x = kons ? 270 : 4;
       const col = s.ok ? PAL.mint : PAL.warn;
       ctx.globalAlpha = a;
       R.backdrop(ctx, x, y, w, h, 0.85);
       ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const stamp = s.ok ? 1 + 0.35 * Math.max(0, 1 - age / 0.3) : 1;   // kurzer „Stempel“-Effekt
-      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + 12, y + h / 2, Math.round(16 * stamp), s.ok ? 'ok' : 'warn'));
-      R.text(ctx, text, x + 24, y + h / 2 - 4, { color: col });
+      Net.guard('Hud.drawSeal', () => this.drawSeal(ctx, x + (kons ? 9 : 12), y + h / 2, Math.round((kons ? 10 : 16) * stamp), s.ok ? 'ok' : 'warn'));
+      R.text(ctx, text, x + (kons ? 18 : 24), y + h / 2 - 4, { color: col });
       ctx.globalAlpha = 1;
     },
     drawPause(ctx, view, menuOpen) {

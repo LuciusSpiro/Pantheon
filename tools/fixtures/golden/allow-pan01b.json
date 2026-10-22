@@ -1,0 +1,8 @@
+{
+  "_kommentar": "PAN-01 Paket B, schlanke Allow-Datei für Vergleiche GEGEN base-pan01b: node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01b <neu> --allow tools/fixtures/golden/allow-pan01b.json. Ein Lauf auf demselben Stand ist byte-identisch zur Basis, es sind deshalb keine Ausnahmen nötig (auch keine pan01-a-Präfixe); spätere Pakete hängen hier nur verankerte Muster (^…$) für ihre eigenen, gewollten Textänderungen an. Die Übergangsmuster a -> b stehen in allow-pan01b-uebergang.json.",
+  "stages": [],
+  "texts": [],
+  "flags": [],
+  "inventory": [],
+  "duration": []
+}

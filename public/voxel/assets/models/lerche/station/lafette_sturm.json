@@ -1,0 +1,622 @@
+{
+ "id": "lerche/station/lafette_sturm",
+ "name": "Lafette Sturmbatterie (Seite): schmaler Block, Gatling-Bündel aus sechs dünnen Rohren, Kühlrippen, Munitionskasten mit Gurt; state 0 verschlossen, 1 frei, 2 aktiv; Rohr nach -z",
+ "tier": "detail",
+ "palette": "lerche_rom",
+ "tags": [
+  "lerche",
+  "station",
+  "waffe",
+  "lafette",
+  "paket-c",
+  "seite"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "jitter": 0,
+ "params": {
+  "state": {
+   "default": 2,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 verschlossen (Plane, Gitter) · 1 frei/leer · 2 aktiv bestückt"
+  },
+  "side": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Seite 0 Bb / 1 Stb (spiegelt Anbauten und Marke)"
+  }
+ },
+ "let": {
+  "cx": "side == 1 ? 1 : -1"
+ },
+ "variants": {
+  "verschlossen": {
+   "state": 0
+  },
+  "frei": {
+   "state": 1
+  },
+  "aktiv": {
+   "state": 2
+  },
+  "stb": {
+   "state": 2,
+   "side": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Bodenplatte",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    16,
+    2,
+    16
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rand vorn",
+   "at": [
+    1,
+    1,
+    13
+   ],
+   "size": [
+    14,
+    1,
+    2
+   ],
+   "color": {
+    "stripes": [
+     "primary",
+     "trim"
+    ],
+    "axis": "x",
+    "period": 2
+   },
+   "mode": "paint",
+   "jitter": false
+  },
+  {
+   "op": "cyl",
+   "name": "Lagerring",
+   "at": [
+    8,
+    2,
+    7
+   ],
+   "r": "5 + 0.5",
+   "h": 2,
+   "color": "metal"
+  },
+  {
+   "op": "cyl",
+   "name": "Zahnkranz",
+   "at": [
+    8,
+    4,
+    7
+   ],
+   "r": 5,
+   "h": 1,
+   "color": {
+    "checker": [
+     "metal_light",
+     "dark"
+    ],
+    "period": 1
+   },
+   "hollow": 1,
+   "jitter": false
+  },
+  {
+   "op": "cyl",
+   "name": "Kranzscheibe",
+   "at": [
+    8,
+    4,
+    7
+   ],
+   "r": "5 - 1",
+   "h": 1,
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Seitenmarke Bb",
+   "at": [
+    1,
+    2,
+    13
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": "trim",
+   "if": "side == 0"
+  },
+  {
+   "op": "box",
+   "name": "Seitenmarke Stb",
+   "at": [
+    14,
+    2,
+    13
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": "trim",
+   "if": "side == 1"
+  },
+  {
+   "op": "group",
+   "name": "Verschlossen: Plane und Gitter",
+   "if": "state == 0",
+   "ops": [
+    {
+     "op": "ellipsoid",
+     "name": "Plane",
+     "at": [
+      8,
+      4,
+      7
+     ],
+     "r": [
+      5,
+      6,
+      "5 - 1"
+     ],
+     "half": "+y",
+     "color": {
+      "noise": [
+       "leather",
+       {
+        "shade": "leather",
+        "f": 0.8
+       }
+      ],
+      "weights": [
+       3,
+       1
+      ],
+      "cell": 1
+     }
+    },
+    {
+     "op": "box",
+     "name": "Gurt laengs",
+     "at": [
+      7,
+      4,
+      0
+     ],
+     "size": [
+      2,
+      11,
+      16
+     ],
+     "color": "trim",
+     "mode": "paint"
+    },
+    {
+     "op": "box",
+     "name": "Gurt quer",
+     "at": [
+      0,
+      4,
+      6
+     ],
+     "size": [
+      16,
+      11,
+      2
+     ],
+     "color": {
+      "shade": "trim",
+      "f": 0.8
+     },
+     "mode": "paint"
+    },
+    {
+     "op": "box",
+     "name": "Siegel",
+     "at": [
+      7,
+      9,
+      7
+     ],
+     "size": [
+      2,
+      2,
+      2
+     ],
+     "color": "primary"
+    },
+    {
+     "op": "box",
+     "name": "Gitterstab",
+     "at": [
+      1,
+      2,
+      13
+     ],
+     "size": [
+      1,
+      9,
+      1
+     ],
+     "color": "metal_light",
+     "repeat": {
+      "count": 5,
+      "step": [
+       3,
+       0,
+       0
+      ],
+      "var": "g"
+     }
+    },
+    {
+     "op": "box",
+     "name": "Gitterholm",
+     "at": [
+      1,
+      9,
+      13
+     ],
+     "size": [
+      14,
+      1,
+      1
+     ],
+     "color": "metal_light"
+    },
+    {
+     "op": "box",
+     "name": "Gitterholm unten",
+     "at": [
+      1,
+      3,
+      13
+     ],
+     "size": [
+      14,
+      1,
+      1
+     ],
+     "color": "metal_light"
+    },
+    {
+     "op": "box",
+     "name": "Zeichentafel",
+     "at": [
+      6,
+      5,
+      14
+     ],
+     "size": [
+      4,
+      3,
+      1
+     ],
+     "color": {
+      "frame": "trim",
+      "fill": "dark",
+      "axes": "xy",
+      "width": 1
+     }
+    },
+    {
+     "op": "box",
+     "name": "Zeichen",
+     "at": [
+      7,
+      6,
+      15
+     ],
+     "size": [
+      2,
+      1,
+      1
+     ],
+     "color": "primary"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Frei: leerer Sockel",
+   "if": "state == 1",
+   "ops": [
+    {
+     "op": "cyl",
+     "name": "Zapfen",
+     "at": [
+      8,
+      5,
+      7
+     ],
+     "r": 2,
+     "h": 3,
+     "color": "metal"
+    },
+    {
+     "op": "cyl",
+     "name": "Zapfenkappe",
+     "at": [
+      8,
+      8,
+      7
+     ],
+     "r": 2.5,
+     "h": 1,
+     "color": "trim"
+    },
+    {
+     "op": "box",
+     "name": "Zeiger frei",
+     "at": [
+      7,
+      5,
+      1
+     ],
+     "size": [
+      2,
+      1,
+      4
+     ],
+     "color": "trim",
+     "jitter": false
+    },
+    {
+     "op": "box",
+     "name": "Gleitschienen",
+     "at": [
+      2,
+      2,
+      2
+     ],
+     "size": [
+      1,
+      1,
+      10
+     ],
+     "color": "metal_light",
+     "mirror": "x",
+     "mirrorAt": 8
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Aktiv",
+   "if": "state == 2",
+   "ops": [
+    {
+     "op": "cyl",
+     "name": "Drehteller",
+     "at": [
+      8,
+      5,
+      7
+     ],
+     "r": 4,
+     "h": 2,
+     "color": "metal"
+    },
+    {
+     "op": "box",
+     "name": "Gehaeuse",
+     "at": [
+      5,
+      7,
+      6
+     ],
+     "size": [
+      6,
+      6,
+      8
+     ],
+     "color": {
+      "frame": "trim",
+      "fill": "metal_dark",
+      "axes": "xz",
+      "width": 1
+     }
+    },
+    {
+     "op": "box",
+     "name": "Kuehlrippen",
+     "at": [
+      4,
+      8,
+      7
+     ],
+     "size": [
+      1,
+      5,
+      1
+     ],
+     "color": "metal_light",
+     "repeat": {
+      "count": 4,
+      "step": [
+       0,
+       0,
+       2
+      ],
+      "var": "k"
+     },
+     "mirror": "x",
+     "mirrorAt": 8
+    },
+    {
+     "op": "box",
+     "name": "Haube",
+     "at": [
+      6,
+      13,
+      7
+     ],
+     "size": [
+      4,
+      1,
+      6
+     ],
+     "color": "primary"
+    },
+    {
+     "op": "cyl",
+     "name": "Kernstab",
+     "axis": "z",
+     "at": [
+      8,
+      10,
+      2
+     ],
+     "r": 0.9,
+     "h": 6,
+     "color": "metal"
+    },
+    {
+     "op": "line",
+     "name": "Rohr",
+     "from": [
+      "8 + 2.4 * cos(i * 1.0472)",
+      "10 + 2.4 * sin(i * 1.0472)",
+      8
+     ],
+     "to": [
+      "8 + 2.4 * cos(i * 1.0472)",
+      "10 + 2.4 * sin(i * 1.0472)",
+      0
+     ],
+     "r": 0.75,
+     "color": "metal_light",
+     "repeat": {
+      "count": 6,
+      "var": "i"
+     }
+    },
+    {
+     "op": "cyl",
+     "name": "Scheibe vorn",
+     "axis": "z",
+     "at": [
+      8,
+      10,
+      0
+     ],
+     "r": 3.6,
+     "h": 1,
+     "color": {
+      "shade": "trim",
+      "f": 1.2
+     },
+     "jitter": false,
+     "hollow": 1
+    },
+    {
+     "op": "cyl",
+     "name": "Scheibe mitte",
+     "axis": "z",
+     "at": [
+      8,
+      10,
+      4
+     ],
+     "r": 3.4,
+     "h": 1,
+     "color": "primary",
+     "hollow": 1
+    },
+    {
+     "op": "box",
+     "name": "Munitionskasten",
+     "at": [
+      "cx == 1 ? 11 : 1",
+      7,
+      8
+     ],
+     "size": [
+      4,
+      4,
+      5
+     ],
+     "color": {
+      "frame": "trim",
+      "fill": "primary",
+      "axes": "xy",
+      "width": 1
+     }
+    },
+    {
+     "op": "line",
+     "name": "Gurt",
+     "from": [
+      "cx == 1 ? 11 : 5",
+      10,
+      10
+     ],
+     "to": [
+      "cx == 1 ? 10 : 6",
+      12,
+      10
+     ],
+     "r": 0.8,
+     "color": {
+      "shade": "trim",
+      "f": 1.2
+     }
+    },
+    {
+     "op": "box",
+     "name": "Gurtglieder",
+     "at": [
+      "cx == 1 ? 10 : 5",
+      11,
+      9
+     ],
+     "size": [
+      1,
+      1,
+      3
+     ],
+     "color": {
+      "shade": "trim",
+      "f": 1.2
+     },
+     "jitter": false
+    }
+   ]
+  }
+ ],
+ "anchor": [
+  8,
+  0,
+  8
+ ]
+}

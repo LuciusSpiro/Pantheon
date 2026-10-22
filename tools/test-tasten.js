@@ -30,7 +30,7 @@ section('Grundlagen');
 let ls = speicher();
 let T = lade(ls);
 ok(Array.isArray(T.AKTIONEN) && T.AKTIONEN.length > 50, 'AKTIONEN geladen (' + T.AKTIONEN.length + ')');
-const GR = ['steuer', 'ops', 'technik', 'captain', 'allgemein'];
+const GR = ['steuer', 'ops', 'technik', 'captain', 'terminal', 'allgemein'];
 ok(T.AKTIONEN.every((a) => GR.includes(a.gruppe) && a.id && a.name && Array.isArray(a.std) && a.std.length), 'jede Aktion hat Gruppe, Name und Standardtasten');
 ok(new Set(T.AKTIONEN.map((a) => a.id)).size === T.AKTIONEN.length, 'ids eindeutig');
 ok(T.AKTIONEN.every((a) => a.std.every((t) => /^(Shift\+)?[A-Za-z0-9]+$/.test(t))), 'Standardtasten haben die Form [Shift+]code');

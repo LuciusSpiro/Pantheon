@@ -38,6 +38,8 @@ function setup(players, opts) {
     conns.push(c);
   }
   for (const c of conns) g.handleMessage(c, { t: 'ready', ready: true });
+  // PAN-01 A: Diese Tests prüfen die ALTE Regel (Ausbluten, Notrückholung aller); sie gilt ohne aktive Krankenstation. Die neue Regel steht in test-energie.js.
+  if (!o.krankenstation) g.ship.module = g.ship.module.filter((m) => m.id !== 'krankenstation');
   const P = (i) => g.players[i];
   const send = (i, m) => g.handleMessage(conns[i], m);
   const run = (sec, each) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.step(); if (each) each(); } };
@@ -245,6 +247,8 @@ console.log('\n[Notrückholung aller]');
   run(0.5);
   ok(P(0).zone === 'ship' && P(1).zone === 'ship' && !P(0).downed && !P(1).downed && events('squadRecall').length === 1, 'alle verwundet -> Notrückholung aller (squadRecall)');
   ok(g.mission.state.stage === stage && g.phase === 'play', 'kein Game Over, Schritt bleibt');
+  ok(g.ship.systems.transfer === 'broken', 'PAN-01 A: die Notrückholung sprengt den Transfer (zerstört)');
+  g.ship.systems.transfer = 'ok';   // repariert
   const chk = away.canBeam(g, 'down');
   ok(!chk.ok && /kühlt/.test(chk.reason), 'Transfer danach gesperrt: ' + chk.reason);
   g.ship.x = 1500 - 250; g.ship.y = 900; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0;
@@ -755,7 +759,9 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
   console.log('\n[S2b: Jäger hält eine volle Salve aus, stirbt nach drei]');
   {
     const L = CONFIG.spaceM3.lance; const M = CONFIG.spaceM3.mounts;
-    const full = L.maxDamage + M.port.damage * M.port.tubes + M.stbd.damage * M.stbd.tubes;
+    // PAN-01 C: die Batterien schießen Projektile (Treffer ~70 %); der Schaden je Rohr ist so kalibriert, dass der ERWARTETE Salvenwert (Katalog stoss) bei 6 liegt: gerechnet wird mit dem Erwartungswert
+    const Kat = require('../shared/schiffskatalog.js'); const ef = Kat.volley('standardbatterie') / (M.port.damage * M.port.tubes);
+    const full = L.maxDamage + Kat.volley('standardbatterie') * 2;
     ok(CONFIG.enemies.raider.hp >= 36, `enemies.raider.hp ${CONFIG.enemies.raider.hp} (vorher 12)`);
     for (const crew of [1, 2, 3]) {
       const { g } = spaceArena(crew, 3);
@@ -763,8 +769,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       const e = space.spawnEnemy(g, 'raider', { tag: 'arena', x: sh.x + 300, y: sh.y, facing: Math.PI });
       const salvo = () => {   // Lanze voll (Bug, Durchschlag) + Batterie Bb + Batterie Stb (je volle Rohrzahl)
         space.damageEnemy(g, e, L.maxDamage, sh.x + 34, sh.y, { pierce: M.bow.pierce });
-        for (let i = 0; i < M.port.tubes; i++) space.damageEnemy(g, e, M.port.damage, sh.x + 300, sh.y - 60);
-        for (let i = 0; i < M.stbd.tubes; i++) space.damageEnemy(g, e, M.stbd.damage, sh.x + 300, sh.y + 60);
+        for (let i = 0; i < M.port.tubes; i++) space.damageEnemy(g, e, M.port.damage * ef, sh.x + 300, sh.y - 60);
+        for (let i = 0; i < M.stbd.tubes; i++) space.damageEnemy(g, e, M.stbd.damage * ef, sh.x + 300, sh.y + 60);
       };
       const alive = () => g.space.enemies.includes(e);
       const hp = [e.hpMax];

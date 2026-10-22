@@ -41,11 +41,12 @@ const consoleTileOf = (con) => (W.CONSOLE_TILES[con] || [])[0];
 const stationTile = (sys) => { const st = (W.STATIONS || []).find((s) => s.system === sys); return st ? { x: st.x, y: st.y } : systemTile(sys); };
 const M3 = CONFIG.spaceM3 || {};
 const MOUNT_IDS = ['bow', 'port', 'stbd'];
+const ZUSATZ_IDS = ['p5', 'p7', 'p9', 'p1', 'p3', 'p2'];   // PAN-01 C: Plätze 5 7 9 1 3 und Heck 2 (nur mit Stufe und Bestückung; Start-Lerche: nie)
 const SECTOR_OF_SIDE = { port: 3, stbd: 1 };
 const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 // Reihenfolge, in der Spieler-Bots zerstörte/beschädigte Systeme angehen (Kampfwert zuerst)
 const REPAIR_PRIO = ['shields', 'reactor', 'thruster_port', 'thruster_stbd', 'emitter_port', 'emitter_stbd', 'emitter_bow', 'emitter_aft',
-  'battery_port', 'battery_stbd', 'weapon_bow', 'engines', 'life', 'transfer'];
+  'battery_port', 'battery_stbd', 'weapon_bow', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2', 'engines', 'transfer'];   // PAN-01 C: Lafetten (nur aktiv mit Bestückung)
 
 const args = process.argv.slice(2);
 const VERBOSE = args.includes('--verbose');
@@ -151,10 +152,11 @@ class Agent {
       const m = this.awayMap(S);
       return (x, y) => { const ch = m.at(x, y); if (ch === 'L' && S.away.map === 'platform') return S.away.doorOpen; if (ch === 'V' && S.away.map === 'wreck') return !!(S.away.hollow && S.away.hollow.open); return !m.solid(x, y); };
     }
-    return (x, y) => !Maps.ship.solid(x, y);
+    const solid = Maps.shipSolidFn((S.ship && S.ship.st) || 0);   // PAN-01 B: verschalte Pforten öffnen mit der Ausbaustufe
+    return (x, y) => !solid(x, y);
   }
   mapFor(S, zone) { return zone === 'away' ? this.awayMap(S) : Maps.ship; }
-  pathLinks(S, zone) { return zone === 'ship' ? W.liftLinks : null; }
+  pathLinks(S, zone) { return zone === 'ship' ? W.liftLinksFor((S.ship && S.ship.st) || 0) : null; }
 
   goto(S, goals) {
     const p = this.me(S);
@@ -170,6 +172,12 @@ class Agent {
       // auf der Liftkachel: zur Mitte, stehen bleiben, E tippen
       const c = Physics.tileCenter(st.x, st.y);
       if (dist(p.x, p.y, c.x, c.y) > 4) { const dx = c.x - p.x, dy = c.y - p.y, l = Math.hypot(dx, dy) || 1; this.input(Math.round(dx / l * 50) / 100, Math.round(dy / l * 50) / 100); return false; }
+      // PAN-01 B: E aktiviert den Lift, dann W (hoch) / S (runter) zum Nachbardeck; ist die Wahl offen (players[].lm), nur noch die Richtung drücken
+      if (p.lm) {
+        const lvl = (ty) => ((Maps.SHIP_DECKS[Maps.deckOf(ty)] || {}).level || 0);
+        this.input(0, lvl(path[0].y) > lvl(st.y) ? -1 : 1);
+        return false;
+      }
       this.input(0, 0);
       if ((this.memo.liftTapAt || -9) < S.time - 0.5) {
         this.memo.liftTapAt = S.time;
@@ -556,7 +564,26 @@ class Agent {
     if (bat.length && (this.memo.batAt || 0) < S.time) {
       this.memo.batAt = S.time + 0.3;
       this.cmd('weapons.fire', { mount: bat.length === 2 ? 'all' : bat[0] });
-    } else if (M.bolzen && M.bolzen.loaded > 0 && M.bolzen.charge >= 1 && this.inArcM(S, M.bolzen, target)) this.cmd('weapons.fire', { mount: 'bolzen' });
+    }
+    this.fightZusatz(S, target, M, enemies);
+  }
+  // PAN-01 C: Plätze 5 7 9 1 3 und Heck 2 bedienen: Salvenwaffen feuern, wenn ein Gegner in ihrem Bogen liegt (je Mount, alle 0,3 s); der Torpedowerfer auf das Ziel im Heckbogen,
+  // der Abwehrturm auf einen Jäger im Nahbereich (besetzt feuert er nur auf Befehl); Lanzen auf Zusatzplätzen bleiben unbedient (die Taktik hält nur die Bug-Lanze)
+  fightZusatz(S, target, M, enemies) {
+    const ids = ZUSATZ_IDS.filter((id) => M[id] && M[id].state !== 'broken');
+    if (!ids.length || (this.memo.zusatzAt || 0) > S.time) return;
+    const sh = S.ship; let fired = false;
+    for (const id of ids) {
+      const m = M[id]; const typ = m.typ || '';
+      if (typ === 'torpedowerfer') {
+        if (m.charge >= 1 && (m.ammo || 0) > 0 && this.inArcM(S, m, target)) { this.cmd('weapons.fire', { mount: id }); fired = true; this.game.simStats.torpedos = (this.game.simStats.torpedos || 0) + 1; }
+      } else if (typ === 'abwehrturm') {
+        if (m.charge >= 1 && !(m.salvo > 0) && enemies.some((e) => e.kind === 'raider' && dist(e.x, e.y, sh.x, sh.y) < 240)) { this.cmd('weapons.fire', { mount: id }); fired = true; }
+      } else if (m.power === undefined && m.salvo !== undefined) {
+        if (m.charge >= 1 && !(m.salvo > 0) && enemies.some((e) => this.inArcM(S, m, e, 6))) { this.cmd('weapons.fire', { mount: id }); fired = true; }
+      }
+    }
+    if (fired) this.memo.zusatzAt = S.time + 0.3;
   }
   // §20.3: Gegner, den die Lanze jetzt treffen würde (erster auf der Strahllinie), aus dem Snapshot
   lanceLineHit(S) {
@@ -624,6 +651,7 @@ class Agent {
     const sh = S.ship; const m = this.memo;
     const P = sh.chargePoints != null ? sh.chargePoints : 4;
     if (!M.bow || !M.port || !M.stbd) return;
+    if (ZUSATZ_IDS.some((id) => M[id] && M[id].alloc !== undefined && M[id].state !== 'broken')) return this.allocForAlle(S, target, M);   // PAN-01 C: mehr als drei Energiewaffen
     if (!m.allocWant || (m.allocAt || 0) < S.time) {
       const rel = norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle) * 180 / Math.PI;
       const want = { bow: 0, port: 0, stbd: 0 };
@@ -638,6 +666,29 @@ class Agent {
     const down = MOUNT_IDS.find((id) => M[id].alloc > w[id]);
     const up = MOUNT_IDS.find((id) => M[id].alloc < w[id]);
     const sum = MOUNT_IDS.reduce((a, id) => a + M[id].alloc, 0);
+    if (down && (sum >= P || !up)) { this.cmd('weapons.alloc', { mount: down, delta: -1 }); m.allocCmdAt = S.time + 0.3; }
+    else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
+  }
+
+  // PAN-01 C: Ladepool auf alle Energiewaffen: die Halterungen, die dem Ziel am nächsten zeigen, bekommen zuerst (je höchstens allocMax), der Rest ist Reserve
+  allocForAlle(S, target, M) {
+    const sh = S.ship; const m = this.memo;
+    const P = sh.chargePoints != null ? sh.chargePoints : 4;
+    const ids = Object.keys(M).filter((id) => M[id].alloc !== undefined && M[id].state !== 'broken');
+    if (!m.allocWant || (m.allocAt || 0) < S.time) {
+      const rel = norm(Math.atan2(target.y - sh.y, target.x - sh.x) - sh.angle) * 180 / Math.PI;
+      const diff = (id) => Math.abs(norm((rel - M[id].facing) * Math.PI / 180)) * 180 / Math.PI;
+      const order = ids.map((id, i) => ({ id, i, d: diff(id) })).sort((a, b) => (a.d - b.d) || (a.i - b.i)).map((q) => q.id);
+      const want = {}; for (const id of ids) want[id] = 0;
+      let left = P;
+      for (const id of order) { const k = Math.min(M3.allocMax || 4, left); want[id] = k; left -= k; }
+      m.allocWant = want; m.allocAt = S.time + 2;
+    }
+    if ((m.allocCmdAt || 0) > S.time) return;
+    const w = m.allocWant;
+    const down = ids.find((id) => M[id].alloc > (w[id] || 0));
+    const up = ids.find((id) => M[id].alloc < (w[id] || 0));
+    const sum = ids.reduce((a, id) => a + M[id].alloc, 0);
     if (down && (sum >= P || !up)) { this.cmd('weapons.alloc', { mount: down, delta: -1 }); m.allocCmdAt = S.time + 0.3; }
     else if (up && sum < P) { this.cmd('weapons.alloc', { mount: up, delta: 1 }); m.allocCmdAt = S.time + 0.3; }
   }
@@ -1123,7 +1174,7 @@ class Agent {
     if (buyer && !m.bought) {
       if (!this.enter(S, 'shop')) return;
       if (S.inventory.marks >= 20) this.cmd('shop.buy', { item: 'pflanze' });
-      if (this.role === 'weapons' && S.inventory.marks >= 220 + 60) this.cmd('shop.buy', { item: 'bolzenwerfer' });
+      // PAN-01 C: der Bolzenwerfer ist im Waffenkatalog aufgegangen (Torpedowerfer auf Heck 2, Werft in Paket D): kein Kauf mehr
       m.bought = true; return;
     }
     if (buyer && !m.deco) {
@@ -1346,6 +1397,8 @@ class KeshAgent extends Agent {
   // ---- Captain an Bord: Funk, Kurs, Befehle, Sensor, Kuppel ----
   captainLogic(S, p, st) {
     if (st === 'briefing') { this.acceptRadio(S) || this.enter(S, 'captain'); return; }
+    // PAN-01 A: Jede Notrückholung sprengt den Transfer; der Captain-Bot repariert ihn, damit das Team unten wieder hochkommt (sonst Softlock beim Extract)
+    if (S.ship.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
     if (S.ship.scene !== 'kesh') { this.travel(S, p, 'kesh'); return; }
     if (!this.enter(S, 'captain')) return;
     const away = S.players.filter((o) => o.zone === 'away');
@@ -1368,6 +1421,8 @@ class KeshAgent extends Agent {
     if (st === 'briefing') { if (this.role === 'helm') this.enter(S, 'helm'); else this.input(0, 0); return; }
     if (S.ship.scene !== 'kesh') { if (this.role === 'helm') this.travel(S, p, 'kesh'); else if (p.console) this.leave(S); else this.onMyPad(S, p); return; }
     if (st === 'extract' && S.inventory.tafel >= 1) { if (p.console) this.leave(S); this.input(0, 0); return; }
+    // PAN-01 A: Jede Notrückholung sprengt den Transfer; die Besatzung an Bord (nicht der Helm) repariert ihn, bevor es wieder runtergeht
+    if (this.role !== 'helm' && S.ship.systems.transfer === 'broken') { this.repair(S, p, 'transfer'); return; }
     const sh = S.ship; const stn = this.station(S);
     const spot = { x: stn.x - 250, y: stn.y };
     const ok = dist(sh.x, sh.y, stn.x, stn.y) <= 330 && sh.speed <= 12;
@@ -1777,6 +1832,7 @@ async function runArena(opts) {
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
     ev, sim: game.simStats, hull: Math.round(game.ship.hull),
+    waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0, schuesse: st.schuesse || 0, schussTreffer: st.schussTreffer || 0, torpedoAbgeprallt: st.torpedoAbgeprallt || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
 }
 
@@ -1893,7 +1949,7 @@ async function arenaMain() {
       log(`Seed ${r.seed}: ${r.cleared}/${nWaves} Wellen (${r.failed} über ${waveLimit} s) in ${r.time} s${r.softlock ? ' – SOFTLOCK (300 s ohne Fortschritt)' : ''} · Hülle −${r.hullLoss} (Überlauf ${f1(r.overflowHull)}) · Notfälle ${r.emergencies} · ` +
         `je Welle ${r.waves.map((w) => `W${w.wave} ${w.dur}s/${w.hull}${w.failed ? 'x' : ''}`).join(' ')} · leakHits ${r.leakHits} · Eskalationen ${r.escalations} · Rückschläge ${r.repairSetbacks} · bridgeLeaves ${r.bridgeLeaves} · ` +
         `Breitseite KB ${pct(r.broadside)} (${f1(r.gbSec)} s) · Lanze ${r.ev.lanceHit}/${r.ev.lanceFire}/${r.ev.lanceFizzle}, gegen Jäger ${r.ev.lanceRaiderHits}/${r.ev.lanceRaiderShots} · ` +
-        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors}`);
+        `Flicken ${r.flicks} · Minispiele ${r.minigames} · Austausch ${r.swaps} · Ladungen ${r.ev.tele} (verfehlt ${r.ev.teleMiss}) · Schüsse ${r.ev.shots} · Treffer ${r.ev.hits} (Schild ${r.ev.hitsShield}/Hülle ${r.ev.hitsHull}/schwer ${r.ev.hitsHeavy}) · Fehler ${r.errors} · WS ${r.waffenSchaden} · TP ${r.torpedos} · TT ${r.torpedoTreffer} · SCH ${r.schuesse}/${r.schussTreffer} · AB ${r.torpedoAbgeprallt}`);
       if (r.statsMissing.length && i === 0) log(`  Hinweis: game.stats ohne ${r.statsMissing.join(', ')} (SERVER-DAMAGE, §4 Zähler) – als 0 gezählt`);
     }
     const avg = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;
@@ -2151,7 +2207,7 @@ class GenericAgent extends KeshAgent {
   personenBot(S, p) {
     if (!this.is('weapons') || p.zone !== 'ship' || S.fracht.halt) return false;
     if ((this.memo.personAt || 0) > S.time) return false;
-    const fr = S.fracht; const cap = (Maps.CARGO_CAPACITY || 2);
+    const fr = S.fracht; const cap = Maps.cargoCapacity(Maps.frachtRaeumeAusMod(S.ship && S.ship.mod));   // PAN-01 B: 2 je Frachtraum
     if (fr.pq && fr.pq.length && ((fr.lager || []).length + (fr.pers || []).length) < cap) {
       this.memo.personAt = S.time + 2; if (p.console !== 'weapons') { this.enter(S, 'weapons'); return true; }
       this.cmd('weapons.person'); return true;
@@ -3452,6 +3508,7 @@ async function runGeneric(opts) {
   const res = { seed, crew, missions: [], errors: 0, errList, aborted: null, snapMax: 0 };
   let cur = null;
   const doneEvents = [];
+  // PAN-01 D: Marken je Kapitel (Messung der Werftpreise): Kontostand am Anfang und Ende jedes Kapitels (Erlöse und Ausgaben laufen großteils direkt über inventory.marks, deshalb nur der Saldo)
   const watcher = { send: (o) => {
     if (o.t !== 'event') return;
     if (o.kind === 'missionDone') doneEvents.push(o);
@@ -3506,6 +3563,7 @@ async function runGeneric(opts) {
     const e1 = escortStats(); cur.escortStats = {};
     for (const k of Object.keys(e1)) cur.escortStats[k] = r1((e1[k] || 0) - (cur.escort0[k] || 0));
     cur.errors = game.errors - cur.err0;
+    cur.marken = { start: cur.marks0, ende: game.inventory.marks };
     res.missions.push(cur); cur = null;
     idleSince = game.time;
   };
@@ -3533,7 +3591,7 @@ async function runGeneric(opts) {
     if (m.activeId && (!cur || cur.id !== m.activeId)) {
       if (cur) { closeStep(); cur.success = false; cur.ausgang = null; cur.dur = r1(game.time - cur.t0); res.missions.push(cur); }
       const sl = game.spielleiter; const plan = sl && sl.planById ? sl.planById(m.activeId) : null;
-      cur = { id: m.activeId, title: m.def && m.def.title, archiv: plan ? plan.archivName : null, origin: plan ? plan.origin : 'test', t0: game.time, steps: [], escort0: escortStats(), err0: game.errors, softlock: null };
+      cur = { id: m.activeId, title: m.def && m.def.title, archiv: plan ? plan.archivName : null, origin: plan ? plan.origin : 'test', t0: game.time, marks0: game.inventory.marks, steps: [], escort0: escortStats(), err0: game.errors, softlock: null };
       if (plan && plan.archivName) played.add(plan.archivName);
       game.simWant = null;
     }
@@ -3843,6 +3901,7 @@ async function ketteMain() {
   log('\n| Lauf | Crew | Seed | Ergebnis | Spielzeit (min) | Kapitel (Dauer min, Ausgang, Skips) | Fehler | Snapshot max (B) |');
   log('|---|---|---|---|---|---|---|---|');
   for (const x of rows) {
+    if (args.includes('--marken')) log('Marken ' + x.j.label + ' Crew ' + x.crew + ' Seed ' + x.seed + ': ' + x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + (m.marken ? `${m.marken.start}->${m.marken.ende}` : '?')).join(' | '));
     const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ');
     log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} |`);
   }

@@ -1,0 +1,59 @@
+{
+  "id": "lerche/lift/shaft3",
+  "name": "Liftkabine 2 × 3 (Brücken-/Hecklift): zwei Türen West/Ost, Nord/Süd geschlossen, drei Decks (Lerche)",
+  "tier": "architecture",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "lift", "architektur", "schacht", "kabine", "pan01"],
+  "footprint": [2, 3],
+  "params": {
+    "deck": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Deck (0 Mitteldeck Bronze, 1 Oberdeck Marmor, 2 Unterdeck Stahl/Technik)" },
+    "power": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Notstrom (0 normal, 1 Amberlicht)" },
+    "tuer_offen": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Türen offen (Blätter in den Pfosten)" },
+    "cut": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Deckschnitt (1 = auf 1,25 m gekappt)" }
+  },
+  "variants": {
+    "oberdeck": { "deck": 1 },
+    "unterdeck": { "deck": 2 },
+    "tuer_offen": { "tuer_offen": 1 },
+    "notstrom": { "power": 1 },
+    "unterdeck_offen_notstrom": { "deck": 2, "tuer_offen": 1, "power": 1 },
+    "geschnitten": { "cut": 1 },
+    "geschnitten_oberdeck": { "cut": 1, "deck": 1 }
+  },
+  "ops": [
+    { "op": "box", "name": "Wand N/S Bronze", "if": "deck == 0", "at": [0, 0, 0], "size": [8, 11, 1], "color": "metal", "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Wand N/S Marmor", "if": "deck == 1", "at": [0, 0, 0], "size": [8, 11, 1], "color": "secondary", "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Wand N/S Stahl", "if": "deck == 2", "at": [0, 0, 0], "size": [8, 11, 1], "color": "metal_dark", "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Wandfeld Gold", "if": "deck < 2", "at": [1, 2, 0], "size": [6, 6, 1], "color": { "frame": "trim", "fill": { "shade": "primary", "f": 0.9 }, "axes": "xy", "width": 1 }, "mode": "paint", "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Wandrippen Stahl", "if": "deck == 2", "at": [1, 1, 0], "size": [1, 9, 1], "color": "metal_light", "mode": "paint", "repeat": { "count": 3, "step": [2, 0, 0] }, "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Warnband Stahl", "if": "deck == 2", "at": [0, 0, 0], "size": [8, 1, 1], "color": { "stripes": ["warning", "black"], "axis": "x", "period": 1 }, "mode": "paint", "jitter": false, "mirror": "z", "mirrorAt": 6 },
+    { "op": "box", "name": "Sockelband", "at": [0, 0, 0], "size": [8, 1, 1], "color": "metal_dark", "mode": "paint", "mirror": "z", "mirrorAt": 6, "if": "deck < 2" },
+
+    { "op": "box", "name": "Eckpfosten Bronze", "if": "deck == 0", "at": [0, 0, 0], "size": [1, 11, 1], "color": "metal_light", "mirror": "xz", "mirrorAt": { "x": 4, "z": 6 } },
+    { "op": "box", "name": "Eckpfosten Marmor", "if": "deck == 1", "at": [0, 0, 0], "size": [1, 11, 1], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 4, "z": 6 } },
+    { "op": "box", "name": "Eckpfosten Stahl", "if": "deck == 2", "at": [0, 0, 0], "size": [1, 11, 1], "color": "metal_light", "mirror": "xz", "mirrorAt": { "x": 4, "z": 6 } },
+
+    { "op": "group", "name": "Türseite West/Ost", "mirror": "x", "mirrorAt": 4, "ops": [
+      { "op": "box", "name": "Sturz Bronze", "if": "deck == 0", "at": [0, 9, 1], "size": [1, 2, 10], "color": "metal" },
+      { "op": "box", "name": "Sturz Marmor", "if": "deck == 1", "at": [0, 9, 1], "size": [1, 2, 10], "color": "secondary" },
+      { "op": "box", "name": "Sturz Stahl", "if": "deck == 2", "at": [0, 9, 1], "size": [1, 2, 10], "color": "metal_dark" },
+      { "op": "box", "name": "Sturz Goldkante", "at": [0, 9, 1], "size": [1, 1, 10], "color": "trim", "mode": "paint" },
+      { "op": "box", "name": "Türblätter Bronze", "if": "!tuer_offen && deck == 0", "at": [0, 0, 1], "size": [1, 9, 10], "color": { "frame": "metal_light", "fill": { "shade": "metal", "f": 0.9 }, "axes": "yz", "width": 1 } },
+      { "op": "box", "name": "Türblätter Marmor", "if": "!tuer_offen && deck == 1", "at": [0, 0, 1], "size": [1, 9, 10], "color": { "frame": "trim", "fill": "secondary", "axes": "yz", "width": 1 } },
+      { "op": "box", "name": "Türblätter Stahl", "if": "!tuer_offen && deck == 2", "at": [0, 0, 1], "size": [1, 9, 10], "color": { "frame": "metal_light", "fill": "metal_dark", "axes": "yz", "width": 1 } },
+      { "op": "box", "name": "Türfuge", "if": "!tuer_offen", "at": [0, 0, 5], "size": [1, 9, 2], "color": "dark", "mode": "paint" },
+      { "op": "box", "name": "Blattkante offen", "if": "tuer_offen", "at": [0, 0, 1], "size": [1, 9, 1], "color": { "shade": "metal_light", "f": 1.1 }, "mirror": "z", "mirrorAt": 6 },
+      { "op": "box", "name": "Türlicht", "if": "!power", "at": [0, 10, 3], "size": [1, 1, 6], "color": { "role": "glow", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Türlicht Notstrom", "if": "power", "at": [0, 10, 3], "size": [1, 1, 6], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Türmarke Brücke", "at": [0, 7, 1], "size": [1, 1, 1], "color": "primary", "mode": "paint", "mirror": "z", "mirrorAt": 6 }
+    ] },
+
+    { "op": "box", "name": "Kranz", "at": [0, 11, 0], "size": [8, 1, 12], "color": "trim" },
+    { "op": "box", "name": "Kranz offen", "at": [1, 11, 1], "size": [6, 1, 10], "mode": "carve" },
+    { "op": "box", "name": "Deckenlicht", "if": "!power", "at": [3, 10, 5], "size": [2, 1, 2], "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Deckenlicht Notstrom", "if": "power", "at": [3, 10, 5], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.9 }, "jitter": false },
+    { "op": "box", "name": "Deckschnitt", "if": "cut", "at": [0, 5, 0], "size": [8, 8, 12], "mode": "carve" },
+    { "op": "box", "name": "Schnittkappe", "if": "cut", "at": [0, 4, 0], "size": [8, 1, 12], "color": "metal_dark", "mode": "paint" }
+  ],
+  "anchor": [4, 0, 6]
+}

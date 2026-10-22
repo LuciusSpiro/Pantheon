@@ -625,7 +625,7 @@
     "aussen.sonde_aus": "Kustodenpult aus, Drohnen schlafen, Tür offen. Datenkern rechts unten, der Bojenkern steht mitten im Saal.",
     "aussen.kern_geborgen": "Datenkern geborgen! Er summt. Das ist entweder gut oder sehr schlecht.",
     "aussen.drohnen_wach": "Uh-oh. Der Neustart hat die Wächter-Routine geweckt: {n} Drohnen starten neu. Zurück zu den Pads!",
-    "aussen.ivo_an_bord": "Ivo ist an Bord! Er bringt 50 Marken Finderlohn mit. Und Kekse. Er zieht in den Frachtraum.",
+    "aussen.ivo_an_bord": "Ivo ist an Bord! Er bringt 50 Marken Finderlohn mit. Und Kekse. Er zieht in die Messe.",
     "aussen.transfer_hin": "Treffer im Transferraum – Transfer ausgefallen! Bots holen ein Ersatzteil.",
 
     "decision.frage": "Alle an Bord, Datenkern gesichert. Captain: Was machen wir damit? Reiter „Funk“.",

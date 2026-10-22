@@ -483,7 +483,6 @@
     engines: ['oooooo....', 'o####o....', 'o#++#o+...', 'o####o++..', 'o#++#o+ww+', 'o####o+ww+', 'o#++#o++..', 'o####o+...', 'oooooo....', '..........'],
     shields: ['.########.', '#++++++++#', '#+######+#', '#+######+#', '#+######+#', '.#+####+#.', '.#+####+#.', '..#+##+#..', '...#++#...', '....##....'],
     weapons: ['....##....', '..##++##..', '.#..##..#.', '.#..##..#.', '#++####++#', '#++####++#', '.#..##..#.', '.#..##..#.', '..##++##..', '....##....'],
-    life: ['....#.....', '...##.....', '..#++#....', '..#+#..#..', '.#++#.##..', '.#+#.#+#..', '.##.#++#..', '..##+##...', '...###....', '....#.....'],
     transfer: ['.#......#.', '#+#....#+#', '.#......#.', '...#..#...', '..#+##+#..', '..#+##+#..', '...#..#...', '.#......#.', '#+#....#+#', '.#......#.'],
     fire: ['....#.....', '...##.....', '...#+#..#.', '..#++#.##.', '.#++++##..', '.#+ww++#..', '#+wwww+#..', '#+wwww++#.', '.#+ww++#..', '..####....'],
     breach: ['#.......#.', '.#..#..#..', '..#.#.#...', '...ooo....', '#.ooooo.##', '..ooooo...', '...ooo....', '..#.#.#...', '.#..#..#..', '#.......#.'],
@@ -512,7 +511,7 @@
     star: ['....#.....', '....#.....', '...###....', '#########.', '.#######..', '..#####...', '..##.##...', '.##...##..', '.#.....#..', '..........'],
   };
   var ICON_COLORS = {
-    reactor: PAL.mint, engines: PAL.bernstein, shields: PAL.eisblau, weapons: PAL.alarmrot, life: '#8FD06A',
+    reactor: PAL.mint, engines: PAL.bernstein, shields: PAL.eisblau, weapons: PAL.alarmrot,
     transfer: PAL.mint, fire: '#F08A3C', breach: PAL.eisblau, o2: PAL.eisblau, hull: PAL.paneelHell, marks: PAL.messing,
     circle: PLAYER[0], triangle: PLAYER[1], diamond: PLAYER[2], kreis: PAL.sternweiss, dreieck: PAL.sternweiss,
     raute: PAL.sternweiss, stern: PAL.sternweiss, welle: PAL.sternweiss, kreuz: PAL.sternweiss, lock: PAL.messing,
@@ -1620,26 +1619,6 @@
       } else {
         ell(g, 16, 37, 9, 2.5, '#2E3A4A'); R(g, 9, 34, 14, 2, '#3A4759');
       }
-    } else if (kind === 'sys_life') {
-      sysBase(g, 2, 28, 41);
-      // Algentank
-      R(g, 4, 10, 16, 32, steelD);
-      R(g, 5, 13, 14, 26, brk ? '#20302A' : '#2F6B4A');
-      R(g, 5, 13, 14, 3, brk ? '#2A3A30' : '#4E9A62');
-      if (!brk) {
-        for (i = 0; i < 4; i++) { var bx = 7 + i * 3, byy = 37 - ((f * 3 + i * 7) % 22); P(g, bx, byy, '#C8F5E6'); }
-        line(g, 8, 38, 9, 26, PAL.moos); line(g, 9, 26, 8, 20, '#7FAE66'); line(g, 14, 38, 15, 28, PAL.moos); line(g, 15, 28, 16, 22, '#7FAE66');
-        P(g, 7, 24, '#9FCC7A'); P(g, 10, 22, '#9FCC7A'); P(g, 16, 25, '#9FCC7A');
-      } else { R(g, 7, 30, 10, 8, '#3A3A2A'); }
-      R(g, 5, 13, 1, 26, 'rgba(255,255,255,0.35)');
-      R(g, 3, 9, 18, 3, PAL.messing); R(g, 3, 9, 18, 1, '#F1D9A0'); R(g, 3, 39, 18, 3, PAL.messing);
-      // Lüfterkasten
-      R(g, 20, 20, 10, 21, steel); R(g, 20, 20, 10, 1, steelL); R(g, 29, 20, 1, 21, steelD);
-      ell(g, 25, 28, 4, 4, '#1E2631');
-      var fr = brk ? 0 : (dmg ? Math.floor(f / 2) : f);
-      for (i = 0; i < 4; i++) { var an2 = fr * Math.PI / 6 + i * Math.PI / 2; line(g, 25, 28, 25 + Math.cos(an2) * 3, 28 + Math.sin(an2) * 3, steelL); }
-      R(g, 22, 35, 6, 2, PAL.moos);
-      R(g, 7, 4, 3, 6, steel); R(g, 6, 3, 5, 2, PAL.messing);
     }
     // Statuslampe
     var lc = ok ? PAL.mint : dmg ? (f % 2 ? PAL.warngelb : '#6A5A20') : (f % 2 ? PAL.alarmrot : '#5A1E1E');
@@ -1662,7 +1641,7 @@
       var pr = 0.5 + 0.5 * Math.sin(t * 2.6);
       glow(ctx, px + 16, py - OH + 27, red ? '#FF6A4C' : PAL.mint, 20 + Math.round(pr * 8), (state === 'ok' ? 0.2 : 0.1) + 0.2 * pr);
     }
-    var gc = { sys_reactor: PAL.mint, sys_engines: '#FF9A3C', sys_shields: PAL.eisblau, sys_weapons: PAL.bernstein, sys_transfer: PAL.mint, sys_life: '#8FD06A' }[kind];
+    var gc = { sys_reactor: PAL.mint, sys_engines: '#FF9A3C', sys_shields: PAL.eisblau, sys_weapons: PAL.bernstein, sys_transfer: PAL.mint }[kind];
     if (state !== 'broken') glow(ctx, px + 16, py + 10, gc, 18, state === 'ok' ? 0.22 : 0.12 * (1 + Math.sin(t * 17)));
     // M3a: Funken/Rauch/Feuer und Zustandsmarke zeichnet stationDecor (drawSystemLegacy)
     return { spr: spr, key: key };
@@ -1883,7 +1862,7 @@
       // M3a: neue/überarbeitete Stationen (CONTRACT-M3 §12); alte Stationen mit derselben Zustandsdekoration
       case 'sys_reactor': case 'sys_engines': case 'sys_shields': case 'sys_thruster': case 'sys_battery': case 'sys_emitter': case 'sys_weapon_bow':
         drawSystemM3(ctx, kind, px, py, o); return;
-      case 'sys_weapons': case 'sys_transfer': case 'sys_life':
+      case 'sys_weapons': case 'sys_transfer':
         drawSystemLegacy(ctx, kind, px, py, o); return;
       case 'table': {
         memo = tileMemo.get(memoKey(px, py));
@@ -2573,19 +2552,13 @@
       case 'seitenturm':
         ell(g, 8, 10, 5, 4, '#4F6178'); ell(g, 8, 9, 4, 3, '#8EA3B5'); R(g, 8, 3, 7, 3, '#55667D'); R(g, 13, 3, 2, 3, PAL.mint);
         break;
-      case 'schildpool':
-        grid(g, 3, 2, ICONS.shields, { '#': PAL.eisblau, '+': '#E8F8FF' });
-        break;
-      case 'bot2':
-        R(g, 3, 4, 10, 8, PAL.messing); R(g, 4, 6, 8, 3, '#1B2230'); R(g, 5, 7, 2, 1, PAL.mint); R(g, 9, 7, 2, 1, PAL.mint); R(g, 2, 12, 12, 3, '#4F6178'); R(g, 7, 1, 1, 3, '#2B1D1A');
-        break;
       default:
         if (!buildItemM1(g, kind) && !buildItemM2(g, kind)) return false;
     }
     outline(c, PAL.outlineWarm);
     return true;
   }
-  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1, schildpool: 1, bot2: 1,
+  var ITEM_KINDS = { ersatzteil: 1, loeschgel: 1, flickblech: 1, bolzen: 1, medipack: 1, datenkern: 1, pflanze: 1, poster: 1, lampe: 1, teppich: 1, werkzeuggurt: 1, seitenturm: 1,
     // M1: neue Deko (Inventar-Icons), versteckte Objekte im Raum
     buecherregal: 1, aquarium: 1, sessel: 1, sternkarte: 1, trophaee_boje: 1, kristalllampe: 1, cache: 1, beacon: 1, lore: 1, bolzenwerfer: 1 };
   function drawItem(ctx, kind, x, y, opts) {
@@ -2931,12 +2904,106 @@
       poly(g, [0, 4.5, L * 0.3, 5.3, L * 0.45, 6, L * 0.3, 6.7, 0, 7.5], '#FFF7E0');
     });
   }
+  function shipHitFx(ctx, x, y, W, bang, o) {
+    // Treffer-Blitz im Sektor
+    if (o.hitSector != null && o.hitT != null && o.hitT >= 0 && o.hitT < 0.45) {
+      var q = 1 - o.hitT / 0.45;
+      var secAng = [0, Math.PI / 2, Math.PI, -Math.PI / 2][o.hitSector | 0] || 0;
+      var shielded = o.shields && o.shields[o.hitSector | 0] > 0;
+      var rad = shielded ? 44 : ([34, 15, 34, 15][o.hitSector | 0] || 20);
+      var hp = W(Math.cos(secAng) * rad, Math.sin(secAng) * rad);
+      if (shielded) {
+        ctx.fillStyle = rgba(PAL.eisblau, 0.9 * q);
+        for (var i = -6; i <= 6; i++) {
+          var aa = bang + secAng + i * 0.07;
+          var rr = 44 + (i % 2 ? 1 : 0);
+          ctx.fillRect(Math.round(x + Math.cos(aa) * rr), Math.round(y + Math.sin(aa) * rr * 0.92), 2, 1);
+        }
+        glow(ctx, hp[0], hp[1], PAL.eisblau, 16, q * 0.8);
+      } else {
+        glow(ctx, hp[0], hp[1], '#F08A3C', 14, q);
+        drawFx(ctx, 'sparks', hp[0], hp[1], (1 - q) * 0.45, { seed: 3 });
+      }
+    }
+  }
+  // ---------------------------------------------------------------------------------------------
+  // PAN-01 B Integration: Lerche aus dem Voxelwerk-Sprite (Klassen lerche_s0..s3, Set rom, Wahl nach snapshot.ship.st).
+  // Rohre, Muendungsfeuer und Schildboegen bleiben prozedural (render.js, Rohrlage = Lafetten-Andockpunkte des Sprites).
+  // Rueckfall: Manifest/Sheet/Eintrag fehlt -> alte prozedurale Zeichnung; der Fehler wird je Stufe einmal gezaehlt (Art.errors).
+  // ---------------------------------------------------------------------------------------------
+  var LERCHE_SET = 'rom';
+  var lerchenFehler = {};
+  function lerchenStufe(st) { st = Math.round(+st); return st >= 0 && st <= 3 ? st : 0; }
+  // 'ok' | 'laden' (noch nicht da, kein Fehler) | 'fehlt' (Asset fehlt oder kaputt)
+  function lerchenStatus(stufe) {
+    var klasse = 'lerche_s' + lerchenStufe(stufe);
+    if (!hasDom) return 'fehlt';
+    var info = sprInfo(klasse, LERCHE_SET);
+    if (SPR.state === 'loading' || SPR.state === 'idle') return 'laden';
+    if (!info) return 'fehlt';
+    var s = SPR.sheets[info.file];
+    if (s && s.failed) return 'fehlt';
+    return sprSheet(info) ? 'ok' : 'laden';
+  }
+  function lerchenSprite(stufe) {
+    var st = lerchenStufe(stufe), klasse = 'lerche_s' + st, stat = lerchenStatus(st);
+    if (stat === 'fehlt') {
+      if (!lerchenFehler[klasse]) { lerchenFehler[klasse] = 1; warn('lerche-sprite ' + klasse, 'Sprite fehlt, prozedurale Lerche'); }
+      return null;
+    }
+    if (stat !== 'ok') return null;
+    var info = sprInfo(klasse, LERCHE_SET);
+    return { info: info, img: sprSheet(info) };
+  }
+  // Positionen im Spritekoordinatensystem (px, Bug +x, Backbord -y) fuer Schaeden an den Systemen
+  var SYS_EXT_SPRITE = {
+    reactor: [-6, -2], shields: [2, 2], transfer: [-13, -3], engines: [-33, 0], emitter_aft: [-25, -5],
+    thruster_port: [-16, -14], thruster_stbd: [-16, 14], battery_port: [0, -10], battery_stbd: [0, 10],
+    emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [38, 0], emitter_bow: [24, 4],
+  };
+  // Schadensorte aus den Andockpunkten des Sprites (Manifest), sonst die Tabelle oben
+  function sysExtSprite(so) {
+    var e = Object.assign({}, SYS_EXT_SPRITE), pick = function (k, n) { if (so[n]) e[k] = [so[n][0], so[n][1]]; };
+    pick('weapon_bow', 'muendung_lanze'); pick('battery_port', 'lafette_4'); pick('battery_stbd', 'lafette_6'); pick('engines', 'triebwerk_mitte');
+    return e;
+  }
+  function drawShipSpriteLerche(ctx, sp, x, y, b, o, W) {
+    var t = o.time || 0, bang = b / ROT_STEPS * Math.PI * 2, info = sp.info, so = info.sockets || {};
+    function S(n, dx, dy) { var p = so[n]; return p ? W(p[0], p[1]) : W(dx, dy); }
+    // Schubflamme hinter dem Triebwerk
+    var th = Math.max(0, Math.min(1, o.thrust || 0));
+    var rp = W(info.heck[0] + 1, 0);
+    glow(ctx, rp[0], rp[1], PAL.bernstein, 10 + th * 12, 0.3 + th * 0.4);
+    if (th > 0.02) {
+      ctx.save();
+      ctx.translate(rp[0], rp[1]); ctx.rotate(bang + Math.PI);
+      var fl = flameSprite(frameOf(t, 14, 4)), len = 6 + th * 22, op = ctx.globalCompositeOperation;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(fl, 0, -6, Math.round(len), 12);
+      ctx.globalCompositeOperation = op;
+      ctx.restore();
+    }
+    ctx.drawImage(sprFrame(sp, b), Math.round(x - info.anchor[0]), Math.round(y - info.anchor[1]));
+    // Positionslichter (Backbord rot, Steuerbord mint) an den Andockpunkten des Sprites
+    var blink = (t % 1.2) < 0.6, red = S('positionslicht_bb', 7.5, -9.2), mint = S('positionslicht_stb', 7.5, 9.2);
+    glow(ctx, red[0], red[1], PAL.alarmrot, 7, blink ? 0.9 : 0.35);
+    glow(ctx, mint[0], mint[1], PAL.mint, 7, blink ? 0.35 : 0.9);
+    ctx.fillStyle = blink ? '#FFD0C4' : '#C8605A'; ctx.fillRect(Math.round(red[0]), Math.round(red[1]), 1, 1);
+    ctx.fillStyle = blink ? '#8FD0B8' : '#E8FFF8'; ctx.fillRect(Math.round(mint[0]), Math.round(mint[1]), 1, 1);
+    // Linse der Lanze glimmt (nicht bei zerstoerter Bug-Waffe)
+    var lst = o.systems && o.systems.weapon_bow;
+    if (lst !== 'broken') { var lz = S('muendung_lanze', 39, 0); glow(ctx, lz[0], lz[1], PAL.mint, 5, lst === 'damaged' ? 0.2 + 0.2 * Math.sin(t * 17) : 0.35 + 0.15 * Math.sin(t * 3)); }
+    drawShipDamage(ctx, W, bang, o, t, info.extCache || (info.extCache = sysExtSprite(so)));
+    shipHitFx(ctx, x, y, W, bang, o);
+  }
   function drawShip(ctx, x, y, angle, opts) {
     var o = opts || {};
     var t = o.time || 0, ang = angle || 0, b = rotBucket(ang);
     var bang = b / ROT_STEPS * Math.PI * 2;
     var co = Math.cos(bang), si = Math.sin(bang);
     function W(lx, ly) { return [x + lx * co - ly * si, y + lx * si + ly * co]; }
+    var lsp = lerchenSprite(o.stufe);   // PAN-01 B (Integration): Voxel-Sprite der Lerche je Ausbaustufe, sonst die prozedurale Zeichnung
+    if (lsp) { drawShipSpriteLerche(ctx, lsp, x, y, b, o, W); return; }
     // Schubflamme hinter dem Ring
     var th = Math.max(0, Math.min(1, o.thrust || 0));
     var rp = W(-35, 0);
@@ -2972,26 +3039,7 @@
       drawBurst(ctx, x, y, { angle: ang, sector: o.burst.sector, r: o.burstR || 46, duration: bd, age: o.burst.age != null ? o.burst.age : bd - (o.burst.left || 0),
         perfect: !!o.burst.perfect, perfectAge: o.burst.perfectAge, time: t });
     }
-    // Treffer-Blitz im Sektor
-    if (o.hitSector != null && o.hitT != null && o.hitT >= 0 && o.hitT < 0.45) {
-      var q = 1 - o.hitT / 0.45;
-      var secAng = [0, Math.PI / 2, Math.PI, -Math.PI / 2][o.hitSector | 0] || 0;
-      var shielded = o.shields && o.shields[o.hitSector | 0] > 0;
-      var rad = shielded ? 44 : ([34, 15, 34, 15][o.hitSector | 0] || 20);
-      var hp = W(Math.cos(secAng) * rad, Math.sin(secAng) * rad);
-      if (shielded) {
-        ctx.fillStyle = rgba(PAL.eisblau, 0.9 * q);
-        for (var i = -6; i <= 6; i++) {
-          var aa = bang + secAng + i * 0.07;
-          var rr = 44 + (i % 2 ? 1 : 0);
-          ctx.fillRect(Math.round(x + Math.cos(aa) * rr), Math.round(y + Math.sin(aa) * rr * 0.92), 2, 1);
-        }
-        glow(ctx, hp[0], hp[1], PAL.eisblau, 16, q * 0.8);
-      } else {
-        glow(ctx, hp[0], hp[1], '#F08A3C', 14, q);
-        drawFx(ctx, 'sparks', hp[0], hp[1], (1 - q) * 0.45, { seed: 3 });
-      }
-    }
+    shipHitFx(ctx, x, y, W, bang, o);
   }
 
   // Rostmeute-Jäger (aus concept/raider.svg, gespiegelt: Bug +x)
@@ -3066,7 +3114,7 @@
   // ---------------------------------------------------------------------------------------------
   // EK1b: Drehsprites aus dem Voxelwerk (public/voxel/sprites/, erzeugt mit `npm run sprites` im Voxelwerk, kopiert von `npm run assets`).
   // Sheet je Klasse x Farbthema: ROT_STEPS-Stufen (Stufe b = b/64*2PI, Bug bei 0 nach +x), cols Spalten. Fehlt Manifest, Sheet oder Eintrag,
-  // gilt die prozedurale Zeichnung (buildRaider/buildKorvette) weiter. Die Lerche ist nicht betroffen.
+  // gilt die prozedurale Zeichnung (buildRaider/buildKorvette) weiter. Die Lerche hat eigene Klassen lerche_s0..s3 (siehe drawShipSpriteLerche).
   // ---------------------------------------------------------------------------------------------
   var SPR_BASE = 'voxel/sprites/';
   var SPR = { manifest: null, state: 'idle', sheets: {}, waiters: [] };
@@ -3585,9 +3633,125 @@
     ctx.drawImage(sperrSprite(frameOf(tt, 12, 2)), -16, -6);
     ctx.restore();
   }
+  // PAN-01 C: Torpedo (zielsuchend; eigener silbern mit Bernsteinspitze, Gegner-Torpedo größer, dunkelrot und bedrohlich), Streugranate (orange Kugel, pulsiert vor der
+  // Zündung; t = Alter seit Sichtung in s, Zündzeit 1,4 s) und Sturmnadel (dünne türkise Linie). Bug +x, Cache-Schlüssel fest.
+  function torpedoSprite(enemy) {
+    return cached('proj|torpedo|' + (enemy ? 'e' : 'o'), 26, 11, function (g, c) {
+      var body = enemy ? '#8A2A24' : '#B8C4CE', hi = enemy ? '#C8584A' : '#E6EEF4', lo = enemy ? '#4A1612' : '#7C8B99', nose = enemy ? '#FF6A3D' : PAL.bernstein, fin = enemy ? '#5A1C16' : '#4F6178';
+      R(g, 6, 3, 13, 5, body); R(g, 6, 3, 13, 1, hi); R(g, 6, 7, 13, 1, lo);
+      R(g, 19, 4, 3, 3, nose); P(g, 22, 5, enemy ? '#FFE3A8' : PAL.funke); R(g, 19, 3, 1, 1, nose); R(g, 19, 7, 1, 1, nose);
+      R(g, 4, 1, 4, 2, fin); R(g, 4, 8, 4, 2, fin); R(g, 7, 2, 2, 1, fin); R(g, 7, 8, 2, 1, fin);
+      R(g, 3, 4, 3, 3, '#2E3A4A'); R(g, 11, 4, 1, 3, enemy ? '#FF6A3D' : PAL.alarmrot);
+      outline(c, enemy ? '#2A0E0A' : PAL.outlineWarm || '#2A2218');
+    });
+  }
+  function drawTorpedo(ctx, kind, x, y, angle, t) {
+    var enemy = kind === 'etorpedo', tt = t || 0, sc = enemy ? 1.5 : 1;
+    var fl = frameOf(tt, 24, 3), pulse = 0.5 + 0.5 * Math.sin(tt * (enemy ? 14 : 9));
+    glow(ctx, x, y, enemy ? PAL.alarmrot : PAL.bernstein, enemy ? 20 : 11, enemy ? 0.45 + 0.3 * pulse : 0.5);
+    if (enemy) glow(ctx, x, y, '#FF6A3D', 9, 0.4 + 0.3 * pulse);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(angle || 0);
+    // Rauchschweif: ausdünnende Punkte hinter der Düse
+    var tl = enemy ? 34 : 24, i;
+    for (i = 0; i < 6; i++) {
+      var d = (8 + i * (tl - 8) / 6) * sc, a = 0.3 * (1 - i / 6);
+      ctx.fillStyle = 'rgba(142,150,160,' + a.toFixed(3) + ')';
+      ctx.fillRect(-Math.round(d) - 1, Math.round((hash2(i, frameOf(tt, 12, 4), 5) - 0.5) * 3) - 1, 3, 3);
+    }
+    // Flamme: drei Phasen, länger beim Gegner
+    var fx = -Math.round((enemy ? 11 : 7) * sc - 2);
+    var len = (enemy ? 12 : 8) + fl * 2;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = enemy ? 'rgba(255,106,61,0.85)' : 'rgba(255,170,70,0.85)'; ctx.fillRect(fx - len, -1 * sc | 0, len, Math.max(2, 3 * sc | 0));
+    ctx.fillStyle = 'rgba(255,241,184,0.95)'; ctx.fillRect(fx - Math.round(len * 0.55), 0, Math.round(len * 0.55), Math.max(1, sc | 0));
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.scale(sc, sc);
+    ctx.drawImage(torpedoSprite(enemy), -13, -5);
+    ctx.restore();
+  }
+  function granateSprite(enemy) {
+    return cached('proj|granate|' + (enemy ? 'e' : 'o'), 12, 12, function (g, c) {
+      var m = enemy ? '#C65A2E' : '#E0873C', hi = enemy ? '#F08A5A' : '#FFC080', lo = enemy ? '#7A2E16' : '#9A5420';
+      ell(g, 6, 7, 4.5, 4.5, lo); ell(g, 6, 6.5, 4, 4, m); ell(g, 5, 5, 2, 1.6, hi); P(g, 4, 4, '#FFF1B8');
+      R(g, 5, 1, 2, 2, '#4F6178'); P(g, 6, 0, PAL.funke);
+      outline(c, '#2A1408');
+    });
+  }
+  function drawGranate(ctx, kind, x, y, angle, t) {
+    var enemy = kind === 'estreu', age = Math.max(0, t || 0), ph = Math.min(1, age / 1.4);
+    // pulsiert immer schneller, im letzten Drittel hell: die Zündzeit läuft ab
+    var pulse = 0.5 + 0.5 * Math.sin(age * (5 + 22 * ph * ph));
+    var col = enemy ? PAL.alarmrot : '#E0873C';
+    glow(ctx, x, y, col, 8 + Math.round(5 * ph * pulse), 0.4 + 0.5 * ph * pulse);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate((angle || 0) * 0.3);
+    ctx.drawImage(granateSprite(enemy), -6, -6);
+    if (ph > 0.55 && pulse > 0.55) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,241,184,' + (0.55 * pulse).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    if (ph > 0.7) { ctx.strokeStyle = 'rgba(255,198,107,' + (0.5 * pulse).toFixed(3) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), 6 + 10 * ph * pulse, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  function drawNadel(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(127,214,200,0.25)'; ctx.fillRect(-12, -1, 12, 3);
+    ctx.fillStyle = 'rgba(127,214,200,0.9)'; ctx.fillRect(-10, 0, 10, 1);
+    ctx.fillStyle = '#E8FFF8'; ctx.fillRect(-2, 0, 3, 1);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#7FD6C8', 4, 0.5);
+  }
+  // PAN-01 C (Kai 2026-10-18): Projektile der Lerche. Standardbatterie = bernsteinfarbener Doppelbolzen (zwei Funken nebeneinander), Standardkanone = dicker rotorangefarbener Bolzen
+  // mit Glutspur, Sturmbatterie = Nadel (drawNadel), Abwehrturm = kleiner heller Funke. Bug +x; feste Größen, kein Cache nötig.
+  function drawDoppelbolzen(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(242,193,78,0.28)'; ctx.fillRect(-14, -3, 12, 6);
+    ctx.fillStyle = 'rgba(242,193,78,0.95)'; ctx.fillRect(-8, -3, 8, 2); ctx.fillRect(-8, 1, 8, 2);
+    ctx.fillStyle = '#FFF1B8'; ctx.fillRect(-2, -3, 3, 2); ctx.fillRect(-2, 1, 3, 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#F2C14E', 6, 0.55);
+  }
+  function drawKanonenbolzen(ctx, x, y, angle, t) {
+    var op = ctx.globalCompositeOperation, fl = frameOf(t || 0, 20, 2);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(255,122,60,0.25)'; ctx.fillRect(-20, -3, 14, 6);
+    ctx.fillStyle = 'rgba(255,122,60,0.55)'; ctx.fillRect(-14, -2, 10, 4);
+    ctx.fillStyle = '#FF7A3C'; ctx.fillRect(-8, -2, 9, 4);
+    ctx.fillStyle = fl ? '#FFF1B8' : '#FFC66B'; ctx.fillRect(-1, -1, 4, 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#FF7A3C', 8, 0.65);
+  }
+  function drawFunke(ctx, x, y, angle) {
+    var op = ctx.globalCompositeOperation;
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(angle || 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(169,214,229,0.4)'; ctx.fillRect(-7, -1, 7, 3);
+    ctx.fillStyle = '#E8F7FF'; ctx.fillRect(-2, 0, 4, 1);
+    ctx.restore();
+    ctx.globalCompositeOperation = op;
+    glow(ctx, x, y, '#A9D6E5', 3, 0.5);
+  }
   function drawProjectile(ctx, kind, x, y, angle, t) {
     if (kind === 'pistol' || kind === 'warden') { drawProjectileM2(ctx, kind, x, y, angle, t); return; }   // M2
     if (kind === 'sperrfeuer') { drawSperrfeuer(ctx, x, y, angle, t); return; }   // S2b
+    if (kind === 'torpedo' || kind === 'etorpedo') { drawTorpedo(ctx, kind, x, y, angle, t); return; }   // PAN-01 C
+    if (kind === 'streu' || kind === 'estreu') { drawGranate(ctx, kind, x, y, angle, t); return; }
+    if (kind === 'sturm' || kind === 'psturm') { drawNadel(ctx, x, y, angle); return; }
+    if (kind === 'pbatterie') { drawDoppelbolzen(ctx, x, y, angle); return; }
+    if (kind === 'pkanone') { drawKanonenbolzen(ctx, x, y, angle, t); return; }
+    if (kind === 'pfunke') { drawFunke(ctx, x, y, angle); return; }
     if (!PROJ_GLOW[kind]) { missing(ctx, Math.round(x - 4), Math.round(y - 4), 8, 8); return; }
     var spr = projSprite(kind);
     glow(ctx, x, y, PROJ_GLOW[kind], kind === 'bolzen' ? 5 : 7, 0.6);
@@ -5657,10 +5821,10 @@
   // Farbe je Seite (Emitter-Spulen, Plakettenstreifen): Bb Bernstein, Stb Mint, Bug Stoß-Weiß, Heck Eisblau, Mitte Messing
   var SIDE_COL = { port: PAL.bernstein, stbd: PAL.mint, bow: '#E8F8FF', aft: PAL.eisblau, mid: PAL.messing };
   var SYS_SIDE = {
-    reactor: 'mid', shields: 'mid', life: 'mid', transfer: 'stbd', engines: 'aft', emitter_aft: 'aft', weapon_bow: 'bow', emitter_bow: 'bow',
+    reactor: 'mid', shields: 'mid', transfer: 'stbd', engines: 'aft', emitter_aft: 'aft', weapon_bow: 'bow', emitter_bow: 'bow',
     thruster_port: 'port', battery_port: 'port', emitter_port: 'port', thruster_stbd: 'stbd', battery_stbd: 'stbd', emitter_stbd: 'stbd',
   };
-  var KIND_SIDE = { sys_reactor: 'mid', sys_shields: 'mid', sys_life: 'mid', sys_engines: 'aft', sys_weapon_bow: 'bow', sys_transfer: 'stbd', sys_weapons: 'mid' };
+  var KIND_SIDE = { sys_reactor: 'mid', sys_shields: 'mid', sys_engines: 'aft', sys_weapon_bow: 'bow', sys_transfer: 'stbd', sys_weapons: 'mid' };
   var SIDE_ALIAS = {
     0: 'bow', 1: 'stbd', 2: 'aft', 3: 'port', '-1': 'mid', bb: 'port', backbord: 'port', stb: 'stbd', steuerbord: 'stbd', starboard: 'stbd',
     bug: 'bow', heck: 'aft', mitte: 'mid', mittschiffs: 'mid', centre: 'mid', center: 'mid',
@@ -6133,7 +6297,7 @@
     }
     stationDecor(ctx, spr, key, px, py, o, kind, side, state, fragile, bx);
   }
-  // Alte Stationen (Lebenserhaltung, Transfer, Altname Waffen) bekommen dieselbe Zustandsdekoration
+  // Alte Stationen (Transfer, Altname Waffen) bekommen dieselbe Zustandsdekoration
   function drawSystemLegacy(ctx, kind, px, py, o) {
     var res = drawSystem(ctx, kind, px, py, o);
     var state = normState(o.state);
@@ -6257,7 +6421,7 @@
   // --- Außenansicht: Schäden an den Systemen ----------------------------------------------------
   // lokale Lage (px, Bug +x, Backbord -y) im Schiffssprite
   var SYS_EXT = {
-    reactor: [-6, -2], shields: [2, 2], life: [-12, 3], transfer: [-13, -3], engines: [-31, 0], emitter_aft: [-25, -5],
+    reactor: [-6, -2], shields: [2, 2], transfer: [-13, -3], engines: [-31, 0], emitter_aft: [-25, -5],
     thruster_port: [-16, -17], thruster_stbd: [-16, 17], battery_port: [7, -11], battery_stbd: [7, 11],
     emitter_port: [-1, -8], emitter_stbd: [-1, 8], weapon_bow: [36, 0], emitter_bow: [24, 4],
   };
@@ -6267,17 +6431,18 @@
     else if (fr && typeof fr === 'object') for (var k in fr) if (fr[k]) out[k] = true;
     return out;
   }
-  function drawShipDamage(ctx, W, bang, o, t) {
+  function drawShipDamage(ctx, W, bang, o, t, ext) {
     var sys = o.systems;
     if (!sys || typeof sys !== 'object') return;
     var fr = fragileSet(o.fragile);
     var bx = -Math.cos(bang), by = -Math.sin(bang);   // Rauch treibt nach achtern
     var ga = ctx.globalAlpha, k = 0;
-    for (var id in SYS_EXT) {
+    var EXT = ext || SYS_EXT;
+    for (var id in EXT) {
       var st = sys[id];
       k++;
-      if (st !== 'damaged' && st !== 'broken') { if (fr[id]) { var pf = W(SYS_EXT[id][0], SYS_EXT[id][1]); if (((t * 1.5 + k) | 0) % 3 === 0) { ctx.fillStyle = M3C.flick; ctx.fillRect(Math.round(pf[0]), Math.round(pf[1]), 1, 1); } } continue; }
-      var p = W(SYS_EXT[id][0], SYS_EXT[id][1]), brk = st === 'broken';
+      if (st !== 'damaged' && st !== 'broken') { if (fr[id]) { var pf = W(EXT[id][0], EXT[id][1]); if (((t * 1.5 + k) | 0) % 3 === 0) { ctx.fillStyle = M3C.flick; ctx.fillRect(Math.round(pf[0]), Math.round(pf[1]), 1, 1); } } continue; }
+      var p = W(EXT[id][0], EXT[id][1]), brk = st === 'broken';
       var n = brk ? 7 : 4, len = brk ? 26 : 14;
       for (var i = 0; i < n; i++) {
         var q = (t * (brk ? 0.9 : 0.7) + i / n + k * 0.13) % 1;
@@ -6404,10 +6569,10 @@
     ctx.translate(x1, y1); ctx.rotate(ang);
     ctx.globalCompositeOperation = 'lighter';
     if (kind === 'lance') {
-      if (age < 0.45) {   // voller Strahl
-        var a = age < 0.05 ? 1 : 1 - (age - 0.05) / 0.4 * 0.35, w = 9 + (age < 0.1 ? 3 : 0);
+      if (age < 0.45) {   // voller Strahl (Lanzenbatterie: zwei schlankere Strahlen)
+        var a = age < 0.05 ? 1 : 1 - (age - 0.05) / 0.4 * 0.35, w = (o.schmal ? 6 : 9) + (age < 0.1 ? 3 : 0), c2 = o.schmal ? 1 : 2;
         ctx.globalAlpha = ga * a * 0.3; ctx.fillStyle = PAL.mint; ctx.fillRect(0, -Math.round(w / 2), L, w);
-        ctx.globalAlpha = ga * a * 0.85; ctx.fillRect(0, -2, L, 5);
+        ctx.globalAlpha = ga * a * 0.85; ctx.fillRect(0, -c2, L, c2 * 2 + 1);
         ctx.globalAlpha = ga * a; ctx.fillStyle = '#E8FFF8'; ctx.fillRect(0, -1, L, 3);
         ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, L, 1);
         for (i = 6; i < L; i += 11) { ctx.globalAlpha = ga * a * 0.8; ctx.fillRect(i, -4, 1, 9); }
@@ -6418,16 +6583,34 @@
         ctx.fillStyle = '#E8FFF8';
         for (i = 0; i < 10; i++) { var px = hash2(i, 3, 61) * L, py = (hash2(i, 4, 61) - 0.5) * 8 * (1 + age); ctx.globalAlpha = ga * ag; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); }
       }
+    } else if (kind === 'battery' && o.sym === 'nadel') {   // PAN-01 C: Sturmbatterie – viele sehr dünne türkise Linien, schnell, leicht gefächert
+      var nn = 3, seed = o.seed | 0;
+      for (var q = 0; q < nn; q++) {
+        var hd = Math.min(1, age * 3.2 - q * 0.12);
+        if (hd <= 0) continue;
+        var off = (hash2(seed, q, 41) - 0.5) * 7, hx2 = hd * L, nl2 = Math.min(26, L * 0.2);
+        ctx.globalAlpha = ga * 0.3 * life; ctx.fillStyle = '#7FD6C8'; ctx.fillRect(Math.round(Math.max(0, hx2 - nl2 * 1.8)), Math.round(off), Math.round(Math.min(hx2, nl2 * 1.8)), 1);
+        ctx.globalAlpha = ga * life; ctx.fillStyle = '#9FF0E0'; ctx.fillRect(Math.round(Math.max(0, hx2 - nl2)), Math.round(off), Math.round(Math.min(hx2, nl2)), 1);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx2) - 2, Math.round(off), 2, 1);
+      }
+      ctx.globalAlpha = ga * 0.1 * life; ctx.fillStyle = '#7FD6C8'; ctx.fillRect(0, 0, L, 1);
+    } else if (kind === 'battery' && o.sym === 'funke') {   // Abwehrturm – kurze helle Blitze an der Mündung, Funken am Ziel
+      var fl2 = Math.min(L, 22 + hash2(o.seed | 0, 1, 43) * 14), fa = age < 0.5 ? 1 - age * 1.6 : 0.2;
+      ctx.globalAlpha = ga * fa * 0.35; ctx.fillStyle = '#A9D6E5'; ctx.fillRect(0, -2, fl2, 5);
+      ctx.globalAlpha = ga * fa; ctx.fillStyle = '#E8F8FF'; ctx.fillRect(0, -1, fl2, 3);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, fl2, 1);
+      for (var zz = 0; zz < 3; zz++) { ctx.fillRect(Math.round(hash2(zz, o.seed | 0, 44) * fl2), Math.round((hash2(zz, o.seed | 0, 45) - 0.5) * 7), 2, 1); }
     } else if (kind === 'battery' || kind === 'bolzen') {
-      var bolts = kind === 'bolzen' ? 1 : 2;
+      var bolts = kind === 'bolzen' ? 1 : o.dick ? 1 : 2, dk = o.dick ? 2 : 0;   // Standardkanone: ein dicker Bolzen statt zwei
       ctx.globalAlpha = ga * 0.12 * life; ctx.fillStyle = PAL.messing; ctx.fillRect(0, 0, L, 1);
       for (var b = 0; b < bolts; b++) {
         var head = Math.min(1, age * 2.4 - b * 0.22);
         if (head <= 0 || head >= 1) continue;
         var hx = head * L, bl = Math.min(14, L * 0.12);
-        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = PAL.messing; ctx.fillRect(Math.round(hx - bl * 1.6), -1, Math.round(bl * 1.6), 3);
-        ctx.globalAlpha = ga; ctx.fillStyle = '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1, Math.round(bl), 2);
-        ctx.fillStyle = '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1, 3, 2); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
+        // Standardkanone (dick): eigene Farbe (rotorange) und längerer Bolzen, damit sie sich von der bernsteinfarbenen Standardbatterie abhebt
+        ctx.globalAlpha = ga * 0.45; ctx.fillStyle = o.dick ? '#B8442C' : PAL.messing; ctx.fillRect(Math.round(hx - bl * (o.dick ? 2.4 : 1.6)), -1 - dk / 2, Math.round(bl * (o.dick ? 2.4 : 1.6)), 3 + dk);
+        ctx.globalAlpha = ga; ctx.fillStyle = o.dick ? '#FF7A3C' : '#E3B565'; ctx.fillRect(Math.round(hx - bl), -1 - dk / 2, Math.round(bl), 2 + dk);
+        ctx.fillStyle = o.dick ? '#FFD2B0' : '#FFF1C9'; ctx.fillRect(Math.round(hx - 3), -1 - dk / 2, 3, 2 + dk); ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(hx - 1), 0, 1, 1);
       }
     } else {   // enemy_heavy
       var ah = age < 0.06 ? 1 : 1 - (age - 0.06) / 0.94, jit = ((age * 40) | 0) % 2;
@@ -6443,6 +6626,11 @@
       glow(ctx, x2, y2, PAL.mint, 16, age < 0.45 ? 1 : 0.4 * life);
       glow(ctx, x2, y2, '#FFFFFF', 7, age < 0.45 ? 0.8 : 0);
       glow(ctx, x1, y1, PAL.mint, 10, age < 0.45 ? 0.9 : 0.3 * life);
+    } else if (kind === 'battery' && o.sym === 'nadel') {
+      if (age < 0.15) glow(ctx, x1, y1, '#7FD6C8', 6, 1 - age / 0.15);
+      if (age > 0.22 && age < 0.7) glow(ctx, x2, y2, '#7FD6C8', 6, 1 - (age - 0.22) / 0.5);
+    } else if (kind === 'battery' && o.sym === 'funke') {
+      if (age < 0.4) glow(ctx, x1, y1, '#A9D6E5', 6, 1 - age / 0.4);
     } else if (kind === 'battery' || kind === 'bolzen') {
       if (age < 0.15) glow(ctx, x1, y1, PAL.bernstein, 7, 1 - age / 0.15);
       if (age > 0.38) { glow(ctx, x2, y2, PAL.bernstein, 9, life); if (age < 0.6) drawFx(ctx, 'sparks', x2, y2, (age - 0.38) * 1.5, { small: true, seed: (x2 | 0) }); }
@@ -6644,6 +6832,8 @@
   Art.drawItem = safe('drawItem', drawItem);
   Art.drawFx = safe('drawFx', drawFx);
   Art.drawShip = safe('drawShip', drawShip);
+  Art.lerchenSprite = function (stufe) { try { return lerchenStatus(stufe); } catch (e) { warn('lerchenSprite', e); return 'fehlt'; } };   // 'ok' | 'laden' | 'fehlt'
+  Art.lerchenSpriteInfo = function (stufe) { try { var sp = lerchenSprite(stufe); return sp ? sp.info : null; } catch (e) { warn('lerchenSpriteInfo', e); return null; } };
   Art.drawEnemy = safe('drawEnemy', drawEnemy);
   // EK1b
   Art.drawShipSprite = safe('drawShipSprite', drawShipSprite, false);

@@ -143,7 +143,7 @@
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette ----
     // Snapshot space.projectiles[] { id, kind, x, y, angle } – kind 'sperrfeuer' (langsames Geschoss, ungelenkt, aus der
     // Breitseite). Ereignis sfx { name: 'sperrfeuer', enemy: 'korvette', x, y } einmal je Feuerstoß (nicht je Geschoss).
-    SPACE_PROJECTILES: ['bolzen', 'enemy', 'emp', 'sperrfeuer'],
+    SPACE_PROJECTILES: ['torpedo', 'etorpedo', 'streu', 'estreu', 'sturm', 'enemy', 'emp', 'sperrfeuer'],   // PAN-01 C: bolzen entfällt (Torpedo), neue Arten
     CMD_PLAN_DECLINE: 'plan.decline',
     CMD_CAPTAIN_ESCORT: 'captain.escort',
     ESCORT_ORDERS: ['halten', 'folgen', 'volle_kraft', 'andocken'],
@@ -163,7 +163,7 @@
     // Snapshot fracht + { pers: [{ id, n, b }] (Personen im Frachtraum, b = Bett), pq: [{ id, n }] (Ops kann sie jetzt hochbeamen) }; ship.npcs enthält die liegenden Figuren (lie: 1).
     // U2: cmd { c: 'weapons.schoepfen' } startet das Schöpfen (Halteprozess kind 'schoepf', nur in der Förderschicht), { off: true } beendet es; halt.p = Füllstand 0..1.
     CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
-    FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen'],
+    FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen', 'frachtVerloren', 'frachtGesichert'],   // PAN-01 A: frachtVerloren { art } (ungesichert + Hüllentreffer), frachtGesichert { an }
     FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
@@ -197,7 +197,12 @@
     WORLD_LIST_FIELDS: ['id', 'name', 'savedAt', 'playTime', 'loc', 'mission', 'step', 'chronikLast', 'spieler', 'state', 'grund'],
     WORLD_EVENTS: ['worldSaved', 'worldSaveFailed', 'worldLoaded', 'worldLoadFailed', 'sessionEnded'],
     // ---- M4 Stufe 1 (CONTRACT-M4 §2.4): Lift und Notleiter. Alle Felder optional (nur wenn aktiv bzw. an Bord). ----
-    // Snapshot players[i].deck: 0 Systemdeck / 1 Privatdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client)
+    // PAN-01 B (drei Decks, Ausbaustufe): Snapshot ship.st = Ausbaustufe 0–3 (nur gesendet, wenn > 0; fehlt = 0; Weltstand schiff.stufe). Sie öffnet Waffenplätze (3 → 5 → 7 → 9),
+    //   Modulräume (2 → 3 → 4) und die verschalten Pforten (Maps.SHIP_SEALS); Client-Kollision, Lift-Optionen und Darstellung richten sich nach ihr (Maps.shipSolidFn(st), Maps.fahrtOptionen(x, y, st)).
+    //   Snapshot players[i].lm = Wahl am Lift offen (Bitmaske 1 = nach oben möglich, 2 = nach unten möglich; nur bei offener Wahl, nicht bei Bewusstlosen oder während der Fahrt).
+    //   Snapshot players[i].lift = { to: Deck 0|1|2, t, T, via?: 'ladder' } während der Fahrt (Lift ~2 s, Notleiter 2 s; x/y bleiben stehen, Teleport bei t >= T).
+    //   Eingabe an Lift/Notleiter: E öffnet die Wahl, W hoch, S runter, A/D oder E schließen; der Server fährt erst nach dem Loslassen der Taste ('armed').
+    // Snapshot players[i].deck: 0 Mitteldeck / 1 Oberdeck / 2 Unterdeck (nur zone 'ship', aus y abgeleitet; Komfort für den Client); lm = Wahl am Lift offen (Bitmaske 1 hoch, 2 runter)
     //          players[i].lift: { to: 0|1, t, T } während der Liftfahrt (Eingaben gesperrt, kein Schaden, x/y bleiben stehen,
     //                           Teleport bei t >= T; Client: keine Bewegungsvorhersage, solange lift gesetzt ist)
     //          players[i].ladder: { t, T } solange E an der Notleiter gehalten wird (zusätzlich action { kind: 'ladder', progress })
@@ -228,16 +233,31 @@
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
     // R1 §4.2: Technik-Befehle (Konsole 'technik'); die alten captain.* antworten nur mit einem Hinweis
-    CMD_TECHNIK: ['technik.power', 'technik.shield', 'technik.priority', 'technik.repair', 'technik.botAuto', 'technik.overload'],
+    CMD_TECHNIK: ['technik.power', 'technik.shield', 'technik.priority', 'technik.repair', 'technik.botAuto', 'technik.overload', 'technik.module'],
+    // PAN-01 A: technik.module { id, on } schaltet ein Bordmodul ab/an (id = MODUL_IDS, bei mehreren gleichen Modulen { id, raum }). Snapshot ship.mod = [[code, raum, an, läuft]]
+    // (code f|k|w = Frachtraum | Krankenstation | Werkstatt; an = Wunsch der Technik, läuft = tatsächlich aktiv, also an UND genug Reaktorleistung); jedes laufende Modul zieht 1 Energie.
+    // Debug modul [status | start | voll | an <id> [raum] | aus <id> | weg <id>]. Weltstand schiff.module [{ id, raum, an }].
+    MODUL_IDS: ['frachtraum', 'krankenstation', 'werkstatt'],
+    // PAN-01 D: Werft am Terminal (Konsole 'shop', nur angedockt an einer Flottenbasis, jeder Spieler). cmd { c: 'werft.freischalten', art: 'stufe'|'waffe'|'modul', id },
+    // { c: 'werft.umbau', platz: 1–9, waffe: Katalog-Id | 'leer' }, { c: 'werft.modul', raum: 1–4, id: Modul-Id | 'leer' }. Antwort an den Absender: Ereignis
+    // werftAntwort { pid, op, ok, code?, text? } (bei Fehler zusätzlich notice); bei Erfolg an alle: Ereignis werft { op: 'freigeschaltet'|'umbau', art, id, platz?, raum?, marks?, pid }.
+    // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul }, zu [Farben der Zuschauer], ui { b: 'h'|'w', a: 'p'|'m'|'s', n, i } (Ansicht des Nutzers für Zuschauer) }
+    // nur, solange jemand am Terminal sitzt (aktiv: false = nur aktiv, grund, nutzer, stufe). Weltstand schiff.freigeschaltet { stufe, waffen[], module[] }. Debug werft, marken <n>.
+    CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen'],   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
+    WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
+    WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
+      'platz_unbekannt', 'platz_gesperrt', 'platzart', 'raum_unbekannt', 'raum_gesperrt', 'fracht_belegt', 'person_im_raum', 'unveraendert', 'umbau'],
     CMD_CAPTAIN_ALT_TECHNIK: ['captain.power', 'captain.shield', 'captain.priority', 'captain.repair', 'captain.botAuto', 'captain.overload'],
-    // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1
-    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'life', 'transfer',
-      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd'],
-    POWER_SYSTEMS: ['engines', 'shields', 'weapons', 'life'],
+    // M3a: 'weapons' ist Altname (schlechtester Zustand der drei Waffen, keine Station). CONTRACT-M3 §4.1. PAN-01 B: die Lebenserhaltung ist gestrichen (13 Systeme).
+    SYSTEMS: ['reactor', 'engines', 'shields', 'weapons', 'transfer',
+      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
+      'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'],   // PAN-01 C: Lafetten als echte Systeme (nur mit offenem, bestücktem Platz aktiv)
+    // PAN-01 A: nur die Hauptsysteme; die Lebenserhaltung ist kein Energieposten mehr, Bordmodule zählen über ship.mod
+    POWER_SYSTEMS: ['engines', 'shields', 'weapons'],
     // M1: Systemzustände ('offline' = EMP, zählt wie broken, startet nach CONFIG.emp.offlineTime selbst neu)
     SYSTEM_STATES: ['ok', 'damaged', 'broken', 'offline'],
     REACTOR_STATES: ['online', 'overload', 'offline'],
-    MOUNTS: ['bow', 'port', 'stbd', 'bolzen', 'phase_l', 'phase_r', 'seitenturm'],   // M3a: bow/port/stbd; phase_* = Altnamen
+    MOUNTS: ['bow', 'port', 'stbd', 'p5', 'p7', 'p9', 'p1', 'p3', 'p2', 'bolzen', 'phase_l', 'phase_r'],   // PAN-01 C: neun Plätze (bow = 8, port = 4, stbd = 6, p<Platz>); bolzen = Altname des Torpedowerfers, phase_* = Altnamen
     REPAIR_MODES: ['flick', 'part'],
     BEAM_KINDS: ['phase', 'lance', 'battery', 'enemy_heavy', 'bolzen'],
     SIDES: ['bow', 'stbd', 'aft', 'port', 'mid'],
@@ -262,7 +282,7 @@
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
-    DEBUG_CMDS: ['stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
+    DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
@@ -270,6 +290,8 @@
       'sprungpunkt', 'ladung', 'prise',   // QA-Nachzug (QA_DEBUG)
       'notruf', 'spur',   // SL8/SL5: Labor-Einstiege (notruf [ids], spur [id])
       'entschl',   // SL5: entschl [id] startet ein Testsignal mit vier Schichten (Qualität 0..3, Schicht 3 versteckt)
+      'bestueck',   // PAN-01 C: bestueck <platz 1–9> <waffe-id|leer> | alle [stufe] | start | status
+      'modul',   // PAN-01 A: modul status | start | voll | an <id> [raum] | aus <id> | weg <id>
       'fracht',   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       'kapitel'],   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kampagnenkette (Lobby: startet 'eisenwald_ohne')
     // ---- M3b Schritt A (CONTRACT-M3B) ----

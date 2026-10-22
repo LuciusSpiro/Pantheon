@@ -8,7 +8,7 @@
   "hexe": {
     "0102": {"name":"Aurelia","fraktion":"rom","art":"Kolonie","hafen":"B","region":"imperium","spielbar":false},
     "0107": {"name":"Rostnest","fraktion":"pirat","art":"Piratennest","symbole":["pirate"],"region":"saumraum","spielbar":false,"verborgen":true},
-    "0202": {"name":"Castra Martis","fraktion":"rom","art":"Flottenbasis, Mars-Schrein","hafen":"A","symbole":["pantheon"],"region":"imperium","spielbar":true,"ort":"castra_martis","gen":true,"andocken":true,"szene":{"planeten":1}},
+    "0202": {"name":"Castra Martis","fraktion":"rom","art":"Flottenbasis, Mars-Schrein","flottenbasis":true,"hafen":"A","symbole":["pantheon"],"region":"imperium","spielbar":true,"ort":"castra_martis","gen":true,"andocken":true,"szene":{"planeten":1}},
     "0203": {"name":"Ceres-Depot","fraktion":"rom","art":"Versorgung","hafen":"C","region":"imperium","spielbar":true,"ort":"ceres_depot","gen":true},
     "0205": {"name":"Mond Kesh","fraktion":"saum","art":"Mond, Ruine","region":"saumraum","spielbar":true,"ort":"kesh"},
     "0206": {"name":"Lichtkordon","fraktion":"saum","art":"Heimathafen, Konkordat","hafen":"C","symbole":["home"],"region":"saumraum","spielbar":true,"ort":"hafen"},

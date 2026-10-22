@@ -99,6 +99,7 @@
   G.send = send;
 
   function isSolidFor(zone, st) {
+    if (zone === 'ship' && Maps.shipSolidFn) return Maps.shipSolidFn((st && st.ship && st.ship.st) || 0);   // PAN-01 B: verschalte Pforten öffnen mit der Ausbaustufe
     const map = R.mapFor(zone, st);
     if (zone === 'away' && (map.id === 'kesh' || R.isBuehne(map))) return R.solidFn(map, st);   // B1: Türen nach Zustand   // M2: Tor offen = begehbar, low-Kacheln solid
     const away = (st && st.away) || {};
@@ -807,12 +808,18 @@
         if (ev.dodged) { Client.dodgeFx = { t0: performance.now() }; if (m && m.zone === 'ship') H.pushNotice('Ausgewichen! Der schwere Treffer geht vorbei.', PAL.mint); }
         else if (con === 'helm' || con === 'weapons') H.pushNotice('Ladung verfehlt – außer Bogen', PAL.mint);
         return true;
-      case 'lance':
-        // §20.3: Aufladen/Feuer der Lanze (Ton per sfx vom Server)
-        if (ev.state === 'fizzle') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' || con === 'helm') H.pushNotice('Lanze verpufft' + (ev.why === 'system' ? ' – System ausgefallen' : ''), PAL.warn); }
-        else if (ev.state === 'fire') { stopSfx('lance_charge', 'lance'); if (con === 'weapons' && !ev.hit) H.pushNotice('Lanze ins Leere – Bug aufs Ziel!', PAL.warn); }
-        else if (ev.state === 'charge' && con === 'helm') H.pushNotice('LANZE LÄDT – Bug aufs Ziel!', R.BURST_COL);
+      case 'lance': {
+        // §20.3: Aufladen/Feuer der Lanze (Ton per sfx vom Server). PAN-01 C: ev.mount = Bug-Lanze ('bow') oder Lanzenbatterie (Seite); der Ton-Schlüssel folgt dem Mount
+        const lkey = 'lance' + (ev.mount && ev.mount !== 'bow' ? ev.mount : '');
+        const lm = ((Client.state || {}).ship || {}).mounts;
+        const lw = window.SchiffsUI && lm ? SchiffsUI.waffeVon(lm.find((q) => q.id === ev.mount)) : null;
+        const lname = ev.mount && ev.mount !== 'bow' && lw ? lw.name : 'Lanze';
+        const lweg = ev.mount && ev.mount !== 'bow' ? 'Seite' : 'Bug';
+        if (ev.state === 'fizzle') { stopSfx('lance_charge', lkey); if (con === 'weapons' || con === 'helm') H.pushNotice(lname + ' verpufft' + (ev.why === 'system' ? ' – System ausgefallen' : ''), PAL.warn); }
+        else if (ev.state === 'fire') { stopSfx('lance_charge', lkey); if (con === 'weapons' && !ev.hit) H.pushNotice(lname + ' ins Leere – ' + lweg + ' aufs Ziel!', PAL.warn); }
+        else if (ev.state === 'charge' && con === 'helm') H.pushNotice(lname.toUpperCase() + ' LÄDT – ' + lweg + ' aufs Ziel!', R.BURST_COL);
         return true;
+      }
       case 'aim':
         if (ev.state === 'abort' && (con === 'helm' || con === 'weapons')) H.pushNotice('Zielphase abgebrochen – Kurs nicht gehalten', PAL.warn);
         else if (ev.state === 'miss' && (con === 'helm' || con === 'weapons')) H.pushNotice('Lanze verfehlt – Ziel nicht im Bogen', PAL.warn);
@@ -1111,6 +1118,7 @@
   function ankerPos(mapId, id) { const m = Maps[mapId || ((Client.state && Client.state.away) || {}).map]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? { x: a[2] * TILE + 16, y: a[3] * TILE + 16 } : null; }
 
   function onEvent(ev) {
+    if (ev.kind && ev.kind.indexOf('werft') === 0 && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;
@@ -1143,7 +1151,10 @@
         audio.play(ev.shield ? 'shield_hit' : 'hull_hit', { volume: ev.shield ? 0.8 : 1 });
         if (!ev.shield) Client.shakeT = performance.now();
         break;
-      case 'explosion': R.addFx('explosion', null, ev.x, ev.y, 0.7, { space: true }); audio.play('explosion_small'); break;
+      case 'explosion':   // PAN-01 C: small = Granate/Torpedo-Treffer (Ring, leiser; die Granate bringt ihren Knall als sfx streu_boom selbst mit)
+        R.addFx(ev.small ? 'explosion_ring' : 'explosion', null, ev.x, ev.y, ev.small ? 0.55 : 0.7, { space: true });
+        audio.play('explosion_small', ev.small ? { volume: 0.55 } : undefined);
+        break;
       case 'beam':
         for (const pid of ev.pids || []) Client.beamFx[pid] = { t0: performance.now(), dir: ev.dir };
         audio.play('beam');
@@ -1268,14 +1279,12 @@
     // Waffen
     const pb = (prev.space && prev.space.beams) || [], cb = (cur.space && cur.space.beams) || [];
     // M3a: lance/battery/enemy_heavy klingen über Server-sfx (lance_fire, battery_salvo, heavy_hit) – hier nur Altnamen
-    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind === 'lanze' || b.kind === 'seitenturm' || !b.kind) audio.play(b.kind === 'seitenturm' ? 'seitenturm' : 'lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
+    if (cb.length > pb.length) for (const b of cb.slice(pb.length)) if (b.kind === 'lanze' || !b.kind) audio.play('lanze', { volume: Client.self.zone === 'ship' ? 1 : 0.4 });
     // M3a: verschwindet ein ladender Gegner, Ladeton anhalten
     {
       const curIds = new Set(((cur.space && cur.space.enemies) || []).map(e => e.id));
       for (const e of (prev.space && prev.space.enemies) || []) if (e.tele && !curIds.has(e.id)) stopSfx('tele_charge', e.id);
     }
-    const pIds = new Set(((prev.space && prev.space.projectiles) || []).map(p => p.id));
-    for (const pr of (cur.space && cur.space.projectiles) || []) if (!pIds.has(pr.id) && pr.kind === 'bolzen') audio.play('bolzen');
     // Gegnertreffer (für Blinken)
     const pe = {};
     for (const e of (prev.space && prev.space.enemies) || []) pe[e.id] = e;
@@ -1607,8 +1616,18 @@
     }
     // M4 (DECKS): Lift nur von der eigenen Kachel, Notleiter auch von der Nachbarkachel
     const shipInteract = zone === 'ship' && map.legend && map.legend[ch] ? map.legend[ch].interact : null;
-    if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift zum ' + (Maps.deckOf && Maps.deckOf(ty) ? 'Systemdeck' : 'Privatdeck'), ok: true };
-    if (shipInteract === 'ladder' && !(m && m.ladder)) return { label: 'Halten: Notleiter (2 s)', ok: true };
+    // PAN-01 B: E aktiviert Lift/Notleiter, dann W (hoch) / S (runter) – nur mögliche Richtungen; E oder A/D schließen die Wahl
+    if (zone === 'ship' && m && m.lm && !m.lift) {
+      const stu = (st.ship && st.ship.st) || 0, dn = (d) => ((Maps.SHIP_DECKS || [])[d] || {}).name || 'Deck';
+      const sel = ownTile && (shipInteract === 'lift' || shipInteract === 'ladder') ? { x: tx, y: ty } : null;
+      const up = sel && Maps.fahrtZiel(sel.x, sel.y, 1, stu), down = sel && Maps.fahrtZiel(sel.x, sel.y, -1, stu);
+      const parts = [];
+      if (m.lm & 1) parts.push('W hoch' + (up ? ' (' + dn(up.deck) + ')' : ''));
+      if (m.lm & 2) parts.push('S runter' + (down ? ' (' + dn(down.deck) + ')' : ''));
+      return { label: parts.join(' · ') + ' · E Abbruch', ok: true };
+    }
+    if (ownTile && shipInteract === 'lift' && !(m && m.lift)) return { label: 'E: Lift benutzen', ok: true };
+    if (shipInteract === 'ladder' && !(m && m.lift) && !(m && m.ladder)) return { label: 'E: Notleiter benutzen', ok: true };
     if (ownTile) {
       const items = zone === 'away' ? ((st.away && st.away.items) || []) : ((st.ship && st.ship.groundItems) || []);
       const it = items.find(i => Math.floor(i.x / TILE) === tx && Math.floor(i.y / TILE) === ty);
@@ -1674,7 +1693,7 @@
     if (con && zone === 'ship') {
       if (con === 'shop' && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
       const taken = players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
-      if (taken) return { label: H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false };
+      if (taken) return Object.assign({ label: con === 'shop' && window.TerminalUI ? 'Terminal: ' + ((window.PultTerminal && PultTerminal.TOKENS.SPIELER_NAMEN[taken.color]) || 'Mitspieler') + ' am Gerät · E zusehen' : H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false }, con === 'shop' && window.TerminalUI ? { zusehen: 'shop' } : {});   // PAN-01 D2: am besetzten Terminal zusehen
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }
     if (shipKind === 'shelf') {
@@ -1962,6 +1981,9 @@
       if (d) actions.setColor(+d[1] - 1);
       return;
     }
+    // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
+    if (/^F[1-4]$/.test(code) && (m.console === 'shop' || (window.TerminalUI && TerminalUI.zusehend))) e.preventDefault();
+    if (window.TerminalUI && TerminalUI.zusehend && !m.console) { if (code === 'Escape') { TerminalUI.zusehen(Client.view, false); Client.keys = {}; } return; }
     Client.keys[code] = true;
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
@@ -1981,7 +2003,12 @@
         if (m.zone === 'ship' && ia && ia.sys && ia.alt) startMinigame(ia.sys);
         break;
       }
-      case 'KeyE': if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); } break;
+      case 'KeyE': {
+        const iaz = Client.view && Client.view.interaction;
+        if (iaz && iaz.zusehen === 'shop' && window.TerminalUI) { Client.keys = {}; TerminalUI.zusehen(Client.view, true); break; }   // PAN-01 D2: am besetzten Terminal zusehen
+        if (!Client.actDown) { Client.actDown = true; send({ t: P.C.ACT || 'act', down: true }); }
+        break;
+      }
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
       case 'KeyV': if (m.zone === 'ship' && !m.downed && !m.stun) send({ t: P.C.SCHUBS || 'schubs' }); break;   // Schubs: Mitspieler betäuben bzw. von der Konsole holen
       case 'Space': shoot(); Client.fireHeld.key = true; break;
@@ -2120,7 +2147,7 @@
     }
     if (canMove && nonzero) {
       const speed = SPEED * (m.carry ? 0.85 : 1) * (canCrouchHere(m, st) && crouchActive(m) ? crouchFactor() : run ? RUN : 1);   // §15: gleicher Faktor wie der Server (Shift = rennen)
-      const dx = mx * speed * dt, dy = my * speed * dt;
+      const dx = mx * speed * dt, dy = (m.lm ? 0 : my) * speed * dt;   // PAN-01 B: bei offener Liftwahl sind W/S die Deckwahl, der Server bewegt nicht (keine Vorhersage nach oben/unten)
       const r = Phys.moveWithCollision(isSolidFor(self.zone, st), self.x, self.y, dx, dy, HITBOX);
       self.moving = Math.abs(r.x - self.x) + Math.abs(r.y - self.y) > 0.01;
       self.x = r.x; self.y = r.y;
@@ -2261,6 +2288,8 @@
         // W2 AP3b: Wellen All spielt an Konsolen – Banner und Ergebnis über der Konsole (sonst verdeckt)
         if (st.wellen) Net.guard('Hud.wellenKonsole', () => H.drawWellen(ctx, v, true));
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung (Freie Fahrt Sund) über der Konsole
+      } else if (window.TerminalUI && TerminalUI.zusehend) {   // PAN-01 D2: Zuschauer am besetzten Terminal (rein lesend)
+        K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
@@ -2286,7 +2315,7 @@
     if (VR.notice) { const n = VR.notice; VR.notice = null; Net.guard('Hud.pushNotice', () => H.pushNotice(n, R.PAL.warn)); }
     let ok = false;
     const sitz = !!(window.Sitz && Net.guard('Sitz.update', () => Sitz.update(v, Client.frameDt || STEP), false));   // UI-Sitz (E2): Egoperspektive an Steuer/Ops/Captain
-    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && (!v.me.console || sitz)) {
+    if (VR.ready && VR.mode === 'voxel' && v.state && v.state.phase !== 'lobby' && v.me && ((!v.me.console && !(window.TerminalUI && TerminalUI.zusehend)) || sitz)) {
       const zone = VR.zoneOf(v);
       if (zone && VR.handles(zone)) ok = !!Net.guard('Voxel.frame', () => VR.frame(v, Client.frameDt || STEP), false);
     }
@@ -2307,7 +2336,7 @@
     const me = (st.players || []).find(p => p.id === Client.pid);
     // QA-Abnahme S2: Bei Kapitelkarte, Ende- oder Menüseite ebenfalls kompakt – sonst liegt das Overlay über dem Text.
     const overlay = !!Client.chapter || !!uiTop() || st.phase === 'end';
-    if ((me && me.console) || overlay) {
+    if ((me && me.console) || overlay || (window.TerminalUI && TerminalUI.zusehend)) {
       const line = 'FPS ' + Client.fps + ' · Ping ' + Net.ping + ' · Fehler ' + G.errors + '/' + (st.errors || 0) + ' · ' + ((st.mission && st.mission.stage) || '-');
       const w = R.measure ? R.measure(line, 1) + 8 : 220;
       R.backdrop(ctx, 320 - w / 2, 1, w, 10, 0.75);

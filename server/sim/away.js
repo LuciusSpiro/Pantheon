@@ -302,6 +302,7 @@ function recall(game, pid) {
   game.emit('sfx', { name: 'beam' });
   game.missionEvent('beamedUp', { players: [p], map: game.away.map });
   if (game.away.map === 'wreck' && !game.players.some((q) => q.zone === 'away')) game.away.active = false;
+  require('./module.js').notrueckholungFolge(game);   // PAN-01 A: der Transfer brennt durch (Reparatur nötig)
   return null;
 }
 
@@ -413,8 +414,9 @@ function weaponsStrike(game) {
   game.support.strike = C.support.strike.cooldown;
   const mk = game.away.marker;
   game.away.pendingStrikes.push({ x: mk.x, y: mk.y, at: game.time + C.support.strike.delay });
-  if (k === 'bow') game.emit('sfx', { name: 'lance_fire' });
-  else game.emit('sfx', { name: 'battery_salvo', count: game.C.spaceM3.mounts[k].tubes });
+  const wk = require('./schiffswaffen.js').waffeAn(game, k);   // PAN-01 C: Ton der Waffe (Lanze, Batterie, Sturm …)
+  if (wk && wk.art === 'lanze') game.emit('sfx', { name: 'lance_fire' });
+  else game.emit('sfx', { name: wk ? wk.ton : 'battery_salvo', count: wk ? wk.rohre : 4 });
   return null;
 }
 

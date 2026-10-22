@@ -92,7 +92,7 @@ const isLight = (id, e) => id === 'lerche/kit/light' || (e.tags || []).includes(
 const footprintExempt = (id) => /^lerche\/kit\/(light|window|plaque)$/.test(id) || isDach(id);
 // Handgehaltene Gegenstände (Pivot = Griff, Anker handR): keine Boden-/Grundflächen-/Höhenprüfung
 const isHeld = (id, e) => /^lerche\/item\//.test(id) || (e.tags || []).includes('held');
-const heightExempt = (id, e) => isDach(id) || /(^|\/)(wall\w*|window|door|shaft|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
+const heightExempt = (id, e) => isDach(id) || /(^|\/)(wall\w*|window|door|door_sealed|shaft|shaft3|lift_portal|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
 // Wand-/Türklasse der Bühnen (M4 §5 „außer Wände, Türen, Fenster, Säulen“, deutsche Kit-Namen aus CONTRACT-B1 §10.1):
 // statt 2,2 m gilt die Wandhöhe 3 m.
 const WALL_H = 3.0;
@@ -286,6 +286,7 @@ function steps(range) {
 // Drehsprites (EK1b): Manifest <-> PNG-Sheets (Voxelwerk assets/sprites, im Spiel public/voxel/sprites)
 // ---------------------------------------------------------------------------------------------
 const SPRITE_KLASSEN = ['jaeger', 'spaeher', 'korvette', 'frachter', 'fregatte', 'kreuzer', 'linienschiff'];
+const SPRITE_LERCHE = ['lerche_s0', 'lerche_s1', 'lerche_s2', 'lerche_s3'];   // PAN-01 B: die Lerche je Ausbaustufe, nur Set rom (Pflicht), kein Fraktionssatz
 const SPRITE_PFLICHT_SETS = ['rom', 'nord', 'rostmeute'];   // das Spiel waehlt je Fraktion eines davon
 const SPRITE_STEPS = 64;                                       // = ROT_STEPS in public/js/art.js
 export async function checkSprites(dir) {
@@ -300,7 +301,7 @@ export async function checkSprites(dir) {
   for (const [key, s] of entries) {
     const where = `sprite ${key}`;
     if (key !== `${s.klasse}/${s.set}`) err(`${where}: Schluessel passt nicht zu klasse/set (${s.klasse}/${s.set})`);
-    if (!SPRITE_KLASSEN.includes(s.klasse)) err(`${where}: unbekannte Klasse ${s.klasse}`);
+    if (!SPRITE_KLASSEN.includes(s.klasse) && !SPRITE_LERCHE.includes(s.klasse)) err(`${where}: unbekannte Klasse ${s.klasse}`);
     if (!s.volk) err(`${where}: volk fehlt`);
     if (s.steps !== SPRITE_STEPS) err(`${where}: steps ${s.steps} != ${SPRITE_STEPS}`);
     if (!Array.isArray(s.frame) || s.frame.length !== 2 || !(s.frame[0] > 0) || !(s.frame[1] > 0)) { err(`${where}: frame ungueltig`); continue; }
@@ -316,6 +317,7 @@ export async function checkSprites(dir) {
     if (w !== s.frame[0] * s.cols || h !== s.frame[1] * s.rows) err(`${where}: PNG ${w}x${h} != ${s.frame[0] * s.cols}x${s.frame[1] * s.rows} (frame x cols/rows)`);
   }
   for (const k of SPRITE_KLASSEN) for (const set of SPRITE_PFLICHT_SETS) if (!(man.sprites || {})[`${k}/${set}`]) err(`Pflicht-Sprite ${k}/${set} fehlt im Manifest`);
+  for (const k of SPRITE_LERCHE) if (!(man.sprites || {})[`${k}/rom`]) err(`Pflicht-Sprite ${k}/rom (Lerche) fehlt im Manifest`);
   const pngs = [];
   const walk = async (d) => { for (const e of await fsp.readdir(d, { withFileTypes: true }).catch(() => [])) { const f = path.join(d, e.name); if (e.isDirectory()) await walk(f); else if (e.name.endsWith('.png')) pngs.push(path.relative(dir, f).replace(/\\/g, '/')); } };
   await walk(dir);

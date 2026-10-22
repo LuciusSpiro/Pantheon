@@ -142,6 +142,8 @@ function err(where, e) {
 }
 
 function maps() { return window.Shared_Maps || null; }
+// Höhenlage eines Decks (Schiff: SHIP_DECKS[].level, Unterdeck −1, Mitteldeck 0, Oberdeck +1; der Deckindex 0/1/2 ist NICHT die Höhe). Karten ohne level: Index = Höhe.
+function deckLevel(d, inShip) { const M = inShip ? maps() : null; const dk = M && M.SHIP_DECKS && M.SHIP_DECKS[d]; return dk && dk.level != null ? dk.level : d; }
 function cfg() { return window.Shared_Config || window.CONFIG || {}; }
 
 // ------------------------------------------------------------------------------------------------------------------------------
@@ -814,7 +816,7 @@ function updatePlayer(p, view, st, dt, t) {
   const decked = isDecked();
   if (a.deck != null && deck !== a.deck && decked) {
     // nicht doppelt: das Ereignis lift { phase:'arrive' } kann vor dem (interpolierten) Snapshot ankommen
-    if ((a.lift || a.ladder) && !a.arrive) a.arrive = { t: 0, from: deck > a.deck ? -1 : 1, T: a.ladder ? 0.4 : 0.6 };
+    if ((a.lift || a.ladder) && !a.arrive) a.arrive = { t: 0, from: deckLevel(deck, inShip) > deckLevel(a.deck, inShip) ? -1 : 1, T: a.ladder ? 0.4 : 0.6 };
   }
   a.deck = deck; a.lift = p.lift || null; a.ladder = p.ladder || null;
   if (decked && !onVisibleDeck(p.y) && !(p.lift && p.lift.to === L.ctx.deck)) { a.container.visible = false; return; }
@@ -832,7 +834,7 @@ function updatePlayer(p, view, st, dt, t) {
   else if (p.lift) {
     base = 'lift_ride';
     const q = clamp01((p.lift.t || 0) / Math.max(0.1, p.lift.T || 1.5));
-    const dir = (p.lift.to != null ? p.lift.to : 1 - deck) > deck ? 1 : -1;
+    const dir = deckLevel(p.lift.to != null ? p.lift.to : 1 - deck, inShip) > deckLevel(deck, inShip) ? 1 : -1;   // nach oben = Höhenlage steigt (nicht der Deckindex)
     yOff = dir * Math.pow(q, 1.6) * 3.2;
     if (q > 0.92) a.container.visible = false;
   } else if (p.ladder) {

@@ -88,20 +88,20 @@ console.log('\n[R0: Ivo im Frachtraum]');
   ok(!!g.ivo, 'nach der Rettung zieht Ivo ein');
   const t = tileOf(g.ivo);
   const raum = Maps.roomAt(t.x, t.y);
-  ok(raum && raum.id === 'frachtraum', 'Ivo wohnt im Frachtraum (' + (raum && raum.id) + ')');
-  ok(Maps.nutzungAt(t.x, t.y).includes('quartier') && Maps.nutzungAt(t.x, t.y).includes('waren'), 'Frachtraum: nutzung [waren, quartier]');
+  ok(raum && raum.id === 'messe', 'Ivo wohnt in der Messe (' + (raum && raum.id) + ') – PAN-01 B: die Schlafecke zog vom Frachtraum in die Messe');
+  ok(Maps.nutzungAt(t.x, t.y).includes('quartier'), 'Messe: nutzung [quartier]');
   ok(!bayKachel.has(t.x + ',' + t.y), 'Ivo steht weder auf einer Bucht noch auf deren Zugangskachel');
   // Schlafecke belegt keine Bucht/Zugangskachel
   const ecke = [];
-  for (let y = 25; y <= 27; y++) for (let x = 22; x <= 28; x++) { const k = Maps.ship.info(x, y).kind; if (k === 'cargo_cot' || k === 'tool_wall') ecke.push({ x, y, k }); }
-  ok(ecke.some((e) => e.k === 'cargo_cot') && ecke.some((e) => e.k === 'tool_wall'), 'Schlafecke (Pritsche, Werkzeugwand) im Frachtraum');
+  for (let y = 17; y <= 27; y++) for (let x = 29; x <= 38; x++) { const k = Maps.ship.info(x, y).kind; if (k === 'cargo_cot' || k === 'tool_wall') ecke.push({ x, y, k }); }
+  ok(ecke.some((e) => e.k === 'cargo_cot') && ecke.some((e) => e.k === 'tool_wall'), 'Schlafecke (Pritsche, Werkzeugwand) in der Messe');
   ok(ecke.every((e) => !bayKachel.has(e.x + ',' + e.y)), 'Schlafecke belegt keine Bucht und keine Zugangskachel');
-  ok(Maps.CARGO_BAYS.length === 2 && Maps.CARGO_BAYS.every((b) => Maps.ship.at(b.x, b.y) === 'g' && !Maps.ship.solid(b.access.x, b.access.y)), 'Frachtbuchten bay0/bay1 und Zugänge unverändert');
+  ok(Maps.CARGO_BAYS.length === 8 && Maps.CARGO_BAYS.every((b) => Maps.ship.at(b.x, b.y) === 'q' && !Maps.ship.solid(b.access.x, b.access.y)), 'acht Frachtbuchten (2 je Modulraum) mit freien Zugängen');
   ok(g.odaSeen.has('ivoMovedIn'), 'ODA-Hinweis beim Einzug');
   // er schlendert: nach einer Weile an anderer Kachel, bleibt auf Deck II
   run(30);
   const t2 = tileOf(g.ivo);
-  ok(Maps.deckOf(t2.y) === 1, 'Ivo bleibt auf Deck II (Lift/Leiter nie)');
+  ok(Maps.deckOf(t2.y) === 1, 'Ivo bleibt auf dem Oberdeck (Lift/Leiter nie)');
   const fr = Fracht.toSave(g);
   ok(Array.isArray(fr) && fr.length === 0, 'Fracht unverändert (leer)');
 }
@@ -175,15 +175,16 @@ console.log('\n[R0: Ivo abgeben (nur angedockt)]');
 console.log('\n[R0: Fracht-Mechanik unberührt]');
 {
   const { g } = neuesSpiel(2);
-  ok(Maps.CARGO_CAPACITY === 2 && typeof Fracht.toSave === 'function', 'Kapazität 2, Fracht-Modul vorhanden');
-  // Erreichbarkeit der Zugangskacheln von den Spawns (BFS über Deck I und II, Lift)
-  const solid = (x, y) => Maps.ship.solid(x, y);
-  const seen = new Set(); const q = [[26, 18]]; seen.add('26,18');
+  ok(Fracht.capacity(g) === 2 && typeof Fracht.toSave === 'function', 'Kapazität 2 (ein Frachtraum), Fracht-Modul vorhanden');
+  // Erreichbarkeit der Zugangskacheln vom Spawn (BFS über alle Decks, Lift) bei voll ausgebauter Lerche
+  const solid = Maps.shipSolidFn(Maps.STUFE_MAX);
+  const seen = new Set(); const q = [[Maps.SHIP_SPAWNS[0].x, Maps.SHIP_SPAWNS[0].y]]; seen.add(q[0].join(','));
   while (q.length) {
     const [x, y] = q.shift();
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, key = nx + ',' + ny; if (!seen.has(key) && ny >= 16 && ny <= 28 && nx >= 0 && nx <= 36 && !solid(nx, ny)) { seen.add(key); q.push([nx, ny]); } }
+    const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy]).concat(Maps.deckLinks(x, y).map((l) => [l.x, l.y]));
+    for (const [nx, ny] of next) { const key = nx + ',' + ny; if (!seen.has(key) && ny >= 0 && ny <= 44 && nx >= 0 && nx <= 39 && !solid(nx, ny)) { seen.add(key); q.push([nx, ny]); } }
   }
-  ok(Maps.CARGO_BAYS.every((b) => seen.has(b.access.x + ',' + b.access.y)), 'Zugangskacheln beider Buchten erreichbar');
+  ok(Maps.CARGO_BAYS.every((b) => seen.has(b.access.x + ',' + b.access.y)), 'Zugangskacheln aller acht Buchten erreichbar (voll ausgebaut)');
   void g;
 }
 

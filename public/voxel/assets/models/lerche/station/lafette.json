@@ -1,0 +1,78 @@
+{
+  "id": "lerche/station/lafette",
+  "name": "Lafette (Waffenplatz innen): verschlossen, frei/leer oder aktiv (neutral) – Rohr zeigt nach -z (zur Außenwand)",
+  "tier": "detail",
+  "palette": "lerche_rom",
+  "tags": ["lerche", "station", "waffe", "lafette", "ausbau"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "params": {
+    "state": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "0 verschlossen (Plane, Gitter) · 1 frei/leer (Sockel mit Zahnkranz) · 2 aktiv (neutrale Lafette)" },
+    "art": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Platzart 0 Seite (7 9 1 3) · 1 Bug (5, größer, Zwillingsrohr) · 2 Heck (2)" },
+    "side": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Seite 0 Bb / 1 Stb (Markierung)" },
+    "ladung": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Ladelampe an (nur aktiv)" }
+  },
+  "let": {
+    "rr": "art == 1 ? 7 : 6",
+    "aktiv": "state == 2"
+  },
+  "variants": {
+    "verschlossen": { "state": 0 },
+    "aktiv": { "state": 2 },
+    "aktiv_geladen": { "state": 2, "ladung": 1 },
+    "bug_verschlossen": { "art": 1, "state": 0 },
+    "bug_frei": { "art": 1 },
+    "bug_aktiv": { "art": 1, "state": 2 },
+    "heck_verschlossen": { "art": 2, "state": 0 },
+    "heck_frei": { "art": 2 },
+    "heck_aktiv": { "art": 2, "state": 2 },
+    "stb": { "side": 1 }
+  },
+  "ops": [
+    { "op": "box", "name": "Bodenplatte", "at": [0, 0, 0], "size": [16, 2, 16], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Warnrand vorn", "at": [1, 1, 13], "size": [14, 1, 2], "color": { "stripes": ["warning", "black"], "axis": "x", "period": 2 }, "mode": "paint", "jitter": false },
+    { "op": "cyl", "name": "Lagerring", "at": [8, 2, 7], "r": "rr + 0.5", "h": 2, "color": "metal" },
+    { "op": "cyl", "name": "Zahnkranz", "at": [8, 4, 7], "r": "rr", "h": 1, "hollow": 1, "color": { "checker": ["metal_light", "dark"], "period": 1 }, "jitter": false },
+    { "op": "cyl", "name": "Kranzscheibe", "at": [8, 4, 7], "r": "rr - 1", "h": 1, "color": "metal_dark" },
+    { "op": "box", "name": "Seitenmarke Bb", "if": "side == 0", "at": [1, 2, 13], "size": [1, 2, 1], "color": "trim" },
+    { "op": "box", "name": "Seitenmarke Stb", "if": "side == 1", "at": [14, 2, 13], "size": [1, 2, 1], "color": "trim" },
+    { "op": "box", "name": "Platzmarke Bug", "if": "art == 1", "at": [6, 2, 13], "size": [4, 1, 1], "color": "primary" },
+    { "op": "box", "name": "Platzmarke Heck", "if": "art == 2", "at": [7, 2, 13], "size": [2, 1, 1], "color": "metal_light" },
+
+    { "op": "group", "name": "Verschlossen: Plane und Gitter", "if": "state == 0", "ops": [
+      { "op": "ellipsoid", "name": "Plane", "at": [8, 4, 7], "r": ["rr", 6, "rr - 1"], "half": "+y", "color": { "noise": ["leather", { "shade": "leather", "f": 0.8 }], "weights": [3, 1], "cell": 1 } },
+      { "op": "box", "name": "Gurt längs", "at": [7, 4, 0], "size": [2, 11, 16], "color": "trim", "mode": "paint" },
+      { "op": "box", "name": "Gurt quer", "at": [0, 4, 6], "size": [16, 11, 2], "color": { "shade": "trim", "f": 0.8 }, "mode": "paint" },
+      { "op": "box", "name": "Siegel", "at": [7, 9, 7], "size": [2, 2, 2], "color": "primary" },
+      { "op": "box", "name": "Gitterstab", "at": [1, 2, 13], "size": [1, 9, 1], "color": "metal_light", "repeat": { "count": 5, "step": [3, 0, 0], "var": "g" } },
+      { "op": "box", "name": "Gitterholm", "at": [1, 9, 13], "size": [14, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Gitterholm unten", "at": [1, 3, 13], "size": [14, 1, 1], "color": "metal_light" },
+      { "op": "box", "name": "Zeichentafel", "at": [6, 5, 14], "size": [4, 3, 1], "color": { "frame": "trim", "fill": "dark", "axes": "xy", "width": 1 } },
+      { "op": "box", "name": "Zeichen", "at": [7, 6, 15], "size": [2, 1, 1], "color": { "role": "warning", "emit": 1.0 }, "jitter": false }
+    ] },
+
+    { "op": "group", "name": "Frei: leerer Sockel", "if": "state == 1", "ops": [
+      { "op": "cyl", "name": "Zapfen", "at": [8, 5, 7], "r": 2, "h": 3, "color": "metal" },
+      { "op": "cyl", "name": "Zapfenkappe", "at": [8, 8, 7], "r": 2.5, "h": 1, "color": "trim" },
+      { "op": "box", "name": "Zeiger frei", "at": [7, 5, 1], "size": [2, 1, 4], "color": { "role": "glow2", "emit": 0.7 }, "jitter": false },
+      { "op": "box", "name": "Lampe frei", "at": [7, 2, 14], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Gleitschienen", "at": [2, 2, 2], "size": [1, 1, 10], "color": "metal_light", "mirror": "x", "mirrorAt": 8 }
+    ] },
+
+    { "op": "group", "name": "Aktiv: neutrale Lafette", "if": "aktiv", "ops": [
+      { "op": "cyl", "name": "Drehteller", "at": [8, 5, 7], "r": "rr - 1.5", "h": 2, "color": "metal" },
+      { "op": "box", "name": "Gehäuse", "at": ["art == 1 ? 3 : 4", 7, 3], "size": ["art == 1 ? 10 : 8", 5, 9], "color": { "frame": "trim", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+      { "op": "box", "name": "Gehäuse Haube", "at": ["art == 1 ? 4 : 5", 12, 4], "size": ["art == 1 ? 8 : 6", 2, 7], "color": "primary" },
+      { "op": "box", "name": "Gehäuse Schlitz", "at": [7, 11, 12], "size": [2, 1, 1], "color": "dark", "jitter": false },
+      { "op": "cyl", "name": "Rohr", "if": "art != 1", "axis": "z", "at": [8, 10, 0], "r": 1.6, "h": 4, "color": "metal_dark" },
+      { "op": "cyl", "name": "Rohr links", "if": "art == 1", "axis": "z", "at": [6, 10, 0], "r": 1.4, "h": 4, "color": "metal_dark" },
+      { "op": "cyl", "name": "Rohr rechts", "if": "art == 1", "axis": "z", "at": [10, 10, 0], "r": 1.4, "h": 4, "color": "metal_dark" },
+      { "op": "box", "name": "Mündung", "if": "art != 1", "at": [6.5, 8.5, 0], "size": [3, 3, 1], "color": "trim" },
+      { "op": "box", "name": "Mündung Zwilling", "if": "art == 1", "at": [4.5, 8.5, 0], "size": [7, 3, 1], "color": "trim" },
+      { "op": "box", "name": "Lampe bereit", "if": "!ladung", "at": [7, 12, 11], "size": [2, 1, 1], "color": { "role": "glow2", "emit": 1.0 }, "jitter": false },
+      { "op": "box", "name": "Lampe geladen", "if": "ladung", "at": [7, 12, 11], "size": [2, 1, 1], "color": { "role": "glow", "emit": 1.8 }, "jitter": false },
+      { "op": "box", "name": "Handrad", "at": [13, 8, 8], "size": [1, 3, 3], "color": "metal_light" }
+    ] }
+  ],
+  "anchor": [8, 0, 8]
+}

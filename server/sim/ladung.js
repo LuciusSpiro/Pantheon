@@ -35,7 +35,7 @@ function schoepfen(game, art, rate, dt) {
     if (Fracht.anBordLegen(game, art)) { n++; game.emit('frachtBeamen', { phase: 'fertig', was: 'schoepfen', art }); }
     else break;
   }
-  if (n) game.oda(`${artName(art)} geschöpft (${Fracht.anBord(game)}/${Fracht.capacity()}).`, 'ladung_' + art);
+  if (n) game.oda(`${artName(art)} geschöpft (${Fracht.anBord(game)}/${Fracht.capacity(game)}).`, 'ladung_' + art);
   if (Fracht.frei(game) <= 0 && s.fuell > 1) s.fuell = 1;
   return n;
 }
@@ -63,7 +63,7 @@ function schoepfStart(game, p) {
   if (T === 'broken' || T === 'offline') return 'Transfer ausgefallen – erst reparieren.';
   const o = schoepfOrt(game); if (!o.ok) return o.reason;
   if (!Fracht.artOk(game, o.art)) return 'Diese Ware lässt sich nicht laden.';
-  if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity()}) – abwerfen oder verkaufen.`;
+  if (Fracht.frei(game) <= 0) return `Frachtraum voll (${Fracht.anBord(game)}/${Fracht.capacity(game)}) – abwerfen oder verkaufen.`;
   s.halt = { kind: 'schoepf', id: null, t: 0, dur: 1, art: o.art };
   game.emit('frachtBeamen', { phase: 'start', was: 'schoepf', dur: 0 });
   game.missionEvent('schoepfenStart', { art: o.art, zone: o.zone });
@@ -107,7 +107,7 @@ function abwerfen(game, art) {
   const sh = game.ship; const d = cfg(game).abwurfAbstand || 70;
   const px = sh.x - Math.cos(sh.angle) * d, py = sh.y - Math.sin(sh.angle) * d;
   Fracht.fracht_abwerfen(game, px, py, l.art);
-  game.oda(`${artName(l.art)} abgeworfen (${s.lager.length}/${Fracht.capacity()}).`, null);
+  game.oda(`${artName(l.art)} abgeworfen (${s.lager.length}/${Fracht.capacity(game)}).`, null);
   game.missionEvent('frachtAbgeworfenVonBord', { art: l.art, n: s.lager.length });
   return null;
 }

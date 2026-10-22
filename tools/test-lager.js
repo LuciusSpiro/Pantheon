@@ -70,47 +70,66 @@ function arena() {
 }
 const pod = (T, dx, art) => Fracht.fracht_abwerfen(T.g, T.g.ship.x + (dx == null ? 150 : dx), T.g.ship.y, art || 'sprengstoff');
 
-section('Grundriss: Frachtraum auf Deck II ersetzt Bad und Aussicht', () => {
+section('Grundriss: Frachtbuchten in den Modulräumen (PAN-01 B: kein fester Frachtraum mehr)', () => {
   const ids = Maps.SHIP_ROOMS.map((r) => r.id);
-  ok(!ids.includes('bad') && !ids.includes('aussicht') && ids.includes('frachtraum'), 'Räume bad und aussicht entfallen, frachtraum neu (' + ids.length + ' Räume)');
-  const fr = Maps.SHIP_ROOMS.find((r) => r.id === 'frachtraum');
-  ok(fr.deck === 1 && fr.sector === -1 && fr.x0 === 22 && fr.x1 === 28 && fr.y0 === 25 && fr.y1 === 27, 'Frachtraum Deck II, Sektor -1 (kein Feuer, kein Leck), 22–28 × 25–27');
-  ok(Maps.CARGO_CAPACITY === 2 && Maps.CARGO_BAYS.length === 2, 'Kapazität 2 = zwei Frachtbuchten');
+  ok(!ids.includes('bad') && !ids.includes('aussicht') && !ids.includes('frachtraum') && ['modul1', 'modul2', 'modul3', 'modul4'].every((id) => ids.includes(id)), 'Räume bad, aussicht und frachtraum entfallen, vier Modulräume neu (' + ids.length + ' Räume)');
+  const m1 = Maps.SHIP_ROOMS.find((r) => r.id === 'modul1');
+  ok(m1.deck === 2 && m1.kind === 'modul' && m1.modul === 1 && m1.x0 === 21 && m1.x1 === 27 && m1.y0 === 33 && m1.y1 === 35, 'Modulraum 1 auf dem Unterdeck, 21–27 × 33–35');
+  ok(Maps.CARGO_BAYS.length === 8 && Maps.CARGO_PER_RAUM === 2, 'acht Frachtbuchten (zwei je Modulraum), Kapazität 2 je Frachtraum');
   for (const b of Maps.CARGO_BAYS) {
-    ok(Maps.ship.at(b.x, b.y) === 'g' && Maps.ship.info(b.x, b.y).kind === 'cargo_bay' && Maps.ship.solid(b.x, b.y), `Bucht ${b.id} (${b.x},${b.y}): Kachel g, cargo_bay, solide (Kollision)`);
+    ok(Maps.ship.at(b.x, b.y) === 'q' && Maps.ship.info(b.x, b.y).kind === 'mod_a' && Maps.ship.solid(b.x, b.y), `Bucht ${b.id} (${b.x},${b.y}): Modulplatz A, solide (Kollision)`);
     ok(Maps.ship.at(b.access.x, b.access.y) === '.' && !Maps.ship.solid(b.access.x, b.access.y), `Bucht ${b.id}: Zugangskachel begehbar`);
-    ok(Maps.roomAt(b.x, b.y) && Maps.roomAt(b.x, b.y).id === 'frachtraum', `Bucht ${b.id} liegt im Frachtraum`);
+    ok(Maps.roomAt(b.x, b.y) && Maps.roomAt(b.x, b.y).modul === b.raum, `Bucht ${b.id} liegt in Modulraum ${b.raum}`);
   }
-  ok(Maps.cargoBayAt(23, 25) && !Maps.cargoBayAt(24, 25), 'cargoBayAt');
+  ok(Maps.cargoBayAt(22, 33) && !Maps.cargoBayAt(23, 33), 'cargoBayAt');
   // keine alten Kacheln mehr
   const rows = Maps.SHIP_ROWS.join('');
-  ok(!rows.includes('%') && ![...Maps.SHIP_ROWS.slice(25, 28).map((r) => r.slice(22, 29)).join('')].some((ch) => 'os:'.includes(ch)), 'Bad (o), Aussichtsbank (s), Mosaik und Panoramafenster (%) im Frachtraum entfallen');
-  // Wege: jede begehbare Kachel auf Deck II ist von der Liftplattform aus erreichbar (BFS, 4er-Nachbarschaft, Türen begehbar)
-  const seen = new Set(); const q = [[26, 18]];
-  seen.add('26,18');
+  ok(!rows.includes('%') && !rows.includes('g') && !rows.includes('l'), 'Frachtbucht g, Frachtbett l und Panoramafenster (%) stehen nicht mehr auf der Karte');
+  // Wege: jede begehbare Kachel auf dem Oberdeck ist von der Liftplattform aus erreichbar (BFS, 4er-Nachbarschaft, Türen begehbar)
+  const seen = new Set(); const q = [[28, 22]];
+  seen.add('28,22');
   while (q.length) {
     const [x, y] = q.shift();
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, ny = y + dy; const k = nx + ',' + ny;
-      if (seen.has(k) || ny < 16 || ny > 28 || nx < 0 || nx > 36 || Maps.ship.solid(nx, ny)) continue;
+      if (seen.has(k) || ny < 16 || ny > 28 || nx < 0 || nx > 39 || Maps.ship.solid(nx, ny)) continue;
       seen.add(k); q.push([nx, ny]);
     }
   }
   let unreachable = 0;
-  for (let y = 16; y <= 28; y++) for (let x = 0; x <= 36; x++) if (!Maps.ship.solid(x, y) && !seen.has(x + ',' + y)) unreachable++;
-  ok(unreachable === 0, `Deck II: alle begehbaren Kacheln vom Lift aus erreichbar (${unreachable} unerreichbar)`);
+  for (let y = 16; y <= 28; y++) for (let x = 0; x <= 39; x++) if (!Maps.ship.solid(x, y) && !seen.has(x + ',' + y)) unreachable++;
+  ok(unreachable === 0, `Oberdeck: alle begehbaren Kacheln vom Lift aus erreichbar (${unreachable} unerreichbar)`);
   for (const s of Maps.IVO_SPOTS) ok(!Maps.ship.solid(s.x, s.y) && seen.has(s.x + ',' + s.y), `Ivo-Platz (${s.x},${s.y}) begehbar und erreichbar`);
-  // Raumzuordnung: jede begehbare Kachel auf Deck II liegt in einem Raum
+  // Raumzuordnung: jede begehbare Kachel auf dem Oberdeck liegt in einem Raum
   let noRoom = 0;
-  for (let y = 16; y <= 28; y++) for (let x = 0; x <= 36; x++) if (!Maps.ship.solid(x, y) && !Maps.roomAt(x, y)) noRoom++;
-  ok(noRoom === 0, 'Deck II: jede begehbare Kachel gehört zu einem Raum');
-  // Reparatur/Regale: Deck II hat keine Stationen, keine Regale; Regale und Reparaturpunkte liegen unverändert auf Deck I
-  ok(Maps.SHELF_TILES.every((s) => s.y < 13) && Maps.SHIP_ROOMS.filter((r) => r.deck === 1).every((r) => r.sector === -1), 'Regale und Systeme nur auf Deck I; Deck II ohne Sektor (nicht betroffen)');
+  for (let y = 16; y <= 28; y++) for (let x = 0; x <= 39; x++) if (!Maps.ship.solid(x, y) && !Maps.roomAt(x, y)) noRoom++;
+  ok(noRoom === 0, 'Oberdeck: jede begehbare Kachel gehört zu einem Raum');
+  // Reparatur/Regale: das Oberdeck hat keine Stationen, keine Regale; Regale liegen unverändert auf dem Mitteldeck
+  ok(Maps.SHELF_TILES.every((s) => s.y < 13) && Maps.SHIP_ROOMS.filter((r) => r.deck === 1).every((r) => r.sector === -1), 'Regale nur auf dem Mitteldeck; das Oberdeck ohne Sektor (nicht betroffen)');
   const sys = Object.keys(Maps.SHIP_LEGEND).filter((ch) => Maps.SHIP_LEGEND[ch].system);
   let onDeck2 = 0;
   for (let y = 16; y <= 28; y++) for (const ch of Maps.SHIP_ROWS[y]) if (sys.includes(ch)) onDeck2++;
-  ok(onDeck2 === 0, 'keine Station auf Deck II');
-  ok(!Maps.hazardAllowed(23, 26) && !Maps.hazardAllowed(27, 27), 'im Frachtraum entstehen weder Feuer noch Lecks');
+  ok(onDeck2 === 0, 'keine Station auf dem Oberdeck');
+  ok(Maps.hazardAllowed(22, 34, 3) && !Maps.hazardAllowed(22, 19, 3), 'in den Modulräumen kann es brennen (Unterdeck), auf dem Oberdeck nie');
+});
+
+section('Frachträume: Kapazität folgt den Modulen (2 je Frachtraum, auch mehrfach)', () => {
+  const T = arena();
+  const Modul = require('../server/sim/module.js');
+  const Ausbau = require('../server/sim/ausbau.js');
+  const cap = () => Fracht.capacity(T.g);
+  ok(cap() === 2 && Modul.frachtRaeume(T.g).join() === '1', 'Start-Lerche: ein Frachtraum (Raum 1), Kapazität 2');
+  Ausbau.setStufe(T.g, 3);
+  T.g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }, { id: 'frachtraum', raum: 4, an: true, lauf: true }];
+  Modul.verteilungSetzen(T.g);
+  ok(cap() === 6 && Fracht.frei(T.g) === 6, 'drei Frachträume: Kapazität 6');
+  for (let i = 0; i < 6; i++) ok(Fracht.anBordLegen(T.g, 'deuterium'), `Ware ${i + 1} von 6 an Bord`);
+  ok(!Fracht.anBordLegen(T.g, 'deuterium') && Fracht.frei(T.g) === 0, 'siebte Ware abgelehnt (voll)');
+  const err = Fracht.beamStart(T.g, T.p, null);
+  ok(/voll/.test(err), 'Beamen bei vollem Frachtraum: ' + err);
+  Fracht.debug(T.g, ['leer']);
+  T.g.ship.module = [{ id: 'krankenstation', raum: 1, an: true, lauf: true }, { id: 'werkstatt', raum: 2, an: true, lauf: true }];
+  ok(cap() === 0 && Fracht.frei(T.g) === 0 && !Fracht.anBordLegen(T.g, 'fracht'), 'ohne Frachtraum: Kapazität 0, keine Ladung');
 });
 
 section('Frachtraum ist kein Schiffssystem (keine Energie, keine Treffer-Wirkung)', () => {
@@ -291,7 +310,7 @@ section('Abliefern: Abnehmer und jede Station', () => {
   // Systemtreffer beim Abliefern bricht ab
   Fracht.anBordLegen(T.g, 'fracht');
   T.cmd('weapons.abliefern'); T.run(1);
-  interior.damageSystem(T.g, 'life', 'damaged');
+  interior.damageSystem(T.g, 'thruster_port', 'damaged');
   ok(!T.g.fracht.halt && Fracht.anBord(T.g) === 1, 'Systemtreffer beim Abliefern: abgebrochen, Ladung bleibt an Bord');
   // zu weit von der Station
   sh.x = 1500; sh.y = 700;
@@ -366,16 +385,18 @@ section('Snapshot kompakt', () => {
   info(full);
 });
 
-section('Schnittstelle gesichert/ungesichert (AP9, nur bereitgestellt)', () => {
+section('Schnittstelle gesichert/ungesichert (AP9; Wirkung in test-energie.js)', () => {
   const T = arena();
   ok(Fracht.gesichert(T.g) === true && T.g.snapshot().fracht === undefined, 'Standard: gesichert, nicht im Snapshot');
   Fracht.setGesichert(T.g, false);
   ok(Fracht.gesichert(T.g) === false && T.g.snapshot().fracht && T.g.snapshot().fracht.g === false, 'ungesichert: Snapshot fracht.g = false');
   Fracht.setGesichert(T.g, true);
   ok(T.g.snapshot().fracht === undefined, 'wieder gesichert: Feld weg');
-  Fracht.setGesichert(T.g, false);
+  // PAN-01 A: das Modul Frachtraum setzt die Flagge jeden Tick; ausgeschaltet bleibt sie false
+  require('../server/sim/module.js').schalten(T.g, 'frachtraum', false, null, 0, 8); T.run(0.1);
+  ok(Fracht.gesichert(T.g) === false, 'Modul Frachtraum aus: ungesichert');
   pod(T, 100); T.taktik(); T.cmd('weapons.fracht'); T.run(3.1);
-  ok(Fracht.anBord(T.g) === 1, 'ungesichert hat heute keine Wirkung auf das Beamen (AP9 nutzt die Flagge später)');
+  ok(Fracht.anBord(T.g) === 1, 'ungesichert hat keine Wirkung auf das Beamen (die Wirkung sind Hüllentreffer, siehe test-energie.js)');
 });
 
 section('Debug-Befehle', () => {

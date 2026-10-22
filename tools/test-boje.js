@@ -120,15 +120,16 @@ section('Boje wecken: Adresse, Energie, Feld, Kante', () => {
     ok(Glyphen.ergebnis(g, 'boje') != null, 'Ops hat die Adresse gelöst');
     halten(); T.run(3, () => { halten(); return false; });
     ok(z() === 0, 'mit Adresse, aber ohne freie Energie: kein Fortschritt');
-    // Technik: Module herunterfahren (Waffen 0, Lebenserhaltung 0 = Uhr O2) -> 4 Punkte frei
-    g.ship.powerIntent = Object.assign(g.ship.powerIntent || {}, { weapons: 0, life: 0 }); Object.assign(g.ship.power, { weapons: 0, life: 0 });
+    // Technik: Waffen 0 und beide Bordmodule abschalten (PAN-01 A: Module ziehen je 1) -> 4 Punkte frei
+    g.ship.powerIntent = Object.assign(g.ship.powerIntent || {}, { weapons: 0 }); Object.assign(g.ship.power, { weapons: 0 });
+    for (const m of g.ship.module.slice()) require('../server/sim/space.js').technikModul(g, m.id, false, m.raum);
     T.run(0.3);
-    ok(Boje.freieEnergie(g) >= 4, 'Technik hat Waffen und Lebenserhaltung abgeschaltet: ' + Boje.freieEnergie(g) + ' Punkte frei');
+    ok(Boje.freieEnergie(g) >= 4, 'Technik hat Waffen und beide Module abgeschaltet: ' + Boje.freieEnergie(g) + ' Punkte frei');
     halten(); T.run(10, () => { halten(); return false; });
     const z10 = z();
     ok(z10 > 14 && z10 < 20, 'Fortschritt läuft (100 in 60 s): ' + z10.toFixed(1) + ' nach 10 s');
     const o2 = g.ship.o2;
-    ok(o2 < CONFIG.o2.max, 'Lebenserhaltung aus: der O2-Vorrat sinkt (die Uhr), ' + Math.round(o2) + '/' + CONFIG.o2.max);
+    ok(o2 >= CONFIG.o2.max - 0.01, 'Lebenserhaltung ist kein Energieposten mehr: der O2-Vorrat sinkt nicht (AP10 ruht), ' + Math.round(o2) + '/' + CONFIG.o2.max);
     // Feld verlassen: Fortschritt fällt langsam
     g.ship.x = 100; g.ship.y = 100; g.ship.vx = 0; g.ship.vy = 0; T.run(4, () => { g.ship.x = 100; g.ship.y = 100; return false; });
     ok(z() < z10 - 1 && z() > 0, 'Schiff außerhalb des Felds: Fortschritt fällt (' + z().toFixed(1) + ')');
@@ -188,7 +189,8 @@ function buchLauf(weg) {
     const halten = () => { g.ship.x = sc.bojeFeld.x + 30; g.ship.y = sc.bojeFeld.y; g.ship.vx = 0; g.ship.vy = 0; };
     g.players[0].console = 'weapons'; g.players[1].console = 'captain';
     for (const i of g.glyphen.muster) T.cmd('weapons.glyphen.waehle', { i }); T.cmd('weapons.glyphen.senden');
-    g.ship.powerIntent = Object.assign(g.ship.powerIntent || {}, { weapons: 0, life: 0 }); Object.assign(g.ship.power, { weapons: 0, life: 0 });
+    g.ship.powerIntent = Object.assign(g.ship.powerIntent || {}, { weapons: 0 }); Object.assign(g.ship.power, { weapons: 0 });
+    for (const m of g.ship.module.slice()) require('../server/sim/space.js').technikModul(g, m.id, false, m.raum);
     halten(); T.run(100, () => { halten(); return Boje.geweckt(g); });
     ok(Boje.geweckt(g), 'Weg ' + weg + ': Boje erwacht');
     const raider = g.space.enemies.filter((e) => e.kind === 'raider').length;

@@ -106,6 +106,16 @@ function check(cond, text) {
   check(hexe.every((h) => { const p = S.hexZuPixel(h, 40); return S.pixelZuHex(p.x, p.y, 40) === h; }), 'pixelZuHex(hexZuPixel(h)) = h');
   const fc = JSON.stringify(S.fuerClient());
   check(!fc.includes('praesenz') && fc.length < 10000, `welcome.sektorkarte ohne praesenz, ${fc.length} B`);
+  // ---------- PAN-01 D: Flottenbasis (Werft) ----------
+  console.log('\n[flottenbasis]');
+  {
+    const sundKarte = require('../content/welt/sund.json');
+    const basen = (karte) => Object.entries(karte.hexe).filter(([, d]) => d.flottenbasis).map(([h, d]) => h + ':' + d.name);
+    check(basen(K).join() === '0202:Castra Martis', 'Limes: einzige Werft Castra Martis (0202) ' + basen(K).join());
+    check(basen(sundKarte).join() === '0304:Castra Gradivi', 'Sund: einzige Werft Castra Gradivi (0304) ' + basen(sundKarte).join());
+    check([...Object.values(K.hexe), ...Object.values(sundKarte.hexe)].every((d) => !d.flottenbasis || (d.fraktion === 'rom' && /Flottenbasis/.test(d.art || ''))), 'Flag nur an römischen Flottenbasen (feindliche Basen sind keine Werft)');
+    check(require('../shared/locations.js').get('castra_martis').flottenbasis === true, 'gen-sektor reicht flottenbasis als loc.flottenbasis durch (Castra Martis)');
+  }
   // ---------- EK7: Kette, Szenen aus Daten, Sperrriegel, Häfen ----------
   console.log('\n[kette]');
   const GEN = require('../shared/gen-sektor.js');

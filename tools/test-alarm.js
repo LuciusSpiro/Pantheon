@@ -55,7 +55,7 @@ section('Ohne Alarm in der Szene: nichts ändert sich', () => {
   ticks(g, 0.2);
   ok(g.space.alarm === null && g.space.minen.length === 0, 'Szene ohne Alarmzustand und Minen');
   platz(g, 800, 800, 0); lanze(g); space.weaponsFire(g, 'all');
-  g.ship.powerIntent = { engines: 4, shields: 2, weapons: 2, life: 0 }; ticks(g, 6);
+  g.ship.module = []; g.ship.powerIntent = { engines: 4, shields: 2, weapons: 2 }; ticks(g, 6);   // PAN-01 A: ohne Module bleibt Energie für Antrieb 4
   ok(Alarm.stufe(g) === 0 && g.space.alarm === null, 'Waffenfeuer und Antrieb Energie 4 lösen ohne Alarmbaustein nichts aus');
   const snap = g.snapshot();
   ok(!('mines' in snap.space) && !('al' in snap.space) && !('sf' in snap.ship), 'Snapshot ohne mines, al, sf (Standardwerte fehlen)');
@@ -83,7 +83,7 @@ section('Alarmstufen: Lärm (Waffenfeuer, Antrieb Energie 4, Reaktor überladen)
   space.weaponsFire(k, 'all');
   ok(Alarm.stufe(k) === 1, 'beide Batterien im selben Moment: ein Lärm-Ereignis, misstrauisch');
   // Antrieb auf Energie 4
-  const r3 = raum(); const a3 = r3.g; Alarm.an(a3, {}); platz(a3, 800, 800, 0); a3.ship.powerIntent = { engines: 4, shields: 2, weapons: 2, life: 0 };
+  const r3 = raum(); const a3 = r3.g; Alarm.an(a3, {}); platz(a3, 800, 800, 0); a3.ship.module = []; a3.ship.powerIntent = { engines: 4, shields: 2, weapons: 2 };   // PAN-01 A: ohne Module Energie für Antrieb 4
   ticks(a3, A.laerm.antriebTakt + 1);
   ok(Alarm.stufe(a3) === 1, 'Antrieb auf Energie 4: nach einem Takt misstrauisch');
   ticks(a3, A.laerm.antriebTakt + 1);
@@ -200,9 +200,9 @@ section('Minen: zünden (ignoriert Schilde, 6 Punkte Systemschaden, Alarm)', () 
   // Teilweise schon beschädigt: beschädigt -> zerstört
   const r2 = raum(); const k2 = r2.g; heil(k2);
   for (const sy of interior.SYSTEM_ORDER) k2.ship.systems[sy] = 'broken';
-  k2.ship.systems.engines = 'ok'; k2.ship.systems.life = 'damaged';
+  k2.ship.systems.engines = 'ok'; k2.ship.systems.reactor = 'damaged';
   Alarm.minenSetzen(k2, { n: 1, positionen: [{ x: 1500, y: 800 }] }); platz(k2, 1500, 800, 0); ticks(k2, 0.1);
-  ok(k2.ship.systems.engines === 'broken' && k2.ship.systems.life === 'broken', 'Systeme gehen eine Stufe tiefer (ok → beschädigt → zerstört), bereits zerstörte bleiben unberührt');
+  ok(k2.ship.systems.engines === 'broken' && k2.ship.systems.reactor === 'broken' && interior.SYSTEM_ORDER.filter((k) => k !== 'engines' && k !== 'reactor').every((k) => k2.ship.systems[k] === 'broken'), 'Systeme gehen eine Stufe tiefer (ok → beschädigt → zerstört), bereits zerstörte bleiben unberührt');
 });
 
 section('Minen: abschießen (Explosion auf Distanz, macht trotzdem Alarm)', () => {

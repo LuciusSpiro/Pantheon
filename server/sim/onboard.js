@@ -1,5 +1,5 @@
 'use strict';
-// Leben an Bord (M1): Planungstisch mit Pins (§8) und Techniker Ivo im Frachtraum (§1 Studio, §7; R0: vorher Gästequartier).
+// Leben an Bord (M1): Planungstisch mit Pins (§8) und Techniker Ivo in der Messe (§1 Studio, §7; R0: Frachtraum, vorher Gästequartier; PAN-01 B: Messe).
 const Physics = require('../../shared/physics.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
@@ -47,7 +47,7 @@ function unpin(game, p, id) {
 }
 
 // ---------- Ivo an Bord ----------
-// Wegpunkte: Frachtraum (Schlafecke), Messe, Planungstisch, Gang, Maschinenraum (er schraubt gern).
+// Wegpunkte: Messe (Schlafecke, PAN-01 B: vorher im Frachtraum), Meetingraum, Gänge auf dem Oberdeck (er benutzt weder Lift noch Leiter).
 // M3a: aus dem Schiffslayout abgeleitet (Maps.IVO_SPOTS, falls die Karte sie vorgibt; sonst aus SHIP_ROOMS/Konsolen).
 function roomFloor(match, nth) {
   const rooms = (W.Maps.SHIP_ROOMS || []).filter(match);
@@ -66,7 +66,7 @@ function roomFloor(match, nth) {
 }
 function deriveIvoSpots() {
   if (Array.isArray(W.Maps.IVO_SPOTS) && W.Maps.IVO_SPOTS.length) return W.Maps.IVO_SPOTS.map((s) => ({ x: s.x, y: s.y }));
-  // R0: Wohnort ist der Frachtraum (Raum mit nutzung 'quartier'); Buchten und ihre Zugangskacheln bleiben frei
+  // R0: Wohnort ist der Raum mit nutzung 'quartier' (PAN-01 B: die Messe); Frachtbuchten und ihre Zugangskacheln bleiben frei
   const frei = (t) => t && !(W.Maps.CARGO_BAYS || []).some((b) => (b.x === t.x && b.y === t.y) || (b.access && b.access.x === t.x && b.access.y === t.y));
   const heim = (nth) => { const r = (W.Maps.SHIP_ROOMS || []).find((q) => (q.nutzung || []).includes('quartier')); return r ? roomFloor((q) => q === r, nth) : null; };
   const heimat = [0, 1, 2, 3, 4, 5].map(heim).find(frei) || null;
@@ -103,7 +103,7 @@ function updateIvo(game, dt) {
     if (istAbgegeben(game)) return;   // R0: abgegeben (auch nach dem Laden) – nie wieder neu erzeugen
     const c = W.tileCenter(IVO_SPOTS[0].x, IVO_SPOTS[0].y);
     game.ivo = { id: 'ivo', x: c.x, y: c.y, dir: 'down', moving: false, path: null, waitT: 3, spot: 0 };
-    game.oda('Ivo ist in den Frachtraum gezogen. Er sagt, die Pritsche ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
+    game.oda('Ivo ist in die Messe gezogen. Er sagt, die Pritsche ist besser als die Plattform. Hohe Messlatte.', 'ivoMovedIn');
   }
   const v = game.ivo;
   v.moving = false;

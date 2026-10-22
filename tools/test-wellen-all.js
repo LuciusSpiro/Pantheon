@@ -170,10 +170,11 @@ section('brocken: Gegner prallen ab und nehmen Schaden, Geschosse und Strahlen s
   sh.mount.port.charge = 1;
   g.players[0].console = null;
   space.weaponsFire(g, 'port');
-  space.update(g, 1 / 30);   // erster Schuss der Salve (Ziel bewegt sich danach weiter)
-  const bm = g.space.beams.find((b) => b.kind === 'battery');
-  ok(z.hp + z.shields.reduce((s, v) => s + v, 0) >= zh && g.stats.brocken.strahlen === b0 + 1 && bm && bm.miss && Math.hypot(bm.x2 - a.x, bm.y2 - a.y) <= a.r + 1,
-    'Batterie: Schuss endet am Brocken, Ziel unversehrt');
+  // PAN-01 C: die Batterie schießt Projektile; der Brocken zwischen Rohr und Ziel schluckt sie im Flug
+  const bs0 = g.stats.brocken.schuesse;
+  for (let k = 0; k < 90; k++) { z.x = a.x; z.y = a.y - a.r - 120; z.vx = 0; z.vy = 0; space.update(g, 1 / 30); }
+  ok(z.hp + z.shields.reduce((s, v) => s + v, 0) >= zh && g.stats.brocken.schuesse > bs0,
+    'Batterie: Projektile enden am Brocken (' + (g.stats.brocken.schuesse - bs0) + ' geschluckt), Ziel unversehrt');
 });
 
 section('brocken: Gegner weichen aus (Flugmodell und kinematisch)', () => {

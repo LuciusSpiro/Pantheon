@@ -1,0 +1,4 @@
+{
+  "_kommentar": "PAN-01 Paket C (Kai-Entscheidung 2026-10-18: Projektile statt Sofortstrahl, Torpedo Lesart B), schlanke Allow-Datei fuer Vergleiche GEGEN base-pan01c3: node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01c3 <neu> --allow tools/fixtures/golden/allow-pan01c3.json. Ein Lauf auf demselben Stand ist byte-identisch zur Basis, es gibt keine Ausnahmen. Gegen base-pan01c2 sind nur 43 von 120 Traces byte-identisch (m3 Crew 1 und 3 vollstaendig, m2 Crew 3 3 von 20); m1 und m2 weichen ab, weil jedes Gefecht jetzt mit Projektilen laeuft (Treffer, Vorhalt, Ausweichen), danach anderer Zufall. Fehlschlaege Seeds 1-20: b2 13, c2 16, c3 12; Seeds 21-40: b2 9, c2 12, c3 5 (gleiche Fehlerarten m1/return, m2/ambush, m2/parley). Zaehlung und Ursachen in CONTRACT-PAN01-C.md §14.",
+  "stages": [], "texts": [], "flags": [], "inventory": [], "duration": []
+}

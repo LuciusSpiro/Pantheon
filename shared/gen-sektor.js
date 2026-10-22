@@ -155,6 +155,7 @@
       scene, hidden: [], links: [],
     };
     if (dock) loc.shop = 'hafen';   // Hafensortiment wie Lichtkordon (server/sim/shop.js)
+    if (d.flottenbasis) loc.flottenbasis = true;   // PAN-01 D: Werft (Freischalten, Umbauen), server/sim/werft.js; feindliche Basen tragen das Feld nicht
     return loc;
   }
   function beschreibe(d, scene) {

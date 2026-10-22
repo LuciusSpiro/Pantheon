@@ -831,6 +831,7 @@ class Mission {
     for (let i = 0; i < n; i++) {
       const opts = { tag: s.tag || null };
       if (s.ziel != null) opts.ziel = s.ziel;   // S2: lerche|schuetzling|auto|<escort-tag> (space.js, SCHUETZLING)
+      if (s.waffen) opts.waffen = s.waffen;   // PAN-01 C: Bestückung je Platz (Altart lanze|batterie|bolzen oder Katalog-Id, z. B. torpedowerfer); ohne Angabe würfelt space.bestueckung
       if (s.volk) opts.volk = s.volk;   // Kennung: ger|rom|pirat (sonst space.volkFuer: Fraktion des Sektors bzw. Standard)
       if (s.angles) opts.angle = s.angles[i % s.angles.length];
       else if (s.behind) opts.angle = g.ship.angle + Math.PI + (n > 1 ? (i ? 0.35 : -0.35) : 0);   // M3a: klar achtern (Hecksektor)
@@ -1057,7 +1058,7 @@ class Mission {
 
   globalComments() {
     const g = this.game; const ship = g.ship;
-    if (ship.o2 < 50) g.oda('Sauerstoff unter 50 %! Lebenserhaltung prüfen und Lecks flicken.', 'o2low');
+    if (ship.o2 < 50) g.oda('Sauerstoff unter 50 %! Lecks flicken.', 'o2low');
     if (ship.hull < 40) g.oda('Hülle unter 40 %. Ich will nicht drängeln, aber… doch, ich dränge.', 'hulllow');
     if (g.space.enemies.some((e) => e.kind === 'raider' && ['bow', 'port', 'stbd'].some((k) => space.inMountArc(g, k, e.x, e.y)))) {
       g.oda('Jäger im Feuerbogen! Ops: Ziel mit T, 1 Lanze, 2/3 Batterien, Leertaste alles.', 'raiderInArc');
@@ -1133,7 +1134,7 @@ class Mission {
     switch (name) {
       case 'consoleEnter': if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break;
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
-      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Das Hafenterminal in der Messe (Privatdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
+      case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Die Handelskonsole im Meetingraum (Oberdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;
       case 'asteroid': g.oda('Autsch. Der Brocken hatte Vorfahrt.', 'asteroid'); break;
       case 'salvage': g.oda('Bergungsgut an Bord: ' + data.what + '. ' + (data.n >= g.C.salvage.count ? 'Das war alles!' : 'Weiter, da treibt noch mehr.'), null); break;

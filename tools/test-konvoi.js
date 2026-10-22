@@ -170,7 +170,7 @@ section('Unbewaffnet, Eskorte wacht, Alarm', () => {
   // Transporter schießen nie, auch nicht im Alarm
   let s2 = 0;
   const W = raum(); const gw = W.g; platz(gw, 1300, 1700, 0); Konvoi.an(gw, { n: 3, eskorte: 'keine' });
-  W.run(30, () => { s2 += gw.space.projectiles.length; });
+  W.run(30, () => { s2 += gw.space.projectiles.filter((q) => !q.waffe).length; });   // PAN-01 C: Projektile der Lerche (waffe) zählen nicht, nur die der Transporter
   ok(s2 === 0, '3 Transporter ohne Eskorte, Lerche daneben: 30 s kein Projektil, kein Strahl (unbewaffnet)');
 });
 

@@ -15,6 +15,11 @@ const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfa
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
+const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
+const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
+const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Waffenkatalog, neun Plätze, Ladepool, Torpedowerfer
+const Werft = require('./sim/werft.js');   // PAN-01 D: Werft der Flottenbasen (Freischalten, Umbauen, Vorschau)
+const Katalog = require('../shared/schiffskatalog.js');   // PAN-01 C
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
@@ -49,7 +54,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -200,6 +205,7 @@ class Game {
   // §5.3: am Ende des Ticks. docked -> sofort; angedockt entprellt nur bei Änderung; missionDone -> auch ohne Dock.
   updateWeltstand(dt) {
     const ws = this.weltstand; const ship = this.ship;
+    Werft.aufstehen(this);   // PAN-01 D: das Terminal gibt es nur angedockt
     if (!ws) return;
     if (ship.docked && ship.dockedAt) ws.lastDockedAt = ship.dockedAt;
     const pr = this.pendingRadio;
@@ -296,6 +302,7 @@ class Game {
       this.reset();
       return fail('Der Weltstand ließ sich nicht übernehmen (' + e.message + ').');
     }
+    if (this.weltMigriert) { this.weltMigriert = false; try { Weltstand.save(this); } catch (e) { this.countError('weltstand-migration-save', e); } }   // PAN-01 C: Migration (Erstattungen) nur einmal: der migrierte Stand wird sofort gespeichert
     this.emit('worldLoaded', { id, name: this.weltstand.name });
     if (r.fromBak) this.log(`Weltstand ${id} aus der Sicherung (.bak) geladen.`);
     this.log(`Weltstand ${id} („${this.weltstand.name}“) fortgesetzt mit ${this.players.length} Spieler(n), angedockt: ${this.ship.dockedAt}.`);
@@ -372,11 +379,12 @@ class Game {
     this.god = false;
     this.labor = null;   // AP3a: laufendes Szenario-Labor (server/mission/labor.js)
     this.flags = {};
+    this.werftUi = null;   // PAN-01 D: Ansicht am Werft-Terminal (für Zuschauer)
     this.abspann = null;
     this.odaSeen = new Set();
     this.scans = new Set();
     this.inventory = Object.assign({ loeschgelCharges: 0, marks: C.economy.startMarks, deko: [], tafel: 0 }, JSON.parse(JSON.stringify(C.economy.startInventory)));
-    this.upgrades = { seitenturm: false, schildpool: false, bot2: false, bolzenwerfer: false };
+    this.upgrades = {};   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt (ship.module); PAN-01 C: seitenturm (Zusatzrohre) und bolzenwerfer gehen im Waffenkatalog auf (ship.waffen)
     this.deco = {};
     for (const b of W.Maps.BEDS) for (const s of b.slots) this.deco[s.id] = null;
     this.quarters = JSON.parse(JSON.stringify(C.quarters.defaults));
@@ -394,7 +402,10 @@ class Game {
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
-      heat: { engines: 0, shields: 0, weapons: 0, life: 0 },
+      heat: { engines: 0, shields: 0, weapons: 0 },
+      module: Modul.neu(C),   // PAN-01 A: Bestückung der Start-Lerche (Frachtraum, Krankenstation), je ein Modulraum
+      stufe: 0,   // PAN-01 B: Ausbaustufe (0 Start, 3 voll ausgebaut), öffnet Plätze und Räume (sim/ausbau.js)
+      freigeschaltet: Werft.startFrei(this),   // PAN-01 D: höchste gekaufte Stufe, freigeschaltete Waffen und Module (sim/werft.js)
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
@@ -403,11 +414,9 @@ class Game {
       offline: {},
       fireList: [], breachList: [], groundItems: [],
       dodgeCd: 0, jump: { dest: null, charge: 0, ready: false, blockedReason: null },
-      // M3a: bow/port/stbd (Ladepunkte alloc, hold für Batterien); phase_* bleiben für den alten space.js-Stand, bis COMBAT umstellt
-      mount: { phase_l: { charge: 1 }, phase_r: { charge: 1 }, bolzen: { loaded: C.weapons.bolzen.magazine, reloadT: null, shotT: 0 }, seitenturm: { charge: 0 },
-        bow: { charge: 1, alloc: allocDefault(C, 'bow', 2), power: 0, charging: false },   // §20.3 Ladewaffe
-        port: { charge: 1, alloc: allocDefault(C, 'port', 1), salvo: 0 },
-        stbd: { charge: 1, alloc: allocDefault(C, 'stbd', 1), salvo: 0 } },
+      // PAN-01 C: Bestückung (Platz 1–9 -> Katalog-Id) und Laufzeitzustand je Mount (schiffswaffen.js legt ihn beim ersten Tick an: bow = 8, port = 4, stbd = 6, p5 p7 p9 p1 p3 p2)
+      waffen: Object.assign({}, Katalog.START_BESTUECKUNG),
+      mount: {},
       target: null, priority: null, scan: { progress: 0, done: false }, scanning: false, scanAt: 0,
       tscan: { targetId: null, progress: 0, on: false, at: 0 }, widescan: { cd: 0, pulseAt: -99 },
       markers: { captain: null, tactical: null },
@@ -450,7 +459,7 @@ class Game {
     Object.assign(p, { zone: 'ship', x: c.x, y: c.y, dir: 'down', moving: false, console: null, carry: null, carryCharges: 0,
       hp: this.C.player.hp, downed: false, downedFor: 0, hold: null, beamLock: false, actDown: false,
       gear: { werkzeuggurt: false }, input: { mx: 0, my: 0 }, shootReadyAt: 0,
-      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null, stunBis: 0, schubsBereit: 0 });
+      shield: null, wound: false, bleed: null, medkit: 0, cv: 0, fl: false, crouch: false, lift: null, liftSel: null, stunBis: 0, schubsBereit: 0 });
   }
 
   nextId(prefix) { return prefix + (++this.idCounter); }
@@ -984,6 +993,12 @@ class Game {
     if (c === Protocol.CMD_AWAY_MAP_GET) { const e = this.sendAwayMap(p, msg.id == null ? null : String(msg.id)); if (e) this.notice(p, e); return; }
     // R1 §4.4: Tab/Shift+Tab schaltet das Interface (Station), ohne den Ort zu wechseln
     if (c === Protocol.CMD_STATION_TAB) { const e = Station.tab(this, p, Number(msg.dir) < 0 ? -1 : 1); if (e) this.notice(p, e); return; }
+    // PAN-01 D: Zusehen und Vorschau am Terminal brauchen keine Konsole (Zuschauer sehen die Ansicht des Nutzers, rein lesend)
+    if (c === 'werft.zusehen' || c === 'werft.vorschau') {
+      if (p.zone !== 'ship' || p.downed || !p.connected) { if (c === 'werft.zusehen') p.zusehen = false; return; }   // nur an Bord, nicht ausgeschaltet, nicht im Außenteam
+      if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
+    }
+    if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, rid: typeof msg.rid === 'string' ? msg.rid.slice(0, 60) : null, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1014,6 +1029,7 @@ class Game {
       case 'captain.power': case 'captain.shield': case 'captain.priority': case 'captain.repair': case 'captain.botAuto': case 'captain.overload':
         err = 'Das macht jetzt die Technik.'; break;
       case 'technik.power': err = space.technikPower(this, String(msg.sys), Number(msg.delta)); break;
+      case 'technik.module': err = space.technikModul(this, String(msg.id), !!msg.on, msg.raum == null ? null : Number(msg.raum)); break;   // PAN-01 A: Bordmodul ab-/anschalten
       case 'technik.shield': err = space.technikShield(this, Number(msg.sector), Number(msg.delta)); if (!err) this.missionEvent('shieldsChanged', {}); break;
       case 'technik.priority': {
         const t = msg.target;
@@ -1047,7 +1063,8 @@ class Game {
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
       case 'weapons.charge': {   // §20.3: Lanze aufladen (on: true) / feuern (on: false)
         const mount = msg.mount == null ? 'bow' : (MOUNT_ALIAS[msg.mount] || String(msg.mount));
-        const wasCharging = !!(ship.mount.bow && ship.mount.bow.charging);
+        const mk = ship.mount[Waffen.normMount(mount, this)];
+        const wasCharging = !!(mk && mk.charging);   // PAN-01 C: jede Lanze (Bug 8, Bug 5, Lanzenbatterien)
         err = space.weaponsCharge(this, mount, !!msg.on);
         if (!err && !msg.on && wasCharging) this.missionEvent('weaponsFired', {});
         break;
@@ -1115,6 +1132,16 @@ class Game {
       }
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
+      case 'werft.ansicht': Werft.ansichtSetzen(this, p, msg); break;   // PAN-01 D: Ansicht des Nutzers für die Zuschauer
+      case 'werft.freischalten': case 'werft.umbau': case 'werft.modul': {   // PAN-01 D: am Terminal (Konsole shop), jeder darf; Antwort an den Absender: werftAntwort { ok, op, code?, text? }
+        const op = c.slice(6);
+        const r = op === 'freischalten' ? Werft.freischalten(this, p, String(msg.art), msg.id)
+          : op === 'umbau' ? Werft.umbau(this, p, msg.platz, msg.waffe == null ? 'leer' : String(msg.waffe))
+            : Werft.modul(this, p, msg.raum, msg.id == null ? 'leer' : String(msg.id));
+        if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'werftAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+        err = r ? r.text : null;
+        break;
+      }
       case 'deco.place': err = shop.placeDeco(this, p, String(msg.slot), msg.item == null ? null : String(msg.item)); break;
       case 'quartier.style': err = shop.setStyle(this, p, String(msg.part), String(msg.value)); break;
       case 'plan.pin': err = onboard.pin(this, p, msg); break;
@@ -1163,7 +1190,7 @@ class Game {
       away.executeBeam(this, [p.id], 'down');   // nur wer den Befehl gibt (die anderen bleiben an Bord, z. B. am Captain)
       return null;
     }
-    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; pi.life = 0; this.ship.power.weapons = 0; this.ship.power.life = 0; return null; }
+    if (sub === 'energie') { const pi = this.ship.powerIntent || (this.ship.powerIntent = {}); pi.weapons = 0; this.ship.power.weapons = 0; for (const m of this.ship.module.slice()) space.technikModul(this, m.id, false, m.raum); return null; }   // PAN-01 A: Waffen 0 und alle Module aus = 4 Punkte frei (Boje)
     if (sub === 'monster') { const M = this.away && this.away.monster; if (!M) return 'Kein Monster auf dieser Karte.'; M.x = p.x + Number(a[1] || 110); M.y = p.y + Number(a[2] || 0); M.pfad = []; M.pause = Number(a[3] || 0); return null; }   // sl monster [dx dy pause_s]: Monster neben den Spieler stellen (Sichtprüfung)
     if (sub === 'zaehler') { Zonen.zaehlerSetzen(this, String(a[1]), Number(a[2])); return null; }
     return 'sl: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler';
@@ -1236,16 +1263,28 @@ class Game {
       }
       case 'breach': { const t = interior.randomRegionFloor(this, this.rng.int(4), true); interior.addBreach(this, t.x, t.y); break; }
       case 'spawn': {
-        const k = Protocol.ENEMY_KINDS.includes(msg.kind) ? msg.kind : 'raider';
+        // PAN-01 C: spawn <kind> [volk=ger|rom|pirat] [<platz>=<waffe>…] – Platz bug|stbd|bb (Fregatte stbd1 …), Waffe = Altart (lanze|batterie|bolzen) oder Katalog-Id
+        const sa = argList(msg); const kw = {};
+        for (const a of sa.slice(msg.kind != null ? 0 : 1)) { const m = /^([a-z0-9_]+)=([a-z0-9_]+)$/i.exec(a); if (m) kw[m[1]] = m[2]; }
+        const kindArg = msg.kind != null ? msg.kind : sa[0];
+        const k = Protocol.ENEMY_KINDS.includes(kindArg) ? kindArg : 'raider';
         if (this.ship.docked) { err = 'Nicht angedockt.'; break; }
-        space.spawnEnemy(this, k, msg.volk ? { volk: String(msg.volk) } : {});   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
+        const so = msg.volk || kw.volk ? { volk: String(msg.volk || kw.volk) } : {};
+        const wf = Object.assign({}, msg.waffen && typeof msg.waffen === 'object' ? msg.waffen : {});
+        for (const pk of Object.keys(kw)) if (pk !== 'volk') wf[pk] = kw[pk];
+        for (const pk of Object.keys(wf)) if (!Katalog.gegnerWert(wf[pk])) { err = `Unbekannte Waffe „${wf[pk]}“ (lanze, batterie, bolzen oder ${Katalog.WAFFEN.map((x) => x.id).join(', ')}).`; break; }
+        for (const pk of Object.keys(wf)) if (Katalog.verhaltenVon(wf[pk]) === 'torpedo' && !space.torpedoPlatzOk(pk)) { err = `Gegner-Torpedo nur auf Seitenplätzen (stbd, bb, stbd1 …), nicht auf „${pk}“: Der Bug zeigt bei Breitseiten-Schiffen nie auf die Lerche.`; break; }
+        if (err) break;
+        if (Object.keys(wf).length) so.waffen = wf;
+        if (Number(msg.dist) > 0) { const wa = Number(msg.winkel) || 0, dd = Math.min(900, Number(msg.dist)); so.x = this.ship.x + Math.cos(wa) * dd; so.y = this.ship.y + Math.sin(wa) * dd; }   // Sichtprüfung: Abstand/Winkel zur Lerche (Gegner nah ins Bild)
+        space.spawnEnemy(this, k, so);   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;
       }
-      case 'marks': this.inventory.marks = Math.max(0, Math.round(Number(msg.n) || 0)); break;
+      case 'marks': case 'marken': this.inventory.marks = Math.max(0, Math.round(Number(msg.n != null ? msg.n : argList(msg)[0]) || 0)); break;   // PAN-01 D: marken <n>
       case 'inv': {
         const item = String(msg.item);
         if (!['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'tafel'].includes(item)) { err = 'Unbekannter Gegenstand.'; break; }
-        this.inventory[item] = Math.max(0, Math.min(99, Math.round(Number(msg.n) || 0)));
+        this.inventory[item] = Math.max(0, Math.min(item === 'bolzen' ? Katalog.TORPEDO.lagerMax : 99, Math.round(Number(msg.n) || 0)));   // PAN-01 C: Torpedo-Lager hart bei 12
         if (item === 'loeschgel') this.inventory.loeschgelCharges = 0;
         break;
       }
@@ -1254,7 +1293,14 @@ class Game {
       case 'god': this.god = !!msg.on; break;
       case 'tp': {   // QA (EK5/EK6): tp <kachelX> <kachelY> – Spieler auf der Außenkarte an eine Kachel setzen (Karten ansehen, Methalle/Feldzeichen erreichen)
         const a = argList(msg); const x = Number(a[0]), y = Number(a[1]);
-        if (p.zone !== 'away' || !Number.isFinite(x) || !Number.isFinite(y)) { err = 'tp <x> <y>: nur im Außeneinsatz, Kachelkoordinaten.'; break; }
+        if (!Number.isFinite(x) || !Number.isFinite(y)) { err = 'tp <x> <y>: Kachelkoordinaten (Außeneinsatz, oder an Bord im Schiffsatlas: Mitteldeck y 0–12, Oberdeck 16–28, Unterdeck 32–44).'; break; }
+        if (p.zone === 'ship') {   // PAN-01 B: an Bord auf eine begehbare Kachel (Decks ansehen, Lifts und Modulräume testen); Pforten gelten nach der Ausbaustufe
+          const tx = Math.round(x), ty = Math.round(y);
+          if (!W.shipWalkableFor(this.ship.stufe)(tx, ty)) { err = 'tp: Kachel (' + tx + ',' + ty + ') ist nicht begehbar.'; break; }
+          p.x = tx * 32 + 16; p.y = ty * 32 + 16; p.lift = null; p.liftDest = null; p.liftSel = null; p.console = null;
+          break;
+        }
+        if (p.zone !== 'away') { err = 'tp <x> <y>: nur an Bord oder im Außeneinsatz.'; break; }
         p.x = Math.round(x) * 32 + 16; p.y = Math.round(y) * 32 + 16;
         break;
       }
@@ -1275,6 +1321,10 @@ class Game {
         err = k ? (id ? k.einstieg(id) : 'kapitel <id>: ' + [...k.kap.keys()].join(', ')) : 'Keine Kampagnenkette aktiv (Lobby-Modus Kampagne Eisenwald).';
         break;
       }
+      case 'modul': err = Modul.debug(this, argList(msg)); break;   // PAN-01 A: modul status | start | voll | bau <id> [raum 1–4] | weg <id> [raum] | an|aus <id> [raum]
+      case 'bestueck': err = Waffen.debug(this, argList(msg)); break;   // PAN-01 C: bestueck <platz 1–9> <waffe-id|leer> | alle [stufe] | start | status
+      case 'werft': err = Werft.debug(this, argList(msg)); break;   // PAN-01 D: werft [status | freischalten alle | reset]
+      case 'ausbau': err = Ausbau.debug(this, argList(msg)); break;   // PAN-01 B: ausbau [status | 0..3] – Ausbaustufe (Waffenplätze, Modulräume, Pforten, Lifts)
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
@@ -1591,13 +1641,13 @@ class Game {
       this.emit('alarm', { level });
       if (level !== 'normal') this.emit('sfx', { name: level === 'red' ? 'alarm_red' : 'alarm_yellow' });
     }
-    // M4 §2.4: Gefechtsbeginn (erster Gegner außer Relais) – wer auf Deck II ist, bekommt eine ODA-Zeile, und der erste
+    // M4 §2.4, PAN-01 B: Gefechtsbeginn (erster Gegner außer Relais) – wer auf dem Oberdeck (Deck-Index 1) ist, bekommt eine ODA-Zeile, und der erste
     // Feindkontakt kommt frühestens CONFIG.lift.firstContactDelay s nach dem Alarm.
     const hostile = this.space.enemies.some((e) => e.kind !== 'relay');
     if (hostile && !s.hostilePrev) {
       const below = this.players.filter((p) => p.connected && p.zone === 'ship' && (W.deckOf(Math.floor(p.y / 32)) === 1 || (p.lift && p.lift.to === 1)));
       if (below.length) {
-        this.oda('Alle auf Station – Lift im Liftvorraum.', null);
+        this.oda('Alle auf Station – zum Brückenlift!', null);
         const delay = Number(this.C.lift && this.C.lift.firstContactDelay) || 0;
         if (delay > 0) s.holdFireUntil = this.time + delay;
       }
@@ -1759,19 +1809,8 @@ class Game {
     const book = this.mission.bookSnapshot();
     const includeBook = (this.sentBookVersion !== book.version || slot === 7) && !includeAsteroids && !includeWorld && !includeLog;
     if (includeBook) this.sentBookVersion = book.version;
-    const mount = ship.mount;
     const v2 = combat.isV2Away(aw);
-    const mounts = hasFn('mountsSnapshot') ? space.mountsSnapshot(this) : space.mountIds(this).map((id) => {
-      const w = C.weapons[id] || (C.spaceM3 && C.spaceM3.mounts && C.spaceM3.mounts[id]) || { facing: 0, arc: 0, range: 0 };
-      const o = { id, facing: w.facing, arc: w.arc, range: w.range };
-      if (!mount[id]) return o;
-      if (id === 'bolzen') {
-        const b = mount.bolzen;
-        const ch = b.reloadT != null ? b.reloadT / w.reloadTime : (b.loaded > 0 ? 1 - b.shotT / C.combat.bolzenShotDelay : 0);
-        o.charge = f2(clamp(ch, 0, 1)); o.ammo = this.inventory.bolzen; o.loaded = b.loaded;
-      } else o.charge = f2(mount[id].charge);
-      return o;
-    });
+    const mounts = space.mountsSnapshot(this);   // PAN-01 C: je offenem, bestücktem Platz ein Eintrag (typ fehlt = Startbestückung)
     const beam = ship.beaming;
     const m = this.mission.state;
     const rc = ship.reactorCtl;
@@ -1907,10 +1946,12 @@ class Game {
         hull: Math.round(ship.hull * 10) / 10, hullMax: ship.hullMax, o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(),
-        heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons), life: Math.round(ship.heat.life) },
+        heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
+        mod: Modul.snapshot(this),   // PAN-01 A: [[code, raum, an, läuft]]
+        ...(ship.stufe ? { st: ship.stufe } : {}),   // PAN-01 B: Ausbaustufe 1–3 (fehlt = 0)
         shields: this.shieldsSnap(),
         // M3a §4.1/§9.3: 14 Systeme + berechneter Altname weapons (schlechteste der drei Waffen)
-        systems: Object.assign({}, ship.systems, { weapons: ship.systems.weapons }),
+        systems: (() => { const so = Object.assign({}, ship.systems, { weapons: ship.systems.weapons }); for (const k of Object.keys(so)) if (!interior.systemAktiv(this, k)) delete so[k]; return so; })(),   // PAN-01 C: Lafetten ohne Waffe fehlen (Budget)
         fragile: Object.keys(ship.fragile).filter((k) => ship.fragile[k]),
         repairQueue: ship.repairQueue.map((e) => ({ system: e.system, mode: e.mode, bot: e.bot || null })),
         botAuto: !!ship.botAuto,
@@ -1977,6 +2018,7 @@ class Game {
       world,
       ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
+      ...((wf) => (wf ? { werft: wf } : {}))(Werft.snapshot(this)),   // PAN-01 D: nur wenn jemand am Terminal sitzt
       mission: missionOut,
       stats: { elapsed: r1(this.stats.elapsed), kills: this.stats.kills, repairs: this.stats.repairs, firesOut: this.stats.firesOut, hits: this.stats.hits,
         emergencies: this.stats.emergencies,
