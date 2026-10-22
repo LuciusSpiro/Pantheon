@@ -231,12 +231,15 @@ function allyLost(game, es) {
   const d = (T.schiffe || {})[es.tag] || {};
   funk(game, sprecherVon(game, es), fmt(d.zerstoert || (T.allgemein || {}).zerstoert, { name: es.name }));
   // Weltstand: Fakt (kein Schiff ohne Aufgabe zurück), Gedächtnis des Eigners (sonst Legat), Chronik
-  fakt(game, 'flotte_' + es.tag, 'verloren');
-  const eigner = es.npc || 'legat';
-  erinnern(game, eigner, 'schiff_verloren', `${es.name} zerstört, ich bin in der Rettungskapsel entkommen.`, { gewicht: 3 });
-  chronik(game, `${es.name} wurde zerstört. Die Besatzung rettete sich in Kapseln.`);
-  // im Stich gelassen: die Lerche war weit weg, als das Schiff fiel
-  if (dLerche > bcfg(game).imStichDist) imStich(game, es);
+  // (nicht für Schiffe einer Sim-Szene, es.sim: dort gelten die Wirkungen auf die Weltsimulation, kein Gedächtnis des Legaten)
+  if (!es.sim) {
+    fakt(game, 'flotte_' + es.tag, 'verloren');
+    const eigner = es.npc || 'legat';
+    erinnern(game, eigner, 'schiff_verloren', `${es.name} zerstört, ich bin in der Rettungskapsel entkommen.`, { gewicht: 3 });
+    chronik(game, `${es.name} wurde zerstört. Die Besatzung rettete sich in Kapseln.`);
+    // im Stich gelassen: die Lerche war weit weg, als das Schiff fiel
+    if (dLerche > bcfg(game).imStichDist) imStich(game, es);
+  }
   game.missionEvent('escortDisabled', { escort: es });
   game.missionEvent('allyLost', { escort: es });
 }
@@ -388,26 +391,55 @@ function wellenStart(game, spec) {
     ziel: s.ziel || 'auto', richtung: s.richtung || 'alle', ueberdruck: s.ueberdruck !== false, tag: s.tag || 'welle', volk: s.volk || null, t: game.time, druck: false, druckT: 0, fertig: false, n: 0, scene: game.ship.scene, spec: s };
   return st.welle;
 }
+// SUND-02a A2: Wellen einer Sim-Szene aus einem Wellenplan (server/weltsim/wellenplan.js: plane()). Eigene Funktion statt eines Flags an wellenStart:
+// die Schiffsanzahl gilt UNSKALIERT (der Stärkewert der Sim ist die Vorgabe, nur die Hülle skaliert mit der Crew, space.spawnEnemy), die nächste Welle
+// kommt, wenn höchstens restAnteil der vorigen lebt (Nachschub über der Grenze zählt mit), nie Überdruck. Das Finale (letzte Welle) beginnt mit dem
+// Flaggschiff; trägt der Plan einen Kommandanten, trägt das Flaggschiff seinen Namen (Gegner.name) und die Marke flagg.
+// spec: { plan: { wellen, flaggschiff }, volk?, ziel?, richtung?, tag?, vorlauf? (s bis Welle 1), restAnteil? } -> Welle | null
+function wellenStartAusPlan(game, spec) {
+  const s = spec || {}; const plan = s.plan;
+  if (!plan || !Array.isArray(plan.wellen) || !plan.wellen.length) return null;
+  const w = wellenStart(game, { wellen: plan.wellen, takt: 0, rest: 0, ziel: s.ziel, richtung: s.richtung, ueberdruck: false, tag: s.tag || 'szene', volk: s.volk });
+  if (!w) return null;
+  const anteil = Math.max(0, Number(s.restAnteil) || 0);
+  w.ohneSkala = true;
+  w.restJe = w.liste.map((g) => Math.floor(g.reduce((n, it) => n + it.n, 0) * anteil));
+  if (Number(s.vorlauf) > 0) w.beginn = game.time + Number(s.vorlauf);
+  if (plan.flaggschiff && plan.flaggschiff.kind) w.flagg = { kind: plan.flaggschiff.kind, name: (plan.flaggschiff.kommandant && plan.flaggschiff.kommandant.name) || null };
+  return w;
+}
 function spawnGruppe(game, w, group, label) {
   const Lr = lerche(game);
-  const scale = ((cfg(game).wellen || {}).crew || { 1: 0.67, 2: 0.85, 3: 1 })[crewN(game)] || 1;
+  // Sim-Szene (wellenStartAusPlan): der Stärkewert gilt unskaliert, nur die Hülle skaliert mit der Crew (spawnEnemy)
+  const scale = w.ohneSkala ? 1 : (((cfg(game).wellen || {}).crew || { 1: 0.67, 2: 0.85, 3: 1 })[crewN(game)] || 1);
   const items = [];
-  for (const it of group) { const n = Math.max(1, Math.round(it.n * scale)); for (let j = 0; j < n; j++) items.push({ kind: it.kind, volk: it.volk || w.volk || undefined }); }
+  for (const it of group) {
+    const n = Math.max(1, Math.round(it.n * scale));
+    for (let j = 0; j < n; j++) items.push({ kind: it.kind, volk: it.volk || w.volk || undefined, flagg: !!(w.flagg && it === group[0] && j === 0 && label === w.liste.length) });
+  }
   const base = w.richtung === 'achtern' ? Lr.angle + Math.PI : Lr.angle;
-  items.forEach(({ kind, volk }, j) => {
+  items.forEach(({ kind, volk, flagg }, j) => {
     let a;
     if (w.richtung === 'alle') a = (j / items.length) * Math.PI * 2 + game.rng.range(-0.3, 0.3) + w.n;
     else a = base + (j - (items.length - 1) / 2) * 0.55;
     if (!game.C.enemies[kind]) return;
-    spawnOderNachschub(game, kind, { angle: a, tag: w.tag, ziel: w.ziel, volk }, { wv: w.id, wvN: label });
+    const meta = flagg ? Object.assign({ wv: w.id, wvN: label, flagg: true }, w.flagg.name ? { name: w.flagg.name } : {}) : { wv: w.id, wvN: label };
+    spawnOderNachschub(game, kind, { angle: a, tag: w.tag, ziel: w.ziel, volk }, meta);
   });
 }
-function lebendeWelle(game, w, nr) { return game.space.enemies.filter((e) => e.wv === w.id && (nr == null || e.wvN === nr)).length; }
+// Wartende Gegner einer Welle (Nachschub über der Grenze) gelten als lebend, sonst käme die nächste Welle zu früh (nur Plan-Wellen)
+function lebendeWelle(game, w, nr) {
+  const n = game.space.enemies.filter((e) => e.wv === w.id && (nr == null || e.wvN === nr)).length;
+  if (!w.ohneSkala) return n;
+  return n + state(game).nachschub.filter((q) => q.meta && q.meta.wv === w.id && (nr == null || q.meta.wvN === nr)).length;
+}
 function tickWelle(game, w, dt) {   // eslint-disable-line no-unused-vars
   if (w.scene !== game.ship.scene) { game.flotte.welle = null; return; }
+  if (w.beginn != null && game.time < w.beginn) return;   // Vorwarnung der Sim-Szene: Welle 1 erst nach dem Vorlauf
   const M = texte().meldungen || {}; const W = cfg(game).wellen || {};
   const von = w.liste.length;
-  if (w.i < 0 || (!w.fertig && w.i + 1 < von && (lebendeWelle(game, w, w.i + 1) <= w.rest || (w.takt > 0 && game.time - w.t >= w.takt)))) {
+  const rest = w.restJe && w.i >= 0 ? w.restJe[w.i] : w.rest;   // Plan-Wellen: Rest je Welle als Anteil (restJe), sonst fester Wert
+  if (w.i < 0 || (!w.fertig && w.i + 1 < von && (lebendeWelle(game, w, w.i + 1) <= rest || (w.takt > 0 && game.time - w.t >= w.takt)))) {
     w.i++; w.t = game.time; w.n++;
     spawnGruppe(game, w, w.liste[w.i], w.i + 1);
     state(game).stats.wellen++;
@@ -664,7 +696,7 @@ function debug(game, args) {
 module.exports = {
   ARTEN, WEGPUNKT_ARTEN, MODI, ART_NAMEN, texte, state, neu,
   aufstellen, modus, slotWinkel, goalFor, allyHit, allyLost, kiFlug, mineSchaden, schiffe, platz, spawnOderNachschub, ROLLEN,
-  befehl, onEnemyKilled, wellenStart, wellenFertig, neustart, beenden, update,
+  befehl, onEnemyKilled, wellenStart, wellenStartAusPlan, wellenFertig, neustart, beenden, update,
   befehlStatus, erfuellt, gescheitert, laeuft, snapshot, erinnerung, erinnerungText, verloren, allies, alliesActive,
   funk, legatSprecher, debug, fmt,
 };

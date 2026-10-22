@@ -1,0 +1,63 @@
+{
+  "format": "sim-szene/1",
+  "_hinweis": "SUND-02a A2: Texte und Namen der Sim-Szene (server/sim/kriegslage-szene.js, Freie Fahrt Sund). Zahlen stehen in CONFIG.simSzene. Platzhalter in geschweiften Klammern. Sprecher ohne Porträt.",
+  "sprecher": "Aufklärung",
+  "klassen": {
+    "1": "kleine",
+    "2": "mittlere",
+    "3": "große"
+  },
+  "fraktionen": {
+    "ger": {
+      "flotte": "germanische Flotte",
+      "name": "Germanen"
+    },
+    "pirat": {
+      "flotte": "Piratenflotte",
+      "name": "Piraten"
+    },
+    "rom": {
+      "flotte": "römische Flotte",
+      "name": "Rom"
+    }
+  },
+  "vorwarnung": {
+    "ort": "Feindkontakt in {ort}: {klasse} {flotte} unter {kommandant}. Klarmachen! Erste Welle in {sek} s.",
+    "frei": "Feindkontakt im Sektor {ort}: {klasse} {flotte} unter {kommandant}. Klarmachen! Erste Welle in {sek} s.",
+    "ohneKommandant": "Feindkontakt in {ort}: {klasse} {flotte}. Klarmachen! Erste Welle in {sek} s.",
+    "entkommen": "{kommandant} ist uns schon einmal entkommen.",
+    "hinweis": "Erste Welle in {sek} s – Klarmachen.",
+    "pirat": "Die Piraten wollen Beute, keinen Krieg: wer ihnen nicht begegnen will, springt weiter."
+  },
+  "verteidiger": {
+    "hafen": "{ort}: Die Hafenflotte geht in Stellung, {n} Schiffe an Eurer Seite.",
+    "posten": "{ort}: Die Garnison des Postens läuft aus, {n} Schiffe an Eurer Seite.",
+    "frei": "Römische Schiffe im Sektor: {n} an Eurer Seite."
+  },
+  "namen": [
+    "Aquila",
+    "Cornix",
+    "Lupa",
+    "Vesta",
+    "Falco",
+    "Ursa",
+    "Cygnus",
+    "Corvus"
+  ],
+  "finale": "{kommandant} greift mit dem Flaggschiff ein!",
+  "sieg": {
+    "gefallen": "{kommandant} ist gefallen. Der Rest der Flotte bricht ab.",
+    "entkommen": "{kommandant} schlägt sich durch und flieht. Der Rest der Flotte bricht ab.",
+    "ohneKommandant": "Das Flaggschiff ist vernichtet. Der Rest der Flotte bricht ab.",
+    "ort": "{ort} hält."
+  },
+  "niederlage": {
+    "lerche": "Die Lerche ist angeschlagen, die Linie bricht.",
+    "verteidigung": "Die Verteidigung bricht zusammen!",
+    "ort": "{ort} ist verloren.",
+    "frei": "Die Schlacht ist verloren, der Feind bleibt Herr des Sektors."
+  },
+  "gnade": "Die letzten Verteidiger sind gefallen – das Flaggschiff muss in {sek} s fallen, sonst ist {ort} verloren!",
+  "abbruch": "Die Crew bricht ab.",
+  "ohneKommandant": "Der Flottenführer"
+}

@@ -33,6 +33,7 @@ const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulatio
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
 const Sonden = require('./sim/sonden.js');   // SL4: Sonden der Ops (game.sonden, Snapshot space.so)
 const Entschl = require('./sim/entschluesseln.js');   // SL5: Signal entschlüsseln (Ops-Minispiel, Snapshot en)
+const SimSzene = require('./sim/kriegslage-szene.js');   // SUND-02a A2: Sim-Szene (Freie Fahrt Sund, game.simSzene)
 const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Legaten, Wellen (game.flotte, Snapshot flotte)
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
@@ -493,6 +494,10 @@ class Game {
     if (name === 'docked') this.markSaveDue('docked');
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
+    if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene
+    // SUND-02a A2 (Takt): Ein erledigter Notruf ist ein Szenenende ohne Sprung – in Freie Fahrt Sund genau ein Tick (ohne Wirkungen). Ablaufen und Ablehnen sind keine
+    // Szenen, der Sprung danach tickt selbst; während einer Sim-Szene tickt deren Ende.
+    if (name === 'notrufErledigt' && this.weltsim && !this.simSzene) { try { Kriegslage.szeneAbschliessen(this, { wirkungen: [], wo: 'notruf' }); } catch (e) { this.countError('kriegslage-notruf', e); } }
     try { this.mission.onEvent(name, data || {}); } catch (e) { this.countError('mission-event', e); }
   }
   log(...a) { this.logFn(...a); }
@@ -1316,6 +1321,7 @@ class Game {
       case 'hex': case 'boje': case 'notsprung': case 'erkunde': err = this.onDebugB3(p, cmd, msg); break;   // B3 §6
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
+      case 'szene': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : SimSzene.debug(this, argList(msg)); break;   // SUND-02a: szene [staerke] [ger|pirat] [belagerung] – Flotte der Sim im Hex der Lerche, löst die Szene aus
       case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
       case 'kapitel': {   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
         if (this.phase === 'lobby') { this.lobbyOpts.startMission = 'eisenwald_ohne'; this.startGame(); }
@@ -1591,6 +1597,7 @@ class Game {
       if (this.notrufe && this.notrufe.liste.length) this.safe('notrufe', () => Notrufe.update(this, dt));   // SL8: Ablauf, Ankunft, Bergung/Hinterhalt
       if (this.entschl) this.safe('entschl', () => Entschl.update(this, dt));   // SL5: Abstimmung, Drift, Fortschritt
       if (this.flotte) this.safe('flotte', () => Flotte.update(this, dt));   // EK4: Befehle (Ziele erreicht, Frist), Wellen
+      if (this.simSzene) this.safe('simszene', () => SimSzene.update(this, dt));   // SUND-02a A2: Vorwarnung, Finale, Sieg/Niederlage der Sim-Szene
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart

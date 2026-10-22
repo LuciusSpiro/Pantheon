@@ -29,9 +29,14 @@ function istPosten(game, hex) {
   return !!(e && e.posten === true);
 }
 
-// Darf die Crew in diesem Hex andocken? Posten nie (Kulisse), germanische und Piratenhäfen nie, sonst ja.
+// SUND-02a A2: Läuft in diesem Hex eine Sim-Szene (Feindkontakt, game.simSzene), ist Andocken gesperrt, bis sie endet oder die Crew abspringt.
+const SZENE_TEXT = 'Andocken gesperrt – Feindkontakt, erst die Gegner abwehren';
+const szeneAn = (game, hex) => !!(game && game.simSzene && game.simSzene.hex === hex && game.simSzene.phase !== 'ende');
+
+// Darf die Crew in diesem Hex andocken? Posten nie (Kulisse), germanische und Piratenhäfen nie, während einer Sim-Szene nie, sonst ja.
 function darfAndocken(game, hex) {
   if (!modusAktiv(game)) return true;
+  if (szeneAn(game, hex)) return false;
   if (istPosten(game, hex) && !(Sektoren.hexDaten(hex) || {}).hafen) return false;
   return !GESPERRT[besitzer(game, hex)];
 }
@@ -39,6 +44,7 @@ function darfAndocken(game, hex) {
 // Hinweistext für ein verweigertes Andocken (oder null)
 function verbotText(game, hex) {
   if (darfAndocken(game, hex)) return null;
+  if (szeneAn(game, hex)) return SZENE_TEXT;
   return GESPERRT[besitzer(game, hex)] || 'Andocken verweigert';
 }
 

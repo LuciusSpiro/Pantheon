@@ -137,6 +137,7 @@ function enterScene(game, locId, opts) {
   // S2 §5: Rückzugsregel gilt nur im Ort; Schützlinge springen mit oder bleiben zurück
   if (sp.retreatRule) delete sp.retreatRule;
   if (sp.escorts && sp.escorts.length) { try { Escort.onSceneChange(game, fromScene); } catch (err) { if (game.countError) game.countError('escort-scene', err); } }
+  if (game.weltsim) { try { require('./kriegslage-szene.js').betreten(game, hexB); } catch (err) { if (game.countError) game.countError('sim-szene', err); } }   // SUND-02a A2: Flotte der Sim im Hex? Szene beginnt (nach dem Aufbau, nur Freie Fahrt Sund)
 }
 
 function makeAsteroids(game, loc, posten) {

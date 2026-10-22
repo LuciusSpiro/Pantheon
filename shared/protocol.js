@@ -283,7 +283,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte',   // M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene',   // SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

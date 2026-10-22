@@ -58,7 +58,7 @@ function abbildOk(ab) {
     && daten().karte.hexe.every((h) => ab.hexe[h.code] && typeof ab.hexe[h.code] === 'object');   // jedes Sim-Hex muss da sein, sonst wirft der erste Tick
 }
 
-function reset(game) { game.weltsim = null; game.weltBesitz = null; }
+function reset(game) { game.weltsim = null; game.weltBesitz = null; game.simSzene = null; game.simSzeneLetzte = null; }
 
 // Besitz-Overlay für Banner, Posten und Andocken aus dem Sim-Zustand füllen (nur Sim-Hexe; Sonderorte bleiben statisch)
 function overlayFuellen(game) {
@@ -93,7 +93,11 @@ function starten(game, seed) {
 // Ein Tick. wo: 'sprung' | 'hop' | 'notsprung' (nur für Zähler und Tests). nachOrt: Ort/Hex, in dem die Lerche nach dem Sprung steht (Sensorknoten des
 // Wissens; ohne Angabe der aktuelle Ort des Schiffs). -> Ereignisse des Ticks | null (kein Modus oder Fehler)
 // Vorgemerkte Wirkungen (wirkungenVormerken) gehen in diesen Tick ein: Flucht per Sprung = Wirkungen + der eine Sprung-Tick.
-const tick = (game, wo, nachOrt) => tickMit(game, wo, nachOrt, []);
+// SUND-02a A2: läuft eine Sim-Szene, ist der Sprung ihre Flucht: die Verluste bis dahin werden VOR dem Tick vorgemerkt (der Sprung-Tick ist der eine Tick).
+const tick = (game, wo, nachOrt) => {
+  if (game.simSzene) { try { require('./kriegslage-szene.js').abbrechen(game, wo); } catch (e) { if (game.countError) game.countError('kriegslage-szene', e); } }
+  return tickMit(game, wo, nachOrt, []);
+};
 
 // Der eine Tick, optional mit Wirkungen der Crew (vor dem Schritt). Wirkungen = vorgemerkte + übergebene, alle werden gegen den Zustand geprüft:
 // gültige gelten, ungültige werden verworfen (ws.letzteWirkungen, Zähler). Wirft etwas, geht alles auf die Sicherung zurück (auch die Wirkungen).
@@ -107,7 +111,8 @@ function tickMit(game, wo, nachOrt, wirkungen) {
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
-      kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen').map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }));
+      kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen').map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }))
+        .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
     }
     ev = Kern.tick(ws.zustand, { wirkungen: gueltig }).ereignisse;
   } catch (e) {

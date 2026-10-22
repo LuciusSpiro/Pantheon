@@ -120,6 +120,7 @@ function hop(game, r) {
   sprung().springeNach(game, ort);
   r.i++; r.t = 0;
   if (game.reisePlan) nachSprung(game, next);
+  if (game.simSzene) { game.reisePlan = null; return stop(game, null); }   // SUND-02a A2: Feindkontakt (Sim-Szene) beendet den Schnellsprung wie ein Abfangen
   if (abfangen(game, next)) { game.reisePlan = null; return stop(game, null); }
   if (r.abbruch || r.i >= r.hops.length) {   // (die Rest-Route bleibt bei einem Abbruch gewählt: Faltsprung setzt sie fort)
     return stop(game, r.i >= r.hops.length ? `Schnellsprung abgeschlossen: ${Sektoren.hexName(next)}.` : `Schnellsprung abgebrochen: ${Sektoren.hexName(next)}.`);

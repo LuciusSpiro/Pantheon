@@ -712,6 +712,21 @@
         pirat: { korvetteZuRaider: 0.5, fregatteZuKorvette: 0.5 },   // Piraten: Schwärme kleiner Schiffe
       },
     },
+    // SUND-02a A2: Sim-Szene (server/sim/kriegslage-szene.js): Die Crew trifft im Modus Freie Fahrt Sund auf eine Flotte der Weltsimulation.
+    // vorwarnung = Sekunden zwischen Funkspruch und Welle 1, vorwarnungErinnerung = Restsekunden, bei denen ein Hinweis (ODA) erinnert.
+    // restAnteil: die nächste Welle kommt, wenn höchstens dieser Anteil (abgerundet) der vorigen lebt.
+    // Umrechnung Verteidigung (Hafen/Posten der Crew-Seite, Besitzer rom): Punkte = Σ römische Flotten im Hex (Stärke × Versorgung × (1 + Ortsbonus)) +
+    // Abwehr (Hafen) bzw. Garnison (Posten); daraus höchstens verteidiger.max Schiffe (Klassenwerte = wellenplan.punkte). Mehr Punkte heißt gröbere
+    // Auflösung (jedes Schiff trägt mehr Verlust), nie mehr Schiffe. abstand = Ring der Aufstellung um Station/Posten bzw. Lerche (px).
+    // erschoepfungGnade = Sekunden, die der Crew nach dem Fall des letzten Verteidigers bleiben (Flaggschiff fällt davor: Sieg).
+    // notfallBisNiederlage = so viele Notfallprotokolle der Lerche in der Szene gelten als „Crew unterlegen“ (das Spiel kennt kein Game Over).
+    // schicksal.entkommen = Wahrscheinlichkeit, dass ein gefallenes Flaggschiff als „entkommen“ gilt (deterministisch aus dem Seed der Flotte).
+    simSzene: {
+      vorwarnung: 20, vorwarnungErinnerung: [10, 5], restAnteil: 0.34,
+      verteidiger: { max: 4, abstand: 260, rolle: 'angreifer' },
+      erschoepfungGnade: 15, notfallBisNiederlage: 1,
+      schicksal: { entkommen: 0.5 },
+    },
     // Kampfunfähiges Feindschiff betreten (ENTERN): Transfer frei bis zu dieser Entfernung (px)
     entern: { aktiv: true, transferRange: 300 },
 
