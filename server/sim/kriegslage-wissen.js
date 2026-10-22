@@ -209,7 +209,7 @@ function berechne(W0, o) {
   const vor = o.vor || z;
   const tick = !o.sofort;
   const knoten = tick ? sensorKnoten(z, d, o.lerche) : [];
-  const zusatz = o.sofort || new Set();
+  const zusatz = o.sofort || new Set(o.direkt || []);   // direkt: Hexe, die die Lerche selbst im Blick hat (Szenenende): jetziger Stand ohne Verzögerung
   const aus = { funk: [], markenSetzen: [], markenEntfernen: [] };
 
   const eigen = (code) => { const a = z.hexe[code]; const b = o.prev && o.prev.hexe[code]; return !!((a && a.besitzer === 'rom') || (b && b.besitzer === 'rom')); };
@@ -287,7 +287,7 @@ function berechne(W0, o) {
       const kind = { s: 'sa', m: 'ma', b: 'be' }[g.p];
       meldung(kind, g.h, g.f, g.k);
       if (g.p === 's') W.erst[an] = g.a;
-      if (g.f !== 'g' || g.p === 'm') continue;
+      if (g.f !== 'g' || g.p === 'm' || (o.stumm || []).includes(g.h)) continue;   // stumm: Szenenende im Hex, die Szene hat den Ausgang gemeldet
       const von = absender(d, fkn, g.h);
       if (g.p === 's') aus.funk.push({ von, text: KT.vorlage('funk.sammeln', { ort: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.sammeln', { klasse: klasseName(g.k), t: T }) });
       else aus.funk.push({ von, text: KT.vorlage('funk.belagerung', { ziel: hexName(d, g.h), klasse: klasseName(g.k) }), loc: ortId(g.h), t: T, log: KT.vorlage('funk.log.belagerung', { klasse: klasseName(g.k), t: T }) });
@@ -315,7 +315,7 @@ function berechne(W0, o) {
         return;
       }
       meldung(ev.e, ev.h, ev.f);
-      if (ev.e === 'hf' || ev.e === 'pv') {
+      if ((ev.e === 'hf' || ev.e === 'pv') && !(o.stumm || []).includes(ev.h)) {   // stumm: das Szenenende meldet den Ausgang dort selbst (keine Doppelmeldung)
         const posten = ev.e === 'pv';   // SUND-01 F: Posten „verloren“, nur Häfen „gefallen“
         aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
       }
@@ -385,7 +385,9 @@ function starten(game) {
   return ws.wissen;
 }
 
-function nachTick(game, vor, ereignisse, nachOrt) {
+// opt (Szenenende, SUND-02a): { direkt: [Hex], stumm: [Hex] } – direkt: die Lerche sieht das Hex selbst (jetziger Stand statt Vor-Tick, kein „wird belagert“ nach
+// einem abgewehrten Angriff); stumm: Hafen-/Posten-Funk für dieses Hex entfällt (die Szene meldet den Ausgang selbst, keine Doppelmeldung)
+function nachTick(game, vor, ereignisse, nachOrt, opt) {
   const ws = game.weltsim;
   if (!ws.wissen) { starten(game); return; }
   const { z, d, T } = dat(ws);
@@ -395,7 +397,7 @@ function nachTick(game, vor, ereignisse, nachOrt) {
   ring.push(prev);
   const vz = z.werte.sicht.verzoegerung;
   while (ring.length > Math.max(1, vz)) ring.shift();
-  const r = berechne(ws.wissen, { z, d, T, vor: vz <= 0 ? null : ring[0], prev, lerche: lerchenHex(game, nachOrt), ereignisse });
+  const r = berechne(ws.wissen, { z, d, T, vor: vz <= 0 ? null : ring[0], prev, lerche: lerchenHex(game, nachOrt), ereignisse, direkt: opt && opt.direkt, stumm: opt && opt.stumm });
   r.W.sondeT = game.time;
   ws.wissen = r.W;
   ausgeben(game, r.aus);

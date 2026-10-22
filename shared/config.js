@@ -729,6 +729,7 @@
       vorwarnung: 20, vorwarnungErinnerung: [10, 5], restAnteil: 0.34,
       verteidiger: { max: 4, abstand: 260, rolle: 'angreifer', huelle: 30 },
       erschoepfungGnade: 15, notfallBisNiederlage: 1,
+      endeAnzeige: 6,   // s: Ergebniszeile (SIEG/NIEDERLAGE) der Szenenzeile nach dem Szenenende
       schicksal: { entkommen: 0.5 },
     },
     // Kampfunfähiges Feindschiff betreten (ENTERN): Transfer frei bis zu dieser Entfernung (px)

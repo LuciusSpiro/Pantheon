@@ -57,6 +57,14 @@
     "ort": "{ort} ist verloren.",
     "frei": "Die Schlacht ist verloren, der Feind bleibt Herr des Sektors."
   },
+  "log": {
+    "vorwarnung": "Feindkontakt: {klasse} {flotte} unter {kommandant}.",
+    "vorwarnungOhne": "Feindkontakt: {klasse} {flotte}.",
+    "siegOrt": "Angriff abgewehrt, Flaggschiff vernichtet.",
+    "sieg": "Flaggschiff vernichtet, die Flotte bricht ab.",
+    "niederlageOrt": "Schlacht verloren, der Ort ist gefallen.",
+    "niederlage": "Schlacht verloren."
+  },
   "gnade": "Die letzten Verteidiger sind gefallen – das Flaggschiff muss in {sek} s fallen, sonst ist {ort} verloren!",
   "gnadeOhneBelagerung": "Die letzten Verteidiger sind gefallen – das Flaggschiff muss in {sek} s fallen, sonst bricht die Linie zusammen!",
   "abbruch": "Die Crew bricht ab.",

@@ -885,6 +885,82 @@ section('Client-Runde GRNDS.: Gnadenfrist-Meldung ohne Belagerung ohne „verlor
 });
 
 
+section('Fixrunde M1: Ergebniszeile überlebt weder Reset noch Laden noch Zeitrücksprung', () => {
+  const t = neu(); const g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA); run(g, 21); bisFlaggschiff(g, 300);
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3);
+  ok(g.snapshot().flotte.sz && g.snapshot().flotte.sz.p === 's' && g.simSzeneEnde, 'Sieg: die Ergebniszeile steht (Ausgangslage)');
+  const data = kopie(Weltstand.capture(g));
+  ok(CONFIG.simSzene.endeAnzeige === 6, 'Dauer der Ergebniszeile steht in CONFIG.simSzene.endeAnzeige');
+  // Zeitrücksprung (Reset setzt game.time = 0): nur gültig, wenn die Restzeit in [0, endeAnzeige] liegt
+  const bis0 = g.simSzeneEnde.bis;
+  g.time = bis0 - 60 * 30; ok(Szene.snapshot(g) === null, 'Ende „liegt in der Zukunft“ (Zeitrücksprung): ungültig, keine Zeile');
+  g.time = bis0 - 3; ok(Szene.snapshot(g) && Szene.snapshot(g).p === 's', 'Restzeit 3 s: Zeile gültig'); g.time = bis0 + 0.1; ok(Szene.snapshot(g) === null, 'Restzeit abgelaufen: keine Zeile');
+  g.time = bis0 - 3;
+  // Weltstand laden (restore) leert das Ende
+  Kriegslage.restore(g, data.welt.sim);
+  ok(g.simSzeneEnde === null && Szene.snapshot(g) === null, 'restore (Weltstand laden): kein Ende, kein sz');
+  // Reset/Lobby: nach Sieg -> g.reset() -> neue Partie gleicher Kennung: kein sz, kein flotte.sz
+  const t2 = neu(); const g2 = t2.g; ab(g2);
+  ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g2, OSTIA); run(g2, 21); bisFlaggschiff(g2, 300);
+  kill(g2, g2.space.enemies.find((e) => e.flagg)); run(g2, 0.3);
+  ok(g2.simSzeneEnde && g2.simSzeneEnde.bis > 6, 'Sieg nach einigen Minuten Spielzeit: bis ist absolute Spielzeit (' + g2.simSzeneEnde.bis.toFixed(1) + ')');
+  g2.reset();
+  ok(g2.simSzeneEnde === null && Szene.snapshot(g2) === null, 'Reset (Lobby): simSzeneEnde leer');
+  g2.handleMessage(t2.cs[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' }); g2.handleMessage(t2.cs[0], { t: 'ready', ready: true }); run(g2, 2); ab(g2);
+  const sn = g2.snapshot();
+  ok(g2.phase === 'play' && (!sn.flotte || !sn.flotte.sz), 'neue Partie: kein flotte.sz (kein Phantom „SIEG · Ostia Nova hält“)');
+  ok(g2.errors === 0 && g.errors === 0, 'keine Fehler');
+});
+
+section('Fixrunde M2: oberste Meldung nach dem Ende ist das Ergebnis, kein „wird belagert“, keine Doppelmeldung', () => {
+  const lageFunk = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage);
+  // Sieg mit Hafen
+  const t = neu(); const g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA); run(g, 21); bisFlaggschiff(g, 300);
+  const n0 = lageFunk(t).length; const logN = g.explore.log.length;
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3);
+  const L = Szene.letzte(g); const kdName = L.wirkungen.find((x) => x.typ === 'flaggschiff_gefallen').kommandant.name;
+  const neue = lageFunk(t).slice(n0);
+  ok(neue.length >= 2 && neue[neue.length - 1].text.includes(kdName), 'Sieg: das tatsächlich LETZTE Lagefunk-Ereignis nennt den Kommandanten: „' + (neue[neue.length - 1] || {}).text + '“');
+  ok(!neue.some((m) => /wird belagert|belagert/.test(m.text)), 'Sieg: kein „wird belagert“ nach dem abgewehrten Angriff (' + neue.map((m) => m.text.slice(0, 24)).join(' | ') + ')');
+  run(g, 3);
+  ok(!lageFunk(t).slice(n0).some((m) => /belagert/.test(m.text)), 'auch in den Sekunden danach keine Belagerungsmeldung');
+  const W = g.weltsim.wissen;
+  ok(!W.flotten.some((r) => r.h === OSTIA && r.p === 'b') && !W.meldungen.some((m) => m.h === OSTIA && m.e === 'be'), 'Wissen von Rom: keine Belagerungsplakette und keine „be“-Meldung für Ostia Nova nach dem Sieg');
+  const lg = g.explore.log.slice(logN);
+  ok(lg.length >= 1 && lg.every((l) => !/Ostia Nova/.test(l.text)), 'S1 Logbuch: Szenentext ohne Ortsname (das Logbuch setzt ihn selbst): „' + lg.map((l) => l.text).join(' | ') + '“');
+  ok(t.cs[0].inbox.some((m) => m.t === 'event' && m.kind === 'odaWeg'), 'Szenen-ODA wird am Ende weggeräumt (Ereignis odaWeg)');
+  // Niederlage mit Hafen
+  const t2 = neu(); const g2 = t2.g; ab(g2);
+  ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g2, OSTIA); run(g2, 21);
+  const m0 = lageFunk(t2).length;
+  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5); run(g2, 3);
+  const nl = lageFunk(t2).slice(m0).map((m) => m.text);
+  const letzte = nl[nl.length - 1] || '';
+  ok(/Ostia Nova ist verloren/.test(letzte), 'Niederlage: das LETZTE Lagefunk-Ereignis ist das Ergebnis „' + letzte + '“');
+  ok(nl.filter((s) => /verloren|gefallen/.test(s) && /Ostia Nova/.test(s)).length === 1, 'Niederlage: der Ausgang wird genau einmal gemeldet (kein „… ist gefallen“ zusätzlich): ' + nl.map((s) => s.slice(0, 28)).join(' | '));
+  ok(!nl.some((s) => /belagert/.test(s)), 'Niederlage: kein „wird belagert“ ');
+  ok(g2.errors === 0 && g.errors === 0, 'keine Fehler');
+});
+
+section('Fixrunde S2: nur Vorwarnung und Ergebnis kommen in den Funk-Reiter (r: 1)', () => {
+  const t = neu(); const g = t.g; ab(g);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  const rad = () => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.sz);
+  ok(rad().length >= 2 && rad().every((m) => m.lage === 1), 'Szenenfunk trägt sz: 1 und lage');
+  ok(rad().filter((m) => m.r).length === 1 && /Feindkontakt/.test(rad().filter((m) => m.r)[0].text), 'Vorwarnung: genau eine Meldung mit r: 1');
+  run(g, 21); bisFlaggschiff(g, 300);
+  kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3);
+  ok(rad().filter((m) => m.r).length === 2, 'nach dem Sieg: höchstens zwei Szenenmeldungen im Reiter (Vorwarnung, Ergebnis), die Übrigen (Verteidiger, Finale, „… hält“) nur an der Konsole');
+});
+
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 console.log(`\n${n} Prüfungen, ${fails} Fehler`);
 process.exit(fails ? 1 : 0);

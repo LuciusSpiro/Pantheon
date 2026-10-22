@@ -60,7 +60,8 @@ function abbildOk(ab) {
     && daten().karte.hexe.every((h) => ab.hexe[h.code] && typeof ab.hexe[h.code] === 'object');   // jedes Sim-Hex muss da sein, sonst wirft der erste Tick
 }
 
-function reset(game) { game.weltsim = null; game.weltBesitz = null; game.simSzene = null; game.simSzeneLetzte = null; }
+// auch restore() ruft reset(): die Ergebniszeile eines alten Szenenendes (simSzeneEnde, absolute Spielzeit) darf nie in eine neue Partie oder einen geladenen Stand ragen
+function reset(game) { game.weltsim = null; game.weltBesitz = null; game.simSzene = null; game.simSzeneLetzte = null; game.simSzeneEnde = null; }
 
 // Besitz-Overlay für Banner, Posten und Andocken aus dem Sim-Zustand füllen (nur Sim-Hexe; Sonderorte bleiben statisch)
 function overlayFuellen(game) {
@@ -103,7 +104,7 @@ const tick = (game, wo, nachOrt) => {
 
 // Der eine Tick, optional mit Wirkungen der Crew (vor dem Schritt). Wirkungen = vorgemerkte + übergebene, alle werden gegen den Zustand geprüft:
 // gültige gelten, ungültige werden verworfen (ws.letzteWirkungen, Zähler). Wirft etwas, geht alles auf die Sicherung zurück (auch die Wirkungen).
-function tickMit(game, wo, nachOrt, wirkungen) {
+function tickMit(game, wo, nachOrt, wirkungen, opt) {
   const ws = game.weltsim;
   if (!ws) return null;
   const sicher = abbild(ws.zustand);   // Rückfall, falls die Sim mitten im Tick wirft (der halbe Tick darf nie stehen bleiben)
@@ -134,7 +135,7 @@ function tickMit(game, wo, nachOrt, wirkungen) {
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
-  try { Wissen.nachTick(game, sicher, ev, nachOrt); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // SUND-01 C: nach dem Tick, vor dem Szenenaufbau
+  try { Wissen.nachTick(game, sicher, ev, nachOrt, opt); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // SUND-01 C: nach dem Tick, vor dem Szenenaufbau
   try { for (const e of ev) if (e.typ === 'hauptwelt_gefallen') hauptweltFaellt(game, e); } catch (e) { if (game.countError) game.countError('kriegslage-hauptwelt', e); }
   return ev;
 }
@@ -153,10 +154,12 @@ function kommandantMerken(ws, k) {
 // Szenenende ohne Sprung (Sieg, Bleiben): Wirkungen der Crew und genau ein Tick, atomar. wo: Zähler/Tests (Standard 'szene').
 // -> { ok, ereignisse: [Ereignisse des Ticks] | null, angewandt: Zahl, verworfen: [{ wirkung, grund }], tick: Tickzähler danach }
 // ok=false: kein Modus oder die Sim ist gescheitert (dann Zustand wie vorher, Tick nicht gezählt).
-function szeneAbschliessen(game, { wirkungen = [], wo } = {}) {
+// direkt: Hex, das die Lerche selbst sieht (das Wissen von Rom nimmt dort den jetzigen Stand statt des Vor-Ticks); stumm: Hex, dessen Hafen-/Posten-Funk die Szene selbst meldet.
+function szeneAbschliessen(game, { wirkungen = [], wo, direkt, stumm } = {}) {
   const ws = game.weltsim;
   if (!ws) return { ok: false, ereignisse: null, angewandt: 0, verworfen: [], tick: null };
-  const ev = tickMit(game, wo || 'szene', undefined, Array.isArray(wirkungen) ? wirkungen : []);
+  const opt = direkt || stumm ? { direkt: direkt ? [].concat(direkt) : [], stumm: stumm ? [].concat(stumm) : [] } : null;
+  const ev = tickMit(game, wo || 'szene', undefined, Array.isArray(wirkungen) ? wirkungen : [], opt);
   const r = ws.letzteWirkungen || { angewandt: 0, verworfen: [] };
   if (ev) { try { szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('kriegslage-szene', e); } }   // Besitz kann sich geändert haben (Banner, Andocken)
   return { ok: !!ev, ereignisse: ev, angewandt: r.angewandt, verworfen: r.verworfen, tick: ws.tickZahl };
