@@ -695,6 +695,23 @@
     anker: { explosion: { radius: 2, segmente: 3 }, halten: { terminal: 6, lesen: 2, sprengpunkt: 4, beute: 2, fund: 3, raetsel: 3, zelle: 3, versteck: 2, ziel: 3, schott_hacken: 6, flagge: 6 },
       flagge: { min: 2 },   // EK6: Feldzeichen hissen: mindestens 2 lebende Spieler halten gleichzeitig (Fortschritt bleibt, wenn einer loslässt)
       countdown: 60, paarFenster: 1.5, paarSoloFenster: 15, paarLaufFaktor: 1.3, paarPuffer: 2 },
+    // SUND-02a A1: Wellenplan einer Flottenbegegnung (server/weltsim/wellenplan.js, rein). punkte = Stärkepunkte je Klasse (Flotten der
+    // Weltsimulation tragen eine Stärke in Punkten). Welle 1 = welle1.anteil der Stärke (höchstens welle1.max Punkte); mittlere Wellen wachsen
+    // (Gewichte i+1; ab 3 Wellen i+3×Wellenzahl: flacher Anstieg, erste mittlere Welle > Welle 1), je mittlere.punkteJeWelle Restpunkte eine Welle; Klassen einer Welle höchstens mittlere.klassenAnteil × Wellenpunkte
+    // (mindestens Korvette), Kreuzer höchstens einer je mittlerer Welle. Flaggschiff = größte Klasse mit Punkten ≤ flaggschiff.anteil × Stärke.
+    // Eskorte des Finales: eskorte.anteil × (Stärke − eskorte.ab) Punkte, höchstens eskorte.max, nur Jäger und Korvetten. Gleichzeitig höchstens flotte.max Schiffe.
+    // bauweise: Charakter des Volks; Wahrscheinlichkeit je möglicher Umwandlung (Punkte bleiben gleich: 2 Jäger = Korvette, 2 Korvetten = Fregatte).
+    wellenplan: {
+      punkte: { raider: 1, korvette: 2, fregatte: 4, kreuzer: 7, frachter: 0 },
+      welle1: { anteil: 0.25, max: 8, korvetteAnteil: 0.5 },
+      mittlere: { punkteJeWelle: 12, klassenAnteil: 2 / 3 },
+      flaggschiff: { anteil: 0.5 },
+      eskorte: { ab: 40, anteil: 0.1, max: 12 },
+      bauweise: {
+        ger: { raiderZuKorvette: 0.5, korvetteZuFregatte: 0.5 },     // Germanen: größere Schiffe, weniger Schwarm
+        pirat: { korvetteZuRaider: 0.5, fregatteZuKorvette: 0.5 },   // Piraten: Schwärme kleiner Schiffe
+      },
+    },
     // Kampfunfähiges Feindschiff betreten (ENTERN): Transfer frei bis zu dieser Entfernung (px)
     entern: { aktiv: true, transferRange: 300 },
 

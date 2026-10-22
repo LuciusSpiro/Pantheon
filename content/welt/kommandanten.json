@@ -1,0 +1,38 @@
+{
+  "format": "kommandanten/1",
+  "_hinweis": "SUND-02a A1: feste Kommandanten der Flotten (Flaggschiffe) im Modus Freie Fahrt Sund. Auswahl per kommandantFuer({ fraktion, seed, gefallen }) in server/weltsim/wellenplan.js. Fraktionen wie simFraktion der Karte (rom, ger, pirat, kon). volk = Bauweise des Schiffs (rom, ger, pirat; Konkordat baut roemisch). zug = kurzer Charakterzug fuer Funkspruch und Anzeige. Gedaechtnis (entkommen, gefallen, Begegnungen) liegt NICHT hier, sondern im Spielstand.",
+  "kommandanten": {
+    "rom": [
+      { "name": "Legat Marcus Varro", "volk": "rom", "zug": "diszipliniert, laesst keine Luecke in der Linie" },
+      { "name": "Praefekt Titus Calder", "volk": "rom", "zug": "ungeduldig, sucht die schnelle Entscheidung" },
+      { "name": "Legatin Livia Serran", "volk": "rom", "zug": "kalt, rechnet jeden Verlust vorher aus" },
+      { "name": "Tribun Gaius Ennor", "volk": "rom", "zug": "ehrgeizig, verheizt die Vorhut" },
+      { "name": "Praefektin Aurelia Vex", "volk": "rom", "zug": "gruendlich, wartet auf Verstaerkung" },
+      { "name": "Legat Quintus Dorn", "volk": "rom", "zug": "alt, vorsichtig, nachtragend" }
+    ],
+    "ger": [
+      { "name": "Jarl Hrodgar", "volk": "ger", "zug": "laut, greift immer zuerst an" },
+      { "name": "Herzogin Sigrun Eisenhand", "volk": "ger", "zug": "stur, zieht sich nie zurueck" },
+      { "name": "Graf Wulfric", "volk": "ger", "zug": "listig, lockt in Hinterhalte" },
+      { "name": "Thane Ragnvald", "volk": "ger", "zug": "ruhig, haelt die Linie bis zuletzt" },
+      { "name": "Hauptfrau Gudrun Rabe", "volk": "ger", "zug": "unberechenbar, wechselt das Ziel" },
+      { "name": "Markgraf Osric", "volk": "ger", "zug": "stolz, fordert Zweikampf" }
+    ],
+    "pirat": [
+      { "name": "Kapitaen Rotzahn", "volk": "pirat", "zug": "gierig, dreht ab, wenn die Beute nicht lohnt" },
+      { "name": "Schwarze Mara", "volk": "pirat", "zug": "grausam, schiesst auf Rettungskapseln" },
+      { "name": "Pocke Brandt", "volk": "pirat", "zug": "feige, schickt erst die anderen" },
+      { "name": "Einauge Silas", "volk": "pirat", "zug": "schlau, kennt jede Abkuerzung" },
+      { "name": "Altrost-Jonas", "volk": "pirat", "zug": "wuetend, rammt lieber als abzudrehen" },
+      { "name": "Nadel-Ines", "volk": "pirat", "zug": "schnell, zieht den Kampf in die Laenge" }
+    ],
+    "kon": [
+      { "name": "Kommodore Anselm Roth", "volk": "rom", "zug": "geschaeftsmaessig, schuetzt die Fracht zuerst" },
+      { "name": "Kommodorin Ilse Brandl", "volk": "rom", "zug": "gelassen, verhandelt noch im Gefecht" },
+      { "name": "Kapitaen Joris Venn", "volk": "rom", "zug": "genau, ueberlaesst nichts dem Zufall" },
+      { "name": "Frachtmeisterin Dagny Holm", "volk": "rom", "zug": "zaeh, gibt nie ein Schiff verloren" },
+      { "name": "Kapitaen Emil Strand", "volk": "rom", "zug": "jung, will sich beweisen" },
+      { "name": "Kommodore Bertram Lund", "volk": "rom", "zug": "geizig, scheut jeden Verlust" }
+    ]
+  }
+}
