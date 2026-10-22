@@ -120,7 +120,7 @@ an einer Flottenbasis, jeder Spieler am Terminal darf.** Alles serverseitig in `
 - **Ortsfeld `flottenbasis`** in `content/welt/limes.json` (Castra Martis) und `sund.json` (Castra Gradivi), durchgereicht von `shared/gen-sektor.js` als `loc.flottenbasis`; feindliche Basen tragen es nicht.
   Weitere Werften (Flottenstützpunkte der Weltsimulation) setzt später ein Modul per `Werft.setzeFlottenbasis(game, ort)`. Handel (`shop.buy`) läuft überall wie bisher.
 - **Befehle** (Konsole `shop` = Handelskonsole im Meetingraum): `werft.freischalten { art: 'stufe'|'waffe'|'modul', id }`, `werft.umbau { platz 1–9, waffe | 'leer' }`, `werft.modul { raum 1–4, id | 'leer' }`.
-  Antwort an den Absender: Ereignis `werftAntwort { op, ok, code?, text? }`, bei Erfolg an alle `werft`. Snapshot-Block `werft` (nur solange jemand am Terminal sitzt, ≤ 500 B).
+  Antwort an den Absender: Ereignis `werftAntwort { op, ok, code?, text? }`, bei Erfolg an alle `werft`. Snapshot-Block `werft` (nur solange jemand am Terminal sitzt; gemessen 446 B frisch, 553 B voll ausgebaut, Testgrenze ≤ 700 B).
 - **Preise** in `CONFIG.werft.preise`: Ausbaustufe 1/2/3 100/180/900, Standardkanone 40, Sturmbatterie 60, Streubatterie 70, Abwehrturm 70, Torpedowerfer 100, Lanzenbatterie 120, Werkstatt 40;
   Stufe 1 und 2 plus zwei wichtige Waffen sind in der Kampagne an Castra Martis erreichbar, Stufe 3 gehört ins freie Spiel (Messung: `CONTRACT-PAN01-D.md` §4).
 - **Weltstand** `schiff.freigeschaltet { stufe, waffen[], module[] }` (Format bleibt 3, Feld optional): fehlt es, gilt alles am Schiff als freigeschaltet.
