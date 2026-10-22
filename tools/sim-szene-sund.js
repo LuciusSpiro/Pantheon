@@ -31,6 +31,8 @@ const SEEDS = Math.max(1, Number(val('--seeds', 2)) | 0);
 const SEED0 = Number(val('--seed', 11)) | 0;
 const MAXSEK = Number(val('--max', 900));
 const VERBOSE = args.includes('--verbose');
+const HUELLE = Number(val('--huelle', 0));   // Eichung: Hülle der Szenen-Verteidiger in % der Klassenhülle (überschreibt CONFIG.simSzene.verteidiger.huelle)
+if (HUELLE > 0) CONFIG.simSzene.verteidiger.huelle = HUELLE;
 const HZ = CONFIG.tickHz;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-szenebot-'));
 const OSTIA = '0305';
@@ -74,7 +76,7 @@ function neuesSpiel(seed, crew, opts) {
 }
 const flotteSetzen = (g, hex, fraktion, staerke, belagerung) => {
   const z = g.weltsim.zustand;
-  const fl = { id: z.naechsteId++, fraktion, heimat: hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
   z.flotten.push(fl);
   if (belagerung) {
     const id = z.naechsteAngriffId++;
@@ -195,6 +197,23 @@ async function ankunft(seed, spruenge) {
     const rein = STAERKEN.map((s) => `${s}: ${planText(Plan.plane({ staerke: s, seed: 1 }))}`);
     console.log('  Referenz Wellenplan ohne Bauweise (plane ohne volk): ' + rein.join('  ||  '));
   }
+  if (FALL === 'eichung') {   // Eichung der Verteidiger-Hülle: Crew passiv, nur die Hafenflotte gegen Stärke S (Ausgang je Hülle in %)
+    const hs = val('--huellen', '100,50,30').split(',').map(Number);
+    const ss = val('--staerke', '8,17,27,40').split(',').map(Number);
+    console.log(`
+Eichung (Hafen Ostia Nova, Crew passiv, ${SEEDS} Seeds je Zelle): Zelle = Siege/Läufe, mittlerer Verlust der Verteidiger in %`);
+    console.log('  Hülle % | ' + ss.map((s) => 'Stärke ' + s).join(' | '));
+    for (const h of hs) {
+      CONFIG.simSzene.verteidiger.huelle = h;
+      const zellen = [];
+      for (const s of ss) {
+        let sieg = 0, verl = 0, patt = 0;
+        for (let k = 0; k < SEEDS; k++) { const r = await lauf('eichung', SEED0 + k, { staerke: s, hex: OSTIA, belagerung: true, passiv: true }); if (r.ausgang === 'sieg') sieg++; if (!r.ausgang) patt++; verl += r.verlorenVert || 0; }
+        zellen.push(`${sieg}/${SEEDS}, ${Math.round(verl / SEEDS)} %${patt ? ', Patt ' + patt : ''}`);
+      }
+      console.log(`  ${String(h).padStart(7)} | ${zellen.join(' | ')}`);
+    }
+  }
   if (alle || FALL === 'hafen') {
     console.log(`\nHafen Ostia Nova unter Belagerung (Germanen 17, Crew ${CREW})`);
     for (let k = 0; k < SEEDS; k++) zeigen(await lauf('Hafen Erfolg', SEED0 + k, { staerke: 17, hex: OSTIA, belagerung: true, erwarte: 'sieg' }));
@@ -223,6 +242,8 @@ async function ankunft(seed, spruenge) {
     }
     const top = Object.entries(gesamt).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([h, n]) => `${Sektoren.hexName(h) || h} ${n}`).join(', ');
     const nSz = Object.values(szenenGes).reduce((a, b) => a + b, 0);
+    const szTop = Object.entries(szenenGes).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([h, n]) => `${Sektoren.hexName(h) || h} ${n}`).join(', ');
+    console.log(`  Szenen am häufigsten in: ${szTop || '–'}`);
     console.log(`  Summe: ${spr} Sprünge, Ostia Nova ${gesamt[OSTIA] || 0}× (${((gesamt[OSTIA] || 0) / Math.max(1, spr) * 100).toFixed(1)} % der Ankünfte, Szene dort ${szenenGes[OSTIA] || 0}×); Szenen insgesamt ${nSz} (${(nSz / Math.max(1, spr) * 100).toFixed(1)} % der Ankünfte); häufigste Ankunftsorte: ${top}`);
   }
   console.log(`\n${fehler ? 'FEHLER: ' + fehler + ' Lauf/Läufe mit Befund' : 'SIM-SZENE OK'}`);

@@ -49,7 +49,7 @@ function client(port, hello) {
 const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
 function flotte(g, hex, fraktion, staerke, belagerung) {
   const z = g.weltsim.zustand;
-  const fl = { id: z.naechsteId++, fraktion, heimat: hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
   z.flotten.push(fl);
   if (belagerung) {
     const id = z.naechsteAngriffId++;
@@ -119,6 +119,8 @@ const ohne = (g, hex) => { const z = g.weltsim.zustand; z.flotten = z.flotten.fi
   ok(g.simSzene && g.simSzene.ort === 'hafen', 'Hafen-Szene über das Netz');
   await warteAufKampf();
   ok(g.space.dockOk === false, 'Andocken gesperrt (space.dockOk im Server, Dock-Marker weg): ' + !g.space.markers.some((m) => m.kind === 'dock'));
+  for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('../server/sim/escort.js').hit(g, q, 99999, {});   // die Hafenflotte fällt, dann unterliegt die Lerche
+  await sleep(500);
   g.ship.hull = 0;
   await bis(() => !g.simSzene, 3000);
   const L2 = Szene.letzte(g);
