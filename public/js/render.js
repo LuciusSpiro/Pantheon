@@ -3475,8 +3475,8 @@
     if (!art('drawEscort', 'drawEscort:' + e.kind, [ctx, e.kind, sx, sy, angle, o])) fbEscort(ctx, e.kind, sx, sy, angle, o);
   }
   // Schutzring (gestrichelt); Notruf: pulsiert in Farbe UND Radius
-  function drawEscortRing(ctx, e, sx, sy, r, t) {
-    const col = escortRingCol(e, t);
+  function drawEscortRing(ctx, e, sx, sy, r, t, colOver) {
+    const col = colOver || escortRingCol(e, t);
     const puls = e.distress && !escortDown(e) ? Math.round(2 + 2 * Math.sin(t * 6)) : 0;
     ctx.save();
     ctx.strokeStyle = col; ctx.lineWidth = e.distress ? 2 : 1; ctx.setLineDash(escortDown(e) ? [2, 4] : [5, 3]);
@@ -3485,8 +3485,8 @@
     ctx.restore();
   }
   // Randanzeige in Ringform (für Schützlinge außerhalb des Sichtfelds): kleiner gestrichelter Ring + Pfeilspitze
-  function escortEdgeRing(ctx, x, y, ang, e, t) {
-    const col = escortRingCol(e, t);
+  function escortEdgeRing(ctx, x, y, ang, e, t, colOver) {
+    const col = colOver || escortRingCol(e, t);
     const r = 6 + (e.distress && !escortDown(e) ? Math.round(1.5 + 1.5 * Math.sin(t * 6)) : 0);
     ctx.save();
     ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.beginPath(); ctx.arc(x, y, r + 2, 0, Math.PI * 2); ctx.fill();
@@ -3506,11 +3506,18 @@
     if (e.befehl === 'volle_kraft') { const ex = (space.markers || []).find(m => m.kind === 'exit' || m.kind === 'dock'); if (ex) return { x: ex.x, y: ex.y }; }
     return null;
   }
+  // SUND-02a Client-Runde: läuft eine Sim-Szene (Freie Fahrt Sund)? Server sendet dann state.flotte.sz (kriegslage-szene.js snapshot). Alles Neue der Runde hängt daran:
+  // Kampagne, Eisenwald, Limes und Tutorial sehen es nie.
+  const szeneAktiv = (st) => !!(st && st.flotte && st.flotte.sz);
   // Schützlinge in drawSpace (env = Hilfen aus drawSpace)
   function drawEscortsInSpace(ctx, view, env) {
     const list = view.escorts || (view.state.space && view.state.space.escorts) || [];
     if (!list.length) return;
     const { toS, inB, visible, lab, block, B, cx, cy, front, t, ship, space } = env;
+    // M3 (Client-Runde): in der Frontsicht einer Sim-Szene sind Verbündete Mint (Ring, Hüllenbalken, Name): Gold war von Kupfer/Orange der germanischen Gegner farbenblind nicht zu unterscheiden,
+    // und Bernstein-Balken (Verbündete) gegen Rot (Gegner) ebenso. Ops/Captain-Karten zeichnen Verbündete schon mit Mint-Kennung. Notruf/Wrack behalten ihre Farben.
+    const mintAl = front && szeneAktiv(view.state);
+    const alMint = (e) => (mintAl && e.al && !e.distress && !escortDown(e) ? PAL.mint : null);
     for (const e of list) {
       if (!e || !isFinite(+e.x) || !isFinite(+e.y)) continue;
       if (e.state === 'entkommen') continue;   // in Sicherheit: nicht mehr im Raum
@@ -3534,16 +3541,16 @@
         const p = rayToRect(B, cx, cy, ang, 14);
         // Frontsicht: unten liegen die Lerche und die Drehanzeige – „hinter uns“ an die untere Ecke der passenden Seite
         if (front && p.y > B.y + B.h - 54) { p.x = s.x < cx ? B.x + 16 : B.x + B.w - 16; p.y = B.y + B.h - 60; }
-        escortEdgeRing(ctx, p.x, p.y, ang, e, t);
+        escortEdgeRing(ctx, p.x, p.y, ang, e, t, alMint(e));
         const dist = Math.round(Math.hypot(+e.x - ship.x, +e.y - ship.y));
         const lw = measure(name, 1) / 2 + 3;
         const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, p.x - Math.cos(ang) * 32));
         const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, p.y - Math.sin(ang) * 18 - 3));
-        lab(name + (e.distress && !escortDown(e) ? ' NOTRUF' : '') + ' ' + dist, lx, ly, { color: escortRingCol(e, t), align: 'center' }, 6);
+        lab(name + (e.distress && !escortDown(e) ? ' NOTRUF' : '') + ' ' + dist, lx, ly, { color: alMint(e) || escortRingCol(e, t), align: 'center' }, 6);
         continue;
       }
       const hitT = view.escortHit && view.escortHit[e.id] != null ? view.escortHit[e.id] : 99;
-      drawEscortRing(ctx, e, s.x, s.y, r, t);
+      drawEscortRing(ctx, e, s.x, s.y, r, t, alMint(e));
       const eAng = (+e.angle || 0) + (env.rot || 0);
       let kennOk = false;
       if (kenn) {
@@ -3554,10 +3561,10 @@
       }
       if (!kennOk) drawEscortSprite(ctx, e, s.x, s.y, eAng, t, hitT);
       const frac = escortHpFrac(e);
-      escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, escortBarCol(e, frac));
+      escortSegBar(ctx, s.x - 16, s.y - r - 9, frac, 32, 4, alMint(e) || escortBarCol(e, frac));
       block(s.x - r, s.y - r - 10, r * 2, r * 2 + 10);
       const stTxt = escortDown(e) ? ' · KAMPFUNFÄHIG' : e.distress ? ' · NOTRUF' : (e.repair != null && e.repair < 1) ? ' · REPARATUR ' + Math.round(e.repair * 100) + ' %' : '';
-      lab(name + stTxt, s.x, s.y + r + 3, { color: escortDown(e) ? ESCORT_COL.wreck : e.distress ? ESCORT_COL.amber : (e.al ? ESCORT_COL.ally : ESCORT_COL.ice), align: 'center' }, 5);
+      lab(name + stTxt, s.x, s.y + r + 3, { color: escortDown(e) ? ESCORT_COL.wreck : e.distress ? ESCORT_COL.amber : (alMint(e) || (e.al ? ESCORT_COL.ally : ESCORT_COL.ice)), align: 'center' }, 5);
     }
   }
   // EK4: Rettungskapseln zerstörter Verbündeter, Wegpunkte und Radius des Befehls (nur Karten): Punkt 1 hell, die nächsten gedimmt, erreichte mit Haken
@@ -3762,7 +3769,9 @@
           if (gauge && r.x < gauge.x + gauge.w && gauge.x < r.x + r.w && r.y < gauge.y + gauge.h && gauge.y < r.y + h) r.y = gauge.y - h - 1;
           return r;
         };
-        for (const [dx, dy] of [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]]) {
+        // Client-Runde S4: weitere Ausweichplätze (zuletzt, die bisherigen und ihre Reihenfolge bleiben): wo bisher nichts frei war und das Label über einem anderen stand (unlesbar), probiert es noch diagonal und weiter weg
+        for (const [dx, dy] of [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30],
+          [w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]]) {
           const r = inside({ x: left + dx, y: l.y + dy, w, h });
           if (!placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h)) { best = r; break; }
         }
@@ -3793,6 +3802,7 @@
         else if (!g.some((q) => q.label === a.label)) g.push(a);
       }
       arrows.length = 0;
+      const stapel = [];   // S4 (Client-Runde): Labels aller Gruppen, damit Labels benachbarter Pfeile einer Randseite einander nicht überdecken
       for (const g of groups) {
         const a = g[0], e = a.e;
         edgeArrow(ctx, e.x, e.y, a.ang, a.col);
@@ -3805,9 +3815,25 @@
           const lw = measure(q.label, 1) / 2 + 3;
           const lx = Math.max(B.x + lw, Math.min(B.x + B.w - lw, e.x - Math.cos(a.ang) * 30));
           const ly = Math.max(B.y + 2, Math.min(B.y + B.h - 10, baseY + i * 10));
-          lab(q.label, lx, ly, { color: q.col, align: 'center' }, 3);
+          stapel.push({ q, lx, ly, lw });
         });
       }
+      // Labels, die sich waagerecht überlappen, stehen mindestens 10 px untereinander (von oben nach unten; am unteren Rand weicht der Stapel nach oben)
+      stapel.sort((p, q) => p.ly - q.ly);
+      const maxY = B.y + B.h - 10;
+      for (let i = 0; i < stapel.length; i++) {
+        const c = stapel[i];
+        for (let j = 0; j < i; j++) {
+          const d = stapel[j];
+          if (Math.abs(c.lx - d.lx) < c.lw + d.lw && Math.abs(c.ly - d.ly) < 10) c.ly = d.ly + 10;
+        }
+        if (c.ly > maxY) {   // unten kein Platz: dieses Label an den unteren Rand, die darüber überlappenden rücken nach oben
+          c.ly = maxY;
+          let unten = c;
+          for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(B.y + 2, unten.ly - 10); unten = d; } }
+        }
+      }
+      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center' }, 3);
     };
 
     ctx.save();
@@ -3875,7 +3901,9 @@
         const r = Math.max(8, (m.r || 70) * zoom);
         ctx.strokeStyle = 'rgba(127,224,194,' + (0.55 + 0.3 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(s.x, s.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        mLab('DOCK-RING', s.x, s.y - r - 10, { color: PAL.mint, align: 'center' }, 1);
+        // Client-Runde S4: in Freie Fahrt Sund liegt der Dock-Ring unter der Station; ihr Name (HAFEN) und „DOCK-RING“ standen dann übereinander. Dort steht „DOCK-RING“ unter dem Ring.
+        const ff = !!(window.StarMap && window.StarMap.lageAktiv && window.StarMap.lageAktiv());
+        mLab('DOCK-RING', s.x, ff ? s.y + r + 3 : s.y - r - 10, { color: PAL.mint, align: 'center' }, 1);
       } else if (m.kind === 'exit') {
         ctx.strokeStyle = 'rgba(127,224,194,' + (0.5 + 0.3 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
         ctx.beginPath(); ctx.arc(s.x, s.y, (m.r || 140) * zoom, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -4223,9 +4251,21 @@
     };
     if (!cfg.markersLater) drawMarkers();
 
-    // Randpfeile für Gegner außerhalb (nur Karten; der Pilot verlässt sich auf die Ops)
-    if (!front) for (const o of offscreen) {
-      const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))));
+    // Randpfeile für Gegner außerhalb (Karten; der Pilot verlässt sich sonst auf die Ops). Client-Runde S1: in der Frontsicht einer Sim-Szene die drei nächsten
+    // Gegner außerhalb des Bildes, ein Flaggschiff (Snapshot fg) hat Vorrang und trägt „FLAGG“ im Label. Kampagne, Limes, Eisenwald: unverändert (keine).
+    let randGegner = offscreen;
+    if (front) {
+      randGegner = [];
+      if (szeneAktiv(st)) {
+        const dd = (o) => Math.hypot(o.e.x - ship.x, o.e.y - ship.y);
+        const nah = offscreen.filter((o) => o.e.st !== 'treibt').sort((a, b) => dd(a) - dd(b));
+        randGegner = nah.filter((o) => o.e.fg).slice(0, 1);
+        for (const o of nah) { if (randGegner.length >= 3) break; if (!randGegner.includes(o)) randGegner.push(o); }
+      }
+    }
+    for (const o of randGegner) {
+      const dist = String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y)));
+      const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, (front && o.e.fg ? 'FLAGG ' : '') + dist);
       if (clicks) clicks.push({ id: o.e.id, x: e.x - 10, y: e.y - 10, w: 20, h: 20 });
     }
 
