@@ -258,6 +258,43 @@ section('Testumgebung: Terminal in Wellen All mit Rüstphase');
   ok(!m.start, 'danach kein Startknopf mehr');
 }
 
+section('Klickziele: jede Zelle in jedem Zustand wählbar (Bug: leere Plätze und Räume waren nicht anklickbar)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T);
+  const g = T.g; g.inventory.marks = 5000;
+  T.key('KeyA'); T.key('KeyF'); T.key('KeyA');   // Stufe 1: 7 und 9 offen und leer, 1 bis 3 zu
+  let m = T.m();
+  const zust = (p) => m.kreuz.plaetze[p].zustand;
+  ok(zust(8) === 'bestueckt' && zust(7) === 'offen' && zust(1) === 'zu', 'Voraussetzung: bestückt (8), leer (7), gesperrt (1): ' + [8, 7, 1].map(zust).join('/'));
+  for (const quelle of ['kreuz', 'schnitt']) {
+    for (let p = 1; p <= 9; p++) {
+      TU.zuruecksetzen(); m = T.m();
+      ok(typeof m[quelle].onPlatz === 'function', `${quelle}: Handler für Platz ${p} vorhanden`);
+      m[quelle].onPlatz(p);
+      ok(TU.zustand.platz === p && TU.zustand.auswahl === 'platz' && TU.zustand.bereich === 'werft', `${quelle}: Klick wählt Platz ${p} (${m.kreuz.plaetze[p].zustand})`);
+    }
+  }
+  for (const quelle of ['module', 'schnitt']) {
+    for (let r = 1; r <= 4; r++) {
+      TU.zuruecksetzen(); m = T.m();
+      m[quelle].onModul(r);
+      ok(TU.zustand.raum === r && TU.zustand.auswahl === 'modul', `${quelle}: Klick wählt Modulraum ${r} (${m.module.module[r].zustand})`);
+    }
+  }
+  // leerer Platz: wählbar, Waffe einbauen per Klick auf Zeile und Hauptknopf
+  TU.zuruecksetzen(); T.m().kreuz.onPlatz(7); m = T.m();
+  ok(m.ansicht === 'platz' && m.liste.teile.length > 1, 'leerer Platz 7: Teilliste da');
+  m.liste.teile.find((t) => t.id === 'standardbatterie').onClick(); m = T.m();
+  m.aktionen.haupt.onClick(); T.nachlauf(0);
+  ok(g.ship.waffen[7] === 'standardbatterie', 'Platz 7 per Klick bestückt');
+  // gesperrter Platz: zeigt „Stufe n öffnen · Preis“
+  TU.zuruecksetzen(); T.m().kreuz.onPlatz(1); m = T.m();
+  ok(m.ansicht === 'stufe' && /^Stufe \d öffnen · \d+ M$/.test(m.aktionen.haupt.text), 'gesperrter Platz 1 per Klick: ' + m.aktionen.haupt.text);
+  // Zuschauer: keine Handler
+  TU.zusehen({ send() {} }, true); m = TU.modell(T.view(1)); TU.zusehen({ send() {} }, false);
+  ok(!m.kreuz.onPlatz && !m.module.onModul && !m.schnitt.onPlatz && !m.schnitt.onModul, 'Zuschauer: keine Klickhandler');
+}
+
 section('Tastenbelegung (tasten.js, Gruppe terminal)');
 {
   const tw = { window: null, localStorage: null };

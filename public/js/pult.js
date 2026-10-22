@@ -194,7 +194,8 @@
   function zelle(c, x, y, w, h, kz, label, sub, fn, zustand, p, opts) {
     opts = opts || {};
     kz = kappe(kz, opts.aktion);
-    const b = { x, y, w, h, label: opts.label || label, disabled: zustand === 'off' || zustand === 'leer', reason: opts.reason, onClick: opts.onClick, hotkey: kz };
+    // klickbar: eine gedimmte Zelle bleibt anklickbar (Terminal: leerer Platz)
+    const b = { x, y, w, h, label: opts.label || label, disabled: (zustand === 'off' || zustand === 'leer') && !opts.klickbar, reason: opts.reason, onClick: opts.onClick, hotkey: kz };
     // Abnahme 12: Platz rechts für Symbol und Ladepunkte (opts.rechts px) freihalten: Texte kürzen statt vom Symbol überdecken lassen
     if (opts.rechts) {
       const aw = w - 13 - 5 - opts.rechts, kurz = { 'Magazin voll': 'Magazin', 'BATTERIE': 'BATT.', 'STANDARD': 'STAND.' };

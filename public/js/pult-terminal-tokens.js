@@ -235,6 +235,7 @@
       rooms.filter((r) => r.deck === d && r.kind !== 'lift' && !GANG.test(r.id)).forEach((r) => {
         const Q = raumRect(D, r), zu = (r.stufe || 0) > (z.stufe || 0);
         const mr = r.kind === 'modul' ? (z.module || {})[r.modul] || {} : null;
+        if (mr && z.onModul) klick({ x: Q.x, y: Q.y, w: Q.w, h: Q.h, label: 'Plan Modulraum ' + r.modul, onClick: () => z.onModul(r.modul) });   // Modulraum im Schiffsschnitt anklickbar (jeder Zustand)
         const neu = mr && mr.zustand === 'neu';
         if (zu) {
           rect(c, Q.x + 1, Q.y + 1, Q.w - 2, Q.h - 2, 'raumZu'); schraffur(c, Q.x + 1, Q.y + 1, Q.w - 2, Q.h - 2, neu ? 'modul' : 'schraffurZu', 3);
@@ -267,6 +268,7 @@
   }
   function zeichneMarke(c, x, y, platz, p, z) {
     const mk = RASTER.marke, w = mk.w, h = mk.h, s = String(platz);
+    if (z.onPlatz) klick({ x, y, w, h, label: 'Plan Platz ' + platz, onClick: () => z.onPlatz(platz) });   // Platzmarke im Schiffsschnitt anklickbar (jeder Zustand)
     if (p.zustand === 'zu' || !p.zustand) { rect(c, x, y, w, h, 'grund'); strich(c, x, y, w, h, 'platzZu', 2); txt(c, s, x + w / 2 + 1, y + 2, 'platzZu', { align: 'center' }); return; }
     if (p.zustand === 'neu') { rect(c, x, y, w, h, 'grund'); schraffur(c, x + 1, y + 1, w - 2, h - 2, rgba(FARBE.modul, 0.55), 3); rand(c, x, y, w, h, 'modul'); txt(c, s, x + w / 2 + 1, y + 2, 'text', { align: 'center' }); return; }
     if (z.gesperrt) { rect(c, x, y, w, h, SK.off); rand(c, x, y, w, h, SK.offLine); txt(c, s, x + w / 2 + 1, y + 2, 'dim', { align: 'center' }); return; }
@@ -408,7 +410,7 @@
     txtRolle(c, 'HANDEL', r.x, r.y - 13, 'preis', 'titel'); txt(c, kappe('terminal.teil', '↑↓') + ' wählen · ' + kappe('terminal.kaufen', 'Ent') + ' kaufen', r.x + r.w, r.y - 13, 'dim', { align: 'right' });
     (h.artikel || []).forEach((a, i) => {
       const x = r.x + (i % cols) * (cw + luft), y = r.y + Math.floor(i / cols) * (ch + 3); if (y + ch > r.y + r.h) return;
-      const gew = a.id === h.gewaehlt, zu = !!a.grund, b = { x, y, w: cw, h: ch, label: a.name, onClick: a.onClick, disabled: zu, reason: a.grund };
+      const gew = a.id === h.gewaehlt, zu = !!a.grund, b = { x, y, w: cw, h: ch, label: a.name, onClick: a.onClick, disabled: false };   // wählbar auch ohne Kauf (der Grund steht in der Infozeile)
       if (gew) cham(c, x, y, cw, ch, zu ? SK.offLine : FARBE.preis, 0, 0, 4, 0);
       else { cham(c, x, y, cw, ch, zu ? FARBE.kachelZu : FARBE.kachel, 0, 0, 4, 0); rect(c, x, y, 2, ch, zu ? SK.offLine : FARBE.preis); }
       const ink = gew ? (zu ? 'text' : 'ink') : zu ? 'textZu' : 'text';
@@ -431,11 +433,12 @@
         const neu = pl.zustand === 'neu';
         strich(c, r.x, r.y, r.w, r.h, neu ? 'modul' : 'platzZu', 3); txt(c, kz, r.x + 6, r.y + 5, neu ? 'modul' : 'textZu', { align: 'center' });
         txt(c, neu ? 'NEU' : pl.stufe ? 'Stufe ' + pl.stufe : 'ZU', r.x + 16, r.y + 5, neu ? 'modul' : 'textZu');
+        if (z.onPlatz) klick({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Platz ' + p, onClick: () => z.onPlatz(p) });   // auch ein noch nicht ausgebauter Platz ist wählbar (zeigt „Stufe n öffnen“)
         continue;
       }
       const w = pl.waffe && KAT ? KAT.BY_ID[pl.waffe] : null;
       const zustand = z.gesperrt ? 'off' : pl.zustand === 'offen' ? 'off' : p === z.gewaehlt ? 'sel' : 'normal';
-      P.zelle(c, r.x, r.y, r.w, r.h, kz, w ? w.kurz : 'leer', null, 'weapon', zustand, 0, { label: 'Platz ' + p, rechts: 1, onClick: z.onPlatz ? () => z.onPlatz(p) : null, reason: z.gesperrt ? z.grund : null });
+      P.zelle(c, r.x, r.y, r.w, r.h, kz, w ? w.kurz : 'leer', null, 'weapon', zustand, 0, { label: 'Platz ' + p, rechts: 1, onClick: z.onPlatz ? () => z.onPlatz(p) : null, klickbar: !!z.onPlatz, reason: z.gesperrt ? z.grund : null });
       if (zustand === 'off' && p === z.gewaehlt && !z.gesperrt) rand(c, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 'text');   // gewählter leerer Platz
     }
   }
@@ -450,10 +453,11 @@
         const neu = mr.zustand === 'neu';
         strich(c, r.x, r.y, r.w, r.h, neu ? 'modul' : 'platzZu', 3); txt(c, kz, r.x + 8, r.y + 5, neu ? 'modul' : 'textZu', { align: 'center' });
         txt(c, neu ? 'NEU' : mr.stufe ? 'Stufe ' + mr.stufe : 'ZU', r.x + 20, r.y + 5, neu ? 'modul' : 'textZu');
+        if (z.onModul) klick({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Modulraum ' + m, onClick: () => z.onModul(m) });
         continue;
       }
       const zustand = z.gesperrt || !mr.modul ? 'off' : z.gewaehlt === 'F' + m ? 'sel' : 'normal';
-      P.zelle(c, r.x, r.y, r.w, r.h, kz, mr.modul ? KURZ[mr.modul] || NAMEN[mr.modul] : 'leer', null, 'shield', zustand, 0, { label: 'Modulraum ' + m, onClick: z.onModul ? () => z.onModul(m) : null });
+      P.zelle(c, r.x, r.y, r.w, r.h, kz, mr.modul ? KURZ[mr.modul] || NAMEN[mr.modul] : 'leer', null, 'shield', zustand, 0, { label: 'Modulraum ' + m, onClick: z.onModul ? () => z.onModul(m) : null, klickbar: !!z.onModul });
       if (zustand === 'off' && z.gewaehlt === 'F' + m && !z.gesperrt) rand(c, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 'text');
     }
     if (z.energie) txt(c, z.energie, L.energie.x, L.energie.y, 'dim');

@@ -317,7 +317,8 @@
     m.bereich = 'werft';
     const gesperrt = !L.aktiv;
     const ziel = stufenZiel(L);
-    m.schnitt = { stufe: L.stufe, plaetze: plaetzeModell(L, a.auswahl === 'stufe' ? ziel : null), module: moduleModell(L, a.auswahl === 'stufe' ? ziel : null), hier: 'meeting', gesperrt };
+    m.schnitt = { stufe: L.stufe, plaetze: plaetzeModell(L, a.auswahl === 'stufe' ? ziel : null), module: moduleModell(L, a.auswahl === 'stufe' ? ziel : null), hier: 'meeting', gesperrt,
+      onPlatz: bedienbar && !gesperrt ? (p) => waehlePlatz(view, p) : null, onModul: bedienbar && !gesperrt ? (r) => waehleRaum(view, r) : null };   // Klick im Schiffsschnitt wie im Kreuz
     m.kreuz = { plaetze: plaetzeModell(L, a.auswahl === 'stufe' ? ziel : null), gewaehlt: a.auswahl === 'platz' ? a.platz : null, gesperrt, grund: L.w && L.w.grund, onPlatz: bedienbar && !gesperrt ? (p) => waehlePlatz(view, p) : null };
     m.module = { module: moduleModell(L, a.auswahl === 'stufe' ? ziel : null), gewaehlt: a.auswahl === 'modul' ? 'F' + a.raum : null, gesperrt, energie: energieText(L), onModul: bedienbar && !gesperrt ? (r) => waehleRaum(view, r) : null };
     if (gesperrt) {
